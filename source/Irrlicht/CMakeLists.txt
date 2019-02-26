@@ -27,6 +27,10 @@ set(IRRLICHT_SRCS_COMMON
 	../../src/irr/asset/IAssetManager.cpp
 	../../src/irr/asset/IAssetWriter.cpp
 	../../src/irr/asset/IAssetLoader.cpp
+	
+# Shaders
+	../../src/irr/asset/IGLSLCompiler.cpp
+	../../src/irr/asset/ICPUShader.cpp
 
 # Other mesh-related stuff
 	CAnimatedMeshSceneNode.cpp
@@ -305,6 +309,8 @@ add_library(spirv_cross OBJECT
 	spirv_cross/spirv_cross.cpp
 	spirv_cross/spirv_glsl.cpp
 	spirv_cross/spirv_reflect.cpp
+	spirv_cross/spirv_parser.cpp
+	spirv_cross/spirv_cross_parsed_ir.cpp
 )
 target_compile_definitions(spirv_cross PRIVATE SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 target_include_directories(spirv_cross PUBLIC ${COMMON_INCLUDE_DIRS})
@@ -329,6 +335,13 @@ macro(irr_target_link_openssl _trgt)
 	)
 	target_include_directories(${_trgt} PUBLIC ${OPENSSL_INCLUDE_DIR})
 endmacro()
+macro(irr_target_link_shaderc _trgt)
+	add_dependencies(Irrlicht shaderc)
+	target_link_libraries(${_trgt} INTERFACE
+		shaderc
+	)
+	target_include_directories(${_trgt} PUBLIC ../../3rdparty/shaderc/libshaderc/include)
+endmacro()
 
 add_library(Irrlicht STATIC
 	${IRRLICHT_SRCS_COMMON}
@@ -347,6 +360,7 @@ add_library(Irrlicht STATIC
 )
 
 irr_target_link_openssl(Irrlicht)
+irr_target_link_shaderc(Irrlicht)
 
 target_link_libraries(Irrlicht INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
@@ -404,6 +418,7 @@ add_library(IrrlichtServer STATIC
 )
 
 irr_target_link_openssl(IrrlichtServer)
+irr_target_link_shaderc(IrrlichtServer)
 
 target_include_directories(IrrlichtServer PUBLIC 
 	../../include

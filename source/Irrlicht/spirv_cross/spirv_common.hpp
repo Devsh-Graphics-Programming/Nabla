@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2018 ARM Limited
+ * Copyright 2015-2019 Arm Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,8 +42,8 @@ namespace spirv_cross
 #ifndef _MSC_VER
 [[noreturn]]
 #endif
-    inline void
-    report_and_abort(const std::string &msg)
+inline void
+report_and_abort(const std::string &msg)
 {
 #ifdef NDEBUG
 	(void)msg;
@@ -66,6 +66,17 @@ public:
 };
 
 #define SPIRV_CROSS_THROW(x) throw CompilerError(x)
+#endif
+
+//#define SPIRV_CROSS_COPY_CONSTRUCTOR_SANITIZE
+
+// MSVC 2013 does not have noexcept. We need this for Variant to get move constructor to work correctly
+// instead of copy constructor.
+// MSVC 2013 ignores that move constructors cannot throw in std::vector, so just don't define it.
+#if defined(_MSC_VER) && _MSC_VER < 1900
+#define SPIRV_CROSS_NOEXCEPT
+#else
+#define SPIRV_CROSS_NOEXCEPT noexcept
 #endif
 
 #if __cplusplus >= 201402l
@@ -282,20 +293,26 @@ inline std::string convert_to_string(double t)
 
 struct Instruction
 {
-	Instruction(const std::vector<uint32_t> &spirv, uint32_t &index);
-
-	uint16_t op;
-	uint16_t count;
-	uint32_t offset;
-	uint32_t length;
+	uint16_t op = 0;
+	uint16_t count = 0;
+	uint32_t offset = 0;
+	uint32_t length = 0;
 };
 
 // Helper for Variant interface.
 struct IVariant
 {
 	virtual ~IVariant() = default;
+	virtual std::unique_ptr<IVariant> clone() = 0;
+
 	uint32_t self = 0;
 };
+
+#define SPIRV_CROSS_DECLARE_CLONE(T)                    \
+	std::unique_ptr<IVariant> clone() override          \
+	{                                                   \
+		return std::unique_ptr<IVariant>(new T(*this)); \
+	}
 
 enum Types
 {
@@ -305,14 +322,14 @@ enum Types
 	TypeConstant,
 	TypeFunction,
 	TypeFunctionPrototype,
-	TypePointer,
 	TypeBlock,
 	TypeExtension,
 	TypeExpression,
 	TypeConstantOp,
 	TypeCombinedImageSampler,
 	TypeAccessChain,
-	TypeUndef
+	TypeUndef,
+	TypeCount
 };
 
 struct SPIRUndef : IVariant
@@ -326,6 +343,8 @@ struct SPIRUndef : IVariant
 	{
 	}
 	uint32_t basetype;
+
+	SPIRV_CROSS_DECLARE_CLONE(SPIRUndef)
 };
 
 // This type is only used by backends which need to access the combined image and sampler IDs separately after
@@ -345,6 +364,8 @@ struct SPIRCombinedImageSampler : IVariant
 	uint32_t combined_type;
 	uint32_t image;
 	uint32_t sampler;
+
+	SPIRV_CROSS_DECLARE_CLONE(SPIRCombinedImageSampler)
 };
 
 struct SPIRConstantOp : IVariant
@@ -364,6 +385,8 @@ struct SPIRConstantOp : IVariant
 	spv::Op opcode;
 	std::vector<uint32_t> arguments;
 	uint32_t basetype;
+
+	SPIRV_CROSS_DECLARE_CLONE(SPIRConstantOp)
 };
 
 struct SPIRType : IVariant
@@ -379,6 +402,10 @@ struct SPIRType : IVariant
 		Void,
 		Boolean,
 		Char,
+		SByte,
+		UByte,
+		Short,
+		UShort,
 		Int,
 		UInt,
 		Int64,
@@ -410,7 +437,10 @@ struct SPIRType : IVariant
 	std::vector<bool> array_size_literal;
 
 	// Pointers
+	// Keep track of how many pointer layers we have.
+	uint32_t pointer_depth = 0;
 	bool pointer = false;
+
 	spv::StorageClass storage = spv::StorageClassGeneric;
 
 	std::vector<uint32_t> member_types;
@@ -438,6 +468,8 @@ struct SPIRType : IVariant
 
 	// Used in backends to avoid emitting members with conflicting names.
 	std::unordered_set<std::string> member_name_cache;
+
+	SPIRV_CROSS_DECLARE_CLONE(SPIRType)
 };
 
 struct SPIRExtension : IVariant
@@ -463,6 +495,7 @@ struct SPIRExtension : IVariant
 	}
 
 	Extension ext;
+	SPIRV_CROSS_DECLARE_CLONE(SPIRExtension)
 };
 
 // SPIREntryPoint is not a variant since its IDs are used to decorate OpFunction,
@@ -531,8 +564,17 @@ struct SPIRExpression : IVariant
 	// This is needed for targets which don't support row_major layouts.
 	bool need_transpose = false;
 
+	// Whether or not this is an access chain expression.
+	bool access_chain = false;
+
 	// A list of expressions which this expression depends on.
 	std::vector<uint32_t> expression_dependencies;
+
+	// By reading this expression, we implicitly read these expressions as well.
+	// Used by access chain Store and Load since we read multiple expressions in this case.
+	std::vector<uint32_t> implied_read_expressions;
+
+	SPIRV_CROSS_DECLARE_CLONE(SPIRExpression)
 };
 
 struct SPIRFunctionPrototype : IVariant
@@ -549,6 +591,8 @@ struct SPIRFunctionPrototype : IVariant
 
 	uint32_t return_type;
 	std::vector<uint32_t> parameter_types;
+
+	SPIRV_CROSS_DECLARE_CLONE(SPIRFunctionPrototype)
 };
 
 struct SPIRBlock : IVariant
@@ -664,6 +708,9 @@ struct SPIRBlock : IVariant
 	// If the continue block is complex, fallback to "dumb" for loops.
 	bool complex_continue = false;
 
+	// Do we need a ladder variable to defer breaking out of a loop construct after a switch block?
+	bool need_ladder_break = false;
+
 	// The dominating block which this block might be within.
 	// Used in continue; blocks to determine if we really need to write continue.
 	uint32_t loop_dominator = 0;
@@ -681,6 +728,8 @@ struct SPIRBlock : IVariant
 	// sub-group-like operations.
 	// Make sure that we only use these expressions in the original block.
 	std::vector<uint32_t> invalidate_expressions;
+
+	SPIRV_CROSS_DECLARE_CLONE(SPIRBlock)
 };
 
 struct SPIRFunction : IVariant
@@ -753,17 +802,21 @@ struct SPIRFunction : IVariant
 		arguments.push_back({ parameter_type, id, 0u, 0u, alias_global_variable });
 	}
 
-	// Statements to be emitted when the function returns.
+	// Hooks to be run when the function returns.
 	// Mostly used for lowering internal data structures onto flattened structures.
-	std::vector<std::string> fixup_statements_out;
+	// Need to defer this, because they might rely on things which change during compilation.
+	std::vector<std::function<void()>> fixup_hooks_out;
 
-	// Statements to be emitted when the function begins.
+	// Hooks to be run when the function begins.
 	// Mostly used for populating internal data structures from flattened structures.
-	std::vector<std::string> fixup_statements_in;
+	// Need to defer this, because they might rely on things which change during compilation.
+	std::vector<std::function<void()>> fixup_hooks_in;
 
 	bool active = false;
 	bool flush_undeclared = true;
 	bool do_combined_parameters = true;
+
+	SPIRV_CROSS_DECLARE_CLONE(SPIRFunction)
 };
 
 struct SPIRAccessChain : IVariant
@@ -798,6 +851,12 @@ struct SPIRAccessChain : IVariant
 	uint32_t matrix_stride = 0;
 	bool row_major_matrix = false;
 	bool immutable = false;
+
+	// By reading this expression, we implicitly read these expressions as well.
+	// Used by access chain Store and Load since we read multiple expressions in this case.
+	std::vector<uint32_t> implied_read_expressions;
+
+	SPIRV_CROSS_DECLARE_CLONE(SPIRAccessChain)
 };
 
 struct SPIRVariable : IVariant
@@ -838,6 +897,10 @@ struct SPIRVariable : IVariant
 
 	bool deferred_declaration = false;
 	bool phi_variable = false;
+
+	// Used to deal with Phi variable flushes. See flush_phi().
+	bool allocate_temporary_copy = false;
+
 	bool remapped_variable = false;
 	uint32_t remapped_components = 0;
 
@@ -851,6 +914,8 @@ struct SPIRVariable : IVariant
 	bool loop_variable_enable = false;
 
 	SPIRFunction::Parameter *parameter = nullptr;
+
+	SPIRV_CROSS_DECLARE_CLONE(SPIRVariable)
 };
 
 struct SPIRConstant : IVariant
@@ -967,6 +1032,11 @@ struct SPIRConstant : IVariant
 		return m.c[col].r[row].u32;
 	}
 
+	inline int16_t scalar_i16(uint32_t col = 0, uint32_t row = 0) const
+	{
+		return int16_t(m.c[col].r[row].u32 & 0xffffu);
+	}
+
 	inline uint16_t scalar_u16(uint32_t col = 0, uint32_t row = 0) const
 	{
 		return uint16_t(m.c[col].r[row].u32 & 0xffffu);
@@ -1023,6 +1093,21 @@ struct SPIRConstant : IVariant
 		m.columns = constant_type_.columns;
 		for (auto &c : m.c)
 			c.vecsize = constant_type_.vecsize;
+	}
+
+	inline bool constant_is_null() const
+	{
+		if (specialization)
+			return false;
+		if (!subconstants.empty())
+			return false;
+
+		for (uint32_t col = 0; col < columns(); col++)
+			for (uint32_t row = 0; row < vector_size(); row++)
+				if (scalar_u64(col, row) != 0)
+					return false;
+
+		return true;
 	}
 
 	explicit SPIRConstant(uint32_t constant_type_)
@@ -1106,6 +1191,14 @@ struct SPIRConstant : IVariant
 
 	// For composites which are constant arrays, etc.
 	std::vector<uint32_t> subconstants;
+
+	// Non-Vulkan GLSL, HLSL and sometimes MSL emits defines for each specialization constant,
+	// and uses them to initialize the constant. This allows the user
+	// to still be able to specialize the value by supplying corresponding
+	// preprocessor directives before compiling the shader.
+	std::string specialization_constant_macro_name;
+
+	SPIRV_CROSS_DECLARE_CLONE(SPIRConstant)
 };
 
 class Variant
@@ -1113,22 +1206,51 @@ class Variant
 public:
 	// MSVC 2013 workaround, we shouldn't need these constructors.
 	Variant() = default;
-	Variant(Variant &&other)
+
+	// Marking custom move constructor as noexcept is important.
+	Variant(Variant &&other) SPIRV_CROSS_NOEXCEPT
 	{
 		*this = std::move(other);
 	}
-	Variant &operator=(Variant &&other)
+
+	Variant(const Variant &variant)
+	{
+		*this = variant;
+	}
+
+	// Marking custom move constructor as noexcept is important.
+	Variant &operator=(Variant &&other) SPIRV_CROSS_NOEXCEPT
 	{
 		if (this != &other)
 		{
-			holder = move(other.holder);
+			holder = std::move(other.holder);
 			type = other.type;
+			allow_type_rewrite = other.allow_type_rewrite;
 			other.type = TypeNone;
 		}
 		return *this;
 	}
 
-	void set(std::unique_ptr<IVariant> val, uint32_t new_type)
+	// This copy/clone should only be called in the Compiler constructor.
+	// If this is called inside ::compile(), we invalidate any references we took higher in the stack.
+	// This should never happen.
+	Variant &operator=(const Variant &other)
+	{
+#ifdef SPIRV_CROSS_COPY_CONSTRUCTOR_SANITIZE
+		abort();
+#endif
+		if (this != &other)
+		{
+			holder.reset();
+			if (other.holder)
+				holder = other.holder->clone();
+			type = other.type;
+			allow_type_rewrite = other.allow_type_rewrite;
+		}
+		return *this;
+	}
+
+	void set(std::unique_ptr<IVariant> val, Types new_type)
 	{
 		holder = std::move(val);
 		if (!allow_type_rewrite && type != TypeNone && type != new_type)
@@ -1142,7 +1264,7 @@ public:
 	{
 		if (!holder)
 			SPIRV_CROSS_THROW("nullptr");
-		if (T::type != type)
+		if (static_cast<Types>(T::type) != type)
 			SPIRV_CROSS_THROW("Bad cast");
 		return *static_cast<T *>(holder.get());
 	}
@@ -1152,23 +1274,26 @@ public:
 	{
 		if (!holder)
 			SPIRV_CROSS_THROW("nullptr");
-		if (T::type != type)
+		if (static_cast<Types>(T::type) != type)
 			SPIRV_CROSS_THROW("Bad cast");
 		return *static_cast<const T *>(holder.get());
 	}
 
-	uint32_t get_type() const
+	Types get_type() const
 	{
 		return type;
 	}
+
 	uint32_t get_id() const
 	{
 		return holder ? holder->self : 0;
 	}
+
 	bool empty() const
 	{
 		return !holder;
 	}
+
 	void reset()
 	{
 		holder.reset();
@@ -1182,7 +1307,7 @@ public:
 
 private:
 	std::unique_ptr<IVariant> holder;
-	uint32_t type = TypeNone;
+	Types type = TypeNone;
 	bool allow_type_rewrite = false;
 };
 
@@ -1203,9 +1328,16 @@ T &variant_set(Variant &var, P &&... args)
 {
 	auto uptr = std::unique_ptr<T>(new T(std::forward<P>(args)...));
 	auto ptr = uptr.get();
-	var.set(std::move(uptr), T::type);
+	var.set(std::move(uptr), static_cast<Types>(T::type));
 	return *ptr;
 }
+
+struct AccessChainMeta
+{
+	bool need_transpose = false;
+	bool storage_is_packed = false;
+	bool storage_is_invariant = false;
+};
 
 struct Meta
 {
@@ -1215,8 +1347,9 @@ struct Meta
 		std::string qualified_alias;
 		std::string hlsl_semantic;
 		Bitset decoration_flags;
-		spv::BuiltIn builtin_type;
+		spv::BuiltIn builtin_type = spv::BuiltInMax;
 		uint32_t location = 0;
+		uint32_t component = 0;
 		uint32_t set = 0;
 		uint32_t binding = 0;
 		uint32_t offset = 0;
@@ -1225,24 +1358,16 @@ struct Meta
 		uint32_t input_attachment = 0;
 		uint32_t spec_id = 0;
 		uint32_t index = 0;
+		spv::FPRoundingMode fp_rounding_mode = spv::FPRoundingModeMax;
 		bool builtin = false;
 	};
 
 	Decoration decoration;
 	std::vector<Decoration> members;
-	uint32_t sampler = 0;
 
 	std::unordered_map<uint32_t, uint32_t> decoration_word_offset;
 
-	// Used when the parser has detected a candidate identifier which matches
-	// known "magic" counter buffers as emitted by HLSL frontends.
-	// We will need to match the identifiers by name later when reflecting resources.
-	// We could use the regular alias later, but the alias will be mangled when parsing SPIR-V because the identifier
-	// is not a valid identifier in any high-level language.
-	std::string hlsl_magic_counter_buffer_name;
-	bool hlsl_magic_counter_buffer_candidate = false;
-
-	// For SPV_GOOGLE_hlsl_functionality1, this avoids the workaround.
+	// For SPV_GOOGLE_hlsl_functionality1.
 	bool hlsl_is_magic_counter_buffer = false;
 	// ID for the sibling counter buffer.
 	uint32_t hlsl_magic_counter_buffer = 0;
@@ -1290,6 +1415,13 @@ private:
 static inline bool type_is_floating_point(const SPIRType &type)
 {
 	return type.basetype == SPIRType::Half || type.basetype == SPIRType::Float || type.basetype == SPIRType::Double;
+}
+
+static inline bool type_is_integral(const SPIRType &type)
+{
+	return type.basetype == SPIRType::SByte || type.basetype == SPIRType::UByte || type.basetype == SPIRType::Short ||
+	       type.basetype == SPIRType::UShort || type.basetype == SPIRType::Int || type.basetype == SPIRType::UInt ||
+	       type.basetype == SPIRType::Int64 || type.basetype == SPIRType::UInt64;
 }
 } // namespace spirv_cross
 

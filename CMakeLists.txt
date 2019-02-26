@@ -104,6 +104,8 @@ option(BUILD_EXAMPLES "Enable building examples" ON)
 
 option(BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 
+add_subdirectory(3rdparty)
+
 add_subdirectory(source/Irrlicht) # Irrlicht code
 
 if(BUILD_TOOLS)
