@@ -1,6 +1,7 @@
 #ifndef __IRR_I_CPU_SHADER_H_INCLUDED__
 #define __IRR_I_CPU_SHADER_H_INCLUDED__
 
+#include <algorithm>
 #include "irr/asset/IAsset.h"
 #include "irr/asset/ISPIR_VProgram.h"
 #include "irr/asset/ShaderCommons.h"
