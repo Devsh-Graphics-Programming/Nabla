@@ -421,24 +421,50 @@ public:
 
     inline bool isBoxInsideFrustum(const core::aabbox3df& box) const
     {
-        return true;
-/*
         vectorSIMDf inMinPt(&box.MinEdge.X);
-        vectorSIMDf inMaxPt(box.MaxEdge.X,box.MaxEdge.Y,box.MaxEdge.Z); // TODO: after change to SSE aabbox3df
-        inMinPt.makeSafe3D();
-        inMaxPt.makeSafe3D();
+        // TODO: after change to SSE aabbox3df
+        vectorSIMDf inMaxPt(box.MaxEdge.X,box.MaxEdge.Y,box.MaxEdge.Z,1.f);
+        // TODO: after change to aabbox3dSIMDf we will just be able to assume these things
+        inMinPt.w = 1.f;
 
-        vectorSIMDf c0 = _mat.rows[0], c1 = _mat.rows[1], c2 = _mat.rows[2], c3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
-        transpose4(c0, c1, c2, c3);
+        // chooseMax(projSpacePoint,i) < chooseMin(projSpacePoint,3) // for NDC -1 clip-planes
+        // chooseMin(projSpacePoint,i) > chooseMax(projSpacePoint,3) // for NDC +1 clip-planes
+        using aabboxSIMDf = std::pair<vectorSIMDf,vectorSIMDf>; // TODO: replace with actual aabboxSIMDf implementation
+        aabboxSIMDf projCoordBounds;
+        // should replace that with a good implementation of matrix3x4SIMD::transformBoxEx
+        {
+            const auto zero = vectorSIMDf(0.f);
+            auto getCoordExtent = [&](uint32_t coord) -> aabboxSIMDf
+            {
+                auto rowIsPositive = rows[coord]>zero;
+                aabboxSIMDf retval(core::mix(inMaxPt,inMinPt,rowIsPositive),core::mix(inMinPt,inMaxPt,rowIsPositive));
+                retval.first *= rows[coord];
+                retval.second *= rows[coord];
+                return retval; // retval.first.w == retval.second.w == rows[coord].w
+            };
+            auto doHadd = [](const aabboxSIMDf& a, const aabboxSIMDf& b)
+            {
+                return aabboxSIMDf(_mm_hadd_ps(a.first.getAsRegister(),b.first.getAsRegister()),
+                                                    _mm_hadd_ps(a.second.getAsRegister(),b.second.getAsRegister()));
+            };
+            auto half0 = doHadd(getCoordExtent(0u),getCoordExtent(1u));
+            auto half1 = doHadd(getCoordExtent(2u),getCoordExtent(3u));
+            projCoordBounds = doHadd(half0,half1);
+        }
 
-        const vectorSIMDf zero;
-        vectorSIMDf minPt = c0*mix(inMinPt.xxxw(),inMaxPt.xxxw(),c0<zero)+c1*mix(inMinPt.yyyw(),inMaxPt.yyyw(),c1<zero)+c2*mix(inMinPt.zzzw(),inMaxPt.zzzw(),c2<zero);
-        vectorSIMDf maxPt = c0*mix(inMaxPt.xxxw(),inMinPt.xxxw(),c0<zero)+c1*mix(inMaxPt.yyyw(),inMinPt.yyyw(),c1<zero)+c2*mix(inMaxPt.zzzw(),inMinPt.zzzw(),c2<zero);
+        // near plane
+        if (projCoordBounds.second.z<0.f)
+            return false;
 
-        minPt += c3;
-        maxPt += c3;
+        // NDC xy -1 planes
+        if (projCoordBounds.second.y<-projCoordBounds.second.w || projCoordBounds.second.x<-projCoordBounds.second.w)
+            return false;
 
-        aabbox3df(minPt.getAsVector3df(),maxPt.getAsVector3df());*/
+        // NDC xy +1 planes and z plane last
+        if (projCoordBounds.first.y>projCoordBounds.second.w || projCoordBounds.first.x>projCoordBounds.second.w || projCoordBounds.first.z>projCoordBounds.second.w)
+            return false;
+
+        return true;
     }
 
     inline bool equals(const matrix4SIMD& _other, float _tolerance) const
