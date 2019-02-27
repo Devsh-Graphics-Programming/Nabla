@@ -427,41 +427,31 @@ public:
         // TODO: after change to aabbox3dSIMDf we will just be able to assume these things
         inMinPt.w = 1.f;
 
-        // chooseMax(projSpacePoint,i) < chooseMin(projSpacePoint,3) // for NDC -1 clip-planes
-        // chooseMin(projSpacePoint,i) > chooseMax(projSpacePoint,3) // for NDC +1 clip-planes
-        using aabboxSIMDf = std::pair<vectorSIMDf,vectorSIMDf>; // TODO: replace with actual aabboxSIMDf implementation
-        aabboxSIMDf projCoordBounds;
-        // should replace that with a good implementation of matrix3x4SIMD::transformBoxEx
+        const auto zero = vectorSIMDf(0.f);
+        auto getMaxCoord = [&](const vectorSIMDf& plane) -> vectorSIMDf
         {
-            const auto zero = vectorSIMDf(0.f);
-            auto getCoordExtent = [&](uint32_t coord) -> aabboxSIMDf
-            {
-                auto rowIsPositive = rows[coord]>zero;
-                aabboxSIMDf retval(core::mix(inMaxPt,inMinPt,rowIsPositive),core::mix(inMinPt,inMaxPt,rowIsPositive));
-                retval.first *= rows[coord];
-                retval.second *= rows[coord];
-                return retval; // retval.first.w == retval.second.w == rows[coord].w
-            };
-            auto doHadd = [](const aabboxSIMDf& a, const aabboxSIMDf& b)
-            {
-                return aabboxSIMDf(_mm_hadd_ps(a.first.getAsRegister(),b.first.getAsRegister()),
-                                                    _mm_hadd_ps(a.second.getAsRegister(),b.second.getAsRegister()));
-            };
-            auto half0 = doHadd(getCoordExtent(0u),getCoordExtent(1u));
-            auto half1 = doHadd(getCoordExtent(2u),getCoordExtent(3u));
-            projCoordBounds = doHadd(half0,half1);
-        }
+            vectorSIMDf retval = core::mix(inMinPt,inMaxPt,plane>zero);
+            retval *=plane;
+            return retval; // retval.w ==plane.w
+        };
+        auto doHadd = [](const vectorSIMDf& a, const vectorSIMDf& b)
+        {
+            return vectorSIMDf(_mm_hadd_ps(a.getAsRegister(),b.getAsRegister()));
+        };
 
         // near plane
-        if (projCoordBounds.second.z<0.f)
+        vectorSIMDf zPlaneDistances = doHadd(doHadd(getMaxCoord(rows[2]),getMaxCoord(rows[3]-rows[2])),vectorSIMDf(123456789.f));
+        if ((zPlaneDistances<zero).any())
             return false;
 
-        // NDC xy -1 planes
-        if (projCoordBounds.second.y<-projCoordBounds.second.w || projCoordBounds.second.x<-projCoordBounds.second.w)
-            return false;
-
-        // NDC xy +1 planes and z plane last
-        if (projCoordBounds.first.y>projCoordBounds.second.w || projCoordBounds.first.x>projCoordBounds.second.w || projCoordBounds.first.z>projCoordBounds.second.w)
+        vectorSIMDf xyPlaneDistances;
+        {
+            auto half0 = doHadd(getMaxCoord(rows[3]+rows[0]),getMaxCoord(rows[3]-rows[0]));
+            auto half1 = doHadd(getMaxCoord(rows[3]+rows[1]),getMaxCoord(rows[3]-rows[1]));
+            xyPlaneDistances = doHadd(half0,half1);
+        }
+        // NDC xy -1 and +1 planes
+        if ((xyPlaneDistances<zero).any())
             return false;
 
         return true;
