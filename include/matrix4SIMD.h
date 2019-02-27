@@ -126,35 +126,35 @@ public:
     {
         matrix4SIMD out;
 
-        const __m128i mask0011 = BUILD_MASKF(0, 0, 1, 1);
+        __m128i mask0011 = BUILD_MASKF(0, 0, 1, 1);
         __m128 second;
 
         {
-        __m128d r00 = _b.halfRowAsDouble(0u, true);
-        __m128d r01 = _b.halfRowAsDouble(0u, false);
-        second = _mm_cvtpd_ps(concat64_helper(r00, r01, _a, false));
-        out.rows[0] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r00, r01, _a, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
+        __m128d r00 = _a.halfRowAsDouble(0u, true);
+        __m128d r01 = _a.halfRowAsDouble(0u, false);
+        second = _mm_cvtpd_ps(concat64_helper(r00, r01, _b, false));
+        out.rows[0] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r00, r01, _b, true))) | _mm_castps_si128((vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011).getAsRegister());
         }
 
         {
-        __m128d r10 = _b.halfRowAsDouble(1u, true);
-        __m128d r11 = _b.halfRowAsDouble(1u, false);
-        second = _mm_cvtpd_ps(concat64_helper(r10, r11, _a, false));
-        out.rows[1] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r10, r11, _a, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
+        __m128d r10 = _a.halfRowAsDouble(1u, true);
+        __m128d r11 = _a.halfRowAsDouble(1u, false);
+        second = _mm_cvtpd_ps(concat64_helper(r10, r11, _b, false));
+        out.rows[1] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r10, r11, _b, true))) | _mm_castps_si128((vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011).getAsRegister());
         }
 
         {
-        __m128d r20 = _b.halfRowAsDouble(2u, true);
-        __m128d r21 = _b.halfRowAsDouble(2u, false);
-        second = _mm_cvtpd_ps(concat64_helper(r20, r21, _a, false));
-        out.rows[2] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r20, r21, _a, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
+        __m128d r20 = _a.halfRowAsDouble(2u, true);
+        __m128d r21 = _a.halfRowAsDouble(2u, false);
+        second = _mm_cvtpd_ps(concat64_helper(r20, r21, _b, false));
+        out.rows[2] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r20, r21, _b, true))) | _mm_castps_si128((vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011).getAsRegister());
         }
 
         {
-        __m128d r30 = _b.halfRowAsDouble(3u, true);
-        __m128d r31 = _b.halfRowAsDouble(3u, false);
-        second = _mm_cvtpd_ps(concat64_helper(r30, r31, _a, false));
-        out.rows[3] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r30, r31, _a, true))) | _mm_and_ps(_mm_movelh_ps(second, second), mask0011);
+        __m128d r30 = _a.halfRowAsDouble(3u, true);
+        __m128d r31 = _a.halfRowAsDouble(3u, false);
+        second = _mm_cvtpd_ps(concat64_helper(r30, r31, _b, false));
+        out.rows[3] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r30, r31, _b, true))) | _mm_castps_si128((vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011).getAsRegister());
         }
 
         return out;
@@ -182,9 +182,9 @@ public:
     {
         const __m128i mask0001 = BUILD_MASKF(0, 0, 0, 1);
 
-        rows[0] = (_scale & BUILD_MASKF(1, 0, 0, 0)) | (rows[0] & mask0001);
-        rows[1] = (_scale & BUILD_MASKF(0, 1, 0, 0)) | (rows[1] & mask0001);
-        rows[2] = (_scale & BUILD_MASKF(0, 0, 1, 0)) | (rows[2] & mask0001);
+        rows[0] = (_scale & BUILD_MASKF(1, 0, 0, 0)) | _mm_castps_si128((rows[0] & mask0001).getAsRegister());
+        rows[1] = (_scale & BUILD_MASKF(0, 1, 0, 0)) | _mm_castps_si128((rows[1] & mask0001).getAsRegister());
+        rows[2] = (_scale & BUILD_MASKF(0, 0, 1, 0)) | _mm_castps_si128((rows[2] & mask0001).getAsRegister());
         rows[3] = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
 
         return *this;
@@ -271,13 +271,13 @@ public:
         const __m128i mask1110 = BUILD_MASKF(1, 1, 1, 0);
 
         const vectorSIMDf& quat = reinterpret_cast<const vectorSIMDf&>(_quat);
-        rows[0] = ((quat.yyyy() * ((quat.yxwx() & mask1110) * vectorSIMDf(2.f))) + (quat.zzzz() * (quat.zwxx() & mask1110) * vectorSIMDf(2.f, -2.f, 2.f, 0.f))) | (rows[0] & mask0001);
+        rows[0] = ((quat.yyyy() * ((quat.yxwx() & mask1110) * vectorSIMDf(2.f))) + (quat.zzzz() * (quat.zwxx() & mask1110) * vectorSIMDf(2.f, -2.f, 2.f, 0.f))) | _mm_castps_si128((rows[0] & mask0001).getAsRegister());
         rows[0].x = 1.f - rows[0].x;
 
-        rows[1] = ((quat.zzzz() * ((quat.wzyx() & mask1110) * vectorSIMDf(2.f))) + (quat.xxxx() * (quat.yxwx() & mask1110) * vectorSIMDf(2.f, 2.f, -2.f, 0.f))) | (rows[1] & mask0001);
+        rows[1] = ((quat.zzzz() * ((quat.wzyx() & mask1110) * vectorSIMDf(2.f))) + (quat.xxxx() * (quat.yxwx() & mask1110) * vectorSIMDf(2.f, 2.f, -2.f, 0.f))) | _mm_castps_si128((rows[1] & mask0001).getAsRegister());
         rows[1].y = 1.f - rows[1].y;
 
-        rows[2] = ((quat.xxxx() * ((quat.zwxx() & mask1110) * vectorSIMDf(2.f))) + (quat.yyyy() * (quat.wzyx() & mask1110) * vectorSIMDf(-2.f, 2.f, 2.f, 0.f))) | (rows[2] & mask0001);
+        rows[2] = ((quat.xxxx() * ((quat.zwxx() & mask1110) * vectorSIMDf(2.f))) + (quat.yyyy() * (quat.wzyx() & mask1110) * vectorSIMDf(-2.f, 2.f, 2.f, 0.f))) | _mm_castps_si128((rows[2] & mask0001).getAsRegister());
         rows[2].z = 1.f - rows[2].z;
 
         return *this;
