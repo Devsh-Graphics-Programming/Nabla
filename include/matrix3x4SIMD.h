@@ -85,7 +85,7 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 
 		return out;
 	}
-/* Not implemented yet
+
 	static inline matrix3x4SIMD concatenateBFollowedByAPrecisely(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b)
 	{
 		__m128d r00 = _a.halfRowAsDouble(0u, true);
@@ -100,17 +100,17 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 		const __m128i mask0011 = BUILD_MASKF(0, 0, 1, 1);
 
 		__m128 second = _mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r00, r01, _b, false));
-		out.rows[0] = vectorSIMDf(_mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r00, r01, _b, true))) | (vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011);
+		out.rows[0] = vectorSIMDf(_mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r00, r01, _b, true))) | _mm_castps_si128((vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011).getAsRegister());
 
 		second = _mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r10, r11, _b, false));
-		out.rows[1] = vectorSIMDf(_mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r10, r11, _b, true))) | (vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011);
+		out.rows[1] = vectorSIMDf(_mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r10, r11, _b, true))) | _mm_castps_si128((vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011).getAsRegister());
 
 		second = _mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r20, r21, _b, false));
-		out.rows[2] = vectorSIMDf(_mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r20, r21, _b, true))) | (vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011);
+		out.rows[2] = vectorSIMDf(_mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r20, r21, _b, true))) | _mm_castps_si128((vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011).getAsRegister());
 
 		return out;
 	}
-*/
+
 	inline matrix3x4SIMD& concatenateAfter(const matrix3x4SIMD& _other)
 	{
 		return *this = concatenateBFollowedByA(*this, _other);
@@ -120,7 +120,7 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 	{
 		return *this = concatenateBFollowedByA(_other, *this);
 	}
-/* Not implemented yet
+
 	inline matrix3x4SIMD& concatenateAfterPrecisely(const matrix3x4SIMD& _other)
 	{
 		return *this = concatenateBFollowedByAPrecisely(*this, _other);
@@ -130,7 +130,7 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 	{
 		return *this = concatenateBFollowedByAPrecisely(_other, *this);
 	}
-*/
+
 	inline bool operator==(const matrix3x4SIMD& _other)
 	{
 		for (size_t i = 0u; i < 3u; ++i)
