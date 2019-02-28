@@ -266,7 +266,7 @@ int main()
                     initMaterial.ZBuffer = video::ECFN_ALWAYS; //! Ignore Depth Test
                     initMaterial.ZWriteEnable = false; //! Why even write depth?
                     initMaterial.ColorMask = video::ECP_NONE; //! Why even write depth?
-                    initMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../screenquad.vert",
+                    initMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../fullscreentri.vert",
                                                                                         "","","", //! No Geometry or Tessellation Shaders
                                                                                         "../stencilKClear.frag",
                                                                                         3,video::EMT_SOLID);
@@ -275,7 +275,7 @@ int main()
                     resolveMaterial.ZBuffer = video::ECFN_ALWAYS; //! Ignore Depth Test
                     resolveMaterial.ZWriteEnable = false; //! Why even write depth?
                     resolveMaterial.BlendOperation = video::EBO_ADD;
-                    resolveMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../screenquad.vert",
+                    resolveMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../fullscreentri.vert",
                                                                                         "","","", //! No Geometry or Tessellation Shaders
                                                                                         "../stencilKResolve.frag",
                                                                                         3,video::EMT_TRANSPARENT_ALPHA_CHANNEL, //! 3 vertices per primitive (this is tessellation shader relevant only)
@@ -324,7 +324,7 @@ int main()
                     initMaterial.ZBuffer = video::ECFN_ALWAYS; //! Ignore Depth Test
                     initMaterial.ZWriteEnable = false; //! Why even write depth?
                     initMaterial.ColorMask = video::ECP_NONE; //! Why even write depth?
-                    initMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../screenquad.vert",
+                    initMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../fullscreentri.vert",
                                                                                         "","","", //! No Geometry or Tessellation Shaders
                                                                                         "../stencilKClear.frag",
                                                                                         3,video::EMT_SOLID);
@@ -333,7 +333,7 @@ int main()
                     resolveMaterial.ZBuffer = video::ECFN_ALWAYS; //! Ignore Depth Test
                     resolveMaterial.ZWriteEnable = false; //! Why even write depth?
                     resolveMaterial.BlendOperation = video::EBO_ADD;
-                    resolveMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../screenquad.vert",
+                    resolveMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../fullscreentri.vert",
                                                                                         "","","", //! No Geometry or Tessellation Shaders
                                                                                         "../minTransResolve.frag",
                                                                                         3,video::EMT_TRANSPARENT_ALPHA_CHANNEL, //! 3 vertices per primitive (this is tessellation shader relevant only)

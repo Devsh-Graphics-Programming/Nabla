@@ -82,12 +82,12 @@
 			<Add directory="../../include" />
 		</Compiler>
 		<Unit filename="../../ext/FullScreenTriangle/FullScreenTriangle.h" />
+		<Unit filename="fullscreentri.vert" />
 		<Unit filename="main.cpp" />
 		<Unit filename="mesh.frag" />
 		<Unit filename="mesh.vert" />
 		<Unit filename="mesh_minTrans.frag" />
 		<Unit filename="minTransResolve.frag" />
-		<Unit filename="screenquad.vert" />
 		<Unit filename="stencilKClear.frag" />
 		<Unit filename="stencilKResolve.frag" />
 		<Extensions>
