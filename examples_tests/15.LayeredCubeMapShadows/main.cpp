@@ -182,7 +182,7 @@ int main()
     scene::IDummyTransformationSceneNode* dummyLightNode = smgr->addDummyTransformationSceneNode();
     dummyLightNode->setPosition(core::vector3df(2.f,0.5f,2.f)*kInstanceSquareSize);
     scene::ISceneNodeAnimator* anim = smgr->createFlyCircleAnimator(dummyLightNode->getPosition(),10.f);
-    //dummyLightNode->addAnimator(anim);
+    dummyLightNode->addAnimator(anim);
     anim->drop();
 
     // could fish this proj matrix from the envMapCam, but I know better and that all of them would be equal
