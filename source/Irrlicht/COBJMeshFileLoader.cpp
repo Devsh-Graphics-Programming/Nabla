@@ -15,6 +15,7 @@
 #include "os.h"
 
 #include "irr/core/Types.h"
+#include "irr/core/math/plane3dSIMD.h"
 
 /*
 namespace std
@@ -330,17 +331,14 @@ ICPUMesh* COBJMeshFileLoader::createMesh(io::IReadFile* file)
             memset(newNormals,0,sizeof(core::vectorSIMDf)*Materials[m]->Vertices.size());
             for (size_t i=0; i<Materials[m]->Indices.size(); i+=3)
             {
-                core::vectorSIMDf v1;
+                core::vectorSIMDf v1,v2,v3;
                 v1.set(Materials[m]->Vertices[Materials[m]->Indices[i+0]].pos);
-                core::vectorSIMDf v2;
                 v2.set(Materials[m]->Vertices[Materials[m]->Indices[i+1]].pos);
-                core::vectorSIMDf v3;
                 v3.set(Materials[m]->Vertices[Materials[m]->Indices[i+2]].pos);
                 v1.makeSafe3D();
                 v2.makeSafe3D();
                 v3.makeSafe3D();
-                core::vectorSIMDf normal;
-                normal.set(core::plane3d<float>(v1.getAsVector3df(), v2.getAsVector3df(), v3.getAsVector3df()).Normal);
+                core::vectorSIMDf normal(core::plane3dSIMDf(v1,v2,v3).getNormal());
                 newNormals[Materials[m]->Indices[i+0]] += normal;
                 newNormals[Materials[m]->Indices[i+1]] += normal;
                 newNormals[Materials[m]->Indices[i+2]] += normal;

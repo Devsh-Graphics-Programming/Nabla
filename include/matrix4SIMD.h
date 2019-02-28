@@ -419,44 +419,6 @@ public:
         _out = getTransposed();
     }
 
-    inline bool isBoxInsideFrustum(const core::aabbox3df& box) const
-    {
-        vectorSIMDf inMinPt(&box.MinEdge.X);
-        // TODO: after change to SSE aabbox3df
-        vectorSIMDf inMaxPt(box.MaxEdge.X,box.MaxEdge.Y,box.MaxEdge.Z,1.f);
-        // TODO: after change to aabbox3dSIMDf we will just be able to assume these things
-        inMinPt.w = 1.f;
-
-        const auto zero = vectorSIMDf(0.f);
-        auto getMaxCoord = [&](const vectorSIMDf& plane) -> vectorSIMDf
-        {
-            vectorSIMDf retval = core::mix(inMinPt,inMaxPt,plane>zero);
-            retval *=plane;
-            return retval; // retval.w ==plane.w
-        };
-        auto doHadd = [](const vectorSIMDf& a, const vectorSIMDf& b)
-        {
-            return vectorSIMDf(_mm_hadd_ps(a.getAsRegister(),b.getAsRegister()));
-        };
-
-        // near plane
-        vectorSIMDf zPlaneDistances = doHadd(doHadd(getMaxCoord(rows[2]),getMaxCoord(rows[3]-rows[2])),vectorSIMDf(123456789.f));
-        if ((zPlaneDistances<zero).any())
-            return false;
-
-        vectorSIMDf xyPlaneDistances;
-        {
-            auto half0 = doHadd(getMaxCoord(rows[3]+rows[0]),getMaxCoord(rows[3]-rows[0]));
-            auto half1 = doHadd(getMaxCoord(rows[3]+rows[1]),getMaxCoord(rows[3]-rows[1]));
-            xyPlaneDistances = doHadd(half0,half1);
-        }
-        // NDC xy -1 and +1 planes
-        if ((xyPlaneDistances<zero).any())
-            return false;
-
-        return true;
-    }
-
     inline bool equals(const matrix4SIMD& _other, float _tolerance) const
     {
         for (size_t i = 0u; i < 4u; ++i)

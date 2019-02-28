@@ -5,9 +5,7 @@
 #ifndef __S_VIEW_FRUSTUM_H_INCLUDED__
 #define __S_VIEW_FRUSTUM_H_INCLUDED__
 
-#include "plane3d.h"
-#include "vectorSIMD.h"
-#include "line3d.h"
+#include "irr/core/math/plane3dSIMD.h"
 #include "aabbox3d.h"
 #include "matrix4SIMD.h"
 #include "IVideoDriver.h"
@@ -21,8 +19,6 @@ namespace scene
 	/** The view frustum is enclosed by 6 planes. These six planes share
 	eight points. A bounding box around these eight points is also stored in
 	this structure.
-	WARNING: The FRUSTUM IS FLIPPED INSIDE OUT COMPARED TO OTHER ENGINES
-	THE CLIP-PLANE'S NORMALS POINT OUTSIDE, NOT INSIDE !!!
 	*/
 	struct SViewFrustum
 	{
@@ -100,23 +96,60 @@ namespace scene
             boundingBox.addInternalPoint(getFarRightDown().getAsVector3df());
         }
 
-#if 0 // AWAITING plane3dSIMD implementation!
+        inline bool intersectsAABB(const core::aabbox3df& box) const
+        {
+            core::vectorSIMDf inMinPt(&box.MinEdge.X);
+            // TODO: after change to SSE aabbox3df
+            core::vectorSIMDf inMaxPt(box.MaxEdge.X,box.MaxEdge.Y,box.MaxEdge.Z,1.f);
+            // TODO: after change to aabbox3dSIMDf we will just be able to assume these things
+            inMinPt.w = 1.f;
+
+            const auto zero = core::vectorSIMDf(0.f);
+            auto getMaxCoord = [&](const core::plane3dSIMDf& plane)
+            {
+                const auto& planeAsVec4 = reinterpret_cast<const core::vectorSIMDf&>(plane);
+                auto retval = core::mix(inMinPt,inMaxPt,planeAsVec4>zero);
+                retval *= planeAsVec4;
+                return retval; // retval.w ==plane.w
+            };
+            auto doHadd = [](const core::vectorSIMDf& a, const core::vectorSIMDf& b)
+            {
+                return core::vectorSIMDf(_mm_hadd_ps(a.getAsRegister(),b.getAsRegister()));
+            };
+
+            // near plane
+            auto zPlaneDistances = doHadd(doHadd(getMaxCoord(planes[VF_NEAR_PLANE]),getMaxCoord(planes[VF_FAR_PLANE])),core::vectorSIMDf(123456789.f));
+            if ((zPlaneDistances<zero).any())
+                return false;
+
+            core::vectorSIMDf xyPlaneDistances;
+            {
+                auto half0 = doHadd(getMaxCoord(planes[VF_LEFT_PLANE]),getMaxCoord(planes[VF_RIGHT_PLANE]));
+                auto half1 = doHadd(getMaxCoord(planes[VF_TOP_PLANE]),getMaxCoord(planes[VF_BOTTOM_PLANE]));
+                xyPlaneDistances = doHadd(half0,half1);
+            }
+            // NDC xy -1 and +1 planes
+            if ((xyPlaneDistances<zero).any())
+                return false;
+
+            return true;
+        }
+
 		//! Transforms the frustum by the matrix
 		/** @param mat: Matrix by which the view frustum is transformed.*/
-		void transform(const core::matrix4SIMD& mat)
+		void transform(const core::matrix3x4SIMD& mat)
         {
             for (uint32_t i=0; i<VF_PLANE_COUNT; ++i)
-                mat.transformPlane(planes[i]);
+                core::plane3dSIMDf::transform(planes[i],mat);
 
             recalculateBoundingBox();
         }
-#endif // 0
 
 		//! @returns a bounding box enclosing the whole view frustum.
 		inline const core::aabbox3df &getBoundingBox() const {return boundingBox;}
 
 		//! All planes enclosing the view frustum.
-		core::plane3df planes[VF_PLANE_COUNT];
+		core::plane3dSIMDf planes[VF_PLANE_COUNT];
 
 		//! Bounding box around the view frustum.
 		core::aabbox3df boundingBox;
@@ -130,24 +163,24 @@ namespace scene
 	{
 	    core::vectorSIMDf lastRow = mat.getRow(3u);
 		// left clipping plane
-		*reinterpret_cast<core::vectorSIMDf*>(planes+VF_LEFT_PLANE) = lastRow+mat.getRow(0u);
+		planes[VF_LEFT_PLANE].setPlane(lastRow+mat.getRow(0u));
 		// right clipping plane
-		*reinterpret_cast<core::vectorSIMDf*>(planes+VF_RIGHT_PLANE) = lastRow-mat.getRow(0u);
+		planes[VF_RIGHT_PLANE].setPlane(lastRow-mat.getRow(0u));
 		// top clipping plane
-		*reinterpret_cast<core::vectorSIMDf*>(planes+VF_TOP_PLANE) = lastRow+mat.getRow(1u);
+		planes[VF_TOP_PLANE].setPlane(lastRow+mat.getRow(1u));
 		// bottom clipping plane
-		*reinterpret_cast<core::vectorSIMDf*>(planes+VF_BOTTOM_PLANE) = lastRow-mat.getRow(1u);
+		planes[VF_BOTTOM_PLANE].setPlane(lastRow-mat.getRow(1u));
 
 		// far clipping plane
-		*reinterpret_cast<core::vectorSIMDf*>(planes+VF_FAR_PLANE) = lastRow-mat.getRow(2u);
+		planes[VF_FAR_PLANE].setPlane(lastRow-mat.getRow(2u));
 
 		// near clipping plane
-		*reinterpret_cast<core::vectorSIMDf*>(planes+VF_NEAR_PLANE) = mat.getRow(2u);
+		planes[VF_NEAR_PLANE].setPlane(mat.getRow(2u));
 
 		// normalize normals
 		for ( auto i=0; i != VF_PLANE_COUNT; ++i)
 		{
-		    core::vectorSIMDf normal = *reinterpret_cast<core::vectorSIMDf*>(planes+i);
+		    auto normal(planes[i].getNormal());
 		    normal.makeSafe3D();
             *reinterpret_cast<core::vectorSIMDf*>(planes+i) *= core::inversesqrt(core::dot(normal,normal));
 		}
@@ -161,7 +194,7 @@ namespace scene
 		core::vector3df_SIMD p;
 		planes[scene::SViewFrustum::VF_FAR_PLANE].getIntersectionWithPlanes(
 			planes[scene::SViewFrustum::VF_TOP_PLANE],
-			planes[scene::SViewFrustum::VF_LEFT_PLANE], p.getAsVector3df());
+			planes[scene::SViewFrustum::VF_LEFT_PLANE], p);
 
 		return p;
 	}
@@ -171,7 +204,7 @@ namespace scene
 		core::vector3df_SIMD p;
 		planes[scene::SViewFrustum::VF_FAR_PLANE].getIntersectionWithPlanes(
 			planes[scene::SViewFrustum::VF_BOTTOM_PLANE],
-			planes[scene::SViewFrustum::VF_LEFT_PLANE], p.getAsVector3df());
+			planes[scene::SViewFrustum::VF_LEFT_PLANE], p);
 
 		return p;
 	}
@@ -181,7 +214,7 @@ namespace scene
 		core::vector3df_SIMD p;
 		planes[scene::SViewFrustum::VF_FAR_PLANE].getIntersectionWithPlanes(
 			planes[scene::SViewFrustum::VF_TOP_PLANE],
-			planes[scene::SViewFrustum::VF_RIGHT_PLANE], p.getAsVector3df());
+			planes[scene::SViewFrustum::VF_RIGHT_PLANE], p);
 
 		return p;
 	}
@@ -191,7 +224,7 @@ namespace scene
 		core::vector3df_SIMD p;
 		planes[scene::SViewFrustum::VF_FAR_PLANE].getIntersectionWithPlanes(
 			planes[scene::SViewFrustum::VF_BOTTOM_PLANE],
-			planes[scene::SViewFrustum::VF_RIGHT_PLANE], p.getAsVector3df());
+			planes[scene::SViewFrustum::VF_RIGHT_PLANE], p);
 
 		return p;
 	}
@@ -201,7 +234,7 @@ namespace scene
 		core::vector3df_SIMD p;
 		planes[scene::SViewFrustum::VF_NEAR_PLANE].getIntersectionWithPlanes(
 			planes[scene::SViewFrustum::VF_TOP_PLANE],
-			planes[scene::SViewFrustum::VF_LEFT_PLANE], p.getAsVector3df());
+			planes[scene::SViewFrustum::VF_LEFT_PLANE], p);
 
 		return p;
 	}
@@ -211,7 +244,7 @@ namespace scene
 		core::vector3df_SIMD p;
 		planes[scene::SViewFrustum::VF_NEAR_PLANE].getIntersectionWithPlanes(
 			planes[scene::SViewFrustum::VF_BOTTOM_PLANE],
-			planes[scene::SViewFrustum::VF_LEFT_PLANE], p.getAsVector3df());
+			planes[scene::SViewFrustum::VF_LEFT_PLANE], p);
 
 		return p;
 	}
@@ -221,7 +254,7 @@ namespace scene
 		core::vector3df_SIMD p;
 		planes[scene::SViewFrustum::VF_NEAR_PLANE].getIntersectionWithPlanes(
 			planes[scene::SViewFrustum::VF_TOP_PLANE],
-			planes[scene::SViewFrustum::VF_RIGHT_PLANE], p.getAsVector3df());
+			planes[scene::SViewFrustum::VF_RIGHT_PLANE], p);
 
 		return p;
 	}
@@ -231,7 +264,7 @@ namespace scene
 		core::vector3df_SIMD p;
 		planes[scene::SViewFrustum::VF_NEAR_PLANE].getIntersectionWithPlanes(
 			planes[scene::SViewFrustum::VF_BOTTOM_PLANE],
-			planes[scene::SViewFrustum::VF_RIGHT_PLANE], p.getAsVector3df());
+			planes[scene::SViewFrustum::VF_RIGHT_PLANE], p);
 
 		return p;
 	}

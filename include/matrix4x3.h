@@ -8,7 +8,6 @@
 
 #include "vector3d.h"
 #include "vectorSIMD.h"
-#include "plane3d.h"
 #include "aabbox3d.h"
 #include "rect.h"
 
@@ -44,13 +43,7 @@ namespace core
 
 			//! Simple operator for directly accessing every element of the matrix.
 			inline const float& operator()(const size_t& i, const size_t& j) const { return reinterpret_cast<const float*>(column+j)[i]; }
-/*
-			//! Simple operator for linearly accessing every element of the matrix.
-			inline float& operator[](const size_t& index) {return reinterpret_cast<float*>(column)[index];}
 
-			//! Simple operator for linearly accessing every element of the matrix.
-			inline const float& operator[](const size_t& index) const {return reinterpret_cast<const float*>(column)[index];}
-*/
 			inline vector3df& getColumn(const size_t& index) {return column[index];}
 			inline const vector3df& getColumn(const size_t& index) const {return column[index];}
 
@@ -233,30 +226,6 @@ namespace core
 			{
 			    reinterpret_cast<vector3df*>(out)[0] = column[0]*in[0]+column[1]*in[1]+column[2]*in[2];
 			}
-/* No point keeping it around
-			//! Transforms a plane by this matrix
-			inline void transformPlane( core::plane3d<float> &plane) const
-			{
-                core::plane3df temp;
-                transformPlane(plane,temp);
-                plane = temp;
-			}
-
-			//! Transforms a plane by this matrix
-			// (N,D).(x,1) = 0
-			// N.(Mx) + D = 0
-			inline void transformPlane( const core::plane3d<float> &in, core::plane3d<float> &out) const
-            {
-                matrix4x3 inverse;
-                getInverse(inverse);
-
-                out.Normal.X = in.Normal.dotProduct(inverse.column[0]);
-                out.Normal.Y = in.Normal.dotProduct(inverse.column[1]);
-                out.Normal.Z = in.Normal.dotProduct(inverse.column[2]);
-
-                out.D = in.Normal.dotProduct(inverse.column[3]) + in.D;
-            }
-*/
 
 			//! Transforms a axis aligned bounding box
 			inline void transformBoxEx(core::aabbox3d<float>& box) const

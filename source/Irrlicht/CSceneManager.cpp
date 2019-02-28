@@ -670,38 +670,24 @@ bool CSceneManager::isCulled(ISceneNode* node) const
 	{
 		return false;
 	}
-	bool result = false;
 
-	// can be seen by a bounding box ?
-	if (!result && (node->getAutomaticCulling() & scene::EAC_BOX))
-	{
-		core::aabbox3d<float> tbox = node->getBoundingBox();
-		if (tbox.MinEdge==tbox.MaxEdge)
-            return true;
+    core::aabbox3d<float> tbox = node->getBoundingBox();
+    if (tbox.MinEdge==tbox.MaxEdge)
+        return true;
+
+    auto cullMode = node->getAutomaticCulling();
+    if (cullMode & (scene::EAC_BOX|scene::EAC_FRUSTUM_BOX))
+    {
 		node->getAbsoluteTransformation().transformBoxEx(tbox);
-		result = !(tbox.intersectsWithBox(cam->getViewFrustum()->getBoundingBox() ));
-	}
-
-	// can be seen by a bounding sphere
-	if (!result && (node->getAutomaticCulling() & scene::EAC_FRUSTUM_SPHERE))
-	{ // requires bbox diameter
-	}
-
-	// can be seen by cam pyramid planes ?
-	if (!result && (node->getAutomaticCulling() & scene::EAC_FRUSTUM_BOX))
-	{
-		core::aabbox3d<float> tbox = node->getBoundingBox();
-		if (tbox.MinEdge==tbox.MaxEdge)
+        // can be seen by a bounding box ?
+        if ((cullMode & scene::EAC_BOX) && !tbox.intersectsWithBox(cam->getViewFrustum()->getBoundingBox()))
             return true;
-
-        //transform the frustum to the node's current absolute transformation
-        core::matrix4SIMD worldviewproj = concatenateBFollowedByA(cam->getProjectionMatrix(),concatenateBFollowedByA(cam->getViewMatrix(),node->getAbsoluteTransformation()));
-
-        if (!worldviewproj.isBoxInsideFrustum(tbox))
+        // can be seen by cam pyramid planes ?
+        if ((cullMode & scene::EAC_FRUSTUM_BOX) && !cam->getViewFrustum()->intersectsAABB(tbox))
             return true;
 	}
 
-	return result;
+	return false;
 }
 
 

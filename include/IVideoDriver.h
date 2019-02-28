@@ -13,7 +13,6 @@
 #include "SMaterial.h"
 #include "IDriverFence.h"
 #include "SMesh.h"
-#include "triangle3d.h"
 #include "SExposedVideoData.h"
 #include "IDriver.h"
 

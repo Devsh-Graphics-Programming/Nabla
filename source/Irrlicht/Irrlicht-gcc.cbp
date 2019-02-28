@@ -398,12 +398,10 @@
 		<Unit filename="../../include/matrix4x3.h" />
 		<Unit filename="../../include/matrixutil.h" />
 		<Unit filename="../../include/path.h" />
-		<Unit filename="../../include/plane3d.h" />
 		<Unit filename="../../include/position2d.h" />
 		<Unit filename="../../include/quaternion.h" />
 		<Unit filename="../../include/rect.h" />
 		<Unit filename="../../include/splines.h" />
-		<Unit filename="../../include/triangle3d.h" />
 		<Unit filename="../../include/vector2d.h" />
 		<Unit filename="../../include/vector3d.h" />
 		<Unit filename="../../include/vectorSIMD.h" />

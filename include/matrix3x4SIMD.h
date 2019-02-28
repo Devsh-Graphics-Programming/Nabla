@@ -540,21 +540,6 @@ inline matrix3x4SIMD concatenateBFollowedByAPrecisely(const matrix3x4SIMD& _a, c
 {
     return matrix3x4SIMD::concatenateBFollowedByAPrecisely(_a, _b);
 }
-
-// no point keeping it around
-inline plane3df transformPlane(const plane3df& _in, const matrix3x4SIMD& _mat)
-{
-    matrix3x4SIMD inv;
-    _mat.getInverse(inv);
-
-    vectorSIMDf normal(&_in.Normal.X);
-    normal.makeSafe3D();
-
-    plane3df _out;
-    _out.Normal = (inv.rows[0]*normal.xxxw()+inv.rows[1]*normal.yyyw()+inv.rows[2]*normal.zzzw()).getAsVector3df();
-    _out.D = normal.dotProductAsFloat(inv.getTranslation()) + _in.D;
-    return _out;
-}
 */
 
 inline aabbox3df transformBoxEx(const aabbox3df& box, const matrix3x4SIMD& _mat)
