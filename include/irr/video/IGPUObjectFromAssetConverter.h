@@ -339,7 +339,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUTexture** _begin, asset::IC
         asset::ICPUTexture* cpuTex = *it;
         ITexture* t = m_driver->createGPUTexture(cpuTex->getType(), cpuTex->getSize(), cpuTex->getHighestMip() ? cpuTex->getHighestMip()+1 : 0, cpuTex->getColorFormat());
 
-        for (const asset::CImageData* img : cpuTex->getMipmaps())
+        for (const asset::CImageData* img : cpuTex->getRanges())
         {
             t->updateSubRegion(img->getColorFormat(), img->getData(), img->getSliceMin(), img->getSliceMax(), img->getSupposedMipLevel(), img->getUnpackAlignment());
         }
