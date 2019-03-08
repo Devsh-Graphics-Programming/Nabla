@@ -234,7 +234,7 @@ private:
 	float readFloat(SContext& _ctx);
 	bool readVector2(SContext& _ctx, core::vector2df& vec);
 	bool readVector3(SContext& _ctx, core::vector3df& vec);
-	bool readMatrix(SContext& _ctx, core::matrix4& mat);
+	bool readMatrix(SContext& _ctx, core::matrix4x3& mat);
 	bool readRGB(SContext& _ctx, video::SColor& color);
 	bool readRGBA(SContext& _ctx, video::SColor& color);
 

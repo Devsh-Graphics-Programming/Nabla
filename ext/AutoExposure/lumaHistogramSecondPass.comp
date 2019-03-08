@@ -41,12 +41,7 @@ uint upper_bound__minus_one1024(in uint val)
     return ret;
 }
 
-#define BARRIER barrier()
-/* If we have issues then use this define
-#define BARRIER \
-    barrier() \
-    memoryBarrierShared()
-*/
+#define BARRIER barrier(); memoryBarrierShared()
 
 //! Bad INEFFICIENT Kogge-Stone adder
 // can change to a Up-sweep down-sweep scanner but makes >1% perf diff
@@ -112,7 +107,7 @@ void main()
 
         foundPercentiles[gl_LocalInvocationIndex] = unpackHalf2x16((foundVal<<HISTOGRAM_POT2_RAW16F_BIN_SIZE)+uint(MIN_HISTOGRAM_RAW16F_AS_UINT)).x;
     }
-    BARRIER;
+    BARRIER; // this probably needs to be a subgroup barrier
 
     if (lower2Threads)
     {

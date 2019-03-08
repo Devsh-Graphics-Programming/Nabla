@@ -24,24 +24,17 @@ namespace scene
 			const core::vector3df& lookat = core::vector3df(0,0,100));
 
 		//! Sets the projection matrix of the camera.
-		/** The core::matrix4 class has some methods
-		to build a projection matrix. e.g: core::matrix4::buildProjectionMatrixPerspectiveFovLH.
-		Note that the matrix will only stay as set by this method until one of
-		the following Methods are called: setNearValue, setFarValue, setAspectRatio, setFOV.
-		\param projection The new projection matrix of the camera.
-		\param isOrthogonal Set this to true if the matrix is an orthogonal one (e.g.
-		from matrix4::buildProjectionMatrixOrthoLH(). */
-		virtual void setProjectionMatrix(const core::matrix4& projection, bool isOrthogonal = false);
+		virtual void setProjectionMatrix(const core::matrix4SIMD& projection);
 
 		//! Gets the current projection matrix of the camera
 		//! \return Returns the current projection matrix of the camera.
-		virtual const core::matrix4& getProjectionMatrix() const;
+		virtual const core::matrix4SIMD& getProjectionMatrix() const;
 
 		//! Gets the current view matrix of the camera
 		//! \return Returns the current view matrix of the camera.
 		virtual const core::matrix4x3& getViewMatrix() const;
 
-		virtual const core::matrix4& getConcatenatedMatrix() const {return concatMatrix;}
+		virtual const core::matrix4SIMD& getConcatenatedMatrix() const {return concatMatrix;}
 
 		//! It is possible to send mouse and key events to the camera. Most cameras
 		//! may ignore this input, but camera scene nodes which are created for
@@ -149,8 +142,8 @@ namespace scene
 		float ZFar;	// Z-value of the far view-plane.
 
         core::matrix4x3 viewMatrix;
-        core::matrix4 projMatrix;
-        core::matrix4 concatMatrix;
+        core::matrix4SIMD projMatrix;
+        core::matrix4SIMD concatMatrix;
 		SViewFrustum ViewArea;
 
 		bool InputReceiverEnabled;

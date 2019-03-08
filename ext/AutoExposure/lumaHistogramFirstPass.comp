@@ -14,11 +14,7 @@ layout(binding=0) uniform sampler2D tex0;
 
 vec2 getTexCoord()
 {
-/*  // interleaved warp loading to reduce image locality (getting similar values and hence atomic contention)
-    uint linear = gl_LocalInvocationID.x+32u*(gl_WorkGroupID.x+gl_WorkGroupID.y*gl_NumWorkGroups.x)+gl_LocalInvocationID.y*1024u*32u;
-    uvec2 modifiedGlobalAddr = uvec2(linear&511u,linear>>9u);
-	vec2 tc = vec2(modifiedGlobalAddr)*autoExposureInput[TEXSCALE_UBO_OFFSET].xy;
-*/
+    // get morton code instead for better cache coherency
 	return vec2(gl_GlobalInvocationID.xy)*autoExposureInput[TEXSCALE_UBO_OFFSET].xy;
 }
 
@@ -36,12 +32,7 @@ vec2 getTexCoord()
 shared uint histogram[PADDED_BIN_COUNTu*LOCAL_REPLICATION];
 
 
-#define BARRIER barrier()
-/* If we have issues then use this define
-#define BARRIER \
-    barrier() \
-    memoryBarrierShared()
-*/
+#define BARRIER barrier(); memoryBarrierShared()
 
 void clearHistogram()
 {
@@ -113,25 +104,3 @@ void main()
 
     atomicAdd(packedHistogram[gl_LocalInvocationIndex+(gl_WorkGroupID.x&(GLOBAL_REPLICATION-1u))*BIN_COUNTu],writeOutVal);
 }
-
-/*
-//#define GLOBAL_REPLICATION 16u
-//! Pretty naive with some warp-contention fighting gimmicks
-void globalVersion()
-{
-	vec3 colorVal = textureLod(tex0,getTexCoord(),0.0).rgb;
-
-    uint baseThreadIx = gl_LocalInvocationIndex;
-
-    float luma = clamp(dot(colorVal,kLumaConvertCoeff),MIN_HISTOGRAM_VAL,MAX_HISTOGRAM_VAL);
-    int lumaBits = floatBitsToInt(luma);
-    lumaBits = lumaBits>>(13+HISTOGRAM_POT2_RAW16F_BIN_SIZE);
-    const int exponentMask = 0x3fc00>>HISTOGRAM_POT2_RAW16F_BIN_SIZE;
-    const int exponentOffset = (127-15)<<(10-HISTOGRAM_POT2_RAW16F_BIN_SIZE);
-    const int mantissaMask = 0x3ff>>HISTOGRAM_POT2_RAW16F_BIN_SIZE;
-    lumaBits = ((lumaBits&exponentMask)-exponentOffset)|(lumaBits&mantissaMask);
-    lumaBits -= MIN_HISTOGRAM_RAW16F_AS_UINT>>HISTOGRAM_POT2_RAW16F_BIN_SIZE;
-
-    atomicAdd(packedHistogram[lumaBits+(baseThreadIx&(GLOBAL_REPLICATION-1u))*BIN_COUNTu],1u);
-}
-*/

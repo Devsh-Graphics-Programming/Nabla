@@ -8,7 +8,7 @@ struct ModelData_t
     mat3 normalMat;
 };
 
-layout(std430, binding = 0) buffer PerObject
+layout(std430, row_major, binding = 0) buffer PerObject
 {
     ModelData_t modelData[];
 };

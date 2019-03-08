@@ -38,7 +38,7 @@ private:
 };
 
 core::vector3df absoluteLightPos;
-core::matrix4 ViewProjCubeMatrices[6];
+core::matrix4SIMD ViewProjCubeMatrices[6];
 
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
@@ -106,7 +106,7 @@ public:
             services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniformLocation,mvpUniformType,1);
         if (vpcmUniformLocation!=-1)
         {
-            core::matrix4 ModelViewProjCubeMatrices[6];
+            core::matrix4SIMD ModelViewProjCubeMatrices[6];
             for (size_t i=0; i<6; i++)
                 ModelViewProjCubeMatrices[i] = core::concatenateBFollowedByA(ViewProjCubeMatrices[i],services->getVideoDriver()->getTransform(video::E4X3TS_WORLD));
             services->setShaderConstant(ModelViewProjCubeMatrices,vpcmUniformLocation,vpcmUniformType,6);
@@ -189,10 +189,9 @@ int main()
     // set near value to be as far as possible to increase our precision in Z-Buffer (definitely want it to be same size as the light-bulb)
     // set far value to be the range of the light (or farthest shadow caster away from the light)
     // aspect ratio and FOV must be 1 and 90 degrees to render a cube face
-    core::matrix4 ProjMatrix;
-    ProjMatrix = ProjMatrix.buildProjectionMatrixPerspectiveFovLH(core::PI*0.5f,1.f,0.1f,250.f);
-    ProjMatrix[0] = 1.f;
-    ProjMatrix[5] = -1.f;
+    core::matrix4SIMD ProjMatrix = ProjMatrix.buildProjectionMatrixPerspectiveFovRH(core::PI*0.5f,1.f,0.1f,250.f);
+    ProjMatrix(0,0) = 1.f;
+    ProjMatrix(1,1) = 1.f;
     core::matrix4x3 ViewMatricesWithoutTranslation[6];
     for (size_t i=0; i<6; i++)
     {
@@ -200,13 +199,7 @@ int main()
         core::vector3df lookat[6] = {core::vector3df( 1, 0, 0),core::vector3df(-1, 0, 0),core::vector3df( 0, 1, 0),core::vector3df( 0,-1, 0),core::vector3df( 0, 0, 1),core::vector3df( 0, 0,-1)};
         core::vector3df up[6] = {core::vector3df( 0, 1, 0),core::vector3df( 0, 1, 0),core::vector3df( 0, 0, -1),core::vector3df( 0, 0, 1),core::vector3df( 0, 1, 0),core::vector3df( 0, 1, 0)};
 
-        scene::ICameraSceneNode* envMapCam = smgr->addCameraSceneNode();
-        envMapCam->setTarget(lookat[i]);
-        envMapCam->setUpVector(up[i]);
-        envMapCam->OnAnimate(0);
-        envMapCam->render();
-        ViewMatricesWithoutTranslation[i] = envMapCam->getViewMatrix();
-        envMapCam->remove();
+        ViewMatricesWithoutTranslation[i].buildCameraLookAtMatrixLH(core::vector3df(),lookat[i],up[i]);
     }
 
 
@@ -300,7 +293,7 @@ int main()
             }
 
             driver->setRenderTarget(fbo,true);
-            driver->clearZBuffer();
+            driver->clearZBuffer(0.f);
             for (size_t i=0; i<6; i++)
             {
                 matrix4x3 viewMatModified(ViewMatricesWithoutTranslation[i]);

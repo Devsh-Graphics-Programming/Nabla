@@ -943,21 +943,7 @@ bool CXMeshFileLoader::parseDataObjectTransformationMatrix(SContext& _ctx, core:
 		return false;
 	}
 
-	core::matrix4 tmpMat;
-
-	readMatrix(_ctx, tmpMat);
-	mat(0,0) = tmpMat(0,0);
-	mat(1,0) = tmpMat(0,1);
-	mat(2,0) = tmpMat(0,2);
-	mat(0,1) = tmpMat(1,0);
-	mat(1,1) = tmpMat(1,1);
-	mat(2,1) = tmpMat(1,2);
-	mat(0,2) = tmpMat(2,0);
-	mat(1,2) = tmpMat(2,1);
-	mat(2,2) = tmpMat(2,2);
-	mat(0,3) = tmpMat(3,0);
-	mat(1,3) = tmpMat(3,1);
-	mat(2,3) = tmpMat(3,2);
+	readMatrix(_ctx, mat);
 
 	if (!checkForOneFollowingSemicolons(_ctx))
 	{
@@ -1409,21 +1395,7 @@ bool CXMeshFileLoader::parseDataObjectSkinWeights(SContext& _ctx, SXMesh &mesh)
 	// transforms the mesh vertices to the space of the bone
 	// When concatenated to the bone's transform, this provides the
 	// world space coordinates of the mesh as affected by the bone
-	core::matrix4 MatrixOffset;
-
-	readMatrix(_ctx, MatrixOffset);
-	joint->GlobalInversedMatrix(0,0) = MatrixOffset(0,0);
-	joint->GlobalInversedMatrix(1,0) = MatrixOffset(0,1);
-	joint->GlobalInversedMatrix(2,0) = MatrixOffset(0,2);
-	joint->GlobalInversedMatrix(0,1) = MatrixOffset(1,0);
-	joint->GlobalInversedMatrix(1,1) = MatrixOffset(1,1);
-	joint->GlobalInversedMatrix(2,1) = MatrixOffset(1,2);
-	joint->GlobalInversedMatrix(0,2) = MatrixOffset(2,0);
-	joint->GlobalInversedMatrix(1,2) = MatrixOffset(2,1);
-	joint->GlobalInversedMatrix(2,2) = MatrixOffset(2,2);
-	joint->GlobalInversedMatrix(0,3) = MatrixOffset(3,0);
-	joint->GlobalInversedMatrix(1,3) = MatrixOffset(3,1);
-	joint->GlobalInversedMatrix(2,3) = MatrixOffset(3,2);
+	readMatrix(_ctx, joint->GlobalInversedMatrix);
 
 	if (!checkForOneFollowingSemicolons(_ctx))
 	{
@@ -2165,9 +2137,8 @@ bool CXMeshFileLoader::parseDataObjectAnimationKey(SContext& _ctx, asset::ICPUSk
 				}
 
 				// read matrix
-				core::matrix4 mat(core::matrix4::EM4CONST_NOTHING);
-				readMatrix(_ctx, mat);
-
+				core::matrix4x3 mat4x3;
+				readMatrix(_ctx, mat4x3);
 				//mat=joint->LocalMatrix*mat;
 
 				if (!checkForOneFollowingSemicolons(_ctx))
@@ -2181,21 +2152,6 @@ bool CXMeshFileLoader::parseDataObjectAnimationKey(SContext& _ctx, asset::ICPUSk
                 asset::ICPUSkinnedMesh::SRotationKey *keyR=joint->addRotationKey();
 				keyR->frame=time;
 
-				// IRR_TEST_BROKEN_QUATERNION_USE: TODO - switched from mat to mat.getTransposed() for downward compatibility.
-				//								   Not tested so far if this was correct or wrong before quaternion fix!
-				core::matrix4x3 mat4x3;
-                mat4x3(0,0) = mat(0,0);
-                mat4x3(1,0) = mat(0,1);
-                mat4x3(2,0) = mat(0,2);
-                mat4x3(0,1) = mat(1,0);
-                mat4x3(1,1) = mat(1,1);
-                mat4x3(2,1) = mat(1,2);
-                mat4x3(0,2) = mat(2,0);
-                mat4x3(1,2) = mat(2,1);
-                mat4x3(2,2) = mat(2,2);
-                mat4x3(0,3) = mat(3,0);
-                mat4x3(1,3) = mat(3,1);
-                mat4x3(2,3) = mat(3,2);
 				keyR->rotation = core::quaternion(mat4x3);
 
                 asset::ICPUSkinnedMesh::SPositionKey *keyP=joint->addPositionKey();
@@ -2703,10 +2659,14 @@ bool CXMeshFileLoader::readRGBA(SContext& _ctx, video::SColor& color)
 
 
 // read matrix from list of floats
-bool CXMeshFileLoader::readMatrix(SContext& _ctx, core::matrix4& mat)
+bool CXMeshFileLoader::readMatrix(SContext& _ctx, core::matrix4x3& mat)
 {
-	for (uint32_t i=0; i<16; ++i)
-		mat[i] = readFloat(_ctx);
+    for (uint32_t j=0u; j<4u; j++)
+    {
+        for (uint32_t i=0u; i<3u; i++)
+            mat(i,j) = readFloat(_ctx);
+        readFloat(_ctx);
+    }
 	return checkForOneFollowingSemicolons(_ctx);
 }
 
