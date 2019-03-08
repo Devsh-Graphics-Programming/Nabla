@@ -33,7 +33,6 @@ set(IRRLICHT_SRCS_COMMON
 	../../src/irr/asset/ICPUShader.cpp
 
 # Other mesh-related stuff
-	CAnimatedMeshSceneNode.cpp
 	../../src/irr/asset/bawformat/CBAWFile.cpp
 	../../src/irr/asset/bawformat/legacy/CBAWLegacy.cpp
 	../../src/irr/asset/bawformat/CBlobsLoadingManager.cpp

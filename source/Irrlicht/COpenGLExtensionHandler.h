@@ -1640,7 +1640,7 @@ private:
 
 inline bool COpenGLExtensionHandler::extGlIsEnabledi(GLenum cap, GLuint index)
 {
-    pGlIsEnabledi(cap,index);
+    return pGlIsEnabledi(cap,index);
 }
 inline void COpenGLExtensionHandler::extGlEnablei(GLenum cap, GLuint index)
 {
