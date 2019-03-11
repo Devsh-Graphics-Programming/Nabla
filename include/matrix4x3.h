@@ -8,11 +8,8 @@
 
 #include "vector3d.h"
 #include "vectorSIMD.h"
-#include "plane3d.h"
 #include "aabbox3d.h"
 #include "rect.h"
-#include "matrix4.h"
-
 
 
 namespace irr
@@ -20,86 +17,25 @@ namespace irr
 namespace core
 {
 
-    class matrix4x3;
-
-    /** Calculate a*b */
-    matrix4x3 concatenateBFollowedByA(const matrix4x3& other_a,const matrix4x3& other_b );
-
-    matrix4x3 concatenatePreciselyBFollowedByA(const matrix4x3& other_a,const matrix4x3& other_b );
-
-    matrix4 concatenateBFollowedByA(const matrix4& other_a,const matrix4x3& other_b );
-
-    matrix4 concatenatePreciselyBFollowedByA(const matrix4& other_a,const matrix4x3& other_b );
-
 
 	class matrix4x3// : public AlignedBase<_IRR_SIMD_ALIGNMENT> don't inherit from AlignedBase (which is empty) because member `rows[4]` inherits from it as well
 	{
 		public:
-
-			//! Constructor Flags
-			enum eConstructor
-			{
-				EM4CONST_NOTHING = 0,
-				EM4CONST_COPY,
-				EM4CONST_IDENTITY,
-				//EM4CONST_TRANSPOSED,
-				EM4CONST_INVERSE=4,
-				//EM4CONST_INVERSE_TRANSPOSED
-			};
-
 			//! Default constructor
 			/** \param constructor Choose the initialization style */
-			inline matrix4x3( eConstructor constructor = EM4CONST_IDENTITY )
+			inline matrix4x3()
             {
-                switch ( constructor )
-                {
-                    case EM4CONST_NOTHING:
-                    case EM4CONST_COPY:
-                        break;
-                    case EM4CONST_IDENTITY:
-                    case EM4CONST_INVERSE:
-                    default:
-                        column[0].set(1.f,0.f,0.f);
-                        column[1].set(0.f,1.f,0.f);
-                        column[2].set(0.f,0.f,1.f);
-                        column[3].set(0.f,0.f,0.f);
-                        break;
-                }
+                column[0].set(1.f,0.f,0.f);
+                column[1].set(0.f,1.f,0.f);
+                column[2].set(0.f,0.f,1.f);
+                column[3].set(0.f,0.f,0.f);
             }
 			//! Copy constructor
 			/** \param other Other matrix to copy from
 			\param constructor Choose the initialization style */
-			inline matrix4x3(const matrix4x3& other, eConstructor constructor = EM4CONST_COPY)
+			inline matrix4x3(const matrix4x3& other)
 			{
-                switch ( constructor )
-                {
-                    case EM4CONST_IDENTITY:
-                        column[0].set(1.f,0.f,0.f);
-                        column[1].set(0.f,1.f,0.f);
-                        column[2].set(0.f,0.f,1.f);
-                        column[3].set(0.f,0.f,0.f);
-                        break;
-                    case EM4CONST_COPY:
-                        *this = other;
-                        break;
-                    case EM4CONST_INVERSE:
-                        if (!other.getInverse(*this))
-                            memset(column, 0, 12*sizeof(float));
-                        break;
-                    default:
-                        break;
-                }
-			}
-
-			inline matrix4 convertTo4x4() const
-			{
-			    matrix4 retval;
-			    reinterpret_cast<vector3df*>(retval.pointer()+0)[0] = column[0];
-			    reinterpret_cast<vector3df*>(retval.pointer()+4)[0] = column[1];
-			    reinterpret_cast<vector3df*>(retval.pointer()+8)[0] = column[2];
-			    reinterpret_cast<vector3df*>(retval.pointer()+12)[0] = column[3];
-				retval[15] = 1.f;
-			    return retval;
+                *this = other;
 			}
 
 			//! Simple operator for directly accessing every element of the matrix.
@@ -107,13 +43,7 @@ namespace core
 
 			//! Simple operator for directly accessing every element of the matrix.
 			inline const float& operator()(const size_t& i, const size_t& j) const { return reinterpret_cast<const float*>(column+j)[i]; }
-/*
-			//! Simple operator for linearly accessing every element of the matrix.
-			inline float& operator[](const size_t& index) {return reinterpret_cast<float*>(column)[index];}
 
-			//! Simple operator for linearly accessing every element of the matrix.
-			inline const float& operator[](const size_t& index) const {return reinterpret_cast<const float*>(column)[index];}
-*/
 			inline vector3df& getColumn(const size_t& index) {return column[index];}
 			inline const vector3df& getColumn(const size_t& index) const {return column[index];}
 
@@ -176,30 +106,6 @@ namespace core
 			    column[3] -= other.column[3];
 			    return *this;
 			}
-
-			//! apply this transformation before other (i.e. this==world, other==viewproj, gl_WorldViewProj = world.concatenateBefore(viewproj) )
-            inline matrix4x3& concatenateBefore(const matrix4x3& other)
-            {
-                *this = concatenateBFollowedByA(other,*this);
-                return *this;
-            }
-            inline matrix4x3& concatenatePreciselyBefore(const matrix4x3& other)
-            {
-                *this = concatenatePreciselyBFollowedByA(other,*this);
-                return *this;
-            }
-
-			//! apply this transformation after other (i.e. this==proj, other==view, gl_ViewProj = proj.concatenateAfter(view) )
-            inline matrix4x3& concatenateAfter(const matrix4x3& other)
-            {
-                *this = concatenateBFollowedByA(*this,other);
-                return *this;
-            }
-            inline matrix4x3& concatenatePreciselyAfter(const matrix4x3& other)
-            {
-                *this = concatenatePreciselyBFollowedByA(*this,other);
-                return *this;
-            }
 
 			//! Multiply by scalar.
 			inline matrix4x3 operator*(const float& scalar) const
@@ -321,30 +227,6 @@ namespace core
 			    reinterpret_cast<vector3df*>(out)[0] = column[0]*in[0]+column[1]*in[1]+column[2]*in[2];
 			}
 
-			//! Transforms a plane by this matrix
-			inline void transformPlane( core::plane3d<float> &plane) const
-			{
-                core::plane3df temp;
-                transformPlane(plane,temp);
-                plane = temp;
-			}
-
-			//! Transforms a plane by this matrix
-			// (N,D).(x,1) = 0
-			// N.(Mx) + D = 0
-			inline void transformPlane( const core::plane3d<float> &in, core::plane3d<float> &out) const
-            {
-                matrix4x3 inverse;
-                getInverse(inverse);
-
-                out.Normal.X = in.Normal.dotProduct(inverse.column[0]);
-                out.Normal.Y = in.Normal.dotProduct(inverse.column[1]);
-                out.Normal.Z = in.Normal.dotProduct(inverse.column[2]);
-
-                out.D = in.Normal.dotProduct(inverse.column[3]) + in.D;
-            }
-
-
 			//! Transforms a axis aligned bounding box
 			inline void transformBoxEx(core::aabbox3d<float>& box) const
 			{
@@ -365,7 +247,9 @@ namespace core
 			/** \return Returns false if there is no inverse matrix.*/
 			inline bool makeInverse()
 			{
-                matrix4x3 temp ( EM4CONST_NOTHING );
+                matrix4x3 temp;
+                for (auto i=0u; i<4u; i++)
+                    temp.column[i].set(0.f,0.f,0.f);
 
                 if (getInverse(temp))
                 {
@@ -454,30 +338,10 @@ namespace core
 					const vector3df& upVector);
 
 
-			//! Builds a combined matrix which translates to a center before rotation and translates from origin afterwards
-			/** \param center Position to rotate around
-			\param translate Translation applied after the rotation
-			 */
-			inline void setRotationCenter(const core::vector3df& center, const core::vector3df& translate);
-
-			//! Builds a matrix which rotates a source vector to a look vector over an arbitrary axis
-			/** \param camPos: viewer position in world coo
-			\param center: object position in world-coo and rotation pivot
-			\param translation: object final translation from center
-			\param axis: axis to rotate about
-			\param from: source vector to rotate from
-			 */
-			inline void buildAxisAlignedBillboard(const core::vector3df& camPos,
-						const core::vector3df& center,
-						const core::vector3df& translation,
-						const core::vector3df& axis,
-						const core::vector3df& from);
-
-
 			//! Sets all matrix data members at once
 			inline matrix4x3& setM(const float* data)
 			{
-			    memcpy(column,data,48);
+			    std::copy(data,data+12,reinterpret_cast<float*>(column));
 				return *this;
 			}
 
@@ -519,53 +383,6 @@ namespace core
             ret(1,i) = outColumn[i].Y;
             ret(2,i) = outColumn[i].Z;
         }
-
-        return ret;
-    }
-
-    inline matrix4 concatenateBFollowedByA(const matrix4& other_a,const matrix4x3& other_b )
-    {
-        vectorSIMDf inColumn[4];
-        for (size_t i=0; i<4; i++)
-            inColumn[i] = vectorSIMDf(other_a.pointer()+i*4);
-        vectorSIMDf outColumn[4];
-
-        outColumn[0] = inColumn[0]*other_b(0,0)+inColumn[1]*other_b(1,0)+inColumn[2]*other_b(2,0);
-        outColumn[1] = inColumn[0]*other_b(0,1)+inColumn[1]*other_b(1,1)+inColumn[2]*other_b(2,1);
-        outColumn[2] = inColumn[0]*other_b(0,2)+inColumn[1]*other_b(1,2)+inColumn[2]*other_b(2,2);
-        outColumn[3] = inColumn[0]*other_b(0,3)+inColumn[1]*other_b(1,3)+inColumn[2]*other_b(2,3)+inColumn[3];
-
-        return *reinterpret_cast<matrix4*>(outColumn);
-    }
-
-    inline matrix4 concatenatePreciselyBFollowedByA(const matrix4& other_a,const matrix4x3& other_b )
-    {
-        matrix4 ret;
-        double aComponents[16];
-
-        aComponents[ 0] = double(other_a(0,0))*double(other_b(0,0))+double(other_a(1,0))*double(other_b(1,0))+double(other_a(2,0))*double(other_b(2,0));
-        aComponents[ 1] = double(other_a(0,1))*double(other_b(0,0))+double(other_a(1,1))*double(other_b(1,0))+double(other_a(2,1))*double(other_b(2,0));
-        aComponents[ 2] = double(other_a(0,2))*double(other_b(0,0))+double(other_a(1,2))*double(other_b(1,0))+double(other_a(2,2))*double(other_b(2,0));
-        aComponents[ 3] = double(other_a(0,3))*double(other_b(0,0))+double(other_a(1,3))*double(other_b(1,0))+double(other_a(2,3))*double(other_b(2,0));
-
-        aComponents[ 4] = double(other_a(0,0))*double(other_b(0,1))+double(other_a(1,0))*double(other_b(1,1))+double(other_a(2,0))*double(other_b(2,1));
-        aComponents[ 5] = double(other_a(0,1))*double(other_b(0,1))+double(other_a(1,1))*double(other_b(1,1))+double(other_a(2,1))*double(other_b(2,1));
-        aComponents[ 6] = double(other_a(0,2))*double(other_b(0,1))+double(other_a(1,2))*double(other_b(1,1))+double(other_a(2,2))*double(other_b(2,1));
-        aComponents[ 7] = double(other_a(0,3))*double(other_b(0,1))+double(other_a(1,3))*double(other_b(1,1))+double(other_a(2,3))*double(other_b(2,1));
-
-        aComponents[ 8] = double(other_a(0,0))*double(other_b(0,2))+double(other_a(1,0))*double(other_b(1,2))+double(other_a(2,0))*double(other_b(2,2));
-        aComponents[ 9] = double(other_a(0,1))*double(other_b(0,2))+double(other_a(1,1))*double(other_b(1,2))+double(other_a(2,1))*double(other_b(2,2));
-        aComponents[10] = double(other_a(0,2))*double(other_b(0,2))+double(other_a(1,2))*double(other_b(1,2))+double(other_a(2,2))*double(other_b(2,2));
-        aComponents[11] = double(other_a(0,3))*double(other_b(0,2))+double(other_a(1,3))*double(other_b(1,2))+double(other_a(2,3))*double(other_b(2,2));
-
-        aComponents[12] = double(other_a(0,0))*double(other_b(0,3))+double(other_a(1,0))*double(other_b(1,3))+double(other_a(2,0))*double(other_b(2,3))+double(other_a(3,0));
-        aComponents[13] = double(other_a(0,1))*double(other_b(0,3))+double(other_a(1,1))*double(other_b(1,3))+double(other_a(2,1))*double(other_b(2,3))+double(other_a(3,1));
-        aComponents[14] = double(other_a(0,2))*double(other_b(0,3))+double(other_a(1,2))*double(other_b(1,3))+double(other_a(2,2))*double(other_b(2,3))+double(other_a(3,2));
-        aComponents[15] = double(other_a(0,3))*double(other_b(0,3))+double(other_a(1,3))*double(other_b(1,3))+double(other_a(2,3))*double(other_b(2,3))+double(other_a(3,3));
-
-        for (size_t j=0; j<4; j++)
-        for (size_t i=0; i<4; i++)
-            ret(j,i) = aComponents[j*4+i];
 
         return ret;
     }
@@ -775,10 +592,9 @@ namespace core
 
 
 	// creates a new matrix as interpolated matrix from this and the passed one.
-
 	inline matrix4x3 mix(const core::matrix4x3& a, const core::matrix4x3& b, const float& x)
 	{
-		matrix4x3 mat ( matrix4x3::EM4CONST_NOTHING );
+		matrix4x3 mat;
 
 		mat.getColumn(0) = a.getColumn(0)+(b.getColumn(0)-a.getColumn(0))*x;
 		mat.getColumn(1) = a.getColumn(1)+(b.getColumn(1)-a.getColumn(1))*x;
@@ -787,73 +603,6 @@ namespace core
 
 		return mat;
 	}
-
-	//! Builds a matrix which rotates a source vector to a look vector over an arbitrary axis
-	/** \param camPos: viewer position in world coord
-	\param center: object position in world-coord, rotation pivot
-	\param translation: object final translation from center
-	\param axis: axis to rotate about
-	\param from: source vector to rotate from
-	 */
-
-	inline void matrix4x3::buildAxisAlignedBillboard(
-				const core::vector3df& camPos,
-				const core::vector3df& center,
-				const core::vector3df& translation,
-				const core::vector3df& axis,
-				const core::vector3df& from)
-	{
-		// axis of rotation
-		core::vector3df up = axis;
-		up.normalize();
-		const core::vector3df forward = (camPos - center).normalize();
-		const core::vector3df right = up.crossProduct(forward).normalize();
-
-		// correct look vector
-		const core::vector3df look = right.crossProduct(up);
-
-		// rotate from to
-		// axis multiplication by sin
-		const core::vector3df vs = look.crossProduct(from);
-
-		// cosinus angle
-		const float ca = from.dotProduct(look);
-
-		core::vector3df vt(up * (1.f - ca));
-
-		column[0].X = static_cast<float>(vt.X * up.X + ca);
-		column[1].Y = static_cast<float>(vt.Y * up.Y + ca);
-		column[2].Z = static_cast<float>(vt.Z * up.Z + ca);
-
-		vt.X *= up.Y;
-		vt.Z *= up.X;
-		vt.Y *= up.Z;
-
-		column[0].Y = static_cast<float>(vt.X - vs.Z);
-		column[0].Z = static_cast<float>(vt.Z + vs.Y);
-
-		column[1].X = static_cast<float>(vt.X + vs.Z);
-		column[1].Z = static_cast<float>(vt.Y - vs.X);
-
-		column[2].X = static_cast<float>(vt.Z - vs.Y);
-		column[2].Y = static_cast<float>(vt.Y + vs.X);
-
-		setRotationCenter(center, translation);
-	}
-
-
-	//! Builds a combined matrix which translate to a center before rotation and translate afterwards
-
-	inline void matrix4x3::setRotationCenter(const core::vector3df& center, const core::vector3df& translation)
-	{
-		column[3].X = -column[0].X*center.X - column[1].X*center.Y - column[2].X*center.Z + (center.X - translation.X );
-		column[3].Y = -column[0].Y*center.X - column[1].Y*center.Y - column[2].Y*center.Z + (center.Y - translation.Y );
-		column[3].Z = -column[0].Z*center.X - column[1].Z*center.Y - column[2].Z*center.Z + (center.Z - translation.Z );
-	}
-
-
-	//! global const identity matrix
-	IRRLICHT_API extern const matrix4x3 IdentityMatrix;
 
 } // end namespace core
 } // end namespace irr

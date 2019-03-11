@@ -80,9 +80,11 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_APPLE_vertex_program_evaluators",
 	"GL_APPLE_ycbcr_422",
 	"GL_ARB_base_instance",
+	"GL_ARB_bindless_texture",
 	"GL_ARB_buffer_storage",
 	"GL_ARB_blend_func_extended",
 	"GL_ARB_cl_event",
+	"GL_ARB_clip_control",
 	"GL_ARB_color_buffer_float",
 	"GL_ARB_compatibility",
 	"GL_ARB_compressed_texture_pixel_storage",
@@ -525,8 +527,10 @@ class COpenGLExtensionHandler
 		IRR_APPLE_vertex_program_evaluators,
 		IRR_APPLE_ycbcr_422,
 		IRR_ARB_base_instance,
+		IRR_ARB_bindless_texture,
 		IRR_ARB_buffer_storage,
 		IRR_ARB_blend_func_extended,
+		IRR_ARB_clip_control,
 		IRR_ARB_cl_event,
 		IRR_ARB_color_buffer_float,
 		IRR_ARB_compatibility,
@@ -1024,12 +1028,15 @@ class COpenGLExtensionHandler
     static void extGlGetFloati_v(GLenum pname, GLuint index, float* data);
     static void extGlGetIntegeri_v(GLenum pname, GLuint index, GLint* data);
     static void extGlProvokingVertex(GLenum provokeMode);
+    static void extGlClipControl(GLenum origin, GLenum depth);
+
     //
     static GLsync extGlFenceSync(GLenum condition, GLbitfield flags);
     static void extGlDeleteSync(GLsync sync);
     static GLenum extGlClientWaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout);
     static void extGlWaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout);
 
+    // the above function definitions can stay, the rest towards the bottom are up for review
 	// public access to the (loaded) extensions.
 	static void extGlActiveTexture(GLenum target);
     static void extGlBindTextures(const GLuint& first, const GLsizei& count, const GLuint* textures, const GLenum* targets);
@@ -1255,7 +1262,7 @@ class COpenGLExtensionHandler
 	// the global feature array
 	static bool FeatureAvailable[IRR_OpenGL_Feature_Count];
 
-#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
+
     //
     static PFNGLISENABLEDIPROC pGlIsEnabledi;
     static PFNGLENABLEIPROC pGlEnablei;
@@ -1265,6 +1272,7 @@ class COpenGLExtensionHandler
     static PFNGLGETINTEGERI_VPROC pGlGetIntegeri_v;
     static PFNGLGETSTRINGIPROC pGlGetStringi;
     static PFNGLPROVOKINGVERTEXPROC pGlProvokingVertex;
+    static PFNGLCLIPCONTROLPROC pGlClipControl;
 
     //fences
     static PFNGLFENCESYNCPROC pGlFenceSync;
@@ -1390,7 +1398,7 @@ class COpenGLExtensionHandler
     static PFNGLPOINTPARAMETERFVPROC pGlPointParameterfv;
     static PFNGLBINDPROGRAMPIPELINEPROC pGlBindProgramPipeline;
 
-	//Criss
+	// Compute
 	static PFNGLMEMORYBARRIERPROC pGlMemoryBarrier;
 	static PFNGLDISPATCHCOMPUTEPROC pGlDispatchCompute;
 	static PFNGLDISPATCHCOMPUTEINDIRECTPROC pGlDispatchComputeIndirect;
@@ -1577,11 +1585,13 @@ class COpenGLExtensionHandler
     static PFNGLBLENDEQUATIONEXTPROC pGlBlendEquationEXT;
     static PFNGLBLENDEQUATIONPROC pGlBlendEquation;
 
+    // the following can stay also
     static PFNGLDEBUGMESSAGECONTROLPROC pGlDebugMessageControl;
     static PFNGLDEBUGMESSAGECONTROLARBPROC pGlDebugMessageControlARB;
     static PFNGLDEBUGMESSAGECALLBACKPROC pGlDebugMessageCallback;
     static PFNGLDEBUGMESSAGECALLBACKARBPROC pGlDebugMessageCallbackARB;
 
+    // os specific stuff for swapchain
     #if defined(WGL_EXT_swap_control)
     static PFNWGLSWAPINTERVALEXTPROC pWglSwapIntervalEXT;
     #endif
@@ -1594,7 +1604,6 @@ class COpenGLExtensionHandler
     #if defined(GLX_MESA_swap_control)
     static PFNGLXSWAPINTERVALMESAPROC pGlxSwapIntervalMESA;
     #endif
-#endif
 protected:
 	// constructor
 	COpenGLExtensionHandler();
@@ -1609,56 +1618,36 @@ private:
 
 inline bool COpenGLExtensionHandler::extGlIsEnabledi(GLenum cap, GLuint index)
 {
-    return pGlIsEnabledi(cap,index);
+    pGlIsEnabledi(cap,index);
 }
 inline void COpenGLExtensionHandler::extGlEnablei(GLenum cap, GLuint index)
 {
-    return pGlEnablei(cap,index);
+    pGlEnablei(cap,index);
 }
 inline void COpenGLExtensionHandler::extGlDisablei(GLenum cap, GLuint index)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlDisablei)
-        return pGlDisablei(cap,index);
-#else
-    return glDisablei(cap,index);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    pGlDisablei(cap,index);
 }
 inline void COpenGLExtensionHandler::extGlGetBooleani_v(GLenum pname, GLuint index, GLboolean* data)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlGetBooleani_v)
-        return pGlGetBooleani_v(pname,index,data);
-#else
-    return glGetBooleani_v(pname,index,data);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    pGlGetBooleani_v(pname,index,data);
 }
 inline void COpenGLExtensionHandler::extGlGetFloati_v(GLenum pname, GLuint index, float* data)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlGetFloati_v)
-        return pGlGetFloati_v(pname,index,data);
-#else
-    return glGetFloati_v(pname,index,data);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    pGlGetFloati_v(pname,index,data);
 }
 inline void COpenGLExtensionHandler::extGlGetIntegeri_v(GLenum pname, GLuint index, GLint* data)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlGetIntegeri_v)
-        return pGlGetIntegeri_v(pname,index,data);
-#else
-    return glGetIntegeri_v(pname,index,data);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    pGlGetIntegeri_v(pname,index,data);
 }
 inline void COpenGLExtensionHandler::extGlProvokingVertex(GLenum provokeMode)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlProvokingVertex)
-        return pGlProvokingVertex(provokeMode);
-#else
-    return glProvokingVertex(provokeMode);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    pGlProvokingVertex(provokeMode);
+}
+inline void COpenGLExtensionHandler::extGlClipControl(GLenum origin, GLenum depth)
+{
+    if (pGlClipControl)
+        pGlClipControl(origin,depth);
 }
 
 

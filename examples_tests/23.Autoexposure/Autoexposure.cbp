@@ -87,7 +87,6 @@
 		<Unit filename="../../ext/AutoExposure/lumaHistogramSecondPass.comp" />
 		<Unit filename="main.cpp" />
 		<Unit filename="postproc.frag" />
-		<Unit filename="screenquad.vert" />
 		<Extensions>
 			<code_completion />
 			<debugger />

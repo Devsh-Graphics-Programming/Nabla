@@ -19,13 +19,6 @@
 #include "CSkinnedMesh.h"
 
 
-#ifdef _IRR_COMPILE_WITH_MS3D_LOADER_
-#include "CMS3DMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_3DS_LOADER_
-#include "C3DSMeshFileLoader.h"
-#endif
 
 #ifdef _IRR_COMPILE_WITH_X_LOADER_
 #include "CXMeshFileLoader.h"
@@ -39,20 +32,8 @@
 #include "CLMTSMeshFileLoader.h"
 #endif
 
-#ifdef _IRR_COMPILE_WITH_MY3D_LOADER_
-#include "CMY3DMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_OGRE_LOADER_
-#include "COgreMeshFileLoader.h"
-#endif
-
 #ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
 #include "COBJMeshFileLoader.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_B3D_LOADER_
-#include "CB3DMeshFileLoader.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_LWO_LOADER_
@@ -94,7 +75,6 @@
 #include "CBillboardSceneNode.h"
 #include "CCubeSceneNode.h"
 #include "CSphereSceneNode.h"
-#include "CAnimatedMeshSceneNode.h"
 #include "CCameraSceneNode.h"
 #include "CMeshSceneNode.h"
 #include "CMeshSceneNodeInstanced.h"
@@ -289,29 +269,14 @@ CSceneManager::CSceneManager(video::IVideoDriver* driver, irr::ITimer* timer, io
 	#ifdef _IRR_COMPILE_WITH_LMTS_LOADER_
 	MeshLoaderList.push_back(new CLMTSMeshFileLoader(FileSystem, Driver));
 	#endif
-	#ifdef _IRR_COMPILE_WITH_MY3D_LOADER_
-	MeshLoaderList.push_back(new CMY3DMeshFileLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_OGRE_LOADER_
-	MeshLoaderList.push_back(new COgreMeshFileLoader(FileSystem, Driver));
-	#endif
 	#ifdef _IRR_COMPILE_WITH_LWO_LOADER_
 	MeshLoaderList.push_back(new CLWOMeshFileLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_3DS_LOADER_
-	MeshLoaderList.push_back(new C3DSMeshFileLoader(this, FileSystem));
 	#endif
 	#ifdef _IRR_COMPILE_WITH_X_LOADER_
 	MeshLoaderList.push_back(new CXMeshFileLoader(this, FileSystem));
 	#endif
-	#ifdef _IRR_COMPILE_WITH_MS3D_LOADER_
-	MeshLoaderList.push_back(new CMS3DMeshFileLoader(Driver));
-	#endif
 	#ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
 	MeshLoaderList.push_back(new COBJMeshFileLoader(this, FileSystem));
-	#endif
-	#ifdef _IRR_COMPILE_WITH_B3D_LOADER_
-	MeshLoaderList.push_back(new CB3DMeshFileLoader(this));
 	#endif
 	#ifdef _IRR_COMPILE_WITH_BAW_LOADER_
 	MeshLoaderList.push_back(new CBAWMeshFileLoader(this, FileSystem));
@@ -705,38 +670,24 @@ bool CSceneManager::isCulled(ISceneNode* node) const
 	{
 		return false;
 	}
-	bool result = false;
 
-	// can be seen by a bounding box ?
-	if (!result && (node->getAutomaticCulling() & scene::EAC_BOX))
-	{
-		core::aabbox3d<float> tbox = node->getBoundingBox();
-		if (tbox.MinEdge==tbox.MaxEdge)
-            return true;
+    core::aabbox3d<float> tbox = node->getBoundingBox();
+    if (tbox.MinEdge==tbox.MaxEdge)
+        return true;
+
+    auto cullMode = node->getAutomaticCulling();
+    if (cullMode & (scene::EAC_BOX|scene::EAC_FRUSTUM_BOX))
+    {
 		node->getAbsoluteTransformation().transformBoxEx(tbox);
-		result = !(tbox.intersectsWithBox(cam->getViewFrustum()->getBoundingBox() ));
-	}
-
-	// can be seen by a bounding sphere
-	if (!result && (node->getAutomaticCulling() & scene::EAC_FRUSTUM_SPHERE))
-	{ // requires bbox diameter
-	}
-
-	// can be seen by cam pyramid planes ?
-	if (!result && (node->getAutomaticCulling() & scene::EAC_FRUSTUM_BOX))
-	{
-		core::aabbox3d<float> tbox = node->getBoundingBox();
-		if (tbox.MinEdge==tbox.MaxEdge)
+        // can be seen by a bounding box ?
+        if ((cullMode & scene::EAC_BOX) && !tbox.intersectsWithBox(cam->getViewFrustum()->getBoundingBox()))
             return true;
-
-        //transform the frustum to the node's current absolute transformation
-        core::matrix4 worldviewproj = concatenateBFollowedByA(cam->getProjectionMatrix(),concatenateBFollowedByA(cam->getViewMatrix(),node->getAbsoluteTransformation()));
-
-        if (!worldviewproj.isBoxInsideFrustum(tbox))
+        // can be seen by cam pyramid planes ?
+        if ((cullMode & scene::EAC_FRUSTUM_BOX) && !cam->getViewFrustum()->intersectsAABB(tbox))
             return true;
 	}
 
-	return result;
+	return false;
 }
 
 
@@ -877,9 +828,9 @@ void CSceneManager::drawAll()
 
 	// reset all transforms
 	Driver->setMaterial(video::SMaterial());
-	Driver->setTransform(video::EPTS_PROJ,core::matrix4());
-	Driver->setTransform ( video::E4X3TS_VIEW, core::IdentityMatrix );
-	Driver->setTransform ( video::E4X3TS_WORLD, core::IdentityMatrix );
+	Driver->setTransform(video::EPTS_PROJ,core::matrix4SIMD());
+	Driver->setTransform ( video::E4X3TS_VIEW, core::matrix4x3() );
+	Driver->setTransform ( video::E4X3TS_WORLD, core::matrix4x3() );
 
 	// TODO: This should not use an attribute here but a real parameter when necessary (too slow!)
 	Driver->setAllowZWriteOnTransparent( *((bool*)&(Parameters[ALLOW_ZWRITE_ON_TRANSPARENT])) );

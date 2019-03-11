@@ -62,7 +62,7 @@ namespace video
 
 		//! sets transformation
 		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat);
-		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4& mat);
+		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4SIMD& mat);
 
 		//! Retrieve the number of image loaders
 		virtual uint32_t getImageLoaderCount() const;
@@ -383,7 +383,7 @@ namespace video
 		//! Returns the transformation set by setTransform
 		virtual const core::matrix4x3& getTransform(const E_4X3_TRANSFORMATION_STATE& state);
 
-		virtual const core::matrix4& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state);
+		virtual const core::matrix4SIMD& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state);
 
 		//! Returns pointer to the IGPUProgrammingServices interface.
 		virtual IGPUProgrammingServices* getGPUProgrammingServices();
@@ -650,7 +650,7 @@ namespace video
 		core::dimension2d<uint32_t> ScreenSize;
 
 		uint32_t matrixModifiedBits;
-		core::matrix4 ProjectionMatrices[EPTS_COUNT];
+		core::matrix4SIMD ProjectionMatrices[EPTS_COUNT];
 		core::matrix4x3 TransformationMatrices[E4X3TS_COUNT];
 
 		CFPSCounter FPSCounter;

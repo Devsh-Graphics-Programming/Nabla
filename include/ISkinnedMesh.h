@@ -8,7 +8,7 @@
 #include "irr/core/Types.h"
 #include "IMesh.h"
 #include "quaternion.h"
-#include "matrix4.h"
+#include "matrix4x3.h"
 #include <vector>
 #include <string>
 

@@ -9,25 +9,21 @@ void main()
 {
     gl_Layer = gl_InvocationID;
 
-    vec4 clipPos[3];
+    mat3x4 clipPos;
     for (int i=0; i<3; i++)
         clipPos[i] = ViewProjCubeMatrices[gl_InvocationID]*vec4(gl_in[i].gl_Position.xyz,1.0);
 
     // can comment this clip-space culling in and out, but my guess is that the rasterizer pipeline in most GPUs does this already!
-    if (clipPos[0].x>clipPos[0].w&&clipPos[1].x>clipPos[1].w&&clipPos[2].x>clipPos[2].w)
-        return;
-    if (clipPos[0].y>clipPos[0].w&&clipPos[1].y>clipPos[1].w&&clipPos[2].y>clipPos[2].w)
-        return;
-    if (clipPos[0].z>clipPos[0].w&&clipPos[1].z>clipPos[1].w&&clipPos[2].z>clipPos[2].w)
-        return;
-    if (clipPos[0].x<-clipPos[0].w&&clipPos[1].x<-clipPos[1].w&&clipPos[2].x<-clipPos[2].w)
-        return;
-    if (clipPos[0].y<-clipPos[0].w&&clipPos[1].y<-clipPos[1].w&&clipPos[2].y<-clipPos[2].w)
-        return;
-    if (clipPos[0].z<-clipPos[0].w&&clipPos[1].z<-clipPos[1].w&&clipPos[2].z<-clipPos[2].w)
-        return;
+    mat4x3 cullingMatrix = transpose(clipPos);
+    for (int i=0; i<3; i++)
+    {
+        if (all(greaterThan(cullingMatrix[i],cullingMatrix[3])))
+            return;
+        if (all(lessThan(cullingMatrix[i],-cullingMatrix[3])))
+            return;
+    }
 
-
+    // emit
     for (int i=0; i<3; i++)
     {
         gl_Position = clipPos[i];

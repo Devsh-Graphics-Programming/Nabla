@@ -188,17 +188,6 @@ namespace core
 				return dimension2d<T>((T)i,(T)j);
 			}
 
-			//! Get the interpolated dimension
-			/** \param other Other dimension to interpolate with.
-			\param d Value between 0.0f and 1.0f.
-			\return Interpolated dimension. */
-			dimension2d<T> getInterpolated(const dimension2d<T>& other, float d) const
-			{
-				float inv = (1.0f - d);
-				return dimension2d<T>( (T)(other.Width*inv + Width*d), (T)(other.Height*inv + Height*d));
-			}
-
-
 			//! Width of the dimension.
 			T Width;
 			//! Height of the dimension.

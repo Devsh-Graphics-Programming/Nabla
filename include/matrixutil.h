@@ -1,39 +1,37 @@
+#ifndef  __IRR_MATRIX_UTIL_H_INCLUDED__
+#define __IRR_MATRIX_UTIL_H_INCLUDED__
+
 #include "matrix4SIMD.h"
-#include "matrix3x4SIMD.h""
+#include "matrix3x4SIMD.h"
 
-namespace irr { namespace core
+namespace irr
+{
+namespace core
 {
 
-namespace impl
-{
-matrix4SIMD toMat4(const matrix3x4SIMD& _mtx)
-{
-    matrix4SIMD m4;
-    m4[0] = _mtx[0];
-    m4[1] = _mtx[1];
-    m4[2] = _mtx[2];
-    m4[3] = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
 
-    return m4;
-}
-}
-
+//! TODO: OPTIMIZE THIS, DON'T PROMOTE THE MATRIX IF DON'T HAVE TO
 inline matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& _a, const matrix3x4SIMD& _b)
 {
-    return concatenateBFollowedByA(_a, impl::toMat4(_b));
+    return concatenateBFollowedByA(_a, matrix4SIMD(_b));
 }
+/*
 inline matrix4SIMD concatenateBFollowedByAPrecisely(const matrix4SIMD& _a, const matrix3x4SIMD& _b)
 {
-    return concatenateBFollowedByAPrecisely(_a, impl::toMat4(_b));
+    return concatenateBFollowedByAPrecisely(_a, matrix4SIMD(_b));
+}
+*/
+
+// TODO: Kill this when killing matrix4x3
+inline matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& other_a, const matrix4x3& other_b )
+{
+    matrix3x4SIMD rowBasedMatrixB;
+    rowBasedMatrixB.set(other_b);
+    return concatenateBFollowedByA(other_a,matrix4SIMD(rowBasedMatrixB));
 }
 
-inline matrix4SIMD concatenateBFollowedByA(const matrix3x4SIMD& _a, const matrix4SIMD& _b)
-{
-    return concatenateBFollowedByA(impl::toMat4(_a), _b);
+
 }
-inline matrix4SIMD concatenateBFollowedByAPrecisely(const matrix3x4SIMD& _a, const matrix4SIMD& _b)
-{
-    concatenateBFollowedByAPrecisely(impl::toMat4(_a), _b);
 }
 
-}}
+#endif // __IRR_MATRIX_UTIL_H_INCLUDED__

@@ -80,6 +80,7 @@
 			<Add option="-W" />
 			<Add directory="../../include" />
 		</Compiler>
+		<Unit filename="../../include/irr/core/math/plane3dSIMD.h" />
 		<Unit filename="culling.geom" />
 		<Unit filename="culling.vert" />
 		<Unit filename="main.cpp" />

@@ -13,7 +13,7 @@
 #include "ITexture.h"
 #include "irr/core/irrString.h"
 #include "aabbox3d.h"
-#include "matrix4.h"
+#include "matrix4x3.h"
 #include "IDummyTransformationSceneNode.h"
 #include "IDriverFence.h"
 

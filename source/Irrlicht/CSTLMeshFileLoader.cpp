@@ -9,6 +9,8 @@
 #include "CSTLMeshFileLoader.h"
 #include "SMesh.h"
 
+#include "irr/core/math/plane3dSIMD.h"
+
 #include "IReadFile.h"
 #include "coreutil.h"
 #include "os.h"
@@ -165,10 +167,10 @@ ICPUMesh* CSTLMeshFileLoader::createMesh(io::IReadFile* file)
 		if ((normals.back() == core::vectorSIMDf()).all())
         {
 			normals.back().set(
-                core::plane3df(
-                    (positions.rbegin()+2)->getAsVector3df(),
-                    (positions.rbegin()+1)->getAsVector3df(),
-                    (positions.rbegin()+0)->getAsVector3df()).Normal
+                core::plane3dSIMDf(
+                    *(positions.rbegin()+2),
+                    *(positions.rbegin()+1),
+                    *(positions.rbegin()+0)).getNormal()
             );
         }
 	} // end while (file->getPos() < filesize)

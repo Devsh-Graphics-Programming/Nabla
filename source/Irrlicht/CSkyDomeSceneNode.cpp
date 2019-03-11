@@ -186,7 +186,7 @@ void CSkyDomeSceneNode::render()
 	if (!camera || !driver)
 		return;
 
-	if ( !camera->isOrthogonal() && canProceedPastFence() )
+	if ( !camera->getProjectionMatrix().isOrthogonal() && canProceedPastFence() ) // check this actually works!
 	{
 		core::matrix4x3 mat(AbsoluteTransformation);
 		mat.setTranslation(camera->getAbsolutePosition());

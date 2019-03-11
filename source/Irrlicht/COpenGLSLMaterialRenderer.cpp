@@ -372,6 +372,8 @@ void COpenGLSLMaterialRenderer::setShaderConstant(const void* data, int32_t loca
     GLsizei cnt = int32_t(number);
     GLint loc = int32_t(location);
 
+    constexpr bool isRowMajor = true;
+
     switch (type)
     {
     case ESCT_FLOAT:
@@ -423,31 +425,31 @@ void COpenGLSLMaterialRenderer::setShaderConstant(const void* data, int32_t loca
         COpenGLExtensionHandler::extGlProgramUniform4iv(Program2,loc,cnt,(GLint*)data);
         break;
     case ESCT_FLOAT_MAT2:
-        COpenGLExtensionHandler::extGlProgramUniformMatrix2fv(Program2,loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniformMatrix2fv(Program2,loc,cnt,isRowMajor,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT3:
-        COpenGLExtensionHandler::extGlProgramUniformMatrix3fv(Program2,loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniformMatrix3fv(Program2,loc,cnt,isRowMajor,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT4:
-        COpenGLExtensionHandler::extGlProgramUniformMatrix4fv(Program2,loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniformMatrix4fv(Program2,loc,cnt,isRowMajor,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT2x3:
-        COpenGLExtensionHandler::extGlProgramUniformMatrix2x3fv(Program2,loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniformMatrix2x3fv(Program2,loc,cnt,isRowMajor,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT2x4:
-        COpenGLExtensionHandler::extGlProgramUniformMatrix2x4fv(Program2,loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniformMatrix2x4fv(Program2,loc,cnt,isRowMajor,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT3x2:
-        COpenGLExtensionHandler::extGlProgramUniformMatrix3x2fv(Program2,loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniformMatrix3x2fv(Program2,loc,cnt,isRowMajor,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT3x4:
-        COpenGLExtensionHandler::extGlProgramUniformMatrix3x4fv(Program2,loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniformMatrix3x4fv(Program2,loc,cnt,isRowMajor,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT4x2:
-        COpenGLExtensionHandler::extGlProgramUniformMatrix4x2fv(Program2,loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniformMatrix4x2fv(Program2,loc,cnt,isRowMajor,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT4x3:
-        COpenGLExtensionHandler::extGlProgramUniformMatrix4x3fv(Program2,loc,cnt,false,(GLfloat*)data);
+        COpenGLExtensionHandler::extGlProgramUniformMatrix4x3fv(Program2,loc,cnt,false,(GLfloat*)data); // not yet because core::matrix3x4 is still in use
         break;
 #ifdef _DEBUG
     default:
