@@ -139,6 +139,9 @@ set(IRRLICHT_SRCS_COMMON
 	Irrlicht.cpp
 	os.cpp
 	IReferenceCounted.cpp
+	
+# PCH
+	pch.cpp
 )
 
 set(IRRLICHT_SRCS_NORMAL
@@ -329,6 +332,9 @@ macro(irr_target_link_shaderc _trgt)
 	target_include_directories(${_trgt} PUBLIC ../../3rdparty/shaderc/libshaderc/include)
 endmacro()
 
+# get function for cross-compiler PCH configuration
+include(add_pch)
+
 add_library(Irrlicht STATIC
 	${IRRLICHT_SRCS_COMMON}
 	${IRRLICHT_SRCS_NORMAL}
@@ -388,6 +394,8 @@ target_compile_definitions(Irrlicht PRIVATE
 	_IRR_COMPILE_WITH_OPENGL_
 )
 
+ADD_PRECOMPILED_HEADER(Irrlicht pch.h FORCEINCLUDE)
+
 add_library(IrrlichtServer STATIC
 	${IRRLICHT_SRCS_COMMON}
 	${IRRLICHT_SRCS_SERVER}
@@ -417,6 +425,8 @@ target_compile_definitions(IrrlichtServer PRIVATE
 	NO_IRR_COMPILE_WITH_BURNINGSVIDEO_
 	NO_IRR_COMPILE_WITH_OPENGL_
 )
+
+ADD_PRECOMPILED_HEADER(IrrlichtServer pch.h FORCEINCLUDE)
 
 if(MSVC)
 	set (OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/../../lib/Win64-visualStudio")
