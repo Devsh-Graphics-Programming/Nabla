@@ -168,9 +168,7 @@ set(IRRLICHT_SRCS_SERVER
 
 set(COMMON_INCLUDE_DIRS
 	convert_utf
-	libpng
 	utf8/source
-	zlib
 )
 
 irr_adjust_flags() # macro defined in root CMakeLists
@@ -189,133 +187,10 @@ add_library(aesGladman OBJECT
 )
 target_include_directories(aesGladman PUBLIC ${COMMON_INCLUDE_DIRS})
 
-add_library(bzip2 OBJECT
-	bzip2/blocksort.c
-	bzip2/bzlib.c
-	bzip2/compress.c
-	bzip2/crctable.c
-	bzip2/decompress.c
-	bzip2/huffman.c
-	bzip2/randtable.c
-)
-target_include_directories(bzip2 PUBLIC ${COMMON_INCLUDE_DIRS})
-
 add_library(convert_utf OBJECT
 	convert_utf/ConvertUTF.c
 )
 target_include_directories(convert_utf PUBLIC ${COMMON_INCLUDE_DIRS})
-
-add_library(jpeglib OBJECT
-	jpeglib/jaricom.c
-	jpeglib/jcapimin.c
-	jpeglib/jcapistd.c
-	jpeglib/jcarith.c
-	jpeglib/jccoefct.c
-	jpeglib/jccolor.c
-	jpeglib/jcdctmgr.c
-	jpeglib/jchuff.c
-	jpeglib/jcinit.c
-	jpeglib/jcmainct.c
-	jpeglib/jcmarker.c
-	jpeglib/jcmaster.c
-	jpeglib/jcomapi.c
-	jpeglib/jcparam.c
-	jpeglib/jcprepct.c
-	jpeglib/jcsample.c
-	jpeglib/jctrans.c
-	jpeglib/jdapimin.c
-	jpeglib/jdapistd.c
-	jpeglib/jdarith.c
-	jpeglib/jdatadst.c
-	jpeglib/jdatasrc.c
-	jpeglib/jdcoefct.c
-	jpeglib/jdcolor.c
-	jpeglib/jddctmgr.c
-	jpeglib/jdhuff.c
-	jpeglib/jdinput.c
-	jpeglib/jdmainct.c
-	jpeglib/jdmarker.c
-	jpeglib/jdmaster.c
-	jpeglib/jdmerge.c
-	jpeglib/jdpostct.c
-	jpeglib/jdsample.c
-	jpeglib/jdtrans.c
-	jpeglib/jerror.c
-	jpeglib/jfdctflt.c
-	jpeglib/jfdctfst.c
-	jpeglib/jfdctint.c
-	jpeglib/jidctflt.c
-	jpeglib/jidctfst.c
-	jpeglib/jidctint.c
-	jpeglib/jmemmgr.c
-	jpeglib/jmemnobs.c
-	jpeglib/jquant1.c
-	jpeglib/jquant2.c
-	jpeglib/jutils.c
-)
-target_include_directories(jpeglib PUBLIC ${COMMON_INCLUDE_DIRS})
-
-add_library(libpng OBJECT
-	libpng/png.c
-	libpng/pngerror.c
-	libpng/pngget.c
-	libpng/pngmem.c
-	libpng/pngpread.c
-	libpng/pngread.c
-	libpng/pngrio.c
-	libpng/pngrtran.c
-	libpng/pngrutil.c
-	libpng/pngset.c
-	libpng/pngtrans.c
-	libpng/pngwio.c
-	libpng/pngwrite.c
-	libpng/pngwtran.c
-	libpng/pngwutil.c
-)
-target_include_directories(libpng PUBLIC ${COMMON_INCLUDE_DIRS})
-
-add_library(lz4 OBJECT
-	lz4/lz4.c
-	lz4/lz4frame.c
-	lz4/lz4hc.c
-	lz4/xxhash.c
-)
-target_include_directories(lz4 PUBLIC ${COMMON_INCLUDE_DIRS})
-
-add_library(lzma OBJECT
-	lzma/Alloc.c
-	lzma/LzFind.c
-	lzma/LzmaDec.c
-	lzma/LzmaEnc.c
-)
-target_compile_definitions(lzma PRIVATE _7ZIP_ST)
-target_include_directories(lzma PUBLIC ${COMMON_INCLUDE_DIRS})
-
-add_library(zlib OBJECT
-	zlib/adler32.c
-	zlib/crc32.c
-	zlib/deflate.c
-	zlib/infback.c
-	zlib/inffast.c
-	zlib/inflate.c
-	zlib/inftrees.c
-	zlib/trees.c
-	zlib/uncompr.c
-	zlib/zcompress.c
-	zlib/zutil.c
-)
-target_include_directories(zlib PUBLIC ${COMMON_INCLUDE_DIRS})
-
-add_library(spirv_cross OBJECT
-	spirv_cross/spirv_cfg.cpp
-	spirv_cross/spirv_cross.cpp
-	spirv_cross/spirv_glsl.cpp
-	spirv_cross/spirv_reflect.cpp
-	spirv_cross/spirv_parser.cpp
-	spirv_cross/spirv_cross_parsed_ir.cpp
-)
-target_compile_definitions(spirv_cross PRIVATE SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
-target_include_directories(spirv_cross PUBLIC ${COMMON_INCLUDE_DIRS})
 
 macro(irr_target_link_openssl _trgt)
 	target_link_libraries(${_trgt} INTERFACE
@@ -331,6 +206,13 @@ macro(irr_target_link_shaderc _trgt)
 	)
 	target_include_directories(${_trgt} PUBLIC ../../3rdparty/shaderc/libshaderc/include)
 endmacro()
+macro(irr_target_link_libjpeg _trgt)
+	add_dependencies(Irrlicht jpeg)
+	target_link_libraries(${_trgt} INTERFACE
+		jpeg
+	)
+	target_include_directories(${_trgt} PUBLIC ../../3rdparty/libjpeg)
+endmacro()
 
 # get function for cross-compiler PCH configuration
 include(add_pch)
@@ -342,7 +224,6 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:convert_utf>
-	$<TARGET_OBJECTS:jpeglib>
 	$<TARGET_OBJECTS:libpng>
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
@@ -352,6 +233,7 @@ add_library(Irrlicht STATIC
 
 irr_target_link_openssl(Irrlicht)
 irr_target_link_shaderc(Irrlicht)
+irr_target_link_libjpeg(Irrlicht)
 
 target_link_libraries(Irrlicht INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
@@ -367,6 +249,7 @@ endif()
 target_include_directories(Irrlicht PUBLIC 
 	../../include
 	${COMMON_INCLUDE_DIRS}
+	${THIRD_PARTY_SOURCE_DIR}
 )
 target_include_directories(Irrlicht PUBLIC ../../src ../../source/Irrlicht) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 if (UNIX)
@@ -403,7 +286,6 @@ add_library(IrrlichtServer STATIC
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:convert_utf>
-	$<TARGET_OBJECTS:jpeglib>
 	$<TARGET_OBJECTS:libpng>
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
@@ -412,10 +294,12 @@ add_library(IrrlichtServer STATIC
 
 irr_target_link_openssl(IrrlichtServer)
 irr_target_link_shaderc(IrrlichtServer)
+irr_target_link_libjpeg(IrrlichtServer)
 
 target_include_directories(IrrlichtServer PUBLIC 
 	../../include
 	${COMMON_INCLUDE_DIRS}
+	${THIRD_PARTY_SOURCE_DIR}
 )
 target_include_directories(IrrlichtServer PRIVATE ../../src ../../source/Irrlicht)
 

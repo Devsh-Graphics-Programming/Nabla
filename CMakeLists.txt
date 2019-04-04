@@ -97,7 +97,7 @@ macro(irr_adjust_definitions)
 		)
 	endif()
 
-	if(FAST_MATH)
+	if(IRR_FAST_MATH)
 		add_definitions(-DIRRLICHT_FAST_MATH)
 	endif()
 	
@@ -105,22 +105,24 @@ macro(irr_adjust_definitions)
 	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -D_DEBUG")
 endmacro()
 
-option(FAST_MATH "Enable fast low-precision math" ON)
+option(IRR_FAST_MATH "Enable fast low-precision math" ON)
 
-option(BUILD_EXAMPLES "Enable building examples" ON)
+option(IRR_BUILD_EXAMPLES "Enable building examples" ON)
 
-option(BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
+option(IRR_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
+
+set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 
 if (UNIX)
-	file(WRITE 3rdparty/shaderc/libshaderc/libshaderc_combined.a "") #https://github.com/google/shaderc/issues/568
+	file(WRITE ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/libshaderc_combined.a "") #https://github.com/google/shaderc/issues/568
 endif()
-add_subdirectory(3rdparty)
+add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 add_subdirectory(source/Irrlicht) # Irrlicht code
 
-if(BUILD_TOOLS)
+if(IRR_BUILD_TOOLS)
 	add_subdirectory(tools) # convert2BAW
 endif()
-if(BUILD_EXAMPLES)
+if(IRR_BUILD_EXAMPLES)
 	add_subdirectory(examples_tests)
 endif()

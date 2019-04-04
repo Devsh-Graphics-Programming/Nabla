@@ -10,3 +10,21 @@
 [submodule "3rdparty/shaderc"]
 	path = 3rdparty/shaderc
 	url = https://github.com/google/shaderc.git
+[submodule "3rdparty/bzip2"]
+	path = 3rdparty/bzip2
+	url = https://github.com/sergiud/bzip2.git
+[submodule "3rdparty/libjpeg"]
+	path = 3rdparty/libjpeg
+	url = https://github.com/LuaDist/libjpeg.git
+[submodule "3rdparty/lz4"]
+	path = 3rdparty/lz4
+	url = https://github.com/lz4/lz4.git
+[submodule "3rdparty/lzma"]
+	path = 3rdparty/lzma
+	url = https://github.com/shuffle2/lzma-sdk.git
+[submodule "3rdparty/spirv_cross"]
+	path = 3rdparty/spirv_cross
+	url = https://github.com/KhronosGroup/SPIRV-Cross.git
+[submodule "3rdparty/zlib"]
+	path = 3rdparty/zlib
+	url = https://github.com/madler/zlib.git
