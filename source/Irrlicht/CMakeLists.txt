@@ -1,4 +1,4 @@
-find_package(OpenSSL REQUIRED)
+#find_package(OpenSSL REQUIRED)
 find_package(OpenGL REQUIRED)
 if(UNIX)
 	find_package(X11 REQUIRED)
@@ -170,6 +170,7 @@ set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/convertutf
 	${THIRD_PARTY_SOURCE_DIR}/utfcpp/source
 	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
+	$<TARGET_PROPERTY:jpeg,BINARY_DIR> #for dynamically generated jconfig.h
 )
 
 irr_adjust_flags() # macro defined in root CMakeLists
@@ -177,10 +178,10 @@ irr_adjust_definitions() # macro defined in root CMakeLists
 
 macro(irr_target_link_openssl _trgt)
 	target_link_libraries(${_trgt} INTERFACE
-		OpenSSL::Crypto
-		OpenSSL::SSL
+		"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libeay32.lib"
+		"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/ssleay32.lib"
 	)
-	target_include_directories(${_trgt} PUBLIC ${OPENSSL_INCLUDE_DIR})
+	target_include_directories(${_trgt} PUBLIC "$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/include")
 endmacro()
 macro(irr_target_link_shaderc _trgt)
 	add_dependencies(Irrlicht shaderc)
@@ -220,6 +221,7 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:spirv_cross>
 )
 
+add_dependencies(Irrlicht openssl_build)
 irr_target_link_openssl(Irrlicht)
 irr_target_link_shaderc(Irrlicht)
 irr_target_link_libjpeg(Irrlicht)
@@ -281,6 +283,7 @@ add_library(IrrlichtServer STATIC
 	$<TARGET_OBJECTS:zlib>
 )
 
+add_dependencies(IrrlichtServer openssl_build)
 irr_target_link_openssl(IrrlichtServer)
 irr_target_link_shaderc(IrrlichtServer)
 irr_target_link_libjpeg(IrrlichtServer)

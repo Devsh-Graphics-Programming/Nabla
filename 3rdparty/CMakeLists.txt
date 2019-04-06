@@ -3,6 +3,8 @@ add_subdirectory(SPIRV-Tools)
 add_subdirectory(glslang)
 add_subdirectory(shaderc)
 
+add_subdirectory(openssl)
+
 #manipulating libjpeg cmake options from within cmake script
 OPTION(BUILD_STATIC OFF)
 set(BUILD_STATIC ON)
@@ -21,25 +23,6 @@ set(PNG_SHARED OFF)
 option(PNG_TESTS  "Build libpng tests" ON)
 set(PNG_TESTS OFF)
 add_subdirectory(libpng)
-
-#add_library(libpng OBJECT
-#	libpng/png.c
-#	libpng/pngerror.c
-#	libpng/pngget.c
-#	libpng/pngmem.c
-#	libpng/pngpread.c
-#	libpng/pngread.c
-#	libpng/pngrio.c
-#	libpng/pngrtran.c
-#	libpng/pngrutil.c
-#	libpng/pngset.c
-#	libpng/pngtrans.c
-#	libpng/pngwio.c
-#	libpng/pngwrite.c
-#	libpng/pngwtran.c
-#	libpng/pngwutil.c
-#)
-#target_include_directories(libpng PUBLIC zlib)
 
 add_library(lzma OBJECT
 	lzma/C/Alloc.c
