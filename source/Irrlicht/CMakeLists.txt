@@ -167,30 +167,13 @@ set(IRRLICHT_SRCS_SERVER
 )
 
 set(COMMON_INCLUDE_DIRS
-	convert_utf
-	utf8/source
+	${THIRD_PARTY_SOURCE_DIR}/convertutf
+	${THIRD_PARTY_SOURCE_DIR}/utfcpp/source
+	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
 )
 
 irr_adjust_flags() # macro defined in root CMakeLists
 irr_adjust_definitions() # macro defined in root CMakeLists
-
-add_library(aesGladman OBJECT
-	aesGladman/aes_ni.c
-	aesGladman/aescrypt.c
-	aesGladman/aeskey.c
-	aesGladman/aestab.c
-	aesGladman/fileenc.c
-	aesGladman/hmac.c
-	aesGladman/prng.c
-	aesGladman/pwd2key.c
-	aesGladman/sha1.c
-)
-target_include_directories(aesGladman PUBLIC ${COMMON_INCLUDE_DIRS})
-
-add_library(convert_utf OBJECT
-	convert_utf/ConvertUTF.c
-)
-target_include_directories(convert_utf PUBLIC ${COMMON_INCLUDE_DIRS})
 
 macro(irr_target_link_openssl _trgt)
 	target_link_libraries(${_trgt} INTERFACE
@@ -213,6 +196,13 @@ macro(irr_target_link_libjpeg _trgt)
 	)
 	target_include_directories(${_trgt} PUBLIC ../../3rdparty/libjpeg)
 endmacro()
+macro(irr_target_link_libpng _trgt)
+	add_dependencies(Irrlicht png_static)
+	target_link_libraries(${_trgt} INTERFACE
+		png_static
+	)
+	target_include_directories(${_trgt} PUBLIC ../../3rdparty/libpng)
+endmacro()
 
 # get function for cross-compiler PCH configuration
 include(add_pch)
@@ -224,7 +214,6 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:convert_utf>
-	$<TARGET_OBJECTS:libpng>
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:zlib>
@@ -234,6 +223,7 @@ add_library(Irrlicht STATIC
 irr_target_link_openssl(Irrlicht)
 irr_target_link_shaderc(Irrlicht)
 irr_target_link_libjpeg(Irrlicht)
+irr_target_link_libpng(Irrlicht)
 
 target_link_libraries(Irrlicht INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
@@ -286,7 +276,6 @@ add_library(IrrlichtServer STATIC
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:convert_utf>
-	$<TARGET_OBJECTS:libpng>
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:zlib>
@@ -295,6 +284,7 @@ add_library(IrrlichtServer STATIC
 irr_target_link_openssl(IrrlichtServer)
 irr_target_link_shaderc(IrrlichtServer)
 irr_target_link_libjpeg(IrrlichtServer)
+irr_target_link_libpng(IrrlichtServer)
 
 target_include_directories(IrrlichtServer PUBLIC 
 	../../include

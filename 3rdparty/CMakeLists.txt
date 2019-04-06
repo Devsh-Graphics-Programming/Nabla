@@ -12,24 +12,34 @@ OPTION(BUILD_TESTS ON)
 set(BUILD_TESTS OFF)
 add_subdirectory(libjpeg)
 
-add_library(libpng OBJECT
-	libpng/png.c
-	libpng/pngerror.c
-	libpng/pngget.c
-	libpng/pngmem.c
-	libpng/pngpread.c
-	libpng/pngread.c
-	libpng/pngrio.c
-	libpng/pngrtran.c
-	libpng/pngrutil.c
-	libpng/pngset.c
-	libpng/pngtrans.c
-	libpng/pngwio.c
-	libpng/pngwrite.c
-	libpng/pngwtran.c
-	libpng/pngwutil.c
-)
-target_include_directories(libpng PUBLIC zlib)
+#manipulating libpng cmake options from within cmake script
+option(PNG_BUILD_ZLIB "Custom zlib Location, else find_package is used" OFF)
+set(PNG_BUILD_ZLIB ON) #pnglib depends on zlib and zlib is part of Irrlicht
+set(ZLIB_INCLUDE_DIR ${THIRD_PARTY_SOURCE_DIR}/zlib) #for pnglib
+option(PNG_SHARED "Build shared lib" ON)
+set(PNG_SHARED OFF)
+option(PNG_TESTS  "Build libpng tests" ON)
+set(PNG_TESTS OFF)
+add_subdirectory(libpng)
+
+#add_library(libpng OBJECT
+#	libpng/png.c
+#	libpng/pngerror.c
+#	libpng/pngget.c
+#	libpng/pngmem.c
+#	libpng/pngpread.c
+#	libpng/pngread.c
+#	libpng/pngrio.c
+#	libpng/pngrtran.c
+#	libpng/pngrutil.c
+#	libpng/pngset.c
+#	libpng/pngtrans.c
+#	libpng/pngwio.c
+#	libpng/pngwrite.c
+#	libpng/pngwtran.c
+#	libpng/pngwutil.c
+#)
+#target_include_directories(libpng PUBLIC zlib)
 
 add_library(lzma OBJECT
 	lzma/C/Alloc.c
@@ -79,3 +89,19 @@ add_library(spirv_cross OBJECT
 	spirv_cross/spirv_cross_parsed_ir.cpp
 )
 target_compile_definitions(spirv_cross PRIVATE SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
+
+add_library(convert_utf OBJECT
+	convertutf/ConvertUTF.cpp
+)
+
+add_library(aesGladman OBJECT
+	aesGladman/aes_ni.c
+	aesGladman/aescrypt.c
+	aesGladman/aeskey.c
+	aesGladman/aestab.c
+	aesGladman/fileenc.c
+	aesGladman/hmac.c
+	aesGladman/prng.c
+	aesGladman/pwd2key.c
+	aesGladman/sha1.c
+)
