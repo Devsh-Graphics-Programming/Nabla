@@ -9,7 +9,7 @@
 #include "assert.h"
 
 //! MSVC doesn't accept constexpr inline constants (claims it's c+17 feature) and ld (this linker which comes with GCC compiler) generates 'undefined references' without inline while defining in header file
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || __GNUC__ < 7
     #define _IRR_STATIC_INLINE_CONSTEXPR static constexpr
 #else
     #define _IRR_STATIC_INLINE_CONSTEXPR static inline constexpr

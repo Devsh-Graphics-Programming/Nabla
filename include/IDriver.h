@@ -217,6 +217,7 @@ namespace video
                     this->copyBuffer(defaultUploadBuffer->getBuffer(),buffer,localOffset,offset+uploadedSize,subSize);
                     // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
                     auto fence = this->placeFence();
+                    // no glFlush needed because waitCPU is not done to block execution until GPU is done on the allocations
                     defaultUploadBuffer->multi_free(1u,&localOffset,&subSize,fence);
                     fence->drop();
                     uploadedSize += subSize;

@@ -32,6 +32,9 @@ class IDriverFence : public core::IReferenceCounted
 {
 	    _IRR_INTERFACE_CHILD(IDriverFence) {}
     public:
+        //! This tells us if we can set the `flush` argument of the `waitCPU` function to true
+        virtual bool canDeferredFlush() const = 0;
+
         //! If timeout​ is zero, the function will simply check to see if the sync object is signaled and return immediately.
         /** \param timeout in nanoseconds.
         \param whether to perform a special implicit flush in OpenGL (quite useless).

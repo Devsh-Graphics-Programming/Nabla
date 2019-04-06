@@ -417,7 +417,7 @@ namespace scene
             switch (fenceBehaviour)
             {
                 case EFRB_SKIP_DRAW:
-                    switch (renderFence->waitCPU(0))
+                    switch (renderFence->waitCPU(0,renderFence->canDeferredFlush()))
                     {
                         case video::EDFR_FAIL:
                         case video::EDFR_TIMEOUT_EXPIRED:
@@ -433,7 +433,7 @@ namespace scene
                     break;
                 case EFRB_CPU_BLOCK:
                     {
-                        video::E_DRIVER_FENCE_RETVAL rv = renderFence->waitCPU(1000);
+                        video::E_DRIVER_FENCE_RETVAL rv = renderFence->waitCPU(1000,renderFence->canDeferredFlush());
                         while (rv==video::EDFR_TIMEOUT_EXPIRED)
                         {
                             rv = renderFence->waitCPU(1000);
