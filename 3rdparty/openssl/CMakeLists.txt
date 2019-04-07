@@ -7,10 +7,11 @@ set(VS140_SCRIPTS_DIR $ENV{VS140COMNTOOLS})
 add_custom_command(
 	OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/build/lib/libeay32.lib" "${CMAKE_CURRENT_BINARY_DIR}/build/lib/ssleay32.lib"
 	COMMAND "${VS140_SCRIPTS_DIR}vsvars32.bat"
-	COMMAND "${PERL_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/openssl/Configure" VC-WIN32 no-asm --prefix="${CMAKE_CURRENT_BINARY_DIR}/build"
-	COMMAND "${NMAKE_64_EXECUTABLE}" -f "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/ntdll.mak"
-	COMMAND "${NMAKE_64_EXECUTABLE}" -f "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/ntdll.mak" install
-	#WORKING_DIRECTORY ./openssl
+	COMMAND "${PERL_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/openssl/Configure" VC-WIN64A no-asm --prefix=${CMAKE_CURRENT_BINARY_DIR}/build
+	COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/do_win64a.bat"
+	COMMAND "${NMAKE_64_EXECUTABLE}" -f "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/nt.mak"
+	COMMAND "${NMAKE_64_EXECUTABLE}" -f "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/nt.mak" install
+	WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/openssl"
 	COMMENT "Building OpenSSL..."
 	VERBATIM
 )
