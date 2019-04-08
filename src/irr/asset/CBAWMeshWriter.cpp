@@ -14,8 +14,8 @@
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 #include "CFinalBoneHierarchy.h"
 #include "os.h"
-#include "lz4/lz4.h"
-#include "lzma/LzmaEnc.h"
+#include "lz4/lib/lz4.h"
+#include "lzma/C/LzmaEnc.h"
 
 
 namespace irr {namespace asset {

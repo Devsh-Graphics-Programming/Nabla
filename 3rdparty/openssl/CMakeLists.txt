@@ -1,12 +1,21 @@
 find_package(Perl REQUIRED)
 
 set(NMAKE_64_EXECUTABLE NOT_FOUND CACHE FILEPATH "Path to x64 nmake.exe")
+set(VCVARS64_BATCH_FILE NOT_FOUND CACHE FILEPATH 
+	"Path to vcvar64.bat; usually something like C:/Program Files (x86)/Microsoft Visual Studio/2017/Community/VC/Auxiliary/Build/vcvars64.bat"
+)
 
-set(VS140_SCRIPTS_DIR $ENV{VS140COMNTOOLS})
+if (NOT ${NMAKE_64_EXECUTABLE})
+	message(FATAL_ERROR "Path to nmake must be provided manually")
+endif()
+if (NOT ${VCVARS64_BATCH_FILE})
+	message(FATAL_ERROR "Path to vcvars64.bat must be provided manually")
+endif()
+
 
 add_custom_command(
 	OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/build/lib/libeay32.lib" "${CMAKE_CURRENT_BINARY_DIR}/build/lib/ssleay32.lib"
-	COMMAND "${VS140_SCRIPTS_DIR}vsvars32.bat"
+	COMMAND "${VCVARS64_BATCH_FILE}" 
 	COMMAND "${PERL_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/openssl/Configure" VC-WIN64A no-asm --prefix=${CMAKE_CURRENT_BINARY_DIR}/build
 	COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/do_win64a.bat"
 	COMMAND "${NMAKE_64_EXECUTABLE}" -f "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/nt.mak"
