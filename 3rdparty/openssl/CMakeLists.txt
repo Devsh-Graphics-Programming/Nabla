@@ -1,3 +1,11 @@
+execute_process(COMMAND git fetch
+		COMMAND git reset --hard origin/OpenSSL_1_0_2-stable
+		COMMAND git clean -fd
+		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/openssl"
+)
+# maybe you (Crisspl) can patch the OpenSSL source for the preprocessor MSVC bug here?
+
+
 if(WIN32)
 	find_package(Perl REQUIRED)
 
@@ -16,7 +24,7 @@ if(WIN32)
 
 	add_custom_command(
 		OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/build/lib/libeay32.lib" "${CMAKE_CURRENT_BINARY_DIR}/build/lib/ssleay32.lib"
-		COMMAND "${VCVARS64_BATCH_FILE}" 
+		COMMAND "${VCVARS64_BATCH_FILE}"
 		COMMAND "${PERL_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/openssl/Configure" VC-WIN64A no-asm --prefix=${CMAKE_CURRENT_BINARY_DIR}/build
 		COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/do_win64a.bat"
 		COMMAND "${NMAKE_64_EXECUTABLE}" -f "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/nt.mak"

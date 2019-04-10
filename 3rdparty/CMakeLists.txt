@@ -1,7 +1,4 @@
-execute_process(COMMAND git submodule init
-		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-)
-execute_process(COMMAND git submodule update
+execute_process(COMMAND git submodule update --init --recursive
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 
@@ -12,6 +9,7 @@ add_subdirectory(glslang)
 
 OPTION(SHADERC_SKIP_TESTS ON)
 set(SHADERC_SKIP_TESTS ON)
+# if it doesn't work without the `touch` on Linux, then fetch the latest submodule head of shaderc and try again
 #if (UNIX)
 #	file(WRITE ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/libshaderc_combined.a "") #https://github.com/google/shaderc/issues/568
 #endif()
