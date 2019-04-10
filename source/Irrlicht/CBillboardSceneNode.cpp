@@ -104,7 +104,7 @@ void CBillboardSceneNode::render()
 	// draw
     if (canProceedPastFence())
     {
-        driver->setTransform(video::E4X3TS_WORLD, core::IdentityMatrix);
+        driver->setTransform(video::E4X3TS_WORLD, core::matrix4x3());
 
         driver->setMaterial(Material);
 

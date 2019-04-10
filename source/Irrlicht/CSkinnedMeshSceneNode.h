@@ -5,8 +5,6 @@
 #include "ISkinnedMeshSceneNode.h"
 #include "CSkinningStateManager.h"
 
-#include "matrix4.h"
-
 
 namespace irr
 {

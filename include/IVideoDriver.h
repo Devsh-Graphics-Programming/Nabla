@@ -7,14 +7,12 @@
 
 #include "rect.h"
 #include "SColor.h"
-#include "matrix4x3.h"
-#include "plane3d.h"
+#include "matrixutil.h"
 #include "dimension2d.h"
 #include "position2d.h"
 #include "SMaterial.h"
 #include "IDriverFence.h"
 #include "irr/video/SGPUMesh.h"
-#include "triangle3d.h"
 #include "SExposedVideoData.h"
 #include "IDriver.h"
 #include "irr/asset/EFormat.h"
@@ -155,14 +153,14 @@ namespace video
 		\param mat Matrix describing the transformation. */
 		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat) =0;
 
-		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4& mat) =0;
+		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4SIMD& mat) =0;
 
 		//! Returns the transformation set by setTransform
 		/** \param state Transformation type to query
 		\return Matrix describing the transformation. */
 		virtual const core::matrix4x3& getTransform(const E_4X3_TRANSFORMATION_STATE& state) =0;
 
-		virtual const core::matrix4& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state) =0;
+		virtual const core::matrix4SIMD& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state) =0;
 
 		//! Retrieve the number of image loaders
 		/** \return Number of image loaders */

@@ -269,35 +269,6 @@ public:
 		}
 	}
 
-	//! Creates an interpolated vector between this vector and another vector.
-	/** \param other The other vector to interpolate with.
-	\param d Interpolation value between 0.0f (all the other vector) and 1.0f (all this vector).
-	Note that this is the opposite direction of interpolation to getInterpolated_quadratic()
-	\return An interpolated vector.  This vector is not modified. */
-	vector2d<T> getInterpolated(const vector2d<T>& other, double d) const
-	{
-		double inv = 1.0f - d;
-		return vector2d<T>((T)(other.X*inv + X*d), (T)(other.Y*inv + Y*d));
-	}
-
-	//! Creates a quadratically interpolated vector between this and two other vectors.
-	/** \param v2 Second vector to interpolate with.
-	\param v3 Third vector to interpolate with (maximum at 1.0f)
-	\param d Interpolation value between 0.0f (all this vector) and 1.0f (all the 3rd vector).
-	Note that this is the opposite direction of interpolation to getInterpolated() and interpolate()
-	\return An interpolated vector. This vector is not modified. */
-	vector2d<T> getInterpolated_quadratic(const vector2d<T>& v2, const vector2d<T>& v3, double d) const
-	{
-		// this*(1-d)*(1-d) + 2 * v2 * (1-d) + v3 * d * d;
-		const double inv = 1.0f - d;
-		const double mul0 = inv * inv;
-		const double mul1 = 2.0f * d * inv;
-		const double mul2 = d * d;
-
-		return vector2d<T> ( (T)(X * mul0 + v2.X * mul1 + v3.X * mul2),
-					(T)(Y * mul0 + v2.Y * mul1 + v3.Y * mul2));
-	}
-
 	//! Sets this vector to the linearly interpolated vector between a and b.
 	/** \param a first vector to interpolate with, maximum at 1.0f
 	\param b second vector to interpolate with, maximum at 0.0f

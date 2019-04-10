@@ -28,8 +28,10 @@ public:
         ET_SKELETON = 1u<<5u,
         //! asset::ICPUKeyframeAnimation - from CFinalBoneHierarchy
         ET_KEYFRAME_ANIMATION = 1u<<6u,
-        //! the coming asset::IProtoShader
+        //! asset::ICPUShader
         ET_SHADER = 1u<<7u,
+        //! asset::ICPUSpecializedShader
+        ET_SPECIALIZED_SHADER = 1u<<8,
         //! asset::ICPUMeshDataFormatDesc
         ET_MESH_DATA_DESCRIPTOR = 1u<<8,
         //! reserved, to implement later
@@ -40,7 +42,7 @@ public:
         ET_IMPLEMENTATION_SPECIFIC_METADATA = 1u<<31u
         //! Reserved special value used for things like terminating lists of this enum
     };
-    constexpr static size_t ET_STANDARD_TYPES_COUNT = 11u;
+    constexpr static size_t ET_STANDARD_TYPES_COUNT = 12u;
 
     static uint32_t typeFlagToIndex(E_TYPE _type)
     {

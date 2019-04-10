@@ -175,7 +175,7 @@ void CSkyBoxSceneNode::render()
 	if (!camera || !driver || !canProceedPastFence())
 		return;
 
-	if ( !camera->isOrthogonal() )
+	if ( !camera->getProjectionMatrix().isOrthogonal() ) // check this actually works!
 	{
 		// draw perspective skybox
 

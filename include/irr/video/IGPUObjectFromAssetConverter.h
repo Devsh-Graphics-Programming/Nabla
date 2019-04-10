@@ -103,6 +103,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asse
 
     core::LinearAddressAllocator<uint64_t> addrAllctr(nullptr, 0u, 0u, alignment, m_driver->getMaxBufferSize());
     asset::ICPUBuffer** it = _begin;
+    uint64_t addr = 0ull;
     while (it != _end)
     {
         const uint64_t addr = addrAllctr.alloc_addr((*it)->getSize(), alignment);

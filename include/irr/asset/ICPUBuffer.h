@@ -11,6 +11,7 @@
 #include "irr/core/IBuffer.h"
 #include "IAsset.h"
 #include "irr/core/alloc/null_allocator.h"
+#include "coreutil.h"
 
 namespace irr
 {

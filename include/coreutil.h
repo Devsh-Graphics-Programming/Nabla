@@ -23,6 +23,8 @@ namespace core
 struct adopt_memory_t {};
 constexpr adopt_memory_t adopt_memory{};
 
+struct defer_t {};
+constexpr defer_t defer{};
 
 /*! \file coreutil.h
 	\brief File containing useful basic utility functions
@@ -402,8 +404,6 @@ inline int32_t isdigit(int32_t c) { return c >= '0' && c <= '9'; }
 inline int32_t isspace(int32_t c) { return c == ' ' || c == '\f' || c == '\n' || c == '\r' || c == '\t' || c == '\v'; }
 //! Returns 0 or 1 indicating whether given character is an upper-case letter character.
 inline int32_t isupper(int32_t c) { return c >= 'A' && c <= 'Z'; }
-
-
 
 
 core::vector<std::string> getBackTrace(void);

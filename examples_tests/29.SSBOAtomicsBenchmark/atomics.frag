@@ -1,3 +1,6 @@
+// this changes the value completely compared to the original, but for the purposes of the logic of the following code it doesn't matter
+layout(origin_upper_left) in vec4 gl_FragCoord;
+
 #if BINNING_METHOD==0
 
 uint getAtomicOffset() {return 0u;}

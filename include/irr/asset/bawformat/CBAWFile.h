@@ -13,8 +13,6 @@
 #include "irr/asset/ICPUBuffer.h"
 #include "coreutil.h"
 
-struct ISzAlloc;
-
 namespace irr {
 
 namespace asset
@@ -474,8 +472,8 @@ namespace asset
 
 	struct LzmaMemMngmnt
 	{
-		static void *alloc(const ISzAlloc*, size_t _size) { return _IRR_ALIGNED_MALLOC(_size,_IRR_SIMD_ALIGNMENT); }
-		static void release(const ISzAlloc*, void* _addr) { _IRR_ALIGNED_FREE(_addr); }
+		static void *alloc(void*, size_t _size) { return _IRR_ALIGNED_MALLOC(_size,_IRR_SIMD_ALIGNMENT); }
+		static void release(void*, void* _addr) { _IRR_ALIGNED_FREE(_addr); }
 	private:
 		LzmaMemMngmnt() {}
 	};

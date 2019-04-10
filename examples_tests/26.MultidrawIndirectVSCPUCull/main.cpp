@@ -85,7 +85,7 @@ public:
 //! read up on std430 packing rules to understand the padding
 struct ObjectData_t
 {
-    core::matrix4 modelViewProjMatrix;
+    core::matrix4SIMD modelViewProjMatrix;
     float normalMat[9];
     float padding[3];
 };

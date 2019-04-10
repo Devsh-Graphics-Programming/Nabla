@@ -142,16 +142,6 @@ void APIENTRY openGLCBFunc(GLenum source, GLenum type, GLuint id, GLenum severit
 
 
 
-#include "irr/irrpack.h"
-struct ScreenQuadVertexStruct
-{
-    float Pos[3];
-    uint8_t TexCoord[2];
-} PACK_STRUCT;
-#include "irr/irrunpack.h"
-
-
-
 //! NEW, Uniform Buffer Objects!
 struct PerFrameUniformBlock
 {
@@ -250,7 +240,7 @@ int main()
     postProcMaterial.BackfaceCulling = false; //! Triangles will be visible from both sides
     postProcMaterial.ZBuffer = video::ECFN_ALWAYS; //! Ignore Depth Test
     postProcMaterial.ZWriteEnable = false; //! Why even write depth?
-    postProcMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../screenquad.vert",
+    postProcMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../fullscreentri.vert",
                                                                         "","","", //! No Geometry or Tessellation Shaders
                                                                         "../postproc.frag",
                                                                         3,video::EMT_SOLID); //! 3 vertices per primitive (this is tessellation shader relevant only)

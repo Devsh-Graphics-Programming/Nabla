@@ -353,7 +353,7 @@ void CMeshSceneNodeInstanced::setInstanceTransform(const uint32_t& instanceID, c
 
 core::matrix4x3 CMeshSceneNodeInstanced::getInstanceTransform(const uint32_t& instanceID)
 {
-    core::matrix4x3 retval(core::matrix4x3::EM4CONST_NOTHING);
+    core::matrix4x3 retval;
     size_t redir = instanceDataAllocator->getAddressAllocator().get_real_addr(instanceID);
     if (redir==kInvalidInstanceID)
     {
