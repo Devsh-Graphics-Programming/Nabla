@@ -113,9 +113,6 @@ option(IRR_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 
-if (UNIX)
-	file(WRITE ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/libshaderc_combined.a "") #https://github.com/google/shaderc/issues/568
-endif()
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 add_subdirectory(source/Irrlicht) # Irrlicht code

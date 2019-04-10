@@ -1,6 +1,20 @@
+execute_process(COMMAND git submodule init
+		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+execute_process(COMMAND git submodule update
+		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+)
+
+
 add_subdirectory(SPIRV-Headers)
 add_subdirectory(SPIRV-Tools)
 add_subdirectory(glslang)
+
+OPTION(SHADERC_SKIP_TESTS ON)
+set(SHADERC_SKIP_TESTS ON)
+#if (UNIX)
+#	file(WRITE ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/libshaderc_combined.a "") #https://github.com/google/shaderc/issues/568
+#endif()
 add_subdirectory(shaderc)
 
 add_subdirectory(openssl)
