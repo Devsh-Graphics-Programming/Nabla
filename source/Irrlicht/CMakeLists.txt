@@ -12,16 +12,11 @@ endif()
 
 set(IRRLICHT_SRCS_COMMON
 # Mesh loaders
-	C3DSMeshFileLoader.cpp
-	CB3DMeshFileLoader.cpp
 	CBAWMeshFileLoader.cpp
 	CLMTSMeshFileLoader.cpp
 	CLWOMeshFileLoader.cpp
-	CMS3DMeshFileLoader.cpp
-	CMY3DMeshFileLoader.cpp
 	COBJMeshFileLoader.cpp
 	COCTLoader.cpp
-	COgreMeshFileLoader.cpp
 	CPLYMeshFileLoader.cpp
 	CSTLMeshFileLoader.cpp
 	CXMeshFileLoader.cpp
@@ -33,7 +28,6 @@ set(IRRLICHT_SRCS_COMMON
 	CSTLMeshWriter.cpp
 
 # Other mesh-related stuff
-	CAnimatedMeshSceneNode.cpp
 	CBAWFile.cpp
 	CBlobsLoadingManager.cpp
 	CForsythVertexCacheOptimizer.cpp
