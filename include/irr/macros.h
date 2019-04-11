@@ -46,7 +46,7 @@
 // define a break macro for debugging.
 #if defined(_IRR_WINDOWS_API_) && defined(_MSC_VER)
   #include <crtdbg.h>
-  #define _IRR_BREAK_IF( _CONDITION_ ) if (_CONDITION_) {_CrtDbgBreak();}}
+  #define _IRR_BREAK_IF( _CONDITION_ ) if (_CONDITION_) {_CrtDbgBreak();}
 #else
 #include "signal.h"
 #define _IRR_BREAK_IF( _CONDITION_ ) if ( (_CONDITION_) ) raise(SIGTRAP);
