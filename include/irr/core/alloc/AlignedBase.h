@@ -63,14 +63,14 @@ namespace impl
             using DefaultAlignedAllocationOverriden = ResolveAlignment<AlignedBase<std::alignment_of<most_aligned_type>::value> >;
 
             //! Some meta-functions to allow us for static checking of metaprogrammatically derived most_aligned_type
-            template<class U> using operator_new_t                  = decltype(U::operator new(0ull));
-            template<class U> using operator_new_array_t            = decltype(U::operator new[](0ull));
-            template<class U> using operator_placement_new_t        = decltype(U::operator new(0ull,nullptr));
-            template<class U> using operator_placement_new_array_t  = decltype(U::operator new[](0ull,nullptr));
-            template<class U> using operator_delete_t               = decltype(U::operator delete(nullptr));
-            template<class U> using operator_delete_array_t         = decltype(U::operator delete[](nullptr));
-            template<class U> using operator_delete_w_size_t        = decltype(U::operator delete(nullptr,0ull));
-            template<class U> using operator_delete_array_w_size_t  = decltype(U::operator delete[](nullptr,0ull));
+            template<class U> using operator_new_t                  = decltype(IRR_TYPENAME_4_STTC_MBR U::operator new(0ull));
+            template<class U> using operator_new_array_t            = decltype(IRR_TYPENAME_4_STTC_MBR U::operator new[](0ull));
+            template<class U> using operator_placement_new_t        = decltype(IRR_TYPENAME_4_STTC_MBR U::operator new(0ull,nullptr));
+            template<class U> using operator_placement_new_array_t  = decltype(IRR_TYPENAME_4_STTC_MBR U::operator new[](0ull,nullptr));
+            template<class U> using operator_delete_t               = decltype(IRR_TYPENAME_4_STTC_MBR U::operator delete(nullptr));
+            template<class U> using operator_delete_array_t         = decltype(IRR_TYPENAME_4_STTC_MBR U::operator delete[](nullptr));
+            template<class U> using operator_delete_w_size_t        = decltype(IRR_TYPENAME_4_STTC_MBR U::operator delete(nullptr,0ull));
+            template<class U> using operator_delete_array_w_size_t  = decltype(IRR_TYPENAME_4_STTC_MBR U::operator delete[](nullptr,0ull));
 
             template<class,class=void> struct has_new_operator                  : std::false_type {};
             template<class,class=void> struct has_new_array_operator            : std::false_type {};
@@ -140,7 +140,7 @@ namespace impl
         private:
             //
         public:
-            inline static void* operator new(size_t size) noexcept
+            static inline void* operator new(size_t size) noexcept
             {
                 //std::cout << "Alloc aligned to " << object_alignment << std::endl;
                 return _IRR_ALIGNED_MALLOC(size,object_alignment);
@@ -150,7 +150,7 @@ namespace impl
                 //std::cout << "Alloc aligned to " << object_alignment << std::endl;
                 return _IRR_ALIGNED_MALLOC(size,object_alignment);
             }
-            inline static void* operator new(size_t size, void* where) noexcept
+            static inline void* operator new(size_t size, void* where) noexcept
             {
                 return where;
             }
