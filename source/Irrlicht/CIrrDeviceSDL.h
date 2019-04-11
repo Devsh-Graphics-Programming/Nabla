@@ -54,7 +54,7 @@ namespace irr
             bool isWindowMinimized() const;
 
             //! returns color format of the window.
-            video::ECOLOR_FORMAT getColorFormat() const;
+            asset::E_FORMAT getColorFormat() const;
 
             //! presents a surface in the client area
             virtual bool present(video::IImage* surface, void* windowId=0, core::rect<int32_t>* src=0);

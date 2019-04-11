@@ -92,7 +92,7 @@ class COpenGLTextureBufferObject : public COpenGLTexture, public ITextureBufferO
     public:
         //! constructor
         COpenGLTextureBufferObject(COpenGLBuffer* buffer, E_TEXURE_BUFFER_OBJECT_FORMAT format, const size_t& offset=0, const size_t& length=0, core::LeakDebugger* dbgr=NULL)
-                                    : COpenGLTexture(GL_TEXTURE_BUFFER), lastValidated(0), currentBuffer(NULL), Offset(0), Length(0), leakTracker(dbgr), InternalFormat(GL_INVALID_ENUM), ColorFormat(ECF_UNKNOWN), TextureSize(0)
+                                    : COpenGLTexture(GL_TEXTURE_BUFFER), lastValidated(0), currentBuffer(NULL), Offset(0), Length(0), leakTracker(dbgr), InternalFormat(GL_INVALID_ENUM), ColorFormat(asset::EF_UNKNOWN), TextureSize(0)
         {
             if (leakTracker)
                 leakTracker->registerObj(this);
@@ -110,7 +110,7 @@ class COpenGLTextureBufferObject : public COpenGLTexture, public ITextureBufferO
         virtual E_DIMENSION_COUNT getDimensionality() const {return EDC_ONE;}
 
         //! returns color format of texture
-        virtual ECOLOR_FORMAT getColorFormat() const {return ColorFormat;}
+        virtual asset::E_FORMAT getColorFormat() const {return ColorFormat;}
 
         //!
         virtual E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_BUFFER_OBJECT;}
@@ -320,7 +320,7 @@ class COpenGLTextureBufferObject : public COpenGLTexture, public ITextureBufferO
         uint32_t TextureSize;
 
         GLint InternalFormat;
-        ECOLOR_FORMAT ColorFormat;
+        asset::E_FORMAT ColorFormat;
 };
 
 } // end namespace video
@@ -328,4 +328,3 @@ class COpenGLTextureBufferObject : public COpenGLTexture, public ITextureBufferO
 
 #endif
 #endif // _IRR_COMPILE_WITH_OPENGL_
-

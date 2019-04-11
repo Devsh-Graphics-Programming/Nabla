@@ -31,7 +31,7 @@ public:
 	virtual GLenum getOpenGLTextureType() const {return GL_TEXTURE_CUBE_MAP_ARRAY;}
 
 
-    virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0);
+    virtual bool updateSubRegion(const asset::E_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0);
     virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0);
 };
 

@@ -25,10 +25,15 @@ namespace video
 
 	public:
 		//! constructor
-		CBurningVideoDriver(const irr::SIrrlichtCreationParameters& params, io::IFileSystem* io, video::IImagePresenter* presenter);
+		CBurningVideoDriver(IrrlichtDevice* dev, const irr::SIrrlichtCreationParameters& params, io::IFileSystem* io, video::IImagePresenter* presenter);
+
+        inline virtual bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline virtual bool isColorRenderableFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline virtual bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline virtual bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const override { return false; }
 
 		//! sets a material
-		virtual void setMaterial(const SMaterial& material);
+		virtual void setMaterial(const SGPUMaterial& material);
 
 		virtual bool setRenderTarget(video::ITexture* texture, bool clearBackBuffer,
 						bool clearZBuffer, SColor color);
@@ -88,7 +93,7 @@ namespace video
 		virtual E_DRIVER_TYPE getDriverType() const;
 
 		//! get color format of the current color buffer
-		virtual ECOLOR_FORMAT getColorFormat() const;
+		virtual asset::E_FORMAT getColorFormat() const;
 
 		//! Clears the DepthBuffer.
 		virtual void clearZBuffer();
@@ -103,10 +108,6 @@ namespace video
 
 		virtual IDepthBuffer * getDepthBuffer () { return DepthBuffer; }
 		virtual IStencilBuffer * getStencilBuffer () { return StencilBuffer; }
-
-        //! .
-        virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format);
-
 
 	protected:
 		//! sets a render target

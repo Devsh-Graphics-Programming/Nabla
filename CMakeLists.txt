@@ -1,6 +1,13 @@
 cmake_minimum_required(VERSION 3.1)
 project(Irrlicht LANGUAGES CXX C)
 
+# Configure CCache if available
+find_program(CCACHE_FOUND ccache)
+if(CCACHE_FOUND)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
+endif(CCACHE_FOUND)
+
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF) #...without compiler extensions like gnu++11, but is it really needed?
@@ -90,7 +97,7 @@ macro(irr_adjust_definitions)
 		)
 	endif()
 
-	if(FAST_MATH)
+	if(IRR_FAST_MATH)
 		add_definitions(-DIRRLICHT_FAST_MATH)
 	endif()
 	
@@ -98,18 +105,21 @@ macro(irr_adjust_definitions)
 	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -D_DEBUG")
 endmacro()
 
-option(FAST_MATH "Enable fast low-precision math" ON)
+option(IRR_FAST_MATH "Enable fast low-precision math" ON)
 
-option(BUILD_EXAMPLES "Enable building examples" ON)
+option(IRR_BUILD_EXAMPLES "Enable building examples" ON)
 
-option(BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
+option(IRR_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 
-option(NASTY_OPENSSL_WORKAROUND "Enable this if you can't get CMake to find OpenSSL and you have it in ../openssl/ relative to this CMakeLists.txt" OFF)
+set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
+
+add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
+
 add_subdirectory(source/Irrlicht) # Irrlicht code
 
-if(BUILD_TOOLS)
+if(IRR_BUILD_TOOLS)
 	add_subdirectory(tools) # convert2BAW
 endif()
-if(BUILD_EXAMPLES)
+if(IRR_BUILD_EXAMPLES)
 	add_subdirectory(examples_tests)
 endif()

@@ -115,12 +115,6 @@ const io::path& CLimitReadFile::getFileName() const
 }
 
 
-IReadFile* createLimitReadFile(const io::path& fileName, IReadFile* alreadyOpenedFile, const size_t& pos, const size_t& areaSize)
-{
-	return new CLimitReadFile(alreadyOpenedFile, pos, areaSize, fileName);
-}
-
-
 } // end namespace io
 } // end namespace irr
 

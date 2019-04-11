@@ -102,7 +102,7 @@ int main()
     SimpleCallBack* callBack = new SimpleCallBack();
 
     //! First need to make a material other than default to be able to draw with custom shader
-    video::SMaterial material;
+    video::SGPUMaterial material;
     material.BackfaceCulling = false; //! Triangles will be visible from both sides
     material.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
                                                         "","","", //! No Geometry or Tessellation Shaders
@@ -125,16 +125,37 @@ int main()
 	switch (c)
 	{
         case '1':
+        {
+            asset::IAssetManager& assetMgr = device->getAssetManager();
+            asset::IAssetLoader::SAssetLoadParams lparams;
+            asset::ICPUTexture* cputextures[] {
+                static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_up.jpg", lparams)),
+                static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_dn.jpg", lparams)),
+                static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_lf.jpg", lparams)),
+                static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_rt.jpg", lparams)),
+                static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_ft.jpg", lparams)),
+                static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_bk.jpg", lparams))
+            };
+            core::vector<video::ITexture*> gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures+6);
+
             smgr->addSkyBoxSceneNode(
-                driver->getTexture("../../media/irrlicht2_up.jpg"),
-                driver->getTexture("../../media/irrlicht2_dn.jpg"),
-                driver->getTexture("../../media/irrlicht2_lf.jpg"),
-                driver->getTexture("../../media/irrlicht2_rt.jpg"),
-                driver->getTexture("../../media/irrlicht2_ft.jpg"),
-                driver->getTexture("../../media/irrlicht2_bk.jpg"));
+                gputextures[0],
+                gputextures[1],
+                gputextures[2],
+                gputextures[3],
+                gputextures[4],
+                gputextures[5]
+            );
+        }
             break;
         default:
-            smgr->addSkyDomeSceneNode(driver->getTexture("../../media/skydome.jpg"),16,8,0.95f,2.0f,10.f);
+        {
+            asset::IAssetLoader::SAssetLoadParams lparams;
+            asset::ICPUTexture* cputexture = static_cast<asset::ICPUTexture*>(device->getAssetManager().getAsset("../../media/skydome.jpg", lparams));
+            video::ITexture* skydomeTexture = driver->getGPUObjectsFromAssets(&cputexture, (&cputexture)+1).front();
+            smgr->addSkyDomeSceneNode(skydomeTexture,16,8,0.95f,2.0f,10.f);
+
+        }
             break;
 	}
 
@@ -209,16 +230,16 @@ int main()
 
 
             auto buff = upStreamBuff->getBuffer();
-            scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-            desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR0,scene::ECPA_THREE,scene::ECT_FLOAT,sizeof(VertexStruct),offsetof(VertexStruct,Pos[0])+offsets[0]);
-            desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR1,scene::ECPA_TWO,scene::ECT_NORMALIZED_UNSIGNED_BYTE,sizeof(VertexStruct),offsetof(VertexStruct,Col[0])+offsets[0]);
-            desc->mapIndexBuffer(buff);
+            video::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
+            desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR0,asset::EF_R32G32B32A32_SFLOAT,sizeof(VertexStruct),offsetof(VertexStruct,Pos[0])+offsets[0]);
+            desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR1,asset::EF_R8G8_UNORM,sizeof(VertexStruct),offsetof(VertexStruct,Col[0])+offsets[0]);
+            desc->setIndexBuffer(buff);
 
 
-            scene::IGPUMeshBuffer* mb = new scene::IGPUMeshBuffer();
+            video::IGPUMeshBuffer* mb = new video::IGPUMeshBuffer();
             mb->setMeshDataAndFormat(desc);
             mb->setIndexBufferOffset(offsets[1]);
-            mb->setIndexType(scene::EIT_16BIT);
+            mb->setIndexType(asset::EIT_16BIT);
             mb->setIndexCount(2*3*6);
             desc->drop();
 
@@ -246,7 +267,7 @@ int main()
 	}
 
     //create a screenshot
-	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);
+	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
     glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
     {
         // images are horizontally flipped, so we have to fix that here.
@@ -265,9 +286,11 @@ int main()
         }
         delete [] tmpBuffer;
     }
-	driver->writeImageToFile(screenshot,"./screenshot.png");
-	screenshot->drop();
-	device->sleep(3000);
+    asset::CImageData* img = new asset::CImageData(screenshot);
+    asset::IAssetWriter::SAssetWriteParams wparams(img);
+    device->getAssetManager().writeAsset("screenshot.png", wparams);
+    img->drop();
+    screenshot->drop();
 
 	device->drop();
 

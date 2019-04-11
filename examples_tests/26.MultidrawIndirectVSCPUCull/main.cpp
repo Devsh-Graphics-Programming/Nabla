@@ -69,7 +69,7 @@ public:
         }
     }
 
-    virtual void OnSetMaterial(video::IMaterialRendererServices* services, const video::SMaterial& material, const video::SMaterial& lastMaterial)
+    virtual void OnSetMaterial(video::IMaterialRendererServices* services, const video::SGPUMaterial& material, const video::SGPUMaterial& lastMaterial)
     {
         if (drawIDUniformLocation!=-1)
         {
@@ -159,22 +159,22 @@ int main()
         io::IReadFile* cacheFile = device->getFileSystem()->createAndOpenFile("./normalCache101010.sse");
         if (cacheFile)
         {
-            scene::normalCacheFor2_10_10_10Quant.resize(cacheFile->getSize()/sizeof(scene::QuantizationCacheEntry2_10_10_10));
-            cacheFile->read(scene::normalCacheFor2_10_10_10Quant.data(),cacheFile->getSize());
+            asset::normalCacheFor2_10_10_10Quant.resize(cacheFile->getSize()/sizeof(asset::QuantizationCacheEntry2_10_10_10));
+            cacheFile->read(asset::normalCacheFor2_10_10_10Quant.data(),cacheFile->getSize());
             cacheFile->drop();
 
             //make sure its still ok
-            std::sort(scene::normalCacheFor2_10_10_10Quant.begin(),scene::normalCacheFor2_10_10_10Quant.end());
+            std::sort(asset::normalCacheFor2_10_10_10Quant.begin(),asset::normalCacheFor2_10_10_10Quant.end());
         }
 	}
 
 	core::matrix4x3* instanceXForm = new core::matrix4x3[kInstanceCount];
-	scene::IGPUMeshBuffer* mbuff[kInstanceCount] = {NULL};
+	video::IGPUMeshBuffer* mbuff[kInstanceCount] = {NULL};
 	video::IGPUBuffer* indirectDrawBuffer = NULL;
 
-    scene::IGPUMeshDataFormatDesc* vaospec = driver->createGPUMeshDataFormatDesc();
+    video::IGPUMeshDataFormatDesc* vaospec = driver->createGPUMeshDataFormatDesc();
 	{
-        scene::ICPUMesh* cpumesh[kInstanceCount];
+        asset::ICPUMesh* cpumesh[kInstanceCount];
 
         size_t vertexSize = 0;
         std::vector<uint8_t> vertexData;
@@ -186,22 +186,22 @@ int main()
         for (size_t i=0; i<kInstanceCount; i++)
         {
             float poly = sqrtf(dist(mt))+0.5f;
-            cpumesh[i] = smgr->getGeometryCreator()->createSphereMeshCPU(2.f,poly,poly);
+            cpumesh[i] = device->getAssetManager().getGeometryCreator()->createSphereMesh(2.f,poly,poly);
 
             //some assumptions about generated mesh
-            assert(cpumesh[i]->getMeshBuffer(0)->getPrimitiveType()==scene::EPT_TRIANGLES);
-            assert(cpumesh[i]->getMeshBuffer(0)->getIndexType()==scene::EIT_32BIT);
+            assert(cpumesh[i]->getMeshBuffer(0)->getPrimitiveType()==asset::EPT_TRIANGLES);
+            assert(cpumesh[i]->getMeshBuffer(0)->getIndexType()==asset::EIT_32BIT);
             assert(cpumesh[i]->getMeshBuffer(0)->getBaseVertex()==0);
             assert(cpumesh[i]->getMeshBuffer(0)->getIndexBufferOffset()==0);
 
-            scene::ICPUMeshBuffer* mbuf = cpumesh[i]->getMeshBuffer(0);
-            scene::IMeshDataFormatDesc<core::ICPUBuffer>* format = mbuf->getMeshDataAndFormat();
-            assert(format->getMappedBuffer(scene::EVAI_ATTR0)!=NULL); //helpful assumption
+            asset::ICPUMeshBuffer* mbuf = cpumesh[i]->getMeshBuffer(0);
+            asset::IMeshDataFormatDesc<asset::ICPUBuffer>* format = mbuf->getMeshDataAndFormat();
+            assert(format->getMappedBuffer(asset::EVAI_ATTR0)!=NULL); //helpful assumption
 
-            const core::ICPUBuffer* databuf = NULL;
-            for (size_t j=0; j<scene::EVAI_COUNT; j++)
+            const asset::ICPUBuffer* databuf = NULL;
+            for (size_t j=0; j<asset::EVAI_COUNT; j++)
             {
-                scene::E_VERTEX_ATTRIBUTE_ID attrID = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(j);
+                asset::E_VERTEX_ATTRIBUTE_ID attrID = static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(j);
                 if (!format->getMappedBuffer(attrID)) // don't consider un-used attribute slots
                     continue;
 
@@ -229,7 +229,7 @@ int main()
         //! cache results -- speeds up mesh generation on second run
         {
             io::IWriteFile* cacheFile = device->getFileSystem()->createAndWriteFile("./normalCache101010.sse");
-            cacheFile->write(scene::normalCacheFor2_10_10_10Quant.data(),scene::normalCacheFor2_10_10_10Quant.size()*sizeof(scene::QuantizationCacheEntry2_10_10_10));
+            cacheFile->write(asset::normalCacheFor2_10_10_10Quant.data(),asset::normalCacheFor2_10_10_10Quant.size()*sizeof(asset::QuantizationCacheEntry2_10_10_10));
             cacheFile->drop();
         }
 
@@ -237,7 +237,7 @@ int main()
         {
             video::IGPUBuffer* ixbuf = driver->createFilledDeviceLocalGPUBufferOnDedMem(indexData.size()*sizeof(uint32_t),indexData.data());
             indexData.clear();
-            vaospec->mapIndexBuffer(ixbuf);
+            vaospec->setIndexBuffer(ixbuf);
             ixbuf->drop();
         }
 
@@ -252,18 +252,17 @@ int main()
         std::uniform_real_distribution<float> dist3D(0.f,400.f);
         for (size_t i=0; i<kInstanceCount; i++)
         {
-            scene::ICPUMeshBuffer* mbuf = cpumesh[i]->getMeshBuffer(0);
-            scene::IMeshDataFormatDesc<core::ICPUBuffer>* format = mbuf->getMeshDataAndFormat();
+            asset::ICPUMeshBuffer* mbuf = cpumesh[i]->getMeshBuffer(0);
+            asset::IMeshDataFormatDesc<asset::ICPUBuffer>* format = mbuf->getMeshDataAndFormat();
             if (i==0)
             {
-                for (size_t j=0; j<scene::EVAI_COUNT; j++)
+                for (size_t j=0; j<asset::EVAI_COUNT; j++)
                 {
-                    scene::E_VERTEX_ATTRIBUTE_ID attrID = static_cast<scene::E_VERTEX_ATTRIBUTE_ID>(j);
+                    asset::E_VERTEX_ATTRIBUTE_ID attrID = static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(j);
                     if (!format->getMappedBuffer(attrID))
                         continue;
 
-                    vaospec->mapVertexAttrBuffer(vxbuf,attrID,format->getAttribComponentCount(attrID),
-                                                 format->getAttribType(attrID),vertexSize,
+                    vaospec->setVertexAttrBuffer(vxbuf,attrID,format->getAttribFormat(attrID),vertexSize,
                                                  format->getMappedBufferOffset(attrID));
                 }
             }
@@ -275,9 +274,9 @@ int main()
             indirectDrawData[i].baseInstance = 0;
 
 
-            mbuff[i] = new scene::IGPUMeshBuffer();
+            mbuff[i] = new video::IGPUMeshBuffer();
             mbuff[i]->setBaseVertex(baseVertex);
-            baseVertex += format->getMappedBuffer(scene::EVAI_ATTR0)->getSize()/vertexSize;
+            baseVertex += format->getMappedBuffer(asset::EVAI_ATTR0)->getSize()/vertexSize;
 
             mbuff[i]->setBoundingBox(cpumesh[i]->getBoundingBox());
 
@@ -285,9 +284,9 @@ int main()
             indexOffset += mbuf->getIndexCount()*sizeof(uint32_t);
 
             mbuff[i]->setIndexCount(mbuf->getIndexCount());
-            mbuff[i]->setIndexType(scene::EIT_32BIT);
+            mbuff[i]->setIndexType(asset::EIT_32BIT);
             mbuff[i]->setMeshDataAndFormat(vaospec);
-            mbuff[i]->setPrimitiveType(scene::EPT_TRIANGLES);
+            mbuff[i]->setPrimitiveType(asset::EPT_TRIANGLES);
 
             cpumesh[i]->drop();
 
@@ -359,14 +358,14 @@ int main()
             video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER,0,1,
                                                                  &static_cast<video::COpenGLBuffer*>(perObjectSSBO)->getOpenGLName());
 
-            video::SMaterial material;
+            video::SGPUMaterial material;
             material.MaterialType = gpuCullMaterial;
             driver->setMaterial(material);
-            driver->drawIndexedIndirect(vaospec,scene::EPT_TRIANGLES,scene::EIT_32BIT,indirectDrawBuffer,0,kInstanceCount,sizeof(DrawElementsIndirectCommand));
+            driver->drawIndexedIndirect(vaospec,asset::EPT_TRIANGLES,asset::EIT_32BIT,indirectDrawBuffer,0,kInstanceCount,sizeof(DrawElementsIndirectCommand));
         }
         else
         {
-            scene::IGPUMeshBuffer* mb2draw[kInstanceCount];
+            video::IGPUMeshBuffer* mb2draw[kInstanceCount];
 
             size_t unculledNum = 0;
             for (size_t i=0; i<kInstanceCount; i++)
@@ -384,7 +383,7 @@ int main()
                                                                  &static_cast<video::COpenGLBuffer*>(perObjectSSBO)->getOpenGLName());
             for (size_t i=0; i<unculledNum; i++)
             {
-                video::SMaterial material;
+                video::SGPUMaterial material;
                 material.MaterialType = cpuCullMaterial;
                 reinterpret_cast<uint32_t&>(material.userData) = i;
                 driver->setMaterial(material);
@@ -413,7 +412,7 @@ int main()
     delete [] instanceXForm;
 
     //create a screenshot
-	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);
+	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
     glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
     {
         // images are horizontally flipped, so we have to fix that here.
@@ -432,8 +431,11 @@ int main()
         }
         delete [] tmpBuffer;
     }
-	driver->writeImageToFile(screenshot,"./screenshot.png");
-	screenshot->drop();
+    asset::CImageData* img = new asset::CImageData(screenshot);
+    asset::IAssetWriter::SAssetWriteParams wparams(img);
+    device->getAssetManager().writeAsset("screenshot.png", wparams);
+    img->drop();
+    screenshot->drop();
 
 
     for (size_t i=0; i<kInstanceCount; i++)

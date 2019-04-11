@@ -35,7 +35,6 @@
 
 //core
 #include "irr/core/BaseClasses.h"
-#include "irr/core/ICPUBuffer.h"
 #include "irr/core/irrString.h" //kill this abomination
 #include "irr/core/IThreadBound.h"
 #include "irr/core/Types.h"
@@ -68,6 +67,21 @@
 //} end system lib
 
 //{ asset lib (importing and exporting meshes, textures and shaders) [DEPENDS: system]
+#include "irr/asset/ICPUSkinnedMeshBuffer.h"
+#include "irr/asset/IAssetManager.h"
+#include "irr/asset/CCPUSkinnedMesh.h"
+#include "irr/asset/IAsset.h"
+#include "irr/asset/IAssetLoader.h"
+#include "irr/asset/IAssetWriter.h"
+#include "irr/asset/ICPUBuffer.h"
+#include "irr/asset/ICPUMesh.h"
+#include "irr/asset/ICPUMeshBuffer.h"
+#include "irr/asset/ICPUSkinnedMesh.h"
+#include "irr/asset/ICPUTexture.h"
+#include "irr/asset/SCPUMesh.h"
+#include "irr/asset/CImageData.h"
+#include "irr/asset/IGeometryCreator.h"
+#include "irr/asset/IMeshManipulator.h"
 //} end asset lib
 
 //{ ui lib (window set up, software blit, joysticks, multi-touch, keyboard, etc.) [DEPENDS: system]
@@ -80,6 +94,9 @@
 #include "irr/video/ResizableBufferingAllocator.h"
 #include "irr/video/SimpleGPUBufferAllocator.h"
 #include "irr/video/StreamingTransientDataBuffer.h"
+#include "irr/video/asset_traits.h"
+#include "irr/video/IGPUObjectFromAssetConverter.h"
+#include "irr/video/IGPUMesh.h"
 //} end video lib
 
 //{ scene lib (basic rendering, culling, scene graph etc.) [DEPENDS: video, ui]
@@ -118,23 +135,18 @@
 #include "IEventReceiver.h"
 #include "IFileList.h"
 #include "IFileSystem.h"
-#include "IGeometryCreator.h"
 #include "IGPUProgrammingServices.h"
-#include "CImageData.h"
 #include "IImage.h"
 #include "IImageLoader.h"
 #include "IImageWriter.h"
 #include "ILogger.h"
 #include "IMaterialRenderer.h"
 #include "IMaterialRendererServices.h"
-#include "IMesh.h"
-#include "IMeshBuffer.h"
-#include "IMeshCache.h"
-#include "IMeshLoader.h"
-#include "IMeshManipulator.h"
+#include "irr/asset/IMesh.h"
+#include "irr/video/IGPUMesh.h"
+#include "irr/video/IGPUMeshBuffer.h"
 #include "IMeshSceneNode.h"
 #include "IMeshSceneNodeInstanced.h"
-#include "IMeshWriter.h"
 #include "IOSOperator.h"
 #include "IReadFile.h"
 #include "IrrlichtDevice.h"
@@ -145,7 +157,7 @@
 #include "ISceneNodeAnimatorCameraFPS.h"
 #include "ISceneNodeAnimatorCameraMaya.h"
 #include "IShaderConstantSetCallBack.h"
-#include "ISkinnedMesh.h"
+#include "irr/video/IGPUSkinnedMesh.h"
 #include "ISkinnedMeshSceneNode.h"
 #include "ITexture.h"
 #include "ITextureBufferObject.h"
@@ -166,8 +178,7 @@
 #include "SIrrCreationParameters.h"
 #include "SKeyMap.h"
 #include "SMaterial.h"
-#include "SMesh.h"
-#include "SSkinMeshBuffer.h"
+#include "irr/video/SGPUMesh.h"
 #include "SViewFrustum.h"
 
 

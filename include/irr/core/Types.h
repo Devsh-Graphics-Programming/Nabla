@@ -20,6 +20,8 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <utility>
+#include <iterator>
 
 #include "irr/core/memory/new_delete.h"
 
@@ -77,8 +79,6 @@ template<typename T, class Container=deque<T> >
 using queue = std::queue<T,Container>;
 template<typename T, class Container=deque<T> >
 using stack = std::stack<T,Container>;
-
-
 
 typedef std::mutex  mutex;
 // change to some derivation of FW_FastLock later

@@ -6,6 +6,7 @@
 #define __S_MATERIAL_LAYER_H_INCLUDED__
 
 #include "STextureSamplingParams.h"
+#include "irr/asset/ICPUTexture.h"
 
 namespace irr
 {
@@ -15,6 +16,7 @@ namespace video
 #include "irr/irrpack.h"
 
 	//! Struct for holding material parameters which exist per texture layer
+    template<typename TexT>
 	class SMaterialLayer
 	{
 	public:
@@ -66,13 +68,9 @@ namespace video
 		{ return !(b!=*this); }
 
 		//! Texture
-		IVirtualTexture* Texture;
+		TexT* Texture;
 
         STextureSamplingParams SamplingParams;
-
-
-	private:
-		friend class SMaterial;
 	} PACK_STRUCT;
 
 #include "irr/irrunpack.h"

@@ -3,7 +3,6 @@
 #include <irrlicht.h>
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 #include "../source/Irrlicht/COpenGLBuffer.h"
-#include "../source/Irrlicht/CSkinnedMesh.h"
 #include "../source/Irrlicht/COpenGLDriver.h"
 #include "../source/Irrlicht/COpenGLTextureBufferObject.h"
 
@@ -289,16 +288,18 @@ int main(int _argCnt, char** _args)
     UBOManager uboMgr(16*sizeof(float)/*mat4*/, driver);
     uboMgr.bind(0u, 0, uboMgr.ubo->getSize());
 
-	scene::ICPUMesh* cpumesh = smgr->getMesh("../../media/dwarf.baw");
+    asset::IAssetManager& assetMgr = device->getAssetManager();
+    asset::IAssetLoader::SAssetLoadParams lparams;
+    asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(assetMgr.getAsset("../../media/dwarf.baw", lparams));
 
     using convfptr_t = size_t(*)(const float*, float*, const size_t, const size_t);
     convfptr_t convFunctions[5]{ &convertBuf1, &convertBuf2, &convertBuf3, &convertBuf4, &convertBuf5 };
 
-    video::SMaterial smaterial;
+    video::SGPUMaterial smaterial;
     smaterial.MaterialType = newMaterialType;
 
 #define INSTANCE_CNT 100
-    scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU({ cpumesh })[0];
+    video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
     for (size_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)
         gpumesh->getMeshBuffer(i)->setInstanceCount(INSTANCE_CNT);
 
@@ -342,7 +343,7 @@ int main(int _argCnt, char** _args)
 
 #ifdef BENCH
     video::IFrameBuffer* fbo = driver->addFrameBuffer();
-    fbo->attach(video::EFAP_DEPTH_ATTACHMENT, driver->addTexture(video::ITexture::ETT_2D, &WIN_SIZE.Width, 1, "Depth", video::ECF_DEPTH32F));
+    fbo->attach(video::EFAP_DEPTH_ATTACHMENT, driver->createGPUTexture(video::ITexture::ETT_2D, &WIN_SIZE.Width, 1, asset::EF_D32_SFLOAT));
 #endif
 
 #define ITER_CNT 1000

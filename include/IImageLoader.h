@@ -6,7 +6,7 @@
 #define __I_SURFACE_LOADER_H_INCLUDED__
 
 #include "irr/core/IReferenceCounted.h"
-#include "CImageData.h"
+#include "irr/asset/CImageData.h"
 #include "path.h"
 
 namespace irr
@@ -42,7 +42,7 @@ public:
 	//! Creates a surface from the file
 	/** \param file File handle to check.
 	\return Pointer to newly created image, or 0 upon error. */
-	virtual core::vector<CImageData*> loadImage(io::IReadFile* file) const = 0;
+	virtual core::vector<asset::CImageData*> loadImage(io::IReadFile* file) const = 0;
 };
 
 

@@ -133,44 +133,43 @@ public:
 
         return r;
     }
-    /* Above had a bug, so this most probably does not work!
     static inline matrix4SIMD concatenateBFollowedByAPrecisely(const matrix4SIMD& _a, const matrix4SIMD& _b)
     {
         matrix4SIMD out;
 
-        const __m128i mask0011 = BUILD_MASKF(0, 0, 1, 1);
+        __m128i mask0011 = BUILD_MASKF(0, 0, 1, 1);
         __m128 second;
 
         {
-        __m128d r00 = _b.halfRowAsDouble(0u, true);
-        __m128d r01 = _b.halfRowAsDouble(0u, false);
-        second = _mm_cvtpd_ps(concat64_helper(r00, r01, _a, false));
-        out.rows[0] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r00, r01, _a, true))) | (vectorSIMDu32(_mm_castps_si128(_mm_movelh_ps(second, second))) & mask0011);
+        __m128d r00 = _a.halfRowAsDouble(0u, true);
+        __m128d r01 = _a.halfRowAsDouble(0u, false);
+        second = _mm_cvtpd_ps(concat64_helper(r00, r01, _b, false));
+        out.rows[0] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r00, r01, _b, true))) | _mm_castps_si128((vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011).getAsRegister());
         }
 
         {
-        __m128d r10 = _b.halfRowAsDouble(1u, true);
-        __m128d r11 = _b.halfRowAsDouble(1u, false);
-        second = _mm_cvtpd_ps(concat64_helper(r10, r11, _a, false));
-        out.rows[1] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r10, r11, _a, true))) | (vectorSIMDu32(_mm_castps_si128(_mm_movelh_ps(second, second))) & mask0011);
+        __m128d r10 = _a.halfRowAsDouble(1u, true);
+        __m128d r11 = _a.halfRowAsDouble(1u, false);
+        second = _mm_cvtpd_ps(concat64_helper(r10, r11, _b, false));
+        out.rows[1] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r10, r11, _b, true))) | _mm_castps_si128((vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011).getAsRegister());
         }
 
         {
-        __m128d r20 = _b.halfRowAsDouble(2u, true);
-        __m128d r21 = _b.halfRowAsDouble(2u, false);
-        second = _mm_cvtpd_ps(concat64_helper(r20, r21, _a, false));
-        out.rows[2] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r20, r21, _a, true))) | (vectorSIMDu32(_mm_castps_si128(_mm_movelh_ps(second, second))) & mask0011);
+        __m128d r20 = _a.halfRowAsDouble(2u, true);
+        __m128d r21 = _a.halfRowAsDouble(2u, false);
+        second = _mm_cvtpd_ps(concat64_helper(r20, r21, _b, false));
+        out.rows[2] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r20, r21, _b, true))) | _mm_castps_si128((vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011).getAsRegister());
         }
 
         {
-        __m128d r30 = _b.halfRowAsDouble(3u, true);
-        __m128d r31 = _b.halfRowAsDouble(3u, false);
-        second = _mm_cvtpd_ps(concat64_helper(r30, r31, _a, false));
-        out.rows[3] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r30, r31, _a, true))) | (vectorSIMDu32(_mm_castps_si128(_mm_movelh_ps(second, second))) & mask0011);
+        __m128d r30 = _a.halfRowAsDouble(3u, true);
+        __m128d r31 = _a.halfRowAsDouble(3u, false);
+        second = _mm_cvtpd_ps(concat64_helper(r30, r31, _b, false));
+        out.rows[3] = vectorSIMDf(_mm_cvtpd_ps(concat64_helper(r30, r31, _b, true))) | _mm_castps_si128((vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011).getAsRegister());
         }
 
         return out;
-    }*/
+    }
 
     inline bool isIdentity() const
     {

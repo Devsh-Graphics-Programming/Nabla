@@ -5,7 +5,7 @@
 #ifndef __I_VIRTUAL_TEXTURE_H_INCLUDED__
 #define __I_VIRTUAL_TEXTURE_H_INCLUDED__
 
-#include "CImageData.h"
+#include "irr/asset/CImageData.h"
 #include "IFrameBuffer.h"
 
 namespace irr
@@ -53,12 +53,11 @@ class IVirtualTexture : public virtual core::IReferenceCounted
 
         //! Get the color format of texture.
         /** \return The color format of texture. */
-        virtual ECOLOR_FORMAT getColorFormat() const = 0;
+        virtual asset::E_FORMAT getColorFormat() const = 0;
 
         //! Returns if the texture has an alpha channel
         inline bool hasAlpha() const {
-            return getColorFormat () == video::ECF_A8R8G8B8 || getColorFormat () == video::ECF_R8G8B8A8 || getColorFormat () == video::ECF_A1R5G5B5 || getColorFormat () == video::ECF_A16B16G16R16F || getColorFormat () == ECF_A32B32G32R32F
-                                                || getColorFormat() == ECF_RGBA_BC1 || getColorFormat() == ECF_RGBA_BC2 || getColorFormat() == ECF_RGBA_BC3;
+            return asset::getFormatChannelCount(getColorFormat()) == 4u;
         }
 };
 

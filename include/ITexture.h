@@ -7,7 +7,7 @@
 
 #include "path.h"
 #include "dimension2d.h"
-#include "CImageData.h"
+#include "irr/asset/CImageData.h"
 #include "IFrameBuffer.h"
 #include "IVirtualTexture.h"
 #include "IDriverMemoryBacked.h"
@@ -90,7 +90,7 @@ class ITexture : public core::impl::ResolveAlignment<IDriverMemoryBacked,IRender
         virtual uint32_t getMipMapLevelCount() const = 0;
 
         //!
-        virtual bool updateSubRegion(const ECOLOR_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0) = 0;
+        virtual bool updateSubRegion(const asset::E_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0) = 0;
         virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0) = 0;
 
         //! Get pitch of the main texture (in bytes).

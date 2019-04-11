@@ -4,12 +4,12 @@
 #include "assert.h"
 #include <algorithm>
 #include <functional>
-#include "ISkinnedMesh.h"
+#include "irr/asset/ICPUSkinnedMesh.h"
 #include "IGPUBuffer.h"
 #include "quaternion.h"
 #include "irr/core/Types.h"
 #include "irr/core/irrString.h"
-#include "CBAWFile.h"
+#include "irr/asset/bawformat/CBAWFile.h"
 #include "matrix3x4SIMD.h"
 
 namespace irr
@@ -17,7 +17,7 @@ namespace irr
 namespace scene
 {
     //! If it has no animation, make 1 frame of animation with LocalMatrix
-    class CFinalBoneHierarchy : public core::IReferenceCounted, public core::BlobSerializable
+    class CFinalBoneHierarchy : public core::IReferenceCounted, public asset::BlobSerializable
     {
         protected:
             virtual ~CFinalBoneHierarchy()
@@ -59,7 +59,7 @@ namespace scene
             #include "irr/irrunpack.h"
 
 
-            CFinalBoneHierarchy(const core::vector<ICPUSkinnedMesh::SJoint*>& inLevelFixedJoints, const core::vector<size_t>& inJointsLevelEnd)
+            CFinalBoneHierarchy(const core::vector<asset::ICPUSkinnedMesh::SJoint*>& inLevelFixedJoints, const core::vector<size_t>& inJointsLevelEnd)
                     : boneCount(inLevelFixedJoints.size()), NumLevelsInHierarchy(inJointsLevelEnd.size()),
                     ///boundBuffer(NULL),
                     keyframeCount(0), keyframes(NULL), interpolatedAnimations(NULL), nonInterpolatedAnimations(NULL)
@@ -68,7 +68,7 @@ namespace scene
                 boneNames = _IRR_NEW_ARRAY(core::stringc,boneCount);
                 for (size_t i=0; i<boneCount; i++)
                 {
-                    ICPUSkinnedMesh::SJoint* joint = inLevelFixedJoints[i];
+                    asset::ICPUSkinnedMesh::SJoint* joint = inLevelFixedJoints[i];
                     boneFlatArray[i].PoseBindMatrix = joint->GlobalInversedMatrix;
                     boneFlatArray[i].MinBBoxEdge[0] = joint->bbox.MinEdge.X;
                     boneFlatArray[i].MinBBoxEdge[1] = joint->bbox.MinEdge.Y;
@@ -138,7 +138,7 @@ namespace scene
 
 			virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const
 			{
-				return core::CorrespondingBlobTypeFor<CFinalBoneHierarchy>::type::createAndTryOnStack(static_cast<const CFinalBoneHierarchy*>(this), _stackPtr, _stackSize);
+				return asset::CorrespondingBlobTypeFor<CFinalBoneHierarchy>::type::createAndTryOnStack(static_cast<const CFinalBoneHierarchy*>(this), _stackPtr, _stackSize);
 			}
 
 			inline size_t getSizeOfAllBoneNames() const
@@ -493,12 +493,12 @@ namespace scene
             }
 
         private:
-            inline void createAnimationKeys(const core::vector<ICPUSkinnedMesh::SJoint*>& inLevelFixedJoints)
+            inline void createAnimationKeys(const core::vector<asset::ICPUSkinnedMesh::SJoint*>& inLevelFixedJoints)
             {
                 core::unordered_set<float> sortedFrames;
                 for (size_t i=0; i<boneCount; i++)
                 {
-                    ICPUSkinnedMesh::SJoint* joint = inLevelFixedJoints[i];
+                    asset::ICPUSkinnedMesh::SJoint* joint = inLevelFixedJoints[i];
                     for (size_t j=0; j<joint->RotationKeys.size(); j++)
                         sortedFrames.insert(joint->RotationKeys[j].frame);
 
@@ -524,7 +524,7 @@ namespace scene
                     AnimationKeyData* tmpAnimationInterpol = interpolatedAnimations+keyframeCount*i;
                     AnimationKeyData* tmpAnimationNonInterpol = nonInterpolatedAnimations+keyframeCount*i;
 
-                    ICPUSkinnedMesh::SJoint* joint = inLevelFixedJoints[i];
+                    asset::ICPUSkinnedMesh::SJoint* joint = inLevelFixedJoints[i];
                     bool HasAnyKeys = joint->RotationKeys.size()>0||joint->PositionKeys.size()||joint->ScaleKeys.size();
                     switch (joint->RotationKeys.size())
                     {

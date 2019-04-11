@@ -10,6 +10,7 @@
 
 #include "os.h"
 #include "coreutil.h"
+#include "CLimitReadFile.h"
 
 #ifdef _DEBUG
 #define IRR_DEBUG_NPK_READER
@@ -223,9 +224,8 @@ IReadFile* CNPKReader::createAndOpenFile(const io::path& filename)
 {
     auto it = findFile(Files.begin(),Files.end(),filename,false);
 	if (it!=Files.end())
-        return createLimitReadFile( it->FullName, File, it->Offset, it->Size );
-
-	return nullptr;
+        return new CLimitReadFile(File, it->Offset, it->Size, it->FullName);
+    return nullptr;
 }
 
 void CNPKReader::readString(core::stringc& name)

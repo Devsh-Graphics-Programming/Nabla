@@ -154,7 +154,7 @@ IReadFile* CMountPointReader::createAndOpenFile(const io::path& filename)
     auto found = findFile(Files.begin(),Files.end(),filename,false);
 	if (found != Files.end())
     {
-        return createReadFile(RealFileNames[found->ID]);
+        return Parent->createAndOpenFile(RealFileNames[found->ID]);
     }
 	
 	return nullptr;

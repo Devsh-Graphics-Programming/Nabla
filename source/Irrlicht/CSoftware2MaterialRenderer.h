@@ -80,7 +80,7 @@ public:
 	CBurningShader_REFERENCE ( video::CBurningVideoDriver* driver )
 		: CSoftware2MaterialRenderer ( driver ) {}
 
-	virtual void OnSetMaterial(const SMaterial& material, const SMaterial& lastMaterial,
+	virtual void OnSetMaterial(const SGPUMaterial& material, const SGPUMaterial& lastMaterial,
 		bool resetAllRenderstates, IMaterialRendererServices* services)
 	{
 	}

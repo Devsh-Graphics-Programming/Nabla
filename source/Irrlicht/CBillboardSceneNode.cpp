@@ -25,9 +25,9 @@ CBillboardSceneNode::CBillboardSceneNode(IDummyTransformationSceneNode* parent, 
 
 	setSize(size);
 
-    meshbuffer = new IGPUMeshBuffer();
+    meshbuffer = new video::IGPUMeshBuffer();
     meshbuffer->setIndexCount(4);
-    meshbuffer->setPrimitiveType(EPT_TRIANGLE_STRIP);
+    meshbuffer->setPrimitiveType(asset::EPT_TRIANGLE_STRIP);
 
     desc = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
     meshbuffer->setMeshDataAndFormat(desc);
@@ -42,7 +42,7 @@ CBillboardSceneNode::CBillboardSceneNode(IDummyTransformationSceneNode* parent, 
     reqs.prefersDedicatedAllocation = true;
     reqs.requiresDedicatedAllocation = true;
     vertexBuffer = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
-    desc->mapVertexAttrBuffer(vertexBuffer,EVAI_ATTR0,ECPA_THREE,ECT_FLOAT);
+    desc->setVertexAttrBuffer(vertexBuffer,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT);
     vertexBuffer->drop();
 
     setColor(colorTop,colorBottom);
@@ -200,8 +200,8 @@ void CBillboardSceneNode::setColor(const video::SColor& topColor,
     reqs.requiresDedicatedAllocation = true;
     video::IGPUBuffer* buf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
     buf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,sizeof(staticVxData)),staticVxData);
-    desc->mapVertexAttrBuffer(buf,EVAI_ATTR1,ECPA_REVERSED_OR_BGRA,ECT_NORMALIZED_UNSIGNED_BYTE);
-    desc->mapVertexAttrBuffer(buf,EVAI_ATTR2,ECPA_TWO,ECT_UNSIGNED_BYTE,0,16);
+    desc->setVertexAttrBuffer(buf,asset::EVAI_ATTR1,asset::EF_B8G8R8A8_UNORM);
+    desc->setVertexAttrBuffer(buf,asset::EVAI_ATTR2,asset::EF_R8G8_USCALED,0,16);
     buf->drop();
 }
 

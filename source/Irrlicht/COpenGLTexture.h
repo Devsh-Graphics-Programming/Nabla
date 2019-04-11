@@ -39,12 +39,12 @@ public:
     static bool isInternalFormatCompressed(GLenum format);
 
 	//! Get the OpenGL color format parameters based on the given Irrlicht color format
-	static void getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FORMAT &format, GLenum& colorformat, GLenum& type); //kill this
+	static void getOpenGLFormatAndParametersFromColorFormat(const asset::E_FORMAT &format, GLenum& colorformat, GLenum& type); //kill this
 
-	static GLint getOpenGLFormatAndParametersFromColorFormat(const ECOLOR_FORMAT &format);
+	static GLint getOpenGLFormatAndParametersFromColorFormat(const asset::E_FORMAT &format);
 
 	//!
-	static ECOLOR_FORMAT getColorFormatFromSizedOpenGLFormat(const GLenum& sizedFormat);
+	static asset::E_FORMAT getColorFormatFromSizedOpenGLFormat(const GLenum& sizedFormat);
 
 	//! Get the OpenGL color format parameters based on the given Irrlicht color format
 	static uint32_t getOpenGLFormatBpp(const GLenum& colorformat);
@@ -79,7 +79,7 @@ public:
 	virtual E_DRIVER_TYPE getDriverType() const {return EDT_OPENGL;}
 
 	//! returns color format of texture
-	virtual ECOLOR_FORMAT getColorFormat() const {return ColorFormat;}
+	virtual asset::E_FORMAT getColorFormat() const {return ColorFormat;}
 
 	//! returns pitch of texture (in bytes)
 	virtual uint32_t getPitch() const {return video::getBitsPerPixelFromFormat(ColorFormat)*TextureSize[0]/8;}
@@ -114,7 +114,7 @@ protected:
 	uint32_t MipLevelsStored;
 
 	GLint InternalFormat;
-	ECOLOR_FORMAT ColorFormat;
+	asset::E_FORMAT ColorFormat;
 };
 
 

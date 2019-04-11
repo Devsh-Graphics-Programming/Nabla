@@ -177,39 +177,39 @@ int main()
 	MyEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
-    #define kInstanceSquareSize 10
-	scene::ISceneNode* instancesToRemove[kInstanceSquareSize*kInstanceSquareSize] = {0};
+#define kInstanceSquareSize 10
+	scene::ISceneNode* instancesToRemove[kInstanceSquareSize*kInstanceSquareSize] = { 0 };
 
-	//! Test Loading of Obj
-    scene::ICPUMesh* cpumesh = smgr->getMesh("../../media/dwarf.x");
-    if (cpumesh&&cpumesh->getMeshType()==scene::EMT_ANIMATED_SKINNED)
-    {
-        scene::ISkinnedMeshSceneNode* anode = 0;
-        scene::IGPUMesh* gpumesh = driver->createGPUMeshesFromCPU(core::vector<scene::ICPUMesh*>(1,cpumesh))[0];
-        smgr->getMeshCache()->removeMesh(cpumesh); //drops hierarchy
+    asset::IAssetLoader::SAssetLoadParams lparams;
+	asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/dwarf.baw", lparams));
 
-        for (size_t x=0; x<kInstanceSquareSize; x++)
-        for (size_t z=0; z<kInstanceSquareSize; z++)
-        {
-            instancesToRemove[x+kInstanceSquareSize*z] = anode = smgr->addSkinnedMeshSceneNode(static_cast<scene::IGPUSkinnedMesh*>(gpumesh));
-            anode->setScale(core::vector3df(0.05f));
-            anode->setPosition(core::vector3df(x,0.f,z)*4.f);
-            anode->setAnimationSpeed(18.f*float(x+1+(z+1)*kInstanceSquareSize)/float(kInstanceSquareSize*kInstanceSquareSize));
-            anode->setMaterialType(newMaterialType);
-            anode->setMaterialTexture(3,anode->getBonePoseTBO());
-        }
+	if (cpumesh&&cpumesh->getMeshType() == asset::EMT_ANIMATED_SKINNED)
+	{
+		scene::ISkinnedMeshSceneNode* anode = 0;
+		video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1)[0];
 
-        gpumesh->drop();
-    }
+		for (size_t x = 0; x<kInstanceSquareSize; x++)
+			for (size_t z = 0; z<kInstanceSquareSize; z++)
+			{
+				instancesToRemove[x + kInstanceSquareSize*z] = anode = smgr->addSkinnedMeshSceneNode(static_cast<video::IGPUSkinnedMesh*>(gpumesh));
+				anode->setScale(core::vector3df(0.05f));
+				anode->setPosition(core::vector3df(x, 0.f, z)*4.f);
+				anode->setAnimationSpeed(18.f*float(x + 1 + (z + 1)*kInstanceSquareSize) / float(kInstanceSquareSize*kInstanceSquareSize));
+				anode->setMaterialType(newMaterialType);
+				anode->setMaterialTexture(3, anode->getBonePoseTBO());
+			}
+
+		gpumesh->drop();
+	}
 
     scene::IGPUMeshBuffer* fsTriMeshBuffer = ext::FullScreenTriangle::createFullScreenTriangle(driver);
     //! We use a renderbuffer because we don't intend on reading from it
     video::IMultisampleTexture* colorMT=NULL,* depthMT=NULL;
-    video::SMaterial postProcMaterial;
+    video::SGPUMaterial postProcMaterial;
     video::IFrameBuffer* framebuffer = driver->addFrameBuffer();
     {
-        colorMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,video::ECF_A8R8G8B8);
-        depthMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,video::ECF_DEPTH32F);
+        colorMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,asset::EF_B8G8R8A8_UNORM);
+        depthMT = driver->addMultisampleTexture(video::IMultisampleTexture::EMTT_2D,numberOfSamples,&params.WindowSize.Width,asset::EF_D32_SFLOAT);
         framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0,colorMT);
         framebuffer->attach(video::EFAP_DEPTH_ATTACHMENT,depthMT);
 
@@ -237,7 +237,7 @@ int main()
 	while(device->run()&&(!quit))
 	//if (device->isWindowActive())
 	{
-		driver->beginScene( false,false );
+		driver->beginScene(false, false);
 
 		driver->setRenderTarget(framebuffer);
 		vectorSIMDf clearColor(1.f,1.f,1.f,1.f);
@@ -294,7 +294,7 @@ int main()
         instancesToRemove[x+kInstanceSquareSize*z]->remove();
 
     //create a screenshot
-	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);
+	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
         video::COpenGLExtensionHandler::extGlNamedFramebufferReadBuffer(0,GL_FRONT_LEFT);
     glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
     {
@@ -314,8 +314,11 @@ int main()
         }
         delete [] tmpBuffer;
     }
-	driver->writeImageToFile(screenshot,"./screenshot.png");
-	screenshot->drop();
+    asset::CImageData* img = new asset::CImageData(screenshot);
+    asset::IAssetWriter::SAssetWriteParams wparams(img);
+    device->getAssetManager().writeAsset("screenshot.png", wparams);
+    img->drop();
+    screenshot->drop();
 
 	device->drop();
 

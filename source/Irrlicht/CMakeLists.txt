@@ -1,8 +1,4 @@
-
-if(NOT NASTY_OPENSSL_WORKAROUND)
-	find_package(OpenSSL REQUIRED)
-endif()
-
+#find_package(OpenSSL REQUIRED)
 find_package(OpenGL REQUIRED)
 if(UNIX)
 	find_package(X11 REQUIRED)
@@ -10,41 +6,44 @@ if(UNIX)
 	find_package(Threads REQUIRED)
 endif()
 
+file(GLOB_RECURSE IRRLICHT_HEADERS "../../*.h") # just gather all the header files and later put them into project so it's easy to search for things using IDE
+
 set(IRRLICHT_SRCS_COMMON
 # Mesh loaders
-	C3DSMeshFileLoader.cpp
-	CB3DMeshFileLoader.cpp
-	CBAWMeshFileLoader.cpp
-	CLMTSMeshFileLoader.cpp
-	CLWOMeshFileLoader.cpp
-	CMS3DMeshFileLoader.cpp
-	CMY3DMeshFileLoader.cpp
-	COBJMeshFileLoader.cpp
-	COCTLoader.cpp
-	COgreMeshFileLoader.cpp
-	CPLYMeshFileLoader.cpp
-	CSTLMeshFileLoader.cpp
-	CXMeshFileLoader.cpp
+	../../src/irr/asset/CBAWMeshFileLoader.cpp
+	../../src/irr/asset/COBJMeshFileLoader.cpp
+	../../src/irr/asset/CPLYMeshFileLoader.cpp
+	../../src/irr/asset/CSTLMeshFileLoader.cpp
+	../../src/irr/asset/CXMeshFileLoader.cpp
 
 # Mesh writers
-	CBAWMeshWriter.cpp
-	COBJMeshWriter.cpp
-	CPLYMeshWriter.cpp
-	CSTLMeshWriter.cpp
+	../../src/irr/asset/CBAWMeshWriter.cpp
+	../../src/irr/asset/COBJMeshWriter.cpp
+	../../src/irr/asset/CPLYMeshWriter.cpp
+	../../src/irr/asset/CSTLMeshWriter.cpp
+	
+# Assets
+	../../src/irr/asset/IAsset.cpp
+	../../src/irr/asset/IAssetManager.cpp
+	../../src/irr/asset/IAssetWriter.cpp
+	../../src/irr/asset/IAssetLoader.cpp
+	
+# Shaders
+	../../src/irr/asset/IGLSLCompiler.cpp
+	../../src/irr/asset/ICPUShader.cpp
 
 # Other mesh-related stuff
-	CAnimatedMeshSceneNode.cpp
-	CBAWFile.cpp
-	CBlobsLoadingManager.cpp
-	CForsythVertexCacheOptimizer.cpp
-	CMeshCache.cpp
-	CMeshManipulator.cpp
+	../../src/irr/asset/bawformat/CBAWFile.cpp
+	../../src/irr/asset/bawformat/legacy/CBAWLegacy.cpp
+	../../src/irr/asset/bawformat/CBlobsLoadingManager.cpp
+	../../src/irr/asset/CForsythVertexCacheOptimizer.cpp
+	../../src/irr/asset/CMeshManipulator.cpp
 	CMeshSceneNode.cpp
 	CMeshSceneNodeInstanced.cpp
-	COverdrawMeshOptimizer.cpp
-	CSkinnedMesh.cpp
+	../../src/irr/asset/COverdrawMeshOptimizer.cpp
 	CSkinnedMeshSceneNode.cpp
-	TypedBlob.cpp
+	../../src/irr/asset/bawformat/TypedBlob.cpp
+	CCPUSkinnedMesh.cpp
 	
 # Shader loading and processing
 	CGLSLFunctionGenerator.cpp
@@ -53,7 +52,7 @@ set(IRRLICHT_SRCS_COMMON
 	CBillboardSceneNode.cpp
 	CCameraSceneNode.cpp
 	CCubeSceneNode.cpp
-	CGeometryCreator.cpp
+	../../src/irr/asset/CGeometryCreator.cpp
 	CSceneManager.cpp
 	CSkyBoxSceneNode.cpp
 	CSkyDomeSceneNode.cpp
@@ -70,6 +69,7 @@ set(IRRLICHT_SRCS_COMMON
 	CSceneNodeAnimatorTexture.cpp
 
 # Driver-specific objects
+	IDriver.cpp
 	CNullDriver.cpp
 	COpenGLDriver.cpp
 	COpenGLExtensionHandler.cpp
@@ -82,16 +82,16 @@ set(IRRLICHT_SRCS_COMMON
 # Image processing
 	CColorConverter.cpp
 	CImage.cpp
-	CImageLoaderBMP.cpp
-	CImageLoaderDDS.cpp
-	CImageLoaderJPG.cpp
-	CImageLoaderPNG.cpp
-	CImageLoaderRGB.cpp
-	CImageLoaderTGA.cpp
-	CImageWriterBMP.cpp
-	CImageWriterJPG.cpp
-	CImageWriterPNG.cpp
-	CImageWriterTGA.cpp
+	../../src/irr/asset/CImageLoaderBMP.cpp
+	../../src/irr/asset/CImageLoaderDDS.cpp
+	../../src/irr/asset/CImageLoaderJPG.cpp
+	../../src/irr/asset/CImageLoaderPNG.cpp
+	../../src/irr/asset/CImageLoaderRGB.cpp
+	../../src/irr/asset/CImageLoaderTGA.cpp
+	../../src/irr/asset/CImageWriterBMP.cpp
+	../../src/irr/asset/CImageWriterJPG.cpp
+	../../src/irr/asset/CImageWriterPNG.cpp
+	../../src/irr/asset/CImageWriterTGA.cpp
 
 # Video
 	CFPSCounter.cpp
@@ -128,6 +128,7 @@ set(IRRLICHT_SRCS_COMMON
 
 # Other
 	coreutil.cpp
+	IrrlichtDevice.cpp
 	CIrrDeviceSDL.cpp
 	CIrrDeviceLinux.cpp
 	CIrrDeviceConsole.cpp
@@ -138,6 +139,9 @@ set(IRRLICHT_SRCS_COMMON
 	Irrlicht.cpp
 	os.cpp
 	IReferenceCounted.cpp
+	
+# PCH
+	pch.cpp
 )
 
 set(IRRLICHT_SRCS_NORMAL
@@ -163,204 +167,65 @@ set(IRRLICHT_SRCS_SERVER
 )
 
 set(COMMON_INCLUDE_DIRS
-	convert_utf
-	libpng
-	utf8/source
-	zlib
+	${THIRD_PARTY_SOURCE_DIR}/convertutf
+	${THIRD_PARTY_SOURCE_DIR}/utfcpp/source
+	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
+	$<TARGET_PROPERTY:jpeg,BINARY_DIR> #for dynamically generated jconfig.h
 )
 
 irr_adjust_flags() # macro defined in root CMakeLists
 irr_adjust_definitions() # macro defined in root CMakeLists
 
-add_library(aesGladman OBJECT
-	aesGladman/aes_ni.c
-	aesGladman/aescrypt.c
-	aesGladman/aeskey.c
-	aesGladman/aestab.c
-	aesGladman/fileenc.c
-	aesGladman/hmac.c
-	aesGladman/prng.c
-	aesGladman/pwd2key.c
-	aesGladman/sha1.c
-)
-target_include_directories(aesGladman PUBLIC ${COMMON_INCLUDE_DIRS})
-
-add_library(bzip2 OBJECT
-	bzip2/blocksort.c
-	bzip2/bzlib.c
-	bzip2/compress.c
-	bzip2/crctable.c
-	bzip2/decompress.c
-	bzip2/huffman.c
-	bzip2/randtable.c
-)
-target_include_directories(bzip2 PUBLIC ${COMMON_INCLUDE_DIRS})
-
-add_library(convert_utf OBJECT
-	convert_utf/ConvertUTF.c
-)
-target_include_directories(convert_utf PUBLIC ${COMMON_INCLUDE_DIRS})
-
-add_library(jpeglib OBJECT
-	jpeglib/jaricom.c
-	jpeglib/jcapimin.c
-	jpeglib/jcapistd.c
-	jpeglib/jcarith.c
-	jpeglib/jccoefct.c
-	jpeglib/jccolor.c
-	jpeglib/jcdctmgr.c
-	jpeglib/jchuff.c
-	jpeglib/jcinit.c
-	jpeglib/jcmainct.c
-	jpeglib/jcmarker.c
-	jpeglib/jcmaster.c
-	jpeglib/jcomapi.c
-	jpeglib/jcparam.c
-	jpeglib/jcprepct.c
-	jpeglib/jcsample.c
-	jpeglib/jctrans.c
-	jpeglib/jdapimin.c
-	jpeglib/jdapistd.c
-	jpeglib/jdarith.c
-	jpeglib/jdatadst.c
-	jpeglib/jdatasrc.c
-	jpeglib/jdcoefct.c
-	jpeglib/jdcolor.c
-	jpeglib/jddctmgr.c
-	jpeglib/jdhuff.c
-	jpeglib/jdinput.c
-	jpeglib/jdmainct.c
-	jpeglib/jdmarker.c
-	jpeglib/jdmaster.c
-	jpeglib/jdmerge.c
-	jpeglib/jdpostct.c
-	jpeglib/jdsample.c
-	jpeglib/jdtrans.c
-	jpeglib/jerror.c
-	jpeglib/jfdctflt.c
-	jpeglib/jfdctfst.c
-	jpeglib/jfdctint.c
-	jpeglib/jidctflt.c
-	jpeglib/jidctfst.c
-	jpeglib/jidctint.c
-	jpeglib/jmemmgr.c
-	jpeglib/jmemnobs.c
-	jpeglib/jquant1.c
-	jpeglib/jquant2.c
-	jpeglib/jutils.c
-)
-target_include_directories(jpeglib PUBLIC ${COMMON_INCLUDE_DIRS})
-
-add_library(libpng OBJECT
-	libpng/png.c
-	libpng/pngerror.c
-	libpng/pngget.c
-	libpng/pngmem.c
-	libpng/pngpread.c
-	libpng/pngread.c
-	libpng/pngrio.c
-	libpng/pngrtran.c
-	libpng/pngrutil.c
-	libpng/pngset.c
-	libpng/pngtrans.c
-	libpng/pngwio.c
-	libpng/pngwrite.c
-	libpng/pngwtran.c
-	libpng/pngwutil.c
-)
-target_include_directories(libpng PUBLIC ${COMMON_INCLUDE_DIRS})
-
-add_library(lz4 OBJECT
-	lz4/lz4.c
-	lz4/lz4frame.c
-	lz4/lz4hc.c
-	lz4/xxhash.c
-)
-target_include_directories(lz4 PUBLIC ${COMMON_INCLUDE_DIRS})
-
-add_library(lzma OBJECT
-	lzma/Alloc.c
-	lzma/LzFind.c
-	lzma/LzmaDec.c
-	lzma/LzmaEnc.c
-)
-target_compile_definitions(lzma PRIVATE _7ZIP_ST)
-target_include_directories(lzma PUBLIC ${COMMON_INCLUDE_DIRS})
-
-add_library(zlib OBJECT
-	zlib/adler32.c
-	zlib/crc32.c
-	zlib/deflate.c
-	zlib/infback.c
-	zlib/inffast.c
-	zlib/inflate.c
-	zlib/inftrees.c
-	zlib/trees.c
-	zlib/uncompr.c
-	zlib/zcompress.c
-	zlib/zutil.c
-)
-target_include_directories(zlib PUBLIC ${COMMON_INCLUDE_DIRS})
-
-add_library(spirv_cross OBJECT
-	spirv_cross/spirv_cfg.cpp
-	spirv_cross/spirv_cross.cpp
-	spirv_cross/spirv_glsl.cpp
-	spirv_cross/spirv_reflect.cpp
-)
-target_compile_definitions(spirv_cross PRIVATE SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
-target_include_directories(spirv_cross PUBLIC ${COMMON_INCLUDE_DIRS})
-
-add_library(libshaderc OBJECT
-	libshaderc/compiler.cc
-	libshaderc/file_finder.cc
-	libshaderc/io.cc
-	libshaderc/message.cc
-	libshaderc/resources.cc
-	libshaderc/shader_stage.cc
-	libshaderc/shaderc.cc
-	libshaderc/spirv_tools_wrapper.cc
-	libshaderc/version_profile.cc
-)
-target_include_directories(libshaderc PUBLIC ${COMMON_INCLUDE_DIRS})
-
 macro(irr_target_link_openssl _trgt)
-	if(NOT NASTY_OPENSSL_WORKAROUND)
-		target_link_libraries(${_trgt} INTERFACE
-			OpenSSL::Crypto
-			OpenSSL::SSL
-		)
-		target_include_directories(${_trgt} PUBLIC ${OPENSSL_INCLUDE_DIR})
-	else()
-		target_include_directories(${_trgt} PUBLIC ../../../openssl/include/)
-		if (UNIX)
-			target_link_libraries(${_trgt} INTERFACE
-				../../../openssl/crypto.a
-			)
-		elseif (WIN32)
-			target_link_libraries(${_trgt} INTERFACE
-				../../../openssl/lib/libeay32.lib
-			)
-		endif()
-	endif()
+	target_link_libraries(${_trgt} INTERFACE
+		"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libeay32.lib"
+		"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/ssleay32.lib"
+	)
+	target_include_directories(${_trgt} PUBLIC "$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/include")
 endmacro()
+macro(irr_target_link_shaderc _trgt)
+	add_dependencies(Irrlicht shaderc)
+	target_link_libraries(${_trgt} INTERFACE
+		shaderc
+	)
+	target_include_directories(${_trgt} PUBLIC ../../3rdparty/shaderc/libshaderc/include)
+endmacro()
+macro(irr_target_link_libjpeg _trgt)
+	add_dependencies(Irrlicht jpeg)
+	target_link_libraries(${_trgt} INTERFACE
+		jpeg
+	)
+	target_include_directories(${_trgt} PUBLIC ../../3rdparty/libjpeg)
+endmacro()
+macro(irr_target_link_libpng _trgt)
+	add_dependencies(Irrlicht png_static)
+	target_link_libraries(${_trgt} INTERFACE
+		png_static
+	)
+	target_include_directories(${_trgt} PUBLIC ../../3rdparty/libpng)
+endmacro()
+
+# get function for cross-compiler PCH configuration
+include(add_pch)
 
 add_library(Irrlicht STATIC
 	${IRRLICHT_SRCS_COMMON}
 	${IRRLICHT_SRCS_NORMAL}
+	${IRRLICHT_HEADERS}
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:convert_utf>
-	$<TARGET_OBJECTS:jpeglib>
-	$<TARGET_OBJECTS:libpng>
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:zlib>
 	$<TARGET_OBJECTS:spirv_cross>
-	$<TARGET_OBJECTS:libshaderc>
 )
 
+add_dependencies(Irrlicht openssl_build)
 irr_target_link_openssl(Irrlicht)
+irr_target_link_shaderc(Irrlicht)
+irr_target_link_libjpeg(Irrlicht)
+irr_target_link_libpng(Irrlicht)
 
 target_link_libraries(Irrlicht INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
@@ -376,7 +241,9 @@ endif()
 target_include_directories(Irrlicht PUBLIC 
 	../../include
 	${COMMON_INCLUDE_DIRS}
+	${THIRD_PARTY_SOURCE_DIR}
 )
+target_include_directories(Irrlicht PUBLIC ../../src ../../source/Irrlicht) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 if (UNIX)
 	target_include_directories(Irrlicht PUBLIC 
 		${X11_INCLUDE_DIR} 
@@ -402,32 +269,32 @@ target_compile_definitions(Irrlicht PRIVATE
 	_IRR_COMPILE_WITH_OPENGL_
 )
 
-if(BUILD_EXAMPLES)
-	add_custom_command(TARGET Irrlicht POST_BUILD
-					   COMMAND ${CMAKE_COMMAND} -E 
-					   copy_directory "${CMAKE_CURRENT_SOURCE_DIR}/../../examples_tests/media" "${CMAKE_CURRENT_BINARY_DIR}/../../examples_tests/media"
-	)
-endif()
+ADD_PRECOMPILED_HEADER(Irrlicht pch.h FORCEINCLUDE)
 
 add_library(IrrlichtServer STATIC
 	${IRRLICHT_SRCS_COMMON}
 	${IRRLICHT_SRCS_SERVER}
+	${IRRLICHT_HEADERS}
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:convert_utf>
-	$<TARGET_OBJECTS:jpeglib>
-	$<TARGET_OBJECTS:libpng>
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:zlib>
 )
 
+add_dependencies(IrrlichtServer openssl_build)
 irr_target_link_openssl(IrrlichtServer)
+irr_target_link_shaderc(IrrlichtServer)
+irr_target_link_libjpeg(IrrlichtServer)
+irr_target_link_libpng(IrrlichtServer)
 
 target_include_directories(IrrlichtServer PUBLIC 
 	../../include
 	${COMMON_INCLUDE_DIRS}
+	${THIRD_PARTY_SOURCE_DIR}
 )
+target_include_directories(IrrlichtServer PRIVATE ../../src ../../source/Irrlicht)
 
 target_compile_definitions(IrrlichtServer PRIVATE
 	_IRR_STATIC_LIB_
@@ -435,6 +302,8 @@ target_compile_definitions(IrrlichtServer PRIVATE
 	NO_IRR_COMPILE_WITH_BURNINGSVIDEO_
 	NO_IRR_COMPILE_WITH_OPENGL_
 )
+
+ADD_PRECOMPILED_HEADER(IrrlichtServer pch.h FORCEINCLUDE)
 
 if(MSVC)
 	set (OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/../../lib/Win64-visualStudio")

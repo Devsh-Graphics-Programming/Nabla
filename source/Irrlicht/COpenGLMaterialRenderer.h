@@ -47,7 +47,7 @@ public:
 	COpenGLMaterialRenderer_SOLID(video::COpenGLDriver* d)
 		: COpenGLMaterialRenderer(d) {}
 
-	virtual void OnSetMaterial(const SMaterial& material, const SMaterial& lastMaterial,
+	virtual void OnSetMaterial(const SGPUMaterial& material, const SGPUMaterial& lastMaterial,
 		bool resetAllRenderstates, IMaterialRendererServices* services)
 	{
 		Driver->setBasicRenderStates(material, lastMaterial, resetAllRenderstates);
@@ -64,7 +64,7 @@ public:
 	COpenGLMaterialRenderer_TRANSPARENT_ADD_COLOR(video::COpenGLDriver* d)
 		: COpenGLMaterialRenderer(d) {}
 
-	virtual void OnSetMaterial(const SMaterial& material, const SMaterial& lastMaterial,
+	virtual void OnSetMaterial(const SGPUMaterial& material, const SGPUMaterial& lastMaterial,
 		bool resetAllRenderstates, IMaterialRendererServices* services)
 	{
 		Driver->setBasicRenderStates(material, lastMaterial, resetAllRenderstates);
@@ -97,7 +97,7 @@ public:
 	COpenGLMaterialRenderer_TRANSPARENT_ALPHA_CHANNEL(video::COpenGLDriver* d)
 		: COpenGLMaterialRenderer(d) {}
 
-	virtual void OnSetMaterial(const SMaterial& material, const SMaterial& lastMaterial,
+	virtual void OnSetMaterial(const SGPUMaterial& material, const SGPUMaterial& lastMaterial,
 		bool resetAllRenderstates, IMaterialRendererServices* services)
 	{
 		Driver->setBasicRenderStates(material, lastMaterial, resetAllRenderstates);

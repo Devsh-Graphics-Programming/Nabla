@@ -231,7 +231,7 @@ namespace scene
 		directly modify the material of a scene node.
 		\param num Zero based index. The maximal value is getMaterialCount() - 1.
 		\return The material at that index. */
-		virtual video::SMaterial& getMaterial(uint32_t num)
+		virtual video::SGPUMaterial& getMaterial(uint32_t num)
 		{
 			return video::IdentityMaterial;
 		}

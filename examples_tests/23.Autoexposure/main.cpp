@@ -226,16 +226,16 @@ int main()
 #endif // OPENGL_DEBUG
 
 	//upload screendump to a texture
-	video::ITexture* hdrTex = driver->addTexture(video::ITexture::ETT_2D,&params.WindowSize.Width,1,"Screen",video::ECF_A16B16G16R16F);
+	video::ITexture* hdrTex = driver->createGPUTexture(video::ITexture::ETT_2D,&params.WindowSize.Width,1,asset::EF_R16G16B16A16_SFLOAT);
 	uint32_t zeroArray[3] = {0,0,0};
 	uint32_t subSize[3] = {dynamicResolutionSize.Width,dynamicResolutionSize.Height,1};
-	hdrTex->updateSubRegion(video::ECF_A16B16G16R16F,tmpLoadingMem,zeroArray,subSize);
+	hdrTex->updateSubRegion(asset::EF_R16G16B16A16_SFLOAT,tmpLoadingMem,zeroArray,subSize);
 	free(tmpLoadingMem);
 
 
-    scene::IGPUMeshBuffer* fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(driver);
+    video::IGPUMeshBuffer* fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(driver);
 
-    video::SMaterial postProcMaterial;
+    video::SGPUMaterial postProcMaterial;
     //! First need to make a material other than default to be able to draw with custom shader
     postProcMaterial.BackfaceCulling = false; //! Triangles will be visible from both sides
     postProcMaterial.ZBuffer = video::ECFN_ALWAYS; //! Ignore Depth Test
@@ -305,7 +305,7 @@ int main()
 
 
     //create a screenshot
-	video::IImage* screenshot = driver->createImage(video::ECF_A8R8G8B8,params.WindowSize);
+	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
         video::COpenGLExtensionHandler::extGlNamedFramebufferReadBuffer(0,GL_FRONT_LEFT);
     glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
     {
@@ -325,8 +325,11 @@ int main()
         }
         delete [] tmpBuffer;
     }
-	driver->writeImageToFile(screenshot,"./screenshot.png");
-	screenshot->drop();
+    asset::CImageData* img = new asset::CImageData(screenshot);
+    asset::IAssetWriter::SAssetWriteParams wparams(img);
+    device->getAssetManager().writeAsset("screenshot.png", wparams);
+    img->drop();
+    screenshot->drop();
 
 	device->drop();
 

@@ -26,11 +26,11 @@ public:
 	/** \param useForeignMemory: If true, the image will use the data pointer
 	directly and own it from now on, which means it will also try to delete [] the
 	data when the image will be destructed. If false, the memory will by copied. */
-	CImage(ECOLOR_FORMAT format, const core::dimension2d<uint32_t>& size,
+	CImage(asset::E_FORMAT format, const core::dimension2d<uint32_t>& size,
 		void* data, bool ownForeignMemory=true);
 
 	//! constructor for empty image
-	CImage(ECOLOR_FORMAT format, const core::dimension2d<uint32_t>& size);
+	CImage(asset::E_FORMAT format, const core::dimension2d<uint32_t>& size);
 
 	//! .
 	virtual void* getData() {return Data;}
@@ -67,7 +67,7 @@ public:
 	virtual void setPixel(uint32_t x, uint32_t y, const SColor &color, bool blend = false );
 
 	//! returns the color format
-	virtual ECOLOR_FORMAT getColorFormat() const;
+	virtual asset::E_FORMAT getColorFormat() const;
 
 	//! returns pitch of image
 	virtual uint32_t getPitch() const { return Pitch; }
@@ -99,7 +99,7 @@ private:
 	uint8_t* Data;
 	core::dimension2d<uint32_t> Size;
 	uint32_t Pitch;
-	ECOLOR_FORMAT Format;
+	asset::E_FORMAT Format;
 
 	bool DeleteMemory;
 };

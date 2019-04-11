@@ -6,6 +6,7 @@
 #include "irr/core/IReferenceCounted.h"
 #include "irr/video/SubAllocatedDataBuffer.h"
 #include "irr/video/StreamingGPUBufferAllocator.h"
+#include "IDriverFence.h"
 
 
 namespace irr

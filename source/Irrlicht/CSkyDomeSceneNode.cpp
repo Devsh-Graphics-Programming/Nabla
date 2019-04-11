@@ -45,7 +45,7 @@ CSkyDomeSceneNode::CSkyDomeSceneNode(video::IVirtualTexture* sky, uint32_t horiR
 
 	setAutomaticCulling(scene::EAC_OFF);
 
-	Buffer = new IGPUMeshBuffer();
+	Buffer = new video::IGPUMeshBuffer();
 	Buffer->getMaterial().ZBuffer = video::ECFN_NEVER;
 	Buffer->getMaterial().BackfaceCulling = false;
 	Buffer->getMaterial().ZWriteEnable = false;
@@ -145,7 +145,7 @@ void CSkyDomeSceneNode::generateMesh()
 		}
 	}
 
-	scene::IGPUMeshDataFormatDesc* vao = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
+    video::IGPUMeshDataFormatDesc* vao = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
 	Buffer->setMeshDataAndFormat(vao);
 
 	video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
@@ -159,8 +159,8 @@ void CSkyDomeSceneNode::generateMesh()
     video::IGPUBuffer* indexBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
     indexBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),indices);
     _IRR_ALIGNED_FREE(indices);
-	vao->mapIndexBuffer(indexBuf);
-	Buffer->setIndexType(EIT_16BIT);
+	vao->setIndexBuffer(indexBuf);
+	Buffer->setIndexType(asset::EIT_16BIT);
 	Buffer->setIndexCount(numOfIndices);
 	indexBuf->drop();
 
@@ -169,8 +169,8 @@ void CSkyDomeSceneNode::generateMesh()
     video::IGPUBuffer* vAttr = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
     vAttr->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),vertices);
     _IRR_ALIGNED_FREE(vertices);
-    vao->mapVertexAttrBuffer(vAttr,EVAI_ATTR0,ECPA_THREE,ECT_FLOAT,4*(3+2),0);
-    vao->mapVertexAttrBuffer(vAttr,EVAI_ATTR2,ECPA_TWO,ECT_FLOAT,4*(3+2),4*3);
+    vao->setVertexAttrBuffer(vAttr,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,4*(3+2),0);
+    vao->setVertexAttrBuffer(vAttr,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT,4*(3+2),4*3);
     vAttr->drop();
 
     vao->drop();
@@ -200,7 +200,7 @@ void CSkyDomeSceneNode::render()
 	// for debug purposes only:
 	if ( DebugDataVisible )
 	{
-		video::SMaterial m;
+		video::SGPUMaterial m;
 
 		// show mesh
 		if ( DebugDataVisible & scene::EDS_MESH_WIRE_OVERLAY )
@@ -237,7 +237,7 @@ void CSkyDomeSceneNode::OnRegisterSceneNode()
 //! This function is needed for inserting the node into the scene hirachy on a
 //! optimal position for minimizing renderstate changes, but can also be used
 //! to directly modify the material of a scene node.
-video::SMaterial& CSkyDomeSceneNode::getMaterial(uint32_t i)
+video::SGPUMaterial& CSkyDomeSceneNode::getMaterial(uint32_t i)
 {
 	return Buffer->getMaterial();
 }

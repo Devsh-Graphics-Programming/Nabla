@@ -88,7 +88,7 @@ namespace video
 
 		//! Get the current color format of the color buffer
 		/** \return Color format of the color buffer. */
-		virtual ECOLOR_FORMAT getColorFormat() const =0;
+		virtual asset::E_FORMAT getColorFormat() const =0;
 
 		//! Get the graphics card vendor name.
 		virtual std::string getVendorInfo() =0;
@@ -112,6 +112,10 @@ namespace video
 
         virtual uint16_t retrieveDisplayRefreshRate() const { return 0u; }
 
+        virtual uint64_t getMaxUBOSize() const = 0;
+        virtual uint64_t getMaxSSBOSize() const = 0;
+        virtual uint64_t getMaxTBOSize() const = 0;
+        virtual uint64_t getMaxBufferSize() const = 0;
 	};
 
 } // end namespace video

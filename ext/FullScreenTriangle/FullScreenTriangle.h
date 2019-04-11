@@ -20,7 +20,7 @@ struct ScreenTriangleVertexStruct
 #include "irr/irrunpack.h"
 
 
-inline scene::IGPUMeshBuffer* createFullScreenTriangle(video::IVideoDriver* driver)
+inline video::IGPUMeshBuffer* createFullScreenTriangle(video::IVideoDriver* driver)
 {
     ScreenTriangleVertexStruct vertices[3];
     vertices[0] = {{-1, 1},{0,0}};
@@ -30,14 +30,14 @@ inline scene::IGPUMeshBuffer* createFullScreenTriangle(video::IVideoDriver* driv
     video::IGPUBuffer* buff = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(vertices));
     driver->updateBufferRangeViaStagingBuffer(buff,0,sizeof(vertices),vertices);
 
-    scene::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
+    video::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
 
-    scene::IGPUMeshBuffer* triangleMeshBuffer = new scene::IGPUMeshBuffer();
+    video::IGPUMeshBuffer* triangleMeshBuffer = new video::IGPUMeshBuffer();
     triangleMeshBuffer->setMeshDataAndFormat(desc);
     desc->drop();
 
-    desc->mapVertexAttrBuffer(buff,scene::EVAI_ATTR0,scene::ECPA_FOUR,scene::ECT_BYTE,sizeof(ScreenTriangleVertexStruct),0);
-    desc->mapIndexBuffer(buff);
+    desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR0,asset::EF_R16G16_SSCALED,sizeof(ScreenTriangleVertexStruct),0);
+    desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR1,asset::EF_R16G16_USCALED,sizeof(ScreenTriangleVertexStruct),offsetof(ScreenTriangleVertexStruct,TexCoord[0]));
     triangleMeshBuffer->setIndexCount(3u);
     buff->drop();
 

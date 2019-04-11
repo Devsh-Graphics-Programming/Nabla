@@ -219,8 +219,8 @@ bool COpenGLSLMaterialRenderer::OnRender(IMaterialRendererServices* service)
 }
 
 
-void COpenGLSLMaterialRenderer::OnSetMaterial(const video::SMaterial& material,
-				const video::SMaterial& lastMaterial,
+void COpenGLSLMaterialRenderer::OnSetMaterial(const video::SGPUMaterial& material,
+				const video::SGPUMaterial& lastMaterial,
 				bool resetAllRenderstates,
 				video::IMaterialRendererServices* services)
 {
@@ -351,8 +351,8 @@ bool COpenGLSLMaterialRenderer::linkProgram()
 }
 
 
-void COpenGLSLMaterialRenderer::setBasicRenderStates(const SMaterial& material,
-						const SMaterial& lastMaterial,
+void COpenGLSLMaterialRenderer::setBasicRenderStates(const SGPUMaterial& material,
+						const SGPUMaterial& lastMaterial,
 						bool resetAllRenderstates)
 {
 	// forward

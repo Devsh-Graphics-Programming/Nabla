@@ -12,9 +12,10 @@
 #include "position2d.h"
 #include "SMaterial.h"
 #include "IDriverFence.h"
-#include "SMesh.h"
+#include "irr/video/SGPUMesh.h"
 #include "SExposedVideoData.h"
 #include "IDriver.h"
+#include "irr/asset/EFormat.h"
 
 namespace irr
 {
@@ -99,13 +100,19 @@ namespace video
 	class IVideoDriver : public IDriver
 	{
 	public:
-	    //! This is marked for deprecation (move to IAssetManager)
-	    virtual core::vector<scene::IGPUMesh*> createGPUMeshesFromCPU(const core::vector<scene::ICPUMesh*>& mesh) {return core::vector<scene::IGPUMesh*>();}
+        IVideoDriver(IrrlichtDevice* _dev) : IDriver(_dev) {}
 
 
 
         virtual bool initAuxContext() = 0;
         virtual bool deinitAuxContext() = 0;
+
+
+        virtual bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const = 0;
+        virtual bool isColorRenderableFormat(asset::E_FORMAT _fmt) const = 0;
+        virtual bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const = 0;
+        virtual bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const = 0;
+        virtual bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const = 0;
 
 
 		//! Applications must call this method before performing any rendering.
@@ -178,75 +185,26 @@ namespace video
 		//! Sets a material.
 		/** All 3d drawing functions will draw geometry using this material thereafter.
 		\param material: Material to be used from now on. */
-		virtual void setMaterial(const SMaterial& material) =0;
+		virtual void setMaterial(const SGPUMaterial& material) =0;
 
-		//! Get access to a named texture.
-		/** Loads the texture from disk if it is not
-		already loaded and generates mipmap levels if desired.
-		Texture loading can be influenced using the
-		setTextureCreationFlag() method. The texture can be in several
-		imageformats, such as BMP, JPG, TGA, and PNG.
-		\param filename Filename of the texture to be loaded.
-		\return Pointer to the texture, or 0 if the texture
-		could not be loaded. This pointer should not be dropped. See
-		IReferenceCounted::drop() for more information. */
-		virtual ITexture* getTexture(const io::path& filename, ECOLOR_FORMAT format = ECF_UNKNOWN) = 0;
-
-		//! Get access to a named texture.
-		/** Loads the texture from disk if it is not
-		already loaded and generates mipmap levels if desired.
-		Texture loading can be influenced using the
-		setTextureCreationFlag() method. The texture can be in several
-		imageformats, such as BMP, JPG, TGA, and PNG.
-		\param file Pointer to an already opened file.
-		\return Pointer to the texture, or 0 if the texture
-		could not be loaded. This pointer should not be dropped. See
-		IReferenceCounted::drop() for more information. */
-		virtual ITexture* getTexture(io::IReadFile* file, ECOLOR_FORMAT format = ECF_UNKNOWN) =0;
-
-		//! Returns a texture by index
-		/** \param index: Index of the texture, must be smaller than
-		getTextureCount() Please note that this index might change when
-		adding or removing textures
-		\return Pointer to the texture, or 0 if the texture was not
-		set or index is out of bounds. This pointer should not be
-		dropped. See IReferenceCounted::drop() for more information. */
-		virtual ITexture* getTextureByIndex(uint32_t index) =0;
-
-		//! Returns amount of textures currently loaded
-		/** \return Amount of textures currently loaded */
-		virtual uint32_t getTextureCount() const = 0;
-
-		//! Renames a texture
-		/** \param texture Pointer to the texture to rename.
-		\param newName New name for the texture. This should be a unique name. */
-		virtual void renameTexture(ITexture* texture, const io::path& newName) = 0;
-
-		//! Creates an empty texture of specified size.
-		/** \param size: Size of the texture.
-		\param name A name for the texture. Later calls to
-		getTexture() with this name will return this texture
-		\param format Desired color format of the texture. Please note
-		that the driver may choose to create the texture in another
-		color format.
-		\return Pointer to the newly created texture. This pointer
-		should not be dropped. See IReferenceCounted::drop() for more
-		information. */
-		virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
-			const io::path& name, ECOLOR_FORMAT format = ECF_A8R8G8B8) = 0;
-
-        //!
-        virtual ITexture* addTexture(const ITexture::E_TEXTURE_TYPE& type, const core::vector<CImageData*>& images, const io::path& name, ECOLOR_FORMAT format = ECF_UNKNOWN) = 0;
+        //! needs to be "deleted" since its not refcounted by GPU driver internally
+        /** Since not owned by any openGL context and hence not owned by driver.
+        You normally need to call glFlush() after placing a fence
+		\param whether to perform an implicit flush the first time CPU waiting,
+		this only works if the first wait is from the same thread as the one which
+		placed the fence.
+        **/
+        virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread = false) = 0;
 
 		//! A.
 		/** \param B
 		\param C
 		\return D. */
-        virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const core::vector<CImageData*>& mipChain) = 0;
+        virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const core::vector<asset::CImageData*>& mipChain) = 0;
 
         //! A.
         virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size,
-                                                           ECOLOR_FORMAT format = ECF_A8R8G8B8, const bool& fixedSampleLocations = false) {return nullptr;}
+                                                           asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false) {return nullptr;}
 
         //! A.
         virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8,
@@ -258,30 +216,11 @@ namespace video
 										core::recti dstRect=core::recti(0,0,0,0),
 										bool bilinearFilter=false) = 0;
 
-		//! Removes a texture from the texture cache and deletes it.
-		/** This method can free a lot of memory!
-		Please note that after calling this, the pointer to the
-		ITexture may no longer be valid, if it was not grabbed before
-		by other parts of the engine for storing it longer. So it is a
-		good idea to set all materials which are using this texture to
-		0 or another texture first.
-		\param texture Texture to delete from the engine cache. */
-		virtual void removeTexture(ITexture* texture) =0;
-
 		virtual void removeMultisampleTexture(IMultisampleTexture* tex) =0;
 
 		virtual void removeTextureBufferObject(ITextureBufferObject* tbo) =0;
 
-		virtual void removeFrameBuffer(IFrameBuffer* framebuf) =0;
-
-		//! Removes all textures from the texture cache and deletes them.
-		/** This method can free a lot of memory!
-		Please note that after calling this, the pointer to the
-		ITexture may no longer be valid, if it was not grabbed before
-		by other parts of the engine for storing it longer. So it is a
-		good idea to set all materials which are using this texture to
-		0 or another texture first. */
-		virtual void removeAllTextures() =0;
+        virtual void removeFrameBuffer(IFrameBuffer* framebuf) = 0;
 
 		virtual void removeAllMultisampleTextures() =0;
 
@@ -333,7 +272,7 @@ namespace video
         /** Only POINTS, LINES, and TRIANGLES are allowed as capture types.. no strips or fans!
         This issues an implicit call to bindTransformFeedback()
         **/
-		virtual void beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const scene::E_PRIMITIVE_TYPE& primType=scene::EPT_POINTS) = 0;
+		virtual void beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const asset::E_PRIMITIVE_TYPE& primType=asset::EPT_POINTS) = 0;
 
 		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
 		virtual void pauseTransformFeedback() = 0;
@@ -501,16 +440,16 @@ namespace video
 
 		//! Draws a mesh buffer
 		/** \param mb Buffer to draw */
-		virtual void drawMeshBuffer(const scene::IGPUMeshBuffer* mb) =0;
+		virtual void drawMeshBuffer(const video::IGPUMeshBuffer* mb) =0;
 
 		//! Indirect Draw
-		virtual void drawArraysIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                        const scene::E_PRIMITIVE_TYPE& mode,
+		virtual void drawArraysIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                        const asset::E_PRIMITIVE_TYPE& mode,
                                         const IGPUBuffer* indirectDrawBuff,
                                         const size_t& offset, const size_t& count, const size_t& stride) =0;
-		virtual void drawIndexedIndirect(const scene::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                        const scene::E_PRIMITIVE_TYPE& mode,
-                                        const scene::E_INDEX_TYPE& type,
+		virtual void drawIndexedIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
+                                        const asset::E_PRIMITIVE_TYPE& mode,
+                                        const asset::E_INDEX_TYPE& type,
                                         const IGPUBuffer* indirectDrawBuff,
                                         const size_t& offset, const size_t& count, const size_t& stride) =0;
 
@@ -587,7 +526,7 @@ namespace video
 		\return .
 		If you no longer need the image data, you should call CImageData::drop().
 		See IReferenceCounted::drop() for more information. */
-		virtual core::vector<CImageData*> createImageDataFromFile(const io::path& filename) = 0;
+		virtual core::vector<asset::CImageData*> createImageDataFromFile(const io::path& filename) = 0;
 
 		//! Creates a ... from a file.
 		/**
@@ -596,7 +535,7 @@ namespace video
 		If you no longer need the image data, you should call CImageData::drop()
 		on all vector members.
 		See IReferenceCounted::drop() for more information. */
-		virtual core::vector<CImageData*> createImageDataFromFile(io::IReadFile* file) =0;
+		virtual core::vector<asset::CImageData*> createImageDataFromFile(io::IReadFile* file) =0;
 
 		//! Writes the provided image to a file.
 		/** Requires that there is a suitable image writer registered
@@ -628,10 +567,10 @@ namespace video
 		\return The created image.
 		If you no longer need the image, you should call IImage::drop().
 		See IReferenceCounted::drop() for more information. */
-		virtual IImage* createImageFromData(CImageData* imageData, bool ownForeignMemory=true) =0;
+		virtual IImage* createImageFromData(asset::CImageData* imageData, bool ownForeignMemory=true) =0;
 
 		//!
-		virtual IImage* createImage(const ECOLOR_FORMAT& format, const core::dimension2d<uint32_t>& size) =0;
+		virtual IImage* createImage(const asset::E_FORMAT& format, const core::dimension2d<uint32_t>& size) =0;
 
 		//! Event handler for resize events. Only used by the engine internally.
 		/** Used to notify the driver that the window was resized.
@@ -647,7 +586,7 @@ namespace video
 		IVideoDriver::getExposedVideoData(). Add your class with
 		IVideoDriver::addMaterialRenderer(). To use an object being
 		displayed with your new material, set the MaterialType member of
-		the SMaterial struct to the value returned by this method.
+		the SGPUMaterial struct to the value returned by this method.
 		If you simply want to create a new material using vertex and/or
 		pixel shaders it would be easier to use the
 		video::IGPUProgrammingServices interface which you can get
@@ -655,7 +594,7 @@ namespace video
 		\param renderer A pointer to the new renderer.
 		\param name Optional name for the material renderer entry.
 		\return The number of the material type which can be set in
-		SMaterial::MaterialType to use the renderer. -1 is returned if
+		SGPUMaterial::MaterialType to use the renderer. -1 is returned if
 		an error occured. For example if you tried to add an material
 		renderer to the software renderer or the null device, which do
 		not accept material renderers. */
@@ -704,13 +643,6 @@ namespace video
 		Software driver and the Null driver will always return 0. */
 		virtual IGPUProgrammingServices* getGPUProgrammingServices() =0;
 
-		//! Check if the image is already loaded.
-		/** Works similar to getTexture(), but does not load the texture
-		if it is not currently loaded.
-		\param filename Name of the texture.
-		\return Pointer to loaded texture, or 0 if not found. */
-		virtual video::ITexture* findTexture(const io::path& filename) = 0;
-
 		//! Enable or disable a clipping plane.
 		/** There are at least 6 clipping planes available for the user
 		to set at will.
@@ -723,7 +655,7 @@ namespace video
 
 		//! Get the 2d override material for altering its values
 		/** The 2d override materual allows to alter certain render
-		states of the 2d methods. Not all members of SMaterial are
+		states of the 2d methods. Not all members of SGPUMaterial are
 		honored, especially not MaterialType and Textures. Moreover,
 		the zbuffer is always ignored, and lighting is always off. All
 		other flags can be changed, though some might have to effect
@@ -735,7 +667,7 @@ namespace video
 		\return Material reference which should be altered to reflect
 		the new settings.
 		*/
-		virtual SMaterial& getMaterial2D() =0;
+		virtual SGPUMaterial& getMaterial2D() =0;
 
 		//! Enable the 2d override material
 		/** \param enable Flag which tells whether the material shall be
@@ -747,19 +679,6 @@ namespace video
 		Use the SceneManager attribute to set this value from your app.
 		\param flag Default behavior is to disable ZWrite, i.e. false. */
 		virtual void setAllowZWriteOnTransparent(bool flag) =0;
-
-		//! Color conversion convenience function
-		/** Convert an image (as array of pixels) from source to destination
-		array, thereby converting the color format. The pixel size is
-		determined by the color formats.
-		\param sP Pointer to source
-		\param sF Color format of source
-		\param sN Number of pixels to convert, both array must be large enough
-		\param dP Pointer to destination
-		\param dF Color format of destination
-		*/
-		virtual void convertColor(const void* sP, ECOLOR_FORMAT sF, int32_t sN,
-				void* dP, ECOLOR_FORMAT dF) const =0;
 	};
 
 } // end namespace video
