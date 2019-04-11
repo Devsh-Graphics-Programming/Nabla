@@ -6,10 +6,10 @@
 #ifndef __IRR_ALIGNMENT_H_INCLUDED__
 #define __IRR_ALIGNMENT_H_INCLUDED__
 
+#include "irr/macros.h"
 
 #include "irr/core/memory/new_delete.h"
 #include "irr/core/memory/memory.h"
-
 
 namespace irr
 {
