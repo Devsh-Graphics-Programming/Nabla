@@ -381,6 +381,10 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E_
             colorformat = GL_BGRA_EXT;
             type = GL_UNSIGNED_INT_8_8_8_8_REV;
             break;
+        case asset::EF_B8G8R8A8_SRGB:
+            colorformat = GL_BGRA_EXT;
+            type = GL_UNSIGNED_INT_8_8_8_8_REV;
+            break;
         case asset::EF_R8G8B8A8_SNORM:
             colorformat = GL_RGBA;
             type = GL_BYTE;
@@ -968,6 +972,9 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E
             break;
         case asset::EF_B8G8R8A8_UNORM:
             return GL_RGBA8;
+            break;
+        case asset::EF_B8G8R8A8_SRGB:
+            return GL_SRGB8_ALPHA8;
             break;
         case asset::EF_R8G8B8A8_UNORM:
             return GL_RGBA8;
