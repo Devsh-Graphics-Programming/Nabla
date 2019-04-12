@@ -18,8 +18,14 @@ if(WIN32)
 		"${MY_COMPILER_DIR}/../../../../../../Auxiliary/Build"
 	)
 	if (NOT VCVARS64_BAT)
-		message(FATAL_ERROR "Tried ${VCVARS64_BAT}")
 		message(FATAL_ERROR "Path to vcvars64.bat must be provided manually")
+	endif()
+   	find_file(
+		NMAKE nmake.exe
+		"${MY_COMPILER_DIR}"
+	)
+	if (NOT NMAKE)
+		message(FATAL_ERROR "Path to nmake.exe must be provided manually")
 	endif()
 
 
@@ -28,8 +34,8 @@ if(WIN32)
 		COMMAND "${VCVARS64_BAT}"
 		COMMAND "${PERL_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/openssl/Configure" VC-WIN64A no-asm --prefix=${CMAKE_CURRENT_BINARY_DIR}/build
 		COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/do_win64a.bat"
-		COMMAND "${CMAKE_MAKE_PROGRAM}" -f "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/nt.mak"
-		COMMAND "${CMAKE_MAKE_PROGRAM}" -f "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/nt.mak" install
+		COMMAND "${NMAKE}" -f "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/nt.mak"
+		COMMAND "${NMAKE}" -f "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/nt.mak" install
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/openssl"
 		COMMENT "Building OpenSSL..."
 		VERBATIM
