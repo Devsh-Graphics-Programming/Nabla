@@ -21,6 +21,9 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 macro(irr_adjust_flags)
+	option(IRR_GCC_SANITIZE_ADDRESS OFF)
+	option(IRR_GCC_SANITIZE_THREAD OFF)
+
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 		add_compile_options(
 			-Wextra
@@ -45,6 +48,16 @@ macro(irr_adjust_flags)
 			#"$<$<CONFIG:RELEASE>:-O3>" # added by default and apparently cmake is not clever enough to filter duplicates for this one
 			"$<$<CONFIG:RELEASE>:-fexpensive-optimizations>"
 		)
+		if (IRR_GCC_SANITIZE_ADDRESS)
+			add_compile_options(-fsanitize=address)
+		endif()
+		if (IRR_GCC_SANITIZE_THREAD)
+			add_compile_options(-fsanitize=thread)
+		endif()
+		if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.1)
+			add_compile_options(-Wno-error=ignored-attributes)
+		endif()
+		
 		link_libraries(
 			-fuse-ld=gold
 		)

@@ -19,7 +19,6 @@ macro(irr_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS)
 	
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 		add_compile_options(
-			"$<$<CONFIG:DEBUG>:-fsanitize=address>" 
 			"$<$<CONFIG:DEBUG>:-fstack-protector-all>"
 		)
 	
