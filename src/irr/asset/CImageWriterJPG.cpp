@@ -19,8 +19,8 @@ extern "C"
 	#include <jpeglib.h>
 	#include <jerror.h>
 #else
-	#include "jpeglib/jpeglib.h"
-	#include "jpeglib/jerror.h"
+	#include "libjpeg/jpeglib.h"
+	#include "libjpeg/jerror.h"
 #endif
 }
 
@@ -109,7 +109,7 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 	void (*format)(const void*, int32_t, void*) = 0;
 	switch( image->getColorFormat () )
 	{
-		case asset::EF_R8G8B8_UNORM:
+        case asset::EF_R8G8B8_UNORM:
 			format = video::CColorConverter::convert_R8G8B8toR8G8B8;
 			break;
 		case asset::EF_B8G8R8A8_UNORM:

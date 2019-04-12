@@ -17,7 +17,7 @@ extern "C" {
 	#ifndef _IRR_USE_NON_SYSTEM_JPEG_LIB_
 	#include <jpeglib.h> // use system lib
 	#else
-	#include "jpeglib/jpeglib.h" // use irrlicht jpeglib
+	#include "libjpeg/jpeglib.h" // use irrlicht jpeglib
 	#endif
 	#include <setjmp.h>
 }
