@@ -60,7 +60,7 @@ FUNCTION(ADD_PRECOMPILED_HEADER _targetName _input)
       LIST(APPEND _compiler_FLAGS "-I${item}")
     ENDFOREACH(item)
 
-    GET_DIRECTORY_PROPERTY(_directory_flags DEFINITIONS)
+    GET_DIRECTORY_PROPERTY(_directory_flags COMPILE_DEFINITIONS)
     LIST(APPEND _compiler_FLAGS ${_directory_flags})
 
     SEPARATE_ARGUMENTS(_compiler_FLAGS)
