@@ -3,12 +3,16 @@ execute_process(COMMAND git submodule update --init --recursive
 )
 
 
+OPTION(ENABLE_SPVREMAPPER OFF)
+set(ENABLE_SPVREMAPPER OFF)
 add_subdirectory(SPIRV-Headers)
 add_subdirectory(SPIRV-Tools)
 add_subdirectory(glslang)
 
 OPTION(SHADERC_SKIP_TESTS ON)
 set(SHADERC_SKIP_TESTS ON)
+#OPTION(SHADERC_SKIP_INSTALL ON) # shall we?
+#set(SHADERC_SKIP_INSTALL ON)
 # if it doesn't work without the `touch` on Linux, then fetch the latest submodule head of shaderc and try again
 #if (UNIX)
 #	file(WRITE ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/libshaderc_combined.a "") #https://github.com/google/shaderc/issues/568
@@ -18,11 +22,11 @@ add_subdirectory(shaderc)
 add_subdirectory(openssl)
 
 #manipulating libjpeg cmake options from within cmake script
-OPTION(BUILD_STATIC OFF)
+OPTION(BUILD_STATIC ON)
 set(BUILD_STATIC ON)
-OPTION(BUILD_EXECUTABLES ON)
+OPTION(BUILD_EXECUTABLES OFF)
 set(BUILD_EXECUTABLES OFF)
-OPTION(BUILD_TESTS ON)
+OPTION(BUILD_TESTS OFF)
 set(BUILD_TESTS OFF)
 add_subdirectory(libjpeg)
 
@@ -30,9 +34,9 @@ add_subdirectory(libjpeg)
 option(PNG_BUILD_ZLIB "Custom zlib Location, else find_package is used" OFF)
 set(PNG_BUILD_ZLIB ON) #pnglib depends on zlib and zlib is part of Irrlicht
 set(ZLIB_INCLUDE_DIR ${THIRD_PARTY_SOURCE_DIR}/zlib) #for pnglib
-option(PNG_SHARED "Build shared lib" ON)
+option(PNG_SHARED "Build shared lib" OFF)
 set(PNG_SHARED OFF)
-option(PNG_TESTS  "Build libpng tests" ON)
+option(PNG_TESTS  "Build libpng tests" OFF)
 set(PNG_TESTS OFF)
 add_subdirectory(libpng)
 
