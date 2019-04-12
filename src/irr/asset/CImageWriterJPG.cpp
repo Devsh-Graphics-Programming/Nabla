@@ -15,13 +15,8 @@
 #include <stdio.h> // required for jpeglib.h
 extern "C"
 {
-#ifndef _IRR_USE_NON_SYSTEM_JPEG_LIB_
-	#include <jpeglib.h>
-	#include <jerror.h>
-#else
-	#include "jpeglib/jpeglib.h"
-	#include "jpeglib/jerror.h"
-#endif
+	#include "libjpeg/jpeglib.h"
+	#include "libjpeg/jerror.h"
 }
 
 // The writer uses a 4k buffer and flushes to disk each time it's filled
