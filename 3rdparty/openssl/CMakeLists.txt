@@ -1,8 +1,19 @@
-execute_process(COMMAND git fetch
-		COMMAND git reset --hard origin/OpenSSL_1_0_2-stable
-		COMMAND git clean -fd
+find_package(Git )
+
+if (GIT_FOUND)
+	# run those sequentially
+	execute_process(COMMAND "${GIT_EXECUTABLE} fetch"
+			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/openssl"
+	)
+	execute_process(COMMAND "${GIT_EXECUTABLE} clean -fd"
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/openssl"
-)
+	)
+	execute_process(COMMAND "${GIT_EXECUTABLE} reset --hard origin/OpenSSL_1_0_2-stable"
+		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/openssl"
+	)
+else()
+	message(WARNING "Git not found! Might be you have to update git-submodules manually")
+endif()
 # maybe you (Crisspl) can patch the OpenSSL source for the preprocessor MSVC bug here?
 
 
@@ -20,22 +31,16 @@ if(WIN32)
 	if (NOT VCVARS64_BAT)
 		message(FATAL_ERROR "Path to vcvars64.bat must be provided manually")
 	endif()
-   	find_file(
-		NMAKE nmake.exe
-		"${MY_COMPILER_DIR}"
-	)
-	if (NOT NMAKE)
-		message(FATAL_ERROR "Path to nmake.exe must be provided manually")
-	endif()
-
+   	
+	find_package(nmake REQUIRED)
 
 	add_custom_command(
 		OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/build/lib/libeay32.lib" "${CMAKE_CURRENT_BINARY_DIR}/build/lib/ssleay32.lib"
 		COMMAND "${VCVARS64_BAT}"
 		COMMAND "${PERL_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/openssl/Configure" VC-WIN64A no-asm --prefix=${CMAKE_CURRENT_BINARY_DIR}/build
 		COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/do_win64a.bat"
-		COMMAND "${NMAKE}" -f "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/nt.mak"
-		COMMAND "${NMAKE}" -f "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/nt.mak" install
+		COMMAND "${NMAKE_EXECUTABLE}" -f "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/nt.mak"
+		COMMAND "${NMAKE_EXECUTABLE}" -f "${CMAKE_CURRENT_SOURCE_DIR}/openssl/ms/nt.mak" install
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/openssl"
 		COMMENT "Building OpenSSL..."
 		VERBATIM
