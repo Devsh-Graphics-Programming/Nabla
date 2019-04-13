@@ -36,8 +36,8 @@ inline video::IGPUMeshBuffer* createFullScreenTriangle(video::IVideoDriver* driv
     triangleMeshBuffer->setMeshDataAndFormat(desc);
     desc->drop();
 
-    desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR0,asset::EF_R16G16_SSCALED,sizeof(ScreenTriangleVertexStruct),0);
-    desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR1,asset::EF_R16G16_USCALED,sizeof(ScreenTriangleVertexStruct),offsetof(ScreenTriangleVertexStruct,TexCoord[0]));
+    desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR0,asset::EF_R8G8B8A8_SSCALED,sizeof(ScreenTriangleVertexStruct),0);
+    desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR1,asset::EF_R8G8B8A8_SSCALED,sizeof(ScreenTriangleVertexStruct),offsetof(ScreenTriangleVertexStruct,TexCoord[0]));
     triangleMeshBuffer->setIndexCount(3u);
     buff->drop();
 
