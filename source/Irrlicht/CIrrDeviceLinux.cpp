@@ -567,7 +567,7 @@ bool CIrrDeviceLinux::createWindow()
         GLX_STEREO          , CreationParams.Stereobuffer ? True:False,
         GLX_SAMPLE_BUFFERS  , 0,
         GLX_SAMPLES         , 0,
-        CreationParams.HandleSRGB ? GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB:None, CreationParams.HandleSRGB ? True:None,
+        GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB, True,
         None
     };
 
@@ -662,7 +662,7 @@ bool CIrrDeviceLinux::createWindow()
 
                         if (best_fbc >= 0)
                         {
-                            if (obtainedFBConfigAttrs[11]!=(CreationParams.HandleSRGB ? True:False))
+                            if (obtainedFBConfigAttrs[11]!=True)
                             {
                                 XFree( vi );
                                 continue;
