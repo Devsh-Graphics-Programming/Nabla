@@ -390,11 +390,6 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 #ifdef NO_IRR_COMPILE_WITH_TGA_LOADER_
 #undef _IRR_COMPILE_WITH_TGA_LOADER_
 #endif
-//! Define _IRR_COMPILE_WITH_RGB_LOADER_ if you want to load Silicon Graphics .rgb/.rgba/.sgi/.int/.inta/.bw files
-#define _IRR_COMPILE_WITH_RGB_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_RGB_LOADER_
-#undef _IRR_COMPILE_WITH_RGB_LOADER_
-#endif
 
 //! Define _IRR_COMPILE_WITH_BMP_WRITER_ if you want to write .bmp files
 #define _IRR_COMPILE_WITH_BMP_WRITER_

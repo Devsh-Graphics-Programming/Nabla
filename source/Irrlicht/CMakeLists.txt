@@ -86,7 +86,6 @@ set(IRRLICHT_SRCS_COMMON
 	../../src/irr/asset/CImageLoaderDDS.cpp
 	../../src/irr/asset/CImageLoaderJPG.cpp
 	../../src/irr/asset/CImageLoaderPNG.cpp
-	../../src/irr/asset/CImageLoaderRGB.cpp
 	../../src/irr/asset/CImageLoaderTGA.cpp
 	../../src/irr/asset/CImageWriterBMP.cpp
 	../../src/irr/asset/CImageWriterJPG.cpp
