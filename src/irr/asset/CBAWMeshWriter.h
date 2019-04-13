@@ -64,6 +64,8 @@ namespace asset
                     return 0.5f;
                 else if (est >= 4096u) // lz4 threshold
                     return 0.3f;
+				
+				return 0.f;
             }
         };
 
