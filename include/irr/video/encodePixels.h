@@ -2655,8 +2655,9 @@ namespace irr { namespace video
             uint64_t inp;
             memcpy(&inp, _input, 8);
             inp >>= 52;
-            exp = inp & 0x7ffu;
-            exp <<= 27;
+            inp &= 0x7ffull;
+            inp -= (1023ull - 15ull);
+            exp = (static_cast<uint32_t>(inp) << 27);
         }
         for (uint32_t i = 0u; i < 3u; ++i)
         {
