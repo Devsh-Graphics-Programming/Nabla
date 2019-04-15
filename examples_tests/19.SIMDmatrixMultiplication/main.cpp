@@ -16,7 +16,7 @@
 #define BROADCAST32(fpx) _MM_SHUFFLE(fpx, fpx, fpx, fpx)
 
 #define AVX 0 // set to 0 or 1 (sse3/avx), set appropriate compiler flags and run
-#define COL_MAJOR 1 // set to 0 or 1 (col-major/row-major)
+#define COL_MAJOR 0 // set to 0 or 1 (col-major/row-major)
 #define VERIFY 0
 
 #if AVX
