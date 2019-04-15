@@ -1190,8 +1190,6 @@ bool COpenGLDriver::endScene()
 {
 	CNullDriver::endScene();
 
-	//glFlush();
-
 #ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 	if (DeviceType == EIDT_WIN32)
 		return SwapBuffers(HDc) == TRUE;

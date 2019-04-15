@@ -202,7 +202,7 @@ int main()
 		gpumesh->drop();
 	}
 
-    scene::IGPUMeshBuffer* fsTriMeshBuffer = ext::FullScreenTriangle::createFullScreenTriangle(driver);
+    auto* fsTriMeshBuffer = ext::FullScreenTriangle::createFullScreenTriangle(driver);
     //! We use a renderbuffer because we don't intend on reading from it
     video::IMultisampleTexture* colorMT=NULL,* depthMT=NULL;
     video::SGPUMaterial postProcMaterial;
