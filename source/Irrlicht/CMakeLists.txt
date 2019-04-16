@@ -8,6 +8,11 @@ endif()
 
 file(GLOB_RECURSE IRRLICHT_HEADERS "../../*.h") # just gather all the header files and later put them into project so it's easy to search for things using IDE
 
+set(_IRR_COMPILE_WITH_OPENGL_ ${IRR_COMPILE_WITH_OPENGL})
+set(_IRR_COMPILE_WITH_BURNINGSVIDEO_ ${IRR_COMPILE_WITH_BURNINGSVIDEO})
+#set(_IRR_TARGET_ARCH_ARM_ ${IRR_TARGET_ARCH_ARM}) #uncomment in the future
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/../../include/IrrCompileConfig.h.in" "${CMAKE_CURRENT_SOURCE_DIR}/../../include/IrrCompileConfig.h")
+
 set(IRRLICHT_SRCS_COMMON
 # Mesh loaders
 	../../src/irr/asset/CBAWMeshFileLoader.cpp
@@ -255,9 +260,9 @@ find_package(Vulkan)
 
 if (Vulkan_FOUND)
 	message(STATUS "Building with Vulkan driver")
-	target_compile_definitions(Irrlicht PRIVATE
-		_IRR_COMPILE_WITH_VULKAN_
-	)
+	#target_compile_definitions(Irrlicht PRIVATE
+	#	_IRR_COMPILE_WITH_VULKAN_
+	#)
 	#target_link_libraries(Irrlicht INTERFACE Vulkan::Vulkan) # this should work, but it doesn't
 	#target_link_libraries(Irrlicht INTERFACE ${Vulkan_LIBRARY})
 else()
@@ -266,7 +271,7 @@ endif()
 
 target_compile_definitions(Irrlicht PRIVATE
 	_IRR_STATIC_LIB_
-	_IRR_COMPILE_WITH_OPENGL_
+	_IRR_OPENGL_USE_EXTPOINTER_
 )
 
 ADD_PRECOMPILED_HEADER(Irrlicht pch.h FORCEINCLUDE)
@@ -298,9 +303,8 @@ target_include_directories(IrrlichtServer PRIVATE ../../src ../../source/Irrlich
 
 target_compile_definitions(IrrlichtServer PRIVATE
 	_IRR_STATIC_LIB_
-	BAW_SERVER
-	NO_IRR_COMPILE_WITH_BURNINGSVIDEO_
-	NO_IRR_COMPILE_WITH_OPENGL_
+	_IRR_SERVER_
+	_IRR_OPENGL_USE_EXTPOINTER_
 )
 
 ADD_PRECOMPILED_HEADER(IrrlichtServer pch.h FORCEINCLUDE)

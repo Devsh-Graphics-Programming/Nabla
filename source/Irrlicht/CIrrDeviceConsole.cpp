@@ -6,8 +6,6 @@
 #include "CSceneManager.h"
 #include <sstream>
 
-#ifdef _IRR_COMPILE_WITH_CONSOLE_DEVICE_
-
 #include "os.h"
 
 // to close the device on terminate signal
@@ -440,5 +438,3 @@ void CIrrDeviceConsole::addPostPresentText(int16_t X, int16_t Y, const wchar_t *
 }
 
 } // end namespace irr
-
-#endif // _IRR_COMPILE_WITH_CONSOLE_DEVICE_

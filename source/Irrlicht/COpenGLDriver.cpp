@@ -763,7 +763,7 @@ uint16_t COpenGLDriver::retrieveDisplayRefreshRate() const
         return 0u;
     return dm.dmDisplayFrequency;
 #elif defined(_IRR_COMPILE_WITH_X11_DEVICE_)
-#ifdef _IRR_LINUX_X11_RANDR_
+#   ifdef _IRR_LINUX_X11_RANDR_
     Display* disp = XOpenDisplay(NULL);
     Window root = RootWindow(disp, 0);
 
@@ -771,16 +771,14 @@ uint16_t COpenGLDriver::retrieveDisplayRefreshRate() const
     uint16_t rate = XRRConfigCurrentRate(conf);
 
     return rate;
-#else
-#ifdef _DEBUG
+#   else
+#       ifdef _DEBUG
     os::Printer::log("Refresh rate retrieval without Xrandr compiled in is not supprted!\n", ELL_WARNING);
-#endif
+#       endif
     return 0u;
-#endif // _IRR_LINUX_X11_RANDR_
-#elif defined(_IRR_COMPILE_WITH_CONSOLE_DEVICE_)
-    return 0u;
+#   endif // _IRR_LINUX_X11_RANDR_
 #else
-#error "Not implemented for this platform"
+    return 0u;
 #endif
 }
 
@@ -984,10 +982,10 @@ bool COpenGLDriver::genericDriverInit()
 	// Reset The Current Viewport
 	glViewport(0, 0, Params.WindowSize.Width, Params.WindowSize.Height);
 
-/* Pending enabling test
+// Pending enabling test
 	if (Params.HandleSRGB)
 		glEnable(GL_FRAMEBUFFER_SRGB);
-*/
+
     glDisable(GL_DITHER);
     glDisable(GL_MULTISAMPLE);
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);

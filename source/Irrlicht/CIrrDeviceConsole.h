@@ -6,8 +6,6 @@
 #define __C_IRR_DEVICE_CONSOLE_H_INCLUDED__
 
 #include "IrrCompileConfig.h"
-#ifdef _IRR_COMPILE_WITH_CONSOLE_DEVICE_
-
 
 #include "SIrrCreationParameters.h"
 #include "CIrrDeviceStub.h"
@@ -237,6 +235,5 @@ namespace irr
 
 } // end namespace irr
 
-#endif // _IRR_COMPILE_WITH_CONSOLE_DEVICE_
 #endif // __C_IRR_DEVICE_CONSOLE_H_INCLUDED__
 
