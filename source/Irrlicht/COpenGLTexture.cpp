@@ -61,7 +61,7 @@ COpenGLFilterableTexture::COpenGLFilterableTexture(const io::path& name, const G
     TextureSize[0] = 1;
     TextureSize[1] = 1;
     TextureSize[2] = 1;
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("COpenGLFilterableTexture");
 	#endif
 }
@@ -1272,9 +1272,9 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E
             break;
 		default:
 		{
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 			os::Printer::log("Unsupported texture format", ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 			return GL_INVALID_ENUM;
 		}
 	}

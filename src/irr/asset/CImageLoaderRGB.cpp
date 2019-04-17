@@ -142,7 +142,7 @@ namespace asset
 //! constructor
 CImageLoaderRGB::CImageLoaderRGB()
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CImageLoaderRGB");
 	#endif
 }

@@ -912,7 +912,7 @@ CIrrDeviceWin32::CIrrDeviceWin32(const SIrrlichtCreationParameters& params)
 : CIrrDeviceStub(params), HWnd(0), ChangedToFullScreen(false), Resized(false),
 	ExternalWindow(false), Win32CursorControl(0), JoyControl(0)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CIrrDeviceWin32");
 	#endif
 

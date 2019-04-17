@@ -539,7 +539,7 @@ private:
 CBurningShader_Raster_Reference::CBurningShader_Raster_Reference(CBurningVideoDriver* driver)
 : IBurningShader(driver)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CBurningShader_Raster_Reference");
 	#endif
 }

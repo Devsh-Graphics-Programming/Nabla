@@ -339,7 +339,7 @@ CBurningVideoDriver::CBurningVideoDriver(IrrlichtDevice* dev, const irr::SIrrlic
 	 DepthBuffer(0), StencilBuffer ( 0 ),
 	 CurrentOut ( 12 * 2, 128 ), Temp ( 12 * 2, 128 )
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CBurningVideoDriver");
 	#endif
 

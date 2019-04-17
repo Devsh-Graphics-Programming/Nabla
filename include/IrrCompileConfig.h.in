@@ -6,13 +6,13 @@
 #define __IRR_COMPILE_CONFIG_H_INCLUDED__
 
 //! Irrlicht SDK Version
-#define IRRLICHT_VERSION_MAJOR 1
-#define IRRLICHT_VERSION_MINOR 8
-#define IRRLICHT_VERSION_REVISION 3
+#define IRRLICHT_VERSION_MAJOR 0
+#define IRRLICHT_VERSION_MINOR 3
+#define IRRLICHT_VERSION_REVISION 0
 // This flag will be defined only in SVN, the official release code will have
 // it undefined
 //#define IRRLICHT_VERSION_SVN -alpha
-#define IRRLICHT_SDK_VERSION "1.8.3-baw"
+#define IRRLICHT_SDK_VERSION "0.3.0-beta"
 
 #define NEW_MESHES
 
@@ -428,7 +428,7 @@ currently only supports zip archives, though. */
 #endif
 
 
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	//! A few attributes are written in CSceneManager when _IRR_SCENEMANAGER_DEBUG is enabled
 	// NOTE: Those attributes were used always until 1.8.0 and became a global define for 1.8.1
 	// which is only enabled in debug because it had a large (sometimes >5%) impact on speed.

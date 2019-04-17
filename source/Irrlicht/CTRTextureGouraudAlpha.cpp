@@ -102,7 +102,7 @@ private:
 CTRTextureGouraudAlpha2::CTRTextureGouraudAlpha2(CBurningVideoDriver* driver)
 : IBurningShader(driver)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CTRTextureGouraudAlpha2");
 	#endif
 

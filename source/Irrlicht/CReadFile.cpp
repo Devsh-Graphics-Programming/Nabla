@@ -13,7 +13,7 @@ namespace io
 CReadFile::CReadFile(const io::path& fileName)
 : File(0), FileSize(0), Filename(fileName)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CReadFile");
 	#endif
 

@@ -8,9 +8,9 @@ static const char* const copyright = "Irrlicht Engine (c) 2002-2011 Nikolaus Geb
 
 #ifdef _IRR_WINDOWS_
 	#include <windows.h>
-	#if defined(_DEBUG) && !defined(__GNUWIN32__) && !defined(_WIN32_WCE)
+	#if defined(_IRR_DEBUG) && !defined(__GNUWIN32__) && !defined(_WIN32_WCE)
 		#include <crtdbg.h>
-	#endif // _DEBUG
+	#endif // _IRR_DEBUG
 #endif
 
 #include "irrlicht.h"
@@ -110,7 +110,7 @@ BOOL APIENTRY DllMain( HANDLE hModule,
     switch (ul_reason_for_call)
 	{
 		case DLL_PROCESS_ATTACH:
-			#if defined(_DEBUG) && !defined(__GNUWIN32__) && !defined(__BORLANDC__) && !defined (_WIN32_WCE) && !defined (_IRR_XBOX_PLATFORM_)
+			#if defined(_IRR_DEBUG) && !defined(__GNUWIN32__) && !defined(__BORLANDC__) && !defined (_WIN32_WCE) && !defined (_IRR_XBOX_PLATFORM_)
 				_CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF | _CRTDBG_ALLOC_MEM_DF);
 			#endif
 			break;

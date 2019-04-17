@@ -18,7 +18,7 @@ namespace asset
 
 CImageWriterBMP::CImageWriterBMP()
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	setDebugName("CImageWriterBMP");
 #endif
 }
@@ -32,7 +32,7 @@ bool CImageWriterBMP::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 
 	// we always write 24-bit color because nothing really reads 32-bit
     const asset::CImageData* image =
-#   ifndef _DEBUG
+#   ifndef _IRR_DEBUG
         static_cast<const asset::CImageData*>(_params.rootAsset);
 #   else
         dynamic_cast<const asset::CImageData*>(_params.rootAsset);
@@ -84,7 +84,7 @@ bool CImageWriterBMP::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 		CColorConverter_convertFORMATtoFORMAT
 			= video::CColorConverter::convert_R5G6B5toR8G8B8;
 		break;
-#ifndef _DEBUG
+#ifndef _IRR_DEBUG
 	default:
 		break;
 #endif

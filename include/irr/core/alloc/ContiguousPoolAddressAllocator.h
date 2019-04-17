@@ -55,12 +55,12 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             std::swap(redirToMemory,other.redirToMemory);
             std::swap(addressesAllocated,other.addressesAllocated);
             other.dataBuffer = nullptr;
-            #ifdef _DEBUG
+            #ifdef _IRR_DEBUG
                 assert(dataBuffer);
                 #ifdef _EXTREME_DEBUG
                 validateRedirects();
                 #endif // _EXTREME_DEBUG
-            #endif // _DEBUG
+            #endif // _IRR_DEBUG
         }
 
         ContiguousPoolAddressAllocator& operator=(ContiguousPoolAddressAllocator&& other)
@@ -99,19 +99,19 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                 auto tmp  = addr[i];
                 if (tmp==invalid_address)
                     continue;
-                #ifdef _DEBUG
+                #ifdef _IRR_DEBUG
                     assert(tmp>=Base::combinedOffset);
-                #endif // _DEBUG
+                #endif // _IRR_DEBUG
                 // add allocated address back onto free stack
                 Base::freeStack[Base::freeStackCtr++] = tmp;
                 auto& redir = redirToMemory[Base::addressToBlockID(tmp)];
                 *(sortedRedirectsEnd++) = redir;
-                #ifdef _DEBUG
+                #ifdef _IRR_DEBUG
                     assert(redir!=invalid_address);
                     assert(redir<addressLimit);
                     assert(redirToAddress[Base::addressToBlockID(redir)]==tmp);
                     redir = invalid_address;
-                #endif // _DEBUG
+                #endif // _IRR_DEBUG
             }
             if (sortedRedirectsEnd==sortedRedirects)
                 return;
@@ -120,13 +120,13 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             std::make_heap(sortedRedirects,sortedRedirectsEnd);
             std::sort_heap(sortedRedirects,sortedRedirectsEnd);
 
-            #ifndef _DEBUG
+            #ifndef _IRR_DEBUG
             if (addressesAllocated==count)
             {
                 addressesAllocated = 0u;
                 return;
             }
-            #endif // _DEBUG
+            #endif // _IRR_DEBUG
 
             auto movedRedirStart = redirToAddress+Base::addressToBlockID(sortedRedirects[0]);
             auto movedRangeStart = reinterpret_cast<uint8_t*>(dataBuffer)+(sortedRedirects[0]-Base::combinedOffset);
@@ -156,10 +156,10 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                 movedRangeStart+=rangeLen;
                 j = nextIx;
             }
-            #ifdef _DEBUG
+            #ifdef _IRR_DEBUG
                 for (auto rangeEnd=redirToAddress+addressesAllocated; movedRedirStart!=rangeEnd; movedRedirStart++)
                     *movedRedirStart = invalid_address;
-            #endif // _DEBUG
+            #endif // _IRR_DEBUG
 
             // finslly reduce the count
             addressesAllocated -= count;
@@ -229,13 +229,13 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
     private:
         inline void selfOnlyReset()
         {
-            #ifdef _DEBUG
+            #ifdef _IRR_DEBUG
                 for (size_type i=0ull; i<Base::blockCount; i++)
                 {
                     redirToAddress[i] = invalid_address;
                     redirToMemory[i] = invalid_address;
                 }
-            #endif // _DEBUG
+            #endif // _IRR_DEBUG
             addressesAllocated = 0ull;
         }
 
@@ -294,7 +294,7 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
             auto newBlockCount = (newBuffSz-newAlignOffset)/other.blockSize;
             size_type* newRedirToAddress = reinterpret_cast<size_type*>(reinterpret_cast<uint8_t*>(newReservedSpc)+Base::reserved_size(other,newBuffSz));
             size_type* newRedirToMemory = newRedirToAddress+newBlockCount;
-            #ifdef _DEBUG
+            #ifdef _IRR_DEBUG
                 for (size_type i=0u; i<newBlockCount; i++)
                 {
                     newRedirToAddress[i] = invalid_address;
@@ -304,7 +304,7 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                     if (i<other.blockCount)
                         assert(other.redirToAddress[i]==invalid_address);
                 }
-            #endif // _DEBUG
+            #endif // _IRR_DEBUG
 
             auto newCombinedOffset = newAddressOffset+newAlignOffset;
             for (size_type i=0u; i<other.addressesAllocated; i++)
@@ -312,13 +312,13 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                 auto addr = other.redirToAddress[i];
                 auto addrSansOffset = addr-other.combinedOffset;
                 auto addrBlock = addrSansOffset/other.blockSize;
-                #ifdef _DEBUG
+                #ifdef _IRR_DEBUG
                     assert(addr!=invalid_address && addrBlock<other.blockCount);
-                #endif // _DEBUG
+                #endif // _IRR_DEBUG
                 auto memRedir = other.redirToMemory[addrBlock];
-                #ifdef _DEBUG
+                #ifdef _IRR_DEBUG
                     assert(memRedir!=invalid_address);
-                #endif // _DEBUG
+                #endif // _IRR_DEBUG
                 newRedirToAddress[i] = addrSansOffset+newCombinedOffset;
                 newRedirToMemory[addrBlock] = memRedir+(newCombinedOffset-other.combinedOffset);
             }

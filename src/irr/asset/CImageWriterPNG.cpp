@@ -54,7 +54,7 @@ void PNGAPI user_write_data_fcn(png_structp png_ptr, png_bytep data, png_size_t 
 
 CImageWriterPNG::CImageWriterPNG()
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	setDebugName("CImageWriterPNG");
 #endif
 }
@@ -67,7 +67,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
     SAssetWriteContext ctx{_params, _file};
 
     const asset::CImageData* image =
-#   ifndef _DEBUG
+#   ifndef _IRR_DEBUG
         static_cast<const asset::CImageData*>(_params.rootAsset);
 #   else
         dynamic_cast<const asset::CImageData*>(_params.rootAsset);
@@ -161,7 +161,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	case asset::EF_A1R5G5B5_UNORM_PACK16:
         video::CColorConverter::convert_A1R5G5B5toA8R8G8B8(data,image->getSize().Y*image->getSize().X,tmpImage);
 		break;
-#ifndef _DEBUG
+#ifndef _IRR_DEBUG
 		// TODO: Error handling in case of unsupported color format
 	default:
 		break;

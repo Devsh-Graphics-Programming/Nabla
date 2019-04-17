@@ -43,7 +43,7 @@ CImage::CImage(asset::E_FORMAT format, const core::dimension2d<uint32_t>& size, 
 //! assumes format and size has been set and creates the rest
 void CImage::initData()
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	setDebugName("CImage");
 #endif
 
@@ -220,7 +220,7 @@ void CImage::setPixel(uint32_t x, uint32_t y, const SColor &color, bool blend)
 				*dest = p;
 			}
 		} break;
-#ifndef _DEBUG
+#ifndef _IRR_DEBUG
 		default:
 			break;
 #endif

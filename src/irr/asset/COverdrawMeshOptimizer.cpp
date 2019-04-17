@@ -25,7 +25,7 @@ asset::ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBu
 	void* const indices = outbuffer->getIndices();
 	if (!indices)
 	{
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 		os::Printer::log("Overdraw optimization: no index buffer -- mesh buffer left unchanged.");
 #endif
 		return outbuffer;

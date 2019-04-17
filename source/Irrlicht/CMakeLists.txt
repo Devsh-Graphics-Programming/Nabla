@@ -6,7 +6,11 @@ if(UNIX)
 	find_package(Threads REQUIRED)
 endif()
 
-file(GLOB_RECURSE IRRLICHT_HEADERS "../../*.h") # just gather all the header files and later put them into project so it's easy to search for things using IDE
+file(GLOB_RECURSE IRRLICHT_HEADERS_PUBLIC "../../include/*.h")
+file(GLOB_RECURSE IRRLICHT_HEADERS_PRIV1 "*.h")
+file(GLOB_RECURSE IRRLICHT_HEADERS_PRIV2 "../../src/irr/*.h")
+# just gather all the header files and later put them into project so it's easy to search for things using IDE
+set(IRRLICHT_HEADERS ${IRRLICHT_HEADERS_PUBLIC} ${IRRLICHT_HEADERS_PIRV1} ${IRRLICHT_HEADERS_PRIV2})
 
 set(_IRR_COMPILE_WITH_OPENGL_ ${IRR_COMPILE_WITH_OPENGL})
 set(_IRR_COMPILE_WITH_BURNINGSVIDEO_ ${IRR_COMPILE_WITH_BURNINGSVIDEO})
@@ -273,6 +277,7 @@ target_compile_definitions(Irrlicht PRIVATE
 	_IRR_STATIC_LIB_
 	_IRR_OPENGL_USE_EXTPOINTER_
 )
+target_compile_definitions(Irrlicht PUBLIC $<$<CONFIG:DEBUG>:_IRR_DEBUG>)
 
 ADD_PRECOMPILED_HEADER(Irrlicht pch.h FORCEINCLUDE)
 
@@ -306,6 +311,7 @@ target_compile_definitions(IrrlichtServer PRIVATE
 	_IRR_SERVER_
 	_IRR_OPENGL_USE_EXTPOINTER_
 )
+target_compile_definitions(IrrlichtServer PUBLIC $<$<CONFIG:DEBUG>:_IRR_DEBUG>)
 
 ADD_PRECOMPILED_HEADER(IrrlichtServer pch.h FORCEINCLUDE)
 

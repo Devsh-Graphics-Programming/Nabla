@@ -20,7 +20,7 @@ CSoftwareTexture2::CSoftwareTexture2(asset::CImageData* image, const io::path& n
                         : ITexture(IDriverMemoryBacked::SDriverMemoryRequirements{{0,0,0},0,0,0,0},name), MipMapLOD(0), Flags ( flags ),
                             OriginalFormat(asset::EF_UNKNOWN)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CSoftwareTexture2");
 	#endif
 

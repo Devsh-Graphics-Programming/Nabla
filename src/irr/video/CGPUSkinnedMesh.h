@@ -39,7 +39,7 @@ namespace video
         public:
             CGPUSkinnedMesh(scene::CFinalBoneHierarchy* boneHierarchy) : IGPUSkinnedMesh(boneHierarchy)
             {
-                #ifdef _DEBUG
+                #ifdef _IRR_DEBUG
                 setDebugName("CGPUSkinnedMesh");
                 #endif
 

@@ -60,7 +60,7 @@ CIrrDeviceSDL::CIrrDeviceSDL(const SIrrlichtCreationParameters& param)
 	Width(param.WindowSize.Width), Height(param.WindowSize.Height),
 	Resizable(false), WindowHasFocus(false), WindowMinimized(false)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CIrrDeviceSDL");
 	#endif
 

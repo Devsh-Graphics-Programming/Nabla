@@ -614,7 +614,7 @@ void CColorConverter::convert_viaFormat(const void* sP, asset::E_FORMAT sF, int3
 				case EF_R8G8B8_UNORM:
 					convert_A1R5G5B5toR8G8B8(sP, sN, dP);
 				break;
-#ifndef _DEBUG
+#ifndef _IRR_DEBUG
 				default:
 					break;
 #endif
@@ -635,7 +635,7 @@ void CColorConverter::convert_viaFormat(const void* sP, asset::E_FORMAT sF, int3
 				case EF_R8G8B8_UNORM:
 					convert_R5G6B5toR8G8B8(sP, sN, dP);
 				break;
-#ifndef _DEBUG
+#ifndef _IRR_DEBUG
 				default:
 					break;
 #endif
@@ -656,7 +656,7 @@ void CColorConverter::convert_viaFormat(const void* sP, asset::E_FORMAT sF, int3
 				case EF_R8G8B8_UNORM:
 					convert_A8R8G8B8toR8G8B8(sP, sN, dP);
 				break;
-#ifndef _DEBUG
+#ifndef _IRR_DEBUG
 				default:
 					break;
 #endif
@@ -677,7 +677,7 @@ void CColorConverter::convert_viaFormat(const void* sP, asset::E_FORMAT sF, int3
 				case EF_R8G8B8_UNORM:
 					convert_R8G8B8toR8G8B8(sP, sN, dP);
 				break;
-#ifndef _DEBUG
+#ifndef _IRR_DEBUG
 				default:
 					break;
 #endif

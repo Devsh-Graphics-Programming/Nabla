@@ -20,7 +20,7 @@ namespace asset
 //! constructor
 CImageLoaderJPG::CImageLoaderJPG()
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CImageLoaderJPG");
 	#endif
 }

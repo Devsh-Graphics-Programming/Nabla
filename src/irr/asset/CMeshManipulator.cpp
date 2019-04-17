@@ -1112,7 +1112,7 @@ void CMeshManipulator::requantizeMeshBuffer(asset::ICPUMeshBuffer* _meshbuffer, 
 
 	const size_t activeAttributeCount = attribsI.size() + attribsF.size();
 
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	{
 		core::unordered_set<size_t> sizesSet;
 		for (core::unordered_map<asset::E_VERTEX_ATTRIBUTE_ID, core::vector<SIntegerAttr>>::iterator it = attribsI.begin(); it != attribsI.end(); ++it)
