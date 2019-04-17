@@ -51,12 +51,6 @@
 #   define __IRR_COMPILE_WITH_SSE3
 #   define __IRR_COMPILE_WITH_X86_SIMD_ // SSE 4.2 
 #   include <immintrin.h>
-
-#   ifdef __IRR_COMPILE_WITH_AVX
-#       define SIMD_ALIGNMENT 32
-#   else
-#       define SIMD_ALIGNMENT 16 //SSE
-#   endif // __IRR_COMPILE_WITH_AVX
 #endif
 
 
