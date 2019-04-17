@@ -111,7 +111,7 @@ macro(irr_adjust_definitions)
 	endif()
 
 	if(IRR_FAST_MATH)
-		add_definitions(-DIRRLICHT_FAST_MATH)
+		add_definitions(-D__IRR_FAST_MATH)
 	endif()
 	
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")

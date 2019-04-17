@@ -671,7 +671,7 @@ const sVec4 CBurningVideoDriver::NDCPlane[6] =
 	core::setbit_cond( flag, (-v->Pos.y - v->Pos.w ) <= 0.f, 32 );
 
 */
-#ifdef IRRLICHT_FAST_MATH
+#ifdef __IRR_FAST_MATH
 
 REALINLINE uint32_t CBurningVideoDriver::clipToFrustumTest ( const s4DVertex * v  ) const
 {
@@ -733,7 +733,7 @@ REALINLINE uint32_t CBurningVideoDriver::clipToFrustumTest ( const s4DVertex * v
 	return flag;
 }
 
-#endif // _MSC_VER
+#endif // __IRR_FAST_MATH
 
 uint32_t CBurningVideoDriver::clipToHyperPlane ( s4DVertex * dest, const s4DVertex * source, uint32_t inCount, const sVec4 &plane )
 {
