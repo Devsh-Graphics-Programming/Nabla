@@ -6,13 +6,13 @@
 #define __IRR_COMPILE_CONFIG_H_INCLUDED__
 
 //! Irrlicht SDK Version
-#define IRRLICHT_VERSION_MAJOR 0
-#define IRRLICHT_VERSION_MINOR 3
-#define IRRLICHT_VERSION_REVISION 0
+#define IRRLICHTBAW_VERSION_MAJOR 0
+#define IRRLICHTBAW_VERSION_MINOR 3
+#define IRRLICHTBAW_VERSION_REVISION 0
 // This flag will be defined only in SVN, the official release code will have
 // it undefined
 //#define IRRLICHT_VERSION_SVN -alpha
-#define IRRLICHT_SDK_VERSION "0.3.0-beta"
+#define IRRLICHTBAW_SDK_VERSION "0.3.0-beta2"
 
 #define NEW_MESHES
 
@@ -43,6 +43,9 @@
 #cmakedefine _IRR_COMPILE_WITH_OPENGL_
 #cmakedefine _IRR_COMPILE_WITH_BURNINGSVIDEO_
 #cmakedefine _IRR_COMPILE_WITH_VULKAN_ // dead as for now
+
+// extra config
+#cmakedefine __IRR_FAST_MATH
 
 
 #ifdef _IRR_TARGET_ARCH_ARM_
@@ -151,14 +154,6 @@ the engine will no longer read .png images. */
 #define _IRR_COMPILE_WITH_LIBPNG_
 #ifdef NO_IRR_COMPILE_WITH_LIBPNG_
 #undef _IRR_COMPILE_WITH_LIBPNG_
-#endif
-
-//! Define _IRR_USE_NON_SYSTEM_LIBPNG_ to let irrlicht use the libpng which comes with irrlicht.
-/** If this is commented out, Irrlicht will try to compile using the libpng installed in the system.
-	This is only used when _IRR_COMPILE_WITH_LIBPNG_ is defined. */
-#define _IRR_USE_NON_SYSTEM_LIB_PNG_
-#ifdef NO_IRR_USE_NON_SYSTEM_LIB_PNG_
-#undef _IRR_USE_NON_SYSTEM_LIB_PNG_
 #endif
 
 //! Define one of the three setting for Burning's Video Software Rasterizer

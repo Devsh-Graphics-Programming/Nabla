@@ -15,6 +15,7 @@ set(IRRLICHT_HEADERS ${IRRLICHT_HEADERS_PUBLIC} ${IRRLICHT_HEADERS_PIRV1} ${IRRL
 set(_IRR_COMPILE_WITH_OPENGL_ ${IRR_COMPILE_WITH_OPENGL})
 set(_IRR_COMPILE_WITH_BURNINGSVIDEO_ ${IRR_COMPILE_WITH_BURNINGSVIDEO})
 #set(_IRR_TARGET_ARCH_ARM_ ${IRR_TARGET_ARCH_ARM}) #uncomment in the future
+set(__IRR_FAST_MATH ${IRR_FAST_MATH})
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/../../include/IrrCompileConfig.h.in" "${CMAKE_CURRENT_SOURCE_DIR}/../../include/IrrCompileConfig.h")
 
 set(IRRLICHT_SRCS_COMMON
@@ -275,7 +276,6 @@ endif()
 
 target_compile_definitions(Irrlicht PRIVATE
 	_IRR_STATIC_LIB_
-	_IRR_OPENGL_USE_EXTPOINTER_
 )
 target_compile_definitions(Irrlicht PUBLIC $<$<CONFIG:DEBUG>:_IRR_DEBUG>)
 
@@ -309,7 +309,6 @@ target_include_directories(IrrlichtServer PRIVATE ../../src ../../source/Irrlich
 target_compile_definitions(IrrlichtServer PRIVATE
 	_IRR_STATIC_LIB_
 	_IRR_SERVER_
-	_IRR_OPENGL_USE_EXTPOINTER_
 )
 target_compile_definitions(IrrlichtServer PUBLIC $<$<CONFIG:DEBUG>:_IRR_DEBUG>)
 

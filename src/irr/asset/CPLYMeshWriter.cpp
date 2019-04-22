@@ -87,7 +87,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     std::string header = "ply\n";
     header += (flags & asset::EWF_BINARY) ? "format binary_little_endian 1.0" : "format ascii 1.0";
 	header += "\ncomment IrrlichtBAW ";
-	header +=  IRRLICHT_SDK_VERSION;
+	header +=  IRRLICHTBAW_SDK_VERSION;
 
 	// get vertex and triangle counts
 	size_t vtxCount = mesh->getMeshBuffer(0)->calcVertexCount();

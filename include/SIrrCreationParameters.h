@@ -43,12 +43,12 @@ namespace irr
 			LoggingLevel(ELL_INFORMATION),
 #endif
 			AuxGLContexts(0),
-			SDK_version_do_not_use(IRRLICHT_SDK_VERSION)
+			SDK_version_do_not_use(IRRLICHTBAW_SDK_VERSION)
 		{
 		}
 
 		SIrrlichtCreationParameters(const SIrrlichtCreationParameters& other) :
-			SDK_version_do_not_use(IRRLICHT_SDK_VERSION)
+			SDK_version_do_not_use(IRRLICHTBAW_SDK_VERSION)
 		{*this = other;}
 
 		SIrrlichtCreationParameters& operator=(const SIrrlichtCreationParameters& other)
@@ -243,7 +243,7 @@ namespace irr
 		uint8_t AuxGLContexts;
 
 		//! Don't use or change this parameter.
-		/** Always set it to IRRLICHT_SDK_VERSION, which is done by default.
+		/** Always set it to IRRLICHTBAW_SDK_VERSION, which is done by default.
 		This is needed for sdk version checks. */
 		const char* const SDK_version_do_not_use;
 	};
