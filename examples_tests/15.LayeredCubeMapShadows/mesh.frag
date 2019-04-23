@@ -53,5 +53,5 @@ void main()
         lightIntensity *= visibility;
     }
 
-    pixelColor = texture(tex0,TexCoord)*lightIntensity;
+    pixelColor = texture(tex0,TexCoord)*vec4(lightIntensity);
 }
