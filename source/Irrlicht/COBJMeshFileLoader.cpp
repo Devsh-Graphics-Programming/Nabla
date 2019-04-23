@@ -529,9 +529,9 @@ const char* COBJMeshFileLoader::readTextures(const char* bufPtr, const char* con
     {
         for (size_t i=0; i<_IRR_MATERIAL_MAX_TEXTURES_; i++)
         {
-            currMaterial->Material.TextureLayer[i].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_BORDER;
-            currMaterial->Material.TextureLayer[i].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_BORDER;
-            currMaterial->Material.TextureLayer[i].SamplingParams.TextureWrapW = video::ETC_CLAMP_TO_BORDER;
+            currMaterial->Material.TextureLayer[i].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
+            currMaterial->Material.TextureLayer[i].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
+            currMaterial->Material.TextureLayer[i].SamplingParams.TextureWrapW = video::ETC_CLAMP_TO_EDGE;
         }
     }
 

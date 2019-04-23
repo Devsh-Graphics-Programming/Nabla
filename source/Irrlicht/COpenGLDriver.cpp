@@ -2139,7 +2139,7 @@ bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* const spec, 
 }
 
 //! Get native wrap mode value
-inline GLint getTextureWrapMode(const uint8_t &clamp)
+inline GLint getTextureWrapMode(uint8_t clamp)
 {
 	GLint mode=GL_REPEAT;
 	switch (clamp)
