@@ -111,9 +111,9 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_ARB_fragment_shader_interlock",
 	"GL_ARB_framebuffer_object",
 	"GL_ARB_framebuffer_sRGB",
+	"GL_ARB_geometry_shader4",
 	"GL_ARB_get_program_binary",
 	"GL_ARB_get_texture_sub_image",
-	"GL_ARB_geometry_shader4",
 	"GL_ARB_gpu_shader5",
 	"GL_ARB_gpu_shader_fp64",
 	"GL_ARB_half_float_pixel",
@@ -487,7 +487,6 @@ static const char* const OpenGLFeatureStrings[] = {
     "GL_KHR_texture_compression_astc_hdr",
     "GL_KHR_texture_compression_astc_ldr",
 	//"GLX_EXT_swap_control_tear",
-	// unofficial stuff
 	"GL_NVX_gpu_memory_info"
 };
 
