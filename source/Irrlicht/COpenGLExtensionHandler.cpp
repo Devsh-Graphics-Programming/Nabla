@@ -220,6 +220,13 @@ PFNGLTEXTURESTORAGE2DMULTISAMPLEEXTPROC COpenGLExtensionHandler::pGlTextureStora
 PFNGLTEXTURESTORAGE3DMULTISAMPLEEXTPROC COpenGLExtensionHandler::pGlTextureStorage3DMultisampleEXT = nullptr;
 PFNGLTEXTUREBUFFEREXTPROC COpenGLExtensionHandler::pGlTextureBufferEXT = nullptr;
 PFNGLTEXTUREBUFFERRANGEEXTPROC COpenGLExtensionHandler::pGlTextureBufferRangeEXT = nullptr;
+PFNGLGETTEXTURESUBIMAGEPROC COpenGLExtensionHandler::pGlGetTextureSubImage = nullptr;
+PFNGLGETCOMPRESSEDTEXTURESUBIMAGEPROC COpenGLExtensionHandler::pGlGetCompressedTextureSubImage = nullptr;
+PFNGLGETTEXTUREIMAGEPROC COpenGLExtensionHandler::pGlGetTextureImage = nullptr;
+PFNGLGETTEXTUREIMAGEEXTPROC COpenGLExtensionHandler::pGlGetTextureImageEXT = nullptr;
+PFNGLGETCOMPRESSEDTEXTUREIMAGEPROC COpenGLExtensionHandler::pGlGetCompressedTextureImage = nullptr;
+PFNGLGETCOMPRESSEDTEXTUREIMAGEEXTPROC COpenGLExtensionHandler::pGlGetCompressedTextureImageEXT = nullptr;
+PFNGLGETCOMPRESSEDTEXIMAGEPROC COpenGLExtensionHandler::pGlGetCompressedTexImage = nullptr;
 PFNGLTEXSUBIMAGE3DPROC COpenGLExtensionHandler::pGlTexSubImage3D = nullptr;
 PFNGLMULTITEXSUBIMAGE1DEXTPROC COpenGLExtensionHandler::pGlMultiTexSubImage1DEXT = nullptr;
 PFNGLMULTITEXSUBIMAGE2DEXTPROC COpenGLExtensionHandler::pGlMultiTexSubImage2DEXT = nullptr;
@@ -1109,6 +1116,13 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlTextureBufferRangeEXT = (PFNGLTEXTUREBUFFERRANGEEXTPROC) IRR_OGL_LOAD_EXTENSION( "glTextureBufferRangeEXT");
     pGlTextureStorage2DMultisampleEXT = (PFNGLTEXTURESTORAGE2DMULTISAMPLEEXTPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage2DMultisampleEXT");
     pGlTextureStorage3DMultisampleEXT = (PFNGLTEXTURESTORAGE3DMULTISAMPLEEXTPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage3DMultisampleEXT");
+	pGlGetTextureSubImage = (PFNGLGETTEXTURESUBIMAGEPROC)IRR_OGL_LOAD_EXTENSION("glGetTextureSubImage");
+	pGlGetCompressedTextureSubImage = (PFNGLGETCOMPRESSEDTEXTURESUBIMAGEPROC)IRR_OGL_LOAD_EXTENSION("glGetCompressedTextureSubImage");
+	pGlGetTextureImage = (PFNGLGETTEXTUREIMAGEPROC)IRR_OGL_LOAD_EXTENSION("glGetTextureImage");
+	pGlGetTextureImageEXT = (PFNGLGETTEXTUREIMAGEEXTPROC)IRR_OGL_LOAD_EXTENSION("glGetTextureImageEXT");
+	pGlGetCompressedTextureImage = (PFNGLGETCOMPRESSEDTEXTUREIMAGEPROC)IRR_OGL_LOAD_EXTENSION("glGetCompressedTextureImage");
+	pGlGetCompressedTextureImageEXT = (PFNGLGETCOMPRESSEDTEXTUREIMAGEEXTPROC)IRR_OGL_LOAD_EXTENSION("glGetCompressedTextureImageEXT");
+	pGlGetCompressedTexImage = (PFNGLGETCOMPRESSEDTEXIMAGEPROC)IRR_OGL_LOAD_EXTENSION("glGetCompressedTexImage");
     pGlTexSubImage3D = (PFNGLTEXSUBIMAGE3DPROC) IRR_OGL_LOAD_EXTENSION( "glTexSubImage3D");
     pGlMultiTexSubImage1DEXT = (PFNGLMULTITEXSUBIMAGE1DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glMultiTexSubImage1DEXT");
     pGlMultiTexSubImage2DEXT = (PFNGLMULTITEXSUBIMAGE2DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glMultiTexSubImage2DEXT");
@@ -1433,7 +1447,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::vector<std::string>* fai
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_EXT_texture_filter_anisotropic]))
+    if (!(FeatureAvailable[IRR_EXT_texture_filter_anisotropic]||Version>=460))
     {
         retval =  false;
         std::string error = "No anisotropic filtering\n";

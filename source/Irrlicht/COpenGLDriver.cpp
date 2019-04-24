@@ -1570,6 +1570,8 @@ bool COpenGLDriver::queryFeature(const E_DRIVER_FEATURE &feature) const
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_geometry_shader4]||true; //vulkan+android
         case EDF_TESSELLATION_SHADER:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_tessellation_shader]||true; //vulkan+android
+        case EDF_GET_TEXTURE_SUB_IMAGE:
+            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_get_texture_sub_image]; //only on OpenGL
         case EDF_TEXTURE_BARRIER:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_texture_barrier]||COpenGLExtensionHandler::FeatureAvailable[IRR_NV_texture_barrier]||Version>=450;
         case EDF_STENCIL_ONLY_TEXTURE:
