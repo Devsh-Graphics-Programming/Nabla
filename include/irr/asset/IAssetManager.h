@@ -385,6 +385,9 @@ namespace asset
         }
         bool writeAsset(io::IWriteFile* _file, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override)
         {
+			if (!_file)
+				return false;
+
             IAssetWriter::IAssetWriterOverride defOverride;
             if (!_override)
                 _override = &defOverride;

@@ -247,13 +247,13 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 			cinfo.out_color_components = 3;
 			cinfo.output_gamma = 2.2333333f; // output_gamma is a dead variable in libjpegturbo and jpeglib
 			break;
-		case JCS_YCbCr: // https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion
+		case JCS_YCbCr:
 			cinfo.out_color_components = 3;
 			cinfo.output_gamma = 2.2333333f; // output_gamma is a dead variable in libjpegturbo and jpeglib
 			os::Printer::log("YCbCr color space is unsupported:", _file->getFileName().c_str(), ELL_ERROR);
-			// if you're going to support this then know that Y is in gamma space and output RGB are in gamma space
-			// (denoted by ' symbol in wikipedia article)
-			return nullptr;
+			// it seems that libjpeg does Y'UV to R'G'B'conversion automagically
+			// however be prepared that the colors might be a bit "off"
+			// https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion
 			break;
 		case JCS_CMYK:
 			os::Printer::log("CMYK color space is unsupported:", _file->getFileName().c_str(), ELL_ERROR);
@@ -314,8 +314,8 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 			image = new asset::CImageData(output->getPointer(),nullOffset,imageSize,0u,asset::EF_R8G8B8_SRGB,1);
 			break;
 		case JCS_YCbCr:
-			// some conversion on the output array should be in order, or just use
-			//image = shall we use asset::EF_G8_B8_R8_3PLANE_444_UNORM, asset::EF_R8G8B8_SRGB or asset::EF_R8G8B8_UNORM ?
+			// libjpeg does implicit conversion to R'G'B'
+			image = new asset::CImageData(output->getPointer(),nullOffset,imageSize,0u,asset::EF_R8G8B8_SRGB,1);
 			break;
 		default: // should never get here
 			_IRR_DEBUG_BREAK_IF(true);
