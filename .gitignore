@@ -4,6 +4,7 @@
 *.objs*
 *.d
 *.o
+build/*
 source/obj
 examples_tests/06.MeshLoaders/bin/cow.baw
 examples_tests/06.MeshLoaders/bin/extrusionLogo_TEST_fixed.baw

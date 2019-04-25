@@ -266,7 +266,6 @@
 #include "irr/asset/CImageLoaderDDS.h"
 #include "irr/asset/CImageLoaderJPG.h"
 #include "irr/asset/CImageLoaderPNG.h"
-#include "irr/asset/CImageLoaderRGB.h"
 #include "irr/asset/CImageLoaderTGA.h"
 #include "irr/asset/CImageWriterBMP.h"
 #include "irr/asset/CImageWriterJPG.h"

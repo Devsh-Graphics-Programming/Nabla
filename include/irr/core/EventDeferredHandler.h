@@ -16,9 +16,9 @@ class EventDeferredHandlerST
         typedef std::pair<Event,Functor>                  DeferredEvent;
     protected:
         typedef core::forward_list<DeferredEvent> EventContainerType;
-        EventContainerType                                      mEvents;
-        typename EventContainerType::size_type  mEventsCount;
-        typename EventContainerType::iterator      mLastEvent;
+		uint32_t								mEventsCount;
+        EventContainerType                      mEvents;
+        typename EventContainerType::iterator	mLastEvent;
     public:
         EventDeferredHandlerST() : mEventsCount(0u)
         {

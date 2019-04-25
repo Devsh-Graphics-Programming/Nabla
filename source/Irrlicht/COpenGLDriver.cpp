@@ -295,8 +295,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 			WGL_DOUBLE_BUFFER_ARB,Params.Doublebuffer ? 1 : 0,
 			WGL_STEREO_ARB,Params.Stereobuffer ? 1 : 0,
 			WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
-			WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, Params.HandleSRGB ? 1:0,
-//			WGL_DEPTH_FLOAT_EXT, 1,
+			WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, 1,
 			0,0,0,0
 		};
 
@@ -987,10 +986,7 @@ bool COpenGLDriver::genericDriverInit()
 	// Reset The Current Viewport
 	glViewport(0, 0, Params.WindowSize.Width, Params.WindowSize.Height);
 
-// Pending enabling test
-	if (Params.HandleSRGB)
-		glEnable(GL_FRAMEBUFFER_SRGB);
-
+	glEnable(GL_FRAMEBUFFER_SRGB);
     glDisable(GL_DITHER);
     glDisable(GL_MULTISAMPLE);
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
@@ -1572,6 +1568,8 @@ bool COpenGLDriver::queryFeature(const E_DRIVER_FEATURE &feature) const
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_geometry_shader4]||true; //vulkan+android
         case EDF_TESSELLATION_SHADER:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_tessellation_shader]||true; //vulkan+android
+        case EDF_GET_TEXTURE_SUB_IMAGE:
+            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_get_texture_sub_image]; //only on OpenGL
         case EDF_TEXTURE_BARRIER:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_texture_barrier]||COpenGLExtensionHandler::FeatureAvailable[IRR_NV_texture_barrier]||Version>=450;
         case EDF_STENCIL_ONLY_TEXTURE:
