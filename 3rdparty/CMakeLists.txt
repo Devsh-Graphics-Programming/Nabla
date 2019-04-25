@@ -18,9 +18,10 @@ add_subdirectory(glslang)
 set(SHADERC_SKIP_TESTS ON CACHE BOOL "Skip shaderc tests?" FORCE)
 set(SHADERC_SKIP_INSTALL ON CACHE BOOL "Install shaderc?" FORCE)
 # if it doesn't work without the `touch` on Linux, then fetch the latest submodule head of shaderc and try again
-#if (UNIX)
-#	file(WRITE ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/libshaderc_combined.a "") #https://github.com/google/shaderc/issues/568
-#endif()
+# https://github.com/google/shaderc/issues/568
+if (UNIX)
+	file(WRITE ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/libshaderc_combined.a "")
+endif()
 add_subdirectory(shaderc)
 
 add_subdirectory(openssl)
