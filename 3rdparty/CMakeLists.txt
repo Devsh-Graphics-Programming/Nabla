@@ -3,20 +3,20 @@ execute_process(COMMAND git submodule update --init --recursive
 )
 
 
-option(SPIRV_HEADERS_SKIP_EXAMPLES "SPIRV-Headers examples" ON)
+set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "Skip SPIRV-Headers examples" FORCE)
 add_subdirectory(SPIRV-Headers)
-option(SKIP_SPIRV_TOOLS_INSTALL "SPIRV-Tools install skip" ON)
-option(SPIRV_SKIP_TESTS "SPIRV-Tools tests skip" ON)
-option(SPIRV_SKIP_EXECUTABLES "SPIRV-Tools executable build skip" ON)
+set(SKIP_SPIRV_TOOLS_INSTALL ON CACHE BOOL "Skip SPIRV-Tools install" FORCE)
+set(SPIRV_SKIP_TESTS ON CACHE BOOL "Skip SPIRV-Tools tests" FORCE)
+set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "Skip SPIRV-Tools executable build" FORCE)
 add_subdirectory(SPIRV-Tools)
-option(SKIP_GLSLANG_INSTALL "glslang install skip" ON)
-option(ENABLE_SPVREMAPPER "spvremapper is a spirv compression experimental library" OFF)
-option(ENABLE_GLSLANG_BINARIES "build glslangValidator and spirv-remap?" OFF)
-set(BUILD_TESTING OFF CACHE BOOL "glslang build testing")
+set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "Skip glslang install" FORCE)
+set(ENABLE_SPVREMAPPER OFF CACHE BOOL "SPVRemapper is a spirv compression experimental library" FORCE)
+set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "Build glslangValidator and spirv-remap?" FORCE)
+set(BUILD_TESTING OFF CACHE BOOL "Enable glslang build testing?" FORCE)
 add_subdirectory(glslang)
 
-OPTION(SHADERC_SKIP_TESTS "skip shaderc tests?" ON)
-OPTION(SHADERC_SKIP_INSTALL "install shaderc?" ON)
+set(SHADERC_SKIP_TESTS ON CACHE BOOL "Skip shaderc tests?" FORCE)
+set(SHADERC_SKIP_INSTALL ON CACHE BOOL "Install shaderc?" FORCE)
 # if it doesn't work without the `touch` on Linux, then fetch the latest submodule head of shaderc and try again
 #if (UNIX)
 #	file(WRITE ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/libshaderc_combined.a "") #https://github.com/google/shaderc/issues/568
