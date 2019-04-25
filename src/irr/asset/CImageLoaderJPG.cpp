@@ -250,7 +250,6 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 		case JCS_YCbCr:
 			cinfo.out_color_components = 3;
 			cinfo.output_gamma = 2.2333333f; // output_gamma is a dead variable in libjpegturbo and jpeglib
-			os::Printer::log("YCbCr color space is unsupported:", _file->getFileName().c_str(), ELL_ERROR);
 			// it seems that libjpeg does Y'UV to R'G'B'conversion automagically
 			// however be prepared that the colors might be a bit "off"
 			// https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion
@@ -308,7 +307,9 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 	switch (cinfo.jpeg_color_space)
 	{
 		case JCS_GRAYSCALE:
-			// should we gamma convert from 2.2333 to 1.0 ?
+			// should we gamma convert from 2.2333 to 1.0 (depends on whether jpeg greyscale is gamma encoded) ?
+			// I don't want implicit conversion by libjpeg to RGB8
+			/// image = new asset::CImageData(????????,nullOffset,imageSize,0u,asset::EF_R8_UNORM,1);
 			break;
 		case JCS_RGB:
 			image = new asset::CImageData(output->getPointer(),nullOffset,imageSize,0u,asset::EF_R8G8B8_SRGB,1);
