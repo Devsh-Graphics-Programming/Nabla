@@ -19,7 +19,10 @@ set(_IRR_COMPILE_WITH_OPENGL_ ${IRR_COMPILE_WITH_OPENGL})
 set(_IRR_COMPILE_WITH_BURNINGSVIDEO_ ${IRR_COMPILE_WITH_BURNINGSVIDEO})
 #set(_IRR_TARGET_ARCH_ARM_ ${IRR_TARGET_ARCH_ARM}) #uncomment in the future
 set(__IRR_FAST_MATH ${IRR_FAST_MATH})
-configure_file("${CMAKE_SOURCE_DIR}/include/BuildConfigOptions.h.in" "${CMAKE_SOURCE_DIR}/include/BuildConfigOptions.h")
+set(_IRR_DEBUG 0)
+configure_file("${CMAKE_SOURCE_DIR}/include/irr/config/BuildConfigOptions.h.in" "${CMAKE_SOURCE_DIR}/include/irr/config/release/BuildConfigOptions.h")
+set(_IRR_DEBUG 1)
+configure_file("${CMAKE_SOURCE_DIR}/include/irr/config/BuildConfigOptions.h.in" "${CMAKE_SOURCE_DIR}/include/irr/config/debug/BuildConfigOptions.h")
 
 
 file(GLOB_RECURSE IRRLICHT_HEADERS_PUBLIC "${CMAKE_SOURCE_DIR}/include/*.h")
@@ -233,6 +236,9 @@ macro(irr_target_link_libpng _trgt)
 	target_include_directories(${_trgt} PUBLIC ${CMAKE_SOURCE_DIR}/3rdparty/libpng)
 endmacro()
 
+irr_get_conf_dir(IRRLICHT_CONF_DIR_DEBUG Debug)
+irr_get_conf_dir(IRRLICHT_CONF_DIR_RELEASE Release)
+
 # get function for cross-compiler PCH configuration
 include(add_pch)
 
@@ -270,6 +276,9 @@ target_include_directories(Irrlicht PUBLIC
 	${CMAKE_SOURCE_DIR}/include
 	${COMMON_INCLUDE_DIRS}
 	${THIRD_PARTY_SOURCE_DIR}
+	#those also goes as PUBLIC because of examples
+	"$<$<CONFIG:DEBUG>:${IRRLICHT_CONF_DIR_DEBUG}>"
+	"$<$<CONFIG:RELEASE>:${IRRLICHT_CONF_DIR_RELEASE}>"
 )
 target_include_directories(Irrlicht PUBLIC ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/source/Irrlicht) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 if (UNIX)
@@ -328,6 +337,9 @@ target_include_directories(IrrlichtServer PUBLIC
 	${CMAKE_SOURCE_DIR}/include
 	${COMMON_INCLUDE_DIRS}
 	${THIRD_PARTY_SOURCE_DIR}
+	#those also goes as PUBLIC because of examples
+	"$<$<CONFIG:DEBUG>:${IRRLICHT_CONF_DIR_DEBUG}>"
+	"$<$<CONFIG:RELEASE>:${IRRLICHT_CONF_DIR_RELEASE}>"
 )
 target_include_directories(IrrlichtServer PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/source/Irrlicht)
 
@@ -347,26 +359,27 @@ set_target_properties(Irrlicht PROPERTIES DEBUG_POSTFIX _debug)
 set_target_properties(IrrlichtServer PROPERTIES DEBUG_POSTFIX _debug)
 
 
-# INSTALL_PLATFORM_DIR is directory relative to CMAKE_INSTALL_PREFIX
+# PLATFORM is directory relative to CMAKE_INSTALL_PREFIX
 if(MSVC)
-	set (INSTALL_PLATFORM_DIR "Win64-msvc")
+	set (PLATFORM "Win64-msvc")
 elseif(WIN32)
-	set (INSTALL_PLATFORM_DIR "Win64-gcc")
+	set (PLATFORM "Win64-gcc")
 else()
 	if (APPLE)
-		set (INSTALL_PLATFORM_DIR "MacOSX")
+		set (PLATFORM "MacOSX")
 	elseif(UNIX)
-		set (INSTALL_PLATFORM_DIR "Linux")
+		set (PLATFORM "Linux")
 	else()
-		set (INSTALL_PLATFORM_DIR "unknown_platform")
+		set (PLATFORM "unknown_platform")
 	endif()
 endif()
 
 macro(irr_install_static_lib _TRGT)
-	install(TARGETS ${_TRGT} ARCHIVE DESTINATION ${INSTALL_PLATFORM_DIR}/Release CONFIGURATIONS Release)
-	install(TARGETS ${_TRGT} ARCHIVE DESTINATION ${INSTALL_PLATFORM_DIR}/Debug CONFIGURATIONS Debug)
+	install(TARGETS ${_TRGT} ARCHIVE DESTINATION ${PLATFORM}/Release CONFIGURATIONS Release)
+	install(TARGETS ${_TRGT} ARCHIVE DESTINATION ${PLATFORM}/Debug CONFIGURATIONS Debug)
 endmacro()
 
 irr_install_static_lib(Irrlicht)
 irr_install_static_lib(IrrlichtServer)
-irr_install_headers("${IRRLICHT_HEADERS_PUBLIC}" "${CMAKE_SOURCE_DIR}/include")
+irr_install_headers("${IRRLICHT_HEADERS_PUBLIC}" "${CMAKE_SOURCE_DIR}/include" ${PLATFORM})
+irr_install_config_header(BuildConfigOptions.h ${PLATFORM})

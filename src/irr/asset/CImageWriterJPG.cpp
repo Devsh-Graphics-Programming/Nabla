@@ -116,10 +116,8 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 		case asset::EF_B5G6R5_UNORM_PACK16:
 			format = video::CColorConverter::convert_R5G6B5toR8G8B8;
 			break;
-#ifndef _IRR_DEBUG
 		default:
 			break;
-#endif
 	}
 
 	// couldn't find a color converter

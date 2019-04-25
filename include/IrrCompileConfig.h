@@ -31,6 +31,7 @@
 #undef _IRR_COMPILE_WITH_SDL_DEVICE_
 #endif
 
+// this actually includes file depending on build type (Debug/Release)
 #include "BuildConfigOptions.h"
 
 
