@@ -120,6 +120,8 @@ macro(irr_adjust_definitions)
 	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -D_DEBUG")
 endmacro()
 
+option(IRR_PCH "Enable pre-compiled header" ON)
+
 option(IRR_FAST_MATH "Enable fast low-precision math" ON)
 
 option(IRR_BUILD_EXAMPLES "Enable building examples" ON)

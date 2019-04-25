@@ -268,7 +268,9 @@ target_compile_definitions(Irrlicht PRIVATE
 	_IRR_COMPILE_WITH_OPENGL_
 )
 
-ADD_PRECOMPILED_HEADER(Irrlicht pch.h FORCEINCLUDE)
+if(IRR_PCH)
+  ADD_PRECOMPILED_HEADER(Irrlicht pch.h FORCEINCLUDE)
+endif()
 
 add_library(IrrlichtServer STATIC
 	${IRRLICHT_SRCS_COMMON}
@@ -302,7 +304,9 @@ target_compile_definitions(IrrlichtServer PRIVATE
 	NO_IRR_COMPILE_WITH_OPENGL_
 )
 
-ADD_PRECOMPILED_HEADER(IrrlichtServer pch.h FORCEINCLUDE)
+if(IRR_PCH)
+  ADD_PRECOMPILED_HEADER(IrrlichtServer pch.h FORCEINCLUDE)
+endif()
 
 if(MSVC)
 	set (OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/../../lib/Win64-visualStudio")
