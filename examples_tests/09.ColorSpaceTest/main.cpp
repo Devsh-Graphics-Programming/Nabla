@@ -10,7 +10,6 @@
 using namespace irr;
 using namespace core;
 
-
 video::SGPUMaterial presentMaterial;
 
 void presentImageOnScreen(IrrlichtDevice* device, video::IGPUMeshBuffer* fullScreenTriangle, video::ITexture* inTex, video::ITexture* outTex=nullptr)
@@ -70,33 +69,60 @@ void dumpTextureToFile(IrrlichtDevice* device, video::ITexture* tex, const std::
 	img->drop();
 }
 
+bool ReadLine(io::IReadFile* file, std::string &line)
+{
+	if (file)
+	{
+		line = "";
+		char c;
+		while (file->read(&c, 1) != 0)
+		{
+			// On Windows, the EOL character is composed of two bytes CR ('\r', 13) and LF ('\n', 10). Unixes EOL is just LF.
+			if (c == '\r' || c == '\n')
+			{
+				// If we get a CR byte (Windows EOL), read one more byte to skip past the LF.
+				if (c == '\r')
+					file->read(&c, 1);
+				return true;
+			}
+			
+			line += c;
+		}
+	}
+	
+	return false;
+}
+
 void testImage(const std::string& path, IrrlichtDevice* device, video::IGPUMeshBuffer* fullScreenTriangle)
 {
+	os::Printer::log("Reading", path);
 	auto& assetMgr = device->getAssetManager();
 	video::IVideoDriver* driver = device->getVideoDriver();
 
 	asset::ICPUTexture* cputex[1] = { static_cast<asset::ICPUTexture*>(assetMgr.getAsset(path, {})) };
-	assert(cputex[0]);
-
-	io::path filename,extension ;
-	core::splitFilename(path.c_str(), nullptr, &filename, &extension);
-	filename += "."; filename += extension;
-
-	auto tex = driver->getGPUObjectsFromAssets(cputex,cputex+1u).front();
+	
+	if (cputex[0])
 	{
-		auto tmpTex = driver->createGPUTexture(video::ITexture::ETT_2D,tex->getSize(),1u,tex->getColorFormat());
-		presentImageOnScreen(device, fullScreenTriangle, tex, tmpTex);
-		dumpTextureToFile(device, tmpTex, (io::path("screen")+filename).c_str());
-		tmpTex->drop();
-	}
-	{
-		asset::CImageData* img = *cputex[0]->getMipMap(0u).first;
-		asset::IAssetWriter::SAssetWriteParams wparams(img);
+		io::path filename,extension ;
+		core::splitFilename(path.c_str(), nullptr, &filename, &extension);
+		filename += "."; filename += extension;
 
-		device->getAssetManager().writeAsset((io::path("write")+filename).c_str(), wparams);
+		auto tex = driver->getGPUObjectsFromAssets(cputex,cputex+1u).front();
+		{
+			auto tmpTex = driver->createGPUTexture(video::ITexture::ETT_2D,tex->getSize(),1u,tex->getColorFormat());
+			presentImageOnScreen(device, fullScreenTriangle, tex, tmpTex);
+			dumpTextureToFile(device, tmpTex, (io::path("screen_")+filename).c_str());
+			tmpTex->drop();
+		}
+		{
+			asset::CImageData* img = *cputex[0]->getMipMap(0u).first;
+			asset::IAssetWriter::SAssetWriteParams wparams(img);
+
+			device->getAssetManager().writeAsset((io::path("write_")+filename).c_str(), wparams);
+		}
+		assetMgr.removeAssetFromCache(cputex[0]);
+		assetMgr.removeCachedGPUObject(cputex[0],tex);
 	}
-	assetMgr.removeAssetFromCache(cputex[0]);
-	assetMgr.removeCachedGPUObject(cputex[0],tex);
 }
 
 int main()
@@ -114,9 +140,9 @@ int main()
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 
-    video::IGPUMeshBuffer* fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(driver);
+	video::IGPUMeshBuffer* fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(driver);
 
-    //! First need to make a material other than default to be able to draw with custom shader
+	//! First need to make a material other than default to be able to draw with custom shader
 	presentMaterial.BackfaceCulling = false; //! Triangles will be visible from both sides
 	presentMaterial.ZBuffer = video::ECFN_ALWAYS; //! Ignore Depth Test
 	presentMaterial.ZWriteEnable = false; //! Why even write depth?
@@ -124,8 +150,18 @@ int main()
 																"../fullscreentri.vert","","","","../present.frag",3,video::EMT_SOLID);
 
 	// more test images need to be added!
-	testImage("../../media/dwarf.jpg",device,fullScreenTriangle);
-
+	io::IFileSystem* fs = device->getFileSystem();
+	
+	if (fs)
+	{
+		io::IReadFile* file = fs->createAndOpenFile("testlist.txt");
+		if (file)
+		{
+			std::string line;
+			while (ReadLine(file, line))
+				testImage(line, device, fullScreenTriangle);
+		}
+	}
 
 	fullScreenTriangle->drop();
 	device->drop();
