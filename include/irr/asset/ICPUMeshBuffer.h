@@ -788,12 +788,12 @@ public:
         {
             if (asset::isSignedFormat(format))
             {
-                int64_t input64i[4]{ input64[0], input64[1], input64[2], input64[3] };
+                int64_t input64i[4]{ static_cast<int64_t>(input64[0]), static_cast<int64_t>(input64[1]), static_cast<int64_t>(input64[2]), static_cast<int64_t>(input64[3]) };
                 video::encodePixels<int64_t>(impl::getCorrespondingIntegerFmt(format), dst, input64i);
             }
             else
             {
-                uint64_t input64u[4]{ input64[0], input64[1], input64[2], input64[3] };
+                uint64_t input64u[4]{ static_cast<uint64_t>(input64[0]), static_cast<uint64_t>(input64[1]), static_cast<uint64_t>(input64[2]), static_cast<uint64_t>(input64[3]) };
                 video::encodePixels<uint64_t>(impl::getCorrespondingIntegerFmt(format), dst, input64u);
             }
         }

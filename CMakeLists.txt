@@ -30,8 +30,9 @@ macro(irr_adjust_flags)
 		add_compile_options(
 			-Wextra
 			-Wno-unused-parameter
+			-Wno-unused-but-set-parameter
 			-fno-exceptions
-			-fstrict-aliasing
+			-fno-strict-aliasing
 			-msse3
 			-mfpmath=sse
 			-fuse-ld=gold
