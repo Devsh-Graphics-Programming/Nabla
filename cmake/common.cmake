@@ -43,3 +43,13 @@ macro(irr_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS)
 		)
 	endif()
 endmacro()
+
+# function for installing header files preserving directory structure
+# _DEST_DIR is directory relative to CMAKE_INSTALL_PREFIX
+function(irr_install_headers _HEADERS _BASE_HEADERS_DIR _DEST_DIR)
+	foreach (file ${_HEADERS})
+		file(RELATIVE_PATH dir ${_BASE_HEADERS_DIR} ${file})
+		get_filename_component(dir ${dir} DIRECTORY)
+		install(FILES ${file} DESTINATION ${_DEST_DIR}/include)
+	endforeach()
+endfunction()

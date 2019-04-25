@@ -31,21 +31,7 @@
 #undef _IRR_COMPILE_WITH_SDL_DEVICE_
 #endif
 
-// architecture
-#cmakedefine __IRR_COMPILE_WITH_ARM_SIMD_
-
-// OS
-#cmakedefine _IRR_PLATFORM_WINDOWS_
-#cmakedefine _IRR_PLATFORM_LINUX_
-#cmakedefine _IRR_PLATFORM_OSX_ // dead as for now
-
-// graphics API backend
-#cmakedefine _IRR_COMPILE_WITH_OPENGL_
-#cmakedefine _IRR_COMPILE_WITH_BURNINGSVIDEO_
-#cmakedefine _IRR_COMPILE_WITH_VULKAN_ // dead as for now
-
-// extra config
-#cmakedefine __IRR_FAST_MATH
+#include "BuildConfigOptions.h"
 
 
 #ifdef _IRR_TARGET_ARCH_ARM_
@@ -58,6 +44,7 @@
 
 
 #if defined(_IRR_SERVER_)
+#   define NO_IRR_COMPILE_WITH_VULKAN_
 #   define NO_IRR_COMPILE_WITH_OPENGL_
 #   define NO_IRR_COMPILE_WITH_BURNINGSVIDEO_
 #endif
