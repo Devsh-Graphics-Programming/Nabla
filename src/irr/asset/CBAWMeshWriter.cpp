@@ -345,9 +345,9 @@ namespace irr {namespace asset {
                 if (data != _data)
                     comprType |= asset::Blob::EBCT_LZMA;
             }
-            else if (_comprLvl == 0.3f)
+            else if (_comprLvl == 0.3f && _size<=0xffffffffull)
             {
-                data = compressWithLz4AndTryOnStack(data, _size, stack, sizeof(stack), compressedSize);
+                data = compressWithLz4AndTryOnStack(data, static_cast<uint32_t>(_size), stack, static_cast<uint32_t>(sizeof(stack)), compressedSize);
                 if (data != _data)
                     comprType |= asset::Blob::EBCT_LZ4;
             }
@@ -390,7 +390,7 @@ namespace irr {namespace asset {
 			_IRR_ALIGNED_FREE(const_cast<void*>(data)); // safe const_cast since the only case when this executes is when `data` points to _IRR_ALIGNED_MALLOC'd memory
 	}
 
-	void* CBAWMeshWriter::compressWithLz4AndTryOnStack(const void* _input, size_t _inputSize, void* _stack, size_t _stackSize, size_t& _outComprSize) const
+	void* CBAWMeshWriter::compressWithLz4AndTryOnStack(const void* _input, uint32_t _inputSize, void* _stack, uint32_t _stackSize, size_t& _outComprSize) const
 	{
 		void* data = _stack;
 		size_t dstSize = _stackSize;

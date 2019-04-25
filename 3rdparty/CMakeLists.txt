@@ -3,16 +3,20 @@ execute_process(COMMAND git submodule update --init --recursive
 )
 
 
-OPTION(ENABLE_SPVREMAPPER OFF)
-set(ENABLE_SPVREMAPPER OFF)
+option(SPIRV_HEADERS_SKIP_EXAMPLES "SPIRV-Headers examples" ON)
 add_subdirectory(SPIRV-Headers)
+option(SKIP_SPIRV_TOOLS_INSTALL "SPIRV-Tools install skip" ON)
+option(SPIRV_SKIP_TESTS "SPIRV-Tools tests skip" ON)
+option(SPIRV_SKIP_EXECUTABLES "SPIRV-Tools executable build skip" ON)
 add_subdirectory(SPIRV-Tools)
+option(SKIP_GLSLANG_INSTALL "glslang install skip" ON)
+option(ENABLE_SPVREMAPPER "spvremapper is a spirv compression experimental library" OFF)
+option(ENABLE_GLSLANG_BINARIES "build glslangValidator and spirv-remap?" OFF)
+set(BUILD_TESTING OFF CACHE BOOL "glslang build testing")
 add_subdirectory(glslang)
 
-OPTION(SHADERC_SKIP_TESTS ON)
-set(SHADERC_SKIP_TESTS ON)
-#OPTION(SHADERC_SKIP_INSTALL ON) # shall we?
-#set(SHADERC_SKIP_INSTALL ON)
+OPTION(SHADERC_SKIP_TESTS "skip shaderc tests?" ON)
+OPTION(SHADERC_SKIP_INSTALL "install shaderc?" ON)
 # if it doesn't work without the `touch` on Linux, then fetch the latest submodule head of shaderc and try again
 #if (UNIX)
 #	file(WRITE ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/libshaderc_combined.a "") #https://github.com/google/shaderc/issues/568
@@ -22,22 +26,16 @@ add_subdirectory(shaderc)
 add_subdirectory(openssl)
 
 #manipulating libjpeg cmake options from within cmake script
-OPTION(BUILD_STATIC ON)
-set(BUILD_STATIC ON)
-OPTION(BUILD_EXECUTABLES OFF)
-set(BUILD_EXECUTABLES OFF)
-OPTION(BUILD_TESTS OFF)
-set(BUILD_TESTS OFF)
+option(BUILD_STATIC "jpeg" ON)
+option(BUILD_EXECUTABLES "jpeg" OFF)
+option(BUILD_TESTS "jpeg" OFF)
 add_subdirectory(libjpeg)
 
 #manipulating libpng cmake options from within cmake script
-option(PNG_BUILD_ZLIB "Custom zlib Location, else find_package is used" OFF)
-set(PNG_BUILD_ZLIB ON) #pnglib depends on zlib and zlib is part of Irrlicht
+option(PNG_BUILD_ZLIB "Custom zlib Location, else find_package is used" ON)
 set(ZLIB_INCLUDE_DIR ${THIRD_PARTY_SOURCE_DIR}/zlib) #for pnglib
 option(PNG_SHARED "Build shared lib" OFF)
-set(PNG_SHARED OFF)
 option(PNG_TESTS  "Build libpng tests" OFF)
-set(PNG_TESTS OFF)
 add_subdirectory(libpng)
 
 add_library(lzma OBJECT

@@ -576,7 +576,7 @@ inline float unpack11bitFloat(uint32_t _fp)
 	else if (exp == 31 && !mant)
 		return INFINITY;
 	else if (exp == 31 && mant)
-		return nan("");
+		return NAN;
 
 	return -1.f;
 }
@@ -640,7 +640,7 @@ inline float unpack10bitFloat(uint32_t _fp)
 	else if (exp == 31 && !mant)
 		return INFINITY;
 	else if (exp == 31 && mant)
-		return nan("");
+		return NAN;
 	return -1.f;
 }
 
@@ -723,7 +723,7 @@ public:
 		v.si ^= sign;
 		sign >>= shiftSign; // logical shift
 		s.si = mulN;
-		s.si = s.f * v.f; // correct subnormals
+		s.si = static_cast<int32_t>(s.f * v.f); // correct subnormals
 		v.si ^= (s.si ^ v.si) & -((int32_t)(minN > v.si));
 		v.si ^= (infN ^ v.si) & -((int32_t)(infN > v.si) & (int32_t)(v.si > maxN));
 		v.si ^= (nanN ^ v.si) & -((int32_t)(nanN > v.si) & (int32_t)(v.si > infN));

@@ -383,12 +383,17 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 	int iAttribs[] =
 	{
 		WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
-		WGL_CONTEXT_MINOR_VERSION_ARB, 5,
+		WGL_CONTEXT_MINOR_VERSION_ARB, 6,
 		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
 		0
 	};
 	// create rendering context
 	hrc=wglCreateContextAttribs_ARB(HDc, 0, iAttribs);
+	if (!hrc)
+	{
+		iAttribs[3] = 5;
+		hrc=wglCreateContextAttribs_ARB(HDc, 0, iAttribs);
+	}
 	if (!hrc)
 	{
 		iAttribs[3] = 4;
@@ -1187,8 +1192,6 @@ void COpenGLDriver::createMaterialRenderers()
 bool COpenGLDriver::endScene()
 {
 	CNullDriver::endScene();
-
-	//glFlush();
 
 #ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 	if (DeviceType == EIDT_WIN32)
@@ -2032,7 +2035,7 @@ bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* const spec, 
 }
 
 //! Get native wrap mode value
-inline GLint getTextureWrapMode(const uint8_t &clamp)
+inline GLint getTextureWrapMode(uint8_t clamp)
 {
 	GLint mode=GL_REPEAT;
 	switch (clamp)

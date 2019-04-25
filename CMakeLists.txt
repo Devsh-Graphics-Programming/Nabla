@@ -14,7 +14,9 @@ set(CMAKE_CXX_EXTENSIONS OFF) #...without compiler extensions like gnu++11, but 
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/")
 
-SET(CMAKE_CONFIGURATION_TYPES "Debug;Release")
+set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
+set(LLVM_USE_CRT_DEBUG MTd CACHE STRING "IrrBAW developer note: No idea what subfolder provides this")
+set(LLVM_USE_CRT_RELEASE MT CACHE STRING "IrrBAW developer note: No idea what subfolder provides this")
 
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type: Debug or Release" FORCE)

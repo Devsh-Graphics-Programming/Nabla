@@ -194,7 +194,7 @@ asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
 bool CSTLMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
 {
-    if (_file->getSize() <= 6u)
+    if (!_file || _file->getSize() <= 6u)
         return false;
 
     char header[6];

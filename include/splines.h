@@ -624,7 +624,7 @@ class CQuadraticSpline : public ISpline
 
                     //lowerIntegralValue      = 0.f;
                     //lowerIntegralValue      = getArcLenFromParameter(0.f);
-                    lowerIntegralValue      = arcCalcConstants[0]*lenC+arcCalcConstants[4]*log(arcCalcConstants[5]*lenC+term_b);
+                    lowerIntegralValue      = arcCalcConstants[0]*lenC+arcCalcConstants[4]*logf(arcCalcConstants[5]*lenC+term_b);
 
                     length = getArcLenFromParameter(parameterLength);
                 }

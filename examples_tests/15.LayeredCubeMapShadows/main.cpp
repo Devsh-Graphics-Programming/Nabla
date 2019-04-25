@@ -181,9 +181,9 @@ int main()
     //! Create our dummy scene-node signfying the light and lets get the view and projection matrices!
     scene::IDummyTransformationSceneNode* dummyLightNode = smgr->addDummyTransformationSceneNode();
     dummyLightNode->setPosition(core::vector3df(2.f,0.5f,2.f)*kInstanceSquareSize);
-    scene::ISceneNodeAnimator* anim = smgr->createFlyCircleAnimator(dummyLightNode->getPosition(),10.f);
-    dummyLightNode->addAnimator(anim);
-    anim->drop();
+    //scene::ISceneNodeAnimator* anim = smgr->createFlyCircleAnimator(dummyLightNode->getPosition(),10.f);
+    //dummyLightNode->addAnimator(anim);
+    //anim->drop();
 
     // could fish this proj matrix from the envMapCam, but I know better and that all of them would be equal
     // set near value to be as far as possible to increase our precision in Z-Buffer (definitely want it to be same size as the light-bulb)
@@ -216,7 +216,7 @@ int main()
     asset::ICPUTexture* wallTexture = static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/wall.jpg", lparams));
 
 	scene::ICameraSceneNode* camera =
-		smgr->addCameraSceneNodeFPS(0,100.0f,0.0001f);
+		smgr->addCameraSceneNodeFPS(0,180.0f,0.01f);
 	camera->setPosition(core::vector3df(-4,10,0));
 	camera->setTarget(core::vector3df(0,0,0));
 	camera->setNearValue(0.01f);
@@ -254,6 +254,7 @@ int main()
 				anode->setPosition(core::vector3df(x, 0.f, z)*4.f);
 				anode->setAnimationSpeed(18.f*float(x + 1 + (z + 1)*kInstanceSquareSize) / float(kInstanceSquareSize*kInstanceSquareSize));
 				anode->setMaterialType(skinnedMaterialType);
+				anode->setMaterialTexture(1, cubeMap);
 				anode->setMaterialTexture(3, anode->getBonePoseTBO());
 			}
         fastestNode = anode;
@@ -265,12 +266,11 @@ int main()
 	float lastFastestMeshFrameNr = -1.f;
 
 	while(device->run()&&(!quit))
-	//if (device->isWindowActive())
 	{
 		driver->beginScene(true, true, video::SColor(255,255,255,255) );
 
 		//! Animate first
-		smgr->getRootSceneNode()->OnAnimate(ITimer::getRealTime());
+		smgr->getRootSceneNode()->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
 
 		// without this optimization FPS is 400 instead of 1000 FPS
 		if (fastestNode->getFrameNr()!=lastFastestMeshFrameNr)

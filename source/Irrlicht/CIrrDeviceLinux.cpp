@@ -876,13 +876,18 @@ bool CIrrDeviceLinux::createWindow()
                 int context_attribs[] =
                 {
                     GLX_CONTEXT_MAJOR_VERSION_ARB, 4,
-                    GLX_CONTEXT_MINOR_VERSION_ARB, 5,
+                    GLX_CONTEXT_MINOR_VERSION_ARB, 6,
                     GLX_CONTEXT_PROFILE_MASK_ARB,  GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
                     None
                 };
 
                 // create rendering context
                 Context = pGlxCreateContextAttribsARB( display, bestFbc, 0, True, context_attribs );
+                if (!Context)
+                {
+                    context_attribs[3] = 5;
+                    Context = pGlxCreateContextAttribsARB( display, bestFbc, 0, True, context_attribs );
+                }
                 if (!Context)
                 {
                     context_attribs[3] = 4;

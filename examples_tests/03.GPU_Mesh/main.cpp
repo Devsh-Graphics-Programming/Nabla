@@ -231,7 +231,7 @@ int main()
 
             auto buff = upStreamBuff->getBuffer();
             video::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-            desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR0,asset::EF_R32G32B32A32_SFLOAT,sizeof(VertexStruct),offsetof(VertexStruct,Pos[0])+offsets[0]);
+            desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,sizeof(VertexStruct),offsetof(VertexStruct,Pos[0])+offsets[0]);
             desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR1,asset::EF_R8G8_UNORM,sizeof(VertexStruct),offsetof(VertexStruct,Col[0])+offsets[0]);
             desc->setIndexBuffer(buff);
 
