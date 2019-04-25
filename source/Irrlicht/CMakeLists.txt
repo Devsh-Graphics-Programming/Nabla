@@ -176,10 +176,18 @@ irr_adjust_flags() # macro defined in root CMakeLists
 irr_adjust_definitions() # macro defined in root CMakeLists
 
 macro(irr_target_link_openssl _trgt)
-	target_link_libraries(${_trgt} INTERFACE
-		"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libeay32.lib"
-		"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/ssleay32.lib"
-	)
+	if(WIN32)
+		target_link_libraries(${_trgt} INTERFACE
+			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libeay32.lib"
+			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/ssleay32.lib"
+		)
+	else()
+		target_link_libraries(${_trgt} INTERFACE
+			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libcrypto.a"
+			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libssl.a"
+		)
+	endif()
+
 	target_include_directories(${_trgt} PUBLIC "$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/include")
 endmacro()
 macro(irr_target_link_shaderc _trgt)
@@ -268,7 +276,9 @@ target_compile_definitions(Irrlicht PRIVATE
 	_IRR_COMPILE_WITH_OPENGL_
 )
 
-ADD_PRECOMPILED_HEADER(Irrlicht pch.h FORCEINCLUDE)
+if(IRR_PCH)
+  ADD_PRECOMPILED_HEADER(Irrlicht pch.h FORCEINCLUDE)
+endif()
 
 add_library(IrrlichtServer STATIC
 	${IRRLICHT_SRCS_COMMON}
@@ -281,6 +291,11 @@ add_library(IrrlichtServer STATIC
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:zlib>
 )
+
+if (NOT MSVC)
+	target_compile_options(Irrlicht PRIVATE -fexceptions)
+	target_compile_options(IrrlichtServer PRIVATE -fexceptions)
+endif()
 
 add_dependencies(IrrlichtServer openssl_build)
 irr_target_link_openssl(IrrlichtServer)
@@ -302,7 +317,9 @@ target_compile_definitions(IrrlichtServer PRIVATE
 	NO_IRR_COMPILE_WITH_OPENGL_
 )
 
-ADD_PRECOMPILED_HEADER(IrrlichtServer pch.h FORCEINCLUDE)
+if(IRR_PCH)
+  ADD_PRECOMPILED_HEADER(IrrlichtServer pch.h FORCEINCLUDE)
+endif()
 
 if(MSVC)
 	set (OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/../../lib/Win64-visualStudio")
