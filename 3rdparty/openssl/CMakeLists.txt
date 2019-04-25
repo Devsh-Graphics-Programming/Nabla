@@ -1,3 +1,22 @@
+find_package(Git)
+
+if(GIT_FOUND)
+	# run those sequentially
+	execute_process(COMMAND "${GIT_EXECUTABLE} fetch"
+			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/openssl"
+	)
+	execute_process(COMMAND "${GIT_EXECUTABLE} clean -fd"
+		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/openssl"
+	)
+	execute_process(COMMAND "${GIT_EXECUTABLE} reset --hard origin/OpenSSL_1_0_2-stable"
+		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/openssl"
+	)
+else()
+	message(WARNING "Git not found! Might be you have to update git-submodules manually")
+endif()
+# maybe you (Crisspl) can patch the OpenSSL source for the preprocessor MSVC bug here?
+
+
 if(WIN32)
 	find_package(Perl REQUIRED)
 	
