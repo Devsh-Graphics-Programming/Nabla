@@ -9,6 +9,7 @@
 #include "IReadFile.h"
 #include "CImage.h"
 #include "os.h"
+#include "irr/asset/ICPUBuffer.h"
 #include "irr/asset/ICPUTexture.h"
 #include <string>
 
@@ -109,7 +110,7 @@ namespace jpeg
 	boolean fill_input_buffer(j_decompress_ptr cinfo)
 	{
 		// DO NOTHING
-		return 1;
+		return TRUE;
 	}
 
 	/* Skip num_bytes worth of data.  The buffer pointer and count should
