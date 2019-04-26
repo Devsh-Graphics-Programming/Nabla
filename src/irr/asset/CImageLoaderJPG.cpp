@@ -16,7 +16,7 @@
 #include <stdio.h> // required for jpeglib.h
 #ifdef _IRR_COMPILE_WITH_LIBJPEG_
 extern "C" {
-#include "libjpeg/jpeglib.h" // use irrlicht jpeglib
+#include "libjpeg-turbo/jpeglib.h" // use irrlicht jpeglib
 #include <setjmp.h>
 }
 #endif // _IRR_COMPILE_WITH_LIBJPEG_
@@ -263,6 +263,7 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 			os::Printer::log("YCCK color space is unsupported:", _file->getFileName().c_str(), ELL_ERROR);
 			return nullptr;
 			break;
+            /*
 		case JCS_BG_RGB: // interesting
 			os::Printer::log("Loading JPEG Big Gamut RGB is not implemented yet:", _file->getFileName().c_str(), ELL_ERROR);
 			return nullptr;
@@ -271,6 +272,7 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 			os::Printer::log("Loading JPEG Big Gamut YCbCr is not implemented yet:", _file->getFileName().c_str(), ELL_ERROR);
 			return nullptr;
 			break;
+            */
 		default:
 			os::Printer::log("Can't load as color space is unknown:", _file->getFileName().c_str(), ELL_ERROR);
 			return nullptr;

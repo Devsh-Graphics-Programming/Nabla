@@ -15,8 +15,8 @@
 #include <stdio.h> // required for jpeglib.h
 extern "C"
 {
-	#include "libjpeg/jpeglib.h"
-	#include "libjpeg/jerror.h"
+	#include "libjpeg-turbo/jpeglib.h"
+	#include "libjpeg-turbo/jerror.h"
 }
 
 // The writer uses a 4k buffer and flushes to disk each time it's filled

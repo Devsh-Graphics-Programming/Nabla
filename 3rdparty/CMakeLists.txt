@@ -28,10 +28,12 @@ add_subdirectory(shaderc)
 add_subdirectory(openssl)
 
 #manipulating libjpeg cmake options from within cmake script
-option(BUILD_STATIC "jpeg" ON)
-option(BUILD_EXECUTABLES "jpeg" OFF)
-option(BUILD_TESTS "jpeg" OFF)
-add_subdirectory(libjpeg)
+option(ENABLE_SHARED "jpeg-turbo" OFF)
+set(CMAKE_INSTALL_DOCDIR "${CMAKE_CURRENT_BINARY_DIR}/doc" CACHE PATH "For libjpeg-turbo" FORCE)
+#option(BUILD_STATIC "jpeg" ON)
+#option(BUILD_EXECUTABLES "jpeg" OFF)
+#option(BUILD_TESTS "jpeg" OFF)
+add_subdirectory(libjpeg-turbo)
 
 #manipulating libpng cmake options from within cmake script
 option(PNG_BUILD_ZLIB "Custom zlib Location, else find_package is used" OFF)

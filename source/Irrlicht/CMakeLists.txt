@@ -193,7 +193,7 @@ set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/convertutf
 	${THIRD_PARTY_SOURCE_DIR}/utfcpp/source
 	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
-	$<TARGET_PROPERTY:jpeg,BINARY_DIR> #for dynamically generated jconfig.h
+	$<TARGET_PROPERTY:turbojpeg-static,BINARY_DIR> #for dynamically generated jconfig.h
 )
 
 irr_adjust_flags() # macro defined in root CMakeLists
@@ -215,21 +215,21 @@ macro(irr_target_link_openssl _trgt)
 	target_include_directories(${_trgt} PUBLIC "$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/include")
 endmacro()
 macro(irr_target_link_shaderc _trgt)
-	add_dependencies(Irrlicht shaderc)
+	add_dependencies(${_trgt} shaderc)
 	target_link_libraries(${_trgt} INTERFACE
 		shaderc
 	)
 	target_include_directories(${_trgt} PUBLIC ${CMAKE_SOURCE_DIR}/3rdparty/shaderc/libshaderc/include)
 endmacro()
 macro(irr_target_link_libjpeg _trgt)
-	add_dependencies(Irrlicht jpeg)
+	add_dependencies(${_trgt} turbojpeg-static)
 	target_link_libraries(${_trgt} INTERFACE
-		jpeg
+		turbojpeg-static
 	)
-	target_include_directories(${_trgt} PUBLIC ${CMAKE_SOURCE_DIR}/3rdparty/libjpeg)
+	target_include_directories(${_trgt} PUBLIC ${CMAKE_SOURCE_DIR}/3rdparty/libjpeg-turbo)
 endmacro()
 macro(irr_target_link_libpng _trgt)
-	add_dependencies(Irrlicht png_static)
+	add_dependencies(${_trgt} png_static)
 	target_link_libraries(${_trgt} INTERFACE
 		png_static $<TARGET_OBJECTS:zlib>
 	)

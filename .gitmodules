@@ -13,9 +13,6 @@
 [submodule "3rdparty/bzip2"]
 	path = 3rdparty/bzip2
 	url = https://github.com/sergiud/bzip2.git
-[submodule "3rdparty/libjpeg"]
-	path = 3rdparty/libjpeg
-	url = https://github.com/LuaDist/libjpeg.git
 [submodule "3rdparty/lz4"]
 	path = 3rdparty/lz4
 	url = https://github.com/lz4/lz4.git
@@ -41,3 +38,6 @@
 	path = 3rdparty/openssl/openssl
 	url = https://github.com/openssl/openssl.git
 	branch = OpenSSL_1_0_2-stable
+[submodule "3rdparty/libjpeg-turbo"]
+	path = 3rdparty/libjpeg-turbo
+	url = https://github.com/libjpeg-turbo/libjpeg-turbo.git
