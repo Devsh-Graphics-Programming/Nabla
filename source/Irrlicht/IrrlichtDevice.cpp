@@ -36,10 +36,6 @@
 #include "irr/asset/CImageLoaderPNG.h"
 #endif
 
-#ifdef _IRR_COMPILE_WITH_RGB_LOADER_
-#include "irr/asset/CImageLoaderRGB.h"
-#endif
-
 #ifdef _IRR_COMPILE_WITH_TGA_LOADER_
 #include "irr/asset/CImageLoaderTGA.h"
 #endif
@@ -162,13 +158,6 @@ void IrrlichtDevice::addLoadersAndWriters()
 #ifdef _IRR_COMPILE_WITH_PNG_LOADER_
     {
         auto ldr = new asset::CImageLoaderPng();
-        m_assetMgr->addAssetLoader(ldr);
-        ldr->drop();
-    }
-#endif
-#ifdef _IRR_COMPILE_WITH_RGB_LOADER_
-    {
-        auto ldr = new asset::CImageLoaderRGB();
         m_assetMgr->addAssetLoader(ldr);
         ldr->drop();
     }

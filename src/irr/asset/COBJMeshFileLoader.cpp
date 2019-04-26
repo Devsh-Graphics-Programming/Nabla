@@ -50,7 +50,7 @@ namespace irr
 namespace asset
 {
 
-//#ifdef _DEBUG
+//#ifdef _IRR_DEBUG
 #define _IRR_DEBUG_OBJ_LOADER_
 //#endif
 
@@ -61,7 +61,7 @@ static const uint32_t WORD_BUFFER_LENGTH = 512;
 COBJMeshFileLoader::COBJMeshFileLoader(IrrlichtDevice* _dev)
 : Device(_dev), SceneManager(_dev->getSceneManager()), FileSystem(_dev->getFileSystem())
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	setDebugName("COBJMeshFileLoader");
 #endif
 }
@@ -595,9 +595,9 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
         }
 		else if (type==ETT_NORMAL_MAP)
 		{
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
             os::Printer::log("Loading OBJ Models with normal maps not supported!\n",ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 			currMaterial->Material.setTexture(1, texture);
 			currMaterial->Material.MaterialType=(video::E_MATERIAL_TYPE)-1;
 			currMaterial->Material.MaterialTypeParam=0.035f;

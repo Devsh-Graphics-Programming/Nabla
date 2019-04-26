@@ -57,13 +57,13 @@ void COpenGLQuery::updateQueryResult()
 
 void COpenGLQuery::getQueryResult(uint32_t* queryResult)
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (active)
     {
         os::Printer::log("CANNOT FETCH QUERY RESULT WHILE THE QUERY IS RUNNING!\n",ELL_ERROR);
         return;
     }
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 
     updateQueryResult();
     *queryResult = cachedCounter32;
@@ -71,13 +71,13 @@ void COpenGLQuery::getQueryResult(uint32_t* queryResult)
 
 void COpenGLQuery::getQueryResult(uint64_t* queryResult)
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (active)
     {
         os::Printer::log("CANNOT FETCH QUERY RESULT WHILE THE QUERY IS RUNNING!\n",ELL_ERROR);
         return;
     }
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 
     updateQueryResult();
     *queryResult = cachedCounter64;
@@ -85,20 +85,20 @@ void COpenGLQuery::getQueryResult(uint64_t* queryResult)
 
 bool COpenGLQuery::getQueryResult32(IGPUBuffer* buffer, const size_t& offset, const bool& conditionalWrite)
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (active)
     {
         os::Printer::log("CANNOT FETCH QUERY RESULT WHILE THE QUERY IS RUNNING!\n",ELL_ERROR);
         return false;
     }
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 
     COpenGLBuffer* asGLBuf = static_cast<COpenGLBuffer*>(buffer);
     if (!asGLBuf)
     {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
         os::Printer::log("CANNOT FETCH QUERY RESULT, buffer is NULL or not OpenGLBuffer!\n",ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
         return false;
     }
 
@@ -108,20 +108,20 @@ bool COpenGLQuery::getQueryResult32(IGPUBuffer* buffer, const size_t& offset, co
 
 bool COpenGLQuery::getQueryResult64(IGPUBuffer* buffer, const size_t& offset, const bool& conditionalWrite)
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (active)
     {
         os::Printer::log("CANNOT FETCH QUERY RESULT WHILE THE QUERY IS RUNNING!\n",ELL_ERROR);
         return false;
     }
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 
     COpenGLBuffer* asGLBuf = static_cast<COpenGLBuffer*>(buffer);
     if (!asGLBuf)
     {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
         os::Printer::log("CANNOT FETCH QUERY RESULT, buffer is NULL or not OpenGLBuffer!\n",ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
         return false;
     }
 
@@ -147,20 +147,20 @@ bool COpenGLQuery::isQueryReady()
 
 void COpenGLQuery::isQueryReady32(IGPUBuffer* buffer, const size_t& offset)
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (active)
     {
         os::Printer::log("CANNOT FETCH QUERY RESULT WHILE THE QUERY IS RUNNING!\n",ELL_ERROR);
         return;
     }
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 
     COpenGLBuffer* asGLBuf = static_cast<COpenGLBuffer*>(buffer);
     if (!asGLBuf)
     {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
         os::Printer::log("CANNOT FETCH QUERY RESULT, buffer is NULL or not OpenGLBuffer!\n",ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
         return;
     }
 
@@ -170,20 +170,20 @@ void COpenGLQuery::isQueryReady32(IGPUBuffer* buffer, const size_t& offset)
 void COpenGLQuery::isQueryReady64(IGPUBuffer* buffer, const size_t& offset)
 {
     //if (COpenGLExtensionHandler::Version<440 && !COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_query_buffer_object])
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (active)
     {
         os::Printer::log("CANNOT FETCH QUERY RESULT WHILE THE QUERY IS RUNNING!\n",ELL_ERROR);
         return;
     }
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 
     COpenGLBuffer* asGLBuf = static_cast<COpenGLBuffer*>(buffer);
     if (!asGLBuf)
     {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
         os::Printer::log("CANNOT FETCH QUERY RESULT, buffer is NULL or not OpenGLBuffer!\n",ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
         return;
     }
 

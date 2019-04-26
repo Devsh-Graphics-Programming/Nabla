@@ -15,7 +15,7 @@ namespace video
 //! constructor
 CVideoModeList::CVideoModeList()
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CVideoModeList");
 	#endif
 

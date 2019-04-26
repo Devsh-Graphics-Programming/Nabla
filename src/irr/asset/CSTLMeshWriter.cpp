@@ -24,7 +24,7 @@ namespace asset
 CSTLMeshWriter::CSTLMeshWriter(scene::ISceneManager* smgr)
 	: SceneManager(smgr)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CSTLMeshWriter");
 	#endif
 
@@ -48,7 +48,7 @@ bool CSTLMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     SAssetWriteContext ctx{_params, _file};
 
     const asset::ICPUMesh* mesh =
-#   ifndef _DEBUG
+#   ifndef _IRR_DEBUG
         static_cast<const asset::ICPUMesh*>(_params.rootAsset);
 #   else
         dynamic_cast<const asset::ICPUMesh*>(_params.rootAsset);

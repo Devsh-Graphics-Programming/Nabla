@@ -30,7 +30,7 @@ CMeshSceneNodeInstanced::CMeshSceneNodeInstanced(IDummyTransformationSceneNode* 
     gpuCulledLodInstanceDataBuffer(nullptr), dataPerInstanceOutputSize(0),
     extraDataInstanceSize(0), dataPerInstanceInputSize(0), cachedMaterialCount(0)
 {
-    #ifdef _DEBUG
+    #ifdef _IRR_DEBUG
     setDebugName("CMeshSceneNodeInstanced");
     #endif
 
@@ -563,10 +563,10 @@ void CMeshSceneNodeInstanced::render()
 
 	if (flagQueryForRetrieval)
     {
-/*#ifdef _DEBUG
+/*#ifdef _IRR_DEBUG
         if (!LoD[LoD.size()-1].query->isQueryReady())
             os::Printer::log("GPU Culling Feedback Transform Instance Count Query Not Ready yet, STALLING CPU!\n",ELL_WARNING);
-#endif // _DEBUG*/
+#endif // _IRR_DEBUG*/
         for (size_t j=0; j<LoD.size(); j++)
         {
             uint32_t tmp;

@@ -66,12 +66,12 @@ namespace core
                     reservedSpace(reservedSpc), addressOffset(addressOffsetToApply), alignOffset(alignOffsetNeeded),
                     maxRequestableAlignment(maxAllocatableAlignment), combinedOffset(addressOffset+alignOffset)
             {
-                #ifdef _DEBUG
+                #ifdef _IRR_DEBUG
                      // pointer to reserved memory has to be aligned to SIMD types!
                     assert((reinterpret_cast<size_t>(reservedSpace)&(_IRR_SIMD_ALIGNMENT-1u))==0ull);
                     assert(maxAllocatableAlignment);
                     assert(core::isPoT(maxRequestableAlignment)); // this is not a proper alignment value
-                #endif // _DEBUG
+                #endif // _IRR_DEBUG
             }
             AddressAllocatorBase(CRTP&& other, void* newReservedSpc) :
                     reservedSpace(nullptr), addressOffset(invalid_address), alignOffset(invalid_address),
@@ -79,10 +79,10 @@ namespace core
             {
                 operator=(std::move(other));
                 reservedSpace = newReservedSpc;
-                #ifdef _DEBUG
+                #ifdef _IRR_DEBUG
                     // reserved space has to be aligned at least to SIMD
                     assert((reinterpret_cast<size_t>(reservedSpace)&(_IRR_SIMD_ALIGNMENT-1u))==0ull);
-                #endif // _DEBUG
+                #endif // _IRR_DEBUG
             }
             AddressAllocatorBase(CRTP&& other, void* newReservedSpc, _size_type newAddressOffset, _size_type newAlignOffset) :
                     AddressAllocatorBase(std::move(other),newReservedSpc)

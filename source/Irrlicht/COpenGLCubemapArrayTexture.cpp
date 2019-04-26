@@ -17,7 +17,7 @@ namespace video
 
 COpenGLCubemapArrayTexture::COpenGLCubemapArrayTexture(GLenum internalFormat, const uint32_t* size, uint32_t mipmapLevels, const io::path& name) : COpenGLFilterableTexture(name,getOpenGLTextureType())
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	setDebugName("COpenGLCubemapArrayTexture");
 	assert(size[2]%6==0);
 #endif

@@ -69,7 +69,7 @@ bool checkFBOStatus(const GLuint &fbo, COpenGLDriver* Driver)
 COpenGLFrameBuffer::COpenGLFrameBuffer(COpenGLDriver* driver)
   : frameBuffer(0), Driver(driver), forceRevalidate(true), lastValidated(0)
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	setDebugName("COpenGLFrameBuffer");
 #endif
     Driver->extGlCreateFramebuffers(1,&frameBuffer);

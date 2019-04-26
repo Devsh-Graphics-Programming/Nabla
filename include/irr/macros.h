@@ -53,7 +53,7 @@
 #endif
 
 // kind like a debug only assert
-#if defined(_DEBUG)
+#if defined(_IRR_DEBUG)
 #define _IRR_DEBUG_BREAK_IF( _CONDITION_ ) _IRR_BREAK_IF(_CONDITION_)
 #else
 #define _IRR_DEBUG_BREAK_IF( _CONDITION_ )

@@ -34,7 +34,7 @@
 
 
 //! You can swap these out for whatever you like, jemalloc, tcmalloc etc. but make them noexcept
-#ifdef _IRR_WINDOWS_
+#ifdef _IRR_PLATFORM_WINDOWS_
     #define _IRR_ALIGNED_MALLOC(size,alignment)     ::_aligned_malloc(size,alignment)
     #define _IRR_ALIGNED_FREE(addr)                 ::_aligned_free(addr)
 #else

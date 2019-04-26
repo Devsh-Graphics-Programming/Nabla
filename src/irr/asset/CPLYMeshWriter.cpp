@@ -53,7 +53,7 @@ static asset::E_FORMAT getCorrespondingIntegerFormat(asset::E_FORMAT _fmt)
 
 CPLYMeshWriter::CPLYMeshWriter()
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CPLYMeshWriter");
 	#endif
 }
@@ -67,7 +67,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     SAssetWriteContext ctx{_params, _file};
 
     const asset::ICPUMesh* mesh =
-#   ifndef _DEBUG
+#   ifndef _IRR_DEBUG
         static_cast<const asset::ICPUMesh*>(_params.rootAsset);
 #   else
         dynamic_cast<const asset::ICPUMesh*>(_params.rootAsset);
@@ -87,7 +87,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     std::string header = "ply\n";
     header += (flags & asset::EWF_BINARY) ? "format binary_little_endian 1.0" : "format ascii 1.0";
 	header += "\ncomment IrrlichtBAW ";
-	header +=  IRRLICHT_SDK_VERSION;
+	header +=  IRRLICHTBAW_SDK_VERSION;
 
 	// get vertex and triangle counts
 	size_t vtxCount = mesh->getMeshBuffer(0)->calcVertexCount();
