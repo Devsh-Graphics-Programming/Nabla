@@ -229,7 +229,7 @@ macro(irr_target_link_libjpeg _trgt)
 	target_include_directories(${_trgt} PUBLIC ${CMAKE_SOURCE_DIR}/3rdparty/libjpeg)
 endmacro()
 macro(irr_target_link_libpng _trgt)
-	add_dependencies(Irrlicht png_static $<TARGET_OBJECTS:zlib>)
+	add_dependencies(Irrlicht png_static)
 	target_link_libraries(${_trgt} INTERFACE
 		png_static $<TARGET_OBJECTS:zlib>
 	)
