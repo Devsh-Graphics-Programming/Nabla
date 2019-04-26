@@ -220,10 +220,8 @@ void CImage::setPixel(uint32_t x, uint32_t y, const SColor &color, bool blend)
 				*dest = p;
 			}
 		} break;
-#ifndef _IRR_DEBUG
 		default:
 			break;
-#endif
 	}
 }
 

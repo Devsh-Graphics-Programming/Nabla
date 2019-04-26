@@ -84,10 +84,8 @@ bool CImageWriterBMP::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 		CColorConverter_convertFORMATtoFORMAT
 			= video::CColorConverter::convert_R5G6B5toR8G8B8;
 		break;
-#ifndef _IRR_DEBUG
 	default:
 		break;
-#endif
 	}
 
 	// couldn't find a color converter

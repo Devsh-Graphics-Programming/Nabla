@@ -157,11 +157,9 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	case asset::EF_A1R5G5B5_UNORM_PACK16:
         video::CColorConverter::convert_A1R5G5B5toA8R8G8B8(data,image->getSize().Y*image->getSize().X,tmpImage);
 		break;
-#ifndef _IRR_DEBUG
 		// TODO: Error handling in case of unsupported color format
 	default:
 		break;
-#endif
 	}
 
 	// Create array of pointers to rows in image data

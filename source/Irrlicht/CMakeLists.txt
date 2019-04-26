@@ -304,7 +304,6 @@ endif()
 target_compile_definitions(Irrlicht PRIVATE
 	_IRR_STATIC_LIB_
 )
-target_compile_definitions(Irrlicht PUBLIC $<$<CONFIG:DEBUG>:_IRR_DEBUG>)
 
 if(IRR_PCH)
   ADD_PRECOMPILED_HEADER(Irrlicht pch.h FORCEINCLUDE)
@@ -347,7 +346,6 @@ target_compile_definitions(IrrlichtServer PRIVATE
 	_IRR_STATIC_LIB_
 	_IRR_SERVER_
 )
-target_compile_definitions(IrrlichtServer PUBLIC $<$<CONFIG:DEBUG>:_IRR_DEBUG>)
 
 if(IRR_PCH)
   ADD_PRECOMPILED_HEADER(IrrlichtServer pch.h FORCEINCLUDE)
@@ -355,8 +353,7 @@ endif()
 
 
 
-set_target_properties(Irrlicht PROPERTIES DEBUG_POSTFIX _debug)
-set_target_properties(IrrlichtServer PROPERTIES DEBUG_POSTFIX _debug)
+set_target_properties(Irrlicht IrrlichtServer PROPERTIES DEBUG_POSTFIX _debug)
 
 
 # PLATFORM is directory relative to CMAKE_INSTALL_PREFIX
