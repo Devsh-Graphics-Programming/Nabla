@@ -72,6 +72,7 @@ class SCompoundCollider : public IReferenceCounted
                         }
                         break;
                     case SCollisionShapeDef::ECST_COUNT:
+                        assert(0);
                         break;
                 }
             }
@@ -122,6 +123,7 @@ class SCompoundCollider : public IReferenceCounted
                         }
                         break;
                     case SCollisionShapeDef::ECST_COUNT:
+                        assert(0);
                         break;
                 }
             }
@@ -209,6 +211,7 @@ class SCompoundCollider : public IReferenceCounted
                         }
                         break;
                     case SCollisionShapeDef::ECST_COUNT:
+                        assert(0);
                         break;
                 }
             }
