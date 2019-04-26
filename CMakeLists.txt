@@ -30,8 +30,9 @@ macro(irr_adjust_flags)
 		add_compile_options(
 			-Wextra
 			-Wno-unused-parameter
+			-Wno-unused-but-set-parameter
 			-fno-exceptions
-			-fstrict-aliasing
+			-fno-strict-aliasing
 			-msse3
 			-mfpmath=sse
 			-fuse-ld=gold
@@ -111,14 +112,22 @@ macro(irr_adjust_definitions)
 			-DNOMINMAX
 		)
 	endif()
-
-	if(IRR_FAST_MATH)
-		add_definitions(-DIRRLICHT_FAST_MATH)
-	endif()
 	
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
 	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -D_DEBUG")
 endmacro()
+
+if(WIN32)
+	set(_IRR_PLATFORM_WINDOWS_ 1)
+elseif(UNIX)
+	set(_IRR_PLATFORM_LINUX_ 1)
+endif()
+
+#uncomment in the future
+#option(IRR_TARGET_ARCH_ARM "Build for ARM?" OFF)
+
+option(IRR_COMPILE_WITH_OPENGL "Compile with OpenGL backend?" ON)
+option(IRR_COMPILE_WITH_BURNINGSVIDEO "Compile with software backend?" ON)
 
 option(IRR_PCH "Enable pre-compiled header" ON)
 

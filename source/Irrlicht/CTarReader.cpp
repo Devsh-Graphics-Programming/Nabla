@@ -21,7 +21,7 @@ namespace io
 CArchiveLoaderTAR::CArchiveLoaderTAR(io::IFileSystem* fs)
 : FileSystem(fs)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CArchiveLoaderTAR");
 	#endif
 }
@@ -125,7 +125,7 @@ bool CArchiveLoaderTAR::isALoadableFileFormat(io::IReadFile* file) const
 CTarReader::CTarReader(IReadFile* file, bool ignoreCase, bool ignorePaths)
  : CFileList((file ? file->getFileName() : io::path("")), ignoreCase, ignorePaths), File(file)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CTarReader");
 	#endif
 

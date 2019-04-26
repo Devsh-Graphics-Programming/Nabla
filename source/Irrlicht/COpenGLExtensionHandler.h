@@ -8,6 +8,8 @@
 #include "IrrCompileConfig.h"
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
+#define _IRR_OPENGL_USE_EXTPOINTER_
+
 #include "IMaterialRendererServices.h"
 #include "irr/core/Types.h"
 #include "irr/macros.h"

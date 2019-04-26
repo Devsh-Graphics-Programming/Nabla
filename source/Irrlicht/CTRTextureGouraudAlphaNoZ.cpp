@@ -102,7 +102,7 @@ private:
 CTRTextureGouraudAlphaNoZ::CTRTextureGouraudAlphaNoZ(CBurningVideoDriver* driver)
 : IBurningShader(driver)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CTRTextureGouraudAlphaNoZ");
 	#endif
 

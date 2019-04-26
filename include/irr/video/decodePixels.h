@@ -1235,7 +1235,8 @@ namespace irr { namespace video
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
 
-        const uint64_t exp = (pix >> 27) << 52;
+        uint64_t exp = static_cast<uint64_t>(pix >> 27) + (1023ull - 15ull);
+        exp <<= 52;
         for (uint32_t i = 0u; i < 3u; ++i)
         {
             uint64_t out = 0u;

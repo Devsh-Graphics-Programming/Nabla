@@ -47,7 +47,7 @@ COpenGLSLMaterialRenderer::COpenGLSLMaterialRenderer(video::COpenGLDriver* drive
 	: Driver(driver), CallBack(callback), BaseMaterial(baseMaterial),
 		Program2(0), UserData(userData), tessellationPatchVertices(-1), activeUniformCount(0)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("COpenGLSLMaterialRenderer");
 	#endif
 
@@ -177,7 +177,7 @@ void COpenGLSLMaterialRenderer::init(int32_t& outMaterialTypeNr,
         pr.length = length;
         pr.type = getIrrUniformType(type);
         constants.push_back(pr);
-#if _DEBUG
+#if _IRR_DEBUG
         debugConstantIndices.push_back(i);
 #endif
     }
@@ -194,7 +194,7 @@ void COpenGLSLMaterialRenderer::init(int32_t& outMaterialTypeNr,
 		COpenGLExtensionHandler::extGlUseProgram(oldProgram);
     }
 
-#if _DEBUG
+#if _IRR_DEBUG
     debugConstants = constants;
 #endif
 }
@@ -363,7 +363,7 @@ void COpenGLSLMaterialRenderer::setShaderConstant(const void* data, int32_t loca
 {
     if (location<0)
     {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
         os::Printer::log("Cannot set shader constant, uniform index out of range.", ELL_ERROR);
 #endif
         return;
@@ -451,7 +451,7 @@ void COpenGLSLMaterialRenderer::setShaderConstant(const void* data, int32_t loca
     case ESCT_FLOAT_MAT4x3:
         COpenGLExtensionHandler::extGlProgramUniformMatrix4x3fv(Program2,loc,cnt,false,(GLfloat*)data); // not yet because core::matrix3x4 is still in use
         break;
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     default:
         os::Printer::log("Cannot set shader constant, wrong uniform type or wrong call type used.", ELL_ERROR);
         return;

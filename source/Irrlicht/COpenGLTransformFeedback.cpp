@@ -64,9 +64,9 @@ bool COpenGLTransformFeedback::bindOutputBuffer(const size_t& index, IGPUBuffer*
 
     if (offset&0x3u)
     {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 //        FW_WriteToLog(kLogError,"XFormFeedback Buffer Offset is Un-aligned to 4 bytes! Binding failure!\n");
-#endif // _DEBUG
+#endif // _IRR_DEBUG
         return false;
     }
 
@@ -114,7 +114,7 @@ bool COpenGLTransformFeedback::bindOutputBuffer(const size_t& index, IGPUBuffer*
 
 void COpenGLTransformFeedback::beginResumeFeedback()
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (active)
     {
         os::Printer::log("Trying to resume an already active Transform Feedback!\n",ELL_ERROR);
@@ -139,7 +139,7 @@ void COpenGLTransformFeedback::beginResumeFeedback()
 
 void COpenGLTransformFeedback::pauseFeedback()
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (!active)
         os::Printer::log("Trying to pause an inactive feedback!\n",ELL_ERROR);
 #endif
@@ -149,7 +149,7 @@ void COpenGLTransformFeedback::pauseFeedback()
 
 void COpenGLTransformFeedback::endFeedback()
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (!started)
         os::Printer::log("Trying to End an un-started Feedback Transform!\n",ELL_ERROR);
 #endif

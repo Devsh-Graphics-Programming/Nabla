@@ -28,7 +28,7 @@ public:
         if (leakDebugger)
             leakDebugger->registerObj(this);
 
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
         setDebugName("SCPUMesh");
 #endif
     }

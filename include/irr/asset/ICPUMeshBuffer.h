@@ -182,13 +182,13 @@ class IMeshDataFormatDesc : public virtual core::IReferenceCounted
         inline void setIndexBuffer(T* ixbuf)
         {
     /*
-    #ifdef _DEBUG
+    #ifdef _IRR_DEBUG
             if (size<0x7fffffffffffffffuLL&&ixbuf&&(ixbuf->getSize()>size+offset)) //not that easy to check
             {
                 os::Printer::log("MeshBuffer map index buffer overflow!\n",ELL_ERROR);
                 return;
             }
-    #endif // _DEBUG
+    #endif // _IRR_DEBUG
     */
             if (ixbuf)
                 ixbuf->grab();
@@ -424,13 +424,13 @@ public:
 	inline bool setIndexCount(const uint64_t &newIndexCount)
 	{
 /*
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
         if (size<0x7fffffffffffffffuLL&&ixbuf&&(ixbuf->getSize()>size+offset))
         {
             os::Printer::log("MeshBuffer map vertex buffer overflow!\n",ELL_ERROR);
             return;
         }
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 */
         indexCount = newIndexCount;
         if (meshLayout)
@@ -584,9 +584,9 @@ public:
     {
         if (attrId >= EVAI_COUNT)
         {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
             //os::Printer::log("MeshBuffer setPositionAttributeIx attribute ID out of range!\n",ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
             return;
         }
 
@@ -628,12 +628,12 @@ public:
     {
         core::vectorSIMDf outPos(0.f, 0.f, 0.f, 1.f);
         bool success = getAttribute(outPos, posAttrId, ix);
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
         if (!success)
         {
             //os::Printer::log("SOME DEBUG MESSAGE!\n",ELL_ERROR);
         }
-#endif // _DEBUG
+#endif // _IRR_DEBUG
         return outPos;
     }
 
@@ -788,12 +788,12 @@ public:
         {
             if (asset::isSignedFormat(format))
             {
-                int64_t input64i[4]{ input64[0], input64[1], input64[2], input64[3] };
+                int64_t input64i[4]{ static_cast<int64_t>(input64[0]), static_cast<int64_t>(input64[1]), static_cast<int64_t>(input64[2]), static_cast<int64_t>(input64[3]) };
                 video::encodePixels<int64_t>(impl::getCorrespondingIntegerFmt(format), dst, input64i);
             }
             else
             {
-                uint64_t input64u[4]{ input64[0], input64[1], input64[2], input64[3] };
+                uint64_t input64u[4]{ static_cast<uint64_t>(input64[0]), static_cast<uint64_t>(input64[1]), static_cast<uint64_t>(input64[2]), static_cast<uint64_t>(input64[3]) };
                 video::encodePixels<uint64_t>(impl::getCorrespondingIntegerFmt(format), dst, input64u);
             }
         }

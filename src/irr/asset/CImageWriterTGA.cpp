@@ -18,7 +18,7 @@ namespace asset
 
 CImageWriterTGA::CImageWriterTGA()
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	setDebugName("CImageWriterTGA");
 #endif
 }
@@ -31,7 +31,7 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
     SAssetWriteContext ctx{_params, _file};
 
     const asset::CImageData* image =
-#   ifndef _DEBUG
+#   ifndef _IRR_DEBUG
         static_cast<const asset::CImageData*>(_params.rootAsset);
 #   else
         dynamic_cast<const asset::CImageData*>(_params.rootAsset);
@@ -89,10 +89,8 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 		imageHeader.PixelDepth = 24;
 		imageHeader.ImageDescriptor |= 0;
 		break;
-#ifndef _DEBUG
 	default:
 		break;
-#endif
 	}
 
 	// couldn't find a color converter

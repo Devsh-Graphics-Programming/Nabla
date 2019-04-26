@@ -7,11 +7,7 @@
 #ifdef _IRR_COMPILE_WITH_PNG_LOADER_
 
 #ifdef _IRR_COMPILE_WITH_LIBPNG_
-	#ifndef _IRR_USE_NON_SYSTEM_LIB_PNG_
-	#include <png.h> // use system lib png
-	#else // _IRR_USE_NON_SYSTEM_LIB_PNG_
-	#include "libpng/png.h" // use irrlicht included lib png
-	#endif // _IRR_USE_NON_SYSTEM_LIB_PNG_
+#   include "libpng/png.h"
 #endif // _IRR_COMPILE_WITH_LIBPNG_
 
 #include "irr/asset/ICPUTexture.h"

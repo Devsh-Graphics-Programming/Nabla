@@ -67,13 +67,13 @@ class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
         inline void         free_addr(size_type addr, size_type bytes) noexcept
         {
             auto amountToFree = reinterpret_cast<size_type*>(Base::reservedSpace)[--allocStackPtr];
-            #ifdef _DEBUG
+            #ifdef _IRR_DEBUG
                 assert(bytes<=amountToFree);
-            #endif // _DEBUG
+            #endif // _IRR_DEBUG
             Base::cursor -= amountToFree;
-            #ifdef _DEBUG
+            #ifdef _IRR_DEBUG
                 assert(Base::cursor+Base::alignOffset<=addr);
-            #endif // _DEBUG
+            #endif // _IRR_DEBUG
         }
 
         inline void         reset()

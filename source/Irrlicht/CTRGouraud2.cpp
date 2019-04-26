@@ -97,7 +97,7 @@ private:
 CTRGouraud2::CTRGouraud2(CBurningVideoDriver* driver)
 : IBurningShader(driver)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CTRGouraud2");
 	#endif
 }

@@ -603,7 +603,7 @@ void COpenGLExtensionHandler::dumpFramebufferFormats() const
 	const bool pixel_format_supported = (wglExtensions.find("WGL_ARB_pixel_format") != std::string::npos);
 	const bool multi_sample_supported = ((wglExtensions.find("WGL_ARB_multisample") != std::string::npos) ||
 		(wglExtensions.find("WGL_EXT_multisample") != std::string::npos) || (wglExtensions.find("WGL_3DFX_multisample") != std::string::npos) );
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	os::Printer::log("WGL_extensions", wglExtensions);
 #endif
 
@@ -982,7 +982,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     //num=100000000u;
 	//glGetIntegerv(GL_MAX_ELEMENTS_INDICES,&num);
 #ifdef WIN32
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	if (FeatureAvailable[IRR_NVX_gpu_memory_info])
 	{
 		// undocumented flags, so use the RAW values

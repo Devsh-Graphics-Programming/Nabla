@@ -36,18 +36,18 @@ namespace irr
 			StreamingUploadBufferSize(0x4000000u), // 64MB should be enough to stream one 4K image in 64bit HDR without breaking it into chunks
 			EventReceiver(0),
 			WindowId(0),
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 			LoggingLevel(ELL_DEBUG),
 #else
 			LoggingLevel(ELL_INFORMATION),
 #endif
 			AuxGLContexts(0),
-			SDK_version_do_not_use(IRRLICHT_SDK_VERSION)
+			SDK_version_do_not_use(IRRLICHTBAW_SDK_VERSION)
 		{
 		}
 
 		SIrrlichtCreationParameters(const SIrrlichtCreationParameters& other) :
-			SDK_version_do_not_use(IRRLICHT_SDK_VERSION)
+			SDK_version_do_not_use(IRRLICHTBAW_SDK_VERSION)
 		{*this = other;}
 
 		SIrrlichtCreationParameters& operator=(const SIrrlichtCreationParameters& other)
@@ -226,7 +226,7 @@ namespace irr
 		uint8_t AuxGLContexts;
 
 		//! Don't use or change this parameter.
-		/** Always set it to IRRLICHT_SDK_VERSION, which is done by default.
+		/** Always set it to IRRLICHTBAW_SDK_VERSION, which is done by default.
 		This is needed for sdk version checks. */
 		const char* const SDK_version_do_not_use;
 	};

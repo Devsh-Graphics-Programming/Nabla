@@ -34,7 +34,7 @@ inline bool isHeaderValid(const SPAKFileHeader& header)
 CArchiveLoaderPAK::CArchiveLoaderPAK( io::IFileSystem* fs)
 : FileSystem(fs)
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	setDebugName("CArchiveLoaderPAK");
 #endif
 }
@@ -103,7 +103,7 @@ bool CArchiveLoaderPAK::isALoadableFileFormat(io::IReadFile* file) const
 CPakReader::CPakReader(IReadFile* file, bool ignoreCase, bool ignorePaths)
 : CFileList((file ? file->getFileName() : io::path("")), ignoreCase, ignorePaths), File(file)
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	setDebugName("CPakReader");
 #endif
 
@@ -148,7 +148,7 @@ bool CPakReader::scanLocalHeader()
 		SPAKFileEntry entry;
 		File->read(&entry, sizeof(entry));
 
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 		os::Printer::log(entry.name);
 #endif
 

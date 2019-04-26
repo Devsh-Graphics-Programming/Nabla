@@ -51,9 +51,9 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
                 freeStackCtr = blockCount-other.blockCount;
             other.blockCount = invalid_address;
 
-            #ifdef _DEBUG
+            #ifdef _IRR_DEBUG
                 assert(Base::checkResize(newBuffSz,Base::alignOffset));
-            #endif // _DEBUG
+            #endif // _IRR_DEBUG
 			other.blockSize = invalid_address;
 
             for (size_type i=0u; i<freeStackCtr; i++)
@@ -90,9 +90,9 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 
         inline void             free_addr(size_type addr, size_type bytes) noexcept
         {
-            #ifdef _DEBUG
+            #ifdef _IRR_DEBUG
                 assert(addr>=Base::combinedOffset && (addr-Base::combinedOffset)%blockSize==0 && freeStackCtr<blockCount);
-            #endif // _DEBUG
+            #endif // _IRR_DEBUG
 			freeStack[freeStackCtr++] = addr;
         }
 

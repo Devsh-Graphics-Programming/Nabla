@@ -274,6 +274,12 @@ class IRR_FORCE_EBO SIMD_32bitSwizzleAble
 
 #define FAST_FLOAT_SHUFFLE(X,Y) _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(X),Y))
 
+#ifdef __GNUC__
+// warning: ignoring attributes on template argument ‘__m128i {aka __vector(2) long long int}’ [-Wignored-attributes] (etc...)
+#   pragma GCC diagnostic push
+#   pragma GCC diagnostic ignored "-Wignored-attributes"
+#endif
+
 template <>
 template <int mask>
 inline __m128 SIMD_32bitSwizzleAble<vectorSIMDf,__m128>::shuffleFunc(__m128 reg) const
@@ -294,6 +300,10 @@ inline __m128i SIMD_32bitSwizzleAble<vectorSIMD_32<uint32_t>,__m128i>::shuffleFu
 {
     return _mm_shuffle_epi32(reg,mask);
 }
+
+#ifdef __GNUC__
+#   pragma GCC diagnostic pop
+#endif
 
 
 template <class T, class X>

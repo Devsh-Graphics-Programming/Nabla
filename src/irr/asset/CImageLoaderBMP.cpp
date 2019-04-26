@@ -23,7 +23,7 @@ namespace asset
 //! constructor
 CImageLoaderBMP::CImageLoaderBMP()
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CImageLoaderBMP");
 	#endif
 }

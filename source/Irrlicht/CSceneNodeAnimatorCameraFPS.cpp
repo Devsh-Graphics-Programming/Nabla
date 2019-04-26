@@ -23,7 +23,7 @@ CSceneNodeAnimatorCameraFPS::CSceneNodeAnimatorCameraFPS(gui::ICursorControl* cu
 	MouseYDirection(invertY ? -1.0f : 1.0f),
 	LastAnimationTime(0), firstUpdate(true), firstInput(true), NoVerticalMovement(noVerticalMovement)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CCameraSceneNodeAnimatorFPS");
 	#endif
 

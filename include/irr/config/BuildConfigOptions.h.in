@@ -1,0 +1,22 @@
+#ifndef __IRR_BUILD_CONFIG_OPTIONS_H_INCLUDED__
+#define __IRR_BUILD_CONFIG_OPTIONS_H_INCLUDED__
+
+#cmakedefine _IRR_DEBUG
+
+// architecture
+#cmakedefine __IRR_COMPILE_WITH_ARM_SIMD_
+
+// OS
+#cmakedefine _IRR_PLATFORM_WINDOWS_
+#cmakedefine _IRR_PLATFORM_LINUX_
+#cmakedefine _IRR_PLATFORM_OSX_
+
+// graphics API backend
+#cmakedefine _IRR_COMPILE_WITH_OPENGL_
+#cmakedefine _IRR_COMPILE_WITH_BURNINGSVIDEO_
+#cmakedefine _IRR_COMPILE_WITH_VULKAN_
+
+// extra config
+#cmakedefine __IRR_FAST_MATH
+
+#endif //__IRR_BUILD_CONFIG_OPTIONS_H_INCLUDED__

@@ -19,7 +19,7 @@ CBillboardSceneNode::CBillboardSceneNode(IDummyTransformationSceneNode* parent, 
 			video::SColor colorTop, video::SColor colorBottom)
 	: IBillboardSceneNode(parent, mgr, id, position)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CBillboardSceneNode");
 	#endif
 

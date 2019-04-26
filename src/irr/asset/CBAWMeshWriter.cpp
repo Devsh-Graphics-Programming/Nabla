@@ -24,7 +24,7 @@ namespace irr {namespace asset {
 
 	CBAWMeshWriter::CBAWMeshWriter(io::IFileSystem* _fs) : m_fileSystem(_fs)
 	{
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 		setDebugName("CBAWMeshWriter");
 #endif
 	}
@@ -373,7 +373,7 @@ namespace irr {namespace asset {
 			}
 			else
 			{
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 				os::Printer::log("Failed to encrypt! Blob exported without encryption.", ELL_WARNING);
 #endif
 				_IRR_ALIGNED_FREE(in);
@@ -412,7 +412,7 @@ namespace irr {namespace asset {
 				_IRR_ALIGNED_FREE(data);
 			compressedSize = _inputSize;
 			data = const_cast<void*>(_input);
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 			os::Printer::log("Failed to compress (lz4). Blob exported without compression.", ELL_WARNING);
 #endif
 		}
@@ -450,7 +450,7 @@ namespace irr {namespace asset {
 			_IRR_ALIGNED_FREE(data);
 			data = (uint8_t*)const_cast<void*>(_input);
 			destSize = _inputSize;
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 			os::Printer::log("Failed to compress (lzma). Blob exported without compression.", ELL_WARNING);
 #endif
 		}
