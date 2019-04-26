@@ -116,10 +116,8 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 		case asset::EF_B5G6R5_UNORM_PACK16:
 			format = video::CColorConverter::convert_R5G6B5toR8G8B8;
 			break;
-#ifndef _DEBUG
 		default:
 			break;
-#endif
 	}
 
 	// couldn't find a color converter
@@ -181,7 +179,7 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 
 CImageWriterJPG::CImageWriterJPG()
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	setDebugName("CImageWriterJPG");
 #endif
 }
@@ -197,7 +195,7 @@ bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
     SAssetWriteContext ctx{_params, _file};
 
     const asset::CImageData* image =
-#   ifndef _DEBUG
+#   ifndef _IRR_DEBUG
         static_cast<const asset::CImageData*>(_params.rootAsset);
 #   else
         dynamic_cast<const asset::CImageData*>(_params.rootAsset);

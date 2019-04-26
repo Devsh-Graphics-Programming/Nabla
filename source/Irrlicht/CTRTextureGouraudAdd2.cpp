@@ -97,7 +97,7 @@ private:
 CTRTextureGouraudAdd2::CTRTextureGouraudAdd2(CBurningVideoDriver* driver)
 : IBurningShader(driver)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CTRTextureGouraudAdd2");
 	#endif
 }

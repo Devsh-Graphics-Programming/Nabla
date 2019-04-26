@@ -24,7 +24,7 @@ namespace video
 
 	IBurningShader::IBurningShader(CBurningVideoDriver* driver)
 	{
-		#ifdef _DEBUG
+		#ifdef _IRR_DEBUG
 		setDebugName("IBurningShader");
 		#endif
 

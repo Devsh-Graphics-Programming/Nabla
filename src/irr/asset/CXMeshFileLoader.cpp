@@ -22,7 +22,7 @@
 #include <chrono>
 #include <vector>
 
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 #define _XREADER_DEBUG
 #endif
 
@@ -35,7 +35,7 @@ namespace asset
 CXMeshFileLoader::CXMeshFileLoader(IrrlichtDevice* _dev)
 : Device(_dev), SceneManager(_dev->getSceneManager()), FileSystem(_dev->getFileSystem())
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CXMeshFileLoader");
 	#endif
 }

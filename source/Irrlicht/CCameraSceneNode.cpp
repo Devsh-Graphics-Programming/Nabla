@@ -20,7 +20,7 @@ CCameraSceneNode::CCameraSceneNode(IDummyTransformationSceneNode* parent, IScene
 	Target(lookat), UpVector(0.0f, 1.0f, 0.0f), ZNear(1.0f), ZFar(3000.0f),
 	InputReceiverEnabled(true), TargetAndRotationAreBound(false)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CCameraSceneNode");
 	#endif
 

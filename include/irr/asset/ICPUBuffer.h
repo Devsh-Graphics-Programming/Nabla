@@ -57,13 +57,13 @@ class ICPUBuffer : public core::IBuffer, public asset::IAsset
 
         //! Returns size in bytes.
         virtual const uint64_t& getSize() const {return size;}
-/*
 		//! Reallocates internal data. Invalidate any sizes, pointers etc. returned before!
 		/** @param newSize New size of memory.
 		@param forceRetentionOfData Doesn't matter.
 		@param reallocateIfShrink Whether to perform reallocation even if it means to shrink the buffer (lose some data).
 		@returns True on success or false otherwise.
-		*
+		*/
+/*
         virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData=false, const bool &reallocateIfShrink=false)
         {
             if (size==newSize)

@@ -84,9 +84,9 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 
 	if (strcmp(footer.Signature,"TRUEVISION-X_file.")) // very old tgas are refused.
 	{
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 		os::Printer::log("Unsupported, very old TGA", _file->getFileName().c_str(), ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 	    return false;
 	}
     else

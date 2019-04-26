@@ -96,7 +96,7 @@ private:
 CTRTextureVertexAlpha2::CTRTextureVertexAlpha2(CBurningVideoDriver* driver)
 : IBurningShader(driver)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CTRTextureVertexAlpha2");
 	#endif
 }

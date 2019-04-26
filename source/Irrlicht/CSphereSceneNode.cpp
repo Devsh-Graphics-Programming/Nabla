@@ -23,7 +23,7 @@ CSphereSceneNode::CSphereSceneNode(float radius, uint32_t polyCountX, uint32_t p
 : IMeshSceneNode(parent, mgr, id, position, rotation, scale), Mesh(0),
 	Radius(radius), PolyCountX(polyCountX), PolyCountY(polyCountY)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CSphereSceneNode");
 	#endif
 

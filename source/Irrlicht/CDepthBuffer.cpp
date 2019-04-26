@@ -18,7 +18,7 @@ namespace video
 CDepthBuffer::CDepthBuffer(const core::dimension2d<uint32_t>& size)
 : Buffer(0), Size(0,0)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CDepthBuffer");
 	#endif
 
@@ -85,7 +85,7 @@ const core::dimension2d<uint32_t>& CDepthBuffer::getSize() const
 CStencilBuffer::CStencilBuffer(const core::dimension2d<uint32_t>& size)
 : Buffer(0), Size(0,0)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CDepthBuffer");
 	#endif
 

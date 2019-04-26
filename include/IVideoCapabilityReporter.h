@@ -34,6 +34,9 @@ namespace video
             //! Supports tessellation shaders (always in OpenGL 4.3+, Vulkan Mobile GPUs don't)
             EDF_TESSELLATION_SHADER,
 
+			//! Whether we can download sub-areas of an IGPUTexture
+			EDF_GET_TEXTURE_SUB_IMAGE,
+
             //! Whether one cycle of read->write to the same pixel on an active FBO is supported (always in Vulkan)
             EDF_TEXTURE_BARRIER,
 

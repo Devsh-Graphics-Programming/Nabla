@@ -106,6 +106,7 @@ void CMeshManipulator::flipSurfaces(asset::ICPUMeshBuffer* inbuffer) const
                 idx[i+2] = tmp;
             }
             break;
+        default: break;
         }
     }
     else if (inbuffer->getIndexType() == asset::EIT_32BIT)
@@ -150,6 +151,7 @@ void CMeshManipulator::flipSurfaces(asset::ICPUMeshBuffer* inbuffer) const
                 idx[i+2] = tmp;
             }
             break;
+        default: break;
         }
     }
 }
@@ -1112,7 +1114,7 @@ void CMeshManipulator::requantizeMeshBuffer(asset::ICPUMeshBuffer* _meshbuffer, 
 
 	const size_t activeAttributeCount = attribsI.size() + attribsF.size();
 
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	{
 		core::unordered_set<size_t> sizesSet;
 		for (core::unordered_map<asset::E_VERTEX_ATTRIBUTE_ID, core::vector<SIntegerAttr>>::iterator it = attribsI.begin(); it != attribsI.end(); ++it)
@@ -1299,6 +1301,7 @@ void CMeshManipulator::filterInvalidTriangles(asset::ICPUMeshBuffer* _input) con
         return priv_filterInvalidTriangles<uint16_t>(_input);
     case asset::EIT_32BIT:
         return priv_filterInvalidTriangles<uint32_t>(_input);
+    default: return;
     }
 }
 
@@ -1863,6 +1866,9 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 				return retval;
 			};
 			break;
+        default: 
+            quantFunc = nullptr;
+            break;
 		}
 	}
 	else
@@ -1976,6 +1982,9 @@ bool CMeshManipulator::compareFloatingPointAttribute(const core::vectorSIMDf& _a
 			return core::dot(_d1, _d2) / (core::length(_d1) * core::length(_d2));
 		};
 		break;
+    default:
+        errorFunc = nullptr;
+        break;
 	}
 
 	using CmpF_t = bool(*)(const core::vectorSIMDf&, const core::vectorSIMDf&, size_t);
@@ -1998,6 +2007,9 @@ bool CMeshManipulator::compareFloatingPointAttribute(const core::vectorSIMDf& _a
 			return _err.x > (1.f - _epsilon.x);
 		};
 		break;
+    default:
+        cmpFunc = nullptr;
+        break;
 	}
 
 	_IRR_DEBUG_BREAK_IF(!errorFunc)

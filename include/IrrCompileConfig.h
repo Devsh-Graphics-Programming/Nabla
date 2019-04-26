@@ -6,65 +6,17 @@
 #define __IRR_COMPILE_CONFIG_H_INCLUDED__
 
 //! Irrlicht SDK Version
-#define IRRLICHT_VERSION_MAJOR 1
-#define IRRLICHT_VERSION_MINOR 8
-#define IRRLICHT_VERSION_REVISION 3
+#define IRRLICHTBAW_VERSION_MAJOR 0
+#define IRRLICHTBAW_VERSION_MINOR 3
+#define IRRLICHTBAW_VERSION_REVISION 0
 // This flag will be defined only in SVN, the official release code will have
 // it undefined
 //#define IRRLICHT_VERSION_SVN -alpha
-#define IRRLICHT_SDK_VERSION "1.8.3-baw"
+#define IRRLICHTBAW_SDK_VERSION "0.3.0-beta2"
 
 #define NEW_MESHES
 
-#define __IRR_COMPILE_WITH_X86_SIMD_
-
-#ifdef __IRR_COMPILE_WITH_X86_SIMD_
-#define __IRR_COMPILE_WITH_SSE3
-
-#include <immintrin.h>
-
-#ifdef __SSE3__
-#define __IRR_COMPILE_WITH_SSE3
-#endif
-
-#ifdef __SSE4_1__
-#define __IRR_COMPILE_WITH_SSE4_1
-#endif
-
-#ifdef __AVX__
-#define __IRR_COMPILE_WITH_AVX
-#endif
-
-
-
-#ifdef __IRR_COMPILE_WITH_AVX
-#define SIMD_ALIGNMENT 32
-#else
-#define SIMD_ALIGNMENT 16
-#endif // __IRR_COMPILE_WITH_AVX
-
-#endif
-
 #include <stdio.h> // TODO: Although included elsewhere this is required at least for mingw
-
-//! The defines for different operating system are:
-//! _IRR_XBOX_PLATFORM_ for XBox
-//! _IRR_WINDOWS_ for all irrlicht supported Windows versions
-//! _IRR_WINDOWS_API_ for Windows or XBox
-//! _IRR_LINUX_PLATFORM_ for Linux (it is defined here if no other os is defined)
-//! _IRR_SOLARIS_PLATFORM_ for Solaris
-//! _IRR_OSX_PLATFORM_ for Apple systems running OSX
-//! _IRR_POSIX_API_ for Posix compatible systems
-//! Note: PLATFORM defines the OS specific layer, API can group several platforms
-
-//! DEVICE is the windowing system used, several PLATFORMs support more than one DEVICE
-//! Irrlicht can be compiled with more than one device
-//! _IRR_COMPILE_WITH_WINDOWS_DEVICE_ for Windows API based device
-//! _IRR_COMPILE_WITH_WINDOWS_CE_DEVICE_ for Windows CE API based device
-//! _IRR_COMPILE_WITH_OSX_DEVICE_ for Cocoa native windowing on OSX
-//! _IRR_COMPILE_WITH_X11_DEVICE_ for Linux X11 based device
-//! _IRR_COMPILE_WITH_SDL_DEVICE_ for platform independent SDL framework
-//! _IRR_COMPILE_WITH_CONSOLE_DEVICE_ for no windowing system, used as a fallback
 
 //! Passing defines to the compiler which have NO in front of the _IRR definename is an alternative
 //! way which can be used to disable defines (instead of outcommenting them in this header).
@@ -79,74 +31,65 @@
 #undef _IRR_COMPILE_WITH_SDL_DEVICE_
 #endif
 
-//! Comment this line to compile without the fallback console device.
-#define _IRR_COMPILE_WITH_CONSOLE_DEVICE_
-#ifdef NO_IRR_COMPILE_WITH_CONSOLE_DEVICE_
-#undef _IRR_COMPILE_WITH_CONSOLE_DEVICE_
-#endif
+// this actually includes file depending on build type (Debug/Release)
+#include "BuildConfigOptions.h"
 
-//! WIN32 for Windows32
-//! WIN64 for Windows64
-// The windows platform and API support SDL and WINDOW device
-#if defined(_WIN32) || defined(_WIN64) || defined(WIN32) || defined(WIN64)
-#define _IRR_WINDOWS_
-#define _IRR_WINDOWS_API_
-#define _IRR_COMPILE_WITH_WINDOWS_DEVICE_
-#ifndef NOMINMAX
-	#define NOMINMAX
-#endif
-#endif
 
-#if defined(_MSC_VER) && (_MSC_VER < 1300)
-#  error "Only Microsoft Visual Studio 7.0 and later are supported."
-#endif
-
-// XBox only suppots the native Window stuff
-#if defined(_XBOX)
-	#undef _IRR_WINDOWS_
-	#define _IRR_XBOX_PLATFORM_
-	#define _IRR_WINDOWS_API_
-	//#define _IRR_COMPILE_WITH_WINDOWS_DEVICE_
-	#undef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
-	//#define _IRR_COMPILE_WITH_SDL_DEVICE_
-
-	#include <xtl.h>
-#endif
-
-#if defined(__APPLE__) || defined(MACOSX)
-#if !defined(MACOSX)
-#define MACOSX // legacy support
-#endif
-#define _IRR_OSX_PLATFORM_
-#define _IRR_COMPILE_WITH_OSX_DEVICE_
-#endif
-
-#if !defined(_IRR_WINDOWS_API_) && !defined(_IRR_OSX_PLATFORM_)
-#ifndef _IRR_SOLARIS_PLATFORM_
-#define _IRR_LINUX_PLATFORM_
-#endif
-#define _IRR_POSIX_API_
-///#ifndef BAW_SERVER
-#define _IRR_COMPILE_WITH_X11_DEVICE_
-///#endif
+#ifdef _IRR_TARGET_ARCH_ARM_
+#   define __IRR_COMPILE_WITH_ARM_SIMD_ // NEON
+#else // target arch x86
+#   define __IRR_COMPILE_WITH_SSE3
+#   define __IRR_COMPILE_WITH_X86_SIMD_ // SSE 4.2 
+#   include <immintrin.h>
 #endif
 
 
-//! Temporary until we can figure something out
-#if __LSB_VERSION__ < 50
-#define NO_IRR_COMPILE_WITH_JOYSTICK_EVENTS_
+#if defined(_IRR_SERVER_)
+#   define NO_IRR_COMPILE_WITH_VULKAN_
+#   define NO_IRR_COMPILE_WITH_OPENGL_
+#   define NO_IRR_COMPILE_WITH_BURNINGSVIDEO_
 #endif
 
-
-//! Temporary until we can figure something out
-#if __LSB_VERSION__ < 50
-#define NO_IRR_COMPILE_WITH_JOYSTICK_EVENTS_
+#ifdef NO_IRR_COMPILE_WITH_OPENGL_
+#   undef _IRR_COMPILE_WITH_OPENGL_
+#endif
+#ifdef NO_IRR_COMPILE_WITH_BURNINGSVIDEO_
+#   undef _IRR_COMPILE_WITH_BURNINGSVIDEO_
 #endif
 
-//! Define _IRR_COMPILE_WITH_JOYSTICK_SUPPORT_ if you want joystick events.
-#define _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
-#ifdef NO_IRR_COMPILE_WITH_JOYSTICK_EVENTS_
-#undef _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
+// The Windows platform and API support SDL and WINDOW device
+#if defined(_IRR_PLATFORM_WINDOWS_)
+#   define _IRR_WINDOWS_API_
+#   define _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+#   if defined(_MSC_VER) && (_MSC_VER < 1300)
+#       error "Only Microsoft Visual Studio 7.0 and later are supported."
+#   endif
+#endif
+
+#if defined(_IRR_PLATFORM_LINUX)
+#   define _IRR_POSIX_API_
+#   define _IRR_COMPILE_WITH_X11_DEVICE_
+#endif
+
+#ifdef _IRR_SERVER_
+#   define NO_IRR_LINUX_X11_RANDR_
+#endif
+
+//! VidMode is ANCIENT
+//#define NO_IRR_LINUX_X11_VIDMODE_
+
+//! On some Linux systems the XF86 vidmode extension or X11 RandR are missing. Use these flags
+//! to remove the dependencies such that Irrlicht will compile on those systems, too.
+//! If you don't need colored cursors you can also disable the Xcursor extension
+#if defined(_IRR_PLATFORM_LINUX_) && defined(_IRR_COMPILE_WITH_X11_)
+#   define _IRR_LINUX_X11_VIDMODE_
+#   define _IRR_LINUX_X11_RANDR_
+#   ifdef NO_IRR_LINUX_X11_VIDMODE_
+#       undef _IRR_LINUX_X11_VIDMODE_
+#   endif
+#   ifdef NO_IRR_LINUX_X11_RANDR_
+#       undef _IRR_LINUX_X11_RANDR_
+#   endif
 #endif
 
 
@@ -166,73 +109,16 @@
 #define _IRR_XFORM_FEEDBACK_MAX_BUFFERS_ 4
 #define _IRR_XFORM_FEEDBACK_MAX_STREAMS_ 4
 
-
-
-//! Define _IRR_COMPILE_WITH_OPENGL_ to compile the Irrlicht engine with OpenGL.
-/** If you do not wish the engine to be compiled with OpenGL, comment this
-define out. */
-#ifndef BAW_SERVER
-#define _IRR_COMPILE_WITH_OPENGL_
-///#define _IRR_COMPILE_WITH_OPENCL_
-#endif
-
-#ifdef NO_IRR_COMPILE_WITH_OPENGL_
-#undef _IRR_COMPILE_WITH_OPENGL_
-#endif
-
-//! Define _IRR_COMPILE_WITH_BURNINGSVIDEO_ to compile the Irrlicht engine with Burning's video driver
-/** If you do not need this software driver, you can comment this define out. */
-#define _IRR_COMPILE_WITH_BURNINGSVIDEO_
-#ifdef NO_IRR_COMPILE_WITH_BURNINGSVIDEO_
-#undef _IRR_COMPILE_WITH_BURNINGSVIDEO_
-#endif
-
 //! Define _IRR_COMPILE_WITH_X11_ to compile the Irrlicht engine with X11 support.
 /** If you do not wish the engine to be compiled with X11, comment this
 define out. */
 // Only used in LinuxDevice.
-///#ifndef BAW_SERVER
+///#ifndef _IRR_SERVER_
 #define _IRR_COMPILE_WITH_X11_
 ///#endif
 #ifdef NO_IRR_COMPILE_WITH_X11_
-#undef _IRR_COMPILE_WITH_X11_
+#   undef _IRR_COMPILE_WITH_X11_
 #endif
-
-//! Define _IRR_OPENGL_USE_EXTPOINTER_ if the OpenGL renderer should use OpenGL extensions via function pointers.
-/** On some systems there is no support for the dynamic extension of OpenGL
-	via function pointers such that this has to be undef'ed. */
-#if !defined(_IRR_OSX_PLATFORM_) && !defined(_IRR_SOLARIS_PLATFORM_)
-#define _IRR_OPENGL_USE_EXTPOINTER_
-#endif
-
-#ifdef BAW_SERVER
-#define NO_IRR_LINUX_X11_RANDR_
-#endif
-//! VidMode is ANCIENT
-//#define NO_IRR_LINUX_X11_VIDMODE_
-//! On some Linux systems the XF86 vidmode extension or X11 RandR are missing. Use these flags
-//! to remove the dependencies such that Irrlicht will compile on those systems, too.
-//! If you don't need colored cursors you can also disable the Xcursor extension
-#if defined(_IRR_LINUX_PLATFORM_) && defined(_IRR_COMPILE_WITH_X11_)
-#define _IRR_LINUX_X11_VIDMODE_
-#define _IRR_LINUX_X11_RANDR_
-#ifdef NO_IRR_LINUX_X11_VIDMODE_
-#undef _IRR_LINUX_X11_VIDMODE_
-#endif
-#ifdef NO_IRR_LINUX_X11_RANDR_
-#undef _IRR_LINUX_X11_RANDR_
-#endif
-
-//! X11 has by default only monochrome cursors, but using the Xcursor library we can also get color cursor support.
-//! If you have the need for custom color cursors on X11 then enable this and make sure you also link
-//! to the Xcursor library in your Makefile/Projectfile.
-//#define _IRR_LINUX_XCURSOR_
-#ifdef NO_IRR_LINUX_XCURSOR_
-#undef _IRR_LINUX_XCURSOR_
-#endif
-
-#endif
-
 
 //! Define _IRR_COMPILE_WITH_OPENSSL_ to enable compiling the engine using libjpeg.
 /** This enables the engine to read and write encrypted BAW format files.
@@ -257,20 +143,6 @@ the engine will no longer read .png images. */
 #ifdef NO_IRR_COMPILE_WITH_LIBPNG_
 #undef _IRR_COMPILE_WITH_LIBPNG_
 #endif
-
-//! Define _IRR_USE_NON_SYSTEM_LIBPNG_ to let irrlicht use the libpng which comes with irrlicht.
-/** If this is commented out, Irrlicht will try to compile using the libpng installed in the system.
-	This is only used when _IRR_COMPILE_WITH_LIBPNG_ is defined. */
-#define _IRR_USE_NON_SYSTEM_LIB_PNG_
-#ifdef NO_IRR_USE_NON_SYSTEM_LIB_PNG_
-#undef _IRR_USE_NON_SYSTEM_LIB_PNG_
-#endif
-
-
-//! Define _IRR_USE_NVIDIA_PERFHUD_ to opt-in to using the nVidia PerHUD tool
-/** Enable, by opting-in, to use the nVidia PerfHUD performance analysis driver
-tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
-#undef _IRR_USE_NVIDIA_PERFHUD_
 
 //! Define one of the three setting for Burning's Video Software Rasterizer
 /** So if we were marketing guys we could say Irrlicht has 4 Software-Rasterizers.
@@ -392,11 +264,6 @@ tool <http://developer.nvidia.com/object/nvperfhud_home.html>. */
 #ifdef NO_IRR_COMPILE_WITH_TGA_LOADER_
 #undef _IRR_COMPILE_WITH_TGA_LOADER_
 #endif
-//! Define _IRR_COMPILE_WITH_RGB_LOADER_ if you want to load Silicon Graphics .rgb/.rgba/.sgi/.int/.inta/.bw files
-#define _IRR_COMPILE_WITH_RGB_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_RGB_LOADER_
-#undef _IRR_COMPILE_WITH_RGB_LOADER_
-#endif
 
 //! Define _IRR_COMPILE_WITH_BMP_WRITER_ if you want to write .bmp files
 #define _IRR_COMPILE_WITH_BMP_WRITER_
@@ -498,17 +365,6 @@ currently only supports zip archives, though. */
 #undef __IRR_COMPILE_WITH_WAD_ARCHIVE_LOADER_
 #endif
 
-//! Set FPU settings
-/** Irrlicht should use approximate float and integer fpu techniques
-precision will be lower but speed higher. currently X86 only
-*/
-#if !defined(_IRR_OSX_PLATFORM_) && !defined(_IRR_SOLARIS_PLATFORM_)
-//	#define IRRLICHT_FAST_MATH
-	#ifdef NO_IRRLICHT_FAST_MATH
-	#undef IRRLICHT_FAST_MATH
-	#endif
-#endif
-
 // Some cleanup and standard stuff
 
 #ifdef _IRR_WINDOWS_API_
@@ -545,34 +401,12 @@ precision will be lower but speed higher. currently X86 only
 
 #endif // _IRR_WINDOWS_API_
 
-// We need to disable DIRECT3D9 support for Visual Studio 6.0 because
-// those $%&$!! disabled support for it since Dec. 2004 and users are complaining
-// about linker errors. Comment this out only if you are knowing what you are
-// doing. (Which means you have an old DX9 SDK and VisualStudio6).
-#ifdef _MSC_VER
-#if (_MSC_VER < 1300 && !defined(__GNUC__))
-#undef _IRR_COMPILE_WITH_DIRECT3D_9_
-#pragma message("Compiling Irrlicht with Visual Studio 6.0, support for DX9 is disabled.")
-#endif
-#endif
-
-// XBox does not have OpenGL or DirectX9
-#if defined(_IRR_XBOX_PLATFORM_)
-	#undef _IRR_COMPILE_WITH_OPENGL_
-	#undef _IRR_COMPILE_WITH_DIRECT3D_9_
-#endif
-
-
 #ifndef _IRR_WINDOWS_API_
-	#undef _IRR_WCHAR_FILESYSTEM
+#   undef _IRR_WCHAR_FILESYSTEM
 #endif
 
 
-#if defined(_IRR_SOLARIS_PLATFORM_)
-	#undef _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
-#endif
-
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	//! A few attributes are written in CSceneManager when _IRR_SCENEMANAGER_DEBUG is enabled
 	// NOTE: Those attributes were used always until 1.8.0 and became a global define for 1.8.1
 	// which is only enabled in debug because it had a large (sometimes >5%) impact on speed.
@@ -605,4 +439,3 @@ _IRR_ADD_BLOB_SUPPORT(MeshDataFormatDescBlobV1, EBT_DATA_FORMAT_DESC, Function, 
 _IRR_ADD_BLOB_SUPPORT(FinalBoneHierarchyBlobV1, EBT_FINAL_BONE_HIERARCHY, Function, __VA_ARGS__)
 
 #endif // __IRR_COMPILE_CONFIG_H_INCLUDED__
-

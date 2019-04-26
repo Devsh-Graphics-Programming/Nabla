@@ -269,6 +269,7 @@ SIntrospectionData ICPUShader::SIntrospectionPerformer::doIntrospection(spirv_cr
             specConst.type = SIntrospectionData::SSpecConstant::ET_F64;
             specConst.defaultValue.f64 = sconstval.scalar_f64();
             break;
+        default: break;
         }
     }
     using SSpecConstant = SIntrospectionData::SSpecConstant;
@@ -387,6 +388,7 @@ void ICPUShader::SIntrospectionPerformer::deinitIntrospectionData(SIntrospection
             case ESRT_UNIFORM_BUFFER:
                 deinitShdrMemBlock(static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_UNIFORM_BUFFER>()));
                 break;
+            default: break;
             }
         }
     if (_data.pushConstant.present)

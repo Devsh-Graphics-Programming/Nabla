@@ -18,7 +18,7 @@ CSceneNodeAnimatorFlyStraight::CSceneNodeAnimatorFlyStraight(const core::vector3
 	Start(startPoint), End(endPoint), TimeFactor(0.0f), StartTime(now),
 	TimeForWay(timeForWay), Loop(loop), PingPong(pingpong)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CSceneNodeAnimatorFlyStraight");
 	#endif
 

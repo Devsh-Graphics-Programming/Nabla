@@ -71,6 +71,9 @@ class SCompoundCollider : public IReferenceCounted
                             tmp->drop();
                         }
                         break;
+                    case SCollisionShapeDef::ECST_COUNT:
+                        assert(0);
+                        break;
                 }
             }
         }
@@ -118,6 +121,9 @@ class SCompoundCollider : public IReferenceCounted
                             STriangleMeshCollider* tmp = static_cast<STriangleMeshCollider*>(Shapes[i].object);
                             coll->AddTriangleMesh(tmp);
                         }
+                        break;
+                    case SCollisionShapeDef::ECST_COUNT:
+                        assert(0);
                         break;
                 }
             }
@@ -203,6 +209,9 @@ class SCompoundCollider : public IReferenceCounted
                             if (tmp->CollideWithRay(collisionDistance,origin,direction,dirMaxMultiplier))
                                 return true;
                         }
+                        break;
+                    case SCollisionShapeDef::ECST_COUNT:
+                        assert(0);
                         break;
                 }
             }
