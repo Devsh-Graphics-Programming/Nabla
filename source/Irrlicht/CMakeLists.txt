@@ -205,9 +205,9 @@ macro(irr_target_link_libjpeg _trgt)
 	target_include_directories(${_trgt} PUBLIC ../../3rdparty/libjpeg)
 endmacro()
 macro(irr_target_link_libpng _trgt)
-	add_dependencies(Irrlicht png_static)
+	add_dependencies(Irrlicht png_static $<TARGET_OBJECTS:zlib>)
 	target_link_libraries(${_trgt} INTERFACE
-		png_static
+		png_static $<TARGET_OBJECTS:zlib>
 	)
 	target_include_directories(${_trgt} PUBLIC ../../3rdparty/libpng)
 endmacro()
@@ -224,7 +224,6 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:convert_utf>
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
-	$<TARGET_OBJECTS:zlib>
 	$<TARGET_OBJECTS:spirv_cross>
 )
 
