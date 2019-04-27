@@ -13,12 +13,13 @@
 FUNCTION(ADD_PRECOMPILED_HEADER _targetName _input)
   GET_FILENAME_COMPONENT(_inputWe ${_input} NAME_WE)
   SET(pch_source ${_inputWe}.cpp)
+  SET(FORCEINCLUDE OFF)
   FOREACH(arg ${ARGN})
-    IF(arg STREQUAL FORCEINCLUDE)
+    IF("${arg}" STREQUAL FORCEINCLUDE)
       SET(FORCEINCLUDE ON)
-    ELSE(arg STREQUAL FORCEINCLUDE)
-      SET(FORCEINCLUDE OFF)
-    ENDIF(arg STREQUAL FORCEINCLUDE)
+    ELSE("${arg}" STREQUAL FORCEINCLUDE)
+      LIST(APPEND _extra_incl_dirs ${arg}) # significant on Linux only
+    ENDIF("${arg}" STREQUAL FORCEINCLUDE)
   ENDFOREACH(arg)
 
   IF(MSVC)
@@ -55,16 +56,26 @@ FUNCTION(ADD_PRECOMPILED_HEADER _targetName _input)
     STRING(TOUPPER "CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE}" _flags_var_name)
     SET(_compiler_FLAGS ${${_flags_var_name}})
     
-    GET_DIRECTORY_PROPERTY(_directory_flags INCLUDE_DIRECTORIES)
+    GET_TARGET_PROPERTY(_directory_flags ${_targetName} INCLUDE_DIRECTORIES)
     FOREACH(item ${_directory_flags})
+      string(SUBSTRING ${item} 0 1 _item)
+      string(COMPARE EQUAL "$" ${_item} _item)
+      if (NOT ${_item}) # do not take into account not evaluated generator expressions! (things like $<X:Y>)
+      # Generaor expressions are evaluated at build stage, not in config stage which is really sad! https://stackoverflow.com/questions/35695152
+          LIST(APPEND _compiler_FLAGS "-I${item}")
+      endif()
+    ENDFOREACH(item)
+    FOREACH(item ${_extra_incl_dirs})
       LIST(APPEND _compiler_FLAGS "-I${item}")
     ENDFOREACH(item)
 
-    GET_DIRECTORY_PROPERTY(_directory_flags COMPILE_DEFINITIONS)
-    LIST(APPEND _compiler_FLAGS ${_directory_flags})
+    GET_TARGET_PROPERTY(_directory_flags ${_targetName} COMPILE_DEFINITIONS)
+    FOREACH(item ${_directory_flags})
+      LIST(APPEND _compiler_FLAGS "-D${item}")
+    ENDFOREACH(item)
 
     SEPARATE_ARGUMENTS(_compiler_FLAGS)
-    MESSAGE("${CMAKE_CXX_COMPILER} -DPCHCOMPILE ${_compiler_FLAGS} -x c++-header -o {_output} ${_source}")
+    MESSAGE("${CMAKE_CXX_COMPILER} -DPCHCOMPILE ${_compiler_FLAGS} -x c++-header -o ${_output} ${_source}")
     ADD_CUSTOM_COMMAND(
       OUTPUT ${_output}
       COMMAND ${CMAKE_CXX_COMPILER} ${_compiler_FLAGS} -x c++-header -o ${_output} ${_source}
