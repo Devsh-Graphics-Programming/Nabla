@@ -223,13 +223,13 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             return unallocatedSize;
         }
         //!
-        inline void         multi_free(IDriverFence* fence, DeferredFreeFunctor&& functor) noexcept
+        inline void         multi_free(core::smart_refctd_ptr<IDriverFence>&& fence, DeferredFreeFunctor&& functor) noexcept
         {
             #ifdef _DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
             #endif // _DEBUG
-            deferredFrees.addEvent(GPUEventWrapper(fence),std::forward<DeferredFreeFunctor>(functor));
+            deferredFrees.addEvent(GPUEventWrapper(std::move(fence)),std::forward<DeferredFreeFunctor>(functor));
         }
         inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes) noexcept
         {
@@ -240,10 +240,10 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             mAllocator.multi_free_addr(count,addr,bytes);
         }
         template<typename Q=DeferredFreeFunctor>
-        inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes, IDriverFence* fence, typename std::enable_if<std::is_same<Q,DefaultDeferredFreeFunctor>::value>::type* = 0) noexcept
+        inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes, core::smart_refctd_ptr<IDriverFence>&& fence, typename std::enable_if<std::is_same<Q,DefaultDeferredFreeFunctor>::value>::type* = 0) noexcept
         {
             if (fence)
-                multi_free(fence,DeferredFreeFunctor(this,count,addr,bytes));
+                multi_free(std::move(fence),DeferredFreeFunctor(this,count,addr,bytes));
             else
                 multi_free(count,addr,bytes);
         }
