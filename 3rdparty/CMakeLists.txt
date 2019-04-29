@@ -34,7 +34,8 @@ option(BUILD_TESTS "jpeg" OFF)
 add_subdirectory(libjpeg)
 
 #manipulating libpng cmake options from within cmake script
-option(PNG_BUILD_ZLIB "Custom zlib Location, else find_package is used" ON)
+option(PNG_BUILD_ZLIB "Custom zlib Location, else find_package is used" OFF)
+set(PNG_BUILD_ZLIB ON)
 set(ZLIB_INCLUDE_DIR ${THIRD_PARTY_SOURCE_DIR}/zlib) #for pnglib
 option(PNG_SHARED "Build shared lib" OFF)
 option(PNG_TESTS  "Build libpng tests" OFF)
