@@ -226,7 +226,7 @@ macro(irr_target_link_libjpeg _trgt)
 	target_link_libraries(${_trgt} INTERFACE
 		jpeg
 	)
-	target_include_directories(${_trgt} PUBLIC ${CMAKE_SOURCE_DIR}/3rdparty/libjpeg-turbo)
+	target_include_directories(${_trgt} PUBLIC ${CMAKE_SOURCE_DIR}/3rdparty/libjpeg)
 endmacro()
 macro(irr_target_link_libpng _trgt)
 	add_dependencies(${_trgt} png_static)
