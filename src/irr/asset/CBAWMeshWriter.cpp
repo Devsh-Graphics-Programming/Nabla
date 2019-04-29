@@ -19,8 +19,18 @@
 #undef Bool
 #include "lzma/C/LzmaEnc.h"
 
+namespace irr
+{
+namespace asset
+{
 
-namespace irr {namespace asset {
+struct LzmaMemMngmnt
+{
+        static void *alloc(ISzAllocPtr, size_t _size) { return _IRR_ALIGNED_MALLOC(_size,_IRR_SIMD_ALIGNMENT); }
+        static void release(ISzAllocPtr, void* _addr) { _IRR_ALIGNED_FREE(_addr); }
+    private:
+        LzmaMemMngmnt() {}
+};
 
 	const char * const CBAWMeshWriter::BAW_FILE_HEADER = "IrrlichtBaW BinaryFile\0\0\0\0\0\0\0\0\0";
 
