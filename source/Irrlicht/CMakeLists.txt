@@ -162,10 +162,10 @@ set(IRRLICHT_SRCS_COMMON
 	Irrlicht.cpp
 	os.cpp
 	IReferenceCounted.cpp
-	
-# PCH
-	pch.cpp
 )
+if (MSVC)
+	list(APPEND IRRLICHT_SRCS_COMMON pch.cpp)
+endif()
 
 set(IRRLICHT_SRCS_NORMAL
 	COpenCLHandler.cpp
