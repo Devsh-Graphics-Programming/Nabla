@@ -66,7 +66,7 @@
 #   endif
 #endif
 
-#if defined(_IRR_PLATFORM_LINUX)
+#if defined(_IRR_PLATFORM_LINUX_)
 #   define _IRR_POSIX_API_
 #   define _IRR_COMPILE_WITH_X11_DEVICE_
 #endif
