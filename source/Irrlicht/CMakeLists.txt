@@ -162,10 +162,10 @@ set(IRRLICHT_SRCS_COMMON
 	Irrlicht.cpp
 	os.cpp
 	IReferenceCounted.cpp
-	
-# PCH
-	pch.cpp
 )
+if (MSVC)
+	list(APPEND IRRLICHT_SRCS_COMMON pch.cpp)
+endif()
 
 set(IRRLICHT_SRCS_NORMAL
 	COpenCLHandler.cpp
@@ -229,7 +229,7 @@ macro(irr_target_link_libjpeg _trgt)
 	target_include_directories(${_trgt} PUBLIC ${CMAKE_SOURCE_DIR}/3rdparty/libjpeg)
 endmacro()
 macro(irr_target_link_libpng _trgt)
-	add_dependencies(Irrlicht png_static $<TARGET_OBJECTS:zlib>)
+	add_dependencies(Irrlicht png_static)
 	target_link_libraries(${_trgt} INTERFACE
 		png_static $<TARGET_OBJECTS:zlib>
 	)
@@ -305,7 +305,15 @@ target_compile_definitions(Irrlicht PRIVATE
 )
 
 if(IRR_PCH)
-  ADD_PRECOMPILED_HEADER(Irrlicht pch.h FORCEINCLUDE)
+    if (UNIX)
+        if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
+            ADD_PRECOMPILED_HEADER(Irrlicht pch.h "${IRRLICHT_CONF_DIR_RELEASE}" FORCEINCLUDE)
+	elseif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+            ADD_PRECOMPILED_HEADER(Irrlicht pch.h "${IRRLICHT_CONF_DIR_DEBUG}" FORCEINCLUDE)
+        endif()
+    else()
+        ADD_PRECOMPILED_HEADER(Irrlicht pch.h FORCEINCLUDE)
+    endif()
 endif()
 
 add_library(IrrlichtServer STATIC
@@ -346,10 +354,22 @@ target_compile_definitions(IrrlichtServer PRIVATE
 	_IRR_SERVER_
 )
 
-if(IRR_PCH)
-  ADD_PRECOMPILED_HEADER(IrrlichtServer pch.h FORCEINCLUDE)
-endif()
 
+if(IRR_PCH)
+    if (UNIX)
+        # "CMake Error: Attempt to add a custom rule to output ".../source/Irrlicht/pch.h.gch/.c++.rule" which already has a custom rule."
+        # so there need to be another pch file to create custom_command for it. Or maybe share PCH target between Irrlicht and IrrlichtServer? (not sure if possible)
+        file(COPY pch.h DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/server_pch")
+        file(RENAME server_pch/pch.h server_pch.h)
+        if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
+            ADD_PRECOMPILED_HEADER(IrrlichtServer server_pch.h "${IRRLICHT_CONF_DIR_RELEASE}" FORCEINCLUDE)
+	elseif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+            ADD_PRECOMPILED_HEADER(IrrlichtServer server_pch.h "${IRRLICHT_CONF_DIR_DEBUG}" FORCEINCLUDE)
+        endif()
+    else()
+        ADD_PRECOMPILED_HEADER(IrrlichtServer pch.h FORCEINCLUDE)
+    endif()
+endif()
 
 
 set_target_properties(Irrlicht IrrlichtServer PROPERTIES DEBUG_POSTFIX _debug)
