@@ -11,11 +11,13 @@
 #include "irr/video/SGPUMesh.h"
 #include "irr/video/CGPUSkinnedMesh.h"
 #include "os.h"
-#include "lzma/C/LzmaDec.h"
 #include "lz4/lib/lz4.h"
 #include "IrrlichtDevice.h"
 #include "irr/asset/bawformat/legacy/CBAWLegacy.h"
 #include "CMemoryFile.h"
+
+#undef Bool
+#include "lzma/C/LzmaDec.h"
 
 namespace irr { namespace asset
 {

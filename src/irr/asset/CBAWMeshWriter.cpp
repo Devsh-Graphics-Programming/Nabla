@@ -15,6 +15,8 @@
 #include "CFinalBoneHierarchy.h"
 #include "os.h"
 #include "lz4/lib/lz4.h"
+
+#undef Bool
 #include "lzma/C/LzmaEnc.h"
 
 
