@@ -105,7 +105,7 @@ FUNCTION(ADD_PRECOMPILED_HEADER _targetName _input)
     ADD_CUSTOM_COMMAND(
       OUTPUT ${_output}
       COMMAND ${CMAKE_CXX_COMPILER} ${_compiler_FLAGS} -x c++-header -o ${_output} ${_source}
-      DEPENDS ${_source} )
+      DEPENDS ${_source} ${IRRLICHT_HEADERS} )
     ADD_CUSTOM_TARGET(${_targetName}_gch DEPENDS ${_output})
     ADD_DEPENDENCIES(${_targetName} ${_targetName}_gch)
     SET_TARGET_PROPERTIES(${_targetName} PROPERTIES COMPILE_FLAGS "-include ${_name} -Winvalid-pch")
