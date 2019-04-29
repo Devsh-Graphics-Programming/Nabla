@@ -41,6 +41,8 @@ option(PNG_SHARED "Build shared lib" OFF)
 option(PNG_TESTS  "Build libpng tests" OFF)
 add_subdirectory(libpng)
 
+irr_adjust_flags()
+
 add_library(lzma OBJECT
 	lzma/C/Alloc.c
 	lzma/C/LzFind.c
