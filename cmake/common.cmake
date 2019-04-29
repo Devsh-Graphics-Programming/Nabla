@@ -22,7 +22,7 @@ macro(irr_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS)
 			"$<$<CONFIG:DEBUG>:-fstack-protector-all>"
 		)
 	
-		set(COMMON_LINKER_OPTIONS "-msse3 -mfpmath=sse -fuse-ld=gold")
+		set(COMMON_LINKER_OPTIONS "-msse4.2 -mfpmath=sse -fuse-ld=gold")
 		set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${COMMON_LINKER_OPTIONS}")
 		set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${COMMON_LINKER_OPTIONS} -fstack-protector-strong -fsanitize=address")
 	endif()
