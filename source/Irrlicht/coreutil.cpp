@@ -58,7 +58,7 @@ std::string WStringToUTF8String(const std::wstring& inString)
 
 std::wstring UTF8StringToWString(const std::string& inString)
 {
-	std::string::const_iterator end_it = utf8::find_invalid(inString.begin(), inString.end());
+	std::string::const_iterator end_it = utf8::core::find_invalid(inString.begin(), inString.end());
 
 	std::wstring utf16line;
 	utf16line.reserve(end_it-inString.begin());
@@ -71,7 +71,7 @@ std::wstring UTF8StringToWString(const std::string& inString, uint32_t inReplace
 {
 	std::string replacedStr;
 	replacedStr.reserve(inString.size());
-	utf8::replace_invalid(inString.begin(), inString.end(), back_inserter(replacedStr), inReplacementforInvalid);
+	utf8::unchecked::replace_invalid(inString.begin(), inString.end(), back_inserter(replacedStr), inReplacementforInvalid);
 
 	std::wstring utf16line;
 	utf16line.reserve(replacedStr.length());
