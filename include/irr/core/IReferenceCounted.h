@@ -172,6 +172,95 @@ namespace core
 		mutable std::atomic<uint32_t> ReferenceCounter;
 	};
 
+	// Parameter types for special overloaded constructors
+	struct dont_grab_t {};
+	constexpr dont_grab_t dont_grab{};
+	struct dont_drop_t {};
+	constexpr dont_drop_t dont_drop{};
+
+	// A RAII-like class to help you safeguard against memory leaks.
+	// Will automagically drop reference counts when it goes out of scope
+	template<class I_REFERENCE_COUNTED>
+	class smart_refctd_ptr
+	{
+			static_assert(std::is_base_of<IReferenceCounted, I_REFERENCE_COUNTED>::value,"Wrong Base Class!");
+
+			mutable I_REFERENCE_COUNTED* ptr; // since IReferenceCounted declares the refcount mutable atomic
+		public:
+			constexpr smart_refctd_ptr() noexcept : ptr(nullptr) {}
+			constexpr smart_refctd_ptr(std::nullptr_t) noexcept : ptr(nullptr) {}
+			explicit smart_refctd_ptr(I_REFERENCE_COUNTED* _pointer) noexcept : ptr(_pointer)
+			{
+				if (_pointer)
+					_pointer->grab();
+			}
+			explicit smart_refctd_ptr(I_REFERENCE_COUNTED* _pointer, dont_grab_t t) noexcept : ptr(_pointer) {}
+			smart_refctd_ptr(const smart_refctd_ptr& other) noexcept : smart_refctd_ptr(other.ptr) {}
+			smart_refctd_ptr(smart_refctd_ptr&& other) noexcept : smart_refctd_ptr()
+			{
+				std::swap(ptr, other.ptr);
+			}
+			~smart_refctd_ptr() noexcept
+			{
+				if (ptr)
+					ptr->drop();
+			}
+
+			inline smart_refctd_ptr& operator=(I_REFERENCE_COUNTED* _pointer) noexcept
+			{
+				if (_pointer)
+					_pointer->grab();
+				if (ptr)
+					ptr->drop();
+				ptr = _pointer;
+				return *this;
+			}
+			inline smart_refctd_ptr& operator=(const smart_refctd_ptr& other) noexcept
+			{
+				return operator=(other.ptr);
+			}
+			inline smart_refctd_ptr& operator=(smart_refctd_ptr&& other) noexcept
+			{
+				std::swap(ptr, other.ptr);
+				return *this;
+			}
+
+			inline I_REFERENCE_COUNTED* get() { return ptr; }
+			inline const I_REFERENCE_COUNTED* get() const { return ptr; }
+
+			inline I_REFERENCE_COUNTED* operator->() { return ptr; }
+			inline const I_REFERENCE_COUNTED* operator->() const { return ptr; }
+
+			inline I_REFERENCE_COUNTED& operator*() { return *ptr; }
+			inline const I_REFERENCE_COUNTED& operator*() const { return *ptr; }
+
+			inline I_REFERENCE_COUNTED& operator[](size_t idx) { return ptr[idx]; }
+			inline const I_REFERENCE_COUNTED& operator[](size_t idx) const { return ptr[idx]; }
+
+
+			inline explicit operator bool() const { return ptr; }
+			inline bool operator!() const { return !ptr; }
+
+			inline bool operator==(const smart_refctd_ptr &other) const { return ptr == other.ptr; }
+			inline bool operator!=(const smart_refctd_ptr &other) const { return ptr != other.ptr; }
+	};
+
+	// create and object and make a smart pointer without increasing reference count above 1
+	template< class T, class... Args >
+	inline smart_refctd_ptr<T> make_smart_refctd_ptr(Args&& ... args)
+	{
+		T* obj = new T(std::forward<Args>(args)...);
+		smart_refctd_ptr<T> smart(obj);
+		return smart;
+	}
+	template< class T, class... Args >
+	inline smart_refctd_ptr<T> make_smart_refctd_ptr(Args&& ... args, dont_grab_t t)
+	{
+		T* obj = new T(std::forward<Args>(args)...);
+		smart_refctd_ptr<T> smart(obj, t);
+		return smart;
+	}
+
 }
 } // end namespace irr
 
