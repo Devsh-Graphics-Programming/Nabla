@@ -41,3 +41,6 @@
 [submodule "3rdparty/libjpeg-turbo"]
 	path = 3rdparty/libjpeg-turbo
 	url = https://github.com/libjpeg-turbo/libjpeg-turbo.git
+[submodule "3rdparty/libjpeg"]
+	path = 3rdparty/libjpeg
+	url = https://github.com/LuaDist/libjpeg.git
