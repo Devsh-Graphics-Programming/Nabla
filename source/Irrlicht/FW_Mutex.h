@@ -209,9 +209,9 @@ class FW_ConditionVariable
     private:
         FW_ConditionVariable(const FW_ConditionVariable&); // no implementation
         FW_ConditionVariable&   operator=(const FW_ConditionVariable&); // no implementation
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
         FW_Mutex*      mutexAttachedTo;
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 #if defined(FW_MUTEX_H_CXX11_IMPL)
 		std::condition_variable conditionVar;
 #elif _MSC_VER && !__INTEL_COMPILER

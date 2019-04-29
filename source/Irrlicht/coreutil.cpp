@@ -1,5 +1,5 @@
 #include "coreutil.h"
-#include "utf8.h"
+#include "utf8/unchecked.h"
 #include "ConvertUTF.h"
 #include "FW_Mutex.h"
 
@@ -71,7 +71,7 @@ std::wstring UTF8StringToWString(const std::string& inString, uint32_t inReplace
 {
 	std::string replacedStr;
 	replacedStr.reserve(inString.size());
-	utf8::replace_invalid(inString.begin(), inString.end(), back_inserter(replacedStr), inReplacementforInvalid);
+	utf8::unchecked::replace_invalid(inString.begin(), inString.end(), back_inserter(replacedStr), inReplacementforInvalid);
 
 	std::wstring utf16line;
 	utf16line.reserve(replacedStr.length());
