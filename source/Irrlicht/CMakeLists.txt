@@ -8,7 +8,27 @@ endif()
 
 # set default install prefix
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-	set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/install" CACHE PATH "Install path" FORCE)
+	if (WIN32)
+		if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+			set(PLATFORM win64-clang)
+		elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+			set(PLATFORM win64-gcc)
+		elseif (MSVC)
+			set(PLATFORM win64-msvc)
+		endif()
+	elseif (UNIX AND NOT APPLE)
+		if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+			set(PLATFORM linux-clang)
+		elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+			set(PLATFORM linux-gcc)
+		endif()
+	endif()
+	
+	if (NOT ${PLATFORM})
+		message(FATAL_ERROR "Unsupported compiler!")
+	endif()
+
+	set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/install/${PLATFORM}" CACHE PATH "Install path" FORCE)
 endif()
 
 # include utility macros/functions
@@ -369,28 +389,12 @@ endif()
 
 set_target_properties(Irrlicht IrrlichtServer PROPERTIES DEBUG_POSTFIX _debug)
 
-
-# PLATFORM is directory relative to CMAKE_INSTALL_PREFIX
-if(MSVC)
-	set (PLATFORM "Win64-msvc")
-elseif(WIN32)
-	set (PLATFORM "Win64-gcc")
-else()
-	if (APPLE)
-		set (PLATFORM "MacOSX")
-	elseif(UNIX)
-		set (PLATFORM "Linux")
-	else()
-		set (PLATFORM "unknown_platform")
-	endif()
-endif()
-
 macro(irr_install_static_lib _TRGT)
-	install(TARGETS ${_TRGT} ARCHIVE DESTINATION ${PLATFORM}/Release CONFIGURATIONS Release)
-	install(TARGETS ${_TRGT} ARCHIVE DESTINATION ${PLATFORM}/Debug CONFIGURATIONS Debug)
+	install(TARGETS ${_TRGT} ARCHIVE DESTINATION lib CONFIGURATIONS Release)
+	install(TARGETS ${_TRGT} ARCHIVE DESTINATION debug/lib CONFIGURATIONS Debug)
 endmacro()
 
 irr_install_static_lib(Irrlicht)
 irr_install_static_lib(IrrlichtServer)
-irr_install_headers("${IRRLICHT_HEADERS_PUBLIC}" "${CMAKE_SOURCE_DIR}/include" ${PLATFORM})
-irr_install_config_header(BuildConfigOptions.h ${PLATFORM})
+irr_install_headers("${IRRLICHT_HEADERS_PUBLIC}" "${CMAKE_SOURCE_DIR}/include")
+irr_install_config_header(BuildConfigOptions.h)
