@@ -5139,12 +5139,8 @@ inline void COpenGLExtensionHandler::extGlBeginConditionalRender(GLuint id, GLen
 
 inline void COpenGLExtensionHandler::extGlEndConditionalRender()
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlEndConditionalRender)
 		pGlEndConditionalRender();
-#else
-    glEndConditionalRender();
-#endif
 }
 
 
@@ -5154,10 +5150,10 @@ inline void COpenGLExtensionHandler::extGlTextureBarrier()
 		pGlTextureBarrier();
 	else if (FeatureAvailable[IRR_NV_texture_barrier])
 		pGlTextureBarrierNV();
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     else
         os::Printer::log("EDF_TEXTURE_BARRIER Not Available!\n",ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 }
 
 

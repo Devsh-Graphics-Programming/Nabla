@@ -328,11 +328,6 @@ add_library(IrrlichtServer STATIC
 	$<TARGET_OBJECTS:zlib>
 )
 
-if (NOT MSVC)
-	target_compile_options(Irrlicht PRIVATE -fexceptions)
-	target_compile_options(IrrlichtServer PRIVATE -fexceptions)
-endif()
-
 add_dependencies(IrrlichtServer openssl_build)
 irr_target_link_openssl(IrrlichtServer)
 irr_target_link_shaderc(IrrlichtServer)
