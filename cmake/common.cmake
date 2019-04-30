@@ -59,7 +59,7 @@ function(irr_install_headers _HEADERS _BASE_HEADERS_DIR _PLATFORM)
 		file(RELATIVE_PATH dir ${_BASE_HEADERS_DIR} ${file})
 		get_filename_component(dir ${dir} DIRECTORY)
 		install(FILES ${file} DESTINATION ${_PLATFORM}/include/${dir} CONFIGURATIONS Release)
-		install(FILES ${file} DESTINATION ${_PLATFORM}/debug/include/${dir} CONFIGURATIONS Debug)
+		install(FILES ${file} DESTINATION ${_PLATFORM}/include/debug/${dir} CONFIGURATIONS Debug)
 	endforeach()
 endfunction()
 
