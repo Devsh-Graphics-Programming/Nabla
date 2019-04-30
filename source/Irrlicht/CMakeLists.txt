@@ -8,6 +8,7 @@ endif()
 
 # set default install prefix
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+	set(PLATFORM NOTFOUND)
 	if (WIN32)
 		if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
 			set(PLATFORM win64-clang)
@@ -24,7 +25,7 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 		endif()
 	endif()
 	
-	if (NOT ${PLATFORM})
+	if ("${PLATFORM}" STREQUAL "NOTFOUND")
 		message(FATAL_ERROR "Unsupported compiler!")
 	endif()
 
