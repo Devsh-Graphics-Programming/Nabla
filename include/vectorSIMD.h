@@ -256,6 +256,11 @@ namespace core
 
 #include "SIMDswizzle.h"
 
+#ifdef __GNUC__
+// warning: ignoring attributes on template argument ‘__m128i {aka __vector(2) long long int}’ [-Wignored-attributes] (etc...)
+#   pragma GCC diagnostic push
+#   pragma GCC diagnostic ignored "-Wignored-attributes"
+#endif
 
     template <class T>
     class vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>, public impl::vectorSIMDIntBase<vectorSIMD_32<T> >
@@ -803,6 +808,9 @@ namespace core
         };
 	};
 
+#ifdef __GNUC__
+#   pragma GCC diagnostic pop
+#endif
 
     //! Returns component-wise absolute value of a
     inline vectorSIMDf abs(const vectorSIMDf& a)
