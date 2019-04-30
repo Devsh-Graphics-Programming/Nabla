@@ -33,7 +33,7 @@ macro(irr_adjust_flags)
 			-Wno-unused-but-set-parameter
 			-fno-exceptions
 			-fno-strict-aliasing
-			-msse3
+			-msse4.2
 			-mfpmath=sse
 			-fuse-ld=gold
 			
@@ -112,9 +112,6 @@ macro(irr_adjust_definitions)
 			-DNOMINMAX
 		)
 	endif()
-	
-	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
-	set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -D_DEBUG")
 endmacro()
 
 if(WIN32)

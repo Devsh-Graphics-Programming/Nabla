@@ -4,11 +4,11 @@ execute_process(COMMAND git submodule update --init --recursive
 
 
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "Skip SPIRV-Headers examples")
-add_subdirectory(SPIRV-Headers)
+add_subdirectory(SPIRV-Headers SPIRV-Headers EXCLUDE_FROM_ALL)
 set(SKIP_SPIRV_TOOLS_INSTALL ON CACHE BOOL "Skip SPIRV-Tools install")
 set(SPIRV_SKIP_TESTS ON CACHE BOOL "Skip SPIRV-Tools tests")
 set(SPIRV_SKIP_EXECUTABLES ON CACHE BOOL "Skip SPIRV-Tools executable build")
-add_subdirectory(SPIRV-Tools)
+add_subdirectory(SPIRV-Tools SPIRV-Tools EXCLUDE_FROM_ALL)
 set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "Skip glslang install")
 set(ENABLE_SPVREMAPPER OFF CACHE BOOL "SPVRemapper is a spirv compression experimental library")
 set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "Build glslangValidator and spirv-remap?")
@@ -28,10 +28,12 @@ add_subdirectory(shaderc)
 add_subdirectory(openssl)
 
 #manipulating libjpeg cmake options from within cmake script
+#option(ENABLE_SHARED "jpeg-turbo" OFF)
+#set(CMAKE_INSTALL_DOCDIR "${CMAKE_CURRENT_BINARY_DIR}/doc" CACHE PATH "For libjpeg-turbo" FORCE)
 option(BUILD_STATIC "jpeg" ON)
 option(BUILD_EXECUTABLES "jpeg" OFF)
 option(BUILD_TESTS "jpeg" OFF)
-add_subdirectory(libjpeg)
+add_subdirectory(libjpeg libjpeg EXCLUDE_FROM_ALL)
 
 #manipulating libpng cmake options from within cmake script
 option(PNG_BUILD_ZLIB "Custom zlib Location, else find_package is used" OFF)
@@ -39,7 +41,9 @@ set(PNG_BUILD_ZLIB ON)
 set(ZLIB_INCLUDE_DIR ${THIRD_PARTY_SOURCE_DIR}/zlib) #for pnglib
 option(PNG_SHARED "Build shared lib" OFF)
 option(PNG_TESTS  "Build libpng tests" OFF)
-add_subdirectory(libpng)
+add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
+
+irr_adjust_flags()
 
 add_library(lzma OBJECT
 	lzma/C/Alloc.c

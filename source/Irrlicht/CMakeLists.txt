@@ -8,7 +8,7 @@ endif()
 
 # set default install prefix
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
-	set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/installdir" CACHE PATH "Install path" FORCE)
+	set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/install" CACHE PATH "Install path" FORCE)
 endif()
 
 # include utility macros/functions
@@ -215,21 +215,21 @@ macro(irr_target_link_openssl _trgt)
 	target_include_directories(${_trgt} PUBLIC "$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/include")
 endmacro()
 macro(irr_target_link_shaderc _trgt)
-	add_dependencies(Irrlicht shaderc)
+	add_dependencies(${_trgt} shaderc)
 	target_link_libraries(${_trgt} INTERFACE
 		shaderc
 	)
 	target_include_directories(${_trgt} PUBLIC ${CMAKE_SOURCE_DIR}/3rdparty/shaderc/libshaderc/include)
 endmacro()
 macro(irr_target_link_libjpeg _trgt)
-	add_dependencies(Irrlicht jpeg)
+	add_dependencies(${_trgt} jpeg)
 	target_link_libraries(${_trgt} INTERFACE
 		jpeg
 	)
 	target_include_directories(${_trgt} PUBLIC ${CMAKE_SOURCE_DIR}/3rdparty/libjpeg)
 endmacro()
 macro(irr_target_link_libpng _trgt)
-	add_dependencies(Irrlicht png_static)
+	add_dependencies(${_trgt} png_static)
 	target_link_libraries(${_trgt} INTERFACE
 		png_static $<TARGET_OBJECTS:zlib>
 	)
@@ -327,11 +327,6 @@ add_library(IrrlichtServer STATIC
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:zlib>
 )
-
-if (NOT MSVC)
-	target_compile_options(Irrlicht PRIVATE -fexceptions)
-	target_compile_options(IrrlichtServer PRIVATE -fexceptions)
-endif()
 
 add_dependencies(IrrlichtServer openssl_build)
 irr_target_link_openssl(IrrlichtServer)

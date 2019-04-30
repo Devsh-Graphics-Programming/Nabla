@@ -1,16 +1,23 @@
 # Code::Blocks files
 *.depend
 *.layout
+# Visual Studio
+.vscode/*
+# temporary compiler files
 *.objs*
 *.d
 *.o
+# usually where people build
 build/*
+# default install paths
+install/*
+# legacy temporary and output directories
+lib/*
+doctemp/*
 source/obj
+source/Irrlicht/libIrrlichtServer.a
+# stuff output by examples
 examples_tests/06.MeshLoaders/bin/cow.baw
 examples_tests/06.MeshLoaders/bin/extrusionLogo_TEST_fixed.baw
 examples_tests/07.HardwareSkinning/bin/dwarf.baw
-source/Irrlicht/libIrrlichtServer.a
-lib/*
-doctemp/*
-.vscode/*
 
