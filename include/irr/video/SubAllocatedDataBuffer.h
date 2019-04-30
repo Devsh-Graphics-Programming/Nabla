@@ -161,11 +161,16 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             auto allocation = mAllocator.getCurrentBufferAllocation();
 
             IGPUBuffer* retval;
-            static_if<is_std_get_0_defined<decltype(allocation)>::value >([&](auto f){
-                retval = std::get<0u>(allocation);
-            }).else_([&](auto f){
-                retval = allocation;
-            });
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_std_get_0_defined<decltype(allocation)>::value)
+			{
+				retval = std::get<0u>(allocation);
+			}
+			IRR_PSEUDO_ELSE_CONSTEXPR
+			{
+				retval = allocation;
+			}
+			IRR_PSEUDO_IF_CONSTEXPR_END
+
             return retval;
         }
         inline IGPUBuffer* getBuffer() noexcept
