@@ -10,7 +10,7 @@
 namespace irr { namespace asset
 {
 
-shaderc_shader_kind ESStoShadercEnum(E_SHADER_STAGE _ss)
+inline shaderc_shader_kind ESStoShadercEnum(E_SHADER_STAGE _ss)
 {
     using T = std::underlying_type_t<E_SHADER_STAGE>;
 
