@@ -315,7 +315,7 @@ namespace irr { namespace video
     {
         int8_t& pix = reinterpret_cast<int8_t*>(_pix)[0];
         {
-            const int8_t mask = 0xffLL;
+            const uint8_t mask = 0xffULL;
             pix &= (~(mask << 0));
             double inp = _input[0];
             inp *= 127.;
@@ -344,7 +344,7 @@ namespace irr { namespace video
     {
         int8_t& pix = reinterpret_cast<int8_t*>(_pix)[0];
         {
-            const int8_t mask = 0xffLL;
+            const uint8_t mask = 0xffULL;
             pix &= (~(mask << 0));
             double inp = _input[0];
             inp /= _scale;
@@ -372,7 +372,7 @@ namespace irr { namespace video
     {
         int8_t& pix = reinterpret_cast<int8_t*>(_pix)[0];
         {
-            const int8_t mask = 0xffLL;
+            const uint8_t mask = 0xffULL;
             pix &= (~(mask << 0));
             int64_t inp = _input[0];
             pix |= ((inp & mask) << 0);
@@ -1671,7 +1671,7 @@ namespace irr { namespace video
     {
         int16_t& pix = reinterpret_cast<int16_t*>(_pix)[0];
         {
-            const int16_t mask = 0xffffLL;
+            const uint16_t mask = 0xffffULL;
             pix &= (~(mask << 0));
             double inp = _input[0];
             inp *= 32767.;
@@ -2138,7 +2138,7 @@ namespace irr { namespace video
     {
         int32_t& pix = reinterpret_cast<int32_t*>(_pix)[0];
         {
-            const int32_t mask = 0xffffffffLL;
+            const uint32_t mask = 0xffffffffULL;
             pix &= (~(mask << 0));
             int64_t inp = _input[0];
             pix |= ((inp & mask) << 0);
@@ -2234,7 +2234,7 @@ namespace irr { namespace video
     {
         int64_t& pix = reinterpret_cast<int64_t*>(_pix)[0];
         {
-            const int64_t mask = 0xffffffffffffffffLL;
+            const uint64_t mask = 0xffffffffffffffffULL;
             pix &= (~(mask << 0));
             int64_t inp = _input[0];
             pix |= ((inp & mask) << 0);
