@@ -41,3 +41,9 @@
 [submodule "3rdparty/libjpeg"]
 	path = 3rdparty/libjpeg
 	url = https://github.com/LuaDist/libjpeg.git
+[submodule "examples_tests/media/cegui_alfisko"]
+	path = examples_tests/media/cegui_alfisko
+	url = git@gitlab.com:InnerPieceOSS/cegui_alfisko.git
+[submodule "3rdparty/CEGUI/cegui"]
+	path = 3rdparty/CEGUI/cegui
+	url = git@gitlab.com:InnerPieceOSS/cegui.git
