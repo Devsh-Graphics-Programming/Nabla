@@ -26,8 +26,8 @@ There's also a skype support group, reach @devsh for a private invite.
 The authors of IrrlichtBAW are:
 - Mateusz Kielan [@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming) (Lead)
 - Krzysztof Szenk [@crisspl](https://github.com/Crisspl) (Core Engineer)
-- [@manhnt](https://github.com/manhnt9) Nguyễn Tiến Mạnh (CEGUI, Radeon Rays and Build System)
-- [@florastamine](https://github.com/florastamine) . (CEGUI and BRDF Explorer)
+- [@manhnt9](https://github.com/manhnt9) Nguyễn Tiến Mạnh (CEGUI, Radeon Rays and Build System)
+- [@florastamine](https://github.com/florastamine) Nguyễn Ngọc Huy (CEGUI and BRDF Explorer)
 - Søren Gronbech 
 
 Words of appreciation for developers developers whose software has been used in IrrlichtBAW, currently and in the past:
