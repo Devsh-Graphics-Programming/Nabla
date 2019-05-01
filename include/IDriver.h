@@ -49,7 +49,7 @@ namespace video
             \param whether to perform an implicit flush the first time CPU waiting,
             this only works if the first wait is from the same thread as the one which
             placed the fence. **/
-            virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread=false) = 0;
+			virtual core::smart_refctd_ptr<IDriverFence> placeFence(const bool& implicitFlushWaitSameThread = false) = 0;
 
             static inline IDriverMemoryBacked::SDriverMemoryRequirements getDeviceLocalGPUMemoryReqs()
             {
@@ -219,7 +219,7 @@ namespace video
                     this->copyBuffer(defaultUploadBuffer.get()->getBuffer(),buffer,localOffset,offset+uploadedSize,subSize);
                     // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
                     // no glFlush needed because waitCPU is not done to block execution until GPU is done on the allocations
-                    defaultUploadBuffer.get()->multi_free(1u,&localOffset,&subSize,core::smart_refctd_ptr<IDriverFence>(this->placeFence(),core::dont_grab));
+                    defaultUploadBuffer.get()->multi_free(1u,&localOffset,&subSize,this->placeFence());
                     uploadedSize += subSize;
                 }
             }

@@ -39,26 +39,12 @@ add_subdirectory(libjpeg libjpeg EXCLUDE_FROM_ALL)
 option(PNG_BUILD_ZLIB "Custom zlib Location, else find_package is used" OFF)
 set(PNG_BUILD_ZLIB ON)
 set(ZLIB_INCLUDE_DIR ${THIRD_PARTY_SOURCE_DIR}/zlib) #for pnglib
+set(ZLIB_LIBRARY "$<TARGET_OBJECTS:zlib>") #for pnglib
 option(PNG_SHARED "Build shared lib" OFF)
 option(PNG_TESTS  "Build libpng tests" OFF)
 add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
 
 irr_adjust_flags()
-
-add_library(lzma OBJECT
-	lzma/C/Alloc.c
-	lzma/C/LzFind.c
-	lzma/C/LzmaDec.c
-	lzma/C/LzmaEnc.c
-)
-target_compile_definitions(lzma PRIVATE _7ZIP_ST)
-
-add_library(lz4 OBJECT
-	lz4/lib/lz4.c
-	lz4/lib/lz4frame.c
-	lz4/lib/lz4hc.c
-	lz4/lib/xxhash.c
-)
 
 add_library(zlib OBJECT
 	zlib/adler32.c
@@ -72,6 +58,20 @@ add_library(zlib OBJECT
 	zlib/uncompr.c
 	#zlib/zcompress.c
 	zlib/zutil.c
+)
+add_library(lzma OBJECT
+	lzma/C/Alloc.c
+	lzma/C/LzFind.c
+	lzma/C/LzmaDec.c
+	lzma/C/LzmaEnc.c
+)
+target_compile_definitions(lzma PRIVATE _7ZIP_ST)
+
+add_library(lz4 OBJECT
+	lz4/lib/lz4.c
+	lz4/lib/lz4frame.c
+	lz4/lib/lz4hc.c
+	lz4/lib/xxhash.c
 )
 
 add_library(bzip2 OBJECT

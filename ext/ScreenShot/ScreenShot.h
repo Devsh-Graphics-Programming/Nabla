@@ -13,7 +13,7 @@ namespace ext
 namespace ScreenShot
 {
 
-video::IDriverFence* createScreenShot(video::IDriver* driver, video::ITexture* source, video::IGPUBuffer* destination, uint32_t sourceMipLevel=0u, size_t destOffset=0ull, bool implicitflush=true)
+core::smart_refctd_ptr<video::IDriverFence> createScreenShot(video::IDriver* driver, video::ITexture* source, video::IGPUBuffer* destination, uint32_t sourceMipLevel=0u, size_t destOffset=0ull, bool implicitflush=true)
 {
 	// will change this, https://github.com/buildaworldnet/IrrlichtBAW/issues/148
 	if (isBlockCompressionFormat(source->getColorFormat()))

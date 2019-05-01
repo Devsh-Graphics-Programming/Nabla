@@ -484,9 +484,9 @@ namespace video
 		virtual void setMaterial(const SGPUMaterial& material);
 
         //! needs to be "deleted" since its not refcounted
-        virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread=false)
+        virtual core::smart_refctd_ptr<IDriverFence> placeFence(const bool& implicitFlushWaitSameThread=false) override final
         {
-            return new COpenGLDriverFence(implicitFlushWaitSameThread);
+            return core::make_smart_refctd_ptr<COpenGLDriverFence>(implicitFlushWaitSameThread);
         }
 
 		//! \return Returns the name of the video driver. Example: In case of the Direct3D8
