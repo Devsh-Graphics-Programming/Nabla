@@ -68,9 +68,7 @@ void CDraw3DLine::draw(
     m_driver->setMaterial(m_material);
     m_driver->drawMeshBuffer(m_meshBuffer);
 
-    auto fence = m_driver->placeFence();
-    upStreamBuff->multi_free(1u,(uint32_t*)&offset,(uint32_t*)&sizes,fence);
-    fence->drop();
+    upStreamBuff->multi_free(1u,(uint32_t*)&offset,(uint32_t*)&sizes,std::move(m_driver->placeFence()));
 }
 
 void CDraw3DLine::draw(const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData)
@@ -94,9 +92,7 @@ void CDraw3DLine::draw(const core::vector<std::pair<S3DLineVertex, S3DLineVertex
     m_driver->setMaterial(m_material);
     m_driver->drawMeshBuffer(m_meshBuffer);
 
-    auto fence = m_driver->placeFence();
-    upStreamBuff->multi_free(1u,(uint32_t*)&offset,(uint32_t*)&sizes,fence);
-    fence->drop();
+    upStreamBuff->multi_free(1u,(uint32_t*)&offset,(uint32_t*)&sizes,std::move(m_driver->placeFence()));
 }
 
 CDraw3DLine::~CDraw3DLine()

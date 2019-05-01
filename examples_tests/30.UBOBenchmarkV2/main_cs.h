@@ -139,7 +139,7 @@ int main()
 #define ITER_CNT 50000
     video::IQueryObject* queries[ITER_CNT];
 
-    video::IDriverFence* fences[4]{ nullptr, nullptr, nullptr, nullptr };
+    core::smart_refctd_ptr<video::IDriverFence> fences[4]{ nullptr, nullptr, nullptr, nullptr };
 
 
     auto cpustart = std::chrono::steady_clock::now();
@@ -154,11 +154,9 @@ int main()
                 auto res = fences[frameNum % 4]->waitCPU(10000000000ull);
                 return (res == video::EDFR_CONDITION_SATISFIED || res == video::EDFR_ALREADY_SIGNALED);
             };
-            while (!waitf())
-            {
-                fences[frameNum % 4]->drop();
-                fences[frameNum % 4] = nullptr;
-            }
+			while (!waitf()) {}
+
+            fences[frameNum % 4] = nullptr;
         }
         memcpy(reinterpret_cast<uint8_t*>(stagingBuffer->getBoundMemory()->getMappedPointer())+(frameNum%4)*bufSize, cpubuffer->getPointer(), bufSize);
 #if FLUSH_EXPLICIT==true
@@ -168,8 +166,7 @@ int main()
         //! copy from staging to local
         driver->copyBuffer(stagingBuffer,buffer,(frameNum % 4) * bufSize,0,bufSize);
 
-        if (!fences[frameNum%4])
-            fences[frameNum%4] = driver->placeFence();
+        fences[frameNum%4] = driver->placeFence();
 
 
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_UNIFORM_BARRIER_BIT);

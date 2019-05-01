@@ -184,21 +184,29 @@ namespace core
 	class smart_refctd_ptr
 	{
 			static_assert(std::is_base_of<IReferenceCounted, I_REFERENCE_COUNTED>::value,"Wrong Base Class!");
-
+			
 			mutable I_REFERENCE_COUNTED* ptr; // since IReferenceCounted declares the refcount mutable atomic
+			template<class U> friend class smart_refctd_ptr;
 		public:
 			constexpr smart_refctd_ptr() noexcept : ptr(nullptr) {}
 			constexpr smart_refctd_ptr(std::nullptr_t) noexcept : ptr(nullptr) {}
-			explicit smart_refctd_ptr(I_REFERENCE_COUNTED* _pointer) noexcept : ptr(_pointer)
+			template<class U>
+			explicit smart_refctd_ptr(U* _pointer) noexcept : ptr(_pointer)
 			{
 				if (_pointer)
 					_pointer->grab();
 			}
-			explicit smart_refctd_ptr(I_REFERENCE_COUNTED* _pointer, dont_grab_t t) noexcept : ptr(_pointer) {}
-			smart_refctd_ptr(const smart_refctd_ptr& other) noexcept : smart_refctd_ptr(other.ptr) {}
-			smart_refctd_ptr(smart_refctd_ptr&& other) noexcept : smart_refctd_ptr()
+			template<class U>
+			explicit smart_refctd_ptr(U* _pointer, dont_grab_t t) noexcept : ptr(_pointer) {}
+			template<class U>
+			smart_refctd_ptr(const smart_refctd_ptr<U>& other) noexcept : smart_refctd_ptr(other.ptr) {}
+			template<class U>
+			smart_refctd_ptr(smart_refctd_ptr<U>&& other) noexcept : smart_refctd_ptr()
 			{
-				std::swap(ptr, other.ptr);
+				if (ptr) // should only happen if constexpr (is convertible)
+					ptr->drop();
+				ptr = other.ptr;
+				other.ptr = nullptr; // should only happen if constexpr (is convertible)
 			}
 			~smart_refctd_ptr() noexcept
 			{
@@ -206,7 +214,8 @@ namespace core
 					ptr->drop();
 			}
 
-			inline smart_refctd_ptr& operator=(I_REFERENCE_COUNTED* _pointer) noexcept
+			template<class U>
+			inline smart_refctd_ptr& operator=(U* _pointer) noexcept
 			{
 				if (_pointer)
 					_pointer->grab();
@@ -215,13 +224,18 @@ namespace core
 				ptr = _pointer;
 				return *this;
 			}
-			inline smart_refctd_ptr& operator=(const smart_refctd_ptr& other) noexcept
+			template<class U>
+			inline smart_refctd_ptr& operator=(const smart_refctd_ptr<U>& other) noexcept
 			{
 				return operator=(other.ptr);
 			}
-			inline smart_refctd_ptr& operator=(smart_refctd_ptr&& other) noexcept
+			template<class U>
+			inline smart_refctd_ptr& operator=(smart_refctd_ptr<U>&& other) noexcept
 			{
-				std::swap(ptr, other.ptr);
+				if (ptr) // should only happen if constexpr (is convertible)
+					ptr->drop();
+				ptr = other.ptr;
+				other.ptr = nullptr; // should only happen if constexpr (is convertible)
 				return *this;
 			}
 
@@ -241,8 +255,15 @@ namespace core
 			inline explicit operator bool() const { return ptr; }
 			inline bool operator!() const { return !ptr; }
 
-			inline bool operator==(const smart_refctd_ptr &other) const { return ptr == other.ptr; }
-			inline bool operator!=(const smart_refctd_ptr &other) const { return ptr != other.ptr; }
+			template<class U>
+			inline bool operator==(const smart_refctd_ptr<U> &other) const { return ptr == other.ptr; }
+			template<class U>
+			inline bool operator!=(const smart_refctd_ptr<U> &other) const { return ptr != other.ptr; }
+
+			template<class U>
+			inline bool operator<(const smart_refctd_ptr<U> &other) const { return ptr < other.ptr; }
+			template<class U>
+			inline bool operator>(const smart_refctd_ptr<U>& other) const { return ptr > other.ptr; }
 	};
 
 	// create and object and make a smart pointer without increasing reference count above 1

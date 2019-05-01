@@ -86,7 +86,7 @@ namespace video
 		virtual void setMaterial(const SGPUMaterial& material);
 
         //! GPU fence, is signalled when preceeding GPU work is completed
-        virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread=false) {return NULL;}
+        virtual core::smart_refctd_ptr<IDriverFence> placeFence(const bool& implicitFlushWaitSameThread=false) {return nullptr;}
 
         ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) override;
 
