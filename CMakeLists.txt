@@ -130,6 +130,7 @@ endif()
 #option(IRR_TARGET_ARCH_ARM "Build for ARM?" OFF)
 
 option(IRR_COMPILE_WITH_OPENGL "Compile with OpenGL backend?" ON)
+
 option(IRR_COMPILE_WITH_BURNINGSVIDEO "Compile with software backend?" ON)
 
 option(IRR_PCH "Enable pre-compiled header" ON)
@@ -140,6 +141,8 @@ option(IRR_BUILD_EXAMPLES "Enable building examples" ON)
 
 option(IRR_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 
+option(IRR_BUILD_CEGUI "Enable CEGUI building and integration?" OFF)
+
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
@@ -149,6 +152,11 @@ add_subdirectory(source/Irrlicht) # Irrlicht code
 if(IRR_BUILD_TOOLS)
 	add_subdirectory(tools) # convert2BAW
 endif()
+
+if(IRR_BUILD_CEGUI)
+	add_definitions(-DIRR_BUILD_CEGUI)
+endif()
+
 if(IRR_BUILD_EXAMPLES)
 	add_subdirectory(examples_tests)
 endif()

@@ -9,6 +9,10 @@
 *.o
 # usually where people build
 build/*
+# build generated config
+include/irr/config
+# cegui dependencies extracted by build
+cegui-cegui-dependencies*
 # default install paths
 install/*
 # legacy temporary and output directories
