@@ -42,7 +42,7 @@ if (MSVC) # only MSVC needs to download and build dependencies of CEGUI
             -DCEGUI_BUILD_EXPAT=ON
             -DCEGUI_BUILD_FREEIMAGE=OFF
             -DCEGUI_BUILD_FREETYPE2=ON
-            -DCEGUI_BUILD_GLEW=OFF
+            -DCEGUI_BUILD_GLEW=ON
             -DCEGUI_BUILD_GLFW=OFF
             -DCEGUI_BUILD_GLM=ON
             -DCEGUI_BUILD_LUA=OFF
@@ -80,25 +80,27 @@ execute_process(
     WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
 )
 
+# CEGUI needs at least 1 image codec to build although we won't use
 execute_process(
-    COMMAND ${CMAKE_COMMAND} ${CEGUI_PATH} -DCMAKE_INSTALL_PREFIX=${CEGUI_INSTALL_PATH}
+    COMMAND ${CMAKE_COMMAND} ${CEGUI_PATH}
+        -DCMAKE_INSTALL_PREFIX=${CEGUI_INSTALL_PATH}
+        -DCEGUI_BUILD_APPLICATION_TEMPLATES=OFF
+        -DCEGUI_BUILD_IMAGECODEC_STB=ON
+        -DCEGUI_BUILD_RENDERER_OPENGL3=ON
+        -DCEGUI_SAMPLES_ENABLED=OFF
+        -DCEGUI_BUILD_STATIC_CONFIGURATION=ON
+        -DCEGUI_BUILD_STATIC_FACTORY_MODULE=ON
+        -DCMAKE_INSTALL_PREFIX=${CEGUI_INSTALL_PATH}
     WORKING_DIRECTORY ${CEGUI_BUILD_PATH}
 )
 
-if (MSVC)
-    execute_process(
-        COMMAND MSBUILD /p:Configuration=Release INSTALL.vcxproj
-        WORKING_DIRECTORY ${CEGUI_BUILD_PATH}
-    )
-else()
-    execute_process(
-        COMMAND ${CMAKE_COMMAND}
-            --build ${CEGUI_BUILD_PATH}
-            --target install
-            --config Release
-            -j ${IRR_PARALLEL_BUILD_JOBS}
-    )
-endif()
+execute_process(
+    COMMAND ${CMAKE_COMMAND}
+        --build ${CEGUI_BUILD_PATH}
+        --target install
+        --config Release
+        -j ${IRR_PARALLEL_BUILD_JOBS}
+)
 
 message(STATUS "CEGUI built")
 
