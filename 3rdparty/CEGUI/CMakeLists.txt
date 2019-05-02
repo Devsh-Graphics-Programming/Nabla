@@ -3,7 +3,7 @@ if (IRR_BUILD_CEGUI)
 if (MSVC)
     set(CEGUI_DEPS_URL "https://sourceforge.net/projects/crayzedsgui/files/CEGUI%20Mk-2%20Dependencies/0.8.x/cegui-deps-0.8.x-src.zip/download")
     set(CEGUI_DEPS_ARCHIVE ${CMAKE_CURRENT_BINARY_DIR}/cegui-deps-0.8.x-src.zip)
-    set(CEGUI_DEPS_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cegui-cegui-dependencies-0ecdf3a9e49b)
+    set(CEGUI_DEPS_PATH ${CMAKE_CURRENT_BINARY_DIR}/cegui-cegui-dependencies-0ecdf3a9e49b)
     set(CEGUI_DEPS_BUILD_PATH ${CEGUI_DEPS_PATH}/build)
     set(CEGUI_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cegui)
 
@@ -14,13 +14,13 @@ if (MSVC)
             SHOW_PROGRESS
         )
     endif()
-    message(STATUS "CEGUI 0.8.x downloaded")
+    message(STATUS "CEGUI 0.8.x dependencies downloaded")
 
     if (NOT EXISTS "${CEGUI_DEPS_PATH}")
         message(STATUS "Extracting CEGUI 0.8.x dependencies")
         execute_process(
             COMMAND ${CMAKE_COMMAND} -E tar xzf ${CEGUI_DEPS_ARCHIVE}
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
         )
         message(STATUS "Extracting done")
     endif()
