@@ -55,7 +55,7 @@ if (MSVC)
     )
 
     execute_process(
-        COMMAND ${CMAKE_COMMAND} --build ${CEGUI_DEPS_BUILD_PATH} --config Release -j 4
+        COMMAND ${CMAKE_COMMAND} --build ${CEGUI_DEPS_BUILD_PATH} --config Release -j  ${IRR_PARALLEL_BUILD_JOBS}
     )
 
     message(STATUS "CEGUI 0.8.x dependencies built")
