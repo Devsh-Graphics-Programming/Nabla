@@ -125,7 +125,7 @@ void testImage(const std::string& path, IrrlichtDevice* device, video::IGPUMeshB
 	}
 }
 
-int main()
+int main(int argc, const char *argv[])
 {
 	irr::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
@@ -154,7 +154,7 @@ int main()
 	
 	if (fs)
 	{
-		io::IReadFile* file = fs->createAndOpenFile("testlist.txt");
+		io::IReadFile* file = fs->createAndOpenFile(argv[1] ? argv[1] : "testlist.txt");
 		if (file)
 		{
 			std::string line;
