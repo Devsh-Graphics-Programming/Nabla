@@ -102,6 +102,8 @@ static void jpeg_file_dest(j_compress_ptr cinfo, io::IWriteFile* file)
 static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, uint32_t quality)
 {
 	void (*format)(const void*, int32_t, void*) = 0;
+	bool grayscale = false;
+	
 	switch( image->getColorFormat () )
 	{
         case asset::EF_R8G8B8_UNORM:
@@ -116,6 +118,13 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 			break;
 		case asset::EF_B5G6R5_UNORM_PACK16:
 			format = video::CColorConverter::convert_R5G6B5toR8G8B8;
+			break;
+		case asset::EF_R8_UNORM:
+			grayscale = true;
+			// Pass-through, don't convert anything
+			format = [] (const void* sP, int32_t sN, void* dP) -> void {
+				memcpy(dP, sP, sN);
+			};
 			break;
 		default:
 			break;
@@ -135,8 +144,8 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 	jpeg_file_dest(&cinfo, file);
 	cinfo.image_width = dim.X;
 	cinfo.image_height = dim.Y;
-	cinfo.input_components = 3;
-	cinfo.in_color_space = JCS_RGB;
+	cinfo.input_components = grayscale ? 1 : 3;
+	cinfo.in_color_space = grayscale ? JCS_GRAYSCALE : JCS_RGB;
 
 	jpeg_set_defaults(&cinfo);
 
