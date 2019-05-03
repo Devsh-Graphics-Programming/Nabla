@@ -23,7 +23,6 @@ uint8_t *CImageLoaderTGA::loadCompressedImage(io::IReadFile *file, const STGAHea
 {
 	// This was written and sent in by Jon Pry, thank you very much!
 	// I only changed the formatting a little bit.
-
 	int32_t bytesPerPixel = header.PixelDepth/8;
 	int32_t imageSize =  header.ImageHeight * header.ImageWidth * bytesPerPixel;
 	uint8_t* data = new uint8_t[imageSize];
@@ -81,18 +80,9 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 	_file->seek(_file->getSize()-sizeof(STGAFooter));
 	_file->read(&footer, sizeof(STGAFooter));
     _file->seek(prevPos);
-
-	if (strcmp(footer.Signature,"TRUEVISION-X_file.")) // very old tgas are refused.
-	{
-#ifdef _IRR_DEBUG
-		os::Printer::log("Unsupported, very old TGA", _file->getFileName().c_str(), ELL_ERROR);
-#endif // _IRR_DEBUG
-	    return false;
-	}
-    else
-        return true;
+	
+	return true;
 }
-
 
 
 //! creates a surface from the file
@@ -110,7 +100,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 	if (header.ColorMapType)
 	{
 		// create 32 bit palette
-		palette = new uint32_t[ header.ColorMapLength];
+		palette = new uint32_t[header.ColorMapLength];
 
 		// read color map
 		uint8_t * colorMap = new uint8_t[header.ColorMapEntrySize/8 * header.ColorMapLength];
@@ -135,30 +125,40 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 	core::vector<asset::CImageData*> images;
 	// read image
 	uint8_t* data = 0;
-
-	if (	header.ImageType == 1 || // Uncompressed, color-mapped images.
-			header.ImageType == 2 || // Uncompressed, RGB images
-			header.ImageType == 3 // Uncompressed, black and white images
-		)
+	
+	switch (header.ImageType)
 	{
-		const int32_t imageSize = header.ImageHeight * header.ImageWidth * header.PixelDepth/8;
-		data = new uint8_t[imageSize];
-	  	_file->read(data, imageSize);
-	}
-	else
-	if(header.ImageType == 10)
-	{
-		// Runlength encoded RGB images
-		data = loadCompressedImage(_file, header);
-	}
-	else
-	{
-		os::Printer::log("Unsupported TGA _file type", _file->getFileName().c_str(), ELL_ERROR);
+		case 1: // Uncompressed color-mapped image
+		case 2: // Uncompressed RGB image
+		case 3: // Uncompressed grayscale image
+			{
+				const int32_t imageSize = header.ImageHeight * header.ImageWidth * header.PixelDepth/8;
+				data = new uint8_t[imageSize];
+				_file->read(data, imageSize);
+			}
+			break;
+		
+		case 10: // Run-length encoded true-color image
+			data = loadCompressedImage(_file, header);
+			break;
+		
+		case 0:
+			{
+				os::Printer::log("The given TGA doesn't have image data", _file->getFileName().c_str(), ELL_ERROR);
+				if (palette)
+					delete [] palette;
 
-		if (palette)
-            delete [] palette;
+				return nullptr;
+			}
+		
+		default:
+			{
+				os::Printer::log("Unsupported TGA file type", _file->getFileName().c_str(), ELL_ERROR);
+				if (palette)
+					delete [] palette;
 
-		return nullptr;
+				return nullptr;
+			}
 	}
 
     asset::CImageData* image = 0;
@@ -168,50 +168,50 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 
 	switch(header.PixelDepth)
 	{
-	case 8:
-		{
-			if (header.ImageType==3) // grey image
+		case 8:
 			{
+				if (header.ImageType == 3) // Grayscale
+				{
+					image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_R8G8B8_UNORM);
+					if (image)
+						video::CColorConverter::convert8BitTo24Bit((uint8_t*)data,
+							(uint8_t*)image->getData(),
+							header.ImageWidth,header.ImageHeight,
+							0, 0, (header.ImageDescriptor&0x20)==0);
+				}
+				else
+				{
+					image = new asset::CImageData(NULL,nullOffset,imageSize,0, asset::EF_A1R5G5B5_UNORM_PACK16);
+					if (image)
+						video::CColorConverter::convert8BitTo16Bit((uint8_t*)data,
+							(int16_t*)image->getData(),
+							header.ImageWidth,header.ImageHeight,
+							(int32_t*) palette, 0,
+							(header.ImageDescriptor&0x20)==0);
+				}
+			}
+			break;
+		case 16:
+			image = new asset::CImageData(NULL,nullOffset,imageSize,0, asset::EF_A1R5G5B5_UNORM_PACK16);
+			if (image)
+				video::CColorConverter::convert16BitTo16Bit((int16_t*)data,
+					(int16_t*)image->getData(), header.ImageWidth,	header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);
+			break;
+		case 24:
 				image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_R8G8B8_UNORM);
 				if (image)
-                    video::CColorConverter::convert8BitTo24Bit((uint8_t*)data,
-						(uint8_t*)image->getData(),
-						header.ImageWidth,header.ImageHeight,
-						0, 0, (header.ImageDescriptor&0x20)==0);
-			}
-			else
-			{
-				image = new asset::CImageData(NULL,nullOffset,imageSize,0, asset::EF_A1R5G5B5_UNORM_PACK16);
+					video::CColorConverter::convert24BitTo24Bit(
+						(uint8_t*)data, (uint8_t*)image->getData(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0, true);
+			break;
+		case 32:
+				image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_B8G8R8A8_UNORM);
 				if (image)
-                    video::CColorConverter::convert8BitTo16Bit((uint8_t*)data,
-						(int16_t*)image->getData(),
-						header.ImageWidth,header.ImageHeight,
-						(int32_t*) palette, 0,
-						(header.ImageDescriptor&0x20)==0);
-			}
-		}
-		break;
-	case 16:
-		image = new asset::CImageData(NULL,nullOffset,imageSize,0, asset::EF_A1R5G5B5_UNORM_PACK16);
-		if (image)
-            video::CColorConverter::convert16BitTo16Bit((int16_t*)data,
-				(int16_t*)image->getData(), header.ImageWidth,	header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);
-		break;
-	case 24:
-			image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_R8G8B8_UNORM);
-			if (image)
-                video::CColorConverter::convert24BitTo24Bit(
-					(uint8_t*)data, (uint8_t*)image->getData(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0, true);
-		break;
-	case 32:
-			image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_B8G8R8A8_UNORM);
-			if (image)
-                video::CColorConverter::convert32BitTo32Bit((int32_t*)data,
-					(int32_t*)image->getData(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);
-		break;
-	default:
-		os::Printer::log("Unsupported TGA format", _file->getFileName().c_str(), ELL_ERROR);
-		break;
+					video::CColorConverter::convert32BitTo32Bit((int32_t*)data,
+						(int32_t*)image->getData(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);
+			break;
+		default:
+			os::Printer::log("Unsupported TGA format", _file->getFileName().c_str(), ELL_ERROR);
+			break;
 	}
 	images.push_back(image);
 
@@ -220,7 +220,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 	delete [] palette;
 
     asset::ICPUTexture* tex = asset::ICPUTexture::create(images);
-    for (auto img : images)
+    for (auto& img : images)
         img->drop();
     return tex;
 }
