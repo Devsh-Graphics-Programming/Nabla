@@ -102,6 +102,18 @@ execute_process(
         -j ${IRR_PARALLEL_BUILD_JOBS}
 )
 
+set(CEGUI_INCLUDE_PATH ${CEGUI_INSTALL_PATH}/include/cegui-0)
+
+if (MSVC)
+    set(CEGUI_LIBS
+        ${CEGUI_INSTALL_PATH}/lib/CEGUIBase-0_Static.lib
+        ${CEGUI_INSTALL_PATH}/lib/CEGUICommonDialogs-0_Static.lib
+        ${CEGUI_INSTALL_PATH}/lib/CEGUICoreWindowRendererSet_Static.lib
+        ${CEGUI_INSTALL_PATH}/lib/CEGUIExpatParser_Static.lib
+        ${CEGUI_INSTALL_PATH}/lib/CEGUIOpenGLRenderer-0_Static.lib
+    )
+endif()
+
 message(STATUS "CEGUI built")
 
 endif()
