@@ -105,6 +105,7 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 	switch( image->getColorFormat () )
 	{
         case asset::EF_R8G8B8_UNORM:
+		case asset::EF_R8G8B8_SRGB:
 			format = video::CColorConverter::convert_R8G8B8toR8G8B8;
 			break;
 		case asset::EF_B8G8R8A8_UNORM:
