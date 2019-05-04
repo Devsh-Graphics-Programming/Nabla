@@ -28,7 +28,7 @@ if(WIN32)
 		VCVARS64_BAT vcvars64.bat
 		"${MY_COMPILER_DIR}/../../../../../../Auxiliary/Build"
 	)
-	if (NOT VCVARS64_BAT)
+	if ("${VCVARS64_BAT}" STREQUAL "VCVARS64_BAT-NOTFOUND")
 		message(FATAL_ERROR "Path to vcvars64.bat must be provided manually")
 	endif()
    	
