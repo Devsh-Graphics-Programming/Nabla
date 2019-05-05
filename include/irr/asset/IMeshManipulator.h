@@ -74,6 +74,9 @@ namespace asset
 		IReferenceCounted::drop() for more information. */
 		virtual asset::ICPUMeshBuffer* createMeshBufferUniquePrimitives(asset::ICPUMeshBuffer* inbuffer) const = 0;
 
+		//
+		virtual asset::ICPUMeshBuffer* calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, const float creaseAngle) const = 0;
+
 		//! Creates a copy of a mesh with vertices welded
 		/** \param mesh Input mesh
         \param errMetrics Array of size EVAI_COUNT. Describes error metric for each vertex attribute (used if attribute is of floating point or normalized type).

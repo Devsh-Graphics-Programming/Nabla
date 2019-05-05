@@ -718,6 +718,11 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(asset:
 	return clone;
 }
 
+asset::ICPUMeshBuffer* CMeshManipulator::calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, const float creaseAngle) const
+{
+	return nullptr;
+}
+
 // Used by createMeshBufferWelded only
 static bool cmpVertices(asset::ICPUMeshBuffer* _inbuf, const void* _va, const void* _vb, size_t _vsize, const IMeshManipulator::SErrorMetric* _errMetrics, const IMeshManipulator* _meshManip)
 {
