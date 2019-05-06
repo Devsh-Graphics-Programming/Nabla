@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2018-2019 InnerPiece Technology Co., Ltd.
+Copyright (c) 2019 InnerPiece Technology Co., Ltd.
 https://innerpiece.io
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
