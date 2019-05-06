@@ -177,7 +177,7 @@ void COpenGLSLMaterialRenderer::init(int32_t& outMaterialTypeNr,
         pr.length = length;
         pr.type = getIrrUniformType(type);
         constants.push_back(pr);
-#if _IRR_DEBUG
+#ifdef _IRR_DEBUG
         debugConstantIndices.push_back(i);
 #endif
     }
@@ -194,7 +194,7 @@ void COpenGLSLMaterialRenderer::init(int32_t& outMaterialTypeNr,
 		COpenGLExtensionHandler::extGlUseProgram(oldProgram);
     }
 
-#if _IRR_DEBUG
+#ifdef _IRR_DEBUG
     debugConstants = constants;
 #endif
 }

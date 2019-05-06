@@ -187,15 +187,6 @@ namespace video
 		\param material: Material to be used from now on. */
 		virtual void setMaterial(const SGPUMaterial& material) =0;
 
-        //! needs to be "deleted" since its not refcounted by GPU driver internally
-        /** Since not owned by any openGL context and hence not owned by driver.
-        You normally need to call glFlush() after placing a fence
-		\param whether to perform an implicit flush the first time CPU waiting,
-		this only works if the first wait is from the same thread as the one which
-		placed the fence.
-        **/
-        virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread = false) = 0;
-
 		//! A.
 		/** \param B
 		\param C

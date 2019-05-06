@@ -58,9 +58,11 @@ public:
         {
             m_assetManager->convertAssetToEmptyCacheHandle(notFound[i], created[i]);
             res.insert(res.begin() + pos[i], created[i]);
-            irr::static_if<std::is_same<asset::ICPUTexture, AssetType>::value>(
-                [&created, i](auto f) { created[i]->drop(); } // IGPUTexture is not grabbed when set in SGPUMaterial, so we have to drop it after inserting into cache (done by convertAssetToEmptyCacheHandle)
-            );
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<asset::ICPUTexture, AssetType>::value)
+			{
+				created[i]->drop(); // IGPUTexture is not grabbed when set in SGPUMaterial, so we have to drop it after inserting into cache (done by convertAssetToEmptyCacheHandle)
+			}
+			IRR_PSEUDO_IF_CONSTEXPR_END
         }
 
         return res;

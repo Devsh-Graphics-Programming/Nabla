@@ -23,10 +23,8 @@
 #define ALIGN 32
 namespace avx
 {
-#ifdef _IRR_WINDOWS_
-	__declspec(align(ALIGN))
-#endif
-		struct matrix4x3_row
+
+	struct alignas(ALIGN) matrix4x3_row
 	{
 		float m[4][4];
 
@@ -34,7 +32,7 @@ namespace avx
 		{
 			if (!_data)
 				return;
-			memcpy(m, _data, 16*4);
+			memcpy(m, _data, 16 * 4);
 		}
 
 		inline matrix4x3_row concatenate(const matrix4x3_row& _other)
@@ -62,19 +60,12 @@ namespace avx
 			res = _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(0)), _mm256_broadcast_ps(reinterpret_cast<const __m128*>(&_mtx.m[0][0])));
 			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(1)), _mm256_broadcast_ps(reinterpret_cast<const __m128*>(&_mtx.m[1][0]))));
 			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(2)), _mm256_broadcast_ps(reinterpret_cast<const __m128*>(&_mtx.m[2][0]))));
-			res = _mm256_add_ps(res, _mm256_and_ps(_A01,mask));
+			res = _mm256_add_ps(res, _mm256_and_ps(_A01, mask));
 			return res;
 		}
-	}
-#ifndef _IRR_WINDOWS_
-	__attribute__((__aligned__(ALIGN)));
-#endif
-	; // matrix4x3_row
+	};
 
-#ifdef _IRR_WINDOWS_
-	__declspec(align(ALIGN))
-#endif
-		struct matrix4x3_col
+	struct alignas(ALIGN) matrix4x3_col
 	{
 		float m[4][4];
 
@@ -113,17 +104,14 @@ namespace avx
 			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(1)), _mm256_broadcast_ps(reinterpret_cast<const __m128*>(&_mtx.m[1][0]))));
 			res = _mm256_add_ps(res, _mm256_mul_ps(_mm256_shuffle_ps(_A01, _A01, BROADCAST32(2)), _mm256_broadcast_ps(reinterpret_cast<const __m128*>(&_mtx.m[2][0]))));
 			if (j)
-            {
-                const __m256 mask = _mm256_castsi256_ps(_mm256_setr_epi32(0, 0, 0, 0, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff));
-                res = _mm256_add_ps(res, _mm256_and_ps(mask, _mm256_broadcast_ps(reinterpret_cast<const __m128*>(&_mtx.m[3][0]))));
-            }
+			{
+				const __m256 mask = _mm256_castsi256_ps(_mm256_setr_epi32(0, 0, 0, 0, 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff));
+				res = _mm256_add_ps(res, _mm256_and_ps(mask, _mm256_broadcast_ps(reinterpret_cast<const __m128*>(&_mtx.m[3][0]))));
+			}
 			return res;
 		}
-	}
-#ifndef _IRR_WINDOWS_
-	__attribute__((__aligned__(ALIGN)));
-#endif
-	; // matrix4x3_row
+	};
+
 } // avx
 #endif
 
@@ -131,10 +119,7 @@ namespace avx
 #define ALIGN 16
 namespace sse3
 {
-#ifdef _IRR_WINDOWS_
-	__declspec(align(ALIGN))
-#endif
-		struct matrix4x3_row
+	struct alignas(ALIGN) matrix4x3_row
 	{
 		float m[4][4];
 
@@ -183,16 +168,9 @@ namespace sse3
 			res = _mm_add_ps(res, _mm_and_ps(a, mask)); // always 0 0 0 a3 -- no shuffle needed
 			return res;
 		}
-	}
-#ifndef _IRR_WINDOWS_
-	__attribute__((__aligned__(ALIGN)));
-#endif
-	; // matrix4x3_row
+	};
 
-#ifdef _IRR_WINDOWS_
-	__declspec(align(ALIGN))
-#endif
-		struct matrix4x3_col
+	struct alignas(ALIGN) matrix4x3_col
 	{
 		float m[4][4];
 
@@ -240,11 +218,7 @@ namespace sse3
 				res = _mm_add_ps(res, c3);
 			return res;
 		}
-	}
-#ifndef _IRR_WINDOWS_
-	__attribute__((__aligned__(ALIGN)));
-#endif
-	; // matrix4x3_col
+	}; // matrix4x3_col
 } // sse3
 #endif
 
