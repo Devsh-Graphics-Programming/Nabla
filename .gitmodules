@@ -47,3 +47,9 @@
 [submodule "3rdparty/CEGUI/cegui"]
 	path = 3rdparty/CEGUI/cegui
 	url = git@gitlab.com:InnerPieceOSS/cegui.git
+[submodule "ext/CEGUI/portable-file-dialogs"]
+	path = ext/CEGUI/portable-file-dialogs
+	url = git@github.com:samhocevar/portable-file-dialogs.git
+[submodule "ext/CEGUI/stb"]
+	path = ext/CEGUI/stb
+	url = git@github.com:nothings/stb.git
