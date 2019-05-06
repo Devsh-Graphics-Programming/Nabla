@@ -6,9 +6,9 @@
 
 #ifdef _IRR_COMPILE_WITH_JPG_WRITER_
 
-#include "CColorConverter.h"
 #include "IWriteFile.h"
 #include "CImage.h"
+#include "irr/video/convertColor.h"
 #include "irr/asset/ICPUTexture.h"
 
 #ifdef _IRR_COMPILE_WITH_LIBJPEG_
@@ -101,40 +101,10 @@ static void jpeg_file_dest(j_compress_ptr cinfo, io::IWriteFile* file)
 */
 static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, uint32_t quality)
 {
-	void (*format)(const void*, int32_t, void*) = 0;
-	bool grayscale = false;
+	auto format = image->getColorFormat();
+	bool grayscale = format == asset::EF_R8_UNORM;
 	
-	switch( image->getColorFormat () )
-	{
-        case asset::EF_R8G8B8_UNORM:
-		case asset::EF_R8G8B8_SRGB:
-			format = video::CColorConverter::convert_R8G8B8toR8G8B8;
-			break;
-		case asset::EF_B8G8R8A8_UNORM:
-			format = video::CColorConverter::convert_A8R8G8B8toR8G8B8;
-			break;
-		case asset::EF_A1R5G5B5_UNORM_PACK16:
-			format = video::CColorConverter::convert_A1R5G5B5toB8G8R8;
-			break;
-		case asset::EF_B5G6R5_UNORM_PACK16:
-			format = video::CColorConverter::convert_R5G6B5toR8G8B8;
-			break;
-		case asset::EF_R8_UNORM:
-			grayscale = true;
-			// Pass-through, don't convert anything
-			format = [] (const void* sP, int32_t sN, void* dP) -> void {
-				memcpy(dP, sP, sN);
-			};
-			break;
-		default:
-			break;
-	}
-
-	// couldn't find a color converter
-	if ( 0 == format )
-		return false;
-
-	const core::vector3d<uint32_t> dim = image->getSize();
+	core::vector3d<uint32_t> dim = image->getSize();
 
 	struct jpeg_compress_struct cinfo;
 	struct jpeg_error_mgr jerr;
@@ -162,13 +132,35 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 		const uint32_t pitch = image->getPitch();
 		JSAMPROW row_pointer[1];      /* pointer to JSAMPLE row[s] */
 		row_pointer[0] = dest;
-
+		
 		uint8_t* src = (uint8_t*)image->getData();
-
+		
+		/* Since the first argument to convertColor() requires a const void *[4], wrap our buffer pointer (src) and pass that to convertColor(). */
+		const void *src_container[4] { src };
+		
 		while (cinfo.next_scanline < cinfo.image_height)
 		{
 			// convert next line
-			format( src, dim.X, dest );
+			switch (format) {
+				case asset::EF_R8G8B8_UNORM:
+				case asset::EF_R8G8B8_SRGB:
+					video::convertColor<EF_R8G8B8_SRGB, EF_R8G8B8_SRGB>(src_container, dest, 1, dim.X, dim);
+					break;
+				case asset::EF_R8_UNORM:
+					video::convertColor<EF_R8_UNORM, EF_R8_UNORM>(src_container, dest, 1, dim.X, dim);
+					break;
+				case asset::EF_B5G6R5_UNORM_PACK16:
+					video::convertColor<EF_B5G6R5_UNORM_PACK16, EF_R8G8B8_SRGB>(src_container, dest, 1, dim.X, dim);
+					break;
+				case asset::EF_A1R5G5B5_UNORM_PACK16:
+					video::convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_R8G8B8_SRGB>(src_container, dest, 1, dim.X, dim);
+					break;
+				default:
+				{
+					delete [] dest;
+					return false;
+				}
+			}
 			src += pitch;
 			jpeg_write_scanlines(&cinfo, row_pointer, 1);
 		}
