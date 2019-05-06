@@ -112,7 +112,8 @@ add_library(aesGladman OBJECT
 
 if (IRR_BUILD_CEGUI)
 	add_subdirectory(CEGUI)
-	set(CEGUI_INCLUDE_PATH ${CEGUI_INSTALL_PATH}/include/cegui-0 PARENT_SCOPE)
+	set(CEGUI_INCLUDE_PATH ${CEGUI_INSTALL_PATH}/include/cegui-0)
+	set(CEGUI_INCLUDE_PATH ${CEGUI_INCLUDE_PATH} PARENT_SCOPE)
 
 	if (MSVC)
 		set(CEGUI_LIBS
@@ -121,6 +122,15 @@ if (IRR_BUILD_CEGUI)
 			${CEGUI_INSTALL_PATH}/lib/CEGUICoreWindowRendererSet_Static.lib
 			${CEGUI_INSTALL_PATH}/lib/CEGUIExpatParser_Static.lib
 			${CEGUI_INSTALL_PATH}/lib/CEGUIOpenGLRenderer-0_Static.lib
+			PARENT_SCOPE
+		)
+	else()
+		set(CEGUI_LIBS
+			${CEGUI_INSTALL_PATH}/lib/libCEGUIBase-0_Static.a
+			${CEGUI_INSTALL_PATH}/lib/libCEGUICommonDialogs-0_Static.a
+			${CEGUI_INSTALL_PATH}/lib/libCEGUICoreWindowRendererSet_Static.a
+			${CEGUI_INSTALL_PATH}/lib/libCEGUIExpatParser_Static.a
+			${CEGUI_INSTALL_PATH}/lib/libCEGUIOpenGLRenderer-0_Static.a
 			PARENT_SCOPE
 		)
 	endif()
