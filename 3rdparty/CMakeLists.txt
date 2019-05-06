@@ -44,8 +44,6 @@ option(PNG_SHARED "Build shared lib" OFF)
 option(PNG_TESTS  "Build libpng tests" OFF)
 add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
 
-add_subdirectory(CEGUI)
-
 irr_adjust_flags()
 
 add_library(zlib OBJECT
@@ -111,3 +109,19 @@ add_library(aesGladman OBJECT
 	aesGladman/pwd2key.c
 	aesGladman/sha1.c
 )
+
+if (IRR_BUILD_CEGUI)
+	add_subdirectory(CEGUI)
+	set(CEGUI_INCLUDE_PATH ${CEGUI_INSTALL_PATH}/include/cegui-0 PARENT_SCOPE)
+
+	if (MSVC)
+		set(CEGUI_LIBS
+			${CEGUI_INSTALL_PATH}/lib/CEGUIBase-0_Static.lib
+			${CEGUI_INSTALL_PATH}/lib/CEGUICommonDialogs-0_Static.lib
+			${CEGUI_INSTALL_PATH}/lib/CEGUICoreWindowRendererSet_Static.lib
+			${CEGUI_INSTALL_PATH}/lib/CEGUIExpatParser_Static.lib
+			${CEGUI_INSTALL_PATH}/lib/CEGUIOpenGLRenderer-0_Static.lib
+			PARENT_SCOPE
+		)
+	endif()
+endif()

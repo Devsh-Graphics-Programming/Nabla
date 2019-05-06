@@ -2,7 +2,7 @@ if (IRR_BUILD_CEGUI)
 
 set(CEGUI_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cegui)
 set(CEGUI_BUILD_PATH ${CMAKE_CURRENT_BINARY_DIR}/build)
-set(CEGUI_INSTALL_PATH ${CEGUI_BUILD_PATH}/install)
+set(CEGUI_INSTALL_PATH ${CEGUI_BUILD_PATH}/install PARENT_SCOPE)
 
 if (MSVC) # only MSVC needs to download and build dependencies of CEGUI
     set(CEGUI_DEPS_URL "https://sourceforge.net/projects/crayzedsgui/files/CEGUI%20Mk-2%20Dependencies/0.8.x/cegui-deps-0.8.x-src.zip/download")
@@ -101,18 +101,6 @@ execute_process(
         --config Release
         -j ${IRR_PARALLEL_BUILD_JOBS}
 )
-
-set(CEGUI_INCLUDE_PATH ${CEGUI_INSTALL_PATH}/include/cegui-0)
-
-if (MSVC)
-    set(CEGUI_LIBS
-        ${CEGUI_INSTALL_PATH}/lib/CEGUIBase-0_Static.lib
-        ${CEGUI_INSTALL_PATH}/lib/CEGUICommonDialogs-0_Static.lib
-        ${CEGUI_INSTALL_PATH}/lib/CEGUICoreWindowRendererSet_Static.lib
-        ${CEGUI_INSTALL_PATH}/lib/CEGUIExpatParser_Static.lib
-        ${CEGUI_INSTALL_PATH}/lib/CEGUIOpenGLRenderer-0_Static.lib
-    )
-endif()
 
 message(STATUS "CEGUI built")
 
