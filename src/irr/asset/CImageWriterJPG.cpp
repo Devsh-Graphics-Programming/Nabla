@@ -143,6 +143,8 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 			// convert next line
 			switch (format) {
 				case asset::EF_R8G8B8_UNORM:
+					video::convertColor<EF_R8G8B8_UNORM, EF_R8G8B8_SRGB>(src_container, dest, 1, dim.X, dim);
+					break;
 				case asset::EF_R8G8B8_SRGB:
 					video::convertColor<EF_R8G8B8_SRGB, EF_R8G8B8_SRGB>(src_container, dest, 1, dim.X, dim);
 					break;
@@ -213,4 +215,3 @@ bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 
 #undef OUTPUT_BUF_SIZE
 #endif
-
