@@ -48,6 +48,8 @@ class BRDF {
         BRDF(video::IVideoDriver* driver);
         ~BRDF();
 
+        void renderGUI();
+
     private:
         video::IVideoDriver* Driver = nullptr;
         ext::cegui::GUIManager* GUI = nullptr;

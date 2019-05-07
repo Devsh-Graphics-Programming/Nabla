@@ -26,6 +26,7 @@ SOFTWARE.
 */
 
 #include "CEGUI.h"
+#include "../source/Irrlicht/COpenGLDriver.h"
 #include <CEGUI/CEGUI.h>
 #include <CEGUI/CommonDialogs/ColourPicker/ColourPicker.h>
 
@@ -95,6 +96,15 @@ void GUIManager::init()
         float(Driver->getScreenSize().Width),
         float(Driver->getScreenSize().Height)
     ));
+}
+
+void GUIManager::render()
+{
+    auto renderState = irr::video::COpenGLState::collectGLState();
+    irr::video::COpenGLState guiState;
+    executeGLDiff(guiState.getStateDiff(renderState));
+    CEGUI::System::getSingleton().renderAllGUIContexts();
+    executeGLDiff(renderState.getStateDiff(irr::video::COpenGLState::collectGLState()));
 }
 
 void GUIManager::createRootWindowFromLayout(const std::string& layout)

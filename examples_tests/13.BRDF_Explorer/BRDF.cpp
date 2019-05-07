@@ -41,6 +41,11 @@ BRDF::BRDF(video::IVideoDriver* driver)
     );
 }
 
+void BRDF::renderGUI()
+{
+    GUI->render();
+}
+
 BRDF::~BRDF()
 {
 

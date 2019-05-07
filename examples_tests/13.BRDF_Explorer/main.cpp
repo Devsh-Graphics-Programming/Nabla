@@ -45,7 +45,6 @@ int main()
     {
         driver->beginScene(true, false, video::SColor(255,255,0,0) ); //this gets 11k FPS
 
-
         driver->endScene();
 
         // display frames per second in window title
