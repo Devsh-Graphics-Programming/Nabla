@@ -8,7 +8,7 @@
 
 #include "IReadFile.h"
 #include "os.h"
-#include "CColorConverter.h"
+#include "irr/video/convertColor.h"
 #include "irr/asset/CImageData.h"
 #include "irr/asset/ICPUTexture.h"
 
@@ -84,6 +84,29 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 	return true;
 }
 
+// convertColorFlip() does color conversion as well as taking care of properly flipping the given image.
+template <typename T, E_FORMAT srcFormat, E_FORMAT destFormat>
+static void convertColorFlip(const T *src, T *dest, core::vector3d<uint32_t> &size, int c, bool flip)
+{
+	T *in = (T *) src;
+	T *out = (T *) dest;
+	uint32_t stride = size.X * c;
+	
+	if (flip)
+		out += size.X * size.Y * c;
+	
+	for (int y = 0; y < size.Y; ++y) {
+		if (flip)
+			out -= stride;
+		
+		const void *src_container[4] = {in, nullptr, nullptr, nullptr};
+		video::convertColor<srcFormat, destFormat>(src_container, out, 1, size.X, size);
+		in += stride;
+		
+		if (!flip)
+			out += stride;
+	}
+}
 
 //! creates a surface from the file
 asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
@@ -105,18 +128,19 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 		// read color map
 		uint8_t * colorMap = new uint8_t[header.ColorMapEntrySize/8 * header.ColorMapLength];
 		_file->read(colorMap,header.ColorMapEntrySize/8 * header.ColorMapLength);
-
+		
 		// convert to 32-bit palette
+		const void *src_container[4] = {colorMap, nullptr, nullptr, nullptr};
 		switch ( header.ColorMapEntrySize )
 		{
 			case 16:
-                video::CColorConverter::convert_A1R5G5B5toA8R8G8B8(colorMap, header.ColorMapLength, palette);
+				video::convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_R8G8B8A8_SRGB>(src_container, palette, 1, header.ColorMapLength, 0u);
 				break;
 			case 24:
-                video::CColorConverter::convert_B8G8R8toA8R8G8B8(colorMap, header.ColorMapLength, palette);
+				video::convertColor<EF_B8G8R8_SRGB, EF_R8G8B8A8_SRGB>(src_container, palette, 1, header.ColorMapLength, 0u);
 				break;
 			case 32:
-				video::CColorConverter::convert_B8G8R8A8toA8R8G8B8(colorMap, header.ColorMapLength, palette);
+				video::convertColor<EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(src_container, palette, 1, header.ColorMapLength, 0u);
 				break;
 		}
 		delete [] colorMap;
@@ -138,7 +162,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 			}
 			break;
 		
-		case 10: // Run-length encoded true-color image
+		case 10: // Run-length encoded (RLE) true color image
 			data = loadCompressedImage(_file, header);
 			break;
 		
@@ -165,54 +189,52 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 
 	uint32_t nullOffset[3] = {0,0,0};
 	uint32_t imageSize[3] = {header.ImageWidth,header.ImageHeight,1};
-
+	bool flip = !((header.ImageDescriptor & 0x20) == 0);
+	
 	switch(header.PixelDepth)
 	{
 		case 8:
 			{
-				if (header.ImageType == 3) // Grayscale
+				if (header.ImageType != 3)
 				{
-					image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_R8G8B8_UNORM);
-					if (image)
-						video::CColorConverter::convert8BitTo24Bit((uint8_t*)data,
-							(uint8_t*)image->getData(),
-							header.ImageWidth,header.ImageHeight,
-							0, 0, (header.ImageDescriptor&0x20)==0);
+					os::Printer::log("Loading 8-bit non-grayscale is NOT supported.", ELL_ERROR);
+					if (palette) delete [] palette;
+					if (data)    delete [] data;
+					
+					return nullptr;
 				}
-				else
-				{
-					image = new asset::CImageData(NULL,nullOffset,imageSize,0, asset::EF_A1R5G5B5_UNORM_PACK16);
-					if (image)
-						video::CColorConverter::convert8BitTo16Bit((uint8_t*)data,
-							(int16_t*)image->getData(),
-							header.ImageWidth,header.ImageHeight,
-							(int32_t*) palette, 0,
-							(header.ImageDescriptor&0x20)==0);
-				}
+				
+				image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_R8_UNORM);
+				if (image)
+					memcpy((uint8_t*) image->getData(), (const uint8_t*) data, header.ImageHeight * header.ImageWidth);
 			}
 			break;
 		case 16:
-			image = new asset::CImageData(NULL,nullOffset,imageSize,0, asset::EF_A1R5G5B5_UNORM_PACK16);
-			if (image)
-				video::CColorConverter::convert16BitTo16Bit((int16_t*)data,
-					(int16_t*)image->getData(), header.ImageWidth,	header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);
+			{
+				image = new asset::CImageData(NULL,nullOffset,imageSize,0, asset::EF_A1R5G5B5_UNORM_PACK16);
+				if (image)
+					convertColorFlip<uint8_t, EF_A1R5G5B5_UNORM_PACK16, EF_A1R5G5B5_UNORM_PACK16>((const uint8_t *) data, (uint8_t *) image->getData(), image->getSize(), 2, flip);
+			}
 			break;
 		case 24:
-				image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_R8G8B8_UNORM);
+			{
+				image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_R8G8B8_SRGB);
 				if (image)
-					video::CColorConverter::convert24BitTo24Bit(
-						(uint8_t*)data, (uint8_t*)image->getData(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0, true);
+					convertColorFlip<uint8_t, EF_B8G8R8_SRGB, EF_R8G8B8_SRGB>((const uint8_t *) data, (uint8_t *) image->getData(), image->getSize(), 3, flip);
+			}
 			break;
 		case 32:
-				image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_B8G8R8A8_UNORM);
+			{
+				image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_R8G8B8A8_SRGB);
 				if (image)
-					video::CColorConverter::convert32BitTo32Bit((int32_t*)data,
-						(int32_t*)image->getData(), header.ImageWidth, header.ImageHeight, 0, (header.ImageDescriptor&0x20)==0);
+					convertColorFlip<uint8_t, EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>((const uint8_t *) data, (uint8_t *) image->getData(), image->getSize(), 4, flip);
+			}
 			break;
 		default:
 			os::Printer::log("Unsupported TGA format", _file->getFileName().c_str(), ELL_ERROR);
 			break;
 	}
+	
 	images.push_back(image);
 
 
