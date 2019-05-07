@@ -46,8 +46,8 @@ GUIManager* createGUIManager(video::IVideoDriver* driver)
 GUIManager::GUIManager(video::IVideoDriver* driver)
     :   Driver(driver),
         Renderer(OpenGL3Renderer::create(Sizef(
-            float(Driver->getCurrentRenderTargetSize().Width),
-            float(Driver->getCurrentRenderTargetSize().Height)
+            float(Driver->getScreenSize().Width),
+            float(Driver->getScreenSize().Height)
         )))
 {
 
@@ -94,8 +94,8 @@ void GUIManager::init()
     System::getSingleton().getDefaultGUIContext().setDefaultTooltipType(
         "Alfisko/Tooltip");
     System::getSingleton().notifyDisplaySizeChanged(Sizef(
-        float(Driver->getCurrentRenderTargetSize().Width),
-        float(Driver->getCurrentRenderTargetSize().Height)
+        float(Driver->getScreenSize().Width),
+        float(Driver->getScreenSize().Height)
     ));
 }
 
