@@ -87,6 +87,8 @@ CEGUI::String ssprintf(const std::string& format, Args... args)
     return CEGUI::String(std::string(buf.get(), buf.get() + size - 1)); // We don't want the '\0' inside
 }
 
+std::string readWindowLayout(const std::string& layoutName);
+
 } // namespace cegui
 } // namespace ext
 } // namespace irr

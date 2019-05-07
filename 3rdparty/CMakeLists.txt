@@ -140,7 +140,7 @@ if (IRR_BUILD_CEGUI)
 			"${FREETYPE_LIBRARIES}"
 			"${CEGUI_INSTALL_PATH}/lib/libCEGUICoreWindowRendererSet_Static.a "
 			"${EXPAT_LIBRARIES} "
-			"${PCRE_LIBRARIES}"
+			"${PCRE_LIBRARIES} "
 			PARENT_SCOPE
 		)
 	endif()

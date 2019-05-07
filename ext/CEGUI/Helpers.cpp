@@ -27,9 +27,14 @@ SOFTWARE.
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STBI_MINGW_ENABLE_SSE2
+
 #include "stb/stb_image.h"
 #include "portable-file-dialogs/portable-file-dialogs.h"
 #include "Helpers.h"
+
+#include <string>
+#include <fstream>
+#include <streambuf>
 
 namespace irr
 {
@@ -135,6 +140,14 @@ void Replace(std::string& str, const std::string& from, const std::string& to)
 ImageBuffer loadImage(const char* file)
 {
     return ImageBuffer(file);
+}
+
+std::string readWindowLayout(const std::string& layoutPath)
+{
+    std::ifstream file(layoutPath);
+    std::string str((std::istreambuf_iterator<char>(file)),
+                    std::istreambuf_iterator<char>());
+    return str;
 }
 
 } // namespace cegui
