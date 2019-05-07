@@ -50,7 +50,7 @@ class BRDF {
 
     private:
         video::IVideoDriver* Driver = nullptr;
-        ext::cegui::GUIManager* GUI;
+        ext::cegui::GUIManager* GUI = nullptr;
 };
 
 } // namespace irr

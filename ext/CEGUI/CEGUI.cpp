@@ -26,10 +26,8 @@ SOFTWARE.
 */
 
 #include "CEGUI.h"
-#include "Helpers.h"
 #include <CEGUI/CEGUI.h>
 #include <CEGUI/CommonDialogs/ColourPicker/ColourPicker.h>
-#include <CEGUI/RendererModules/OpenGL/GL3Renderer.h>
 
 using namespace CEGUI;
 
@@ -46,14 +44,65 @@ GUIManager* createGUIManager(video::IVideoDriver* driver)
 }
 
 GUIManager::GUIManager(video::IVideoDriver* driver)
-    :   Driver(driver)
+    :   Driver(driver),
+        Renderer(OpenGL3Renderer::create(Sizef(
+            float(Driver->getCurrentRenderTargetSize().Width),
+            float(Driver->getCurrentRenderTargetSize().Height)
+        )))
 {
 
 }
 
 void GUIManager::init()
 {
+    Renderer.enableExtraStateSettings(true);
 
+    System::create(Renderer);
+
+    DefaultResourceProvider* rp = static_cast<DefaultResourceProvider*>(
+        System::getSingleton().getResourceProvider());
+    rp->setResourceGroupDirectory("schemes", "../../media/cegui_alfisko/schemes/");
+    rp->setResourceGroupDirectory("imagesets", "../../media/cegui_alfisko/imagesets/");
+    rp->setResourceGroupDirectory("fonts", "../../media/cegui_alfisko/fonts/");
+    rp->setResourceGroupDirectory("layouts", "../../media/cegui_alfisko/layouts/");
+    rp->setResourceGroupDirectory("looknfeels", "../../media/cegui_alfisko/looknfeel/");
+    rp->setResourceGroupDirectory("lua_scripts", "../../media/cegui_alfisko/lua_scripts/");
+    rp->setResourceGroupDirectory("schemas", "../../media/cegui_alfisko/xml_schemas/");
+
+    ImageManager::setImagesetDefaultResourceGroup("imagesets");
+    Font::setDefaultResourceGroup("fonts");
+    Scheme::setDefaultResourceGroup("schemes");
+    WidgetLookManager::setDefaultResourceGroup("looknfeels");
+    WindowManager::setDefaultResourceGroup("layouts");
+    ScriptModule::setDefaultResourceGroup("lua_scripts");
+
+    XMLParser* parser = System::getSingleton().getXMLParser();
+    if (parser->isPropertyPresent("SchemaDefaultResourceGroup"))
+        parser->setProperty("SchemaDefaultResourceGroup", "schemas");
+
+    SchemeManager::getSingleton().createFromFile("Alfisko.scheme", "schemes");
+    FontManager::getSingleton().createFromFile("Cousine-Regular.font");
+    SchemeManager::getSingleton().createFromFile("AlfiskoCommonDialogs.scheme",
+        "schemes");
+
+    System::getSingleton().getDefaultGUIContext().setDefaultFont(
+        "Cousine-Regular");
+    System::getSingleton()
+        .getDefaultGUIContext()
+        .getMouseCursor()
+        .setDefaultImage("Alfisko/MouseArrow");
+    System::getSingleton().getDefaultGUIContext().setDefaultTooltipType(
+        "Alfisko/Tooltip");
+    System::getSingleton().notifyDisplaySizeChanged(Sizef(
+        float(Driver->getCurrentRenderTargetSize().Width),
+        float(Driver->getCurrentRenderTargetSize().Height)
+    ));
+}
+
+void GUIManager::createRootWindowFromLayout(const std::string& layout)
+{
+    RootWindow = WindowManager::getSingleton().loadLayoutFromString(layout);
+    System::getSingleton().getDefaultGUIContext().setRootWindow(RootWindow);
 }
 
 GUIManager::~GUIManager()

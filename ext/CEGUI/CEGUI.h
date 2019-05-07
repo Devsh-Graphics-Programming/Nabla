@@ -29,6 +29,12 @@ SOFTWARE.
 #define _IRR_EXT_CEGUI_INCLUDED_
 
 #include "irrlicht.h"
+#include "Helpers.h"
+#include <CEGUI/RendererModules/OpenGL/GL3Renderer.h>
+
+namespace CEGUI {
+class Window;
+}
 
 namespace irr
 {
@@ -49,9 +55,12 @@ public:
     void init();
     void shutdown();
     void render();
+    void createRootWindowFromLayout(const std::string& layout);
 
 private:
     video::IVideoDriver* Driver = nullptr;
+    CEGUI::OpenGL3Renderer& Renderer;
+    CEGUI::Window* RootWindow;
 };
 
 } // namespace cegui
