@@ -120,7 +120,7 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 	jpeg_set_defaults(&cinfo);
 
 	if ( 0 == quality )
-		quality = 75;
+		quality = 85;
 
 	jpeg_set_quality(&cinfo, quality, TRUE);
 	jpeg_start_compress(&cinfo, TRUE);
@@ -135,21 +135,15 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 		
 		uint8_t* src = (uint8_t*)image->getData();
 		
-		/* Since the first argument to convertColor() requires a const void *[4], wrap our buffer pointer (src) and pass that to convertColor(). */
-		const void *src_container[4] { src };
-		
 		while (cinfo.next_scanline < cinfo.image_height)
 		{
-			// convert next line
+			/* Since the first argument to convertColor() requires a const void *[4], wrap our buffer pointer (src) and pass that to convertColor(). */
+			const void *src_container[4] = {src, nullptr, nullptr, nullptr};
+			
+			/* Perform color conversion for non-EF_R8G8B8_SRGB/non-EF_R8_UNORM, and pass-through the pixels for the rest.*/
 			switch (format) {
 				case asset::EF_R8G8B8_UNORM:
 					video::convertColor<EF_R8G8B8_UNORM, EF_R8G8B8_SRGB>(src_container, dest, 1, dim.X, dim);
-					break;
-				case asset::EF_R8G8B8_SRGB:
-					video::convertColor<EF_R8G8B8_SRGB, EF_R8G8B8_SRGB>(src_container, dest, 1, dim.X, dim);
-					break;
-				case asset::EF_R8_UNORM:
-					video::convertColor<EF_R8_UNORM, EF_R8_UNORM>(src_container, dest, 1, dim.X, dim);
 					break;
 				case asset::EF_B5G6R5_UNORM_PACK16:
 					video::convertColor<EF_B5G6R5_UNORM_PACK16, EF_R8G8B8_SRGB>(src_container, dest, 1, dim.X, dim);
@@ -157,12 +151,18 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 				case asset::EF_A1R5G5B5_UNORM_PACK16:
 					video::convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_R8G8B8_SRGB>(src_container, dest, 1, dim.X, dim);
 					break;
+				case asset::EF_R8_UNORM:
+				case asset::EF_R8G8B8_SRGB:
+					memcpy(dest, src, dim.X * cinfo.input_components);
+					break;
 				default:
 				{
+					os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
 					delete [] dest;
 					return false;
 				}
 			}
+			
 			src += pitch;
 			jpeg_write_scanlines(&cinfo, row_pointer, 1);
 		}
@@ -209,7 +209,7 @@ bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
     io::IWriteFile* file = _override->getOutputFile(_file, ctx, {image, 0u});
     const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, image, 0u);
     const float comprLvl = _override->getAssetCompressionLevel(ctx, image, 0u);
-	return writeJPEGFile(file, image, (!!(flags & asset::EWF_COMPRESSED))*(1.f-comprLvl)*100.f); // if quality==0, then it defaults to 75
+	return writeJPEGFile(file, image, (!!(flags & asset::EWF_COMPRESSED)) * (uint32_t)((1.f-comprLvl)*100.f)); // if quality==0, then it defaults to 75
 #endif
 }
 
