@@ -147,6 +147,12 @@ if (IRR_BUILD_CEGUI)
 
 	install(
 		DIRECTORY ${CEGUI_INCLUDE_PATH}/CEGUI
-		DESTINATION ${CMAKE_INSTALL_PREFIX}/include/irr/ext/
+		DESTINATION ./include/irr/ext/
+		CONFIGURATIONS Release
+	)
+	install(
+		DIRECTORY ${CEGUI_INCLUDE_PATH}/CEGUI
+		DESTINATION ./debug/include/irr/ext/
+		CONFIGURATIONS Debug
 	)
 endif()
