@@ -1,8 +1,7 @@
 #define _IRR_STATIC_LIB_
 
 #include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
-#include "../../ext/CEGUI/CEGUI.h"
+#include "BRDF.h"
 
 // TODO: document example
 /**
@@ -37,7 +36,7 @@ int main()
     video::IVideoDriver* driver = device->getVideoDriver();
     scene::ISceneManager* smgr = device->getSceneManager();
 
-    auto cegui = ext::cegui::createGUIManager(driver);
+    auto* brdf = new BRDF(driver);
 
     uint64_t lastFPSTime = 0;
 
