@@ -288,6 +288,7 @@ if (UNIX)
 		${X11_Xxf86vm_LIB} 
 		${CMAKE_THREAD_LIBS_INIT}
 		${CMAKE_DL_LIBS}
+		$<$<CONFIG:DEBUG>:-lunwind>
 	)
 endif()
 
@@ -320,8 +321,9 @@ else()
 	message(STATUS "Vulkan driver is not enabled")
 endif()
 
-target_compile_definitions(Irrlicht PRIVATE
-	_IRR_STATIC_LIB_
+target_compile_definitions(Irrlicht 
+	PRIVATE	_IRR_STATIC_LIB_
+	PUBLIC	UNW_LOCAL_ONLY
 )
 
 if(IRR_PCH)
