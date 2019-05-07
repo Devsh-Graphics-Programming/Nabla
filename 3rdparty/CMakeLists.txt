@@ -144,4 +144,9 @@ if (IRR_BUILD_CEGUI)
 			PARENT_SCOPE
 		)
 	endif()
+
+	install(
+		DIRECTORY ${CEGUI_INCLUDE_PATH}/CEGUI
+		DESTINATION ${CMAKE_INSTALL_PREFIX}/include/irr/ext/
+	)
 endif()
