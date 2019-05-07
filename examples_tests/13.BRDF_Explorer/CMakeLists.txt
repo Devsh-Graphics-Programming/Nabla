@@ -8,5 +8,5 @@ irr_create_executable_project(
 	../../ext/CEGUI/CEGUI.cpp
 	"-DCEGUI_STATIC -DCEGUI_BUILD_STATIC_FACTORY_MODULE"
 	${CEGUI_INCLUDE_PATH}
-	${CEGUI_LIBS}
+	"${CEGUI_LIBS}"
 )

@@ -117,20 +117,28 @@ if (IRR_BUILD_CEGUI)
 
 	if (MSVC)
 		set(CEGUI_LIBS
-			${CEGUI_INSTALL_PATH}/lib/CEGUIBase-0_Static.lib
-			${CEGUI_INSTALL_PATH}/lib/CEGUICommonDialogs-0_Static.lib
-			${CEGUI_INSTALL_PATH}/lib/CEGUICoreWindowRendererSet_Static.lib
-			${CEGUI_INSTALL_PATH}/lib/CEGUIExpatParser_Static.lib
-			${CEGUI_INSTALL_PATH}/lib/CEGUIOpenGLRenderer-0_Static.lib
+			"${CEGUI_INSTALL_PATH}/lib/CEGUIBase-0_Static.lib "
+			"${CEGUI_INSTALL_PATH}/lib/CEGUICommonDialogs-0_Static.lib "
+			"${CEGUI_INSTALL_PATH}/lib/CEGUICoreWindowRendererSet_Static.lib "
+			"${CEGUI_INSTALL_PATH}/lib/CEGUIExpatParser_Static.lib "
+			"${CEGUI_INSTALL_PATH}/lib/CEGUIOpenGLRenderer-0_Static.lib "
+			"${CEGUI_DEPS_INSTALL_PATH}/lib/Expat.lib "
+			"${CEGUI_DEPS_INSTALL_PATH}/lib/Freetype.lib "
 			PARENT_SCOPE
 		)
 	else()
+    find_package(EXPAT REQUIRED)
+    find_package(Freetype REQUIRED)
+    find_package(GLEW REQUIRED)
 		set(CEGUI_LIBS
-			${CEGUI_INSTALL_PATH}/lib/libCEGUIBase-0_Static.a
-			${CEGUI_INSTALL_PATH}/lib/libCEGUICommonDialogs-0_Static.a
-			${CEGUI_INSTALL_PATH}/lib/libCEGUICoreWindowRendererSet_Static.a
-			${CEGUI_INSTALL_PATH}/lib/libCEGUIExpatParser_Static.a
-			${CEGUI_INSTALL_PATH}/lib/libCEGUIOpenGLRenderer-0_Static.a
+			"${CEGUI_INSTALL_PATH}/lib/libCEGUIOpenGLRenderer-0_Static.a "
+			"${CEGUI_INSTALL_PATH}/lib/libCEGUIBase-0_Static.a "
+			"${GLEW_LIBRARIES} "
+			"${CEGUI_INSTALL_PATH}/lib/libCEGUIExpatParser_Static.a "
+			"${CEGUI_INSTALL_PATH}/lib/libCEGUISTBImageCodec_Static.a "
+			"${FREETYPE_LIBRARIES}"
+			"${CEGUI_INSTALL_PATH}/lib/libCEGUICoreWindowRendererSet_Static.a "
+			"${EXPAT_LIBRARIES}"
 			PARENT_SCOPE
 		)
 	endif()

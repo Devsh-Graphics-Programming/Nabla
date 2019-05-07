@@ -10,6 +10,8 @@ if (MSVC) # only MSVC needs to download and build dependencies of CEGUI
     set(CEGUI_DEPS_ARCHIVE ${CMAKE_CURRENT_BINARY_DIR}/cegui-deps-0.8.x-src.zip)
     set(CEGUI_DEPS_PATH ${CMAKE_CURRENT_BINARY_DIR}/cegui-cegui-dependencies-0ecdf3a9e49b)
     set(CEGUI_DEPS_BUILD_PATH ${CEGUI_DEPS_PATH}/build)
+    set(CEGUI_DEPS_INSTALL_PATH ${CEGUI_PATH}/dependencies)
+    set(CEGUI_DEPS_INSTALL_PATH ${CEGUI_DEPS_INSTALL_PATH} PARENT_SCOPE)
 
     if (NOT EXISTS "${CEGUI_DEPS_ARCHIVE}")
         message(STATUS "Downloading CEGUI 0.8.x dependencies")
@@ -68,13 +70,10 @@ if (MSVC) # only MSVC needs to download and build dependencies of CEGUI
     execute_process(
         COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CEGUI_DEPS_BUILD_PATH}/dependencies
-        ${CEGUI_PATH}/dependencies
+        ${CEGUI_DEPS_INSTALL_PATH}
     )
     message(STATUS "Installing done")
 
-else()
-    find_package(EXPAT REQUIRED)
-    find_package(Freetype REQUIRED)
 endif()
 
 message(STATUS "Building CEGUI")
@@ -90,6 +89,7 @@ execute_process(
         -DCMAKE_INSTALL_PREFIX=${CEGUI_INSTALL_PATH}
         -DCEGUI_INSTALL_PKGCONFIG=OFF
         -DCEGUI_BUILD_APPLICATION_TEMPLATES=OFF
+        -DCEGUI_HAS_PCRE_REGEX=OFF
         -DCEGUI_BUILD_PYTHON_MODULES=OFF
         -DCEGUI_BUILD_LUA_MODULE=OFF
         -DCEGUI_BUILD_XMLPARSER_XERCES=OFF
@@ -100,6 +100,7 @@ execute_process(
         -DCEGUI_BUILD_XMLPARSER_EXPAT=ON
         -DCEGUI_OPTION_DEFAULT_XMLPARSER=ExpatParser
         -DCEGUI_BUILD_IMAGECODEC_STB=ON
+        -DCEGUI_BUILD_RENDERER_OPENGL=OFF
         -DCEGUI_BUILD_RENDERER_OPENGL3=ON
         -DCEGUI_SAMPLES_ENABLED=OFF
         -DCEGUI_BUILD_STATIC_CONFIGURATION=ON
