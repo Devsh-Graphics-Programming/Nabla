@@ -66,7 +66,6 @@ void GUIManager::init()
     rp->setResourceGroupDirectory("fonts", "../../media/cegui_alfisko/fonts/");
     rp->setResourceGroupDirectory("layouts", "../../media/cegui_alfisko/layouts/");
     rp->setResourceGroupDirectory("looknfeels", "../../media/cegui_alfisko/looknfeel/");
-    rp->setResourceGroupDirectory("lua_scripts", "../../media/cegui_alfisko/lua_scripts/");
     rp->setResourceGroupDirectory("schemas", "../../media/cegui_alfisko/xml_schemas/");
 
     ImageManager::setImagesetDefaultResourceGroup("imagesets");
@@ -74,7 +73,6 @@ void GUIManager::init()
     Scheme::setDefaultResourceGroup("schemes");
     WidgetLookManager::setDefaultResourceGroup("looknfeels");
     WindowManager::setDefaultResourceGroup("layouts");
-    ScriptModule::setDefaultResourceGroup("lua_scripts");
 
     XMLParser* parser = System::getSingleton().getXMLParser();
     if (parser->isPropertyPresent("SchemaDefaultResourceGroup"))
