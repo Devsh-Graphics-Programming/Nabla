@@ -83,7 +83,7 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 #ifdef _IRR_COMPILE_WITH_LIBPNG_
 	if (!_file)
 		return nullptr;
-
+	
 	asset::CImageData* image = 0;
 	//Used to point to image rows
 	uint8_t** RowPointers = 0;
@@ -152,30 +152,29 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 		Width=w;
 		Height=h;
 	}
-
-	// Convert palette color to true color
-	if (ColorType==PNG_COLOR_TYPE_PALETTE)
+	
+	if (ColorType == PNG_COLOR_TYPE_PALETTE)
 		png_set_palette_to_rgb(png_ptr);
 
 	// Convert low bit colors to 8 bit colors
 	if (BitDepth < 8)
 	{
-		if (ColorType==PNG_COLOR_TYPE_GRAY || ColorType==PNG_COLOR_TYPE_GRAY_ALPHA)
-			png_set_expand_gray_1_2_4_to_8(png_ptr);
-		else
-			png_set_packing(png_ptr);
+		switch (ColorType) {
+			case PNG_COLOR_TYPE_GRAY:
+			case PNG_COLOR_TYPE_GRAY_ALPHA:
+				png_set_expand_gray_1_2_4_to_8(png_ptr);
+				break;
+			default:
+				png_set_packing(png_ptr);
+		}
 	}
-
+	
 	if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS))
 		png_set_tRNS_to_alpha(png_ptr);
 
 	// Convert high bit colors to 8 bit colors
 	if (BitDepth == 16)
 		png_set_strip_16(png_ptr);
-
-	// Convert gray color to true color
-	if (ColorType==PNG_COLOR_TYPE_GRAY || ColorType==PNG_COLOR_TYPE_GRAY_ALPHA)
-		png_set_gray_to_rgb(png_ptr);
 
 	int intent;
 	const double screen_gamma = 2.2;
@@ -198,25 +197,31 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 		// Use temporary variables to avoid passing casted pointers
 		png_uint_32 w,h;
 		// Extract info
-		png_get_IHDR(png_ptr, info_ptr,
-			&w, &h,
-			&BitDepth, &ColorType, NULL, NULL, NULL);
-		Width=w;
-		Height=h;
-	}
-
-	// Convert RGBA to BGRA
-	if (ColorType==PNG_COLOR_TYPE_RGB_ALPHA)
-	{
-		png_set_bgr(png_ptr);
+		png_get_IHDR(png_ptr, info_ptr, &w, &h, &BitDepth, &ColorType, NULL, NULL, NULL);
+		Width = w;
+		Height = h;
 	}
 
 	// Create the image structure to be filled by png data
 	uint32_t nullOffset[3] = {0,0,0};
-	if (ColorType==PNG_COLOR_TYPE_RGB_ALPHA)
-		image = new asset::CImageData(NULL, nullOffset, imageSize, 0, asset::EF_B8G8R8A8_UNORM);
-	else
-		image = new asset::CImageData(NULL, nullOffset, imageSize, 0, asset::EF_R8G8B8_UNORM);
+	
+	switch (ColorType) {
+		case PNG_COLOR_TYPE_RGB_ALPHA:
+			image = new asset::CImageData(NULL, nullOffset, imageSize, 0, asset::EF_R8G8B8A8_SRGB);
+			break;
+		case PNG_COLOR_TYPE_RGB:
+			image = new asset::CImageData(NULL, nullOffset, imageSize, 0, asset::EF_R8G8B8_SRGB);
+			break;
+		case PNG_COLOR_TYPE_GRAY:
+			image = new asset::CImageData(NULL, nullOffset, imageSize, 0, asset::EF_R8_UNORM);
+			break;
+		default:
+			{
+				os::Printer::log("Unsupported PNG colorspace (only RGB/RGBA/8-bit grayscale), operation aborted.", ELL_ERROR);
+				return nullptr;
+			}
+	}
+	
 	if (!image)
 	{
 		os::Printer::log("LOAD PNG: Internal PNG create image struct failure\n", _file->getFileName().c_str(), ELL_ERROR);
@@ -238,7 +243,8 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 	uint8_t* data = reinterpret_cast<uint8_t*>(image->getData());
 	for (uint32_t i=0; i<Height; ++i)
 	{
-		RowPointers[i]=data;
+		png_uint_32 q = (Height- i - 1) * Width * BitDepth * (png_get_channels(png_ptr, info_ptr) / 8);
+		RowPointers[i] = (png_bytep)data + q;
 		data += image->getPitchIncludingAlignment();
 	}
 
@@ -262,7 +268,7 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 #endif // _IRR_COMPILE_WITH_LIBPNG_
 
     asset::ICPUTexture* tex = asset::ICPUTexture::create(images);
-    for (auto img : images)
+    for (auto& img : images)
         img->drop();
     return tex;
 }
