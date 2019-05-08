@@ -31,7 +31,7 @@ asset::ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBu
 		return outbuffer;
 	}
 
-	const size_t idxCount = outbuffer->getIndexType();
+	const size_t idxCount = outbuffer->getIndexCount();
 	void* indicesCopy = _IRR_ALIGNED_MALLOC(indexSize*idxCount,_IRR_SIMD_ALIGNMENT);
 	memcpy(indicesCopy, indices, indexSize*idxCount);
 	const size_t vertexCount = outbuffer->calcVertexCount();

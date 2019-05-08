@@ -2331,6 +2331,15 @@ namespace irr { namespace video
 
     }
 
+    namespace impl
+    {
+    inline double lin2srgb(double _lin)
+    {
+        if (_lin <= 0.0031308) return _lin * 12.92;
+        return 1.055 * pow(_lin, 1./2.4) - 0.055;
+    }
+    }
+
     template<>
     inline void encodePixels<asset::EF_R8G8B8_SRGB, double>(void* _pix, const double* _input)
     {
@@ -2338,27 +2347,21 @@ namespace irr { namespace video
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 0));
-            double inp = _input[0];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
+            double inp = impl::lin2srgb(_input[0]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 0);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 8));
-            double inp = _input[1];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
+            double inp = impl::lin2srgb(_input[1]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 8);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 16));
-            double inp = _input[2];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
+            double inp = impl::lin2srgb(_input[2]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 16);
         }
@@ -2372,27 +2375,21 @@ namespace irr { namespace video
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 0));
-            double inp = _input[2];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
+            double inp = impl::lin2srgb(_input[2]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 0);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 8));
-            double inp = _input[1];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
+            double inp = impl::lin2srgb(_input[1]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 8);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 16));
-            double inp = _input[0];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
+            double inp = impl::lin2srgb(_input[0]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 16);
         }
@@ -2406,38 +2403,28 @@ namespace irr { namespace video
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 0));
-            double inp = _input[0];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
+            double inp = impl::lin2srgb(_input[0]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 0);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 8));
-            double inp = _input[1];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
+            double inp = impl::lin2srgb(_input[1]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 8);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 16));
-            double inp = _input[2];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
+            double inp = impl::lin2srgb(_input[2]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 16);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 24));
-            double inp = _input[3];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 24);
+            pix |= ((uint64_t(_input[3]*255.) & mask) << 24);
         }
 
     }
@@ -2449,38 +2436,28 @@ namespace irr { namespace video
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 0));
-            double inp = _input[2];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
+            double inp = impl::lin2srgb(_input[2]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 0);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 8));
-            double inp = _input[1];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
+            double inp = impl::lin2srgb(_input[1]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 8);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 16));
-            double inp = _input[0];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
+            double inp = impl::lin2srgb(_input[0]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 16);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 24));
-            double inp = _input[3];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 24);
+            pix |= ((uint64_t(_input[3]*255.) & mask) << 24);
         }
 
     }
@@ -2488,44 +2465,7 @@ namespace irr { namespace video
     template<>
     inline void encodePixels<asset::EF_A8B8G8R8_SRGB_PACK32, double>(void* _pix, const double* _input)
     {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
-            double inp = _input[0];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 0);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
-            double inp = _input[1];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 8);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
-            double inp = _input[2];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 16);
-        }
-        {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 24));
-            double inp = _input[3];
-            if (inp <= 0.0031308) inp *= 12.92;
-            else inp = 1.055 * pow(inp, 1. / 2.4) - 0.055;
-            inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 24);
-        }
-
+        encodePixels<asset::EF_R8G8B8A8_SRGB, double>(_pix, _input);
     }
 	
     //Floating point formats
