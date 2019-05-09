@@ -675,6 +675,7 @@ void CColorConverter::convert_viaFormat(const void* sP, asset::E_FORMAT sF, int3
 					break;
 			}
 		break;
+        default: break;
 	}
 }
 
