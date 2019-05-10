@@ -151,22 +151,22 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	}
 	
 	uint8_t* data = (uint8_t*)image->getData();
+	core::vector3d<uint32_t> dim = image->getSize();
+	
+	// Write in reverse order because the texture is flipped to match OpenGL coords
+	data += (dim.X * dim.Y * (image->getBitsPerPixel() / 8)) - lineWidth;
 	
 	// Create array of pointers to rows in image data
-
-	//Used to point to image rows
-	uint8_t** RowPointers = new png_bytep[image->getSize().Y];
+	uint8_t** RowPointers = new png_bytep[dim.Y];
 	if (!RowPointers)
 	{
 		os::Printer::log("PNGWriter: Internal PNG create row pointers failure\n", file->getFileName().c_str(), ELL_ERROR);
 		png_destroy_write_struct(&png_ptr, &info_ptr);
 		return false;
 	}
-	
-	core::vector3d<uint32_t> dim = image->getSize();
 
 	// Fill array of pointers to rows in image data
-	for (uint32_t i=0; i<image->getSize().Y; ++i)
+	for (uint32_t i = 0; i < dim.Y; ++i)
 	{
 		switch (format) {
 			case asset::EF_R8_UNORM:
@@ -182,7 +182,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 			}
 		}
 		
-		data += lineWidth;
+		data -= lineWidth;
 	}
 	// for proper error handling
 	if (setjmp(png_jmpbuf(png_ptr)))

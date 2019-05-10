@@ -169,6 +169,7 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 		}
 	}
 	
+	// Add an alpha channel if transparency information is found in tRNS chunk
 	if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS))
 		png_set_tRNS_to_alpha(png_ptr);
 
@@ -240,12 +241,12 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 	}
 
 	// Fill array of pointers to rows in image data
-	uint8_t* data = reinterpret_cast<uint8_t*>(image->getData());
+	const uint32_t pitch = image->getPitchIncludingAlignment();
+	uint8_t* data = reinterpret_cast<uint8_t*>(image->getData()) + (image->getSize().X * image->getSize().Y * (image->getBitsPerPixel() / 8)) - pitch;
 	for (uint32_t i=0; i<Height; ++i)
 	{
-		png_uint_32 q = (Height- i - 1) * Width * BitDepth * (png_get_channels(png_ptr, info_ptr) / 8);
-		RowPointers[i] = (png_bytep)data + q;
-		data += image->getPitchIncludingAlignment();
+		RowPointers[i] = (png_bytep)data;
+		data -= pitch;
 	}
 
 	// for proper error handling
