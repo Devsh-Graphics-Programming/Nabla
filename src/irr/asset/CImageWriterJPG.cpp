@@ -135,6 +135,10 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 		
 		uint8_t* src = (uint8_t*)image->getData();
 		
+		/* Switch up, write from bottom -> top because the texture is flipped from OpenGL side */
+		uint32_t eof = cinfo.image_height * cinfo.image_width * cinfo.input_components;
+		src += eof - pitch;
+		
 		while (cinfo.next_scanline < cinfo.image_height)
 		{
 			/* Since the first argument to convertColor() requires a const void *[4], wrap our buffer pointer (src) and pass that to convertColor(). */
@@ -153,7 +157,7 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 					break;
 				case asset::EF_R8_UNORM:
 				case asset::EF_R8G8B8_SRGB:
-					memcpy(dest, src, dim.X * cinfo.input_components);
+					memcpy(dest, src, pitch);
 					break;
 				default:
 				{
@@ -163,7 +167,7 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 				}
 			}
 			
-			src += pitch;
+			src -= pitch;
 			jpeg_write_scanlines(&cinfo, row_pointer, 1);
 		}
 
@@ -209,7 +213,7 @@ bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
     io::IWriteFile* file = _override->getOutputFile(_file, ctx, {image, 0u});
     const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, image, 0u);
     const float comprLvl = _override->getAssetCompressionLevel(ctx, image, 0u);
-	return writeJPEGFile(file, image, (!!(flags & asset::EWF_COMPRESSED)) * (uint32_t)((1.f-comprLvl)*100.f)); // if quality==0, then it defaults to 75
+	return writeJPEGFile(file, image, (!!(flags & asset::EWF_COMPRESSED)) * static_cast<uint32_t>((1.f-comprLvl)*100.f)); // if quality==0, then it defaults to 75
 #endif
 }
 
