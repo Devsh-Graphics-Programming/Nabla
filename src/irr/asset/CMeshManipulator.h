@@ -66,7 +66,7 @@ public:
 	virtual asset::ICPUMeshBuffer* createMeshBufferUniquePrimitives(asset::ICPUMeshBuffer* inbuffer) const;
 
 	//
-	virtual asset::ICPUMeshBuffer* calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, const float creaseAngle) const override;
+	virtual asset::ICPUMeshBuffer* calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, const float creaseAngle, bool makeTriangleSoup = true) const override;
 
 	//! Creates a copy of the mesh, which will have all duplicated vertices removed, i.e. maximal amount of vertices are shared via indexing.
 	virtual asset::ICPUMeshBuffer* createMeshBufferWelded(asset::ICPUMeshBuffer *inbuffer, const SErrorMetric* _errMetrics, const bool& optimIndexType = true, const bool& makeNewMesh=false) const;

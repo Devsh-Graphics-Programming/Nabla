@@ -75,7 +75,7 @@ namespace asset
 		virtual asset::ICPUMeshBuffer* createMeshBufferUniquePrimitives(asset::ICPUMeshBuffer* inbuffer) const = 0;
 
 		//
-		virtual asset::ICPUMeshBuffer* calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, const float creaseAngle) const = 0;
+		virtual asset::ICPUMeshBuffer* calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, const float creaseAngle, bool makeTriangleSoup = true) const = 0;
 
 		//! Creates a copy of a mesh with vertices welded
 		/** \param mesh Input mesh

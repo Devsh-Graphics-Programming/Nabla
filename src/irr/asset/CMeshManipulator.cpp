@@ -17,6 +17,7 @@
 #include "irr/asset/CForsythVertexCacheOptimizer.h"
 #include "irr/asset/COverdrawMeshOptimizer.h"
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
+#include "irr/asset/CSmoothNormalGenerator.h"
 
 namespace irr
 {
@@ -28,27 +29,6 @@ core::vector<QuantizationCacheEntry2_10_10_10> normalCacheFor2_10_10_10Quant;
 core::vector<QuantizationCacheEntry8_8_8> normalCacheFor8_8_8Quant;
 core::vector<QuantizationCacheEntry16_16_16> normalCacheFor16_16_16Quant;
 core::vector<QuantizationCacheEntryHalfFloat> normalCacheForHalfFloatQuant;
-
-
-static inline core::vector3df getAngleWeight(const core::vector3df& v1,
-		const core::vector3df& v2,
-		const core::vector3df& v3)
-{
-	// Calculate this triangle's weight for each of its three vertices
-	// start by calculating the lengths of its sides
-	const float a = v2.getDistanceFromSQ(v3);
-	const float asqrt = sqrtf(a);
-	const float b = v1.getDistanceFromSQ(v3);
-	const float bsqrt = sqrtf(b);
-	const float c = v1.getDistanceFromSQ(v2);
-	const float csqrt = sqrtf(c);
-
-	// use them to find the angle at each vertex
-	return core::vector3df(
-		acosf((b + c - a) / (2.f * bsqrt * csqrt)),
-		acosf((-b + c + a) / (2.f * asqrt * csqrt)),
-		acosf((b - c + a) / (2.f * bsqrt * asqrt)));
-}
 
 
 //! Flips the direction of surfaces. Changes backfacing triangles to frontfacing
@@ -718,9 +698,21 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(asset:
 	return clone;
 }
 
-asset::ICPUMeshBuffer* CMeshManipulator::calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, const float creaseAngle) const
+asset::ICPUMeshBuffer* CMeshManipulator::calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, const float creaseAngle, bool makeTriangleSoup) const
 {
-	return nullptr;
+	if (inbuffer == nullptr)
+		return nullptr;
+
+	asset::ICPUMeshBuffer* outbuffer;
+
+	if (makeTriangleSoup)
+		outbuffer = createMeshBufferUniquePrimitives(inbuffer);
+	else
+		outbuffer = createMeshBufferDuplicate(inbuffer);
+
+	CSmoothNormalGenerator::calculateNormals(outbuffer,creaseAngle);
+
+	return outbuffer;
 }
 
 // Used by createMeshBufferWelded only
