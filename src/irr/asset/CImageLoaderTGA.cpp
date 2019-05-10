@@ -77,8 +77,20 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 
 	STGAFooter footer;
 	memset(&footer, 0, sizeof(STGAFooter));
-	_file->seek(_file->getSize()-sizeof(STGAFooter));
+	_file->seek(_file->getSize() - sizeof(STGAFooter));
 	_file->read(&footer, sizeof(STGAFooter));
+	
+	if (footer.ExtensionOffset == 0)
+		os::Printer::log("Gamma information is not present!", ELL_ERROR);
+	else
+	{
+		STGAExtensionArea extension;
+		_file->seek(footer.ExtensionOffset);
+		_file->read(&extension, sizeof(STGAExtensionArea));
+		
+		// TODO: Pass this to new asset::CImageData()
+		float gamma = extension.Gamma;
+	}
 	
     _file->seek(prevPos);
 	

@@ -154,13 +154,20 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 		if (file->write(row_pointer, row_size) != row_size)
 			break;
 	}
-
+	
 	delete [] row_pointer;
-
+	
+	STGAExtensionArea extension;
+	extension.ExtensionSize = sizeof(extension);
+	extension.Gamma = format == asset::EF_R8_UNORM ? 1.0f : ((100.0f / 30.0f) - 1.0f);
+	
 	STGAFooter imageFooter;
-	imageFooter.ExtensionOffset = 0;
+	imageFooter.ExtensionOffset = _file->getPos();
 	imageFooter.DeveloperOffset = 0;
 	strncpy(imageFooter.Signature, "TRUEVISION-XFILE.", 18);
+	
+	if (file->write(&extension, sizeof(extension)) < (int32_t)sizeof(extension))
+		return false;
 
 	if (file->write(&imageFooter, sizeof(imageFooter)) < (int32_t)sizeof(imageFooter))
 		return false;
