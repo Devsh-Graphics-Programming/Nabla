@@ -79,6 +79,7 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 	memset(&footer, 0, sizeof(STGAFooter));
 	_file->seek(_file->getSize()-sizeof(STGAFooter));
 	_file->read(&footer, sizeof(STGAFooter));
+	
     _file->seek(prevPos);
 	
 	return true;
@@ -86,14 +87,17 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 
 // convertColorFlip() does color conversion as well as taking care of properly flipping the given image.
 template <typename T, E_FORMAT srcFormat, E_FORMAT destFormat>
-static void convertColorFlip(const T *src, T *dest, core::vector3d<uint32_t> &size, int c, bool flip)
+static void convertColorFlip(asset::CImageData **image, const T *src, bool flip)
 {
-	T *in = (T *) src;
-	T *out = (T *) dest;
-	uint32_t stride = size.X * c;
+	const T *in = (const T *) src;
+	T *out = (T *) (*image)->getData();
+	
+	auto size     = (*image)->getSize();
+	auto stride   = (*image)->getPitchIncludingAlignment();
+	auto channels = (*image)->getBitsPerPixel() / 8;
 	
 	if (flip)
-		out += size.X * size.Y * c;
+		out += size.X * size.Y * channels;
 	
 	for (int y = 0; y < size.Y; ++y) {
 		if (flip)
@@ -189,7 +193,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 
 	uint32_t nullOffset[3] = {0,0,0};
 	uint32_t imageSize[3] = {header.ImageWidth,header.ImageHeight,1};
-	bool flip = !((header.ImageDescriptor & 0x20) == 0);
+	bool flip = (header.ImageDescriptor & 0x20) == 0;
 	
 	switch(header.PixelDepth)
 	{
@@ -205,29 +209,49 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 				}
 				
 				image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_R8_UNORM);
-				if (image)
-					memcpy((uint8_t*) image->getData(), (const uint8_t*) data, header.ImageHeight * header.ImageWidth);
+				if (image) {
+					// Targa formats needs two y-axis flips. The first is a flip to get the Y conforms to OpenGL coords.
+					// The second flip is defined from within the .tga file itself (header.ImageDescriptor & 0x20).
+					if (flip) {
+						// Two flips (OpenGL + Targa) = no flipping. Don't flip the image at all in that case
+						convertColorFlip<uint8_t, EF_R8_UNORM, EF_R8_UNORM>(&image, data, false);
+					}
+					else {
+						// Do an OpenGL flip
+						convertColorFlip<uint8_t, EF_R8_UNORM, EF_R8_UNORM>(&image, data, true);
+					}
+				}
 			}
 			break;
 		case 16:
 			{
 				image = new asset::CImageData(NULL,nullOffset,imageSize,0, asset::EF_A1R5G5B5_UNORM_PACK16);
-				if (image)
-					convertColorFlip<uint8_t, EF_A1R5G5B5_UNORM_PACK16, EF_A1R5G5B5_UNORM_PACK16>((const uint8_t *) data, (uint8_t *) image->getData(), image->getSize(), 2, flip);
+				if (image) {
+					if (flip)
+						convertColorFlip<uint8_t, EF_A1R5G5B5_UNORM_PACK16, EF_A1R5G5B5_UNORM_PACK16>(&image, data, false);
+					else
+						convertColorFlip<uint8_t, EF_A1R5G5B5_UNORM_PACK16, EF_A1R5G5B5_UNORM_PACK16>(&image, data, true);
+				}
 			}
 			break;
 		case 24:
 			{
 				image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_R8G8B8_SRGB);
 				if (image)
-					convertColorFlip<uint8_t, EF_B8G8R8_SRGB, EF_R8G8B8_SRGB>((const uint8_t *) data, (uint8_t *) image->getData(), image->getSize(), 3, flip);
+					if (flip)
+						convertColorFlip<uint8_t, EF_B8G8R8_SRGB, EF_R8G8B8_SRGB>(&image, data, false);
+					else
+						convertColorFlip<uint8_t, EF_B8G8R8_SRGB, EF_R8G8B8_SRGB>(&image, data, true);
 			}
 			break;
 		case 32:
 			{
 				image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_R8G8B8A8_SRGB);
 				if (image)
-					convertColorFlip<uint8_t, EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>((const uint8_t *) data, (uint8_t *) image->getData(), image->getSize(), 4, flip);
+					if (flip)
+						convertColorFlip<uint8_t, EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(&image, data, false);
+					else
+						convertColorFlip<uint8_t, EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(&image, data, true);
 			}
 			break;
 		default:
@@ -246,7 +270,6 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
         img->drop();
     return tex;
 }
-
 
 } // end namespace video
 } // end namespace irr
