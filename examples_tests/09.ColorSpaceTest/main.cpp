@@ -96,24 +96,32 @@ bool ReadLine(io::IReadFile* file, std::string &line)
 void testImage(const std::string& path, IrrlichtDevice* device, video::IGPUMeshBuffer* fullScreenTriangle)
 {
 	os::Printer::log("Reading", path);
+	
 	auto& assetMgr = device->getAssetManager();
-	video::IVideoDriver* driver = device->getVideoDriver();
+	auto* driver = device->getVideoDriver();
 
 	asset::ICPUTexture* cputex[1] = { static_cast<asset::ICPUTexture*>(assetMgr.getAsset(path, {})) };
 	
 	if (cputex[0])
 	{
-		io::path filename,extension ;
+		io::path filename, extension;
 		core::splitFilename(path.c_str(), nullptr, &filename, &extension);
 		filename += "."; filename += extension;
-
+		
+		bool writeable = (extension != "dds") && (extension != "bmp");
+		
 		auto tex = driver->getGPUObjectsFromAssets(cputex,cputex+1u).front();
 		{
 			auto tmpTex = driver->createGPUTexture(video::ITexture::ETT_2D,tex->getSize(),1u,tex->getColorFormat());
 			presentImageOnScreen(device, fullScreenTriangle, tex, tmpTex);
-			dumpTextureToFile(device, tmpTex, (io::path("screen_")+filename).c_str());
+			
+			if (writeable)
+				dumpTextureToFile(device, tex, (io::path("screen_")+filename).c_str());
+			
 			tmpTex->drop();
 		}
+		
+		if (writeable)
 		{
 			asset::CImageData* img = *cputex[0]->getMipMap(0u).first;
 			asset::IAssetWriter::SAssetWriteParams wparams(img);
@@ -141,7 +149,7 @@ int main()
 	video::IVideoDriver* driver = device->getVideoDriver();
 
 	video::IGPUMeshBuffer* fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(driver);
-
+	
 	//! First need to make a material other than default to be able to draw with custom shader
 	presentMaterial.BackfaceCulling = false; //! Triangles will be visible from both sides
 	presentMaterial.ZBuffer = video::ECFN_ALWAYS; //! Ignore Depth Test
@@ -158,11 +166,11 @@ int main()
 		if (file)
 		{
 			std::string line;
-			while (ReadLine(file, line))
+			while (ReadLine(file, line) && line != "" && line[0] != ';')
 				testImage(line, device, fullScreenTriangle);
 		}
 	}
-
+	
 	fullScreenTriangle->drop();
 	device->drop();
 
