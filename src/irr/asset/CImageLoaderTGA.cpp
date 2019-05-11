@@ -88,8 +88,14 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 		_file->seek(footer.ExtensionOffset);
 		_file->read(&extension, sizeof(STGAExtensionArea));
 		
-		// TODO: Pass this to new asset::CImageData()
 		float gamma = extension.Gamma;
+		
+		if (gamma > 0.0f)
+		{
+			// TODO: Pass gamma to loadAsset()?
+		}
+		else
+			os::Printer::log("Gamma information is not present!", ELL_ERROR);
 	}
 	
     _file->seek(prevPos);

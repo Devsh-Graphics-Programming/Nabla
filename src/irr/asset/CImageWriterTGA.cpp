@@ -159,7 +159,7 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	
 	STGAExtensionArea extension;
 	extension.ExtensionSize = sizeof(extension);
-	extension.Gamma = (format == asset::EF_R8_UNORM) ? 1.0f : ((100.0f / 30.0f) - 1.0f);
+	extension.Gamma = isSRGBFormat(format) ? ((100.0f / 30.0f) - 1.1f) : 1.0f;
 	
 	STGAFooter imageFooter;
 	imageFooter.ExtensionOffset = _file->getPos();
