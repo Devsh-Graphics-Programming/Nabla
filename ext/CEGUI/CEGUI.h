@@ -46,9 +46,9 @@ namespace cegui
 {
 
 class GUIManager;
-GUIManager* createGUIManager(video::IVideoDriver* driver);
+GUIManager* createGUIManager(IrrlichtDevice* device);
 
-class GUIManager: public core::IReferenceCounted
+class GUIManager: public core::IReferenceCounted, public IEventReceiver
 {
 public:
     GUIManager(video::IVideoDriver* driver);
@@ -57,6 +57,7 @@ public:
     void init();
     void destroy();
     void render();
+    bool OnEvent(const SEvent& event) override;
 
     void createRootWindowFromLayout(const std::string& layout);
 

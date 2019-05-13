@@ -31,9 +31,9 @@ SOFTWARE.
 namespace irr
 {
 
-BRDFExplorereApp::BRDFExplorereApp(video::IVideoDriver* driver)
-    :   Driver(driver),
-        GUI(ext::cegui::createGUIManager(driver))
+BRDFExplorereApp::BRDFExplorereApp(IrrlichtDevice* device)
+    :   Driver(device->getVideoDriver()),
+        GUI(ext::cegui::createGUIManager(device))
 {
     GUI->init();
     GUI->createRootWindowFromLayout(

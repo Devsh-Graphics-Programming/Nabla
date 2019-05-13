@@ -30,6 +30,7 @@ SOFTWARE.
 
 namespace irr
 {
+class IrrlichtDevice;
 namespace video
 {
 class IVideoDriver;
@@ -45,7 +46,7 @@ class GUIManager;
 
 class BRDFExplorereApp {
     public:
-        BRDFExplorereApp(video::IVideoDriver* driver);
+        BRDFExplorereApp(IrrlichtDevice* device);
         ~BRDFExplorereApp();
 
         void renderGUI();

@@ -36,7 +36,7 @@ int main()
     video::IVideoDriver* driver = device->getVideoDriver();
     scene::ISceneManager* smgr = device->getSceneManager();
 
-    auto* brdfExplorerApp = new BRDFExplorereApp(driver);
+    auto* brdfExplorerApp = new BRDFExplorereApp(device);
 
     uint64_t lastFPSTime = 0;
 

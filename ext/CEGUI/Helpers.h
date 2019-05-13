@@ -35,6 +35,8 @@ SOFTWARE.
 #include <string>
 #include <utility>
 #include <CEGUI/String.h>
+#include <CEGUI/InputEvent.h>
+#include "Keycodes.h"
 
 namespace irr
 {
@@ -88,6 +90,7 @@ CEGUI::String ssprintf(const std::string& format, Args... args)
 }
 
 std::string readWindowLayout(const std::string& layoutName);
+CEGUI::Key::Scan toCEGUIKey(const irr::EKEY_CODE& code);
 
 } // namespace cegui
 } // namespace ext

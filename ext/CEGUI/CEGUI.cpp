@@ -40,9 +40,11 @@ namespace ext
 namespace cegui
 {
 
-GUIManager* createGUIManager(video::IVideoDriver* driver)
+GUIManager* createGUIManager(IrrlichtDevice* device)
 {
-    return new GUIManager(driver);
+    auto gui = new GUIManager(device->getVideoDriver());
+    device->setEventReceiver(gui);
+    return gui;
 }
 
 GUIManager::GUIManager(video::IVideoDriver* driver)
@@ -111,6 +113,37 @@ void GUIManager::render()
     saveOpenGLState();
     CEGUI::System::getSingleton().renderAllGUIContexts();
     restoreOpenGLState();
+}
+
+bool GUIManager::OnEvent(const SEvent& event)
+{
+    CEGUI::GUIContext& context = CEGUI::System::getSingleton().getDefaultGUIContext();
+
+    switch (event.EventType) {
+        case irr::EET_KEY_INPUT_EVENT:
+        {
+            if (event.KeyInput.PressedDown)
+            {
+                context.injectKeyDown(toCEGUIKey(event.KeyInput.Key));
+                context.injectChar(event.KeyInput.Char);
+            }
+            else
+            {
+                context.injectKeyUp(toCEGUIKey(event.KeyInput.Key));
+            }
+        } break;
+
+
+        case irr::EET_MOUSE_INPUT_EVENT:
+        {
+            // if (event.MouseInput.ButtonStates)
+            context.injectMousePosition(event.MouseInput.X, event.MouseInput.Y);
+
+        } break;
+
+        default: return false;
+    }
+    return true;
 }
 
 void GUIManager::createRootWindowFromLayout(const std::string& layout)
