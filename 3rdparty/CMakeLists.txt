@@ -147,12 +147,12 @@ if (IRR_BUILD_CEGUI)
 
 	install(
 		DIRECTORY ${CEGUI_INCLUDE_PATH}/CEGUI
-		DESTINATION ./include/irr/ext/
+		DESTINATION ./include/irr/ext/GUI
 		CONFIGURATIONS Release
 	)
 	install(
 		DIRECTORY ${CEGUI_INCLUDE_PATH}/CEGUI
-		DESTINATION ./debug/include/irr/ext/
+		DESTINATION ./debug/include/irr/ext/GUI
 		CONFIGURATIONS Debug
 	)
 endif()
