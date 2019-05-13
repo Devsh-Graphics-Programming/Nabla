@@ -30,6 +30,7 @@ SOFTWARE.
 
 #include "irrlicht.h"
 #include "Helpers.h"
+#include <map>
 
 namespace CEGUI {
 class OpenGL3Renderer;
@@ -62,13 +63,15 @@ public:
     CEGUI::ColourPicker* createColourPicker(
         bool alternativeLayout,
         const char* parent,
-        const char* title
+        const char* title,
+        const char* name
     );
 
 private:
     video::IVideoDriver* Driver = nullptr;
     CEGUI::OpenGL3Renderer& Renderer;
     CEGUI::Window* RootWindow;
+    std::map<const char*, CEGUI::ColourPicker*> ColourPickers;
 };
 
 } // namespace cegui

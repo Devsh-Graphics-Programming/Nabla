@@ -121,8 +121,10 @@ void GUIManager::createRootWindowFromLayout(const std::string& layout)
 CEGUI::ColourPicker* GUIManager::createColourPicker(
     bool alternativeLayout,
     const char* parent,
-    const char* title)
+    const char* title,
+    const char* name)
 {
+    assert(parent);
     assert(name);
     static const auto defaultColor = CEGUI::Colour(1.0f, 1.0f, 1.0f, 1.0f);
 
@@ -220,7 +222,9 @@ CEGUI::ColourPicker* GUIManager::createColourPicker(
         picker->setSize(USize(UDim(1.0f, 0.0f), UDim(1.0f, 0.0f)));
         picker->setColour(defaultColor);
 
-        return static_cast<CEGUI::ColourPicker*>(layout);
+        auto pickerWindow = static_cast<CEGUI::ColourPicker*>(layout);
+        ColourPickers[name] = pickerWindow;
+        return pickerWindow;
     }
 
     return nullptr;
