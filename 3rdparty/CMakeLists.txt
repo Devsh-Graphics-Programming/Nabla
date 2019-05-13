@@ -139,6 +139,7 @@ if (IRR_BUILD_CEGUI)
 			"${CEGUI_INSTALL_PATH}/lib/libCEGUISTBImageCodec_Static.a "
 			"${FREETYPE_LIBRARIES}"
 			"${CEGUI_INSTALL_PATH}/lib/libCEGUICoreWindowRendererSet_Static.a "
+			"${CEGUI_INSTALL_PATH}/lib/libCEGUICommonDialogs-0_Static.a "
 			"${EXPAT_LIBRARIES} "
 			"${PCRE_LIBRARIES} "
 			PARENT_SCOPE

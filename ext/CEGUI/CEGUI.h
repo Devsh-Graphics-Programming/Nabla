@@ -30,10 +30,11 @@ SOFTWARE.
 
 #include "irrlicht.h"
 #include "Helpers.h"
-#include <CEGUI/RendererModules/OpenGL/GL3Renderer.h>
 
 namespace CEGUI {
+class OpenGL3Renderer;
 class Window;
+class ColourPicker;
 }
 
 namespace irr
@@ -55,7 +56,14 @@ public:
     void init();
     void destroy();
     void render();
+
     void createRootWindowFromLayout(const std::string& layout);
+
+    CEGUI::ColourPicker* createColourPicker(
+        bool alternativeLayout,
+        const char* parent,
+        const char* title
+    );
 
 private:
     video::IVideoDriver* Driver = nullptr;
