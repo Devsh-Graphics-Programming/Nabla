@@ -39,6 +39,9 @@ BRDFExplorereApp::BRDFExplorereApp(video::IVideoDriver* driver)
     GUI->createRootWindowFromLayout(
         ext::cegui::readWindowLayout("../../media/brdf_explorer/MainWindow.layout")
     );
+    GUI->createColourPicker(false, "LightParamsWindow/ColorWindow", "Color", "pickerLightColor");
+    GUI->createColourPicker(true, "MaterialParamsWindow/EmissiveWindow", "Emissive", "pickerEmissiveColor");
+    GUI->createColourPicker(true, "MaterialParamsWindow/AlbedoWindow", "Albedo", "pickerAlbedoColor");
 }
 
 void BRDFExplorereApp::renderGUI()

@@ -98,6 +98,7 @@ void GUIManager::init()
         float(Driver->getScreenSize().Width),
         float(Driver->getScreenSize().Height)
     ));
+    initialiseCEGUICommonDialogs();
 }
 
 void GUIManager::destroy()
