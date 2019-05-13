@@ -25,46 +25,31 @@ SOFTWARE.
 
 */
 
-#ifndef _IRR_EXT_CEGUI_INCLUDED_
-#define _IRR_EXT_CEGUI_INCLUDED_
-
-#include "irrlicht.h"
-#include "Helpers.h"
-#include <CEGUI/RendererModules/OpenGL/GL3Renderer.h>
-
-namespace CEGUI {
-class Window;
-}
+#ifndef _IRR_EXT_CEGUI_OPENGL_STATE_INCLUDED_
+#define _IRR_EXT_CEGUI_OPENGL_STATE_INCLUDED_
 
 namespace irr
 {
+namespace video
+{
+  class COpenGLState;
+}
+
 namespace ext
 {
 namespace cegui
 {
 
-class GUIManager;
-GUIManager* createGUIManager(video::IVideoDriver* driver);
+static video::COpenGLState* GUIState;
+static video::COpenGLState* RenderState;
 
-class GUIManager: public core::IReferenceCounted
-{
-public:
-    GUIManager(video::IVideoDriver* driver);
-    ~GUIManager();
-
-    void init();
-    void destroy();
-    void render();
-    void createRootWindowFromLayout(const std::string& layout);
-
-private:
-    video::IVideoDriver* Driver = nullptr;
-    CEGUI::OpenGL3Renderer& Renderer;
-    CEGUI::Window* RootWindow;
-};
+void initOpenGLState();
+void saveOpenGLState();
+void restoreOpenGLState();
+void destroyOpenGLState();
 
 } // namespace cegui
 } // namespace ext
 } // namespace irr
 
-#endif // _IRR_EXT_CEGUI_INCLUDED_
+#endif // _IRR_EXT_CEGUI_OPENGL_STATE_INCLUDED_

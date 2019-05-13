@@ -6,6 +6,7 @@ endif()
 
 set(BRDF_SOURCES
 	"../../ext/CEGUI/CEGUI.cpp"
+	"../../ext/CEGUI/CEGUIOpenGLState.cpp"
 	"../../ext/CEGUI/Helpers.cpp"
 	"./BRDF.cpp"
 )

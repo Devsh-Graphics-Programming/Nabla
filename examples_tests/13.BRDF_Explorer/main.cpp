@@ -44,7 +44,7 @@ int main()
     if (device->isWindowActive())
     {
         driver->beginScene(true, false, video::SColor(255,255,0,0) ); //this gets 11k FPS
-
+        brdf->renderGUI();
         driver->endScene();
 
         // display frames per second in window title

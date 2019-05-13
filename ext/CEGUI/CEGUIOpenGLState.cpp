@@ -25,16 +25,9 @@ SOFTWARE.
 
 */
 
-#ifndef _IRR_EXT_CEGUI_INCLUDED_
-#define _IRR_EXT_CEGUI_INCLUDED_
-
+#include "CEGUIOpenGLState.h"
 #include "irrlicht.h"
-#include "Helpers.h"
-#include <CEGUI/RendererModules/OpenGL/GL3Renderer.h>
-
-namespace CEGUI {
-class Window;
-}
+#include "COpenGLStateManager.h"
 
 namespace irr
 {
@@ -43,28 +36,30 @@ namespace ext
 namespace cegui
 {
 
-class GUIManager;
-GUIManager* createGUIManager(video::IVideoDriver* driver);
-
-class GUIManager: public core::IReferenceCounted
+void initOpenGLState()
 {
-public:
-    GUIManager(video::IVideoDriver* driver);
-    ~GUIManager();
+  GUIState = new video::COpenGLState();
+  RenderState = new video::COpenGLState();
+}
 
-    void init();
-    void destroy();
-    void render();
-    void createRootWindowFromLayout(const std::string& layout);
+void saveOpenGLState()
+{
+  *GUIState = video::COpenGLState();
+  *RenderState = irr::video::COpenGLState::collectGLState();
+  video::executeGLDiff(GUIState->getStateDiff(*RenderState));
+}
 
-private:
-    video::IVideoDriver* Driver = nullptr;
-    CEGUI::OpenGL3Renderer& Renderer;
-    CEGUI::Window* RootWindow;
-};
+void restoreOpenGLState()
+{
+  video::executeGLDiff(RenderState->getStateDiff(irr::video::COpenGLState::collectGLState()));
+}
+
+void destroyOpenGLState()
+{
+  delete GUIState;
+  delete RenderState;
+}
 
 } // namespace cegui
 } // namespace ext
 } // namespace irr
-
-#endif // _IRR_EXT_CEGUI_INCLUDED_
