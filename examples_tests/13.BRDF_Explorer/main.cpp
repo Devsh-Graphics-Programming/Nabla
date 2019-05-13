@@ -1,7 +1,7 @@
 #define _IRR_STATIC_LIB_
 
 #include <irrlicht.h>
-#include "BRDF.h"
+#include "BRDFExplorerApp.h"
 
 // TODO: document example
 /**
@@ -36,7 +36,7 @@ int main()
     video::IVideoDriver* driver = device->getVideoDriver();
     scene::ISceneManager* smgr = device->getSceneManager();
 
-    auto* brdf = new BRDF(driver);
+    auto* brdfExplorerApp = new BRDFExplorereApp(driver);
 
     uint64_t lastFPSTime = 0;
 
@@ -44,7 +44,7 @@ int main()
     if (device->isWindowActive())
     {
         driver->beginScene(true, false, video::SColor(255,255,0,0) ); //this gets 11k FPS
-        brdf->renderGUI();
+        brdfExplorerApp->renderGUI();
         driver->endScene();
 
         // display frames per second in window title

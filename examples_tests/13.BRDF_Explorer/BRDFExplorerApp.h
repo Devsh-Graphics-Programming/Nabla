@@ -25,8 +25,8 @@ SOFTWARE.
 
 */
 
-#ifndef _IRR_BRDF_EXPLORER_INCLUDED_
-#define _IRR_BRDF_EXPLORER_INCLUDED_
+#ifndef _IRR_BRDF_EXPLORER_APP_INCLUDED_
+#define _IRR_BRDF_EXPLORER_APP_INCLUDED_
 
 namespace irr
 {
@@ -43,10 +43,10 @@ class GUIManager;
 }
 }
 
-class BRDF {
+class BRDFExplorereApp {
     public:
-        BRDF(video::IVideoDriver* driver);
-        ~BRDF();
+        BRDFExplorereApp(video::IVideoDriver* driver);
+        ~BRDFExplorereApp();
 
         void renderGUI();
 
@@ -57,4 +57,4 @@ class BRDF {
 
 } // namespace irr
 
-#endif // _IRR_BRDF_EXPLORER_INCLUDED_
+#endif // _IRR_BRDF_EXPLORER_APP_INCLUDED_

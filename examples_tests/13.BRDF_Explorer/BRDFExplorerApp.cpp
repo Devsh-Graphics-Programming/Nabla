@@ -25,13 +25,13 @@ SOFTWARE.
 
 */
 
-#include "BRDF.h"
+#include "BRDFExplorerApp.h"
 #include "../../ext/CEGUI/CEGUI.h"
 
 namespace irr
 {
 
-BRDF::BRDF(video::IVideoDriver* driver)
+BRDFExplorereApp::BRDFExplorereApp(video::IVideoDriver* driver)
     :   Driver(driver),
         GUI(ext::cegui::createGUIManager(driver))
 {
@@ -41,12 +41,12 @@ BRDF::BRDF(video::IVideoDriver* driver)
     );
 }
 
-void BRDF::renderGUI()
+void BRDFExplorereApp::renderGUI()
 {
     GUI->render();
 }
 
-BRDF::~BRDF()
+BRDFExplorereApp::~BRDFExplorereApp()
 {
 
 }
