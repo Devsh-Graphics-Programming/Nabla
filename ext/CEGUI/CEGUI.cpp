@@ -132,7 +132,6 @@ bool GUIManager::OnEvent(const SEvent& event)
             }
         } break;
 
-
         case irr::EET_MOUSE_INPUT_EVENT:
         {
             context.injectMousePosition(event.MouseInput.X, event.MouseInput.Y);
