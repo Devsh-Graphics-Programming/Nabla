@@ -25,9 +25,9 @@ SOFTWARE.
 
 */
 
-#include "CEGUIOpenGLState.h"
+#include "CEGUIOpenGLClip.h"
 #include "irrlicht.h"
-#include "COpenGLStateManager.h"
+#include "COpenGLExtensionHandler.h"
 
 namespace irr
 {
@@ -36,28 +36,14 @@ namespace ext
 namespace cegui
 {
 
-void initOpenGLState()
+void setOpenGLClip()
 {
-  GUIState = new video::COpenGLState();
-  RenderState = new video::COpenGLState();
+    video::COpenGLExtensionHandler::extGlClipControl(GL_LOWER_LEFT, GL_NEGATIVE_ONE_TO_ONE);
 }
 
-void saveOpenGLState()
+void resetOpenGLClip()
 {
-  *GUIState = video::COpenGLState();
-  *RenderState = irr::video::COpenGLState::collectGLState();
-  video::executeGLDiff(GUIState->getStateDiff(*RenderState));
-}
-
-void restoreOpenGLState()
-{
-  video::executeGLDiff(RenderState->getStateDiff(irr::video::COpenGLState::collectGLState()));
-}
-
-void destroyOpenGLState()
-{
-  delete GUIState;
-  delete RenderState;
+    video::COpenGLExtensionHandler::extGlClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE);
 }
 
 } // namespace cegui

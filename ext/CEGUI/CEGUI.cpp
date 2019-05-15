@@ -27,6 +27,7 @@ SOFTWARE.
 
 #include "CEGUI.h"
 #include "CEGUIOpenGLState.h"
+#include "CEGUIOpenGLClip.h"
 #include <CEGUI/CEGUI.h>
 #include <CEGUI/RendererModules/OpenGL/GL3Renderer.h>
 #include <CEGUI/CommonDialogs/ColourPicker/ColourPicker.h>
@@ -111,6 +112,7 @@ void GUIManager::destroy()
 void GUIManager::render()
 {
     saveOpenGLState();
+    setOpenGLClip();
     CEGUI::System::getSingleton().renderAllGUIContexts();
     restoreOpenGLState();
 }

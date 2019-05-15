@@ -7,6 +7,7 @@ endif()
 set(BRDF_EXPLORER_SOURCES
 	"../../ext/CEGUI/CEGUI.cpp"
 	"../../ext/CEGUI/CEGUIOpenGLState.cpp"
+	"../../ext/CEGUI/CEGUIOpenGLClip.cpp"
 	"../../ext/CEGUI/Helpers.cpp"
 	"./BRDFExplorerApp.cpp"
 )

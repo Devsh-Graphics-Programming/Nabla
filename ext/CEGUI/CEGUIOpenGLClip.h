@@ -25,41 +25,26 @@ SOFTWARE.
 
 */
 
-#include "CEGUIOpenGLState.h"
-#include "irrlicht.h"
-#include "COpenGLStateManager.h"
+#ifndef _IRR_EXT_CEGUI_OPENGL_CLIP_INCLUDED_
+#define _IRR_EXT_CEGUI_OPENGL_CLIP_INCLUDED_
 
 namespace irr
 {
+namespace video
+{
+  class COpenGLState;
+}
+
 namespace ext
 {
 namespace cegui
 {
 
-void initOpenGLState()
-{
-  GUIState = new video::COpenGLState();
-  RenderState = new video::COpenGLState();
-}
-
-void saveOpenGLState()
-{
-  *GUIState = video::COpenGLState();
-  *RenderState = irr::video::COpenGLState::collectGLState();
-  video::executeGLDiff(GUIState->getStateDiff(*RenderState));
-}
-
-void restoreOpenGLState()
-{
-  video::executeGLDiff(RenderState->getStateDiff(irr::video::COpenGLState::collectGLState()));
-}
-
-void destroyOpenGLState()
-{
-  delete GUIState;
-  delete RenderState;
-}
+void setOpenGLClip();
+void resetOpenGLClip();
 
 } // namespace cegui
 } // namespace ext
 } // namespace irr
+
+#endif // _IRR_EXT_CEGUI_OPENGL_CLIP_INCLUDED_
