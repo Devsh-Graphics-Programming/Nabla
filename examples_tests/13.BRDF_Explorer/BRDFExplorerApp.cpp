@@ -226,31 +226,35 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device)
             }
         });
 
-    /*
     // AO texturing & bump-mapping texturing window
     auto button_browse_AO = static_cast<::CEGUI::PushButton*>(
         root->getChild("MaterialParamsWindow/AOWindow/Button"));
+
     button_browse_AO->subscribeEvent(::CEGUI::PushButton::EventClicked,
-        AOTextureBrowseEvent);
+        ::CEGUI::Event::Subscriber(&BRDFExplorerApp::eventAOTextureBrowse, this));
+
     static_cast<::CEGUI::DefaultWindow*>(
         root->getChild("MaterialParamsWindow/AOWindow/ImageButton"))
-        ->subscribeEvent(::CEGUI::Window::EventMouseClick, AOTextureBrowseEvent);
+        ->subscribeEvent(::CEGUI::Window::EventMouseClick,
+            ::CEGUI::Event::Subscriber(&BRDFExplorerApp::eventAOTextureBrowse, this));
+
     static_cast<::CEGUI::Editbox*>(root->getChild("MaterialParamsWindow/AOWindow/Editbox"))
         ->subscribeEvent(::CEGUI::Editbox::EventTextAccepted,
-            AOTextureBrowseEvent_EditBox);
+            ::CEGUI::Event::Subscriber(&BRDFExplorerApp::eventAOTextureBrowse_EditBox, this));
 
     auto button_browse_bump_map = static_cast<::CEGUI::PushButton*>(
         root->getChild("MaterialParamsWindow/BumpWindow/Button"));
+
     button_browse_bump_map->subscribeEvent(::CEGUI::PushButton::EventClicked,
-        BumpTextureBrowseEvent);
-    static_cast<::CEGUI::DefaultWindow*>(
-        root->getChild("MaterialParamsWindow/BumpWindow/ImageButton"))
-        ->subscribeEvent(::CEGUI::Window::EventMouseClick, BumpTextureBrowseEvent);
-    static_cast<::CEGUI::Editbox*>(
-        root->getChild("MaterialParamsWindow/BumpWindow/Editbox"))
+        ::CEGUI::Event::Subscriber(&BRDFExplorerApp::eventBumpTextureBrowse, this));
+
+    static_cast<::CEGUI::DefaultWindow*>(root->getChild("MaterialParamsWindow/BumpWindow/ImageButton"))
+        ->subscribeEvent(::CEGUI::Window::EventMouseClick,
+            ::CEGUI::Event::Subscriber(&BRDFExplorerApp::eventBumpTextureBrowse, this));
+
+    static_cast<::CEGUI::Editbox*>(root->getChild("MaterialParamsWindow/BumpWindow/Editbox"))
         ->subscribeEvent(::CEGUI::Editbox::EventTextAccepted,
-            BumpTextureBrowseEvent_EditBox);
-    */
+            ::CEGUI::Event::Subscriber(&BRDFExplorerApp::eventBumpTextureBrowse_EditBox, this));
 
     GUI->registerSliderEvent(
         "MaterialParamsWindow/BumpWindow/Spinner", sliderBumpHeightRange, 1.0f,
@@ -295,6 +299,132 @@ void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot,
 
     for (const auto& v : property) {
         root->getChild(std::get<2>(tupl))->setProperty(v, std::get<0>(tupl));
+    }
+}
+
+void BRDFExplorerApp::updateTooltip(const char* name, const char* text)
+{
+    std::string s(text);
+    ext::cegui::Replace(s, "\\", "\\\\");
+
+    static_cast<CEGUI::DefaultWindow*>(GUI->getRootWindow()->getChild(name))
+        ->setTooltipText(s.c_str());
+}
+
+void BRDFExplorerApp::showErrorMessage(const char* title, const char* message)
+{
+    auto root = GUI->getRootWindow();
+    if (!root->isChild("MessageBoxRoot")) {
+        CEGUI::Window* layout = CEGUI::WindowManager::getSingleton().loadLayoutFromFile(
+            "MessageBox.layout");
+        layout->setVisible(false);
+        layout->setAlwaysOnTop(true);
+        layout->setSize(
+            CEGUI::USize(CEGUI::UDim(0.5, 0.0f), CEGUI::UDim(0.2f, 0.0f)));
+        layout->setHorizontalAlignment(CEGUI::HA_CENTRE);
+        layout->setVerticalAlignment(CEGUI::VA_CENTRE);
+
+        static_cast<CEGUI::PushButton*>(
+            layout->getChild("FrameWindow/ButtonWindow/Button"))
+            ->subscribeEvent(
+                CEGUI::PushButton::EventClicked,
+                [root](const CEGUI::EventArgs&) -> void {
+                    root->getChild("MessageBoxRoot")->setVisible(false);
+                });
+
+        root->addChild(layout);
+    }
+
+    auto header = static_cast<CEGUI::DefaultWindow*>(root->getChild("MessageBoxRoot"));
+    header->setVisible(true);
+    header->activate();
+
+    auto frame = static_cast<CEGUI::FrameWindow*>(header->getChild("FrameWindow"));
+    frame->setText(title);
+    static_cast<CEGUI::DefaultWindow*>(frame->getChild("Label"))
+        ->setText(message);
+}
+
+void BRDFExplorerApp::eventAOTextureBrowse(const ::CEGUI::EventArgs&)
+{
+    const auto p = ext::cegui::openFileDialog(FileDialogTitle, FileDialogFilters);
+
+    if (p.first) {
+        auto box = static_cast<CEGUI::Editbox*>(
+            GUI->getRootWindow()->getChild("MaterialParamsWindow/AOWindow/Editbox"));
+
+        const auto image = ext::cegui::loadImage(p.second.c_str());
+        loadTextureSlot(ETEXTURE_SLOT::TEXTURE_AO, image.buffer, image.w, image.h);
+
+        box->setText(p.second);
+        updateTooltip(
+            "MaterialParamsWindow/AOWindow/ImageButton",
+            ext::cegui::ssprintf("%s (%ix%i)\nLeft-click to select a new texture.",
+                p.second.c_str(), image.w, image.h)
+                .c_str());
+    }
+}
+
+void BRDFExplorerApp::eventAOTextureBrowse_EditBox(const ::CEGUI::EventArgs&)
+{
+    auto box = static_cast<CEGUI::Editbox*>(
+        GUI->getRootWindow()->getChild("MaterialParamsWindow/AOWindow/Editbox"));
+
+    if (ext::cegui::Exists(box->getText().c_str())) {
+        const auto image = ext::cegui::loadImage(box->getText().c_str());
+        loadTextureSlot(ETEXTURE_SLOT::TEXTURE_AO, image.buffer, image.w, image.h);
+
+        updateTooltip(
+            "MaterialParamsWindow/AOWindow/ImageButton",
+            irr::ext::cegui::ssprintf("%s (%ix%i)\nLeft-click to select a new texture.",
+                box->getText().c_str(), image.w, image.h)
+                .c_str());
+    } else {
+        std::string s;
+        s += std::string(box->getText().c_str()) + ": The file couldn't be opened.";
+        ext::cegui::Replace(s, "\\", "\\\\");
+        showErrorMessage("Error", s.c_str());
+    }
+}
+
+void BRDFExplorerApp::eventBumpTextureBrowse(const ::CEGUI::EventArgs&)
+{
+    const auto p = ext::cegui::openFileDialog(FileDialogTitle, FileDialogFilters);
+
+    if (p.first) {
+        auto box = static_cast<CEGUI::Editbox*>(
+            GUI->getRootWindow()->getChild("MaterialParamsWindow/BumpWindow/Editbox"));
+        const auto image = irr::ext::cegui::loadImage(p.second.c_str());
+        loadTextureSlot(ETEXTURE_SLOT::TEXTURE_BUMP, image.buffer, image.w, image.h);
+
+        box->setText(p.second);
+        updateTooltip(
+            "MaterialParamsWindow/BumpWindow/ImageButton",
+            ext::cegui::ssprintf("%s (%ix%i)\nLeft-click to select a new texture.",
+                p.second.c_str(), image.w, image.h)
+                .c_str());
+    }
+}
+
+void BRDFExplorerApp::eventBumpTextureBrowse_EditBox(const ::CEGUI::EventArgs&)
+{
+    auto box = static_cast<CEGUI::Editbox*>(
+        GUI->getRootWindow()->getChild("MaterialParamsWindow/BumpWindow/Editbox"));
+
+    if (ext::cegui::Exists(box->getText().c_str())) {
+        const auto image = ext::cegui::loadImage(box->getText().c_str());
+        loadTextureSlot(ETEXTURE_SLOT::TEXTURE_BUMP, image.buffer, image.w, image.h);
+
+        updateTooltip(
+            "MaterialParamsWindow/BumpWindow/ImageButton",
+            ext::cegui::ssprintf("%s (%ix%i)\nLeft-click to select a new texture.",
+                box->getText().c_str(), image.w, image.h)
+                .c_str());
+    } else {
+        std::string s;
+        s += std::string(box->getText().c_str()) + ": The file couldn't be opened.";
+        ext::cegui::Replace(s, "\\", "\\\\");
+        showErrorMessage("Error", s.c_str());
     }
 }
 

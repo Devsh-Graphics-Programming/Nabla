@@ -64,9 +64,6 @@ int Exists(const char* file);
 
 std::pair<bool, std::string> openFileDialog(const char* title, const std::vector<std::string>& filters);
 
-// Loads the ColourPicker extension, because it's compiled as an dynamically-loaded extension and not canonically integrated into CEGUI
-bool loadColorPickerExtension();
-
 // Loads an image file to a wrapped buffer. Replace your own IrrlichtBAW loader here
 ImageBuffer loadImage(const char* file);
 

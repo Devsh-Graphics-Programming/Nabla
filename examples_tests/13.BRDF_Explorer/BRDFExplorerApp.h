@@ -29,6 +29,13 @@ SOFTWARE.
 #define _IRR_BRDF_EXPLORER_APP_INCLUDED_
 
 #include <map>
+#include <string>
+#include <vector>
+
+namespace CEGUI
+{
+class EventArgs;
+}
 
 namespace irr
 {
@@ -36,11 +43,6 @@ class IrrlichtDevice;
 namespace video
 {
 class IVideoDriver;
-}
-
-namespace CEGUI
-{
-class EventArgs;
 }
 
 namespace ext
@@ -82,10 +84,22 @@ class BRDFExplorerApp {
         static constexpr float sliderRoughness2Range = 1.0f;
         static constexpr float sliderBumpHeightRange = 20.0f;
 
-        void AOTextureBrowseEvent(const CEGUI::EventArgs&);
-        void AOTextureBrowseEvent_EditBox(const CEGUI::EventArgs&);
-        void BumpTextureBrowseEvent(const CEGUI::EventArgs&);
-        void BumpTextureBrowseEvent_EditBox(const CEGUI::EventArgs&);
+        void updateTooltip(const char* name, const char* text);
+        void eventAOTextureBrowse(const ::CEGUI::EventArgs&);
+        void eventAOTextureBrowse_EditBox(const ::CEGUI::EventArgs&);
+        void eventBumpTextureBrowse(const ::CEGUI::EventArgs&);
+        void eventBumpTextureBrowse_EditBox(const ::CEGUI::EventArgs&);
+
+        // Default title & filtering for the choose-your-file dialog
+        static constexpr const char* FileDialogTitle = "Select Texture";
+
+        const std::vector<std::string> FileDialogFilters = {
+            "Everything (*.*)", "*",
+            "Image (*.jpg, *.jpeg, *.png, *.bmp, *.tga, *.dds, *.gif)",
+            "*.jpg *.jpeg *.png *.bmp *.tga *.dds *.gif"
+        };
+
+        void showErrorMessage(const char* title, const char* message);
 
     private:
         video::IVideoDriver* Driver = nullptr;

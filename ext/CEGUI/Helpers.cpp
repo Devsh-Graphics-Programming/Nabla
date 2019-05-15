@@ -62,38 +62,6 @@ std::pair<bool, std::string> openFileDialog(
     return std::make_pair(false, std::string());
 }
 
-bool loadColorPickerExtension()
-{
-    static constexpr const char* signature = "initialiseCEGUICommonDialogs";
-#if defined(_WIN32)
-    auto module = LoadLibraryA("libCEGUICommonDialogs-0.dll");
-    if (module) {
-        const auto function = GetProcAddress(module, signature);
-        if (function) {
-            function();
-            return FreeLibrary(module) != 0;
-        }
-    }
-#elif defined(__linux__)
-    typedef void (*entry)();
-
-    // The .so file doesn't get fixated as in Windows, additional path searches
-    // are needed.
-    for (const auto& file : { "./", "../lib/", "/usr/lib/" }) {
-        auto module = dlopen(
-            (std::string(file) + "libCEGUICommonDialogs-0.so").c_str(), RTLD_LAZY);
-        if (module) {
-            const auto function = (entry)dlsym(module, signature);
-            if (function) {
-                function();
-                return dlclose(module) == 0;
-            }
-        }
-    }
-#endif
-    return false;
-}
-
 std::vector<std::string> Split(const std::string& s, const char delimiter)
 {
     std::vector<std::string> v;
