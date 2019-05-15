@@ -135,9 +135,69 @@ bool GUIManager::OnEvent(const SEvent& event)
 
         case irr::EET_MOUSE_INPUT_EVENT:
         {
-            // if (event.MouseInput.ButtonStates)
             context.injectMousePosition(event.MouseInput.X, event.MouseInput.Y);
+            switch (event.MouseInput.Event)
+            {
+                case irr::EMOUSE_INPUT_EVENT::EMIE_LMOUSE_PRESSED_DOWN:
+                {
+                    context.injectMouseButtonDown(::CEGUI::MouseButton::LeftButton);
+                } break;
 
+                case irr::EMOUSE_INPUT_EVENT::EMIE_LMOUSE_LEFT_UP:
+                {
+                    context.injectMouseButtonUp(::CEGUI::MouseButton::LeftButton);
+                } break;
+
+                case irr::EMOUSE_INPUT_EVENT::EMIE_RMOUSE_PRESSED_DOWN:
+                {
+                    context.injectMouseButtonDown(::CEGUI::MouseButton::RightButton);
+                } break;
+
+                case irr::EMOUSE_INPUT_EVENT::EMIE_RMOUSE_LEFT_UP:
+                {
+                    context.injectMouseButtonUp(::CEGUI::MouseButton::RightButton);
+                } break;
+
+                case irr::EMOUSE_INPUT_EVENT::EMIE_MMOUSE_PRESSED_DOWN:
+                {
+                    context.injectMouseButtonDown(::CEGUI::MouseButton::MiddleButton);
+                } break;
+
+                case irr::EMOUSE_INPUT_EVENT::EMIE_MMOUSE_LEFT_UP:
+                {
+                    context.injectMouseButtonUp(::CEGUI::MouseButton::MiddleButton);
+                } break;
+
+                case irr::EMOUSE_INPUT_EVENT::EMIE_LMOUSE_DOUBLE_CLICK:
+                {
+                    context.injectMouseButtonDoubleClick(::CEGUI::MouseButton::LeftButton);
+                } break;
+
+                case irr::EMOUSE_INPUT_EVENT::EMIE_RMOUSE_DOUBLE_CLICK:
+                {
+                    context.injectMouseButtonDoubleClick(::CEGUI::MouseButton::RightButton);
+                } break;
+
+                case irr::EMOUSE_INPUT_EVENT::EMIE_MMOUSE_DOUBLE_CLICK:
+                {
+                    context.injectMouseButtonDoubleClick(::CEGUI::MouseButton::MiddleButton);
+                } break;
+
+                case irr::EMOUSE_INPUT_EVENT::EMIE_LMOUSE_TRIPLE_CLICK:
+                {
+                    context.injectMouseButtonTripleClick(::CEGUI::MouseButton::LeftButton);
+                } break;
+
+                case irr::EMOUSE_INPUT_EVENT::EMIE_RMOUSE_TRIPLE_CLICK:
+                {
+                    context.injectMouseButtonTripleClick(::CEGUI::MouseButton::RightButton);
+                } break;
+
+                case irr::EMOUSE_INPUT_EVENT::EMIE_MMOUSE_TRIPLE_CLICK:
+                {
+                    context.injectMouseButtonTripleClick(::CEGUI::MouseButton::MiddleButton);
+                } break;
+            }
         } break;
 
         default: return false;
