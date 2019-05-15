@@ -27,8 +27,6 @@ SOFTWARE.
 
 #include "BRDFExplorerApp.h"
 #include "../../ext/CEGUI/CEGUI.h"
-#include <CEGUI/CEGUI.h>
-#include <CEGUI/RendererModules/OpenGL/GL3Renderer.h>
 
 namespace irr
 {
@@ -106,10 +104,10 @@ void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot,
 {
     auto tupl = TextureSlotMap[slot];
     auto root = GUI->getRootWindow();
-    auto renderer = static_cast<CEGUI::OpenGL3Renderer*>(CEGUI::System::getSingleton().getRenderer());
-    CEGUI::Texture& texture = !renderer->isTextureDefined(std::get<1>(tupl))
-        ? renderer->createTexture(std::get<1>(tupl), CEGUI::Sizef(w, h))
-        : renderer->getTexture(std::get<1>(tupl));
+    auto& renderer = GUI->getRenderer();
+    CEGUI::Texture& texture = !renderer.isTextureDefined(std::get<1>(tupl))
+        ? renderer.createTexture(std::get<1>(tupl), CEGUI::Sizef(w, h))
+        : renderer.getTexture(std::get<1>(tupl));
 
     texture.loadFromMemory(buffer, CEGUI::Sizef(w, h), CEGUI::Texture::PF_RGBA);
 
@@ -122,8 +120,7 @@ void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot,
     image.setArea(CEGUI::Rectf(0, 0, w, h));
     image.setAutoScaled(CEGUI::AutoScaledMode::ASM_Both);
 
-    static const std::vector<const char*> property = { "NormalImage", "HoverImage",
-        "PushedImage" };
+    static const std::vector<const char*> property = { "NormalImage", "HoverImage", "PushedImage" };
 
     for (const auto& v : property) {
         root->getChild(std::get<2>(tupl))->setProperty(v, std::get<0>(tupl));
