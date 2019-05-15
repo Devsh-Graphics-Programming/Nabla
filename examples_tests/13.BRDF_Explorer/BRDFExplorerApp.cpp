@@ -198,7 +198,7 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device)
     root->getChild("MaterialParamsWindow/RoughnessWindow/Checkbox"));
     isotropic->subscribeEvent(
         ::CEGUI::ToggleButton::EventSelectStateChanged,
-        [this](const ::CEGUI::EventArgs& e) -> void {
+        [this](const ::CEGUI::EventArgs& e) {
             auto root = GUI->getRootWindow();
 
             const ::CEGUI::WindowEventArgs& we = static_cast<const ::CEGUI::WindowEventArgs&>(e);
@@ -266,6 +266,53 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device)
                 ->setText(ext::cegui::toStringFloat(roughness, 2));
         });
     initDropdown();
+    initTooltip();
+
+    // Setting up the texture preview window
+    std::array<::CEGUI::PushButton*, 4> texturePreviewIcon = {
+        static_cast<::CEGUI::PushButton*>(
+            root->getChild("TextureViewWindow/Texture0Window/Texture")),
+        static_cast<::CEGUI::PushButton*>(
+            root->getChild("TextureViewWindow/Texture1Window/Texture")),
+        static_cast<::CEGUI::PushButton*>(
+            root->getChild("TextureViewWindow/Texture2Window/Texture")),
+        static_cast<::CEGUI::PushButton*>(
+            root->getChild("TextureViewWindow/Texture3Window/Texture"))
+    };
+
+    for (const auto& v : texturePreviewIcon)
+    {
+        v->subscribeEvent(::CEGUI::PushButton::EventClicked,
+            ::CEGUI::Event::Subscriber(&BRDFExplorerApp::eventTextureBrowse, this));
+    }
+
+    // Setting up the master windows & their default opacity
+    auto* window_material = static_cast<::CEGUI::FrameWindow*>(root->getChild("MaterialParamsWindow"));
+    window_material->subscribeEvent(
+        ::CEGUI::FrameWindow::EventCloseClicked, [root](const ::CEGUI::EventArgs&) {
+            static_cast<::CEGUI::FrameWindow*>(
+                root->getChild("MaterialParamsWindow"))
+                ->setVisible(false);
+        });
+    GUI->setOpacity("MaterialParamsWindow", defaultOpacity);
+
+    auto* window_light = static_cast<::CEGUI::FrameWindow*>(root->getChild("LightParamsWindow"));
+    window_light->subscribeEvent(::CEGUI::FrameWindow::EventCloseClicked,
+        [root](const CEGUI::EventArgs&) {
+            static_cast<CEGUI::FrameWindow*>(
+                root->getChild("LightParamsWindow"))
+                ->setVisible(false);
+        });
+    GUI->setOpacity("LightParamsWindow", defaultOpacity);
+
+    auto* window_texture = static_cast<::CEGUI::FrameWindow*>(root->getChild("TextureViewWindow"));
+    window_texture->subscribeEvent(
+        ::CEGUI::FrameWindow::EventCloseClicked, [root](const ::CEGUI::EventArgs&) {
+            static_cast<::CEGUI::FrameWindow*>(
+                root->getChild("TextureViewWindow"))
+                ->setVisible(false);
+        });
+    GUI->setOpacity("TextureViewWindow", defaultOpacity);
 }
 
 void BRDFExplorerApp::initDropdown()
@@ -313,7 +360,7 @@ void BRDFExplorerApp::initDropdown()
 
     auto* ri_drop = GUI->createDropDownList(
         "MaterialParamsWindow/RIDropDownList", "DropDown_RI", drop_ID,
-        [this](const ::CEGUI::EventArgs&) -> void {
+        [this](const ::CEGUI::EventArgs&) {
             auto root = GUI->getRootWindow();
 
             auto* list = static_cast<::CEGUI::Combobox*>(
@@ -330,7 +377,7 @@ void BRDFExplorerApp::initDropdown()
 
     auto* metallic_drop = GUI->createDropDownList(
         "MaterialParamsWindow/MetallicDropDownList", "DropDown_Metallic", drop_ID,
-        [this](const ::CEGUI::EventArgs&) -> void {
+        [this](const ::CEGUI::EventArgs&) {
             auto root = GUI->getRootWindow();
 
             auto* list = static_cast<::CEGUI::Combobox*>(root->getChild(
@@ -344,6 +391,30 @@ void BRDFExplorerApp::initDropdown()
     metallic_drop->setHorizontalAlignment(default_halignment);
     metallic_drop->setWidth(default_width);
     metallic_drop->setPosition(default_position);
+}
+
+void BRDFExplorerApp::initTooltip()
+{
+    auto root = GUI->getRootWindow();
+
+    static_cast<CEGUI::DefaultWindow*>(
+        root->getChild("MaterialParamsWindow/BumpWindow/ImageButton"))
+        ->setTooltipText("Left-click to select a bump-mapping texture.");
+    static_cast<CEGUI::DefaultWindow*>(
+        root->getChild("MaterialParamsWindow/AOWindow/ImageButton"))
+        ->setTooltipText("Left-click to select an AO texture.");
+    static_cast<CEGUI::DefaultWindow*>(
+        root->getChild("TextureViewWindow/Texture0Window/Texture"))
+        ->setTooltipText("Left-click to select a new texture.");
+    static_cast<CEGUI::DefaultWindow*>(
+        root->getChild("TextureViewWindow/Texture1Window/Texture"))
+        ->setTooltipText("Left-click to select a new texture.");
+    static_cast<CEGUI::DefaultWindow*>(
+        root->getChild("TextureViewWindow/Texture2Window/Texture"))
+        ->setTooltipText("Left-click to select a new texture.");
+    static_cast<CEGUI::DefaultWindow*>(
+        root->getChild("TextureViewWindow/Texture3Window/Texture"))
+        ->setTooltipText("Left-click to select a new texture.");
 }
 
 void BRDFExplorerApp::renderGUI()
@@ -407,7 +478,7 @@ void BRDFExplorerApp::showErrorMessage(const char* title, const char* message)
             layout->getChild("FrameWindow/ButtonWindow/Button"))
             ->subscribeEvent(
                 CEGUI::PushButton::EventClicked,
-                [root](const CEGUI::EventArgs&) -> void {
+                [root](const CEGUI::EventArgs&) {
                     root->getChild("MessageBoxRoot")->setVisible(false);
                 });
 
@@ -506,6 +577,43 @@ void BRDFExplorerApp::eventBumpTextureBrowse_EditBox(const ::CEGUI::EventArgs&)
         showErrorMessage("Error", s.c_str());
     }
 }
+
+void BRDFExplorerApp::eventTextureBrowse(const CEGUI::EventArgs& e)
+{
+    const CEGUI::WindowEventArgs& we = static_cast<const CEGUI::WindowEventArgs&>(e);
+    const auto parent = static_cast<CEGUI::PushButton*>(we.window)->getParent()->getName();
+    const auto p = ext::cegui::openFileDialog(FileDialogTitle, FileDialogFilters);
+
+
+    const auto path_label = ext::cegui::ssprintf("TextureViewWindow/%s/LabelWindow/Label", parent.c_str());
+    const auto path_texture = ext::cegui::ssprintf("TextureViewWindow/%s/Texture", parent.c_str());
+
+    if (p.first) {
+        auto box = static_cast<CEGUI::Editbox*>(GUI->getRootWindow()->getChild(path_label));
+        const auto v = ext::cegui::Split(p.second, '\\');
+
+        ETEXTURE_SLOT type;
+        if (parent == "Texture0Window")
+            type = ETEXTURE_SLOT::TEXTURE_SLOT_1;
+        else if (parent == "Texture1Window")
+            type = ETEXTURE_SLOT::TEXTURE_SLOT_2;
+        else if (parent == "Texture2Window")
+            type = ETEXTURE_SLOT::TEXTURE_SLOT_3;
+        else if (parent == "Texture3Window")
+            type = ETEXTURE_SLOT::TEXTURE_SLOT_4;
+
+        const auto image = ext::cegui::loadImage(p.second.c_str());
+        loadTextureSlot(type, image.buffer, image.w, image.h);
+
+        box->setText(v[v.size() - 1]);
+        updateTooltip(
+            path_texture.c_str(),
+            ext::cegui::ssprintf("%s (%ix%i)\nLeft-click to select a new texture.",
+                p.second.c_str(), image.w, image.h)
+                .c_str());
+    }
+}
+
 
 BRDFExplorerApp::~BRDFExplorerApp()
 {

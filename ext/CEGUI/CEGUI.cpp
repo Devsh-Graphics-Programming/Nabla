@@ -392,6 +392,19 @@ void GUIManager::registerSliderEvent(
     }
 }
 
+void GUIManager::setOpacity(const char* name, float opacity)
+{
+    auto window = static_cast<CEGUI::FrameWindow*>(RootWindow->getChild(name));
+    window->setAlpha(opacity);
+
+    if (opacity > 0.0f) {
+        auto bar = static_cast<CEGUI::DefaultWindow*>(
+            window->getChild("__auto_titlebar__"));
+        bar->setInheritsAlpha(false);
+        bar->setAlpha(1.0f);
+    }
+}
+
 GUIManager::~GUIManager()
 {
 

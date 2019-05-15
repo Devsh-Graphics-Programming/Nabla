@@ -90,6 +90,8 @@ class GUIManager: public core::IReferenceCounted, public IEventReceiver
             const TEventHandler& func
         );
 
+        void setOpacity(const char* name, float opacity);
+
     private:
         video::IVideoDriver* Driver = nullptr;
         ::CEGUI::OpenGL3Renderer& Renderer;
