@@ -265,6 +265,85 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device)
             root->getChild("MaterialParamsWindow/BumpWindow/LabelPercent")
                 ->setText(ext::cegui::toStringFloat(roughness, 2));
         });
+    initDropdown();
+}
+
+void BRDFExplorerApp::initDropdown()
+{
+    static const std::vector<const char*> drop_ID = {
+        "Constant", "Texture 0", "Texture 1", "Texture 2", "Texture 3"
+    };
+    const auto default_halignment = ::CEGUI::HA_RIGHT;
+    const auto default_width = ::CEGUI::UDim(0.5f, 0.0f);
+    const auto default_position = ::CEGUI::UVector2(::CEGUI::UDim(0.0f, 0.0f), ::CEGUI::UDim(0.125f, 0.0f));
+
+    auto root = GUI->getRootWindow();
+
+    auto* albedo_drop = GUI->createDropDownList(
+        "MaterialParamsWindow/AlbedoDropDownList", "DropDown_Albedo", drop_ID,
+        [this](const ::CEGUI::EventArgs&) {
+            auto root = GUI->getRootWindow();
+            auto* list = static_cast<::CEGUI::Combobox*>(root->getChild(
+                "MaterialParamsWindow/AlbedoDropDownList/DropDown_Albedo"));
+            list->setProperty("NormalEditTextColour", GUI->WhiteProperty);
+
+            root->getChild("MaterialParamsWindow/AlbedoWindow")
+                ->setDisabled(list->getSelectedItem()->getText() != "Constant");
+        });
+
+    albedo_drop->setHorizontalAlignment(default_halignment);
+    albedo_drop->setWidth(default_width);
+    albedo_drop->setPosition(default_position);
+
+    auto* roughness_drop = GUI->createDropDownList(
+        "MaterialParamsWindow/RoughnessDropDownList", "DropDown_Roughness",
+        drop_ID, [this](const ::CEGUI::EventArgs&) {
+            auto root = GUI->getRootWindow();
+            auto* list = static_cast<CEGUI::Combobox*>(root->getChild(
+                "MaterialParamsWindow/RoughnessDropDownList/DropDown_Roughness"));
+            list->setProperty("NormalEditTextColour", GUI->WhiteProperty);
+
+            root->getChild("MaterialParamsWindow/RoughnessWindow")
+                ->setDisabled(list->getSelectedItem()->getText() != "Constant");
+        });
+
+    roughness_drop->setHorizontalAlignment(default_halignment);
+    roughness_drop->setWidth(default_width);
+    roughness_drop->setPosition(default_position);
+
+    auto* ri_drop = GUI->createDropDownList(
+        "MaterialParamsWindow/RIDropDownList", "DropDown_RI", drop_ID,
+        [this](const ::CEGUI::EventArgs&) -> void {
+            auto root = GUI->getRootWindow();
+
+            auto* list = static_cast<::CEGUI::Combobox*>(
+                root->getChild("MaterialParamsWindow/RIDropDownList/DropDown_RI"));
+            list->setProperty("NormalEditTextColour", GUI->WhiteProperty);
+
+            root->getChild("MaterialParamsWindow/RefractionIndexWindow")
+                ->setDisabled(list->getSelectedItem()->getText() != "Constant");
+        });
+
+    ri_drop->setHorizontalAlignment(default_halignment);
+    ri_drop->setWidth(default_width);
+    ri_drop->setPosition(default_position);
+
+    auto* metallic_drop = GUI->createDropDownList(
+        "MaterialParamsWindow/MetallicDropDownList", "DropDown_Metallic", drop_ID,
+        [this](const ::CEGUI::EventArgs&) -> void {
+            auto root = GUI->getRootWindow();
+
+            auto* list = static_cast<::CEGUI::Combobox*>(root->getChild(
+                "MaterialParamsWindow/MetallicDropDownList/DropDown_Metallic"));
+            list->setProperty("NormalEditTextColour", GUI->WhiteProperty);
+
+            root->getChild("MaterialParamsWindow/MetallicWindow")
+                ->setDisabled(list->getSelectedItem()->getText() != "Constant");
+        });
+
+    metallic_drop->setHorizontalAlignment(default_halignment);
+    metallic_drop->setWidth(default_width);
+    metallic_drop->setPosition(default_position);
 }
 
 void BRDFExplorerApp::renderGUI()

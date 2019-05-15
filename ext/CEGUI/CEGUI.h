@@ -50,38 +50,53 @@ using TEventHandler = std::function<void(const ::CEGUI::EventArgs&)>;
 
 class GUIManager: public core::IReferenceCounted, public IEventReceiver
 {
-public:
-    GUIManager(video::IVideoDriver* driver);
-    ~GUIManager();
+    public:
+        // White (1.0f, 1.0f, 1.0f) color, but it's a CEGUI::String property
+        // (which is the editable property seen in CEED). Needed for setProperty().
+        const ::CEGUI::String WhiteProperty = ::CEGUI::PropertyHelper<::CEGUI::ColourRect>::toString(
+            ::CEGUI::ColourRect(::CEGUI::Colour(1.0f, 1.0f, 1.0f, 1.0f)));
 
-    void init();
-    void destroy();
-    void render();
-    bool OnEvent(const SEvent& event) override;
+    public:
+        GUIManager(video::IVideoDriver* driver);
+        ~GUIManager();
 
-    void createRootWindowFromLayout(const std::string& layout);
-    auto getRootWindow() const { return RootWindow; }
-    auto& getRenderer() const { return Renderer; }
+        void init();
+        void destroy();
+        void render();
+        bool OnEvent(const SEvent& event) override;
 
-    ::CEGUI::ColourPicker* createColourPicker(
-        bool alternativeLayout,
-        const char* parent,
-        const char* title,
-        const char* name
-    );
+        void createRootWindowFromLayout(const std::string& layout);
+        auto getRootWindow() const { return RootWindow; }
+        auto& getRenderer() const { return Renderer; }
 
-    void registerSliderEvent(
-        const char* name,
-        float max,
-        float step,
-        const TEventHandler& func
-    );
+        ::CEGUI::ColourPicker* createColourPicker(
+            bool alternativeLayout,
+            const char* parent,
+            const char* title,
+            const char* name
+        );
 
-private:
-    video::IVideoDriver* Driver = nullptr;
-    ::CEGUI::OpenGL3Renderer& Renderer;
-    ::CEGUI::Window* RootWindow;
-    std::map<const char*, ::CEGUI::ColourPicker*> ColourPickers;
+        ::CEGUI::Window* createDropDownList(
+            const char* name,
+            const char* title,
+            const std::vector<const char*>& list,
+            const TEventHandler& f = [](const ::CEGUI::EventArgs&) {}
+        );
+
+        void registerSliderEvent(
+            const char* name,
+            float max,
+            float step,
+            const TEventHandler& func
+        );
+
+    private:
+        video::IVideoDriver* Driver = nullptr;
+        ::CEGUI::OpenGL3Renderer& Renderer;
+        ::CEGUI::Window* RootWindow;
+        std::map<const char*, ::CEGUI::ColourPicker*> ColourPickers;
+        // White (1.0f, 1.0f, 1.0f) color, but it's a CEGUI::String property (which is the editable property seen in CEED). Needed for setProperty().
+
 };
 
 } // namespace cegui

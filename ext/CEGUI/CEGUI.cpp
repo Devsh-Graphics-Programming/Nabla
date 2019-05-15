@@ -323,6 +323,58 @@ void GUIManager::createRootWindowFromLayout(const std::string& layout)
     return nullptr;
 }
 
+::CEGUI::Window* GUIManager::createDropDownList(
+    const char* name,
+    const char* title,
+    const std::vector<const char*>& list,
+    const TEventHandler& f)
+{
+    assert(name);
+
+    auto root = RootWindow;
+
+    if (root && name) {
+        auto* box = static_cast<Combobox*>(WindowManager::getSingleton().createWindow(
+            "Alfisko/DropDownMenu", title));
+        box->setInheritsAlpha(false);
+        static const Colour WHITE = Colour(1.0f, 1.0f, 1.0f, 1.0f);
+
+        if (!ImageManager::getSingleton().isDefined("ItemHover"))
+            ImageManager::getSingleton().addFromImageFile("ItemHover",
+                "ItemHover.png");
+
+        auto window = static_cast<DefaultWindow*>(root->getChild(name));
+        window->addChild(box);
+
+        box->getDropList()->subscribeEvent(
+            ComboDropList::EventListSelectionAccepted, f);
+
+        ListboxTextItem* first = nullptr;
+        bool first_chosen = false;
+
+        for (const auto& e : list) {
+            auto* item = new ListboxTextItem(e);
+            // item->setSelectionColours(WHITE, WHITE, WHITE, WHITE);
+            item->setTextColours(WHITE, WHITE, WHITE, WHITE);
+            item->setSelectionBrushImage("ItemHover");
+
+            box->addItem(item);
+
+            if (!first_chosen) {
+                first = item;
+                first_chosen = true;
+            }
+        }
+        box->setAutoSizeListHeightToContent(true);
+        box->setItemSelectState(first, true);
+        box->setProperty("NormalEditTextColour", WhiteProperty);
+
+        return box;
+    }
+
+    return nullptr;
+}
+
 void GUIManager::registerSliderEvent(
     const char* name,
     float max,

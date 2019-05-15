@@ -84,6 +84,8 @@ class BRDFExplorerApp {
         static constexpr float sliderRoughness2Range = 1.0f;
         static constexpr float sliderBumpHeightRange = 20.0f;
 
+        void initDropdown();
+
         void updateTooltip(const char* name, const char* text);
         void eventAOTextureBrowse(const ::CEGUI::EventArgs&);
         void eventAOTextureBrowse_EditBox(const ::CEGUI::EventArgs&);
