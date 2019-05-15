@@ -239,7 +239,7 @@ void GUIManager::createRootWindowFromLayout(const std::string& layout)
 
         for (const auto& v : s) {
             static_cast<Slider*>(layout->getChild(std::string("Slider") + v))
-                ->subscribeEvent(Slider::EventValueChanged, [layout](void) -> void {
+                ->subscribeEvent(Slider::EventValueChanged, [layout](void) {
                     auto sliderR = static_cast<Slider*>(layout->getChild("SliderR"))
                                        ->getCurrentValue();
                     auto sliderG = static_cast<Slider*>(layout->getChild("SliderG"))
@@ -290,7 +290,7 @@ void GUIManager::createRootWindowFromLayout(const std::string& layout)
         cpicker_window->addChild(picker);
 
         picker->subscribeEvent(ColourPicker::EventAcceptedColour,
-            [layout, picker](void) -> void {
+            [layout, picker](void) {
                 const auto color = picker->getColour();
                 static_cast<Slider*>(layout->getChild("SliderR"))
                     ->setCurrentValue(color.getRed() * 255.0f);
@@ -301,7 +301,7 @@ void GUIManager::createRootWindowFromLayout(const std::string& layout)
             });
 
         picker->subscribeEvent(
-            ColourPicker::EventOpenedPicker, [layout, picker](void) -> void {
+            ColourPicker::EventOpenedPicker, [layout, picker](void) {
                 auto sliderR = static_cast<Slider*>(layout->getChild("SliderR"))
                                    ->getCurrentValue();
                 auto sliderG = static_cast<Slider*>(layout->getChild("SliderG"))
