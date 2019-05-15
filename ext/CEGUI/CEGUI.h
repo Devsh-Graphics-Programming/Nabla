@@ -30,10 +30,11 @@ SOFTWARE.
 
 #include "irrlicht.h"
 #include "Helpers.h"
-#include <CEGUI/CEGUI.h>
+#include <CEGUI/widgets/Slider.h>
 #include <CEGUI/RendererModules/OpenGL/GL3Renderer.h>
 #include <CEGUI/CommonDialogs/ColourPicker/ColourPicker.h>
 #include <map>
+#include <functional>
 
 namespace irr
 {
@@ -44,6 +45,8 @@ namespace cegui
 
 class GUIManager;
 GUIManager* createGUIManager(IrrlichtDevice* device);
+
+using TEventHandler = std::function<void(const ::CEGUI::EventArgs&)>;
 
 class GUIManager: public core::IReferenceCounted, public IEventReceiver
 {
@@ -60,18 +63,25 @@ public:
     auto getRootWindow() const { return RootWindow; }
     auto& getRenderer() const { return Renderer; }
 
-    CEGUI::ColourPicker* createColourPicker(
+    ::CEGUI::ColourPicker* createColourPicker(
         bool alternativeLayout,
         const char* parent,
         const char* title,
         const char* name
     );
 
+    void registerSliderEvent(
+        const char* name,
+        float max,
+        float step,
+        const TEventHandler& func
+    );
+
 private:
     video::IVideoDriver* Driver = nullptr;
-    CEGUI::OpenGL3Renderer& Renderer;
-    CEGUI::Window* RootWindow;
-    std::map<const char*, CEGUI::ColourPicker*> ColourPickers;
+    ::CEGUI::OpenGL3Renderer& Renderer;
+    ::CEGUI::Window* RootWindow;
+    std::map<const char*, ::CEGUI::ColourPicker*> ColourPickers;
 };
 
 } // namespace cegui

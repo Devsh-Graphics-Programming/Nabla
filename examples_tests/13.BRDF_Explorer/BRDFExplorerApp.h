@@ -38,6 +38,11 @@ namespace video
 class IVideoDriver;
 }
 
+namespace CEGUI
+{
+class EventArgs;
+}
+
 namespace ext
 {
 namespace cegui
@@ -71,9 +76,22 @@ class BRDFExplorerApp {
         void loadTextureSlot(ETEXTURE_SLOT slot, const unsigned char* buffer, unsigned w, unsigned h);
 
     private:
+        static constexpr float sliderRIRange = 1.0f;
+        static constexpr float sliderMetallicRange = 1.0f;
+        static constexpr float sliderRoughness1Range = 1.0f;
+        static constexpr float sliderRoughness2Range = 1.0f;
+        static constexpr float sliderBumpHeightRange = 20.0f;
+
+        void AOTextureBrowseEvent(const CEGUI::EventArgs&);
+        void AOTextureBrowseEvent_EditBox(const CEGUI::EventArgs&);
+        void BumpTextureBrowseEvent(const CEGUI::EventArgs&);
+        void BumpTextureBrowseEvent_EditBox(const CEGUI::EventArgs&);
+
+    private:
         video::IVideoDriver* Driver = nullptr;
         ext::cegui::GUIManager* GUI = nullptr;
         TTextureSlotMap TextureSlotMap;
+        bool IsIsotropic = false;
 };
 
 } // namespace irr

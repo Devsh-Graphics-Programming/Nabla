@@ -110,13 +110,13 @@ void GUIManager::render()
 {
     saveOpenGLState();
     setOpenGLClip();
-    CEGUI::System::getSingleton().renderAllGUIContexts();
+    ::CEGUI::System::getSingleton().renderAllGUIContexts();
     restoreOpenGLState();
 }
 
 bool GUIManager::OnEvent(const SEvent& event)
 {
-    CEGUI::GUIContext& context = CEGUI::System::getSingleton().getDefaultGUIContext();
+    ::CEGUI::GUIContext& context = ::CEGUI::System::getSingleton().getDefaultGUIContext();
 
     switch (event.EventType) {
         case irr::EET_KEY_INPUT_EVENT:
@@ -151,7 +151,7 @@ void GUIManager::createRootWindowFromLayout(const std::string& layout)
     System::getSingleton().getDefaultGUIContext().setRootWindow(RootWindow);
 }
 
-CEGUI::ColourPicker* GUIManager::createColourPicker(
+::CEGUI::ColourPicker* GUIManager::createColourPicker(
     bool alternativeLayout,
     const char* parent,
     const char* title,
@@ -159,7 +159,7 @@ CEGUI::ColourPicker* GUIManager::createColourPicker(
 {
     assert(parent);
     assert(name);
-    static const auto defaultColor = CEGUI::Colour(1.0f, 1.0f, 1.0f, 1.0f);
+    static const auto defaultColor = ::CEGUI::Colour(1.0f, 1.0f, 1.0f, 1.0f);
 
     Window* layout = WindowManager::getSingleton().loadLayoutFromFile(
         alternativeLayout ? "CPAlternativeLayout.layout"
@@ -255,12 +255,29 @@ CEGUI::ColourPicker* GUIManager::createColourPicker(
         picker->setSize(USize(UDim(1.0f, 0.0f), UDim(1.0f, 0.0f)));
         picker->setColour(defaultColor);
 
-        auto pickerWindow = static_cast<CEGUI::ColourPicker*>(layout);
+        auto pickerWindow = static_cast<::CEGUI::ColourPicker*>(layout);
         ColourPickers[name] = pickerWindow;
         return pickerWindow;
     }
 
     return nullptr;
+}
+
+void GUIManager::registerSliderEvent(
+    const char* name,
+    float max,
+    float step,
+    const TEventHandler& func)
+{
+    if (name) {
+        auto slider = static_cast<::CEGUI::Slider*>(RootWindow->getChild(name));
+        if (slider) {
+            slider->setCurrentValue(0.0f);
+            slider->setMaxValue(max);
+            slider->setClickStep(step);
+            slider->subscribeEvent(::CEGUI::Slider::EventValueChanged, func);
+        }
+    }
 }
 
 GUIManager::~GUIManager()
