@@ -60,6 +60,7 @@ public:
     bool OnEvent(const SEvent& event) override;
 
     void createRootWindowFromLayout(const std::string& layout);
+    auto getRootWindow() const { return RootWindow; }
 
     CEGUI::ColourPicker* createColourPicker(
         bool alternativeLayout,

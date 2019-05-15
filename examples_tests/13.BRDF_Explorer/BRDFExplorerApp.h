@@ -28,6 +28,8 @@ SOFTWARE.
 #ifndef _IRR_BRDF_EXPLORER_APP_INCLUDED_
 #define _IRR_BRDF_EXPLORER_APP_INCLUDED_
 
+#include <map>
+
 namespace irr
 {
 class IrrlichtDevice;
@@ -44,16 +46,34 @@ class GUIManager;
 }
 }
 
-class BRDFExplorereApp {
+class BRDFExplorerApp {
     public:
-        BRDFExplorereApp(IrrlichtDevice* device);
-        ~BRDFExplorereApp();
+        enum class ETEXTURE_SLOT {
+            TEXTURE_AO,
+            TEXTURE_BUMP,
+            TEXTURE_SLOT_1,
+            TEXTURE_SLOT_2,
+            TEXTURE_SLOT_3,
+            TEXTURE_SLOT_4,
+        };
+
+        using TTextureSlotMap = std::map<ETEXTURE_SLOT, std::tuple<const char*, const char*, const char*>>;
+
+    public:
+        BRDFExplorerApp(IrrlichtDevice* device);
+        ~BRDFExplorerApp();
 
         void renderGUI();
+
+        // Loads a given texture buffer into slot of type T.
+        // T can be one of the TextureType enum types.
+        // Caller is responsible for freeing the buffer afterwards.
+        void loadTextureSlot(ETEXTURE_SLOT slot, const unsigned char* buffer, unsigned w, unsigned h);
 
     private:
         video::IVideoDriver* Driver = nullptr;
         ext::cegui::GUIManager* GUI = nullptr;
+        TTextureSlotMap TextureSlotMap;
 };
 
 } // namespace irr
