@@ -161,6 +161,8 @@ endif()
 
 if(IRR_BUILD_CEGUI)
 	add_definitions(-DIRR_BUILD_CEGUI)
+	set(IRR_CEGUI_EXT_INCLUDE_DIRS "")
+	add_subdirectory(./ext/CEGUI)
 endif()
 
 if(IRR_BUILD_EXAMPLES)

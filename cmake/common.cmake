@@ -48,6 +48,59 @@ macro(irr_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	endif()
 endmacro()
 
+macro(irr_create_library_project EXECUTABLE_NAME _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS)
+	project(${EXECUTABLE_NAME})
+
+	add_library(${EXECUTABLE_NAME} ${_EXTRA_SOURCES})
+	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
+	add_dependencies(${EXECUTABLE_NAME} Irrlicht)
+
+	target_include_directories(${EXECUTABLE_NAME}
+		PUBLIC ../../include
+		PRIVATE ${_EXTRA_INCLUDES}
+	)
+	target_link_libraries(${EXECUTABLE_NAME} Irrlicht ${_EXTRA_LIBS})
+	target_compile_options(${EXECUTABLE_NAME} PUBLIC ${_EXTRA_OPTIONS})
+
+	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+		add_compile_options(
+			"$<$<CONFIG:DEBUG>:-fstack-protector-all>"
+		)
+
+		set(COMMON_LINKER_OPTIONS "-msse4.2 -mfpmath=sse -fuse-ld=gold")
+		set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${COMMON_LINKER_OPTIONS}")
+		set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${COMMON_LINKER_OPTIONS} -fstack-protector-strong -fsanitize=address")
+	endif()
+
+	irr_adjust_flags() # macro defined in root CMakeLists
+	irr_adjust_definitions() # macro defined in root CMakeLists
+
+	set_target_properties(${EXECUTABLE_NAME} PROPERTIES DEBUG_POSTFIX _d)
+	set_target_properties(${EXECUTABLE_NAME}
+		PROPERTIES
+		RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin"
+	)
+	if(MSVC)
+		set_target_properties(${EXECUTABLE_NAME}
+			PROPERTIES
+			RUNTIME_OUTPUT_DIRECTORY_DEBUG "${PROJECT_SOURCE_DIR}/bin"
+			RUNTIME_OUTPUT_DIRECTORY_RELEASE "${PROJECT_SOURCE_DIR}/bin"
+			VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/bin" # seems like has no effect
+		)
+	endif()
+
+	install(
+		TARGETS ${EXECUTABLE_NAME}
+		DESTINATION ./lib
+		CONFIGURATIONS Release
+	)
+	install(
+		TARGETS ${EXECUTABLE_NAME}
+		DESTINATION ./debug/lib
+		CONFIGURATIONS Debug
+	)
+endmacro()
+
 
 function(irr_get_conf_dir _OUTVAR _CONFIG)
 	string(TOLOWER ${_CONFIG} CONFIG)
