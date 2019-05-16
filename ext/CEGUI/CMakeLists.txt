@@ -37,11 +37,8 @@ install(
 )
 
 set(IRR_CEGUI_EXT_INCLUDE_DIRS
-	"${CMAKE_INSTALL_PREFIX}/include/"
-  "${CMAKE_INSTALL_PREFIX}/debug/include/"
-	"${CMAKE_INSTALL_PREFIX}/include/irr/ext/GUI"
-	"${CMAKE_INSTALL_PREFIX}/include/irr/ext/GUI/include"
-  "${CMAKE_INSTALL_PREFIX}/debug/include/irr/ext/GUI"
-  "${CMAKE_INSTALL_PREFIX}/debug/include/irr/ext/GUI/include"
+	"${CMAKE_SOURCE_DIR}/include/"
+	"${CMAKE_SOURCE_DIR}/ext/CEGUI"
+  "${IRR_CEGUI_EXT_EXTERNAL_INCLUDE}"
 )
 set(IRR_CEGUI_EXT_INCLUDE_DIRS ${IRR_CEGUI_EXT_INCLUDE_DIRS} PARENT_SCOPE)
