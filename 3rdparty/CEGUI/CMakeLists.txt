@@ -83,9 +83,12 @@ execute_process(
 # CEGUI needs at least 1 image codec to build although we won't use
 execute_process(
     COMMAND ${CMAKE_COMMAND} ${CEGUI_PATH}
+        -DCMAKE_PREFIX_PATH=${CEGUI_PATH}/dependencies
         -DCMAKE_INSTALL_PREFIX=${CEGUI_INSTALL_PATH}
         -DCEGUI_INSTALL_PKGCONFIG=OFF
         -DCEGUI_BUILD_APPLICATION_TEMPLATES=OFF
+        -DCEGUI_STRING_CLASS=2
+        -DCEGUI_HAS_FREETYPE=ON
         -DCEGUI_HAS_PCRE_REGEX=ON
         -DCEGUI_BUILD_PYTHON_MODULES=OFF
         -DCEGUI_BUILD_LUA_MODULE=OFF

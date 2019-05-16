@@ -112,10 +112,7 @@ add_library(aesGladman OBJECT
 
 if (IRR_BUILD_CEGUI)
 	add_subdirectory(CEGUI)
-	set(CEGUI_INCLUDE_PATH
-		${CEGUI_INSTALL_PATH}/include/cegui-0
-		${CMAKE_CURRENT_SOURCE_DIR}
-	)
+	set(CEGUI_INCLUDE_PATH ${CEGUI_INSTALL_PATH}/include/cegui-0)
 	set(CEGUI_INCLUDE_PATH ${CEGUI_INCLUDE_PATH} PARENT_SCOPE)
 
 	if (MSVC)
