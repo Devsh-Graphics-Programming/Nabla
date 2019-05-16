@@ -130,21 +130,17 @@ if (IRR_BUILD_CEGUI)
 			PARENT_SCOPE
 		)
 	else()
-    find_package(EXPAT REQUIRED)
-    find_package(Freetype REQUIRED)
-    find_package(GLEW REQUIRED)
-    find_package(PCRE REQUIRED)
 		set(CEGUI_LIBS
 			"${CEGUI_INSTALL_PATH}/lib/libCEGUIOpenGLRenderer-0_Static.a "
 			"${CEGUI_INSTALL_PATH}/lib/libCEGUIBase-0_Static.a "
-			"${GLEW_LIBRARIES} "
+			"${CEGUI_DEPS_INSTALL_PATH}/lib/static/libglew.a"
 			"${CEGUI_INSTALL_PATH}/lib/libCEGUIExpatParser_Static.a "
 			"${CEGUI_INSTALL_PATH}/lib/libCEGUISTBImageCodec_Static.a "
-			"${FREETYPE_LIBRARIES}"
+			"${CEGUI_DEPS_INSTALL_PATH}/lib/static/libfreetype.a"
 			"${CEGUI_INSTALL_PATH}/lib/libCEGUICoreWindowRendererSet_Static.a "
 			"${CEGUI_INSTALL_PATH}/lib/libCEGUICommonDialogs-0_Static.a "
-			"${EXPAT_LIBRARIES} "
-			"${PCRE_LIBRARIES} "
+			"${CEGUI_DEPS_INSTALL_PATH}/lib/static/libexpat.a"
+			"${CEGUI_DEPS_INSTALL_PATH}/lib/static/libpcre.a"
 			PARENT_SCOPE
 		)
 	endif()
