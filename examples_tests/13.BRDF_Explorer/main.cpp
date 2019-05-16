@@ -29,6 +29,7 @@ int main()
     params.Stencilbuffer = false; //! This will not even be a choice soon
     params.AuxGLContexts = 16;
     IrrlichtDevice* device = createDeviceEx(params);
+    device->setWindowCaption(L"BRDF Explorer");
 
     if (device == 0)
         return 1; // could not create selected driver.
@@ -46,18 +47,6 @@ int main()
         driver->beginScene(true, false, video::SColor(255,255,0,0) ); //this gets 11k FPS
         brdfExplorerApp->renderGUI();
         driver->endScene();
-
-        // display frames per second in window title
-        uint64_t time = device->getTimer()->getRealTime();
-        if (time-lastFPSTime > 1000)
-        {
-            std::wostringstream str(L"Hello World - Irrlicht Engine [");
-            str.seekp(0,std::ios_base::end);
-            str << driver->getName() << "] FPS:" << driver->getFPS();
-
-            device->setWindowCaption(str.str());
-            lastFPSTime = time;
-        }
     }
     // create a screenshot using example 09's mechanism
     device->drop();
