@@ -30,6 +30,7 @@ int main()
     params.AuxGLContexts = 16;
     IrrlichtDevice* device = createDeviceEx(params);
     device->setWindowCaption(L"BRDF Explorer");
+    device->getCursorControl()->setVisible(false);
 
     if (device == 0)
         return 1; // could not create selected driver.
