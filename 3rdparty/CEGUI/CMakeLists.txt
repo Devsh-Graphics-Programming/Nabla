@@ -24,57 +24,58 @@ if (MSVC) # MSVC needs to download and build dependencies of CEGUI
         message(STATUS "Extracting done")
     endif()
 
-    message(STATUS "Building CEGUI 0.8.x dependencies")
+    if (NOT EXISTS "${CEGUI_DEPS_INSTALL_PATH}")
+        message(STATUS "Building CEGUI 0.8.x dependencies")
 
-    execute_process(
-        COMMAND ${CMAKE_COMMAND} -E make_directory build
-        WORKING_DIRECTORY ${CEGUI_DEPS_PATH}
-    )
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} -E make_directory build
+            WORKING_DIRECTORY ${CEGUI_DEPS_PATH}
+        )
 
-    execute_process(
-        COMMAND ${CMAKE_COMMAND} ..
-            -DCEGUI_BUILD_CORONA=OFF
-            -DCEGUI_BUILD_DEVIL=OFF
-            -DCEGUI_BUILD_FREEIMAGE=OFF
-            -DCEGUI_BUILD_GLFW=OFF
-            -DCEGUI_BUILD_LUA=OFF
-            -DCEGUI_BUILD_MINIZIP=OFF
-            -DCEGUI_BUILD_SILLY=OFF
-            -DCEGUI_BUILD_TINYXML=OFF
-            -DCEGUI_BUILD_TOLUAPP=OFF
-            -DCEGUI_BUILD_XERCES=OFF
-            -DCEGUI_BUILD_ZLIB=OFF
-            -DCEGUI_BUILD_EXPAT=ON
-            -DCEGUI_BUILD_FREETYPE2=ON
-            -DCEGUI_BUILD_GLEW=ON
-            -DCEGUI_BUILD_GLM=ON
-            -DCEGUI_BUILD_PCRE=ON
-            -DCEGUI_MSVC_STATIC_RUNTIME=ON
-        WORKING_DIRECTORY ${CEGUI_DEPS_BUILD_PATH}
-    )
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} ..
+                -DCEGUI_BUILD_CORONA=OFF
+                -DCEGUI_BUILD_DEVIL=OFF
+                -DCEGUI_BUILD_FREEIMAGE=OFF
+                -DCEGUI_BUILD_GLFW=OFF
+                -DCEGUI_BUILD_LUA=OFF
+                -DCEGUI_BUILD_MINIZIP=OFF
+                -DCEGUI_BUILD_SILLY=OFF
+                -DCEGUI_BUILD_TINYXML=OFF
+                -DCEGUI_BUILD_TOLUAPP=OFF
+                -DCEGUI_BUILD_XERCES=OFF
+                -DCEGUI_BUILD_ZLIB=OFF
+                -DCEGUI_BUILD_EXPAT=ON
+                -DCEGUI_BUILD_FREETYPE2=ON
+                -DCEGUI_BUILD_GLEW=ON
+                -DCEGUI_BUILD_GLM=ON
+                -DCEGUI_BUILD_PCRE=ON
+            WORKING_DIRECTORY ${CEGUI_DEPS_BUILD_PATH}
+        )
 
-    execute_process(
-        COMMAND ${CMAKE_COMMAND} --build ${CEGUI_DEPS_BUILD_PATH} --config Release -j  ${IRR_PARALLEL_BUILD_JOBS}
-    )
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} --build ${CEGUI_DEPS_BUILD_PATH} --config Release -j  ${IRR_PARALLEL_BUILD_JOBS}
+        )
 
-    execute_process(
-        COMMAND ${CMAKE_COMMAND} --build ${CEGUI_DEPS_BUILD_PATH} --config Debug -j  ${IRR_PARALLEL_BUILD_JOBS}
-    )
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} --build ${CEGUI_DEPS_BUILD_PATH} --config Debug -j  ${IRR_PARALLEL_BUILD_JOBS}
+        )
 
-    message(STATUS "CEGUI 0.8.x dependencies built")
+        message(STATUS "CEGUI 0.8.x dependencies built")
 
-    message(STATUS "Installing CEGUI 0.8.x dependencies")
-    execute_process(
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CEGUI_DEPS_BUILD_PATH}/dependencies/include
-        ${CEGUI_DEPS_INSTALL_PATH}/include
-    )
-    execute_process(
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CEGUI_DEPS_BUILD_PATH}/dependencies/lib/static
-        ${CEGUI_DEPS_INSTALL_PATH}/lib
-    )
-    message(STATUS "Installing done")
+        message(STATUS "Installing CEGUI 0.8.x dependencies")
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CEGUI_DEPS_BUILD_PATH}/dependencies/include
+            ${CEGUI_DEPS_INSTALL_PATH}/include
+        )
+        execute_process(
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CEGUI_DEPS_BUILD_PATH}/dependencies/lib/static
+            ${CEGUI_DEPS_INSTALL_PATH}/lib
+        )
+        message(STATUS "Installing done")
+    endif()
 endif()
 
 # Disable unused CEGUI options

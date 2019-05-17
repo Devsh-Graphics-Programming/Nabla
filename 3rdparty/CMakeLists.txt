@@ -130,6 +130,7 @@ if (IRR_BUILD_CEGUI)
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICommonDialogs-0_Static.lib
 			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/libexpat.lib
 			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/pcre.lib
+			optimized Winmm.lib
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIOpenGLRenderer-0_Static_d.lib
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIBase-0_Static_d.lib
 			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/glew_d.lib
@@ -140,6 +141,8 @@ if (IRR_BUILD_CEGUI)
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICommonDialogs-0_Static_d.lib
 			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/libexpat_d.lib
 			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/pcre_d.lib
+			debug Dbghelp.lib
+			debug Winmm.lib
 			PARENT_SCOPE
 		)
 	else()
