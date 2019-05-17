@@ -9,6 +9,8 @@
 *.o
 # usually where people build
 build/*
+# cegui downloaded deps on Windows
+3rdparty/CEGUI/cegui-deps-0.8.x-src.zip
 # build generated config
 include/irr/config
 # default install paths

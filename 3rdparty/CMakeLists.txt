@@ -112,35 +112,42 @@ add_library(aesGladman OBJECT
 
 if (IRR_BUILD_CEGUI)
 	add_subdirectory(CEGUI)
-	set(CEGUI_INCLUDE_PATH ${CEGUI_INSTALL_PATH}/include/cegui-0)
+	set(CEGUI_INCLUDE_PATH
+		${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include
+		${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/cegui/include
+	)
 	set(CEGUI_INCLUDE_PATH ${CEGUI_INCLUDE_PATH} PARENT_SCOPE)
 
 	if (MSVC)
 		set(CEGUI_LIBS
-			${CEGUI_INSTALL_PATH}/lib/CEGUIOpenGLRenderer-0_Static.lib
-			${CEGUI_INSTALL_PATH}/lib/CEGUIBase-0_Static.lib
+			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIOpenGLRenderer-0_Static.lib
+			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIBase-0_Static.lib
 			${CEGUI_DEPS_INSTALL_PATH}/lib/static/glew.lib
-			${CEGUI_INSTALL_PATH}/lib/CEGUIExpatParser_Static.lib
-			${CEGUI_INSTALL_PATH}/lib/CEGUISTBImageCodec_Static.lib
+			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIExpatParser_Static.lib
+			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUISTBImageCodec_Static.lib
 			${CEGUI_DEPS_INSTALL_PATH}/lib/static/freetype.lib
-			${CEGUI_INSTALL_PATH}/lib/CEGUICoreWindowRendererSet_Static.lib
-			${CEGUI_INSTALL_PATH}/lib/CEGUICommonDialogs-0_Static.lib
+			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICoreWindowRendererSet_Static.lib
+			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICommonDialogs-0_Static.lib
 			${CEGUI_DEPS_INSTALL_PATH}/lib/static/libexpat.lib
 			${CEGUI_DEPS_INSTALL_PATH}/lib/static/pcre.lib
 			PARENT_SCOPE
 		)
 	else()
+		find_package(EXPAT REQUIRED)
+    find_package(Freetype REQUIRED)
+    find_package(GLEW REQUIRED)
+    find_package(PCRE REQUIRED)
 		set(CEGUI_LIBS
-			${CEGUI_INSTALL_PATH}/lib/libCEGUIOpenGLRenderer-0_Static.a
-			${CEGUI_INSTALL_PATH}/lib/libCEGUIBase-0_Static.a
-			${CEGUI_DEPS_INSTALL_PATH}/lib/static/libglew.a
-			${CEGUI_INSTALL_PATH}/lib/libCEGUIExpatParser_Static.a
-			${CEGUI_INSTALL_PATH}/lib/libCEGUISTBImageCodec_Static.a
-			${CEGUI_DEPS_INSTALL_PATH}/lib/static/libfreetype.a
-			${CEGUI_INSTALL_PATH}/lib/libCEGUICoreWindowRendererSet_Static.a
-			${CEGUI_INSTALL_PATH}/lib/libCEGUICommonDialogs-0_Static.a
-			${CEGUI_DEPS_INSTALL_PATH}/lib/static/libexpat.a
-			${CEGUI_DEPS_INSTALL_PATH}/lib/static/libpcre.a
+			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIOpenGLRenderer-0_Static.a
+			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIBase-0_Static.a
+			${GLEW_LIBRARIES}
+			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIExpatParser_Static.a
+			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUISTBImageCodec_Static.a
+			${FREETYPE_LIBRARIES}
+			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUICoreWindowRendererSet_Static.a
+			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUICommonDialogs-0_Static.a
+			${EXPAT_LIBRARIES}
+			${PCRE_LIBRARIES}
 			PARENT_SCOPE
 		)
 	endif()

@@ -25,6 +25,8 @@ irr_create_library_project(
   "${CEGUI_LIBS}"
 )
 
+add_dependencies(IrrCEGUIExt cegui)
+
 install(
   FILES ${IRR_CEGUI_EXT_H}
   DESTINATION ./include/irr/ext/CEGUI

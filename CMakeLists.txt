@@ -39,11 +39,14 @@ macro(irr_adjust_flags)
 	option(IRR_GCC_SANITIZE_THREAD OFF)
 
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+		if (NOT IRR_BUILD_CEGUI)
+			add_compile_options(-fno-exceptions)
+		endif()
+
 		add_compile_options(
 			-Wextra
 			-Wno-unused-parameter
 			-Wno-unused-but-set-parameter
-			-fno-exceptions
 			-fno-strict-aliasing
 			-msse4.2
 			-mfpmath=sse
