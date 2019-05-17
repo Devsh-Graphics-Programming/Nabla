@@ -120,23 +120,33 @@ if (IRR_BUILD_CEGUI)
 
 	if (MSVC)
 		set(CEGUI_LIBS
-			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIOpenGLRenderer-0_Static.lib
-			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIBase-0_Static.lib
-			${CEGUI_DEPS_INSTALL_PATH}/lib/static/glew.lib
-			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIExpatParser_Static.lib
-			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUISTBImageCodec_Static.lib
-			${CEGUI_DEPS_INSTALL_PATH}/lib/static/freetype.lib
-			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICoreWindowRendererSet_Static.lib
-			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICommonDialogs-0_Static.lib
-			${CEGUI_DEPS_INSTALL_PATH}/lib/static/libexpat.lib
-			${CEGUI_DEPS_INSTALL_PATH}/lib/static/pcre.lib
+			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIOpenGLRenderer-0_Static.lib
+			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIBase-0_Static.lib
+			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/static/glew.lib
+			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIExpatParser_Static.lib
+			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUISTBImageCodec_Static.lib
+			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/static/freetype.lib
+			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICoreWindowRendererSet_Static.lib
+			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICommonDialogs-0_Static.lib
+			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/static/libexpat.lib
+			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/static/pcre.lib
+			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIOpenGLRenderer-0_Static_d.lib
+			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIBase-0_Static_d.lib
+			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/static/glew_d.lib
+			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIExpatParser_Static_d.lib
+			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUISTBImageCodec_Static_d.lib
+			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/static/freetype_d.lib
+			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICoreWindowRendererSet_Static_d.lib
+			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICommonDialogs-0_Static_d.lib
+			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/static/libexpat_d.lib
+			$debug {CEGUI_DEPS_INSTALL_PATH}/lib/static/pcre_d.lib
 			PARENT_SCOPE
 		)
 	else()
-		find_package(EXPAT REQUIRED)
-    find_package(Freetype REQUIRED)
-    find_package(GLEW REQUIRED)
-    find_package(PCRE REQUIRED)
+        find_package(EXPAT REQUIRED)
+        find_package(Freetype REQUIRED)
+        find_package(GLEW REQUIRED)
+        find_package(PCRE REQUIRED)
 		set(CEGUI_LIBS
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIOpenGLRenderer-0_Static.a
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIBase-0_Static.a
