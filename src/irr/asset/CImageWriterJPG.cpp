@@ -102,7 +102,7 @@ static void jpeg_file_dest(j_compress_ptr cinfo, io::IWriteFile* file)
 static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, uint32_t quality)
 {
 	auto format = image->getColorFormat();
-	bool grayscale = format == asset::EF_R8_UNORM;
+	bool grayscale = (format == asset::EF_R8_SRGB) || (format == asset::EF_R8_UNORM);
 	
 	core::vector3d<uint32_t> dim = image->getSize();
 
@@ -155,6 +155,7 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 				case asset::EF_A1R5G5B5_UNORM_PACK16:
 					video::convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_R8G8B8_SRGB>(src_container, dest, 1, dim.X, dim);
 					break;
+				case asset::EF_R8_SRGB:
 				case asset::EF_R8_UNORM:
 				case asset::EF_R8G8B8_SRGB:
 					memcpy(dest, src, pitch);

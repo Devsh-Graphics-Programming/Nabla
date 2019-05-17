@@ -118,6 +118,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 				8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE,
 				PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 		break;
+		case asset::EF_R8_SRGB:
 		case asset::EF_R8_UNORM:
 			png_set_IHDR(png_ptr, info_ptr,
 				image->getSize().X, image->getSize().Y,
@@ -134,6 +135,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	int32_t lineWidth = image->getSize().X;
 	switch (format)
 	{
+		case asset::EF_R8_SRGB:
 		case asset::EF_R8_UNORM:
 			lineWidth *= 1;
 			break;
@@ -169,6 +171,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	for (uint32_t i = 0; i < dim.Y; ++i)
 	{
 		switch (format) {
+			case asset::EF_R8_SRGB:
 			case asset::EF_R8_UNORM:
 			case asset::EF_R8G8B8_SRGB:
 			case asset::EF_R8G8B8A8_SRGB:
@@ -184,6 +187,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 		
 		data -= lineWidth;
 	}
+	
 	// for proper error handling
 	if (setjmp(png_jmpbuf(png_ptr)))
 	{

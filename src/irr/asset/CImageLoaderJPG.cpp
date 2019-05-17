@@ -308,9 +308,8 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 	switch (cinfo.jpeg_color_space)
 	{
 		case JCS_GRAYSCALE:
-			// should we gamma convert from 2.2333 to 1.0 (depends on whether jpeg greyscale is gamma encoded) ?
-			// I don't want implicit conversion by libjpeg to RGB8
-			image = new asset::CImageData(output->getPointer(),nullOffset,imageSize,0u,asset::EF_R8_UNORM,1);
+			// https://github.com/buildaworldnet/IrrlichtBAW/pull/273#issuecomment-491492010
+			image = new asset::CImageData(output->getPointer(),nullOffset,imageSize,0u,asset::EF_R8_SRGB,1);
 			break;
 		case JCS_RGB:
 			image = new asset::CImageData(output->getPointer(),nullOffset,imageSize,0u,asset::EF_R8G8B8_SRGB,1);

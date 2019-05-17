@@ -226,17 +226,17 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 					return nullptr;
 				}
 				
-				image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_R8_UNORM);
+				image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_R8_SRGB);
 				if (image) {
 					// Targa formats needs two y-axis flips. The first is a flip to get the Y conforms to OpenGL coords.
 					// The second flip is defined from within the .tga file itself (header.ImageDescriptor & 0x20).
 					if (flip) {
 						// Two flips (OpenGL + Targa) = no flipping. Don't flip the image at all in that case
-						convertColorFlip<uint8_t, EF_R8_UNORM, EF_R8_UNORM>(&image, data, false);
+						convertColorFlip<uint8_t, EF_R8_SRGB, EF_R8_SRGB>(&image, data, false);
 					}
 					else {
 						// Do an OpenGL flip
-						convertColorFlip<uint8_t, EF_R8_UNORM, EF_R8_UNORM>(&image, data, true);
+						convertColorFlip<uint8_t, EF_R8_SRGB, EF_R8_SRGB>(&image, data, true);
 					}
 				}
 			}

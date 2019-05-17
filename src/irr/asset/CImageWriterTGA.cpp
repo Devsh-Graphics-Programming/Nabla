@@ -39,11 +39,13 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
     assert(image);
 
     io::IWriteFile* file = _override->getOutputFile(_file, ctx, { image, 0u });
+	
+	auto format = image->getColorFormat();
 
 	STGAHeader imageHeader;
 	imageHeader.IdLength = 0;
 	imageHeader.ColorMapType = 0;
-	imageHeader.ImageType = image->getColorFormat() == EF_R8_UNORM ? 3 : 2;
+	imageHeader.ImageType = ((format == EF_R8_SRGB) || (format == EF_R8_UNORM)) ? 3 : 2;
 	imageHeader.FirstEntryIndex[0] = 0;
 	imageHeader.FirstEntryIndex[1] = 0;
 	imageHeader.ColorMapLength = 0;
@@ -58,12 +60,6 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	// top left of image is the top. the image loader needs to
 	// be fixed to only swap/flip
 	imageHeader.ImageDescriptor = 1;
-
-    // chances are good we'll need to swizzle data, so i'm going
-	// to convert and write one scan line at a time. it's also
-	// a bit cleaner this way
-	
-	auto format = image->getColorFormat();
 	
 	switch (format)
 	{
@@ -85,6 +81,7 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 				imageHeader.ImageDescriptor |= 1;
 			}
 			break;
+		case asset::EF_R8_SRGB:
 		case asset::EF_R8_UNORM:
 			{
 				imageHeader.PixelDepth = 8;
@@ -122,6 +119,7 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	{
 		switch (format) {
 			// Do a pass-through, byte-wise copy for everything else except EF_R8G8B8(A8)_SRGB, which would need swizzling to EF_B8G8R8(A8)_SRGB.
+			case asset::EF_R8_SRGB:
 			case asset::EF_R8_UNORM:
 			case asset::EF_A1R5G5B5_UNORM_PACK16:
 				{

@@ -214,7 +214,7 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 			image = new asset::CImageData(NULL, nullOffset, imageSize, 0, asset::EF_R8G8B8_SRGB);
 			break;
 		case PNG_COLOR_TYPE_GRAY:
-			image = new asset::CImageData(NULL, nullOffset, imageSize, 0, asset::EF_R8_UNORM);
+			image = new asset::CImageData(NULL, nullOffset, imageSize, 0, asset::EF_R8_SRGB);
 			break;
 		default:
 			{
