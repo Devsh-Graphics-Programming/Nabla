@@ -105,7 +105,7 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 
 	// Allocate the png read struct
 	png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING,
-		NULL, (png_error_ptr)png_cpexcept_error, (png_error_ptr)png_cpexcept_warn);
+		nullptr, (png_error_ptr)png_cpexcept_error, (png_error_ptr)png_cpexcept_warn);
 	if (!png_ptr)
 	{
 		os::Printer::log("LOAD PNG: Internal PNG create read struct failure\n", _file->getFileName().c_str(), ELL_ERROR);
@@ -117,14 +117,14 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 	if (!info_ptr)
 	{
 		os::Printer::log("LOAD PNG: Internal PNG create info struct failure\n", _file->getFileName().c_str(), ELL_ERROR);
-		png_destroy_read_struct(&png_ptr, NULL, NULL);
+		png_destroy_read_struct(&png_ptr, nullptr, nullptr);
 		return nullptr;
 	}
 
 	// for proper error handling
 	if (setjmp(png_jmpbuf(png_ptr)))
 	{
-		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+		png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
 		if (RowPointers)
 			delete [] RowPointers;
 		return nullptr;
@@ -148,7 +148,7 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 		// Extract info
 		png_get_IHDR(png_ptr, info_ptr,
 			&w, &h,
-			&BitDepth, &ColorType, NULL, NULL, NULL);
+			&BitDepth, &ColorType, nullptr, nullptr, nullptr);
 		Width=w;
 		Height=h;
 	}
@@ -198,7 +198,7 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 		// Use temporary variables to avoid passing casted pointers
 		png_uint_32 w,h;
 		// Extract info
-		png_get_IHDR(png_ptr, info_ptr, &w, &h, &BitDepth, &ColorType, NULL, NULL, NULL);
+		png_get_IHDR(png_ptr, info_ptr, &w, &h, &BitDepth, &ColorType, nullptr, nullptr, nullptr);
 		Width = w;
 		Height = h;
 	}
@@ -208,13 +208,13 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 	
 	switch (ColorType) {
 		case PNG_COLOR_TYPE_RGB_ALPHA:
-			image = new asset::CImageData(NULL, nullOffset, imageSize, 0, asset::EF_R8G8B8A8_SRGB);
+			image = new asset::CImageData(nullptr, nullOffset, imageSize, 0, asset::EF_R8G8B8A8_SRGB);
 			break;
 		case PNG_COLOR_TYPE_RGB:
-			image = new asset::CImageData(NULL, nullOffset, imageSize, 0, asset::EF_R8G8B8_SRGB);
+			image = new asset::CImageData(nullptr, nullOffset, imageSize, 0, asset::EF_R8G8B8_SRGB);
 			break;
 		case PNG_COLOR_TYPE_GRAY:
-			image = new asset::CImageData(NULL, nullOffset, imageSize, 0, asset::EF_R8_SRGB);
+			image = new asset::CImageData(nullptr, nullOffset, imageSize, 0, asset::EF_R8_SRGB);
 			break;
 		default:
 			{
@@ -226,7 +226,7 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 	if (!image)
 	{
 		os::Printer::log("LOAD PNG: Internal PNG create image struct failure\n", _file->getFileName().c_str(), ELL_ERROR);
-		png_destroy_read_struct(&png_ptr, NULL, NULL);
+		png_destroy_read_struct(&png_ptr, nullptr, nullptr);
 		return nullptr;
 	}
 
@@ -235,7 +235,7 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 	if (!RowPointers)
 	{
 		os::Printer::log("LOAD PNG: Internal PNG create row pointers failure\n", _file->getFileName().c_str(), ELL_ERROR);
-		png_destroy_read_struct(&png_ptr, NULL, NULL);
+		png_destroy_read_struct(&png_ptr, nullptr, nullptr);
 		image->drop();
 		return nullptr;
 	}
@@ -252,7 +252,7 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 	// for proper error handling
 	if (setjmp(png_jmpbuf(png_ptr)))
 	{
-		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+		png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
 		delete [] RowPointers;
 		image->drop();
 		return nullptr;
@@ -261,7 +261,7 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 	// Read data using the library function that handles all transformations including interlacing
 	png_read_image(png_ptr, RowPointers);
 
-	png_read_end(png_ptr, NULL);
+	png_read_end(png_ptr, nullptr);
 	delete [] RowPointers;
 	png_destroy_read_struct(&png_ptr,&info_ptr, 0); // Clean up memory
 

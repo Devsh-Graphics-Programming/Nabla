@@ -226,7 +226,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 					return nullptr;
 				}
 				
-				image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_R8_SRGB);
+				image = new asset::CImageData(nullptr,nullOffset,imageSize,0,asset::EF_R8_SRGB);
 				if (image) {
 					// Targa formats needs two y-axis flips. The first is a flip to get the Y conforms to OpenGL coords.
 					// The second flip is defined from within the .tga file itself (header.ImageDescriptor & 0x20).
@@ -243,7 +243,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 			break;
 		case 16:
 			{
-				image = new asset::CImageData(NULL,nullOffset,imageSize,0, asset::EF_A1R5G5B5_UNORM_PACK16);
+				image = new asset::CImageData(nullptr,nullOffset,imageSize,0, asset::EF_A1R5G5B5_UNORM_PACK16);
 				if (image) {
 					if (flip)
 						convertColorFlip<uint8_t, EF_A1R5G5B5_UNORM_PACK16, EF_A1R5G5B5_UNORM_PACK16>(&image, data, false);
@@ -254,7 +254,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 			break;
 		case 24:
 			{
-				image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_R8G8B8_SRGB);
+				image = new asset::CImageData(nullptr,nullOffset,imageSize,0,asset::EF_R8G8B8_SRGB);
 				if (image)
 					if (flip)
 						convertColorFlip<uint8_t, EF_B8G8R8_SRGB, EF_R8G8B8_SRGB>(&image, data, false);
@@ -264,7 +264,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 			break;
 		case 32:
 			{
-				image = new asset::CImageData(NULL,nullOffset,imageSize,0,asset::EF_R8G8B8A8_SRGB);
+				image = new asset::CImageData(nullptr,nullOffset,imageSize,0,asset::EF_R8G8B8A8_SRGB);
 				if (image)
 					if (flip)
 						convertColorFlip<uint8_t, EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(&image, data, false);

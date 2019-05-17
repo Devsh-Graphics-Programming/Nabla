@@ -77,7 +77,7 @@ static void jpeg_term_destination(j_compress_ptr cinfo)
 // set up buffer data
 static void jpeg_file_dest(j_compress_ptr cinfo, io::IWriteFile* file)
 {
-	if (cinfo->dest == NULL)
+	if (cinfo->dest == nullptr)
 	{ /* first time for this JPEG object? */
 		cinfo->dest = (struct jpeg_destination_mgr *)
 			(*cinfo->mem->alloc_small) ((j_common_ptr) cinfo,

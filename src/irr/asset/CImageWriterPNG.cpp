@@ -76,7 +76,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 
 	// Allocate the png write struct
 	png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING,
-		NULL, (png_error_ptr)png_cpexcept_error, (png_error_ptr)png_cpexcept_warning);
+		nullptr, (png_error_ptr)png_cpexcept_error, (png_error_ptr)png_cpexcept_warning);
 	if (!png_ptr)
 	{
 		os::Printer::log("PNGWriter: Internal PNG create write struct failure\n", file->getFileName().c_str(), ELL_ERROR);
@@ -88,7 +88,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	if (!info_ptr)
 	{
 		os::Printer::log("PNGWriter: Internal PNG create info struct failure\n", file->getFileName().c_str(), ELL_ERROR);
-		png_destroy_write_struct(&png_ptr, NULL);
+		png_destroy_write_struct(&png_ptr, nullptr);
 		return false;
 	}
 
@@ -101,7 +101,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	
 	auto format = image->getColorFormat();
 	
-	png_set_write_fn(png_ptr, file, user_write_data_fcn, NULL);
+	png_set_write_fn(png_ptr, file, user_write_data_fcn, nullptr);
 	
 	// Set info
 	switch (format)
@@ -197,7 +197,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	}
 
 	png_set_rows(png_ptr, info_ptr, RowPointers);
-	png_write_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, NULL);
+	png_write_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, nullptr);
 
 	delete [] RowPointers;
 	png_destroy_write_struct(&png_ptr, &info_ptr);
