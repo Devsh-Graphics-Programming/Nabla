@@ -139,7 +139,7 @@ if (IRR_BUILD_CEGUI)
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICoreWindowRendererSet_Static_d.lib
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICommonDialogs-0_Static_d.lib
 			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/static/libexpat_d.lib
-			$debug {CEGUI_DEPS_INSTALL_PATH}/lib/static/pcre_d.lib
+			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/static/pcre_d.lib
 			PARENT_SCOPE
 		)
 	else()
