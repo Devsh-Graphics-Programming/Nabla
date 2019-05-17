@@ -59,7 +59,7 @@ macro(irr_create_library_project EXECUTABLE_NAME _EXTRA_SOURCES _EXTRA_OPTIONS _
 		PUBLIC ../../include
 		PRIVATE ${_EXTRA_INCLUDES}
 	)
-	target_link_libraries(${EXECUTABLE_NAME} Irrlicht ${_EXTRA_LIBS})
+	target_link_libraries(${EXECUTABLE_NAME} PUBLIC Irrlicht ${_EXTRA_LIBS})
 	target_compile_options(${EXECUTABLE_NAME} PUBLIC ${_EXTRA_OPTIONS})
 
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")

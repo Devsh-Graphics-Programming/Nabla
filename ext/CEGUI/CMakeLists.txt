@@ -17,12 +17,14 @@ set(IRR_CEGUI_EXT_EXTERNAL_INCLUDE
   "${CMAKE_SOURCE_DIR}/3rdparty/CEGUI/cegui/dependencies/include"
 )
 
+add_compile_definitions(CEGUI_STATIC CEGUI_BUILD_STATIC_FACTORY_MODULE)
+
 irr_create_library_project(
   IrrCEGUIExt
   "${IRR_CEGUI_EXT_SRC}"
-  "-DCEGUI_STATIC -DCEGUI_BUILD_STATIC_FACTORY_MODULE"
+  ""
   "${IRR_CEGUI_EXT_EXTERNAL_INCLUDE}"
-  "${CEGUI_LIBS}"
+  ""
 )
 
 install(

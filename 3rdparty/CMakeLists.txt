@@ -122,24 +122,24 @@ if (IRR_BUILD_CEGUI)
 		set(CEGUI_LIBS
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIOpenGLRenderer-0_Static.lib
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIBase-0_Static.lib
-			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/static/glew.lib
+			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/glew.lib
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIExpatParser_Static.lib
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUISTBImageCodec_Static.lib
-			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/static/freetype.lib
+			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/freetype.lib
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICoreWindowRendererSet_Static.lib
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICommonDialogs-0_Static.lib
-			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/static/libexpat.lib
-			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/static/pcre.lib
+			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/libexpat.lib
+			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/pcre.lib
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIOpenGLRenderer-0_Static_d.lib
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIBase-0_Static_d.lib
-			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/static/glew_d.lib
+			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/glew_d.lib
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIExpatParser_Static_d.lib
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUISTBImageCodec_Static_d.lib
-			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/static/freetype_d.lib
+			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/freetype_d.lib
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICoreWindowRendererSet_Static_d.lib
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICommonDialogs-0_Static_d.lib
-			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/static/libexpat_d.lib
-			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/static/pcre_d.lib
+			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/libexpat_d.lib
+			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/pcre_d.lib
 			PARENT_SCOPE
 		)
 	else()

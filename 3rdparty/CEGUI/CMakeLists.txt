@@ -66,8 +66,13 @@ if (MSVC) # MSVC needs to download and build dependencies of CEGUI
     message(STATUS "Installing CEGUI 0.8.x dependencies")
     execute_process(
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CEGUI_DEPS_BUILD_PATH}/dependencies
-        ${CEGUI_DEPS_INSTALL_PATH}
+        ${CEGUI_DEPS_BUILD_PATH}/dependencies/include
+        ${CEGUI_DEPS_INSTALL_PATH}/include
+    )
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CEGUI_DEPS_BUILD_PATH}/dependencies/lib/static
+        ${CEGUI_DEPS_INSTALL_PATH}/lib
     )
     message(STATUS "Installing done")
 endif()
@@ -86,7 +91,7 @@ set(CEGUI_BUILD_RENDERER_OPENGL OFF CACHE BOOL "")
 set(CEGUI_SAMPLES_ENABLED OFF CACHE BOOL "")
 
 # Enable required CEGUI options
-set(CEGUI_STRING_CLASS "1" CACHE STRING "")
+set(CEGUI_STRING_CLASS "2" CACHE STRING "")
 set(CEGUI_HAS_FREETYPE ON CACHE BOOL "")
 set(CEGUI_HAS_PCRE_REGEX ON CACHE BOOL "")
 set(CEGUI_BUILD_XMLPARSER_EXPAT ON CACHE BOOL "")
