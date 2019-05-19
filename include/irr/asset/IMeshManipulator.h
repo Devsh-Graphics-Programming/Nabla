@@ -12,6 +12,7 @@
 #include "IAnimatedMesh.h"
 #include "irr/asset/ICPUMeshBuffer.h"
 #include "SVertexManipulator.h"
+#include "irr/asset/CSmoothNormalGenerator.h"
 #include "irr/asset/SCPUMesh.h"
 
 namespace irr
@@ -75,7 +76,8 @@ namespace asset
 		virtual asset::ICPUMeshBuffer* createMeshBufferUniquePrimitives(asset::ICPUMeshBuffer* inbuffer) const = 0;
 
 		//
-		virtual asset::ICPUMeshBuffer* calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, const float creaseAngle, float epsilon = 1.525e-5f) const = 0;
+		virtual asset::ICPUMeshBuffer* calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, float epsilon = 1.525e-5f,
+			asset::E_VERTEX_ATTRIBUTE_ID normalAttrID = asset::E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3, VxCmpFunction vxcmp = defaultVxCmpFunction) const = 0;
 
 		//! Creates a copy of a mesh with vertices welded
 		/** \param mesh Input mesh

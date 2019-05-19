@@ -66,7 +66,8 @@ public:
 	virtual asset::ICPUMeshBuffer* createMeshBufferUniquePrimitives(asset::ICPUMeshBuffer* inbuffer) const;
 
 	//
-	virtual asset::ICPUMeshBuffer* calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, const float creaseAngle, float epsilon = 1.525e-5f) const override;
+	virtual asset::ICPUMeshBuffer* calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, float epsilon = 1.525e-5f,
+		asset::E_VERTEX_ATTRIBUTE_ID normalAttrID = asset::E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3, VxCmpFunction vxcmp = defaultVxCmpFunction) const override;
 
 	//! Creates a copy of the mesh, which will have all duplicated vertices removed, i.e. maximal amount of vertices are shared via indexing.
 	virtual asset::ICPUMeshBuffer* createMeshBufferWelded(asset::ICPUMeshBuffer *inbuffer, const SErrorMetric* _errMetrics, const bool& optimIndexType = true, const bool& makeNewMesh=false) const;

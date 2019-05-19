@@ -19,8 +19,6 @@
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 #include "irr/asset/CSmoothNormalGenerator.h"
 
-#include <chrono>
-
 namespace irr
 {
 namespace asset
@@ -700,27 +698,15 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(asset:
 	return clone;
 }
 
-asset::ICPUMeshBuffer* CMeshManipulator::calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, const float creaseAngle, float epsilon) const
+asset::ICPUMeshBuffer* CMeshManipulator::calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, float epsilon,
+	asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, VxCmpFunction vxcmp) const
 {
 	if (inbuffer == nullptr)
 		return nullptr;
 
-	asset::ICPUMeshBuffer* outbuffer;
+	asset::ICPUMeshBuffer* outbuffer = createMeshBufferUniquePrimitives(inbuffer);
 
-	//will get rid of that
-	if (true)
-		outbuffer = createMeshBufferUniquePrimitives(inbuffer);
-	else
-		outbuffer = createMeshBufferDuplicate(inbuffer);
-
-
-	std::cout << "\n\n computation time: ";
-
-	auto start = std::chrono::high_resolution_clock::now();
-
-	CSmoothNormalGenerator::calculateNormals_hash(outbuffer, creaseAngle, epsilon);
-	
-	std::cout << std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(std::chrono::high_resolution_clock::now() - start).count() << std::endl;
+	CSmoothNormalGenerator::calculateNormals(outbuffer, epsilon, normalAttrID, vxcmp);
 
 	return outbuffer;
 }

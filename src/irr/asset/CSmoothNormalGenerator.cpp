@@ -1,11 +1,24 @@
 #include "CSmoothNormalGenerator.h"
 
 #include <iostream>
+#include <algorithm>
 
 namespace irr
 {
 namespace asset
 {
+
+bool defaultVxCmpFunction(const SSNGVertexData& v0, const SSNGVertexData& v1, asset::ICPUMeshBuffer* buffer)
+{
+	static constexpr float cosOf45Deg = 0.70710678118f;
+	return v0.parentTriangleFaceNormal.dotProductAsFloat(v1.parentTriangleFaceNormal) > cosOf45Deg;
+}
+
+//needed for std::upper_boud
+static inline bool operator<(uint32_t lhs, const SSNGVertexData& rhs)
+{
+	return lhs < rhs.hash;
+}
 
 static inline bool compareVertexPosition(const core::vectorSIMDf& a, const core::vectorSIMDf& b, float epsilon)
 {
@@ -33,121 +46,73 @@ static inline core::vector3df_SIMD getAngleWeight(const core::vector3df_SIMD & v
 		acosf((b - c + a) / (2.f * bsqrt * asqrt)));
 }
 
-#pragma region linearSearch
-
-asset::ICPUMeshBuffer* irr::asset::CSmoothNormalGenerator::calculateNormals(asset::ICPUMeshBuffer* buffer, float creaseAngle, float epsilon)
+asset::ICPUMeshBuffer* irr::asset::CSmoothNormalGenerator::calculateNormals(asset::ICPUMeshBuffer* buffer, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, VxCmpFunction vxcmp)
 {
-	core::vector<Vertex> vertexArray = setupData(buffer, creaseAngle);
-	processConnectedVertices(buffer, vertexArray, creaseAngle, epsilon);
+	//should i always trust RVO?
+	VertexHashMap vertexArray = setupData(buffer, epsilon);
+	processConnectedVertices(buffer, vertexArray, epsilon, normalAttrID, vxcmp);
 
 	return buffer;
 }
 
-core::vector<CSmoothNormalGenerator::Vertex> CSmoothNormalGenerator::setupData(asset::ICPUMeshBuffer* buffer, float creaseAngle)
+CSmoothNormalGenerator::VertexHashMap::VertexHashMap(size_t _vertexCount, uint32_t _hashTableMaxSize, float _cellSize)
+	:hashTableMaxSize(_hashTableMaxSize), 
+	cellSize(_cellSize)
 {
-	core::vector<Vertex> vertices;
-
-	const size_t idxCount = buffer->getIndexCount();
-	const size_t vxCount = buffer->calcVertexCount();
-	_IRR_DEBUG_BREAK_IF((idxCount % 3));
-
-	vertices.reserve(idxCount);
-
-	core::vector3df_SIMD faceNormal;
-
-	for (uint32_t i = 0; i < idxCount; i += 3)
-	{
-			//calculate face normal of parent triangle
-		core::vectorSIMDf v1 = buffer->getPosition(i);
-		core::vectorSIMDf v2 = buffer->getPosition(i + 1);
-		core::vectorSIMDf v3 = buffer->getPosition(i + 2);
-
-		faceNormal = core::cross(v2 - v1, v3 - v1);
-		faceNormal = core::normalize(faceNormal);
-		
-			//set data for vertices
-		core::vector3df_SIMD angleWages = getAngleWeight(v1, v2, v3);
-		vertices.push_back({ i,		angleWages.x,  v1,  faceNormal * angleWages.x,	faceNormal });
-		vertices.push_back({ i + 1,	angleWages.y,  v2,	faceNormal * angleWages.y,	faceNormal });
-		vertices.push_back({ i + 2,	angleWages.z,  v3,  faceNormal * angleWages.z,	faceNormal });
-	}
-
-	return vertices;
+	vertices.reserve(_vertexCount);
+	buckets.reserve(_hashTableMaxSize+1);
 }
 
-void CSmoothNormalGenerator::processConnectedVertices(asset::ICPUMeshBuffer* buffer, core::vector<Vertex>& vertices, float creaseAngle, float epsilon)
-{
-	for (size_t i = 0; i < vertices.size(); i++)
-	{
-		float cosOfCreaseAngle = std::cos(creaseAngle);
-		Vertex processedVertex = vertices[i];
-
-		for (size_t j = i+1; j < vertices.size(); j++)
-		{
-			if (compareVertexPosition(processedVertex.position, vertices[j].position, epsilon))
-			if (processedVertex.parentTriangleFaceNormal.dotProductAsFloat(vertices[j].parentTriangleFaceNormal) > cosOfCreaseAngle)
-			{
-				processedVertex.normal += vertices[j].parentTriangleFaceNormal * vertices[j].wage;
-				vertices[j].normal += processedVertex.parentTriangleFaceNormal * processedVertex.wage;
-			}
-			
-		}
-		
-		processedVertex.normal = core::normalize(processedVertex.normal);
-		buffer->setAttribute(processedVertex.normal, asset::E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3, processedVertex.indexOffset);
-	}
-
-}
-
-#pragma endregion
-
-
-#pragma region hashing
-
-CSmoothNormalGenerator::VertexHashMap::VertexHashMap(size_t _hashTableSize, float _cellSize)
-	:hashTableSize(_hashTableSize), cellSize(_cellSize)
-{
-	hashTable.reserve(hashTableSize);
-
-	for (int i = 0; i < hashTableSize; i++)
-		hashTable.emplace_back();
-
-}
-
-uint32_t CSmoothNormalGenerator::VertexHashMap::hash(const CSmoothNormalGenerator::Vertex& vertex) const
+uint32_t CSmoothNormalGenerator::VertexHashMap::hash(const SSNGVertexData& vertexPosition) const
 {
 	static constexpr uint32_t primeNumber1 = 73856093;
 	static constexpr uint32_t primeNumber2 = 19349663;
 	static constexpr uint32_t primeNumber3 = 83492791;
 
-	const core::vector3df_SIMD position = vertex.position / cellSize;
+	const core::vector3df_SIMD position = vertexPosition.position / cellSize;
 
 	return	(((uint32_t)position.x * primeNumber1) ^
-			((uint32_t)position.y * primeNumber2) ^
-			((uint32_t)position.z * primeNumber3)) % hashTableSize;
+		((uint32_t)position.y * primeNumber2) ^
+		((uint32_t)position.z * primeNumber3)) & (hashTableMaxSize - 1);
 }
 
-void CSmoothNormalGenerator::VertexHashMap::add(const Vertex& vertex)
+void CSmoothNormalGenerator::VertexHashMap::add(const SSNGVertexData& vertex)
 {
-	hashTable[hash(vertex)].push_back(vertex);
+	const_cast<uint32_t&>(vertex.hash) = hash(vertex);
+	vertices.push_back(vertex);
 }
 
-asset::ICPUMeshBuffer * irr::asset::CSmoothNormalGenerator::calculateNormals_hash(asset::ICPUMeshBuffer * buffer, float creaseAngle, float epsilon)
+void CSmoothNormalGenerator::VertexHashMap::validate()
 {
-	VertexHashMap vertexArray = setupData_hash(buffer, creaseAngle);
-	processConnectedVertices_hash(buffer, vertexArray, creaseAngle, epsilon);
+	std::sort(vertices.begin(), vertices.end(), [](SSNGVertexData& a, SSNGVertexData& b) { return a.hash < b.hash; });
 
-	return buffer;
+	uint16_t prevHash = vertices[0].hash;
+	core::vector<SSNGVertexData>::iterator prevBegin = vertices.begin();
+	buckets.push_back(prevBegin);
+
+	while (true)
+	{
+		core::vector<SSNGVertexData>::iterator next = std::upper_bound(prevBegin, vertices.end(), prevHash);
+
+		buckets.push_back(next);
+
+		if (next == vertices.end())
+			break;
+
+		prevBegin = next;
+		prevHash = next->hash;
+	}
 }
 
-CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData_hash(asset::ICPUMeshBuffer * buffer, float creaseAngle)
+CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(asset::ICPUMeshBuffer * buffer, float epsilon)
 {
-	//hash map and cell size is constant (that will be changed ofc) 
-	VertexHashMap vertices(200, 0.001f);
-
 	const size_t idxCount = buffer->getIndexCount();
 	const size_t vxCount = buffer->calcVertexCount();
+
 	_IRR_DEBUG_BREAK_IF((idxCount % 3));
+	_IRR_DEBUG_BREAK_IF((idxCount != vxCount));
+
+	VertexHashMap vertices(vxCount, std::min(16u * 1024u, core::roundUpToPoT<unsigned int>(idxCount * 1.0f / 32.0f)), epsilon * 1.2f);
 
 	core::vector3df_SIMD faceNormal;
 
@@ -163,48 +128,47 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData_hash(ass
 
 		//set data for vertices
 		core::vector3df_SIMD angleWages = getAngleWeight(v1, v2, v3);
-		
-		vertices.add({ i,		angleWages.x,  v1,  faceNormal * angleWages.x,	faceNormal });
-		vertices.add({ i + 1,	angleWages.y,  v2,	faceNormal * angleWages.y,	faceNormal });
-		vertices.add({ i + 2,	angleWages.z,  v3,  faceNormal * angleWages.z,	faceNormal });
+
+		vertices.add({ i,		0,	angleWages.x,	v1,	faceNormal * angleWages.x,	faceNormal });
+		vertices.add({ i + 1,	0,	angleWages.y,	v2,	faceNormal * angleWages.y,	faceNormal });
+		vertices.add({ i + 2,	0,	angleWages.z,	v3,	faceNormal * angleWages.z,	faceNormal });
 	}
+
+	vertices.validate();
 
 	return vertices;
 }
 
-void CSmoothNormalGenerator::processConnectedVertices_hash(asset::ICPUMeshBuffer * buffer, CSmoothNormalGenerator::VertexHashMap& vertexHashMap, float creaseAngle, float epsilon)
+void CSmoothNormalGenerator::processConnectedVertices(asset::ICPUMeshBuffer * buffer, VertexHashMap & vertexHashMap, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, VxCmpFunction vxcmp)
 {
+	core::vector<SSNGVertexData>::iterator bucketBegin;
+	core::vector<SSNGVertexData>::iterator bucketEnd;
 
-	for (uint32_t cell = 0; cell < vertexHashMap.getTableSize(); cell++)
+	for (uint32_t cell = 0; cell < vertexHashMap.getBucketCount() - 1; cell++)
 	{
-		core::vector<Vertex> vertices = vertexHashMap.getBucket(cell);
+		bucketBegin = vertexHashMap.getBucket(cell);
+		bucketEnd = vertexHashMap.getBucket(cell + 1);
 
-		for (size_t i = 0; i < vertices.size(); i++)
+		for (core::vector<SSNGVertexData>::iterator processedVertex = bucketBegin; processedVertex != bucketEnd; processedVertex++)
 		{
-			float cosOfCreaseAngle = std::cos(creaseAngle);
-			Vertex processedVertex = vertices[i];
-
-			for (size_t j = i + 1; j < vertices.size(); j++)
+			for (core::vector<SSNGVertexData>::iterator nextVertex = processedVertex+1; nextVertex != bucketEnd; nextVertex++)
 			{
-				if (compareVertexPosition(processedVertex.position, vertices[j].position, epsilon))
+				if (compareVertexPosition(processedVertex->position, nextVertex->position, epsilon) &&
+					vxcmp(*processedVertex, *nextVertex, buffer))
 				{
-					if (processedVertex.parentTriangleFaceNormal.dotProductAsFloat(vertices[j].parentTriangleFaceNormal) > cosOfCreaseAngle)
-					{
-						processedVertex.normal += vertices[j].parentTriangleFaceNormal * vertices[j].wage;
-						vertices[j].normal += processedVertex.parentTriangleFaceNormal * processedVertex.wage;
-					}
+					processedVertex->normal += nextVertex->parentTriangleFaceNormal * nextVertex->wage;
+					nextVertex->normal += processedVertex->parentTriangleFaceNormal * processedVertex->wage;
 				}
-			}
+			}	
 
-			processedVertex.normal = core::normalize(processedVertex.normal);
-			buffer->setAttribute(processedVertex.normal, asset::E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3, processedVertex.indexOffset);
+			processedVertex->normal = core::normalize(processedVertex->normal);
+			buffer->setAttribute(processedVertex->normal, normalAttrID, processedVertex->indexOffset);
 		}
 	}
 	
 
-}
-
-#pragma endregion
+ }
 
 }
 }
+
