@@ -40,19 +40,30 @@ namespace cegui
 
 GUIManager* createGUIManager(IrrlichtDevice* device)
 {
-    auto gui = new GUIManager(device->getVideoDriver());
+    auto gui = new GUIManager(device);
     device->setEventReceiver(gui);
     return gui;
 }
 
-GUIManager::GUIManager(video::IVideoDriver* driver)
-    :   Driver(driver),
+GUIManager::GUIManager(IrrlichtDevice* device)
+    :   Device(device),
+        Driver(device->getVideoDriver()),
         Renderer(OpenGL3Renderer::create(Sizef(
             float(Driver->getScreenSize().Width),
             float(Driver->getScreenSize().Height)
         )))
 {
 
+}
+
+std::pair<bool, std::string> GUIManager::openFileDialog(
+    const char* title,
+    const std::vector<std::string>& filters)
+{
+    Device->getCursorControl()->setVisible(true);
+    auto result = cegui::openFileDialog(title, filters);
+    Device->getCursorControl()->setVisible(false);
+    return result;
 }
 
 void GUIManager::init()

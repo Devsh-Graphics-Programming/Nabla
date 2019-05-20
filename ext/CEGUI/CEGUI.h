@@ -38,6 +38,9 @@ SOFTWARE.
 
 namespace irr
 {
+
+class IrrlichtDevice;
+
 namespace ext
 {
 namespace cegui
@@ -57,7 +60,7 @@ class GUIManager: public core::IReferenceCounted, public IEventReceiver
             ::CEGUI::ColourRect(::CEGUI::Colour(1.0f, 1.0f, 1.0f, 1.0f)));
 
     public:
-        GUIManager(video::IVideoDriver* driver);
+        GUIManager(IrrlichtDevice* device);
         ~GUIManager();
 
         void init();
@@ -68,6 +71,11 @@ class GUIManager: public core::IReferenceCounted, public IEventReceiver
         void createRootWindowFromLayout(const std::string& layout);
         auto getRootWindow() const { return RootWindow; }
         auto& getRenderer() const { return Renderer; }
+
+        std::pair<bool, std::string>  openFileDialog(
+            const char* title,
+            const std::vector<std::string>& filters
+        );
 
         ::CEGUI::ColourPicker* createColourPicker(
             bool alternativeLayout,
@@ -93,6 +101,7 @@ class GUIManager: public core::IReferenceCounted, public IEventReceiver
         void setOpacity(const char* name, float opacity);
 
     private:
+        IrrlichtDevice* Device = nullptr;
         video::IVideoDriver* Driver = nullptr;
         ::CEGUI::OpenGL3Renderer& Renderer;
         ::CEGUI::Window* RootWindow;
