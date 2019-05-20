@@ -101,7 +101,10 @@ set(CEGUI_BUILD_RENDERER_OPENGL3 ON CACHE BOOL "")
 set(CEGUI_BUILD_STATIC_CONFIGURATION ON CACHE BOOL "")
 set(CEGUI_BUILD_STATIC_FACTORY_MODULE ON CACHE BOOL "")
 set(CEGUI_STATIC_XMLPARSER_MODULE "CEGUIExpatParser" CACHE STRING "")
-set(CEGUI_STATIC_DEPENDENCIES ON CACHE BOOL "")
+
+if (MSVC) # static linking on Linux will come later, since find_package only returns dynamic libs for now
+    set(CEGUI_STATIC_DEPENDENCIES ON CACHE BOOL "")
+endif()
 
 add_subdirectory(cegui EXCLUDE_FROM_ALL)
 
