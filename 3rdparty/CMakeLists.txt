@@ -146,10 +146,10 @@ if (IRR_BUILD_CEGUI)
 			PARENT_SCOPE
 		)
 	else()
-        find_package(EXPAT REQUIRED)
-        find_package(Freetype REQUIRED)
-        find_package(GLEW REQUIRED)
-        find_package(PCRE REQUIRED)
+    find_package(EXPAT REQUIRED)
+    find_package(Freetype REQUIRED)
+    find_package(GLEW REQUIRED)
+    find_package(PCRE REQUIRED)
 		set(CEGUI_LIBS
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIOpenGLRenderer-0_Static.a
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIBase-0_Static.a
@@ -161,20 +161,24 @@ if (IRR_BUILD_CEGUI)
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUICommonDialogs-0_Static.a
 			${EXPAT_LIBRARIES}
 			${PCRE_LIBRARIES}
-			PARENT_SCOPE
+		)
+		set(CEGUI_LIBS ${CEGUI_LIBS} PARENT_SCOPE)
+	endif()
+
+	# Only MSVC builds and installs CEGUI dependencies
+	if (MSVC)
+		install(
+			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/include
+			DESTINATION ./include/irr/ext/GUI
+			CONFIGURATIONS Release
+		)
+		install(
+			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/include
+			DESTINATION ./debug/include/irr/ext/GUI
+			CONFIGURATIONS Debug
 		)
 	endif()
 
-	install(
-		DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/include
-		DESTINATION ./include/irr/ext/GUI
-		CONFIGURATIONS Release
-	)
-	install(
-		DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/include
-		DESTINATION ./debug/include/irr/ext/GUI
-		CONFIGURATIONS Debug
-	)
 	install(
 		DIRECTORY ${CEGUI_INCLUDE_PATH}/CEGUI
 		DESTINATION ./include/irr/ext/GUI
@@ -191,7 +195,7 @@ if (IRR_BUILD_CEGUI)
 		CONFIGURATIONS Release
 	)
 	install(
-		DIRECTORY ${CEGUI_LIBS}
+		FILES ${CEGUI_LIBS}
 		DESTINATION ./debug/lib
 		CONFIGURATIONS Debug
 	)
