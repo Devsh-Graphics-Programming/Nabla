@@ -48,19 +48,19 @@ macro(irr_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	endif()
 endmacro()
 
-macro(irr_create_library_project EXECUTABLE_NAME _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS)
-	project(${EXECUTABLE_NAME})
+macro(irr_create_ext_library_project LIB_NAME _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS)
+	project(${LIB_NAME})
 
-	add_library(${EXECUTABLE_NAME} ${_EXTRA_SOURCES})
+	add_library(${LIB_NAME} ${_EXTRA_SOURCES})
 	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
-	add_dependencies(${EXECUTABLE_NAME} Irrlicht)
+	add_dependencies(${LIB_NAME} Irrlicht)
 
-	target_include_directories(${EXECUTABLE_NAME}
+	target_include_directories(${LIB_NAME}
 		PUBLIC ../../include
 		PRIVATE ${_EXTRA_INCLUDES}
 	)
-	target_link_libraries(${EXECUTABLE_NAME} PUBLIC Irrlicht ${_EXTRA_LIBS})
-	target_compile_options(${EXECUTABLE_NAME} PUBLIC ${_EXTRA_OPTIONS})
+	target_link_libraries(${LIB_NAME} PUBLIC Irrlicht ${_EXTRA_LIBS})
+	target_compile_options(${LIB_NAME} PUBLIC ${_EXTRA_OPTIONS})
 
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 		add_compile_options(
@@ -75,13 +75,13 @@ macro(irr_create_library_project EXECUTABLE_NAME _EXTRA_SOURCES _EXTRA_OPTIONS _
 	irr_adjust_flags() # macro defined in root CMakeLists
 	irr_adjust_definitions() # macro defined in root CMakeLists
 
-	set_target_properties(${EXECUTABLE_NAME} PROPERTIES DEBUG_POSTFIX _d)
-	set_target_properties(${EXECUTABLE_NAME}
+	set_target_properties(${LIB_NAME} PROPERTIES DEBUG_POSTFIX _d)
+	set_target_properties(${LIB_NAME}
 		PROPERTIES
 		RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin"
 	)
 	if(MSVC)
-		set_target_properties(${EXECUTABLE_NAME}
+		set_target_properties(${LIB_NAME}
 			PROPERTIES
 			RUNTIME_OUTPUT_DIRECTORY_DEBUG "${PROJECT_SOURCE_DIR}/bin"
 			RUNTIME_OUTPUT_DIRECTORY_RELEASE "${PROJECT_SOURCE_DIR}/bin"
@@ -90,13 +90,13 @@ macro(irr_create_library_project EXECUTABLE_NAME _EXTRA_SOURCES _EXTRA_OPTIONS _
 	endif()
 
 	install(
-		TARGETS ${EXECUTABLE_NAME}
-		DESTINATION ./lib
+		TARGETS ${LIB_NAME}
+		DESTINATION ./lib/irr/ext/${LIB_NAME}
 		CONFIGURATIONS Release
 	)
 	install(
-		TARGETS ${EXECUTABLE_NAME}
-		DESTINATION ./debug/lib
+		TARGETS ${LIB_NAME}
+		DESTINATION ./debug/lib/irr/ext/${LIB_NAME}
 		CONFIGURATIONS Debug
 	)
 endmacro()
