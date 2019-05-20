@@ -107,13 +107,3 @@ if (MSVC) # static linking on Linux will come later, since find_package only ret
 endif()
 
 add_subdirectory(cegui EXCLUDE_FROM_ALL)
-
-# Ignore dynamic libs
-if (MSVC)
-    set_target_properties(CEGUIBase-0 PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
-    set_target_properties(CEGUICommonDialogs-0 PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
-    set_target_properties(CEGUICoreWindowRendererSet PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
-    set_target_properties(CEGUIExpatParser PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
-    set_target_properties(CEGUIOpenGLRenderer-0 PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
-    set_target_properties(CEGUISTBImageCodec PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
-endif()
