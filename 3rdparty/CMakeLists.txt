@@ -177,6 +177,16 @@ if (IRR_BUILD_CEGUI)
 			DESTINATION ./debug/include/irr/ext/CEGUI/3rdparty
 			CONFIGURATIONS Debug
 		)
+		install(
+			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/lib/
+			DESTINATION ./lib/irr/ext/CEGUI
+			CONFIGURATIONS Release
+		)
+		install(
+			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/lib/
+			DESTINATION ./debug/lib/irr/ext/CEGUI
+			CONFIGURATIONS Debug
+		)
 	endif()
 
 	# CEGUI headers
@@ -201,14 +211,28 @@ if (IRR_BUILD_CEGUI)
 		DESTINATION ./debug/include/irr/ext/CEGUI
 		CONFIGURATIONS Debug
 	)
-	install(
-		FILES ${CEGUI_LIBS}
-		DESTINATION ./lib/irr/ext/CEGUI
-		CONFIGURATIONS Release
-	)
-	install(
-		FILES ${CEGUI_LIBS}
-		DESTINATION ./debug/lib/irr/ext/CEGUI
-		CONFIGURATIONS Debug
-	)
+	# CEGUI libs
+		if (MSVC)
+		install(
+			DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/
+			DESTINATION ./lib/irr/ext/CEGUI
+			CONFIGURATIONS Release
+		)
+		install(
+			DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/
+			DESTINATION ./debug/lib/irr/ext/CEGUI
+			CONFIGURATIONS Debug
+		)
+	else()
+		install(
+			FILES ${CEGUI_LIBS}
+			DESTINATION ./lib/irr/ext/CEGUI
+			CONFIGURATIONS Release
+		)
+		install(
+			FILES ${CEGUI_LIBS}
+			DESTINATION ./debug/lib/irr/ext/CEGUI
+			CONFIGURATIONS Debug
+		)
+	endif()
 endif()
