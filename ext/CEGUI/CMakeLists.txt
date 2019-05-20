@@ -1,46 +1,36 @@
-set(IRR_CEGUI_EXT_H
+set(IRR_EXT_CEGUI_H
   ExtCEGUI.h
 	CEGUIOpenGLState.h
 	CEGUIOpenGLClip.h
 	Helpers.h
 )
 
-set(IRR_CEGUI_EXT_SRC
+set(IRR_EXT_CEGUI_SRC
   ExtCEGUI.cpp
 	CEGUIOpenGLState.cpp
 	CEGUIOpenGLClip.cpp
 	Helpers.cpp
 )
 
-set(IRR_CEGUI_EXT_EXTERNAL_INCLUDE
+set(IRR_EXT_CEGUI_EXTERNAL_INCLUDE
   "${CEGUI_INCLUDE_PATH}"
+  "${CMAKE_SOURCE_DIR}/3rdparty"
   "${CMAKE_SOURCE_DIR}/3rdparty/CEGUI/cegui/dependencies/include"
 )
 
 add_compile_definitions(CEGUI_STATIC CEGUI_BUILD_STATIC_FACTORY_MODULE)
 
-irr_create_library_project(
-  IrrExtCEGUI
-  "${IRR_CEGUI_EXT_SRC}"
-  ""
-  "${IRR_CEGUI_EXT_EXTERNAL_INCLUDE}"
+irr_create_ext_library_project(
+  CEGUI
+  "${IRR_EXT_CEGUI_H}"
+  "${IRR_EXT_CEGUI_SRC}"
+  "${IRR_EXT_CEGUI_EXTERNAL_INCLUDE}"
   ""
 )
 
-install(
-  FILES ${IRR_CEGUI_EXT_H}
-  DESTINATION ./include/irr/ext/CEGUI
-  CONFIGURATIONS Release
-)
-install(
-  FILES ${IRR_CEGUI_EXT_H}
-  DESTINATION ./debug/include/irr/ext/CEGUI
-  CONFIGURATIONS Debug
-)
-
-set(IRR_CEGUI_EXT_INCLUDE_DIRS
-	"${CMAKE_SOURCE_DIR}/include/"
-	"${CMAKE_SOURCE_DIR}/ext/CEGUI"
-  "${IRR_CEGUI_EXT_EXTERNAL_INCLUDE}"
-)
-set(IRR_CEGUI_EXT_INCLUDE_DIRS ${IRR_CEGUI_EXT_INCLUDE_DIRS} PARENT_SCOPE)
+add_dependencies(IrrExtCEGUI CEGUIBase-0_Static)
+add_dependencies(IrrExtCEGUI CEGUICommonDialogs-0_Static)
+add_dependencies(IrrExtCEGUI CEGUICoreWindowRendererSet_Static)
+add_dependencies(IrrExtCEGUI CEGUIExpatParser_Static)
+add_dependencies(IrrExtCEGUI CEGUIOpenGLRenderer-0_Static)
+add_dependencies(IrrExtCEGUI CEGUISTBImageCodec_Static)

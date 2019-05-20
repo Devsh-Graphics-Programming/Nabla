@@ -6,14 +6,14 @@ endif()
 
 add_compile_definitions(CEGUI_STATIC CEGUI_BUILD_STATIC_FACTORY_MODULE)
 
-set(BRDF_EXPLORER_LIB
-	IrrExtCEGUI
+set(BRDF_EXPLORER_LIBS
+	${IRR_EXT_CEGUI_LIB}
 	${CEGUI_LIBS}
 )
 
 irr_create_executable_project(
 	BRDFExplorerApp.cpp
-  ""
-	"${IRR_CEGUI_EXT_INCLUDE_DIRS}"
-	"${BRDF_EXPLORER_LIB}"
+    ""
+	"${IRR_EXT_CEGUI_INCLUDE_DIRS}"
+	"${BRDF_EXPLORER_LIBS}"
 )
