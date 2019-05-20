@@ -168,13 +168,13 @@ if (IRR_BUILD_CEGUI)
 	# Only MSVC builds and installs CEGUI dependencies
 	if (MSVC)
 		install(
-			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/include
-			DESTINATION ./include/irr/ext/CEGUI
+			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/include/
+			DESTINATION ./include/irr/ext/CEGUI/3rdparty
 			CONFIGURATIONS Release
 		)
 		install(
-			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/include
-			DESTINATION ./debug/include/irr/ext/CEGUI
+			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/include/
+			DESTINATION ./debug/include/irr/ext/CEGUI/3rdparty
 			CONFIGURATIONS Debug
 		)
 	endif()
@@ -203,12 +203,12 @@ if (IRR_BUILD_CEGUI)
 	)
 	install(
 		FILES ${CEGUI_LIBS}
-		DESTINATION ./lib
+		DESTINATION ./lib/irr/ext/CEGUI
 		CONFIGURATIONS Release
 	)
 	install(
 		FILES ${CEGUI_LIBS}
-		DESTINATION ./debug/lib
+		DESTINATION ./debug/lib/irr/ext/CEGUI
 		CONFIGURATIONS Debug
 	)
 endif()
