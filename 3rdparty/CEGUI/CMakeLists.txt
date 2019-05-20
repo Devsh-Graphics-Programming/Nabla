@@ -102,9 +102,9 @@ set(CEGUI_BUILD_STATIC_CONFIGURATION ON CACHE BOOL "")
 set(CEGUI_BUILD_STATIC_FACTORY_MODULE ON CACHE BOOL "")
 set(CEGUI_STATIC_XMLPARSER_MODULE "CEGUIExpatParser" CACHE STRING "")
 
-add_subdirectory(cegui)
+add_subdirectory(cegui EXCLUDE_FROM_ALL)
 
-# ignore dynamic libs
+# Ignore dynamic libs
 if (MSVC)
     set_target_properties(CEGUIBase-0 PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
     set_target_properties(CEGUICommonDialogs-0 PROPERTIES EXCLUDE_FROM_ALL 1 EXCLUDE_FROM_DEFAULT_BUILD 1)
