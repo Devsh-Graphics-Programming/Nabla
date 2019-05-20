@@ -7,7 +7,7 @@ endif()
 add_compile_definitions(CEGUI_STATIC CEGUI_BUILD_STATIC_FACTORY_MODULE)
 
 set(BRDF_EXPLORER_LIB
-	IrrCEGUIExt
+	IrrExtCEGUI
 	${CEGUI_LIBS}
 )
 
