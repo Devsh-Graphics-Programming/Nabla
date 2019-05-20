@@ -212,7 +212,7 @@ if (IRR_BUILD_CEGUI)
 		CONFIGURATIONS Debug
 	)
 	# CEGUI libs
-		if (MSVC)
+	if (MSVC)
 		install(
 			DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/
 			DESTINATION ./lib/irr/ext/CEGUI
