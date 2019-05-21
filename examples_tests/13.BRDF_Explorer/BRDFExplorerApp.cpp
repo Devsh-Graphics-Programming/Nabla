@@ -26,7 +26,7 @@ SOFTWARE.
 */
 
 #include "BRDFExplorerApp.h"
-#include "../../ext/CEGUI/CEGUI.h"
+#include "../../ext/CEGUI/ExtCEGUI.h"
 
 namespace irr
 {

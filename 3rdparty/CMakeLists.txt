@@ -169,24 +169,36 @@ if (IRR_BUILD_CEGUI)
 	if (MSVC)
 		install(
 			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/include
-			DESTINATION ./include/irr/ext/GUI
+			DESTINATION ./include/irr/ext/CEGUI
 			CONFIGURATIONS Release
 		)
 		install(
 			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/include
-			DESTINATION ./debug/include/irr/ext/GUI
+			DESTINATION ./debug/include/irr/ext/CEGUI
 			CONFIGURATIONS Debug
 		)
 	endif()
 
+	# CEGUI headers
 	install(
-		DIRECTORY ${CEGUI_INCLUDE_PATH}/CEGUI
-		DESTINATION ./include/irr/ext/GUI
+		DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include/CEGUI
+		DESTINATION ./include/irr/ext/CEGUI
 		CONFIGURATIONS Release
 	)
 	install(
-		DIRECTORY ${CEGUI_INCLUDE_PATH}/CEGUI
-		DESTINATION ./debug/include/irr/ext/GUI
+		DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include/CEGUI
+		DESTINATION ./debug/include/irr/ext/CEGUI
+		CONFIGURATIONS Debug
+	)
+	# CEGUI generated headers
+	install(
+		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/cegui/include/CEGUI
+		DESTINATION ./include/irr/ext/CEGUI
+		CONFIGURATIONS Release
+	)
+	install(
+		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/cegui/include/CEGUI
+		DESTINATION ./debug/include/irr/ext/CEGUI
 		CONFIGURATIONS Debug
 	)
 	install(

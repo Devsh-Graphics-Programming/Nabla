@@ -25,7 +25,7 @@ SOFTWARE.
 
 */
 
-#include "CEGUI.h"
+#include "ExtCEGUI.h"
 #include "CEGUIOpenGLState.h"
 #include "CEGUIOpenGLClip.h"
 

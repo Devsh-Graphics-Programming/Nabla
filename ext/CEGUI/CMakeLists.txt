@@ -1,12 +1,12 @@
 set(IRR_CEGUI_EXT_H
-  CEGUI.h
+  ExtCEGUI.h
 	CEGUIOpenGLState.h
 	CEGUIOpenGLClip.h
 	Helpers.h
 )
 
 set(IRR_CEGUI_EXT_SRC
-  CEGUI.cpp
+  ExtCEGUI.cpp
 	CEGUIOpenGLState.cpp
 	CEGUIOpenGLClip.cpp
 	Helpers.cpp
