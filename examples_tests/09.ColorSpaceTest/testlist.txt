@@ -1,6 +1,6 @@
 ; This is the testing suite for various IrrlichtBAW loaders/writers (JPG/PNG/TGA/BMP/DDS/KTX).
 ; BMP, DDS & KTX are currently unsupported for now.
-; 16-bit PNG is not supported.
+; 16-bit PNG & 8-bit RLE (compressed) TGA is not supported.
 ; For licensing attribution, see LICENSE.
 
 ; JPG, colored & 8-bit grayscale
