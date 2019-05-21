@@ -80,6 +80,13 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 	_file->seek(_file->getSize() - sizeof(STGAFooter));
 	_file->read(&footer, sizeof(STGAFooter));
 	
+	// 16 bytes for "TRUEVISION-XFILE", 17th byte is '.', and the 18th byte contains '\0'.
+	if (strncmp(footer.Signature, "TRUEVISION-XFILE.", 18u) != 0)
+	{
+		os::Printer::log("Invalid (non-TGA) file!", ELL_ERROR);
+		return false;
+	}
+	
 	if (footer.ExtensionOffset == 0)
 		os::Printer::log("Gamma information is not present!", ELL_ERROR);
 	else
