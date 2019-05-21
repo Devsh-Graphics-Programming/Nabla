@@ -2,22 +2,29 @@
 
 #include <iostream>
 #include <algorithm>
+#include <array>
 
 namespace irr
 {
 namespace asset
 {
 
-bool defaultVxCmpFunction(const SSNGVertexData& v0, const SSNGVertexData& v1, asset::ICPUMeshBuffer* buffer)
+bool defaultVxCmpFunction(const SSNGVertexData& v0, const SSNGVertexData& v1, asset::ICPUMeshBuffer* triangleSoupMeshBuffer)
 {
 	static constexpr float cosOf45Deg = 0.70710678118f;
 	return v0.parentTriangleFaceNormal.dotProductAsFloat(v1.parentTriangleFaceNormal) > cosOf45Deg;
 }
 
-//needed for std::upper_boud
+//needed for upper_bound vertex search
 static inline bool operator<(uint32_t lhs, const SSNGVertexData& rhs)
 {
 	return lhs < rhs.hash;
+}
+
+//needed for lower_bound bucket search
+static inline bool operator<(const core::vector<SSNGVertexData>::iterator& lhs, uint32_t rhs)
+{
+	return lhs->hash < rhs;
 }
 
 static inline bool compareVertexPosition(const core::vectorSIMDf& a, const core::vectorSIMDf& b, float epsilon)
@@ -48,7 +55,6 @@ static inline core::vector3df_SIMD getAngleWeight(const core::vector3df_SIMD & v
 
 asset::ICPUMeshBuffer* irr::asset::CSmoothNormalGenerator::calculateNormals(asset::ICPUMeshBuffer* buffer, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, VxCmpFunction vxcmp)
 {
-	//should i always trust RVO?
 	VertexHashMap vertexArray = setupData(buffer, epsilon);
 	processConnectedVertices(buffer, vertexArray, epsilon, normalAttrID, vxcmp);
 
@@ -59,27 +65,51 @@ CSmoothNormalGenerator::VertexHashMap::VertexHashMap(size_t _vertexCount, uint32
 	:hashTableMaxSize(_hashTableMaxSize), 
 	cellSize(_cellSize)
 {
+	_IRR_DEBUG_BREAK_IF((!core::isPoT(_hashTableMaxSize)));
+
 	vertices.reserve(_vertexCount);
 	buckets.reserve(_hashTableMaxSize+1);
 }
 
-uint32_t CSmoothNormalGenerator::VertexHashMap::hash(const SSNGVertexData& vertexPosition) const
+uint32_t CSmoothNormalGenerator::VertexHashMap::hash(const SSNGVertexData& vertex) const
 {
 	static constexpr uint32_t primeNumber1 = 73856093;
 	static constexpr uint32_t primeNumber2 = 19349663;
 	static constexpr uint32_t primeNumber3 = 83492791;
 
-	const core::vector3df_SIMD position = vertexPosition.position / cellSize;
+	const core::vector3df_SIMD position = vertex.position / cellSize;
 
-	return	(((uint32_t)position.x * primeNumber1) ^
-		((uint32_t)position.y * primeNumber2) ^
-		((uint32_t)position.z * primeNumber3)) & (hashTableMaxSize - 1);
+	return	((static_cast<uint32_t>(position.x) * primeNumber1) ^
+			 (static_cast<uint32_t>(position.y) * primeNumber2) ^
+			 (static_cast<uint32_t>(position.z) * primeNumber3)) & (hashTableMaxSize - 1);
 }
 
-void CSmoothNormalGenerator::VertexHashMap::add(const SSNGVertexData& vertex)
+uint32_t CSmoothNormalGenerator::VertexHashMap::hash(const core::vector3du32_SIMD& position) const
 {
-	const_cast<uint32_t&>(vertex.hash) = hash(vertex);
+	static constexpr uint32_t primeNumber1 = 73856093;
+	static constexpr uint32_t primeNumber2 = 19349663;
+	static constexpr uint32_t primeNumber3 = 83492791;
+
+	return	((position.x * primeNumber1) ^
+			 (position.y * primeNumber2) ^
+			 (position.z * primeNumber3)) & (hashTableMaxSize - 1);
+}
+
+void CSmoothNormalGenerator::VertexHashMap::add(SSNGVertexData&& vertex)
+{
+	vertex.hash = hash(vertex);
 	vertices.push_back(vertex);
+}
+
+CSmoothNormalGenerator::VertexHashMap::BucketBounds CSmoothNormalGenerator::VertexHashMap::getBucketBoundsByHash(uint32_t hash)
+{
+	auto begin = std::lower_bound(buckets.begin(), buckets.end()-1, hash);
+
+	if (begin == buckets.end()-1)
+		return { vertices.end(), vertices.end() };
+
+	return { *begin, *(begin + 1) };
+
 }
 
 void CSmoothNormalGenerator::VertexHashMap::validate()
@@ -93,7 +123,6 @@ void CSmoothNormalGenerator::VertexHashMap::validate()
 	while (true)
 	{
 		core::vector<SSNGVertexData>::iterator next = std::upper_bound(prevBegin, vertices.end(), prevHash);
-
 		buckets.push_back(next);
 
 		if (next == vertices.end())
@@ -112,7 +141,7 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(asset::I
 	_IRR_DEBUG_BREAK_IF((idxCount % 3));
 	_IRR_DEBUG_BREAK_IF((idxCount != vxCount));
 
-	VertexHashMap vertices(vxCount, std::min(16u * 1024u, core::roundUpToPoT<unsigned int>(idxCount * 1.0f / 32.0f)), epsilon * 1.2f);
+	VertexHashMap vertices(vxCount, std::min(16u * 1024u, core::roundUpToPoT<unsigned int>(idxCount * 1.0f / 32.0f)), epsilon != 0.0f ? epsilon * 1.00001f : 0.00001f);
 
 	core::vector3df_SIMD faceNormal;
 
@@ -129,9 +158,9 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(asset::I
 		//set data for vertices
 		core::vector3df_SIMD angleWages = getAngleWeight(v1, v2, v3);
 
-		vertices.add({ i,		0,	angleWages.x,	v1,	faceNormal * angleWages.x,	faceNormal });
-		vertices.add({ i + 1,	0,	angleWages.y,	v2,	faceNormal * angleWages.y,	faceNormal });
-		vertices.add({ i + 2,	0,	angleWages.z,	v3,	faceNormal * angleWages.z,	faceNormal });
+		vertices.add({ i,		0,	angleWages.x,	v1,	core::vector3df_SIMD(0.0f),	faceNormal});
+		vertices.add({ i + 1,	0,	angleWages.y,	v2,	core::vector3df_SIMD(0.0f),	faceNormal});
+		vertices.add({ i + 2,	0,	angleWages.z,	v3,	core::vector3df_SIMD(0.0f),	faceNormal});
 	}
 
 	vertices.validate();
@@ -141,25 +170,31 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(asset::I
 
 void CSmoothNormalGenerator::processConnectedVertices(asset::ICPUMeshBuffer * buffer, VertexHashMap & vertexHashMap, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, VxCmpFunction vxcmp)
 {
-	core::vector<SSNGVertexData>::iterator bucketBegin;
-	core::vector<SSNGVertexData>::iterator bucketEnd;
+	
 
 	for (uint32_t cell = 0; cell < vertexHashMap.getBucketCount() - 1; cell++)
 	{
-		bucketBegin = vertexHashMap.getBucket(cell);
-		bucketEnd = vertexHashMap.getBucket(cell + 1);
+		core::vector<SSNGVertexData>::iterator firstVertexInProcessedBucket = vertexHashMap.getBucketById(cell);
+		core::vector<SSNGVertexData>::iterator lastVertexInProcessedBucket = vertexHashMap.getBucketById(cell+1);
 
-		for (core::vector<SSNGVertexData>::iterator processedVertex = bucketBegin; processedVertex != bucketEnd; processedVertex++)
+		for (core::vector<SSNGVertexData>::iterator processedVertex = firstVertexInProcessedBucket; processedVertex != lastVertexInProcessedBucket; processedVertex++)
 		{
-			for (core::vector<SSNGVertexData>::iterator nextVertex = processedVertex+1; nextVertex != bucketEnd; nextVertex++)
+			std::array<uint32_t, 8> neighboringCells = vertexHashMap.getNeighboringCellHashes(*processedVertex);
+
+			//iterate among all neighboring cells
+			for (int i = 0; i < 8; i++)
 			{
-				if (compareVertexPosition(processedVertex->position, nextVertex->position, epsilon) &&
-					vxcmp(*processedVertex, *nextVertex, buffer))
+				VertexHashMap::BucketBounds bounds = vertexHashMap.getBucketBoundsByHash(neighboringCells[i]);
+				for (; bounds.begin != bounds.end; bounds.begin++)
 				{
-					processedVertex->normal += nextVertex->parentTriangleFaceNormal * nextVertex->wage;
-					nextVertex->normal += processedVertex->parentTriangleFaceNormal * processedVertex->wage;
+					
+					if (compareVertexPosition(processedVertex->position, bounds.begin->position, epsilon) &&
+						vxcmp(*processedVertex, *bounds.begin, buffer))
+					{
+						processedVertex->normal += bounds.begin->parentTriangleFaceNormal * bounds.begin->wage;
+					}
 				}
-			}	
+			}
 
 			processedVertex->normal = core::normalize(processedVertex->normal);
 			buffer->setAttribute(processedVertex->normal, normalAttrID, processedVertex->indexOffset);
@@ -169,6 +204,67 @@ void CSmoothNormalGenerator::processConnectedVertices(asset::ICPUMeshBuffer * bu
 
  }
 
+std::array<uint32_t, 8> CSmoothNormalGenerator::VertexHashMap::getNeighboringCellHashes(const SSNGVertexData& vertex)
+{
+	static unsigned int a = 0;
+	std::array<uint32_t, 8> neighborhood;
+
+	core::vectorSIMDf cellFloatCoord = vertex.position / cellSize - core::vectorSIMDf(0.5f);
+	core::vector3du32_SIMD neighbor = core::vector3du32_SIMD(static_cast<uint32_t>(cellFloatCoord.x), static_cast<uint32_t>(cellFloatCoord.y), static_cast<uint32_t>(cellFloatCoord.z));
+	
+	//left bottom near
+	neighborhood[0] = hash(neighbor);
+
+	//right bottom near
+	neighbor = neighbor + core::vector3du32_SIMD(1, 0, 0);
+	neighborhood[1] = hash(neighbor);
+
+	//right bottom far
+	neighbor = neighbor + core::vector3du32_SIMD(0, 0, 1);
+	neighborhood[2] = hash(neighbor);
+
+	//left bottom far
+	neighbor = neighbor - core::vector3du32_SIMD(1, 0, 0);
+	neighborhood[3] = hash(neighbor);
+
+	//left top far
+	neighbor = neighbor + core::vector3du32_SIMD(0, 1, 0);
+	neighborhood[4] = hash(neighbor);
+
+	//right top far
+	neighbor = neighbor + core::vector3du32_SIMD(1, 0, 0);
+	neighborhood[5] = hash(neighbor);
+
+	//righ top near
+	neighbor = neighbor - core::vector3du32_SIMD(0, 0, 1);
+	neighborhood[6] = hash(neighbor);
+
+	//left top near
+	neighbor = neighbor - core::vector3du32_SIMD(1, 0, 0);
+	neighborhood[7] = hash(neighbor);
+
+	//erase duplicated hashes
+	for (int i = 0; i < 8; i++)
+	{
+		uint32_t currHash = neighborhood[i];
+		for (int j = i + 1; j < 8; j++)
+		{
+			if (neighborhood[j] == currHash)
+				neighborhood[j] = invalidHash;
+		}
+	}
+	return neighborhood;
+}
+
 }
 }
 
+/*for (core::vector<SSNGVertexData>::iterator nextVertex = processedVertex+1; nextVertex != bucketEnd; nextVertex++)
+			{
+				if (compareVertexPosition(processedVertex->position, nextVertex->position, epsilon) &&
+					vxcmp(*processedVertex, *nextVertex, buffer))
+				{
+					processedVertex->normal += nextVertex->parentTriangleFaceNormal * nextVertex->wage;
+					nextVertex->normal += processedVertex->parentTriangleFaceNormal * processedVertex->wage;
+				}
+			}	*/

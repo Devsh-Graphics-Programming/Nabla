@@ -4,6 +4,7 @@
 #include <iostream>
 #include <functional>
 #include "irr/asset/ICPUMeshBuffer.h"
+#include "irr/asset/CMeshManipulator.h"
 #include "irr/core/math/irrMath.h"
 
 
@@ -11,22 +12,6 @@ namespace irr
 {	
 namespace asset 
 {
-	
-//vertex data needed for CSmoothNormalGenerator
-struct SSNGVertexData
-{
-	uint32_t indexOffset;									//offset of the vertex into index buffer
-	uint32_t hash;											//
-	float wage;												//angle wage of the vertex
-	core::vector4df_SIMD position;							//position of the vertex in 3D space
-	core::vector3df_SIMD normal;							//normal to be smoothed
-	core::vector3df_SIMD parentTriangleFaceNormal;			//
-}; 
-
-typedef std::function<bool(const SSNGVertexData&, const SSNGVertexData&, asset::ICPUMeshBuffer*)> VxCmpFunction;
-
-//returns true if crease angle between parent triangles of vertices v0 and v1 is lower than 45 degrees 
-bool defaultVxCmpFunction(const SSNGVertexData&, const SSNGVertexData&, asset::ICPUMeshBuffer*);
 
 class CSmoothNormalGenerator
 {
@@ -40,17 +25,30 @@ private:
 	class VertexHashMap
 	{
 	public:
+		struct BucketBounds
+		{
+			core::vector<SSNGVertexData>::iterator begin;
+			core::vector<SSNGVertexData>::iterator end;
+		};
+
+	public:
 		VertexHashMap(size_t _vertexCount, uint32_t _hashTableMaxSize, float _cellSize);
 
 		//inserts vertex into hash table
-		void add(const SSNGVertexData& vertex);
+		void add(SSNGVertexData&& vertex);
 
 		//sorts hashtable and sets iterators at beginnings of bucktes
 		void validate();
 
-		//small number of unused buckets still may occure 
+		//
+		std::array<uint32_t, 8> getNeighboringCellHashes(const SSNGVertexData& vertex);
+
 		inline uint32_t getBucketCount() const { return buckets.size(); }
-		inline core::vector<SSNGVertexData>::iterator getBucket(uint32_t index) { return buckets[index]; }
+		inline core::vector<SSNGVertexData>::iterator getBucketById(uint32_t index) { return buckets[index]; }
+		BucketBounds getBucketBoundsByHash(uint32_t hash);
+
+	public:
+		static constexpr uint32_t invalidHash = 0xFFFFFFFF;
 
 	private:
 		//holds iterators pointing to beginning of each bucket, last iterator points to vertices.end()
@@ -60,7 +58,8 @@ private:
 		const float cellSize;
 
 	private:
-		uint32_t hash(const SSNGVertexData& vertexPosition) const;
+		uint32_t hash(const SSNGVertexData& vertex) const;
+		uint32_t hash(const core::vector3du32_SIMD& position) const;
 
 	};
 
@@ -70,7 +69,17 @@ private:
 
 };
 
+//vec3 pos = vertexPos;
+//vec3 voxelCoordFloat = pos / voxelSize - vec3(0.5);
 
+//ivec3 leftBottomNear =	ivec3(voxelCoordFloat);
+//ivec3 rightBottomNear =	leftBottomNear + ivec3(1,0,0);
+//ivec3 leftTopNear =		leftBottomNear + ivec3(0,1,0);
+//ivec3 rightTopNear =		rightBottomNear + ivec3(0,1,0);
+//ivec3 leftBottomFar =		leftBottomNear + ivec3(0,0,1);
+//ivec3 rightBottomFar =	rightBottomNear + ivec3(0,0,1);
+//ivec3 leftTopFar =		leftTopNear + ivec3(0,0,1);
+//ivec3 rightTopFar =		rightTopNear + ivec3(0,0,1);
 
 }
 }

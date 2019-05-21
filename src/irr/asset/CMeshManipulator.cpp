@@ -698,14 +698,14 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(asset:
 	return clone;
 }
 
+//
 asset::ICPUMeshBuffer* CMeshManipulator::calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, float epsilon,
 	asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, VxCmpFunction vxcmp) const
 {
 	if (inbuffer == nullptr)
 		return nullptr;
 
-	asset::ICPUMeshBuffer* outbuffer = createMeshBufferUniquePrimitives(inbuffer);
-
+	asset::ICPUMeshBuffer* outbuffer = createMeshBufferDuplicate(inbuffer);
 	CSmoothNormalGenerator::calculateNormals(outbuffer, epsilon, normalAttrID, vxcmp);
 
 	return outbuffer;

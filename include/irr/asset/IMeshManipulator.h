@@ -12,13 +12,27 @@
 #include "IAnimatedMesh.h"
 #include "irr/asset/ICPUMeshBuffer.h"
 #include "SVertexManipulator.h"
-#include "irr/asset/CSmoothNormalGenerator.h"
 #include "irr/asset/SCPUMesh.h"
 
 namespace irr
 {
 namespace asset
 {
+	//vertex data needed for CSmoothNormalGenerator
+	struct SSNGVertexData
+	{
+		uint32_t indexOffset;									//offset of the vertex into index buffer
+		uint32_t hash;											//
+		float wage;												//angle wage of the vertex
+		core::vector4df_SIMD position;							//position of the vertex in 3D space
+		core::vector3df_SIMD normal;							//normal to be smoothed
+		core::vector3df_SIMD parentTriangleFaceNormal;			//
+	};
+
+	typedef std::function<bool(const SSNGVertexData&, const SSNGVertexData&, asset::ICPUMeshBuffer*)> VxCmpFunction;
+	//function used by IMeshManipulatro::calculateSmoothNormals
+	bool defaultVxCmpFunction(const SSNGVertexData& v0, const SSNGVertexData& v1, asset::ICPUMeshBuffer* tirangleSoupMeshBuffer);
+
 	//! An interface for easy manipulation of meshes.
 	/** Scale, set alpha value, flip surfaces, and so on. This exists for
 	fixing problems with wrong imported or exported meshes quickly after
