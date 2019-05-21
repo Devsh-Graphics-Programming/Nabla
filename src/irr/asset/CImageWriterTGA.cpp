@@ -118,15 +118,21 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	for (y = 0; y < imageHeader.ImageHeight; ++y)
 	{
 		switch (format) {
-			// Do a pass-through, byte-wise copy for everything else except EF_R8G8B8(A8)_SRGB, which would need swizzling to EF_B8G8R8(A8)_SRGB.
 			case asset::EF_R8_SRGB:
-			case asset::EF_R8_UNORM:
 			case asset::EF_A1R5G5B5_UNORM_PACK16:
 				{
 					memcpy(row_pointer, &scan_lines[y * row_stride], imageHeader.ImageWidth * (imageHeader.PixelDepth / 8));
 				}
 			break;
 			
+			case asset::EF_R8_UNORM:
+				{
+					const void *src_container[4] = {&scan_lines[y * row_stride], nullptr, nullptr, nullptr};
+					video::convertColor<EF_R8_UNORM, EF_R8_SRGB>(src_container, row_pointer, 1, imageHeader.ImageWidth, image->getSize());
+				}
+			break;
+			
+			// EF_R8G8B8(A8)_SRGB would need swizzling to EF_B8G8R8(A8)_SRGB.
 			case asset::EF_R8G8B8_SRGB:
 				{
 					const void *src_container[4] = {&scan_lines[y * row_stride], nullptr, nullptr, nullptr};

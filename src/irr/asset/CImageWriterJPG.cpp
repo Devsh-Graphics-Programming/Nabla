@@ -144,7 +144,7 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 			/* Since the first argument to convertColor() requires a const void *[4], wrap our buffer pointer (src) and pass that to convertColor(). */
 			const void *src_container[4] = {src, nullptr, nullptr, nullptr};
 			
-			/* Perform color conversion for non-EF_R8G8B8_SRGB/non-EF_R8_UNORM, and pass-through the pixels for the rest.*/
+			/* Pass-through the pixels for EF_R8_SRGB/EF_R8G8B8_SRGB, and perform color conversion for the rest.*/
 			switch (format) {
 				case asset::EF_R8G8B8_UNORM:
 					video::convertColor<EF_R8G8B8_UNORM, EF_R8G8B8_SRGB>(src_container, dest, 1, dim.X, dim);
@@ -155,8 +155,10 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 				case asset::EF_A1R5G5B5_UNORM_PACK16:
 					video::convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_R8G8B8_SRGB>(src_container, dest, 1, dim.X, dim);
 					break;
-				case asset::EF_R8_SRGB:
 				case asset::EF_R8_UNORM:
+					video::convertColor<EF_R8_UNORM, EF_R8_SRGB>(src_container, dest, 1, dim.X, dim);
+					break;
+				case asset::EF_R8_SRGB:
 				case asset::EF_R8G8B8_SRGB:
 					memcpy(dest, src, pitch);
 					break;
