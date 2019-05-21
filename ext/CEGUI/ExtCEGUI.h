@@ -106,8 +106,6 @@ class GUIManager: public core::IReferenceCounted, public IEventReceiver
         ::CEGUI::OpenGL3Renderer& Renderer;
         ::CEGUI::Window* RootWindow;
         std::map<const char*, ::CEGUI::ColourPicker*> ColourPickers;
-        // White (1.0f, 1.0f, 1.0f) color, but it's a CEGUI::String property (which is the editable property seen in CEED). Needed for setProperty().
-
 };
 
 } // namespace cegui
