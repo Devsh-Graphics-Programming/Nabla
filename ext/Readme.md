@@ -29,6 +29,8 @@ none of which would be optimal for all circumstances such as shadows or deferred
 4) If compiling as a library, it must support out-of-source-build and a static library target.
 5) Do not expose (via public headers) or install your dependencies! (Unless @devsh grants an exceptional waiver)
 
+@manhnt9 provided a nice CMake script for setting up an ext library cleanly https://github.com/buildaworldnet/IrrlichtBAW/pull/291#issuecomment-494223131
+
 
 ## Rules for exposed dependencies (if @devsh grants a waiver):
 1) This is only for big complicated framework integrations such as CEGUI, PhysX, Bullet, etc. where writing a non-dependency-API-exposing extension would entail a lot of work, pointless wrapper code, and hinder the usability of the underlying dependency.
