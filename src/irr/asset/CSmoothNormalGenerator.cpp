@@ -8,20 +8,12 @@ namespace irr
 {
 namespace asset
 {
-
-bool defaultVxCmpFunction(const SSNGVertexData& v0, const SSNGVertexData& v1, asset::ICPUMeshBuffer* triangleSoupMeshBuffer)
-{
-	static constexpr float cosOf45Deg = 0.70710678118f;
-	return v0.parentTriangleFaceNormal.dotProductAsFloat(v1.parentTriangleFaceNormal) > cosOf45Deg;
-}
-
-//needed for upper_bound vertex search
-static inline bool operator<(uint32_t lhs, const SSNGVertexData& rhs)
+static inline bool operator<(uint32_t lhs, const IMeshManipulator::SSNGVertexData& rhs)
 {
 	return lhs < rhs.hash;
 }
 
-static inline bool operator<(const SSNGVertexData& lhs, uint32_t rhs)
+static inline bool operator<(const IMeshManipulator::SSNGVertexData& lhs, uint32_t rhs)
 {
 	return lhs.hash < rhs;
 }
@@ -52,7 +44,7 @@ static inline core::vector3df_SIMD getAngleWeight(const core::vector3df_SIMD & v
 		acosf((b - c + a) / (2.f * bsqrt * asqrt)));
 }
 
-asset::ICPUMeshBuffer* irr::asset::CSmoothNormalGenerator::calculateNormals(asset::ICPUMeshBuffer* buffer, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, VxCmpFunction vxcmp)
+asset::ICPUMeshBuffer* irr::asset::CSmoothNormalGenerator::calculateNormals(asset::ICPUMeshBuffer* buffer, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, IMeshManipulator::VxCmpFunction vxcmp)
 {
 	VertexHashMap vertexArray = setupData(buffer, epsilon);
 	processConnectedVertices(buffer, vertexArray, epsilon, normalAttrID, vxcmp);
@@ -70,7 +62,7 @@ CSmoothNormalGenerator::VertexHashMap::VertexHashMap(size_t _vertexCount, uint32
 	buckets.reserve(_hashTableMaxSize+1);
 }
 
-uint32_t CSmoothNormalGenerator::VertexHashMap::hash(const SSNGVertexData& vertex) const
+uint32_t CSmoothNormalGenerator::VertexHashMap::hash(const IMeshManipulator::SSNGVertexData& vertex) const
 {
 	static constexpr uint32_t primeNumber1 = 73856093;
 	static constexpr uint32_t primeNumber2 = 19349663;
@@ -94,7 +86,7 @@ uint32_t CSmoothNormalGenerator::VertexHashMap::hash(const core::vector3du32_SIM
 			 (position.z * primeNumber3)) & (hashTableMaxSize - 1);
 }
 
-void CSmoothNormalGenerator::VertexHashMap::add(SSNGVertexData&& vertex)
+void CSmoothNormalGenerator::VertexHashMap::add(IMeshManipulator::SSNGVertexData&& vertex)
 {
 	vertex.hash = hash(vertex);
 	vertices.push_back(vertex);
@@ -105,8 +97,8 @@ CSmoothNormalGenerator::VertexHashMap::BucketBounds CSmoothNormalGenerator::Vert
 	if (hash == invalidHash)
 		return { vertices.end(), vertices.end() };
 
-	core::vector<SSNGVertexData>::iterator begin = std::lower_bound(vertices.begin(), vertices.end(), hash);
-	core::vector<SSNGVertexData>::iterator end = std::upper_bound(vertices.begin(), vertices.end(), hash);
+	core::vector<IMeshManipulator::SSNGVertexData>::iterator begin = std::lower_bound(vertices.begin(), vertices.end(), hash);
+	core::vector<IMeshManipulator::SSNGVertexData>::iterator end = std::upper_bound(vertices.begin(), vertices.end(), hash);
 
 	//bucket missing
 	if(begin == vertices.end())
@@ -121,15 +113,15 @@ CSmoothNormalGenerator::VertexHashMap::BucketBounds CSmoothNormalGenerator::Vert
 
 void CSmoothNormalGenerator::VertexHashMap::validate()
 {
-	std::sort(vertices.begin(), vertices.end(), [](SSNGVertexData& a, SSNGVertexData& b) { return a.hash < b.hash; });
+	std::sort(vertices.begin(), vertices.end(), [](IMeshManipulator::SSNGVertexData& a, IMeshManipulator::SSNGVertexData& b) { return a.hash < b.hash; });
 
 	uint16_t prevHash = vertices[0].hash;
-	core::vector<SSNGVertexData>::iterator prevBegin = vertices.begin();
+	core::vector<IMeshManipulator::SSNGVertexData>::iterator prevBegin = vertices.begin();
 	buckets.push_back(prevBegin);
 
 	while (true)
 	{
-		core::vector<SSNGVertexData>::iterator next = std::upper_bound(prevBegin, vertices.end(), prevHash);
+		core::vector<IMeshManipulator::SSNGVertexData>::iterator next = std::upper_bound(prevBegin, vertices.end(), prevHash);
 		buckets.push_back(next);
 
 		if (next == vertices.end())
@@ -143,12 +135,10 @@ void CSmoothNormalGenerator::VertexHashMap::validate()
 CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(asset::ICPUMeshBuffer * buffer, float epsilon)
 {
 	const size_t idxCount = buffer->getIndexCount();
-	const size_t vxCount = buffer->calcVertexCount();
 
 	_IRR_DEBUG_BREAK_IF((idxCount % 3));
-	_IRR_DEBUG_BREAK_IF((idxCount != vxCount));
 
-	VertexHashMap vertices(vxCount, std::min(16u * 1024u, core::roundUpToPoT<unsigned int>(idxCount * 1.0f/32.0f)), epsilon * 1.00001f);
+	VertexHashMap vertices(idxCount, std::min(16u * 1024u, core::roundUpToPoT<unsigned int>(idxCount * 1.0f/32.0f)), epsilon == 0.0f ? 0.00001f : epsilon * 1.00001f);
 
 	core::vector3df_SIMD faceNormal;
 
@@ -175,13 +165,13 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(asset::I
 	return vertices;
 }
 
-void CSmoothNormalGenerator::processConnectedVertices(asset::ICPUMeshBuffer * buffer, VertexHashMap & vertexHashMap, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, VxCmpFunction vxcmp)
+void CSmoothNormalGenerator::processConnectedVertices(asset::ICPUMeshBuffer * buffer, VertexHashMap & vertexHashMap, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, IMeshManipulator::VxCmpFunction vxcmp)
 {
 	for (uint32_t cell = 0; cell < vertexHashMap.getBucketCount() - 1; cell++)
 	{
 		VertexHashMap::BucketBounds processedBucket = vertexHashMap.getBucketBoundsById(cell);
 
-		for (core::vector<SSNGVertexData>::iterator processedVertex = processedBucket.begin; processedVertex != processedBucket.end; processedVertex++)
+		for (core::vector<IMeshManipulator::SSNGVertexData>::iterator processedVertex = processedBucket.begin; processedVertex != processedBucket.end; processedVertex++)
 		{
 			std::array<uint32_t, 8> neighboringCells = vertexHashMap.getNeighboringCellHashes(*processedVertex);
 			core::vector3df_SIMD normal(0.0f);
@@ -209,7 +199,7 @@ void CSmoothNormalGenerator::processConnectedVertices(asset::ICPUMeshBuffer * bu
 
  }
 
-std::array<uint32_t, 8> CSmoothNormalGenerator::VertexHashMap::getNeighboringCellHashes(const SSNGVertexData& vertex)
+std::array<uint32_t, 8> CSmoothNormalGenerator::VertexHashMap::getNeighboringCellHashes(const IMeshManipulator::SSNGVertexData& vertex)
 {
 	std::array<uint32_t, 8> neighbourhood;
 

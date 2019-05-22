@@ -7,7 +7,6 @@
 #include "irr/asset/IMeshManipulator.h"
 #include "irr/core/math/irrMath.h"
 
-
 namespace irr 
 {	
 namespace asset 
@@ -16,7 +15,7 @@ namespace asset
 class CSmoothNormalGenerator
 {
 public:
-	static asset::ICPUMeshBuffer* calculateNormals(asset::ICPUMeshBuffer* buffer, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, VxCmpFunction function);
+	static asset::ICPUMeshBuffer* calculateNormals(asset::ICPUMeshBuffer* buffer, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, IMeshManipulator::VxCmpFunction function);
 
 	CSmoothNormalGenerator() = delete;
 	~CSmoothNormalGenerator() = delete;
@@ -27,21 +26,21 @@ private:
 	public:
 		struct BucketBounds
 		{
-			core::vector<SSNGVertexData>::iterator begin;
-			core::vector<SSNGVertexData>::iterator end;
+			core::vector<IMeshManipulator::SSNGVertexData>::iterator begin;
+			core::vector<IMeshManipulator::SSNGVertexData>::iterator end;
 		};
 
 	public:
 		VertexHashMap(size_t _vertexCount, uint32_t _hashTableMaxSize, float _cellSize);
 
 		//inserts vertex into hash table
-		void add(SSNGVertexData&& vertex);
+		void add(IMeshManipulator::SSNGVertexData&& vertex);
 
 		//sorts hashtable and sets iterators at beginnings of bucktes
 		void validate();
 
 		//
-		std::array<uint32_t, 8> getNeighboringCellHashes(const SSNGVertexData& vertex);
+		std::array<uint32_t, 8> getNeighboringCellHashes(const IMeshManipulator::SSNGVertexData& vertex);
 
 		inline uint32_t getBucketCount() const { return buckets.size(); }
 		inline BucketBounds getBucketBoundsById(uint32_t index) { return { buckets[index], buckets[index + 1] }; }
@@ -52,20 +51,20 @@ private:
 
 	private:
 		//holds iterators pointing to beginning of each bucket, last iterator points to vertices.end()
-		core::vector<core::vector<SSNGVertexData>::iterator> buckets;
-		core::vector<SSNGVertexData> vertices;
+		core::vector<core::vector<IMeshManipulator::SSNGVertexData>::iterator> buckets;
+		core::vector<IMeshManipulator::SSNGVertexData> vertices;
 		const uint32_t hashTableMaxSize;
 		const float cellSize;
 
 	private:
-		uint32_t hash(const SSNGVertexData& vertex) const;
+		uint32_t hash(const IMeshManipulator::SSNGVertexData& vertex) const;
 		uint32_t hash(const core::vector3du32_SIMD& position) const;
 
 	};
 
 private:
 	static VertexHashMap setupData(asset::ICPUMeshBuffer* buffer, float epsilon);
-	static void processConnectedVertices(asset::ICPUMeshBuffer* buffer, VertexHashMap& vertices, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, VxCmpFunction vxcmp);
+	static void processConnectedVertices(asset::ICPUMeshBuffer* buffer, VertexHashMap& vertices, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, IMeshManipulator::VxCmpFunction vxcmp);
 
 };
 
