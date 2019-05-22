@@ -319,8 +319,7 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 			image = new asset::CImageData(output->getPointer(),nullOffset,imageSize,0u,asset::EF_R8G8B8_SRGB,1);
 			break;
 		default: // should never get here
-			_IRR_DEBUG_BREAK_IF(true);
-			assert(false);
+			os::Printer::log("Unsupported color space, operation aborted.", ELL_ERROR);
 			return nullptr;
 			break;
 	}
