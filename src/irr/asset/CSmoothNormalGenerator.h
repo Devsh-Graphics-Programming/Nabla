@@ -4,7 +4,7 @@
 #include <iostream>
 #include <functional>
 #include "irr/asset/ICPUMeshBuffer.h"
-#include "irr/asset/CMeshManipulator.h"
+#include "irr/asset/IMeshManipulator.h"
 #include "irr/core/math/irrMath.h"
 
 
@@ -44,10 +44,10 @@ private:
 		std::array<uint32_t, 8> getNeighboringCellHashes(const SSNGVertexData& vertex);
 
 		inline uint32_t getBucketCount() const { return buckets.size(); }
-		inline core::vector<SSNGVertexData>::iterator getBucketById(uint32_t index) { return buckets[index]; }
+		inline BucketBounds getBucketBoundsById(uint32_t index) { return { buckets[index], buckets[index + 1] }; }
 		BucketBounds getBucketBoundsByHash(uint32_t hash);
 
-	public:
+	private:
 		static constexpr uint32_t invalidHash = 0xFFFFFFFF;
 
 	private:
@@ -68,18 +68,6 @@ private:
 	static void processConnectedVertices(asset::ICPUMeshBuffer* buffer, VertexHashMap& vertices, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, VxCmpFunction vxcmp);
 
 };
-
-//vec3 pos = vertexPos;
-//vec3 voxelCoordFloat = pos / voxelSize - vec3(0.5);
-
-//ivec3 leftBottomNear =	ivec3(voxelCoordFloat);
-//ivec3 rightBottomNear =	leftBottomNear + ivec3(1,0,0);
-//ivec3 leftTopNear =		leftBottomNear + ivec3(0,1,0);
-//ivec3 rightTopNear =		rightBottomNear + ivec3(0,1,0);
-//ivec3 leftBottomFar =		leftBottomNear + ivec3(0,0,1);
-//ivec3 rightBottomFar =	rightBottomNear + ivec3(0,0,1);
-//ivec3 leftTopFar =		leftTopNear + ivec3(0,0,1);
-//ivec3 rightTopFar =		rightTopNear + ivec3(0,0,1);
 
 }
 }

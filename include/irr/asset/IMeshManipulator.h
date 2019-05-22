@@ -25,7 +25,6 @@ namespace asset
 		uint32_t hash;											//
 		float wage;												//angle wage of the vertex
 		core::vector4df_SIMD position;							//position of the vertex in 3D space
-		core::vector3df_SIMD normal;							//normal to be smoothed
 		core::vector3df_SIMD parentTriangleFaceNormal;			//
 	};
 
