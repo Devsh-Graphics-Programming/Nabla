@@ -2,6 +2,7 @@
 #include <irrlicht.h>
 #include <iostream>
 #include <cstdio>
+#include <fstream>
 
 #include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
 #include "../../ext/ScreenShot/ScreenShot.h"
