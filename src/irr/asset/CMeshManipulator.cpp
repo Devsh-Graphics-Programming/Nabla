@@ -335,13 +335,23 @@ asset::ICPUMeshBuffer* CMeshManipulator::createMeshBufferUniquePrimitives(asset:
 }
 
 //
-asset::ICPUMeshBuffer* CMeshManipulator::calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, float epsilon,
+asset::ICPUMeshBuffer* CMeshManipulator::calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, bool makeNewMesh, float epsilon,
 	asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, VxCmpFunction vxcmp) const
 {
 	if (inbuffer == nullptr)
+	{
+		_IRR_DEBUG_BREAK_IF(true);
 		return nullptr;
+	}
 
-	asset::ICPUMeshBuffer* outbuffer = createMeshBufferDuplicate(inbuffer);
+	//Mesh has to have unique primitives
+	if (inbuffer->getIndexType() != asset::E_INDEX_TYPE::EIT_UNKNOWN)
+	{
+		_IRR_DEBUG_BREAK_IF(true);
+		return nullptr;
+	}
+
+	asset::ICPUMeshBuffer* outbuffer = (makeNewMesh == true) ? createMeshBufferDuplicate(inbuffer) : inbuffer;
 	CSmoothNormalGenerator::calculateNormals(outbuffer, epsilon, normalAttrID, vxcmp);
 
 	return outbuffer;

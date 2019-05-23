@@ -87,7 +87,7 @@ namespace asset
 		virtual asset::ICPUMeshBuffer* createMeshBufferUniquePrimitives(asset::ICPUMeshBuffer* inbuffer) const = 0;
 
 		//
-		virtual asset::ICPUMeshBuffer* calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, float epsilon = 1.525e-5f,
+		virtual asset::ICPUMeshBuffer* calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, bool makeNewMesh = false, float epsilon = 1.525e-5f,
 				asset::E_VERTEX_ATTRIBUTE_ID normalAttrID = asset::E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3, 
 				VxCmpFunction vxcmp = [](const IMeshManipulator::SSNGVertexData& v0, const IMeshManipulator::SSNGVertexData& v1, asset::ICPUMeshBuffer* buffer) 
 				{ 
