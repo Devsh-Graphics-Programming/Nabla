@@ -137,9 +137,12 @@ int main()
 	std::ifstream list("./testlist.txt");
 	if (list.is_open())
 	{
-		std::string line;
-		while (std::getline(list, line) && line != "" && line[0] != ';')
-			testImage(line, device, fullScreenTriangle);
+                std::string line;
+                for (; std::getline(list, line); )
+                {
+                        if(line != "" && line[0] != ';')
+                                testImage(line, device, fullScreenTriangle);
+                }
 	}
 	
 	fullScreenTriangle->drop();
@@ -147,3 +150,4 @@ int main()
 
 	return 0;
 }
+
