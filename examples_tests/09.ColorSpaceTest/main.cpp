@@ -69,30 +69,6 @@ void dumpTextureToFile(IrrlichtDevice* device, video::ITexture* tex, const std::
 	img->drop();
 }
 
-bool ReadLine(io::IReadFile* file, std::string &line)
-{
-	if (file)
-	{
-		line = "";
-		char c;
-		while (file->read(&c, 1) != 0)
-		{
-			// On Windows, the EOL character is composed of two bytes CR ('\r', 13) and LF ('\n', 10). Unixes EOL is just LF.
-			if (c == '\r' || c == '\n')
-			{
-				// If we get a CR byte (Windows EOL), read one more byte to skip past the LF.
-				if (c == '\r')
-					file->read(&c, 1);
-				return true;
-			}
-			
-			line += c;
-		}
-	}
-	
-	return false;
-}
-
 void testImage(const std::string& path, IrrlichtDevice* device, video::IGPUMeshBuffer* fullScreenTriangle)
 {
 	os::Printer::log("Reading", path);
@@ -156,19 +132,13 @@ int main()
 	presentMaterial.ZWriteEnable = false; //! Why even write depth?
 	presentMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles(
 																"../fullscreentri.vert","","","","../present.frag",3,video::EMT_SOLID);
-
-	// more test images need to be added!
-	io::IFileSystem* fs = device->getFileSystem();
 	
-	if (fs)
+	std::ifstream list("./testlist.txt");
+	if (list.is_open())
 	{
-		io::IReadFile* file = fs->createAndOpenFile("testlist.txt");
-		if (file)
-		{
-			std::string line;
-			while (ReadLine(file, line) && line != "" && line[0] != ';')
-				testImage(line, device, fullScreenTriangle);
-		}
+		std::string line;
+		while (std::getline(list, line) && line != "" && line[0] != ';')
+			testImage(line, device, fullScreenTriangle);
 	}
 	
 	fullScreenTriangle->drop();
