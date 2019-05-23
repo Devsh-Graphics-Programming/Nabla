@@ -46,7 +46,7 @@
 	url = https://gitlab.com/InnerPieceOSS/cegui_alfisko.git
 [submodule "3rdparty/CEGUI/cegui"]
 	path = 3rdparty/CEGUI/cegui
-	url = https://github.com/nothings/stb.git
+	url = https://gitlab.com/InnerPieceOSS/cegui.git
 [submodule "ext/CEGUI/stb"]
 	path = ext/CEGUI/stb
 	url = https://github.com/nothings/stb.git
