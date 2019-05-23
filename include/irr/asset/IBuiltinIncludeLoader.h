@@ -15,11 +15,7 @@ public:
 
     virtual std::string getBuiltinInclude(const std::string& _name) const = 0;
 
-    virtual bool canLoad(const std::string& _path) const
-    {
-        return _path.substr(0u, _path.find_last_of('/')) == getVirtualDirectoryName();
-    }
-
+    //! @returns Path relative to /irr/builtin/
     virtual const char* getVirtualDirectoryName() const = 0;
 };
 

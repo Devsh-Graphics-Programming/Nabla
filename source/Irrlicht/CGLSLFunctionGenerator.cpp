@@ -1,8 +1,49 @@
 #include "CGLSLFunctionGenerator.h"
+
+#include <cctype>
+#include <regex>
+
 #include "COpenGLExtensionHandler.h"
 
 using namespace irr;
 using namespace video;
+
+std::string handle_linear_skinning_bones(const std::string& _path)
+{
+    constexpr size_t bonesNumberCharIndex = 16u;
+    return CGLSLFunctionGenerator::getLinearSkinningFunction(_path[bonesNumberCharIndex]-'0');
+}
+
+std::string CGLSLFunctionGenerator::getBuiltinInclude(const std::string& _path) const
+{
+    constexpr const char* PREFIX = "/irr/builtin/";
+    if (_path.length() < strlen(PREFIX) || _path.compare(0, strlen(PREFIX), PREFIX) != 0)
+        return "";
+
+    std::string inclGuardName = _path;
+    std::transform(inclGuardName.begin(), inclGuardName.end(), inclGuardName.begin(), [](char c) {return std::toupper(c); });
+    std::transform(inclGuardName.begin(), inclGuardName.end(), inclGuardName.begin(), 
+        [](char c) { return (!std::isalpha(c) && !std::isdigit(c)) ? '_' : c; }
+    );
+    inclGuardName = "_" + inclGuardName + "_";
+
+    const std::string inclGuardBegin = "#ifndef " + inclGuardName + "\n#define " + inclGuardName + "\n";
+    const std::string inclGuardEnd = "\n#endif //" + inclGuardName;
+
+    std::string path = _path;
+    path.erase(0, strlen(PREFIX)); //remove prefix
+
+    using HandleFunc_t = std::string(*)(const std::string&);
+    std::pair<std::regex, HandleFunc_t> builtinNames[]{
+        {std::regex{"linear_skinning_[0-4]_bones\\.glsl"}, &handle_linear_skinning_bones}
+    };
+
+    for (const auto& pattern : builtinNames)
+        if (std::regex_match(path, pattern.first))
+            return inclGuardBegin + pattern.second(path) + inclGuardEnd;
+
+    return {};
+}
 
 std::string CGLSLFunctionGenerator::getLinearSkinningFunction(const uint32_t& maxBoneInfluences)
 {

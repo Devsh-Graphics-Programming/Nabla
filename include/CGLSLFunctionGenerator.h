@@ -3,6 +3,7 @@
 
 #include "IrrCompileConfig.h"
 #include "IVideoCapabilityReporter.h"
+#include "irr/asset/IBuiltinIncludeLoader.h"
 
 #include <string>
 #include <cstdint>
@@ -11,10 +12,12 @@
 namespace irr { namespace video
 {
 
-class CGLSLFunctionGenerator
+class CGLSLFunctionGenerator : public asset::IBuiltinIncludeLoader
 {
         CGLSLFunctionGenerator() = delete;
     public:
+        std::string getBuiltinInclude(const std::string& path) const override;
+
         static std::string getLinearSkinningFunction(const uint32_t& maxBoneInfluences = 4u);
 
 
