@@ -59,6 +59,18 @@ namespace asset
 			E_ERROR_METRIC method;
 			core::vectorSIMDf epsilon;
 		};
+		
+		//vertex data needed for CSmoothNormalGenerator
+		struct SSNGVertexData
+		{
+			uint32_t indexOffset;									//offset of the vertex into index buffer
+			uint32_t hash;											//
+			float wage;												//angle wage of the vertex
+			core::vector4df_SIMD position;							//position of the vertex in 3D space
+			core::vector3df_SIMD parentTriangleFaceNormal;			//
+		};
+		typedef std::function<bool(const IMeshManipulator::SSNGVertexData&, const IMeshManipulator::SSNGVertexData&, asset::ICPUMeshBuffer*)> VxCmpFunction;
+
 	public:
 		//! Flips the direction of surfaces.
 		/** Changes backfacing triangles to frontfacing
@@ -73,6 +85,15 @@ namespace asset
 		longer need the cloned mesh, you should call IMesh::drop(). See
 		IReferenceCounted::drop() for more information. */
 		virtual asset::ICPUMeshBuffer* createMeshBufferUniquePrimitives(asset::ICPUMeshBuffer* inbuffer) const = 0;
+
+		//
+		virtual asset::ICPUMeshBuffer* calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, bool makeNewMesh = false, float epsilon = 1.525e-5f,
+				asset::E_VERTEX_ATTRIBUTE_ID normalAttrID = asset::E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3, 
+				VxCmpFunction vxcmp = [](const IMeshManipulator::SSNGVertexData& v0, const IMeshManipulator::SSNGVertexData& v1, asset::ICPUMeshBuffer* buffer) 
+				{ 
+					static constexpr float cosOf45Deg = 0.70710678118f;
+					return v0.parentTriangleFaceNormal.dotProductAsFloat(v1.parentTriangleFaceNormal) > cosOf45Deg;
+				}) const = 0;
 
 		//! Creates a copy of a mesh with vertices welded
 		/** \param mesh Input mesh
