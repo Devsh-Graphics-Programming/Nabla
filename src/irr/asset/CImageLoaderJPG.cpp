@@ -241,8 +241,6 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 		case JCS_GRAYSCALE:
 			cinfo.out_color_components = 1;
 			cinfo.output_gamma = 1.0; // output_gamma is a dead variable in libjpegturbo and jpeglib
-			os::Printer::log("Loading JPEG GRAYSCALE color space is not implemented yet:", _file->getFileName().c_str(), ELL_ERROR);
-			return nullptr;
 			break;
 		case JCS_RGB:
 			cinfo.out_color_components = 3;
@@ -277,10 +275,10 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 			break;
 	}
 	cinfo.do_fancy_upsampling = TRUE;
-
+	
 	// Start decompressor
 	jpeg_start_decompress(&cinfo);
-
+	
 	// Get image data
 	uint32_t rowspan = cinfo.image_width * cinfo.out_color_components;
 	uint32_t imageSize[3] = {cinfo.image_width,cinfo.image_height,1};
@@ -293,24 +291,25 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 	// Here we use the library's state variable cinfo.output_scanline as the
 	// loop counter, so that we don't have to keep track ourselves.
 	// Create array of row pointers for lib
-	rowPtr = new uint8_t * [height];
-	for (uint32_t i=0; i<height; i++)
+	rowPtr = new uint8_t* [height];
+	for (uint32_t i = 0; i < height; ++i)
 		rowPtr[i] = &reinterpret_cast<uint8_t*>(output->getPointer())[i*rowspan];
 
+	// Read rows from bottom order to match OpenGL coords
 	uint32_t rowsRead = 0;
 	while (cinfo.output_scanline < cinfo.output_height)
-		rowsRead += jpeg_read_scanlines(&cinfo, &rowPtr[rowsRead], cinfo.output_height - rowsRead);
+		rowsRead += jpeg_read_scanlines(&cinfo, &rowPtr[cinfo.output_height - 1 - rowsRead], 1);
+	
 	// Finish decompression
 	jpeg_finish_decompress(&cinfo);
-
+	
 	asset::CImageData* image = nullptr;
 	uint32_t nullOffset[3] = {0,0,0};
 	switch (cinfo.jpeg_color_space)
 	{
 		case JCS_GRAYSCALE:
-			// should we gamma convert from 2.2333 to 1.0 (depends on whether jpeg greyscale is gamma encoded) ?
-			// I don't want implicit conversion by libjpeg to RGB8
-			/// image = new asset::CImageData(????????,nullOffset,imageSize,0u,asset::EF_R8_UNORM,1);
+			// https://github.com/buildaworldnet/IrrlichtBAW/pull/273#issuecomment-491492010
+			image = new asset::CImageData(output->getPointer(),nullOffset,imageSize,0u,asset::EF_R8_SRGB,1);
 			break;
 		case JCS_RGB:
 			image = new asset::CImageData(output->getPointer(),nullOffset,imageSize,0u,asset::EF_R8G8B8_SRGB,1);
@@ -320,8 +319,7 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 			image = new asset::CImageData(output->getPointer(),nullOffset,imageSize,0u,asset::EF_R8G8B8_SRGB,1);
 			break;
 		default: // should never get here
-			_IRR_DEBUG_BREAK_IF(true);
-			assert(false);
+			os::Printer::log("Unsupported color space, operation aborted.", ELL_ERROR);
 			return nullptr;
 			break;
 	}

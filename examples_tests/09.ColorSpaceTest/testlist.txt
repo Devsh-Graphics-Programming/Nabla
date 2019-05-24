@@ -1,0 +1,29 @@
+; This is the testing suite for various IrrlichtBAW loaders/writers (JPG/PNG/TGA/BMP/DDS/KTX).
+; BMP, DDS & KTX are currently unsupported for now.
+; 16-bit PNG & 8-bit RLE (compressed) TGA is not supported.
+; For licensing attribution, see LICENSE.
+
+; JPG, colored & 8-bit grayscale
+../../media/color_space_test/R8G8B8_1.jpg
+../../media/color_space_test/R8G8B8_2.jpg
+
+../../media/color_space_test/R8_1.jpg
+../../media/color_space_test/R8_2.jpg
+
+; PNG, 24/32-bit & 8-bit grayscale
+../../media/color_space_test/R8G8B8_1.png
+../../media/color_space_test/R8G8B8_2.png
+../../media/color_space_test/R8G8B8A8_1.png
+../../media/color_space_test/R8G8B8A8_2.png
+
+../../media/color_space_test/R8_1.png
+../../media/color_space_test/R8_2.png
+
+; TGA, 24/32-bit & 8-bit grayscale (+RLE)
+../../media/sponza/textures/background.tga
+../../media/color_space_test/R8G8B8_RLE.tga
+
+../../media/color_space_test/R8G8B8A8.tga
+../../media/color_space_test/R8G8B8A8_RLE.tga
+
+../../media/color_space_test/R8.tga

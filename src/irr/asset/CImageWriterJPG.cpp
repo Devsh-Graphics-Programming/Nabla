@@ -6,9 +6,9 @@
 
 #ifdef _IRR_COMPILE_WITH_JPG_WRITER_
 
-#include "CColorConverter.h"
 #include "IWriteFile.h"
 #include "CImage.h"
+#include "irr/video/convertColor.h"
 #include "irr/asset/ICPUTexture.h"
 
 #ifdef _IRR_COMPILE_WITH_LIBJPEG_
@@ -77,7 +77,7 @@ static void jpeg_term_destination(j_compress_ptr cinfo)
 // set up buffer data
 static void jpeg_file_dest(j_compress_ptr cinfo, io::IWriteFile* file)
 {
-	if (cinfo->dest == NULL)
+	if (cinfo->dest == nullptr)
 	{ /* first time for this JPEG object? */
 		cinfo->dest = (struct jpeg_destination_mgr *)
 			(*cinfo->mem->alloc_small) ((j_common_ptr) cinfo,
@@ -101,30 +101,10 @@ static void jpeg_file_dest(j_compress_ptr cinfo, io::IWriteFile* file)
 */
 static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, uint32_t quality)
 {
-	void (*format)(const void*, int32_t, void*) = 0;
-	switch( image->getColorFormat () )
-	{
-        case asset::EF_R8G8B8_UNORM:
-			format = video::CColorConverter::convert_R8G8B8toR8G8B8;
-			break;
-		case asset::EF_B8G8R8A8_UNORM:
-			format = video::CColorConverter::convert_A8R8G8B8toR8G8B8;
-			break;
-		case asset::EF_A1R5G5B5_UNORM_PACK16:
-			format = video::CColorConverter::convert_A1R5G5B5toB8G8R8;
-			break;
-		case asset::EF_B5G6R5_UNORM_PACK16:
-			format = video::CColorConverter::convert_R5G6B5toR8G8B8;
-			break;
-		default:
-			break;
-	}
-
-	// couldn't find a color converter
-	if ( 0 == format )
-		return false;
-
-	const core::vector3d<uint32_t> dim = image->getSize();
+	auto format = image->getColorFormat();
+	bool grayscale = (format == asset::EF_R8_SRGB) || (format == asset::EF_R8_UNORM);
+	
+	core::vector3d<uint32_t> dim = image->getSize();
 
 	struct jpeg_compress_struct cinfo;
 	struct jpeg_error_mgr jerr;
@@ -134,13 +114,13 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 	jpeg_file_dest(&cinfo, file);
 	cinfo.image_width = dim.X;
 	cinfo.image_height = dim.Y;
-	cinfo.input_components = 3;
-	cinfo.in_color_space = JCS_RGB;
+	cinfo.input_components = grayscale ? 1 : 3;
+	cinfo.in_color_space = grayscale ? JCS_GRAYSCALE : JCS_RGB;
 
 	jpeg_set_defaults(&cinfo);
 
 	if ( 0 == quality )
-		quality = 75;
+		quality = 85;
 
 	jpeg_set_quality(&cinfo, quality, TRUE);
 	jpeg_start_compress(&cinfo, TRUE);
@@ -152,14 +132,45 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 		const uint32_t pitch = image->getPitch();
 		JSAMPROW row_pointer[1];      /* pointer to JSAMPLE row[s] */
 		row_pointer[0] = dest;
-
+		
 		uint8_t* src = (uint8_t*)image->getData();
-
+		
+		/* Switch up, write from bottom -> top because the texture is flipped from OpenGL side */
+		uint32_t eof = cinfo.image_height * cinfo.image_width * cinfo.input_components;
+		src += eof - pitch;
+		
 		while (cinfo.next_scanline < cinfo.image_height)
 		{
-			// convert next line
-			format( src, dim.X, dest );
-			src += pitch;
+			/* Since the first argument to convertColor() requires a const void *[4], wrap our buffer pointer (src) and pass that to convertColor(). */
+			const void *src_container[4] = {src, nullptr, nullptr, nullptr};
+			
+			/* Pass-through the pixels for EF_R8_SRGB/EF_R8G8B8_SRGB, and perform color conversion for the rest.*/
+			switch (format) {
+				case asset::EF_R8G8B8_UNORM:
+					video::convertColor<EF_R8G8B8_UNORM, EF_R8G8B8_SRGB>(src_container, dest, 1, dim.X, dim);
+					break;
+				case asset::EF_B5G6R5_UNORM_PACK16:
+					video::convertColor<EF_B5G6R5_UNORM_PACK16, EF_R8G8B8_SRGB>(src_container, dest, 1, dim.X, dim);
+					break;
+				case asset::EF_A1R5G5B5_UNORM_PACK16:
+					video::convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_R8G8B8_SRGB>(src_container, dest, 1, dim.X, dim);
+					break;
+				case asset::EF_R8_UNORM:
+					video::convertColor<EF_R8_UNORM, EF_R8_SRGB>(src_container, dest, 1, dim.X, dim);
+					break;
+				case asset::EF_R8_SRGB:
+				case asset::EF_R8G8B8_SRGB:
+					memcpy(dest, src, pitch);
+					break;
+				default:
+				{
+					os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
+					delete [] dest;
+					return false;
+				}
+			}
+			
+			src -= pitch;
 			jpeg_write_scanlines(&cinfo, row_pointer, 1);
 		}
 
@@ -205,10 +216,9 @@ bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
     io::IWriteFile* file = _override->getOutputFile(_file, ctx, {image, 0u});
     const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, image, 0u);
     const float comprLvl = _override->getAssetCompressionLevel(ctx, image, 0u);
-	return writeJPEGFile(file, image, (!!(flags & asset::EWF_COMPRESSED))*(1.f-comprLvl)*100.f); // if quality==0, then it defaults to 75
+	return writeJPEGFile(file, image, (!!(flags & asset::EWF_COMPRESSED)) * static_cast<uint32_t>((1.f-comprLvl)*100.f)); // if quality==0, then it defaults to 75
 #endif
 }
 
 #undef OUTPUT_BUF_SIZE
 #endif
-
