@@ -35,15 +35,17 @@ endif()
 # include utility macros/functions
 include(common)
 
+irr_get_conf_dir(IRRLICHT_CONF_DIR_DEBUG Debug)
+irr_get_conf_dir(IRRLICHT_CONF_DIR_RELEASE Release)
 
 set(_IRR_COMPILE_WITH_OPENGL_ ${IRR_COMPILE_WITH_OPENGL})
 set(_IRR_COMPILE_WITH_BURNINGSVIDEO_ ${IRR_COMPILE_WITH_BURNINGSVIDEO})
 #set(_IRR_TARGET_ARCH_ARM_ ${IRR_TARGET_ARCH_ARM}) #uncomment in the future
 set(__IRR_FAST_MATH ${IRR_FAST_MATH})
 set(_IRR_DEBUG 0)
-configure_file("${CMAKE_SOURCE_DIR}/include/irr/config/BuildConfigOptions.h.in" "${CMAKE_SOURCE_DIR}/include/irr/config/release/BuildConfigOptions.h")
+configure_file("${CMAKE_SOURCE_DIR}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_RELEASE}/BuildConfigOptions.h")
 set(_IRR_DEBUG 1)
-configure_file("${CMAKE_SOURCE_DIR}/include/irr/config/BuildConfigOptions.h.in" "${CMAKE_SOURCE_DIR}/include/irr/config/debug/BuildConfigOptions.h")
+configure_file("${CMAKE_SOURCE_DIR}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
 
 file(GLOB_RECURSE IRRLICHT_HEADERS_PUBLIC "${CMAKE_SOURCE_DIR}/include/*.h")
@@ -257,9 +259,6 @@ macro(irr_target_link_libpng _trgt)
 	target_include_directories(${_trgt} PUBLIC ${CMAKE_SOURCE_DIR}/3rdparty/libpng)
 endmacro()
 
-irr_get_conf_dir(IRRLICHT_CONF_DIR_DEBUG Debug)
-irr_get_conf_dir(IRRLICHT_CONF_DIR_RELEASE Release)
-
 # get function for cross-compiler PCH configuration
 include(add_pch)
 
@@ -289,6 +288,7 @@ if (UNIX)
 		${X11_Xxf86vm_LIB} 
 		${CMAKE_THREAD_LIBS_INIT}
 		${CMAKE_DL_LIBS}
+		$<$<CONFIG:DEBUG>:-lunwind>
 	)
 endif()
 
@@ -321,8 +321,9 @@ else()
 	message(STATUS "Vulkan driver is not enabled")
 endif()
 
-target_compile_definitions(Irrlicht PRIVATE
-	_IRR_STATIC_LIB_
+target_compile_definitions(Irrlicht 
+	PRIVATE	_IRR_STATIC_LIB_
+	PUBLIC	UNW_LOCAL_ONLY
 )
 
 if(IRR_PCH)

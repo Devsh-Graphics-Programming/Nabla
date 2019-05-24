@@ -8,6 +8,7 @@
 #include "vectorSIMD.h"
 #include "coreutil.h"
 #include "irr/asset/EFormat.h"
+#include "irr/video/decodePixels.h"
 
 namespace irr
 {
@@ -415,6 +416,22 @@ namespace video
 
 			const float inv = 1.0f / 255.0f;
 			*this *= inv;
+		}
+		
+		inline static SColorf fromSRGB(SColorf&& input)
+		{
+			float color[3] = {input.r, input.g, input.b};
+			impl::SRGB2lin<float>(color);
+			
+			return SColorf(color[0], color[1], color[2], input.getAlpha());
+		}
+		
+		inline static SColorf toSRGB(SColorf&& input)
+		{
+			float color[3] = {input.r, input.g, input.b};
+			impl::lin2SRGB<float>(color);
+			
+			return SColorf(color[0], color[1], color[2], input.getAlpha());
 		}
 
 		//! Converts this color to a SColor without floats.

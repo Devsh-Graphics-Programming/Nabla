@@ -48,7 +48,7 @@ endmacro()
 
 function(irr_get_conf_dir _OUTVAR _CONFIG)
 	string(TOLOWER ${_CONFIG} CONFIG)
-	set(${_OUTVAR} "${CMAKE_SOURCE_DIR}/include/irr/config/${CONFIG}" PARENT_SCOPE)
+	set(${_OUTVAR} "${CMAKE_BINARY_DIR}/include/irr/config/${CONFIG}" PARENT_SCOPE)
 endfunction()
 
 

@@ -83,7 +83,7 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 #ifdef _IRR_COMPILE_WITH_LIBPNG_
 	if (!_file)
 		return nullptr;
-
+	
 	asset::CImageData* image = 0;
 	//Used to point to image rows
 	uint8_t** RowPointers = 0;
@@ -105,7 +105,7 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 
 	// Allocate the png read struct
 	png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING,
-		NULL, (png_error_ptr)png_cpexcept_error, (png_error_ptr)png_cpexcept_warn);
+		nullptr, (png_error_ptr)png_cpexcept_error, (png_error_ptr)png_cpexcept_warn);
 	if (!png_ptr)
 	{
 		os::Printer::log("LOAD PNG: Internal PNG create read struct failure\n", _file->getFileName().c_str(), ELL_ERROR);
@@ -117,14 +117,14 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 	if (!info_ptr)
 	{
 		os::Printer::log("LOAD PNG: Internal PNG create info struct failure\n", _file->getFileName().c_str(), ELL_ERROR);
-		png_destroy_read_struct(&png_ptr, NULL, NULL);
+		png_destroy_read_struct(&png_ptr, nullptr, nullptr);
 		return nullptr;
 	}
 
 	// for proper error handling
 	if (setjmp(png_jmpbuf(png_ptr)))
 	{
-		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+		png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
 		if (RowPointers)
 			delete [] RowPointers;
 		return nullptr;
@@ -148,34 +148,34 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 		// Extract info
 		png_get_IHDR(png_ptr, info_ptr,
 			&w, &h,
-			&BitDepth, &ColorType, NULL, NULL, NULL);
+			&BitDepth, &ColorType, nullptr, nullptr, nullptr);
 		Width=w;
 		Height=h;
 	}
-
-	// Convert palette color to true color
-	if (ColorType==PNG_COLOR_TYPE_PALETTE)
+	
+	if (ColorType == PNG_COLOR_TYPE_PALETTE)
 		png_set_palette_to_rgb(png_ptr);
 
 	// Convert low bit colors to 8 bit colors
 	if (BitDepth < 8)
 	{
-		if (ColorType==PNG_COLOR_TYPE_GRAY || ColorType==PNG_COLOR_TYPE_GRAY_ALPHA)
-			png_set_expand_gray_1_2_4_to_8(png_ptr);
-		else
-			png_set_packing(png_ptr);
+		switch (ColorType) {
+			case PNG_COLOR_TYPE_GRAY:
+			case PNG_COLOR_TYPE_GRAY_ALPHA:
+				png_set_expand_gray_1_2_4_to_8(png_ptr);
+				break;
+			default:
+				png_set_packing(png_ptr);
+		}
 	}
-
+	
+	// Add an alpha channel if transparency information is found in tRNS chunk
 	if (png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS))
 		png_set_tRNS_to_alpha(png_ptr);
 
 	// Convert high bit colors to 8 bit colors
 	if (BitDepth == 16)
 		png_set_strip_16(png_ptr);
-
-	// Convert gray color to true color
-	if (ColorType==PNG_COLOR_TYPE_GRAY || ColorType==PNG_COLOR_TYPE_GRAY_ALPHA)
-		png_set_gray_to_rgb(png_ptr);
 
 	int intent;
 	const double screen_gamma = 2.2;
@@ -198,29 +198,35 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 		// Use temporary variables to avoid passing casted pointers
 		png_uint_32 w,h;
 		// Extract info
-		png_get_IHDR(png_ptr, info_ptr,
-			&w, &h,
-			&BitDepth, &ColorType, NULL, NULL, NULL);
-		Width=w;
-		Height=h;
-	}
-
-	// Convert RGBA to BGRA
-	if (ColorType==PNG_COLOR_TYPE_RGB_ALPHA)
-	{
-		png_set_bgr(png_ptr);
+		png_get_IHDR(png_ptr, info_ptr, &w, &h, &BitDepth, &ColorType, nullptr, nullptr, nullptr);
+		Width = w;
+		Height = h;
 	}
 
 	// Create the image structure to be filled by png data
 	uint32_t nullOffset[3] = {0,0,0};
-	if (ColorType==PNG_COLOR_TYPE_RGB_ALPHA)
-		image = new asset::CImageData(NULL, nullOffset, imageSize, 0, asset::EF_B8G8R8A8_UNORM);
-	else
-		image = new asset::CImageData(NULL, nullOffset, imageSize, 0, asset::EF_R8G8B8_UNORM);
+	
+	switch (ColorType) {
+		case PNG_COLOR_TYPE_RGB_ALPHA:
+			image = new asset::CImageData(nullptr, nullOffset, imageSize, 0, asset::EF_R8G8B8A8_SRGB);
+			break;
+		case PNG_COLOR_TYPE_RGB:
+			image = new asset::CImageData(nullptr, nullOffset, imageSize, 0, asset::EF_R8G8B8_SRGB);
+			break;
+		case PNG_COLOR_TYPE_GRAY:
+			image = new asset::CImageData(nullptr, nullOffset, imageSize, 0, asset::EF_R8_SRGB);
+			break;
+		default:
+			{
+				os::Printer::log("Unsupported PNG colorspace (only RGB/RGBA/8-bit grayscale), operation aborted.", ELL_ERROR);
+				return nullptr;
+			}
+	}
+	
 	if (!image)
 	{
 		os::Printer::log("LOAD PNG: Internal PNG create image struct failure\n", _file->getFileName().c_str(), ELL_ERROR);
-		png_destroy_read_struct(&png_ptr, NULL, NULL);
+		png_destroy_read_struct(&png_ptr, nullptr, nullptr);
 		return nullptr;
 	}
 
@@ -229,23 +235,24 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 	if (!RowPointers)
 	{
 		os::Printer::log("LOAD PNG: Internal PNG create row pointers failure\n", _file->getFileName().c_str(), ELL_ERROR);
-		png_destroy_read_struct(&png_ptr, NULL, NULL);
+		png_destroy_read_struct(&png_ptr, nullptr, nullptr);
 		image->drop();
 		return nullptr;
 	}
 
 	// Fill array of pointers to rows in image data
-	uint8_t* data = reinterpret_cast<uint8_t*>(image->getData());
+	const uint32_t pitch = image->getPitchIncludingAlignment();
+	uint8_t* data = reinterpret_cast<uint8_t*>(image->getData()) + (image->getSize().X * image->getSize().Y * (image->getBitsPerPixel() / 8)) - pitch;
 	for (uint32_t i=0; i<Height; ++i)
 	{
-		RowPointers[i]=data;
-		data += image->getPitchIncludingAlignment();
+		RowPointers[i] = (png_bytep)data;
+		data -= pitch;
 	}
 
 	// for proper error handling
 	if (setjmp(png_jmpbuf(png_ptr)))
 	{
-		png_destroy_read_struct(&png_ptr, &info_ptr, NULL);
+		png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
 		delete [] RowPointers;
 		image->drop();
 		return nullptr;
@@ -254,7 +261,7 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 	// Read data using the library function that handles all transformations including interlacing
 	png_read_image(png_ptr, RowPointers);
 
-	png_read_end(png_ptr, NULL);
+	png_read_end(png_ptr, nullptr);
 	delete [] RowPointers;
 	png_destroy_read_struct(&png_ptr,&info_ptr, 0); // Clean up memory
 
@@ -262,7 +269,7 @@ asset::IAsset* CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAs
 #endif // _IRR_COMPILE_WITH_LIBPNG_
 
     asset::ICPUTexture* tex = asset::ICPUTexture::create(images);
-    for (auto img : images)
+    for (auto& img : images)
         img->drop();
     return tex;
 }

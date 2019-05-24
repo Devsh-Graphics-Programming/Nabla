@@ -947,172 +947,72 @@ namespace irr { namespace video
             _output[i] = pix[i];
     }
 
+    namespace impl
+    {
+        inline double srgb2lin(double _s)
+        {
+            if (_s <= 0.04045) return _s / 12.92;
+            return pow((_s + 0.055) / 1.055, 2.4);
+        }
+    }
+
     template<>
     inline void decodePixels<asset::EF_R8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix[0])[0];
-        _output[0] = ((pix >> 0) & 0xffULL) / 255.;
-        {
-            double& lin = _output[0];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
+        _output[0] = impl::srgb2lin(((pix >> 0) & 0xffULL) / 255.);
     }
 
     template<>
     inline void decodePixels<asset::EF_R8G8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
-        _output[0] = ((pix >> 0) & 0xffULL) / 255.;
-        {
-            double& lin = _output[0];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[1] = ((pix >> 8) & 0xffULL) / 255.;
-        {
-            double& lin = _output[1];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
+        _output[0] = impl::srgb2lin(((pix >> 0) & 0xffULL) / 255.);
+        _output[1] = impl::srgb2lin(((pix >> 8) & 0xffULL) / 255.);
     }
 
     template<>
     inline void decodePixels<asset::EF_R8G8B8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
-        _output[0] = ((pix >> 0) & 0xffULL) / 255.;
-        {
-            double& lin = _output[0];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[1] = ((pix >> 8) & 0xffULL) / 255.;
-        {
-            double& lin = _output[1];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[2] = ((pix >> 16) & 0xffULL) / 255.;
-        {
-            double& lin = _output[2];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
+        _output[0] = impl::srgb2lin(((pix >> 0) & 0xffULL) / 255.);
+        _output[1] = impl::srgb2lin(((pix >> 8) & 0xffULL) / 255.);
+        _output[2] = impl::srgb2lin(((pix >> 16) & 0xffULL) / 255.);
     }
 
     template<>
     inline void decodePixels<asset::EF_B8G8R8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
-        _output[2] = ((pix >> 0) & 0xffULL) / 255.;
-        {
-            double& lin = _output[2];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[1] = ((pix >> 8) & 0xffULL) / 255.;
-        {
-            double& lin = _output[1];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[0] = ((pix >> 16) & 0xffULL) / 255.;
-        {
-            double& lin = _output[0];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
+        _output[2] = impl::srgb2lin(((pix >> 0) & 0xffULL) / 255.);
+        _output[1] = impl::srgb2lin(((pix >> 8) & 0xffULL) / 255.);
+        _output[0] = impl::srgb2lin(((pix >> 16) & 0xffULL) / 255.);
     }
 
     template<>
     inline void decodePixels<asset::EF_R8G8B8A8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
-        _output[0] = ((pix >> 0) & 0xffULL) / 255.;
-        {
-            double& lin = _output[0];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[1] = ((pix >> 8) & 0xffULL) / 255.;
-        {
-            double& lin = _output[1];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[2] = ((pix >> 16) & 0xffULL) / 255.;
-        {
-            double& lin = _output[2];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
+        _output[0] = impl::srgb2lin(((pix >> 0) & 0xffULL) / 255.);
+        _output[1] = impl::srgb2lin(((pix >> 8) & 0xffULL) / 255.);
+        _output[2] = impl::srgb2lin(((pix >> 16) & 0xffULL) / 255.);
         _output[3] = ((pix >> 24) & 0xffULL) / 255.;
-        {
-            double& lin = _output[3];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
     }
 
     template<>
     inline void decodePixels<asset::EF_B8G8R8A8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
-        _output[2] = ((pix >> 0) & 0xffULL) / 255.;
-        {
-            double& lin = _output[2];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[1] = ((pix >> 8) & 0xffULL) / 255.;
-        {
-            double& lin = _output[1];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[0] = ((pix >> 16) & 0xffULL) / 255.;
-        {
-            double& lin = _output[0];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
+        _output[2] = impl::srgb2lin(((pix >> 0) & 0xffULL) / 255.);
+        _output[1] = impl::srgb2lin(((pix >> 8) & 0xffULL) / 255.);
+        _output[0] = impl::srgb2lin(((pix >> 16) & 0xffULL) / 255.);
         _output[3] = ((pix >> 24) & 0xffULL) / 255.;
-        {
-            double& lin = _output[3];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
     }
 
     template<>
     inline void decodePixels<asset::EF_A8B8G8R8_SRGB_PACK32, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
-        const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
-        _output[0] = ((pix >> 0) & 0xffULL) / 255.;
-        {
-            double& lin = _output[0];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[1] = ((pix >> 8) & 0xffULL) / 255.;
-        {
-            double& lin = _output[1];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[2] = ((pix >> 16) & 0xffULL) / 255.;
-        {
-            double& lin = _output[2];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
-        _output[3] = ((pix >> 24) & 0xffULL) / 255.;
-        {
-            double& lin = _output[3];
-            if (lin <= 0.4045) lin /= 12.92;
-            else lin = pow((lin + 0.055) / 1.055, 2.4);
-        };
+        decodePixels<asset::EF_R8G8B8A8_SRGB, double>(_pix, _output, _blockX, _blockY);
     }
 
 
@@ -1372,6 +1272,9 @@ namespace irr { namespace video
 
         template<typename T>
         inline void SRGB2lin(T _srgb[3]);
+		
+        template<typename T>
+        inline void lin2SRGB(T _lin[3]);
 
         template<>
         inline void SRGB2lin<double>(double _srgb[3])
@@ -1383,6 +1286,17 @@ namespace irr { namespace video
                 else s = std::pow((s + 0.055) / 1.055, 2.4);
             }
         }
+		
+        template<>
+        inline void lin2SRGB<double>(double _lin[3])
+        {
+            for (uint32_t i = 0u; i < 3u; ++i)
+            {
+                double& s = _lin[i];
+                if (s <= 0.0031308) s *= 12.92;
+                else s = 1.055 * std::pow(s, 1./2.4) - 0.055;
+            }
+        }
 
         template<typename T>// T is int64_t or uint64_t
         inline void SRGB2lin(T _srgb[3])
@@ -1392,6 +1306,16 @@ namespace irr { namespace video
             T* lin = _srgb;
             for (uint32_t i = 0; i < 3u; ++i)
                 lin[i] = s[i] * 255.;
+        }
+
+        template<typename T>
+        inline void lin2SRGB(T _lin[3])
+        {
+            double s[3] { _lin[0]/255., _lin[1]/255., _lin[2]/255. };
+            lin2SRGB<double>(s);
+            T* srgb = _lin;
+            for (uint32_t i = 0; i < 3u; ++i)
+                srgb[i] = s[i] * 255.;
         }
     }
 
