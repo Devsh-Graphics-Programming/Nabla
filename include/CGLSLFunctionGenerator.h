@@ -14,15 +14,16 @@ namespace irr { namespace video
 
 class CGLSLFunctionGenerator : public asset::IBuiltinIncludeLoader
 {
-        CGLSLFunctionGenerator() = delete;
+    CGLSLFunctionGenerator(IVideoCapabilityReporter* _reporter) : m_capabilityReporter{_reporter} {}
+
     public:
-        std::string getBuiltinInclude(const std::string& path) const override;
+        std::string getBuiltinInclude_internal(const std::string& _name, const std::string& _inclGuardBegin, const std::string& _inclGuardEnd) const override;
 
         static std::string getLinearSkinningFunction(const uint32_t& maxBoneInfluences = 4u);
 
 
 
-        static std::string getReduceAndScanExtensionEnables(IVideoCapabilityReporter* reporter);
+        std::string getReduceAndScanExtensionEnables() const;
 
         static std::string getWarpPaddingFunctions();
 
@@ -47,6 +48,7 @@ class CGLSLFunctionGenerator : public asset::IBuiltinIncludeLoader
         };
         static std::string getWarpInclusiveScanFunctionsPadded(const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType, const std::string& namePostfix, const std::string& getterFuncName, const std::string& setterFuncName);
 
+        // TODO what about those (getNeededSharedElementsForBlockScan)? they're not used by any other CGLSLFunctionGenerator function
         static uint32_t getNeededSharedElementsForBlockScan(const uint32_t& elementCount, const uint32_t& fixedSubgroupSize) {assert(false); return 0u;} //! TO IMPLEMENT THIS
         static inline uint32_t getNeededSharedElementsForBlockScan(const uint32_t& blockSize)
         {
@@ -67,6 +69,8 @@ class CGLSLFunctionGenerator : public asset::IBuiltinIncludeLoader
 
         //! TODO: Later
         //static std::string getWarpReduceFunctionsPadded(const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType, const std::string& namePostfix, const std::string& getterFuncName, const std::string& setterFuncName);
+private:
+    IVideoCapabilityReporter* m_capabilityReporter;
 };
 
 }} // irr::video

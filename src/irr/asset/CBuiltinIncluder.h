@@ -24,11 +24,25 @@ public:
 
     std::string getInclude_internal(const std::string& _path) const override
     {
+        const char* PREFIX = "/irr/builtin/";
+        if (_path.compare(0, strlen(PREFIX), PREFIX) != 0)
+            return {};
+
+        std::string path = _path.substr(0, _path.find_last_of('/')+1);
+
         std::string res;
-        auto capableLoadersRng = m_loaders.findRange(_path.substr(0, _path.find_last_of('/')));
-        for (auto loaderItr = capableLoadersRng.first; loaderItr != capableLoadersRng.second; ++loaderItr)
-            if (!(res = loaderItr->second->getBuiltinInclude(_path)).empty())
-                return res;
+        while (path != PREFIX) // going up the directory tree
+        {
+            auto capableLoadersRng = m_loaders.findRange(path);
+            for (auto loaderItr = capableLoadersRng.first; loaderItr != capableLoadersRng.second; ++loaderItr)
+            {
+                std::string relativePath = path.substr(strlen(PREFIX), std::string::npos); // builtin loaders take path relative to PREFIX
+                if (!(res = loaderItr->second->getBuiltinInclude(relativePath)).empty())
+                    return res;
+            }
+            path.back() = 'x'; // get rid of trailing slash...
+            path.erase(_path.find_last_of('/')+1, std::string::npos); // ...and find the one before
+        }
         return {};
     }
 

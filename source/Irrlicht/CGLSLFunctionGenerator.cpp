@@ -8,39 +8,27 @@
 using namespace irr;
 using namespace video;
 
-std::string handle_linear_skinning_bones(const std::string& _path)
+std::string CGLSLFunctionGenerator::getBuiltinInclude_internal(const std::string& _name, const std::string& _inclGuardBegin, const std::string& _inclGuardEnd) const
 {
-    constexpr size_t bonesNumberCharIndex = 16u;
-    return CGLSLFunctionGenerator::getLinearSkinningFunction(_path[bonesNumberCharIndex]-'0');
-}
+    auto handle_linear_skinning_N_bones = [](const std::string& _path) {
+        constexpr size_t bonesNumberCharIndex = 16u;
+        return CGLSLFunctionGenerator::getLinearSkinningFunction(_path[bonesNumberCharIndex] - '0');
+    };
 
-std::string CGLSLFunctionGenerator::getBuiltinInclude(const std::string& _path) const
-{
-    constexpr const char* PREFIX = "/irr/builtin/";
-    if (_path.length() < strlen(PREFIX) || _path.compare(0, strlen(PREFIX), PREFIX) != 0)
-        return "";
-
-    std::string inclGuardName = _path;
-    std::transform(inclGuardName.begin(), inclGuardName.end(), inclGuardName.begin(), [](char c) {return std::toupper(c); });
-    std::transform(inclGuardName.begin(), inclGuardName.end(), inclGuardName.begin(), 
-        [](char c) { return (!std::isalpha(c) && !std::isdigit(c)) ? '_' : c; }
-    );
-    inclGuardName = "_" + inclGuardName + "_";
-
-    const std::string inclGuardBegin = "#ifndef " + inclGuardName + "\n#define " + inclGuardName + "\n";
-    const std::string inclGuardEnd = "\n#endif //" + inclGuardName;
-
-    std::string path = _path;
-    path.erase(0, strlen(PREFIX)); //remove prefix
-
-    using HandleFunc_t = std::string(*)(const std::string&);
+    using HandleFunc_t = std::function<std::string(const std::string&)>;
     std::pair<std::regex, HandleFunc_t> builtinNames[]{
-        {std::regex{"linear_skinning_[0-4]_bones\\.glsl"}, &handle_linear_skinning_bones}
+        {std::regex{"linear_skinning_[0-4]_bones\\.glsl"}, handle_linear_skinning_N_bones},
+        {std::regex{"reduce_and_scan_enables\\.glsl"}, [this](const std::string&) { return getReduceAndScanExtensionEnables(); }},
+        {std::regex{"warp_padding\\.glsl"}, [](const std::string&) { return CGLSLFunctionGenerator::getWarpPaddingFunctions(); }},
+        // TODO maybe introduce some special syntax for builtin #includes like #include "irr/builtin/warp_inclusive_scan.glsl:param1=val1,param2=val2, ..." (quite large number of parameter)
+        // and make some function parsing arguments from path (like handle_linear_skinning_N_bones() is doing now) instead of this shitty placeholder lambda
+        {std::regex{"warp_inclusive_scan\\.glsl"}, [](const std::string&) {return CGLSLFunctionGenerator::getWarpInclusiveScanFunctionsPadded(EGCO_ADD, EGT_FLOAT, "", "get", "set"); }},
+        {std::regex{"block_inclusive_scan\\.glsl"}, [](const std::string&) {return CGLSLFunctionGenerator::getBlockInclusiveScanFunctionsPadded(0u, 0u, EGCO_ADD, EGT_FLOAT, "", "get", "set"); }}
     };
 
     for (const auto& pattern : builtinNames)
-        if (std::regex_match(path, pattern.first))
-            return inclGuardBegin + pattern.second(path) + inclGuardEnd;
+        if (std::regex_match(_name, pattern.first))
+            return _inclGuardBegin + pattern.second(_name) + _inclGuardEnd;
 
     return {};
 }
@@ -49,8 +37,6 @@ std::string CGLSLFunctionGenerator::getLinearSkinningFunction(const uint32_t& ma
 {
     const char src_begin[] =
 R"(
-#ifndef _IRR_GENERATED_SKINNING_FUNC_INCLUDED_
-#define _IRR_GENERATED_SKINNING_FUNC_INCLUDED_
 void linearSkin(in samplerBuffer boneTBO, out vec3 skinnedPos, out vec3 skinnedNormal, in vec3 vxPos, in vec3 vxNormal, in ivec4 boneIDs, in vec4 boneWeightsXYZBoneCountNormalized, in int baseBoneTBOOffset, in int boneStrideIn128BitUnits)
 {
     vec4 boneData[5];
@@ -58,7 +44,7 @@ void linearSkin(in samplerBuffer boneTBO, out vec3 skinnedPos, out vec3 skinnedN
 
     int boneOffset;
 )";
-    const char src_infl1[] =
+    const char* src_infl1 =
 R"(    boneOffset = boneIDs.x * 7;
     //global matrix
     boneData[0] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset);
@@ -72,7 +58,7 @@ R"(    boneOffset = boneIDs.x * 7;
     skinnedPos = mat4x3(boneData[0], boneData[1], boneData[2])*vec4(vxPos*boneWeightsXYZBoneCountNormalized.x, boneWeightsXYZBoneCountNormalized.x);
     skinnedNormal = mat3(boneData[3], boneData[4], lastBoneData)*(vxNormal*boneWeightsXYZBoneCountNormalized.x);
 )";
-    const char src_infl2[] =
+    const char* src_infl2 =
 
 R"(    if (boneWeightsXYZBoneCountNormalized.w>0.25)
     {
@@ -90,7 +76,7 @@ R"(    if (boneWeightsXYZBoneCountNormalized.w>0.25)
         skinnedNormal += mat3(boneData[3], boneData[4], lastBoneData)*(vxNormal*boneWeightsXYZBoneCountNormalized.y);
     }
 )";
-    const char src_infl3[] =
+    const char* src_infl3 =
 R"(    if (boneWeightsXYZBoneCountNormalized.w>0.5)
     {
         boneOffset = boneIDs.z * 7;
@@ -107,7 +93,7 @@ R"(    if (boneWeightsXYZBoneCountNormalized.w>0.5)
         skinnedNormal += mat3(boneData[3], boneData[4], lastBoneData)*(vxNormal*boneWeightsXYZBoneCountNormalized.z);
     }
 )";
-    const char src_infl4[] =
+    const char* src_infl4 =
 R"(    if (boneWeightsXYZBoneCountNormalized.w>0.75)
     {
         boneOffset = boneIDs.w * 7;
@@ -125,17 +111,15 @@ R"(    if (boneWeightsXYZBoneCountNormalized.w>0.75)
         skinnedNormal += mat3(boneData[3], boneData[4], lastBoneData)*(vxNormal*lastWeight);
     }
 )";
-    const char src_infl0[] =
+    const char* src_infl0 =
 R"(    skinnedPos = vxPos;
     skinnedNormal = vxNormal;
 )";
-    const char src_end[] = "}\n#endif//_IRR_GENERATED_SKINNING_FUNC_INCLUDED_\n";
 
     std::string sourceStr = src_begin;
     if (maxBoneInfluences == 0u)
     {
         sourceStr += src_infl0;
-        sourceStr += src_end;
 
         return sourceStr;
     }
@@ -147,17 +131,15 @@ R"(    skinnedPos = vxPos;
     if (maxBoneInfluences > 3u)
         sourceStr += src_infl4;
 
-    sourceStr += src_end;
-
     return sourceStr;
 }
 
-std::string CGLSLFunctionGenerator::getReduceAndScanExtensionEnables(IVideoCapabilityReporter* reporter)
+std::string CGLSLFunctionGenerator::getReduceAndScanExtensionEnables() const
 {
     std::string retval = "\n#define GL_WARP_SIZE_NV ";
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-    if (reporter->getDriverType()==EDT_OPENGL&&COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_NV_shader_thread_group])
+    if (m_capabilityReporter->getDriverType()==EDT_OPENGL&&COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_NV_shader_thread_group])
     {
         int32_t tmp;
         glGetIntegerv(GL_WARP_SIZE_NV,&tmp);
@@ -166,7 +148,7 @@ std::string CGLSLFunctionGenerator::getReduceAndScanExtensionEnables(IVideoCapab
 #endif // _IRR_COMPILE_WITH_OPENGL_
 #ifdef _IRR_COMPILE_WITH_VULKAN_
     
-    //else if (reporter->getDriverType()==EDT_VULKAN)
+    //else if (m_capabilityReporter->getDriverType()==EDT_VULKAN)
     //{
     //    //! something
    // }
@@ -253,8 +235,6 @@ std::string CGLSLFunctionGenerator::getReduceAndScanExtensionEnables(IVideoCapab
 std::string CGLSLFunctionGenerator::getWarpPaddingFunctions()
 {
     return R"===(
-#ifndef _IRR_GENERATED_WARP_PAD_FUNCS_INCLUDED_
-#define _IRR_GENERATED_WARP_PAD_FUNCS_INCLUDED_
 uint warpPadAddress(in uint addr, in uint width) {return addr+((addr>>1u)&(~(width/2u-1u)));}
 
 uint warpPadAddress4(in uint addr) {return addr+((addr>>1u)&0xfffffffeu);}
@@ -268,23 +248,21 @@ uint warpPadAddress512(in uint addr) {return addr+((addr>>1u)&0xffffff00u);}
 uint warpPadAddress1024(in uint addr) {return addr+((addr>>1u)&0xfffffe00u);}
 uint warpPadAddress2048(in uint addr) {return addr+((addr>>1u)&0xfffffc00u);}
 uint warpPadAddress4096(in uint addr) {return addr+((addr>>1u)&0xfffff800u);}
-#endif //_IRR_GENERATED_WARP_PAD_FUNCS_INCLUDED_
             )===";
 }
 
-const char* glslTypeNames[CGLSLFunctionGenerator::EGT_COUNT] = {
+static std::string getTypeDef(const CGLSLFunctionGenerator::E_GLSL_TYPE& type)
+{
+    const char* glslTypeNames[CGLSLFunctionGenerator::EGT_COUNT] = {
     "float",
     "vec2",
     "vec3",
     "vec4"
-};
-
-std::string getTypeDef(const CGLSLFunctionGenerator::E_GLSL_TYPE& type)
-{
+    };
     return std::string("\n#undef TYPE\n#define TYPE ")+glslTypeNames[type]+"\n";
 }
 
-std::string getCommOpDefine(const CGLSLFunctionGenerator::E_GLSL_COMMUTATIVE_OP& oper)
+static std::string getCommOpDefine(const CGLSLFunctionGenerator::E_GLSL_COMMUTATIVE_OP& oper)
 {
     switch (oper)
     {
@@ -320,11 +298,8 @@ std::string getCommOpDefine(const CGLSLFunctionGenerator::E_GLSL_COMMUTATIVE_OP&
 std::string CGLSLFunctionGenerator::getWarpInclusiveScanFunctionsPadded(const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType, const std::string& namePostfix,
                                                                         const std::string& getterFuncName, const std::string& setterFuncName)
 {
-    const std::string includeGuardMacroName = "_IRR_GENERATED_WARP_SCAN_PADDED_"+namePostfix+"_FUNCS_INCLUDED_";
-
-    std::string sourceStr = "\n#ifndef "+includeGuardMacroName+"\n#define "+includeGuardMacroName+"\n";
-
-    sourceStr += getWarpPaddingFunctions()+getCommOpDefine(oper)+getTypeDef(dataType);
+    //TODO name include's name (warp_padding.glsl now) could be returned by some func so it's easily changable in code
+    std::string sourceStr = "#include \"irr/builtin/warp_padding.glsl\"\n"+getCommOpDefine(oper)+getTypeDef(dataType);
 
     sourceStr += R"==(
 #undef WARP_SCAN_SIZE
@@ -500,8 +475,6 @@ TYPE WARP_SCAN_FUNC_NAME (in TYPE val, in uint idx)
 #undef COMM_OPInvocationsInclusiveScanAMD
 #undef subgroupInclusiveCOMM_OP
 #undef COMM_OP
-
-#endif // header guard
                       )==";
 
     return sourceStr;
