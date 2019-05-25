@@ -8,11 +8,76 @@
 using namespace irr;
 using namespace video;
 
+static core::vector<std::string> parseArgumentsFromPath(const std::string& _path)
+{
+    core::vector<std::string> args;
+
+    std::stringstream ss{_path};
+    std::string arg;
+    while (std::getline(ss, arg, '/'))
+        args.push_back(std::move(arg));
+
+    return args;
+}
+
 std::string CGLSLFunctionGenerator::getBuiltinInclude_internal(const std::string& _name, const std::string& _inclGuardBegin, const std::string& _inclGuardEnd) const
 {
     auto handle_linear_skinning_N_bones = [](const std::string& _path) {
         constexpr size_t bonesNumberCharIndex = 16u;
         return CGLSLFunctionGenerator::getLinearSkinningFunction(_path[bonesNumberCharIndex] - '0');
+    };
+    auto handle_incl_scan_common = [](const std::string& _op_s, const std::string& _type_s) {
+        E_GLSL_COMMUTATIVE_OP op = EGCO_COUNT;
+        if (_op_s == "add") op = EGCO_ADD;
+        else if (_op_s == "and") op = EGCO_AND;
+        else if (_op_s == "max") op = EGCO_MAX;
+        else if (_op_s == "min") op = EGCO_MIN;
+        else if (_op_s == "or") op = EGCO_OR;
+        else if (_op_s == "xor") op = EGCO_XOR;
+
+        E_GLSL_TYPE type = EGT_COUNT;
+        if (_type_s == "float") type = EGT_FLOAT;
+        else if (_type_s == "vec2") type = EGT_VEC2;
+        else if (_type_s == "vec3") type = EGT_VEC3;
+        else if (_type_s == "vec4") type = EGT_VEC4;
+
+        return std::make_tuple(op, type);
+    };
+    auto handle_warp_incl_scan = [this,&handle_incl_scan_common](const std::string& _path) -> std::string {
+        auto args = parseArgumentsFromPath(_path.substr(_path.find_first_of('/')+1, _path.npos));
+        if (args.size() < 5u)
+            return {};
+
+        const std::string& op_s = args[0];
+        const std::string& type_s = args[1];
+        E_GLSL_COMMUTATIVE_OP op = EGCO_COUNT;
+        E_GLSL_TYPE type = EGT_COUNT;
+        std::tie(op, type) = handle_incl_scan_common(op_s, type_s);
+
+        const std::string& postfix = args[2], &getter = args[3], &setter = args[4];
+
+        return getWarpInclusiveScanFunctionsPadded(op, type, postfix, getter, setter);
+    };
+    auto handle_block_incl_scan = [this,&handle_incl_scan_common](const std::string& _path) -> std::string {
+        auto args = parseArgumentsFromPath(_path.substr(_path.find_first_of('/')+1, _path.npos));
+        if (args.size() < 7u)
+            return {};
+
+        const std::string& op_s = args[0];
+        const std::string& type_s = args[1];
+        E_GLSL_COMMUTATIVE_OP op = EGCO_COUNT;
+        E_GLSL_TYPE type = EGT_COUNT;
+        std::tie(op, type) = handle_incl_scan_common(op_s, type_s);
+
+        const std::string& elementsToReduce_s = args[2];
+        const std::string& wgSize_s = args[3];
+        const uint32_t elementsToReduce = std::atoi(elementsToReduce_s.c_str());
+        const uint32_t wgSize = std::atoi(wgSize_s.c_str());
+
+        // TODO: what is this `postfix` actually needed for?? (same in handle_warp_incl_scan)
+        const std::string& postfix = args[4], &getter = args[5], &setter = args[6];
+
+        return getBlockInclusiveScanFunctionsPadded(elementsToReduce, wgSize, op, type, postfix, getter, setter);
     };
 
     using HandleFunc_t = std::function<std::string(const std::string&)>;
@@ -20,10 +85,8 @@ std::string CGLSLFunctionGenerator::getBuiltinInclude_internal(const std::string
         {std::regex{"linear_skinning_[0-4]_bones\\.glsl"}, handle_linear_skinning_N_bones},
         {std::regex{"reduce_and_scan_enables\\.glsl"}, [this](const std::string&) { return getReduceAndScanExtensionEnables(); }},
         {std::regex{"warp_padding\\.glsl"}, [](const std::string&) { return CGLSLFunctionGenerator::getWarpPaddingFunctions(); }},
-        // TODO maybe introduce some special syntax for builtin #includes like #include "irr/builtin/warp_inclusive_scan.glsl:param1=val1,param2=val2, ..." (quite large number of parameter)
-        // and make some function parsing arguments from path (like handle_linear_skinning_N_bones() is doing now) instead of this shitty placeholder lambda
-        {std::regex{"warp_inclusive_scan\\.glsl"}, [](const std::string&) {return CGLSLFunctionGenerator::getWarpInclusiveScanFunctionsPadded(EGCO_ADD, EGT_FLOAT, "", "get", "set"); }},
-        {std::regex{"block_inclusive_scan\\.glsl"}, [](const std::string&) {return CGLSLFunctionGenerator::getBlockInclusiveScanFunctionsPadded(0u, 0u, EGCO_ADD, EGT_FLOAT, "", "get", "set"); }}
+        {std::regex{"warp_inclusive_scan\\.glsl/(add|and|max|min|or|xor)/(float|vec2|vec3|vec4)/[a-zA-Z][a-zA-Z0-9]*/[a-zA-Z][a-zA-Z0-9]*/[a-zA-Z][a-zA-Z0-9]*"}, handle_warp_incl_scan },
+        {std::regex{"block_inclusive_scan\\.glsl/(add|and|max|min|or|xor)/(float|vec2|vec3|vec4)/[0-9]+/[0-9]+/[a-zA-Z][a-zA-Z0-9]*/[a-zA-Z][a-zA-Z0-9]*/[a-zA-Z][a-zA-Z0-9]*"}, handle_block_incl_scan }
     };
 
     for (const auto& pattern : builtinNames)
@@ -251,7 +314,7 @@ uint warpPadAddress4096(in uint addr) {return addr+((addr>>1u)&0xfffff800u);}
             )===";
 }
 
-static std::string getTypeDef(const CGLSLFunctionGenerator::E_GLSL_TYPE& type)
+std::string CGLSLFunctionGenerator::getTypeDef(const E_GLSL_TYPE& type)
 {
     const char* glslTypeNames[CGLSLFunctionGenerator::EGT_COUNT] = {
     "float",
@@ -262,7 +325,7 @@ static std::string getTypeDef(const CGLSLFunctionGenerator::E_GLSL_TYPE& type)
     return std::string("\n#undef TYPE\n#define TYPE ")+glslTypeNames[type]+"\n";
 }
 
-static std::string getCommOpDefine(const CGLSLFunctionGenerator::E_GLSL_COMMUTATIVE_OP& oper)
+std::string CGLSLFunctionGenerator::getCommOpDefine(const E_GLSL_COMMUTATIVE_OP& oper)
 {
     switch (oper)
     {

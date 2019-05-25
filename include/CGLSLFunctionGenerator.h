@@ -16,12 +16,10 @@ class CGLSLFunctionGenerator : public asset::IBuiltinIncludeLoader
 {
     CGLSLFunctionGenerator(IVideoCapabilityReporter* _reporter) : m_capabilityReporter{_reporter} {}
 
-    public:
+    private:
         std::string getBuiltinInclude_internal(const std::string& _name, const std::string& _inclGuardBegin, const std::string& _inclGuardEnd) const override;
 
         static std::string getLinearSkinningFunction(const uint32_t& maxBoneInfluences = 4u);
-
-
 
         std::string getReduceAndScanExtensionEnables() const;
 
@@ -38,6 +36,8 @@ class CGLSLFunctionGenerator : public asset::IBuiltinIncludeLoader
             EGCO_XOR,
             EGCO_COUNT
         };
+        static std::string getCommOpDefine(const CGLSLFunctionGenerator::E_GLSL_COMMUTATIVE_OP& oper);
+
         enum E_GLSL_TYPE //could get some enum from shaderc files instead to not run multiple definitions
         {
             EGT_FLOAT=0,
@@ -46,6 +46,8 @@ class CGLSLFunctionGenerator : public asset::IBuiltinIncludeLoader
             EGT_VEC4,
             EGT_COUNT
         };
+        static std::string getTypeDef(const CGLSLFunctionGenerator::E_GLSL_TYPE& type);
+
         static std::string getWarpInclusiveScanFunctionsPadded(const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType, const std::string& namePostfix, const std::string& getterFuncName, const std::string& setterFuncName);
 
         // TODO what about those (getNeededSharedElementsForBlockScan)? they're not used by any other CGLSLFunctionGenerator function
