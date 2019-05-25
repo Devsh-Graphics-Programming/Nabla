@@ -141,8 +141,8 @@ asset::ICPUMesh* CGeometryCreator::createCubeMesh(const core::vector3df& size) c
     //setVertexAttrBuffer(asset::ICPUBuffer* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, E_COMPONENTS_PER_ATTRIBUTE components, E_COMPONENT_TYPE type, const size_t &stride=0, size_t offset=0)
     desc->setVertexAttrBuffer(vertices,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,vertexSize, offsetof(CubeVertex, pos));
     desc->setVertexAttrBuffer(vertices,asset::EVAI_ATTR1,asset::EF_R8G8B8A8_UNORM,vertexSize,offsetof(CubeVertex, color));
-    desc->setVertexAttrBuffer(vertices,asset::EVAI_ATTR2,asset::EF_R8G8_USCALED,vertexSize,offsetof(CubeVertex, uv));
-    desc->setVertexAttrBuffer(vertices,asset::EVAI_ATTR3,asset::EF_R8G8B8_SSCALED,vertexSize,offsetof(CubeVertex, normal));
+    desc->setVertexAttrBuffer(vertices,asset::EVAI_ATTR2,asset::EF_R8G8_UNORM,vertexSize,offsetof(CubeVertex, uv));
+    desc->setVertexAttrBuffer(vertices,asset::EVAI_ATTR3,asset::EF_R8G8B8_SNORM,vertexSize,offsetof(CubeVertex, normal));
     vertices->drop();
 
 	asset::SCPUMesh* mesh = new asset::SCPUMesh;
@@ -378,7 +378,7 @@ asset::ICPUMesh* CGeometryCreator::createSphereMesh(float radius, uint32_t polyC
     desc->setVertexAttrBuffer(vertices,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,vertexSize);
     desc->setVertexAttrBuffer(vertices,asset::EVAI_ATTR1,asset::EF_R8G8B8A8_UNORM,vertexSize,4*3);
     desc->setVertexAttrBuffer(vertices,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT,vertexSize,4*3+4);
-    desc->setVertexAttrBuffer(vertices,asset::EVAI_ATTR3,asset::EF_A2B10G10R10_SSCALED_PACK32,vertexSize,4*3+4+2*4);
+    desc->setVertexAttrBuffer(vertices,asset::EVAI_ATTR3,asset::EF_A2B10G10R10_SNORM_PACK32,vertexSize,4*3+4+2*4);
     vertices->drop();
 
 	// recalculate bounding box
@@ -481,7 +481,7 @@ asset::ICPUMesh* CGeometryCreator::createCylinderMesh(float radius, float length
     desc->setVertexAttrBuffer(vtxBuf, asset::EVAI_ATTR0, asset::EF_R32G32B32_SFLOAT, sizeof(CylinderVertex), offsetof(CylinderVertex, pos));
     desc->setVertexAttrBuffer(vtxBuf, asset::EVAI_ATTR1, asset::EF_R8G8B8A8_UNORM, sizeof(CylinderVertex), offsetof(CylinderVertex, color));
     desc->setVertexAttrBuffer(vtxBuf, asset::EVAI_ATTR2, asset::EF_R32G32_SFLOAT, sizeof(CylinderVertex), offsetof(CylinderVertex, uv));
-    desc->setVertexAttrBuffer(vtxBuf, asset::EVAI_ATTR3, asset::EF_A2B10G10R10_USCALED_PACK32, sizeof(CylinderVertex), offsetof(CylinderVertex, normal));
+    desc->setVertexAttrBuffer(vtxBuf, asset::EVAI_ATTR3, asset::EF_A2B10G10R10_UNORM_PACK32, sizeof(CylinderVertex), offsetof(CylinderVertex, normal));
     vtxBuf->drop();
     desc->setIndexBuffer(idxBuf);
     meshbuf->setIndexCount(idxBuf->getSize()/2u);
@@ -550,7 +550,7 @@ asset::ICPUMesh* CGeometryCreator::createConeMesh(float radius, float length, ui
     asset::ICPUMeshDataFormatDesc* desc = new asset::ICPUMeshDataFormatDesc();
     desc->setVertexAttrBuffer(vtxBuf, asset::EVAI_ATTR0, asset::EF_R32G32B32_SFLOAT, sizeof(ConeVertex), offsetof(ConeVertex, pos));
     desc->setVertexAttrBuffer(vtxBuf, asset::EVAI_ATTR1, asset::EF_R8G8B8A8_UNORM, sizeof(ConeVertex), offsetof(ConeVertex, color));
-    desc->setVertexAttrBuffer(vtxBuf, asset::EVAI_ATTR3, asset::EF_A2B10G10R10_USCALED_PACK32, sizeof(ConeVertex), offsetof(ConeVertex, normal));
+    desc->setVertexAttrBuffer(vtxBuf, asset::EVAI_ATTR3, asset::EF_A2B10G10R10_UNORM_PACK32, sizeof(ConeVertex), offsetof(ConeVertex, normal));
     vtxBuf->drop();
     desc->setIndexBuffer(idxBuf);
     meshbuf->setIndexCount(idxBuf->getSize()/2u);
