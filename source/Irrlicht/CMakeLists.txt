@@ -129,6 +129,7 @@ set(IRRLICHT_SRCS_COMMON
 # Image processing
 	CColorConverter.cpp
 	CImage.cpp
+	${CMAKE_SOURCE_DIR}/src/irr/video/convertColor.cpp
 	${CMAKE_SOURCE_DIR}/src/irr/asset/CImageLoaderBMP.cpp
 	${CMAKE_SOURCE_DIR}/src/irr/asset/CImageLoaderDDS.cpp
 	${CMAKE_SOURCE_DIR}/src/irr/asset/CImageLoaderJPG.cpp
@@ -188,6 +189,7 @@ set(IRRLICHT_SRCS_COMMON
 )
 if (MSVC)
 	list(APPEND IRRLICHT_SRCS_COMMON pch.cpp)
+	set_source_files_properties("${CMAKE_SOURCE_DIR}/src/irr/video/convertColor.cpp" PROPERTIES COMPILE_FLAGS /bigobj) #on MSVC it won't compile without this option!
 endif()
 
 set(IRRLICHT_SRCS_NORMAL
