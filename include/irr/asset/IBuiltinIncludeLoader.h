@@ -3,13 +3,18 @@
 
 #include "irr/core/IReferenceCounted.h"
 
-
+#include <regex>
 
 namespace irr { namespace asset
 {
 
 class IBuiltinIncludeLoader : public core::IReferenceCounted
 {
+protected:
+    using HandleFunc_t = std::function<std::string(const std::string&)>;
+
+    virtual core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const = 0;
+
 public:
     virtual ~IBuiltinIncludeLoader() = default;
 
@@ -30,7 +35,13 @@ public:
         const std::string inclGuardBegin = "#ifndef " + inclGuardName + "\n#define " + inclGuardName + "\n";
         const std::string inclGuardEnd = "\n#endif //" + inclGuardName;
 
-        return getBuiltinInclude_internal(_name.substr(strlen(MY_DIR), std::string::npos), inclGuardBegin, inclGuardEnd);
+        core::vector<std::pair<std::regex, HandleFunc_t>> builtinNames = getBuiltinNamesToFunctionMapping();
+
+        for (const auto& pattern : builtinNames)
+            if (std::regex_match(_name, pattern.first))
+                return inclGuardBegin + pattern.second(_name) + inclGuardEnd;
+
+        return {};
     }
 
     //! @returns Path relative to /irr/builtin/

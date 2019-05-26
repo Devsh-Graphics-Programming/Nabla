@@ -1,4 +1,4 @@
-#include "CGLSLFunctionGenerator.h"
+#include "irr/video/CGLSLScanBuiltinIncludeLoader.h"
 
 #include <cctype>
 #include <regex>
@@ -20,12 +20,8 @@ static core::vector<std::string> parseArgumentsFromPath(const std::string& _path
     return args;
 }
 
-std::string CGLSLFunctionGenerator::getBuiltinInclude_internal(const std::string& _name, const std::string& _inclGuardBegin, const std::string& _inclGuardEnd) const
+auto CGLSLScanBuiltinIncludeLoader::getBuiltinNamesToFunctionMapping() const -> core::vector<std::pair<std::regex, HandleFunc_t>>
 {
-    auto handle_linear_skinning_N_bones = [](const std::string& _path) {
-        constexpr size_t bonesNumberCharIndex = 16u;
-        return CGLSLFunctionGenerator::getLinearSkinningFunction(_path[bonesNumberCharIndex] - '0');
-    };
     auto handle_incl_scan_common = [](const std::string& _op_s, const std::string& _type_s) {
         E_GLSL_COMMUTATIVE_OP op = EGCO_COUNT;
         if (_op_s == "add") op = EGCO_ADD;
@@ -80,124 +76,15 @@ std::string CGLSLFunctionGenerator::getBuiltinInclude_internal(const std::string
         return getBlockInclusiveScanFunctionsPadded(elementsToReduce, wgSize, op, type, postfix, getter, setter);
     };
 
-    using HandleFunc_t = std::function<std::string(const std::string&)>;
-    std::pair<std::regex, HandleFunc_t> builtinNames[]{
-        {std::regex{"linear_skinning_[0-4]_bones\\.glsl"}, handle_linear_skinning_N_bones},
+    return {
         {std::regex{"reduce_and_scan_enables\\.glsl"}, [this](const std::string&) { return getReduceAndScanExtensionEnables(); }},
-        {std::regex{"warp_padding\\.glsl"}, [](const std::string&) { return CGLSLFunctionGenerator::getWarpPaddingFunctions(); }},
+        {std::regex{"warp_padding\\.glsl"}, [](const std::string&) { return getWarpPaddingFunctions(); }},
         {std::regex{"warp_inclusive_scan\\.glsl/(add|and|max|min|or|xor)/(float|vec2|vec3|vec4)/[a-zA-Z][a-zA-Z0-9]*/[a-zA-Z][a-zA-Z0-9]*/[a-zA-Z][a-zA-Z0-9]*"}, handle_warp_incl_scan },
         {std::regex{"block_inclusive_scan\\.glsl/(add|and|max|min|or|xor)/(float|vec2|vec3|vec4)/[0-9]+/[0-9]+/[a-zA-Z][a-zA-Z0-9]*/[a-zA-Z][a-zA-Z0-9]*/[a-zA-Z][a-zA-Z0-9]*"}, handle_block_incl_scan }
     };
-
-    for (const auto& pattern : builtinNames)
-        if (std::regex_match(_name, pattern.first))
-            return _inclGuardBegin + pattern.second(_name) + _inclGuardEnd;
-
-    return {};
 }
 
-std::string CGLSLFunctionGenerator::getLinearSkinningFunction(const uint32_t& maxBoneInfluences)
-{
-    const char src_begin[] =
-R"(
-void linearSkin(in samplerBuffer boneTBO, out vec3 skinnedPos, out vec3 skinnedNormal, in vec3 vxPos, in vec3 vxNormal, in ivec4 boneIDs, in vec4 boneWeightsXYZBoneCountNormalized, in int baseBoneTBOOffset, in int boneStrideIn128BitUnits)
-{
-    vec4 boneData[5];
-    float lastBoneData;
-
-    int boneOffset;
-)";
-    const char* src_infl1 =
-R"(    boneOffset = boneIDs.x * 7;
-    //global matrix
-    boneData[0] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset);
-    boneData[1] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 1);
-    boneData[2] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 2);
-    //normal matrix
-    boneData[3] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 3);
-    boneData[4] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 4);
-    lastBoneData = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 5).x;
-
-    skinnedPos = mat4x3(boneData[0], boneData[1], boneData[2])*vec4(vxPos*boneWeightsXYZBoneCountNormalized.x, boneWeightsXYZBoneCountNormalized.x);
-    skinnedNormal = mat3(boneData[3], boneData[4], lastBoneData)*(vxNormal*boneWeightsXYZBoneCountNormalized.x);
-)";
-    const char* src_infl2 =
-
-R"(    if (boneWeightsXYZBoneCountNormalized.w>0.25)
-    {
-        boneOffset = boneIDs.y * 7;
-        //global matrix
-        boneData[0] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset);
-        boneData[1] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 1);
-        boneData[2] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 2);
-        //normal matrix
-        boneData[3] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 3);
-        boneData[4] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 4);
-        lastBoneData = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 5).x;
-
-        skinnedPos += mat4x3(boneData[0], boneData[1], boneData[2])*vec4(vxPos*boneWeightsXYZBoneCountNormalized.y, boneWeightsXYZBoneCountNormalized.y);
-        skinnedNormal += mat3(boneData[3], boneData[4], lastBoneData)*(vxNormal*boneWeightsXYZBoneCountNormalized.y);
-    }
-)";
-    const char* src_infl3 =
-R"(    if (boneWeightsXYZBoneCountNormalized.w>0.5)
-    {
-        boneOffset = boneIDs.z * 7;
-        //global matrix
-        boneData[0] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset);
-        boneData[1] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 1);
-        boneData[2] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 2);
-        //normal matrix
-        boneData[3] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 3);
-        boneData[4] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 4);
-        lastBoneData = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 5).x;
-
-        skinnedPos += mat4x3(boneData[0], boneData[1], boneData[2])*vec4(vxPos*boneWeightsXYZBoneCountNormalized.z, boneWeightsXYZBoneCountNormalized.z);
-        skinnedNormal += mat3(boneData[3], boneData[4], lastBoneData)*(vxNormal*boneWeightsXYZBoneCountNormalized.z);
-    }
-)";
-    const char* src_infl4 =
-R"(    if (boneWeightsXYZBoneCountNormalized.w>0.75)
-    {
-        boneOffset = boneIDs.w * 7;
-        //global matrix
-        boneData[0] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset);
-        boneData[1] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 1);
-        boneData[2] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 2);
-        //normal matrix
-        boneData[3] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 3);
-        boneData[4] = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 4);
-        lastBoneData = texelFetch(boneTBO, baseBoneTBOOffset + boneStrideIn128BitUnits*boneOffset + 5).x;
-
-        float lastWeight = 1.0 - boneWeightsXYZBoneCountNormalized.x - boneWeightsXYZBoneCountNormalized.y - boneWeightsXYZBoneCountNormalized.z;
-        skinnedPos += mat4x3(boneData[0], boneData[1], boneData[2])*vec4(vxPos*lastWeight, lastWeight);
-        skinnedNormal += mat3(boneData[3], boneData[4], lastBoneData)*(vxNormal*lastWeight);
-    }
-)";
-    const char* src_infl0 =
-R"(    skinnedPos = vxPos;
-    skinnedNormal = vxNormal;
-)";
-
-    std::string sourceStr = src_begin;
-    if (maxBoneInfluences == 0u)
-    {
-        sourceStr += src_infl0;
-
-        return sourceStr;
-    }
-    sourceStr += src_infl1;
-    if (maxBoneInfluences > 1u)
-        sourceStr += src_infl2;
-    if (maxBoneInfluences > 2u)
-        sourceStr += src_infl3;
-    if (maxBoneInfluences > 3u)
-        sourceStr += src_infl4;
-
-    return sourceStr;
-}
-
-std::string CGLSLFunctionGenerator::getReduceAndScanExtensionEnables() const
+std::string CGLSLScanBuiltinIncludeLoader::getReduceAndScanExtensionEnables() const
 {
     std::string retval = "\n#define GL_WARP_SIZE_NV ";
 
@@ -295,7 +182,7 @@ std::string CGLSLFunctionGenerator::getReduceAndScanExtensionEnables() const
     return retval;
 }
 
-std::string CGLSLFunctionGenerator::getWarpPaddingFunctions()
+std::string CGLSLScanBuiltinIncludeLoader::getWarpPaddingFunctions()
 {
     return R"===(
 uint warpPadAddress(in uint addr, in uint width) {return addr+((addr>>1u)&(~(width/2u-1u)));}
@@ -314,9 +201,9 @@ uint warpPadAddress4096(in uint addr) {return addr+((addr>>1u)&0xfffff800u);}
             )===";
 }
 
-std::string CGLSLFunctionGenerator::getTypeDef(const E_GLSL_TYPE& type)
+std::string CGLSLScanBuiltinIncludeLoader::getTypeDef(const E_GLSL_TYPE& type)
 {
-    const char* glslTypeNames[CGLSLFunctionGenerator::EGT_COUNT] = {
+    const char* glslTypeNames[CGLSLScanBuiltinIncludeLoader::EGT_COUNT] = {
     "float",
     "vec2",
     "vec3",
@@ -325,29 +212,29 @@ std::string CGLSLFunctionGenerator::getTypeDef(const E_GLSL_TYPE& type)
     return std::string("\n#undef TYPE\n#define TYPE ")+glslTypeNames[type]+"\n";
 }
 
-std::string CGLSLFunctionGenerator::getCommOpDefine(const E_GLSL_COMMUTATIVE_OP& oper)
+std::string CGLSLScanBuiltinIncludeLoader::getCommOpDefine(const E_GLSL_COMMUTATIVE_OP& oper)
 {
     switch (oper)
     {
-        case CGLSLFunctionGenerator::EGCO_ADD:
+        case CGLSLScanBuiltinIncludeLoader::EGCO_ADD:
             return "\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n#define COMM_OP(X,Y) ((X)+(Y))\n#define subgroupInclusiveCOMM_OP(val) subgroupInclusiveAdd(val)\n#define COMM_OPInvocationsInclusiveScanAMD(val) addInvocationsInclusiveScanAMD(val)\n";
             break;
-        case CGLSLFunctionGenerator::EGCO_AND:
+        case CGLSLScanBuiltinIncludeLoader::EGCO_AND:
             return "\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n#define COMM_OP(X,Y) ((X)&(Y))\n#define subgroupInclusiveCOMM_OP(val) subgroupInclusiveAnd(val)\n#define COMM_OPInvocationsInclusiveScanAMD(val) andInvocationsInclusiveScanAMD(val)\n";
             break;
-        case CGLSLFunctionGenerator::EGCO_MAX:
+        case CGLSLScanBuiltinIncludeLoader::EGCO_MAX:
             return "\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n#define COMM_OP(X,Y) max(X,Y)\n#define subgroupInclusiveCOMM_OP(val) subgroupInclusiveMax(val)\n#define COMM_OPInvocationsInclusiveScanAMD(val) maxInvocationsInclusiveScanAMD(val)\n";
             break;
-        case CGLSLFunctionGenerator::EGCO_MIN:
+        case CGLSLScanBuiltinIncludeLoader::EGCO_MIN:
             return "\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n#define COMM_OP(X,Y) min(X,Y)\n#define subgroupInclusiveCOMM_OP(val) subgroupInclusiveMin(val)\n#define COMM_OPInvocationsInclusiveScanAMD(val) minInvocationsInclusiveScanAMD(val)\n";
             break;/*
-        case CGLSLFunctionGenerator::EGCO_MUL:
+        case CGLSLScanBuiltinIncludeLoader::EGCO_MUL:
             return "\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n#define COMM_OP(X,Y) ((X)*(Y))\n#define subgroupInclusiveCOMM_OP(val) subgroupInclusiveMul(val)\n#define COMM_OPInvocationsInclusiveScanAMD(val) !?!?!?!??!(val)\n";
             break;*/
-        case CGLSLFunctionGenerator::EGCO_OR:
+        case CGLSLScanBuiltinIncludeLoader::EGCO_OR:
             return "\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n#define COMM_OP(X,Y) ((X)|(Y))\n#define subgroupInclusiveCOMM_OP(val) subgroupInclusiveOr(val)\n#define COMM_OPInvocationsInclusiveScanAMD(val) orInvocationsInclusiveScanAMD(val)\n";
             break;
-        case CGLSLFunctionGenerator::EGCO_XOR:
+        case CGLSLScanBuiltinIncludeLoader::EGCO_XOR:
             return "\n#undef COMM_OPInvocationsInclusiveScanAMD\n#undef subgroupInclusiveCOMM_OP\n#undef COMM_OP\n#define COMM_OP(X,Y) ((X)^(Y))\n#define subgroupInclusiveCOMM_OP(val) subgroupInclusiveXor(val)\n#define COMM_OPInvocationsInclusiveScanAMD(val) xorInvocationsInclusiveScanAMD(val)\n";
             break;
         default:
@@ -358,11 +245,12 @@ std::string CGLSLFunctionGenerator::getCommOpDefine(const E_GLSL_COMMUTATIVE_OP&
     return "";
 }
 
-std::string CGLSLFunctionGenerator::getWarpInclusiveScanFunctionsPadded(const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType, const std::string& namePostfix,
+std::string CGLSLScanBuiltinIncludeLoader::getWarpInclusiveScanFunctionsPadded(const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType, const std::string& namePostfix,
                                                                         const std::string& getterFuncName, const std::string& setterFuncName)
 {
     //TODO name include's name (warp_padding.glsl now) could be returned by some func so it's easily changable in code
-    std::string sourceStr = "#include \"irr/builtin/warp_padding.glsl\"\n"+getCommOpDefine(oper)+getTypeDef(dataType);
+    std::string sourceStr = //"#include \"irr/builtin/warp_padding.glsl\"\n" + // TODO UNCOMMENT LATER
+        getCommOpDefine(oper) + getTypeDef(dataType);
 
     sourceStr += R"==(
 #undef WARP_SCAN_SIZE
@@ -544,7 +432,7 @@ TYPE WARP_SCAN_FUNC_NAME (in TYPE val, in uint idx)
 }
 
 /** TODO: Much later
-std::string CGLSLFunctionGenerator::getWarpReduceFunctionsPadded(   const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType, const std::string& namePostfix,
+std::string CGLSLScanBuiltinIncludeLoader::getWarpReduceFunctionsPadded(   const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType, const std::string& namePostfix,
                                                                     const std::string& getterFuncName, const std::string& setterFuncName)
 {
     const std::string includeGuardMacroName = "_IRR_GENERATED_WARP_REDUCE_PADDED_"+namePostfix+"_FUNCS_INCLUDED_";
