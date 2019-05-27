@@ -1,4 +1,4 @@
-#include "irr/asset/CGLSLVertexShaderBuiltinIncludeLoader.h"
+#include "irr/asset/CGLSLSkinningBuiltinIncludeLoader.h"
 
 #include <cctype>
 #include <regex>
@@ -8,7 +8,7 @@
 using namespace irr;
 using namespace asset;
 
-auto CGLSLVertexShaderBuiltinIncludeLoader::getBuiltinNamesToFunctionMapping() const -> core::vector<std::pair<std::regex, HandleFunc_t>>
+auto CGLSLSkinningBuiltinIncludeLoader::getBuiltinNamesToFunctionMapping() const -> core::vector<std::pair<std::regex, HandleFunc_t>>
 {
     auto handle_linear_skinning_N_bones = [](const std::string& _path) {
         constexpr size_t bonesNumberCharIndex = 16u;
@@ -20,7 +20,7 @@ auto CGLSLVertexShaderBuiltinIncludeLoader::getBuiltinNamesToFunctionMapping() c
     };
 }
 
-std::string CGLSLVertexShaderBuiltinIncludeLoader::getLinearSkinningFunction(uint32_t maxBoneInfluences)
+std::string CGLSLSkinningBuiltinIncludeLoader::getLinearSkinningFunction(uint32_t maxBoneInfluences)
 {
     const char src_begin[] =
 R"(
@@ -103,7 +103,11 @@ R"(    skinnedPos = vxPos;
     skinnedNormal = vxNormal;
 )";
 
-    std::string sourceStr = src_begin;
+    const char* incl_guard_begin = "\n#ifndef _IRR_GENERATED_SKINNING_FUNC_INCLUDED_\n#define _IRR_GENERATED_SKINNING_FUNC_INCLUDED_\n";
+    const char* incl_guard_end =   "\n#endif//_IRR_GENERATED_SKINNING_FUNC_INCLUDED_";
+
+    std::string sourceStr = incl_guard_begin;
+    sourceStr += src_begin;
     if (maxBoneInfluences == 0u)
     {
         sourceStr += src_infl0;
@@ -117,6 +121,8 @@ R"(    skinnedPos = vxPos;
         sourceStr += src_infl3;
     if (maxBoneInfluences > 3u)
         sourceStr += src_infl4;
+
+    sourceStr += incl_guard_end;
 
     return sourceStr;
 }

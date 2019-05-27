@@ -1,4 +1,4 @@
-#include "irr/video/CGLSLScanBuiltinIncludeLoader.h"
+#include "irr/asset/CGLSLScanBuiltinIncludeLoader.h"
 
 #include <cctype>
 #include <regex>
@@ -6,7 +6,7 @@
 #include "COpenGLExtensionHandler.h"
 
 using namespace irr;
-using namespace video;
+using namespace asset;
 
 static core::vector<std::string> parseArgumentsFromPath(const std::string& _path)
 {
@@ -86,8 +86,13 @@ auto CGLSLScanBuiltinIncludeLoader::getBuiltinNamesToFunctionMapping() const -> 
 
 std::string CGLSLScanBuiltinIncludeLoader::getReduceAndScanExtensionEnables() const
 {
-    std::string retval = "\n#define GL_WARP_SIZE_NV ";
 
+
+    std::string retval = R"===(\n#ifndef _IRR_GENERATED_REDUCE_AND_SCAN_EXTS_ENABLES_INCLUDED_
+#define _IRR_GENERATED_REDUCE_AND_SCAN_EXTS_ENABLES_INCLUDED_
+#define GL_WARP_SIZE_NV 32";
+)===";
+/*
 #ifdef _IRR_COMPILE_WITH_OPENGL_
     if (m_capabilityReporter->getDriverType()==EDT_OPENGL&&COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_NV_shader_thread_group])
     {
@@ -107,7 +112,7 @@ std::string CGLSLScanBuiltinIncludeLoader::getReduceAndScanExtensionEnables() co
     else
 #endif
         retval += "gl_WarpSizeNV\n";
-
+*/
     retval += R"===(
 #extension GL_KHR_shader_subgroup_arithmetic: enable
 
@@ -177,6 +182,8 @@ std::string CGLSLScanBuiltinIncludeLoader::getReduceAndScanExtensionEnables() co
     #define PROBABLE_SUBGROUP_SIZE 4u //only size we can guarantee on Intel, unless someone can prove to me that Intel uses SIMD16 mode always for Compute
     #define CONSTANT_PROBABLE_SUBGROUP_SIZE
 #endif // SUBGROUP_SIZE
+
+#endif //_IRR_GENERATED_REDUCE_AND_SCAN_EXTS_ENABLES_INCLUDED_
                     )===";
 
     return retval;
@@ -185,6 +192,9 @@ std::string CGLSLScanBuiltinIncludeLoader::getReduceAndScanExtensionEnables() co
 std::string CGLSLScanBuiltinIncludeLoader::getWarpPaddingFunctions()
 {
     return R"===(
+#ifndef _IRR_GENERATED_WARP_PAD_FUNCS_INCLUDED_
+#define _IRR_GENERATED_WARP_PAD_FUNCS_INCLUDED_
+
 uint warpPadAddress(in uint addr, in uint width) {return addr+((addr>>1u)&(~(width/2u-1u)));}
 
 uint warpPadAddress4(in uint addr) {return addr+((addr>>1u)&0xfffffffeu);}
@@ -198,6 +208,8 @@ uint warpPadAddress512(in uint addr) {return addr+((addr>>1u)&0xffffff00u);}
 uint warpPadAddress1024(in uint addr) {return addr+((addr>>1u)&0xfffffe00u);}
 uint warpPadAddress2048(in uint addr) {return addr+((addr>>1u)&0xfffffc00u);}
 uint warpPadAddress4096(in uint addr) {return addr+((addr>>1u)&0xfffff800u);}
+
+#endif
             )===";
 }
 
@@ -248,8 +260,12 @@ std::string CGLSLScanBuiltinIncludeLoader::getCommOpDefine(const E_GLSL_COMMUTAT
 std::string CGLSLScanBuiltinIncludeLoader::getWarpInclusiveScanFunctionsPadded(const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType, const std::string& namePostfix,
                                                                         const std::string& getterFuncName, const std::string& setterFuncName)
 {
+    const std::string includeGuardMacroName = "_IRR_GENERATED_WARP_SCAN_PADDED_" + namePostfix + "_FUNCS_INCLUDED_";
+
     //TODO name include's name (warp_padding.glsl now) could be returned by some func so it's easily changable in code
     std::string sourceStr = //"#include \"irr/builtin/warp_padding.glsl\"\n" + // TODO UNCOMMENT LATER
+        "\n#ifndef " + includeGuardMacroName + "\n#define " + includeGuardMacroName + "\n" +
+        getWarpPaddingFunctions() +
         getCommOpDefine(oper) + getTypeDef(dataType);
 
     sourceStr += R"==(
@@ -426,6 +442,8 @@ TYPE WARP_SCAN_FUNC_NAME (in TYPE val, in uint idx)
 #undef COMM_OPInvocationsInclusiveScanAMD
 #undef subgroupInclusiveCOMM_OP
 #undef COMM_OP
+
+#endif //include guard
                       )==";
 
     return sourceStr;

@@ -9,14 +9,12 @@
 #include <cstdint>
 #include <cassert>
 
-namespace irr { namespace video
+namespace irr { namespace asset
 {
 
 class CGLSLScanBuiltinIncludeLoader : public asset::IBuiltinIncludeLoader
 {
 public:
-    CGLSLScanBuiltinIncludeLoader(IVideoCapabilityReporter* _reporter) : m_capabilityReporter{_reporter} {}
-
     const char* getVirtualDirectoryName() const override { return "glsl/scan/"; }
 
 protected:
@@ -73,8 +71,6 @@ private:
 
     //! TODO: Later
     //static std::string getWarpReduceFunctionsPadded(const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType, const std::string& namePostfix, const std::string& getterFuncName, const std::string& setterFuncName);
-
-    IVideoCapabilityReporter* m_capabilityReporter;
 };
 
 }}

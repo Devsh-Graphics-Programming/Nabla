@@ -32,14 +32,14 @@ public:
         );
         inclGuardName = "_" + inclGuardName + "_";
 
-        const std::string inclGuardBegin = "#ifndef " + inclGuardName + "\n#define " + inclGuardName + "\n";
-        const std::string inclGuardEnd = "\n#endif //" + inclGuardName;
+        //const std::string inclGuardBegin = "#ifndef " + inclGuardName + "\n#define " + inclGuardName + "\n";
+        //const std::string inclGuardEnd = "\n#endif //" + inclGuardName;
 
         core::vector<std::pair<std::regex, HandleFunc_t>> builtinNames = getBuiltinNamesToFunctionMapping();
 
         for (const auto& pattern : builtinNames)
             if (std::regex_match(_name, pattern.first))
-                return inclGuardBegin + pattern.second(_name) + inclGuardEnd;
+                return pattern.second(_name);
 
         return {};
     }

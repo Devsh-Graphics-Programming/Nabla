@@ -12,7 +12,7 @@
 namespace irr { namespace asset
 {
 
-class CGLSLVertexShaderBuiltinIncludeLoader : public asset::IBuiltinIncludeLoader
+class CGLSLSkinningBuiltinIncludeLoader : public asset::IBuiltinIncludeLoader
 {
 public:
     const char* getVirtualDirectoryName() const override { return "glsl/vs/"; }
