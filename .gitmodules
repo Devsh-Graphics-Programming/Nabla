@@ -41,3 +41,6 @@
 [submodule "3rdparty/libjpeg"]
 	path = 3rdparty/libjpeg
 	url = https://github.com/LuaDist/libjpeg.git
+[submodule "3rdparty/bullet3"]
+	path = 3rdparty/bullet3
+	url = https://github.com/bulletphysics/bullet3.git
