@@ -21,7 +21,7 @@ public:
 
     virtual void addSearchDirectory(const std::string& _searchDir) { m_searchDirectories.push_back(_searchDir); }
 
-    std::string getInclude(const std::string& _path) const
+    std::string getIncludeStandard(const std::string& _path) const
     {
         for (const std::string& searchDir : m_searchDirectories)
         {
@@ -34,6 +34,14 @@ public:
                 return res;
         }
         return {};
+    }
+    std::string getIncludeRelative(const std::string& _path, const std::string& _workingDir) const
+    {
+        io::path path = _workingDir.c_str();
+        path += _path.c_str();
+        io::IFileSystem::flattenFilename(path);
+        path[path.size()-1] = 0; // for some reason flattenFilename() adds to the end
+        return getInclude_internal(path.c_str());
     }
 
 protected:

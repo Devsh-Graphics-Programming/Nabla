@@ -13,7 +13,8 @@ protected:
     virtual ~IIncludeHandler() = default;
 
 public:
-    virtual std::string getInclude(const std::string& _path) const = 0;
+    virtual std::string getIncludeStandard(const std::string& _path) const = 0;
+    virtual std::string getIncludeRelative(const std::string& _path, const std::string& _workingDirectory) const = 0;
 
     virtual void addBuiltinIncludeLoader(IBuiltinIncludeLoader* _inclLoader) = 0;
 };

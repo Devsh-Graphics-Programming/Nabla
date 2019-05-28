@@ -29,9 +29,25 @@ public:
         m_includers.emplace_back(new CBuiltinIncluder, core::dont_grab);
     }
 
-    virtual std::string getInclude(const std::string& _path) const override
+    std::string getIncludeStandard(const std::string& _path) const override
     {
-        auto isBuiltinPath = [] (const std::string& _p) {
+        return getIncluderDependentOnPath(_path)->getIncludeStandard(_path);
+    }
+
+    std::string getIncludeRelative(const std::string& _path, const std::string& _workingDirectory) const override
+    {
+        return getIncluderDependentOnPath(_path)->getIncludeRelative(_path, _workingDirectory);
+    }
+
+    void addBuiltinIncludeLoader(IBuiltinIncludeLoader* _inclLoader) override
+    {
+        static_cast<CBuiltinIncluder*>(m_includers[EII_BUILTIN].get())->addBuiltinLoader(_inclLoader);
+    }
+
+private:
+    const IIncluder* getIncluderDependentOnPath(const std::string& _path) const
+    {
+        auto isBuiltinPath = [](const std::string& _p) {
             const char* builtinPrefixes[]{
                 "irr/builtin/",
                 "/irr/builtin/"
@@ -42,15 +58,7 @@ public:
             return false;
         };
 
-        if (isBuiltinPath(_path))
-            return m_includers[EII_BUILTIN]->getInclude(_path);
-        else
-            return m_includers[EII_FILESYSTEM]->getInclude(_path);
-    }
-
-    void addBuiltinIncludeLoader(IBuiltinIncludeLoader* _inclLoader) override
-    {
-        static_cast<CBuiltinIncluder*>(m_includers[EII_BUILTIN].get())->addBuiltinLoader(_inclLoader);
+        return (isBuiltinPath(_path) ? m_includers[EII_BUILTIN].get() : m_includers[EII_FILESYSTEM].get());
     }
 };
 
