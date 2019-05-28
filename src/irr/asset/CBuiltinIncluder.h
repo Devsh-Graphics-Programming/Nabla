@@ -49,12 +49,12 @@ protected:
             auto capableLoadersRng = m_loaders.findRange(path);
             for (auto loaderItr = capableLoadersRng.first; loaderItr != capableLoadersRng.second; ++loaderItr)
             {
-                std::string relativePath = path.substr(strlen(PREFIX), std::string::npos); // builtin loaders take path relative to PREFIX
+                std::string relativePath = _path.substr(loaderItr->first.size(), std::string::npos); // builtin loaders take path relative to PREFIX
                 if (!(res = loaderItr->second->getBuiltinInclude(relativePath)).empty())
                     return res;
             }
             path.back() = 'x'; // get rid of trailing slash...
-            path.erase(_path.find_last_of('/')+1, std::string::npos); // ...and find the one before
+            path.erase(path.find_last_of('/')+1, std::string::npos); // ...and find the one before
         }
         return {};
     }

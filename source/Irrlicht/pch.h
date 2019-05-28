@@ -288,5 +288,6 @@
 #include "irr/asset/CBuiltinIncluder.h"
 #include "irr/asset/IBuiltinIncludeLoader.h"
 #include "irr/asset/IIncluder.h"
+#include "irr/asset/IIncludeHandler.h"
 
 #endif //__PCH_H_INCLUDED__

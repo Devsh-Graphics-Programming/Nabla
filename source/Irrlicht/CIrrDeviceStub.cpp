@@ -48,7 +48,7 @@ CIrrDeviceStub::CIrrDeviceStub(const SIrrlichtCreationParameters& params)
 
 	checkVersion(params.SDK_version_do_not_use);
 
-    IncludeHandler = core::make_smart_refctd_ptr<asset::IIncludeHandler>(new asset::CIncludeHandler(FileSystem), core::dont_grab);
+    IncludeHandler = new asset::CIncludeHandler(FileSystem);
     //add builtin loaders
     asset::IBuiltinIncludeLoader* builtinLdr = new asset::CGLSLScanBuiltinIncludeLoader();
     IncludeHandler->addBuiltinIncludeLoader(builtinLdr);
@@ -61,6 +61,9 @@ CIrrDeviceStub::CIrrDeviceStub(const SIrrlichtCreationParameters& params)
 
 CIrrDeviceStub::~CIrrDeviceStub()
 {
+    if (IncludeHandler)
+        IncludeHandler->drop();
+
 	VideoModeList->drop();
 	FileSystem->drop();
 

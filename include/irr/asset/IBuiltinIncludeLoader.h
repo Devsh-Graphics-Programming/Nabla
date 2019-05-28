@@ -21,10 +21,6 @@ public:
     //! @param _name must be path relative to /irr/builtin/
     virtual std::string getBuiltinInclude(const std::string& _name) const
     {
-        const char* MY_DIR = getVirtualDirectoryName();
-        if (_name.length() < strlen(MY_DIR) || _name.compare(0, strlen(MY_DIR), MY_DIR) != 0)
-            return {};
-
         std::string inclGuardName = _name;
         std::transform(inclGuardName.begin(), inclGuardName.end(), inclGuardName.begin(), [](char c) {return ::toupper(int(c)); });
         std::transform(inclGuardName.begin(), inclGuardName.end(), inclGuardName.begin(),

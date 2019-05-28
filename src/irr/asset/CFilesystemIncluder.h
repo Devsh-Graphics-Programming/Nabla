@@ -22,11 +22,13 @@ public:
 
     std::string getInclude_internal(const std::string& _path) const override
     {
-        auto f = core::make_smart_refctd_ptr<io::IReadFile>(m_filesystem->createAndOpenFile(_path.c_str()), core::dont_grab);
+        auto f = m_filesystem->createAndOpenFile(_path.c_str());
         if (!f)
             return {};
         std::string contents(f->getSize(), '\0');
         f->read(&contents.front(), f->getSize());
+
+        f->drop();
 
         return contents;
     }

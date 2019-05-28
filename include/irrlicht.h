@@ -82,6 +82,9 @@
 #include "irr/asset/CImageData.h"
 #include "irr/asset/IGeometryCreator.h"
 #include "irr/asset/IMeshManipulator.h"
+#include "irr/asset/IBuiltinIncludeLoader.h"
+#include "irr/asset/IIncluder.h"
+#include "irr/asset/IIncludeHandler.h"
 //} end asset lib
 
 //{ ui lib (window set up, software blit, joysticks, multi-touch, keyboard, etc.) [DEPENDS: system]
