@@ -71,7 +71,7 @@ COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
 	DeviceType(EIDT_WIN32), AuxContexts(0)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("COpenGLDriver");
 	#endif
 }
@@ -274,7 +274,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 		wglExtensions = irrGetExtensionsString(HDc);
 #endif
 	const bool pixel_format_supported = (wglExtensions.find("WGL_ARB_pixel_format") != -1);
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	os::Printer::log("WGL_extensions", wglExtensions.c_str());
 #endif
 
@@ -295,8 +295,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 			WGL_DOUBLE_BUFFER_ARB,Params.Doublebuffer ? 1 : 0,
 			WGL_STEREO_ARB,Params.Stereobuffer ? 1 : 0,
 			WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
-			WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, Params.HandleSRGB ? 1:0,
-//			WGL_DEPTH_FLOAT_EXT, 1,
+			WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, 1,
 			0,0,0,0
 		};
 
@@ -383,12 +382,17 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 	int iAttribs[] =
 	{
 		WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
-		WGL_CONTEXT_MINOR_VERSION_ARB, 5,
+		WGL_CONTEXT_MINOR_VERSION_ARB, 6,
 		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
 		0
 	};
 	// create rendering context
 	hrc=wglCreateContextAttribs_ARB(HDc, 0, iAttribs);
+	if (!hrc)
+	{
+		iAttribs[3] = 5;
+		hrc=wglCreateContextAttribs_ARB(HDc, 0, iAttribs);
+	}
 	if (!hrc)
 	{
 		iAttribs[3] = 4;
@@ -508,7 +512,7 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 	Params(params),
 	OSXDevice(device), DeviceType(EIDT_OSX), AuxContexts(0)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("COpenGLDriver");
 	#endif
 
@@ -528,7 +532,7 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 	runningInRenderDoc(false),  CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(asset::EF_R8G8B8_UNORM),
 	Params(params), X11Device(device), DeviceType(EIDT_X11), AuxContexts(0)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("COpenGLDriver");
 	#endif
 }
@@ -662,7 +666,7 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 	CurrentTarget(ERT_FRAME_BUFFER), Params(params),
 	SDLDevice(device), DeviceType(EIDT_SDL), AuxContexts(0)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("COpenGLDriver");
 	#endif
 
@@ -763,7 +767,7 @@ uint16_t COpenGLDriver::retrieveDisplayRefreshRate() const
         return 0u;
     return dm.dmDisplayFrequency;
 #elif defined(_IRR_COMPILE_WITH_X11_DEVICE_)
-#ifdef _IRR_LINUX_X11_RANDR_
+#   ifdef _IRR_LINUX_X11_RANDR_
     Display* disp = XOpenDisplay(NULL);
     Window root = RootWindow(disp, 0);
 
@@ -771,16 +775,14 @@ uint16_t COpenGLDriver::retrieveDisplayRefreshRate() const
     uint16_t rate = XRRConfigCurrentRate(conf);
 
     return rate;
-#else
-#ifdef _DEBUG
+#   else
+#       ifdef _IRR_DEBUG
     os::Printer::log("Refresh rate retrieval without Xrandr compiled in is not supprted!\n", ELL_WARNING);
-#endif
+#       endif
     return 0u;
-#endif // _IRR_LINUX_X11_RANDR_
-#elif defined(_IRR_COMPILE_WITH_CONSOLE_DEVICE_)
-    return 0u;
+#   endif // _IRR_LINUX_X11_RANDR_
 #else
-#error "Not implemented for this platform"
+    return 0u;
 #endif
 }
 
@@ -983,21 +985,16 @@ bool COpenGLDriver::genericDriverInit()
 
 	// Reset The Current Viewport
 	glViewport(0, 0, Params.WindowSize.Width, Params.WindowSize.Height);
-/*
-	Params.HandleSRGB &= ((FeatureAvailable[IRR_ARB_framebuffer_sRGB] || FeatureAvailable[IRR_EXT_framebuffer_sRGB]) &&
-		FeatureAvailable[IRR_EXT_texture_sRGB]);
 
-	if (Params.HandleSRGB)
-		glEnable(GL_FRAMEBUFFER_SRGB);
-*/
+	glEnable(GL_FRAMEBUFFER_SRGB);
     glDisable(GL_DITHER);
     glDisable(GL_MULTISAMPLE);
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
+    extGlClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE);
 	glClearDepth(0.0);
-	///glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
 	glDepthFunc(GL_GEQUAL);
 	glDepthRange(1.0,0.0);
-	glFrontFace(GL_CW);
+	glFrontFace(GL_CCW);
 
 	// adjust flat coloring scheme to DirectX version
 	///extGlProvokingVertex(GL_FIRST_VERTEX_CONVENTION_EXT);
@@ -1192,8 +1189,6 @@ bool COpenGLDriver::endScene()
 {
 	CNullDriver::endScene();
 
-	//glFlush();
-
 #ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 	if (DeviceType == EIDT_WIN32)
 		return SwapBuffers(HDc) == TRUE;
@@ -1241,15 +1236,6 @@ bool COpenGLDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
 		changeRenderContext(videoData, (void*)0);
 #endif // _IRR_COMPILE_WITH_OSX_DEVICE_
 
-#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
-	if (DeviceType == EIDT_SDL)
-	{
-		// todo: SDL sets glFrontFace(GL_CCW) after driver creation,
-		// it would be better if this was fixed elsewhere.
-		glFrontFace(GL_CW);
-	}
-#endif
-
     if (zBuffer)
     {
         clearZBuffer(0.0);
@@ -1283,10 +1269,10 @@ void COpenGLDriver::flushMappedMemoryRanges(uint32_t memoryRangeCount, const vid
     for (uint32_t i=0; i<memoryRangeCount; i++)
     {
         auto range = pMemoryRanges+i;
-        #ifdef _DEBUG
+        #ifdef _IRR_DEBUG
         if (!range->memory->haveToMakeVisible())
             os::Printer::log("Why are you flushing mapped memory that does not need to be flushed!?",ELL_WARNING);
-        #endif // _DEBUG
+        #endif // _IRR_DEBUG
         extGlFlushMappedNamedBufferRange(static_cast<COpenGLBuffer*>(range->memory)->getOpenGLName(),range->offset,range->length);
     }
 }
@@ -1296,10 +1282,10 @@ void COpenGLDriver::invalidateMappedMemoryRanges(uint32_t memoryRangeCount, cons
     for (uint32_t i=0; i<memoryRangeCount; i++)
     {
         auto range = pMemoryRanges+i;
-        #ifdef _DEBUG
+        #ifdef _IRR_DEBUG
         if (!range->memory->haveToMakeVisible())
             os::Printer::log("Why are you invalidating mapped memory that does not need to be invalidated!?",ELL_WARNING);
-        #endif // _DEBUG
+        #endif // _IRR_DEBUG
         extGlMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
     }
 }
@@ -1441,14 +1427,14 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
     if (!found->setActiveVAO(meshLayoutVAO,mb->isIndexCountGivenByXFormFeedback() ? mb:NULL))
         return;
 
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	if (mb->getIndexCount() > getMaximalIndicesCount())
 	{
 		char tmp[1024];
 		sprintf(tmp,"Could not draw, too many indices(%u), maxium is %u.", mb->getIndexCount(), getMaximalIndicesCount());
 		os::Printer::log(tmp, ELL_ERROR);
 	}
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 
 	CNullDriver::drawMeshBuffer(mb);
 
@@ -1506,12 +1492,12 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
     else if (mb->isIndexCountGivenByXFormFeedback())
     {
         COpenGLTransformFeedback* xfmFb = static_cast<COpenGLTransformFeedback*>(mb->getXFormFeedback());
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
         if (xfmFb->isEnded())
             os::Printer::log("Trying To DrawTransformFeedback which hasn't ended yet (call glEndTransformFeedback() on the damn thing)!\n",ELL_ERROR);
         if (mb->getXFormFeedbackStream()>=MaxVertexStreams)
             os::Printer::log("Trying to use more than GL_MAX_VERTEX_STREAMS vertex streams in transform feedback!\n",ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
         extGlDrawTransformFeedbackStreamInstanced(primType,xfmFb->getOpenGLHandle(),mb->getXFormFeedbackStream(),mb->getInstanceCount());
     }
     else
@@ -1582,6 +1568,8 @@ bool COpenGLDriver::queryFeature(const E_DRIVER_FEATURE &feature) const
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_geometry_shader4]||true; //vulkan+android
         case EDF_TESSELLATION_SHADER:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_tessellation_shader]||true; //vulkan+android
+        case EDF_GET_TEXTURE_SUB_IMAGE:
+            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_get_texture_sub_image]; //only on OpenGL
         case EDF_TEXTURE_BARRIER:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_texture_barrier]||COpenGLExtensionHandler::FeatureAvailable[IRR_NV_texture_barrier]||Version>=450;
         case EDF_STENCIL_ONLY_TEXTURE:
@@ -1598,6 +1586,10 @@ bool COpenGLDriver::queryFeature(const E_DRIVER_FEATURE &feature) const
             return COpenGLExtensionHandler::FeatureAvailable[IRR_NV_shader_thread_shuffle];
         case EDF_FRAGMENT_SHADER_INTERLOCK:
             return COpenGLExtensionHandler::FeatureAvailable[IRR_INTEL_fragment_shader_ordering]||COpenGLExtensionHandler::FeatureAvailable[IRR_NV_fragment_shader_interlock]||COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_fragment_shader_interlock];
+        case EDF_BINDLESS_TEXTURE:
+            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_bindless_texture]||Version>=450;
+        case EDF_DYNAMIC_SAMPLER_INDEXING:
+            return queryFeature(EDF_BINDLESS_TEXTURE);
         default:
             break;
 	};
@@ -1855,9 +1847,9 @@ static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
 
 COpenGLDriver::SAuxContext::COpenGLVAO::COpenGLVAO(const COpenGLVAOSpec* spec)
         : vao(0), lastValidated(0)
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
             ,debugHash(spec->getHash())
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 {
     extGlCreateVertexArrays(1,&vao);
 
@@ -1928,10 +1920,10 @@ void COpenGLDriver::SAuxContext::COpenGLVAO::bindBuffers(   const COpenGLBuffer*
 
     for (asset::E_VERTEX_ATTRIBUTE_ID attrId=asset::EVAI_ATTR0; attrId<asset::EVAI_COUNT; attrId = static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(attrId+1))
     {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
         assert( (mappedAttrBuf[attrId]==NULL && attribBufs[attrId]==NULL)||
                 (mappedAttrBuf[attrId]!=NULL && attribBufs[attrId]!=NULL));
-#endif // _DEBUG
+#endif // _IRR_DEBUG
         if (!mappedAttrBuf[attrId])
             continue;
 
@@ -2005,9 +1997,9 @@ bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* const spec, 
             VAOMap.insert(it,CurrentVAO);
         }
 
-        #ifdef _DEBUG
+        #ifdef _IRR_DEBUG
             assert(!(CurrentVAO.second->getDebugHash()!=hashVal));
-        #endif // _DEBUG
+        #endif // _IRR_DEBUG
 
         extGlBindVertexArray(CurrentVAO.second->getOpenGLName());
     }
@@ -2041,7 +2033,7 @@ bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* const spec, 
 }
 
 //! Get native wrap mode value
-inline GLint getTextureWrapMode(const uint8_t &clamp)
+inline GLint getTextureWrapMode(uint8_t clamp)
 {
 	GLint mode=GL_REPEAT;
 	switch (clamp)
@@ -2243,7 +2235,7 @@ bool orderByMip(asset::CImageData* a, asset::CImageData* b)
 video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
 			const io::path& name, asset::E_FORMAT format)
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     //if the max coords are not 0, then there is something seriously wrong
     switch (type)
     {
@@ -2264,7 +2256,7 @@ video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_T
             assert(size[0]>0&&size[1]>0&&size[2]>0);
             break;
     }
-#endif // _DEBUG
+#endif // _IRR_DEBUG
     //do the texture creation flag mumbo jumbo of death.
     if (mipmapLevels==0)
     {
@@ -3076,10 +3068,10 @@ void COpenGLDriver::bindTransformFeedback(ITransformFeedback* xformFeedback, SAu
 
     if (toContext->CurrentXFormFeedback)
     {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
         if (!toContext->CurrentXFormFeedback->isEnded())
             os::Printer::log("FIDDLING WITH XFORM FEEDBACK BINDINGS WHILE THE BOUND XFORMFEEDBACK HASN't ENDED!\n",ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
         toContext->CurrentXFormFeedback->drop();
     }
 
@@ -3092,10 +3084,10 @@ void COpenGLDriver::bindTransformFeedback(ITransformFeedback* xformFeedback, SAu
 	}
     else
     {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
         if (!toContext->CurrentXFormFeedback->isEnded())
             os::Printer::log("WHY IS A NOT PREVIOUSLY BOUND XFORM FEEDBACK STARTED!?\n",ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
         toContext->CurrentXFormFeedback->grab();
         extGlBindTransformFeedback(GL_TRANSFORM_FEEDBACK,toContext->CurrentXFormFeedback->getOpenGLHandle());
     }
@@ -3187,10 +3179,10 @@ void COpenGLDriver::endTransformFeedback()
         os::Printer::log("No Transform Feedback Object bound, possible redundant glEndTransform...!\n",ELL_ERROR);
         return;
     }
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (!found->CurrentXFormFeedback->isActive())
         os::Printer::log("Ending an already paused transform feedback, the pause call is redundant!\n",ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
     found->CurrentXFormFeedback->endFeedback();
 	found->XFormFeedbackRunning = false;
     ///In the interest of binding speed we wont release the CurrentXFormFeedback

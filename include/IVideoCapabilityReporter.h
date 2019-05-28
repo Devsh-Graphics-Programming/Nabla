@@ -34,6 +34,9 @@ namespace video
             //! Supports tessellation shaders (always in OpenGL 4.3+, Vulkan Mobile GPUs don't)
             EDF_TESSELLATION_SHADER,
 
+			//! Whether we can download sub-areas of an IGPUTexture
+			EDF_GET_TEXTURE_SUB_IMAGE,
+
             //! Whether one cycle of read->write to the same pixel on an active FBO is supported (always in Vulkan)
             EDF_TEXTURE_BARRIER,
 
@@ -58,7 +61,13 @@ namespace video
             //! Whether we can force overlapping pixels to not rasterize in parallel, INTEL_fragment_shader_ordering, NV_fragment_shader_interlock or ARB_fragment_shader_interlock
             EDF_FRAGMENT_SHADER_INTERLOCK,
 
-            //other feature ideas are; bindless, sparse texture, sparse texture 2
+            //! Whether textures can be used by their hardware handles bindlessly (without specifying them in descriptor sets)
+            EDF_BINDLESS_TEXTURE,
+
+            //! Whether we can index samplers dynamically in a shader (automatically true if bindless is enabled)
+            EDF_DYNAMIC_SAMPLER_INDEXING,
+
+            //other feature ideas are; bindless buffers, sparse texture, sparse texture 2
 
             //! Only used for counting the elements of this enum
             EDF_COUNT

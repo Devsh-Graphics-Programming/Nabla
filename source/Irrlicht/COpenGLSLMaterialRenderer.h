@@ -98,7 +98,7 @@ class COpenGLSLMaterialRenderer : public IMaterialRenderer, public IMaterialRend
         GLuint Program2;
         GLint activeUniformCount;
         int32_t UserData;
-    #ifdef _DEBUG
+    #ifdef _IRR_DEBUG
         core::vector<SConstantLocationNamePair> debugConstants;
         core::vector<GLuint> debugConstantIndices;
     #endif

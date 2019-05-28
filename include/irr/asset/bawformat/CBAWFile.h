@@ -13,8 +13,6 @@
 #include "irr/asset/ICPUBuffer.h"
 #include "coreutil.h"
 
-struct ISzAlloc;
-
 namespace irr {
 
 namespace asset
@@ -470,14 +468,6 @@ namespace asset
 		virtual ~BlobSerializable() {}
 
 		virtual void* serializeToBlob(void* _stackPtr=NULL, const size_t& _stackSize=0) const = 0;
-	};
-
-	struct LzmaMemMngmnt
-	{
-		static void *alloc(const ISzAlloc*, size_t _size) { return _IRR_ALIGNED_MALLOC(_size,_IRR_SIMD_ALIGNMENT); }
-		static void release(const ISzAlloc*, void* _addr) { _IRR_ALIGNED_FREE(_addr); }
-	private:
-		LzmaMemMngmnt() {}
 	};
 
 	bool encAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag);

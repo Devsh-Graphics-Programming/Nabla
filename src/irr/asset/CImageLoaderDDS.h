@@ -169,17 +169,7 @@ public:
         float	f;
         char	c[4];
     } floatSwapUnion;
-
-    static int32_t   DDSLittleLong(int32_t src);
-    static int16_t DDSLittleShort(int16_t src);
-    static float DDSLittleFloat(float src);
-
-    static int32_t DDSBigLong(int32_t src);
-
-    static int16_t DDSBigShort(int16_t src);
-
-    static float DDSBigFloat(float src);
-
+	
 public:
     virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
 

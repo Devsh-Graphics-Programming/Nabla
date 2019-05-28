@@ -37,7 +37,7 @@ CCubeSceneNode::CCubeSceneNode(float size, IDummyTransformationSceneNode* parent
 	: IMeshSceneNode(parent, mgr, id, position, rotation, scale),
 	Mesh(0), Size(size)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CCubeSceneNode");
 	#endif
 

@@ -22,7 +22,7 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom
 			IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id)
 : ISceneNode(parent, mgr, id)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CSkyBoxSceneNode");
 	#endif
 
@@ -148,7 +148,7 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(CSkyBoxSceneNode* other,
 			IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id)
 : ISceneNode(parent, mgr, id)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CSkyBoxSceneNode");
 	#endif
 
@@ -175,7 +175,7 @@ void CSkyBoxSceneNode::render()
 	if (!camera || !driver || !canProceedPastFence())
 		return;
 
-	if ( !camera->isOrthogonal() )
+	if ( !camera->getProjectionMatrix().isOrthogonal() ) // check this actually works!
 	{
 		// draw perspective skybox
 

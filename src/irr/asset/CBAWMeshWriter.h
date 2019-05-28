@@ -64,6 +64,8 @@ namespace asset
                     return 0.5f;
                 else if (est >= 4096u) // lz4 threshold
                     return 0.3f;
+				
+				return 0.f;
             }
         };
 
@@ -117,8 +119,9 @@ namespace asset
 
 		//! Tries to write given data to file. If not possible (i.e. _data is NULL) - pushes "corrupted offset" and does not call .finalize() on blob-header.
 		void tryWrite(void* _data, io::IWriteFile* _file, SContext& _ctx, size_t _size, uint32_t _headerIdx, asset::E_WRITER_FLAGS _flags, const uint8_t* _encrPwd = nullptr, float _comprLvl = 0.f) const;
-
-		void* compressWithLz4AndTryOnStack(const void* _input, size_t _inputSize, void* _stack, size_t _stackSize, size_t& _outComprSize) const;
+		
+		//! Uint32_t because lzma doesn't support compressing more than 4GB
+		void* compressWithLz4AndTryOnStack(const void* _input, uint32_t _inputSize, void* _stack, uint32_t _stackSize, size_t& _outComprSize) const;
 		void* compressWithLzma(const void* _input, size_t _inputSize, size_t& _outComprSize) const;
 
 	private:

@@ -60,7 +60,7 @@ namespace io
 CArchiveLoaderZIP::CArchiveLoaderZIP(io::IFileSystem* fs)
 : FileSystem(fs)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CArchiveLoaderZIP");
 	#endif
 }
@@ -145,7 +145,7 @@ bool CArchiveLoaderZIP::isALoadableFileFormat(io::IReadFile* file) const
 CZipReader::CZipReader(IReadFile* file, bool ignoreCase, bool ignorePaths, bool isGZip)
  : CFileList((file ? file->getFileName() : io::path("")), ignoreCase, ignorePaths), File(file), IsGZip(isGZip)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CZipReader");
 	#endif
 
@@ -427,7 +427,7 @@ bool CZipReader::scanZipHeader(bool ignoreGPBits)
 	// move forward length of data
 	File->seek(entry.header.DataDescriptor.CompressedSize, true);
 
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	//os::Debuginfo::print("added file from archive", ZipFileName.c_str());
 	#endif
 

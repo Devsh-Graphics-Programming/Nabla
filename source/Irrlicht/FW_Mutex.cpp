@@ -33,10 +33,10 @@ FW_Mutex::FW_Mutex()
 #endif
 #endif // FW_MUTEX_H_CXX11_IMPL
 
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (fail)
         os::Printer::log("CreateMutex failed!\n",ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 }
 
 
@@ -65,9 +65,9 @@ FW_Mutex::~FW_Mutex()
 //
 FW_ConditionVariable::FW_ConditionVariable(FW_Mutex *mutex)
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     mutexAttachedTo = mutex;
-#endif // _DEBUG
+#endif // _IRR_DEBUG
     bool fail = false;
 
 #ifndef FW_MUTEX_H_CXX11_IMPL
@@ -78,7 +78,7 @@ FW_ConditionVariable::FW_ConditionVariable(FW_Mutex *mutex)
 #endif // _MSC_VER
 #endif // FW_MUTEX_H_CXX11_IMPL
 
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (fail)
         os::Printer::log("FW_ConditionVariable constructor failed!\n",ELL_ERROR);
 #endif
@@ -96,10 +96,10 @@ FW_ConditionVariable::~FW_ConditionVariable()
     bool fail = pthread_cond_destroy(&conditionVar);
 #endif // _MSC_VER || FW_MUTEX_H_CXX11_IMPL
 
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (fail)
         os::Printer::log("FW_ConditionVariable destructor failed!\n",ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 }
 
 //
@@ -107,13 +107,13 @@ FW_ConditionVariable::~FW_ConditionVariable()
 //
 void FW_ConditionVariable::WaitForCondition(FW_Mutex *mutex)
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (mutexAttachedTo!=mutex)
     {
         os::Printer::log("Tried to wait on condition bound to a different mutex!\n",ELL_ERROR);
         exit(-69);
     }
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 
 	bool fail = 0;
 #if defined(FW_MUTEX_H_CXX11_IMPL)
@@ -125,23 +125,23 @@ void FW_ConditionVariable::WaitForCondition(FW_Mutex *mutex)
     fail = pthread_cond_wait(&conditionVar,&mutex->hMutex);
 #endif // _MSC_VER
 
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (fail)
         os::Printer::log("WaitForCondition system call returned error for unknown reason!\n",ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 }
 
 
 
 void FW_ConditionVariable::TimedWaitForCondition(FW_Mutex *mutex, const uint64_t& nanosec)
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (mutexAttachedTo!=mutex)
     {
         os::Printer::log("Tried to wait on condition bound to a different mutex!\n",ELL_ERROR);
         exit(-69);
     }
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 
 #if defined(FW_MUTEX_H_CXX11_IMPL)
 	std::unique_lock<std::mutex> ul(mutex->hMutex, std::defer_lock);
@@ -163,10 +163,10 @@ void FW_ConditionVariable::TimedWaitForCondition(FW_Mutex *mutex, const uint64_t
     bool fail = retval&&retval!=ETIMEDOUT;
 #endif // _MSC_VER
 
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (fail)
         os::Printer::log("WaitForCondition system call returned error for unknown reason!\n",ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 }
 
 
@@ -184,7 +184,7 @@ void FW_ConditionVariable::SignalConditionOnce()
     fail = pthread_cond_signal(&conditionVar);
 #endif // _MSC_VER
 
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (fail)
         os::Printer::log("SignalConditionOnce system call returned error for unknown reason!\n",ELL_ERROR);
 #endif
@@ -204,7 +204,7 @@ void FW_ConditionVariable::SignalConditionToAll()
     fail = pthread_cond_broadcast(&conditionVar);
 #endif // _MSC_VER
 
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     if (fail)
         os::Printer::log("SignalConditionToAll system call returned error for unknown reason!\n",ELL_ERROR);
 #endif

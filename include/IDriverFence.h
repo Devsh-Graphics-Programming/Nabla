@@ -32,6 +32,9 @@ class IDriverFence : public core::IReferenceCounted
 {
 	    _IRR_INTERFACE_CHILD(IDriverFence) {}
     public:
+        //! This tells us if we can set the `flush` argument of the `waitCPU` function to true
+        virtual bool canDeferredFlush() const = 0;
+
         //! If timeout​ is zero, the function will simply check to see if the sync object is signaled and return immediately.
         /** \param timeout in nanoseconds.
         \param whether to perform a special implicit flush in OpenGL (quite useless).
@@ -55,31 +58,24 @@ class IDriverFence : public core::IReferenceCounted
 class GPUEventWrapper : public core::Uncopyable
 {
     protected:
-        IDriverFence* mFence;
+        core::smart_refctd_ptr<IDriverFence> mFence;
     public:
-        GPUEventWrapper(IDriverFence* fence) : mFence(fence)
+        GPUEventWrapper(core::smart_refctd_ptr<IDriverFence>&& fence) : mFence(std::move(fence))
         {
-            if (mFence)
-                mFence->grab();
         }
         GPUEventWrapper(const GPUEventWrapper& other) = delete;
-        GPUEventWrapper(GPUEventWrapper&& other) : mFence(nullptr)
+        GPUEventWrapper(GPUEventWrapper&& other) noexcept : mFence(nullptr)
         {
             this->operator=(std::forward<GPUEventWrapper>(other));
         }
         virtual ~GPUEventWrapper()
         {
-            if (mFence)
-                mFence->drop();
         }
 
         GPUEventWrapper& operator=(const GPUEventWrapper& other) = delete;
-        inline GPUEventWrapper& operator=(GPUEventWrapper&& other)
+        inline GPUEventWrapper& operator=(GPUEventWrapper&& other) noexcept
         {
-            if (mFence)
-                mFence->drop();
-            mFence = other.mFence;
-            other.mFence = nullptr;
+            mFence.operator=(other.mFence);
             return *this;
         }
 
@@ -130,7 +126,7 @@ class GPUEventWrapper : public core::Uncopyable
         }
         inline bool operator<(const GPUEventWrapper& other)
         {
-            return mFence<other.mFence;
+            return mFence.get()<other.mFence.get();
         }
 };
 

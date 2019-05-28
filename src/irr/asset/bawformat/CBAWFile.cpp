@@ -269,7 +269,7 @@ MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::legacyv0::MeshDa
             );
     }
     for (uint32_t i = 0u; i < EVAI_COUNT; ++i)
-        attrStride[i] = _v0blob.attrStride[i];
+        attrStride[i] = static_cast<uint32_t>(_v0blob.attrStride[i]); // calm the compiler down, this is old code.
     for (uint32_t i = 0u; i < EVAI_COUNT; ++i)
         attrOffset[i] = _v0blob.attrOffset[i];
     for (uint32_t i = 0u; i < EVAI_COUNT; ++i)

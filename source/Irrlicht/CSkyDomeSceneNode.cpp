@@ -39,7 +39,7 @@ CSkyDomeSceneNode::CSkyDomeSceneNode(video::IVirtualTexture* sky, uint32_t horiR
 	  TexturePercentage(texturePercentage),
 	  SpherePercentage(spherePercentage), Radius(radius)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CSkyDomeSceneNode");
 	#endif
 
@@ -64,7 +64,7 @@ CSkyDomeSceneNode::CSkyDomeSceneNode(CSkyDomeSceneNode* other,
 	  TexturePercentage(other->TexturePercentage),
 	  SpherePercentage(other->SpherePercentage), Radius(other->Radius)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CSkyDomeSceneNode");
 	#endif
 
@@ -186,7 +186,7 @@ void CSkyDomeSceneNode::render()
 	if (!camera || !driver)
 		return;
 
-	if ( !camera->isOrthogonal() && canProceedPastFence() )
+	if ( !camera->getProjectionMatrix().isOrthogonal() && canProceedPastFence() ) // check this actually works!
 	{
 		core::matrix4x3 mat(AbsoluteTransformation);
 		mat.setTranslation(camera->getAbsolutePosition());

@@ -45,14 +45,14 @@ COpenGLVAOSpec::~COpenGLVAOSpec()
 void COpenGLVAOSpec::setVertexAttrBuffer(IGPUBuffer* attrBuf, asset::E_VERTEX_ATTRIBUTE_ID attrId, asset::E_FORMAT format, size_t stride, size_t offset, uint32_t divisor)
 {
     if (attrId>= asset::EVAI_COUNT)
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     {
         os::Printer::log("MeshBuffer setVertexAttrBuffer attribute ID out of range!\n",ELL_ERROR);
         return;
     }
 #else
         return;
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 
     uint16_t mask = 0x1u<<attrId;
     uint16_t invMask = ~mask;

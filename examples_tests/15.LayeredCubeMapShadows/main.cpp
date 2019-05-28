@@ -38,7 +38,7 @@ private:
 };
 
 core::vector3df absoluteLightPos;
-core::matrix4 ViewProjCubeMatrices[6];
+core::matrix4SIMD ViewProjCubeMatrices[6];
 
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
@@ -106,7 +106,7 @@ public:
             services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniformLocation,mvpUniformType,1);
         if (vpcmUniformLocation!=-1)
         {
-            core::matrix4 ModelViewProjCubeMatrices[6];
+            core::matrix4SIMD ModelViewProjCubeMatrices[6];
             for (size_t i=0; i<6; i++)
                 ModelViewProjCubeMatrices[i] = core::concatenateBFollowedByA(ViewProjCubeMatrices[i],services->getVideoDriver()->getTransform(video::E4X3TS_WORLD));
             services->setShaderConstant(ModelViewProjCubeMatrices,vpcmUniformLocation,vpcmUniformType,6);
@@ -181,18 +181,17 @@ int main()
     //! Create our dummy scene-node signfying the light and lets get the view and projection matrices!
     scene::IDummyTransformationSceneNode* dummyLightNode = smgr->addDummyTransformationSceneNode();
     dummyLightNode->setPosition(core::vector3df(2.f,0.5f,2.f)*kInstanceSquareSize);
-    scene::ISceneNodeAnimator* anim = smgr->createFlyCircleAnimator(dummyLightNode->getPosition(),10.f);
-    dummyLightNode->addAnimator(anim);
-    anim->drop();
+    //scene::ISceneNodeAnimator* anim = smgr->createFlyCircleAnimator(dummyLightNode->getPosition(),10.f);
+    //dummyLightNode->addAnimator(anim);
+    //anim->drop();
 
     // could fish this proj matrix from the envMapCam, but I know better and that all of them would be equal
     // set near value to be as far as possible to increase our precision in Z-Buffer (definitely want it to be same size as the light-bulb)
     // set far value to be the range of the light (or farthest shadow caster away from the light)
     // aspect ratio and FOV must be 1 and 90 degrees to render a cube face
-    core::matrix4 ProjMatrix;
-    ProjMatrix = ProjMatrix.buildProjectionMatrixPerspectiveFovLH(core::PI*0.5f,1.f,0.1f,250.f);
-    ProjMatrix[0] = 1.f;
-    ProjMatrix[5] = -1.f;
+    core::matrix4SIMD ProjMatrix = ProjMatrix.buildProjectionMatrixPerspectiveFovRH(core::PI*0.5f,1.f,0.1f,250.f);
+    ProjMatrix(0,0) = 1.f;
+    ProjMatrix(1,1) = 1.f;
     core::matrix4x3 ViewMatricesWithoutTranslation[6];
     for (size_t i=0; i<6; i++)
     {
@@ -200,13 +199,7 @@ int main()
         core::vector3df lookat[6] = {core::vector3df( 1, 0, 0),core::vector3df(-1, 0, 0),core::vector3df( 0, 1, 0),core::vector3df( 0,-1, 0),core::vector3df( 0, 0, 1),core::vector3df( 0, 0,-1)};
         core::vector3df up[6] = {core::vector3df( 0, 1, 0),core::vector3df( 0, 1, 0),core::vector3df( 0, 0, -1),core::vector3df( 0, 0, 1),core::vector3df( 0, 1, 0),core::vector3df( 0, 1, 0)};
 
-        scene::ICameraSceneNode* envMapCam = smgr->addCameraSceneNode();
-        envMapCam->setTarget(lookat[i]);
-        envMapCam->setUpVector(up[i]);
-        envMapCam->OnAnimate(0);
-        envMapCam->render();
-        ViewMatricesWithoutTranslation[i] = envMapCam->getViewMatrix();
-        envMapCam->remove();
+        ViewMatricesWithoutTranslation[i].buildCameraLookAtMatrixLH(core::vector3df(),lookat[i],up[i]);
     }
 
 
@@ -223,7 +216,7 @@ int main()
     asset::ICPUTexture* wallTexture = static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/wall.jpg", lparams));
 
 	scene::ICameraSceneNode* camera =
-		smgr->addCameraSceneNodeFPS(0,100.0f,0.0001f);
+		smgr->addCameraSceneNodeFPS(0,180.0f,0.01f);
 	camera->setPosition(core::vector3df(-4,10,0));
 	camera->setTarget(core::vector3df(0,0,0));
 	camera->setNearValue(0.01f);
@@ -261,6 +254,7 @@ int main()
 				anode->setPosition(core::vector3df(x, 0.f, z)*4.f);
 				anode->setAnimationSpeed(18.f*float(x + 1 + (z + 1)*kInstanceSquareSize) / float(kInstanceSquareSize*kInstanceSquareSize));
 				anode->setMaterialType(skinnedMaterialType);
+				anode->setMaterialTexture(1, cubeMap);
 				anode->setMaterialTexture(3, anode->getBonePoseTBO());
 			}
         fastestNode = anode;
@@ -272,12 +266,11 @@ int main()
 	float lastFastestMeshFrameNr = -1.f;
 
 	while(device->run()&&(!quit))
-	//if (device->isWindowActive())
 	{
 		driver->beginScene(true, true, video::SColor(255,255,255,255) );
 
 		//! Animate first
-		smgr->getRootSceneNode()->OnAnimate(ITimer::getRealTime());
+		smgr->getRootSceneNode()->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
 
 		// without this optimization FPS is 400 instead of 1000 FPS
 		if (fastestNode->getFrameNr()!=lastFastestMeshFrameNr)
@@ -300,7 +293,7 @@ int main()
             }
 
             driver->setRenderTarget(fbo,true);
-            driver->clearZBuffer();
+            driver->clearZBuffer(0.f);
             for (size_t i=0; i<6; i++)
             {
                 matrix4x3 viewMatModified(ViewMatricesWithoutTranslation[i]);

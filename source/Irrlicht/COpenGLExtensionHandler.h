@@ -8,6 +8,8 @@
 #include "IrrCompileConfig.h"
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
+#define _IRR_OPENGL_USE_EXTPOINTER_
+
 #include "IMaterialRendererServices.h"
 #include "irr/core/Types.h"
 #include "irr/macros.h"
@@ -80,9 +82,11 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_APPLE_vertex_program_evaluators",
 	"GL_APPLE_ycbcr_422",
 	"GL_ARB_base_instance",
+	"GL_ARB_bindless_texture",
 	"GL_ARB_buffer_storage",
 	"GL_ARB_blend_func_extended",
 	"GL_ARB_cl_event",
+	"GL_ARB_clip_control",
 	"GL_ARB_color_buffer_float",
 	"GL_ARB_compatibility",
 	"GL_ARB_compressed_texture_pixel_storage",
@@ -109,8 +113,9 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_ARB_fragment_shader_interlock",
 	"GL_ARB_framebuffer_object",
 	"GL_ARB_framebuffer_sRGB",
-	"GL_ARB_get_program_binary",
 	"GL_ARB_geometry_shader4",
+	"GL_ARB_get_program_binary",
+	"GL_ARB_get_texture_sub_image",
 	"GL_ARB_gpu_shader5",
 	"GL_ARB_gpu_shader_fp64",
 	"GL_ARB_half_float_pixel",
@@ -484,7 +489,6 @@ static const char* const OpenGLFeatureStrings[] = {
     "GL_KHR_texture_compression_astc_hdr",
     "GL_KHR_texture_compression_astc_ldr",
 	//"GLX_EXT_swap_control_tear",
-	// unofficial stuff
 	"GL_NVX_gpu_memory_info"
 };
 
@@ -527,8 +531,10 @@ class COpenGLExtensionHandler
 		IRR_APPLE_vertex_program_evaluators,
 		IRR_APPLE_ycbcr_422,
 		IRR_ARB_base_instance,
+		IRR_ARB_bindless_texture,
 		IRR_ARB_buffer_storage,
 		IRR_ARB_blend_func_extended,
+		IRR_ARB_clip_control,
 		IRR_ARB_cl_event,
 		IRR_ARB_color_buffer_float,
 		IRR_ARB_compatibility,
@@ -558,6 +564,7 @@ class COpenGLExtensionHandler
 		IRR_ARB_framebuffer_sRGB,
 		IRR_ARB_geometry_shader4,
 		IRR_ARB_get_program_binary,
+		IRR_ARB_get_texture_sub_image,
 		IRR_ARB_gpu_shader5,
 		IRR_ARB_gpu_shader_fp64,
 		IRR_ARB_half_float_pixel,
@@ -936,9 +943,6 @@ class COpenGLExtensionHandler
 	};
 
 
-//#if _DEBUG
-//#define OPENGL_LEAK_DEBUG
-//#endif // _DEBUG
 
 	static core::LeakDebugger bufferLeaker;
 	static core::LeakDebugger textureLeaker;
@@ -1037,12 +1041,15 @@ class COpenGLExtensionHandler
     static void extGlGetInteger64v(GLenum pname, GLint64* data);
     static void extGlGetIntegeri_v(GLenum pname, GLuint index, GLint* data);
     static void extGlProvokingVertex(GLenum provokeMode);
+    static void extGlClipControl(GLenum origin, GLenum depth);
+
     //
     static GLsync extGlFenceSync(GLenum condition, GLbitfield flags);
     static void extGlDeleteSync(GLsync sync);
     static GLenum extGlClientWaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout);
     static void extGlWaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout);
 
+    // the above function definitions can stay, the rest towards the bottom are up for review
 	// public access to the (loaded) extensions.
 	static void extGlActiveTexture(GLenum target);
     static void extGlBindTextures(const GLuint& first, const GLsizei& count, const GLuint* textures, const GLenum* targets);
@@ -1058,6 +1065,10 @@ class COpenGLExtensionHandler
     static void extGlTextureStorage2DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations);
     static void extGlTextureStorage3DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLboolean fixedsamplelocations);
     //texture update functions
+	static void extGlGetTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLsizei bufSize, void* pixels);
+	static void extGlGetCompressedTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLsizei bufSize, void* pixels);
+	static void extGlGetTextureImage(GLuint texture, GLenum target, GLint level, GLenum format, GLenum type, GLsizei bufSizeHint, void* pixels);
+	static void extGlGetCompressedTextureImage(GLuint texture, GLenum target, GLint level, GLsizei bufSizeHint, void* pixels);
     static void extGlTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type, const void *pixels);
     static void extGlTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const void *pixels);
     static void extGlTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void *pixels);
@@ -1109,10 +1120,6 @@ class COpenGLExtensionHandler
 	static void extGlProgramUniform2fv(GLuint program, GLint loc, GLsizei count, const GLfloat *v);
 	static void extGlProgramUniform3fv(GLuint program, GLint loc, GLsizei count, const GLfloat *v);
 	static void extGlProgramUniform4fv(GLuint program, GLint loc, GLsizei count, const GLfloat *v);
-	static void extGlProgramUniform1bv(GLuint program, GLint loc, GLsizei count, const bool *v);
-	static void extGlProgramUniform2bv(GLuint program, GLint loc, GLsizei count, const bool *v);
-	static void extGlProgramUniform3bv(GLuint program, GLint loc, GLsizei count, const bool *v);
-	static void extGlProgramUniform4bv(GLuint program, GLint loc, GLsizei count, const bool *v);
 	static void extGlProgramUniform1iv(GLuint program, GLint loc, GLsizei count, const GLint *v);
 	static void extGlProgramUniform2iv(GLuint program, GLint loc, GLsizei count, const GLint *v);
 	static void extGlProgramUniform3iv(GLuint program, GLint loc, GLsizei count, const GLint *v);
@@ -1272,7 +1279,7 @@ class COpenGLExtensionHandler
 	// the global feature array
 	static bool FeatureAvailable[IRR_OpenGL_Feature_Count];
 
-#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
+
     //
     static PFNGLISENABLEDIPROC pGlIsEnabledi;
     static PFNGLENABLEIPROC pGlEnablei;
@@ -1283,6 +1290,7 @@ class COpenGLExtensionHandler
     static PFNGLGETINTEGERI_VPROC pGlGetIntegeri_v;
     static PFNGLGETSTRINGIPROC pGlGetStringi;
     static PFNGLPROVOKINGVERTEXPROC pGlProvokingVertex;
+    static PFNGLCLIPCONTROLPROC pGlClipControl;
 
     //fences
     static PFNGLFENCESYNCPROC pGlFenceSync;
@@ -1315,6 +1323,13 @@ class COpenGLExtensionHandler
     static PFNGLTEXTUREBUFFERRANGEEXTPROC pGlTextureBufferRangeEXT;
     static PFNGLTEXTURESTORAGE2DMULTISAMPLEEXTPROC pGlTextureStorage2DMultisampleEXT;
     static PFNGLTEXTURESTORAGE3DMULTISAMPLEEXTPROC pGlTextureStorage3DMultisampleEXT;
+	static PFNGLGETTEXTURESUBIMAGEPROC pGlGetTextureSubImage;
+	static PFNGLGETCOMPRESSEDTEXTURESUBIMAGEPROC pGlGetCompressedTextureSubImage;
+	static PFNGLGETTEXTUREIMAGEPROC pGlGetTextureImage;
+	static PFNGLGETTEXTUREIMAGEEXTPROC pGlGetTextureImageEXT;
+	static PFNGLGETCOMPRESSEDTEXTUREIMAGEPROC pGlGetCompressedTextureImage;
+	static PFNGLGETCOMPRESSEDTEXTUREIMAGEEXTPROC pGlGetCompressedTextureImageEXT;
+	static PFNGLGETCOMPRESSEDTEXIMAGEPROC pGlGetCompressedTexImage;
     static PFNGLTEXSUBIMAGE3DPROC pGlTexSubImage3D;
     static PFNGLMULTITEXSUBIMAGE1DEXTPROC pGlMultiTexSubImage1DEXT;
     static PFNGLMULTITEXSUBIMAGE2DEXTPROC pGlMultiTexSubImage2DEXT;
@@ -1408,7 +1423,7 @@ class COpenGLExtensionHandler
     static PFNGLPOINTPARAMETERFVPROC pGlPointParameterfv;
     static PFNGLBINDPROGRAMPIPELINEPROC pGlBindProgramPipeline;
 
-	//Criss
+	// Compute
 	static PFNGLMEMORYBARRIERPROC pGlMemoryBarrier;
 	static PFNGLDISPATCHCOMPUTEPROC pGlDispatchCompute;
 	static PFNGLDISPATCHCOMPUTEINDIRECTPROC pGlDispatchComputeIndirect;
@@ -1599,11 +1614,13 @@ class COpenGLExtensionHandler
     static PFNGLBLENDEQUATIONEXTPROC pGlBlendEquationEXT;
     static PFNGLBLENDEQUATIONPROC pGlBlendEquation;
 
+    // the following can stay also
     static PFNGLDEBUGMESSAGECONTROLPROC pGlDebugMessageControl;
     static PFNGLDEBUGMESSAGECONTROLARBPROC pGlDebugMessageControlARB;
     static PFNGLDEBUGMESSAGECALLBACKPROC pGlDebugMessageCallback;
     static PFNGLDEBUGMESSAGECALLBACKARBPROC pGlDebugMessageCallbackARB;
 
+    // os specific stuff for swapchain
     #if defined(WGL_EXT_swap_control)
     static PFNWGLSWAPINTERVALEXTPROC pWglSwapIntervalEXT;
     #endif
@@ -1616,7 +1633,6 @@ class COpenGLExtensionHandler
     #if defined(GLX_MESA_swap_control)
     static PFNGLXSWAPINTERVALMESAPROC pGlxSwapIntervalMESA;
     #endif
-#endif
 protected:
 	// constructor
 	COpenGLExtensionHandler();
@@ -1635,115 +1651,62 @@ inline bool COpenGLExtensionHandler::extGlIsEnabledi(GLenum cap, GLuint index)
 }
 inline void COpenGLExtensionHandler::extGlEnablei(GLenum cap, GLuint index)
 {
-    return pGlEnablei(cap,index);
+    pGlEnablei(cap,index);
 }
 inline void COpenGLExtensionHandler::extGlDisablei(GLenum cap, GLuint index)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlDisablei)
-        return pGlDisablei(cap,index);
-#else
-    return glDisablei(cap,index);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    pGlDisablei(cap,index);
 }
 inline void COpenGLExtensionHandler::extGlGetBooleani_v(GLenum pname, GLuint index, GLboolean* data)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlGetBooleani_v)
-        return pGlGetBooleani_v(pname,index,data);
-#else
-    return glGetBooleani_v(pname,index,data);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    pGlGetBooleani_v(pname,index,data);
 }
 inline void COpenGLExtensionHandler::extGlGetFloati_v(GLenum pname, GLuint index, float* data)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlGetFloati_v)
-        return pGlGetFloati_v(pname,index,data);
-#else
-    return glGetFloati_v(pname,index,data);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    pGlGetFloati_v(pname,index,data);
 }
 inline void COpenGLExtensionHandler::extGlGetInteger64v(GLenum pname, GLint64* data)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlGetInteger64v)
-        return pGlGetInteger64v(pname, data);
-#else
-    return glGetIntegeri_v(pname, index, data);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+	pGlGetInteger64v(pname, data);
 }
 inline void COpenGLExtensionHandler::extGlGetIntegeri_v(GLenum pname, GLuint index, GLint* data)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlGetIntegeri_v)
-        return pGlGetIntegeri_v(pname,index,data);
-#else
-    return glGetIntegeri_v(pname,index,data);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    pGlGetIntegeri_v(pname,index,data);
 }
 inline void COpenGLExtensionHandler::extGlProvokingVertex(GLenum provokeMode)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlProvokingVertex)
-        return pGlProvokingVertex(provokeMode);
-#else
-    return glProvokingVertex(provokeMode);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+    pGlProvokingVertex(provokeMode);
+}
+inline void COpenGLExtensionHandler::extGlClipControl(GLenum origin, GLenum depth)
+{
+	pGlClipControl(origin,depth);
 }
 
 
 
 inline GLsync COpenGLExtensionHandler::extGlFenceSync(GLenum condition, GLbitfield flags)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlFenceSync)
-        return pGlFenceSync(condition,flags);
-    return NULL;
-#else
-    return glFenceSync(condition,flags);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+	return pGlFenceSync(condition,flags);
 }
 
 inline void COpenGLExtensionHandler::extGlDeleteSync(GLsync sync)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlDeleteSync)
-        pGlDeleteSync(sync);
-#else
-    glDeleteSync(sync);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+	pGlDeleteSync(sync);
 }
 
 inline GLenum COpenGLExtensionHandler::extGlClientWaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlClientWaitSync)
-        return pGlClientWaitSync(sync,flags,timeout);
-    return GL_WAIT_FAILED;
-#else
-    return glClientWaitSync(sync,flags,timeout);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+	return pGlClientWaitSync(sync,flags,timeout);
 }
 
 inline void COpenGLExtensionHandler::extGlWaitSync(GLsync sync, GLbitfield flags, GLuint64 timeout)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    if (pGlWaitSync)
-        pGlWaitSync(sync,flags,timeout);
-#else
-    glWaitSync(sync,flags,timeout);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+	pGlWaitSync(sync,flags,timeout);
 }
 
-inline void COpenGLExtensionHandler::extGlActiveTexture(GLenum target)
+inline void COpenGLExtensionHandler::extGlActiveTexture(GLenum target) // kill this function in favour of multibind (but need to upgrade OpenGL tracker)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlActiveTexture)
-		pGlActiveTexture(target);
-#else
-	glActiveTexture(target);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+	pGlActiveTexture(target);
 }
 
 inline void COpenGLExtensionHandler::extGlBindTextures(const GLuint& first, const GLsizei& count, const GLuint* textures, const GLenum* targets)
@@ -1754,14 +1717,7 @@ inline void COpenGLExtensionHandler::extGlBindTextures(const GLuint& first, cons
                                         GL_TEXTURE_CUBE_MAP_ARRAY,GL_TEXTURE_2D_MULTISAMPLE,GL_TEXTURE_2D_MULTISAMPLE_ARRAY}; // GL 4.x
 
     if (Version>=440||FeatureAvailable[IRR_ARB_multi_bind])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlBindTextures)
-            pGlBindTextures(first,count,textures);
-#else
-        glBindTextures(first,count,textures);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
+		pGlBindTextures(first,count,textures);
     else
     {
         int32_t activeTex = 0;
@@ -1772,12 +1728,7 @@ inline void COpenGLExtensionHandler::extGlBindTextures(const GLuint& first, cons
             GLuint texture = textures ? textures[i]:0;
 
             GLuint unit = first+i;
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-            if (pGlActiveTexture)
-                pGlActiveTexture(GL_TEXTURE0+unit);
-#else
-            glActiveTexture(GL_TEXTURE0+unit);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+			pGlActiveTexture(GL_TEXTURE0+unit);
 
             if (texture)
                 glBindTexture(targets[i],texture);
@@ -1788,65 +1739,30 @@ inline void COpenGLExtensionHandler::extGlBindTextures(const GLuint& first, cons
             }
         }
 
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlActiveTexture)
-            pGlActiveTexture(activeTex);
-#else
-        glActiveTexture(activeTex);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+		pGlActiveTexture(activeTex);
     }
 }
 
 inline void COpenGLExtensionHandler::extGlCreateTextures(GLenum target, GLsizei n, GLuint *textures)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlCreateTextures)
-            pGlCreateTextures(target,n,textures);
-        else if (textures)
-            memset(textures,0,n*sizeof(GLuint));
-#else
-        glCreateTextures(target,n,textures);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
+		pGlCreateTextures(target,n,textures);
     else
-    {
         glGenTextures(n,textures);
-    }
 }
 
 inline void COpenGLExtensionHandler::extGlTextureBuffer(GLuint texture, GLenum internalformat, GLuint buffer)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlTextureBuffer)
-            pGlTextureBuffer(texture,internalformat,buffer);
-#else
-        glTextureBuffer(texture,internalformat,buffer);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
+		pGlTextureBuffer(texture,internalformat,buffer);
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlTextureBufferEXT)
-            pGlTextureBufferEXT(texture,GL_TEXTURE_BUFFER,internalformat,buffer);
-#else
-        glTextureBufferEXT(texture,GL_TEXTURE_BUFFER,internalformat,buffer);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
+		pGlTextureBufferEXT(texture,GL_TEXTURE_BUFFER,internalformat,buffer);
     else
     {
         GLint bound;
         glGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &bound);
         glBindTexture(GL_TEXTURE_BUFFER, texture);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlTexBuffer)
-            pGlTexBuffer(GL_TEXTURE_BUFFER,internalformat,buffer);
-#else
-        glTexBuffer(GL_TEXTURE_BUFFER,internalformat,buffer);
-#endif // _IRR_OPENGL_USE_EXTPOINTER
+		pGlTexBuffer(GL_TEXTURE_BUFFER,internalformat,buffer);
         glBindTexture(GL_TEXTURE_BUFFER, bound);
     }
 }
@@ -1988,28 +1904,10 @@ inline void COpenGLExtensionHandler::extGlTextureStorage2D(GLuint texture, GLenu
 inline void COpenGLExtensionHandler::extGlTextureStorage3D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlTextureStorage3D)
-            pGlTextureStorage3D(texture,levels,internalformat,width,height,depth);
-#else
-        glTextureStorage3D(texture,levels,internalformat,width,height,depth);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
+		pGlTextureStorage3D(texture,levels,internalformat,width,height,depth);
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlTextureStorage3DEXT)
-            pGlTextureStorage3DEXT(texture,target,levels,internalformat,width,height,depth);
-#else
-        glTextureStorage3DEXT(texture,target,levels,internalformat,width,height,depth);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    else if (pGlTexStorage3D)
-#else
+		pGlTextureStorage3DEXT(texture,target,levels,internalformat,width,height,depth);
     else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         switch (target)
@@ -2028,11 +1926,7 @@ inline void COpenGLExtensionHandler::extGlTextureStorage3D(GLuint texture, GLenu
                 return;
         }
         glBindTexture(target, texture);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlTexStorage3D(target,levels,internalformat,width,height,depth);
-#else
-        glTexStorage3D(target,levels,internalformat,width,height,depth);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
         glBindTexture(target, bound);
     }
 }
@@ -2040,28 +1934,10 @@ inline void COpenGLExtensionHandler::extGlTextureStorage3D(GLuint texture, GLenu
 inline void COpenGLExtensionHandler::extGlTextureStorage2DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlTextureStorage2DMultisample)
-            pGlTextureStorage2DMultisample(texture,samples,internalformat,width,height,fixedsamplelocations);
-#else
-        glTextureStorage2DMultisample(texture,samples,internalformat,width,height,fixedsamplelocations);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
+		pGlTextureStorage2DMultisample(texture,samples,internalformat,width,height,fixedsamplelocations);
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlTextureStorage2DMultisampleEXT)
-            pGlTextureStorage2DMultisampleEXT(texture,target,samples,internalformat,width,height,fixedsamplelocations);
-#else
-        glTextureStorage2DMultisampleEXT(texture,target,samples,internalformat,width,height,fixedsamplelocations);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    else if (pGlTexStorage2DMultisample)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+		pGlTextureStorage2DMultisampleEXT(texture,target,samples,internalformat,width,height,fixedsamplelocations);
+	else
     {
         GLint bound;
         if (target!=GL_TEXTURE_2D_MULTISAMPLE)
@@ -2072,39 +1948,17 @@ inline void COpenGLExtensionHandler::extGlTextureStorage2DMultisample(GLuint tex
         else
             glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &bound);
         glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, texture);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE,samples,internalformat,width,height,fixedsamplelocations);
-#else
-        glTexStorage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE,samples,internalformat,width,height,fixedsamplelocations);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
         glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, bound);
     }
 }
 inline void COpenGLExtensionHandler::extGlTextureStorage3DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLboolean fixedsamplelocations)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlTextureStorage3DMultisample)
-            pGlTextureStorage3DMultisample(texture,samples,internalformat,width,height,depth,fixedsamplelocations);
-#else
-        glTextureStorage3DMultisample(texture,samples,internalformat,width,height,depth,fixedsamplelocations);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
+		pGlTextureStorage3DMultisample(texture,samples,internalformat,width,height,depth,fixedsamplelocations);
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlTextureStorage3DMultisampleEXT)
-            pGlTextureStorage3DMultisampleEXT(texture,target,samples,internalformat,width,height,depth,fixedsamplelocations);
-#else
-        glTextureStorage3DMultisampleEXT(texture,target,samples,internalformat,width,height,depth,fixedsamplelocations);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    else if (pGlTexStorage3DMultisample)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
+		pGlTextureStorage3DMultisampleEXT(texture,target,samples,internalformat,width,height,depth,fixedsamplelocations);
+	else
     {
         GLint bound;
         if (target!=GL_TEXTURE_2D_MULTISAMPLE_ARRAY)
@@ -2115,35 +1969,137 @@ inline void COpenGLExtensionHandler::extGlTextureStorage3DMultisample(GLuint tex
         else
             glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &bound);
         glBindTexture(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, texture);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlTexStorage3DMultisample(GL_TEXTURE_2D_MULTISAMPLE_ARRAY,samples,internalformat,width,height,depth,fixedsamplelocations);
-#else
-        glTexStorage3DMultisample(GL_TEXTURE_2D_MULTISAMPLE_ARRAY,samples,internalformat,width,height,depth,fixedsamplelocations);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
         glBindTexture(GL_TEXTURE_2D_MULTISAMPLE_ARRAY, bound);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlGetTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLsizei bufSize, void* pixels)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_get_texture_sub_image])
+		pGlGetTextureSubImage(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, bufSize, pixels);
+#ifdef _IRR_DEBUG
+	else
+		os::Printer::log("EDF_GET_TEXTURE_SUB_IMAGE Not Available!\n", ELL_ERROR);
+#endif // _IRR_DEBUG
+}
+
+inline void COpenGLExtensionHandler::extGlGetCompressedTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLsizei bufSize, void* pixels)
+{
+	if (Version >= 450 || FeatureAvailable[IRR_ARB_get_texture_sub_image])
+		extGlGetCompressedTextureSubImage(texture, level, xoffset, yoffset, zoffset, width, height, depth, bufSize, pixels);
+#ifdef _IRR_DEBUG
+	else
+		os::Printer::log("EDF_GET_TEXTURE_SUB_IMAGE Not Available!\n", ELL_ERROR);
+#endif // _IRR_DEBUG
+}
+
+inline void COpenGLExtensionHandler::extGlGetTextureImage(GLuint texture, GLenum target, GLint level, GLenum format, GLenum type, GLsizei bufSizeHint, void* pixels)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+		pGlGetTextureImage(texture, level, format, type, bufSizeHint, pixels);
+	else if (FeatureAvailable[IRR_EXT_direct_state_access])
+		pGlGetTextureImageEXT(texture, target, level, format, type, pixels);
+    else
+    {
+        GLint bound = 0;
+        switch (target)
+        {
+            case GL_TEXTURE_1D:
+                glGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
+                break;
+			case GL_TEXTURE_1D_ARRAY:
+				glGetIntegerv(GL_TEXTURE_BINDING_1D_ARRAY, &bound);
+				break;
+			case GL_TEXTURE_2D:
+				glGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+				break;
+			case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+			case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
+			case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+			case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
+			case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+			case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
+			case GL_TEXTURE_CUBE_MAP:
+				glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+				break;
+			case GL_TEXTURE_RECTANGLE:
+				glGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &bound);
+				break;
+			case GL_TEXTURE_2D_ARRAY:
+				glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+				break;
+			case GL_TEXTURE_CUBE_MAP_ARRAY:
+				glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
+				break;
+			case GL_TEXTURE_3D:
+				glGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+				break;
+            default:
+				break;
+        }
+        glBindTexture(target, texture);
+		glGetTexImage(target, level, format, type, pixels);
+        glBindTexture(target, bound);
+    }
+}
+
+inline void COpenGLExtensionHandler::extGlGetCompressedTextureImage(GLuint texture, GLenum target, GLint level, GLsizei bufSizeHint, void* pixels)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+		pGlGetCompressedTextureImage(texture, level, bufSizeHint, pixels);
+	else if (FeatureAvailable[IRR_EXT_direct_state_access])
+		pGlGetCompressedTextureImageEXT(texture, target, level, pixels);
+    else
+    {
+        GLint bound = 0;
+        switch (target)
+        {
+            case GL_TEXTURE_1D:
+                glGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
+                break;
+			case GL_TEXTURE_1D_ARRAY:
+				glGetIntegerv(GL_TEXTURE_BINDING_1D_ARRAY, &bound);
+				break;
+			case GL_TEXTURE_2D:
+				glGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+				break;
+			case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+			case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
+			case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+			case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
+			case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+			case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
+			case GL_TEXTURE_CUBE_MAP:
+				glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+				break;
+			case GL_TEXTURE_RECTANGLE:
+				glGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &bound);
+				break;
+			case GL_TEXTURE_2D_ARRAY:
+				glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+				break;
+			case GL_TEXTURE_CUBE_MAP_ARRAY:
+				glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
+				break;
+			case GL_TEXTURE_3D:
+				glGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+				break;
+            default:
+				break;
+        }
+        glBindTexture(target, texture);
+		pGlGetCompressedTexImage(target, level, pixels);
+        glBindTexture(target, bound);
     }
 }
 
 inline void COpenGLExtensionHandler::extGlTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type, const void *pixels)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlTextureSubImage1D)
-            pGlTextureSubImage1D(texture, level, xoffset, width,format, type, pixels);
-#else
-        glTextureSubImage1D(texture, level, xoffset, width,format, type, pixels));
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
+		pGlTextureSubImage1D(texture, level, xoffset, width,format, type, pixels);
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlTextureSubImage1DEXT)
-            pGlTextureSubImage1DEXT(texture, target, level, xoffset, width,format, type, pixels);
-#else
-        glTextureSubImage1DEXT(texture, target, level, xoffset, width,format, type, pixels));
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
+		pGlTextureSubImage1DEXT(texture, target, level, xoffset, width,format, type, pixels);
     else
     {
         GLint bound;
@@ -2164,23 +2120,9 @@ inline void COpenGLExtensionHandler::extGlTextureSubImage1D(GLuint texture, GLen
 inline void COpenGLExtensionHandler::extGlTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const void *pixels)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlTextureSubImage2D)
-            pGlTextureSubImage2D(texture, level, xoffset, yoffset,width, height,format, type, pixels);
-#else
-        glTextureSubImage2D(texture, level, xoffset, yoffset,width, height,format, type, pixels));
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
+		pGlTextureSubImage2D(texture, level, xoffset, yoffset,width, height,format, type, pixels);
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlTextureSubImage2DEXT)
-            pGlTextureSubImage2DEXT(texture, target, level, xoffset, yoffset,width, height,format, type, pixels);
-#else
-        glTextureSubImage2DEXT(texture, target, level, xoffset, yoffset,width, height,format, type, pixels));
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
+		pGlTextureSubImage2DEXT(texture, target, level, xoffset, yoffset,width, height,format, type, pixels);
     else
     {
         GLint bound;
@@ -2218,28 +2160,10 @@ inline void COpenGLExtensionHandler::extGlTextureSubImage2D(GLuint texture, GLen
 inline void COpenGLExtensionHandler::extGlTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void *pixels)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlTextureSubImage3D)
-            pGlTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
-#else
-        glTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels));
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
+		pGlTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-        if (pGlTextureSubImage3DEXT)
-            pGlTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
-#else
-        glTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels));
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
-    }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-    else if (pGlTexSubImage3D)
-#else
+		pGlTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
     else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         switch (target)
@@ -2264,11 +2188,7 @@ inline void COpenGLExtensionHandler::extGlTextureSubImage3D(GLuint texture, GLen
                 return;
         }
         glBindTexture(target, texture);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
-#else
-        glTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
         glBindTexture(target, bound);
     }
 }
@@ -4998,68 +4918,27 @@ inline void COpenGLExtensionHandler::extGlDisableIndexed(GLenum target, GLuint i
 
 inline void COpenGLExtensionHandler::extGlBlendFuncIndexed(GLuint buf, GLenum src, GLenum dst)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (FeatureAvailable[IRR_ARB_draw_buffers_blend] && pGlBlendFunciARB)
-		pGlBlendFunciARB(buf, src, dst);
-	else if (FeatureAvailable[IRR_AMD_draw_buffers_blend] && pGlBlendFuncIndexedAMD)
-		pGlBlendFuncIndexedAMD(buf, src, dst);
-#elif defined(GL_ARB_draw_buffers_blend)
-	glBlendFunciARB(buf, src, dst);
-#elif defined(GL_AMD_draw_buffers_blend)
-	glBlendFuncIndexedAMD(buf, src, dst);
-#else
-	os::Printer::log("glBlendFuncIndexed not supported", ELL_ERROR);
-#endif
+	pGlBlendFunciARB(buf, src, dst);
 }
 
 inline void COpenGLExtensionHandler::extGlBlendEquationIndexed(GLuint buf, GLenum mode)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (FeatureAvailable[IRR_ARB_draw_buffers_blend] && pGlBlendEquationiARB)
-		pGlBlendEquationiARB(buf, mode);
-	else if (FeatureAvailable[IRR_AMD_draw_buffers_blend] && pGlBlendEquationIndexedAMD)
-		pGlBlendEquationIndexedAMD(buf, mode);
-#elif defined(GL_ARB_draw_buffers_blend)
-	glBlendEquationiARB(buf, mode);
-#elif defined(GL_AMD_draw_buffers_blend)
-	glBlendEquationIndexedAMD(buf, mode);
-#else
-	os::Printer::log("glBlendEquationIndexed not supported", ELL_ERROR);
-#endif
+	pGlBlendEquationiARB(buf, mode);
 }
 
 inline void COpenGLExtensionHandler::extGlPatchParameterfv(GLenum pname, const float* values)
 {
-#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-    if (pGlPatchParameterfv)
-        pGlPatchParameterfv(pname, values);
-#elif defined(GL_ARB_tesselation_shader)
-    glPatchParameterfv();
-#else
-	os::Printer::log("glPatchParameterfv not supported", ELL_ERROR);
-#endif
+	pGlPatchParameterfv(pname, values);
 }
 
 inline void COpenGLExtensionHandler::extGlPatchParameteri(GLenum pname, GLuint value)
 {
-#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-    if (pGlPatchParameteri)
-        pGlPatchParameteri(pname, value);
-#elif defined(GL_ARB_tesselation_shader)
-    glPatchParameteri();
-#else
-	os::Printer::log("glPatchParameteri not supported", ELL_ERROR);
-#endif
+	pGlPatchParameteri(pname, value);
 }
 
 inline void COpenGLExtensionHandler::extGlProgramParameteri(GLuint program, GLenum pname, GLint value)
 {
-#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-	if (pGlProgramParameteri)
-        pGlProgramParameteri(program, pname, value);
-#else
-    glProgramParameteri(program, pname, value);
-#endif
+	pGlProgramParameteri(program, pname, value);
 }
 
 inline void COpenGLExtensionHandler::extGlCreateQueries(GLenum target, GLsizei n, GLuint *ids)
@@ -5260,12 +5139,8 @@ inline void COpenGLExtensionHandler::extGlBeginConditionalRender(GLuint id, GLen
 
 inline void COpenGLExtensionHandler::extGlEndConditionalRender()
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlEndConditionalRender)
 		pGlEndConditionalRender();
-#else
-    glEndConditionalRender();
-#endif
 }
 
 
@@ -5275,10 +5150,10 @@ inline void COpenGLExtensionHandler::extGlTextureBarrier()
 		pGlTextureBarrier();
 	else if (FeatureAvailable[IRR_NV_texture_barrier])
 		pGlTextureBarrierNV();
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     else
         os::Printer::log("EDF_TEXTURE_BARRIER Not Available!\n",ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 }
 
 
@@ -5295,42 +5170,24 @@ inline void COpenGLExtensionHandler::extGlSwapInterval(int interval)
 	//TODO: Check GLX_EXT_swap_control and GLX_MESA_swap_control
 #ifdef GLX_SGI_swap_control
 	// does not work with interval==0
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (interval && pGlxSwapIntervalSGI)
 		pGlxSwapIntervalSGI(interval);
-#else
-	if (interval)
-		glXSwapIntervalSGI(interval);
-#endif
 #elif defined(GLX_EXT_swap_control)
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	Display *dpy = glXGetCurrentDisplay();
 	GLXDrawable drawable = glXGetCurrentDrawable();
 
 	if (pGlxSwapIntervalEXT)
 		pGlxSwapIntervalEXT(dpy, drawable, interval);
-#else
-    glXSwapIntervalEXT(dpy, drawable, interval);
-#endif
 #elif defined(GLX_MESA_swap_control)
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlxSwapIntervalMESA)
 		pGlxSwapIntervalMESA(interval);
-#else
-	glXSwapIntervalMESA(interval);
-#endif
 #endif
 #endif
 }
 
 inline void COpenGLExtensionHandler::extGlBlendEquation(GLenum mode)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
-	if (pGlBlendEquation)
-		pGlBlendEquation(mode);
-#else
-	glBlendEquation(mode);
-#endif
+	pGlBlendEquation(mode);
 }
 
 inline void COpenGLExtensionHandler::extGlGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params)

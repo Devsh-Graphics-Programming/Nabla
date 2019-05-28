@@ -16,9 +16,9 @@ class EventDeferredHandlerST
         typedef std::pair<Event,Functor>                  DeferredEvent;
     protected:
         typedef core::forward_list<DeferredEvent> EventContainerType;
-        EventContainerType                                      mEvents;
-        typename EventContainerType::size_type  mEventsCount;
-        typename EventContainerType::iterator      mLastEvent;
+		uint32_t								mEventsCount;
+        EventContainerType                      mEvents;
+        typename EventContainerType::iterator	mLastEvent;
     public:
         EventDeferredHandlerST() : mEventsCount(0u)
         {
@@ -54,9 +54,9 @@ class EventDeferredHandlerST
         //! Abort does not call the operator()
         inline uint32_t abortEvent(const Event& eventToAbort)
         {
-            #ifdef _DEBUG
+            #ifdef _IRR_DEBUG
             assert(mEvents.size());
-            #endif // _DEBUG
+            #endif // _IRR_DEBUG
             std::remove_if(mEvents.begin(),mEvents.end(),[&](const DeferredEvent& x){return x.first==eventToAbort;});
             mLastEvent = ?
             return mEvents.size();

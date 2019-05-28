@@ -43,37 +43,36 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 			rows[i] = vectorSIMDf(_data + 4*i, ALIGNED);
 	}
 
-    matrix3x4SIMD& set(const matrix4x3& _retarded)
+    inline matrix3x4SIMD& set(const matrix4x3& _retarded)
     {
-        rows[0] = rows[1] = rows[2] = vectorSIMDf();
-        vectorSIMDf c3;
+        vectorSIMDf c3(0.f,0.f,0.f,1.f);
         for (size_t i = 0u; i < 3u; ++i)
             rows[i] = vectorSIMDf(&_retarded.getColumn(i).X);
-        memcpy(c3.pointer, &_retarded.getColumn(3).X, 3*4);
+        const float* rtdLastColPtr = &_retarded.getColumn(3).X;
+        std::copy(rtdLastColPtr,rtdLastColPtr+3,c3.pointer);
         core::transpose4(rows[0], rows[1], rows[2], c3);
 
         return *this;
     }
 	inline matrix4x3 getAsRetardedIrrlichtMatrix() const
 	{
-		matrix4x3 ret;
-
         vectorSIMDf c[4]{ rows[0], rows[1], rows[2] };
         core::transpose4(c);
 
+		matrix4x3 ret;
         for (size_t i = 0u; i < 3u; ++i)
             _mm_storeu_ps(&ret.getColumn(i).X, c[i].getAsRegister());
-        memcpy(&ret.getColumn(3).X, c[3].pointer, 3*4);
+        std::copy(c[3].pointer,c[3].pointer+3,&ret.getColumn(3).X);
 
 		return ret;
 	}
 
 	static inline matrix3x4SIMD concatenateBFollowedByA(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b)
 	{
-    #ifdef _DEBUG
+    #ifdef _IRR_DEBUG
         assert(is_aligned_to(&_a,_IRR_SIMD_ALIGNMENT));
         assert(is_aligned_to(&_b,_IRR_SIMD_ALIGNMENT));
-    #endif // _DEBUG
+    #endif // _IRR_DEBUG
 		__m128 r0 = _a.rows[0].getAsRegister();
 		__m128 r1 = _a.rows[1].getAsRegister();
 		__m128 r2 = _a.rows[2].getAsRegister();
@@ -85,7 +84,7 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 
 		return out;
 	}
-/* Not implemented yet
+
 	static inline matrix3x4SIMD concatenateBFollowedByAPrecisely(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b)
 	{
 		__m128d r00 = _a.halfRowAsDouble(0u, true);
@@ -100,17 +99,17 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 		const __m128i mask0011 = BUILD_MASKF(0, 0, 1, 1);
 
 		__m128 second = _mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r00, r01, _b, false));
-		out.rows[0] = vectorSIMDf(_mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r00, r01, _b, true))) | (vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011);
+		out.rows[0] = vectorSIMDf(_mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r00, r01, _b, true))) | _mm_castps_si128((vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011).getAsRegister());
 
 		second = _mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r10, r11, _b, false));
-		out.rows[1] = vectorSIMDf(_mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r10, r11, _b, true))) | (vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011);
+		out.rows[1] = vectorSIMDf(_mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r10, r11, _b, true))) | _mm_castps_si128((vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011).getAsRegister());
 
 		second = _mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r20, r21, _b, false));
-		out.rows[2] = vectorSIMDf(_mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r20, r21, _b, true))) | (vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011);
+		out.rows[2] = vectorSIMDf(_mm_cvtpd_ps(matrix3x4SIMD::doJob_d(r20, r21, _b, true))) | _mm_castps_si128((vectorSIMDf(_mm_movelh_ps(second, second)) & mask0011).getAsRegister());
 
 		return out;
 	}
-*/
+
 	inline matrix3x4SIMD& concatenateAfter(const matrix3x4SIMD& _other)
 	{
 		return *this = concatenateBFollowedByA(*this, _other);
@@ -120,7 +119,7 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 	{
 		return *this = concatenateBFollowedByA(_other, *this);
 	}
-/* Not implemented yet
+
 	inline matrix3x4SIMD& concatenateAfterPrecisely(const matrix3x4SIMD& _other)
 	{
 		return *this = concatenateBFollowedByAPrecisely(*this, _other);
@@ -130,18 +129,18 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 	{
 		return *this = concatenateBFollowedByAPrecisely(_other, *this);
 	}
-*/
+
 	inline bool operator==(const matrix3x4SIMD& _other)
 	{
-		for (size_t i = 0u; i < 3u; ++i)
-			if (!((rows[i] == _other.rows[i]).all()))
-				return false;
-		return true;
+		return !(*this != _other);
 	}
 
 	inline bool operator!=(const matrix3x4SIMD& _other)
 	{
-		return !(*this == _other);
+		for (size_t i = 0u; i < 3u; ++i)
+			if ((rows[i] != _other.rows[i]).any())
+				return true;
+		return false;
 	}
 
 	inline matrix3x4SIMD& operator+=(const matrix3x4SIMD& _other)
@@ -249,62 +248,51 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 		return _mm_sqrt_ps(xmm6);
 	}
 
-	inline void transformVect(float* _out, const float* _in) const
+	inline void transformVect(vectorSIMDf& _out, const vectorSIMDf& _in) const
 	{
-		vectorSIMDf vec(_in);
-		vectorSIMDf r0 = rows[0] * vec,
-			r1 = rows[1] * vec,
-			r2 = rows[2] * vec,
-			r3;
+		vectorSIMDf r0 = rows[0] * _in,
+			r1 = rows[1] * _in,
+			r2 = rows[2] * _in;
 
-		float res[4];
-		_mm_storeu_ps(res,
-		_mm_hadd_ps(
-			_mm_hadd_ps(r0.getAsRegister(), r1.getAsRegister()),
-			_mm_hadd_ps(r2.getAsRegister(), r3.getAsRegister())
-		));
-
-		memcpy(_out, res, 3 * 4);
-	}
-	inline void transformVect(float* _in_out) const
-	{
-		float out[3];
-		transformVect(out, _in_out);
-		memcpy(_in_out, out, 3*4);
-	}
-/* wrong implementation, last component of input not taken into account
-	inline void pseudoMulWith4x1(float* _out, const float* _in) const
-	{
-		transformVect(_out, _in);
-	}
-	inline void pseudoMulWith4x1(float* _in_out) const
-	{
-		transformVect(_in_out);
-	}
-*/
-	inline void mulSub3x3WithNx1(float* _out, const float* _in) const
-	{
-		__m128i mask1110 = BUILD_MASKF(1, 1, 1, 0);
-		vectorSIMDf vec(_in);
-		vectorSIMDf r0 = (rows[0] * vec) & mask1110,
-			r1 = (rows[1] * vec) & mask1110,
-			r2 = (rows[2] * vec) & mask1110,
-			r3 = _mm_setzero_ps();
-
-		float res[4];
-		_mm_storeu_ps(res,
+		_out =
 			_mm_hadd_ps(
 				_mm_hadd_ps(r0.getAsRegister(), r1.getAsRegister()),
-				_mm_hadd_ps(r2.getAsRegister(), r3.getAsRegister())
-		));
-
-		memcpy(_out, res, 3 * 4);
+				_mm_hadd_ps(r2.getAsRegister(), _mm_setzero_ps())
+            );
 	}
-	inline void mulSub3x3WithNx1(float* _in_out) const
+	inline void transformVect(vectorSIMDf& _in_out) const
+	{
+		transformVect(_in_out, _in_out);
+	}
+
+	inline void pseudoMulWith4x1(vectorSIMDf& _out, const vectorSIMDf& _in) const
+	{
+		__m128i mask1110 = BUILD_MASKF(1, 1, 1, 0);
+	    _out = (_in&mask1110)|_mm_castps_si128(vectorSIMDf(0.f,0.f,0.f,1.f).getAsRegister());
+		transformVect(_out);
+	}
+	inline void pseudoMulWith4x1(vectorSIMDf& _in_out) const
+	{
+		pseudoMulWith4x1(_in_out,_in_out);
+	}
+
+	inline void mulSub3x3WithNx1(vectorSIMDf& _out, const vectorSIMDf& _in) const
+	{
+		__m128i mask1110 = BUILD_MASKF(1, 1, 1, 0);
+		vectorSIMDf r0 = (rows[0] * _in) & mask1110,
+			r1 = (rows[1] * _in) & mask1110,
+			r2 = (rows[2] * _in) & mask1110;
+
+		_out =
+			_mm_hadd_ps(
+				_mm_hadd_ps(r0.getAsRegister(), r1.getAsRegister()),
+				_mm_hadd_ps(r2.getAsRegister(), _mm_setzero_ps())
+            );
+	}
+	inline void mulSub3x3WithNx1(vectorSIMDf& _in_out) const
 	{
 		mulSub3x3WithNx1(_in_out, _in_out);
 	}
-	// should have a mulSub3x3 version for vectorSIMDf
 
 	inline static matrix3x4SIMD buildCameraLookAtMatrixLH(
 		const core::vectorSIMDf& position,
@@ -418,7 +406,7 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 
 		vectorSIMDf outC3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
 		core::transpose4(_out.rows[0], _out.rows[1], _out.rows[2], outC3);
-		mulSub3x3WithNx1(outC3.pointer, c3.pointer);
+		mulSub3x3WithNx1(outC3, c3);
 		outC3 = -outC3;
 		core::transpose4(_out.rows[0], _out.rows[1], _out.rows[2], outC3);
 
@@ -436,7 +424,7 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 		return false;
 	}
 
-	inline bool getSub3x3Inverse(float* _out) const //! TODO: remove
+	inline bool getSub3x3InverseTransposePaddedSIMDColumns(core::vectorSIMDf _out[3]) const
 	{
 		vectorSIMDf c0 = rows[0], c1 = rows[1], c2 = rows[2], c3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
 		core::transpose4(c0, c1, c2, c3);
@@ -448,31 +436,31 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 		if (core::iszero(d.x, FLT_MIN))
 			return false;
 
-		vectorSIMDf tmp = c1crossc2 / d;
-		memcpy(_out, tmp.pointer, 3*4);
-		tmp = (c2.crossProduct(c0)) / d;
-		memcpy(_out+3, tmp.pointer, 3*4);
-		tmp = (c0.crossProduct(c1)) / d;
-		memcpy(_out+6, tmp.pointer, 3*4);
+		_out[0] = c1crossc2 / d;
+		_out[0] = (c2.crossProduct(c0)) / d;
+		_out[0] = (c0.crossProduct(c1)) / d;
 
 		return true;
 	}
 
-	inline void setRotationCenter(const core::vectorSIMDf& _center, const core::vectorSIMDf& _translation)
-	{
-		core::vectorSIMDf r0 = rows[0] * _center;
-		core::vectorSIMDf r1 = rows[1] * _center;
-		core::vectorSIMDf r2 = rows[2] * _center;
-		core::vectorSIMDf r3(0.f, 0.f, 0.f, 1.f);
+	// TODO: Double check this!-
+    inline void setTransformationCenter(const core::vectorSIMDf& _center, const core::vectorSIMDf& _translation)
+   {
+           core::vectorSIMDf r0 = rows[0] * _center;
+           core::vectorSIMDf r1 = rows[1] * _center;
+           core::vectorSIMDf r2 = rows[2] * _center;
+           core::vectorSIMDf r3(0.f, 0.f, 0.f, 1.f);
 
-		__m128 col3 = _mm_hadd_ps(_mm_hadd_ps(r0.getAsRegister(), r1.getAsRegister()), _mm_hadd_ps(r2.getAsRegister(), r3.getAsRegister()));
-		const vectorSIMDf vcol3 = _center - _translation - col3;
+           __m128 col3 = _mm_hadd_ps(_mm_hadd_ps(r0.getAsRegister(), r1.getAsRegister()), _mm_hadd_ps(r2.getAsRegister(), r3.getAsRegister()));
+           const vectorSIMDf vcol3 = _center - _translation - col3;
 
-		for (size_t i = 0u; i < 3u; ++i)
-			rows[i].w = vcol3.pointer[i];
-	}
+           for (size_t i = 0u; i < 3u; ++i)
+                   rows[i].w = vcol3.pointer[i];
+   }
 
-	inline void buildAxisAlignedBillboard(
+
+	// TODO: Double check this!
+	static inline matrix3x4SIMD buildAxisAlignedBillboard(
 		const core::vectorSIMDf& camPos,
 		const core::vectorSIMDf& center,
 		const core::vectorSIMDf& translation,
@@ -498,9 +486,10 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 		const core::vectorSIMDf wt = vt * up.yzxx();
 		const core::vectorSIMDf vtuppca = vt * up + ca;
 
-		core::vectorSIMDf& row0 = rows[0];
-		core::vectorSIMDf& row1 = rows[1];
-		core::vectorSIMDf& row2 = rows[2];
+		matrix3x4SIMD mat;
+		core::vectorSIMDf& row0 = mat.rows[0];
+		core::vectorSIMDf& row1 = mat.rows[1];
+		core::vectorSIMDf& row2 = mat.rows[2];
 
 		row0 = vtuppca & BUILD_MASKF(1, 0, 0, 0);
 		row1 = vtuppca & BUILD_MASKF(0, 1, 0, 0);
@@ -510,7 +499,8 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 		row1 += (wt.xxyx() + vs.zxxx()*core::vectorSIMDf(-1.f, 1.f, 1.f, 1.f)) & BUILD_MASKF(1, 0, 1, 0);
 		row2 += (wt.zyxx() + vs.yxxx()*core::vectorSIMDf(1.f, -1.f, 1.f, 1.f)) & BUILD_MASKF(1, 1, 0, 0);
 
-		setRotationCenter(center, translation);
+		mat.setTransformationCenter(center, translation);
+		return mat;
 	}
 
 #undef BUILD_MASKF
@@ -571,19 +561,6 @@ inline matrix3x4SIMD concatenateBFollowedByAPrecisely(const matrix3x4SIMD& _a, c
     return matrix3x4SIMD::concatenateBFollowedByAPrecisely(_a, _b);
 }
 */
-inline plane3df transformPlane(const plane3df& _in, const matrix3x4SIMD& _mat)
-{
-    matrix3x4SIMD inv;
-    _mat.getInverse(inv);
-
-    vectorSIMDf normal(&_in.Normal.X);
-    normal.makeSafe3D();
-
-    plane3df _out;
-    _out.Normal = (inv.rows[0]*normal.xxxw()+inv.rows[1]*normal.yyyw()+inv.rows[2]*normal.zzzw()).getAsVector3df();
-    _out.D = normal.dotProductAsFloat(inv.getTranslation()) + _in.D;
-    return _out;
-}
 
 inline aabbox3df transformBoxEx(const aabbox3df& box, const matrix3x4SIMD& _mat)
 {

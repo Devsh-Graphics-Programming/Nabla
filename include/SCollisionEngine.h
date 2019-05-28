@@ -21,7 +21,7 @@ class SCollisionEngine : public AllocationOverrideDefault
 			for (size_t i=0; i<colliders.size(); i++)
 				colliders[i]->drop();
         }
-
+#if 0
 		//! Returns a 3d ray which would go through the 2d screen coodinates.
 		/**
 		@param[out] origin Start point point of the output ray
@@ -62,7 +62,7 @@ class SCollisionEngine : public AllocationOverrideDefault
             direction /= rayLen;
             return true;
         }
-
+#endif // 0
 		//! Calculates 2d screen position from a 3d position.
 		/**
 		@param pos 3d position which is to be projected on screen
@@ -85,20 +85,20 @@ class SCollisionEngine : public AllocationOverrideDefault
             dim.Width /= 2;
             dim.Height /= 2;
 
-            matrix4 trans = camera->getConcatenatedMatrix();
+            auto trans = camera->getConcatenatedMatrix();
 
-            float transformedPos[4] = { pos.X, pos.Y, pos.Z, 1.0f };
+            core::vectorSIMDf transformedPos(pos.X, pos.Y, pos.Z, 1.0f );
 
-            trans.multiplyWith1x4Matrix(transformedPos);
+            trans.transformVect(transformedPos);
 
-            if (transformedPos[3] < 0)
+            if (transformedPos.w < 0)
                 return position2d<int32_t>(-10000,-10000);
 
-            const float zDiv = transformedPos[3]==0.f  ?  1.f:reciprocal(transformedPos[3]);
+            const float zDiv = transformedPos.w==0.f  ?  1.f:reciprocal(transformedPos).w;
 
             return position2d<int32_t>(
-                        dim.Width + round32(dim.Width * (transformedPos[0] * zDiv)),
-                        dim.Height - round32(dim.Height * (transformedPos[1] * zDiv)));
+                        dim.Width + round32(dim.Width * (transformedPos.x * zDiv)),
+                        dim.Height - round32(dim.Height * (transformedPos.y * zDiv)));
 		}
 
 		//! Adds a collider

@@ -8,6 +8,7 @@
 #include "vectorSIMD.h"
 #include "coreutil.h"
 #include "irr/asset/EFormat.h"
+#include "irr/video/decodePixels.h"
 
 namespace irr
 {
@@ -297,44 +298,6 @@ namespace video
 					core::min_(getBlue() + other.getBlue(), 255u));
 		}
 
-		//! Interpolates the color with a float value to another color
-		/** \param other: Other color
-		\param d: value between 0.0f and 1.0f
-		\return Interpolated color. */
-		SColor getInterpolated(const SColor &other, float d) const
-		{
-			d = core::clamp(d, 0.f, 1.f);
-			const float inv = 1.0f - d;
-			return SColor((uint32_t)core::round32(other.getAlpha()*inv + getAlpha()*d),
-				(uint32_t)core::round32(other.getRed()*inv + getRed()*d),
-				(uint32_t)core::round32(other.getGreen()*inv + getGreen()*d),
-				(uint32_t)core::round32(other.getBlue()*inv + getBlue()*d));
-		}
-
-		//! Returns interpolated color. ( quadratic )
-		/** \param c1: first color to interpolate with
-		\param c2: second color to interpolate with
-		\param d: value between 0.0f and 1.0f. */
-		SColor getInterpolated_quadratic(const SColor& c1, const SColor& c2, float d) const
-		{
-			// this*(1-d)*(1-d) + 2 * c1 * (1-d) + c2 * d * d;
-			d = core::clamp(d, 0.f, 1.f);
-			const float inv = 1.f - d;
-			const float mul0 = inv * inv;
-			const float mul1 = 2.f * d * inv;
-			const float mul2 = d * d;
-
-			return SColor(
-					core::clamp( core::floor32(
-							getAlpha() * mul0 + c1.getAlpha() * mul1 + c2.getAlpha() * mul2 ), 0, 255 ),
-					core::clamp( core::floor32(
-							getRed()   * mul0 + c1.getRed()   * mul1 + c2.getRed()   * mul2 ), 0, 255 ),
-					core::clamp ( core::floor32(
-							getGreen() * mul0 + c1.getGreen() * mul1 + c2.getGreen() * mul2 ), 0, 255 ),
-					core::clamp ( core::floor32(
-							getBlue()  * mul0 + c1.getBlue()  * mul1 + c2.getBlue()  * mul2 ), 0, 255 ));
-		}
-
 		//! set the color by expecting data in the given format
 		/** \param data: must point to valid memory containing color information in the given format
 			\param format: tells the format in which data is available
@@ -453,6 +416,22 @@ namespace video
 
 			const float inv = 1.0f / 255.0f;
 			*this *= inv;
+		}
+		
+		inline static SColorf fromSRGB(SColorf&& input)
+		{
+			float color[3] = {input.r, input.g, input.b};
+			impl::SRGB2lin<float>(color);
+			
+			return SColorf(color[0], color[1], color[2], input.getAlpha());
+		}
+		
+		inline static SColorf toSRGB(SColorf&& input)
+		{
+			float color[3] = {input.r, input.g, input.b};
+			impl::lin2SRGB<float>(color);
+			
+			return SColorf(color[0], color[1], color[2], input.getAlpha());
 		}
 
 		//! Converts this color to a SColor without floats.

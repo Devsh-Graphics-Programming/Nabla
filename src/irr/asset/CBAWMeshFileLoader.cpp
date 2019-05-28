@@ -11,30 +11,44 @@
 #include "irr/video/SGPUMesh.h"
 #include "irr/video/CGPUSkinnedMesh.h"
 #include "os.h"
-#include "lzma/LzmaDec.h"
-#include "lz4/lz4.h"
+#include "lz4/lib/lz4.h"
 #include "IrrlichtDevice.h"
 #include "irr/asset/bawformat/legacy/CBAWLegacy.h"
 #include "CMemoryFile.h"
 
-namespace irr { namespace asset
+#undef Bool
+#include "lzma/C/LzmaDec.h"
+
+namespace irr
 {
+namespace asset
+{
+
+struct LzmaMemMngmnt
+{
+        static void *alloc(ISzAllocPtr, size_t _size) { return _IRR_ALIGNED_MALLOC(_size,_IRR_SIMD_ALIGNMENT); }
+        static void release(ISzAllocPtr, void* _addr) { _IRR_ALIGNED_FREE(_addr); }
+    private:
+        LzmaMemMngmnt() {}
+};
+
+
 CBAWMeshFileLoader::~CBAWMeshFileLoader()
 {
 }
 
 CBAWMeshFileLoader::CBAWMeshFileLoader(IrrlichtDevice* _dev) : m_device(_dev), m_sceneMgr(_dev->getSceneManager()), m_fileSystem(_dev->getFileSystem())
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	setDebugName("CBAWMeshFileLoader");
 #endif
 }
 
 asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     auto time = std::chrono::high_resolution_clock::now();
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 
 	SContext ctx{
         asset::IAssetLoader::SAssetLoadContext{
@@ -179,12 +193,12 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
 	ctx.releaseAllButThisOne(meshBlobDataIter); // call drop on all loaded objects except mesh
 
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	std::ostringstream tmpString("Time to load ");
 	tmpString.seekp(0, std::ios_base::end);
 	tmpString << "BAW file: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-time).count() << "us";
 	os::Printer::log(tmpString.str());
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 
     asset::ICPUMesh* mesh = reinterpret_cast<asset::ICPUMesh*>(retval);
     return mesh;

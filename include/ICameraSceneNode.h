@@ -7,6 +7,7 @@
 
 #include "ISceneNode.h"
 #include "IEventReceiver.h"
+#include "matrixutil.h"
 
 namespace irr
 {
@@ -29,30 +30,29 @@ namespace scene
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f,1.0f,1.0f))
-			: ISceneNode(parent, mgr, id, position, rotation, scale), IsOrthogonal(false) {}
+			: ISceneNode(parent, mgr, id, position, rotation, scale) {}
 
 		//! Sets the projection matrix of the camera.
-		/** The core::matrix4 class has some methods to build a
+		/** The matrix class has some methods to build a
 		projection matrix. e.g:
-		core::matrix4::buildProjectionMatrixPerspectiveFovLH.
+		core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH.
 		Note that the matrix will only stay as set by this method until
 		one of the following Methods are called: setNearValue,
 		setFarValue, setAspectRatio, setFOV.
+		The function will figure it out if you've set an orthogonal matrix.
 		\param projection The new projection matrix of the camera.
-		\param isOrthogonal Set this to true if the matrix is an
-		orthogonal one (e.g. from matrix4::buildProjectionMatrixOrtho).
 		*/
-		virtual void setProjectionMatrix(const core::matrix4& projection, bool isOrthogonal=false) =0;
+		virtual void setProjectionMatrix(const core::matrix4SIMD& projection) =0;
 
 		//! Gets the current projection matrix of the camera.
 		/** \return The current projection matrix of the camera. */
-		virtual const core::matrix4& getProjectionMatrix() const =0;
+		virtual const core::matrix4SIMD& getProjectionMatrix() const =0;
 
 		//! Gets the current view matrix of the camera.
 		/** \return The current view matrix of the camera. */
 		virtual const core::matrix4x3& getViewMatrix() const =0;
 
-		virtual const core::matrix4& getConcatenatedMatrix() const =0;
+		virtual const core::matrix4SIMD& getConcatenatedMatrix() const =0;
 
 		//! It is possible to send mouse and key events to the camera.
 		/** Most cameras may ignore this input, but camera scene nodes
@@ -138,12 +138,6 @@ namespace scene
 		//! Checks if the input receiver of the camera is currently enabled.
 		virtual bool isInputReceiverEnabled() const =0;
 
-		//! Checks if a camera is orthogonal.
-		virtual bool isOrthogonal() const
-		{
-			return IsOrthogonal;
-		}
-
 		//! Binds the camera scene node's rotation to its target position and vice vera, or unbinds them.
 		/** When bound, calling setRotation() will update the camera's
 		target position to be along its +Z axis, and likewise calling
@@ -158,15 +152,6 @@ namespace scene
 		//! Queries if the camera scene node's rotation and its target position are bound together.
 		/** @see bindTargetAndRotation() */
 		virtual bool getTargetAndRotationBinding(void) const =0;
-
-	protected:
-
-		void cloneMembers(ICameraSceneNode* toCopyFrom)
-		{
-			IsOrthogonal = toCopyFrom->IsOrthogonal;
-		}
-
-		bool IsOrthogonal;
 	};
 
 } // end namespace scene

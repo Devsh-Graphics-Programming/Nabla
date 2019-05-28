@@ -35,6 +35,27 @@ namespace asset
 		uint8_t PixelDepth;
 		uint8_t ImageDescriptor;
 	} PACK_STRUCT;
+	
+	// Note to maintainers: most of this (except gamma) goes unused, and the struct itself is ignored 
+	// by most TGA readers/writers. But we have to use a full struct just to store gamma information, 
+	// of course we can get around to just store gamma, but then it'd no longer be conformant to TGA standard.
+	struct STGAExtensionArea {
+		uint16_t ExtensionSize;
+		char AuthorName[41];
+		char AuthorComment[324];
+		char DateTimeStamp[12];
+		char JobID[41];
+		char JobTime[6];
+		char SoftwareID[41];
+		char SoftwareVersion[3];
+		uint32_t KeyColor;
+		float PixelAspectRatio;
+		float Gamma;
+		uint32_t ColorCorrectionOffset;
+		uint32_t PostageStampOffset;
+		uint32_t ScanlineOffset;
+		uint8_t AttributeType;
+	} PACK_STRUCT;
 
 	struct STGAFooter
 	{
@@ -42,7 +63,7 @@ namespace asset
 		uint32_t DeveloperOffset;
 		char  Signature[18];
 	} PACK_STRUCT;
-
+	
 // Default alignment
 #include "irr/irrunpack.h"
 

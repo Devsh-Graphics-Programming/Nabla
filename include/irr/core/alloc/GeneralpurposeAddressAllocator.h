@@ -35,9 +35,9 @@ class GeneralpurposeAddressAllocatorBase
 
             inline void         validate(size_type level)       const
             {
-                #ifdef _DEBUG
+                #ifdef _IRR_DEBUG
                 assert(getLength()>>level); // in the right free list
-                #endif // _DEBUG
+                #endif // _IRR_DEBUG
             }
         };
         static inline uint32_t  findFreeListCount(size_type byteSize, size_type minBlockSz) noexcept
@@ -66,13 +66,13 @@ class GeneralpurposeAddressAllocatorBase
                     const auto& block = other.freeListStack[i][j];
                     if (block.startOffset>bufferSize)
                         continue;
-                    #ifdef _DEBUG
+                    #ifdef _IRR_DEBUG
                     assert(block.endOffset>=bufferSize);
-                    #endif // _DEBUG
+                    #endif // _IRR_DEBUG
                     insertFreeBlock({block.startOffset,bufferSize});
-                    #ifndef _DEBUG
+                    #ifndef _IRR_DEBUG
                     notFoundTheSlab = false;
-                    #endif // _DEBUG
+                    #endif // _IRR_DEBUG
                 }
             }
             else if (newBuffSz>other.bufferSize) // insert new
@@ -149,9 +149,9 @@ class GeneralpurposeAddressAllocatorBase
 
                 return true;
             }
-            #ifdef _DEBUG
+            #ifdef _IRR_DEBUG
             assert(freeSize==totalFree);
-            #endif // _DEBUG
+            #endif // _IRR_DEBUG
             return false;
         }
         inline uint32_t          findFreeListInsertIndex(size_type byteSize) const noexcept
@@ -189,25 +189,25 @@ class GeneralpurposeAddressAllocatorBase
         inline void             insertFreeBlock(const Block& block)
         {
             auto len = block.getLength();
-        #ifdef _DEBUG
+        #ifdef _IRR_DEBUG
             if (len<minBlockSize)
                 assert(false);
-        #endif // _DEBUG
+        #endif // _IRR_DEBUG
             auto level = findFreeListInsertIndex(len);
             block.validate(level);
             freeListStack[level][freeListStackCtr[level]++] = block;
-        #ifdef _DEBUG
+        #ifdef _IRR_DEBUG
             assert(freeListStackCtr[level]<=bufferSize/(minBlockSize<<level)+(level==0u ? 1u:0u));
-        #endif // _DEBUG
+        #endif // _IRR_DEBUG
             freeSize += len;
         }
 
         //! Produced blocks can only be larger than `minBlockSize`, so it's easier to reason about the correctness and memory boundedness of the allocation algorithm
         inline size_type calcSubAllocation(Block& retval, const Block* block, const size_type bytes, const size_type alignment) const
         {
-        #ifdef _DEBUG
+        #ifdef _IRR_DEBUG
             assert(bytes>=minBlockSize);
-        #endif // _DEBUG
+        #endif // _IRR_DEBUG
 
             retval.startOffset = core::roundUp(block->startOffset,alignment);
 
@@ -261,9 +261,9 @@ class GeneralpurposeAddressAllocatorBase
         //! Lists contain blocks of size < (minBlock<<listIndex)*2 && size >= (minBlock<<listIndex)
         static inline uint32_t  findFreeListInsertIndex(size_type byteSize, size_type minBlockSz) noexcept
         {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
             assert(byteSize>=minBlockSz); // logic fail
-#endif // _DEBUG
+#endif // _IRR_DEBUG
             return findMSB(byteSize/minBlockSz);
         }
 };
@@ -347,10 +347,10 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
                 Block tmp;
                 size_type wastedSpace = Base::calcSubAllocation(tmp,&popped,bytes,alignment);
                 // if had a block large enough for us with padding then must be able to allocate
-                #ifdef _DEBUG
+                #ifdef _IRR_DEBUG
                     if (wastedSpace==invalid_address)
                         assert(false);
-                #endif // _DEBUG
+                #endif // _IRR_DEBUG
                 Base::freeSize -= popped.getLength();
                 return std::pair<Block,Block>(tmp,popped);
             }
@@ -443,12 +443,12 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
         inline void             free_addr(size_type addr, size_type bytes) noexcept
         {
             bytes = std::max(bytes,AllocStrategy::minBlockSize);
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
             // address must have had combinedOffset already applied to it, and allocation must not be outside the buffer
             assert(addr>=Base::combinedOffset && addr+bytes<=AllocStrategy::bufferSize+Base::combinedOffset);
             // sanity check
             assert(AllocStrategy::freeSize+bytes<=AllocStrategy::bufferSize);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 
             addr -= Base::combinedOffset;
 #ifdef _EXTREME_DEBUG
@@ -575,10 +575,10 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
                 lastBlock.endOffset = nextBlock->endOffset;
                 minimum = AllocStrategy::findMinimum(freeListOld,freeListOldEnd);
             }
-            #ifdef _DEBUG
+            #ifdef _IRR_DEBUG
             for (decltype(AllocStrategy::freeListCount) i=0u; i<AllocStrategy::freeListCount; i++)
                 assert(freeListOld[i]==freeListOldEnd[i]);
-            #endif // _DEBUG
+            #endif // _IRR_DEBUG
             // put last block on correct free list
             if (lastBlock.getLength())
             {

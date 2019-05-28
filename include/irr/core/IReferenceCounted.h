@@ -145,7 +145,7 @@ namespace core
 		{
 			_IRR_DEBUG_BREAK_IF(!ReferenceCounter.is_lock_free()) //incompatibile platform
 #if __cplusplus >= 201703L
-			static_assert(decltype(ReferenceCounter)::is_always_lock_free(),"Unsupported Platform, Lock-less Atomic Reference Couting is Impossible!");
+			static_assert(decltype(ReferenceCounter)::is_always_lock_free,"Unsupported Platform, Lock-less Atomic Reference Couting is Impossible!");
 #endif //
 		}
 
@@ -171,6 +171,116 @@ namespace core
 		//! The reference counter. Mutable to do reference counting on const objects.
 		mutable std::atomic<uint32_t> ReferenceCounter;
 	};
+
+	// Parameter types for special overloaded constructors
+	struct dont_grab_t {};
+	constexpr dont_grab_t dont_grab{};
+	struct dont_drop_t {};
+	constexpr dont_drop_t dont_drop{};
+
+	// A RAII-like class to help you safeguard against memory leaks.
+	// Will automagically drop reference counts when it goes out of scope
+	template<class I_REFERENCE_COUNTED>
+	class smart_refctd_ptr
+	{
+			static_assert(std::is_base_of<IReferenceCounted, I_REFERENCE_COUNTED>::value,"Wrong Base Class!");
+			
+			mutable I_REFERENCE_COUNTED* ptr; // since IReferenceCounted declares the refcount mutable atomic
+			template<class U> friend class smart_refctd_ptr;
+		public:
+			constexpr smart_refctd_ptr() noexcept : ptr(nullptr) {}
+			constexpr smart_refctd_ptr(std::nullptr_t) noexcept : ptr(nullptr) {}
+			template<class U>
+			explicit smart_refctd_ptr(U* _pointer) noexcept : ptr(_pointer)
+			{
+				if (_pointer)
+					_pointer->grab();
+			}
+			template<class U>
+			explicit smart_refctd_ptr(U* _pointer, dont_grab_t t) noexcept : ptr(_pointer) {}
+			template<class U>
+			smart_refctd_ptr(const smart_refctd_ptr<U>& other) noexcept : smart_refctd_ptr(other.ptr) {}
+			template<class U>
+			smart_refctd_ptr(smart_refctd_ptr<U>&& other) noexcept : smart_refctd_ptr()
+			{
+				if (ptr) // should only happen if constexpr (is convertible)
+					ptr->drop();
+				ptr = other.ptr;
+				other.ptr = nullptr; // should only happen if constexpr (is convertible)
+			}
+			~smart_refctd_ptr() noexcept
+			{
+				if (ptr)
+					ptr->drop();
+			}
+
+			template<class U>
+			inline smart_refctd_ptr& operator=(U* _pointer) noexcept
+			{
+				if (_pointer)
+					_pointer->grab();
+				if (ptr)
+					ptr->drop();
+				ptr = _pointer;
+				return *this;
+			}
+			template<class U>
+			inline smart_refctd_ptr& operator=(const smart_refctd_ptr<U>& other) noexcept
+			{
+				return operator=(other.ptr);
+			}
+			template<class U>
+			inline smart_refctd_ptr& operator=(smart_refctd_ptr<U>&& other) noexcept
+			{
+				if (ptr) // should only happen if constexpr (is convertible)
+					ptr->drop();
+				ptr = other.ptr;
+				other.ptr = nullptr; // should only happen if constexpr (is convertible)
+				return *this;
+			}
+
+			inline I_REFERENCE_COUNTED* get() { return ptr; }
+			inline const I_REFERENCE_COUNTED* get() const { return ptr; }
+
+			inline I_REFERENCE_COUNTED* operator->() { return ptr; }
+			inline const I_REFERENCE_COUNTED* operator->() const { return ptr; }
+
+			inline I_REFERENCE_COUNTED& operator*() { return *ptr; }
+			inline const I_REFERENCE_COUNTED& operator*() const { return *ptr; }
+
+			inline I_REFERENCE_COUNTED& operator[](size_t idx) { return ptr[idx]; }
+			inline const I_REFERENCE_COUNTED& operator[](size_t idx) const { return ptr[idx]; }
+
+
+			inline explicit operator bool() const { return ptr; }
+			inline bool operator!() const { return !ptr; }
+
+			template<class U>
+			inline bool operator==(const smart_refctd_ptr<U> &other) const { return ptr == other.ptr; }
+			template<class U>
+			inline bool operator!=(const smart_refctd_ptr<U> &other) const { return ptr != other.ptr; }
+
+			template<class U>
+			inline bool operator<(const smart_refctd_ptr<U> &other) const { return ptr < other.ptr; }
+			template<class U>
+			inline bool operator>(const smart_refctd_ptr<U>& other) const { return ptr > other.ptr; }
+	};
+
+	// create and object and make a smart pointer without increasing reference count above 1
+	template< class T, class... Args >
+	inline smart_refctd_ptr<T> make_smart_refctd_ptr(Args&& ... args)
+	{
+		T* obj = new T(std::forward<Args>(args)...);
+		smart_refctd_ptr<T> smart(obj);
+		return smart;
+	}
+	template< class T, class... Args >
+	inline smart_refctd_ptr<T> make_smart_refctd_ptr(Args&& ... args, dont_grab_t t)
+	{
+		T* obj = new T(std::forward<Args>(args)...);
+		smart_refctd_ptr<T> smart(obj, t);
+		return smart;
+	}
 
 }
 } // end namespace irr

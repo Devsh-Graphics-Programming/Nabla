@@ -7,14 +7,12 @@
 
 #include "rect.h"
 #include "SColor.h"
-#include "matrix4x3.h"
-#include "plane3d.h"
+#include "matrixutil.h"
 #include "dimension2d.h"
 #include "position2d.h"
 #include "SMaterial.h"
 #include "IDriverFence.h"
 #include "irr/video/SGPUMesh.h"
-#include "triangle3d.h"
 #include "SExposedVideoData.h"
 #include "IDriver.h"
 #include "irr/asset/EFormat.h"
@@ -155,14 +153,14 @@ namespace video
 		\param mat Matrix describing the transformation. */
 		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat) =0;
 
-		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4& mat) =0;
+		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4SIMD& mat) =0;
 
 		//! Returns the transformation set by setTransform
 		/** \param state Transformation type to query
 		\return Matrix describing the transformation. */
 		virtual const core::matrix4x3& getTransform(const E_4X3_TRANSFORMATION_STATE& state) =0;
 
-		virtual const core::matrix4& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state) =0;
+		virtual const core::matrix4SIMD& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state) =0;
 
 		//! Retrieve the number of image loaders
 		/** \return Number of image loaders */
@@ -188,15 +186,6 @@ namespace video
 		/** All 3d drawing functions will draw geometry using this material thereafter.
 		\param material: Material to be used from now on. */
 		virtual void setMaterial(const SGPUMaterial& material) =0;
-
-        //! needs to be "deleted" since its not refcounted by GPU driver internally
-        /** Since not owned by any openGL context and hence not owned by driver.
-        You normally need to call glFlush() after placing a fence
-		\param whether to perform an implicit flush the first time CPU waiting,
-		this only works if the first wait is from the same thread as the one which
-		placed the fence.
-        **/
-        virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread = false) = 0;
 
 		//! A.
 		/** \param B

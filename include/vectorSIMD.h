@@ -256,6 +256,11 @@ namespace core
 
 #include "SIMDswizzle.h"
 
+#ifdef __GNUC__
+// warning: ignoring attributes on template argument ‘__m128i {aka __vector(2) long long int}’ [-Wignored-attributes] (etc...)
+#   pragma GCC diagnostic push
+#   pragma GCC diagnostic ignored "-Wignored-attributes"
+#endif
 
     template <class T>
     class vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>, public impl::vectorSIMDIntBase<vectorSIMD_32<T> >
@@ -519,7 +524,7 @@ namespace core
 
 		inline vectorSIMDf operator*(const vectorSIMDf& other) const { return _mm_mul_ps(getAsRegister(),other.getAsRegister()); }
 		inline vectorSIMDf& operator*=(const vectorSIMDf& other) { _mm_store_ps(pointer,_mm_mul_ps(getAsRegister(),other.getAsRegister())); return *this; }
-#ifdef IRRLICHT_FAST_MATH
+#ifdef __IRR_FAST_MATH
 		inline vectorSIMDf operator/(const vectorSIMDf& other) const { return _mm_mul_ps(getAsRegister(),_mm_rcp_ps(other.getAsRegister())); }
 		inline vectorSIMDf& operator/=(const vectorSIMDf& other) { _mm_store_ps(pointer,_mm_mul_ps(getAsRegister(),_mm_rcp_ps(other.getAsRegister()))); return *this; }
 #else
@@ -539,7 +544,7 @@ namespace core
 		inline vectorSIMDf  operator*(float val) const { return (*this)*vectorSIMDf(val); }
 		inline vectorSIMDf& operator*=(float val) { return ( (*this) *= vectorSIMDf(val) ); }
 
-#ifdef IRRLICHT_FAST_MATH
+#ifdef __IRR_FAST_MATH
 		inline vectorSIMDf operator/(float v) const { return vectorSIMDf(_mm_mul_ps(_mm_rcp_ps(_mm_load_ps1(&v)),getAsRegister())); }
 		inline vectorSIMDf& operator/=(float v) { _mm_store_ps(pointer,_mm_mul_ps(_mm_rcp_ps(_mm_load_ps1(&v)),getAsRegister())); return *this; }
 #else
@@ -803,6 +808,9 @@ namespace core
         };
 	};
 
+#ifdef __GNUC__
+#   pragma GCC diagnostic pop
+#endif
 
     //! Returns component-wise absolute value of a
     inline vectorSIMDf abs(const vectorSIMDf& a)
@@ -924,7 +932,7 @@ namespace core
     {
         __m128 xmm0 = v.getAsRegister();
         __m128 xmm1 = dot(v,v).getAsRegister();// the uncecessary load/store and variable construction will get optimized out with inline
-#ifdef IRRLICHT_FAST_MATH
+#ifdef __IRR_FAST_MATH
         return _mm_mul_ps(xmm0,_mm_rsqrt_ps(xmm1));
 #else
         return _mm_div_ps(xmm0,_mm_sqrt_ps(xmm1));

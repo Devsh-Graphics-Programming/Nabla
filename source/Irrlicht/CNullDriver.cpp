@@ -43,7 +43,7 @@ CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::d
 	OverrideMaterial2DEnabled(false), AllowZWriteOnTransparent(false),
 	matrixModifiedBits(0)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CNullDriver");
 	#endif
 
@@ -231,7 +231,7 @@ void CNullDriver::setTransform(const E_4X3_TRANSFORMATION_STATE& state, const co
 }
 
 //! sets transformation
-void CNullDriver::setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4& mat)
+void CNullDriver::setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4SIMD& mat)
 {
     if (state>EPTS_PROJ)
         return;
@@ -314,7 +314,7 @@ const core::matrix4x3& CNullDriver::getTransform(const E_4X3_TRANSFORMATION_STAT
 }
 
 //! Returns the transformation set by setTransform
-const core::matrix4& CNullDriver::getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state)
+const core::matrix4SIMD& CNullDriver::getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state)
 {
     const uint32_t stateBit = 0x1u<<(state+E4X3TS_COUNT);
 
@@ -325,7 +325,7 @@ const core::matrix4& CNullDriver::getTransform(const E_PROJECTION_TRANSFORMATION
             case EPTS_PROJ:
                 break;
             case EPTS_PROJ_VIEW:
-                ProjectionMatrices[EPTS_PROJ_VIEW] = concatenateBFollowedByA(ProjectionMatrices[EPTS_PROJ],TransformationMatrices[E4X3TS_VIEW]);
+                ProjectionMatrices[EPTS_PROJ_VIEW] = core::concatenateBFollowedByA(ProjectionMatrices[EPTS_PROJ],TransformationMatrices[E4X3TS_VIEW]);
                 break;
             case EPTS_PROJ_VIEW_WORLD:
                 if (matrixModifiedBits&(0x1u<<E4X3TS_WORLD_VIEW))
@@ -337,7 +337,7 @@ const core::matrix4& CNullDriver::getTransform(const E_PROJECTION_TRANSFORMATION
                 ProjectionMatrices[EPTS_PROJ_VIEW_WORLD] = concatenateBFollowedByA(ProjectionMatrices[EPTS_PROJ],TransformationMatrices[E4X3TS_WORLD_VIEW]);
                 break;
             case EPTS_PROJ_INVERSE:
-                ProjectionMatrices[EPTS_PROJ].getInverse(ProjectionMatrices[EPTS_PROJ]);
+                ProjectionMatrices[EPTS_PROJ].getInverseTransform(ProjectionMatrices[EPTS_PROJ]);
                 break;
             case EPTS_PROJ_VIEW_INVERSE:
                 if (matrixModifiedBits&(0x1u<<(EPTS_PROJ_VIEW+E4X3TS_COUNT)))
@@ -345,7 +345,7 @@ const core::matrix4& CNullDriver::getTransform(const E_PROJECTION_TRANSFORMATION
                     ProjectionMatrices[EPTS_PROJ_VIEW] = concatenateBFollowedByA(ProjectionMatrices[EPTS_PROJ],TransformationMatrices[E4X3TS_VIEW]);
                     matrixModifiedBits &= ~(0x1u<<(EPTS_PROJ_VIEW+E4X3TS_COUNT));
                 }
-                ProjectionMatrices[EPTS_PROJ_VIEW].getInverse(ProjectionMatrices[EPTS_PROJ_VIEW_INVERSE]);
+                ProjectionMatrices[EPTS_PROJ_VIEW].getInverseTransform(ProjectionMatrices[EPTS_PROJ_VIEW_INVERSE]);
                 break;
             case EPTS_PROJ_VIEW_WORLD_INVERSE:
                 if (matrixModifiedBits&(0x1u<<(EPTS_PROJ_VIEW_WORLD+E4X3TS_COUNT)))
@@ -359,7 +359,7 @@ const core::matrix4& CNullDriver::getTransform(const E_PROJECTION_TRANSFORMATION
                     ProjectionMatrices[EPTS_PROJ_VIEW_WORLD] = concatenateBFollowedByA(ProjectionMatrices[EPTS_PROJ],TransformationMatrices[E4X3TS_WORLD_VIEW]);
                     matrixModifiedBits &= ~(0x1u<<(EPTS_PROJ_VIEW_WORLD+E4X3TS_COUNT));
                 }
-                ProjectionMatrices[EPTS_PROJ_VIEW_WORLD].getInverse(ProjectionMatrices[EPTS_PROJ_VIEW_WORLD_INVERSE]);
+                ProjectionMatrices[EPTS_PROJ_VIEW_WORLD].getInverseTransform(ProjectionMatrices[EPTS_PROJ_VIEW_WORLD_INVERSE]);
                 break;
         }
 

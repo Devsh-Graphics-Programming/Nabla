@@ -162,7 +162,7 @@ namespace video
 
 		void getCameraPosWorldSpace ();
 
-		core::matrix4 ClipscaleTransformation;
+		core::matrix4SIMD ClipscaleTransformation;
 
 
 		// Vertex Cache

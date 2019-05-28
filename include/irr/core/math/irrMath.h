@@ -438,7 +438,7 @@ namespace core
 
 	//! code is taken from IceFPU
 	//! Integer representation of a floating-point value.
-#ifdef IRRLICHT_FAST_MATH
+#ifdef __IRR_FAST_MATH
 	#define IR(x)                           ((uint32_t&)(x))
 #else
 	inline uint32_t IR(float x) {inttofloat tmp; tmp.f=x; return tmp.u;}
@@ -448,7 +448,7 @@ namespace core
 	#define AIR(x)				(IR(x)&0x7fffffff)
 
 	//! Floating-point representation of an integer value.
-#ifdef IRRLICHT_FAST_MATH
+#ifdef __IRR_FAST_MATH
 	#define FR(x)                           ((float&)(x))
 #else
 	inline float FR(uint32_t x) {inttofloat tmp; tmp.u=x; return tmp.f;}
@@ -460,7 +460,7 @@ namespace core
 	//! integer representation of 255.0
 	#define IEEE_255_0			0x437f0000
 
-#ifdef IRRLICHT_FAST_MATH
+#ifdef __IRR_FAST_MATH
 	#define	F32_LOWER_0(f)		(F32_AS_U32(f) >  F32_SIGN_BIT)
 	#define	F32_LOWER_EQUAL_0(f)	(F32_AS_S32(f) <= F32_VALUE_0)
 	#define	F32_GREATER_0(f)	(F32_AS_S32(f) >  F32_VALUE_0)
@@ -560,7 +560,7 @@ namespace core
 	// calculate: 1 / sqrt ( x )
 	IRR_FORCE_INLINE double reciprocal_squareroot(const double x)
 	{
-#if defined ( IRRLICHT_FAST_MATH )
+#if defined ( __IRR_FAST_MATH )
         double result = 1.0 / sqrt(x);
         //! pending perf test
         //_mm_store_sd(&result,_mm_div_sd(_mm_set_pd(0.0,1.0),_mm_sqrt_sd(_mm_load_sd(&x))));
@@ -573,7 +573,7 @@ namespace core
 	// calculate: 1 / sqrtf ( x )
 	IRR_FORCE_INLINE float reciprocal_squareroot(const float f)
 	{
-#if defined ( IRRLICHT_FAST_MATH ) && defined ( __IRR_COMPILE_WITH_X86_SIMD_ )
+#if defined ( __IRR_FAST_MATH ) && defined ( __IRR_COMPILE_WITH_X86_SIMD_ )
         float result;
         _mm_store_ss(&result,_mm_rsqrt_ps(_mm_load_ss(&f)));
         return result;
@@ -591,7 +591,7 @@ namespace core
 	// calculate: 1 / x
 	IRR_FORCE_INLINE float reciprocal( const float f )
 	{
-#if defined (IRRLICHT_FAST_MATH) && defined ( __IRR_COMPILE_WITH_X86_SIMD_ )
+#if defined (__IRR_FAST_MATH) && defined ( __IRR_COMPILE_WITH_X86_SIMD_ )
         float result;
         _mm_store_ss(&result,_mm_rcp_ps(_mm_load_ss(&f)));
         return result;
@@ -651,7 +651,7 @@ namespace core
 } // end namespace core
 } // end namespace irr
 
-#ifndef IRRLICHT_FAST_MATH
+#ifndef __IRR_FAST_MATH
 	using irr::core::IR;
 	using irr::core::FR;
 #endif

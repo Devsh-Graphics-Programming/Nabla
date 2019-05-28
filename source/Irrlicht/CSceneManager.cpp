@@ -20,7 +20,6 @@
 #include "CBillboardSceneNode.h"
 #include "CCubeSceneNode.h"
 #include "CSphereSceneNode.h"
-#include "CAnimatedMeshSceneNode.h"
 #include "CCameraSceneNode.h"
 #include "CMeshSceneNode.h"
 #include "CMeshSceneNodeInstanced.h"
@@ -51,7 +50,7 @@ CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver
 	ActiveCamera(0), CurrentRendertime(ESNRP_NONE),
 	IRR_XML_FORMAT_SCENE(L"irr_scene"), IRR_XML_FORMAT_NODE(L"node"), IRR_XML_FORMAT_NODE_ATTR_TYPE(L"type")
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	ISceneManager::setDebugName("CSceneManager ISceneManager");
 	ISceneNode::setDebugName("CSceneManager ISceneNode");
 	#endif
@@ -188,12 +187,6 @@ CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver
             redundantMeshDataBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),tmpMem);
         _IRR_ALIGNED_FREE(tmpMem);
 	}
-
-	// add file format loaders. add the least commonly used ones first,
-	// as these are checked last
-
-	// TODO: now that we have multiple scene managers, these should be
-	// shallow copies from the previous manager if there is one.
 }
 
 
@@ -518,38 +511,24 @@ bool CSceneManager::isCulled(ISceneNode* node) const
 	{
 		return false;
 	}
-	bool result = false;
 
-	// can be seen by a bounding box ?
-	if (!result && (node->getAutomaticCulling() & scene::EAC_BOX))
-	{
-		core::aabbox3d<float> tbox = node->getBoundingBox();
-		if (tbox.MinEdge==tbox.MaxEdge)
-            return true;
+    core::aabbox3d<float> tbox = node->getBoundingBox();
+    if (tbox.MinEdge==tbox.MaxEdge)
+        return true;
+
+    auto cullMode = node->getAutomaticCulling();
+    if (cullMode & (scene::EAC_BOX|scene::EAC_FRUSTUM_BOX))
+    {
 		node->getAbsoluteTransformation().transformBoxEx(tbox);
-		result = !(tbox.intersectsWithBox(cam->getViewFrustum()->getBoundingBox() ));
-	}
-
-	// can be seen by a bounding sphere
-	if (!result && (node->getAutomaticCulling() & scene::EAC_FRUSTUM_SPHERE))
-	{ // requires bbox diameter
-	}
-
-	// can be seen by cam pyramid planes ?
-	if (!result && (node->getAutomaticCulling() & scene::EAC_FRUSTUM_BOX))
-	{
-		core::aabbox3d<float> tbox = node->getBoundingBox();
-		if (tbox.MinEdge==tbox.MaxEdge)
+        // can be seen by a bounding box ?
+        if ((cullMode & scene::EAC_BOX) && !tbox.intersectsWithBox(cam->getViewFrustum()->getBoundingBox()))
             return true;
-
-        //transform the frustum to the node's current absolute transformation
-        core::matrix4 worldviewproj = concatenateBFollowedByA(cam->getProjectionMatrix(),concatenateBFollowedByA(cam->getViewMatrix(),node->getAbsoluteTransformation()));
-
-        if (!worldviewproj.isBoxInsideFrustum(tbox))
+        // can be seen by cam pyramid planes ?
+        if ((cullMode & scene::EAC_FRUSTUM_BOX) && !cam->getViewFrustum()->intersectsAABB(tbox))
             return true;
 	}
 
-	return result;
+	return false;
 }
 
 
@@ -690,9 +669,9 @@ void CSceneManager::drawAll()
 
 	// reset all transforms
 	Driver->setMaterial(video::SGPUMaterial());
-	Driver->setTransform(video::EPTS_PROJ,core::matrix4());
-	Driver->setTransform ( video::E4X3TS_VIEW, core::IdentityMatrix );
-	Driver->setTransform ( video::E4X3TS_WORLD, core::IdentityMatrix );
+	Driver->setTransform(video::EPTS_PROJ,core::matrix4SIMD());
+	Driver->setTransform ( video::E4X3TS_VIEW, core::matrix4x3() );
+	Driver->setTransform ( video::E4X3TS_WORLD, core::matrix4x3() );
 
 	// TODO: This should not use an attribute here but a real parameter when necessary (too slow!)
 	Driver->setAllowZWriteOnTransparent( *((bool*)&(Parameters[ALLOW_ZWRITE_ON_TRANSPARENT])) );

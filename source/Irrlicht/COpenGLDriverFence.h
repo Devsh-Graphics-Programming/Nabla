@@ -30,7 +30,9 @@ class COpenGLDriverFence : public IDriverFence
             firstTimeFlush = implicitFlushOnCPUWait;
         }
 
-        virtual E_DRIVER_FENCE_RETVAL waitCPU(const uint64_t &timeout, const bool &flush=false)
+        virtual bool canDeferredFlush() const override {return firstTimeFlush;}
+
+        virtual E_DRIVER_FENCE_RETVAL waitCPU(const uint64_t &timeout, const bool &flush=false) override
         {
             if (cachedRetval!=EDFR_TIMEOUT_EXPIRED)
                 return cachedRetval;
@@ -60,7 +62,7 @@ class COpenGLDriverFence : public IDriverFence
             }
         }
 
-        virtual void waitGPU()
+        virtual void waitGPU() override
         {
             COpenGLExtensionHandler::extGlWaitSync(fence,0,GL_TIMEOUT_IGNORED);
             firstTimeFlush = false;

@@ -3,6 +3,8 @@
 #include <iostream>
 #include <cstdio>
 
+#include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
+
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 #include "COpenGLStateManager.h"
 
@@ -113,14 +115,6 @@ public:
 };
 
 
-#include "irr/irrpack.h"
-struct ScreenQuadVertexStruct
-{
-    float Pos[3];
-    uint8_t TexCoord[2];
-} PACK_STRUCT;
-#include "irr/irrunpack.h"
-
 int main()
 {
 	printf("Enter the number of samples to use for MSAA: ");
@@ -166,14 +160,12 @@ int main()
                                                         "","","", //! No Geometry or Tessellation Shaders
                                                         "../mesh.frag",
                                                         3,video::EMT_SOLID, //! 3 vertices per primitive (this is tessellation shader relevant only
-                                                        cb, //! Our Shader Callback
-                                                        0); //! No custom user data
+                                                        cb); //! Our Shader Callback
     cb->drop();
 
 
 
 	scene::ISceneManager* smgr = device->getSceneManager();
-	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
 	scene::ICameraSceneNode* camera =
 		smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
 	camera->setPosition(core::vector3df(-4,0,0));
@@ -210,9 +202,9 @@ int main()
 		gpumesh->drop();
 	}
 
+    auto* fsTriMeshBuffer = ext::FullScreenTriangle::createFullScreenTriangle(driver);
     //! We use a renderbuffer because we don't intend on reading from it
     video::IMultisampleTexture* colorMT=NULL,* depthMT=NULL;
-    video::IGPUMeshBuffer* screenQuadMeshBuffer=NULL;
     video::SGPUMaterial postProcMaterial;
     video::IFrameBuffer* framebuffer = driver->addFrameBuffer();
     {
@@ -221,65 +213,12 @@ int main()
         framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0,colorMT);
         framebuffer->attach(video::EFAP_DEPTH_ATTACHMENT,depthMT);
 
-        /**
-        This extra stuff is to show off programmable resolve with a shader.
-        **/
-        screenQuadMeshBuffer = new video::IGPUMeshBuffer();
-        video::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-        screenQuadMeshBuffer->setMeshDataAndFormat(desc);
-        desc->drop();
-
-        ScreenQuadVertexStruct vertices[4];
-        vertices[0].Pos[0] = -1.f;
-        vertices[0].Pos[1] = -1.f;
-        vertices[0].Pos[2] = 0.5f;
-        vertices[0].TexCoord[0] = 0;
-        vertices[0].TexCoord[1] = 0;
-        vertices[1].Pos[0] = 1.f;
-        vertices[1].Pos[1] = -1.f;
-        vertices[1].Pos[2] = 0.5f;
-        vertices[1].TexCoord[0] = 1;
-        vertices[1].TexCoord[1] = 0;
-        vertices[2].Pos[0] = -1.f;
-        vertices[2].Pos[1] = 1.f;
-        vertices[2].Pos[2] = 0.5f;
-        vertices[2].TexCoord[0] = 0;
-        vertices[2].TexCoord[1] = 1;
-        vertices[3].Pos[0] = 1.f;
-        vertices[3].Pos[1] = 1.f;
-        vertices[3].Pos[2] = 0.5f;
-        vertices[3].TexCoord[0] = 1;
-        vertices[3].TexCoord[1] = 1;
-
-        uint16_t indices_indexed16[] = {0,1,2,2,1,3};
-
-
-        video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-        reqs.vulkanReqs.size = sizeof(vertices)+sizeof(indices_indexed16);
-        reqs.vulkanReqs.alignment = 4;
-        reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-        reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-        reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
-        reqs.prefersDedicatedAllocation = true;
-        reqs.requiresDedicatedAllocation = true;
-        video::IGPUBuffer* buff = driver->createGPUBufferOnDedMem(reqs,true);
-        buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,sizeof(vertices)),vertices);
-        buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(sizeof(vertices),sizeof(indices_indexed16)),indices_indexed16);
-
-        desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,sizeof(ScreenQuadVertexStruct),0);
-        desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR1,asset::EF_R8G8_USCALED,sizeof(ScreenQuadVertexStruct),12); //this time we used unnormalized
-        desc->setIndexBuffer(buff);
-        screenQuadMeshBuffer->setIndexBufferOffset(sizeof(vertices));
-        screenQuadMeshBuffer->setIndexType(asset::EIT_16BIT);
-        screenQuadMeshBuffer->setIndexCount(6);
-        buff->drop();
-
         PostProcCallBack* callBack = new PostProcCallBack();
         //! First need to make a material other than default to be able to draw with custom shader
         postProcMaterial.BackfaceCulling = false; //! Triangles will be visible from both sides
         postProcMaterial.ZBuffer = video::ECFN_ALWAYS; //! Ignore Depth Test
         postProcMaterial.ZWriteEnable = false; //! Why even write depth?
-        postProcMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../screenquad.vert",
+        postProcMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../fullscreentri.vert",
                                                                             "","","", //! No Geometry or Tessellation Shaders
                                                                             "../postproc.frag",
                                                                             3,video::EMT_SOLID, //! 3 vertices per primitive (this is tessellation shader relevant only)
@@ -327,7 +266,7 @@ int main()
         {
             driver->setRenderTarget(0);
             driver->setMaterial(postProcMaterial);
-            driver->drawMeshBuffer(screenQuadMeshBuffer);
+            driver->drawMeshBuffer(fsTriMeshBuffer);
         }
 
 		driver->endScene();
@@ -348,7 +287,7 @@ int main()
     driver->removeMultisampleTexture(colorMT);
     driver->removeMultisampleTexture(depthMT);
 
-    screenQuadMeshBuffer->drop();
+    fsTriMeshBuffer->drop();
 
     for (size_t x=0; x<kInstanceSquareSize; x++)
     for (size_t z=0; z<kInstanceSquareSize; z++)

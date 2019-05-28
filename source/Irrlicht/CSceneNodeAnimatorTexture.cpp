@@ -17,7 +17,7 @@ CSceneNodeAnimatorTexture::CSceneNodeAnimatorTexture(const core::vector<video::I
 : ISceneNodeAnimatorFinishing(0),
 	TimePerFrame(timePerFrame), StartTime(now), Loop(loop)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CSceneNodeAnimatorTexture");
 	#endif
 

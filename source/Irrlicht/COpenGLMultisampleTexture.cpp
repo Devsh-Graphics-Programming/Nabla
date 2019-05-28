@@ -16,7 +16,7 @@ COpenGLMultisampleTexture::COpenGLMultisampleTexture(GLenum internalFormat, cons
                                                         :   COpenGLTexture(GL_TEXTURE_2D_MULTISAMPLE), IMultisampleTexture(IDriverMemoryBacked::SDriverMemoryRequirements{{0,0,0},0,0,0,0}),
                                                             SampleCount(samples), FixedSampleLocations(fixedSampleLocations), InternalFormat(internalFormat)
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	setDebugName("COpenGLMultisampleTexture");
 	assert(core::isPoT(samples));
 #endif

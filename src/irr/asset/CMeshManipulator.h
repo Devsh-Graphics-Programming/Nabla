@@ -42,28 +42,14 @@ public:
 	\param mesh: Mesh on which the operation is performed. */
 	virtual void flipSurfaces(asset::ICPUMeshBuffer* inbuffer) const;
 
-#ifndef NEW_MESHES
-	//! Recalculates all normals of the mesh.
-	/** \param mesh: Mesh on which the operation is performed.
-	    \param smooth: Whether to use smoothed normals. */
-	virtual void recalculateNormals(scene::IMesh* mesh, bool smooth = false, bool angleWeighted = false) const;
-
-	//! Recalculates all normals of the mesh buffer.
-	/** \param buffer: Mesh buffer on which the operation is performed.
-	    \param smooth: Whether to use smoothed normals. */
-	virtual void recalculateNormals(IMeshBuffer* buffer, bool smooth = false, bool angleWeighted = false) const;
-
-	//! Recalculates tangents, requires a tangent mesh buffer
-	virtual void recalculateTangents(IMeshBuffer* buffer, bool recalculateNormals=false, bool smooth=false, bool angleWeighted=false) const;
-
-	//! Recalculates tangents, requires a tangent mesh
-	virtual void recalculateTangents(IMesh* mesh, bool recalculateNormals=false, bool smooth=false, bool angleWeighted=false) const;
-#endif // NEW_MESHES
-
 	virtual asset::ICPUMeshBuffer* createMeshBufferFetchOptimized(const asset::ICPUMeshBuffer* _inbuffer) const;
 
 	//! Creates a copy of the mesh, which will only consist of unique triangles, i.e. no vertices are shared.
 	virtual asset::ICPUMeshBuffer* createMeshBufferUniquePrimitives(asset::ICPUMeshBuffer* inbuffer) const;
+
+	//
+	virtual asset::ICPUMeshBuffer* calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, bool makeNewMesh, float epsilon,
+		asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, VxCmpFunction vxcmp) const override;
 
 	//! Creates a copy of the mesh, which will have all duplicated vertices removed, i.e. maximal amount of vertices are shared via indexing.
 	virtual asset::ICPUMeshBuffer* createMeshBufferWelded(asset::ICPUMeshBuffer *inbuffer, const SErrorMetric* _errMetrics, const bool& optimIndexType = true, const bool& makeNewMesh=false) const;

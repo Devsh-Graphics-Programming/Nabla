@@ -149,8 +149,15 @@ namespace impl
         template<typename StorageT>
         void outputThis(const ConstIteratorType& _itr, size_t _ix, StorageT* _storage) const
         {
-            static_if<std::is_same<StorageT, MutablePairType>::value>([&](auto f) { _storage[_ix] = *_itr; }).
-                else_([&](auto f) { _storage[_ix] = _itr->second; });
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<StorageT, MutablePairType>::value)
+			{
+				_storage[_ix] = *_itr;
+			}
+			IRR_PSEUDO_ELSE_CONSTEXPR
+			{
+				_storage[_ix] = _itr->second;
+			}
+			IRR_PSEUDO_IF_CONSTEXPR_END
         }
 
         //! Only in non-concurrent cache
@@ -257,17 +264,20 @@ namespace impl
     !impl::CPreInsertionVerifier<ContainerT_T, typename Base::ContainerT, std::is_base_of<impl::CMultiCache_tag, typename std::decay<decltype(*this)>::type>::value>::verify(this->m_container, it, _key)\
     )\
         return false;\
-    \
-    static_if<GreetOnInsert>([this,&newVal] (auto f) { this->greet(newVal.second); });\
+    IRR_PSEUDO_IF_CONSTEXPR_BEGIN(GreetOnInsert) \
+	{ this->greet(newVal.second); } \
+	IRR_PSEUDO_IF_CONSTEXPR_END \
     this->m_container.insert(it, newVal);\
     return true;
 #define INSERT_IMPL_ASSOC \
     auto res = this->m_container.insert({ _key, _val });\
     const bool verif = impl::CPreInsertionVerifier<ContainerT_T, typename Base::ContainerT, std::is_base_of<impl::CMultiCache_tag, typename std::decay<decltype(*this)>::type>::value>::verify(res);\
-    static_if<GreetOnInsert>([verif,&_val,this] (auto f) {\
+    IRR_PSEUDO_IF_CONSTEXPR_BEGIN(GreetOnInsert) \
+	{ \
         if (verif)\
             this->greet(_val);\
-    });\
+	} \
+	IRR_PSEUDO_IF_CONSTEXPR_END \
     return verif;
 
     template<
@@ -401,7 +411,11 @@ namespace impl
             {
                 if (it->second == _obj)
                 {
-                    static_if<DisposeOnRemove>([this,&it] (auto f) { this->dispose(it->second); });
+                    IRR_PSEUDO_IF_CONSTEXPR_BEGIN(DisposeOnRemove)
+					{
+						this->dispose(it->second);
+					}
+					IRR_PSEUDO_IF_CONSTEXPR_END
                     Base::m_container.erase(it);
                     return true;
                 }
@@ -527,7 +541,11 @@ namespace impl
             auto it = range.first;
             if (Base::isNonZeroRange(range) && it->second == _obj)
             {
-                static_if<DisposeOnRemove>([this,&it] (auto f) { this->dispose(it->second); });
+				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(DisposeOnRemove)
+				{
+						this->dispose(it->second);
+				}
+				IRR_PSEUDO_IF_CONSTEXPR_END
                 this->m_container.erase(it);
                 return true;
             }

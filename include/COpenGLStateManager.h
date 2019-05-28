@@ -7,57 +7,31 @@
 #include <limits>       // std::numeric_limits
 #include <utility>
 
+#ifndef _IRR_OPENGL_USE_EXTPOINTER_
+#   define _IRR_OPENGL_USE_EXTPOINTER_
+#endif
+
 #if defined(_IRR_WINDOWS_API_)
 	// include windows headers for HWND
 	#define WIN32_LEAN_AND_MEAN
+	#define NOMINMAX
 	#include <windows.h>
-	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-		#define GL_GLEXT_LEGACY 1
-	#endif
+    #define GL_GLEXT_LEGACY 1
 	#include <GL/gl.h>
-	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-		#include "../source/Irrlicht/glext.h"
-	#endif
+    #undef GL_GLEXT_LEGACY
+    #include "../source/Irrlicht/glext.h"
 	#include "../source/Irrlicht/wglext.h"
-
-	#ifdef _MSC_VER
-		#pragma comment(lib, "OpenGL32.lib")
-//		#pragma comment(lib, "OpenCL.lib")
-	#endif
-
-#elif defined(_IRR_COMPILE_WITH_OSX_DEVICE_)
-	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-		#define GL_GLEXT_LEGACY 1
-	#endif
-	#include <OpenGL/gl.h>
-	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-		#include "../Irrlicht/glext.h"
-	#endif
 #elif defined(_IRR_COMPILE_WITH_SDL_DEVICE_) && !defined(_IRR_COMPILE_WITH_X11_DEVICE_)
-	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-		#define GL_GLEXT_LEGACY 1
-		#define GLX_GLXEXT_LEGACY 1
-	#else
-		#define GL_GLEXT_PROTOTYPES 1
-		#define GLX_GLXEXT_PROTOTYPES 1
-	#endif
-	#define NO_SDL_GLEXT
 	#include <SDL/SDL_video.h>
+    #define GL_GLEXT_LEGACY 1
 	#include <SDL/SDL_opengl.h>
+    #undef GL_GLEXT_LEGACY
 	#include "../source/Irrlicht/glext.h"
 #else
-	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-		#define GL_GLEXT_LEGACY 1
-		#define GLX_GLXEXT_LEGACY 1
-	#else
-		#define GL_GLEXT_PROTOTYPES 1
-		#define GLX_GLXEXT_PROTOTYPES 1
-	#endif
+    #define GL_GLEXT_LEGACY 1
 	#include <GL/gl.h>
-	#include <GL/glx.h>
-	#if defined(_IRR_OPENGL_USE_EXTPOINTER_)
-        #include "../source/Irrlicht/glext.h"
-	#endif
+    #undef GL_GLEXT_LEGACY
+    #include "../source/Irrlicht/glext.h"
 #endif
 
 namespace irr

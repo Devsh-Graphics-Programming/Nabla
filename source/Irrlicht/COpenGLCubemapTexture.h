@@ -57,6 +57,9 @@ public:
             case ECMF_POSITIVE_Z:
                 return GL_TEXTURE_CUBE_MAP_POSITIVE_Z;
                 break;
+            case ECMF_COUNT:
+                assert(0);
+                break;
         }
         return GL_INVALID_ENUM;
     }

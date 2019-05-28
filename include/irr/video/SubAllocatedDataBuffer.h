@@ -30,9 +30,9 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         static constexpr size_type invalid_address                                          = HeterogenousMemoryAddressAllocator::invalid_address;
 
     private:
-        #ifdef _DEBUG
+        #ifdef _IRR_DEBUG
         std::recursive_mutex stAccessVerfier;
-        #endif // _DEBUG
+        #endif // _IRR_DEBUG
         typedef SubAllocatedDataBuffer<HeterogenousMemoryAddressAllocator,CustomDeferredFreeFunctor> ThisType;
 
         template<class U> using std_get_0 = decltype(std::get<0u>(std::declval<U&>()));
@@ -127,9 +127,9 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
 
                 inline void operator()()
                 {
-                    #ifdef _DEBUG
+                    #ifdef _IRR_DEBUG
                     assert(sadbRef && rangeData);
-                    #endif // _DEBUG
+                    #endif // _IRR_DEBUG
                     HeterogenousMemoryAddressAllocator& alloctr = sadbRef->getAllocator();
                     alloctr.multi_free_addr(numAllocs,rangeData,rangeData+numAllocs);
                 }
@@ -147,10 +147,10 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         template<typename... Args>
         SubAllocatedDataBuffer(Args&&... args) : mAllocator(std::forward<Args>(args)...)
         {
-            #ifdef _DEBUG
+            #ifdef _IRR_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
-            #endif // _DEBUG
+            #endif // _IRR_DEBUG
         }
 
         //!
@@ -161,11 +161,16 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             auto allocation = mAllocator.getCurrentBufferAllocation();
 
             IGPUBuffer* retval;
-            static_if<is_std_get_0_defined<decltype(allocation)>::value >([&](auto f){
-                retval = std::get<0u>(allocation);
-            }).else_([&](auto f){
-                retval = allocation;
-            });
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_std_get_0_defined<decltype(allocation)>::value)
+			{
+				retval = std::get<0u>(allocation);
+			}
+			IRR_PSEUDO_ELSE_CONSTEXPR
+			{
+				retval = allocation;
+			}
+			IRR_PSEUDO_IF_CONSTEXPR_END
+
             return retval;
         }
         inline IGPUBuffer* getBuffer() noexcept
@@ -176,10 +181,10 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         //! Returns max possible currently allocatable single allocation size, without having to wait for GPU more
         inline size_type    max_size() noexcept
         {
-            #ifdef _DEBUG
+            #ifdef _IRR_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
-            #endif // _DEBUG
+            #endif // _IRR_DEBUG
             size_type valueToStopAt = mAllocator.getAddressAllocator().min_size()*3u; // padding, allocation, more padding = 3u
             // we don't actually want or need to poll all possible blocks to free, only first few
             deferredFrees.pollForReadyEvents(valueToStopAt);
@@ -199,10 +204,10 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         template<typename... Args>
         inline size_type    multi_alloc(const std::chrono::nanoseconds& maxWait, const Args&... args) noexcept
         {
-            #ifdef _DEBUG
+            #ifdef _IRR_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
-            #endif // _DEBUG
+            #endif // _IRR_DEBUG
 
             // try allocate once
             size_type unallocatedSize = try_multi_alloc(args...);
@@ -223,27 +228,27 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             return unallocatedSize;
         }
         //!
-        inline void         multi_free(IDriverFence* fence, DeferredFreeFunctor&& functor) noexcept
+        inline void         multi_free(core::smart_refctd_ptr<IDriverFence>&& fence, DeferredFreeFunctor&& functor) noexcept
         {
-            #ifdef _DEBUG
+            #ifdef _IRR_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
-            #endif // _DEBUG
-            deferredFrees.addEvent(GPUEventWrapper(fence),std::forward<DeferredFreeFunctor>(functor));
+            #endif // _IRR_DEBUG
+            deferredFrees.addEvent(GPUEventWrapper(std::move(fence)),std::forward<DeferredFreeFunctor>(functor));
         }
         inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes) noexcept
         {
-            #ifdef _DEBUG
+            #ifdef _IRR_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
-            #endif // _DEBUG
+            #endif // _IRR_DEBUG
             mAllocator.multi_free_addr(count,addr,bytes);
         }
         template<typename Q=DeferredFreeFunctor>
-        inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes, IDriverFence* fence, typename std::enable_if<std::is_same<Q,DefaultDeferredFreeFunctor>::value>::type* = 0) noexcept
+        inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes, core::smart_refctd_ptr<IDriverFence>&& fence, typename std::enable_if<std::is_same<Q,DefaultDeferredFreeFunctor>::value>::type* = 0) noexcept
         {
             if (fence)
-                multi_free(fence,DeferredFreeFunctor(this,count,addr,bytes));
+                multi_free(std::move(fence),DeferredFreeFunctor(this,count,addr,bytes));
             else
                 multi_free(count,addr,bytes);
         }

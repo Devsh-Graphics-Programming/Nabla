@@ -9,6 +9,7 @@
 #include "CSTLMeshFileLoader.h"
 #include "irr/asset/SCPUMesh.h"
 #include "irr/asset/ICPUMeshBuffer.h"
+#include "irr/core/math/plane3dSIMD.h"
 
 #include "IReadFile.h"
 #include "coreutil.h"
@@ -155,10 +156,10 @@ asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 		if ((normals.back() == core::vectorSIMDf()).all())
         {
 			normals.back().set(
-                core::plane3df(
-                    (positions.rbegin()+2)->getAsVector3df(),
-                    (positions.rbegin()+1)->getAsVector3df(),
-                    (positions.rbegin()+0)->getAsVector3df()).Normal
+                core::plane3dSIMDf(
+                    *(positions.rbegin()+2),
+                    *(positions.rbegin()+1),
+                    *(positions.rbegin()+0)).getNormal()
             );
         }
 	} // end while (_file->getPos() < filesize)
@@ -193,7 +194,7 @@ asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
 bool CSTLMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
 {
-    if (_file->getSize() <= 6u)
+    if (!_file || _file->getSize() <= 6u)
         return false;
 
     char header[6];
