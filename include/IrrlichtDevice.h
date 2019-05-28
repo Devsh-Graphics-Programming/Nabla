@@ -31,6 +31,7 @@ namespace irr
 
     namespace asset {
         class IAssetManager;
+        class IIncludeHandler;
     }
 
 	//! The Irrlicht device. You can create it with createDevice() or createDeviceEx().
@@ -272,6 +273,9 @@ namespace irr
 
         virtual asset::IAssetManager& getAssetManager();
         virtual const asset::IAssetManager& getAssetManager() const;
+
+        virtual asset::IIncludeHandler* getIncludeHandler() { return nullptr; }
+        virtual const asset::IIncludeHandler* getIncludeHandler() const { return nullptr; }
 
     private:
         void addLoadersAndWriters();

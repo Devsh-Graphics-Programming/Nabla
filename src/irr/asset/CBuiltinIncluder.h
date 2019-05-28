@@ -13,8 +13,11 @@ class CBuiltinIncluder : public IIncluder
     using LoadersContainer = core::CMultiObjectCache<std::string, IBuiltinIncludeLoader>;
     LoadersContainer m_loaders;
 
+    static void loaderGrab(IBuiltinIncludeLoader* _ldr) { _ldr->grab(); }
+    static void loaderDrop(IBuiltinIncludeLoader* _ldr) { _ldr->drop(); }
+
 public:
-    CBuiltinIncluder()
+    CBuiltinIncluder() : m_loaders(&loaderGrab, &loaderDrop)
     {
         m_searchDirectories.emplace_back("/");
     }
@@ -22,6 +25,16 @@ public:
     //! No-op, cannot add search dirs to includer of builtins
     void addSearchDirectory(const std::string& _searchDir) override {}
 
+    void addBuiltinLoader(IBuiltinIncludeLoader* _loader)
+    {
+        using namespace std::string_literals;
+        if (!_loader)
+            return;
+
+        m_loaders.insert("/irr/builtin/"s + _loader->getVirtualDirectoryName(), _loader);
+    }
+
+protected:
     std::string getInclude_internal(const std::string& _path) const override
     {
         const char* PREFIX = "/irr/builtin/";
@@ -44,15 +57,6 @@ public:
             path.erase(_path.find_last_of('/')+1, std::string::npos); // ...and find the one before
         }
         return {};
-    }
-
-    void addBuiltinLoader(IBuiltinIncludeLoader* _loader)
-    {
-        using namespace std::string_literals;
-        if (!_loader)
-            return;
-
-        m_loaders.insert("/irr/builtin/"s + _loader->getVirtualDirectoryName(), _loader);
     }
 };
 

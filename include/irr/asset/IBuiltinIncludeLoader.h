@@ -26,9 +26,9 @@ public:
             return {};
 
         std::string inclGuardName = _name;
-        std::transform(inclGuardName.begin(), inclGuardName.end(), inclGuardName.begin(), [](char c) {return std::toupper(c); });
+        std::transform(inclGuardName.begin(), inclGuardName.end(), inclGuardName.begin(), [](char c) {return ::toupper(int(c)); });
         std::transform(inclGuardName.begin(), inclGuardName.end(), inclGuardName.begin(),
-            [](char c) { return (!std::isalpha(c) && !std::isdigit(c)) ? '_' : c; }
+            [](char c) { return (!::isalpha(c) && !::isdigit(c)) ? '_' : c; }
         );
         inclGuardName = "_" + inclGuardName + "_";
 
@@ -46,10 +46,6 @@ public:
 
     //! @returns Path relative to /irr/builtin/
     virtual const char* getVirtualDirectoryName() const = 0;
-
-protected:
-    //! _name is always path relative to directory returned by getVirtualDirectoryName()
-    virtual std::string getBuiltinInclude_internal(const std::string& _name, const std::string& _inclGuardBegin, const std::string& _inclGuardEnd) const = 0;
 };
 
 }}
