@@ -7,10 +7,10 @@
 namespace irr { namespace asset
 {
 
-class CIncluder : public IIncluder
+class CFilesystemIncluder : public IIncluder
 {
 public:
-    CIncluder(io::IFileSystem* _fs) : m_filesystem{_fs}
+    CFilesystemIncluder(io::IFileSystem* _fs) : m_filesystem{_fs}
     {
     }
 
