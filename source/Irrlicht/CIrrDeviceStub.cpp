@@ -49,9 +49,6 @@ CIrrDeviceStub::CIrrDeviceStub(const SIrrlichtCreationParameters& params)
 	checkVersion(params.SDK_version_do_not_use);
 
     IncludeHandler = core::make_smart_refctd_ptr<asset::CIncludeHandler>(FileSystem);
-    //TODO it should be core::make_smart_refctd_ptr<asset::CIncludeHandler>(FileSystem, core::dont_grab);
-    //but doesn't work (on MSVC at least), wants to put dont_grab into CIncludeHandler's ctor
-    IncludeHandler->drop();//remove this drop() when above works
     //add builtin loaders
     asset::IBuiltinIncludeLoader* builtinLdr = new asset::CGLSLScanBuiltinIncludeLoader();
     IncludeHandler->addBuiltinIncludeLoader(builtinLdr);
