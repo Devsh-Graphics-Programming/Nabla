@@ -215,7 +215,7 @@ int main()
     asset::IAssetLoader::SAssetLoadParams lparams;
 
     uint32_t derivMap_sz[3]{ 512u, 512u, 1u };
-    video::ITexture* derivMap = driver->createGPUTexture(video::ITexture::ETT_2D, derivMap_sz, 1u, asset::EF_R16G16_SNORM);
+    video::ITexture* derivMap = driver->createGPUTexture(video::ITexture::ETT_2D, derivMap_sz, 1u, asset::EF_R8G8_SNORM);
 
     asset::ICPUTexture* bumpMap_asset = static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/bumpmap.jpg", lparams));
     video::ITexture* bumpMap = driver->getGPUObjectsFromAssets(&bumpMap_asset, (&bumpMap_asset)+1).front();
@@ -231,12 +231,18 @@ int main()
     GLuint deriv_map_gen_cs = createComputeShaderFromFile("../deriv_map_gen.comp");
 
     video::COpenGLExtensionHandler::extGlBindImageTexture(0, static_cast<const video::COpenGL2DTexture*>(derivMap)->getOpenGLName(),
-        0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RG16_SNORM);
+        0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RG8_SNORM);
     video::COpenGLExtensionHandler::extGlUseProgram(deriv_map_gen_cs);
     // TODO: distribution of work groups on dimensions should depend on available GLSL extensions
     // as for now it's assumed that no extensions are available (see CS source for details)
     video::COpenGLExtensionHandler::extGlDispatchCompute(derivMap_sz[0]/16u, derivMap_sz[1]/16u, 1u);
-    video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
+    video::COpenGLExtensionHandler::extGlMemoryBarrier(
+        GL_TEXTURE_FETCH_BARRIER_BIT |
+        GL_SHADER_IMAGE_ACCESS_BARRIER_BIT |
+        GL_PIXEL_BUFFER_BARRIER_BIT |
+        GL_TEXTURE_UPDATE_BARRIER_BIT |
+        GL_FRAMEBUFFER_BARRIER_BIT
+    );
 
     derivMap->regenerateMipMapLevels();
 

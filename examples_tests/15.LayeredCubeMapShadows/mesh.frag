@@ -1,6 +1,6 @@
 #version 450 core
 
-layout (location = 0) uniform float derivScaleFactor = 1000.0;
+layout (location = 0) uniform float derivScaleFactor = 1000.0/20.0;
 layout(binding = 0) uniform sampler2D tex0;
 layout(binding = 1) uniform samplerCube tex1; //shadow cubemap
 layout(binding = 4) uniform sampler2D derivativeMap;
@@ -83,9 +83,6 @@ void main()
 	
     vec3 normal = normalize(Normal);
 	normal = calculateSurfaceNormal(Position, TexCoord, normal, h_gradient);
-	
-	vec3 dpdx = dFdx(Position);
-	vec3 dpdy = dFdy(Position);
 	
     float lightIntensity = calcLighting(lightDir,normal);
 
