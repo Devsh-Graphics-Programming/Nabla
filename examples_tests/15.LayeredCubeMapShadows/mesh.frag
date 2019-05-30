@@ -1,6 +1,6 @@
 #version 450 core
 
-layout (location = 0) uniform float derivScaleFactor = 1000.0/20.0;
+layout (location = 0) uniform float derivScaleFactor = 1000.0/10.0;
 layout(binding = 0) uniform sampler2D tex0;
 layout(binding = 1) uniform samplerCube tex1; //shadow cubemap
 layout(binding = 4) uniform sampler2D derivativeMap;

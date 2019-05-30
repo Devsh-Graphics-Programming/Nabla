@@ -230,11 +230,13 @@ int main()
 
     GLuint deriv_map_gen_cs = createComputeShaderFromFile("../deriv_map_gen.comp");
 
+    GLint previousProgram;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &previousProgram);
+
     video::COpenGLExtensionHandler::extGlBindImageTexture(0, static_cast<const video::COpenGL2DTexture*>(derivMap)->getOpenGLName(),
         0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RG8_SNORM);
+
     video::COpenGLExtensionHandler::extGlUseProgram(deriv_map_gen_cs);
-    // TODO: distribution of work groups on dimensions should depend on available GLSL extensions
-    // as for now it's assumed that no extensions are available (see CS source for details)
     video::COpenGLExtensionHandler::extGlDispatchCompute(derivMap_sz[0]/16u, derivMap_sz[1]/16u, 1u);
     video::COpenGLExtensionHandler::extGlMemoryBarrier(
         GL_TEXTURE_FETCH_BARRIER_BIT |
@@ -243,6 +245,13 @@ int main()
         GL_TEXTURE_UPDATE_BARRIER_BIT |
         GL_FRAMEBUFFER_BARRIER_BIT
     );
+    video::COpenGLExtensionHandler::extGlDeleteProgram(deriv_map_gen_cs);
+    video::COpenGLExtensionHandler::extGlBindImageTexture(0, 0u, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RG8_SNORM); //unbind image
+    { //unbind texture
+        video::STextureSamplingParams params;
+        const_cast<video::COpenGLDriver::SAuxContext*>(reinterpret_cast<video::COpenGLDriver*>(driver)->getThreadContext())->setActiveTexture(7, nullptr, params);
+    }
+    video::COpenGLExtensionHandler::extGlUseProgram(previousProgram); //rebind previously bound program
 
     derivMap->regenerateMipMapLevels();
 

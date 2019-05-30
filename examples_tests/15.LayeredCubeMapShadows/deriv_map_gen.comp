@@ -3,7 +3,7 @@
 layout (local_size_x = 16, local_size_y = 16) in;
 
 layout (binding = 7) uniform sampler2D bumpMapSampler;
-layout (binding = 0, rg16_snorm) uniform image2D derivativeMapImage;
+layout (binding = 0, rg8_snorm) uniform image2D derivativeMapImage;
 
 layout (location = 0) uniform float uHeightScaleFactor = 0.001;
 
@@ -11,8 +11,7 @@ shared float smem[324];//18*18
 
 int getAddr(in ivec2 threadID)
 {
-	//return 18*(threadID.y+1) + threadID.x+1;
-	return int(dot(ivec2(1, 18), ivec2(threadID)+ivec2(1, 1)));
+	return 18*(threadID.y+1) + threadID.x+1;
 }
 
 void main()
@@ -24,7 +23,7 @@ void main()
 
 	const ivec2 LC_IDX = ivec2(gl_LocalInvocationID.xy);
 	smem[getAddr(LC_IDX)] = textureLod(bumpMapSampler, vec2(1.0, 1.0)/vec2(RESOLUTION) * vec2(G_IDX), 0.0).r * uHeightScaleFactor;
-	if (LC_IDX.x == 0 || LC_IDX.x == 15)
+	if (LC_IDX.x == 0 || LC_IDX.x == 15) // TODO how not to use if-statements??
 	{
 		ivec2 offset = ivec2(mix(ivec2(1, 0), ivec2(-1, 0), LC_IDX.x == 0));
 		smem[getAddr(LC_IDX+offset)] = textureLod(bumpMapSampler, vec2(1.0, 1.0)/vec2(RESOLUTION) * vec2(G_IDX+offset), 0.0).r * uHeightScaleFactor;
@@ -40,7 +39,7 @@ void main()
 	vec2 d = vec2(
 		smem[getAddr(LC_IDX+ivec2(1, 0))] - smem[getAddr(LC_IDX-ivec2(1, 0))],
 		smem[getAddr(LC_IDX+ivec2(0, 1))] - smem[getAddr(LC_IDX-ivec2(0, 1))]
-	) * bumpMapSz;
+	) * 0.5 * bumpMapSz;
 	
 	imageStore(derivativeMapImage, G_IDX, vec4(d, 0.0, 0.0));
 }
