@@ -216,8 +216,6 @@ int main()
 
     uint32_t derivMap_sz[3]{ 512u, 512u, 1u };
     video::ITexture* derivMap = driver->createGPUTexture(video::ITexture::ETT_2D, derivMap_sz, 1u, asset::EF_R16G16_SNORM);
-    video::ITexture* derivMap_x = driver->createGPUTexture(video::ITexture::ETT_2D, derivMap_sz, 1u, asset::EF_R16_SNORM);
-    video::ITexture* derivMap_y = driver->createGPUTexture(video::ITexture::ETT_2D, derivMap_sz, 1u, asset::EF_R16_SNORM);
 
     asset::ICPUTexture* bumpMap_asset = static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/bumpmap.jpg", lparams));
     video::ITexture* bumpMap = driver->getGPUObjectsFromAssets(&bumpMap_asset, (&bumpMap_asset)+1).front();
@@ -230,46 +228,16 @@ int main()
         const_cast<video::COpenGLDriver::SAuxContext*>(reinterpret_cast<video::COpenGLDriver*>(driver)->getThreadContext())->setActiveTexture(7, bumpMap, params);
     }
 
-    char* deriv_map_gen_glsl = nullptr;
-    const size_t deriv_map_gen_glsl_len = loadFileContentsAsStr("../deriv_map_gen.comp", deriv_map_gen_glsl);
+    GLuint deriv_map_gen_cs = createComputeShaderFromFile("../deriv_map_gen.comp");
 
-    char* deriv_map_gen_glsl_spec = reinterpret_cast<char*>(malloc(deriv_map_gen_glsl_len + 100u));
-    sprintf(deriv_map_gen_glsl_spec, deriv_map_gen_glsl, "#define XPASS 1");
-    GLuint deriv_map_gen_cs_x = createComputeShader(deriv_map_gen_glsl_spec);
-    sprintf(deriv_map_gen_glsl_spec, deriv_map_gen_glsl, "#define XPASS 0");
-    GLuint deriv_map_gen_cs_y = createComputeShader(deriv_map_gen_glsl_spec);
-
-    free(deriv_map_gen_glsl);
-    free(deriv_map_gen_glsl_spec);
-
-    GLuint merge_deriv_xy_cs = createComputeShaderFromFile("../merge_deriv_xy.comp");
-
-    video::COpenGLExtensionHandler::extGlBindImageTexture(0, static_cast<const video::COpenGL2DTexture*>(derivMap_x)->getOpenGLName(),
-        0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R16_SNORM);
-    video::COpenGLExtensionHandler::extGlUseProgram(deriv_map_gen_cs_x);
+    video::COpenGLExtensionHandler::extGlBindImageTexture(0, static_cast<const video::COpenGL2DTexture*>(derivMap)->getOpenGLName(),
+        0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RG16_SNORM);
+    video::COpenGLExtensionHandler::extGlUseProgram(deriv_map_gen_cs);
     // TODO: distribution of work groups on dimensions should depend on available GLSL extensions
     // as for now it's assumed that no extensions are available (see CS source for details)
-    video::COpenGLExtensionHandler::extGlDispatchCompute(2u*derivMap_sz[0]/256u, 2u*derivMap_sz[1], 1u);
-    video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
-
-    video::COpenGLExtensionHandler::extGlBindImageTexture(0, static_cast<const video::COpenGL2DTexture*>(derivMap_y)->getOpenGLName(),
-        0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R16_SNORM);
-    video::COpenGLExtensionHandler::extGlUseProgram(deriv_map_gen_cs_y);
-    video::COpenGLExtensionHandler::extGlDispatchCompute(2u*derivMap_sz[0], 2u*derivMap_sz[1]/256u, 1u);
-    video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
-
-    video::COpenGLExtensionHandler::extGlBindImageTexture(0, static_cast<const video::COpenGL2DTexture*>(derivMap_x)->getOpenGLName(),
-        0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R16_SNORM);
-    video::COpenGLExtensionHandler::extGlBindImageTexture(1, static_cast<const video::COpenGL2DTexture*>(derivMap_y)->getOpenGLName(),
-        0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R16_SNORM);
-    video::COpenGLExtensionHandler::extGlBindImageTexture(2, static_cast<const video::COpenGL2DTexture*>(derivMap)->getOpenGLName(),
-        0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RG16_SNORM);
-    video::COpenGLExtensionHandler::extGlUseProgram(merge_deriv_xy_cs);
     video::COpenGLExtensionHandler::extGlDispatchCompute(derivMap_sz[0]/16u, derivMap_sz[1]/16u, 1u);
     video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 
-    derivMap_x->drop();
-    derivMap_y->drop();
     derivMap->regenerateMipMapLevels();
 
     asset::ICPUTexture* wallTexture = static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/wall.jpg", lparams));

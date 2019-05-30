@@ -1,5 +1,6 @@
-#version 420 core
+#version 450 core
 
+layout (location = 0) uniform float derivScaleFactor = 1000.0;
 layout(binding = 0) uniform sampler2D tex0;
 layout(binding = 1) uniform samplerCube tex1; //shadow cubemap
 layout(binding = 4) uniform sampler2D derivativeMap;
@@ -78,7 +79,7 @@ void main()
 {
     float lightChebyshev = chebyshevNorm(lightDir);
 
-	vec2 h_gradient = texture(derivativeMap, TexCoord).xy * vec2(textureSize(derivativeMap, 0));
+	vec2 h_gradient = texture(derivativeMap, TexCoord).xy * derivScaleFactor.xx;
 	
     vec3 normal = normalize(Normal);
 	normal = calculateSurfaceNormal(Position, TexCoord, normal, h_gradient);
