@@ -45,11 +45,11 @@ if (MSVC) # MSVC needs to download and build dependencies of CEGUI
                 -DCEGUI_BUILD_TOLUAPP=OFF
                 -DCEGUI_BUILD_XERCES=OFF
                 -DCEGUI_BUILD_ZLIB=OFF
-                -DCEGUI_BUILD_EXPAT=ON
-                -DCEGUI_BUILD_FREETYPE2=ON
-                -DCEGUI_BUILD_GLEW=ON
-                -DCEGUI_BUILD_GLM=ON
-                -DCEGUI_BUILD_PCRE=ON
+                -DCEGUI_BUILD_EXPAT=ON # move this to 3rdparty as a submodule for both linux and windows
+                -DCEGUI_BUILD_FREETYPE2=ON # scheduled for move last
+                -DCEGUI_BUILD_GLEW=ON # move this to 3rdparty and make a proper dependency (likely to F'up Linux builds because stale packages on distros)
+                -DCEGUI_BUILD_GLM=ON # move this to 3rdparty as a submodule for both linux and windows
+                -DCEGUI_BUILD_PCRE=ON # scheduled for move last
             WORKING_DIRECTORY ${CEGUI_DEPS_BUILD_PATH}
         )
 
@@ -104,6 +104,7 @@ set(CEGUI_STATIC_XMLPARSER_MODULE "CEGUIExpatParser" CACHE STRING "")
 
 if (MSVC) # static linking on Linux will come later, since find_package only returns dynamic libs for now
     set(CEGUI_STATIC_DEPENDENCIES ON CACHE BOOL "")
+    set(CEGUI_BUILD_SHARED_LIBS_WITH_STATIC_DEPENDENCIES ON CACHE BOOL "") # util someone patches CEGUI to define GLEW_STATIC when the above is enabled as well
 endif()
 
 add_subdirectory(cegui EXCLUDE_FROM_ALL)
