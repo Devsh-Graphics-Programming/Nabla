@@ -40,13 +40,18 @@ namespace ext
 namespace cegui
 {
 
-static video::COpenGLState* GUIState;
-static video::COpenGLState* RenderState;
+class CEGUIOpenGLState final
+{
+	protected:
+		video::COpenGLState* GUIState;
+		video::COpenGLState* RenderState;
+	public:
+		CEGUIOpenGLState();
+		~CEGUIOpenGLState();
 
-void initOpenGLState();
-void saveOpenGLState();
-void restoreOpenGLState();
-void destroyOpenGLState();
+		void saveOpenGLState();
+		void restoreOpenGLState();
+};
 
 } // namespace cegui
 } // namespace ext

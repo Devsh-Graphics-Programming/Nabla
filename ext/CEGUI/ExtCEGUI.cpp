@@ -26,7 +26,6 @@ SOFTWARE.
 */
 
 #include "ExtCEGUI.h"
-#include "CEGUIOpenGLState.h"
 #include "CEGUIOpenGLClip.h"
 
 using namespace CEGUI;
@@ -48,12 +47,12 @@ GUIManager* createGUIManager(IrrlichtDevice* device)
 GUIManager::GUIManager(IrrlichtDevice* device)
     :   Device(device),
         Driver(device->getVideoDriver()),
+		GLStateManager(),
         Renderer(OpenGL3Renderer::create(Sizef(
             float(Driver->getScreenSize().Width),
             float(Driver->getScreenSize().Height)
         )))
 {
-
 }
 
 std::pair<bool, std::string> GUIManager::openFileDialog(
@@ -68,7 +67,6 @@ std::pair<bool, std::string> GUIManager::openFileDialog(
 
 void GUIManager::init()
 {
-    initOpenGLState();
     Renderer.enableExtraStateSettings(true);
 
     System::create(Renderer);
@@ -114,15 +112,14 @@ void GUIManager::init()
 
 void GUIManager::destroy()
 {
-    destroyOpenGLState();
 }
 
 void GUIManager::render()
 {
-    saveOpenGLState();
+	GLStateManager.saveOpenGLState();
     setOpenGLClip();
     ::CEGUI::System::getSingleton().renderAllGUIContexts();
-    restoreOpenGLState();
+	GLStateManager.restoreOpenGLState();
 }
 
 bool GUIManager::OnEvent(const SEvent& event)
@@ -417,7 +414,6 @@ void GUIManager::setOpacity(const char* name, float opacity)
 
 GUIManager::~GUIManager()
 {
-
 }
 
 } // namespace cegui

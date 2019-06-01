@@ -36,6 +36,8 @@ SOFTWARE.
 #include <map>
 #include <functional>
 
+#include "CEGUIOpenGLState.h"
+
 namespace irr
 {
 
@@ -45,6 +47,7 @@ namespace ext
 {
 namespace cegui
 {
+
 
 class GUIManager;
 GUIManager* createGUIManager(IrrlichtDevice* device);
@@ -64,7 +67,7 @@ class GUIManager: public core::IReferenceCounted, public IEventReceiver
         ~GUIManager();
 
         void init();
-        void destroy();
+		void destroy();
         void render();
         bool OnEvent(const SEvent& event) override;
 
@@ -103,6 +106,7 @@ class GUIManager: public core::IReferenceCounted, public IEventReceiver
     private:
         IrrlichtDevice* Device = nullptr;
         video::IVideoDriver* Driver = nullptr;
+		CEGUIOpenGLState GLStateManager;
         ::CEGUI::OpenGL3Renderer& Renderer;
         ::CEGUI::Window* RootWindow;
         std::map<const char*, ::CEGUI::ColourPicker*> ColourPickers;

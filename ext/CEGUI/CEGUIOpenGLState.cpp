@@ -36,28 +36,36 @@ namespace ext
 namespace cegui
 {
 
-void initOpenGLState()
+CEGUIOpenGLState::CEGUIOpenGLState()
 {
   GUIState = new video::COpenGLState();
   RenderState = new video::COpenGLState();
 }
-
-void saveOpenGLState()
-{
-  *GUIState = video::COpenGLState();
-  *RenderState = irr::video::COpenGLState::collectGLState();
-  video::executeGLDiff(GUIState->getStateDiff(*RenderState));
-}
-
-void restoreOpenGLState()
-{
-  video::executeGLDiff(RenderState->getStateDiff(irr::video::COpenGLState::collectGLState()));
-}
-
-void destroyOpenGLState()
+CEGUIOpenGLState::~CEGUIOpenGLState()
 {
   delete GUIState;
   delete RenderState;
+}
+
+#define CARE_PARAMETERS true,\
+						false, /*don't change FBO*/ \
+						true, true,\
+						false, /*don't care about atomic counters, SSBOs*/ \
+						true, true, true,\
+						false, false, false, /*keep tessellation params, viewport, indirect draw source buffer*/ \
+						true, true, true, true, true, true, true, true, true, true, true,\
+						false, /*don't care about storage images*/ \
+						true, true, true, true
+
+void CEGUIOpenGLState::saveOpenGLState()
+{
+  *GUIState = video::COpenGLState();
+  *RenderState = irr::video::COpenGLState::collectGLState(CARE_PARAMETERS);
+  video::executeGLDiff(GUIState->getStateDiff(*RenderState,CARE_PARAMETERS));
+}
+void CEGUIOpenGLState::restoreOpenGLState()
+{
+  video::executeGLDiff(RenderState->getStateDiff(irr::video::COpenGLState::collectGLState(CARE_PARAMETERS),CARE_PARAMETERS));
 }
 
 } // namespace cegui
