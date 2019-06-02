@@ -4,10 +4,12 @@ layout (local_size_x = 16, local_size_y = 16) in;
 
 layout (binding = 7) uniform sampler2D bumpMapSampler;
 layout (binding = 0, rg8_snorm) uniform image2D derivativeMapImage;
+layout (binding = 1, rg8_snorm) uniform image2D derivativeMapImage_mm[4];
 
 layout (location = 0) uniform float uHeightScaleFactor = 0.001;
 
 shared float smem[324];//18*18
+shared vec2 smem2[256];//16*16
 
 int getAddr(in ivec2 threadID)
 {
@@ -42,4 +44,30 @@ void main()
 	) * 0.5 * bumpMapSz;
 	
 	imageStore(derivativeMapImage, G_IDX, vec4(d, 0.0, 0.0));
+		
+	smem2[gl_LocalInvocationIndex] = d;
+	
+	uint mm = 0u;
+	uint offset = 1u;
+	for (uint i = 8u; i > 0u; i /= 2u)
+	{
+		barrier();
+		if (LC_IDX.x < i && LC_IDX.y < i)
+		{
+			//_a_|_c_
+			// d | b
+			uint a = offset * (2*LC_IDX.x + 1u) - 1u
+				+ (offset - 1u)*16u
+				+ 2u*LC_IDX.y*16u;
+			uint b = a + offset + offset*16u;
+			uint c = b - offset*16u;
+			uint d = b - offset;
+			
+			vec2 s = (smem2[a] + smem2[b] + smem2[c] + smem2[d]) * 0.25;
+			smem2[b] = s;
+			imageStore(derivativeMapImage_mm[mm], ivec2(gl_WorkGroupID*i)+LC_IDX, vec4(s, 0.0, 0.0));
+		}
+		offset *= 2u;
+		++mm;
+	}
 }
