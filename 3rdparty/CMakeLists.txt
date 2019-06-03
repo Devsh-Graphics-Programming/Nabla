@@ -43,6 +43,7 @@ set(ZLIB_LIBRARY "$<TARGET_OBJECTS:zlib>") #for pnglib
 option(PNG_SHARED "Build shared lib" OFF)
 option(PNG_TESTS  "Build libpng tests" OFF)
 add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
+add_dependencies(png_static zlib) #CMake doesn't get it itself
 
 irr_adjust_flags()
 
