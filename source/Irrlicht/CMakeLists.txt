@@ -91,7 +91,8 @@ set(IRRLICHT_SRCS_COMMON
 	CSkinnedMeshSceneNode.cpp
 	${CMAKE_SOURCE_DIR}/src/irr/asset/bawformat/TypedBlob.cpp
 	CCPUSkinnedMesh.cpp
-	
+	${CMAKE_SOURCE_DIR}/src/irr/video/CSmoothNormalGenerator.cpp
+
 # Shader loading and processing
 	CGLSLFunctionGenerator.cpp
 
