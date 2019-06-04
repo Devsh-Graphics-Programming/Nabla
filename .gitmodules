@@ -44,3 +44,17 @@
 [submodule "3rdparty/bullet3"]
 	path = 3rdparty/bullet3
 	url = https://github.com/bulletphysics/bullet3.git
+[submodule "examples_tests/media/cegui_alfisko"]
+	path = examples_tests/media/cegui_alfisko
+	url = https://gitlab.com/InnerPieceOSS/cegui_alfisko.git
+[submodule "3rdparty/CEGUI/cegui"]
+	path = 3rdparty/CEGUI/cegui
+  url = https://gitlab.com/InnerPieceOSS/cegui.git
+  branch = saga
+[submodule "ext/CEGUI/stb"]
+	path = ext/CEGUI/stb
+	url = https://github.com/nothings/stb.git
+[submodule "3rdparty/portable-file-dialogs"]
+	path = 3rdparty/portable-file-dialogs
+	url = https://github.com/samhocevar/portable-file-dialogs.git
+

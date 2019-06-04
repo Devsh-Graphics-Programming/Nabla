@@ -28,16 +28,25 @@ if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type: Debug or Release" FORCE)
 endif()
 
+if (DEFINED ENV{NUMBER_OF_PROCESSORS})
+	set(IRR_PARALLEL_BUILD_JOBS $ENV{NUMBER_OF_PROCESSORS})
+else()
+	set(IRR_PARALLEL_BUILD_JOBS 8)
+endif()
+
 macro(irr_adjust_flags)
 	option(IRR_GCC_SANITIZE_ADDRESS OFF)
 	option(IRR_GCC_SANITIZE_THREAD OFF)
 
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+		if (NOT IRR_BUILD_CEGUI)
+			add_compile_options(-fno-exceptions)
+		endif()
+
 		add_compile_options(
 			-Wextra
 			-Wno-unused-parameter
 			-Wno-unused-but-set-parameter
-			-fno-exceptions
 			-fno-strict-aliasing
 			-msse4.2
 			-mfpmath=sse
@@ -130,6 +139,7 @@ endif()
 #option(IRR_TARGET_ARCH_ARM "Build for ARM?" OFF)
 
 option(IRR_COMPILE_WITH_OPENGL "Compile with OpenGL backend?" ON)
+
 option(IRR_COMPILE_WITH_BURNINGSVIDEO "Compile with software backend?" ON)
 
 option(IRR_PCH "Enable pre-compiled header" ON)
@@ -140,6 +150,8 @@ option(IRR_BUILD_EXAMPLES "Enable building examples" ON)
 
 option(IRR_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 
+option(IRR_BUILD_CEGUI "Enable CEGUI building and integration?" OFF)
+
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
@@ -149,6 +161,9 @@ add_subdirectory(source/Irrlicht) # Irrlicht code
 if(IRR_BUILD_TOOLS)
 	add_subdirectory(tools) # convert2BAW
 endif()
+
+add_subdirectory(ext)
+
 if(IRR_BUILD_EXAMPLES)
 	add_subdirectory(examples_tests)
 endif()

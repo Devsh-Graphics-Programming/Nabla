@@ -84,6 +84,7 @@ set(IRRLICHT_SRCS_COMMON
 	${CMAKE_SOURCE_DIR}/src/irr/asset/bawformat/legacy/CBAWLegacy.cpp
 	${CMAKE_SOURCE_DIR}/src/irr/asset/bawformat/CBlobsLoadingManager.cpp
 	${CMAKE_SOURCE_DIR}/src/irr/asset/CForsythVertexCacheOptimizer.cpp
+	${CMAKE_SOURCE_DIR}/src/irr/asset/CSmoothNormalGenerator.cpp
 	${CMAKE_SOURCE_DIR}/src/irr/asset/CMeshManipulator.cpp
 	CMeshSceneNode.cpp
 	CMeshSceneNodeInstanced.cpp
