@@ -3119,14 +3119,18 @@ void COpenGLDriver::beginTransformFeedback(ITransformFeedback* xformFeedback, co
             found->CurrentXFormFeedback->setPrimitiveType(GL_POINTS);
             break;
 		case asset::EPT_LINE_STRIP:
+            _IRR_FALLTHROUGH
 		case asset::EPT_LINE_LOOP:
 			os::Printer::log("Not using PROPER TRANSFORM FEEDBACK primitive type (only EPT_POINTS, EPT_LINES and EPT_TRIANGLES allowed!)!\n",ELL_ERROR);
+            break;
 		case asset::EPT_LINES:
             found->CurrentXFormFeedback->setPrimitiveType(GL_LINES);
             break;
 		case asset::EPT_TRIANGLE_STRIP:
+            _IRR_FALLTHROUGH
 		case asset::EPT_TRIANGLE_FAN:
 			os::Printer::log("Not using PROPER TRANSFORM FEEDBACK primitive type (only EPT_POINTS, EPT_LINES and EPT_TRIANGLES allowed!)!\n",ELL_ERROR);
+            break;
 		case asset::EPT_TRIANGLES:
             found->CurrentXFormFeedback->setPrimitiveType(GL_TRIANGLES);
             break;
