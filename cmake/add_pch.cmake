@@ -106,11 +106,11 @@ FUNCTION(ADD_PRECOMPILED_HEADER _targetName _input)
     MESSAGE("${CMAKE_CXX_COMPILER} -DPCHCOMPILE ${_compiler_FLAGS} -x c++-header -std=c++${_cxx_std} -o ${_output} ${_source}")
     ADD_CUSTOM_COMMAND(
       OUTPUT ${_output}
-      COMMAND ${CMAKE_CXX_COMPILER} ${_compiler_FLAGS} -x c++-header -std=c++${_cxx_std} -o ${_output} ${_source}
+      COMMAND ${CMAKE_CXX_COMPILER} ${_compiler_FLAGS} -std=c++${_cxx_std} -x c++-header -c ${_source} -o ${_output}
       DEPENDS ${_source} ${IRRLICHT_HEADERS}
     )
     ADD_CUSTOM_TARGET(${_targetName}_gch DEPENDS ${_output})
     ADD_DEPENDENCIES(${_targetName} ${_targetName}_gch)
-    SET_TARGET_PROPERTIES(${_targetName} PROPERTIES COMPILE_FLAGS "-include ${_output} -Winvalid-pch")
+    SET_TARGET_PROPERTIES(${_targetName} PROPERTIES COMPILE_FLAGS "-include ${CMAKE_CURRENT_BINARY_DIR}/${_name} -Winvalid-pch")
   ENDIF(CMAKE_COMPILER_IS_GNUCXX)
 ENDFUNCTION()

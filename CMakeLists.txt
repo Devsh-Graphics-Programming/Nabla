@@ -25,6 +25,8 @@ if(CCACHE_FOUND)
   set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
   set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache)
   option(USE_CCACHE "Some dependency is using it, but I just don't know which!" ON)
+else(CCACHE_FOUND)
+  option(USE_CCACHE "Some dependency is using it, but I just don't know which!" OFF)
 endif(CCACHE_FOUND)
 
 if((MSVC_VERSION AND NOT ${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 19.11) OR
