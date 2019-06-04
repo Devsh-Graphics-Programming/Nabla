@@ -49,9 +49,7 @@ FUNCTION(ADD_PRECOMPILED_HEADER _targetName _input)
   IF(CMAKE_COMPILER_IS_GNUCXX)
     GET_FILENAME_COMPONENT(_name ${_input} NAME)
     SET(_source "${CMAKE_CURRENT_SOURCE_DIR}/${_input}")
-    SET(_outdir "${CMAKE_CURRENT_BINARY_DIR}/${_name}.gch")
-    MAKE_DIRECTORY(${_outdir})
-    SET(_output "${_outdir}/.c++")
+    SET(_output "${CMAKE_CURRENT_BINARY_DIR}/${_name}.gch")
     
     STRING(TOUPPER "CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE}" _flags_var_name)
     SET(_compiler_FLAGS ${${_flags_var_name}})
@@ -109,10 +107,10 @@ FUNCTION(ADD_PRECOMPILED_HEADER _targetName _input)
     ADD_CUSTOM_COMMAND(
       OUTPUT ${_output}
       COMMAND ${CMAKE_CXX_COMPILER} ${_compiler_FLAGS} -x c++-header -std=c++${_cxx_std} -o ${_output} ${_source}
-      DEPENDS ${_source} ${IRRLICHT_HEADERS} )
+      DEPENDS ${_source} ${IRRLICHT_HEADERS}
+    )
     ADD_CUSTOM_TARGET(${_targetName}_gch DEPENDS ${_output})
     ADD_DEPENDENCIES(${_targetName} ${_targetName}_gch)
-    SET_TARGET_PROPERTIES(${_targetName} PROPERTIES COMPILE_FLAGS "-include ${_name} -Winvalid-pch")
-    #target_compile_options(${_targetName} PRIVATE "-include ${_name}" -Winvalid-pch)
+    SET_TARGET_PROPERTIES(${_targetName} PROPERTIES COMPILE_FLAGS "-include ${_output} -Winvalid-pch")
   ENDIF(CMAKE_COMPILER_IS_GNUCXX)
 ENDFUNCTION()

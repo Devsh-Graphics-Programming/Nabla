@@ -27,7 +27,7 @@ set(SKIP_GLSLANG_INSTALL ON CACHE BOOL "Skip glslang install")
 set(ENABLE_SPVREMAPPER OFF CACHE BOOL "SPVRemapper is a spirv compression experimental library")
 set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "Build glslangValidator and spirv-remap?")
 set(BUILD_TESTING OFF CACHE BOOL "Enable glslang build testing?")
-add_subdirectory(glslang)
+add_subdirectory(glslang glslang EXCLUDE_FROM_ALL)
 
 set(SHADERC_SKIP_TESTS ON CACHE BOOL "Skip shaderc tests?")
 set(SHADERC_SKIP_INSTALL ON CACHE BOOL "Install shaderc?")
@@ -37,9 +37,9 @@ set(SHADERC_SKIP_INSTALL ON CACHE BOOL "Install shaderc?")
 if (UNIX)
 	file(WRITE ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/libshaderc_combined.a "")
 endif()
-add_subdirectory(shaderc)
+add_subdirectory(shaderc shaderc EXCLUDE_FROM_ALL)
 
-add_subdirectory(openssl)
+add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
 #manipulating libjpeg cmake options from within cmake script
 #option(ENABLE_SHARED "jpeg-turbo" OFF)
