@@ -102,7 +102,7 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
             assert(accessType);
         #endif // _DEBUG
 
-            GLbitfield flags = GL_MAP_PERSISTENT_BIT|((accessType&EMCAF_READ) ? GL_MAP_READ_BIT:0u);
+            GLbitfield flags = GL_MAP_PERSISTENT_BIT|(accessType&static_cast<GLbitfield>(GL_MAP_READ_BIT) ? GL_MAP_READ_BIT:0u);
             if (cachedFlags&GL_MAP_COHERENT_BIT)
             {
                 flags |= GL_MAP_COHERENT_BIT|((accessType&EMCAF_WRITE) ? GL_MAP_WRITE_BIT:0u);
@@ -118,7 +118,7 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
             mappedRange = memrange;
             bool canRead = flags&static_cast<GLbitfield>(GL_MAP_READ_BIT);
             bool canWrite = flags&static_cast<GLbitfield>(GL_MAP_WRITE_BIT);
-            currentMappingAccess = static_cast<E_MAPPING_CPU_ACCESS_FLAG>((canRead ? EMCAF_READ:0u)|(canWrite ? EMCAF_WRITE:0u));
+            currentMappingAccess = static_cast<E_MAPPING_CPU_ACCESS_FLAG>((canRead ? static_cast<uint32_t>(EMCAF_READ):0u)|(canWrite ? static_cast<uint32_t>(EMCAF_WRITE):0u));
             return mappedPtr;
         }
 

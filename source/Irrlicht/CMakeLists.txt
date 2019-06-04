@@ -1,4 +1,3 @@
-#find_package(OpenSSL REQUIRED)
 find_package(OpenGL REQUIRED)
 if(UNIX)
 	find_package(X11 REQUIRED)
