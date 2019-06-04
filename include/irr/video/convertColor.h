@@ -6,6 +6,11 @@
 #include "decodePixels.h"
 #include "encodePixels.h"
 
+#ifdef __GNUC__
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wuninitialized"
+#endif
+
 namespace irr { namespace video
 {
     namespace impl
@@ -491,5 +496,9 @@ namespace irr { namespace video
 
     void convertColor(asset::E_FORMAT _sfmt, asset::E_FORMAT _dfmt, const void* _srcPix[4], void* _dstPix, uint64_t _scale, size_t _pixOrBlockCnt, core::vector3d<uint32_t>& _imgSize);
 }} //irr:video
+
+#ifdef __GNUC__
+    #pragma GCC diagnostic pop
+#endif
 
 #endif //__IRR_CONVERT_COLOR_H_INCLUDED__

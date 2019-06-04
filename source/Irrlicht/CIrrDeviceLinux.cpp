@@ -905,7 +905,7 @@ bool CIrrDeviceLinux::createWindow()
                     {
                         reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].threadId = std::this_thread::get_id();
                         reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].ctx = Context;
-                        reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].pbuff = NULL;
+                        reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].pbuff = 0ull;
                     }
 
                     const int pboAttribs[] =
