@@ -110,3 +110,117 @@ add_library(aesGladman OBJECT
 	aesGladman/pwd2key.c
 	aesGladman/sha1.c
 )
+
+if (IRR_BUILD_CEGUI)
+	add_subdirectory(CEGUI)
+	set(CEGUI_INCLUDE_PATH
+		${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include
+		${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/cegui/include
+	)
+	set(CEGUI_INCLUDE_PATH ${CEGUI_INCLUDE_PATH} PARENT_SCOPE)
+
+	if (MSVC)
+		set(CEGUI_LIBS
+			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIOpenGLRenderer-0_Static.lib
+			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIBase-0_Static.lib
+			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/glew.lib
+			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIExpatParser_Static.lib
+			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUISTBImageCodec_Static.lib
+			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/freetype.lib
+			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICoreWindowRendererSet_Static.lib
+			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICommonDialogs-0_Static.lib
+			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/libexpat.lib
+			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/pcre.lib
+			optimized Winmm.lib
+			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIOpenGLRenderer-0_Static_d.lib
+			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIBase-0_Static_d.lib
+			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/glew_d.lib
+			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIExpatParser_Static_d.lib
+			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUISTBImageCodec_Static_d.lib
+			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/freetype_d.lib
+			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICoreWindowRendererSet_Static_d.lib
+			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICommonDialogs-0_Static_d.lib
+			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/libexpat_d.lib
+			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/pcre_d.lib
+			debug Dbghelp.lib
+			debug Winmm.lib
+			PARENT_SCOPE
+		)
+	else()
+    find_package(EXPAT REQUIRED)
+    find_package(Freetype REQUIRED)
+    find_package(GLEW REQUIRED)
+    find_package(PCRE REQUIRED)
+		set(CEGUI_LIBS
+			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIOpenGLRenderer-0_Static.a
+			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIBase-0_Static.a
+			${GLEW_LIBRARIES}
+			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIExpatParser_Static.a
+			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUISTBImageCodec_Static.a
+			${FREETYPE_LIBRARIES}
+			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUICoreWindowRendererSet_Static.a
+			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUICommonDialogs-0_Static.a
+			${EXPAT_LIBRARIES}
+			${PCRE_LIBRARIES}
+		)
+		set(CEGUI_LIBS ${CEGUI_LIBS} PARENT_SCOPE)
+	endif()
+
+	# Only MSVC builds and installs CEGUI dependencies
+	if (MSVC)
+		install(
+			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/include/
+			DESTINATION ./include/irr/ext/CEGUI/3rdparty
+			CONFIGURATIONS Release
+		)
+		install(
+			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/include/
+			DESTINATION ./debug/include/irr/ext/CEGUI/3rdparty
+			CONFIGURATIONS Debug
+		)
+		install(
+			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/lib/
+			DESTINATION ./lib/irr/ext/CEGUI
+			CONFIGURATIONS Release
+		)
+		install(
+			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/lib/
+			DESTINATION ./debug/lib/irr/ext/CEGUI
+			CONFIGURATIONS Debug
+		)
+	endif()
+
+	# CEGUI headers
+	install(
+		DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include/CEGUI
+		DESTINATION ./include/irr/ext/CEGUI
+		CONFIGURATIONS Release
+	)
+	install(
+		DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include/CEGUI
+		DESTINATION ./debug/include/irr/ext/CEGUI
+		CONFIGURATIONS Debug
+	)
+	# CEGUI generated headers
+	install(
+		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/cegui/include/CEGUI
+		DESTINATION ./include/irr/ext/CEGUI
+		CONFIGURATIONS Release
+	)
+	install(
+		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/cegui/include/CEGUI
+		DESTINATION ./debug/include/irr/ext/CEGUI
+		CONFIGURATIONS Debug
+	)
+	# CEGUI libs
+	install(
+		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/
+		DESTINATION ./lib/irr/ext/CEGUI
+		CONFIGURATIONS Release
+	)
+	install(
+		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/
+		DESTINATION ./debug/lib/irr/ext/CEGUI
+		CONFIGURATIONS Debug
+	)
+endif()
