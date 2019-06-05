@@ -148,7 +148,7 @@ if (IRR_BUILD_MITSUBA_LOADER)
    option(USE_libbsd "EXPAT: utilize libbsd (for arc4random_buf)" OFF)
    option(INSTALL "EXPAT: install expat files in cmake install target" OFF)
    set(MSVC_USE_STATIC_CRT ON CACHE BOOL "Use /MT flag (static CRT) when compiling in MSVC")
-   add_subdirectory(libexpat EXCLUDE_FROM_ALL)
+   add_subdirectory(libexpat/expat EXCLUDE_FROM_ALL)
 endif()
 
 if (IRR_BUILD_CEGUI)
