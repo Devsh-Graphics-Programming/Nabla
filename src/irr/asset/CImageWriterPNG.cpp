@@ -178,9 +178,9 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 				}
 				break;
 			case asset::EF_R8_SRGB:
-                _IRR_FALLTHROUGH
+				_IRR_FALLTHROUGH;
 			case asset::EF_R8G8B8_SRGB:
-                _IRR_FALLTHROUGH
+				_IRR_FALLTHROUGH;
 			case asset::EF_R8G8B8A8_SRGB:
 				RowPointers[i] = data;
 				break;

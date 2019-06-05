@@ -159,7 +159,7 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 					video::convertColor<EF_R8_UNORM, EF_R8_SRGB>(src_container, dest, dim.X, dim);
 					break;
 				case asset::EF_R8_SRGB:
-                    _IRR_FALLTHROUGH
+					_IRR_FALLTHROUGH;
 				case asset::EF_R8G8B8_SRGB:
 					memcpy(dest, src, pitch);
 					break;

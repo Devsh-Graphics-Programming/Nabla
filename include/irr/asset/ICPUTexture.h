@@ -72,9 +72,9 @@ public:
 				case video::ITexture::ETT_1D:
 					if (_range->getSliceMax()[1] > 1u)
 						return false;
-                    _IRR_FALLTHROUGH
+					_IRR_FALLTHROUGH;
 				case video::ITexture::ETT_1D_ARRAY:
-                    _IRR_FALLTHROUGH
+					_IRR_FALLTHROUGH;
 				case video::ITexture::ETT_2D:
 					if (_range->getSliceMax()[2] > 1u)
 						return false;
@@ -82,7 +82,7 @@ public:
 				case video::ITexture::ETT_CUBE_MAP_ARRAY:
 					if (_range->getSliceMax()[2]%6u != 0u)
 						return false;
-                    _IRR_FALLTHROUGH
+					_IRR_FALLTHROUGH;
 				case video::ITexture::ETT_CUBE_MAP:
 					if (_range->getSliceMax()[2] > 6u)
 						return false;
