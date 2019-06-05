@@ -1,5 +1,5 @@
-#include "../../ext/Bullet3/CPhysicsWorld.h"
-#include "../../ext/Bullet3/BulletUtility.h"
+#include "CPhysicsWorld.h"
+#include "BulletUtility.h"
 
 using namespace irr;
 using namespace ext;

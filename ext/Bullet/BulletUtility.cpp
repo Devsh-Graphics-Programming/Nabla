@@ -1,4 +1,4 @@
-#include "../../ext/Bullet3/BulletUtility.h"
+#include "BulletUtility.h"
 
 #include <iostream>
 

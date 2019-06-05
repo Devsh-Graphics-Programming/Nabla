@@ -1,5 +1,5 @@
-#include "../../ext/Bullet3/CDebugRender.h"
-#include "../../ext/Bullet3/BulletUtility.h"
+#include "CDebugRender.h"
+#include "BulletUtility.h"
 #include "../../ext/DebugDraw/Draw3DLineShaders.h"
 
 
