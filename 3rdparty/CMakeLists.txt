@@ -125,6 +125,18 @@ add_library(aesGladman OBJECT
 	aesGladman/sha1.c
 )
 
+if (IRR_BUILD_MITSUBA_LOADER)
+   option(BUILD_tools "EXPAT: build the xmlwf tool for expat library" OFF)
+   option(BUILD_examples "EXPAT: build the examples for expat library" OFF)
+   option(BUILD_tests "EXPAT: build the tests for expat library" OFF)
+   option(BUILD_shared "EXPAT: build a shared expat library" OFF)
+   option(BUILD_doc "EXPAT: build man page for xmlwf" OFF)
+   option(USE_libbsd "EXPAT: utilize libbsd (for arc4random_buf)" OFF)
+   option(INSTALL "EXPAT: install expat files in cmake install target" OFF)
+   set(MSVC_USE_STATIC_CRT ON CACHE BOOL "Use /MT flag (static CRT) when compiling in MSVC")
+   add_subdirectory(libexpat EXCLUDE_FROM_ALL)
+endif()
+
 if (IRR_BUILD_CEGUI)
 	add_subdirectory(CEGUI)
 	set(CEGUI_INCLUDE_PATH

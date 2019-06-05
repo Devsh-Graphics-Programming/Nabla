@@ -58,3 +58,9 @@
 	path = 3rdparty/libexpat
 	url = https://github.com/libexpat/libexpat.git
 	branch = master
+[submodule "3rdparty/glm"]
+	path = 3rdparty/glm
+	url = https://github.com/g-truc/glm.git
+[submodule "3rdparty/freetype2"]
+	path = 3rdparty/freetype2
+	url = https://git.sv.nongnu.org/r/freetype/freetype2.git
