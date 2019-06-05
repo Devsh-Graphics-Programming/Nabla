@@ -189,7 +189,6 @@ set(IRRLICHT_SRCS_COMMON
 )
 if (MSVC)
 	list(APPEND IRRLICHT_SRCS_COMMON pch.cpp) # @crisspl why are only some sources appended? also why sources?
-	set_source_files_properties("${CMAKE_SOURCE_DIR}/src/irr/video/convertColor.cpp" PROPERTIES COMPILE_FLAGS /bigobj) #on MSVC it won't compile without this option!
 endif()
 
 set(IRRLICHT_SRCS_NORMAL
@@ -395,6 +394,10 @@ if(IRR_PCH)
     endif()
 endif()
 
+if (MSVC) #on MSVC it won't compile without this option!
+	target_compile_options(Irrlicht PUBLIC /bigobj)
+	target_compile_options(IrrlichtServer PUBLIC /bigobj)
+endif()
 
 set_target_properties(Irrlicht IrrlichtServer PROPERTIES DEBUG_POSTFIX _debug)
 
