@@ -54,3 +54,7 @@
 [submodule "3rdparty/portable-file-dialogs"]
 	path = 3rdparty/portable-file-dialogs
 	url = https://github.com/samhocevar/portable-file-dialogs.git
+[submodule "3rdparty/libexpat"]
+	path = 3rdparty/libexpat
+	url = https://github.com/libexpat/libexpat.git
+	branch = master
