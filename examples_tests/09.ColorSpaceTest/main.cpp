@@ -2,6 +2,7 @@
 #include <irrlicht.h>
 #include <iostream>
 #include <cstdio>
+#include <fstream>
 
 #include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
 #include "../../ext/ScreenShot/ScreenShot.h"
@@ -9,7 +10,6 @@
 
 using namespace irr;
 using namespace core;
-
 
 video::SGPUMaterial presentMaterial;
 
@@ -72,31 +72,42 @@ void dumpTextureToFile(IrrlichtDevice* device, video::ITexture* tex, const std::
 
 void testImage(const std::string& path, IrrlichtDevice* device, video::IGPUMeshBuffer* fullScreenTriangle)
 {
+	os::Printer::log("Reading", path);
+	
 	auto& assetMgr = device->getAssetManager();
-	video::IVideoDriver* driver = device->getVideoDriver();
+	auto* driver = device->getVideoDriver();
 
 	asset::ICPUTexture* cputex[1] = { static_cast<asset::ICPUTexture*>(assetMgr.getAsset(path, {})) };
-	assert(cputex[0]);
-
-	io::path filename,extension ;
-	core::splitFilename(path.c_str(), nullptr, &filename, &extension);
-	filename += "."; filename += extension;
-
-	auto tex = driver->getGPUObjectsFromAssets(cputex,cputex+1u).front();
+	
+	if (cputex[0])
 	{
-		auto tmpTex = driver->createGPUTexture(video::ITexture::ETT_2D,tex->getSize(),1u,tex->getColorFormat());
-		presentImageOnScreen(device, fullScreenTriangle, tex, tmpTex);
-		dumpTextureToFile(device, tmpTex, (io::path("screen")+filename).c_str());
-		tmpTex->drop();
-	}
-	{
-		asset::CImageData* img = *cputex[0]->getMipMap(0u).first;
-		asset::IAssetWriter::SAssetWriteParams wparams(img);
+		io::path filename, extension;
+		core::splitFilename(path.c_str(), nullptr, &filename, &extension);
+		filename += "."; filename += extension;
+		
+		bool writeable = (extension != "dds") && (extension != "bmp");
+		
+		auto tex = driver->getGPUObjectsFromAssets(cputex,cputex+1u).front();
+		{
+			auto tmpTex = driver->createGPUTexture(video::ITexture::ETT_2D,tex->getSize(),1u,tex->getColorFormat());
+			presentImageOnScreen(device, fullScreenTriangle, tex, tmpTex);
+			
+			if (writeable)
+				dumpTextureToFile(device, tex, (io::path("screen_")+filename).c_str());
+			
+			tmpTex->drop();
+		}
+		
+		if (writeable)
+		{
+			asset::CImageData* img = *cputex[0]->getMipMap(0u).first;
+			asset::IAssetWriter::SAssetWriteParams wparams(img);
 
-		device->getAssetManager().writeAsset((io::path("write")+filename).c_str(), wparams);
+			device->getAssetManager().writeAsset((io::path("write_")+filename).c_str(), wparams);
+		}
+		assetMgr.removeAssetFromCache(cputex[0]);
+		assetMgr.removeCachedGPUObject(cputex[0],tex);
 	}
-	assetMgr.removeAssetFromCache(cputex[0]);
-	assetMgr.removeCachedGPUObject(cputex[0],tex);
 }
 
 int main()
@@ -114,21 +125,29 @@ int main()
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 
-    video::IGPUMeshBuffer* fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(driver);
-
-    //! First need to make a material other than default to be able to draw with custom shader
+	video::IGPUMeshBuffer* fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(driver);
+	
+	//! First need to make a material other than default to be able to draw with custom shader
 	presentMaterial.BackfaceCulling = false; //! Triangles will be visible from both sides
 	presentMaterial.ZBuffer = video::ECFN_ALWAYS; //! Ignore Depth Test
 	presentMaterial.ZWriteEnable = false; //! Why even write depth?
 	presentMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles(
 																"../fullscreentri.vert","","","","../present.frag",3,video::EMT_SOLID);
-
-	// more test images need to be added!
-	testImage("../../media/dwarf.jpg",device,fullScreenTriangle);
-
-
+	
+	std::ifstream list("./testlist.txt");
+	if (list.is_open())
+	{
+                std::string line;
+                for (; std::getline(list, line); )
+                {
+                        if(line != "" && line[0] != ';')
+                                testImage(line, device, fullScreenTriangle);
+                }
+	}
+	
 	fullScreenTriangle->drop();
 	device->drop();
 
 	return 0;
 }
+

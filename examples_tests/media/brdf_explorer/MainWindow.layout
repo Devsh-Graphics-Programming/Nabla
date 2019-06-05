@@ -1,0 +1,503 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<GUILayout version="4" >
+    <Window type="DefaultWindow" name="UIRoot" >
+        <Property name="Area" value="{{0,-1},{-1.16415e-010,1},{1,-1},{0.997222,1}}" />
+        <Property name="MaxSize" value="{{1,0},{1,0}}" />
+        <Window type="Alfisko/FrameWindow" name="MaterialParamsWindow" >
+            <Property name="Area" value="{{0,0},{0,0},{0.235,0},{1,0}}" />
+            <Property name="Text" value="Material Parameters" />
+            <Property name="MaxSize" value="{{1,0},{1,0}}" />
+            <Property name="MinSize" value="{{0.235,0},{0.75,0}}" />
+            <AutoWindow namePath="__auto_titlebar__" >
+                <Property name="AlwaysOnTop" value="false" />
+            </AutoWindow>
+            <Window type="DefaultWindow" name="EmissiveWindow" >
+                <Property name="Area" value="{{0,0},{0,0},{1,0},{0.1,0}}" />
+                <Property name="Alpha" value="0" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+            </Window>
+            <Window type="DefaultWindow" name="MetallicWindow" >
+                <Property name="Area" value="{{0,0},{0.515,0},{1,0},{0.565,0}}" />
+                <Property name="Alpha" value="0" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                <Property name="InheritsAlpha" value="false" />
+                <Window type="Alfisko/Label" name="Label" >
+                    <Property name="Area" value="{{0.025,0},{0,0},{0.375,0},{0,24}}" />
+                    <Property name="Text" value="Metallic" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorzFormatting" value="WordWrapLeftAligned" />
+                    <Property name="VerticalAlignment" value="Centre" />
+                </Window>
+                <Window type="Alfisko/HorizontalSlider" name="Slider" >
+                    <Property name="Area" value="{{-0.1,0},{0,0},{0.45,0},{0.75,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="VerticalAlignment" value="Centre" />
+                    <Property name="HorizontalAlignment" value="Right" />
+                </Window>
+                <Window type="Alfisko/Label" name="LabelPercent" >
+                    <Property name="Area" value="{{-0.0075,0},{0,0},{-0.0075,36},{0,24}}" />
+                    <Property name="Text" value="%" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorzFormatting" value="WordWrapCentreAligned" />
+                    <Property name="VerticalAlignment" value="Centre" />
+                    <Property name="HorizontalAlignment" value="Right" />
+                </Window>
+            </Window>
+            <Window type="DefaultWindow" name="RoughnessWindow" >
+                <Property name="Area" value="{{0,0},{0.27,0},{1,0},{0.395,0}}" />
+                <Property name="Alpha" value="0" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                <Window type="Alfisko/Label" name="Label" >
+                    <Property name="Area" value="{{0.025,0},{0,0},{0.325,0},{0.5,0}}" />
+                    <Property name="Text" value="Roughness" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorzFormatting" value="WordWrapLeftAligned" />
+                    <Property name="MousePassThroughEnabled" value="true" />
+                </Window>
+                <Window type="Alfisko/HorizontalSlider" name="Slider" >
+                    <Property name="Area" value="{{-0.1,0},{0,0},{0.45,0},{0.385,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorizontalAlignment" value="Right" />
+                </Window>
+                <Window type="Alfisko/Label" name="LabelPercent2" >
+                    <Property name="Area" value="{{-0.0075,0},{0.5,0},{-0.0075,36},{0.5,24}}" />
+                    <Property name="Text" value="%" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorzFormatting" value="WordWrapCentreAligned" />
+                    <Property name="HorizontalAlignment" value="Right" />
+                    <Property name="MousePassThroughEnabled" value="true" />
+                </Window>
+                <Window type="Alfisko/HorizontalSlider" name="Slider2" >
+                    <Property name="Area" value="{{-0.1,0},{0.4,0},{0.45,0},{0.785,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorizontalAlignment" value="Right" />
+                </Window>
+                <Window type="Alfisko/Label" name="LabelPercent1" >
+                    <Property name="Area" value="{{-0.0075,0},{-0.3,0},{-0.0075,36},{-0.3,24}}" />
+                    <Property name="Text" value="%" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorzFormatting" value="WordWrapCentreAligned" />
+                    <Property name="VerticalAlignment" value="Centre" />
+                    <Property name="HorizontalAlignment" value="Right" />
+                    <Property name="MousePassThroughEnabled" value="true" />
+                </Window>
+                <Window type="Alfisko/Checkbox" name="Checkbox" >
+                    <Property name="Area" value="{{0.15,0},{0,0},{0.5,0},{0,24}}" />
+                    <Property name="Text" value="Isotropic" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="VerticalAlignment" value="Bottom" />
+                    <Property name="HorizontalAlignment" value="Centre" />
+                </Window>
+            </Window>
+            <Window type="DefaultWindow" name="BumpWindow" >
+                <Property name="Area" value="{{0,0},{0.565,0},{1,0},{0.74,0}}" />
+                <Property name="Alpha" value="0" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                <Window type="Alfisko/Label" name="Label2" >
+                    <Property name="Area" value="{{0.412267,-1},{0.164543,0},{0.412267,127},{0.164543,32}}" />
+                    <Property name="Text" value="Texture Map" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorzFormatting" value="LeftAligned" />
+                    <Property name="VertFormatting" value="TopAligned" />
+                    <Property name="MousePassThroughEnabled" value="true" />
+                </Window>
+                <Window type="Alfisko/HorizontalSlider" name="Spinner" >
+                    <Property name="Area" value="{{-0.111733,-1},{0.75,-31},{0.363267,-2},{0.975,-31}}" />
+                    <Property name="Text" value="1" />
+                    <Property name="CurrentValue" value="0.01" />
+                    <Property name="MaximumValue" value="20" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorizontalAlignment" value="Right" />
+                </Window>
+                <Window type="Alfisko/Label" name="Label22" >
+                    <Property name="Area" value="{{0.412267,-1},{0.585458,-19},{0.412267,127},{0.585458,13}}" />
+                    <Property name="Text" value="Map Height" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorzFormatting" value="LeftAligned" />
+                    <Property name="VertFormatting" value="TopAligned" />
+                    <Property name="MousePassThroughEnabled" value="true" />
+                </Window>
+                <Window type="Alfisko/Label" name="Label" >
+                    <Property name="Area" value="{{0.025,0},{0,0},{1.025,0},{0,24}}" />
+                    <Property name="Text" value="Bump Mapping" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorzFormatting" value="WordWrapLeftAligned" />
+                    <Property name="MousePassThroughEnabled" value="true" />
+                </Window>
+                <Window type="Alfisko/Editbox" name="Editbox" >
+                    <Property name="Area" value="{{-0.137067,0},{0.262582,0},{0.312933,0},{0.426798,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorizontalAlignment" value="Right" />
+                </Window>
+                <Window type="Alfisko/Button" name="Button" >
+                    <Property name="Area" value="{{-0.0144,-2},{0.262582,0},{0.106933,-4},{0.426798,0}}" />
+                    <Property name="Text" value="..." />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorizontalAlignment" value="Right" />
+                </Window>
+                <Window type="Alfisko/ImageButton" name="ImageButton" >
+                    <Property name="Area" value="{{0.025,0},{-0.0025,0},{0.4,0},{0.8475,0}}" />
+                    <Property name="HoverImage" value="Alfisko/ButtonNormalTL" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="VerticalAlignment" value="Bottom" />
+                </Window>
+                <Window type="Alfisko/Label" name="LabelPercent" >
+                    <Property name="Area" value="{{-0.0075,0},{0.75,-26},{-0.0075,64},{0.75,-2}}" />
+                    <Property name="Text" value="%" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorzFormatting" value="WordWrapRightAligned" />
+                    <Property name="HorizontalAlignment" value="Right" />
+                    <Property name="MousePassThroughEnabled" value="true" />
+                </Window>
+            </Window>
+            <Window type="DefaultWindow" name="AOWindow" >
+                <Property name="Area" value="{{0,0},{0.74,0},{1,0},{0.915,0}}" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                <Window type="Alfisko/Label" name="LabelTitle" >
+                    <Property name="Area" value="{{0.0256,0},{0.00114411,0},{1.0256,0},{0.00114411,24}}" />
+                    <Property name="Text" value="Ambient Occlusion" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorzFormatting" value="WordWrapLeftAligned" />
+                    <Property name="MousePassThroughEnabled" value="true" />
+                </Window>
+                <Window type="Alfisko/Editbox" name="Editbox" >
+                    <Property name="Area" value="{{-0.1344,0},{0.262582,0},{0.318267,0},{0.426798,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorizontalAlignment" value="Right" />
+                </Window>
+                <Window type="Alfisko/Button" name="Button" >
+                    <Property name="Area" value="{{-0.0144,0},{0.262582,0},{0.104267,0},{0.426798,0}}" />
+                    <Property name="Text" value="..." />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorizontalAlignment" value="Right" />
+                </Window>
+                <Window type="Alfisko/Label" name="LabelAOTexture" >
+                    <Property name="Area" value="{{0.412267,0},{0.164543,0},{0.412267,128},{0.164543,32}}" />
+                    <Property name="Text" value="AO Texture" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorzFormatting" value="LeftAligned" />
+                    <Property name="VertFormatting" value="TopAligned" />
+                    <Property name="MousePassThroughEnabled" value="true" />
+                </Window>
+                <Window type="Alfisko/ImageButton" name="ImageButton" >
+                    <Property name="Area" value="{{0.025,0},{-0.0025,0},{0.4,0},{0.8475,0}}" />
+                    <Property name="HoverImage" value="Alfisko/ButtonNormalTL" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="VerticalAlignment" value="Bottom" />
+                </Window>
+                <Window type="Alfisko/Checkbox" name="Checkbox" >
+                    <Property name="Area" value="{{0.412267,0},{0.45866,0},{0.762267,24},{0.45866,24}}" />
+                    <Property name="Text" value="Enabled" />
+                    <Property name="InheritsAlpha" value="false" />
+                </Window>
+            </Window>
+            <Window type="DefaultWindow" name="AlbedoWindow" >
+                <Property name="Area" value="{{0,0},{0.135,0},{1,0},{0.235,0}}" />
+                <Property name="Alpha" value="0" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+            </Window>
+            <Window type="DefaultWindow" name="RefractionIndexWindow" >
+                <Property name="Area" value="{{0,0},{0.43,0},{1,0},{0.48,0}}" />
+                <Property name="Alpha" value="0" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                <Window type="Alfisko/HorizontalSlider" name="Slider" >
+                    <Property name="Area" value="{{-0.1,0},{0,0},{0.45,0},{0.75,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="VerticalAlignment" value="Centre" />
+                    <Property name="HorizontalAlignment" value="Right" />
+                </Window>
+                <Window type="Alfisko/Label" name="LabelPercent" >
+                    <Property name="Area" value="{{-0.0075,0},{0,0},{-0.0075,36},{0,24}}" />
+                    <Property name="Text" value="%" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorzFormatting" value="WordWrapCentreAligned" />
+                    <Property name="VerticalAlignment" value="Centre" />
+                    <Property name="HorizontalAlignment" value="Right" />
+                    <Property name="MousePassThroughEnabled" value="true" />
+                </Window>
+                <Window type="Alfisko/Label" name="Label" >
+                    <Property name="Area" value="{{0.025,0},{0,0},{0.325,0},{1,0}}" />
+                    <Property name="Text" value="Refraction Index" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorzFormatting" value="WordWrapLeftAligned" />
+                    <Property name="VerticalAlignment" value="Centre" />
+                    <Property name="MousePassThroughEnabled" value="true" />
+                </Window>
+            </Window>
+            <Window type="DefaultWindow" name="AlbedoDropDownList" >
+                <Property name="Area" value="{{0,0},{0.1,0},{1,0},{0.135,0}}" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                <Window type="Alfisko/Label" name="Label" >
+                    <Property name="Area" value="{{0.025,0},{0.05,0},{0.525,0},{1.05,0}}" />
+                    <Property name="Text" value="Albedo Source" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorzFormatting" value="LeftAligned" />
+                    <Property name="MousePassThroughEnabled" value="true" />
+                </Window>
+            </Window>
+            <Window type="DefaultWindow" name="RoughnessDropDownList" >
+                <Property name="Area" value="{{0,0},{0.235,0},{1,0},{0.27,0}}" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                <Window type="Alfisko/Label" name="Label" >
+                    <Property name="Area" value="{{0.025,0},{0.05,0},{0.525,0},{1.05,0}}" />
+                    <Property name="Text" value="Roughness Source" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorzFormatting" value="LeftAligned" />
+                    <Property name="MousePassThroughEnabled" value="true" />
+                </Window>
+            </Window>
+            <Window type="DefaultWindow" name="RIDropDownList" >
+                <Property name="Area" value="{{0,0},{0.395,0},{1,0},{0.43,0}}" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                <Window type="Alfisko/Label" name="Label" >
+                    <Property name="Area" value="{{0.025,0},{0.05,0},{0.525,0},{1.05,0}}" />
+                    <Property name="Text" value="RI Source" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorzFormatting" value="LeftAligned" />
+                    <Property name="MousePassThroughEnabled" value="true" />
+                </Window>
+            </Window>
+            <Window type="DefaultWindow" name="MetallicDropDownList" >
+                <Property name="Area" value="{{0,0},{0.48,0},{1,0},{0.515,0}}" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                <Window type="Alfisko/Label" name="Label" >
+                    <Property name="Area" value="{{0.025,0},{0.05,0},{0.025,128},{0.05,32}}" />
+                    <Property name="Text" value="Metallic Source" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorzFormatting" value="LeftAligned" />
+                    <Property name="MousePassThroughEnabled" value="true" />
+                </Window>
+            </Window>
+        </Window>
+        <Window type="Alfisko/Label" name="FPS" >
+            <Property name="Area" value="{{0.0025,-3},{0.0025,-1},{1.0025,-3},{1.0025,-1}}" />
+            <Property name="Text" value="Sample FPS" />
+            <Property name="MaxSize" value="{{1,0},{1,0}}" />
+            <Property name="HorzFormatting" value="LeftAligned" />
+            <Property name="VertFormatting" value="TopAligned" />
+            <Property name="MousePassThroughEnabled" value="true" />
+        </Window>
+        <Window type="Alfisko/FrameWindow" name="LightParamsWindow" >
+            <Property name="Area" value="{{0,0},{0,0},{0.2,0},{0.375,0}}" />
+            <Property name="Text" value="Light Parameters" />
+            <Property name="MaxSize" value="{{1,0},{1,0}}" />
+            <Property name="MinSize" value="{{0.2,0},{0.375,0}}" />
+            <Property name="HorizontalAlignment" value="Right" />
+            <AutoWindow namePath="__auto_titlebar__" >
+                <Property name="AlwaysOnTop" value="false" />
+            </AutoWindow>
+            <Window type="DefaultWindow" name="PositionWindow" >
+                <Property name="Area" value="{{0,0},{0.6,0},{1,0},{0.75,0}}" />
+                <Property name="Alpha" value="0" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                <Window type="Alfisko/Label" name="Label" >
+                    <Property name="Area" value="{{0.025,0},{0,0},{0.025,128},{0,24}}" />
+                    <Property name="Text" value="Position" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="HorzFormatting" value="WordWrapLeftAligned" />
+                    <Property name="VerticalAlignment" value="Centre" />
+                    <Property name="MousePassThroughEnabled" value="true" />
+                </Window>
+                <Window type="Alfisko/Spinner" name="LightZ" >
+                    <Property name="Area" value="{{-0.0125,0},{0,0},{0.2375,0},{0.5,0}}" />
+                    <Property name="Text" value="0" />
+                    <Property name="MaximumValue" value="999999" />
+                    <Property name="MinimumValue" value="-999999" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="TextInputMode" value="FloatingPoint" />
+                    <Property name="VerticalAlignment" value="Centre" />
+                    <Property name="HorizontalAlignment" value="Right" />
+                    <AutoWindow namePath="__auto_editbox__" >
+                        <Property name="Text" value="0" />
+                        <Property name="ValidationString" value="-?\d*\.?\d*" />
+                    </AutoWindow>
+                    <AutoWindow namePath="__auto_incbtn__" >
+                        <Property name="WantsMultiClickEvents" value="false" />
+                        <Property name="MouseAutoRepeatEnabled" value="true" />
+                    </AutoWindow>
+                    <AutoWindow namePath="__auto_decbtn__" >
+                        <Property name="WantsMultiClickEvents" value="false" />
+                        <Property name="MouseAutoRepeatEnabled" value="true" />
+                    </AutoWindow>
+                </Window>
+                <Window type="Alfisko/Spinner" name="LightY" >
+                    <Property name="Area" value="{{-0.275,0},{0,0},{-0.025,0},{0.5,0}}" />
+                    <Property name="Text" value="0" />
+                    <Property name="MaximumValue" value="999999" />
+                    <Property name="MinimumValue" value="-999999" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="TextInputMode" value="FloatingPoint" />
+                    <Property name="VerticalAlignment" value="Centre" />
+                    <Property name="HorizontalAlignment" value="Right" />
+                    <AutoWindow namePath="__auto_editbox__" >
+                        <Property name="Text" value="0" />
+                        <Property name="ValidationString" value="-?\d*\.?\d*" />
+                    </AutoWindow>
+                    <AutoWindow namePath="__auto_incbtn__" >
+                        <Property name="WantsMultiClickEvents" value="false" />
+                        <Property name="MouseAutoRepeatEnabled" value="true" />
+                    </AutoWindow>
+                    <AutoWindow namePath="__auto_decbtn__" >
+                        <Property name="WantsMultiClickEvents" value="false" />
+                        <Property name="MouseAutoRepeatEnabled" value="true" />
+                    </AutoWindow>
+                </Window>
+                <Window type="Alfisko/Spinner" name="LightX" >
+                    <Property name="Area" value="{{-0.5375,0},{0,0},{-0.2875,0},{0.5,0}}" />
+                    <Property name="Text" value="0" />
+                    <Property name="MaximumValue" value="999999" />
+                    <Property name="MinimumValue" value="-999999" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="TextInputMode" value="FloatingPoint" />
+                    <Property name="VerticalAlignment" value="Centre" />
+                    <Property name="HorizontalAlignment" value="Right" />
+                    <AutoWindow namePath="__auto_editbox__" >
+                        <Property name="Text" value="0" />
+                        <Property name="ValidationString" value="-?\d*\.?\d*" />
+                    </AutoWindow>
+                    <AutoWindow namePath="__auto_incbtn__" >
+                        <Property name="WantsMultiClickEvents" value="false" />
+                        <Property name="MouseAutoRepeatEnabled" value="true" />
+                    </AutoWindow>
+                    <AutoWindow namePath="__auto_decbtn__" >
+                        <Property name="WantsMultiClickEvents" value="false" />
+                        <Property name="MouseAutoRepeatEnabled" value="true" />
+                    </AutoWindow>
+                </Window>
+            </Window>
+            <Window type="DefaultWindow" name="AnimationWindow" >
+                <Property name="Area" value="{{0,0},{0.75,0},{1,0},{1,0}}" />
+                <Property name="Alpha" value="0" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                <Window type="Alfisko/Checkbox" name="Checkbox" >
+                    <Property name="Area" value="{{0.025,0},{0,0},{0.525,0},{0,24}}" />
+                    <Property name="Text" value="Animation" />
+                    <Property name="InheritsAlpha" value="false" />
+                    <Property name="VerticalAlignment" value="Centre" />
+                </Window>
+            </Window>
+            <Window type="DefaultWindow" name="ColorWindow" >
+                <Property name="Area" value="{{0,-1},{0,0},{1,-1},{0.6,0}}" />
+                <Property name="Alpha" value="0" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+            </Window>
+        </Window>
+        <Window type="Alfisko/FrameWindow" name="TextureViewWindow" >
+            <Property name="Area" value="{{0,0},{0.4,0},{0.2,0},{0.8,0}}" />
+            <Property name="Text" value="Texture Preview" />
+            <Property name="MaxSize" value="{{1,0},{1,0}}" />
+            <Property name="MinSize" value="{{0.2,0},{0.4,0}}" />
+            <Property name="HorizontalAlignment" value="Right" />
+            <AutoWindow namePath="__auto_titlebar__" >
+                <Property name="AlwaysOnTop" value="false" />
+            </AutoWindow>
+            <Window type="DefaultWindow" name="Texture0Window" >
+                <Property name="Area" value="{{0.025,0},{0.025,0},{0.4875,0},{0.5,0}}" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                <Property name="TooltipText" value="LOL" />
+                <Window type="Alfisko/ImageButton" name="Texture" >
+                    <Property name="Area" value="{{0,0},{0,0},{1,0},{0.875,0}}" />
+                    <Property name="HoverImage" value="Alfisko/ButtonNormalTL" />
+                    <Property name="TooltipText" value="LOL" />
+                    <Property name="InheritsAlpha" value="false" />
+                </Window>
+                <Window type="DefaultWindow" name="LabelWindow" >
+                    <Property name="Area" value="{{0,0},{0,0},{1,0},{0.125,0}}" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="TooltipText" value="LOL" />
+                    <Property name="VerticalAlignment" value="Bottom" />
+                    <Window type="Alfisko/Label" name="Label" >
+                        <Property name="Area" value="{{0,0},{0,0},{1,0},{1,0}}" />
+                        <Property name="Text" value="Texture 0" />
+                        <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                        <Property name="TooltipText" value="LOL" />
+                        <Property name="VerticalAlignment" value="Centre" />
+                        <Property name="HorizontalAlignment" value="Centre" />
+                    </Window>
+                </Window>
+            </Window>
+            <Window type="DefaultWindow" name="Texture1Window" >
+                <Property name="Area" value="{{0.5125,0},{0.025,0},{0.975,0},{0.5,0}}" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                <Window type="Alfisko/ImageButton" name="Texture" >
+                    <Property name="Area" value="{{0,0},{0,0},{1,0},{0.875,0}}" />
+                    <Property name="HoverImage" value="Alfisko/ButtonNormalTL" />
+                    <Property name="InheritsAlpha" value="false" />
+                </Window>
+                <Window type="DefaultWindow" name="LabelWindow" >
+                    <Property name="Area" value="{{0,0},{0,0},{1,0},{0.125,0}}" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="VerticalAlignment" value="Bottom" />
+                    <Window type="Alfisko/Label" name="Label" >
+                        <Property name="Area" value="{{0,0},{0,0},{1,0},{1,0}}" />
+                        <Property name="Text" value="Texture 1" />
+                        <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                        <Property name="VerticalAlignment" value="Centre" />
+                        <Property name="HorizontalAlignment" value="Centre" />
+                    </Window>
+                </Window>
+            </Window>
+            <Window type="DefaultWindow" name="Texture3Window" >
+                <Property name="Area" value="{{0.5125,0},{0.5125,0},{0.975,0},{0.9875,0}}" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                <Window type="Alfisko/ImageButton" name="Texture" >
+                    <Property name="Area" value="{{0,0},{0,0},{1,0},{0.875,0}}" />
+                    <Property name="HoverImage" value="Alfisko/ButtonNormalTL" />
+                    <Property name="InheritsAlpha" value="false" />
+                </Window>
+                <Window type="DefaultWindow" name="LabelWindow" >
+                    <Property name="Area" value="{{0,0},{0,0},{1,0},{0.125,0}}" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="VerticalAlignment" value="Bottom" />
+                    <Window type="Alfisko/Label" name="Label" >
+                        <Property name="Area" value="{{0,0},{0,0},{1,0},{1,0}}" />
+                        <Property name="Text" value="Texture 3" />
+                        <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                        <Property name="VerticalAlignment" value="Centre" />
+                        <Property name="HorizontalAlignment" value="Centre" />
+                    </Window>
+                </Window>
+            </Window>
+            <Window type="DefaultWindow" name="Texture2Window" >
+                <Property name="Area" value="{{0.025,0},{0.5125,0},{0.4875,0},{0.9875,0}}" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                <Window type="Alfisko/ImageButton" name="Texture" >
+                    <Property name="Area" value="{{0,0},{0,0},{1,0},{0.875,0}}" />
+                    <Property name="HoverImage" value="Alfisko/ButtonNormalTL" />
+                    <Property name="InheritsAlpha" value="false" />
+                </Window>
+                <Window type="DefaultWindow" name="LabelWindow" >
+                    <Property name="Area" value="{{0,0},{0,0},{1,0},{0.125,0}}" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="VerticalAlignment" value="Bottom" />
+                    <Window type="Alfisko/Label" name="Label" >
+                        <Property name="Area" value="{{0,0},{0,0},{1,0},{1,0}}" />
+                        <Property name="Text" value="Texture 2" />
+                        <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                        <Property name="VerticalAlignment" value="Centre" />
+                        <Property name="HorizontalAlignment" value="Centre" />
+                    </Window>
+                </Window>
+            </Window>
+        </Window>
+    </Window>
+</GUILayout>

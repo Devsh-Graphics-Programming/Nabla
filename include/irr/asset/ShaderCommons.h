@@ -73,7 +73,7 @@ public:
         if (!m_backingBuffer)
             return {nullptr, 0u};
 
-        auto entry = std::lower_bound(m_entries.begin(), m_entries.end(), SSpecializationMapEntry{_specConstID});
+        auto entry = std::lower_bound(m_entries.begin(), m_entries.end(), SSpecializationMapEntry{_specConstID,0xdeadbeefu,0xdeadbeefu/*To make GCC warnings shut up*/});
         if (entry != m_entries.end() && entry->specConstID == _specConstID && (entry->offset + entry->size) < m_backingBuffer->getSize())
             return {reinterpret_cast<const uint8_t*>(m_backingBuffer->getPointer()) + entry->offset, entry->size};
         else
