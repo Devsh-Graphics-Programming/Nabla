@@ -32,11 +32,11 @@ function(build_CEGUI_dependency _NAME _SOURCE_PATH)
         WORKING_DIRECTORY ${CEGUI_DEPS_BUILD_PATH}/${_NAME}
     )
     execute_process(
-        COMMAND ${CMAKE_COMMAND} --build ${CEGUI_DEPS_BUILD_PATH}/${_NAME} --target INSTALL --config Release -j  ${IRR_PARALLEL_BUILD_JOBS}
+        COMMAND ${CMAKE_COMMAND} --build ${CEGUI_DEPS_BUILD_PATH}/${_NAME} --target install --config Release -j  ${IRR_PARALLEL_BUILD_JOBS}
         WORKING_DIRECTORY ${CEGUI_DEPS_BUILD_PATH}/${_NAME}
     )
     execute_process(
-        COMMAND ${CMAKE_COMMAND} --build ${CEGUI_DEPS_BUILD_PATH}/${_NAME} --target INSTALL --config Debug -j  ${IRR_PARALLEL_BUILD_JOBS}
+        COMMAND ${CMAKE_COMMAND} --build ${CEGUI_DEPS_BUILD_PATH}/${_NAME} --target install --config Debug -j  ${IRR_PARALLEL_BUILD_JOBS}
         WORKING_DIRECTORY ${CEGUI_DEPS_BUILD_PATH}/${_NAME}
     )
 endfunction()
