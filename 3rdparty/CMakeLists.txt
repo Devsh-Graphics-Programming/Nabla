@@ -125,6 +125,20 @@ add_library(aesGladman OBJECT
 	aesGladman/sha1.c
 )
 
+set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
+set(BUILD_SHARED_LIBS OFF)
+set(BUILD_STATIC_LIBS OFF)
+option(GLM_TEST_ENABLE_CXX_14 "Enable C++ 14" ON)
+if (IRR_FAST_MATH)
+   option(GLM_TEST_ENABLE_FAST_MATH "Enable fast math optimizations" ON)
+endif()
+option(GLM_TEST_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" ON)
+option(GLM_TEST_ENABLE "Build unit tests" OFF)
+add_subdirectory(glm EXCLUDE_FROM_ALL)
+set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
+set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
+
 if (IRR_BUILD_MITSUBA_LOADER)
    option(BUILD_tools "EXPAT: build the xmlwf tool for expat library" OFF)
    option(BUILD_examples "EXPAT: build the examples for expat library" OFF)
@@ -138,6 +152,9 @@ if (IRR_BUILD_MITSUBA_LOADER)
 endif()
 
 if (IRR_BUILD_CEGUI)
+        set(GLM_H_PATH ${CMAKE_CURRENT_SOURCE_DIR}/glm)
+        message(FATAL_ERROR ${GLM_H_PATH})
+
 	add_subdirectory(CEGUI)
 	set(CEGUI_INCLUDE_PATH
 		${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include
