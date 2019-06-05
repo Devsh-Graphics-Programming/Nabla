@@ -152,9 +152,6 @@ if (IRR_BUILD_MITSUBA_LOADER)
 endif()
 
 if (IRR_BUILD_CEGUI)
-        set(GLM_H_PATH ${CMAKE_CURRENT_SOURCE_DIR}/glm)
-        message(FATAL_ERROR ${GLM_H_PATH})
-
 	add_subdirectory(CEGUI)
 	set(CEGUI_INCLUDE_PATH
 		${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include
@@ -162,38 +159,35 @@ if (IRR_BUILD_CEGUI)
 	)
 	set(CEGUI_INCLUDE_PATH ${CEGUI_INCLUDE_PATH} PARENT_SCOPE)
 
+	# surely there has to be a cleaner way of doing this
 	if (MSVC)
 		set(CEGUI_LIBS
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIOpenGLRenderer-0_Static.lib
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIBase-0_Static.lib
-			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/glew.lib
+			${GLEW_LIBRARIES}
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIExpatParser_Static.lib
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUISTBImageCodec_Static.lib
-			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/freetype.lib
+			${FREETYPE_LIBRARIES}
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICoreWindowRendererSet_Static.lib
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICommonDialogs-0_Static.lib
-			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/libexpat.lib
-			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/pcre.lib
+			${EXPAT_LIBRARIES}
+			${PCRE_LIBRARIES}
 			optimized Winmm.lib
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIOpenGLRenderer-0_Static_d.lib
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIBase-0_Static_d.lib
-			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/glew_d.lib
+			${GLEW_LIBRARIES}
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIExpatParser_Static_d.lib
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUISTBImageCodec_Static_d.lib
-			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/freetype_d.lib
+			${FREETYPE_LIBRARIES}
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICoreWindowRendererSet_Static_d.lib
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICommonDialogs-0_Static_d.lib
-			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/libexpat_d.lib
-			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/pcre_d.lib
+			${EXPAT_LIBRARIES}
+			${PCRE_LIBRARIES}
 			debug Dbghelp.lib
 			debug Winmm.lib
 			PARENT_SCOPE
 		)
 	else()
-    find_package(EXPAT REQUIRED)
-    find_package(Freetype REQUIRED)
-    find_package(GLEW REQUIRED)
-    find_package(PCRE REQUIRED)
 		set(CEGUI_LIBS
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIOpenGLRenderer-0_Static.a
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIBase-0_Static.a
@@ -209,8 +203,7 @@ if (IRR_BUILD_CEGUI)
 		set(CEGUI_LIBS ${CEGUI_LIBS} PARENT_SCOPE)
 	endif()
 
-	# Only MSVC builds and installs CEGUI dependencies
-	if (MSVC)
+	#[[ unsure if needed for now
 		install(
 			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/include/
 			DESTINATION ./include/irr/ext/CEGUI/3rdparty
@@ -231,7 +224,7 @@ if (IRR_BUILD_CEGUI)
 			DESTINATION ./debug/lib/irr/ext/CEGUI
 			CONFIGURATIONS Debug
 		)
-	endif()
+	]]#
 
 	# CEGUI headers
 	install(
