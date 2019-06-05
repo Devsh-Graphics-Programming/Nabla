@@ -171,6 +171,8 @@ option(IRR_BUILD_EXAMPLES "Enable building examples" ON)
 
 option(IRR_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 
+option(IRR_BUILD_MITSUBA_LOADER "Enable irr::ext::MitsubaLoader?" ON)
+
 option(IRR_BUILD_CEGUI "Enable CEGUI building and integration?" OFF)
 
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
