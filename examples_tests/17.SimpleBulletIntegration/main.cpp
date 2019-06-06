@@ -4,11 +4,11 @@
 #include <btBulletDynamicsCommon.h>
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 
-#include "../ext/Bullet3/BulletUtility.h"
-#include "../ext/Bullet3/CPhysicsWorld.h"
+#include "../../ext/Bullet/BulletUtility.h"
+#include "../../ext/Bullet/CPhysicsWorld.h"
 
-#include "../ext/Bullet3/CInstancedMotionState.h"
-#include "../ext/Bullet3/CDebugRender.h"
+#include "../../ext/Bullet/CInstancedMotionState.h"
+#include "../../ext/Bullet/CDebugRender.h"
 
 using namespace irr;
 using namespace core;
