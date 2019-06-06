@@ -28,15 +28,15 @@ function(build_CEGUI_dependency _NAME _SOURCE_PATH)
         WORKING_DIRECTORY ${CEGUI_DEPS_BUILD_PATH}
     )
     execute_process(
-        COMMAND ${CMAKE_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/${_SOURCE_PATH} -DCMAKE_INSTALL_PREFIX=${CEGUI_DEPS_INSTALL_PATH} ${ARGN}
-        WORKING_DIRECTORY ${CEGUI_DEPS_BUILD_PATH}/${_NAME}
-    )
-    execute_process(
-        COMMAND ${CMAKE_COMMAND} --build ${CEGUI_DEPS_BUILD_PATH}/${_NAME} --target install --config Release -j  ${IRR_PARALLEL_BUILD_JOBS}
+        COMMAND ${CMAKE_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/${_SOURCE_PATH} -DCMAKE_INSTALL_PREFIX=${CEGUI_DEPS_INSTALL_PATH} -DCMAKE_DEBUG_POSTFIX="_d" ${ARGN}
         WORKING_DIRECTORY ${CEGUI_DEPS_BUILD_PATH}/${_NAME}
     )
     execute_process(
         COMMAND ${CMAKE_COMMAND} --build ${CEGUI_DEPS_BUILD_PATH}/${_NAME} --target install --config Debug -j  ${IRR_PARALLEL_BUILD_JOBS}
+        WORKING_DIRECTORY ${CEGUI_DEPS_BUILD_PATH}/${_NAME}
+    )
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} --build ${CEGUI_DEPS_BUILD_PATH}/${_NAME} --target install --config Release -j  ${IRR_PARALLEL_BUILD_JOBS}
         WORKING_DIRECTORY ${CEGUI_DEPS_BUILD_PATH}/${_NAME}
     )
 endfunction()
