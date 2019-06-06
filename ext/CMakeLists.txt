@@ -16,7 +16,7 @@ if (IRR_BUILD_BULLET)
         ${IRR_EXT_BULLET_INCLUDE_DIRS}
         PARENT_SCOPE
     )
-    set(IRR_EXT_BULLET3_LIB
+    set(IRR_EXT_BULLET_LIB
         ${IRR_EXT_BULLET_LIB}
         PARENT_SCOPE
     )
