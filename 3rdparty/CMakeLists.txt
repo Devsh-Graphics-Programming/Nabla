@@ -125,6 +125,32 @@ add_library(aesGladman OBJECT
 	aesGladman/sha1.c
 )
 
+set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
+set(BUILD_SHARED_LIBS OFF)
+set(BUILD_STATIC_LIBS OFF)
+option(GLM_TEST_ENABLE_CXX_14 "Enable C++ 14" ON)
+if (IRR_FAST_MATH)
+   option(GLM_TEST_ENABLE_FAST_MATH "Enable fast math optimizations" ON)
+endif()
+option(GLM_TEST_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" ON)
+option(GLM_TEST_ENABLE "Build unit tests" OFF)
+add_subdirectory(glm EXCLUDE_FROM_ALL)
+set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
+set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
+
+if (IRR_BUILD_MITSUBA_LOADER)
+   option(BUILD_tools "EXPAT: build the xmlwf tool for expat library" OFF)
+   option(BUILD_examples "EXPAT: build the examples for expat library" OFF)
+   option(BUILD_tests "EXPAT: build the tests for expat library" OFF)
+   option(BUILD_shared "EXPAT: build a shared expat library" OFF)
+   option(BUILD_doc "EXPAT: build man page for xmlwf" OFF)
+   option(USE_libbsd "EXPAT: utilize libbsd (for arc4random_buf)" OFF)
+   option(INSTALL "EXPAT: install expat files in cmake install target" OFF)
+   set(MSVC_USE_STATIC_CRT ON CACHE BOOL "Use /MT flag (static CRT) when compiling in MSVC")
+   add_subdirectory(libexpat/expat EXCLUDE_FROM_ALL)
+endif()
+
 if (IRR_BUILD_CEGUI)
 	add_subdirectory(CEGUI)
 	set(CEGUI_INCLUDE_PATH
@@ -133,38 +159,35 @@ if (IRR_BUILD_CEGUI)
 	)
 	set(CEGUI_INCLUDE_PATH ${CEGUI_INCLUDE_PATH} PARENT_SCOPE)
 
+	# surely there has to be a cleaner way of doing this
 	if (MSVC)
 		set(CEGUI_LIBS
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIOpenGLRenderer-0_Static.lib
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIBase-0_Static.lib
-			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/glew.lib
+			${GLEW_LIBRARIES}
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIExpatParser_Static.lib
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUISTBImageCodec_Static.lib
-			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/freetype.lib
+			${FREETYPE_LIBRARIES}
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICoreWindowRendererSet_Static.lib
 			optimized ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICommonDialogs-0_Static.lib
-			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/libexpat.lib
-			optimized ${CEGUI_DEPS_INSTALL_PATH}/lib/pcre.lib
+			${EXPAT_LIBRARIES}
+			${PCRE_LIBRARIES}
 			optimized Winmm.lib
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIOpenGLRenderer-0_Static_d.lib
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIBase-0_Static_d.lib
-			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/glew_d.lib
+			${GLEW_LIBRARIES}
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUIExpatParser_Static_d.lib
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUISTBImageCodec_Static_d.lib
-			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/freetype_d.lib
+			${FREETYPE_LIBRARIES}
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICoreWindowRendererSet_Static_d.lib
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICommonDialogs-0_Static_d.lib
-			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/libexpat_d.lib
-			debug ${CEGUI_DEPS_INSTALL_PATH}/lib/pcre_d.lib
+			${EXPAT_LIBRARIES}
+			${PCRE_LIBRARIES}
 			debug Dbghelp.lib
 			debug Winmm.lib
 			PARENT_SCOPE
 		)
 	else()
-    find_package(EXPAT REQUIRED)
-    find_package(Freetype REQUIRED)
-    find_package(GLEW REQUIRED)
-    find_package(PCRE REQUIRED)
 		set(CEGUI_LIBS
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIOpenGLRenderer-0_Static.a
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIBase-0_Static.a
@@ -180,8 +203,7 @@ if (IRR_BUILD_CEGUI)
 		set(CEGUI_LIBS ${CEGUI_LIBS} PARENT_SCOPE)
 	endif()
 
-	# Only MSVC builds and installs CEGUI dependencies
-	if (MSVC)
+	#[[ unsure if needed for now
 		install(
 			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/include/
 			DESTINATION ./include/irr/ext/CEGUI/3rdparty
@@ -202,7 +224,7 @@ if (IRR_BUILD_CEGUI)
 			DESTINATION ./debug/lib/irr/ext/CEGUI
 			CONFIGURATIONS Debug
 		)
-	endif()
+	]]#
 
 	# CEGUI headers
 	install(
