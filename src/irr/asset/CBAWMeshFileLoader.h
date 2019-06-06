@@ -104,7 +104,13 @@ public:
             asset::IAssetLoader::SAssetLoadContext{
                 asset::IAssetLoader::SAssetLoadParams{},
                 _file
-            }
+            },
+            // following should shut up GCC
+            0xdeadbeefu,
+            {},
+            {},
+            asset::CBlobsLoadingManager(),
+            {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
         };
 
         const size_t prevPos = _file->getPos();

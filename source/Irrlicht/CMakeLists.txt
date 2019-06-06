@@ -1,4 +1,3 @@
-#find_package(OpenSSL REQUIRED)
 find_package(OpenGL REQUIRED)
 if(UNIX)
 	find_package(X11 REQUIRED)
@@ -189,8 +188,7 @@ set(IRRLICHT_SRCS_COMMON
 	IReferenceCounted.cpp
 )
 if (MSVC)
-	list(APPEND IRRLICHT_SRCS_COMMON pch.cpp)
-	set_source_files_properties("${CMAKE_SOURCE_DIR}/src/irr/video/convertColor.cpp" PROPERTIES COMPILE_FLAGS /bigobj) #on MSVC it won't compile without this option!
+	list(APPEND IRRLICHT_SRCS_COMMON pch.cpp) # @crisspl why are only some sources appended? also why sources?
 endif()
 
 set(IRRLICHT_SRCS_NORMAL
@@ -379,18 +377,27 @@ if(IRR_PCH)
     if (UNIX)
         # "CMake Error: Attempt to add a custom rule to output ".../source/Irrlicht/pch.h.gch/.c++.rule" which already has a custom rule."
         # so there need to be another pch file to create custom_command for it. Or maybe share PCH target between Irrlicht and IrrlichtServer? (not sure if possible)
-        file(COPY pch.h DESTINATION "${CMAKE_CURRENT_SOURCE_DIR}/server_pch")
-        file(RENAME server_pch/pch.h server_pch.h)
+        add_custom_command(
+          OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h"
+          COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/pch.h" "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h"
+          DEPENDS pch.h
+        )
+        file(RELATIVE_PATH SERVER_PCH_INPUT_RELDIR "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h")
         if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
-            ADD_PRECOMPILED_HEADER(IrrlichtServer server_pch.h "${IRRLICHT_CONF_DIR_RELEASE}" FORCEINCLUDE)
+            ADD_PRECOMPILED_HEADER(IrrlichtServer "${SERVER_PCH_INPUT_RELDIR}" "${IRRLICHT_CONF_DIR_RELEASE}" FORCEINCLUDE)
 	elseif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-            ADD_PRECOMPILED_HEADER(IrrlichtServer server_pch.h "${IRRLICHT_CONF_DIR_DEBUG}" FORCEINCLUDE)
+            ADD_PRECOMPILED_HEADER(IrrlichtServer "${SERVER_PCH_INPUT_RELDIR}" "${IRRLICHT_CONF_DIR_DEBUG}" FORCEINCLUDE)
         endif()
+	#add_target_byproducts(IrrlichtServer "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h") # how to resolve this?
     else()
         ADD_PRECOMPILED_HEADER(IrrlichtServer pch.h FORCEINCLUDE)
     endif()
 endif()
 
+if (MSVC) #on MSVC it won't compile without this option!
+	target_compile_options(Irrlicht PUBLIC /bigobj)
+	target_compile_options(IrrlichtServer PUBLIC /bigobj)
+endif()
 
 set_target_properties(Irrlicht IrrlichtServer PROPERTIES DEBUG_POSTFIX _debug)
 

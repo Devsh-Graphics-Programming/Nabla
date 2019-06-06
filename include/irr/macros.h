@@ -60,21 +60,21 @@
 #endif
 
 // Defines a deprecated macro which generates a warning at compile time
-/** The usage is simple
-For typedef:		typedef _IRR_DEPRECATED_ int test1;
-For classes/structs:	class _IRR_DEPRECATED_ test2 { ... };
-For methods:		class test3 { _IRR_DEPRECATED_ virtual void foo() {} };
-For functions:		template<class T> _IRR_DEPRECATED_ void test4(void) {}
-**/
-#if defined(IGNORE_DEPRECATED_WARNING)
-#define _IRR_DEPRECATED_
-#elif _MSC_VER >= 1310 //vs 2003 or higher
-#define _IRR_DEPRECATED_ __declspec(deprecated)
-#elif (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 1)) // all versions above 3.0 should support this feature
-#define _IRR_DEPRECATED_  __attribute__ ((deprecated))
+#define _IRR_DEPRECATED_ [[deprecated]]
+
+// Disables a switch case fallthrough warning for a particular case label
+#if __cplusplus >= 201703L
+    #define _IRR_FALLTHROUGH [[fallthrough]]
 #else
-#define _IRR_DEPRECATED_
-#endif
+    #define _IRR_FALLTHROUGH
+#endif // __cplusplus
+
+// Disables a maybe used uninitialized warning for a particular variable
+#if __cplusplus >= 201703L
+    #define _IRR_MAYBE_UNUSED [[maybe_unused]]
+#else
+    #define _IRR_MAYBE_UNUSED
+#endif // __cplusplus
 
 //! Workarounds for compiler specific bugs
 // MSVC 2019 is a special snowflake

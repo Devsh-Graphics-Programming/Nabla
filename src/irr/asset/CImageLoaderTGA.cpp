@@ -129,7 +129,7 @@ static void convertColorFlip(asset::CImageData **image, const T *src, bool flip)
 			out -= stride;
 		
 		const void *src_container[4] = {in, nullptr, nullptr, nullptr};
-		video::convertColor<srcFormat, destFormat>(src_container, out, 1, size.X, size);
+		video::convertColor<srcFormat, destFormat>(src_container, out, size.X, size);
 		in += stride;
 		
 		if (!flip)
@@ -163,13 +163,13 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 		switch ( header.ColorMapEntrySize )
 		{
 			case 16:
-				video::convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_R8G8B8A8_SRGB>(src_container, palette, 1, header.ColorMapLength, 0u);
+				video::convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_R8G8B8A8_SRGB>(src_container, palette, header.ColorMapLength, 0u);
 				break;
 			case 24:
-				video::convertColor<EF_B8G8R8_SRGB, EF_R8G8B8A8_SRGB>(src_container, palette, 1, header.ColorMapLength, 0u);
+				video::convertColor<EF_B8G8R8_SRGB, EF_R8G8B8A8_SRGB>(src_container, palette, header.ColorMapLength, 0u);
 				break;
 			case 32:
-				video::convertColor<EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(src_container, palette, 1, header.ColorMapLength, 0u);
+				video::convertColor<EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(src_container, palette, header.ColorMapLength, 0u);
 				break;
 		}
 		delete [] colorMap;

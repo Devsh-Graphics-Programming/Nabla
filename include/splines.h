@@ -44,7 +44,7 @@ class ISpline// : public AllocationOverrideDefault
         virtual bool        getUnnormDirection_fromParameter(vectorSIMDf& tan, const uint32_t& segmentID, const float& parameter) const = 0;
 
         //baw specific
-        virtual const bool      canGiveParameterUntilBlockChange() const {return false;}
+        virtual bool      canGiveParameterUntilBlockChange() const {return false;}
         // pass in current position
         virtual float           getParameterUntilBlockChange(const uint32_t& segmentID, const float& param) = 0;
         virtual core::vector<float>   getBlockChangesInSegment(const uint32_t& segmentID, float startParam=0.f) = 0;
@@ -178,7 +178,7 @@ class CLinearSpline : public ISpline
         }
 
         //baw specific
-        virtual const bool      canGiveParameterUntilBlockChange() const {return true;}
+        virtual bool      canGiveParameterUntilBlockChange() const {return true;}
         // pass in current position
         virtual float           getParameterUntilBlockChange(const uint32_t& segmentID, const float& param)
         {
@@ -458,7 +458,7 @@ class CQuadraticSpline : public ISpline
         }
 
         //baw specific -- to be implemented later
-        virtual const bool      canGiveParameterUntilBlockChange() const {return false;}
+        virtual bool      canGiveParameterUntilBlockChange() const {return false;}
         // pass in current position
         virtual float           getParameterUntilBlockChange(const uint32_t& segmentID, const float& param)
         {

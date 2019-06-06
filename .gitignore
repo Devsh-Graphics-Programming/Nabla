@@ -11,8 +11,6 @@
 3rdparty/CEGUI/cegui-deps-0.8.x-src.zip
 # usually where people build
 build/*
-# build generated config
-include/irr/config
 # default install paths
 install/*
 # legacy temporary and output directories
