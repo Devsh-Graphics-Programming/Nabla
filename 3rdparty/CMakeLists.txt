@@ -30,10 +30,6 @@ update_git_submodule(./libpng)
 update_git_submodule(./openssl)
 update_git_submodule(./libjpeg-turbo)
 update_git_submodule(./libjpeg) # soon to be killed
-update_git_submodule(./)
-update_git_submodule(./)
-update_git_submodule(./)
-update_git_submodule(./)
 # exceptions that get automatically cloned
 update_git_submodule(./glm)
 update_git_submodule(./freetype2)
