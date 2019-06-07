@@ -16,7 +16,7 @@
 if (IRR_BUILD_CEGUI)
     set(_OLD_CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH})
     set(CMAKE_PREFIX_PATH ${CEGUI_DEPS_INSTALL_PATH})
-    message(FATAL_ERROR "${CEGUI_DEPS_INSTALL_PATH}") # CEGUI_DEPS_INSTALL_PATH is empty forward it around somehow
+    #message(FATAL_ERROR "${CEGUI_DEPS_INSTALL_PATH}") # CEGUI_DEPS_INSTALL_PATH is empty forward it around somehow
     add_subdirectory(CEGUI)
     set(IRR_EXT_CEGUI_INCLUDE_DIRS
         ${IRR_EXT_CEGUI_INCLUDE_DIRS}

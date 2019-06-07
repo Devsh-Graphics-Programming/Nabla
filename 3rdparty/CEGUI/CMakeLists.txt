@@ -14,8 +14,7 @@
 
 
 set(CEGUI_DEPS_BUILD_PATH ${CMAKE_CURRENT_BINARY_DIR}/dependencies/build)
-set(CEGUI_DEPS_INSTALL_PATH ${CMAKE_CURRENT_BINARY_DIR}/dependencies/install)
-set(CEGUI_DEPS_INSTALL_PATH ${CEGUI_DEPS_INSTALL_PATH} PARENT_SCOPE)
+set(CEGUI_DEPS_INSTALL_PATH ${CMAKE_CURRENT_BINARY_DIR}/dependencies/install CACHE INTERNAL "")
 
 execute_process(
     COMMAND ${CMAKE_COMMAND} -E make_directory dependencies/build
@@ -27,8 +26,11 @@ function(build_CEGUI_dependency _NAME _SOURCE_PATH)
         COMMAND ${CMAKE_COMMAND} -E make_directory ${_NAME}
         WORKING_DIRECTORY ${CEGUI_DEPS_BUILD_PATH}
     )
+	if (MSVC)
+		set(GENERATOR_PLATFORM_OPTION "-A x64")
+	endif()
     execute_process(
-        COMMAND ${CMAKE_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/${_SOURCE_PATH} -DCMAKE_INSTALL_PREFIX=${CEGUI_DEPS_INSTALL_PATH} -DCMAKE_DEBUG_POSTFIX="_d" ${ARGN}
+        COMMAND ${CMAKE_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/${_SOURCE_PATH} -G "${CMAKE_GENERATOR}" ${GENERATOR_PLATFORM_OPTION} -DCMAKE_INSTALL_PREFIX=${CEGUI_DEPS_INSTALL_PATH} -DCMAKE_DEBUG_POSTFIX="_d" ${ARGN}
         WORKING_DIRECTORY ${CEGUI_DEPS_BUILD_PATH}/${_NAME}
     )
     execute_process(
@@ -50,7 +52,7 @@ else()
 endif()
 #build_CEGUI_dependency(Freetype ../freetype2 "-DBUILD_SHARED_LIBS=OFF" "-DCMAKE_DISABLE_FIND_PACKAGE_BZip2=OFF" turn off as much as we can)
 build_CEGUI_dependency(Freetype ../freetype2 "-DBUILD_SHARED_LIBS=OFF")
-build_CEGUI_dependency(PCRE ./pcre "-DBUILD_SHARED_LIBS=OFF" "-DPCRE_BUILD_PCREGREP=OFF" "-DPCRE_BUILD_TESTS=OFF" "-DBUILD_doc=OFF")
+build_CEGUI_dependency(PCRE ./pcre "-DPCRE_SUPPORT_UTF=ON" "-DBUILD_SHARED_LIBS=OFF" "-DPCRE_BUILD_PCREGREP=OFF" "-DPCRE_BUILD_TESTS=OFF" "-DBUILD_doc=OFF")
 build_CEGUI_dependency(GLEW ./glew/build/cmake "-Dglew-cmake_BUILD_SHARED=OFF" "-Dglew-cmake_BUILD_MULTI_CONTEXT=OFF")
 #build_CEGUI_dependency(GLEW ./glew/build/cmake "-Dglew-cmake_BUILD_SHARED=OFF" "-DUSE_GLEW=OFF")
 message(STATUS "CEGUI 0.8.x dependencies built and pseudo-installed")
