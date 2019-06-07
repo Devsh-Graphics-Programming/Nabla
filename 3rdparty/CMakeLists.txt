@@ -186,19 +186,18 @@ if (IRR_BUILD_CEGUI)
 		set(CEGUI_LIBS ${CEGUI_LIBS} PARENT_SCOPE)
 	else()
 		set(CEGUI_LIBS
-		# not sure about libs' names on Linux (please change this accordingly if needed)
-			${CEGUI_DEPS_INSTALL_PATH}/lib/libglew32.a
-			${CEGUI_DEPS_INSTALL_PATH}/lib/freetype.a
-			${CEGUI_DEPS_INSTALL_PATH}/lib/expat.a
-			${CEGUI_DEPS_INSTALL_PATH}/lib/pcre.a
-			${CEGUI_DEPS_INSTALL_PATH}/lib/pcrecpp.a
-			${CEGUI_DEPS_INSTALL_PATH}/lib/pcreposix.a
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIOpenGLRenderer-0_Static.a
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIBase-0_Static.a
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIExpatParser_Static.a
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUISTBImageCodec_Static.a
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUICoreWindowRendererSet_Static.a
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUICommonDialogs-0_Static.a
+			${CEGUI_DEPS_INSTALL_PATH}/lib/libGLEW.a
+			${CEGUI_DEPS_INSTALL_PATH}/lib/libfreetype.a
+			${CEGUI_DEPS_INSTALL_PATH}/lib/libexpat.a
+			${CEGUI_DEPS_INSTALL_PATH}/lib/libpcre.a
+			${CEGUI_DEPS_INSTALL_PATH}/lib/libpcrecpp.a
+			${CEGUI_DEPS_INSTALL_PATH}/lib/libpcreposix.a
 		)
 		set(CEGUI_LIBS ${CEGUI_LIBS} PARENT_SCOPE)
 	endif()
