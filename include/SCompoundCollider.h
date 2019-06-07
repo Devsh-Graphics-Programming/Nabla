@@ -218,7 +218,7 @@ class SCompoundCollider : public IReferenceCounted
             return false;
         }
 
-		inline const size_t getShapeCount() const { return Shapes.size(); }
+		inline size_t getShapeCount() const { return Shapes.size(); }
 		inline const SAABoxCollider& getBoundingBox() const { return BBox; }
         inline const SColliderData& getColliderData() const {return colliderData;}
 

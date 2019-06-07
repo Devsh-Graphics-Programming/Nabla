@@ -1,82 +1,57 @@
-if (MSVC) # MSVC needs to download and build dependencies of CEGUI
-    set(CEGUI_DEPS_URL "https://sourceforge.net/projects/crayzedsgui/files/CEGUI%20Mk-2%20Dependencies/0.8.x/cegui-deps-0.8.x-src.zip/download")
-    set(CEGUI_DEPS_ARCHIVE ${CMAKE_CURRENT_SOURCE_DIR}/cegui-deps-0.8.x-src.zip)
-    set(CEGUI_DEPS_PATH ${CMAKE_CURRENT_BINARY_DIR}/cegui-cegui-dependencies-0ecdf3a9e49b)
-    set(CEGUI_DEPS_BUILD_PATH ${CMAKE_CURRENT_BINARY_DIR}/cegui-cegui-dependencies-0ecdf3a9e49b/build)
-    set(CEGUI_DEPS_INSTALL_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cegui/dependencies)
-    set(CEGUI_DEPS_INSTALL_PATH ${CEGUI_DEPS_INSTALL_PATH} PARENT_SCOPE)
+# Copyright (c) 2019 DevSH Graphics Programming Sp. z O.O.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-    if (NOT EXISTS "${CEGUI_DEPS_ARCHIVE}")
-        message(STATUS "Downloading CEGUI 0.8.x dependencies")
-        file(
-            DOWNLOAD "${CEGUI_DEPS_URL}" "${CEGUI_DEPS_ARCHIVE}"
-            SHOW_PROGRESS
-        )
-        message(STATUS "CEGUI 0.8.x dependencies downloaded")
-    endif()
 
-    if (NOT EXISTS "${CEGUI_DEPS_PATH}")
-        message(STATUS "Extracting CEGUI 0.8.x dependencies")
-        execute_process(
-            COMMAND ${CMAKE_COMMAND} -E tar xzf ${CEGUI_DEPS_ARCHIVE}
-            WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-        )
-        message(STATUS "Extracting done")
-    endif()
+set(CEGUI_DEPS_BUILD_PATH ${CMAKE_CURRENT_BINARY_DIR}/dependencies/build)
+set(CEGUI_DEPS_INSTALL_PATH ${CMAKE_CURRENT_BINARY_DIR}/dependencies/install CACHE INTERNAL "")
 
-    if (NOT EXISTS "${CEGUI_DEPS_INSTALL_PATH}")
-        message(STATUS "Building CEGUI 0.8.x dependencies")
+execute_process(
+    COMMAND ${CMAKE_COMMAND} -E make_directory dependencies/build
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
 
-        execute_process(
-            COMMAND ${CMAKE_COMMAND} -E make_directory build
-            WORKING_DIRECTORY ${CEGUI_DEPS_PATH}
-        )
+function(build_CEGUI_dependency _NAME _SOURCE_PATH)
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${_NAME}
+        WORKING_DIRECTORY ${CEGUI_DEPS_BUILD_PATH}
+    )
+	if (MSVC)
+		set(GENERATOR_PLATFORM_OPTION "-A x64")
+	endif()
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} ${CMAKE_CURRENT_SOURCE_DIR}/${_SOURCE_PATH} -G "${CMAKE_GENERATOR}" ${GENERATOR_PLATFORM_OPTION} -DCMAKE_INSTALL_PREFIX=${CEGUI_DEPS_INSTALL_PATH} ${ARGN}
+        WORKING_DIRECTORY ${CEGUI_DEPS_BUILD_PATH}/${_NAME}
+    )
+    execute_process(
+        COMMAND ${CMAKE_COMMAND} --build ${CEGUI_DEPS_BUILD_PATH}/${_NAME} --target install --config Release -j  ${IRR_PARALLEL_BUILD_JOBS}
+        WORKING_DIRECTORY ${CEGUI_DEPS_BUILD_PATH}/${_NAME}
+    )
+endfunction()
 
-        execute_process(
-            COMMAND ${CMAKE_COMMAND} ..
-                -DCEGUI_BUILD_CORONA=OFF
-                -DCEGUI_BUILD_DEVIL=OFF
-                -DCEGUI_BUILD_FREEIMAGE=OFF
-                -DCEGUI_BUILD_GLFW=OFF
-                -DCEGUI_BUILD_LUA=OFF
-                -DCEGUI_BUILD_MINIZIP=OFF
-                -DCEGUI_BUILD_SILLY=OFF
-                -DCEGUI_BUILD_TINYXML=OFF
-                -DCEGUI_BUILD_TOLUAPP=OFF
-                -DCEGUI_BUILD_XERCES=OFF
-                -DCEGUI_BUILD_ZLIB=OFF
-                -DCEGUI_BUILD_EXPAT=ON # move this to 3rdparty as a submodule for both linux and windows
-                -DCEGUI_BUILD_FREETYPE2=ON # scheduled for move last
-                -DCEGUI_BUILD_GLEW=ON # move this to 3rdparty and make a proper dependency (likely to F'up Linux builds because stale packages on distros)
-                -DCEGUI_BUILD_GLM=ON # move this to 3rdparty as a submodule for both linux and windows
-                -DCEGUI_BUILD_PCRE=ON # scheduled for move last
-            WORKING_DIRECTORY ${CEGUI_DEPS_BUILD_PATH}
-        )
-
-        execute_process(
-            COMMAND ${CMAKE_COMMAND} --build ${CEGUI_DEPS_BUILD_PATH} --config Release -j  ${IRR_PARALLEL_BUILD_JOBS}
-        )
-
-        execute_process(
-            COMMAND ${CMAKE_COMMAND} --build ${CEGUI_DEPS_BUILD_PATH} --config Debug -j  ${IRR_PARALLEL_BUILD_JOBS}
-        )
-
-        message(STATUS "CEGUI 0.8.x dependencies built")
-
-        message(STATUS "Installing CEGUI 0.8.x dependencies")
-        execute_process(
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${CEGUI_DEPS_BUILD_PATH}/dependencies/include
-            ${CEGUI_DEPS_INSTALL_PATH}/include
-        )
-        execute_process(
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${CEGUI_DEPS_BUILD_PATH}/dependencies/lib/static
-            ${CEGUI_DEPS_INSTALL_PATH}/lib
-        )
-        message(STATUS "Installing done")
-    endif()
+message(STATUS "Building and Pseudo-Installing CEGUI 0.8.x dependencies (because CEGUI's CMake just has to rely on find_package)")
+build_CEGUI_dependency(EXPAT ../libexpat/expat "-DBUILD_tools=OFF"  "-DBUILD_examples=OFF"  "-DBUILD_tests=OFF" "-DBUILD_shared=OFF" "-DBUILD_doc=OFF" "-DUSE_libbsd=OFF" "-DMSVC_USE_STATIC_CRT=ON")
+if (IRR_FAST_MATH)
+	build_CEGUI_dependency(GLM ../glm "-DBUILD_SHARED_LIBS=OFF"  "-DBUILD_STATIC_LIBS=OFF"  "-DGLM_TEST_ENABLE_CXX_14=ON" "-DGLM_TEST_ENABLE_FAST_MATH=ON" "-DGLM_TEST_ENABLE_SIMD_SSE4_2=ON" "-DGLM_TEST_ENABLE=OFF")
+else()
+	build_CEGUI_dependency(GLM ../glm "-DBUILD_SHARED_LIBS=OFF"  "-DBUILD_STATIC_LIBS=OFF"  "-DGLM_TEST_ENABLE_CXX_14=ON" "-DGLM_TEST_ENABLE_SIMD_SSE4_2=ON" "-DGLM_TEST_ENABLE=OFF")
 endif()
+build_CEGUI_dependency(Freetype ../freetype2 "-DBUILD_SHARED_LIBS=OFF" "-DCMAKE_DISABLE_FIND_PACKAGE_HarfBuzz=TRUE" "-DCMAKE_DISABLE_FIND_PACKAGE_BZip2=TRUE")
+build_CEGUI_dependency(PCRE ./pcre "-DPCRE_SUPPORT_UTF=ON" "-DBUILD_SHARED_LIBS=OFF" "-DPCRE_BUILD_PCREGREP=OFF" "-DPCRE_BUILD_TESTS=OFF" "-DBUILD_doc=OFF")
+build_CEGUI_dependency(GLEW ./glew/build/cmake "-Dglew-cmake_BUILD_SHARED=OFF" "-Dglew-cmake_BUILD_MULTI_CONTEXT=OFF")
+#build_CEGUI_dependency(GLEW ./glew/build/cmake "-Dglew-cmake_BUILD_SHARED=OFF" "-DUSE_GLEW=OFF")
+message(STATUS "CEGUI 0.8.x dependencies built and pseudo-installed")
+
 
 # Disable unused CEGUI options
 set(CEGUI_INSTALL_PKGCONFIG OFF CACHE BOOL "")
@@ -89,6 +64,8 @@ set(CEGUI_BUILD_XMLPARSER_TINYXML2 OFF CACHE BOOL "")
 set(CEGUI_BUILD_XMLPARSER_LIBXML2 OFF CACHE BOOL "")
 set(CEGUI_BUILD_XMLPARSER_RAPIDXML OFF CACHE BOOL "")
 set(CEGUI_BUILD_RENDERER_OPENGL OFF CACHE BOOL "")
+set(CEGUI_USE_FRIBIDI OFF CACHE BOOL "") # enable when Hebrew and Arabic users complain
+set(CEGUI_USE_MINIBIDI OFF CACHE BOOL "")
 set(CEGUI_SAMPLES_ENABLED OFF CACHE BOOL "")
 
 # Enable required CEGUI options
@@ -102,9 +79,17 @@ set(CEGUI_BUILD_STATIC_CONFIGURATION ON CACHE BOOL "")
 set(CEGUI_BUILD_STATIC_FACTORY_MODULE ON CACHE BOOL "")
 set(CEGUI_STATIC_XMLPARSER_MODULE "CEGUIExpatParser" CACHE STRING "")
 
-if (MSVC) # static linking on Linux will come later, since find_package only returns dynamic libs for now
-    set(CEGUI_STATIC_DEPENDENCIES ON CACHE BOOL "")
-    set(CEGUI_BUILD_SHARED_LIBS_WITH_STATIC_DEPENDENCIES ON CACHE BOOL "") # util someone patches CEGUI to define GLEW_STATIC when the above is enabled as well
-endif()
 
+set(CEGUI_STATIC_DEPENDENCIES ON CACHE BOOL "")
+set(CEGUI_BUILD_SHARED_LIBS_WITH_STATIC_DEPENDENCIES ON CACHE BOOL "") # util someone patches CEGUI to define GLEW_STATIC when the above is enabled as well
+
+
+# override find_package
+set(_OLD_CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH})
+set(CMAKE_PREFIX_PATH ${CEGUI_DEPS_INSTALL_PATH})
+find_package(EXPAT REQUIRED)
+find_package(Freetype REQUIRED)
+find_package(GLEW REQUIRED)
+find_package(PCRE REQUIRED)
 add_subdirectory(cegui EXCLUDE_FROM_ALL)
+set(CMAKE_PREFIX_PATH ${_OLD_CMAKE_PREFIX_PATH})

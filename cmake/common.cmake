@@ -1,3 +1,20 @@
+# Copyright (c) 2019 DevSH Graphics Programming Sp. z O.O.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+
+# REDO THIS WHOLE THING AS FUNCTIONS
+# https://github.com/buildaworldnet/IrrlichtBAW/issues/311 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
 
 # Macro creating project for an executable
 # Project and target get its name from directory when this macro gets executed (truncating number in the beginning of the name and making all lower case)
@@ -17,19 +34,34 @@ macro(irr_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		PUBLIC ../../include
 		PRIVATE ${_EXTRA_INCLUDES}
 	)
-	target_link_libraries(${EXECUTABLE_NAME} Irrlicht ${_EXTRA_LIBS})
+	target_link_libraries(${EXECUTABLE_NAME} Irrlicht ${_EXTRA_LIBS}) # see, this is how you should code to resolve github issue 311
+	if (IRR_COMPILE_WITH_OPENGL)
+		find_package(OpenGL REQUIRED)
+		target_link_libraries(${EXECUTABLE_NAME} ${OPENGL_LIBRARIES})
+	endif()
 	add_compile_options(${_EXTRA_OPTIONS})
 	
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+		# add_compile_options("-msse4.2 -mfpmath=sse") ????
 		add_compile_options(
 			"$<$<CONFIG:DEBUG>:-fstack-protector-all>"
 		)
 	
 		set(COMMON_LINKER_OPTIONS "-msse4.2 -mfpmath=sse -fuse-ld=gold")
 		set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${COMMON_LINKER_OPTIONS}")
-		set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${COMMON_LINKER_OPTIONS} -fstack-protector-strong -fsanitize=address")
+		set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${COMMON_LINKER_OPTIONS} -fstack-protector-strong")
+		if (IRR_GCC_SANITIZE_ADDRESS)
+			set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -fsanitize=address")
+		endif()
+		if (IRR_GCC_SANITIZE_THREAD)
+			set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -fsanitize=thread")
+		endif()
+		if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.1)
+			add_compile_options(-Wno-error=ignored-attributes)
+		endif()
 	endif()
 
+	# https://github.com/buildaworldnet/IrrlichtBAW/issues/298 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
 	irr_adjust_flags() # macro defined in root CMakeLists
 	irr_adjust_definitions() # macro defined in root CMakeLists
 
@@ -77,6 +109,7 @@ macro(irr_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 		set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${COMMON_LINKER_OPTIONS} -fstack-protector-strong -fsanitize=address")
 	endif()
 
+	# https://github.com/buildaworldnet/IrrlichtBAW/issues/298 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
 	irr_adjust_flags() # macro defined in root CMakeLists
 	irr_adjust_definitions() # macro defined in root CMakeLists
 
