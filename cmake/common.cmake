@@ -13,6 +13,14 @@
 # limitations under the License.
 
 
+# submodule managment
+function(update_git_submodule _PATH)
+	execute_process(COMMAND git submodule update --init --recursive ${_PATH}
+			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+	)
+endfunction()
+
+
 # REDO THIS WHOLE THING AS FUNCTIONS
 # https://github.com/buildaworldnet/IrrlichtBAW/issues/311 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
 
