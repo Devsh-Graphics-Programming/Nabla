@@ -1,3 +1,7 @@
+include(../../cmake/common.cmake)
+update_git_submodule(./stb)
+
+
 set(IRR_EXT_CEGUI_H
   ExtCEGUI.h
 	CEGUIOpenGLState.h
