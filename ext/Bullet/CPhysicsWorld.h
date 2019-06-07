@@ -12,9 +12,9 @@
 
 namespace irr
 {
-namespace ext 
+namespace ext
 {
-namespace Bullet3 
+namespace Bullet3
 {
 
 
@@ -55,7 +55,7 @@ public:
     template<class state, typename... Args>
     inline state *bindRigidBody(btRigidBody *body, Args... args) {
         assert(!body->getMotionState());
- 
+
         state *motionState = createbtObject<state>(args...);
         body->setMotionState(motionState);
 
@@ -64,7 +64,7 @@ public:
         return motionState;
     }
 
-    inline void CPhysicsWorld::unbindRigidBody(btRigidBody *body, bool free = true) {
+    inline void unbindRigidBody(btRigidBody *body, bool free = true) {
         m_physicsWorld->removeRigidBody(body);
         if (free) {
             deletebtObject(body->getMotionState());
@@ -75,7 +75,7 @@ public:
     btDiscreteDynamicsWorld *getWorld();
 
 protected:
-    
+
 
 private:
     btDiscreteDynamicsWorld *m_physicsWorld;
@@ -94,4 +94,4 @@ private:
 }
 
 
-#endif 
+#endif
