@@ -175,6 +175,8 @@ option(IRR_BUILD_MITSUBA_LOADER "Enable irr::ext::MitsubaLoader?" ON)
 
 option(IRR_BUILD_CEGUI "Enable CEGUI building and integration?" OFF)
 
+option(IRR_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
+
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})

@@ -28,3 +28,15 @@ if (IRR_BUILD_CEGUI)
     )
     set(CMAKE_PREFIX_PATH ${_OLD_CMAKE_PREFIX_PATH})
 endif()
+
+if (IRR_BUILD_BULLET)
+    add_subdirectory(Bullet)
+    set(IRR_EXT_BULLET_INCLUDE_DIRS
+        ${IRR_EXT_BULLET_INCLUDE_DIRS}
+        PARENT_SCOPE
+    )
+    set(IRR_EXT_BULLET_LIB
+        ${IRR_EXT_BULLET_LIB}
+        PARENT_SCOPE
+    )
+endif()
