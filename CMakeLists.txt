@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.14.5)
 #policies
 #cmake_policy(SET CMP0072 NEW) #not yet, would need to get pointers to all OpenGL functions
 
