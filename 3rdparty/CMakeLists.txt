@@ -192,7 +192,7 @@ if (IRR_BUILD_CEGUI)
 			${CEGUI_DEPS_INSTALL_PATH}/lib/expat.a
 			${CEGUI_DEPS_INSTALL_PATH}/lib/pcre.a
 			${CEGUI_DEPS_INSTALL_PATH}/lib/pcrecpp.a
-			${CEGUI_DEPS_INSTALL_PATH}/lib/pcreposix.lib
+			${CEGUI_DEPS_INSTALL_PATH}/lib/pcreposix.a
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIOpenGLRenderer-0_Static.a
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIBase-0_Static.a
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIExpatParser_Static.a
