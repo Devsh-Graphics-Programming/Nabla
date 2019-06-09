@@ -105,10 +105,10 @@ void Replace(std::string& str, const std::string& from, const std::string& to)
     }
 }
 
-ImageBuffer loadImage(const char* file)
-{
-    return ImageBuffer(file);
-}
+//ImageBuffer loadImage(const char* file)
+//{
+//    return ImageBuffer(file);
+//}
 
 std::string readWindowLayout(const std::string& layoutPath)
 {

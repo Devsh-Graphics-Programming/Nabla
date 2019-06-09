@@ -44,6 +44,11 @@ namespace video
 {
 class IVideoDriver;
 }
+namespace asset
+{
+class IAssetManager;
+class ICPUTexture;
+}
 
 namespace ext
 {
@@ -75,9 +80,11 @@ class BRDFExplorerApp {
         // Loads a given texture buffer into slot of type T.
         // T can be one of the TextureType enum types.
         // Caller is responsible for freeing the buffer afterwards.
-        void loadTextureSlot(ETEXTURE_SLOT slot, const unsigned char* buffer, unsigned w, unsigned h);
+        void loadTextureSlot(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _texture);
 
     private:
+        irr::asset::ICPUTexture* loadCPUTexture(const std::string& _path);
+
         static constexpr float sliderRIRange = 1.0f;
         static constexpr float sliderMetallicRange = 1.0f;
         static constexpr float sliderRoughness1Range = 1.0f;
@@ -108,6 +115,7 @@ class BRDFExplorerApp {
 
     private:
         video::IVideoDriver* Driver = nullptr;
+        asset::IAssetManager& AssetManager;
         ext::cegui::GUIManager* GUI = nullptr;
         TTextureSlotMap TextureSlotMap;
         bool IsIsotropic = false;
