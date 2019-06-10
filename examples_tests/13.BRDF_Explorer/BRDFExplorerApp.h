@@ -33,6 +33,7 @@ SOFTWARE.
 #include <vector>
 #include <irr/video/IGPUMesh.h>
 #include <SMaterial.h>
+#include <ICameraSceneNode.h>
 
 namespace CEGUI
 {
@@ -75,10 +76,11 @@ class BRDFExplorerApp {
         using TTextureSlotMap = std::map<ETEXTURE_SLOT, std::tuple<const char*, const char*, const char*>>;
 
     public:
-        BRDFExplorerApp(IrrlichtDevice* device);
+        BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraSceneNode* _camera);
         ~BRDFExplorerApp();
 
         void renderGUI();
+        void renderMesh();
 
         // Loads a given texture buffer into slot of type T.
         // T can be one of the TextureType enum types.
@@ -114,6 +116,9 @@ class BRDFExplorerApp {
         void eventTextureBrowse(const CEGUI::EventArgs& e);
         void eventMeshBrowse(const CEGUI::EventArgs& e);
 
+        // currently using 1st meshbuffer's textures
+        constexpr static uint32_t MESHBUFFER_NUM = 0u;
+
         // Default title & filtering for the choose-your-file dialog
         static constexpr const char* ImageFileDialogTitle = "Select Texture";
         static constexpr const char* MeshFileDialogTitle = "Select Mesh";
@@ -132,6 +137,7 @@ class BRDFExplorerApp {
         void showErrorMessage(const char* title, const char* message);
 
     private:
+        scene::ICameraSceneNode* Camera = nullptr;
         video::IVideoDriver* Driver = nullptr;
         asset::IAssetManager& AssetManager;
         ext::cegui::GUIManager* GUI = nullptr;

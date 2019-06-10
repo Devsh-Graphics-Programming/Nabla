@@ -38,7 +38,9 @@ int main()
     video::IVideoDriver* driver = device->getVideoDriver();
     scene::ISceneManager* smgr = device->getSceneManager();
 
-    auto* brdfExplorerApp = new BRDFExplorerApp(device);
+    scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeMaya(nullptr, -750.f, 200.f, 200.f, -1, 10.f);
+
+    auto* brdfExplorerApp = new BRDFExplorerApp(device, camera);
 
     uint64_t lastFPSTime = 0;
 

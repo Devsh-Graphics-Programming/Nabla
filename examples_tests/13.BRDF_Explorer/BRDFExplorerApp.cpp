@@ -34,8 +34,9 @@ SOFTWARE.
 namespace irr
 {
 
-BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device)
-    :   Driver(device->getVideoDriver()),
+BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraSceneNode* _camera)
+    :   Camera(_camera),
+        Driver(device->getVideoDriver()),
         AssetManager(device->getAssetManager()),
         GUI(ext::cegui::createGUIManager(device))
 {
@@ -441,6 +442,16 @@ void BRDFExplorerApp::renderGUI()
     GUI->render();
 }
 
+void BRDFExplorerApp::renderMesh()
+{
+    if (!Mesh)
+        return;
+
+    irr::video::IGPUMeshBuffer* meshbuffer = Mesh->getMeshBuffer(MESHBUFFER_NUM);
+    Driver->setMaterial(Material); //so this will force driver to use this material for next drawcall?
+    Driver->drawMeshBuffer(meshbuffer);
+}
+
 void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _texture)
 {
     auto tupl = TextureSlotMap[slot];
@@ -532,9 +543,6 @@ void BRDFExplorerApp::loadMeshAndReplaceTextures(const std::string& _path)
         return;
 
     Mesh = loadedMesh.gpu;
-
-    // currently using 1st meshbuffer's textures
-    constexpr uint32_t MESHBUFFER_NUM = 0u;
 
     const irr::video::SGPUMaterial& itsMaterial = Mesh->getMeshBuffer(MESHBUFFER_NUM)->getMaterial();
 
