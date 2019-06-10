@@ -82,13 +82,14 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device)
     // Fill all the available texture slots using the default (no texture) image
     //const auto image_default = ext::cegui::loadImage("../../media/brdf_explorer/DefaultEmpty.png");
     irr::asset::ICPUTexture* cputexture_default = loadCPUTexture("../../media/brdf_explorer/DefaultEmpty.png");
+    DefaultTexture = Driver->getGPUObjectsFromAssets(&cputexture_default, (&cputexture_default)+1).front();
 
-    loadTextureSlot(ETEXTURE_SLOT::TEXTURE_AO, cputexture_default);
-    loadTextureSlot(ETEXTURE_SLOT::TEXTURE_BUMP, cputexture_default);
-    loadTextureSlot(ETEXTURE_SLOT::TEXTURE_SLOT_1, cputexture_default);
-    loadTextureSlot(ETEXTURE_SLOT::TEXTURE_SLOT_2, cputexture_default);
-    loadTextureSlot(ETEXTURE_SLOT::TEXTURE_SLOT_3, cputexture_default);
-    loadTextureSlot(ETEXTURE_SLOT::TEXTURE_SLOT_4, cputexture_default);
+    loadTextureSlot(ETEXTURE_SLOT::TEXTURE_AO, DefaultTexture, cputexture_default->getCacheKey());
+    loadTextureSlot(ETEXTURE_SLOT::TEXTURE_BUMP, DefaultTexture, cputexture_default->getCacheKey());
+    loadTextureSlot(ETEXTURE_SLOT::TEXTURE_SLOT_1, DefaultTexture, cputexture_default->getCacheKey());
+    loadTextureSlot(ETEXTURE_SLOT::TEXTURE_SLOT_2, DefaultTexture, cputexture_default->getCacheKey());
+    loadTextureSlot(ETEXTURE_SLOT::TEXTURE_SLOT_3, DefaultTexture, cputexture_default->getCacheKey());
+    loadTextureSlot(ETEXTURE_SLOT::TEXTURE_SLOT_4, DefaultTexture, cputexture_default->getCacheKey());
 
     auto root = GUI->getRootWindow();
     // Material window: Subscribe to sliders' events and set its default value to
@@ -192,9 +193,21 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device)
                 2));
     }
 
+    // light animation checkbox
+    auto lightAnimated = static_cast<::CEGUI::ToggleButton*>(root->getChild("LightParamsWindow/AnimationWindow/Checkbox"));
+    lightAnimated->subscribeEvent(
+        ::CEGUI::ToggleButton::EventSelectStateChanged,
+        [this](const ::CEGUI::EventArgs& e) {
+            const ::CEGUI::WindowEventArgs& we = static_cast<const ::CEGUI::WindowEventArgs&>(e);
+            IsLightAnimated = static_cast<::CEGUI::ToggleButton*>(we.window)->isSelected();
+
+            auto root = GUI->getRootWindow();
+            root->getChild("LightParamsWindow/PositionWindow")->setDisabled(IsLightAnimated);
+        }
+    );
+
     // Isotropic checkbox
-    auto isotropic = static_cast<::CEGUI::ToggleButton*>(
-    root->getChild("MaterialParamsWindow/RoughnessWindow/Checkbox"));
+    auto isotropic = static_cast<::CEGUI::ToggleButton*>(root->getChild("MaterialParamsWindow/RoughnessWindow/Checkbox"));
     isotropic->subscribeEvent(
         ::CEGUI::ToggleButton::EventSelectStateChanged,
         [this](const ::CEGUI::EventArgs& e) {
@@ -224,6 +237,13 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device)
                             ->getCurrentValue());
             }
         });
+
+    // Load Model button
+    auto button_loadModel = static_cast<::CEGUI::PushButton*>(
+        root->getChild("LoadModelButton"));
+
+    button_loadModel->subscribeEvent(::CEGUI::PushButton::EventClicked,
+        ::CEGUI::Event::Subscriber(&BRDFExplorerApp::eventMeshBrowse, this));
 
     // AO texturing & bump-mapping texturing window
     auto button_browse_AO = static_cast<::CEGUI::PushButton*>(
@@ -432,6 +452,8 @@ void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot, irr::asset::ICPUTextur
     texSize.d_width = gputex->getSize()[0];
     texSize.d_height = gputex->getSize()[1];
 
+    Material.setTexture(slot-TEXTURE_SLOT_1, gputex);
+
     ::CEGUI::Texture& ceguiTexture = !renderer.isTextureDefined(_texture->getCacheKey())
         ? irrTex2ceguiTex(getTextureGLname(gputex), texSize, _texture->getCacheKey(), renderer)
         : renderer.getTexture(_texture->getCacheKey());
@@ -452,10 +474,79 @@ void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot, irr::asset::ICPUTextur
     }
 }
 
-irr::asset::ICPUTexture* BRDFExplorerApp::loadCPUTexture(const std::string & _path)
+void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot, irr::video::IVirtualTexture* _texture, const std::string& _texName)
+{
+    auto tupl = TextureSlotMap[slot];
+    auto root = GUI->getRootWindow();
+    auto& renderer = GUI->getRenderer();
+
+    auto gputex = _texture;
+    ::CEGUI::Sizef texSize;
+    texSize.d_width = gputex->getSize()[0];
+    texSize.d_height = gputex->getSize()[1];
+
+    Material.setTexture(slot-TEXTURE_SLOT_1, gputex);
+
+    ::CEGUI::Texture& ceguiTexture = !renderer.isTextureDefined(_texName)
+        ? irrTex2ceguiTex(getTextureGLname(gputex), texSize, _texName, renderer)
+        : renderer.getTexture(_texName);
+
+    ::CEGUI::BasicImage& image = !::CEGUI::ImageManager::getSingleton().isDefined(std::get<0>(tupl))
+        ? static_cast<::CEGUI::BasicImage&>(::CEGUI::ImageManager::getSingleton().create(
+              "BasicImage", std::get<0>(tupl)))
+        : static_cast<::CEGUI::BasicImage&>(
+              ::CEGUI::ImageManager::getSingleton().get(std::get<0>(tupl)));
+    image.setTexture(&ceguiTexture);
+    image.setArea(::CEGUI::Rectf(0, 0, texSize.d_width, texSize.d_height));
+    image.setAutoScaled(::CEGUI::AutoScaledMode::ASM_Both);
+
+    static const std::vector<const char*> property = { "NormalImage", "HoverImage", "PushedImage" };
+
+    for (const auto& v : property) {
+        root->getChild(std::get<2>(tupl))->setProperty(v, std::get<0>(tupl));
+    }
+}
+
+irr::asset::ICPUTexture* BRDFExplorerApp::loadCPUTexture(const std::string& _path)
 {
     irr::asset::IAssetLoader::SAssetLoadParams lparams;
     return static_cast<irr::asset::ICPUTexture*>(AssetManager.getAsset(_path, lparams));
+}
+
+auto BRDFExplorerApp::loadMesh(const std::string& _path) -> SCPUGPUMesh
+{
+    irr::asset::IAssetLoader::SAssetLoadParams lparams;
+    irr::asset::ICPUMesh* cpumesh = static_cast<irr::asset::ICPUMesh*>(AssetManager.getAsset(_path, lparams));
+    if (!cpumesh)
+        return {nullptr, nullptr};
+
+    irr::video::IGPUMesh* gpumesh = Driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
+
+    return {cpumesh, gpumesh};
+}
+
+void BRDFExplorerApp::loadMeshAndReplaceTextures(const std::string& _path)
+{
+    auto loadedMesh = loadMesh(_path);
+    if (!loadedMesh.cpu)
+        return;
+
+    Mesh = loadedMesh.gpu;
+
+    // currently using 1st meshbuffer's textures
+    constexpr uint32_t MESHBUFFER_NUM = 0u;
+
+    const irr::video::SGPUMaterial& itsMaterial = Mesh->getMeshBuffer(MESHBUFFER_NUM)->getMaterial();
+
+    for (uint32_t t = 0u; t < 4u; ++t)
+    {
+        if (Material.getTexture(t)==DefaultTexture && itsMaterial.getTexture(t))
+        {
+            irr::video::IVirtualTexture* newtex = itsMaterial.getTexture(t);
+            std::string texname = loadedMesh.cpu->getMeshBuffer(MESHBUFFER_NUM)->getMaterial().getTexture(t)->getCacheKey();
+            loadTextureSlot(static_cast<ETEXTURE_SLOT>(TEXTURE_SLOT_1 + t), newtex, texname);
+        }
+    }
 }
 
 void BRDFExplorerApp::updateTooltip(const char* name, const char* text)
@@ -503,7 +594,7 @@ void BRDFExplorerApp::showErrorMessage(const char* title, const char* message)
 
 void BRDFExplorerApp::eventAOTextureBrowse(const ::CEGUI::EventArgs&)
 {
-    const auto p = GUI->openFileDialog(FileDialogTitle, FileDialogFilters);
+    const auto p = GUI->openFileDialog(ImageFileDialogTitle, ImageFileDialogFilters);
 
     if (p.first) {
         auto box = static_cast<CEGUI::Editbox*>(
@@ -545,7 +636,7 @@ void BRDFExplorerApp::eventAOTextureBrowse_EditBox(const ::CEGUI::EventArgs&)
 
 void BRDFExplorerApp::eventBumpTextureBrowse(const ::CEGUI::EventArgs&)
 {
-    const auto p = GUI->openFileDialog(FileDialogTitle, FileDialogFilters);
+    const auto p = GUI->openFileDialog(ImageFileDialogTitle, ImageFileDialogFilters);
 
     if (p.first) {
         auto box = static_cast<CEGUI::Editbox*>(
@@ -588,7 +679,7 @@ void BRDFExplorerApp::eventTextureBrowse(const CEGUI::EventArgs& e)
 {
     const CEGUI::WindowEventArgs& we = static_cast<const CEGUI::WindowEventArgs&>(e);
     const auto parent = static_cast<CEGUI::PushButton*>(we.window)->getParent()->getName();
-    const auto p = GUI->openFileDialog(FileDialogTitle, FileDialogFilters);
+    const auto p = GUI->openFileDialog(ImageFileDialogTitle, ImageFileDialogFilters);
 
 
     const auto path_label = ext::cegui::ssprintf("TextureViewWindow/%s/LabelWindow/Label", parent.c_str());
@@ -617,6 +708,16 @@ void BRDFExplorerApp::eventTextureBrowse(const CEGUI::EventArgs& e)
             ext::cegui::ssprintf("%s (%ux%u)\nLeft-click to select a new texture.",
                 p.second.c_str(), cputexture->getSize()[0], cputexture->getSize()[1])
                 .c_str());
+    }
+}
+
+void BRDFExplorerApp::eventMeshBrowse(const CEGUI::EventArgs& e)
+{
+    const auto p = GUI->openFileDialog(MeshFileDialogTitle, MeshFileDialogFilters);
+
+    if (p.first)
+    {
+        loadMeshAndReplaceTextures(p.second);
     }
 }
 

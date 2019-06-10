@@ -1,6 +1,6 @@
 #include <COpenGL2DTexture.h>
 
-uint32_t getTextureGLname(irr::video::ITexture* _texture)
+uint32_t getTextureGLname(irr::video::IVirtualTexture* _texture)
 {
     if (!_texture)
         return 0u;

@@ -31,6 +31,8 @@ SOFTWARE.
 #include <map>
 #include <string>
 #include <vector>
+#include <irr/video/IGPUMesh.h>
+#include <SMaterial.h>
 
 namespace CEGUI
 {
@@ -48,6 +50,7 @@ namespace asset
 {
 class IAssetManager;
 class ICPUTexture;
+class ICPUMesh;
 }
 
 namespace ext
@@ -60,7 +63,7 @@ class GUIManager;
 
 class BRDFExplorerApp {
     public:
-        enum class ETEXTURE_SLOT {
+        enum ETEXTURE_SLOT {
             TEXTURE_AO,
             TEXTURE_BUMP,
             TEXTURE_SLOT_1,
@@ -81,9 +84,17 @@ class BRDFExplorerApp {
         // T can be one of the TextureType enum types.
         // Caller is responsible for freeing the buffer afterwards.
         void loadTextureSlot(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _texture);
+        void loadTextureSlot(ETEXTURE_SLOT slot, irr::video::IVirtualTexture* _texture, const std::string& _texName);
 
     private:
         irr::asset::ICPUTexture* loadCPUTexture(const std::string& _path);
+
+        struct SCPUGPUMesh {
+            irr::asset::ICPUMesh* cpu;
+            irr::video::IGPUMesh* gpu;
+        };
+        SCPUGPUMesh loadMesh(const std::string& _path);
+        void loadMeshAndReplaceTextures(const std::string& _path);
 
         static constexpr float sliderRIRange = 1.0f;
         static constexpr float sliderMetallicRange = 1.0f;
@@ -101,14 +112,21 @@ class BRDFExplorerApp {
         void eventBumpTextureBrowse(const ::CEGUI::EventArgs&);
         void eventBumpTextureBrowse_EditBox(const ::CEGUI::EventArgs&);
         void eventTextureBrowse(const CEGUI::EventArgs& e);
+        void eventMeshBrowse(const CEGUI::EventArgs& e);
 
         // Default title & filtering for the choose-your-file dialog
-        static constexpr const char* FileDialogTitle = "Select Texture";
+        static constexpr const char* ImageFileDialogTitle = "Select Texture";
+        static constexpr const char* MeshFileDialogTitle = "Select Mesh";
 
-        const std::vector<std::string> FileDialogFilters = {
+        const std::vector<std::string> ImageFileDialogFilters = {
             "Everything (*.*)", "*",
             "Image (*.jpg, *.jpeg, *.png, *.bmp, *.tga, *.dds, *.gif)",
             "*.jpg *.jpeg *.png *.bmp *.tga *.dds *.gif"
+        };
+        const std::vector<std::string> MeshFileDialogFilters = {
+            "Everything (*.*)", "*",
+            "Mesh (*.ply *.stl *.baw *.x *.obj)",
+            "*.ply *.stl *.baw *.x *.obj"
         };
 
         void showErrorMessage(const char* title, const char* message);
@@ -119,6 +137,12 @@ class BRDFExplorerApp {
         ext::cegui::GUIManager* GUI = nullptr;
         TTextureSlotMap TextureSlotMap;
         bool IsIsotropic = false;
+        bool IsLightAnimated = false;
+
+        irr::video::IGPUMesh* Mesh = nullptr;
+        irr::video::SGPUMaterial Material;
+
+        irr::video::IVirtualTexture* DefaultTexture = nullptr;
 };
 
 } // namespace irr
