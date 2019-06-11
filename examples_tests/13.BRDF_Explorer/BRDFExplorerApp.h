@@ -46,6 +46,7 @@ class IrrlichtDevice;
 namespace video
 {
 class IVideoDriver;
+class IShaderConstantSetCallBack;
 }
 namespace asset
 {
@@ -145,6 +146,7 @@ class BRDFExplorerApp {
         bool IsIsotropic = false;
         bool IsLightAnimated = false;
 
+        irr::video::IShaderConstantSetCallBack* ShaderCallback;
         irr::video::IGPUMesh* Mesh = nullptr;
         irr::video::SGPUMaterial Material;
 

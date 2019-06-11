@@ -209,7 +209,10 @@ bool GUIManager::OnEvent(const SEvent& event)
 
         default: return false;
     }
-    return true;
+    // ALWAYS RETURN FALSE!
+    // This is super important if you want events to be processed by other receivers (like camera animator for example)!
+    // Took me quite some time to figure out why I can't camera isn't moving - turned out camera animator wasn't getting any events
+    return false;
 }
 
 void GUIManager::createRootWindowFromLayout(const std::string& layout)

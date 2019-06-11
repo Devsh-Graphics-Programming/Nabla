@@ -28,8 +28,74 @@ SOFTWARE.
 #include "BRDFExplorerApp.h"
 #include "../../ext/CEGUI/ExtCEGUI.h"
 #include <CEGUI/RendererModules/OpenGL/Texture.h>
+#include <IShaderConstantSetCallBack.h>
 
 #include "workaroundFunctions.h"
+
+using namespace irr;
+
+namespace
+{
+const char* vertex_shader_source =
+    "#version 430 core\n"
+    "uniform mat4 MVP;\n"
+    "layout(location = 0) in vec4 vPosAttr;\n"
+    "layout(location = 2) in vec2 vTCAttr;\n"
+    "\n"
+    "out vec2 tcCoord;\n"
+    "\n"
+    "void main()\n"
+    "{\n"
+    "   gl_Position = MVP*vPosAttr;"
+    "   tcCoord = vTCAttr;"
+    "}";
+const char* fragment_shader_source =
+    "#version 430 core\n"
+    "in vec2 tcCoord;\n"
+    "\n"
+    "layout(location = 0) out vec4 outColor;\n"
+    "\n"
+    "layout(location = 0) uniform sampler2D tex0;"
+    "\n"
+    "void main()\n"
+    "{\n"
+    "   vec2 t = vec2(tcCoord.x, 1.0-tcCoord.y); outColor = texture(tex0,t);"
+    "}";
+
+class CShaderConstantSetCallback : public video::IShaderConstantSetCallBack
+{
+    struct SShaderConstant {
+        int32_t location;
+        video::E_SHADER_CONSTANT_TYPE type;
+    };
+
+    scene::ICameraSceneNode* m_camera;
+    SShaderConstant m_mvp;
+
+public:
+    CShaderConstantSetCallback(scene::ICameraSceneNode* _camera) : m_camera{_camera} {}
+
+    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
+    {
+        for (size_t i=0; i<constants.size(); i++)
+        {
+            if (constants[i].name=="MVP")
+            {
+                m_mvp.location = constants[i].location;
+                m_mvp.type = constants[i].type;
+            }
+        }
+    }
+
+    virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t)
+    {
+        auto mvp = m_camera->getConcatenatedMatrix();
+        services->setShaderConstant(mvp.pointer(), m_mvp.location, m_mvp.type, 1u);
+    }
+
+    virtual void OnUnsetMaterial() {}
+};
+}
 
 namespace irr
 {
@@ -38,8 +104,13 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
     :   Camera(_camera),
         Driver(device->getVideoDriver()),
         AssetManager(device->getAssetManager()),
-        GUI(ext::cegui::createGUIManager(device))
+        GUI(ext::cegui::createGUIManager(device)),
+        ShaderCallback(new CShaderConstantSetCallback(_camera))
 {
+    Material.MaterialType = static_cast<video::E_MATERIAL_TYPE>(
+        Driver->getGPUProgrammingServices()->addHighLevelShaderMaterial(vertex_shader_source, nullptr, nullptr, nullptr, fragment_shader_source, 3u, video::EMT_SOLID, ShaderCallback)
+    );
+
     TextureSlotMap = {
         { ETEXTURE_SLOT::TEXTURE_AO,
         std::make_tuple("AOTextureBuffer", // Texture buffer name
@@ -448,7 +519,7 @@ void BRDFExplorerApp::renderMesh()
         return;
 
     irr::video::IGPUMeshBuffer* meshbuffer = Mesh->getMeshBuffer(MESHBUFFER_NUM);
-    Driver->setMaterial(Material); //so this will force driver to use this material for next drawcall?
+    Driver->setMaterial(Material);
     Driver->drawMeshBuffer(meshbuffer);
 }
 
@@ -732,7 +803,7 @@ void BRDFExplorerApp::eventMeshBrowse(const CEGUI::EventArgs& e)
 
 BRDFExplorerApp::~BRDFExplorerApp()
 {
-
+    ShaderCallback->drop();
 }
 
 } // namespace irr
