@@ -173,7 +173,7 @@ void CSmoothNormalGenerator::processConnectedVertices(asset::ICPUMeshBuffer * bu
 		for (core::vector<IMeshManipulator::SSNGVertexData>::iterator processedVertex = processedBucket.begin; processedVertex != processedBucket.end; processedVertex++)
 		{
 			std::array<uint32_t, 8> neighboringCells = vertexHashMap.getNeighboringCellHashes(*processedVertex);
-			core::vector3df_SIMD normal(0.0f);
+			core::vector3df_SIMD normal = processedVertex->parentTriangleFaceNormal * processedVertex->wage;
 
 			//iterate among all neighboring cells
 			for (int i = 0; i < 8; i++)
@@ -181,7 +181,7 @@ void CSmoothNormalGenerator::processConnectedVertices(asset::ICPUMeshBuffer * bu
 				VertexHashMap::BucketBounds bounds = vertexHashMap.getBucketBoundsByHash(neighboringCells[i]);
 				for (; bounds.begin != bounds.end; bounds.begin++)
 				{
-					
+					if (processedVertex != bounds.begin)
 					if (compareVertexPosition(processedVertex->position, bounds.begin->position, epsilon) &&
 						vxcmp(*processedVertex, *bounds.begin, buffer))
 					{
@@ -190,7 +190,8 @@ void CSmoothNormalGenerator::processConnectedVertices(asset::ICPUMeshBuffer * bu
 				}
 			}
 
-			normal = core::normalize(normal);
+
+			normal = core::normalize(core::vectorSIMDf(normal));
 			buffer->setAttribute(normal, normalAttrID, processedVertex->indexOffset);
 		}
 	}
