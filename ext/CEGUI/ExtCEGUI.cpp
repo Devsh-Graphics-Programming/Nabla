@@ -225,7 +225,8 @@ void GUIManager::createRootWindowFromLayout(const std::string& layout)
     bool alternativeLayout,
     const char* parent,
     const char* title,
-    const char* name)
+    const char* name,
+    const TOnColorPicked& onColorPicked)
 {
     assert(parent);
     assert(name);
@@ -300,8 +301,9 @@ void GUIManager::createRootWindowFromLayout(const std::string& layout)
         cpicker_window->addChild(picker);
 
         picker->subscribeEvent(ColourPicker::EventAcceptedColour,
-            [layout, picker](void) {
+            [layout, picker,onColorPicked](void) {
                 const auto color = picker->getColour();
+                onColorPicked(color);
                 static_cast<Slider*>(layout->getChild("SliderR"))
                     ->setCurrentValue(color.getRed() * 255.0f);
                 static_cast<Slider*>(layout->getChild("SliderG"))
@@ -337,7 +339,7 @@ void GUIManager::createRootWindowFromLayout(const std::string& layout)
     const char* name,
     const char* title,
     const std::vector<const char*>& list,
-    const TEventHandler& f)
+    const TEventHandler& eventSelectionAccepted)
 {
     assert(name);
 
@@ -357,7 +359,7 @@ void GUIManager::createRootWindowFromLayout(const std::string& layout)
         window->addChild(box);
 
         box->getDropList()->subscribeEvent(
-            ComboDropList::EventListSelectionAccepted, f);
+            ComboDropList::EventListSelectionAccepted, eventSelectionAccepted);
 
         ListboxTextItem* first = nullptr;
         bool first_chosen = false;

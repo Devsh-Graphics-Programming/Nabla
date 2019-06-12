@@ -147,9 +147,14 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
     GUI->createRootWindowFromLayout(
         ext::cegui::readWindowLayout("../../media/brdf_explorer/MainWindow.layout")
     );
-    GUI->createColourPicker(false, "LightParamsWindow/ColorWindow", "Color", "pickerLightColor");
-    GUI->createColourPicker(true, "MaterialParamsWindow/EmissiveWindow", "Emissive", "pickerEmissiveColor");
-    GUI->createColourPicker(true, "MaterialParamsWindow/AlbedoWindow", "Albedo", "pickerAlbedoColor");
+    auto onColorPicked = [](const ::CEGUI::Colour& _ceguiColor, core::vector3df& _irrColor) {
+        _irrColor.X = _ceguiColor.getRed();
+        _irrColor.Y = _ceguiColor.getGreen();
+        _irrColor.Z = _ceguiColor.getBlue();
+    };
+    GUI->createColourPicker(false, "LightParamsWindow/ColorWindow", "Color", "pickerLightColor", std::bind(onColorPicked, std::placeholders::_1, std::ref(GUIState.Light.Color)));
+    GUI->createColourPicker(true, "MaterialParamsWindow/EmissiveWindow", "Emissive", "pickerEmissiveColor", std::bind(onColorPicked, std::placeholders::_1, std::ref(GUIState.Emissive.Color)));
+    GUI->createColourPicker(true, "MaterialParamsWindow/AlbedoWindow", "Albedo", "pickerAlbedoColor", std::bind(onColorPicked, std::placeholders::_1, std::ref(GUIState.Albedo.ConstantColor)));
 
     // Fill all the available texture slots using the default (no texture) image
     //const auto image_default = ext::cegui::loadImage("../../media/brdf_explorer/DefaultEmpty.png");
@@ -168,24 +173,28 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
     // 0.0.
     GUI->registerSliderEvent(
         "MaterialParamsWindow/RefractionIndexWindow/Slider", sliderRIRange, 0.01f,
-        [root](const ::CEGUI::EventArgs&) {
-            auto roughness = static_cast<::CEGUI::Slider*>(
+        [root,this](const ::CEGUI::EventArgs&) {
+            auto refractionIndex = static_cast<::CEGUI::Slider*>(
                 root->getChild(
                     "MaterialParamsWindow/RefractionIndexWindow/Slider"))
                                  ->getCurrentValue();
             root->getChild(
                     "MaterialParamsWindow/RefractionIndexWindow/LabelPercent")
-                ->setText(ext::cegui::toStringFloat(roughness, 2));
+                ->setText(ext::cegui::toStringFloat(refractionIndex, 2));
+
+            GUIState.RefractionIndex.ConstValue = refractionIndex;
         });
 
     GUI->registerSliderEvent(
         "MaterialParamsWindow/MetallicWindow/Slider", sliderMetallicRange, 0.01f,
-        [root](const ::CEGUI::EventArgs&) {
-            auto roughness = static_cast<::CEGUI::Slider*>(
+        [root,this](const ::CEGUI::EventArgs&) {
+            auto metallic = static_cast<::CEGUI::Slider*>(
                 root->getChild("MaterialParamsWindow/MetallicWindow/Slider"))
                                  ->getCurrentValue();
             root->getChild("MaterialParamsWindow/MetallicWindow/LabelPercent")
-                ->setText(ext::cegui::toStringFloat(roughness, 2));
+                ->setText(ext::cegui::toStringFloat(metallic, 2));
+
+            GUIState.Metallic.ConstValue = metallic;
         });
 
     GUI->registerSliderEvent(
@@ -201,7 +210,9 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
             root->getChild("MaterialParamsWindow/RoughnessWindow/LabelPercent1")
                 ->setText(s);
 
-            if (IsIsotropic) {
+            GUIState.Roughness.ConstValue1 = v;
+
+            if (GUIState.Roughness.IsIsotropic) {
                 root->getChild("MaterialParamsWindow/RoughnessWindow/LabelPercent2")
                     ->setText(s);
                 static_cast<::CEGUI::Slider*>(
@@ -212,12 +223,14 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
 
     GUI->registerSliderEvent(
         "MaterialParamsWindow/RoughnessWindow/Slider2", sliderRoughness2Range,
-        0.01f, [root](const ::CEGUI::EventArgs&) {
+        0.01f, [root,this](const ::CEGUI::EventArgs&) {
             auto roughness = static_cast<::CEGUI::Slider*>(
                 root->getChild("MaterialParamsWindow/RoughnessWindow/Slider2"))
                                  ->getCurrentValue();
             root->getChild("MaterialParamsWindow/RoughnessWindow/LabelPercent2")
                 ->setText(ext::cegui::toStringFloat(roughness, 2));
+
+            GUIState.Roughness.ConstValue2 = roughness;
         });
 
     // Set the sliders' text objects to their default value (whatever value the
@@ -271,10 +284,35 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
         ::CEGUI::ToggleButton::EventSelectStateChanged,
         [this](const ::CEGUI::EventArgs& e) {
             const ::CEGUI::WindowEventArgs& we = static_cast<const ::CEGUI::WindowEventArgs&>(e);
-            IsLightAnimated = static_cast<::CEGUI::ToggleButton*>(we.window)->isSelected();
+            GUIState.Light.Animated = static_cast<::CEGUI::ToggleButton*>(we.window)->isSelected();
 
             auto root = GUI->getRootWindow();
-            root->getChild("LightParamsWindow/PositionWindow")->setDisabled(IsLightAnimated);
+            root->getChild("LightParamsWindow/PositionWindow")->setDisabled(GUIState.Light.Animated);
+        }
+    );
+
+    auto lightZ = static_cast<::CEGUI::Spinner*>(root->getChild("LightParamsWindow/PositionWindow/LightZ"));
+    lightZ->subscribeEvent(
+        ::CEGUI::Spinner::EventValueChanged,
+        [this](const ::CEGUI::EventArgs& e) {
+            const ::CEGUI::WindowEventArgs& we = static_cast<const ::CEGUI::WindowEventArgs&>(e);
+            GUIState.Light.ConstantPosition.Z = static_cast<::CEGUI::Spinner*>(we.window)->getCurrentValue();
+        }
+    );
+    auto lightY = static_cast<::CEGUI::Spinner*>(root->getChild("LightParamsWindow/PositionWindow/LightY"));
+    lightY->subscribeEvent(
+        ::CEGUI::Spinner::EventValueChanged,
+        [this](const ::CEGUI::EventArgs& e) {
+            const ::CEGUI::WindowEventArgs& we = static_cast<const ::CEGUI::WindowEventArgs&>(e);
+            GUIState.Light.ConstantPosition.Y = static_cast<::CEGUI::Spinner*>(we.window)->getCurrentValue();
+        }
+    );
+    auto lightX = static_cast<::CEGUI::Spinner*>(root->getChild("LightParamsWindow/PositionWindow/LightX"));
+    lightX->subscribeEvent(
+        ::CEGUI::Spinner::EventValueChanged,
+        [this](const ::CEGUI::EventArgs& e) {
+            const ::CEGUI::WindowEventArgs& we = static_cast<const ::CEGUI::WindowEventArgs&>(e);
+            GUIState.Light.ConstantPosition.X = static_cast<::CEGUI::Spinner*>(we.window)->getCurrentValue();
         }
     );
 
@@ -286,12 +324,12 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
             auto root = GUI->getRootWindow();
 
             const ::CEGUI::WindowEventArgs& we = static_cast<const ::CEGUI::WindowEventArgs&>(e);
-            IsIsotropic = static_cast<::CEGUI::ToggleButton*>(we.window)->isSelected();
+            GUIState.Roughness.IsIsotropic = static_cast<::CEGUI::ToggleButton*>(we.window)->isSelected();
             static_cast<::CEGUI::Slider*>(
                 root->getChild("MaterialParamsWindow/RoughnessWindow/Slider2"))
-                ->setDisabled(IsIsotropic);
+                ->setDisabled(GUIState.Roughness.IsIsotropic);
 
-            if (IsIsotropic) {
+            if (GUIState.Roughness.IsIsotropic) {
                 root->getChild("MaterialParamsWindow/RoughnessWindow/LabelPercent2")
                     ->setText(ext::cegui::toStringFloat(
                         static_cast<::CEGUI::Slider*>(
@@ -427,6 +465,8 @@ void BRDFExplorerApp::initDropdown()
 
             root->getChild("MaterialParamsWindow/AlbedoWindow")
                 ->setDisabled(list->getSelectedItem()->getText() != "Constant");
+
+            GUIState.Albedo.SourceDropdown = getDropdownState(DROPDOWN_ALBEDO_NAME);
         });
 
     albedo_drop->setHorizontalAlignment(default_halignment);
@@ -443,6 +483,8 @@ void BRDFExplorerApp::initDropdown()
 
             root->getChild("MaterialParamsWindow/RoughnessWindow")
                 ->setDisabled(list->getSelectedItem()->getText() != "Constant");
+
+            GUIState.Roughness.SourceDropdown = getDropdownState(DROPDOWN_ROUGHNESS_NAME);
         });
 
     roughness_drop->setHorizontalAlignment(default_halignment);
@@ -460,6 +502,8 @@ void BRDFExplorerApp::initDropdown()
 
             root->getChild("MaterialParamsWindow/RefractionIndexWindow")
                 ->setDisabled(list->getSelectedItem()->getText() != "Constant");
+
+            GUIState.RefractionIndex.SourceDropdown = getDropdownState(DROPDOWN_RI_NAME);
         });
 
     ri_drop->setHorizontalAlignment(default_halignment);
@@ -477,6 +521,8 @@ void BRDFExplorerApp::initDropdown()
 
             root->getChild("MaterialParamsWindow/MetallicWindow")
                 ->setDisabled(list->getSelectedItem()->getText() != "Constant");
+
+            GUIState.Metallic.SourceDropdown = getDropdownState(DROPDOWN_METALLIC_NAME);
         });
 
     metallic_drop->setHorizontalAlignment(default_halignment);
@@ -635,6 +681,21 @@ void BRDFExplorerApp::updateTooltip(const char* name, const char* text)
 
     static_cast<CEGUI::DefaultWindow*>(GUI->getRootWindow()->getChild(name))
         ->setTooltipText(s.c_str());
+}
+
+auto BRDFExplorerApp::getDropdownState(const char* _dropdownName) const -> E_DROPDOWN_STATE
+{
+    auto root = GUI->getRootWindow();
+    auto* list = static_cast<::CEGUI::Combobox*>(root->getChild(_dropdownName));
+
+    auto mapStrToEnum = [] (const std::string& _str) {
+        const char* Texture = "Texture";
+        if (_str.compare(0, strlen(Texture), Texture) == 0)
+            return static_cast<E_DROPDOWN_STATE>(EDS_TEX0 + _str[strlen(Texture)+1]-'0');
+        else return EDS_CONSTANT;
+    };
+
+    return mapStrToEnum(list->getSelectedItem()->getText());
 }
 
 void BRDFExplorerApp::showErrorMessage(const char* title, const char* message)

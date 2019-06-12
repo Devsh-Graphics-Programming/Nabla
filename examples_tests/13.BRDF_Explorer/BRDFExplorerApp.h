@@ -135,6 +135,20 @@ class BRDFExplorerApp {
             "*.ply *.stl *.baw *.x *.obj"
         };
 
+        static constexpr const char* DROPDOWN_ALBEDO_NAME = "MaterialParamsWindow/AlbedoDropDownList/DropDown_Albedo";
+        static constexpr const char* DROPDOWN_ROUGHNESS_NAME = "MaterialParamsWindow/RoughnessDropDownList/DropDown_Roughness";
+        static constexpr const char* DROPDOWN_RI_NAME = "MaterialParamsWindow/RIDropDownList/DropDown_RI";
+        static constexpr const char* DROPDOWN_METALLIC_NAME = "MaterialParamsWindow/MetallicDropDownList/DropDown_Metallic";
+        enum E_DROPDOWN_STATE
+        {
+            EDS_CONSTANT,
+            EDS_TEX0,
+            EDS_TEX1,
+            EDS_TEX2,
+            EDS_TEX3
+        };
+        E_DROPDOWN_STATE getDropdownState(const char* _dropdownName) const;
+
         void showErrorMessage(const char* title, const char* message);
 
     private:
@@ -143,10 +157,37 @@ class BRDFExplorerApp {
         asset::IAssetManager& AssetManager;
         ext::cegui::GUIManager* GUI = nullptr;
         TTextureSlotMap TextureSlotMap;
-        bool IsIsotropic = false;
-        bool IsLightAnimated = false;
+        
+        struct SGUIState {
+            struct {
+                core::vector3df Color;
+            } Emissive;
+            struct {
+                E_DROPDOWN_STATE SourceDropdown;
+                core::vector3df ConstantColor;
+            } Albedo;
+            struct {
+                bool IsIsotropic = false;
+                E_DROPDOWN_STATE SourceDropdown;
+                float ConstValue1;
+                float ConstValue2;
+            } Roughness;
+            struct {
+                E_DROPDOWN_STATE SourceDropdown;
+                float ConstValue;
+            } RefractionIndex;
+            struct {
+                E_DROPDOWN_STATE SourceDropdown;
+                float ConstValue;
+            } Metallic;
+            struct {
+                core::vector3df Color;
+                core::vector3df ConstantPosition;
+                bool Animated;
+            } Light;
+        } GUIState;
 
-        irr::video::IShaderConstantSetCallBack* ShaderCallback;
+        irr::video::IShaderConstantSetCallBack* ShaderCallback = nullptr;
         irr::video::IGPUMesh* Mesh = nullptr;
         irr::video::SGPUMaterial Material;
 
