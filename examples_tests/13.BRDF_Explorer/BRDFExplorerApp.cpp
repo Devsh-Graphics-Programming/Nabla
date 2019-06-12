@@ -315,7 +315,7 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
             GUIState.Light.ConstantPosition.X = static_cast<::CEGUI::Spinner*>(we.window)->getCurrentValue();
         }
     );
-
+    
     // Isotropic checkbox
     auto isotropic = static_cast<::CEGUI::ToggleButton*>(root->getChild("MaterialParamsWindow/RoughnessWindow/Checkbox"));
     isotropic->subscribeEvent(
@@ -371,6 +371,16 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
         ->subscribeEvent(::CEGUI::Editbox::EventTextAccepted,
             ::CEGUI::Event::Subscriber(&BRDFExplorerApp::eventAOTextureBrowse_EditBox, this));
 
+    auto ao_enabled = static_cast<::CEGUI::ToggleButton*>(root->getChild("MaterialParamsWindow/AOWindow/Checkbox"));
+    ao_enabled->subscribeEvent(
+        ::CEGUI::ToggleButton::EventSelectStateChanged,
+        [this](const ::CEGUI::EventArgs& e) {
+            auto root = GUI->getRootWindow();
+
+            const ::CEGUI::WindowEventArgs& we = static_cast<const ::CEGUI::WindowEventArgs&>(e);
+            GUIState.AmbientOcclusion.Enabled = static_cast<::CEGUI::ToggleButton*>(we.window)->isSelected();
+        });
+
     auto button_browse_bump_map = static_cast<::CEGUI::PushButton*>(
         root->getChild("MaterialParamsWindow/BumpWindow/Button"));
 
@@ -387,12 +397,13 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
 
     GUI->registerSliderEvent(
         "MaterialParamsWindow/BumpWindow/Spinner", sliderBumpHeightRange, 1.0f,
-        [root](const ::CEGUI::EventArgs&) {
-            auto roughness = static_cast<::CEGUI::Slider*>(
+        [root,this](const ::CEGUI::EventArgs&) {
+            auto height = static_cast<::CEGUI::Slider*>(
                 root->getChild("MaterialParamsWindow/BumpWindow/Spinner"))
                                  ->getCurrentValue();
             root->getChild("MaterialParamsWindow/BumpWindow/LabelPercent")
-                ->setText(ext::cegui::toStringFloat(roughness, 2));
+                ->setText(ext::cegui::toStringFloat(height, 2));
+            GUIState.BumpMapping.Height = height;
         });
     initDropdown();
     initTooltip();

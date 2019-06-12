@@ -181,6 +181,12 @@ class BRDFExplorerApp {
                 float ConstValue;
             } Metallic;
             struct {
+                float Height;
+            } BumpMapping;
+            struct {
+                bool Enabled;
+            } AmbientOcclusion;
+            struct {
                 core::vector3df Color;
                 core::vector3df ConstantPosition;
                 bool Animated;
