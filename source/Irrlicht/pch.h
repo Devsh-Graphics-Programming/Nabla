@@ -4,7 +4,6 @@
 #include "aabbox3d.h"
 #include "CConcurrentObjectCache.h"
 #include "CFinalBoneHierarchy.h"
-#include "CGLSLFunctionGenerator.h"
 #include "CObjectCache.h"
 #include "COpenGLStateManager.h"
 #include "coreutil.h"
@@ -284,5 +283,11 @@
 #include "irr/asset/bawformat/legacy/CBAWLegacy.h"
 #include "irr/video/CGPUSkinnedMesh.h"
 #include "irr/video/COpenGLSpecializedShader.h"
+#include "irr/asset/CGLSLScanBuiltinIncludeLoader.h"
+#include "irr/asset/CGLSLSkinningBuiltinIncludeLoader.h"
+#include "irr/asset/CBuiltinIncluder.h"
+#include "irr/asset/IBuiltinIncludeLoader.h"
+#include "irr/asset/IIncluder.h"
+#include "irr/asset/IIncludeHandler.h"
 
 #endif //__PCH_H_INCLUDED__
