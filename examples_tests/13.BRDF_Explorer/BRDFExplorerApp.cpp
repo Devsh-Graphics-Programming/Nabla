@@ -34,6 +34,214 @@ SOFTWARE.
 
 using namespace irr;
 
+class CShaderManager
+{
+public:
+    struct SParams
+    {
+        bool constantAlbedo;
+        bool isotropicRoughness;
+        bool constantRoughness;
+        bool roughnessIsZero;
+        bool constantRI;
+        bool constantMetallic;
+        bool metallicIsZero;
+        bool metallicIsOne;
+        bool AOEnabled;
+    };
+
+private:
+    using Key_t = uint16_t;
+    core::unordered_map<Key_t, video::E_MATERIAL_TYPE> Shaders;
+    video::IGPUProgrammingServices* Services = nullptr;
+    asset::IIncludeHandler* IncludeHandler = nullptr;
+
+    enum E_SHADER_FLAGS : Key_t
+    {
+        ESF_CONST_ALBEDO = 1<<0,
+        ESF_ISOTROPIC_ROUGHNESS = 1<<1,
+        ESF_CONST_ROUGHNESS = 1<<2,
+        ESF_ZERO_ROUGHNESS = 1<<3,
+        ESF_CONST_RI = 1<<4,
+        ESF_CONST_METALLIC = 1<<5,
+        ESF_ZERO_METALLIC = 1<<6,
+        ESF_ONE_METALLIC = 1<<7,
+        ESF_AO_ENABLED = 1<<8
+    };
+
+    static constexpr uint32_t firstSetBit(Key_t _x)
+    {
+        uint32_t n{};
+        while (!(_x & Key_t{1u})) ++n;
+        return n;
+    }
+    Key_t flagsToKey(const SParams& _p) {
+        assert(!(_p.metallicIsZero && _p.metallicIsOne)); //this would be weird
+
+        Key_t key{};
+        key |= Key_t{_p.constantAlbedo}<<firstSetBit(ESF_CONST_ALBEDO);
+        key |= Key_t{_p.isotropicRoughness}<<firstSetBit(ESF_ISOTROPIC_ROUGHNESS);
+        key |= Key_t{_p.constantRoughness}<<firstSetBit(ESF_CONST_ROUGHNESS);
+        key |= Key_t{_p.roughnessIsZero}<<firstSetBit(ESF_ZERO_ROUGHNESS);
+        key |= Key_t{_p.constantRI}<<firstSetBit(ESF_CONST_RI);
+        key |= Key_t{_p.constantMetallic}<<firstSetBit(ESF_CONST_METALLIC);
+        key |= Key_t{_p.metallicIsZero}<<firstSetBit(ESF_ZERO_METALLIC);
+        key |= Key_t{_p.metallicIsOne}<<firstSetBit(ESF_ONE_METALLIC);
+        key |= Key_t{_p.AOEnabled}<<firstSetBit(ESF_AO_ENABLED);
+
+        return key;
+    }
+
+    std::string genGetters(const SParams& _params)
+    {
+        std::string source = "float getRoughness() {\n";
+        if (_params.constantRoughness)
+            source += "\treturn uRoughness1;";
+        else
+            source += "\treturn texture(uRoughnessMap, TexCoords).x;";
+        source += "\n}\n";
+
+        source += "float getMetallic() {\n";
+        if (_params.constantMetallic)
+        {
+            if (_params.metallicIsZero)
+                source += "\treturn 0.0;";
+            else if (_params.metallicIsOne)
+                source += "\treturn 1.0;";
+            else
+                source += "\treturn uMetallic;";
+        }
+        else
+            source += "\treturn texture(uMetallicMap, TexCoords).x;";
+        source += "\n}\n";
+
+        source += "float getIoR() {\n";
+        if (_params.constantRI)
+            source += "\treturn uIoR;";
+        else
+            source += "\treturn texture(uIoRMap, TexCoords).x;";
+        source += "\n}\n";
+
+        source += "float getAO() {\n";
+        if (_params.AOEnabled)
+            source += "\treturn texture(uAOMap, TexCoords).x;";
+        else
+            source += "\treturn 1.0";
+        source += "\n}\n";
+
+        source += "vec3 getAlbedo() {\n";
+        if (_params.constantAlbedo)
+            source += "\treturn texture(uAlbedoMap, TexCoords).rgb;";
+        else
+            source += "\treturn uAlbedo;";
+        source += "\n}\n";
+
+        return source;
+    }
+
+    video::E_MATERIAL_TYPE addShader(const SParams& _params)
+    {
+        std::string source =
+R"(#version 430 core
+
+layout (location = 0) out vec4 OutColor;
+
+in vec3 WorldPos;
+in vec2 TexCoords;
+in vec3 Normal;
+
+layout (location = 0)  uniform vec3 uEmissive;
+layout (location = 1)  uniform vec3 uAlbedo;
+layout (location = 2)  uniform float uRoughness1;
+layout (location = 3)  uniform float uRoughness2;
+layout (location = 4)  uniform float uIoR;
+layout (location = 5)  uniform float uMetallic;
+layout (location = 6)  uniform float uHeightFactor;
+layout (location = 7)  uniform vec3 uLightColor;
+layout (location = 8)  uniform vec3 uLightPos;
+layout (location = 9)  uniform sampler2D uAlbedoMap;
+layout (location = 10) uniform sampler2D uRoughnessMap;
+layout (location = 11) uniform sampler2D uIoRMap;
+layout (location = 12) uniform sampler2D uMetallicMap;
+layout (location = 13) uniform sampler2D uBumpMap;
+layout (location = 14) uniform sampler2D uAOMap;
+
+float getRoughness();
+float getMetallic();
+float getIoR();
+float getAO();
+vec3 getAlbedo();
+
+float diffuse(...);
+float specular(...);
+
+void main() {
+    const vec3 N = normalize(Normal);
+    const vec3 V = normalize(uEye - WorldPos);
+    const vec3 relLightPos = uLight - WorldPos;
+    const vec3 L = normalize(relLightPos);
+    const vec3 H = normalize(L + V);
+
+    const float NdotH = max(dot(N, H), 0.0);
+    const float NdotL = max(dot(N, L), 0.0);
+    const float NdotV = max(dot(N, V), 0.0);
+    const float VdotH = max(dot(V, H), 0.0);
+
+    const float a = getRoughness();
+    const float a2 = a*a;
+    const float metallic = getMetallic();
+    const vec3 albedo = getAlbedo();
+    const float ior = getIoR();
+    const float ao = getAO();
+    const float F0 = mix(vec3(ior, ior, ior), albedo, metallic);
+    const vec3 fresnel = FresnelSchlick(F0, NdotV);
+
+    float diffuse = diffuse(...) * (1.0 - metallic);
+    float spec = specular(...);
+
+    vec3 color = ((diffuse * albedo * (vec3(1.0) - fresnel)) + (spec * fresnel)) * uLightColor / dot(relLightPos, relLightPos);
+    // color *= NdotL; // ???
+    OutColor = vec4(color, 1.0);
+}
+)";
+        source += genGetters(_params);
+
+        source += "float diffuse(...) {\n";
+        if (_params.constantMetallic && !_params.metallicIsOne)
+        {
+            if (_params.constantRoughness && !_params.roughnessIsZero)
+                source += "\treturn lambert(...);";
+            else
+                source += "\treturn orey_nayar(...);";
+        }
+        else source += "\treturn 0.0;";
+        source += "\n}\n";
+        source += 
+R"(float specular(...) {
+    float ndf = GGXTrowbridgeReitz(a2, NdotH);
+    float geom = GGXSmith(a2, NdotV);
+
+    return ndf*geom / (4.0 * NdotV * NdotL);
+})";
+
+        return Shaders.insert({flagsToKey(_params), video::EMT_SOLID}).first->second; // TODO
+    }
+
+public:
+    CShaderManager(video::IGPUProgrammingServices* _services, asset::IIncludeHandler* _inclHandler) : Services{_services}, IncludeHandler{_inclHandler}
+    {
+    }
+
+    video::E_MATERIAL_TYPE getShader(const SParams& _params)
+    {
+        decltype(Shaders)::const_iterator found;
+        if ((found = Shaders.find(flagsToKey(_params))) != Shaders.cend())
+            return found->second;
+
+        return addShader(_params);
+    }
+};
+
 namespace
 {
 const char* vertex_shader_source =
