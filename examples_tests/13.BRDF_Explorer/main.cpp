@@ -2,6 +2,7 @@
 
 #include <irrlicht.h>
 #include "BRDFExplorerApp.h"
+#include "CBRDFBuiltinIncludeLoader.h"
 
 using namespace irr;
 
@@ -35,6 +36,12 @@ int main()
     camera->setNearValue(0.01f);
     camera->setFarValue(1000.0f);
     smgr->setActiveCamera(camera);
+
+    {
+    auto brdfBuiltinLoader = new CBRDFBuiltinIncludeLoader();
+    device->getIncludeHandler()->addBuiltinIncludeLoader(brdfBuiltinLoader);
+    brdfBuiltinLoader->drop();
+    }
 
     auto* brdfExplorerApp = new BRDFExplorerApp(device, camera);
 

@@ -142,7 +142,7 @@ private:
     video::E_MATERIAL_TYPE addShader(const SParams& _params)
     {
         std::string source =
-R"(#version 430 core
+            R"(#version 430 core
 
 layout (location = 0) out vec4 OutColor;
 
@@ -150,30 +150,40 @@ in vec3 WorldPos;
 in vec2 TexCoords;
 in vec3 Normal;
 
-layout (location = 0)  uniform vec3 uEmissive;
-layout (location = 1)  uniform vec3 uAlbedo;
-layout (location = 2)  uniform float uRoughness1;
-layout (location = 3)  uniform float uRoughness2;
-layout (location = 4)  uniform float uIoR;
-layout (location = 5)  uniform float uMetallic;
-layout (location = 6)  uniform float uHeightFactor;
-layout (location = 7)  uniform vec3 uLightColor;
-layout (location = 8)  uniform vec3 uLightPos;
-layout (location = 9)  uniform sampler2D uAlbedoMap;
-layout (location = 10) uniform sampler2D uRoughnessMap;
-layout (location = 11) uniform sampler2D uIoRMap;
-layout (location = 12) uniform sampler2D uMetallicMap;
-layout (location = 13) uniform sampler2D uBumpMap;
-layout (location = 14) uniform sampler2D uAOMap;
+layout (location = 0) uniform vec3 uEmissive;
+layout (location = 1) uniform vec3 uAlbedo;
+layout (location = 2) uniform float uRoughness1;
+layout (location = 3) uniform float uRoughness2;
+layout (location = 4) uniform float uIoR;
+layout (location = 5) uniform float uMetallic;
+layout (location = 6) uniform float uHeightFactor;
+layout (location = 7) uniform vec3 uLightColor;
+layout (location = 8) uniform vec3 uLightPos;
+layout (binding = 0) uniform sampler2D uAlbedoMap;
+layout (binding = 1) uniform sampler2D uRoughnessMap;
+layout (binding = 2) uniform sampler2D uIoRMap;
+layout (binding = 3) uniform sampler2D uMetallicMap;
+layout (binding = 4) uniform sampler2D uBumpMap;
+layout (binding = 5) uniform sampler2D uAOMap;
 
 float getRoughness();
 float getMetallic();
 float getIoR();
 float getAO();
 vec3 getAlbedo();
-
-float diffuse(...);
-float specular(...);
+)"
++
+IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/diffuse/oren_nayar.glsl")
++
+IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/specular/ndf/ggx_trowbridge_reitz.glsl")
++
+IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/specular/geom/ggx_smith.glsl")
++
+IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/specular/fresnel/fresnel_schlick.glsl")
++
+R"(
+float diffuse(in float a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, in float NdotV);
+float specular(in float a2, in float NdotL, in float NdotV, in float NdotH);
 
 void main() {
     const vec3 N = normalize(Normal);
@@ -193,36 +203,36 @@ void main() {
     const vec3 albedo = getAlbedo();
     const float ior = getIoR();
     const float ao = getAO();
-    const float F0 = mix(vec3(ior, ior, ior), albedo, metallic);
+    const vec3 F0 = mix(vec3(1.0-ior), albedo, metallic);
     const vec3 fresnel = FresnelSchlick(F0, NdotV);
 
-    float diffuse = diffuse(...) * (1.0 - metallic);
-    float spec = specular(...);
+    float diffuse = diffuse(a2, N, L, V, NdotL, NdotV) * (1.0 - metallic);
+    float spec = specular(a2, NdotL, NdotV, NdotH);
 
     vec3 color = ((diffuse * albedo * (vec3(1.0) - fresnel)) + (spec * fresnel)) * uLightColor / dot(relLightPos, relLightPos);
-    // color *= NdotL; // ???
     OutColor = vec4(color, 1.0);
 }
 )";
         source += genGetters(_params);
 
-        source += "float diffuse(...) {\n";
+        source += "float diffuse(in float a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, in float NdotV) {\n";
         if (_params.constantMetallic && !_params.metallicIsOne)
         {
-            if (_params.constantRoughness && !_params.roughnessIsZero)
-                source += "\treturn lambert(...);";
+            if (_params.constantRoughness && _params.roughnessIsZero)
+                source += "\treturn NdotL;";
             else
-                source += "\treturn orey_nayar(...);";
+                source += "\treturn oren_nayar(a2, N, L, V, NdotL, NdotV);";
         }
         else source += "\treturn 0.0;";
         source += "\n}\n";
         source += 
-R"(float specular(...) {
+R"(float specular(in float a2, in float NdotL, in float NdotV, in float NdotH) {
     float ndf = GGXTrowbridgeReitz(a2, NdotH);
-    float geom = GGXSmith(a2, NdotV);
+    float geom = GGXSmith(a2, NdotL, NdotV);
 
     return ndf*geom / (4.0 * NdotV * NdotL);
-})";
+}
+)";
 
         return Shaders.insert({flagsToKey(_params), video::EMT_SOLID}).first->second; // TODO
     }
