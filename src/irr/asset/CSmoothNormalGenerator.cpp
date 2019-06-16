@@ -185,6 +185,7 @@ void CSmoothNormalGenerator::processConnectedVertices(asset::ICPUMeshBuffer * bu
 					if (compareVertexPosition(processedVertex->position, bounds.begin->position, epsilon) &&
 						vxcmp(*processedVertex, *bounds.begin, buffer))
 					{
+						//TODO: better mean calculation algorithm
 						normal += bounds.begin->parentTriangleFaceNormal * bounds.begin->wage;
 					}
 				}
