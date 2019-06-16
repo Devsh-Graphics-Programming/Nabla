@@ -113,6 +113,11 @@ namespace scene
 			float translationSpeed=1500.f, int32_t id=-1, float distance=70.f,
 			bool makeActive=true);
 
+		virtual ICameraSceneNode* addCameraSceneNodeModifiedMaya(IDummyTransformationSceneNode* parent = 0,
+			float rotateSpeed = -1500.f, float zoomSpeed = 200.f,
+			float translationSpeed = 1500.f, int32_t id = -1, float distance = 70.f,
+			bool makeActive = true);
+
 		//! Adds a camera scene node which is able to be controled with the mouse and keys
 		//! like in most first person shooters (FPS):
 		virtual ICameraSceneNode* addCameraSceneNodeFPS(IDummyTransformationSceneNode* parent = 0,

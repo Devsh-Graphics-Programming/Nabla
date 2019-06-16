@@ -34,6 +34,7 @@
 #include "CSceneNodeAnimatorFollowSpline.h"
 #include "CSceneNodeAnimatorCameraFPS.h"
 #include "CSceneNodeAnimatorCameraMaya.h"
+#include "CSceneNodeAnimatorCameraModifiedMaya.h"
 
 #include "irr/asset/CGeometryCreator.h"
 
@@ -354,6 +355,24 @@ ICameraSceneNode* CSceneManager::addCameraSceneNodeMaya(IDummyTransformationScen
 	if (node)
 	{
 		ISceneNodeAnimator* anm = new CSceneNodeAnimatorCameraMaya(CursorControl,
+			rotateSpeed, zoomSpeed, translationSpeed, distance);
+
+		node->addAnimator(anm);
+		anm->drop();
+	}
+
+	return node;
+}
+
+ICameraSceneNode* CSceneManager::addCameraSceneNodeModifiedMaya(IDummyTransformationSceneNode* parent,
+	float rotateSpeed, float zoomSpeed, float translationSpeed, int32_t id, float distance,
+	bool makeActive)
+{
+	ICameraSceneNode* node = addCameraSceneNode(parent, core::vector3df(),
+		core::vector3df(0, 0, 100), id, makeActive);
+	if (node)
+	{
+		ISceneNodeAnimator* anm = new CSceneNodeAnimatorCameraModifiedMaya(CursorControl,
 			rotateSpeed, zoomSpeed, translationSpeed, distance);
 
 		node->addAnimator(anm);
