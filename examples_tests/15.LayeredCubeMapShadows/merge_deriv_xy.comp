@@ -1,0 +1,17 @@
+#version 450 core
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (binding = 0, r16_snorm) uniform image2D deriv_xImage;
+layout (binding = 1, r16_snorm) uniform image2D deriv_yImage;
+layout (binding = 2, rg16_snorm) uniform image2D derivativeMapImage;
+
+void main()
+{
+	const ivec2 G_IDX = ivec2(gl_GlobalInvocationID.xy);
+	
+	float x = imageLoad(deriv_xImage, G_IDX).r;
+	float y = imageLoad(deriv_yImage, G_IDX).r;
+	
+	imageStore(derivativeMapImage, G_IDX, vec4(x, y, 0.0, 0.0));
+}

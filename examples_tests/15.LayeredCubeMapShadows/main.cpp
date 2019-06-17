@@ -1,7 +1,8 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
-
+#include "createComputeShader.h"
+#include "../source/Irrlicht/COpenGL2DTexture.h"
+#include "../source/Irrlicht/COpenGLDriver.h"
 
 using namespace irr;
 using namespace core;
@@ -173,7 +174,6 @@ int main()
                                                         cb);
     cb->drop();
 
-
     #define kInstanceSquareSize 10
 	scene::ISceneManager* smgr = device->getSceneManager();
 
@@ -213,6 +213,50 @@ int main()
 
     asset::IAssetManager& assetMgr = device->getAssetManager();
     asset::IAssetLoader::SAssetLoadParams lparams;
+
+    uint32_t derivMap_sz[3]{ 512u, 512u, 1u };
+    video::ITexture* derivMap = driver->createGPUTexture(video::ITexture::ETT_2D, derivMap_sz, 5u, asset::EF_R8G8_SNORM);
+
+    asset::ICPUTexture* bumpMap_asset = static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/bumpmap.jpg", lparams));
+    video::ITexture* bumpMap = driver->getGPUObjectsFromAssets(&bumpMap_asset, (&bumpMap_asset)+1).front();
+
+    {
+        video::STextureSamplingParams params;
+        params.UseMipmaps = 0;
+        params.MaxFilter = params.MinFilter = video::ETFT_LINEAR_NO_MIP;
+        params.TextureWrapU = params.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
+        const_cast<video::COpenGLDriver::SAuxContext*>(reinterpret_cast<video::COpenGLDriver*>(driver)->getThreadContext())->setActiveTexture(7, bumpMap, params);
+    }
+
+    GLuint deriv_map_gen_cs = createComputeShaderFromFile("../deriv_map_gen.comp");
+
+    GLint previousProgram;
+    glGetIntegerv(GL_CURRENT_PROGRAM, &previousProgram);
+
+    for (GLuint i = 0u; i < 5u; ++i)
+        video::COpenGLExtensionHandler::extGlBindImageTexture(i, static_cast<const video::COpenGL2DTexture*>(derivMap)->getOpenGLName(),
+            i, GL_FALSE, 0, GL_WRITE_ONLY, GL_RG8_SNORM);
+
+    video::COpenGLExtensionHandler::extGlUseProgram(deriv_map_gen_cs);
+    video::COpenGLExtensionHandler::extGlDispatchCompute(derivMap_sz[0]/16u, derivMap_sz[1]/16u, 1u);
+    video::COpenGLExtensionHandler::extGlMemoryBarrier(
+        GL_TEXTURE_FETCH_BARRIER_BIT |
+        GL_SHADER_IMAGE_ACCESS_BARRIER_BIT |
+        GL_PIXEL_BUFFER_BARRIER_BIT |
+        GL_TEXTURE_UPDATE_BARRIER_BIT |
+        GL_FRAMEBUFFER_BARRIER_BIT
+    );
+    video::COpenGLExtensionHandler::extGlDeleteProgram(deriv_map_gen_cs);
+    for (GLuint i = 0u; i < 5u; ++i)
+        video::COpenGLExtensionHandler::extGlBindImageTexture(i, 0u, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R8); //unbind image
+    { //unbind texture
+        video::STextureSamplingParams params;
+        const_cast<video::COpenGLDriver::SAuxContext*>(reinterpret_cast<video::COpenGLDriver*>(driver)->getThreadContext())->setActiveTexture(7, nullptr, params);
+    }
+    video::COpenGLExtensionHandler::extGlUseProgram(previousProgram); //rebind previously bound program
+
+    //derivMap->regenerateMipMapLevels();
+
     asset::ICPUTexture* wallTexture = static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/wall.jpg", lparams));
 
 	scene::ICameraSceneNode* camera =
@@ -232,6 +276,7 @@ int main()
 	video::SGPUMaterial& floorMaterial = floor->getMaterial(0);
 	floorMaterial.setTexture(0,driver->getGPUObjectsFromAssets(&wallTexture, (&wallTexture)+1).front());
 	floorMaterial.setTexture(1,cubeMap);
+    floorMaterial.setTexture(4, derivMap);
 	floorMaterial.MaterialType = litSolidMaterialType;
 
 	scene::ISceneNode* anodes[kInstanceSquareSize*kInstanceSquareSize] = {0};
@@ -256,6 +301,7 @@ int main()
 				anode->setMaterialType(skinnedMaterialType);
 				anode->setMaterialTexture(1, cubeMap);
 				anode->setMaterialTexture(3, anode->getBonePoseTBO());
+                anode->setMaterialTexture(4, derivMap);
 			}
         fastestNode = anode;
 		gpumesh->drop();
@@ -336,6 +382,9 @@ int main()
 			lastFPSTime = time;
 		}
 	}
+
+    derivMap->drop();
+    bumpMap->drop();
 
     //create a screenshot
 	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);

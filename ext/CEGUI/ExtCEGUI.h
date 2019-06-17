@@ -53,6 +53,7 @@ class GUIManager;
 GUIManager* createGUIManager(IrrlichtDevice* device);
 
 using TEventHandler = std::function<void(const ::CEGUI::EventArgs&)>;
+using TOnColorPicked = std::function<void(const ::CEGUI::Colour&)>;
 
 class GUIManager: public core::IReferenceCounted, public IEventReceiver
 {
@@ -84,14 +85,15 @@ class GUIManager: public core::IReferenceCounted, public IEventReceiver
             bool alternativeLayout,
             const char* parent,
             const char* title,
-            const char* name
+            const char* name,
+            const TOnColorPicked& onColorPicked = [](const ::CEGUI::Colour&) {}
         );
 
         ::CEGUI::Window* createDropDownList(
             const char* name,
             const char* title,
             const std::vector<const char*>& list,
-            const TEventHandler& f = [](const ::CEGUI::EventArgs&) {}
+            const TEventHandler& eventSelectionAccepted = [](const ::CEGUI::EventArgs&) {}
         );
 
         void registerSliderEvent(

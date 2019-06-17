@@ -266,21 +266,13 @@ namespace core
 			inline bool operator>(const smart_refctd_ptr<U>& other) const { return ptr > other.ptr; }
 	};
 
-	// create and object and make a smart pointer without increasing reference count above 1
-	template< class T, class... Args >
-	inline smart_refctd_ptr<T> make_smart_refctd_ptr(Args&& ... args)
-	{
-		T* obj = new T(std::forward<Args>(args)...);
-		smart_refctd_ptr<T> smart(obj);
-		return smart;
-	}
-	template< class T, class... Args >
-	inline smart_refctd_ptr<T> make_smart_refctd_ptr(Args&& ... args, dont_grab_t t)
-	{
-		T* obj = new T(std::forward<Args>(args)...);
-		smart_refctd_ptr<T> smart(obj, t);
-		return smart;
-	}
+    template< class T, class... Args >
+    inline smart_refctd_ptr<T> make_smart_refctd_ptr(Args&& ... args)
+    {
+        T* obj = new T(std::forward<Args>(args)...);
+        smart_refctd_ptr<T> smart(obj, dont_grab);
+        return smart;
+    }
 
 }
 } // end namespace irr
