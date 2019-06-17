@@ -13,7 +13,7 @@ none of which would be optimal for all circumstances such as shadows or deferred
 7) Add a `IRR_BUILD_YOUR_EXTENION` CMake option that controls the building of any examples using Your Extension and that it is set to OFF by default. This is to make sure that your extension does not harm everybody's build-time and should Your Extension's dependencies fail to pull/configure it doesn't affect the rest of the library.
 8) Make sure your extension's PUBLIC headers (if its a header only or a source inclusion only extension then all headers) are installed to `${CMAKE_INSTALL_PREFIX}/include/irr/ext/YourExtension/`
 9) Put any dependencies of Your Extension as a submodule in `./3rdparty`, make sure the version agrees (no two versions of the same dependency) if other extensions or core-library use the same dependency (for example, zlib, libpng, freetype, etc.). Exceptionally if no actively maintained/mirrored git repository of the dependency exists, you can put extracted source code in `./3rdparty`.
-10) Have your CMake configure script init and pull the submodules of dependencies
+10) Have your CMake configure script init and pull the submodules of dependencies (but only if `IRR_BUILD_YOUR_EXTENSION=ON`)
 11) Under no circumstances shall you have a separate submodule/directory for different platform builds of the same dependency!
 12) Dependencies MUST BUILD OUT-OF-SOURCE (can never pollute and show up as modified or untracked git files)
 13) Dependencies must build with CMake (if there is no CMakeLists, then make one, see OpenSSL)
@@ -23,7 +23,7 @@ none of which would be optimal for all circumstances such as shadows or deferred
 
 
 ## Additional rules for a library extension (only if it has dependencies that are libraries):
-1) `IRR_BUILD_YOUR_EXTENION=OFF` must disable the building of your extension library
+1) `IRR_BUILD_YOUR_EXTENION=OFF` must disable the building of your extension library and submodule update of your library dependency submodules
 2) Must link statically! (It can have a shared target as well, but static target is obligatory)
 3) It must link its dependencies statically! (this is the only reason why I allow extensions to be libraries in the first place)
 4) If compiling as a library, it must support out-of-source-build and a static library target.

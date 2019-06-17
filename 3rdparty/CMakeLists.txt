@@ -12,9 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-execute_process(COMMAND git submodule update --init --recursive
-		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-)
+include(../cmake/common.cmake)
+
+
+# mandatory
+update_git_submodule(./SPIRV-Headers)
+update_git_submodule(./SPIRV-Tools)
+update_git_submodule(./glslang)
+update_git_submodule(./shaderc)
+update_git_submodule(./bzip2)
+update_git_submodule(./lz4)
+update_git_submodule(./spirv_cross)
+update_git_submodule(./zlib)
+update_git_submodule(./utfcpp)
+update_git_submodule(./convertutf)
+update_git_submodule(./libpng)
+update_git_submodule(./openssl)
+update_git_submodule(./libjpeg-turbo)
+update_git_submodule(./libjpeg) # soon to be killed
+# exceptions that get automatically cloned
+update_git_submodule(./glm)
+update_git_submodule(./freetype2)
+update_git_submodule(./portable-file-dialogs)
+
 
 
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "Skip SPIRV-Headers examples")
@@ -140,6 +160,8 @@ set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 
 if (IRR_BUILD_MITSUBA_LOADER)
+   update_git_submodule(./libexpat)
+
    option(BUILD_tools "EXPAT: build the xmlwf tool for expat library" OFF)
    option(BUILD_examples "EXPAT: build the examples for expat library" OFF)
    option(BUILD_tests "EXPAT: build the tests for expat library" OFF)
@@ -152,6 +174,10 @@ if (IRR_BUILD_MITSUBA_LOADER)
 endif()
 
 if (IRR_BUILD_CEGUI)
+	update_git_submodule(./libexpat)
+	update_git_submodule(./CEGUI/pcre)
+	update_git_submodule(./CEGUI/glew)
+	update_git_submodule(./CEGUI/cegui)
 	add_subdirectory(CEGUI)
 	set(CEGUI_INCLUDE_PATH
 		${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include
@@ -258,4 +284,15 @@ if (IRR_BUILD_CEGUI)
 		DESTINATION ./debug/lib/irr/ext/CEGUI
 		CONFIGURATIONS Debug
 	)
+endif()
+
+if (IRR_BUILD_BULLET)
+	execute_process(COMMAND git submodule update --init --recursive ./bullet3
+			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+	)
+	set(BULLET_INCLUDE_PATH
+		${CMAKE_CURRENT_SOURCE_DIR}/bullet3/src
+	)
+
+	set(BULLET_INCLUDE_PATH ${BULLET_INCLUDE_PATH} PARENT_SCOPE)
 endif()

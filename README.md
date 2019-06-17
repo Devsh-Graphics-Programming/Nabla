@@ -26,8 +26,9 @@ There's also a skype support group, reach @devsh for a private invite.
 The authors of IrrlichtBAW are:
 - Mateusz Kielan [@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming) (Lead)
 - Krzysztof Szenk [@crisspl](https://github.com/Crisspl) (Core Engineer)
-- [@manhnt9](https://github.com/manhnt9) Nguyễn Tiến Mạnh (CEGUI, Radeon Rays and Build System)
-- [@florastamine](https://github.com/florastamine) Nguyễn Ngọc Huy (CEGUI and BRDF Explorer)
+- [@manhnt9](https://github.com/manhnt9) Nguyễn Tiến Mạnh (CEGUI, Build System and Radeon Rays investigations)
+- [@florastamine](https://github.com/florastamine) Nguyễn Ngọc Huy (sRGB-Correct Image Loaders, CEGUI and BRDF Explorer GUI)
+- [@khom-khun](https://github.com/khom-khun) for the pending Bullet Physics Extension and [the irrBaW-test repository of easy to understand demos](https://github.com/khom-khun/irrBAW-test)
 - Søren Gronbech 
 
 Words of appreciation for developers developers whose software has been used in IrrlichtBAW, currently and in the past:
@@ -38,6 +39,3 @@ Words of appreciation for developers developers whose software has been used in 
 - zlib, bzip, libzip2, lzma and lz4
 - libjpeg-turbo, jpeglib (past), libpng
 - Unicode convert_utf and utf8cpp
-
-Special thanks to:
-- [@khom-khun](https://github.com/khom-khun) for the pending Bullet Physics Extension PR and [the irrBaW-test repository of easy to understand demos](https://github.com/khom-khun/irrBAW-test)
