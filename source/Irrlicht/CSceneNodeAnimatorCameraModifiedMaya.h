@@ -33,7 +33,8 @@ namespace irr
 		public:
 			//! Constructor
 			CSceneNodeAnimatorCameraModifiedMaya(gui::ICursorControl* cursor, float rotateSpeed = -1500.f,
-				float zoomSpeed = 200.f, float translationSpeed = 1500.f, float distance = 70.f);
+				float zoomSpeed = 200.f, float translationSpeed = 1500.f, float distance = 70.f, 
+				float scrollZoomSpeed = 10.0f, bool zoomWithRBM = false);
 
 			//! Animates the scene node, currently only works on cameras
 			virtual void animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs);
@@ -71,18 +72,6 @@ namespace irr
 				return true;
 			}
 
-			//! Enable zooming with right mouse button
-			void enableRMBZoom()
-			{
-				ZoomWithRMB = true;
-			}
-
-			//! Enable zooming with right mouse button
-			void disableRMBZoom()
-			{
-				ZoomWithRMB = false;
-			}
-
 			//! Returns type of the scene node
 			virtual ESCENE_NODE_ANIMATOR_TYPE getType() const
 			{
@@ -112,6 +101,7 @@ namespace irr
 			core::position2df TranslateStart;
 			core::position2df MousePos;
 			float ZoomSpeed;
+			float ScrllZoomSpeed;
 			float ZoomDelta;
 			float RotateSpeed;
 			float TranslateSpeed;

@@ -17,11 +17,12 @@ namespace irr
 
 		//! constructor
 		CSceneNodeAnimatorCameraModifiedMaya::CSceneNodeAnimatorCameraModifiedMaya(gui::ICursorControl* cursor,
-			float rotateSpeed, float zoomSpeed, float translateSpeed, float distance)
+			float rotateSpeed, float zoomSpeed, float translateSpeed, float distance,
+			float scrollZoomSpeed, bool zoomWithRMB)
 			: CursorControl(cursor), OldCamera(0), MousePos(0.5f, 0.5f),
 			ZoomSpeed(zoomSpeed), RotateSpeed(rotateSpeed), TranslateSpeed(translateSpeed),
 			CurrentZoom(distance), RotX(0.0f), RotY(0.0f),
-			ZoomDelta(0.0f), ZoomWithRMB(false), StepZooming(false),
+			ZoomDelta(0.0f), ZoomWithRMB(zoomWithRMB), StepZooming(false), ScrllZoomSpeed(-scrollZoomSpeed),
 			Zooming(false), Rotating(false), Moving(false), Translating(false)
 		{
 #ifdef _IRR_DEBUG
@@ -84,8 +85,7 @@ namespace irr
 				if (!Zooming)
 				{
 					StepZooming = true;
-					//this should not be hardcoded i believe (distinct scroll speed for step zooming?)
-					CurrentZoom += event.MouseInput.Wheel * (-10.0f); 
+					ZoomDelta += event.MouseInput.Wheel * ScrllZoomSpeed;
 				}
 			}
 				
@@ -131,7 +131,7 @@ namespace irr
 
 			float nRotX = RotX;
 			float nRotY = RotY;
-			float nZoom = CurrentZoom;
+			float nZoom = CurrentZoom + ZoomDelta;
 
 			// Check for zooming with RMB
 			if (ZoomWithRMB && isMouseKeyDown(2))
@@ -225,7 +225,6 @@ namespace irr
 			}
 
 			// Set pos ------------------------------------
-
 			pos.getAsVector3df() = translate;
 			pos.X += nZoom;
 
@@ -235,9 +234,7 @@ namespace irr
 			camera->setPosition(pos.getAsVector3df());
 			camera->setTarget(translate);
 
-			ZoomDelta = 0.0f;
 			StepZooming = false;
-
 
 			// Rotation Error ----------------------------
 			pos.set(0, 1, 0);
