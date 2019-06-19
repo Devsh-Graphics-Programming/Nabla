@@ -34,6 +34,66 @@ SOFTWARE.
 
 using namespace irr;
 
+namespace
+{
+class CShaderConstantSetCallback : public video::IShaderConstantSetCallBack
+{
+    struct SShaderConstant {
+        int32_t location;
+        video::E_SHADER_CONSTANT_TYPE type;
+    };
+
+    const irr::BRDFExplorerApp::SGUIState& GUIState;
+    scene::ICameraSceneNode* Camera;
+
+    static constexpr SShaderConstant uVP {20, video::ESCT_FLOAT_MAT4};
+    static constexpr SShaderConstant uEmissive {0, video::ESCT_FLOAT_VEC3};
+    static constexpr SShaderConstant uAlbedo {1, video::ESCT_FLOAT_VEC3};
+    static constexpr SShaderConstant uRoughness1 {2, video::ESCT_FLOAT};
+    static constexpr SShaderConstant uRoughness2 {3, video::ESCT_FLOAT};
+    static constexpr SShaderConstant uIoR {4, video::ESCT_FLOAT};
+    static constexpr SShaderConstant uMetallic {5, video::ESCT_FLOAT};
+    static constexpr SShaderConstant uHeightFactor {6, video::ESCT_FLOAT};
+    static constexpr SShaderConstant uLightColor {7, video::ESCT_FLOAT_VEC3};
+    static constexpr SShaderConstant uLightPos {8, video::ESCT_FLOAT_VEC3};
+    static constexpr SShaderConstant uEyePos {9, video::ESCT_FLOAT_VEC3};
+
+public:
+    CShaderConstantSetCallback(scene::ICameraSceneNode* _camera, const irr::BRDFExplorerApp::SGUIState& _guiState) : Camera{ _camera }, GUIState{_guiState} {}
+
+    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
+    {
+    }
+
+    virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t)
+    {
+        // vertex shader
+        auto vp = Camera->getConcatenatedMatrix();
+        services->setShaderConstant(vp.pointer(), uVP.location, uVP.type, 1u);
+
+        // fragment shader
+        services->setShaderConstant(&GUIState.Emissive.Color.X, uEmissive.location, uEmissive.type, 1u);
+        if (GUIState.Albedo.SourceDropdown == irr::BRDFExplorerApp::EDS_CONSTANT)
+            services->setShaderConstant(&GUIState.Albedo.ConstantColor.X, uAlbedo.location, uAlbedo.type, 1u);
+        if (GUIState.Roughness.SourceDropdown == irr::BRDFExplorerApp::EDS_CONSTANT)
+            services->setShaderConstant(&GUIState.Roughness.ConstValue1, uRoughness1.location, uRoughness1.type, 1u);
+        if (GUIState.RefractionIndex.SourceDropdown == irr::BRDFExplorerApp::EDS_CONSTANT)
+            services->setShaderConstant(&GUIState.RefractionIndex.ConstValue, uIoR.location, uIoR.type, 1u);
+        if (GUIState.Metallic.SourceDropdown == irr::BRDFExplorerApp::EDS_CONSTANT)
+            services->setShaderConstant(&GUIState.Metallic.ConstValue, uMetallic.location, uMetallic.type, 1u);
+        //services->setShaderConstant(&GUIState.BumpMapping.Height, uHeightFactor.location, uHeightFactor.type, 1u);
+        if (!GUIState.Light.Animated)
+            services->setShaderConstant(&GUIState.Light.ConstantPosition, uLightPos.location, uLightPos.type, 1u);
+        services->setShaderConstant(&GUIState.Light.Color, uLightColor.location, uLightColor.type, 1u);
+
+        auto eyePos = Camera->getPosition();
+        services->setShaderConstant(&eyePos.X, uEyePos.location, uEyePos.type, 1u);
+    }
+
+    virtual void OnUnsetMaterial() {}
+};
+}
+
 class CShaderManager
 {
 public:
@@ -52,9 +112,12 @@ public:
 
 private:
     using Key_t = uint16_t;
+
     core::unordered_map<Key_t, video::E_MATERIAL_TYPE> Shaders;
     video::IGPUProgrammingServices* Services = nullptr;
     asset::IIncludeHandler* IncludeHandler = nullptr;
+    const irr::BRDFExplorerApp::SGUIState& GUIState;
+    scene::ICameraSceneNode* Camera = nullptr;
 
     enum E_SHADER_FLAGS : Key_t
     {
@@ -69,10 +132,36 @@ private:
         ESF_AO_ENABLED = 1<<8
     };
 
+    static constexpr const char* VERTEX_SHADER_SRC = 
+R"(#version 430 core
+
+layout (location = 0) in vec3 vPosition;
+layout (location = 2) in vec2 vTexCoords;
+layout (location = 3) in vec3 vNormal;
+
+out vec3 WorldPos;
+out vec2 TexCoords;
+out vec3 Normal;
+
+layout (location = 20) uniform mat4 uVPMat;
+
+void main()
+{
+    vec3 world = vPosition.xyz;
+    WorldPos = world;
+    TexCoords = vTexCoords;
+    Normal = vNormal;
+    gl_Position = uVPMat * vec4(world, 1.0);
+}
+)";
+
     static constexpr uint32_t firstSetBit(Key_t _x)
     {
         uint32_t n{};
-        while (!(_x & Key_t{1u})) ++n;
+        while (!(_x & Key_t{1u})) {
+            ++n;
+            _x >>= 1;
+        }
         return n;
     }
     Key_t flagsToKey(const SParams& _p) {
@@ -94,14 +183,14 @@ private:
 
     std::string genGetters(const SParams& _params)
     {
-        std::string source = "float getRoughness() {\n";
+        std::string source = "float getRoughness(in vec2 texCoords) {\n";
         if (_params.constantRoughness)
             source += "\treturn uRoughness1;";
         else
-            source += "\treturn texture(uRoughnessMap, TexCoords).x;";
+            source += "\treturn texture(uRoughnessMap, texCoords).x;";
         source += "\n}\n";
 
-        source += "float getMetallic() {\n";
+        source += "float getMetallic(in vec2 texCoords) {\n";
         if (_params.constantMetallic)
         {
             if (_params.metallicIsZero)
@@ -112,28 +201,28 @@ private:
                 source += "\treturn uMetallic;";
         }
         else
-            source += "\treturn texture(uMetallicMap, TexCoords).x;";
+            source += "\treturn texture(uMetallicMap, texCoords).x;";
         source += "\n}\n";
 
-        source += "float getIoR() {\n";
+        source += "float getIoR(in vec2 texCoords) {\n";
         if (_params.constantRI)
             source += "\treturn uIoR;";
         else
-            source += "\treturn texture(uIoRMap, TexCoords).x;";
+            source += "\treturn texture(uIoRMap, texCoords).x;";
         source += "\n}\n";
 
-        source += "float getAO() {\n";
+        source += "float getAO(in vec2 texCoords) {\n";
         if (_params.AOEnabled)
-            source += "\treturn texture(uAOMap, TexCoords).x;";
+            source += "\treturn texture(uAOMap, texCoords).x;";
         else
-            source += "\treturn 1.0";
+            source += "\treturn 1.0;";
         source += "\n}\n";
 
-        source += "vec3 getAlbedo() {\n";
+        source += "vec3 getAlbedo(in vec2 texCoords) {\n";
         if (_params.constantAlbedo)
-            source += "\treturn texture(uAlbedoMap, TexCoords).rgb;";
-        else
             source += "\treturn uAlbedo;";
+        else
+            source += "\treturn texture(uAlbedoMap, texCoords).rgb;";
         source += "\n}\n";
 
         return source;
@@ -142,7 +231,7 @@ private:
     video::E_MATERIAL_TYPE addShader(const SParams& _params)
     {
         std::string source =
-            R"(#version 430 core
+R"(#version 430 core
 
 layout (location = 0) out vec4 OutColor;
 
@@ -159,6 +248,7 @@ layout (location = 5) uniform float uMetallic;
 layout (location = 6) uniform float uHeightFactor;
 layout (location = 7) uniform vec3 uLightColor;
 layout (location = 8) uniform vec3 uLightPos;
+layout (location = 9) uniform vec3 uEyePos;
 layout (binding = 0) uniform sampler2D uAlbedoMap;
 layout (binding = 1) uniform sampler2D uRoughnessMap;
 layout (binding = 2) uniform sampler2D uIoRMap;
@@ -166,11 +256,11 @@ layout (binding = 3) uniform sampler2D uMetallicMap;
 layout (binding = 4) uniform sampler2D uBumpMap;
 layout (binding = 5) uniform sampler2D uAOMap;
 
-float getRoughness();
-float getMetallic();
-float getIoR();
-float getAO();
-vec3 getAlbedo();
+float getRoughness(in vec2 texCoords);
+float getMetallic(in vec2 texCoords);
+float getIoR(in vec2 texCoords);
+float getAO(in vec2 texCoords);
+vec3 getAlbedo(in vec2 texCoords);
 )"
 +
 IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/diffuse/oren_nayar.glsl")
@@ -183,12 +273,12 @@ IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/specular/fresnel/fresn
 +
 R"(
 float diffuse(in float a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, in float NdotV);
-float specular(in float a2, in float NdotL, in float NdotV, in float NdotH);
+vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in vec3 F0, out vec3 out_fresnel);
 
 void main() {
     const vec3 N = normalize(Normal);
-    const vec3 V = normalize(uEye - WorldPos);
-    const vec3 relLightPos = uLight - WorldPos;
+    const vec3 V = normalize(uEyePos - WorldPos);
+    const vec3 relLightPos = uLightPos - WorldPos;
     const vec3 L = normalize(relLightPos);
     const vec3 H = normalize(L + V);
 
@@ -197,19 +287,22 @@ void main() {
     const float NdotV = max(dot(N, V), 0.0);
     const float VdotH = max(dot(V, H), 0.0);
 
-    const float a = getRoughness();
-    const float a2 = a*a;
-    const float metallic = getMetallic();
-    const vec3 albedo = getAlbedo();
-    const float ior = getIoR();
-    const float ao = getAO();
-    const vec3 F0 = mix(vec3(1.0-ior), albedo, metallic);
-    const vec3 fresnel = FresnelSchlick(F0, NdotV);
+    const vec2 texCoords = vec2(TexCoords.x, 1.0-TexCoords.y);
+
+    const float a2 = getRoughness(texCoords);
+    const float metallic = getMetallic(texCoords);
+    const vec3 albedo = getAlbedo(texCoords);
+    const float ior = getIoR(texCoords);
+    const float ao = getAO(texCoords);
+
+    float tmp = (1.0-ior)/(1.0+ior);
+    const vec3 F0 = mix(vec3(tmp*tmp), albedo, metallic);
+    vec3 fresnel = vec3(0.0);
 
     float diffuse = diffuse(a2, N, L, V, NdotL, NdotV) * (1.0 - metallic);
-    float spec = specular(a2, NdotL, NdotV, NdotH);
+    vec3 spec = specular(a2, NdotL, NdotV, NdotH, F0, fresnel);
 
-    vec3 color = ((diffuse * albedo * (vec3(1.0) - fresnel)) + (spec * fresnel)) * uLightColor / dot(relLightPos, relLightPos);
+    vec3 color = ((diffuse * albedo * (vec3(1.0) - fresnel)) + spec) * NdotL * uLightColor / dot(relLightPos, relLightPos);
     OutColor = vec4(color, 1.0);
 }
 )";
@@ -226,19 +319,38 @@ void main() {
         else source += "\treturn 0.0;";
         source += "\n}\n";
         source += 
-R"(float specular(in float a2, in float NdotL, in float NdotV, in float NdotH) {
-    float ndf = GGXTrowbridgeReitz(a2, NdotH);
-    float geom = GGXSmith(a2, NdotL, NdotV);
+R"(vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in vec3 F0, out vec3 out_fresnel) {
+    if (/*NdotL==0.0 || */NdotV==0.0)
+        return vec3(0.0);
 
-    return ndf*geom / (4.0 * NdotV * NdotL);
+    float ndf = GGXTrowbridgeReitz(max(a2, 0.00001), NdotH);
+    float geom = GGXSmith(a2, NdotL, NdotV); // todo fast path for a2==0 (geom==1 then)
+    out_fresnel = FresnelSchlick(F0, NdotV);
+
+    return ndf*geom*out_fresnel / max(4.0 * NdotV * NdotL, 0.00001);
 }
 )";
+        //auto f = fopen("fragsrc.txt", "w");
+        //fprintf(f, "%s", source.c_str());
+        //fclose(f);
 
-        return Shaders.insert({flagsToKey(_params), video::EMT_SOLID}).first->second; // TODO
+        // separate CB for each shader because shader-constants' values are most likely cached, so a single CB cannot be used for multiple shaders
+        video::IShaderConstantSetCallBack* cb = new CShaderConstantSetCallback(Camera, GUIState);
+        video::E_MATERIAL_TYPE shader = static_cast<video::E_MATERIAL_TYPE>(Services->addHighLevelShaderMaterial(VERTEX_SHADER_SRC, nullptr, nullptr, nullptr, source.c_str(), 3u, video::EMT_SOLID, cb));
+        cb->drop();
+        return Shaders.insert({flagsToKey(_params), shader}).first->second;
     }
 
 public:
-    CShaderManager(video::IGPUProgrammingServices* _services, asset::IIncludeHandler* _inclHandler) : Services{_services}, IncludeHandler{_inclHandler}
+    CShaderManager(
+        video::IGPUProgrammingServices* _services,
+        asset::IIncludeHandler* _inclHandler,
+        const irr::BRDFExplorerApp::SGUIState& _guiState,
+        scene::ICameraSceneNode* _camera) :
+        Services{_services},
+        IncludeHandler{_inclHandler},
+        GUIState{_guiState},
+        Camera{_camera}
     {
     }
 
@@ -252,69 +364,6 @@ public:
     }
 };
 
-namespace
-{
-const char* vertex_shader_source =
-    "#version 430 core\n"
-    "uniform mat4 MVP;\n"
-    "layout(location = 0) in vec4 vPosAttr;\n"
-    "layout(location = 2) in vec2 vTCAttr;\n"
-    "\n"
-    "out vec2 tcCoord;\n"
-    "\n"
-    "void main()\n"
-    "{\n"
-    "   gl_Position = MVP*vPosAttr;"
-    "   tcCoord = vTCAttr;"
-    "}";
-const char* fragment_shader_source =
-    "#version 430 core\n"
-    "in vec2 tcCoord;\n"
-    "\n"
-    "layout(location = 0) out vec4 outColor;\n"
-    "\n"
-    "layout(location = 0) uniform sampler2D tex0;"
-    "\n"
-    "void main()\n"
-    "{\n"
-    "   vec2 t = vec2(tcCoord.x, 1.0-tcCoord.y); outColor = texture(tex0,t);"
-    "}";
-
-class CShaderConstantSetCallback : public video::IShaderConstantSetCallBack
-{
-    struct SShaderConstant {
-        int32_t location;
-        video::E_SHADER_CONSTANT_TYPE type;
-    };
-
-    scene::ICameraSceneNode* m_camera;
-    SShaderConstant m_mvp;
-
-public:
-    CShaderConstantSetCallback(scene::ICameraSceneNode* _camera) : m_camera{_camera} {}
-
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
-    {
-        for (size_t i=0; i<constants.size(); i++)
-        {
-            if (constants[i].name=="MVP")
-            {
-                m_mvp.location = constants[i].location;
-                m_mvp.type = constants[i].type;
-            }
-        }
-    }
-
-    virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t)
-    {
-        auto mvp = m_camera->getConcatenatedMatrix();
-        services->setShaderConstant(mvp.pointer(), m_mvp.location, m_mvp.type, 1u);
-    }
-
-    virtual void OnUnsetMaterial() {}
-};
-}
-
 namespace irr
 {
 
@@ -323,12 +372,8 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
         Driver(device->getVideoDriver()),
         AssetManager(device->getAssetManager()),
         GUI(ext::cegui::createGUIManager(device)),
-        ShaderCallback(new CShaderConstantSetCallback(_camera))
+        ShaderManager(new CShaderManager(Driver->getGPUProgrammingServices(), device->getIncludeHandler(), GUIState, Camera))
 {
-    Material.MaterialType = static_cast<video::E_MATERIAL_TYPE>(
-        Driver->getGPUProgrammingServices()->addHighLevelShaderMaterial(vertex_shader_source, nullptr, nullptr, nullptr, fragment_shader_source, 3u, video::EMT_SOLID, ShaderCallback)
-    );
-
     TextureSlotMap = {
         { ETEXTURE_SLOT::TEXTURE_AO,
         std::make_tuple("AOTextureBuffer", // Texture buffer name
@@ -793,6 +838,19 @@ void BRDFExplorerApp::renderMesh()
     if (!Mesh)
         return;
 
+    CShaderManager::SParams params;
+    params.constantAlbedo = (GUIState.Albedo.SourceDropdown==EDS_CONSTANT);
+    params.constantMetallic = (GUIState.Metallic.SourceDropdown==EDS_CONSTANT);
+    params.constantRI = (GUIState.RefractionIndex.SourceDropdown==EDS_CONSTANT);
+    params.constantRoughness = (GUIState.Roughness.SourceDropdown==EDS_CONSTANT);
+    params.AOEnabled = GUIState.AmbientOcclusion.Enabled;
+    params.isotropicRoughness = GUIState.Roughness.IsIsotropic;
+    params.metallicIsOne = (GUIState.Metallic.ConstValue==1.f);
+    params.metallicIsZero = (GUIState.Metallic.ConstValue==0.f);
+    params.roughnessIsZero = (GUIState.Roughness.ConstValue1==0.f);
+
+    Material.MaterialType = ShaderManager->getShader(params);
+
     irr::video::IGPUMeshBuffer* meshbuffer = Mesh->getMeshBuffer(MESHBUFFER_NUM);
     Driver->setMaterial(Material);
     Driver->drawMeshBuffer(meshbuffer);
@@ -1093,7 +1151,7 @@ void BRDFExplorerApp::eventMeshBrowse(const CEGUI::EventArgs& e)
 
 BRDFExplorerApp::~BRDFExplorerApp()
 {
-    ShaderCallback->drop();
+    delete ShaderManager;
 }
 
 } // namespace irr

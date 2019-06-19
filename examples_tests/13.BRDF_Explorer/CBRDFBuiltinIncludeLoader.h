@@ -15,14 +15,15 @@ private:
 R"(#ifndef _BRDF_DIFFUSE_OREN_NAYAR_INCLUDED_
 #define _BRDF_DIFFUSE_OREN_NAYAR_INCLUDED_
 
-float oren_nayar(in float a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, in float NdotV)
+float oren_nayar(in float _a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, in float NdotV)
 {
     // theta - polar angles
     // phi - azimuth angles
+    float a2 = _a2*0.5; //todo read about this
     vec2 AB = vec2(1.0, 0.0) + vec2(-0.5, 0.45) * vec2(a2, a2)/vec2(a2+0.33, a2+0.09);
     vec2 cos_theta = vec2(NdotL, NdotV);
     vec2 cos_theta2 = cos_theta*cos_theta;
-    float sin_theta = sqrt((1.0 - cos_theta2.x) * (1.0 - cos_theta2.y)); //this is actually equal to sqrt(sin(theta_i) * sin(theta_r))
+    float sin_theta = sqrt((1.0 - cos_theta2.x) * (1.0 - cos_theta2.y)); //this is actually equal to (sin(theta_i) * sin(theta_r))
     float C = sin_theta / max(cos_theta.x, cos_theta.y);
     
     vec3 light_plane = normalize(L - cos_theta.x*N);
@@ -77,7 +78,8 @@ R"(#ifndef _BRDF_SPECULAR_FRESNEL_FRESNEL_SCHLICK_INCLUDED_
 
 vec3 FresnelSchlick(in vec3 F0, in float NdotV)
 {
-    return F0 + (1.0 - F0) * pow(1.0 - NdotV, 5.0);
+    float x = 1.0 - NdotV;
+    return F0 + (1.0 - F0) * x*x*x*x*x;
 } 
 
 #endif

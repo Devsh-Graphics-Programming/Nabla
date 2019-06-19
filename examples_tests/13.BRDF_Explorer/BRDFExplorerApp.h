@@ -35,6 +35,8 @@ SOFTWARE.
 #include <SMaterial.h>
 #include <ICameraSceneNode.h>
 
+class CShaderManager;
+
 namespace CEGUI
 {
 class EventArgs;
@@ -75,6 +77,50 @@ class BRDFExplorerApp {
         };
 
         using TTextureSlotMap = std::map<ETEXTURE_SLOT, std::tuple<const char*, const char*, const char*>>;
+
+        enum E_DROPDOWN_STATE
+        {
+            EDS_CONSTANT,
+            EDS_TEX0,
+            EDS_TEX1,
+            EDS_TEX2,
+            EDS_TEX3
+        };
+
+        struct SGUIState {
+            struct {
+                core::vector3df Color;
+            } Emissive;
+            struct {
+                E_DROPDOWN_STATE SourceDropdown = EDS_CONSTANT;
+                core::vector3df ConstantColor;
+            } Albedo;
+            struct {
+                bool IsIsotropic = false;
+                E_DROPDOWN_STATE SourceDropdown = EDS_CONSTANT;
+                float ConstValue1 = 0.f;
+                float ConstValue2 = 0.f;
+            } Roughness;
+            struct {
+                E_DROPDOWN_STATE SourceDropdown = EDS_CONSTANT;
+                float ConstValue = 0.f;
+            } RefractionIndex;
+            struct {
+                E_DROPDOWN_STATE SourceDropdown = EDS_CONSTANT;
+                float ConstValue = 0.f;
+            } Metallic;
+            struct {
+                float Height = 0.f;
+            } BumpMapping;
+            struct {
+                bool Enabled = false;
+            } AmbientOcclusion;
+            struct {
+                core::vector3df Color{1.f, 1.f, 1.f};
+                core::vector3df ConstantPosition; //TODO set it to somerhing default and fine
+                bool Animated = false;
+            } Light;
+        };
 
     public:
         BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraSceneNode* _camera);
@@ -139,14 +185,7 @@ class BRDFExplorerApp {
         static constexpr const char* DROPDOWN_ROUGHNESS_NAME = "MaterialParamsWindow/RoughnessDropDownList/DropDown_Roughness";
         static constexpr const char* DROPDOWN_RI_NAME = "MaterialParamsWindow/RIDropDownList/DropDown_RI";
         static constexpr const char* DROPDOWN_METALLIC_NAME = "MaterialParamsWindow/MetallicDropDownList/DropDown_Metallic";
-        enum E_DROPDOWN_STATE
-        {
-            EDS_CONSTANT,
-            EDS_TEX0,
-            EDS_TEX1,
-            EDS_TEX2,
-            EDS_TEX3
-        };
+
         E_DROPDOWN_STATE getDropdownState(const char* _dropdownName) const;
 
         void showErrorMessage(const char* title, const char* message);
@@ -158,46 +197,14 @@ class BRDFExplorerApp {
         ext::cegui::GUIManager* GUI = nullptr;
         TTextureSlotMap TextureSlotMap;
         
-        struct SGUIState {
-            struct {
-                core::vector3df Color;
-            } Emissive;
-            struct {
-                E_DROPDOWN_STATE SourceDropdown;
-                core::vector3df ConstantColor;
-            } Albedo;
-            struct {
-                bool IsIsotropic = false;
-                E_DROPDOWN_STATE SourceDropdown;
-                float ConstValue1;
-                float ConstValue2;
-            } Roughness;
-            struct {
-                E_DROPDOWN_STATE SourceDropdown;
-                float ConstValue;
-            } RefractionIndex;
-            struct {
-                E_DROPDOWN_STATE SourceDropdown;
-                float ConstValue;
-            } Metallic;
-            struct {
-                float Height;
-            } BumpMapping;
-            struct {
-                bool Enabled;
-            } AmbientOcclusion;
-            struct {
-                core::vector3df Color;
-                core::vector3df ConstantPosition;
-                bool Animated;
-            } Light;
-        } GUIState;
+        SGUIState GUIState;
 
-        irr::video::IShaderConstantSetCallBack* ShaderCallback = nullptr;
         irr::video::IGPUMesh* Mesh = nullptr;
         irr::video::SGPUMaterial Material;
 
         irr::video::IVirtualTexture* DefaultTexture = nullptr;
+
+        CShaderManager* ShaderManager = nullptr;
 };
 
 } // namespace irr
