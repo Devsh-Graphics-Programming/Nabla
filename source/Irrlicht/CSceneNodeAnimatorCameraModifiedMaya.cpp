@@ -136,8 +136,6 @@ namespace irr
 			float nRotY = RotY;
 
 			// Check for zooming with right-button
-
-			if(!MouseShift)
 			if (ZoomWithRMB && isMouseKeyDown(2))
 			{
 				if (!Zooming)
