@@ -90,7 +90,7 @@ namespace irr
 			bool isMouseKeyDown(int32_t key) const;
 
 			bool MouseKeys[3];
-
+			bool MouseShift;
 
 			gui::ICursorControl* CursorControl;
 			scene::ICameraSceneNode* OldCamera;
@@ -102,10 +102,10 @@ namespace irr
 			core::position2df MousePos;
 			float ZoomSpeed;
 			float ScrllZoomSpeed;
-			float ZoomDelta;
 			float RotateSpeed;
 			float TranslateSpeed;
 			float CurrentZoom;
+			float ZoomDelta;
 			float RotX, RotY;
 			bool StepZooming;
 			bool ZoomWithRMB;
@@ -113,6 +113,7 @@ namespace irr
 			bool Rotating;
 			bool Moving;
 			bool Translating;
+			bool ShiftTranslating;
 		};
 
 	} // end namespace scene

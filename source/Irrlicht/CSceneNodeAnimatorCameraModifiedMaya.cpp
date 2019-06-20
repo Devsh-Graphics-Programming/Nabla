@@ -23,7 +23,7 @@ namespace irr
 			ZoomSpeed(zoomSpeed), RotateSpeed(rotateSpeed), TranslateSpeed(translateSpeed),
 			CurrentZoom(distance), RotX(0.0f), RotY(0.0f),
 			ZoomDelta(0.0f), ZoomWithRMB(zoomWithRMB), StepZooming(false), ScrllZoomSpeed(-scrollZoomSpeed),
-			Zooming(false), Rotating(false), Moving(false), Translating(false)
+			Zooming(false), Rotating(false), Moving(false), Translating(false), ShiftTranslating(false), MouseShift(false)
 		{
 #ifdef _IRR_DEBUG
 			setDebugName("CSceneNodeAnimatorCameraModifiedMaya");
@@ -57,6 +57,8 @@ namespace irr
 			if (event.EventType != EET_MOUSE_INPUT_EVENT)
 				return false;
 
+			MouseShift = event.MouseInput.Shift;
+
 			switch (event.MouseInput.Event)
 			{
 			case EMIE_LMOUSE_PRESSED_DOWN:
@@ -78,14 +80,24 @@ namespace irr
 				MouseKeys[1] = false;
 				break;
 			case EMIE_MOUSE_MOVED:
+			{
+				// Reset mouse-keys when they are no longer pressed (might be missed when it happened outside Irrlicht)
+				if (!event.MouseInput.isLeftPressed())
+					MouseKeys[0] = false;
+				if (!event.MouseInput.isMiddlePressed())
+					MouseKeys[1] = false;
+				if (!event.MouseInput.isRightPressed())
+					MouseKeys[2] = false;
+
 				MousePos = CursorControl->getRelativePosition();
-				break;
+			}
+			break;
 			case EMIE_MOUSE_WHEEL:
 			{
-				if (!Zooming)
+				if (!StepZooming && !Zooming)
 				{
 					StepZooming = true;
-					ZoomDelta += event.MouseInput.Wheel * ScrllZoomSpeed;
+					ZoomDelta = event.MouseInput.Wheel * ScrllZoomSpeed;
 				}
 			}
 				
@@ -106,6 +118,10 @@ namespace irr
 		void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs)
 		{
 
+			//Alt + LM = Rotate around camera pivot
+			//Alt + LM + MM = Dolly forth/back in view direction (speed % distance camera pivot - max distance to pivot)
+			//Alt + MM = Move on camera plane (Screen center is about the mouse pointer, depending on move speed)
+
 			if (!node || node->getType() != ESNT_CAMERA)
 				return;
 
@@ -119,95 +135,117 @@ namespace irr
 			if (smgr && smgr->getActiveCamera() != camera)
 				return;
 
-			if (OldCamera != camera)
-			{
-				LastCameraTarget = OldTarget = camera->getTarget();
-				OldCamera = camera;
-			}
-			else
-			{
-				OldTarget += camera->getTarget() - LastCameraTarget;
-			}
+			const SViewFrustum* va = camera->getViewFrustum();
 
 			float nRotX = RotX;
 			float nRotY = RotY;
-			float nZoom = CurrentZoom + ZoomDelta;
 
-			// Check for zooming with RMB
-			if (ZoomWithRMB && isMouseKeyDown(2))
+			// Check for zooming with right-button
+			if (ZoomWithRMB && isMouseKeyDown(2)) //if zoomWithRMB is enabled and RMB is pressed
 			{
 				if (!Zooming)
 				{
-					ZoomStart = MousePos;
+					ZoomDelta = 0.f;
 					Zooming = true;
 				}
 				else
 				{
-					const float targetMinDistance = 0.1f;
-					nZoom += (ZoomStart.X - MousePos.X) * ZoomSpeed;
-
-					if (nZoom < targetMinDistance)
-						nZoom = targetMinDistance;
+					ZoomDelta = ((ZoomStart.X - MousePos.X) + (ZoomStart.Y - MousePos.Y)) * ZoomSpeed;
+					
 				}
+				ZoomStart = MousePos;
+				
 			}
-			else if (Zooming)
+			else if (Zooming) //if zoomWithRMB is not enabled and RMB is not pressed and zooming has been performed in previous invocation
 			{
-				const float old = CurrentZoom;
-				CurrentZoom = CurrentZoom + (ZoomStart.X - MousePos.X) * ZoomSpeed;
-				nZoom = CurrentZoom;
-
-				if (nZoom < 0)
-					nZoom = CurrentZoom = old;
 				Zooming = false;
+				
+			}
+
+			// Zoom the cam		
+			core::vector3df zoomTarget(0, 0, 0);	// move target to allow further zooming
+			if (StepZooming || Zooming)
+			{
+				CurrentZoom += (ZoomDelta * ZoomSpeed);
+
+				const float minDistance = 1.f;
+				if (CurrentZoom < minDistance)
+				{
+					zoomTarget = camera->getTarget() - camera->getPosition();
+					zoomTarget.setLength(-CurrentZoom + minDistance);
+					CurrentZoom = 1.f;
+				}
+				StepZooming = false;
 			}
 
 			// Translation ---------------------------------
+			core::vector3df translateTarget(OldTarget);
 
-			core::vector3df translate(OldTarget);
+			core::vector3df tvectX = camera->getPosition() - camera->getTarget();
+			tvectX = tvectX.crossProduct(camera->getUpVector());
+			tvectX.normalize();
 
-			core::vector3df_SIMD target, upVector;
-			upVector.getAsVector3df() = camera->getUpVector();
-			target.getAsVector3df() = camera->getTarget();
+			core::vector3df tvectY = (va->getFarLeftDown() - va->getFarRightDown()).getAsVector3df();
+			tvectY = tvectY.crossProduct(camera->getUpVector().Y > 0 ? camera->getPosition() - camera->getTarget() : camera->getTarget() - camera->getPosition());
+			tvectY.normalize();
 
-			core::vector3df_SIMD pos, tvectX;
-			pos.getAsVector3df() = camera->getPosition();
-			tvectX = pos - target;
-			tvectX = normalize(cross(tvectX, upVector));
-
-			const SViewFrustum* const va = camera->getViewFrustum();
-			core::vector3df_SIMD tvectY = (va->getFarLeftDown() - va->getFarRightDown());
-			tvectY = normalize(cross(tvectY, upVector.Y > 0 ? pos - target : target - pos));
-
-			if ((isMouseKeyDown(1) || isMouseKeyDown(2)) && !(Zooming || StepZooming))
+			
+			if ((isMouseKeyDown(1) || isMouseKeyDown(2)) && !(StepZooming || Zooming))
 			{
-				if (!Translating)
+				if (!Translating && !ShiftTranslating)
 				{
 					TranslateStart = MousePos;
-					Translating = true;
+					
+					if (MouseShift)
+						ShiftTranslating = true;
+					else
+						Translating = true;
+
 				}
 				else
 				{
-					translate += tvectX.getAsVector3df() * (TranslateStart.X - MousePos.X) * TranslateSpeed +
-						tvectY.getAsVector3df() * (TranslateStart.Y - MousePos.Y) * TranslateSpeed;
+					translateTarget += tvectX * (TranslateStart.X - MousePos.X) * TranslateSpeed +
+						tvectY * (TranslateStart.Y - MousePos.Y) * TranslateSpeed;
+					if (MouseShift != ShiftTranslating)
+					{
+						OldTarget = translateTarget;
+						TranslateStart = MousePos;
+						
+						if (MouseShift)
+						{
+							ShiftTranslating = true;
+							Translating = false;
+						}
+						else
+						{
+							Translating = true;
+							ShiftTranslating = false;
+						}
+					}
 				}
 			}
-			else if (Translating)
+			else if (Translating || ShiftTranslating)	// first event after releasing mouse-buttons
 			{
-				translate += tvectX.getAsVector3df() * (TranslateStart.X - MousePos.X) * TranslateSpeed +
-					tvectY.getAsVector3df() * (TranslateStart.Y - MousePos.Y) * TranslateSpeed;
-				OldTarget = translate;
+				
+				translateTarget += tvectX * (TranslateStart.X - MousePos.X) * TranslateSpeed+
+					tvectY * (TranslateStart.Y - MousePos.Y) * TranslateSpeed;
+				OldTarget = translateTarget;
+				
 				Translating = false;
+				ShiftTranslating = false;
 			}
 
 			// Rotation ------------------------------------
-			if (isMouseKeyDown(0) && !(Zooming || StepZooming))
+			if (isMouseKeyDown(0) && !(StepZooming || Zooming))
 			{
 				if (!Rotating)
 				{
 					RotateStart = MousePos;
+					
 					Rotating = true;
 					nRotX = RotX;
 					nRotY = RotY;
+					
 				}
 				else
 				{
@@ -215,33 +253,48 @@ namespace irr
 					nRotY += (RotateStart.Y - MousePos.Y) * RotateSpeed;
 				}
 			}
-			else if (Rotating)
+			else
 			{
-				RotX += (RotateStart.X - MousePos.X) * RotateSpeed;
-				RotY += (RotateStart.Y - MousePos.Y) * RotateSpeed;
-				nRotX = RotX;
-				nRotY = RotY;
-				Rotating = false;
+				if (Rotating)
+				{
+					RotX += (RotateStart.X - MousePos.X) * RotateSpeed;
+					RotY += (RotateStart.Y - MousePos.Y) * RotateSpeed;
+					nRotX = RotX;
+					nRotY = RotY;
+					
+					Rotating = false;
+				}
 			}
 
-			// Set pos ------------------------------------
-			pos.getAsVector3df() = translate;
-			pos.X += nZoom;
+			// Set Pos ------------------------------------
 
-			pos.getAsVector3df().rotateXYBy(nRotY, translate);
-			pos.getAsVector3df().rotateXZBy(-nRotX, translate);
+			camera->setTarget(translateTarget + zoomTarget);
 
-			camera->setPosition(pos.getAsVector3df());
-			camera->setTarget(translate);
+			if (!zoomTarget.equals(core::vector3df(0, 0, 0)))
+				OldTarget = camera->getTarget();
 
-			StepZooming = false;
+
+			core::vector3df position = camera->getPosition();
+			core::vector3df target = camera->getTarget();
+
+			position.X = CurrentZoom + target.X;
+			position.Y = target.Y;
+			position.Z = target.Z;
+
+			position.rotateXYBy(nRotY, target);
+			position.rotateXZBy(-nRotX, target);
+
+			camera->setPosition(position);
 
 			// Rotation Error ----------------------------
-			pos.set(0, 1, 0);
-			pos.getAsVector3df().rotateXYBy(-nRotY);
-			pos.getAsVector3df().rotateXZBy(-nRotX + 180.f);
-			camera->setUpVector(pos.getAsVector3df());
-			LastCameraTarget = camera->getTarget();
+
+			// jox: fixed bug: jitter when rotating to the top and bottom of y
+
+			core::vector3df UpVector(0, 1, 0);
+			UpVector.rotateXYBy(-nRotY, core::vector3df(0, 0, 0));
+			UpVector.rotateXZBy(-nRotX + 180.f, core::vector3df(0, 0, 0));
+
+			camera->setUpVector(UpVector);
 		}
 
 
