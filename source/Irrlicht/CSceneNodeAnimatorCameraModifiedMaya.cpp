@@ -117,11 +117,6 @@ namespace irr
 		//! OnAnimate() is called just before rendering the whole scene.
 		void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs)
 		{
-
-			//Alt + LM = Rotate around camera pivot
-			//Alt + LM + MM = Dolly forth/back in view direction (speed % distance camera pivot - max distance to pivot)
-			//Alt + MM = Move on camera plane (Screen center is about the mouse pointer, depending on move speed)
-
 			if (!node || node->getType() != ESNT_CAMERA)
 				return;
 
@@ -141,7 +136,9 @@ namespace irr
 			float nRotY = RotY;
 
 			// Check for zooming with right-button
-			if (ZoomWithRMB && isMouseKeyDown(2)) //if zoomWithRMB is enabled and RMB is pressed
+
+			if(!MouseShift)
+			if (ZoomWithRMB && isMouseKeyDown(2))
 			{
 				if (!Zooming)
 				{
@@ -156,24 +153,26 @@ namespace irr
 				ZoomStart = MousePos;
 				
 			}
-			else if (Zooming) //if zoomWithRMB is not enabled and RMB is not pressed and zooming has been performed in previous invocation
+			else if (Zooming)
 			{
 				Zooming = false;
-				
 			}
 
 			// Zoom the cam		
-			core::vector3df zoomTarget(0, 0, 0);	// move target to allow further zooming
+			core::vector3df zoomTarget(0.0f, 0.0f, 0.0f);	// move target to allow further zooming
 			if (StepZooming || Zooming)
 			{
-				CurrentZoom += (ZoomDelta * ZoomSpeed);
+				if (StepZooming)
+					CurrentZoom -= ZoomDelta * ScrllZoomSpeed;
+				else
+					CurrentZoom += ZoomDelta * ZoomSpeed;
 
-				const float minDistance = 1.f;
+				const float minDistance = 1.0f;
 				if (CurrentZoom < minDistance)
 				{
 					zoomTarget = camera->getTarget() - camera->getPosition();
 					zoomTarget.setLength(-CurrentZoom + minDistance);
-					CurrentZoom = 1.f;
+					CurrentZoom = 1.0f;
 				}
 				StepZooming = false;
 			}
@@ -290,9 +289,9 @@ namespace irr
 
 			// jox: fixed bug: jitter when rotating to the top and bottom of y
 
-			core::vector3df UpVector(0, 1, 0);
-			UpVector.rotateXYBy(-nRotY, core::vector3df(0, 0, 0));
-			UpVector.rotateXZBy(-nRotX + 180.f, core::vector3df(0, 0, 0));
+			core::vector3df UpVector(0.0f, 1.0f, 0.0f);
+			UpVector.rotateXYBy(-nRotY, core::vector3df(0.0f, 0.0f, 0.0f));
+			UpVector.rotateXZBy(-nRotX + 180.0f, core::vector3df(0.0f, 0.0f, 0.0f));
 
 			camera->setUpVector(UpVector);
 		}
@@ -331,6 +330,11 @@ namespace irr
 			ZoomSpeed = speed;
 		}
 
+		//! Sets the zoom speed
+		void CSceneNodeAnimatorCameraModifiedMaya::setStepZoomSpeed(float speed)
+		{
+			ScrllZoomSpeed = speed;
+		}
 
 		//! Set the distance
 		void CSceneNodeAnimatorCameraModifiedMaya::setDistance(float distance)
@@ -359,11 +363,21 @@ namespace irr
 			return ZoomSpeed;
 		}
 
+		//! Gets the step zoom speed
+		float CSceneNodeAnimatorCameraModifiedMaya::getStepZoomSpeed() const
+		{
+			return ScrllZoomSpeed;
+		}
 
 		//! Returns the current distance, i.e. orbit radius
 		float CSceneNodeAnimatorCameraModifiedMaya::getDistance() const
 		{
 			return CurrentZoom;
+		}
+
+		void CSceneNodeAnimatorCameraModifiedMaya::toggleZoomWithRightButton()
+		{
+			ZoomWithRMB = !ZoomWithRMB;
 		}
 
 
