@@ -261,6 +261,10 @@ float getMetallic(in vec2 texCoords);
 float getIoR(in vec2 texCoords);
 float getAO(in vec2 texCoords);
 vec3 getAlbedo(in vec2 texCoords);
+
+#define FLT_MIN 1.175494351e-38
+#define FLT_MAX 3.402823466e+38
+#define FLT_INF (1.0/0.0)
 )"
 +
 IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/diffuse/oren_nayar.glsl")
@@ -273,37 +277,47 @@ IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/specular/fresnel/fresn
 +
 R"(
 float diffuse(in float a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, in float NdotV);
-vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in vec3 F0, out vec3 out_fresnel);
+vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in vec3 F0, out vec3 out_fresnel);
 
 void main() {
     const vec3 N = normalize(Normal);
-    const vec3 V = normalize(uEyePos - WorldPos);
     const vec3 relLightPos = uLightPos - WorldPos;
-    const vec3 L = normalize(relLightPos);
-    const vec3 H = normalize(L + V);
+    float NdotL = dot(N, relLightPos);
 
-    const float NdotH = max(dot(N, H), 0.0);
-    const float NdotL = max(dot(N, L), 0.0);
-    const float NdotV = max(dot(N, V), 0.0);
-    const float VdotH = max(dot(V, H), 0.0);
+	vec3 color = vec3(0.0);
+	if (NdotL>FLT_MIN)
+	{
+		const float relLightPosLen2 = dot(relLightPos, relLightPos);
+		NdotL *= inversesqrt(relLightPosLen2);
 
-    const vec2 texCoords = vec2(TexCoords.x, 1.0-TexCoords.y);
+		// there are better identities to get all of these
+		const vec3 V = normalize(uEyePos - WorldPos);
+		const vec3 L = normalize(relLightPos);
+		const vec3 H = normalize(L + V);
 
-    const float a2 = getRoughness(texCoords);
-    const float metallic = getMetallic(texCoords);
-    const vec3 albedo = getAlbedo(texCoords);
-    const float ior = getIoR(texCoords);
-    const float ao = getAO(texCoords);
+		const float NdotH = max(dot(N, H), 0.0);
+		const float NdotV = max(dot(N, V), 0.0);
+		const float VdotH = max(dot(V, H), 0.0);
+		// identity comment end (but also do you need to clamp all of them?)
 
-    float tmp = (1.0-ior)/(1.0+ior);
-    const vec3 F0 = mix(vec3(tmp*tmp), albedo, metallic);
-    vec3 fresnel = vec3(0.0);
+		const vec2 texCoords = vec2(TexCoords.x, 1.0-TexCoords.y);
 
-    float diffuse = diffuse(a2, N, L, V, NdotL, NdotV) * (1.0 - metallic);
-    vec3 spec = specular(a2, NdotL, NdotV, NdotH, F0, fresnel);
+		const float a2 = getRoughness(texCoords);
+		const float metallic = getMetallic(texCoords);
+		const vec3 albedo = getAlbedo(texCoords);
+		const float ior = getIoR(texCoords);
+		const float ao = getAO(texCoords);
 
-    vec3 color = ((diffuse * albedo * (vec3(1.0) - fresnel)) + spec) * NdotL * uLightColor / dot(relLightPos, relLightPos);
-    OutColor = vec4(color, 1.0);
+		float tmp = (1.0-ior)/(1.0+ior);
+		const vec3 F0 = mix(vec3(tmp*tmp), albedo, metallic);
+		vec3 fresnel;
+
+		float diffuse = diffuse(a2, N, L, V, NdotL, NdotV) * (1.0 - metallic);
+		vec3 spec = specular(a2, NdotL, NdotV, NdotH, VdotH, F0, fresnel);
+
+		color += ((diffuse * albedo * (vec3(1.0) - fresnel)) + spec) * NdotL * uLightColor / relLightPosLen2;
+	}
+	OutColor = vec4(color, 1.0);
 }
 )";
         source += genGetters(_params);
@@ -319,15 +333,18 @@ void main() {
         else source += "\treturn 0.0;";
         source += "\n}\n";
         source += 
-R"(vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in vec3 F0, out vec3 out_fresnel) {
-    if (/*NdotL==0.0 || */NdotV==0.0)
+R"(vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in vec3 F0, out vec3 out_fresnel) {
+	//assert(NdotL>FLT_MIN);
+    out_fresnel = FresnelSchlick(F0, VdotH);
+    if (NdotV<FLT_MIN)
         return vec3(0.0);
+    if (a2<FLT_MIN)
+		return vec3(/*NdotH>=(1.0-FLT_MIN) ? FLT_INF:*/0.0);
 
-    float ndf = GGXTrowbridgeReitz(max(a2, 0.00001), NdotH);
-    float geom = GGXSmith(a2, NdotL, NdotV); // todo fast path for a2==0 (geom==1 then)
-    out_fresnel = FresnelSchlick(F0, NdotV);
+    float ndf = GGXTrowbridgeReitz(a2, NdotH);
+    float geom = GGXSmith(a2, NdotL, NdotV); // TODO: Correlated Smith!
 
-    return ndf*geom*out_fresnel / max(4.0 * NdotV * NdotL, 0.00001);
+    return ndf*geom*out_fresnel / (4.0 * NdotV * NdotL); // TODO: Cancel denominator with smith numerator
 }
 )";
         //auto f = fopen("fragsrc.txt", "w");
