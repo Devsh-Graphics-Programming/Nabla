@@ -44,6 +44,7 @@ class CShaderConstantSetCallback : public video::IShaderConstantSetCallBack
     };
 
     const irr::BRDFExplorerApp::SGUIState& GUIState;
+    const irr::BRDFExplorerApp::SLightAnimData& LightAnimData;
     scene::ICameraSceneNode* Camera;
 
     static constexpr SShaderConstant uVP {20, video::ESCT_FLOAT_MAT4};
@@ -60,7 +61,7 @@ class CShaderConstantSetCallback : public video::IShaderConstantSetCallBack
     static constexpr SShaderConstant uLightIntensity {10, video::ESCT_FLOAT};
 
 public:
-    CShaderConstantSetCallback(scene::ICameraSceneNode* _camera, const irr::BRDFExplorerApp::SGUIState& _guiState) : Camera{ _camera }, GUIState{_guiState} {}
+    CShaderConstantSetCallback(scene::ICameraSceneNode* _camera, const irr::BRDFExplorerApp::SGUIState& _guiState, const irr::BRDFExplorerApp::SLightAnimData& _lightAnim) : Camera{ _camera }, GUIState{_guiState}, LightAnimData{_lightAnim} {}
 
     virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
     {
@@ -84,7 +85,9 @@ public:
             services->setShaderConstant(&GUIState.Metallic.ConstValue, uMetallic.location, uMetallic.type, 1u);
         //services->setShaderConstant(&GUIState.BumpMapping.Height, uHeightFactor.location, uHeightFactor.type, 1u);
         if (!GUIState.Light.Animated)
-            services->setShaderConstant(&GUIState.Light.ConstantPosition, uLightPos.location, uLightPos.type, 1u);
+            services->setShaderConstant(&GUIState.Light.ConstantPosition.X, uLightPos.location, uLightPos.type, 1u);
+        else
+            services->setShaderConstant(&LightAnimData.Position.X, uLightPos.location, uLightPos.type, 1u);
         services->setShaderConstant(&GUIState.Light.Color, uLightColor.location, uLightColor.type, 1u);
 
         auto eyePos = Camera->getPosition();
@@ -120,6 +123,7 @@ private:
     video::IGPUProgrammingServices* Services = nullptr;
     asset::IIncludeHandler* IncludeHandler = nullptr;
     const irr::BRDFExplorerApp::SGUIState& GUIState;
+    const irr::BRDFExplorerApp::SLightAnimData& LightAnimData;
     scene::ICameraSceneNode* Camera = nullptr;
 
     enum E_SHADER_FLAGS : Key_t
@@ -339,7 +343,7 @@ R"(vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in
         //fclose(f);
 
         // separate CB for each shader because shader-constants' values are most likely cached, so a single CB cannot be used for multiple shaders
-        video::IShaderConstantSetCallBack* cb = new CShaderConstantSetCallback(Camera, GUIState);
+        video::IShaderConstantSetCallBack* cb = new CShaderConstantSetCallback(Camera, GUIState, LightAnimData);
         video::E_MATERIAL_TYPE shader = static_cast<video::E_MATERIAL_TYPE>(Services->addHighLevelShaderMaterial(VERTEX_SHADER_SRC, nullptr, nullptr, nullptr, source.c_str(), 3u, video::EMT_SOLID, cb));
         cb->drop();
         return Shaders.insert({flagsToKey(_params), shader}).first->second;
@@ -350,10 +354,12 @@ public:
         video::IGPUProgrammingServices* _services,
         asset::IIncludeHandler* _inclHandler,
         const irr::BRDFExplorerApp::SGUIState& _guiState,
+        const irr::BRDFExplorerApp::SLightAnimData& _lightAnimDat,
         scene::ICameraSceneNode* _camera) :
         Services{_services},
         IncludeHandler{_inclHandler},
         GUIState{_guiState},
+        LightAnimData{_lightAnimDat},
         Camera{_camera}
     {
     }
@@ -376,7 +382,7 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
         Driver(device->getVideoDriver()),
         AssetManager(device->getAssetManager()),
         GUI(ext::cegui::createGUIManager(device)),
-        ShaderManager(new CShaderManager(Driver->getGPUProgrammingServices(), device->getIncludeHandler(), GUIState, Camera))
+        ShaderManager(new CShaderManager(Driver->getGPUProgrammingServices(), device->getIncludeHandler(), GUIState, LightAnimData, Camera))
 {
     TextureSlotMap = {
         { ETEXTURE_SLOT::TEXTURE_AO,
@@ -855,6 +861,8 @@ void BRDFExplorerApp::renderMesh()
     if (!Mesh)
         return;
 
+    LightAnimData.update();
+
     CShaderManager::SParams params;
     params.constantAlbedo = (GUIState.Albedo.SourceDropdown==EDS_CONSTANT);
     params.constantMetallic = (GUIState.Metallic.SourceDropdown==EDS_CONSTANT);
@@ -872,7 +880,7 @@ void BRDFExplorerApp::renderMesh()
     Driver->setMaterial(Material);
     Driver->drawMeshBuffer(meshbuffer);
 }
-
+/*
 void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _texture)
 {
     // TODO remove this function
@@ -906,7 +914,7 @@ void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot, irr::asset::ICPUTextur
     for (const auto& v : property) {
         root->getChild(std::get<2>(tupl))->setProperty(v, std::get<0>(tupl));
     }
-}
+}*/
 
 void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot, irr::video::IVirtualTexture* _texture, const std::string& _texName)
 {
@@ -960,6 +968,7 @@ auto BRDFExplorerApp::loadMesh(const std::string& _path) -> SCPUGPUMesh
     irr::asset::ICPUMesh* cpumesh = static_cast<irr::asset::ICPUMesh*>(AssetManager.getAsset(_path, lparams));
     if (!cpumesh)
         return {nullptr, nullptr};
+    cpumesh->getMeshBuffer(MESHBUFFER_NUM)->recalculateBoundingBox();
 
     irr::video::IGPUMesh* gpumesh = Driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
 
@@ -974,7 +983,23 @@ void BRDFExplorerApp::loadMeshAndReplaceTextures(const std::string& _path)
 
     Mesh = loadedMesh.gpu;
 
-    const irr::video::SGPUMaterial& itsMaterial = Mesh->getMeshBuffer(MESHBUFFER_NUM)->getMaterial();
+    irr::video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(MESHBUFFER_NUM);
+    const irr::core::aabbox3df& aabb = mb->getBoundingBox();
+    LightAnimData.Radius = std::max(aabb.getExtent().X, aabb.getExtent().Z)/2.f;
+    LightAnimData.Radius *= 1.1f;
+    irr::core::vector3df aabb_verts[8];
+    aabb.getEdges(aabb_verts);
+    auto lowest_highest = std::minmax_element(aabb_verts, aabb_verts+8, [](const irr::core::vector3df& a, const irr::core::vector3df& b) { return a.Y < b.Y; });
+    LightAnimData.Position.Y = (lowest_highest.first->Y + lowest_highest.second->Y) / 2.f;
+    irr::core::vector2df center;
+    for (uint32_t i = 0u; i < 8u; ++i)
+    {
+        center.X += aabb_verts[i].X;
+        center.Y += aabb_verts[i].Y;
+    }
+    LightAnimData.Center = center/8.f;
+
+    const irr::video::SGPUMaterial& itsMaterial = mb->getMaterial();
 
     for (uint32_t t = 0u; t < 4u; ++t)
     {
@@ -1157,7 +1182,8 @@ void BRDFExplorerApp::eventTextureBrowse(const CEGUI::EventArgs& e)
             type = ETEXTURE_SLOT::TEXTURE_SLOT_4;
 
         irr::asset::ICPUTexture* cputexture = loadCPUTexture(p.second);
-        loadTextureSlot(type, cputexture);
+        auto gputexture = Driver->getGPUObjectsFromAssets(&cputexture, (&cputexture)+1).front();
+        loadTextureSlot(type, gputexture, cputexture->getCacheKey());
 
         box->setText(v[v.size() - 1]);
         updateTooltip(

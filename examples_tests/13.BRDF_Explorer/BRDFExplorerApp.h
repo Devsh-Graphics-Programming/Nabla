@@ -67,6 +67,10 @@ class GUIManager;
 
 class BRDFExplorerApp {
     public:
+        using Clock = std::chrono::high_resolution_clock;
+        using TimePoint = Clock::time_point;
+        using Duration = std::chrono::duration<float, std::ratio<1, 1>>;
+
         enum ETEXTURE_SLOT {
             TEXTURE_AO,
             TEXTURE_BUMP,
@@ -122,6 +126,20 @@ class BRDFExplorerApp {
                 float Intensity = 1.f;
             } Light;
         };
+        struct SLightAnimData {
+            float Radius;
+            irr::core::vector2df Center;
+            irr::core::vector3df Position;
+            TimePoint StartTime = Clock::now();
+
+            inline void update() {
+                auto now = Clock::now();
+                const float time = std::chrono::duration_cast<Duration>(now - StartTime).count();
+
+                Position.X = Center.X + std::sin(time)*Radius;
+                Position.Z = Center.Y + std::cos(time)*Radius;
+            }
+        };
 
     public:
         BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraSceneNode* _camera);
@@ -133,7 +151,7 @@ class BRDFExplorerApp {
         // Loads a given texture buffer into slot of type T.
         // T can be one of the TextureType enum types.
         // Caller is responsible for freeing the buffer afterwards.
-        void loadTextureSlot(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _texture);
+        //void loadTextureSlot(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _texture);
         void loadTextureSlot(ETEXTURE_SLOT slot, irr::video::IVirtualTexture* _texture, const std::string& _texName);
 
     private:
@@ -232,6 +250,8 @@ class BRDFExplorerApp {
         } Textures;
         
         SGUIState GUIState;
+
+        SLightAnimData LightAnimData;
 
         irr::video::IGPUMesh* Mesh = nullptr;
         irr::video::SGPUMaterial Material;
