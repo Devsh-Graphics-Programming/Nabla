@@ -57,6 +57,7 @@ class CShaderConstantSetCallback : public video::IShaderConstantSetCallBack
     static constexpr SShaderConstant uLightColor {7, video::ESCT_FLOAT_VEC3};
     static constexpr SShaderConstant uLightPos {8, video::ESCT_FLOAT_VEC3};
     static constexpr SShaderConstant uEyePos {9, video::ESCT_FLOAT_VEC3};
+    static constexpr SShaderConstant uLightIntensity {10, video::ESCT_FLOAT};
 
 public:
     CShaderConstantSetCallback(scene::ICameraSceneNode* _camera, const irr::BRDFExplorerApp::SGUIState& _guiState) : Camera{ _camera }, GUIState{_guiState} {}
@@ -88,6 +89,8 @@ public:
 
         auto eyePos = Camera->getPosition();
         services->setShaderConstant(&eyePos.X, uEyePos.location, uEyePos.type, 1u);
+
+        services->setShaderConstant(&GUIState.Light.Intensity, uLightIntensity.location, uLightIntensity.type, 1u);
     }
 
     virtual void OnUnsetMaterial() {}
@@ -249,6 +252,7 @@ layout (location = 6) uniform float uHeightFactor;
 layout (location = 7) uniform vec3 uLightColor;
 layout (location = 8) uniform vec3 uLightPos;
 layout (location = 9) uniform vec3 uEyePos;
+layout (location = 10) uniform float uLightIntensity;
 layout (binding = 0) uniform sampler2D uAlbedoMap;
 layout (binding = 1) uniform sampler2D uRoughnessMap;
 layout (binding = 2) uniform sampler2D uIoRMap;
@@ -553,6 +557,15 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
             root->getChild("LightParamsWindow/PositionWindow")->setDisabled(GUIState.Light.Animated);
         }
     );
+
+    GUI->registerSliderEvent(
+        "LightParamsWindow/IntensityWindow/IntensitySlider", sliderLightIntensityRange, 1.f,
+        [root, this](const ::CEGUI::EventArgs&) {
+        auto intensity = static_cast<::CEGUI::Slider*>(
+            root->getChild("LightParamsWindow/IntensityWindow/IntensitySlider"))
+            ->getCurrentValue();
+        GUIState.Light.Intensity = intensity+1.f;
+    });
 
     auto lightZ = static_cast<::CEGUI::Spinner*>(root->getChild("LightParamsWindow/PositionWindow/LightZ"));
     lightZ->subscribeEvent(

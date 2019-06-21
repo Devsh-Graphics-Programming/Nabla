@@ -119,6 +119,7 @@ class BRDFExplorerApp {
                 core::vector3df Color{1.f, 1.f, 1.f};
                 core::vector3df ConstantPosition; //TODO set it to somerhing default and fine
                 bool Animated = false;
+                float Intensity = 1.f;
             } Light;
         };
 
@@ -150,6 +151,7 @@ class BRDFExplorerApp {
         static constexpr float sliderRoughness1Range = 1.0f;
         static constexpr float sliderRoughness2Range = 1.0f;
         static constexpr float sliderBumpHeightRange = 20.0f;
+        static constexpr float sliderLightIntensityRange = 99.f; // turns out i can set min value on cegui slider XD
         static constexpr float defaultOpacity = 0.85f;
 
         void initDropdown();

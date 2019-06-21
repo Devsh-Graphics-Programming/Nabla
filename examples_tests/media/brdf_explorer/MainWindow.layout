@@ -301,7 +301,7 @@
             <Property name="MousePassThroughEnabled" value="true" />
         </Window>
         <Window type="Alfisko/FrameWindow" name="LightParamsWindow" >
-            <Property name="Area" value="{{0,0},{0,0},{0.2,0},{0.375,0}}" />
+            <Property name="Area" value="{{0,0},{0,0},{0.2,0},{0.4,0}}" />
             <Property name="Text" value="Light Parameters" />
             <Property name="MaxSize" value="{{1,0},{1,0}}" />
             <Property name="MinSize" value="{{0.2,0},{0.375,0}}" />
@@ -389,8 +389,29 @@
                     </AutoWindow>
                 </Window>
             </Window>
+			<Window type="DefaultWindow" name="IntensityWindow" >
+                <Property name="Area" value="{{0,0},{0.75,0},{1,0},{0.8,0}}" />
+                <Property name="Alpha" value="0" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+				<Window type="Alfisko/HorizontalSlider" name="IntensitySlider" >
+					<Property name="Area" value="{{-0.12,0},{0.31,0},{0.45,0},{1.7,0}}" />
+					<Property name="InheritsAlpha" value="false" />
+					<Property name="VerticalAlignment" value="Centre" />
+					<Property name="HorizontalAlignment" value="Right" />
+				</Window>
+				<Window type="Alfisko/Label" name="IntensityLabel" >
+					<Property name="Area" value="{{-0.425,0},{0.31,0},{0.45,0},{1.7,0}}" />
+					<Property name="Text" value="Intensity" />
+					<Property name="MaxSize" value="{{1,0},{1,0}}" />
+					<Property name="InheritsAlpha" value="false" />
+					<Property name="HorzFormatting" value="WordWrapCentreAligned" />
+					<Property name="VerticalAlignment" value="Centre" />
+					<Property name="HorizontalAlignment" value="Right" />
+					<Property name="MousePassThroughEnabled" value="true" />
+				</Window>
+			</Window>
             <Window type="DefaultWindow" name="AnimationWindow" >
-                <Property name="Area" value="{{0,0},{0.75,0},{1,0},{1,0}}" />
+                <Property name="Area" value="{{0,0},{0.75,0},{1,0},{1.1,0}}" />
                 <Property name="Alpha" value="0" />
                 <Property name="MaxSize" value="{{1,0},{1,0}}" />
                 <Window type="Alfisko/Checkbox" name="Checkbox" >
