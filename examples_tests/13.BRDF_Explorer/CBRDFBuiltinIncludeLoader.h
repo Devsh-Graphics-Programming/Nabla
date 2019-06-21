@@ -30,7 +30,7 @@ float oren_nayar(in float _a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, 
     vec3 view_plane = normalize(V - cos_theta.y*N);
     float cos_phi = max(0.0, dot(light_plane, view_plane));//not sure about this
 
-    return cos_theta.x * (AB.x + AB.y * cos_phi * C) / 3.14159265359;
+    return (AB.x + AB.y * cos_phi * C) / 3.14159265359;
 }
 
 #endif
