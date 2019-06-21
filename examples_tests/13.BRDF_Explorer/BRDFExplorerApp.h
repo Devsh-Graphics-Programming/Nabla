@@ -76,7 +76,7 @@ class BRDFExplorerApp {
             TEXTURE_SLOT_4,
         };
 
-        using TTextureSlotMap = std::map<ETEXTURE_SLOT, std::tuple<const char*, const char*, const char*>>;
+        using TTextureSlotMap = irr::core::map<ETEXTURE_SLOT, std::tuple<const char*, const char*, const char*>>;
 
         enum E_DROPDOWN_STATE
         {
@@ -190,12 +190,44 @@ class BRDFExplorerApp {
 
         void showErrorMessage(const char* title, const char* message);
 
+        static constexpr uint32_t ALBEDO_MAP_TEX_UNIT = 0u;
+        static constexpr uint32_t ROUGHNESS_MAP_TEX_UNIT = 1u;
+        static constexpr uint32_t IOR_MAP_TEX_UNIT = 2u;
+        static constexpr uint32_t METALLIC_MAP_TEX_UNIT = 3u;
+        static constexpr uint32_t DERIV_MAP_TEX_UNIT = 4u;
+        static constexpr uint32_t AO_MAP_TEX_UNIT = 5u;
+        inline void updateMaterial()
+        {
+            auto common = [this] (E_DROPDOWN_STATE texnum, uint32_t texunit) {
+                uint32_t ix = texnum - EDS_TEX0;
+                if (Textures.TextureViewer[ix] && Textures.TextureViewer[ix] != DefaultTexture)
+                    Material.setTexture(texunit, Textures.TextureViewer[ix]);
+            };
+            if (GUIState.Albedo.SourceDropdown != EDS_CONSTANT)
+                common(GUIState.Albedo.SourceDropdown, ALBEDO_MAP_TEX_UNIT);
+            if (GUIState.Roughness.SourceDropdown != EDS_CONSTANT)
+                common(GUIState.Roughness.SourceDropdown, ROUGHNESS_MAP_TEX_UNIT);
+            if (GUIState.RefractionIndex.SourceDropdown != EDS_CONSTANT)
+                common(GUIState.RefractionIndex.SourceDropdown, IOR_MAP_TEX_UNIT);
+            if (GUIState.Metallic.SourceDropdown != EDS_CONSTANT)
+                common(GUIState.Metallic.SourceDropdown, METALLIC_MAP_TEX_UNIT);
+
+            Material.setTexture(DERIV_MAP_TEX_UNIT, Textures.BumpMap);
+            Material.setTexture(AO_MAP_TEX_UNIT, Textures.AO);
+        }
+
     private:
         scene::ICameraSceneNode* Camera = nullptr;
         video::IVideoDriver* Driver = nullptr;
         asset::IAssetManager& AssetManager;
         ext::cegui::GUIManager* GUI = nullptr;
         TTextureSlotMap TextureSlotMap;
+
+        struct {
+            irr::video::IVirtualTexture* TextureViewer[4]{};
+            irr::video::IVirtualTexture* AO = nullptr;
+            irr::video::IVirtualTexture* BumpMap = nullptr;
+        } Textures;
         
         SGUIState GUIState;
 
@@ -208,5 +240,4 @@ class BRDFExplorerApp {
 };
 
 } // namespace irr
-
 #endif // _IRR_BRDF_EXPLORER_APP_INCLUDED_
