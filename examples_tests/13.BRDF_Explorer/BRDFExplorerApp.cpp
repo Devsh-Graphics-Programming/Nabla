@@ -301,11 +301,16 @@ void main() {
 		// there are better identities to get all of these
 		const vec3 V = normalize(uEyePos - WorldPos);
 		const vec3 L = normalize(relLightPos);
-		const vec3 H = normalize(L + V);
 
-		const float NdotH = max(dot(N, H), 0.0);
-		const float NdotV = max(dot(N, V), 0.0);
-		const float VdotH = max(dot(V, H), 0.0);
+		float NdotV = dot(N, V);
+        float LdotV = dot(L, V);
+
+        // dots with H identities taken from Earl Hammon's PBR Diffuse Lighting GDC17 lecture
+        const float LplusV_lenSq = 2.0 + 2.0*LdotV;
+        const float LplusV_rcpLen = inversesqrt(LplusV_lenSq);
+        const float NdotH = max((NdotL + NdotV) * LplusV_rcpLen, 0.0);
+        const float VdotH = max(LplusV_rcpLen + LplusV_rcpLen*LdotV, 0.0);
+        NdotV = max(NdotV, 0.0);
 		// identity comment end (but also do you need to clamp all of them?)
 
 		const vec2 texCoords = vec2(TexCoords.x, 1.0-TexCoords.y);
@@ -323,7 +328,7 @@ void main() {
 		float diffuse = diffuse(a2, N, L, V, NdotL, NdotV) * (1.0 - metallic);
 		vec3 spec = specular(a2, NdotL, NdotV, NdotH, VdotH, F0, fresnel);
 
-		color += ((diffuse * albedo * (vec3(1.0) - fresnel)) + spec) * NdotL * uLightColor / relLightPosLen2;
+		color += ((diffuse * albedo * (vec3(1.0) - fresnel)) + spec) * NdotL * uLightIntensity * uLightColor / relLightPosLen2;
 	}
 	OutColor = vec4(color, 1.0);
 }

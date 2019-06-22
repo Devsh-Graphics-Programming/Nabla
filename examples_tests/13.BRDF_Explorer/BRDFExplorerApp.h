@@ -169,7 +169,7 @@ class BRDFExplorerApp {
         static constexpr float sliderRoughness1Range = 1.0f;
         static constexpr float sliderRoughness2Range = 1.0f;
         static constexpr float sliderBumpHeightRange = 20.0f;
-        static constexpr float sliderLightIntensityRange = 99.f; // turns out i can set min value on cegui slider XD
+        static constexpr float sliderLightIntensityRange = 99.f; // turns out i cant set min value on cegui slider XD
         static constexpr float defaultOpacity = 0.85f;
 
         void initDropdown();

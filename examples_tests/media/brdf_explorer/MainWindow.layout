@@ -4,11 +4,11 @@
     <Window type="DefaultWindow" name="UIRoot" >
         <Property name="Area" value="{{0,-1},{-1.16415e-010,1},{1,-1},{0.997222,1}}" />
         <Property name="MaxSize" value="{{1,0},{1,0}}" />
-		<Window type="Alfisko/Button" name="LoadModelButton" >
-			<Property name="Area" value="{{0.8,-2},{0.812582,0},{1,-4},{0.95,0}}" />
-			<Property name="Text" value="Load Model" />
-			<Property name="InheritsAlpha" value="false" />
-		</Window>
+        <Window type="Alfisko/Button" name="LoadModelButton" >
+            <Property name="Area" value="{{0.8,-2},{0.812582,0},{1,-4},{0.95,0}}" />
+            <Property name="Text" value="Load Model" />
+            <Property name="InheritsAlpha" value="false" />
+        </Window>
         <Window type="Alfisko/FrameWindow" name="MaterialParamsWindow" >
             <Property name="Area" value="{{0,0},{0,0},{0.235,0},{1,0}}" />
             <Property name="Text" value="Material Parameters" />
@@ -293,7 +293,7 @@
             </Window>
         </Window>
         <Window type="Alfisko/Label" name="FPS" >
-            <Property name="Area" value="{{0.0025,-3},{0.0025,-1},{1.0025,-3},{1.0025,-1}}" />
+            <Property name="Area" value="{{0.0025,8},{0.0025,12},{1.0025,8},{1.0025,12}}" />
             <Property name="Text" value="Sample FPS" />
             <Property name="MaxSize" value="{{1,0},{1,0}}" />
             <Property name="HorzFormatting" value="LeftAligned" />
@@ -389,33 +389,12 @@
                     </AutoWindow>
                 </Window>
             </Window>
-			<Window type="DefaultWindow" name="IntensityWindow" >
-                <Property name="Area" value="{{0,0},{0.75,0},{1,0},{0.8,0}}" />
-                <Property name="Alpha" value="0" />
-                <Property name="MaxSize" value="{{1,0},{1,0}}" />
-				<Window type="Alfisko/HorizontalSlider" name="IntensitySlider" >
-					<Property name="Area" value="{{-0.12,0},{0.31,0},{0.45,0},{1.7,0}}" />
-					<Property name="InheritsAlpha" value="false" />
-					<Property name="VerticalAlignment" value="Centre" />
-					<Property name="HorizontalAlignment" value="Right" />
-				</Window>
-				<Window type="Alfisko/Label" name="IntensityLabel" >
-					<Property name="Area" value="{{-0.425,0},{0.31,0},{0.45,0},{1.7,0}}" />
-					<Property name="Text" value="Intensity" />
-					<Property name="MaxSize" value="{{1,0},{1,0}}" />
-					<Property name="InheritsAlpha" value="false" />
-					<Property name="HorzFormatting" value="WordWrapCentreAligned" />
-					<Property name="VerticalAlignment" value="Centre" />
-					<Property name="HorizontalAlignment" value="Right" />
-					<Property name="MousePassThroughEnabled" value="true" />
-				</Window>
-			</Window>
             <Window type="DefaultWindow" name="AnimationWindow" >
-                <Property name="Area" value="{{0,0},{0.75,0},{1,0},{1.1,0}}" />
+                <Property name="Area" value="{{0,0},{0.886914,0},{1.00108,0},{1.00803,0}}" />
                 <Property name="Alpha" value="0" />
                 <Property name="MaxSize" value="{{1,0},{1,0}}" />
                 <Window type="Alfisko/Checkbox" name="Checkbox" >
-                    <Property name="Area" value="{{0.025,0},{0,0},{0.525,0},{0,24}}" />
+                    <Property name="Area" value="{{0,9.25},{0,0},{0.5,9.25},{0.521739,0}}" />
                     <Property name="Text" value="Animation" />
                     <Property name="InheritsAlpha" value="false" />
                     <Property name="VerticalAlignment" value="Centre" />
@@ -425,6 +404,19 @@
                 <Property name="Area" value="{{0,-1},{0,0},{1,-1},{0.6,0}}" />
                 <Property name="Alpha" value="0" />
                 <Property name="MaxSize" value="{{1,0},{1,0}}" />
+            </Window>
+            <Window type="DefaultWindow" name="IntensityWindow" >
+                <Property name="Area" value="{{0.00541125,0},{0.747762,0},{1.00649,0},{0.87941,0}}" />
+                <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                <Window type="Alfisko/HorizontalSlider" name="IntensitySlider" >
+                    <Property name="Area" value="{{0.268108,0},{0.16,0},{0.97,0},{0.8,0}}" />
+                </Window>
+                <Window type="Alfisko/Label" name="Label" >
+                    <Property name="Area" value="{{-0.06540541,0},{0.16,0},{0.32973,0},{0.8,0}}" />
+                    <Property name="Text" value="Intensity" />
+                    <Property name="MaxSize" value="{{1,0},{1,0}}" />
+                    <Property name="MousePassThroughEnabled" value="true" />
+                </Window>
             </Window>
         </Window>
         <Window type="Alfisko/FrameWindow" name="TextureViewWindow" >
