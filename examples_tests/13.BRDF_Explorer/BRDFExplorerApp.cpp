@@ -190,11 +190,22 @@ void main()
 
     std::string genGetters(const SParams& _params)
     {
-        std::string source = "float getRoughness(in vec2 texCoords) {\n";
+        std::string source = 
+R"(#define REFLECTANCE_SCALE_FACTOR 0.08
+
+float IoRfromF0_dielectric(float F0) {
+    return 2.0/(1.0 - sqrt(F0)) - 1.0;
+}
+)";
+
+        source += "float getRoughness(in vec2 texCoords) {\n";
         if (_params.constantRoughness)
             source += "\treturn uRoughness1;";
         else
-            source += "\treturn texture(uRoughnessMap, texCoords).x;";
+            source += 
+R"(float reflectance = texture(uRoughnessMap, texCoords).x;
+return IoRfromF0_dielectric(REFLECTANCE_SCALE_FACTOR*reflectance*reflectance);
+)";
         source += "\n}\n";
 
         source += "float getMetallic(in vec2 texCoords) {\n";
@@ -281,11 +292,13 @@ IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/specular/ndf/ggx_trowb
 +
 IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/specular/geom/ggx_smith.glsl")
 +
-IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/specular/fresnel/fresnel_schlick.glsl")
+IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/specular/fresnel/fresnel.glsl")
 +
 R"(
 float diffuse(in float a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, in float NdotV);
-vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in vec3 F0, out vec3 out_fresnel);
+vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in float ior_dielectr, in vec3 ior_conduct, in float metallic, out vec3 out_fresnel);
+vec3 IoRfromF0_conductor(in vec3 F0);
+vec3 Fresnel_combined(in float ior_dielectr, in vec3 ior_conductor, in float cosTheta, in float metallic);
 
 void main() {
     const vec3 N = normalize(Normal);
@@ -318,15 +331,12 @@ void main() {
 		const float a2 = getRoughness(texCoords);
 		const float metallic = getMetallic(texCoords);
 		const vec3 albedo = getAlbedo(texCoords);
-		const float ior = getIoR(texCoords);
 		const float ao = getAO(texCoords);
 
-		float tmp = (1.0-ior)/(1.0+ior);
-		const vec3 F0 = mix(vec3(tmp*tmp), albedo, metallic);
 		vec3 fresnel;
 
 		float diffuse = diffuse(a2, N, L, V, NdotL, NdotV) * (1.0 - metallic);
-		vec3 spec = specular(a2, NdotL, NdotV, NdotH, VdotH, F0, fresnel);
+		vec3 spec = specular(a2, NdotL, NdotV, NdotH, VdotH, getIoR(texCoords), IoRfromF0_conductor(albedo), metallic, fresnel);
 
 		color += ((diffuse * albedo * (vec3(1.0) - fresnel)) + spec) * NdotL * uLightIntensity * uLightColor / relLightPosLen2;
 	}
@@ -339,16 +349,16 @@ void main() {
         if (_params.constantMetallic && !_params.metallicIsOne)
         {
             if (_params.constantRoughness && _params.roughnessIsZero)
-                source += "\treturn NdotL;";
+                source += "\treturn 1.0/3.14159265359;";
             else
                 source += "\treturn oren_nayar(a2, N, L, V, NdotL, NdotV);";
         }
         else source += "\treturn 0.0;";
         source += "\n}\n";
         source += 
-R"(vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in vec3 F0, out vec3 out_fresnel) {
+R"(vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in float ior_dielectr, in vec3 ior_conduct, in float metallic, out vec3 out_fresnel) {
 	//assert(NdotL>FLT_MIN);
-    out_fresnel = FresnelSchlick(F0, VdotH);
+    out_fresnel = Fresnel_combined(ior_dielectr, ior_conduct, VdotH, metallic);
     if (NdotV<FLT_MIN)
         return vec3(0.0);
     if (a2<FLT_MIN)
@@ -359,10 +369,18 @@ R"(vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in
 
     return ndf*geom*out_fresnel / (4.0 * NdotV * NdotL); // TODO: Cancel denominator with smith numerator
 }
+
+vec3 IoRfromF0_conductor(in vec3 F0) {
+    return vec3(IoRfromF0_dielectric(F0.x), IoRfromF0_dielectric(F0.y), IoRfromF0_dielectric(F0.z));
+}
+
+vec3 Fresnel_combined(in float ior_dielectr, in vec3 ior_conductor, in float cosTheta, in float metallic) {
+    return mix(vec3(Fresnel_dielectric(ior_dielectr, cosTheta)), Fresnel_conductor(ior_conductor, cosTheta), metallic);
+}
 )";
-        //auto f = fopen("fragsrc.txt", "w");
-        //fprintf(f, "%s", source.c_str());
-        //fclose(f);
+        auto f = fopen("fragsrc.txt", "w");
+        fprintf(f, "%s", source.c_str());
+        fclose(f);
 
         // separate CB for each shader because shader-constants' values are most likely cached, so a single CB cannot be used for multiple shaders
         video::IShaderConstantSetCallBack* cb = new CShaderConstantSetCallback(Camera, GUIState, LightAnimData);
@@ -469,7 +487,7 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
     GUI->registerSliderEvent(
         "MaterialParamsWindow/RefractionIndexWindow/Slider", sliderRIRange, 0.01f,
         [root,this](const ::CEGUI::EventArgs&) {
-            auto refractionIndex = static_cast<::CEGUI::Slider*>(
+            auto refractionIndex = 1.f+static_cast<::CEGUI::Slider*>(
                 root->getChild(
                     "MaterialParamsWindow/RefractionIndexWindow/Slider"))
                                  ->getCurrentValue();

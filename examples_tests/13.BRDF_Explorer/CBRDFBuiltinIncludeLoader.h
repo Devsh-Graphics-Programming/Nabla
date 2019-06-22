@@ -70,17 +70,54 @@ float GGXSmith(in float a2, in float NdotL, in float NdotV)
 #endif
 )";
     }
-    static std::string getFresnelSchlick(const std::string&)
+    static std::string getFresnel(const std::string&)
     {
         return
-R"(#ifndef _BRDF_SPECULAR_FRESNEL_FRESNEL_SCHLICK_INCLUDED_
-#define _BRDF_SPECULAR_FRESNEL_FRESNEL_SCHLICK_INCLUDED_
+R"(#ifndef _BRDF_SPECULAR_FRESNEL_FRESNEL_INCLUDED_
+#define _BRDF_SPECULAR_FRESNEL_FRESNEL_INCLUDED_
 
-vec3 FresnelSchlick(in vec3 F0, in float NdotV)
+vec3 FresnelSchlick(in vec3 F0, in float VdotH)
 {
-    float x = 1.0 - NdotV;
+    float x = 1.0 - VdotH;
     return F0 + (1.0 - F0) * x*x*x*x*x;
-} 
+}
+
+// Fresnel_conductor is a little optimized (with assumption that k=0; k - extenction coefficient) code from https://seblagarde.wordpress.com/2013/04/29/memo-on-fresnel-equations/
+// However i think Fresnel_conductor and Fresnel_dielectric are essentially the same functions
+// Since here (http://www.cs.virginia.edu/~jdl/bib/globillum/shirley_thesis.pdf) we can read that
+// Fresnel equation for dielectric is derived from the general one (random k) by setting k to 0
+vec3 Fresnel_conductor(in vec3 Eta, in float CosTheta)
+{  
+    float CosTheta2 = CosTheta * CosTheta;
+    float SinTheta2 = 1.0 - CosTheta2;
+    vec3 Eta2 = Eta * Eta;
+
+    vec3 t0 = Eta2 - SinTheta2;
+    vec3 a2plusb2 = abs(t0);
+    vec3 t1 = a2plusb2 + CosTheta2;
+    vec3 a = sqrt(0.5 * (a2plusb2 + t0));
+    vec3 t2 = 2.0 * a * CosTheta;
+    vec3 Rs = (t1 - t2) / (t1 + t2);
+
+    vec3 t3 = CosTheta2 * a2plusb2 + SinTheta2 * SinTheta2;
+    vec3 t4 = t2 * SinTheta2;   
+    vec3 Rp = Rs * (t3 - t4) / (t3 + t4);
+
+    return 0.5 * (Rp + Rs);
+}
+float Fresnel_dielectric(in float Eta, in float CosTheta)
+{
+   float SinTheta2 = 1.0 - CosTheta * CosTheta;
+
+   float t0 = sqrt(1.0 - (SinTheta2 / (Eta * Eta)));
+   float t1 = Eta * t0;
+   float t2 = Eta * CosTheta;
+
+   float rs = (CosTheta - t1) / (CosTheta + t1);
+   float rp = (t0 - t2) / (t0 + t2);
+
+   return 0.5 * (rs * rs + rp * rp);
+}
 
 #endif
 )";
@@ -93,7 +130,7 @@ protected:
             { std::regex{"diffuse/oren_nayar\\.glsl"}, &getOrenNayar },
             { std::regex{"specular/ndf/ggx_trowbridge_reitz\\.glsl"}, &getGGXTrowbridgeReitz },
             { std::regex{"specular/geom/ggx_smith\\.glsl"}, &getGGXSmith },
-            { std::regex{"specular/fresnel/fresnel_schlick\\.glsl"}, &getFresnelSchlick }
+            { std::regex{"specular/fresnel/fresnel\\.glsl"}, &getFresnel }
         };
     }
 };
