@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-cmake_minimum_required(VERSION 3.14.5)
+cmake_minimum_required(VERSION 3.14)
 #policies
 #cmake_policy(SET CMP0072 NEW) #not yet, would need to get pointers to all OpenGL functions
 
@@ -174,6 +174,8 @@ option(IRR_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 option(IRR_BUILD_MITSUBA_LOADER "Enable irr::ext::MitsubaLoader?" ON)
 
 option(IRR_BUILD_CEGUI "Enable CEGUI building and integration?" OFF)
+
+option(IRR_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 

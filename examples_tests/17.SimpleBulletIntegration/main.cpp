@@ -1,10 +1,21 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
+#include <btBulletDynamicsCommon.h>
+#include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
+
+#include "../../ext/Bullet/BulletUtility.h"
+#include "../../ext/Bullet/CPhysicsWorld.h"
+
+#include "../../ext/Bullet/CInstancedMotionState.h"
+#include "../../ext/Bullet/CDebugRender.h"
 
 using namespace irr;
 using namespace core;
 using namespace scene;
+
+
+
 
 
 #define kNumHardwareInstancesX 10
@@ -18,13 +29,41 @@ const float instanceLoDDistances[] = {8.f,50.f};
 
 bool quit = false;
 
+void handleRaycast(scene::ICameraSceneNode *cam, ext::Bullet3::CPhysicsWorld *physicsWorld) {
+    //TODO - find way to extract rigidybody from closeRay (?)
 
-//!Same As Last Example
+    using namespace ext::Bullet3;
+
+    core::vectorSIMDf to;
+    to.set(cam->getAbsolutePosition());
+
+    core::vectorSIMDf from;
+    from.set(cam->getTarget());
+    
+    btCollisionWorld::ClosestRayResultCallback closeRay(tobtVec3(to), tobtVec3(from));
+    closeRay.m_flags = btTriangleRaycastCallback::kF_UseSubSimplexConvexCastRaytest;
+    
+    physicsWorld->getWorld()->rayTest(tobtVec3(from), tobtVec3(to), closeRay);
+
+    if (closeRay.hasHit()) {
+        physicsWorld->getWorld()->getDebugDrawer()->drawSphere(
+            tobtVec3(from).lerp(tobtVec3(to), closeRay.m_closestHitFraction), 2, btVector3(1, 0, 0)
+        );
+
+      
+    };
+
+}
+
+
+//!Disptaches Raycast when R is pressed
 class MyEventReceiver : public IEventReceiver
 {
 public:
 
-	MyEventReceiver()
+	MyEventReceiver(scene::ICameraSceneNode *cam, ext::Bullet3::CPhysicsWorld *physicsWorld):
+        physicsWorld(physicsWorld),
+        cam(cam)
 	{
 	}
 
@@ -37,15 +76,26 @@ public:
             case irr::KEY_KEY_Q: // switch wire frame mode
                 quit = true;
                 return true;
+            case irr::KEY_KEY_R: //Bullet raycast
+                handleRaycast(cam, physicsWorld);
+                return true;
+            
+
             default:
                 break;
             }
         }
 
+       
+
+
 		return false;
 	}
 
 private:
+    scene::ICameraSceneNode *cam;
+    ext::Bullet3::CPhysicsWorld *physicsWorld;
+
 };
 
 const char* uniformNames[] =
@@ -196,6 +246,8 @@ int main()
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 
+    
+
     SimpleCallBack* cb = new SimpleCallBack();
     video::E_MATERIAL_TYPE newMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
                                                         "","","", //! No Geometry or Tessellation Shaders
@@ -217,11 +269,38 @@ int main()
 	camera->setFarValue(100.0f);
     smgr->setActiveCamera(camera);
 	device->getCursorControl()->setVisible(false);
-	MyEventReceiver receiver;
+	
+    
+    // ! - INITIALIZE BULLET WORLD + FLAT PLANE FOR TESTING
+//------------------------------------------------------------------
+
+    ext::Bullet3::CPhysicsWorld *world = _IRR_NEW(irr::ext::Bullet3::CPhysicsWorld);
+    world->getWorld()->setGravity(btVector3(0, -5, 0));
+
+
+    core::matrix3x4SIMD baseplateMat;
+    baseplateMat.setTranslation(core::vectorSIMDf(0.0, -1.0, 0.0));
+
+    ext::Bullet3::CPhysicsWorld::RigidBodyData data2;
+    data2.mass = 0.0f;
+    data2.shape = world->createbtObject<btBoxShape>(btVector3(300, 1, 300));
+    data2.trans = baseplateMat;
+
+    btRigidBody *body2 = world->createRigidBody(data2);
+    world->bindRigidBody(body2);
+
+    //------------------------------------------------------------------
+
+
+    
+    MyEventReceiver receiver(camera, world);
 	device->setEventReceiver(&receiver);
 
+    
+   
+
 	//!
-    asset::ICPUMesh* cpumesh = device->getAssetManager().getGeometryCreator()->createCubeMesh(core::vector3df(5.f, 1.f, 1.f));
+    asset::ICPUMesh* cpumesh = device->getAssetManager().getGeometryCreator()->createCubeMesh(core::vector3df(1.f, 1.f, 1.f));
     video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
     for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
         gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
@@ -264,59 +343,133 @@ int main()
 
     srand(6945);
 
-    const uint32_t towerHeight = 20;
-    const uint32_t towerWidth = 5;
+
+    const uint32_t towerHeight = 100;
+    const uint32_t towerWidth = 2;
+
+
+
+
+
+    ext::Bullet3::CDebugRender *debugDraw = world->createbtObject<ext::Bullet3::CDebugRender>(driver);
+    world->getWorld()->setDebugDrawer(debugDraw);
+
+    
+
+    btRigidBody **bodies = _IRR_NEW_ARRAY(btRigidBody*, towerHeight * towerWidth);
+
+
+
+    irr::ext::Bullet3::CPhysicsWorld::RigidBodyData data3;
+    data3.mass = 2.0f;
+    data3.shape = world->createbtObject<btBoxShape>(btVector3(0.5, 0.5, 0.5));
+
+   
+    btVector3 inertia;
+    data3.shape->calculateLocalInertia(data3.mass, inertia);
+
+    data3.inertia = ext::Bullet3::frombtVec3(inertia);
+
+
+
     //! Special Juice for INSTANCING
     uint32_t instances[towerHeight*towerWidth];
     for (size_t y=0; y<towerHeight; y++)
     for (size_t z=0; z<towerWidth; z++)
     {
         core::matrix4x3 mat;
-        if (y&0x1u)
-        {
-            mat.setTranslation(core::vector3df(1.5f,y,z));
-        }
-        else
-        {
-            core::vectorSIMDf eulerXYZ;
-            core::quaternion(0.f,1.f,0.f,1.f).toEuler(eulerXYZ);
-            mat.setRotationRadians(eulerXYZ.getAsVector3df());
-            mat.setTranslation(core::vector3df(z,y,1.5f));
-        }
+        mat.setTranslation(core::vector3df(z, y, 1));
+
         uint8_t color[4];
-        color[0] = rand()%256;
-        color[1] = rand()%256;
-        color[2] = rand()%256;
+        color[0] = rand() % 256;
+        color[1] = rand() % 256;
+        color[2] = rand() % 256;
         color[3] = 255u;
-        instances[y*towerWidth+z] = node->addInstance(mat,color);
+        instances[y*towerWidth + z] = node->addInstance(mat, color);
+
+        core::vectorSIMDf pos;
+        pos.set(node->getInstanceTransform(instances[y*towerWidth + z]).getTranslation());
+        core::matrix3x4SIMD instancedMat;
+        instancedMat.setTranslation(pos);
+
+
+
+        data3.trans = instancedMat;
+
+        bodies[y*towerWidth + z] = world->createRigidBody(data3);
+
+        bodies[y*towerWidth + z]->setUserPointer((uint32_t*)(y*towerWidth + z));
+
+        world->bindRigidBody<irr::ext::Bullet3::CInstancedMotionState>(bodies[y*towerWidth + z], node, instances[y*towerWidth + z]);
+
+
     }
 
+    uint64_t timeDiff = 0;
 	while(device->run()&&(!quit))
 	{
+
+        uint64_t now = device->getTimer()->getRealTime();
+
+
+        
+
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );
 
         //! This animates (moves) the camera and sets the transforms
         //! Also draws the meshbuffer
+ 
+        
         smgr->drawAll();
 
+        world->getWorld()->debugDrawWorld();
+        handleRaycast(camera, world);
+        debugDraw->draw();
+       
 		driver->endScene();
 
-		// display frames per second in window title
-		uint64_t time = device->getTimer()->getRealTime();
-		if (time-lastFPSTime > 1000)
-		{
-			std::wostringstream str;
-			str << L"Builtin Nodes Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
+        world->getWorld()->stepSimulation(timeDiff);
+       
 
-			device->setWindowCaption(str.str());
-			lastFPSTime = time;
-		}
+        
+
+        uint64_t time = device->getTimer()->getRealTime();
+        timeDiff = (time - now);
+
+		// display frames per second in window title
+        if (time - lastFPSTime > 250)
+        {
+            std::wostringstream str;
+            str << L"Builtin Nodes Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << 1000 / timeDiff << " PrimitivesDrawn:" << driver->getPrimitiveCountDrawn();
+
+            device->setWindowCaption(str.str());
+            lastFPSTime = time;
+        }
 	}
 
+
+
+
+    world->unbindRigidBody(body2, false);
+    world->deleteRigidBody(body2);
+    world->deletebtObject(data2.shape);
+
+
+    for (size_t i = 0; i < towerHeight * towerWidth; ++i) {
+        world->unbindRigidBody(bodies[i]);
+        world->deleteRigidBody(bodies[i]);
+    }
+
+    _IRR_DELETE_ARRAY(bodies, towerHeight * towerWidth);
+    world->deletebtObject(data3.shape);
+
+   
     node->removeInstances(towerHeight*towerWidth,instances);
     node->remove();
 
     gpumesh->drop();
+
+    world->drop();
 
     //create a screenshot
 	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
