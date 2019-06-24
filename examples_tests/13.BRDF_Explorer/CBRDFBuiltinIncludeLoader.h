@@ -61,10 +61,18 @@ float _GGXSmith_G1_(in float a2, in float NdotX)
 {
     return (2.0*NdotX) / (NdotX + sqrt(a2 + (1.0 - a2)*NdotX*NdotX));
 }
+float _GGXSmith_G1_wo_numerator(in float a2, in float NdotX)
+{
+    return 1.0 / (NdotX + sqrt(a2 + (1.0 - a2)*NdotX*NdotX));
+}
 
 float GGXSmith(in float a2, in float NdotL, in float NdotV)
 {
     return _GGXSmith_G1_(a2, NdotL) * _GGXSmith_G1_(a2, NdotV);
+}
+float GGXSmith_wo_numerator(in float a2, in float NdotL, in float NdotV)
+{
+    return _GGXSmith_G1_wo_numerator(a2, NdotL) * _GGXSmith_G1_wo_numerator(a2, NdotV);
 }
 
 #endif

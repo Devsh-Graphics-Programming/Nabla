@@ -202,10 +202,7 @@ float IoRfromF0_dielectric(float F0) {
         if (_params.constantRoughness)
             source += "\treturn uRoughness1;";
         else
-            source += 
-R"(float reflectance = texture(uRoughnessMap, texCoords).x;
-return IoRfromF0_dielectric(REFLECTANCE_SCALE_FACTOR*reflectance*reflectance);
-)";
+            source += "\treturn texture(uRoughnessMap, texCoords).x;";
         source += "\n}\n";
 
         source += "float getMetallic(in vec2 texCoords) {\n";
@@ -226,7 +223,10 @@ return IoRfromF0_dielectric(REFLECTANCE_SCALE_FACTOR*reflectance*reflectance);
         if (_params.constantRI)
             source += "\treturn uIoR;";
         else
-            source += "\treturn texture(uIoRMap, texCoords).x;";
+            source +=
+            R"(float reflectance = texture(uIoRMap, texCoords).x;
+return IoRfromF0_dielectric(REFLECTANCE_SCALE_FACTOR*reflectance*reflectance);
+)";
         source += "\n}\n";
 
         source += "float getAO(in vec2 texCoords) {\n";
@@ -365,9 +365,10 @@ R"(vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in
 		return vec3(/*NdotH>=(1.0-FLT_MIN) ? FLT_INF:*/0.0);
 
     float ndf = GGXTrowbridgeReitz(a2, NdotH);
-    float geom = GGXSmith(a2, NdotL, NdotV); // TODO: Correlated Smith!
+    float geom = GGXSmith_wo_numerator(a2, NdotL, NdotV); // TODO: Correlated Smith!
 
-    return ndf*geom*out_fresnel / (4.0 * NdotV * NdotL); // TODO: Cancel denominator with smith numerator
+    // Note: (4.0*NdotV*NdotL) denominator is cancelled by GGXSmith's numerator, thus the use of GGXSmith_wo_numerator()
+    return ndf*geom*out_fresnel;
 }
 
 vec3 IoRfromF0_conductor(in vec3 F0) {
@@ -375,7 +376,12 @@ vec3 IoRfromF0_conductor(in vec3 F0) {
 }
 
 vec3 Fresnel_combined(in float ior_dielectr, in vec3 ior_conductor, in float cosTheta, in float metallic) {
-    return mix(vec3(Fresnel_dielectric(ior_dielectr, cosTheta)), Fresnel_conductor(ior_conductor, cosTheta), metallic);
+    bvec3 is_inf = isinf(ior_conductor);
+    return mix(
+        mix(vec3(Fresnel_dielectric(ior_dielectr, cosTheta)), Fresnel_conductor(ior_conductor, cosTheta), metallic),
+        vec3(1.0),
+        is_inf
+    );
 }
 )";
         auto f = fopen("fragsrc.txt", "w");
