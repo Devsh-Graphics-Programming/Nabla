@@ -296,9 +296,10 @@ IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/specular/fresnel/fresn
 +
 R"(
 float diffuse(in float a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, in float NdotV);
-vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in float ior_dielectr, in vec3 ior_conduct, in float metallic, out vec3 out_fresnel);
+vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in float ior_dielectr, in mat2x3 ior_conduct, in float metallic, out vec3 out_fresnel);
 vec3 IoRfromF0_conductor(in vec3 F0);
-vec3 Fresnel_combined(in float ior_dielectr, in vec3 ior_conductor, in float cosTheta, in float metallic);
+mat2x3 IoR_KfromF0_F90_conductor(in vec3 F0, in vec3 F90);
+vec3 Fresnel_combined(in float ior_dielectr, in mat2x3 ior_conductor, in float cosTheta, in float metallic);
 
 void main() {
     const vec3 N = normalize(Normal);
@@ -330,15 +331,16 @@ void main() {
 
 		const float a2 = getRoughness(texCoords);
 		const float metallic = getMetallic(texCoords);
-		const vec3 albedo = getAlbedo(texCoords);
+		const vec3 baseColor = getAlbedo(texCoords);
 		const float ao = getAO(texCoords);
 
-		vec3 fresnel;
+        mat2x3 complexIoR = IoR_KfromF0_F90_conductor(baseColor, mix(vec3(1.0),pow(baseColor,vec3(0.1)),metallic));
 
 		float diffuse = diffuse(a2, N, L, V, NdotL, NdotV) * (1.0 - metallic);
-		vec3 spec = specular(a2, NdotL, NdotV, NdotH, VdotH, getIoR(texCoords), IoRfromF0_conductor(albedo), metallic, fresnel);
+		vec3 fresnel;
+		vec3 spec = specular(a2, NdotL, NdotV, NdotH, VdotH, getIoR(texCoords), complexIoR, metallic, fresnel);
 
-		color += ((diffuse * albedo * (vec3(1.0) - fresnel)) + spec) * NdotL * uLightIntensity * uLightColor / relLightPosLen2;
+		color += ((diffuse * baseColor * (vec3(1.0) - fresnel)) + spec) * NdotL * uLightIntensity * uLightColor / relLightPosLen2;
 	}
 	OutColor = vec4(color, 1.0);
 }
@@ -356,7 +358,7 @@ void main() {
         else source += "\treturn 0.0;";
         source += "\n}\n";
         source += 
-R"(vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in float ior_dielectr, in vec3 ior_conduct, in float metallic, out vec3 out_fresnel) {
+R"(vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in float ior_dielectr, in mat2x3 ior_conduct, in float metallic, out vec3 out_fresnel) {
 	//assert(NdotL>FLT_MIN);
     out_fresnel = Fresnel_combined(ior_dielectr, ior_conduct, VdotH, metallic);
     if (NdotV<FLT_MIN)
@@ -375,10 +377,14 @@ vec3 IoRfromF0_conductor(in vec3 F0) {
     return vec3(IoRfromF0_dielectric(F0.x), IoRfromF0_dielectric(F0.y), IoRfromF0_dielectric(F0.z));
 }
 
-vec3 Fresnel_combined(in float ior_dielectr, in vec3 ior_conductor, in float cosTheta, in float metallic) {
-    bvec3 is_inf = isinf(ior_conductor);
+mat2x3 IoR_KfromF0_F90_conductor(in vec3 F0, in vec3 F90) {
+    return mat2x3(IoRfromF0_conductor(F0), IoRfromF0_conductor(F90));
+}
+
+vec3 Fresnel_combined(in float ior_dielectr, in mat2x3 ior_conductor, in float cosTheta, in float metallic) {
+    bvec3 is_inf = isinf(ior_conductor[0]);
     return mix(
-        mix(vec3(Fresnel_dielectric(ior_dielectr, cosTheta)), Fresnel_conductor(ior_conductor, cosTheta), metallic),
+        mix(vec3(Fresnel_dielectric(ior_dielectr, cosTheta)), Fresnel_conductor(ior_conductor[0], ior_conductor[1], cosTheta), metallic),
         vec3(1.0),
         is_inf
     );
