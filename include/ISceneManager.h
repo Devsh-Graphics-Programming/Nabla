@@ -246,6 +246,12 @@ namespace scene
 			float translationSpeed=1500.f, int32_t id=-1, float distance=70.f,
 			bool makeActive=true) =0;
 
+		virtual ICameraSceneNode* addCameraSceneNodeModifiedMaya(IDummyTransformationSceneNode* parent = 0,
+			float rotateSpeed = -1500.f, float zoomSpeed = 200.f,
+			float translationSpeed = 1500.f, int32_t id = -1, float distance = 70.f,
+			float scrlZoomSpeed = 10.0f, bool scroolWithRMB = false,
+			bool makeActive = true) = 0;
+
 		//! Adds a camera scene node with an animator which provides mouse and keyboard control appropriate for first person shooters (FPS).
 		/** This FPS camera is intended to provide a demonstration of a
 		camera that behaves like a typical First Person Shooter. It is
