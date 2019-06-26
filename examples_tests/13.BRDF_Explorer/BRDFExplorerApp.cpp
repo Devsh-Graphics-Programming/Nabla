@@ -34,7 +34,7 @@ SOFTWARE.
 
 
 using namespace irr;
-//video::IVirtualTexture* createDerivMapFromBumpMap(const std::string& _bumpMapPath, IrrlichtDevice* _device);
+video::IVirtualTexture* createDerivMapFromBumpMap(const std::string& _bumpMapPath, IrrlichtDevice* _device);
 
 namespace
 {
@@ -196,8 +196,7 @@ void main()
     std::string genGetters(const SParams& _params)
     {
         std::string source = 
-R"(#define REFLECTANCE_SCALE_FACTOR 0.08
-
+R"(
 float IoRfromF0(float F0) {
     return 2.0/(1.0 - sqrt(F0)) - 1.0;
 }
@@ -230,29 +229,12 @@ float ReIoRfromF0andImIoR(float F0, float ImIoR)
             source += "\treturn texture(uMetallicMap, texCoords).x;";
         source += "\n}\n";
 
-        source += "vec3 getIoR_dielectric(in vec2 texCoords) {\n";
+        source += "vec3 getReflectance(in vec2 texCoords) {\n";
         if (_params.constantRI)
             source += "\treturn uRealIoR;";
         else
             source +=
-            R"(float F0 = texture(uIoRMap, texCoords).x;
-return vec3(IoRfromF0(REFLECTANCE_SCALE_FACTOR*F0*F0));
-)";
-        source += "\n}\n";
-
-        source += "vec3 getIoR_conductor(in vec2 texCoords) {\n";
-        if (_params.constantRI)
-            source += "\treturn uRealIoR;";
-        else
-            source +=
-            R"(float F0 = texture(uIoRMap, texCoords).x;
-F0 = REFLECTANCE_SCALE_FACTOR*F0*F0;
-return vec3(
-    ReIoRfromF0andImIoR(F0, uImagIoR.x),
-    ReIoRfromF0andImIoR(F0, uImagIoR.y),
-    ReIoRfromF0andImIoR(F0, uImagIoR.z)
-);
-)";
+            "\treturn texture(uIoRMap, texCoords).xxx;";
         source += "\n}\n";
 
         source += "float getAO(in vec2 texCoords) {\n";
@@ -301,17 +283,21 @@ layout (binding = 2) uniform sampler2D uIoRMap;
 layout (binding = 3) uniform sampler2D uMetallicMap;
 layout (binding = 4) uniform sampler2D uBumpMap;
 layout (binding = 5) uniform sampler2D uAOMap;
+//layout (binding = 6) uniform sampler2D uDerivativeMap;
 
 float getRoughness(in vec2 texCoords);
 float getMetallic(in vec2 texCoords);
-vec3 getIoR_dielectric(in vec2 texCoords);
-vec3 getIoR_conductor(in vec2 texCoords);
+vec3 getReflectance(in vec2 texCoords);
 float getAO(in vec2 texCoords);
 vec3 getAlbedo(in vec2 texCoords);
+float IoRfromF0(float F0);
+float ReIoRfromF0andImIoR(float F0, float ImIoR);
 
 #define FLT_MIN 1.175494351e-38
 #define FLT_MAX 3.402823466e+38
 #define FLT_INF (1.0/0.0)
+
+#define REFLECTANCE_SCALE_FACTOR 0.16
 )"
 +
 IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/diffuse/oren_nayar.glsl")
@@ -324,8 +310,8 @@ IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/specular/fresnel/fresn
 +
 R"(
 float diffuse(in float a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, in float NdotV);
-vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in vec3 ior_dielectr, in mat2x3 ior_conduct, in float metallic, out vec3 out_fresnel);
-vec3 Fresnel_combined(in vec3 ior_dielectr, in mat2x3 ior_conductor, in float cosTheta, in float metallic);
+vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in mat2x3 ior, in float metallic, out vec3 out_fresnel);
+vec3 Fresnel_combined(in mat2x3 ior, in float cosTheta, in float metallic);
 
 vec3 calculateSurfaceGradient(in vec3 normal, in vec3 dpdx, in vec3 dpdy, in float dhdx, in float dhdy)
 {
@@ -395,15 +381,32 @@ void main() {
 		const float metallic = getMetallic(texCoords);
 		const vec3 baseColor = getAlbedo(texCoords);
 		const float ao = getAO(texCoords);
-
-        vec3 IoR_dielectric = getIoR_dielectric(texCoords);
-        mat2x3 IoR_conductor = mat2x3(getIoR_conductor(texCoords), uImagIoR);
+)"
+    +
+    [&_params] {
+    if (!_params.constantRI)
+        return
+R"(
+        vec3 reflectance = getReflectance(texCoords);
+        vec3 F0 = mix(reflectance*reflectance*REFLECTANCE_SCALE_FACTOR, baseColor, metallic);
+        vec3 realIoR = vec3(
+            ReIoRfromF0andImIoR(F0.x, uImagIoR.x),
+            ReIoRfromF0andImIoR(F0.y, uImagIoR.y),
+            ReIoRfromF0andImIoR(F0.z, uImagIoR.z)
+        );
+)";
+    else // getReflectance() reads reflectance texture OR uRealIoR uniform
+        return "\t\tvec3 realIoR = getReflectance(texCoords);";
+    }()
+    +
+R"(
+        mat2x3 IoR = mat2x3(realIoR, uImagIoR);
 
 		float diffuse = diffuse(a2, N, L, V, NdotL, NdotV) * (1.0 - metallic);
 		vec3 fresnel;
-		vec3 spec = specular(a2, NdotL, NdotV, NdotH, VdotH, IoR_dielectric, IoR_conductor, metallic, fresnel);
+		vec3 spec = specular(a2, NdotL, NdotV, NdotH, VdotH, IoR, metallic, fresnel);
 
-		color += ((diffuse * baseColor * ao * (vec3(1.0) - fresnel)) + spec) * NdotL * 100.0 * uLightIntensity * uLightColor / relLightPosLen2;
+		color += ((diffuse * baseColor * ao * (vec3(1.0) - fresnel)) + spec) * NdotL * uLightIntensity * uLightColor / relLightPosLen2;
 	}
 	OutColor = vec4(color, 1.0);
 }
@@ -421,9 +424,9 @@ void main() {
         else source += "\treturn 0.0;";
         source += "\n}\n";
         source += 
-R"(vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in vec3 ior_dielectr, in mat2x3 ior_conduct, in float metallic, out vec3 out_fresnel) {
+R"(vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in mat2x3 ior, in float metallic, out vec3 out_fresnel) {
 	//assert(NdotL>FLT_MIN);
-    out_fresnel = Fresnel_combined(ior_dielectr, ior_conduct, VdotH, metallic);
+    out_fresnel = Fresnel_combined(ior, VdotH, metallic);
     if (NdotV<FLT_MIN)
         return vec3(0.0);
     if (a2<FLT_MIN)
@@ -436,10 +439,10 @@ R"(vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in
     return ndf*geom*out_fresnel;
 }
 
-vec3 Fresnel_combined(in vec3 ior_dielectr, in mat2x3 ior_conductor, in float cosTheta, in float metallic) {
-    bvec3 is_inf = isinf(ior_conductor[0]);
+vec3 Fresnel_combined(in mat2x3 ior, in float cosTheta, in float metallic) {
+    bvec3 is_inf = isinf(ior[0]);
     return mix(
-        mix(Fresnel_conductor(ior_dielectr, vec3(0.0), cosTheta), Fresnel_conductor(ior_conductor[0], ior_conductor[1], cosTheta), metallic),
+        Fresnel_conductor(ior[0], ior[1], cosTheta),
         vec3(1.0),
         is_inf
     );
@@ -853,6 +856,8 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
         });
     GUI->setOpacity("TextureViewWindow", defaultOpacity);
 
+    setGUIForConstantIoR();
+
     //irr::video::IVirtualTexture* derivMap = createDerivMapFromBumpMap("C:/Users/Crisser/Desktop/Cerberus_by_Andrew_Maximov/Cerberus_by_Andrew_Maximov/Textures/Cerberus_H.png", device);
     //Material.setTexture(6, derivMap);
 }
@@ -915,13 +920,18 @@ void BRDFExplorerApp::initDropdown()
                 root->getChild("MaterialParamsWindow/RIDropDownList/DropDown_RI"));
             list->setProperty("NormalEditTextColour", GUI->WhiteProperty);
 
-            bool realRISlidersDisabled = list->getSelectedItem()->getText() != "Constant";
+            bool realRIComesFromTexture = list->getSelectedItem()->getText() != "Constant";
             root->getChild("MaterialParamsWindow/RefractionIndexWindow1")
-                ->setDisabled(realRISlidersDisabled);
+                ->setDisabled(realRIComesFromTexture);
             root->getChild("MaterialParamsWindow/RefractionIndexWindow2")
-                ->setDisabled(realRISlidersDisabled);
+                ->setDisabled(realRIComesFromTexture);
             root->getChild("MaterialParamsWindow/RefractionIndexWindow3")
-                ->setDisabled(realRISlidersDisabled);
+                ->setDisabled(realRIComesFromTexture);
+
+            if (realRIComesFromTexture)
+                resetGUIAfterConstantIoR();
+            else
+                setGUIForConstantIoR();
 
             GUIState.RefractionIndex.SourceDropdown = getDropdownState(DROPDOWN_RI_NAME);
             updateMaterial();
@@ -974,6 +984,44 @@ void BRDFExplorerApp::initTooltip()
     static_cast<CEGUI::DefaultWindow*>(
         root->getChild("TextureViewWindow/Texture3Window/Texture"))
         ->setTooltipText("Left-click to select a new texture.");
+}
+
+void BRDFExplorerApp::setGUIForConstantIoR()
+{
+    auto root = GUI->getRootWindow();
+
+    auto* list = static_cast<::CEGUI::Combobox*>(root->getChild(
+        "MaterialParamsWindow/MetallicDropDownList/DropDown_Metallic"));
+
+    auto selection_Constant = list->getListboxItemFromIndex(0u);
+    auto selection_current = list->getSelectedItem();
+    if (selection_current != selection_Constant) // set metallic-source dropdown state to Constant
+    {
+        list->setItemSelectState(selection_Constant, true);
+        list->setItemSelectState(selection_current, false);
+    }
+    auto slider = static_cast<::CEGUI::Slider*>(root->getChild("MaterialParamsWindow/MetallicWindow/Slider"));
+    slider->setCurrentValue(0.f); // set slider of constant metallic value to 0
+    root->getChild("MaterialParamsWindow/MetallicWindow/LabelPercent")->setText("N/A"); // display N/A as metallic constant value
+
+    // appropriately set GUIState "cache"
+    GUIState.Metallic.SourceDropdown = EDS_CONSTANT;
+    GUIState.Metallic.ConstValue = 0.f;
+
+    // disable metallic options in GUI
+    root->getChild("MaterialParamsWindow/MetallicWindow")->setDisabled(true);
+    root->getChild("MaterialParamsWindow/MetallicDropDownList")->setDisabled(true);
+}
+
+void BRDFExplorerApp::resetGUIAfterConstantIoR()
+{
+    auto root = GUI->getRootWindow();
+
+    root->getChild("MaterialParamsWindow/MetallicWindow/LabelPercent")->setText("0.00");
+
+    // re-enable metallic options
+    root->getChild("MaterialParamsWindow/MetallicWindow")->setDisabled(false);
+    root->getChild("MaterialParamsWindow/MetallicDropDownList")->setDisabled(false);
 }
 
 void BRDFExplorerApp::renderGUI()
@@ -1110,12 +1158,12 @@ void BRDFExplorerApp::loadMeshAndReplaceTextures(const std::string& _path)
 
     irr::video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(MESHBUFFER_NUM);
     const irr::core::aabbox3df& aabb = mb->getBoundingBox();
-    LightAnimData.Radius = 25.f*std::max(aabb.getExtent().X, aabb.getExtent().Z)/2.f;
+    LightAnimData.Radius = std::max(aabb.getExtent().X, aabb.getExtent().Z)/2.f;
     LightAnimData.Radius *= 1.1f;
     irr::core::vector3df aabb_verts[8];
     aabb.getEdges(aabb_verts);
     auto lowest_highest = std::minmax_element(aabb_verts, aabb_verts+8, [](const irr::core::vector3df& a, const irr::core::vector3df& b) { return a.Y < b.Y; });
-    LightAnimData.Position.Y = 35.f*(lowest_highest.first->Y + lowest_highest.second->Y) / 2.f;
+    LightAnimData.Position.Y = (lowest_highest.first->Y + lowest_highest.second->Y) / 2.f;
     irr::core::vector2df center;
     for (uint32_t i = 0u; i < 8u; ++i)
     {

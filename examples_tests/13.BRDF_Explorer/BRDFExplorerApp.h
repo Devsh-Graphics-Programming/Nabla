@@ -178,6 +178,10 @@ class BRDFExplorerApp {
         void initDropdown();
         void initTooltip();
 
+        void setGUIForConstantIoR();
+        // used when IoR-source is set back to texture (from constant)
+        void resetGUIAfterConstantIoR();
+
         void updateTooltip(const char* name, const char* text);
         void eventAOTextureBrowse(const ::CEGUI::EventArgs&);
         void eventAOTextureBrowse_EditBox(const ::CEGUI::EventArgs&);
