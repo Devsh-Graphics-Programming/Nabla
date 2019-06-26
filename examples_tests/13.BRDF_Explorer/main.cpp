@@ -50,7 +50,7 @@ int main()
     while(device->run())
     if (device->isWindowActive())
     {
-        driver->beginScene(true, true, video::SColor(255,255,0,0) );
+        driver->beginScene(true, true, video::SColor(255,0,0,0) );
 
         // needed for camera to move
         smgr->drawAll();

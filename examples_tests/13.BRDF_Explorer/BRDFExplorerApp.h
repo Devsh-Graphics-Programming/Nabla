@@ -107,7 +107,8 @@ class BRDFExplorerApp {
             } Roughness;
             struct {
                 E_DROPDOWN_STATE SourceDropdown = EDS_CONSTANT;
-                float ConstValue = 1.f;
+                core::vector3df ConstantReal;
+                core::vector3df ConstantImag;
             } RefractionIndex;
             struct {
                 E_DROPDOWN_STATE SourceDropdown = EDS_CONSTANT;
@@ -164,7 +165,9 @@ class BRDFExplorerApp {
         SCPUGPUMesh loadMesh(const std::string& _path);
         void loadMeshAndReplaceTextures(const std::string& _path);
 
-        static constexpr float sliderRIRange = 2.0f;
+        //static constexpr float sliderRIRange = 2.0f;
+        static constexpr float sliderRealRIRange = 4.0f;
+        static constexpr float sliderImagRIRange = 10.0f;
         static constexpr float sliderMetallicRange = 1.0f;
         static constexpr float sliderRoughness1Range = 1.0f;
         static constexpr float sliderRoughness2Range = 1.0f;

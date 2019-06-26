@@ -109,6 +109,7 @@ set(IRRLICHT_SRCS_COMMON
 # Animators
 	CSceneNodeAnimatorCameraFPS.cpp
 	CSceneNodeAnimatorCameraMaya.cpp
+	CSceneNodeAnimatorCameraModifiedMaya.cpp
 	CSceneNodeAnimatorDelete.cpp
 	CSceneNodeAnimatorFlyCircle.cpp
 	CSceneNodeAnimatorFlyStraight.cpp
