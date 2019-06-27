@@ -16,6 +16,7 @@ If you feel like you'd be interesting in improving and maintaining this reposito
 # Official Support (Discord)
 
 Permament members of Devsh Graphics Programming Sp. z O.O. use this to organise publicly visible work.
+
 https://discord.gg/4MTCVaN
 
 We have no forums or message boards as of now, simply as there is no need for any project with a community of programmers under 100.
