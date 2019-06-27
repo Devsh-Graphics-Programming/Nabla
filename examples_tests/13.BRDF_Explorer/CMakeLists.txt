@@ -14,9 +14,16 @@ set(BRDF_EXPLORER_LIBS
 	${CEGUI_LIBS}
 )
 
-irr_create_executable_project(
+
+set(EXAMPLE_SOURCES
 	BRDFExplorerApp.cpp
-    ""
+	irrTex2ceguiTex.cpp
+	getTextureGLname.cpp
+)
+
+irr_create_executable_project(
+	"${EXAMPLE_SOURCES}"
+	""
 	"${IRR_EXT_CEGUI_INCLUDE_DIRS}"
 	"${BRDF_EXPLORER_LIBS}"
 )

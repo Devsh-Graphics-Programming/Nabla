@@ -65,7 +65,7 @@ int Exists(const char* file);
 std::pair<bool, std::string> openFileDialog(const char* title, const std::vector<std::string>& filters);
 
 // Loads an image file to a wrapped buffer. Replace your own IrrlichtBAW loader here
-ImageBuffer loadImage(const char* file);
+//ImageBuffer loadImage(const char* file);
 
 // Basically std::to_string(float), but with customizable floating point precision
 template <typename T>

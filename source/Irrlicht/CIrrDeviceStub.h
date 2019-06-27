@@ -10,6 +10,7 @@
 #include "SIrrCreationParameters.h"
 #include "CVideoModeList.h"
 #include "COpenCLHandler.h"
+#include "irr/asset/IIncludeHandler.h"
 
 namespace irr
 {
@@ -107,6 +108,8 @@ namespace irr
             //! Remove all messages pending in the system message loop
             virtual void clearSystemMessages();
 
+            asset::IIncludeHandler* getIncludeHandler() override { return IncludeHandler.get(); }
+            const asset::IIncludeHandler* getIncludeHandler() const override { return IncludeHandler.get(); }
 
         protected:
 
@@ -131,6 +134,7 @@ namespace irr
             IOSOperator* Operator;
             io::IFileSystem* FileSystem;
             scene::ISceneManager* InputReceivingSceneManager;
+            core::smart_refctd_ptr<asset::IIncludeHandler> IncludeHandler;
 
             struct SMouseMultiClicks
             {

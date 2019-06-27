@@ -4,6 +4,11 @@
     <Window type="DefaultWindow" name="UIRoot" >
         <Property name="Area" value="{{0,-1},{-1.16415e-010,1},{1,-1},{0.997222,1}}" />
         <Property name="MaxSize" value="{{1,0},{1,0}}" />
+		<Window type="Alfisko/Button" name="LoadModelButton" >
+			<Property name="Area" value="{{0.8,-2},{0.812582,0},{1,-4},{0.95,0}}" />
+			<Property name="Text" value="Load Model" />
+			<Property name="InheritsAlpha" value="false" />
+		</Window>
         <Window type="Alfisko/FrameWindow" name="MaterialParamsWindow" >
             <Property name="Area" value="{{0,0},{0,0},{0.235,0},{1,0}}" />
             <Property name="Text" value="Material Parameters" />

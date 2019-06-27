@@ -74,6 +74,10 @@ set(IRRLICHT_SRCS_COMMON
 	${CMAKE_SOURCE_DIR}/src/irr/asset/IAssetWriter.cpp
 	${CMAKE_SOURCE_DIR}/src/irr/asset/IAssetLoader.cpp
 	
+# Builtin include loaders
+	${CMAKE_SOURCE_DIR}/src/irr/asset/CGLSLScanBuiltinIncludeLoader.cpp
+	${CMAKE_SOURCE_DIR}/src/irr/asset/CGLSLSkinningBuiltinIncludeLoader.cpp
+	
 # Shaders
 	${CMAKE_SOURCE_DIR}/src/irr/asset/IGLSLCompiler.cpp
 	${CMAKE_SOURCE_DIR}/src/irr/asset/ICPUShader.cpp
@@ -91,9 +95,6 @@ set(IRRLICHT_SRCS_COMMON
 	CSkinnedMeshSceneNode.cpp
 	${CMAKE_SOURCE_DIR}/src/irr/asset/bawformat/TypedBlob.cpp
 	CCPUSkinnedMesh.cpp
-	
-# Shader loading and processing
-	CGLSLFunctionGenerator.cpp
 
 # Scene objects
 	CBillboardSceneNode.cpp

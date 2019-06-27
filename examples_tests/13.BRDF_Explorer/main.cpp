@@ -2,18 +2,10 @@
 
 #include <irrlicht.h>
 #include "BRDFExplorerApp.h"
+#include "CBRDFBuiltinIncludeLoader.h"
 
-// TODO: document example
-/**
-This example just shows a screen which clears to red,
-nothing fancy, just to show that Irrlicht links fine
-**/
 using namespace irr;
 
-/*
-The start of the main function starts like in most other example. We ask the
-user for the desired renderer and start it up.
-*/
 int main()
 {
     // create device with full flexibility over creation parameters
@@ -38,14 +30,32 @@ int main()
     video::IVideoDriver* driver = device->getVideoDriver();
     scene::ISceneManager* smgr = device->getSceneManager();
 
-    auto* brdfExplorerApp = new BRDFExplorerApp(device);
+    scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeMaya(nullptr, -750.f, 200.f, 200.f, -1, 10.f);
+    camera->setPosition(core::vector3df(-4.f, 0.f, 0.f));
+    camera->setTarget(core::vector3df(0.f, 0.f, 0.f));
+    camera->setNearValue(0.01f);
+    camera->setFarValue(1000.0f);
+    smgr->setActiveCamera(camera);
+
+    {
+    auto brdfBuiltinLoader = new CBRDFBuiltinIncludeLoader();
+    device->getIncludeHandler()->addBuiltinIncludeLoader(brdfBuiltinLoader);
+    brdfBuiltinLoader->drop();
+    }
+
+    auto* brdfExplorerApp = new BRDFExplorerApp(device, camera);
 
     uint64_t lastFPSTime = 0;
 
     while(device->run())
     if (device->isWindowActive())
     {
-        driver->beginScene(true, false, video::SColor(255,255,0,0) ); //this gets 11k FPS
+        driver->beginScene(true, true, video::SColor(255,255,0,0) );
+
+        // needed for camera to move
+        smgr->drawAll();
+
+        brdfExplorerApp->renderMesh();
         brdfExplorerApp->renderGUI();
         driver->endScene();
     }
