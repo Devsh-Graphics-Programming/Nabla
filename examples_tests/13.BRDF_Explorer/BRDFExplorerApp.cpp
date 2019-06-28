@@ -34,7 +34,7 @@ SOFTWARE.
 
 
 using namespace irr;
-video::IVirtualTexture* createDerivMapFromBumpMap(const std::string& _bumpMapPath, IrrlichtDevice* _device);
+video::IVirtualTexture* createDerivMapFromBumpMap(video::IVirtualTexture* _bumpMap, IrrlichtDevice* _device, float _heightFactor);
 
 namespace
 {
@@ -56,7 +56,7 @@ class CShaderConstantSetCallback : public video::IShaderConstantSetCallBack
     static constexpr SShaderConstant uRoughness2 {3, video::ESCT_FLOAT};
     static constexpr SShaderConstant uRealIoR {4, video::ESCT_FLOAT_VEC3};
     static constexpr SShaderConstant uMetallic {5, video::ESCT_FLOAT};
-    static constexpr SShaderConstant uHeightFactor {6, video::ESCT_FLOAT};
+    static constexpr SShaderConstant uHeightScaleFactor {6, video::ESCT_FLOAT};
     static constexpr SShaderConstant uLightColor {7, video::ESCT_FLOAT_VEC3};
     static constexpr SShaderConstant uLightPos {8, video::ESCT_FLOAT_VEC3};
     static constexpr SShaderConstant uEyePos {9, video::ESCT_FLOAT_VEC3};
@@ -87,7 +87,7 @@ public:
         services->setShaderConstant(&GUIState.RefractionIndex.ConstantImag.X, uImagIoR.location, uImagIoR.type, 1u);
         if (GUIState.Metallic.SourceDropdown == irr::BRDFExplorerApp::EDS_CONSTANT)
             services->setShaderConstant(&GUIState.Metallic.ConstValue, uMetallic.location, uMetallic.type, 1u);
-        //services->setShaderConstant(&GUIState.BumpMapping.Height, uHeightFactor.location, uHeightFactor.type, 1u);
+        services->setShaderConstant(&GUIState.BumpMapping.Height, uHeightScaleFactor.location, uHeightScaleFactor.type, 1u);
         if (!GUIState.Light.Animated)
             services->setShaderConstant(&GUIState.Light.ConstantPosition.X, uLightPos.location, uLightPos.type, 1u);
         else
@@ -118,6 +118,7 @@ public:
         bool metallicIsZero;
         bool metallicIsOne;
         bool AOEnabled;
+        bool derivMapIsPresent;
     };
 
 private:
@@ -140,7 +141,8 @@ private:
         ESF_CONST_METALLIC = 1<<5,
         ESF_ZERO_METALLIC = 1<<6,
         ESF_ONE_METALLIC = 1<<7,
-        ESF_AO_ENABLED = 1<<8
+        ESF_AO_ENABLED = 1<<8,
+        ESF_DERIV_MAP_PRESENT = 1<<9
     };
 
     static constexpr const char* VERTEX_SHADER_SRC = 
@@ -189,6 +191,7 @@ void main()
         key |= Key_t{_p.metallicIsZero}<<firstSetBit(ESF_ZERO_METALLIC);
         key |= Key_t{_p.metallicIsOne}<<firstSetBit(ESF_ONE_METALLIC);
         key |= Key_t{_p.AOEnabled}<<firstSetBit(ESF_AO_ENABLED);
+        key |= Key_t{_p.derivMapIsPresent}<<firstSetBit(ESF_DERIV_MAP_PRESENT);
 
         return key;
     }
@@ -257,7 +260,7 @@ float ReIoRfromF0andImIoR(float F0, float ImIoR)
     video::E_MATERIAL_TYPE addShader(const SParams& _params)
     {
         std::string source =
-R"(#version 430 core
+            R"(#version 430 core
 
 layout (location = 0) out vec4 OutColor;
 
@@ -271,7 +274,7 @@ layout (location = 2) uniform float uRoughness1;
 layout (location = 3) uniform float uRoughness2;
 layout (location = 4) uniform vec3 uRealIoR;
 layout (location = 5) uniform float uMetallic;
-layout (location = 6) uniform float uHeightFactor;
+layout (location = 6) uniform float uHeightScaleFactor;
 layout (location = 7) uniform vec3 uLightColor;
 layout (location = 8) uniform vec3 uLightPos;
 layout (location = 9) uniform vec3 uEyePos;
@@ -281,9 +284,8 @@ layout (binding = 0) uniform sampler2D uAlbedoMap;
 layout (binding = 1) uniform sampler2D uRoughnessMap;
 layout (binding = 2) uniform sampler2D uIoRMap;
 layout (binding = 3) uniform sampler2D uMetallicMap;
-layout (binding = 4) uniform sampler2D uBumpMap;
+layout (binding = 4) uniform sampler2D uDerivativeMap;
 layout (binding = 5) uniform sampler2D uAOMap;
-//layout (binding = 6) uniform sampler2D uDerivativeMap;
 
 float getRoughness(in vec2 texCoords);
 float getMetallic(in vec2 texCoords);
@@ -348,9 +350,18 @@ vec3 calculateSurfaceNormal(in vec3 position, in vec2 uv, in vec3 normal, in vec
 
 void main() {
     vec3 N = normalize(Normal);
-    //vec2 h_gradient = texture(uDerivativeMap, vec2(TexCoords.x, 1.0-TexCoords.y)).xy * derivScaleFactor.xx;
-    //N = calculateSurfaceNormal(WorldPos, vec2(TexCoords.x, 1.0-TexCoords.y), N, h_gradient);
-
+    const vec2 texCoords = vec2(TexCoords.x, 1.0-TexCoords.y);
+)"
+    +
+    (_params.derivMapIsPresent ?
+R"(
+    vec2 derivMapSz = vec2(textureSize(uDerivativeMap));
+    vec2 h_gradient = texture(uDerivativeMap, texCoords).xy*0.5*max(derivMapSz.x, derivMapSz.y);
+    N = calculateSurfaceNormal(WorldPos, texCoords, N, h_gradient);
+)" : ""
+    )
+    +
+R"(
     const vec3 relLightPos = uLightPos - WorldPos;
     float NdotL = dot(N, relLightPos);
 
@@ -374,8 +385,6 @@ void main() {
         const float VdotH = max(LplusV_rcpLen + LplusV_rcpLen*LdotV, 0.0);
         NdotV = max(NdotV, 0.0);
 		// identity comment end (but also do you need to clamp all of them?)
-
-		const vec2 texCoords = vec2(TexCoords.x, 1.0-TexCoords.y);
 
 		const float a2 = getRoughness(texCoords);
 		const float metallic = getMetallic(texCoords);
@@ -484,6 +493,29 @@ public:
     }
 };
 
+class CDerivativeMapManager
+{
+    using Key_t = std::pair<irr::video::IVirtualTexture*, float>;
+
+    core::map<Key_t, video::IVirtualTexture*> DerivMaps;
+    IrrlichtDevice* Device;
+
+public:
+    CDerivativeMapManager(IrrlichtDevice* _device) : Device{_device} {}
+    ~CDerivativeMapManager() {
+        for (auto& t : DerivMaps)
+            t.second->drop();
+    }
+
+    video::IVirtualTexture* getDerivativeMap(video::IVirtualTexture* _bumpMap, float _heightFactor)
+    {
+        auto found = DerivMaps.find({_bumpMap, _heightFactor});
+        if (found != DerivMaps.end())
+            return found->second;
+        return DerivMaps[{_bumpMap, _heightFactor}] = createDerivMapFromBumpMap(_bumpMap, Device, _heightFactor);
+    }
+};
+
 namespace irr
 {
 
@@ -492,7 +524,8 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
         Driver(device->getVideoDriver()),
         AssetManager(device->getAssetManager()),
         GUI(ext::cegui::createGUIManager(device)),
-        ShaderManager(new CShaderManager(Driver->getGPUProgrammingServices(), device->getIncludeHandler(), GUIState, LightAnimData, Camera))
+        ShaderManager(new CShaderManager(Driver->getGPUProgrammingServices(), device->getIncludeHandler(), GUIState, LightAnimData, Camera)),
+        DerivativeMapManager(new CDerivativeMapManager(device))
 {
     TextureSlotMap = {
         { ETEXTURE_SLOT::TEXTURE_AO,
@@ -806,6 +839,8 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
             root->getChild("MaterialParamsWindow/BumpWindow/LabelPercent")
                 ->setText(ext::cegui::toStringFloat(height, 2));
             GUIState.BumpMapping.Height = height;
+            DerivMapGeneration.HeightFactorChanged = true;
+            DerivMapGeneration.TimePointLastHeightFactorChange = Clock::now();
         });
     initDropdown();
     initTooltip();
@@ -1046,12 +1081,17 @@ void BRDFExplorerApp::renderMesh()
     params.metallicIsOne = (GUIState.Metallic.ConstValue==1.f);
     params.metallicIsZero = (GUIState.Metallic.ConstValue==0.f);
     params.roughnessIsZero = (GUIState.Roughness.ConstValue1==0.f);
+    params.derivMapIsPresent = (Textures.BumpMap && Textures.BumpMap!=DefaultTexture);
 
     Material.MaterialType = ShaderManager->getShader(params);
 
     irr::video::IGPUMeshBuffer* meshbuffer = Mesh->getMeshBuffer(MESHBUFFER_NUM);
     Driver->setMaterial(Material);
     Driver->drawMeshBuffer(meshbuffer);
+}
+void BRDFExplorerApp::update()
+{
+    updateMaterial();
 }
 /*
 void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _texture)
@@ -1243,6 +1283,39 @@ void BRDFExplorerApp::showErrorMessage(const char* title, const char* message)
         ->setText(message);
 }
 
+void BRDFExplorerApp::updateMaterial()
+{
+    auto common = [this](E_DROPDOWN_STATE texnum, uint32_t texunit) {
+        uint32_t ix = texnum - EDS_TEX0;
+        if (Textures.TextureViewer[ix] && Textures.TextureViewer[ix] != DefaultTexture)
+            Material.setTexture(texunit, Textures.TextureViewer[ix]);
+    };
+    if (GUIState.Albedo.SourceDropdown != EDS_CONSTANT)
+        common(GUIState.Albedo.SourceDropdown, ALBEDO_MAP_TEX_UNIT);
+    if (GUIState.Roughness.SourceDropdown != EDS_CONSTANT)
+        common(GUIState.Roughness.SourceDropdown, ROUGHNESS_MAP_TEX_UNIT);
+    if (GUIState.RefractionIndex.SourceDropdown != EDS_CONSTANT)
+        common(GUIState.RefractionIndex.SourceDropdown, IOR_MAP_TEX_UNIT);
+    if (GUIState.Metallic.SourceDropdown != EDS_CONSTANT)
+        common(GUIState.Metallic.SourceDropdown, METALLIC_MAP_TEX_UNIT);
+
+    constexpr float WAIT_TIME = 0.3f; //seconds
+
+    float timeSinceChange = std::chrono::duration_cast<Duration>(Clock::now() - DerivMapGeneration.TimePointLastHeightFactorChange).count();
+    if (Textures.BumpMap &&
+        Textures.BumpMap != DefaultTexture &&
+        DerivMapGeneration.HeightFactorChanged &&
+        timeSinceChange >= WAIT_TIME
+        ) {
+        DerivativeMapManager->getDerivativeMap(Textures.BumpMap, GUIState.BumpMapping.Height);
+        DerivMapGeneration.HeightFactorChanged = false;
+        Material.setTexture(DERIV_MAP_TEX_UNIT, DerivativeMapManager->getDerivativeMap(Textures.BumpMap, GUIState.BumpMapping.Height));
+    }
+
+    if (Textures.AO && Textures.AO != DefaultTexture)
+        Material.setTexture(AO_MAP_TEX_UNIT, Textures.AO);
+}
+
 void BRDFExplorerApp::eventAOTextureBrowse(const ::CEGUI::EventArgs&)
 {
     const auto p = GUI->openFileDialog(ImageFileDialogTitle, ImageFileDialogFilters);
@@ -1380,6 +1453,7 @@ void BRDFExplorerApp::eventMeshBrowse(const CEGUI::EventArgs& e)
 
 BRDFExplorerApp::~BRDFExplorerApp()
 {
+    delete DerivativeMapManager;
     delete ShaderManager;
 }
 

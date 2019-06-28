@@ -3,6 +3,7 @@
 #include <irrlicht.h>
 #include "BRDFExplorerApp.h"
 #include "CBRDFBuiltinIncludeLoader.h"
+#include "CComputeShaderManager.h"
 
 using namespace irr;
 
@@ -55,11 +56,12 @@ int main()
         // needed for camera to move
         smgr->drawAll();
 
+        brdfExplorerApp->update();
         brdfExplorerApp->renderMesh();
         brdfExplorerApp->renderGUI();
         driver->endScene();
     }
-    // create a screenshot using example 09's mechanism
+    CComputeShaderManager::clear();
     device->drop();
 
     return 0;

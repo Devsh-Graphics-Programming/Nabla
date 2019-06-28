@@ -36,6 +36,7 @@ SOFTWARE.
 #include <ICameraSceneNode.h>
 
 class CShaderManager;
+class CDerivativeMapManager;
 
 namespace CEGUI
 {
@@ -115,7 +116,7 @@ class BRDFExplorerApp {
                 float ConstValue = 0.f;
             } Metallic;
             struct {
-                float Height = 0.f;
+                float Height = 0.01f;
             } BumpMapping;
             struct {
                 bool Enabled = false;
@@ -148,6 +149,8 @@ class BRDFExplorerApp {
 
         void renderGUI();
         void renderMesh();
+        //! Controls things dependent on time, must be called every frame
+        void update();
 
         // Loads a given texture buffer into slot of type T.
         // T can be one of the TextureType enum types.
@@ -171,7 +174,7 @@ class BRDFExplorerApp {
         static constexpr float sliderMetallicRange = 1.0f;
         static constexpr float sliderRoughness1Range = 1.0f;
         static constexpr float sliderRoughness2Range = 1.0f;
-        static constexpr float sliderBumpHeightRange = 20.0f;
+        static constexpr float sliderBumpHeightRange = 2.0f;
         static constexpr float sliderLightIntensityRange = 99.f; // turns out i cant set min value on cegui slider XD
         static constexpr float defaultOpacity = 0.85f;
 
@@ -223,25 +226,7 @@ class BRDFExplorerApp {
         static constexpr uint32_t METALLIC_MAP_TEX_UNIT = 3u;
         static constexpr uint32_t DERIV_MAP_TEX_UNIT = 4u;
         static constexpr uint32_t AO_MAP_TEX_UNIT = 5u;
-        inline void updateMaterial()
-        {
-            auto common = [this] (E_DROPDOWN_STATE texnum, uint32_t texunit) {
-                uint32_t ix = texnum - EDS_TEX0;
-                if (Textures.TextureViewer[ix] && Textures.TextureViewer[ix] != DefaultTexture)
-                    Material.setTexture(texunit, Textures.TextureViewer[ix]);
-            };
-            if (GUIState.Albedo.SourceDropdown != EDS_CONSTANT)
-                common(GUIState.Albedo.SourceDropdown, ALBEDO_MAP_TEX_UNIT);
-            if (GUIState.Roughness.SourceDropdown != EDS_CONSTANT)
-                common(GUIState.Roughness.SourceDropdown, ROUGHNESS_MAP_TEX_UNIT);
-            if (GUIState.RefractionIndex.SourceDropdown != EDS_CONSTANT)
-                common(GUIState.RefractionIndex.SourceDropdown, IOR_MAP_TEX_UNIT);
-            if (GUIState.Metallic.SourceDropdown != EDS_CONSTANT)
-                common(GUIState.Metallic.SourceDropdown, METALLIC_MAP_TEX_UNIT);
-
-            Material.setTexture(DERIV_MAP_TEX_UNIT, Textures.BumpMap);
-            Material.setTexture(AO_MAP_TEX_UNIT, Textures.AO);
-        }
+        void updateMaterial();
 
     private:
         scene::ICameraSceneNode* Camera = nullptr;
@@ -255,6 +240,11 @@ class BRDFExplorerApp {
             irr::video::IVirtualTexture* AO = nullptr;
             irr::video::IVirtualTexture* BumpMap = nullptr;
         } Textures;
+
+        struct {
+            TimePoint TimePointLastHeightFactorChange = Clock::now();
+            float HeightFactorChanged = false;
+        } DerivMapGeneration;
         
         SGUIState GUIState;
 
@@ -266,6 +256,7 @@ class BRDFExplorerApp {
         irr::video::IVirtualTexture* DefaultTexture = nullptr;
 
         CShaderManager* ShaderManager = nullptr;
+        CDerivativeMapManager* DerivativeMapManager = nullptr;
 };
 
 } // namespace irr
