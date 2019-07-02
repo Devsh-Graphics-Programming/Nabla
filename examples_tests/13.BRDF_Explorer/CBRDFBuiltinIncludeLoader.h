@@ -48,6 +48,14 @@ float GGXTrowbridgeReitz(in float a2, in float NdotH)
     return a2 / (3.14159265359 * denom*denom);
 }
 
+float GGXBurleyAnisotropic(float at, float ab, float TdotH, float BdotH, float NdotH) {
+    float a2 = at*ab;
+    vec3 v = vec3(ab * TdotH, at * BdotH, a2 * NdotH);
+    float v2 = dot(v, v);
+    float w2 = a2 / v2;
+    return a2 * w2 * w2 / 3.14159265359;
+}
+
 #endif
 )";
     }
@@ -98,6 +106,13 @@ float GGXSmithHeightCorrelated_approx(in float a, in float NdotL, in float NdotV
 float GGXSmithHeightCorrelated_approx_wo_numerator(in float a, in float NdotL, in float NdotV)
 {
     return 1.0 / mix(2.0*NdotL*NdotV, NdotL+NdotV, a);
+}
+
+float GGXSmithHeightCorrelated_aniso_wo_numerator(in float at, in float ab, in float TdotL, in float TdotV, in float BdotL, in float BdotV, in float NdotL, in float NdotV)
+{
+    float Vterm = NdotL * length(vec3(at*TdotV, ab*BdotV, NdotV));
+    float Lterm = NdotV * length(vec3(at*TdotL, ab*BdotL, NdotL));
+    return 1.0 / (Vterm + Lterm);
 }
 
 #endif

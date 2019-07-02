@@ -52,8 +52,8 @@ class CShaderConstantSetCallback : public video::IShaderConstantSetCallBack
     static constexpr SShaderConstant uVP {20, video::ESCT_FLOAT_MAT4};
     static constexpr SShaderConstant uEmissive {0, video::ESCT_FLOAT_VEC3};
     static constexpr SShaderConstant uAlbedo {1, video::ESCT_FLOAT_VEC3};
-    static constexpr SShaderConstant uRoughness1 {2, video::ESCT_FLOAT};
-    static constexpr SShaderConstant uRoughness2 {3, video::ESCT_FLOAT};
+    static constexpr SShaderConstant uRoughness {2, video::ESCT_FLOAT};
+    static constexpr SShaderConstant uAnisotropy {3, video::ESCT_FLOAT};
     static constexpr SShaderConstant uRealIoR {4, video::ESCT_FLOAT_VEC3};
     static constexpr SShaderConstant uMetallic {5, video::ESCT_FLOAT};
     static constexpr SShaderConstant uHeightScaleFactor {6, video::ESCT_FLOAT};
@@ -81,7 +81,13 @@ public:
         if (GUIState.Albedo.SourceDropdown == irr::BRDFExplorerApp::EDS_CONSTANT)
             services->setShaderConstant(&GUIState.Albedo.ConstantColor.X, uAlbedo.location, uAlbedo.type, 1u);
         if (GUIState.Roughness.SourceDropdown == irr::BRDFExplorerApp::EDS_CONSTANT)
-            services->setShaderConstant(&GUIState.Roughness.ConstValue1, uRoughness1.location, uRoughness1.type, 1u);
+            services->setShaderConstant(&GUIState.Roughness.ConstValue1, uRoughness.location, uRoughness.type, 1u);
+        if (GUIState.Roughness.SourceDropdown==irr::BRDFExplorerApp::EDS_CONSTANT && !GUIState.Roughness.IsIsotropic)
+            services->setShaderConstant(&GUIState.Roughness.ConstValue2, uAnisotropy.location, uAnisotropy.type, 1u);
+        else {
+            const float aniso = 0.f;
+            services->setShaderConstant(&aniso, uAnisotropy.location, uAnisotropy.type, 1u);
+        }
         if (GUIState.RefractionIndex.SourceDropdown == irr::BRDFExplorerApp::EDS_CONSTANT)
             services->setShaderConstant(&GUIState.RefractionIndex.ConstantReal.X, uRealIoR.location, uRealIoR.type, 1u);
         services->setShaderConstant(&GUIState.RefractionIndex.ConstantImag.X, uImagIoR.location, uImagIoR.type, 1u);
@@ -213,7 +219,7 @@ float ReIoRfromF0andImIoR(float F0, float ImIoR)
 
         source += "float getRoughness(in vec2 texCoords) {\n";
         if (_params.constantRoughness)
-            source += "\treturn uRoughness1;";
+            source += "\treturn uRoughness;";
         else
             source += "\treturn texture(uRoughnessMap, texCoords).x;";
         source += "\n}\n";
@@ -270,8 +276,8 @@ in vec3 Normal;
 
 layout (location = 0) uniform vec3 uEmissive;
 layout (location = 1) uniform vec3 uAlbedo;
-layout (location = 2) uniform float uRoughness1;
-layout (location = 3) uniform float uRoughness2;
+layout (location = 2) uniform float uRoughness;
+layout (location = 3) uniform float uAnisotropy;
 layout (location = 4) uniform vec3 uRealIoR;
 layout (location = 5) uniform float uMetallic;
 layout (location = 6) uniform float uHeightScaleFactor;
@@ -312,7 +318,7 @@ IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/specular/fresnel/fresn
 +
 R"(
 float diffuse(in float a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, in float NdotV);
-vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in mat2x3 ior, in float metallic, out vec3 out_fresnel);
+vec3 specular(in float a2, in float at, in float ab, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in float TdotV, in float TdotL, in float BdotV, in float BdotL, in float TdotH, in float BdotH, in mat2x3 ior, in float metallic, out vec3 out_fresnel);
 vec3 Fresnel_combined(in mat2x3 ior, in float cosTheta, in float metallic);
 
 vec3 calculateSurfaceGradient(in vec3 normal, in vec3 dpdx, in vec3 dpdy, in float dhdx, in float dhdy)
@@ -351,6 +357,14 @@ vec3 calculateSurfaceNormal(in vec3 position, in vec2 uv, in vec3 normal, in vec
 void main() {
     vec3 N = normalize(Normal);
     const vec2 texCoords = vec2(TexCoords.x, 1.0-TexCoords.y);
+    vec3 dp1 = dFdx( WorldPos );
+    vec3 dp2 = dFdy( WorldPos );
+    vec2 duv1 = dFdx( TexCoords );
+    vec2 duv2 = dFdy( TexCoords );
+    vec3 dp2perp = cross( dp2, N );
+    vec3 dp1perp = cross( N, dp1 );
+    vec3 T = normalize(dp2perp * duv1.x + dp1perp * duv2.x);
+    vec3 B = normalize(dp2perp * duv1.y + dp1perp * duv2.y);
 )"
     +
     (_params.derivMapIsPresent ?
@@ -374,19 +388,33 @@ R"(
 		// there are better identities to get all of these
 		const vec3 V = normalize(uEyePos - WorldPos);
 		const vec3 L = normalize(relLightPos);
+        const vec3 H = normalize(V+L);
 
 		float NdotV = dot(N, V);
         float LdotV = dot(L, V);
 
         // dots with H identities taken from Earl Hammon's PBR Diffuse Lighting GDC17 lecture
+        /*
         const float LplusV_lenSq = 2.0 + 2.0*LdotV;
         const float LplusV_rcpLen = inversesqrt(LplusV_lenSq);
         const float NdotH = max((NdotL + NdotV) * LplusV_rcpLen, 0.0);
         const float VdotH = max(LplusV_rcpLen + LplusV_rcpLen*LdotV, 0.0);
+        */
+        const float NdotH = max(dot(N, H), 0.0);
+        const float VdotH = max(dot(V, H), 0.0);
         NdotV = max(NdotV, 0.0);
+
+        const float TdotV = max(dot(T, V), 0.0);
+        const float TdotL = max(dot(T, L), 0.0);
+        const float BdotV = max(dot(B, V), 0.0);
+        const float BdotL = max(dot(B, L), 0.0);
+        const float TdotH = max(dot(T, H), 0.0);
+        const float BdotH = max(dot(B, H), 0.0);
 		// identity comment end (but also do you need to clamp all of them?)
 
 		const float a2 = getRoughness(texCoords);
+        const float at = sqrt(a2);
+        const float ab = at*(1.0 - uAnisotropy);
 		const float metallic = getMetallic(texCoords);
 		const vec3 baseColor = getAlbedo(texCoords);
 		const float ao = getAO(texCoords);
@@ -413,7 +441,7 @@ R"(
 
 		float diffuse = diffuse(a2, N, L, V, NdotL, NdotV) * (1.0 - metallic);
 		vec3 fresnel;
-		vec3 spec = specular(a2, NdotL, NdotV, NdotH, VdotH, IoR, metallic, fresnel);
+		vec3 spec = specular(a2, at, ab, NdotL, NdotV, NdotH, VdotH, TdotV, TdotL, BdotV, BdotL, TdotH, BdotH, IoR, metallic, fresnel);
 
 		color += ((diffuse * baseColor * ao * (vec3(1.0) - fresnel)) + spec) * NdotL * uLightIntensity * uLightColor / relLightPosLen2;
 	}
@@ -433,7 +461,7 @@ R"(
         else source += "\treturn 0.0;";
         source += "\n}\n";
         source += 
-R"(vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in mat2x3 ior, in float metallic, out vec3 out_fresnel) {
+R"(vec3 specular(in float a2, in float at, in float ab, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in float TdotV, in float TdotL, in float BdotV, in float BdotL, in float TdotH, in float BdotH, in mat2x3 ior, in float metallic, out vec3 out_fresnel) {
 	//assert(NdotL>FLT_MIN);
     out_fresnel = Fresnel_combined(ior, VdotH, metallic);
     if (NdotV<FLT_MIN)
@@ -441,8 +469,8 @@ R"(vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in
     if (a2<FLT_MIN)
 		return vec3(/*NdotH>=(1.0-FLT_MIN) ? FLT_INF:*/0.0);
 
-    float ndf = GGXTrowbridgeReitz(a2, NdotH);
-    float geom = GGXSmithHeightCorrelated_wo_numerator(a2, NdotL, NdotV);
+    float ndf = GGXBurleyAnisotropic(at, ab, TdotH, BdotH, NdotH);//GGXTrowbridgeReitz(a2, NdotH);
+    float geom = GGXSmithHeightCorrelated_aniso_wo_numerator(at, ab, TdotL, TdotV, BdotL, BdotV, NdotL, NdotV);//GGXSmithHeightCorrelated_wo_numerator(a2, NdotL, NdotV);
 
     // Note: (2.0*NdotV*NdotL) denominator is cancelled by GGXSmith's numerator, thus the use of GGXSmithHeightCorrelated_wo_numerator()
     return 0.5*ndf*geom*out_fresnel;
