@@ -355,8 +355,8 @@ void main() {
     +
     (_params.derivMapIsPresent ?
 R"(
-    vec2 derivMapSz = vec2(textureSize(uDerivativeMap));
-    vec2 h_gradient = texture(uDerivativeMap, texCoords).xy*0.5*max(derivMapSz.x, derivMapSz.y);
+    vec2 derivMapSz = vec2(textureSize(uDerivativeMap, 0));
+    vec2 h_gradient = texture(uDerivativeMap, texCoords).xy*0.5*uHeightScaleFactor*max(derivMapSz.x, derivMapSz.y);
     N = calculateSurfaceNormal(WorldPos, texCoords, N, h_gradient);
 )" : ""
     )
@@ -442,14 +442,14 @@ R"(vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in
 		return vec3(/*NdotH>=(1.0-FLT_MIN) ? FLT_INF:*/0.0);
 
     float ndf = GGXTrowbridgeReitz(a2, NdotH);
-    float geom = GGXSmith_wo_numerator(a2, NdotL, NdotV); // TODO: Correlated Smith!
+    float geom = GGXSmithHeightCorrelated_wo_numerator(a2, NdotL, NdotV);
 
-    // Note: (4.0*NdotV*NdotL) denominator is cancelled by GGXSmith's numerator, thus the use of GGXSmith_wo_numerator()
-    return ndf*geom*out_fresnel;
+    // Note: (2.0*NdotV*NdotL) denominator is cancelled by GGXSmith's numerator, thus the use of GGXSmithHeightCorrelated_wo_numerator()
+    return 0.5*ndf*geom*out_fresnel;
 }
 
 vec3 Fresnel_combined(in mat2x3 ior, in float cosTheta, in float metallic) {
-    bvec3 is_inf = isinf(ior[0]);
+    bvec3 is_inf = isinf(ior[0]*ior[0] + ior[1]*ior[1]);
     return mix(
         Fresnel_conductor(ior[0], ior[1], cosTheta),
         vec3(1.0),

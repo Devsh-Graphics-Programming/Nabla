@@ -75,6 +75,31 @@ float GGXSmith_wo_numerator(in float a2, in float NdotL, in float NdotV)
     return _GGXSmith_G1_wo_numerator(a2, NdotL) * _GGXSmith_G1_wo_numerator(a2, NdotV);
 }
 
+float GGXSmithHeightCorrelated(in float a2, in float NdotL, in float NdotV)
+{
+    float denom = NdotV*sqrt(a2 + (1.0 - a2)*NdotL*NdotL) + NdotL*sqrt(a2 + (1.0 - a2)*NdotV*NdotV);
+    return 2.0*NdotL*NdotV / denom;
+}
+
+float GGXSmithHeightCorrelated_wo_numerator(in float a2, in float NdotL, in float NdotV)
+{
+    float denom = NdotV*sqrt(a2 + (1.0 - a2)*NdotL*NdotL) + NdotL*sqrt(a2 + (1.0 - a2)*NdotV*NdotV);
+    return 1.0 / denom;
+}
+
+// Note a, not a2!
+float GGXSmithHeightCorrelated_approx(in float a, in float NdotL, in float NdotV)
+{
+    float num = 2.0*NdotL*NdotV;
+    return num / mix(num, NdotL+NdotV, a);
+}
+
+// Note a, not a2!
+float GGXSmithHeightCorrelated_approx_wo_numerator(in float a, in float NdotL, in float NdotV)
+{
+    return 1.0 / mix(2.0*NdotL*NdotV, NdotL+NdotV, a);
+}
+
 #endif
 )";
     }
