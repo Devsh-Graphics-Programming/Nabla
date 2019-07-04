@@ -16,6 +16,7 @@ Fully metallic materials does not present diffuse light.
 * At the very bottom of this window, you can set texture AO. Make sure to select Enabled checkbox for it to be used.
 * As you might have notices, there are for dropdown menus for albedo, roughness, index of refraction and metallic parameter.
 Using those you can choose whether you want aforementioned values to be constant or gathered from textures. You can set any of "Texture 0..3" which corresponds to one of textures you can see on the right, in Texture Preview window.
+* For index of refraction reflectance texture is expected. Then real part of index of refraction is calculated from F0 (which is interpolation of F0-for-dielectrics (calculated from reflectance) and base color with metallic parameter being the value for interpolation).
 
 ### Light Parameters window
 * Here you can set light color (in similar manner as it is done with emissive and albedo), its position and intensity
