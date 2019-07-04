@@ -92,7 +92,7 @@ float GGXSmithHeightCorrelated(in float a2, in float NdotL, in float NdotV)
 float GGXSmithHeightCorrelated_wo_numerator(in float a2, in float NdotL, in float NdotV)
 {
     float denom = NdotV*sqrt(a2 + (1.0 - a2)*NdotL*NdotL) + NdotL*sqrt(a2 + (1.0 - a2)*NdotV*NdotV);
-    return 1.0 / denom;
+    return 0.5 / denom;
 }
 
 // Note a, not a2!
@@ -105,14 +105,15 @@ float GGXSmithHeightCorrelated_approx(in float a, in float NdotL, in float NdotV
 // Note a, not a2!
 float GGXSmithHeightCorrelated_approx_wo_numerator(in float a, in float NdotL, in float NdotV)
 {
-    return 1.0 / mix(2.0*NdotL*NdotV, NdotL+NdotV, a);
+    return 0.5 / mix(2.0*NdotL*NdotV, NdotL+NdotV, a);
 }
 
+//Taken from https://google.github.io/filament/Filament.md.html#materialsystem/anisotropicmodel
 float GGXSmithHeightCorrelated_aniso_wo_numerator(in float at, in float ab, in float TdotL, in float TdotV, in float BdotL, in float BdotV, in float NdotL, in float NdotV)
 {
     float Vterm = NdotL * length(vec3(at*TdotV, ab*BdotV, NdotV));
     float Lterm = NdotV * length(vec3(at*TdotL, ab*BdotL, NdotL));
-    return 1.0 / (Vterm + Lterm);
+    return 0.5 / (Vterm + Lterm);
 }
 
 #endif

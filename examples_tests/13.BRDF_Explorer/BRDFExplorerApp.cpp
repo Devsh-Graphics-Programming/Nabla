@@ -340,13 +340,10 @@ float applyChainRule(in vec2 h_gradient, in vec2 dUVd_)
 }
 
 // Calculate the surface normal using the uv-space gradient (dhdu, dhdv)
-vec3 calculateSurfaceNormal(in vec3 position, in vec2 uv, in vec3 normal, in vec2 h_gradient)
+vec3 calculateSurfaceNormal(in vec3 normal, in vec2 h_gradient, in vec3 dpdx, in vec3 dpdy, in vec4 dUVd_)
 {
-    vec3 dpdx = dFdx(position);
-    vec3 dpdy = dFdy(position);
- 
-	vec2 dUVdx = dFdx(uv);
-	vec2 dUVdy = dFdy(uv);
+	vec2 dUVdx = dUVd_.xy;
+	vec2 dUVdy = dUVd_.zw;
  
     float dhdx = applyChainRule(h_gradient, dUVdx);
     float dhdy = applyChainRule(h_gradient, dUVdy);
@@ -357,25 +354,25 @@ vec3 calculateSurfaceNormal(in vec3 position, in vec2 uv, in vec3 normal, in vec
 void main() {
     vec3 N = normalize(Normal);
     const vec2 texCoords = vec2(TexCoords.x, 1.0-TexCoords.y);
-    vec3 dp1 = dFdx( WorldPos );
-    vec3 dp2 = dFdy( WorldPos );
-    vec2 duv1 = dFdx( TexCoords );
-    vec2 duv2 = dFdy( TexCoords );
-    vec3 dp2perp = cross( dp2, N );
-    vec3 dp1perp = cross( N, dp1 );
+    vec3 dp1 = dFdx(WorldPos);
+    vec3 dp2 = dFdy(WorldPos);
+    vec2 duv1 = dFdx(TexCoords);
+    vec2 duv2 = dFdy(TexCoords);
+    vec3 dp2perp = cross(dp2, N);
+    vec3 dp1perp = cross(N, dp1);
     vec3 T = normalize(dp2perp * duv1.x + dp1perp * duv2.x);
-    vec3 B = normalize(dp2perp * duv1.y + dp1perp * duv2.y);
 )"
     +
     (_params.derivMapIsPresent ?
 R"(
     vec2 derivMapSz = vec2(textureSize(uDerivativeMap, 0));
-    vec2 h_gradient = texture(uDerivativeMap, texCoords).xy*0.5*uHeightScaleFactor*max(derivMapSz.x, derivMapSz.y);
-    N = calculateSurfaceNormal(WorldPos, texCoords, N, h_gradient);
+    vec2 h_gradient = texture(uDerivativeMap, texCoords).xy*uHeightScaleFactor*max(derivMapSz.x, derivMapSz.y);
+    N = calculateSurfaceNormal(N, h_gradient, dp1, dp2, vec4(duv1,duv2));
 )" : ""
     )
     +
 R"(
+    vec3 B = cross(N, T);
     const vec3 relLightPos = uLightPos - WorldPos;
     float NdotL = dot(N, relLightPos);
 
@@ -383,11 +380,12 @@ R"(
 	if (NdotL>FLT_MIN)
 	{
 		const float relLightPosLen2 = dot(relLightPos, relLightPos);
-		NdotL *= inversesqrt(relLightPosLen2);
+        const float L_rcpLen = inversesqrt(relLightPosLen2);
+		NdotL *= L_rcpLen;
 
 		// there are better identities to get all of these
 		const vec3 V = normalize(uEyePos - WorldPos);
-		const vec3 L = normalize(relLightPos);
+		const vec3 L = relLightPos*L_rcpLen;
         const vec3 H = normalize(V+L);
 
 		float NdotV = dot(N, V);
@@ -404,12 +402,12 @@ R"(
         const float VdotH = max(dot(V, H), 0.0);
         NdotV = max(NdotV, 0.0);
 
-        const float TdotV = max(dot(T, V), 0.0);
-        const float TdotL = max(dot(T, L), 0.0);
-        const float BdotV = max(dot(B, V), 0.0);
-        const float BdotL = max(dot(B, L), 0.0);
-        const float TdotH = max(dot(T, H), 0.0);
-        const float BdotH = max(dot(B, H), 0.0);
+        const float TdotV = dot(T, V);
+        const float TdotL = dot(T, L);
+        const float BdotV = dot(B, V);
+        const float BdotL = dot(B, L);
+        const float TdotH = dot(T, H);
+        const float BdotH = dot(B, H);
 		// identity comment end (but also do you need to clamp all of them?)
 
 		const float a2 = getRoughness(texCoords);
@@ -431,6 +429,11 @@ R"(
             ReIoRfromF0andImIoR(F0.y, uImagIoR.y),
             ReIoRfromF0andImIoR(F0.z, uImagIoR.z)
         );
+        if (any(isnan(realIoR)))
+        {
+            OutColor = vec4(1.0, 0.0, 0.0, 1.0);
+            return;
+        }
 )";
     else // getReflectance() reads reflectance texture OR uRealIoR uniform
         return "\t\tvec3 realIoR = getReflectance(texCoords);";
@@ -443,7 +446,7 @@ R"(
 		vec3 fresnel;
 		vec3 spec = specular(a2, at, ab, NdotL, NdotV, NdotH, VdotH, TdotV, TdotL, BdotV, BdotL, TdotH, BdotH, IoR, metallic, fresnel);
 
-		color += ((diffuse * baseColor * ao * (vec3(1.0) - fresnel)) + spec) * NdotL * uLightIntensity * uLightColor / relLightPosLen2;
+		color += ((diffuse * baseColor * ao * (vec3(1.0) - fresnel)) + spec) * NdotL * 100.0 * uLightIntensity * uLightColor / relLightPosLen2;
 	}
 	OutColor = vec4(color, 1.0);
 }
@@ -451,14 +454,17 @@ R"(
         source += genGetters(_params);
 
         source += "float diffuse(in float a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, in float NdotV) {\n";
-        if (_params.constantMetallic && !_params.metallicIsOne)
+        if (_params.constantMetallic && _params.metallicIsOne)
+        {
+            source += "\treturn 0.0;";
+        }
+        else
         {
             if (_params.constantRoughness && _params.roughnessIsZero)
                 source += "\treturn 1.0/3.14159265359;";
             else
                 source += "\treturn oren_nayar(a2, N, L, V, NdotL, NdotV);";
         }
-        else source += "\treturn 0.0;";
         source += "\n}\n";
         source += 
 R"(vec3 specular(in float a2, in float at, in float ab, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in float TdotV, in float TdotL, in float BdotV, in float BdotL, in float TdotH, in float BdotH, in mat2x3 ior, in float metallic, out vec3 out_fresnel) {
@@ -472,8 +478,8 @@ R"(vec3 specular(in float a2, in float at, in float ab, in float NdotL, in float
     float ndf = GGXBurleyAnisotropic(at, ab, TdotH, BdotH, NdotH);//GGXTrowbridgeReitz(a2, NdotH);
     float geom = GGXSmithHeightCorrelated_aniso_wo_numerator(at, ab, TdotL, TdotV, BdotL, BdotV, NdotL, NdotV);//GGXSmithHeightCorrelated_wo_numerator(a2, NdotL, NdotV);
 
-    // Note: (2.0*NdotV*NdotL) denominator is cancelled by GGXSmith's numerator, thus the use of GGXSmithHeightCorrelated_wo_numerator()
-    return 0.5*ndf*geom*out_fresnel;
+    // Note: (4.0*NdotV*NdotL) denominator is cancelled by GGXSmith's numerator, thus the use of GGXSmithHeightCorrelated_wo_numerator()
+    return ndf*geom*out_fresnel;
 }
 
 vec3 Fresnel_combined(in mat2x3 ior, in float cosTheta, in float metallic) {
@@ -555,6 +561,9 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
         ShaderManager(new CShaderManager(Driver->getGPUProgrammingServices(), device->getIncludeHandler(), GUIState, LightAnimData, Camera)),
         DerivativeMapManager(new CDerivativeMapManager(device))
 {
+    auto cpumesh = AssetManager.getGeometryCreator()->createSphereMesh(10.f, 64u, 64u);
+    Mesh = Driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1).front();
+
     TextureSlotMap = {
         { ETEXTURE_SLOT::TEXTURE_AO,
         std::make_tuple("AOTextureBuffer", // Texture buffer name (cegui image name)
@@ -662,14 +671,6 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
                 ->setText(s);
 
             GUIState.Roughness.ConstValue1 = v;
-
-            if (GUIState.Roughness.IsIsotropic) {
-                root->getChild("MaterialParamsWindow/RoughnessWindow/LabelPercent2")
-                    ->setText(s);
-                static_cast<::CEGUI::Slider*>(
-                    root->getChild("MaterialParamsWindow/RoughnessWindow/Slider2"))
-                    ->setCurrentValue(v);
-            }
         });
 
     GUI->registerSliderEvent(
@@ -800,14 +801,6 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
                                 "MaterialParamsWindow/RoughnessWindow/Slider"))
                             ->getCurrentValue(),
                         2));
-
-                static_cast<::CEGUI::Slider*>(
-                    root->getChild("MaterialParamsWindow/RoughnessWindow/Slider2"))
-                    ->setCurrentValue(
-                        static_cast<::CEGUI::Slider*>(
-                            root->getChild(
-                                "MaterialParamsWindow/RoughnessWindow/Slider"))
-                            ->getCurrentValue());
             }
         });
 
@@ -920,9 +913,6 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
     GUI->setOpacity("TextureViewWindow", defaultOpacity);
 
     setGUIForConstantIoR();
-
-    //irr::video::IVirtualTexture* derivMap = createDerivMapFromBumpMap("C:/Users/Crisser/Desktop/Cerberus_by_Andrew_Maximov/Cerberus_by_Andrew_Maximov/Textures/Cerberus_H.png", device);
-    //Material.setTexture(6, derivMap);
 }
 
 void BRDFExplorerApp::initDropdown()
