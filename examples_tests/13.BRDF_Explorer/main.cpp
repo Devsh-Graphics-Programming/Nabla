@@ -31,7 +31,7 @@ int main()
     video::IVideoDriver* driver = device->getVideoDriver();
     scene::ISceneManager* smgr = device->getSceneManager();
 
-    scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeMaya(nullptr, -750.f, 200.f, 200.f, -1, 10.f);
+    scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeModifiedMaya(nullptr, -400.f, 20.f, 200.f, -1, 2.f, 1.f);
     camera->setPosition(core::vector3df(-4.f, 0.f, 0.f));
     camera->setTarget(core::vector3df(0.f, 0.f, 0.f));
     camera->setNearValue(0.01f);
