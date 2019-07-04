@@ -393,7 +393,9 @@ R"(
     const vec3 relLightPos = uLightPos - WorldPos;
     float NdotL = dot(N, relLightPos);
 
-	vec3 color = vec3(0.0);
+    const float ao = getAO(texCoords);
+
+	vec3 color = uEmissive*ao*0.01;
 	if (NdotL>FLT_MIN)
 	{
 		const float relLightPosLen2 = dot(relLightPos, relLightPos);
@@ -432,7 +434,6 @@ R"(
         const float ab = at*(1.0 - uAnisotropy);
 		const float metallic = getMetallic(texCoords);
 		const vec3 baseColor = getAlbedo(texCoords);
-		const float ao = getAO(texCoords);
 )"
     +
     [&_params] {
