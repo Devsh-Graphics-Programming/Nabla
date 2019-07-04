@@ -28,3 +28,5 @@ Using those you can choose whether you want aforementioned values to be constant
 ### Load Model button
 * You can load as many models as you want. Also note that, once loaded model will not have to be loaded again - you have to point the file it comes from again, but it will show up immidiately.
 * If any textures come with loaded they're also loaded (to 4 slots in Texture Preview window), but only if slot is empty - loading model does not cause overriding choice of textures.
+
+Purely red pixels mean physically impossible values.

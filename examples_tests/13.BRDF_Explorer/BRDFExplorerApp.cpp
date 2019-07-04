@@ -419,7 +419,6 @@ R"(
         */
         const float NdotH = max(dot(N, H), 0.0);
         const float VdotH = dot(V, H);
-        NdotV = max(NdotV, 0.0);
 
         const float TdotV = dot(T, V);
         const float TdotL = dot(T, L);
@@ -460,6 +459,18 @@ R"(
 R"(
         mat2x3 IoR = mat2x3(realIoR, uImagIoR);
 
+        // (2*n^2 + 2*cos(theta)^2 - 2) is (2*n^2 + cos(2*theta) - 1) is (sqrt(n^2 - sin(theta)^2)^2) + n^2 - sin(theta)^2)
+        // which comes from (a2plusb2 + t0) in Fresnel_conductor (with assumption of Etak=0) which cannot be <0.
+        // n is obviously Eta, real part of IoR
+        // checks needed for n<1
+        if (any(lessThan(2.0*realIoR*realIoR + 2.0*NdotV*NdotV - 2.0, vec3(0.0))) ||
+            any(lessThan(2.0*realIoR*realIoR + 2.0*NdotL*NdotL - 2.0, vec3(0.0))) ||
+            any(lessThan(2.0*realIoR*realIoR + 2.0*VdotH*VdotH - 2.0, vec3(0.0)))
+        ) {
+            OutColor = vec4(1.0, 0.0, 0.0, 1.0);
+            return;
+        }
+            
         vec3 diffuseFactor = calculateDiffuseCorrectionFactor(realIoR) * (vec3(1.0)-Fresnel_combined(IoR, NdotV, metallic))*(vec3(1.0)-Fresnel_combined(IoR, NdotL, metallic));
 		float diffuse = diffuse(a2, N, L, V, NdotL, NdotV) * (1.0 - metallic);
 		vec3 spec = specular(a2, at, ab, NdotL, NdotV, NdotH, VdotH, TdotV, TdotL, BdotV, BdotL, TdotH, BdotH, IoR, metallic);
