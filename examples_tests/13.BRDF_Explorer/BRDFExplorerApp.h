@@ -108,7 +108,7 @@ class BRDFExplorerApp {
             } Roughness;
             struct {
                 E_DROPDOWN_STATE SourceDropdown = EDS_CONSTANT;
-                core::vector3df ConstantReal{0.04f};
+                core::vector3df ConstantReal{1.33f};
                 core::vector3df ConstantImag;
             } RefractionIndex;
             struct {
@@ -125,7 +125,7 @@ class BRDFExplorerApp {
                 core::vector3df Color{1.f, 1.f, 1.f};
                 core::vector3df ConstantPosition; //TODO set it to somerhing default and fine
                 bool Animated = false;
-                float Intensity = 1.f;
+                float Intensity = 800.f;
             } Light;
         };
         struct SLightAnimData {
@@ -167,6 +167,7 @@ class BRDFExplorerApp {
         };
         SCPUGPUMesh loadMesh(const std::string& _path);
         void loadMeshAndReplaceTextures(const std::string& _path);
+        void setUpLight(float radiusMlt = 1.1f);
 
         //static constexpr float sliderRIRange = 2.0f;
         static constexpr float sliderRealRIRange = 4.0f;
@@ -254,6 +255,7 @@ class BRDFExplorerApp {
         irr::video::SGPUMaterial Material;
 
         irr::video::IVirtualTexture* DefaultTexture = nullptr;
+        irr::video::IGPUMesh* DefaultMesh = nullptr;
 
         CShaderManager* ShaderManager = nullptr;
         CDerivativeMapManager* DerivativeMapManager = nullptr;

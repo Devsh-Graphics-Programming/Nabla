@@ -579,8 +579,15 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
         ShaderManager(new CShaderManager(Driver->getGPUProgrammingServices(), device->getIncludeHandler(), GUIState, LightAnimData, Camera)),
         DerivativeMapManager(new CDerivativeMapManager(device))
 {
+    {//default mesh
     auto cpumesh = AssetManager.getGeometryCreator()->createSphereMesh(10.f, 64u, 64u);
-    Mesh = Driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1).front();
+    DefaultMesh = Mesh = Driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1).front();
+    setUpLight(5.f);
+    cpumesh->drop();
+    }
+
+    Camera->setPosition(core::vector3df(-30.f, 0.f, 10.f));
+    Camera->setTarget(core::vector3df(0.f));
 
     TextureSlotMap = {
         { ETEXTURE_SLOT::TEXTURE_AO,
@@ -727,11 +734,12 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
         for (uint32_t i = 0u; i < 6u; ++i)
         {
             const std::string RIWindowName = "RefractionIndexWindow" + std::to_string(i+1u);
-            float val = static_cast<::CEGUI::Slider*>(
+            auto slider = static_cast<::CEGUI::Slider*>(
                 root->getChild(
-                    "MaterialParamsWindow/" + RIWindowName + "/Slider"))
-                ->getCurrentValue();
-            val = std::max(val, i<3u ? 0.04f : 0.f);
+                    "MaterialParamsWindow/" + RIWindowName + "/Slider"));
+            if (i < 3u)
+                slider->setCurrentValue(1.33f);
+            float val = slider->getCurrentValue();
             root->getChild("MaterialParamsWindow/"+RIWindowName+"/LabelPercent")
                 ->setText(ext::cegui::toStringFloat(val,2));
         }
@@ -773,6 +781,8 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
             ->getCurrentValue();
         GUIState.Light.Intensity = intensity+1.f;
     });
+    static_cast<::CEGUI::Slider*>(
+        root->getChild("LightParamsWindow/IntensityWindow/IntensitySlider"))->setCurrentValue(800.f);
 
     auto lightZ = static_cast<::CEGUI::Spinner*>(root->getChild("LightParamsWindow/PositionWindow/LightZ"));
     lightZ->subscribeEvent(
@@ -1234,20 +1244,8 @@ void BRDFExplorerApp::loadMeshAndReplaceTextures(const std::string& _path)
     Mesh = loadedMesh.gpu;
 
     irr::video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(MESHBUFFER_NUM);
-    const irr::core::aabbox3df& aabb = mb->getBoundingBox();
-    LightAnimData.Radius = std::max(aabb.getExtent().X, aabb.getExtent().Z)/2.f;
-    LightAnimData.Radius *= 1.1f;
-    irr::core::vector3df aabb_verts[8];
-    aabb.getEdges(aabb_verts);
-    auto lowest_highest = std::minmax_element(aabb_verts, aabb_verts+8, [](const irr::core::vector3df& a, const irr::core::vector3df& b) { return a.Y < b.Y; });
-    LightAnimData.Position.Y = (lowest_highest.first->Y + lowest_highest.second->Y) / 2.f;
-    irr::core::vector2df center;
-    for (uint32_t i = 0u; i < 8u; ++i)
-    {
-        center.X += aabb_verts[i].X;
-        center.Y += aabb_verts[i].Y;
-    }
-    LightAnimData.Center = center/8.f;
+
+    setUpLight();
 
     const irr::video::SGPUMaterial& itsMaterial = mb->getMaterial();
 
@@ -1260,6 +1258,25 @@ void BRDFExplorerApp::loadMeshAndReplaceTextures(const std::string& _path)
             loadTextureSlot(static_cast<ETEXTURE_SLOT>(TEXTURE_SLOT_1 + t), newtex, texname);
         }
     }
+}
+
+void BRDFExplorerApp::setUpLight(float radiusMlt)
+{
+    irr::video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(MESHBUFFER_NUM);
+    const irr::core::aabbox3df& aabb = mb->getBoundingBox();
+    LightAnimData.Radius = std::max(aabb.getExtent().X, aabb.getExtent().Z) / 2.f;
+    LightAnimData.Radius *= radiusMlt;
+    irr::core::vector3df aabb_verts[8];
+    aabb.getEdges(aabb_verts);
+    auto lowest_highest = std::minmax_element(aabb_verts, aabb_verts + 8, [](const irr::core::vector3df& a, const irr::core::vector3df& b) { return a.Y < b.Y; });
+    LightAnimData.Position.Y = (lowest_highest.first->Y + lowest_highest.second->Y) / 2.f;
+    irr::core::vector2df center;
+    for (uint32_t i = 0u; i < 8u; ++i)
+    {
+        center.X += aabb_verts[i].X;
+        center.Y += aabb_verts[i].Y;
+    }
+    LightAnimData.Center = center / 8.f;
 }
 
 void BRDFExplorerApp::updateTooltip(const char* name, const char* text)
