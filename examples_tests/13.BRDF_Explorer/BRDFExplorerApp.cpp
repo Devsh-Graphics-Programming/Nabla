@@ -355,8 +355,9 @@ float calcDiffuseCorrectionFactor_(float n)
 {
     if (n >= 1.0)
         return 0.1921156102251088*n + 0.8078843897748912;
-    else
+    else {
         return (n*(n*(298.25 - 261.38*n) + 138.43) - 1.67) / (n*n*n*n*(554.33 - 380.7*n));
+    }
 }
 vec3 calculateDiffuseCorrectionFactor(vec3 n)
 {
@@ -412,10 +413,10 @@ R"(
         const float LplusV_lenSq = 2.0 + 2.0*LdotV;
         const float LplusV_rcpLen = inversesqrt(LplusV_lenSq);
         const float NdotH = max((NdotL + NdotV) * LplusV_rcpLen, 0.0);
-        const float VdotH = max(LplusV_rcpLen + LplusV_rcpLen*LdotV, 0.0);
+        const float VdotH = LplusV_rcpLen + LplusV_rcpLen*LdotV;
         */
         const float NdotH = max(dot(N, H), 0.0);
-        const float VdotH = max(dot(V, H), 0.0);
+        const float VdotH = dot(V, H);
         NdotV = max(NdotV, 0.0);
 
         const float TdotV = dot(T, V);
@@ -487,7 +488,7 @@ R"(vec3 specular(in float a2, in float at, in float ab, in float NdotL, in float
 	//assert(NdotL>FLT_MIN);
     if (NdotV<FLT_MIN)
         return vec3(0.0);
-    if (a2<FLT_MIN)
+    if (a2*(1.0-uAnisotropy)<FLT_MIN)
 		return vec3(/*NdotH>=(1.0-FLT_MIN) ? FLT_INF:*/0.0);
 
     vec3 f = Fresnel_combined(ior, VdotH, metallic);
@@ -499,11 +500,11 @@ R"(vec3 specular(in float a2, in float at, in float ab, in float NdotL, in float
 }
 
 vec3 Fresnel_combined(in mat2x3 ior, in float cosTheta, in float metallic) {
-    bvec3 is_inf = isinf(ior[0]*ior[0] + ior[1]*ior[1]);
+    bvec3 not_inf = lessThan(ior[0]*ior[0] + ior[1]*ior[1], vec3(FLT_MAX));
     return mix(
-        Fresnel_conductor(ior[0], ior[1], cosTheta),
         vec3(1.0),
-        is_inf
+        Fresnel_conductor(ior[0], ior[1], cosTheta),
+        not_inf
     );
 }
 )";
@@ -650,6 +651,7 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
                 root->getChild(
                     RIWindowName+"/Slider"))
                 ->getCurrentValue();
+            val = std::max(val, i<3u ? 0.04f : 0.f);
             root->getChild(
                 RIWindowName+"/LabelPercent")
                 ->setText(ext::cegui::toStringFloat(val, 2));
@@ -724,13 +726,13 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
         for (uint32_t i = 0u; i < 6u; ++i)
         {
             const std::string RIWindowName = "RefractionIndexWindow" + std::to_string(i+1u);
+            float val = static_cast<::CEGUI::Slider*>(
+                root->getChild(
+                    "MaterialParamsWindow/" + RIWindowName + "/Slider"))
+                ->getCurrentValue();
+            val = std::max(val, i<3u ? 0.04f : 0.f);
             root->getChild("MaterialParamsWindow/"+RIWindowName+"/LabelPercent")
-                ->setText(ext::cegui::toStringFloat(
-                    static_cast<::CEGUI::Slider*>(
-                        root->getChild(
-                            "MaterialParamsWindow/"+RIWindowName+"/Slider"))
-                    ->getCurrentValue(),
-                    2));
+                ->setText(ext::cegui::toStringFloat(val,2));
         }
         // Metallic slider
         root->getChild("MaterialParamsWindow/MetallicWindow/LabelPercent")
