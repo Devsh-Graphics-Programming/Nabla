@@ -318,7 +318,7 @@ IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/specular/fresnel/fresn
 +
 R"(
 float diffuse(in float a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, in float NdotV);
-vec3 specular(in float a2, in float at, in float ab, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in float TdotV, in float TdotL, in float BdotV, in float BdotL, in float TdotH, in float BdotH, in mat2x3 ior, in float metallic, out vec3 out_fresnel);
+vec3 specular(in float a2, in float at, in float ab, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in float TdotV, in float TdotL, in float BdotV, in float BdotL, in float TdotH, in float BdotH, in mat2x3 ior, in float metallic);
 vec3 Fresnel_combined(in mat2x3 ior, in float cosTheta, in float metallic);
 
 vec3 calculateSurfaceGradient(in vec3 normal, in vec3 dpdx, in vec3 dpdy, in float dhdx, in float dhdy)
@@ -349,6 +349,22 @@ vec3 calculateSurfaceNormal(in vec3 normal, in vec2 h_gradient, in vec3 dpdx, in
     float dhdy = applyChainRule(h_gradient, dUVdy);
  
     return perturbNormal(normal, dpdx, dpdy, dhdx, dhdy);
+}
+
+float calcDiffuseCorrectionFactor_(float n)
+{
+    if (n >= 1.0)
+        return 0.1921156102251088*n + 0.8078843897748912;
+    else
+        return (n*(n*(298.25 - 261.38*n) + 138.43) - 1.67) / (n*n*n*n*(554.33 - 380.7*n));
+}
+vec3 calculateDiffuseCorrectionFactor(vec3 n)
+{
+    return vec3(
+        calcDiffuseCorrectionFactor_(n.x),
+        calcDiffuseCorrectionFactor_(n.y),
+        calcDiffuseCorrectionFactor_(n.z)
+    );
 }
 
 void main() {
@@ -442,11 +458,11 @@ R"(
 R"(
         mat2x3 IoR = mat2x3(realIoR, uImagIoR);
 
+        vec3 diffuseFactor = calculateDiffuseCorrectionFactor(realIoR) * (vec3(1.0)-Fresnel_combined(IoR, NdotV, metallic))*(vec3(1.0)-Fresnel_combined(IoR, NdotL, metallic));
 		float diffuse = diffuse(a2, N, L, V, NdotL, NdotV) * (1.0 - metallic);
-		vec3 fresnel;
-		vec3 spec = specular(a2, at, ab, NdotL, NdotV, NdotH, VdotH, TdotV, TdotL, BdotV, BdotL, TdotH, BdotH, IoR, metallic, fresnel);
+		vec3 spec = specular(a2, at, ab, NdotL, NdotV, NdotH, VdotH, TdotV, TdotL, BdotV, BdotL, TdotH, BdotH, IoR, metallic);
 
-		color += ((diffuse * baseColor * ao * (vec3(1.0) - fresnel)) + spec) * NdotL * 100.0 * uLightIntensity * uLightColor / relLightPosLen2;
+		color += ((diffuse * baseColor * ao * diffuseFactor) + spec) * NdotL * uLightIntensity * uLightColor / relLightPosLen2;
 	}
 	OutColor = vec4(color, 1.0);
 }
@@ -467,19 +483,19 @@ R"(
         }
         source += "\n}\n";
         source += 
-R"(vec3 specular(in float a2, in float at, in float ab, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in float TdotV, in float TdotL, in float BdotV, in float BdotL, in float TdotH, in float BdotH, in mat2x3 ior, in float metallic, out vec3 out_fresnel) {
+R"(vec3 specular(in float a2, in float at, in float ab, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in float TdotV, in float TdotL, in float BdotV, in float BdotL, in float TdotH, in float BdotH, in mat2x3 ior, in float metallic) {
 	//assert(NdotL>FLT_MIN);
-    out_fresnel = Fresnel_combined(ior, VdotH, metallic);
     if (NdotV<FLT_MIN)
         return vec3(0.0);
     if (a2<FLT_MIN)
 		return vec3(/*NdotH>=(1.0-FLT_MIN) ? FLT_INF:*/0.0);
 
+    vec3 f = Fresnel_combined(ior, VdotH, metallic);
     float ndf = GGXBurleyAnisotropic(at, ab, TdotH, BdotH, NdotH);//GGXTrowbridgeReitz(a2, NdotH);
     float geom = GGXSmithHeightCorrelated_aniso_wo_numerator(at, ab, TdotL, TdotV, BdotL, BdotV, NdotL, NdotV);//GGXSmithHeightCorrelated_wo_numerator(a2, NdotL, NdotV);
 
     // Note: (4.0*NdotV*NdotL) denominator is cancelled by GGXSmith's numerator, thus the use of GGXSmithHeightCorrelated_wo_numerator()
-    return ndf*geom*out_fresnel;
+    return ndf*geom*f;
 }
 
 vec3 Fresnel_combined(in mat2x3 ior, in float cosTheta, in float metallic) {
