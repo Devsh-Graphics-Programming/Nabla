@@ -772,6 +772,7 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
             root->getChild("LightParamsWindow/PositionWindow")->setDisabled(GUIState.Light.Animated);
         }
     );
+    lightAnimated->setSelected(true);
 
     GUI->registerSliderEvent(
         "LightParamsWindow/IntensityWindow/IntensitySlider", sliderLightIntensityRange, 1.f,

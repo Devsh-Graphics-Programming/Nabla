@@ -124,7 +124,7 @@ class BRDFExplorerApp {
             struct {
                 core::vector3df Color{1.f, 1.f, 1.f};
                 core::vector3df ConstantPosition; //TODO set it to somerhing default and fine
-                bool Animated = false;
+                bool Animated = true;
                 float Intensity = 800.f;
             } Light;
         };
@@ -176,7 +176,7 @@ class BRDFExplorerApp {
         static constexpr float sliderRoughness1Range = 1.0f;
         static constexpr float sliderRoughness2Range = 1.0f;
         static constexpr float sliderBumpHeightRange = 2.0f;
-        static constexpr float sliderLightIntensityRange = 999.f; // turns out i cant set min value on cegui slider XD
+        static constexpr float sliderLightIntensityRange = 9999.f; // turns out i cant set min value on cegui slider XD
         static constexpr float defaultOpacity = 0.85f;
 
         void initDropdown();
