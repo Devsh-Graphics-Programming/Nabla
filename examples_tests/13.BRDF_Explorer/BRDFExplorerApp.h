@@ -108,7 +108,7 @@ class BRDFExplorerApp {
             } Roughness;
             struct {
                 E_DROPDOWN_STATE SourceDropdown = EDS_CONSTANT;
-                core::vector3df ConstantReal;
+                core::vector3df ConstantReal{0.04f};
                 core::vector3df ConstantImag;
             } RefractionIndex;
             struct {

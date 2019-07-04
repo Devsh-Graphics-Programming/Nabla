@@ -19,6 +19,8 @@ set(EXAMPLE_SOURCES
 	BRDFExplorerApp.cpp
 	irrTex2ceguiTex.cpp
 	getTextureGLname.cpp
+	CComputeShaderManager.cpp
+	createDerivMapFromBumpMap.cpp
 )
 
 irr_create_executable_project(
