@@ -132,12 +132,10 @@ vec3 FresnelSchlick(in vec3 F0, in float VdotH)
 }
 
 // code from https://seblagarde.wordpress.com/2013/04/29/memo-on-fresnel-equations/
-vec3 Fresnel_conductor(vec3 Eta, vec3 Etak, float CosTheta)
+vec3 Fresnel_conductor(vec3 Eta2, vec3 Etak2, float CosTheta)
 {  
    float CosTheta2 = CosTheta * CosTheta;
    float SinTheta2 = 1.0 - CosTheta2;
-   vec3 Eta2 = Eta * Eta;
-   vec3 Etak2 = Etak * Etak;
 
    vec3 t0 = Eta2 - Etak2 - SinTheta2;
    vec3 a2plusb2 = sqrt(t0 * t0 + 4 * Eta2 * Etak2);

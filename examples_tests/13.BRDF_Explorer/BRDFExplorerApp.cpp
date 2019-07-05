@@ -340,32 +340,22 @@ float applyChainRule(in vec2 h_gradient, in vec2 dUVd_)
 }
 
 // Calculate the surface normal using the uv-space gradient (dhdu, dhdv)
-vec3 calculateSurfaceNormal(in vec3 normal, in vec2 h_gradient, in vec3 dpdx, in vec3 dpdy, in vec4 dUVd_)
+vec3 calculateSurfaceNormal(in vec3 normal, in vec2 h_gradient, in vec3 dpdx, in vec3 dpdy, in vec2 dUVdx, in vec2 dUVdy)
 {
-	vec2 dUVdx = dUVd_.xy;
-	vec2 dUVdy = dUVd_.zw;
- 
     float dhdx = applyChainRule(h_gradient, dUVdx);
     float dhdy = applyChainRule(h_gradient, dUVdy);
  
     return perturbNormal(normal, dpdx, dpdy, dhdx, dhdy);
 }
 
-float calcDiffuseCorrectionFactor_(float n)
+vec3 calcDiffuseFresnelCorrectionFactor(in vec3 n, in vec3 n2)
 {
-    if (n >= 1.0)
-        return 0.1921156102251088*n + 0.8078843897748912;
-    else {
-        return (n*(n*(298.25 - 261.38*n) + 138.43) - 1.67) / (n*n*n*n*(554.33 - 380.7*n));
-    }
-}
-vec3 calculateDiffuseCorrectionFactor(vec3 n)
-{
-    return vec3(
-        calcDiffuseCorrectionFactor_(n.x),
-        calcDiffuseCorrectionFactor_(n.y),
-        calcDiffuseCorrectionFactor_(n.z)
-    );
+    //assert(n*n==n2);
+    bvec3 TIR = lessThan(n,vec3(1.0));
+    vec3 invdenum = mix(vec3(1.0), vec3(1.0)/(n2*n2*(vec3(554.33) - 380.7*n)), TIR);
+    vec3 num = n*mix(vec3(0.1921156102251088),n*298.25 - 261.38*n2 + 138.43,TIR);
+    num += mix(vec3(0.8078843897748912),vec3(-1.67),TIR);
+    return num*invdenum;
 }
 
 void main() {
@@ -384,7 +374,7 @@ void main() {
 R"(
     vec2 derivMapSz = vec2(textureSize(uDerivativeMap, 0));
     vec2 h_gradient = texture(uDerivativeMap, texCoords).xy*uHeightScaleFactor*max(derivMapSz.x, derivMapSz.y);
-    N = calculateSurfaceNormal(N, h_gradient, dp1, dp2, vec4(duv1,duv2));
+    N = calculateSurfaceNormal(N, h_gradient, dp1, dp2, duv1, duv2);
 )" : ""
     )
     +
@@ -411,21 +401,17 @@ R"(
         float LdotV = dot(L, V);
 
         // dots with H identities taken from Earl Hammon's PBR Diffuse Lighting GDC17 lecture
-        /*
         const float LplusV_lenSq = 2.0 + 2.0*LdotV;
         const float LplusV_rcpLen = inversesqrt(LplusV_lenSq);
         const float NdotH = max((NdotL + NdotV) * LplusV_rcpLen, 0.0);
         const float VdotH = LplusV_rcpLen + LplusV_rcpLen*LdotV;
-        */
-        const float NdotH = max(dot(N, H), 0.0);
-        const float VdotH = dot(V, H);
 
         const float TdotV = dot(T, V);
         const float TdotL = dot(T, L);
         const float BdotV = dot(B, V);
         const float BdotL = dot(B, L);
-        const float TdotH = dot(T, H);
-        const float BdotH = dot(B, H);
+        const float TdotH = (TdotL + TdotV)*LplusV_rcpLen;
+        const float BdotH = (BdotL + BdotV)*LplusV_rcpLen;
 		// identity comment end (but also do you need to clamp all of them?)
 
 		const float a2 = getRoughness(texCoords);
@@ -457,21 +443,22 @@ R"(
     }()
     +
 R"(
-        mat2x3 IoR = mat2x3(realIoR, uImagIoR);
+        vec3 realIoR2 = realIoR*realIoR;
+        mat2x3 IoR = mat2x3(realIoR2, uImagIoR*uImagIoR);
 
         // (2*n^2 + 2*cos(theta)^2 - 2) is (2*n^2 + cos(2*theta) - 1) is (sqrt(n^2 - sin(theta)^2)^2) + n^2 - sin(theta)^2)
         // which comes from (a2plusb2 + t0) in Fresnel_conductor (with assumption of Etak=0) which cannot be <0.
         // n is obviously Eta, real part of IoR
         // checks needed for n<1
-        if (any(lessThan(2.0*realIoR*realIoR + 2.0*NdotV*NdotV - 2.0, vec3(0.0))) ||
-            any(lessThan(2.0*realIoR*realIoR + 2.0*NdotL*NdotL - 2.0, vec3(0.0))) ||
-            any(lessThan(2.0*realIoR*realIoR + 2.0*VdotH*VdotH - 2.0, vec3(0.0)))
+        if (any(lessThan(2.0*realIoR2 + 2.0*NdotV*NdotV - 2.0, vec3(0.0))) ||
+            any(lessThan(2.0*realIoR2 + 2.0*NdotL*NdotL - 2.0, vec3(0.0))) ||
+            any(lessThan(2.0*realIoR2 + 2.0*VdotH*VdotH - 2.0, vec3(0.0)))
         ) {
             OutColor = vec4(1.0, 0.0, 0.0, 1.0);
             return;
         }
             
-        vec3 diffuseFactor = calculateDiffuseCorrectionFactor(realIoR) * (vec3(1.0)-Fresnel_combined(IoR, NdotV, metallic))*(vec3(1.0)-Fresnel_combined(IoR, NdotL, metallic));
+        vec3 diffuseFactor = calcDiffuseFresnelCorrectionFactor(realIoR, realIoR2) * (vec3(1.0)-Fresnel_combined(IoR, NdotV, metallic))*(vec3(1.0)-Fresnel_combined(IoR, NdotL, metallic));
 		float diffuse = diffuse(a2, N, L, V, NdotL, NdotV) * (1.0 - metallic);
 		vec3 spec = specular(a2, at, ab, NdotL, NdotV, NdotH, VdotH, TdotV, TdotL, BdotV, BdotL, TdotH, BdotH, IoR, metallic);
 
@@ -597,7 +584,7 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
     cpumesh->drop();
     }
 
-    Camera->setPosition(core::vector3df(-30.f, 0.f, 10.f));
+    Camera->setPosition(core::vector3df(2.26f, -4.05f, 27.6f));
     Camera->setTarget(core::vector3df(0.f));
 
     TextureSlotMap = {

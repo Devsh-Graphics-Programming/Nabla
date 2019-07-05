@@ -202,12 +202,10 @@ class BRDFExplorerApp {
         static constexpr const char* MeshFileDialogTitle = "Select Mesh";
 
         const std::vector<std::string> ImageFileDialogFilters = {
-            "Everything (*.*)", "*",
             "Image (*.jpg, *.jpeg, *.png, *.bmp, *.tga, *.dds, *.gif)",
             "*.jpg *.jpeg *.png *.bmp *.tga *.dds *.gif"
         };
         const std::vector<std::string> MeshFileDialogFilters = {
-            "Everything (*.*)", "*",
             "Mesh (*.ply *.stl *.baw *.x *.obj)",
             "*.ply *.stl *.baw *.x *.obj"
         };
