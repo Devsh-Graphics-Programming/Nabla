@@ -23,7 +23,7 @@ namespace asset
 CCPUSkinnedMesh::CCPUSkinnedMesh()
 : referenceHierarchy(NULL), HasAnimation(false)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CCPUSkinnedMesh");
 	#endif
 }

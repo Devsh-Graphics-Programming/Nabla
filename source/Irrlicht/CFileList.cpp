@@ -20,7 +20,7 @@ static const io::path emptyFileListEntry;
 CFileList::CFileList(const io::path& path, bool ignoreCase, bool ignorePaths)
  : IgnorePaths(ignorePaths), IgnoreCase(ignoreCase), Path(path)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CFileList");
 	#endif
 

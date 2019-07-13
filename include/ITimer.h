@@ -72,7 +72,7 @@ class ITimer final : public core::IReferenceCounted
 			std::tm* timeinfo = std::localtime(&rawtime);
 
 			// init with all 0 to indicate error
-			ITimer::RealTimeDate date = { 0 };
+			ITimer::RealTimeDate date = { 0u,0u,0u,0,0u,0u,EWD_SUNDAY,0u,false };
 			// at least Windows returns NULL on some illegal dates
 			if (timeinfo)
 			{

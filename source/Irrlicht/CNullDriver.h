@@ -68,7 +68,7 @@ namespace video
 
 		//! sets transformation
 		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat);
-		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4& mat);
+		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4SIMD& mat);
 
 		//! Retrieve the number of image loaders
 		virtual uint32_t getImageLoaderCount() const;
@@ -85,8 +85,8 @@ namespace video
 		//! sets a material
 		virtual void setMaterial(const SGPUMaterial& material);
 
-        //! needs to be "deleted" since its not refcounted
-        virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread=false) {return NULL;}
+        //! GPU fence, is signalled when preceeding GPU work is completed
+        virtual core::smart_refctd_ptr<IDriverFence> placeFence(const bool& implicitFlushWaitSameThread=false) {return nullptr;}
 
         ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) override;
 
@@ -362,7 +362,7 @@ namespace video
 		//! Returns the transformation set by setTransform
 		virtual const core::matrix4x3& getTransform(const E_4X3_TRANSFORMATION_STATE& state);
 
-		virtual const core::matrix4& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state);
+		virtual const core::matrix4SIMD& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state);
 
 		//! Returns pointer to the IGPUProgrammingServices interface.
 		virtual IGPUProgrammingServices* getGPUProgrammingServices();
@@ -611,7 +611,7 @@ namespace video
 		core::dimension2d<uint32_t> ScreenSize;
 
 		uint32_t matrixModifiedBits;
-		core::matrix4 ProjectionMatrices[EPTS_COUNT];
+		core::matrix4SIMD ProjectionMatrices[EPTS_COUNT];
 		core::matrix4x3 TransformationMatrices[E4X3TS_COUNT];
 
 		CFPSCounter FPSCounter;

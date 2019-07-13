@@ -9,6 +9,7 @@
 #include "CSTLMeshFileLoader.h"
 #include "irr/asset/SCPUMesh.h"
 #include "irr/asset/ICPUMeshBuffer.h"
+#include "irr/core/math/plane3dSIMD.h"
 
 #include "IReadFile.h"
 #include "coreutil.h"
@@ -155,10 +156,10 @@ asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 		if ((normals.back() == core::vectorSIMDf()).all())
         {
 			normals.back().set(
-                core::plane3df(
-                    (positions.rbegin()+2)->getAsVector3df(),
-                    (positions.rbegin()+1)->getAsVector3df(),
-                    (positions.rbegin()+0)->getAsVector3df()).Normal
+                core::plane3dSIMDf(
+                    *(positions.rbegin()+2),
+                    *(positions.rbegin()+1),
+                    *(positions.rbegin()+0)).getNormal()
             );
         }
 	} // end while (_file->getPos() < filesize)
@@ -179,7 +180,7 @@ asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
     }
 
 	desc->setVertexAttrBuffer(vertexBuf, asset::EVAI_ATTR0, asset::EF_R32G32B32_SFLOAT, vtxSize, 0);
-	desc->setVertexAttrBuffer(vertexBuf, asset::EVAI_ATTR3, asset::EF_A2B10G10R10_SSCALED_PACK32, vtxSize, 12);
+	desc->setVertexAttrBuffer(vertexBuf, asset::EVAI_ATTR3, asset::EF_A2B10G10R10_SNORM_PACK32, vtxSize, 12);
     if (hasColor)
 	    desc->setVertexAttrBuffer(vertexBuf, asset::EVAI_ATTR1, asset::EF_B8G8R8A8_UNORM, vtxSize, 16);
 	vertexBuf->drop();
@@ -193,7 +194,7 @@ asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
 bool CSTLMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
 {
-    if (_file->getSize() <= 6u)
+    if (!_file || _file->getSize() <= 6u)
         return false;
 
     char header[6];

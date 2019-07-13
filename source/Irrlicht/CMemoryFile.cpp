@@ -23,7 +23,7 @@ CMemoryFile::~CMemoryFile()
 CMemoryWriteFile::CMemoryWriteFile(const size_t& len, const io::path& fileName)
                 : CMemoryFile(len,fileName)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CMemoryWriteFile");
 	#endif
 }

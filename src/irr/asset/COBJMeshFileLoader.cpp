@@ -19,6 +19,7 @@
 #include "irr/asset/IAssetManager.h"
 
 #include "irr/core/Types.h"
+#include "irr/core/math/plane3dSIMD.h"
 
 /*
 namespace std
@@ -49,7 +50,7 @@ namespace irr
 namespace asset
 {
 
-//#ifdef _DEBUG
+//#ifdef _IRR_DEBUG
 #define _IRR_DEBUG_OBJ_LOADER_
 //#endif
 
@@ -60,7 +61,7 @@ static const uint32_t WORD_BUFFER_LENGTH = 512;
 COBJMeshFileLoader::COBJMeshFileLoader(IrrlichtDevice* _dev)
 : Device(_dev), SceneManager(_dev->getSceneManager()), FileSystem(_dev->getFileSystem())
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	setDebugName("COBJMeshFileLoader");
 #endif
 }
@@ -363,17 +364,14 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             memset(newNormals,0,sizeof(core::vectorSIMDf)*ctx.Materials[m]->Vertices.size());
             for (size_t i=0; i<ctx.Materials[m]->Indices.size(); i+=3)
             {
-                core::vectorSIMDf v1;
+                core::vectorSIMDf v1,v2,v3;
                 v1.set(ctx.Materials[m]->Vertices[ctx.Materials[m]->Indices[i+0]].pos);
-                core::vectorSIMDf v2;
                 v2.set(ctx.Materials[m]->Vertices[ctx.Materials[m]->Indices[i+1]].pos);
-                core::vectorSIMDf v3;
                 v3.set(ctx.Materials[m]->Vertices[ctx.Materials[m]->Indices[i+2]].pos);
                 v1.makeSafe3D();
                 v2.makeSafe3D();
                 v3.makeSafe3D();
-                core::vectorSIMDf normal;
-                normal.set(core::plane3d<float>(v1.getAsVector3df(), v2.getAsVector3df(), v3.getAsVector3df()).Normal);
+                core::vectorSIMDf normal(core::plane3dSIMDf(v1, v2, v3).getNormal());
                 newNormals[ctx.Materials[m]->Indices[i+0]] += normal;
                 newNormals[ctx.Materials[m]->Indices[i+1]] += normal;
                 newNormals[ctx.Materials[m]->Indices[i+2]] += normal;
@@ -439,7 +437,7 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
         vertexbuf = new asset::ICPUBuffer(actualVertexCount*sizeof(SObjVertex));
         desc->setVertexAttrBuffer(vertexbuf,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,sizeof(SObjVertex),0);
         desc->setVertexAttrBuffer(vertexbuf,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT,sizeof(SObjVertex),12);
-        desc->setVertexAttrBuffer(vertexbuf,asset::EVAI_ATTR3,asset::EF_A2B10G10R10_SSCALED_PACK32,sizeof(SObjVertex),20); //normal
+        desc->setVertexAttrBuffer(vertexbuf,asset::EVAI_ATTR3,asset::EF_A2B10G10R10_SNORM_PACK32,sizeof(SObjVertex),20); //normal
         memcpy(vertexbuf->getPointer(),ctx.Materials[m]->Vertices.data()+baseVertex,vertexbuf->getSize());
         vertexbuf->drop();
 
@@ -563,9 +561,9 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
     {
         for (size_t i=0; i<_IRR_MATERIAL_MAX_TEXTURES_; i++)
         {
-            currMaterial->Material.TextureLayer[i].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_BORDER;
-            currMaterial->Material.TextureLayer[i].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_BORDER;
-            currMaterial->Material.TextureLayer[i].SamplingParams.TextureWrapW = video::ETC_CLAMP_TO_BORDER;
+            currMaterial->Material.TextureLayer[i].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
+            currMaterial->Material.TextureLayer[i].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
+            currMaterial->Material.TextureLayer[i].SamplingParams.TextureWrapW = video::ETC_CLAMP_TO_EDGE;
         }
     }
 
@@ -597,9 +595,9 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
         }
 		else if (type==ETT_NORMAL_MAP)
 		{
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
             os::Printer::log("Loading OBJ Models with normal maps not supported!\n",ELL_ERROR);
-#endif // _DEBUG
+#endif // _IRR_DEBUG
 			currMaterial->Material.setTexture(1, texture);
 			currMaterial->Material.MaterialType=(video::E_MATERIAL_TYPE)-1;
 			currMaterial->Material.MaterialTypeParam=0.035f;

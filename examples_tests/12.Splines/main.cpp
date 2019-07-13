@@ -113,28 +113,6 @@ private:
     bool wasLeftPressedBefore;
 };
 
-class SimpleCallBack : public video::IShaderConstantSetCallBack
-{
-    int32_t mvpUniformLocation;
-    video::E_SHADER_CONSTANT_TYPE mvpUniformType;
-public:
-    SimpleCallBack() : mvpUniformLocation(-1), mvpUniformType(video::ESCT_FLOAT_VEC3) {}
-
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
-    {
-        //! Normally we'd iterate through the array and check our actual constant names before mapping them to locations but oh well
-        mvpUniformLocation = constants[0].location;
-        mvpUniformType = constants[0].type;
-    }
-
-    virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
-    {
-        services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniformLocation,mvpUniformType,1);
-    }
-
-    virtual void OnUnsetMaterial() {}
-};
-
 
 
 int main()
@@ -157,29 +135,16 @@ int main()
 
 
 	video::IVideoDriver* driver = device->getVideoDriver();
-    SimpleCallBack* callBack = new SimpleCallBack();
-
-    //! First need to make a material other than default to be able to draw with custom shader
-    video::SGPUMaterial material;
-    material.BackfaceCulling = false; //! Triangles will be visible from both sides
-    material.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
-                                                        "","","", //! No Geometry or Tessellation Shaders
-                                                        "../mesh.frag",
-                                                        3,video::EMT_SOLID, //! 3 vertices per primitive (this is tessellation shader relevant only
-                                                        callBack, //! No Shader Callback (we dont have any constants/uniforms to pass to the shader)
-                                                        0); //! No custom user data
-    callBack->drop();
 
 
 	scene::ISceneManager* smgr = device->getSceneManager();
-	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
-	scene::ICameraSceneNode* camera =
-		smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
+	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
 	camera->setPosition(core::vector3df(-4,0,0));
 	camera->setTarget(core::vector3df(0,0,0));
 	camera->setNearValue(0.01f);
 	camera->setFarValue(100.0f);
     smgr->setActiveCamera(camera);
+
 	device->getCursorControl()->setVisible(false);
 	MyEventReceiver receiver;
 	device->setEventReceiver(&receiver);
@@ -217,7 +182,6 @@ int main()
     uint64_t timeDelta = 0;
 
 	while(device->run())
-	//if (device->isWindowActive())
 	{
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );
 
@@ -238,8 +202,9 @@ int main()
                 cubeSegment = spline->getPos(newPos,cubeDistance,cubeSegment,&cubeParameterHint);
             }
 
-            vectorSIMDf forwardDir;
-            assert(spline->getUnnormDirection_fromParameter(forwardDir,cubeSegment,cubeParameterHint)); //must be TRUE
+            vectorSIMDf forwardDir; 
+			bool success = spline->getUnnormDirection_fromParameter(forwardDir,cubeSegment,cubeParameterHint);
+            assert(success); //must be TRUE
             forwardDir = normalize(forwardDir); //must normalize after
             vectorSIMDf sideDir = normalize(cross(forwardDir,vectorSIMDf(0,1,0))); // predefined up vector
             vectorSIMDf pseudoUp = cross(sideDir,forwardDir);
@@ -276,30 +241,6 @@ int main()
 
     if (spline)
         delete spline;
-
-    //create a screenshot
-	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
-    glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
-    {
-        // images are horizontally flipped, so we have to fix that here.
-        uint8_t* pixels = (uint8_t*)screenshot->getData();
-
-        const int32_t pitch=screenshot->getPitch();
-        uint8_t* p2 = pixels + (params.WindowSize.Height - 1) * pitch;
-        uint8_t* tmpBuffer = new uint8_t[pitch];
-        for (uint32_t i=0; i < params.WindowSize.Height; i += 2)
-        {
-            memcpy(tmpBuffer, pixels, pitch);
-            memcpy(pixels, p2, pitch);
-            memcpy(p2, tmpBuffer, pitch);
-            pixels += pitch;
-            p2 -= pitch;
-        }
-        delete [] tmpBuffer;
-    }
-	driver->writeImageToFile(screenshot,"./screenshot.png");
-	screenshot->drop();
-	device->sleep(3000);
 
 	device->drop();
 

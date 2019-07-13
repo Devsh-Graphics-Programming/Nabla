@@ -47,7 +47,7 @@ namespace io
 //! constructor
 CFileSystem::CFileSystem()
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CFileSystem");
 	#endif
 

@@ -13,6 +13,7 @@
 #include "ISceneManager.h"
 #include "IWriteFile.h"
 #include "IFileSystem.h"
+#include "irr/core/math/plane3dSIMD.h"
 #include <sstream>
 
 namespace irr
@@ -23,7 +24,7 @@ namespace asset
 CSTLMeshWriter::CSTLMeshWriter(scene::ISceneManager* smgr)
 	: SceneManager(smgr)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CSTLMeshWriter");
 	#endif
 
@@ -47,7 +48,7 @@ bool CSTLMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     SAssetWriteContext ctx{_params, _file};
 
     const asset::ICPUMesh* mesh =
-#   ifndef _DEBUG
+#   ifndef _IRR_DEBUG
         static_cast<const asset::ICPUMesh*>(_params.rootAsset);
 #   else
         dynamic_cast<const asset::ICPUMesh*>(_params.rootAsset);
@@ -121,8 +122,8 @@ inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndice
         }
 
 
-        const core::plane3df plane(v[0].getAsVector3df(),v[1].getAsVector3df(),v[2].getAsVector3df());
-        file->write(&plane.Normal, 12);
+        const core::plane3dSIMDf plane(v[0], v[1], v[2]);
+        file->write(&plane, 12);
         file->write(v+0, 12);
         file->write(v+1, 12);
         file->write(v+2, 12);
@@ -209,9 +210,9 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh*
                 for (uint32_t j=0; j<indexCount; j+=3)
                 {
                     writeFaceText(file,
-                        buffer->getPosition(((uint16_t*)buffer->getIndices())[j]).getAsVector3df(),
-                        buffer->getPosition(((uint16_t*)buffer->getIndices())[j+1]).getAsVector3df(),
-                        buffer->getPosition(((uint16_t*)buffer->getIndices())[j+2]).getAsVector3df()
+                        buffer->getPosition(((uint16_t*)buffer->getIndices())[j]),
+                        buffer->getPosition(((uint16_t*)buffer->getIndices())[j+1]),
+                        buffer->getPosition(((uint16_t*)buffer->getIndices())[j+2])
                     );
                 }
 			}
@@ -221,9 +222,9 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh*
                 for (uint32_t j=0; j<indexCount; j+=3)
                 {
                     writeFaceText(file,
-                        buffer->getPosition(((uint32_t*)buffer->getIndices())[j]).getAsVector3df(),
-                        buffer->getPosition(((uint32_t*)buffer->getIndices())[j+1]).getAsVector3df(),
-                        buffer->getPosition(((uint32_t*)buffer->getIndices())[j+2]).getAsVector3df()
+                        buffer->getPosition(((uint32_t*)buffer->getIndices())[j]),
+                        buffer->getPosition(((uint32_t*)buffer->getIndices())[j+1]),
+                        buffer->getPosition(((uint32_t*)buffer->getIndices())[j+2])
                     );
                 }
 			}
@@ -233,9 +234,9 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh*
                 for (uint32_t j=0; j<indexCount; j+=3)
                 {
                     writeFaceText(file,
-                        buffer->getPosition(j).getAsVector3df(),
-                        buffer->getPosition(j+1).getAsVector3df(),
-                        buffer->getPosition(j+2).getAsVector3df()
+                        buffer->getPosition(j),
+                        buffer->getPosition(j+1),
+                        buffer->getPosition(j+2)
                     );
                 }
             }
@@ -251,7 +252,7 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh*
 }
 
 
-void CSTLMeshWriter::getVectorAsStringLine(const core::vector3df& v, core::stringc& s) const
+void CSTLMeshWriter::getVectorAsStringLine(const core::vectorSIMDf& v, core::stringc& s) const
 {
     std::ostringstream tmp;
     tmp << v.X << " " << v.Y << " " << v.Z << "\n";
@@ -260,13 +261,13 @@ void CSTLMeshWriter::getVectorAsStringLine(const core::vector3df& v, core::strin
 
 
 void CSTLMeshWriter::writeFaceText(io::IWriteFile* file,
-		const core::vector3df& v1,
-		const core::vector3df& v2,
-		const core::vector3df& v3)
+		const core::vectorSIMDf& v1,
+		const core::vectorSIMDf& v2,
+		const core::vectorSIMDf& v3)
 {
 	core::stringc tmp;
 	file->write("facet normal ",13);
-	getVectorAsStringLine(core::plane3df(v1,v2,v3).Normal, tmp);
+	getVectorAsStringLine(core::plane3dSIMDf(v1, v2, v3).getNormal(), tmp);
 	file->write(tmp.c_str(),tmp.size());
 	file->write("  outer loop\n",13);
 	file->write("    vertex ",11);
@@ -286,4 +287,3 @@ void CSTLMeshWriter::writeFaceText(io::IWriteFile* file,
 } // end namespace
 
 #endif
-

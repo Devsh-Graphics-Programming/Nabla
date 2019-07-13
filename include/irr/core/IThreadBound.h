@@ -12,7 +12,7 @@ namespace irr
 namespace core
 {
 
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
     #define _IRR_CHECK_OWNING_THREAD(_obj, EXTRA_BODY_TO_EXEC) \
         if (!_obj->belongsToCurrentThread()) \
         { \

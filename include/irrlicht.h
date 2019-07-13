@@ -82,6 +82,9 @@
 #include "irr/asset/CImageData.h"
 #include "irr/asset/IGeometryCreator.h"
 #include "irr/asset/IMeshManipulator.h"
+#include "irr/asset/IBuiltinIncludeLoader.h"
+#include "irr/asset/IIncluder.h"
+#include "irr/asset/IIncludeHandler.h"
 //} end asset lib
 
 //{ ui lib (window set up, software blit, joysticks, multi-touch, keyboard, etc.) [DEPENDS: system]
@@ -104,21 +107,19 @@
 
 #include "IrrCompileConfig.h"
 #include "aabbox3d.h"
-#include "triangle3d.h"
 #include "vector2d.h"
 #include "vector3d.h"
 #include "vectorSIMD.h"
 #include "coreutil.h"
 #include "line2d.h"
 #include "line3d.h"
-#include "matrix4.h"
-#include "plane3d.h"
+#include "matrix4SIMD.h"
+#include "irr/core/math/plane3dSIMD.h"
 #include "position2d.h"
 #include "quaternion.h"
 #include "rect.h"
 #include "dimension2d.h"
 #include "CFinalBoneHierarchy.h"
-#include "CGLSLFunctionGenerator.h"
 #include "ECullingTypes.h"
 #include "EDebugSceneTypes.h"
 #include "EDriverTypes.h"

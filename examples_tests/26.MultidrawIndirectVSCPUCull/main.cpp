@@ -85,7 +85,7 @@ public:
 //! read up on std430 packing rules to understand the padding
 struct ObjectData_t
 {
-    core::matrix4 modelViewProjMatrix;
+    core::matrix4SIMD modelViewProjMatrix;
     float normalMat[9];
     float padding[3];
 };
@@ -319,9 +319,7 @@ int main()
         // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
         driver->copyBuffer(defaultUploadBuffer->getBuffer(),perObjectSSBO,offset,0u,dataSize);
         // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-        auto fence = driver->placeFence();
-        defaultUploadBuffer->multi_free(1u,&offset,&dataSize,fence);
-        fence->drop();
+        defaultUploadBuffer->multi_free(1u,&offset,&dataSize,std::move(driver->placeFence()));
     };
     updateSSBO(perObjectData,sizeof(perObjectData));
 

@@ -24,7 +24,7 @@ CMeshSceneNode::CMeshSceneNode(video::IGPUMesh* mesh, IDummyTransformationSceneN
 : IMeshSceneNode(parent, mgr, id, position, rotation, scale), Mesh(0),
 	PassCount(0), ReferencingMeshMaterials(true)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CMeshSceneNode");
 	#endif
 

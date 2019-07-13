@@ -146,7 +146,7 @@ namespace video
             case EF_A2B10G10R10_SINT_PACK32:
             case EF_A2B10G10R10_SSCALED_PACK32:
             case EF_A2B10G10R10_USCALED_PACK32:
-            // GL_UNSIGNED_INT_10F_11F_11F_REV 
+            // GL_UNSIGNED_INT_10F_11F_11F_REV
             case EF_B10G11R11_UFLOAT_PACK32:
             // half float
             case EF_R16_SFLOAT:
@@ -484,9 +484,9 @@ namespace video
 		virtual void setMaterial(const SGPUMaterial& material);
 
         //! needs to be "deleted" since its not refcounted
-        virtual IDriverFence* placeFence(const bool& implicitFlushWaitSameThread=false)
+        virtual core::smart_refctd_ptr<IDriverFence> placeFence(const bool& implicitFlushWaitSameThread=false) override final
         {
-            return new COpenGLDriverFence(implicitFlushWaitSameThread);
+            return core::make_smart_refctd_ptr<COpenGLDriverFence>(implicitFlushWaitSameThread);
         }
 
 		//! \return Returns the name of the video driver. Example: In case of the Direct3D8
@@ -783,9 +783,9 @@ namespace video
 
                     GLuint                      vao;
                     uint64_t                    lastValidated;
-                #ifdef _DEBUG
+                #ifdef _IRR_DEBUG
                     COpenGLVAOSpec::HashAttribs debugHash;
-                #endif // _DEBUG
+                #endif // _IRR_DEBUG
                 public:
                     _IRR_NO_DEFAULT_FINAL(COpenGLVAO);
                     _IRR_NO_COPY_FINAL(COpenGLVAO);
@@ -827,9 +827,9 @@ namespace video
 
                     inline const uint64_t& getLastBoundStamp() const {return lastValidated;}
 
-                #ifdef _DEBUG
+                #ifdef _IRR_DEBUG
                     inline const COpenGLVAOSpec::HashAttribs& getDebugHash() const {return debugHash;}
-                #endif // _DEBUG
+                #endif // _IRR_DEBUG
             };
 
             //!

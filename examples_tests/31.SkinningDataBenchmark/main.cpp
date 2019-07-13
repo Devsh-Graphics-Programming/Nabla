@@ -190,20 +190,15 @@ struct UBOManager
                 auto res = fence[updateNum]->waitCPU(10000000000ull);
                 return (res == video::EDFR_CONDITION_SATISFIED || res == video::EDFR_ALREADY_SIGNALED);
             };
-            while (!waitf())
-            {
-                fence[updateNum]->drop();
-                fence[updateNum] = nullptr;
-            }
+			while (!waitf()) {}
+			fence[updateNum] = nullptr;
         }
 
         memcpy(mappedMem + updateNum*ubo->getSize() + _off, _data, _sz);
         video::COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(dynamic_cast<video::COpenGLBuffer*>(mappedBuf)->getOpenGLName(), updateNum*ubo->getSize() + _off, _sz);
 
         drv->copyBuffer(mappedBuf, ubo, updateNum*ubo->getSize() + _off, _off, _sz);
-
-        if (!fence)
-            fence[updateNum] = drv->placeFence();
+		fence[updateNum] = drv->placeFence();
 
         updateNum = (updateNum + 1) % 4;
     }
@@ -222,7 +217,7 @@ private:
     video::IGPUBuffer* mappedBuf;
     uint8_t* mappedMem;
     uint8_t updateNum;
-    video::IDriverFence* fence[4];
+    core::smart_refctd_ptr<video::IDriverFence> fence[4];
 };
 
 //#define BENCH

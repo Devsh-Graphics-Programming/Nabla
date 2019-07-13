@@ -1,0 +1,76 @@
+[submodule "3rdparty/SPIRV-Headers"]
+	path = 3rdparty/SPIRV-Headers
+	url = https://github.com/KhronosGroup/SPIRV-Headers.git
+[submodule "3rdparty/SPIRV-Tools"]
+	path = 3rdparty/SPIRV-Tools
+	url = https://github.com/KhronosGroup/SPIRV-Tools.git
+[submodule "3rdparty/glslang"]
+	path = 3rdparty/glslang
+	url = https://github.com/KhronosGroup/glslang.git
+[submodule "3rdparty/shaderc"]
+	path = 3rdparty/shaderc
+	url = https://github.com/google/shaderc.git
+[submodule "3rdparty/bzip2"]
+	path = 3rdparty/bzip2
+	url = https://github.com/sergiud/bzip2.git
+[submodule "3rdparty/lz4"]
+	path = 3rdparty/lz4
+	url = https://github.com/lz4/lz4.git
+[submodule "3rdparty/spirv_cross"]
+	path = 3rdparty/spirv_cross
+	url = https://github.com/KhronosGroup/SPIRV-Cross.git
+[submodule "3rdparty/zlib"]
+	path = 3rdparty/zlib
+	url = https://github.com/madler/zlib.git
+[submodule "3rdparty/utfcpp"]
+	path = 3rdparty/utfcpp
+	url = https://github.com/nemtrif/utfcpp.git
+[submodule "3rdparty/convertutf"]
+	path = 3rdparty/convertutf
+	url = https://github.com/plenluno/convertutf.git
+[submodule "3rdparty/libpng"]
+	path = 3rdparty/libpng
+	url = https://github.com/glennrp/libpng.git
+[submodule "3rdparty/openssl/openssl"]
+	path = 3rdparty/openssl/openssl
+	url = https://github.com/openssl/openssl.git
+	branch = OpenSSL_1_0_2-stable
+[submodule "3rdparty/libjpeg-turbo"]
+	path = 3rdparty/libjpeg-turbo
+	url = https://github.com/libjpeg-turbo/libjpeg-turbo.git
+[submodule "3rdparty/libjpeg"]
+	path = 3rdparty/libjpeg
+	url = https://github.com/LuaDist/libjpeg.git
+[submodule "3rdparty/bullet3"]
+	path = 3rdparty/bullet3
+	url = https://github.com/bulletphysics/bullet3.git
+[submodule "examples_tests/media/cegui_alfisko"]
+	path = examples_tests/media/cegui_alfisko
+	url = https://gitlab.com/InnerPieceOSS/cegui_alfisko.git
+[submodule "3rdparty/CEGUI/cegui"]
+	path = 3rdparty/CEGUI/cegui
+	url = https://gitlab.com/InnerPieceOSS/cegui.git
+	branch = saga
+[submodule "ext/CEGUI/stb"]
+	path = ext/CEGUI/stb
+	url = https://github.com/nothings/stb.git
+[submodule "3rdparty/portable-file-dialogs"]
+	path = 3rdparty/portable-file-dialogs
+	url = https://github.com/samhocevar/portable-file-dialogs.git
+[submodule "3rdparty/libexpat"]
+	path = 3rdparty/libexpat
+	url = https://github.com/libexpat/libexpat.git
+	branch = master
+[submodule "3rdparty/glm"]
+	path = 3rdparty/glm
+	url = https://github.com/g-truc/glm.git
+[submodule "3rdparty/freetype2"]
+	path = 3rdparty/freetype2
+	url = https://git.sv.nongnu.org/r/freetype/freetype2.git
+[submodule "3rdparty/CEGUI/pcre"]
+	path = 3rdparty/CEGUI/pcre
+	url = https://github.com/svn2github/pcre.git
+[submodule "3rdparty/CEGUI/glew"]
+	path = 3rdparty/CEGUI/glew
+	url = https://github.com/Perlmint/glew-cmake.git
+	branch = master

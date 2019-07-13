@@ -1219,6 +1219,8 @@ namespace asset
         case EF_G8_B8_R8_3PLANE_444_UNORM:
             _reductionFactor[0] = _reductionFactor[1] = _reductionFactor[2] = 1u;
             return;
+        default:
+            return;
         }
     }
     inline void getVerticalReductionFactorPerPlane(asset::E_FORMAT _planarFmt, uint32_t _reductionFactor[4])
@@ -1238,6 +1240,8 @@ namespace asset
         case EF_G8_B8_R8_3PLANE_444_UNORM:
             _reductionFactor[0] = _reductionFactor[1] = _reductionFactor[2] = 1u;
             return;
+        default:
+            return;
         }
     }
     inline void getChannelsPerPlane(asset::E_FORMAT _planarFmt, uint32_t _chCnt[4])
@@ -1253,6 +1257,8 @@ namespace asset
         case EF_G8_B8R8_2PLANE_422_UNORM:
             _chCnt[0] = 1u;
             _chCnt[1] = 2u;
+            return;
+        default:
             return;
         }
     }

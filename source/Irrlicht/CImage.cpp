@@ -43,7 +43,7 @@ CImage::CImage(asset::E_FORMAT format, const core::dimension2d<uint32_t>& size, 
 //! assumes format and size has been set and creates the rest
 void CImage::initData()
 {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
 	setDebugName("CImage");
 #endif
 
@@ -220,10 +220,8 @@ void CImage::setPixel(uint32_t x, uint32_t y, const SColor &color, bool blend)
 				*dest = p;
 			}
 		} break;
-#ifndef _DEBUG
 		default:
 			break;
-#endif
 	}
 }
 
@@ -278,7 +276,7 @@ SColor CImage::getPixel(uint32_t x, uint32_t y) const
 	case asset::EF_R8G8B8_UNORM:
 	{
         original[0] = Data+(y*3)*Size.Width + (x*3);
-        convertColor<asset::EF_R8G8B8_UINT, asset::EF_B8G8R8A8_UINT>(original, &color8888, 1ull, 0u, 0u);
+        convertColor<asset::EF_R8G8B8_UINT, asset::EF_B8G8R8A8_UINT>(original, &color8888, 0u, 0u);
         reinterpret_cast<uint8_t*>(&color8888)[3] = 0xffu;
         return color8888;
 	}

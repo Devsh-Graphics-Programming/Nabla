@@ -1,0 +1,73 @@
+#version 450 core
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (binding = 7) uniform sampler2D bumpMapSampler;
+layout (binding = 0, rg8_snorm) uniform image2D derivativeMapImage;
+layout (binding = 1, rg8_snorm) uniform image2D derivativeMapImage_mm[4];
+
+layout (location = 0) uniform float uHeightScaleFactor = 0.001;
+
+shared float smem[324];//18*18
+shared vec2 smem2[256];//16*16
+
+int getAddr(in ivec2 threadID)
+{
+	return 18*(threadID.y+1) + threadID.x+1;
+}
+
+void main()
+{
+	const ivec2 G_IDX = ivec2(gl_GlobalInvocationID.xy);
+	const ivec2 RESOLUTION = ivec2(gl_NumWorkGroups.xy * gl_WorkGroupSize.xy);
+	
+	vec2 bumpMapSz = vec2(textureSize(bumpMapSampler, 0));
+
+	const ivec2 LC_IDX = ivec2(gl_LocalInvocationID.xy);
+	smem[getAddr(LC_IDX)] = textureLod(bumpMapSampler, vec2(1.0, 1.0)/vec2(RESOLUTION) * vec2(G_IDX), 0.0).r * uHeightScaleFactor;
+	if (LC_IDX.x == 0 || LC_IDX.x == 15) // TODO how not to use if-statements??
+	{
+		ivec2 offset = ivec2(mix(ivec2(1, 0), ivec2(-1, 0), LC_IDX.x == 0));
+		smem[getAddr(LC_IDX+offset)] = textureLod(bumpMapSampler, vec2(1.0, 1.0)/vec2(RESOLUTION) * vec2(G_IDX+offset), 0.0).r * uHeightScaleFactor;
+	}
+	if (LC_IDX.y == 0 || LC_IDX.y == 15)
+	{
+		ivec2 offset = ivec2(mix(ivec2(0, 1), ivec2(0, -1), LC_IDX.y == 0));
+		smem[getAddr(LC_IDX+offset)] = textureLod(bumpMapSampler, vec2(1.0, 1.0)/vec2(RESOLUTION) * vec2(G_IDX+offset), 0.0).r * uHeightScaleFactor;
+	}
+	
+	barrier(); // AFAIK execution barrier implies memory barrier
+	
+	vec2 d = vec2(
+		smem[getAddr(LC_IDX+ivec2(1, 0))] - smem[getAddr(LC_IDX-ivec2(1, 0))],
+		smem[getAddr(LC_IDX+ivec2(0, 1))] - smem[getAddr(LC_IDX-ivec2(0, 1))]
+	) * 0.5 * bumpMapSz;
+	
+	imageStore(derivativeMapImage, G_IDX, vec4(d, 0.0, 0.0));
+		
+	smem2[gl_LocalInvocationIndex] = d;
+	
+	uint mm = 0u;
+	uint offset = 1u;
+	for (uint i = 8u; i > 0u; i /= 2u)
+	{
+		barrier();
+		if (LC_IDX.x < i && LC_IDX.y < i)
+		{
+			//_a_|_c_
+			// d | b
+			uint a = offset * (2*LC_IDX.x + 1u) - 1u
+				+ (offset - 1u)*16u
+				+ 2u*LC_IDX.y*16u;
+			uint b = a + offset + offset*16u;
+			uint c = b - offset*16u;
+			uint d = b - offset;
+			
+			vec2 s = (smem2[a] + smem2[b] + smem2[c] + smem2[d]) * 0.25;
+			smem2[b] = s;
+			imageStore(derivativeMapImage_mm[mm], ivec2(gl_WorkGroupID*i)+LC_IDX, vec4(s, 0.0, 0.0));
+		}
+		offset *= 2u;
+		++mm;
+	}
+}

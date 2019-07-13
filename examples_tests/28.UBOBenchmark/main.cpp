@@ -18,7 +18,7 @@ using namespace core;
 // benchmark controls
 #define TEST_CASE 2 // [2..4]
 
-#if TEST_CASE==1
+#if TEST_CASE<=1
     #error "This is not possible in Vulkan, cannot create buffer with already intialized data. This would basically devolve to a staging buffer."
 #endif // TEST_CASE
 

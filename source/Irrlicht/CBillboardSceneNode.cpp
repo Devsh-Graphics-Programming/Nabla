@@ -19,7 +19,7 @@ CBillboardSceneNode::CBillboardSceneNode(IDummyTransformationSceneNode* parent, 
 			video::SColor colorTop, video::SColor colorBottom)
 	: IBillboardSceneNode(parent, mgr, id, position)
 {
-	#ifdef _DEBUG
+	#ifdef _IRR_DEBUG
 	setDebugName("CBillboardSceneNode");
 	#endif
 
@@ -104,7 +104,7 @@ void CBillboardSceneNode::render()
 	// draw
     if (canProceedPastFence())
     {
-        driver->setTransform(video::E4X3TS_WORLD, core::IdentityMatrix);
+        driver->setTransform(video::E4X3TS_WORLD, core::matrix4x3());
 
         driver->setMaterial(Material);
 

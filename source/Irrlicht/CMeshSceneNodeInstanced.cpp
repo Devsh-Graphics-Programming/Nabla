@@ -11,8 +11,7 @@
 #include "os.h"
 #include "irr/video/SGPUMesh.h"
 
-//enable after C++14
-//#include "irr/static_if.h"
+#include "irr/static_if.h"
 
 namespace irr
 {
@@ -30,7 +29,7 @@ CMeshSceneNodeInstanced::CMeshSceneNodeInstanced(IDummyTransformationSceneNode* 
     gpuCulledLodInstanceDataBuffer(nullptr), dataPerInstanceOutputSize(0),
     extraDataInstanceSize(0), dataPerInstanceInputSize(0), cachedMaterialCount(0)
 {
-    #ifdef _DEBUG
+    #ifdef _IRR_DEBUG
     setDebugName("CMeshSceneNodeInstanced");
     #endif
 
@@ -353,7 +352,7 @@ void CMeshSceneNodeInstanced::setInstanceTransform(const uint32_t& instanceID, c
 
 core::matrix4x3 CMeshSceneNodeInstanced::getInstanceTransform(const uint32_t& instanceID)
 {
-    core::matrix4x3 retval(core::matrix4x3::EM4CONST_NOTHING);
+    core::matrix4x3 retval;
     size_t redir = instanceDataAllocator->getAddressAllocator().get_real_addr(instanceID);
     if (redir==kInvalidInstanceID)
     {
@@ -397,11 +396,13 @@ void CMeshSceneNodeInstanced::removeInstances(const size_t& instanceCount, const
     uint32_t minRedirect  = kInvalidInstanceID;
     for (size_t i=0; i<instanceCount; i++)
     {
-        //static_if<usesContiguousAddrAllocator>([&](auto f){
+		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(usesContiguousAddrAllocator)
+		{
             uint32_t redirect =  instanceDataAllocator->getAddressAllocator().get_real_addr(instanceIDs[i]);
             if (redirect<minRedirect)
                 minRedirect = redirect;
-        //});
+        }
+		IRR_PSEUDO_IF_CONSTEXPR_END
 
         uint32_t blockID = getBlockIDFromAddr(instanceIDs[i]);
         instanceBBoxes[blockID].MinEdge.set( FLT_MAX, FLT_MAX, FLT_MAX);
@@ -415,10 +416,12 @@ void CMeshSceneNodeInstanced::removeInstances(const size_t& instanceCount, const
     instanceDataAllocator->multi_free_addr(instanceCount,instanceIDs,static_cast<const uint32_t*>(dummyBytes));
     }
 
-    //static_if<usesContiguousAddrAllocator>([&](auto f){
+	IRR_PSEUDO_IF_CONSTEXPR_BEGIN(usesContiguousAddrAllocator)
+	{
         // everything got shifted down by 1 so mark dirty
         instanceDataAllocator->markRangeForPush(minRedirect,core::address_allocator_traits<InstanceDataAddressAllocator>::get_allocated_size(instanceDataAllocator->getAddressAllocator()));
-    //});
+    }
+	IRR_PSEUDO_IF_CONSTEXPR_END
 
     if (getCurrentInstanceCapacity()!=instanceBBoxesCount)
     {
@@ -563,10 +566,10 @@ void CMeshSceneNodeInstanced::render()
 
 	if (flagQueryForRetrieval)
     {
-/*#ifdef _DEBUG
+/*#ifdef _IRR_DEBUG
         if (!LoD[LoD.size()-1].query->isQueryReady())
             os::Printer::log("GPU Culling Feedback Transform Instance Count Query Not Ready yet, STALLING CPU!\n",ELL_WARNING);
-#endif // _DEBUG*/
+#endif // _IRR_DEBUG*/
         for (size_t j=0; j<LoD.size(); j++)
         {
             uint32_t tmp;

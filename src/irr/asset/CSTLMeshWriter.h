@@ -46,12 +46,11 @@ namespace asset
             bool writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh* mesh);
 
             // create vector output with line end into string
-            void getVectorAsStringLine(const core::vector3df& v,
-                    core::stringc& s) const;
+            void getVectorAsStringLine(const core::vectorSIMDf& v, core::stringc& s) const;
 
             // write face information to file
-            void writeFaceText(io::IWriteFile* file, const core::vector3df& v1,
-                    const core::vector3df& v2, const core::vector3df& v3);
+            void writeFaceText(io::IWriteFile* file, const core::vectorSIMDf& v1,
+                const core::vectorSIMDf& v2, const core::vectorSIMDf& v3);
 
             scene::ISceneManager* SceneManager;
 	};
@@ -60,4 +59,3 @@ namespace asset
 } // end namespace
 
 #endif
-

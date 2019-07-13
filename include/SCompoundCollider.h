@@ -71,6 +71,9 @@ class SCompoundCollider : public IReferenceCounted
                             tmp->drop();
                         }
                         break;
+                    case SCollisionShapeDef::ECST_COUNT:
+                        assert(0);
+                        break;
                 }
             }
         }
@@ -118,6 +121,9 @@ class SCompoundCollider : public IReferenceCounted
                             STriangleMeshCollider* tmp = static_cast<STriangleMeshCollider*>(Shapes[i].object);
                             coll->AddTriangleMesh(tmp);
                         }
+                        break;
+                    case SCollisionShapeDef::ECST_COUNT:
+                        assert(0);
                         break;
                 }
             }
@@ -204,12 +210,15 @@ class SCompoundCollider : public IReferenceCounted
                                 return true;
                         }
                         break;
+                    case SCollisionShapeDef::ECST_COUNT:
+                        assert(0);
+                        break;
                 }
             }
             return false;
         }
 
-		inline const size_t getShapeCount() const { return Shapes.size(); }
+		inline size_t getShapeCount() const { return Shapes.size(); }
 		inline const SAABoxCollider& getBoundingBox() const { return BBox; }
         inline const SColliderData& getColliderData() const {return colliderData;}
 

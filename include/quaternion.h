@@ -7,15 +7,9 @@
 
 
 #include "irr/core/math/irrMath.h"
-#include "matrix4.h"
 #include "matrix4x3.h"
-#include "vector3d.h"
 #include "vectorSIMD.h"
 
-// Between Irrlicht 1.7 and Irrlicht 1.8 the quaternion-matrix conversions got fixed.
-// This define disables all involved functions completely to allow finding all places
-// where the wrong conversions had been in use.
-///#define IRR_TEST_BROKEN_QUATERNION_USE 1
 
 namespace irr
 {

@@ -7,6 +7,18 @@
 #ifndef __IRR_STATIC_IF_H_INCLUDED__
 #define __IRR_STATIC_IF_H_INCLUDED__
 
+#if __cplusplus >= 201703L
+
+#define IRR_PSEUDO_IF_CONSTEXPR_BEGIN(...) if constexpr (__VA_ARGS__)
+#define IRR_PSEUDO_ELSE_CONSTEXPR			else
+#define IRR_PSEUDO_IF_CONSTEXPR_END			
+
+#else
+
+#define IRR_PSEUDO_IF_CONSTEXPR_BEGIN(...) irr::static_if<__VA_ARGS__>([&](auto f)
+#define IRR_PSEUDO_ELSE_CONSTEXPR			).else_([&](auto f)
+#define IRR_PSEUDO_IF_CONSTEXPR_END			);
+
 namespace irr {
 
 namespace static_if_detail {
@@ -96,5 +108,8 @@ static_if_detail::statement<Cond> static_if(F const& f) {
 }
 
 } //end of namespace irr
+
+#endif
+
 
 #endif

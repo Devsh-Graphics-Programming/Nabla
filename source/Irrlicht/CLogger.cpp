@@ -11,7 +11,7 @@ namespace irr
 	CLogger::CLogger(IEventReceiver* r)
 		: LogLevel(ELL_INFORMATION), Receiver(r)
 	{
-		#ifdef _DEBUG
+		#ifdef _IRR_DEBUG
 		setDebugName("CLogger");
 		#endif
 	}

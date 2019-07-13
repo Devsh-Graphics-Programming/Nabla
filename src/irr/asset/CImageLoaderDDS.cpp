@@ -28,53 +28,32 @@ namespace irr
 namespace asset
 {
 
-	int32_t CImageLoaderDDS::DDSLittleLong( int32_t src ) { return src; }
-	int16_t CImageLoaderDDS::DDSLittleShort( int16_t src ) { return src; }
-	float CImageLoaderDDS::DDSLittleFloat( float src ) { return src; }
+static int32_t DDSLittleLong( int32_t src ) { return src; }
 
-	int32_t CImageLoaderDDS::DDSBigLong( int32_t src )
-	{
-		return ((src & 0xFF000000) >> 24) |
-			((src & 0x00FF0000) >> 8) |
-			((src & 0x0000FF00) << 8) |
-			((src & 0x000000FF) << 24);
-	}
-
-	int16_t CImageLoaderDDS::DDSBigShort( int16_t src )
-	{
-		return ((src & 0xFF00) >> 8) |
-			((src & 0x00FF) << 8);
-	}
-
-	float CImageLoaderDDS::DDSBigFloat( float src )
-	{
-		floatSwapUnion in,out;
-		in.f = src;
-		out.c[ 0 ] = in.c[ 3 ];
-		out.c[ 1 ] = in.c[ 2 ];
-		out.c[ 2 ] = in.c[ 1 ];
-		out.c[ 3 ] = in.c[ 0 ];
-		return out.f;
-	}
-
-
-namespace
+static bool DDSGetInfo(CImageLoaderDDS::ddsBuffer *dds, int32_t *width, int32_t *height, int32_t *depth, CImageLoaderDDS::eDDSPixelFormat *pf )
 {
-
-/*!
-	DDSDecodePixelFormat()
-	determines which pixel format the dds texture is in
-*/
-void DDSDecodePixelFormat(CImageLoaderDDS::ddsBuffer *dds, CImageLoaderDDS::eDDSPixelFormat *pf )
-{
-	/* dummy check */
 	if(	dds == NULL || pf == NULL )
-		return;
+		return false;
 
-	/* extract fourCC */
+    if (strncmp(dds->magic, "DDS ", 4u) != 0)	
+		return false;
+	
+	if(DDSLittleLong( dds->size ) != 124 )
+		return false;
+
+	/* extract width and height */
+	if ( width != NULL )
+		*width = DDSLittleLong( dds->width );
+	if ( height != NULL )
+		*height = DDSLittleLong( dds->height );
+    if ( depth != NULL && (dds->flags & 0x800000u) )//DDSD_DEPTH)
+        *depth = DDSLittleLong( dds->depth );
+    else
+        *depth = 1;
+
+	/* get pixel format */
 	const uint32_t fourCC = dds->pixelFormat.fourCC;
 
-	/* test it */
 	if( fourCC == 0 )
 	{
 	    bool hasAlpha = false;
@@ -82,18 +61,12 @@ void DDSDecodePixelFormat(CImageLoaderDDS::ddsBuffer *dds, CImageLoaderDDS::eDDS
 	    bool hasLuma = false;
 	    uint32_t bitDepth = dds->pixelFormat.privateFormatBitCount;
 
-	    if (dds->pixelFormat.flags&0x3)
-	    {
-            hasAlpha = true;
-	    }
-	    if (dds->pixelFormat.flags&0x40)
-	    {
-            hasRGB = true;
-	    }
-	    if (dds->pixelFormat.flags&0x20000)
-	    {
-            hasLuma = true;
-	    }
+	    if (dds->pixelFormat.flags & 0x3)
+			hasAlpha = true;
+	    if (dds->pixelFormat.flags & 0x40)
+			hasRGB = true;
+	    if (dds->pixelFormat.flags & 0x20000)
+			hasLuma = true;
 
         if (bitDepth==32&&(dds->pixelFormat.rBitMask&0x00ff0000)&&hasRGB&&hasAlpha)
             *pf = CImageLoaderDDS::DDS_PF_ARGB8888;
@@ -112,17 +85,10 @@ void DDSDecodePixelFormat(CImageLoaderDDS::ddsBuffer *dds, CImageLoaderDDS::eDDS
         else if (bitDepth==8&&(dds->pixelFormat.rBitMask==0)&&hasAlpha)
             *pf = CImageLoaderDDS::DDS_PF_A8;
         else
-            *pf = CImageLoaderDDS::DDS_PF_UNKNOWN;
+            return false;
 	}
 	else if( fourCC == *((uint32_t*) "DXT1") )
-	{ // sodan was here
-//	    if (dds->pixelFormat.privateFormatBitCount==24)
-            *pf = CImageLoaderDDS::DDS_PF_DXT1;
-/*        else if (dds->pixelFormat.privateFormatBitCount==32)
-            *pf = DDS_PF_DXT1_ALPHA;
-        else
-            printf("IRRLICHT BUUUUUUUUGGGGG!!!!!!!!!!\n SHOOT SOMEONE!\n");*/
-	}
+		*pf = CImageLoaderDDS::DDS_PF_DXT1;
 	else if( fourCC == *((uint32_t*) "DXT2") )
 		*pf = CImageLoaderDDS::DDS_PF_DXT2;
 	else if( fourCC == *((uint32_t*) "DXT3") )
@@ -132,46 +98,10 @@ void DDSDecodePixelFormat(CImageLoaderDDS::ddsBuffer *dds, CImageLoaderDDS::eDDS
 	else if( fourCC == *((uint32_t*) "DXT5") )
 		*pf = CImageLoaderDDS::DDS_PF_DXT5;
 	else
-		*pf = CImageLoaderDDS::DDS_PF_UNKNOWN;
+		return false;
+	
+	return true;
 }
-
-
-/*!
-DDSGetInfo()
-extracts relevant info from a dds texture, returns 0 on success
-*/
-int32_t DDSGetInfo(CImageLoaderDDS::ddsBuffer *dds, int32_t *width, int32_t *height, int32_t *depth, CImageLoaderDDS::eDDSPixelFormat *pf )
-{
-	/* dummy test */
-	if( dds == NULL )
-		return -1;
-
-	/* test dds header */
-    if (strncmp(dds->magic, "DDS ", 4u) != 0)	
-		return -1;
-	if(CImageLoaderDDS::DDSLittleLong( dds->size ) != 124 )
-		return -1;
-
-	/* extract width and height */
-	if ( width != NULL )
-		*width = CImageLoaderDDS::DDSLittleLong( dds->width );
-	if ( height != NULL )
-		*height = CImageLoaderDDS::DDSLittleLong( dds->height );
-    if ( depth != NULL && (dds->flags & 0x800000u) )//DDSD_DEPTH)
-        *depth = CImageLoaderDDS::DDSLittleLong( dds->depth );
-    else
-        *depth = 1;
-
-	/* get pixel format */
-	DDSDecodePixelFormat( dds, pf );
-
-	/* return ok */
-	return 0;
-}
-
-
-} // end anonymous namespace
-
 
 //! returns true if the file maybe is able to be loaded by this class
 bool CImageLoaderDDS::isALoadableFileFormat(io::IReadFile* _file) const
@@ -188,9 +118,8 @@ bool CImageLoaderDDS::isALoadableFileFormat(io::IReadFile* _file) const
 	int32_t width, height, depth;
 	eDDSPixelFormat pixelFormat;
 
-	return (0 == DDSGetInfo( &header, &width, &height, &depth, &pixelFormat));
+	return DDSGetInfo(&header, &width, &height, &depth, &pixelFormat);
 }
-
 
 //! creates a surface from the file
 asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
@@ -203,7 +132,7 @@ asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAs
 	ddsBuffer header;
 	_file->read(&header, sizeof(header)-4);
 
-	if ( 0 == DDSGetInfo( &header, &width, &height, &depth, &pixelFormat) )
+	if (DDSGetInfo(&header, &width, &height, &depth, &pixelFormat))
 	{
 	    if (header.flags & 0x20000)//DDSD_MIPMAPCOUNT)
             mipmapCnt = header.mipMapCount;
@@ -328,14 +257,17 @@ asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAs
                     break;
 
                 default:
-                case DDS_PF_UNKNOWN:
-                    break;
+					{
+						os::Printer::log("Unsupported DDS texture format", ELL_ERROR);
+						return nullptr;
+					}
+					break;
             }
         }
 	}
 
 	asset::ICPUTexture* tex = asset::ICPUTexture::create(images);
-    for (auto img : images)
+    for (auto& img : images)
         img->drop();
     return tex;
 }

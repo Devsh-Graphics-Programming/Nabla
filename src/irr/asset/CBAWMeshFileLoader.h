@@ -104,7 +104,13 @@ public:
             asset::IAssetLoader::SAssetLoadContext{
                 asset::IAssetLoader::SAssetLoadParams{},
                 _file
-            }
+            },
+            // following should shut up GCC
+            0xdeadbeefu,
+            {},
+            {},
+            asset::CBlobsLoadingManager(),
+            {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
         };
 
         const size_t prevPos = _file->getPos();
@@ -405,7 +411,7 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData_t<HeaderT> & _data,
 
     if (!_data.header->validate(dstCompressed))
     {
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
         os::Printer::log("Blob validation failed!", ELL_ERROR);
 #endif
         if (compressed)
@@ -432,7 +438,7 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData_t<HeaderT> & _data,
             if (dst != _stackPtr && dstCompressed != dst)
                 _IRR_ALIGNED_FREE(dst);
             _IRR_ALIGNED_FREE(out);
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
             os::Printer::log("Blob decryption failed!", ELL_ERROR);
 #       endif
             return nullptr;
@@ -468,7 +474,7 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData_t<HeaderT> & _data,
         {
             if (dst != _stackPtr && dst != dstCompressed)
                 _IRR_ALIGNED_FREE(dst);
-#ifdef _DEBUG
+#ifdef _IRR_DEBUG
             os::Printer::log("Blob decompression failed!", ELL_ERROR);
 #endif
             return nullptr;

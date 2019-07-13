@@ -1,4 +1,6 @@
-#include "IrrCompileConfig.h"
+#ifndef __IRR_C_OVERDRAW_MESH_OPTIMIZER_H_INCLUDED__
+#define __IRR_C_OVERDRAW_MESH_OPTIMIZER_H_INCLUDED__
+
 #include "irr/asset/ICPUMeshBuffer.h"
 
 // Based on zeux's meshoptimizer (https://github.com/zeux/meshoptimizer) available under MIT license
@@ -50,3 +52,5 @@ private:
 };
 
 }}
+
+#endif//__IRR_C_OVERDRAW_MESH_OPTIMIZER_H_INCLUDED__
