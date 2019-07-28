@@ -10,6 +10,8 @@
 #include <stack>
 #include <chrono>
 
+#include "ParserUtil.h"
+
 namespace irr { namespace ext { namespace MitsubaLoader {
 
 //TODO: 
@@ -21,116 +23,6 @@ namespace irr { namespace ext { namespace MitsubaLoader {
  - use log functions instead of std::cout
 */
 
-//struct, which will be passed to expat handlers as user data (first argument) see: XML_StartElementHandler or XML_EndElementHandler in expat.h
-struct ParserData
-{
-	//!Constructor 
-	ParserData(irr::asset::IAssetManager& _assetManager, XML_Parser _parser)
-		: assetManager(_assetManager),
-		isSceneActive(false),
-		parser(_parser)
-	{
-
-	}
-
-	irr::asset::IAssetManager& assetManager;
-	
-	/*root element, which will hold all loaded assets and material data
-	in irr::asset::SCPUMesh (for now) instance*/
-	CMitsubaScene scene;
-
-	/*array of currently processed elements
-	each element of index N is parent of the element of index N+1
-	the scene element is a parent of all elements of index 0 */
-	core::vector<IElement*> elements;
-
-	/*used to control if first element in xml file is a scene,
-	if not then .xml file is considered invalid and error is generated*/
-	bool isSceneActive;
-
-	
-	XML_Parser parser;
-};
-
-static void elementHandlerStart(void* _data, const char* _el, const char** _atts)
-{
-	ParserData* data = static_cast<ParserData*>(_data);	
-
-	if(!std::strcmp(_el, "scene"))
-	{
-		//if element being parsed is a scene and there was scene element parsed before (which is incorrect)
-		if (data->isSceneActive)
-		{
-			std::cout << "invalid .xml file structure: \"scene\" cannot be child element of \"scene\" \n";
-			//stop parsing and return nullptr from CMitsubaLoader::loadAsset
-		}
-		else
-		{
-			data->isSceneActive = true;
-			data->scene.processAttributes(_atts);
-		}
-	}
-	else
-	{
-		//if element being parsed is NOT a scene and there was scene element parsed before
-		if (data->isSceneActive)
-		{
-			IElement* newElement = elementFactory(_el, _atts);
-
-			if (newElement)
-			{
-				data->elements.push_back(newElement);
-			}
-			else
-			{
-				std::cout << "invalid .xml file structure: " << _el <<  " \n";
-				//stop parsing and return nullptr from CMitsubaLoader::loadAsset
-			}
-				
-		}
-		else
-		{
-			std::cout << "invalid .xml file structure: there is no scene as a root element \n";
-			//stop parsing and return nullptr from CMitsubaLoader::loadAsset
-		}
-	}
-
-	//XML_StopParser(data->parser, false);
-}
-
-static void elementHandlerEnd(void* _data, const char* _el)
-{
-	ParserData* data = static_cast<ParserData*>(_data);
-	
-	if (!std::strcmp(_el, "scene"))
-	{
-		if (!data->isSceneActive) //this scenario is not possible to happen i think (parser would return with XML_STATUS_ERROR anyway)
-		{
-			assert(false);
-			std::cout << "invalid .xml file structure: wat? \n";
-			//stop parsing and return nullptr from CMitsubaLoader::loadAsset
-		}
-		else
-		{
-			data->scene.onEndTag(data->assetManager, nullptr);
-			data->isSceneActive = false;
-		}
-	}
-	else
-	{
-		//here, array of elements should have at least one element
-		assert(!data->elements.empty());
-
-		IElement* element = *(data->elements.end() - 1);
-		data->elements.pop_back();
-
-		//
-		IElement* parent  = (data->elements.empty()) ? &(data->scene) : *(data->elements.end() - 1);
-
-		element->onEndTag(data->assetManager, parent);
-		delete element;
-	}
-}
 
 CMitsubaLoader::CMitsubaLoader(IrrlichtDevice* device)
 	:m_device(device),
@@ -147,6 +39,8 @@ bool CMitsubaLoader::isALoadableFileFormat(io::IReadFile* _file) const
 	_IRR_DEBUG_BREAK_IF(true);
 	return true;
 }
+
+		//SHAPE CUBE ON BEGIN TAG printed twice
 
 const char** CMitsubaLoader::getAssociatedFileExtensions() const
 {
@@ -193,7 +87,11 @@ asset::IAsset* CMitsubaLoader::loadAsset(io::IReadFile* _file, const SAssetLoadP
 	}
 
 	XML_ParserFree(parser);
-	return data.scene.releaseMesh();
+
+	if (!data.scene)
+		return nullptr;
+	
+	return data.scene->releaseMesh();
 }
 
 }

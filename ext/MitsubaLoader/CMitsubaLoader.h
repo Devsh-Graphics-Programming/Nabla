@@ -5,9 +5,6 @@
 #include "ISceneManager.h"
 #include "IFileSystem.h"
 #include "irr/asset/ICPUMesh.h"
-#include "irr/asset/bawformat/legacy/CBAWLegacy.h"
-#include "irr/asset/bawformat/CBlobsLoadingManager.h"
-#include "irr/asset/ICPUSkinnedMeshBuffer.h"
 
 #include <iostream>
 

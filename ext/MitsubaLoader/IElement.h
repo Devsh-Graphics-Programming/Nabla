@@ -37,25 +37,23 @@ public:
 	};
 
 public:
-	//! default implementation for elements, which doesnt take any attributes
+	//! default implementation for elements that doesnt have any attributes
 	virtual bool processAttributes(const char** _atts)
 	{
 		if (_atts[0])
 		{
-			std::cout << "Invalid .xml file structure: this element doesn't take any attributes \n";
+			std::cout << "Invalid .xml file structure: element " << getName().c_str() << " doesn't take any attributes \n";
 			return false;
 		}
 
 		return true;
 	};
-	virtual void onEndTag(asset::IAssetManager& _assetManager, IElement* _parent) = 0;
+	virtual bool onEndTag(asset::IAssetManager& _assetManager, IElement* _parent) = 0;
 	virtual IElement::Type getType() const = 0;
-	virtual void processChildData(IElement* child) = 0;
+	virtual std::string getName() const = 0;
+	virtual bool processChildData(IElement* child) = 0;
 
 };
-
-//constructs certain elements based on element's name and its arguments
-IElement* elementFactory(const char* _el, const char** attr);
 
 }
 }

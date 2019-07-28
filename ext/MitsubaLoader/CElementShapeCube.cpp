@@ -1,5 +1,7 @@
 #include "CElementShapeCube.h"
 
+#include "ParserUtil.h"
+
 namespace irr { namespace ext { namespace MitsubaLoader {
 
 CElementShapeCube::CElementShapeCube()
@@ -7,30 +9,47 @@ CElementShapeCube::CElementShapeCube()
 
 }
 
-bool CElementShapeCube::processAttributes(const char** _args)
+bool CElementShapeCube::processAttributes(const char** _atts)
 {
-	//TODO: only type is an acceptable argument
+	os::Printer::print("SHAPE CUBE ON BEGIN TAG");
+
+	//only type is an acceptable argument
+	for (int i = 0; _atts[i]; i += 2)
+	{
+		if (std::strcmp(_atts[i], "type"))
+		{
+			ParserLog::wrongAttribute(_atts[i], getName());
+			return false;
+		}
+	}
+
 	return true;
 }
 
-void CElementShapeCube::onEndTag(asset::IAssetManager& _assetManager, IElement* _parent)
+bool CElementShapeCube::onEndTag(asset::IAssetManager& _assetManager, IElement* _parent)
 {
 	asset::ICPUMesh* cubeMesh = _assetManager.getGeometryCreator()->createCubeMesh(core::vector3df(2.0f, 2.0f, 2.0f));
+
+	os::Printer::print("SHAPE CUBE ON END TAG");
+
+	if (!cubeMesh)
+		return false;
+
 	//transform cubeMesh by this->transformMatrix
-	_parent->processChildData(this);
+
+	return _parent->processChildData(this);
 }
 
-void CElementShapeCube::processChildData(IElement* child)
+bool CElementShapeCube::processChildData(IElement* _child)
 {
-	switch (child->getType())
+	switch (_child->getType())
 	{
 	case IElement::Type::TO_WORLD_TRANSFORM:
-		break;
+		return true;
 
 	default:
-		std::cout << "Invalid .xml file structure: this is not a child of shape cube element. \n";
-		break;
-
+		ParserLog::wrongChildElement(getName(), _child->getName());
+		return false;
 	}
 }
 

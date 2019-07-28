@@ -2,16 +2,20 @@
 #include <iostream>
 #include <string>
 
+#include "irrlicht.h"
+#include "ParserUtil.h"
+
 namespace irr { namespace ext { namespace MitsubaLoader {
 
 
 bool CMitsubaScene::processAttributes(const char** _atts)
 {
+	os::Printer::print("SCENE ON BEGIN TAG");
+
 	if (std::strcmp(_atts[0], "version"))
 	{
-		std::cout << "Invalid .xml file structure: " << _atts[0] << "is not attribute of the scene element \n";
+		ParserLog::wrongAttribute(_atts[0], getName());
 		return false;
-		//return false and then stop parsing and return nullptr from CMitsubaLoader::loadAsset...
 	}
 	else
 	{
@@ -21,12 +25,13 @@ bool CMitsubaScene::processAttributes(const char** _atts)
 	}
 }
 
-void CMitsubaScene::onEndTag(asset::IAssetManager& assetManager, IElement* parent) 
+bool CMitsubaScene::onEndTag(asset::IAssetManager& assetManager, IElement* parent) 
 {
-
+	os::Printer::print("SCENE ON END TAG");
+	return true;
 }
 
-void CMitsubaScene::processChildData(IElement* _child)
+bool CMitsubaScene::processChildData(IElement* _child)
 {
 	//general idea is to retrive all asset data from child elements and put it in this->mesh
 	switch (_child->getType())
@@ -38,14 +43,17 @@ void CMitsubaScene::processChildData(IElement* _child)
 		CElementShapeObj childObjElement = static_cast<CElementShapeObj*>(_child);
 		_child->getMesh()->getMeshBufferCount();
 		*/
-	break;
+		return false;
+
 	case IElement::Type::SHAPE_CUBE:
-		std::cout << "Alright! Cube has been added to the scene! \n";
+		os::Printer::print("Alright! Cube has been added to the scene! \n");
 		
-	break;
+		return true;
+
 	default:
-		std::cout << "Invalid .xml file structure: this is not a child of the scene element \n";
-	break;
+		ParserLog::wrongChildElement(getName(), _child->getName());
+
+		return false;
 	}
 }
 

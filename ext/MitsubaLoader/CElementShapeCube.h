@@ -13,9 +13,10 @@ public:
 	CElementShapeCube();
 
 	virtual bool processAttributes(const char** _args) override;
-	virtual void onEndTag(asset::IAssetManager& _assetManager, IElement* _parent) override;
+	virtual bool onEndTag(asset::IAssetManager& _assetManager, IElement* _parent) override;
 	virtual IElement::Type getType() const override { return IElement::Type::SHAPE_CUBE;  };
-	virtual void processChildData(IElement* child) override;
+	virtual std::string getName() const override { return "shape cube"; };
+	virtual bool processChildData(IElement* child) override;
 
 private:
 	core::matrix4SIMD transform;
