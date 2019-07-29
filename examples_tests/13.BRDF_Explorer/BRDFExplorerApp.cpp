@@ -577,13 +577,6 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
         ShaderManager(new CShaderManager(Driver->getGPUProgrammingServices(), device->getIncludeHandler(), GUIState, LightAnimData, Camera)),
         DerivativeMapManager(new CDerivativeMapManager(device))
 {
-    {//default mesh
-    auto cpumesh = AssetManager.getGeometryCreator()->createSphereMesh(10.f, 64u, 64u);
-    DefaultMesh = Mesh = Driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1).front();
-    setUpLight(5.f);
-    cpumesh->drop();
-    }
-
     Camera->setPosition(core::vector3df(2.26f, -4.05f, 27.6f));
     Camera->setTarget(core::vector3df(0.f));
 
@@ -949,6 +942,13 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
         });
     GUI->setOpacity("TextureViewWindow", defaultOpacity);
 
+    {//default mesh
+    auto cpumesh = AssetManager.getGeometryCreator()->createSphereMesh(10.f, 64u, 64u);
+    DefaultMesh = Mesh = Driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1).front();
+    setUpLight(5.f);
+    cpumesh->drop();
+    }
+
     setGUIForConstantIoR();
 }
 
@@ -1114,6 +1114,21 @@ void BRDFExplorerApp::resetGUIAfterConstantIoR()
     root->getChild("MaterialParamsWindow/MetallicDropDownList")->setDisabled(false);
 }
 
+void BRDFExplorerApp::setLightPosition(const irr::core::vector3df& _lightPos)
+{
+    using namespace std::literals::string_literals;
+
+    auto root = GUI->getRootWindow();
+    const char* xyz[]{"X", "Y", "Z"};
+    uint32_t i = 0u;
+    for (const char* c : xyz)
+    {
+        auto lightCoord = static_cast<::CEGUI::Spinner*>(root->getChild("LightParamsWindow/PositionWindow/Light"s+c));
+        lightCoord->setCurrentValue((&_lightPos.X)[i++]);
+    }
+    GUIState.Light.ConstantPosition = _lightPos;
+}
+
 void BRDFExplorerApp::renderGUI()
 {
     GUI->render();
@@ -1144,45 +1159,11 @@ void BRDFExplorerApp::renderMesh()
     Driver->setMaterial(Material);
     Driver->drawMeshBuffer(meshbuffer);
 }
+
 void BRDFExplorerApp::update()
 {
     updateMaterial();
 }
-/*
-void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _texture)
-{
-    // TODO remove this function
-
-    auto tupl = TextureSlotMap[slot];
-    auto root = GUI->getRootWindow();
-    auto& renderer = GUI->getRenderer();
-
-    auto gputex = Driver->getGPUObjectsFromAssets(&_texture, (&_texture)+1).front();
-    ::CEGUI::Sizef texSize;
-    texSize.d_width = gputex->getSize()[0];
-    texSize.d_height = gputex->getSize()[1];
-
-    Material.setTexture(slot-TEXTURE_SLOT_1, gputex);
-
-    ::CEGUI::Texture& ceguiTexture = !renderer.isTextureDefined(_texture->getCacheKey())
-        ? irrTex2ceguiTex(getTextureGLname(gputex), texSize, _texture->getCacheKey(), renderer)
-        : renderer.getTexture(_texture->getCacheKey());
-
-    ::CEGUI::BasicImage& image = !::CEGUI::ImageManager::getSingleton().isDefined(std::get<0>(tupl))
-        ? static_cast<::CEGUI::BasicImage&>(::CEGUI::ImageManager::getSingleton().create(
-              "BasicImage", std::get<0>(tupl)))
-        : static_cast<::CEGUI::BasicImage&>(
-              ::CEGUI::ImageManager::getSingleton().get(std::get<0>(tupl)));
-    image.setTexture(&ceguiTexture);
-    image.setArea(::CEGUI::Rectf(0, 0, texSize.d_width, texSize.d_height));
-    image.setAutoScaled(::CEGUI::AutoScaledMode::ASM_Both);
-
-    static const std::vector<const char*> property = { "NormalImage", "HoverImage", "PushedImage" };
-
-    for (const auto& v : property) {
-        root->getChild(std::get<2>(tupl))->setProperty(v, std::get<0>(tupl));
-    }
-}*/
 
 void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot, irr::video::IVirtualTexture* _texture, const std::string& _texName)
 {
@@ -1222,6 +1203,14 @@ void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot, irr::video::IVirtualTe
     for (const auto& v : property) {
         root->getChild(std::get<2>(tupl))->setProperty(v, std::get<0>(tupl));
     }
+}
+
+void BRDFExplorerApp::loadTextureSlot_CPUTex(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _cputexture)
+{
+    if (!_cputexture)
+        return;
+    auto gputexture = Driver->getGPUObjectsFromAssets(&_cputexture, (&_cputexture)+1).front();
+    loadTextureSlot(slot, gputexture, _cputexture->getCacheKey());
 }
 
 irr::asset::ICPUTexture* BRDFExplorerApp::loadCPUTexture(const std::string& _path)
@@ -1272,11 +1261,12 @@ void BRDFExplorerApp::setUpLight(float radiusMlt)
 {
     irr::video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(MESHBUFFER_NUM);
     const irr::core::aabbox3df& aabb = mb->getBoundingBox();
-    LightAnimData.Radius = std::max(aabb.getExtent().X, aabb.getExtent().Z) / 2.f;
+    const irr::core::vector3df aabb_sz = aabb.getExtent();
+    LightAnimData.Radius = std::max(aabb_sz.X, aabb_sz.Z) / 2.f;
     LightAnimData.Radius *= radiusMlt;
     irr::core::vector3df aabb_verts[8];
     aabb.getEdges(aabb_verts);
-    auto lowest_highest = std::minmax_element(aabb_verts, aabb_verts + 8, [](const irr::core::vector3df& a, const irr::core::vector3df& b) { return a.Y < b.Y; });
+    auto lowest_highest = std::minmax_element(aabb_verts, aabb_verts+8, [](const irr::core::vector3df& a, const irr::core::vector3df& b) { return a.Y < b.Y; });
     LightAnimData.Position.Y = (lowest_highest.first->Y + lowest_highest.second->Y) / 2.f;
     irr::core::vector2df center;
     for (uint32_t i = 0u; i < 8u; ++i)
@@ -1285,6 +1275,8 @@ void BRDFExplorerApp::setUpLight(float radiusMlt)
         center.Y += aabb_verts[i].Y;
     }
     LightAnimData.Center = center / 8.f;
+
+    setLightPosition(aabb_sz*irr::core::vector3df{0.5f, -1.f, 0.5f});
 }
 
 void BRDFExplorerApp::updateTooltip(const char* name, const char* text)
@@ -1386,16 +1378,14 @@ void BRDFExplorerApp::eventAOTextureBrowse(const ::CEGUI::EventArgs&)
         auto box = static_cast<CEGUI::Editbox*>(
             GUI->getRootWindow()->getChild("MaterialParamsWindow/AOWindow/Editbox"));
 
-        irr::asset::ICPUTexture* cputexture = loadCPUTexture(p.second);
-        auto gputexture = Driver->getGPUObjectsFromAssets(&cputexture, (&cputexture)+1).front();
-        loadTextureSlot(ETEXTURE_SLOT::TEXTURE_AO, gputexture, cputexture->getCacheKey());
+        loadTextureSlot_CPUTex(ETEXTURE_SLOT::TEXTURE_AO, loadCPUTexture(p.second));
 
         box->setText(p.second);
-        updateTooltip(
+        /*updateTooltip(
             "MaterialParamsWindow/AOWindow/ImageButton",
             ext::cegui::ssprintf("%s (%ux%u)\nLeft-click to select a new texture.",
                 p.second.c_str(), cputexture->getSize()[0], cputexture->getSize()[1])
-                .c_str());
+                .c_str());*/
     }
 }
 
@@ -1405,15 +1395,13 @@ void BRDFExplorerApp::eventAOTextureBrowse_EditBox(const ::CEGUI::EventArgs&)
         GUI->getRootWindow()->getChild("MaterialParamsWindow/AOWindow/Editbox"));
 
     if (ext::cegui::Exists(box->getText().c_str())) {
-        irr::asset::ICPUTexture* cputexture = loadCPUTexture(box->getText());
-        auto gputexture = Driver->getGPUObjectsFromAssets(&cputexture, (&cputexture)+1).front();
-        loadTextureSlot(ETEXTURE_SLOT::TEXTURE_AO, gputexture, cputexture->getCacheKey());
+        loadTextureSlot_CPUTex(ETEXTURE_SLOT::TEXTURE_AO, loadCPUTexture(box->getText()));
 
-        updateTooltip(
+        /*updateTooltip(
             "MaterialParamsWindow/AOWindow/ImageButton",
             irr::ext::cegui::ssprintf("%s (%ux%u)\nLeft-click to select a new texture.",
                 box->getText().c_str(), cputexture->getSize()[0], cputexture->getSize()[1])
-                .c_str());
+                .c_str());*/
     } else {
         std::string s;
         s += std::string(box->getText().c_str()) + ": The file couldn't be opened.";
@@ -1429,16 +1417,15 @@ void BRDFExplorerApp::eventBumpTextureBrowse(const ::CEGUI::EventArgs&)
     if (p.first) {
         auto box = static_cast<CEGUI::Editbox*>(
             GUI->getRootWindow()->getChild("MaterialParamsWindow/BumpWindow/Editbox"));
-        irr::asset::ICPUTexture* cputexture = loadCPUTexture(p.second);
-        auto gputexture = Driver->getGPUObjectsFromAssets(&cputexture, (&cputexture)+1).front();
-        loadTextureSlot(ETEXTURE_SLOT::TEXTURE_BUMP, gputexture, cputexture->getCacheKey());
+        
+        loadTextureSlot_CPUTex(ETEXTURE_SLOT::TEXTURE_BUMP, loadCPUTexture(p.second));
 
         box->setText(p.second);
-        updateTooltip(
+        /*updateTooltip(
             "MaterialParamsWindow/BumpWindow/ImageButton",
             ext::cegui::ssprintf("%s (%ux%u)\nLeft-click to select a new texture.",
                 p.second.c_str(), cputexture->getSize()[0], cputexture->getSize()[1])
-                .c_str());
+                .c_str());*/
     }
 }
 
@@ -1448,15 +1435,13 @@ void BRDFExplorerApp::eventBumpTextureBrowse_EditBox(const ::CEGUI::EventArgs&)
         GUI->getRootWindow()->getChild("MaterialParamsWindow/BumpWindow/Editbox"));
 
     if (ext::cegui::Exists(box->getText().c_str())) {
-        irr::asset::ICPUTexture* cputexture = loadCPUTexture(box->getText());
-        auto gputexture = Driver->getGPUObjectsFromAssets(&cputexture, (&cputexture)+1).front();
-        loadTextureSlot(ETEXTURE_SLOT::TEXTURE_BUMP, gputexture, cputexture->getCacheKey());
+        loadTextureSlot_CPUTex(ETEXTURE_SLOT::TEXTURE_BUMP, loadCPUTexture(box->getText()));
 
-        updateTooltip(
+        /*updateTooltip(
             "MaterialParamsWindow/BumpWindow/ImageButton",
             ext::cegui::ssprintf("%s (%ux%u)\nLeft-click to select a new texture.",
                 box->getText().c_str(), cputexture->getSize()[0], cputexture->getSize()[1])
-                .c_str());
+                .c_str());*/
     } else {
         std::string s;
         s += std::string(box->getText().c_str()) + ": The file couldn't be opened.";
@@ -1489,16 +1474,14 @@ void BRDFExplorerApp::eventTextureBrowse(const CEGUI::EventArgs& e)
         else if (parent == "Texture3Window")
             type = ETEXTURE_SLOT::TEXTURE_SLOT_4;
 
-        irr::asset::ICPUTexture* cputexture = loadCPUTexture(p.second);
-        auto gputexture = Driver->getGPUObjectsFromAssets(&cputexture, (&cputexture)+1).front();
-        loadTextureSlot(type, gputexture, cputexture->getCacheKey());
+        loadTextureSlot_CPUTex(type, loadCPUTexture(p.second));
 
         box->setText(v[v.size() - 1]);
-        updateTooltip(
+        /*updateTooltip(
             path_texture.c_str(),
             ext::cegui::ssprintf("%s (%ux%u)\nLeft-click to select a new texture.",
                 p.second.c_str(), cputexture->getSize()[0], cputexture->getSize()[1])
-                .c_str());
+                .c_str());*/
     }
 }
 

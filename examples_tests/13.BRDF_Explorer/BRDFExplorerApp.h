@@ -158,6 +158,7 @@ class BRDFExplorerApp {
         // Caller is responsible for freeing the buffer afterwards.
         //void loadTextureSlot(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _texture);
         void loadTextureSlot(ETEXTURE_SLOT slot, irr::video::IVirtualTexture* _texture, const std::string& _texName);
+        void loadTextureSlot_CPUTex(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _cputexture);
 
     private:
         irr::asset::ICPUTexture* loadCPUTexture(const std::string& _path);
@@ -186,6 +187,8 @@ class BRDFExplorerApp {
         void setGUIForConstantIoR();
         // used when IoR-source is set back to texture (from constant)
         void resetGUIAfterConstantIoR();
+
+        void setLightPosition(const irr::core::vector3df& _lightPos);
 
         void updateTooltip(const char* name, const char* text);
         void eventAOTextureBrowse(const ::CEGUI::EventArgs&);
