@@ -171,6 +171,7 @@ namespace asset
             std::string filename = _file ? _file->getFileName().c_str() : _supposedFilename;
             io::IReadFile* file = _override->getLoadFile(_file, filename, ctx, _hierarchyLevel);
             filename = file ? file->getFileName().c_str() : _supposedFilename;
+            // TODO what should happen here (after `filename = ...;`)? Open new file if previously it was nullptr?
 
             const uint64_t levelFlags = _params.cacheFlags >> ((uint64_t)_hierarchyLevel * 2ull);
 
