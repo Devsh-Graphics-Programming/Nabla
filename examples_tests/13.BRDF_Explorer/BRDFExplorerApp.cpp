@@ -891,6 +891,15 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
             DerivMapGeneration.HeightFactorChanged = true;
             DerivMapGeneration.TimePointLastHeightFactorChange = Clock::now();
         });
+
+    auto bump_enabled = static_cast<::CEGUI::ToggleButton*>(root->getChild("MaterialParamsWindow/BumpWindow/Checkbox"));
+    bump_enabled->subscribeEvent(
+        ::CEGUI::ToggleButton::EventSelectStateChanged,
+        [this](const ::CEGUI::EventArgs& e) {
+        const ::CEGUI::WindowEventArgs& we = static_cast<const ::CEGUI::WindowEventArgs&>(e);
+        GUIState.BumpMapping.Enabled = static_cast<::CEGUI::ToggleButton*>(we.window)->isSelected();
+    });
+
     initDropdown();
     initTooltip();
 
@@ -1127,7 +1136,7 @@ void BRDFExplorerApp::renderMesh()
     params.metallicIsOne = (GUIState.Metallic.ConstValue==1.f);
     params.metallicIsZero = (GUIState.Metallic.ConstValue==0.f);
     params.roughnessIsZero = (GUIState.Roughness.ConstValue1==0.f);
-    params.derivMapIsPresent = (Textures.BumpMap && Textures.BumpMap!=DefaultTexture);
+    params.derivMapIsPresent = GUIState.BumpMapping.Enabled;
 
     Material.MaterialType = ShaderManager->getShader(params);
 

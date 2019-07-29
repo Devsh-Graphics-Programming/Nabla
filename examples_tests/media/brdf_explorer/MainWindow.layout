@@ -105,7 +105,7 @@
                 <Property name="Alpha" value="0" />
                 <Property name="MaxSize" value="{{1,0},{1,0}}" />
                 <Window type="Alfisko/Label" name="Label2" >
-                    <Property name="Area" value="{{0.412267,-1},{0.164543,0},{0.412267,127},{0.164543,32}}" />
+                    <Property name="Area" value="{{0.40755,0},{0.055168,0},{0.709437,0},{0.305168,0}}" />
                     <Property name="Text" value="Texture Map" />
                     <Property name="MaxSize" value="{{1,0},{1,0}}" />
                     <Property name="InheritsAlpha" value="false" />
@@ -114,7 +114,7 @@
                     <Property name="MousePassThroughEnabled" value="true" />
                 </Window>
                 <Window type="Alfisko/HorizontalSlider" name="Spinner" >
-                    <Property name="Area" value="{{-0.111733,-5},{0.75,-1},{0.363267,-6},{0.975,-1}}" />
+                    <Property name="Area" value="{{-0.121167,0},{0.609375,-4},{0.350531,0},{0.835938,-4}}" />
                     <Property name="Text" value="1" />
                     <Property name="CurrentValue" value="0.01" />
                     <Property name="MaximumValue" value="20" />
@@ -122,7 +122,7 @@
                     <Property name="HorizontalAlignment" value="Right" />
                 </Window>
                 <Window type="Alfisko/Label" name="Label22" >
-                    <Property name="Area" value="{{0.409909,0},{0.569833,0},{0.791984,0},{0.819833,0}}" />
+                    <Property name="Area" value="{{0.412268,0},{0.40577,0},{0.794343,0},{0.65577,0}}" />
                     <Property name="Text" value="Map Height" />
                     <Property name="MaxSize" value="{{1,0},{1,0}}" />
                     <Property name="InheritsAlpha" value="false" />
@@ -131,7 +131,7 @@
                     <Property name="MousePassThroughEnabled" value="true" />
                 </Window>
                 <Window type="Alfisko/Label" name="Label" >
-                    <Property name="Area" value="{{0.0273585,0},{-0.0625,2},{1.02736,0},{0.125,2}}" />
+                    <Property name="Area" value="{{0.0273585,0},{-0.046875,0},{1.02736,0},{0.140625,0}}" />
                     <Property name="Text" value="Bump Mapping" />
                     <Property name="MaxSize" value="{{1,0},{1,0}}" />
                     <Property name="InheritsAlpha" value="false" />
@@ -139,12 +139,12 @@
                     <Property name="MousePassThroughEnabled" value="true" />
                 </Window>
                 <Window type="Alfisko/Editbox" name="Editbox" >
-                    <Property name="Area" value="{{-0.148859,0},{0.31727,0},{0.301612,0},{0.520395,0}}" />
+                    <Property name="Area" value="{{-0.148859,0},{0.22352,0},{0.301613,0},{0.426645,0}}" />
                     <Property name="InheritsAlpha" value="false" />
                     <Property name="HorizontalAlignment" value="Right" />
                 </Window>
                 <Window type="Alfisko/Button" name="Button" >
-                    <Property name="Area" value="{{-0.0167585,0},{0.340707,0},{0.0988075,0},{0.50477,0}}" />
+                    <Property name="Area" value="{{-0.0167585,0},{0.239145,0},{0.0988075,0},{0.403207,0}}" />
                     <Property name="Text" value="..." />
                     <Property name="InheritsAlpha" value="false" />
                     <Property name="HorizontalAlignment" value="Right" />
@@ -156,13 +156,18 @@
                     <Property name="VerticalAlignment" value="Bottom" />
                 </Window>
                 <Window type="Alfisko/Label" name="LabelPercent" >
-                    <Property name="Area" value="{{-0.0075,-2},{0.75,2},{-0.0075,62},{0.75,26}}" />
+                    <Property name="Area" value="{{-0.0145755,2},{0.632813,-4},{0.136368,2},{0.820313,-4}}" />
                     <Property name="Text" value="%" />
                     <Property name="MaxSize" value="{{1,0},{1,0}}" />
                     <Property name="InheritsAlpha" value="false" />
                     <Property name="HorzFormatting" value="WordWrapRightAligned" />
                     <Property name="HorizontalAlignment" value="Right" />
                     <Property name="MousePassThroughEnabled" value="true" />
+                </Window>
+                <Window type="Alfisko/Checkbox" name="Checkbox" >
+                    <Property name="Area" value="{{0.405083,1},{0.846498,-3},{0.810743,1},{1.034,-3}}" />
+                    <Property name="Text" value="Enabled" />
+                    <Property name="InheritsAlpha" value="false" />
                 </Window>
             </Window>
             <Window type="DefaultWindow" name="AOWindow" >

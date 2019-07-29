@@ -117,6 +117,7 @@ class BRDFExplorerApp {
             } Metallic;
             struct {
                 float Height = 0.01f;
+                bool Enabled = false;
             } BumpMapping;
             struct {
                 bool Enabled = false;
