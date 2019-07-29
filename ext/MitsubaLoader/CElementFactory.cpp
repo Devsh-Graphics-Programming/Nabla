@@ -4,7 +4,9 @@
 #include <string>
 
 #include "ParserUtil.h"
+#include "IElement.h"
 #include "CElementShapeCube.h"
+#include "CSimpleElement.h"
 
 namespace irr { namespace ext { namespace MitsubaLoader {
 
@@ -21,6 +23,22 @@ IElement* CElementFactory::createElement(const char* _el, const char** _atts)
 	if (!std::strcmp(_el, "shape"))
 	{
 		return parseShape(_el, _atts);
+	}
+	if (!std::strcmp(_el, "float"))
+	{
+		return parseSimpleElement(_el, _atts, IElement::Type::FLOAT);
+	}
+	if (!std::strcmp(_el, "integer"))
+	{
+		return parseSimpleElement(_el, _atts, IElement::Type::INTEGER);
+	}
+	if (!std::strcmp(_el, "boolean"))
+	{
+		return parseSimpleElement(_el, _atts, IElement::Type::BOOLEAN);
+	}
+	if (!std::strcmp(_el, "point"))
+	{
+		return parseSimpleElement(_el, _atts, IElement::Type::POINT);
 	}
 	else
 	{
@@ -44,9 +62,7 @@ IElement* CElementFactory::parseShape(const char* _el, const char** _atts)
 		{
 			if (!std::strcmp(_atts[i + 1], "cube"))
 			{
-				result = new CElementShapeCube();
-				os::Printer::print("We have done it! we created a cube! \n");
-				return result;
+				return new CElementShapeCube();
 			}
 			else
 			{
@@ -57,29 +73,31 @@ IElement* CElementFactory::parseShape(const char* _el, const char** _atts)
 	}
 
 	ParserLog::mitsubaLoaderError("There is no type attribute for shape element. \n");
+	return nullptr;
 }
 
-//shape element processing loop
-/*std::string shapeType = "";
-for (int i = 0; _attr[i]; i += 2)
+IElement* CElementFactory::parseSimpleElement(const char* _el, const char** _atts, IElement::Type type)
 {
-	if (!std::strcmp(_attr[i], "type"))
+	switch (type)
 	{
-		if (!std::strcmp(_attr[i + 1], "cube"))
-		{
-			return nullptr;
-		}
-		else
-		{
-			std::cout << _attr[i + 1] << " is unknown shape type. \n";
-		}
-	}
-	else
+	case IElement::Type::FLOAT:
+		return new CElementFloat();
+	case IElement::Type::INTEGER:
 	{
-		std::cout << _attr[i] << "is unknown paramater of element shape.\n";
+		//not implemented
+		_IRR_DEBUG_BREAK_IF(true);
+		return nullptr;
 	}
-
-}*/
+	case IElement::Type::BOOLEAN:
+		return new CElementBoolean();
+	case IElement::Type::POINT:
+		return new CElementPoint();
+	default:
+		_IRR_DEBUG_BREAK_IF(true);
+		return nullptr;
+	}
+	return new CElementFloat();
+}
 
 }
 }

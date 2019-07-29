@@ -18,6 +18,7 @@ public:
 private:
 	static IElement* parseScene(const char* _el, const char** _atts);
 	static IElement* parseShape(const char* _el, const char** _atts);
+	static IElement* parseSimpleElement(const char* _el, const char** _atts, IElement::Type type);
 };
 
 }

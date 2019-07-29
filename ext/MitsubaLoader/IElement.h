@@ -15,6 +15,7 @@ class IElement
 public:
 	enum class Type
 	{
+		NONE,
 		SCENE,
 
 		//shapes
@@ -28,11 +29,13 @@ public:
 		SHAPE_RECTANGLE,
 
 		//vectors, points, scalars
-		FLOAT_RADIUS,
-		POINT_CENTER,
+		FLOAT,
+		BOOLEAN,
+		INTEGER,
+		POINT,
 
 		//other
-		TO_WORLD_TRANSFORM,
+		TRANSFORM,
 		TEXTURE
 	};
 
@@ -42,16 +45,26 @@ public:
 	{
 		if (_atts[0])
 		{
-			std::cout << "Invalid .xml file structure: element " << getName().c_str() << " doesn't take any attributes \n";
+			std::cout << "Invalid .xml file structure: element " << getLogName().c_str() << " doesn't take any attributes \n";
 			return false;
 		}
 
 		return true;
-	};
+	}
+	//! default implementation for elements that doesnt have any children
+	virtual bool processChildData(IElement* _child)
+	{
+		if (_child != nullptr)
+		{
+			//ParserLog::wrongChildElement(getName(), _child->getName());
+			return false;
+		}
+		return true;
+	}
 	virtual bool onEndTag(asset::IAssetManager& _assetManager, IElement* _parent) = 0;
 	virtual IElement::Type getType() const = 0;
-	virtual std::string getName() const = 0;
-	virtual bool processChildData(IElement* child) = 0;
+	virtual std::string getLogName() const = 0;
+	
 
 };
 

@@ -19,7 +19,7 @@ public:
 	virtual bool processAttributes(const char** _arguments) override;
 	virtual bool onEndTag(asset::IAssetManager& assetManager, IElement* parent) override;
 	virtual IElement::Type getType() const override { return IElement::Type::SCENE; };
-	virtual std::string getName() const override { return "scene"; };
+	virtual std::string getLogName() const override { return "scene"; };
 	virtual bool processChildData(IElement* child) override;
 
 	asset::SCPUMesh* releaseMesh() { return mesh; mesh = nullptr; }

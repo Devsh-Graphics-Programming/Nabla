@@ -2,6 +2,13 @@
 
 <scene version="0.5.0">
 
+  <float name="radius" value="70" />
+  <boolean name="flipNormals" value = "true" />
+  
+	<shape type="cube">
+		
+	</shape>
+	
 	<shape type="cube">
 		
 	</shape>

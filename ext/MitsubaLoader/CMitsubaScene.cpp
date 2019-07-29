@@ -10,11 +10,10 @@ namespace irr { namespace ext { namespace MitsubaLoader {
 
 bool CMitsubaScene::processAttributes(const char** _atts)
 {
-	os::Printer::print("SCENE ON BEGIN TAG");
 
 	if (std::strcmp(_atts[0], "version"))
 	{
-		ParserLog::wrongAttribute(_atts[0], getName());
+		ParserLog::wrongAttribute(_atts[0], getLogName());
 		return false;
 	}
 	else
@@ -27,7 +26,6 @@ bool CMitsubaScene::processAttributes(const char** _atts)
 
 bool CMitsubaScene::onEndTag(asset::IAssetManager& assetManager, IElement* parent) 
 {
-	os::Printer::print("SCENE ON END TAG");
 	return true;
 }
 
@@ -51,9 +49,9 @@ bool CMitsubaScene::processChildData(IElement* _child)
 		return true;
 
 	default:
-		ParserLog::wrongChildElement(getName(), _child->getName());
+		ParserLog::wrongChildElement(getLogName(), _child->getLogName());
 
-		return false;
+		return true;
 	}
 }
 

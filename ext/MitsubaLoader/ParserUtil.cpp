@@ -11,6 +11,8 @@ void ParserLog::wrongAttribute(const std::string& attribName, const std::string&
 
 	//or os::Printer::log ?
 	os::Printer::print(message);
+
+	_IRR_DEBUG_BREAK_IF(true);
 }
 
 void ParserLog::wrongChildElement(const std::string& parentName, const std::string& childName)
@@ -20,6 +22,8 @@ void ParserLog::wrongChildElement(const std::string& parentName, const std::stri
 
 	//or os::Printer::log ?
 	os::Printer::print(message);
+
+	_IRR_DEBUG_BREAK_IF(true);
 }
 
 void ParserLog::mitsubaLoaderError(const std::string& errorMessage)
@@ -29,6 +33,8 @@ void ParserLog::mitsubaLoaderError(const std::string& errorMessage)
 
 	//or os::Printer::log ?
 	os::Printer::print(message);
+
+	_IRR_DEBUG_BREAK_IF(true);
 }
 
 void elementHandlerStart(void* _data, const char* _el, const char** _atts)
@@ -37,15 +43,14 @@ void elementHandlerStart(void* _data, const char* _el, const char** _atts)
 
 	std::unique_ptr<IElement> element(CElementFactory::createElement(_el, _atts));
 
-	//TODO: test ! operator of std::unique_ptr
-
 	if (!element)
 	{
 		XML_StopParser(data->parser, false);
+		_IRR_DEBUG_BREAK_IF(true);
 		return;
 	}
 
-	if (element->getName() == "scene")
+	if (element->getType() == IElement::Type::SCENE)
 	{
 		if (!data->scene)
 		{
@@ -58,6 +63,7 @@ void elementHandlerStart(void* _data, const char* _el, const char** _atts)
 		{
 			ParserLog::wrongChildElement("scene", "scene");
 			XML_StopParser(data->parser, false);
+			_IRR_DEBUG_BREAK_IF(true);
 			return;
 		}
 	}
@@ -66,12 +72,14 @@ void elementHandlerStart(void* _data, const char* _el, const char** _atts)
 	{
 		ParserLog::mitsubaLoaderError("there is no scene element");
 		XML_StopParser(data->parser, false);
+		_IRR_DEBUG_BREAK_IF(true);
 		return;
 	}
 
 	if (!element->processAttributes(_atts))
 	{
 		XML_StopParser(data->parser, false);
+		_IRR_DEBUG_BREAK_IF(true);
 		return;
 	}
 	
@@ -97,6 +105,7 @@ void elementHandlerEnd(void* _data, const char* _el)
 		if (!element->onEndTag(data->assetManager, parent))
 		{
 			XML_StopParser(data->parser, false);
+			_IRR_DEBUG_BREAK_IF(true);
 			return;
 		}
 	}

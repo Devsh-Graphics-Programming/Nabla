@@ -1,9 +1,12 @@
+#ifndef __I_PARSER_UTIL_H_INCLUDED__
+#define __I_PARSER_UTIL_H_INCLUDED__
+
 #include "../3rdparty/libexpat/expat/lib/expat.h"
 #include "irr/asset/IAssetManager.h"
 
 #include "CMitsubaScene.h"
+
 #include "IElement.h"
-#include "CMitsubaScene.h"
 
 #include "irr/asset/IAssetLoader.h"
 #include "ISceneManager.h"
@@ -11,6 +14,7 @@
 #include "irr/asset/ICPUMesh.h"
 
 namespace irr { namespace ext { namespace MitsubaLoader {
+
 
 //struct, which will be passed to expat handlers as user data (first argument) see: XML_StartElementHandler or XML_EndElementHandler in expat.h
 struct ParserData
@@ -64,3 +68,5 @@ void elementHandlerEnd(void* _data, const char* _el);
 }
 }
 }
+
+#endif

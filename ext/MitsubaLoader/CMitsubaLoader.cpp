@@ -16,11 +16,17 @@ namespace irr { namespace ext { namespace MitsubaLoader {
 
 //TODO: 
 /*
- - smart pointers
+ - !!!!!!!! REDUCE NUMBER OF ENUMS IN IElement::Type
+ - consider if getName function is really needed (getLogName maybe?)
+
  - proper handling of incorrect .xml file structure (in some situations parsing should be stoped and nullptr should be returned
    from CMitsubaLoader::loadAsset, and in other situations only warning should be shown.)
- - handle situations when elementFactory returns nullptr
- - use log functions instead of std::cout
+ - handle 'version' attribute
+
+ - make sure default values for <float .. /> <boolean .. /> etc. are correct
+ - test atof function (CSimpleElement.h)
+ 
+
 */
 
 

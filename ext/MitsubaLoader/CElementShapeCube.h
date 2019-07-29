@@ -15,7 +15,7 @@ public:
 	virtual bool processAttributes(const char** _args) override;
 	virtual bool onEndTag(asset::IAssetManager& _assetManager, IElement* _parent) override;
 	virtual IElement::Type getType() const override { return IElement::Type::SHAPE_CUBE;  };
-	virtual std::string getName() const override { return "shape cube"; };
+	virtual std::string getLogName() const override { return "shape cube"; };
 	virtual bool processChildData(IElement* child) override;
 
 private:
