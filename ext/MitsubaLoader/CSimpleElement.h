@@ -15,73 +15,59 @@ class CSimpleElement : public IElement
 	static_assert(
 		std::is_same<T, float>::value ||
 		std::is_same<T, bool>::value ||
-		std::is_same<T, core::vector3df_SIMD>::value,
+		std::is_same<T, int>::value ||
+		std::is_same<T, core::vector3df_SIMD>::value ||
+		std::is_same<T, std::string>::value,
 		"assertion failed: cannot use this type");
 
 public:
 	CSimpleElement()
-		:type(IElement::Type::NONE),
-		value(0.0f) 
 	{
-		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T, float>::value)
-		{
-			logName = "float";
-			return;
-		}
+		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T, float>::value) { logName = "float"; type = IElement::Type::FLOAT; }
 		IRR_PSEUDO_IF_CONSTEXPR_END
 
-		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T, bool>::value)
-		{
-			logName = "boolean";
-			return;
-		}
+		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T, bool>::value) { logName = "boolean"; type = IElement::Type::BOOLEAN; }
 		IRR_PSEUDO_IF_CONSTEXPR_END
 
-		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T, core::vector3df_SIMD>::value)
-		{
-			logName = "point";
-			return;
-		}
+		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T, core::vector3df_SIMD>::value) { logName = "point"; type = IElement::Type::POINT; }
+		IRR_PSEUDO_IF_CONSTEXPR_END
+
+		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T, int>::value) { logName = "integer"; type = IElement::Type::INTEGER; }
+		IRR_PSEUDO_IF_CONSTEXPR_END
+
+		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T, std::string>::value) { logName = "string"; type = IElement::Type::STRING; }
 		IRR_PSEUDO_IF_CONSTEXPR_END
 	};
 
 	virtual bool processAttributes(const char** _atts) override;
-	virtual bool onEndTag(asset::IAssetManager& _assetManager, IElement* _parent) override 
-	{ 
-		//so far it is only for testing purpose
-
-		os::Printer::print("\t" + getLogName() + " name: " + nameAttr + " value: ");
-		//os::Printer::print(value);
-
-		return true; 
-	}
+	virtual bool onEndTag(asset::IAssetManager& _assetManager, IElement* _parent) override;
 	virtual IElement::Type getType() const  override { return type; };
 	virtual std::string getLogName() const  override { return logName; };
 
 	inline std::string getNameAttribute() const { return nameAttr; }
-	inline T getValueAttribute() const { return valueAttr; }
+	inline T getValueAttribute() const { return value; }
 
 private:
-	T value;
 	IElement::Type type;
 	std::string logName;
 	
 	std::string nameAttr;
-	T valueAttr;
+	T value;
 };
 
 using CElementFloat = CSimpleElement<float>;
 using CElementBoolean = CSimpleElement<bool>;
 using CElementPoint = CSimpleElement<irr::core::vector3df_SIMD>;
+using CElementString = CSimpleElement<std::string>;
 
 template<typename T>
-bool CSimpleElement<T>::processAttributes(const char** _atts)
+inline bool CSimpleElement<T>::processAttributes(const char** _atts)
 {
 	static_assert(false);
 }
 
 template<>
-bool CSimpleElement<float>::processAttributes(const char** _atts)
+inline bool CSimpleElement<float>::processAttributes(const char** _atts)
 {
 	bool isNameSet = false;
 
@@ -89,16 +75,8 @@ bool CSimpleElement<float>::processAttributes(const char** _atts)
 	{
 		if (!std::strcmp(_atts[i], "name"))
 		{
-			if (!std::strcmp(_atts[i + 1], "radius") ||
-				!std::strcmp(_atts[i + 1], "maxSmoothAngle"))
-			{
-				nameAttr = _atts[i + 1];
-				isNameSet = true;
-			}
-			else
-			{
-				//print warning
-			}
+			nameAttr = _atts[i + 1];
+			isNameSet = true;
 		}
 		else if (!std::strcmp(_atts[i], "value"))
 		{
@@ -106,7 +84,7 @@ bool CSimpleElement<float>::processAttributes(const char** _atts)
 		}
 		else
 		{
-			//print warning
+			//print warning (only attributes float has are name and value)
 		}
 			
 	}
@@ -118,7 +96,7 @@ bool CSimpleElement<float>::processAttributes(const char** _atts)
 }
 
 template<>
-bool CSimpleElement<bool>::processAttributes(const char** _atts)
+inline bool CSimpleElement<bool>::processAttributes(const char** _atts)
 {
 	bool isNameSet = false;
 
@@ -126,18 +104,8 @@ bool CSimpleElement<bool>::processAttributes(const char** _atts)
 	{
 		if (!std::strcmp(_atts[i], "name"))
 		{
-			if (!std::strcmp(_atts[i + 1], "flipNormals") ||
-				!std::strcmp(_atts[i + 1], "flipTexCoords") ||
-				!std::strcmp(_atts[i + 1], "faceNormals") ||
-				!std::strcmp(_atts[i + 1], "srgb"))
-			{
-				nameAttr = _atts[i + 1];
-				isNameSet = true;
-			}
-			else
-			{
-				//print warning
-			}
+			nameAttr = _atts[i + 1];
+			isNameSet = true;
 		}
 
 
@@ -145,11 +113,11 @@ bool CSimpleElement<bool>::processAttributes(const char** _atts)
 		{
 			if (!std::strcmp(_atts[i + 1], "true"))
 				value = true;
-			else if (!std::strcmp(_atts[i + 1], "true"))
+			else if (!std::strcmp(_atts[i + 1], "false"))
 				value = false;
 			else
 			{
-				//print warning
+				//print warning (only true or false)
 			}
 		}
 	}
@@ -158,11 +126,57 @@ bool CSimpleElement<bool>::processAttributes(const char** _atts)
 }
 
 template<>
-bool CSimpleElement<core::vector3df_SIMD>::processAttributes(const char** _atts)
+inline bool CSimpleElement<std::string>::processAttributes(const char** _atts)
+{
+	bool isNameSet = false;
+
+	for (int i = 0; _atts[i]; i += 2)
+	{
+		if (!std::strcmp(_atts[i], "name"))
+		{
+			nameAttr = _atts[i + 1];
+			isNameSet = true;
+		}
+		else if (!std::strcmp(_atts[i], "value"))
+		{
+			value = _atts[i + 1];
+		}
+		else
+		{
+			//print warning (only attributes string has are name and value)
+		}
+
+	}
+
+	if (!isNameSet)
+		;//print error
+
+	return isNameSet;
+}
+
+template<>
+inline bool CSimpleElement<core::vector3df_SIMD>::processAttributes(const char** _atts)
 {
 	bool isNameSet = false;
 
 	return isNameSet;
+}
+
+template<>
+inline bool CSimpleElement<int>::processAttributes(const char** _atts)
+{
+	bool isNameSet = false;
+
+	return isNameSet;
+}
+
+template<typename T>
+bool CSimpleElement<T>::onEndTag(asset::IAssetManager& _assetManager, IElement* _parent)
+{
+	if (_parent)
+		return _parent->processChildData(this);
+
+	return true;
 }
 
 }

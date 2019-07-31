@@ -109,38 +109,6 @@ void elementHandlerEnd(void* _data, const char* _el)
 			return;
 		}
 	}
-
-
-
-
-	//if (!std::strcmp(_el, "scene"))
-	//{
-	//	if (!data->isSceneActive) //this scenario is not possible to happen i think (parser would return with XML_STATUS_ERROR anyway)
-	//	{
-	//		assert(false);
-	//		std::cout << "invalid .xml file structure: wat? \n";
-	//		//stop parsing and return nullptr from CMitsubaLoader::loadAsset
-	//	}
-	//	else
-	//	{
-	//		data->scene.onEndTag(data->assetManager, nullptr);
-	//		data->isSceneActive = false;
-	//	}
-	//}
-	//else
-	//{
-	//	//here, array of elements should have at least one element
-	//	assert(!data->elements.empty());
-
-	//	IElement* element = *(data->elements.end() - 1);
-	//	data->elements.pop_back();
-
-	//	//
-	//	IElement* parent = (data->elements.empty()) ? &(data->scene) : *(data->elements.end() - 1);
-
-	//	element->onEndTag(data->assetManager, parent);
-	//	delete element;
-	//}
 }
 
 }

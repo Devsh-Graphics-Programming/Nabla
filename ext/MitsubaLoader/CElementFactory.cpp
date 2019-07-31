@@ -6,6 +6,7 @@
 #include "ParserUtil.h"
 #include "IElement.h"
 #include "CElementShapeCube.h"
+#include "CElementShapeOBJ.h"
 #include "CSimpleElement.h"
 
 namespace irr { namespace ext { namespace MitsubaLoader {
@@ -40,6 +41,10 @@ IElement* CElementFactory::createElement(const char* _el, const char** _atts)
 	{
 		return parseSimpleElement(_el, _atts, IElement::Type::POINT);
 	}
+	if (!std::strcmp(_el, "string"))
+	{
+		return parseSimpleElement(_el, _atts, IElement::Type::STRING);
+	}
 	else
 	{
 		ParserLog::mitsubaLoaderError("invalid .xml file structure: element " + std::string(_el) + "is unknown. \n");
@@ -64,6 +69,10 @@ IElement* CElementFactory::parseShape(const char* _el, const char** _atts)
 			{
 				return new CElementShapeCube();
 			}
+			if (!std::strcmp(_atts[i + 1], "obj"))
+			{
+				return new CElementShapeOBJ();
+			}
 			else
 			{
 				ParserLog::mitsubaLoaderError(std::string(_atts[i + 1]) + "is not a type of shape element. \n");
@@ -82,6 +91,10 @@ IElement* CElementFactory::parseSimpleElement(const char* _el, const char** _att
 	{
 	case IElement::Type::FLOAT:
 		return new CElementFloat();
+
+	case IElement::Type::STRING:
+		return new CElementString();
+
 	case IElement::Type::INTEGER:
 	{
 		//not implemented
@@ -90,13 +103,15 @@ IElement* CElementFactory::parseSimpleElement(const char* _el, const char** _att
 	}
 	case IElement::Type::BOOLEAN:
 		return new CElementBoolean();
+
 	case IElement::Type::POINT:
 		return new CElementPoint();
+
 	default:
 		_IRR_DEBUG_BREAK_IF(true);
 		return nullptr;
+
 	}
-	return new CElementFloat();
 }
 
 }

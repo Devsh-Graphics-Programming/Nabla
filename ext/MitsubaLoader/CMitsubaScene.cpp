@@ -5,6 +5,9 @@
 #include "irrlicht.h"
 #include "ParserUtil.h"
 
+#include "CElementSHapeOBJ.h"
+#include "CSimpleElement.h"
+
 namespace irr { namespace ext { namespace MitsubaLoader {
 
 
@@ -35,18 +38,37 @@ bool CMitsubaScene::processChildData(IElement* _child)
 	switch (_child->getType())
 	{
 	case IElement::Type::SHAPE_OBJ:
-		//add contents of the mesh held by child here
-		//for example:
-		/*
-		CElementShapeObj childObjElement = static_cast<CElementShapeObj*>(_child);
-		_child->getMesh()->getMeshBufferCount();
-		*/
-		return false;
+	{
+		CElementShapeOBJ* shape = static_cast<CElementShapeOBJ*>(_child);
+		const asset::ICPUMesh* shapeMesh = shape->getMesh();
 
+
+		if (!shapeMesh)
+		{
+			_IRR_DEBUG_BREAK_IF(true);
+			return false;
+		}
+			
+
+		//is it possible that shapeMesh->getMeshBufferCount() > 1 ?
+		for (int i = 0; i < shapeMesh->getMeshBufferCount(); i++)
+			mesh->addMeshBuffer(shapeMesh->getMeshBuffer(i));
+		
+
+
+		return true;
+	}
 	case IElement::Type::SHAPE_CUBE:
 		os::Printer::print("Alright! Cube has been added to the scene! \n");
 		
 		return true;
+
+	case IElement::Type::FLOAT:
+		
+		std::cout << static_cast<CElementFloat*>(_child)->getValueAttribute() << std::endl;
+
+		return true;
+
 
 	default:
 		ParserLog::wrongChildElement(getLogName(), _child->getLogName());

@@ -36,7 +36,8 @@ public:
 
 		//other
 		TRANSFORM,
-		TEXTURE
+		TEXTURE,
+		STRING
 	};
 
 public:
@@ -61,6 +62,7 @@ public:
 		}
 		return true;
 	}
+	//
 	virtual bool onEndTag(asset::IAssetManager& _assetManager, IElement* _parent) = 0;
 	virtual IElement::Type getType() const = 0;
 	virtual std::string getLogName() const = 0;

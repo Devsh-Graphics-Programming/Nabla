@@ -16,9 +16,6 @@ namespace irr { namespace ext { namespace MitsubaLoader {
 
 //TODO: 
 /*
- - !!!!!!!! REDUCE NUMBER OF ENUMS IN IElement::Type
- - consider if getName function is really needed (getLogName maybe?)
-
  - proper handling of incorrect .xml file structure (in some situations parsing should be stoped and nullptr should be returned
    from CMitsubaLoader::loadAsset, and in other situations only warning should be shown.)
  - handle 'version' attribute
@@ -26,6 +23,9 @@ namespace irr { namespace ext { namespace MitsubaLoader {
  - make sure default values for <float .. /> <boolean .. /> etc. are correct
  - test atof function (CSimpleElement.h)
  
+ - how should loader treat upper/lower case letters in xml?
+
+ - clean up memory dynamically allocated by ParserData::scene
 
 */
 
