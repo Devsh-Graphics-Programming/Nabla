@@ -8,6 +8,7 @@
 #include "CElementShapeCube.h"
 #include "CElementShapeOBJ.h"
 #include "CSimpleElement.h"
+#include "CElementMatrix.h"
 
 namespace irr { namespace ext { namespace MitsubaLoader {
 
@@ -21,29 +22,55 @@ IElement* CElementFactory::createElement(const char* _el, const char** _atts)
 	{
 		return parseScene(_el, _atts);
 	}
+	else
 	if (!std::strcmp(_el, "shape"))
 	{
 		return parseShape(_el, _atts);
 	}
+	else
 	if (!std::strcmp(_el, "float"))
 	{
 		return parseSimpleElement(_el, _atts, IElement::Type::FLOAT);
 	}
+	else
 	if (!std::strcmp(_el, "integer"))
 	{
 		return parseSimpleElement(_el, _atts, IElement::Type::INTEGER);
 	}
+	else
 	if (!std::strcmp(_el, "boolean"))
 	{
 		return parseSimpleElement(_el, _atts, IElement::Type::BOOLEAN);
 	}
+	else
 	if (!std::strcmp(_el, "point"))
 	{
 		return parseSimpleElement(_el, _atts, IElement::Type::POINT);
 	}
+	else
 	if (!std::strcmp(_el, "string"))
 	{
 		return parseSimpleElement(_el, _atts, IElement::Type::STRING);
+	}
+	else
+	if (!std::strcmp(_el, "matrix"))
+	{
+		return parseMatrix(_el, _atts, CElementMatrix::Type::ARBITRARY);
+	}
+	else
+	if (!std::strcmp(_el, "translate"))
+	{
+		return parseMatrix(_el, _atts, CElementMatrix::Type::TRANSLATION);
+	}
+	else
+	if (!std::strcmp(_el, "rotate"))
+	{
+		return parseMatrix(_el, _atts, CElementMatrix::Type::ROTATION);
+	}
+	else
+	if (!std::strcmp(_el, "scale"))
+	{
+		return parseMatrix(_el, _atts, CElementMatrix::Type::SCALE);
 	}
 	else
 	{
@@ -112,6 +139,11 @@ IElement* CElementFactory::parseSimpleElement(const char* _el, const char** _att
 		return nullptr;
 
 	}
+}
+
+IElement* CElementFactory::parseMatrix(const char* _el, const char** _atts, CElementMatrix::Type type)
+{
+	return new CElementMatrix(type);
 }
 
 }

@@ -4,6 +4,7 @@
 #include "irr/asset/IAssetManager.h"
 #include <iostream>
 
+
 namespace irr { namespace ext { namespace MitsubaLoader {
 
 //TODO: Provide elements with getName member function which will return std::string. 
@@ -37,7 +38,8 @@ public:
 		//other
 		TRANSFORM,
 		TEXTURE,
-		STRING
+		STRING,
+		MATRIX
 	};
 
 public:
@@ -57,7 +59,7 @@ public:
 	{
 		if (_child != nullptr)
 		{
-			//ParserLog::wrongChildElement(getName(), _child->getName());
+			//ParserLog::wrongChildElement(getLogName(), _child->getName());
 			return false;
 		}
 		return true;

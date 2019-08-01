@@ -3,11 +3,13 @@
 
 #include "irr/asset/IAssetManager.h"
 #include "IElement.h"
+#include "CElementMatrix.h"
 #include <memory>
 
 namespace irr { namespace ext { namespace MitsubaLoader {
 
-
+class CElementMatrix;
+enum class CElementMatrix::Type;
 
 class CElementFactory
 {
@@ -19,6 +21,7 @@ private:
 	static IElement* parseScene(const char* _el, const char** _atts);
 	static IElement* parseShape(const char* _el, const char** _atts);
 	static IElement* parseSimpleElement(const char* _el, const char** _atts, IElement::Type type);
+	static IElement* parseMatrix(const char* _el, const char** _atts, CElementMatrix::Type type);
 };
 
 }

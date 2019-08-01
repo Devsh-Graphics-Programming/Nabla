@@ -42,39 +42,39 @@ bool CMitsubaScene::processChildData(IElement* _child)
 		CElementShapeOBJ* shape = static_cast<CElementShapeOBJ*>(_child);
 		const asset::ICPUMesh* shapeMesh = shape->getMesh();
 
-
-		if (!shapeMesh)
-		{
-			_IRR_DEBUG_BREAK_IF(true);
-			return false;
-		}
-			
-
-		//is it possible that shapeMesh->getMeshBufferCount() > 1 ?
-		for (int i = 0; i < shapeMesh->getMeshBufferCount(); i++)
-			mesh->addMeshBuffer(shapeMesh->getMeshBuffer(i));
-		
-
+		return appendMesh(shapeMesh);
+	}
+	case IElement::Type::SHAPE_CUBE:
+	{
+		os::Printer::print("Alright! Cube has been added to the scene! \n");
 
 		return true;
 	}
-	case IElement::Type::SHAPE_CUBE:
+	case IElement::Type::MATRIX:
+	{
 		os::Printer::print("Alright! Cube has been added to the scene! \n");
-		
+		_IRR_DEBUG_BREAK_IF(true);
 		return true;
-
-	case IElement::Type::FLOAT:
-		
-		std::cout << static_cast<CElementFloat*>(_child)->getValueAttribute() << std::endl;
-
-		return true;
-
-
+	}
 	default:
 		ParserLog::wrongChildElement(getLogName(), _child->getLogName());
 
 		return true;
 	}
+}
+
+bool CMitsubaScene::appendMesh(const asset::ICPUMesh* _mesh)
+{
+	if (!_mesh)
+	{
+		_IRR_DEBUG_BREAK_IF(true);
+		return false;
+	}
+
+
+	//is it possible that shapeMesh->getMeshBufferCount() > 1 ?
+	for (int i = 0; i < _mesh->getMeshBufferCount(); i++)
+		mesh->addMeshBuffer(_mesh->getMeshBuffer(i));
 }
 
 

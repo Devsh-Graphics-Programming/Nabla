@@ -27,6 +27,8 @@ namespace irr { namespace ext { namespace MitsubaLoader {
 
  - clean up memory dynamically allocated by ParserData::scene
 
+ - resolve header include conflict (IElement.h needs to include ParserUtil.h (only for ParserLog), and ParserUtil.h needs to include IElement.h)
+
 */
 
 

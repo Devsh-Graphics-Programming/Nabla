@@ -23,11 +23,12 @@ public:
 	virtual bool processChildData(IElement* child) override;
 
 	asset::SCPUMesh* releaseMesh() { return mesh; mesh = nullptr; }
-	//void appendMesh(asset::ICPUMesh* mesh);
+	
 
 private:
 	asset::SCPUMesh* mesh;
 
+	bool appendMesh(const asset::ICPUMesh* _mesh);
 };
 
 }
