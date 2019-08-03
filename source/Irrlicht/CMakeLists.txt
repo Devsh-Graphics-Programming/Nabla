@@ -147,6 +147,7 @@ set(IRRLICHT_SRCS_COMMON
 	CVideoModeList.cpp
 	${CMAKE_SOURCE_DIR}/src/irr/video/GPUMemoryAllocatorBase.cpp
 	${CMAKE_SOURCE_DIR}/src/irr/video/SimpleGPUBufferAllocator.cpp
+	${CMAKE_SOURCE_DIR}/src/irr/video/CDerivativeMapCreator.cpp
 
 # Software renderer
 	CBurningShader_Raster_Reference.cpp
