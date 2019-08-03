@@ -185,7 +185,7 @@ namespace asset
                     return asset;
             }
 
-            // if at this point, and after looking for cache in cache, file is still nullptr, then return nullptr
+            // if at this point, and after looking for an asset in cache, file is still nullptr, then return nullptr
             if (!file)
                 return nullptr;
 
