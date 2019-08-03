@@ -54,7 +54,7 @@ namespace
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
-layout (binding = 7) uniform sampler2D bumpMapSampler;
+layout (binding = 8) uniform sampler2D bumpMapSampler;
 layout (binding = 0, rg8_snorm) uniform image2D derivativeMapImage;
 
 layout (location = 0) uniform float uHeightScaleFactor;
@@ -122,7 +122,7 @@ video::IVirtualTexture* CDerivativeMapCreator::createDerivMapFromBumpMap(video::
         params.MaxFilter = params.MinFilter = video::ETFT_LINEAR_NO_MIP;
         params.TextureWrapU = params.TextureWrapV = (_texWrapRepeat ? video::ETC_REPEAT : video::ETC_CLAMP_TO_EDGE);
         //TODO change tex unit number
-        const_cast<video::COpenGLDriver::SAuxContext*>(gldriver->getThreadContext())->setActiveTexture(7, _bumpMap, params);
+        const_cast<video::COpenGLDriver::SAuxContext*>(gldriver->getThreadContext())->setActiveTexture(_IRR_MATERIAL_MAX_TEXTURES_, _bumpMap, params);
     }
 
     GLint previousProgram;
@@ -145,7 +145,7 @@ video::IVirtualTexture* CDerivativeMapCreator::createDerivMapFromBumpMap(video::
     gldriver->extGlBindImageTexture(0u, 0u, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R8); //unbind image
     { //unbind texture
         video::STextureSamplingParams params;
-        const_cast<video::COpenGLDriver::SAuxContext*>(reinterpret_cast<video::COpenGLDriver*>(m_driver)->getThreadContext())->setActiveTexture(7, nullptr, params);
+        const_cast<video::COpenGLDriver::SAuxContext*>(reinterpret_cast<video::COpenGLDriver*>(m_driver)->getThreadContext())->setActiveTexture(_IRR_MATERIAL_MAX_TEXTURES_, nullptr, params);
     }
     gldriver->extGlUseProgram(previousProgram); //rebind previously bound program
 
