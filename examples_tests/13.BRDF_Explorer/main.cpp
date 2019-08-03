@@ -3,7 +3,6 @@
 #include <irrlicht.h>
 #include "BRDFExplorerApp.h"
 #include "CBRDFBuiltinIncludeLoader.h"
-#include "CComputeShaderManager.h"
 
 using namespace irr;
 
@@ -59,7 +58,6 @@ int main()
         brdfExplorerApp->renderGUI();
         driver->endScene();
     }
-    CComputeShaderManager::clear();
     device->drop();
 
     return 0;

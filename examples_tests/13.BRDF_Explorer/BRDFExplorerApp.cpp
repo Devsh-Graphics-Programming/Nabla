@@ -31,10 +31,10 @@ SOFTWARE.
 #include <IShaderConstantSetCallBack.h>
 
 #include "workaroundFunctions.h"
+#include "irr/video/CDerivativeMapCreator.h"
 
 
 using namespace irr;
-video::IVirtualTexture* createDerivMapFromBumpMap(video::IVirtualTexture* _bumpMap, IrrlichtDevice* _device, float _heightFactor);
 
 namespace
 {
@@ -548,13 +548,14 @@ class CDerivativeMapManager
     using Key_t = std::pair<irr::video::IVirtualTexture*, float>;
 
     core::map<Key_t, video::IVirtualTexture*> DerivMaps;
-    IrrlichtDevice* Device;
+    irr::video::CDerivativeMapCreator* DerivMapCreator;
 
 public:
-    CDerivativeMapManager(IrrlichtDevice* _device) : Device{_device} {}
+    CDerivativeMapManager(IrrlichtDevice* _device) : DerivMapCreator(new irr::video::CDerivativeMapCreator(_device->getVideoDriver())) {}
     ~CDerivativeMapManager() {
         for (auto& t : DerivMaps)
             t.second->drop();
+        DerivMapCreator->drop();
     }
 
     video::IVirtualTexture* getDerivativeMap(video::IVirtualTexture* _bumpMap, float _heightFactor)
@@ -562,7 +563,7 @@ public:
         auto found = DerivMaps.find({_bumpMap, _heightFactor});
         if (found != DerivMaps.end())
             return found->second;
-        return DerivMaps[{_bumpMap, _heightFactor}] = createDerivMapFromBumpMap(_bumpMap, Device, _heightFactor);
+        return DerivMaps[{_bumpMap, _heightFactor}] = DerivMapCreator->createDerivMapFromBumpMap(_bumpMap, _heightFactor);
     }
 };
 
