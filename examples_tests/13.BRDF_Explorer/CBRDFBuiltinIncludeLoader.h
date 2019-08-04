@@ -48,12 +48,13 @@ float GGXTrowbridgeReitz(in float a2, in float NdotH)
     return a2 / (3.14159265359 * denom*denom);
 }
 
-float GGXBurleyAnisotropic(float at, float ab, float TdotH, float BdotH, float NdotH) {
-    float a2 = at*ab;
-    vec3 v = vec3(ab * TdotH, at * BdotH, a2 * NdotH);
-    float v2 = dot(v, v);
-    float w2 = a2 / v2;
-    return a2 * w2 * w2 / 3.14159265359;
+float GGXBurleyAnisotropic(float anisotropy, float a2, float TdotH, float BdotH, float NdotH) {
+	float antiAniso = 1.0-anisotropy;
+	float atab = a2*antiAniso;
+	float anisoTdotH = antiAniso*TdotH;
+	float anisoNdotH = antiAniso*NdotH;
+	float w2 = antiAniso/(BdotH*BdotH+anisoTdotH*anisoTdotH+anisoNdotH*anisoNdotH*a2);
+	return w2*w2*atab / 3.14159265359;
 }
 
 #endif

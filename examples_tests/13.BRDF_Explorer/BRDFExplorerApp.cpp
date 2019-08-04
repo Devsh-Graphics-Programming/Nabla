@@ -491,7 +491,7 @@ R"(vec3 specular(in float a2, in float at, in float ab, in float NdotL, in float
 		return vec3(/*NdotH>=(1.0-FLT_MIN) ? FLT_INF:*/0.0);
 
     vec3 f = Fresnel_combined(ior, VdotH, metallic);
-    float ndf = GGXBurleyAnisotropic(at, ab, TdotH, BdotH, NdotH);//GGXTrowbridgeReitz(a2, NdotH);
+    float ndf = GGXBurleyAnisotropic(uAnisotropy, a2, TdotH, BdotH, NdotH);//GGXTrowbridgeReitz(a2, NdotH);
     float geom = GGXSmithHeightCorrelated_aniso_wo_numerator(at, ab, TdotL, TdotV, BdotL, BdotV, NdotL, NdotV);//GGXSmithHeightCorrelated_wo_numerator(a2, NdotL, NdotV);
 
     // Note: (4.0*NdotV*NdotL) denominator is cancelled by GGXSmith's numerator, thus the use of GGXSmithHeightCorrelated_wo_numerator()
