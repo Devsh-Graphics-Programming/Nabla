@@ -101,12 +101,19 @@ void main()
 
 CDerivativeMapCreator::~CDerivativeMapCreator()
 {
-    static_cast<video::COpenGLDriver*>(m_driver)->extGlDeleteProgram(m_deriv_map_gen_cs);
+    video::COpenGLDriver* gldriver = static_cast<video::COpenGLDriver*>(m_driver);
+    gldriver->extGlDeleteSamplers(1, &m_bumpMapSampler);
+    gldriver->extGlDeleteProgram(m_deriv_map_gen_cs);
 }
 
 CDerivativeMapCreator::CDerivativeMapCreator(video::IVideoDriver* _driver) : m_driver(_driver)
 {
     m_deriv_map_gen_cs = this->createComputeShader(DERIV_MAP_FROM_BUMP_MAP_CS_SRC);
+
+    video::COpenGLDriver* gldriver = static_cast<video::COpenGLDriver*>(m_driver);
+    gldriver->extGlGenSamplers(1, &m_bumpMapSampler);
+    gldriver->extGlSamplerParameteri(m_bumpMapSampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    gldriver->extGlSamplerParameteri(m_bumpMapSampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
 
 video::IVirtualTexture* CDerivativeMapCreator::createDerivMapFromBumpMap(video::IVirtualTexture* _bumpMap, float _heightFactor, bool _texWrapRepeat) const
@@ -116,14 +123,19 @@ video::IVirtualTexture* CDerivativeMapCreator::createDerivMapFromBumpMap(video::
 
     video::COpenGLDriver* gldriver = static_cast<video::COpenGLDriver*>(m_driver);
 
-    {
-        video::STextureSamplingParams params;
-        params.UseMipmaps = 0;
-        params.MaxFilter = params.MinFilter = video::ETFT_LINEAR_NO_MIP;
-        params.TextureWrapU = params.TextureWrapV = (_texWrapRepeat ? video::ETC_REPEAT : video::ETC_CLAMP_TO_EDGE);
-        //TODO do it without SAuxContext, and on different tex unit
-        const_cast<video::COpenGLDriver::SAuxContext*>(gldriver->getThreadContext())->setActiveTexture(7, _bumpMap, params);
-    }
+    gldriver->extGlSamplerParameteri(m_bumpMapSampler, GL_TEXTURE_WRAP_S, _texWrapRepeat ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+    gldriver->extGlSamplerParameteri(m_bumpMapSampler, GL_TEXTURE_WRAP_T, _texWrapRepeat ? GL_REPEAT : GL_CLAMP_TO_EDGE);
+
+    const GLenum textype = GL_TEXTURE_2D;
+    GLint prevSampler = 0;
+    GLint prevTexture = 0;
+    //retrieve currently bound resources
+    glGetIntegerv(GL_SAMPLER_BINDING, &prevSampler);
+    glGetIntegerv(GL_TEXTURE_BINDING_2D, &prevTexture);
+
+    //bind texture and sampling params
+    gldriver->extGlBindSamplers(7, 1, &m_bumpMapSampler);
+    gldriver->extGlBindTextures(7, 1, &static_cast<video::COpenGL2DTexture*>(_bumpMap)->getOpenGLName(), &textype);
 
     GLint previousProgram;
     glGetIntegerv(GL_CURRENT_PROGRAM, &previousProgram);
@@ -142,11 +154,11 @@ video::IVirtualTexture* CDerivativeMapCreator::createDerivMapFromBumpMap(video::
         GL_FRAMEBUFFER_BARRIER_BIT
     );
 
+    // bring back previously bound texture and sampler
+    gldriver->extGlBindTextures(7, 1, reinterpret_cast<GLuint*>(&prevTexture), &textype);
+    gldriver->extGlBindSamplers(7, 1, reinterpret_cast<GLuint*>(&prevSampler));
+
     gldriver->extGlBindImageTexture(0u, 0u, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_R8); //unbind image
-    { //unbind texture
-        video::STextureSamplingParams params;
-        const_cast<video::COpenGLDriver::SAuxContext*>(reinterpret_cast<video::COpenGLDriver*>(m_driver)->getThreadContext())->setActiveTexture(7, nullptr, params);
-    }
     gldriver->extGlUseProgram(previousProgram); //rebind previously bound program
 
     derivMap->regenerateMipMapLevels();

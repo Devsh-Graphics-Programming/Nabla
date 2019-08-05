@@ -22,6 +22,7 @@ private:
     uint32_t createComputeShader(const char*) const;
 
     uint32_t m_deriv_map_gen_cs;
+    uint32_t m_bumpMapSampler;
     video::IVideoDriver* m_driver;
 };
 
