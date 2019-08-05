@@ -131,7 +131,7 @@ int main()
     video::ITexture* texture = driver->getGPUObjectsFromAssets(&cputexture, (&cputexture)+1).front();
 
     const core::vector2d<uint32_t> dsFactor{ 1u, 1u };
-    ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, 0.01f, dsFactor, 2u);
+    ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, device->getIncludeHandler(), 0.01f, dsFactor, 2u);
     receiver.blurPerf = blur;
 
     video::ITexture* outputTex = blur->createOutputTexture(texture);

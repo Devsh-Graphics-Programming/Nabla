@@ -164,6 +164,7 @@ namespace asset
         const IMeshManipulator* getMeshManipulator() const;
 
     protected:
+        //! _supposedFilename is filename as it was, not touched by loader override with _override->getLoadFilename()
         IAsset* getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
             IAssetLoader::SAssetLoadContext ctx{_params, _file};
@@ -183,6 +184,10 @@ namespace asset
                 else if (asset = _override->handleSearchFail(filename, ctx, _hierarchyLevel))
                     return asset;
             }
+
+            // if at this point, and after looking for an asset in cache, file is still nullptr, then return nullptr
+            if (!file)
+                return nullptr;
 
             auto capableLoadersRng = m_loaders.perFileExt.findRange(getFileExt(filename.c_str()));
 
