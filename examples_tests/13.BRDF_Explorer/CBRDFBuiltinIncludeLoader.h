@@ -30,7 +30,7 @@ float oren_nayar(in float _a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, 
     vec3 view_plane = normalize(V - cos_theta.y*N);
     float cos_phi = max(0.0, dot(light_plane, view_plane));//not sure about this
 
-    return cos_theta.x * (AB.x + AB.y * cos_phi * C) / 3.14159265359;
+    return (AB.x + AB.y * cos_phi * C) / 3.14159265359;
 }
 
 #endif
@@ -48,6 +48,15 @@ float GGXTrowbridgeReitz(in float a2, in float NdotH)
     return a2 / (3.14159265359 * denom*denom);
 }
 
+float GGXBurleyAnisotropic(float anisotropy, float a2, float TdotH, float BdotH, float NdotH) {
+	float antiAniso = 1.0-anisotropy;
+	float atab = a2*antiAniso;
+	float anisoTdotH = antiAniso*TdotH;
+	float anisoNdotH = antiAniso*NdotH;
+	float w2 = antiAniso/(BdotH*BdotH+anisoTdotH*anisoTdotH+anisoNdotH*anisoNdotH*a2);
+	return w2*w2*atab / 3.14159265359;
+}
+
 #endif
 )";
     }
@@ -61,26 +70,100 @@ float _GGXSmith_G1_(in float a2, in float NdotX)
 {
     return (2.0*NdotX) / (NdotX + sqrt(a2 + (1.0 - a2)*NdotX*NdotX));
 }
+float _GGXSmith_G1_wo_numerator(in float a2, in float NdotX)
+{
+    return 1.0 / (NdotX + sqrt(a2 + (1.0 - a2)*NdotX*NdotX));
+}
 
 float GGXSmith(in float a2, in float NdotL, in float NdotV)
 {
     return _GGXSmith_G1_(a2, NdotL) * _GGXSmith_G1_(a2, NdotV);
 }
+float GGXSmith_wo_numerator(in float a2, in float NdotL, in float NdotV)
+{
+    return _GGXSmith_G1_wo_numerator(a2, NdotL) * _GGXSmith_G1_wo_numerator(a2, NdotV);
+}
+
+float GGXSmithHeightCorrelated(in float a2, in float NdotL, in float NdotV)
+{
+    float denom = NdotV*sqrt(a2 + (1.0 - a2)*NdotL*NdotL) + NdotL*sqrt(a2 + (1.0 - a2)*NdotV*NdotV);
+    return 2.0*NdotL*NdotV / denom;
+}
+
+float GGXSmithHeightCorrelated_wo_numerator(in float a2, in float NdotL, in float NdotV)
+{
+    float denom = NdotV*sqrt(a2 + (1.0 - a2)*NdotL*NdotL) + NdotL*sqrt(a2 + (1.0 - a2)*NdotV*NdotV);
+    return 0.5 / denom;
+}
+
+// Note a, not a2!
+float GGXSmithHeightCorrelated_approx(in float a, in float NdotL, in float NdotV)
+{
+    float num = 2.0*NdotL*NdotV;
+    return num / mix(num, NdotL+NdotV, a);
+}
+
+// Note a, not a2!
+float GGXSmithHeightCorrelated_approx_wo_numerator(in float a, in float NdotL, in float NdotV)
+{
+    return 0.5 / mix(2.0*NdotL*NdotV, NdotL+NdotV, a);
+}
+
+//Taken from https://google.github.io/filament/Filament.md.html#materialsystem/anisotropicmodel
+float GGXSmithHeightCorrelated_aniso_wo_numerator(in float at, in float ab, in float TdotL, in float TdotV, in float BdotL, in float BdotV, in float NdotL, in float NdotV)
+{
+    float Vterm = NdotL * length(vec3(at*TdotV, ab*BdotV, NdotV));
+    float Lterm = NdotV * length(vec3(at*TdotL, ab*BdotL, NdotL));
+    return 0.5 / (Vterm + Lterm);
+}
 
 #endif
 )";
     }
-    static std::string getFresnelSchlick(const std::string&)
+    static std::string getFresnel(const std::string&)
     {
         return
-R"(#ifndef _BRDF_SPECULAR_FRESNEL_FRESNEL_SCHLICK_INCLUDED_
-#define _BRDF_SPECULAR_FRESNEL_FRESNEL_SCHLICK_INCLUDED_
+R"(#ifndef _BRDF_SPECULAR_FRESNEL_FRESNEL_INCLUDED_
+#define _BRDF_SPECULAR_FRESNEL_FRESNEL_INCLUDED_
 
-vec3 FresnelSchlick(in vec3 F0, in float NdotV)
+vec3 FresnelSchlick(in vec3 F0, in float VdotH)
 {
-    float x = 1.0 - NdotV;
+    float x = 1.0 - VdotH;
     return F0 + (1.0 - F0) * x*x*x*x*x;
-} 
+}
+
+// code from https://seblagarde.wordpress.com/2013/04/29/memo-on-fresnel-equations/
+vec3 Fresnel_conductor(vec3 Eta2, vec3 Etak2, float CosTheta)
+{  
+   float CosTheta2 = CosTheta * CosTheta;
+   float SinTheta2 = 1.0 - CosTheta2;
+
+   vec3 t0 = Eta2 - Etak2 - SinTheta2;
+   vec3 a2plusb2 = sqrt(t0 * t0 + 4 * Eta2 * Etak2);
+   vec3 t1 = a2plusb2 + CosTheta2;
+   vec3 a = sqrt(0.5 * (a2plusb2 + t0));
+   vec3 t2 = 2 * a * CosTheta;
+   vec3 Rs = (t1 - t2) / (t1 + t2);
+
+   vec3 t3 = CosTheta2 * a2plusb2 + SinTheta2 * SinTheta2;
+   vec3 t4 = t2 * SinTheta2;   
+   vec3 Rp = Rs * (t3 - t4) / (t3 + t4);
+
+   return 0.5 * (Rp + Rs);
+}
+float Fresnel_dielectric(in float Eta, in float CosTheta)
+{
+   float SinTheta2 = 1.0 - CosTheta * CosTheta;
+
+   float t0 = sqrt(1.0 - (SinTheta2 / (Eta * Eta)));
+   float t1 = Eta * t0;
+   float t2 = Eta * CosTheta;
+
+   float rs = (CosTheta - t1) / (CosTheta + t1);
+   float rp = (t0 - t2) / (t0 + t2);
+
+   return 0.5 * (rs * rs + rp * rp);
+}
 
 #endif
 )";
@@ -93,7 +176,7 @@ protected:
             { std::regex{"diffuse/oren_nayar\\.glsl"}, &getOrenNayar },
             { std::regex{"specular/ndf/ggx_trowbridge_reitz\\.glsl"}, &getGGXTrowbridgeReitz },
             { std::regex{"specular/geom/ggx_smith\\.glsl"}, &getGGXSmith },
-            { std::regex{"specular/fresnel/fresnel_schlick\\.glsl"}, &getFresnelSchlick }
+            { std::regex{"specular/fresnel/fresnel\\.glsl"}, &getFresnel }
         };
     }
 };
