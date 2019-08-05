@@ -548,14 +548,13 @@ class CDerivativeMapManager
     using Key_t = std::pair<irr::video::IVirtualTexture*, float>;
 
     core::map<Key_t, video::IVirtualTexture*> DerivMaps;
-    irr::video::CDerivativeMapCreator* DerivMapCreator;
+    const irr::video::CDerivativeMapCreator* DerivMapCreator;
 
 public:
-    CDerivativeMapManager(IrrlichtDevice* _device) : DerivMapCreator(new irr::video::CDerivativeMapCreator(_device->getVideoDriver())) {}
+    CDerivativeMapManager(IrrlichtDevice* _device) : DerivMapCreator(_device->getVideoDriver()->getDerivativeMapCreator()) {}
     ~CDerivativeMapManager() {
         for (auto& t : DerivMaps)
             t.second->drop();
-        DerivMapCreator->drop();
     }
 
     video::IVirtualTexture* getDerivativeMap(video::IVirtualTexture* _bumpMap, float _heightFactor)

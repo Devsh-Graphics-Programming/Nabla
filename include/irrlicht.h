@@ -100,6 +100,7 @@
 #include "irr/video/asset_traits.h"
 #include "irr/video/IGPUObjectFromAssetConverter.h"
 #include "irr/video/IGPUMesh.h"
+#include "irr/video/CDerivativeMapCreator.h"
 //} end video lib
 
 //{ scene lib (basic rendering, culling, scene graph etc.) [DEPENDS: video, ui]
