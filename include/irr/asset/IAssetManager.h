@@ -22,6 +22,7 @@ namespace irr
 {
 namespace asset
 {
+    class IAssetManager;
     class IGeometryCreator;
     class IMeshManipulator;
 
@@ -202,7 +203,9 @@ namespace asset
                     break;
             }
 
-            if (asset && !(levelFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL))
+            if (asset && 
+                ((levelFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) != IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) &&
+                ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL))
             {
                 _override->insertAssetIntoCache(asset, filename, ctx, _hierarchyLevel);
                 asset->drop(); // drop ownership after transfering it to cache container

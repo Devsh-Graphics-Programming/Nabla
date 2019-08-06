@@ -15,7 +15,7 @@ IAsset* IAssetLoader::IAssetLoaderOverride::findCachedAsset(const std::string& i
     core::vector<IAsset*> found = m_manager->findAssets(inSearchKey, inAssetTypes);
     if (!found.size())
         return handleSearchFail(inSearchKey, ctx, hierarchyLevel);
-    return found.front();
+    return chooseRelevantFromFound(found, ctx, hierarchyLevel);
 }
 
 void IAssetLoader::IAssetLoaderOverride::insertAssetIntoCache(IAsset* asset, const std::string& supposedKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
