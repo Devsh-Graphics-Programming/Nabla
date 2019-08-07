@@ -3,11 +3,22 @@
 
 #include <string>
 #include "irr/core/IReferenceCounted.h"
+#include "irr/core/Types.h"
 
 namespace irr { namespace asset
 {
 
 class IAssetManager;
+
+class IAssetMetadata : public core::IReferenceCounted
+{
+protected:
+    virtual ~IAssetMetadata() = default;
+
+public:
+    //! this could actually be reworked to something more usable
+    virtual const char* getLoaderName() = 0;
+};
 
 class IAsset : virtual public core::IReferenceCounted
 {
@@ -52,43 +63,133 @@ public:
         return r;
     }
 
-    IAsset() : isCached{false}, isDummyObjectForCacheAliasing{false} {}
+    IAsset() : isDummyObjectForCacheAliasing{false} {}
 
     virtual size_t conservativeSizeEstimate() const = 0;
 
-private:
-    friend class IAssetManager;
-
-    std::string cacheKey;
-    bool isCached;
-
-    // could make a move-ctor version too
-    inline void setNewCacheKey(const std::string& newKey) { cacheKey = newKey; }
-    inline void setNewCacheKey(std::string&& newKey) { cacheKey = std::move(newKey); }
-    inline void setCached(bool val) { isCached = val; }
-    // (Criss) Why this is here if there's convertToDummyObject already
-    //! Utility function to call so IAssetManager can call convertToDummyObject
-    inline void IAssetManager_convertToDummyObject() { this->convertToDummyObject(); }
-
+    friend IAssetManager;
 protected:
     bool isDummyObjectForCacheAliasing;
     //! To be implemented by base classes, dummies must retain references to other assets
     //! but cleans up all other resources which are not assets.
     virtual void convertToDummyObject() = 0;
     //! Checks if the object is either not dummy or dummy but in some cache for a purpose
-    inline bool isInValidState() { return !isDummyObjectForCacheAliasing || !isCached; }
+    inline bool isInValidState() { return !isDummyObjectForCacheAliasing /* || !isCached TODO*/; }
     //! Pure virtual destructor to ensure no instantiation
     virtual ~IAsset() = 0;
 
 public:
-    //! Whether this asset is in a cache and should be removed from cache to destroy
-    inline bool isInAResourceCache() const { return isCached; }
-    //! Only valid if IAsset:isInAResourceCache() returns true
-    std::string getCacheKey() const { return cacheKey; }
     //! To be implemented by derived classes
     virtual E_TYPE getAssetType() const = 0;
     //! 
     inline bool isADummyObjectForCache() const { return isDummyObjectForCacheAliasing; }
+};
+
+class IAssetBundle : public core::IReferenceCounted
+{
+protected:
+    virtual ~IAssetBundle()
+    {
+        for (const PairType& asset : m_contents)
+            asset.first->drop();
+    }
+
+public:
+    using PairType = std::pair<IAsset*, IAssetMetadata*>;
+
+    IAssetBundle(std::initializer_list<PairType> _contents) : m_contents(_contents) 
+    {
+        assert(_contents.size());
+        auto allSameType = [&_contents] {
+            IAsset::E_TYPE t = _contents.begin()->first->getAssetType();
+            for (const auto& ast : _contents)
+                if (ast.first->getAssetType() != t)
+                    return false;
+            return true;
+        };
+        assert(allSameType());
+
+        for (const PairType& asset : m_contents)
+            asset.first->grab();
+    }
+
+    inline IAsset::E_TYPE getAssetType() const { return m_contents.front().first->getAssetType(); }
+
+    inline std::pair<PairType*, PairType*> getContents()
+    {
+        return {&m_contents.front(), (&m_contents.back())+1};
+    }
+    inline std::pair<const PairType*, const PairType*> getContents() const
+    {
+        return {&m_contents.front(), (&m_contents.back())+1};
+    }
+
+private:
+    core::vector<PairType> m_contents;
+};
+
+class IAssetCachableBundle : public core::IReferenceCounted
+{
+protected:
+    virtual ~IAssetCachableBundle()
+    {
+        for (IAsset* asset : m_contents)
+            asset->drop();
+    }
+
+public:
+    IAssetCachableBundle(std::initializer_list<IAsset*> _contents) : m_contents(_contents)
+    {
+        auto allSameType = [&_contents] {
+            IAsset::E_TYPE t = (*_contents.begin())->getAssetType();
+            for (const IAsset* ast : _contents)
+                if (ast->getAssetType() != t)
+                    return false;
+            return true;
+        };
+        assert(allSameType());
+
+        for (IAsset* asset : m_contents)
+            asset->grab();
+    }
+    static IAssetCachableBundle* fromAssetBundle(IAssetBundle* _assetBundle)
+    {
+        auto rng = _assetBundle->getContents();
+        IAssetCachableBundle* retval = new IAssetCachableBundle{};
+        for (auto& asset : core::SRange<IAssetBundle::PairType>{rng.first,rng.second})
+        {
+            retval->m_contents.push_back(asset.first);
+            retval->m_contents.back()->grab();
+        }
+        return retval;
+    }
+
+    inline IAsset::E_TYPE getAssetType() const { return m_contents.front()->getAssetType(); }
+
+    inline std::pair<IAsset**, IAsset**> getContents()
+    {
+        return {&m_contents.front(), (&m_contents.back())+1};
+    }
+    inline std::pair<IAsset* const*, IAsset* const*> getContents() const
+    {
+        return {&m_contents.front(), (&m_contents.back())+1};
+    }
+
+    //! Whether this asset bundle is in a cache and should be removed from cache to destroy
+    inline bool isInAResourceCache() const { return m_isCached; }
+    //! Only valid if IAsset:isInAResourceCache() returns true
+    std::string getCacheKey() const { return m_cacheKey; }
+
+private:
+    friend class IAssetManager;
+
+    inline void setNewCacheKey(const std::string& newKey) { m_cacheKey = newKey; }
+    inline void setNewCacheKey(std::string&& newKey) { m_cacheKey = std::move(newKey); }
+    inline void setCached(bool val) { m_isCached = val; }
+
+    std::string m_cacheKey;
+    bool m_isCached;
+    core::vector<IAsset*> m_contents;
 };
 
 }}

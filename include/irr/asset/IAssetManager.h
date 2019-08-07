@@ -26,23 +26,24 @@ namespace asset
     class IGeometryCreator;
     class IMeshManipulator;
 
-    std::function<void(IAsset*)> makeAssetGreetFunc(const IAssetManager* const _mgr);
-    std::function<void(IAsset*)> makeAssetDisposeFunc(const IAssetManager* const _mgr);
+    std::function<void(IAssetCachableBundle*)> makeAssetGreetFunc(const IAssetManager* const _mgr);
+    std::function<void(IAssetCachableBundle*)> makeAssetDisposeFunc(const IAssetManager* const _mgr);
 
 	class IAssetManager
 	{
         // the point of those functions is that lambdas returned by them "inherits" friendship
-        friend std::function<void(IAsset*)> makeAssetGreetFunc(const IAssetManager* const _mgr);
-        friend std::function<void(IAsset*)> makeAssetDisposeFunc(const IAssetManager* const _mgr);
+        friend std::function<void(IAssetCachableBundle*)> makeAssetGreetFunc(const IAssetManager* const _mgr);
+        friend std::function<void(IAssetCachableBundle*)> makeAssetDisposeFunc(const IAssetManager* const _mgr);
 
     public:
 #ifdef USE_MAPS_FOR_PATH_BASED_CACHE
-        using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAsset, std::multimap>;
+        using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAssetCachableBundle, std::multimap>;
 #else
-        using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAsset, std::vector>;
+        using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAssetCachableBundle, std::vector>;
 #endif //USE_MAPS_FOR_PATH_BASED_CACHE
 
         using CpuGpuCacheType = core::CConcurrentObjectCache<const IAsset*, core::IReferenceCounted>;
+        using MetadataCacheType = core::CConcurrentObjectCache<const IAsset*, IAssetMetadata>;
 
     private:
         struct WriterKey
@@ -73,6 +74,7 @@ namespace asset
 
         std::array<AssetCacheType*, IAsset::ET_STANDARD_TYPES_COUNT> m_assetCache;
         std::array<CpuGpuCacheType*, IAsset::ET_STANDARD_TYPES_COUNT> m_cpuGpuCache;
+        MetadataCacheType m_metadataCache;
 
         struct Loaders {
             Loaders() : perFileExt{&refCtdGreet<IAssetLoader>, &refCtdDispose<IAssetLoader>} {}
@@ -111,7 +113,8 @@ namespace asset
         //! Constructor
         explicit IAssetManager(io::IFileSystem* _fs) :
             m_fileSystem{_fs},
-            m_defaultLoaderOverride{nullptr}
+            m_defaultLoaderOverride{nullptr},
+            m_metadataCache(&refCtdGreet<IAssetMetadata>, &refCtdDispose<IAssetMetadata>)
         {
             initializeMeshTools();
 
@@ -166,7 +169,8 @@ namespace asset
 
     protected:
         //! _supposedFilename is filename as it was, not touched by loader override with _override->getLoadFilename()
-        IAsset* getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+        //TODO change name
+        IAssetCachableBundle* getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
             IAssetLoader::SAssetLoadContext ctx{_params, _file};
 
@@ -176,14 +180,15 @@ namespace asset
 
             const uint64_t levelFlags = _params.cacheFlags >> ((uint64_t)_hierarchyLevel * 2ull);
 
-            IAsset* asset = nullptr;
+            IAssetBundle* asset = nullptr;
             if ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL)
             {
-                core::vector<IAsset*> found = findAssets(filename);
+                core::vector<IAssetCachableBundle*> found = findAssets(filename);
+                IAssetCachableBundle* emergencyBundle = nullptr;
                 if (found.size())
                     return _override->chooseRelevantFromFound(found, ctx, _hierarchyLevel);
-                else if (asset = _override->handleSearchFail(filename, ctx, _hierarchyLevel))
-                    return asset;
+                else if (emergencyBundle = _override->handleSearchFail(filename, ctx, _hierarchyLevel))
+                    return emergencyBundle;
             }
 
             // if at this point, and after looking for an asset in cache, file is still nullptr, then return nullptr
@@ -203,24 +208,33 @@ namespace asset
                     break;
             }
 
+            IAssetCachableBundle* cachableBundle = nullptr;
             if (asset && 
                 ((levelFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) != IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) &&
                 ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL))
             {
                 _override->insertAssetIntoCache(asset, filename, ctx, _hierarchyLevel);
-                asset->drop(); // drop ownership after transfering it to cache container
             }
             else if (!asset)
             {
                 bool addToCache;
                 asset = _override->handleLoadFail(addToCache, file, filename, filename, ctx, _hierarchyLevel);
                 if (asset && addToCache)
-                    insertAssetIntoCache(asset);
+                    cachableBundle = _override->insertAssetIntoCache(asset, filename, ctx, _hierarchyLevel);
+                else
+                    cachableBundle = IAssetCachableBundle::fromAssetBundle(asset);
             }
-
-            return asset;
+            
+            //cache metadata regardless of E_CACHING_FLAGS
+            for (auto& a : core::SRange<IAssetBundle::PairType>{asset->getContents().first,asset->getContents().second})
+                if (a.second)//metadata present
+                    m_metadataCache.insert(a.first, a.second);
+            if (asset)//drop bundle returned by loader since it's not needed any more
+                asset->drop();
+            return cachableBundle;
         }
-        IAsset* getAssetInHierarchy(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+        //TODO change name
+        IAssetCachableBundle* getAssetInHierarchy(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
             IAssetLoader::SAssetLoadContext ctx{_params, nullptr};
 
@@ -228,7 +242,7 @@ namespace asset
             _override->getLoadFilename(filename, ctx, _hierarchyLevel);
             io::IReadFile* file = m_fileSystem->createAndOpenFile(filename.c_str());
 
-            IAsset* asset = getAssetInHierarchy(file, _filename, _params, _hierarchyLevel, _override);
+            IAssetCachableBundle* asset = getAssetInHierarchy(file, _filename, _params, _hierarchyLevel, _override);
 
             if (file)
                 file->drop();
@@ -236,12 +250,14 @@ namespace asset
             return asset;
         }
 
-        IAsset* getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
+        //TODO change name
+        IAssetCachableBundle* getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
         {
             return getAssetInHierarchy(_file, _supposedFilename, _params, _hierarchyLevel, &m_defaultLoaderOverride);
         }
 
-        IAsset* getAssetInHierarchy(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
+        //TODO change name
+        IAssetCachableBundle* getAssetInHierarchy(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
         {
             return getAssetInHierarchy(_filename, _params, _hierarchyLevel, &m_defaultLoaderOverride);
         }
@@ -249,26 +265,31 @@ namespace asset
     public:
         //! These can be grabbed and dropped, but you must not use drop() to try to unload/release memory of a cached IAsset (which is cached if IAsset::isInAResourceCache() returns true). See IAsset::E_CACHING_FLAGS
         /** Instead for a cached asset you call IAsset::removeSelfFromCache() instead of IAsset::drop() as the cache has an internal grab of the IAsset and it will drop it on removal from cache, which will result in deletion if nothing else is holding onto the IAsset through grabs (in that sense the last drop will delete the object). */
-        IAsset* getAsset(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override)
+        //TODO change name
+        IAssetCachableBundle* getAsset(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override)
         {
             return getAssetInHierarchy(_filename, _params, 0u, _override);
         }
-        IAsset* getAsset(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override)
+        //TODO change name
+        IAssetCachableBundle* getAsset(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override)
         {
             return getAssetInHierarchy(_file, _supposedFilename, _params,  0u, _override);
         }
 
-        IAsset* getAsset(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params)
+        //TODO change name
+        IAssetCachableBundle* getAsset(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params)
         {
             return getAsset(_filename, _params, &m_defaultLoaderOverride);
         }
 
-        IAsset* getAsset(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params)
+        //TODO change name
+        IAssetCachableBundle* getAsset(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params)
         {
             return getAsset(_file, _supposedFilename, _params, &m_defaultLoaderOverride);
         }
 
-        inline bool findAssets(size_t& _inOutStorageSize, IAsset** _out, const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
+        //TODO change name
+        inline bool findAssets(size_t& _inOutStorageSize, IAssetCachableBundle** _out, const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
         {
             size_t availableSize = _inOutStorageSize;
             _inOutStorageSize = 0u;
@@ -300,7 +321,8 @@ namespace asset
             }
             return res;
         }
-        inline core::vector<IAsset*> findAssets(const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
+        //TODO change name
+        inline core::vector<IAssetCachableBundle*> findAssets(const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
         {
             size_t reqSz = 0u;
             if (_types)
@@ -318,37 +340,50 @@ namespace asset
                 for (const auto& cache : m_assetCache)
                     reqSz += cache->getSize();
             }
-            core::vector<IAsset*> res(reqSz);
+            core::vector<IAssetCachableBundle*> res(reqSz);
             findAssets(reqSz, res.data(), _key, _types);
             res.resize(reqSz);
             return res;
         }
 
         //! Changes the lookup key
-        inline void changeAssetKey(IAsset* _asset, const std::string& _newKey)
+        //TODO change name
+        inline void changeAssetKey(IAssetCachableBundle* _asset, const std::string& _newKey)
         {
-            if (!_asset->isCached)
+            if (!_asset->isInAResourceCache())
                 _asset->setNewCacheKey(_newKey);
             else
             {
-                if (m_assetCache[IAsset::typeFlagToIndex(_asset->getAssetType())]->changeObjectKey(_asset, _asset->cacheKey, _newKey))
+                if (m_assetCache[IAsset::typeFlagToIndex(_asset->getAssetType())]->changeObjectKey(_asset, _asset->getCacheKey(), _newKey))
                     _asset->setNewCacheKey(_newKey);
             }
         }
 
         //! Insert an asset into the cache (calls the private methods of IAsset behind the scenes)
         /** \return boolean if was added into cache (no duplicate under same key found) and grab() was called on the asset. */
-        bool insertAssetIntoCache(IAsset* _asset)
+        //TODO change name
+        bool insertAssetIntoCache(IAssetCachableBundle* _asset)
         {
             const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
-            return m_assetCache[ix]->insert(_asset->cacheKey, _asset);
+            bool retval = m_assetCache[ix]->insert(_asset->getCacheKey(), _asset);
+            _asset->drop(); //drop ownership after inserting into cache
+            return _asset;
+        }
+
+        IAssetMetadata* getMetadataForAsset(const IAsset* _asset)
+        {
+            IAssetMetadata* buf[1] {nullptr};
+            size_t bufSz = 1u;
+            m_metadataCache.findAndStoreRange(_asset, bufSz, buf);
+            return *buf;
         }
 
         //! Remove an asset from cache (calls the private methods of IAsset behind the scenes)
-        bool removeAssetFromCache(IAsset* _asset) //will actually look up by asset’s key instead
+        //TODO change key
+        bool removeAssetFromCache(IAssetCachableBundle* _asset) //will actually look up by asset’s key instead
         {
             const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
-            return m_assetCache[ix]->removeObject(_asset, _asset->cacheKey);
+            return m_assetCache[ix]->removeObject(_asset, _asset->getCacheKey());
         }
 
         //! Removes all assets from the specified caches, all caches by default
@@ -385,7 +420,8 @@ namespace asset
         {
 			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
 			bool success = m_cpuGpuCache[ix]->removeObject(_gpuObject,_asset);
-			_asset->drop();
+            if (success)
+			    _asset->drop();
 			return success;
         }
 
@@ -527,7 +563,8 @@ namespace asset
         }
 
         // for greet/dispose lambdas for asset caches so we don't have to make another friend decl.
-        inline void setAssetCached(IAsset* _asset, bool _val) const { _asset->isCached = _val; }
+        //TODO change name
+        inline void setAssetCached(IAssetCachableBundle* _asset, bool _val) const { _asset->setCached(_val); }
 	};
 }
 }
