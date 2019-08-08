@@ -28,7 +28,7 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 		message(FATAL_ERROR "Unsupported compiler!")
 	endif()
 
-	set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/install/${PLATFORM}" CACHE PATH "Install path" FORCE)
+	set(CMAKE_INSTALL_PREFIX "${IRR_ROOT_PATH}/install/${PLATFORM}" CACHE PATH "Install path" FORCE)
 endif()
 
 # include utility macros/functions
@@ -42,65 +42,65 @@ set(_IRR_COMPILE_WITH_BURNINGSVIDEO_ ${IRR_COMPILE_WITH_BURNINGSVIDEO})
 #set(_IRR_TARGET_ARCH_ARM_ ${IRR_TARGET_ARCH_ARM}) #uncomment in the future
 set(__IRR_FAST_MATH ${IRR_FAST_MATH})
 set(_IRR_DEBUG 0)
-configure_file("${CMAKE_SOURCE_DIR}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_RELEASE}/BuildConfigOptions.h")
+configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_RELEASE}/BuildConfigOptions.h")
 set(_IRR_DEBUG 1)
-configure_file("${CMAKE_SOURCE_DIR}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_DEBUG}/BuildConfigOptions.h")
+configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
 
-file(GLOB_RECURSE IRRLICHT_HEADERS_PUBLIC "${CMAKE_SOURCE_DIR}/include/*.h")
+file(GLOB_RECURSE IRRLICHT_HEADERS_PUBLIC "${IRR_ROOT_PATH}/include/*.h")
 file(GLOB_RECURSE IRRLICHT_HEADERS_PRIV1 "*.h")
-file(GLOB_RECURSE IRRLICHT_HEADERS_PRIV2 "${CMAKE_SOURCE_DIR}/src/irr/*.h")
+file(GLOB_RECURSE IRRLICHT_HEADERS_PRIV2 "${IRR_ROOT_PATH}/src/irr/*.h")
 # just gather all the header files and later put them into project so it's easy to search for things using IDE
 set(IRRLICHT_HEADERS ${IRRLICHT_HEADERS_PUBLIC} ${IRRLICHT_HEADERS_PIRV1} ${IRRLICHT_HEADERS_PRIV2})
 
 
 set(IRRLICHT_SRCS_COMMON
 # Mesh loaders
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CBAWMeshFileLoader.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/COBJMeshFileLoader.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CPLYMeshFileLoader.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CSTLMeshFileLoader.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CXMeshFileLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshFileLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/COBJMeshFileLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshFileLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CSTLMeshFileLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CXMeshFileLoader.cpp
 
 # Mesh writers
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CBAWMeshWriter.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/COBJMeshWriter.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CPLYMeshWriter.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CSTLMeshWriter.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshWriter.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/COBJMeshWriter.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshWriter.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CSTLMeshWriter.cpp
 	
 # Assets
-	${CMAKE_SOURCE_DIR}/src/irr/asset/IAsset.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/IAssetManager.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/IAssetWriter.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/IAssetLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/IAsset.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/IAssetManager.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/IAssetWriter.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/IAssetLoader.cpp
 	
 # Builtin include loaders
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CGLSLScanBuiltinIncludeLoader.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CGLSLSkinningBuiltinIncludeLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CGLSLScanBuiltinIncludeLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CGLSLSkinningBuiltinIncludeLoader.cpp
 	
 # Shaders
-	${CMAKE_SOURCE_DIR}/src/irr/asset/IGLSLCompiler.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/ICPUShader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/IGLSLCompiler.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/ICPUShader.cpp
 
 # Other mesh-related stuff
-	${CMAKE_SOURCE_DIR}/src/irr/asset/bawformat/CBAWFile.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/bawformat/legacy/CBAWLegacy.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/bawformat/CBlobsLoadingManager.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CForsythVertexCacheOptimizer.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CSmoothNormalGenerator.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CMeshManipulator.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/bawformat/CBAWFile.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/bawformat/legacy/CBAWLegacy.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/bawformat/CBlobsLoadingManager.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CForsythVertexCacheOptimizer.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CSmoothNormalGenerator.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CMeshManipulator.cpp
 	CMeshSceneNode.cpp
 	CMeshSceneNodeInstanced.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/COverdrawMeshOptimizer.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/COverdrawMeshOptimizer.cpp
 	CSkinnedMeshSceneNode.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/bawformat/TypedBlob.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/bawformat/TypedBlob.cpp
 	CCPUSkinnedMesh.cpp
 
 # Scene objects
 	CBillboardSceneNode.cpp
 	CCameraSceneNode.cpp
 	CCubeSceneNode.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CGeometryCreator.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CGeometryCreator.cpp
 	CSceneManager.cpp
 	CSkyBoxSceneNode.cpp
 	CSkyDomeSceneNode.cpp
@@ -131,23 +131,23 @@ set(IRRLICHT_SRCS_COMMON
 # Image processing
 	CColorConverter.cpp
 	CImage.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/video/convertColor.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CImageLoaderBMP.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CImageLoaderDDS.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CImageLoaderJPG.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CImageLoaderPNG.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CImageLoaderTGA.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CImageWriterBMP.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CImageWriterJPG.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CImageWriterPNG.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CImageWriterTGA.cpp
+	${IRR_ROOT_PATH}/src/irr/video/convertColor.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderBMP.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderDDS.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderJPG.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderPNG.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderTGA.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterBMP.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterJPG.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterPNG.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterTGA.cpp
 
 # Video
 	CFPSCounter.cpp
 	CVideoModeList.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/video/GPUMemoryAllocatorBase.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/video/SimpleGPUBufferAllocator.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/video/CDerivativeMapCreator.cpp
+	${IRR_ROOT_PATH}/src/irr/video/GPUMemoryAllocatorBase.cpp
+	${IRR_ROOT_PATH}/src/irr/video/SimpleGPUBufferAllocator.cpp
+	${IRR_ROOT_PATH}/src/irr/video/CDerivativeMapCreator.cpp
 
 # Software renderer
 	CBurningShader_Raster_Reference.cpp
@@ -246,21 +246,21 @@ macro(irr_target_link_shaderc _trgt)
 	target_link_libraries(${_trgt} INTERFACE
 		shaderc
 	)
-	target_include_directories(${_trgt} PUBLIC ${CMAKE_SOURCE_DIR}/3rdparty/shaderc/libshaderc/include)
+	target_include_directories(${_trgt} PUBLIC ${IRR_ROOT_PATH}/3rdparty/shaderc/libshaderc/include)
 endmacro()
 macro(irr_target_link_libjpeg _trgt)
 	add_dependencies(${_trgt} jpeg)
 	target_link_libraries(${_trgt} INTERFACE
 		jpeg
 	)
-	target_include_directories(${_trgt} PUBLIC ${CMAKE_SOURCE_DIR}/3rdparty/libjpeg)
+	target_include_directories(${_trgt} PUBLIC ${IRR_ROOT_PATH}/3rdparty/libjpeg)
 endmacro()
 macro(irr_target_link_libpng _trgt)
 	add_dependencies(${_trgt} png_static)
 	target_link_libraries(${_trgt} INTERFACE
 		png_static
 	)
-	target_include_directories(${_trgt} PUBLIC ${CMAKE_SOURCE_DIR}/3rdparty/libpng)
+	target_include_directories(${_trgt} PUBLIC ${IRR_ROOT_PATH}/3rdparty/libpng)
 endmacro()
 
 # get function for cross-compiler PCH configuration
@@ -297,14 +297,14 @@ if (UNIX)
 endif()
 
 target_include_directories(Irrlicht PUBLIC 
-	${CMAKE_SOURCE_DIR}/include
+	${IRR_ROOT_PATH}/include
 	${COMMON_INCLUDE_DIRS}
 	${THIRD_PARTY_SOURCE_DIR}
 	#those also goes as PUBLIC because of examples
 	"$<$<CONFIG:DEBUG>:${IRRLICHT_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${IRRLICHT_CONF_DIR_RELEASE}>"
 )
-target_include_directories(Irrlicht PUBLIC ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/source/Irrlicht) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
+target_include_directories(Irrlicht PUBLIC ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 if (UNIX)
 	target_include_directories(Irrlicht PUBLIC 
 		${X11_INCLUDE_DIR} 
@@ -361,14 +361,14 @@ irr_target_link_libjpeg(IrrlichtServer)
 irr_target_link_libpng(IrrlichtServer)
 
 target_include_directories(IrrlichtServer PUBLIC 
-	${CMAKE_SOURCE_DIR}/include
+	${IRR_ROOT_PATH}/include
 	${COMMON_INCLUDE_DIRS}
 	${THIRD_PARTY_SOURCE_DIR}
 	#those also goes as PUBLIC because of examples
 	"$<$<CONFIG:DEBUG>:${IRRLICHT_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${IRRLICHT_CONF_DIR_RELEASE}>"
 )
-target_include_directories(IrrlichtServer PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/source/Irrlicht)
+target_include_directories(IrrlichtServer PRIVATE ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht)
 
 target_compile_definitions(IrrlichtServer PRIVATE
 	_IRR_STATIC_LIB_
@@ -411,5 +411,5 @@ endmacro()
 
 irr_install_static_lib(Irrlicht)
 irr_install_static_lib(IrrlichtServer)
-irr_install_headers("${IRRLICHT_HEADERS_PUBLIC}" "${CMAKE_SOURCE_DIR}/include")
+irr_install_headers("${IRRLICHT_HEADERS_PUBLIC}" "${IRR_ROOT_PATH}/include")
 irr_install_config_header(BuildConfigOptions.h)
