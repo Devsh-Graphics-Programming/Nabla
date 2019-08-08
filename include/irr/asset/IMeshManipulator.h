@@ -5,6 +5,8 @@
 #ifndef __I_MESH_MANIPULATOR_H_INCLUDED__
 #define __I_MESH_MANIPULATOR_H_INCLUDED__
 
+#include <functional>
+
 #include "IrrCompileConfig.h"
 #include "irr/core/IReferenceCounted.h"
 #include "vector3d.h"

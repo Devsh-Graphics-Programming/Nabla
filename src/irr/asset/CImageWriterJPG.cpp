@@ -11,6 +11,8 @@
 #include "irr/video/convertColor.h"
 #include "irr/asset/ICPUTexture.h"
 
+#include "os.h"
+
 #ifdef _IRR_COMPILE_WITH_LIBJPEG_
 #include <stdio.h> // required for jpeglib.h
 extern "C"

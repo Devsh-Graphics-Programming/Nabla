@@ -11,6 +11,8 @@
 #include "irr/video/convertColor.h"
 #include "irr/asset/ICPUTexture.h"
 
+#include "os.h"
+
 namespace irr
 {
 namespace asset
