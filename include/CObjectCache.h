@@ -107,12 +107,18 @@ namespace impl
 
     protected:
         // typedefs for implementation only
-        //! Always pointer type
         using ValueType_impl = typename PairType::second_type; // container's value_type is always instantiation of std::pair
-        static_assert(std::is_pointer<ValueType_impl>::value, "ValueType_impl must be pointer type!");
         using KeyType_impl = typename PairType::first_type;
         using NoPtrValueType_impl = typename std::remove_pointer<ValueType_impl>::type;
-        using ValueType_PtrToConst_impl = const NoPtrValueType_impl*; // ValueType_impl is always pointer type
+        //! If T is pointer type, then ImmutableValueType_impl is `const U*` where U is type received by dereferencing operation on variable of type T.
+        //! Otherwise (T is not pointer type) ImmutableValueType_impl is `const T`.
+        using ImmutableValueType_impl = 
+        std::conditional_t<
+            std::is_pointer_v<ValueType_impl>,
+            const NoPtrValueType_impl*,
+            const ValueType_impl
+        >;
+
 
     public:
         using RangeType = std::pair<IteratorType, IteratorType>;
@@ -134,12 +140,12 @@ namespace impl
 				this->dispose(it->second);
 		}
 
-        void dispose(ValueType_impl _object) const {
+        void dispose(ValueType_impl& _object) const {
             if (m_disposalFunc)
                 m_disposalFunc(_object);
         }
 
-        void greet(ValueType_impl _object) const
+        void greet(ValueType_impl& _object) const
         {
             if (m_greetingFunc)
                 m_greetingFunc(_object);
@@ -201,7 +207,7 @@ namespace impl
         inline explicit CObjectCacheBase(const GreetFuncType& _greeting, const DisposalFuncType& _disposal) : m_greetingFunc(_greeting), m_disposalFunc(_disposal) {}
         inline explicit CObjectCacheBase(GreetFuncType&& _greeting, DisposalFuncType&& _disposal) : m_greetingFunc(std::move(_greeting)), m_disposalFunc(std::move(_disposal)) {}
 
-        inline bool contains(ValueType_PtrToConst_impl _object) const
+        inline bool contains(ImmutableValueType_impl& _object) const
         {
             for (const auto& e : m_container)
                 if (e.second == _object)
@@ -256,7 +262,7 @@ namespace impl
     };
 
     //! Use in non-static member functions
-    // insert()'s prototype: template<bool GreetOnInsert> bool insert(const typename Base::KeyType_impl& _key, typename Base::ValueType_impl _val);
+    // insert()'s prototype: template<bool GreetOnInsert> bool insert(const typename Base::KeyType_impl& _key, const typename Base::ValueType_impl& _val);
 #define INSERT_IMPL_VEC \
     const typename Base::PairType newVal{ _key, _val };\
     auto it = std::lower_bound(std::begin(this->m_container), std::end(this->m_container), newVal, [](const typename Base::PairType& _a, const typename Base::PairType& _b) -> bool {return _a.first < _b.first; });\
@@ -304,7 +310,7 @@ namespace impl
         using Base::Base;
 
         template<bool GreetOnInsert = true>
-        inline bool insert(const typename Base::KeyType_impl& _key, typename Base::ValueType_impl _val)
+        inline bool insert(const typename Base::KeyType_impl& _key, const typename Base::ValueType_impl& _val)
         {
             INSERT_IMPL_ASSOC
         }
@@ -334,7 +340,7 @@ namespace impl
         using Base::Base;
 
         template<bool GreetOnInsert = true>
-        inline bool insert(const typename Base::KeyType_impl& _key, typename Base::ValueType_impl _val)
+        inline bool insert(const typename Base::KeyType_impl& _key, const typename Base::ValueType_impl& _val)
         {
             INSERT_IMPL_VEC
         }
@@ -385,7 +391,7 @@ namespace impl
         using Base::Base;
 
         //! Returns true if had to insert
-        bool swapObjectValue(const typename Base::KeyType_impl& _key, const typename Base::ValueType_PtrToConst_impl _obj, typename Base::ValueType_impl _val)
+        bool swapObjectValue(const typename Base::KeyType_impl& _key, const typename Base::ImmutableValueType_impl& _obj, const typename Base::ValueType_impl& _val)
         {
             this->greet(_val); // grab before drop
 
@@ -404,7 +410,7 @@ namespace impl
 
         //! @returns true if object was removed (i.e. was present in cache)
         template<bool DisposeOnRemove = true>
-        inline bool removeObject(const typename Base::ValueType_impl _obj, const typename Base::KeyType_impl& _key)
+        inline bool removeObject(const typename Base::ValueType_impl& _obj, const typename Base::KeyType_impl& _key)
         {
             typename Base::RangeType range = this->findRange(_key);
             for (auto it = range.first; it != range.second; ++it)
@@ -424,7 +430,7 @@ namespace impl
         }
 
     private:
-        typename Base::IteratorType find(const typename Base::RangeType& _range, const typename Base::KeyType_impl& _key, const typename Base::ValueType_PtrToConst_impl _obj) const
+        typename Base::IteratorType find(const typename Base::RangeType& _range, const typename Base::KeyType_impl& _key, const typename Base::ImmutableValueType_impl& _obj) const
         {
             typename Base::IteratorType found = _range.second;
             for (auto it = _range.first; it != _range.second; ++it)
@@ -463,7 +469,7 @@ namespace impl
         using Base::Base;
 
         template<bool GreetOnInsert = true>
-        inline bool insert(const typename Base::KeyType_impl& _key, typename Base::ValueType_impl _val)
+        inline bool insert(const typename Base::KeyType_impl& _key, const typename Base::ValueType_impl& _val)
         {
             INSERT_IMPL_VEC
         }
@@ -498,7 +504,7 @@ namespace impl
         using Base::Base;
 
         template<bool GreetOnInsert = true>
-        inline bool insert(const typename Base::KeyType_impl& _key, typename Base::ValueType_impl _val)
+        inline bool insert(const typename Base::KeyType_impl& _key, const typename Base::ValueType_impl& _val)
         {
             INSERT_IMPL_ASSOC
         }
@@ -535,7 +541,7 @@ namespace impl
 
         //! @returns true if object was removed (i.e. was present in cache)
         template<bool DisposeOnRemove = true>
-        inline bool removeObject(const typename Base::ValueType_impl _obj, const typename Base::KeyType_impl& _key)
+        inline bool removeObject(const typename Base::ValueType_impl& _obj, const typename Base::KeyType_impl& _key)
         {
             typename Base::RangeType range = this->findRange(_key);
             auto it = range.first;
@@ -553,7 +559,7 @@ namespace impl
         }
 
         //! Returns true if had to insert
-        bool swapObjectValue(const typename Base::KeyType_impl& _key, const typename Base::ValueType_PtrToConst_impl _obj, typename Base::ValueType_impl _val)
+        bool swapObjectValue(const typename Base::KeyType_impl& _key, const typename Base::ImmutableValueType_impl& _obj, const typename Base::ValueType_impl& _val)
         {
             this->greet(_val); // grab before drop
 
@@ -588,7 +594,7 @@ namespace impl
     public:
         using Base::Base;
 
-        inline bool changeObjectKey(typename Base::ValueType_impl _obj, const typename Base::KeyType_impl& _key, const typename Base::KeyType_impl& _newKey)
+        inline bool changeObjectKey(const typename Base::ValueType_impl& _obj, const typename Base::KeyType_impl& _key, const typename Base::KeyType_impl& _newKey)
         {
             constexpr bool DoGreetOrDispose = false;
             if (this->template removeObject<DoGreetOrDispose>(_obj, _key))
@@ -684,11 +690,11 @@ template<
     typename Alloc
 >
 class CMultiObjectCache<K, T, ContainerT_T, Alloc, true> :
-    public impl::CDirectMultiCacheBase<true, ContainerT_T, Alloc, std::pair<K, T*>>,
+    public impl::CDirectMultiCacheBase<true, ContainerT_T, Alloc, std::pair<K, T>>,
     public impl::PropagTypedefs<T, K>
 {
 private:
-    using Base = impl::CDirectMultiCacheBase<true, ContainerT_T, Alloc, std::pair<K, T*>>;
+    using Base = impl::CDirectMultiCacheBase<true, ContainerT_T, Alloc, std::pair<K, T>>;
 
 public:
     using Base::Base;
@@ -700,13 +706,13 @@ template<
     typename Alloc
 >
 class CMultiObjectCache<K, T, ContainerT_T, Alloc, false> :
-    public impl::CDirectMultiCacheBase<false, ContainerT_T, Alloc, T*, const K>,
+    public impl::CDirectMultiCacheBase<false, ContainerT_T, Alloc, T, const K>,
     public impl::PropagTypedefs<T, const K>
 {
     static_assert(impl::is_same_templ<ContainerT_T, std::multimap>::value || impl::is_same_templ<ContainerT_T, std::unordered_multimap>::value, "ContainerT_T must be one of: std::vector, std::multimap, std::unordered_multimap");
 
 private:
-    using Base = impl::CDirectMultiCacheBase<false, ContainerT_T, Alloc, T*, const K>;
+    using Base = impl::CDirectMultiCacheBase<false, ContainerT_T, Alloc, T, const K>;
 
 public:
     using Base::Base;
@@ -728,10 +734,10 @@ template<
     typename Alloc
 >
 class CObjectCache<K, T, ContainerT_T, Alloc, true> :
-    public impl::CDirectUniqCacheBase<true, ContainerT_T, Alloc, std::pair<K, T*>>,
+    public impl::CDirectUniqCacheBase<true, ContainerT_T, Alloc, std::pair<K, T>>,
     public impl::PropagTypedefs<T, K>
 {
-    using Base = impl::CDirectUniqCacheBase<true, ContainerT_T, Alloc, std::pair<K, T*>>;
+    using Base = impl::CDirectUniqCacheBase<true, ContainerT_T, Alloc, std::pair<K, T>>;
 
 public:
     using Base::Base;
@@ -745,11 +751,11 @@ template<
     typename Alloc
 >
 class CObjectCache<K, T, ContainerT_T, Alloc, false> :
-    public impl::CDirectUniqCacheBase<false, ContainerT_T, Alloc, T*, const K>,
+    public impl::CDirectUniqCacheBase<false, ContainerT_T, Alloc, T, const K>,
     public impl::PropagTypedefs<T, const K>
 {
     static_assert(impl::is_same_templ<ContainerT_T, std::map>::value || impl::is_same_templ<ContainerT_T, std::unordered_map>::value, "ContainerT_T must be one of: std::vector, std::map, std::unordered_map");
-    using Base = impl::CDirectUniqCacheBase<false, ContainerT_T, Alloc, T*, const K>;
+    using Base = impl::CDirectUniqCacheBase<false, ContainerT_T, Alloc, T, const K>;
 
 public:
     using Base::Base;

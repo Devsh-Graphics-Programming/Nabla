@@ -37,13 +37,13 @@ namespace asset
 
     public:
 #ifdef USE_MAPS_FOR_PATH_BASED_CACHE
-        using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAssetCachableBundle, std::multimap>;
+        using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAssetCachableBundle*, std::multimap>;
 #else
         using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAssetCachableBundle, std::vector>;
 #endif //USE_MAPS_FOR_PATH_BASED_CACHE
 
-        using CpuGpuCacheType = core::CConcurrentObjectCache<const IAsset*, core::IReferenceCounted>;
-        using MetadataCacheType = core::CConcurrentObjectCache<const IAsset*, IAssetMetadata>;
+        using CpuGpuCacheType = core::CConcurrentObjectCache<const IAsset*, core::IReferenceCounted*>;
+        using MetadataCacheType = core::CConcurrentObjectCache<const IAsset*, IAssetMetadata*>;
 
     private:
         struct WriterKey
@@ -81,7 +81,7 @@ namespace asset
 
             core::vector<IAssetLoader*> vector;
             //! The key is file extension
-            core::CMultiObjectCache<std::string, IAssetLoader, std::vector> perFileExt;
+            core::CMultiObjectCache<std::string, IAssetLoader*, std::vector> perFileExt;
 
             void pushToVector(IAssetLoader* _loader) {
                 _loader->grab();
@@ -96,8 +96,8 @@ namespace asset
         struct Writers {
             Writers() : perTypeAndFileExt{&refCtdGreet<IAssetWriter>, &refCtdDispose<IAssetWriter>}, perType{&refCtdGreet<IAssetWriter>, &refCtdDispose<IAssetWriter>} {}
 
-            core::CMultiObjectCache<WriterKey, IAssetWriter, std::vector> perTypeAndFileExt;
-            core::CMultiObjectCache<IAsset::E_TYPE, IAssetWriter, std::vector> perType;
+            core::CMultiObjectCache<WriterKey, IAssetWriter*, std::vector> perTypeAndFileExt;
+            core::CMultiObjectCache<IAsset::E_TYPE, IAssetWriter*, std::vector> perType;
         } m_writers;
 
         friend class IAssetLoader;

@@ -54,7 +54,7 @@ namespace impl
         template<typename RngT>
         static bool isNonZeroRange(const RngT& _rng) { return BaseCache::isNonZeroRange(_rng); }
 
-        inline bool insert(const K& _key, T* _val)
+        inline bool insert(const typename BaseCache::KeyType_impl& _key, const typename BaseCache::ValueType_impl& _val)
         {
             this->m_lock.lockWrite();
             const bool r = BaseCache::insert(_key, _val);
@@ -62,7 +62,7 @@ namespace impl
             return r;
         }
 
-        inline bool contains(const T* _object) const
+        inline bool contains(typename BaseCache::ImmutableValueType_impl& _object) const
         {
             this->m_lock.lockRead();
             const bool r = BaseCache::contains(_object);
@@ -86,7 +86,7 @@ namespace impl
         }
 
         //! Returns true if had to insert
-        bool swapObjectValue(const K& _key, const T* _obj, T* _val)
+        bool swapObjectValue(const typename BaseCache::KeyType_impl& _key, const typename BaseCache::ImmutableValueType_impl& _obj, const typename BaseCache::ValueType_impl& _val)
         {
             this->m_lock.lockWrite();
             bool r = BaseCache::swapObjectValue(_key, _obj, _val);
@@ -94,7 +94,7 @@ namespace impl
             return r;
         }
 
-        bool getAndStoreKeyRangeOrReserve(const K& _key, size_t& _inOutStorageSize, MutablePairType* _out, bool* _gotAll)
+        bool getAndStoreKeyRangeOrReserve(const typename BaseCache::KeyType_impl& _key, size_t& _inOutStorageSize, typename BaseCache::ValueType_impl* _out, bool* _gotAll)
         {
             this->m_lock.lockWrite();
             const bool r = BaseCache::getAndStoreKeyRangeOrReserve(_key, _inOutStorageSize, _out, _gotAll);
@@ -102,7 +102,7 @@ namespace impl
             return r;
         }
 
-        inline bool removeObject(T* _object, const K& _key)
+        inline bool removeObject(const typename BaseCache::ValueType_impl& _obj, const typename BaseCache::KeyType_impl& _key)
         {
             this->m_lock.lockWrite();
             const bool r = BaseCache::removeObject(_object, _key);
@@ -110,7 +110,7 @@ namespace impl
             return r;
         }
 
-        inline bool findAndStoreRange(const K& _key, size_t& _inOutStorageSize, MutablePairType* _out)
+        inline bool findAndStoreRange(const typename BaseCache::KeyType_impl& _key, size_t& _inOutStorageSize, typename BaseCache::MutablePairType* _out)
         {
             m_lock.lockRead();
             const bool r = BaseCache::findAndStoreRange(_key, _inOutStorageSize, _out);
@@ -118,7 +118,7 @@ namespace impl
             return r;
         }
 
-        inline bool findAndStoreRange(const K& _key, size_t& _inOutStorageSize, MutablePairType* _out) const
+        inline bool findAndStoreRange(const typename BaseCache::KeyType_impl& _key, size_t& _inOutStorageSize, typename BaseCache::MutablePairType* _out) const
         {
             m_lock.lockRead();
             const bool r = BaseCache::findAndStoreRange(_key, _inOutStorageSize, _out);
@@ -126,7 +126,7 @@ namespace impl
             return r;
         }
 
-        inline bool findAndStoreRange(const K& _key, size_t& _inOutStorageSize, CachedType** _out)
+        inline bool findAndStoreRange(const typename BaseCache::KeyType_impl& _key, size_t& _inOutStorageSize, typename BaseCache::ValueType_impl* _out)
         {
             m_lock.lockRead();
             const bool r = BaseCache::findAndStoreRange(_key, _inOutStorageSize, _out);
@@ -134,7 +134,7 @@ namespace impl
             return r;
         }
 
-        inline bool findAndStoreRange(const K& _key, size_t& _inOutStorageSize, CachedType** _out) const
+        inline bool findAndStoreRange(const typename BaseCache::KeyType_impl& _key, size_t& _inOutStorageSize, typename BaseCache::ValueType_impl* _out) const
         {
             m_lock.lockRead();
             const bool r = BaseCache::findAndStoreRange(_key, _inOutStorageSize, _out);
@@ -150,7 +150,7 @@ namespace impl
             return r;
         }
 
-        inline bool changeObjectKey(T* _obj, const K& _key, const K& _newKey)
+        inline bool changeObjectKey(const typename BaseCache::ValueType_impl& _obj, const typename BaseCache::KeyType_impl& _key, const typename BaseCache::KeyType_impl& _newKey)
         {
             m_lock.lockWrite();
             const bool r = BaseCache::changeObjectKey(_obj, _key, _newKey);
