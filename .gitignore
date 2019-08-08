@@ -3,6 +3,8 @@
 *.layout
 # Visual Studio Code
 .vscode/*
+# clion
+.idea/*
 # temporary compiler files
 *.objs*
 *.d

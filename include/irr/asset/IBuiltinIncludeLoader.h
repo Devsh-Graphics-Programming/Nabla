@@ -3,6 +3,7 @@
 
 #include "irr/core/IReferenceCounted.h"
 
+#include <functional>
 #include <regex>
 
 namespace irr { namespace asset
