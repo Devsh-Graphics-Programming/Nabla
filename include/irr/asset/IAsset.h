@@ -63,12 +63,17 @@ public:
         return r;
     }
 
-    IAsset() : isDummyObjectForCacheAliasing{false} {}
+    IAsset() : isDummyObjectForCacheAliasing{false}, m_metadata{nullptr} {}
 
     virtual size_t conservativeSizeEstimate() const = 0;
 
+    IAssetMetadata* getMetadata() { return m_metadata; }
+    IAssetMetadata* getMetadata() const { return m_metadata; }
+
     friend IAssetManager;
 protected:
+    IAssetMetadata* m_metadata;
+
     bool isDummyObjectForCacheAliasing;
     //! To be implemented by base classes, dummies must retain references to other assets
     //! but cleans up all other resources which are not assets.
@@ -85,100 +90,41 @@ public:
     inline bool isADummyObjectForCache() const { return isDummyObjectForCacheAliasing; }
 };
 
-class IAssetBundle : public core::IReferenceCounted
+class SAssetBundle
 {
-protected:
-    virtual ~IAssetBundle()
-    {
-        for (const PairType& asset : m_contents)
-            asset.first->drop();
-    }
-
 public:
-    using PairType = std::pair<IAsset*, IAssetMetadata*>;
-
-    IAssetBundle(std::initializer_list<PairType> _contents) : m_contents(_contents) 
+    SAssetBundle(std::initializer_list<core::smart_refctd_ptr<IAsset>> _contents = {}) : m_contents(_contents)
     {
-        assert(_contents.size());
-        auto allSameType = [&_contents] {
-            IAsset::E_TYPE t = _contents.begin()->first->getAssetType();
-            for (const auto& ast : _contents)
-                if (ast.first->getAssetType() != t)
-                    return false;
-            return true;
-        };
-        assert(allSameType());
-
-        for (const PairType& asset : m_contents)
-            asset.first->grab();
-    }
-
-    inline IAsset::E_TYPE getAssetType() const { return m_contents.front().first->getAssetType(); }
-
-    inline std::pair<PairType*, PairType*> getContents()
-    {
-        return {&m_contents.front(), (&m_contents.back())+1};
-    }
-    inline std::pair<const PairType*, const PairType*> getContents() const
-    {
-        return {&m_contents.front(), (&m_contents.back())+1};
-    }
-
-private:
-    core::vector<PairType> m_contents;
-};
-
-class IAssetCachableBundle : public core::IReferenceCounted
-{
-protected:
-    virtual ~IAssetCachableBundle()
-    {
-        for (IAsset* asset : m_contents)
-            asset->drop();
-    }
-
-public:
-    IAssetCachableBundle(std::initializer_list<IAsset*> _contents) : m_contents(_contents)
-    {
-        auto allSameType = [&_contents] {
+        auto allSameTypeAndNotNull = [&_contents] {
+            if (!*_contents.begin())
+                return false;
             IAsset::E_TYPE t = (*_contents.begin())->getAssetType();
-            for (const IAsset* ast : _contents)
-                if (ast->getAssetType() != t)
+            for (const auto& ast : _contents)
+                if (!ast || ast->getAssetType() != t)
                     return false;
             return true;
         };
-        assert(allSameType());
-
-        for (IAsset* asset : m_contents)
-            asset->grab();
-    }
-    static IAssetCachableBundle* fromAssetBundle(IAssetBundle* _assetBundle)
-    {
-        auto rng = _assetBundle->getContents();
-        IAssetCachableBundle* retval = new IAssetCachableBundle{};
-        for (auto& asset : core::SRange<IAssetBundle::PairType>{rng.first,rng.second})
-        {
-            retval->m_contents.push_back(asset.first);
-            retval->m_contents.back()->grab();
-        }
-        return retval;
+        assert(allSameTypeAndNotNull());
     }
 
     inline IAsset::E_TYPE getAssetType() const { return m_contents.front()->getAssetType(); }
 
-    inline std::pair<IAsset**, IAsset**> getContents()
+    inline std::pair<core::smart_refctd_ptr<IAsset>*, core::smart_refctd_ptr<IAsset>*> getContents()
     {
         return {&m_contents.front(), (&m_contents.back())+1};
     }
-    inline std::pair<IAsset* const*, IAsset* const*> getContents() const
+    inline std::pair<const core::smart_refctd_ptr<IAsset>*, const core::smart_refctd_ptr<IAsset>*> getContents() const
     {
         return {&m_contents.front(), (&m_contents.back())+1};
     }
 
     //! Whether this asset bundle is in a cache and should be removed from cache to destroy
     inline bool isInAResourceCache() const { return m_isCached; }
-    //! Only valid if IAsset:isInAResourceCache() returns true
+    //! Only valid if isInAResourceCache() returns true
     std::string getCacheKey() const { return m_cacheKey; }
+
+    size_t getSize() const { return m_contents.size(); }
+    bool isEmpty() const { return getSize()==0ull; }
 
 private:
     friend class IAssetManager;
@@ -189,7 +135,8 @@ private:
 
     std::string m_cacheKey;
     bool m_isCached;
-    core::vector<IAsset*> m_contents;
+    //TODO change to some "fixed size vector"
+    core::vector<core::smart_refctd_ptr<IAsset>> m_contents;
 };
 
 }}

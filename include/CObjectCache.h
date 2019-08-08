@@ -124,8 +124,8 @@ namespace impl
         using RangeType = std::pair<IteratorType, IteratorType>;
         using ConstRangeType = std::pair<ConstIteratorType, ConstIteratorType>;
 
-        using GreetFuncType = std::function<void(ValueType_impl)>;
-        using DisposalFuncType = std::function<void(ValueType_impl)>;
+        using GreetFuncType = std::function<void(ValueType_impl&)>;
+        using DisposalFuncType = std::function<void(ValueType_impl&)>;
 
         template<typename RangeT>
         static bool isNonZeroRange(const RangeT& _range) { return _range.first != _range.second; }
