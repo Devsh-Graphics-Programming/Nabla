@@ -88,9 +88,9 @@ std::string CGLSLScanBuiltinIncludeLoader::getReduceAndScanExtensionEnables() co
 {
 
 
-    std::string retval = R"===(\n#ifndef _IRR_GENERATED_REDUCE_AND_SCAN_EXTS_ENABLES_INCLUDED_
+    std::string retval = R"===(#ifndef _IRR_GENERATED_REDUCE_AND_SCAN_EXTS_ENABLES_INCLUDED_
 #define _IRR_GENERATED_REDUCE_AND_SCAN_EXTS_ENABLES_INCLUDED_
-#define GL_WARP_SIZE_NV 32";
+#define GL_WARP_SIZE_NV 32;
 )===";
 /*
 #ifdef _IRR_COMPILE_WITH_OPENGL_

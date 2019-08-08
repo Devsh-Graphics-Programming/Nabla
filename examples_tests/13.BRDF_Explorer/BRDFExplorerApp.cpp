@@ -31,6 +31,8 @@ SOFTWARE.
 #include <IShaderConstantSetCallBack.h>
 
 #include "workaroundFunctions.h"
+#include "irr/video/CDerivativeMapCreator.h"
+
 
 using namespace irr;
 
@@ -44,22 +46,25 @@ class CShaderConstantSetCallback : public video::IShaderConstantSetCallBack
     };
 
     const irr::BRDFExplorerApp::SGUIState& GUIState;
+    const irr::BRDFExplorerApp::SLightAnimData& LightAnimData;
     scene::ICameraSceneNode* Camera;
 
     static constexpr SShaderConstant uVP {20, video::ESCT_FLOAT_MAT4};
     static constexpr SShaderConstant uEmissive {0, video::ESCT_FLOAT_VEC3};
     static constexpr SShaderConstant uAlbedo {1, video::ESCT_FLOAT_VEC3};
-    static constexpr SShaderConstant uRoughness1 {2, video::ESCT_FLOAT};
-    static constexpr SShaderConstant uRoughness2 {3, video::ESCT_FLOAT};
-    static constexpr SShaderConstant uIoR {4, video::ESCT_FLOAT};
+    static constexpr SShaderConstant uRoughness {2, video::ESCT_FLOAT};
+    static constexpr SShaderConstant uAnisotropy {3, video::ESCT_FLOAT};
+    static constexpr SShaderConstant uRealIoR {4, video::ESCT_FLOAT_VEC3};
     static constexpr SShaderConstant uMetallic {5, video::ESCT_FLOAT};
-    static constexpr SShaderConstant uHeightFactor {6, video::ESCT_FLOAT};
+    static constexpr SShaderConstant uHeightScaleFactor {6, video::ESCT_FLOAT};
     static constexpr SShaderConstant uLightColor {7, video::ESCT_FLOAT_VEC3};
     static constexpr SShaderConstant uLightPos {8, video::ESCT_FLOAT_VEC3};
     static constexpr SShaderConstant uEyePos {9, video::ESCT_FLOAT_VEC3};
+    static constexpr SShaderConstant uLightIntensity {10, video::ESCT_FLOAT};
+    static constexpr SShaderConstant uImagIoR {11, video::ESCT_FLOAT_VEC3};
 
 public:
-    CShaderConstantSetCallback(scene::ICameraSceneNode* _camera, const irr::BRDFExplorerApp::SGUIState& _guiState) : Camera{ _camera }, GUIState{_guiState} {}
+    CShaderConstantSetCallback(scene::ICameraSceneNode* _camera, const irr::BRDFExplorerApp::SGUIState& _guiState, const irr::BRDFExplorerApp::SLightAnimData& _lightAnim) : Camera{ _camera }, GUIState{_guiState}, LightAnimData{_lightAnim} {}
 
     virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
     {
@@ -76,18 +81,29 @@ public:
         if (GUIState.Albedo.SourceDropdown == irr::BRDFExplorerApp::EDS_CONSTANT)
             services->setShaderConstant(&GUIState.Albedo.ConstantColor.X, uAlbedo.location, uAlbedo.type, 1u);
         if (GUIState.Roughness.SourceDropdown == irr::BRDFExplorerApp::EDS_CONSTANT)
-            services->setShaderConstant(&GUIState.Roughness.ConstValue1, uRoughness1.location, uRoughness1.type, 1u);
+            services->setShaderConstant(&GUIState.Roughness.ConstValue1, uRoughness.location, uRoughness.type, 1u);
+        if (GUIState.Roughness.SourceDropdown==irr::BRDFExplorerApp::EDS_CONSTANT && !GUIState.Roughness.IsIsotropic)
+            services->setShaderConstant(&GUIState.Roughness.ConstValue2, uAnisotropy.location, uAnisotropy.type, 1u);
+        else {
+            const float aniso = 0.f;
+            services->setShaderConstant(&aniso, uAnisotropy.location, uAnisotropy.type, 1u);
+        }
         if (GUIState.RefractionIndex.SourceDropdown == irr::BRDFExplorerApp::EDS_CONSTANT)
-            services->setShaderConstant(&GUIState.RefractionIndex.ConstValue, uIoR.location, uIoR.type, 1u);
+            services->setShaderConstant(&GUIState.RefractionIndex.ConstantReal.X, uRealIoR.location, uRealIoR.type, 1u);
+        services->setShaderConstant(&GUIState.RefractionIndex.ConstantImag.X, uImagIoR.location, uImagIoR.type, 1u);
         if (GUIState.Metallic.SourceDropdown == irr::BRDFExplorerApp::EDS_CONSTANT)
             services->setShaderConstant(&GUIState.Metallic.ConstValue, uMetallic.location, uMetallic.type, 1u);
-        //services->setShaderConstant(&GUIState.BumpMapping.Height, uHeightFactor.location, uHeightFactor.type, 1u);
+        services->setShaderConstant(&GUIState.BumpMapping.Height, uHeightScaleFactor.location, uHeightScaleFactor.type, 1u);
         if (!GUIState.Light.Animated)
-            services->setShaderConstant(&GUIState.Light.ConstantPosition, uLightPos.location, uLightPos.type, 1u);
+            services->setShaderConstant(&GUIState.Light.ConstantPosition.X, uLightPos.location, uLightPos.type, 1u);
+        else
+            services->setShaderConstant(&LightAnimData.Position.X, uLightPos.location, uLightPos.type, 1u);
         services->setShaderConstant(&GUIState.Light.Color, uLightColor.location, uLightColor.type, 1u);
 
         auto eyePos = Camera->getPosition();
         services->setShaderConstant(&eyePos.X, uEyePos.location, uEyePos.type, 1u);
+
+        services->setShaderConstant(&GUIState.Light.Intensity, uLightIntensity.location, uLightIntensity.type, 1u);
     }
 
     virtual void OnUnsetMaterial() {}
@@ -108,6 +124,7 @@ public:
         bool metallicIsZero;
         bool metallicIsOne;
         bool AOEnabled;
+        bool derivMapIsPresent;
     };
 
 private:
@@ -117,6 +134,7 @@ private:
     video::IGPUProgrammingServices* Services = nullptr;
     asset::IIncludeHandler* IncludeHandler = nullptr;
     const irr::BRDFExplorerApp::SGUIState& GUIState;
+    const irr::BRDFExplorerApp::SLightAnimData& LightAnimData;
     scene::ICameraSceneNode* Camera = nullptr;
 
     enum E_SHADER_FLAGS : Key_t
@@ -129,7 +147,8 @@ private:
         ESF_CONST_METALLIC = 1<<5,
         ESF_ZERO_METALLIC = 1<<6,
         ESF_ONE_METALLIC = 1<<7,
-        ESF_AO_ENABLED = 1<<8
+        ESF_AO_ENABLED = 1<<8,
+        ESF_DERIV_MAP_PRESENT = 1<<9
     };
 
     static constexpr const char* VERTEX_SHADER_SRC = 
@@ -150,7 +169,8 @@ void main()
     vec3 world = vPosition.xyz;
     WorldPos = world;
     TexCoords = vTexCoords;
-    Normal = vNormal;
+    Normal = normalize(vNormal);
+    
     gl_Position = uVPMat * vec4(world, 1.0);
 }
 )";
@@ -177,15 +197,29 @@ void main()
         key |= Key_t{_p.metallicIsZero}<<firstSetBit(ESF_ZERO_METALLIC);
         key |= Key_t{_p.metallicIsOne}<<firstSetBit(ESF_ONE_METALLIC);
         key |= Key_t{_p.AOEnabled}<<firstSetBit(ESF_AO_ENABLED);
+        key |= Key_t{_p.derivMapIsPresent}<<firstSetBit(ESF_DERIV_MAP_PRESENT);
 
         return key;
     }
 
     std::string genGetters(const SParams& _params)
     {
-        std::string source = "float getRoughness(in vec2 texCoords) {\n";
+        std::string source = 
+R"(
+float IoRfromF0(float F0) {
+    return 2.0/(1.0 - sqrt(F0)) - 1.0;
+}
+float ReIoRfromF0andImIoR(float F0, float ImIoR)
+{
+   float T0 = 1.0-F0;
+   float kT0 = ImIoR*T0;
+   return (1.0+F0+sqrt(4.0*F0-kT0*kT0))/T0;
+}
+)";
+
+        source += "float getRoughness(in vec2 texCoords) {\n";
         if (_params.constantRoughness)
-            source += "\treturn uRoughness1;";
+            source += "\treturn uRoughness;";
         else
             source += "\treturn texture(uRoughnessMap, texCoords).x;";
         source += "\n}\n";
@@ -204,11 +238,12 @@ void main()
             source += "\treturn texture(uMetallicMap, texCoords).x;";
         source += "\n}\n";
 
-        source += "float getIoR(in vec2 texCoords) {\n";
+        source += "vec3 getReflectance(in vec2 texCoords) {\n";
         if (_params.constantRI)
-            source += "\treturn uIoR;";
+            source += "\treturn uRealIoR;";
         else
-            source += "\treturn texture(uIoRMap, texCoords).x;";
+            source +=
+            "\treturn texture(uIoRMap, texCoords).xxx;";
         source += "\n}\n";
 
         source += "float getAO(in vec2 texCoords) {\n";
@@ -231,7 +266,7 @@ void main()
     video::E_MATERIAL_TYPE addShader(const SParams& _params)
     {
         std::string source =
-R"(#version 430 core
+            R"(#version 430 core
 
 layout (location = 0) out vec4 OutColor;
 
@@ -241,30 +276,36 @@ in vec3 Normal;
 
 layout (location = 0) uniform vec3 uEmissive;
 layout (location = 1) uniform vec3 uAlbedo;
-layout (location = 2) uniform float uRoughness1;
-layout (location = 3) uniform float uRoughness2;
-layout (location = 4) uniform float uIoR;
+layout (location = 2) uniform float uRoughness;
+layout (location = 3) uniform float uAnisotropy;
+layout (location = 4) uniform vec3 uRealIoR;
 layout (location = 5) uniform float uMetallic;
-layout (location = 6) uniform float uHeightFactor;
+layout (location = 6) uniform float uHeightScaleFactor;
 layout (location = 7) uniform vec3 uLightColor;
 layout (location = 8) uniform vec3 uLightPos;
 layout (location = 9) uniform vec3 uEyePos;
+layout (location = 10) uniform float uLightIntensity;
+layout (location = 11) uniform vec3 uImagIoR;
 layout (binding = 0) uniform sampler2D uAlbedoMap;
 layout (binding = 1) uniform sampler2D uRoughnessMap;
 layout (binding = 2) uniform sampler2D uIoRMap;
 layout (binding = 3) uniform sampler2D uMetallicMap;
-layout (binding = 4) uniform sampler2D uBumpMap;
+layout (binding = 4) uniform sampler2D uDerivativeMap;
 layout (binding = 5) uniform sampler2D uAOMap;
 
 float getRoughness(in vec2 texCoords);
 float getMetallic(in vec2 texCoords);
-float getIoR(in vec2 texCoords);
+vec3 getReflectance(in vec2 texCoords);
 float getAO(in vec2 texCoords);
 vec3 getAlbedo(in vec2 texCoords);
+float IoRfromF0(float F0);
+float ReIoRfromF0andImIoR(float F0, float ImIoR);
 
 #define FLT_MIN 1.175494351e-38
 #define FLT_MAX 3.402823466e+38
 #define FLT_INF (1.0/0.0)
+
+#define REFLECTANCE_SCALE_FACTOR 0.16
 )"
 +
 IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/diffuse/oren_nayar.glsl")
@@ -273,49 +314,155 @@ IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/specular/ndf/ggx_trowb
 +
 IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/specular/geom/ggx_smith.glsl")
 +
-IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/specular/fresnel/fresnel_schlick.glsl")
+IncludeHandler->getIncludeStandard("irr/builtin/glsl/brdf/specular/fresnel/fresnel.glsl")
 +
 R"(
 float diffuse(in float a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, in float NdotV);
-vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in vec3 F0, out vec3 out_fresnel);
+vec3 specular(in float a2, in float at, in float ab, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in float TdotV, in float TdotL, in float BdotV, in float BdotL, in float TdotH, in float BdotH, in mat2x3 ior, in float metallic);
+vec3 Fresnel_combined(in mat2x3 ior, in float cosTheta, in float metallic);
+
+vec3 calculateSurfaceGradient(in vec3 normal, in vec3 dpdx, in vec3 dpdy, in float dhdx, in float dhdy)
+{
+    vec3 r1 = cross(dpdy, normal);
+    vec3 r2 = cross(normal, dpdx);
+ 
+    return (r1*dhdx + r2*dhdy) / dot(dpdx, r1);
+}
+
+vec3 perturbNormal(in vec3 normal, in vec3 dpdx, in vec3 dpdy, in float dhdx, in float dhdy)
+{
+    return normalize(normal - calculateSurfaceGradient(normal, dpdx, dpdy, dhdx, dhdy));
+}
+
+float applyChainRule(in vec2 h_gradient, in vec2 dUVd_)
+{
+    return dot(h_gradient, dUVd_);
+}
+
+// Calculate the surface normal using the uv-space gradient (dhdu, dhdv)
+vec3 calculateSurfaceNormal(in vec3 normal, in vec2 h_gradient, in vec3 dpdx, in vec3 dpdy, in vec2 dUVdx, in vec2 dUVdy)
+{
+    float dhdx = applyChainRule(h_gradient, dUVdx);
+    float dhdy = applyChainRule(h_gradient, dUVdy);
+ 
+    return perturbNormal(normal, dpdx, dpdy, dhdx, dhdy);
+}
+
+vec3 calcDiffuseFresnelCorrectionFactor(in vec3 n, in vec3 n2)
+{
+    //assert(n*n==n2);
+    bvec3 TIR = lessThan(n,vec3(1.0));
+    vec3 invdenum = mix(vec3(1.0), vec3(1.0)/(n2*n2*(vec3(554.33) - 380.7*n)), TIR);
+    vec3 num = n*mix(vec3(0.1921156102251088),n*298.25 - 261.38*n2 + 138.43,TIR);
+    num += mix(vec3(0.8078843897748912),vec3(-1.67),TIR);
+    return num*invdenum;
+}
 
 void main() {
-    const vec3 N = normalize(Normal);
+    vec3 N = normalize(Normal);
+    const vec2 texCoords = vec2(TexCoords.x, 1.0-TexCoords.y);
+    vec3 dp1 = dFdx(WorldPos);
+    vec3 dp2 = dFdy(WorldPos);
+    vec2 duv1 = dFdx(TexCoords);
+    vec2 duv2 = dFdy(TexCoords);
+    vec3 dp2perp = cross(dp2, N);
+    vec3 dp1perp = cross(N, dp1);
+    vec3 T = normalize(dp2perp * duv1.x + dp1perp * duv2.x);
+)"
+    +
+    (_params.derivMapIsPresent ?
+R"(
+    vec2 derivMapSz = vec2(textureSize(uDerivativeMap, 0));
+    vec2 h_gradient = texture(uDerivativeMap, texCoords).xy*uHeightScaleFactor*max(derivMapSz.x, derivMapSz.y);
+    N = calculateSurfaceNormal(N, h_gradient, dp1, dp2, duv1, duv2);
+)" : ""
+    )
+    +
+R"(
+    vec3 B = cross(N, T);
     const vec3 relLightPos = uLightPos - WorldPos;
     float NdotL = dot(N, relLightPos);
 
-	vec3 color = vec3(0.0);
+    const float ao = getAO(texCoords);
+
+	vec3 color = uEmissive*ao*0.01;
 	if (NdotL>FLT_MIN)
 	{
 		const float relLightPosLen2 = dot(relLightPos, relLightPos);
-		NdotL *= inversesqrt(relLightPosLen2);
+        const float L_rcpLen = inversesqrt(relLightPosLen2);
+		NdotL *= L_rcpLen;
 
 		// there are better identities to get all of these
 		const vec3 V = normalize(uEyePos - WorldPos);
-		const vec3 L = normalize(relLightPos);
-		const vec3 H = normalize(L + V);
+		const vec3 L = relLightPos*L_rcpLen;
+        const vec3 H = normalize(V+L);
 
-		const float NdotH = max(dot(N, H), 0.0);
-		const float NdotV = max(dot(N, V), 0.0);
-		const float VdotH = max(dot(V, H), 0.0);
+		float NdotV = dot(N, V);
+        float LdotV = dot(L, V);
+
+        // dots with H identities taken from Earl Hammon's PBR Diffuse Lighting GDC17 lecture
+        const float LplusV_lenSq = 2.0 + 2.0*LdotV;
+        const float LplusV_rcpLen = inversesqrt(LplusV_lenSq);
+        const float NdotH = max((NdotL + NdotV) * LplusV_rcpLen, 0.0);
+        const float VdotH = LplusV_rcpLen + LplusV_rcpLen*LdotV;
+
+        const float TdotV = dot(T, V);
+        const float TdotL = dot(T, L);
+        const float BdotV = dot(B, V);
+        const float BdotL = dot(B, L);
+        const float TdotH = (TdotL + TdotV)*LplusV_rcpLen;
+        const float BdotH = (BdotL + BdotV)*LplusV_rcpLen;
 		// identity comment end (but also do you need to clamp all of them?)
 
-		const vec2 texCoords = vec2(TexCoords.x, 1.0-TexCoords.y);
-
 		const float a2 = getRoughness(texCoords);
+        const float at = sqrt(a2);
+        const float ab = at*(1.0 - uAnisotropy);
 		const float metallic = getMetallic(texCoords);
-		const vec3 albedo = getAlbedo(texCoords);
-		const float ior = getIoR(texCoords);
-		const float ao = getAO(texCoords);
+		const vec3 baseColor = getAlbedo(texCoords);
+)"
+    +
+    [&_params] {
+    if (!_params.constantRI)
+        return
+R"(
+        vec3 reflectance = getReflectance(texCoords);
+        vec3 F0 = mix(reflectance*reflectance*REFLECTANCE_SCALE_FACTOR, baseColor, metallic);
+        vec3 realIoR = vec3(
+            ReIoRfromF0andImIoR(F0.x, uImagIoR.x),
+            ReIoRfromF0andImIoR(F0.y, uImagIoR.y),
+            ReIoRfromF0andImIoR(F0.z, uImagIoR.z)
+        );
+        if (any(isnan(realIoR)))
+        {
+            OutColor = vec4(1.0, 0.0, 0.0, 1.0);
+            return;
+        }
+)";
+    else // getReflectance() reads reflectance texture OR uRealIoR uniform
+        return "\t\tvec3 realIoR = getReflectance(texCoords);";
+    }()
+    +
+R"(
+        vec3 realIoR2 = realIoR*realIoR;
+        mat2x3 IoR = mat2x3(realIoR2, uImagIoR*uImagIoR);
 
-		float tmp = (1.0-ior)/(1.0+ior);
-		const vec3 F0 = mix(vec3(tmp*tmp), albedo, metallic);
-		vec3 fresnel;
-
+        // (2*n^2 + 2*cos(theta)^2 - 2) is (2*n^2 + cos(2*theta) - 1) is (sqrt(n^2 - sin(theta)^2)^2) + n^2 - sin(theta)^2)
+        // which comes from (a2plusb2 + t0) in Fresnel_conductor (with assumption of Etak=0) which cannot be <0.
+        // n is obviously Eta, real part of IoR
+        // checks needed for n<1
+        if (any(lessThan(2.0*realIoR2 + 2.0*NdotV*NdotV - 2.0, vec3(0.0))) ||
+            any(lessThan(2.0*realIoR2 + 2.0*NdotL*NdotL - 2.0, vec3(0.0))) ||
+            any(lessThan(2.0*realIoR2 + 2.0*VdotH*VdotH - 2.0, vec3(0.0)))
+        ) {
+            OutColor = vec4(1.0, 0.0, 0.0, 1.0);
+            return;
+        }
+            
+        vec3 diffuseFactor = calcDiffuseFresnelCorrectionFactor(realIoR, realIoR2) * (vec3(1.0)-Fresnel_combined(IoR, NdotV, metallic))*(vec3(1.0)-Fresnel_combined(IoR, NdotL, metallic));
 		float diffuse = diffuse(a2, N, L, V, NdotL, NdotV) * (1.0 - metallic);
-		vec3 spec = specular(a2, NdotL, NdotV, NdotH, VdotH, F0, fresnel);
+		vec3 spec = specular(a2, at, ab, NdotL, NdotV, NdotH, VdotH, TdotV, TdotL, BdotV, BdotL, TdotH, BdotH, IoR, metallic);
 
-		color += ((diffuse * albedo * (vec3(1.0) - fresnel)) + spec) * NdotL * uLightColor / relLightPosLen2;
+		color += ((diffuse * baseColor * ao * diffuseFactor) + spec) * NdotL * uLightIntensity * uLightColor / relLightPosLen2;
 	}
 	OutColor = vec4(color, 1.0);
 }
@@ -323,36 +470,49 @@ void main() {
         source += genGetters(_params);
 
         source += "float diffuse(in float a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, in float NdotV) {\n";
-        if (_params.constantMetallic && !_params.metallicIsOne)
+        if (_params.constantMetallic && _params.metallicIsOne)
+        {
+            source += "\treturn 0.0;";
+        }
+        else
         {
             if (_params.constantRoughness && _params.roughnessIsZero)
-                source += "\treturn NdotL;";
+                source += "\treturn 1.0/3.14159265359;";
             else
                 source += "\treturn oren_nayar(a2, N, L, V, NdotL, NdotV);";
         }
-        else source += "\treturn 0.0;";
         source += "\n}\n";
         source += 
-R"(vec3 specular(in float a2, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in vec3 F0, out vec3 out_fresnel) {
+R"(vec3 specular(in float a2, in float at, in float ab, in float NdotL, in float NdotV, in float NdotH, in float VdotH, in float TdotV, in float TdotL, in float BdotV, in float BdotL, in float TdotH, in float BdotH, in mat2x3 ior, in float metallic) {
 	//assert(NdotL>FLT_MIN);
-    out_fresnel = FresnelSchlick(F0, VdotH);
     if (NdotV<FLT_MIN)
         return vec3(0.0);
-    if (a2<FLT_MIN)
+    if (a2*(1.0-uAnisotropy)<FLT_MIN)
 		return vec3(/*NdotH>=(1.0-FLT_MIN) ? FLT_INF:*/0.0);
 
-    float ndf = GGXTrowbridgeReitz(a2, NdotH);
-    float geom = GGXSmith(a2, NdotL, NdotV); // TODO: Correlated Smith!
+    vec3 f = Fresnel_combined(ior, VdotH, metallic);
+    float ndf = GGXBurleyAnisotropic(uAnisotropy, a2, TdotH, BdotH, NdotH);//GGXTrowbridgeReitz(a2, NdotH);
+    float geom = GGXSmithHeightCorrelated_aniso_wo_numerator(at, ab, TdotL, TdotV, BdotL, BdotV, NdotL, NdotV);//GGXSmithHeightCorrelated_wo_numerator(a2, NdotL, NdotV);
 
-    return ndf*geom*out_fresnel / (4.0 * NdotV * NdotL); // TODO: Cancel denominator with smith numerator
+    // Note: (4.0*NdotV*NdotL) denominator is cancelled by GGXSmith's numerator, thus the use of GGXSmithHeightCorrelated_wo_numerator()
+    return ndf*geom*f;
+}
+
+vec3 Fresnel_combined(in mat2x3 ior, in float cosTheta, in float metallic) {
+    bvec3 not_inf = lessThan(ior[0]*ior[0] + ior[1]*ior[1], vec3(FLT_MAX));
+    return mix(
+        vec3(1.0),
+        Fresnel_conductor(ior[0], ior[1], cosTheta),
+        not_inf
+    );
 }
 )";
-        //auto f = fopen("fragsrc.txt", "w");
-        //fprintf(f, "%s", source.c_str());
-        //fclose(f);
+        auto f = fopen("fragsrc.txt", "w");
+        fprintf(f, "%s", source.c_str());
+        fclose(f);
 
         // separate CB for each shader because shader-constants' values are most likely cached, so a single CB cannot be used for multiple shaders
-        video::IShaderConstantSetCallBack* cb = new CShaderConstantSetCallback(Camera, GUIState);
+        video::IShaderConstantSetCallBack* cb = new CShaderConstantSetCallback(Camera, GUIState, LightAnimData);
         video::E_MATERIAL_TYPE shader = static_cast<video::E_MATERIAL_TYPE>(Services->addHighLevelShaderMaterial(VERTEX_SHADER_SRC, nullptr, nullptr, nullptr, source.c_str(), 3u, video::EMT_SOLID, cb));
         cb->drop();
         return Shaders.insert({flagsToKey(_params), shader}).first->second;
@@ -363,10 +523,12 @@ public:
         video::IGPUProgrammingServices* _services,
         asset::IIncludeHandler* _inclHandler,
         const irr::BRDFExplorerApp::SGUIState& _guiState,
+        const irr::BRDFExplorerApp::SLightAnimData& _lightAnimDat,
         scene::ICameraSceneNode* _camera) :
         Services{_services},
         IncludeHandler{_inclHandler},
         GUIState{_guiState},
+        LightAnimData{_lightAnimDat},
         Camera{_camera}
     {
     }
@@ -381,6 +543,29 @@ public:
     }
 };
 
+class CDerivativeMapManager
+{
+    using Key_t = std::pair<irr::video::IVirtualTexture*, float>;
+
+    core::map<Key_t, video::IVirtualTexture*> DerivMaps;
+    const irr::video::CDerivativeMapCreator* DerivMapCreator;
+
+public:
+    CDerivativeMapManager(IrrlichtDevice* _device) : DerivMapCreator(_device->getVideoDriver()->getDerivativeMapCreator()) {}
+    ~CDerivativeMapManager() {
+        for (auto& t : DerivMaps)
+            t.second->drop();
+    }
+
+    video::IVirtualTexture* getDerivativeMap(video::IVirtualTexture* _bumpMap, float _heightFactor)
+    {
+        auto found = DerivMaps.find({_bumpMap, _heightFactor});
+        if (found != DerivMaps.end())
+            return found->second;
+        return DerivMaps[{_bumpMap, _heightFactor}] = DerivMapCreator->createDerivMapFromBumpMap(_bumpMap, _heightFactor);
+    }
+};
+
 namespace irr
 {
 
@@ -389,36 +574,40 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
         Driver(device->getVideoDriver()),
         AssetManager(device->getAssetManager()),
         GUI(ext::cegui::createGUIManager(device)),
-        ShaderManager(new CShaderManager(Driver->getGPUProgrammingServices(), device->getIncludeHandler(), GUIState, Camera))
+        ShaderManager(new CShaderManager(Driver->getGPUProgrammingServices(), device->getIncludeHandler(), GUIState, LightAnimData, Camera)),
+        DerivativeMapManager(new CDerivativeMapManager(device))
 {
+    Camera->setPosition(core::vector3df(2.26f, -4.05f, 27.6f));
+    Camera->setTarget(core::vector3df(0.f));
+
     TextureSlotMap = {
         { ETEXTURE_SLOT::TEXTURE_AO,
-        std::make_tuple("AOTextureBuffer", // Texture buffer name
+        std::make_tuple("AOTextureBuffer", // Texture buffer name (cegui image name)
             "AOTexture", // Texture name
             "MaterialParamsWindow/AOWindow/ImageButton") },
 
         { ETEXTURE_SLOT::TEXTURE_BUMP,
-            std::make_tuple("BumpTextureBuffer", // Texture buffer name
+            std::make_tuple("BumpTextureBuffer", // Texture buffer name (cegui image name)
                 "BumpTexture", // Texture name
                 "MaterialParamsWindow/BumpWindow/ImageButton") },
 
         { ETEXTURE_SLOT::TEXTURE_SLOT_1,
-            std::make_tuple("T1TextureBuffer", // Texture buffer name
+            std::make_tuple("T1TextureBuffer", // Texture buffer name (cegui image name)
                 "T1Texture", // Texture name
                 "TextureViewWindow/Texture0Window/Texture") },
 
         { ETEXTURE_SLOT::TEXTURE_SLOT_2,
-            std::make_tuple("T2TextureBuffer", // Texture buffer name
+            std::make_tuple("T2TextureBuffer", // Texture buffer name (cegui image name)
                 "T2Texture", // Texture name
                 "TextureViewWindow/Texture1Window/Texture") },
 
         { ETEXTURE_SLOT::TEXTURE_SLOT_3,
-            std::make_tuple("T3TextureBuffer", // Texture buffer name
+            std::make_tuple("T3TextureBuffer", // Texture buffer name (cegui image name)
                 "T3Texture", // Texture name
                 "TextureViewWindow/Texture2Window/Texture") },
 
         { ETEXTURE_SLOT::TEXTURE_SLOT_4,
-            std::make_tuple("T4TextureBuffer", // Texture buffer name
+            std::make_tuple("T4TextureBuffer", // Texture buffer name (cegui image name)
                 "T4Texture", // Texture name
                 "TextureViewWindow/Texture3Window/Texture") },
     };
@@ -451,19 +640,27 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
     auto root = GUI->getRootWindow();
     // Material window: Subscribe to sliders' events and set its default value to
     // 0.0.
-    GUI->registerSliderEvent(
-        "MaterialParamsWindow/RefractionIndexWindow/Slider", sliderRIRange, 0.01f,
-        [root,this](const ::CEGUI::EventArgs&) {
-            auto refractionIndex = static_cast<::CEGUI::Slider*>(
+    for (uint32_t i = 0u; i < 6u; ++i)
+    {
+        const std::string RIWindowName = "MaterialParamsWindow/RefractionIndexWindow" + std::to_string(i+1u);
+        GUI->registerSliderEvent(
+            (RIWindowName+"/Slider").c_str(), i < 3u ? sliderRealRIRange : sliderImagRIRange, 0.01f,
+            [root, this, RIWindowName, i](const ::CEGUI::EventArgs&) {
+            auto val = static_cast<::CEGUI::Slider*>(
                 root->getChild(
-                    "MaterialParamsWindow/RefractionIndexWindow/Slider"))
-                                 ->getCurrentValue();
+                    RIWindowName+"/Slider"))
+                ->getCurrentValue();
+            val = std::max(val, i<3u ? 0.04f : 0.f);
             root->getChild(
-                    "MaterialParamsWindow/RefractionIndexWindow/LabelPercent")
-                ->setText(ext::cegui::toStringFloat(refractionIndex, 2));
+                RIWindowName+"/LabelPercent")
+                ->setText(ext::cegui::toStringFloat(val, 2));
 
-            GUIState.RefractionIndex.ConstValue = refractionIndex;
+            if (i < 3u) // real
+                (&GUIState.RefractionIndex.ConstantReal.X)[i%3] = val;
+            else // imag
+                (&GUIState.RefractionIndex.ConstantImag.X)[i%3] = val;
         });
+    }
 
     GUI->registerSliderEvent(
         "MaterialParamsWindow/MetallicWindow/Slider", sliderMetallicRange, 0.01f,
@@ -491,14 +688,6 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
                 ->setText(s);
 
             GUIState.Roughness.ConstValue1 = v;
-
-            if (GUIState.Roughness.IsIsotropic) {
-                root->getChild("MaterialParamsWindow/RoughnessWindow/LabelPercent2")
-                    ->setText(s);
-                static_cast<::CEGUI::Slider*>(
-                    root->getChild("MaterialParamsWindow/RoughnessWindow/Slider2"))
-                    ->setCurrentValue(v);
-            }
         });
 
     GUI->registerSliderEvent(
@@ -533,14 +722,18 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
                 2));
 
         // Refractive index slider
-        root->getChild("MaterialParamsWindow/RefractionIndexWindow/LabelPercent")
-            ->setText(ext::cegui::toStringFloat(
-                static_cast<::CEGUI::Slider*>(
-                    root->getChild(
-                        "MaterialParamsWindow/RefractionIndexWindow/Slider"))
-                    ->getCurrentValue(),
-                2));
-
+        for (uint32_t i = 0u; i < 6u; ++i)
+        {
+            const std::string RIWindowName = "RefractionIndexWindow" + std::to_string(i+1u);
+            auto slider = static_cast<::CEGUI::Slider*>(
+                root->getChild(
+                    "MaterialParamsWindow/" + RIWindowName + "/Slider"));
+            if (i < 3u)
+                slider->setCurrentValue(1.33f);
+            float val = slider->getCurrentValue();
+            root->getChild("MaterialParamsWindow/"+RIWindowName+"/LabelPercent")
+                ->setText(ext::cegui::toStringFloat(val,2));
+        }
         // Metallic slider
         root->getChild("MaterialParamsWindow/MetallicWindow/LabelPercent")
             ->setText(ext::cegui::toStringFloat(
@@ -570,6 +763,18 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
             root->getChild("LightParamsWindow/PositionWindow")->setDisabled(GUIState.Light.Animated);
         }
     );
+    lightAnimated->setSelected(true);
+
+    GUI->registerSliderEvent(
+        "LightParamsWindow/IntensityWindow/IntensitySlider", sliderLightIntensityRange, 1.f,
+        [root, this](const ::CEGUI::EventArgs&) {
+        auto intensity = static_cast<::CEGUI::Slider*>(
+            root->getChild("LightParamsWindow/IntensityWindow/IntensitySlider"))
+            ->getCurrentValue();
+        GUIState.Light.Intensity = intensity+1.f;
+    });
+    static_cast<::CEGUI::Slider*>(
+        root->getChild("LightParamsWindow/IntensityWindow/IntensitySlider"))->setCurrentValue(800.f);
 
     auto lightZ = static_cast<::CEGUI::Spinner*>(root->getChild("LightParamsWindow/PositionWindow/LightZ"));
     lightZ->subscribeEvent(
@@ -617,14 +822,6 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
                                 "MaterialParamsWindow/RoughnessWindow/Slider"))
                             ->getCurrentValue(),
                         2));
-
-                static_cast<::CEGUI::Slider*>(
-                    root->getChild("MaterialParamsWindow/RoughnessWindow/Slider2"))
-                    ->setCurrentValue(
-                        static_cast<::CEGUI::Slider*>(
-                            root->getChild(
-                                "MaterialParamsWindow/RoughnessWindow/Slider"))
-                            ->getCurrentValue());
             }
         });
 
@@ -684,7 +881,18 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
             root->getChild("MaterialParamsWindow/BumpWindow/LabelPercent")
                 ->setText(ext::cegui::toStringFloat(height, 2));
             GUIState.BumpMapping.Height = height;
+            DerivMapGeneration.HeightFactorChanged = true;
+            DerivMapGeneration.TimePointLastHeightFactorChange = Clock::now();
         });
+
+    auto bump_enabled = static_cast<::CEGUI::ToggleButton*>(root->getChild("MaterialParamsWindow/BumpWindow/Checkbox"));
+    bump_enabled->subscribeEvent(
+        ::CEGUI::ToggleButton::EventSelectStateChanged,
+        [this](const ::CEGUI::EventArgs& e) {
+        const ::CEGUI::WindowEventArgs& we = static_cast<const ::CEGUI::WindowEventArgs&>(e);
+        GUIState.BumpMapping.Enabled = static_cast<::CEGUI::ToggleButton*>(we.window)->isSelected();
+    });
+
     initDropdown();
     initTooltip();
 
@@ -733,6 +941,15 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
                 ->setVisible(false);
         });
     GUI->setOpacity("TextureViewWindow", defaultOpacity);
+
+    {//default mesh
+    auto cpumesh = AssetManager.getGeometryCreator()->createSphereMesh(10.f, 64u, 64u);
+    DefaultMesh = Mesh = Driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1).front();
+    setUpLight(5.f);
+    cpumesh->drop();
+    }
+
+    setGUIForConstantIoR();
 }
 
 void BRDFExplorerApp::initDropdown()
@@ -758,6 +975,7 @@ void BRDFExplorerApp::initDropdown()
                 ->setDisabled(list->getSelectedItem()->getText() != "Constant");
 
             GUIState.Albedo.SourceDropdown = getDropdownState(DROPDOWN_ALBEDO_NAME);
+            updateMaterial();
         });
 
     albedo_drop->setHorizontalAlignment(default_halignment);
@@ -776,6 +994,7 @@ void BRDFExplorerApp::initDropdown()
                 ->setDisabled(list->getSelectedItem()->getText() != "Constant");
 
             GUIState.Roughness.SourceDropdown = getDropdownState(DROPDOWN_ROUGHNESS_NAME);
+            updateMaterial();
         });
 
     roughness_drop->setHorizontalAlignment(default_halignment);
@@ -791,10 +1010,21 @@ void BRDFExplorerApp::initDropdown()
                 root->getChild("MaterialParamsWindow/RIDropDownList/DropDown_RI"));
             list->setProperty("NormalEditTextColour", GUI->WhiteProperty);
 
-            root->getChild("MaterialParamsWindow/RefractionIndexWindow")
-                ->setDisabled(list->getSelectedItem()->getText() != "Constant");
+            bool realRIComesFromTexture = list->getSelectedItem()->getText() != "Constant";
+            root->getChild("MaterialParamsWindow/RefractionIndexWindow1")
+                ->setDisabled(realRIComesFromTexture);
+            root->getChild("MaterialParamsWindow/RefractionIndexWindow2")
+                ->setDisabled(realRIComesFromTexture);
+            root->getChild("MaterialParamsWindow/RefractionIndexWindow3")
+                ->setDisabled(realRIComesFromTexture);
+
+            if (realRIComesFromTexture)
+                resetGUIAfterConstantIoR();
+            else
+                setGUIForConstantIoR();
 
             GUIState.RefractionIndex.SourceDropdown = getDropdownState(DROPDOWN_RI_NAME);
+            updateMaterial();
         });
 
     ri_drop->setHorizontalAlignment(default_halignment);
@@ -814,6 +1044,7 @@ void BRDFExplorerApp::initDropdown()
                 ->setDisabled(list->getSelectedItem()->getText() != "Constant");
 
             GUIState.Metallic.SourceDropdown = getDropdownState(DROPDOWN_METALLIC_NAME);
+            updateMaterial();
         });
 
     metallic_drop->setHorizontalAlignment(default_halignment);
@@ -845,6 +1076,59 @@ void BRDFExplorerApp::initTooltip()
         ->setTooltipText("Left-click to select a new texture.");
 }
 
+void BRDFExplorerApp::setGUIForConstantIoR()
+{
+    auto root = GUI->getRootWindow();
+
+    auto* list = static_cast<::CEGUI::Combobox*>(root->getChild(
+        "MaterialParamsWindow/MetallicDropDownList/DropDown_Metallic"));
+
+    auto selection_Constant = list->getListboxItemFromIndex(0u);
+    auto selection_current = list->getSelectedItem();
+    if (selection_current != selection_Constant) // set metallic-source dropdown state to Constant
+    {
+        list->setItemSelectState(selection_Constant, true);
+        list->setItemSelectState(selection_current, false);
+    }
+    auto slider = static_cast<::CEGUI::Slider*>(root->getChild("MaterialParamsWindow/MetallicWindow/Slider"));
+    slider->setCurrentValue(0.f); // set slider of constant metallic value to 0
+    root->getChild("MaterialParamsWindow/MetallicWindow/LabelPercent")->setText("N/A"); // display N/A as metallic constant value
+
+    // appropriately set GUIState "cache"
+    GUIState.Metallic.SourceDropdown = EDS_CONSTANT;
+    GUIState.Metallic.ConstValue = 0.f;
+
+    // disable metallic options in GUI
+    root->getChild("MaterialParamsWindow/MetallicWindow")->setDisabled(true);
+    root->getChild("MaterialParamsWindow/MetallicDropDownList")->setDisabled(true);
+}
+
+void BRDFExplorerApp::resetGUIAfterConstantIoR()
+{
+    auto root = GUI->getRootWindow();
+
+    root->getChild("MaterialParamsWindow/MetallicWindow/LabelPercent")->setText("0.00");
+
+    // re-enable metallic options
+    root->getChild("MaterialParamsWindow/MetallicWindow")->setDisabled(false);
+    root->getChild("MaterialParamsWindow/MetallicDropDownList")->setDisabled(false);
+}
+
+void BRDFExplorerApp::setLightPosition(const irr::core::vector3df& _lightPos)
+{
+    using namespace std::literals::string_literals;
+
+    auto root = GUI->getRootWindow();
+    const char* xyz[]{"X", "Y", "Z"};
+    uint32_t i = 0u;
+    for (const char* c : xyz)
+    {
+        auto lightCoord = static_cast<::CEGUI::Spinner*>(root->getChild("LightParamsWindow/PositionWindow/Light"s+c));
+        lightCoord->setCurrentValue((&_lightPos.X)[i++]);
+    }
+    GUIState.Light.ConstantPosition = _lightPos;
+}
+
 void BRDFExplorerApp::renderGUI()
 {
     GUI->render();
@@ -854,6 +1138,8 @@ void BRDFExplorerApp::renderMesh()
 {
     if (!Mesh)
         return;
+
+    LightAnimData.update();
 
     CShaderManager::SParams params;
     params.constantAlbedo = (GUIState.Albedo.SourceDropdown==EDS_CONSTANT);
@@ -865,6 +1151,7 @@ void BRDFExplorerApp::renderMesh()
     params.metallicIsOne = (GUIState.Metallic.ConstValue==1.f);
     params.metallicIsZero = (GUIState.Metallic.ConstValue==0.f);
     params.roughnessIsZero = (GUIState.Roughness.ConstValue1==0.f);
+    params.derivMapIsPresent = GUIState.BumpMapping.Enabled;
 
     Material.MaterialType = ShaderManager->getShader(params);
 
@@ -873,37 +1160,9 @@ void BRDFExplorerApp::renderMesh()
     Driver->drawMeshBuffer(meshbuffer);
 }
 
-void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _texture)
+void BRDFExplorerApp::update()
 {
-    auto tupl = TextureSlotMap[slot];
-    auto root = GUI->getRootWindow();
-    auto& renderer = GUI->getRenderer();
-
-    auto gputex = Driver->getGPUObjectsFromAssets(&_texture, (&_texture)+1).front();
-    ::CEGUI::Sizef texSize;
-    texSize.d_width = gputex->getSize()[0];
-    texSize.d_height = gputex->getSize()[1];
-
-    Material.setTexture(slot-TEXTURE_SLOT_1, gputex);
-
-    ::CEGUI::Texture& ceguiTexture = !renderer.isTextureDefined(_texture->getCacheKey())
-        ? irrTex2ceguiTex(getTextureGLname(gputex), texSize, _texture->getCacheKey(), renderer)
-        : renderer.getTexture(_texture->getCacheKey());
-
-    ::CEGUI::BasicImage& image = !::CEGUI::ImageManager::getSingleton().isDefined(std::get<0>(tupl))
-        ? static_cast<::CEGUI::BasicImage&>(::CEGUI::ImageManager::getSingleton().create(
-              "BasicImage", std::get<0>(tupl)))
-        : static_cast<::CEGUI::BasicImage&>(
-              ::CEGUI::ImageManager::getSingleton().get(std::get<0>(tupl)));
-    image.setTexture(&ceguiTexture);
-    image.setArea(::CEGUI::Rectf(0, 0, texSize.d_width, texSize.d_height));
-    image.setAutoScaled(::CEGUI::AutoScaledMode::ASM_Both);
-
-    static const std::vector<const char*> property = { "NormalImage", "HoverImage", "PushedImage" };
-
-    for (const auto& v : property) {
-        root->getChild(std::get<2>(tupl))->setProperty(v, std::get<0>(tupl));
-    }
+    updateMaterial();
 }
 
 void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot, irr::video::IVirtualTexture* _texture, const std::string& _texName)
@@ -917,7 +1176,14 @@ void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot, irr::video::IVirtualTe
     texSize.d_width = gputex->getSize()[0];
     texSize.d_height = gputex->getSize()[1];
 
-    Material.setTexture(slot-TEXTURE_SLOT_1, gputex);
+    //Material.setTexture(slot-TEXTURE_SLOT_1, gputex);
+    if (slot == TEXTURE_AO)
+        Textures.AO = gputex;
+    else if (slot == TEXTURE_BUMP)
+        Textures.BumpMap = gputex;
+    else if (slot >= TEXTURE_SLOT_1)
+        Textures.TextureViewer[slot-TEXTURE_SLOT_1] = gputex;
+    updateMaterial();
 
     ::CEGUI::Texture& ceguiTexture = !renderer.isTextureDefined(_texName)
         ? irrTex2ceguiTex(getTextureGLname(gputex), texSize, _texName, renderer)
@@ -939,6 +1205,14 @@ void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot, irr::video::IVirtualTe
     }
 }
 
+void BRDFExplorerApp::loadTextureSlot_CPUTex(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _cputexture)
+{
+    if (!_cputexture)
+        return;
+    auto gputexture = Driver->getGPUObjectsFromAssets(&_cputexture, (&_cputexture)+1).front();
+    loadTextureSlot(slot, gputexture, _cputexture->getCacheKey());
+}
+
 irr::asset::ICPUTexture* BRDFExplorerApp::loadCPUTexture(const std::string& _path)
 {
     irr::asset::IAssetLoader::SAssetLoadParams lparams;
@@ -951,6 +1225,7 @@ auto BRDFExplorerApp::loadMesh(const std::string& _path) -> SCPUGPUMesh
     irr::asset::ICPUMesh* cpumesh = static_cast<irr::asset::ICPUMesh*>(AssetManager.getAsset(_path, lparams));
     if (!cpumesh)
         return {nullptr, nullptr};
+    cpumesh->getMeshBuffer(MESHBUFFER_NUM)->recalculateBoundingBox();
 
     irr::video::IGPUMesh* gpumesh = Driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
 
@@ -965,17 +1240,43 @@ void BRDFExplorerApp::loadMeshAndReplaceTextures(const std::string& _path)
 
     Mesh = loadedMesh.gpu;
 
-    const irr::video::SGPUMaterial& itsMaterial = Mesh->getMeshBuffer(MESHBUFFER_NUM)->getMaterial();
+    irr::video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(MESHBUFFER_NUM);
+
+    setUpLight();
+
+    const irr::video::SGPUMaterial& itsMaterial = mb->getMaterial();
 
     for (uint32_t t = 0u; t < 4u; ++t)
     {
-        if (Material.getTexture(t)==DefaultTexture && itsMaterial.getTexture(t))
+        if (Textures.TextureViewer[t]==DefaultTexture && itsMaterial.getTexture(t))
         {
             irr::video::IVirtualTexture* newtex = itsMaterial.getTexture(t);
             std::string texname = loadedMesh.cpu->getMeshBuffer(MESHBUFFER_NUM)->getMaterial().getTexture(t)->getCacheKey();
             loadTextureSlot(static_cast<ETEXTURE_SLOT>(TEXTURE_SLOT_1 + t), newtex, texname);
         }
     }
+}
+
+void BRDFExplorerApp::setUpLight(float radiusMlt)
+{
+    irr::video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(MESHBUFFER_NUM);
+    const irr::core::aabbox3df& aabb = mb->getBoundingBox();
+    const irr::core::vector3df aabb_sz = aabb.getExtent();
+    LightAnimData.Radius = std::max(aabb_sz.X, aabb_sz.Z) / 2.f;
+    LightAnimData.Radius *= radiusMlt;
+    irr::core::vector3df aabb_verts[8];
+    aabb.getEdges(aabb_verts);
+    auto lowest_highest = std::minmax_element(aabb_verts, aabb_verts+8, [](const irr::core::vector3df& a, const irr::core::vector3df& b) { return a.Y < b.Y; });
+    LightAnimData.Position.Y = (lowest_highest.first->Y + lowest_highest.second->Y) / 2.f;
+    irr::core::vector2df center;
+    for (uint32_t i = 0u; i < 8u; ++i)
+    {
+        center.X += aabb_verts[i].X;
+        center.Y += aabb_verts[i].Y;
+    }
+    LightAnimData.Center = center / 8.f;
+
+    setLightPosition(aabb_sz*irr::core::vector3df{0.5f, -1.f, 0.5f});
 }
 
 void BRDFExplorerApp::updateTooltip(const char* name, const char* text)
@@ -1036,6 +1337,39 @@ void BRDFExplorerApp::showErrorMessage(const char* title, const char* message)
         ->setText(message);
 }
 
+void BRDFExplorerApp::updateMaterial()
+{
+    auto common = [this](E_DROPDOWN_STATE texnum, uint32_t texunit) {
+        uint32_t ix = texnum - EDS_TEX0;
+        if (Textures.TextureViewer[ix] && Textures.TextureViewer[ix] != DefaultTexture)
+            Material.setTexture(texunit, Textures.TextureViewer[ix]);
+    };
+    if (GUIState.Albedo.SourceDropdown != EDS_CONSTANT)
+        common(GUIState.Albedo.SourceDropdown, ALBEDO_MAP_TEX_UNIT);
+    if (GUIState.Roughness.SourceDropdown != EDS_CONSTANT)
+        common(GUIState.Roughness.SourceDropdown, ROUGHNESS_MAP_TEX_UNIT);
+    if (GUIState.RefractionIndex.SourceDropdown != EDS_CONSTANT)
+        common(GUIState.RefractionIndex.SourceDropdown, IOR_MAP_TEX_UNIT);
+    if (GUIState.Metallic.SourceDropdown != EDS_CONSTANT)
+        common(GUIState.Metallic.SourceDropdown, METALLIC_MAP_TEX_UNIT);
+
+    constexpr float WAIT_TIME = 0.3f; //seconds
+
+    float timeSinceChange = std::chrono::duration_cast<Duration>(Clock::now() - DerivMapGeneration.TimePointLastHeightFactorChange).count();
+    if (Textures.BumpMap &&
+        Textures.BumpMap != DefaultTexture &&
+        DerivMapGeneration.HeightFactorChanged &&
+        timeSinceChange >= WAIT_TIME
+        ) {
+        DerivativeMapManager->getDerivativeMap(Textures.BumpMap, GUIState.BumpMapping.Height);
+        DerivMapGeneration.HeightFactorChanged = false;
+        Material.setTexture(DERIV_MAP_TEX_UNIT, DerivativeMapManager->getDerivativeMap(Textures.BumpMap, GUIState.BumpMapping.Height));
+    }
+
+    if (Textures.AO && Textures.AO != DefaultTexture)
+        Material.setTexture(AO_MAP_TEX_UNIT, Textures.AO);
+}
+
 void BRDFExplorerApp::eventAOTextureBrowse(const ::CEGUI::EventArgs&)
 {
     const auto p = GUI->openFileDialog(ImageFileDialogTitle, ImageFileDialogFilters);
@@ -1044,15 +1378,14 @@ void BRDFExplorerApp::eventAOTextureBrowse(const ::CEGUI::EventArgs&)
         auto box = static_cast<CEGUI::Editbox*>(
             GUI->getRootWindow()->getChild("MaterialParamsWindow/AOWindow/Editbox"));
 
-        irr::asset::ICPUTexture* cputexture = loadCPUTexture(p.second);
-        loadTextureSlot(ETEXTURE_SLOT::TEXTURE_AO, cputexture);
+        loadTextureSlot_CPUTex(ETEXTURE_SLOT::TEXTURE_AO, loadCPUTexture(p.second));
 
         box->setText(p.second);
-        updateTooltip(
+        /*updateTooltip(
             "MaterialParamsWindow/AOWindow/ImageButton",
             ext::cegui::ssprintf("%s (%ux%u)\nLeft-click to select a new texture.",
                 p.second.c_str(), cputexture->getSize()[0], cputexture->getSize()[1])
-                .c_str());
+                .c_str());*/
     }
 }
 
@@ -1062,14 +1395,13 @@ void BRDFExplorerApp::eventAOTextureBrowse_EditBox(const ::CEGUI::EventArgs&)
         GUI->getRootWindow()->getChild("MaterialParamsWindow/AOWindow/Editbox"));
 
     if (ext::cegui::Exists(box->getText().c_str())) {
-        irr::asset::ICPUTexture* cputexture = loadCPUTexture(box->getText());
-        loadTextureSlot(ETEXTURE_SLOT::TEXTURE_AO, cputexture);
+        loadTextureSlot_CPUTex(ETEXTURE_SLOT::TEXTURE_AO, loadCPUTexture(box->getText()));
 
-        updateTooltip(
+        /*updateTooltip(
             "MaterialParamsWindow/AOWindow/ImageButton",
             irr::ext::cegui::ssprintf("%s (%ux%u)\nLeft-click to select a new texture.",
                 box->getText().c_str(), cputexture->getSize()[0], cputexture->getSize()[1])
-                .c_str());
+                .c_str());*/
     } else {
         std::string s;
         s += std::string(box->getText().c_str()) + ": The file couldn't be opened.";
@@ -1085,15 +1417,15 @@ void BRDFExplorerApp::eventBumpTextureBrowse(const ::CEGUI::EventArgs&)
     if (p.first) {
         auto box = static_cast<CEGUI::Editbox*>(
             GUI->getRootWindow()->getChild("MaterialParamsWindow/BumpWindow/Editbox"));
-        irr::asset::ICPUTexture* cputexture = loadCPUTexture(p.second);
-        loadTextureSlot(ETEXTURE_SLOT::TEXTURE_BUMP, cputexture);
+        
+        loadTextureSlot_CPUTex(ETEXTURE_SLOT::TEXTURE_BUMP, loadCPUTexture(p.second));
 
         box->setText(p.second);
-        updateTooltip(
+        /*updateTooltip(
             "MaterialParamsWindow/BumpWindow/ImageButton",
             ext::cegui::ssprintf("%s (%ux%u)\nLeft-click to select a new texture.",
                 p.second.c_str(), cputexture->getSize()[0], cputexture->getSize()[1])
-                .c_str());
+                .c_str());*/
     }
 }
 
@@ -1103,14 +1435,13 @@ void BRDFExplorerApp::eventBumpTextureBrowse_EditBox(const ::CEGUI::EventArgs&)
         GUI->getRootWindow()->getChild("MaterialParamsWindow/BumpWindow/Editbox"));
 
     if (ext::cegui::Exists(box->getText().c_str())) {
-        irr::asset::ICPUTexture* cputexture = loadCPUTexture(box->getText());
-        loadTextureSlot(ETEXTURE_SLOT::TEXTURE_BUMP, cputexture);
+        loadTextureSlot_CPUTex(ETEXTURE_SLOT::TEXTURE_BUMP, loadCPUTexture(box->getText()));
 
-        updateTooltip(
+        /*updateTooltip(
             "MaterialParamsWindow/BumpWindow/ImageButton",
             ext::cegui::ssprintf("%s (%ux%u)\nLeft-click to select a new texture.",
                 box->getText().c_str(), cputexture->getSize()[0], cputexture->getSize()[1])
-                .c_str());
+                .c_str());*/
     } else {
         std::string s;
         s += std::string(box->getText().c_str()) + ": The file couldn't be opened.";
@@ -1143,15 +1474,14 @@ void BRDFExplorerApp::eventTextureBrowse(const CEGUI::EventArgs& e)
         else if (parent == "Texture3Window")
             type = ETEXTURE_SLOT::TEXTURE_SLOT_4;
 
-        irr::asset::ICPUTexture* cputexture = loadCPUTexture(p.second);
-        loadTextureSlot(type, cputexture);
+        loadTextureSlot_CPUTex(type, loadCPUTexture(p.second));
 
         box->setText(v[v.size() - 1]);
-        updateTooltip(
+        /*updateTooltip(
             path_texture.c_str(),
             ext::cegui::ssprintf("%s (%ux%u)\nLeft-click to select a new texture.",
                 p.second.c_str(), cputexture->getSize()[0], cputexture->getSize()[1])
-                .c_str());
+                .c_str());*/
     }
 }
 
@@ -1168,6 +1498,7 @@ void BRDFExplorerApp::eventMeshBrowse(const CEGUI::EventArgs& e)
 
 BRDFExplorerApp::~BRDFExplorerApp()
 {
+    delete DerivativeMapManager;
     delete ShaderManager;
 }
 

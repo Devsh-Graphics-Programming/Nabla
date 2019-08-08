@@ -4,7 +4,7 @@
 #include <cstdint>
 #include <tuple>
 #include "irr/core/IReferenceCounted.h"
-#include <IVideoDriver.h>
+#include <irrlicht.h>
 
 namespace irr {
     namespace video {
@@ -61,7 +61,7 @@ public:
     @param uboBuffer Optional custom uniform buffer. If nullptr, then Blur performer will create its own. UBO is not updated internally by blur performer if custom uniform buffer is set.
     @param uboOffset Offset in uniform buffer. Irrelevant if `uboBuffer` is nullptr.
     */
-    static CBlurPerformer* instantiate(video::IVideoDriver* _driver, float _radius, core::vector2d<uint32_t> _dsFactor, uint32_t _passesPerAxis = 2u,
+    static CBlurPerformer* instantiate(video::IVideoDriver* _driver, const asset::IIncludeHandler* _inclhandler, float _radius, core::vector2d<uint32_t> _dsFactor, uint32_t _passesPerAxis = 2u,
                                        asset::E_FORMAT _outputColorFmt = asset::EF_R16G16B16A16_SFLOAT, video::IGPUBuffer* uboBuffer=nullptr, const size_t& uboOffset=0);
 
     video::ITexture* createOutputTexture(video::ITexture* _inputTex);
@@ -137,9 +137,10 @@ protected:
     ~CBlurPerformer();
 
 private:
-    inline CBlurPerformer(video::IVideoDriver* _driver, float _radius,
+    inline CBlurPerformer(video::IVideoDriver* _driver, const asset::IIncludeHandler* _inclhandler, float _radius,
                    core::vector2d<uint32_t> _dsFactor, uint32_t _passesPerAxis, asset::E_FORMAT _colorFmt, video::IGPUBuffer* _uboBuffer, const size_t& _uboOffset) :
         m_driver(_driver),
+        m_inclHandler(_inclhandler),
         m_blurGeneralCs{0u, 0u},
         m_samplesSsbo{nullptr},
         m_ubo(_uboBuffer),
@@ -173,9 +174,9 @@ private:
     void updateUBO(const void* _contents);
     void updateUBO();
 
-    static tuple2xu32 makeShaders(video::IVideoDriver* _driver, const core::vector2d<uint32_t>& _outSize, const core::vector2d<uint32_t>& _dsf, uint32_t _passesPerAxis, asset::E_FORMAT _colorFmt);
+    static tuple2xu32 makeShaders(video::IVideoDriver* _driver, const asset::IIncludeHandler* _inclhandler, const core::vector2d<uint32_t>& _outSize, const core::vector2d<uint32_t>& _dsf, uint32_t _passesPerAxis, asset::E_FORMAT _colorFmt);
 
-    static bool genBlurPassCs(char* _out, video::IVideoDriver* _driver, size_t _bufSize, uint32_t _axisSize, const core::vector2d<uint32_t>& _outTexSize, uint32_t _passes, const core::vector2d<uint32_t>& _dsf, asset::E_FORMAT _colorFmt, int _finalPass);
+    static bool genBlurPassCs(char* _out, video::IVideoDriver* _driver, const asset::IIncludeHandler* _inclhandler, size_t _bufSize, uint32_t _axisSize, const core::vector2d<uint32_t>& _outTexSize, uint32_t _passes, const core::vector2d<uint32_t>& _dsf, asset::E_FORMAT _colorFmt, int _finalPass);
 
     void bindSSBuffers() const;
     static ImageBindingData getCurrentImageBinding(uint32_t _imgUnit);
@@ -203,6 +204,7 @@ private:
 
 private:
     video::IVideoDriver* m_driver;
+    const asset::IIncludeHandler* m_inclHandler;
     uint32_t m_blurGeneralCs[2];
     video::IGPUBuffer* m_samplesSsbo;
     video::IGPUBuffer* m_ubo;

@@ -131,93 +131,96 @@ bool GUIManager::OnEvent(const SEvent& event)
         {
             if (event.KeyInput.PressedDown)
             {
-                context.injectKeyDown(toCEGUIKey(event.KeyInput.Key));
-                context.injectChar(event.KeyInput.Char);
+                return context.injectKeyDown(toCEGUIKey(event.KeyInput.Key)) ||
+                    context.injectChar(event.KeyInput.Char);
             }
             else
             {
-                context.injectKeyUp(toCEGUIKey(event.KeyInput.Key));
+                return context.injectKeyUp(toCEGUIKey(event.KeyInput.Key));
             }
         } break;
 
         case irr::EET_MOUSE_INPUT_EVENT:
         {
-            context.injectMousePosition(event.MouseInput.X, event.MouseInput.Y);
-            switch (event.MouseInput.Event)
-            {
-                case irr::EMOUSE_INPUT_EVENT::EMIE_LMOUSE_PRESSED_DOWN:
+            return context.injectMousePosition(event.MouseInput.X, event.MouseInput.Y) ||
+            [&event,&context]{
+                switch (event.MouseInput.Event)
                 {
-                    context.injectMouseButtonDown(::CEGUI::MouseButton::LeftButton);
-                } break;
+                    case irr::EMOUSE_INPUT_EVENT::EMIE_LMOUSE_PRESSED_DOWN:
+                    {
+                        return context.injectMouseButtonDown(::CEGUI::MouseButton::LeftButton);
+                    } break;
 
-                case irr::EMOUSE_INPUT_EVENT::EMIE_LMOUSE_LEFT_UP:
-                {
-                    context.injectMouseButtonUp(::CEGUI::MouseButton::LeftButton);
-                } break;
+                    case irr::EMOUSE_INPUT_EVENT::EMIE_LMOUSE_LEFT_UP:
+                    {
+                        return context.injectMouseButtonUp(::CEGUI::MouseButton::LeftButton);
+                    } break;
 
-                case irr::EMOUSE_INPUT_EVENT::EMIE_RMOUSE_PRESSED_DOWN:
-                {
-                    context.injectMouseButtonDown(::CEGUI::MouseButton::RightButton);
-                } break;
+                    case irr::EMOUSE_INPUT_EVENT::EMIE_RMOUSE_PRESSED_DOWN:
+                    {
+                        return context.injectMouseButtonDown(::CEGUI::MouseButton::RightButton);
+                    } break;
 
-                case irr::EMOUSE_INPUT_EVENT::EMIE_RMOUSE_LEFT_UP:
-                {
-                    context.injectMouseButtonUp(::CEGUI::MouseButton::RightButton);
-                } break;
+                    case irr::EMOUSE_INPUT_EVENT::EMIE_RMOUSE_LEFT_UP:
+                    {
+                        return context.injectMouseButtonUp(::CEGUI::MouseButton::RightButton);
+                    } break;
 
-                case irr::EMOUSE_INPUT_EVENT::EMIE_MMOUSE_PRESSED_DOWN:
-                {
-                    context.injectMouseButtonDown(::CEGUI::MouseButton::MiddleButton);
-                } break;
+                    case irr::EMOUSE_INPUT_EVENT::EMIE_MMOUSE_PRESSED_DOWN:
+                    {
+                        return context.injectMouseButtonDown(::CEGUI::MouseButton::MiddleButton);
+                    } break;
 
-                case irr::EMOUSE_INPUT_EVENT::EMIE_MMOUSE_LEFT_UP:
-                {
-                    context.injectMouseButtonUp(::CEGUI::MouseButton::MiddleButton);
-                } break;
+                    case irr::EMOUSE_INPUT_EVENT::EMIE_MMOUSE_LEFT_UP:
+                    {
+                        return context.injectMouseButtonUp(::CEGUI::MouseButton::MiddleButton);
+                    } break;
 
-                case irr::EMOUSE_INPUT_EVENT::EMIE_LMOUSE_DOUBLE_CLICK:
-                {
-                    context.injectMouseButtonDoubleClick(::CEGUI::MouseButton::LeftButton);
-                } break;
+                    case irr::EMOUSE_INPUT_EVENT::EMIE_LMOUSE_DOUBLE_CLICK:
+                    {
+                        return context.injectMouseButtonDoubleClick(::CEGUI::MouseButton::LeftButton);
+                    } break;
 
-                case irr::EMOUSE_INPUT_EVENT::EMIE_RMOUSE_DOUBLE_CLICK:
-                {
-                    context.injectMouseButtonDoubleClick(::CEGUI::MouseButton::RightButton);
-                } break;
+                    case irr::EMOUSE_INPUT_EVENT::EMIE_RMOUSE_DOUBLE_CLICK:
+                    {
+                        return context.injectMouseButtonDoubleClick(::CEGUI::MouseButton::RightButton);
+                    } break;
 
-                case irr::EMOUSE_INPUT_EVENT::EMIE_MMOUSE_DOUBLE_CLICK:
-                {
-                    context.injectMouseButtonDoubleClick(::CEGUI::MouseButton::MiddleButton);
-                } break;
+                    case irr::EMOUSE_INPUT_EVENT::EMIE_MMOUSE_DOUBLE_CLICK:
+                    {
+                        return context.injectMouseButtonDoubleClick(::CEGUI::MouseButton::MiddleButton);
+                    } break;
 
-                case irr::EMOUSE_INPUT_EVENT::EMIE_LMOUSE_TRIPLE_CLICK:
-                {
-                    context.injectMouseButtonTripleClick(::CEGUI::MouseButton::LeftButton);
-                } break;
+                    case irr::EMOUSE_INPUT_EVENT::EMIE_LMOUSE_TRIPLE_CLICK:
+                    {
+                        return context.injectMouseButtonTripleClick(::CEGUI::MouseButton::LeftButton);
+                    } break;
 
-                case irr::EMOUSE_INPUT_EVENT::EMIE_RMOUSE_TRIPLE_CLICK:
-                {
-                    context.injectMouseButtonTripleClick(::CEGUI::MouseButton::RightButton);
-                } break;
+                    case irr::EMOUSE_INPUT_EVENT::EMIE_RMOUSE_TRIPLE_CLICK:
+                    {
+                        return context.injectMouseButtonTripleClick(::CEGUI::MouseButton::RightButton);
+                    } break;
 
-                case irr::EMOUSE_INPUT_EVENT::EMIE_MMOUSE_TRIPLE_CLICK:
-                {
-                    context.injectMouseButtonTripleClick(::CEGUI::MouseButton::MiddleButton);
-                } break;
-            }
-        } break;
+                    case irr::EMOUSE_INPUT_EVENT::EMIE_MMOUSE_TRIPLE_CLICK:
+                    {
+                        return context.injectMouseButtonTripleClick(::CEGUI::MouseButton::MiddleButton);
+                    } break;
+
+                    default: return false;
+                }
+            }();
+        }
+        break;
 
         default: return false;
     }
-    // ALWAYS RETURN FALSE!
-    // This is super important if you want events to be processed by other receivers (like camera animator for example)!
-    // Took me quite some time to figure out why I can't camera isn't moving - turned out camera animator wasn't getting any events
     return false;
 }
 
 void GUIManager::createRootWindowFromLayout(const std::string& layout)
 {
     RootWindow = WindowManager::getSingleton().loadLayoutFromString(layout);
+    RootWindow->setMousePassThroughEnabled(true);
     System::getSingleton().getDefaultGUIContext().setRootWindow(RootWindow);
 }
 
