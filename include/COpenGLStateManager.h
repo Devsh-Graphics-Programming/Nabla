@@ -7,10 +7,6 @@
 #include <limits>       // std::numeric_limits
 #include <utility>
 
-#ifndef _IRR_OPENGL_USE_EXTPOINTER_
-#   define _IRR_OPENGL_USE_EXTPOINTER_
-#endif
-
 #if defined(_IRR_WINDOWS_API_)
 	// include windows headers for HWND
 	#define WIN32_LEAN_AND_MEAN

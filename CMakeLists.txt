@@ -179,6 +179,10 @@ option(IRR_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 
+execute_process(COMMAND git submodule init
+		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+execute_process(COMMAND git submodule sync --recursive
+		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 add_subdirectory(source/Irrlicht) # Irrlicht code
