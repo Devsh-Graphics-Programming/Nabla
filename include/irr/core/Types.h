@@ -80,6 +80,69 @@ using queue = std::queue<T,Container>;
 template<typename T, class Container=deque<T> >
 using stack = std::stack<T,Container>;
 
+template<typename T, class allocator = core::allocator<T> >
+class dynamic_array
+{
+public:
+    using allocator_type = allocator;
+    using value_type = T;
+    using pointer = std::allocator_traits<allocator_type>::pointer;
+    using const_pointer = std::allocator_traits<allocator_type>::const_pointer;
+    using iterator = T*;
+    using const_iterator = const T*;
+
+protected:
+    size_t item_count;
+    allocator alctr;
+    pointer data;
+
+public:
+    dynamic_array(size_t _length, const allocator& _alctr = allocator()) : item_count(_length), alctr(_alctr), data(alctr.alloc(item_count))
+    {
+        for (size_t i = 0ull; i < item_count; ++i)
+            std::allocator_traits<allocator>::construct(alctr, data+i);
+    }
+    dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator()) : item_count(_length), alctr(_alctr), data(alctr.alloc(item_count))
+    {
+        for (size_t i = 0ull; i < item_count; ++i)
+            std::allocator_traits<allocator>::construct(alctr, data+i, _val);
+    }
+    dynamic_array(std::initializer_list<T> _contents, const allocator& _alctr = allocator()) : item_count(_contents.size()), alctr(_alctr), data(alctr.alloc(item_count))
+    {
+        for (size_t i = 0ull; i < item_count; ++i)
+            std::allocator_traits<allocator>::construct(alctr, data+i, *(_contents.begin()+i));
+    }
+
+    virtual ~dynamic_array()
+    {
+        for (size_t i = 0ull; i < item_count; ++i)
+            std::allocator_traits<allocator>::destroy(alctr, data+i);
+        if (data)
+            alctr.deallocate(data, item_count);
+    }
+
+    iterator begin() noexcept { return data; }
+    const_iterator begin() const noexcept { return data; }
+    iterator end() noexcept { return data+item_count; }
+    const_iterator end() const noexcept { return data+item_count; }
+    const_iterator cend() const noexcept { return data+item_count; }
+    const_iterator cbegin() const noexcept { return data; }
+
+    size_t size() const noexcept { return item_count; }
+    bool empty() const noexcept { return !size(); }
+
+    const T& operator[](size_t ix) const noexcept { return data[ix]; }
+    T& operator[](size_t ix) noexcept { return data[ix]; }
+
+    T& front() noexcept { return *begin(); }
+    const T& front() const noexcept { return *begin(); }
+    T& back() noexcept { return *(end()-1); }
+    const T& back() const noexcept { return *(end()-1); }
+    pointer data() noexcept { return data; }
+    const_pointer data() const noexcept { return data; }
+};
+
+
 typedef std::mutex  mutex;
 // change to some derivation of FW_FastLock later
 typedef std::mutex  fast_mutex;

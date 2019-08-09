@@ -4,6 +4,7 @@
 #include <string>
 #include "irr/core/IReferenceCounted.h"
 #include "irr/core/Types.h"
+#include "irr/core/refctd_dynamic_array.h"
 
 namespace irr { namespace asset
 {
@@ -67,12 +68,12 @@ public:
 
     virtual size_t conservativeSizeEstimate() const = 0;
 
-    IAssetMetadata* getMetadata() { return m_metadata; }
-    IAssetMetadata* getMetadata() const { return m_metadata; }
+    IAssetMetadata* getMetadata() { return m_metadata.get(); }
+    const IAssetMetadata* getMetadata() const { return m_metadata.get(); }
 
     friend IAssetManager;
 protected:
-    IAssetMetadata* m_metadata;
+    core::smart_refctd_ptr<IAssetMetadata> m_metadata;
 
     bool isDummyObjectForCacheAliasing;
     //! To be implemented by base classes, dummies must retain references to other assets
@@ -92,8 +93,9 @@ public:
 
 class SAssetBundle
 {
+    using contents_container_t = core::refctd_dynamic_array<core::smart_refctd_ptr<IAsset>>;
 public:
-    SAssetBundle(std::initializer_list<core::smart_refctd_ptr<IAsset>> _contents = {}) : m_contents(_contents)
+    SAssetBundle(std::initializer_list<core::smart_refctd_ptr<IAsset>> _contents = {}) : m_contents(new contents_container_t(_contents), core::dont_grab)
     {
         auto allSameTypeAndNotNull = [&_contents] {
             if (!*_contents.begin())
@@ -107,15 +109,15 @@ public:
         assert(allSameTypeAndNotNull());
     }
 
-    inline IAsset::E_TYPE getAssetType() const { return m_contents.front()->getAssetType(); }
+    inline IAsset::E_TYPE getAssetType() const { return m_contents->front()->getAssetType(); }
 
     inline std::pair<core::smart_refctd_ptr<IAsset>*, core::smart_refctd_ptr<IAsset>*> getContents()
     {
-        return {&m_contents.front(), (&m_contents.back())+1};
+        return {m_contents->begin(), m_contents->end()};
     }
     inline std::pair<const core::smart_refctd_ptr<IAsset>*, const core::smart_refctd_ptr<IAsset>*> getContents() const
     {
-        return {&m_contents.front(), (&m_contents.back())+1};
+        return {m_contents->begin(), m_contents->end()};
     }
 
     //! Whether this asset bundle is in a cache and should be removed from cache to destroy
@@ -123,7 +125,7 @@ public:
     //! Only valid if isInAResourceCache() returns true
     std::string getCacheKey() const { return m_cacheKey; }
 
-    size_t getSize() const { return m_contents.size(); }
+    size_t getSize() const { return m_contents->size(); }
     bool isEmpty() const { return getSize()==0ull; }
 
 private:
@@ -135,8 +137,7 @@ private:
 
     std::string m_cacheKey;
     bool m_isCached;
-    //TODO change to some "fixed size vector"
-    core::vector<core::smart_refctd_ptr<IAsset>> m_contents;
+    core::smart_refctd_ptr<contents_container_t> m_contents;
 };
 
 }}
