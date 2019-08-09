@@ -411,13 +411,13 @@ core::vector<std::string> getBackTrace(void);
 template<typename T>
 struct SRange
 {
-    SRange(T* _beg, T* _end) : begin(_beg), end(_end) {}
+    SRange(T* _beg, T* _end) : m_begin(_beg), m_end(_end) {}
 
-    T* begin() { return begin; }
-    T* end() { return end; }
+    T* begin() { return m_begin; }
+    T* end() { return m_end; }
 
 private:
-    T *begin, *end;
+    T *m_begin, *m_end;
 };
 
 

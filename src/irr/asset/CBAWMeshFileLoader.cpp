@@ -44,7 +44,7 @@ CBAWMeshFileLoader::CBAWMeshFileLoader(IrrlichtDevice* _dev) : m_device(_dev), m
 #endif
 }
 
-asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 #ifdef _IRR_DEBUG
     auto time = std::chrono::high_resolution_clock::now();
@@ -72,14 +72,14 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
     if (!verifyFile<asset::BAWFileVn<_IRR_BAW_FORMAT_VERSION>>(ctx))
     {
-        return nullptr;
+        return {};
     }
 
     uint32_t blobCnt{};
 	uint32_t* offsets = nullptr;
     if (!validateHeaders<asset::BAWFileVn<_IRR_BAW_FORMAT_VERSION>, asset::BlobHeaderVn<_IRR_BAW_FORMAT_VERSION>>(&blobCnt, &offsets, (void**)&headers, ctx))
     {
-        return nullptr;
+        return {};
     }
 
 	const uint32_t BLOBS_FILE_OFFSET = asset::BAWFileVn<_IRR_BAW_FORMAT_VERSION>{ {}, blobCnt }.calcBlobsOffset();
@@ -135,7 +135,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
 		if (!blob)
 		{
-			return nullptr;
+            return {};
 		}
 
 		core::unordered_set<uint64_t> deps = ctx.loadingMgr.getNeededDeps(blobType, blob);
@@ -148,7 +148,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             }
         }
 
-        if (asset::IAsset* found = _override->findCachedAsset(thisCacheKey, nullptr, ctx.inner, hierLvl))
+        if (asset::IAsset* found = _override->findCachedAsset(thisCacheKey, nullptr, ctx.inner, hierLvl).getContents().first->get())
         {
             ctx.createdObjs[handle] = toAddrUsedByBlobsLoadingMgr(found, blobType);
             continue;
@@ -158,7 +158,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
 		if (fail)
 		{
-			return nullptr;
+            return {};
 		}
 
 		if (!deps.size())
@@ -201,7 +201,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 #endif // _IRR_DEBUG
 
     asset::ICPUMesh* mesh = reinterpret_cast<asset::ICPUMesh*>(retval);
-    return mesh;
+    return {core::smart_refctd_ptr<IAsset>(mesh,core::dont_grab)};
 }
 
 bool CBAWMeshFileLoader::safeRead(io::IReadFile * _file, void * _buf, size_t _size) const

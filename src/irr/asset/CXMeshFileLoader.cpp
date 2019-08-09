@@ -76,7 +76,7 @@ bool CXMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
     return true;
 }
 
-asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 //#ifdef _XREADER_DEBUG
 	auto time = std::chrono::high_resolution_clock::now();
@@ -85,7 +85,7 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
     SContext ctx(asset::IAssetLoader::SAssetLoadContext{_params, _file}, _override);
 
 	if (!_file)
-		return 0;
+        return {};
 
 	ctx.AnimatedMesh = new asset::CCPUSkinnedMesh();
     asset::ICPUMesh* retVal = nullptr;
@@ -186,7 +186,7 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 
             retVal = staticMesh;
             ctx.AnimatedMesh->drop();
-            ctx.AnimatedMesh = 0;
+            ctx.AnimatedMesh = nullptr;
         }
         else
             retVal = ctx.AnimatedMesh;
@@ -194,7 +194,8 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 	else
 	{
 		ctx.AnimatedMesh->drop();
-        ctx.AnimatedMesh = 0;
+        ctx.AnimatedMesh = nullptr;
+        return {};
 	}
 //#ifdef _XREADER_DEBUG
 	std::ostringstream tmpString("Time to load ");
@@ -203,7 +204,7 @@ asset::IAsset* CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 	os::Printer::log(tmpString.str());
 //#endif
 
-	return retVal;
+	return {core::smart_refctd_ptr<IAsset>(retVal, core::dont_grab)};
 }
 
 class SuperSkinningTMPStruct
@@ -1771,7 +1772,7 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
             if (FileSystem->existFile(TextureFileName))
             {
                 asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
-                    interm_getAssetInHierarchy(Device->getAssetManager(), TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride)
+                    interm_getAssetInHierarchy(Device->getAssetManager(), TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first->get()
                 );
                 material.setTexture(textureLayer, texture);
             }
@@ -1782,7 +1783,7 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
                 if (FileSystem->existFile(TextureFileName))
                 {
                     asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
-                        interm_getAssetInHierarchy(Device->getAssetManager(), TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride)
+                        interm_getAssetInHierarchy(Device->getAssetManager(), TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first->get()
                     );
                     material.setTexture(textureLayer, texture);
                 }
@@ -1790,7 +1791,7 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
                 else
                 {
                     asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
-                        interm_getAssetInHierarchy(Device->getAssetManager(), io::IFileSystem::getFileBasename(TextureFileName).c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride)
+                        interm_getAssetInHierarchy(Device->getAssetManager(), io::IFileSystem::getFileBasename(TextureFileName).c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first->get()
                     );
                     material.setTexture(textureLayer, texture);
                 }
@@ -1810,7 +1811,7 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
             if (FileSystem->existFile(TextureFileName))
             {
                 asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
-                    interm_getAssetInHierarchy(Device->getAssetManager(), TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride)
+                    interm_getAssetInHierarchy(Device->getAssetManager(), TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first->get()
                 );
                 material.setTexture(1, texture);
             }
@@ -1821,7 +1822,7 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
                 if (FileSystem->existFile(TextureFileName))
                 {
                     asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
-                        interm_getAssetInHierarchy(Device->getAssetManager(), TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride)
+                        interm_getAssetInHierarchy(Device->getAssetManager(), TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first->get()
                     );
                     material.setTexture(1, texture);
                 }
@@ -1829,7 +1830,7 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
                 else
                 {
                     asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
-                        interm_getAssetInHierarchy(Device->getAssetManager(), io::IFileSystem::getFileBasename(TextureFileName).c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride)
+                        interm_getAssetInHierarchy(Device->getAssetManager(), io::IFileSystem::getFileBasename(TextureFileName).c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first->get()
                     );
                     material.setTexture(1, texture);
                 }

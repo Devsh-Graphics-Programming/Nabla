@@ -669,10 +669,10 @@ namespace impl
 namespace impl
 {
     template<template<typename...> class Container, typename K, typename V>
-    struct key_val_pair_type_for { using type = std::pair<const K, V*>; };
+    struct key_val_pair_type_for { using type = std::pair<const K, V>; };
 
     template<typename K, typename V>
-    struct key_val_pair_type_for<std::vector, K, V> { using type = std::pair<K, V*>; };
+    struct key_val_pair_type_for<std::vector, K, V> { using type = std::pair<K, V>; };
 }
 template<
     typename K,
