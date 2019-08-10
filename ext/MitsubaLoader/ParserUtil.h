@@ -4,9 +4,9 @@
 #include "../3rdparty/libexpat/expat/lib/expat.h"
 #include "irr/asset/IAssetManager.h"
 
-#include "CMitsubaScene.h"
+#include "../../ext/MitsubaLoader/CMitsubaScene.h"
 
-#include "IElement.h"
+#include "../../ext/MitsubaLoader/IElement.h"
 
 #include "irr/asset/IAssetLoader.h"
 #include "ISceneManager.h"

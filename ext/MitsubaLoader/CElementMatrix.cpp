@@ -1,7 +1,7 @@
-#include "CElementMatrix.h"
+#include "../../ext/MitsubaLoader/CElementMatrix.h"
 
-#include "ParserUtil.h"
-#include "CSimpleElement.h"
+#include "../../ext/MitsubaLoader/ParserUtil.h"
+#include "../../ext/MitsubaLoader/CSimpleElement.h"
 
 namespace irr { namespace ext { namespace MitsubaLoader {
 
@@ -16,14 +16,15 @@ bool CElementMatrix::processAttributes(const char** _atts)
 		{
 			if (!std::strcmp(_atts[i], "value"))
 			{
-				std::pair<bool, core::matrix4SIMD> result = getMatrixFromString(_atts[i + 1]);
-				matrix = result.second;
-				return result.first;
+				bool isMatrixValid;
+				std::tie(isMatrixValid, matrix) = getMatrixFromString(_atts[i + 1]);
+				
+				return isMatrixValid;
 			}
 			else
 			{
 				ParserLog::wrongAttribute(_atts[i], getLogName());
-				false;
+				return false;
 			}
 		}
 	case CElementMatrix::Type::TRANSLATION:
@@ -51,7 +52,7 @@ bool CElementMatrix::onEndTag(asset::IAssetManager& _assetManager, IElement* _pa
 	return _parent->processChildData(this);
 }
 
-std::pair<bool, core::matrix4SIMD> CElementMatrix::getMatrixFromString(std::string _str) const
+std::pair<bool, core::matrix4SIMD> CElementMatrix::getMatrixFromString(std::string _str)
 {
 	std::replace(_str.begin(), _str.end(), ',', ' ');
 
@@ -63,7 +64,6 @@ std::pair<bool, core::matrix4SIMD> CElementMatrix::getMatrixFromString(std::stri
 	{
 		float f = std::numeric_limits<float>::quiet_NaN();
 		ss >> f;
-		std::cout << f << std::endl;
 
 		matrixData[i] = f;
 

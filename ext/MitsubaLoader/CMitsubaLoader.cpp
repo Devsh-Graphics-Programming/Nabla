@@ -1,10 +1,10 @@
-#include "CMitsubaLoader.h"
+#include "../../ext/MitsubaLoader/CMitsubaLoader.h"
 #include "../3rdparty/libexpat/expat/lib/expat.h"
 #include "irr/asset/SCPUMesh.h"
 #include "irr/asset/IAssetManager.h"
 
-#include "IElement.h"
-#include "CMitsubaScene.h"
+#include "../../ext/MitsubaLoader/IElement.h"
+#include "../../ext/MitsubaLoader/CMitsubaScene.h"
 
 #include "IrrlichtDevice.h"
 #include <stack>
@@ -20,14 +20,35 @@ namespace irr { namespace ext { namespace MitsubaLoader {
    from CMitsubaLoader::loadAsset, and in other situations only warning should be shown.)
  - handle 'version' attribute
 
- - make sure default values for <float .. /> <boolean .. /> etc. are correct
- - test atof function (CSimpleElement.h)
+ - make sure that default values for <float .. /> <boolean .. /> etc. are correct
+ - test atof function (CSimpleElement.h) or use ostringstream operator >> instead
  
  - how should loader treat upper/lower case letters in xml?
 
  - clean up memory dynamically allocated by ParserData::scene
 
  - resolve header include conflict (IElement.h needs to include ParserUtil.h (only for ParserLog), and ParserUtil.h needs to include IElement.h)
+
+ - check, if transform name is indeed "toWorld"
+
+ - create an issue about isALoadableFileFormat in CBAWMeshFileLoader
+
+ - disable asset cacheing (use ECF_DUPLICATE_TOP_LEVEL)
+
+ - LOG!
+
+ - celementshapeobj todos
+
+ - idk if I use flipsurfaces correctly.. 
+
+ - acording CElementColor: 
+		- is single value allowed in "value" attribute for sure?
+		- spectrum?
+
+ - acording cylinder: close top leaves one top still closed, also this:
+	"Note that the cylinder does not have endcaps – also,
+	it’s interior has inward-facing normals, which most scattering models in Mitsuba will treat as fully
+	absorbing. If this is not desirable, consider using the twosided plugin." ...
 
 */
 
@@ -44,7 +65,7 @@ CMitsubaLoader::CMitsubaLoader(IrrlichtDevice* device)
 bool CMitsubaLoader::isALoadableFileFormat(io::IReadFile* _file) const
 {
 	//not implemented
-	_IRR_DEBUG_BREAK_IF(true);
+	//_IRR_DEBUG_BREAK_IF(true);
 	return true;
 }
 

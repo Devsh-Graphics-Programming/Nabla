@@ -1,13 +1,14 @@
 #ifndef __C_MITSUBA_SCENE_H_INCLUDED__
 #define __C_MITSUBA_SCENE_H_INCLUDED__
 
-#include "IElement.h"
+#include "../../ext/MitsubaLoader/IElement.h"
 #include "irr/asset/SCPUMesh.h"
 
 #include <memory>
 
-namespace irr { namespace ext { namespace MitsubaLoader {
+#include "../include/matrix4SIMD.h"
 
+namespace irr { namespace ext { namespace MitsubaLoader {
 
 class CMitsubaScene : public IElement
 {
@@ -28,7 +29,7 @@ public:
 private:
 	asset::SCPUMesh* mesh;
 
-	bool appendMesh(const asset::ICPUMesh* _mesh);
+	bool appendMesh(const asset::ICPUMesh* _mesh, const core::matrix4SIMD& _transform);
 };
 
 }

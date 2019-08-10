@@ -2,8 +2,8 @@
 #define __I_ELEMENT_FACTORY_H_INCLUDED__
 
 #include "irr/asset/IAssetManager.h"
-#include "IElement.h"
-#include "CElementMatrix.h"
+#include "../../ext/MitsubaLoader/IElement.h"
+#include "../../ext/MitsubaLoader/CElementMatrix.h"
 #include <memory>
 
 namespace irr { namespace ext { namespace MitsubaLoader {

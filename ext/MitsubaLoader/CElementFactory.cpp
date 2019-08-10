@@ -3,12 +3,17 @@
 
 #include <string>
 
-#include "ParserUtil.h"
-#include "IElement.h"
-#include "CElementShapeCube.h"
-#include "CElementShapeOBJ.h"
-#include "CSimpleElement.h"
-#include "CElementMatrix.h"
+#include "../../ext/MitsubaLoader/ParserUtil.h"
+#include "../../ext/MitsubaLoader/IElement.h"
+#include "../../ext/MitsubaLoader/CElementShapeCube.h"
+#include "../../ext/MitsubaLoader/CElementSphere.h"
+#include "../../ext/MitsubaLoader/CElementShapeOBJ.h"
+#include "../../ext/MitsubaLoader/CElementShapeCylinder.h"
+#include "../../ext/MitsubaLoader/CSimpleElement.h"
+#include "../../ext/MitsubaLoader/CElementMatrix.h"
+#include "../../ext/MitsubaLoader/CElementTransform.h"
+#include "../../ext/MitsubaLoader/CElementColor.h"
+#include "../../ext/MitsubaLoader/CElementShapePLY.h"
 
 namespace irr { namespace ext { namespace MitsubaLoader {
 
@@ -18,6 +23,16 @@ IElement* CElementFactory::createElement(const char* _el, const char** _atts)
 {
 	//should be removing white spaces performed before string comparison?
 	IElement* result = nullptr;
+	if (!std::strcmp(_el, "rgb"))
+	{
+		return new CElementColor();
+	}
+	else
+	if (!std::strcmp(_el, "srgb"))
+	{
+		return new CElementColor(true);
+	}
+	else
 	if (!std::strcmp(_el, "scene"))
 	{
 		return parseScene(_el, _atts);
@@ -73,6 +88,11 @@ IElement* CElementFactory::createElement(const char* _el, const char** _atts)
 		return parseMatrix(_el, _atts, CElementMatrix::Type::SCALE);
 	}
 	else
+	if (!std::strcmp(_el, "transform"))
+	{
+		return new CElementTransform();
+	}
+	else
 	{
 		ParserLog::mitsubaLoaderError("invalid .xml file structure: element " + std::string(_el) + "is unknown. \n");
 		return nullptr;
@@ -96,9 +116,21 @@ IElement* CElementFactory::parseShape(const char* _el, const char** _atts)
 			{
 				return new CElementShapeCube();
 			}
-			if (!std::strcmp(_atts[i + 1], "obj"))
+			else if (!std::strcmp(_atts[i + 1], "obj"))
 			{
 				return new CElementShapeOBJ();
+			}
+			else if (!std::strcmp(_atts[i + 1], "ply"))
+			{
+				return new CElementShapePLY();
+			}
+			else if (!std::strcmp(_atts[i + 1], "sphere"))
+			{
+				return new CElementSphere();
+			}
+			else if (!std::strcmp(_atts[i + 1], "cylinder"))
+			{
+				return new CElementShapeCylinder();
 			}
 			else
 			{

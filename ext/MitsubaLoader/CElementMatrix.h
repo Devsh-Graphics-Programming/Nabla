@@ -1,7 +1,7 @@
 ﻿#ifndef __C_ELEMENT_MATRIX_H_INCLUDED__
 #define __C_ELEMENT_MATRIX_H_INCLUDED__
 
-#include "IElement.h"
+#include "../../ext/MitsubaLoader/IElement.h"
 #include "irrlicht.h"
 
 namespace irr { namespace ext { namespace MitsubaLoader {
@@ -34,7 +34,7 @@ private:
 	const CElementMatrix::Type type;
 
 private:
-	std::pair<bool, core::matrix4SIMD> getMatrixFromString(std::string _str) const;
+	static std::pair<bool, core::matrix4SIMD> getMatrixFromString(std::string _str);
 };
 
 }

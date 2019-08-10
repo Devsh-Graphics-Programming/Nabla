@@ -1,5 +1,5 @@
-﻿#ifndef __C_ELEMENT_SHAPE_OBJ_H_INCLUDED__
-#define __C_ELEMENT_SHAPE_OBJ_H_INCLUDED__
+﻿#ifndef __C_ELEMENT_SHAPE_PLY_H_INCLUDED__
+#define __C_ELEMENT_SHAPE_PLY_H_INCLUDED__
 
 #include "../../ext/MitsubaLoader/IElement.h"
 #include "../../ext/MitsubaLoader/IShape.h"
@@ -7,17 +7,16 @@
 
 namespace irr { namespace ext { namespace MitsubaLoader {
 
-class CElementShapeOBJ : public IElement, public IShape
+class CElementShapePLY : public IElement, public IShape
 {
 public:
-	CElementShapeOBJ()
+	CElementShapePLY()
 		:faceNormals(false),
 		smoothNormals(false),
 		maxSmoothAngle(0.0f),
-		flipTexCoords(true),
-		collapse(false) {};
+		srgb(true) {};
 
-	~CElementShapeOBJ();
+	~CElementShapePLY();
 
 	virtual bool processAttributes(const char** _args) override;
 	virtual bool onEndTag(asset::IAssetManager& _assetManager, IElement* _parent) override;
@@ -31,8 +30,7 @@ private:
 	//indicates if normals should be smoothed (false by default)
 	bool smoothNormals;
 	float maxSmoothAngle;
-	bool flipTexCoords;
-	bool collapse; //?
+	bool srgb;
 };
 
 }

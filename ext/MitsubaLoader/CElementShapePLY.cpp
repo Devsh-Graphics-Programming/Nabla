@@ -1,4 +1,4 @@
-#include "../../ext/MitsubaLoader/CElementShapeOBJ.h"
+#include "../../ext/MitsubaLoader/CElementShapePLY.h"
 
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 #include "../../ext/MitsubaLoader/CSimpleElement.h"
@@ -8,13 +8,13 @@
 namespace irr { namespace ext { namespace MitsubaLoader {
 
 
-CElementShapeOBJ::~CElementShapeOBJ()
+CElementShapePLY::~CElementShapePLY()
 {
 	if (mesh)
 		mesh->drop();
 }
 
-bool CElementShapeOBJ::processAttributes(const char** _atts)
+bool CElementShapePLY::processAttributes(const char** _atts)
 {
 	//only type is an acceptable argument
 	for (int i = 0; _atts[i]; i += 2)
@@ -29,7 +29,7 @@ bool CElementShapeOBJ::processAttributes(const char** _atts)
 	return true;
 }
 
-bool CElementShapeOBJ::onEndTag(asset::IAssetManager& _assetManager, IElement* _parent)
+bool CElementShapePLY::onEndTag(asset::IAssetManager& _assetManager, IElement* _parent)
 {
 	if (!fileName.size())
 	{
@@ -89,23 +89,11 @@ bool CElementShapeOBJ::onEndTag(asset::IAssetManager& _assetManager, IElement* _
 
 		mesh = newMesh;
 	}
-	
-	
-
-	if (flipTexCoords)
-	{
-		//TODO
-	}
-
-	if (collapse)
-	{
-		//TODO
-	}
 
 	return _parent->processChildData(this);
 }
 
-bool CElementShapeOBJ::processChildData(IElement* _child)
+bool CElementShapePLY::processChildData(IElement* _child)
 {
 	switch (_child->getType())
 	{
@@ -167,13 +155,9 @@ bool CElementShapeOBJ::processChildData(IElement* _child)
 		{
 			flipNormalsFlag = boolElement->getValueAttribute();
 		}
-		else if (elementName == "flipTexCoords")
+		else if (elementName == "srgb")
 		{
-			flipTexCoords = boolElement->getValueAttribute();
-		}
-		else if (elementName == "collapse")
-		{
-			collapse = boolElement->getValueAttribute();
+			srgb = boolElement->getValueAttribute();
 		}
 		else
 		{

@@ -1,9 +1,9 @@
 #ifndef __C_SIMPLE_ELEMENT_H_INCLUDED__
 #define __C_SIMPLE_ELEMENT_H_INCLUDED__
 
-#include "IElement.h"
+#include "../../ext/MitsubaLoader/IElement.h"
+#include "../../ext/MitsubaLoader/ParserUtil.h"
 #include "../include/irr/static_if.h"
-#include "ParserUtil.h"
 
 #include "irrlicht.h"
 
@@ -158,6 +158,39 @@ template<>
 inline bool CSimpleElement<core::vector3df_SIMD>::processAttributes(const char** _atts)
 {
 	bool isNameSet = false;
+
+	for (int i = 0; _atts[i]; i += 2)
+	{
+		if (!std::strcmp(_atts[i], "name"))
+		{
+			nameAttr = _atts[i + 1];
+			isNameSet = true;
+		}
+		else if (!std::strcmp(_atts[i], "x"))
+		{
+			value.x = static_cast<float>(atof(_atts[i + 1]));;
+		}
+		else if (!std::strcmp(_atts[i], "y"))
+		{
+			value.y = static_cast<float>(atof(_atts[i + 1]));;
+		}
+		else if (!std::strcmp(_atts[i], "z"))
+		{
+			value.z = static_cast<float>(atof(_atts[i + 1]));;
+		}
+		else if (!std::strcmp(_atts[i], "w"))
+		{
+			value.w = static_cast<float>(atof(_atts[i + 1]));;
+		}
+		else
+		{
+			//print warning (only attributes string has are name and value)
+		}
+
+	}
+
+	if (!isNameSet)
+		;//print error
 
 	return isNameSet;
 }

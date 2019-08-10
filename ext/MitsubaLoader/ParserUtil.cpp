@@ -1,6 +1,6 @@
-#include "ParserUtil.h"
+#include "../../ext/MitsubaLoader/ParserUtil.h"
+#include "../../ext/MitsubaLoader/CElementFactory.h"
 #include "irrlicht.h"
-#include "CElementFactory.h"
 
 namespace irr { namespace ext { namespace MitsubaLoader {
 
@@ -39,6 +39,7 @@ void ParserLog::mitsubaLoaderError(const std::string& errorMessage)
 
 void elementHandlerStart(void* _data, const char* _el, const char** _atts)
 {
+
 	ParserData* data = static_cast<ParserData*>(_data);
 
 	std::unique_ptr<IElement> element(CElementFactory::createElement(_el, _atts));
@@ -88,6 +89,7 @@ void elementHandlerStart(void* _data, const char* _el, const char** _atts)
 
 void elementHandlerEnd(void* _data, const char* _el)
 {
+
 	ParserData* data = static_cast<ParserData*>(_data);
 
 	if (data->elements.empty())

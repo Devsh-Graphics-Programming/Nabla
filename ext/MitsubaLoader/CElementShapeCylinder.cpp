@@ -1,4 +1,4 @@
-#include "../../ext/MitsubaLoader/CElementSphere.h"
+#include "../../ext/MitsubaLoader/CElementShapeCylinder.h"
 
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 #include "../../ext/MitsubaLoader/CElementTransform.h"
@@ -7,7 +7,7 @@
 namespace irr { namespace ext { namespace MitsubaLoader {
 
 
-bool CElementSphere::processAttributes(const char** _atts)
+bool CElementShapeCylinder::processAttributes(const char** _atts)
 {
 	//only type is an acceptable argument
 	for (int i = 0; _atts[i]; i += 2)
@@ -22,23 +22,51 @@ bool CElementSphere::processAttributes(const char** _atts)
 	return true;
 }
 
-bool CElementSphere::onEndTag(asset::IAssetManager& _assetManager, IElement* _parent)
+bool CElementShapeCylinder::onEndTag(asset::IAssetManager& _assetManager, IElement* _parent)
 {
-	mesh = _assetManager.getGeometryCreator()->createSphereMesh(radius,32,32);
+	const float cylinderHeight = (p0 - p1).getLengthAsFloat();
+
+	mesh = _assetManager.getGeometryCreator()->createCylinderMesh(radius,cylinderHeight,32);
 	if (!mesh)
 		return false;
+
+	core::vectorSIMDf vec = p1 - p0;
+	vec /= vec.getLengthAsFloat();
+
+	core::quaternion rotation = core::quaternion::rotationFromTo(core::vectorSIMDf(0.0f, 1.0f, 0.0f), vec);
+	core::matrix4x3 rotationMatrix = rotation.getMatrix();
+	
+	core::vectorSIMDf r1;
+	r1.x = rotationMatrix.getColumn(0).X;
+	r1.y = rotationMatrix.getColumn(1).X;
+	r1.z = rotationMatrix.getColumn(2).X;
+	r1.w = rotationMatrix.getColumn(3).X;
+
+	core::vectorSIMDf r2;
+	r2.x = rotationMatrix.getColumn(0).Y;
+	r2.y = rotationMatrix.getColumn(1).Y;
+	r2.z = rotationMatrix.getColumn(2).Y;
+	r2.w = rotationMatrix.getColumn(3).Y;
+
+	core::vectorSIMDf r3;
+	r3.x = rotationMatrix.getColumn(0).Z;
+	r3.y = rotationMatrix.getColumn(1).Z;
+	r3.z = rotationMatrix.getColumn(2).Z;
+	r3.w = rotationMatrix.getColumn(3).Z;
+
+	core::matrix4SIMD matrix(r1, r2, r3, core::vectorSIMDf(0.0f, 0.0f, 0.0f, 1.0f));
+	matrix.setTranslation(p0);
+
+
+	transform = matrix;// .getTransposed();
 
 	if (flipNormalsFlag)
 		flipNormals(_assetManager);
 
-	core::vector3df_SIMD translate = transform.getTranslation3D();
-	translate += center;
-	transform.setTranslation(translate);
-
 	return _parent->processChildData(this);
 }
 
-bool CElementSphere::processChildData(IElement* _child)
+bool CElementShapeCylinder::processChildData(IElement* _child)
 {
 	switch (_child->getType())
 	{
@@ -75,9 +103,13 @@ bool CElementSphere::processChildData(IElement* _child)
 		CElementPoint* pointElement = static_cast<CElementPoint*>(_child);
 		const std::string  elementName = pointElement->getNameAttribute();
 
-		if (elementName == "center")
+		if (elementName == "p0")
 		{
-			center = pointElement->getValueAttribute();
+			p0 = pointElement->getValueAttribute();
+		}
+		else if (elementName == "p1")
+		{
+			p1 = pointElement->getValueAttribute();
 		}
 		else
 		{

@@ -20,14 +20,7 @@ public:
 		SCENE,
 
 		//shapes
-		SHAPE_OBJ,
-		SHAPE_PLY,
-		SHAPE_SERIALIZED,
-		SHAPE_CUBE,
-		SHAPE_SPHERE,
-		SHAPE_CYLINDER,
-		SHAPE_DISK,
-		SHAPE_RECTANGLE,
+		SHAPE,
 
 		//vectors, points, scalars
 		FLOAT,
@@ -39,7 +32,9 @@ public:
 		TRANSFORM,
 		TEXTURE,
 		STRING,
-		MATRIX
+		MATRIX,
+		MATERIAL,
+		COLOR
 	};
 
 public:
@@ -68,7 +63,7 @@ public:
 	virtual bool onEndTag(asset::IAssetManager& _assetManager, IElement* _parent) = 0;
 	virtual IElement::Type getType() const = 0;
 	virtual std::string getLogName() const = 0;
-	
+	virtual ~IElement() = default;
 
 };
 
