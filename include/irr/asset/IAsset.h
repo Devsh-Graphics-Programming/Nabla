@@ -98,6 +98,8 @@ public:
     SAssetBundle(std::initializer_list<core::smart_refctd_ptr<IAsset>> _contents = {}) : m_contents(new contents_container_t(_contents), core::dont_grab)
     {
         auto allSameTypeAndNotNull = [&_contents] {
+            if (_contents.size()==0ull)
+                return true;
             if (!*_contents.begin())
                 return false;
             IAsset::E_TYPE t = (*_contents.begin())->getAssetType();
@@ -107,6 +109,10 @@ public:
             return true;
         };
         assert(allSameTypeAndNotNull());
+    }
+    ~SAssetBundle()
+    {
+        printf("");
     }
 
     inline IAsset::E_TYPE getAssetType() const { return m_contents->front()->getAssetType(); }
@@ -132,6 +138,15 @@ public:
     size_t getSize() const { return m_contents->size(); }
     bool isEmpty() const { return getSize()==0ull; }
 
+    bool operator==(const SAssetBundle& _other) const
+    {
+        return _other.m_contents == m_contents;
+    }
+    bool operator!=(const SAssetBundle& _other) const
+    {
+        return !((*this) != _other);
+    }
+
 private:
     friend class IAssetManager;
 
@@ -140,7 +155,7 @@ private:
     inline void setCached(bool val) { m_isCached = val; }
 
     std::string m_cacheKey;
-    bool m_isCached;
+    bool m_isCached = false;
     core::smart_refctd_ptr<contents_container_t> m_contents;
 };
 

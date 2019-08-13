@@ -97,17 +97,17 @@ protected:
     pointer contents;
 
 public:
-    dynamic_array(size_t _length, const allocator& _alctr = allocator()) : item_count(_length), alctr(_alctr), contents(alctr.alloc(item_count))
+    dynamic_array(size_t _length, const allocator& _alctr = allocator()) : item_count(_length), alctr(_alctr), contents(alctr.allocate(item_count))
     {
         for (size_t i = 0ull; i < item_count; ++i)
             std::allocator_traits<allocator>::construct(alctr, contents+i);
     }
-    dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator()) : item_count(_length), alctr(_alctr), contents(alctr.alloc(item_count))
+    dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator()) : item_count(_length), alctr(_alctr), contents(alctr.allocate(item_count))
     {
         for (size_t i = 0ull; i < item_count; ++i)
             std::allocator_traits<allocator>::construct(alctr, contents+i, _val);
     }
-    dynamic_array(std::initializer_list<T> _contents, const allocator& _alctr = allocator()) : item_count(_contents.size()), alctr(_alctr), contents(alctr.alloc(item_count))
+    dynamic_array(std::initializer_list<T> _contents, const allocator& _alctr = allocator()) : item_count(_contents.size()), alctr(_alctr), contents(alctr.allocate(item_count))
     {
         for (size_t i = 0ull; i < item_count; ++i)
             std::allocator_traits<allocator>::construct(alctr, contents+i, *(_contents.begin()+i));
@@ -119,6 +119,20 @@ public:
             std::allocator_traits<allocator>::destroy(alctr, contents+i);
         if (contents)
             alctr.deallocate(contents, item_count);
+    }
+
+    bool operator!=(const dynamic_array<T, allocator>& _other) const
+    {
+        if (size() != _other.size())
+            return true;
+        for (size_t i = 0u; i < size(); ++i)
+            if ((*this)[i] != _other[i])
+                return true;
+        return false;
+    }
+    bool operator==(const dynamic_array<T, allocator>& _other) const
+    {
+        return !((*this) != _other);
     }
 
     iterator begin() noexcept { return contents; }

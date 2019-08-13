@@ -189,7 +189,9 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     //mesh->getMeshBuffer(0)->setPrimitiveType(EPT_POINTS);
 	mesh->recalculateBoundingBox(true);
 
-	return {core::smart_refctd_ptr<IAsset>(mesh,core::dont_grab)};
+    core::smart_refctd_ptr<IAsset> mesh_ptr(mesh, core::dont_grab);
+    SAssetBundle bundle{mesh_ptr};
+	return bundle;
 }
 
 bool CSTLMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const

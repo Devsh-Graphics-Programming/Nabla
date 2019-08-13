@@ -105,7 +105,7 @@ namespace impl
         inline bool removeObject(const typename BaseCache::ValueType_impl& _obj, const typename BaseCache::KeyType_impl& _key)
         {
             this->m_lock.lockWrite();
-            const bool r = BaseCache::removeObject(_object, _key);
+            const bool r = BaseCache::removeObject(_obj, _key);
             this->m_lock.unlockWrite();
             return r;
         }

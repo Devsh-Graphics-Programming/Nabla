@@ -10,7 +10,7 @@ namespace irr { namespace asset
 
 class CBuiltinIncluder : public IIncluder
 {
-    using LoadersContainer = core::CMultiObjectCache<std::string, IBuiltinIncludeLoader>;
+    using LoadersContainer = core::CMultiObjectCache<std::string, IBuiltinIncludeLoader*>;
     LoadersContainer m_loaders;
 
     static void loaderGrab(IBuiltinIncludeLoader* _ldr) { _ldr->grab(); }

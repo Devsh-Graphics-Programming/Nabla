@@ -337,13 +337,8 @@ namespace asset
         //TODO change name
         inline void changeAssetKey(SAssetBundle& _asset, const std::string& _newKey)
         {
-            if (!_asset.isInAResourceCache())
-                _asset.setNewCacheKey(_newKey);
-            else
-            {
-                if (m_assetCache[IAsset::typeFlagToIndex(_asset.getAssetType())]->changeObjectKey(_asset, _asset.getCacheKey(), _newKey))
-                    _asset.setNewCacheKey(_newKey);
-            }
+            _asset.setNewCacheKey(_newKey);
+            m_assetCache[IAsset::typeFlagToIndex(_asset.getAssetType())]->changeObjectKey(_asset, _asset.getCacheKey(), _newKey);
         }
 
         //! Insert an asset into the cache (calls the private methods of IAsset behind the scenes)

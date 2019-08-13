@@ -270,18 +270,27 @@ namespace impl
     !impl::CPreInsertionVerifier<ContainerT_T, typename Base::ContainerT, std::is_base_of<impl::CMultiCache_tag, typename std::decay<decltype(*this)>::type>::value>::verify(this->m_container, it, _key)\
     )\
         return false;\
+    auto it_inserted = this->m_container.insert(it, newVal);\
     IRR_PSEUDO_IF_CONSTEXPR_BEGIN(GreetOnInsert) \
-	{ this->greet(newVal.second); } \
+	{\
+        this->greet(it_inserted->second);\
+    }\
 	IRR_PSEUDO_IF_CONSTEXPR_END \
-    this->m_container.insert(it, newVal);\
     return true;
 #define INSERT_IMPL_ASSOC \
+    constexpr bool IsMultiCache = std::is_base_of<impl::CMultiCache_tag, typename std::decay<decltype(*this)>::type>::value;\
     auto res = this->m_container.insert({ _key, _val });\
-    const bool verif = impl::CPreInsertionVerifier<ContainerT_T, typename Base::ContainerT, std::is_base_of<impl::CMultiCache_tag, typename std::decay<decltype(*this)>::type>::value>::verify(res);\
+    const bool verif = impl::CPreInsertionVerifier<ContainerT_T, typename Base::ContainerT, IsMultiCache>::verify(res);\
     IRR_PSEUDO_IF_CONSTEXPR_BEGIN(GreetOnInsert) \
 	{ \
         if (verif)\
-            this->greet(_val);\
+        {\
+        IRR_PSEUDO_IF_CONSTEXPR_BEGIN(IsMultiCache)\
+            this->greet(res->second);\
+        IRR_PSEUDO_ELSE_CONSTEXPR\
+            this->greet(res.first->second);\
+        IRR_PSEUDO_IF_CONSTEXPR_END\
+        }\
 	} \
 	IRR_PSEUDO_IF_CONSTEXPR_END \
     return verif;

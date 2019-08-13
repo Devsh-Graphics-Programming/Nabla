@@ -214,9 +214,10 @@ private:
             asset = reinterpret_cast<asset::ICPUTexture*>(_asset);
             break;
         }
-        if (asset && !asset->isInAResourceCache())
+        if (asset)
         {
-            _override->insertAssetIntoCache(asset, _cacheKey, _ctx.inner, _hierLvl);
+            SAssetBundle bundle{core::smart_refctd_ptr<asset::IAsset>(asset)};
+            _override->insertAssetIntoCache(bundle, _cacheKey, _ctx.inner, _hierLvl);
             // drop shouldn't be performed here at all; it's done in main loading function by ctx.releaseAllButThisOne(meshBlobDataIter);
             // this is quite different from other loaders so explenation is probably wellcome
         }

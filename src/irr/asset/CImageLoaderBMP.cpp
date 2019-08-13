@@ -314,7 +314,7 @@ asset::SAssetBundle CImageLoaderBMP::loadAsset(io::IReadFile* _file, const asset
 	delete [] paletteData;
 	delete [] bmpData;
 
-	asset::ICPUTexture* tex = asset::ICPUTexture::create(images);
+	asset::ICPUTexture* tex = asset::ICPUTexture::create(images, _file->getFileName().c_str());
     for (auto img : images)
         img->drop();
     return {core::smart_refctd_ptr<IAsset>(tex, core::dont_grab)};

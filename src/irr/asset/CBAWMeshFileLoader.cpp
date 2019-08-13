@@ -148,9 +148,10 @@ asset::SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const as
             }
         }
 
-        if (asset::IAsset* found = _override->findCachedAsset(thisCacheKey, nullptr, ctx.inner, hierLvl).getContents().first->get())
+        auto foundBundle = _override->findCachedAsset(thisCacheKey, nullptr, ctx.inner, hierLvl).getContents();
+        if (foundBundle.first!=foundBundle.second)
         {
-            ctx.createdObjs[handle] = toAddrUsedByBlobsLoadingMgr(found, blobType);
+            ctx.createdObjs[handle] = toAddrUsedByBlobsLoadingMgr(foundBundle.first->get(), blobType);
             continue;
         }
 
@@ -201,7 +202,7 @@ asset::SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 #endif // _IRR_DEBUG
 
     asset::ICPUMesh* mesh = reinterpret_cast<asset::ICPUMesh*>(retval);
-    return {core::smart_refctd_ptr<IAsset>(mesh,core::dont_grab)};
+    return {core::smart_refctd_ptr<asset::IAsset>(mesh,core::dont_grab)};
 }
 
 bool CBAWMeshFileLoader::safeRead(io::IReadFile * _file, void * _buf, size_t _size) const
