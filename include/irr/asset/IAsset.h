@@ -72,9 +72,13 @@ public:
     const IAssetMetadata* getMetadata() const { return m_metadata.get(); }
 
     friend IAssetManager;
-protected:
+
+private:
     core::smart_refctd_ptr<IAssetMetadata> m_metadata;
 
+    void setMetadata(IAssetMetadata* _metadata) { m_metadata = _metadata; }
+
+protected:
     bool isDummyObjectForCacheAliasing;
     //! To be implemented by base classes, dummies must retain references to other assets
     //! but cleans up all other resources which are not assets.
@@ -109,10 +113,6 @@ public:
             return true;
         };
         assert(allSameTypeAndNotNull());
-    }
-    ~SAssetBundle()
-    {
-        printf("");
     }
 
     inline IAsset::E_TYPE getAssetType() const { return m_contents->front()->getAssetType(); }

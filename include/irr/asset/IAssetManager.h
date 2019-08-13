@@ -333,6 +333,11 @@ namespace asset
             return res;
         }
 
+        inline void setAssetMetadata(IAsset* _asset, IAssetMetadata* _metadata)
+        {
+            _asset->setMetadata(_metadata);
+        }
+
         //! Changes the lookup key
         //TODO change name
         inline void changeAssetKey(SAssetBundle& _asset, const std::string& _newKey)
