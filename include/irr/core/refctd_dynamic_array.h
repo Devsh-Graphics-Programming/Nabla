@@ -1,7 +1,7 @@
 #ifndef __IRR_REFCTD_DYNAMIC_ARRAY_H_INCLUDED__
 #define __IRR_REFCTD_DYNAMIC_ARRAY_H_INCLUDED__
 
-#include "irr/core/Types.h"
+#include "irr/core/dynamic_array.h"
 #include "irr/core/IReferenceCounted.h"
 
 namespace irr { namespace core

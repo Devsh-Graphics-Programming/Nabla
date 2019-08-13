@@ -146,7 +146,7 @@ public:
 
     virtual size_t conservativeSizeEstimate() const override
     {
-        return 100u;
+        return 500u;
     }
 
     const core::vector<asset::CImageData*>& getRanges() const { return m_textureRanges; }

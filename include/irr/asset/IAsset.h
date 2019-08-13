@@ -119,14 +119,10 @@ public:
 
     inline std::pair<core::smart_refctd_ptr<IAsset>*, core::smart_refctd_ptr<IAsset>*> getContents()
     {
-        if (m_contents->empty())
-            return {nullptr,nullptr};
         return {m_contents->begin(), m_contents->end()};
     }
     inline std::pair<const core::smart_refctd_ptr<IAsset>*, const core::smart_refctd_ptr<IAsset>*> getContents() const
     {
-        if (m_contents->empty())
-            return {nullptr,nullptr};
         return {m_contents->begin(), m_contents->end()};
     }
 

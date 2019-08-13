@@ -62,6 +62,7 @@
 #include "irr/core/alloc/MultiBufferingAllocatorBase.h"
 #include "irr/core/alloc/ResizableHeterogenousMemoryAllocator.h"
 #include "irr/core/refctd_dynamic_array.h"
+#include "irr/core/dynamic_array.h"
 //} end core lib
 
 //{ system lib (fibers, mutexes, file I/O operations) [DEPENDS: core]
