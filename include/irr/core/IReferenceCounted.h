@@ -186,7 +186,22 @@ namespace core
 			static_assert(std::is_base_of<IReferenceCounted, I_REFERENCE_COUNTED>::value,"Wrong Base Class!");
 			
 			mutable I_REFERENCE_COUNTED* ptr; // since IReferenceCounted declares the refcount mutable atomic
+
 			template<class U> friend class smart_refctd_ptr;
+
+            template<class U>
+            void copy(const smart_refctd_ptr<U>& other) noexcept
+            {
+                if (other.ptr)
+                    other.ptr->grab();
+                ptr = other.ptr;
+            }
+            template<class U>
+            void move(smart_refctd_ptr<U>&& other) noexcept
+            {
+                ptr = other.ptr;
+                other.ptr = nullptr;
+            }
 		public:
 			constexpr smart_refctd_ptr() noexcept : ptr(nullptr) {}
 			constexpr smart_refctd_ptr(std::nullptr_t) noexcept : ptr(nullptr) {}
@@ -198,16 +213,27 @@ namespace core
 			}
 			template<class U>
 			explicit smart_refctd_ptr(U* _pointer, dont_grab_t t) noexcept : ptr(_pointer) {}
-			template<class U>
-			smart_refctd_ptr(const smart_refctd_ptr<U>& other) noexcept : smart_refctd_ptr(other.ptr) {}
-			template<class U>
-			smart_refctd_ptr(smart_refctd_ptr<U>&& other) noexcept : smart_refctd_ptr()
+			
+            template<class U, std::enable_if_t<!std::is_same<U,I_REFERENCE_COUNTED>::value, int> = 0>
+            smart_refctd_ptr(const smart_refctd_ptr<U>& other) noexcept
+            {
+                this->copy(other);
+            }
+			smart_refctd_ptr(const smart_refctd_ptr<I_REFERENCE_COUNTED>& other) noexcept
+            {
+                this->copy(other);
+            }
+
+			template<class U, std::enable_if_t<!std::is_same<U, I_REFERENCE_COUNTED>::value, int> = 0>
+			smart_refctd_ptr(smart_refctd_ptr<U>&& other) noexcept
 			{
-				if (ptr) // should only happen if constexpr (is convertible)
-					ptr->drop();
-				ptr = other.ptr;
-				other.ptr = nullptr; // should only happen if constexpr (is convertible)
+                this->move(std::move(other));
 			}
+            smart_refctd_ptr(smart_refctd_ptr<I_REFERENCE_COUNTED>& other) noexcept
+            {
+                this->move(std::move(other));
+            }
+
 			~smart_refctd_ptr() noexcept
 			{
 				if (ptr)
@@ -224,12 +250,27 @@ namespace core
 				ptr = _pointer;
 				return *this;
 			}
-			template<class U>
-			inline smart_refctd_ptr& operator=(const smart_refctd_ptr<U>& other) noexcept
+			
+			inline smart_refctd_ptr& operator=(const smart_refctd_ptr<I_REFERENCE_COUNTED>& other) noexcept
 			{
 				return operator=(other.ptr);
 			}
-			template<class U>
+            template<class U, std::enable_if_t<!std::is_same<U,I_REFERENCE_COUNTED>::value, int> = 0>
+            inline smart_refctd_ptr& operator=(const smart_refctd_ptr<U>& other) noexcept
+            {
+                return operator=(other.ptr);
+            }
+
+            inline smart_refctd_ptr& operator=(smart_refctd_ptr<I_REFERENCE_COUNTED>&& other) noexcept
+            {
+                if (ptr) // should only happen if constexpr (is convertible)
+                    ptr->drop();
+                ptr = other.ptr;
+                other.ptr = nullptr; // should only happen if constexpr (is convertible)
+                return *this;
+            }
+            //those std::enable_if_t's most likely not needed, but just to be sure (i put them to trigger SFINAE to be sure call to non-templated ctor is always generated in case of same type)
+			template<class U, std::enable_if_t<!std::is_same<U, I_REFERENCE_COUNTED>::value, int> = 0>
 			inline smart_refctd_ptr& operator=(smart_refctd_ptr<U>&& other) noexcept
 			{
 				if (ptr) // should only happen if constexpr (is convertible)
