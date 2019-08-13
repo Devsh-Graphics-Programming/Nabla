@@ -1,5 +1,6 @@
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 #include "../../ext/MitsubaLoader/CElementFactory.h"
+
 #include "irrlicht.h"
 
 namespace irr { namespace ext { namespace MitsubaLoader {
@@ -34,13 +35,22 @@ void ParserLog::mitsubaLoaderError(const std::string& errorMessage)
 	//or os::Printer::log ?
 	os::Printer::print(message);
 
-	_IRR_DEBUG_BREAK_IF(true);
+	//_IRR_DEBUG_BREAK_IF(true);
 }
 
 void elementHandlerStart(void* _data, const char* _el, const char** _atts)
 {
-
 	ParserData* data = static_cast<ParserData*>(_data);
+
+	if (!data->pfc.suspendParsingIfElNotSupported(_el))
+	{
+		ParserLog::mitsubaLoaderError(std::string(_el) + " is not supported");
+		return;
+	}
+
+	if (data->pfc.isParsingSuspended())
+		return;
+		
 
 	std::unique_ptr<IElement> element(CElementFactory::createElement(_el, _atts));
 
@@ -89,8 +99,13 @@ void elementHandlerStart(void* _data, const char* _el, const char** _atts)
 
 void elementHandlerEnd(void* _data, const char* _el)
 {
-
 	ParserData* data = static_cast<ParserData*>(_data);
+	
+	if (data->pfc.isParsingSuspended())
+	{
+		data->pfc.checkForUnsuspend(_el);
+		return;
+	}
 
 	if (data->elements.empty())
 	{
@@ -111,6 +126,31 @@ void elementHandlerEnd(void* _data, const char* _el)
 			return;
 		}
 	}
+}
+
+void ParserFlowController::checkForUnsuspend(const char* _el)
+{
+	if (!std::strcmp(notSupportedElement.c_str(), _el))
+	{
+		isParsingSuspendedFlag = false;
+		notSupportedElement.clear();
+	}
+}
+
+bool ParserFlowController::suspendParsingIfElNotSupported(const char* _el)
+{
+	for (int i = 0; unsElements[i]; i++)
+	{
+		if (!std::strcmp(unsElements[i], _el))
+		{
+			isParsingSuspendedFlag = true;
+			notSupportedElement = _el;
+
+			return false;
+		}
+	}
+
+	return true;
 }
 
 }

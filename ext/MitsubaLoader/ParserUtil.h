@@ -15,6 +15,45 @@
 
 namespace irr { namespace ext { namespace MitsubaLoader {
 
+//now unsupported elements (like  <sensor> (for now), for example) and its children elements will be ignored
+class ParserFlowController
+{
+public:
+	ParserFlowController()
+		:isParsingSuspendedFlag(false) {};
+
+	bool suspendParsingIfElNotSupported(const char* _el);
+	void checkForUnsuspend(const char* _el);
+
+	inline bool isParsingSuspended() const { return isParsingSuspendedFlag; }
+
+private:
+	static constexpr const char* unsElements[] = { "integrator", "emitter", "ref", "bsdf", "sensor", nullptr };
+	bool isParsingSuspendedFlag;
+	std::string notSupportedElement;
+
+};
+
+class ParserLog
+{
+public:
+	/*prints this message:
+	Mitsuba loader error:
+	Invalid .xml file structure: attribute 'attribName' is not declared for element 'elementName' */
+	static void wrongAttribute(const std::string& attribName, const std::string& elementName);
+
+	/*prints this message:
+	Mitsuba loader error:
+	Invalid .xml file structure: 'parentName' is not a parent of 'wrongChildName' */
+	static void wrongChildElement(const std::string& parentName, const std::string& childName);
+
+	/*prints this message:
+	Mitsuba loader error:
+	Invalid .xml file structure: message */
+	static void mitsubaLoaderError(const std::string& errorMessage);
+
+};
+
 
 //struct, which will be passed to expat handlers as user data (first argument) see: XML_StartElementHandler or XML_EndElementHandler in expat.h
 struct ParserData
@@ -40,26 +79,8 @@ struct ParserData
 	core::vector<std::unique_ptr<IElement>> elements;
 
 	XML_Parser parser;
-};
 
-class ParserLog
-{
-public:
-	/*prints this message:
-	Mitsuba loader error:
-	Invalid .xml file structure: attribute 'attribName' is not declared for element 'elementName' */
-	static void wrongAttribute(const std::string& attribName, const std::string& elementName);
-
-	/*prints this message:
-	Mitsuba loader error:
-	Invalid .xml file structure: 'parentName' is not a parent of 'wrongChildName' */
-	static void wrongChildElement(const std::string& parentName, const std::string& childName);
-
-	/*prints this message:
-	Mitsuba loader error:
-	Invalid .xml file structure: message */
-	static void mitsubaLoaderError(const std::string& errorMessage);
-
+	ParserFlowController pfc;
 };
 
 void elementHandlerStart(void* _data, const char* _el, const char** _atts);
