@@ -33,6 +33,26 @@ private:
 		void setUv(uint8_t u, uint8_t v) { uv[0] = u; uv[1] = v; }
 	} PACK_STRUCT;
 
+	struct RectangleVertex
+	{
+		RectangleVertex(const core::vector3df_SIMD& _pos, const video::SColor& _color, const core::vector2du32_SIMD _uv, const core::vector3df_SIMD _normal)
+		{
+			memcpy(pos, _pos.pointer, sizeof(float) * 3);
+			_color.toOpenGLColor(color);
+			uv[0] = _uv.x;
+			uv[1] = _uv.y;
+			normal[0] = _normal.x;
+			normal[1] = _normal.y;
+			normal[2] = _normal.z;
+		}
+		float pos[3];
+		uint8_t color[4];
+		uint8_t uv[2];
+		float normal[3];
+	} PACK_STRUCT;
+
+	typedef RectangleVertex DiskVertex;
+
     struct ConeVertex
     {
         inline ConeVertex(const core::vectorSIMDf& _pos, uint32_t _nml, const video::SColor& _color) : normal{_nml}
@@ -76,6 +96,10 @@ public:
 				const video::SColor& colorTop=0xffffffff,
 				const video::SColor& colorBottom=0xffffffff,
 				float oblique=0.f) const override;
+
+	virtual asset::ICPUMesh* createRectangleMesh(const core::vector2df_SIMD& _size = core::vector2df_SIMD(0.5f, 0.5f)) const override;
+
+	virtual asset::ICPUMesh* createDiskMesh(float radius, uint32_t tesselation) const override;
 
 };
 
