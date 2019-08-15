@@ -14,6 +14,8 @@
 #include "../../ext/MitsubaLoader/CElementTransform.h"
 #include "../../ext/MitsubaLoader/CElementColor.h"
 #include "../../ext/MitsubaLoader/CElementShapePLY.h"
+#include "../../ext/MitsubaLoader/CElementShapeRectangle.h"
+#include "../../ext/MitsubaLoader/CElementShapeDisk.h"
 
 namespace irr { namespace ext { namespace MitsubaLoader {
 
@@ -131,6 +133,14 @@ IElement* CElementFactory::parseShape(const char* _el, const char** _atts)
 			else if (!std::strcmp(_atts[i + 1], "cylinder"))
 			{
 				return new CElementShapeCylinder();
+			}
+			else if (!std::strcmp(_atts[i + 1], "rectangle"))
+			{
+				return new CElementShapeRectangle();
+			}
+			else if (!std::strcmp(_atts[i + 1], "disk"))
+			{
+				return new CElementShapeDisk();
 			}
 			else
 			{

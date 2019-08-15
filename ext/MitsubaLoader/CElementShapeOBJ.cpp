@@ -38,7 +38,6 @@ bool CElementShapeOBJ::onEndTag(asset::IAssetManager& _assetManager, IElement* _
 		return false;
 	}
 
-	//getAssetInHierarchy?
 	mesh = static_cast<asset::ICPUMesh*>(_assetManager.getAsset(fileName, asset::IAssetLoader::SAssetLoadParams()));
 
 	if (!mesh)

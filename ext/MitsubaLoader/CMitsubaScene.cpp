@@ -95,7 +95,7 @@ bool CMitsubaScene::appendMesh(const asset::ICPUMesh* _mesh, const core::matrix4
 			submesh->setAttribute(pos,submesh->getPositionAttributeIx(), i);
 			submesh->setAttribute(normal, asset::E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3, i);
 
-			pos = submesh->getPosition(i);
+			
 		}
 		
 		mesh->addMeshBuffer(submesh);

@@ -12,13 +12,14 @@ bool CElementMatrix::processAttributes(const char** _atts)
 	switch (type)
 	{
 	case CElementMatrix::Type::ARBITRARY:
+	{
 		for (int i = 0; _atts[i]; i += 2)
 		{
 			if (!std::strcmp(_atts[i], "value"))
 			{
 				bool isMatrixValid;
 				std::tie(isMatrixValid, matrix) = getMatrixFromString(_atts[i + 1]);
-				
+
 				return isMatrixValid;
 			}
 			else
@@ -27,6 +28,7 @@ bool CElementMatrix::processAttributes(const char** _atts)
 				return false;
 			}
 		}
+	}
 	case CElementMatrix::Type::TRANSLATION:
 		_IRR_DEBUG_BREAK_IF(true);
 	case CElementMatrix::Type::ROTATION:

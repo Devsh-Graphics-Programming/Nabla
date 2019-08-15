@@ -34,7 +34,8 @@ public:
 		STRING,
 		MATRIX,
 		MATERIAL,
-		COLOR
+		COLOR,
+		MEDIUM
 	};
 
 public:

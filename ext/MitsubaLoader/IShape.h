@@ -1,5 +1,5 @@
-﻿#ifndef __I_SHAPE_MATRIX_H_INCLUDED__
-#define __I_SHAPE_MATRIX_H_INCLUDED__
+﻿#ifndef __I_SHAPE_H_INCLUDED__
+#define __I_SHAPE_H_INCLUDED__
 
 #include "../../ext/MitsubaLoader/IElement.h"
 #include "irrlicht.h"

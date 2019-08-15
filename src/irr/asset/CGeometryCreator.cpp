@@ -644,18 +644,6 @@ asset::ICPUMesh* CGeometryCreator::createDiskMesh(float radius, uint32_t tessela
 	asset::ICPUBuffer* vertices = new asset::ICPUBuffer(vertexCount * vertexSize);
 	DiskVertex* ptr = (DiskVertex*)vertices->getPointer();
 
-
-	/*
-	example:
-      v1  v0  v7
-        \ | /
-	v2 -- s -- v6
-	    / | \
-	  v3  v4  v5
-
-	*/
-
-
 	const core::vectorSIMDf v0(0.0f, radius, 0.0f, 0.0f);
 	core::matrix3x4SIMD rotation;
 

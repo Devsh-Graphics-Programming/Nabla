@@ -26,7 +26,7 @@ bool CElementShapeCylinder::onEndTag(asset::IAssetManager& _assetManager, IEleme
 {
 	const float cylinderHeight = (p0 - p1).getLengthAsFloat();
 
-	mesh = _assetManager.getGeometryCreator()->createCylinderMesh(radius,cylinderHeight,32);
+	mesh = _assetManager.getGeometryCreator()->createCylinderMesh(radius,cylinderHeight,32,0xffffffff,false);
 	if (!mesh)
 		return false;
 

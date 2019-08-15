@@ -28,7 +28,7 @@ public:
 	inline bool isParsingSuspended() const { return isParsingSuspendedFlag; }
 
 private:
-	static constexpr const char* unsElements[] = { "integrator", "emitter", "ref", "bsdf", "sensor", nullptr };
+	static constexpr const char* unsElements[] = { "integrator", "emitter", "ref", "bsdf", "sensor", "medium", nullptr };
 	bool isParsingSuspendedFlag;
 	std::string notSupportedElement;
 

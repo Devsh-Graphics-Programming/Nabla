@@ -1,4 +1,4 @@
-#include "../../ext/MitsubaLoader/CElementShapeCube.h"
+#include "../../ext/MitsubaLoader/CElementShapeRectangle.h"
 
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 #include "../../ext/MitsubaLoader/CElementTransform.h"
@@ -7,7 +7,7 @@
 namespace irr { namespace ext { namespace MitsubaLoader {
 
 
-bool CElementShapeCube::processAttributes(const char** _atts)
+bool CElementShapeRectangle::processAttributes(const char** _atts)
 {
 	//only type is an acceptable argument
 	for (int i = 0; _atts[i]; i += 2)
@@ -22,9 +22,9 @@ bool CElementShapeCube::processAttributes(const char** _atts)
 	return true;
 }
 
-bool CElementShapeCube::onEndTag(asset::IAssetManager& _assetManager, IElement* _parent)
+bool CElementShapeRectangle::onEndTag(asset::IAssetManager& _assetManager, IElement* _parent)
 {
-	mesh = _assetManager.getGeometryCreator()->createCubeMesh(core::vector3df(1.0f, 1.0f, 1.0f));
+	mesh = _assetManager.getGeometryCreator()->createRectangleMesh(core::vector2df_SIMD(1.0f, 1.0f));
 
 	if (!mesh)
 		return false;
@@ -35,7 +35,7 @@ bool CElementShapeCube::onEndTag(asset::IAssetManager& _assetManager, IElement* 
 	return _parent->processChildData(this);
 }
 
-bool CElementShapeCube::processChildData(IElement* _child)
+bool CElementShapeRectangle::processChildData(IElement* _child)
 {
 	switch (_child->getType())
 	{
@@ -61,8 +61,8 @@ bool CElementShapeCube::processChildData(IElement* _child)
 		}
 		else
 		{
-		//warning
-		ParserLog::mitsubaLoaderError("Unqueried attribute " + elementName + " in element \"shape\"");
+			//warning
+			ParserLog::mitsubaLoaderError("Unqueried attribute " + elementName + " in element \"shape\"");
 		}
 
 		return true;
