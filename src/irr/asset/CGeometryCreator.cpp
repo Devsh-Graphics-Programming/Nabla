@@ -633,7 +633,10 @@ asset::ICPUMesh* CGeometryCreator::createDiskMesh(float radius, uint32_t tessela
 	buffer->setMeshDataAndFormat(desc);
 	desc->drop();
 
-	const size_t vertexCount = 1u + tesselation;
+	const size_t vertexCount = 2u + tesselation;
+
+	buffer->setIndexType(asset::EIT_16BIT);
+	buffer->setIndexCount(vertexCount);
 
 	const size_t vertexSize = sizeof(CGeometryCreator::DiskVertex);
 	const float angle = 360.0f / static_cast<float>(tesselation);
@@ -644,12 +647,12 @@ asset::ICPUMesh* CGeometryCreator::createDiskMesh(float radius, uint32_t tessela
 
 	/*
 	example:
-
-	  v1  v0  v7
-		\ | /
+      v1  v0  v7
+        \ | /
 	v2 -- s -- v6
 	    / | \
 	  v3  v4  v5
+
 	*/
 
 
@@ -664,14 +667,17 @@ asset::ICPUMesh* CGeometryCreator::createDiskMesh(float radius, uint32_t tessela
 	ptr[1] = DiskVertex(v0, video::SColor(0xFFFFFFFFu),
 		core::vector2du32_SIMD(0u, 1u), core::vector3df_SIMD(0.0f, 0.0f, 1.0f));
 
-	//v1, v2, ..., vn
-	for (int i = 2; i < vertexCount; i++)
+	//vn
+	ptr[vertexCount - 1] = ptr[1];
+
+	//v1, v2, ..., vn-1
+	for (int i = 2; i < vertexCount-1; i++)
 	{
 		core::vectorSIMDf vn;
 		core::matrix3x4SIMD rotMatrix;
 		rotMatrix.setRotation(core::quaternion(0.0f, 0.0f, core::degToRad(angle * (i - 1))));
-
 		rotMatrix.transformVect(vn, v0);
+
 		ptr[i] = DiskVertex(vn, video::SColor(0xFFFFFFFFu),
 			core::vector2du32_SIMD(0u, 1u), core::vector3df_SIMD(0.0f, 0.0f, 1.0f));
 	}
