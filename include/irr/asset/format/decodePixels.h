@@ -4,8 +4,8 @@
 #include <type_traits>
 #include <cstdint>
 
-#include "coreutil.h"
-#include "irr/asset/EFormat.h"
+#include "irr/core/core.h"
+#include "irr/asset/format/EFormat.h"
 
 namespace irr { namespace video
 {

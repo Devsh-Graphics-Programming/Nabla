@@ -10,7 +10,6 @@
 #include "os.h"
 
 #include "IrrlichtDevice.h"
-#include "coreutil.h"
 #include "ISceneManager.h"
 #include "IVideoDriver.h"
 #include "IFileSystem.h"
@@ -18,7 +17,7 @@
 #include "SVertexManipulator.h"
 #include "assert.h"
 #include "irr/asset/IAssetManager.h"
-#include "irr/asset/SCPUMesh.h"
+#include "irr/asset/CCPUMesh.h"
 #include <chrono>
 #include <vector>
 
@@ -95,12 +94,11 @@ asset::SAssetBundle CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asse
         ctx.AnimatedMesh->finalize();
 		if (ctx.AnimatedMesh->isStatic())
         {
-            asset::SCPUMesh* staticMesh = new asset::SCPUMesh();
+            auto staticMesh = new asset::CCPUMesh();
             for (size_t i=0; i<ctx.AnimatedMesh->getMeshBufferCount(); i++)
             {
-                asset::ICPUMeshBuffer* meshbuffer = new asset::ICPUMeshBuffer();
-                staticMesh->addMeshBuffer(meshbuffer);
-                meshbuffer->drop();
+                auto meshbuffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+                staticMesh->addMeshBuffer(std::move(meshbuffer));
 
                 asset::ICPUMeshBuffer* origMeshBuffer = ctx.AnimatedMesh->getMeshBuffer(i);
                 asset::ICPUMeshDataFormatDesc* desc = static_cast<asset::ICPUMeshDataFormatDesc*>(origMeshBuffer->getMeshDataAndFormat());

@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "CGeometryCreator.h"
-#include "irr/video/SGPUMesh.h"
-#include "irr/asset/SCPUMesh.h"
+#include "irr/video/CGPUMesh.h"
+#include "irr/asset/CCPUMesh.h"
 #include "irr/asset/IMesh.h"
 #include "IVideoDriver.h"
 #include "SVertexManipulator.h"
@@ -18,10 +18,9 @@ namespace asset
 
 asset::ICPUMesh* CGeometryCreator::createCubeMesh(const core::vector3df& size) const
 {
-	asset::ICPUMeshDataFormatDesc* desc = new asset::ICPUMeshDataFormatDesc();
-	asset::ICPUMeshBuffer* buffer = new asset::ICPUMeshBuffer();
-	buffer->setMeshDataAndFormat(desc);
-	desc->drop();
+	auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
+	auto buffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+	buffer->setMeshDataAndFormat(desc.get());
 
 	// Create indices
 	uint16_t u[36];
@@ -145,9 +144,8 @@ asset::ICPUMesh* CGeometryCreator::createCubeMesh(const core::vector3df& size) c
     desc->setVertexAttrBuffer(vertices,asset::EVAI_ATTR3,asset::EF_R8G8B8_SSCALED,vertexSize,offsetof(CubeVertex, normal));
     vertices->drop();
 
-	asset::SCPUMesh* mesh = new asset::SCPUMesh;
-	mesh->addMeshBuffer(buffer);
-	buffer->drop();
+	auto mesh = new asset::CCPUMesh();
+	mesh->addMeshBuffer(buffer.get());
 
 	mesh->recalculateBoundingBox();
 	return mesh;
@@ -170,7 +168,7 @@ asset::ICPUMesh* CGeometryCreator::createArrowMesh(const uint32_t tesselationCyl
     assert(height > cylinderHeight);
 
     asset::ICPUMesh* cylinder = createCylinderMesh(width0, cylinderHeight, tesselationCylinder, vtxColor0, false);
-    asset::SCPUMesh* cone = static_cast<asset::SCPUMesh*>(createConeMesh(width1, height-cylinderHeight, tesselationCone, vtxColor1, vtxColor1));
+    asset::CCPUMesh* cone = static_cast<asset::CCPUMesh*>(createConeMesh(width1, height-cylinderHeight, tesselationCone, vtxColor1, vtxColor1));
 
     if (!cylinder || !cone)
         return nullptr;
@@ -387,7 +385,7 @@ asset::ICPUMesh* CGeometryCreator::createSphereMesh(float radius, uint32_t polyC
 	BoundingBox.addInternalPoint(-radius,-radius,-radius);
 	buffer->setBoundingBox(BoundingBox);
 
-	asset::SCPUMesh* mesh = new asset::SCPUMesh;
+	asset::CCPUMesh* mesh = new asset::CCPUMesh;
 	mesh->addMeshBuffer(buffer);
 	buffer->drop();
 
@@ -475,7 +473,7 @@ asset::ICPUMesh* CGeometryCreator::createCylinderMesh(float radius, float length
         indices[j++] = (i+1u == vtxCnt/2u ? 1u : i+1u) + topCenterIx;
     }
 
-    asset::SCPUMesh* mesh = new asset::SCPUMesh();
+    asset::CCPUMesh* mesh = new asset::CCPUMesh();
     asset::ICPUMeshBuffer* meshbuf = new asset::ICPUMeshBuffer();
     asset::ICPUMeshDataFormatDesc* desc = new asset::ICPUMeshDataFormatDesc();
     desc->setVertexAttrBuffer(vtxBuf, asset::EVAI_ATTR0, asset::EF_R32G32B32_SFLOAT, sizeof(CylinderVertex), offsetof(CylinderVertex, pos));
@@ -545,7 +543,7 @@ asset::ICPUMesh* CGeometryCreator::createConeMesh(float radius, float length, ui
         indices[j++] = i+1u == vtxCnt ? 2u : i+1u;
     }
 
-    asset::SCPUMesh* mesh = new asset::SCPUMesh();
+    asset::CCPUMesh* mesh = new asset::CCPUMesh();
     asset::ICPUMeshBuffer* meshbuf = new asset::ICPUMeshBuffer();
     asset::ICPUMeshDataFormatDesc* desc = new asset::ICPUMeshDataFormatDesc();
     desc->setVertexAttrBuffer(vtxBuf, asset::EVAI_ATTR0, asset::EF_R32G32B32_SFLOAT, sizeof(ConeVertex), offsetof(ConeVertex, pos));

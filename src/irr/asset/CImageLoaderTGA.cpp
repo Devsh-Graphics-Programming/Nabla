@@ -8,7 +8,7 @@
 
 #include "IReadFile.h"
 #include "os.h"
-#include "irr/video/convertColor.h"
+#include "irr/asset/format/convertColor.h"
 #include "irr/asset/CImageData.h"
 #include "irr/asset/ICPUTexture.h"
 

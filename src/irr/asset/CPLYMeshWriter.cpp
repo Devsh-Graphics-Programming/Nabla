@@ -2,9 +2,9 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#include "IrrCompileConfig.h"
+#include "irr/core/core.h"
 
-//#ifdef _IRR_COMPILE_WITH_PLY_WRITER_
+#ifdef _IRR_COMPILE_WITH_PLY_WRITER_
 
 #include "CPLYMeshWriter.h"
 #include "os.h"
@@ -555,5 +555,5 @@ std::string CPLYMeshWriter::getTypeString(asset::E_FORMAT _t)
 } // end namespace
 } // end namespace
 
-//#endif // _IRR_COMPILE_WITH_PLY_WRITER_
+#endif // _IRR_COMPILE_WITH_PLY_WRITER_
 

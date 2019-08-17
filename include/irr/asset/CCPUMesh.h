@@ -1,5 +1,5 @@
-#ifndef __IRR_SCPUMESH_H_INCLUDED__
-#define __IRR_SCPUMESH_H_INCLUDED__
+#ifndef __IRR_C_CPU_MESH_H_INCLUDED__
+#define __IRR_C_CPU_MESH_H_INCLUDED__
 
 #include "ICPUMesh.h"
 
@@ -7,23 +7,19 @@ namespace irr { namespace asset
 {
 
 //! Simple implementation of the IMesh interface.
-class SCPUMesh : public ICPUMesh
+class CCPUMesh : public ICPUMesh
 {
-    core::LeakDebugger* leakDebugger;
+    core::CLeakDebugger* leakDebugger;
 protected:
     //! destructor
-    virtual ~SCPUMesh()
+    virtual ~CCPUMesh()
     {
         if (leakDebugger)
             leakDebugger->deregisterObj(this);
-
-        // drop buffers
-        for (uint32_t i = 0; i < MeshBuffers.size(); ++i)
-            MeshBuffers[i]->drop();
     }
 public:
     //! constructor
-    SCPUMesh(core::LeakDebugger* dbgr = NULL) : leakDebugger(dbgr)
+	CCPUMesh(core::CLeakDebugger* dbgr = NULL) : leakDebugger(dbgr)
     {
         if (leakDebugger)
             leakDebugger->registerObj(this);
@@ -36,8 +32,6 @@ public:
     //! clean mesh
     virtual void clear()
     {
-        for (uint32_t i = 0; i < MeshBuffers.size(); ++i)
-            MeshBuffers[i]->drop();
         MeshBuffers.clear();
         BoundingBox.reset(0.f, 0.f, 0.f);
     }
@@ -45,34 +39,32 @@ public:
     //! Clears internal container of meshbuffers and calls drop() on each
     virtual void clearMeshBuffers()
     {
-        for (uint32_t i = 0; i < MeshBuffers.size(); ++i)
-            MeshBuffers[i]->drop();
         MeshBuffers.clear();
     }
 
     //! returns amount of mesh buffers.
-    virtual uint32_t getMeshBufferCount() const
+    virtual uint32_t getMeshBufferCount() const override
     {
         return MeshBuffers.size();
     }
 
     //! returns pointer to a mesh buffer
-    virtual ICPUMeshBuffer* getMeshBuffer(uint32_t nr) const
+    virtual ICPUMeshBuffer* getMeshBuffer(uint32_t nr) const override
     {
         if (MeshBuffers.size())
-            return MeshBuffers[nr];
+            return MeshBuffers[nr].get();
         else
             return NULL;
     }
 
     //! returns an axis aligned bounding box
-    virtual const core::aabbox3d<float>& getBoundingBox() const
+    virtual const core::aabbox3d<float>& getBoundingBox() const override
     {
         return BoundingBox;
     }
 
     //! set user axis aligned bounding box
-    virtual void setBoundingBox(const core::aabbox3df& box)
+    virtual void setBoundingBox(const core::aabbox3df& box) override
     {
         BoundingBox = box;
     }
@@ -100,13 +92,10 @@ public:
 
     //! Adds a MeshBuffer
     /** The bounding box is not updated automatically. */
-    void addMeshBuffer(ICPUMeshBuffer* buf)
+    void addMeshBuffer(core::smart_refctd_ptr<ICPUMeshBuffer>&& buf)
     {
         if (buf)
-        {
-            buf->grab();
-            MeshBuffers.push_back(buf);
-        }
+            MeshBuffers.push_back(std::move(buf));
     }
 
     //! sets a flag of all contained materials to a new value
@@ -116,16 +105,17 @@ public:
             MeshBuffers[i]->getMaterial().setFlag(flag, newvalue);
     }
 
-    virtual asset::E_MESH_TYPE getMeshType() const { return asset::EMT_NOT_ANIMATED; }
+    virtual asset::E_MESH_TYPE getMeshType() const override { return asset::EMT_NOT_ANIMATED; }
 
+//private:
     //! The bounding box of this mesh
     core::aabbox3d<float> BoundingBox;
 
-    //private:
-        //! The meshbuffers of this mesh
-    core::vector<ICPUMeshBuffer*> MeshBuffers;
+    //! The meshbuffers of this mesh
+    core::vector<core::smart_refctd_ptr<ICPUMeshBuffer> > MeshBuffers;
 };
 
-}}
+}
+}
 
-#endif //__IRR_SCPUMESH_H_INCLUDED__
+#endif

@@ -7,14 +7,11 @@
 
 #include <functional>
 
-#include "IrrCompileConfig.h"
-#include "irr/core/IReferenceCounted.h"
+#include "irr/core/core.h"
 #include "vector3d.h"
 #include "aabbox3d.h"
-#include "IAnimatedMesh.h"
 #include "irr/asset/ICPUMeshBuffer.h"
-#include "SVertexManipulator.h"
-#include "irr/asset/SCPUMesh.h"
+#include "irr/asset/CCPUMesh.h"
 
 namespace irr
 {

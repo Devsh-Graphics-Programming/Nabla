@@ -10,7 +10,7 @@
 #include "IWriteFile.h"
 #include "os.h" // for logging
 #include "irr/asset/ICPUTexture.h"
-#include "irr/video/convertColor.h"
+#include "irr/asset/format/convertColor.h"
 
 #ifdef _IRR_COMPILE_WITH_LIBPNG_
 #   include "libpng/png.h"

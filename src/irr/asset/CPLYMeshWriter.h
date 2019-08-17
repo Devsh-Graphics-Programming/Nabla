@@ -6,7 +6,7 @@
 #define __IRR_PLY_MESH_WRITER_H_INCLUDED__
 
 #include "irr/asset/IAssetWriter.h"
-#include "irr/video/IGPUMeshBuffer.h"
+#include "irr/asset/ICPUMeshBuffer.h"
 #include <iomanip>
 
 namespace irr

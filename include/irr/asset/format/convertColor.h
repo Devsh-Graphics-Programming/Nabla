@@ -2,8 +2,9 @@
 #define __IRR_CONVERT_COLOR_H_INCLUDED__
 
 #include <cassert>
+
 #include "irr/static_if.h"
-#include "irr/asset/EFormat.h"
+#include "irr/asset/format/EFormat.h"
 #include "decodePixels.h"
 #include "encodePixels.h"
 

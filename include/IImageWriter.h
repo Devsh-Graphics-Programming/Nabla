@@ -6,7 +6,7 @@
 #define _I_IMAGE_WRITER_H_INCLUDED__
 
 #include "IImage.h"
-#include "coreutil.h"
+#include "irr/core/string/stringutil.h"
 
 namespace irr
 {

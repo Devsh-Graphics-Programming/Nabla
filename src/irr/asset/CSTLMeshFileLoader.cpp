@@ -2,17 +2,14 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#include "IrrCompileConfig.h"
+#include "irr/core/core.h"
 
 #ifdef _IRR_COMPILE_WITH_STL_LOADER_
 
 #include "CSTLMeshFileLoader.h"
-#include "irr/asset/SCPUMesh.h"
-#include "irr/asset/ICPUMeshBuffer.h"
-#include "irr/core/math/plane3dSIMD.h"
+#include "irr/asset/CCPUMesh.h"
 
 #include "IReadFile.h"
-#include "coreutil.h"
 #include "os.h"
 #include "SVertexManipulator.h"
 
@@ -31,15 +28,14 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
     bool hasColor = false;
 
-	asset::SCPUMesh* mesh = new asset::SCPUMesh();
+	auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
     asset::ICPUMeshDataFormatDesc* desc = new asset::ICPUMeshDataFormatDesc();
     {
-	asset::ICPUMeshBuffer* meshbuffer = new asset::ICPUMeshBuffer();
-	meshbuffer->setMeshDataAndFormat(desc);
-	desc->drop();
+		auto meshbuffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+		meshbuffer->setMeshDataAndFormat(desc);
+		desc->drop();
 
-	mesh->addMeshBuffer(meshbuffer);
-	meshbuffer->drop();
+		mesh->addMeshBuffer(std::move(meshbuffer));
     }
 
 	bool binary = false;
@@ -52,10 +48,8 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	if (binary)
 	{
         if (_file->getSize() < 80)
-        {
-            mesh->drop();
             return {};
-        }
+
 		_file->seek(80); // skip header
         uint32_t vtxCnt = 0u;
 		_file->read(&vtxCnt, 4);
@@ -77,12 +71,10 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			{
 				if (token=="endsolid")
 					break;
-				mesh->drop();
                 return {};
 			}
 			if (getNextToken(_file, token) != "normal")
 			{
-				mesh->drop();
                 return {};
 			}
 		}
@@ -95,16 +87,8 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
 		if (!binary)
 		{
-			if (getNextToken(_file, token) != "outer")
-			{
-				mesh->drop();
+			if (getNextToken(_file, token) != "outer" || getNextToken(_file, token) != "loop")
                 return {};
-			}
-			if (getNextToken(_file, token) != "loop")
-			{
-				mesh->drop();
-                return {};
-			}
 		}
 
         {
@@ -114,10 +98,7 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			if (!binary)
 			{
 				if (getNextToken(_file, token) != "vertex")
-				{
-					mesh->drop();
                     return {};
-				}
 			}
 			getNextVector(_file, p[i], binary);
 		}
@@ -127,16 +108,8 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
 		if (!binary)
 		{
-			if (getNextToken(_file, token) != "endloop")
-			{
-				mesh->drop();
+			if (getNextToken(_file, token) != "endloop" || getNextToken(_file, token) != "endfacet")
                 return {};
-			}
-			if (getNextToken(_file, token) != "endfacet")
-			{
-				mesh->drop();
-                return {};
-			}
 		}
 		else
 		{
@@ -189,9 +162,7 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     //mesh->getMeshBuffer(0)->setPrimitiveType(EPT_POINTS);
 	mesh->recalculateBoundingBox(true);
 
-    core::smart_refctd_ptr<IAsset> mesh_ptr(mesh, core::dont_grab);
-    SAssetBundle bundle{mesh_ptr};
-	return bundle;
+    return SAssetBundle{std::move(mesh)};
 }
 
 bool CSTLMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const

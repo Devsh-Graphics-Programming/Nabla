@@ -6,9 +6,8 @@
 #define __COLOR_H_INCLUDED__
 
 #include "vectorSIMD.h"
-#include "coreutil.h"
-#include "irr/asset/EFormat.h"
-#include "irr/video/decodePixels.h"
+#include "irr/core/core.h"
+#include "irr/asset/format/decodePixels.h"
 
 namespace irr
 {

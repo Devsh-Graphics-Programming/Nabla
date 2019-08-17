@@ -9,9 +9,9 @@
 
 #include "aabbox3d.h"
 #include "SMaterial.h"
+#include "irr/core/xxHash256.h"
 #include "irr/asset/ICPUTexture.h"
 #include "irr/asset/ICPUBuffer.h"
-#include "coreutil.h"
 
 namespace irr {
 

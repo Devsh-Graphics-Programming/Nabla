@@ -8,8 +8,8 @@
 #include "ISceneManager.h"
 #include "IFileSystem.h"
 #include "IVideoDriver.h"
-#include "irr/video/SGPUMesh.h"
-#include "irr/asset/SCPUMesh.h"
+#include "irr/video/CGPUMesh.h"
+#include "irr/asset/CCPUMesh.h"
 #include "irr/video/CGPUSkinnedMesh.h"
 #include "irr/asset/CCPUSkinnedMesh.h"
 #include "irr/asset/bawformat/CBlobsLoadingManager.h"
@@ -117,7 +117,7 @@ void* TypedBlob<MeshBlobV0, asset::ICPUMesh>::instantiateEmpty(const void* _blob
 		return NULL;
 
 	const MeshBlobV0* blob = (const MeshBlobV0*)_blob;
-	asset::SCPUMesh* mesh = new asset::SCPUMesh();
+	asset::CCPUMesh* mesh = new asset::CCPUMesh();
 	mesh->setBoundingBox(blob->box);
 
 	return mesh;
@@ -130,7 +130,7 @@ void* TypedBlob<MeshBlobV0, asset::ICPUMesh>::finalize(void* _obj, const void* _
 		return NULL;
 
 	const MeshBlobV0* blob = reinterpret_cast<const MeshBlobV0*>(_blob);
-	asset::SCPUMesh* mesh = (asset::SCPUMesh*)_obj;
+	asset::CCPUMesh* mesh = (asset::CCPUMesh*)_obj;
 	for (uint32_t i = 0; i < blob->meshBufCnt; ++i)
 		mesh->addMeshBuffer(reinterpret_cast<asset::ICPUMeshBuffer*>(_deps[blob->meshBufPtrs[i]]));
 	return _obj;

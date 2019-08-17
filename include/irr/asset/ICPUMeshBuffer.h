@@ -1,9 +1,10 @@
 #ifndef __IRR_I_CPU_MESH_BUFFER_H_INCLUDED__
 #define __IRR_I_CPU_MESH_BUFFER_H_INCLUDED__
 
+#include "irr/core/core.h"
 #include "irr/asset/IAsset.h"
-#include "irr/video/decodePixels.h"
-#include "irr/video/encodePixels.h"
+#include "irr/asset/format/decodePixels.h"
+#include "irr/asset/format/encodePixels.h"
 #include "irr/asset/bawformat/CBAWFile.h"
 
 namespace irr { namespace asset
@@ -357,14 +358,14 @@ protected:
     E_PRIMITIVE_TYPE primitiveType;
 
     //debug
-    core::LeakDebugger* leakDebugger;
+    core::CLeakDebugger* leakDebugger;
 public:
 	//! Constructor.
 	/**
 	@param layout Pointer to descriptor of mesh data object. Will be grabbed.
 	@param dbgr Pointer to leak debugger object.
 	*/
-	IMeshBuffer(IMeshDataFormatDesc<T>* layout=NULL, core::LeakDebugger* dbgr=NULL) : leakDebugger(dbgr)
+	IMeshBuffer(IMeshDataFormatDesc<T>* layout=NULL, core::CLeakDebugger* dbgr=NULL) : leakDebugger(dbgr)
 	{
         if (leakDebugger)
             leakDebugger->registerObj(this);
@@ -515,7 +516,7 @@ class ICPUMeshBuffer : public IMeshBuffer<asset::ICPUBuffer>, public asset::Blob
     //vertices
     E_VERTEX_ATTRIBUTE_ID posAttrId;
 public:
-    ICPUMeshBuffer(core::LeakDebugger* dbgr = NULL) : IMeshBuffer<asset::ICPUBuffer>(NULL, dbgr), posAttrId(EVAI_ATTR0) {}
+    ICPUMeshBuffer(core::CLeakDebugger* dbgr = NULL) : IMeshBuffer<asset::ICPUBuffer>(NULL, dbgr), posAttrId(EVAI_ATTR0) {}
 
     virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const
     {

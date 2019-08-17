@@ -8,7 +8,7 @@
 
 #include "IWriteFile.h"
 #include "CImage.h"
-#include "irr/video/convertColor.h"
+#include "irr/asset/format/convertColor.h"
 #include "irr/asset/ICPUTexture.h"
 
 #include "os.h"

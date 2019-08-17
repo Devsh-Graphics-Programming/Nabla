@@ -9,7 +9,7 @@
 
 #include "CPLYMeshFileLoader.h"
 #include "irr/asset/IMeshManipulator.h"
-#include "irr/video/SGPUMesh.h"
+#include "irr/video/CGPUMesh.h"
 
 #include "IReadFile.h"
 #include "os.h"
@@ -82,7 +82,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	}
 
 	// start with empty mesh
-    asset::SCPUMesh* mesh = nullptr;
+    asset::CCPUMesh* mesh = nullptr;
 	uint32_t vertCount=0;
 
 	// Currently only supports ASCII meshes
@@ -235,7 +235,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		if (continueReading)
 		{
 			// create a mesh buffer
-            asset::ICPUMeshBuffer *mb = new asset::ICPUMeshBuffer();
+            auto mb = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
             auto desc = new asset::ICPUMeshDataFormatDesc();
             mb->setMeshDataAndFormat(desc);
             desc->drop();
@@ -269,10 +269,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			}
 
             if (!genVertBuffersForMBuffer(mb, attribs))
-            {
-                mb->drop();
                 return {};
-            }
             if (indices.size())
             {
                 asset::ICPUBuffer* idxBuf = new asset::ICPUBuffer(4 * indices.size());
@@ -290,14 +287,13 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 //mb->getMaterial().setFlag(video::EMF_POINTCLOUD, true);
             }
 
-            mesh = new asset::SCPUMesh();
+            mesh = new asset::CCPUMesh();
 
 			mb->recalculateBoundingBox();
 			//if (!hasNormals)
 			//	SceneManager->getMeshManipulator()->recalculateNormals(mb);
-			mesh->addMeshBuffer(mb);
+			mesh->addMeshBuffer(std::move(mb));
 			mesh->recalculateBoundingBox();
-			mb->drop();
 		}
 	}
 

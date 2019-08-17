@@ -5,9 +5,8 @@
 #ifndef __C_OBJ_MESH_FILE_LOADER_H_INCLUDED__
 #define __C_OBJ_MESH_FILE_LOADER_H_INCLUDED__
 
+#include "irr/core/core.h"
 #include "irr/asset/IAssetLoader.h"
-#include "irr/core/Types.h"
-#include "irr/core/irrString.h"
 
 namespace irr
 {

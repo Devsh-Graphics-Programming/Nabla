@@ -2,9 +2,7 @@
 #define __IRR_I_ASSET_H_INCLUDED__
 
 #include <string>
-#include "irr/core/IReferenceCounted.h"
-#include "irr/core/Types.h"
-#include "irr/core/refctd_dynamic_array.h"
+#include "irr/core/core.h"
 
 namespace irr { namespace asset
 {

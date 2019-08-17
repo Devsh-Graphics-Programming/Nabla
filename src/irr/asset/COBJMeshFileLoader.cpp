@@ -2,7 +2,8 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#include "IrrCompileConfig.h"
+#include "irr/core/core.h"
+
 #ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
 
 #include "IrrlichtDevice.h"
@@ -11,15 +12,11 @@
 #include "COBJMeshFileLoader.h"
 #include "irr/asset/IMeshManipulator.h"
 #include "IVideoDriver.h"
-#include "irr/video/SGPUMesh.h"
+#include "irr/video/CGPUMesh.h"
 #include "SVertexManipulator.h"
 #include "IReadFile.h"
-#include "coreutil.h"
 #include "os.h"
 #include "irr/asset/IAssetManager.h"
-
-#include "irr/core/Types.h"
-#include "irr/core/math/plane3dSIMD.h"
 
 /*
 namespace std
@@ -338,7 +335,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	// Clean up the allocate obj _file contents
 	delete [] buf;
 
-	asset::SCPUMesh* mesh = new asset::SCPUMesh();
+	asset::CCPUMesh* mesh = new asset::CCPUMesh();
 
 	// Combine all the groups (meshbuffers) into the mesh
 	for ( uint32_t m = 0; m < ctx.Materials.size(); ++m )

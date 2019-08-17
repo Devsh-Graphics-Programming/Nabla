@@ -3,6 +3,9 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "CMeshManipulator.h"
+#include "CSmoothNormalGenerator.h"
+#include "irr/asset/CForsythVertexCacheOptimizer.h"
+#include "irr/asset/COverdrawMeshOptimizer.h"
 
 #include <vector>
 #include <numeric>
@@ -11,13 +14,10 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "irr/video/SGPUMesh.h"
-#include "irr/video/IGPUMeshBuffer.h"
 #include "os.h"
-#include "irr/asset/CForsythVertexCacheOptimizer.h"
-#include "irr/asset/COverdrawMeshOptimizer.h"
-#include "irr/asset/ICPUSkinnedMeshBuffer.h"
-#include "irr/asset/CSmoothNormalGenerator.h"
+#include "irr/asset/asset.h"
+
+#include "SVertexManipulator.h"
 
 namespace irr
 {

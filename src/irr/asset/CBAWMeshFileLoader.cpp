@@ -8,7 +8,7 @@
 #include <stack>
 
 #include "CFinalBoneHierarchy.h"
-#include "irr/video/SGPUMesh.h"
+#include "irr/video/CGPUMesh.h"
 #include "irr/video/CGPUSkinnedMesh.h"
 #include "os.h"
 #include "lz4/lib/lz4.h"
