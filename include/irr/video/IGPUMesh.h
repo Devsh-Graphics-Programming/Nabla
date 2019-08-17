@@ -4,11 +4,14 @@
 #include "irr/asset/IMesh.h"
 #include "irr/video/IGPUMeshBuffer.h"
 
-namespace irr { namespace video
+namespace irr
+{
+namespace video
 {
 
-    typedef asset::IMesh<video::IGPUMeshBuffer> IGPUMesh;
+    using IGPUMesh = asset::IMesh<video::IGPUMeshBuffer>;
 
-}}//irr::video
+}
+}
 
-#endif//__IRR_I_GPU_MESH_H_INCLUDED__
+#endif //__IRR_I_GPU_MESH_H_INCLUDED__

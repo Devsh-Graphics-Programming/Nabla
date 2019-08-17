@@ -2,8 +2,8 @@
 #define __IRR_SIMPLE_GPU_BUFFER_ALLOCATOR_H__
 
 #include "irr/core/alloc/address_allocator_traits.h"
+#include "irr/video/alloc/GPUMemoryAllocatorBase.h"
 #include "IGPUBuffer.h"
-#include "irr/video/GPUMemoryAllocatorBase.h"
 
 namespace irr
 {

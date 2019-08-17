@@ -10,7 +10,7 @@
 #include "irr/core/IReferenceCounted.h"
 #include "irr/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "irr/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
-#include "irr/video/SimpleGPUBufferAllocator.h"
+#include "irr/video/alloc/SimpleGPUBufferAllocator.h"
 
 #include "IDriverFence.h"
 

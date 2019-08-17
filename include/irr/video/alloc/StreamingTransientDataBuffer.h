@@ -4,8 +4,8 @@
 #include <cstring>
 
 #include "irr/core/IReferenceCounted.h"
-#include "irr/video/SubAllocatedDataBuffer.h"
-#include "irr/video/StreamingGPUBufferAllocator.h"
+#include "irr/video/alloc/SubAllocatedDataBuffer.h"
+#include "irr/video/alloc/StreamingGPUBufferAllocator.h"
 #include "IDriverFence.h"
 
 

@@ -4,7 +4,7 @@
 
 #include "irr/core/alloc/MultiBufferingAllocatorBase.h"
 #include "irr/core/alloc/ResizableHeterogenousMemoryAllocator.h"
-#include "irr/video/HostDeviceMirrorBufferAllocator.h"
+#include "irr/video/alloc/HostDeviceMirrorBufferAllocator.h"
 
 namespace irr
 {

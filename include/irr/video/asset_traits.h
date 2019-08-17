@@ -1,14 +1,11 @@
 #ifndef __IRR_ASSET_TRAITS_H_INCLUDED__
 #define __IRR_ASSET_TRAITS_H_INCLUDED__
 
-#include "IGPUBuffer.h"
-#include "ITexture.h"
-#include "irr/video/IGPUMeshBuffer.h"
-#include "irr/asset/ICPUMeshBuffer.h"
-#include "irr/asset/ICPUMesh.h"
 #include "irr/video/IGPUMesh.h"
 
-namespace irr { namespace video
+namespace irr
+{
+namespace video
 {
 
 template<typename BuffT>

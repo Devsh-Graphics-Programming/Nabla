@@ -1,7 +1,7 @@
 #ifndef __IRR_STREAMING_GPUBUFFER_ALLOCATOR_H__
 #define __IRR_STREAMING_GPUBUFFER_ALLOCATOR_H__
 
-#include "irr/video/SimpleGPUBufferAllocator.h"
+#include "irr/video/alloc/SimpleGPUBufferAllocator.h"
 
 namespace irr
 {

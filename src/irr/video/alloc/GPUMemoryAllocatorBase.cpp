@@ -1,4 +1,4 @@
-#include "irr/video/GPUMemoryAllocatorBase.h"
+#include "irr/video/alloc/GPUMemoryAllocatorBase.h"
 
 #include "IVideoDriver.h"
 

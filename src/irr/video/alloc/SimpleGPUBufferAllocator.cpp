@@ -1,4 +1,4 @@
-#include "irr/video/SimpleGPUBufferAllocator.h"
+#include "irr/video/alloc/SimpleGPUBufferAllocator.h"
 #include "IDriver.h"
 
 

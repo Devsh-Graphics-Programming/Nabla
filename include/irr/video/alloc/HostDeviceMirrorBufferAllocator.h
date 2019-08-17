@@ -2,7 +2,7 @@
 #define __IRR_HOST_DEVICE_MIRROR_BUFFER_ALLOCATOR_H__
 
 
-#include "irr/video/SimpleGPUBufferAllocator.h"
+#include "irr/video/alloc/SimpleGPUBufferAllocator.h"
 
 namespace irr
 {

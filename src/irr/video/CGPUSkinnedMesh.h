@@ -9,7 +9,7 @@
 
 #include "irr/video/IGPUSkinnedMesh.h"
 #include "CFinalBoneHierarchy.h"
-#include "irr/core/irrString.h"
+#include "irrString.h"
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 
 namespace irr
@@ -22,7 +22,7 @@ namespace video
         private:
             struct SGPUMeshBufferMetaData
             {
-                video::IGPUMeshBuffer* mb;
+                core::smart_refctd_ptr<video::IGPUMeshBuffer> mb;
                 uint32_t maxVertexWeightInfluences;
             };
             core::vector<SGPUMeshBufferMetaData> meshbuffers;
@@ -30,9 +30,6 @@ namespace video
         protected:
             virtual ~CGPUSkinnedMesh()
             {
-                for (size_t i=0; i<meshbuffers.size(); i++)
-                    meshbuffers[i].mb->drop();
-
                 referenceHierarchy->drop();
             }
 
@@ -53,22 +50,16 @@ namespace video
             virtual video::IGPUMeshBuffer* getMeshBuffer(uint32_t nr) const
             {
                 if (nr>=meshbuffers.size())
-                    return NULL;
+                    return nullptr;
 
-                return meshbuffers[nr].mb;
+                return meshbuffers[nr].mb.get();
             }
 
             //! adds a Mesh
-            inline void addMeshBuffer(video::IGPUMeshBuffer* meshbuffer, const size_t& maxBonesPerVx=4)
+            inline void addMeshBuffer(core::smart_refctd_ptr<video::IGPUMeshBuffer>&& meshbuffer, const size_t& maxBonesPerVx=4)
             {
                 if (meshbuffer)
-                {
-                    meshbuffer->grab();
-                    SGPUMeshBufferMetaData tmp;
-                    tmp.mb = meshbuffer;
-                    tmp.maxVertexWeightInfluences = maxBonesPerVx;
-                    meshbuffers.push_back(tmp);
-                }
+                    meshbuffers.emplace_back(std::move(meshbuffer),maxBonesPerVx);
             }
 
             //! Sets a flag of all contained materials to a new value.
@@ -98,15 +89,15 @@ namespace video
                     return 0.f;
             }
 
-            virtual asset::E_MESH_TYPE getMeshType() const
+            virtual asset::E_MESH_TYPE getMeshType() const override
             {
                 return asset::EMT_ANIMATED_SKINNED;
             }
 
             //! can use more efficient shaders this way :D
-            virtual const uint32_t& getMaxVertexWeights(const size_t& meshbufferIx) const {return meshbuffers[meshbufferIx].maxVertexWeightInfluences;}
+            virtual const uint32_t& getMaxVertexWeights(const size_t& meshbufferIx) const override {return meshbuffers[meshbufferIx].maxVertexWeightInfluences;}
 
-            virtual uint32_t getMaxVertexWeights() const
+            virtual uint32_t getMaxVertexWeights() const override
             {
                 uint32_t maxVal = 0;
                 for (size_t i=0; i<meshbuffers.size(); i++)

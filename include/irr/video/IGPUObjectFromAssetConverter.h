@@ -6,7 +6,7 @@
 #include "irr/asset/IAssetManager.h"
 #include "IDriver.h"
 #include "IDriverMemoryBacked.h"
-#include "irr/video/SGPUMesh.h"
+#include "irr/video/CGPUMesh.h"
 #include "irr/video/CGPUSkinnedMesh.h"
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 #include "CLogger.h"
@@ -29,17 +29,17 @@ public:
 
     virtual ~IGPUObjectFromAssetConverter() = default;
 
-    inline virtual core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*> create(asset::ICPUBuffer** const _begin, asset::ICPUBuffer** const _end);
-    inline virtual core::vector<typename video::asset_traits<asset::ICPUMeshBuffer>::GPUObjectType*> create(asset::ICPUMeshBuffer** const _begin, asset::ICPUMeshBuffer** const _end);
-    inline virtual core::vector<typename video::asset_traits<asset::ICPUMesh>::GPUObjectType*> create(asset::ICPUMesh** const _begin, asset::ICPUMesh** const _end);
-    inline virtual core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*> create(asset::ICPUTexture** const _begin, asset::ICPUTexture** const _end);
+    inline virtual core::vector<core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType> > create(asset::ICPUBuffer** const _begin, asset::ICPUBuffer** const _end);
+    inline virtual core::vector<core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUMeshBuffer>::GPUObjectType> > create(asset::ICPUMeshBuffer** const _begin, asset::ICPUMeshBuffer** const _end);
+    inline virtual core::vector<core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUMesh>::GPUObjectType> > create(asset::ICPUMesh** const _begin, asset::ICPUMesh** const _end);
+    inline virtual core::vector<core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType> > create(asset::ICPUTexture** const _begin, asset::ICPUTexture** const _end);
 
     template<typename AssetType>
-    core::vector<typename video::asset_traits<AssetType>::GPUObjectType*> getGPUObjectsFromAssets(AssetType** const _begin, AssetType** const _end)
+    core::vector<core::smart_refctd_ptr<typename video::asset_traits<AssetType>::GPUObjectType> > getGPUObjectsFromAssets(AssetType** const _begin, AssetType** const _end)
     {
-        core::vector<AssetType*> notFound;
+        core::vector<core::smart_refctd_ptr<AssetType> > notFound; // TODO: change to smartptr
         core::vector<size_t> pos;
-        core::vector<typename video::asset_traits<AssetType>::GPUObjectType*> res;
+        core::vector<core::smart_refctd_ptr<typename video::asset_traits<AssetType>::GPUObjectType> > res;
         AssetType** it = _begin;
         while (it != _end)
         {
@@ -49,20 +49,27 @@ public:
                 notFound.push_back(*it);
                 pos.push_back(it - _begin);
             }
-            else res.push_back(dynamic_cast<typename video::asset_traits<AssetType>::GPUObjectType*>(gpu));
+            else
+				res.emplace_back(dynamic_cast<typename video::asset_traits<AssetType>::GPUObjectType*>(gpu));
             ++it;
         }
 
-        core::vector<typename video::asset_traits<AssetType>::GPUObjectType*> created = create(notFound.data(), notFound.data() + notFound.size());
-        for (size_t i = 0u; i < created.size(); ++i)
-        {
-            m_assetManager->convertAssetToEmptyCacheHandle(notFound[i], created[i]);
-            res.insert(res.begin() + pos[i], created[i]);
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<asset::ICPUTexture, AssetType>::value)
+		if (notFound.size())
+		{
+			decltype(res) created = create(notFound.data(), notFound.data()+notFound.size());
+			
+			for (size_t i = 0u; i < created.size(); ++i)
 			{
-				created[i]->drop(); // IGPUTexture is not grabbed when set in SGPUMaterial, so we have to drop it after inserting into cache (done by convertAssetToEmptyCacheHandle)
+				m_assetManager->convertAssetToEmptyCacheHandle(std::move(notFound[i]), created[i]);
+				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<asset::ICPUTexture, AssetType>::value)
+				{
+					created[i]->drop(); // IGPUTexture is not grabbed when set in SGPUMaterial, so we have to drop it after inserting into cache (done by convertAssetToEmptyCacheHandle)
+				}
+				IRR_PSEUDO_IF_CONSTEXPR_END
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
+			
+			res.resize(res.size()+created.size());
+			std::move(created.begin(),created.end(),res.begin()+pos[i]);
         }
 
         return res;
@@ -92,7 +99,7 @@ protected:
     }
 };
 
-auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asset::ICPUBuffer** const _end) -> core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*>
+auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asset::ICPUBuffer** const _end) -> core::vector<core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType> >
 {
     const uint64_t alignment =
         std::max(
@@ -100,7 +107,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asse
             std::max(m_driver->getRequiredSSBOAlignment(), 16u)
         );
 
-    core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*> res;
+    core::vector<core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType> > res;
     res.reserve(_end-_begin);
 
     core::LinearAddressAllocator<uint64_t> addrAllctr(nullptr, 0u, 0u, alignment, m_driver->getMaxBufferSize());
@@ -112,7 +119,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asse
         assert(addr != decltype(addrAllctr)::invalid_address);
         if (addr == decltype(addrAllctr)::invalid_address)
             return {};
-        res.push_back(new typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType{addr});
+        res.push_back(core::make_smart_refctd_ptr<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType>(addr));
         ++it;
     }
 
@@ -131,7 +138,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asse
 
     return res;
 }
-auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset::ICPUMeshBuffer** _end) -> core::vector<typename video::asset_traits<asset::ICPUMeshBuffer>::GPUObjectType*>
+auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset::ICPUMeshBuffer** _end) -> core::vector<core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUMeshBuffer>::GPUObjectType> >
 {
     struct VaoConfig
     {
@@ -152,7 +159,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
 
     core::vector<asset::ICPUBuffer*> cpuBufDeps;
     core::vector<VaoConfig> vaoConfigs;
-    core::vector<typename video::asset_traits<asset::ICPUMeshBuffer>::GPUObjectType*> res;
+    core::vector<core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUMeshBuffer>::GPUObjectType> > res;
     core::vector<SCPUMaterial> cpumaterials;
 
     asset::ICPUMeshBuffer** it = _begin;
@@ -192,7 +199,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
             cpuBufDeps.push_back(const_cast<asset::ICPUBuffer*>(vaoConf.idxbuf));
         vaoConfigs.push_back(vaoConf);
 
-        IGPUMeshBuffer* gpuMeshBuf = new IGPUMeshBuffer();
+        auto gpuMeshBuf = core::make_smart_refctd_ptr<IGPUMeshBuffer>();
         gpuMeshBuf->setIndexType((*it)->getIndexType());
         gpuMeshBuf->setBaseVertex((*it)->getBaseVertex());
         gpuMeshBuf->setIndexCount((*it)->getIndexCount());
@@ -206,7 +213,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
         gpuMeshBuf->setBoundingBox((*it)->getBoundingBox());
         if ((*it)->getMeshBufferType() != asset::EMBT_ANIMATED_SKINNED)
             (*it)->setBoundingBox(oldBBox);
-        res.push_back(gpuMeshBuf);
+        res.push_back(std::move(gpuMeshBuf));
 
         ++it;
     }
@@ -221,8 +228,8 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
 
     const core::vector<size_t> bufRedir = eliminateDuplicatesAndGenRedirs(cpuBufDeps);
     const core::vector<size_t> texRedir = eliminateDuplicatesAndGenRedirs(cpuTexDeps);
-    core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType*> gpuBufDeps = getGPUObjectsFromAssets(cpuBufDeps.data(), cpuBufDeps.data() + cpuBufDeps.size());
-    core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*> gpuTexDeps = getGPUObjectsFromAssets(cpuTexDeps.data(), cpuTexDeps.data() + cpuTexDeps.size());
+    core::vector<core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType> > gpuBufDeps = getGPUObjectsFromAssets(cpuBufDeps.data(), cpuBufDeps.data() + cpuBufDeps.size());
+    core::vector<core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType> > gpuTexDeps = getGPUObjectsFromAssets(cpuTexDeps.data(), cpuTexDeps.data() + cpuTexDeps.size());
     size_t j = 0u; // buffer deps iterator
     size_t t = 0u; // texture deps iterator
     for (size_t i = 0u; i < res.size(); ++i)
@@ -234,7 +241,8 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
         {
             if (mat.getTexture(k))
             {
-                mat.setTexture(k, gpuTexDeps[texRedir[t]]);
+                mat.setTexture(k, gpuTexDeps[texRedir[t]].get());
+                gpuTexDeps[texRedir[t]].get()->grab(); // TODO: REMOVE THIS, this is a HACK
                 ++t;
             }
         }
@@ -269,16 +277,12 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
             }
         }
     }
-    for (SOffsetBufferPair<IGPUBuffer>* b : gpuBufDeps)
-    {
-        b->drop();
-    }
 
     return res;
 }
-auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset::ICPUMesh** const _end) -> core::vector<typename video::asset_traits<asset::ICPUMesh>::GPUObjectType*>
+auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset::ICPUMesh** const _end) -> core::vector<core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUMesh>::GPUObjectType> >
 {
-    core::vector<typename video::asset_traits<asset::ICPUMesh>::GPUObjectType*> res;
+    core::vector<core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUMesh>::GPUObjectType> > res;
     core::vector<asset::ICPUMeshBuffer*> cpuDeps;
 
     asset::ICPUMesh** it = _begin;
@@ -287,24 +291,25 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset:
         for (uint32_t i = 0u; i < (*it)->getMeshBufferCount(); ++i)
             cpuDeps.push_back((*it)->getMeshBuffer(i));
 
-        video::IGPUMesh* gpumesh = nullptr;
+        core::smart_refctd_ptr<video::IGPUMesh> gpumesh;
         switch ((*it)->getMeshType())
         {
         case asset::EMT_ANIMATED_SKINNED:
-            gpumesh = new video::CGPUSkinnedMesh(static_cast<asset::ICPUSkinnedMesh*>(*it)->getBoneReferenceHierarchy());
+            gpumesh = core::make_smart_refctd_ptr<video::CGPUSkinnedMesh>(static_cast<asset::ICPUSkinnedMesh*>(*it)->getBoneReferenceHierarchy());
             break;
         default:
-            gpumesh = new video::SGPUMesh();
+            gpumesh = core::make_smart_refctd_ptr<video::CGPUMesh>();
             break;
         }
         gpumesh->setBoundingBox((*it)->getBoundingBox());
-        res.push_back(gpumesh);
+        res.push_back(std::move(gpumesh));
 
         ++it;
     }
 
     core::vector<size_t> redir = eliminateDuplicatesAndGenRedirs(cpuDeps);
-    core::vector<typename video::asset_traits<asset::ICPUMeshBuffer>::GPUObjectType*> gpuDeps = getGPUObjectsFromAssets(cpuDeps.data(), cpuDeps.data() + cpuDeps.size());
+	using smart_ptr_t = core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUMeshBuffer>::GPUObjectType>;
+    core::vector<smart_ptr_t> gpuDeps = getGPUObjectsFromAssets(cpuDeps.data(), cpuDeps.data() + cpuDeps.size());
     for (size_t i = 0u, j = 0u; i < res.size(); ++i)
     {
         switch (res[i]->getMeshType())
@@ -312,35 +317,32 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset:
         case asset::EMT_ANIMATED_SKINNED:
             for (uint32_t k = 0u; k < (*(_begin + i))->getMeshBufferCount(); ++k)
             {
-                static_cast<video::CGPUSkinnedMesh*>(res[i])->addMeshBuffer(gpuDeps[redir[j]], static_cast<asset::ICPUSkinnedMeshBuffer*>((*(_begin + i))->getMeshBuffer(i))->getMaxVertexBoneInfluences());
+                static_cast<video::CGPUSkinnedMesh*>(res[i].get())->addMeshBuffer(smart_ptr_t(gpuDeps[redir[j]]), static_cast<asset::ICPUSkinnedMeshBuffer*>((*(_begin + i))->getMeshBuffer(i))->getMaxVertexBoneInfluences());
                 ++j;
             }
             break;
         default:
             for (uint32_t k = 0u; k < (*(_begin + i))->getMeshBufferCount(); ++k)
             {
-                static_cast<video::SGPUMesh*>(res[i])->addMeshBuffer(gpuDeps[redir[j]]);
+                static_cast<video::CGPUMesh*>(res[i].get())->addMeshBuffer(smart_ptr_t(gpuDeps[redir[j]]));
                 ++j;
             }
             break;
         }
     }
 
-    for (auto mb : gpuDeps)
-        mb->drop();
-
     return res;
 }
 
-auto IGPUObjectFromAssetConverter::create(asset::ICPUTexture** _begin, asset::ICPUTexture**_end) -> core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*>
+auto IGPUObjectFromAssetConverter::create(asset::ICPUTexture** _begin, asset::ICPUTexture**_end) -> core::vector<core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType> >
 {
-    core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*> res;
+    core::vector<core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType> > res;
 
     asset::ICPUTexture** it = _begin;
     while (it != _end)
     {
         asset::ICPUTexture* cpuTex = *it;
-        ITexture* t = m_driver->createGPUTexture(cpuTex->getType(), cpuTex->getSize(), cpuTex->getHighestMip() ? cpuTex->getHighestMip()+1 : 0, cpuTex->getColorFormat());
+        auto t = m_driver->createGPUTexture(cpuTex->getType(), cpuTex->getSize(), cpuTex->getHighestMip() ? cpuTex->getHighestMip()+1 : 0, cpuTex->getColorFormat());
 
         for (const asset::CImageData* img : cpuTex->getRanges())
         {
@@ -350,7 +352,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUTexture** _begin, asset::IC
         if (cpuTex->getHighestMip()==0 && t->hasMipMaps())
             t->regenerateMipMapLevels(); // todo : Compute Shader mip-mapper necessary after vulkan
 
-        res.push_back(t);
+        res.push_back(std::move(t));
 
         ++it;
     }
