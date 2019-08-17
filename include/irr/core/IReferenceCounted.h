@@ -280,8 +280,7 @@ namespace core
 				return *this;
 			}
 
-			inline I_REFERENCE_COUNTED* get() { return ptr; }
-			inline const I_REFERENCE_COUNTED* get() const { return ptr; }
+			inline I_REFERENCE_COUNTED* get() const { return ptr; }
 
 			inline I_REFERENCE_COUNTED* operator->() { return ptr; }
 			inline const I_REFERENCE_COUNTED* operator->() const { return ptr; }
