@@ -131,7 +131,7 @@ public:
 
     virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
-    virtual asset::IAsset* loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u);
+    virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u);
 
 private:
 	//! Verifies whether given file is of appropriate format. Also reads file version and assigns it to passed context object.
@@ -214,9 +214,10 @@ private:
             asset = reinterpret_cast<asset::ICPUTexture*>(_asset);
             break;
         }
-        if (asset && !asset->isInAResourceCache())
+        if (asset)
         {
-            _override->insertAssetIntoCache(asset, _cacheKey, _ctx.inner, _hierLvl);
+            SAssetBundle bundle{core::smart_refctd_ptr<asset::IAsset>(asset)};
+            _override->insertAssetIntoCache(bundle, _cacheKey, _ctx.inner, _hierLvl);
             // drop shouldn't be performed here at all; it's done in main loading function by ctx.releaseAllButThisOne(meshBlobDataIter);
             // this is quite different from other loaders so explenation is probably wellcome
         }

@@ -100,7 +100,7 @@ struct LzmaMemMngmnt
 
         const WriteProperties* props = reinterpret_cast<const WriteProperties*>(_ctx.inner.params.userData);
 		const io::path fileDir = props->relPath.size() ? props->relPath : io::IFileSystem::getFileDir(m_fileSystem->getAbsolutePath(_file->getFileName())); // get relative-file's directory
-		io::path path = m_fileSystem->getRelativeFilename(tex->getCacheKey().c_str(), fileDir); // get texture-file path relative to the file's directory
+		io::path path = m_fileSystem->getRelativeFilename(tex->getSourceFilename().c_str(), fileDir); // get texture-file path relative to the file's directory
 		const uint32_t len = strlen(path.c_str()) + 1;
 
         const asset::E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 2u);

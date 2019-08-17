@@ -408,6 +408,18 @@ inline int32_t isupper(int32_t c) { return c >= 'A' && c <= 'Z'; }
 
 core::vector<std::string> getBackTrace(void);
 
+template<typename T>
+struct SRange
+{
+    SRange(T* _beg, T* _end) : m_begin(_beg), m_end(_end) {}
+
+    T* begin() { return m_begin; }
+    T* end() { return m_end; }
+
+private:
+    T *m_begin, *m_end;
+};
+
 
 template<typename F>
 class SRAIIBasedExiter

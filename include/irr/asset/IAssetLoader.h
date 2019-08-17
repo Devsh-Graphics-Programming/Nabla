@@ -76,8 +76,6 @@ public:
     }
 
     //! Override class to facilitate changing how assets are loaded
-    // (Criss) Rename to IAssetLoaderCallback ?
-    // (Criss) While using IAssetLoaderOverride how can i know in which hierarchy level i am?
     class IAssetLoaderOverride
     {
     protected:
@@ -88,11 +86,11 @@ public:
         // The only reason these functions are not declared static is to allow stateful overrides
 
         //! The most imporant overrides are the ones for caching
-        virtual IAsset* findCachedAsset(const std::string& inSearchKey, const IAsset::E_TYPE* inAssetTypes, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel);
+        virtual SAssetBundle findCachedAsset(const std::string& inSearchKey, const IAsset::E_TYPE* inAssetTypes, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel);
 
         //! Since more then one asset of the same key of the same type can exist, this function is called right after search for cached assets (if anything was found) and decides which of them is relevant.
         //! Note: this function can assume that `found` is never empty.
-        inline virtual IAsset* chooseRelevantFromFound(const core::vector<IAsset*>& found, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
+        inline virtual SAssetBundle chooseRelevantFromFound(const core::vector<SAssetBundle>& found, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
         {
             return found.front();
         }
@@ -100,9 +98,9 @@ public:
         //! Only called when the asset was searched for, no correct asset was found
         /** Any non-nullptr asset returned here will not be added to cache,
         since the overload operates “as if” the asset was found. */
-        inline virtual IAsset* handleSearchFail(const std::string& keyUsed, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
+        inline virtual SAssetBundle handleSearchFail(const std::string& keyUsed, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
         {
-            return nullptr;
+            return {};
         }
 
         //! Called before loading a file
@@ -130,14 +128,15 @@ public:
         }
 
         //! Only called when the was unable to be loaded
-        inline virtual IAsset* handleLoadFail(bool& outAddToCache, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
+        inline virtual SAssetBundle handleLoadFail(bool& outAddToCache, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
         {
             outAddToCache = false; // if you want to return a “default error asset”
-            return nullptr;
+            return {};
         }
 
         //! After a successful load of an asset or sub-asset
-        virtual void insertAssetIntoCache(IAsset* asset, const std::string& supposedKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel);
+        //TODO change name
+        virtual void insertAssetIntoCache(SAssetBundle& asset, const std::string& supposedKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel);
     };
 
 public:
@@ -156,14 +155,14 @@ public:
     virtual uint64_t getSupportedAssetTypesBitfield() const { return 0; }
 
     //! Loads an asset from an opened file, returns nullptr in case of failure.
-    virtual IAsset* loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) = 0;
+    virtual SAssetBundle loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) = 0;
 
 protected:
     // accessors for loaders
-    IAsset* interm_getAssetInHierarchy(IAssetManager& _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
-    IAsset* interm_getAssetInHierarchy(IAssetManager& _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
-    IAsset* interm_getAssetInHierarchy(IAssetManager& _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
-    IAsset* interm_getAssetInHierarchy(IAssetManager& _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
+    SAssetBundle interm_getAssetInHierarchy(IAssetManager& _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
+    SAssetBundle interm_getAssetInHierarchy(IAssetManager& _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
+    SAssetBundle interm_getAssetInHierarchy(IAssetManager& _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
+    SAssetBundle interm_getAssetInHierarchy(IAssetManager& _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
 };
 
 }}
