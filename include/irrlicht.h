@@ -1,123 +1,49 @@
-/* irrlicht.h -- interface of the 'Irrlicht Engine'
+/* irrlicht.h -- interface of the 'IrrlichtBAW Engine'
 
-  Copyright (C) 2002-2012 Nikolaus Gebhardt
+  Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
 
-  This software is provided 'as-is', without any express or implied
-  warranty.  In no event will the authors be held liable for any damages
-  arising from the use of this software.
+  This software is provided 'as-is', under the Apache 2.0 license,
+  without any express or implied warranty.  In no event will the authors
+  be held liable for any damages arising from the use of this software.
 
-  Permission is granted to anyone to use this software for any purpose,
-  including commercial applications, and to alter it and redistribute it
-  freely, subject to the following restrictions:
+  See LICENSE.md for full licensing information.
 
-  1. The origin of this software must not be misrepresented; you must not
-     claim that you wrote the original software. If you use this software
-     in a product, an acknowledgment in the product documentation would be
-     appreciated but is not required.
-  2. Altered source versions must be plainly marked as such, and must not be
-     misrepresented as being the original software.
-  3. This notice may not be removed or altered from any source distribution.
-
-  Please note that the Irrlicht Engine is based in part on the work of the
-  Independent JPEG Group, the zlib and the libPng. This means that if you use
-  the Irrlicht Engine in your product, you must acknowledge somewhere in your
-  documentation that you've used the IJG code. It would also be nice to mention
-  that you use the Irrlicht Engine, the zlib and libPng. See the README files
-  in the jpeglib, the zlib and libPng for further informations.
+  Please note that the IrrlichtBAW Engine is based in part on the work of others,
+  this means that if you use the IrrlichtBAW Engine in your product,
+  you must acknowledge somewhere in your documentation that you've used their code.
+  See README.md for all mentions of 3rd party software used.
 */
 
 #ifndef __IRRLICHT_H_INCLUDED__
 #define __IRRLICHT_H_INCLUDED__
 
-//{ core lib
-// overarching includes
-#include "irr/macros.h"
+// core lib
+#include "irr/core/core.h"
 
-//core
-#include "irr/core/BaseClasses.h"
-#include "irr/core/irrString.h" //kill this abomination
-#include "irr/core/IThreadBound.h"
-#include "irr/core/Types.h"
+// system lib (fibers, mutexes, file I/O operations) [DEPENDS: core]
+#include "irr/system/system.h"
+// should we move "core/parallel" to "system/parallel"
 
-// core math
-#include "irr/core/math/irrMath.h"
+// asset lib (importing and exporting meshes, textures and shaders) [DEPENDS: system]
+#include "irr/asset/asset.h"
+// ui lib (window set up, software blit, joysticks, multi-touch, keyboard, etc.) [DEPENDS: system]
+#include "irr/ui/ui.h"
 
-// core memory
-#include "irr/core/memory/memory.h"
-#include "irr/core/memory/new_delete.h"
+// video lib (access to Graphics API, remote rendering, etc) [DEPENDS: asset, (optional) ui]
+#include "irr/video/video.h"
 
-//core allocators
-#include "irr/core/alloc/address_allocator_traits.h"
-#include "irr/core/alloc/AddressAllocatorBase.h"
-#include "irr/core/alloc/AddressAllocatorConcurrencyAdaptors.h"
-#include "irr/core/alloc/aligned_allocator.h"
-#include "irr/core/alloc/aligned_allocator_adaptor.h"
-#include "irr/core/alloc/AlignedBase.h"
-#include "irr/core/alloc/ContiguousPoolAddressAllocator.h"
-#include "irr/core/alloc/GeneralpurposeAddressAllocator.h"
-#include "irr/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
-#include "irr/core/alloc/IAddressAllocator.h"
-#include "irr/core/alloc/IAllocator.h"
-#include "irr/core/alloc/LinearAddressAllocator.h"
-#include "irr/core/alloc/MultiBufferingAllocatorBase.h"
-#include "irr/core/alloc/ResizableHeterogenousMemoryAllocator.h"
-#include "irr/core/refctd_dynamic_array.h"
-#include "irr/core/dynamic_array.h"
-//} end core lib
+// scene lib (basic rendering, culling, scene graph etc.) [DEPENDS: video, ui]
+#include "irr/scene/scene.h"
 
-//{ system lib (fibers, mutexes, file I/O operations) [DEPENDS: core]
-//} end system lib
-
-//{ asset lib (importing and exporting meshes, textures and shaders) [DEPENDS: system]
-#include "irr/asset/ICPUSkinnedMeshBuffer.h"
-#include "irr/asset/IAssetManager.h"
-#include "irr/asset/CCPUSkinnedMesh.h"
-#include "irr/asset/IAsset.h"
-#include "irr/asset/IAssetLoader.h"
-#include "irr/asset/IAssetWriter.h"
-#include "irr/asset/ICPUBuffer.h"
-#include "irr/asset/ICPUMesh.h"
-#include "irr/asset/ICPUMeshBuffer.h"
-#include "irr/asset/ICPUSkinnedMesh.h"
-#include "irr/asset/ICPUTexture.h"
-#include "irr/asset/SCPUMesh.h"
-#include "irr/asset/CImageData.h"
-#include "irr/asset/IGeometryCreator.h"
-#include "irr/asset/IMeshManipulator.h"
-#include "irr/asset/IBuiltinIncludeLoader.h"
-#include "irr/asset/IIncluder.h"
-#include "irr/asset/IIncludeHandler.h"
-//} end asset lib
-
-//{ ui lib (window set up, software blit, joysticks, multi-touch, keyboard, etc.) [DEPENDS: system]
-//} end ui lib
-
-//{ video lib (access to Graphics API, remote rendering, etc) [DEPENDS: asset, (optional) ui]
-//video allocators (TODO: move on layer deeper to {include|src}/video/alloc)
-#include "irr/video/GPUMemoryAllocatorBase.h"
-#include "irr/video/HostDeviceMirrorBufferAllocator.h"
-#include "irr/video/ResizableBufferingAllocator.h"
-#include "irr/video/SimpleGPUBufferAllocator.h"
-#include "irr/video/StreamingTransientDataBuffer.h"
-#include "irr/video/asset_traits.h"
-#include "irr/video/IGPUObjectFromAssetConverter.h"
-#include "irr/video/IGPUMesh.h"
-#include "irr/video/CDerivativeMapCreator.h"
-//} end video lib
-
-//{ scene lib (basic rendering, culling, scene graph etc.) [DEPENDS: video, ui]
-//}
 
 #include "IrrCompileConfig.h"
 #include "aabbox3d.h"
 #include "vector2d.h"
 #include "vector3d.h"
 #include "vectorSIMD.h"
-#include "coreutil.h"
 #include "line2d.h"
 #include "line3d.h"
 #include "matrix4SIMD.h"
-#include "irr/core/math/plane3dSIMD.h"
 #include "position2d.h"
 #include "quaternion.h"
 #include "rect.h"
@@ -147,9 +73,6 @@
 #include "ILogger.h"
 #include "IMaterialRenderer.h"
 #include "IMaterialRendererServices.h"
-#include "irr/asset/IMesh.h"
-#include "irr/video/IGPUMesh.h"
-#include "irr/video/IGPUMeshBuffer.h"
 #include "IMeshSceneNode.h"
 #include "IMeshSceneNodeInstanced.h"
 #include "IOSOperator.h"
@@ -162,7 +85,6 @@
 #include "ISceneNodeAnimatorCameraFPS.h"
 #include "ISceneNodeAnimatorCameraMaya.h"
 #include "IShaderConstantSetCallBack.h"
-#include "irr/video/IGPUSkinnedMesh.h"
 #include "ISkinnedMeshSceneNode.h"
 #include "ITexture.h"
 #include "ITextureBufferObject.h"
@@ -183,7 +105,6 @@
 #include "SIrrCreationParameters.h"
 #include "SKeyMap.h"
 #include "SMaterial.h"
-#include "irr/video/SGPUMesh.h"
 #include "SViewFrustum.h"
 
 

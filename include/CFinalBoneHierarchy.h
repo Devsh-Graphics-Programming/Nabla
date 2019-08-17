@@ -7,8 +7,8 @@
 #include "irr/asset/ICPUSkinnedMesh.h"
 #include "IGPUBuffer.h"
 #include "quaternion.h"
+#include "irrString.h"
 #include "irr/core/Types.h"
-#include "irr/core/irrString.h"
 #include "irr/asset/bawformat/CBAWFile.h"
 #include "matrix3x4SIMD.h"
 
