@@ -6,8 +6,9 @@
 #ifndef __C_SKY_DOME_SCENE_NODE_H_INCLUDED__
 #define __C_SKY_DOME_SCENE_NODE_H_INCLUDED__
 
+#include "irr/video/video.h"
+
 #include "ISceneNode.h"
-#include "irr/video/IGPUMeshBuffer.h"
 
 namespace irr
 {

@@ -55,6 +55,12 @@ set(IRRLICHT_HEADERS ${IRRLICHT_HEADERS_PUBLIC} ${IRRLICHT_HEADERS_PIRV1} ${IRRL
 
 
 set(IRRLICHT_SRCS_COMMON
+# Core Memory
+	${IRR_ROOT_PATH}/src/irr/core/memory/CLeakDebugger.cpp
+
+# Pixel Formats
+	${IRR_ROOT_PATH}/src/irr/video/format/convertColor.cpp
+
 # Mesh loaders
 	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshFileLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/COBJMeshFileLoader.cpp
@@ -131,7 +137,6 @@ set(IRRLICHT_SRCS_COMMON
 # Image processing
 	CColorConverter.cpp
 	CImage.cpp
-	${IRR_ROOT_PATH}/src/irr/video/convertColor.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderBMP.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderDDS.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderJPG.cpp
@@ -145,9 +150,8 @@ set(IRRLICHT_SRCS_COMMON
 # Video
 	CFPSCounter.cpp
 	CVideoModeList.cpp
-	${IRR_ROOT_PATH}/src/irr/video/GPUMemoryAllocatorBase.cpp
-	${IRR_ROOT_PATH}/src/irr/video/SimpleGPUBufferAllocator.cpp
-	${IRR_ROOT_PATH}/src/irr/video/CDerivativeMapCreator.cpp
+	${IRR_ROOT_PATH}/src/irr/video/alloc/GPUMemoryAllocatorBase.cpp
+	${IRR_ROOT_PATH}/src/irr/video/alloc/SimpleGPUBufferAllocator.cpp
 
 # Software renderer
 	CBurningShader_Raster_Reference.cpp
@@ -177,7 +181,6 @@ set(IRRLICHT_SRCS_COMMON
 	CZipReader.cpp
 
 # Other
-	coreutil.cpp
 	IrrlichtDevice.cpp
 	CIrrDeviceSDL.cpp
 	CIrrDeviceLinux.cpp
@@ -195,6 +198,9 @@ if (MSVC)
 endif()
 
 set(IRRLICHT_SRCS_NORMAL
+	#vulkan
+
+	#opengl
 	COpenCLHandler.cpp
 	COpenGL2DTextureArray.cpp
 	COpenGL2DTexture.cpp
@@ -211,6 +217,9 @@ set(IRRLICHT_SRCS_NORMAL
 	COpenGL1DTextureArray.cpp
 	COpenGLCubemapArrayTexture.cpp
 	COpenGLCubemapTexture.cpp
+
+	# abstract (move this out eventually)
+	${IRR_ROOT_PATH}/src/irr/video/CDerivativeMapCreator.cpp
 )
 
 set(IRRLICHT_SRCS_SERVER

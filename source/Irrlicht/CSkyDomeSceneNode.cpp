@@ -4,11 +4,9 @@
 // Code for this scene node has been contributed by Anders la Cour-Harbo (alc)
 
 #include "CSkyDomeSceneNode.h"
-#include "IVideoDriver.h"
-#include "ISceneManager.h"
+
 #include "ICameraSceneNode.h"
-#include "IAnimatedMesh.h"
-#include "os.h"
+#include "ISceneManager.h"
 
 namespace irr
 {
@@ -34,7 +32,7 @@ namespace scene
 CSkyDomeSceneNode::CSkyDomeSceneNode(video::IVirtualTexture* sky, uint32_t horiRes, uint32_t vertRes,
 		float texturePercentage, float spherePercentage, float radius,
 		IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id)
-	: ISceneNode(parent, mgr, id), Buffer(0),
+	: ISceneNode(parent, mgr, id), Buffer(nullptr),
 	  HorizontalResolution(horiRes), VerticalResolution(vertRes),
 	  TexturePercentage(texturePercentage),
 	  SpherePercentage(spherePercentage), Radius(radius)

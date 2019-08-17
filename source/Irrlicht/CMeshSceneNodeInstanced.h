@@ -71,7 +71,7 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
 
         //! Get the currently defined mesh for display.
         /** \return Pointer to mesh which is displayed by this node. */
-        virtual video::SGPUMesh* getLoDMesh(const size_t &lod) {return LoD[lod].mesh;}
+        virtual video::CGPUMesh* getLoDMesh(const size_t &lod) override {return LoD[lod].mesh;}
 
         virtual const core::aabbox3df& getLoDInvariantBBox() const {return LoDInvariantBox;}
 
@@ -153,7 +153,7 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
 
         struct LoDData
         {
-            video::SGPUMesh* mesh;
+            video::CGPUMesh* mesh;
             video::IQueryObject* query;
             float distanceSQ;
             size_t instancesToDraw;

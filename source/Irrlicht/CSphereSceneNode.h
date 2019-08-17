@@ -17,7 +17,7 @@ namespace scene
 	{
     protected:
 		//! destructor
-		virtual ~CSphereSceneNode();
+		virtual ~CSphereSceneNode() {}
 
 	public:
 		//! constructor
@@ -54,7 +54,7 @@ namespace scene
 		virtual void setMesh(video::IGPUMesh* mesh) {}
 
 		//! Returns the current mesh
-		virtual video::IGPUMesh* getMesh() { return Mesh; }
+		virtual video::IGPUMesh* getMesh() { return Mesh.get(); }
 
 		//! Sets if the scene node should not copy the materials of the mesh but use them in a read only style.
 		/* In this way it is possible to change the materials a mesh causing all mesh scene nodes
@@ -65,8 +65,7 @@ namespace scene
 		virtual bool isReferencingeMeshMaterials() const { return true; }
 
 	private:
-
-        video::IGPUMesh* Mesh;
+		core::smart_refctd_ptr<video::IGPUMesh> Mesh;
 		core::aabbox3d<float> Box;
 		float Radius;
 		uint32_t PolyCountX;

@@ -5,9 +5,8 @@
 #ifndef __I_SCENE_MANAGER_H_INCLUDED__
 #define __I_SCENE_MANAGER_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
-#include "irr/core/Types.h"
-#include "irr/core/irrString.h"
+#include "irr/core/core.h"
+
 #include "path.h"
 #include "vector3d.h"
 #include "dimension2d.h"

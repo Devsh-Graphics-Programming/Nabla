@@ -420,12 +420,12 @@ void CNullDriver::removeAllFrameBuffers()
 {
 }
 
-ITexture* CNullDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format)
+core::smart_refctd_ptr<ITexture> CNullDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format)
 {
     if (type != ITexture::ETT_2D)
         return nullptr;
 
-    return new SDummyTexture("");
+    return core::make_smart_refctd_ptr<SDummyTexture>("");
 }
 
 

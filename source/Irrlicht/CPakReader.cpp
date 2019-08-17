@@ -8,7 +8,6 @@
 #ifdef __IRR_COMPILE_WITH_PAK_ARCHIVE_LOADER_
 
 #include "os.h"
-#include "coreutil.h"
 #include "CLimitReadFile.h"
 
 namespace irr

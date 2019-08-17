@@ -6,7 +6,6 @@
 #define __I_MESH_SCENE_NODE_H_INCLUDED__
 
 #include "ISceneNode.h"
-#include "irr/asset/IMesh.h"
 #include "irr/video/IGPUMesh.h"
 
 namespace irr

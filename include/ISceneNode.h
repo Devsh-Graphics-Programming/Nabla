@@ -5,13 +5,14 @@
 #ifndef __I_SCENE_NODE_H_INCLUDED__
 #define __I_SCENE_NODE_H_INCLUDED__
 
+#include "irr/core/core.h"
+
 #include "ESceneNodeTypes.h"
 #include "ECullingTypes.h"
 #include "EDebugSceneTypes.h"
 #include "ISceneNodeAnimator.h"
 #include "SMaterial.h"
 #include "ITexture.h"
-#include "irr/core/irrString.h"
 #include "aabbox3d.h"
 #include "matrix4x3.h"
 #include "IDummyTransformationSceneNode.h"

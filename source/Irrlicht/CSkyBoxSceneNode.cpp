@@ -2,11 +2,11 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#include "CSkyBoxSceneNode.h"
 #include "IVideoDriver.h"
 #include "ISceneManager.h"
 #include "ICameraSceneNode.h"
 
+#include "CSkyBoxSceneNode.h"
 #include "os.h"
 
 namespace irr

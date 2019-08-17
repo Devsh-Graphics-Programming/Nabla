@@ -5,10 +5,21 @@
 #ifndef __IRR_I_DRIVER_H_INCLUDED__
 #define __IRR_I_DRIVER_H_INCLUDED__
 
-#include "IDriverMemoryAllocation.h"
-#include "IGPUBuffer.h"
-#include "irr/video/StreamingTransientDataBuffer.h"
-#include "ITexture.h"
+#include "irr/asset/asset.h"
+#include "irr/video/asset_traits.h"
+#include "irr/video/alloc/StreamingTransientDataBuffer.h"
+
+namespace irr
+{
+	class IrrlichtDevice;
+
+namespace video
+{
+	class IGPUMeshDataFormatDesc;
+	class IGPUObjectFromAssetConverter;
+}
+}
+
 #include "IMultisampleTexture.h"
 #include "ITextureBufferObject.h"
 #include "IFrameBuffer.h"
@@ -16,15 +27,11 @@
 #include "IQueryObject.h"
 #include "IGPUTimestampQuery.h"
 #include "IDriverFence.h"
-#include "irr/video/asset_traits.h"
 
 namespace irr
 {
-class IrrlichtDevice;
-
 namespace video
 {
-    class IGPUObjectFromAssetConverter;
 
 	//! Interface to the functionality of the graphics API device which does not require the submission of GPU commands onto a queue.
 	/** This interface only deals with OpenGL and Vulkan concepts which do not require a command to be recorded in a command buffer
@@ -127,7 +134,7 @@ namespace video
             virtual IGPUBuffer* createGPUBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
 
             //! Creates a texture
-            virtual ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) { return nullptr; }
+            virtual core::smart_refctd_ptr<ITexture> createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) { return nullptr; }
 
             //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the CPU writes to become GPU visible
             virtual void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) {}
@@ -238,7 +245,7 @@ namespace video
 
 
             //! Creates a VAO or InputAssembly for OpenGL and Vulkan respectively
-            virtual video::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL) {return nullptr;}
+            virtual video::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::CLeakDebugger* dbgr=NULL) {return nullptr;}
 
 
             //! Creates a framebuffer object with no attachments
@@ -271,7 +278,7 @@ namespace video
             }
 
             template<typename AssetType>
-            core::vector<typename video::asset_traits<AssetType>::GPUObjectType*> getGPUObjectsFromAssets(AssetType** const _begin, AssetType** const _end, IGPUObjectFromAssetConverter* _converter = nullptr);
+            core::vector<core::smart_refctd_ptr<typename video::asset_traits<AssetType>::GPUObjectType> > getGPUObjectsFromAssets(AssetType** const _begin, AssetType** const _end, IGPUObjectFromAssetConverter* _converter = nullptr);
 	};
 
 } // end namespace video

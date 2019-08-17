@@ -1,4 +1,3 @@
-#include "IrrCompileConfig.h"
 #include "COpenGLVAOSpec.h"
 
 
@@ -26,7 +25,7 @@ namespace irr
 namespace video
 {
 
-COpenGLVAOSpec::COpenGLVAOSpec(core::LeakDebugger* dbgr) :  leakDebugger(dbgr)
+COpenGLVAOSpec::COpenGLVAOSpec(core::CLeakDebugger* dbgr) :  leakDebugger(dbgr)
 {
     if (leakDebugger)
         leakDebugger->registerObj(this);

@@ -6,7 +6,8 @@
 #define __C_BILLBOARD_SCENE_NODE_H_INCLUDED__
 
 #include "IBillboardSceneNode.h"
-#include "irr/video/IGPUMeshBuffer.h"
+
+#include "irr/video/video.h"
 
 namespace irr
 {

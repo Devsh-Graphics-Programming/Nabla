@@ -91,7 +91,7 @@ class COpenGLTextureBufferObject : public COpenGLTexture, public ITextureBufferO
 
     public:
         //! constructor
-        COpenGLTextureBufferObject(COpenGLBuffer* buffer, E_TEXURE_BUFFER_OBJECT_FORMAT format, const size_t& offset=0, const size_t& length=0, core::LeakDebugger* dbgr=NULL)
+        COpenGLTextureBufferObject(COpenGLBuffer* buffer, E_TEXURE_BUFFER_OBJECT_FORMAT format, const size_t& offset=0, const size_t& length=0, core::CLeakDebugger* dbgr=NULL)
                                     : COpenGLTexture(GL_TEXTURE_BUFFER), lastValidated(0), currentBuffer(NULL), Offset(0), Length(0), leakTracker(dbgr), InternalFormat(GL_INVALID_ENUM), ColorFormat(asset::EF_UNKNOWN), TextureSize(0)
         {
             if (leakTracker)
@@ -315,7 +315,7 @@ class COpenGLTextureBufferObject : public COpenGLTexture, public ITextureBufferO
         COpenGLBuffer* currentBuffer;
         size_t Length,Offset;
 
-        core::LeakDebugger* leakTracker;
+        core::CLeakDebugger* leakTracker;
 
         uint32_t TextureSize;
 

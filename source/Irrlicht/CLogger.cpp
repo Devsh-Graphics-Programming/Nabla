@@ -2,7 +2,7 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#include "coreutil.h"
+#include "irr/core/core.h"
 #include "CLogger.h"
 
 namespace irr

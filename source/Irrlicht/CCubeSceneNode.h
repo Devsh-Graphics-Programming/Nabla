@@ -6,7 +6,7 @@
 #define __C_CUBE_SCENE_NODE_H_INCLUDED__
 
 #include "IMeshSceneNode.h"
-#include "irr/video/SGPUMesh.h"
+#include "irr/video/IGPUMesh.h"
 
 namespace irr
 {
@@ -16,7 +16,7 @@ namespace scene
 	class CCubeSceneNode : public IMeshSceneNode
 	{
 	    protected:
-            virtual ~CCubeSceneNode();
+			virtual ~CCubeSceneNode() {}
 
         public:
             //! constructor
@@ -56,7 +56,7 @@ namespace scene
             virtual void setMesh(video::IGPUMesh* mesh) {}
 
             //! Returns the current mesh
-            virtual video::IGPUMesh* getMesh(void) { return Mesh; }
+            virtual video::IGPUMesh* getMesh(void) { return Mesh.get(); }
 
             //! Sets if the scene node should not copy the materials of the mesh but use them in a read only style.
             /* In this way it is possible to change the materials a mesh causing all mesh scene nodes
@@ -69,7 +69,7 @@ namespace scene
         private:
             void setSize();
 
-            video::IGPUMesh* Mesh;
+            core::smart_refctd_ptr<video::IGPUMesh> Mesh;
             float Size;
 	};
 

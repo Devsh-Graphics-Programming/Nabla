@@ -9,7 +9,7 @@
 #include "ICameraSceneNode.h"
 #include "IMaterialRenderer.h"
 #include "os.h"
-#include "irr/video/SGPUMesh.h"
+#include "irr/video/CGPUMesh.h"
 
 #include "irr/static_if.h"
 

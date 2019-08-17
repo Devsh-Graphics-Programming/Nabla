@@ -5,7 +5,7 @@
 #ifndef __C_VIDEO_OPEN_GL_H_INCLUDED__
 #define __C_VIDEO_OPEN_GL_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "irr/core/core.h"
 
 #include "SIrrCreationParameters.h"
 
@@ -424,7 +424,7 @@ namespace video
         const SAuxContext* getThreadContext(const std::thread::id& tid=std::this_thread::get_id()) const;
         bool deinitAuxContext();
 
-	    virtual video::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL);
+	    virtual video::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::CLeakDebugger* dbgr=NULL);
 
         virtual uint16_t retrieveDisplayRefreshRate() const override;
 

@@ -6,7 +6,6 @@
 #define __S_VERTEX_MANIPULATOR_H_INCLUDED__
 
 #include "vectorSIMD.h"
-#include "irr/video/IGPUMeshBuffer.h"
 #include <vector>
 #include <fstream>
 #include <iterator>

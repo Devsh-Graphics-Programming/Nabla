@@ -1,9 +1,10 @@
 #ifndef __C_OPEN_GL_VAO_SPEC_H_INCLUDED__
 #define __C_OPEN_GL_VAO_SPEC_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
-#include "COpenGLBuffer.h"
+#include "irr/core/core.h"
 #include "irr/video/IGPUMeshBuffer.h"
+
+#include "COpenGLBuffer.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
@@ -124,7 +125,7 @@ namespace video
                 };
             };
 
-            COpenGLVAOSpec(core::LeakDebugger* dbgr=NULL);
+            COpenGLVAOSpec(core::CLeakDebugger* dbgr=NULL);
 
             virtual void setVertexAttrBuffer(IGPUBuffer* attrBuf, asset::E_VERTEX_ATTRIBUTE_ID attrId, asset::E_FORMAT format, size_t stride=0, size_t offset=0, uint32_t divisor=0) override;
 
@@ -175,7 +176,7 @@ namespace video
             virtual ~COpenGLVAOSpec();
 
         private:
-            core::LeakDebugger* leakDebugger;
+            core::CLeakDebugger* leakDebugger;
     };
 
 

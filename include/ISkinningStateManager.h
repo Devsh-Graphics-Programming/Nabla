@@ -4,7 +4,7 @@
 #include "CFinalBoneHierarchy.h"
 #include "IDummyTransformationSceneNode.h"
 #include "irr/core/alloc/PoolAddressAllocator.h"
-#include "irr/video/ResizableBufferingAllocator.h"
+#include "irr/video/alloc/ResizableBufferingAllocator.h"
 
 #include "IVideoDriver.h"
 

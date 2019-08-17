@@ -20,7 +20,7 @@ namespace scene
 //! constructor
 CSphereSceneNode::CSphereSceneNode(float radius, uint32_t polyCountX, uint32_t polyCountY, IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
 			const core::vector3df& position, const core::vector3df& rotation, const core::vector3df& scale)
-: IMeshSceneNode(parent, mgr, id, position, rotation, scale), Mesh(0),
+: IMeshSceneNode(parent, mgr, id, position, rotation, scale), Mesh(),
 	Radius(radius), PolyCountX(polyCountX), PolyCountY(polyCountY)
 {
 	#ifdef _IRR_DEBUG
@@ -29,17 +29,8 @@ CSphereSceneNode::CSphereSceneNode(float radius, uint32_t polyCountX, uint32_t p
 
     asset::ICPUMesh* cpumesh = SceneManager->getDevice()->getAssetManager().getGeometryCreator()->createSphereMesh(radius, polyCountX, polyCountY);
 	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
-    Mesh = res.size() ? res.front() : nullptr;
+    Mesh = res.size() ? std::move(res.front()) : nullptr;
     assert(Mesh);
-}
-
-
-
-//! destructor
-CSphereSceneNode::~CSphereSceneNode()
-{
-	if (Mesh)
-		Mesh->drop();
 }
 
 

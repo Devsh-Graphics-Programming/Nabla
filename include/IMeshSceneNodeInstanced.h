@@ -8,10 +8,9 @@
 
 #include <vector>
 #include "irr/core/alloc/ContiguousPoolAddressAllocator.h"
-#include "irr/video/ResizableBufferingAllocator.h"
+#include "irr/video/alloc/ResizableBufferingAllocator.h"
+#include "irr/video/CGPUMesh.h"
 #include "ISceneNode.h"
-#include "irr/video/SGPUMesh.h"
-#include "irr/video/IGPUMesh.h"
 
 namespace irr
 {
@@ -73,7 +72,7 @@ class IMeshSceneNodeInstanced : public ISceneNode
 
         //! Get the currently defined mesh for display.
         /** \return Pointer to mesh which is displayed by this node. */
-        virtual video::SGPUMesh* getLoDMesh(const size_t &lod) = 0;
+        virtual video::CGPUMesh* getLoDMesh(const size_t &lod) = 0;
 
         virtual size_t getInstanceCount() const = 0;
 

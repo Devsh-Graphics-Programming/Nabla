@@ -35,7 +35,7 @@ CCubeSceneNode::CCubeSceneNode(float size, IDummyTransformationSceneNode* parent
 		int32_t id, const core::vector3df& position,
 		const core::vector3df& rotation, const core::vector3df& scale)
 	: IMeshSceneNode(parent, mgr, id, position, rotation, scale),
-	Mesh(0), Size(size)
+	Mesh(), Size(size)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("CCubeSceneNode");
@@ -45,21 +45,11 @@ CCubeSceneNode::CCubeSceneNode(float size, IDummyTransformationSceneNode* parent
 }
 
 
-CCubeSceneNode::~CCubeSceneNode()
-{
-	if (Mesh)
-		Mesh->drop();
-}
-
-
 void CCubeSceneNode::setSize()
 {
-	if (Mesh)
-		Mesh->drop();
-
     asset::ICPUMesh* cpumesh = SceneManager->getDevice()->getAssetManager().getGeometryCreator()->createCubeMesh(core::vector3df(Size));
     auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1);
-    Mesh = res.size() ? res.front() : nullptr;
+    Mesh = res.size() ? std::move(res.front()) : nullptr;
     assert(Mesh);
 }
 

@@ -12,10 +12,8 @@
 #include "position2d.h"
 #include "SMaterial.h"
 #include "IDriverFence.h"
-#include "irr/video/SGPUMesh.h"
 #include "SExposedVideoData.h"
 #include "IDriver.h"
-#include "irr/asset/EFormat.h"
 #include "irr/video/CDerivativeMapCreator.h"
 
 namespace irr
