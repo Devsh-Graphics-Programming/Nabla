@@ -1302,7 +1302,7 @@ void COpenGLDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, 
     extGlCopyNamedBufferSubData(readbuffer->getOpenGLName(),writebuffer->getOpenGLName(),readOffset,writeOffset,length);
 }
 
-IGPUMeshDataFormatDesc* COpenGLDriver::createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr)
+IGPUMeshDataFormatDesc* COpenGLDriver::createGPUMeshDataFormatDesc(core::CLeakDebugger* dbgr)
 {
     return new COpenGLVAOSpec(dbgr);
 }
@@ -2237,8 +2237,8 @@ bool orderByMip(asset::CImageData* a, asset::CImageData* b)
 
 
 //! returns a device dependent texture from a software surface (IImage)
-video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
-			const io::path& name, asset::E_FORMAT format)
+core::smart_refctd_ptr<video::ITexture> COpenGLDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size,
+																					uint32_t mipmapLevels, const io::path& name, asset::E_FORMAT format)
 {
 #ifdef _IRR_DEBUG
     //if the max coords are not 0, then there is something seriously wrong
@@ -2299,31 +2299,31 @@ video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_T
     switch (type)
     {
         case ITexture::ETT_1D:
-            return new COpenGL1DTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format), size, mipmapLevels, name);
+            return core::make_smart_refctd_ptr<COpenGL1DTexture>(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format), size, mipmapLevels, name);
             break;
         case ITexture::ETT_2D:
-            return new COpenGL2DTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format), size, mipmapLevels, name);
+            return core::make_smart_refctd_ptr<COpenGL2DTexture>(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format), size, mipmapLevels, name);
             break;
         case ITexture::ETT_3D:
-            return new COpenGL3DTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            return core::make_smart_refctd_ptr<COpenGL3DTexture>(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
             break;
         case ITexture::ETT_1D_ARRAY:
-            return new COpenGL1DTextureArray(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            return core::make_smart_refctd_ptr<COpenGL1DTextureArray>(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
             break;
         case ITexture::ETT_2D_ARRAY:
-            return new COpenGL2DTextureArray(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            return core::make_smart_refctd_ptr<COpenGL2DTextureArray>(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
             break;
         case ITexture::ETT_CUBE_MAP:
-            return new COpenGLCubemapTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            return core::make_smart_refctd_ptr<COpenGLCubemapTexture>(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
             break;
         case ITexture::ETT_CUBE_MAP_ARRAY:
-            return new COpenGLCubemapArrayTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            return core::make_smart_refctd_ptr<COpenGLCubemapArrayTexture>(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
             break;
         default:// ETT_CUBE_MAP, ETT_CUBE_MAP_ARRAY, ETT_TEXTURE_BUFFER
             break;
     }
 
-    return NULL;
+    return nullptr;
 }
 
 
@@ -2571,7 +2571,7 @@ void COpenGLDriver::setViewPort(const core::rect<int32_t>& area)
 	}
 }
 
-ITexture* COpenGLDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format)
+core::smart_refctd_ptr<ITexture> COpenGLDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format)
 {
     return createDeviceDependentTexture(type, size, mipmapLevels, "", format);
 }

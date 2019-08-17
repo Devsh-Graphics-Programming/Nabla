@@ -37,7 +37,7 @@ public:
     template<typename AssetType>
     core::vector<core::smart_refctd_ptr<typename video::asset_traits<AssetType>::GPUObjectType> > getGPUObjectsFromAssets(AssetType** const _begin, AssetType** const _end)
     {
-        core::vector<core::smart_refctd_ptr<AssetType> > notFound; // TODO: change to smartptr
+        core::vector<AssetType*> notFound;
         core::vector<size_t> pos;
         core::vector<core::smart_refctd_ptr<typename video::asset_traits<AssetType>::GPUObjectType> > res;
         AssetType** it = _begin;
@@ -58,18 +58,19 @@ public:
 		{
 			decltype(res) created = create(notFound.data(), notFound.data()+notFound.size());
 			
+			size_t oldSize = res.size();
+			res.resize(oldSize+created.size());
 			for (size_t i = 0u; i < created.size(); ++i)
 			{
-				m_assetManager->convertAssetToEmptyCacheHandle(std::move(notFound[i]), created[i]);
+				m_assetManager->convertAssetToEmptyCacheHandle(notFound[i], created[i].get());
 				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<asset::ICPUTexture, AssetType>::value)
 				{
 					created[i]->drop(); // IGPUTexture is not grabbed when set in SGPUMaterial, so we have to drop it after inserting into cache (done by convertAssetToEmptyCacheHandle)
 				}
 				IRR_PSEUDO_IF_CONSTEXPR_END
+
+				res[oldSize+pos[i]] = std::move(created[i]);
 			}
-			
-			res.resize(res.size()+created.size());
-			std::move(created.begin(),created.end(),res.begin()+pos[i]);
         }
 
         return res;

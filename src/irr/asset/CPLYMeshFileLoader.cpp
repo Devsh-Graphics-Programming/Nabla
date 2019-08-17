@@ -268,7 +268,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				}
 			}
 
-            if (!genVertBuffersForMBuffer(mb, attribs))
+            if (!genVertBuffersForMBuffer(mb.get(), attribs))
                 return {};
             if (indices.size())
             {

@@ -431,14 +431,14 @@ core::smart_refctd_ptr<ITexture> CNullDriver::createGPUTexture(const ITexture::E
 
 //! returns a device dependent texture from a software surface (IImage)
 //! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
-ITexture* CNullDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
+core::smart_refctd_ptr<ITexture> CNullDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
 			const io::path& name, asset::E_FORMAT format)
 {
     //better safe than sorry
     if (type!=ITexture::ETT_2D)
-        return NULL;
+        return nullptr;
 
-	return new SDummyTexture(name);
+	return core::make_smart_refctd_ptr<SDummyTexture>(name);
 }
 
 

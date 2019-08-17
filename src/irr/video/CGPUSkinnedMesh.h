@@ -20,12 +20,15 @@ namespace video
     class CGPUSkinnedMesh : public IGPUSkinnedMesh
     {
         private:
-            struct SGPUMeshBufferMetaData
+            struct CGPUMeshBufferMetaData
             {
+				CGPUMeshBufferMetaData(core::smart_refctd_ptr<video::IGPUMeshBuffer>&& _mb, uint32_t _maxVertexWeightInfluences) :
+													mb(std::move(_mb)), maxVertexWeightInfluences(_maxVertexWeightInfluences) {}
+
                 core::smart_refctd_ptr<video::IGPUMeshBuffer> mb;
                 uint32_t maxVertexWeightInfluences;
             };
-            core::vector<SGPUMeshBufferMetaData> meshbuffers;
+            core::vector<CGPUMeshBufferMetaData> meshbuffers;
 
         protected:
             virtual ~CGPUSkinnedMesh()

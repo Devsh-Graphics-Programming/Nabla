@@ -1,8 +1,9 @@
 #ifndef __C_OPEN_GL_BUFFER_H_INCLUDED__
 #define __C_OPEN_GL_BUFFER_H_INCLUDED__
 
+#include "irr/core/core.h"
 #include "IGPUBuffer.h"
-#include "IrrCompileConfig.h"
+
 #include "FW_Mutex.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_

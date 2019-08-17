@@ -59,7 +59,7 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ROOT_PATH}/src/irr/core/memory/CLeakDebugger.cpp
 
 # Pixel Formats
-	${IRR_ROOT_PATH}/src/irr/video/format/convertColor.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/format/convertColor.cpp
 
 # Mesh loaders
 	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshFileLoader.cpp

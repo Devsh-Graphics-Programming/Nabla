@@ -185,7 +185,7 @@ void IrrlichtDevice::addLoadersAndWriters()
 #endif
 #ifdef _IRR_COMPILE_WITH_STL_WRITER_
     {
-        auto wtr = new asset::CSTLMeshWriter(getSceneManager());
+        auto wtr = new asset::CSTLMeshWriter();
         m_assetMgr->addAssetWriter(wtr);
         wtr->drop();
     }

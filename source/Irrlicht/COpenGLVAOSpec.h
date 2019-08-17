@@ -2,7 +2,7 @@
 #define __C_OPEN_GL_VAO_SPEC_H_INCLUDED__
 
 #include "irr/core/core.h"
-#include "irr/video/IGPUMeshBuffer.h"
+//#include "irr/video/IGPUMeshBuffer.h"
 
 #include "COpenGLBuffer.h"
 

@@ -132,7 +132,7 @@ void* TypedBlob<MeshBlobV0, asset::ICPUMesh>::finalize(void* _obj, const void* _
 	const MeshBlobV0* blob = reinterpret_cast<const MeshBlobV0*>(_blob);
 	asset::CCPUMesh* mesh = (asset::CCPUMesh*)_obj;
 	for (uint32_t i = 0; i < blob->meshBufCnt; ++i)
-		mesh->addMeshBuffer(reinterpret_cast<asset::ICPUMeshBuffer*>(_deps[blob->meshBufPtrs[i]]));
+		mesh->addMeshBuffer(core::smart_refctd_ptr<asset::ICPUMeshBuffer>(reinterpret_cast<asset::ICPUMeshBuffer*>(_deps[blob->meshBufPtrs[i]])));
 	return _obj;
 }
 

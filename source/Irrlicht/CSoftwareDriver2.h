@@ -10,7 +10,6 @@
 #include "CNullDriver.h"
 #include "CImage.h"
 #include "os.h"
-#include "irr/core/irrString.h"
 #include "SIrrCreationParameters.h"
 
 namespace irr

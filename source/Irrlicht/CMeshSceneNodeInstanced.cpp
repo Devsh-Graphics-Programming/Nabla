@@ -179,12 +179,12 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
         tmp.distanceSQ = levelsOfDetail[i].lodDistance;
         tmp.distanceSQ *= tmp.distanceSQ;
 
-        tmp.mesh = new video::SGPUMesh();
+        tmp.mesh = new video::CGPUMesh();
         for (size_t j=0; j<levelsOfDetail[i].mesh->getMeshBufferCount(); j++)
         {
             video::IGPUMeshBuffer* origBuff = levelsOfDetail[i].mesh->getMeshBuffer(j);
 
-            video::IGPUMeshBuffer* meshBuff = new video::IGPUMeshBuffer();
+            auto meshBuff = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>();
             meshBuff->setBaseVertex(origBuff->getBaseVertex());
             if (origBuff->isIndexCountGivenByXFormFeedback())
                 meshBuff->setIndexCountFromXFormFeedback(origBuff->getXFormFeedback(),origBuff->getXFormFeedbackStream());
@@ -200,8 +200,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
 
             meshBuff->getMaterial() = origBuff->getMaterial();
             meshBuff->setBoundingBox(origBuff->getBoundingBox());
-            tmp.mesh->addMeshBuffer(meshBuff);
-            meshBuff->drop();
+            tmp.mesh->addMeshBuffer(std::move(meshBuff));
         }
         tmp.mesh->setBoundingBox(levelsOfDetail[i].mesh->getBoundingBox());
         if (i)
