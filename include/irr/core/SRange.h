@@ -2,8 +2,8 @@
 // This file is part of the "IrrlichtBaW".
 // For conditions of distribution and use, see LICENSE.md
 
-#ifndef __IRR_SRANGE_H_INCLUDED__
-#define __IRR_SRANGE_H_INCLUDED__
+#ifndef __IRR_S_RANGE_H_INCLUDED__
+#define __IRR_S_RANGE_H_INCLUDED__
 
 #include "stddef.h"
 #include "irr/core/Types.h"
