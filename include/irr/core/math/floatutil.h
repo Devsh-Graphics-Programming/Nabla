@@ -2,8 +2,8 @@
 // This file is part of the "IrrlichtBaW".
 // For conditions of distribution and use, see LICENSE.md
 
-#ifndef __IRR_FLOATUTIL_H_INCLUDED__
-#define __IRR_FLOATUTIL_H_INCLUDED__
+#ifndef __IRR_FLOAT_UTIL_H_INCLUDED__
+#define __IRR_FLOAT_UTIL_H_INCLUDED__
 
 namespace irr
 {
