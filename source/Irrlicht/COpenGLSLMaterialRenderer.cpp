@@ -14,9 +14,6 @@
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
-#ifdef __I_GPU_MESH_BUFFER_H_INCLUDED__
-#error "WTF"
-#endif
 #include "COpenGLSLMaterialRenderer.h"
 #include "IGPUProgrammingServices.h"
 #include "IMaterialRendererServices.h"
