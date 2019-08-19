@@ -12,6 +12,7 @@
 #include "IAssetLoader.h"
 #include "IAssetWriter.h"
 #include "irr/core/Types.h"
+#include "irr/asset/IGLSLCompiler.h"
 
 #include <array>
 #include <ostream>
@@ -20,6 +21,7 @@
 
 namespace irr
 {
+    class IrrlichtDevice;
 namespace asset
 {
     class IGeometryCreator;
@@ -67,6 +69,7 @@ namespace asset
         template<typename T>
         static void refCtdDispose(T* _asset) { _asset->drop(); }
 
+        IrrlichtDevice* m_device;
         io::IFileSystem* m_fileSystem;
         IAssetLoader::IAssetLoaderOverride m_defaultLoaderOverride;
 
@@ -102,13 +105,15 @@ namespace asset
 
         IGeometryCreator* m_geometryCreator;
         IMeshManipulator* m_meshManipulator;
+        IGLSLCompiler* m_glslCompiler;
         // called as a part of constructor only
         void initializeMeshTools();
         void dropMeshTools();
 
     public:
         //! Constructor
-        explicit IAssetManager(io::IFileSystem* _fs) :
+        explicit IAssetManager(IrrlichtDevice* _dev, io::IFileSystem* _fs) :
+            m_device{_dev},
             m_fileSystem{_fs},
             m_defaultLoaderOverride{nullptr}
         {
@@ -162,6 +167,7 @@ namespace asset
 
         const IGeometryCreator* getGeometryCreator() const;
         const IMeshManipulator* getMeshManipulator() const;
+        const IGLSLCompiler* getGLSLCompiler() const { return m_glslCompiler; }
 
     protected:
         //! _supposedFilename is filename as it was, not touched by loader override with _override->getLoadFilename()

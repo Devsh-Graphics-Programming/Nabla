@@ -87,7 +87,7 @@ asset::IAssetManager& IrrlichtDevice::getAssetManager()
 {
     if (!m_assetMgr)
     {
-        m_assetMgr = new asset::IAssetManager(getFileSystem());
+        m_assetMgr = new asset::IAssetManager(this, getFileSystem());
         addLoadersAndWriters();
     }
     return *m_assetMgr;

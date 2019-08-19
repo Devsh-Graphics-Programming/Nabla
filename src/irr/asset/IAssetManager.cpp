@@ -18,12 +18,14 @@ void IAssetManager::initializeMeshTools()
 {
     m_geometryCreator = new CGeometryCreator();
     m_meshManipulator = new CMeshManipulator();
+    m_glslCompiler = new IGLSLCompiler(m_device->getIncludeHandler());
 }
 
 void IAssetManager::dropMeshTools()
 {
     m_geometryCreator->drop();
     m_meshManipulator->drop();
+    m_glslCompiler->drop();
 }
 
 const IGeometryCreator* IAssetManager::getGeometryCreator() const

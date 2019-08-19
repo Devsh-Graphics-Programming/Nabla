@@ -8,6 +8,7 @@
 #include "irr/asset/ShaderRes.h"
 #include "irr/core/memory/new_delete.h"
 #include "irr/asset/IParsedShaderSource.h"
+#include "irr/asset/IGLSLCompiler.h"
 
 namespace spirv_cross
 {
@@ -15,10 +16,17 @@ namespace spirv_cross
     class Compiler;
     struct SPIRType;
 }
-namespace irr { namespace asset
+namespace irr 
+{ 
+namespace asset
 {
     using SEntryPointStagePair = std::pair<std::string, E_SHADER_STAGE>;
-}}//irr::asset
+}//asset
+namespace io
+{
+    class IReadFile;
+}//io
+}//irr
 namespace std
 {
     template<>
@@ -99,17 +107,27 @@ protected:
             m_parsed->drop();
         for (auto& introData : m_introspectionCache)
             SIntrospectionPerformer::deinitIntrospectionData(introData.second);
+        if (m_glslCompiler)
+            m_glslCompiler->drop();
     }
 
 public:
-    ICPUShader(const void* _spirvBytecode, size_t _bytesize) : m_spirvBytecode(new ICPUBuffer(_bytesize)), m_parsed(new IParsedShaderSource(m_spirvBytecode, core::defer))
+    ICPUShader(ICPUBuffer* _spirv) : m_glslCompiler(nullptr), m_spirvBytecode(_spirv), m_parsed(new IParsedShaderSource(m_spirvBytecode, core::defer)) 
     {
-        memcpy(m_spirvBytecode->getPointer(), _spirvBytecode, _bytesize);
     }
+    //! While creating from GLSL source, entry point name and stage must be given in advance
+    ICPUShader(IGLSLCompiler* _glslcompiler, io::IReadFile* _glsl, const std::string& _entryPoint, E_SHADER_STAGE _stage);
 
     IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SHADER; }
-    size_t conservativeSizeEstimate() const override { return m_spirvBytecode ? m_spirvBytecode->conservativeSizeEstimate() : 0u; }
-    void convertToDummyObject() override { }
+    size_t conservativeSizeEstimate() const override 
+    { 
+        if (m_glsl.size())
+            return m_glsl.size();
+        else if (m_spirvBytecode)
+            return m_spirvBytecode->conservativeSizeEstimate();
+        return 0u; //shouldnt ever reach this line
+    }
+    void convertToDummyObject() override { m_glsl.clear(); }
 
     const ICPUBuffer* getSPIR_VBytecode() const { return m_spirvBytecode; };
 
@@ -131,8 +149,11 @@ protected:
     const core::vector<SEntryPointStagePair>& getStageEntryPoints(spirv_cross::Compiler& _comp);
 
 protected:
-    ICPUBuffer* m_spirvBytecode;
+    IGLSLCompiler* m_glslCompiler;
+    ICPUBuffer* m_spirvBytecode = nullptr;
     IParsedShaderSource* m_parsed = nullptr;
+    std::string m_glsl;
+    std::string m_glslOriginFilename;
 
     using CacheKey = SEntryPointStagePair;
     core::unordered_map<CacheKey, SIntrospectionData> m_introspectionCache;

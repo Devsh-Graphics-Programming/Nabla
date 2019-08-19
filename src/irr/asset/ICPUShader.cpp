@@ -87,10 +87,37 @@ E_FORMAT spvImageFormat2E_FORMAT(spv::ImageFormat _imgfmt)
 }
 }
 
+ICPUShader::ICPUShader(IGLSLCompiler* _glslcompiler, io::IReadFile* _glsl, const std::string& _entryPoint, E_SHADER_STAGE _stage) : m_glslCompiler(_glslcompiler)
+{
+    assert(_glslcompiler);
+    if (m_glslCompiler)
+        m_glslCompiler->grab();
+    m_entryPoints.push_back({_entryPoint,_stage});//in case of creation from GLSL source, (entry point, stage) tuple given in constructor is the only one
+    //in case of creation from SPIR-V there can be many of (EP, stage) tuples and they are retrieved directly from SPIR-V opcodes
+
+    if (!_glsl)
+        return;
+    m_glsl.resize(_glsl->getSize());
+    _glsl->read(m_glsl.data(), m_glsl.size());
+    m_glslOriginFilename = _glsl->getFileName().c_str();
+    m_glsl = m_glslCompiler->resolveIncludeDirectives(m_glsl.c_str(), _stage, m_glslOriginFilename.c_str());
+}
+
 void ICPUShader::enableIntrospection()
 {
     if (m_introspectionCache.size()) // already enabled
         return;
+
+    if (!m_spirvBytecode)
+    {
+        //TODO insert extension #define-s
+        //also introspection key should be (EP,stage,enabled_exts) tuple
+
+        //if ICPUShader doesnt already contain SPIR-V, it means it was constructed from GLSL source and SPIR-V has to be retrieved and parsed
+        const SEntryPointStagePair& theOnlyEP = m_entryPoints.front();
+        m_spirvBytecode = m_glslCompiler->createSPIRVFromGLSL(m_glsl.c_str(), theOnlyEP.second, theOnlyEP.first.c_str(), m_glslOriginFilename.c_str());
+        m_parsed = new IParsedShaderSource(m_spirvBytecode);
+    }
 
     spirv_cross::Compiler comp(m_parsed->getUnderlyingRepresentation());
     auto eps = getStageEntryPoints(comp);
@@ -102,7 +129,7 @@ void ICPUShader::enableIntrospection()
 
 auto ICPUShader::getStageEntryPoints() -> const core::vector<SEntryPointStagePair>&
 {
-    if (m_entryPoints.size())
+    if (m_entryPoints.size() || !m_parsed) // m_parsed==nullptr implies introspection not enabled (therefore m_entryPoints is empty and will be returned as such)
         return m_entryPoints;
 
     spirv_cross::Compiler comp(m_parsed->getUnderlyingRepresentation());

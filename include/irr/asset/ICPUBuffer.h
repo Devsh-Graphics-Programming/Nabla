@@ -33,7 +33,6 @@ class ICPUBuffer : public core::IBuffer, public asset::IAsset
     public:
 		//! Constructor.
 		/** @param sizeInBytes Size in bytes. If `dat` argument is present, it denotes size of data pointed by `dat`, otherwise - size of data to be allocated.
-		@param dat Optional parameter. Pointer to data, must be allocated with `_IRR_ALIGNED_MALLOC`. Note that pointed data will not be copied to some internal buffer storage, but buffer will operate on original data pointed by `dat`.
 		*/
         ICPUBuffer(size_t sizeInBytes) : size(0)
         {
