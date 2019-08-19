@@ -122,7 +122,7 @@ bool CImageLoaderDDS::isALoadableFileFormat(io::IReadFile* _file) const
 }
 
 //! creates a surface from the file
-asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	core::vector<asset::CImageData*> images;
 
@@ -259,17 +259,17 @@ asset::IAsset* CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAs
                 default:
 					{
 						os::Printer::log("Unsupported DDS texture format", ELL_ERROR);
-						return nullptr;
+                        return {};
 					}
 					break;
             }
         }
 	}
 
-	asset::ICPUTexture* tex = asset::ICPUTexture::create(images);
+	asset::ICPUTexture* tex = asset::ICPUTexture::create(images, _file->getFileName().c_str());
     for (auto& img : images)
         img->drop();
-    return tex;
+    return {core::smart_refctd_ptr<IAsset>(tex, core::dont_grab)};
 }
 
 

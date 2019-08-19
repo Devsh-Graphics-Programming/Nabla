@@ -65,10 +65,10 @@ bool CPLYMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
 }
 
 //! creates/loads an animated mesh from the file.
-asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	if (!_file)
-		return 0;
+        return {};
 
     SContext ctx;
 
@@ -78,7 +78,7 @@ asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	// attempt to allocate the buffer and fill with data
 	if (!allocateBuffer(ctx))
 	{
-		return 0;
+        return {};
 	}
 
 	// start with empty mesh
@@ -271,7 +271,7 @@ asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             if (!genVertBuffersForMBuffer(mb, attribs))
             {
                 mb->drop();
-                return nullptr;
+                return {};
             }
             if (indices.size())
             {
@@ -301,7 +301,7 @@ asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 		}
 	}
 
-	return mesh;
+	return {core::smart_refctd_ptr<IAsset>(mesh,core::dont_grab)};
 }
 
 

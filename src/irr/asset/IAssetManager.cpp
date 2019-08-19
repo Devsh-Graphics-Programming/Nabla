@@ -5,13 +5,13 @@
 using namespace irr;
 using namespace asset;
 
-std::function<void(IAsset*)> irr::asset::makeAssetGreetFunc(const IAssetManager* const _mgr)
+std::function<void(SAssetBundle&)> irr::asset::makeAssetGreetFunc(const IAssetManager* const _mgr)
 {
-    return [_mgr](IAsset* _asset) { _asset->grab(); _mgr->setAssetCached(_asset, true); };
+    return [_mgr](SAssetBundle& _asset) { _mgr->setAssetCached(_asset, true); };
 }
-std::function<void(IAsset*)> irr::asset::makeAssetDisposeFunc(const IAssetManager* const _mgr)
+std::function<void(SAssetBundle&)> irr::asset::makeAssetDisposeFunc(const IAssetManager* const _mgr)
 {
-    return [_mgr](IAsset* _asset) { _mgr->setAssetCached(_asset, false); _asset->drop(); };
+    return [_mgr](SAssetBundle& _asset) { _mgr->setAssetCached(_asset, false); };
 }
 
 void IAssetManager::initializeMeshTools()

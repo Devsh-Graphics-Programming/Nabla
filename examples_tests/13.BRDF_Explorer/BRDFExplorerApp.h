@@ -36,6 +36,7 @@ SOFTWARE.
 #include <ICameraSceneNode.h>
 
 class CShaderManager;
+class CDerivativeMapManager;
 
 namespace CEGUI
 {
@@ -67,6 +68,10 @@ class GUIManager;
 
 class BRDFExplorerApp {
     public:
+        using Clock = std::chrono::high_resolution_clock;
+        using TimePoint = Clock::time_point;
+        using Duration = std::chrono::duration<float, std::ratio<1, 1>>;
+
         enum ETEXTURE_SLOT {
             TEXTURE_AO,
             TEXTURE_BUMP,
@@ -76,7 +81,7 @@ class BRDFExplorerApp {
             TEXTURE_SLOT_4,
         };
 
-        using TTextureSlotMap = std::map<ETEXTURE_SLOT, std::tuple<const char*, const char*, const char*>>;
+        using TTextureSlotMap = irr::core::map<ETEXTURE_SLOT, std::tuple<const char*, const char*, const char*>>;
 
         enum E_DROPDOWN_STATE
         {
@@ -103,14 +108,16 @@ class BRDFExplorerApp {
             } Roughness;
             struct {
                 E_DROPDOWN_STATE SourceDropdown = EDS_CONSTANT;
-                float ConstValue = 0.f;
+                core::vector3df ConstantReal{1.33f};
+                core::vector3df ConstantImag;
             } RefractionIndex;
             struct {
                 E_DROPDOWN_STATE SourceDropdown = EDS_CONSTANT;
                 float ConstValue = 0.f;
             } Metallic;
             struct {
-                float Height = 0.f;
+                float Height = 0.01f;
+                bool Enabled = false;
             } BumpMapping;
             struct {
                 bool Enabled = false;
@@ -118,8 +125,23 @@ class BRDFExplorerApp {
             struct {
                 core::vector3df Color{1.f, 1.f, 1.f};
                 core::vector3df ConstantPosition; //TODO set it to somerhing default and fine
-                bool Animated = false;
+                bool Animated = true;
+                float Intensity = 800.f;
             } Light;
+        };
+        struct SLightAnimData {
+            float Radius;
+            irr::core::vector2df Center;
+            irr::core::vector3df Position;
+            TimePoint StartTime = Clock::now();
+
+            inline void update() {
+                auto now = Clock::now();
+                const float time = std::chrono::duration_cast<Duration>(now - StartTime).count();
+
+                Position.X = Center.X + std::sin(time)*Radius;
+                Position.Z = Center.Y + std::cos(time)*Radius;
+            }
         };
 
     public:
@@ -128,12 +150,15 @@ class BRDFExplorerApp {
 
         void renderGUI();
         void renderMesh();
+        //! Controls things dependent on time, must be called every frame
+        void update();
 
         // Loads a given texture buffer into slot of type T.
         // T can be one of the TextureType enum types.
         // Caller is responsible for freeing the buffer afterwards.
-        void loadTextureSlot(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _texture);
+        //void loadTextureSlot(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _texture);
         void loadTextureSlot(ETEXTURE_SLOT slot, irr::video::IVirtualTexture* _texture, const std::string& _texName);
+        void loadTextureSlot_CPUTex(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _cputexture);
 
     private:
         irr::asset::ICPUTexture* loadCPUTexture(const std::string& _path);
@@ -144,16 +169,26 @@ class BRDFExplorerApp {
         };
         SCPUGPUMesh loadMesh(const std::string& _path);
         void loadMeshAndReplaceTextures(const std::string& _path);
+        void setUpLight(float radiusMlt = 1.1f);
 
-        static constexpr float sliderRIRange = 1.0f;
+        //static constexpr float sliderRIRange = 2.0f;
+        static constexpr float sliderRealRIRange = 4.0f;
+        static constexpr float sliderImagRIRange = 10.0f;
         static constexpr float sliderMetallicRange = 1.0f;
         static constexpr float sliderRoughness1Range = 1.0f;
         static constexpr float sliderRoughness2Range = 1.0f;
-        static constexpr float sliderBumpHeightRange = 20.0f;
+        static constexpr float sliderBumpHeightRange = 2.0f;
+        static constexpr float sliderLightIntensityRange = 9999.f; // turns out i cant set min value on cegui slider XD
         static constexpr float defaultOpacity = 0.85f;
 
         void initDropdown();
         void initTooltip();
+
+        void setGUIForConstantIoR();
+        // used when IoR-source is set back to texture (from constant)
+        void resetGUIAfterConstantIoR();
+
+        void setLightPosition(const irr::core::vector3df& _lightPos);
 
         void updateTooltip(const char* name, const char* text);
         void eventAOTextureBrowse(const ::CEGUI::EventArgs&);
@@ -171,12 +206,10 @@ class BRDFExplorerApp {
         static constexpr const char* MeshFileDialogTitle = "Select Mesh";
 
         const std::vector<std::string> ImageFileDialogFilters = {
-            "Everything (*.*)", "*",
             "Image (*.jpg, *.jpeg, *.png, *.bmp, *.tga, *.dds, *.gif)",
             "*.jpg *.jpeg *.png *.bmp *.tga *.dds *.gif"
         };
         const std::vector<std::string> MeshFileDialogFilters = {
-            "Everything (*.*)", "*",
             "Mesh (*.ply *.stl *.baw *.x *.obj)",
             "*.ply *.stl *.baw *.x *.obj"
         };
@@ -190,23 +223,45 @@ class BRDFExplorerApp {
 
         void showErrorMessage(const char* title, const char* message);
 
+        static constexpr uint32_t ALBEDO_MAP_TEX_UNIT = 0u;
+        static constexpr uint32_t ROUGHNESS_MAP_TEX_UNIT = 1u;
+        static constexpr uint32_t IOR_MAP_TEX_UNIT = 2u;
+        static constexpr uint32_t METALLIC_MAP_TEX_UNIT = 3u;
+        static constexpr uint32_t DERIV_MAP_TEX_UNIT = 4u;
+        static constexpr uint32_t AO_MAP_TEX_UNIT = 5u;
+        void updateMaterial();
+
     private:
         scene::ICameraSceneNode* Camera = nullptr;
         video::IVideoDriver* Driver = nullptr;
         asset::IAssetManager& AssetManager;
         ext::cegui::GUIManager* GUI = nullptr;
         TTextureSlotMap TextureSlotMap;
+
+        struct {
+            irr::video::IVirtualTexture* TextureViewer[4]{};
+            irr::video::IVirtualTexture* AO = nullptr;
+            irr::video::IVirtualTexture* BumpMap = nullptr;
+        } Textures;
+
+        struct {
+            TimePoint TimePointLastHeightFactorChange = Clock::now();
+            float HeightFactorChanged = false;
+        } DerivMapGeneration;
         
         SGUIState GUIState;
+
+        SLightAnimData LightAnimData;
 
         irr::video::IGPUMesh* Mesh = nullptr;
         irr::video::SGPUMaterial Material;
 
         irr::video::IVirtualTexture* DefaultTexture = nullptr;
+        irr::video::IGPUMesh* DefaultMesh = nullptr;
 
         CShaderManager* ShaderManager = nullptr;
+        CDerivativeMapManager* DerivativeMapManager = nullptr;
 };
 
 } // namespace irr
-
 #endif // _IRR_BRDF_EXPLORER_APP_INCLUDED_

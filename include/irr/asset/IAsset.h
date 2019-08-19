@@ -3,11 +3,23 @@
 
 #include <string>
 #include "irr/core/IReferenceCounted.h"
+#include "irr/core/Types.h"
+#include "irr/core/refctd_dynamic_array.h"
 
 namespace irr { namespace asset
 {
 
 class IAssetManager;
+
+class IAssetMetadata : public core::IReferenceCounted
+{
+protected:
+    virtual ~IAssetMetadata() = default;
+
+public:
+    //! this could actually be reworked to something more usable
+    virtual const char* getLoaderName() = 0;
+};
 
 class IAsset : virtual public core::IReferenceCounted
 {
@@ -52,23 +64,19 @@ public:
         return r;
     }
 
-    IAsset() : isCached{false}, isDummyObjectForCacheAliasing{false} {}
+    IAsset() : isDummyObjectForCacheAliasing{false}, m_metadata{nullptr} {}
 
     virtual size_t conservativeSizeEstimate() const = 0;
 
+    IAssetMetadata* getMetadata() { return m_metadata.get(); }
+    const IAssetMetadata* getMetadata() const { return m_metadata.get(); }
+
+    friend IAssetManager;
+
 private:
-    friend class IAssetManager;
+    core::smart_refctd_ptr<IAssetMetadata> m_metadata;
 
-    std::string cacheKey;
-    bool isCached;
-
-    // could make a move-ctor version too
-    inline void setNewCacheKey(const std::string& newKey) { cacheKey = newKey; }
-    inline void setNewCacheKey(std::string&& newKey) { cacheKey = std::move(newKey); }
-    inline void setCached(bool val) { isCached = val; }
-    // (Criss) Why this is here if there's convertToDummyObject already
-    //! Utility function to call so IAssetManager can call convertToDummyObject
-    inline void IAssetManager_convertToDummyObject() { this->convertToDummyObject(); }
+    void setMetadata(IAssetMetadata* _metadata) { m_metadata = _metadata; }
 
 protected:
     bool isDummyObjectForCacheAliasing;
@@ -76,19 +84,75 @@ protected:
     //! but cleans up all other resources which are not assets.
     virtual void convertToDummyObject() = 0;
     //! Checks if the object is either not dummy or dummy but in some cache for a purpose
-    inline bool isInValidState() { return !isDummyObjectForCacheAliasing || !isCached; }
+    inline bool isInValidState() { return !isDummyObjectForCacheAliasing /* || !isCached TODO*/; }
     //! Pure virtual destructor to ensure no instantiation
     virtual ~IAsset() = 0;
 
 public:
-    //! Whether this asset is in a cache and should be removed from cache to destroy
-    inline bool isInAResourceCache() const { return isCached; }
-    //! Only valid if IAsset:isInAResourceCache() returns true
-    std::string getCacheKey() const { return cacheKey; }
     //! To be implemented by derived classes
     virtual E_TYPE getAssetType() const = 0;
     //! 
     inline bool isADummyObjectForCache() const { return isDummyObjectForCacheAliasing; }
+};
+
+class SAssetBundle
+{
+    using contents_container_t = core::refctd_dynamic_array<core::smart_refctd_ptr<IAsset>>;
+public:
+    SAssetBundle(std::initializer_list<core::smart_refctd_ptr<IAsset>> _contents = {}) : m_contents(new contents_container_t(_contents), core::dont_grab)
+    {
+        auto allSameTypeAndNotNull = [&_contents] {
+            if (_contents.size()==0ull)
+                return true;
+            if (!*_contents.begin())
+                return false;
+            IAsset::E_TYPE t = (*_contents.begin())->getAssetType();
+            for (const auto& ast : _contents)
+                if (!ast || ast->getAssetType() != t)
+                    return false;
+            return true;
+        };
+        assert(allSameTypeAndNotNull());
+    }
+
+    inline IAsset::E_TYPE getAssetType() const { return m_contents->front()->getAssetType(); }
+
+    inline std::pair<core::smart_refctd_ptr<IAsset>*, core::smart_refctd_ptr<IAsset>*> getContents()
+    {
+        return {m_contents->begin(), m_contents->end()};
+    }
+    inline std::pair<const core::smart_refctd_ptr<IAsset>*, const core::smart_refctd_ptr<IAsset>*> getContents() const
+    {
+        return {m_contents->begin(), m_contents->end()};
+    }
+
+    //! Whether this asset bundle is in a cache and should be removed from cache to destroy
+    inline bool isInAResourceCache() const { return m_isCached; }
+    //! Only valid if isInAResourceCache() returns true
+    std::string getCacheKey() const { return m_cacheKey; }
+
+    size_t getSize() const { return m_contents->size(); }
+    bool isEmpty() const { return getSize()==0ull; }
+
+    bool operator==(const SAssetBundle& _other) const
+    {
+        return _other.m_contents == m_contents;
+    }
+    bool operator!=(const SAssetBundle& _other) const
+    {
+        return !((*this) != _other);
+    }
+
+private:
+    friend class IAssetManager;
+
+    inline void setNewCacheKey(const std::string& newKey) { m_cacheKey = newKey; }
+    inline void setNewCacheKey(std::string&& newKey) { m_cacheKey = std::move(newKey); }
+    inline void setCached(bool val) { m_isCached = val; }
+
+    std::string m_cacheKey;
+    bool m_isCached = false;
+    core::smart_refctd_ptr<contents_container_t> m_contents;
 };
 
 }}

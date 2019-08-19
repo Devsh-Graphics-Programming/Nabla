@@ -138,7 +138,7 @@ static void convertColorFlip(asset::CImageData **image, const T *src, bool flip)
 }
 
 //! creates a surface from the file
-asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	STGAHeader header;
 	uint32_t *palette = 0;
@@ -201,7 +201,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 				if (palette)
 					delete [] palette;
 
-				return nullptr;
+                return {};
 			}
 		
 		default:
@@ -210,7 +210,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 				if (palette)
 					delete [] palette;
 
-				return nullptr;
+                return {};
 			}
 	}
 
@@ -230,7 +230,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 					if (palette) delete [] palette;
 					if (data)    delete [] data;
 					
-					return nullptr;
+                    return {};
 				}
 				
 				image = new asset::CImageData(nullptr,nullOffset,imageSize,0,asset::EF_R8_SRGB);
@@ -290,10 +290,10 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 	delete [] data;
 	delete [] palette;
 
-    asset::ICPUTexture* tex = asset::ICPUTexture::create(images);
+    asset::ICPUTexture* tex = asset::ICPUTexture::create(images, _file->getFileName().c_str());
     for (auto& img : images)
         img->drop();
-    return tex;
+    return {core::smart_refctd_ptr<IAsset>(tex, core::dont_grab)};
 }
 
 } // end namespace video

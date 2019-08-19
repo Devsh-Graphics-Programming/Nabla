@@ -69,7 +69,7 @@ COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 : CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
 	runningInRenderDoc(false),  CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(asset::EF_R8G8B8_UNORM), Params(params),
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
-	DeviceType(EIDT_WIN32), AuxContexts(0)
+	DeviceType(EIDT_WIN32), AuxContexts(0), DerivativeMapCreator(nullptr)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("COpenGLDriver");
@@ -679,6 +679,9 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 //! destructor
 COpenGLDriver::~COpenGLDriver()
 {
+    if (DerivativeMapCreator)
+        DerivativeMapCreator->drop();
+
 	if (!AuxContexts) //opengl dead and never initialized in the first place
 		return;
 
@@ -1023,6 +1026,8 @@ bool COpenGLDriver::genericDriverInit()
         reqs.vulkanReqs.alignment = 64u*1024u; // if you need larger alignments then you're not right in the head
         defaultUploadBuffer = new video::StreamingTransientDataBufferMT<>(this,reqs);
 	}
+
+    DerivativeMapCreator = new CDerivativeMapCreator(this);
 
 	return true;
 }
@@ -3180,19 +3185,18 @@ void COpenGLDriver::endTransformFeedback()
 
     if (!found->CurrentXFormFeedback)
     {
-        os::Printer::log("No Transform Feedback Object bound, possible redundant glEndTransform...!\n",ELL_ERROR);
+        os::Printer::log("No Transform Feedback Object bound, possible redundant glEndTransform...!\n", ELL_ERROR);
         return;
     }
 #ifdef _IRR_DEBUG
     if (!found->CurrentXFormFeedback->isActive())
-        os::Printer::log("Ending an already paused transform feedback, the pause call is redundant!\n",ELL_ERROR);
+        os::Printer::log("Ending an already paused transform feedback, the pause call is redundant!\n", ELL_ERROR);
 #endif // _IRR_DEBUG
     found->CurrentXFormFeedback->endFeedback();
-	found->XFormFeedbackRunning = false;
+    found->XFormFeedbackRunning = false;
     ///In the interest of binding speed we wont release the CurrentXFormFeedback
     //bindTransformFeedback(NULL,found);
 }
-
 
 //! Enable/disable a clipping plane.
 void COpenGLDriver::enableClipPlane(uint32_t index, bool enable)

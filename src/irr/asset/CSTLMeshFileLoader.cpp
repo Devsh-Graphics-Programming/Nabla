@@ -23,11 +23,11 @@ namespace irr
 namespace asset
 {
 
-asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	const long filesize = _file->getSize();
 	if (filesize < 6) // we need a header
-		return nullptr;
+        return {};
 
     bool hasColor = false;
 
@@ -54,7 +54,7 @@ asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
         if (_file->getSize() < 80)
         {
             mesh->drop();
-            return nullptr;
+            return {};
         }
 		_file->seek(80); // skip header
         uint32_t vtxCnt = 0u;
@@ -78,12 +78,12 @@ asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 				if (token=="endsolid")
 					break;
 				mesh->drop();
-				return nullptr;
+                return {};
 			}
 			if (getNextToken(_file, token) != "normal")
 			{
 				mesh->drop();
-				return nullptr;
+                return {};
 			}
 		}
 
@@ -98,12 +98,12 @@ asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 			if (getNextToken(_file, token) != "outer")
 			{
 				mesh->drop();
-				return nullptr;
+                return {};
 			}
 			if (getNextToken(_file, token) != "loop")
 			{
 				mesh->drop();
-				return nullptr;
+                return {};
 			}
 		}
 
@@ -116,7 +116,7 @@ asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 				if (getNextToken(_file, token) != "vertex")
 				{
 					mesh->drop();
-					return nullptr;
+                    return {};
 				}
 			}
 			getNextVector(_file, p[i], binary);
@@ -130,12 +130,12 @@ asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 			if (getNextToken(_file, token) != "endloop")
 			{
 				mesh->drop();
-				return nullptr;
+                return {};
 			}
 			if (getNextToken(_file, token) != "endfacet")
 			{
 				mesh->drop();
-				return nullptr;
+                return {};
 			}
 		}
 		else
@@ -189,7 +189,9 @@ asset::IAsset* CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
     //mesh->getMeshBuffer(0)->setPrimitiveType(EPT_POINTS);
 	mesh->recalculateBoundingBox(true);
 
-	return mesh;
+    core::smart_refctd_ptr<IAsset> mesh_ptr(mesh, core::dont_grab);
+    SAssetBundle bundle{mesh_ptr};
+	return bundle;
 }
 
 bool CSTLMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const

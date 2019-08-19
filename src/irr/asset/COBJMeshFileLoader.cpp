@@ -72,7 +72,7 @@ COBJMeshFileLoader::~COBJMeshFileLoader()
 {
 }
 
-asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
     SContext ctx(
         asset::IAssetLoader::SAssetLoadContext{
@@ -84,7 +84,7 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
 	const long filesize = _file->getSize();
 	if (!filesize)
-		return nullptr;
+        return {};
 
 	const uint32_t WORD_BUFFER_LENGTH = 512;
 
@@ -173,16 +173,17 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 						grpName = "default";
 
                     asset::IAsset::E_TYPE types[] {asset::IAsset::ET_SUB_MESH, (asset::IAsset::E_TYPE)0u };
-                    asset::IAsset* mb = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, 1u);
-                    if (mb)
+                    auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, 1u).getContents();
+                    if (mb_bundle.first!=mb_bundle.second)
                     {
+                        auto mb = static_cast<asset::ICPUMeshBuffer*>(mb_bundle.first->get());
                         mb->grab();
                         SObjMtl* mtl = findMtl(ctx, mtlName, grpName);
-                        ctx.preloadedSubmeshes.insert(std::make_pair(mtl, static_cast<asset::ICPUMeshBuffer*>(mb)));
+                        ctx.preloadedSubmeshes.insert(std::make_pair(mtl, mb));
                     }
                     else mtlChanged=true;
 
-                    submeshLoadedFromCache = bool(mb);
+                    submeshLoadedFromCache = (mb_bundle.first!=mb_bundle.second);
 				}
 			}
 			break;
@@ -214,16 +215,17 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
                 if (ctx.useMaterials && !ctx.useGroups)
                 {
                     asset::IAsset::E_TYPE types[] {asset::IAsset::ET_SUB_MESH, (asset::IAsset::E_TYPE)0u };
-                    asset::IAsset* mb = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, 1u);
-                    if (mb)
+                    auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, 1u).getContents();
+                    if (mb_bundle.first!=mb_bundle.second)
                     {
+                        auto mb = static_cast<asset::ICPUMeshBuffer*>(mb_bundle.first->get());
                         mb->grab();
                         SObjMtl* mtl = findMtl(ctx, mtlName, grpName);
-                        ctx.preloadedSubmeshes.insert(std::make_pair(mtl, static_cast<asset::ICPUMeshBuffer*>(mb)));
+                        ctx.preloadedSubmeshes.insert(std::make_pair(mtl, mb));
                     }
                     else mtlChanged=true;
 
-                    submeshLoadedFromCache = bool(mb);
+                    submeshLoadedFromCache = (mb_bundle.first!=mb_bundle.second);
                 }
 			}
 			break;
@@ -441,8 +443,9 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
         memcpy(vertexbuf->getPointer(),ctx.Materials[m]->Vertices.data()+baseVertex,vertexbuf->getSize());
         vertexbuf->drop();
 
-        _override->insertAssetIntoCache(meshbuffer, genKeyForMeshBuf(ctx, _file->getFileName().c_str(), ctx.Materials[m]->Name, ctx.Materials[m]->Group), ctx.inner, 1u);
-        meshbuffer->drop();
+        SAssetBundle bundle{core::smart_refctd_ptr<asset::IAsset>(meshbuffer,core::dont_grab)};
+        _override->insertAssetIntoCache(bundle, genKeyForMeshBuf(ctx, _file->getFileName().c_str(), ctx.Materials[m]->Name, ctx.Materials[m]->Group), ctx.inner, 1u);
+        //transfer ownership to smart_refctd_ptr, so instead of grab() in smart_refctd_ptr and drop() here, just do nothing (thus dont_grab goes as smart ptr ctor arg)
 	}
 
 	// more cleaning up
@@ -453,10 +456,10 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	else
     {
 		mesh->drop();
-		mesh = NULL;
+        return {};
     }
 
-	return mesh;
+	return {core::smart_refctd_ptr<IAsset>(mesh,core::dont_grab)};
 }
 
 
@@ -575,16 +578,14 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
 	{
         if (FileSystem->existFile(texname))
 		{
-            texture = static_cast<asset::ICPUTexture*>(
-                interm_getAssetInHierarchy(Device->getAssetManager(), texname.c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride)
-            );
+            auto bundle = interm_getAssetInHierarchy(Device->getAssetManager(), texname.c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride).getContents();
+            texture = (bundle.first==bundle.second) ? nullptr : static_cast<asset::ICPUTexture*>(bundle.first->get());
 		}
 		else
 		{
 			// try to read in the relative path, the .obj is loaded from
-            texture = static_cast<asset::ICPUTexture*>(
-                interm_getAssetInHierarchy(Device->getAssetManager(), (relPath + texname).c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride)
-            );
+            auto bundle = interm_getAssetInHierarchy(Device->getAssetManager(), (relPath + texname).c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride).getContents();
+            texture = (bundle.first==bundle.second) ? nullptr : static_cast<asset::ICPUTexture*>(bundle.first->get());
 		}
 	}
 	if ( texture )

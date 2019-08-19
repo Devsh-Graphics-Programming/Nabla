@@ -30,9 +30,7 @@ int main()
     video::IVideoDriver* driver = device->getVideoDriver();
     scene::ISceneManager* smgr = device->getSceneManager();
 
-    scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeMaya(nullptr, -750.f, 200.f, 200.f, -1, 10.f);
-    camera->setPosition(core::vector3df(-4.f, 0.f, 0.f));
-    camera->setTarget(core::vector3df(0.f, 0.f, 0.f));
+    scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeModifiedMaya(nullptr, -400.f, 20.f, 200.f, -1, 28.f, 1.f);
     camera->setNearValue(0.01f);
     camera->setFarValue(1000.0f);
     smgr->setActiveCamera(camera);
@@ -50,16 +48,16 @@ int main()
     while(device->run())
     if (device->isWindowActive())
     {
-        driver->beginScene(true, true, video::SColor(255,255,0,0) );
+        driver->beginScene(true, true, video::SColor(255,0,0,0) );
 
         // needed for camera to move
         smgr->drawAll();
 
+        brdfExplorerApp->update();
         brdfExplorerApp->renderMesh();
         brdfExplorerApp->renderGUI();
         driver->endScene();
     }
-    // create a screenshot using example 09's mechanism
     device->drop();
 
     return 0;
