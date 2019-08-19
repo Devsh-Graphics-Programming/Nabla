@@ -5,10 +5,7 @@
 #include "irrlicht.h"
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 
-#include "../../ext/MitsubaLoader/CElementShapeOBJ.h"
-#include "../../ext/MitsubaLoader/CElementShapeCube.h"
-#include "../../ext/MitsubaLoader/CSimpleElement.h"
-#include "../../ext/MitsubaLoader/IShape.h"
+#include "../../ext/MitsubaLoader/Shape.h"
 #include "../../include/matrix4SIMD.h"
 
 namespace irr { namespace ext { namespace MitsubaLoader {
@@ -18,7 +15,7 @@ bool CMitsubaScene::processAttributes(const char** _atts)
 {
 	if (std::strcmp(_atts[0], "version"))
 	{
-		ParserLog::wrongAttribute(_atts[0], getLogName());
+		ParserLog::invalidXMLFileStructure(std::string(_atts[0]) + " is not an attribute of scene element");
 		return false;
 	}
 	else
@@ -27,9 +24,11 @@ bool CMitsubaScene::processAttributes(const char** _atts)
 		std::cout << "version: " << _atts[1] << '\n';
 		return true;
 	}
+
+	return false;
 }
 
-bool CMitsubaScene::onEndTag(asset::IAssetManager& assetManager, IElement* parent) 
+bool CMitsubaScene::onEndTag(asset::IAssetManager& _assetManager) 
 {
 	mesh->recalculateBoundingBox();
 
@@ -42,7 +41,7 @@ bool CMitsubaScene::processChildData(IElement* _child)
 	{
 	case IElement::Type::SHAPE:
 	{
-		IShape* shape = dynamic_cast<IShape*>(_child);
+		CShape* shape = static_cast<CShape*>(_child);
 
 		if (!shape)
 		{
@@ -54,10 +53,11 @@ bool CMitsubaScene::processChildData(IElement* _child)
 		return appendMesh(shapeMesh, shape->getTransformMatrix());
 	}
 	default:
-		ParserLog::wrongChildElement(getLogName(), _child->getLogName());
-
+		ParserLog::invalidXMLFileStructure(_child->getLogName() + " is not a child element of the scene element");
 		return true;
 	}
+
+	return true;
 }
 
 bool CMitsubaScene::appendMesh(const asset::ICPUMesh* _mesh, const core::matrix4SIMD& _transform)

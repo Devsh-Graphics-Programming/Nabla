@@ -21,34 +21,21 @@ namespace irr { namespace ext { namespace MitsubaLoader {
  - handle 'version' attribute
 
  - make sure that default values for <float .. /> <boolean .. /> etc. are correct
- - test atof function (CSimpleElement.h) or use ostringstream operator >> instead
  
  - how should loader treat upper/lower case letters in xml?
 
- - clean up memory dynamically allocated by ParserData::scene
-
- - resolve header include conflict (IElement.h needs to include ParserUtil.h (only for ParserLog), and ParserUtil.h needs to include IElement.h)
-
- - check, if transform name is indeed "toWorld"
-
  - create an issue about isALoadableFileFormat in CBAWMeshFileLoader
 
- - disable asset cacheing (use ECF_DUPLICATE_TOP_LEVEL)
-
- - LOG!
-
- - celementshapeobj todos
+ - proper log messages
 
  - idk if I use flipsurfaces correctly.. 
-
- - acording CElementColor: 
-		- is single value allowed in "value" attribute for sure?
-		- spectrum?
 
  - acording cylinder: close top leaves one top still closed, also this:
 	"Note that the cylinder does not have endcaps – also,
 	it’s interior has inward-facing normals, which most scattering models in Mitsuba will treat as fully
 	absorbing. If this is not desirable, consider using the twosided plugin." ...
+
+ - (PropertyElement.cpp) these property elements must be finished: translate, rotate, scale, rgb, srgb, spectrum, vector
 
 */
 
@@ -83,10 +70,10 @@ asset::IAsset* CMitsubaLoader::loadAsset(io::IReadFile* _file, const SAssetLoadP
 	XML_Parser parser = XML_ParserCreate(nullptr);
 	XML_SetElementHandler(parser, elementHandlerStart, elementHandlerEnd);
 
-	ParserData data(m_assetManager, parser);
+	ParserManager parserManager(m_assetManager, parser);
 	
 	//from now data (instance of ParserData struct) will be visible to expat handlers
-	XML_SetUserData(parser, &data);
+	XML_SetUserData(parser, &parserManager);
 
 	const char* buff = new char[_file->getSize()];
 
@@ -98,9 +85,15 @@ asset::IAsset* CMitsubaLoader::loadAsset(io::IReadFile* _file, const SAssetLoadP
 	switch (parseStatus)
 	{
 	case XML_STATUS_ERROR:
+	{
 		std::cout << "Parse status: XML_STATUS_ERROR\n";
-		break;
 
+		asset::ICPUMesh* mesh = parserManager.getScene().releaseMesh();
+
+		delete mesh;
+		return nullptr;
+	}
+	break;
 	case XML_STATUS_OK:
 		std::cout << "Parse status: XML_STATUS_OK\n";
 		break;
@@ -108,19 +101,11 @@ asset::IAsset* CMitsubaLoader::loadAsset(io::IReadFile* _file, const SAssetLoadP
 	case XML_STATUS_SUSPENDED:
 		std::cout << "Parse status: XML_STATUS_SUSPENDED\n";
 		break;
-
-	default:
-		std::cout << "Parse status: XML_STATUS_SUSPENDED\n";
-		break;
-
 	}
 
 	XML_ParserFree(parser);
-
-	if (!data.scene)
-		return nullptr;
 	
-	return data.scene->releaseMesh();
+	return parserManager.getScene().releaseMesh();
 }
 
 }

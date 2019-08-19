@@ -2,32 +2,11 @@
 #include "../../ext/MitsubaLoader/CElementFactory.h"
 
 #include "irrlicht.h"
+#include <memory>
 
 namespace irr { namespace ext { namespace MitsubaLoader {
 
-void ParserLog::wrongAttribute(const std::string& attribName, const std::string& elementName)
-{
-	std::string message = "Mitsuba loader error:\nInvalid .xml file structure: attribute '"
-		+ attribName + "' is not declared for element '" + elementName + "'\n";
-
-	//or os::Printer::log ?
-	os::Printer::print(message);
-
-	_IRR_DEBUG_BREAK_IF(true);
-}
-
-void ParserLog::wrongChildElement(const std::string& parentName, const std::string& childName)
-{
-	std::string message = "Mitsuba loader error:\nInvalid .xml file structure: '"
-		+ parentName + "' is not a parent of '" + childName + "'\n";
-
-	//or os::Printer::log ?
-	os::Printer::print(message);
-
-	_IRR_DEBUG_BREAK_IF(true);
-}
-
-void ParserLog::mitsubaLoaderError(const std::string& errorMessage)
+void ParserLog::invalidXMLFileStructure(const std::string& errorMessage)
 {
 	std::string message = "Mitsuba loader error:\nInvalid .xml file structure: '"
 		+ errorMessage + '\n';
@@ -40,108 +19,182 @@ void ParserLog::mitsubaLoaderError(const std::string& errorMessage)
 
 void elementHandlerStart(void* _data, const char* _el, const char** _atts)
 {
-	ParserData* data = static_cast<ParserData*>(_data);
+	ParserManager* mgr = static_cast<ParserManager*>(_data);
 
-	if (!data->pfc.suspendParsingIfElNotSupported(_el))
-	{
-		ParserLog::mitsubaLoaderError(std::string(_el) + " is not supported");
-		return;
-	}
-
-	if (data->pfc.isParsingSuspended())
-		return;
-		
-
-	std::unique_ptr<IElement> element(CElementFactory::createElement(_el, _atts));
-
-	if (!element)
-	{
-		XML_StopParser(data->parser, false);
-		_IRR_DEBUG_BREAK_IF(true);
-		return;
-	}
-
-	if (element->getType() == IElement::Type::SCENE)
-	{
-		if (!data->scene)
-		{
-
-			data->scene.reset(static_cast<CMitsubaScene*>(element.release()));
-			data->scene->processAttributes(_atts);
-			return;
-		}
-		else
-		{
-			ParserLog::wrongChildElement("scene", "scene");
-			XML_StopParser(data->parser, false);
-			_IRR_DEBUG_BREAK_IF(true);
-			return;
-		}
-	}
-
-	if (!data->scene)
-	{
-		ParserLog::mitsubaLoaderError("there is no scene element");
-		XML_StopParser(data->parser, false);
-		_IRR_DEBUG_BREAK_IF(true);
-		return;
-	}
-
-	if (!element->processAttributes(_atts))
-	{
-		XML_StopParser(data->parser, false);
-		_IRR_DEBUG_BREAK_IF(true);
-		return;
-	}
-	
-	data->elements.push_back(std::move(element));
+	mgr->parseElement(_el, _atts);
 }
 
 void elementHandlerEnd(void* _data, const char* _el)
 {
-	ParserData* data = static_cast<ParserData*>(_data);
+	ParserManager* mgr = static_cast<ParserManager*>(_data);
 	
+	/*
 	if (data->pfc.isParsingSuspended())
 	{
 		data->pfc.checkForUnsuspend(_el);
 		return;
-	}
+	}*/
 
-	if (data->elements.empty())
+	mgr->onEnd(_el);
+}
+
+void ParserManager::parseElement(const char* _el, const char** _atts)
+{
+	if (!pfc.suspendParsingIfElNotSupported(_el))
 	{
-		data->scene->onEndTag(data->assetManager, nullptr);
+		ParserLog::invalidXMLFileStructure(std::string(_el) + " is not supported");
 		return;
 	}
-	else
+
+	if (pfc.isParsingSuspended())
+		return;
+
+	if (!std::strcmp(_el, "scene"))
 	{
-		std::unique_ptr<IElement> element = std::move(data->elements.back());
-		data->elements.pop_back();
-
-		IElement* parent = (data->elements.empty()) ? data->scene.get() : data->elements.back().get();
-
-		if (!element->onEndTag(data->assetManager, parent))
+		if (isSceneActive())
 		{
-			XML_StopParser(data->parser, false);
+			ParserLog::invalidXMLFileStructure("scene is already declared");
+			XML_StopParser(parser, false);
 			_IRR_DEBUG_BREAK_IF(true);
 			return;
 		}
+		else if (isSceneActive() == false)
+		{
+			scene.reset(new CMitsubaScene());
+			return;
+		}
 	}
+
+	if (!isSceneActive())
+	{
+		ParserLog::invalidXMLFileStructure("there is no scene element.");
+		XML_StopParser(parser, false);
+		_IRR_DEBUG_BREAK_IF(true);
+		return;
+	}
+
+	if (checkIfPropertyElement(_el))
+	{
+		if (!processProperty(_el, _atts))
+		{
+			ParserLog::invalidXMLFileStructure("invalid property element.");
+			XML_StopParser(parser, false);
+			_IRR_DEBUG_BREAK_IF(true);
+		}
+
+		return;
+	}
+
+	std::unique_ptr<IElement> element(CElementFactory::createElement(_el, _atts));
+
+	if (element.get() == nullptr)
+	{
+		XML_StopParser(parser, false);
+		_IRR_DEBUG_BREAK_IF(true);
+		return;
+	}
+
+	addElementToStack(std::move(element));
+
 }
 
-void ParserFlowController::checkForUnsuspend(const char* _el)
+void ParserManager::addElementToStack(std::unique_ptr<IElement>&& element)
 {
-	if (!std::strcmp(notSupportedElement.c_str(), _el))
+	elements.push(std::move(element));
+}
+
+bool ParserManager::checkIfPropertyElement(const std::string& _el)
+{
+	for (int i = 0; propertyElements[i]; i++)
+	{
+		if (_el == propertyElements[i])
+			return true;
+	}
+
+	return false;
+}
+
+bool ParserManager::processProperty(const char* _el, const char** _atts)
+{
+	if (elements.empty())
+	{
+		ParserLog::invalidXMLFileStructure("weeeeeeeeeeeeeeewwwwwww.");
+		XML_StopParser(parser, false);
+		_IRR_DEBUG_BREAK_IF(true);
+		return false;
+	}
+
+	auto optProperty = CPropertyElementManager::createPropertyData(_el, _atts);
+
+	if (optProperty.first == false)
+		return false;
+
+	elements.top()->addProperty(std::move(optProperty.second));
+
+	return true;
+}
+
+void ParserManager::onEnd(const std::string& _el)
+{
+	if (pfc.isParsingSuspended())
+	{
+		pfc.checkForUnsuspend(_el);
+		return;
+	}
+
+	if (checkIfPropertyElement(_el))
+		return;
+
+	if (elements.empty() == false)
+	{
+		std::unique_ptr<IElement> element(std::move(elements.top()));
+		elements.pop();
+
+		if (!element->onEndTag(assetManager))
+		{
+			ParserLog::invalidXMLFileStructure(element->getLogName());
+			XML_StopParser(parser, false);
+			_IRR_DEBUG_BREAK_IF(true);
+			return;
+		}
+
+		if (elements.empty() == false)
+		{
+			if (!elements.top()->processChildData(element.get()))
+			{
+				XML_StopParser(parser, false);
+				_IRR_DEBUG_BREAK_IF(true);
+				return;
+			}
+
+			return;
+		}
+		else
+		{
+			scene->processChildData(element.get());
+		}
+	}
+	else
+	{
+		scene->onEndTag(this->assetManager);
+	}
+
+}
+
+void ParserFlowController::checkForUnsuspend(const std::string& _el)
+{
+	if (_el == notSupportedElement.c_str())
 	{
 		isParsingSuspendedFlag = false;
 		notSupportedElement.clear();
 	}
 }
 
-bool ParserFlowController::suspendParsingIfElNotSupported(const char* _el)
+bool ParserFlowController::suspendParsingIfElNotSupported(const std::string& _el)
 {
 	for (int i = 0; unsElements[i]; i++)
 	{
-		if (!std::strcmp(unsElements[i], _el))
+		if (_el == unsElements[i])
 		{
 			isParsingSuspendedFlag = true;
 			notSupportedElement = _el;

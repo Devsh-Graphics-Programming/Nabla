@@ -1,6 +1,8 @@
 #ifndef __I_ELEMENT_H_INCLUDED__
 #define __I_ELEMENT_H_INCLUDED__
 
+#include "../../ext/MitsubaLoader/PropertyElement.h"
+
 #include "irr/asset/IAssetManager.h"
 #include <iostream>
 
@@ -8,8 +10,6 @@
 namespace irr { namespace ext { namespace MitsubaLoader {
 
 //TODO: Provide elements with getName member function which will return std::string. 
-
-struct ParserData;
 
 class IElement
 {
@@ -22,19 +22,10 @@ public:
 		//shapes
 		SHAPE,
 
-		//vectors, points, scalars
-		FLOAT,
-		BOOLEAN,
-		INTEGER,
-		POINT,
-
 		//other
 		TRANSFORM,
 		TEXTURE,
-		STRING,
-		MATRIX,
 		MATERIAL,
-		COLOR,
 		MEDIUM
 	};
 
@@ -61,10 +52,24 @@ public:
 		return true;
 	}
 	//
-	virtual bool onEndTag(asset::IAssetManager& _assetManager, IElement* _parent) = 0;
+	
+	virtual bool onEndTag(asset::IAssetManager& _assetManager) = 0;
 	virtual IElement::Type getType() const = 0;
 	virtual std::string getLogName() const = 0;
 	virtual ~IElement() = default;
+
+	void addProperty(const SPropertyElementData& _property)
+	{
+		properties.emplace_back(_property);
+	}
+
+	void addProperty(SPropertyElementData&& _property)
+	{
+		properties.emplace_back(std::move(_property));
+	}
+
+protected:
+	core::vector<SPropertyElementData> properties;
 
 };
 

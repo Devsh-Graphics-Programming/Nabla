@@ -1,7 +1,7 @@
 #include "CElementTransform.h"
 
 #include "../../ext/MitsubaLoader/ParserUtil.h"
-#include "../../ext/MitsubaLoader/CSimpleElement.h"
+#include "../../ext/MitsubaLoader/PropertyElement.h"
 
 namespace irr { namespace ext { namespace MitsubaLoader {
 
@@ -17,7 +17,7 @@ bool CElementTransform::processAttributes(const char** _atts)
 		}
 		else
 		{
-			ParserLog::wrongAttribute(_atts[i], getLogName());
+			//ParserLog::wrongAttribute(_atts[i], getLogName());
 			return false;
 		}
 	}
@@ -25,30 +25,23 @@ bool CElementTransform::processAttributes(const char** _atts)
 	return true;
 }
 
-bool CElementTransform::onEndTag(asset::IAssetManager& _assetManager, IElement* _parent)
+bool CElementTransform::onEndTag(asset::IAssetManager& _assetManager)
 {
-	while (matrices.size())
+	for (auto& property : properties)
 	{
-		resultMatrix = core::matrix4SIMD::concatenateBFollowedByA(resultMatrix, matrices.back());
-		matrices.pop_back();
+		if (property.type == SPropertyElementData::Type::MATRIX)
+		{
+			matrix = core::concatenateBFollowedByA(matrix, CPropertyElementManager::retriveMatrix(property.value));
+		}
+		else
+		{
+			ParserLog::invalidXMLFileStructure("wat is this?");
+			return false;
+		}
 	}
 
-	return _parent->processChildData(this);
-}
-
-bool CElementTransform::processChildData(IElement* _child)
-{
-	switch (_child->getType())
-	{
-	case IElement::Type::MATRIX:
-	{
-		matrices.emplace_back(static_cast<CElementMatrix*>(_child)->getMatrix());
-		return true;
-	}
-	default:
-		ParserLog::wrongChildElement(getLogName(), _child->getLogName());
-		return false;
-	}
+	return true;
+	//return _parent->processChildData(this);
 }
 
 }
