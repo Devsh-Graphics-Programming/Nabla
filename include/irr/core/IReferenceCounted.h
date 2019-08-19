@@ -280,6 +280,12 @@ namespace core
 				return *this;
 			}
 
+			// so that you don't mix refcounting methods
+			void grab() = delete;
+			void grab() const = delete;
+			bool drop() = delete;
+			bool drop() const = delete;
+
 			inline I_REFERENCE_COUNTED* get() const { return ptr; }
 
 			inline I_REFERENCE_COUNTED* operator->() { return ptr; }
