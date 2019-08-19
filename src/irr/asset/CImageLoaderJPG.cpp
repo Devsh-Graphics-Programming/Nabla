@@ -161,14 +161,14 @@ bool CImageLoaderJPG::isALoadableFileFormat(io::IReadFile* _file) const
 }
 
 //! creates a surface from the file
-asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 #ifndef _IRR_COMPILE_WITH_LIBJPEG_
 	os::Printer::log("Can't load as not compiled with _IRR_COMPILE_WITH_LIBJPEG_:", _file->getFileName().c_str(), ELL_DEBUG);
 	return nullptr
 #else
 	if (!_file || _file->getSize()>0xffffffffull)
-		return nullptr;
+        return {};
 
 	const io::path& Filename = _file->getFileName();
 
@@ -208,7 +208,7 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 	{
 		os::Printer::log("Can't load libjpeg threw an error:", _file->getFileName().c_str(), ELL_ERROR);
 		// RAIIExiter takes care of cleanup
-		return nullptr;
+        return {};
 	}
 
 	// Now we can initialize the JPEG decompression object.
@@ -255,23 +255,23 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 			break;
 		case JCS_CMYK:
 			os::Printer::log("CMYK color space is unsupported:", _file->getFileName().c_str(), ELL_ERROR);
-			return nullptr;
+			return {};
 			break;
 		case JCS_YCCK: // this I have no resources on
 			os::Printer::log("YCCK color space is unsupported:", _file->getFileName().c_str(), ELL_ERROR);
-			return nullptr;
+			return {};
 			break;
 		case JCS_BG_RGB: // interesting
 			os::Printer::log("Loading JPEG Big Gamut RGB is not implemented yet:", _file->getFileName().c_str(), ELL_ERROR);
-			return nullptr;
+			return {};
 			break;
 		case JCS_BG_YCC: // interesting
 			os::Printer::log("Loading JPEG Big Gamut YCbCr is not implemented yet:", _file->getFileName().c_str(), ELL_ERROR);
-			return nullptr;
+			return {};
 			break;
 		default:
 			os::Printer::log("Can't load as color space is unknown:", _file->getFileName().c_str(), ELL_ERROR);
-			return nullptr;
+			return {};
 			break;
 	}
 	cinfo.do_fancy_upsampling = TRUE;
@@ -320,13 +320,13 @@ asset::IAsset* CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAs
 			break;
 		default: // should never get here
 			os::Printer::log("Unsupported color space, operation aborted.", ELL_ERROR);
-			return nullptr;
+            return {};
 			break;
 	}
 
-	asset::ICPUTexture* tex = asset::ICPUTexture::create({image});
+	asset::ICPUTexture* tex = asset::ICPUTexture::create({image}, _file->getFileName().c_str());
 	image->drop();
-	return tex;
+    return {core::smart_refctd_ptr<IAsset>(tex, core::dont_grab)};
 #endif
 }
 

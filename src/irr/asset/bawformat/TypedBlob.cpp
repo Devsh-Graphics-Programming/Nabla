@@ -72,17 +72,17 @@ void* TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::instantiateEmpty(const v
     // set ECF_DONT_CACHE_TOP_LEVEL flag because it will get cached in BAW loader
     asset::IAssetLoader::SAssetLoadParams params(_params.params.decryptionKeyLen, _params.params.decryptionKey, asset::IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL);
 
-	asset::ICPUTexture* texture;
+	asset::ICPUTexture* texture = nullptr;
 	const char* const texname = (const char*)blob->getData();
 	if (_params.fs->existFile(texname))
 	{
-		texture = static_cast<asset::ICPUTexture*>(static_cast<CBAWMeshFileLoader*>(_params.ldr)->interm_getAssetInHierarchy(_params.device->getAssetManager(), texname, params, 0u, _params.loaderOverride));
+		texture = static_cast<asset::ICPUTexture*>(static_cast<CBAWMeshFileLoader*>(_params.ldr)->interm_getAssetInHierarchy(_params.device->getAssetManager(), texname, params, 0u, _params.loaderOverride).getContents().first->get());
 	}
 	else
 	{
 		const io::path path = _params.filePath + texname;
 		// try to read from the path relative to where the .baw is loaded from
-		texture = static_cast<asset::ICPUTexture*>(static_cast<CBAWMeshFileLoader*>(_params.ldr)->interm_getAssetInHierarchy(_params.device->getAssetManager(), path.c_str(), params, 0u, _params.loaderOverride));
+		texture = static_cast<asset::ICPUTexture*>(static_cast<CBAWMeshFileLoader*>(_params.ldr)->interm_getAssetInHierarchy(_params.device->getAssetManager(), path.c_str(), params, 0u, _params.loaderOverride).getContents().first->get());
 	}
 
 	return texture;

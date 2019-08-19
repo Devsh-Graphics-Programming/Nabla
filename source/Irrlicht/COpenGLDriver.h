@@ -597,6 +597,7 @@ namespace video
 
 		virtual void endTransformFeedback();
 
+        const CDerivativeMapCreator* getDerivativeMapCreator() const override { return DerivativeMapCreator; };
 
 		//! Enable/disable a clipping plane.
 		//! There are at least 6 clipping planes available for the user to set at will.
@@ -1022,6 +1023,7 @@ namespace video
 
         FW_Mutex* glContextMutex;
 		SAuxContext* AuxContexts;
+        CDerivativeMapCreator* DerivativeMapCreator;
 
 		E_DEVICE_TYPE DeviceType;
 	};

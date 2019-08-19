@@ -16,6 +16,7 @@
 #include "SExposedVideoData.h"
 #include "IDriver.h"
 #include "irr/asset/EFormat.h"
+#include "irr/video/CDerivativeMapCreator.h"
 
 namespace irr
 {
@@ -643,6 +644,7 @@ namespace video
 		it. */
 		virtual void enableClipPlane(uint32_t index, bool enable) =0;
 
+        virtual const CDerivativeMapCreator* getDerivativeMapCreator() const { return nullptr; }
 
 		//! Get the 2d override material for altering its values
 		/** The 2d override materual allows to alter certain render

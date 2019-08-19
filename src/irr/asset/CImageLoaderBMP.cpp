@@ -196,7 +196,7 @@ void CImageLoaderBMP::decompress4BitRLE(uint8_t*& bmpData, int32_t size, int32_t
 
 
 //! creates a surface from the file
-asset::IAsset* CImageLoaderBMP::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CImageLoaderBMP::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	SBMPHeader header;
 
@@ -207,12 +207,12 @@ asset::IAsset* CImageLoaderBMP::loadAsset(io::IReadFile* _file, const asset::IAs
 	//! return if the header is false
 
     if (header.Id != 0x4d42)
-        return nullptr;
+        return {};
 
 	if (header.Compression > 2) // we'll only handle RLE-Compression
 	{
 		os::Printer::log("Compression mode not supported.", ELL_ERROR);
-        return nullptr;
+        return {};
 	}
 
 	// adjust bitmap data size to dword boundary
@@ -314,10 +314,10 @@ asset::IAsset* CImageLoaderBMP::loadAsset(io::IReadFile* _file, const asset::IAs
 	delete [] paletteData;
 	delete [] bmpData;
 
-	asset::ICPUTexture* tex = asset::ICPUTexture::create(images);
+	asset::ICPUTexture* tex = asset::ICPUTexture::create(images, _file->getFileName().c_str());
     for (auto img : images)
         img->drop();
-    return tex;
+    return {core::smart_refctd_ptr<IAsset>(tex, core::dont_grab)};
 }
 
 } // end namespace video

@@ -141,8 +141,8 @@ asset::ICPUMesh* CGeometryCreator::createCubeMesh(const core::vector3df& size) c
     //setVertexAttrBuffer(asset::ICPUBuffer* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, E_COMPONENTS_PER_ATTRIBUTE components, E_COMPONENT_TYPE type, const size_t &stride=0, size_t offset=0)
     desc->setVertexAttrBuffer(vertices,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,vertexSize, offsetof(CubeVertex, pos));
     desc->setVertexAttrBuffer(vertices,asset::EVAI_ATTR1,asset::EF_R8G8B8A8_UNORM,vertexSize,offsetof(CubeVertex, color));
-	desc->setVertexAttrBuffer(vertices, asset::EVAI_ATTR2, asset::EF_R8G8_USCALED, vertexSize, offsetof(CubeVertex, uv));
-	desc->setVertexAttrBuffer(vertices, asset::EVAI_ATTR3, asset::EF_R8G8B8_SNORM, vertexSize, offsetof(CubeVertex, normal));
+    desc->setVertexAttrBuffer(vertices,asset::EVAI_ATTR2,asset::EF_R8G8_USCALED,vertexSize,offsetof(CubeVertex, uv));
+    desc->setVertexAttrBuffer(vertices,asset::EVAI_ATTR3,asset::EF_R8G8B8_SSCALED,vertexSize,offsetof(CubeVertex, normal));
     vertices->drop();
 
 	asset::SCPUMesh* mesh = new asset::SCPUMesh;
