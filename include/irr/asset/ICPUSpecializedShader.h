@@ -33,6 +33,12 @@ public:
     inline const ISpecializationInfo* getSpecializationInfo() const { return m_specInfo; }
     inline const ICPUShader* getUnspecialized() const { return m_unspecialized; }
 
+    //! If contained unspecialized ICPUShader hasn't enabled introspection, this function will also return nullptr
+    inline const SIntrospectionData* getIntrospectionData() const
+    { 
+        return m_unspecialized->getIntrospectionData({m_specInfo->entryPoint,m_specInfo->shaderStage});
+    }
+
 private:
     const ICPUShader* m_unspecialized;
     const ISpecializationInfo* m_specInfo;

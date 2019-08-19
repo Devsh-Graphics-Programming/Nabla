@@ -27,7 +27,11 @@ void IParsedShaderSource::parse() const
     if (m_parsed || !m_raw)
         return;
     spirv_cross::Parser parser(reinterpret_cast<const uint32_t*>(m_raw->getPointer()), m_raw->getSize()/4u);
+    parser.parse();
     m_parsed = _IRR_NEW(spirv_cross::ParsedIR, std::move(parser.get_parsed_ir()));
+    //auto f = fopen("spv.bin", "w");
+    //fwrite(m_raw->getPointer(), 1, m_raw->getSize(), f);
+    //fclose(f);
 
     m_raw->drop();
     m_raw = nullptr; // actually we don't need raw SPIR-V any more at this point

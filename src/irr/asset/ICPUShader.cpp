@@ -133,7 +133,7 @@ SIntrospectionData ICPUShader::SIntrospectionPerformer::doIntrospection(spirv_cr
 
     SIntrospectionData introData;
     introData.pushConstant.present = false;
-    auto addResource_common = [&introData, &_comp] (const spirv_cross::Resource& r, E_SHADER_RESOURCE_TYPE restype) -> SShaderResourceVariant& {
+    auto addResource_common = [&introData, &_comp] (const spirv_cross::Resource& r, E_SHADER_RESOURCE_TYPE restype, const core::unordered_map<uint32_t, const SIntrospectionData::SSpecConstant*>& _mapId2sconst) -> SShaderResourceVariant& {
         const uint32_t descSet = _comp.get_decoration(r.id, spv::DecorationDescriptorSet);
         assert(descSet < 4u);
         introData.descriptorSetBindings[descSet].emplace_back();
@@ -150,6 +150,12 @@ SIntrospectionData ICPUShader::SIntrospectionPerformer::doIntrospection(spirv_cr
         {
             res.descriptorCount = type.array[0]; // ID of spec constant if size is spec constant
             res.descCountIsSpecConstant = !type.array_size_literal[0];
+            if (res.descCountIsSpecConstant) {
+                const auto sc_itr = _mapId2sconst.find(res.descriptorCount);
+                assert(sc_itr != _mapId2sconst.cend());
+                auto sc = sc_itr->second;
+                res.descriptorCount = sc->id;
+            }
         }
 
         return res;
@@ -163,75 +169,10 @@ SIntrospectionData ICPUShader::SIntrospectionPerformer::doIntrospection(spirv_cr
     };
 
     _comp.set_entry_point(_ep.first, stage);
-    spirv_cross::ShaderResources resources = _comp.get_shader_resources(_comp.get_active_interface_variables());
-    for (const spirv_cross::Resource& r : resources.uniform_buffers)
-    {
-        SShaderResourceVariant& res = addResource_common(r, ESRT_UNIFORM_BUFFER);
-        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_UNIFORM_BUFFER>()), r.base_type_id, r.id);
-    }
-    for (const spirv_cross::Resource& r : resources.storage_buffers)
-    {
-        SShaderResourceVariant& res = addResource_common(r, ESRT_STORAGE_BUFFER);
-        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_STORAGE_BUFFER>()), r.base_type_id, r.id);
-    }
-    for (const spirv_cross::Resource& r : resources.subpass_inputs)
-    {
-        SShaderResourceVariant& res = addResource_common(r, ESRT_INPUT_ATTACHMENT);
-        res.get<ESRT_INPUT_ATTACHMENT>().inputAttachmentIndex = _comp.get_decoration(r.id, spv::DecorationInputAttachmentIndex);
-    }
-    for (const spirv_cross::Resource& r : resources.storage_images)
-    {
-        const spirv_cross::SPIRType& type = _comp.get_type(r.id);
-        const bool buffer = type.image.dim == spv::DimBuffer;
-        SShaderResourceVariant& res = addResource_common(r, buffer ? ESRT_STORAGE_TEXEL_BUFFER : ESRT_STORAGE_IMAGE);
-        if (!buffer)
-        {
-            res.get<ESRT_STORAGE_IMAGE>().approxFormat = spvImageFormat2E_FORMAT(type.image.format);
-        }
-    }
-    for (const spirv_cross::Resource& r : resources.sampled_images)
-    {
-        SShaderResourceVariant& res = addResource_common(r, ESRT_COMBINED_IMAGE_SAMPLER);
-        const spirv_cross::SPIRType& type = _comp.get_type(r.id);
-        res.get<ESRT_COMBINED_IMAGE_SAMPLER>().arrayed = type.image.arrayed;
-        res.get<ESRT_COMBINED_IMAGE_SAMPLER>().multisample = type.image.ms;
-    }
-    for (const spirv_cross::Resource& r : resources.separate_images)
-    {
-        const spirv_cross::SPIRType& type = _comp.get_type(r.id);
-        const bool buffer = type.image.dim == spv::DimBuffer;
-        SShaderResourceVariant& res = addResource_common(r, buffer ? ESRT_UNIFORM_TEXEL_BUFFER : ESRT_SAMPLED_IMAGE);
-    }
-    for (const spirv_cross::Resource& r : resources.separate_samplers)
-    {
-        SShaderResourceVariant& res = addResource_common(r, ESRT_SAMPLER);
-    }
-    for (auto& descSet : introData.descriptorSetBindings)
-        std::sort(descSet.begin(), descSet.end(), [](const SShaderResourceVariant& _lhs, const SShaderResourceVariant& _rhs) { return _lhs.binding < _rhs.binding; });
 
-
-    // in/out
-    for (const spirv_cross::Resource& r : resources.stage_inputs)
-    {
-        SShaderInfoVariant& res = addInfo_common(r, ESIT_STAGE_INPUT);
-    }
-    for (const spirv_cross::Resource& r : resources.stage_outputs)
-    {
-        SShaderInfoVariant& res = addInfo_common(r, ESIT_STAGE_OUTPUT);
-        res.get<ESIT_STAGE_OUTPUT>().colorIndex = _comp.get_decoration(r.id, spv::DecorationIndex);
-    }
-    std::sort(introData.inputOutput.begin(), introData.inputOutput.end(), [](const SShaderInfoVariant& _lhs, const SShaderInfoVariant& _rhs) { return _lhs.location < _rhs.location; });
-
-    // push constants
-    if (resources.push_constant_buffers.size())
-    {
-        const spirv_cross::Resource& r = resources.push_constant_buffers.front();
-        introData.pushConstant.present = true;
-        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(introData.pushConstant.info), r.base_type_id, r.id);
-    }
-    
     // spec constants
-    std::vector<spirv_cross::SpecializationConstant> sconsts = _comp.get_specialization_constants();
+    spirv_cross::SmallVector<spirv_cross::SpecializationConstant> sconsts = _comp.get_specialization_constants();
+    core::unordered_map<uint32_t, const SIntrospectionData::SSpecConstant*> mapId2SpecConst;
     introData.specConstants.resize(sconsts.size());
     for (size_t i = 0u; i < sconsts.size(); ++i)
     {
@@ -239,10 +180,12 @@ SIntrospectionData ICPUShader::SIntrospectionPerformer::doIntrospection(spirv_cr
         specConst.id = sconsts[i].constant_id;
         specConst.name = _comp.get_name(sconsts[i].id);
 
-        const spirv_cross::SPIRType& type = _comp.get_type(sconsts[i].id);
-        specConst.byteSize = calcBytesizeforType(_comp, type);
+        mapId2SpecConst[sconsts[i].id] = &specConst;
 
         const spirv_cross::SPIRConstant& sconstval = _comp.get_constant(sconsts[i].id);
+        const spirv_cross::SPIRType& type = _comp.get_type(sconstval.constant_type);
+        specConst.byteSize = calcBytesizeforType(_comp, type);
+
         switch (type.basetype)
         {
         case spirv_cross::SPIRType::Int:
@@ -274,15 +217,85 @@ SIntrospectionData ICPUShader::SIntrospectionPerformer::doIntrospection(spirv_cr
     }
     using SSpecConstant = SIntrospectionData::SSpecConstant;
     std::sort(introData.specConstants.begin(), introData.specConstants.end(), [](const SSpecConstant& _lhs, const SSpecConstant& _rhs) { return _lhs.id < _rhs.id; });
+
+    spirv_cross::ShaderResources resources = _comp.get_shader_resources(_comp.get_active_interface_variables());
+    for (const spirv_cross::Resource& r : resources.uniform_buffers)
+    {
+        SShaderResourceVariant& res = addResource_common(r, ESRT_UNIFORM_BUFFER, mapId2SpecConst);
+        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_UNIFORM_BUFFER>()), r.base_type_id, r.id, mapId2SpecConst);
+    }
+    for (const spirv_cross::Resource& r : resources.storage_buffers)
+    {
+        SShaderResourceVariant& res = addResource_common(r, ESRT_STORAGE_BUFFER, mapId2SpecConst);
+        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_STORAGE_BUFFER>()), r.base_type_id, r.id, mapId2SpecConst);
+    }
+    for (const spirv_cross::Resource& r : resources.subpass_inputs)
+    {
+        SShaderResourceVariant& res = addResource_common(r, ESRT_INPUT_ATTACHMENT, mapId2SpecConst);
+        res.get<ESRT_INPUT_ATTACHMENT>().inputAttachmentIndex = _comp.get_decoration(r.id, spv::DecorationInputAttachmentIndex);
+    }
+    for (const spirv_cross::Resource& r : resources.storage_images)
+    {
+        const spirv_cross::SPIRType& type = _comp.get_type(r.id);
+        const bool buffer = type.image.dim == spv::DimBuffer;
+        SShaderResourceVariant& res = addResource_common(r, buffer ? ESRT_STORAGE_TEXEL_BUFFER : ESRT_STORAGE_IMAGE, mapId2SpecConst);
+        if (!buffer)
+        {
+            res.get<ESRT_STORAGE_IMAGE>().approxFormat = spvImageFormat2E_FORMAT(type.image.format);
+        }
+    }
+    for (const spirv_cross::Resource& r : resources.sampled_images)
+    {
+        SShaderResourceVariant& res = addResource_common(r, ESRT_COMBINED_IMAGE_SAMPLER, mapId2SpecConst);
+        const spirv_cross::SPIRType& type = _comp.get_type(r.id);
+        res.get<ESRT_COMBINED_IMAGE_SAMPLER>().arrayed = type.image.arrayed;
+        res.get<ESRT_COMBINED_IMAGE_SAMPLER>().multisample = type.image.ms;
+    }
+    for (const spirv_cross::Resource& r : resources.separate_images)
+    {
+        const spirv_cross::SPIRType& type = _comp.get_type(r.id);
+        const bool buffer = type.image.dim == spv::DimBuffer;
+        SShaderResourceVariant& res = addResource_common(r, buffer ? ESRT_UNIFORM_TEXEL_BUFFER : ESRT_SAMPLED_IMAGE, mapId2SpecConst);
+    }
+    for (const spirv_cross::Resource& r : resources.separate_samplers)
+    {
+        SShaderResourceVariant& res = addResource_common(r, ESRT_SAMPLER, mapId2SpecConst);
+    }
+    for (auto& descSet : introData.descriptorSetBindings)
+        std::sort(descSet.begin(), descSet.end(), [](const SShaderResourceVariant& _lhs, const SShaderResourceVariant& _rhs) { return _lhs.binding < _rhs.binding; });
+
+
+    // in/out
+    for (const spirv_cross::Resource& r : resources.stage_inputs)
+    {
+        SShaderInfoVariant& res = addInfo_common(r, ESIT_STAGE_INPUT);
+    }
+    for (const spirv_cross::Resource& r : resources.stage_outputs)
+    {
+        SShaderInfoVariant& res = addInfo_common(r, ESIT_STAGE_OUTPUT);
+        res.get<ESIT_STAGE_OUTPUT>().colorIndex = _comp.get_decoration(r.id, spv::DecorationIndex);
+    }
+    std::sort(introData.inputOutput.begin(), introData.inputOutput.end(), [](const SShaderInfoVariant& _lhs, const SShaderInfoVariant& _rhs) { return _lhs.location < _rhs.location; });
+
+    // push constants
+    if (resources.push_constant_buffers.size())
+    {
+        const spirv_cross::Resource& r = resources.push_constant_buffers.front();
+        introData.pushConstant.present = true;
+        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(introData.pushConstant.info), r.base_type_id, r.id, mapId2SpecConst);
+    }
+
+    return introData;
 }
 
-void ICPUShader::SIntrospectionPerformer::shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID) const
+void ICPUShader::SIntrospectionPerformer::shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const core::unordered_map<uint32_t, const SIntrospectionData::SSpecConstant*>& _mapId2sconst) const
 {
     // SShaderMemoryBlock (and its members) cannot define custom default ctor nor even default member values, because then it's "non-trivial default ctor" and
     // union containing it (as member) has deleted default ctor... (union default ctor is deleted if any of its members defines non-trivial default ctor)
     auto shdrMemBlockMemberDefault = [] {
         impl::SShaderMemoryBlock::SMember m;
         m.count = 1u;
+        m.countIsSpecConstant = false;
         m.offset = 0u;
         m.size = 0u;
         m.arrayStride = 0u;
@@ -309,6 +322,13 @@ void ICPUShader::SIntrospectionPerformer::shaderMemBlockIntrospection(spirv_cros
         {
             member.count = mtype.array[0];
             member.arrayStride = _comp.type_struct_member_array_stride(type, m);
+            member.countIsSpecConstant = !mtype.array_size_literal[0];
+            if (member.countIsSpecConstant) {
+                const auto sc_itr = _mapId2sconst.find(member.count);
+                assert(sc_itr != _mapId2sconst.cend());
+                auto sc = sc_itr->second;
+                member.count = sc->id;
+            }
         }
 
         member.mtxRowCnt = mtype.vecsize;
@@ -322,7 +342,7 @@ void ICPUShader::SIntrospectionPerformer::shaderMemBlockIntrospection(spirv_cros
     _res.size = _res.rtSizedArrayOneElementSize = _comp.get_declared_struct_size(type);
     const spirv_cross::SPIRType& lastType = _comp.get_type(type.member_types[memberCnt-1u]);
     if (lastType.array.size() && lastType.array_size_literal[0] && lastType.array[0] == 0u)
-        _res.rtSizedArrayOneElementSize += _comp.type_struct_member_array_stride(type, type.member_types[memberCnt-1u]);
+        _res.rtSizedArrayOneElementSize += _res.members.array[memberCnt-1u].arrayStride;
 
     spirv_cross::Bitset flags = _comp.get_buffer_block_flags(_varID);
     _res.restrict_ = flags.get(spv::DecorationRestrict);

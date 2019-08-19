@@ -92,6 +92,7 @@ struct SShaderMemoryBlock
     {
         //! count==1 implies not array
         uint32_t count;
+        bool countIsSpecConstant;
         uint32_t offset;
         uint32_t size;
         uint32_t arrayStride;
