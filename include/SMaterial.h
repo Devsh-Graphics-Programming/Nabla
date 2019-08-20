@@ -222,7 +222,6 @@ namespace video
 		scene::IAnimatedMeshSceneNode* node = smgr->addAnimatedMeshSceneNode(
 		smgr->getMesh("data/faerie.md2"));
 		node->setMaterialTexture(0, driver->getTexture("data/Faerie2.pcx")); // set diffuse texture
-		node->setMaterialFlag(video::EMF_LIGHTING, true); // enable dynamic lighting
 		node->getMaterial(0).Shininess = 20.0f; // set size of specular highlights
 		\endcode */
 		float Shininess;
@@ -268,9 +267,6 @@ namespace video
             uint64_t BlendOperation:4;
 
             //! Draw as wireframe or filled triangles? Default: false
-            /** The user can access a material flag using
-            \code material.Wireframe=true \endcode
-            or \code material.setFlag(EMF_WIREFRAME, true); \endcode */
             uint64_t Wireframe:1;
 
             //! Draw as point cloud or filled triangles? Default: false
@@ -342,62 +338,6 @@ namespace video
 			if (i>=MATERIAL_MAX_TEXTURES)
 				return;
 			TextureLayer[i].Texture = tex;
-		}
-
-		//! Sets the Material flag to the given value
-		/** \param flag The flag to be set.
-		\param value The new value for the flag. */
-		void setFlag(E_MATERIAL_FLAG flag, bool value)
-		{
-			switch (flag)
-			{
-				case EMF_WIREFRAME:
-					Wireframe = value; break;
-				case EMF_POINTCLOUD:
-					PointCloud = value; break;
-				case EMF_ZBUFFER:
-					ZBuffer = value; break;
-				case EMF_ZWRITE_ENABLE:
-					ZWriteEnable = value; break;
-				case EMF_BACK_FACE_CULLING:
-					BackfaceCulling = value; break;
-				case EMF_FRONT_FACE_CULLING:
-					FrontfaceCulling = value; break;
-				case EMF_COLOR_MASK:
-					ColorMask = value?ECP_ALL:ECP_NONE; break;
-				case EMF_BLEND_OPERATION:
-					BlendOperation = value?EBO_ADD:EBO_NONE; break;
-				default:
-					break;
-			}
-		}
-
-		//! Gets the Material flag
-		/** \param flag The flag to query.
-		\return The current value of the flag. */
-		bool getFlag(E_MATERIAL_FLAG flag) const
-		{
-			switch (flag)
-			{
-				case EMF_WIREFRAME:
-					return Wireframe;
-				case EMF_POINTCLOUD:
-					return PointCloud;
-				case EMF_ZBUFFER:
-					return ZBuffer!=ECFN_NEVER;
-				case EMF_ZWRITE_ENABLE:
-					return ZWriteEnable;
-				case EMF_BACK_FACE_CULLING:
-					return BackfaceCulling;
-				case EMF_FRONT_FACE_CULLING:
-					return FrontfaceCulling;
-				case EMF_COLOR_MASK:
-					return (ColorMask!=ECP_NONE);
-				case EMF_BLEND_OPERATION:
-					return BlendOperation != EBO_NONE;
-			}
-
-			return false;
 		}
 
 		//! Inequality operator
