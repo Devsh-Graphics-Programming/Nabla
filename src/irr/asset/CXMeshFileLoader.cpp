@@ -101,10 +101,12 @@ asset::SAssetBundle CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asse
 
                 asset::ICPUMeshBuffer* origMeshBuffer = ctx.AnimatedMesh->getMeshBuffer(i);
                 auto desc = core::smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>(static_cast<asset::ICPUMeshDataFormatDesc*>(origMeshBuffer->getMeshDataAndFormat())); // yes we want the extra grab
+				const auto* const_desc = desc.get();
+
                 meshbuffer->getMaterial() = origMeshBuffer->getMaterial();
                 meshbuffer->setPrimitiveType(origMeshBuffer->getPrimitiveType());
 
-                bool doesntNeedIndices = !desc->getIndexBuffer();
+                bool doesntNeedIndices = !const_desc->getIndexBuffer();
                 uint32_t largestVertex = origMeshBuffer->getIndexCount();
                 meshbuffer->setIndexCount(largestVertex);
                 if (doesntNeedIndices)
@@ -158,12 +160,12 @@ asset::SAssetBundle CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asse
                 for (size_t j=0; j<asset::EVAI_COUNT; j++)
                 {
                     asset::E_VERTEX_ATTRIBUTE_ID attrId = (asset::E_VERTEX_ATTRIBUTE_ID)j;
-                    if (!desc->getMappedBuffer(attrId))
+                    if (!const_desc->getMappedBuffer(attrId))
                         continue;
 
                     if (attrId==asset::EVAI_ATTR3)
                     {
-                        const asset::ICPUBuffer* normalBuffer = desc->getMappedBuffer(asset::EVAI_ATTR3);
+                        const asset::ICPUBuffer* normalBuffer = const_desc->getMappedBuffer(asset::EVAI_ATTR3);
                         auto newNormalBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(normalBuffer->getSize()/3);
                         for (size_t k=0; k<newNormalBuffer->getSize()/4; k++)
                         {
@@ -304,46 +306,37 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 
 			if (mesh->FaceMaterialIndices.size() != 0)
 			{
-                asset::ICPUMeshDataFormatDesc* desc = new asset::ICPUMeshDataFormatDesc();
+                auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
 
-				asset::ICPUBuffer* vPosBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4*3);
-				desc->setVertexAttrBuffer(vPosBuf,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT);
-				vPosBuf->drop();
-				asset::ICPUBuffer* vColorBuf = NULL;
+				auto vPosBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(mesh->Vertices.size()*4*3);
+				core::smart_refctd_ptr<asset::ICPUBuffer> vColorBuf;
+
+				desc->setVertexAttrBuffer(core::smart_refctd_ptr(vPosBuf),asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT);
 				if (mesh->Colors.size())
-                {
-                    vColorBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4);
-                    desc->setVertexAttrBuffer(vColorBuf,asset::EVAI_ATTR1,asset::EF_B8G8R8A8_UNORM);
-                    vColorBuf->drop();
-                }
-				asset::ICPUBuffer* vTCBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4*2);
-                desc->setVertexAttrBuffer(vTCBuf,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
-                vTCBuf->drop();
-				asset::ICPUBuffer* vNormalBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4*3);
-				desc->setVertexAttrBuffer(vNormalBuf,asset::EVAI_ATTR3,asset::EF_R32G32B32_SFLOAT);
-				vNormalBuf->drop();
-				asset::ICPUBuffer* vTC2Buf = NULL;
+				{
+					vColorBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(mesh->Vertices.size()*4);
+					desc->setVertexAttrBuffer(core::smart_refctd_ptr(vColorBuf),asset::EVAI_ATTR1,asset::EF_B8G8R8A8_UNORM);
+				}
+				auto vTCBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(mesh->Vertices.size()*4*2);
+				desc->setVertexAttrBuffer(core::smart_refctd_ptr(vTCBuf),asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
+				auto vNormalBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(mesh->Vertices.size()*4*3);
+				desc->setVertexAttrBuffer(core::smart_refctd_ptr(vNormalBuf),asset::EVAI_ATTR3,asset::EF_R32G32B32_SFLOAT);
+				
+				core::smart_refctd_ptr<asset::ICPUBuffer> vTC2Buf;
 				if (mesh->TCoords2.size())
 				{
-                    vTC2Buf = new asset::ICPUBuffer(mesh->Vertices.size()*4*2);
-                    desc->setVertexAttrBuffer(vTC2Buf,asset::EVAI_ATTR4,asset::EF_R32G32_SFLOAT);
-                    vTC2Buf->drop();
+                    vTC2Buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(mesh->Vertices.size()*4*2);
+                    desc->setVertexAttrBuffer(core::smart_refctd_ptr(vTC2Buf),asset::EVAI_ATTR4,asset::EF_R32G32_SFLOAT);
 				}
-				asset::ICPUBuffer* vSkinningDataBuf = NULL;
-				if (mesh->VertexSkinWeights.size())
+				core::smart_refctd_ptr<asset::ICPUBuffer> vSkinningDataBuf;
+				if (mesh->VertexSkinWeights.size() || mesh->AttachedJointID!=-1)
                 {
-                    vSkinningDataBuf = new asset::ICPUBuffer(mesh->Vertices.size()*sizeof(SkinnedVertexFinalData));
-                    desc->setVertexAttrBuffer(vSkinningDataBuf,asset::EVAI_ATTR5,asset::EF_R8G8B8A8_UINT,8,0);
-                    desc->setVertexAttrBuffer(vSkinningDataBuf,asset::EVAI_ATTR6,asset::EF_A2B10G10R10_UNORM_PACK32,8,4);
-                    vSkinningDataBuf->drop();
+                    vSkinningDataBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(mesh->Vertices.size()*sizeof(SkinnedVertexFinalData));
+                    desc->setVertexAttrBuffer(core::smart_refctd_ptr(vSkinningDataBuf),asset::EVAI_ATTR5,asset::EF_R8G8B8A8_UINT,8,0);
+                    desc->setVertexAttrBuffer(core::smart_refctd_ptr(vSkinningDataBuf),asset::EVAI_ATTR6,asset::EF_A2B10G10R10_UNORM_PACK32,8,4);
                 }
-				else if (mesh->AttachedJointID!=-1)
+				if (mesh->AttachedJointID!=-1)
                 {
-                    vSkinningDataBuf = new asset::ICPUBuffer(mesh->Vertices.size()*sizeof(SkinnedVertexFinalData));
-                    desc->setVertexAttrBuffer(vSkinningDataBuf,asset::EVAI_ATTR5,asset::EF_R8G8B8A8_UINT,8,0);
-                    desc->setVertexAttrBuffer(vSkinningDataBuf,asset::EVAI_ATTR6,asset::EF_A2B10G10R10_UNORM_PACK32,8,4);
-                    vSkinningDataBuf->drop();
-
                     bool correctBindMatrix = _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix.isIdentity();
                     core::matrix4x3 globalMat,globalMatInvTransp;
                     if (correctBindMatrix)
@@ -392,7 +385,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
                         reinterpret_cast<SkinnedVertexFinalData*>(vSkinningDataBuf->getPointer())[j].boneIDs[2] = 0;
                         reinterpret_cast<SkinnedVertexFinalData*>(vSkinningDataBuf->getPointer())[j].boneIDs[3] = 0;
                     }
-                    vSkinningDataBuf = NULL;
+                    vSkinningDataBuf = nullptr;
                 }
 
 				// store vertices in buffers and remember relation in verticesLinkIndex
@@ -418,7 +411,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
                     else
                         buffer->setIndexType(asset::EIT_16BIT);
 
-                    buffer->setMeshDataAndFormat(desc);
+                    buffer->setMeshDataAndFormat(std::move(desc));
 
                     if (i>0)
                     {
@@ -426,7 +419,6 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
                         buffer->setBaseVertex(cumBaseVertex[i]);
                     }
 				}
-				desc->drop();
 
 				verticesLinkIndex.resize(mesh->Vertices.size());
 				memset(vCountArray, 0, mesh->Buffers.size()*sizeof(uint32_t));
@@ -592,9 +584,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 					buffer->setIndexBufferOffset(indexBufferSz);
                     indexBufferSz += subBufferSz;
                 }
-                asset::ICPUBuffer* ixbuf = new asset::ICPUBuffer(indexBufferSz);
-				desc->setIndexBuffer(ixbuf);
-				ixbuf->drop();
+                auto ixbuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(indexBufferSz);
 				// create indices per buffer
 				memset(vCountArray, 0, mesh->Buffers.size()*sizeof(uint32_t));
 				for (i=0; i<mesh->FaceMaterialIndices.size(); ++i)
@@ -614,6 +604,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
                             ((uint16_t*)indexBufAlreadyOffset)[vCountArray[mesh->FaceMaterialIndices[i]]++] = verticesLinkIndex[ mesh->Indices[id] ];
                     }
 				}
+				desc->setIndexBuffer(std::move(ixbuf));
                 delete [] cumBaseVertex;
 				delete [] vCountArray;
 			}
