@@ -12,12 +12,6 @@ class COpenGLSpecializedShader : public IGPUSpecializedShader
 {
 public:
     COpenGLSpecializedShader(video::IVideoDriver* _driver, const asset::ICPUSpecializedShader* _cpushader);
-    /*{
-        // manipulate spir-v (specialize spec. constants)
-        // down-compile to GLSL (SPIRV-Cross)
-        // manipulation 2nd pass (on GLSL code)
-        // feed to OpenGL and get GL name
-    }*/
 
 
     GLuint getOpenGLName() const { return m_GLname; }

@@ -142,6 +142,7 @@ public:
 
     inline const IParsedShaderSource* getParsed() const
     {
+        //TODO it cannot ever return nullptr
         return m_parsed;
     }
 

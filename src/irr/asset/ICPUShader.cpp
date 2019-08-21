@@ -2,40 +2,13 @@
 #include "spirv_cross/spirv_parser.hpp"
 #include "spirv_cross/spirv_cross.hpp"
 #include "irr/asset/EFormat.h"
+#include "irr/asset/spvUtils.h"
 
 namespace irr { namespace asset
 {
 
 namespace
 {
-E_SHADER_STAGE spvExecModel2ESS(spv::ExecutionModel _em)
-{
-    using namespace spv;
-    switch (_em)
-    {
-    case ExecutionModelVertex: return ESS_VERTEX;
-    case ExecutionModelTessellationControl: return ESS_TESSELATION_CONTROL;
-    case ExecutionModelTessellationEvaluation: return ESS_TESSELATION_EVALUATION;
-    case ExecutionModelGeometry: return ESS_GEOMETRY;
-    case ExecutionModelFragment: return ESS_FRAGMENT;
-    case ExecutionModelGLCompute: return ESS_COMPUTE;
-    default: return ESS_UNKNOWN;
-    }
-}
-spv::ExecutionModel ESS2spvExecModel(E_SHADER_STAGE _ss)
-{
-    using namespace spv;
-    switch (_ss)
-    {
-    case ESS_VERTEX: return ExecutionModelVertex;
-    case ESS_TESSELATION_CONTROL: return ExecutionModelTessellationControl;
-    case ESS_TESSELATION_EVALUATION: return ExecutionModelTessellationEvaluation;
-    case ESS_GEOMETRY: return ExecutionModelGeometry;
-    case ESS_FRAGMENT: return ExecutionModelFragment;
-    case ESS_COMPUTE: return ExecutionModelGLCompute;
-    default: return ExecutionModelMax;
-    }
-}
 E_FORMAT spvImageFormat2E_FORMAT(spv::ImageFormat _imgfmt)
 {
     using namespace spv;
@@ -120,8 +93,9 @@ void ICPUShader::enableIntrospection()
         //if ICPUShader doesnt already contain SPIR-V, it means it was constructed from GLSL source and SPIR-V has to be retrieved and parsed
         const SEntryPointStagePair& theOnlyEP = m_entryPoints.front();
         m_spirvBytecode = m_glslCompiler->createSPIRVFromGLSL(m_glsl.c_str(), theOnlyEP.second, theOnlyEP.first.c_str(), m_glslOriginFilename.c_str());
-        m_parsed = new IParsedShaderSource(m_spirvBytecode);
     }
+    if (!m_parsed)
+        m_parsed = new IParsedShaderSource(m_spirvBytecode);
 
     spirv_cross::Compiler comp(m_parsed->getUnderlyingRepresentation());
     auto eps = getStageEntryPoints(comp);
