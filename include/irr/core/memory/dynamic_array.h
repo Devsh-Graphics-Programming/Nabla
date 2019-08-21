@@ -21,55 +21,93 @@ class IRR_FORCE_EBO dynamic_array : public Uncopyable, public Unmovable
 		using const_iterator = const T*;
 
 	protected:
-		struct alignas(alignof(T)) BaseMembers
+		struct alignas(value_type) BaseMembers
 		{
 			allocator alctr;
 			size_t item_count;
-		} base;
+		};
+		BaseMembers base;
 
 		_IRR_STATIC_INLINE_CONSTEXPR size_t dummy_item_count = sizeof(BaseMembers)/sizeof(T);
 
 
-		virtual ~dynamic_array()
-		{
-			for (size_t i = 0ull; i < base.item_count; ++i)
-				std::allocator_traits<allocator>::destroy(base.alctr, data()+i);
-		}
-
-	public:
-		dynamic_array(size_t _length, const allocator& _alctr = allocator()) : base({_alctr,_length})
+		dynamic_array(size_t _length, const allocator& _alctr = allocator()) : base({ _alctr,_length })
 		{
 			for (size_t i = 0ull; i < base.item_count; ++i)
 				std::allocator_traits<allocator>::construct(base.alctr, data() + i);
 		}
-		dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator()) : base({_alctr,_length})
+		dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator()) : base({ _alctr,_length })
 		{
 			for (size_t i = 0ull; i < base.item_count; ++i)
 				std::allocator_traits<allocator>::construct(base.alctr, data() + i, _val);
 		}
-		dynamic_array(std::initializer_list<T> _contents, const allocator& _alctr = allocator()) : base({_alctr,_contents.size()})
+		dynamic_array(std::initializer_list<T>&& _contents, const allocator& _alctr = allocator()) : base({ _alctr,_contents.size() })
 		{
 			for (size_t i = 0ull; i < base.item_count; ++i)
 				std::allocator_traits<allocator>::construct(base.alctr, data() + i, *(_contents.begin() + i));
 		}
+	public:
+		virtual ~dynamic_array()
+		{
+			for (size_t i = 0ull; i < base.item_count; ++i)
+				std::allocator_traits<allocator>::destroy(base.alctr, data() + i);
+		}
 
-        inline static void* operator new(size_t size) noexcept
-        {
-			return allocator().allocate(dummy_item_count + size/sizeof(T));
-        }
-        static inline void* operator new[](size_t size) noexcept
-        {
-			return allocator().allocate(dummy_item_count + size/sizeof(T));
-        }
+		static inline void* allocate_dynamic_array(size_t length, const allocator& _alctr = allocator())
+		{
+			return allocator().allocate(dummy_item_count+length);
+		}
+		// factory method to use instead of `new`
+		template<class U>
+		static inline U* create_dynamic_array(size_t length, const allocator& _alctr = allocator())
+		{
+			void* ptr = allocate_dynamic_array(length,_alctr);
+			return new(ptr) U(length,_alctr);
+		}
+		template<class U>
+		static inline U* create_dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator())
+		{
+			void* ptr = allocate_dynamic_array(length,_alctr);
+			return new(ptr) U(length,_val,_alctr);
+		}
+		template<class U>
+		static inline U* create_dynamic_array(std::initializer_list<T> _contents, const allocator& _alctr = allocator())
+		{
+			void* ptr = allocate_dynamic_array(_contents.size(), _alctr);
+			return new(ptr) U(std::move(_contents), _alctr);
+		}
+
+		// the usual new allocation operator won't let us analyze the constructor arguments to decide the size of the object
+		static void* operator new(size_t size) = delete;
+		// we cannot new or delete arrays of `dynamic_array` (non uniform sizes)
+		static void* operator new[](size_t size) = delete;
 
         static inline void operator delete(void* ptr) noexcept
         {
 			return allocator().deallocate(reinterpret_cast<pointer>(ptr));
         }
-        static inline void operator delete[](void* ptr) noexcept
-        {
-			return allocator().deallocate(reinterpret_cast<pointer>(ptr));
-        }
+		// size hint is ill-formed
+		static void operator delete(void* ptr, std::size_t sz) = delete;
+		// no arrays
+		static void operator delete[](void* ptr) = delete;
+		static void operator delete[](void* ptr, std::size_t sz) = delete;
+#if __cplusplus >= 201703L
+		static void* operator new(size_t size, std::align_val_t al) = delete;
+		static void* operator new[](size_t size, std::align_val_t al) = delete;
+
+		// TODO: Support for C++17 align allocator
+		static void operator delete(void* ptr, std::align_val_t al) = delete;
+		static void operator delete(void* ptr, std::size_t sz, std::align_val_t al) = delete;
+		// no arrays
+		static void operator delete[](void* ptr, std::align_val_t al) = delete;
+		static void operator delete[](void* ptr, std::size_t sz, std::align_val_t al) = delete;
+#if __cplusplus >= 201704L // change later when c++20 is standardised
+		static void operator delete(dynamic_array<T, allocator>* ptr, std::destroying_delete_t) = delete;
+		static void operator delete(dynamic_array<T, allocator>* ptr, std::destroying_delete_t, std::align_val_t al) = delete;
+		static void operator delete(dynamic_array<T, allocator>* ptr, std::destroying_delete_t, std::size_t sz) = delete;
+		static void operator delete(dynamic_array<T, allocator>* ptr, std::destroying_delete_t, std::size_t sz, std::align_val_t al) = delete;
+#endif
+#endif
 
 		inline bool operator!=(const dynamic_array<T, allocator>& _other) const
 		{

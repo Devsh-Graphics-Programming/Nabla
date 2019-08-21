@@ -13,12 +13,14 @@ class refctd_dynamic_array : public dynamic_array<T,allocator>, public IReferenc
 {
 		using base_t = dynamic_array<T, allocator>;
 	public:
+		_IRR_RESOLVE_NEW_DELETE_AMBIGUITY(base_t) // only want new and delete operators from `dynamic_array`
+	protected:
+		friend class base_t;
+
 		refctd_dynamic_array(size_t _length, const allocator& _alctr = allocator()) : base_t(_length, _alctr) {}
 		refctd_dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator()) : base_t(_length, _val, _alctr) {}
-		refctd_dynamic_array(std::initializer_list<T> _contents, const allocator& _alctr = allocator()) : base_t(_contents, _alctr) {}
-		
-		_IRR_RESOLVE_NEW_DELETE_AMBIGUITY(base_t,IReferenceCounted)
-	protected:
+		refctd_dynamic_array(std::initializer_list<T>&& _contents, const allocator& _alctr = allocator()) : base_t(std::move(_contents), _alctr) {}
+
 		virtual ~refctd_dynamic_array() = default;
 };
 
