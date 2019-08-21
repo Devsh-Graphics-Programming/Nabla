@@ -38,8 +38,7 @@ namespace irr
 
 		//! A simple text only device supported by all platforms.
 		/** This device allows applications to run from the command line without opening a window.
-		It can render the output of the software drivers to the console as ASCII. It only supports
-		mouse and keyboard in Windows operating systems. */
+		It only supports mouse and keyboard in Windows operating systems. */
 		EIDT_CONSOLE,
 
 		//! This selection allows Irrlicht to choose the best device from the ones available.

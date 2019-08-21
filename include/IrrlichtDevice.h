@@ -114,7 +114,7 @@ namespace irr
 		reasons) the null driver, EDT_NULL exists.
 		\return Pointer to a list with all video modes supported
 		by the gfx adapter. */
-		virtual video::IVideoModeList* getVideoModeList() = 0;
+		virtual video::IVideoModeList* getVideoModeList() = 0; // kill
 
 		//! Provides access to the operation system operator object.
 		/** The OS operator provides methods for
@@ -254,12 +254,6 @@ namespace irr
 			{
 				case video::EDT_NULL:
 					return true;
-				case video::EDT_BURNINGSVIDEO:
-#ifdef _IRR_COMPILE_WITH_BURNINGSVIDEO_
-					return true;
-#else
-					return false;
-#endif
 				case video::EDT_OPENGL:
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 					return true;

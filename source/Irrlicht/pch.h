@@ -104,13 +104,10 @@
 #include "vector2d.h"
 #include "vector3d.h"
 #include "vectorSIMD.h"
-#include "BuiltInFont.h" // kill
 #include "CBillboardSceneNode.h"
-#include "CBlit.h" // kill
 #include "CCameraSceneNode.h"
 #include "CColorConverter.h"
 #include "CCubeSceneNode.h"
-#include "CDepthBuffer.h"
 #include "CFileList.h"
 #include "CFileSystem.h"
 #include "CFPSCounter.h"
@@ -167,9 +164,6 @@
 #include "CSkinningStateManager.h"
 #include "CSkyBoxSceneNode.h"
 #include "CSkyDomeSceneNode.h"
-#include "CSoftware2MaterialRenderer.h" // kill
-#include "CSoftwareDriver2.h" // kill
-#include "CSoftwareTexture2.h" // kill
 #include "CSphereSceneNode.h"
 #include "CTarReader.h"
 #include "CVideoModeList.h"
@@ -177,15 +171,8 @@
 #include "CWriteFile.h"
 #include "CZipReader.h"
 #include "FW_Mutex.h" // refactor
-#include "IBurningShader.h" // kill
-#include "IDepthBuffer.h" // kill
 #include "IImagePresenter.h"
 #include "ISceneNodeAnimatorFinishing.h"
-#include "IZBuffer.h" // kill
 #include "os.h"
-#include "S2DVertex.h" // kill
-#include "S4DVertex.h" // kill
-#include "SoftwareDriver2_compile_config.h" // kill
-#include "SoftwareDriver2_helper.h" // kill
 
 #endif //__IRR_PCH_H_INCLUDED__
