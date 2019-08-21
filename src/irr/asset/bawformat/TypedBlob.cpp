@@ -19,8 +19,23 @@
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 #include "irr/asset/CBAWMeshFileLoader.h"
 
-namespace irr { namespace asset
+namespace irr
 {
+namespace asset
+{
+
+
+namespace impl
+{
+
+template<class T>
+inline core::smart_refctd_ptr<T> castPtrAndRefcount(void* ptr)
+{
+	return core::smart_refctd_ptr<T>(reinterpret_cast<T>(ptr));
+}
+
+}
+
 
 // Loading-related blobs' function implementations
 template<>
@@ -132,7 +147,7 @@ void* TypedBlob<MeshBlobV0, asset::ICPUMesh>::finalize(void* _obj, const void* _
 	const MeshBlobV0* blob = reinterpret_cast<const MeshBlobV0*>(_blob);
 	asset::CCPUMesh* mesh = (asset::CCPUMesh*)_obj;
 	for (uint32_t i = 0; i < blob->meshBufCnt; ++i)
-		mesh->addMeshBuffer(core::smart_refctd_ptr<asset::ICPUMeshBuffer>(reinterpret_cast<asset::ICPUMeshBuffer*>(_deps[blob->meshBufPtrs[i]])));
+		mesh->addMeshBuffer(impl::castPtrAndRefcount<asset::ICPUMeshBuffer>(_deps[blob->meshBufPtrs[i]]));
 	return _obj;
 }
 
@@ -176,9 +191,9 @@ void* TypedBlob<SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>::finalize(void* _obj,
 
 	const SkinnedMeshBlobV0* blob = (const SkinnedMeshBlobV0*)_blob;
 	asset::CCPUSkinnedMesh* mesh = reinterpret_cast<asset::CCPUSkinnedMesh*>(_obj);
-	mesh->setBoneReferenceHierarchy(reinterpret_cast<scene::CFinalBoneHierarchy*>(_deps[blob->boneHierarchyPtr]));
+	mesh->setBoneReferenceHierarchy(impl::castPtrAndRefcount<scene::CFinalBoneHierarchy>(_deps[blob->boneHierarchyPtr]));
 	for (uint32_t i = 0; i < blob->meshBufCnt; ++i)
-		mesh->addMeshBuffer(reinterpret_cast<asset::ICPUSkinnedMeshBuffer*>(_deps[blob->meshBufPtrs[i]]));
+		mesh->addMeshBuffer(impl::castPtrAndRefcount<asset::ICPUSkinnedMeshBuffer>(_deps[blob->meshBufPtrs[i]]));
 
 	return _obj;
 }
@@ -209,7 +224,7 @@ template<>
 void* TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob)
-		return NULL;
+		return nullptr;
 
 	const MeshBufferBlobV0* blob = (const MeshBufferBlobV0*)_blob;
 	asset::ICPUMeshBuffer* buf = new asset::ICPUMeshBuffer();
@@ -235,11 +250,11 @@ template<>
 void* TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	if (!_obj || !_blob)
-		return NULL;
+		return nullptr;
 
 	const MeshBufferBlobV0* blob = (const MeshBufferBlobV0*)_blob;
 	asset::ICPUMeshBuffer* buf = reinterpret_cast<asset::ICPUMeshBuffer*>(_obj);
-	buf->setMeshDataAndFormat(reinterpret_cast<asset::IMeshDataFormatDesc<asset::ICPUBuffer>*>(_deps[blob->descPtr]));
+	buf->setMeshDataAndFormat(impl::castPtrAndRefcount<asset::IMeshDataFormatDesc<asset::ICPUBuffer> >(_deps[blob->descPtr]));
 	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(buf->getMaterial().getTexture(i));
@@ -266,7 +281,7 @@ template<>
 void* TypedBlob<SkinnedMeshBufferBlobV0, asset::ICPUSkinnedMeshBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob)
-		return NULL;
+		return nullptr;
 
 	const SkinnedMeshBufferBlobV0* blob = (const SkinnedMeshBufferBlobV0*)_blob;
 	asset::ICPUSkinnedMeshBuffer* buf = new asset::ICPUSkinnedMeshBuffer();
@@ -294,11 +309,11 @@ template<>
 void* TypedBlob<SkinnedMeshBufferBlobV0, asset::ICPUSkinnedMeshBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize,core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	if (!_obj || !_blob)
-		return NULL;
+		return nullptr;
 
 	const SkinnedMeshBufferBlobV0* blob = (const SkinnedMeshBufferBlobV0*)_blob;
 	asset::ICPUSkinnedMeshBuffer* buf = reinterpret_cast<asset::ICPUSkinnedMeshBuffer*>(_obj);
-	buf->setMeshDataAndFormat(reinterpret_cast<asset::IMeshDataFormatDesc<asset::ICPUBuffer>*>(_deps[blob->descPtr]));
+	buf->setMeshDataAndFormat(impl::castPtrAndRefcount<asset::IMeshDataFormatDesc<asset::ICPUBuffer> >(_deps[blob->descPtr]));
 	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(buf->getMaterial().getTexture(i));
@@ -327,7 +342,7 @@ template<>
 void* TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob)
-		return NULL;
+		return nullptr;
 
 	const uint8_t* const data = (const uint8_t*)_blob;
 	const FinalBoneHierarchyBlobV0* blob = (const FinalBoneHierarchyBlobV0*)_blob;
@@ -424,7 +439,7 @@ void* TypedBlob<MeshDataFormatDescBlobV1, asset::IMeshDataFormatDesc<asset::ICPU
 	using namespace scene;
 
 	if (!_obj || !_blob)
-		return NULL;
+		return nullptr;
 
 	const MeshDataFormatDescBlobV1* blob = (const MeshDataFormatDescBlobV1*)_blob;
 	asset::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = reinterpret_cast<asset::ICPUMeshDataFormatDesc*>(_obj);
@@ -432,7 +447,7 @@ void* TypedBlob<MeshDataFormatDescBlobV1, asset::IMeshDataFormatDesc<asset::ICPU
 	{
 		if (blob->attrBufPtrs[(int)i])
 			desc->setVertexAttrBuffer(
-				reinterpret_cast<asset::ICPUBuffer*>(_deps[blob->attrBufPtrs[i]]),
+				impl::castPtrAndRefcount<asset::ICPUBuffer>(_deps[blob->attrBufPtrs[i]]),
 				i,
 				static_cast<asset::E_FORMAT>(blob->attrFormat[i]),
 				blob->attrStride[i],
@@ -441,7 +456,7 @@ void* TypedBlob<MeshDataFormatDescBlobV1, asset::IMeshDataFormatDesc<asset::ICPU
 			);
 	}
 	if (blob->idxBufPtr)
-		desc->setIndexBuffer(reinterpret_cast<asset::ICPUBuffer*>(_deps[blob->idxBufPtr]));
+		desc->setIndexBuffer(impl::castPtrAndRefcount<asset::ICPUBuffer>(_deps[blob->idxBufPtr]));
 	return _obj;
 }
 
