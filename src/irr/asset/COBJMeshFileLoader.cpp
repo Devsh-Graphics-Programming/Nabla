@@ -396,9 +396,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
         meshbuffer->getMaterial() = ctx.Materials[m]->Material;
 
-        asset::ICPUMeshDataFormatDesc* desc = new asset::ICPUMeshDataFormatDesc();
-        meshbuffer->setMeshDataAndFormat(desc);
-        desc->drop();
+        auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
 
         bool doesntNeedIndices = true;
         size_t baseVertex = ctx.Materials[m]->Indices[0];
@@ -411,7 +409,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
             }
         }
 
-        asset::ICPUBuffer* vertexbuf;
         size_t actualVertexCount;
         if (doesntNeedIndices)
         {
@@ -423,21 +420,24 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
             baseVertex = 0;
             actualVertexCount = ctx.Materials[m]->Vertices.size();
 
-            asset::ICPUBuffer* indexbuf = new asset::ICPUBuffer(ctx.Materials[m]->Indices.size()*4);
-            desc->setIndexBuffer(indexbuf);
-            indexbuf->drop();
-            memcpy(indexbuf->getPointer(),&ctx.Materials[m]->Indices[0],indexbuf->getSize());
+			{
+				auto indexbuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*ctx.Materials[m]->Indices.size());
+				memcpy(indexbuf->getPointer(),&ctx.Materials[m]->Indices[0],indexbuf->getSize());
+				desc->setIndexBuffer(std::move(indexbuf));
+			}
 
             meshbuffer->setIndexType(asset::EIT_32BIT);
             meshbuffer->setIndexCount(ctx.Materials[m]->Indices.size());
         }
 
-        vertexbuf = new asset::ICPUBuffer(actualVertexCount*sizeof(SObjVertex));
-        desc->setVertexAttrBuffer(vertexbuf,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,sizeof(SObjVertex),0);
-        desc->setVertexAttrBuffer(vertexbuf,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT,sizeof(SObjVertex),12);
-        desc->setVertexAttrBuffer(vertexbuf,asset::EVAI_ATTR3,asset::EF_A2B10G10R10_SNORM_PACK32,sizeof(SObjVertex),20); //normal
-        memcpy(vertexbuf->getPointer(),ctx.Materials[m]->Vertices.data()+baseVertex,vertexbuf->getSize());
-        vertexbuf->drop();
+		{
+			auto vertexbuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(actualVertexCount*sizeof(SObjVertex));
+			desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertexbuf),asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,sizeof(SObjVertex),0);
+			desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertexbuf),asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT,sizeof(SObjVertex),12);
+			desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertexbuf),asset::EVAI_ATTR3,asset::EF_A2B10G10R10_SNORM_PACK32,sizeof(SObjVertex),20); //normal
+			memcpy(vertexbuf->getPointer(),ctx.Materials[m]->Vertices.data()+baseVertex,vertexbuf->getSize());
+		}
+		meshbuffer->setMeshDataAndFormat(std::move(desc));
 
         SAssetBundle bundle{std::move(meshbuffer)};
         _override->insertAssetIntoCache(bundle, genKeyForMeshBuf(ctx, _file->getFileName().c_str(), ctx.Materials[m]->Name, ctx.Materials[m]->Group), ctx.inner, 1u);
