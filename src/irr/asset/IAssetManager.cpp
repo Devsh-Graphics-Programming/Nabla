@@ -18,7 +18,7 @@ void IAssetManager::initializeMeshTools()
 {
     m_geometryCreator = new CGeometryCreator();
     m_meshManipulator = new CMeshManipulator();
-    m_glslCompiler = new IGLSLCompiler(m_device->getIncludeHandler());
+    m_glslCompiler = new IGLSLCompiler(m_device->getIncludeHandler(), m_device->getFileSystem());
 }
 
 void IAssetManager::dropMeshTools()

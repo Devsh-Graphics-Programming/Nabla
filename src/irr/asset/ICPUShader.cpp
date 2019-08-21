@@ -95,12 +95,16 @@ ICPUShader::ICPUShader(IGLSLCompiler* _glslcompiler, io::IReadFile* _glsl, const
     m_entryPoints.push_back({_entryPoint,_stage});//in case of creation from GLSL source, (entry point, stage) tuple given in constructor is the only one
     //in case of creation from SPIR-V there can be many of (EP, stage) tuples and they are retrieved directly from SPIR-V opcodes
 
+    //use 0 if no self-inclusions are allowed (behaviour as with traditional include guards)
+    //see description of IGLSLCompiler::resolveIncludeDirectives() for more info
+    constexpr uint32_t MAX_SELF_INCL_COUNT = 2u;
+
     if (!_glsl)
         return;
     m_glsl.resize(_glsl->getSize());
     _glsl->read(m_glsl.data(), m_glsl.size());
     m_glslOriginFilename = _glsl->getFileName().c_str();
-    m_glsl = m_glslCompiler->resolveIncludeDirectives(m_glsl.c_str(), _stage, m_glslOriginFilename.c_str());
+    m_glsl = m_glslCompiler->resolveIncludeDirectives(m_glsl.c_str(), _stage, m_glslOriginFilename.c_str(), 3u);
 }
 
 void ICPUShader::enableIntrospection()
@@ -336,7 +340,8 @@ void ICPUShader::SIntrospectionPerformer::shaderMemBlockIntrospection(spirv_cros
     _res.members.array = _IRR_NEW_ARRAY(impl::SShaderMemoryBlock::SMember, memberCnt);
     _res.members.count = memberCnt;
     std::fill(_res.members.array, _res.members.array+memberCnt, shdrMemBlockMemberDefault());
-
+    //TODO introspection should be able to work with members of struct type (recursion)
+    //tldr SMember has o have `struct_members` array
     for (uint32_t m = 0u; m < memberCnt; ++m)
     {
         const spirv_cross::SPIRType& mtype = _comp.get_type(type.member_types[m]);

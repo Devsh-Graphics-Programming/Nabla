@@ -47,17 +47,6 @@ public:
 private:
     const IIncluder* getIncluderDependentOnPath(const std::string& _path) const
     {
-        auto isBuiltinPath = [](const std::string& _p) {
-            const char* builtinPrefixes[]{
-                "irr/builtin/",
-                "/irr/builtin/"
-            };
-            for (const char* prefix : builtinPrefixes)
-                if (_p.compare(0u, strlen(prefix), prefix) == 0)
-                    return true;
-            return false;
-        };
-
         return (isBuiltinPath(_path) ? m_includers[EII_BUILTIN].get() : m_includers[EII_FILESYSTEM].get());
     }
 };

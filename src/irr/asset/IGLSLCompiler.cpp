@@ -56,13 +56,55 @@ namespace impl
         std::regex_replace(std::ostreambuf_iterator<char>(ss), _glslCode, _glslCode + strlen(_glslCode), re, "#");
         return ss.str();
     }
+    static std::string encloseWithinExtraInclGuards(std::string&& _glslCode, uint32_t _maxInclusions, const char* _identifier)
+    {
+        assert(_maxInclusions!=0u);
+
+        using namespace std::string_literals;
+        std::string defBase_ = "_GENERATED_INCLUDE_GUARD_"s + _identifier + "_";
+        std::replace_if(defBase_.begin(), defBase_.end(), [](char c) ->bool { return !::isalpha(c) && !::isdigit(c); }, '_');
+
+        auto genDefs = [&defBase_, _maxInclusions, _identifier] {
+            auto defBase = [&defBase_](uint32_t n) { return defBase_ + std::to_string(n); };
+            std::string defs = "#ifndef " + defBase(0) + "\n\t#define " + defBase(0) + "\n";
+            for (uint32_t i = 1u; i <= _maxInclusions; ++i) {
+                const std::string defname = defBase(i);
+                defs += "#elif !defined(" + defname + ")\n\t#define " + defname + "\n";
+            }
+            defs += "#endif\n";
+            return defs;
+        };
+        auto genUndefs = [&defBase_, _maxInclusions, _identifier] {
+            auto defBase = [&defBase_](int32_t n) { return defBase_ + std::to_string(n); };
+            std::string undefs = "#ifdef " + defBase(_maxInclusions) + "\n\t#undef " + defBase(_maxInclusions) + "\n";
+            for (int32_t i = _maxInclusions-1; i >= 0; --i) {
+                const std::string defname = defBase(i);
+                undefs += "#elif defined(" + defname + ")\n\t#undef " + defname + "\n";
+            }
+            undefs += "#endif\n";
+            return undefs;
+        };
+        
+        return
+            genDefs() +
+            "\n"
+            "#ifndef " + defBase_ + std::to_string(_maxInclusions) +
+            "\n" +
+            _glslCode +
+            "\n"
+            "#endif"
+            "\n\n" +
+            genUndefs();
+    }
 
     class Includer : public shaderc::CompileOptions::IncluderInterface
     {
         const asset::IIncludeHandler* m_inclHandler;
+        const io::IFileSystem* m_fs;
+        const uint32_t m_maxInclCnt;
 
     public:
-        Includer(const asset::IIncludeHandler* _inclhndlr) : m_inclHandler(_inclhndlr) {}
+        Includer(const asset::IIncludeHandler* _inclhndlr, const io::IFileSystem* _fs, uint32_t _maxInclCnt) : m_inclHandler(_inclhndlr), m_fs(_fs), m_maxInclCnt{_maxInclCnt} {}
 
         //_requesting_source in top level #include's is what shaderc::Compiler's compiling functions get as `input_file_name` parameter
         //so in order for properly working relative #include's (""-type) `input_file_name` has to be path to file from which the GLSL source really come from
@@ -75,8 +117,16 @@ namespace impl
             shaderc_include_result* res = new shaderc_include_result;
             std::string res_str;
             io::path relDir;
+            const bool reqFromBuiltin = asset::IIncludeHandler::isBuiltinPath(_requesting_source);
+
             if (_type == shaderc_include_type_relative) {
-                relDir = io::IFileSystem::getFileDir(_requesting_source);
+                //While #includ'ing a builtin, one must specify its full path (starting with "irr/builtin" or "/irr/builtin").
+                //  This rule applies also while a builtin is #includ`ing another builtin.
+                //While including a filesystem file it must be either absolute path (or relative to any search dir added to asset::iIncludeHandler; <>-type),
+                //  or path relative to executable's working directory (""-type).
+                relDir = reqFromBuiltin ? "" : io::IFileSystem::getFileDir(_requesting_source);
+                if (relDir.lastChar()!='/')
+                    relDir.append('/');
                 res_str = m_inclHandler->getIncludeRelative(_requested_source, relDir.c_str());
             }
             else { //shaderc_include_type_standard
@@ -84,18 +134,23 @@ namespace impl
             }
 
             if (!res_str.size()) {
-                res->content_length = 0u;
-                res->content = ""; //error message should be placed here
+                const char* error_str = "Could not open file";
+                res->content_length = strlen(error_str);
+                res->content = new char[res->content_length+1u];
+                strcpy(const_cast<char*>(res->content), error_str);
                 res->source_name_length = 0u;
                 res->source_name = "";
             }
             else {
-                res_str = disableAllDirectivesExceptIncludes(res_str.c_str());
+                //employ encloseWithinExtraInclGuards() in order to prevent infinite loop of (not necesarilly direct) self-inclusions while other # directives (incl guards among them) are disabled
+                res_str = encloseWithinExtraInclGuards( disableAllDirectivesExceptIncludes(res_str.c_str()), m_maxInclCnt, _requested_source );
 
                 res->content_length = res_str.size();
                 res->content = new char[res_str.size()+1u];
                 strcpy(const_cast<char*>(res->content), res_str.c_str());
                 io::path name = (_type==shaderc_include_type_relative) ? (relDir + _requested_source) : (_requested_source);
+                if (!asset::IIncludeHandler::isBuiltinPath(name.c_str()))
+                    name = m_fs->getAbsolutePath(name);
                 res->source_name_length = name.size();
                 res->source_name = new char[name.size()+1u];
                 strcpy(const_cast<char*>(res->source_name), name.c_str());
@@ -115,12 +170,12 @@ namespace impl
     };
 }
 
-std::string IGLSLCompiler::resolveIncludeDirectives(const char* _glslCode, E_SHADER_STAGE _stage, const char* _originFilepath) const
+std::string IGLSLCompiler::resolveIncludeDirectives(const char* _glslCode, E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt) const
 {
     std::string glslCode = impl::disableAllDirectivesExceptIncludes(_glslCode);//all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
     shaderc::Compiler comp;
     shaderc::CompileOptions options;//default options
-    options.SetIncluder(std::make_unique<impl::Includer>(m_inclHandler));//custom #include handler
+    options.SetIncluder(std::make_unique<impl::Includer>(m_inclHandler, m_fs, _maxSelfInclusionCnt+1u));//custom #include handler
     const shaderc_shader_kind stage = (_stage == ESS_UNKNOWN) ? shaderc_glsl_infer_from_source : ESStoShadercEnum(_stage);
     auto res = comp.PreprocessGlsl(glslCode, stage, _originFilepath, options);
 

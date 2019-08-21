@@ -38,6 +38,8 @@ public:
     std::string getIncludeRelative(const std::string& _path, const std::string& _workingDir) const
     {
         io::path path = _workingDir.c_str();
+        if (!_workingDir.empty() && _workingDir.back() != '/')
+            path += "/";
         path += _path.c_str();
         io::IFileSystem::flattenFilename(path);
         path[path.size()-1] = 0; // for some reason flattenFilename() adds to the end
