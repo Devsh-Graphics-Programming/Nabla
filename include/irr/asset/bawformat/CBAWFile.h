@@ -12,6 +12,7 @@
 #include "irr/core/xxHash256.h"
 #include "irr/asset/ICPUTexture.h"
 #include "irr/asset/ICPUBuffer.h"
+#include "CFinalBoneHierarchy.h"
 
 namespace irr {
 
@@ -314,44 +315,44 @@ namespace asset
         "SkinnedMeshBufferBlobV0: Size of blob is not sum of its contents!"
     );
 
-	struct IRR_FORCE_EBO FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0,scene::CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>
+	struct IRR_FORCE_EBO FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0,CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV0, CFinalBoneHierarchy>
 	{
-		//friend struct SizedBlob<VariableSizeBlob, FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>;
+		//friend struct SizedBlob<VariableSizeBlob, FinalBoneHierarchyBlobV0, CFinalBoneHierarchy>;
 	public:
-		FinalBoneHierarchyBlobV0(const scene::CFinalBoneHierarchy* _fbh);
+		FinalBoneHierarchyBlobV0(const CFinalBoneHierarchy* _fbh);
 
 	public:
 		//! Used for creating a blob. Calculates offset of the block of blob resulting from exporting `*_fbh` object.
 		/** @param _fbh Pointer to object on the basis of which offset of the block will be calculated.
 		@return Offset where the block must begin (used while writing blob data (exporting)).
 		*/
-        static size_t calcBonesOffset(const scene::CFinalBoneHierarchy* _fbh);
-		//! @copydoc calcBonesOffset(const scene::CFinalBoneHierarchy*)
-        static size_t calcLevelsOffset(const scene::CFinalBoneHierarchy* _fbh);
-		//! @copydoc calcBonesOffset(const scene::CFinalBoneHierarchy*)
-        static size_t calcKeyFramesOffset(const scene::CFinalBoneHierarchy* _fbh);
-		//! @copydoc calcBonesOffset(const scene::CFinalBoneHierarchy*)
-        static size_t calcInterpolatedAnimsOffset(const scene::CFinalBoneHierarchy* _fbh);
-		//! @copydoc calcBonesOffset(const scene::CFinalBoneHierarchy*)
-        static size_t calcNonInterpolatedAnimsOffset(const scene::CFinalBoneHierarchy* _fbh);
-		//! @copydoc calcBonesOffset(const scene::CFinalBoneHierarchy*)
-        static size_t calcBoneNamesOffset(const scene::CFinalBoneHierarchy* _fbh);
+        static size_t calcBonesOffset(const CFinalBoneHierarchy* _fbh);
+		//! @copydoc calcBonesOffset(const CFinalBoneHierarchy*)
+        static size_t calcLevelsOffset(const CFinalBoneHierarchy* _fbh);
+		//! @copydoc calcBonesOffset(const CFinalBoneHierarchy*)
+        static size_t calcKeyFramesOffset(const CFinalBoneHierarchy* _fbh);
+		//! @copydoc calcBonesOffset(const CFinalBoneHierarchy*)
+        static size_t calcInterpolatedAnimsOffset(const CFinalBoneHierarchy* _fbh);
+		//! @copydoc calcBonesOffset(const CFinalBoneHierarchy*)
+        static size_t calcNonInterpolatedAnimsOffset(const CFinalBoneHierarchy* _fbh);
+		//! @copydoc calcBonesOffset(const CFinalBoneHierarchy*)
+        static size_t calcBoneNamesOffset(const CFinalBoneHierarchy* _fbh);
 
 		//! Used for creating a blob. Calculates size (in bytes) of the block of blob resulting from exporting `*_fbh` object.
 		/** @param _fbh Pointer to object on the basis of which size of the block will be calculated.
 		@return Size of the block calculated on the basis of data containted by *_fbh object.
 		*/
-        static size_t calcBonesByteSize(const scene::CFinalBoneHierarchy* _fbh);
-		//! @copydoc calcBonesByteSize(const scene::CFinalBoneHierarchy*)
-        static size_t calcLevelsByteSize(const scene::CFinalBoneHierarchy* _fbh);
-		//! @copydoc calcBonesByteSize(const scene::CFinalBoneHierarchy*)
-        static size_t calcKeyFramesByteSize(const scene::CFinalBoneHierarchy* _fbh);
-		//! @copydoc calcBonesByteSize(const scene::CFinalBoneHierarchy*)
-        static size_t calcInterpolatedAnimsByteSize(const scene::CFinalBoneHierarchy* _fbh);
-		//! @copydoc calcBonesByteSize(const scene::CFinalBoneHierarchy*)
-        static size_t calcNonInterpolatedAnimsByteSize(const scene::CFinalBoneHierarchy* _fbh);
-		//! @copydoc calcBonesByteSize(const scene::CFinalBoneHierarchy*)
-        static size_t calcBoneNamesByteSize(const scene::CFinalBoneHierarchy* _fbh);
+        static size_t calcBonesByteSize(const CFinalBoneHierarchy* _fbh);
+		//! @copydoc calcBonesByteSize(const CFinalBoneHierarchy*)
+        static size_t calcLevelsByteSize(const CFinalBoneHierarchy* _fbh);
+		//! @copydoc calcBonesByteSize(const CFinalBoneHierarchy*)
+        static size_t calcKeyFramesByteSize(const CFinalBoneHierarchy* _fbh);
+		//! @copydoc calcBonesByteSize(const CFinalBoneHierarchy*)
+        static size_t calcInterpolatedAnimsByteSize(const CFinalBoneHierarchy* _fbh);
+		//! @copydoc calcBonesByteSize(const CFinalBoneHierarchy*)
+        static size_t calcNonInterpolatedAnimsByteSize(const CFinalBoneHierarchy* _fbh);
+		//! @copydoc calcBonesByteSize(const CFinalBoneHierarchy*)
+        static size_t calcBoneNamesByteSize(const CFinalBoneHierarchy* _fbh);
 
 		//! Used for importing (unpacking) blob. Calculates offset of the block.
 		/** @returns Offset of the block based on corresponding member of the blob object.
@@ -452,7 +453,7 @@ namespace asset
 	template<>
 	struct CorrespondingBlobTypeFor<asset::IMeshDataFormatDesc<asset::ICPUBuffer> > { typedef MeshDataFormatDescBlobV1 type; };
 	template<>
-	struct CorrespondingBlobTypeFor<scene::CFinalBoneHierarchy> { typedef FinalBoneHierarchyBlobV1 type; };
+	struct CorrespondingBlobTypeFor<CFinalBoneHierarchy> { typedef FinalBoneHierarchyBlobV1 type; };
 	template<>
 	struct CorrespondingBlobTypeFor<video::IVirtualTexture> { typedef TexturePathBlobV1 type; };
 

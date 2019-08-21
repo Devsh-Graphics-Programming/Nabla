@@ -13,15 +13,9 @@
 #include "path.h"
 #include "irr/asset/IAssetLoader.h"
 
-namespace irr {
-
-class IrrlichtDevice;
-
-namespace scene
+namespace irr
 {
-	class ISceneManager;
-	class CFinalBoneHierarchy;
-}
+
 namespace asset
 {
     class ICPUSkinnedMesh;

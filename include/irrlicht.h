@@ -48,7 +48,6 @@
 #include "quaternion.h"
 #include "rect.h"
 #include "dimension2d.h"
-#include "CFinalBoneHierarchy.h"
 #include "ECullingTypes.h"
 #include "EDebugSceneTypes.h"
 #include "EDriverTypes.h"

@@ -191,7 +191,7 @@ void* TypedBlob<SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>::finalize(void* _obj,
 
 	const SkinnedMeshBlobV0* blob = (const SkinnedMeshBlobV0*)_blob;
 	asset::CCPUSkinnedMesh* mesh = reinterpret_cast<asset::CCPUSkinnedMesh*>(_obj);
-	mesh->setBoneReferenceHierarchy(impl::castPtrAndRefcount<scene::CFinalBoneHierarchy>(_deps[blob->boneHierarchyPtr]));
+	mesh->setBoneReferenceHierarchy(impl::castPtrAndRefcount<CFinalBoneHierarchy>(_deps[blob->boneHierarchyPtr]));
 	for (uint32_t i = 0; i < blob->meshBufCnt; ++i)
 		mesh->addMeshBuffer(impl::castPtrAndRefcount<asset::ICPUSkinnedMeshBuffer>(_deps[blob->meshBufPtrs[i]]));
 
@@ -333,13 +333,13 @@ void TypedBlob<SkinnedMeshBufferBlobV0, asset::ICPUSkinnedMeshBuffer>::releaseOb
 }
 
 template<>
-core::unordered_set<uint64_t> TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>::getNeededDeps(const void* _blob)
+core::unordered_set<uint64_t> TypedBlob<FinalBoneHierarchyBlobV0, CFinalBoneHierarchy>::getNeededDeps(const void* _blob)
 {
 	return core::unordered_set<uint64_t>();
 }
 
 template<>
-void* TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* TypedBlob<FinalBoneHierarchyBlobV0, CFinalBoneHierarchy>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return nullptr;
@@ -381,7 +381,7 @@ void* TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>::instantia
 		strPtr += len;
 	}
 
-	scene::CFinalBoneHierarchy* fbh = new scene::CFinalBoneHierarchy(
+	CFinalBoneHierarchy* fbh = new CFinalBoneHierarchy(
 		bonesBegin, bonesEnd,
 		boneNames, boneNames + blob->boneCount,
 		(const size_t*)levelsBegin, (const size_t*)levelsEnd,
@@ -400,16 +400,16 @@ void* TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>::instantia
 }
 
 template<>
-void* TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* TypedBlob<FinalBoneHierarchyBlobV0, CFinalBoneHierarchy>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	return _obj;
 }
 
 template<>
-void TypedBlob<FinalBoneHierarchyBlobV0, scene::CFinalBoneHierarchy>::releaseObj(const void* _obj)
+void TypedBlob<FinalBoneHierarchyBlobV0, CFinalBoneHierarchy>::releaseObj(const void* _obj)
 {
 	if (_obj)
-		reinterpret_cast<const scene::CFinalBoneHierarchy*>(_obj)->drop();
+		reinterpret_cast<const CFinalBoneHierarchy*>(_obj)->drop();
 }
 
 
