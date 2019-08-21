@@ -29,14 +29,8 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     bool hasColor = false;
 
 	auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
-    asset::ICPUMeshDataFormatDesc* desc = new asset::ICPUMeshDataFormatDesc();
-    {
-		auto meshbuffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
-		meshbuffer->setMeshDataAndFormat(desc);
-		desc->drop();
-
-		mesh->addMeshBuffer(std::move(meshbuffer));
-    }
+	auto meshbuffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+	auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
 
 	bool binary = false;
 	core::stringc token;
@@ -138,25 +132,28 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	} // end while (_file->getPos() < filesize)
 
     const size_t vtxSize = hasColor ? (3 * sizeof(float) + 4 + 4) : (3 * sizeof(float) + 4);
-	asset::ICPUBuffer* vertexBuf = new asset::ICPUBuffer(vtxSize*positions.size());
+	{
+		auto vertexBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxSize*positions.size());
 
-    uint32_t normal{};
-    for (size_t i = 0u; i < positions.size(); ++i)
-    {
-        if (i%3 == 0)
-            normal = asset::quantizeNormal2_10_10_10(normals[i/3]);
-        uint8_t* ptr = ((uint8_t*)(vertexBuf->getPointer())) + i*vtxSize;
-        memcpy(ptr, positions[i].pointer, 3*4);
-        ((uint32_t*)(ptr+12))[0] = normal;
-        if (hasColor)
-            memcpy(ptr+16, colors.data()+i/3, 4);
-    }
+		uint32_t normal{};
+		for (size_t i = 0u; i<positions.size(); ++i)
+		{
+			if (i%3 == 0)
+				normal = asset::quantizeNormal2_10_10_10(normals[i/3]);
+			uint8_t* ptr = ((uint8_t*)(vertexBuf->getPointer())) + i*vtxSize;
+			memcpy(ptr, positions[i].pointer, 3*4);
+			((uint32_t*)(ptr+12))[0] = normal;
+			if (hasColor)
+				memcpy(ptr+16, colors.data()+i/3, 4);
+		}
 
-	desc->setVertexAttrBuffer(vertexBuf, asset::EVAI_ATTR0, asset::EF_R32G32B32_SFLOAT, vtxSize, 0);
-	desc->setVertexAttrBuffer(vertexBuf, asset::EVAI_ATTR3, asset::EF_A2B10G10R10_SNORM_PACK32, vtxSize, 12);
-    if (hasColor)
-	    desc->setVertexAttrBuffer(vertexBuf, asset::EVAI_ATTR1, asset::EF_B8G8R8A8_UNORM, vtxSize, 16);
-	vertexBuf->drop();
+		desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertexBuf), asset::EVAI_ATTR0, asset::EF_R32G32B32_SFLOAT, vtxSize, 0);
+		desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertexBuf), asset::EVAI_ATTR3, asset::EF_A2B10G10R10_SNORM_PACK32, vtxSize, 12);
+		if (hasColor)
+			desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertexBuf), asset::EVAI_ATTR1, asset::EF_B8G8R8A8_UNORM, vtxSize, 16);
+	}
+	meshbuffer->setMeshDataAndFormat(std::move(desc));
+	mesh->addMeshBuffer(std::move(meshbuffer));
 
 	mesh->getMeshBuffer(0)->setIndexCount(positions.size());
     //mesh->getMeshBuffer(0)->setPrimitiveType(EPT_POINTS);
