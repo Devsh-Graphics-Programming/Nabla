@@ -63,38 +63,15 @@ public:
 	//! returns a pixel
 	virtual SColor getPixel(uint32_t x, uint32_t y) const;
 
-	//! sets a pixel
-	virtual void setPixel(uint32_t x, uint32_t y, const SColor &color, bool blend = false );
-
 	//! returns the color format
 	virtual asset::E_FORMAT getColorFormat() const;
 
 	//! returns pitch of image
 	virtual uint32_t getPitch() const { return Pitch; }
-
-	//! copies this surface into another
-	virtual void copyTo(IImage* target, const core::position2d<int32_t>& pos=core::position2d<int32_t>(0,0));
-
-	//! copies this surface into another
-	virtual void copyTo(IImage* target, const core::position2d<int32_t>& pos, const core::rect<int32_t>& sourceRect, const core::rect<int32_t>* clipRect=0);
-
-	//! copies this surface into another, using the alpha mask, an cliprect and a color to add with
-	virtual void copyToWithAlpha(IImage* target, const core::position2d<int32_t>& pos,
-			const core::rect<int32_t>& sourceRect, const SColor &color,
-			const core::rect<int32_t>* clipRect = 0);
-
-	//! copies this surface into another, scaling it to fit, appyling a box filter
-	virtual void copyToScalingBoxFilter(IImage* target, int32_t bias = 0, bool blend = false);
-
-	//! fills the surface with given color
-	virtual void fill(const SColor &color);
-
 private:
 
 	//! assumes format and size has been set and creates the rest
 	void initData();
-
-	inline SColor getPixelBox ( int32_t x, int32_t y, int32_t fx, int32_t fy, int32_t bias ) const;
 
 	uint8_t* Data;
 	core::dimension2d<uint32_t> Size;

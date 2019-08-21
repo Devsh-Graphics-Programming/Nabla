@@ -18,7 +18,6 @@
 #include "coreutil.h"
 #include "Keycodes.h"
 #include "COSOperator.h"
-#include "CColorConverter.h"
 #include "SIrrCreationParameters.h"
 #include <X11/XKBlib.h>
 #include <X11/Xatom.h>
@@ -84,7 +83,7 @@ const char* wmDeleteWindow = "WM_DELETE_WINDOW";
 CIrrDeviceLinux::CIrrDeviceLinux(const SIrrlichtCreationParameters& param)
 	: CIrrDeviceStub(param),
 #ifdef _IRR_COMPILE_WITH_X11_
-	display(0), visual(0), screennr(0), window(0), StdHints(0), SoftwareImage(0),
+	display(0), visual(0), screennr(0), window(0), StdHints(0),
 	XInputMethod(0), XInputContext(0),
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 	glxWin(0),	Context(0), AuxContexts(0),
@@ -204,9 +203,6 @@ CIrrDeviceLinux::~CIrrDeviceLinux()
 
 		// Reset fullscreen resolution change
 		switchToFullscreen(true);
-
-		if (SoftwareImage)
-			XDestroyImage(SoftwareImage);
 
 		if (!ExternalWindow)
 		{
@@ -977,23 +973,8 @@ bool CIrrDeviceLinux::createWindow()
 	long num;
 	XGetWMNormalHints(display, window, StdHints, &num);
 
-	// create an XImage for the software renderer
-	//(thx to Nadav for some clues on how to do that!)
-
-	if (CreationParams.DriverType == video::EDT_BURNINGSVIDEO)
-	{
-		SoftwareImage = XCreateImage(display,
-			visual->visual, visual->depth,
-			ZPixmap, 0, 0, Width, Height,
-			BitmapPad(display), 0);
-
-		// use malloc because X will free it later on
-		if (SoftwareImage)
-			SoftwareImage->data = (char*) malloc(SoftwareImage->bytes_per_line * SoftwareImage->height * sizeof(char));
-	}
 
 	initXAtoms();
-
 #endif // #ifdef _IRR_COMPILE_WITH_X11_
 	return true;
 }
@@ -1071,21 +1052,6 @@ bool CIrrDeviceLinux::run()
 				{
 					Width = event.xconfigure.width;
 					Height = event.xconfigure.height;
-
-					// resize image data
-					if (SoftwareImage)
-					{
-						XDestroyImage(SoftwareImage);
-
-						SoftwareImage = XCreateImage(display,
-							visual->visual, visual->depth,
-							ZPixmap, 0, 0, Width, Height,
-							BitmapPad(display), 0);
-
-						// use malloc because X will free it later on
-						if (SoftwareImage)
-							SoftwareImage->data = (char*) malloc(SoftwareImage->bytes_per_line * SoftwareImage->height * sizeof(char));
-					}
 
 					if (VideoDriver)
 						VideoDriver->OnResize(core::dimension2d<uint32_t>(Width, Height));
@@ -1413,53 +1379,6 @@ void CIrrDeviceLinux::setWindowCaption(const std::wstring& text)
 //! presents a surface in the client area
 bool CIrrDeviceLinux::present(video::IImage* image, void* windowId, core::rect<int32_t>* srcRect)
 {
-#ifdef _IRR_COMPILE_WITH_X11_
-	// this is only necessary for software drivers.
-	if (!SoftwareImage)
-		return true;
-
-	// thx to Nadav, who send me some clues of how to display the image
-	// to the X Server.
-
-	const uint32_t destwidth = SoftwareImage->width;
-	const uint32_t minWidth = core::min_(image->getDimension().Width, destwidth);
-	const uint32_t destPitch = SoftwareImage->bytes_per_line;
-
-	asset::E_FORMAT destColor;
-	switch (SoftwareImage->bits_per_pixel)
-	{
-		case 16:
-			if (SoftwareImage->depth==16)
-				destColor = asset::EF_R5G6B5_UNORM_PACK16;
-			else
-				destColor = asset::EF_A1R5G5B5_UNORM_PACK16;
-		break;
-		case 24: destColor = asset::EF_R8G8B8_UNORM; break;
-		case 32: destColor = asset::EF_B8G8R8A8_UNORM; break;
-		default:
-			os::Printer::log("Unsupported screen depth.");
-			return false;
-	}
-
-	uint8_t* srcdata = reinterpret_cast<uint8_t*>(image->getData());
-	uint8_t* destData = reinterpret_cast<uint8_t*>(SoftwareImage->data);
-
-	const uint32_t destheight = SoftwareImage->height;
-	const uint32_t srcheight = core::min_(image->getDimension().Height, destheight);
-	const uint32_t srcPitch = image->getPitch();
-	for (uint32_t y=0; y!=srcheight; ++y)
-	{
-		video::CColorConverter::convert_viaFormat(srcdata,image->getColorFormat(), minWidth, destData, destColor);
-		srcdata+=srcPitch;
-		destData+=destPitch;
-	}
-
-	GC gc = DefaultGC(display, DefaultScreen(display));
-	Window myWindow=window;
-	if (windowId)
-		myWindow = reinterpret_cast<Window>(windowId);
-	XPutImage(display, myWindow, gc, SoftwareImage, 0, 0, 0, 0, destwidth, destheight);
-#endif
 	return true;
 }
 
