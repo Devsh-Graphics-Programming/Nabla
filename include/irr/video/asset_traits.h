@@ -12,35 +12,20 @@ template<typename BuffT>
 class SOffsetBufferPair : public core::IReferenceCounted
 {
 protected:
-    virtual ~SOffsetBufferPair()
-    {
-        if (m_buffer)
-            m_buffer->drop();
-    }
+	virtual ~SOffsetBufferPair() {}
 
 public:
-    SOffsetBufferPair(uint64_t _offset = 0ull, BuffT* _buffer = nullptr) : m_offset{_offset}, m_buffer{_buffer}
-    {
-        if (m_buffer)
-            m_buffer->grab();
-    }
+    SOffsetBufferPair(uint64_t _offset = 0ull, core::smart_refctd_ptr<BuffT>&& _buffer = nullptr) : m_offset{_offset}, m_buffer(_buffer) {}
 
-    void setOffset(uint64_t _offset) { m_offset = _offset; }
-    void setBuffer(BuffT* _buffer)
-    {
-        if (_buffer)
-            _buffer->grab();
-        if (m_buffer)
-            m_buffer->drop();
-        m_buffer = _buffer;
-    }
+    inline void setOffset(uint64_t _offset) { m_offset = _offset; }
+    inline void setBuffer(core::smart_refctd_ptr<BuffT>&& _buffer) { m_buffer = _buffer; }
 
     uint64_t getOffset() const { return m_offset; }
-    BuffT* getBuffer() const { return m_buffer; }
+    BuffT* getBuffer() const { return m_buffer.get(); }
 
 private:
     uint64_t m_offset;
-    BuffT* m_buffer;
+    core::smart_refctd_ptr<BuffT> m_buffer;
 };
 
 template<typename AssetType>

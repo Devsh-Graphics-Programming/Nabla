@@ -13,7 +13,6 @@
 
 // graphics API backend
 #cmakedefine _IRR_COMPILE_WITH_OPENGL_
-#cmakedefine _IRR_COMPILE_WITH_BURNINGSVIDEO_
 #cmakedefine _IRR_COMPILE_WITH_VULKAN_
 
 // extra config

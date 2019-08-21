@@ -17,7 +17,6 @@
 #include <utility>
 #include "IReadFile.h"
 #include "os.h"
-#include "CColorConverter.h"
 #include "irr/asset/CImageData.h"
 #include "irr/asset/ICPUTexture.h"
 
