@@ -70,7 +70,6 @@ set(IRRLICHT_SRCS_COMMON
 
 # Mesh writers
 	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshWriter.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/COBJMeshWriter.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshWriter.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CSTLMeshWriter.cpp
 	
@@ -135,8 +134,8 @@ set(IRRLICHT_SRCS_COMMON
 	FW_Mutex.cpp
 
 # Image processing
-	CColorConverter.cpp
 	CImage.cpp
+	CColorConverter.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderBMP.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderDDS.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderJPG.cpp
@@ -152,19 +151,6 @@ set(IRRLICHT_SRCS_COMMON
 	CVideoModeList.cpp
 	${IRR_ROOT_PATH}/src/irr/video/alloc/GPUMemoryAllocatorBase.cpp
 	${IRR_ROOT_PATH}/src/irr/video/alloc/SimpleGPUBufferAllocator.cpp
-
-# Software renderer
-	CBurningShader_Raster_Reference.cpp
-	CDepthBuffer.cpp
-	CSoftwareDriver2.cpp
-	CSoftwareTexture2.cpp
-	CTRGouraud2.cpp
-	CTRTextureGouraud2.cpp
-	CTRTextureGouraudNoZ2.cpp
-	CTRTextureGouraudAdd2.cpp
-	CTRTextureGouraudAddNoZ2.cpp
-	CTRTextureGouraudVertexAlpha2.cpp
-	IBurningShader.cpp
 
 # Input/output
 	CFileList.cpp
@@ -211,8 +197,6 @@ set(IRRLICHT_SRCS_NORMAL
 	COpenGLQuery.cpp
 	COpenGLTransformFeedback.cpp
 	COpenGLVAOSpec.cpp
-	CTRTextureGouraudAlpha.cpp
-	CTRTextureGouraudAlphaNoZ.cpp
 	COpenGL1DTexture.cpp
 	COpenGL1DTextureArray.cpp
 	COpenGLCubemapArrayTexture.cpp
