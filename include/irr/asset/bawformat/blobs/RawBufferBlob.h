@@ -6,10 +6,14 @@
 #ifndef __IRR_RAW_BUFFER_BLOB_H_INCLUDED__
 #define __IRR_RAW_BUFFER_BLOB_H_INCLUDED__
 
+#include "irr/asset/bawformat/Blob.h"
+
 namespace irr
 {
 namespace asset
 {
+
+class ICPUBuffer;
 
 #include "irr/irrpack.h"
 struct IRR_FORCE_EBO RawBufferBlobV0 : TypedBlob<RawBufferBlobV0, ICPUBuffer>, FixedSizeBlob<RawBufferBlobV0, ICPUBuffer>

@@ -6,6 +6,8 @@
 #ifndef __IRR_MESH_BLOB_H_INCLUDED__
 #define __IRR_MESH_BLOB_H_INCLUDED__
 
+#include "irr/asset/bawformat/Blob.h"
+
 namespace irr
 {
 namespace asset

@@ -107,13 +107,6 @@ namespace asset
 	using BlobHeaderV1 = BlobHeaderVn<CurrentBAWFormatVersion>;
 	using BAWFileV1 = BAWFileVn<CurrentBAWFormatVersion>;
 
-
-	template<typename T>
-	typename CorrespondingBlobTypeFor<T>::type* toBlobPtr(const void* _blob)
-	{
-		return (typename CorrespondingBlobTypeFor<T>::type*)_blob;
-	}
-
 	bool encAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag);
 	bool decAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag);
 

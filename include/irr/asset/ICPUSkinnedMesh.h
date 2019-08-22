@@ -1,11 +1,17 @@
 #ifndef __IRR_I_CPU_SKINNED_MESH_INCLUDED__
 #define __IRR_I_CPU_SKINNED_MESH_INCLUDED__
 
-#include "ICPUMesh.h"
 #include "quaternion.h"
 
-namespace irr { namespace asset
+#include "irr/asset/ICPUMesh.h"
+#include "irr/asset/bawformat/blobs/SkinnedMeshBlob.h"
+
+namespace irr
 {
+namespace asset
+{
+
+class CFinalBoneHierarchy;
 
 //! Interface for using some special functions of Skinned meshes
 class ICPUSkinnedMesh : public ICPUMesh
@@ -13,7 +19,7 @@ class ICPUSkinnedMesh : public ICPUMesh
 public:
 
     //!
-    virtual scene::CFinalBoneHierarchy* getBoneReferenceHierarchy() const = 0;
+    virtual CFinalBoneHierarchy* getBoneReferenceHierarchy() const = 0;
 
     //!
     virtual asset::E_MESH_TYPE getMeshType() const

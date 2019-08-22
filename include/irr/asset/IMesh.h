@@ -6,8 +6,9 @@
 #define __I_MESH_H_INCLUDED__
 
 #include "irr/core/IReferenceCounted.h"
-#include "SMaterial.h"
 #include "aabbox3d.h"
+#include "SMaterial.h"
+#include "irr/asset/bawformat/blobs/MeshBlob.h"
 
 namespace irr
 {
@@ -38,55 +39,50 @@ namespace asset
 	template <class T>
 	class IMesh : public virtual core::IReferenceCounted
 	{
-	protected:
-		virtual ~IMesh() {}
-	public:
+		protected:
+			virtual ~IMesh() {}
+		public:
 
-		//! Get the amount of mesh buffers.
-		/** \return Amount of mesh buffers (IMeshBuffer) in this mesh. */
-		virtual uint32_t getMeshBufferCount() const = 0;
+			//! Get the amount of mesh buffers.
+			/** \return Amount of mesh buffers (IMeshBuffer) in this mesh. */
+			virtual uint32_t getMeshBufferCount() const = 0;
 
-		//! Get pointer to a mesh buffer.
-		/** \param nr: Zero based index of the mesh buffer. The maximum value is
-		getMeshBufferCount() - 1;
-		\return Pointer to the mesh buffer or 0 if there is no such
-		mesh buffer. */
-		virtual T* getMeshBuffer(uint32_t nr) const = 0;
+			//! Get pointer to a mesh buffer.
+			/** \param nr: Zero based index of the mesh buffer. The maximum value is
+			getMeshBufferCount() - 1;
+			\return Pointer to the mesh buffer or 0 if there is no such
+			mesh buffer. */
+			virtual T* getMeshBuffer(uint32_t nr) const = 0;
 
-		//! Get an axis aligned bounding box of the mesh.
-		/** \return Bounding box of this mesh. */
-		virtual const core::aabbox3d<float>& getBoundingBox() const = 0;
+			//! Get an axis aligned bounding box of the mesh.
+			/** \return Bounding box of this mesh. */
+			virtual const core::aabbox3df& getBoundingBox() const = 0;
 
-		//! Set user-defined axis aligned bounding box
-		/** \param box New bounding box to use for the mesh. */
-		virtual void setBoundingBox( const core::aabbox3df& box) = 0;
+			//! Set user-defined axis aligned bounding box
+			/** \param box New bounding box to use for the mesh. */
+			virtual void setBoundingBox( const core::aabbox3df& box) = 0;
 
-		//! recalculates the bounding box
-		virtual void recalculateBoundingBox()
-		{
-		    core::aabbox3df tmpBox;
-			if (getMeshBufferCount())
+			//! recalculates the bounding box
+			virtual void recalculateBoundingBox()
 			{
-				tmpBox = getMeshBuffer(0)->getBoundingBox();
-				for (uint32_t i=1; i<getMeshBufferCount(); ++i)
-                {
-					tmpBox.addInternalBox(getMeshBuffer(i)->getBoundingBox());
-                }
+				core::aabbox3df tmpBox;
+				if (getMeshBufferCount())
+				{
+					tmpBox = getMeshBuffer(0)->getBoundingBox();
+					for (uint32_t i=1; i<getMeshBufferCount(); ++i)
+					{
+						tmpBox.addInternalBox(getMeshBuffer(i)->getBoundingBox());
+					}
+				}
+				else
+					tmpBox.reset(0.0f, 0.0f, 0.0f);
+
+				setBoundingBox(tmpBox);
 			}
-			else
-				tmpBox.reset(0.0f, 0.0f, 0.0f);
 
-            setBoundingBox(tmpBox);
-		}
-
-		//! Sets a flag of all contained materials to a new value.
-		/** \param flag: Flag to set in all materials.
-		\param newvalue: New value to set in all materials. */
-		virtual void setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue) = 0;
-
-		//! Get mesh type.
-		/** @returns Mesh type. */
-		virtual E_MESH_TYPE getMeshType() const = 0;
+			//! Get mesh type.
+			/** @returns Mesh type. */
+			virtual E_MESH_TYPE getMeshType() const = 0;
 	};
 
 } // end namespace asset

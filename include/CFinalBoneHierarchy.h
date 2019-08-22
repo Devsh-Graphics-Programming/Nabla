@@ -5,7 +5,9 @@
 #include <algorithm>
 #include <functional>
 #include "irr/core/core.h"
+#include "irr/asset/ICPUSkinnedMesh.h"
 #include "irr/asset/bawformat/BlobSerializable.h"
+#include "irr/asset/bawformat/blobs/FinalBoneHierarchyBlob.h"
 
 namespace irr
 {

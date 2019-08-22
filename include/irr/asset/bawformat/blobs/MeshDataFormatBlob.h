@@ -6,6 +6,7 @@
 #ifndef __IRR_MESH_DATA_FORMAT_DESC_BLOB_H_INCLUDED__
 #define __IRR_MESH_DATA_FORMAT_DESC_BLOB_H_INCLUDED__
 
+#include "irr/asset/ICPUBuffer.h"
 
 namespace irr
 {

@@ -10,7 +10,6 @@
 #include "irrString.h"
 #include "aabbox3d.h"
 #include "CConcurrentObjectCache.h"
-#include "CFinalBoneHierarchy.h"
 #include "CObjectCache.h"
 #include "COpenGLStateManager.h"
 #include "dimension2d.h"

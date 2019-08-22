@@ -5,6 +5,8 @@
 
 #include "irr/core/core.h"
 #include "irr/asset/ICPUBuffer.h"
+#include "irr/asset/format/decodePixels.h"
+#include "irr/asset/format/encodePixels.h"
 #include "irr/asset/bawformat/Blob.h"
 #include "irr/asset/bawformat/BlobSerializable.h"
 #include "irr/asset/bawformat/blobs/MeshDataFormatBlob.h"

@@ -37,6 +37,7 @@ static_assert(
 
 using SkinnedMeshBlobV1 = SkinnedMeshBlobV0;
 
+template<>
 struct CorrespondingBlobTypeFor<ICPUSkinnedMesh> { typedef SkinnedMeshBlobV1 type; };
 
 }

@@ -32,6 +32,7 @@
 #include "irr/asset/ISPIR_VProgram.h"
 #include "irr/asset/ICPUShader.h"
 #include "irr/asset/ICPUSpecializedShader.h"
+// pipelines
 // meshes
 #include "irr/asset/ICPUMeshBuffer.h"
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
@@ -40,7 +41,8 @@
 #include "irr/asset/ICPUSkinnedMesh.h"
 #include "irr/asset/CCPUSkinnedMesh.h" // refactor
 #include "irr/asset/IGeometryCreator.h"
-// pipelines
+// animated
+#include "CFinalBoneHierarchy.h"
 
 // baw files
 #include "irr/asset/bawformat/CBAWFile.h"

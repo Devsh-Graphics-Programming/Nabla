@@ -7,7 +7,7 @@ namespace irr { namespace asset
 {
 
 //! Simple implementation of the IMesh interface.
-class CCPUMesh : public ICPUMesh
+class CCPUMesh final : public ICPUMesh
 {
     core::CLeakDebugger* leakDebugger;
 protected:
@@ -98,14 +98,7 @@ public:
             MeshBuffers.push_back(std::move(buf));
     }
 
-    //! sets a flag of all contained materials to a new value
-    virtual void setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue)
-    {
-        for (uint32_t i = 0; i < MeshBuffers.size(); ++i)
-            MeshBuffers[i]->getMaterial().setFlag(flag, newvalue);
-    }
-
-    virtual asset::E_MESH_TYPE getMeshType() const override { return asset::EMT_NOT_ANIMATED; }
+    virtual E_MESH_TYPE getMeshType() const override { return EMT_NOT_ANIMATED; }
 
 //private:
     //! The bounding box of this mesh
