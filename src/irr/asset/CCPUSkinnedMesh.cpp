@@ -20,8 +20,7 @@ namespace asset
 
 
 //! constructor
-CCPUSkinnedMesh::CCPUSkinnedMesh()
-: referenceHierarchy(NULL), HasAnimation(false)
+CCPUSkinnedMesh::CCPUSkinnedMesh() : HasAnimation(false)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("CCPUSkinnedMesh");
@@ -34,35 +33,12 @@ CCPUSkinnedMesh::~CCPUSkinnedMesh()
 {
 	for (uint32_t i=0; i<AllJoints.size(); ++i)
 		delete AllJoints[i];
-
-	for (uint32_t j=0; j<LocalBuffers.size(); ++j)
-	{
-		if (LocalBuffers[j])
-			LocalBuffers[j]->drop();
-	}
-
-	if (referenceHierarchy)
-        referenceHierarchy->drop();
 }
 
 void CCPUSkinnedMesh::clearMeshBuffers()
 {
-	for (auto buff : LocalBuffers)
-		buff->drop();
 	LocalBuffers.clear();
-}
-
-void CCPUSkinnedMesh::setBoneReferenceHierarchy(scene::CFinalBoneHierarchy* fbh)
-{
-	scene::CFinalBoneHierarchy* referenceHierarchyOld = referenceHierarchy;
-
-	if (fbh)
-		fbh->grab();
-
-	referenceHierarchy = fbh;
-
-	if (referenceHierarchyOld)
-		referenceHierarchyOld->drop();
+	recalculateBoundingBox();
 }
 
 
@@ -77,37 +53,9 @@ uint32_t CCPUSkinnedMesh::getMeshBufferCount() const
 ICPUMeshBuffer* CCPUSkinnedMesh::getMeshBuffer(uint32_t nr) const
 {
 	if (nr < LocalBuffers.size())
-		return LocalBuffers[nr];
+		return LocalBuffers[nr].get();
 	else
-		return 0;
-}
-
-//! returns an axis aligned bounding box
-const core::aabbox3d<float>& CCPUSkinnedMesh::getBoundingBox() const
-{
-	return BoundingBox;
-}
-
-
-//! set user axis aligned bounding box
-void CCPUSkinnedMesh::setBoundingBox( const core::aabbox3df& box)
-{
-	BoundingBox = box;
-}
-
-
-//! sets a flag of all contained materials to a new value
-void CCPUSkinnedMesh::setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue)
-{
-	for (auto buff : LocalBuffers)
-		buff->getMaterial().setFlag(flag,newvalue);
-}
-
-
-
-core::vector<asset::ICPUSkinnedMeshBuffer*> &CCPUSkinnedMesh::getMeshBuffers()
-{
-	return LocalBuffers;
+		return nullptr;
 }
 
 
@@ -190,17 +138,14 @@ void CCPUSkinnedMesh::finalize()
 {
     for (auto it=LocalBuffers.begin(); it!=LocalBuffers.end();)
 	{
-	    if (!(*it) || (*it)->getIndexCount()==0)
-        {
-            (*it)->drop();
-            it = LocalBuffers.erase(it);
-        }
+		if (!(*it) || (*it)->getIndexCount() == 0)
+			it = LocalBuffers.erase(it);
         else
             it++;
 	}
 
 	//calculate bounding box
-	bool* firstTouch = NULL;
+	bool* firstTouch = nullptr;
 	if (AllJoints.size())
 	{
         firstTouch = new bool[AllJoints.size()];
@@ -212,9 +157,7 @@ void CCPUSkinnedMesh::finalize()
 	}
 
 	//
-	BoundingBox.reset(0,0,0);
-
-	bool firstStaticMesh = true;
+	core::aabbox3df BoundingBox(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX);
 	for (auto buff : LocalBuffers)
 	{
         asset::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = buff->getMeshDataAndFormat();
@@ -223,13 +166,7 @@ void CCPUSkinnedMesh::finalize()
         {
             buff->recalculateBoundingBox();
             buff->setMaxVertexBoneInfluences(0);
-            if (firstStaticMesh)
-            {
-                BoundingBox.reset(buff->getBoundingBox());
-                firstStaticMesh = false;
-            }
-            else
-                BoundingBox.addInternalBox(buff->getBoundingBox());
+            BoundingBox.addInternalBox(buff->getBoundingBox());
         }
         else
         {
@@ -279,6 +216,7 @@ void CCPUSkinnedMesh::finalize()
 	}
 	if (firstTouch)
         delete [] firstTouch;
+	setBoundingBox(BoundingBox);
 
     core::vector<size_t> JointIxLevelEnd;
 
@@ -442,38 +380,20 @@ void CCPUSkinnedMesh::finalize()
             }
         }
 
-        referenceHierarchy = new scene::CFinalBoneHierarchy(AllJoints,JointIxLevelEnd);
+        referenceHierarchy = core::make_smart_refctd_ptr<CFinalBoneHierarchy>(AllJoints,JointIxLevelEnd);
     }
-}
-
-
-asset::ICPUSkinnedMeshBuffer *CCPUSkinnedMesh::addMeshBuffer()
-{
-	ICPUSkinnedMeshBuffer *buffer = new ICPUSkinnedMeshBuffer();
-	LocalBuffers.push_back(buffer);
-	return buffer;
-}
-
-
-void CCPUSkinnedMesh::addMeshBuffer(ICPUSkinnedMeshBuffer* buf)
-{
-	if (buf)
-	{
-		buf->grab();
-		LocalBuffers.push_back(buf);
-	}
 }
 
 
 CCPUSkinnedMesh::SJoint *CCPUSkinnedMesh::addJoint(SJoint *parent)
 {
-	SJoint *joint=new SJoint;
+	SJoint *joint = new SJoint;
 
 	AllJoints.push_back(joint);
 	if (!parent)
 	{
 		//Add root joints to array in finalize()
-		joint->Parent = NULL;
+		joint->Parent = nullptr;
 	}
 	else
 	{
@@ -483,11 +403,6 @@ CCPUSkinnedMesh::SJoint *CCPUSkinnedMesh::addJoint(SJoint *parent)
 	}
 
 	return joint;
-}
-
-bool CCPUSkinnedMesh::isStatic() const
-{
-	return !HasAnimation;
 }
 
 
