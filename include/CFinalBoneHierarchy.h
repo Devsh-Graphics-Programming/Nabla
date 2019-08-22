@@ -5,8 +5,7 @@
 #include <algorithm>
 #include <functional>
 #include "irr/core/core.h"
-#include "irr/asset/ICPUSkinnedMesh.h"
-#include "irr/asset/bawformat/CBAWFile.h"
+#include "irr/asset/bawformat/BlobSerializable.h"
 
 namespace irr
 {

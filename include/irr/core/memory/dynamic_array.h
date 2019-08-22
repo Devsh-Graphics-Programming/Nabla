@@ -41,7 +41,7 @@ class IRR_FORCE_EBO dynamic_array : public Uncopyable, public Unmovable
 			for (size_t i = 0ull; i < base.item_count; ++i)
 				std::allocator_traits<allocator>::construct(base.alctr, data() + i, _val);
 		}
-		dynamic_array(std::initializer_list<T>&& _contents, const allocator& _alctr = allocator()) : base({ _alctr,_contents.size() })
+		dynamic_array(std::initializer_list<T> _contents, const allocator& _alctr = allocator()) : base({ _alctr,_contents.size() })
 		{
 			for (size_t i = 0ull; i < base.item_count; ++i)
 				std::allocator_traits<allocator>::construct(base.alctr, data() + i, *(_contents.begin() + i));
@@ -53,28 +53,29 @@ class IRR_FORCE_EBO dynamic_array : public Uncopyable, public Unmovable
 				std::allocator_traits<allocator>::destroy(base.alctr, data() + i);
 		}
 
+		static inline size_t size_of(size_t length)
+		{
+			return (dummy_item_count + length) * sizeof(T);
+		}
+		static inline size_t size_of(const std::initializer_list<T>& _contents)
+		{
+			return (dummy_item_count + _contents.size()) * sizeof(T);
+		}
+
 		static inline void* allocate_dynamic_array(size_t length, const allocator& _alctr = allocator())
 		{
-			return allocator().allocate(dummy_item_count+length);
+			return allocator().allocate(size_of(length)/sizeof(T));
+		}
+		static inline void* allocate_dynamic_array(const std::initializer_list<T>& _contents, const allocator& _alctr = allocator())
+		{
+			return allocator().allocate(size_of(_contents)/sizeof(T));
 		}
 		// factory method to use instead of `new`
-		template<class U>
-		static inline U* create_dynamic_array(size_t length, const allocator& _alctr = allocator())
+		template<typename... Args>
+		static inline auto* create_dynamic_array(Args&&... args)
 		{
-			void* ptr = allocate_dynamic_array(length,_alctr);
-			return new(ptr) U(length,_alctr);
-		}
-		template<class U>
-		static inline U* create_dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator())
-		{
-			void* ptr = allocate_dynamic_array(length,_alctr);
-			return new(ptr) U(length,_val,_alctr);
-		}
-		template<class U>
-		static inline U* create_dynamic_array(std::initializer_list<T> _contents, const allocator& _alctr = allocator())
-		{
-			void* ptr = allocate_dynamic_array(_contents.size(), _alctr);
-			return new(ptr) U(std::move(_contents), _alctr);
+			void* ptr = allocate_dynamic_array(args...);
+			return new(ptr) dynamic_array<T,allocator>(std::forward<Args>(args)...);
 		}
 
 		// the usual new allocation operator won't let us analyze the constructor arguments to decide the size of the object

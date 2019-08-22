@@ -13,13 +13,21 @@ class refctd_dynamic_array : public dynamic_array<T,allocator>, public IReferenc
 {
 		using base_t = dynamic_array<T, allocator>;
 	public:
+		// factory method to use instead of `new`
+		template<typename... Args>
+		static inline refctd_dynamic_array<T, allocator>* create_dynamic_array(Args&& ... args)
+		{
+			void* ptr = base_t::allocate_dynamic_array(args...);
+			return new(ptr) refctd_dynamic_array<T,allocator>(std::forward<Args>(args)...);
+		}
+
 		_IRR_RESOLVE_NEW_DELETE_AMBIGUITY(base_t) // only want new and delete operators from `dynamic_array`
 	protected:
 		friend class base_t;
 
 		refctd_dynamic_array(size_t _length, const allocator& _alctr = allocator()) : base_t(_length, _alctr) {}
 		refctd_dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator()) : base_t(_length, _val, _alctr) {}
-		refctd_dynamic_array(std::initializer_list<T>&& _contents, const allocator& _alctr = allocator()) : base_t(std::move(_contents), _alctr) {}
+		refctd_dynamic_array(std::initializer_list<T> _contents, const allocator& _alctr = allocator()) : base_t(std::move(_contents), _alctr) {}
 
 		virtual ~refctd_dynamic_array() = default;
 };
