@@ -11,7 +11,6 @@
 
 #include "ITransformFeedback.h"
 #include "IGPUBuffer.h"
-#include "vectorSIMD.h"
 
 namespace irr
 {

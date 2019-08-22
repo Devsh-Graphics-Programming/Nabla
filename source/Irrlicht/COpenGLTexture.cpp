@@ -10,7 +10,6 @@
 #include "COpenGLTexture.h"
 #include "COpenGLDriver.h"
 #include "os.h"
-#include "CColorConverter.h"
 
 
 

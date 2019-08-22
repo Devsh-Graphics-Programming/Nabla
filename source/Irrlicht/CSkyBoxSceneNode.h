@@ -26,7 +26,7 @@ namespace scene
             //! constructor
             CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom, video::ITexture* left,
                 video::ITexture* right, video::ITexture* front, video::ITexture* back,
-                video::IGPUBuffer* vertPositions, size_t positionsOffsetInBuf,
+				core::smart_refctd_ptr<video::IGPUBuffer>&& vertPositions, size_t positionsOffsetInBuf,
                 IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id);
             //! clone Ctor
             CSkyBoxSceneNode(CSkyBoxSceneNode* other,

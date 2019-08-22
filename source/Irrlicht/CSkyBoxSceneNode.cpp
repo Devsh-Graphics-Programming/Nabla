@@ -18,7 +18,7 @@ namespace scene
 //! constructor
 CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom, video::ITexture* left,
 			video::ITexture* right, video::ITexture* front, video::ITexture* back,
-			video::IGPUBuffer* vertPositions, size_t positionsOffsetInBuf,
+			core::smart_refctd_ptr<video::IGPUBuffer>&& vertPositions, size_t positionsOffsetInBuf,
 			IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id)
 : ISceneNode(parent, mgr, id)
 {
@@ -96,7 +96,7 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom
 	reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
 	reqs.prefersDedicatedAllocation = true;
 	reqs.requiresDedicatedAllocation = true;
-    video::IGPUBuffer* texcoordBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
+    auto texcoordBuf = core::smart_refctd_ptr<video::IGPUBuffer>(SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true),core::dont_grab);
     texcoordBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),texcoords);
 
 	// create left side
@@ -125,23 +125,21 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom
         sides[i] = new video::IGPUMeshBuffer();
         sides[i]->setPrimitiveType(asset::EPT_TRIANGLE_FAN);
         sides[i]->setIndexCount(4);
-        video::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-        sides[i]->setMeshDataAndFormat(desc);
-        desc->drop();
+        auto desc = driver->createGPUMeshDataFormatDesc();
+        sides[i]->setMeshDataAndFormat(std::move(desc));
     }
-    sides[0]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf);
-    sides[0]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
-    sides[1]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*1);
-    sides[1]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
-    sides[2]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*2);
-    sides[2]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
-    sides[3]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*3);
-    sides[3]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
-    sides[4]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*4);
-    sides[4]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
-    sides[5]->getMeshDataAndFormat()->setVertexAttrBuffer(vertPositions,asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*5);
-    sides[5]->getMeshDataAndFormat()->setVertexAttrBuffer(texcoordBuf,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT,0,2*4*sizeof(float));
-    texcoordBuf->drop();
+    sides[0]->getMeshDataAndFormat()->setVertexAttrBuffer(core::smart_refctd_ptr(vertPositions),asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf);
+    sides[0]->getMeshDataAndFormat()->setVertexAttrBuffer(core::smart_refctd_ptr(texcoordBuf),asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
+    sides[1]->getMeshDataAndFormat()->setVertexAttrBuffer(core::smart_refctd_ptr(vertPositions),asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*1);
+    sides[1]->getMeshDataAndFormat()->setVertexAttrBuffer(core::smart_refctd_ptr(texcoordBuf),asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
+    sides[2]->getMeshDataAndFormat()->setVertexAttrBuffer(core::smart_refctd_ptr(vertPositions),asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*2);
+    sides[2]->getMeshDataAndFormat()->setVertexAttrBuffer(core::smart_refctd_ptr(texcoordBuf),asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
+    sides[3]->getMeshDataAndFormat()->setVertexAttrBuffer(core::smart_refctd_ptr(vertPositions),asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*3);
+    sides[3]->getMeshDataAndFormat()->setVertexAttrBuffer(core::smart_refctd_ptr(texcoordBuf),asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
+    sides[4]->getMeshDataAndFormat()->setVertexAttrBuffer(core::smart_refctd_ptr(vertPositions),asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*4);
+    sides[4]->getMeshDataAndFormat()->setVertexAttrBuffer(core::smart_refctd_ptr(texcoordBuf),asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
+    sides[5]->getMeshDataAndFormat()->setVertexAttrBuffer(core::smart_refctd_ptr(vertPositions),asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*5);
+    sides[5]->getMeshDataAndFormat()->setVertexAttrBuffer(core::smart_refctd_ptr(texcoordBuf),asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT,0,2*4*sizeof(float));
 }
 
 CSkyBoxSceneNode::CSkyBoxSceneNode(CSkyBoxSceneNode* other,

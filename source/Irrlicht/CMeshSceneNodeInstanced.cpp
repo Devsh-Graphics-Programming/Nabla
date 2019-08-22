@@ -128,11 +128,9 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
 
 	dataPerInstanceOutputSize = dataSizePerInstanceOutput;
     {
-        video::IGPUBuffer* buff = instanceDataAllocator->getFrontBuffer();
+        auto buff = core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataAllocator->getFrontBuffer());
 
-        video::IGPUMeshDataFormatDesc* vao = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
-        lodCullingPointMesh->setMeshDataAndFormat(vao);
-        vao->drop();
+        auto vao = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
 
         uint32_t floatComponents = extraDataInstanceSize+1;
         floatComponents /= 4;
@@ -140,7 +138,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
         if (floatComponents>asset::EVAI_COUNT*4)
         {
             for (uint32_t i=0; i<asset::EVAI_COUNT; i++)
-                vao->setVertexAttrBuffer(buff,(asset::E_VERTEX_ATTRIBUTE_ID)i,asset::EF_R32G32B32A32_SFLOAT,dataPerInstanceInputSize,i*16);
+                vao->setVertexAttrBuffer(core::smart_refctd_ptr(buff),(asset::E_VERTEX_ATTRIBUTE_ID)i,asset::EF_R32G32B32A32_SFLOAT,dataPerInstanceInputSize,i*16);
         }
         else
         {
@@ -148,7 +146,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
             uint32_t attr = 0;
             for (; attr*4+3<floatComponents; attr++)
             {
-                vao->setVertexAttrBuffer(buff,(asset::E_VERTEX_ATTRIBUTE_ID)attr,asset::EF_R32G32B32A32_SFLOAT,dataPerInstanceInputSize,attr*16);
+                vao->setVertexAttrBuffer(core::smart_refctd_ptr(buff),(asset::E_VERTEX_ATTRIBUTE_ID)attr,asset::EF_R32G32B32A32_SFLOAT,dataPerInstanceInputSize,attr*16);
                 memoryUsed+=16;
             }
             memoryUsed -= (12+9)*4;
@@ -166,8 +164,9 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
             };
 
             //assume a padding of 4 at the end
-            vao->setVertexAttrBuffer(buff,(asset::E_VERTEX_ATTRIBUTE_ID)attr,convertFunc(((leftOverMemory+3)/4)),dataPerInstanceInputSize,attr*16);
+            vao->setVertexAttrBuffer(core::smart_refctd_ptr(buff),(asset::E_VERTEX_ATTRIBUTE_ID)attr,convertFunc(((leftOverMemory+3)/4)),dataPerInstanceInputSize,attr*16);
         }
+		lodCullingPointMesh->setMeshDataAndFormat(std::move(vao));
     }
 
 
@@ -194,9 +193,10 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
             meshBuff->setIndexType(origBuff->getIndexType());
             meshBuff->setPrimitiveType(origBuff->getPrimitiveType());
 
-            asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao = vaoSetupOverride(SceneManager,gpuCulledLodInstanceDataBuffer,dataSizePerInstanceOutput,origBuff->getMeshDataAndFormat(),overrideUserData);
-            meshBuff->setMeshDataAndFormat(vao);
-            vao->drop();
+			{
+				auto vao = vaoSetupOverride(SceneManager,gpuCulledLodInstanceDataBuffer,dataSizePerInstanceOutput,origBuff->getMeshDataAndFormat(),overrideUserData);
+				meshBuff->setMeshDataAndFormat(std::move(vao));
+			}
 
             meshBuff->getMaterial() = origBuff->getMaterial();
             meshBuff->setBoundingBox(origBuff->getBoundingBox());

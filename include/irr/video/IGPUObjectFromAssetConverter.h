@@ -128,14 +128,13 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asse
     reqs.vulkanReqs.size = addrAllctr.get_allocated_size();
     reqs.vulkanReqs.alignment = alignment;
 
-    IGPUBuffer* gpubuffer = m_driver->createGPUBufferOnDedMem(reqs, true);
+    auto gpubuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createGPUBufferOnDedMem(reqs, true), core::dont_grab); // TODO
 
     for (size_t i = 0u; i < res.size(); ++i)
     {
-        res[i]->setBuffer(gpubuffer);
+        res[i]->setBuffer(core::smart_refctd_ptr(gpubuffer));
         gpubuffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(res[i]->getOffset(), _begin[i]->getSize()), _begin[i]->getPointer());
     }
-    gpubuffer->drop();
 
     return res;
 }
@@ -168,7 +167,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
     {
         cpumaterials.push_back((*it)->getMaterial());
 
-        asset::ICPUMeshDataFormatDesc* origdesc = static_cast<asset::ICPUMeshDataFormatDesc*>((*it)->getMeshDataAndFormat());
+        const asset::ICPUMeshDataFormatDesc* origdesc = static_cast<asset::ICPUMeshDataFormatDesc*>((*it)->getMeshDataAndFormat());
         //if (!origdesc)
          //   return nullptr; //todo
 
@@ -252,15 +251,13 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
         const VaoConfig& vaoConf = vaoConfigs[i];
         if (!vaoConf.noAttributes && vaoConf.success)
         {
-            IGPUMeshDataFormatDesc* vao = m_driver->createGPUMeshDataFormatDesc();
-            res[i]->setMeshDataAndFormat(vao);
-            vao->drop();
+            auto vao = m_driver->createGPUMeshDataFormatDesc();
             for (size_t k = 0u; k < asset::EVAI_COUNT; ++k)
             {
                 if (vaoConf.oldbuffer[k])
                 {
                     vao->setVertexAttrBuffer(
-                        gpuBufDeps[bufRedir[j]]->getBuffer(),
+                        core::smart_refctd_ptr<IGPUBuffer>(gpuBufDeps[bufRedir[j]]->getBuffer()), // yes construct new shared ptr, we want a grab
                         asset::E_VERTEX_ATTRIBUTE_ID(k),
                         vaoConf.formats[k],
                         vaoConf.strides[k],
@@ -272,10 +269,11 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
             }
             if (vaoConf.idxbuf)
             {
-                vao->setIndexBuffer(gpuBufDeps[bufRedir[j]]->getBuffer());
+                vao->setIndexBuffer(core::smart_refctd_ptr<IGPUBuffer>(gpuBufDeps[bufRedir[j]]->getBuffer())); // yes construct a new shared ptr, we want a grab
                 res[i]->setIndexBufferOffset(res[i]->getIndexBufferOffset() + gpuBufDeps[bufRedir[j]]->getOffset());
                 ++j;
             }
+			res[i]->setMeshDataAndFormat(std::move(vao));
         }
     }
 

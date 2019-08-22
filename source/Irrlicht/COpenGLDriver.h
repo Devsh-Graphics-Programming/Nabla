@@ -424,7 +424,7 @@ namespace video
         const SAuxContext* getThreadContext(const std::thread::id& tid=std::this_thread::get_id()) const;
         bool deinitAuxContext();
 
-	    virtual video::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::CLeakDebugger* dbgr=NULL);
+	    virtual core::smart_refctd_ptr<video::IGPUMeshDataFormatDesc> createGPUMeshDataFormatDesc(core::CLeakDebugger* dbgr=nullptr) override;
 
         virtual uint16_t retrieveDisplayRefreshRate() const override;
 

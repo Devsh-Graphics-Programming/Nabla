@@ -99,7 +99,7 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ROOT_PATH}/src/irr/asset/COverdrawMeshOptimizer.cpp
 	CSkinnedMeshSceneNode.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/bawformat/TypedBlob.cpp
-	CCPUSkinnedMesh.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CCPUSkinnedMesh.cpp
 
 # Scene objects
 	CBillboardSceneNode.cpp

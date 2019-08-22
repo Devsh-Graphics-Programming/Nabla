@@ -358,7 +358,7 @@ namespace scene
         };
 		core::unordered_map<std::string,ParamStorage> Parameters;
 
-		video::IGPUBuffer* redundantMeshDataBuf;
+		core::smart_refctd_ptr<video::IGPUBuffer> redundantMeshDataBuf;
 
 		E_SCENE_NODE_RENDER_PASS CurrentRendertime;
 

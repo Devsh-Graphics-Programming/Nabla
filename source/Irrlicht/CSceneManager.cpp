@@ -183,7 +183,7 @@ CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver
         reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
         reqs.prefersDedicatedAllocation = true;
         reqs.requiresDedicatedAllocation = true;
-        redundantMeshDataBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
+        redundantMeshDataBuf = core::smart_refctd_ptr<video::IGPUBuffer>(SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true),core::dont_grab);
         if (redundantMeshDataBuf)
             redundantMeshDataBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),tmpMem);
         _IRR_ALIGNED_FREE(tmpMem);
@@ -199,8 +199,6 @@ CSceneManager::~CSceneManager()
 	//! force to remove hardwareTextures from the driver
 	//! because Scenes may hold internally data bounded to sceneNodes
 	//! which may be destroyed twice
-    if (redundantMeshDataBuf)
-        redundantMeshDataBuf->drop();
 	if (FileSystem)
 		FileSystem->drop();
 
@@ -439,7 +437,7 @@ ISceneNode* CSceneManager::addSkyBoxSceneNode(video::ITexture* top, video::IText
 		parent = this;
 
 	ISceneNode* node = new CSkyBoxSceneNode(top, bottom, left, right,
-			front, back, redundantMeshDataBuf,0, parent, this, id);
+			front, back, core::smart_refctd_ptr(redundantMeshDataBuf),0, parent, this, id);
 
 	node->drop();
 	return node;

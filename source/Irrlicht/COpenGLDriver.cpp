@@ -1302,9 +1302,9 @@ void COpenGLDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, 
     extGlCopyNamedBufferSubData(readbuffer->getOpenGLName(),writebuffer->getOpenGLName(),readOffset,writeOffset,length);
 }
 
-IGPUMeshDataFormatDesc* COpenGLDriver::createGPUMeshDataFormatDesc(core::CLeakDebugger* dbgr)
+core::smart_refctd_ptr<IGPUMeshDataFormatDesc> COpenGLDriver::createGPUMeshDataFormatDesc(core::CLeakDebugger* dbgr)
 {
-    return new COpenGLVAOSpec(dbgr);
+    return core::make_smart_refctd_ptr<COpenGLVAOSpec>(dbgr);
 }
 
 IQueryObject* COpenGLDriver::createPrimitivesGeneratedQuery()

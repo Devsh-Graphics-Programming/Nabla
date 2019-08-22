@@ -79,7 +79,7 @@ private:
 	core::aabbox3d<float> BBox;
 	video::SGPUMaterial Material;
 
-    video::IGPUBuffer* vertexBuffer;
+	core::smart_refctd_ptr<video::IGPUBuffer> vertexBuffer;
     video::IGPUMeshDataFormatDesc* desc;
     video::IGPUMeshBuffer* meshbuffer;
 };
