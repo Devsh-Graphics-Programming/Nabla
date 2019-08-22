@@ -70,6 +70,22 @@ static void reorderBindings(spirv_cross::CompilerGLSL& _comp)
     sort_(ssbos);
     reorder_(ssbos);
 }
+
+static GLenum ESS2GLenum(asset::E_SHADER_STAGE _stage)
+{
+    using namespace asset;
+    switch (_stage)
+    {
+    case ESS_VERTEX: return GL_VERTEX_SHADER;
+    case ESS_TESSELATION_CONTROL: return GL_TESS_CONTROL_SHADER;
+    case ESS_TESSELATION_EVALUATION: return GL_TESS_EVALUATION_SHADER;
+    case ESS_GEOMETRY: return GL_GEOMETRY_SHADER;
+    case ESS_FRAGMENT: return GL_FRAGMENT_SHADER;
+    case ESS_COMPUTE: return GL_COMPUTE_SHADER;
+    default: return 0u;
+    }
+}
+
 }//namesapce impl
 
 COpenGLSpecializedShader::COpenGLSpecializedShader(video::IVideoDriver* _driver, const asset::ICPUSpecializedShader* _cpushader)
@@ -92,10 +108,16 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(video::IVideoDriver* _driver,
     impl::reorderBindings(comp);
 
     std::string glslCode = comp.compile();
+    const char* glslCode_cstr = glslCode.c_str();
     //printf(glslCode.c_str());
 
+    m_GLname = driver->extGlCreateShaderProgramv(impl::ESS2GLenum(specData->shaderStage), 1u, &glslCode_cstr);
+
+    GLchar logbuf[1u<<12]; //4k
+    driver->extGlGetProgramInfoLog(m_GLname, sizeof(logbuf), nullptr, logbuf);
+    os::Printer::log(logbuf, ELL_ERROR);
+
     // TODO:
-    // pass GLSL code into API and get GL object
     // what should be interface for setting push_constants (regular uniform on GL backend) for now?
 }
 

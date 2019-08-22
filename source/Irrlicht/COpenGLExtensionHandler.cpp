@@ -285,6 +285,7 @@ PFNGLDELETEPROGRAMPROC COpenGLExtensionHandler::pGlDeleteProgram = nullptr;
 PFNGLDELETESHADERPROC COpenGLExtensionHandler::pGlDeleteShader = nullptr;
 PFNGLGETATTACHEDSHADERSPROC COpenGLExtensionHandler::pGlGetAttachedShaders = nullptr;
 PFNGLCREATESHADERPROC COpenGLExtensionHandler::pGlCreateShader = nullptr;
+PFNGLCREATESHADERPROGRAMVPROC COpenGLExtensionHandler::pGlCreateShaderProgramv = nullptr;
 PFNGLSHADERSOURCEPROC COpenGLExtensionHandler::pGlShaderSource = nullptr;
 PFNGLCOMPILESHADERPROC COpenGLExtensionHandler::pGlCompileShader = nullptr;
 PFNGLATTACHSHADERPROC COpenGLExtensionHandler::pGlAttachShader = nullptr;
@@ -1175,6 +1176,7 @@ void COpenGLExtensionHandler::loadFunctions()
 
 	// get fragment and vertex program function pointers
 	pGlCreateShader = (PFNGLCREATESHADERPROC) IRR_OGL_LOAD_EXTENSION("glCreateShader");
+    pGlCreateShaderProgramv = (PFNGLCREATESHADERPROGRAMVPROC) IRR_OGL_LOAD_EXTENSION("glCreateShaderProgramv");
 	pGlShaderSource = (PFNGLSHADERSOURCEPROC) IRR_OGL_LOAD_EXTENSION("glShaderSource");
 	pGlCompileShader = (PFNGLCOMPILESHADERPROC) IRR_OGL_LOAD_EXTENSION("glCompileShader");
 	pGlCreateProgram = (PFNGLCREATEPROGRAMPROC) IRR_OGL_LOAD_EXTENSION("glCreateProgram");

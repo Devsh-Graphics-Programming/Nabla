@@ -1101,6 +1101,7 @@ class COpenGLExtensionHandler
 
 	// shader programming
 	static GLuint extGlCreateShader(GLenum shaderType);
+    static GLuint extGlCreateShaderProgramv(GLenum shaderType, GLsizei count, const char** strings);
 	static void extGlShaderSource(GLuint shader, GLsizei numOfStrings, const char **strings, const GLint *lenOfStrings);
 	static void extGlCompileShader(GLuint shader);
 	static GLuint extGlCreateProgram(void);
@@ -1387,6 +1388,7 @@ class COpenGLExtensionHandler
     static PFNGLDELETESHADERPROC pGlDeleteShader;
     static PFNGLGETATTACHEDSHADERSPROC pGlGetAttachedShaders;
     static PFNGLCREATESHADERPROC pGlCreateShader;
+    static PFNGLCREATESHADERPROGRAMVPROC pGlCreateShaderProgramv;
     static PFNGLSHADERSOURCEPROC pGlShaderSource;
     static PFNGLCOMPILESHADERPROC pGlCompileShader;
     static PFNGLATTACHSHADERPROC pGlAttachShader;
@@ -2711,6 +2713,13 @@ inline GLuint COpenGLExtensionHandler::extGlCreateShader(GLenum shaderType)
 	return glCreateShader(shaderType);
 #endif
 	return 0;
+}
+
+inline GLuint COpenGLExtensionHandler::extGlCreateShaderProgramv(GLenum shaderType, GLsizei count, const char** strings)
+{
+    if (pGlCreateShaderProgramv)
+        return pGlCreateShaderProgramv(shaderType, count, strings);
+    return 0;
 }
 
 inline void COpenGLExtensionHandler::extGlShaderSource(GLuint shader, GLsizei numOfStrings, const char **strings, const GLint *lenOfStrings)
