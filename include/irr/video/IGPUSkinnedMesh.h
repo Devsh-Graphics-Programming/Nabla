@@ -19,29 +19,11 @@ namespace video
 			virtual ~IGPUSkinnedMesh() {}
 
             core::smart_refctd_ptr<const asset::CFinalBoneHierarchy> referenceHierarchy;
-            //! The bounding box of this mesh
-            core::aabbox3d<float> Box;
         public:
-            IGPUSkinnedMesh(core::smart_refctd_ptr<const asset::CFinalBoneHierarchy>&& boneHierarchy) : referenceHierarchy(std::move(boneHierarchy))
-            {
-                //referenceHierarchy grab in child classes
-            }
+            IGPUSkinnedMesh(core::smart_refctd_ptr<const asset::CFinalBoneHierarchy>&& boneHierarchy) : referenceHierarchy(std::move(boneHierarchy)) {}
 
             //!
             inline const asset::CFinalBoneHierarchy* getBoneReferenceHierarchy() const {return referenceHierarchy.get();}
-
-            //! Returns an axis aligned bounding box of the mesh.
-            /** \return A bounding box of this mesh is returned. */
-            virtual const core::aabbox3d<float>& getBoundingBox() const
-            {
-                return Box;
-            }
-
-            //! set user axis aligned bounding box
-            virtual void setBoundingBox(const core::aabbox3df& box)
-            {
-                Box = box;
-            }
 
             //! Gets the frame count of the animated mesh.
             /** \return The amount of frames. If the amount is 1,
@@ -68,11 +50,6 @@ namespace video
 			{
 				return asset::EMT_ANIMATED_SKINNED;
 			}
-
-            virtual asset::E_MESH_TYPE getMeshType() const
-            {
-                return asset::EMT_ANIMATED_SKINNED;
-            }
 
             //! can use more efficient shaders this way :D
             virtual const uint32_t& getMaxVertexWeights(const size_t& meshbufferIx) const =0;

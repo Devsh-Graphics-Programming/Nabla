@@ -40,6 +40,9 @@ namespace asset
 	class IMesh : public virtual core::IReferenceCounted
 	{
 		protected:
+			//! The cached bounding box of this mesh
+			core::aabbox3d<float> cachedBoundingBox;
+
 			virtual ~IMesh() {}
 		public:
 
@@ -56,11 +59,11 @@ namespace asset
 
 			//! Get an axis aligned bounding box of the mesh.
 			/** \return Bounding box of this mesh. */
-			virtual const core::aabbox3df& getBoundingBox() const = 0;
+			virtual const core::aabbox3df& getBoundingBox() const { return cachedBoundingBox; }
 
 			//! Set user-defined axis aligned bounding box
 			/** \param box New bounding box to use for the mesh. */
-			virtual void setBoundingBox( const core::aabbox3df& box) = 0;
+			virtual void setBoundingBox(const core::aabbox3df& box) { cachedBoundingBox = box; }
 
 			//! recalculates the bounding box
 			virtual void recalculateBoundingBox()

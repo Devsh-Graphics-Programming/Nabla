@@ -9,7 +9,11 @@ namespace irr
 namespace video
 {
 
-    using IGPUMesh = asset::IMesh<video::IGPUMeshBuffer>;
+class IGPUMesh : public asset::IMesh<video::IGPUMeshBuffer>
+{
+	public:
+		virtual asset::E_MESH_TYPE getMeshType() const override { return asset::EMT_NOT_ANIMATED; }
+};
 
 }
 }

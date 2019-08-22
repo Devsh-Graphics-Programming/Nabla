@@ -17,16 +17,20 @@ namespace irr
 {
 namespace video
 {
-
+	// will be replaced by graphics pipeline layout object
 	class IGPUMeshDataFormatDesc : public asset::IMeshDataFormatDesc<video::IGPUBuffer>
 	{
 	};
 
-
-	class IGPUMeshBuffer : public asset::IMeshBuffer<video::IGPUBuffer>
+	/* When we kill Xform Feedback
+	class IGPUMeshBuffer final : public asset::IMeshBuffer<video::IGPUBuffer>
 	{
-            video::ITransformFeedback* attachedXFormFeedback;
-            uint32_t attachedXFormFeedbackStream;
+	};
+	*/
+	class IGPUMeshBuffer final : public asset::IMeshBuffer<video::IGPUBuffer>
+	{
+            video::ITransformFeedback* attachedXFormFeedback; // kill
+            uint32_t attachedXFormFeedbackStream; // kill
         protected:
             virtual ~IGPUMeshBuffer()
             {
@@ -34,7 +38,7 @@ namespace video
                     attachedXFormFeedback->drop();
             }
         public:
-            IGPUMeshBuffer(core::CLeakDebugger* dbgr=NULL) : asset::IMeshBuffer<video::IGPUBuffer>(NULL,dbgr), attachedXFormFeedback(NULL), attachedXFormFeedbackStream(0) {}
+            IGPUMeshBuffer(core::CLeakDebugger* dbgr=nullptr) : asset::IMeshBuffer<video::IGPUBuffer>(nullptr,dbgr), attachedXFormFeedback(NULL), attachedXFormFeedbackStream(0) {}
 
             inline void setIndexCountFromXFormFeedback(video::ITransformFeedback* xformFeedback, const uint32_t & stream)
             {
