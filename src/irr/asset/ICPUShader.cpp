@@ -3,6 +3,7 @@
 #include "spirv_cross/spirv_cross.hpp"
 #include "irr/asset/EFormat.h"
 #include "irr/asset/spvUtils.h"
+#include "CMemoryFile.h"
 
 namespace irr { namespace asset
 {
@@ -58,9 +59,11 @@ E_FORMAT spvImageFormat2E_FORMAT(spv::ImageFormat _imgfmt)
     };
     return convert[_imgfmt];
 }
+
+using MemFile_t = io::CCustomAllocatorMemoryReadFile<core::null_allocator<uint8_t>>;
 }
 
-ICPUShader::ICPUShader(IGLSLCompiler* _glslcompiler, io::IReadFile* _glsl, const std::string& _entryPoint, E_SHADER_STAGE _stage) : m_glslCompiler(_glslcompiler)
+ICPUShader::ICPUShader(IGLSLCompiler* _glslcompiler, core::smart_refctd_ptr<io::IReadFile> _glsl, const std::string& _entryPoint, E_SHADER_STAGE _stage) : m_glslCompiler(_glslcompiler)
 {
     assert(_glslcompiler);
     if (m_glslCompiler)
@@ -77,7 +80,13 @@ ICPUShader::ICPUShader(IGLSLCompiler* _glslcompiler, io::IReadFile* _glsl, const
     m_glsl.resize(_glsl->getSize());
     _glsl->read(m_glsl.data(), m_glsl.size());
     m_glslOriginFilename = _glsl->getFileName().c_str();
-    m_glsl = m_glslCompiler->resolveIncludeDirectives(m_glsl.c_str(), _stage, m_glslOriginFilename.c_str(), 3u);
+    m_glsl = m_glslCompiler->resolveIncludeDirectives(m_glsl.c_str(), _stage, m_glslOriginFilename.c_str(), MAX_SELF_INCL_COUNT);
+}
+
+ICPUShader::ICPUShader(IGLSLCompiler* _glslcompiler, const char* _glsl, const char* _sourceName, const std::string& _entryPoint, E_SHADER_STAGE _stage) :
+    ICPUShader(_glslcompiler, core::make_smart_refctd_ptr<MemFile_t>(const_cast<char*>(_glsl), strlen(_glsl), _sourceName, core::adopt_memory), _entryPoint, _stage)
+{
+
 }
 
 void ICPUShader::enableIntrospection()
@@ -85,17 +94,7 @@ void ICPUShader::enableIntrospection()
     if (m_introspectionCache.size()) // already enabled
         return;
 
-    if (!m_spirvBytecode)
-    {
-        //TODO insert extension #define-s
-        //also introspection key should be (EP,stage,enabled_exts) tuple
-
-        //if ICPUShader doesnt already contain SPIR-V, it means it was constructed from GLSL source and SPIR-V has to be retrieved and parsed
-        const SEntryPointStagePair& theOnlyEP = m_entryPoints.front();
-        m_spirvBytecode = m_glslCompiler->createSPIRVFromGLSL(m_glsl.c_str(), theOnlyEP.second, theOnlyEP.first.c_str(), m_glslOriginFilename.c_str());
-    }
-    if (!m_parsed)
-        m_parsed = new IParsedShaderSource(m_spirvBytecode);
+    obtainSPIRV();
 
     spirv_cross::Compiler comp(m_parsed->getUnderlyingRepresentation());
     auto eps = getStageEntryPoints(comp);
@@ -128,6 +127,21 @@ auto ICPUShader::getStageEntryPoints(spirv_cross::Compiler& _comp) -> const core
     std::sort(m_entryPoints.begin(), m_entryPoints.end());
 
     return m_entryPoints;
+}
+
+void ICPUShader::obtainSPIRV() const
+{
+    if (!m_spirvBytecode)
+    {
+        //TODO insert extension #define-s
+        //also introspection key should be (EP,stage,enabled_exts) tuple
+
+        //if ICPUShader doesnt already contain SPIR-V, it means it was constructed from GLSL source and SPIR-V has to be retrieved and parsed
+        const SEntryPointStagePair& theOnlyEP = m_entryPoints.front();
+        m_spirvBytecode = m_glslCompiler->createSPIRVFromGLSL(m_glsl.c_str(), theOnlyEP.second, theOnlyEP.first.c_str(), m_glslOriginFilename.c_str());
+    }
+    if (!m_parsed)
+        m_parsed = new IParsedShaderSource(m_spirvBytecode, core::defer);
 }
 
 SIntrospectionData ICPUShader::SIntrospectionPerformer::doIntrospection(spirv_cross::Compiler& _comp, const SEntryPointStagePair& _ep) const
@@ -293,12 +307,19 @@ SIntrospectionData ICPUShader::SIntrospectionPerformer::doIntrospection(spirv_cr
     return introData;
 }
 
-void ICPUShader::SIntrospectionPerformer::shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const core::unordered_map<uint32_t, const SIntrospectionData::SSpecConstant*>& _mapId2sconst) const
-{
-    // SShaderMemoryBlock (and its members) cannot define custom default ctor nor even default member values, because then it's "non-trivial default ctor" and
-    // union containing it (as member) has deleted default ctor... (union default ctor is deleted if any of its members defines non-trivial default ctor)
-    auto shdrMemBlockMemberDefault = [] {
-        impl::SShaderMemoryBlock::SMember m;
+namespace {
+    struct StackElement
+    {
+        impl::SShaderMemoryBlock::SMember::SMembers& membersDst;
+        const spirv_cross::SPIRType& parentType;
+        uint32_t baseOffset;
+    };
+}
+static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock::SMember::SMembers& _dstMembers, const spirv_cross::SPIRType& _parentType, const spirv_cross::SmallVector<uint32_t>& _allMembersTypes, uint32_t _baseOffset, const core::unordered_map<uint32_t, const SIntrospectionData::SSpecConstant*>& _mapId2sconst, core::stack<StackElement>& _pushStack) {
+    using MembT = impl::SShaderMemoryBlock::SMember;
+
+    auto MemberDefault = [] {
+        MembT m;
         m.count = 1u;
         m.countIsSpecConstant = false;
         m.offset = 0u;
@@ -306,28 +327,27 @@ void ICPUShader::SIntrospectionPerformer::shaderMemBlockIntrospection(spirv_cros
         m.arrayStride = 0u;
         m.mtxStride = 0u;
         m.mtxRowCnt = m.mtxColCnt = 1u;
+        m.members.array = nullptr;
+        m.members.count = 0u;
         return m;
     };
 
-    const spirv_cross::SPIRType& type = _comp.get_type(_blockBaseTypeID);
-    const uint32_t memberCnt = type.member_types.size();
-    _res.members.array = _IRR_NEW_ARRAY(impl::SShaderMemoryBlock::SMember, memberCnt);
-    _res.members.count = memberCnt;
-    std::fill(_res.members.array, _res.members.array+memberCnt, shdrMemBlockMemberDefault());
-    //TODO introspection should be able to work with members of struct type (recursion)
-    //tldr SMember has o have `struct_members` array
-    for (uint32_t m = 0u; m < memberCnt; ++m)
-    {
-        const spirv_cross::SPIRType& mtype = _comp.get_type(type.member_types[m]);
-        impl::SShaderMemoryBlock::SMember& member = _res.members.array[m];
+    const uint32_t memberCnt = _allMembersTypes.size();
+    _dstMembers.array = _IRR_NEW_ARRAY(MembT, memberCnt);
+    _dstMembers.count = memberCnt;
+    std::fill(_dstMembers.array, _dstMembers.array+memberCnt, MemberDefault());
+    for (uint32_t m = 0u; m < memberCnt; ++m) {
+        MembT& member = _dstMembers.array[m];
 
-        member.size = _comp.get_declared_struct_member_size(type, m);
-        member.offset = _comp.type_struct_member_offset(type, m);
+        member.size = _comp.get_declared_struct_member_size(_parentType, m);
+        member.offset = _baseOffset + _comp.type_struct_member_offset(_parentType, m);
+
+        const spirv_cross::SPIRType& mtype = _comp.get_type(_allMembersTypes[m]);
 
         if (mtype.array.size())
         {
             member.count = mtype.array[0];
-            member.arrayStride = _comp.type_struct_member_array_stride(type, m);
+            member.arrayStride = _comp.type_struct_member_array_stride(_parentType, m);
             member.countIsSpecConstant = !mtype.array_size_literal[0];
             if (member.countIsSpecConstant) {
                 const auto sc_itr = _mapId2sconst.find(member.count);
@@ -337,18 +357,35 @@ void ICPUShader::SIntrospectionPerformer::shaderMemBlockIntrospection(spirv_cros
             }
         }
 
-        member.mtxRowCnt = mtype.vecsize;
-        member.mtxColCnt = mtype.columns;
-        if (member.mtxColCnt > 1u)
-            member.mtxStride = _comp.type_struct_member_matrix_stride(type, m);
+        if (mtype.basetype == spirv_cross::SPIRType::Struct) { //recursive introspection done in DFS manner (and without recursive calls)
+            _pushStack.push({member.members, mtype, member.offset});
+        }
+        else {
+            member.mtxRowCnt = mtype.vecsize;
+            member.mtxColCnt = mtype.columns;
+            if (member.mtxColCnt > 1u)
+                member.mtxStride = _comp.type_struct_member_matrix_stride(_parentType, m);
+        }
     }
+}
+
+void ICPUShader::SIntrospectionPerformer::shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const core::unordered_map<uint32_t, const SIntrospectionData::SSpecConstant*>& _mapId2sconst) const
+{
     using MembT = impl::SShaderMemoryBlock::SMember;
-    std::sort(_res.members.array, _res.members.array+memberCnt, [](const MembT& _lhs, const MembT& _rhs) { return _lhs.offset < _rhs.offset; });
+
+    core::stack<StackElement> introspectionStack;
+    const spirv_cross::SPIRType& type = _comp.get_type(_blockBaseTypeID);
+    introspectionStack.push({_res.members, type, 0u});
+    while (!introspectionStack.empty()) {
+        StackElement e = introspectionStack.top();
+        introspectionStack.pop();
+        introspectStructType(_comp, e.membersDst, e.parentType, e.parentType.member_types, 0u, _mapId2sconst, introspectionStack);
+    }
 
     _res.size = _res.rtSizedArrayOneElementSize = _comp.get_declared_struct_size(type);
-    const spirv_cross::SPIRType& lastType = _comp.get_type(type.member_types[memberCnt-1u]);
+    const spirv_cross::SPIRType& lastType = _comp.get_type(type.member_types.back());
     if (lastType.array.size() && lastType.array_size_literal[0] && lastType.array[0] == 0u)
-        _res.rtSizedArrayOneElementSize += _res.members.array[memberCnt-1u].arrayStride;
+        _res.rtSizedArrayOneElementSize += _res.members.array[_res.members.count-1u].arrayStride;
 
     spirv_cross::Bitset flags = _comp.get_buffer_block_flags(_varID);
     _res.restrict_ = flags.get(spv::DecorationRestrict);
@@ -423,8 +460,26 @@ void ICPUShader::SIntrospectionPerformer::deinitIntrospectionData(SIntrospection
 
 void ICPUShader::SIntrospectionPerformer::deinitShdrMemBlock(impl::SShaderMemoryBlock& _res)
 {
+    using MembersT = impl::SShaderMemoryBlock::SMember::SMembers;
+    core::stack<MembersT> stack;
+    core::queue<MembersT> q;
     if (_res.members.array)
-        _IRR_DELETE_ARRAY(_res.members.array, _res.members.count);
+        q.push(_res.members);
+    while (!q.empty()) {//build stack
+        MembersT curr = q.front();
+        stack.push(curr);
+        q.pop();
+        for (uint32_t i = 0u; i < curr.count; ++i) {
+            const auto& m = curr.array[i];
+            if (m.members.array)
+                q.push(m.members);
+        }
+    }
+    while (!stack.empty()) {
+        MembersT m = stack.top();
+        stack.pop();
+        _IRR_DELETE_ARRAY(m.array, m.count);
+    }
 }
 
 }}

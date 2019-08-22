@@ -116,7 +116,15 @@ public:
     {
     }
     //! While creating from GLSL source, entry point name and stage must be given in advance
-    ICPUShader(IGLSLCompiler* _glslcompiler, io::IReadFile* _glsl, const std::string& _entryPoint, E_SHADER_STAGE _stage);
+    /**
+    Note: file's name (_glsl param) will be used for resolving relative #include directives! See IGLSLCompiler::resolveIncludeDirectives() for more info.
+    */
+    ICPUShader(IGLSLCompiler* _glslcompiler, core::smart_refctd_ptr<io::IReadFile> _glsl, const std::string& _entryPoint, E_SHADER_STAGE _stage);
+    //! While creating from GLSL source, entry point name and stage must be given in advance
+    /**
+    @param _sourceName will be used for resolving relative #include directives! See IGLSLCompiler::resolveIncludeDirectives() for more info.
+    */
+    ICPUShader(IGLSLCompiler* _glslcompiler, const char* _glsl, const char* _sourceName, const std::string& _entryPoint, E_SHADER_STAGE _stage);
 
     IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SHADER; }
     size_t conservativeSizeEstimate() const override 
@@ -142,17 +150,20 @@ public:
 
     inline const IParsedShaderSource* getParsed() const
     {
-        //TODO it cannot ever return nullptr
+        obtainSPIRV();
         return m_parsed;
     }
 
 protected:
     const core::vector<SEntryPointStagePair>& getStageEntryPoints(spirv_cross::Compiler& _comp);
+    void obtainSPIRV() const;
 
 protected:
     IGLSLCompiler* m_glslCompiler;
-    ICPUBuffer* m_spirvBytecode = nullptr;
-    IParsedShaderSource* m_parsed = nullptr;
+    //`mutable` implies that POINTER might be altered (specifically it can be null or not-null when object gets created)
+    //`const` (on the left side of `*`) implies that the OBJECT once created, is not modified
+    mutable const ICPUBuffer* m_spirvBytecode = nullptr;
+    mutable const IParsedShaderSource* m_parsed = nullptr;
     std::string m_glsl;
     std::string m_glslOriginFilename;
 

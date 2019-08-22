@@ -101,11 +101,14 @@ struct SShaderMemoryBlock
         //! (mtxRowCnt>1 && mtxColCnt==1) implies vector
         //! (mtxRowCnt==1 && mtxColCnt==1) implies basic type (i.e. int/uint/float/...)
         uint32_t mtxRowCnt, mtxColCnt;
+        //TODO change to core::dynamic_array later
+        struct SMembers {
+            SMember* array;
+            size_t count;
+        } members;
     };
-    struct {
-        SMember* array;
-        size_t count;
-    } members;
+
+    SMember::SMembers members;
 
     //! size!=rtSizedArrayOneElementSize implies that last member is rutime-sized array (e.g. buffer SSBO { float buf[]; }).
     //! Use getRuntimeSize for size of the struct with assumption of passed number of elements.
