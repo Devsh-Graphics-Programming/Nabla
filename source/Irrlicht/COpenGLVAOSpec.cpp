@@ -41,7 +41,7 @@ COpenGLVAOSpec::~COpenGLVAOSpec()
 }
 
 
-void COpenGLVAOSpec::setVertexAttrBuffer(IGPUBuffer* attrBuf, asset::E_VERTEX_ATTRIBUTE_ID attrId, asset::E_FORMAT format, size_t stride, size_t offset, uint32_t divisor)
+void COpenGLVAOSpec::setVertexAttrBuffer(core::smart_refctd_ptr<IGPUBuffer>&& attrBuf, asset::E_VERTEX_ATTRIBUTE_ID attrId, asset::E_FORMAT format, size_t stride, size_t offset, uint32_t divisor)
 {
     if (attrId>= asset::EVAI_COUNT)
 #ifdef _IRR_DEBUG
@@ -61,7 +61,6 @@ void COpenGLVAOSpec::setVertexAttrBuffer(IGPUBuffer* attrBuf, asset::E_VERTEX_AT
 
     if (attrBuf)
     {
-        attrBuf->grab();
         newStride = stride!=0u ? stride : getTexelOrBlockSize(format);
         //bind new buffer
         if (mappedAttrBuf[attrId])
@@ -104,7 +103,7 @@ void COpenGLVAOSpec::setVertexAttrBuffer(IGPUBuffer* attrBuf, asset::E_VERTEX_AT
     attrOffset[attrId] = offset;
 
 
-    mappedAttrBuf[attrId] = attrBuf;
+    mappedAttrBuf[attrId] = std::move(attrBuf);
 }
 
 
