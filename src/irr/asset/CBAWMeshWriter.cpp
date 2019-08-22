@@ -5,17 +5,19 @@
 
 #include "CBAWMeshWriter.h"
 
+#include "irr/core/core.h"
+#include "os.h"
+
 #include "IFileSystem.h"
 #include "IWriteFile.h"
+
 #include "irr/asset/ICPUTexture.h"
-#include "irr/core/Types.h"
-#include "irr/macros.h"
 #include "irr/asset/ICPUSkinnedMesh.h"
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 #include "CFinalBoneHierarchy.h"
-#include "os.h"
-#include "lz4/lib/lz4.h"
 
+
+#include "lz4/lib/lz4.h"
 #undef Bool
 #include "lzma/C/LzmaEnc.h"
 

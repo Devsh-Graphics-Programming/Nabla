@@ -2,14 +2,12 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#include "CGeometryCreator.h"
-#include "irr/video/CGPUMesh.h"
-#include "irr/asset/CCPUMesh.h"
-#include "irr/asset/IMesh.h"
-#include "IVideoDriver.h"
-#include "SVertexManipulator.h"
 #include "os.h"
-#include "irr/asset/ICPUMeshBuffer.h"
+
+#include "CGeometryCreator.h"
+#include "irr/asset/CCPUMesh.h"
+
+#include "SVertexManipulator.h"
 
 namespace irr
 {

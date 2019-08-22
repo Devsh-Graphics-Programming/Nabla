@@ -7,15 +7,15 @@
 
 #include <stack>
 
+#include "os.h"
+#include "CMemoryFile.h"
 #include "CFinalBoneHierarchy.h"
+#include "irr/asset/IAssetManager.h"
+#include "irr/asset/bawformat/legacy/CBAWLegacy.h"
 #include "irr/video/CGPUMesh.h"
 #include "irr/video/CGPUSkinnedMesh.h"
-#include "os.h"
-#include "lz4/lib/lz4.h"
-#include "IrrlichtDevice.h"
-#include "irr/asset/bawformat/legacy/CBAWLegacy.h"
-#include "CMemoryFile.h"
 
+#include "lz4/lib/lz4.h"
 #undef Bool
 #include "lzma/C/LzmaDec.h"
 
@@ -37,7 +37,7 @@ CBAWMeshFileLoader::~CBAWMeshFileLoader()
 {
 }
 
-CBAWMeshFileLoader::CBAWMeshFileLoader(IrrlichtDevice* _dev) : m_device(_dev), m_sceneMgr(_dev->getSceneManager()), m_fileSystem(_dev->getFileSystem())
+CBAWMeshFileLoader::CBAWMeshFileLoader(IAssetManager* _manager) : m_manager(_manager), m_fileSystem(_manager->getFileSystem())
 {
 #ifdef _IRR_DEBUG
 	setDebugName("CBAWMeshFileLoader");
@@ -99,7 +99,7 @@ asset::SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
 	const asset::BlobLoadingParams params{
         this,
-        m_device,
+        m_manager,
         m_fileSystem,
         ctx.inner.mainFile->getFileName()[ctx.inner.mainFile->getFileName().size()-1] == '/' ? ctx.inner.mainFile->getFileName() : ctx.inner.mainFile->getFileName()+"/",
         ctx.inner.params,

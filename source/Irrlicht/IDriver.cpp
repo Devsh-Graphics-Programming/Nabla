@@ -10,7 +10,7 @@ namespace irr { namespace video
 template<typename AssetType>
 core::vector<core::smart_refctd_ptr<typename video::asset_traits<AssetType>::GPUObjectType> > IDriver::getGPUObjectsFromAssets(AssetType** const _begin, AssetType** const _end, IGPUObjectFromAssetConverter* _converter)
 {
-    IGPUObjectFromAssetConverter def(&m_device->getAssetManager(), this);
+    IGPUObjectFromAssetConverter def(m_device->getAssetManager(), this);
     if (!_converter)
         _converter = &def;
     return _converter->getGPUObjectsFromAssets(_begin, _end);

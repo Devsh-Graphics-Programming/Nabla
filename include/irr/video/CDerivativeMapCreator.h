@@ -9,7 +9,7 @@ namespace irr { namespace video
 class IVideoDriver;
 class IVirtualTexture;
 
-class CDerivativeMapCreator : public core::IReferenceCounted
+class CDerivativeMapCreator final : public core::IReferenceCounted
 {
 protected:
     ~CDerivativeMapCreator();

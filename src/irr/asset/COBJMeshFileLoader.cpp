@@ -6,9 +6,7 @@
 
 #ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
 
-#include "IrrlichtDevice.h"
 #include "IFileSystem.h"
-#include "ISceneManager.h"
 #include "COBJMeshFileLoader.h"
 #include "irr/asset/IMeshManipulator.h"
 #include "IVideoDriver.h"
@@ -55,8 +53,7 @@ static const uint32_t WORD_BUFFER_LENGTH = 512;
 
 
 //! Constructor
-COBJMeshFileLoader::COBJMeshFileLoader(IrrlichtDevice* _dev)
-: Device(_dev), SceneManager(_dev->getSceneManager()), FileSystem(_dev->getFileSystem())
+COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager* _manager) : AssetManager(_manager), FileSystem(_manager->getFileSystem())
 {
 #ifdef _IRR_DEBUG
 	setDebugName("COBJMeshFileLoader");
@@ -574,13 +571,13 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
 	{
         if (FileSystem->existFile(texname))
 		{
-            auto bundle = interm_getAssetInHierarchy(Device->getAssetManager(), texname.c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride).getContents();
+            auto bundle = interm_getAssetInHierarchy(AssetManager, texname.c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride).getContents();
             texture = (bundle.first==bundle.second) ? nullptr : static_cast<asset::ICPUTexture*>(bundle.first->get());
 		}
 		else
 		{
 			// try to read in the relative path, the .obj is loaded from
-            auto bundle = interm_getAssetInHierarchy(Device->getAssetManager(), (relPath + texname).c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride).getContents();
+            auto bundle = interm_getAssetInHierarchy(AssetManager, (relPath + texname).c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride).getContents();
             texture = (bundle.first==bundle.second) ? nullptr : static_cast<asset::ICPUTexture*>(bundle.first->get());
 		}
 	}

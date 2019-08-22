@@ -24,8 +24,7 @@ namespace asset
 
 
 // constructor
-CPLYMeshFileLoader::CPLYMeshFileLoader(scene::ISceneManager* smgr)
-: SceneManager(smgr)
+CPLYMeshFileLoader::CPLYMeshFileLoader()
 {
 }
 

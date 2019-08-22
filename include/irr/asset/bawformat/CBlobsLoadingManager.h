@@ -20,6 +20,7 @@ namespace asset
 {
     class ICPUSkinnedMesh;
     class ICPUSkinnedMeshBuffer;
+	class IAssetManager;
 }
 namespace io
 {
@@ -32,7 +33,7 @@ namespace asset
 	struct BlobLoadingParams
 	{
         IAssetLoader* ldr;
-        IrrlichtDevice* device;
+        IAssetManager* manager;
 		io::IFileSystem* fs;
 		io::path filePath;
         asset::IAssetLoader::SAssetLoadParams params;

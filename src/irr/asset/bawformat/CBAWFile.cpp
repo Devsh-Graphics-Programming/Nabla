@@ -238,8 +238,6 @@ size_t FinalBoneHierarchyBlobV0::calcNonInterpolatedAnimsByteSize() const
 
 MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::IMeshDataFormatDesc<asset::ICPUBuffer>* _desc) : attrDivisor{0u}
 {
-    using namespace scene;
-
     static_assert(VERTEX_ATTRIB_CNT == EVAI_COUNT, "VERTEX_ATTRIB_CNT != EVAI_COUNT");
 
     for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
@@ -258,8 +256,6 @@ MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::IMeshDataFormatD
 
 MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::legacyv0::MeshDataFormatDescBlobV0& _v0blob) : attrDivisor{0u}
 {
-    using namespace scene;
-
     for (uint32_t i = 0u; i < EVAI_COUNT; ++i)
     {
         attrFormat[i] =

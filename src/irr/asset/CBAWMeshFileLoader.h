@@ -8,7 +8,6 @@
 
 
 #include "irr/asset/IAssetLoader.h"
-#include "ISceneManager.h"
 #include "IFileSystem.h"
 #include "irr/asset/ICPUMesh.h"
 #include "irr/asset/bawformat/legacy/CBAWLegacy.h"
@@ -17,13 +16,13 @@
 
 #include "os.h"
 
+
 namespace irr
 {
-class IrrlichtDevice;
-}
-
-namespace irr { namespace asset
+namespace asset
 {
+
+class IAssetManager;
 
 class CBAWMeshFileLoader : public asset::IAssetLoader
 {
@@ -95,7 +94,7 @@ protected:
 
 public:
 	//! Constructor
-	CBAWMeshFileLoader(IrrlichtDevice* _dev);
+	CBAWMeshFileLoader(IAssetManager* _manager);
 
 
     virtual bool isALoadableFileFormat(io::IReadFile* _file) const override
@@ -321,8 +320,7 @@ private:
     }
 
 private:
-    IrrlichtDevice* m_device;
-	scene::ISceneManager* m_sceneMgr;
+    IAssetManager* m_manager;
 	io::IFileSystem* m_fileSystem;
 };
 

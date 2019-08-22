@@ -585,9 +585,7 @@ namespace video
 		\param name Optional name for the material renderer entry.
 		\return The number of the material type which can be set in
 		SGPUMaterial::MaterialType to use the renderer. -1 is returned if
-		an error occured. For example if you tried to add an material
-		renderer to the software renderer or the null device, which do
-		not accept material renderers. */
+		an error occured. */
 		virtual int32_t addMaterialRenderer(IMaterialRenderer* renderer, const char* name =0) =0;
 
 		//! Get access to a material renderer by index.

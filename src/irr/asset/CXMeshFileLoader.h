@@ -55,7 +55,7 @@ class CXMeshFileLoader : public asset::IAssetLoader
 public:
 
 	//! Constructor
-	CXMeshFileLoader(IrrlichtDevice* _dev);
+	CXMeshFileLoader(IAssetManager* _manager);
     ~CXMeshFileLoader();
 
     virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
@@ -238,8 +238,7 @@ private:
 	bool readRGB(SContext& _ctx, video::SColor& color);
 	bool readRGBA(SContext& _ctx, video::SColor& color);
 
-    IrrlichtDevice* Device;
-	scene::ISceneManager* SceneManager;
+	IAssetManager* AssetManager;
 	io::IFileSystem* FileSystem;
 };
 

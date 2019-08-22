@@ -6,15 +6,13 @@
 #define __C_OBJ_MESH_FILE_LOADER_H_INCLUDED__
 
 #include "irr/core/core.h"
+#include "irr/asset/ICPUMeshBuffer.h"
 #include "irr/asset/IAssetLoader.h"
 
 namespace irr
 {
-class IrrlichtDevice;
-namespace scene {
-    class ISceneManager;
-}
-namespace io {
+namespace io
+{
     class IFileSystem;
 }
 
@@ -139,7 +137,7 @@ protected:
 
 public:
 	//! Constructor
-	COBJMeshFileLoader(IrrlichtDevice* _dev);
+	COBJMeshFileLoader(IAssetManager* _manager);
 
     virtual bool isALoadableFileFormat(io::IReadFile* _file) const override
     {
@@ -234,8 +232,7 @@ private:
 
     std::string genKeyForMeshBuf(const SContext& _ctx, const std::string& _baseKey, const std::string& _mtlName, const std::string& _grpName) const;
 
-    IrrlichtDevice* Device;
-	scene::ISceneManager* SceneManager;
+	IAssetManager* AssetManager;
 	io::IFileSystem* FileSystem;
 };
 

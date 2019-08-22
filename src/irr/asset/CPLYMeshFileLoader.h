@@ -5,8 +5,8 @@
 #ifndef __C_PLY_MESH_FILE_LOADER_H_INCLUDED__
 #define __C_PLY_MESH_FILE_LOADER_H_INCLUDED__
 
-#include "ISceneManager.h"
 #include "irr/asset/IAssetLoader.h"
+#include "irr/asset/ICPUMeshBuffer.h"
 
 namespace irr
 {
@@ -33,7 +33,7 @@ protected:
 
 public:
 	//! Constructor
-	CPLYMeshFileLoader(scene::ISceneManager* smgr);
+	CPLYMeshFileLoader();
 
     virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
 
@@ -167,8 +167,6 @@ private:
 	void moveForward(SContext& _ctx, uint32_t bytes);
 
     bool genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const;
-
-    scene::ISceneManager* SceneManager;
 };
 
 } // end namespace scene

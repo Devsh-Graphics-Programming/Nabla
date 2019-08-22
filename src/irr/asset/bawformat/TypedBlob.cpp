@@ -5,19 +5,17 @@
 
 #include "irr/asset/bawformat/CBAWFile.h"
 
-#include "ISceneManager.h"
 #include "IFileSystem.h"
-#include "IVideoDriver.h"
 #include "irr/video/CGPUMesh.h"
 #include "irr/asset/CCPUMesh.h"
 #include "irr/video/CGPUSkinnedMesh.h"
 #include "irr/asset/CCPUSkinnedMesh.h"
 #include "irr/asset/bawformat/CBlobsLoadingManager.h"
 #include "irr/asset/ICPUTexture.h"
-#include "IrrlichtDevice.h"
 #include "irr/asset/IAssetManager.h"
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 #include "irr/asset/CBAWMeshFileLoader.h"
+
 
 namespace irr
 {
@@ -31,7 +29,7 @@ namespace impl
 template<class T>
 inline core::smart_refctd_ptr<T> castPtrAndRefcount(void* ptr)
 {
-	return core::smart_refctd_ptr<T>(reinterpret_cast<T>(ptr));
+	return core::smart_refctd_ptr<T>(reinterpret_cast<T*>(ptr));
 }
 
 }
@@ -79,7 +77,7 @@ core::unordered_set<uint64_t> TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::
 template<>
 void* TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
-	if (!_blob || !_params.fs || !_params.ldr || !_params.device)
+	if (!_blob || !_params.fs || !_params.ldr || !_params.manager)
 		return nullptr;
 
 	TexturePathBlobV0* blob = (TexturePathBlobV0*)_blob;
@@ -91,13 +89,13 @@ void* TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::instantiateEmpty(const v
 	const char* const texname = (const char*)blob->getData();
 	if (_params.fs->existFile(texname))
 	{
-		texture = static_cast<asset::ICPUTexture*>(static_cast<CBAWMeshFileLoader*>(_params.ldr)->interm_getAssetInHierarchy(_params.device->getAssetManager(), texname, params, 0u, _params.loaderOverride).getContents().first->get());
+		texture = static_cast<asset::ICPUTexture*>(static_cast<CBAWMeshFileLoader*>(_params.ldr)->interm_getAssetInHierarchy(_params.manager, texname, params, 0u, _params.loaderOverride).getContents().first->get());
 	}
 	else
 	{
 		const io::path path = _params.filePath + texname;
 		// try to read from the path relative to where the .baw is loaded from
-		texture = static_cast<asset::ICPUTexture*>(static_cast<CBAWMeshFileLoader*>(_params.ldr)->interm_getAssetInHierarchy(_params.device->getAssetManager(), path.c_str(), params, 0u, _params.loaderOverride).getContents().first->get());
+		texture = static_cast<asset::ICPUTexture*>(static_cast<CBAWMeshFileLoader*>(_params.ldr)->interm_getAssetInHierarchy(_params.manager, path.c_str(), params, 0u, _params.loaderOverride).getContents().first->get());
 	}
 
 	return texture;
@@ -436,8 +434,6 @@ void* TypedBlob<MeshDataFormatDescBlobV1, asset::IMeshDataFormatDesc<asset::ICPU
 template<>
 void* TypedBlob<MeshDataFormatDescBlobV1, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
-	using namespace scene;
-
 	if (!_obj || !_blob)
 		return nullptr;
 
