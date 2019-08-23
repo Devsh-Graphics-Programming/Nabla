@@ -3,6 +3,8 @@
 
 #include "irr/core/IReferenceCounted.h"
 #include "irr/asset/ShaderCommons.h"
+#include "irr/asset/ICPUShader.h"
+#include "irr/asset/IIncludeHandler.h"
 
 namespace irr { 
 namespace io
@@ -11,15 +13,17 @@ namespace io
 }
 namespace asset
 {
-    class IIncludeHandler;
 //! Will be derivative of IShaderGenerator, but we have to establish interface first
 class IGLSLCompiler : public core::IReferenceCounted
 {
-    const IIncludeHandler* m_inclHandler;
+    core::smart_refctd_ptr<IIncludeHandler> m_inclHandler;
     const io::IFileSystem* m_fs;
 
 public:
-    IGLSLCompiler(const IIncludeHandler* _inclhndlr, const io::IFileSystem* _fs) : m_inclHandler(_inclhndlr), m_fs(_fs) {}
+    IGLSLCompiler(const io::IFileSystem* _fs);
+
+    IIncludeHandler* getIncludeHandler() { return m_inclHandler.get(); }
+    const IIncludeHandler* getIncludeHandler() const { return m_inclHandler.get(); }
 
     /**
     If _stage is ESS_UNKNOWN, then compiler will try to deduce shader stage from #pragma annotation, i.e.:
@@ -38,9 +42,9 @@ public:
     @param _compilationId String that will be printed along with possible errors as source identifier.
     @param _outAssembly Optional parameter; if not nullptr, SPIR-V assembly is saved in there.
 
-    @returns SPIR-V bytecode.
+    @returns Shader containing SPIR-V bytecode.
     */
-    ICPUBuffer* createSPIRVFromGLSL(const char* _glslCode, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, std::string* _outAssembly = nullptr) const;
+    ICPUShader* createSPIRVFromGLSL(const char* _glslCode, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, std::string* _outAssembly = nullptr) const;
 
     /**
     Resolves ALL #include directives regardless of any other preprocessor directive.
@@ -54,9 +58,9 @@ public:
     @param _originFilepath Path to not necesarilly existing file whose directory will be base for relative (""-type) top-level #include's resolution.
         If _originFilepath is non-path-like string (e.g. "whatever" - no slashes), the base directory is assumed to be "." (working directory of your executable). It's important for it to be unique.
 
-    @returns Logically same GLSL code as input but with #include directives resolved.
+    @returns Shader containing logically same GLSL code as input but with #include directives resolved.
     */
-    std::string resolveIncludeDirectives(const char* _glslCode, E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt) const;
+    ICPUShader* resolveIncludeDirectives(const char* _glslCode, E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
 };
 
 }}

@@ -4,14 +4,21 @@
 #include "irr/asset/ICPUSpecializedShader.h"
 #include "irr/video/IGPUSpecializedShader.h"
 #include "COpenGLExtensionHandler.h"
+#include "irr/video/COpenGLShader.h"
 
-namespace irr { namespace video
+namespace irr {
+namespace asset
+{
+class IGLSLCompiler;
+}
+
+namespace video
 {
 
 class COpenGLSpecializedShader : public IGPUSpecializedShader
 {
 public:
-    COpenGLSpecializedShader(video::IVideoDriver* _driver, const asset::ICPUSpecializedShader* _cpushader);
+    COpenGLSpecializedShader(const video::IVideoDriver* _driver, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo);
 
 
     GLuint getOpenGLName() const { return m_GLname; }

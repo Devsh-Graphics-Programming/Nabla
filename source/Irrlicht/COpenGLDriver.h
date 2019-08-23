@@ -33,6 +33,10 @@ namespace irr
 
 namespace irr
 {
+namespace asset
+{
+    class IGLSLCompiler;
+}
 
 namespace video
 {
@@ -49,25 +53,25 @@ namespace video
         struct SAuxContext;
 
 		#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceWin32* device);
+		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp);
 		//! inits the windows specific parts of the open gl driver
 		bool initDriver(CIrrDeviceWin32* device);
 		bool changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceWin32* device);
 		#endif
 
 		#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceLinux* device);
+		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceLinux* device, asset::IGLSLCompiler* glslcomp);
 		//! inits the GLX specific parts of the open gl driver
 		bool initDriver(CIrrDeviceLinux* device, SAuxContext* auxCtxts);
 		bool changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceLinux* device);
 		#endif
 
 		#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceSDL* device);
+		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceSDL* device, asset::IGLSLCompiler* glslcomp);
 		#endif
 
 		#ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceMacOSX *device);
+		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceMacOSX *device, asset::IGLSLCompiler* glslcomp);
 		#endif
 
         inline virtual bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const override
@@ -416,6 +420,8 @@ namespace video
         {
             return isColorRenderableFormat(_fmt) && (asset::isNormalizedFormat(_fmt) || asset::isFloatingPointFormat(_fmt));
         }
+
+        IGPUSpecializedShader* createSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) override;
 
 		//! generic version which overloads the unimplemented versions
 		bool changeRenderContext(const SExposedVideoData& videoData, void* device) {return false;}
@@ -1024,6 +1030,7 @@ namespace video
         FW_Mutex* glContextMutex;
 		SAuxContext* AuxContexts;
         CDerivativeMapCreator* DerivativeMapCreator;
+        const asset::IGLSLCompiler* GLSLCompiler;
 
 		E_DEVICE_TYPE DeviceType;
 	};

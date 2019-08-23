@@ -1,0 +1,103 @@
+#ifndef __IRR_C_SHADER_INTROSPECTOR_H_INCLUDED__
+#define __IRR_C_SHADER_INTROSPECTOR_H_INCLUDED__
+
+#include <cstdint>
+#include "irr/core/Types.h"
+#include "irr/asset/ShaderCommons.h"
+#include "irr/asset/ShaderRes.h"
+#include "irr/asset/ICPUShader.h"
+#include "irr/asset/IGLSLCompiler.h"
+
+namespace spirv_cross
+{
+    class ParsedIR;
+    class Compiler;
+    struct SPIRType;
+}
+namespace irr
+{
+namespace asset
+{
+
+struct SIntrospectionData
+{
+    struct SSpecConstant
+    {
+        enum E_TYPE
+        {
+            ET_U64,
+            ET_I64,
+            ET_U32,
+            ET_I32,
+            ET_F64,
+            ET_F32
+        };
+
+        uint32_t id;
+        size_t byteSize;
+        E_TYPE type;
+        std::string name;
+        union {
+            uint64_t u64;
+            int64_t i64;
+            uint32_t u32;
+            int32_t i32;
+            double f64;
+            float f32;
+        } defaultValue;
+    };
+    //! Sorted by `id`
+    core::vector<SSpecConstant> specConstants;
+    //! Each vector is sorted by `binding`
+    core::vector<SShaderResourceVariant> descriptorSetBindings[4];
+    //! Sorted by `location`
+    core::vector<SShaderInfoVariant> inputOutput;
+
+    struct {
+        bool present;
+        SShaderPushConstant info;
+    } pushConstant;
+
+    bool canSpecializationlesslyCreateDescSetFrom() const
+    {
+        for (const auto& descSet : descriptorSetBindings)
+        {
+            auto found = std::find_if(descSet.begin(), descSet.end(), [](const SShaderResourceVariant& bnd) { return bnd.descCountIsSpecConstant; });
+            if (found != descSet.end())
+                return false;
+        }
+        return true;
+    }
+};
+
+class CShaderIntrospector : public core::Uncopyable
+{
+public:
+    using SEntryPointStagePair = std::pair<std::string, E_SHADER_STAGE>;
+
+    //In the future there's also going list of enabled extensions
+    CShaderIntrospector(const IGLSLCompiler* _glslcomp, const SEntryPointStagePair& _ep) : m_glslCompiler(_glslcomp,core::dont_grab), m_entryPoint(_ep) {}
+    ~CShaderIntrospector() {
+        for (auto& introData : m_introspectionCache)
+            deinitIntrospectionData(introData.second);
+    }
+
+    const SIntrospectionData* introspect(const ICPUShader* _shader);
+private:
+    SIntrospectionData doIntrospection(spirv_cross::Compiler& _comp, const SEntryPointStagePair& _ep) const;
+    void shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const core::unordered_map<uint32_t, const SIntrospectionData::SSpecConstant*>& _mapId2sconst) const;
+    size_t calcBytesizeforType(spirv_cross::Compiler& _comp, const spirv_cross::SPIRType& _type) const;
+
+    static void deinitIntrospectionData(SIntrospectionData& _data);
+    static void deinitShdrMemBlock(impl::SShaderMemoryBlock& _res);
+
+private:
+    core::smart_refctd_ptr<const IGLSLCompiler> m_glslCompiler;
+    SEntryPointStagePair m_entryPoint;
+    core::unordered_map<const ICPUShader*, SIntrospectionData> m_introspectionCache;
+};
+
+}//asset
+}//irr
+
+#endif

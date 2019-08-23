@@ -48,8 +48,6 @@ CIrrDeviceStub::CIrrDeviceStub(const SIrrlichtCreationParameters& params)
 
 	checkVersion(params.SDK_version_do_not_use);
 
-    IncludeHandler = core::make_smart_refctd_ptr<asset::CIncludeHandler>(FileSystem);
-
     //add builtin loaders
     asset::IBuiltinIncludeLoader* builtinLdr = new asset::CGLSLScanBuiltinIncludeLoader();
     IncludeHandler->addBuiltinIncludeLoader(builtinLdr);

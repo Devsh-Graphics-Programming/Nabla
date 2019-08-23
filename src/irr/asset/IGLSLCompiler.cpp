@@ -2,6 +2,7 @@
 #include "coreutil.h"
 #include "irr/asset/shadercUtils.h"
 #include "IFileSystem.h"
+#include "irr/asset/CIncludeHandler.h"
 #include <sstream>
 #include <regex>
 #include <iterator>
@@ -9,8 +10,16 @@
 namespace irr { namespace asset
 {
 
-ICPUBuffer* IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, std::string* _outAssembly) const
+IGLSLCompiler::IGLSLCompiler(const io::IFileSystem* _fs) : 
+    m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_fs)), m_fs(_fs)
+{}
+
+ICPUShader* IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, std::string* _outAssembly) const
 {
+    //shaderc requires entry point to be "main" in GLSL
+    if (strcmp(_entryPoint, "main") != 0)
+        return nullptr;
+
     shaderc::Compiler comp;
     shaderc::CompileOptions options;//default options
     const shaderc_shader_kind stage = _stage==ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(_stage);
@@ -34,7 +43,11 @@ ICPUBuffer* IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, E_SHADER_S
     }
     asset::ICPUBuffer* spirv = new ICPUBuffer(std::distance(bin_res.cbegin(), bin_res.cend())*sizeof(uint32_t));
     memcpy(spirv->getPointer(), bin_res.cbegin(), spirv->getSize());
-    return spirv;
+    
+    asset::ICPUShader* shader = new ICPUShader(spirv);
+    spirv->drop();
+
+    return shader;
 }
 
 namespace impl
@@ -170,7 +183,7 @@ namespace impl
     };
 }
 
-std::string IGLSLCompiler::resolveIncludeDirectives(const char* _glslCode, E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt) const
+ICPUShader* IGLSLCompiler::resolveIncludeDirectives(const char* _glslCode, E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt) const
 {
     std::string glslCode = impl::disableAllDirectivesExceptIncludes(_glslCode);//all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
     shaderc::Compiler comp;
@@ -181,11 +194,17 @@ std::string IGLSLCompiler::resolveIncludeDirectives(const char* _glslCode, E_SHA
 
     if (res.GetCompilationStatus() != shaderc_compilation_status_success) {
         os::Printer::log(res.GetErrorMessage(), ELL_ERROR);
-        return "";
+        return nullptr;
     }
 
     std::string res_str(res.cbegin(), std::distance(res.cbegin(),res.cend()));
-    return impl::reenableDirectives(res_str.c_str());
+    //entry point name hardcoded to "main" because shaderc requires it
+    return 
+    new ICPUShader(
+        impl::reenableDirectives(res_str.c_str()).c_str(),
+        "main",
+        _stage
+    );
 }
 
 }}

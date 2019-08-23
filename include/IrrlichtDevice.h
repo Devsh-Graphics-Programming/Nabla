@@ -274,9 +274,6 @@ namespace irr
         virtual asset::IAssetManager& getAssetManager();
         virtual const asset::IAssetManager& getAssetManager() const;
 
-        virtual asset::IIncludeHandler* getIncludeHandler() { return nullptr; }
-        virtual const asset::IIncludeHandler* getIncludeHandler() const { return nullptr; }
-
     private:
         void addLoadersAndWriters();
 

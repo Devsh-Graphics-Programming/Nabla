@@ -88,15 +88,12 @@ static GLenum ESS2GLenum(asset::E_SHADER_STAGE _stage)
 
 }//namesapce impl
 
-COpenGLSpecializedShader::COpenGLSpecializedShader(video::IVideoDriver* _driver, const asset::ICPUSpecializedShader* _cpushader)
+COpenGLSpecializedShader::COpenGLSpecializedShader(const video::IVideoDriver* _driver, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo)
 {
-    video::COpenGLDriver* driver = static_cast<video::COpenGLDriver*>(_driver);
+    const video::COpenGLDriver* driver = static_cast<const video::COpenGLDriver*>(_driver);
 
-    core::smart_refctd_ptr<const asset::ISpecializationInfo> specData(_cpushader->getSpecializationInfo());
-    core::smart_refctd_ptr<const asset::IParsedShaderSource> parsed(_cpushader->getUnspecialized()->getParsed());
-
-    spirv_cross::CompilerGLSL comp(parsed->getUnderlyingRepresentation());
-    comp.set_entry_point(specData->entryPoint.c_str(), asset::ESS2spvExecModel(specData->shaderStage));
+    spirv_cross::CompilerGLSL comp(reinterpret_cast<const uint32_t*>(_spirv->getPointer()), _spirv->getSize()/4u);
+    comp.set_entry_point(_specInfo->entryPoint.c_str(), asset::ESS2spvExecModel(_specInfo->shaderStage));
     spirv_cross::CompilerGLSL::Options options;
     options.version = driver->ShaderLanguageVersion;
     //vulkan_semantics=false cases spirv_cross to translate push_constants into non-UBO uniform of struct type! Exactly like we wanted!
@@ -104,14 +101,14 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(video::IVideoDriver* _driver,
     options.separate_shader_objects = true;
     comp.set_common_options(options);
 
-    impl::specialize(comp, specData.get());
+    impl::specialize(comp, _specInfo);
     impl::reorderBindings(comp);
 
     std::string glslCode = comp.compile();
     const char* glslCode_cstr = glslCode.c_str();
     //printf(glslCode.c_str());
 
-    m_GLname = driver->extGlCreateShaderProgramv(impl::ESS2GLenum(specData->shaderStage), 1u, &glslCode_cstr);
+    m_GLname = driver->extGlCreateShaderProgramv(impl::ESS2GLenum(_specInfo->shaderStage), 1u, &glslCode_cstr);
 
     GLchar logbuf[1u<<12]; //4k
     driver->extGlGetProgramInfoLog(m_GLname, sizeof(logbuf), nullptr, logbuf);

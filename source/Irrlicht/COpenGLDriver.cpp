@@ -22,6 +22,10 @@
 #include "COpenGLMultisampleTextureArray.h"
 #include "COpenGLTextureBufferObject.h"
 
+#include "irr/video/COpenGLShader.h"
+#include "irr/video/COpenGLSpecializedShader.h"
+#include "irr/asset/IGLSLCompiler.h"
+
 #include "COpenGLBuffer.h"
 #include "COpenGLFrameBuffer.h"
 #include "COpenGLSLMaterialRenderer.h"
@@ -65,11 +69,11 @@ namespace video
 #ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 //! Windows constructor and init code
 COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceWin32* device)
+		io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp)
 : CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
 	runningInRenderDoc(false),  CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(asset::EF_R8G8B8_UNORM), Params(params),
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
-	DeviceType(EIDT_WIN32), AuxContexts(0), DerivativeMapCreator(nullptr)
+	AuxContexts(0), DerivativeMapCreator(nullptr), GLSLCompiler(glslcomp), DeviceType(EIDT_WIN32)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("COpenGLDriver");
@@ -462,6 +466,43 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 	return true;
 }
 
+IGPUSpecializedShader* COpenGLDriver::createSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo)
+{
+    const COpenGLShader* glUnspec = static_cast<const COpenGLShader*>(_unspecialized);
+    const asset::ICPUShader* cpuUnspec = glUnspec->getCPUCounterpart();
+
+    const std::string& EP = _specInfo->entryPoint;
+    const asset::E_SHADER_STAGE stage = _specInfo->shaderStage;
+
+    const asset::ICPUBuffer* spv = nullptr;
+    if (cpuUnspec->containsGLSL()) {
+        if (cpuUnspec->getGLSLEntryPoint() != EP || cpuUnspec->getGLSLStage() != stage)
+            return nullptr;
+
+        //TODO insert enabled extensions #defines into GLSL
+        auto spvShader = core::smart_refctd_ptr<asset::ICPUShader>(
+            GLSLCompiler->createSPIRVFromGLSL(
+                reinterpret_cast<const char*>(cpuUnspec->getSPVorGLSL()->getPointer()),
+                stage,
+                EP.c_str(),
+                "????"
+            ), core::dont_grab);
+        if (!spvShader)
+            return nullptr;
+
+        spv = spvShader->getSPVorGLSL();
+        spv->grab();
+    }
+    else {
+        spv = cpuUnspec->getSPVorGLSL();
+        spv->grab();
+    }
+
+    COpenGLSpecializedShader* gpuSpecialized = new COpenGLSpecializedShader(this, spv, _specInfo);
+    spv->drop();
+    return gpuSpecialized;
+}
+
 bool COpenGLDriver::initAuxContext()
 {
 	if (!AuxContexts) // opengl dead and never inited
@@ -506,11 +547,11 @@ bool COpenGLDriver::deinitAuxContext()
 #ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
 //! Windows constructor and init code
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceMacOSX *device)
+		io::IFileSystem* io, CIrrDeviceMacOSX *device, const asset::IGLSLCompiler* glslcomp)
 : CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
     runningInRenderDoc(false), CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(asset::EF_R8G8B8_UNORM),
 	Params(params),
-	OSXDevice(device), DeviceType(EIDT_OSX), AuxContexts(0)
+	OSXDevice(device), DeviceType(EIDT_OSX), AuxContexts(0), GLSLCompiler(glslcomp)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("COpenGLDriver");
@@ -527,10 +568,10 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 #ifdef _IRR_COMPILE_WITH_X11_DEVICE_
 //! Linux constructor and init code
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceLinux* device)
+		io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp)
 : CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
 	runningInRenderDoc(false),  CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(asset::EF_R8G8B8_UNORM),
-	Params(params), X11Device(device), DeviceType(EIDT_X11), AuxContexts(0)
+	Params(params), X11Device(device), DeviceType(EIDT_X11), AuxContexts(0), GLSLCompiler(glslcomp)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("COpenGLDriver");
@@ -660,11 +701,11 @@ bool COpenGLDriver::deinitAuxContext()
 #ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
 //! SDL constructor and init code
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceSDL* device)
+		io::IFileSystem* io, CIrrDeviceSDL* device, const asset::IGLSLCompiler* glslcomp)
 : CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
     runningInRenderDoc(false), CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(EF_R8G8B8_UNORM),
 	CurrentTarget(ERT_FRAME_BUFFER), Params(params),
-	SDLDevice(device), DeviceType(EIDT_SDL), AuxContexts(0)
+	SDLDevice(device), DeviceType(EIDT_SDL), AuxContexts(0), GLSLCompiler(glslcomp)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("COpenGLDriver");
@@ -3247,10 +3288,10 @@ namespace video
 // -----------------------------------
 #ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
-	io::IFileSystem* io, CIrrDeviceWin32* device)
+	io::IFileSystem* io, CIrrDeviceWin32* device, const const asset::IGLSLCompiler* glslcomp)
 {
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device);
+	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device, glslcomp);
 	if (!ogl->initDriver(device))
 	{
 		ogl->drop();
