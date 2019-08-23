@@ -35,12 +35,12 @@ public:
     inline virtual core::vector<core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType> > create(asset::ICPUTexture** const _begin, asset::ICPUTexture** const _end);
 
     template<typename AssetType>
-    core::vector<core::smart_refctd_ptr<typename video::asset_traits<AssetType>::GPUObjectType> > getGPUObjectsFromAssets(AssetType** const _begin, AssetType** const _end)
+    core::vector<core::smart_refctd_ptr<typename video::asset_traits<AssetType>::GPUObjectType> > getGPUObjectsFromAssets(AssetType* const* const _begin, AssetType* const* const _end)
     {
         core::vector<AssetType*> notFound;
         core::vector<size_t> pos;
         core::vector<core::smart_refctd_ptr<typename video::asset_traits<AssetType>::GPUObjectType> > res;
-        AssetType** it = _begin;
+        AssetType*const * it = _begin;
         while (it != _end)
         {
             core::IReferenceCounted* gpu = m_assetManager->findGPUObject(*it);
@@ -63,11 +63,6 @@ public:
 			for (size_t i = 0u; i < created.size(); ++i)
 			{
 				m_assetManager->convertAssetToEmptyCacheHandle(notFound[i], created[i].get());
-				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<asset::ICPUTexture, AssetType>::value)
-				{
-					created[i]->drop(); // IGPUTexture is not grabbed when set in SGPUMaterial, so we have to drop it after inserting into cache (done by convertAssetToEmptyCacheHandle)
-				}
-				IRR_PSEUDO_IF_CONSTEXPR_END
 
 				res[oldSize+pos[i]] = std::move(created[i]);
 			}
@@ -241,8 +236,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
         {
             if (mat.getTexture(k))
             {
-                mat.setTexture(k, gpuTexDeps[texRedir[t]].get());
-                gpuTexDeps[texRedir[t]].get()->grab(); // TODO: REMOVE THIS, this is a HACK
+                mat.setTexture(k, core::smart_refctd_ptr(gpuTexDeps[texRedir[t]]));
                 ++t;
             }
         }

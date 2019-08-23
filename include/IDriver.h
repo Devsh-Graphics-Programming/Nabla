@@ -278,7 +278,7 @@ namespace video
             }
 
             template<typename AssetType>
-            core::vector<core::smart_refctd_ptr<typename video::asset_traits<AssetType>::GPUObjectType> > getGPUObjectsFromAssets(AssetType** const _begin, AssetType** const _end, IGPUObjectFromAssetConverter* _converter = nullptr);
+            core::vector<core::smart_refctd_ptr<typename video::asset_traits<AssetType>::GPUObjectType> > getGPUObjectsFromAssets(AssetType* const* const _begin, AssetType* const* const _end, IGPUObjectFromAssetConverter* _converter = nullptr);
 	};
 
 } // end namespace video

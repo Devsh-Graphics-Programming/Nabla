@@ -257,7 +257,7 @@ void* TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::finalize(void* _obj, c
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(buf->getMaterial().getTexture(i));
 		if (tex)
-			buf->getMaterial().setTexture(i, reinterpret_cast<asset::ICPUTexture*>(_deps[tex]));
+			buf->getMaterial().setTexture(i, impl::castPtrAndRefcount<asset::ICPUTexture>(_deps[tex]));
 	}
 	return _obj;
 }
@@ -316,9 +316,7 @@ void* TypedBlob<SkinnedMeshBufferBlobV0, asset::ICPUSkinnedMeshBuffer>::finalize
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(buf->getMaterial().getTexture(i));
 		if (tex)
-		{
-			buf->getMaterial().setTexture(i, reinterpret_cast<asset::ICPUTexture*>(_deps[tex]));
-		}
+			buf->getMaterial().setTexture(i, impl::castPtrAndRefcount<asset::ICPUTexture>(_deps[tex]));
 	}
 	return _obj;
 }

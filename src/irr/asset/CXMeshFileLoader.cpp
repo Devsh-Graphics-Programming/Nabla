@@ -1759,31 +1759,16 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 
 			// original name
             if (FileSystem->existFile(TextureFileName))
-            {
-                asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
-                    interm_getAssetInHierarchy(AssetManager, TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first->get()
-                );
-                material.setTexture(textureLayer, texture);
-            }
+                material.setTexture(textureLayer, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*interm_getAssetInHierarchy(AssetManager, TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first));
 			// mesh path
 			else
 			{
 				TextureFileName= _ctx.FilePath + io::IFileSystem::getFileBasename(TextureFileName);
-                if (FileSystem->existFile(TextureFileName))
-                {
-                    asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
-                        interm_getAssetInHierarchy(AssetManager, TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first->get()
-                    );
-                    material.setTexture(textureLayer, texture);
-                }
+				if (FileSystem->existFile(TextureFileName))
+					material.setTexture(textureLayer, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*interm_getAssetInHierarchy(AssetManager, TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first));
 				// working directory
-                else
-                {
-                    asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
-                        interm_getAssetInHierarchy(AssetManager, io::IFileSystem::getFileBasename(TextureFileName).c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first->get()
-                    );
-                    material.setTexture(textureLayer, texture);
-                }
+				else
+					material.setTexture(textureLayer, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*interm_getAssetInHierarchy(AssetManager, io::IFileSystem::getFileBasename(TextureFileName).c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first));
 			}
 			++textureLayer;
 		}
@@ -1798,31 +1783,16 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 
 			// original name
             if (FileSystem->existFile(TextureFileName))
-            {
-                asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
-                    interm_getAssetInHierarchy(AssetManager, TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first->get()
-                );
-                material.setTexture(1, texture);
-            }
+				material.setTexture(1, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*interm_getAssetInHierarchy(AssetManager, TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first));
 			// mesh path
 			else
 			{
 				TextureFileName= _ctx.FilePath + io::IFileSystem::getFileBasename(TextureFileName);
                 if (FileSystem->existFile(TextureFileName))
-                {
-                    asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
-                        interm_getAssetInHierarchy(AssetManager, TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first->get()
-                    );
-                    material.setTexture(1, texture);
-                }
+					material.setTexture(1, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*interm_getAssetInHierarchy(AssetManager, TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first));
 				// working directory
                 else
-                {
-                    asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
-                        interm_getAssetInHierarchy(AssetManager, io::IFileSystem::getFileBasename(TextureFileName).c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first->get()
-                    );
-                    material.setTexture(1, texture);
-                }
+					material.setTexture(1, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*interm_getAssetInHierarchy(AssetManager, io::IFileSystem::getFileBasename(TextureFileName).c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first));
 			}
 			if (textureLayer==1)
 				++textureLayer;

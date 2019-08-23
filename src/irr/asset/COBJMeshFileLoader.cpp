@@ -566,39 +566,39 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
 	io::path texname(textureNameBuf);
 	handleBackslashes(&texname);
 
-	asset::ICPUTexture* texture = nullptr;
+	core::smart_refctd_ptr<asset::ICPUTexture> texture;
 	if (texname.size())
 	{
         if (FileSystem->existFile(texname))
 		{
             auto bundle = interm_getAssetInHierarchy(AssetManager, texname.c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride).getContents();
-            texture = (bundle.first==bundle.second) ? nullptr : static_cast<asset::ICPUTexture*>(bundle.first->get());
+            if (bundle.first!=bundle.second) texture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*bundle.first);
 		}
 		else
 		{
 			// try to read in the relative path, the .obj is loaded from
             auto bundle = interm_getAssetInHierarchy(AssetManager, (relPath + texname).c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride).getContents();
-            texture = (bundle.first==bundle.second) ? nullptr : static_cast<asset::ICPUTexture*>(bundle.first->get());
+			if (bundle.first != bundle.second) texture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*bundle.first);
 		}
 	}
 	if ( texture )
 	{
 		if (type==ETT_COLOR_MAP)
         {
-			currMaterial->Material.setTexture(0, texture);
+			currMaterial->Material.setTexture(0, std::move(texture));
         }
 		else if (type==ETT_NORMAL_MAP)
 		{
 #ifdef _IRR_DEBUG
             os::Printer::log("Loading OBJ Models with normal maps not supported!\n",ELL_ERROR);
 #endif // _IRR_DEBUG
-			currMaterial->Material.setTexture(1, texture);
+			currMaterial->Material.setTexture(1, std::move(texture));
 			currMaterial->Material.MaterialType=(video::E_MATERIAL_TYPE)-1;
 			currMaterial->Material.MaterialTypeParam=0.035f;
 		}
 		else if (type==ETT_OPACITY_MAP)
 		{
-			currMaterial->Material.setTexture(0, texture);
+			currMaterial->Material.setTexture(0, std::move(texture));
 			currMaterial->Material.MaterialType=video::EMT_TRANSPARENT_ADD_COLOR;
 		}
 		else if (type==ETT_REFLECTION_MAP)

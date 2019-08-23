@@ -188,6 +188,7 @@ namespace core
 			mutable I_REFERENCE_COUNTED* ptr; // since IReferenceCounted declares the refcount mutable atomic
 
 			template<class U> friend class smart_refctd_ptr;
+			template<class U, class T> friend smart_refctd_ptr<U> smart_refctd_ptr_static_cast(smart_refctd_ptr<T>&&);
 
             template<class U>
             void copy(const smart_refctd_ptr<U>& other) noexcept
@@ -286,7 +287,7 @@ namespace core
 			bool drop() = delete;
 			bool drop() const = delete;
 
-			inline I_REFERENCE_COUNTED* get() const { return ptr; }
+			inline I_REFERENCE_COUNTED* const& get() const { return ptr; }
 
 			inline I_REFERENCE_COUNTED* operator->() { return ptr; }
 			inline const I_REFERENCE_COUNTED* operator->() const { return ptr; }
@@ -312,6 +313,7 @@ namespace core
 			inline bool operator>(const smart_refctd_ptr<U>& other) const { return ptr > other.ptr; }
 	};
 
+
     template< class T, class... Args >
     inline smart_refctd_ptr<T> make_smart_refctd_ptr(Args&& ... args)
     {
@@ -319,6 +321,26 @@ namespace core
         smart_refctd_ptr<T> smart(obj, dont_grab);
         return smart;
     }
+
+
+	template< class U, class T >
+	inline smart_refctd_ptr<U> smart_refctd_ptr_static_cast(const smart_refctd_ptr<T>& smart_ptr)
+	{
+		return smart_refctd_ptr<U>(static_cast<U*>(smart_ptr.get()));
+	}
+	template< class U, class T >
+	inline smart_refctd_ptr<U> smart_refctd_ptr_static_cast(smart_refctd_ptr<T>&& smart_ptr)
+	{
+		T* ptr = nullptr;
+		std::swap(ptr, smart_ptr.ptr);
+		return smart_refctd_ptr<U>(static_cast<U*>(ptr), dont_grab);
+	}
+
+	template< class U, class T >
+	inline smart_refctd_ptr<U> move_and_static_cast(smart_refctd_ptr<T>& smart_ptr)
+	{
+		return smart_refctd_ptr_static_cast<U,T>(std::move(smart_ptr));
+	}
 
 }
 } // end namespace irr
