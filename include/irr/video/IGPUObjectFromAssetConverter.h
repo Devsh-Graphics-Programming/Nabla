@@ -291,14 +291,16 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset:
             cpuDeps.push_back((*it)->getMeshBuffer(i));
 
         core::smart_refctd_ptr<video::IGPUMesh> gpumesh;
-        switch ((*it)->getMeshType())
-        {
-        case asset::EMT_ANIMATED_SKINNED:
-            gpumesh = core::make_smart_refctd_ptr<video::CGPUSkinnedMesh>(static_cast<asset::ICPUSkinnedMesh*>(*it)->getBoneReferenceHierarchy());
-            break;
-        default:
-            gpumesh = core::make_smart_refctd_ptr<video::CGPUMesh>();
-            break;
+		switch ((*it)->getMeshType())
+		{
+			case asset::EMT_ANIMATED_SKINNED:
+			{
+				gpumesh = core::make_smart_refctd_ptr<video::CGPUSkinnedMesh>(core::smart_refctd_ptr<asset::CFinalBoneHierarchy>(static_cast<asset::ICPUSkinnedMesh*>(*it)->getBoneReferenceHierarchy()));
+				break;
+			}
+			default:
+				gpumesh = core::make_smart_refctd_ptr<video::CGPUMesh>();
+				break;
         }
         gpumesh->setBoundingBox((*it)->getBoundingBox());
         res.push_back(std::move(gpumesh));
