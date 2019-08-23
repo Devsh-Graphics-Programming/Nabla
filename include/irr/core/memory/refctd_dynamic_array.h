@@ -5,21 +5,22 @@
 #include "irr/core/alloc/AlignedBase.h"
 #include "irr/core/memory/dynamic_array.h"
 
-namespace irr { namespace core
+namespace irr
+{
+namespace core
 {
 
 template<typename T, class allocator = core::allocator<T>>
-class refctd_dynamic_array : public dynamic_array<T,allocator>, public IReferenceCounted
+class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dynamic_array<T,allocator,refctd_dynamic_array<T,allocator> >
 {
-		using base_t = dynamic_array<T, allocator>;
+		using base_t = dynamic_array<T, allocator, refctd_dynamic_array<T, allocator> >;
+		friend class base_t;
+		static_assert(sizeof(base_t) == sizeof(impl::dynamic_array_base<T, allocator>), "memory has been added to dynamic_array");
+		static_assert(sizeof(base_t) == sizeof(dynamic_array<T, allocator>),"non-CRTP and CRTP base class definitions differ in size");
+
+		class IRR_FORCE_EBO fake_size_class : public IReferenceCounted, public dynamic_array<T, allocator> {};
 	public:
-		// factory method to use instead of `new`
-		template<typename... Args>
-		static inline refctd_dynamic_array<T, allocator>* create_dynamic_array(Args&& ... args)
-		{
-			void* ptr = base_t::allocate_dynamic_array(args...);
-			return new(ptr) refctd_dynamic_array<T,allocator>(std::forward<Args>(args)...);
-		}
+		_IRR_STATIC_INLINE_CONSTEXPR size_t dummy_item_count = sizeof(fake_size_class)/sizeof(T);
 
 		_IRR_RESOLVE_NEW_DELETE_AMBIGUITY(base_t) // only want new and delete operators from `dynamic_array`
 	protected:

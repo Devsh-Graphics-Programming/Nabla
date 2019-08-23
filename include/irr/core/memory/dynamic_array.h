@@ -9,9 +9,29 @@ namespace irr
 namespace core
 {
 
-template<typename T, class allocator = core::allocator<T> >
-class IRR_FORCE_EBO dynamic_array : public Uncopyable, public Unmovable
+namespace impl
 {
+	template<typename T, class allocator>
+	class alignas(T) IRR_FORCE_EBO dynamic_array_base // : public Uncopyable, public Unmovable // cannot due to diamon inheritance
+	{
+		protected:
+			allocator alctr;
+			size_t item_count;
+
+			dynamic_array_base(const allocator& _alctr, size_t _item_count) : alctr(_alctr), item_count(_item_count) {}
+
+			virtual ~dynamic_array_base() {} // do not remove, need for class size computation!
+		public:
+			_IRR_NO_COPY_FINAL(dynamic_array_base);
+			_IRR_NO_MOVE_FINAL(dynamic_array_base);
+	};
+}
+
+template<typename T, class allocator = core::allocator<T>, class CRTP=void>
+class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<T,allocator>
+{
+		using base_t = impl::dynamic_array_base<T,allocator>;
+
 	public:
 		using allocator_type = allocator;
 		using value_type = T;
@@ -20,62 +40,57 @@ class IRR_FORCE_EBO dynamic_array : public Uncopyable, public Unmovable
 		using iterator = T*;
 		using const_iterator = const T*;
 
+		using this_real_type = typename std::conditional<std::is_void<CRTP>::value, dynamic_array<T, allocator>, CRTP>::type;
+
 	protected:
-		struct alignas(value_type) BaseMembers
+		dynamic_array(size_t _length, const allocator& _alctr = allocator()) : base_t( _alctr,_length )
 		{
-			allocator alctr;
-			size_t item_count;
-		};
-		BaseMembers base;
-
-		_IRR_STATIC_INLINE_CONSTEXPR size_t dummy_item_count = sizeof(BaseMembers)/sizeof(T);
-
-
-		dynamic_array(size_t _length, const allocator& _alctr = allocator()) : base({ _alctr,_length })
-		{
-			for (size_t i = 0ull; i < base.item_count; ++i)
-				std::allocator_traits<allocator>::construct(base.alctr, data() + i);
+			for (size_t i = 0ull; i < base_t::item_count; ++i)
+				std::allocator_traits<allocator>::construct(base_t::alctr, data() + i);
 		}
-		dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator()) : base({ _alctr,_length })
+		dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator()) : base_t( _alctr,_length )
 		{
-			for (size_t i = 0ull; i < base.item_count; ++i)
-				std::allocator_traits<allocator>::construct(base.alctr, data() + i, _val);
+			for (size_t i = 0ull; i < base_t::item_count; ++i)
+				std::allocator_traits<allocator>::construct(base_t::alctr, data() + i, _val);
 		}
-		dynamic_array(std::initializer_list<T> _contents, const allocator& _alctr = allocator()) : base({ _alctr,_contents.size() })
+		dynamic_array(std::initializer_list<T> _contents, const allocator& _alctr = allocator()) : base_t( _alctr,_contents.size() )
 		{
-			for (size_t i = 0ull; i < base.item_count; ++i)
-				std::allocator_traits<allocator>::construct(base.alctr, data() + i, *(_contents.begin() + i));
+			for (size_t i = 0ull; i < base_t::item_count; ++i)
+				std::allocator_traits<allocator>::construct(base_t::alctr, data() + i, *(_contents.begin() + i));
 		}
+
 	public:
+		_IRR_STATIC_INLINE_CONSTEXPR size_t dummy_item_count = sizeof(base_t)/sizeof(T);
+
 		virtual ~dynamic_array()
 		{
-			for (size_t i = 0ull; i < base.item_count; ++i)
-				std::allocator_traits<allocator>::destroy(base.alctr, data() + i);
+			for (size_t i = 0ull; i < base_t::item_count; ++i)
+				std::allocator_traits<allocator>::destroy(base_t::alctr, data() + i);
 		}
 
 		static inline size_t size_of(size_t length)
 		{
-			return (dummy_item_count + length) * sizeof(T);
+			return (this_real_type::dummy_item_count + length) * sizeof(T);
 		}
 		static inline size_t size_of(const std::initializer_list<T>& _contents)
 		{
-			return (dummy_item_count + _contents.size()) * sizeof(T);
+			return (this_real_type::dummy_item_count + _contents.size()) * sizeof(T);
 		}
 
 		static inline void* allocate_dynamic_array(size_t length, const allocator& _alctr = allocator())
 		{
-			return allocator().allocate(size_of(length)/sizeof(T));
+			return allocator().allocate(this_real_type::size_of(length)/sizeof(T));
 		}
 		static inline void* allocate_dynamic_array(const std::initializer_list<T>& _contents, const allocator& _alctr = allocator())
 		{
-			return allocator().allocate(size_of(_contents)/sizeof(T));
+			return allocator().allocate(this_real_type::size_of(_contents)/sizeof(T));
 		}
 		// factory method to use instead of `new`
 		template<typename... Args>
 		static inline auto* create_dynamic_array(Args&&... args)
 		{
-			void* ptr = allocate_dynamic_array(args...);
-			return new(ptr) dynamic_array<T,allocator>(std::forward<Args>(args)...);
+			void* ptr = this_real_type::allocate_dynamic_array(args...);
+			return new(ptr) this_real_type(std::forward<Args>(args)...);
 		}
 
 		// the usual new allocation operator won't let us analyze the constructor arguments to decide the size of the object
@@ -131,7 +146,7 @@ class IRR_FORCE_EBO dynamic_array : public Uncopyable, public Unmovable
 		inline const_iterator cend() const noexcept { return data()+size(); }
 		inline const_iterator cbegin() const noexcept { return data(); }
 
-		inline size_t size() const noexcept { return base.item_count; }
+		inline size_t size() const noexcept { return base_t::item_count; }
 		inline bool empty() const noexcept { return !size(); }
 
 		inline const T& operator[](size_t ix) const noexcept { return data()[ix]; }
