@@ -666,7 +666,7 @@ namespace video
 
             //! sets the current Texture
             //! Returns whether setting was a success or not.
-            bool setActiveTexture(uint32_t stage, video::IVirtualTexture* texture, const video::STextureSamplingParams &sampleParams);
+            bool setActiveTexture(uint32_t stage, core::smart_refctd_ptr<IVirtualTexture>&& texture, const video::STextureSamplingParams &sampleParams);
 
             const GLuint& constructSamplerInCache(const uint64_t &hashVal);
 
@@ -865,45 +865,32 @@ namespace video
             //! Textures and Samplers
             class STextureStageCache : public core::AllocationOverrideDefault
             {
-                const IVirtualTexture* CurrentTexture[MATERIAL_MAX_TEXTURES];
-            public:
-                STextureStageCache()
-                {
-                    for (uint32_t i=0; i<MATERIAL_MAX_TEXTURES; ++i)
-                    {
-                        CurrentTexture[i] = 0;
-                    }
-                }
+					core::smart_refctd_ptr<const IVirtualTexture> CurrentTexture[MATERIAL_MAX_TEXTURES];
+				public:
+					STextureStageCache() = default;
 
-                ~STextureStageCache()
-                {
-                    clear();
-                }
+					~STextureStageCache()
+					{
+						clear();
+					}
 
-                void set(uint32_t stage, const IVirtualTexture* tex)
-                {
-                    if (stage<MATERIAL_MAX_TEXTURES)
-                    {
-                        const IVirtualTexture* oldTexture=CurrentTexture[stage];
-                        if (tex)
-                            tex->grab();
-                        CurrentTexture[stage]=tex;
-                        if (oldTexture)
-                            oldTexture->drop();
-                    }
-                }
+					void set(uint32_t stage, core::smart_refctd_ptr<const IVirtualTexture>&& tex)
+					{
+						if (stage<MATERIAL_MAX_TEXTURES)
+							CurrentTexture[stage] = std::move(tex);
+					}
 
-                const IVirtualTexture* operator[](int stage) const
-                {
-                    if ((uint32_t)stage<MATERIAL_MAX_TEXTURES)
-                        return CurrentTexture[stage];
-                    else
-                        return 0;
-                }
+					const IVirtualTexture* operator[](int stage) const
+					{
+						if (static_cast<uint32_t>(stage)<MATERIAL_MAX_TEXTURES)
+							return CurrentTexture[stage].get();
+						else
+							return 0;
+					}
 
-                void remove(const IVirtualTexture* tex);
+					void remove(const IVirtualTexture* tex);
 
-                void clear();
+					void clear();
             };
 
             //!

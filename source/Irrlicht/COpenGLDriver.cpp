@@ -2118,16 +2118,16 @@ const GLuint& COpenGLDriver::SAuxContext::constructSamplerInCache(const uint64_t
     return (SamplerMap[hashVal] = samplerHandle);
 }
 
-bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, video::IVirtualTexture* texture, const video::STextureSamplingParams &sampleParams)
+bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, core::smart_refctd_ptr<IVirtualTexture>&& texture, const video::STextureSamplingParams &sampleParams)
 {
 	if (stage >= COpenGLExtensionHandler::MaxTextureUnits)
 		return false;
 
 
-    if (texture&&texture->getVirtualTextureType()==IVirtualTexture::EVTT_BUFFER_OBJECT&&!static_cast<COpenGLTextureBufferObject*>(texture)->rebindRevalidate())
+    if (texture&&texture->getVirtualTextureType()==IVirtualTexture::EVTT_BUFFER_OBJECT&&!static_cast<COpenGLTextureBufferObject*>(texture.get())->rebindRevalidate())
         return false;
 
-	if (CurrentTexture[stage]!=texture)
+	if (CurrentTexture[stage]!=texture.get())
     {
         const video::COpenGLTexture* oldTexture = dynamic_cast<const COpenGLTexture*>(CurrentTexture[stage]);
         GLenum oldTexType = GL_INVALID_ENUM;
@@ -2151,11 +2151,11 @@ bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, video::IVirtua
             }
             else
             {
-                const video::COpenGLTexture* newTexture = dynamic_cast<const COpenGLTexture*>(texture);
+                const video::COpenGLTexture* newTexture = dynamic_cast<const COpenGLTexture*>(texture.get());
                 GLenum newTexType = newTexture->getOpenGLTextureType();
 
                 if (Version<440 && !FeatureAvailable[IRR_ARB_multi_bind] && oldTexture && oldTexType!=newTexType)
-                    extGlBindTextures(stage,1,NULL,&oldTexType);
+                    extGlBindTextures(stage,1,nullptr,&oldTexType);
                 extGlBindTextures(stage,1,&newTexture->getOpenGLName(),&newTexType);
             }
         }
@@ -2196,13 +2196,12 @@ void COpenGLDriver::SAuxContext::STextureStageCache::remove(const IVirtualTextur
 {
     for (int32_t i = MATERIAL_MAX_TEXTURES-1; i>= 0; --i)
     {
-        if (CurrentTexture[i] == tex)
+        if (CurrentTexture[i].get() == tex)
         {
             GLenum target = dynamic_cast<const COpenGLTexture*>(tex)->getOpenGLTextureType();
-            COpenGLExtensionHandler::extGlBindTextures(i,1,NULL,&target);
-            COpenGLExtensionHandler::extGlBindSamplers(i,1,NULL);
-            tex->drop();
-            CurrentTexture[i] = 0;
+            COpenGLExtensionHandler::extGlBindTextures(i,1,nullptr,&target);
+            COpenGLExtensionHandler::extGlBindSamplers(i,1,nullptr);
+            CurrentTexture[i] = nullptr;
         }
     }
 }
@@ -2217,16 +2216,15 @@ void COpenGLDriver::SAuxContext::STextureStageCache::clear()
     {
         if (CurrentTexture[i])
         {
-            targets[i] = dynamic_cast<const COpenGLTexture*>(CurrentTexture[i])->getOpenGLTextureType();
-            CurrentTexture[i]->drop();
-            CurrentTexture[i] = NULL;
+            targets[i] = dynamic_cast<const COpenGLTexture*>(CurrentTexture[i].get())->getOpenGLTextureType();
+			CurrentTexture[i] = nullptr;
         }
         else
             targets[i] = GL_INVALID_ENUM;
     }
 
     COpenGLExtensionHandler::extGlBindTextures(0,MATERIAL_MAX_TEXTURES,textures,targets);
-    COpenGLExtensionHandler::extGlBindSamplers(0,MATERIAL_MAX_TEXTURES,NULL);
+    COpenGLExtensionHandler::extGlBindSamplers(0,MATERIAL_MAX_TEXTURES,nullptr);
 }
 
 
@@ -2339,7 +2337,7 @@ void COpenGLDriver::setMaterial(const SGPUMaterial& material)
 
 	for (int32_t i = MaxTextureUnits-1; i>= 0; --i)
 	{
-		found->setActiveTexture(i, material.getTexture(i), material.TextureLayer[i].SamplingParams);
+		found->setActiveTexture(i, core::smart_refctd_ptr<video::IVirtualTexture>(material.getTexture(i)), material.TextureLayer[i].SamplingParams);
 	}
 }
 

@@ -213,15 +213,7 @@ namespace video
 		The specular color of the dynamic lights
 		(SLight::SpecularColor) will influence the the highlight color
 		too, but they are set to a useful value by default when
-		creating the light scene node. Here is a simple example on how
-		to use specular highlights:
-		\code
-		// load and display mesh
-		scene::IAnimatedMeshSceneNode* node = smgr->addAnimatedMeshSceneNode(
-		smgr->getMesh("data/faerie.md2"));
-		node->setMaterialTexture(0, driver->getTexture("data/Faerie2.pcx")); // set diffuse texture
-		node->getMaterial(0).Shininess = 20.0f; // set size of specular highlights
-		\endcode */
+		creating the light scene node. */
 		float Shininess;
 
 		//! Free parameter, dependent on the material type.

@@ -229,13 +229,15 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
     size_t t = 0u; // texture deps iterator
     for (size_t i = 0u; i < res.size(); ++i)
     {
+		// TODO: All this shit is a terrible hack, REDO: @Crisspl WATCH OUT WITH THE BLOODY Shaders!
         SGPUMaterial mat;
         static_assert(sizeof(SCPUMaterial) == sizeof(SGPUMaterial), "SCPUMaterial and SGPUMaterial are NOT same sizes!");
-        memcpy(&mat, &cpumaterials[i], sizeof(mat));
+        memcpy(&mat, &cpumaterials[i], sizeof(mat)); // this will mess up refcounting
         for (size_t k = 0u; k < _IRR_MATERIAL_MAX_TEXTURES_; ++k)
         {
             if (mat.getTexture(k))
             {
+				memset(&mat.TextureLayer[k].Texture, 0, sizeof(void*)); // don't mess up reference counting
                 mat.setTexture(k, core::smart_refctd_ptr(gpuTexDeps[texRedir[t]]));
                 ++t;
             }

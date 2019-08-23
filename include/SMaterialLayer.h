@@ -27,13 +27,13 @@ struct SMaterialLayer
 
 	//! Copy constructor
 	/** \param other Material layer to copy from. */
-	SMaterialLayer(const SMaterialLayer& other)
+	SMaterialLayer(const SMaterialLayer& other) : SMaterialLayer()
 	{
 		operator=(other);
 	}
 	//! Move constructor
 	/** \param other Material layer to move. */
-	SMaterialLayer(SMaterialLayer&& other)
+	SMaterialLayer(SMaterialLayer&& other) : SMaterialLayer()
 	{
 		operator=(std::move(other));
 	}
