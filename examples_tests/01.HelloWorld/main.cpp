@@ -81,17 +81,6 @@ int main()
 			lastFPSTime = time;
 		}
 	}
-	/*
-    //create a screenshot
-	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
-    glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
-	glFinish(); // to make sure the data is done reading
-    asset::CImageData* img = new asset::CImageData();
-    asset::IAssetWriter::SAssetWriteParams wparams(img);
-    device->getAssetManager().writeAsset("screenshot.png", wparams);
-    img->drop();
-	screenshot->drop();
-	*/
 	device->drop();
 
 	return 0;
