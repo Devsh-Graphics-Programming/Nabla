@@ -29,7 +29,6 @@
 #include "CSceneNodeAnimatorRotation.h"
 #include "CSceneNodeAnimatorFlyCircle.h"
 #include "CSceneNodeAnimatorFlyStraight.h"
-#include "CSceneNodeAnimatorTexture.h"
 #include "CSceneNodeAnimatorDelete.h"
 #include "CSceneNodeAnimatorFollowSpline.h"
 #include "CSceneNodeAnimatorCameraFPS.h"
@@ -429,15 +428,19 @@ IBillboardSceneNode* CSceneManager::addBillboardSceneNode(IDummyTransformationSc
 
 //! Adds a skybox scene node. A skybox is a big cube with 6 textures on it and
 //! is drawn around the camera position.
-ISceneNode* CSceneManager::addSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom,
-	video::ITexture* left, video::ITexture* right, video::ITexture* front,
-	video::ITexture* back, IDummyTransformationSceneNode* parent, int32_t id)
+ISceneNode* CSceneManager::addSkyBoxSceneNode(	core::smart_refctd_ptr<video::ITexture>&& top,
+												core::smart_refctd_ptr<video::ITexture>&& bottom,
+												core::smart_refctd_ptr<video::ITexture>&& left,
+												core::smart_refctd_ptr<video::ITexture>&& right,
+												core::smart_refctd_ptr<video::ITexture>&& front,
+												core::smart_refctd_ptr<video::ITexture>&& back,
+												IDummyTransformationSceneNode* parent, int32_t id)
 {
 	if (!parent)
 		parent = this;
 
-	ISceneNode* node = new CSkyBoxSceneNode(top, bottom, left, right,
-			front, back, core::smart_refctd_ptr(redundantMeshDataBuf),0, parent, this, id);
+	ISceneNode* node = new CSkyBoxSceneNode(std::move(top), std::move(bottom), std::move(left), std::move(right),
+											std::move(front), std::move(back), core::smart_refctd_ptr(redundantMeshDataBuf), 0, parent, this, id);
 
 	node->drop();
 	return node;
@@ -446,14 +449,14 @@ ISceneNode* CSceneManager::addSkyBoxSceneNode(video::ITexture* top, video::IText
 
 //! Adds a skydome scene node. A skydome is a large (half-) sphere with a
 //! panoramic texture on it and is drawn around the camera position.
-ISceneNode* CSceneManager::addSkyDomeSceneNode(video::IVirtualTexture* texture,
-	uint32_t horiRes, uint32_t vertRes, float texturePercentage,float spherePercentage, float radius,
-	IDummyTransformationSceneNode* parent, int32_t id)
+ISceneNode* CSceneManager::addSkyDomeSceneNode(	core::smart_refctd_ptr<video::IVirtualTexture>&& texture, uint32_t horiRes,
+	uint32_t vertRes, float texturePercentage, float spherePercentage, float radius, IDummyTransformationSceneNode* parent,
+	int32_t id)
 {
 	if (!parent)
 		parent = this;
 
-	ISceneNode* node = new CSkyDomeSceneNode(texture, horiRes, vertRes,
+	ISceneNode* node = new CSkyDomeSceneNode(std::move(texture), horiRes, vertRes,
 		texturePercentage, spherePercentage, radius, parent, this, id);
 
 	node->drop();
@@ -816,19 +819,6 @@ ISceneNodeAnimator* CSceneManager::createFlyStraightAnimator(const core::vector3
 
 	return anim;
 }
-
-
-//! Creates a texture animator, which switches the textures of the target scene
-//! node based on a list of textures.
-ISceneNodeAnimator* CSceneManager::createTextureAnimator(const core::vector<video::ITexture*>& textures,
-	int32_t timePerFrame, bool loop)
-{
-	ISceneNodeAnimator* anim = new CSceneNodeAnimatorTexture(textures,
-		timePerFrame, loop, std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count());
-
-	return anim;
-}
-
 
 //! Creates a scene node animator, which deletes the scene node after
 //! some time automaticly.

@@ -158,7 +158,6 @@
 #include "CSceneNodeAnimatorFlyStraight.h"
 #include "CSceneNodeAnimatorFollowSpline.h"
 #include "CSceneNodeAnimatorRotation.h"
-#include "CSceneNodeAnimatorTexture.h"
 #include "CSkinnedMeshSceneNode.h"
 #include "CSkinningStateManager.h"
 #include "CSkyBoxSceneNode.h"

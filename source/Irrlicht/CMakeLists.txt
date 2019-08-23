@@ -120,7 +120,6 @@ set(IRRLICHT_SRCS_COMMON
 	CSceneNodeAnimatorFlyStraight.cpp
 	CSceneNodeAnimatorFollowSpline.cpp
 	CSceneNodeAnimatorRotation.cpp
-	CSceneNodeAnimatorTexture.cpp
 
 # Driver-specific objects
 	IDriver.cpp
