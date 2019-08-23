@@ -130,44 +130,36 @@ int main()
 	// (import from .stl/.obj, then export to .baw, then import from .baw :D)
 	// Seems to work for those two simple meshes, but need more testing!
 
-    asset::IAssetManager& am = device->getAssetManager();
+    auto am = device->getAssetManager();
 
 	//! Test Loading of Obj
     asset::IAssetLoader::SAssetLoadParams lparams;
-    asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/extrusionLogo_TEST_fixed.stl", lparams));
+    auto cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*am->getAsset("../../media/extrusionLogo_TEST_fixed.stl", lparams).getContents().first);
 	// export mesh
     asset::CBAWMeshWriter::WriteProperties bawprops;
-    asset::IAssetWriter::SAssetWriteParams wparams(cpumesh, asset::EWF_COMPRESSED, 0.f, 0, nullptr, &bawprops);
-    device->getAssetManager().writeAsset("extrusionLogo_TEST_fixed.baw", wparams);
+    asset::IAssetWriter::SAssetWriteParams wparams(cpumesh.get(), asset::EWF_COMPRESSED, 0.f, 0, nullptr, &bawprops);
+	am->writeAsset("extrusionLogo_TEST_fixed.baw", wparams);
 	// end export
 
 	// import .baw mesh (test)
-    cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("extrusionLogo_TEST_fixed.baw", lparams));
+    cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*am->getAsset("extrusionLogo_TEST_fixed.baw", lparams).getContents().first);
 	// end import
 
     if (cpumesh)
-    {
-        video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1)[0];
-        smgr->addMeshSceneNode(gpumesh)->setMaterialType(newMaterialType);
-        gpumesh->drop();
-    }
+        smgr->addMeshSceneNode(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)[0].get())->setMaterialType(newMaterialType);
 
-    cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/cow.obj", lparams));
+    cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*am->getAsset("../../media/cow.obj", lparams).getContents().first);
 	// export mesh
-    wparams.rootAsset = cpumesh;
-    device->getAssetManager().writeAsset("cow.baw", wparams);
+    wparams.rootAsset = cpumesh.get();
+	am->writeAsset("cow.baw", wparams);
 	// end export
 
 	// import .baw mesh (test)
-	cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("cow.baw", lparams));
+	cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*am->getAsset("cow.baw", lparams).getContents().first);
 	// end import
 
     if (cpumesh)
-    {
-        video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1)[0];
-        smgr->addMeshSceneNode(gpumesh,0,-1,core::vector3df(3.f,1.f,0.f))->setMaterialType(newMaterialType);
-        gpumesh->drop();
-    }
+        smgr->addMeshSceneNode(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)[0].get(),0,-1,core::vector3df(3.f,1.f,0.f))->setMaterialType(newMaterialType);
 
 
 	uint64_t lastFPSTime = 0;

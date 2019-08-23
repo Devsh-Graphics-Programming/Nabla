@@ -24,16 +24,12 @@ class ISceneManager;
 class IMeshSceneNodeInstanced : public ISceneNode
 {
     protected:
-        typedef core::ContiguousPoolAddressAllocatorST<uint32_t>                                            InstanceDataAddressAllocator;
+        typedef core::ContiguousPoolAddressAllocatorST<uint32_t>																	InstanceDataAddressAllocator;
 
-        video::ResizableBufferingAllocatorST<InstanceDataAddressAllocator,core::allocator<uint8_t>,false>*   instanceDataAllocator;
+        core::smart_refctd_ptr<video::ResizableBufferingAllocatorST<InstanceDataAddressAllocator,core::allocator<uint8_t>,false> >	instanceDataAllocator;
         bool wantBBoxUpdate;
 
-        virtual ~IMeshSceneNodeInstanced()
-        {
-            if (instanceDataAllocator)
-                instanceDataAllocator->drop();
-        }
+		virtual ~IMeshSceneNodeInstanced() {}
     public:
         constexpr static decltype(InstanceDataAddressAllocator::invalid_address) kInvalidInstanceID         = InstanceDataAddressAllocator::invalid_address;
 
@@ -41,7 +37,7 @@ class IMeshSceneNodeInstanced : public ISceneNode
 
         struct MeshLoD
         {
-            video::IGPUMesh* mesh;
+			video::IGPUMesh* mesh;
             void* userDataForVAOSetup; //put array of vertex attribute mappings here or something
             float lodDistance;
         };

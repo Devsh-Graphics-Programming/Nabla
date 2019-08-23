@@ -67,11 +67,14 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
 
         //! Sets a new mesh to display
         /** \param mesh Mesh to display. */
-        virtual bool setLoDMeshes(const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SGPUMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass=1, void* overrideUserData=NULL, const size_t& extraDataSizePerInstanceInput=0);
+        virtual bool setLoDMeshes(	const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput,
+									const video::SGPUMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride,
+									const size_t shaderLoDsPerPass=1, void* overrideUserData=nullptr,
+									const size_t& extraDataSizePerInstanceInput=0) override;
 
         //! Get the currently defined mesh for display.
         /** \return Pointer to mesh which is displayed by this node. */
-        virtual video::CGPUMesh* getLoDMesh(const size_t &lod) override {return LoD[lod].mesh;}
+        virtual video::CGPUMesh* getLoDMesh(const size_t &lod) override {return LoD[lod].mesh.get();}
 
         virtual const core::aabbox3df& getLoDInvariantBBox() const {return LoDInvariantBox;}
 
@@ -153,21 +156,21 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
 
         struct LoDData
         {
-            video::CGPUMesh* mesh;
-            video::IQueryObject* query;
+            core::smart_refctd_ptr<video::CGPUMesh> mesh;
+            core::smart_refctd_ptr<video::IQueryObject> query;
             float distanceSQ;
             size_t instancesToDraw;
         };
         core::vector<LoDData> LoD;
-        core::vector<video::ITransformFeedback*> xfb;
+        core::vector< core::smart_refctd_ptr<video::ITransformFeedback>> xfb;
         size_t gpuLoDsPerPass;
 
         bool needsBBoxRecompute;
         size_t instanceBBoxesCount;
         core::aabbox3df* instanceBBoxes;
         bool flagQueryForRetrieval;
-        video::IGPUMeshBuffer* lodCullingPointMesh;
-        video::IGPUBuffer* gpuCulledLodInstanceDataBuffer;
+        core::smart_refctd_ptr<video::IGPUMeshBuffer> lodCullingPointMesh;
+        core::smart_refctd_ptr<video::IGPUBuffer> gpuCulledLodInstanceDataBuffer;
 
         size_t dataPerInstanceOutputSize;
         size_t extraDataInstanceSize;

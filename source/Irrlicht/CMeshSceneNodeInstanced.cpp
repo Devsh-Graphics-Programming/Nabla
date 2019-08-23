@@ -26,7 +26,7 @@ CMeshSceneNodeInstanced::CMeshSceneNodeInstanced(IDummyTransformationSceneNode* 
         const core::vector3df& position, const core::vector3df& rotation, const core::vector3df& scale)
     : IMeshSceneNodeInstanced(parent, mgr, id, position, rotation, scale),
     instanceBBoxes(nullptr), instanceBBoxesCount(0), flagQueryForRetrieval(false),
-    gpuCulledLodInstanceDataBuffer(nullptr), dataPerInstanceOutputSize(0),
+    gpuCulledLodInstanceDataBuffer(), dataPerInstanceOutputSize(0),
     extraDataInstanceSize(0), dataPerInstanceInputSize(0), cachedMaterialCount(0)
 {
     #ifdef _IRR_DEBUG
@@ -36,49 +36,26 @@ CMeshSceneNodeInstanced::CMeshSceneNodeInstanced(IDummyTransformationSceneNode* 
 
     renderPriority = 0x80000000u;
 
-    lodCullingPointMesh = new video::IGPUMeshBuffer();
+    lodCullingPointMesh = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>();
     lodCullingPointMesh->setPrimitiveType(asset::EPT_POINTS);
 }
 
 //! destructor
 CMeshSceneNodeInstanced::~CMeshSceneNodeInstanced()
 {
-    for (size_t i=0; i<LoD.size(); i++)
-    {
-        LoD[i].mesh->drop();
-        LoD[i].query->drop();
-    }
-    for (size_t i=0; i<xfb.size(); i++)
-        xfb[i]->drop();
-
-    lodCullingPointMesh->drop();
-
     if (instanceBBoxes)
         _IRR_ALIGNED_FREE(instanceBBoxes);
-    if (gpuCulledLodInstanceDataBuffer)
-        gpuCulledLodInstanceDataBuffer->drop();
 }
 
 
 //! Sets a new meshbuffer
 bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SGPUMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass, void* overrideUserData, const size_t& extraDataSizePerInstanceInput)
 {
-    for (size_t i=0; i<LoD.size(); i++)
-    {
-        LoD[i].mesh->drop();
-        LoD[i].query->drop();
-    }
     LoD.clear();
-    for (size_t i=0; i<xfb.size(); i++)
-        xfb[i]->drop();
     xfb.clear();
 
-    if (instanceDataAllocator)
-        instanceDataAllocator->drop();
     if (instanceBBoxes)
         _IRR_ALIGNED_FREE(instanceBBoxes);
-    if (gpuCulledLodInstanceDataBuffer)
-        gpuCulledLodInstanceDataBuffer->drop();
     instanceDataAllocator = nullptr;
     instanceBBoxes = nullptr;
     gpuCulledLodInstanceDataBuffer = nullptr;
@@ -112,7 +89,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
 
     dataPerInstanceInputSize = extraDataInstanceSize+visibilityPadding+48+36;
     auto buffSize = dataPerInstanceInputSize*512u;
-    instanceDataAllocator = new std::remove_pointer<decltype(instanceDataAllocator)>::type(driver,core::allocator<uint8_t>(),0u,0u,core::roundDownToPoT(dataPerInstanceInputSize),buffSize,dataPerInstanceInputSize,nullptr);
+    instanceDataAllocator = core::make_smart_refctd_ptr<decltype(instanceDataAllocator)::pointee>(driver,core::allocator<uint8_t>(),0u,0u,core::roundDownToPoT(dataPerInstanceInputSize),buffSize,dataPerInstanceInputSize,nullptr);
 	instanceBBoxesCount = getCurrentInstanceCapacity();
 	instanceBBoxes = (core::aabbox3df*)_IRR_ALIGNED_MALLOC(instanceBBoxesCount*sizeof(core::aabbox3df),_IRR_SIMD_ALIGNMENT);
 	for (size_t i=0; i<instanceBBoxesCount; i++)
@@ -123,7 +100,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
 
     xfb.resize((levelsOfDetail.size()+gpuLoDsPerPass-1)/gpuLoDsPerPass);
 
-	gpuCulledLodInstanceDataBuffer = SceneManager->getVideoDriver()->createDeviceLocalGPUBufferOnDedMem(dataSizePerInstanceOutput*instanceBBoxesCount*gpuLoDsPerPass*xfb.size());
+	gpuCulledLodInstanceDataBuffer = core::smart_refctd_ptr<video::IGPUBuffer>(SceneManager->getVideoDriver()->createDeviceLocalGPUBufferOnDedMem(dataSizePerInstanceOutput*instanceBBoxesCount*gpuLoDsPerPass*xfb.size()),core::dont_grab); // TODO: fix
 
 
 	dataPerInstanceOutputSize = dataSizePerInstanceOutput;
@@ -178,7 +155,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
         tmp.distanceSQ = levelsOfDetail[i].lodDistance;
         tmp.distanceSQ *= tmp.distanceSQ;
 
-        tmp.mesh = new video::CGPUMesh();
+        tmp.mesh = core::make_smart_refctd_ptr<video::CGPUMesh>();
         for (size_t j=0; j<levelsOfDetail[i].mesh->getMeshBufferCount(); j++)
         {
             video::IGPUMeshBuffer* origBuff = levelsOfDetail[i].mesh->getMeshBuffer(j);
@@ -194,7 +171,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
             meshBuff->setPrimitiveType(origBuff->getPrimitiveType());
 
 			{
-				auto vao = vaoSetupOverride(SceneManager,gpuCulledLodInstanceDataBuffer,dataSizePerInstanceOutput,origBuff->getMeshDataAndFormat(),overrideUserData);
+				auto vao = vaoSetupOverride(SceneManager,gpuCulledLodInstanceDataBuffer.get(),dataSizePerInstanceOutput,origBuff->getMeshDataAndFormat(),overrideUserData);
 				meshBuff->setMeshDataAndFormat(std::move(vao));
 			}
 
@@ -208,7 +185,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
         else
             LoDInvariantBox = levelsOfDetail[i].mesh->getBoundingBox();
 
-        tmp.query = SceneManager->getVideoDriver()->createXFormFeedbackPrimitiveQuery();
+        tmp.query = core::smart_refctd_ptr<video::IQueryObject>(SceneManager->getVideoDriver()->createXFormFeedbackPrimitiveQuery(),core::dont_grab);
         LoD.push_back(tmp);
     }
 
@@ -217,7 +194,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
         xfb[i] = SceneManager->getVideoDriver()->createTransformFeedback();
 
         for (size_t j=0; j<gpuLoDsPerPass; j++)
-            xfb[i]->bindOutputBuffer(j,gpuCulledLodInstanceDataBuffer,(i*gpuLoDsPerPass+j)*dataSizePerInstanceOutput*instanceBBoxesCount,dataSizePerInstanceOutput*instanceBBoxesCount);
+            xfb[i]->bindOutputBuffer(j,gpuCulledLodInstanceDataBuffer.get(),(i*gpuLoDsPerPass+j)*dataSizePerInstanceOutput*instanceBBoxesCount,dataSizePerInstanceOutput*instanceBBoxesCount);
     }
 
     lodCullingPointMesh->getMaterial() = lodSelectionShader;
@@ -473,7 +450,7 @@ void CMeshSceneNodeInstanced::RecullInstances()
             for (size_t i=0; i<xfb.size(); i++)
             {
                 for (size_t j=0; j<gpuLoDsPerPass; j++)
-                    xfb[i]->bindOutputBuffer(j,gpuCulledLodInstanceDataBuffer,(i*gpuLoDsPerPass+j)*outputSizePerLoD,outputSizePerLoD);
+                    xfb[i]->bindOutputBuffer(j,gpuCulledLodInstanceDataBuffer.get(),(i*gpuLoDsPerPass+j)*outputSizePerLoD,outputSizePerLoD);
             }
         }
 
@@ -483,12 +460,12 @@ void CMeshSceneNodeInstanced::RecullInstances()
             reinterpret_cast<uint32_t&>(lodCullingPointMesh->getMaterial().MaterialTypeParam) = i*gpuLoDsPerPass;
             reinterpret_cast<uint32_t&>(lodCullingPointMesh->getMaterial().MaterialTypeParam2) = i*gpuLoDsPerPass+gpuLoDsPerPass-1;
             driver->setMaterial(lodCullingPointMesh->getMaterial());
-            driver->beginTransformFeedback(xfb[i],lodCullingPointMesh->getMaterial().MaterialType,asset::EPT_POINTS);
+            driver->beginTransformFeedback(xfb[i].get(),lodCullingPointMesh->getMaterial().MaterialType,asset::EPT_POINTS);
             for (size_t j=0; j<gpuLoDsPerPass&&(i*gpuLoDsPerPass+j)<LoD.size(); j++)
-                driver->beginQuery(LoD[i*gpuLoDsPerPass+j].query,j);
-            driver->drawMeshBuffer(lodCullingPointMesh);
+                driver->beginQuery(LoD[i*gpuLoDsPerPass+j].query.get(),j);
+            driver->drawMeshBuffer(lodCullingPointMesh.get());
             for (size_t j=0; j<gpuLoDsPerPass&&(i*gpuLoDsPerPass+j)<LoD.size(); j++)
-                driver->endQuery(LoD[i*gpuLoDsPerPass+j].query,j);
+                driver->endQuery(LoD[i*gpuLoDsPerPass+j].query.get(),j);
             driver->endTransformFeedback();
         }
 
