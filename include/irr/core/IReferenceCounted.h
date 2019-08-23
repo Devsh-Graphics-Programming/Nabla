@@ -234,7 +234,7 @@ namespace core
 			{
                 this->move(std::move(other));
 			}
-            smart_refctd_ptr(smart_refctd_ptr<I_REFERENCE_COUNTED>& other) noexcept
+            smart_refctd_ptr(smart_refctd_ptr<I_REFERENCE_COUNTED>&& other) noexcept
             {
                 this->move(std::move(other));
             }
