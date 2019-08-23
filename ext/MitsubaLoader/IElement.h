@@ -18,6 +18,7 @@ public:
 	{
 		NONE,
 		SCENE,
+		SAMPLER,
 
 		//shapes
 		SHAPE,

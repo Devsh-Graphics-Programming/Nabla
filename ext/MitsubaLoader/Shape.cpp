@@ -89,7 +89,7 @@ bool CShape::onEndTag(asset::IAssetManager& _assetManager)
 		return false;
 	}
 
-	if (mesh == nullptr)
+	if (mesh.get() == nullptr)
 		return false;
 
 	return true;

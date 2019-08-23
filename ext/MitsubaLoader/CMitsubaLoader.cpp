@@ -7,6 +7,7 @@
 #include "../../ext/MitsubaLoader/CMitsubaScene.h"
 
 #include "IrrlichtDevice.h"
+#include "C:\IrrlichtBAW\IrrlichtBAW\include\irr\asset\IAssetLoader.h"
 #include <stack>
 #include <chrono>
 
@@ -37,6 +38,14 @@ namespace irr { namespace ext { namespace MitsubaLoader {
 
  - (PropertyElement.cpp) these property elements must be finished: translate, rotate, scale, rgb, srgb, spectrum, vector
 
+ - (PropertyElement.cpp) use regex
+
+ - srgb -> rgb
+
+ - process value of rgb and srgb property correctly when value is in hex
+
+ - <integer> property value validation
+
 */
 
 
@@ -64,7 +73,8 @@ const char** CMitsubaLoader::getAssociatedFileExtensions() const
 	return ext;
 }
 
-asset::IAsset* CMitsubaLoader::loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+
+asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	//TODO: error handling
 	XML_Parser parser = XML_ParserCreate(nullptr);
@@ -87,11 +97,7 @@ asset::IAsset* CMitsubaLoader::loadAsset(io::IReadFile* _file, const SAssetLoadP
 	case XML_STATUS_ERROR:
 	{
 		std::cout << "Parse status: XML_STATUS_ERROR\n";
-
-		asset::ICPUMesh* mesh = parserManager.getScene().releaseMesh();
-
-		delete mesh;
-		return nullptr;
+		return {};
 	}
 	break;
 	case XML_STATUS_OK:
@@ -103,9 +109,10 @@ asset::IAsset* CMitsubaLoader::loadAsset(io::IReadFile* _file, const SAssetLoadP
 		break;
 	}
 
-	XML_ParserFree(parser);
-	
-	return parserManager.getScene().releaseMesh();
+	XML_ParserFree(parser);	
+
+
+	return parserManager.getScene().releaseMeshes();
 }
 
 }

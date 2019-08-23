@@ -136,7 +136,7 @@ int CPropertyElementManager::retriveIntValue(const std::string& _data)
 	std::stringstream ss;
 	ss << _data;
 
-	int result = std::numeric_limits<int>::quiet_NaN();
+	int result = 0;
 
 	ss >> result;
 	return result;
@@ -206,7 +206,7 @@ core::vectorSIMDf CPropertyElementManager::retriveVector(const std::string& _dat
 		{
 			if (i == 3)
 			{
-				vectorData[3] = 0.0f;
+				vectorData[3] = 1.0f;
 				break;
 			}
 

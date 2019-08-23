@@ -12,7 +12,7 @@ public:
 	CShape()
 		: mesh(nullptr) {};
 
-	inline asset::ICPUMesh* getMesh() { return mesh; }
+	inline core::smart_refctd_ptr<asset::ICPUMesh> getMesh() { return mesh; }
 	inline core::matrix4SIMD& getTransformMatrix() { return transform; }
 	inline const core::matrix4SIMD& getTransformMatrix() const { return transform; }
 
@@ -34,7 +34,7 @@ protected:
 
 protected:
 	std::string type;
-	asset::ICPUMesh* mesh;
+	core::smart_refctd_ptr<asset::ICPUMesh> mesh;
 	core::matrix4SIMD transform;
 
 };

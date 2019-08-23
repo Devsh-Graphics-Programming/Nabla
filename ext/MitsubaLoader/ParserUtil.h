@@ -92,7 +92,7 @@ private:
 	ParserFlowController pfc;
 
 	static constexpr const char* propertyElements[] = { 
-		"float", "string", "boolean", "int", 
+		"float", "string", "boolean", "integer", 
 		"rgb", "srgb", "spectrum", 
 		"point", "vector", 
 		"matrix", "rotate", "translate", "scale", 

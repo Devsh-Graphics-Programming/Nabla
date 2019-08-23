@@ -298,7 +298,8 @@ asset::ICPUMesh* CShapeCreator::createOBJ(asset::IAssetManager& _assetManager, c
 		return nullptr;
 	}
 
-	asset::ICPUMesh* mesh = static_cast<asset::ICPUMesh*>(_assetManager.getAsset(fileName, asset::IAssetLoader::SAssetLoadParams()));
+	asset::SAssetBundle bundle = _assetManager.getAsset(fileName, asset::IAssetLoader::SAssetLoadParams());
+	asset::ICPUMesh* mesh = static_cast<asset::ICPUMesh*>(bundle.getContents().first->get());
 
 	if (mesh == nullptr)
 		return nullptr;

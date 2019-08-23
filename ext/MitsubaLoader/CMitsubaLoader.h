@@ -36,8 +36,7 @@ public:
 	//virtual uint64_t getSupportedAssetTypesBitfield() const { return 0; }
 
 	//! Loads an asset from an opened file, returns nullptr in case of failure.
-	virtual asset::IAsset* loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
-
+	virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 private:
 	IrrlichtDevice* m_device;
 	asset::IAssetManager& m_assetManager;

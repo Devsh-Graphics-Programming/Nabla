@@ -6,6 +6,7 @@
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 #include "../../ext/MitsubaLoader/IElement.h"
 #include "../../ext/MitsubaLoader/CElementTransform.h"
+#include "../../ext/MitsubaLoader/CElementSampler.h"
 #include "../../ext/MitsubaLoader/CShapeCreator.h"
 #include "../../ext/MitsubaLoader/Shape.h"
 
@@ -40,6 +41,19 @@ IElement* CElementFactory::createElement(const char* _el, const char** _atts)
 		}
 
 		return transform;
+	}
+	else
+	if (!std::strcmp(_el, "sampler"))
+	{
+		CElementSampler* sampler = new CElementSampler();
+
+		if (!sampler->processAttributes(_atts))
+		{
+			delete sampler;
+			return nullptr;
+		}
+
+		return sampler;
 	}
 	else
 	{
