@@ -187,7 +187,7 @@ namespace core
 	template<class I_REFERENCE_COUNTED>
 	class smart_refctd_ptr
 	{
-			static_assert(std::is_base_of<IReferenceCounted, I_REFERENCE_COUNTED>::value,"Wrong Base Class!");
+			static_assert(std::is_base_of<IReferenceCounted, I_REFERENCE_COUNTED>::value||std::is_same<IReferenceCounted, I_REFERENCE_COUNTED>::value,"Wrong Base Class!");
 			
 			mutable I_REFERENCE_COUNTED* ptr; // since IReferenceCounted declares the refcount mutable atomic
 
@@ -316,6 +316,7 @@ namespace core
 			template<class U>
 			inline bool operator>(const smart_refctd_ptr<U>& other) const { return ptr > other.ptr; }
 	};
+	static_assert(sizeof(smart_refctd_ptr<IReferenceCounted>) == sizeof(IReferenceCounted*), "smart_refctd_ptr has a memory overhead!");
 
 
     template< class T, class... Args >

@@ -215,10 +215,10 @@ private:
         }
         if (asset)
         {
-            SAssetBundle bundle{core::smart_refctd_ptr<asset::IAsset>(asset)};
+			// drop shouldn't be performed here at all; it's done in main loading function by ctx.releaseAllButThisOne(meshBlobDataIter);
+			// this is quite different from other loaders so explenation is probably wellcome
+            SAssetBundle bundle{core::smart_refctd_ptr<asset::IAsset>(asset)}; // yes we want the extra grab
             _override->insertAssetIntoCache(bundle, _cacheKey, _ctx.inner, _hierLvl);
-            // drop shouldn't be performed here at all; it's done in main loading function by ctx.releaseAllButThisOne(meshBlobDataIter);
-            // this is quite different from other loaders so explenation is probably wellcome
         }
     }
 

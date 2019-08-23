@@ -167,14 +167,14 @@ asset::SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const as
             void* obj = ctx.createdObjs[handle];
 			ctx.loadingMgr.finalize(blobType, obj, blob, size, ctx.createdObjs, params);
             _IRR_ALIGNED_FREE(data->heapBlob);
-			blob = data->heapBlob = NULL;
+			blob = data->heapBlob = nullptr;
             insertAssetIntoCache(ctx, _override, obj, blobType, hierLvl, thisCacheKey);
 		}
 		else
 			toFinalize.push(data);
 	}
 
-	void* retval = NULL;
+	void* retval = nullptr;
 	while (!toFinalize.empty())
 	{
 		SBlobData* data = toFinalize.top();
