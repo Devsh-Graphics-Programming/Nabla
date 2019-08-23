@@ -3,7 +3,6 @@
 #include "spirv_cross/spirv_cross.hpp"
 #include "irr/asset/EFormat.h"
 #include "irr/asset/spvUtils.h"
-#include "CMemoryFile.h"
 
 namespace irr { namespace asset
 {

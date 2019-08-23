@@ -10,6 +10,7 @@ namespace irr {
 namespace io
 {
     class IFileSystem;
+    class IReadFile;
 }
 namespace asset
 {
@@ -46,6 +47,8 @@ public:
     */
     ICPUShader* createSPIRVFromGLSL(const char* _glslCode, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, std::string* _outAssembly = nullptr) const;
 
+    ICPUShader* createSPIRVFromGLSL(io::IReadFile* _sourcefile, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, std::string* _outAssembly = nullptr) const;
+
     /**
     Resolves ALL #include directives regardless of any other preprocessor directive.
     This is done in order to support `#include` AND simultaneulsy be able to store (serialize) such ICPUShader (mostly GLSL source) into ONE file which, upon loading, will compile on every hardware/driver predicted by shader's author.
@@ -61,6 +64,8 @@ public:
     @returns Shader containing logically same GLSL code as input but with #include directives resolved.
     */
     ICPUShader* resolveIncludeDirectives(const char* _glslCode, E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
+
+    ICPUShader* resolveIncludeDirectives(io::IReadFile* _sourcefile, E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
 };
 
 }}

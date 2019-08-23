@@ -3,6 +3,7 @@
 #include "irr/asset/shadercUtils.h"
 #include "IFileSystem.h"
 #include "irr/asset/CIncludeHandler.h"
+#include "IReadFile.h"
 #include <sstream>
 #include <regex>
 #include <iterator>
@@ -48,6 +49,13 @@ ICPUShader* IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, E_SHADER_S
     spirv->drop();
 
     return shader;
+}
+
+ICPUShader* IGLSLCompiler::createSPIRVFromGLSL(io::IReadFile* _sourcefile, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, std::string* _outAssembly) const
+{
+    std::string glsl(_sourcefile->getSize(), '\0');
+    _sourcefile->read(glsl.data(), glsl.size());
+    return createSPIRVFromGLSL(glsl.c_str(), _stage, _entryPoint, _compilationId, _outAssembly);
 }
 
 namespace impl
@@ -199,6 +207,13 @@ ICPUShader* IGLSLCompiler::resolveIncludeDirectives(const char* _glslCode, E_SHA
 
     std::string res_str(res.cbegin(), std::distance(res.cbegin(),res.cend()));
     return new ICPUShader(impl::reenableDirectives(res_str.c_str()).c_str());
+}
+
+ICPUShader* IGLSLCompiler::resolveIncludeDirectives(io::IReadFile* _sourcefile, E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt) const
+{
+    std::string glsl(_sourcefile->getSize(), '\0');
+    _sourcefile->read(glsl.data(), glsl.size());
+    return resolveIncludeDirectives(glsl.c_str(), _stage, _originFilepath, _maxSelfInclusionCnt);
 }
 
 }}

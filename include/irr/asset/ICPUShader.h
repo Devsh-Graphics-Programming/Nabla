@@ -13,10 +13,6 @@ namespace spirv_cross
     struct SPIRType;
 }
 namespace irr {
-namespace io
-{
-class IReadFile;
-}
 namespace asset
 {
 
