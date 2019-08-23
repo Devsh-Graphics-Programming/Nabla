@@ -15,8 +15,8 @@ ICPUShader::ICPUShader(ICPUBuffer* _spirv) : m_code(_spirv), m_containsGLSL(fals
         m_code->grab();
 }
 
-ICPUShader::ICPUShader(const char* _glsl, const std::string& _entryPoint, E_SHADER_STAGE _stage) : 
-    m_code(new ICPUBuffer(strlen(_glsl)+1u)), m_containsGLSL(true), m_glslEntryPoint(_entryPoint), m_glslStage(_stage)
+ICPUShader::ICPUShader(const char* _glsl) : 
+    m_code(new ICPUBuffer(strlen(_glsl)+1u)), m_containsGLSL(true)
 {
     memcpy(m_code->getPointer(), _glsl, m_code->getSize());
 }

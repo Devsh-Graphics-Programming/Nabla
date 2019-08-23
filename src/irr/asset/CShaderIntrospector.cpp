@@ -78,9 +78,6 @@ const SIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
     };
 
     if (_shader->containsGLSL()) {
-        if (_shader->getGLSLEntryPoint() != m_entryPoint.first || _shader->getGLSLStage() != m_entryPoint.second)
-            return nullptr;
-
         //TODO insert enabled extensions #defines into GLSL
         auto spvShader = core::smart_refctd_ptr<ICPUShader>(
         m_glslCompiler->createSPIRVFromGLSL(

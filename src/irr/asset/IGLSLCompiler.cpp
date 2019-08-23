@@ -198,13 +198,7 @@ ICPUShader* IGLSLCompiler::resolveIncludeDirectives(const char* _glslCode, E_SHA
     }
 
     std::string res_str(res.cbegin(), std::distance(res.cbegin(),res.cend()));
-    //entry point name hardcoded to "main" because shaderc requires it
-    return 
-    new ICPUShader(
-        impl::reenableDirectives(res_str.c_str()).c_str(),
-        "main",
-        _stage
-    );
+    return new ICPUShader(impl::reenableDirectives(res_str.c_str()).c_str());
 }
 
 }}

@@ -476,9 +476,6 @@ IGPUSpecializedShader* COpenGLDriver::createSpecializedShader(const IGPUShader* 
 
     const asset::ICPUBuffer* spv = nullptr;
     if (cpuUnspec->containsGLSL()) {
-        if (cpuUnspec->getGLSLEntryPoint() != EP || cpuUnspec->getGLSLStage() != stage)
-            return nullptr;
-
         //TODO insert enabled extensions #defines into GLSL
         auto spvShader = core::smart_refctd_ptr<asset::ICPUShader>(
             GLSLCompiler->createSPIRVFromGLSL(
