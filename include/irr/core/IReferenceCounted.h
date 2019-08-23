@@ -164,13 +164,17 @@ namespace core
 		}
 
 	private:
-
 		//! The debug name.
 		const char* DebugName;
+		static_assert(alignof(const char*) <= _IRR_SIMD_ALIGNMENT/2u, "Pointer type is overaligned");
+		static_assert(sizeof(const char*) <= _IRR_SIMD_ALIGNMENT/2u, "Pointer type is overaligned");
 
 		//! The reference counter. Mutable to do reference counting on const objects.
 		mutable std::atomic<uint32_t> ReferenceCounter;
+		static_assert(alignof(std::atomic<uint32_t>) <= _IRR_SIMD_ALIGNMENT/2u, "This compiler has a problem with its atomic int decl!");
+		static_assert(sizeof(std::atomic<uint32_t>) <= _IRR_SIMD_ALIGNMENT/2u, "This compiler has a problem with its atomic int decl!");
 	};
+	static_assert(alignof(IReferenceCounted) == _IRR_SIMD_ALIGNMENT, "This compiler has a problem respecting alignment!");
 
 	// Parameter types for special overloaded constructors
 	struct dont_grab_t {};
