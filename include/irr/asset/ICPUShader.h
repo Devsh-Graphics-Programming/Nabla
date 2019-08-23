@@ -12,7 +12,12 @@ namespace spirv_cross
     class Compiler;
     struct SPIRType;
 }
-namespace irr { namespace asset
+namespace irr {
+namespace io
+{
+class IReadFile;
+}
+namespace asset
 {
 
 class ICPUShader : public IAsset

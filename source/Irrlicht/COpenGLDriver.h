@@ -421,7 +421,8 @@ namespace video
             return isColorRenderableFormat(_fmt) && (asset::isNormalizedFormat(_fmt) || asset::isFloatingPointFormat(_fmt));
         }
 
-        IGPUSpecializedShader* createSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) override;
+        IGPUShader* createGPUShader(const asset::ICPUShader* _cpushader) override;
+        IGPUSpecializedShader* createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) override;
 
 		//! generic version which overloads the unimplemented versions
 		bool changeRenderContext(const SExposedVideoData& videoData, void* device) {return false;}

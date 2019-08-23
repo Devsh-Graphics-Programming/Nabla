@@ -7,6 +7,10 @@
 #include "irr/asset/ICPUMeshBuffer.h"
 #include "irr/asset/ICPUMesh.h"
 #include "irr/video/IGPUMesh.h"
+#include "irr/asset/ICPUShader.h"
+#include "irr/video/IGPUShader.h"
+#include "irr/asset/ICPUSpecializedShader.h"
+#include "irr/video/IGPUSpecializedShader.h"
 
 namespace irr { namespace video
 {
@@ -57,6 +61,10 @@ template<>
 struct asset_traits<asset::ICPUMesh> { using GPUObjectType = video::IGPUMesh; };
 template<>
 struct asset_traits<asset::ICPUTexture> { using GPUObjectType = video::ITexture; };
+template<>
+struct asset_traits<asset::ICPUShader> { using GPUObjectType = video::IGPUShader; };
+template<>
+struct asset_traits<asset::ICPUSpecializedShader> { using GPUObjectType = video::IGPUSpecializedShader; };
 
 }}
 

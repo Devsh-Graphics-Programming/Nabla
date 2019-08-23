@@ -20,11 +20,6 @@
 
 namespace irr
 {
-namespace asset
-{
-    class ISpecializationInfo;
-}
-
 namespace io
 {
 	class IReadFile;
@@ -121,8 +116,6 @@ namespace video
         virtual bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const = 0;
         virtual bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const = 0;
         virtual bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const = 0;
-
-        virtual IGPUSpecializedShader* createSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) = 0;
 
 		//! Applications must call this method before performing any rendering.
 		/** This method can clear the back- and the z-buffer.

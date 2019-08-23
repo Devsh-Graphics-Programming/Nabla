@@ -33,6 +33,8 @@ public:
     inline virtual core::vector<typename video::asset_traits<asset::ICPUMeshBuffer>::GPUObjectType*> create(asset::ICPUMeshBuffer** const _begin, asset::ICPUMeshBuffer** const _end);
     inline virtual core::vector<typename video::asset_traits<asset::ICPUMesh>::GPUObjectType*> create(asset::ICPUMesh** const _begin, asset::ICPUMesh** const _end);
     inline virtual core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*> create(asset::ICPUTexture** const _begin, asset::ICPUTexture** const _end);
+    inline virtual core::vector<typename video::asset_traits<asset::ICPUShader>::GPUObjectType*> create(asset::ICPUShader** const _begin, asset::ICPUShader** const _end);
+    inline virtual core::vector<typename video::asset_traits<asset::ICPUSpecializedShader>::GPUObjectType*> create(asset::ICPUSpecializedShader** const _begin, asset::ICPUSpecializedShader** const _end);
 
     template<typename AssetType>
     core::vector<typename video::asset_traits<AssetType>::GPUObjectType*> getGPUObjectsFromAssets(AssetType** const _begin, AssetType** const _end)
@@ -354,6 +356,53 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUTexture** _begin, asset::IC
 
         ++it;
     }
+
+    return res;
+}
+
+auto IGPUObjectFromAssetConverter::create(asset::ICPUShader** const _begin, asset::ICPUShader** const _end) -> core::vector<typename video::asset_traits<asset::ICPUShader>::GPUObjectType*>
+{
+    core::vector<typename video::asset_traits<asset::ICPUShader>::GPUObjectType*> res;
+    res.reserve(_end-_begin);
+
+    asset::ICPUShader** it = _begin;
+    while (it != _end)
+    {
+        res.push_back(m_driver->createGPUShader(*it));
+        ++it;
+    }
+
+    return res;
+}
+
+auto IGPUObjectFromAssetConverter::create(asset::ICPUSpecializedShader** const _begin, asset::ICPUSpecializedShader** const _end) -> core::vector<typename video::asset_traits<asset::ICPUSpecializedShader>::GPUObjectType*>
+{
+    core::vector<typename video::asset_traits<asset::ICPUSpecializedShader>::GPUObjectType*> res;
+    res.reserve(_end-_begin);
+
+    core::vector<asset::ICPUShader*> cpuDeps;
+    cpuDeps.reserve(res.size());
+
+    asset::ICPUSpecializedShader** it = _begin;
+    while (it != _end)
+    {
+        cpuDeps.push_back((*it)->getUnspecialized());
+        ++it;
+    }
+
+    core::vector<size_t> redirs = eliminateDuplicatesAndGenRedirs(cpuDeps);
+    core::vector<typename video::asset_traits<asset::ICPUShader>::GPUObjectType*> gpuDeps = getGPUObjectsFromAssets(cpuDeps.data(), cpuDeps.data()+cpuDeps.size());
+    it = _begin;
+    while (it != _begin)
+    {
+        res.push_back(
+            m_driver->createGPUSpecializedShader(gpuDeps[redirs[it-_begin]], (*it)->getSpecializationInfo())
+        );
+        ++it;
+    }
+
+    for (auto d : gpuDeps)
+        d->drop();
 
     return res;
 }

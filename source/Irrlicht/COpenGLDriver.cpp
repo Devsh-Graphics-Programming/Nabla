@@ -466,7 +466,12 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 	return true;
 }
 
-IGPUSpecializedShader* COpenGLDriver::createSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo)
+IGPUShader* COpenGLDriver::createGPUShader(const asset::ICPUShader* _cpushader)
+{
+    return new COpenGLShader(_cpushader);
+}
+
+IGPUSpecializedShader* COpenGLDriver::createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo)
 {
     const COpenGLShader* glUnspec = static_cast<const COpenGLShader*>(_unspecialized);
     const asset::ICPUShader* cpuUnspec = glUnspec->getCPUCounterpart();

@@ -107,6 +107,9 @@ namespace video
                 return reqs;
             }
 
+            virtual IGPUShader* createGPUShader(const asset::ICPUShader* _cpushader) = 0;
+            virtual IGPUSpecializedShader* createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) = 0;
+
             //! Best for Mesh data, UBOs, SSBOs, etc.
             virtual IDriverMemoryAllocation* allocateDeviceLocalMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
 
