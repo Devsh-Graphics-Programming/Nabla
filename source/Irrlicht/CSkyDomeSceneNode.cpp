@@ -29,7 +29,7 @@ namespace scene
 	to use a value slightly bigger than 1 to avoid a gap between some ground place and the sky. This
 	parameters stretches the image to fit the chosen "sphere-size". */
 
-CSkyDomeSceneNode::CSkyDomeSceneNode(video::IVirtualTexture* sky, uint32_t horiRes, uint32_t vertRes,
+CSkyDomeSceneNode::CSkyDomeSceneNode(core::smart_refctd_ptr<video::IVirtualTexture>&& texture, uint32_t horiRes, uint32_t vertRes,
 		float texturePercentage, float spherePercentage, float radius,
 		IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id)
 	: ISceneNode(parent, mgr, id), Buffer(nullptr),
@@ -47,7 +47,7 @@ CSkyDomeSceneNode::CSkyDomeSceneNode(video::IVirtualTexture* sky, uint32_t horiR
 	Buffer->getMaterial().ZBuffer = video::ECFN_NEVER;
 	Buffer->getMaterial().BackfaceCulling = false;
 	Buffer->getMaterial().ZWriteEnable = false;
-	Buffer->getMaterial().setTexture(0, sky);
+	Buffer->getMaterial().setTexture(0, std::move(texture));
 	BoundingBox.MaxEdge.set(0,0,0);
 	BoundingBox.MinEdge.set(0,0,0);
 

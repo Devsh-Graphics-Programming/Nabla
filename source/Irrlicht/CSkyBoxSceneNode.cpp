@@ -16,11 +16,11 @@ namespace scene
 
 
 //! constructor
-CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom, video::ITexture* left,
-			video::ITexture* right, video::ITexture* front, video::ITexture* back,
-			core::smart_refctd_ptr<video::IGPUBuffer>&& vertPositions, size_t positionsOffsetInBuf,
-			IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id)
-: ISceneNode(parent, mgr, id)
+CSkyBoxSceneNode::CSkyBoxSceneNode(	core::smart_refctd_ptr<video::ITexture>&& top, core::smart_refctd_ptr<video::ITexture>&& bottom,
+									core::smart_refctd_ptr<video::ITexture>&& left, core::smart_refctd_ptr<video::ITexture>&& right,
+									core::smart_refctd_ptr<video::ITexture>&& front, core::smart_refctd_ptr<video::ITexture>&& back,
+									core::smart_refctd_ptr<video::IGPUBuffer>&& vertPositions, size_t positionsOffsetInBuf,
+									IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id) : ISceneNode(parent, mgr, id)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("CSkyBoxSceneNode");
@@ -55,12 +55,12 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom
 	                     0--------1
 	*/
 
-	video::ITexture* tex = front;
-	if (!tex) tex = left;
-	if (!tex) tex = back;
-	if (!tex) tex = right;
-	if (!tex) tex = top;
-	if (!tex) tex = bottom;
+	video::ITexture* tex = front.get();
+	if (!tex) tex = left.get();
+	if (!tex) tex = back.get();
+	if (!tex) tex = right.get();
+	if (!tex) tex = top.get();
+	if (!tex) tex = bottom.get();
 
 	const float onepixel = tex?(1.0f / (tex->getSize()[0] * 1.5f)) : 0.0f;
 	const float t = 1.0f - onepixel;
@@ -69,7 +69,7 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom
 	video::IVideoDriver* driver = SceneManager->getVideoDriver();
 	// create front side
 	Material[0] = mat;
-	Material[0].setTexture(0, front);
+	Material[0].setTexture(0, std::move(front));
 	float texcoords[2*4*2];
 	texcoords[0] = t;
 	texcoords[1] = t;
@@ -101,23 +101,23 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom
 
 	// create left side
 	Material[1] = mat;
-	Material[1].setTexture(0, left);
+	Material[1].setTexture(0, std::move(left));
 
 	// create back side
 	Material[2] = mat;
-	Material[2].setTexture(0, back);
+	Material[2].setTexture(0, std::move(back));
 
 	// create right side
 	Material[3] = mat;
-	Material[3].setTexture(0, right);
+	Material[3].setTexture(0, std::move(right));
 
 	// create top side
 	Material[4] = mat;
-	Material[4].setTexture(0, top);
+	Material[4].setTexture(0, std::move(top));
 
 	// create bottom side
 	Material[5] = mat;
-	Material[5].setTexture(0, bottom);
+	Material[5].setTexture(0, std::move(bottom));
 
 
 	for (size_t i=0; i<6; i++)

@@ -24,10 +24,11 @@ namespace scene
 
         public:
             //! constructor
-            CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom, video::ITexture* left,
-                video::ITexture* right, video::ITexture* front, video::ITexture* back,
-				core::smart_refctd_ptr<video::IGPUBuffer>&& vertPositions, size_t positionsOffsetInBuf,
-                IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id);
+            CSkyBoxSceneNode(	core::smart_refctd_ptr<video::ITexture>&& top, core::smart_refctd_ptr<video::ITexture>&& bottom,
+								core::smart_refctd_ptr<video::ITexture>&& left, core::smart_refctd_ptr<video::ITexture>&& right,
+								core::smart_refctd_ptr<video::ITexture>&& front, core::smart_refctd_ptr<video::ITexture>&& back,
+								core::smart_refctd_ptr<video::IGPUBuffer>&& vertPositions, size_t positionsOffsetInBuf,
+								IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id);
             //! clone Ctor
             CSkyBoxSceneNode(CSkyBoxSceneNode* other,
                 IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id);

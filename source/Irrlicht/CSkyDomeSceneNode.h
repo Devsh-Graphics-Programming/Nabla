@@ -22,7 +22,7 @@ class CSkyDomeSceneNode : public ISceneNode
 		virtual ~CSkyDomeSceneNode();
 
 	public:
-		CSkyDomeSceneNode(video::IVirtualTexture* texture, uint32_t horiRes, uint32_t vertRes,
+		CSkyDomeSceneNode(core::smart_refctd_ptr<video::IVirtualTexture>&& texture, uint32_t horiRes, uint32_t vertRes,
 			float texturePercentage, float spherePercentage, float radius,
 			IDummyTransformationSceneNode* parent, ISceneManager* smgr, int32_t id);
 		CSkyDomeSceneNode(CSkyDomeSceneNode* other,

@@ -361,9 +361,13 @@ namespace scene
 		\param id: An id of the node. This id can be used to identify the node.
 		\return Pointer to the sky box if successful, otherwise NULL.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNode* addSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom,
-			video::ITexture* left, video::ITexture* right, video::ITexture* front,
-			video::ITexture* back, IDummyTransformationSceneNode* parent = 0, int32_t id=-1) = 0;
+		virtual ISceneNode* addSkyBoxSceneNode(	core::smart_refctd_ptr<video::ITexture>&& top,
+												core::smart_refctd_ptr<video::ITexture>&& bottom,
+												core::smart_refctd_ptr<video::ITexture>&& left,
+												core::smart_refctd_ptr<video::ITexture>&& right,
+												core::smart_refctd_ptr<video::ITexture>&& front,
+												core::smart_refctd_ptr<video::ITexture>&& back,
+												IDummyTransformationSceneNode* parent = 0, int32_t id=-1) = 0;
 
 		//! Adds a skydome scene node to the scene tree.
 		/** A skydome is a large (half-) sphere with a panoramic texture
@@ -383,10 +387,10 @@ namespace scene
 		\param id: An id of the node. This id can be used to identify the node.
 		\return Pointer to the sky dome if successful, otherwise NULL.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNode* addSkyDomeSceneNode(video::IVirtualTexture* texture,
-			uint32_t horiRes=16, uint32_t vertRes=8,
-			float texturePercentage=0.9, float spherePercentage=2.0,float radius = 1000.f,
-			IDummyTransformationSceneNode* parent=0, int32_t id=-1) = 0;
+		virtual ISceneNode* addSkyDomeSceneNode(core::smart_refctd_ptr<video::IVirtualTexture>&& texture,
+												uint32_t horiRes=16, uint32_t vertRes=8, float texturePercentage=0.9,
+												float spherePercentage=2.0,float radius = 1000.f,
+												IDummyTransformationSceneNode* parent=0, int32_t id=-1) = 0;
 
 		//! Adds a dummy transformation scene node to the scene tree.
 		/** This scene node does not render itself, have a bounding box, a render method,
@@ -480,19 +484,6 @@ namespace scene
 		See IReferenceCounted::drop() for more information. */
 		virtual ISceneNodeAnimator* createFlyStraightAnimator(const core::vector3df& startPoint,
 			const core::vector3df& endPoint, uint32_t timeForWay, bool loop=false, bool pingpong = false) = 0;
-
-		//! Creates a texture animator, which switches the textures of the target scene node based on a list of textures.
-		/** \param textures: List of textures to use.
-		\param timePerFrame: Time in milliseconds, how long any texture in the list
-		should be visible.
-		\param loop: If set to to false, the last texture remains set, and the animation
-		stops. If set to true, the animation restarts with the first texture.
-		\return The animator. Attach it to a scene node with ISceneNode::addAnimator()
-		and the animator will animate it.
-		If you no longer need the animator, you should call ISceneNodeAnimator::drop().
-		See IReferenceCounted::drop() for more information. */
-		virtual ISceneNodeAnimator* createTextureAnimator(const core::vector<video::ITexture*>& textures,
-			int32_t timePerFrame, bool loop=true) = 0;
 
 		//! Creates a scene node animator, which deletes the scene node after some time automatically.
 		/** \param timeMs: Time in milliseconds, after when the node will be deleted.

@@ -113,6 +113,7 @@ int main()
     callBack->drop();
 
 
+	auto* assetMgr = device->getAssetManager();
 	scene::ISceneManager* smgr = device->getSceneManager();
 
 
@@ -125,37 +126,36 @@ int main()
 	switch (c)
 	{
         case '1':
-        {
-            asset::IAssetManager& assetMgr = device->getAssetManager();
-            asset::IAssetLoader::SAssetLoadParams lparams;
-            asset::ICPUTexture* cputextures[] {
-                static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_up.jpg", lparams)),
-                static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_dn.jpg", lparams)),
-                static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_lf.jpg", lparams)),
-                static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_rt.jpg", lparams)),
-                static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_ft.jpg", lparams)),
-                static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_bk.jpg", lparams))
-            };
-            core::vector<video::ITexture*> gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures+6);
+			{
+				asset::IAssetLoader::SAssetLoadParams lparams;
+				asset::ICPUTexture* cputextures[] {
+					static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_up.jpg", lparams).getContents().first->get()),
+					static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_dn.jpg", lparams).getContents().first->get()),
+					static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_lf.jpg", lparams).getContents().first->get()),
+					static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_rt.jpg", lparams).getContents().first->get()),
+					static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_ft.jpg", lparams).getContents().first->get()),
+					static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_bk.jpg", lparams).getContents().first->get())
+				};
+				auto gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures+6);
 
-            smgr->addSkyBoxSceneNode(
-                gputextures[0],
-                gputextures[1],
-                gputextures[2],
-                gputextures[3],
-                gputextures[4],
-                gputextures[5]
-            );
-        }
+				smgr->addSkyBoxSceneNode(
+					std::move(gputextures[0]),
+					std::move(gputextures[1]),
+					std::move(gputextures[2]),
+					std::move(gputextures[3]),
+					std::move(gputextures[4]), 
+					std::move(gputextures[5])
+				);
+			}
             break;
         default:
-        {
-            asset::IAssetLoader::SAssetLoadParams lparams;
-            asset::ICPUTexture* cputexture = static_cast<asset::ICPUTexture*>(device->getAssetManager().getAsset("../../media/skydome.jpg", lparams));
-            video::ITexture* skydomeTexture = driver->getGPUObjectsFromAssets(&cputexture, (&cputexture)+1).front();
-            smgr->addSkyDomeSceneNode(skydomeTexture,16,8,0.95f,2.0f,10.f);
+			{
+				asset::IAssetLoader::SAssetLoadParams lparams;
+				auto cputexture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*assetMgr->getAsset("../../media/skydome.jpg", lparams).getContents().first);
+				auto skydomeTexture = driver->getGPUObjectsFromAssets(&cputexture.get(), (&cputexture.get())+1).front();
+				smgr->addSkyDomeSceneNode(std::move(skydomeTexture),16,8,0.95f,2.0f,10.f);
 
-        }
+			}
             break;
 	}
 
@@ -228,26 +228,26 @@ int main()
                 driver->flushMappedMemoryRanges({video::IDriverMemoryAllocation::MappedMemoryRange(upStreamMem,offsets[0],sizes[0]),video::IDriverMemoryAllocation::MappedMemoryRange(upStreamMem,offsets[1],sizes[1])});
             }
 
+			auto mb = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>();
+			{
+				auto desc = driver->createGPUMeshDataFormatDesc();
+				{
+					auto buff = core::smart_refctd_ptr<video::IGPUBuffer>(upStreamBuff->getBuffer());
+					desc->setVertexAttrBuffer(core::smart_refctd_ptr(buff),asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,sizeof(VertexStruct),offsetof(VertexStruct,Pos[0])+offsets[0]);
+					desc->setVertexAttrBuffer(core::smart_refctd_ptr(buff),asset::EVAI_ATTR1,asset::EF_R8G8_UNORM,sizeof(VertexStruct),offsetof(VertexStruct,Col[0])+offsets[0]);
+					desc->setIndexBuffer(std::move(buff));
+				}
 
-            auto buff = upStreamBuff->getBuffer();
-            video::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-            desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,sizeof(VertexStruct),offsetof(VertexStruct,Pos[0])+offsets[0]);
-            desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR1,asset::EF_R8G8_UNORM,sizeof(VertexStruct),offsetof(VertexStruct,Col[0])+offsets[0]);
-            desc->setIndexBuffer(buff);
-
-
-            video::IGPUMeshBuffer* mb = new video::IGPUMeshBuffer();
-            mb->setMeshDataAndFormat(desc);
-            mb->setIndexBufferOffset(offsets[1]);
-            mb->setIndexType(asset::EIT_16BIT);
-            mb->setIndexCount(2*3*6);
-            desc->drop();
+				mb->setIndexBufferOffset(offsets[1]);
+				mb->setIndexType(asset::EIT_16BIT);
+				mb->setIndexCount(2*3*6);
+				mb->setMeshDataAndFormat(std::move(desc));
+			}
 
 
             driver->setTransform(video::E4X3TS_WORLD,core::matrix4x3());
             driver->setMaterial(material);
-            driver->drawMeshBuffer(mb);
-            mb->drop();
+            driver->drawMeshBuffer(mb.get());
 
             upStreamBuff->multi_free(2u,(uint32_t*)&offsets,(uint32_t*)&sizes,driver->placeFence());
         }
@@ -288,7 +288,7 @@ int main()
     }
     asset::CImageData* img = new asset::CImageData(screenshot);
     asset::IAssetWriter::SAssetWriteParams wparams(img);
-    device->getAssetManager().writeAsset("screenshot.png", wparams);
+    assetMgr->writeAsset("screenshot.png", wparams);
     img->drop();
     screenshot->drop();
 

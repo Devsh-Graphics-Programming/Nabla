@@ -61,7 +61,7 @@ struct SMaterialLayer
 	\return True if layers are different, else false. */
 	inline bool operator!=(const SMaterialLayer& b) const
 	{
-		return Texture != b.Texture || SamplingParams.calculateHash(Texture) != b.SamplingParams.calculateHash(b.Texture);
+		return Texture != b.Texture || SamplingParams.calculateHash(Texture.get()) != b.SamplingParams.calculateHash(b.Texture.get());
 	}
 
 	//! Equality operator
