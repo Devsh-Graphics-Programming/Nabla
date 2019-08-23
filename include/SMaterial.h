@@ -10,8 +10,6 @@
 #include "EMaterialTypes.h"
 #include "EMaterialFlags.h"
 #include "SMaterialLayer.h"
-#include "irr/asset/ICPUTexture.h"
-#include "IVirtualTexture.h"
 
 namespace irr
 {
@@ -326,18 +324,18 @@ namespace video
 		\return Texture for texture level i, if defined, else 0. */
 		TexT* getTexture(uint32_t i) const
 		{
-			return i < MATERIAL_MAX_TEXTURES ? TextureLayer[i].Texture : 0;
+			return i < MATERIAL_MAX_TEXTURES ? TextureLayer[i].Texture.get() : nullptr;
 		}
 
 		//! Sets the i-th texture
 		/** If i>=MATERIAL_MAX_TEXTURES this setting will be ignored.
 		\param i The desired level.
 		\param tex Texture for texture level i. */
-		void setTexture(uint32_t i, TexT* tex)
+		void setTexture(uint32_t i, core::smart_refctd_ptr<TexT>&& tex)
 		{
 			if (i>=MATERIAL_MAX_TEXTURES)
 				return;
-			TextureLayer[i].Texture = tex;
+			TextureLayer[i].Texture = std::move(tex);
 		}
 
 		//! Inequality operator

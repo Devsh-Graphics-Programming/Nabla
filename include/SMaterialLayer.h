@@ -5,8 +5,9 @@
 #ifndef __S_MATERIAL_LAYER_H_INCLUDED__
 #define __S_MATERIAL_LAYER_H_INCLUDED__
 
-#include "STextureSamplingParams.h"
 #include "irr/asset/ICPUTexture.h"
+#include "STextureSamplingParams.h"
+#include "IVirtualTexture.h"
 
 namespace irr
 {
@@ -15,63 +16,65 @@ namespace video
 
 #include "irr/irrpack.h"
 
-	//! Struct for holding material parameters which exist per texture layer
-    template<typename TexT>
-	class SMaterialLayer
+//! Struct for holding material parameters which exist per texture layer
+template<typename TexT>
+struct SMaterialLayer
+{
+	//! Default constructor
+	SMaterialLayer() : Texture()
+    {
+    }
+
+	//! Copy constructor
+	/** \param other Material layer to copy from. */
+	SMaterialLayer(const SMaterialLayer& other)
 	{
-	public:
-		//! Default constructor
-		SMaterialLayer()
-			: Texture(0)
-        {
-        }
+		operator=(other);
+	}
+	//! Move constructor
+	/** \param other Material layer to move. */
+	SMaterialLayer(SMaterialLayer&& other)
+	{
+		operator=(std::move(other));
+	}
 
-		//! Copy constructor
-		/** \param other Material layer to copy from. */
-		SMaterialLayer(const SMaterialLayer& other)
-		{
-			*this = other;
-		}
+	//! Assignment operator
+	/** \param other Material layer to copy from.
+	\return This material layer, updated. */
+	SMaterialLayer& operator=(SMaterialLayer&& other)
+	{
+		std::swap(Texture,other.Texture);
+		std::swap(SamplingParams,other.SamplingParams);
 
-		//! Destructor
-		~SMaterialLayer()
-		{
-		}
+		return *this;
+	}
+	SMaterialLayer& operator=(const SMaterialLayer& other)
+	{
+		Texture = other.Texture;
+		SamplingParams = other.SamplingParams;
 
-		//! Assignment operator
-		/** \param other Material layer to copy from.
-		\return This material layer, updated. */
-		SMaterialLayer& operator=(const SMaterialLayer& other)
-		{
-			// Check for self-assignment!
-			if (this == &other)
-				return *this;
+		return *this;
+	}
 
-			Texture = other.Texture;
-			SamplingParams = other.SamplingParams;
+	//! Inequality operator
+	/** \param b Layer to compare to.
+	\return True if layers are different, else false. */
+	inline bool operator!=(const SMaterialLayer& b) const
+	{
+		return Texture != b.Texture || SamplingParams.calculateHash(Texture) != b.SamplingParams.calculateHash(b.Texture);
+	}
 
-			return *this;
-		}
+	//! Equality operator
+	/** \param b Layer to compare to.
+	\return True if layers are equal, else false. */
+	inline bool operator==(const SMaterialLayer& b) const
+	{ return !(b!=*this); }
 
-		//! Inequality operator
-		/** \param b Layer to compare to.
-		\return True if layers are different, else false. */
-		inline bool operator!=(const SMaterialLayer& b) const
-		{
-			return Texture != b.Texture || SamplingParams.calculateHash(Texture) != b.SamplingParams.calculateHash(b.Texture);
-		}
+	//! Texture
+	core::smart_refctd_ptr<TexT> Texture;
 
-		//! Equality operator
-		/** \param b Layer to compare to.
-		\return True if layers are equal, else false. */
-		inline bool operator==(const SMaterialLayer& b) const
-		{ return !(b!=*this); }
-
-		//! Texture
-		TexT* Texture;
-
-        STextureSamplingParams SamplingParams;
-	} PACK_STRUCT;
+    STextureSamplingParams SamplingParams;
+} PACK_STRUCT;
 
 #include "irr/irrunpack.h"
 
