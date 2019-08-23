@@ -77,17 +77,25 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<T,allocator>
 			return (this_real_type::dummy_item_count + _contents.size()) * sizeof(T);
 		}
 
-		static inline void* allocate_dynamic_array(size_t length, const allocator& _alctr = allocator())
+		static inline void* allocate_dynamic_array(size_t length)
 		{
-			return allocator().allocate(this_real_type::size_of(length)/sizeof(T));
+			return std::allocator_traits<allocator>::allocate(allocator(), this_real_type::size_of(length) / sizeof(T));
 		}
-		static inline void* allocate_dynamic_array(const std::initializer_list<T>& _contents, const allocator& _alctr = allocator())
+		static inline void* allocate_dynamic_array(const std::initializer_list<T>& _contents)
 		{
-			return allocator().allocate(this_real_type::size_of(_contents)/sizeof(T));
+			return std::allocator_traits<allocator>::allocate(allocator(), this_real_type::size_of(_contents) / sizeof(T));
+		}
+		static inline void* allocate_dynamic_array(size_t length, allocator& _alctr)
+		{
+			return std::allocator_traits<allocator>::allocate(_alctr,this_real_type::size_of(length)/sizeof(T));
+		}
+		static inline void* allocate_dynamic_array(const std::initializer_list<T>& _contents, allocator& _alctr)
+		{
+			return std::allocator_traits<allocator>::allocate(_alctr, this_real_type::size_of(_contents)/sizeof(T));
 		}
 		// factory method to use instead of `new`
 		template<typename... Args>
-		static inline auto* create_dynamic_array(Args&&... args)
+		static inline this_real_type* create_dynamic_array(Args&&... args)
 		{
 			void* ptr = this_real_type::allocate_dynamic_array(args...);
 			return new(ptr) this_real_type(std::forward<Args>(args)...);

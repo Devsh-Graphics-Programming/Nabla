@@ -50,6 +50,7 @@ class IRR_FORCE_EBO aligned_allocator : public irr::core::AllocatorTrivialBase<T
 		inline void                                 deallocate(	typename aligned_allocator::pointer p) noexcept
 		{
 			//printf("Freed %p\n",p);
+			//_IRR_ALIGNED_FREE(const_cast<std::remove_const<T>::type*>(p));
 			_IRR_ALIGNED_FREE(p);
 		}
 		inline void                                 deallocate(	typename aligned_allocator::pointer p, size_type n) noexcept

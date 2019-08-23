@@ -97,7 +97,7 @@ class SAssetBundle
 {
     using contents_container_t = core::refctd_dynamic_array<core::smart_refctd_ptr<IAsset> >;
 public:
-    SAssetBundle(std::initializer_list<core::smart_refctd_ptr<IAsset>> _contents = {}) : m_contents(contents_container_t::create_dynamic_array(_contents),core::dont_grab)
+    SAssetBundle(std::initializer_list<contents_container_t::value_type> _contents = {}) : m_contents(contents_container_t::create_dynamic_array(_contents),core::dont_grab)
     {
         auto allSameTypeAndNotNull = [&_contents] {
             if (_contents.size()==0ull)
@@ -115,10 +115,6 @@ public:
 
     inline IAsset::E_TYPE getAssetType() const { return m_contents->front()->getAssetType(); }
 
-    inline std::pair<core::smart_refctd_ptr<IAsset>*, core::smart_refctd_ptr<IAsset>*> getContents()
-    {
-        return {m_contents->begin(), m_contents->end()};
-    }
     inline std::pair<const core::smart_refctd_ptr<IAsset>*, const core::smart_refctd_ptr<IAsset>*> getContents() const
     {
         return {m_contents->begin(), m_contents->end()};
@@ -150,7 +146,7 @@ private:
 
     std::string m_cacheKey;
     bool m_isCached = false;
-    core::smart_refctd_ptr<contents_container_t> m_contents;
+    core::smart_refctd_ptr<const contents_container_t> m_contents;
 };
 
 }}
