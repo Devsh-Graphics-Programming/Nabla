@@ -3,7 +3,7 @@
 #include "driverChoice.h"
 
 #include <random>
-#include "irr/video/StreamingTransientDataBuffer.h"
+#include "irr/video/alloc/StreamingTransientDataBuffer.h"
 
 
 using namespace irr;
@@ -60,7 +60,7 @@ int main()
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
 	params.WindowSize = dimension2d<uint32_t>(1280, 720);
 	params.Fullscreen = false;
-	params.Vsync = true; //! If supported by target platform
+	params.Vsync = false;
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
 	IrrlichtDevice* device = createDeviceEx(params);
