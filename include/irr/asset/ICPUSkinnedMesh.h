@@ -17,10 +17,8 @@ class CFinalBoneHierarchy;
 class ICPUSkinnedMesh : public ICPUMesh
 {
 	public:
-		ICPUSkinnedMesh(core::smart_refctd_ptr<CFinalBoneHierarchy>&& _refHierarchy = nullptr) : referenceHierarchy(_refHierarchy) {}
-
 		//!
-		virtual CFinalBoneHierarchy* getBoneReferenceHierarchy() const { return referenceHierarchy.get(); }
+		virtual CFinalBoneHierarchy* getBoneReferenceHierarchy() const = 0; // fix this in the future once skeleton and animations are separate
 
 		//!
 		virtual asset::E_MESH_TYPE getMeshType() const override
@@ -144,10 +142,6 @@ class ICPUSkinnedMesh : public ICPUMesh
 
 		//! Check if the mesh is non-animated
 		virtual bool isStatic() const = 0;
-
-	protected:
-		//
-		core::smart_refctd_ptr<CFinalBoneHierarchy> referenceHierarchy;
 };
 
 }}//irr::asset

@@ -730,7 +730,7 @@ void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const S
 #ifdef _IRR_DEBUG
 	{
 		core::unordered_set<size_t> sizesSet;
-		for (core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<SIntegerAttr>>::iterator it = attribsI.begin(); it != attribsI.end(); ++it)
+		for (core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<CMeshManipulator::SIntegerAttr>>::iterator it = attribsI.begin(); it != attribsI.end(); ++it)
 			sizesSet.insert(it->second.size());
 		for (core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<core::vectorSIMDf>>::iterator it = attribsF.begin(); it != attribsF.end(); ++it)
 			sizesSet.insert(it->second.size());

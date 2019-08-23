@@ -1,7 +1,7 @@
 #ifndef __IRR_C_CPU_SKINNED_MESH_INCLUDED__
 #define __IRR_C_CPU_SKINNED_MESH_INCLUDED__
 
-#include "ICPUSkinnedMesh.h"
+#include "irr/asset/ICPUSkinnedMesh.h"
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 #include "CFinalBoneHierarchy.h"
 
@@ -13,12 +13,23 @@ namespace asset
 class CCPUSkinnedMesh : public ICPUSkinnedMesh
 {
 	protected:
+		//!
+		core::smart_refctd_ptr<CFinalBoneHierarchy> referenceHierarchy;
+
 		//! destructor
 		virtual ~CCPUSkinnedMesh();
 
 	public:
 		//! constructor
-		CCPUSkinnedMesh();
+		CCPUSkinnedMesh() : HasAnimation(false)
+		{
+			#ifdef _IRR_DEBUG
+				setDebugName("CCPUSkinnedMesh");
+			#endif
+		}
+
+		//!
+		virtual CFinalBoneHierarchy* getBoneReferenceHierarchy() const override { return referenceHierarchy.get(); }
 
 		//! Clears internal container of meshbuffers and calls drop() on each
 		virtual void clearMeshBuffers();

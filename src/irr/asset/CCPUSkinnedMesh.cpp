@@ -19,15 +19,6 @@ namespace asset
 {
 
 
-//! constructor
-CCPUSkinnedMesh::CCPUSkinnedMesh() : HasAnimation(false)
-{
-	#ifdef _IRR_DEBUG
-	setDebugName("CCPUSkinnedMesh");
-	#endif
-}
-
-
 //! destructor
 CCPUSkinnedMesh::~CCPUSkinnedMesh()
 {
