@@ -25,12 +25,12 @@ CBillboardSceneNode::CBillboardSceneNode(IDummyTransformationSceneNode* parent, 
 
 	setSize(size);
 
-    meshbuffer = new video::IGPUMeshBuffer();
+    meshbuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>();
     meshbuffer->setIndexCount(4);
     meshbuffer->setPrimitiveType(asset::EPT_TRIANGLE_STRIP);
 
 	{
-		auto desc = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
+		desc = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
 
 		video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
 		reqs.vulkanReqs.size = 4*sizeof(float)*3;
@@ -42,7 +42,7 @@ CBillboardSceneNode::CBillboardSceneNode(IDummyTransformationSceneNode* parent, 
 		reqs.requiresDedicatedAllocation = true;
 		vertexBuffer = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
 		desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertexBuffer),asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT);
-		meshbuffer->setMeshDataAndFormat(std::move(desc));
+		meshbuffer->setMeshDataAndFormat(core::smart_refctd_ptr(desc));
 	}
 
     setColor(colorTop,colorBottom);
@@ -108,7 +108,7 @@ void CBillboardSceneNode::render()
 
         driver->setMaterial(Material);
 
-        driver->drawMeshBuffer(meshbuffer);
+        driver->drawMeshBuffer(meshbuffer.get());
     }
 }
 

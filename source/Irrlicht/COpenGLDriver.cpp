@@ -1250,7 +1250,7 @@ bool COpenGLDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
     {
         core::vectorSIMDf colorf(color.getRed(),color.getGreen(),color.getBlue(),color.getAlpha());
         colorf /= 255.f;
-        clearScreen(Params.Doublebuffer ? ESB_BACK_LEFT:ESB_FRONT_LEFT,reinterpret_cast<float*>(&colorf));
+        clearScreen(Params.Doublebuffer ? ESB_BACK_LEFT:ESB_FRONT_LEFT,colorf.pointer);
     }
 	return true;
 }

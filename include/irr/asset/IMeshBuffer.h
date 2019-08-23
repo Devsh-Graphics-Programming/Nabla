@@ -90,7 +90,7 @@ public:
 	*/
 	IMeshBuffer(IMeshDataFormatDesc<T>* layout=nullptr, core::CLeakDebugger* dbgr=nullptr) : Material(), boundingBox(),
 						meshLayout(layout), indexType(EIT_UNKNOWN), baseVertex(0), indexCount(0u), indexBufOffset(0ull),
-						instanceCount(0ull), baseInstance(0u), primitiveType(EPT_TRIANGLES), leakDebugger(dbgr)
+						instanceCount(1ull), baseInstance(0u), primitiveType(EPT_TRIANGLES), leakDebugger(dbgr)
 	{
 		if (leakDebugger)
 			leakDebugger->registerObj(this);

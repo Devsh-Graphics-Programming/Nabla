@@ -80,8 +80,8 @@ private:
 	video::SGPUMaterial Material;
 
 	core::smart_refctd_ptr<video::IGPUBuffer> vertexBuffer;
-    video::IGPUMeshDataFormatDesc* desc;
-    video::IGPUMeshBuffer* meshbuffer;
+	core::smart_refctd_ptr<video::IGPUMeshDataFormatDesc> desc;
+	core::smart_refctd_ptr<video::IGPUMeshBuffer> meshbuffer;
 };
 
 

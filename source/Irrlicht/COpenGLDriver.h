@@ -424,11 +424,11 @@ namespace video
         const SAuxContext* getThreadContext(const std::thread::id& tid=std::this_thread::get_id()) const;
         bool deinitAuxContext();
 
-	    virtual core::smart_refctd_ptr<video::IGPUMeshDataFormatDesc> createGPUMeshDataFormatDesc(core::CLeakDebugger* dbgr=nullptr) override;
+	    virtual core::smart_refctd_ptr<video::IGPUMeshDataFormatDesc> createGPUMeshDataFormatDesc(core::CLeakDebugger* dbgr=nullptr) override final;
 
-        virtual uint16_t retrieveDisplayRefreshRate() const override;
+        virtual uint16_t retrieveDisplayRefreshRate() const override final;
 
-		virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false);
+		virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override final;
 
         void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) override final;
 
@@ -573,8 +573,8 @@ namespace video
 		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const uint32_t* vals);
 		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const float* vals);
 
-		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals);
-		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals);
+		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals) override;
+		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals) override;
 
 
 		virtual ITransformFeedback* createTransformFeedback();

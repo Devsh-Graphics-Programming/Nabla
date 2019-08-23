@@ -95,7 +95,7 @@ protected:
     }
 };
 
-auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asset::ICPUBuffer** const _end) -> core::vector<core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType> >
+auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asset::ICPUBuffer** const _end) -> core::vector<core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType> > // TODO: improve!!!
 {
     const uint64_t alignment =
         std::max(

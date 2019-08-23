@@ -105,28 +105,31 @@ int main()
 	MyEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
-    asset::IAssetManager& assetMgr = device->getAssetManager();
-    asset::IAssetLoader::SAssetLoadParams lparams;
-    asset::ICPUTexture* cputextures[] {
-        static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_dn.jpg", lparams)),
-        static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/skydome.jpg", lparams)),
-        static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/yellowflowers.dds", lparams)) //loads all mipmap levels
-    };
-    core::vector<video::ITexture*> gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures+3);
-
-
 	//! Test Creation Of Builtin
-	scene::IMeshSceneNode* cube = dynamic_cast<scene::IMeshSceneNode*>(smgr->addCubeSceneNode(1.f,0,-1));
-    cube->setRotation(core::vector3df(45,20,15));
-    cube->getMaterial(0).setTexture(0,gputextures[0]);
+	scene::IMeshSceneNode* cube = dynamic_cast<scene::IMeshSceneNode*>(smgr->addCubeSceneNode(1.f, 0, -1));
+	cube->setRotation(core::vector3df(45, 20, 15));
 
-	scene::IMeshSceneNode* sphere = dynamic_cast<scene::IMeshSceneNode*>(smgr->addSphereSceneNode(2,128));
-    sphere->getMaterial(0).setTexture(0,gputextures[1]);
-    sphere->getMaterial(0).MaterialType = material.MaterialType;
-    sphere->setPosition(core::vector3df(4,0,0));
+	scene::IMeshSceneNode* sphere = dynamic_cast<scene::IMeshSceneNode*>(smgr->addSphereSceneNode(2, 128));
+	sphere->getMaterial(0).MaterialType = material.MaterialType;
+	sphere->setPosition(core::vector3df(4, 0, 0));
 
-	scene::ISceneNode* billboard = smgr->addBillboardSceneNode(0,core::dimension2df(1.f,1.f),core::vector3df(-4,0,0));
-    billboard->getMaterial(0).setTexture(0,gputextures[2]);
+	scene::ISceneNode* billboard = smgr->addBillboardSceneNode(0, core::dimension2df(1.f, 1.f), core::vector3df(-4, 0, 0));
+
+	auto assetMgr = device->getAssetManager();
+	//! load textures and set them
+	{
+		asset::IAssetLoader::SAssetLoadParams lparams;
+		asset::ICPUTexture* cputextures[]{
+			static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_dn.jpg", lparams).getContents().first->get()),
+			static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/skydome.jpg", lparams).getContents().first->get()),
+			static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/yellowflowers.dds", lparams).getContents().first->get()) //loads all mipmap levels
+		};
+		auto gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures + 3);
+
+		cube->getMaterial(0).setTexture(0, std::move(gputextures[0]));
+		sphere->getMaterial(0).setTexture(0, std::move(gputextures[1]));
+		billboard->getMaterial(0).setTexture(0, std::move(gputextures[2]));
+	}
 
 	uint64_t lastFPSTime = 0;
 
@@ -175,7 +178,7 @@ int main()
     }
     asset::CImageData* img = new asset::CImageData(screenshot);
     asset::IAssetWriter::SAssetWriteParams wparams(img);
-    device->getAssetManager().writeAsset("screenshot.png", wparams);
+    device->getAssetManager()->writeAsset("screenshot.png", wparams);
     img->drop();
     screenshot->drop();
 	device->sleep(3000);
