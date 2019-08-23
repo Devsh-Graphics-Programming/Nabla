@@ -342,6 +342,7 @@ class quaternion : private vectorSIMDf
 		\param axis Rotation axis. */
 		static quaternion fromAngleAxis(const float& angle, const vector3df_SIMD& axis);
 };
+static_assert(sizeof(quaternion) == sizeof(vectorSIMDf), "Quaternion not same size as vec4");
 
 
 

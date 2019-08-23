@@ -100,7 +100,7 @@ namespace core
 	}
 
     //a class for bitwise shizz
-	template <int components> class vectorSIMDBool : public impl::vectorSIMDIntBase<vectorSIMDBool<components> >
+	template <int components> class IRR_FORCE_EBO vectorSIMDBool : public impl::vectorSIMDIntBase<vectorSIMDBool<components> >
     {
         typedef impl::vectorSIMDIntBase<vectorSIMDBool<components> > Base;
         static_assert(core::isPoT(components)&&components<=16u,"Wrong number of components!\n");
@@ -263,7 +263,7 @@ namespace core
 #endif
 
     template <class T>
-    class vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>, public impl::vectorSIMDIntBase<vectorSIMD_32<T> >
+    class IRR_FORCE_EBO vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>, public impl::vectorSIMDIntBase<vectorSIMD_32<T> >
 	{
         typedef impl::vectorSIMDIntBase<vectorSIMD_32<T> > Base;
 	public:
@@ -419,9 +419,13 @@ namespace core
 	typedef vectorSIMDu32 vector3du32_SIMD;
 	typedef vectorSIMDu32 vector2du32_SIMD;
 
+	static_assert(sizeof(vector4du32_SIMD) == 16u, "vector4du32_SIMD not same size as uvec4");
+
 	typedef vectorSIMDi32 vector4di32_SIMD;
 	typedef vectorSIMDi32 vector3di32_SIMD;
 	typedef vectorSIMDi32 vector2di32_SIMD;
+
+	static_assert(sizeof(vector4di32_SIMD) == 16u, "vector4di32_SIMD not same size as ivec4");
 
 /*
 	typedef vectorSIMDu16 vector8du16_SIMD;
@@ -465,7 +469,7 @@ namespace core
     inline vectorSIMDf sqrt(const vectorSIMDf& a);
 
 
-    class vectorSIMDf : public SIMD_32bitSwizzleAble<vectorSIMDf,__m128>, public AlignedBase<_IRR_VECTOR_ALIGNMENT>
+    class IRR_FORCE_EBO vectorSIMDf : public SIMD_32bitSwizzleAble<vectorSIMDf,__m128>, public AlignedBase<_IRR_VECTOR_ALIGNMENT>
 	{
 	public:
 		//! Default constructor (null vector).
@@ -943,6 +947,9 @@ namespace core
 	typedef vectorSIMDf vector4df_SIMD;
 	typedef vectorSIMDf vector3df_SIMD;
 	typedef vectorSIMDf vector2df_SIMD;
+
+	static_assert(sizeof(vector4df_SIMD) == 16u, "vector4df_SIMD not same size as vec4");
+
 
 	//! Transposes matrix 4x4 given by 4 vectors
 	inline void transpose4(vectorSIMDf& _a0, vectorSIMDf& _a1, vectorSIMDf& _a2, vectorSIMDf& _a3)
