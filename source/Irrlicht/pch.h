@@ -90,7 +90,6 @@
 #include "SCompoundCollider.h"
 #include "SEllipsoidCollider.h"
 #include "SExposedVideoData.h"
-#include "SIMDswizzle.h"
 #include "SIrrCreationParameters.h"
 #include "SKeyMap.h"
 #include "SMaterial.h"
