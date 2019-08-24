@@ -2,10 +2,6 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#include "CMeshManipulator.h"
-#include "CSmoothNormalGenerator.h"
-#include "irr/asset/CForsythVertexCacheOptimizer.h"
-#include "irr/asset/COverdrawMeshOptimizer.h"
 
 #include <vector>
 #include <numeric>
@@ -16,8 +12,11 @@
 
 #include "os.h"
 #include "irr/asset/asset.h"
-
-#include "SVertexManipulator.h"
+#include "irr/asset/normal_quantization.h"
+#include "irr/asset/CMeshManipulator.h"
+#include "irr/asset/CSmoothNormalGenerator.h"
+#include "irr/asset/CForsythVertexCacheOptimizer.h"
+#include "irr/asset/COverdrawMeshOptimizer.h"
 
 namespace irr
 {

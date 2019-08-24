@@ -97,7 +97,6 @@
 #include "splines.h"
 #include "STextureSamplingParams.h"
 #include "STriangleMeshCollider.h"
-#include "SVertexManipulator.h"
 #include "SViewFrustum.h"
 #include "vector2d.h"
 #include "vector3d.h"

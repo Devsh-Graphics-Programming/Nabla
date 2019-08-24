@@ -2,8 +2,8 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#ifndef __S_VERTEX_MANIPULATOR_H_INCLUDED__
-#define __S_VERTEX_MANIPULATOR_H_INCLUDED__
+#ifndef __IRR_NORMAL_QUANTIZATION_H_INCLUDED__
+#define __IRR_NORMAL_QUANTIZATION_H_INCLUDED__
 
 #include "vectorSIMD.h"
 #include <vector>
@@ -223,36 +223,6 @@ namespace asset
 
 		return *reinterpret_cast<uint64_t*>(bestFit);
 	}
-	/*
-        ECT_FLOAT=0,
-        ECT_HALF_FLOAT,
-        ECT_DOUBLE_IN_FLOAT_OUT,
-        ECT_UNSIGNED_INT_10F_11F_11F_REV,
-        //INTEGER FORMS
-        ECT_NORMALIZED_INT_2_10_10_10_REV,
-        ECT_NORMALIZED_UNSIGNED_INT_2_10_10_10_REV,
-        ECT_NORMALIZED_BYTE,
-        ECT_NORMALIZED_UNSIGNED_BYTE,
-        ECT_NORMALIZED_SHORT,
-        ECT_NORMALIZED_UNSIGNED_SHORT,
-        ECT_NORMALIZED_INT,
-        ECT_NORMALIZED_UNSIGNED_INT,
-        ECT_INT_2_10_10_10_REV,
-        ECT_UNSIGNED_INT_2_10_10_10_REV,
-        ECT_BYTE,
-        ECT_UNSIGNED_BYTE,
-        ECT_SHORT,
-        ECT_UNSIGNED_SHORT,
-        ECT_INT,
-        ECT_UNSIGNED_INT,
-        ECT_INTEGER_INT_2_10_10_10_REV,
-        ECT_INTEGER_UNSIGNED_INT_2_10_10_10_REV,
-        ECT_INTEGER_BYTE,
-        ECT_INTEGER_UNSIGNED_BYTE,
-        ECT_INTEGER_SHORT,
-        ECT_INTEGER_UNSIGNED_SHORT,
-        ECT_INTEGER_INT,
-        ECT_INTEGER_UNSIGNED_INT,*/
 
 } // end namespace scene
 } // end namespace irr

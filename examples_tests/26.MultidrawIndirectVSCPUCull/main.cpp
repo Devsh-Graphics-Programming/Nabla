@@ -2,6 +2,7 @@
 
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
+#include "irr/asset/normal_quantization.h"
 #include "../source/Irrlicht/COpenGLBuffer.h"
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
@@ -110,7 +111,7 @@ int main()
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
 	params.WindowSize = dimension2d<uint32_t>(1280, 720);
 	params.Fullscreen = false;
-	params.Vsync = true; //! If supported by target platform
+	params.Vsync = false;
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
 	IrrlichtDevice* device = createDeviceEx(params);
@@ -172,7 +173,7 @@ int main()
 	video::IGPUMeshBuffer* mbuff[kInstanceCount] = {NULL};
 	video::IGPUBuffer* indirectDrawBuffer = NULL;
 
-    video::IGPUMeshDataFormatDesc* vaospec = driver->createGPUMeshDataFormatDesc();
+    auto vaospec = driver->createGPUMeshDataFormatDesc();
 	{
         asset::ICPUMesh* cpumesh[kInstanceCount];
 
@@ -186,7 +187,7 @@ int main()
         for (size_t i=0; i<kInstanceCount; i++)
         {
             float poly = sqrtf(dist(mt))+0.5f;
-            cpumesh[i] = device->getAssetManager().getGeometryCreator()->createSphereMesh(2.f,poly,poly);
+            cpumesh[i] = device->getAssetManager()->getGeometryCreator()->createSphereMesh(2.f,poly,poly);
 
             //some assumptions about generated mesh
             assert(cpumesh[i]->getMeshBuffer(0)->getPrimitiveType()==asset::EPT_TRIANGLES);
@@ -235,13 +236,12 @@ int main()
 
         //
         {
-            video::IGPUBuffer* ixbuf = driver->createFilledDeviceLocalGPUBufferOnDedMem(indexData.size()*sizeof(uint32_t),indexData.data());
+            auto ixbuf = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createFilledDeviceLocalGPUBufferOnDedMem(indexData.size()*sizeof(uint32_t),indexData.data()),core::dont_grab);
             indexData.clear();
-            vaospec->setIndexBuffer(ixbuf);
-            ixbuf->drop();
+            vaospec->setIndexBuffer(std::move(ixbuf));
         }
 
-        video::IGPUBuffer* vxbuf = driver->createFilledDeviceLocalGPUBufferOnDedMem(vertexData.size(),vertexData.data());
+        auto vxbuf = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createFilledDeviceLocalGPUBufferOnDedMem(vertexData.size(),vertexData.data()),core::dont_grab);
         vertexData.clear();
 
 
@@ -262,8 +262,8 @@ int main()
                     if (!format->getMappedBuffer(attrID))
                         continue;
 
-                    vaospec->setVertexAttrBuffer(vxbuf,attrID,format->getAttribFormat(attrID),vertexSize,
-                                                 format->getMappedBufferOffset(attrID));
+                    vaospec->setVertexAttrBuffer(	core::smart_refctd_ptr(vxbuf),attrID,format->getAttribFormat(attrID),
+													vertexSize,format->getMappedBufferOffset(attrID));
                 }
             }
 
@@ -285,7 +285,7 @@ int main()
 
             mbuff[i]->setIndexCount(mbuf->getIndexCount());
             mbuff[i]->setIndexType(asset::EIT_32BIT);
-            mbuff[i]->setMeshDataAndFormat(vaospec);
+            mbuff[i]->setMeshDataAndFormat(core::smart_refctd_ptr(vaospec));
             mbuff[i]->setPrimitiveType(asset::EPT_TRIANGLES);
 
             cpumesh[i]->drop();
@@ -294,7 +294,6 @@ int main()
             instanceXForm[i].setScale(dist3D(mt)*0.0025f+1.f);
             instanceXForm[i].setTranslation(core::vector3df(dist3D(mt),dist3D(mt),dist3D(mt)));
         }
-        vxbuf->drop();
 
         indirectDrawBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(indirectDrawData),indirectDrawData);
 	}
@@ -359,7 +358,7 @@ int main()
             video::SGPUMaterial material;
             material.MaterialType = gpuCullMaterial;
             driver->setMaterial(material);
-            driver->drawIndexedIndirect(vaospec,asset::EPT_TRIANGLES,asset::EIT_32BIT,indirectDrawBuffer,0,kInstanceCount,sizeof(DrawElementsIndirectCommand));
+            driver->drawIndexedIndirect(vaospec.get(),asset::EPT_TRIANGLES,asset::EIT_32BIT,indirectDrawBuffer,0,kInstanceCount,sizeof(DrawElementsIndirectCommand));
         }
         else
         {
@@ -405,7 +404,6 @@ int main()
 	}
 	perObjectSSBO->drop();
 	indirectDrawBuffer->drop();
-    vaospec->drop();
 
     delete [] instanceXForm;
 
@@ -431,7 +429,7 @@ int main()
     }
     asset::CImageData* img = new asset::CImageData(screenshot);
     asset::IAssetWriter::SAssetWriteParams wparams(img);
-    device->getAssetManager().writeAsset("screenshot.png", wparams);
+    device->getAssetManager()->writeAsset("screenshot.png", wparams);
     img->drop();
     screenshot->drop();
 

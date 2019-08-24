@@ -16,7 +16,6 @@
 #include "irr/asset/ICPUBuffer.h"
 #include "irr/asset/IAsset.h"
 #include "irr/asset/IMesh.h"
-#include "irr/asset/IMeshManipulator.h"
 
 // images
 #include "irr/asset/CImageData.h"
@@ -43,6 +42,10 @@
 #include "irr/asset/IGeometryCreator.h"
 // animated
 #include "CFinalBoneHierarchy.h"
+
+// manipulation + reflection + introspection
+#include "irr/asset/normal_quantization.h"
+#include "irr/asset/IMeshManipulator.h"
 
 // baw files
 #include "irr/asset/bawformat/CBAWFile.h"

@@ -108,7 +108,7 @@ int main()
     }
     asset::CImageData* img = new asset::CImageData(screenshot);
     asset::IAssetWriter::SAssetWriteParams wparams(img);
-    device->getAssetManager().writeAsset("screenshot.png", wparams);
+    device->getAssetManager()->writeAsset("screenshot.png", wparams);
     img->drop();
     screenshot->drop();
 

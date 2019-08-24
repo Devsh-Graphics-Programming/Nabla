@@ -7,11 +7,11 @@
 #ifdef _IRR_COMPILE_WITH_STL_LOADER_
 
 #include "CSTLMeshFileLoader.h"
+#include "irr/asset/normal_quantization.h"
 #include "irr/asset/CCPUMesh.h"
 
 #include "IReadFile.h"
 #include "os.h"
-#include "SVertexManipulator.h"
 
 #include <vector>
 

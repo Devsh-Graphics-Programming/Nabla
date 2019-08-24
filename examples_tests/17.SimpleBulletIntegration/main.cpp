@@ -190,7 +190,7 @@ public:
  asset::IMeshDataFormatDesc<video::IGPUBuffer>* vaoSetupOverride(ISceneManager* smgr, video::IGPUBuffer* instanceDataBuffer, const size_t& dataSizePerInstanceOutput, const asset::IMeshDataFormatDesc<video::IGPUBuffer>* oldVAO, void* userData)
  {
     video::IVideoDriver* driver = smgr->getVideoDriver();
-    asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao = driver->createGPUMeshDataFormatDesc();
+    auto vao = driver->createGPUMeshDataFormatDesc();
 
     //
     for (size_t k=0; k<asset::EVAI_COUNT; k++)

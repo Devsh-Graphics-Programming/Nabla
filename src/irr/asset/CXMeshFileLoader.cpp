@@ -14,7 +14,7 @@
 #include "IVideoDriver.h"
 #include "IFileSystem.h"
 #include "IReadFile.h"
-#include "SVertexManipulator.h"
+#include "irr/asset/normal_quantization.h"
 #include "assert.h"
 #include "irr/asset/IAssetManager.h"
 #include "irr/asset/CCPUMesh.h"
