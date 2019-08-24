@@ -137,7 +137,7 @@ int main()
 		for (size_t x = 0; x<kInstanceSquareSize; x++)
 		for (size_t z = 0; z<kInstanceSquareSize; z++)
 		{
-			instancesToRemove[x + kInstanceSquareSize*z] = anode = smgr->addSkinnedMeshSceneNode(core::smart_refctd_ptr<video::IGPUSkinnedMesh>(gpumesh));
+			instancesToRemove[x + kInstanceSquareSize*z] = anode = smgr->addSkinnedMeshSceneNode(core::smart_refctd_ptr_static_cast<video::IGPUSkinnedMesh>(gpumesh));
 			anode->setScale(core::vector3df(0.05f));
 			anode->setPosition(core::vector3df(x, 0.f, z)*4.f);
 			anode->setAnimationSpeed(18.f*float(x + 1 + (z + 1)*kInstanceSquareSize) / float(kInstanceSquareSize*kInstanceSquareSize));

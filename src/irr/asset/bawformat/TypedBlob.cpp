@@ -229,7 +229,10 @@ void* TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::instantiateEmpty(const
 	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SGPUMaterial));
 	buf->getMaterial().setBitfields(*(blob)->mat.bitfieldsPtr());
 	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+	{
+		memset(&buf->getMaterial().TextureLayer[i].Texture,0,sizeof(const void*));
 		buf->getMaterial().TextureLayer[i].SamplingParams.setBitfields(*(blob)->mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
+	}
 
 	buf->setBoundingBox(blob->box);
 	buf->setIndexType((asset::E_INDEX_TYPE)blob->indexType);

@@ -79,18 +79,20 @@ int main()
 
     core::SCollisionEngine* gCollEng = new core::SCollisionEngine();
 
+	asset::IAssetManager* assetMgr = device->getAssetManager();
+
     asset::IAssetLoader::SAssetLoadParams lparams;
     asset::ICPUTexture* cputextures[]{
-        static_cast<asset::ICPUTexture*>(device->getAssetManager().getAsset("../../media/irrlicht2_dn.jpg", lparams)),
-        static_cast<asset::ICPUTexture*>(device->getAssetManager().getAsset("../../media/skydome.jpg", lparams))
+        static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_dn.jpg", lparams).getContents().first->get()),
+        static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/skydome.jpg", lparams).getContents().first->get())
     };
-    core::vector<video::ITexture*> gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures+2);
+    auto gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures+2);
 
 	//! Test Creation Of Builtin
-	scene::IMeshSceneNode* cube = dynamic_cast<scene::IMeshSceneNode*>(smgr->addCubeSceneNode(1.f,0,-1));
+	auto* cube = smgr->addCubeSceneNode(1.f,0,-1);
     cube->setRotation(core::vector3df(45,20,15));
-    cube->setMaterialFlag(video::EMF_BACK_FACE_CULLING,false);
-    cube->getMaterial(0).setTexture(0,gputextures[0]);
+	cube->getMaterial(0u).BackfaceCulling = false;
+    cube->getMaterial(0).setTexture(0,std::move(gputextures[0]));
 	core::SCompoundCollider* compound = new core::SCompoundCollider();
 	compound->AddBox(core::SAABoxCollider(cube->getBoundingBox()));
 	core::SColliderData collData;
@@ -99,9 +101,9 @@ int main()
     gCollEng->addCompoundCollider(compound);
     compound->drop();
 
-	scene::IMeshSceneNode* sphere = dynamic_cast<scene::IMeshSceneNode*>(smgr->addSphereSceneNode(2,32));
-    sphere->setMaterialFlag(video::EMF_BACK_FACE_CULLING,false);
-    sphere->getMaterial(0).setTexture(0,gputextures[1]);
+	auto* sphere = smgr->addSphereSceneNode(2,32);
+	sphere->getMaterial(0u).BackfaceCulling = false;
+    sphere->getMaterial(0).setTexture(0,std::move(gputextures[1]));
     sphere->getMaterial(0).MaterialType = material.MaterialType;
     sphere->setPosition(core::vector3df(4,0,0));
 	compound = new core::SCompoundCollider();
@@ -125,8 +127,8 @@ int main()
 
 		driver->endScene();
 
-        cube->setMaterialFlag(video::EMF_WIREFRAME,false);
-        sphere->setMaterialFlag(video::EMF_WIREFRAME,false);
+        cube->getMaterial(0u).Wireframe = false;
+        sphere->getMaterial(0u).Wireframe = false;
         core::vectorSIMDf origin,dir;
         origin.set(camera->getAbsolutePosition());
         dir.set(camera->getTarget());
@@ -136,7 +138,7 @@ int main()
         if (gCollEng->FastCollide(hitPointData,outLen,origin,dir,10.f))
         {
             if (hitPointData.attachedNode)
-                hitPointData.attachedNode->setMaterialFlag(video::EMF_WIREFRAME,true);
+                hitPointData.attachedNode->getMaterial(0u).Wireframe = true;
         }
 
 		// display frames per second in window title

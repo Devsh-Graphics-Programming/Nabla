@@ -149,20 +149,24 @@ int main()
 	MyEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
-    asset::IAssetLoader::SAssetLoadParams lparams;
-    asset::ICPUTexture* cputextures[]{
-        static_cast<asset::ICPUTexture*>(device->getAssetManager().getAsset("../../media/irrlicht2_dn.jpg", lparams)),
-        static_cast<asset::ICPUTexture*>(device->getAssetManager().getAsset("../../media/wall.jpg", lparams))
-    };
-    core::vector<video::ITexture*> gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures+2);
-
 	//! Test Creation Of Builtin
-	scene::IMeshSceneNode* cube = dynamic_cast<scene::IMeshSceneNode*>(smgr->addCubeSceneNode(1.f,0,-1));
-    cube->setRotation(core::vector3df(45,20,15));
-    cube->getMaterial(0).setTexture(0,gputextures[0]);
+	auto* cube = smgr->addCubeSceneNode(1.f, 0, -1);
+	cube->setRotation(core::vector3df(45, 20, 15));
 
-	scene::ISceneNode* billboard = smgr->addCubeSceneNode(2.f,0,-1,core::vector3df(0,0,0));
-    billboard->getMaterial(0).setTexture(0,gputextures[1]);
+	auto assetMgr = device->getAssetManager();
+	{
+		asset::IAssetLoader::SAssetLoadParams lparams;
+		asset::ICPUTexture* cputextures[]{
+			static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_dn.jpg", lparams).getContents().first->get()),
+			static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/wall.jpg", lparams).getContents().first->get())
+		};
+		auto gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures + 2);
+
+		cube->getMaterial(0).setTexture(0, std::move(gputextures[0]));
+
+		auto* billboard = smgr->addCubeSceneNode(2.f, 0, -1, core::vector3df(0, 0, 0));
+		billboard->getMaterial(0).setTexture(0, std::move(gputextures[1]));
+	}
 
     float cubeDistance = 0.f;
     float cubeParameterHint = 0.f;
