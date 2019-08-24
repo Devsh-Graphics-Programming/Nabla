@@ -228,49 +228,50 @@ int main()
 	MyEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
-	//! Test Loading of Obj
-    asset::IAssetLoader::SAssetLoadParams lparams;
-	core::vector<core::smart_refctd_ptr<asset::ICPUMesh> > cpumeshes;
-    cpumeshes.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*device->getAssetManager()->getAsset("../../media/cow.obj", lparams).getContents().first));
-    cpumeshes.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*device->getAssetManager()->getAsset("../../media/yellowflower.obj", lparams).getContents().first));
+	IMeshSceneNodeInstanced* node;
+	uint32_t instanceIDs[kNumHardwareInstancesZ][kNumHardwareInstancesY][kNumHardwareInstancesX];
+	{
+		asset::IAssetLoader::SAssetLoadParams lparams;
+		core::vector<core::smart_refctd_ptr<video::IGPUMesh> > gpumeshes;
+		//! Test Loading of Obj
+		{
+			core::vector<core::smart_refctd_ptr<asset::ICPUMesh> > cpumeshes;
+			cpumeshes.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*device->getAssetManager()->getAsset("../../media/cow.obj", lparams).getContents().first));
+			cpumeshes.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*device->getAssetManager()->getAsset("../../media/yellowflower.obj", lparams).getContents().first));
 
-    auto gpumeshes = driver->getGPUObjectsFromAssets(reinterpret_cast<asset::ICPUMesh**>(cpumeshes.data()), reinterpret_cast<asset::ICPUMesh**>(cpumeshes.data())+2);
-    for (size_t i=0; i<gpumeshes[0]->getMeshBufferCount(); i++)
-        gpumeshes[0]->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
-    for (size_t i=0; i<gpumeshes[1]->getMeshBufferCount(); i++)
-        gpumeshes[1]->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
-
-
-    video::SGPUMaterial cullingXFormFeedbackShader;
-    const char* xformFeedbackOutputs[] =
-    {
-        "outLoD0_worldViewProjMatCol0",
-        "outLoD0_worldViewProjMatCol1",
-        "outLoD0_worldViewProjMatCol2",
-        "outLoD0_worldViewProjMatCol3",
-        "outLoD0_worldViewMatCol0",
-        "outLoD0_worldViewMatCol1",
-        "outLoD0_worldViewMatCol2",
-        "outLoD0_worldViewMatCol3",
-        "gl_NextBuffer",
-        "outLoD1_worldViewProjMatCol0",
-        "outLoD1_worldViewProjMatCol1",
-        "outLoD1_worldViewProjMatCol2",
-        "outLoD1_worldViewProjMatCol3",
-        "outLoD1_worldViewMatCol0",
-        "outLoD1_worldViewMatCol1",
-        "outLoD1_worldViewMatCol2",
-        "outLoD1_worldViewMatCol3"
-    };
-    cullingXFormFeedbackShader.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../culling.vert","","","../culling.geom","",3,video::EMT_SOLID,cb,xformFeedbackOutputs,17);
-    cullingXFormFeedbackShader.RasterizerDiscard = true;
+			gpumeshes = std::move(driver->getGPUObjectsFromAssets(reinterpret_cast<asset::ICPUMesh**>(cpumeshes.data()), reinterpret_cast<asset::ICPUMesh**>(cpumeshes.data())+2));
+		}
+		for (size_t i=0; i<gpumeshes[0]->getMeshBufferCount(); i++)
+			gpumeshes[0]->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
+		for (size_t i=0; i<gpumeshes[1]->getMeshBufferCount(); i++)
+			gpumeshes[1]->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
 
 
-    //! The inside of the loop resets and recreates the instancedNode and instances many times to stress-test for GPU-Memory leaks
+		video::SGPUMaterial cullingXFormFeedbackShader;
+		const char* xformFeedbackOutputs[] =
+		{
+			"outLoD0_worldViewProjMatCol0",
+			"outLoD0_worldViewProjMatCol1",
+			"outLoD0_worldViewProjMatCol2",
+			"outLoD0_worldViewProjMatCol3",
+			"outLoD0_worldViewMatCol0",
+			"outLoD0_worldViewMatCol1",
+			"outLoD0_worldViewMatCol2",
+			"outLoD0_worldViewMatCol3",
+			"gl_NextBuffer",
+			"outLoD1_worldViewProjMatCol0",
+			"outLoD1_worldViewProjMatCol1",
+			"outLoD1_worldViewProjMatCol2",
+			"outLoD1_worldViewProjMatCol3",
+			"outLoD1_worldViewMatCol0",
+			"outLoD1_worldViewMatCol1",
+			"outLoD1_worldViewMatCol2",
+			"outLoD1_worldViewMatCol3"
+		};
+		cullingXFormFeedbackShader.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../culling.vert","","","../culling.geom","",3,video::EMT_SOLID,cb,xformFeedbackOutputs,17);
+		cullingXFormFeedbackShader.RasterizerDiscard = true;
 
-	uint64_t lastFPSTime = 0;
-
-        IMeshSceneNodeInstanced* node = smgr->addMeshSceneNodeInstanced(smgr->getRootSceneNode());
+		node = smgr->addMeshSceneNodeInstanced(smgr->getRootSceneNode());
         node->setBBoxUpdateEnabled();
         node->setAutomaticCulling(scene::EAC_FRUSTUM_BOX);
         {
@@ -287,7 +288,6 @@ int main()
         }
 
         //! Special Juice for INSTANCING
-        uint32_t instanceIDs[kNumHardwareInstancesZ][kNumHardwareInstancesY][kNumHardwareInstancesX];
         for (size_t z=0; z<kNumHardwareInstancesZ; z++)
         for (size_t y=0; y<kNumHardwareInstancesY; y++)
         for (size_t x=0; x<kNumHardwareInstancesX; x++)
@@ -311,20 +311,23 @@ int main()
             node->removeInstance(instanceID);
             instanceID = 0xdeadbeefu;
         }
+	}
+	
 
-        size_t removeCount = 0u;
-        uint32_t instancesToRemove[kHardwareInstancesTOTAL];
-        for (size_t z=0; z<kNumHardwareInstancesZ; z++)
-        for (size_t y=0; y<kNumHardwareInstancesY; y++)
-        for (size_t x=0; x<kNumHardwareInstancesX; x++)
-        {
-            auto instanceID = instanceIDs[z][y][x];
-            if (instanceID==0xdeadbeefu)
-                continue;
+    size_t removeCount = 0u;
+    uint32_t instancesToRemove[kHardwareInstancesTOTAL];
+    for (size_t z=0; z<kNumHardwareInstancesZ; z++)
+    for (size_t y=0; y<kNumHardwareInstancesY; y++)
+    for (size_t x=0; x<kNumHardwareInstancesX; x++)
+    {
+        auto instanceID = instanceIDs[z][y][x];
+        if (instanceID==0xdeadbeefu)
+            continue;
 
-            instancesToRemove[removeCount++] = instanceID;
-        }
+        instancesToRemove[removeCount++] = instanceID;
+    }
 
+	uint64_t lastFPSTime = 0;
 	while(device->run()&&(!quit))
 	{
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );

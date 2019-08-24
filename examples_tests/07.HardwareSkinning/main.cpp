@@ -127,25 +127,23 @@ int main()
 	scene::ISceneNode* instancesToRemove[kInstanceSquareSize*kInstanceSquareSize] = { 0 };
 
     asset::IAssetLoader::SAssetLoadParams lparams;
-	asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/dwarf.baw", lparams));
+	auto cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*device->getAssetManager()->getAsset("../../media/dwarf.baw", lparams).getContents().first);
 
 	if (cpumesh&&cpumesh->getMeshType() == asset::EMT_ANIMATED_SKINNED)
 	{
 		scene::ISkinnedMeshSceneNode* anode = 0;
-		video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1)[0];
+		auto gpumesh = std::move(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)[0]);
 
 		for (size_t x = 0; x<kInstanceSquareSize; x++)
-			for (size_t z = 0; z<kInstanceSquareSize; z++)
-			{
-				instancesToRemove[x + kInstanceSquareSize*z] = anode = smgr->addSkinnedMeshSceneNode(static_cast<video::IGPUSkinnedMesh*>(gpumesh));
-				anode->setScale(core::vector3df(0.05f));
-				anode->setPosition(core::vector3df(x, 0.f, z)*4.f);
-				anode->setAnimationSpeed(18.f*float(x + 1 + (z + 1)*kInstanceSquareSize) / float(kInstanceSquareSize*kInstanceSquareSize));
-				anode->setMaterialType(newMaterialType);
-				anode->setMaterialTexture(3, anode->getBonePoseTBO());
-			}
-
-		gpumesh->drop();
+		for (size_t z = 0; z<kInstanceSquareSize; z++)
+		{
+			instancesToRemove[x + kInstanceSquareSize*z] = anode = smgr->addSkinnedMeshSceneNode(core::smart_refctd_ptr<video::IGPUSkinnedMesh>(gpumesh));
+			anode->setScale(core::vector3df(0.05f));
+			anode->setPosition(core::vector3df(x, 0.f, z)*4.f);
+			anode->setAnimationSpeed(18.f*float(x + 1 + (z + 1)*kInstanceSquareSize) / float(kInstanceSquareSize*kInstanceSquareSize));
+			anode->setMaterialType(newMaterialType);
+			anode->setMaterialTexture(3, core::smart_refctd_ptr<video::ITextureBufferObject>(anode->getBonePoseTBO()));
+		}
 	}
 
 	uint64_t lastFPSTime = 0;
