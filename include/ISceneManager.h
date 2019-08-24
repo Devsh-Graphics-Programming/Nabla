@@ -172,7 +172,7 @@ namespace scene
 				const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f)) = 0;
 
 		//! Adds a scene node for rendering an skinned mesh model.
-		virtual core::smart_refctd_ptr<ISkinnedMeshSceneNode> addSkinnedMeshSceneNode(
+		virtual ISkinnedMeshSceneNode* addSkinnedMeshSceneNode(
                 core::smart_refctd_ptr<video::IGPUSkinnedMesh>&& mesh,
 				const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode=ISkinningStateManager::EBUM_NONE,
 				IDummyTransformationSceneNode* parent=0, int32_t id=-1,

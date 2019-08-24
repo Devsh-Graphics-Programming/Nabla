@@ -299,7 +299,7 @@ IMeshSceneNodeInstanced* CSceneManager::addMeshSceneNodeInstanced(IDummyTransfor
 }
 
 //! adds a scene node for rendering an animated mesh model
-core::smart_refctd_ptr<ISkinnedMeshSceneNode> CSceneManager::addSkinnedMeshSceneNode(
+ISkinnedMeshSceneNode* CSceneManager::addSkinnedMeshSceneNode(
     core::smart_refctd_ptr<video::IGPUSkinnedMesh>&& mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode,
     IDummyTransformationSceneNode* parent, int32_t id,
     const core::vector3df& position, const core::vector3df& rotation, const core::vector3df& scale)
@@ -310,7 +310,9 @@ core::smart_refctd_ptr<ISkinnedMeshSceneNode> CSceneManager::addSkinnedMeshScene
 	if (!parent)
 		parent = this;
 
-	return core::make_smart_refctd_ptr<CSkinnedMeshSceneNode>(std::move(mesh), boneControlMode, parent, this, id, position, rotation, scale);
+	auto node = new CSkinnedMeshSceneNode(std::move(mesh), boneControlMode, parent, this, id, position, rotation, scale);
+	node->drop();
+	return node;
 }
 
 //! Adds a camera scene node to the tree and sets it as active camera.
