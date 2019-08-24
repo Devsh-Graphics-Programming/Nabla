@@ -612,8 +612,10 @@ uint32_t CSceneManager::registerNodeForRendering(ISceneNode* node, E_SCENE_NODE_
 			taken = 0;
 			for (uint32_t i=0; i<count; ++i)
 			{
+                //TODO Driver->getMaterialRenderer() always return nullptr now
+                //so transparent nodes just doesnt work
 				video::IMaterialRenderer* rnd =
-					Driver->getMaterialRenderer(node->getMaterial(i).MaterialType);
+					Driver->getMaterialRenderer(0);
 				if (rnd && rnd->isTransparent())
 				{
 					// register as transparent node

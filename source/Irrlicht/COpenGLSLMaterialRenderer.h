@@ -85,18 +85,13 @@ class COpenGLSLMaterialRenderer : public IMaterialRenderer, public IMaterialRend
             const char** xformFeedbackOutputs = NULL,
             const uint32_t& xformFeedbackOutputCount = 0);
 
-        bool createProgram();
-        bool createShader(GLenum shaderType, const char* shader);
-        bool linkProgram();
-
         COpenGLDriver* Driver;
-        IShaderConstantSetCallBack* CallBack;
-        E_MATERIAL_TYPE BaseMaterial;
+        //E_MATERIAL_TYPE BaseMaterial;
 
         int32_t tessellationPatchVertices;//is a Tesselation Shader?
 
-        GLuint Program2;
-        GLint activeUniformCount;
+        //GLuint Program2;
+        //GLint activeUniformCount;
         int32_t UserData;
     #ifdef _IRR_DEBUG
         core::vector<SConstantLocationNamePair> debugConstants;

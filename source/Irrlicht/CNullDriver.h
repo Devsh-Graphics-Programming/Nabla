@@ -33,7 +33,7 @@ namespace video
 	class IImageLoader;
 	class IImageWriter;
 
-	class CNullDriver : public IVideoDriver, public IGPUProgrammingServices
+	class CNullDriver : public IVideoDriver //, public IGPUProgrammingServices
 	{
     protected:
 		//! destructor
@@ -365,7 +365,7 @@ namespace video
 		virtual const core::matrix4SIMD& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state);
 
 		//! Returns pointer to the IGPUProgrammingServices interface.
-		virtual IGPUProgrammingServices* getGPUProgrammingServices();
+		//virtual IGPUProgrammingServices* getGPUProgrammingServices();
 
 		//! Returns pointer to material renderer or null
 		virtual IMaterialRenderer* getMaterialRenderer(uint32_t idx);
@@ -376,77 +376,77 @@ namespace video
 		//! Returns name of the material renderer
 		virtual const char* getMaterialRendererName(uint32_t idx) const;
 
-        virtual int32_t addHighLevelShaderMaterial(
-            const char* vertexShaderProgram,
-            const char* controlShaderProgram,
-            const char* evaluationShaderProgram,
-            const char* geometryShaderProgram,
-            const char* pixelShaderProgram,
-            uint32_t patchVertices=3,
-            E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-            IShaderConstantSetCallBack* callback = 0,
-            const char** xformFeedbackOutputs = NULL,
-            const uint32_t& xformFeedbackOutputCount = 0,
-            int32_t userData = 0,
-            const char* vertexShaderEntryPointName="main",
-            const char* controlShaderEntryPointName = "main",
-            const char* evaluationShaderEntryPointName = "main",
-            const char* geometryShaderEntryPointName = "main",
-            const char* pixelShaderEntryPointName="main" );
+        //virtual int32_t addHighLevelShaderMaterial(
+        //    const char* vertexShaderProgram,
+        //    const char* controlShaderProgram,
+        //    const char* evaluationShaderProgram,
+        //    const char* geometryShaderProgram,
+        //    const char* pixelShaderProgram,
+        //    uint32_t patchVertices=3,
+        //    E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
+        //    IShaderConstantSetCallBack* callback = 0,
+        //    const char** xformFeedbackOutputs = NULL,
+        //    const uint32_t& xformFeedbackOutputCount = 0,
+        //    int32_t userData = 0,
+        //    const char* vertexShaderEntryPointName="main",
+        //    const char* controlShaderEntryPointName = "main",
+        //    const char* evaluationShaderEntryPointName = "main",
+        //    const char* geometryShaderEntryPointName = "main",
+        //    const char* pixelShaderEntryPointName="main" );
 
-        virtual int32_t addHighLevelShaderMaterialFromFiles(
-            const io::path& vertexShaderProgramFileName,
-            const io::path& controlShaderProgramFileName,
-            const io::path& evaluationShaderProgramFileName,
-            const io::path& geometryShaderProgramFileName,
-            const io::path& pixelShaderProgramFileName,
-            uint32_t patchVertices=3,
-            E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-            IShaderConstantSetCallBack* callback = 0,
-            const char** xformFeedbackOutputs = NULL,
-            const uint32_t& xformFeedbackOutputCount = 0,
-            int32_t userData = 0,
-            const char* vertexShaderEntryPointName="main",
-            const char* controlShaderEntryPointName = "main",
-            const char* evaluationShaderEntryPointName = "main",
-            const char* geometryShaderEntryPointName = "main",
-            const char* pixelShaderEntryPointName="main");
+        //virtual int32_t addHighLevelShaderMaterialFromFiles(
+        //    const io::path& vertexShaderProgramFileName,
+        //    const io::path& controlShaderProgramFileName,
+        //    const io::path& evaluationShaderProgramFileName,
+        //    const io::path& geometryShaderProgramFileName,
+        //    const io::path& pixelShaderProgramFileName,
+        //    uint32_t patchVertices=3,
+        //    E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
+        //    IShaderConstantSetCallBack* callback = 0,
+        //    const char** xformFeedbackOutputs = NULL,
+        //    const uint32_t& xformFeedbackOutputCount = 0,
+        //    int32_t userData = 0,
+        //    const char* vertexShaderEntryPointName="main",
+        //    const char* controlShaderEntryPointName = "main",
+        //    const char* evaluationShaderEntryPointName = "main",
+        //    const char* geometryShaderEntryPointName = "main",
+        //    const char* pixelShaderEntryPointName="main");
 
-        virtual int32_t addHighLevelShaderMaterialFromFiles(
-            io::IReadFile* vertexShaderProgram,
-            io::IReadFile* controlShaderProgram,
-            io::IReadFile* evaluationShaderProgram,
-            io::IReadFile* geometryShaderProgram,
-            io::IReadFile* pixelShaderProgram,
-            uint32_t patchVertices=3,
-            E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-            IShaderConstantSetCallBack* callback = 0,
-            const char** xformFeedbackOutputs = NULL,
-            const uint32_t& xformFeedbackOutputCount = 0,
-            int32_t userData = 0,
-            const char* vertexShaderEntryPointName="main",
-            const char* controlShaderEntryPointName = "main",
-            const char* evaluationShaderEntryPointName = "main",
-            const char* geometryShaderEntryPointName = "main",
-            const char* pixelShaderEntryPointName="main");
+        //virtual int32_t addHighLevelShaderMaterialFromFiles(
+        //    io::IReadFile* vertexShaderProgram,
+        //    io::IReadFile* controlShaderProgram,
+        //    io::IReadFile* evaluationShaderProgram,
+        //    io::IReadFile* geometryShaderProgram,
+        //    io::IReadFile* pixelShaderProgram,
+        //    uint32_t patchVertices=3,
+        //    E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
+        //    IShaderConstantSetCallBack* callback = 0,
+        //    const char** xformFeedbackOutputs = NULL,
+        //    const uint32_t& xformFeedbackOutputCount = 0,
+        //    int32_t userData = 0,
+        //    const char* vertexShaderEntryPointName="main",
+        //    const char* controlShaderEntryPointName = "main",
+        //    const char* evaluationShaderEntryPointName = "main",
+        //    const char* geometryShaderEntryPointName = "main",
+        //    const char* pixelShaderEntryPointName="main");
 
-        virtual bool replaceHighLevelShaderMaterial(const int32_t &materialIDToReplace,
-            const char* vertexShaderProgram,
-            const char* controlShaderProgram,
-            const char* evaluationShaderProgram,
-            const char* geometryShaderProgram,
-            const char* pixelShaderProgram,
-            uint32_t patchVertices=3,
-            E_MATERIAL_TYPE baseMaterial=video::EMT_SOLID,
-            IShaderConstantSetCallBack* callback=0,
-            const char** xformFeedbackOutputs = NULL,
-            const uint32_t& xformFeedbackOutputCount = 0,
-            int32_t userData=0,
-            const char* vertexShaderEntryPointName="main",
-            const char* controlShaderEntryPointName="main",
-            const char* evaluationShaderEntryPointName="main",
-            const char* geometryShaderEntryPointName="main",
-            const char* pixelShaderEntryPointName="main");
+        //virtual bool replaceHighLevelShaderMaterial(const int32_t &materialIDToReplace,
+        //    const char* vertexShaderProgram,
+        //    const char* controlShaderProgram,
+        //    const char* evaluationShaderProgram,
+        //    const char* geometryShaderProgram,
+        //    const char* pixelShaderProgram,
+        //    uint32_t patchVertices=3,
+        //    E_MATERIAL_TYPE baseMaterial=video::EMT_SOLID,
+        //    IShaderConstantSetCallBack* callback=0,
+        //    const char** xformFeedbackOutputs = NULL,
+        //    const uint32_t& xformFeedbackOutputCount = 0,
+        //    int32_t userData=0,
+        //    const char* vertexShaderEntryPointName="main",
+        //    const char* controlShaderEntryPointName="main",
+        //    const char* evaluationShaderEntryPointName="main",
+        //    const char* geometryShaderEntryPointName="main",
+        //    const char* pixelShaderEntryPointName="main");
 
 
 		//! Writes the provided image to disk file

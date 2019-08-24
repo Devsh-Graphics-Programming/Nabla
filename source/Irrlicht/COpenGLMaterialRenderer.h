@@ -69,11 +69,14 @@ public:
 	{
 		Driver->setBasicRenderStates(material, lastMaterial, resetAllRenderstates);
 
+        //TODO i cant see any usage of those classes anywhere (commented-out because MaterialType is not there anymore)
+        /*
 		if ((material.MaterialType != lastMaterial.MaterialType) || resetAllRenderstates)
 		{
 			glBlendFunc(GL_ONE, GL_ONE);
 			glEnable(GL_BLEND);
 		}
+        */
 	}
 
 	virtual void OnUnsetMaterial()
@@ -101,12 +104,14 @@ public:
 		bool resetAllRenderstates, IMaterialRendererServices* services)
 	{
 		Driver->setBasicRenderStates(material, lastMaterial, resetAllRenderstates);
-
+        //TODO i cant see any usage of those classes anywhere (commented-out because MaterialType is not there anymore)
+        /*
 		if (material.MaterialType != lastMaterial.MaterialType || resetAllRenderstates)
 		{
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 			glEnable(GL_BLEND);
 		}
+        */
 	}
 
 	virtual void OnUnsetMaterial()

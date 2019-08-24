@@ -1046,7 +1046,8 @@ bool COpenGLDriver::genericDriverInit()
 	///extGlProvokingVertex(GL_FIRST_VERTEX_CONVENTION_EXT);
 
 	// create material renderers
-	createMaterialRenderers();
+	//createMaterialRenderers();
+    //WARNING EMT_SOLID and other "default shaders" won't work now
 
 	// set the renderstates
 	setRenderStates3DMode();
@@ -1072,9 +1073,12 @@ bool COpenGLDriver::genericDriverInit()
 
     DerivativeMapCreator = new CDerivativeMapCreator(this);
 
+    int32_t dummy;
+    addAndDropMaterialRenderer(new COpenGLSLMaterialRenderer(this, dummy));
+
 	return true;
 }
-
+/*
 class SimpleDummyCallBack : public video::IShaderConstantSetCallBack
 {
 protected:
@@ -1115,7 +1119,7 @@ public:
             services->setShaderConstant(services->getVideoDriver()->getTransform(EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniform[currentMatType].location,mvpUniform[currentMatType].type);
 	}
 };
-
+*/
 void COpenGLDriver::createMaterialRenderers()
 {
 	// create OpenGL material renderers
@@ -1194,13 +1198,13 @@ void COpenGLDriver::createMaterialRenderers()
     "}";
     int32_t nr;
 
-    SimpleDummyCallBack* sdCB = new SimpleDummyCallBack();
+    //SimpleDummyCallBack* sdCB = new SimpleDummyCallBack();
 
     COpenGLSLMaterialRenderer* rdr = new COpenGLSLMaterialRenderer(
 		this, nr,
 		std_vert, "main",
 		std_solid_frag, "main",
-		NULL, NULL, NULL, NULL, NULL, NULL,3,sdCB,EMT_SOLID);
+		NULL, NULL, NULL, NULL, NULL, NULL,3,nullptr,EMT_SOLID);
     if (rdr)
         rdr->drop();
 
@@ -1208,7 +1212,7 @@ void COpenGLDriver::createMaterialRenderers()
 		this, nr,
 		std_vert, "main",
 		std_trans_add_frag, "main",
-		NULL, NULL, NULL, NULL, NULL, NULL,3,sdCB,EMT_TRANSPARENT_ADD_COLOR);
+		NULL, NULL, NULL, NULL, NULL, NULL,3, nullptr,EMT_TRANSPARENT_ADD_COLOR);
     if (rdr)
         rdr->drop();
 
@@ -1216,7 +1220,7 @@ void COpenGLDriver::createMaterialRenderers()
 		this, nr,
 		std_vert, "main",
 		std_trans_alpha_frag, "main",
-		NULL, NULL, NULL, NULL, NULL, NULL,3,sdCB,EMT_TRANSPARENT_ALPHA_CHANNEL);
+		NULL, NULL, NULL, NULL, NULL, NULL,3, nullptr,EMT_TRANSPARENT_ALPHA_CHANNEL);
     if (rdr)
         rdr->drop();
 
@@ -1224,11 +1228,11 @@ void COpenGLDriver::createMaterialRenderers()
 		this, nr,
 		std_vert, "main",
 		std_trans_vertex_frag, "main",
-		NULL, NULL, NULL, NULL, NULL, NULL,3,sdCB,EMT_TRANSPARENT_VERTEX_ALPHA);
+		NULL, NULL, NULL, NULL, NULL, NULL,3, nullptr,EMT_TRANSPARENT_VERTEX_ALPHA);
     if (rdr)
         rdr->drop();
 
-    sdCB->drop();
+    //sdCB->drop();
 }
 
 
@@ -1523,10 +1527,10 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
 			break;
 		case asset::EPT_TRIANGLES:
         {
-            if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
+            //if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
             {
-                COpenGLSLMaterialRenderer* shaderRenderer = static_cast<COpenGLSLMaterialRenderer*>(MaterialRenderers[Material.MaterialType].Renderer);
-                if (shaderRenderer&&shaderRenderer->isTessellation())
+                COpenGLSLMaterialRenderer* shaderRenderer = static_cast<COpenGLSLMaterialRenderer*>(MaterialRenderers[0].Renderer);
+                if (shaderRenderer&&Material.Pipeline[1])
                     primType = GL_PATCHES;
             }
         }
@@ -1539,6 +1543,8 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
         extGlDrawElementsInstancedBaseVertexBaseInstance(primType,mb->getIndexCount(),indexSize,(void*)mb->getIndexBufferOffset(),mb->getInstanceCount(),mb->getBaseVertex(),mb->getBaseInstance());
     else if (mb->isIndexCountGivenByXFormFeedback())
     {
+    // some transform-feedback-related code was commented-out, so for sanity reasons i'm also commenting this out
+        /*
         COpenGLTransformFeedback* xfmFb = static_cast<COpenGLTransformFeedback*>(mb->getXFormFeedback());
 #ifdef _IRR_DEBUG
         if (xfmFb->isEnded())
@@ -1547,7 +1553,8 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
             os::Printer::log("Trying to use more than GL_MAX_VERTEX_STREAMS vertex streams in transform feedback!\n",ELL_ERROR);
 #endif // _IRR_DEBUG
         extGlDrawTransformFeedbackStreamInstanced(primType,xfmFb->getOpenGLHandle(),mb->getXFormFeedbackStream(),mb->getInstanceCount());
-    }
+        */
+    } 
     else
         extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
 }
@@ -1588,10 +1595,10 @@ void COpenGLDriver::drawArraysIndirect(  const asset::IMeshDataFormatDesc<video:
 			break;
 		case asset::EPT_TRIANGLES:
         {
-            if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
+            //if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
             {
-                COpenGLSLMaterialRenderer* shaderRenderer = static_cast<COpenGLSLMaterialRenderer*>(MaterialRenderers[Material.MaterialType].Renderer);
-                if (shaderRenderer&&shaderRenderer->isTessellation())
+                COpenGLSLMaterialRenderer* shaderRenderer = static_cast<COpenGLSLMaterialRenderer*>(MaterialRenderers[0].Renderer);
+                if (shaderRenderer&&Material.Pipeline[1])
                     primType = GL_PATCHES;
             }
         }
@@ -1679,10 +1686,10 @@ void COpenGLDriver::drawIndexedIndirect(const asset::IMeshDataFormatDesc<video::
 			break;
 		case asset::EPT_TRIANGLES:
         {
-            if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
+            //if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
             {
-                COpenGLSLMaterialRenderer* shaderRenderer = static_cast<COpenGLSLMaterialRenderer*>(MaterialRenderers[Material.MaterialType].Renderer);
-                if (shaderRenderer&&shaderRenderer->isTessellation())
+                COpenGLSLMaterialRenderer* shaderRenderer = static_cast<COpenGLSLMaterialRenderer*>(MaterialRenderers[0].Renderer);
+                if (shaderRenderer&&Material.Pipeline[1])//tess control present
                     primType = GL_PATCHES;
             }
         }
@@ -2386,6 +2393,50 @@ void COpenGLDriver::setMaterial(const SGPUMaterial& material)
 	}
 }
 
+GLuint COpenGLDriver::getPipeline(const std::array<IGPUSpecializedShader*, 5u>& _shaders)
+{
+    auto found = Pipelines.find({ _shaders, std::this_thread::get_id() });
+    if (found != Pipelines.end())
+        return found->second;
+
+    auto getGLname = [](IGPUSpecializedShader* _shdr, GLenum _expectedStage) { 
+        auto glshdr = static_cast<COpenGLSpecializedShader*>(_shdr);
+        if (!glshdr)
+            return 0u;
+        if (glshdr->getStage() != _expectedStage)
+            return 0u;
+        return glshdr->getOpenGLName(); 
+    };
+
+    GLuint vs = getGLname(_shaders[0], GL_VERTEX_SHADER);
+    GLuint tess_ctrl = getGLname(_shaders[1], GL_TESS_CONTROL_SHADER);
+    GLuint tess_eval = getGLname(_shaders[2], GL_TESS_EVALUATION_SHADER);
+    GLuint gs = getGLname(_shaders[3], GL_GEOMETRY_SHADER);
+    GLuint fs = getGLname(_shaders[4], GL_FRAGMENT_SHADER);
+
+    if (vs==0u)
+        return 0u;
+
+    GLuint pipeline{};
+    extGlCreateProgramPipelines(1u, &pipeline);
+
+    auto addProgram = [&pipeline](GLuint program, GLbitfield stage) {
+        if (!program)
+            return;
+        extGlUseProgramStages(pipeline, stage, program);
+    };
+
+    addProgram(vs, GL_VERTEX_SHADER_BIT);
+    addProgram(tess_ctrl, GL_TESS_CONTROL_SHADER_BIT);
+    addProgram(tess_eval, GL_TESS_EVALUATION_SHADER_BIT);
+    addProgram(gs, GL_GEOMETRY_SHADER_BIT);
+    addProgram(fs, GL_FRAGMENT_SHADER_BIT);
+
+    Pipelines[{_shaders, std::this_thread::get_id()}] = pipeline;
+
+    return pipeline;
+}
+
 //! sets the needed renderstates
 void COpenGLDriver::setRenderStates3DMode()
 {
@@ -2402,18 +2453,26 @@ void COpenGLDriver::setRenderStates3DMode()
 		ResetRenderStates = true;
 	}
 
+    //actually i'm commenting-out ALMOST all in this if-statemenet
 	if (ResetRenderStates || LastMaterial != Material)
 	{
 		// unset old material
 
-		if (LastMaterial.MaterialType != Material.MaterialType &&
+		/* TODO what OnUnsetMaterial() is responsible for? Can i remove this?
+        if (LastMaterial.Pipeline != Material.Pipeline &&
 				static_cast<uint32_t>(LastMaterial.MaterialType) < MaterialRenderers.size())
-			MaterialRenderers[LastMaterial.MaterialType].Renderer->OnUnsetMaterial();
+			MaterialRenderers[LastMaterial.MaterialType].Renderer->OnUnsetMaterial();*/
 
 		// set new material.
-		if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
-			MaterialRenderers[Material.MaterialType].Renderer->OnSetMaterial(
+		//if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
+			MaterialRenderers[0].Renderer->OnSetMaterial(
 				Material, LastMaterial, ResetRenderStates, this);
+
+            extGlBindProgramPipeline(getPipeline(Material.Pipeline));
+/*
+        WARNING! Commented-out this transform-feedback-related piece of code 
+        because i have no idea about this and i have no time to make it work with E_MATERIAL_TYPE->array_of_shaders changes
+        Plus AFAIK it's going to be removed from the engine anyway..
 
 		if (found->CurrentXFormFeedback&&found->XFormFeedbackRunning)
         {
@@ -2425,13 +2484,13 @@ void COpenGLDriver::setRenderStates3DMode()
             else if (found->CurrentXFormFeedback->isActive()) //Material Type not equal to intial
                 found->CurrentXFormFeedback->pauseFeedback();
         }
-
+*/
 		LastMaterial = Material;
 		ResetRenderStates = false;
 	}
 
-	if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
-		MaterialRenderers[Material.MaterialType].Renderer->OnRender(this);
+	//if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
+		MaterialRenderers[0].Renderer->OnRender(this);
 
 	CurrentRenderMode = ERM_3D;
 }
@@ -2722,7 +2781,7 @@ void COpenGLDriver::setShaderConstant(const void* data, int32_t location, E_SHAD
 	os::Printer::log("Error: Please call services->setShaderConstant(), not VideoDriver->setShaderConstant().");
 }
 
-
+/*
 int32_t COpenGLDriver::addHighLevelShaderMaterial(
     const char* vertexShaderProgram,
     const char* controlShaderProgram,
@@ -2755,7 +2814,7 @@ int32_t COpenGLDriver::addHighLevelShaderMaterial(
 	r->drop();
 	return nr;
 }
-
+*/
 
 //! Returns a pointer to the IVideoDriver interface. (Implementation for
 //! IMaterialRendererServices)
@@ -3187,6 +3246,8 @@ void COpenGLDriver::beginTransformFeedback(ITransformFeedback* xformFeedback, co
 
 	found->XFormFeedbackRunning = true;
 
+    //WARNING turning off all transform-feedback-pieces of code! Because i have no idea about this and no time to integrate shaders into it!
+    /*
 	if (Material.MaterialType==xformFeedbackShader)
 	{
         if (LastMaterial.MaterialType!=xformFeedbackShader)
@@ -3195,6 +3256,7 @@ void COpenGLDriver::beginTransformFeedback(ITransformFeedback* xformFeedback, co
 		if (!found->CurrentXFormFeedback->isActive())
 			found->CurrentXFormFeedback->beginResumeFeedback();
 	}
+    */
 }
 
 void COpenGLDriver::pauseTransformFeedback()

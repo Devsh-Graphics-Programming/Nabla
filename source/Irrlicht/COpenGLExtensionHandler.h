@@ -1100,6 +1100,8 @@ class COpenGLExtensionHandler
 
 
 	// shader programming
+    static void extGlCreateProgramPipelines(GLsizei n, GLuint* pipelines);
+    static void extGlUseProgramStages(GLuint pipeline, GLbitfield stages, GLuint program);
 	static GLuint extGlCreateShader(GLenum shaderType);
     static GLuint extGlCreateShaderProgramv(GLenum shaderType, GLsizei count, const char** strings);
 	static void extGlShaderSource(GLuint shader, GLsizei numOfStrings, const char **strings, const GLint *lenOfStrings);
@@ -1381,6 +1383,8 @@ class COpenGLExtensionHandler
     static PFNGLBINDBUFFERSRANGEPROC pGlBindBuffersRange;
 
     //shaders
+    static PFNGLCREATEPROGRAMPIPELINESPROC pGlCreateProgramPipelines;
+    static PFNGLUSEPROGRAMSTAGESPROC pGlUseProgramStages;
     static PFNGLBINDATTRIBLOCATIONPROC pGlBindAttribLocation; //NULL
     static PFNGLCREATEPROGRAMPROC pGlCreateProgram;
     static PFNGLUSEPROGRAMPROC pGlUseProgram;
@@ -2703,6 +2707,18 @@ inline void COpenGLExtensionHandler::extGlBindImageTexture(GLuint index, GLuint 
 }
 
 
+
+inline void COpenGLExtensionHandler::extGlCreateProgramPipelines(GLsizei n, GLuint * pipelines)
+{
+    if (pGlCreateProgramPipelines)
+        pGlCreateProgramPipelines(n, pipelines);
+}
+
+inline void COpenGLExtensionHandler::extGlUseProgramStages(GLuint pipeline, GLbitfield stages, GLuint program)
+{
+    if (pGlUseProgramStages)
+        pGlUseProgramStages(pipeline, stages, program);
+}
 
 inline GLuint COpenGLExtensionHandler::extGlCreateShader(GLenum shaderType)
 {

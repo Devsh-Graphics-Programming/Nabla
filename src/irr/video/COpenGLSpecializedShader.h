@@ -22,9 +22,11 @@ public:
 
 
     GLuint getOpenGLName() const { return m_GLname; }
+    GLenum getStage() const { return m_stage; }
 
 private:
     GLuint m_GLname;
+    GLenum m_stage;
 };
 
 }}

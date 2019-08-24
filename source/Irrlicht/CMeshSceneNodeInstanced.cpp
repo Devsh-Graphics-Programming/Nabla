@@ -484,7 +484,7 @@ void CMeshSceneNodeInstanced::RecullInstances()
             reinterpret_cast<uint32_t&>(lodCullingPointMesh->getMaterial().MaterialTypeParam) = i*gpuLoDsPerPass;
             reinterpret_cast<uint32_t&>(lodCullingPointMesh->getMaterial().MaterialTypeParam2) = i*gpuLoDsPerPass+gpuLoDsPerPass-1;
             driver->setMaterial(lodCullingPointMesh->getMaterial());
-            driver->beginTransformFeedback(xfb[i],lodCullingPointMesh->getMaterial().MaterialType,asset::EPT_POINTS);
+            //driver->beginTransformFeedback(xfb[i],lodCullingPointMesh->getMaterial().MaterialType,asset::EPT_POINTS);
             for (size_t j=0; j<gpuLoDsPerPass&&(i*gpuLoDsPerPass+j)<LoD.size(); j++)
                 driver->beginQuery(LoD[i*gpuLoDsPerPass+j].query,j);
             driver->drawMeshBuffer(lodCullingPointMesh);
@@ -523,7 +523,7 @@ void CMeshSceneNodeInstanced::OnRegisterSceneNode()
             if (!mb||(mb->getIndexCount()<1 && !mb->isIndexCountGivenByXFormFeedback()))
                 continue;
 
-            video::IMaterialRenderer* rnd = driver->getMaterialRenderer(mb->getMaterial().MaterialType);
+            video::IMaterialRenderer* rnd = driver->getMaterialRenderer(0);
 
             if (rnd && rnd->isTransparent())
                 ++transparentCount;
@@ -589,7 +589,7 @@ void CMeshSceneNodeInstanced::render()
         {
             const video::SGPUMaterial& material = LoD[i].mesh->getMeshBuffer(j)->getMaterial();
 
-            video::IMaterialRenderer* rnd = driver->getMaterialRenderer(material.MaterialType);
+            video::IMaterialRenderer* rnd = driver->getMaterialRenderer(0);
             bool transparent = (rnd && rnd->isTransparent());
 
             // only render transparent buffer if this is the transparent render pass

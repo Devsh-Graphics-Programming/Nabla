@@ -93,7 +93,7 @@ void CSkinnedMeshSceneNode::OnRegisterSceneNode()
                 continue;
 
             video::IMaterialRenderer* rnd =
-                driver->getMaterialRenderer(Materials[i].MaterialType);
+                driver->getMaterialRenderer(0);
 
             if (rnd && rnd->isTransparent())
                 ++transparentCount;
@@ -181,7 +181,7 @@ void CSkinnedMeshSceneNode::render()
             {
                 const video::SGPUMaterial& material = Materials[i];
 
-                video::IMaterialRenderer* rnd = driver->getMaterialRenderer(material.MaterialType);
+                video::IMaterialRenderer* rnd = driver->getMaterialRenderer(0);
                 bool transparent = (rnd && rnd->isTransparent());
 
                 // only render transparent buffer if this is the transparent render pass

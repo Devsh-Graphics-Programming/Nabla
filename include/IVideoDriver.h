@@ -634,7 +634,7 @@ namespace video
 		/** \return Pointer to the IGPUProgrammingServices. Returns 0
 		if the video driver does not support this. For example the
 		Software driver and the Null driver will always return 0. */
-		virtual IGPUProgrammingServices* getGPUProgrammingServices() =0;
+		//virtual IGPUProgrammingServices* getGPUProgrammingServices() =0;
 
 		//! Enable or disable a clipping plane.
 		/** There are at least 6 clipping planes available for the user

@@ -516,7 +516,7 @@ namespace video
 
         virtual void setShaderConstant(const void* data, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1);
 
-
+        /*
         virtual int32_t addHighLevelShaderMaterial(
             const char* vertexShaderProgram,
             const char* controlShaderProgram,
@@ -534,7 +534,7 @@ namespace video
             const char* evaluationShaderEntryPointName="main",
             const char* geometryShaderEntryPointName="main",
             const char* pixelShaderEntryPointName="main");
-
+        */
 		//! Returns a pointer to the IVideoDriver interface. (Implementation for
 		//! IMaterialRendererServices)
 		virtual IVideoDriver* getVideoDriver();
@@ -617,6 +617,8 @@ namespace video
 
 		//! Returns the graphics card vendor name.
 		virtual std::string getVendorInfo() {return VendorName;}
+
+        GLuint getPipeline(const std::array<IGPUSpecializedShader*, 5u>& _shaders);
 
 		//! sets the needed renderstates
 		void setRenderStates3DMode();
@@ -962,6 +964,8 @@ namespace video
         class CGPUObjectFromAssetConverter;
         friend class CGPUObjectFromAssetConverter;
 
+        using PipelineMapKeyT = std::pair<std::array<IGPUSpecializedShader*, 5u>, std::thread::id>;
+        core::map<PipelineMapKeyT, GLuint> Pipelines;
 
         bool runningInRenderDoc;
 

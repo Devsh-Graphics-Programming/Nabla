@@ -88,7 +88,9 @@ static GLenum ESS2GLenum(asset::E_SHADER_STAGE _stage)
 
 }//namesapce impl
 
-COpenGLSpecializedShader::COpenGLSpecializedShader(const video::IVideoDriver* _driver, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo)
+COpenGLSpecializedShader::COpenGLSpecializedShader(const video::IVideoDriver* _driver, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo) :
+    m_GLname(0u),
+    m_stage(impl::ESS2GLenum(_specInfo->shaderStage))
 {
     const video::COpenGLDriver* driver = static_cast<const video::COpenGLDriver*>(_driver);
 
@@ -108,7 +110,7 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(const video::IVideoDriver* _d
     const char* glslCode_cstr = glslCode.c_str();
     //printf(glslCode.c_str());
 
-    m_GLname = driver->extGlCreateShaderProgramv(impl::ESS2GLenum(_specInfo->shaderStage), 1u, &glslCode_cstr);
+    m_GLname = driver->extGlCreateShaderProgramv(m_stage, 1u, &glslCode_cstr);
 
     GLchar logbuf[1u<<12]; //4k
     driver->extGlGetProgramInfoLog(m_GLname, sizeof(logbuf), nullptr, logbuf);

@@ -382,8 +382,11 @@ asset::IAsset* COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             }
             alctr.deallocate(newNormals,ctx.Materials[m]->Vertices.size());
         }
-        if (ctx.Materials[m]->Material.MaterialType == -1)
-            os::Printer::log("Loading OBJ Models with normal maps and tangents not supported!\n",ELL_ERROR);/*
+        //if (ctx.Materials[m]->Material.MaterialType == -1)
+            //os::Printer::log("Loading OBJ Models with normal maps and tangents not supported!\n",ELL_ERROR);
+        //TODO ^^^^
+
+            /*
         {
             SMesh tmp;
             tmp.addMeshBuffer(ctx.Materials[m]->Meshbuffer);
@@ -599,16 +602,18 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
             os::Printer::log("Loading OBJ Models with normal maps not supported!\n",ELL_ERROR);
 #endif // _IRR_DEBUG
 			currMaterial->Material.setTexture(1, texture);
-			currMaterial->Material.MaterialType=(video::E_MATERIAL_TYPE)-1;
+            //TODO
+			//currMaterial->Material.MaterialType=(video::E_MATERIAL_TYPE)-1;
 			currMaterial->Material.MaterialTypeParam=0.035f;
 		}
 		else if (type==ETT_OPACITY_MAP)
 		{
 			currMaterial->Material.setTexture(0, texture);
-			currMaterial->Material.MaterialType=video::EMT_TRANSPARENT_ADD_COLOR;
+			//currMaterial->Material.MaterialType=video::EMT_TRANSPARENT_ADD_COLOR;
 		}
 		else if (type==ETT_REFLECTION_MAP)
 		{
+            //TODO
 //						currMaterial->Material.Textures[1] = texture;
 //						currMaterial->Material.MaterialType=video::EMT_REFLECTION_2_LAYER;
 		}
@@ -756,8 +761,9 @@ void COBJMeshFileLoader::readMTL(SContext& _ctx, const char* fileName, const io:
 				sscanf(dStr,"%f",&dValue);
 
 				currMaterial->Material.DiffuseColor.setAlpha( (int32_t)(dValue * 255) );
-				if (dValue<1.0f)
-					currMaterial->Material.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
+                //TODO
+				//if (dValue<1.0f)
+				//	currMaterial->Material.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
 			}
 			break;
 			case 'T':
@@ -782,8 +788,9 @@ void COBJMeshFileLoader::readMTL(SContext& _ctx, const char* fileName, const io:
 					float transparency = ( red+green+blue ) / 3;
 
 					currMaterial->Material.DiffuseColor.setAlpha( (int32_t)(transparency * 255) );
-					if (transparency < 1.0f)
-						currMaterial->Material.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
+                    //TODO
+					//if (transparency < 1.0f)
+					//	currMaterial->Material.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
 				}
 			}
 			break;

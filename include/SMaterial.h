@@ -5,6 +5,7 @@
 #ifndef __S_MATERIAL_H_INCLUDED__
 #define __S_MATERIAL_H_INCLUDED__
 
+#include <array>
 #include "vectorSIMD.h"
 #include "SColor.h"
 #include "EMaterialTypes.h"
@@ -12,6 +13,8 @@
 #include "SMaterialLayer.h"
 #include "irr/asset/ICPUTexture.h"
 #include "IVirtualTexture.h"
+#include "irr/asset/ICPUSpecializedShader.h"
+#include "irr/video/IGPUSpecializedShader.h"
 
 namespace irr
 {
@@ -115,13 +118,13 @@ namespace video
 
 #include "irr/irrpack.h"
 	//! Struct for holding parameters for a material renderer
-    template<typename TexT>
+    template<typename TexT, typename ShaderT>
 	class SMaterial
 	{
 	public:
 		//! Default constructor. Creates a solid, lit material with white colors
 		SMaterial()
-		: MaterialType(EMT_SOLID), AmbientColor(255,255,255,255), DiffuseColor(255,255,255,255),
+		:   Pipeline{{nullptr,nullptr,nullptr,nullptr,nullptr}}, AmbientColor(255,255,255,255), DiffuseColor(255,255,255,255),
 			EmissiveColor(0,0,0,0), SpecularColor(255,255,255,255),
 			Shininess(0.0f), MaterialTypeParam(0.0f), MaterialTypeParam2(0.0f), userData(NULL), Thickness(1.0f),
 			ZBuffer(ECFN_GREATEREQUAL),
@@ -131,20 +134,21 @@ namespace video
 
 		//! Copy constructor
 		/** \param other Material to copy from. */
-		SMaterial(const SMaterial<TexT>& other)
+		SMaterial(const SMaterial<TexT, ShaderT>& other)
 		{
 			*this = other;
 		}
 
 		//! Assignment operator
 		/** \param other Material to copy from. */
-		SMaterial<TexT>& operator=(const SMaterial<TexT>& other)
+		SMaterial<TexT,ShaderT>& operator=(const SMaterial<TexT, ShaderT>& other)
 		{
 			// Check for self-assignment!
 			if (this == &other)
 				return *this;
 
-			MaterialType = other.MaterialType;
+			//MaterialType = other.MaterialType;
+            Pipeline = other.Pipeline;
 
 			AmbientColor = other.AmbientColor;
 			DiffuseColor = other.DiffuseColor;
@@ -178,8 +182,11 @@ namespace video
 		//! Texture layer array.
 		SMaterialLayer<TexT> TextureLayer[MATERIAL_MAX_TEXTURES];
 
+        // TODO make it smart_refct_ptr<ShaderT> after merge of criss's fix
+        std::array<ShaderT*, 5u> Pipeline;
+
 		//! Type of the material. Specifies how everything is blended together
-		E_MATERIAL_TYPE MaterialType;
+		//E_MATERIAL_TYPE MaterialType;
 
 		//! How much ambient light (a global light) is reflected by this material.
 		/** The default is full white, meaning objects are completely
@@ -403,10 +410,10 @@ namespace video
 		//! Inequality operator
 		/** \param b Material to compare to.
 		\return True if the materials differ, else false. */
-		inline bool operator!=(const SMaterial<TexT>& b) const
+		inline bool operator!=(const SMaterial<TexT, ShaderT>& b) const
 		{
 			bool different =
-				MaterialType != b.MaterialType ||
+				Pipeline != b.Pipeline ||
 				AmbientColor != b.AmbientColor ||
 				DiffuseColor != b.DiffuseColor ||
 				EmissiveColor != b.EmissiveColor ||
@@ -437,21 +444,22 @@ namespace video
 		//! Equality operator
 		/** \param b Material to compare to.
 		\return True if the materials are equal, else false. */
-		inline bool operator==(const SMaterial<TexT>& b) const
+		inline bool operator==(const SMaterial<TexT, ShaderT>& b) const
 		{ return !(b!=*this); }
 
 		bool isTransparent() const
 		{
-			return MaterialType==EMT_TRANSPARENT_ADD_COLOR ||
-				MaterialType==EMT_TRANSPARENT_ALPHA_CHANNEL ||
-				MaterialType==EMT_TRANSPARENT_VERTEX_ALPHA;
+            //TODO ??????
+            return false;//MaterialType==EMT_TRANSPARENT_ADD_COLOR ||
+				//MaterialType==EMT_TRANSPARENT_ALPHA_CHANNEL ||
+				//MaterialType==EMT_TRANSPARENT_VERTEX_ALPHA;
 		}
 	} PACK_STRUCT;
 
 #include "irr/irrunpack.h"
 
-    using SGPUMaterial = SMaterial<IVirtualTexture>;
-    using SCPUMaterial = SMaterial<asset::ICPUTexture>;
+    using SGPUMaterial = SMaterial<IVirtualTexture, IGPUSpecializedShader>;
+    using SCPUMaterial = SMaterial<asset::ICPUTexture, asset::ICPUSpecializedShader>;
 
 	//! global const identity Material
 	IRRLICHT_API extern SGPUMaterial IdentityMaterial;

@@ -958,10 +958,13 @@ void CNullDriver::deleteMaterialRenders()
 //! Returns pointer to material renderer or null
 IMaterialRenderer* CNullDriver::getMaterialRenderer(uint32_t idx)
 {
-	if ( idx < MaterialRenderers.size() )
+    //TODO
+	/*if ( idx < MaterialRenderers.size() )
 		return MaterialRenderers[idx].Renderer;
 	else
 		return 0;
+        */
+    return nullptr;
 }
 
 
@@ -981,7 +984,7 @@ const char* CNullDriver::getMaterialRendererName(uint32_t idx) const
 	return 0;
 }
 
-
+/*
 //! Returns pointer to the IGPUProgrammingServices interface.
 IGPUProgrammingServices* CNullDriver::getGPUProgrammingServices()
 {
@@ -1266,6 +1269,7 @@ int32_t CNullDriver::addHighLevelShaderMaterialFromFiles(
 
 	return result;
 }
+*/
 
 void CNullDriver::addMultisampleTexture(IMultisampleTexture* tex)
 {

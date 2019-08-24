@@ -3,7 +3,10 @@
 #include "irr/asset/shadercUtils.h"
 #include "IFileSystem.h"
 #include "irr/asset/CIncludeHandler.h"
+#include "irr/asset/CGLSLScanBuiltinIncludeLoader.h"
+#include "irr/asset/CGLSLSkinningBuiltinIncludeLoader.h"
 #include "IReadFile.h"
+#include "os.h"
 #include <sstream>
 #include <regex>
 #include <iterator>
@@ -11,9 +14,16 @@
 namespace irr { namespace asset
 {
 
-IGLSLCompiler::IGLSLCompiler(const io::IFileSystem* _fs) : 
+IGLSLCompiler::IGLSLCompiler(io::IFileSystem* _fs) : 
     m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_fs)), m_fs(_fs)
-{}
+{
+    asset::IBuiltinIncludeLoader* builtinLdr = new asset::CGLSLScanBuiltinIncludeLoader();
+    m_inclHandler->addBuiltinIncludeLoader(builtinLdr);
+    builtinLdr->drop();
+    builtinLdr = new asset::CGLSLSkinningBuiltinIncludeLoader();
+    m_inclHandler->addBuiltinIncludeLoader(builtinLdr);
+    builtinLdr->drop();
+}
 
 ICPUShader* IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, std::string* _outAssembly) const
 {
@@ -196,7 +206,7 @@ ICPUShader* IGLSLCompiler::resolveIncludeDirectives(const char* _glslCode, E_SHA
     std::string glslCode = impl::disableAllDirectivesExceptIncludes(_glslCode);//all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
     shaderc::Compiler comp;
     shaderc::CompileOptions options;//default options
-    options.SetIncluder(std::make_unique<impl::Includer>(m_inclHandler, m_fs, _maxSelfInclusionCnt+1u));//custom #include handler
+    options.SetIncluder(std::make_unique<impl::Includer>(m_inclHandler.get(), m_fs, _maxSelfInclusionCnt+1u));//custom #include handler
     const shaderc_shader_kind stage = (_stage == ESS_UNKNOWN) ? shaderc_glsl_infer_from_source : ESStoShadercEnum(_stage);
     auto res = comp.PreprocessGlsl(glslCode, stage, _originFilepath, options);
 

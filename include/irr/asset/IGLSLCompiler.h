@@ -21,7 +21,7 @@ class IGLSLCompiler : public core::IReferenceCounted
     const io::IFileSystem* m_fs;
 
 public:
-    IGLSLCompiler(const io::IFileSystem* _fs);
+    IGLSLCompiler(io::IFileSystem* _fs);
 
     IIncludeHandler* getIncludeHandler() { return m_inclHandler.get(); }
     const IIncludeHandler* getIncludeHandler() const { return m_inclHandler.get(); }

@@ -446,7 +446,8 @@ void CBurningVideoDriver::setCurrentShader()
 	EBurningFFShader shader = zMaterialTest ? ETR_TEXTURE_GOURAUD : ETR_TEXTURE_GOURAUD_NOZ;
 
 	LightSpace.Flags &= ~VERTEXTRANSFORM;
-
+    //we're getting rid of software driver anyway..
+    /*
 	switch ( Material.org.MaterialType )
 	{
 		case EMT_TRANSPARENT_ALPHA_CHANNEL:
@@ -469,7 +470,7 @@ void CBurningVideoDriver::setCurrentShader()
 			break;
 
 	}
-
+    */
 	if ( !texture0 )
         shader = ETR_GOURAUD;
     else

@@ -8,6 +8,7 @@
 #ifndef _FW_MUTEX_H_
 #define _FW_MUTEX_H_
 
+#include "IrrCompileConfig.h"
 //#define FW_MUTEX_H_CXX11_IMPL
 
 #if defined(FW_MUTEX_H_CXX11_IMPL)

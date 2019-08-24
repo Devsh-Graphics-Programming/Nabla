@@ -261,22 +261,23 @@ namespace scene
 		struct DefaultNodeEntry
 		{
 				DefaultNodeEntry(ISceneNode* n) :
-					Node(n), renderPriority(0x80000000u), Material(video::EMT_SOLID)
+					Node(n), renderPriority(0x80000000u)//, Material(video::EMT_SOLID)
 				{
 					renderPriority = n->getRenderPriorityScore();
-					if (n->getMaterialCount())
-						Material = n->getMaterial(0).MaterialType;
+					//if (n->getMaterialCount())
+					//	Material = n->getMaterial(0).MaterialType;
 				}
 
 				bool operator < (const DefaultNodeEntry& other) const
 				{
-					return (renderPriority < other.renderPriority)||(renderPriority==other.renderPriority && Material<other.Material);
+                    //TODO ??
+					return (renderPriority < other.renderPriority)/*||(renderPriority==other.renderPriority && Material<other.Material)*/;
 				}
 
 				ISceneNode* Node;
 			private:
 				uint32_t renderPriority;
-				video::E_MATERIAL_TYPE Material;
+				//video::E_MATERIAL_TYPE Material;
 		};
 
 		//! sort on distance (center) to camera

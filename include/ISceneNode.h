@@ -273,10 +273,10 @@ namespace scene
 
 		//! Sets the material type of all materials in this scene node to a new material type.
 		/** \param newType New type of material to be set. */
-		void setMaterialType(video::E_MATERIAL_TYPE newType)
+		void setMaterialType(const std::array<video::IGPUSpecializedShader*,5u>& newType)
 		{
 			for (uint32_t i=0; i<getMaterialCount(); ++i)
-				getMaterial(i).MaterialType = newType;
+				getMaterial(i).Pipeline = newType;
 		}
 
 
