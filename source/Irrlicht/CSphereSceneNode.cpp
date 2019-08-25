@@ -86,25 +86,6 @@ uint32_t CSphereSceneNode::getMaterialCount() const
 	return 1;
 }
 
-//! Creates a clone of this scene node and its children.
-ISceneNode* CSphereSceneNode::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
-{
-	if (!newParent)
-		newParent = Parent;
-	if (!newManager)
-		newManager = SceneManager;
-
-	CSphereSceneNode* nb = new CSphereSceneNode(Radius, PolyCountX, PolyCountY, newParent,
-		newManager, ID, RelativeTranslation);
-
-	nb->cloneMembers(this, newManager);
-	nb->getMaterial(0) = Mesh->getMeshBuffer(0)->getMaterial();
-
-	if ( newParent )
-		nb->drop();
-	return nb;
-}
-
 } // end namespace scene
 } // end namespace irr
 

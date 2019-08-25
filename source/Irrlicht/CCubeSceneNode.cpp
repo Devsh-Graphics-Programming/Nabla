@@ -120,26 +120,6 @@ uint32_t CCubeSceneNode::getMaterialCount() const
 	return 1;
 }
 
-
-//! Creates a clone of this scene node and its children.
-ISceneNode* CCubeSceneNode::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
-{
-	if (!newParent)
-		newParent = Parent;
-	if (!newManager)
-		newManager = SceneManager;
-
-	CCubeSceneNode* nb = new CCubeSceneNode(Size, newParent,
-		newManager, ID, RelativeTranslation);
-
-	nb->cloneMembers(this, newManager);
-	nb->getMaterial(0) = getMaterial(0);
-
-	if ( newParent )
-		nb->drop();
-	return nb;
-}
-
 } // end namespace scene
 } // end namespace irr
 

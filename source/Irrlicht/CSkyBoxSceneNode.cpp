@@ -276,23 +276,6 @@ uint32_t CSkyBoxSceneNode::getMaterialCount() const
 	return 6;
 }
 
-
-//! Creates a clone of this scene node and its children.
-ISceneNode* CSkyBoxSceneNode::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
-{
-	if (!newParent) newParent = Parent;
-	if (!newManager) newManager = SceneManager;
-
-	CSkyBoxSceneNode* nb = new CSkyBoxSceneNode(this, newParent,
-		newManager, ID);
-
-	nb->cloneMembers(this, newManager);
-
-	if ( newParent )
-		nb->drop();
-	return nb;
-}
-
 } // end namespace scene
 } // end namespace irr
 

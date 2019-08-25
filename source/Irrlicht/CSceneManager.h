@@ -69,11 +69,11 @@ namespace scene
 
 		//! adds a scene node for rendering a static mesh
 		//! the returned pointer must not be dropped.
-		virtual IMeshSceneNode* addMeshSceneNode(video::IGPUMesh* mesh, IDummyTransformationSceneNode* parent=0, int32_t id=-1,
+		virtual IMeshSceneNode* addMeshSceneNode(core::smart_refctd_ptr<video::IGPUMesh>&& mesh, IDummyTransformationSceneNode* parent=0, int32_t id=-1,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f),
-			bool alsoAddIfMeshPointerZero=false);
+			bool alsoAddIfMeshPointerZero=false) override;
 
         //!
         virtual IMeshSceneNodeInstanced* addMeshSceneNodeInstanced(IDummyTransformationSceneNode* parent=0, int32_t id=-1,

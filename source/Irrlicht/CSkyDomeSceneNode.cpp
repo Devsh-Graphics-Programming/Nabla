@@ -248,22 +248,5 @@ uint32_t CSkyDomeSceneNode::getMaterialCount() const
 	return 1;
 }
 
-//! Creates a clone of this scene node and its children.
-ISceneNode* CSkyDomeSceneNode::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
-{
-	if (!newParent)
-		newParent = Parent;
-	if (!newManager)
-		newManager = SceneManager;
-
-	CSkyDomeSceneNode* nb = new CSkyDomeSceneNode(this, newParent, newManager, ID);
-
-	nb->cloneMembers(this, newManager);
-
-	if ( newParent )
-		nb->drop();
-	return nb;
-}
-
 } // namespace scene
 } // namespace irr

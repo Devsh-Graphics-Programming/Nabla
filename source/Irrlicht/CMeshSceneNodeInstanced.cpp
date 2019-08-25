@@ -580,30 +580,6 @@ void CMeshSceneNodeInstanced::render()
 }
 
 
-
-//! Creates a clone of this scene node and its children.
-ISceneNode* CMeshSceneNodeInstanced::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
-{
-	if (!newParent)
-		newParent = Parent;
-	if (!newManager)
-		newManager = SceneManager;
-
-    return NULL;
-/**
-	CMeshSceneNodeInstanced* nb = new CMeshSceneNodeInstanced(Mesh, newParent,
-		newManager, ID, RelativeTranslation, RelativeRotation, RelativeScale);
-
-	nb->cloneMembers(this, newManager);
-	nb->ReferencingMeshMaterials = ReferencingMeshMaterials;
-	nb->Materials = Materials;
-
-	if (newParent)
-		nb->drop();
-	return nb;**/
-}
-
-
 } // end namespace scene
 } // end namespace irr
 

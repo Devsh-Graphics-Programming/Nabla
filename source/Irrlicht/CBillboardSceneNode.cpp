@@ -205,28 +205,6 @@ void CBillboardSceneNode::setColor(const video::SColor& topColor,
 }
 
 
-
-//! Creates a clone of this scene node and its children.
-ISceneNode* CBillboardSceneNode::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
-{
-	if (!newParent)
-		newParent = Parent;
-	if (!newManager)
-		newManager = SceneManager;
-
-	CBillboardSceneNode* nb = new CBillboardSceneNode(newParent,
-		newManager, ID, RelativeTranslation, Size);
-
-	nb->cloneMembers(this, newManager);
-	nb->Material = Material;
-	nb->TopEdgeWidth = this->TopEdgeWidth;
-
-	if ( newParent )
-		nb->drop();
-	return nb;
-}
-
-
 } // end namespace scene
 } // end namespace irr
 

@@ -38,7 +38,7 @@ class CSkyDomeSceneNode : public ISceneNode
 		virtual uint32_t getMaterialCount() const;
 		virtual ESCENE_NODE_TYPE getType() const { return ESNT_SKY_DOME; }
 
-		virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0);
+		virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0) { assert(false); return nullptr; }
 
 	private:
 

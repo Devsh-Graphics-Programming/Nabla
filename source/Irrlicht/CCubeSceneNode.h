@@ -50,7 +50,7 @@ namespace scene
             virtual ESCENE_NODE_TYPE getType() const { return ESNT_CUBE; }
 
             //! Creates a clone of this scene node and its children.
-            virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0);
+            virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0) { assert(false); return nullptr; }
 
             //! Sets a new mesh to display
             virtual void setMesh(video::IGPUMesh* mesh) {}
