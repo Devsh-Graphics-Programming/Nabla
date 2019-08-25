@@ -125,36 +125,34 @@ int main()
     device->setEventReceiver(&receiver);
 
 
-    asset::ICPUMesh* cpumesh = device->getAssetManager().getGeometryCreator()->createCubeMesh();
+    asset::ICPUMesh* cpumesh = device->getAssetManager()->getGeometryCreator()->createCubeMesh();
     asset::IAssetLoader::SAssetLoadParams lparams;
-    asset::ICPUTexture* cputexture = static_cast<asset::ICPUTexture*>(device->getAssetManager().getAsset("../tex.jpg", lparams));
-    video::ITexture* texture = driver->getGPUObjectsFromAssets(&cputexture, (&cputexture)+1).front();
+    auto cputexture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*device->getAssetManager()->getAsset("../tex.jpg", lparams).getContents().first);
+    auto texture = driver->getGPUObjectsFromAssets(&cputexture.get(), (&cputexture.get())+1).front();
 
     const core::vector2d<uint32_t> dsFactor{ 1u, 1u };
     ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, device->getIncludeHandler(), 0.01f, dsFactor, 2u);
     receiver.blurPerf = blur;
 
-    video::ITexture* outputTex = blur->createOutputTexture(texture);
+    auto outputTex = blur->createOutputTexture(texture.get());
 
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
 
-    video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
-    video::SGPUMaterial& mutableMaterial = smgr->addMeshSceneNode(gpumesh)->getMaterial(0);
+    auto gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
+    video::SGPUMaterial& mutableMaterial = smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh))->getMaterial(0);
     mutableMaterial.MaterialType = static_cast<video::E_MATERIAL_TYPE>(newMaterialType);
     mutableMaterial.TextureLayer[0].Texture = outputTex;
-    gpumesh->drop();
 
     cpumesh->drop();
-    cpumesh = device->getAssetManager().getGeometryCreator()->createCubeMesh();
+    cpumesh = device->getAssetManager()->getGeometryCreator()->createCubeMesh();
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
 
     gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
-    video::SGPUMaterial& mat2 = smgr->addMeshSceneNode(gpumesh, nullptr, -1, vector3df(10.f, 0.f, 0.f))->getMaterial(0);
+    video::SGPUMaterial& mat2 = smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh), nullptr, -1, vector3df(10.f, 0.f, 0.f))->getMaterial(0);
     mat2.MaterialType = static_cast<video::E_MATERIAL_TYPE>(newMaterialType);
     mat2.TextureLayer[0].Texture = texture;
-    gpumesh->drop();
 
     uint64_t lastFPSTime = 0;
 
@@ -162,7 +160,7 @@ int main()
     {
         driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
 
-        blur->blurTexture(texture, outputTex);
+        blur->blurTexture(texture.get(), outputTex.get());
 
         smgr->drawAll();
 
@@ -204,7 +202,7 @@ int main()
     }
     asset::CImageData* img = new asset::CImageData(screenshot);
     asset::IAssetWriter::SAssetWriteParams wparams(img);
-    device->getAssetManager().writeAsset("screenshot.png", wparams);
+    device->getAssetManager()->writeAsset("screenshot.png", wparams);
     img->drop();
     screenshot->drop();
     device->sleep(3000);

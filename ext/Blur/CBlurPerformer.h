@@ -64,7 +64,7 @@ public:
     static CBlurPerformer* instantiate(video::IVideoDriver* _driver, const asset::IIncludeHandler* _inclhandler, float _radius, core::vector2d<uint32_t> _dsFactor, uint32_t _passesPerAxis = 2u,
                                        asset::E_FORMAT _outputColorFmt = asset::EF_R16G16B16A16_SFLOAT, video::IGPUBuffer* uboBuffer=nullptr, const size_t& uboOffset=0);
 
-    video::ITexture* createOutputTexture(video::ITexture* _inputTex);
+    core::smart_refctd_ptr<video::ITexture> createOutputTexture(video::ITexture* _inputTex);
 
     //! _inputTexture and _outputTexture can be the same texture.
     //! Output texture's color format must be video::ECF_A16B16G16R16F

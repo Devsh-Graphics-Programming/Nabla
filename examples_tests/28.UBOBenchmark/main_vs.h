@@ -45,7 +45,7 @@ int main()
 
     video::IVideoDriver* driver = device->getVideoDriver();
     uint32_t depthBufSz[]{ 64u, 64u };
-    video::ITexture* depthBuffer = driver->createGPUTexture(video::ITexture::ETT_2D, depthBufSz, 1, asset::EF_D32_SFLOAT);
+    auto depthBuffer = driver->createGPUTexture(video::ITexture::ETT_2D, depthBufSz, 1, asset::EF_D32_SFLOAT);
 
     video::E_MATERIAL_TYPE material[16];
     for (size_t i = 0u; i < 16u; ++i)
@@ -58,7 +58,7 @@ int main()
     }
 
     video::IGPUMeshBuffer* meshes[100];
-    video::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
+    auto desc = driver->createGPUMeshDataFormatDesc();
 
     video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
 #if ATTRIB_DIVISOR==0
@@ -73,8 +73,8 @@ int main()
     reqs.prefersDedicatedAllocation = true;
     reqs.requiresDedicatedAllocation = true;
 
-    auto attrBuf = driver->createGPUBufferOnDedMem(reqs,false);
-    desc->setVertexAttrBuffer(attrBuf, asset::EVAI_ATTR0, asset::EF_R32_SFLOAT, 0u, 0u, ATTRIB_DIVISOR); // map whatever buffer just to activate whatever vertex attribute (look below)
+    desc->setVertexAttrBuffer(	core::smart_refctd_ptr<video::IGPUBuffer>(driver->createGPUBufferOnDedMem(reqs, false),core::dont_grab), 
+								asset::EVAI_ATTR0, asset::EF_R32_SFLOAT, 0u, 0u, ATTRIB_DIVISOR); // map whatever buffer just to activate whatever vertex attribute (look below)
     {
         size_t triBudget = 1600000u; //1.6M
         for (size_t i = 0u; i < 100u; ++i)
@@ -89,10 +89,9 @@ int main()
                 meshes[i]->setIndexCount(3 * triCnt);
             triBudget -= (meshes[i]->getInstanceCount() * meshes[i]->getIndexCount())/3;
 
-            meshes[i]->setMeshDataAndFormat(desc); // apparently glDrawArrays does nothing if no vertex attribs are active
+            meshes[i]->setMeshDataAndFormat(core::smart_refctd_ptr(desc)); // apparently glDrawArrays does nothing if no vertex attribs are active
         }
     }
-    desc->drop();
 
     size_t batchSizes[16];
     memset(batchSizes, 0, sizeof(batchSizes));
@@ -183,7 +182,7 @@ int main()
     //GLint meshVao[100];
 
     video::IFrameBuffer* fbo = driver->addFrameBuffer();
-    fbo->attach(video::EFAP_DEPTH_ATTACHMENT, depthBuffer);
+    fbo->attach(video::EFAP_DEPTH_ATTACHMENT, std::move(depthBuffer));
 
     video::SGPUMaterial smaterial;
     smaterial.RasterizerDiscard = RASTERIZER_DISCARD;

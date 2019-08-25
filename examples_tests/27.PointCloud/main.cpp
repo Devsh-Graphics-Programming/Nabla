@@ -116,10 +116,9 @@ public:
 
                 gl::extGlUseProgram(prevProgram);
 
-                _mb->getMeshDataAndFormat()->setIndexBuffer(const_cast<video::IGPUBuffer*>(idxBuf));
+                _mb->getMeshDataAndFormat()->setIndexBuffer(std::move(idxBuf));
                 _mb->setIndexBufferOffset(0u);
                 _mb->setIndexType(asset::EIT_32BIT);
-                idxBuf->drop();
             }
             else idxBuf = const_cast<video::IGPUBuffer*>(_mb->getMeshDataAndFormat()->getIndexBuffer());
 
@@ -239,14 +238,13 @@ public:
             pos.push_back(v);
 
         const size_t idxCount = pos.size();
-        asset::ICPUBuffer* idxBuf = new asset::ICPUBuffer(4 * idxCount);
+        auto idxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*idxCount);
         uint32_t* indices = (uint32_t*)idxBuf->getPointer();
         for (uint32_t i = 0u; i < idxCount; ++i)
             indices[i] = i;
 
 
-        desc->setIndexBuffer(idxBuf);
-        idxBuf->drop();
+        desc->setIndexBuffer(std::move(idxBuf));
         _mb->setIndexCount(idxCount);
         _mb->setIndexBufferOffset(0u);
         _mb->setPrimitiveType(asset::EPT_POINTS);
@@ -459,39 +457,40 @@ public:
         m_startIdx{0u},
         m_wgCount{}
     {}
-    void init(asset::ICPUMeshBuffer* _mb) override
-    {
-        asset::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = _mb->getMeshDataAndFormat();
-        std::vector<core::vectorSIMDf> pos;
-        vectorSIMDf v;
-        size_t ix{};
-        while (_mb->getAttribute(v, _mb->getPositionAttributeIx(), ix++))
-            pos.push_back(v);
+	void init(asset::ICPUMeshBuffer* _mb) override
+	{
+		asset::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = _mb->getMeshDataAndFormat();
+		std::vector<core::vectorSIMDf> pos;
+		vectorSIMDf v;
+		size_t ix{};
+		while (_mb->getAttribute(v, _mb->getPositionAttributeIx(), ix++))
+			pos.push_back(v);
 
-        auto upStrBuf = m_driver->getDefaultUpStreamingBuffer();
-        uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
-        uint32_t size = pos.size() * sizeof(v);
-        m_posBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
-        while (offset == video::StreamingTransientDataBufferMT<>::invalid_address)
-        {
-            uint32_t alignment = 4u;
-            const void* data = pos.data();
-            upStrBuf->multi_place(std::chrono::seconds(1u), 1u, &data, &offset, &size, &alignment);
-        }
-        if (upStrBuf->needsManualFlushOrInvalidate())
-            m_driver->flushMappedMemoryRanges({ {upStrBuf->getBuffer()->getBoundMemory(),offset,size} });
-        m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf, offset, 0, size);
-        upStrBuf->multi_free(1u, &offset, &size, m_driver->placeFence());
+		auto upStrBuf = m_driver->getDefaultUpStreamingBuffer();
+		uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
+		uint32_t size = pos.size() * sizeof(v);
+		m_posBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
+		while (offset == video::StreamingTransientDataBufferMT<>::invalid_address)
+		{
+			uint32_t alignment = 4u;
+			const void* data = pos.data();
+			upStrBuf->multi_place(std::chrono::seconds(1u), 1u, &data, &offset, &size, &alignment);
+		}
+		if (upStrBuf->needsManualFlushOrInvalidate())
+			m_driver->flushMappedMemoryRanges({ {upStrBuf->getBuffer()->getBoundMemory(),offset,size} });
+		m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf, offset, 0, size);
+		upStrBuf->multi_free(1u, &offset, &size, m_driver->placeFence());
 
-        m_ubo = m_driver->createDeviceLocalGPUBufferOnDedMem(s_uboSize);
+		m_ubo = m_driver->createDeviceLocalGPUBufferOnDedMem(s_uboSize);
 
-        asset::ICPUBuffer* idxBuf = new asset::ICPUBuffer(4 * pos.size());
-        uint32_t* indices = (uint32_t*)idxBuf->getPointer();
-        for (uint32_t i = 0u; i < pos.size(); ++i)
-            indices[i] = i;
+		{
+			auto idxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*pos.size());
+			uint32_t* indices = (uint32_t*)idxBuf->getPointer();
+			for (uint32_t i = 0u; i < pos.size(); ++i)
+				indices[i] = i;
 
-        desc->setIndexBuffer(idxBuf);
-        idxBuf->drop();
+			desc->setIndexBuffer(std::move(idxBuf));
+		}
         _mb->setIndexCount(pos.size());
         _mb->setIndexBufferOffset(0u);
         _mb->setPrimitiveType(asset::EPT_POINTS);
@@ -629,14 +628,15 @@ public:
         m_ubo = m_driver->createDeviceLocalGPUBufferOnDedMem(s_uboSize);
 
         const size_t idxCount = 1u << ((size_t)std::ceil(std::log2((double)pos.size())));
-        asset::ICPUBuffer* idxBuf = new asset::ICPUBuffer(4 * idxCount);
-        uint32_t* indices = (uint32_t*)idxBuf->getPointer();
-        memset(indices, 0, (idxCount - pos.size()) * 4);
-        for (uint32_t i = idxCount - pos.size(); i < idxCount; ++i)
-            indices[i] = i - (idxCount - pos.size());
+		{
+			auto idxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*idxCount);
+			uint32_t* indices = (uint32_t*)idxBuf->getPointer();
+			memset(indices, 0, (idxCount - pos.size()) * 4);
+			for (uint32_t i = idxCount - pos.size(); i < idxCount; ++i)
+				indices[i] = i - (idxCount - pos.size());
 
-        desc->setIndexBuffer(idxBuf);
-        idxBuf->drop();
+			desc->setIndexBuffer(std:move(idxBuf));
+		}
         _mb->setIndexCount(idxCount);
         _mb->setIndexBufferOffset(0u);
         _mb->setPrimitiveType(asset::EPT_POINTS);
@@ -809,17 +809,17 @@ int main()
     device->setEventReceiver(&receiver);
 
     asset::IAssetLoader::SAssetLoadParams lparams;
-    asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/cow.obj", lparams));
+    asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager()->getAsset("../../media/cow.obj", lparams));
     ISorter* sorter =
         //new RadixSorter(driver);
         new ProgressiveSorter(driver);
         //new BitonicSorter(driver);
     sorter->init(cpumesh->getMeshBuffer(0));
-    video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
+    auto gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
     sorter->setIndexBuffer(gpumesh->getMeshBuffer(0));
     printf("IDX_TYPE %d\n", gpumesh->getMeshBuffer(0)->getIndexType());
-    smgr->addMeshSceneNode(gpumesh, 0, -1, core::vector3df(), core::vector3df(), core::vector3df(4.f))->setMaterialType(newMaterialType);
-    gpumesh->drop();
+    smgr->addMeshSceneNode(std::move(gpumesh), 0, -1, core::vector3df(), core::vector3df(), core::vector3df(4.f))->setMaterialType(newMaterialType);
+ 
 
     uint64_t lastFPSTime = 0;
 
@@ -868,7 +868,7 @@ int main()
     }
     asset::CImageData* img = new asset::CImageData(screenshot);
     asset::IAssetWriter::SAssetWriteParams wparams(img);
-    device->getAssetManager().writeAsset("screenshot.png", wparams);
+    device->getAssetManager()->writeAsset("screenshot.png", wparams);
     img->drop();
     screenshot->drop();
     device->sleep(3000);

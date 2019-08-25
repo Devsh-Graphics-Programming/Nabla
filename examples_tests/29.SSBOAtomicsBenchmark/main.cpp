@@ -311,7 +311,7 @@ int main()
     {
         printf("Benchmarking Pixel %d %d %d\n",method,texSize[0],texSize[1]);
 
-        video::ITexture* depthBuffer = driver->createGPUTexture(video::ITexture::ETT_2D,texSize,1,asset::EF_D32_SFLOAT);
+        auto depthBuffer = driver->createGPUTexture(video::ITexture::ETT_2D,texSize,1,asset::EF_D32_SFLOAT);
 
 
         video::IGPUMeshBuffer* screenQuadMeshBuffer = new video::IGPUMeshBuffer();
@@ -379,7 +379,7 @@ int main()
 		driver->beginScene( false,false );
 		{
             video::IFrameBuffer* fbo = driver->addFrameBuffer();
-            fbo->attach(video::EFAP_DEPTH_ATTACHMENT,depthBuffer);
+            fbo->attach(video::EFAP_DEPTH_ATTACHMENT,std::move(depthBuffer));
             driver->setRenderTarget(fbo,true);
             fbo->drop();
         }

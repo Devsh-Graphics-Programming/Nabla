@@ -226,14 +226,14 @@ int main()
 #endif // OPENGL_DEBUG
 
 	//upload screendump to a texture
-	video::ITexture* hdrTex = driver->createGPUTexture(video::ITexture::ETT_2D,&params.WindowSize.Width,1,asset::EF_R16G16B16A16_SFLOAT);
+	auto hdrTex = driver->createGPUTexture(video::ITexture::ETT_2D,&params.WindowSize.Width,1,asset::EF_R16G16B16A16_SFLOAT);
 	uint32_t zeroArray[3] = {0,0,0};
 	uint32_t subSize[3] = {dynamicResolutionSize.Width,dynamicResolutionSize.Height,1};
 	hdrTex->updateSubRegion(asset::EF_R16G16B16A16_SFLOAT,tmpLoadingMem,zeroArray,subSize);
 	free(tmpLoadingMem);
 
 
-    video::IGPUMeshBuffer* fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(driver);
+    auto fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(driver);
 
     video::SGPUMaterial postProcMaterial;
     //! First need to make a material other than default to be able to draw with custom shader
@@ -244,7 +244,7 @@ int main()
                                                                         "","","", //! No Geometry or Tessellation Shaders
                                                                         "../postproc.frag",
                                                                         3,video::EMT_SOLID); //! 3 vertices per primitive (this is tessellation shader relevant only)
-    postProcMaterial.setTexture(0,hdrTex);
+    postProcMaterial.setTexture(0,core::smart_refctd_ptr(hdrTex));
 
 
 
@@ -271,7 +271,7 @@ int main()
 		driver->beginScene( false,false );
 
 
-        toneMapper->CalculateFrameExposureFactors(frameUniformBuffer,frameUniformBuffer,hdrTex);
+        toneMapper->CalculateFrameExposureFactors(frameUniformBuffer,frameUniformBuffer,hdrTex.get());
 
 
         const video::COpenGLDriver::SAuxContext* foundConst = static_cast<video::COpenGLDriver*>(driver)->getThreadContext();
@@ -284,7 +284,7 @@ int main()
             found->setActiveUBO(0,1,buffers,offsets,sizes);
         }
         driver->setMaterial(postProcMaterial);
-        driver->drawMeshBuffer(fullScreenTriangle);
+        driver->drawMeshBuffer(fullScreenTriangle.get());
 
 		driver->endScene();
 
@@ -301,8 +301,6 @@ int main()
 	}
 
 	toneMapper->drop();
-	fullScreenTriangle->drop();
-
 
     //create a screenshot
 	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
@@ -327,7 +325,7 @@ int main()
     }
     asset::CImageData* img = new asset::CImageData(screenshot);
     asset::IAssetWriter::SAssetWriteParams wparams(img);
-    device->getAssetManager().writeAsset("screenshot.png", wparams);
+    device->getAssetManager()->writeAsset("screenshot.png", wparams);
     img->drop();
     screenshot->drop();
 
