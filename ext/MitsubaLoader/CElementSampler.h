@@ -9,7 +9,7 @@ namespace irr { namespace ext { namespace MitsubaLoader {
 enum class ESamplerType
 {
 	NONE,
-	INDEPENDEND,
+	INDEPENDENT,
 	STRATIFIED,
 	LDSAMPLER,
 	HALTON,

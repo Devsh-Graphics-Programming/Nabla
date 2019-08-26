@@ -7,7 +7,7 @@ namespace irr { namespace ext { namespace MitsubaLoader {
 bool CElementSampler::processAttributes(const char** _atts)
 {
 	static const core::unordered_map<std::string, ESamplerType> acceptableTypes = {
-		std::make_pair("independed", ESamplerType::INDEPENDEND),
+		std::make_pair("independent", ESamplerType::INDEPENDENT),
 		std::make_pair("stratified", ESamplerType::STRATIFIED),
 		std::make_pair("ldsampler", ESamplerType::LDSAMPLER),
 		std::make_pair("halton", ESamplerType::HALTON),
@@ -83,7 +83,7 @@ bool CElementSampler::onEndTag(asset::IAssetManager& _assetManager)
 		_IRR_DEBUG_BREAK_IF(true);
 		return false;
 	}
-	case ESamplerType::INDEPENDEND:
+	case ESamplerType::INDEPENDENT:
 	{
 		if (dimensionSet || scrambleSet)
 		{

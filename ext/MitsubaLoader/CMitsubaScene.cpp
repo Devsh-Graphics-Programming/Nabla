@@ -55,8 +55,7 @@ bool CMitsubaScene::processChildData(IElement* _child)
 	}
 	default:
 		ParserLog::invalidXMLFileStructure(_child->getLogName() + " is not a child element of the scene element");
-		_IRR_DEBUG_BREAK_IF(true);
-		return false;
+		return true;
 	}
 
 	return true;

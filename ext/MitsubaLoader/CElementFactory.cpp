@@ -7,6 +7,7 @@
 #include "../../ext/MitsubaLoader/IElement.h"
 #include "../../ext/MitsubaLoader/CElementTransform.h"
 #include "../../ext/MitsubaLoader/CElementSampler.h"
+#include "../../ext/MitsubaLoader/CElementFilm.h"
 #include "../../ext/MitsubaLoader/CShapeCreator.h"
 #include "../../ext/MitsubaLoader/Shape.h"
 
@@ -37,6 +38,7 @@ IElement* CElementFactory::createElement(const char* _el, const char** _atts)
 		if (!transform->processAttributes(_atts))
 		{
 			delete transform;
+			_IRR_DEBUG_BREAK_IF(true);
 			return nullptr;
 		}
 
@@ -50,10 +52,25 @@ IElement* CElementFactory::createElement(const char* _el, const char** _atts)
 		if (!sampler->processAttributes(_atts))
 		{
 			delete sampler;
+			_IRR_DEBUG_BREAK_IF(true);
 			return nullptr;
 		}
 
 		return sampler;
+	}
+	else
+	if (!std::strcmp(_el, "film"))
+	{
+		CElementFilm* film = new CElementFilm();
+
+		if (!film->processAttributes(_atts))
+		{
+			delete film;
+			_IRR_DEBUG_BREAK_IF(true);
+			return nullptr;
+		}
+
+		return film;
 	}
 	else
 	{
