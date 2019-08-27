@@ -104,12 +104,10 @@ set(IRRLICHT_SRCS_COMMON
 # Scene objects
 	CBillboardSceneNode.cpp
 	CCameraSceneNode.cpp
-	CCubeSceneNode.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CGeometryCreator.cpp
 	CSceneManager.cpp
 	CSkyBoxSceneNode.cpp
 	CSkyDomeSceneNode.cpp
-	CSphereSceneNode.cpp
 
 # Animators
 	CSceneNodeAnimatorCameraFPS.cpp

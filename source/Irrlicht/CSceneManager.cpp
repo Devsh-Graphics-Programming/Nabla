@@ -18,8 +18,6 @@
 #include "irr/video/CGPUSkinnedMesh.h"
 
 #include "CBillboardSceneNode.h"
-#include "CCubeSceneNode.h"
-#include "CSphereSceneNode.h"
 #include "CCameraSceneNode.h"
 #include "CMeshSceneNode.h"
 #include "CMeshSceneNodeInstanced.h"
@@ -34,8 +32,6 @@
 #include "CSceneNodeAnimatorCameraFPS.h"
 #include "CSceneNodeAnimatorCameraMaya.h"
 #include "CSceneNodeAnimatorCameraModifiedMaya.h"
-
-#include "irr/asset/CGeometryCreator.h"
 
 namespace irr
 {
@@ -247,10 +243,12 @@ IMeshSceneNode* CSceneManager::addCubeSceneNode(float size, IDummyTransformation
 	if (!parent)
 		parent = this;
 
-	IMeshSceneNode* node = new CCubeSceneNode(size, parent, this, id, position, rotation, scale);
-	node->drop();
+	auto* geomCreator = Device->getAssetManager()->getGeometryCreator();
+	asset::ICPUMesh* cpumesh = geomCreator->createCubeMesh(core::vector3df(size));
+	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1);
+	assert(res.size());
 
-	return node;
+	return addMeshSceneNode(std::move(res.front()),parent,id,position,rotation,scale);
 }
 
 
@@ -262,10 +260,12 @@ IMeshSceneNode* CSceneManager::addSphereSceneNode(float radius, int32_t polyCoun
 	if (!parent)
 		parent = this;
 
-	IMeshSceneNode* node = new CSphereSceneNode(radius, polyCount, polyCount, parent, this, id, position, rotation, scale);
-	node->drop();
+	auto* geomCreator = Device->getAssetManager()->getGeometryCreator();
+	asset::ICPUMesh* cpumesh = geomCreator->createSphereMesh(radius, polyCount, polyCount);
+	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1);
+	assert(res.size());
 
-	return node;
+	return addMeshSceneNode(std::move(res.front()), parent, id, position, rotation, scale);
 }
 
 //! adds a scene node for rendering a static mesh

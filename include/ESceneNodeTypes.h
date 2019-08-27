@@ -21,12 +21,6 @@ namespace scene
 		//! of type CSceneManager (note that ISceneManager is not(!) an ISceneNode)
 		ESNT_SCENE_MANAGER	= MAKE_IRR_ID('s','m','n','g'),
 
-		//! simple cube scene node
-		ESNT_CUBE           = MAKE_IRR_ID('c','u','b','e'), //die
-
-		//! Sphere scene node
-		ESNT_SPHERE         = MAKE_IRR_ID('s','p','h','r'), //die
-
 		//! Sky Box Scene Node
 		ESNT_SKY_BOX        = MAKE_IRR_ID('s','k','y','_'),
 
