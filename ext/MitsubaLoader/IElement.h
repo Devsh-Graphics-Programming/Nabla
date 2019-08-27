@@ -19,6 +19,8 @@ public:
 		NONE,
 		SCENE,
 		SAMPLER,
+		FILM,
+		SENSOR,
 
 		//shapes
 		SHAPE,

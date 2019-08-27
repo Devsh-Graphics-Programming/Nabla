@@ -77,13 +77,54 @@ struct SFilmMetadata
 		{
 		case EFilmType::HDR_FILM:
 			hdrFilmData = other.hdrFilmData;
+			break;
+
 		case EFilmType::TILED_HDR_FILM:
 			tiledHdrFilmData = other.tiledHdrFilmData;
+			break;
+
 		case EFilmType::LDR_FILM:
 			ldrFilmData = other.ldrFilmData;
+			break;
+
 		case EFilmType::M_FILM:
 			mFilmData = other.mFilmData;
+			break;
 		}
+	}
+
+	SFilmMetadata& operator=(const SFilmMetadata& other)
+	{
+		type = other.type;
+		width = other.width; 
+		height = other.height;
+		isCropUsed = other.isCropUsed;
+		cropOffsetX = other.cropOffsetX; 
+		cropOffsetY = other.cropOffsetY;
+		cropWidth = other.cropWidth; 
+		cropHeight = other.cropHeight; 
+		pixelFormat = other.pixelFormat;
+
+		switch (other.type)
+		{
+		case EFilmType::HDR_FILM:
+			hdrFilmData = other.hdrFilmData;
+			break;
+
+		case EFilmType::TILED_HDR_FILM:
+			tiledHdrFilmData = other.tiledHdrFilmData;
+			break;
+
+		case EFilmType::LDR_FILM:
+			ldrFilmData = other.ldrFilmData;
+			break;
+
+		case EFilmType::M_FILM:
+			mFilmData = other.mFilmData;
+			break;
+		}
+
+		return *this;
 	}
 
 	~SFilmMetadata()
@@ -151,8 +192,8 @@ class CElementFilm : public IElement
 public:
 	virtual bool processAttributes(const char** _atts) override;
 	virtual bool onEndTag(asset::IAssetManager& _assetManager) override;
-	virtual IElement::Type getType() const override { return IElement::Type::SAMPLER; }
-	virtual std::string getLogName() const override { return "sampler"; }
+	virtual IElement::Type getType() const override { return IElement::Type::FILM; }
+	virtual std::string getLogName() const override { return "film"; }
 
 	SFilmMetadata getMetadata() const { return data; };
 

@@ -115,7 +115,11 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 	result.value = findStandardValue(_atts, errorOccurred);
 
 	if (errorOccurred)
+	{
+		_IRR_DEBUG_BREAK_IF(true);
 		return std::make_pair(false, SPropertyElementData());
+	}
+		
 
 	return std::make_pair(true, result);		
 }

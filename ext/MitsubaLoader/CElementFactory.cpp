@@ -6,6 +6,7 @@
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 #include "../../ext/MitsubaLoader/IElement.h"
 #include "../../ext/MitsubaLoader/CElementTransform.h"
+#include "../../ext/MitsubaLoader/CElementSensor.h"
 #include "../../ext/MitsubaLoader/CElementSampler.h"
 #include "../../ext/MitsubaLoader/CElementFilm.h"
 #include "../../ext/MitsubaLoader/CShapeCreator.h"
@@ -43,6 +44,20 @@ IElement* CElementFactory::createElement(const char* _el, const char** _atts)
 		}
 
 		return transform;
+	}
+	else
+	if (!std::strcmp(_el, "sensor"))
+	{
+		CElementSensor* sensor = new CElementSensor();
+
+		if (!sensor->processAttributes(_atts))
+		{
+			delete sensor;
+			_IRR_DEBUG_BREAK_IF(true);
+			return nullptr;
+		}
+
+		return sensor;
 	}
 	else
 	if (!std::strcmp(_el, "sampler"))
