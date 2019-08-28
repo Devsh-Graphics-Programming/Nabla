@@ -59,8 +59,8 @@ bool COpenGLCubemapTexture::updateSubRegion(const asset::E_FORMAT &inDataColorFo
 
     if (sourceCompressed)
     {
-        size_t levelByteSize = (maximum[2]-minimum[2]);
-        levelByteSize *= (((maximum[0]-minimum[0]+3)&0xfffffc)*((maximum[1]-minimum[1]+3)&0xfffffc)*COpenGLTexture::getOpenGLFormatBpp(InternalFormat))/8;
+		// should really use blockk size querying functions to round up properly and not assume 4x4
+		size_t levelByteSize = (((maximum[0] - minimum[0] + 3) & 0xfffffc) * ((maximum[1] - minimum[1] + 3) & 0xfffffc) * asset::getBytesPerPixel(ColorFormat)).getIntegerApprox();
 
         COpenGLExtensionHandler::extGlCompressedTextureSubImage3D(TextureName,GL_TEXTURE_CUBE_MAP, mipmap, minimum[0],minimum[1],minimum[2], maximum[0]-minimum[0],maximum[1]-minimum[1],maximum[2]-minimum[2], InternalFormat, levelByteSize, data);
     }

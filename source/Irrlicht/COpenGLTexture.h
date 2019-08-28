@@ -45,9 +45,6 @@ public:
 	//!
 	static asset::E_FORMAT getColorFormatFromSizedOpenGLFormat(const GLenum& sizedFormat);
 
-	//! Get the OpenGL color format parameters based on the given Irrlicht color format
-	static uint32_t getOpenGLFormatBpp(const GLenum& colorformat);
-
 protected:
 	//! protected constructor with basic setup, no GL texture name created, for derived classes
 	COpenGLTexture(const GLenum& textureType_Target);

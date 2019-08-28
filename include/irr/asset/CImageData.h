@@ -78,7 +78,7 @@ class CImageData : public asset::IAsset
         }
 
     public:
-        CImageData(const void* inData, uint32_t inMinCoord[3], uint32_t inMaxCoord[3],
+        CImageData(const void* inData, const uint32_t inMinCoord[3], const uint32_t inMaxCoord[3],
                    const uint32_t& inMipLevel, const asset::E_FORMAT& inFmt,
                    const uint32_t& inUnpackLineAlignment=1)
         {
