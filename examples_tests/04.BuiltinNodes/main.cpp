@@ -155,7 +155,7 @@ int main()
 			lastFPSTime = time;
 		}
 	}
-
+/*
     //create a screenshot
 	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
     glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
@@ -182,7 +182,7 @@ int main()
     img->drop();
     screenshot->drop();
 	device->sleep(3000);
-
+*/
 	device->drop();
 
 	return 0;

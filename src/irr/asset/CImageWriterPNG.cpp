@@ -157,7 +157,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	core::vector3d<uint32_t> dim = image->getSize();
 	
 	// Write in reverse order because the texture is flipped to match OpenGL coords
-	data += (dim.X * dim.Y * (image->getBitsPerPixel() / 8)) - lineWidth;
+	data += (dim.Y * image->getPitchIncludingAlignment()) - lineWidth;
 	
 	// Create array of pointers to rows in image data
 	uint8_t** RowPointers = new png_bytep[dim.Y];

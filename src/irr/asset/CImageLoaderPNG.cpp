@@ -242,7 +242,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 
 	// Fill array of pointers to rows in image data
 	const uint32_t pitch = image->getPitchIncludingAlignment();
-	uint8_t* data = reinterpret_cast<uint8_t*>(image->getData()) + (image->getSize().X * image->getSize().Y * (image->getBitsPerPixel() / 8)) - pitch;
+	uint8_t* data = reinterpret_cast<uint8_t*>(image->getData()) + (image->getPitchIncludingAlignment() * image->getSize().Y) - pitch;
 	for (uint32_t i=0; i<Height; ++i)
 	{
 		RowPointers[i] = (png_bytep)data;

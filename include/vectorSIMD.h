@@ -296,6 +296,9 @@ namespace core
 		inline vectorSIMDf(const vectorSIMDi16& other);
 **/
 
+		inline T& operator[](size_t ix) { return pointer[ix]; }
+		inline const T& operator[](size_t ix) const { return pointer[ix]; }
+
 		inline vectorSIMD_32<T>& operator=(const vectorSIMD_32<T>& other) { _mm_store_si128((__m128i*)pointer,other.getAsRegister()); return *this; }
 
 		// operators against vectors
@@ -305,19 +308,31 @@ namespace core
         }
 
 		inline vectorSIMD_32<T> operator+(const vectorSIMD_32<T>& other) const { return _mm_add_epi32(other.getAsRegister(),Base::getAsRegister()); }
-		inline vectorSIMD_32<T>& operator+=(const vectorSIMD_32<T>& other) { _mm_store_si128(pointer,_mm_add_epi32(other.getAsRegister(),Base::getAsRegister())); return *this; }
+		inline vectorSIMD_32<T>& operator+=(const vectorSIMD_32<T>& other) { return operator=(operator+(other)); }
 
 		inline vectorSIMD_32<T> operator-(const vectorSIMD_32<T>& other) const { return _mm_sub_epi32(Base::getAsRegister(),other.getAsRegister()); }
-		inline vectorSIMD_32<T>& operator-=(const vectorSIMD_32<T>& other) { _mm_store_si128(pointer,_mm_sub_epi32(Base::getAsRegister(),other.getAsRegister())); return *this; }
-/*
-		inline vectorSIMDf operator*(const vectorSIMDf& other) const { return _mm_mul_(getAsRegister(),other.getAsRegister()); }
-		inline vectorSIMD_32<T> operator*(const vectorSIMD_32<T>& other) const { return _mm_mul_ps(getAsRegister(),other.getAsRegister()); }
-		inline vectorSIMD_32<T>& operator*=(const vectorSIMD_32<T>& other) { _mm_store_si128(pointer,_mm_mul_ps(getAsRegister(),other.getAsRegister())); return *this; }
+		inline vectorSIMD_32<T>& operator-=(const vectorSIMD_32<T>& other) { return operator=(operator-(other)); }
 
-		inline vectorSIMDf operator/(const vectorSIMDf& other) const { return preciseDivision(other); }
-		inline vectorSIMD_32<T> operator/(const vectorSIMD_32<T>& other) const { return preciseDivision(other); }
-		inline vectorSIMD_32<T>& operator/=(const vectorSIMD_32<T>& other) { (*this) = preciseDivision(other); return *this; }
-*/
+		// TODO: these are messed up (they care about past the vector)
+		inline vectorSIMD_32<T> operator*(const vectorSIMD_32<T>& other) const
+		{
+			// TODO: do something nicer and faster like https://github.com/vectorclass
+			return vectorSIMD_32<T>(x * other.x, y * other.y, z * other.z, w * other.w);
+		}
+		inline vectorSIMD_32<T>& operator*=(const vectorSIMD_32<T>& other)
+		{
+			return operator=(operator*(other));
+		}
+
+		inline vectorSIMD_32<T> operator/(const vectorSIMD_32<T>& other) const
+		{
+			// TODO: do something nicer and faster like https://github.com/vectorclass
+			return vectorSIMD_32<T>(x / other.x, y / other.y, z / other.z, w / other.w);
+		}
+		inline vectorSIMD_32<T>& operator/=(const vectorSIMD_32<T>& other)
+		{
+			return operator=(operator/(other));
+		}
 
 		//operators against scalars
 		inline vectorSIMD_32<T>  operator+(T val) const { return (*this)+vectorSIMD_32<T>(val); }
@@ -325,14 +340,15 @@ namespace core
 
 		inline vectorSIMD_32<T> operator-(T val) const { return (*this)-vectorSIMD_32<T>(val); }
 		inline vectorSIMD_32<T>& operator-=(T val) { return ( (*this) -= vectorSIMD_32<T>(val) ); }
-/*
+
+		// TODO: these are messed up (they care about past the vector)
 		inline vectorSIMD_32<T>  operator*(T val) const { return (*this)*vectorSIMD_32<T>(val); }
 		inline vectorSIMD_32<T>& operator*=(T val) { return ( (*this) *= vectorSIMD_32<T>(val) ); }
 
-		inline vectorSIMD_32<T> operator/(T val) const { return vectorSIMDf(_mm_div_ps(getAsRegister(),_mm_load_ps1(&v))); }
-		inline vectorSIMD_32<T>& operator/=(T val) { _mm_store_ps(pointer,_mm_div_ps(getAsRegister(),_mm_load_ps1(&v))); return *this; }
+		inline vectorSIMD_32<T> operator/(T val) const { return operator/(vectorSIMD_32<T>(val)); }
+		inline vectorSIMD_32<T>& operator/=(T val) { return operator/=(vectorSIMD_32<T>(val)); }
 
-
+/*
 		//! I AM BREAKING IRRLICHT'S COMPARISON OPERATORS
 		inline vector4db_SIMD operator<=(const vectorSIMDf& other) const
 		{
@@ -350,17 +366,15 @@ namespace core
 		{
 		    return _mm_cmpgt_ps(getAsRegister(),other.getAsRegister());
 		}
-
-		//! only the method that returns bool confirms if two vectors are exactly the same
-		inline vectorSIMDf operator==(const vectorSIMDf& other) const
-		{
-			return _mm_cmpeq_ps(getAsRegister(),other.getAsRegister());
-		}
-		inline vectorSIMDf operator!=(const vectorSIMDf& other) const
-		{
-			return _mm_cmpneq_ps(getAsRegister(),other.getAsRegister());
-		}
 */
+		inline vector4db_SIMD operator==(const vectorSIMD_32<T>& other) const
+		{
+			return vector4db_SIMD(_mm_cmpeq_epi32(getAsRegister(),other.getAsRegister()));
+		}
+		inline vector4db_SIMD operator!=(const vectorSIMD_32<T>& other) const
+		{
+			return !operator==(other);
+		}
 
 
 		// functions

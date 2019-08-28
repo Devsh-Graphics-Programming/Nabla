@@ -105,10 +105,10 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 		return false;
 
 	// size of one pixel in bits
-	uint32_t pixel_size_bits = image->getBitsPerPixel();
+	uint32_t pixel_size_bits = image->getBytesPerPixel().getIntegerApprox();
 
 	// length of one row of the source image in bytes
-	uint32_t row_stride = (pixel_size_bits * imageHeader.ImageWidth)/8;
+	uint32_t row_stride = (pixel_size_bits * imageHeader.ImageWidth);
 
 	// length of one output row in bytes
 	int32_t row_size = ((imageHeader.PixelDepth / 8) * imageHeader.ImageWidth);

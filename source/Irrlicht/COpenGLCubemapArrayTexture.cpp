@@ -74,9 +74,8 @@ bool COpenGLCubemapArrayTexture::updateSubRegion(const asset::E_FORMAT &inDataCo
         ///COpenGLExtensionHandler::extGlGetInternalFormativ(GL_TEXTURE_2D,InternalFormat,GL_TEXTURE_IMAGE_FORMAT,1,&pixType);
 
 
-        //! we're going to have problems with uploading lower mip levels
-        uint32_t bpp = video::getBitsPerPixelFromFormat(inDataColorFormat);
-        uint32_t pitchInBits = ((maximum[0]-minimum[0])*bpp)/8;
+        //! we're going to have problems with uploading lower mip levels ?
+        uint32_t pitchInBits = ((maximum[0]-minimum[0])*asset::getBytesPerPixel(inDataColorFormat)).getIntegerApprox();
 
         COpenGLExtensionHandler::setPixelUnpackAlignment(pitchInBits,const_cast<void*>(data),unpackRowByteAlignment);
         COpenGLExtensionHandler::extGlTextureSubImage3D(TextureName,GL_TEXTURE_CUBE_MAP_ARRAY, mipmap, minimum[0],minimum[1],minimum[2], maximum[0]-minimum[0],maximum[1]-minimum[1],maximum[2]-minimum[2], pixFmt, pixType, data);

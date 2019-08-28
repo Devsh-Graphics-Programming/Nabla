@@ -147,29 +147,27 @@ class CImageData : public asset::IAsset
         inline void setSupposedMipLevel(const uint32_t& newMipLevel) {mipLevelHint = newMipLevel;}
 
         //! Returns bits per pixel.
-        inline uint32_t getBitsPerPixel() const
+        inline core::rational<uint32_t> getBytesPerPixel() const
         {
-            return video::getBitsPerPixelFromFormat(static_cast<asset::E_FORMAT>(colorFormat));
+            return asset::getBytesPerPixel(getColorFormat());
         }
 
         //! Returns image data size in bytes
         inline size_t getImageDataSizeInBytes() const
         {
-            uint32_t size[3] = {maxCoord[0]-minCoord[0],maxCoord[1]-minCoord[1],maxCoord[2]-minCoord[2]};
-            const uint32_t blockAlignment = asset::isBlockCompressionFormat(getColorFormat()) ? asset::getTexelOrBlockSize(getColorFormat()) : 1u;
+			core::vector3du32_SIMD size(maxCoord[0]-minCoord[0],maxCoord[1]-minCoord[1],maxCoord[2]-minCoord[2]);
+            const auto blockAlignment = asset::getBlockDimensions(getColorFormat());
 
-            if (blockAlignment!=1)
+			const core::vector3du32_SIMD unit(1u);
+            if ((blockAlignment!=unit).any())
             {
-                size[0] += blockAlignment-1;
-                size[1] += blockAlignment-1;
-                
-                size[0] /= blockAlignment;
-                size[1] /= blockAlignment;
+                size += blockAlignment-unit;
+                size /= blockAlignment;
+                size *= blockAlignment;
 
-                size[0] *= blockAlignment;
-                size[1] *= blockAlignment;
-
-				return (size[0]*size[1]/2u)*size[2];// #error
+				auto memreq = (size[0]*size[1]*size[2])*getBytesPerPixel();
+				assert(memreq.getNumerator() % memreq.getDenominator() == 0u);
+				return memreq.getIntegerApprox();
             }
             else
             {
@@ -199,8 +197,9 @@ class CImageData : public asset::IAsset
             if (isBlockCompressionFormat(getColorFormat()))
                 return 0; //special error val
 
-			auto lineBytes = (getBitsPerPixel() * (maxCoord[0]-minCoord[0])) / (8u*sizeof(uint8_t));
-            return (lineBytes+unpackAlignment-1)&(~(unpackAlignment-1u));
+			auto lineBytes = getBytesPerPixel() * (maxCoord[0]-minCoord[0]);
+			assert(lineBytes.getNumerator()%lineBytes.getDenominator() == 0u);
+            return (lineBytes.getNumerator()/lineBytes.getDenominator()+unpackAlignment-1)&(~(unpackAlignment-1u));
         }
 
         //!

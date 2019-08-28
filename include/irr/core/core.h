@@ -31,6 +31,7 @@
 // math
 #include "irr/core/math/floatutil.h"
 #include "irr/core/math/irrMath.h"
+#include "irr/core/math/rational.h"
 #include "irr/core/math/plane3dSIMD.h"
 // memory
 #include "irr/core/memory/memory.h"

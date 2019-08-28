@@ -116,7 +116,7 @@ class COpenGLTextureBufferObject : public COpenGLTexture, public ITextureBufferO
         virtual E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_BUFFER_OBJECT;}
 
         //! returns pitch of texture (in bytes)
-        virtual uint64_t getByteSize() const {return video::getBitsPerPixelFromFormat(ColorFormat)*uint64_t(TextureSize)/8ull;}
+        virtual uint64_t getByteSize() const {return (core::rational<uint64_t>(asset::getBytesPerPixel(ColorFormat))*uint64_t(TextureSize)).getIntegerApprox();}
 
 
         //! returns the opengl texture type

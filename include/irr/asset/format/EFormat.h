@@ -701,7 +701,7 @@ namespace asset
         }
     }
 
-    inline core::vector3d<uint32_t> getBlockDimensions(asset::E_FORMAT _fmt)
+    inline core::vector3du32_SIMD getBlockDimensions(asset::E_FORMAT _fmt)
     {
         switch (_fmt)
         {
@@ -733,60 +733,66 @@ namespace asset
         case EF_EAC_R11_SNORM_BLOCK:
         case EF_EAC_R11G11_UNORM_BLOCK:
         case EF_EAC_R11G11_SNORM_BLOCK:
-            return core::vector3d<uint32_t>(4u, 4u, 1u);
+            return core::vector4du32_SIMD(4u, 4u, 1u, 1u);
         case EF_ASTC_5x4_UNORM_BLOCK:
         case EF_ASTC_5x4_SRGB_BLOCK:
-            return core::vector3d<uint32_t>(5u, 4u, 1u);
+            return core::vector4du32_SIMD(5u, 4u, 1u, 1u);
         case EF_ASTC_5x5_UNORM_BLOCK:
         case EF_ASTC_5x5_SRGB_BLOCK:
-            return core::vector3d<uint32_t>(5u, 5u, 1u);
+            return core::vector4du32_SIMD(5u, 5u, 1u, 1u);
         case EF_ASTC_6x5_UNORM_BLOCK:
         case EF_ASTC_6x5_SRGB_BLOCK:
-            return core::vector3d<uint32_t>(6u, 5u, 1u);
+            return core::vector4du32_SIMD(6u, 5u, 1u, 1u);
         case EF_ASTC_6x6_UNORM_BLOCK:
         case EF_ASTC_6x6_SRGB_BLOCK:
-            return core::vector3d<uint32_t>(6u, 6u, 1u);
+            return core::vector4du32_SIMD(6u, 6u, 1u, 1u);
         case EF_ASTC_8x5_UNORM_BLOCK:
         case EF_ASTC_8x5_SRGB_BLOCK:
-            return core::vector3d<uint32_t>(8u, 5u, 1u);
+            return core::vector4du32_SIMD(8u, 5u, 1u, 1u);
         case EF_ASTC_8x6_UNORM_BLOCK:
         case EF_ASTC_8x6_SRGB_BLOCK:
-            return core::vector3d<uint32_t>(8u, 6u, 1u);
+            return core::vector4du32_SIMD(8u, 6u, 1u, 1u);
         case EF_ASTC_8x8_UNORM_BLOCK:
         case EF_ASTC_8x8_SRGB_BLOCK:
-            return core::vector3d<uint32_t>(8u, 8u, 1u);
+            return core::vector4du32_SIMD(8u, 8u, 1u, 1u);
         case EF_ASTC_10x5_UNORM_BLOCK:
         case EF_ASTC_10x5_SRGB_BLOCK:
-            return core::vector3d<uint32_t>(10u, 5u, 1u);
+            return core::vector4du32_SIMD(10u, 5u, 1u, 1u);
         case EF_ASTC_10x6_UNORM_BLOCK:
         case EF_ASTC_10x6_SRGB_BLOCK:
-            return core::vector3d<uint32_t>(10u, 6u, 1u);
+            return core::vector4du32_SIMD(10u, 6u, 1u, 1u);
         case EF_ASTC_10x8_UNORM_BLOCK:
         case EF_ASTC_10x8_SRGB_BLOCK:
-            return core::vector3d<uint32_t>(10u, 8u, 1u);
+            return core::vector4du32_SIMD(10u, 8u, 1u, 1u);
         case EF_ASTC_10x10_UNORM_BLOCK:
         case EF_ASTC_10x10_SRGB_BLOCK:
-            return core::vector3d<uint32_t>(10u, 10u, 1u);
+            return core::vector4du32_SIMD(10u, 10u, 1u, 1u);
         case EF_ASTC_12x10_UNORM_BLOCK:
         case EF_ASTC_12x10_SRGB_BLOCK:
-            return core::vector3d<uint32_t>(12u, 10u, 1u);
+            return core::vector4du32_SIMD(12u, 10u, 1u, 1u);
         case EF_ASTC_12x12_UNORM_BLOCK:
         case EF_ASTC_12x12_SRGB_BLOCK:
-            return core::vector3d<uint32_t>(12u, 12u, 1u);
+            return core::vector4du32_SIMD(12u, 12u, 1u, 1u);
         case EF_PVRTC1_2BPP_UNORM_BLOCK_IMG:
         case EF_PVRTC2_2BPP_SRGB_BLOCK_IMG:
         case EF_PVRTC2_2BPP_UNORM_BLOCK_IMG:
         case EF_PVRTC1_2BPP_SRGB_BLOCK_IMG:
-            return core::vector3d<uint32_t>(8u, 4u, 1u);
+            return core::vector4du32_SIMD(8u, 4u, 1u, 1u);
         case EF_PVRTC1_4BPP_UNORM_BLOCK_IMG:
         case EF_PVRTC2_4BPP_UNORM_BLOCK_IMG:
         case EF_PVRTC1_4BPP_SRGB_BLOCK_IMG:
         case EF_PVRTC2_4BPP_SRGB_BLOCK_IMG:
-            return core::vector3d<uint32_t>(4u, 4u, 1u);
+            return core::vector4du32_SIMD(4u, 4u, 1u, 1u);
         default:
-            return core::vector3d<uint32_t>(1u);
+            return core::vector4du32_SIMD(1u);
         }
     }
+
+	inline core::rational<uint32_t> getBytesPerPixel(asset::E_FORMAT _fmt)
+	{
+		auto dims = getBlockDimensions(_fmt);
+		return { getTexelOrBlockBytesize(_fmt), dims[0]*dims[1]*dims[2] };
+	}
 
     template<asset::E_FORMAT cf>
     constexpr bool isSignedFormat()

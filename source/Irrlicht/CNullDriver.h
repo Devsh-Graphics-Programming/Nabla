@@ -527,7 +527,7 @@ namespace video
                 virtual core::dimension2du getRenderableSize() const { return size; }
                 virtual E_DRIVER_TYPE getDriverType() const { return video::EDT_NULL; }
                 virtual asset::E_FORMAT getColorFormat() const { return asset::EF_A1R5G5B5_UNORM_PACK16; }
-                virtual uint32_t getPitch() const { return 0; }
+                virtual core::rational<uint32_t> getPitch() const { return {0u,1u}; }
                 virtual void regenerateMipMapLevels() {}
                 virtual bool updateSubRegion(const asset::E_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0) {return false;}
                 virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0) {return false;}

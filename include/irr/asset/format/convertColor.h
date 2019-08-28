@@ -136,7 +136,7 @@ namespace irr { namespace video
         getVerticalReductionFactorPerPlane(sF, vPlaneReduction);
         getChannelsPerPlane(sF, chCntInPlane);
 
-        const core::vector3d<uint32_t> sdims = getBlockDimensions(sF);
+        const auto sdims = getBlockDimensions(sF);
 
         const uint8_t** src = reinterpret_cast<const uint8_t**>(srcPix);
         uint8_t* const dst_begin = reinterpret_cast<uint8_t*>(dstPix);
