@@ -76,7 +76,7 @@ public:
         size_t size = 0u;
         for (size_t i = 0; i < EVAI_COUNT; ++i)
             if (meshLayout->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i))
-                size += asset::getTexelOrBlockSize(meshLayout->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i));
+                size += asset::getTexelOrBlockBytesize(meshLayout->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i));
         return size;
     }
 

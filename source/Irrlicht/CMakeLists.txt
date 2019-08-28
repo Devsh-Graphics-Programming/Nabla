@@ -131,7 +131,6 @@ set(IRRLICHT_SRCS_COMMON
 	FW_Mutex.cpp
 
 # Image processing
-	CImage.cpp
 	CColorConverter.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderBMP.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderDDS.cpp

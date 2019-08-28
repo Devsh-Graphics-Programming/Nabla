@@ -1873,7 +1873,7 @@ COpenGLDriver::SAuxContext::COpenGLVAO::COpenGLVAO(const COpenGLVAOSpec* spec)
             extGlEnableVertexArrayAttrib(vao,attrId);
             extGlVertexArrayAttribBinding(vao,attrId,attrId);
 
-            if (isFloatingPointFormat(format) && getTexelOrBlockSize(format)/getFormatChannelCount(format)==8u)//DOUBLE
+            if (isFloatingPointFormat(format) && getTexelOrBlockBytesize(format)== getFormatChannelCount(format)*sizeof(double) )//DOUBLE
                 extGlVertexArrayAttribLFormat(vao, attrId, getFormatChannelCount(format), GL_DOUBLE, 0);
             else if (isFloatingPointFormat(format) || isScaledFormat(format) || isNormalizedFormat(format))//FLOATING-POINT, SCALED ("weak integer"), NORMALIZED
                 extGlVertexArrayAttribFormat(vao, attrId, isBGRALayoutFormat(format) ? GL_BGRA : getFormatChannelCount(format), formatEnumToGLenum(format), isNormalizedFormat(format) ? GL_TRUE : GL_FALSE, 0);
@@ -2234,7 +2234,7 @@ bool orderByMip(asset::CImageData* a, asset::CImageData* b)
 }
 
 
-//! returns a device dependent texture from a software surface (IImage)
+//! returns a device dependent texture
 core::smart_refctd_ptr<video::ITexture> COpenGLDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size,
 																					uint32_t mipmapLevels, const io::path& name, asset::E_FORMAT format)
 {

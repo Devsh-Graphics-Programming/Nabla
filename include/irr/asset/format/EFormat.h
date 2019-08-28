@@ -236,7 +236,7 @@ namespace asset
     }//namespace impl
 
     //! Utility functions
-    inline uint32_t getTexelOrBlockSize(asset::E_FORMAT _fmt)
+    inline uint32_t getTexelOrBlockBytesize(asset::E_FORMAT _fmt)
     {
         switch (_fmt)
         {

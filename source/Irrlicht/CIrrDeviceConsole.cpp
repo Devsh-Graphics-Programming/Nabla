@@ -341,33 +341,6 @@ bool CIrrDeviceConsole::isWindowMinimized() const
 	return false;
 }
 
-//! presents a surface in the client area
-bool CIrrDeviceConsole::present(video::IImage* surface, void* windowId, core::rect<int32_t>* src)
-{
-
-	if (surface)
-	{
-		for (uint32_t y=0; y < surface->getDimension().Height; ++y)
-		{
-			for (uint32_t x=0; x< surface->getDimension().Width; ++x)
-			{
-				// get average pixel
-				uint32_t avg = surface->getPixel(x,y).getAverage() * (ASCIIArtCharsCount-1);
-				avg /= 255;
-				OutputBuffer[y] [x] = ASCIIArtChars[avg];
-			}
-		}
-	}
-
-	// draw output
-	for (uint32_t y=0; y<OutputBuffer.size(); ++y)
-	{
-		setTextCursorPos(0,y);
-		fprintf(OutFile, "%s", OutputBuffer[y].c_str());
-	}
-	return surface != 0;
-}
-
 //! notifies the device that it should close itself
 void CIrrDeviceConsole::closeDevice()
 {

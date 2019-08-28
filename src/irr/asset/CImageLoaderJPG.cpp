@@ -7,7 +7,6 @@
 #ifdef _IRR_COMPILE_WITH_JPG_LOADER_
 
 #include "IReadFile.h"
-#include "CImage.h"
 #include "os.h"
 #include "irr/asset/ICPUBuffer.h"
 #include "irr/asset/ICPUTexture.h"

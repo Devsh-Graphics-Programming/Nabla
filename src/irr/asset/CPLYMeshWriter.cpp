@@ -397,7 +397,7 @@ void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuf
     {
         _mbuf->getAttribute(ui, _vaid, _ix);
 
-        const uint32_t bytesPerCh = asset::getTexelOrBlockSize(t)/asset::getFormatChannelCount(t);
+        const uint32_t bytesPerCh = asset::getTexelOrBlockBytesize(t)/asset::getFormatChannelCount(t);
         if (bytesPerCh == 1u || t == asset::EF_A2B10G10R10_UINT_PACK32 || t == asset::EF_A2B10G10R10_SINT_PACK32 || t == asset::EF_A2B10G10R10_SSCALED_PACK32 || t == asset::EF_A2B10G10R10_USCALED_PACK32)
         {
             uint8_t a[4];

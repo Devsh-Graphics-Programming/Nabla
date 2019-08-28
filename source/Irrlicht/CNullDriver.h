@@ -7,7 +7,6 @@
 
 #include "IVideoDriver.h"
 #include "IFileSystem.h"
-#include "IImagePresenter.h"
 #include "IGPUProgrammingServices.h"
 #include "irr/asset/IMesh.h"
 #include "irr/video/IGPUMeshBuffer.h"
@@ -69,18 +68,6 @@ namespace video
 		//! sets transformation
 		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat);
 		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4SIMD& mat);
-
-		//! Retrieve the number of image loaders
-		virtual uint32_t getImageLoaderCount() const;
-
-		//! Retrieve the given image loader
-		virtual IImageLoader* getImageLoader(uint32_t n);
-
-		//! Retrieve the number of image writers
-		virtual uint32_t getImageWriterCount() const;
-
-		//! Retrieve the given image writer
-		virtual IImageWriter* getImageWriter(uint32_t n);
 
 		//! sets a material
 		virtual void setMaterial(const SGPUMaterial& material);
@@ -288,12 +275,6 @@ namespace video
 		//! driver, it would return "Direct3D8.1".
 		virtual const wchar_t* getName() const;
 
-		//! Adds an external image loader to the engine.
-		virtual void addExternalImageLoader(IImageLoader* loader);
-
-		//! Adds an external image writer to the engine.
-		virtual void addExternalImageWriter(IImageWriter* writer);
-
 		virtual void removeMultisampleTexture(IMultisampleTexture* tex);
 
 		virtual void removeTextureBufferObject(ITextureBufferObject* tbo);
@@ -322,21 +303,6 @@ namespace video
 
 		//! Returns if a texture creation flag is enabled or disabled.
 		virtual bool getTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag) const;
-
-		//! Creates a software image from a file.
-		virtual core::vector<asset::CImageData*> createImageDataFromFile(const io::path& filename);
-
-		//! Creates a software image from a file.
-		virtual core::vector<asset::CImageData*> createImageDataFromFile(io::IReadFile* file);
-
-		//! Creates a software image from a byte array.
-		/** \param useForeignMemory: If true, the image will use the data pointer
-		directly and own it from now on, which means it will also try to delete [] the
-		data when the image will be destructed. If false, the memory will by copied. */
-		virtual IImage* createImageFromData(asset::CImageData* imageData, bool ownForeignMemory=true);
-
-		//!
-		virtual IImage* createImage(const asset::E_FORMAT& format, const core::dimension2d<uint32_t>& size);
 
 
 	public:
@@ -448,13 +414,6 @@ namespace video
             const char* geometryShaderEntryPointName="main",
             const char* pixelShaderEntryPointName="main");
 
-
-		//! Writes the provided image to disk file
-		virtual bool writeImageToFile(IImage* image, const io::path& filename, uint32_t param = 0);
-
-		//! Writes the provided image to a file.
-		virtual bool writeImageToFile(IImage* image, io::IWriteFile * file, uint32_t param = 0);
-
 		//! Sets the name of a material renderer.
 		virtual void setMaterialRendererName(int32_t idx, const char* name);
 
@@ -517,23 +476,6 @@ namespace video
 
 		// prints renderer version
 		void printVersion();
-
-		//! normal map lookup 32 bit version
-		inline float nml32(int x, int y, int pitch, int height, int32_t *p) const
-		{
-			if (x < 0) x = pitch-1; if (x >= pitch) x = 0;
-			if (y < 0) y = height-1; if (y >= height) y = 0;
-			return (float)(((p[(y * pitch) + x])>>16) & 0xff);
-		}
-
-		//! normal map lookup 16 bit version
-		inline float nml16(int x, int y, int pitch, int height, int16_t *p) const
-		{
-			if (x < 0) x = pitch-1; if (x >= pitch) x = 0;
-			if (y < 0) y = height-1; if (y >= height) y = 0;
-
-			return (float) getAverage ( p[(y * pitch) + x] );
-		}
 
     protected:
 		struct SSurface
@@ -598,8 +540,6 @@ namespace video
 		core::vector<IMultisampleTexture*> MultisampleTextures;
 		core::vector<ITextureBufferObject*> TextureBufferObjects;
 
-		core::vector<video::IImageLoader*> SurfaceLoader;
-		core::vector<video::IImageWriter*> SurfaceWriter;
 		core::vector<SMaterialRenderer> MaterialRenderers;
 
 

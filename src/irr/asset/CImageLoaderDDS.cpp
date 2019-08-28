@@ -161,12 +161,12 @@ asset::SAssetBundle CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset
             uint32_t& tmpDepth = mipSize[2];
             tmpWidth += (uint32_t(1)<<i)-1;
             tmpHeight += (uint32_t(1)<<i)-1;
-            if (false)
-                tmpDepth += (uint32_t(1)<<i)-1; //! CHANGE AGAIN FOR 2D ARRAY AND CUBEMAP TEXTURES
+            if (false) //! Should only happen for 3D textures
+                tmpDepth += (uint32_t(1)<<i)-1;
             tmpWidth /= uint32_t(1)<<i;
             tmpHeight /= uint32_t(1)<<i;
-            if (false)
-                tmpDepth /= uint32_t(1)<<i; //! CHANGE AGAIN FOR 2D ARRAY AND CUBEMAP TEXTURES
+            if (false) //! should only happen for 3D textures
+                tmpDepth /= uint32_t(1)<<i;
 
             /* decompress */
             asset::E_FORMAT colorFormat = asset::EF_UNKNOWN;
@@ -174,19 +174,17 @@ asset::SAssetBundle CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset
             {
                 case DDS_PF_ARGB8888:
                 case DDS_PF_ABGR8888:
-                    /* fixme: support other [a]rgb formats */
                     {
-                        colorFormat = pixelFormat==DDS_PF_ABGR8888 ? asset::EF_R8G8B8A8_UNORM:asset::EF_B8G8R8A8_UNORM;
-                        asset::CImageData* data = new asset::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,4);
+                        colorFormat = pixelFormat==DDS_PF_ABGR8888 ? asset::EF_R8G8B8A8_SRGB:asset::EF_B8G8R8A8_SRGB;
+                        asset::CImageData* data = new asset::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,4u); // could be higher alignment if we checked mip offset and width
                         _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
                     }
                     break;
                 case DDS_PF_RGB888:
-                    /* fixme: support other [a]rgb formats */
                     {
-                        colorFormat = asset::EF_R8G8B8_UNORM;
-                        asset::CImageData* data = new asset::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
+                        colorFormat = asset::EF_R8G8B8_SRGB;
+                        asset::CImageData* data = new asset::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1u);
                         _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
 
@@ -203,21 +201,11 @@ asset::SAssetBundle CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset
                         }
                     }
                     break;
-                case DDS_PF_ARGB1555:
-                    /* fixme: support other [a]rgb formats */
-                    {
-                        colorFormat = asset::EF_A1R5G5B5_UNORM_PACK16;
-                        asset::CImageData* data = new asset::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,2);
-                        _file->read(data->getData(),data->getImageDataSizeInBytes());
-                        images.push_back(data);
-                    }
-                    break;
-                case DDS_PF_RGB565:
-                    break;
+				/* fixme: support other [a]rgb formats */
                 case DDS_PF_LA88:
-                    /* fixme: support other [a]rgb formats */
                     {
-                        colorFormat = asset::EF_R8G8_UNORM;
+						os::Printer::log("Unsure of your DDS file's OETF/gamma value, please double check the brightness on the output.", ELL_WARNING);
+                        colorFormat = asset::EF_R8G8_UNORM; // is it really R8G8_SRGB instead?
                         asset::CImageData* data = new asset::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,2);
                         _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
@@ -225,9 +213,9 @@ asset::SAssetBundle CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset
                     break;
                 case DDS_PF_L8:
                 case DDS_PF_A8:
-                    /* fixme: support other [a]rgb formats */
                     {
-                        colorFormat = asset::EF_R8_UNORM;
+						os::Printer::log("Unsure of your DDS file's OETF/gamma value, please double check the brightness on the output.", ELL_WARNING);
+                        colorFormat = asset::EF_R8_UNORM; // is it really R8_SRGB instead?
                         asset::CImageData* data = new asset::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
                         _file->read(data->getData(),data->getImageDataSizeInBytes());
                         images.push_back(data);
@@ -241,13 +229,13 @@ asset::SAssetBundle CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset
                 case DDS_PF_DXT5:
                     {
                         if (pixelFormat==CImageLoaderDDS::DDS_PF_DXT2||pixelFormat==CImageLoaderDDS::DDS_PF_DXT3)
-                            colorFormat = asset::EF_BC2_UNORM_BLOCK;
+                            colorFormat = asset::EF_BC2_SRGB_BLOCK;
                         else if (pixelFormat==CImageLoaderDDS::DDS_PF_DXT4||pixelFormat==CImageLoaderDDS::DDS_PF_DXT5)
-                            colorFormat = asset::EF_BC3_UNORM_BLOCK;
+                            colorFormat = asset::EF_BC3_SRGB_BLOCK;
                         else if (pixelFormat==CImageLoaderDDS::DDS_PF_DXT1_ALPHA)
-                            colorFormat = asset::EF_BC1_RGBA_UNORM_BLOCK;
+                            colorFormat = asset::EF_BC1_RGBA_SRGB_BLOCK;
                         else if (pixelFormat==CImageLoaderDDS::DDS_PF_DXT1)
-                            colorFormat = asset::EF_BC1_RGB_UNORM_BLOCK;
+                            colorFormat = asset::EF_BC1_RGB_SRGB_BLOCK;
 
                         asset::CImageData* data = new asset::CImageData(NULL,zeroDummy,mipSize,i,colorFormat,1);
                         _file->read(data->getData(),data->getImageDataSizeInBytes());
@@ -257,7 +245,7 @@ asset::SAssetBundle CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset
 
                 default:
 					{
-						os::Printer::log("Unsupported DDS texture format", ELL_ERROR);
+						os::Printer::log("Unsupported DDS texture format, 16bit uncompressed is not an option here.", ELL_ERROR);
                         return {};
 					}
 					break;

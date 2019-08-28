@@ -62,7 +62,7 @@ void COpenGLVAOSpec::setVertexAttrBuffer(core::smart_refctd_ptr<IGPUBuffer>&& at
     if (attrBuf)
     {
 		individualHashFields.enabledAttribs |= mask;
-        newStride = stride!=0u ? stride : getTexelOrBlockSize(format);
+        newStride = stride!=0u ? stride : getTexelOrBlockBytesize(format);
     }
     else
     {	

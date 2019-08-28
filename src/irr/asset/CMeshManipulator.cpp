@@ -164,7 +164,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOp
 			{
 				types[i] = outDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i);
 
-                const uint32_t typeSz = getTexelOrBlockSize(types[i]);
+                const uint32_t typeSz = getTexelOrBlockBytesize(types[i]);
                 const size_t alignment = (typeSz/getFormatChannelCount(types[i]) == 8u) ? 8ull : 4ull; // if format 64bit per channel, than align to 8
 
 				offsets[i] = lastOffset + lastSize;
@@ -276,7 +276,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniqueP
 			if (vbuf)
 			{
 				offset[i] = stride;
-				newAttribSizes[i] = getTexelOrBlockSize(oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i));
+				newAttribSizes[i] = getTexelOrBlockBytesize(oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i));
 				stride += newAttribSizes[i];
 				if (stride>=0xdeadbeefu)
 					return nullptr;
@@ -385,7 +385,7 @@ static bool cmpVertices(ICPUMeshBuffer* _inbuf, const void* _va, const void* _vb
                 return false;
         }
 
-        const uint32_t sz = getTexelOrBlockSize(atype);
+        const uint32_t sz = getTexelOrBlockBytesize(atype);
         va += sz;
         vb += sz;
     }
@@ -413,7 +413,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(
         if (buf)
         {
             const E_FORMAT componentType = oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i);
-            vertexAttrSize[i] = getTexelOrBlockSize(componentType);
+            vertexAttrSize[i] = getTexelOrBlockBytesize(componentType);
             vertexSize += vertexAttrSize[i];
         }
     }
@@ -742,7 +742,7 @@ void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const S
 
 	for (size_t i = 0u; i < activeAttributeCount; ++i)
 	{
-        const uint32_t typeSz = getTexelOrBlockSize(newAttribs[i].type);
+        const uint32_t typeSz = getTexelOrBlockBytesize(newAttribs[i].type);
         const size_t alignment = (typeSz / getFormatChannelCount(newAttribs[i].type) == 8u) ? 8ull : 4ull; // if format 64bit per channel, than align to 8
 
 		newAttribs[i].offset = (i ? newAttribs[i - 1].offset + newAttribs[i - 1].size : 0u);
@@ -976,21 +976,21 @@ core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_FORMAT* _o
 		}
 	}
 
-	core::vector<SAttribTypeChoice> possibleTypes = findTypesOfProperRangeF(thisType, getTexelOrBlockSize(thisType), min, max, _errMetric);
-	std::sort(possibleTypes.begin(), possibleTypes.end(), [](const SAttribTypeChoice& t1, const SAttribTypeChoice& t2) { return getTexelOrBlockSize(t1.type) < getTexelOrBlockSize(t2.type); });
+	core::vector<SAttribTypeChoice> possibleTypes = findTypesOfProperRangeF(thisType, getTexelOrBlockBytesize(thisType), min, max, _errMetric);
+	std::sort(possibleTypes.begin(), possibleTypes.end(), [](const SAttribTypeChoice& t1, const SAttribTypeChoice& t2) { return getTexelOrBlockBytesize(t1.type) < getTexelOrBlockBytesize(t2.type); });
 
 	*_outPrevType = thisType;
     *_outType = thisType;
-    *_outSize = getTexelOrBlockSize(*_outType);
+    *_outSize = getTexelOrBlockBytesize(*_outType);
 
 	for (const SAttribTypeChoice& t : possibleTypes)
 	{
 		if (calcMaxQuantizationError({ thisType }, t, attribs, _errMetric))
 		{
-            if (getTexelOrBlockSize(t.type) < getTexelOrBlockSize(thisType))
+            if (getTexelOrBlockBytesize(t.type) < getTexelOrBlockBytesize(thisType))
             {
                 *_outType = t.type;
-                *_outSize = getTexelOrBlockSize(*_outType);
+                *_outSize = getTexelOrBlockBytesize(*_outType);
             }
 
 			return attribs;
@@ -1059,17 +1059,17 @@ core::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI
 	}
 
 	*_outPrevType = *_outType = thisType;
-	*_outSize = getTexelOrBlockSize(thisType);
+	*_outSize = getTexelOrBlockBytesize(thisType);
 	*_outPrevType = thisType;
 
 	if (_errMetric.method == EEM_ANGLES) // native integers normals does not change
 		return attribs;
 
 	*_outType = getBestTypeI(thisType, _outSize, min, max);
-    if (getTexelOrBlockSize(*_outType) >= getTexelOrBlockSize(thisType))
+    if (getTexelOrBlockBytesize(*_outType) >= getTexelOrBlockBytesize(thisType))
     {
         *_outType = thisType;
-        *_outSize = getTexelOrBlockSize(thisType);
+        *_outSize = getTexelOrBlockBytesize(thisType);
     }
 	return attribs;
 }
@@ -1153,7 +1153,7 @@ E_FORMAT CMeshManipulator::getBestTypeI(E_FORMAT _originalType, size_t* _outSize
             break;
         default:
         {
-        const uint32_t bitsPerCh = getTexelOrBlockSize(_fmt)/getFormatChannelCount(_fmt);
+        const uint32_t bitsPerCh = getTexelOrBlockBytesize(_fmt)*8u/getFormatChannelCount(_fmt);
         return int32_t(-uint64_t(1ull<<(bitsPerCh-1u)));
         }
         }
@@ -1175,7 +1175,7 @@ E_FORMAT CMeshManipulator::getBestTypeI(E_FORMAT _originalType, size_t* _outSize
             break;
         default:
         {
-            const uint32_t bitsPerCh = getTexelOrBlockSize(_fmt)/getFormatChannelCount(_fmt);
+            const uint32_t bitsPerCh = getTexelOrBlockBytesize(_fmt)*8u/getFormatChannelCount(_fmt);
             const uint64_t r = (1ull<<bitsPerCh)-1ull;
             if (!isSignedFormat(_fmt))
                 return (uint32_t)r;
@@ -1207,10 +1207,10 @@ E_FORMAT CMeshManipulator::getBestTypeI(E_FORMAT _originalType, size_t* _outSize
                 }
             }
         }
-        if (ok && getTexelOrBlockSize(*it) < getTexelOrBlockSize(bestType)) // vertexAttrSize array defined in IMeshBuffer.h
+        if (ok && getTexelOrBlockBytesize(*it) < getTexelOrBlockBytesize(bestType)) // vertexAttrSize array defined in IMeshBuffer.h
         {
             bestType = *it;
-            *_outSize = getTexelOrBlockSize(bestType);
+            *_outSize = getTexelOrBlockBytesize(bestType);
         }
     }
 
@@ -1382,7 +1382,7 @@ core::vector<CMeshManipulator::SAttribTypeChoice> CMeshManipulator::findTypesOfP
 				break; // break loop comparing (*it)'s range component by component
 			}
 		}
-		if (ok && getTexelOrBlockSize(*it) <= _sizeThreshold)
+		if (ok && getTexelOrBlockBytesize(*it) <= _sizeThreshold)
 			possibleTypes.push_back({*it});
 	}
 	return possibleTypes;

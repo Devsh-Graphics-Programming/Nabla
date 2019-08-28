@@ -128,8 +128,8 @@ namespace irr { namespace video
     {
         using namespace asset;
 
-        const uint32_t srcStride = getTexelOrBlockSize(sF);
-        const uint32_t dstStride = getTexelOrBlockSize(dF);
+        const uint32_t srcStride = getTexelOrBlockBytesize(sF);
+        const uint32_t dstStride = getTexelOrBlockBytesize(dF);
 
         uint32_t hPlaneReduction[4], vPlaneReduction[4], chCntInPlane[4];
         getHorizontalReductionFactorPerPlane(sF, hPlaneReduction);

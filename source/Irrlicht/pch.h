@@ -42,9 +42,6 @@
 #include "IGPUBuffer.h"
 #include "IGPUProgrammingServices.h"
 #include "IGPUTimestampQuery.h"
-#include "IImage.h"
-#include "IImageLoader.h"
-#include "IImageWriter.h"
 #include "ILogger.h"
 #include "IMaterialRenderer.h"
 #include "IMaterialRendererServices.h"
@@ -107,7 +104,6 @@
 #include "CFileList.h"
 #include "CFileSystem.h"
 #include "CFPSCounter.h"
-#include "CImage.h"
 #include "CIrrDeviceConsole.h"
 #include "CIrrDeviceLinux.h"
 #include "CIrrDeviceSDL.h"
@@ -165,7 +161,6 @@
 #include "CWriteFile.h"
 #include "CZipReader.h"
 #include "FW_Mutex.h" // refactor
-#include "IImagePresenter.h"
 #include "ISceneNodeAnimatorFinishing.h"
 #include "os.h"
 

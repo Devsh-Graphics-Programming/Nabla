@@ -7,7 +7,6 @@
 #ifdef _IRR_COMPILE_WITH_JPG_WRITER_
 
 #include "IWriteFile.h"
-#include "CImage.h"
 #include "irr/asset/format/convertColor.h"
 #include "irr/asset/ICPUTexture.h"
 
@@ -131,7 +130,7 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 
 	if (dest)
 	{
-		const uint32_t pitch = image->getPitch();
+		const uint32_t pitch = image->getPitchIncludingAlignment();
 		JSAMPROW row_pointer[1];      /* pointer to JSAMPLE row[s] */
 		row_pointer[0] = dest;
 		
