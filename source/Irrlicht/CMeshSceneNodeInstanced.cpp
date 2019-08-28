@@ -123,7 +123,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
             uint32_t attr = 0;
             for (; attr*4+3<floatComponents; attr++)
             {
-                vao->setVertexAttrBuffer(core::smart_refctd_ptr(buff),(asset::E_VERTEX_ATTRIBUTE_ID)attr,asset::EF_R32G32B32A32_SFLOAT,dataPerInstanceInputSize,attr*16);
+                vao->setVertexAttrBuffer(core::smart_refctd_ptr(buff),(asset::E_VERTEX_ATTRIBUTE_ID)attr,asset::EF_R32G32B32A32_SFLOAT,dataPerInstanceInputSize,attr*16); // we should really use uints for these
                 memoryUsed+=16;
             }
             memoryUsed -= (12+9)*4;
@@ -186,7 +186,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
             LoDInvariantBox = levelsOfDetail[i].mesh->getBoundingBox();
 
         tmp.query = core::smart_refctd_ptr<video::IQueryObject>(SceneManager->getVideoDriver()->createXFormFeedbackPrimitiveQuery(),core::dont_grab);
-        LoD.push_back(tmp);
+        LoD.push_back(std::move(tmp));
     }
 
     for (size_t i=0; i<xfb.size(); i++)

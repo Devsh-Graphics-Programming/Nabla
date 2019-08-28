@@ -112,7 +112,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asse
     while (it != _end)
     {
         const uint64_t addr = addrAllctr.alloc_addr((*it)->getSize(), alignment);
-        assert(addr != decltype(addrAllctr)::invalid_address);
+        assert(addr != decltype(addrAllctr)::invalid_address); // fix this to work better with really large buffers in the future
         if (addr == decltype(addrAllctr)::invalid_address)
             return {};
         res.push_back(core::make_smart_refctd_ptr<typename video::asset_traits<asset::ICPUBuffer>::GPUObjectType>(addr));
@@ -123,7 +123,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asse
     reqs.vulkanReqs.size = addrAllctr.get_allocated_size();
     reqs.vulkanReqs.alignment = alignment;
 
-    auto gpubuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createGPUBufferOnDedMem(reqs, true), core::dont_grab); // TODO
+    auto gpubuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createGPUBufferOnDedMem(reqs, true), core::dont_grab); // TODO: full smart pointer + streaming staging buffer
 
     for (size_t i = 0u; i < res.size(); ++i)
     {
@@ -135,7 +135,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asse
 }
 auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset::ICPUMeshBuffer** _end) -> core::vector<core::smart_refctd_ptr<typename video::asset_traits<asset::ICPUMeshBuffer>::GPUObjectType> >
 {
-    struct VaoConfig
+    struct VaoConfig //! @Crisspl why on earth is the create<ICPUMeshBuffer> function creating the pipelines/VAOs as well? Right now there's no ICPUMeshDataFormatDesc -> ICPUMeshDataFormatDesc function.
     {
         VaoConfig() : noAttributes{ true }, success{ true }, idxbuf{ nullptr }
         {

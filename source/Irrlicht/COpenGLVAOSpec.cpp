@@ -61,20 +61,12 @@ void COpenGLVAOSpec::setVertexAttrBuffer(core::smart_refctd_ptr<IGPUBuffer>&& at
 
     if (attrBuf)
     {
+		individualHashFields.enabledAttribs |= mask;
         newStride = stride!=0u ? stride : getTexelOrBlockSize(format);
-        //bind new buffer
-        if (mappedAttrBuf[attrId])
-            mappedAttrBuf[attrId]->drop();
-        else
-            individualHashFields.enabledAttribs |= mask;
     }
     else
-    {
-        if (mappedAttrBuf[attrId])
-        {
-            individualHashFields.enabledAttribs &= invMask;
-            mappedAttrBuf[attrId]->drop();
-        }
+    {	
+		individualHashFields.enabledAttribs &= invMask;
         format = asset::EF_R32G32B32A32_SFLOAT;
         newStride = 16u;
         offset = 0u;
