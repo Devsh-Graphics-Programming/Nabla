@@ -1,6 +1,10 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+
+#include "../../ext/ScreenShot/ScreenShot.h"
+
+#include "../common/QToQuitEventReceiver.h"
+
 
 using namespace irr;
 using namespace core;
@@ -10,7 +14,7 @@ vector<vectorSIMDf> controlPts;
 ISpline* spline = NULL;
 
 //!Same As Last Example
-class MyEventReceiver : public IEventReceiver
+class MyEventReceiver : public QToQuitEventReceiver
 {
 public:
 
@@ -25,8 +29,7 @@ public:
             switch (event.KeyInput.Key)
             {
                 case irr::KEY_KEY_Q: // switch wire frame mode
-                    exit(0);
-                    return true;
+					return QToQuitEventReceiver::OnEvent(event);
                     break;
                 case KEY_KEY_T:
                     {
@@ -134,6 +137,12 @@ int main()
 		return 1; // could not create selected driver.
 
 
+	device->getCursorControl()->setVisible(false);
+
+	MyEventReceiver receiver;
+	device->setEventReceiver(&receiver);
+
+
 	video::IVideoDriver* driver = device->getVideoDriver();
 
 
@@ -144,10 +153,6 @@ int main()
 	camera->setNearValue(0.01f);
 	camera->setFarValue(100.0f);
     smgr->setActiveCamera(camera);
-
-	device->getCursorControl()->setVisible(false);
-	MyEventReceiver receiver;
-	device->setEventReceiver(&receiver);
 
 	//! Test Creation Of Builtin
 	auto* cube = smgr->addCubeSceneNode(1.f, 0, -1);
@@ -185,7 +190,7 @@ int main()
 	uint64_t lastTime = device->getTimer()->getRealTime();
     uint64_t timeDelta = 0;
 
-	while(device->run())
+	while(device->run() && receiver.keepOpen())
 	{
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );
 
