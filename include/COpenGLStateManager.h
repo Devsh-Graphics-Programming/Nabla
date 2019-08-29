@@ -30,6 +30,10 @@
 	#include "../src/3rdparty/GL/glext.h"
 #endif
 
+#ifndef GL_SRG8_EXT
+#define GL_SRG8_EXT 0x8FBE
+#endif
+
 namespace irr
 {
 namespace video

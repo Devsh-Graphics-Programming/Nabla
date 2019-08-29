@@ -2,7 +2,12 @@
 
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
+
 #include "irr/asset/normal_quantization.h"
+
+#include "../../ext/ScreenShot/ScreenShot.h"
+#include "../common/QToQuitEventReceiver.h"
+
 #include "../source/Irrlicht/COpenGLBuffer.h"
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
@@ -10,13 +15,11 @@
 using namespace irr;
 using namespace core;
 
-bool quit = false;
 
 bool doCulling = false;
 bool useDrawIndirect = false;
 
-//!Same As Last Example
-class MyEventReceiver : public IEventReceiver
+class MyEventReceiver : public QToQuitEventReceiver
 {
 public:
 
@@ -31,8 +34,7 @@ public:
             switch (event.KeyInput.Key)
             {
             case irr::KEY_KEY_Q: // so we can quit
-                quit = true;
-                return true;
+				return QToQuitEventReceiver::OnEvent(event);
             case irr::KEY_KEY_C: // so we can quit
                 ///doCulling = !doCulling; // Not enabled/necessary yet
                 return true;
@@ -119,6 +121,11 @@ int main()
 	if (device == 0)
 		return 1; // could not create selected driver.
 
+	device->getCursorControl()->setVisible(false);
+
+	MyEventReceiver receiver;
+	device->setEventReceiver(&receiver);
+
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 
@@ -148,10 +155,6 @@ int main()
 	camera->setNearValue(0.01f);
 	camera->setFarValue(250.0f);
     smgr->setActiveCamera(camera);
-	device->getCursorControl()->setVisible(false);
-
-	MyEventReceiver receiver;
-	device->setEventReceiver(&receiver);
 
 	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
 
@@ -325,7 +328,7 @@ int main()
 	uint64_t lastFPSTime = 0;
 	float lastFastestMeshFrameNr = -1.f;
 
-	while(device->run()&&(!quit))
+	while(device->run() && receiver.keepOpen())
 	//if (device->isWindowActive())
 	{
 		driver->beginScene(true, true, video::SColor(255,255,255,255) );
@@ -408,30 +411,10 @@ int main()
     delete [] instanceXForm;
 
     //create a screenshot
-	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
-    glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
-    {
-        // images are horizontally flipped, so we have to fix that here.
-        uint8_t* pixels = (uint8_t*)screenshot->getData();
-
-        const int32_t pitch=screenshot->getPitch();
-        uint8_t* p2 = pixels + (params.WindowSize.Height - 1) * pitch;
-        uint8_t* tmpBuffer = new uint8_t[pitch];
-        for (uint32_t i=0; i < params.WindowSize.Height; i += 2)
-        {
-            memcpy(tmpBuffer, pixels, pitch);
-            memcpy(pixels, p2, pitch);
-            memcpy(p2, tmpBuffer, pitch);
-            pixels += pitch;
-            p2 -= pitch;
-        }
-        delete [] tmpBuffer;
-    }
-    asset::CImageData* img = new asset::CImageData(screenshot);
-    asset::IAssetWriter::SAssetWriteParams wparams(img);
-    device->getAssetManager()->writeAsset("screenshot.png", wparams);
-    img->drop();
-    screenshot->drop();
+	{
+		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+	}
 
 
     for (size_t i=0; i<kInstanceCount; i++)
