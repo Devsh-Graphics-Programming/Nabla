@@ -13,8 +13,6 @@
 #include "SColor.h"
 #include "ESceneNodeTypes.h"
 #include "ESceneNodeAnimatorTypes.h"
-#include "EMeshWriterEnums.h"
-#include "SceneParameters.h"
 #include "irr/video/IGPUSkinnedMesh.h"
 #include "ISkinnedMeshSceneNode.h"
 #include "irr/asset/ICPUMesh.h"

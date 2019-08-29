@@ -34,7 +34,7 @@ int32_t CNullDriver::incrementAndFetchReallocCounter()
 CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
 : IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), ScreenSize(screenSize), boxLineMesh(0),
 	PrimitivesDrawn(0), TextureCreationFlags(0),
-	OverrideMaterial2DEnabled(false), AllowZWriteOnTransparent(false),
+	OverrideMaterial2DEnabled(false),
 	matrixModifiedBits(0)
 {
 	#ifdef _IRR_DEBUG

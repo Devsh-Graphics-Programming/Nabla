@@ -432,10 +432,6 @@ namespace video
 		//! Enable the 2d override material
 		virtual void enableMaterial2D(bool enable=true);
 
-		//! Only used by the engine internally.
-		virtual void setAllowZWriteOnTransparent(bool flag)
-		{ AllowZWriteOnTransparent=flag; }
-
 		//! Returns the maximum texture size supported.
 		virtual const uint32_t* getMaxTextureSize(const ITexture::E_TEXTURE_TYPE& type) const;
 
@@ -567,8 +563,6 @@ namespace video
 		SGPUMaterial OverrideMaterial2D;
 		SGPUMaterial InitMaterial2D;
 		bool OverrideMaterial2DEnabled;
-
-		bool AllowZWriteOnTransparent;
 
 		uint32_t MaxTextureSizes[ITexture::ETT_COUNT][3];
 	};

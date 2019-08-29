@@ -51,9 +51,7 @@
 #include "ECullingTypes.h"
 #include "EDebugSceneTypes.h"
 #include "EDriverTypes.h"
-#include "EMaterialFlags.h"
 #include "EMaterialTypes.h"
-#include "EMeshWriterEnums.h"
 #include "ESceneNodeAnimatorTypes.h"
 #include "ESceneNodeTypes.h"
 #include "IAnimatedMesh.h"
@@ -94,7 +92,6 @@
 #include "splines.h"
 
 
-#include "SceneParameters.h"
 #include "SColor.h"
 #include "SCollisionEngine.h"
 #include "SExposedVideoData.h"

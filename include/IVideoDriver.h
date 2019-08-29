@@ -565,12 +565,6 @@ namespace video
 		/** \param enable Flag which tells whether the material shall be
 		enabled or disabled. */
 		virtual void enableMaterial2D(bool enable=true) =0;
-
-		//! Only used by the engine internally.
-		/** Passes the global material flag AllowZWriteOnTransparent.
-		Use the SceneManager attribute to set this value from your app.
-		\param flag Default behavior is to disable ZWrite, i.e. false. */
-		virtual void setAllowZWriteOnTransparent(bool flag) =0;
 	};
 
 } // end namespace video

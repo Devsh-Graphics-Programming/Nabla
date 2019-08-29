@@ -8,7 +8,6 @@
 #include "vectorSIMD.h"
 #include "SColor.h"
 #include "EMaterialTypes.h"
-#include "EMaterialFlags.h"
 #include "SMaterialLayer.h"
 
 namespace irr
@@ -263,9 +262,6 @@ namespace video
             uint64_t PointCloud:1;
 
             //! Is the zbuffer writeable or is it read-only. Default: true.
-            /** This flag is forced to false if the MaterialType is a
-            transparent type and the scene parameter
-            ALLOW_ZWRITE_ON_TRANSPARENT is not set. */
             uint64_t ZWriteEnable:1;
 
             //! Is backface culling enabled? Default: true

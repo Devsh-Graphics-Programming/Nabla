@@ -693,9 +693,6 @@ void CSceneManager::drawAll()
 	Driver->setTransform ( video::E4X3TS_VIEW, core::matrix4x3() );
 	Driver->setTransform ( video::E4X3TS_WORLD, core::matrix4x3() );
 
-	// TODO: This should not use an attribute here but a real parameter when necessary (too slow!)
-	Driver->setAllowZWriteOnTransparent( *((bool*)&(Parameters[ALLOW_ZWRITE_ON_TRANSPARENT])) );
-
 	// do animations and other stuff.
 	OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count());
 
