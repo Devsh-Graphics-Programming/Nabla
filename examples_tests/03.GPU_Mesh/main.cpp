@@ -3,6 +3,8 @@
 #include <cstdio>
 #include <irrlicht.h>
 #include "../common/QToQuitEventReceiver.h"
+
+//! I advise to check out this file, its a basic input handler
 #include "../../ext/ScreenShot/ScreenShot.h"
 
 
@@ -66,6 +68,18 @@ int main()
 
 	if (device == 0)
 		return 1; // could not create selected driver.
+
+
+
+	//! disable mouse cursor, since camera will force it to the middle
+	//! and we don't want a jittery cursor in the middle distracting us
+	device->getCursorControl()->setVisible(false);
+
+	//! Since our cursor will be enslaved, there will be no way to close the window
+	//! So we listen for the "Q" key being pressed and exit the application
+	QToQuitEventReceiver receiver;
+	device->setEventReceiver(&receiver);
+
 
 
 	video::IVideoDriver* driver = device->getVideoDriver();
@@ -143,20 +157,9 @@ int main()
 
     smgr->setActiveCamera(camera);
 
-
-	//! disable mouse cursor, since camera will force it to the middle
-	//! and we don't want a jittery cursor in the middle distracting us
-	device->getCursorControl()->setVisible(false);
-
-	//! Since our cursor will be enslaved, there will be no way to close the window
-	//! So we listen for the "Q" key being pressed and exit the application
-	QToQuitEventReceiver receiver;
-	device->setEventReceiver(&receiver);
-
 	uint64_t lastFPSTime = 0;
 
-	while(device->run())
-	//if (device->isWindowActive())
+	while(device->run() && receiver.keepOpen())
 	{
 		driver->beginScene(true, true, video::SColor(255,255,255,255) );
 
