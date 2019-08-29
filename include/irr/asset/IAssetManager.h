@@ -401,9 +401,14 @@ namespace asset
                 _override = &defOverride;
 
             io::IWriteFile* file = m_fileSystem->createAndWriteFile(_filename.c_str());
-            bool res = writeAsset(file, _params, _override);
-            file->drop();
-            return res;
+			if (file) // could fail creating file (lack of permissions)
+			{
+				bool res = writeAsset(file, _params, _override);
+				file->drop();
+				return res;
+			}
+			else
+				return false;
         }
         bool writeAsset(io::IWriteFile* _file, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override)
         {

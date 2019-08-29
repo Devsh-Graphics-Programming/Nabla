@@ -24,7 +24,7 @@ core::smart_refctd_ptr<video::IDriverFence> createScreenShot(video::IDriver* dri
 	video::COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(_outFormat,colorformat,type);
 
 	video::COpenGLExtensionHandler::extGlBindBuffer(GL_PIXEL_PACK_BUFFER, static_cast<video::COpenGLBuffer*>(destination)->getOpenGLName());
-	glReadPixels(sourceRect.LowerRightCorner.X, sourceRect.LowerRightCorner.Y, sourceRect.getWidth(), sourceRect.getHeight(), colorformat, type, reinterpret_cast<void*>(destOffset));
+	glReadPixels(sourceRect.UpperLeftCorner.X, sourceRect.UpperLeftCorner.Y, sourceRect.getWidth(), sourceRect.getHeight(), colorformat, type, reinterpret_cast<void*>(destOffset));
 	video::COpenGLExtensionHandler::extGlBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 
 	return driver->placeFence(implicitflush);
@@ -54,12 +54,10 @@ void writeBufferAsImageToFile(asset::IAssetManager* mgr, const PathOrFile& _outF
 {
 	const uint32_t zero[3] = { 0,0,0 };
 	const uint32_t sizeArray[3] = { _size.X,_size.Y,1u };
-	auto img = new asset::CImageData(reinterpret_cast<uint8_t*>(buff->getBoundMemory()->getMappedPointer())+offset, zero, sizeArray, 0u, _format);
+	auto img = core::make_smart_refctd_ptr<asset::CImageData>(reinterpret_cast<uint8_t*>(buff->getBoundMemory()->getMappedPointer())+offset, zero, sizeArray, 0u, _format);
 
-	asset::IAssetWriter::SAssetWriteParams wparams(img);
+	asset::IAssetWriter::SAssetWriteParams wparams(img.get());
 	mgr->writeAsset(_outFile, wparams);
-	
-	img->drop();
 }
 
 
@@ -74,7 +72,7 @@ void dirtyCPUStallingScreenshot(IrrlichtDevice* device, const PathOrFile& _outFi
 
 	auto fence = ext::ScreenShot::createScreenShot(driver, sourceRect, _format, buff.get());
 	fence->waitCPU(10000000000000ull, true);
-	ext::ScreenShot::writeBufferAsImageToFile(assetManager, "screenshot.png", {sourceRect.getWidth(),sourceRect.getHeight()}, _format, buff.get());
+	ext::ScreenShot::writeBufferAsImageToFile(assetManager, _outFile, {sourceRect.getWidth(),sourceRect.getHeight()}, _format, buff.get());
 }
 
 

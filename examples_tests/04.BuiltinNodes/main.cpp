@@ -1,38 +1,10 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
+#include "../common/QToQuitEventReceiver.h"
 #include "../../ext/ScreenShot/ScreenShot.h"
 
 using namespace irr;
 using namespace core;
-
-//!Same As Last Example
-class MyEventReceiver : public IEventReceiver
-{
-public:
-
-	MyEventReceiver()
-	{
-	}
-
-	bool OnEvent(const SEvent& event)
-	{
-        if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
-        {
-            switch (event.KeyInput.Key)
-            {
-            case irr::KEY_KEY_Q: // switch wire frame mode
-                exit(0);
-                return true;
-            default:
-                break;
-            }
-        }
-
-		return false;
-	}
-
-private:
-};
 
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
@@ -55,7 +27,6 @@ public:
 
     virtual void OnUnsetMaterial() {}
 };
-
 
 
 int main()
@@ -102,7 +73,7 @@ int main()
 	camera->setFarValue(100.0f);
     smgr->setActiveCamera(camera);
 	device->getCursorControl()->setVisible(false);
-	MyEventReceiver receiver;
+	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
 	//! Test Creation Of Builtin
@@ -133,7 +104,7 @@ int main()
 
 	uint64_t lastFPSTime = 0;
 
-	while(device->run())
+	while(device->run() && receiver.keepOpen())
 	//if (device->isWindowActive())
 	{
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );
