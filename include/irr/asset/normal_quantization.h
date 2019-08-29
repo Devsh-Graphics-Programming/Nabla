@@ -36,6 +36,7 @@ namespace asset
 				return false;
 		}
 	};
+	static_assert(sizeof(QuantizationCacheEntryBase) == 16u);
 
     struct QuantizationCacheEntry2_10_10_10 : QuantizationCacheEntryBase
     {

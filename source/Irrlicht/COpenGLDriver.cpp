@@ -2294,28 +2294,32 @@ core::smart_refctd_ptr<video::ITexture> COpenGLDriver::createDeviceDependentText
             mipmapLevels = 1;
     }
 
+	auto internalFormat = COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format);
+	if (internalFormat==GL_INVALID_ENUM)
+		return nullptr;
+
     switch (type)
     {
         case ITexture::ETT_1D:
-            return core::make_smart_refctd_ptr<COpenGL1DTexture>(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format), size, mipmapLevels, name);
+            return core::make_smart_refctd_ptr<COpenGL1DTexture>(internalFormat, size, mipmapLevels, name);
             break;
         case ITexture::ETT_2D:
-            return core::make_smart_refctd_ptr<COpenGL2DTexture>(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format), size, mipmapLevels, name);
+            return core::make_smart_refctd_ptr<COpenGL2DTexture>(internalFormat, size, mipmapLevels, name);
             break;
         case ITexture::ETT_3D:
-            return core::make_smart_refctd_ptr<COpenGL3DTexture>(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            return core::make_smart_refctd_ptr<COpenGL3DTexture>(internalFormat,size,mipmapLevels,name);
             break;
         case ITexture::ETT_1D_ARRAY:
-            return core::make_smart_refctd_ptr<COpenGL1DTextureArray>(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            return core::make_smart_refctd_ptr<COpenGL1DTextureArray>(internalFormat,size,mipmapLevels,name);
             break;
         case ITexture::ETT_2D_ARRAY:
-            return core::make_smart_refctd_ptr<COpenGL2DTextureArray>(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            return core::make_smart_refctd_ptr<COpenGL2DTextureArray>(internalFormat,size,mipmapLevels,name);
             break;
         case ITexture::ETT_CUBE_MAP:
-            return core::make_smart_refctd_ptr<COpenGLCubemapTexture>(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            return core::make_smart_refctd_ptr<COpenGLCubemapTexture>(internalFormat,size,mipmapLevels,name);
             break;
         case ITexture::ETT_CUBE_MAP_ARRAY:
-            return core::make_smart_refctd_ptr<COpenGLCubemapArrayTexture>(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            return core::make_smart_refctd_ptr<COpenGLCubemapArrayTexture>(internalFormat,size,mipmapLevels,name);
             break;
         default:// ETT_CUBE_MAP, ETT_CUBE_MAP_ARRAY, ETT_TEXTURE_BUFFER
             break;
@@ -2583,17 +2587,20 @@ IMultisampleTexture* COpenGLDriver::addMultisampleTexture(const IMultisampleText
     if (core::isNPoT(samples))
         return nullptr;
 
-	IMultisampleTexture* tex;
+	auto internalFormat = COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format);
+	if (internalFormat == GL_INVALID_ENUM)
+		return nullptr;
+
+	IMultisampleTexture* tex = nullptr;
 	switch (type)
 	{
         case IMultisampleTexture::EMTT_2D:
-            tex = new COpenGLMultisampleTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),samples,size,fixedSampleLocations);
+            tex = new COpenGLMultisampleTexture(internalFormat,samples,size,fixedSampleLocations);
             break;
         case IMultisampleTexture::EMTT_2D_ARRAY:
-            tex = new COpenGLMultisampleTextureArray(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),samples,size,fixedSampleLocations);
+            tex = new COpenGLMultisampleTextureArray(internalFormat,samples,size,fixedSampleLocations);
             break;
         default:
-            tex = nullptr;
             break;
 	}
 
