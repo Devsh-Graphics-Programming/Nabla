@@ -1,41 +1,15 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 
+#include "../ext/ScreenShot/ScreenShot.h"
+#include "../common/QToQuitEventReceiver.h"
+
+// TODO: remove dependency
 #include "../src/irr/asset/CBAWMeshWriter.h"
-#include <SVertexManipulator.h>
 
 using namespace irr;
 using namespace core;
 
-bool quit = false;
-//!Same As Last Example
-class MyEventReceiver : public IEventReceiver
-{
-public:
-
-	MyEventReceiver()
-	{
-	}
-
-	bool OnEvent(const SEvent& event)
-	{
-        if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
-        {
-            switch (event.KeyInput.Key)
-            {
-            case irr::KEY_KEY_Q: // switch wire frame mode
-                quit = true;
-                return true;
-            default:
-                break;
-            }
-        }
-
-		return false;
-	}
-
-private:
-};
 
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
@@ -97,6 +71,12 @@ int main()
 		return 1; // could not create selected driver.
 
 
+	device->getCursorControl()->setVisible(false);
+
+	QToQuitEventReceiver receiver;
+	device->setEventReceiver(&receiver);
+
+
 	video::IVideoDriver* driver = device->getVideoDriver();
 
     SimpleCallBack* cb = new SimpleCallBack();
@@ -119,9 +99,6 @@ int main()
 	camera->setNearValue(0.01f);
 	camera->setFarValue(100.0f);
     smgr->setActiveCamera(camera);
-	device->getCursorControl()->setVisible(false);
-	MyEventReceiver receiver;
-	device->setEventReceiver(&receiver);
 
 	io::IFileSystem* fs = device->getFileSystem();
 
@@ -146,7 +123,7 @@ int main()
 	// end import
 
     if (cpumesh)
-        smgr->addMeshSceneNode(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)[0].get())->setMaterialType(newMaterialType);
+        smgr->addMeshSceneNode(std::move(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)[0]))->setMaterialType(newMaterialType);
 
     cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*am->getAsset("../../media/cow.obj", lparams).getContents().first);
 	// export mesh
@@ -159,12 +136,12 @@ int main()
 	// end import
 
     if (cpumesh)
-        smgr->addMeshSceneNode(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)[0].get(),0,-1,core::vector3df(3.f,1.f,0.f))->setMaterialType(newMaterialType);
+        smgr->addMeshSceneNode(std::move(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)[0]),0,-1,core::vector3df(3.f,1.f,0.f))->setMaterialType(newMaterialType);
 
 
 	uint64_t lastFPSTime = 0;
 
-	while(!quit && device->run())
+	while(device->run() && receiver.keepOpen() )
 	//if (device->isWindowActive())
 	{
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );
@@ -186,6 +163,14 @@ int main()
 			lastFPSTime = time;
 		}
 	}
+
+
+	//create a screenshot
+	{
+		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+	}
+
     
 	device->drop();
 

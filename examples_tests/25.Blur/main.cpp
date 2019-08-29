@@ -146,7 +146,7 @@ int main()
 
     uint64_t lastFPSTime = 0;
 
-    while (device->run())
+    while (device->run() && receiver.keepOpen() )
     {
         driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
 
