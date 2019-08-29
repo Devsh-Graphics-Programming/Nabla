@@ -85,20 +85,26 @@ void* TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::instantiateEmpty(const v
     // set ECF_DONT_CACHE_TOP_LEVEL flag because it will get cached in BAW loader
     asset::IAssetLoader::SAssetLoadParams params(_params.params.decryptionKeyLen, _params.params.decryptionKey, asset::IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL);
 
-	asset::ICPUTexture* texture = nullptr;
+	asset::SAssetBundle bundle;
 	const char* const texname = (const char*)blob->getData();
 	if (_params.fs->existFile(texname))
-	{
-		texture = static_cast<asset::ICPUTexture*>(static_cast<CBAWMeshFileLoader*>(_params.ldr)->interm_getAssetInHierarchy(_params.manager, texname, params, 0u, _params.loaderOverride).getContents().first->get());
-	}
+		bundle = static_cast<CBAWMeshFileLoader*>(_params.ldr)->interm_getAssetInHierarchy(_params.manager, texname, params, 0u, _params.loaderOverride);
 	else
 	{
 		const io::path path = _params.filePath + texname;
 		// try to read from the path relative to where the .baw is loaded from
-		texture = static_cast<asset::ICPUTexture*>(static_cast<CBAWMeshFileLoader*>(_params.ldr)->interm_getAssetInHierarchy(_params.manager, path.c_str(), params, 0u, _params.loaderOverride).getContents().first->get());
+		bundle = static_cast<CBAWMeshFileLoader*>(_params.ldr)->interm_getAssetInHierarchy(_params.manager, path.c_str(), params, 0u, _params.loaderOverride);
 	}
 
-	return texture;
+	auto assetRange = bundle.getContents();
+	if (assetRange.first != assetRange.second)
+	{
+		auto texture = assetRange.first->get();
+		texture->grab();
+		return texture;
+	}
+	else
+		return nullptr;
 }
 
 template<>
@@ -110,6 +116,8 @@ void* TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::finalize(void* _obj, con
 template<>
 void TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::releaseObj(const void* _obj)
 {
+	if (_obj)
+		reinterpret_cast<const asset::ICPUTexture*>(_obj)->drop();
 }
 
 template<>
@@ -226,7 +234,7 @@ void* TypedBlob<MeshBufferBlobV0, asset::ICPUMeshBuffer>::instantiateEmpty(const
 
 	const MeshBufferBlobV0* blob = (const MeshBufferBlobV0*)_blob;
 	asset::ICPUMeshBuffer* buf = new asset::ICPUMeshBuffer();
-	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SGPUMaterial));
+	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SCPUMaterial));
 	buf->getMaterial().setBitfields(*(blob)->mat.bitfieldsPtr());
 	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
 	{
@@ -286,10 +294,13 @@ void* TypedBlob<SkinnedMeshBufferBlobV0, asset::ICPUSkinnedMeshBuffer>::instanti
 
 	const SkinnedMeshBufferBlobV0* blob = (const SkinnedMeshBufferBlobV0*)_blob;
 	asset::ICPUSkinnedMeshBuffer* buf = new asset::ICPUSkinnedMeshBuffer();
-	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SGPUMaterial));
+	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SCPUMaterial));
 	buf->getMaterial().setBitfields(*(blob)->mat.bitfieldsPtr());
 	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+	{
+		memset(&buf->getMaterial().TextureLayer[i].Texture, 0, sizeof(const void*));
 		buf->getMaterial().TextureLayer[i].SamplingParams.setBitfields(*(blob)->mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
+	}
 
 	buf->setBoundingBox(blob->box);
 	buf->setIndexType((asset::E_INDEX_TYPE)blob->indexType);

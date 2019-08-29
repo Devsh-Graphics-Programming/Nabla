@@ -21,7 +21,7 @@ struct IRR_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuff
 	//! Constructor filling all members
 	explicit MeshBufferBlobV0(const ICPUMeshBuffer*);
 
-	video::SGPUMaterial mat;
+	video::SCPUMaterial mat;
 	core::aabbox3df box;
 	uint64_t descPtr;
 	uint32_t indexType;

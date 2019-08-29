@@ -19,7 +19,7 @@ struct IRR_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0
 	//! Constructor filling all members
 	explicit SkinnedMeshBufferBlobV0(const ICPUSkinnedMeshBuffer*);
 
-	video::SGPUMaterial mat;
+	video::SCPUMaterial mat;
 	core::aabbox3df box;
 	uint64_t descPtr;
 	uint32_t indexType;

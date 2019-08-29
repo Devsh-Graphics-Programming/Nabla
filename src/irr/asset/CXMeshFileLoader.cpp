@@ -1737,6 +1737,13 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 	{
 		core::stringc objectName = getNextToken(_ctx).c_str();
 
+		auto loadAndSetTexture = [&](uint32_t texSlot, auto path)
+		{
+			auto bundle = interm_getAssetInHierarchy(AssetManager, path.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents();
+			if (bundle.first != bundle.second)
+				material.setTexture(texSlot, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*bundle.first));
+		};
+
 		if (objectName.size() == 0)
 		{
 			os::Printer::log("Unexpected ending found in Mesh Material in .x file.", ELL_WARNING);
@@ -1758,17 +1765,17 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 			core::stringc TextureFileName = tmp.c_str();
 
 			// original name
-            if (FileSystem->existFile(TextureFileName))
-                material.setTexture(textureLayer, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*interm_getAssetInHierarchy(AssetManager, TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first));
+			if (FileSystem->existFile(TextureFileName))
+				loadAndSetTexture(textureLayer, TextureFileName);
 			// mesh path
 			else
 			{
 				TextureFileName= _ctx.FilePath + io::IFileSystem::getFileBasename(TextureFileName);
 				if (FileSystem->existFile(TextureFileName))
-					material.setTexture(textureLayer, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*interm_getAssetInHierarchy(AssetManager, TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first));
+					loadAndSetTexture(textureLayer, TextureFileName);
 				// working directory
 				else
-					material.setTexture(textureLayer, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*interm_getAssetInHierarchy(AssetManager, io::IFileSystem::getFileBasename(TextureFileName).c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first));
+					loadAndSetTexture(textureLayer, io::IFileSystem::getFileBasename(TextureFileName));
 			}
 			++textureLayer;
 		}
@@ -1783,7 +1790,7 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 
 			// original name
             if (FileSystem->existFile(TextureFileName))
-				material.setTexture(1, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*interm_getAssetInHierarchy(AssetManager, TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first));
+				loadAndSetTexture(1u, TextureFileName);
 			// mesh path
 			else
 			{
@@ -1792,7 +1799,7 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 					material.setTexture(1, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*interm_getAssetInHierarchy(AssetManager, TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first));
 				// working directory
                 else
-					material.setTexture(1, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*interm_getAssetInHierarchy(AssetManager, io::IFileSystem::getFileBasename(TextureFileName).c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first));
+					loadAndSetTexture(1u, io::IFileSystem::getFileBasename(TextureFileName));
 			}
 			if (textureLayer==1)
 				++textureLayer;

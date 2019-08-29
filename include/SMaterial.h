@@ -383,10 +383,6 @@ namespace video
     using SGPUMaterial = SMaterial<IVirtualTexture>;
     using SCPUMaterial = SMaterial<asset::ICPUTexture>;
 
-	//! global const identity Material
-	IRRLICHT_API extern SGPUMaterial IdentityMaterial;
-
-
 
 	//!
 	class RasterStencilDepthState

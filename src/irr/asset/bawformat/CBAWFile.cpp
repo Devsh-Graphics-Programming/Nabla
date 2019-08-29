@@ -51,7 +51,7 @@ size_t SizedBlob<VariableSizeBlob, SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>::c
 
 MeshBufferBlobV0::MeshBufferBlobV0(const asset::ICPUMeshBuffer* _mb)
 {
-	memcpy(&mat, &_mb->getMaterial(), sizeof(video::SGPUMaterial));
+	memcpy(&mat, &_mb->getMaterial(), sizeof(video::SCPUMaterial));
 	_mb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
 	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
 		_mb->getMaterial().TextureLayer[i].SamplingParams.serializeBitfields(mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
@@ -76,7 +76,7 @@ size_t SizedBlob<FixedSizeBlob, MeshBufferBlobV0, asset::ICPUMeshBuffer>::calcBl
 
 SkinnedMeshBufferBlobV0::SkinnedMeshBufferBlobV0(const asset::ICPUSkinnedMeshBuffer* _smb)
 {
-	memcpy(&mat, &_smb->getMaterial(), sizeof(video::SGPUMaterial));
+	memcpy(&mat, &_smb->getMaterial(), sizeof(video::SCPUMaterial));
 	_smb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
 	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
 		_smb->getMaterial().TextureLayer[i].SamplingParams.serializeBitfields(mat.TextureLayer[i].SamplingParams.bitfieldsPtr());

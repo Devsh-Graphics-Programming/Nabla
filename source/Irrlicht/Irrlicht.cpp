@@ -90,12 +90,6 @@ namespace irr
 		return dev;
 	}
 
-
-namespace video
-{
-	SGPUMaterial IdentityMaterial;
-}
-
 } // end namespace irr
 
 

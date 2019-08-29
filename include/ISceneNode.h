@@ -234,7 +234,7 @@ namespace scene
 		\return The material at that index. */
 		virtual video::SGPUMaterial& getMaterial(uint32_t num)
 		{
-			return video::IdentityMaterial;
+			return video::SGPUMaterial();
 		}
 
 
