@@ -84,7 +84,6 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	if (!_file)
         return {};
 	
-	asset::CImageData* image = 0;
 	//Used to point to image rows
 	uint8_t** RowPointers = 0;
 
@@ -205,7 +204,9 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 
 	// Create the image structure to be filled by png data
 	uint32_t nullOffset[3] = {0,0,0};
-	
+	asset::CImageData* image = nullptr;
+
+	bool lumaAlphaType = false;
 	switch (ColorType) {
 		case PNG_COLOR_TYPE_RGB_ALPHA:
 			image = new asset::CImageData(nullptr, nullOffset, imageSize, 0, asset::EF_R8G8B8A8_SRGB);
@@ -215,6 +216,10 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 			break;
 		case PNG_COLOR_TYPE_GRAY:
 			image = new asset::CImageData(nullptr, nullOffset, imageSize, 0, asset::EF_R8_SRGB);
+			break;
+		case PNG_COLOR_TYPE_GRAY_ALPHA:
+			image = new asset::CImageData(nullptr, nullOffset, imageSize, 0, asset::EF_R8G8B8A8_SRGB);
+			lumaAlphaType = true;
 			break;
 		default:
 			{
@@ -242,11 +247,11 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 
 	// Fill array of pointers to rows in image data
 	const uint32_t pitch = image->getPitchIncludingAlignment();
-	uint8_t* data = reinterpret_cast<uint8_t*>(image->getData()) + (image->getPitchIncludingAlignment() * image->getSize().Y) - pitch;
+	uint8_t* data = reinterpret_cast<uint8_t*>(image->getData());
 	for (uint32_t i=0; i<Height; ++i)
 	{
 		RowPointers[i] = (png_bytep)data;
-		data -= pitch;
+		data += pitch;
 	}
 
 	// for proper error handling
@@ -262,6 +267,20 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	png_read_image(png_ptr, RowPointers);
 
 	png_read_end(png_ptr, nullptr);
+	if (lumaAlphaType)
+	{
+		assert(image->getColorFormat()==asset::EF_R8G8B8A8_SRGB);
+		for (uint32_t i=0u; i<Height; ++i)
+		for (uint32_t j=0u; j<Width;)
+		{
+			uint32_t in = reinterpret_cast<uint16_t*>(RowPointers[i])[j];
+			j++;
+			auto& out = reinterpret_cast<uint32_t*>(RowPointers[i])[Width-j];
+			out = in|(in << 16u); // LXLA
+			out &= 0xffff00ffu;
+			out |= (in&0xffu) << 8u;
+		}
+	}
 	delete [] RowPointers;
 	png_destroy_read_struct(&png_ptr,&info_ptr, 0); // Clean up memory
 

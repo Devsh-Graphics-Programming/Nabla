@@ -1,19 +1,13 @@
-#version 330 compatibility
-uniform vec3 cameraPos;
+#version 430 core
 uniform mat4 MVP;
 
 layout(location = 0) in vec4 vPos; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
-layout(location = 1) in vec4 vCol; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
-layout(location = 3) in vec3 vNormal;
+layout(location = 2) in vec2 vTexCoord;
 
-out vec4 Color; //per vertex output color, will be interpolated across the triangle
-out vec3 Normal;
-out vec3 lightDir;
+out vec2 TexCoord;
 
 void main()
 {
-    gl_Position = MVP*vPos; //only thing preventing the shader from being core-compliant
-    Color = vec4(1.0);
-    Normal = normalize(vNormal); //have to normalize twice because of normal quantization
-    lightDir = cameraPos-vPos.xyz;
+    gl_Position = MVP*vPos;
+	TexCoord = vTexCoord;
 }

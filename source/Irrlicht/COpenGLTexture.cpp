@@ -166,8 +166,8 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E_
 {
     using namespace asset;
 	// default
-	colorformat = GL_RGBA;
-	type = GL_UNSIGNED_BYTE;
+	colorformat = GL_INVALID_ENUM;
+	type = GL_INVALID_ENUM;
 
 	switch(format)
 	{
@@ -234,6 +234,14 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E_
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
+		case asset::EF_R8_SRGB:
+		{
+			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_sRGB_R8])
+				break;
+			colorformat = GL_RED;
+			type = GL_UNSIGNED_BYTE;
+		}
+			break;
         case asset::EF_R8G8_SNORM:
         {
             colorformat = GL_RG;
@@ -246,6 +254,14 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E_
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
+		case asset::EF_R8G8_SRGB:
+		{
+			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_sRGB_RG8])
+				break;
+			colorformat = GL_RG;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
         case asset::EF_R8G8B8_SNORM:
             colorformat = GL_RGB;
             type = GL_BYTE;
@@ -822,10 +838,11 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E_
 		}
 			break;
 		default:
-		{
-			os::Printer::log("Unsupported upload format", ELL_ERROR);
-		}
+			break;
 	}
+
+	if (colorformat==GL_INVALID_ENUM || type==GL_INVALID_ENUM)
+		os::Printer::log("Unsupported upload format", ELL_ERROR);
 }
 
 GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E_FORMAT &format)
@@ -869,8 +886,16 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E
 		case asset::EF_R8_UNORM:
 		    return GL_R8;
 			break;
+		case asset::EF_R8_SRGB:
+			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_sRGB_R8])
+				return GL_SR8_EXT;
+			break;
 		case asset::EF_R8G8_UNORM:
 		    return GL_RG8;
+			break;
+		case asset::EF_R8G8_SRGB:
+			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_sRGB_RG8])
+				return GL_SRG8_EXT;
 			break;
         case asset::EF_R8G8B8_UNORM:
             return GL_RGB8;
@@ -1152,13 +1177,12 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E
             return GL_RGB9_E5;
             break;
 		default:
-		{
-#ifdef _IRR_DEBUG
-			os::Printer::log("Unsupported texture format", ELL_ERROR);
-#endif // _IRR_DEBUG
-			return GL_INVALID_ENUM;
-		}
+			break;
 	}
+#ifdef _IRR_DEBUG
+	os::Printer::log("Unsupported texture format", ELL_ERROR);
+#endif // _IRR_DEBUG
+	return GL_INVALID_ENUM;
 }
 
 asset::E_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& sizedFormat)
@@ -1323,6 +1347,9 @@ asset::E_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum
         case GL_RG8:
             return asset::EF_R8G8_UNORM;
             break;
+		case GL_SR8_EXT:
+			return asset::EF_R8_SRGB;
+			break;
         case GL_RG8I:
             return asset::EF_R8G8_SINT;
             break;
@@ -1353,6 +1380,9 @@ asset::E_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum
         case GL_RGB8:
             return asset::EF_R8G8B8_UNORM;
             break;
+		case GL_SRG8_EXT:
+			return asset::EF_R8G8_SRGB;
+			break;
         case GL_RGB8I:
             return asset::EF_R8G8B8_SINT;
             break;

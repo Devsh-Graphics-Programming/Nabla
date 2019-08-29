@@ -293,7 +293,7 @@ target_include_directories(Irrlicht PUBLIC
 	"$<$<CONFIG:DEBUG>:${IRRLICHT_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${IRRLICHT_CONF_DIR_RELEASE}>"
 )
-target_include_directories(Irrlicht PUBLIC ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
+target_include_directories(Irrlicht PUBLIC ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht ${IRR_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 if (UNIX)
 	target_include_directories(Irrlicht PUBLIC 
 		${X11_INCLUDE_DIR} 
@@ -357,7 +357,7 @@ target_include_directories(IrrlichtServer PUBLIC
 	"$<$<CONFIG:DEBUG>:${IRRLICHT_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${IRRLICHT_CONF_DIR_RELEASE}>"
 )
-target_include_directories(IrrlichtServer PRIVATE ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht)
+target_include_directories(IrrlichtServer PRIVATE ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht ${IRR_ROOT_PATH}/src/3rdparty)
 
 target_compile_definitions(IrrlichtServer PRIVATE
 	_IRR_STATIC_LIB_

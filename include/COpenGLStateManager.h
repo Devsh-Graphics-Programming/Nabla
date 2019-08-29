@@ -13,21 +13,21 @@
 	#define NOMINMAX
 	#include <windows.h>
     #define GL_GLEXT_LEGACY 1
-	#include <GL/gl.h>
+	#include "GL/gl.h"
     #undef GL_GLEXT_LEGACY
-    #include "../source/Irrlicht/glext.h"
-	#include "../source/Irrlicht/wglext.h"
+    #include "../src/3rdparty/GL/glext.h"
+    #include "../src/3rdparty/GL/wglext.h"
 #elif defined(_IRR_COMPILE_WITH_SDL_DEVICE_) && !defined(_IRR_COMPILE_WITH_X11_DEVICE_)
 	#include <SDL/SDL_video.h>
     #define GL_GLEXT_LEGACY 1
 	#include <SDL/SDL_opengl.h>
     #undef GL_GLEXT_LEGACY
-	#include "../source/Irrlicht/glext.h"
+	#include "../src/3rdparty/GL/glext.h"
 #else
     #define GL_GLEXT_LEGACY 1
-	#include <GL/gl.h>
+	#include "GL/gl.h"
     #undef GL_GLEXT_LEGACY
-    #include "../source/Irrlicht/glext.h"
+	#include "../src/3rdparty/GL/glext.h"
 #endif
 
 namespace irr

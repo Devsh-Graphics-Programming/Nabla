@@ -166,9 +166,6 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 		return false;
 	}
 	
-	// Write in reverse order because the texture is flipped to match OpenGL coords
-	data += (dim.Y * image->getPitchIncludingAlignment()) - lineWidth;
-	
 	// Create array of pointers to rows in image data
 	png_bytep RowPointers[maxPNGFileHeight];
 
@@ -196,7 +193,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 			}
 		}
 		
-		data -= lineWidth;
+		data += lineWidth;
 	}
 	
 	// for proper error handling
