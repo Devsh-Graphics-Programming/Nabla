@@ -1,28 +1,5 @@
 #define _IRR_STATIC_LIB_
-
-/* GCC compile Flags
--flto
--fuse-linker-plugin
--fno-omit-frame-pointer //for debug
--msse3
--mfpmath=sse
--ggdb3 //for debug
-*/
-/* Linker Flags
--lIrrlicht
--lXrandr
--lGL
--lX11
--lpthread
--ldl
-
--fuse-ld=gold
--flto
--fuse-linker-plugin
--msse3
-*/
 #include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
 /**
 This example just shows a screen which clears to red,
