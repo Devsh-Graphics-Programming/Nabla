@@ -123,7 +123,7 @@ int main()
 	// end import
 
     if (cpumesh)
-        smgr->addMeshSceneNode(std::move(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)[0]))->setMaterialType(newMaterialType);
+        smgr->addMeshSceneNode(std::move(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)->operator[](0)))->setMaterialType(newMaterialType);
 
     cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*am->getAsset("../../media/cow.obj", lparams).getContents().first);
 	// export mesh
@@ -136,7 +136,7 @@ int main()
 	// end import
 
     if (cpumesh)
-        smgr->addMeshSceneNode(std::move(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)[0]),0,-1,core::vector3df(3.f,1.f,0.f))->setMaterialType(newMaterialType);
+        smgr->addMeshSceneNode(std::move(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)->operator[](0)),0,-1,core::vector3df(3.f,1.f,0.f))->setMaterialType(newMaterialType);
 
 
 	uint64_t lastFPSTime = 0;
