@@ -123,12 +123,12 @@ int main()
 				auto gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures+6);
 
 				smgr->addSkyBoxSceneNode(
-					std::move(gputextures[0]),
-					std::move(gputextures[1]),
-					std::move(gputextures[2]),
-					std::move(gputextures[3]),
-					std::move(gputextures[4]), 
-					std::move(gputextures[5])
+					std::move(gputextures->operator[](0)),
+					std::move(gputextures->operator[](1)),
+					std::move(gputextures->operator[](2)),
+					std::move(gputextures->operator[](3)),
+					std::move(gputextures->operator[](4)),
+					std::move(gputextures->operator[](5))
 				);
 			}
             break;
@@ -136,7 +136,7 @@ int main()
 			{
 				asset::IAssetLoader::SAssetLoadParams lparams;
 				auto cputexture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*assetMgr->getAsset("../../media/skydome.jpg", lparams).getContents().first);
-				auto skydomeTexture = driver->getGPUObjectsFromAssets(&cputexture.get(), (&cputexture.get())+1).front();
+				auto skydomeTexture = std::move(driver->getGPUObjectsFromAssets(&cputexture.get(), (&cputexture.get())+1)->front());
 				smgr->addSkyDomeSceneNode(std::move(skydomeTexture),16,8,0.95f,2.0f,10.f);
 
 			}

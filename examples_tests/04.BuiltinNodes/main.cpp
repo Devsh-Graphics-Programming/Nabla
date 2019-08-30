@@ -97,9 +97,9 @@ int main()
 		};
 		auto gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures + 3);
 
-		cube->getMaterial(0).setTexture(0, std::move(gputextures[0]));
-		sphere->getMaterial(0).setTexture(0, std::move(gputextures[1]));
-		billboard->getMaterial(0).setTexture(0, std::move(gputextures[2]));
+		cube->getMaterial(0).setTexture(0, std::move(gputextures->operator[](0u)));
+		sphere->getMaterial(0).setTexture(0, std::move(gputextures->operator[](1u)));
+		billboard->getMaterial(0).setTexture(0, std::move(gputextures->operator[](2u)));
 	}
 
 	uint64_t lastFPSTime = 0;
