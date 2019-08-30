@@ -1017,14 +1017,14 @@ bool COpenGLDriver::genericDriverInit()
         auto reqs = getDownStreamingMemoryReqs();
         reqs.vulkanReqs.size = Params.StreamingDownloadBufferSize;
         reqs.vulkanReqs.alignment = 64u*1024u; // if you need larger alignments then you're not right in the head
-        defaultDownloadBuffer = new video::StreamingTransientDataBufferMT<>(this,reqs);
+        defaultDownloadBuffer = core::make_smart_refctd_ptr<video::StreamingTransientDataBufferMT<> >(this,reqs);
 	}
 	// up
 	{
         auto reqs = getUpStreamingMemoryReqs();
         reqs.vulkanReqs.size = Params.StreamingUploadBufferSize;
         reqs.vulkanReqs.alignment = 64u*1024u; // if you need larger alignments then you're not right in the head
-        defaultUploadBuffer = new video::StreamingTransientDataBufferMT<>(this,reqs);
+        defaultUploadBuffer = core::make_smart_refctd_ptr < video::StreamingTransientDataBufferMT<> >(this,reqs);
 	}
 
     DerivativeMapCreator = new CDerivativeMapCreator(this);

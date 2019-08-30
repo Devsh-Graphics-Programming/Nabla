@@ -40,7 +40,7 @@ CBillboardSceneNode::CBillboardSceneNode(IDummyTransformationSceneNode* parent, 
 		reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
 		reqs.prefersDedicatedAllocation = true;
 		reqs.requiresDedicatedAllocation = true;
-		vertexBuffer = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
+		vertexBuffer = core::smart_refctd_ptr<video::IGPUBuffer>(SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true), core::dont_grab);
 		desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertexBuffer),asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT);
 		meshbuffer->setMeshDataAndFormat(core::smart_refctd_ptr(desc));
 	}

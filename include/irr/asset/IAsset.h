@@ -74,7 +74,7 @@ public:
 private:
     core::smart_refctd_ptr<IAssetMetadata> m_metadata;
 
-    void setMetadata(IAssetMetadata* _metadata) { m_metadata = _metadata; }
+    void setMetadata(core::smart_refctd_ptr<IAssetMetadata>&& _metadata) { m_metadata = std::move(_metadata); }
 
 protected:
     bool isDummyObjectForCacheAliasing;

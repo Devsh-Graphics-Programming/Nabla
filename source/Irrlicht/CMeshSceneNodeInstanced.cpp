@@ -191,7 +191,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
 
     for (size_t i=0; i<xfb.size(); i++)
     {
-        xfb[i] = SceneManager->getVideoDriver()->createTransformFeedback();
+        xfb[i] = core::smart_refctd_ptr<video::ITransformFeedback>(SceneManager->getVideoDriver()->createTransformFeedback(),core::dont_grab);
 
         for (size_t j=0; j<gpuLoDsPerPass; j++)
             xfb[i]->bindOutputBuffer(j,gpuCulledLodInstanceDataBuffer.get(),(i*gpuLoDsPerPass+j)*dataSizePerInstanceOutput*instanceBBoxesCount,dataSizePerInstanceOutput*instanceBBoxesCount);

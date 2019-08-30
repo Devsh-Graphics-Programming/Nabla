@@ -248,7 +248,7 @@ namespace core
 				if (ptr)
 					ptr->drop();
 			}
-
+/* Not wise to have this by default
 			template<class U>
 			inline smart_refctd_ptr& operator=(U* _pointer) noexcept
 			{
@@ -259,15 +259,25 @@ namespace core
 				ptr = _pointer;
 				return *this;
 			}
-			
+*/
 			inline smart_refctd_ptr& operator=(const smart_refctd_ptr<I_REFERENCE_COUNTED>& other) noexcept
 			{
-				return operator=(other.ptr);
+				if (other.ptr)
+					other.ptr->grab();
+				if (ptr)
+					ptr->drop();
+				ptr = other.ptr;
+				return *this;
 			}
             template<class U, std::enable_if_t<!std::is_same<U,I_REFERENCE_COUNTED>::value, int> = 0>
             inline smart_refctd_ptr& operator=(const smart_refctd_ptr<U>& other) noexcept
             {
-                return operator=(other.ptr);
+				if (other.ptr)
+					other.ptr->grab();
+				if (ptr)
+					ptr->drop();
+				ptr = other.ptr;
+				return *this;
             }
 
             inline smart_refctd_ptr& operator=(smart_refctd_ptr<I_REFERENCE_COUNTED>&& other) noexcept

@@ -321,9 +321,9 @@ namespace asset
             return res;
         }
 
-        inline void setAssetMetadata(IAsset* _asset, IAssetMetadata* _metadata)
+        inline void setAssetMetadata(IAsset* _asset, core::smart_refctd_ptr<IAssetMetadata>&& _metadata)
         {
-            _asset->setMetadata(_metadata);
+            _asset->setMetadata(std::move(_metadata));
         }
 
         //! Changes the lookup key
