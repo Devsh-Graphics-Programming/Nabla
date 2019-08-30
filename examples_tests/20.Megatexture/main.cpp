@@ -94,7 +94,7 @@ int main()
 	asset::IAssetLoader::SAssetLoadParams lparams;
 	auto cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*am->getAsset("sponza.obj", lparams).getContents().first);
 	if (cpumesh)
-		smgr->addMeshSceneNode(std::move(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get()) + 1)[0]))->setMaterialType(newMaterialType);
+		smgr->addMeshSceneNode(std::move(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get()) + 1)->operator[](0)))->setMaterialType(newMaterialType);
 
 
 	uint64_t lastFPSTime = 0;
