@@ -193,6 +193,7 @@ namespace core
 
 			template<class U> friend class smart_refctd_ptr;
 			template<class U, class T> friend smart_refctd_ptr<U> smart_refctd_ptr_static_cast(smart_refctd_ptr<T>&&);
+			template<class U, class T> friend smart_refctd_ptr<U> smart_refctd_ptr_dynamic_cast(smart_refctd_ptr<T>&&);
 
             template<class U>
             void copy(const smart_refctd_ptr<U>& other) noexcept

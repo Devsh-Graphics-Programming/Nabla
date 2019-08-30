@@ -44,7 +44,7 @@ namespace asset
         using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAssetBundle, std::vector>;
 #endif //USE_MAPS_FOR_PATH_BASED_CACHE
 
-        using CpuGpuCacheType = core::CConcurrentObjectCache<const IAsset*, core::IReferenceCounted*>;
+        using CpuGpuCacheType = core::CConcurrentObjectCache<const IAsset*, core::smart_refctd_ptr<core::IReferenceCounted> >;
 
     private:
         struct WriterKey
@@ -119,7 +119,7 @@ namespace asset
             for (size_t i = 0u; i < m_assetCache.size(); ++i)
                 m_assetCache[i] = new AssetCacheType(asset::makeAssetGreetFunc(this), asset::makeAssetDisposeFunc(this));
             for (size_t i = 0u; i < m_cpuGpuCache.size(); ++i)
-                m_cpuGpuCache[i] = new CpuGpuCacheType(&refCtdGreet<core::IReferenceCounted>, &refCtdDispose<core::IReferenceCounted>);
+                m_cpuGpuCache[i] = new CpuGpuCacheType();
             m_defaultLoaderOverride = IAssetLoader::IAssetLoaderOverride{this};
 
 			addLoadersAndWriters();
@@ -296,7 +296,7 @@ namespace asset
             }
             return res;
         }
-        //TODO change name
+        //TODO change name (plural)
         inline core::vector<SAssetBundle> findAssets(const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
         {
             size_t reqSz = 0u;
@@ -361,27 +361,28 @@ namespace asset
 
         //! This function frees most of the memory consumed by IAssets, but not destroying them.
         /** Keeping assets around (by their pointers) helps a lot by letting the loaders retrieve them from the cache and not load cpu objects which have been loaded, converted to gpu resources and then would have been disposed of. However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
-        void convertAssetToEmptyCacheHandle(IAsset* _asset, core::IReferenceCounted* _gpuObject)
+        void convertAssetToEmptyCacheHandle(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject)
         {
 			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
             _asset->grab();
             _asset->convertToDummyObject();
-            m_cpuGpuCache[ix]->insert(_asset, _gpuObject);
+            m_cpuGpuCache[ix]->insert(_asset, std::move(_gpuObject));
         }
 
-        core::IReferenceCounted* findGPUObject(const IAsset* _asset)
+		core::smart_refctd_ptr<core::IReferenceCounted> findGPUObject(const IAsset* _asset)
         {
 			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
-            core::IReferenceCounted* storage[1];
+
+            core::smart_refctd_ptr<core::IReferenceCounted> storage[1];
             size_t storageSz = 1u;
             m_cpuGpuCache[ix]->findAndStoreRange(_asset, storageSz, storage);
             if (storageSz > 0u)
-                return storage[0];
+                return std::move(storage[0]);
             return nullptr;
         }
 
 		//! Removes one GPU object matched to an IAsset.
-        bool removeCachedGPUObject(const IAsset* _asset, core::IReferenceCounted* _gpuObject)
+        bool removeCachedGPUObject(const IAsset* _asset, const core::smart_refctd_ptr<core::IReferenceCounted>& _gpuObject)
         {
 			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
 			bool success = m_cpuGpuCache[ix]->removeObject(_gpuObject,_asset);

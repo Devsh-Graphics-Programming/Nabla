@@ -246,9 +246,10 @@ IMeshSceneNode* CSceneManager::addCubeSceneNode(float size, IDummyTransformation
 	auto* geomCreator = Device->getAssetManager()->getGeometryCreator();
 	asset::ICPUMesh* cpumesh = geomCreator->createCubeMesh(core::vector3df(size));
 	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1);
-	assert(res.size());
+	assert(res->size());
 
-	return addMeshSceneNode(std::move(res.front()),parent,id,position,rotation,scale);
+	// its okay to std::move because this was the only copy of the refctd array 
+	return addMeshSceneNode(std::move(res->front()),parent,id,position,rotation,scale);
 }
 
 
@@ -263,9 +264,10 @@ IMeshSceneNode* CSceneManager::addSphereSceneNode(float radius, int32_t polyCoun
 	auto* geomCreator = Device->getAssetManager()->getGeometryCreator();
 	asset::ICPUMesh* cpumesh = geomCreator->createSphereMesh(radius, polyCount, polyCount);
 	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1);
-	assert(res.size());
+	assert(res->size());
 
-	return addMeshSceneNode(std::move(res.front()), parent, id, position, rotation, scale);
+	// its okay to std::move because ths was the only copy of the rectd array
+	return addMeshSceneNode(std::move(res->front()), parent, id, position, rotation, scale);
 }
 
 //! adds a scene node for rendering a static mesh
