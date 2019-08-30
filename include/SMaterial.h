@@ -319,11 +319,12 @@ namespace video
 		/** If i>=MATERIAL_MAX_TEXTURES this setting will be ignored.
 		\param i The desired level.
 		\param tex Texture for texture level i. */
-		void setTexture(uint32_t i, core::smart_refctd_ptr<TexT>&& tex)
+		template<class DerivedTexT>
+		void setTexture(uint32_t i, core::smart_refctd_ptr<DerivedTexT>&& tex)
 		{
 			if (i>=MATERIAL_MAX_TEXTURES)
 				return;
-			TextureLayer[i].Texture = std::move(tex);
+			TextureLayer[i].Texture = core::move_and_static_cast<TexT,DerivedTexT>(tex);
 		}
 
 		//! Inequality operator
