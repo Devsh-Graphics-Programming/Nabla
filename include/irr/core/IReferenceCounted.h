@@ -350,6 +350,26 @@ namespace core
 		return smart_refctd_ptr_static_cast<U,T>(std::move(smart_ptr));
 	}
 
+
+	template< class U, class T >
+	inline smart_refctd_ptr<U> smart_refctd_ptr_dynamic_cast(const smart_refctd_ptr<T>& smart_ptr)
+	{
+		return smart_refctd_ptr<U>(dynamic_cast<U*>(smart_ptr.get()));
+	}
+	template< class U, class T >
+	inline smart_refctd_ptr<U> smart_refctd_ptr_dynamic_cast(smart_refctd_ptr<T>&& smart_ptr)
+	{
+		T* ptr = nullptr;
+		std::swap(ptr, smart_ptr.ptr);
+		return smart_refctd_ptr<U>(dynamic_cast<U*>(ptr), dont_grab);
+	}
+
+	template< class U, class T >
+	inline smart_refctd_ptr<U> move_and_dynamic_cast(smart_refctd_ptr<T>& smart_ptr)
+	{
+		return smart_refctd_ptr_dynamic_cast<U,T>(std::move(smart_ptr));
+	}
+
 }
 } // end namespace irr
 
