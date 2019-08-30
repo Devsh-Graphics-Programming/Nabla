@@ -205,7 +205,7 @@ int main()
 	uint32_t instanceIDs[kNumHardwareInstancesZ][kNumHardwareInstancesY][kNumHardwareInstancesX];
 	{
 		asset::IAssetLoader::SAssetLoadParams lparams;
-		core::vector<core::smart_refctd_ptr<video::IGPUMesh> > gpumeshes;
+		video::created_gpu_object_array<asset::ICPUMesh> gpumeshes;
 		//! Test Loading of Obj
 		{
 			core::vector<core::smart_refctd_ptr<asset::ICPUMesh> > cpumeshes;
@@ -214,10 +214,12 @@ int main()
 
 			gpumeshes = std::move(driver->getGPUObjectsFromAssets(reinterpret_cast<asset::ICPUMesh**>(cpumeshes.data()), reinterpret_cast<asset::ICPUMesh**>(cpumeshes.data())+2));
 		}
-		for (size_t i=0; i<gpumeshes[0]->getMeshBufferCount(); i++)
-			gpumeshes[0]->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
-		for (size_t i=0; i<gpumeshes[1]->getMeshBufferCount(); i++)
-			gpumeshes[1]->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
+		for (auto j=0u; j<gpumeshes->size(); j++)
+		{
+			auto gpumesh = gpumeshes->operator[](j);
+			for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
+				gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
+		}
 
 
 		video::SGPUMaterial cullingXFormFeedbackShader;
@@ -250,9 +252,9 @@ int main()
         {
             core::vector<scene::IMeshSceneNodeInstanced::MeshLoD> LevelsOfDetail;
             LevelsOfDetail.resize(2);
-            LevelsOfDetail[0].mesh = gpumeshes[0].get();
+            LevelsOfDetail[0].mesh = gpumeshes->operator[](0u).get();
             LevelsOfDetail[0].lodDistance = instanceLoDDistances[0];
-            LevelsOfDetail[1].mesh = gpumeshes[1].get();
+            LevelsOfDetail[1].mesh = gpumeshes->operator[](1u).get();
             LevelsOfDetail[1].lodDistance = instanceLoDDistances[1];
 
             bool success = node->setLoDMeshes(LevelsOfDetail,28*sizeof(float),cullingXFormFeedbackShader,vaoSetupOverride,2,NULL,0);

@@ -66,7 +66,7 @@ int main()
 	auto* cube = smgr->addCubeSceneNode(1.f,0,-1);
     cube->setRotation(core::vector3df(45,20,15));
 	cube->getMaterial(0u).BackfaceCulling = false;
-    cube->getMaterial(0).setTexture(0,std::move(gputextures[0]));
+    cube->getMaterial(0).setTexture(0,std::move(gputextures->operator[](0u)));
 	core::SCompoundCollider* compound = new core::SCompoundCollider();
 	compound->AddBox(core::SAABoxCollider(cube->getBoundingBox()));
 	core::SColliderData collData;
@@ -77,7 +77,7 @@ int main()
 
 	auto* sphere = smgr->addSphereSceneNode(2,32);
 	sphere->getMaterial(0u).BackfaceCulling = false;
-    sphere->getMaterial(0).setTexture(0,std::move(gputextures[1]));
+    sphere->getMaterial(0).setTexture(0,std::move(gputextures->operator[](1u)));
     sphere->getMaterial(0).MaterialType = material.MaterialType;
     sphere->setPosition(core::vector3df(4,0,0));
 	compound = new core::SCompoundCollider();
