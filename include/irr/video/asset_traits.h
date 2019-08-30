@@ -40,6 +40,11 @@ struct asset_traits<asset::ICPUMesh> { using GPUObjectType = video::IGPUMesh; };
 template<>
 struct asset_traits<asset::ICPUTexture> { using GPUObjectType = video::ITexture; };
 
-}}
+
+template<typename AssetType>
+using created_gpu_object_array = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<typename video::asset_traits<AssetType>::GPUObjectType> >;
+
+}
+}
 
 #endif //__IRR_ASSET_TRAITS_H_INCLUDED__

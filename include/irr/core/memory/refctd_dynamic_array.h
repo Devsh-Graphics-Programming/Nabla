@@ -10,7 +10,7 @@ namespace irr
 namespace core
 {
 
-template<typename T, class allocator = core::allocator<T>>
+template<typename T, class allocator = allocator<T>>
 class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dynamic_array<T,allocator,refctd_dynamic_array<T,allocator> >
 {
 		using base_t = dynamic_array<T, allocator, refctd_dynamic_array<T, allocator> >;
@@ -33,6 +33,18 @@ class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dyna
 		virtual ~refctd_dynamic_array() = default;
 };
 
-}}
+
+template<typename T, class allocator = allocator<T> >
+using smart_refctd_dynamic_array = smart_refctd_ptr<refctd_dynamic_array<T, allocator> >;
+
+template<class smart_refctd_dynamic_array_type, typename... Args>
+inline smart_refctd_dynamic_array_type make_refctd_dynamic_array(Args&&... args)
+{
+	return smart_refctd_dynamic_array_type(smart_refctd_dynamic_array_type::pointee::create_dynamic_array(std::forward<Args>(args)...),dont_grab);
+}
+
+
+}
+}
 
 #endif
