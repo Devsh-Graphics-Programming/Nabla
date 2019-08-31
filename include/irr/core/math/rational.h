@@ -46,7 +46,8 @@ class rational
 		inline this_type& operator*=(NumeratorType val) { return ((*this) *= this_type(val)); }
 
 
-		inline NumeratorType getIntegerApprox() const { return NumeratorType(numerator)/NumeratorType(denominator); }
+		inline NumeratorType getIntegerApprox() const { return numerator/NumeratorType(denominator); }
+		inline NumeratorType getRoundedUpInteger() const { return (numerator+NumeratorType(denominator)-NumeratorType(1u))/NumeratorType(denominator); }
 		template<typename FloatType=float>
 		inline FloatType getFloatApprox() const {return FloatType(numerator)/FloatType(denominator);}
 

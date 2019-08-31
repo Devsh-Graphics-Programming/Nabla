@@ -51,11 +51,26 @@ core::smart_refctd_ptr<video::IDriverFence> createScreenShot(video::IDriver* dri
 }
 
 template<typename PathOrFile>
-void writeBufferAsImageToFile(asset::IAssetManager* mgr, const PathOrFile& _outFile, core::vector2d<uint32_t> _size, asset::E_FORMAT _format, video::IGPUBuffer* buff, size_t offset=0ull)
+void writeBufferAsImageToFile(asset::IAssetManager* mgr, const PathOrFile& _outFile, core::vector2d<uint32_t> _size, asset::E_FORMAT _format, video::IGPUBuffer* buff, size_t offset=0ull, bool flipY=true)
 {
 	const uint32_t zero[3] = { 0,0,0 };
 	const uint32_t sizeArray[3] = { _size.X,_size.Y,1u };
-	auto img = core::make_smart_refctd_ptr<asset::CImageData>(reinterpret_cast<uint8_t*>(buff->getBoundMemory()->getMappedPointer())+offset, zero, sizeArray, 0u, _format);
+	auto img = core::make_smart_refctd_ptr<asset::CImageData>(nullptr, zero, sizeArray, 0u, _format);
+
+	//! Wonder if we'll need it after Vulkan ?
+	const auto rowSize = (img->getBytesPerPixel()*sizeArray[0]).getRoundedUpInteger();
+	const auto imagePitch = img->getPitchIncludingAlignment();
+	const uint8_t* inData = reinterpret_cast<const uint8_t*>(buff->getBoundMemory()->getMappedPointer());
+	uint8_t* outData = reinterpret_cast<uint8_t*>(img->getData())+imagePitch*(flipY ? (sizeArray[1]-1u):0u);
+	for (uint32_t y=0u; y<sizeArray[1]; y++)
+	{
+		std::move(inData,inData+rowSize,outData);
+		inData += imagePitch;
+		if (flipY)
+			outData -= imagePitch;
+		else
+			outData += imagePitch;
+	}
 
 	asset::IAssetWriter::SAssetWriteParams wparams(img.get());
 	mgr->writeAsset(_outFile, wparams);
@@ -63,7 +78,7 @@ void writeBufferAsImageToFile(asset::IAssetManager* mgr, const PathOrFile& _outF
 
 
 template<typename PathOrFile>
-void dirtyCPUStallingScreenshot(IrrlichtDevice* device, const PathOrFile& _outFile, core::rect<uint32_t> sourceRect, asset::E_FORMAT _format)
+void dirtyCPUStallingScreenshot(IrrlichtDevice* device, const PathOrFile& _outFile, core::rect<uint32_t> sourceRect, asset::E_FORMAT _format, bool flipY=true)
 {
 	auto assetManager = device->getAssetManager();
 	auto driver = device->getVideoDriver();
@@ -73,11 +88,11 @@ void dirtyCPUStallingScreenshot(IrrlichtDevice* device, const PathOrFile& _outFi
 
 	auto fence = ext::ScreenShot::createScreenShot(driver, sourceRect, _format, buff.get());
 	while (fence->waitCPU(1000ull, fence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED) {}
-	ext::ScreenShot::writeBufferAsImageToFile(assetManager, _outFile, {sourceRect.getWidth(),sourceRect.getHeight()}, _format, buff.get());
+	ext::ScreenShot::writeBufferAsImageToFile(assetManager, _outFile, {sourceRect.getWidth(),sourceRect.getHeight()}, _format, buff.get(), 0ull, flipY);
 }
 
 template<typename PathOrFile>
-void dirtyCPUStallingScreenshot(IrrlichtDevice* device, const PathOrFile& _outFile, video::ITexture* source, uint32_t sourceMipLevel = 0u)
+void dirtyCPUStallingScreenshot(IrrlichtDevice* device, const PathOrFile& _outFile, video::ITexture* source, uint32_t sourceMipLevel = 0u, bool flipY=true)
 {
 	auto assetManager = device->getAssetManager();
 	auto driver = device->getVideoDriver();
@@ -89,7 +104,7 @@ void dirtyCPUStallingScreenshot(IrrlichtDevice* device, const PathOrFile& _outFi
 
 	auto fence = ext::ScreenShot::createScreenShot(driver, source, buff.get(), sourceMipLevel);
 	while (fence->waitCPU(1000ull, fence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED) {}
-	ext::ScreenShot::writeBufferAsImageToFile(assetManager, _outFile, { texSize[0],texSize[1] }, source->getColorFormat(), buff.get());
+	ext::ScreenShot::writeBufferAsImageToFile(assetManager, _outFile, { texSize[0],texSize[1] }, source->getColorFormat(), buff.get(), 0ull, flipY);
 }
 
 
