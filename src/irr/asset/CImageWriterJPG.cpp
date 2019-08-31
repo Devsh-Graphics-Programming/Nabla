@@ -138,7 +138,6 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 		
 		/* Switch up, write from bottom -> top because the texture is flipped from OpenGL side */
 		uint32_t eof = cinfo.image_height * cinfo.image_width * cinfo.input_components;
-		src += eof - pitch;
 		
 		while (cinfo.next_scanline < cinfo.image_height)
 		{
@@ -172,7 +171,7 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 				}
 			}
 			
-			src -= pitch;
+			src += pitch;
 			jpeg_write_scanlines(&cinfo, row_pointer, 1);
 		}
 
