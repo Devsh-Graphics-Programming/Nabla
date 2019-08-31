@@ -474,7 +474,7 @@ int main()
 	//create a screenshot
 	{
 		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
-		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.bmp", sourceRect, asset::EF_R8G8B8_UNORM);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
 	}
 
 
