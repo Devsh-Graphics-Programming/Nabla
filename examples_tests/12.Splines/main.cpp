@@ -167,10 +167,10 @@ int main()
 		};
 		auto gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures + 2);
 
-		cube->getMaterial(0).setTexture(0, std::move(gputextures[0]));
+		cube->getMaterial(0).setTexture(0, std::move(gputextures->operator[](0u)));
 
 		auto* billboard = smgr->addCubeSceneNode(2.f, 0, -1, core::vector3df(0, 0, 0));
-		billboard->getMaterial(0).setTexture(0, std::move(gputextures[1]));
+		billboard->getMaterial(0).setTexture(0, std::move(gputextures->operator[](1u)));
 	}
 
     float cubeDistance = 0.f;
