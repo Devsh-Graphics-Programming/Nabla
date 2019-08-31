@@ -98,17 +98,8 @@ set(IRRLICHT_SRCS_COMMON
 	CMeshSceneNodeInstanced.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/COverdrawMeshOptimizer.cpp
 	CSkinnedMeshSceneNode.cpp
-<<<<<<< HEAD
-	${CMAKE_SOURCE_DIR}/src/irr/asset/bawformat/TypedBlob.cpp
-	CCPUSkinnedMesh.cpp
-	${CMAKE_SOURCE_DIR}/src/irr/asset/CSmoothNormalGenerator.cpp
-
-# Shader loading and processing
-	CGLSLFunctionGenerator.cpp
-=======
 	${IRR_ROOT_PATH}/src/irr/asset/bawformat/TypedBlob.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CCPUSkinnedMesh.cpp
->>>>>>> 166065d7edc5904999263f69e1ddff57f1e72f59
 
 # Scene objects
 	CBillboardSceneNode.cpp
