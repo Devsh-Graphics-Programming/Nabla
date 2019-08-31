@@ -200,12 +200,6 @@ the engine will no longer read .png images. */
 #undef _IRR_COMPILE_WITH_PLY_WRITER_
 #endif
 
-//! Define _IRR_COMPILE_WITH_BMP_LOADER_ if you want to load .bmp files
-//! Disabling this loader will also disable the built-in font
-#define _IRR_COMPILE_WITH_BMP_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_BMP_LOADER_
-#undef _IRR_COMPILE_WITH_BMP_LOADER_
-#endif
 //! Define _IRR_COMPILE_WITH_JPG_LOADER_ if you want to load .jpg files
 #define _IRR_COMPILE_WITH_JPG_LOADER_
 #ifdef NO_IRR_COMPILE_WITH_JPG_LOADER_
@@ -232,11 +226,6 @@ the engine will no longer read .png images. */
 #undef _IRR_COMPILE_WITH_TGA_LOADER_
 #endif
 
-//! Define _IRR_COMPILE_WITH_BMP_WRITER_ if you want to write .bmp files
-#define _IRR_COMPILE_WITH_BMP_WRITER_
-#ifdef NO_IRR_COMPILE_WITH_BMP_WRITER_
-#undef _IRR_COMPILE_WITH_BMP_WRITER_
-#endif
 //! Define _IRR_COMPILE_WITH_JPG_WRITER_ if you want to write .jpg files
 #define _IRR_COMPILE_WITH_JPG_WRITER_
 #ifdef NO_IRR_COMPILE_WITH_JPG_WRITER_

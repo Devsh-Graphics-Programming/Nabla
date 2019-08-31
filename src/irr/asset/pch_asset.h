@@ -12,13 +12,11 @@
 
 	// image
 		// loaders
-		#include "irr/asset/CImageLoaderBMP.h"
 		#include "irr/asset/CImageLoaderDDS.h"
 		#include "irr/asset/CImageLoaderJPG.h"
 		#include "irr/asset/CImageLoaderPNG.h"
 		#include "irr/asset/CImageLoaderTGA.h"
 		// writers
-		#include "irr/asset/CImageWriterBMP.h"
 		#include "irr/asset/CImageWriterJPG.h"
 		#include "irr/asset/CImageWriterPNG.h"
 		#include "irr/asset/CImageWriterTGA.h"

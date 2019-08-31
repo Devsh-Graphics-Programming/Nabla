@@ -23,10 +23,6 @@
 #include "irr/asset/CBAWMeshFileLoader.h"
 #endif
 
-#ifdef _IRR_COMPILE_WITH_BMP_LOADER_
-#include "irr/asset/CImageLoaderBMP.h"
-#endif
-
 #ifdef _IRR_COMPILE_WITH_DDS_LOADER_
 #include "irr/asset/CImageLoaderDDS.h"
 #endif
@@ -65,10 +61,6 @@
 
 #ifdef _IRR_COMPILE_WITH_PNG_WRITER_
 #include "irr/asset/CImageWriterPNG.h"
-#endif
-
-#ifdef _IRR_COMPILE_WITH_BMP_WRITER_
-#include "irr/asset/CImageWriterBMP.h"
 #endif
 
 using namespace irr;
@@ -117,9 +109,6 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _IRR_COMPILE_WITH_BAW_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
 #endif
-#ifdef _IRR_COMPILE_WITH_BMP_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderBMP>());
-#endif
 #ifdef _IRR_COMPILE_WITH_DDS_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderDDS>());
 #endif
@@ -149,8 +138,5 @@ void IAssetManager::addLoadersAndWriters()
 #endif
 #ifdef _IRR_COMPILE_WITH_PNG_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterPNG>());
-#endif
-#ifdef _IRR_COMPILE_WITH_BMP_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterBMP>());
 #endif
 }
