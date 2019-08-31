@@ -1,6 +1,10 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+
+#include "../../ext/ScreenShot/ScreenShot.h"
+
+#include "../common/QToQuitEventReceiver.h"
+
 #include "../source/Irrlicht/COpenGLBuffer.h"
 #include "../source/Irrlicht/COpenGLDriver.h"
 
@@ -9,35 +13,6 @@
 using namespace irr;
 using namespace core;
 
-
-//!Same As Last Example
-class MyEventReceiver : public IEventReceiver
-{
-public:
-
-    MyEventReceiver()
-    {
-    }
-
-    bool OnEvent(const SEvent& event)
-    {
-        if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
-        {
-            switch (event.KeyInput.Key)
-            {
-            case irr::KEY_KEY_Q: // switch wire frame mode
-                exit(0);
-                return true;
-            default:
-                break;
-            }
-        }
-
-        return false;
-    }
-
-private:
-};
 
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
@@ -80,7 +55,7 @@ public:
 class ISorter : public IReferenceCounted
 {
 protected:
-    explicit ISorter(video::IVideoDriver* _vd) : m_driver{_vd}, m_idxBuf{nullptr}, m_16to32Cs{0u} {}
+    explicit ISorter(video::IVideoDriver* _vd) : m_driver{_vd}, m_idxBuf(), m_16to32Cs{0u} {}
     virtual ~ISorter() = default;
 
 public:
@@ -116,25 +91,22 @@ public:
 
                 gl::extGlUseProgram(prevProgram);
 
-                _mb->getMeshDataAndFormat()->setIndexBuffer(std::move(idxBuf));
+                _mb->getMeshDataAndFormat()->setIndexBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(idxBuf));
                 _mb->setIndexBufferOffset(0u);
                 _mb->setIndexType(asset::EIT_32BIT);
             }
-            else idxBuf = const_cast<video::IGPUBuffer*>(_mb->getMeshDataAndFormat()->getIndexBuffer());
+            else
+				idxBuf = const_cast<video::IGPUBuffer*>(_mb->getMeshDataAndFormat()->getIndexBuffer());
 
-            const video::IGPUBuffer* prev = m_idxBuf;
-            m_idxBuf = idxBuf;
+            m_idxBuf = core::smart_refctd_ptr<video::IGPUBuffer>(idxBuf);
             printf("IDXISZE: %u\n", m_idxBuf->getSize());
-            m_idxBuf->grab();
-            if (prev)
-                prev->drop();
         }
         else printf("NO IDX BUF!!!\n");
     }
 
 protected:
     video::IVideoDriver* m_driver;
-    video::IGPUBuffer* m_idxBuf;
+    core::smart_refctd_ptr<video::IGPUBuffer> m_idxBuf;
 
 private:
     GLuint m_16to32Cs;
@@ -197,38 +169,20 @@ protected:
         gl::extGlDeleteProgram(m_histogramCs);
         gl::extGlDeleteProgram(m_presumCs);
         gl::extGlDeleteProgram(m_permuteCs);
-        if (m_posBuf)
-            m_posBuf->drop();
-        if (m_keyBuf1)
-            m_keyBuf1->drop();
-        if (m_keyBuf2)
-            m_keyBuf2->drop();
-        if (m_idxBuf2)
-            m_idxBuf2->drop();
-        if (m_idxBuf)
-            m_idxBuf->drop();
-        if (m_psumBuf)
-            m_psumBuf->drop();
-        if (m_sumsBuf)
-            m_sumsBuf->drop();
-        if (m_histogramBuf)
-            m_histogramBuf->drop();
-        if (m_ubo)
-            m_ubo->drop();
     }
 
 public:
     RadixSorter(video::IVideoDriver* _vd) :
         ISorter(_vd),
         m_genKeysCs{}, m_histogramCs{}, m_presumCs{}, m_permuteCs{},
-        m_posBuf{nullptr}, m_keyBuf1{nullptr}, m_keyBuf2{nullptr}, m_idxBuf2{ nullptr }, m_histogramBuf{nullptr},
+        m_posBuf(), m_keyBuf1(), m_keyBuf2(), m_idxBuf2(), m_histogramBuf(),
         m_wgCnt{}
     {
     }
 
     void init(asset::ICPUMeshBuffer* _mb) override
     {
-        m_histogramBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(64 * 16 * sizeof(GLuint));
+        m_histogramBuf = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(64 * 16 * sizeof(GLuint)),core::dont_grab);
 
         asset::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = _mb->getMeshDataAndFormat();
         std::vector<core::vectorSIMDf> pos;
@@ -238,13 +192,14 @@ public:
             pos.push_back(v);
 
         const size_t idxCount = pos.size();
-        auto idxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*idxCount);
-        uint32_t* indices = (uint32_t*)idxBuf->getPointer();
-        for (uint32_t i = 0u; i < idxCount; ++i)
-            indices[i] = i;
+		{
+			auto idxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*idxCount);
+			uint32_t* indices = (uint32_t*)idxBuf->getPointer();
+			for (uint32_t i = 0u; i < idxCount; ++i)
+				indices[i] = i;
+			desc->setIndexBuffer(std::move(idxBuf));
+		}
 
-
-        desc->setIndexBuffer(std::move(idxBuf));
         _mb->setIndexCount(idxCount);
         _mb->setIndexBufferOffset(0u);
         _mb->setPrimitiveType(asset::EPT_POINTS);
@@ -257,7 +212,7 @@ public:
         auto upStrBuf = m_driver->getDefaultUpStreamingBuffer();
         uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
         uint32_t size = pos.size() * sizeof(v);
-        m_posBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
+        m_posBuf = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(size),dont_grab);
         while (offset == video::StreamingTransientDataBufferMT<>::invalid_address)
         {
             uint32_t alignment = 4u;
@@ -266,15 +221,15 @@ public:
         }
         if (upStrBuf->needsManualFlushOrInvalidate())
             m_driver->flushMappedMemoryRanges({ {upStrBuf->getBuffer()->getBoundMemory(),offset,size} });
-        m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf, offset, 0, size);
+        m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf.get(), offset, 0, size);
         upStrBuf->multi_free(1u, &offset, &size, m_driver->placeFence());
 
-        m_keyBuf1 = m_driver->createDeviceLocalGPUBufferOnDedMem(idxCount * sizeof(GLuint));
-        m_keyBuf2 = m_driver->createDeviceLocalGPUBufferOnDedMem(idxCount * sizeof(GLuint));
-        m_sumsBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(m_wgCnt * 2 * sizeof(GLuint));
-        m_histogramBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(2 * sizeof(GLuint));
-        m_psumBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(idxCount * 2 * sizeof(GLuint));
-        m_ubo = m_driver->createDeviceLocalGPUBufferOnDedMem(s_uboSize);
+        m_keyBuf1 = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(idxCount * sizeof(GLuint)), dont_grab);
+        m_keyBuf2 = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(idxCount * sizeof(GLuint)), dont_grab);
+        m_sumsBuf = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(m_wgCnt * 2 * sizeof(GLuint)), dont_grab);
+        m_histogramBuf = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(2 * sizeof(GLuint)), dont_grab);
+        m_psumBuf = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(idxCount * 2 * sizeof(GLuint)), dont_grab);
+        m_ubo = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(s_uboSize), dont_grab);
 
         m_genKeysCs = createComputeShader(CS_GEN_KEYS_SRC);
         m_histogramCs = createComputeShaderFromFile("../shaders/histogram.comp");
@@ -289,7 +244,7 @@ public:
 
         {//bind ubo
             auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
-            auto glbuf = static_cast<const video::COpenGLBuffer*>(m_ubo);
+            auto glbuf = static_cast<const video::COpenGLBuffer*>(m_ubo.get());
             const ptrdiff_t off = 0, sz = 16;
             auxCtx->setActiveUBO(0, 1, &glbuf, &off, &sz);
         }
@@ -303,7 +258,7 @@ public:
 
         {//bind ubo
             auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
-            auto glbuf = static_cast<const video::COpenGLBuffer*>(m_ubo);
+            auto glbuf = static_cast<const video::COpenGLBuffer*>(m_ubo.get());
             const ptrdiff_t off = 16, sz = m_ubo->getSize()-16;
             auxCtx->setActiveUBO(0, 1, &glbuf, &off, &sz);
         }
@@ -314,16 +269,19 @@ public:
         for (GLuint nbit = 0u; nbit < 31u; ++nbit)
         {
             {
-            auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
-            const video::COpenGLBuffer* bufs[4]{ static_cast<const video::COpenGLBuffer*>(m_keyBuf1), static_cast<const video::COpenGLBuffer*>(m_idxBuf), static_cast<const video::COpenGLBuffer*>(m_keyBuf2), static_cast<const video::COpenGLBuffer*>(m_idxBuf2) };
-            const ptrdiff_t off[4]{ 0, 0, 0, 0 };
-            const ptrdiff_t s[4]{ m_keyBuf1->getSize(), m_idxBuf->getSize(), m_keyBuf2->getSize(), m_idxBuf2->getSize() };
-            auxCtx->setActiveSSBO(E_IN_KEYS_BND, 4u, bufs, off, s);
+				auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
+				const video::COpenGLBuffer* bufs[4] = {	static_cast<const video::COpenGLBuffer*>(m_keyBuf1.get()),
+														static_cast<const video::COpenGLBuffer*>(m_idxBuf.get()),
+														static_cast<const video::COpenGLBuffer*>(m_keyBuf2.get()),
+														static_cast<const video::COpenGLBuffer*>(m_idxBuf2.get()) };
+				const ptrdiff_t off[4]{ 0, 0, 0, 0 };
+				const ptrdiff_t s[4]{ m_keyBuf1->getSize(), m_idxBuf->getSize(), m_keyBuf2->getSize(), m_idxBuf2->getSize() };
+				auxCtx->setActiveSSBO(E_IN_KEYS_BND, 4u, bufs, off, s);
             }
             updateUbo(16, 4, _camPos, nbit);
 
             // zero histogram
-            gl::extGlNamedBufferSubData(static_cast<const video::COpenGLBuffer*>(m_histogramBuf)->getOpenGLName(), 0, sizeof(histogram), histogram);
+            gl::extGlNamedBufferSubData(static_cast<const video::COpenGLBuffer*>(m_histogramBuf.get())->getOpenGLName(), 0, sizeof(histogram), histogram);
 
             gl::extGlUseProgram(m_histogramCs);
             gl::extGlDispatchCompute(m_wgCnt, 1u, 1u);
@@ -333,9 +291,9 @@ public:
             gl::extGlDispatchCompute(m_wgCnt, 1u, 1u);
             gl::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             // some other barrier needed here?
-            gl::extGlGetNamedBufferSubData(static_cast<const video::COpenGLBuffer*>(m_sumsBuf)->getOpenGLName(), 0, 2*m_wgCnt*sizeof(GLuint), sumsIn);
+            gl::extGlGetNamedBufferSubData(static_cast<const video::COpenGLBuffer*>(m_sumsBuf.get())->getOpenGLName(), 0, 2*m_wgCnt*sizeof(GLuint), sumsIn);
             xpsum(sumsIn, sumsOut, m_wgCnt);
-            gl::extGlNamedBufferSubData(static_cast<const video::COpenGLBuffer*>(m_sumsBuf)->getOpenGLName(), 0, 2*m_wgCnt*sizeof(GLuint), sumsOut);
+            gl::extGlNamedBufferSubData(static_cast<const video::COpenGLBuffer*>(m_sumsBuf.get())->getOpenGLName(), 0, 2*m_wgCnt*sizeof(GLuint), sumsOut);
 
             gl::extGlUseProgram(m_permuteCs);
             gl::extGlDispatchCompute(m_wgCnt, 1u, 1u);
@@ -347,7 +305,7 @@ public:
         std::swap(m_keyBuf1, m_keyBuf2);
         std::swap(m_idxBuf, m_idxBuf2);
         // copy result to actual index buffer
-        gl::extGlCopyNamedBufferSubData(static_cast<const video::COpenGLBuffer*>(m_idxBuf2)->getOpenGLName(), static_cast<const video::COpenGLBuffer*>(m_idxBuf)->getOpenGLName(), 0, 0, m_idxBuf->getSize());
+        gl::extGlCopyNamedBufferSubData(static_cast<const video::COpenGLBuffer*>(m_idxBuf2.get())->getOpenGLName(), static_cast<const video::COpenGLBuffer*>(m_idxBuf.get())->getOpenGLName(), 0, 0, m_idxBuf->getSize());
 
         gl::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
 
@@ -359,11 +317,7 @@ public:
     {
         ISorter::setIndexBuffer(_mb);
         if (m_idxBuf)
-        {
-            if (m_idxBuf2)
-                m_idxBuf2->drop();
-            m_idxBuf2 = m_driver->createDeviceLocalGPUBufferOnDedMem(m_idxBuf->getSize());
-        }
+            m_idxBuf2 = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(m_idxBuf->getSize()));
     }
 
 private:
@@ -376,7 +330,7 @@ private:
         auto upStrBuf = m_driver->getDefaultUpStreamingBuffer();
         uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
         uint32_t size = _size;
-        m_posBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
+        m_posBuf = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(size),core::dont_grab);
         while (offset == video::StreamingTransientDataBufferMT<>::invalid_address)
         {
             uint32_t alignment = 4u;
@@ -385,7 +339,7 @@ private:
         }
         if (upStrBuf->needsManualFlushOrInvalidate())
             m_driver->flushMappedMemoryRanges({ {upStrBuf->getBuffer()->getBoundMemory(),offset,size} });
-        m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf, offset, _offset, size);
+        m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf.get(), offset, _offset, size);
         upStrBuf->multi_free(1u, &offset, &size, m_driver->placeFence());
     }
 
@@ -394,14 +348,14 @@ private:
         auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
 
         const video::COpenGLBuffer* bufs[8]{
-            static_cast<const video::COpenGLBuffer*>(m_keyBuf1),
-            static_cast<const video::COpenGLBuffer*>(m_idxBuf),
-            static_cast<const video::COpenGLBuffer*>(m_keyBuf2),
-            static_cast<const video::COpenGLBuffer*>(m_idxBuf2),
-            static_cast<const video::COpenGLBuffer*>(m_psumBuf),
-            static_cast<const video::COpenGLBuffer*>(m_histogramBuf),
-            static_cast<const video::COpenGLBuffer*>(m_sumsBuf),
-            static_cast<const video::COpenGLBuffer*>(m_posBuf)
+            static_cast<const video::COpenGLBuffer*>(m_keyBuf1.get()),
+            static_cast<const video::COpenGLBuffer*>(m_idxBuf.get()),
+            static_cast<const video::COpenGLBuffer*>(m_keyBuf2.get()),
+            static_cast<const video::COpenGLBuffer*>(m_idxBuf2.get()),
+            static_cast<const video::COpenGLBuffer*>(m_psumBuf.get()),
+            static_cast<const video::COpenGLBuffer*>(m_histogramBuf.get()),
+            static_cast<const video::COpenGLBuffer*>(m_sumsBuf.get()),
+            static_cast<const video::COpenGLBuffer*>(m_posBuf.get())
         };
         ptrdiff_t offsets[8]{ 0, 0, 0, 0, 0, 0, 0, 0 };
         ptrdiff_t sizes[8];
@@ -426,8 +380,8 @@ private:
 
 private:
     GLuint m_genKeysCs, m_histogramCs, m_presumCs, m_permuteCs;
-    video::IGPUBuffer *m_posBuf, *m_keyBuf1, *m_keyBuf2, *m_idxBuf2, *m_histogramBuf, *m_psumBuf, *m_sumsBuf;
-    video::IGPUBuffer* m_ubo;
+    core::smart_refctd_ptr<video::IGPUBuffer> m_posBuf, m_keyBuf1, m_keyBuf2, m_idxBuf2, m_histogramBuf, m_psumBuf, m_sumsBuf;
+    core::smart_refctd_ptr<video::IGPUBuffer> m_ubo;
     GLuint m_wgCnt;
 
     constexpr static size_t s_uboSize = 20u;
@@ -436,27 +390,18 @@ private:
 class ProgressiveSorter : public ISorter
 {
 protected:
-    ~ProgressiveSorter()
-    {
-        if (m_posBuf)
-            m_posBuf->drop();
-        if (m_idxBuf)
-            m_idxBuf->drop();
-        if (m_ubo)
-            m_ubo->drop();
-        if (m_mappedBuf)
-            m_mappedBuf->drop();
-    }
+    ~ProgressiveSorter() {}
 
 public:
     ProgressiveSorter(video::IVideoDriver* _vd) :
         ISorter(_vd),
         m_cs{createComputeShaderFromFile("../shaders/prog.comp")},
-        m_posBuf{nullptr},
-        m_ubo{nullptr},
+        m_posBuf(),
+        m_ubo(),
         m_startIdx{0u},
         m_wgCount{}
     {}
+
 	void init(asset::ICPUMeshBuffer* _mb) override
 	{
 		asset::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = _mb->getMeshDataAndFormat();
@@ -469,7 +414,7 @@ public:
 		auto upStrBuf = m_driver->getDefaultUpStreamingBuffer();
 		uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
 		uint32_t size = pos.size() * sizeof(v);
-		m_posBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
+		m_posBuf = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(size), core::dont_grab);
 		while (offset == video::StreamingTransientDataBufferMT<>::invalid_address)
 		{
 			uint32_t alignment = 4u;
@@ -478,10 +423,10 @@ public:
 		}
 		if (upStrBuf->needsManualFlushOrInvalidate())
 			m_driver->flushMappedMemoryRanges({ {upStrBuf->getBuffer()->getBoundMemory(),offset,size} });
-		m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf, offset, 0, size);
+		m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf.get(), offset, 0, size);
 		upStrBuf->multi_free(1u, &offset, &size, m_driver->placeFence());
 
-		m_ubo = m_driver->createDeviceLocalGPUBufferOnDedMem(s_uboSize);
+		m_ubo = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(s_uboSize), core::dont_grab);
 
 		{
 			auto idxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*pos.size());
@@ -506,7 +451,7 @@ public:
         const uint32_t offset[2]{ 0u, 512u };
         {//bind ubo
             auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
-            auto glbuf = static_cast<const video::COpenGLBuffer*>(m_ubo);
+            auto glbuf = static_cast<const video::COpenGLBuffer*>(m_ubo.get());
             const ptrdiff_t off = 0, sz = m_ubo->getSize();
             auxCtx->setActiveUBO(0, 1, &glbuf, &off, &sz);
         }
@@ -538,7 +483,7 @@ private:
         auto upStrBuf = m_driver->getDefaultUpStreamingBuffer();
         uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
         uint32_t size = _size;
-        m_posBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
+        m_posBuf = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(size),core::dont_grab);
         while (offset == video::StreamingTransientDataBufferMT<>::invalid_address)
         {
             uint32_t alignment = 4u;
@@ -547,7 +492,7 @@ private:
         }
         if (upStrBuf->needsManualFlushOrInvalidate())
             m_driver->flushMappedMemoryRanges({ {upStrBuf->getBuffer()->getBoundMemory(),offset,size} });
-        m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf, offset, _offset, size);
+        m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf.get(), offset, _offset, size);
         upStrBuf->multi_free(1u, &offset, &size, m_driver->placeFence());
     }
 
@@ -556,8 +501,8 @@ private:
         auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
 
         const video::COpenGLBuffer* bufs[2]{
-            static_cast<const video::COpenGLBuffer*>(m_idxBuf),
-            static_cast<const video::COpenGLBuffer*>(m_posBuf)
+            static_cast<const video::COpenGLBuffer*>(m_idxBuf.get()),
+            static_cast<const video::COpenGLBuffer*>(m_posBuf.get())
         };
         ptrdiff_t offsets[2]{ 0, 0 };
         ptrdiff_t sizes[2]{ m_idxBuf->getSize(), m_posBuf->getSize() };
@@ -567,13 +512,13 @@ private:
 
 private:
     GLuint m_cs;
-    video::IGPUBuffer* m_posBuf;
-    video::IGPUBuffer* m_ubo;
-    video::IGPUBuffer* m_mappedBuf;
+    core::smart_refctd_ptr<video::IGPUBuffer> m_posBuf;
+    core::smart_refctd_ptr<video::IGPUBuffer> m_ubo;
+    core::smart_refctd_ptr<video::IGPUBuffer> m_mappedBuf;
     mutable GLuint m_startIdx;
     GLuint m_wgCount;
 
-    video::IDriverFence* m_fences[4];
+    //video::IDriverFence* m_fences[4];
     constexpr static size_t s_uboSize = 24u;
 };
 
@@ -583,12 +528,6 @@ class BitonicSorter : public ISorter
 protected:
     ~BitonicSorter()
     {
-        if (m_posBuf)
-            m_posBuf->drop();
-        if (m_idxBuf)
-            m_idxBuf->drop();
-        if (m_ubo)
-            m_ubo->drop();
     }
 
 public:
@@ -613,7 +552,7 @@ public:
         auto upStrBuf = m_driver->getDefaultUpStreamingBuffer();
         uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
         uint32_t size = pos.size() * sizeof(v);
-        m_posBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
+        m_posBuf = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(size),core::dont_grab);
         while (offset == video::StreamingTransientDataBufferMT<>::invalid_address)
         {
             uint32_t alignment = 4u;
@@ -622,10 +561,10 @@ public:
         }
         if (upStrBuf->needsManualFlushOrInvalidate())
             m_driver->flushMappedMemoryRanges({ {upStrBuf->getBuffer()->getBoundMemory(),offset,size} });
-        m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf, offset, 0, size);
+        m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf.get(), offset, 0, size);
         upStrBuf->multi_free(1u, &offset, &size, m_driver->placeFence());
 
-        m_ubo = m_driver->createDeviceLocalGPUBufferOnDedMem(s_uboSize);
+        m_ubo = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(s_uboSize),core::dont_grab);
 
         const size_t idxCount = 1u << ((size_t)std::ceil(std::log2((double)pos.size())));
 		{
@@ -635,7 +574,7 @@ public:
 			for (uint32_t i = idxCount - pos.size(); i < idxCount; ++i)
 				indices[i] = i - (idxCount - pos.size());
 
-			desc->setIndexBuffer(std:move(idxBuf));
+			desc->setIndexBuffer(std::move(idxBuf));
 		}
         _mb->setIndexCount(idxCount);
         _mb->setIndexBufferOffset(0u);
@@ -659,7 +598,7 @@ public:
     {
         {//bind ubo
         auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
-        auto glbuf = static_cast<const video::COpenGLBuffer*>(m_ubo);
+        auto glbuf = static_cast<const video::COpenGLBuffer*>(m_ubo.get());
         const ptrdiff_t off = 0, sz = m_ubo->getSize();
         auxCtx->setActiveUBO(0, 1, &glbuf, &off, &sz);
         }
@@ -715,7 +654,7 @@ private:
         auto upStrBuf = m_driver->getDefaultUpStreamingBuffer();
         uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
         uint32_t size = _size;
-        m_posBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
+        m_posBuf = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(size),core::dont_grab);
         while (offset == video::StreamingTransientDataBufferMT<>::invalid_address)
         {
             uint32_t alignment = 4u;
@@ -724,7 +663,7 @@ private:
         }
         if (upStrBuf->needsManualFlushOrInvalidate())
             m_driver->flushMappedMemoryRanges({ {upStrBuf->getBuffer()->getBoundMemory(),offset,size} });
-        m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf, offset, _offset, size);
+        m_driver->copyBuffer(upStrBuf->getBuffer(), m_posBuf.get(), offset, _offset, size);
         upStrBuf->multi_free(1u, &offset, &size, m_driver->placeFence());
     }
 
@@ -747,8 +686,8 @@ private:
         auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
 
         const video::COpenGLBuffer* bufs[2]{
-            static_cast<const video::COpenGLBuffer*>(m_idxBuf),
-            static_cast<const video::COpenGLBuffer*>(m_posBuf)
+            static_cast<const video::COpenGLBuffer*>(m_idxBuf.get()),
+            static_cast<const video::COpenGLBuffer*>(m_posBuf.get())
         };
         ptrdiff_t offsets[2]{ 0, 0 };
         ptrdiff_t sizes[2]{ m_idxBuf->getSize(), m_posBuf->getSize() };
@@ -758,8 +697,8 @@ private:
 
 private:
     GLuint m_sMergeCs, m_gMergeCs, m_sSortCs;
-    video::IGPUBuffer* m_posBuf;
-    video::IGPUBuffer* m_ubo;
+    core::smart_refctd_ptr<video::IGPUBuffer> m_posBuf;
+    core::smart_refctd_ptr<video::IGPUBuffer> m_ubo;
     GLuint m_wgCount;
 
     constexpr static size_t s_uboSize = 24u;
@@ -804,18 +743,21 @@ int main()
     camera->setNearValue(0.01f);
     camera->setFarValue(100.0f);
     smgr->setActiveCamera(camera);
+
+
     device->getCursorControl()->setVisible(false);
-    MyEventReceiver receiver;
+    QToQuitEventReceiver receiver;
     device->setEventReceiver(&receiver);
 
+
     asset::IAssetLoader::SAssetLoadParams lparams;
-    asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager()->getAsset("../../media/cow.obj", lparams));
+    auto cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*device->getAssetManager()->getAsset("../../media/cow.obj", lparams).getContents().first);
     ISorter* sorter =
         //new RadixSorter(driver);
         new ProgressiveSorter(driver);
         //new BitonicSorter(driver);
     sorter->init(cpumesh->getMeshBuffer(0));
-    auto gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
+    auto gpumesh = driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)->front();
     sorter->setIndexBuffer(gpumesh->getMeshBuffer(0));
     printf("IDX_TYPE %d\n", gpumesh->getMeshBuffer(0)->getIndexType());
     smgr->addMeshSceneNode(std::move(gpumesh), 0, -1, core::vector3df(), core::vector3df(), core::vector3df(4.f))->setMaterialType(newMaterialType);
@@ -823,7 +765,7 @@ int main()
 
     uint64_t lastFPSTime = 0;
 
-    while (device->run())
+    while (device->run() && receiver.keepOpen())
     {
         driver->beginScene(true, true, video::SColor(255, 255, 255, 255));
 
@@ -846,32 +788,11 @@ int main()
         }
     }
 
-    //create a screenshot
-    video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM, params.WindowSize);
-    glReadPixels(0, 0, params.WindowSize.Width, params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
-    {
-        // images are horizontally flipped, so we have to fix that here.
-        uint8_t* pixels = (uint8_t*)screenshot->getData();
-
-        const int32_t pitch = screenshot->getPitch();
-        uint8_t* p2 = pixels + (params.WindowSize.Height - 1) * pitch;
-        uint8_t* tmpBuffer = new uint8_t[pitch];
-        for (uint32_t i = 0; i < params.WindowSize.Height; i += 2)
-        {
-            memcpy(tmpBuffer, pixels, pitch);
-            memcpy(pixels, p2, pitch);
-            memcpy(p2, tmpBuffer, pitch);
-            pixels += pitch;
-            p2 -= pitch;
-        }
-        delete[] tmpBuffer;
-    }
-    asset::CImageData* img = new asset::CImageData(screenshot);
-    asset::IAssetWriter::SAssetWriteParams wparams(img);
-    device->getAssetManager()->writeAsset("screenshot.png", wparams);
-    img->drop();
-    screenshot->drop();
-    device->sleep(3000);
+	//create a screenshot
+	{
+		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+	}
 
     sorter->drop();
     device->drop();

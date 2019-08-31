@@ -316,9 +316,7 @@ int main()
 
         video::IGPUMeshBuffer* screenQuadMeshBuffer = new video::IGPUMeshBuffer();
         {
-            video::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-            screenQuadMeshBuffer->setMeshDataAndFormat(desc);
-            desc->drop();
+            auto desc = driver->createGPUMeshDataFormatDesc();
 
             ScreenQuadVertexStruct vertices[4];
             vertices[0].Pos[0] = -1.f;
@@ -352,17 +350,18 @@ int main()
             reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
             reqs.prefersDedicatedAllocation = true;
             reqs.requiresDedicatedAllocation = true;
-            video::IGPUBuffer* buff = driver->createGPUBufferOnDedMem(reqs,true);
+            auto buff = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createGPUBufferOnDedMem(reqs,true),core::dont_grab);
             buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,sizeof(vertices)),vertices);
             buff->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(sizeof(vertices),sizeof(indices_indexed16)),indices_indexed16);
 
-            desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,sizeof(ScreenQuadVertexStruct),0);
-            desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR1,asset::EF_R8G8_UNORM,sizeof(ScreenQuadVertexStruct),12); //this time we used unnormalized
-            desc->setIndexBuffer(buff);
+            desc->setVertexAttrBuffer(core::smart_refctd_ptr(buff),asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,sizeof(ScreenQuadVertexStruct),0);
+            desc->setVertexAttrBuffer(core::smart_refctd_ptr(buff),asset::EVAI_ATTR1,asset::EF_R8G8_UNORM,sizeof(ScreenQuadVertexStruct),12); //this time we used unnormalized
+            desc->setIndexBuffer(core::smart_refctd_ptr(buff));
             screenQuadMeshBuffer->setIndexBufferOffset(sizeof(vertices));
             screenQuadMeshBuffer->setIndexType(asset::EIT_16BIT);
             screenQuadMeshBuffer->setIndexCount(6);
-            buff->drop();
+
+			screenQuadMeshBuffer->setMeshDataAndFormat(std::move(desc));
         }
 
         video::SGPUMaterial postProcMaterial;
@@ -379,7 +378,7 @@ int main()
 		driver->beginScene( false,false );
 		{
             video::IFrameBuffer* fbo = driver->addFrameBuffer();
-            fbo->attach(video::EFAP_DEPTH_ATTACHMENT,std::move(depthBuffer));
+            fbo->attach(video::EFAP_DEPTH_ATTACHMENT,depthBuffer.get());
             driver->setRenderTarget(fbo,true);
             fbo->drop();
         }
