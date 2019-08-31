@@ -14,7 +14,7 @@ namespace scene
 	class CSkinnedMeshSceneNode : public ISkinnedMeshSceneNode
 	{
             void buildFrameNr(const uint32_t& deltaTimeMs);
-            video::IGPUSkinnedMesh* mesh;
+            core::smart_refctd_ptr<video::IGPUSkinnedMesh> mesh;
             CSkinningStateManager* boneStateManager;
 
             core::vector<video::SGPUMaterial> Materials;
@@ -33,8 +33,6 @@ namespace scene
             //! Destructor
             virtual ~CSkinnedMeshSceneNode()
             {
-                if (mesh)
-                    mesh->drop();
                 if (boneStateManager)
                     boneStateManager->drop();
 
@@ -45,17 +43,17 @@ namespace scene
         public:
 
             //! Constructor
-            CSkinnedMeshSceneNode(video::IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode, IDummyTransformationSceneNode* parent, ISceneManager* mgr,	int32_t id,
+            CSkinnedMeshSceneNode(core::smart_refctd_ptr<video::IGPUSkinnedMesh>&& _mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode, IDummyTransformationSceneNode* parent, ISceneManager* mgr,	int32_t id,
                     const core::vector3df& position = core::vector3df(0.f), const core::vector3df& rotation = core::vector3df(0.f),
                     const core::vector3df& scale = core::vector3df(1.f))
-                : ISkinnedMeshSceneNode(parent, mgr, id, position, rotation, scale), mesh(NULL), boneStateManager(NULL),
+                : ISkinnedMeshSceneNode(parent, mgr, id, position, rotation, scale), mesh(), boneStateManager(NULL),
                 LoopCallBack(NULL), FramesPerSecond(0.025f), desiredUpdateFrequency(1000.f/120.f), StartFrame(0.f), EndFrame(0.f), CurrentFrameNr(0.f), LastTimeMs(0),
                 Looping(true), PassCount(0)
             {
                 #ifdef _IRR_DEBUG
                 setDebugName("CSkinnedMeshSceneNode");
                 #endif
-                setMesh(mesh,boneControlMode);
+                setMesh(std::move(_mesh),boneControlMode);
             }
 
             //!
@@ -63,10 +61,10 @@ namespace scene
 
             const void* getRawBoneData() {return boneStateManager->getRawBoneData();}
 
-            virtual video::ITextureBufferObject* getBonePoseTBO() const
+            virtual video::ITextureBufferObject* getBonePoseTBO() const override
             {
                 if (!boneStateManager)
-                    return NULL;
+                    return nullptr;
 
                 return boneStateManager->getBoneDataTBO();
             }
@@ -162,10 +160,10 @@ namespace scene
             virtual void setAnimationEndCallback(IAnimationEndCallBack<ISkinnedMeshSceneNode>* callback=0);
 
             //! Sets a new mesh
-            virtual void setMesh(video::IGPUSkinnedMesh* inMesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControl=ISkinningStateManager::EBUM_NONE);
+            virtual void setMesh(core::smart_refctd_ptr<video::IGPUSkinnedMesh>&& inMesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControl=ISkinningStateManager::EBUM_NONE);
 
             //! Returns the current mesh
-            virtual video::IGPUSkinnedMesh* getMesh(void) {return mesh;}
+            virtual video::IGPUSkinnedMesh* getMesh(void) {return mesh.get();}
 
             //! animates the joints in the mesh based on the current frame.
             /** Also takes in to account transitions. */

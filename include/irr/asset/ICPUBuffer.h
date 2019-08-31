@@ -9,9 +9,9 @@
 #include <type_traits>
 
 #include "irr/core/IBuffer.h"
-#include "IAsset.h"
 #include "irr/core/alloc/null_allocator.h"
-#include "coreutil.h"
+#include "irr/asset/IAsset.h"
+#include "irr/asset/bawformat/blobs/RawBufferBlob.h"
 
 namespace irr
 {

@@ -1,40 +1,14 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+
+#include "../../ext/ScreenShot/ScreenShot.h"
+
+#include "../common/QToQuitEventReceiver.h"
+
 
 using namespace irr;
 using namespace core;
 
-bool quit = false;
-
-//!Same As Last Example
-class MyEventReceiver : public IEventReceiver
-{
-public:
-
-	MyEventReceiver()
-	{
-	}
-
-	bool OnEvent(const SEvent& event)
-	{
-		if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
-		{
-			switch (event.KeyInput.Key)
-			{
-			case irr::KEY_KEY_Q: // switch wire frame mode
-				quit = true;
-				return true;
-			default:
-				break;
-			}
-		}
-
-		return false;
-	}
-
-private:
-};
 
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
@@ -86,7 +60,7 @@ int main()
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
 	params.WindowSize = dimension2d<uint32_t>(1280, 720);
 	params.Fullscreen = false;
-	params.Vsync = true; //! If supported by target platform
+	params.Vsync = false;
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
 	IrrlichtDevice* device = createDeviceEx(params);
@@ -118,7 +92,7 @@ int main()
 	camera->setFarValue(250.0f);
 	smgr->setActiveCamera(camera);
 	device->getCursorControl()->setVisible(false);
-	MyEventReceiver receiver;
+	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
 	io::IFileSystem* fs = device->getFileSystem();
@@ -127,30 +101,28 @@ int main()
 	scene::ISceneNode* instancesToRemove[kInstanceSquareSize*kInstanceSquareSize] = { 0 };
 
     asset::IAssetLoader::SAssetLoadParams lparams;
-	asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/dwarf.baw", lparams));
+	auto cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*device->getAssetManager()->getAsset("../../media/dwarf.baw", lparams).getContents().first);
 
 	if (cpumesh&&cpumesh->getMeshType() == asset::EMT_ANIMATED_SKINNED)
 	{
 		scene::ISkinnedMeshSceneNode* anode = 0;
-		video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1)[0];
+		auto gpumesh = std::move(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)->operator[](0u));
 
 		for (size_t x = 0; x<kInstanceSquareSize; x++)
-			for (size_t z = 0; z<kInstanceSquareSize; z++)
-			{
-				instancesToRemove[x + kInstanceSquareSize*z] = anode = smgr->addSkinnedMeshSceneNode(static_cast<video::IGPUSkinnedMesh*>(gpumesh));
-				anode->setScale(core::vector3df(0.05f));
-				anode->setPosition(core::vector3df(x, 0.f, z)*4.f);
-				anode->setAnimationSpeed(18.f*float(x + 1 + (z + 1)*kInstanceSquareSize) / float(kInstanceSquareSize*kInstanceSquareSize));
-				anode->setMaterialType(newMaterialType);
-				anode->setMaterialTexture(3, anode->getBonePoseTBO());
-			}
-
-		gpumesh->drop();
+		for (size_t z = 0; z<kInstanceSquareSize; z++)
+		{
+			instancesToRemove[x + kInstanceSquareSize*z] = anode = smgr->addSkinnedMeshSceneNode(core::smart_refctd_ptr_static_cast<video::IGPUSkinnedMesh>(gpumesh));
+			anode->setScale(core::vector3df(0.05f));
+			anode->setPosition(core::vector3df(x, 0.f, z)*4.f);
+			anode->setAnimationSpeed(18.f*float(x + 1 + (z + 1)*kInstanceSquareSize) / float(kInstanceSquareSize*kInstanceSquareSize));
+			anode->setMaterialType(newMaterialType);
+			anode->setMaterialTexture(3, core::smart_refctd_ptr<video::ITextureBufferObject>(anode->getBonePoseTBO()));
+		}
 	}
 
 	uint64_t lastFPSTime = 0;
 
-	while (device->run() && (!quit))
+	while (device->run() && receiver.keepOpen())
 		//if (device->isWindowActive())
 	{
 		driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
@@ -176,6 +148,13 @@ int main()
 	for (size_t x = 0; x<kInstanceSquareSize; x++)
 		for (size_t z = 0; z<kInstanceSquareSize; z++)
 			instancesToRemove[x + kInstanceSquareSize*z]->remove();
+
+
+	//create a screenshot
+	{
+		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+	}
 
 	device->drop();
 

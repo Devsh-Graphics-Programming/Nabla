@@ -1,6 +1,8 @@
 #ifndef __IRR_SWITCH_CONSTEXPR_H_INCLUDED__
 #define __IRR_SWITCH_CONSTEXPR_H_INCLUDED__
 
+#include <type_traits>
+
 namespace irr
 {
 

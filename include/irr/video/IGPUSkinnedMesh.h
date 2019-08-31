@@ -5,67 +5,51 @@
 #ifndef __I_SKINNED_MESH_H_INCLUDED__
 #define __I_SKINNED_MESH_H_INCLUDED__
 
-#include "irr/core/Types.h"
+#include "irr/core/core.h"
 #include "irr/video/IGPUMesh.h"
-#include "quaternion.h"
-#include "matrix4x3.h"
-#include <vector>
-#include <string>
 
 namespace irr
 {
-namespace scene
-{
-    class CFinalBoneHierarchy;
-}
 namespace video
 {
 
     class IGPUSkinnedMesh : public video::IGPUMesh
     {
         protected:
-            virtual ~IGPUSkinnedMesh()
-            {
-                //referenceHierarchy drop in child classes
-            }
+			virtual ~IGPUSkinnedMesh() {}
 
-            const scene::CFinalBoneHierarchy* referenceHierarchy;
-            //! The bounding box of this mesh
-            core::aabbox3d<float> Box;
+            core::smart_refctd_ptr<const asset::CFinalBoneHierarchy> referenceHierarchy;
         public:
-            IGPUSkinnedMesh(scene::CFinalBoneHierarchy* boneHierarchy) : referenceHierarchy(boneHierarchy)
-            {
-                //referenceHierarchy grab in child classes
-            }
+            IGPUSkinnedMesh(core::smart_refctd_ptr<const asset::CFinalBoneHierarchy>&& boneHierarchy) : referenceHierarchy(std::move(boneHierarchy)) {}
 
             //!
-            inline const scene::CFinalBoneHierarchy* getBoneReferenceHierarchy() const {return referenceHierarchy;}
-
-            //! Returns an axis aligned bounding box of the mesh.
-            /** \return A bounding box of this mesh is returned. */
-            virtual const core::aabbox3d<float>& getBoundingBox() const
-            {
-                return Box;
-            }
-
-            //! set user axis aligned bounding box
-            virtual void setBoundingBox(const core::aabbox3df& box)
-            {
-                Box = box;
-            }
+            inline const asset::CFinalBoneHierarchy* getBoneReferenceHierarchy() const {return referenceHierarchy.get();}
 
             //! Gets the frame count of the animated mesh.
             /** \return The amount of frames. If the amount is 1,
             it is a static, non animated mesh.
             If 0 it just is in the bind-pose doesn't have keyframes */
-            virtual uint32_t getFrameCount() const =0;
-            virtual float getFirstFrame() const =0;
-            virtual float getLastFrame() const =0;
+			//! Gets the frame count of the animated mesh.
+			virtual uint32_t getFrameCount() const { return referenceHierarchy->getKeyFrameCount(); }
+			virtual float getFirstFrame() const
+			{
+				if (referenceHierarchy->getKeyFrameCount())
+					return referenceHierarchy->getKeys()[0];
+				else
+					return 0.f;
+			}
+			virtual float getLastFrame() const
+			{
+				if (referenceHierarchy->getKeyFrameCount())
+					return referenceHierarchy->getKeys()[referenceHierarchy->getKeyFrameCount() - 1];
+				else
+					return 0.f;
+			}
 
-            virtual asset::E_MESH_TYPE getMeshType() const
-            {
-                return asset::EMT_ANIMATED_SKINNED;
-            }
+			virtual asset::E_MESH_TYPE getMeshType() const override
+			{
+				return asset::EMT_ANIMATED_SKINNED;
+			}
 
             //! can use more efficient shaders this way :D
             virtual const uint32_t& getMaxVertexWeights(const size_t& meshbufferIx) const =0;

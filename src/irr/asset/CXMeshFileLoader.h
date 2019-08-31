@@ -55,7 +55,7 @@ class CXMeshFileLoader : public asset::IAssetLoader
 public:
 
 	//! Constructor
-	CXMeshFileLoader(IrrlichtDevice* _dev);
+	CXMeshFileLoader(IAssetManager* _manager);
     ~CXMeshFileLoader();
 
     virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
@@ -69,7 +69,7 @@ public:
     virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
     //! creates/loads an animated mesh from the file.
-    virtual asset::IAsset* loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+    virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 	struct SXTemplateMaterial
 	{
@@ -238,8 +238,7 @@ private:
 	bool readRGB(SContext& _ctx, video::SColor& color);
 	bool readRGBA(SContext& _ctx, video::SColor& color);
 
-    IrrlichtDevice* Device;
-	scene::ISceneManager* SceneManager;
+	IAssetManager* AssetManager;
 	io::IFileSystem* FileSystem;
 };
 

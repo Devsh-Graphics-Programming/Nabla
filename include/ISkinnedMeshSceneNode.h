@@ -30,7 +30,7 @@ namespace scene
 			: ISceneNode(parent, mgr, id, position, rotation, scale) {}
 
 		//! Returns type of the scene node
-		virtual ESCENE_NODE_TYPE getType() const { return ESNT_SKINNED_MESH; }
+		virtual ESCENE_NODE_TYPE getType() const override { return ESNT_SKINNED_MESH; }
 
 		virtual video::ITextureBufferObject* getBonePoseTBO() const =0;
 
@@ -85,7 +85,7 @@ namespace scene
 
 		virtual void setBoundingBox(const core::aabbox3d<float>& bbox) = 0;
 		//! returns the axis aligned bounding box of this node
-		virtual const core::aabbox3d<float>& getBoundingBox() = 0;
+		virtual const core::aabbox3d<float>& getBoundingBox() override = 0;
 
 		//! Get a pointer to a joint in the mesh.
 		/** With this method it is possible to attach scene nodes to
@@ -126,7 +126,7 @@ namespace scene
 		virtual void setAnimationEndCallback(IAnimationEndCallBack<ISkinnedMeshSceneNode>* callback=0) = 0;
 
 		//! Sets a new mesh
-		virtual void setMesh(video::IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControl=ISkinningStateManager::EBUM_NONE) = 0;
+		virtual void setMesh(core::smart_refctd_ptr<video::IGPUSkinnedMesh>&& mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControl=ISkinningStateManager::EBUM_NONE) = 0;
 
 		//! Returns the current mesh
 		virtual video::IGPUSkinnedMesh* getMesh(void) = 0;
@@ -139,7 +139,7 @@ namespace scene
 		/** \param newParent An optional new parent.
 		\param newManager An optional new scene manager.
 		\return The newly created clone of this node. */
-		inline virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0) {return NULL;}
+		inline virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0) {assert(false);return nullptr;}
 
 	};
 

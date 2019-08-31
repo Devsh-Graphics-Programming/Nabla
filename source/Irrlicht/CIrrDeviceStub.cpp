@@ -9,6 +9,10 @@
 #include "os.h"
 #include "IrrCompileConfig.h"
 #include "CLogger.h"
+#include "irr/asset/CIncludeHandler.h"
+#include "irr/asset/CGLSLScanBuiltinIncludeLoader.h"
+#include "irr/asset/CGLSLSkinningBuiltinIncludeLoader.h"
+
 namespace irr
 {
 //! constructor
@@ -43,6 +47,16 @@ CIrrDeviceStub::CIrrDeviceStub(const SIrrlichtCreationParameters& params)
 	os::Printer::log(s.c_str(), ELL_INFORMATION);
 
 	checkVersion(params.SDK_version_do_not_use);
+
+    IncludeHandler = core::make_smart_refctd_ptr<asset::CIncludeHandler>(FileSystem);
+
+    //add builtin loaders
+    asset::IBuiltinIncludeLoader* builtinLdr = new asset::CGLSLScanBuiltinIncludeLoader();
+    IncludeHandler->addBuiltinIncludeLoader(builtinLdr);
+    builtinLdr->drop();
+    builtinLdr = new asset::CGLSLSkinningBuiltinIncludeLoader();
+    IncludeHandler->addBuiltinIncludeLoader(builtinLdr);
+    builtinLdr->drop();
 }
 
 

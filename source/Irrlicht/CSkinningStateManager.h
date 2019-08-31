@@ -29,7 +29,7 @@ namespace scene
             }
 
         public:
-            CSkinningStateManager(const E_BONE_UPDATE_MODE& boneControl, video::IVideoDriver* driver, const CFinalBoneHierarchy* sourceHierarchy)
+            CSkinningStateManager(const E_BONE_UPDATE_MODE& boneControl, video::IVideoDriver* driver, const asset::CFinalBoneHierarchy* sourceHierarchy)
                                     : ISkinningStateManager(boneControl,driver,sourceHierarchy), Driver(driver)
             {
 #ifdef _IRR_COMPILE_WITH_OPENGL_
@@ -113,8 +113,8 @@ namespace scene
                         tmp->needToRecomputeParentBBox = false;
                         for (size_t i=0; i<referenceHierarchy->getBoneCount(); i++)
                         {
-                            const CFinalBoneHierarchy::BoneReferenceData& boneData = referenceHierarchy->getBoneData()[i];
-                            core::matrix4x3 localMatrix = CFinalBoneHierarchy::getMatrixFromKey(referenceHierarchy->getNonInterpolatedAnimationData(i)[0]).getAsRetardedIrrlichtMatrix();
+                            const asset::CFinalBoneHierarchy::BoneReferenceData& boneData = referenceHierarchy->getBoneData()[i];
+                            core::matrix4x3 localMatrix = asset::CFinalBoneHierarchy::getMatrixFromKey(referenceHierarchy->getNonInterpolatedAnimationData(i)[0]).getAsRetardedIrrlichtMatrix();
 
                             IBoneSceneNode* tmpBone; //! TODO: change to placement new
                             if (boneData.parentOffsetRelative)
@@ -166,7 +166,7 @@ namespace scene
                     if (getBones(tmp)[i])
                         continue;
 
-                    const CFinalBoneHierarchy::BoneReferenceData& boneData = referenceHierarchy->getBoneData()[i];
+                    const asset::CFinalBoneHierarchy::BoneReferenceData& boneData = referenceHierarchy->getBoneData()[i];
 					core::matrix3x4SIMD parentInverse;
 					core::matrix3x4SIMD().set(getGlobalMatrices(tmp)[boneData.parentOffsetFromTop]).getInverse(parentInverse);
 					const core::matrix4x3 localMatrix = core::matrix3x4SIMD::concatenateBFollowedByA(parentInverse, core::matrix3x4SIMD().set(getGlobalMatrices(tmp)[i])).getAsRetardedIrrlichtMatrix();
@@ -224,12 +224,12 @@ namespace scene
                 while (boneStackSize--)
                 {
                     size_t j = boneStack[boneStackSize];
-                    CFinalBoneHierarchy::AnimationKeyData upperFrame = (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundKeyIx];
+					asset::CFinalBoneHierarchy::AnimationKeyData upperFrame = (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundKeyIx];
 
                     core::matrix3x4SIMD interpolatedLocalTform;
                     if (currentInstance->interpolateAnimation&&interpolationFactor<1.f)
                     {
-                        CFinalBoneHierarchy::AnimationKeyData lowerFrame = (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundKeyIx-1];
+						asset::CFinalBoneHierarchy::AnimationKeyData lowerFrame = (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundKeyIx-1];
                         interpolatedLocalTform = referenceHierarchy->getMatrixFromKeys(lowerFrame,upperFrame,interpolationFactor,interpolantPrecalcTerm2,interpolantPrecalcTerm3);
                     }
                     else
@@ -339,12 +339,12 @@ namespace scene
                                         localLastDirtyInstance = i;
                                         boneDataForInstance[j].lastAnimatedFrame = currentInstance->frame;
 
-                                        CFinalBoneHierarchy::AnimationKeyData upperFrame = (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundKeyIx];
+                                        asset::CFinalBoneHierarchy::AnimationKeyData upperFrame = (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundKeyIx];
 
                                         core::matrix3x4SIMD interpolatedLocalTform;
                                         if (currentInstance->interpolateAnimation&&interpolationFactor<1.f)
                                         {
-                                            CFinalBoneHierarchy::AnimationKeyData lowerFrame =  (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundKeyIx-1];
+											asset::CFinalBoneHierarchy::AnimationKeyData lowerFrame =  (currentInstance->interpolateAnimation ? referenceHierarchy->getInterpolatedAnimationData(j):referenceHierarchy->getNonInterpolatedAnimationData(j))[foundKeyIx-1];
                                             interpolatedLocalTform = referenceHierarchy->getMatrixFromKeys(lowerFrame,upperFrame,interpolationFactor,interpolantPrecalcTerm2,interpolantPrecalcTerm3);
                                         }
                                         else

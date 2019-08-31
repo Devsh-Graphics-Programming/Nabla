@@ -101,10 +101,10 @@ bool CImageWriterBMP::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 		return false;
 
 	// size of one pixel in bits
-	uint32_t pixel_size_bits = image->getBitsPerPixel();
+	uint32_t pixel_size_bits = image->getBytesPerPixel().getIntegerApprox();
 
 	// length of one row of the source image in bytes
-	uint32_t row_stride = (pixel_size_bits * imageHeader.Width)/8;
+	uint32_t row_stride = pixel_size_bits * imageHeader.Width;
 
 	// length of one row in bytes, rounded up to nearest 4-byte boundary
 	int32_t row_size = ((3 * imageHeader.Width) + 3) & ~3;

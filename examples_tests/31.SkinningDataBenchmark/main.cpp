@@ -283,7 +283,7 @@ int main(int _argCnt, char** _args)
     UBOManager uboMgr(16*sizeof(float)/*mat4*/, driver);
     uboMgr.bind(0u, 0, uboMgr.ubo->getSize());
 
-    asset::IAssetManager& assetMgr = device->getAssetManager();
+    asset::IAssetManager* assetMgr = device->getAssetManager();
     asset::IAssetLoader::SAssetLoadParams lparams;
     asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(assetMgr.getAsset("../../media/dwarf.baw", lparams));
 

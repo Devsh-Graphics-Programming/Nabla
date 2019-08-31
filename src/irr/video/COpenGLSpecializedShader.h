@@ -5,7 +5,11 @@
 #include "irr/video/IGPUSpecializedShader.h"
 #include "COpenGLExtensionHandler.h"
 
-namespace irr { namespace video
+#ifdef _IRR_COMPILE_WITH_OPENGL_
+
+namespace irr
+{
+namespace video
 {
 
 class COpenGLSpecializedShader : public IGPUSpecializedShader
@@ -26,7 +30,8 @@ private:
     GLuint m_GLname;
 };
 
-}}
-
+}
+}
+#endif
 
 #endif//__IRR_C_OPENGL_SPECIALIZED_SHADER_H_INCLUDED__

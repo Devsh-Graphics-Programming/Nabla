@@ -181,7 +181,7 @@ int main()
 	scene::ISceneNode* instancesToRemove[kInstanceSquareSize*kInstanceSquareSize] = { 0 };
 
     asset::IAssetLoader::SAssetLoadParams lparams;
-	asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/dwarf.baw", lparams));
+	asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/dwarf.baw", lparams).getContents().first());
 
 	if (cpumesh&&cpumesh->getMeshType() == asset::EMT_ANIMATED_SKINNED)
 	{

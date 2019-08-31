@@ -1,6 +1,7 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+#include "../common/QToQuitEventReceiver.h"
+#include "../../ext/ScreenShot/ScreenShot.h"
 
 #include "../../ext/Blur/CBlurPerformer.h"
 
@@ -9,37 +10,26 @@ using namespace core;
 
 
 //!Same As Last Example
-class MyEventReceiver : public IEventReceiver
+class MyEventReceiver : public QToQuitEventReceiver
 {
-    const float BLUR_RADIUS_MIN = 0.f, BLUR_RADIUS_MAX = 0.5f;
+		using Base = QToQuitEventReceiver;
+		const float BLUR_RADIUS_MIN = 0.f, BLUR_RADIUS_MAX = 0.5f;
 
-public:
-    ext::Blur::CBlurPerformer* blurPerf = nullptr;
+	public:
+		ext::Blur::CBlurPerformer* blurPerf = nullptr;
 
-    bool OnEvent(const SEvent& event)
-    {
-        if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
-        {
-            switch (event.KeyInput.Key)
-            {
-            case irr::KEY_KEY_Q: // switch wire frame mode
-                exit(0);
-                return true;
-            default:
-                break;
-            }
-        }
-        else if (event.EventType == irr::EET_MOUSE_INPUT_EVENT && blurPerf)
-        {
-            float r = blurPerf->getRadius() + event.MouseInput.Wheel/500.f;
-            blurPerf->setRadius(std::max(BLUR_RADIUS_MIN, std::min(r, BLUR_RADIUS_MAX)));
-            //return true;
-        }
+		bool OnEvent(const SEvent& event)
+		{
+			if (!Base::OnEvent(event))
+			if (event.EventType == irr::EET_MOUSE_INPUT_EVENT && blurPerf)
+			{
+				float r = blurPerf->getRadius() + event.MouseInput.Wheel/500.f;
+				blurPerf->setRadius(std::max(BLUR_RADIUS_MIN, std::min(r, BLUR_RADIUS_MAX)));
+				//return true;
+			}
 
-        return false;
-    }
-
-private:
+			return false;
+		}
 };
 
 class SimpleCallBack : public video::IShaderConstantSetCallBack
@@ -125,44 +115,42 @@ int main()
     device->setEventReceiver(&receiver);
 
 
-    asset::ICPUMesh* cpumesh = device->getAssetManager().getGeometryCreator()->createCubeMesh();
+    asset::ICPUMesh* cpumesh = device->getAssetManager()->getGeometryCreator()->createCubeMesh();
     asset::IAssetLoader::SAssetLoadParams lparams;
-    asset::ICPUTexture* cputexture = static_cast<asset::ICPUTexture*>(device->getAssetManager().getAsset("../tex.jpg", lparams));
-    video::ITexture* texture = driver->getGPUObjectsFromAssets(&cputexture, (&cputexture)+1).front();
+    auto cputexture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*device->getAssetManager()->getAsset("../tex.jpg", lparams).getContents().first);
+    auto texture = driver->getGPUObjectsFromAssets(&cputexture.get(), (&cputexture.get())+1).front();
 
     const core::vector2d<uint32_t> dsFactor{ 1u, 1u };
-    ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, 0.01f, dsFactor, 2u);
+    ext::Blur::CBlurPerformer* blur = ext::Blur::CBlurPerformer::instantiate(driver, device->getIncludeHandler(), 0.01f, dsFactor, 2u);
     receiver.blurPerf = blur;
 
-    video::ITexture* outputTex = blur->createOutputTexture(texture);
+    auto outputTex = blur->createOutputTexture(texture.get());
 
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
 
-    video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
-    video::SGPUMaterial& mutableMaterial = smgr->addMeshSceneNode(gpumesh)->getMaterial(0);
+    auto gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
+    video::SGPUMaterial& mutableMaterial = smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh))->getMaterial(0);
     mutableMaterial.MaterialType = static_cast<video::E_MATERIAL_TYPE>(newMaterialType);
     mutableMaterial.TextureLayer[0].Texture = outputTex;
-    gpumesh->drop();
 
     cpumesh->drop();
-    cpumesh = device->getAssetManager().getGeometryCreator()->createCubeMesh();
+    cpumesh = device->getAssetManager()->getGeometryCreator()->createCubeMesh();
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
 
     gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
-    video::SGPUMaterial& mat2 = smgr->addMeshSceneNode(gpumesh, nullptr, -1, vector3df(10.f, 0.f, 0.f))->getMaterial(0);
+    video::SGPUMaterial& mat2 = smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh), nullptr, -1, vector3df(10.f, 0.f, 0.f))->getMaterial(0);
     mat2.MaterialType = static_cast<video::E_MATERIAL_TYPE>(newMaterialType);
     mat2.TextureLayer[0].Texture = texture;
-    gpumesh->drop();
 
     uint64_t lastFPSTime = 0;
 
-    while (device->run())
+    while (device->run() && receiver.keepOpen() )
     {
         driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
 
-        blur->blurTexture(texture, outputTex);
+        blur->blurTexture(texture.get(), outputTex.get());
 
         smgr->drawAll();
 
@@ -182,32 +170,11 @@ int main()
 
     blur->drop();
 
-    //create a screenshot
-    video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
-    glReadPixels(0, 0, params.WindowSize.Width, params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
-    {
-        // images are horizontally flipped, so we have to fix that here.
-        uint8_t* pixels = (uint8_t*)screenshot->getData();
-
-        const int32_t pitch = screenshot->getPitch();
-        uint8_t* p2 = pixels + (params.WindowSize.Height - 1) * pitch;
-        uint8_t* tmpBuffer = new uint8_t[pitch];
-        for (uint32_t i = 0; i < params.WindowSize.Height; i += 2)
-        {
-            memcpy(tmpBuffer, pixels, pitch);
-            memcpy(pixels, p2, pitch);
-            memcpy(p2, tmpBuffer, pitch);
-            pixels += pitch;
-            p2 -= pitch;
-        }
-        delete[] tmpBuffer;
-    }
-    asset::CImageData* img = new asset::CImageData(screenshot);
-    asset::IAssetWriter::SAssetWriteParams wparams(img);
-    device->getAssetManager().writeAsset("screenshot.png", wparams);
-    img->drop();
-    screenshot->drop();
-    device->sleep(3000);
+	//create a screenshot
+	{
+		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+	}
 
     device->drop();
 

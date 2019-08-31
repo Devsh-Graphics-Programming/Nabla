@@ -75,7 +75,7 @@ class GPUEventWrapper : public core::Uncopyable
         GPUEventWrapper& operator=(const GPUEventWrapper& other) = delete;
         inline GPUEventWrapper& operator=(GPUEventWrapper&& other) noexcept
         {
-            mFence.operator=(other.mFence);
+            mFence.operator=(std::move(other.mFence));
             return *this;
         }
 

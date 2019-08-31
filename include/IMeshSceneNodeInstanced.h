@@ -8,10 +8,9 @@
 
 #include <vector>
 #include "irr/core/alloc/ContiguousPoolAddressAllocator.h"
-#include "irr/video/ResizableBufferingAllocator.h"
+#include "irr/video/alloc/ResizableBufferingAllocator.h"
+#include "irr/video/CGPUMesh.h"
 #include "ISceneNode.h"
-#include "irr/video/SGPUMesh.h"
-#include "irr/video/IGPUMesh.h"
 
 namespace irr
 {
@@ -25,24 +24,20 @@ class ISceneManager;
 class IMeshSceneNodeInstanced : public ISceneNode
 {
     protected:
-        typedef core::ContiguousPoolAddressAllocatorST<uint32_t>                                            InstanceDataAddressAllocator;
+        typedef core::ContiguousPoolAddressAllocatorST<uint32_t>																	InstanceDataAddressAllocator;
 
-        video::ResizableBufferingAllocatorST<InstanceDataAddressAllocator,core::allocator<uint8_t>,false>*   instanceDataAllocator;
+        core::smart_refctd_ptr<video::ResizableBufferingAllocatorST<InstanceDataAddressAllocator,core::allocator<uint8_t>,false> >	instanceDataAllocator;
         bool wantBBoxUpdate;
 
-        virtual ~IMeshSceneNodeInstanced()
-        {
-            if (instanceDataAllocator)
-                instanceDataAllocator->drop();
-        }
+		virtual ~IMeshSceneNodeInstanced() {}
     public:
         constexpr static decltype(InstanceDataAddressAllocator::invalid_address) kInvalidInstanceID         = InstanceDataAddressAllocator::invalid_address;
 
-        typedef asset::IMeshDataFormatDesc<video::IGPUBuffer>* (*VaoSetupOverrideFunc)(ISceneManager*,video::IGPUBuffer*,const size_t&,const asset::IMeshDataFormatDesc<video::IGPUBuffer>*, void* userData);
+        typedef core::smart_refctd_ptr<asset::IMeshDataFormatDesc<video::IGPUBuffer> > (*VaoSetupOverrideFunc)(ISceneManager*,video::IGPUBuffer*,const size_t&,const asset::IMeshDataFormatDesc<video::IGPUBuffer>*, void* userData);
 
         struct MeshLoD
         {
-            video::IGPUMesh* mesh;
+			video::IGPUMesh* mesh;
             void* userDataForVAOSetup; //put array of vertex attribute mappings here or something
             float lodDistance;
         };
@@ -73,7 +68,7 @@ class IMeshSceneNodeInstanced : public ISceneNode
 
         //! Get the currently defined mesh for display.
         /** \return Pointer to mesh which is displayed by this node. */
-        virtual video::SGPUMesh* getLoDMesh(const size_t &lod) = 0;
+        virtual video::CGPUMesh* getLoDMesh(const size_t &lod) = 0;
 
         virtual size_t getInstanceCount() const = 0;
 

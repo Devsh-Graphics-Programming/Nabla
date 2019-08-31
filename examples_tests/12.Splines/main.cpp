@@ -1,6 +1,10 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+
+#include "../../ext/ScreenShot/ScreenShot.h"
+
+#include "../common/QToQuitEventReceiver.h"
+
 
 using namespace irr;
 using namespace core;
@@ -10,7 +14,7 @@ vector<vectorSIMDf> controlPts;
 ISpline* spline = NULL;
 
 //!Same As Last Example
-class MyEventReceiver : public IEventReceiver
+class MyEventReceiver : public QToQuitEventReceiver
 {
 public:
 
@@ -25,8 +29,7 @@ public:
             switch (event.KeyInput.Key)
             {
                 case irr::KEY_KEY_Q: // switch wire frame mode
-                    exit(0);
-                    return true;
+					return QToQuitEventReceiver::OnEvent(event);
                     break;
                 case KEY_KEY_T:
                     {
@@ -134,6 +137,12 @@ int main()
 		return 1; // could not create selected driver.
 
 
+	device->getCursorControl()->setVisible(false);
+
+	MyEventReceiver receiver;
+	device->setEventReceiver(&receiver);
+
+
 	video::IVideoDriver* driver = device->getVideoDriver();
 
 
@@ -145,24 +154,24 @@ int main()
 	camera->setFarValue(100.0f);
     smgr->setActiveCamera(camera);
 
-	device->getCursorControl()->setVisible(false);
-	MyEventReceiver receiver;
-	device->setEventReceiver(&receiver);
-
-    asset::IAssetLoader::SAssetLoadParams lparams;
-    asset::ICPUTexture* cputextures[]{
-        static_cast<asset::ICPUTexture*>(device->getAssetManager().getAsset("../../media/irrlicht2_dn.jpg", lparams)),
-        static_cast<asset::ICPUTexture*>(device->getAssetManager().getAsset("../../media/wall.jpg", lparams))
-    };
-    core::vector<video::ITexture*> gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures+2);
-
 	//! Test Creation Of Builtin
-	scene::IMeshSceneNode* cube = dynamic_cast<scene::IMeshSceneNode*>(smgr->addCubeSceneNode(1.f,0,-1));
-    cube->setRotation(core::vector3df(45,20,15));
-    cube->getMaterial(0).setTexture(0,gputextures[0]);
+	auto* cube = smgr->addCubeSceneNode(1.f, 0, -1);
+	cube->setRotation(core::vector3df(45, 20, 15));
 
-	scene::ISceneNode* billboard = smgr->addCubeSceneNode(2.f,0,-1,core::vector3df(0,0,0));
-    billboard->getMaterial(0).setTexture(0,gputextures[1]);
+	auto assetMgr = device->getAssetManager();
+	{
+		asset::IAssetLoader::SAssetLoadParams lparams;
+		asset::ICPUTexture* cputextures[]{
+			static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_dn.jpg", lparams).getContents().first->get()),
+			static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/wall.jpg", lparams).getContents().first->get())
+		};
+		auto gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures + 2);
+
+		cube->getMaterial(0).setTexture(0, std::move(gputextures[0]));
+
+		auto* billboard = smgr->addCubeSceneNode(2.f, 0, -1, core::vector3df(0, 0, 0));
+		billboard->getMaterial(0).setTexture(0, std::move(gputextures[1]));
+	}
 
     float cubeDistance = 0.f;
     float cubeParameterHint = 0.f;
@@ -181,7 +190,7 @@ int main()
 	uint64_t lastTime = device->getTimer()->getRealTime();
     uint64_t timeDelta = 0;
 
-	while(device->run())
+	while(device->run() && receiver.keepOpen())
 	{
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );
 

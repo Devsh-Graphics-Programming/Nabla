@@ -20,6 +20,7 @@ protected:
     core::vector<asset::CImageData*> m_textureRanges;
     asset::E_FORMAT m_colorFormat;
     video::ITexture::E_TEXTURE_TYPE m_type;
+    std::string m_name;
 
     using IteratorType = typename decltype(m_textureRanges)::iterator;
     using ConstIteratorType = typename decltype(m_textureRanges)::const_iterator;
@@ -30,27 +31,27 @@ public:
 
 private:
     template<typename VectorRef>
-    inline static ICPUTexture* create_impl(VectorRef&& _textureRanges, video::ITexture::E_TEXTURE_TYPE _Type)
+    inline static ICPUTexture* create_impl(VectorRef&& _textureRanges, const std::string& _srcFileName, video::ITexture::E_TEXTURE_TYPE _Type)
     {
         if (!validateMipchain(_textureRanges, _Type))
             return nullptr;
 
-        return new ICPUTexture(std::forward<decltype(_textureRanges)>(_textureRanges), _Type);
+        return new ICPUTexture(std::forward<decltype(_textureRanges)>(_textureRanges), _srcFileName, _Type);
     }
 
 public:
-    inline static ICPUTexture* create(const core::vector<asset::CImageData*>& _textureRanges, video::ITexture::E_TEXTURE_TYPE _Type = video::ITexture::ETT_COUNT)
+    inline static ICPUTexture* create(const core::vector<asset::CImageData*>& _textureRanges, const std::string& _srcFileName, video::ITexture::E_TEXTURE_TYPE _Type = video::ITexture::ETT_COUNT)
     {
-        return create_impl(_textureRanges, _Type);
+        return create_impl(_textureRanges, _srcFileName, _Type);
     }
-    inline static ICPUTexture* create(core::vector<asset::CImageData*>&& _textureRanges, video::ITexture::E_TEXTURE_TYPE _Type = video::ITexture::ETT_COUNT)
+    inline static ICPUTexture* create(core::vector<asset::CImageData*>&& _textureRanges, const std::string& _srcFileName, video::ITexture::E_TEXTURE_TYPE _Type = video::ITexture::ETT_COUNT)
     {
-        return create_impl(std::move(_textureRanges), _Type);
+        return create_impl(std::move(_textureRanges), _srcFileName, _Type);
     }
     template<typename Iter>
-    inline static ICPUTexture* create(Iter _first, Iter _last, video::ITexture::E_TEXTURE_TYPE _Type = video::ITexture::ETT_COUNT)
+    inline static ICPUTexture* create(Iter _first, Iter _last, const std::string& _srcFileName, video::ITexture::E_TEXTURE_TYPE _Type = video::ITexture::ETT_COUNT)
     {
-        return create(core::vector<asset::CImageData*>(_first, _last), _Type);
+        return create(core::vector<asset::CImageData*>(_first, _last), _srcFileName, _Type);
     }
 
     static bool validateMipchain(const core::vector<CImageData*>& _textureRanges, video::ITexture::E_TEXTURE_TYPE _Type)
@@ -72,7 +73,9 @@ public:
 				case video::ITexture::ETT_1D:
 					if (_range->getSliceMax()[1] > 1u)
 						return false;
+					_IRR_FALLTHROUGH;
 				case video::ITexture::ETT_1D_ARRAY:
+					_IRR_FALLTHROUGH;
 				case video::ITexture::ETT_2D:
 					if (_range->getSliceMax()[2] > 1u)
 						return false;
@@ -80,6 +83,7 @@ public:
 				case video::ITexture::ETT_CUBE_MAP_ARRAY:
 					if (_range->getSliceMax()[2]%6u != 0u)
 						return false;
+					_IRR_FALLTHROUGH;
 				case video::ITexture::ETT_CUBE_MAP:
 					if (_range->getSliceMax()[2] > 6u)
 						return false;
@@ -102,7 +106,7 @@ public:
     }
 
 protected:
-    explicit ICPUTexture(const core::vector<asset::CImageData*>& _textureRanges, video::ITexture::E_TEXTURE_TYPE _Type) : m_textureRanges{ _textureRanges }, m_colorFormat{EF_UNKNOWN}, m_type{_Type}
+    explicit ICPUTexture(const core::vector<asset::CImageData*>& _textureRanges, const std::string& _srcFileName, video::ITexture::E_TEXTURE_TYPE _Type) : m_textureRanges{ _textureRanges }, m_colorFormat{EF_UNKNOWN}, m_type{_Type}, m_name{_srcFileName}
     {
         for (const auto& mm : m_textureRanges)
             mm->grab();
@@ -115,7 +119,7 @@ protected:
             establishMinBaseLevelSize();
         }
     }
-    explicit ICPUTexture(core::vector<asset::CImageData*>&& _textureRanges, video::ITexture::E_TEXTURE_TYPE _Type) : m_textureRanges{std::move(_textureRanges)}, m_colorFormat{EF_UNKNOWN}, m_type{_Type}
+    explicit ICPUTexture(core::vector<asset::CImageData*>&& _textureRanges, const std::string& _srcFileName, video::ITexture::E_TEXTURE_TYPE _Type) : m_textureRanges{std::move(_textureRanges)}, m_colorFormat{EF_UNKNOWN}, m_type{_Type}, m_name{_srcFileName}
     {
         for (const auto& mm : m_textureRanges)
             mm->grab();
@@ -142,7 +146,7 @@ public:
 
     virtual size_t conservativeSizeEstimate() const override
     {
-        return getCacheKey().length()+1u;
+        return 500u;
     }
 
     const core::vector<asset::CImageData*>& getRanges() const { return m_textureRanges; }
@@ -192,6 +196,8 @@ public:
     inline const uint32_t* getSize() const { return m_size; }
 
     inline const uint32_t* getBaseLevelSizeHint() const { return m_minReqBaseLvlSz; }
+
+    inline const std::string& getSourceFilename() const { return m_name; }
 
 private:
     inline void sortRangesByMipMapLevel()
@@ -246,16 +252,24 @@ private:
     }
     inline void establishMinBaseLevelSize()
     {
+		const uint32_t mipDimensions[video::ITexture::ETT_COUNT+1u] = {1u,2u,3u,1u,2u,2u,2u,0u};
+
         memset(m_minReqBaseLvlSz, 0, sizeof(m_minReqBaseLvlSz));
         for (CImageData* _range : m_textureRanges)
         {
             for (uint32_t d = 0u; d < 3u; ++d)
             {
-                const uint32_t extent = _range->getSliceMax()[d] << _range->getSupposedMipLevel();
+				uint32_t extent = _range->getSliceMax()[d];
+				if (d<mipDimensions[m_type])
+					extent = extent << _range->getSupposedMipLevel();
+
                 if (m_minReqBaseLvlSz[d] < extent)
                     m_minReqBaseLvlSz[d] = extent;
             }
         }
+
+		if (m_type == video::ITexture::ETT_CUBE_MAP || m_type == video::ITexture::ETT_CUBE_MAP_ARRAY)
+			m_minReqBaseLvlSz[0u] = m_minReqBaseLvlSz[1] = std::max(m_minReqBaseLvlSz[0u],m_minReqBaseLvlSz[1]);
     }
 };
 

@@ -37,7 +37,7 @@ public:
 	@param _createNew Flag deciding whether to create new mesh (not modifying given one) or just optimize given mesh. Defaulted to true (i.e. create new).
 	@param _threshold Indicates how much the overdraw optimizer can degrade vertex cache efficiency (1.05 = up to 5%) to reduce overdraw more efficiently. Defaulted to 1.05 (i.e. 5%).
 	*/
-	static asset::ICPUMeshBuffer* createOptimized(asset::ICPUMeshBuffer* _inbuffer, bool _createNew = true, float _threshold = 1.05f);
+	static core::smart_refctd_ptr<asset::ICPUMeshBuffer> createOptimized(asset::ICPUMeshBuffer* _inbuffer, bool _createNew = true, float _threshold = 1.05f);
 
 private:
 	template<typename IdxT>

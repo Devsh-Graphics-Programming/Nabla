@@ -1,33 +1,8 @@
-/* GCC compile Flags
--flto
--fuse-linker-plugin
--fno-omit-frame-pointer //for debug
--msse3
--mfpmath=sse
--ggdb3 //for debug
-*/
-/* Linker Flags
--lIrrlicht
--lXrandr
--lGL
--lX11
--lpthread
--ldl
-
--fuse-ld=gold
--flto
--fuse-linker-plugin
--msse3
-*/
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+#include "../../ext/ScreenShot/ScreenShot.h"
+#include "../common/QToQuitEventReceiver.h"
 
-/**
-This example shows how to:
-1) Set up and Use a Simple Shader
-2) render triangle buffers to screen in all the different ways
-**/
 using namespace irr;
 using namespace core;
 
@@ -70,7 +45,7 @@ int main()
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
 	params.WindowSize = dimension2d<uint32_t>(1280, 720);
 	params.Fullscreen = false;
-	params.Vsync = true; //! If supported by target platform
+	params.Vsync = false;
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
 	IrrlichtDevice* device = createDeviceEx(params);
@@ -78,6 +53,8 @@ int main()
 	if (device == 0)
 		return 1; // could not create selected driver.
 
+	QToQuitEventReceiver receiver;
+	device->setEventReceiver(&receiver);
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 	SimpleCallBack* callBack = new SimpleCallBack();
@@ -99,9 +76,7 @@ int main()
 
 
     video::IGPUMeshBuffer* mb = new video::IGPUMeshBuffer();
-    video::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-    mb->setMeshDataAndFormat(desc);
-    desc->drop();
+    auto desc = driver->createGPUMeshDataFormatDesc();
 
     size_t xComps = 0x1u<<9;
     size_t yComps = 0x1u<<9;
@@ -116,20 +91,14 @@ int main()
         mem[i+xComps*(j+yComps*k)] = (i<<20)|(j<<10)|(k);
     }
 
-    //! Buffer we want to upload is too big, so staging buffer must be used multiple times to upload the full data in parts
-    video::IGPUBuffer* positionBuf = driver->createFilledDeviceLocalGPUBufferOnDedMem(bufSize,mem);
-    free(mem);
 
 
     //! By mapping we increase/grab() ref counter of positionBuf, any previously mapped buffer will have it's reference dropped
-    desc->setVertexAttrBuffer(positionBuf,
+    desc->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(driver->createFilledDeviceLocalGPUBufferOnDedMem(bufSize,mem),core::dont_grab), // TODO: fix with std::move soon
         asset::EVAI_ATTR0, //! we use first attribute slot (out of a minimum of 16)
         asset::EF_A2B10G10R10_SSCALED_PACK32); //! there are 3 components per vertex and they are floats
-
-    /** Since we mapped the buffer, the MeshBuffers will be using it.
-        If we drop it, it will be automatically deleted when MeshBuffers are done using it.
-    **/
-    positionBuf->drop();
+	free(mem);
+	mb->setMeshDataAndFormat(std::move(desc));
 
 
     mb->setIndexCount(verts);
@@ -143,7 +112,7 @@ int main()
 
 	uint64_t lastFPSTime = 0;
 
-	while(device->run())
+	while (device->run() && receiver.keepOpen())
 	if (device->isWindowActive())
 	{
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );
@@ -170,31 +139,11 @@ int main()
 	}
 	mb->drop();
 
-    //create a screenshot
-	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
-    glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
-    {
-        // images are horizontally flipped, so we have to fix that here.
-        uint8_t* pixels = (uint8_t*)screenshot->getData();
-
-        const int32_t pitch=screenshot->getPitch();
-        uint8_t* p2 = pixels + (params.WindowSize.Height - 1) * pitch;
-        uint8_t* tmpBuffer = new uint8_t[pitch];
-        for (uint32_t i=0; i < params.WindowSize.Height; i += 2)
-        {
-            memcpy(tmpBuffer, pixels, pitch);
-            memcpy(pixels, p2, pitch);
-            memcpy(p2, tmpBuffer, pitch);
-            pixels += pitch;
-            p2 -= pitch;
-        }
-        delete [] tmpBuffer;
-    }
-    asset::CImageData* img = new asset::CImageData(screenshot);
-    asset::IAssetWriter::SAssetWriteParams wparams(img);
-    device->getAssetManager().writeAsset("screenshot.png", wparams);
-    img->drop();
-    screenshot->drop();
+	//create a screenshot
+	{
+		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+	}
 
 	device->drop();
 

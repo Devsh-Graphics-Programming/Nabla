@@ -126,7 +126,7 @@ namespace scene
 		virtual bool getTargetAndRotationBinding(void) const;
 
 		//! Creates a clone of this scene node and its children.
-		virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0);
+		virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0) { assert(false); return nullptr; }
 
 	protected:
 

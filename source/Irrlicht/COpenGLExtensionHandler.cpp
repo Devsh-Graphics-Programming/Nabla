@@ -2,13 +2,12 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#include "IrrCompileConfig.h"
+#include "irr/core/core.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
 #include "COpenGLExtensionHandler.h"
 #include "SMaterial.h" // for MATERIAL_MAX_TEXTURES
-#include "coreutil.h"
 
 namespace irr
 {
@@ -532,8 +531,8 @@ PFNGLDEBUGMESSAGECALLBACKARBPROC COpenGLExtensionHandler::pGlDebugMessageCallbac
     #endif
 
 
-core::LeakDebugger COpenGLExtensionHandler::bufferLeaker("GLBuffer");
-core::LeakDebugger COpenGLExtensionHandler::textureLeaker("GLTex");
+core::CLeakDebugger COpenGLExtensionHandler::bufferLeaker("GLBuffer");
+core::CLeakDebugger COpenGLExtensionHandler::textureLeaker("GLTex");
 
 
 
@@ -977,6 +976,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 
     num=0;
     glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &num);
+    //can we get rid of that? I don't really see reason for this clamp at this level of abstraction
 	MaxTextureUnits = core::min_(static_cast<uint8_t>(num), static_cast<uint8_t>(MATERIAL_MAX_TEXTURES));
 
     //num=100000000u;

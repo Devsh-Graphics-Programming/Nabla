@@ -47,14 +47,10 @@
 #if defined(_IRR_SERVER_)
 #   define NO_IRR_COMPILE_WITH_VULKAN_
 #   define NO_IRR_COMPILE_WITH_OPENGL_
-#   define NO_IRR_COMPILE_WITH_BURNINGSVIDEO_
 #endif
 
 #ifdef NO_IRR_COMPILE_WITH_OPENGL_
 #   undef _IRR_COMPILE_WITH_OPENGL_
-#endif
-#ifdef NO_IRR_COMPILE_WITH_BURNINGSVIDEO_
-#   undef _IRR_COMPILE_WITH_BURNINGSVIDEO_
 #endif
 
 // The Windows platform and API support SDL and WINDOW device
@@ -144,28 +140,6 @@ the engine will no longer read .png images. */
 #undef _IRR_COMPILE_WITH_LIBPNG_
 #endif
 
-//! Define one of the three setting for Burning's Video Software Rasterizer
-/** So if we were marketing guys we could say Irrlicht has 4 Software-Rasterizers.
-	In a Nutshell:
-		All Burnings Rasterizers use 32 Bit Backbuffer, 32Bit Texture & 32 Bit Z or WBuffer,
-		16 Bit/32 Bit can be adjusted on a global flag.
-
-		BURNINGVIDEO_RENDERER_BEAUTIFUL
-			32 Bit + Vertexcolor + Lighting + Per Pixel Perspective Correct + SubPixel/SubTexel Correct +
-			Bilinear Texturefiltering + WBuffer
-
-		BURNINGVIDEO_RENDERER_FAST
-			32 Bit + Per Pixel Perspective Correct + SubPixel/SubTexel Correct + WBuffer +
-			Bilinear Dithering TextureFiltering + WBuffer
-
-		BURNINGVIDEO_RENDERER_ULTRA_FAST
-			16Bit + SubPixel/SubTexel Correct + ZBuffer
-*/
-
-#define BURNINGVIDEO_RENDERER_BEAUTIFUL
-//#define BURNINGVIDEO_RENDERER_FAST
-//#define BURNINGVIDEO_RENDERER_ULTRA_FAST
-
 //! Uncomment the following line if you want to ignore the deprecated warnings
 //#define IGNORE_DEPRECATED_WARNING
 
@@ -225,13 +199,6 @@ the engine will no longer read .png images. */
 #ifdef NO_IRR_COMPILE_WITH_PLY_WRITER_
 #undef _IRR_COMPILE_WITH_PLY_WRITER_
 #endif
-#ifndef NEW_MESHES
-//! Define _IRR_COMPILE_WITH_OBJ_WRITER_ if you want to write .obj files
-#define _IRR_COMPILE_WITH_OBJ_WRITER_
-#ifdef NO_IRR_COMPILE_WITH_OBJ_WRITER_
-#undef _IRR_COMPILE_WITH_OBJ_WRITER_
-#endif
-#endif // NEW_MESHES
 
 //! Define _IRR_COMPILE_WITH_BMP_LOADER_ if you want to load .bmp files
 //! Disabling this loader will also disable the built-in font

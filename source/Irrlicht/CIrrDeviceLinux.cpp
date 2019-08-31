@@ -18,7 +18,6 @@
 #include "coreutil.h"
 #include "Keycodes.h"
 #include "COSOperator.h"
-#include "CColorConverter.h"
 #include "SIrrCreationParameters.h"
 #include <X11/XKBlib.h>
 #include <X11/Xatom.h>
@@ -84,7 +83,7 @@ const char* wmDeleteWindow = "WM_DELETE_WINDOW";
 CIrrDeviceLinux::CIrrDeviceLinux(const SIrrlichtCreationParameters& param)
 	: CIrrDeviceStub(param),
 #ifdef _IRR_COMPILE_WITH_X11_
-	display(0), visual(0), screennr(0), window(0), StdHints(0), SoftwareImage(0),
+	display(0), visual(0), screennr(0), window(0), StdHints(0),
 	XInputMethod(0), XInputContext(0),
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 	glxWin(0),	Context(0), AuxContexts(0),
@@ -204,9 +203,6 @@ CIrrDeviceLinux::~CIrrDeviceLinux()
 
 		// Reset fullscreen resolution change
 		switchToFullscreen(true);
-
-		if (SoftwareImage)
-			XDestroyImage(SoftwareImage);
 
 		if (!ExternalWindow)
 		{
@@ -905,7 +901,7 @@ bool CIrrDeviceLinux::createWindow()
                     {
                         reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].threadId = std::this_thread::get_id();
                         reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].ctx = Context;
-                        reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].pbuff = NULL;
+                        reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].pbuff = 0ull;
                     }
 
                     const int pboAttribs[] =
@@ -977,23 +973,8 @@ bool CIrrDeviceLinux::createWindow()
 	long num;
 	XGetWMNormalHints(display, window, StdHints, &num);
 
-	// create an XImage for the software renderer
-	//(thx to Nadav for some clues on how to do that!)
-
-	if (CreationParams.DriverType == video::EDT_BURNINGSVIDEO)
-	{
-		SoftwareImage = XCreateImage(display,
-			visual->visual, visual->depth,
-			ZPixmap, 0, 0, Width, Height,
-			BitmapPad(display), 0);
-
-		// use malloc because X will free it later on
-		if (SoftwareImage)
-			SoftwareImage->data = (char*) malloc(SoftwareImage->bytes_per_line * SoftwareImage->height * sizeof(char));
-	}
 
 	initXAtoms();
-
 #endif // #ifdef _IRR_COMPILE_WITH_X11_
 	return true;
 }
@@ -1071,21 +1052,6 @@ bool CIrrDeviceLinux::run()
 				{
 					Width = event.xconfigure.width;
 					Height = event.xconfigure.height;
-
-					// resize image data
-					if (SoftwareImage)
-					{
-						XDestroyImage(SoftwareImage);
-
-						SoftwareImage = XCreateImage(display,
-							visual->visual, visual->depth,
-							ZPixmap, 0, 0, Width, Height,
-							BitmapPad(display), 0);
-
-						// use malloc because X will free it later on
-						if (SoftwareImage)
-							SoftwareImage->data = (char*) malloc(SoftwareImage->bytes_per_line * SoftwareImage->height * sizeof(char));
-					}
 
 					if (VideoDriver)
 						VideoDriver->OnResize(core::dimension2d<uint32_t>(Width, Height));
@@ -1407,60 +1373,6 @@ void CIrrDeviceLinux::setWindowCaption(const std::wstring& text)
 		XFree(txt.value);
 	}
 #endif
-}
-
-
-//! presents a surface in the client area
-bool CIrrDeviceLinux::present(video::IImage* image, void* windowId, core::rect<int32_t>* srcRect)
-{
-#ifdef _IRR_COMPILE_WITH_X11_
-	// this is only necessary for software drivers.
-	if (!SoftwareImage)
-		return true;
-
-	// thx to Nadav, who send me some clues of how to display the image
-	// to the X Server.
-
-	const uint32_t destwidth = SoftwareImage->width;
-	const uint32_t minWidth = core::min_(image->getDimension().Width, destwidth);
-	const uint32_t destPitch = SoftwareImage->bytes_per_line;
-
-	asset::E_FORMAT destColor;
-	switch (SoftwareImage->bits_per_pixel)
-	{
-		case 16:
-			if (SoftwareImage->depth==16)
-				destColor = asset::EF_R5G6B5_UNORM_PACK16;
-			else
-				destColor = asset::EF_A1R5G5B5_UNORM_PACK16;
-		break;
-		case 24: destColor = asset::EF_R8G8B8_UNORM; break;
-		case 32: destColor = asset::EF_B8G8R8A8_UNORM; break;
-		default:
-			os::Printer::log("Unsupported screen depth.");
-			return false;
-	}
-
-	uint8_t* srcdata = reinterpret_cast<uint8_t*>(image->getData());
-	uint8_t* destData = reinterpret_cast<uint8_t*>(SoftwareImage->data);
-
-	const uint32_t destheight = SoftwareImage->height;
-	const uint32_t srcheight = core::min_(image->getDimension().Height, destheight);
-	const uint32_t srcPitch = image->getPitch();
-	for (uint32_t y=0; y!=srcheight; ++y)
-	{
-		video::CColorConverter::convert_viaFormat(srcdata,image->getColorFormat(), minWidth, destData, destColor);
-		srcdata+=srcPitch;
-		destData+=destPitch;
-	}
-
-	GC gc = DefaultGC(display, DefaultScreen(display));
-	Window myWindow=window;
-	if (windowId)
-		myWindow = reinterpret_cast<Window>(windowId);
-	XPutImage(display, myWindow, gc, SoftwareImage, 0, 0, 0, 0, destwidth, destheight);
-#endif
-	return true;
 }
 
 
@@ -2080,144 +1992,6 @@ void CIrrDeviceLinux::initXAtoms()
 	X_ATOM_TEXT = XInternAtom (display, "TEXT", False);
 #endif
 }
-
-
-#ifdef _IRR_COMPILE_WITH_X11_
-Cursor CIrrDeviceLinux::TextureToMonochromeCursor(irr::video::IImage * tex, const core::rect<int32_t>& sourceRect, const core::position2d<int32_t> &hotspot)
-{
-	XImage * sourceImage = XCreateImage(display, visual->visual,
-										1, // depth,
-										ZPixmap,	// XYBitmap (depth=1), ZPixmap(depth=x)
-										0, 0, sourceRect.getWidth(), sourceRect.getHeight(),
-										32, // bitmap_pad,
-										0// bytes_per_line (0 means continuos in memory)
-										);
-	sourceImage->data = new char[sourceImage->height * sourceImage->bytes_per_line];
-	XImage * maskImage = XCreateImage(display, visual->visual,
-										1, // depth,
-										ZPixmap,
-										0, 0, sourceRect.getWidth(), sourceRect.getHeight(),
-										32, // bitmap_pad,
-										0 // bytes_per_line
-										);
-	maskImage->data = new char[maskImage->height * maskImage->bytes_per_line];
-
-	// write texture into XImage
-	asset::E_FORMAT format = tex->getColorFormat();
-	uint32_t bytesPerPixel = video::getBitsPerPixelFromFormat(format) / 8;
-	uint32_t bytesLeftGap = sourceRect.UpperLeftCorner.X * bytesPerPixel;
-	uint32_t bytesRightGap = tex->getPitch() - sourceRect.LowerRightCorner.X * bytesPerPixel;
-	const uint8_t* data = (const uint8_t*)tex->getData();
-	data += sourceRect.UpperLeftCorner.Y*tex->getPitch();
-	for ( int32_t y = 0; y < sourceRect.getHeight(); ++y )
-	{
-		data += bytesLeftGap;
-		for ( int32_t x = 0; x < sourceRect.getWidth(); ++x )
-		{
-			video::SColor pixelCol;
-			pixelCol.setData((const void*)data, format);
-			data += bytesPerPixel;
-
-			if ( pixelCol.getAlpha() == 0 )	// transparent
-			{
-				XPutPixel(maskImage, x, y, 0);
-				XPutPixel(sourceImage, x, y, 0);
-			}
-			else	// color
-			{
-				if ( pixelCol.getAverage() >= 127 )
-					XPutPixel(sourceImage, x, y, 1);
-				else
-					XPutPixel(sourceImage, x, y, 0);
-				XPutPixel(maskImage, x, y, 1);
-			}
-		}
-		data += bytesRightGap;
-	}
-
-	Pixmap sourcePixmap = XCreatePixmap(display, window, sourceImage->width, sourceImage->height, sourceImage->depth);
-	Pixmap maskPixmap = XCreatePixmap(display, window, maskImage->width, maskImage->height, maskImage->depth);
-
-	XGCValues values;
-	values.foreground = 1;
-	values.background = 1;
-	GC gc = XCreateGC( display, sourcePixmap, GCForeground | GCBackground, &values );
-
-	XPutImage(display, sourcePixmap, gc, sourceImage, 0, 0, 0, 0, sourceImage->width, sourceImage->height);
-	XPutImage(display, maskPixmap, gc, maskImage, 0, 0, 0, 0, maskImage->width, maskImage->height);
-
-	XFreeGC(display, gc);
-	XDestroyImage(sourceImage);
-	XDestroyImage(maskImage);
-
-	Cursor cursorResult = 0;
-	XColor foreground, background;
-	foreground.red = 65535;
-	foreground.green = 65535;
-	foreground.blue = 65535;
-	foreground.flags = DoRed | DoGreen | DoBlue;
-	background.red = 0;
-	background.green = 0;
-	background.blue = 0;
-	background.flags = DoRed | DoGreen | DoBlue;
-
-	cursorResult = XCreatePixmapCursor(display, sourcePixmap, maskPixmap, &foreground, &background, hotspot.X, hotspot.Y);
-
-	XFreePixmap(display, sourcePixmap);
-	XFreePixmap(display, maskPixmap);
-
-	return cursorResult;
-}
-
-#ifdef _IRR_LINUX_XCURSOR_
-Cursor CIrrDeviceLinux::TextureToARGBCursor(irr::video::IImage * tex, const core::rect<int32_t>& sourceRect, const core::position2d<int32_t> &hotspot)
-{
-	XcursorImage * image = XcursorImageCreate (sourceRect.getWidth(), sourceRect.getHeight());
-	image->xhot = hotspot.X;
-	image->yhot = hotspot.Y;
-
-	// write texture into XcursorImage
-	asset::E_FORMAT format = tex->getColorFormat();
-	uint32_t bytesPerPixel = video::getBitsPerPixelFromFormat(format) / 8;
-	uint32_t bytesLeftGap = sourceRect.UpperLeftCorner.X * bytesPerPixel;
-	uint32_t bytesRightGap = tex->getPitch() - sourceRect.LowerRightCorner.X * bytesPerPixel;
-	XcursorPixel* target = image->pixels;
-	const uint8_t* data = (const uint8_t*)tex->lock(video::ETLM_READ_ONLY, 0);
-	data += sourceRect.UpperLeftCorner.Y*tex->getPitch();
-	for ( int32_t y = 0; y < sourceRect.getHeight(); ++y )
-	{
-		data += bytesLeftGap;
-		for ( int32_t x = 0; x < sourceRect.getWidth(); ++x )
-		{
-			video::SColor pixelCol;
-			pixelCol.setData((const void*)data, format);
-			data += bytesPerPixel;
-
-			*target = (XcursorPixel)pixelCol.color;
-			++target;
-		}
-		data += bytesRightGap;
-	}
-	tex->unlock();
-
-	Cursor cursorResult=XcursorImageLoadCursor(display, image);
-
-	XcursorImageDestroy(image);
-
-
-	return cursorResult;
-}
-#endif // #ifdef _IRR_LINUX_XCURSOR_
-
-Cursor CIrrDeviceLinux::TextureToCursor(irr::video::IImage * tex, const core::rect<int32_t>& sourceRect, const core::position2d<int32_t> &hotspot)
-{
-#ifdef _IRR_LINUX_XCURSOR_
-	return TextureToARGBCursor( tex, sourceRect, hotspot );
-#else
-	return TextureToMonochromeCursor( tex, sourceRect, hotspot );
-#endif
-}
-#endif	// _IRR_COMPILE_WITH_X11_
 
 
 CIrrDeviceLinux::CCursorControl::CCursorControl(CIrrDeviceLinux* dev, bool null)

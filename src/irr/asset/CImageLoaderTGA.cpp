@@ -8,7 +8,7 @@
 
 #include "IReadFile.h"
 #include "os.h"
-#include "irr/video/convertColor.h"
+#include "irr/asset/format/convertColor.h"
 #include "irr/asset/CImageData.h"
 #include "irr/asset/ICPUTexture.h"
 
@@ -119,7 +119,7 @@ static void convertColorFlip(asset::CImageData **image, const T *src, bool flip)
 	
 	auto size     = (*image)->getSize();
 	auto stride   = (*image)->getPitchIncludingAlignment();
-	auto channels = (*image)->getBitsPerPixel() / 8;
+	auto channels = (*image)->getBytesPerPixel().getIntegerApprox();
 	
 	if (flip)
 		out += size.X * size.Y * channels;
@@ -129,7 +129,7 @@ static void convertColorFlip(asset::CImageData **image, const T *src, bool flip)
 			out -= stride;
 		
 		const void *src_container[4] = {in, nullptr, nullptr, nullptr};
-		video::convertColor<srcFormat, destFormat>(src_container, out, 1, size.X, size);
+		video::convertColor<srcFormat, destFormat>(src_container, out, size.X, size);
 		in += stride;
 		
 		if (!flip)
@@ -138,7 +138,7 @@ static void convertColorFlip(asset::CImageData **image, const T *src, bool flip)
 }
 
 //! creates a surface from the file
-asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	STGAHeader header;
 	uint32_t *palette = 0;
@@ -163,13 +163,13 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 		switch ( header.ColorMapEntrySize )
 		{
 			case 16:
-				video::convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_R8G8B8A8_SRGB>(src_container, palette, 1, header.ColorMapLength, 0u);
+				video::convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_R8G8B8A8_SRGB>(src_container, palette, header.ColorMapLength, 0u);
 				break;
 			case 24:
-				video::convertColor<EF_B8G8R8_SRGB, EF_R8G8B8A8_SRGB>(src_container, palette, 1, header.ColorMapLength, 0u);
+				video::convertColor<EF_B8G8R8_SRGB, EF_R8G8B8A8_SRGB>(src_container, palette, header.ColorMapLength, 0u);
 				break;
 			case 32:
-				video::convertColor<EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(src_container, palette, 1, header.ColorMapLength, 0u);
+				video::convertColor<EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(src_container, palette, header.ColorMapLength, 0u);
 				break;
 		}
 		delete [] colorMap;
@@ -201,7 +201,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 				if (palette)
 					delete [] palette;
 
-				return nullptr;
+                return {};
 			}
 		
 		default:
@@ -210,7 +210,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 				if (palette)
 					delete [] palette;
 
-				return nullptr;
+                return {};
 			}
 	}
 
@@ -230,7 +230,7 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 					if (palette) delete [] palette;
 					if (data)    delete [] data;
 					
-					return nullptr;
+                    return {};
 				}
 				
 				image = new asset::CImageData(nullptr,nullOffset,imageSize,0,asset::EF_R8_SRGB);
@@ -290,10 +290,10 @@ asset::IAsset* CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAs
 	delete [] data;
 	delete [] palette;
 
-    asset::ICPUTexture* tex = asset::ICPUTexture::create(images);
+    asset::ICPUTexture* tex = asset::ICPUTexture::create(images, _file->getFileName().c_str());
     for (auto& img : images)
         img->drop();
-    return tex;
+    return {core::smart_refctd_ptr<IAsset>(tex, core::dont_grab)};
 }
 
 } // end namespace video

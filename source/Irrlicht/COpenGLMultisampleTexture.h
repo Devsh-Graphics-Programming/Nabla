@@ -68,7 +68,7 @@ class COpenGLMultisampleTexture : public COpenGLTexture, public IMultisampleText
 
 
         //!
-        virtual size_t getAllocationSize() const {return TextureSize[1]*((TextureSize[0]*SampleCount*getOpenGLFormatBpp(InternalFormat))/8u);}
+        virtual size_t getAllocationSize() const {return TextureSize[1]*(TextureSize[0]*SampleCount*asset::getBytesPerPixel(ColorFormat)).getIntegerApprox();}
         virtual IDriverMemoryAllocation* getBoundMemory() {return this;}
         virtual const IDriverMemoryAllocation* getBoundMemory() const {return this;}
         virtual size_t getBoundMemoryOffset() const {return 0ll;}

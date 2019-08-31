@@ -5,7 +5,7 @@
 #ifndef __C_IMAGE_LOADER_JPG_H_INCLUDED__
 #define __C_IMAGE_LOADER_JPG_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "irr/core/core.h"
 
 #ifdef _IRR_COMPILE_WITH_JPG_LOADER_
 
@@ -40,7 +40,7 @@ public:
 
     virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE; }
 
-    virtual asset::IAsset* loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+    virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 };
 
 

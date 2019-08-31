@@ -8,8 +8,10 @@
 
 #include "CImageLoaderTGA.h"
 #include "IWriteFile.h"
-#include "irr/video/convertColor.h"
+#include "irr/asset/format/convertColor.h"
 #include "irr/asset/ICPUTexture.h"
+
+#include "os.h"
 
 namespace irr
 {
@@ -103,10 +105,10 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 		return false;
 
 	// size of one pixel in bits
-	uint32_t pixel_size_bits = image->getBitsPerPixel();
+	uint32_t pixel_size_bits = image->getBytesPerPixel().getIntegerApprox();
 
 	// length of one row of the source image in bytes
-	uint32_t row_stride = (pixel_size_bits * imageHeader.ImageWidth)/8;
+	uint32_t row_stride = (pixel_size_bits * imageHeader.ImageWidth);
 
 	// length of one output row in bytes
 	int32_t row_size = ((imageHeader.PixelDepth / 8) * imageHeader.ImageWidth);
@@ -130,7 +132,7 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 			case asset::EF_R8_UNORM:
 				{
 					const void *src_container[4] = {&scan_lines[y * row_stride], nullptr, nullptr, nullptr};
-					video::convertColor<EF_R8_UNORM, EF_R8_SRGB>(src_container, row_pointer, 1, imageHeader.ImageWidth, size);
+					video::convertColor<EF_R8_UNORM, EF_R8_SRGB>(src_container, row_pointer, imageHeader.ImageWidth, size);
 				}
 			break;
 			
@@ -138,14 +140,14 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 			case asset::EF_R8G8B8_SRGB:
 				{
 					const void *src_container[4] = {&scan_lines[y * row_stride], nullptr, nullptr, nullptr};
-					video::convertColor<EF_R8G8B8_SRGB, EF_B8G8R8_SRGB>(src_container, row_pointer, 1, imageHeader.ImageWidth, size);
+					video::convertColor<EF_R8G8B8_SRGB, EF_B8G8R8_SRGB>(src_container, row_pointer, imageHeader.ImageWidth, size);
 				}
 			break;
 			
 			case asset::EF_R8G8B8A8_SRGB:
 				{
 					const void *src_container[4] = {&scan_lines[y * row_stride], nullptr, nullptr, nullptr};
-					video::convertColor<EF_R8G8B8A8_SRGB, EF_B8G8R8A8_SRGB>(src_container, row_pointer, 1, imageHeader.ImageWidth, size);
+					video::convertColor<EF_R8G8B8A8_SRGB, EF_B8G8R8A8_SRGB>(src_container, row_pointer, imageHeader.ImageWidth, size);
 				}
 			break;
 			

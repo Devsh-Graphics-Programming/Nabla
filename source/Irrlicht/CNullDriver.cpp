@@ -4,14 +4,8 @@
 
 #include "CNullDriver.h"
 #include "os.h"
-#include "CImage.h"
-#include "IReadFile.h"
-#include "IWriteFile.h"
-#include "IImageLoader.h"
-#include "IImageWriter.h"
 #include "IMaterialRenderer.h"
 #include "IAnimatedMeshSceneNode.h"
-#include "CColorConverter.h"
 #include "irr/asset/CMeshManipulator.h"
 #include "CMeshSceneNodeInstanced.h"
 
@@ -40,7 +34,7 @@ int32_t CNullDriver::incrementAndFetchReallocCounter()
 CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
 : IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), ScreenSize(screenSize), boxLineMesh(0),
 	PrimitivesDrawn(0), TextureCreationFlags(0),
-	OverrideMaterial2DEnabled(false), AllowZWriteOnTransparent(false),
+	OverrideMaterial2DEnabled(false),
 	matrixModifiedBits(0)
 {
 	#ifdef _IRR_DEBUG
@@ -115,68 +109,8 @@ CNullDriver::~CNullDriver()
 	if (FileSystem)
 		FileSystem->drop();
 
-	uint32_t i;
-	for (i=0; i<SurfaceLoader.size(); ++i)
-		SurfaceLoader[i]->drop();
-
-	for (i=0; i<SurfaceWriter.size(); ++i)
-		SurfaceWriter[i]->drop();
-
 	// delete material renderers
 	deleteMaterialRenders();
-}
-
-//! Adds an external surface loader to the engine.
-void CNullDriver::addExternalImageLoader(IImageLoader* loader)
-{
-	if (!loader)
-		return;
-
-	loader->grab();
-	SurfaceLoader.push_back(loader);
-}
-
-
-//! Adds an external surface writer to the engine.
-void CNullDriver::addExternalImageWriter(IImageWriter* writer)
-{
-	if (!writer)
-		return;
-
-	writer->grab();
-	SurfaceWriter.push_back(writer);
-}
-
-
-//! Retrieve the number of image loaders
-uint32_t CNullDriver::getImageLoaderCount() const
-{
-	return SurfaceLoader.size();
-}
-
-
-//! Retrieve the given image loader
-IImageLoader* CNullDriver::getImageLoader(uint32_t n)
-{
-	if (n < SurfaceLoader.size())
-		return SurfaceLoader[n];
-	return 0;
-}
-
-
-//! Retrieve the number of image writers
-uint32_t CNullDriver::getImageWriterCount() const
-{
-	return SurfaceWriter.size();
-}
-
-
-//! Retrieve the given image writer
-IImageWriter* CNullDriver::getImageWriter(uint32_t n)
-{
-	if (n < SurfaceWriter.size())
-		return SurfaceWriter[n];
-	return 0;
 }
 
 //! applications must call this method before performing any rendering. returns false if failed.
@@ -420,25 +354,25 @@ void CNullDriver::removeAllFrameBuffers()
 {
 }
 
-ITexture* CNullDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format)
+core::smart_refctd_ptr<ITexture> CNullDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format)
 {
     if (type != ITexture::ETT_2D)
         return nullptr;
 
-    return new SDummyTexture("");
+    return core::make_smart_refctd_ptr<SDummyTexture>("");
 }
 
 
-//! returns a device dependent texture from a software surface (IImage)
+//! returns a device dependent texture from parameters
 //! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
-ITexture* CNullDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
+core::smart_refctd_ptr<ITexture> CNullDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
 			const io::path& name, asset::E_FORMAT format)
 {
     //better safe than sorry
     if (type!=ITexture::ETT_2D)
-        return NULL;
+        return nullptr;
 
-	return new SDummyTexture(name);
+	return core::make_smart_refctd_ptr<SDummyTexture>(name);
 }
 
 
@@ -653,121 +587,7 @@ bool CNullDriver::getTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag) const
 	return (TextureCreationFlags & flag)!=0;
 }
 
-
-//! Creates a software image from a file.
-core::vector<asset::CImageData*> CNullDriver::createImageDataFromFile(const io::path& filename)
-{
-	if (!filename.size())
-		return core::vector<asset::CImageData*>();
-
-	io::IReadFile* file = FileSystem->createAndOpenFile(filename);
-
-	if (file)
-	{
-		core::vector<asset::CImageData*> imageData = createImageDataFromFile(file);
-		file->drop();
-		return imageData;
-	}
-//	else
-//		os::Printer::log("Could not open file of image", filename, ELL_WARNING);	// sodan
-
-	return core::vector<asset::CImageData*>();
-}
-
-
-//! Creates a software image from a file.
-core::vector<asset::CImageData*> CNullDriver::createImageDataFromFile(io::IReadFile* file)
-{
-	if (!file)
-		return core::vector<asset::CImageData*>();
-
-
-	int32_t i;
-
-	// try to load file based on file extension
-	for (i=SurfaceLoader.size()-1; i>=0; --i)
-	{
-		if (SurfaceLoader[i]->isALoadableFileExtension(file->getFileName()))
-		{
-			// reset file position which might have changed due to previous loadImage calls
-			file->seek(0);
-			core::vector<asset::CImageData*> imageData = SurfaceLoader[i]->loadImage(file);
-			if (imageData.size())
-				return imageData;
-		}
-	}
-
-	// try to load file based on what is in it
-	for (i=SurfaceLoader.size()-1; i>=0; --i)
-	{
-		// dito
-		file->seek(0);
-		if (SurfaceLoader[i]->isALoadableFileFormat(file))
-		{
-			file->seek(0);
-			core::vector<asset::CImageData*> imageData = SurfaceLoader[i]->loadImage(file);
-			if (imageData.size())
-				return imageData;
-		}
-	}
-
-	return core::vector<asset::CImageData*>(); // failed to load
-}
-
-
-//! Writes the provided image to disk file
-bool CNullDriver::writeImageToFile(IImage* image, const io::path& filename,uint32_t param)
-{
-	io::IWriteFile* file = FileSystem->createAndWriteFile(filename);
-	if(!file)
-		return false;
-
-	bool result = writeImageToFile(image, file, param);
-	file->drop();
-
-	return result;
-}
-
-//! Writes the provided image to a file.
-bool CNullDriver::writeImageToFile(IImage* image, io::IWriteFile * file, uint32_t param)
-{
-	if(!file)
-		return false;
-
-	for (int32_t i=SurfaceWriter.size()-1; i>=0; --i)
-	{
-		if (SurfaceWriter[i]->isAWriteableFileExtension(file->getFileName()))
-		{
-			bool written = SurfaceWriter[i]->writeImage(file, image, param);
-			if (written)
-				return true;
-		}
-	}
-	return false; // failed to write
-}
-
-
-//! Creates a software image from a byte array.
-IImage* CNullDriver::createImageFromData(asset::CImageData* imageData, bool ownForeignMemory)
-{
-    core::dimension2du size;
-    size.Width = imageData->getSliceMax()[0]-imageData->getSliceMin()[0];
-    size.Height = imageData->getSliceMax()[1]-imageData->getSliceMin()[1];
-	CImage* img = new CImage(imageData->getColorFormat(), size, imageData->getData(), ownForeignMemory);
-
-	if (ownForeignMemory)
-        imageData->forgetAboutData();
-
-	return img;
-}
-
 //!
-IImage* CNullDriver::createImage(const asset::E_FORMAT& format, const core::dimension2d<uint32_t>& size)
-{
-    return new CImage(format, size);
-}
-
-
 void CNullDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
 {
 	if (!mb)

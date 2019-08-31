@@ -7,9 +7,10 @@
 #ifdef _IRR_COMPILE_WITH_JPG_WRITER_
 
 #include "IWriteFile.h"
-#include "CImage.h"
-#include "irr/video/convertColor.h"
+#include "irr/asset/format/convertColor.h"
 #include "irr/asset/ICPUTexture.h"
+
+#include "os.h"
 
 #ifdef _IRR_COMPILE_WITH_LIBJPEG_
 #include <stdio.h> // required for jpeglib.h
@@ -129,7 +130,7 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 
 	if (dest)
 	{
-		const uint32_t pitch = image->getPitch();
+		const uint32_t pitch = image->getPitchIncludingAlignment();
 		JSAMPROW row_pointer[1];      /* pointer to JSAMPLE row[s] */
 		row_pointer[0] = dest;
 		
@@ -147,18 +148,19 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 			/* Pass-through the pixels for EF_R8_SRGB/EF_R8G8B8_SRGB, and perform color conversion for the rest.*/
 			switch (format) {
 				case asset::EF_R8G8B8_UNORM:
-					video::convertColor<EF_R8G8B8_UNORM, EF_R8G8B8_SRGB>(src_container, dest, 1, dim.X, dim);
+					video::convertColor<EF_R8G8B8_UNORM, EF_R8G8B8_SRGB>(src_container, dest, dim.X, dim);
 					break;
 				case asset::EF_B5G6R5_UNORM_PACK16:
-					video::convertColor<EF_B5G6R5_UNORM_PACK16, EF_R8G8B8_SRGB>(src_container, dest, 1, dim.X, dim);
+					video::convertColor<EF_B5G6R5_UNORM_PACK16, EF_R8G8B8_SRGB>(src_container, dest, dim.X, dim);
 					break;
 				case asset::EF_A1R5G5B5_UNORM_PACK16:
-					video::convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_R8G8B8_SRGB>(src_container, dest, 1, dim.X, dim);
+					video::convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_R8G8B8_SRGB>(src_container, dest, dim.X, dim);
 					break;
 				case asset::EF_R8_UNORM:
-					video::convertColor<EF_R8_UNORM, EF_R8_SRGB>(src_container, dest, 1, dim.X, dim);
+					video::convertColor<EF_R8_UNORM, EF_R8_SRGB>(src_container, dest, dim.X, dim);
 					break;
 				case asset::EF_R8_SRGB:
+					_IRR_FALLTHROUGH;
 				case asset::EF_R8G8B8_SRGB:
 					memcpy(dest, src, pitch);
 					break;

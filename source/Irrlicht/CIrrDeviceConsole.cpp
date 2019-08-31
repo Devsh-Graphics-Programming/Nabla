@@ -115,22 +115,14 @@ CIrrDeviceConsole::CIrrDeviceConsole(const SIrrlichtCreationParameters& params)
 
 	switch (params.DriverType)
 	{
-
-	case video::EDT_BURNINGSVIDEO:
-		#ifdef _IRR_COMPILE_WITH_BURNINGSVIDEO_
-		VideoDriver = video::createBurningVideoDriver(this, CreationParams, FileSystem, this);
-		#else
-		os::Printer::log("Burning's Video driver was not compiled in.", ELL_ERROR);
-		#endif
-		break;
-	case video::EDT_OPENGL:
-		os::Printer::log("The console device cannot use hardware drivers yet.", ELL_ERROR);
-		break;
-	case video::EDT_NULL:
-		VideoDriver = video::createNullDriver(this, FileSystem, CreationParams.WindowSize);
-		break;
-	default:
-		break;
+		case video::EDT_OPENGL:
+			os::Printer::log("The console device cannot use hardware drivers yet.", ELL_ERROR);
+			break;
+		case video::EDT_NULL:
+			VideoDriver = video::createNullDriver(this, FileSystem, CreationParams.WindowSize);
+			break;
+		default:
+			break;
 	}
 
 	// set up output buffer
@@ -347,33 +339,6 @@ bool CIrrDeviceConsole::isWindowFocused() const
 bool CIrrDeviceConsole::isWindowMinimized() const
 {
 	return false;
-}
-
-//! presents a surface in the client area
-bool CIrrDeviceConsole::present(video::IImage* surface, void* windowId, core::rect<int32_t>* src)
-{
-
-	if (surface)
-	{
-		for (uint32_t y=0; y < surface->getDimension().Height; ++y)
-		{
-			for (uint32_t x=0; x< surface->getDimension().Width; ++x)
-			{
-				// get average pixel
-				uint32_t avg = surface->getPixel(x,y).getAverage() * (ASCIIArtCharsCount-1);
-				avg /= 255;
-				OutputBuffer[y] [x] = ASCIIArtChars[avg];
-			}
-		}
-	}
-
-	// draw output
-	for (uint32_t y=0; y<OutputBuffer.size(); ++y)
-	{
-		setTextCursorPos(0,y);
-		fprintf(OutFile, "%s", OutputBuffer[y].c_str());
-	}
-	return surface != 0;
 }
 
 //! notifies the device that it should close itself

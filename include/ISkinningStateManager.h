@@ -4,7 +4,7 @@
 #include "CFinalBoneHierarchy.h"
 #include "IDummyTransformationSceneNode.h"
 #include "irr/core/alloc/PoolAddressAllocator.h"
-#include "irr/video/ResizableBufferingAllocator.h"
+#include "irr/video/alloc/ResizableBufferingAllocator.h"
 
 #include "IVideoDriver.h"
 
@@ -214,7 +214,7 @@ namespace scene
             };
 
             //! Constructor
-            ISkinningStateManager(const E_BONE_UPDATE_MODE& boneControl, video::IVideoDriver* driver, const CFinalBoneHierarchy* sourceHierarchy)
+            ISkinningStateManager(const E_BONE_UPDATE_MODE& boneControl, video::IVideoDriver* driver, const asset::CFinalBoneHierarchy* sourceHierarchy)
                     : usingGPUorCPUBoning(-100), boneControlMode(boneControl), referenceHierarchy(sourceHierarchy), instanceData(nullptr), instanceDataSize(0)
             {
                 referenceHierarchy->grab();
@@ -336,7 +336,7 @@ namespace scene
 
             int8_t usingGPUorCPUBoning;
             const E_BONE_UPDATE_MODE boneControlMode;
-            const CFinalBoneHierarchy* referenceHierarchy;
+            const asset::CFinalBoneHierarchy* referenceHierarchy;
 
             size_t actualSizeOfInstanceDataElement;
             class BoneHierarchyInstanceData : public core::AlignedBase<_IRR_SIMD_ALIGNMENT>

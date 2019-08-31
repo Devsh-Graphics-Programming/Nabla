@@ -5,7 +5,8 @@
 #ifndef __I_SKIN_MESH_BUFFER_H_INCLUDED__
 #define __I_SKIN_MESH_BUFFER_H_INCLUDED__
 
-#include "ICPUMeshBuffer.h"
+#include "irr/asset/ICPUMeshBuffer.h"
+#include "irr/asset/bawformat/blobs/SkinnedMeshBufferBlob.h"
 
 
 namespace irr
@@ -14,7 +15,7 @@ namespace asset
 {
 
 
-class ICPUSkinnedMeshBuffer : public ICPUMeshBuffer
+class ICPUSkinnedMeshBuffer final : public ICPUMeshBuffer
 {
         uint32_t indexValMin;
         uint32_t indexValMax;
@@ -28,7 +29,7 @@ class ICPUSkinnedMeshBuffer : public ICPUMeshBuffer
             #endif
         }
 
-		virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const
+		inline void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const override
 		{
 			return asset::CorrespondingBlobTypeFor<ICPUSkinnedMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
 		}

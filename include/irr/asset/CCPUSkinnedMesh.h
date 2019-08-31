@@ -1,93 +1,79 @@
 #ifndef __IRR_C_CPU_SKINNED_MESH_INCLUDED__
 #define __IRR_C_CPU_SKINNED_MESH_INCLUDED__
 
-#include "ICPUSkinnedMesh.h"
+#include "irr/asset/ICPUSkinnedMesh.h"
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
+#include "CFinalBoneHierarchy.h"
 
 namespace irr 
 {
-namespace scene {
-    class CFinalBoneHierarchy;
-}
-
 namespace asset
 {
-class ICPUSkinnedMeshBuffer;
 
 class CCPUSkinnedMesh : public ICPUSkinnedMesh
 {
-protected:
-    //! destructor
-    virtual ~CCPUSkinnedMesh();
+	protected:
+		//!
+		core::smart_refctd_ptr<CFinalBoneHierarchy> referenceHierarchy;
 
-public:
-    //! constructor
-    CCPUSkinnedMesh();
+		//! destructor
+		virtual ~CCPUSkinnedMesh();
 
-    //! Clears internal container of meshbuffers and calls drop() on each
-    virtual void clearMeshBuffers();
+	public:
+		//! constructor
+		CCPUSkinnedMesh() : HasAnimation(false)
+		{
+			#ifdef _IRR_DEBUG
+				setDebugName("CCPUSkinnedMesh");
+			#endif
+		}
 
-    virtual scene::CFinalBoneHierarchy* getBoneReferenceHierarchy() const { return referenceHierarchy; }
+		//!
+		virtual CFinalBoneHierarchy* getBoneReferenceHierarchy() const override { return referenceHierarchy.get(); }
 
-    //! Meant to be used by loaders only
-    void setBoneReferenceHierarchy(scene::CFinalBoneHierarchy* fbh);
+		//! Clears internal container of meshbuffers and calls drop() on each
+		virtual void clearMeshBuffers();
 
-    //! returns amount of mesh buffers.
-    virtual uint32_t getMeshBufferCount() const;
+		//! Meant to be used by loaders only
+		void setBoneReferenceHierarchy(core::smart_refctd_ptr<CFinalBoneHierarchy>&& fbh) { referenceHierarchy = std::move(fbh); }
 
-    //! returns pointer to a mesh buffer
-    virtual ICPUMeshBuffer* getMeshBuffer(uint32_t nr) const;
+		//! returns amount of mesh buffers.
+		virtual uint32_t getMeshBufferCount() const override;
 
-    //! returns an axis aligned bounding box
-    virtual const core::aabbox3d<float>& getBoundingBox() const;
+		//! returns pointer to a mesh buffer
+		virtual ICPUMeshBuffer* getMeshBuffer(uint32_t nr) const override;
 
-    //! set user axis aligned bounding box
-    virtual void setBoundingBox(const core::aabbox3df& box);
+		//! Does the mesh have no animation
+		virtual bool isStatic() const override { return !HasAnimation; }
 
-    //! sets a flag of all contained materials to a new value
-    virtual void setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue);
+		//Interface for the mesh loaders (finalize should lock these functions, and they should have some prefix like loader_
+		//these functions will use the needed arrays, set values, etc to help the loaders
 
-    //! Does the mesh have no animation
-    virtual bool isStatic() const;
+		//! alternative method for adding joints
+		virtual core::vector<SJoint*> &getAllJoints() override;
 
-    //Interface for the mesh loaders (finalize should lock these functions, and they should have some prefix like loader_
-    //these functions will use the needed arrays, set values, etc to help the loaders
+		//! alternative method for adding joints
+		virtual const core::vector<SJoint*> &getAllJoints() const override;
 
-    //! exposed for loaders to add mesh buffers
-    virtual core::vector<ICPUSkinnedMeshBuffer*> &getMeshBuffers();
+		//! loaders should call this after populating the mesh
+		virtual void finalize() override;
 
-    //! alternative method for adding joints
-    virtual core::vector<SJoint*> &getAllJoints();
+		//! Adds a new meshbuffer to the mesh
+		virtual void addMeshBuffer(core::smart_refctd_ptr<ICPUSkinnedMeshBuffer>&& buf) {return LocalBuffers.push_back(std::move(buf)); }
 
-    //! alternative method for adding joints
-    virtual const core::vector<SJoint*> &getAllJoints() const;
+		//! Adds a new joint to the mesh, access it as last one
+		virtual SJoint *addJoint(SJoint *parent = 0) override;
 
-    //! loaders should call this after populating the mesh
-    virtual void finalize();
+	private:
+		void checkForAnimation();
 
-    //! Adds a new meshbuffer to the mesh, access it as last one
-    virtual ICPUSkinnedMeshBuffer *addMeshBuffer();
+		void calculateGlobalMatrices();
 
-    //! Adds a new meshbuffer to the mesh
-    virtual void addMeshBuffer(ICPUSkinnedMeshBuffer* buf);
+		core::vector<core::smart_refctd_ptr<ICPUSkinnedMeshBuffer> > LocalBuffers;
 
-    //! Adds a new joint to the mesh, access it as last one
-    virtual SJoint *addJoint(SJoint *parent = 0);
+		core::vector<SJoint*> AllJoints;
 
-private:
-    void checkForAnimation();
-
-    void calculateGlobalMatrices();
-
-    core::vector<ICPUSkinnedMeshBuffer*> LocalBuffers;
-
-    core::vector<SJoint*> AllJoints;
-
-    scene::CFinalBoneHierarchy* referenceHierarchy;
-
-    core::aabbox3d<float> BoundingBox;
-
-    bool HasAnimation;
+		bool HasAnimation;
 };
 
 }}

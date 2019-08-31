@@ -37,6 +37,9 @@ namespace scene
 		//! Maya camera animator
 		ESNAT_CAMERA_MAYA,
 
+		//! Maya camera animator with modified controls
+		ESNAT_CAMERA_MODIFIED_MAYA,
+
 		//! Amount of built-in scene node animators
 		ESNAT_COUNT,
 
