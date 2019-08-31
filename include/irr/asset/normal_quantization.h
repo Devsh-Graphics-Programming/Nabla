@@ -94,7 +94,10 @@ namespace asset
             floorOffset.set(0.f,0.f,0.499f);
         }
         if (maxNormalComp<=0.577f) //max component of 3d normal cannot be less than sqrt(1/3)
+		{
+			_IRR_DEBUG_BREAK_IF(true);
             return core::vectorSIMDf(0.f);
+		}
 
         fittingVector /= maxNormalComp;
 
@@ -142,12 +145,16 @@ namespace asset
             return found->value;
         }
 
-        core::vectorSIMDf fit = findBestFit(10u, normal);
-        const uint32_t xorflag = (0x1u<<10)-1;
-        uint32_t bestFit = ((uint32_t(fit.X)^(normal.X<0.f ? xorflag:0))+(normal.X<0.f ? 1:0))&xorflag;
-        bestFit |= (((uint32_t(fit.Y)^(normal.Y<0.f ? xorflag:0))+(normal.Y<0.f ? 1:0))&xorflag)<<10;
-        bestFit |= (((uint32_t(fit.Z)^(normal.Z<0.f ? xorflag:0))+(normal.Z<0.f ? 1:0))&xorflag)<<20;
-        dummySearchVal.value = bestFit;
+		constexpr uint32_t quantizationBits = 10u;
+		const auto xorflag = core::vectorSIMDu32((0x1u<<quantizationBits)-1u);
+        core::vectorSIMDf fit = findBestFit(quantizationBits, normal);
+		auto negativeMask = normal < core::vectorSIMDf(0.f);
+		auto absIntFit = core::vectorSIMDu32(core::abs(fit))^core::mix(core::vectorSIMDu32(0u),core::vectorSIMDu32(xorflag),negativeMask);
+		auto snormVec = (absIntFit+core::mix(core::vectorSIMDu32(0u),core::vectorSIMDu32(1u),negativeMask))&xorflag;
+        
+        uint32_t bestFit = snormVec[0]|(snormVec[1]<<quantizationBits)|(snormVec[2]<<(quantizationBits*2u));
+
+		dummySearchVal.value = bestFit;
         normalCacheFor2_10_10_10Quant.insert(found,dummySearchVal);
 
 
@@ -163,16 +170,17 @@ namespace asset
 		{
 			return found->value;
 		}
+		
+		constexpr uint32_t quantizationBits = 8u;
+		const auto xorflag = core::vectorSIMDu32((0x1u<<quantizationBits)-1u);
+        core::vectorSIMDf fit = findBestFit(quantizationBits, normal);
+		auto negativeMask = normal < core::vectorSIMDf(0.f);
+		auto absIntFit = core::vectorSIMDu32(core::abs(fit))^core::mix(core::vectorSIMDu32(0u),xorflag,negativeMask);
+		auto snormVec = (absIntFit+core::mix(core::vectorSIMDu32(0u),core::vectorSIMDu32(1u),negativeMask))&xorflag;
+        
+        uint32_t bestFit = snormVec[0]|(snormVec[1]<<quantizationBits)|(snormVec[2]<<(quantizationBits*2u));
 
-        uint8_t bestFit[4] {0u,0u,0u,0u};
-
-        core::vectorSIMDf fit = findBestFit(8u,normal);
-        const uint32_t xorflag = (0x1u<<8)-1;
-        bestFit[0] = (uint32_t(fit.X)^(normal.X<0.f ? xorflag:0))+(normal.X<0.f ? 1:0);
-        bestFit[1] = (uint32_t(fit.Y)^(normal.Y<0.f ? xorflag:0))+(normal.Y<0.f ? 1:0);
-        bestFit[2] = (uint32_t(fit.Z)^(normal.Z<0.f ? xorflag:0))+(normal.Z<0.f ? 1:0);
-
-		dummySearchVal.value = *reinterpret_cast<uint32_t*>(bestFit);
+		dummySearchVal.value = bestFit;
 		normalCacheFor8_8_8Quant.insert(found, dummySearchVal);
 
 	    return *reinterpret_cast<uint32_t*>(bestFit);
@@ -190,11 +198,16 @@ namespace asset
 
 		uint16_t bestFit[4]{0u,0u,0u,0u};
 
-		core::vectorSIMDf fit = findBestFit(16u, normal);
-		const uint32_t xorflag = (1u<<16)-1;
-		bestFit[0] = (uint32_t(fit.x) ^ (normal.x < 0.f ? xorflag : 0u)) + (normal.x < 0.f ? 1u : 0u);
-		bestFit[1] = (uint32_t(fit.y) ^ (normal.y < 0.f ? xorflag : 0u)) + (normal.y < 0.f ? 1u : 0u);
-		bestFit[2] = (uint32_t(fit.z) ^ (normal.z < 0.f ? xorflag : 0u)) + (normal.z < 0.f ? 1u : 0u);
+		constexpr uint32_t quantizationBits = 10u;
+		const auto xorflag = core::vectorSIMDu32((0x1u<<quantizationBits)-1u);
+        core::vectorSIMDf fit = findBestFit(quantizationBits, normal);
+		auto negativeMask = normal < core::vectorSIMDf(0.f);
+		auto absIntFit = core::vectorSIMDu32(core::abs(fit))^core::mix(core::vectorSIMDu32(0u),core::vectorSIMDu32(xorflag),negativeMask);
+		auto snormVec = (absIntFit+core::mix(core::vectorSIMDu32(0u),core::vectorSIMDu32(1u),negativeMask))&xorflag;
+        
+		bestFit[0] = snormVec[0];
+		bestFit[1] = snormVec[1];
+		bestFit[2] = snormVec[2];
 
 		dummySearchVal.value = *reinterpret_cast<uint64_t*>(bestFit);
 		normalCacheFor16_16_16Quant.insert(found, dummySearchVal);

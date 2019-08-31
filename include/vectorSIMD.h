@@ -289,6 +289,9 @@ namespace core
 		//! Constructor with the same value for all elements
 		inline explicit vectorSIMD_32(T n) {_mm_store_si128((__m128i*)pointer,_mm_castps_si128(_mm_load_ps1((const float*)&n)));}
 
+
+		inline explicit vectorSIMD_32(const vectorSIMDf& other);
+
 /*
 		inline vectorSIMDf(const vectorSIMDu32& other);
 		inline vectorSIMDf(const vectorSIMDi32& other);
@@ -832,6 +835,18 @@ namespace core
 #ifdef __GNUC__
 #   pragma GCC diagnostic pop
 #endif
+
+	//!
+	template<class T>
+	vectorSIMD_32<T>::vectorSIMD_32<T>(const vectorSIMDf& other)
+	{
+		_mm_store_si128(reinterpret_cast<__m128i*>(pointer), _mm_cvtps_epi32(other.getAsRegister()));
+	}
+	template<class T>
+	inline vectorSIMD_32<T> mix(const vectorSIMD_32<T>& a, const vectorSIMD_32<T>& b, const vector4db_SIMD& t)
+	{
+		return ((~t) & a.getAsRegister()) | (t & b.getAsRegister());
+	}
 
     //! Returns component-wise absolute value of a
     inline vectorSIMDf abs(const vectorSIMDf& a)
