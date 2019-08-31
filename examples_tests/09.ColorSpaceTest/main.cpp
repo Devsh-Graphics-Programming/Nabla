@@ -47,7 +47,7 @@ void dumpTextureToFile(IrrlichtDevice* device, video::ITexture* tex, const std::
 	video::IVideoDriver* driver = device->getVideoDriver();
 
 	video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-	reqs.vulkanReqs.size = tex->getSize()[1]*tex->getPitch();
+	reqs.vulkanReqs.size = (tex->getSize()[1]*tex->getPitch()).getIntegerApprox();
 	reqs.vulkanReqs.alignment = 64u;
 	reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
 	reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
@@ -56,18 +56,16 @@ void dumpTextureToFile(IrrlichtDevice* device, video::ITexture* tex, const std::
 
 	auto fence = ext::ScreenShot::createScreenShot(driver,tex,buffer);
 	while (fence->waitCPU(1000ull,fence->canDeferredFlush())==video::EDFR_TIMEOUT_EXPIRED) {}
-	fence->drop();
 
 	auto alloc = buffer->getBoundMemory();
 	alloc->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_READ,{0u,reqs.vulkanReqs.size});
 	uint32_t minCoord[3] = {0u,0u,0u};
 	uint32_t maxCoord[3] = {tex->getSize()[0],tex->getSize()[1],1u};
-	asset::CImageData* img = new asset::CImageData(alloc->getMappedPointer(),minCoord,maxCoord,0u,tex->getColorFormat(),1u);
+	auto img = core::make_smart_refctd_ptr<asset::CImageData>(alloc->getMappedPointer(),minCoord,maxCoord,0u,tex->getColorFormat(),1u);
 	buffer->drop();
 
-	asset::IAssetWriter::SAssetWriteParams wparams(img);
+	asset::IAssetWriter::SAssetWriteParams wparams(img.get());
 	device->getAssetManager()->writeAsset(outname, wparams);
-	img->drop();
 }
 
 void testImage(const std::string& path, IrrlichtDevice* device, video::IGPUMeshBuffer* fullScreenTriangle)
@@ -85,10 +83,11 @@ void testImage(const std::string& path, IrrlichtDevice* device, video::IGPUMeshB
 		core::splitFilename(path.c_str(), nullptr, &filename, &extension);
 		filename += "."; filename += extension;
 		
-		bool writeable = (extension != "dds") && (extension != "bmp");
+		bool writeable = (extension != "dds");
 		
-		auto* actualcputex = static_cast<asset::ICPUTexture*>(cputex.getContents().first->get());
-		auto tex = driver->getGPUObjectsFromAssets(&actualcputex,&actualcputex+1u).front();
+		auto actualcputex = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*cputex.getContents().first);
+		auto tex = driver->getGPUObjectsFromAssets(&actualcputex.get(),&actualcputex.get()+1u)->front();
+		if (tex)
 		{
 			auto tmpTex = driver->createGPUTexture(video::ITexture::ETT_2D,tex->getSize(),1u,tex->getColorFormat());
 			presentImageOnScreen(device, fullScreenTriangle, core::smart_refctd_ptr(tex), std::move(tmpTex));
@@ -105,7 +104,7 @@ void testImage(const std::string& path, IrrlichtDevice* device, video::IGPUMeshB
 			assetMgr->writeAsset((io::path("write_")+filename).c_str(), wparams);
 		}
 		assetMgr->removeAssetFromCache(cputex);
-		assetMgr->removeCachedGPUObject(actualcputex,tex.get());
+		assetMgr->removeCachedGPUObject(actualcputex.get(),tex);
 	}
 	else
 		std::cout << "ERROR: CANNOT LOAD FILE!" << std::endl;

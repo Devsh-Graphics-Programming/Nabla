@@ -125,7 +125,7 @@ bool CImageWriterBMP::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 		if (file->write(row_pointer, row_size) < row_size)
 			break;
 	}
-
+	 
 	// clean up our scratch area
 	delete [] row_pointer;
 
