@@ -97,7 +97,6 @@
 #include "vectorSIMD.h"
 #include "CBillboardSceneNode.h"
 #include "CCameraSceneNode.h"
-#include "CColorConverter.h"
 #include "CFileList.h"
 #include "CFileSystem.h"
 #include "CFPSCounter.h"
