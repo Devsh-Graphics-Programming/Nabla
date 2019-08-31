@@ -4,43 +4,17 @@
 #include <cstdio>
 
 #include "../ext/FullScreenTriangle/FullScreenTriangle.h"
+#include "../../ext/ScreenShot/ScreenShot.h"
 
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+#include "../common/QToQuitEventReceiver.h"
+
+
+
 #include "COpenGLStateManager.h"
 
 using namespace irr;
 using namespace core;
 
-bool quit = false;
-
-//!Same As Last Example
-class MyEventReceiver : public IEventReceiver
-{
-public:
-
-	MyEventReceiver()
-	{
-	}
-
-	bool OnEvent(const SEvent& event)
-	{
-        if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
-        {
-            switch (event.KeyInput.Key)
-            {
-            case irr::KEY_KEY_Q: // switch wire frame mode
-                quit = true;
-                return true;
-            default:
-                break;
-            }
-        }
-
-		return false;
-	}
-
-private:
-};
 
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
@@ -170,19 +144,22 @@ int main()
 	camera->setNearValue(0.01f);
 	camera->setFarValue(250.0f);
     smgr->setActiveCamera(camera);
+
+
 	device->getCursorControl()->setVisible(false);
-	MyEventReceiver receiver;
+	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
+
 
         #define kInstanceSquareSize 10
 	core::matrix4x3 instancePositions[kInstanceSquareSize*kInstanceSquareSize];
 
     asset::IAssetLoader::SAssetLoadParams lparams;
-    asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/dwarf.x", lparams));
-    video::IGPUMesh* gpumesh = nullptr;
+	auto cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*device->getAssetManager()->getAsset("../../media/dwarf.baw", lparams).getContents().first);
+    core::smart_refctd_ptr<video::IGPUMesh> gpumesh;
     if (cpumesh)
     {
-        gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1).front();
+        gpumesh = driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get()) + 1)->front();
 
         for (size_t z=0; z<kInstanceSquareSize; z++)
         for (size_t x=0; x<kInstanceSquareSize; x++)
@@ -194,7 +171,7 @@ int main()
     }
 
     //! Set up screen triangle for post-processing
-    video::IGPUMeshBuffer* screenTriangleMeshBuffer = ext::FullScreenTriangle::createFullScreenTriangle(driver);
+    auto screenTriangleMeshBuffer = ext::FullScreenTriangle::createFullScreenTriangle(driver);
 
 
     //! Must be Power Of Two!
@@ -282,8 +259,8 @@ int main()
                                                                                         NULL,0, //! Xform feedback stuff, irrelevant here
                                                                                         numberOfSamples); //! custom user data
                     //! Need to bind our Multisample Textures to the correct texture units upon draw
-                    resolveMaterial.setTexture(0,colorMT);
-                    resolveMaterial.setTexture(1,depthMT);
+                    resolveMaterial.setTexture(0,core::smart_refctd_ptr<video::IMultisampleTexture>(colorMT,dont_grab));
+                    resolveMaterial.setTexture(1,core::smart_refctd_ptr<video::IMultisampleTexture>(depthMT,dont_grab));
 
 
                     callBack->drop();
@@ -340,8 +317,8 @@ int main()
                                                                                         NULL,0, //! Xform feedback stuff, irrelevant here
                                                                                         numberOfSamples); //! custom user data
                     //! Need to bind our Multisample Textures to the correct texture units upon draw
-                    resolveMaterial.setTexture(0,colorMT);
-                    resolveMaterial.setTexture(1,depthMT);
+					resolveMaterial.setTexture(0, core::smart_refctd_ptr<video::IMultisampleTexture>(colorMT, dont_grab));
+					resolveMaterial.setTexture(1, core::smart_refctd_ptr<video::IMultisampleTexture>(depthMT, dont_grab));
 
 
                     callBack->drop();
@@ -355,8 +332,7 @@ int main()
 
     uint64_t lastFPSTime = 0;
 
-    while(device->run()&&(!quit))
-    //if (device->isWindowActive())
+    while(device->run() && receiver.keepOpen())
     {
         driver->beginScene( false,false );
 
@@ -441,7 +417,7 @@ int main()
                         glStencilFunc(GL_ALWAYS,i+2,transparencyLayers-1);
                         video::COpenGLExtensionHandler::extGlSampleMaski(0,0x1u<<i);
                         driver->setMaterial(initMaterial);
-                        driver->drawMeshBuffer(screenTriangleMeshBuffer);
+                        driver->drawMeshBuffer(screenTriangleMeshBuffer.get());
                     }
                     video::COpenGLExtensionHandler::extGlSampleMaski(0,~0x0u);
                     glDisable(GL_SAMPLE_MASK);
@@ -469,7 +445,7 @@ int main()
                         driver->clearColorBuffer(video::EFAP_COLOR_ATTACHMENT0,clearColor.pointer);
 
                         driver->setMaterial(resolveMaterial);
-                        driver->drawMeshBuffer(screenTriangleMeshBuffer);
+                        driver->drawMeshBuffer(screenTriangleMeshBuffer.get());
                     }
                     //to reset the depth mask
                     ///driver->setMaterial(video::SMaterial());
@@ -497,7 +473,7 @@ int main()
                         glStencilFunc(GL_ALWAYS,i,transparencyLayers-1);
                         video::COpenGLExtensionHandler::extGlSampleMaski(0,0x1u<<i);
                         driver->setMaterial(initMaterial);
-                        driver->drawMeshBuffer(screenTriangleMeshBuffer);
+                        driver->drawMeshBuffer(screenTriangleMeshBuffer.get());
                     }
                     video::COpenGLExtensionHandler::extGlSampleMaski(0,~0x0u);
                     glDisable(GL_SAMPLE_MASK);
@@ -525,7 +501,7 @@ int main()
                         driver->clearColorBuffer(video::EFAP_COLOR_ATTACHMENT0,clearColor.pointer);
 
                         driver->setMaterial(resolveMaterial);
-                        driver->drawMeshBuffer(screenTriangleMeshBuffer);
+                        driver->drawMeshBuffer(screenTriangleMeshBuffer.get());
                     }
                     //to reset the depth mask
                     ///driver->setMaterial(video::SMaterial());
@@ -555,36 +531,11 @@ int main()
     driver->removeAllFrameBuffers();
     driver->removeAllMultisampleTextures();
 
-    if (screenTriangleMeshBuffer)
-        screenTriangleMeshBuffer->drop();
-
-
-    gpumesh->drop();
-
-    //create a screenshot
-	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
-        video::COpenGLExtensionHandler::extGlNamedFramebufferReadBuffer(0,GL_BACK);
-    glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
-    {
-        // images are horizontally flipped, so we have to fix that here.
-        uint8_t* pixels = (uint8_t*)screenshot->getData();
-
-        const int32_t pitch=screenshot->getPitch();
-        uint8_t* p2 = pixels + (params.WindowSize.Height - 1) * pitch;
-        uint8_t* tmpBuffer = new uint8_t[pitch];
-        for (uint32_t i=0; i < params.WindowSize.Height; i += 2)
-        {
-            memcpy(tmpBuffer, pixels, pitch);
-            memcpy(pixels, p2, pitch);
-            memcpy(p2, tmpBuffer, pitch);
-            pixels += pitch;
-            p2 -= pitch;
-        }
-        delete [] tmpBuffer;
-    }
-	driver->writeImageToFile(screenshot,"./screenshot.png");
-	device->sleep(3000);
-	screenshot->drop();
+	//create a screenshot
+	{
+		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+	}
 
 	device->drop();
 
