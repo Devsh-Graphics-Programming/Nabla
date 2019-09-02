@@ -63,8 +63,10 @@ namespace asset
         core::vectorSIMDf fittingVector = normal;
         fittingVector.makeSafe3D();
         fittingVector = abs(fittingVector);
-        core::vectorSIMDf vectorForDots(fittingVector);
-        vectorForDots /= vectorForDots.getLength(); //precise normalize
+
+		// precise normalize
+		auto vectorForDots = fittingVector.preciseDivision(fittingVector.getLength());
+
         float maxNormalComp;
         core::vectorSIMDf corners[4];
         core::vectorSIMDf floorOffset;
@@ -93,46 +95,49 @@ namespace asset
             corners[3].set(1,1,0);
             floorOffset.set(0.f,0.f,0.499f);
         }
+		
+		//max component of 3d normal cannot be less than sqrt(1/3)
         if (maxNormalComp<=0.577f) //max component of 3d normal cannot be less than sqrt(1/3)
 		{
 			_IRR_DEBUG_BREAK_IF(true);
             return core::vectorSIMDf(0.f);
 		}
 
-        fittingVector /= maxNormalComp;
+
+        fittingVector = fittingVector.preciseDivision(core::vectorSIMDf(maxNormalComp));
 
 
-        uint32_t cubeHalfSize = (0x1u<<(bits-1))-1;
-        float closestTo1 = -1.f;
-        core::vectorSIMDf bestFit = fittingVector;
-        for (uint32_t n=1; n<=cubeHalfSize; n++)
-        {
+        const uint32_t cubeHalfSize = (0x1u<<(bits-1u))-1u;
+		const core::vectorSIMDf cubeHalfSize3D = core::vectorSIMDf(cubeHalfSize);
+		core::vectorSIMDf bestFit;
+		float closestTo1 = -1.f;
+		auto evaluateFit = [&](const core::vectorSIMDf& newFit) -> void
+		{
+			auto newFitLen = core::length(newFit);
+			auto dp = core::dot(newFit,vectorForDots).preciseDivision(newFitLen);
+			if (dp[0] > closestTo1)
+			{
+				closestTo1 = dp[0];
+				bestFit = newFit;
+			}
+		};
+		for (uint32_t n=cubeHalfSize; n>0u; n--)
+		{
             //we'd use float addition in the interest of speed, to increment the loop
             //but adding a small number to a large one loses precision, so multiplication preferrable
-            core::vectorSIMDf bottomFit = fittingVector*float(n);
-            bottomFit += floorOffset;
-            bottomFit = floor(bottomFit);
-            for (uint32_t i=0; i<4; i++)
-            {
-                core::vectorSIMDf bottomFitTmp = bottomFit;
-                if (i)
-                {
-                    bottomFitTmp += corners[i];
-                    if ((bottomFitTmp>core::vectorSIMDf(cubeHalfSize)).any())
-                        continue;
-                }
+            core::vectorSIMDf bottomFit = core::floor(fittingVector*float(n)+floorOffset);
+			for (uint32_t i=0u; i<4u; i++)
+			{
+				core::vectorSIMDf bottomFitTmp = bottomFit;
+				if (i)
+					bottomFitTmp += corners[i];
+                if ((bottomFitTmp>cubeHalfSize3D).any())
+					continue;
+				evaluateFit(bottomFitTmp);
+			}
+		}
 
-                float bottomFitLen = bottomFitTmp.getLengthAsFloat();//more precise normalization
-                float dp = bottomFitTmp.dotProductAsFloat(vectorForDots);
-                if (dp>closestTo1*bottomFitLen)
-                {
-                    closestTo1 = dp/bottomFitLen;
-                    bestFit = bottomFitTmp;
-                }
-            }
-        }
-
-        return core::min_(bestFit,core::vectorSIMDf(cubeHalfSize))+0.01f;
+		return bestFit;
     }
 
 	inline uint32_t quantizeNormal2_10_10_10(const core::vectorSIMDf &normal)

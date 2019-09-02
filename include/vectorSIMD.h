@@ -286,6 +286,8 @@ namespace core
 		//! Fastest Constructor from ints, they come in normal order [0]=X,[1]=Y, etc.
 		//! Address has to be aligned to 16bytes OR WILL CRASH
 		inline vectorSIMD_32(const T* const array, bool ALIGNED) {_mm_store_si128((__m128i*)pointer,_mm_load_si128((const __m128i*)array));}
+		//! Fastest and most natural constructor
+		inline vectorSIMD_32(const __m128i& reg) { _mm_store_si128((__m128i*)pointer, reg); }
 		//! Constructor with the same value for all elements
 		inline explicit vectorSIMD_32(T n) {_mm_store_si128((__m128i*)pointer,_mm_castps_si128(_mm_load_ps1((const float*)&n)));}
 
@@ -513,6 +515,10 @@ namespace core
 		//! Copy constructor
 		inline vectorSIMDf(const vectorSIMDf& other) {_mm_store_ps(pointer,other.getAsRegister());}
 
+		//! Conversions
+		template<typename T>
+		inline explicit vectorSIMDf(const vectorSIMD_32<T>& ivec) : vectorSIMDf(_mm_cvtepi32_ps(ivec.getAsRegister())) {}
+
 /*
 		inline vectorSIMDf(const vectorSIMDu32& other);
 		inline vectorSIMDf(const vectorSIMDi32& other);
@@ -532,6 +538,11 @@ namespace core
         inline vectorSIMDf operator^(const vectorSIMDIntBase& other) const {return _mm_castsi128_ps(_mm_xor_si128(_mm_castps_si128(getAsRegister()),other.getAsRegister()));}
         inline vectorSIMDf& operator^=(const vectorSIMDIntBase& other) { return *this = *this ^ other; };
 
+		//! getters
+		template<typename INT_TYPE>
+		inline float& operator[](INT_TYPE index) { return const_cast<float&>(const_cast<const vectorSIMDf*>(this)->pointer[index]); }
+		template<typename INT_TYPE>
+		inline const float& operator[](INT_TYPE index) const { return pointer[index]; }
 
         //! in case you want to do your own SSE
         inline __m128 getAsRegister() const {return _mm_load_ps(pointer);}
@@ -867,7 +878,7 @@ namespace core
     }
      inline vectorSIMDf mix(const vectorSIMDf& a, const vectorSIMDf& b, const vector4db_SIMD& t)
     {
-        return _mm_castsi128_ps((((~t)&_mm_castps_si128(a.getAsRegister()))|(t&_mm_castps_si128(b.getAsRegister()))).getAsRegister());
+        return _mm_castsi128_ps(core::mix<uint32_t>(_mm_castps_si128(a.getAsRegister()),_mm_castps_si128(b.getAsRegister()),t).getAsRegister());
     }
      inline vectorSIMDf lerp(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& t)
     {
@@ -895,29 +906,13 @@ namespace core
     {
         return (a + tolerance >= b) && (a - tolerance <= b);
     }
-    inline vectorSIMDf floor(const vectorSIMDf& a)
-    {
-        vectorSIMDf b = a;
-        vector4db_SIMD notTooLarge = abs(b)<vectorSIMDf(float(0x800000)); //cutoff point for flooring
-        __m128i xmm0 = _mm_cvtps_epi32(b.getAsRegister());
-        __m128 xmm1 = _mm_cvtepi32_ps(xmm0);
-
-        xmm1 =  _mm_add_ps(xmm1, _mm_and_ps(_mm_cmpgt_ps(xmm1, a.getAsRegister()), _mm_set1_ps(-1.f)));
-
-        _mm_maskmoveu_si128(_mm_castps_si128(xmm1),notTooLarge.getAsRegister(),(char*)b.pointer);
-        return b;
-    }
+	inline vectorSIMDf floor(const vectorSIMDf& a)
+	{
+		return _mm_floor_ps(a.getAsRegister());
+	}
     inline vectorSIMDf ceil(const vectorSIMDf& a)
     {
-        vectorSIMDf b = a;
-        vector4db_SIMD notTooLarge = abs(b)<vectorSIMDf(float(0x800000)); //cutoff point for flooring
-        __m128i xmm0 = _mm_cvtps_epi32(b.getAsRegister());
-        __m128 xmm1 = _mm_cvtepi32_ps(xmm0);
-
-        xmm1 =  _mm_add_ps(xmm1, _mm_and_ps(_mm_cmplt_ps(xmm1, a.getAsRegister()), _mm_set1_ps(1.f)));
-
-        _mm_maskmoveu_si128(_mm_castps_si128(xmm1),notTooLarge.getAsRegister(),(char*)b.pointer);
-        return b;
+		return _mm_ceil_ps(a.getAsRegister());
     }
     inline vectorSIMDf fract(const vectorSIMDf& a)
     {
@@ -957,21 +952,14 @@ namespace core
     }
     inline vectorSIMDf length(const vectorSIMDf& v)
     {
-        __m128 xmm0 = v.getAsRegister();
-#ifdef __IRR_COMPILE_WITH_SSE3
-        xmm0 = _mm_mul_ps(xmm0,xmm0);
-        xmm0 = _mm_hadd_ps(xmm0,xmm0);
-        return _mm_sqrt_ps(_mm_hadd_ps(xmm0,xmm0));
-#endif
+		return sqrt(dot(v, v));
     }
     inline vectorSIMDf normalize(const vectorSIMDf& v)
     {
-        __m128 xmm0 = v.getAsRegister();
-        __m128 xmm1 = dot(v,v).getAsRegister();// the uncecessary load/store and variable construction will get optimized out with inline
 #ifdef __IRR_FAST_MATH
-        return _mm_mul_ps(xmm0,_mm_rsqrt_ps(xmm1));
+		return v * inversesqrt(dot(v, v));
 #else
-        return _mm_div_ps(xmm0,_mm_sqrt_ps(xmm1));
+        return v/length(v);
 #endif
     }
 
