@@ -59,19 +59,21 @@ namespace scene
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f));
 
         //!
-        virtual ISkinnedMeshSceneNode* addSkinnedMeshSceneNode(video::IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode=ISkinningStateManager::EBUM_NONE,
+        virtual ISkinnedMeshSceneNode* addSkinnedMeshSceneNode(
+			core::smart_refctd_ptr<video::IGPUSkinnedMesh>&& mesh,
+			const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode=ISkinningStateManager::EBUM_NONE,
             IDummyTransformationSceneNode* parent=0, int32_t id=-1,
             const core::vector3df& position = core::vector3df(0,0,0),
             const core::vector3df& rotation = core::vector3df(0,0,0),
-            const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f));
+            const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f)) override;
 
 		//! adds a scene node for rendering a static mesh
 		//! the returned pointer must not be dropped.
-		virtual IMeshSceneNode* addMeshSceneNode(video::IGPUMesh* mesh, IDummyTransformationSceneNode* parent=0, int32_t id=-1,
+		virtual IMeshSceneNode* addMeshSceneNode(core::smart_refctd_ptr<video::IGPUMesh>&& mesh, IDummyTransformationSceneNode* parent=0, int32_t id=-1,
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f),
-			bool alsoAddIfMeshPointerZero=false);
+			bool alsoAddIfMeshPointerZero=false) override;
 
         //!
         virtual IMeshSceneNodeInstanced* addMeshSceneNodeInstanced(IDummyTransformationSceneNode* parent=0, int32_t id=-1,
@@ -137,16 +139,20 @@ namespace scene
 
 		//! Adds a skybox scene node. A skybox is a big cube with 6 textures on it and
 		//! is drawn around the camera position.
-		virtual ISceneNode* addSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom,
-			video::ITexture* left, video::ITexture* right, video::ITexture* front,
-			video::ITexture* back, IDummyTransformationSceneNode* parent = 0, int32_t id=-1);
+		virtual ISceneNode* addSkyBoxSceneNode(	core::smart_refctd_ptr<video::ITexture>&& top,
+												core::smart_refctd_ptr<video::ITexture>&& bottom,
+												core::smart_refctd_ptr<video::ITexture>&& left,
+												core::smart_refctd_ptr<video::ITexture>&& right,
+												core::smart_refctd_ptr<video::ITexture>&& front,
+												core::smart_refctd_ptr<video::ITexture>&& back,
+												IDummyTransformationSceneNode* parent = 0, int32_t id = -1) override;
 
 		//! Adds a skydome scene node. A skydome is a large (half-) sphere with a
 		//! panoramic texture on it and is drawn around the camera position.
-		virtual ISceneNode* addSkyDomeSceneNode(video::IVirtualTexture* texture,
-			uint32_t horiRes=16, uint32_t vertRes=8,
-			float texturePercentage=0.9, float spherePercentage=2.0,float radius = 1000.f,
-			IDummyTransformationSceneNode* parent=0, int32_t id=-1);
+		virtual ISceneNode* addSkyDomeSceneNode(core::smart_refctd_ptr<video::IVirtualTexture>&& texture,
+												uint32_t horiRes = 16, uint32_t vertRes = 8, float texturePercentage = 0.9,
+												float spherePercentage = 2.0, float radius = 1000.f,
+												IDummyTransformationSceneNode * parent = 0, int32_t id = -1) override;
 
 		//! Adds a dummy transformation scene node to the scene tree.
 		virtual IDummyTransformationSceneNode* addDummyTransformationSceneNode(
@@ -172,7 +178,7 @@ namespace scene
 		//! \param rotationPerSecond: Specifies the speed of the animation
 		//! \return The animator. Attach it to a scene node with ISceneNode::addAnimator()
 		//! and the animator will animate it.
-		virtual ISceneNodeAnimator* createRotationAnimator(const core::vector3df& rotationPerSecond);
+		virtual ISceneNodeAnimator* createRotationAnimator(const core::vector3df& rotationPerSecond) override;
 
 		//! creates a fly circle animator
 		/** Lets the attached scene node fly around a center.
@@ -188,26 +194,21 @@ namespace scene
 				float radius=100.f, float speed=0.001f,
 				const core::vector3df& direction=core::vector3df(0.f, 1.f, 0.f),
 				float startPosition = 0.f,
-				float radiusEllipsoid = 0.f);
+				float radiusEllipsoid = 0.f) override;
 
 		//! Creates a fly straight animator, which lets the attached scene node
 		//! fly or move along a line between two points.
 		virtual ISceneNodeAnimator* createFlyStraightAnimator(const core::vector3df& startPoint,
-			const core::vector3df& endPoint, uint32_t timeForWay, bool loop=false,bool pingpong = false);
-
-		//! Creates a texture animator, which switches the textures of the target scene
-		//! node based on a list of textures.
-		virtual ISceneNodeAnimator* createTextureAnimator(const core::vector<video::ITexture*>& textures,
-			int32_t timePerFrame, bool loop);
+			const core::vector3df& endPoint, uint32_t timeForWay, bool loop=false,bool pingpong = false) override;
 
 		//! Creates a scene node animator, which deletes the scene node after
 		//! some time automaticly.
-		virtual ISceneNodeAnimator* createDeleteAnimator(uint32_t timeMS);
+		virtual ISceneNodeAnimator* createDeleteAnimator(uint32_t timeMS) override;
 
 		//! Creates a follow spline animator.
 		virtual ISceneNodeAnimator* createFollowSplineAnimator(int32_t startTime,
 			const core::vector< core::vector3df >& points,
-			float speed, float tightness, bool loop, bool pingpong);
+			float speed, float tightness, bool loop, bool pingpong) override;
 
 
 		//! Adds a scene node to the deletion queue.
@@ -358,7 +359,7 @@ namespace scene
         };
 		core::unordered_map<std::string,ParamStorage> Parameters;
 
-		video::IGPUBuffer* redundantMeshDataBuf;
+		core::smart_refctd_ptr<video::IGPUBuffer> redundantMeshDataBuf;
 
 		E_SCENE_NODE_RENDER_PASS CurrentRendertime;
 

@@ -15,8 +15,7 @@ CDraw3DLine* CDraw3DLine::create(IVideoDriver* _driver)
 
 CDraw3DLine::CDraw3DLine(IVideoDriver* _driver)
 :   m_driver(_driver),
-    m_desc(_driver->createGPUMeshDataFormatDesc()),
-    m_meshBuffer(new IGPUMeshBuffer())
+    m_meshBuffer(core::make_smart_refctd_ptr<IGPUMeshBuffer>())
 {
     auto callBack = new Draw3DLineCallBack();
     m_material.MaterialType = (E_MATERIAL_TYPE)
@@ -33,11 +32,11 @@ CDraw3DLine::CDraw3DLine(IVideoDriver* _driver)
     m_meshBuffer->setIndexType(EIT_UNKNOWN);
     m_meshBuffer->setIndexCount(2);
 
-    auto buff = m_driver->getDefaultUpStreamingBuffer()->getBuffer();
-    m_desc->setVertexAttrBuffer(buff,EVAI_ATTR0,EF_R32G32B32_SFLOAT,sizeof(S3DLineVertex), offsetof(S3DLineVertex, Position[0]));
-    m_desc->setVertexAttrBuffer(buff,EVAI_ATTR1,EF_R32G32B32A32_SFLOAT,sizeof(S3DLineVertex), offsetof(S3DLineVertex, Color[0]));
-    m_meshBuffer->setMeshDataAndFormat(m_desc);
-    m_desc->drop();
+	auto m_desc = _driver->createGPUMeshDataFormatDesc();
+    auto buff = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->getDefaultUpStreamingBuffer()->getBuffer(),core::dont_grab);
+    m_desc->setVertexAttrBuffer(core::smart_refctd_ptr(buff),EVAI_ATTR0,EF_R32G32B32_SFLOAT,sizeof(S3DLineVertex), offsetof(S3DLineVertex, Position[0]));
+    m_desc->setVertexAttrBuffer(core::smart_refctd_ptr(buff),EVAI_ATTR1,EF_R32G32B32A32_SFLOAT,sizeof(S3DLineVertex), offsetof(S3DLineVertex, Color[0]));
+    m_meshBuffer->setMeshDataAndFormat(std::move(m_desc));
 }
 
 void CDraw3DLine::draw(
@@ -66,7 +65,7 @@ void CDraw3DLine::draw(
 
     m_driver->setTransform(E4X3TS_WORLD, core::matrix4x3());
     m_driver->setMaterial(m_material);
-    m_driver->drawMeshBuffer(m_meshBuffer);
+    m_driver->drawMeshBuffer(m_meshBuffer.get());
 
     upStreamBuff->multi_free(1u,(uint32_t*)&offset,(uint32_t*)&sizes,std::move(m_driver->placeFence()));
 }
@@ -90,12 +89,7 @@ void CDraw3DLine::draw(const core::vector<std::pair<S3DLineVertex, S3DLineVertex
 
     m_driver->setTransform(E4X3TS_WORLD, core::matrix4x3());
     m_driver->setMaterial(m_material);
-    m_driver->drawMeshBuffer(m_meshBuffer);
+    m_driver->drawMeshBuffer(m_meshBuffer.get());
 
     upStreamBuff->multi_free(1u,(uint32_t*)&offset,(uint32_t*)&sizes,std::move(m_driver->placeFence()));
-}
-
-CDraw3DLine::~CDraw3DLine()
-{
-    m_meshBuffer->drop();
 }

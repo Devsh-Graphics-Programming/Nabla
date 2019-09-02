@@ -9,7 +9,6 @@
 #include "CFileList.h"
 #include "CLimitReadFile.h"
 #include "os.h"
-#include "coreutil.h"
 #include "errno.h"
 
 namespace irr

@@ -1,12 +1,18 @@
 #ifndef _SIMD_SWIZZLE_H_
 #define _SIMD_SWIZZLE_H_
 
+#define FAST_FLOAT_SHUFFLE(X,Y) _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(X),Y))
 
 template <class T, class X>
 class IRR_FORCE_EBO SIMD_32bitSwizzleAble
 {
-    template<int mask>
-    inline X shuffleFunc(X reg) const;
+		template<int mask>
+		inline X shuffleFunc(X reg) const;
+
+	protected:
+		SIMD_32bitSwizzleAble() {}
+		~SIMD_32bitSwizzleAble() {}
+
     public:
         inline T xxxx() const {return shuffleFunc<_MM_SHUFFLE(0,0,0,0)>(((const T*)this)->getAsRegister());}
         inline T xxxy() const {return shuffleFunc<_MM_SHUFFLE(1,0,0,0)>(((const T*)this)->getAsRegister());}
@@ -270,62 +276,6 @@ class IRR_FORCE_EBO SIMD_32bitSwizzleAble
 		{
 			return shuffleFunc<_MM_SHUFFLE(D, C, B, A)>(((const T*)this)->getAsRegister());
 		}
-};
-
-#define FAST_FLOAT_SHUFFLE(X,Y) _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(X),Y))
-
-#ifdef __GNUC__
-// warning: ignoring attributes on template argument ‘__m128i {aka __vector(2) long long int}’ [-Wignored-attributes] (etc...)
-#   pragma GCC diagnostic push
-#   pragma GCC diagnostic ignored "-Wignored-attributes"
-#endif
-
-template <>
-template <int mask>
-inline __m128 SIMD_32bitSwizzleAble<vectorSIMDf,__m128>::shuffleFunc(__m128 reg) const
-{
-    return FAST_FLOAT_SHUFFLE(reg,mask);
-}
-
-template <>
-template <int mask>
-inline __m128i SIMD_32bitSwizzleAble<vectorSIMD_32<int32_t>,__m128i>::shuffleFunc(__m128i reg) const
-{
-    return _mm_shuffle_epi32(reg,mask);
-}
-
-template <>
-template <int mask>
-inline __m128i SIMD_32bitSwizzleAble<vectorSIMD_32<uint32_t>,__m128i>::shuffleFunc(__m128i reg) const
-{
-    return _mm_shuffle_epi32(reg,mask);
-}
-
-#ifdef __GNUC__
-#   pragma GCC diagnostic pop
-#endif
-
-
-template <class T, class X>
-class IRR_FORCE_EBO SIMD_8bitSwizzleAble
-{
-	template<size_t A, size_t B, size_t C, size_t D, size_t E, size_t F, size_t G, size_t H, size_t I, size_t J, size_t K, size_t L, size_t M, size_t N, size_t O, size_t P>
-	inline T swizzle() const
-	{
-		__m128i mask = _mm_set_epi8(P, O, N, M, L, K, J, I, H, G, F, E, D, C, B, A);
-		return T(_mm_shuffle_epi8(((const T*)this)->getAsRegister(), mask));
-	}
-};
-
-template <class T, class X>
-class IRR_FORCE_EBO SIMD_16bitSwizzleAble
-{
-	template<size_t A, size_t B, size_t C, size_t D, size_t E, size_t F, size_t G, size_t H>
-	inline T swizzle() const
-	{
-		__m128i mask = _mm_setr_epi8(2*A, 2*A+1, 2*B, 2*B+1, 2*C, 2*C+1, 2*D, 2*D+1, 2*E, 2*E+1, 2*F, 2*F+1, 2*G, 2*G+1, 2*H, 2*H+1);
-		return T(_mm_shuffle_epi8(((const T*)this)->getAsRegister(), mask));
-	}
 };
 
 #endif

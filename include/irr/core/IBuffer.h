@@ -15,6 +15,9 @@ namespace irr
 namespace core
 {
 
+struct adopt_memory_t {};
+constexpr adopt_memory_t adopt_memory{};
+
 class IBuffer : public virtual IReferenceCounted
 {
     public:

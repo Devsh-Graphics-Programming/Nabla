@@ -1,6 +1,8 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+
+#include "../../ext/ScreenShot/ScreenShot.h"
+
 #include <btBulletDynamicsCommon.h>
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 
@@ -9,6 +11,9 @@
 
 #include "../../ext/Bullet/CInstancedMotionState.h"
 #include "../../ext/Bullet/CDebugRender.h"
+
+
+#include "../common/QToQuitEventReceiver.h"
 
 using namespace irr;
 using namespace core;
@@ -57,45 +62,41 @@ void handleRaycast(scene::ICameraSceneNode *cam, ext::Bullet3::CPhysicsWorld *ph
 
 
 //!Disptaches Raycast when R is pressed
-class MyEventReceiver : public IEventReceiver
+class MyEventReceiver : public QToQuitEventReceiver
 {
-public:
+	public:
 
-	MyEventReceiver(scene::ICameraSceneNode *cam, ext::Bullet3::CPhysicsWorld *physicsWorld):
-        physicsWorld(physicsWorld),
-        cam(cam)
-	{
-	}
+		MyEventReceiver(scene::ICameraSceneNode *cam, ext::Bullet3::CPhysicsWorld *physicsWorld) :
+			physicsWorld(physicsWorld),
+			cam(cam)
+		{
+		}
 
-	bool OnEvent(const SEvent& event)
-	{
-        if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
-        {
-            switch (event.KeyInput.Key)
-            {
-            case irr::KEY_KEY_Q: // switch wire frame mode
-                quit = true;
-                return true;
-            case irr::KEY_KEY_R: //Bullet raycast
-                handleRaycast(cam, physicsWorld);
-                return true;
+		bool OnEvent(const SEvent& event)
+		{
+			if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+			{
+				switch (event.KeyInput.Key)
+				{
+					case irr::KEY_KEY_Q: // switch wire frame mode
+						return QToQuitEventReceiver::OnEvent(event);
+					case irr::KEY_KEY_R: //Bullet raycast
+						handleRaycast(cam, physicsWorld);
+						return true;
             
 
-            default:
-                break;
-            }
-        }
-
-       
+					default:
+						break;
+				}
+			}
 
 
-		return false;
-	}
+			return false;
+		}
 
-private:
-    scene::ICameraSceneNode *cam;
-    ext::Bullet3::CPhysicsWorld *physicsWorld;
-
+	private:
+		scene::ICameraSceneNode *cam;
+		ext::Bullet3::CPhysicsWorld *physicsWorld;
 };
 
 const char* uniformNames[] =
@@ -187,41 +188,41 @@ public:
 };
 
 
- asset::IMeshDataFormatDesc<video::IGPUBuffer>* vaoSetupOverride(ISceneManager* smgr, video::IGPUBuffer* instanceDataBuffer, const size_t& dataSizePerInstanceOutput, const asset::IMeshDataFormatDesc<video::IGPUBuffer>* oldVAO, void* userData)
- {
-    video::IVideoDriver* driver = smgr->getVideoDriver();
-    asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao = driver->createGPUMeshDataFormatDesc();
+core::smart_refctd_ptr<asset::IMeshDataFormatDesc<video::IGPUBuffer> > vaoSetupOverride(ISceneManager* smgr, video::IGPUBuffer* instanceDataBuffer, const size_t& dataSizePerInstanceOutput, const asset::IMeshDataFormatDesc<video::IGPUBuffer>* oldVAO, void* userData)
+{
+	video::IVideoDriver* driver = smgr->getVideoDriver();
+	auto vao = driver->createGPUMeshDataFormatDesc();
 
-    //
-    for (size_t k=0; k<asset::EVAI_COUNT; k++)
-    {
-        asset::E_VERTEX_ATTRIBUTE_ID attrId = (asset::E_VERTEX_ATTRIBUTE_ID)k;
-        if (!oldVAO->getMappedBuffer(attrId))
-            continue;
+	//
+	for (size_t k=0; k<asset::EVAI_COUNT; k++)
+	{
+		asset::E_VERTEX_ATTRIBUTE_ID attrId = (asset::E_VERTEX_ATTRIBUTE_ID)k;
+		if (!oldVAO->getMappedBuffer(attrId))
+			continue;
 
-        vao->setVertexAttrBuffer(const_cast<video::IGPUBuffer*>(oldVAO->getMappedBuffer(attrId)),attrId,oldVAO->getAttribFormat(attrId),
-                                 oldVAO->getMappedBufferStride(attrId),oldVAO->getMappedBufferOffset(attrId),oldVAO->getAttribDivisor(attrId));
-    }
+		vao->setVertexAttrBuffer(	core::smart_refctd_ptr<video::IGPUBuffer>(const_cast<video::IGPUBuffer*>(oldVAO->getMappedBuffer(attrId))),
+									attrId,oldVAO->getAttribFormat(attrId), oldVAO->getMappedBufferStride(attrId),oldVAO->getMappedBufferOffset(attrId),
+									oldVAO->getAttribDivisor(attrId));
+	}
 
-    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR1,asset::EF_R8G8B8A8_UNORM,29*sizeof(float),28*sizeof(float),1);
+	// I know what attributes are unused in my mesh and I've set up the shader to use thse as instance data
+	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR4,asset::EF_R32G32B32A32_SFLOAT,29*sizeof(float),0,1);
+	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR5,asset::EF_R32G32B32A32_SFLOAT,29*sizeof(float),4*sizeof(float),1);
+	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR6,asset::EF_R32G32B32A32_SFLOAT,29*sizeof(float),8*sizeof(float),1);
+	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR2,asset::EF_R32G32B32A32_SFLOAT,29*sizeof(float),12*sizeof(float),1);
 
-    // I know what attributes are unused in my mesh and I've set up the shader to use thse as instance data
-    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR4,asset::EF_R32G32B32A32_SFLOAT,29*sizeof(float),0,1);
-    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR5,asset::EF_R32G32B32A32_SFLOAT,29*sizeof(float),4*sizeof(float),1);
-    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR6,asset::EF_R32G32B32A32_SFLOAT,29*sizeof(float),8*sizeof(float),1);
-    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR2,asset::EF_R32G32B32A32_SFLOAT,29*sizeof(float),12*sizeof(float),1);
-
-    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR7,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),16*sizeof(float),1);
-    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR8,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),19*sizeof(float),1);
-    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR9,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),22*sizeof(float),1);
-    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR10,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),25*sizeof(float),1);
+	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR7,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),16*sizeof(float),1);
+	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR8,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),19*sizeof(float),1);
+	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR9,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),22*sizeof(float),1);
+	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR10,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),25*sizeof(float),1);
 
 
-    if (oldVAO->getIndexBuffer())
-        vao->setIndexBuffer(const_cast<video::IGPUBuffer*>(oldVAO->getIndexBuffer()));
 
-    return vao;
- }
+	if (oldVAO->getIndexBuffer())
+		vao->setIndexBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(const_cast<video::IGPUBuffer*>(oldVAO->getIndexBuffer())));
+
+	return vao;
+}
 
 
 
@@ -268,7 +269,6 @@ int main()
 	camera->setNearValue(0.01f);
 	camera->setFarValue(100.0f);
     smgr->setActiveCamera(camera);
-	device->getCursorControl()->setVisible(false);
 	
     
     // ! - INITIALIZE BULLET WORLD + FLAT PLANE FOR TESTING
@@ -292,6 +292,7 @@ int main()
     //------------------------------------------------------------------
 
 
+	device->getCursorControl()->setVisible(false);
     
     MyEventReceiver receiver(camera, world);
 	device->setEventReceiver(&receiver);
@@ -300,8 +301,8 @@ int main()
    
 
 	//!
-    asset::ICPUMesh* cpumesh = device->getAssetManager().getGeometryCreator()->createCubeMesh(core::vector3df(1.f, 1.f, 1.f));
-    video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
+    asset::ICPUMesh* cpumesh = device->getAssetManager()->getGeometryCreator()->createCubeMesh(core::vector3df(1.f, 1.f, 1.f));
+    auto gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1)->front();
     for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
         gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
 
@@ -333,7 +334,7 @@ int main()
     {
         core::vector<scene::IMeshSceneNodeInstanced::MeshLoD> LevelsOfDetail;
         LevelsOfDetail.resize(1);
-        LevelsOfDetail[0].mesh = gpumesh;
+        LevelsOfDetail[0].mesh = gpumesh.get();
         LevelsOfDetail[0].lodDistance = camera->getFarValue();
 
         bool success = node->setLoDMeshes(LevelsOfDetail,29*sizeof(float),cullingXFormFeedbackShader,vaoSetupOverride,1,NULL,4);
@@ -406,7 +407,7 @@ int main()
     }
 
     uint64_t timeDiff = 0;
-	while(device->run()&&(!quit))
+	while(device->run()	&& receiver.keepOpen())
 	{
 
         uint64_t now = device->getTimer()->getRealTime();
@@ -467,35 +468,14 @@ int main()
     node->removeInstances(towerHeight*towerWidth,instances);
     node->remove();
 
-    gpumesh->drop();
-
     world->drop();
 
-    //create a screenshot
-	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
-    glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
-    {
-        // images are horizontally flipped, so we have to fix that here.
-        uint8_t* pixels = (uint8_t*)screenshot->getData();
 
-        const int32_t pitch=screenshot->getPitch();
-        uint8_t* p2 = pixels + (params.WindowSize.Height - 1) * pitch;
-        uint8_t* tmpBuffer = new uint8_t[pitch];
-        for (uint32_t i=0; i < params.WindowSize.Height; i += 2)
-        {
-            memcpy(tmpBuffer, pixels, pitch);
-            memcpy(pixels, p2, pitch);
-            memcpy(p2, tmpBuffer, pitch);
-            pixels += pitch;
-            p2 -= pitch;
-        }
-        delete [] tmpBuffer;
-    }
-    asset::CImageData* img = new asset::CImageData(screenshot);
-    asset::IAssetWriter::SAssetWriteParams wparams(img);
-    device->getAssetManager().writeAsset("screenshot.png", wparams);
-    img->drop();
-    screenshot->drop();
+	//create a screenshot
+	{
+		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+	}
 
 
 	device->drop();

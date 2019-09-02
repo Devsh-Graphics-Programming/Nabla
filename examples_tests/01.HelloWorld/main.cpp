@@ -1,28 +1,5 @@
 #define _IRR_STATIC_LIB_
-
-/* GCC compile Flags
--flto
--fuse-linker-plugin
--fno-omit-frame-pointer //for debug
--msse3
--mfpmath=sse
--ggdb3 //for debug
-*/
-/* Linker Flags
--lIrrlicht
--lXrandr
--lGL
--lX11
--lpthread
--ldl
-
--fuse-ld=gold
--flto
--fuse-linker-plugin
--msse3
-*/
 #include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
 /**
 This example just shows a screen which clears to red,
@@ -45,7 +22,7 @@ int main()
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
 	params.WindowSize = core::dimension2d<uint32_t>(1280, 720);
 	params.Fullscreen = false;
-	params.Vsync = true; //! If supported by target platform
+	params.Vsync = false;
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
 	params.AuxGLContexts = 16;
@@ -81,17 +58,6 @@ int main()
 			lastFPSTime = time;
 		}
 	}
-	/*
-    //create a screenshot
-	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
-    glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
-	glFinish(); // to make sure the data is done reading
-    asset::CImageData* img = new asset::CImageData();
-    asset::IAssetWriter::SAssetWriteParams wparams(img);
-    device->getAssetManager().writeAsset("screenshot.png", wparams);
-    img->drop();
-	screenshot->drop();
-	*/
 	device->drop();
 
 	return 0;

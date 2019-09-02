@@ -19,88 +19,106 @@ not intended for doing mesh modifications and/or animations during runtime.
 */
 class CMeshManipulator : public IMeshManipulator
 {
-	struct SAttrib
-	{
-		asset::E_FORMAT type;
-		asset::E_FORMAT prevType;
-		size_t size;
-        asset::E_VERTEX_ATTRIBUTE_ID vaid;
-		size_t offset;
+		struct SAttrib
+		{
+			E_FORMAT type;
+			E_FORMAT prevType;
+			size_t size;
+			E_VERTEX_ATTRIBUTE_ID vaid;
+			size_t offset;
 
-		SAttrib() : type(asset::EF_UNKNOWN), size(0), vaid(asset::EVAI_COUNT) {}
+			SAttrib() : type(EF_UNKNOWN), size(0), vaid(EVAI_COUNT) {}
 
-		friend bool operator>(const SAttrib& _a, const SAttrib& _b) { return _a.size > _b.size; }
-	};
-	struct SAttribTypeChoice
-	{
-		asset::E_FORMAT type;
-	};
+			friend bool operator>(const SAttrib& _a, const SAttrib& _b) { return _a.size > _b.size; }
+		};
+		struct SAttribTypeChoice
+		{
+			E_FORMAT type;
+		};
 
-public:
-	//! Flips the direction of surfaces.
-	/** Changes backfacing triangles to frontfacing triangles and vice versa.
-	\param mesh: Mesh on which the operation is performed. */
-	virtual void flipSurfaces(asset::ICPUMeshBuffer* inbuffer) const;
+	public:
+		static core::smart_refctd_ptr<ICPUMeshBuffer> createMeshBufferFetchOptimized(const ICPUMeshBuffer* _inbuffer);
 
-	virtual asset::ICPUMeshBuffer* createMeshBufferFetchOptimized(const asset::ICPUMeshBuffer* _inbuffer) const;
+	private:
+		friend class IMeshManipulator;
+		//! Copies only member variables not being pointers to another dynamically allocated irr::IReferenceCounted derivatives.
+		//! Purely helper function. Not really meant to be used outside createMeshBufferDuplicate().
+		template<typename T>
+		static void copyMeshBufferMemberVars(T* _dst, const T* _src);
 
-	//! Creates a copy of the mesh, which will only consist of unique triangles, i.e. no vertices are shared.
-	virtual asset::ICPUMeshBuffer* createMeshBufferUniquePrimitives(asset::ICPUMeshBuffer* inbuffer) const;
+		template<typename IdxT>
+		static void _filterInvalidTriangles(ICPUMeshBuffer* _input);
 
-	//
-	virtual asset::ICPUMeshBuffer* calculateSmoothNormals(asset::ICPUMeshBuffer* inbuffer, bool makeNewMesh, float epsilon,
-		asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, VxCmpFunction vxcmp) const override;
+		//! Meant to create 32bit index buffer from subrange of index buffer containing 16bit indices. Remember to set to index buffer offset to 0 after mapping buffer resulting from this function.
+		static inline core::smart_refctd_ptr<ICPUBuffer> create32BitFrom16BitIdxBufferSubrange(const uint16_t* _in, size_t _idxCount)
+		{
+			if (!_in)
+				return nullptr;
 
-	//! Creates a copy of the mesh, which will have all duplicated vertices removed, i.e. maximal amount of vertices are shared via indexing.
-	virtual asset::ICPUMeshBuffer* createMeshBufferWelded(asset::ICPUMeshBuffer *inbuffer, const SErrorMetric* _errMetrics, const bool& optimIndexType = true, const bool& makeNewMesh=false) const;
+			auto out = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(uint32_t) * _idxCount);
 
-	virtual asset::ICPUMeshBuffer* createOptimizedMeshBuffer(const asset::ICPUMeshBuffer* inbuffer, const SErrorMetric* _errMetric) const;
+			auto* outPtr = reinterpret_cast<uint32_t*>(out->getPointer());
 
-	virtual void requantizeMeshBuffer(asset::ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric) const;
+			for (size_t i = 0; i < _idxCount; ++i)
+				outPtr[i] = _in[i];
 
-	virtual asset::ICPUMeshBuffer* createMeshBufferDuplicate(const asset::ICPUMeshBuffer* _src) const;
+			return out;
+		}
 
-    virtual void filterInvalidTriangles(asset::ICPUMeshBuffer* _input) const;
+		static core::vector<core::vectorSIMDf> findBetterFormatF(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric);
 
-    virtual asset::ICPUBuffer* idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, asset::E_INDEX_TYPE _idxType) const;
+		struct SIntegerAttr
+		{
+			uint32_t pointer[4];
+		};
+		static core::vector<SIntegerAttr> findBetterFormatI(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric);
 
-    virtual asset::ICPUBuffer* idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, asset::E_INDEX_TYPE _idxType) const;
+		//E_COMPONENT_TYPE getBestTypeF(bool _normalized, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const float* _min, const float* _max) const;
+		static E_FORMAT getBestTypeI(E_FORMAT _originalType, size_t* _outSize, const uint32_t* _min, const uint32_t* _max);
+		static core::vector<SAttribTypeChoice> findTypesOfProperRangeF(E_FORMAT _type, size_t _sizeThreshold, const float* _min, const float* _max, const SErrorMetric& _errMetric);
 
-    virtual bool compareFloatingPointAttribute(const core::vectorSIMDf& _a, const core::vectorSIMDf& _b, size_t _cpa, const SErrorMetric& _errMetric) const;
+		//! Calculates quantization errors and compares them with given epsilon.
+		/** @returns false when first of calculated errors goes above epsilon or true if reached end without such. */
+		static bool calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const core::vector<core::vectorSIMDf>& _data, const SErrorMetric& _errMetric);
 
-private:
-    //! Copies only member variables not being pointers to another dynamically allocated irr::IReferenceCounted derivatives.
-    //! Purely helper function. Not really meant to be used outside createMeshBufferDuplicate().
-    template<typename T>
-    void copyMeshBufferMemberVars(T* _dst, const T* _src) const;
+		template<typename T>
+		static inline core::smart_refctd_ptr<ICPUBuffer> triangleStripsToTriangles(const void* _input, size_t _idxCount)
+		{
+			const size_t outputSize = (_idxCount - 2) * 3;
 
-    template<typename IdxT>
-    void priv_filterInvalidTriangles(asset::ICPUMeshBuffer* _input) const;
+			auto output = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(T)*outputSize);
+			T* iptr = (T*)_input;
+			T* optr = (T*)output->getPointer();
+			for (size_t i = 0, j = 0; i < outputSize; j += 2)
+			{
+				optr[i++] = iptr[j + 0];
+				optr[i++] = iptr[j + 1];
+				optr[i++] = iptr[j + 2];
+				if (i == outputSize)
+					break;
+				optr[i++] = iptr[j + 2];
+				optr[i++] = iptr[j + 1];
+				optr[i++] = iptr[j + 3];
+			}
+			return output;
+		}
 
-	//! Meant to create 32bit index buffer from subrange of index buffer containing 16bit indices. Remember to set to index buffer offset to 0 after mapping buffer resulting from this function.
-	asset::ICPUBuffer* create32BitFrom16BitIdxBufferSubrange(const uint16_t* _in, size_t _idxCount) const;
+		template<typename T>
+		static inline core::smart_refctd_ptr<ICPUBuffer> trianglesFanToTriangles(const void* _input, size_t _idxCount)
+		{
+			const size_t outputSize = ((_idxCount - 1) / 2) * 3;
 
-	core::vector<core::vectorSIMDf> findBetterFormatF(asset::E_FORMAT* _outType, size_t* _outSize, asset::E_FORMAT* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, asset::E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const;
-
-	struct SIntegerAttr
-	{
-		uint32_t pointer[4];
-	};
-	core::vector<SIntegerAttr> findBetterFormatI(asset::E_FORMAT* _outType, size_t* _outSize, asset::E_FORMAT* _outPrevType, const asset::ICPUMeshBuffer* _meshbuffer, asset::E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric) const;
-
-	//E_COMPONENT_TYPE getBestTypeF(bool _normalized, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const float* _min, const float* _max) const;
-	asset::E_FORMAT getBestTypeI(asset::E_FORMAT _originalType, size_t* _outSize, const uint32_t* _min, const uint32_t* _max) const;
-	core::vector<SAttribTypeChoice> findTypesOfProperRangeF(asset::E_FORMAT _type, size_t _sizeThreshold, const float* _min, const float* _max, const SErrorMetric& _errMetric) const;
-
-	//! Calculates quantization errors and compares them with given epsilon.
-	/** @returns false when first of calculated errors goes above epsilon or true if reached end without such. */
-	bool calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const core::vector<core::vectorSIMDf>& _data, const SErrorMetric& _errMetric) const;
-
-	template<typename T>
-	asset::ICPUBuffer* triangleStripsToTriangles(const void* _input, size_t _idxCount) const;
-
-	template<typename T>
-	asset::ICPUBuffer* trianglesFanToTriangles(const void* _input, size_t _idxCount) const;
+			auto output = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(T)*outputSize);
+			const T* iptr = reinterpret_cast<const T*>(_input);
+			T* optr = reinterpret_cast<T*>(output->getPointer());
+			for (size_t i = 0, j = 1; i < outputSize; j += 2)
+			{
+				optr[i++] = iptr[0];
+				optr[i++] = iptr[j];
+				optr[i++] = iptr[j + 1];
+			}
+			return output;
+		}
 };
 
 } // end namespace scene

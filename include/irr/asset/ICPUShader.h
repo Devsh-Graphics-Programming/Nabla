@@ -2,7 +2,8 @@
 #define __IRR_I_CPU_SHADER_H_INCLUDED__
 
 #include <algorithm>
-#include "irr/asset/IAsset.h"
+#include "irr/core/core.h"
+#include "irr/asset/ICPUBuffer.h"
 #include "irr/asset/ISPIR_VProgram.h"
 #include "irr/asset/ShaderCommons.h"
 #include "irr/asset/ShaderRes.h"
@@ -102,7 +103,7 @@ protected:
     }
 
 public:
-    ICPUShader(const void* _spirvBytecode, size_t _bytesize) : m_spirvBytecode(new ICPUBuffer(_bytesize)), m_parsed(new IParsedShaderSource(m_spirvBytecode, core::defer))
+    ICPUShader(const void* _spirvBytecode, size_t _bytesize) : m_spirvBytecode(new ICPUBuffer(_bytesize)), m_parsed(new IParsedShaderSource(m_spirvBytecode, IParsedShaderSource::defer))
     {
         memcpy(m_spirvBytecode->getPointer(), _spirvBytecode, _bytesize);
     }

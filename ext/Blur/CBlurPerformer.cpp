@@ -355,7 +355,7 @@ CBlurPerformer* CBlurPerformer::instantiate(video::IVideoDriver* _driver, const 
     return new CBlurPerformer(_driver, _inclhandler, _radius, _dsFactor, _passesPerAxis, _outputColorFmt, uboBuffer, uboDataStaticOffset);
 }
 
-video::ITexture* CBlurPerformer::createOutputTexture(video::ITexture* _inputTex)
+core::smart_refctd_ptr<video::ITexture> CBlurPerformer::createOutputTexture(video::ITexture* _inputTex)
 {
     prepareForBlur(_inputTex->getSize(), false);
 
@@ -392,7 +392,7 @@ void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _o
         params.UseMipmaps = 0;
         params.MaxFilter = params.MinFilter = video::ETFT_LINEAR_NO_MIP;
         params.TextureWrapU = params.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
-        const_cast<video::COpenGLDriver::SAuxContext*>(reinterpret_cast<video::COpenGLDriver*>(m_driver)->getThreadContext())->setActiveTexture(0, _inputTex, params);
+        const_cast<video::COpenGLDriver::SAuxContext*>(reinterpret_cast<video::COpenGLDriver*>(m_driver)->getThreadContext())->setActiveTexture(0, core::smart_refctd_ptr<video::ITexture>(_inputTex), params);
     }
     auto prevImgBinding = getCurrentImageBinding(0);
     video::COpenGLExtensionHandler::extGlBindImageTexture(0, static_cast<const video::COpenGL2DTexture*>(_outputTex)->getOpenGLName(),

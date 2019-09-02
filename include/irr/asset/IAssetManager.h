@@ -5,16 +5,20 @@
 #ifndef __IRR_I_ASSET_MANAGER_H_INCLUDED__
 #define __IRR_I_ASSET_MANAGER_H_INCLUDED__
 
-#include "IFileSystem.h"
-#include "CConcurrentObjectCache.h"
-#include "IReadFile.h"
-#include "IWriteFile.h"
-#include "IAssetLoader.h"
-#include "IAssetWriter.h"
-#include "irr/core/Types.h"
-
 #include <array>
 #include <ostream>
+
+#include "irr/core/Types.h"
+#include "CConcurrentObjectCache.h"
+
+#include "IFileSystem.h"
+#include "IReadFile.h"
+#include "IWriteFile.h"
+
+#include "irr/asset/IGeometryCreator.h"
+#include "irr/asset/IMeshManipulator.h"
+#include "irr/asset/IAssetLoader.h"
+#include "irr/asset/IAssetWriter.h"
 
 #define USE_MAPS_FOR_PATH_BASED_CACHE //benchmark and choose, paths can be full system paths
 
@@ -23,13 +27,11 @@ namespace irr
 namespace asset
 {
     class IAssetManager;
-    class IGeometryCreator;
-    class IMeshManipulator;
 
     std::function<void(SAssetBundle&)> makeAssetGreetFunc(const IAssetManager* const _mgr);
     std::function<void(SAssetBundle&)> makeAssetDisposeFunc(const IAssetManager* const _mgr);
 
-	class IAssetManager
+	class IAssetManager : public core::IReferenceCounted
 	{
         // the point of those functions is that lambdas returned by them "inherits" friendship
         friend std::function<void(SAssetBundle&)> makeAssetGreetFunc(const IAssetManager* const _mgr);
@@ -42,7 +44,7 @@ namespace asset
         using AssetCacheType = core::CConcurrentMultiObjectCache<std::string, IAssetBundle, std::vector>;
 #endif //USE_MAPS_FOR_PATH_BASED_CACHE
 
-        using CpuGpuCacheType = core::CConcurrentObjectCache<const IAsset*, core::IReferenceCounted*>;
+        using CpuGpuCacheType = core::CConcurrentObjectCache<const IAsset*, core::smart_refctd_ptr<core::IReferenceCounted> >;
 
     private:
         struct WriterKey
@@ -68,7 +70,7 @@ namespace asset
         template<typename T>
         static void refCtdDispose(T* _asset) { _asset->drop(); }
 
-        io::IFileSystem* m_fileSystem;
+        core::smart_refctd_ptr<io::IFileSystem> m_fileSystem;
         IAssetLoader::IAssetLoaderOverride m_defaultLoaderOverride;
 
         std::array<AssetCacheType*, IAsset::ET_STANDARD_TYPES_COUNT> m_assetCache;
@@ -77,16 +79,16 @@ namespace asset
         struct Loaders {
             Loaders() : perFileExt{&refCtdGreet<IAssetLoader>, &refCtdDispose<IAssetLoader>} {}
 
-            core::vector<IAssetLoader*> vector;
+            core::vector<core::smart_refctd_ptr<IAssetLoader> > vector;
             //! The key is file extension
             core::CMultiObjectCache<std::string, IAssetLoader*, std::vector> perFileExt;
 
-            void pushToVector(IAssetLoader* _loader) {
-                _loader->grab();
-                vector.push_back(_loader);
+            void pushToVector(core::smart_refctd_ptr<IAssetLoader>&& _loader)
+			{
+                vector.push_back(std::move(_loader));
             }
-            void eraseFromVector(decltype(vector)::const_iterator _loaderItr) {
-                (*_loaderItr)->drop();
+            void eraseFromVector(decltype(vector)::const_iterator _loaderItr)
+			{
                 vector.erase(_loaderItr);
             }
         } m_loaders;
@@ -101,16 +103,15 @@ namespace asset
         friend class IAssetLoader;
         friend class IAssetLoader::IAssetLoaderOverride; // for access to non-const findAssets
 
-        IGeometryCreator* m_geometryCreator;
-        IMeshManipulator* m_meshManipulator;
+        core::smart_refctd_ptr<IGeometryCreator> m_geometryCreator;
+        core::smart_refctd_ptr<IMeshManipulator> m_meshManipulator;
         // called as a part of constructor only
         void initializeMeshTools();
-        void dropMeshTools();
 
     public:
         //! Constructor
-        explicit IAssetManager(io::IFileSystem* _fs) :
-            m_fileSystem{_fs},
+        explicit IAssetManager(core::smart_refctd_ptr<io::IFileSystem>&& _fs) :
+            m_fileSystem(std::move(_fs)),
             m_defaultLoaderOverride{nullptr}
         {
             initializeMeshTools();
@@ -118,53 +119,40 @@ namespace asset
             for (size_t i = 0u; i < m_assetCache.size(); ++i)
                 m_assetCache[i] = new AssetCacheType(asset::makeAssetGreetFunc(this), asset::makeAssetDisposeFunc(this));
             for (size_t i = 0u; i < m_cpuGpuCache.size(); ++i)
-                m_cpuGpuCache[i] = new CpuGpuCacheType(&refCtdGreet<core::IReferenceCounted>, &refCtdDispose<core::IReferenceCounted>);
-            m_fileSystem->grab();
+                m_cpuGpuCache[i] = new CpuGpuCacheType();
             m_defaultLoaderOverride = IAssetLoader::IAssetLoaderOverride{this};
-        }
-        /*
-        IAssetManager(const IAssetManager&) = delete;
-        IAssetManager(IAssetManager&&) = delete;
-        IAssetManager& operator=(const IAssetManager&) = delete;
-        IAssetManager& operator=(IAssetManager&& _other)
-        {
-            std::swap(m_loaders, _other.m_loaders);
-            std::swap(m_writers, _other.m_writers);
-            std::swap(m_assetCache, _other.m_assetCache);
-            std::swap(m_fileSystem, _other.m_fileSystem);
-        }
-        */
-        virtual ~IAssetManager()
-        {
-            for (size_t i = 0u; i < m_assetCache.size(); ++i)
-                if (m_assetCache[i])
-                    delete m_assetCache[i];
 
-            core::vector<typename CpuGpuCacheType::MutablePairType> buf;
-            for (size_t i = 0u; i < m_cpuGpuCache.size(); ++i)
-            {
-                if (m_cpuGpuCache[i])
-                {
-                    size_t sizeToReserve{};
-                    m_cpuGpuCache[i]->outputAll(sizeToReserve, nullptr);
-                    buf.resize(sizeToReserve);
-                    m_cpuGpuCache[i]->outputAll(sizeToReserve, buf.data());
-                    for (auto& pair : buf)
-                        pair.first->drop(); // drop keys (CPU "empty cache handles")
-                    delete m_cpuGpuCache[i]; // drop on values (GPU objects) will be done by cache's destructor
-                }
-            }
-            for (auto ldr : m_loaders.vector)
-                ldr->drop();
-            if (m_fileSystem)
-                m_fileSystem->drop();
-            dropMeshTools();
+			addLoadersAndWriters();
         }
+
+		inline io::IFileSystem* getFileSystem() const { return m_fileSystem.get(); }
 
         const IGeometryCreator* getGeometryCreator() const;
         const IMeshManipulator* getMeshManipulator() const;
 
     protected:
+		virtual ~IAssetManager()
+		{
+			for (size_t i = 0u; i < m_assetCache.size(); ++i)
+				if (m_assetCache[i])
+					delete m_assetCache[i];
+
+			core::vector<typename CpuGpuCacheType::MutablePairType> buf;
+			for (size_t i = 0u; i < m_cpuGpuCache.size(); ++i)
+			{
+				if (m_cpuGpuCache[i])
+				{
+					size_t sizeToReserve{};
+					m_cpuGpuCache[i]->outputAll(sizeToReserve, nullptr);
+					buf.resize(sizeToReserve);
+					m_cpuGpuCache[i]->outputAll(sizeToReserve, buf.data());
+					for (auto& pair : buf)
+						pair.first->drop(); // drop keys (CPU "empty cache handles")
+					delete m_cpuGpuCache[i]; // drop on values (GPU objects) will be done by cache's destructor
+				}
+			}
+		}
+
         //! _supposedFilename is filename as it was, not touched by loader override with _override->getLoadFilename()
         //TODO change name
         SAssetBundle getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
@@ -308,7 +296,7 @@ namespace asset
             }
             return res;
         }
-        //TODO change name
+        //TODO change name (plural)
         inline core::vector<SAssetBundle> findAssets(const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
         {
             size_t reqSz = 0u;
@@ -333,9 +321,9 @@ namespace asset
             return res;
         }
 
-        inline void setAssetMetadata(IAsset* _asset, IAssetMetadata* _metadata)
+        inline void setAssetMetadata(IAsset* _asset, core::smart_refctd_ptr<IAssetMetadata>&& _metadata)
         {
-            _asset->setMetadata(_metadata);
+            _asset->setMetadata(std::move(_metadata));
         }
 
         //! Changes the lookup key
@@ -373,27 +361,28 @@ namespace asset
 
         //! This function frees most of the memory consumed by IAssets, but not destroying them.
         /** Keeping assets around (by their pointers) helps a lot by letting the loaders retrieve them from the cache and not load cpu objects which have been loaded, converted to gpu resources and then would have been disposed of. However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
-        void convertAssetToEmptyCacheHandle(IAsset* _asset, core::IReferenceCounted* _gpuObject)
+        void convertAssetToEmptyCacheHandle(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject)
         {
 			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
             _asset->grab();
             _asset->convertToDummyObject();
-            m_cpuGpuCache[ix]->insert(_asset, _gpuObject);
+            m_cpuGpuCache[ix]->insert(_asset, std::move(_gpuObject));
         }
 
-        core::IReferenceCounted* findGPUObject(const IAsset* _asset)
+		core::smart_refctd_ptr<core::IReferenceCounted> findGPUObject(const IAsset* _asset)
         {
 			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
-            core::IReferenceCounted* storage[1];
+
+            core::smart_refctd_ptr<core::IReferenceCounted> storage[1];
             size_t storageSz = 1u;
             m_cpuGpuCache[ix]->findAndStoreRange(_asset, storageSz, storage);
             if (storageSz > 0u)
-                return storage[0];
+                return std::move(storage[0]);
             return nullptr;
         }
 
 		//! Removes one GPU object matched to an IAsset.
-        bool removeCachedGPUObject(const IAsset* _asset, core::IReferenceCounted* _gpuObject)
+        bool removeCachedGPUObject(const IAsset* _asset, const core::smart_refctd_ptr<core::IReferenceCounted>& _gpuObject)
         {
 			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
 			bool success = m_cpuGpuCache[ix]->removeObject(_gpuObject,_asset);
@@ -413,9 +402,14 @@ namespace asset
                 _override = &defOverride;
 
             io::IWriteFile* file = m_fileSystem->createAndWriteFile(_filename.c_str());
-            bool res = writeAsset(file, _params, _override);
-            file->drop();
-            return res;
+			if (file) // could fail creating file (lack of permissions)
+			{
+				bool res = writeAsset(file, _params, _override);
+				file->drop();
+				return res;
+			}
+			else
+				return false;
         }
         bool writeAsset(io::IWriteFile* _file, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override)
         {
@@ -446,20 +440,20 @@ namespace asset
         uint32_t getAssetLoaderCount() { return m_loaders.vector.size(); }
 
         //! @returns 0xdeadbeefu on failure or 0-based index on success.
-        uint32_t addAssetLoader(IAssetLoader* _loader)
+        uint32_t addAssetLoader(core::smart_refctd_ptr<IAssetLoader>&& _loader)
         {
             // there's no way it ever fails, so no 0xdeadbeef return
             const char** exts = _loader->getAssociatedFileExtensions();
             size_t extIx = 0u;
             while (const char* ext = exts[extIx++])
-                m_loaders.perFileExt.insert(ext, _loader);
-            m_loaders.pushToVector(_loader);
+                m_loaders.perFileExt.insert(ext, _loader.get());
+            m_loaders.pushToVector(std::move(_loader));
             return m_loaders.vector.size()-1u;
         }
         void removeAssetLoader(IAssetLoader* _loader)
         {
             m_loaders.eraseFromVector(
-                std::find(std::begin(m_loaders.vector), std::end(m_loaders.vector), _loader)
+                std::find_if(std::begin(m_loaders.vector), std::end(m_loaders.vector), [_loader](const core::smart_refctd_ptr<IAssetLoader>& a)->bool { return a.get()==_loader; })
             );
             const char** exts = _loader->getAssociatedFileExtensions();
             size_t extIx = 0u;
@@ -470,7 +464,7 @@ namespace asset
         // Asset Writers [FOLLOWING ARE NOT THREAD SAFE]
         uint32_t getAssetWriterCount() { return m_writers.perType.getSize(); } // todo.. well, it's not really writer count.. but rather type<->writer association count
 
-        void addAssetWriter(IAssetWriter* _writer)
+        void addAssetWriter(core::smart_refctd_ptr<IAssetWriter>&& _writer)
         {
             const uint64_t suppTypes = _writer->getSupportedAssetTypesBitfield();
             const char** exts = _writer->getAssociatedFileExtensions();
@@ -479,10 +473,10 @@ namespace asset
                 const IAsset::E_TYPE type = IAsset::E_TYPE(1u << i);
                 if ((suppTypes>>i) & 1u)
                 {
-                    m_writers.perType.insert(type, _writer);
+                    m_writers.perType.insert(type, _writer.get());
                     size_t extIx = 0u;
                     while (const char* ext = exts[extIx++])
-                        m_writers.perTypeAndFileExt.insert({type, ext}, _writer);
+                        m_writers.perTypeAndFileExt.insert({type, ext}, _writer.get());
                 }
             }
         }
@@ -520,7 +514,7 @@ namespace asset
             */
             _outs << "Loaders vector:\n";
             for (const auto& ldr : m_loaders.vector)
-                _outs << '\t' << static_cast<void*>(ldr) << '\n';
+                _outs << '\t' << static_cast<void*>(ldr.get()) << '\n';
             _outs << "Loaders per-file-ext cache:\n";
             for (const auto& ldr : m_loaders.perFileExt)
                 _outs << "\tKey: " << ldr.first << ", Value: " << ldr.second << '\n';
@@ -545,6 +539,9 @@ namespace asset
         // for greet/dispose lambdas for asset caches so we don't have to make another friend decl.
         //TODO change name
         inline void setAssetCached(SAssetBundle& _asset, bool _val) const { _asset.setCached(_val); }
+
+		//
+		void addLoadersAndWriters();
 	};
 }
 }

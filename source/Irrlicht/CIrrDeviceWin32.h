@@ -10,7 +10,6 @@
 
 #include "CIrrDeviceStub.h"
 #include "IrrlichtDevice.h"
-#include "IImagePresenter.h"
 
 #define WIN32_LEAN_AND_MEAN
 #if !defined(_IRR_XBOX_PLATFORM_)
@@ -27,7 +26,7 @@ namespace irr
 {
 	struct SJoystickWin32Control;
 
-	class CIrrDeviceWin32 : public CIrrDeviceStub, video::IImagePresenter
+	class CIrrDeviceWin32 : public CIrrDeviceStub
 	{
         friend struct SJoystickWin32Control;
 
@@ -60,9 +59,6 @@ namespace irr
 
             //! returns if window is minimized
             virtual bool isWindowMinimized() const;
-
-            //! presents a surface in the client area
-            virtual bool present(video::IImage* surface, void* windowId=0, core::rect<int32_t>* src=0);
 
             //! notifies the device that it should close itself
             virtual void closeDevice();
@@ -118,9 +114,6 @@ namespace irr
             //! Check for and show last Windows API error to help internal debugging.
             //! Does call GetLastError and on errors formats the errortext and displays it in a messagebox.
             static void ReportLastWinApiError();
-
-            // convert an Irrlicht texture to a windows cursor
-            HCURSOR TextureToCursor(HWND hwnd, irr::video::IImage * tex, const core::rect<int32_t>& sourceRect, const core::position2d<int32_t> &hotspot);
 
             //! Implementation of the win32 cursor control
             class CCursorControl : public gui::ICursorControl

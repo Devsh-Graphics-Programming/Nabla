@@ -19,7 +19,6 @@
 
 #include "irr/macros.h"
 
-
 #ifndef FLT_MAX
 #define FLT_MAX 3.402823466E+38F
 #endif

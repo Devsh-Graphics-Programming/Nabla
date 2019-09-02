@@ -25,25 +25,25 @@ CBillboardSceneNode::CBillboardSceneNode(IDummyTransformationSceneNode* parent, 
 
 	setSize(size);
 
-    meshbuffer = new video::IGPUMeshBuffer();
+    meshbuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>();
     meshbuffer->setIndexCount(4);
     meshbuffer->setPrimitiveType(asset::EPT_TRIANGLE_STRIP);
 
-    desc = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
-    meshbuffer->setMeshDataAndFormat(desc);
-    desc->drop();
+	{
+		desc = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
 
-    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-    reqs.vulkanReqs.size = 4*sizeof(float)*3;
-    reqs.vulkanReqs.alignment = 0;
-    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
-    reqs.prefersDedicatedAllocation = true;
-    reqs.requiresDedicatedAllocation = true;
-    vertexBuffer = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
-    desc->setVertexAttrBuffer(vertexBuffer,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT);
-    vertexBuffer->drop();
+		video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+		reqs.vulkanReqs.size = 4*sizeof(float)*3;
+		reqs.vulkanReqs.alignment = 0;
+		reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+		reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+		reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+		reqs.prefersDedicatedAllocation = true;
+		reqs.requiresDedicatedAllocation = true;
+		vertexBuffer = core::smart_refctd_ptr<video::IGPUBuffer>(SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true), core::dont_grab);
+		desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertexBuffer),asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT);
+		meshbuffer->setMeshDataAndFormat(core::smart_refctd_ptr(desc));
+	}
 
     setColor(colorTop,colorBottom);
 }
@@ -108,7 +108,7 @@ void CBillboardSceneNode::render()
 
         driver->setMaterial(Material);
 
-        driver->drawMeshBuffer(meshbuffer);
+        driver->drawMeshBuffer(meshbuffer.get());
     }
 }
 
@@ -198,33 +198,10 @@ void CBillboardSceneNode::setColor(const video::SColor& topColor,
     reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CANNOT_MAP;
     reqs.prefersDedicatedAllocation = true;
     reqs.requiresDedicatedAllocation = true;
-    video::IGPUBuffer* buf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
+    auto buf = core::smart_refctd_ptr<video::IGPUBuffer>(SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true), core::dont_grab);
     buf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,sizeof(staticVxData)),staticVxData);
-    desc->setVertexAttrBuffer(buf,asset::EVAI_ATTR1,asset::EF_B8G8R8A8_UNORM);
-    desc->setVertexAttrBuffer(buf,asset::EVAI_ATTR2,asset::EF_R8G8_USCALED,0,16);
-    buf->drop();
-}
-
-
-
-//! Creates a clone of this scene node and its children.
-ISceneNode* CBillboardSceneNode::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
-{
-	if (!newParent)
-		newParent = Parent;
-	if (!newManager)
-		newManager = SceneManager;
-
-	CBillboardSceneNode* nb = new CBillboardSceneNode(newParent,
-		newManager, ID, RelativeTranslation, Size);
-
-	nb->cloneMembers(this, newManager);
-	nb->Material = Material;
-	nb->TopEdgeWidth = this->TopEdgeWidth;
-
-	if ( newParent )
-		nb->drop();
-	return nb;
+    desc->setVertexAttrBuffer(core::smart_refctd_ptr(buf),asset::EVAI_ATTR1,asset::EF_B8G8R8A8_UNORM);
+    desc->setVertexAttrBuffer(std::move(buf),asset::EVAI_ATTR2,asset::EF_R8G8_USCALED,0,16);
 }
 
 

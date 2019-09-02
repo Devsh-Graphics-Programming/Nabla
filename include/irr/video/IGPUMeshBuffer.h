@@ -2,37 +2,34 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#ifndef __I_MESH_BUFFER_H_INCLUDED__
-#define __I_MESH_BUFFER_H_INCLUDED__
+#ifndef __I_GPU_MESH_BUFFER_H_INCLUDED__
+#define __I_GPU_MESH_BUFFER_H_INCLUDED__
 
 #include <algorithm>
 
+#include "irr/asset/asset.h"
+
 #include "ITransformFeedback.h"
-#include "SMaterial.h"
-#include "aabbox3d.h"
-#include "irr/asset/ICPUBuffer.h"
 #include "IGPUBuffer.h"
-#include "vectorSIMD.h"
-#include "coreutil.h"
-#include "irr/asset/bawformat/CBAWFile.h"
-#include "assert.h"
-#include "irr/asset/EFormat.h"
-#include "irr/asset/ICPUMeshBuffer.h"
 
 namespace irr
 {
 namespace video
 {
-
+	// will be replaced by graphics pipeline layout object
 	class IGPUMeshDataFormatDesc : public asset::IMeshDataFormatDesc<video::IGPUBuffer>
 	{
 	};
 
-
-	class IGPUMeshBuffer : public asset::IMeshBuffer<video::IGPUBuffer>
+	/* When we kill Xform Feedback
+	class IGPUMeshBuffer final : public asset::IMeshBuffer<video::IGPUBuffer>
 	{
-            video::ITransformFeedback* attachedXFormFeedback;
-            uint32_t attachedXFormFeedbackStream;
+	};
+	*/
+	class IGPUMeshBuffer final : public asset::IMeshBuffer<video::IGPUBuffer>
+	{
+            video::ITransformFeedback* attachedXFormFeedback; // kill
+            uint32_t attachedXFormFeedbackStream; // kill
         protected:
             virtual ~IGPUMeshBuffer()
             {
@@ -40,7 +37,7 @@ namespace video
                     attachedXFormFeedback->drop();
             }
         public:
-            IGPUMeshBuffer(core::LeakDebugger* dbgr=NULL) : asset::IMeshBuffer<video::IGPUBuffer>(NULL,dbgr), attachedXFormFeedback(NULL), attachedXFormFeedbackStream(0) {}
+            IGPUMeshBuffer(core::CLeakDebugger* dbgr=nullptr) : asset::IMeshBuffer<video::IGPUBuffer>(nullptr,dbgr), attachedXFormFeedback(NULL), attachedXFormFeedbackStream(0) {}
 
             inline void setIndexCountFromXFormFeedback(video::ITransformFeedback* xformFeedback, const uint32_t & stream)
             {
@@ -75,7 +72,7 @@ namespace video
             bool isIndexCountGivenByXFormFeedback() const {return attachedXFormFeedback!=NULL;}
 	};
 
-} // end namespace scene
+} // end namespace video
 } // end namespace irr
 
 

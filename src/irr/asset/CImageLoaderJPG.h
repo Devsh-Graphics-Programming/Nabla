@@ -5,7 +5,7 @@
 #ifndef __C_IMAGE_LOADER_JPG_H_INCLUDED__
 #define __C_IMAGE_LOADER_JPG_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "irr/core/core.h"
 
 #ifdef _IRR_COMPILE_WITH_JPG_LOADER_
 

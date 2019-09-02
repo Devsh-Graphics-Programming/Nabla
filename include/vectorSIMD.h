@@ -14,12 +14,13 @@
 #error "Check your compiler or project settings for the -m*sse* flag, or upgrade your CPU"
 #endif // __IRR_COMPILE_WITH_X86_SIMD_
 
+#include <stdint.h>
+
+
 #include "irr/core/memory/memory.h"
 #include "irr/core/alloc/AlignedBase.h"
 #include "vector2d.h"
 #include "vector3d.h"
-#include <stdint.h>
-
 
 
 #define _IRR_VECTOR_ALIGNMENT _IRR_SIMD_ALIGNMENT // if this gets changed to non-16 it can and will break external code
@@ -100,7 +101,7 @@ namespace core
 	}
 
     //a class for bitwise shizz
-	template <int components> class vectorSIMDBool : public impl::vectorSIMDIntBase<vectorSIMDBool<components> >
+	template <int components> class IRR_FORCE_EBO vectorSIMDBool : public impl::vectorSIMDIntBase<vectorSIMDBool<components> >
     {
         typedef impl::vectorSIMDIntBase<vectorSIMDBool<components> > Base;
         static_assert(core::isPoT(components)&&components<=16u,"Wrong number of components!\n");
@@ -263,7 +264,7 @@ namespace core
 #endif
 
     template <class T>
-    class vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>, public impl::vectorSIMDIntBase<vectorSIMD_32<T> >
+    class IRR_FORCE_EBO vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>, public impl::vectorSIMDIntBase<vectorSIMD_32<T> >
 	{
         typedef impl::vectorSIMDIntBase<vectorSIMD_32<T> > Base;
 	public:
@@ -285,8 +286,13 @@ namespace core
 		//! Fastest Constructor from ints, they come in normal order [0]=X,[1]=Y, etc.
 		//! Address has to be aligned to 16bytes OR WILL CRASH
 		inline vectorSIMD_32(const T* const array, bool ALIGNED) {_mm_store_si128((__m128i*)pointer,_mm_load_si128((const __m128i*)array));}
+		//! Fastest and most natural constructor
+		inline vectorSIMD_32(const __m128i& reg) { _mm_store_si128((__m128i*)pointer, reg); }
 		//! Constructor with the same value for all elements
 		inline explicit vectorSIMD_32(T n) {_mm_store_si128((__m128i*)pointer,_mm_castps_si128(_mm_load_ps1((const float*)&n)));}
+
+
+		inline explicit vectorSIMD_32(const vectorSIMDf& other);
 
 /*
 		inline vectorSIMDf(const vectorSIMDu32& other);
@@ -294,6 +300,9 @@ namespace core
 		inline vectorSIMDf(const vectorSIMDu16& other);
 		inline vectorSIMDf(const vectorSIMDi16& other);
 **/
+
+		inline T& operator[](size_t ix) { return pointer[ix]; }
+		inline const T& operator[](size_t ix) const { return pointer[ix]; }
 
 		inline vectorSIMD_32<T>& operator=(const vectorSIMD_32<T>& other) { _mm_store_si128((__m128i*)pointer,other.getAsRegister()); return *this; }
 
@@ -304,19 +313,31 @@ namespace core
         }
 
 		inline vectorSIMD_32<T> operator+(const vectorSIMD_32<T>& other) const { return _mm_add_epi32(other.getAsRegister(),Base::getAsRegister()); }
-		inline vectorSIMD_32<T>& operator+=(const vectorSIMD_32<T>& other) { _mm_store_si128(pointer,_mm_add_epi32(other.getAsRegister(),Base::getAsRegister())); return *this; }
+		inline vectorSIMD_32<T>& operator+=(const vectorSIMD_32<T>& other) { return operator=(operator+(other)); }
 
 		inline vectorSIMD_32<T> operator-(const vectorSIMD_32<T>& other) const { return _mm_sub_epi32(Base::getAsRegister(),other.getAsRegister()); }
-		inline vectorSIMD_32<T>& operator-=(const vectorSIMD_32<T>& other) { _mm_store_si128(pointer,_mm_sub_epi32(Base::getAsRegister(),other.getAsRegister())); return *this; }
-/*
-		inline vectorSIMDf operator*(const vectorSIMDf& other) const { return _mm_mul_(getAsRegister(),other.getAsRegister()); }
-		inline vectorSIMD_32<T> operator*(const vectorSIMD_32<T>& other) const { return _mm_mul_ps(getAsRegister(),other.getAsRegister()); }
-		inline vectorSIMD_32<T>& operator*=(const vectorSIMD_32<T>& other) { _mm_store_si128(pointer,_mm_mul_ps(getAsRegister(),other.getAsRegister())); return *this; }
+		inline vectorSIMD_32<T>& operator-=(const vectorSIMD_32<T>& other) { return operator=(operator-(other)); }
 
-		inline vectorSIMDf operator/(const vectorSIMDf& other) const { return preciseDivision(other); }
-		inline vectorSIMD_32<T> operator/(const vectorSIMD_32<T>& other) const { return preciseDivision(other); }
-		inline vectorSIMD_32<T>& operator/=(const vectorSIMD_32<T>& other) { (*this) = preciseDivision(other); return *this; }
-*/
+		// TODO: these are messed up (they care about past the vector)
+		inline vectorSIMD_32<T> operator*(const vectorSIMD_32<T>& other) const
+		{
+			// TODO: do something nicer and faster like https://github.com/vectorclass
+			return vectorSIMD_32<T>(x * other.x, y * other.y, z * other.z, w * other.w);
+		}
+		inline vectorSIMD_32<T>& operator*=(const vectorSIMD_32<T>& other)
+		{
+			return operator=(operator*(other));
+		}
+
+		inline vectorSIMD_32<T> operator/(const vectorSIMD_32<T>& other) const
+		{
+			// TODO: do something nicer and faster like https://github.com/vectorclass
+			return vectorSIMD_32<T>(x / other.x, y / other.y, z / other.z, w / other.w);
+		}
+		inline vectorSIMD_32<T>& operator/=(const vectorSIMD_32<T>& other)
+		{
+			return operator=(operator/(other));
+		}
 
 		//operators against scalars
 		inline vectorSIMD_32<T>  operator+(T val) const { return (*this)+vectorSIMD_32<T>(val); }
@@ -324,14 +345,15 @@ namespace core
 
 		inline vectorSIMD_32<T> operator-(T val) const { return (*this)-vectorSIMD_32<T>(val); }
 		inline vectorSIMD_32<T>& operator-=(T val) { return ( (*this) -= vectorSIMD_32<T>(val) ); }
-/*
+
+		// TODO: these are messed up (they care about past the vector)
 		inline vectorSIMD_32<T>  operator*(T val) const { return (*this)*vectorSIMD_32<T>(val); }
 		inline vectorSIMD_32<T>& operator*=(T val) { return ( (*this) *= vectorSIMD_32<T>(val) ); }
 
-		inline vectorSIMD_32<T> operator/(T val) const { return vectorSIMDf(_mm_div_ps(getAsRegister(),_mm_load_ps1(&v))); }
-		inline vectorSIMD_32<T>& operator/=(T val) { _mm_store_ps(pointer,_mm_div_ps(getAsRegister(),_mm_load_ps1(&v))); return *this; }
+		inline vectorSIMD_32<T> operator/(T val) const { return operator/(vectorSIMD_32<T>(val)); }
+		inline vectorSIMD_32<T>& operator/=(T val) { return operator/=(vectorSIMD_32<T>(val)); }
 
-
+/*
 		//! I AM BREAKING IRRLICHT'S COMPARISON OPERATORS
 		inline vector4db_SIMD operator<=(const vectorSIMDf& other) const
 		{
@@ -349,17 +371,15 @@ namespace core
 		{
 		    return _mm_cmpgt_ps(getAsRegister(),other.getAsRegister());
 		}
-
-		//! only the method that returns bool confirms if two vectors are exactly the same
-		inline vectorSIMDf operator==(const vectorSIMDf& other) const
-		{
-			return _mm_cmpeq_ps(getAsRegister(),other.getAsRegister());
-		}
-		inline vectorSIMDf operator!=(const vectorSIMDf& other) const
-		{
-			return _mm_cmpneq_ps(getAsRegister(),other.getAsRegister());
-		}
 */
+		inline vector4db_SIMD operator==(const vectorSIMD_32<T>& other) const
+		{
+			return vector4db_SIMD(_mm_cmpeq_epi32(getAsRegister(),other.getAsRegister()));
+		}
+		inline vector4db_SIMD operator!=(const vectorSIMD_32<T>& other) const
+		{
+			return !operator==(other);
+		}
 
 
 		// functions
@@ -391,7 +411,7 @@ namespace core
 		    return *((vector3di*)pointer);
 		}
 
-        union alignas(_IRR_VECTOR_ALIGNMENT)
+        union
         {
             struct{
                 T X; T Y; T Z; T W;
@@ -419,9 +439,15 @@ namespace core
 	typedef vectorSIMDu32 vector3du32_SIMD;
 	typedef vectorSIMDu32 vector2du32_SIMD;
 
+	static_assert(sizeof(vector4du32_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4du32_SIMD not same size as uvec4");
+	static_assert(alignof(vector4du32_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4du32_SIMD not same alignment as uvec4");
+
 	typedef vectorSIMDi32 vector4di32_SIMD;
 	typedef vectorSIMDi32 vector3di32_SIMD;
 	typedef vectorSIMDi32 vector2di32_SIMD;
+
+	static_assert(sizeof(vector4di32_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4di32_SIMD not same size as ivec4");
+	static_assert(alignof(vector4di32_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4di32_SIMD not same alignment as ivec4");
 
 /*
 	typedef vectorSIMDu16 vector8du16_SIMD;
@@ -465,7 +491,7 @@ namespace core
     inline vectorSIMDf sqrt(const vectorSIMDf& a);
 
 
-    class vectorSIMDf : public SIMD_32bitSwizzleAble<vectorSIMDf,__m128>, public AlignedBase<_IRR_VECTOR_ALIGNMENT>
+    class IRR_FORCE_EBO vectorSIMDf : public SIMD_32bitSwizzleAble<vectorSIMDf,__m128>, public AlignedBase<_IRR_VECTOR_ALIGNMENT>
 	{
 	public:
 		//! Default constructor (null vector).
@@ -489,6 +515,10 @@ namespace core
 		//! Copy constructor
 		inline vectorSIMDf(const vectorSIMDf& other) {_mm_store_ps(pointer,other.getAsRegister());}
 
+		//! Conversions
+		template<typename T>
+		inline explicit vectorSIMDf(const vectorSIMD_32<T>& ivec) : vectorSIMDf(_mm_cvtepi32_ps(ivec.getAsRegister())) {}
+
 /*
 		inline vectorSIMDf(const vectorSIMDu32& other);
 		inline vectorSIMDf(const vectorSIMDi32& other);
@@ -508,6 +538,11 @@ namespace core
         inline vectorSIMDf operator^(const vectorSIMDIntBase& other) const {return _mm_castsi128_ps(_mm_xor_si128(_mm_castps_si128(getAsRegister()),other.getAsRegister()));}
         inline vectorSIMDf& operator^=(const vectorSIMDIntBase& other) { return *this = *this ^ other; };
 
+		//! getters
+		template<typename INT_TYPE>
+		inline float& operator[](INT_TYPE index) { return const_cast<float&>(const_cast<const vectorSIMDf*>(this)->pointer[index]); }
+		template<typename INT_TYPE>
+		inline const float& operator[](INT_TYPE index) const { return pointer[index]; }
 
         //! in case you want to do your own SSE
         inline __m128 getAsRegister() const {return _mm_load_ps(pointer);}
@@ -812,6 +847,18 @@ namespace core
 #   pragma GCC diagnostic pop
 #endif
 
+	//!
+	template<class T>
+	vectorSIMD_32<T>::vectorSIMD_32<T>(const vectorSIMDf& other)
+	{
+		_mm_store_si128(reinterpret_cast<__m128i*>(pointer), _mm_cvtps_epi32(other.getAsRegister()));
+	}
+	template<class T>
+	inline vectorSIMD_32<T> mix(const vectorSIMD_32<T>& a, const vectorSIMD_32<T>& b, const vector4db_SIMD& t)
+	{
+		return ((~t) & a.getAsRegister()) | (t & b.getAsRegister());
+	}
+
     //! Returns component-wise absolute value of a
     inline vectorSIMDf abs(const vectorSIMDf& a)
     {
@@ -831,7 +878,7 @@ namespace core
     }
      inline vectorSIMDf mix(const vectorSIMDf& a, const vectorSIMDf& b, const vector4db_SIMD& t)
     {
-        return _mm_castsi128_ps((((~t)&_mm_castps_si128(a.getAsRegister()))|(t&_mm_castps_si128(b.getAsRegister()))).getAsRegister());
+        return _mm_castsi128_ps(core::mix<uint32_t>(_mm_castps_si128(a.getAsRegister()),_mm_castps_si128(b.getAsRegister()),t).getAsRegister());
     }
      inline vectorSIMDf lerp(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& t)
     {
@@ -859,29 +906,13 @@ namespace core
     {
         return (a + tolerance >= b) && (a - tolerance <= b);
     }
-    inline vectorSIMDf floor(const vectorSIMDf& a)
-    {
-        vectorSIMDf b = a;
-        vector4db_SIMD notTooLarge = abs(b)<vectorSIMDf(float(0x800000)); //cutoff point for flooring
-        __m128i xmm0 = _mm_cvtps_epi32(b.getAsRegister());
-        __m128 xmm1 = _mm_cvtepi32_ps(xmm0);
-
-        xmm1 =  _mm_add_ps(xmm1, _mm_and_ps(_mm_cmpgt_ps(xmm1, a.getAsRegister()), _mm_set1_ps(-1.f)));
-
-        _mm_maskmoveu_si128(_mm_castps_si128(xmm1),notTooLarge.getAsRegister(),(char*)b.pointer);
-        return b;
-    }
+	inline vectorSIMDf floor(const vectorSIMDf& a)
+	{
+		return _mm_floor_ps(a.getAsRegister());
+	}
     inline vectorSIMDf ceil(const vectorSIMDf& a)
     {
-        vectorSIMDf b = a;
-        vector4db_SIMD notTooLarge = abs(b)<vectorSIMDf(float(0x800000)); //cutoff point for flooring
-        __m128i xmm0 = _mm_cvtps_epi32(b.getAsRegister());
-        __m128 xmm1 = _mm_cvtepi32_ps(xmm0);
-
-        xmm1 =  _mm_add_ps(xmm1, _mm_and_ps(_mm_cmplt_ps(xmm1, a.getAsRegister()), _mm_set1_ps(1.f)));
-
-        _mm_maskmoveu_si128(_mm_castps_si128(xmm1),notTooLarge.getAsRegister(),(char*)b.pointer);
-        return b;
+		return _mm_ceil_ps(a.getAsRegister());
     }
     inline vectorSIMDf fract(const vectorSIMDf& a)
     {
@@ -921,21 +952,14 @@ namespace core
     }
     inline vectorSIMDf length(const vectorSIMDf& v)
     {
-        __m128 xmm0 = v.getAsRegister();
-#ifdef __IRR_COMPILE_WITH_SSE3
-        xmm0 = _mm_mul_ps(xmm0,xmm0);
-        xmm0 = _mm_hadd_ps(xmm0,xmm0);
-        return _mm_sqrt_ps(_mm_hadd_ps(xmm0,xmm0));
-#endif
+		return sqrt(dot(v, v));
     }
     inline vectorSIMDf normalize(const vectorSIMDf& v)
     {
-        __m128 xmm0 = v.getAsRegister();
-        __m128 xmm1 = dot(v,v).getAsRegister();// the uncecessary load/store and variable construction will get optimized out with inline
 #ifdef __IRR_FAST_MATH
-        return _mm_mul_ps(xmm0,_mm_rsqrt_ps(xmm1));
+		return v * inversesqrt(dot(v, v));
 #else
-        return _mm_div_ps(xmm0,_mm_sqrt_ps(xmm1));
+        return v/length(v);
 #endif
     }
 
@@ -943,6 +967,10 @@ namespace core
 	typedef vectorSIMDf vector4df_SIMD;
 	typedef vectorSIMDf vector3df_SIMD;
 	typedef vectorSIMDf vector2df_SIMD;
+
+	static_assert(sizeof(vector4df_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4df_SIMD not same size as vec4");
+	static_assert(alignof(vector4df_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4df_SIMD not same alignment as vec4");
+
 
 	//! Transposes matrix 4x4 given by 4 vectors
 	inline void transpose4(vectorSIMDf& _a0, vectorSIMDf& _a1, vectorSIMDf& _a2, vectorSIMDf& _a3)
@@ -968,6 +996,63 @@ namespace core
     inline vectorSIMDIntBase& vectorSIMDIntBase::operator&=(const vectorSIMDf &other) { _mm_store_si128((__m128i*)this,_mm_and_si128(getAsRegister(),_mm_castps_si128(other.getAsRegister()))); return *this; }
     inline vectorSIMDIntBase& vectorSIMDIntBase::operator|=(const vectorSIMDf &other) { _mm_store_si128((__m128i*)this,_mm_or_si128(getAsRegister(),_mm_castps_si128(other.getAsRegister()))); return *this;}
     inline vectorSIMDIntBase& vectorSIMDIntBase::operator^=(const vectorSIMDf &other) { _mm_store_si128((__m128i*)this,_mm_xor_si128(getAsRegister(),_mm_castps_si128(other.getAsRegister()))); return *this;}
+
+
+
+
+#ifdef __GNUC__
+	// warning: ignoring attributes on template argument ‘__m128i {aka __vector(2) long long int}’ [-Wignored-attributes] (etc...)
+#   pragma GCC diagnostic push
+#   pragma GCC diagnostic ignored "-Wignored-attributes"
+#endif
+
+	template <>
+	template <int mask>
+	inline __m128 SIMD_32bitSwizzleAble<vectorSIMDf, __m128>::shuffleFunc(__m128 reg) const
+	{
+		return FAST_FLOAT_SHUFFLE(reg, mask);
+	}
+
+	template <>
+	template <int mask>
+	inline __m128i SIMD_32bitSwizzleAble<vectorSIMD_32<int32_t>, __m128i>::shuffleFunc(__m128i reg) const
+	{
+		return _mm_shuffle_epi32(reg, mask);
+	}
+
+	template <>
+	template <int mask>
+	inline __m128i SIMD_32bitSwizzleAble<vectorSIMD_32<uint32_t>, __m128i>::shuffleFunc(__m128i reg) const
+	{
+		return _mm_shuffle_epi32(reg, mask);
+	}
+
+#ifdef __GNUC__
+#   pragma GCC diagnostic pop
+#endif
+
+
+	template <class T, class X>
+	class IRR_FORCE_EBO SIMD_8bitSwizzleAble
+	{
+		template<size_t A, size_t B, size_t C, size_t D, size_t E, size_t F, size_t G, size_t H, size_t I, size_t J, size_t K, size_t L, size_t M, size_t N, size_t O, size_t P>
+		inline T swizzle() const
+		{
+			__m128i mask = _mm_set_epi8(P, O, N, M, L, K, J, I, H, G, F, E, D, C, B, A);
+			return T(_mm_shuffle_epi8(((const T*)this)->getAsRegister(), mask));
+		}
+	};
+
+	template <class T, class X>
+	class IRR_FORCE_EBO SIMD_16bitSwizzleAble
+	{
+		template<size_t A, size_t B, size_t C, size_t D, size_t E, size_t F, size_t G, size_t H>
+		inline T swizzle() const
+		{
+			__m128i mask = _mm_setr_epi8(2 * A, 2 * A + 1, 2 * B, 2 * B + 1, 2 * C, 2 * C + 1, 2 * D, 2 * D + 1, 2 * E, 2 * E + 1, 2 * F, 2 * F + 1, 2 * G, 2 * G + 1, 2 * H, 2 * H + 1);
+			return T(_mm_shuffle_epi8(((const T*)this)->getAsRegister(), mask));
+		}
+	};
 
 } // end namespace core
 } // end namespace irr

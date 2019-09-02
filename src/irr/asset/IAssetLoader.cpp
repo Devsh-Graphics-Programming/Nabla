@@ -27,22 +27,22 @@ void IAssetLoader::IAssetLoaderOverride::insertAssetIntoCache(SAssetBundle& asse
         m_manager->insertAssetIntoCache(asset);
 }
 
-SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager& _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
 {
-    return _mgr.getAssetInHierarchy(_file, _supposedFilename, _params, _hierarchyLevel, _override);
+    return _mgr->getAssetInHierarchy(_file, _supposedFilename, _params, _hierarchyLevel, _override);
 }
 
-SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager& _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
 {
-    return _mgr.getAssetInHierarchy(_filename, _params, _hierarchyLevel, _override);
+    return _mgr->getAssetInHierarchy(_filename, _params, _hierarchyLevel, _override);
 }
 
-SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager& _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
+SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
 {
-    return _mgr.getAssetInHierarchy(_file, _supposedFilename, _params, _hierarchyLevel);
+    return _mgr->getAssetInHierarchy(_file, _supposedFilename, _params, _hierarchyLevel);
 }
 
-SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager& _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
+SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel)
 {
-    return _mgr.getAssetInHierarchy(_filename, _params, _hierarchyLevel);
+    return _mgr->getAssetInHierarchy(_filename, _params, _hierarchyLevel);
 }

@@ -2,7 +2,7 @@
 #define __IRR_CBAW_LEGACY_H_INCLUDED__
 
 #include "irr/asset/bawformat/CBAWFile.h"
-#include "irr/asset/EFormat.h"
+#include "irr/asset/format/EFormat.h"
 
 namespace irr { namespace asset { namespace legacyv0
 {

@@ -6,7 +6,8 @@
 #define __I_FRAMEBUFFER_H_INCLUDED__
 
 #include "irr/core/IReferenceCounted.h"
-#include "irr/core/IThreadBound.h"
+#include "irr/core/parallel/IThreadBound.h"
+
 #include "EDriverTypes.h"
 #include "dimension2d.h"
 

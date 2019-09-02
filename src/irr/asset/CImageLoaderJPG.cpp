@@ -7,7 +7,6 @@
 #ifdef _IRR_COMPILE_WITH_JPG_LOADER_
 
 #include "IReadFile.h"
-#include "CImage.h"
 #include "os.h"
 #include "irr/asset/ICPUBuffer.h"
 #include "irr/asset/ICPUTexture.h"
@@ -172,7 +171,6 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 
 	const io::path& Filename = _file->getFileName();
 
-	uint8_t** rowPtr = nullptr;
 	uint8_t* input = new uint8_t[_file->getSize()];
 	_file->read(input, static_cast<uint32_t>(_file->getSize()));
 
@@ -190,13 +188,7 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	cinfo.err->output_message = jpeg::output_message;
     cinfo.client_data = const_cast<char*>(Filename.c_str());
 
-	asset::ICPUBuffer* output = nullptr;
-
 	auto exitRoutine = [&] {
-		if (output)
-			output->drop();
-		if (rowPtr)
-			delete[] rowPtr;
 		jpeg_destroy_decompress(&cinfo);
 		delete[] input;
 	};
@@ -286,19 +278,20 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	uint32_t& height = imageSize[1];
 
 	// Allocate memory for buffer
-	output = new asset::ICPUBuffer(rowspan*height);
+	auto output = core::make_smart_refctd_ptr<asset::ICPUBuffer>(rowspan*height);
 
 	// Here we use the library's state variable cinfo.output_scanline as the
 	// loop counter, so that we don't have to keep track ourselves.
 	// Create array of row pointers for lib
-	rowPtr = new uint8_t* [height];
+	constexpr uint32_t MaxJPEGResolution = 65535u;
+	uint8_t* rowPtr[MaxJPEGResolution];
 	for (uint32_t i = 0; i < height; ++i)
 		rowPtr[i] = &reinterpret_cast<uint8_t*>(output->getPointer())[i*rowspan];
 
 	// Read rows from bottom order to match OpenGL coords
 	uint32_t rowsRead = 0;
 	while (cinfo.output_scanline < cinfo.output_height)
-		rowsRead += jpeg_read_scanlines(&cinfo, &rowPtr[cinfo.output_height - 1 - rowsRead], 1);
+		rowsRead += jpeg_read_scanlines(&cinfo, &rowPtr[rowsRead], 1);
 	
 	// Finish decompression
 	jpeg_finish_decompress(&cinfo);

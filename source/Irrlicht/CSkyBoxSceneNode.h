@@ -6,7 +6,6 @@
 #define __C_SKY_BOX_SCENE_NODE_H_INCLUDED__
 
 #include "ISceneNode.h"
-#include "irr/video/IGPUMeshBuffer.h"
 
 namespace irr
 {
@@ -25,10 +24,11 @@ namespace scene
 
         public:
             //! constructor
-            CSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom, video::ITexture* left,
-                video::ITexture* right, video::ITexture* front, video::ITexture* back,
-                video::IGPUBuffer* vertPositions, size_t positionsOffsetInBuf,
-                IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id);
+            CSkyBoxSceneNode(	core::smart_refctd_ptr<video::ITexture>&& top, core::smart_refctd_ptr<video::ITexture>&& bottom,
+								core::smart_refctd_ptr<video::ITexture>&& left, core::smart_refctd_ptr<video::ITexture>&& right,
+								core::smart_refctd_ptr<video::ITexture>&& front, core::smart_refctd_ptr<video::ITexture>&& back,
+								core::smart_refctd_ptr<video::IGPUBuffer>&& vertPositions, size_t positionsOffsetInBuf,
+								IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id);
             //! clone Ctor
             CSkyBoxSceneNode(CSkyBoxSceneNode* other,
                 IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id);
@@ -58,7 +58,7 @@ namespace scene
             virtual ESCENE_NODE_TYPE getType() const { return ESNT_SKY_BOX; }
 
             //! Creates a clone of this scene node and its children.
-            virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0);
+            virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0) { assert(false); return nullptr; }
 
         private:
 

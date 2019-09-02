@@ -3,13 +3,12 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 // Code contributed by skreamz
 
-#include "IrrCompileConfig.h"
+#include "irr/core/core.h"
 
 #ifdef __IRR_COMPILE_WITH_WAD_ARCHIVE_LOADER_
 
 #include "CWADReader.h"
 #include "os.h"
-#include "coreutil.h"
 #include "CLimitReadFile.h"
 
 namespace irr

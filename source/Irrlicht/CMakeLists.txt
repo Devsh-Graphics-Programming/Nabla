@@ -55,6 +55,12 @@ set(IRRLICHT_HEADERS ${IRRLICHT_HEADERS_PUBLIC} ${IRRLICHT_HEADERS_PIRV1} ${IRRL
 
 
 set(IRRLICHT_SRCS_COMMON
+# Core Memory
+	${IRR_ROOT_PATH}/src/irr/core/memory/CLeakDebugger.cpp
+
+# Pixel Formats
+	${IRR_ROOT_PATH}/src/irr/asset/format/convertColor.cpp
+
 # Mesh loaders
 	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshFileLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/COBJMeshFileLoader.cpp
@@ -64,7 +70,6 @@ set(IRRLICHT_SRCS_COMMON
 
 # Mesh writers
 	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshWriter.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/COBJMeshWriter.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshWriter.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CSTLMeshWriter.cpp
 	
@@ -94,17 +99,15 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ROOT_PATH}/src/irr/asset/COverdrawMeshOptimizer.cpp
 	CSkinnedMeshSceneNode.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/bawformat/TypedBlob.cpp
-	CCPUSkinnedMesh.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CCPUSkinnedMesh.cpp
 
 # Scene objects
 	CBillboardSceneNode.cpp
 	CCameraSceneNode.cpp
-	CCubeSceneNode.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CGeometryCreator.cpp
 	CSceneManager.cpp
 	CSkyBoxSceneNode.cpp
 	CSkyDomeSceneNode.cpp
-	CSphereSceneNode.cpp
 
 # Animators
 	CSceneNodeAnimatorCameraFPS.cpp
@@ -115,7 +118,6 @@ set(IRRLICHT_SRCS_COMMON
 	CSceneNodeAnimatorFlyStraight.cpp
 	CSceneNodeAnimatorFollowSpline.cpp
 	CSceneNodeAnimatorRotation.cpp
-	CSceneNodeAnimatorTexture.cpp
 
 # Driver-specific objects
 	IDriver.cpp
@@ -129,15 +131,10 @@ set(IRRLICHT_SRCS_COMMON
 	FW_Mutex.cpp
 
 # Image processing
-	CColorConverter.cpp
-	CImage.cpp
-	${IRR_ROOT_PATH}/src/irr/video/convertColor.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderBMP.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderDDS.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderJPG.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderPNG.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderTGA.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterBMP.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterJPG.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterPNG.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterTGA.cpp
@@ -145,22 +142,8 @@ set(IRRLICHT_SRCS_COMMON
 # Video
 	CFPSCounter.cpp
 	CVideoModeList.cpp
-	${IRR_ROOT_PATH}/src/irr/video/GPUMemoryAllocatorBase.cpp
-	${IRR_ROOT_PATH}/src/irr/video/SimpleGPUBufferAllocator.cpp
-	${IRR_ROOT_PATH}/src/irr/video/CDerivativeMapCreator.cpp
-
-# Software renderer
-	CBurningShader_Raster_Reference.cpp
-	CDepthBuffer.cpp
-	CSoftwareDriver2.cpp
-	CSoftwareTexture2.cpp
-	CTRGouraud2.cpp
-	CTRTextureGouraud2.cpp
-	CTRTextureGouraudNoZ2.cpp
-	CTRTextureGouraudAdd2.cpp
-	CTRTextureGouraudAddNoZ2.cpp
-	CTRTextureGouraudVertexAlpha2.cpp
-	IBurningShader.cpp
+	${IRR_ROOT_PATH}/src/irr/video/alloc/GPUMemoryAllocatorBase.cpp
+	${IRR_ROOT_PATH}/src/irr/video/alloc/SimpleGPUBufferAllocator.cpp
 
 # Input/output
 	CFileList.cpp
@@ -177,7 +160,6 @@ set(IRRLICHT_SRCS_COMMON
 	CZipReader.cpp
 
 # Other
-	coreutil.cpp
 	IrrlichtDevice.cpp
 	CIrrDeviceSDL.cpp
 	CIrrDeviceLinux.cpp
@@ -195,6 +177,9 @@ if (MSVC)
 endif()
 
 set(IRRLICHT_SRCS_NORMAL
+	#vulkan
+
+	#opengl
 	COpenCLHandler.cpp
 	COpenGL2DTextureArray.cpp
 	COpenGL2DTexture.cpp
@@ -205,12 +190,13 @@ set(IRRLICHT_SRCS_NORMAL
 	COpenGLQuery.cpp
 	COpenGLTransformFeedback.cpp
 	COpenGLVAOSpec.cpp
-	CTRTextureGouraudAlpha.cpp
-	CTRTextureGouraudAlphaNoZ.cpp
 	COpenGL1DTexture.cpp
 	COpenGL1DTextureArray.cpp
 	COpenGLCubemapArrayTexture.cpp
 	COpenGLCubemapTexture.cpp
+
+	# abstract (move this out eventually)
+	${IRR_ROOT_PATH}/src/irr/video/CDerivativeMapCreator.cpp
 )
 
 set(IRRLICHT_SRCS_SERVER
@@ -304,7 +290,7 @@ target_include_directories(Irrlicht PUBLIC
 	"$<$<CONFIG:DEBUG>:${IRRLICHT_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${IRRLICHT_CONF_DIR_RELEASE}>"
 )
-target_include_directories(Irrlicht PUBLIC ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
+target_include_directories(Irrlicht PUBLIC ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht ${IRR_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 if (UNIX)
 	target_include_directories(Irrlicht PUBLIC 
 		${X11_INCLUDE_DIR} 
@@ -368,7 +354,7 @@ target_include_directories(IrrlichtServer PUBLIC
 	"$<$<CONFIG:DEBUG>:${IRRLICHT_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${IRRLICHT_CONF_DIR_RELEASE}>"
 )
-target_include_directories(IrrlichtServer PRIVATE ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht)
+target_include_directories(IrrlichtServer PRIVATE ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht ${IRR_ROOT_PATH}/src/3rdparty)
 
 target_compile_definitions(IrrlichtServer PRIVATE
 	_IRR_STATIC_LIB_

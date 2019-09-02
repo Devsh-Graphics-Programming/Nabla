@@ -18,25 +18,17 @@ namespace scene
 
 
 //! constructor
-CMeshSceneNode::CMeshSceneNode(video::IGPUMesh* mesh, IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
+CMeshSceneNode::CMeshSceneNode(core::smart_refctd_ptr<video::IGPUMesh>&& mesh, IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
 			const core::vector3df& position, const core::vector3df& rotation,
 			const core::vector3df& scale)
-: IMeshSceneNode(parent, mgr, id, position, rotation, scale), Mesh(0),
+: IMeshSceneNode(parent, mgr, id, position, rotation, scale), Mesh(),
 	PassCount(0), ReferencingMeshMaterials(true)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("CMeshSceneNode");
 	#endif
 
-	setMesh(mesh);
-}
-
-
-//! destructor
-CMeshSceneNode::~CMeshSceneNode()
-{
-	if (Mesh)
-		Mesh->drop();
+	setMesh(std::move(mesh));
 }
 
 
@@ -211,17 +203,13 @@ uint32_t CMeshSceneNode::getMaterialCount() const
 
 
 //! Sets a new mesh
-void CMeshSceneNode::setMesh(video::IGPUMesh* mesh)
+void CMeshSceneNode::setMesh(core::smart_refctd_ptr<video::IGPUMesh>&& mesh)
 {
-	if (mesh)
-	{
-		mesh->grab();
-		if (Mesh)
-			Mesh->drop();
-
-		Mesh = mesh;
-		copyMaterials();
-	}
+	if (!mesh)
+		return;
+	
+	Mesh = mesh;
+	copyMaterials();
 }
 
 
@@ -260,27 +248,6 @@ void CMeshSceneNode::setReferencingMeshMaterials(const bool &referencing)
 bool CMeshSceneNode::isReferencingeMeshMaterials() const
 {
 	return ReferencingMeshMaterials;
-}
-
-
-//! Creates a clone of this scene node and its children.
-ISceneNode* CMeshSceneNode::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
-{
-	if (!newParent)
-		newParent = Parent;
-	if (!newManager)
-		newManager = SceneManager;
-
-	CMeshSceneNode* nb = new CMeshSceneNode(Mesh, newParent,
-		newManager, ID, RelativeTranslation, RelativeRotation, RelativeScale);
-
-	nb->cloneMembers(this, newManager);
-	nb->ReferencingMeshMaterials = ReferencingMeshMaterials;
-	nb->Materials = Materials;
-
-	if (newParent)
-		nb->drop();
-	return nb;
 }
 
 

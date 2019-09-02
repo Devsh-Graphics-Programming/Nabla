@@ -5,14 +5,12 @@
 #ifndef __C_OPEN_GL_FEATURE_MAP_H_INCLUDED__
 #define __C_OPEN_GL_FEATURE_MAP_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "irr/core/core.h"
+
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
 #include "IMaterialRendererServices.h"
-#include "irr/core/Types.h"
-#include "irr/macros.h"
 #include "os.h"
-#include "coreutil.h"
 
 #include "COpenGLStateManager.h"
 #include "COpenGLCubemapTexture.h"
@@ -306,6 +304,8 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_EXT_texture_snorm",
 	"GL_EXT_texture_sRGB",
 	"GL_EXT_texture_sRGB_decode",
+	"GL_EXT_texture_sRGB_R8",
+	"GL_EXT_texture_sRGB_RG8",
 	"GL_EXT_texture_swizzle",
 	"GL_EXT_texture_view",
 	"GL_EXT_timer_query",
@@ -755,6 +755,8 @@ class COpenGLExtensionHandler
 		IRR_EXT_texture_snorm,
 		IRR_EXT_texture_sRGB,
 		IRR_EXT_texture_sRGB_decode,
+		IRR_EXT_texture_sRGB_R8,
+		IRR_EXT_texture_sRGB_RG8,
 		IRR_EXT_texture_swizzle,
 		IRR_EXT_texture_view,
 		IRR_EXT_timer_query,
@@ -942,8 +944,8 @@ class COpenGLExtensionHandler
 
 
 
-	static core::LeakDebugger bufferLeaker;
-	static core::LeakDebugger textureLeaker;
+	static core::CLeakDebugger bufferLeaker;
+	static core::CLeakDebugger textureLeaker;
 
 	// deferred initialization
 	void initExtensions(bool stencilBuffer);

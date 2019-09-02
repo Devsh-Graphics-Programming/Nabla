@@ -7,8 +7,7 @@
 #ifdef _IRR_COMPILE_WITH_JPG_WRITER_
 
 #include "IWriteFile.h"
-#include "CImage.h"
-#include "irr/video/convertColor.h"
+#include "irr/asset/format/convertColor.h"
 #include "irr/asset/ICPUTexture.h"
 
 #include "os.h"
@@ -131,7 +130,7 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 
 	if (dest)
 	{
-		const uint32_t pitch = image->getPitch();
+		const uint32_t pitch = image->getPitchIncludingAlignment();
 		JSAMPROW row_pointer[1];      /* pointer to JSAMPLE row[s] */
 		row_pointer[0] = dest;
 		
@@ -139,7 +138,6 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 		
 		/* Switch up, write from bottom -> top because the texture is flipped from OpenGL side */
 		uint32_t eof = cinfo.image_height * cinfo.image_width * cinfo.input_components;
-		src += eof - pitch;
 		
 		while (cinfo.next_scanline < cinfo.image_height)
 		{
@@ -173,7 +171,7 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 				}
 			}
 			
-			src -= pitch;
+			src += pitch;
 			jpeg_write_scanlines(&cinfo, row_pointer, 1);
 		}
 

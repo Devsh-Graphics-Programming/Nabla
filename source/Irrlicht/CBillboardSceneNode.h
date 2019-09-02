@@ -6,7 +6,8 @@
 #define __C_BILLBOARD_SCENE_NODE_H_INCLUDED__
 
 #include "IBillboardSceneNode.h"
-#include "irr/video/IGPUMeshBuffer.h"
+
+#include "irr/video/video.h"
 
 namespace irr
 {
@@ -68,7 +69,7 @@ public:
 	virtual ESCENE_NODE_TYPE getType() const { return ESNT_BILLBOARD; }
 
 	//! Creates a clone of this scene node and its children.
-	virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0);
+	virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0) { assert(false); return nullptr; }
 
 private:
 
@@ -78,9 +79,9 @@ private:
 	core::aabbox3d<float> BBox;
 	video::SGPUMaterial Material;
 
-    video::IGPUBuffer* vertexBuffer;
-    video::IGPUMeshDataFormatDesc* desc;
-    video::IGPUMeshBuffer* meshbuffer;
+	core::smart_refctd_ptr<video::IGPUBuffer> vertexBuffer;
+	core::smart_refctd_ptr<video::IGPUMeshDataFormatDesc> desc;
+	core::smart_refctd_ptr<video::IGPUMeshBuffer> meshbuffer;
 };
 
 

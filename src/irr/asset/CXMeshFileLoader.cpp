@@ -10,15 +10,14 @@
 #include "os.h"
 
 #include "IrrlichtDevice.h"
-#include "coreutil.h"
 #include "ISceneManager.h"
 #include "IVideoDriver.h"
 #include "IFileSystem.h"
 #include "IReadFile.h"
-#include "SVertexManipulator.h"
+#include "irr/asset/normal_quantization.h"
 #include "assert.h"
 #include "irr/asset/IAssetManager.h"
-#include "irr/asset/SCPUMesh.h"
+#include "irr/asset/CCPUMesh.h"
 #include <chrono>
 #include <vector>
 
@@ -32,8 +31,7 @@ namespace asset
 {
 
 //! Constructor
-CXMeshFileLoader::CXMeshFileLoader(IrrlichtDevice* _dev)
-: Device(_dev), SceneManager(_dev->getSceneManager()), FileSystem(_dev->getFileSystem())
+CXMeshFileLoader::CXMeshFileLoader(IAssetManager* _manager) : AssetManager(_manager), FileSystem(_manager->getFileSystem())
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("CXMeshFileLoader");
@@ -95,19 +93,19 @@ asset::SAssetBundle CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asse
         ctx.AnimatedMesh->finalize();
 		if (ctx.AnimatedMesh->isStatic())
         {
-            asset::SCPUMesh* staticMesh = new asset::SCPUMesh();
+            auto staticMesh = new asset::CCPUMesh();
             for (size_t i=0; i<ctx.AnimatedMesh->getMeshBufferCount(); i++)
             {
-                asset::ICPUMeshBuffer* meshbuffer = new asset::ICPUMeshBuffer();
-                staticMesh->addMeshBuffer(meshbuffer);
-                meshbuffer->drop();
+                auto meshbuffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
 
                 asset::ICPUMeshBuffer* origMeshBuffer = ctx.AnimatedMesh->getMeshBuffer(i);
-                asset::ICPUMeshDataFormatDesc* desc = static_cast<asset::ICPUMeshDataFormatDesc*>(origMeshBuffer->getMeshDataAndFormat());
+                auto desc = core::smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>(static_cast<asset::ICPUMeshDataFormatDesc*>(origMeshBuffer->getMeshDataAndFormat())); // yes we want the extra grab
+				const auto* const_desc = desc.get();
+
                 meshbuffer->getMaterial() = origMeshBuffer->getMaterial();
                 meshbuffer->setPrimitiveType(origMeshBuffer->getPrimitiveType());
 
-                bool doesntNeedIndices = !desc->getIndexBuffer();
+                bool doesntNeedIndices = !const_desc->getIndexBuffer();
                 uint32_t largestVertex = origMeshBuffer->getIndexCount();
                 meshbuffer->setIndexCount(largestVertex);
                 if (doesntNeedIndices)
@@ -127,7 +125,7 @@ asset::SAssetBundle CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asse
 
                     if (doesntNeedIndices)
                     {
-                        desc->setIndexBuffer(NULL);
+                        desc->setIndexBuffer(nullptr);
                         meshbuffer->setBaseVertex(baseVertex);
                     }
                 }
@@ -138,49 +136,49 @@ asset::SAssetBundle CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asse
                     indexType = asset::EIT_UNKNOWN;
                 else
                 {
-                    asset::ICPUBuffer* indexBuffer;
+                    core::smart_refctd_ptr<asset::ICPUBuffer> indexBuffer;
                     if (largestVertex>=0x10000u)
                     {
                         indexType = asset::EIT_32BIT;
-                        indexBuffer = new asset::ICPUBuffer(4*origMeshBuffer->getIndexCount());
+                        indexBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(4*origMeshBuffer->getIndexCount());
                         for (size_t j=0; j<origMeshBuffer->getIndexCount(); j++)
                            ((uint32_t*)indexBuffer->getPointer())[j] = origMeshBuffer->getIndexType()==asset::EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
                     }
                     else
                     {
                         indexType = asset::EIT_16BIT;
-                        indexBuffer = new asset::ICPUBuffer(2*origMeshBuffer->getIndexCount());
+                        indexBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(2*origMeshBuffer->getIndexCount());
                         for (size_t j=0; j<origMeshBuffer->getIndexCount(); j++)
                            ((uint16_t*)indexBuffer->getPointer())[j] = origMeshBuffer->getIndexType()==asset::EIT_32BIT ? ((uint32_t*)origMeshBuffer->getIndices())[j]:((uint16_t*)origMeshBuffer->getIndices())[j];
                     }
-                    desc->setIndexBuffer(indexBuffer);
+                    desc->setIndexBuffer(std::move(indexBuffer));
                 }
                 meshbuffer->setIndexType(indexType);
-                meshbuffer->setMeshDataAndFormat(desc);
 
                 meshbuffer->setPositionAttributeIx(origMeshBuffer->getPositionAttributeIx());
                 for (size_t j=0; j<asset::EVAI_COUNT; j++)
                 {
                     asset::E_VERTEX_ATTRIBUTE_ID attrId = (asset::E_VERTEX_ATTRIBUTE_ID)j;
-                    if (!desc->getMappedBuffer(attrId))
+                    if (!const_desc->getMappedBuffer(attrId))
                         continue;
 
                     if (attrId==asset::EVAI_ATTR3)
                     {
-                        const asset::ICPUBuffer* normalBuffer = desc->getMappedBuffer(asset::EVAI_ATTR3);
-                        asset::ICPUBuffer* newNormalBuffer = new asset::ICPUBuffer(normalBuffer->getSize()/3);
+                        const asset::ICPUBuffer* normalBuffer = const_desc->getMappedBuffer(asset::EVAI_ATTR3);
+                        auto newNormalBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(normalBuffer->getSize()/3);
                         for (size_t k=0; k<newNormalBuffer->getSize()/4; k++)
                         {
                             core::vectorSIMDf simdNormal;
                             simdNormal.set(((core::vector3df*)normalBuffer->getPointer())[k]);
                             ((uint32_t*)newNormalBuffer->getPointer())[k] = asset::quantizeNormal2_10_10_10(simdNormal);
                         }
-                        desc->setVertexAttrBuffer(newNormalBuffer,asset::EVAI_ATTR3,asset::EF_A2B10G10R10_SNORM_PACK32);
-                        newNormalBuffer->drop();
+                        desc->setVertexAttrBuffer(std::move(newNormalBuffer),asset::EVAI_ATTR3,asset::EF_A2B10G10R10_SNORM_PACK32);
                     }
                 }
+				meshbuffer->setMeshDataAndFormat(std::move(desc));
 
                 meshbuffer->recalculateBoundingBox();
+				staticMesh->addMeshBuffer(std::move(meshbuffer));
             }
             staticMesh->recalculateBoundingBox();
 
@@ -258,8 +256,10 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 
 		for (i=0; i<mesh->Materials.size(); ++i)
 		{
-			mesh->Buffers.push_back( _ctx.AnimatedMesh->addMeshBuffer() );
-			mesh->Buffers.back()->getMaterial() = mesh->Materials[i];
+			auto newMB = core::make_smart_refctd_ptr<ICPUSkinnedMeshBuffer>();
+			mesh->Buffers.push_back(newMB.get());
+			newMB->getMaterial() = mesh->Materials[i];
+			_ctx.AnimatedMesh->addMeshBuffer(std::move(newMB));
 		}
 
 		if (!mesh->FaceMaterialIndices.size())
@@ -307,46 +307,37 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 
 			if (mesh->FaceMaterialIndices.size() != 0)
 			{
-                asset::ICPUMeshDataFormatDesc* desc = new asset::ICPUMeshDataFormatDesc();
+                auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
 
-				asset::ICPUBuffer* vPosBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4*3);
-				desc->setVertexAttrBuffer(vPosBuf,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT);
-				vPosBuf->drop();
-				asset::ICPUBuffer* vColorBuf = NULL;
+				auto vPosBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(mesh->Vertices.size()*4*3);
+				core::smart_refctd_ptr<asset::ICPUBuffer> vColorBuf;
+
+				desc->setVertexAttrBuffer(core::smart_refctd_ptr(vPosBuf),asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT);
 				if (mesh->Colors.size())
-                {
-                    vColorBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4);
-                    desc->setVertexAttrBuffer(vColorBuf,asset::EVAI_ATTR1,asset::EF_B8G8R8A8_UNORM);
-                    vColorBuf->drop();
-                }
-				asset::ICPUBuffer* vTCBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4*2);
-                desc->setVertexAttrBuffer(vTCBuf,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
-                vTCBuf->drop();
-				asset::ICPUBuffer* vNormalBuf = new asset::ICPUBuffer(mesh->Vertices.size()*4*3);
-				desc->setVertexAttrBuffer(vNormalBuf,asset::EVAI_ATTR3,asset::EF_R32G32B32_SFLOAT);
-				vNormalBuf->drop();
-				asset::ICPUBuffer* vTC2Buf = NULL;
+				{
+					vColorBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(mesh->Vertices.size()*4);
+					desc->setVertexAttrBuffer(core::smart_refctd_ptr(vColorBuf),asset::EVAI_ATTR1,asset::EF_B8G8R8A8_UNORM);
+				}
+				auto vTCBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(mesh->Vertices.size()*4*2);
+				desc->setVertexAttrBuffer(core::smart_refctd_ptr(vTCBuf),asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
+				auto vNormalBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(mesh->Vertices.size()*4*3);
+				desc->setVertexAttrBuffer(core::smart_refctd_ptr(vNormalBuf),asset::EVAI_ATTR3,asset::EF_R32G32B32_SFLOAT);
+				
+				core::smart_refctd_ptr<asset::ICPUBuffer> vTC2Buf;
 				if (mesh->TCoords2.size())
 				{
-                    vTC2Buf = new asset::ICPUBuffer(mesh->Vertices.size()*4*2);
-                    desc->setVertexAttrBuffer(vTC2Buf,asset::EVAI_ATTR4,asset::EF_R32G32_SFLOAT);
-                    vTC2Buf->drop();
+                    vTC2Buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(mesh->Vertices.size()*4*2);
+                    desc->setVertexAttrBuffer(core::smart_refctd_ptr(vTC2Buf),asset::EVAI_ATTR4,asset::EF_R32G32_SFLOAT);
 				}
-				asset::ICPUBuffer* vSkinningDataBuf = NULL;
-				if (mesh->VertexSkinWeights.size())
+				core::smart_refctd_ptr<asset::ICPUBuffer> vSkinningDataBuf;
+				if (mesh->VertexSkinWeights.size() || mesh->AttachedJointID!=-1)
                 {
-                    vSkinningDataBuf = new asset::ICPUBuffer(mesh->Vertices.size()*sizeof(SkinnedVertexFinalData));
-                    desc->setVertexAttrBuffer(vSkinningDataBuf,asset::EVAI_ATTR5,asset::EF_R8G8B8A8_UINT,8,0);
-                    desc->setVertexAttrBuffer(vSkinningDataBuf,asset::EVAI_ATTR6,asset::EF_A2B10G10R10_UNORM_PACK32,8,4);
-                    vSkinningDataBuf->drop();
+                    vSkinningDataBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(mesh->Vertices.size()*sizeof(SkinnedVertexFinalData));
+                    desc->setVertexAttrBuffer(core::smart_refctd_ptr(vSkinningDataBuf),asset::EVAI_ATTR5,asset::EF_R8G8B8A8_UINT,8,0);
+                    desc->setVertexAttrBuffer(core::smart_refctd_ptr(vSkinningDataBuf),asset::EVAI_ATTR6,asset::EF_A2B10G10R10_UNORM_PACK32,8,4);
                 }
-				else if (mesh->AttachedJointID!=-1)
+				if (mesh->AttachedJointID!=-1)
                 {
-                    vSkinningDataBuf = new asset::ICPUBuffer(mesh->Vertices.size()*sizeof(SkinnedVertexFinalData));
-                    desc->setVertexAttrBuffer(vSkinningDataBuf,asset::EVAI_ATTR5,asset::EF_R8G8B8A8_UINT,8,0);
-                    desc->setVertexAttrBuffer(vSkinningDataBuf,asset::EVAI_ATTR6,asset::EF_A2B10G10R10_UNORM_PACK32,8,4);
-                    vSkinningDataBuf->drop();
-
                     bool correctBindMatrix = _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix.isIdentity();
                     core::matrix4x3 globalMat,globalMatInvTransp;
                     if (correctBindMatrix)
@@ -395,7 +386,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
                         reinterpret_cast<SkinnedVertexFinalData*>(vSkinningDataBuf->getPointer())[j].boneIDs[2] = 0;
                         reinterpret_cast<SkinnedVertexFinalData*>(vSkinningDataBuf->getPointer())[j].boneIDs[3] = 0;
                     }
-                    vSkinningDataBuf = NULL;
+                    vSkinningDataBuf = nullptr;
                 }
 
 				// store vertices in buffers and remember relation in verticesLinkIndex
@@ -421,7 +412,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
                     else
                         buffer->setIndexType(asset::EIT_16BIT);
 
-                    buffer->setMeshDataAndFormat(desc);
+                    buffer->setMeshDataAndFormat(std::move(desc));
 
                     if (i>0)
                     {
@@ -429,7 +420,6 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
                         buffer->setBaseVertex(cumBaseVertex[i]);
                     }
 				}
-				desc->drop();
 
 				verticesLinkIndex.resize(mesh->Vertices.size());
 				memset(vCountArray, 0, mesh->Buffers.size()*sizeof(uint32_t));
@@ -595,9 +585,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 					buffer->setIndexBufferOffset(indexBufferSz);
                     indexBufferSz += subBufferSz;
                 }
-                asset::ICPUBuffer* ixbuf = new asset::ICPUBuffer(indexBufferSz);
-				desc->setIndexBuffer(ixbuf);
-				ixbuf->drop();
+                auto ixbuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(indexBufferSz);
 				// create indices per buffer
 				memset(vCountArray, 0, mesh->Buffers.size()*sizeof(uint32_t));
 				for (i=0; i<mesh->FaceMaterialIndices.size(); ++i)
@@ -617,6 +605,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
                             ((uint16_t*)indexBufAlreadyOffset)[vCountArray[mesh->FaceMaterialIndices[i]]++] = verticesLinkIndex[ mesh->Indices[id] ];
                     }
 				}
+				desc->setIndexBuffer(std::move(ixbuf));
                 delete [] cumBaseVertex;
 				delete [] vCountArray;
 			}
@@ -1748,6 +1737,13 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 	{
 		core::stringc objectName = getNextToken(_ctx).c_str();
 
+		auto loadAndSetTexture = [&](uint32_t texSlot, auto path)
+		{
+			auto bundle = interm_getAssetInHierarchy(AssetManager, path.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents();
+			if (bundle.first != bundle.second)
+				material.setTexture(texSlot, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*bundle.first));
+		};
+
 		if (objectName.size() == 0)
 		{
 			os::Printer::log("Unexpected ending found in Mesh Material in .x file.", ELL_WARNING);
@@ -1769,32 +1765,17 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 			core::stringc TextureFileName = tmp.c_str();
 
 			// original name
-            if (FileSystem->existFile(TextureFileName))
-            {
-                asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
-                    interm_getAssetInHierarchy(Device->getAssetManager(), TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first->get()
-                );
-                material.setTexture(textureLayer, texture);
-            }
+			if (FileSystem->existFile(TextureFileName))
+				loadAndSetTexture(textureLayer, TextureFileName);
 			// mesh path
 			else
 			{
 				TextureFileName= _ctx.FilePath + io::IFileSystem::getFileBasename(TextureFileName);
-                if (FileSystem->existFile(TextureFileName))
-                {
-                    asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
-                        interm_getAssetInHierarchy(Device->getAssetManager(), TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first->get()
-                    );
-                    material.setTexture(textureLayer, texture);
-                }
+				if (FileSystem->existFile(TextureFileName))
+					loadAndSetTexture(textureLayer, TextureFileName);
 				// working directory
-                else
-                {
-                    asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
-                        interm_getAssetInHierarchy(Device->getAssetManager(), io::IFileSystem::getFileBasename(TextureFileName).c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first->get()
-                    );
-                    material.setTexture(textureLayer, texture);
-                }
+				else
+					loadAndSetTexture(textureLayer, io::IFileSystem::getFileBasename(TextureFileName));
 			}
 			++textureLayer;
 		}
@@ -1809,31 +1790,16 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 
 			// original name
             if (FileSystem->existFile(TextureFileName))
-            {
-                asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
-                    interm_getAssetInHierarchy(Device->getAssetManager(), TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first->get()
-                );
-                material.setTexture(1, texture);
-            }
+				loadAndSetTexture(1u, TextureFileName);
 			// mesh path
 			else
 			{
 				TextureFileName= _ctx.FilePath + io::IFileSystem::getFileBasename(TextureFileName);
                 if (FileSystem->existFile(TextureFileName))
-                {
-                    asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
-                        interm_getAssetInHierarchy(Device->getAssetManager(), TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first->get()
-                    );
-                    material.setTexture(1, texture);
-                }
+					material.setTexture(1, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*interm_getAssetInHierarchy(AssetManager, TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first));
 				// working directory
                 else
-                {
-                    asset::ICPUTexture* texture = static_cast<asset::ICPUTexture*>(
-                        interm_getAssetInHierarchy(Device->getAssetManager(), io::IFileSystem::getFileBasename(TextureFileName).c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first->get()
-                    );
-                    material.setTexture(1, texture);
-                }
+					loadAndSetTexture(1u, io::IFileSystem::getFileBasename(TextureFileName));
 			}
 			if (textureLayer==1)
 				++textureLayer;

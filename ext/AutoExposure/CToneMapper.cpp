@@ -165,13 +165,13 @@ CToneMapper::~CToneMapper()
 
 //#define PROFILE_TONEMAPPER
 
-bool CToneMapper::CalculateFrameExposureFactors(video::IGPUBuffer* outBuffer, video::IGPUBuffer* uniformBuffer, video::ITexture* inputTexture)
+bool CToneMapper::CalculateFrameExposureFactors(video::IGPUBuffer* outBuffer, video::IGPUBuffer* uniformBuffer, core::smart_refctd_ptr<video::ITexture>&& inputTexture)
 {
     bool highRes = false;
     if (!inputTexture)
         return false;
 
-    video::COpenGLTexture* asGlTex = dynamic_cast<video::COpenGLTexture*>(inputTexture);
+    video::COpenGLTexture* asGlTex = dynamic_cast<video::COpenGLTexture*>(inputTexture.get());
     if (asGlTex->getOpenGLTextureType()!=GL_TEXTURE_2D)
         return false;
 
@@ -191,7 +191,7 @@ bool CToneMapper::CalculateFrameExposureFactors(video::IGPUBuffer* outBuffer, vi
 
     const video::COpenGLDriver::SAuxContext* foundConst = static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext();
     video::COpenGLDriver::SAuxContext* found = const_cast<video::COpenGLDriver::SAuxContext*>(foundConst);
-    found->setActiveTexture(0,inputTexture,params);
+    found->setActiveTexture(0,std::move(inputTexture),params);
 
 
     video::COpenGLExtensionHandler::extGlUseProgram(m_histogramProgram);

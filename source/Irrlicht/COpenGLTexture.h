@@ -7,7 +7,6 @@
 
 #include "IrrCompileConfig.h"
 #include "ITexture.h"
-#include "IImage.h"
 #include "COpenGLStateManager.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
@@ -46,9 +45,6 @@ public:
 	//!
 	static asset::E_FORMAT getColorFormatFromSizedOpenGLFormat(const GLenum& sizedFormat);
 
-	//! Get the OpenGL color format parameters based on the given Irrlicht color format
-	static uint32_t getOpenGLFormatBpp(const GLenum& colorformat);
-
 protected:
 	//! protected constructor with basic setup, no GL texture name created, for derived classes
 	COpenGLTexture(const GLenum& textureType_Target);
@@ -82,7 +78,7 @@ public:
 	virtual asset::E_FORMAT getColorFormat() const {return ColorFormat;}
 
 	//! returns pitch of texture (in bytes)
-	virtual uint32_t getPitch() const {return video::getBitsPerPixelFromFormat(ColorFormat)*TextureSize[0]/8;}
+	virtual core::rational<uint32_t> getPitch() const {return asset::getTexelOrBlockBytesize(ColorFormat)*TextureSize[0];}
 
 	//!
 	GLint getOpenGLInternalFormat() const {return InternalFormat;}
@@ -96,7 +92,7 @@ public:
 	virtual void regenerateMipMapLevels();
 
 
-    virtual size_t getAllocationSize() const {return (TextureSize[2]*TextureSize[1]*getPitch()*3u)/2u;} // MipLevelsStored rough estimate
+    virtual size_t getAllocationSize() const {return (TextureSize[2]*TextureSize[1]*getPitch()*core::rational<uint32_t>(3u,2u)).getIntegerApprox();} // MipLevelsStored rough estimate
     virtual IDriverMemoryAllocation* getBoundMemory() {return this;}
     virtual const IDriverMemoryAllocation* getBoundMemory() const {return this;}
     virtual size_t getBoundMemoryOffset() const {return 0ll;}

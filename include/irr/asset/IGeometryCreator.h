@@ -5,18 +5,10 @@
 #ifndef __I_GEOMETRY_CREATOR_H_INCLUDED__
 #define __I_GEOMETRY_CREATOR_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
-#include "irr/asset/IMesh.h"
 #include "irr/asset/ICPUMesh.h"
-#include "irr/video/IGPUMesh.h"
 
 namespace irr
 {
-namespace video
-{
-	class IVideoDriver;
-}
-
 namespace asset
 {
 

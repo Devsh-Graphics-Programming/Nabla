@@ -385,7 +385,6 @@ namespace irr
             Window window;
             XSetWindowAttributes attributes;
             XSizeHints* StdHints;
-            XImage* SoftwareImage;
             XIM XInputMethod;
             XIC XInputContext;
             mutable core::stringc Clipboard;
