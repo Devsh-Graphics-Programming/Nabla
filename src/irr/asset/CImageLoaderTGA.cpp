@@ -8,7 +8,7 @@
 
 #include "IReadFile.h"
 #include "os.h"
-#include "irr/video/convertColor.h"
+#include "irr/asset/format/convertColor.h"
 #include "irr/asset/CImageData.h"
 #include "irr/asset/ICPUTexture.h"
 
@@ -119,7 +119,7 @@ static void convertColorFlip(asset::CImageData **image, const T *src, bool flip)
 	
 	auto size     = (*image)->getSize();
 	auto stride   = (*image)->getPitchIncludingAlignment();
-	auto channels = (*image)->getBitsPerPixel() / 8;
+	auto channels = (*image)->getBytesPerPixel().getIntegerApprox();
 	
 	if (flip)
 		out += size.X * size.Y * channels;

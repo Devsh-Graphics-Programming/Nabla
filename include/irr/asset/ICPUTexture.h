@@ -252,16 +252,24 @@ private:
     }
     inline void establishMinBaseLevelSize()
     {
+		const uint32_t mipDimensions[video::ITexture::ETT_COUNT+1u] = {1u,2u,3u,1u,2u,2u,2u,0u};
+
         memset(m_minReqBaseLvlSz, 0, sizeof(m_minReqBaseLvlSz));
         for (CImageData* _range : m_textureRanges)
         {
             for (uint32_t d = 0u; d < 3u; ++d)
             {
-                const uint32_t extent = _range->getSliceMax()[d] << _range->getSupposedMipLevel();
+				uint32_t extent = _range->getSliceMax()[d];
+				if (d<mipDimensions[m_type])
+					extent = extent << _range->getSupposedMipLevel();
+
                 if (m_minReqBaseLvlSz[d] < extent)
                     m_minReqBaseLvlSz[d] = extent;
             }
         }
+
+		if (m_type == video::ITexture::ETT_CUBE_MAP || m_type == video::ITexture::ETT_CUBE_MAP_ARRAY)
+			m_minReqBaseLvlSz[0u] = m_minReqBaseLvlSz[1] = std::max(m_minReqBaseLvlSz[0u],m_minReqBaseLvlSz[1]);
     }
 };
 

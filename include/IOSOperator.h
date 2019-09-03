@@ -5,8 +5,7 @@
 #ifndef __I_OS_OPERATOR_H_INCLUDED__
 #define __I_OS_OPERATOR_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
-#include "irr/core/irrString.h"
+#include "irr/core/core.h"
 
 namespace irr
 {

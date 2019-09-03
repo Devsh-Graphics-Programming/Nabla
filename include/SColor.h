@@ -6,21 +6,15 @@
 #define __COLOR_H_INCLUDED__
 
 #include "vectorSIMD.h"
-#include "coreutil.h"
-#include "irr/asset/EFormat.h"
-#include "irr/video/decodePixels.h"
+#include "irr/core/core.h"
+#include "irr/asset/format/decodePixels.h"
 
 namespace irr
 {
 namespace video
 {
 
-	//! get the amount of Bits per Pixel of the given color format
-	static uint32_t getBitsPerPixelFromFormat(const asset::E_FORMAT format)
-	{
-		return getTexelOrBlockSize(format)*8u;
-	}
-
+// nuke this
 	//! Creates a 16 bit A1R5G5B5 color
 	inline uint16_t RGBA16(uint32_t r, uint32_t g, uint32_t b, uint32_t a=0xFF)
 	{
@@ -37,17 +31,6 @@ namespace video
 		return RGBA16(r,g,b);
 	}
 
-
-	//! Creates a 16bit A1R5G5B5 color, based on 16bit input values
-	inline uint16_t RGB16from16(uint16_t r, uint16_t g, uint16_t b)
-	{
-		return (0x8000 |
-				(r & 0x1F) << 10 |
-				(g & 0x1F) << 5  |
-				(b & 0x1F));
-	}
-
-
 	//! Converts a 32bit (X8R8G8B8) color to a 16bit A1R5G5B5 color
 	inline uint16_t X8R8G8B8toA1R5G5B5(uint32_t color)
 	{
@@ -56,26 +39,6 @@ namespace video
 			( color & 0x0000F800) >> 6 |
 			( color & 0x000000F8) >> 3);
 	}
-
-
-	//! Converts a 32bit (A8R8G8B8) color to a 16bit A1R5G5B5 color
-	inline uint16_t A8R8G8B8toA1R5G5B5(uint32_t color)
-	{
-		return (uint16_t)(( color & 0x80000000) >> 16|
-			( color & 0x00F80000) >> 9 |
-			( color & 0x0000F800) >> 6 |
-			( color & 0x000000F8) >> 3);
-	}
-
-
-	//! Converts a 32bit (A8R8G8B8) color to a 16bit R5G6B5 color
-	inline uint16_t A8R8G8B8toR5G6B5(uint32_t color)
-	{
-		return (uint16_t)(( color & 0x00F80000) >> 8 |
-			( color & 0x0000FC00) >> 5 |
-			( color & 0x000000F8) >> 3);
-	}
-
 
 	//! Convert A8R8G8B8 Color from A1R5G5B5 color
 	/** build a nicer 32bit Color by extending dest lower bits with source high bits. */
@@ -87,72 +50,6 @@ namespace video
 				(( color & 0x0000001F ) << 3) | (( color & 0x0000001C ) >> 2)
 				);
 	}
-
-
-	//! Returns A8R8G8B8 Color from R5G6B5 color
-	inline uint32_t R5G6B5toA8R8G8B8(uint16_t color)
-	{
-		return 0xFF000000 |
-			((color & 0xF800) << 8)|
-			((color & 0x07E0) << 5)|
-			((color & 0x001F) << 3);
-	}
-
-
-	//! Returns A1R5G5B5 Color from R5G6B5 color
-	inline uint16_t R5G6B5toA1R5G5B5(uint16_t color)
-	{
-		return 0x8000 | (((color & 0xFFC0) >> 1) | (color & 0x1F));
-	}
-
-
-	//! Returns R5G6B5 Color from A1R5G5B5 color
-	inline uint16_t A1R5G5B5toR5G6B5(uint16_t color)
-	{
-		return (((color & 0x7FE0) << 1) | (color & 0x1F));
-	}
-
-
-
-	//! Returns the alpha component from A1R5G5B5 color
-	/** In Irrlicht, alpha refers to opacity.
-	\return The alpha value of the color. 0 is transparent, 1 is opaque. */
-	inline uint32_t getAlpha(uint16_t color)
-	{
-		return ((color >> 15)&0x1);
-	}
-
-
-	//! Returns the red component from A1R5G5B5 color.
-	/** Shift left by 3 to get 8 bit value. */
-	inline uint32_t getRed(uint16_t color)
-	{
-		return ((color >> 10)&0x1F);
-	}
-
-
-	//! Returns the green component from A1R5G5B5 color
-	/** Shift left by 3 to get 8 bit value. */
-	inline uint32_t getGreen(uint16_t color)
-	{
-		return ((color >> 5)&0x1F);
-	}
-
-
-	//! Returns the blue component from A1R5G5B5 color
-	/** Shift left by 3 to get 8 bit value. */
-	inline uint32_t getBlue(uint16_t color)
-	{
-		return (color & 0x1F);
-	}
-
-
-	//! Returns the average from a 16 bit A1R5G5B5 color
-	inline int32_t getAverage(int16_t color)
-	{
-		return ((getRed(color)<<3) + (getGreen(color)<<3) + (getBlue(color)<<3)) / 3;
-	}
-
 
 	//! Class representing a 32 bit ARGB color.
 	/** The color values for alpha, red, green, and blue are
@@ -200,24 +97,6 @@ namespace video
 		0 means no blue, 255 means full blue. */
 		uint32_t getBlue() const { return color & 0xff; }
 
-		//! Get lightness of the color in the range [0,255]
-		float getLightness() const
-		{
-			return 0.5f*(core::max_(core::max_(getRed(),getGreen()),getBlue())+core::min_(core::min_(getRed(),getGreen()),getBlue()));
-		}
-
-		//! Get luminance of the color in the range [0,255].
-		float getLuminance() const
-		{
-			return 0.3f*getRed() + 0.59f*getGreen() + 0.11f*getBlue();
-		}
-
-		//! Get average intensity of the color in the range [0,255].
-		uint32_t getAverage() const
-		{
-			return ( getRed() + getGreen() + getBlue() ) / 3;
-		}
-
 		//! Sets the alpha component of the Color.
 		/** The alpha component defines how transparent a color should be.
 		\param a The alpha value of the color. 0 is fully transparent, 255 is fully opaque. */
@@ -237,10 +116,6 @@ namespace video
 		/** \param b: Has to be a value between 0 and 255.
 		0 means no blue, 255 means full blue. */
 		void setBlue(uint32_t b) { color = (b & 0xff) | (color & 0xffffff00); }
-
-		//! Calculates a 16 bit A1R5G5B5 value of this color.
-		/** \return 16 bit A1R5G5B5 value of this color. */
-		uint16_t toA1R5G5B5() const { return A8R8G8B8toA1R5G5B5(color); }
 
 		//! Converts color to OpenGL color format
 		/** From ARGB to RGBA in 4 byte components for endian aware
@@ -287,93 +162,11 @@ namespace video
 		/** \return True if this color is smaller than the other one */
 		bool operator<(const SColor& other) const { return (color < other.color); }
 
-		//! Adds two colors, result is clamped to 0..255 values
-		/** \param other Color to add to this color
-		\return Addition of the two colors, clamped to 0..255 values */
-		SColor operator+(const SColor& other) const
-		{
-			return SColor(core::min_(getAlpha() + other.getAlpha(), 255u),
-					core::min_(getRed() + other.getRed(), 255u),
-					core::min_(getGreen() + other.getGreen(), 255u),
-					core::min_(getBlue() + other.getBlue(), 255u));
-		}
-
-		//! set the color by expecting data in the given format
-		/** \param data: must point to valid memory containing color information in the given format
-			\param format: tells the format in which data is available
-		*/
-		void setData(const void *data, asset::E_FORMAT format)
-		{
-			switch (format)
-			{
-				case asset::EF_A1R5G5B5_UNORM_PACK16:
-					color = A1R5G5B5toA8R8G8B8(*(uint16_t*)data);
-					break;
-				case asset::EF_B5G6R5_UNORM_PACK16:
-					color = R5G6B5toA8R8G8B8(*(uint16_t*)data);
-					break;
-				case asset::EF_B8G8R8A8_UNORM:
-					color = *(uint32_t*)data;
-					break;
-				case asset::EF_R8G8B8_UNORM:
-					{
-						uint8_t* p = (uint8_t*)data;
-						set(255, p[0],p[1],p[2]);
-					}
-					break;
-				default:
-					color = 0xffffffff;
-				break;
-			}
-		}
-
-		//! Write the color to data in the defined format
-		/** \param data: target to write the color. Must contain sufficiently large memory to receive the number of bytes neede for format
-			\param format: tells the format used to write the color into data
-		*/
-		void getData(void *data, asset::E_FORMAT format)
-		{
-			switch(format)
-			{
-				case asset::EF_A1R5G5B5_UNORM_PACK16:
-				{
-					uint16_t * dest = (uint16_t*)data;
-					*dest = video::A8R8G8B8toA1R5G5B5( color );
-				}
-				break;
-
-				case asset::EF_B5G6R5_UNORM_PACK16:
-				{
-					uint16_t * dest = (uint16_t*)data;
-					*dest = video::A8R8G8B8toR5G6B5( color );
-				}
-				break;
-
-				case asset::EF_R8G8B8_UNORM:
-				{
-					uint8_t* dest = (uint8_t*)data;
-					dest[0] = (uint8_t)getRed();
-					dest[1] = (uint8_t)getGreen();
-					dest[2] = (uint8_t)getBlue();
-				}
-				break;
-
-				case asset::EF_B8G8R8A8_UNORM:
-				{
-					uint32_t * dest = (uint32_t*)data;
-					*dest = color;
-				}
-				break;
-
-				default:
-				break;
-			}
-		}
-
 		//! color in A8R8G8B8 Format
 		uint32_t color;
 	};
 
+// nuke end
 
 	//! Class representing a color with four floats.
 	/** The color values for red, green, blue

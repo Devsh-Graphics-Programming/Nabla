@@ -4,6 +4,7 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 // and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
 #include "stdint.h"
+#include "IrrCompileConfig.h"
 
 #ifndef _FW_MUTEX_H_
 #define _FW_MUTEX_H_

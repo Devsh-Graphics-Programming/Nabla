@@ -9,7 +9,6 @@
 
 #include "SIrrCreationParameters.h"
 #include "CIrrDeviceStub.h"
-#include "IImagePresenter.h"
 // for console font
 
 #ifdef _IRR_WINDOWS_API_
@@ -32,7 +31,7 @@
 namespace irr
 {
 
-	class CIrrDeviceConsole : public CIrrDeviceStub, video::IImagePresenter
+	class CIrrDeviceConsole : public CIrrDeviceStub
 	{
         protected:
             //! destructor
@@ -63,9 +62,6 @@ namespace irr
 
             //! returns if window is minimized
             virtual bool isWindowMinimized() const;
-
-            //! presents a surface in the client area
-            virtual bool present(video::IImage* surface, void* windowId=0, core::rect<int32_t>* src=0);
 
             //! notifies the device that it should close itself
             virtual void closeDevice();

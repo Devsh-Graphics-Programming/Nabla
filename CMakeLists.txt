@@ -19,6 +19,9 @@ cmake_minimum_required(VERSION 3.14)
 
 project(Irrlicht LANGUAGES CXX C)
 
+#
+get_filename_component(IRR_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
+
 # Configure CCache if available
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)

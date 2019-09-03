@@ -43,7 +43,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
             percentileSearchVals[1] = (UPPER_LUMA_PERCENTILE*TOTAL_PIXEL_COUNT)/100;
         }
 
-        bool CalculateFrameExposureFactors(video::IGPUBuffer* outBuffer, video::IGPUBuffer* uniformBuffer, video::ITexture* inputTexture);
+        bool CalculateFrameExposureFactors(video::IGPUBuffer* outBuffer, video::IGPUBuffer* uniformBuffer, core::smart_refctd_ptr<video::ITexture>&& inputTexture);
     private:
         CToneMapper(video::IVideoDriver* _driver, const uint32_t& _histoProgram, const uint32_t& _autoExpProgram);
         ~CToneMapper();

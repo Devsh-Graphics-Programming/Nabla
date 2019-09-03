@@ -1,42 +1,17 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
+
+#include "../../ext/ScreenShot/ScreenShot.h"
+
+#include "../common/QToQuitEventReceiver.h"
+
+
 #include "createComputeShader.h"
 #include "../source/Irrlicht/COpenGL2DTexture.h"
 #include "../source/Irrlicht/COpenGLDriver.h"
 
 using namespace irr;
 using namespace core;
-
-bool quit = false;
-
-//!Same As Last Example
-class MyEventReceiver : public IEventReceiver
-{
-public:
-
-	MyEventReceiver()
-	{
-	}
-
-	bool OnEvent(const SEvent& event)
-	{
-        if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
-        {
-            switch (event.KeyInput.Key)
-            {
-            case irr::KEY_KEY_Q: // so we can quit
-                quit = true;
-                return true;
-            default:
-                break;
-            }
-        }
-
-		return false;
-	}
-
-private:
-};
 
 core::vector3df absoluteLightPos;
 core::matrix4SIMD ViewProjCubeMatrices[6];
@@ -205,20 +180,20 @@ int main()
 
     #define kCubeMapSize 2048
     uint32_t size[3] = {kCubeMapSize,kCubeMapSize,6};
-    video::ITexture* cubeMap = driver->createGPUTexture(video::ITexture::ETT_CUBE_MAP,size,1u,asset::EF_D32_SFLOAT); //dat ZBuffer Precision, may be excessive
+    auto cubeMap = driver->createGPUTexture(video::ITexture::ETT_CUBE_MAP,size,1u,asset::EF_D32_SFLOAT); //dat ZBuffer Precision, may be excessive
     //notice this FBO only has a depth attachment, no colour!
     video::IFrameBuffer* fbo = driver->addFrameBuffer();
-    fbo->attach(video::EFAP_DEPTH_ATTACHMENT,cubeMap,0); //attach all 6 faces at once
+    fbo->attach(video::EFAP_DEPTH_ATTACHMENT,cubeMap.get(),0); //attach all 6 faces at once
     //! REMEMBER THIS IS NOT THE END OF THE OPTIMIZATIONS, WE COULD ALWAYS USE TRANSFORM FEEDBACK TO SAVE GPU SKINNING AND NOT HAVE TO DO IT AGAIN (100% FASTER RENDER on second pass)
 
-    asset::IAssetManager& assetMgr = device->getAssetManager();
+    auto* assetMgr = device->getAssetManager();
     asset::IAssetLoader::SAssetLoadParams lparams;
 
     uint32_t derivMap_sz[3]{ 512u, 512u, 1u };
-    video::ITexture* derivMap = driver->createGPUTexture(video::ITexture::ETT_2D, derivMap_sz, 5u, asset::EF_R8G8_SNORM);
+    auto derivMap = driver->createGPUTexture(video::ITexture::ETT_2D, derivMap_sz, 5u, asset::EF_R8G8_SNORM);
 
-    asset::ICPUTexture* bumpMap_asset = static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/bumpmap.jpg", lparams));
-    video::ITexture* bumpMap = driver->getGPUObjectsFromAssets(&bumpMap_asset, (&bumpMap_asset)+1).front();
+	auto bumpMap_asset = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*assetMgr->getAsset("../../media/bumpmap.jpg", lparams).getContents().first);
+    auto bumpMap = driver->getGPUObjectsFromAssets(&bumpMap_asset.get(), (&bumpMap_asset.get())+1)->front();
 
     {
         video::STextureSamplingParams params;
@@ -234,7 +209,7 @@ int main()
     glGetIntegerv(GL_CURRENT_PROGRAM, &previousProgram);
 
     for (GLuint i = 0u; i < 5u; ++i)
-        video::COpenGLExtensionHandler::extGlBindImageTexture(i, static_cast<const video::COpenGL2DTexture*>(derivMap)->getOpenGLName(),
+        video::COpenGLExtensionHandler::extGlBindImageTexture(i, static_cast<const video::COpenGL2DTexture*>(derivMap.get())->getOpenGLName(),
             i, GL_FALSE, 0, GL_WRITE_ONLY, GL_RG8_SNORM);
 
     video::COpenGLExtensionHandler::extGlUseProgram(deriv_map_gen_cs);
@@ -257,7 +232,7 @@ int main()
 
     //derivMap->regenerateMipMapLevels();
 
-    asset::ICPUTexture* wallTexture = static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/wall.jpg", lparams));
+    auto wallTexture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*assetMgr->getAsset("../../media/wall.jpg", lparams).getContents().first);
 
 	scene::ICameraSceneNode* camera =
 		smgr->addCameraSceneNodeFPS(0,180.0f,0.01f);
@@ -266,17 +241,20 @@ int main()
 	camera->setNearValue(0.01f);
 	camera->setFarValue(250.0f);
     smgr->setActiveCamera(camera);
+
+
 	device->getCursorControl()->setVisible(false);
-	MyEventReceiver receiver;
+	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
+
 
 	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
 	//add a floor
 	scene::ISceneNode* floor = smgr->addCubeSceneNode(kInstanceSquareSize*20.f,0,-1,core::vector3df(0,-0.75f,0),core::vector3df(0,0,0),core::vector3df(1.f,1.f/(kInstanceSquareSize*20.f),1.f));
 	video::SGPUMaterial& floorMaterial = floor->getMaterial(0);
-	floorMaterial.setTexture(0,driver->getGPUObjectsFromAssets(&wallTexture, (&wallTexture)+1).front());
-	floorMaterial.setTexture(1,cubeMap);
-    floorMaterial.setTexture(4, derivMap);
+	floorMaterial.setTexture(0,core::smart_refctd_ptr(driver->getGPUObjectsFromAssets(&wallTexture.get(), (&wallTexture.get())+1)->front()));
+	floorMaterial.setTexture(1,core::smart_refctd_ptr(cubeMap));
+    floorMaterial.setTexture(4,core::smart_refctd_ptr(derivMap));
 	floorMaterial.MaterialType = litSolidMaterialType;
 
 	scene::ISceneNode* anodes[kInstanceSquareSize*kInstanceSquareSize] = {0};
@@ -284,24 +262,24 @@ int main()
 	//! For Shadow Optimization
 	scene::ISkinnedMeshSceneNode* fastestNode = NULL;
 	//
-	asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/dwarf.baw", lparams));
+	auto cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*assetMgr->getAsset("../../media/dwarf.baw", lparams).getContents().first);
 
 	if (cpumesh&&cpumesh->getMeshType() == asset::EMT_ANIMATED_SKINNED)
 	{
 		scene::ISkinnedMeshSceneNode* anode = 0;
-		video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1)[0];
+		auto gpumesh = driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)->front();
 
 		for (size_t x = 0; x<kInstanceSquareSize; x++)
 			for (size_t z = 0; z<kInstanceSquareSize; z++)
 			{
-				anodes[x + kInstanceSquareSize*z] = anode = smgr->addSkinnedMeshSceneNode(static_cast<video::IGPUSkinnedMesh*>(gpumesh));
+				anodes[x + kInstanceSquareSize*z] = anode = smgr->addSkinnedMeshSceneNode(core::smart_refctd_ptr_static_cast<video::IGPUSkinnedMesh>(gpumesh));
 				anode->setScale(core::vector3df(0.05f));
 				anode->setPosition(core::vector3df(x, 0.f, z)*4.f);
 				anode->setAnimationSpeed(18.f*float(x + 1 + (z + 1)*kInstanceSquareSize) / float(kInstanceSquareSize*kInstanceSquareSize));
 				anode->setMaterialType(skinnedMaterialType);
 				anode->setMaterialTexture(1, cubeMap);
-				anode->setMaterialTexture(3, anode->getBonePoseTBO());
-                anode->setMaterialTexture(4, derivMap);
+				anode->setMaterialTexture(3, core::smart_refctd_ptr<video::ITextureBufferObject>(anode->getBonePoseTBO()));
+                anode->setMaterialTexture(4, core::smart_refctd_ptr(derivMap));
 			}
         fastestNode = anode;
 		gpumesh->drop();
@@ -311,7 +289,7 @@ int main()
 	uint64_t lastFPSTime = 0;
 	float lastFastestMeshFrameNr = -1.f;
 
-	while(device->run()&&(!quit))
+	while(device->run() && receiver.keepOpen())
 	{
 		driver->beginScene(true, true, video::SColor(255,255,255,255) );
 
@@ -333,10 +311,7 @@ int main()
             floor->setMaterialType(shadowMaterialType);
             for (size_t x=0; x<kInstanceSquareSize; x++)
             for (size_t z=0; z<kInstanceSquareSize; z++)
-            {
                 anodes[x+kInstanceSquareSize*z]->setMaterialType(skinnedShadowMaterialType);
-                anodes[x+kInstanceSquareSize*z]->setMaterialFlag(video::EMF_BACK_FACE_CULLING,false);
-            }
 
             driver->setRenderTarget(fbo,true);
             driver->clearZBuffer(0.f);
@@ -356,10 +331,7 @@ int main()
             floor->setMaterialType(litSolidMaterialType);
             for (size_t x=0; x<kInstanceSquareSize; x++)
             for (size_t z=0; z<kInstanceSquareSize; z++)
-            {
                 anodes[x+kInstanceSquareSize*z]->setMaterialType(skinnedMaterialType);
-                anodes[x+kInstanceSquareSize*z]->setMaterialFlag(video::EMF_BACK_FACE_CULLING,true);
-            }
 
             driver->setRenderTarget(0,true);
 
@@ -383,31 +355,11 @@ int main()
 		}
 	}
 
-    derivMap->drop();
-    bumpMap->drop();
-
-    //create a screenshot
-	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
-    glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
-    {
-        // images are horizontally flipped, so we have to fix that here.
-        uint8_t* pixels = (uint8_t*)screenshot->getData();
-
-        const int32_t pitch=screenshot->getPitch();
-        uint8_t* p2 = pixels + (params.WindowSize.Height - 1) * pitch;
-        uint8_t* tmpBuffer = new uint8_t[pitch];
-        for (uint32_t i=0; i < params.WindowSize.Height; i += 2)
-        {
-            memcpy(tmpBuffer, pixels, pitch);
-            memcpy(pixels, p2, pitch);
-            memcpy(p2, tmpBuffer, pitch);
-            pixels += pitch;
-            p2 -= pitch;
-        }
-        delete [] tmpBuffer;
-    }
-	driver->writeImageToFile(screenshot,"./screenshot.png");
-	screenshot->drop();
+	//create a screenshot
+	{
+		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+	}
 
 
     for (size_t x=0; x<kInstanceSquareSize; x++)

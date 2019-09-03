@@ -12,10 +12,8 @@
 #include "position2d.h"
 #include "SMaterial.h"
 #include "IDriverFence.h"
-#include "irr/video/SGPUMesh.h"
 #include "SExposedVideoData.h"
 #include "IDriver.h"
-#include "irr/asset/EFormat.h"
 #include "irr/video/CDerivativeMapCreator.h"
 
 namespace irr
@@ -29,7 +27,6 @@ namespace io
 namespace video
 {
 	class CImageData;
-	class IImage;
 	class IImageLoader;
 	class IImageWriter;
 	class IMaterialRenderer;
@@ -163,36 +160,10 @@ namespace video
 
 		virtual const core::matrix4SIMD& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state) =0;
 
-		//! Retrieve the number of image loaders
-		/** \return Number of image loaders */
-		virtual uint32_t getImageLoaderCount() const = 0;
-
-		//! Retrieve the given image loader
-		/** \param n The index of the loader to retrieve. This parameter is an 0-based
-		array index.
-		\return A pointer to the specified loader, 0 if the index is incorrect. */
-		virtual IImageLoader* getImageLoader(uint32_t n) = 0;
-
-		//! Retrieve the number of image writers
-		/** \return Number of image writers */
-		virtual uint32_t getImageWriterCount() const = 0;
-
-		//! Retrieve the given image writer
-		/** \param n The index of the writer to retrieve. This parameter is an 0-based
-		array index.
-		\return A pointer to the specified writer, 0 if the index is incorrect. */
-		virtual IImageWriter* getImageWriter(uint32_t n) = 0;
-
 		//! Sets a material.
 		/** All 3d drawing functions will draw geometry using this material thereafter.
 		\param material: Material to be used from now on. */
 		virtual void setMaterial(const SGPUMaterial& material) =0;
-
-		//! A.
-		/** \param B
-		\param C
-		\return D. */
-        virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const core::vector<asset::CImageData*>& mipChain) = 0;
 
         //! A.
         virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size,
@@ -471,24 +442,6 @@ namespace video
 		\return Amount of primitives drawn in the last frame. */
 		virtual uint32_t getPrimitiveCountDrawn( uint32_t mode =0 ) const =0;
 
-		//! Adds an external image loader to the engine.
-		/** This is useful if the Irrlicht Engine should be able to load
-		textures of currently unsupported file formats (e.g. gif). The
-		IImageLoader only needs to be implemented for loading this file
-		format. A pointer to the implementation can be passed to the
-		engine using this method.
-		\param loader Pointer to the external loader created. */
-		virtual void addExternalImageLoader(IImageLoader* loader) =0;
-
-		//! Adds an external image writer to the engine.
-		/** This is useful if the Irrlicht Engine should be able to
-		write textures of currently unsupported file formats (e.g
-		.gif). The IImageWriter only needs to be implemented for
-		writing this file format. A pointer to the implementation can
-		be passed to the engine using this method.
-		\param writer: Pointer to the external writer created. */
-		virtual void addExternalImageWriter(IImageWriter* writer) =0;
-
 		//! Returns the maximum amount of primitives
 		/** (mostly vertices) which the device is able to render.
 		\return Maximum amount of primitives. */
@@ -511,58 +464,6 @@ namespace video
 		\param flag Texture creation flag.
 		\return The current texture creation flag enabled mode. */
 		virtual bool getTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag) const =0;
-
-		//! Creates a ... from a file.
-		/**
-		\param filename .
-		\return .
-		If you no longer need the image data, you should call CImageData::drop().
-		See IReferenceCounted::drop() for more information. */
-		virtual core::vector<asset::CImageData*> createImageDataFromFile(const io::path& filename) = 0;
-
-		//! Creates a ... from a file.
-		/**
-		\param file .
-		\return .
-		If you no longer need the image data, you should call CImageData::drop()
-		on all vector members.
-		See IReferenceCounted::drop() for more information. */
-		virtual core::vector<asset::CImageData*> createImageDataFromFile(io::IReadFile* file) =0;
-
-		//! Writes the provided image to a file.
-		/** Requires that there is a suitable image writer registered
-		for writing the image.
-		\param image Image to write.
-		\param filename Name of the file to write.
-		\param param Control parameter for the backend (e.g. compression
-		level).
-		\return True on successful write. */
-		virtual bool writeImageToFile(IImage* image, const io::path& filename, uint32_t param = 0) = 0;
-
-		//! Writes the provided image to a file.
-		/** Requires that there is a suitable image writer registered
-		for writing the image.
-		\param image Image to write.
-		\param file  An already open io::IWriteFile object. The name
-		will be used to determine the appropriate image writer to use.
-		\param param Control parameter for the backend (e.g. compression
-		level).
-		\return True on successful write. */
-		virtual bool writeImageToFile(IImage* image, io::IWriteFile* file, uint32_t param =0) =0;
-
-		//! Creates a software image from a byte array.
-		/** No hardware texture will be created for this image.
-		\param imageData
-		\param ownForeignMemory If true, the image will use the data
-		pointer directly and own it afterwards. If false, the memory
-		will by copied internally.
-		\return The created image.
-		If you no longer need the image, you should call IImage::drop().
-		See IReferenceCounted::drop() for more information. */
-		virtual IImage* createImageFromData(asset::CImageData* imageData, bool ownForeignMemory=true) =0;
-
-		//!
-		virtual IImage* createImage(const asset::E_FORMAT& format, const core::dimension2d<uint32_t>& size) =0;
 
 		//! Event handler for resize events. Only used by the engine internally.
 		/** Used to notify the driver that the window was resized.
@@ -587,9 +488,7 @@ namespace video
 		\param name Optional name for the material renderer entry.
 		\return The number of the material type which can be set in
 		SGPUMaterial::MaterialType to use the renderer. -1 is returned if
-		an error occured. For example if you tried to add an material
-		renderer to the software renderer or the null device, which do
-		not accept material renderers. */
+		an error occured. */
 		virtual int32_t addMaterialRenderer(IMaterialRenderer* renderer, const char* name =0) =0;
 
 		//! Get access to a material renderer by index.
@@ -666,12 +565,6 @@ namespace video
 		/** \param enable Flag which tells whether the material shall be
 		enabled or disabled. */
 		virtual void enableMaterial2D(bool enable=true) =0;
-
-		//! Only used by the engine internally.
-		/** Passes the global material flag AllowZWriteOnTransparent.
-		Use the SceneManager attribute to set this value from your app.
-		\param flag Default behavior is to disable ZWrite, i.e. false. */
-		virtual void setAllowZWriteOnTransparent(bool flag) =0;
 	};
 
 } // end namespace video

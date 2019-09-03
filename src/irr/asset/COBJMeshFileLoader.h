@@ -5,17 +5,14 @@
 #ifndef __C_OBJ_MESH_FILE_LOADER_H_INCLUDED__
 #define __C_OBJ_MESH_FILE_LOADER_H_INCLUDED__
 
+#include "irr/core/core.h"
+#include "irr/asset/ICPUMeshBuffer.h"
 #include "irr/asset/IAssetLoader.h"
-#include "irr/core/Types.h"
-#include "irr/core/irrString.h"
 
 namespace irr
 {
-class IrrlichtDevice;
-namespace scene {
-    class ISceneManager;
-}
-namespace io {
+namespace io
+{
     class IFileSystem;
 }
 
@@ -108,7 +105,7 @@ class COBJMeshFileLoader : public asset::IAssetLoader
     enum E_TEXTURE_TYPE : uint8_t
     {
         ETT_COLOR_MAP,
-        ETT_NORMAL_MAP,
+        ETT_BUMP_MAP,
         ETT_OPACITY_MAP,
         ETT_REFLECTION_MAP
     };
@@ -140,7 +137,7 @@ protected:
 
 public:
 	//! Constructor
-	COBJMeshFileLoader(IrrlichtDevice* _dev);
+	COBJMeshFileLoader(IAssetManager* _manager);
 
     virtual bool isALoadableFileFormat(io::IReadFile* _file) const override
     {
@@ -235,8 +232,7 @@ private:
 
     std::string genKeyForMeshBuf(const SContext& _ctx, const std::string& _baseKey, const std::string& _mtlName, const std::string& _grpName) const;
 
-    IrrlichtDevice* Device;
-	scene::ISceneManager* SceneManager;
+	IAssetManager* AssetManager;
 	io::IFileSystem* FileSystem;
 };
 

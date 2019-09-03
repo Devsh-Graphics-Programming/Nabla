@@ -17,7 +17,7 @@ namespace irr
 //! ask user for driver
 static irr::video::E_DRIVER_TYPE driverChoiceConsole(bool allDrivers=true)
 {
-	const char* const names[] = {"NullDriver","Software Renderer","Burning's Video","Direct3D 8.1","Direct3D 9.0c","OpenGL 1.x/2.x/3.x"};
+	const char* const names[] = {"NullDriver","OpenGL 4.3+","Vulkan"};
 	printf("Please select the driver you want:\n");
 	uint32_t i=0;
 	for (i=irr::video::EDT_COUNT; i>0; --i)

@@ -187,6 +187,8 @@ using AllocationOverrideBase = impl::ResolveAlignment<AlignedBase<_in_alignment>
 
 #ifndef IRR_TEST_NO_NEW_DELETE_OVERRIDE
 using AllocationOverrideDefault = AllocationOverrideBase<_IRR_SIMD_ALIGNMENT>;
+static_assert(alignof(AllocationOverrideDefault)==_IRR_SIMD_ALIGNMENT,"This compiler has a problem respecting alignment!");
+static_assert(sizeof(AllocationOverrideDefault)==_IRR_SIMD_ALIGNMENT,"This compiler has a problem respecting empty bases!");
 
 
 //! Put in class if the compiler is complaining about ambiguous references to new and delete operators. Needs to be placed in the public section of methods

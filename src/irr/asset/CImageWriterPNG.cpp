@@ -2,17 +2,20 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
+#include "irr/core/core.h"
 #include "CImageWriterPNG.h"
 
 #ifdef _IRR_COMPILE_WITH_PNG_WRITER_
 
 #include "CImageLoaderPNG.h"
+
 #include "IWriteFile.h"
 #include "os.h" // for logging
 #include "irr/asset/ICPUTexture.h"
+#include "irr/asset/format/convertColor.h"
 
 #ifdef _IRR_COMPILE_WITH_LIBPNG_
-#   include "libpng/png.h"
+	#include "libpng/png.h"
 #endif // _IRR_COMPILE_WITH_LIBPNG_
 
 namespace irr
@@ -154,18 +157,17 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	
 	uint8_t* data = (uint8_t*)image->getData();
 	core::vector3d<uint32_t> dim = image->getSize();
-	
-	// Write in reverse order because the texture is flipped to match OpenGL coords
-	data += (dim.X * dim.Y * (image->getBitsPerPixel() / 8)) - lineWidth;
-	
-	// Create array of pointers to rows in image data
-	uint8_t** RowPointers = new png_bytep[dim.Y];
-	if (!RowPointers)
+
+	constexpr uint32_t maxPNGFileHeight = 16u * 1024u; // arbitrary limit
+	if (dim.Y>maxPNGFileHeight)
 	{
-		os::Printer::log("PNGWriter: Internal PNG create row pointers failure\n", file->getFileName().c_str(), ELL_ERROR);
+		os::Printer::log("PNGWriter: Image dimensions too big!\n", file->getFileName().c_str(), ELL_ERROR);
 		png_destroy_write_struct(&png_ptr, &info_ptr);
 		return false;
 	}
+	
+	// Create array of pointers to rows in image data
+	png_bytep RowPointers[maxPNGFileHeight];
 
 	// Fill array of pointers to rows in image data
 	for (uint32_t i = 0; i < dim.Y; ++i)
@@ -182,31 +184,28 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 			case asset::EF_R8G8B8_SRGB:
 				_IRR_FALLTHROUGH;
 			case asset::EF_R8G8B8A8_SRGB:
-				RowPointers[i] = data;
+				RowPointers[i] = reinterpret_cast<png_bytep>(data);
 				break;
 			default:
 			{
 				os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
-				if (RowPointers) delete [] RowPointers;
 				return false;
 			}
 		}
 		
-		data -= lineWidth;
+		data += lineWidth;
 	}
 	
 	// for proper error handling
 	if (setjmp(png_jmpbuf(png_ptr)))
 	{
 		png_destroy_write_struct(&png_ptr, &info_ptr);
-		delete [] RowPointers;
 		return false;
 	}
 
 	png_set_rows(png_ptr, info_ptr, RowPointers);
 	png_write_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, nullptr);
 
-	delete [] RowPointers;
 	png_destroy_write_struct(&png_ptr, &info_ptr);
 	return true;
 #else

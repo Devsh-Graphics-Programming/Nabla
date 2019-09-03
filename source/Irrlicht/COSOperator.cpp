@@ -3,7 +3,6 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "COSOperator.h"
-#include "coreutil.h"
 
 #ifdef _IRR_WINDOWS_API_
 #ifndef _IRR_XBOX_PLATFORM_

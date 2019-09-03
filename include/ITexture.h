@@ -97,7 +97,7 @@ class ITexture : public core::impl::ResolveAlignment<IDriverMemoryBacked,IRender
         /** The pitch is the amount of bytes used for a row of pixels in a
         texture.
         \return Pitch of texture in bytes. */
-        virtual uint32_t getPitch() const = 0;
+        virtual core::rational<uint32_t> getPitch() const = 0;
 
         //! Check whether the texture has MipMaps
         /** \return True if texture has MipMaps, else false. */

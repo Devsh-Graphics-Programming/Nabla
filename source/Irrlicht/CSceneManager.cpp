@@ -18,8 +18,6 @@
 #include "irr/video/CGPUSkinnedMesh.h"
 
 #include "CBillboardSceneNode.h"
-#include "CCubeSceneNode.h"
-#include "CSphereSceneNode.h"
 #include "CCameraSceneNode.h"
 #include "CMeshSceneNode.h"
 #include "CMeshSceneNodeInstanced.h"
@@ -29,14 +27,11 @@
 #include "CSceneNodeAnimatorRotation.h"
 #include "CSceneNodeAnimatorFlyCircle.h"
 #include "CSceneNodeAnimatorFlyStraight.h"
-#include "CSceneNodeAnimatorTexture.h"
 #include "CSceneNodeAnimatorDelete.h"
 #include "CSceneNodeAnimatorFollowSpline.h"
 #include "CSceneNodeAnimatorCameraFPS.h"
 #include "CSceneNodeAnimatorCameraMaya.h"
 #include "CSceneNodeAnimatorCameraModifiedMaya.h"
-
-#include "irr/asset/CGeometryCreator.h"
 
 namespace irr
 {
@@ -183,7 +178,7 @@ CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver
         reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
         reqs.prefersDedicatedAllocation = true;
         reqs.requiresDedicatedAllocation = true;
-        redundantMeshDataBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
+        redundantMeshDataBuf = core::smart_refctd_ptr<video::IGPUBuffer>(SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true),core::dont_grab);
         if (redundantMeshDataBuf)
             redundantMeshDataBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),tmpMem);
         _IRR_ALIGNED_FREE(tmpMem);
@@ -199,8 +194,6 @@ CSceneManager::~CSceneManager()
 	//! force to remove hardwareTextures from the driver
 	//! because Scenes may hold internally data bounded to sceneNodes
 	//! which may be destroyed twice
-    if (redundantMeshDataBuf)
-        redundantMeshDataBuf->drop();
 	if (FileSystem)
 		FileSystem->drop();
 
@@ -250,10 +243,13 @@ IMeshSceneNode* CSceneManager::addCubeSceneNode(float size, IDummyTransformation
 	if (!parent)
 		parent = this;
 
-	IMeshSceneNode* node = new CCubeSceneNode(size, parent, this, id, position, rotation, scale);
-	node->drop();
+	auto* geomCreator = Device->getAssetManager()->getGeometryCreator();
+	asset::ICPUMesh* cpumesh = geomCreator->createCubeMesh(core::vector3df(size));
+	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1);
+	assert(res->size());
 
-	return node;
+	// its okay to std::move because this was the only copy of the refctd array 
+	return addMeshSceneNode(std::move(res->front()),parent,id,position,rotation,scale);
 }
 
 
@@ -265,15 +261,18 @@ IMeshSceneNode* CSceneManager::addSphereSceneNode(float radius, int32_t polyCoun
 	if (!parent)
 		parent = this;
 
-	IMeshSceneNode* node = new CSphereSceneNode(radius, polyCount, polyCount, parent, this, id, position, rotation, scale);
-	node->drop();
+	auto* geomCreator = Device->getAssetManager()->getGeometryCreator();
+	asset::ICPUMesh* cpumesh = geomCreator->createSphereMesh(radius, polyCount, polyCount);
+	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1);
+	assert(res->size());
 
-	return node;
+	// its okay to std::move because ths was the only copy of the rectd array
+	return addMeshSceneNode(std::move(res->front()), parent, id, position, rotation, scale);
 }
 
 //! adds a scene node for rendering a static mesh
 //! the returned pointer must not be dropped.
-IMeshSceneNode* CSceneManager::addMeshSceneNode(video::IGPUMesh* mesh, IDummyTransformationSceneNode* parent, int32_t id,
+IMeshSceneNode* CSceneManager::addMeshSceneNode(core::smart_refctd_ptr<video::IGPUMesh>&& mesh, IDummyTransformationSceneNode* parent, int32_t id,
 	const core::vector3df& position, const core::vector3df& rotation,
 	const core::vector3df& scale, bool alsoAddIfMeshPointerZero)
 {
@@ -283,7 +282,7 @@ IMeshSceneNode* CSceneManager::addMeshSceneNode(video::IGPUMesh* mesh, IDummyTra
 	if (!parent)
 		parent = this;
 
-	IMeshSceneNode* node = new CMeshSceneNode(mesh, parent, this, id, position, rotation, scale);
+	IMeshSceneNode* node = new CMeshSceneNode(std::move(mesh), parent, this, id, position, rotation, scale);
 	node->drop();
 
 	return node;
@@ -303,7 +302,7 @@ IMeshSceneNodeInstanced* CSceneManager::addMeshSceneNodeInstanced(IDummyTransfor
 
 //! adds a scene node for rendering an animated mesh model
 ISkinnedMeshSceneNode* CSceneManager::addSkinnedMeshSceneNode(
-    video::IGPUSkinnedMesh* mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode,
+    core::smart_refctd_ptr<video::IGPUSkinnedMesh>&& mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControlMode,
     IDummyTransformationSceneNode* parent, int32_t id,
     const core::vector3df& position, const core::vector3df& rotation, const core::vector3df& scale)
 {
@@ -313,10 +312,8 @@ ISkinnedMeshSceneNode* CSceneManager::addSkinnedMeshSceneNode(
 	if (!parent)
 		parent = this;
 
-	ISkinnedMeshSceneNode* node =
-		new CSkinnedMeshSceneNode(mesh, boneControlMode, parent, this, id, position, rotation, scale);
+	auto node = new CSkinnedMeshSceneNode(std::move(mesh), boneControlMode, parent, this, id, position, rotation, scale);
 	node->drop();
-
 	return node;
 }
 
@@ -431,15 +428,19 @@ IBillboardSceneNode* CSceneManager::addBillboardSceneNode(IDummyTransformationSc
 
 //! Adds a skybox scene node. A skybox is a big cube with 6 textures on it and
 //! is drawn around the camera position.
-ISceneNode* CSceneManager::addSkyBoxSceneNode(video::ITexture* top, video::ITexture* bottom,
-	video::ITexture* left, video::ITexture* right, video::ITexture* front,
-	video::ITexture* back, IDummyTransformationSceneNode* parent, int32_t id)
+ISceneNode* CSceneManager::addSkyBoxSceneNode(	core::smart_refctd_ptr<video::ITexture>&& top,
+												core::smart_refctd_ptr<video::ITexture>&& bottom,
+												core::smart_refctd_ptr<video::ITexture>&& left,
+												core::smart_refctd_ptr<video::ITexture>&& right,
+												core::smart_refctd_ptr<video::ITexture>&& front,
+												core::smart_refctd_ptr<video::ITexture>&& back,
+												IDummyTransformationSceneNode* parent, int32_t id)
 {
 	if (!parent)
 		parent = this;
 
-	ISceneNode* node = new CSkyBoxSceneNode(top, bottom, left, right,
-			front, back, redundantMeshDataBuf,0, parent, this, id);
+	ISceneNode* node = new CSkyBoxSceneNode(std::move(top), std::move(bottom), std::move(left), std::move(right),
+											std::move(front), std::move(back), core::smart_refctd_ptr(redundantMeshDataBuf), 0, parent, this, id);
 
 	node->drop();
 	return node;
@@ -448,14 +449,14 @@ ISceneNode* CSceneManager::addSkyBoxSceneNode(video::ITexture* top, video::IText
 
 //! Adds a skydome scene node. A skydome is a large (half-) sphere with a
 //! panoramic texture on it and is drawn around the camera position.
-ISceneNode* CSceneManager::addSkyDomeSceneNode(video::IVirtualTexture* texture,
-	uint32_t horiRes, uint32_t vertRes, float texturePercentage,float spherePercentage, float radius,
-	IDummyTransformationSceneNode* parent, int32_t id)
+ISceneNode* CSceneManager::addSkyDomeSceneNode(	core::smart_refctd_ptr<video::IVirtualTexture>&& texture, uint32_t horiRes,
+	uint32_t vertRes, float texturePercentage, float spherePercentage, float radius, IDummyTransformationSceneNode* parent,
+	int32_t id)
 {
 	if (!parent)
 		parent = this;
 
-	ISceneNode* node = new CSkyDomeSceneNode(texture, horiRes, vertRes,
+	ISceneNode* node = new CSkyDomeSceneNode(std::move(texture), horiRes, vertRes,
 		texturePercentage, spherePercentage, radius, parent, this, id);
 
 	node->drop();
@@ -694,9 +695,6 @@ void CSceneManager::drawAll()
 	Driver->setTransform ( video::E4X3TS_VIEW, core::matrix4x3() );
 	Driver->setTransform ( video::E4X3TS_WORLD, core::matrix4x3() );
 
-	// TODO: This should not use an attribute here but a real parameter when necessary (too slow!)
-	Driver->setAllowZWriteOnTransparent( *((bool*)&(Parameters[ALLOW_ZWRITE_ON_TRANSPARENT])) );
-
 	// do animations and other stuff.
 	OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count());
 
@@ -818,19 +816,6 @@ ISceneNodeAnimator* CSceneManager::createFlyStraightAnimator(const core::vector3
 
 	return anim;
 }
-
-
-//! Creates a texture animator, which switches the textures of the target scene
-//! node based on a list of textures.
-ISceneNodeAnimator* CSceneManager::createTextureAnimator(const core::vector<video::ITexture*>& textures,
-	int32_t timePerFrame, bool loop)
-{
-	ISceneNodeAnimator* anim = new CSceneNodeAnimatorTexture(textures,
-		timePerFrame, loop, std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count());
-
-	return anim;
-}
-
 
 //! Creates a scene node animator, which deletes the scene node after
 //! some time automaticly.

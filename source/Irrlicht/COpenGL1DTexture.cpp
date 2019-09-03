@@ -55,7 +55,8 @@ bool COpenGL1DTexture::updateSubRegion(const asset::E_FORMAT &inDataColorFormat,
 
     if (sourceCompressed)
     {
-        size_t levelByteSize = (((maximum[0]-minimum[0]+3)&0xfffffc)*COpenGLTexture::getOpenGLFormatBpp(InternalFormat))/8;
+		// should really use blockk size querying functions to round up properly and not assume 4x4
+		size_t levelByteSize = (((maximum[0] - minimum[0] + 3) & 0xfffffc) * asset::getBytesPerPixel(ColorFormat)).getIntegerApprox();
 
         COpenGLExtensionHandler::extGlCompressedTextureSubImage1D(TextureName,GL_TEXTURE_1D, mipmap, minimum[0],maximum[0]-minimum[0], InternalFormat, levelByteSize, data);
     }
@@ -67,9 +68,8 @@ bool COpenGL1DTexture::updateSubRegion(const asset::E_FORMAT &inDataColorFormat,
         ///COpenGLExtensionHandler::extGlGetInternalFormativ(GL_TEXTURE_1D,InternalFormat,GL_TEXTURE_IMAGE_FORMAT,1,&pixFmt);
         ///COpenGLExtensionHandler::extGlGetInternalFormativ(GL_TEXTURE_1D,InternalFormat,GL_TEXTURE_IMAGE_FORMAT,1,&pixType);
 
-        //! we're going to have problems with uploading lower mip levels
-        uint32_t bpp = video::getBitsPerPixelFromFormat(inDataColorFormat);
-        uint32_t pitchInBits = ((maximum[0]-minimum[0])*bpp)/8;
+        //! we're going to have problems with uploading lower mip levels ?
+        uint32_t pitchInBits = ((maximum[0]-minimum[0])*asset::getBytesPerPixel(inDataColorFormat)).getIntegerApprox();
 
         COpenGLExtensionHandler::setPixelUnpackAlignment(pitchInBits,const_cast<void*>(data),unpackRowByteAlignment);
         COpenGLExtensionHandler::extGlTextureSubImage1D(TextureName, GL_TEXTURE_1D, mipmap, minimum[0], maximum[0]-minimum[0], pixFmt, pixType, data);

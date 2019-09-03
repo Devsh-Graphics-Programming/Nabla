@@ -1,6 +1,8 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+
+#include "../ext/ScreenShot/ScreenShot.h"
+#include "../common/QToQuitEventReceiver.h"
 
 using namespace irr;
 using namespace core;
@@ -14,39 +16,7 @@ using namespace scene;
 #define kHardwareInstancesTOTAL (kNumHardwareInstancesX*kNumHardwareInstancesY*kNumHardwareInstancesZ)
 
 
-const float instanceLoDDistances[] = {8.f,50.f};
-
-bool quit = false;
-
-
-//!Same As Last Example
-class MyEventReceiver : public IEventReceiver
-{
-public:
-
-	MyEventReceiver()
-	{
-	}
-
-	bool OnEvent(const SEvent& event)
-	{
-        if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
-        {
-            switch (event.KeyInput.Key)
-            {
-            case irr::KEY_KEY_Q: // switch wire frame mode
-                quit = true;
-                return true;
-            default:
-                break;
-            }
-        }
-
-		return false;
-	}
-
-private:
-};
+constexpr float instanceLoDDistances[] = {8.f,50.f};
 
 const char* uniformNames[] =
 {
@@ -147,10 +117,10 @@ public:
 };
 
 
- asset::IMeshDataFormatDesc<video::IGPUBuffer>* vaoSetupOverride(ISceneManager* smgr, video::IGPUBuffer* instanceDataBuffer, const size_t& dataSizePerInstanceOutput, const asset::IMeshDataFormatDesc<video::IGPUBuffer>* oldVAO, void* userData)
+ core::smart_refctd_ptr<asset::IMeshDataFormatDesc<video::IGPUBuffer> > vaoSetupOverride(ISceneManager* smgr, video::IGPUBuffer* instanceDataBuffer, const size_t& dataSizePerInstanceOutput, const asset::IMeshDataFormatDesc<video::IGPUBuffer>* oldVAO, void* userData)
  {
     video::IVideoDriver* driver = smgr->getVideoDriver();
-    video::IGPUMeshDataFormatDesc* vao = driver->createGPUMeshDataFormatDesc();
+    auto vao = driver->createGPUMeshDataFormatDesc();
 
     //
     for (size_t k=0; k<asset::EVAI_COUNT; k++)
@@ -159,24 +129,25 @@ public:
         if (!oldVAO->getMappedBuffer(attrId))
             continue;
 
-        vao->setVertexAttrBuffer(const_cast<video::IGPUBuffer*>(oldVAO->getMappedBuffer(attrId)),attrId,oldVAO->getAttribFormat(attrId),
-                                 oldVAO->getMappedBufferStride(attrId),oldVAO->getMappedBufferOffset(attrId),oldVAO->getAttribDivisor(attrId));
+        vao->setVertexAttrBuffer(	core::smart_refctd_ptr<video::IGPUBuffer>(const_cast<video::IGPUBuffer*>(oldVAO->getMappedBuffer(attrId))),
+									attrId,oldVAO->getAttribFormat(attrId), oldVAO->getMappedBufferStride(attrId),oldVAO->getMappedBufferOffset(attrId),
+									oldVAO->getAttribDivisor(attrId));
     }
 
     // I know what attributes are unused in my mesh and I've set up the shader to use thse as instance data
-    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR4,asset::EF_R32G32B32A32_SFLOAT,28*sizeof(float),0,1);
-    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR5,asset::EF_R32G32B32A32_SFLOAT,28*sizeof(float),4*sizeof(float),1);
-    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR6,asset::EF_R32G32B32A32_SFLOAT,28*sizeof(float),8*sizeof(float),1);
-    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR2,asset::EF_R32G32B32A32_SFLOAT,28*sizeof(float),12*sizeof(float),1);
+    vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR4,asset::EF_R32G32B32A32_SFLOAT,28*sizeof(float),0,1);
+    vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR5,asset::EF_R32G32B32A32_SFLOAT,28*sizeof(float),4*sizeof(float),1);
+    vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR6,asset::EF_R32G32B32A32_SFLOAT,28*sizeof(float),8*sizeof(float),1);
+    vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR2,asset::EF_R32G32B32A32_SFLOAT,28*sizeof(float),12*sizeof(float),1);
 
-    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR7,asset::EF_R32G32B32_SFLOAT,28*sizeof(float),16*sizeof(float),1);
-    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR8,asset::EF_R32G32B32_SFLOAT,28*sizeof(float),19*sizeof(float),1);
-    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR9,asset::EF_R32G32B32_SFLOAT,28*sizeof(float),22*sizeof(float),1);
-    vao->setVertexAttrBuffer(instanceDataBuffer,asset::EVAI_ATTR10,asset::EF_R32G32B32_SFLOAT,28*sizeof(float),25*sizeof(float),1);
+    vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR7,asset::EF_R32G32B32_SFLOAT,28*sizeof(float),16*sizeof(float),1);
+    vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR8,asset::EF_R32G32B32_SFLOAT,28*sizeof(float),19*sizeof(float),1);
+    vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR9,asset::EF_R32G32B32_SFLOAT,28*sizeof(float),22*sizeof(float),1);
+    vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR10,asset::EF_R32G32B32_SFLOAT,28*sizeof(float),25*sizeof(float),1);
 
 
     if (oldVAO->getIndexBuffer())
-        vao->setIndexBuffer(const_cast<video::IGPUBuffer*>(oldVAO->getIndexBuffer()));
+        vao->setIndexBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(const_cast<video::IGPUBuffer*>(oldVAO->getIndexBuffer())));
 
     return vao;
  }
@@ -199,6 +170,12 @@ int main()
 
 	if (device == 0)
 		return 1; // could not create selected driver.
+
+	device->getCursorControl()->setVisible(false);
+
+	QToQuitEventReceiver receiver;
+	device->setEventReceiver(&receiver);
+
 
 
 	video::IVideoDriver* driver = device->getVideoDriver();
@@ -223,61 +200,61 @@ int main()
 	camera->setNearValue(0.01f);
 	camera->setFarValue(100.0f);
     smgr->setActiveCamera(camera);
-	device->getCursorControl()->setVisible(false);
-	MyEventReceiver receiver;
-	device->setEventReceiver(&receiver);
 
-	//! Test Loading of Obj
-    asset::IAssetLoader::SAssetLoadParams lparams;
-	core::vector<asset::ICPUMesh*> cpumeshes;
-    cpumeshes.push_back(static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/cow.obj", lparams)));
-    cpumeshes.push_back(static_cast<asset::ICPUMesh*>(device->getAssetManager().getAsset("../../media/yellowflower.obj", lparams)));
+	IMeshSceneNodeInstanced* node;
+	uint32_t instanceIDs[kNumHardwareInstancesZ][kNumHardwareInstancesY][kNumHardwareInstancesX];
+	{
+		asset::IAssetLoader::SAssetLoadParams lparams;
+		video::created_gpu_object_array<asset::ICPUMesh> gpumeshes;
+		//! Test Loading of Obj
+		{
+			core::vector<core::smart_refctd_ptr<asset::ICPUMesh> > cpumeshes;
+			cpumeshes.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*device->getAssetManager()->getAsset("../../media/cow.obj", lparams).getContents().first));
+			cpumeshes.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*device->getAssetManager()->getAsset("../../media/yellowflower.obj", lparams).getContents().first));
 
-    core::vector<video::IGPUMesh*> gpumeshes = driver->getGPUObjectsFromAssets(cpumeshes.data(), cpumeshes.data()+2);
-    for (size_t i=0; i<gpumeshes[0]->getMeshBufferCount(); i++)
-        gpumeshes[0]->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
-    for (size_t i=0; i<gpumeshes[1]->getMeshBufferCount(); i++)
-        gpumeshes[1]->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
-
-
-    video::SGPUMaterial cullingXFormFeedbackShader;
-    const char* xformFeedbackOutputs[] =
-    {
-        "outLoD0_worldViewProjMatCol0",
-        "outLoD0_worldViewProjMatCol1",
-        "outLoD0_worldViewProjMatCol2",
-        "outLoD0_worldViewProjMatCol3",
-        "outLoD0_worldViewMatCol0",
-        "outLoD0_worldViewMatCol1",
-        "outLoD0_worldViewMatCol2",
-        "outLoD0_worldViewMatCol3",
-        "gl_NextBuffer",
-        "outLoD1_worldViewProjMatCol0",
-        "outLoD1_worldViewProjMatCol1",
-        "outLoD1_worldViewProjMatCol2",
-        "outLoD1_worldViewProjMatCol3",
-        "outLoD1_worldViewMatCol0",
-        "outLoD1_worldViewMatCol1",
-        "outLoD1_worldViewMatCol2",
-        "outLoD1_worldViewMatCol3"
-    };
-    cullingXFormFeedbackShader.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../culling.vert","","","../culling.geom","",3,video::EMT_SOLID,cb,xformFeedbackOutputs,17);
-    cullingXFormFeedbackShader.RasterizerDiscard = true;
+			gpumeshes = std::move(driver->getGPUObjectsFromAssets(reinterpret_cast<asset::ICPUMesh**>(cpumeshes.data()), reinterpret_cast<asset::ICPUMesh**>(cpumeshes.data())+2));
+		}
+		for (auto j=0u; j<gpumeshes->size(); j++)
+		{
+			auto gpumesh = gpumeshes->operator[](j);
+			for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
+				gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
+		}
 
 
-    //! The inside of the loop resets and recreates the instancedNode and instances many times to stress-test for GPU-Memory leaks
+		video::SGPUMaterial cullingXFormFeedbackShader;
+		const char* xformFeedbackOutputs[] =
+		{
+			"outLoD0_worldViewProjMatCol0",
+			"outLoD0_worldViewProjMatCol1",
+			"outLoD0_worldViewProjMatCol2",
+			"outLoD0_worldViewProjMatCol3",
+			"outLoD0_worldViewMatCol0",
+			"outLoD0_worldViewMatCol1",
+			"outLoD0_worldViewMatCol2",
+			"outLoD0_worldViewMatCol3",
+			"gl_NextBuffer",
+			"outLoD1_worldViewProjMatCol0",
+			"outLoD1_worldViewProjMatCol1",
+			"outLoD1_worldViewProjMatCol2",
+			"outLoD1_worldViewProjMatCol3",
+			"outLoD1_worldViewMatCol0",
+			"outLoD1_worldViewMatCol1",
+			"outLoD1_worldViewMatCol2",
+			"outLoD1_worldViewMatCol3"
+		};
+		cullingXFormFeedbackShader.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../culling.vert","","","../culling.geom","",3,video::EMT_SOLID,cb,xformFeedbackOutputs,17);
+		cullingXFormFeedbackShader.RasterizerDiscard = true;
 
-	uint64_t lastFPSTime = 0;
-
-        IMeshSceneNodeInstanced* node = smgr->addMeshSceneNodeInstanced(smgr->getRootSceneNode());
+		node = smgr->addMeshSceneNodeInstanced(smgr->getRootSceneNode());
         node->setBBoxUpdateEnabled();
         node->setAutomaticCulling(scene::EAC_FRUSTUM_BOX);
         {
             core::vector<scene::IMeshSceneNodeInstanced::MeshLoD> LevelsOfDetail;
             LevelsOfDetail.resize(2);
-            LevelsOfDetail[0].mesh = gpumeshes[0];
+            LevelsOfDetail[0].mesh = gpumeshes->operator[](0u).get();
             LevelsOfDetail[0].lodDistance = instanceLoDDistances[0];
-            LevelsOfDetail[1].mesh = gpumeshes[1];
+            LevelsOfDetail[1].mesh = gpumeshes->operator[](1u).get();
             LevelsOfDetail[1].lodDistance = instanceLoDDistances[1];
 
             bool success = node->setLoDMeshes(LevelsOfDetail,28*sizeof(float),cullingXFormFeedbackShader,vaoSetupOverride,2,NULL,0);
@@ -286,7 +263,6 @@ int main()
         }
 
         //! Special Juice for INSTANCING
-        uint32_t instanceIDs[kNumHardwareInstancesZ][kNumHardwareInstancesY][kNumHardwareInstancesX];
         for (size_t z=0; z<kNumHardwareInstancesZ; z++)
         for (size_t y=0; y<kNumHardwareInstancesY; y++)
         for (size_t x=0; x<kNumHardwareInstancesX; x++)
@@ -310,21 +286,24 @@ int main()
             node->removeInstance(instanceID);
             instanceID = 0xdeadbeefu;
         }
+	}
+	
 
-        size_t removeCount = 0u;
-        uint32_t instancesToRemove[kHardwareInstancesTOTAL];
-        for (size_t z=0; z<kNumHardwareInstancesZ; z++)
-        for (size_t y=0; y<kNumHardwareInstancesY; y++)
-        for (size_t x=0; x<kNumHardwareInstancesX; x++)
-        {
-            auto instanceID = instanceIDs[z][y][x];
-            if (instanceID==0xdeadbeefu)
-                continue;
+    size_t removeCount = 0u;
+    uint32_t instancesToRemove[kHardwareInstancesTOTAL];
+    for (size_t z=0; z<kNumHardwareInstancesZ; z++)
+    for (size_t y=0; y<kNumHardwareInstancesY; y++)
+    for (size_t x=0; x<kNumHardwareInstancesX; x++)
+    {
+        auto instanceID = instanceIDs[z][y][x];
+        if (instanceID==0xdeadbeefu)
+            continue;
 
-            instancesToRemove[removeCount++] = instanceID;
-        }
+        instancesToRemove[removeCount++] = instanceID;
+    }
 
-	while(device->run()&&(!quit))
+	uint64_t lastFPSTime = 0;
+	while(device->run() && receiver.keepOpen() )
 	{
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );
 
@@ -346,34 +325,15 @@ int main()
 		}
 	}
 
-        node->removeInstances(removeCount,instancesToRemove);
-        node->remove();
+    node->removeInstances(removeCount,instancesToRemove);
+    node->remove();
 
-    gpumeshes[0]->drop();
-    gpumeshes[1]->drop();
 
-    //create a screenshot
-	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
-    glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
-    {
-        // images are horizontally flipped, so we have to fix that here.
-        uint8_t* pixels = (uint8_t*)screenshot->getData();
-
-        const int32_t pitch=screenshot->getPitch();
-        uint8_t* p2 = pixels + (params.WindowSize.Height - 1) * pitch;
-        uint8_t* tmpBuffer = new uint8_t[pitch];
-        for (uint32_t i=0; i < params.WindowSize.Height; i += 2)
-        {
-            memcpy(tmpBuffer, pixels, pitch);
-            memcpy(pixels, p2, pitch);
-            memcpy(p2, tmpBuffer, pitch);
-            pixels += pitch;
-            p2 -= pitch;
-        }
-        delete [] tmpBuffer;
-    }
-	driver->writeImageToFile(screenshot,"./screenshot.png");
-	screenshot->drop();
+	//create a screenshot
+	{
+		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+	}
 
 
 	device->drop();
