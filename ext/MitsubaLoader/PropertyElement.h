@@ -21,6 +21,7 @@ namespace irr { namespace ext { namespace MitsubaLoader {
 			TRANSLATE,
 			ROTATE,
 			SCALE,
+			LOOKAT,
 			POINT,
 			VECTOR
 		};
@@ -42,7 +43,8 @@ public:
 	static core::vectorSIMDf retriveVector(const std::string& _data);
 
 private:
-	static std::string findStandardValue(const char** _atts, bool& _errorOccurred);
+	static std::string findStandardValue(const char** _atts, bool& _errorOccurred, const core::vector<std::string>& _acceptableAttributes);
+	static std::string findAndConvertXYZAttsToSingleString(const char** _atts, bool& _errorOccurred, const core::vector<std::string>& _acceptableAttributes);
 
 };
 

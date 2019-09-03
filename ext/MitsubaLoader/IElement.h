@@ -21,6 +21,7 @@ public:
 		SAMPLER,
 		FILM,
 		SENSOR,
+		EMITTER,
 
 		//shapes
 		SHAPE,

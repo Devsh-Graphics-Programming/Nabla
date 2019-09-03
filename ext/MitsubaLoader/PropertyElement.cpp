@@ -52,58 +52,147 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 	else if (elName == "translate")
 	{
 		result.type = SPropertyElementData::Type::TRANSLATE;
+
+		bool errorOccurred = false;
+		result.value = findAndConvertXYZAttsToSingleString(_atts, errorOccurred, { "name" });
+		return std::make_pair(true, result);
 	}
 	else if (elName == "rotate")
 	{
 		result.type = SPropertyElementData::Type::ROTATE;
+
+		bool errorOccured = false;
+		const std::string axisStr = findAndConvertXYZAttsToSingleString(_atts, errorOccured, { "name", "angle" });
+
+		if (errorOccured)
+			return std::make_pair(false, SPropertyElementData());
+
+		const core::vector3df_SIMD rotationAxis = core::normalize(retriveVector(axisStr));
+
+		if (rotationAxis.getLengthAsFloat() == 0.0f)
+		{
+			ParserLog::invalidXMLFileStructure("invalid rotation axis");
+			return std::make_pair(false, SPropertyElementData());
+		}
+
+		float angle = 0.0f;
+
+		for (int i = 0; _atts[i]; i += 2)
+		{
+			if (!std::strcmp(_atts[i], "angle"))
+			{
+				angle = retriveFloatValue(_atts[i + 1]);
+			}
+		}
+		
+		core::quaternion resultingQuaternion = core::quaternion::fromAngleAxis(angle, rotationAxis);
+
+		std::stringstream ss;
+		float tmpCoord;
+
+		for (int i = 0; i < 4; i++)
+		{
+			tmpCoord = resultingQuaternion.getPointer()[i];
+			ss << tmpCoord << ' ';
+		}
+			
+		
+		result.value = ss.str();
+
+		return std::make_pair(true, result);
 	}
 	else if (elName == "scale")
 	{
 		result.type = SPropertyElementData::Type::SCALE;
+
+		bool errorOccured = false;
+		//value should contain only one number here!
+		const std::string val = findStandardValue(_atts, errorOccured, { "name", "x", "y", "z" });
+
+		if (errorOccured)
+		{
+			_IRR_DEBUG_BREAK_IF(true);
+			return std::make_pair(false, SPropertyElementData());
+		}
+
+		if (val != "not set")
+		{
+			result.value = val + ' ' + val + ' ' + val;
+			return std::make_pair(true, result);
+		}
+
+		result.value = findAndConvertXYZAttsToSingleString(_atts, errorOccured, { "name" });
+
+		if (errorOccured)
+		{
+			_IRR_DEBUG_BREAK_IF(true);
+			return std::make_pair(false, SPropertyElementData());
+		}
+
+		return std::make_pair(true, result);
+
+	}
+	else if (elName == "lookat")
+	{
+		result.type = SPropertyElementData::Type::LOOKAT;
+
+		std::string originStr = "0.0 0.0 0.0";
+		std::string targetStr = "0.0 0.0 -1.0";
+		std::string upStr = "0.0 1.0 0.0";
+
+		for (int i = 0; _atts[i]; i += 2)
+		{
+			if (!std::strcmp(_atts[i], "origin"))
+			{
+				originStr = _atts[i + 1];
+			}
+			else if (!std::strcmp(_atts[i], "target"))
+			{
+				targetStr = _atts[i + 1];
+			}
+			else if (!std::strcmp(_atts[i], "up"))
+			{
+				upStr = _atts[i + 1];
+			}
+		}
+
+		core::vector3df_SIMD origin = retriveVector(originStr);
+		core::vector3df_SIMD target = retriveVector(targetStr);
+		core::vector3df_SIMD up = retriveVector(upStr);
+
+		core::matrix4SIMD lookAt = core::matrix4SIMD::buildCameraLookAtMatrixRH(origin, target, up);
+
+		std::stringstream ss;
+		
+		for (int i = 0; i < 16; i++)
+		{
+			ss << lookAt.pointer()[i] << ' ';
+		}
+
+		result.value = ss.str();
+
+		return std::make_pair(true, result);
 	}
 	else if (elName == "point")
 	{
 		result.type = SPropertyElementData::Type::POINT;
 
-		std::string values[4] = { "0.0", "0.0", "0.0", "0.0" };
+		bool errorOccurred = false;
+		result.value = findStandardValue(_atts, errorOccurred, { "name", "x", "y", "z" });
 
-		for (int i = 0; _atts[i]; i += 2)
-		{
-			if (!std::strcmp(_atts[i], "name"))
-			{
-				continue;
-			}
-			if (!std::strcmp(_atts[i], "value"))
-			{
-				result.value = _atts[i + 1];
-				return std::make_pair(true, result);
-			}
-			else if (!std::strcmp(_atts[i], "x"))
-			{
-				values[0] = _atts[i + 1];
-			}
-			else if (!std::strcmp(_atts[i], "y"))
-			{
-				values[1] = _atts[i + 1];
-			}
-			else if (!std::strcmp(_atts[i], "z"))
-			{
-				values[2] = _atts[i + 1];
-			}
-			else if (!std::strcmp(_atts[i], "w"))
-			{
-				values[3] = _atts[i + 1];
-			}
-			else
-			{
-				_IRR_DEBUG_BREAK_IF(false);
-				return std::make_pair(false, SPropertyElementData());
-			}
-		}
+		if (errorOccurred)
+			return std::make_pair(false, SPropertyElementData());
 
-		result.value = values[0] + ' ' + values[1] + ' ' + values[2] + ' ' + values[3];
+		if (result.value != "not set")
+			return std::make_pair(true, result);
+
+		result.value = findAndConvertXYZAttsToSingleString(_atts, errorOccurred, { "name" });
+
+		if (errorOccurred)
+			return std::make_pair(false, SPropertyElementData());
 
 		return std::make_pair(true, result);
+		
 	}
 	else if (elName == "vector")
 	{
@@ -112,7 +201,7 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 	}
 
 	bool errorOccurred;
-	result.value = findStandardValue(_atts, errorOccurred);
+	result.value = findStandardValue(_atts, errorOccurred, { "name" });
 
 	if (errorOccurred)
 	{
@@ -210,7 +299,7 @@ core::vectorSIMDf CPropertyElementManager::retriveVector(const std::string& _dat
 		{
 			if (i == 3)
 			{
-				vectorData[3] = 1.0f;
+				vectorData[3] = 0.0f;
 				break;
 			}
 
@@ -223,32 +312,87 @@ core::vectorSIMDf CPropertyElementManager::retriveVector(const std::string& _dat
 	return core::vectorSIMDf(vectorData);
 }
 
-std::string CPropertyElementManager::findStandardValue(const char** _atts, bool& _errorOccurred)
+std::string CPropertyElementManager::findStandardValue(const char** _atts, bool& _errorOccurred, const core::vector<std::string>& _acceptableAttributes)
 {
-	std::string value;
-	bool isValueSet = false;
+	std::string value = "not set";
 
 	for (int i = 0; _atts[i]; i += 2)
 	{
 		if (!std::strcmp(_atts[i], "value"))
 		{
 			value = _atts[i + 1];
-			isValueSet = true;
-		}
-		else if (!std::strcmp(_atts[i], "name"))
-		{
-			continue;
 		}
 		else
 		{
+			bool acceptableAttrFound = false;
+			const std::string currAttr = _atts[i];
+			for (const std::string& attr : _acceptableAttributes)
+			{
+				if (currAttr == attr)
+				{
+					acceptableAttrFound = true;
+					break;
+				}
+			}
+
+			if (acceptableAttrFound)
+				continue;
+
 			ParserLog::invalidXMLFileStructure(std::string(_atts[i]) + "is not an attribute of the property element");
+			_IRR_DEBUG_BREAK_IF(true);
 			_errorOccurred = true;
 			return value;
 		}
 	}
 
-	_errorOccurred = isValueSet ? false : true;
+	_errorOccurred = false;
 	return value;
+}
+
+std::string CPropertyElementManager::findAndConvertXYZAttsToSingleString(const char** _atts, bool& _errorOccurred, const core::vector<std::string>& _acceptableAttributes)
+{
+	std::string values[3] = { "0.0", "0.0", "0.0" };
+
+	for (int i = 0; _atts[i]; i += 2)
+	{
+		if (!std::strcmp(_atts[i], "x"))
+		{
+			values[0] = _atts[i + 1];
+		}
+		else if (!std::strcmp(_atts[i], "y"))
+		{
+			values[1] = _atts[i + 1];
+		}
+		else if (!std::strcmp(_atts[i], "z"))
+		{
+			values[2] = _atts[i + 1];
+		}
+		else
+		{
+			bool acceptableAttrFound = false;
+			const std::string currAttr = _atts[i];
+			for (const std::string& attr : _acceptableAttributes)
+			{
+				if (currAttr == attr)
+				{
+					acceptableAttrFound = true;
+					break;
+				}
+			}
+
+			if (acceptableAttrFound)
+				break;
+
+			ParserLog::invalidXMLFileStructure(std::string(_atts[i]) + "is not an attribute of the property element");
+			_IRR_DEBUG_BREAK_IF(true);
+			_errorOccurred = true;
+			return "";
+		}
+	}
+
+	_errorOccurred = false;
+	std::string result = values[0] + ' ' + values[1] + ' ' + values[2];
+	return result;
 }
 
 }

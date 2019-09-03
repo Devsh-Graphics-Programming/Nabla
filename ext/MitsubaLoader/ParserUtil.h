@@ -99,7 +99,7 @@ private:
 		"float", "string", "boolean", "integer", 
 		"rgb", "srgb", "spectrum", 
 		"point", "vector", 
-		"matrix", "rotate", "translate", "scale",
+		"matrix", "rotate", "translate", "scale", "lookat",
 		nullptr
 	};
 };

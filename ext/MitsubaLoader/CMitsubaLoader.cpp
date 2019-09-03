@@ -36,7 +36,9 @@ namespace irr { namespace ext { namespace MitsubaLoader {
 	it’s interior has inward-facing normals, which most scattering models in Mitsuba will treat as fully
 	absorbing. If this is not desirable, consider using the twosided plugin." ...
 
- - (PropertyElement.cpp) these property elements must be finished: translate, rotate, scale, rgb, srgb, spectrum, vector
+ - (PropertyElement.cpp) these property elements must be finished: rgb, srgb, spectrum, vector
+
+ - rotate doesn't work..
 
  - (PropertyElement.cpp) use regex
 

@@ -9,6 +9,7 @@
 #include "../../ext/MitsubaLoader/CElementSensor.h"
 #include "../../ext/MitsubaLoader/CElementSampler.h"
 #include "../../ext/MitsubaLoader/CElementFilm.h"
+#include "../../ext/MitsubaLoader/CElementEmitter.h"
 #include "../../ext/MitsubaLoader/CShapeCreator.h"
 #include "../../ext/MitsubaLoader/Shape.h"
 
@@ -86,6 +87,20 @@ IElement* CElementFactory::createElement(const char* _el, const char** _atts)
 		}
 
 		return film;
+	}
+	else
+	if (!std::strcmp(_el, "emitter"))
+	{
+		CElementEmitter* emitter = new CElementEmitter();
+
+		if (!emitter->processAttributes(_atts))
+		{
+			delete emitter;
+			_IRR_DEBUG_BREAK_IF(true);
+			return nullptr;
+		}
+
+		return emitter;
 	}
 	else
 	{
