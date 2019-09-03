@@ -102,8 +102,8 @@
 #define _IRR_MATERIAL_MAX_UNIFORM_BUFFER_OBJECTS_ (24-_IRR_MATERIAL_MAX_DYNAMIC_UNIFORM_BUFFER_OBJECTS_) //opengl has one set of slots for both
 
 //! Maximum number of output buffers and streams a Transform Feedback Object can have
-#define _IRR_XFORM_FEEDBACK_MAX_BUFFERS_ 4
-#define _IRR_XFORM_FEEDBACK_MAX_STREAMS_ 4
+#define _IRR_XFORM_FEEDBACK_MAX_BUFFERS_ 4 //depr
+#define _IRR_XFORM_FEEDBACK_MAX_STREAMS_ 4 //depr
 
 //! Define _IRR_COMPILE_WITH_X11_ to compile the Irrlicht engine with X11 support.
 /** If you do not wish the engine to be compiled with X11, comment this

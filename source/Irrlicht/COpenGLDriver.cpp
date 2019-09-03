@@ -1429,7 +1429,7 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
         return;
 
     const COpenGLVAOSpec* meshLayoutVAO = static_cast<const COpenGLVAOSpec*>(mb->getMeshDataAndFormat());
-    if (!found->setActiveVAO(meshLayoutVAO,mb->isIndexCountGivenByXFormFeedback() ? mb:NULL))
+    if (!found->setActiveVAO(meshLayoutVAO,mb))
         return;
 
 #ifdef _IRR_DEBUG
@@ -1494,19 +1494,8 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
 
     if (indexSize)
         extGlDrawElementsInstancedBaseVertexBaseInstance(primType,mb->getIndexCount(),indexSize,(void*)mb->getIndexBufferOffset(),mb->getInstanceCount(),mb->getBaseVertex(),mb->getBaseInstance());
-    else if (mb->isIndexCountGivenByXFormFeedback())
-    {
-        COpenGLTransformFeedback* xfmFb = static_cast<COpenGLTransformFeedback*>(mb->getXFormFeedback());
-#ifdef _IRR_DEBUG
-        if (xfmFb->isEnded())
-            os::Printer::log("Trying To DrawTransformFeedback which hasn't ended yet (call glEndTransformFeedback() on the damn thing)!\n",ELL_ERROR);
-        if (mb->getXFormFeedbackStream()>=MaxVertexStreams)
-            os::Printer::log("Trying to use more than GL_MAX_VERTEX_STREAMS vertex streams in transform feedback!\n",ELL_ERROR);
-#endif // _IRR_DEBUG
-        extGlDrawTransformFeedbackStreamInstanced(primType,xfmFb->getOpenGLHandle(),mb->getXFormFeedbackStream(),mb->getInstanceCount());
-    }
     else
-        extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
+		extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
 }
 
 
