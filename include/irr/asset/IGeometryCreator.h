@@ -88,6 +88,10 @@ public:
 			const video::SColor& colorBottom=video::SColor(0xffffffff),
 			float oblique=0.f) const =0;
 
+	virtual asset::ICPUMesh* createRectangleMesh(const core::vector2df_SIMD& size = core::vector2df_SIMD(0.5f, 0.5f)) const = 0;
+
+	virtual asset::ICPUMesh* createDiskMesh(float radius, uint32_t tesselation) const = 0;
+
 };
 
 } // end namespace asset

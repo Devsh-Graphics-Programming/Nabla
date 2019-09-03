@@ -40,3 +40,15 @@ if (IRR_BUILD_BULLET)
         PARENT_SCOPE
     )
 endif()
+
+#if (IRR_BUILD_MITSUBA_LOADER)
+#    add_subdirectory(MitsubaLoader)
+#    set(IRR_EXT_MITSUBA_LOADER_INCLUDE_DIRS
+#        ${IRR_EXT_MITSUBA_LOADER_INCLUDE_DIRS}
+#        PARENT_SCOPE
+#    )
+#    set(IRR_EXT_MITSUBA_LOADER_LIB
+#        ${IRR_EXT_MITSUBA_LOADER_LIB}
+#        PARENT_SCOPE
+#    )
+#endif()

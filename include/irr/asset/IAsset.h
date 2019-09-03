@@ -4,7 +4,9 @@
 #include <string>
 #include "irr/core/core.h"
 
-namespace irr { namespace asset
+namespace irr
+{
+namespace asset
 {
 
 class IAssetManager;
@@ -149,6 +151,7 @@ private:
     core::smart_refctd_ptr<const contents_container_t> m_contents;
 };
 
-}}
+}
+}
 
 #endif // __IRR_I_ASSET_H_INCLUDED__
