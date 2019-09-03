@@ -21,6 +21,8 @@ template core::vector<typename video::asset_traits<asset::ICPUBuffer>::GPUObject
 template core::vector<typename video::asset_traits<asset::ICPUMeshBuffer>::GPUObjectType*> IDriver::getGPUObjectsFromAssets<asset::ICPUMeshBuffer>(asset::ICPUMeshBuffer** const, asset::ICPUMeshBuffer** const, IGPUObjectFromAssetConverter* _converter);
 template core::vector<typename video::asset_traits<asset::ICPUMesh>::GPUObjectType*> IDriver::getGPUObjectsFromAssets<asset::ICPUMesh>(asset::ICPUMesh** const, asset::ICPUMesh** const, IGPUObjectFromAssetConverter* _converter);
 template core::vector<typename video::asset_traits<asset::ICPUTexture>::GPUObjectType*> IDriver::getGPUObjectsFromAssets<asset::ICPUTexture>(asset::ICPUTexture** const, asset::ICPUTexture** const, IGPUObjectFromAssetConverter* _converter);
+template core::vector<typename video::asset_traits<asset::ICPUShader>::GPUObjectType*> IDriver::getGPUObjectsFromAssets<asset::ICPUShader>(asset::ICPUShader** const, asset::ICPUShader** const, IGPUObjectFromAssetConverter* _converter);
+template core::vector<typename video::asset_traits<asset::ICPUSpecializedShader>::GPUObjectType*> IDriver::getGPUObjectsFromAssets<asset::ICPUSpecializedShader>(asset::ICPUSpecializedShader** const, asset::ICPUSpecializedShader** const, IGPUObjectFromAssetConverter* _converter);
 
 }}
 

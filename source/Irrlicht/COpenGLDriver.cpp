@@ -1049,6 +1049,9 @@ bool COpenGLDriver::genericDriverInit()
 	//createMaterialRenderers();
     //WARNING EMT_SOLID and other "default shaders" won't work now
 
+    int32_t dummy;
+    MaterialRenderers.push_back({ "", new COpenGLSLMaterialRenderer(this, dummy) });
+
 	// set the renderstates
 	setRenderStates3DMode();
 
@@ -1072,9 +1075,6 @@ bool COpenGLDriver::genericDriverInit()
 	}
 
     DerivativeMapCreator = new CDerivativeMapCreator(this);
-
-    int32_t dummy;
-    addAndDropMaterialRenderer(new COpenGLSLMaterialRenderer(this, dummy));
 
 	return true;
 }
@@ -2468,6 +2468,7 @@ void COpenGLDriver::setRenderStates3DMode()
 			MaterialRenderers[0].Renderer->OnSetMaterial(
 				Material, LastMaterial, ResetRenderStates, this);
 
+            extGlUseProgram(0u);//shouldnt really be here
             extGlBindProgramPipeline(getPipeline(Material.Pipeline));
 /*
         WARNING! Commented-out this transform-feedback-related piece of code 

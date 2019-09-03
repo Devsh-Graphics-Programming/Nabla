@@ -3,6 +3,7 @@
 
 //#include "../src/irr/asset/CBAWMeshWriter.h"
 #include <SVertexManipulator.h>
+#include "../../source/Irrlicht/COpenGLDriver.h"
 
 using namespace irr;
 using namespace core;
@@ -183,13 +184,18 @@ void main() {
 */
     const asset::IGLSLCompiler* glslcomp = am.getGLSLCompiler();
     asset::ISpecializationInfo* vs_specInfo = new asset::ISpecializationInfo({}, nullptr, "main", asset::ESS_VERTEX);
-    asset::ISpecializationInfo* fs_specInfo = new asset::ISpecializationInfo({}, nullptr, "main", asset::ESS_VERTEX);
+    asset::ISpecializationInfo* fs_specInfo = new asset::ISpecializationInfo({}, nullptr, "main", asset::ESS_FRAGMENT);
     asset::ICPUShader* vs_unspec = glslcomp->createSPIRVFromGLSL(filesystem->createAndOpenFile("../mesh.vert"), asset::ESS_VERTEX, "main", "../mesh.vert");
     asset::ICPUSpecializedShader* vs = new asset::ICPUSpecializedShader(vs_unspec, vs_specInfo);
     vs_specInfo->drop();
-    asset::ICPUShader* fs_unspec = glslcomp->createSPIRVFromGLSL(filesystem->createAndOpenFile("../mesh.frag"), asset::ESS_VERTEX, "main", "../mesh.frag");
+    asset::ICPUShader* fs_unspec = glslcomp->createSPIRVFromGLSL(filesystem->createAndOpenFile("../mesh.frag"), asset::ESS_FRAGMENT, "main", "../mesh.frag");
     asset::ICPUSpecializedShader* fs = new asset::ICPUSpecializedShader(fs_unspec, fs_specInfo);
     fs_specInfo->drop();
+
+    struct UBO {
+        float f[20];
+    } ubo;
+    video::IGPUBuffer* gpubuf_ubo = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(ubo));
 
     asset::ICPUSpecializedShader* cpushaders[]{ vs, fs };
     auto gpushaders = driver->getGPUObjectsFromAssets(cpushaders, cpushaders+2);
@@ -239,13 +245,28 @@ void main() {
         gpumesh->drop();
     }
 
-
 	uint64_t lastFPSTime = 0;
 
 	while(!quit && device->run())
 	//if (device->isWindowActive())
 	{
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );
+
+        core::matrix4SIMD MVP = driver->getTransform(video::EPTS_PROJ_VIEW_WORLD);
+        MVP = MVP.getTransposed();
+        core::vectorSIMDf cameraPos;
+        cameraPos.set(driver->getTransform(video::E4X3TS_WORLD_VIEW_INVERSE).getTranslation());
+        memcpy(ubo.f, cameraPos.pointer, 4*4);
+        memcpy(ubo.f+4, MVP.pointer(), 4*16);
+        driver->updateBufferRangeViaStagingBuffer(gpubuf_ubo, 0, sizeof(ubo), ubo.f);
+
+        auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(driver)->getThreadContext());
+
+        const video::COpenGLBuffer* buf{ static_cast<const video::COpenGLBuffer*>(gpubuf_ubo) };
+        ptrdiff_t offset = 0;
+        ptrdiff_t size = gpubuf_ubo->getSize();
+
+        auxCtx->setActiveUBO(0u, 1u, &buf, &offset, &size);
 
         //! This animates (moves) the camera and sets the transforms
         //! Also draws the meshbuffer

@@ -1,8 +1,8 @@
-#version 330 core
+#version 450 core
 
-in vec4 Color; //per vertex output color, will be interpolated across the triangle
-in vec3 Normal;
-in vec3 lightDir;
+layout (location = 0) in vec4 Color; //per vertex output color, will be interpolated across the triangle
+layout (location = 1) in vec3 Normal;
+layout (location = 2) in vec3 lightDir;
 
 layout(location = 0) out vec4 pixelColor;
 

@@ -393,7 +393,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUSpecializedShader** const _
     core::vector<size_t> redirs = eliminateDuplicatesAndGenRedirs(cpuDeps);
     core::vector<typename video::asset_traits<asset::ICPUShader>::GPUObjectType*> gpuDeps = getGPUObjectsFromAssets(cpuDeps.data(), cpuDeps.data()+cpuDeps.size());
     it = _begin;
-    while (it != _begin)
+    while (it != _end)
     {
         res.push_back(
             m_driver->createGPUSpecializedShader(gpuDeps[redirs[it-_begin]], (*it)->getSpecializationInfo())
