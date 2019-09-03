@@ -289,37 +289,6 @@ bool CCameraSceneNode::getTargetAndRotationBinding(void) const
 }
 
 
-//! Creates a clone of this scene node and its children.
-ISceneNode* CCameraSceneNode::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
-{
-	ICameraSceneNode::clone(newParent, newManager);
-
-	if (!newParent)
-		newParent = Parent;
-	if (!newManager)
-		newManager = SceneManager;
-
-	CCameraSceneNode* nb = new CCameraSceneNode(newParent,
-		newManager, ID, RelativeTranslation, Target);
-
-	nb->ISceneNode::cloneMembers(this, newManager);
-
-	nb->Target = Target;
-	nb->UpVector = UpVector;
-	nb->Fovy = Fovy;
-	nb->Aspect = Aspect;
-	nb->ZNear = ZNear;
-	nb->ZFar = ZFar;
-	nb->ViewArea = ViewArea;
-	nb->InputReceiverEnabled = InputReceiverEnabled;
-	nb->TargetAndRotationAreBound = TargetAndRotationAreBound;
-
-	if ( newParent )
-		nb->drop();
-	return nb;
-}
-
-
 } // end namespace
 } // end namespace
 

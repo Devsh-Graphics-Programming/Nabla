@@ -91,7 +91,7 @@ class COpenGLTextureBufferObject : public COpenGLTexture, public ITextureBufferO
 
     public:
         //! constructor
-        COpenGLTextureBufferObject(COpenGLBuffer* buffer, E_TEXURE_BUFFER_OBJECT_FORMAT format, const size_t& offset=0, const size_t& length=0, core::LeakDebugger* dbgr=NULL)
+        COpenGLTextureBufferObject(COpenGLBuffer* buffer, E_TEXURE_BUFFER_OBJECT_FORMAT format, const size_t& offset=0, const size_t& length=0, core::CLeakDebugger* dbgr=NULL)
                                     : COpenGLTexture(GL_TEXTURE_BUFFER), lastValidated(0), currentBuffer(NULL), Offset(0), Length(0), leakTracker(dbgr), InternalFormat(GL_INVALID_ENUM), ColorFormat(asset::EF_UNKNOWN), TextureSize(0)
         {
             if (leakTracker)
@@ -116,7 +116,7 @@ class COpenGLTextureBufferObject : public COpenGLTexture, public ITextureBufferO
         virtual E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_BUFFER_OBJECT;}
 
         //! returns pitch of texture (in bytes)
-        virtual uint64_t getByteSize() const {return video::getBitsPerPixelFromFormat(ColorFormat)*uint64_t(TextureSize)/8ull;}
+        virtual uint64_t getByteSize() const {return (core::rational<uint64_t>(asset::getBytesPerPixel(ColorFormat))*uint64_t(TextureSize)).getIntegerApprox();}
 
 
         //! returns the opengl texture type
@@ -315,7 +315,7 @@ class COpenGLTextureBufferObject : public COpenGLTexture, public ITextureBufferO
         COpenGLBuffer* currentBuffer;
         size_t Length,Offset;
 
-        core::LeakDebugger* leakTracker;
+        core::CLeakDebugger* leakTracker;
 
         uint32_t TextureSize;
 

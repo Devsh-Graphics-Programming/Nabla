@@ -15,7 +15,7 @@
 
 # submodule managment
 function(update_git_submodule _PATH)
-	execute_process(COMMAND git submodule update --init --recursive ${_PATH}
+	execute_process(COMMAND git submodule update --recursive ${_PATH}
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 	)
 endfunction()
@@ -157,10 +157,10 @@ macro(irr_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	)
 
 	set("IRR_EXT_${EXT_NAME}_INCLUDE_DIRS"
-		"${CMAKE_SOURCE_DIR}/include/"
-		"${CMAKE_SOURCE_DIR}/src"
-		"${CMAKE_SOURCE_DIR}/source/Irrlicht"
-		"${CMAKE_SOURCE_DIR}/ext/${EXT_NAME}"
+		"${IRR_ROOT_PATH}/include/"
+		"${IRR_ROOT_PATH}/src"
+		"${IRR_ROOT_PATH}/source/Irrlicht"
+		"${IRR_ROOT_PATH}/ext/${EXT_NAME}"
 		"${LIB_INCLUDES}"
 		PARENT_SCOPE
 	)

@@ -13,19 +13,14 @@
 #include "path.h"
 #include "irr/asset/IAssetLoader.h"
 
-namespace irr {
-
-class IrrlichtDevice;
-
-namespace scene
+namespace irr
 {
-	class ISceneManager;
-	class CFinalBoneHierarchy;
-}
+
 namespace asset
 {
     class ICPUSkinnedMesh;
     class ICPUSkinnedMeshBuffer;
+	class IAssetManager;
 }
 namespace io
 {
@@ -38,7 +33,7 @@ namespace asset
 	struct BlobLoadingParams
 	{
         IAssetLoader* ldr;
-        IrrlichtDevice* device;
+        IAssetManager* manager;
 		io::IFileSystem* fs;
 		io::path filePath;
         asset::IAssetLoader::SAssetLoadParams params;

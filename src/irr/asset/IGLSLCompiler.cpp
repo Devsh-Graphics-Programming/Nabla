@@ -1,5 +1,6 @@
+#include "irr/core/core.h"
+
 #include "irr/asset/IGLSLCompiler.h"
-#include "coreutil.h"
 #include "irr/asset/ICPUShader.h"
 #include "irr/asset/shadercUtils.h"
 

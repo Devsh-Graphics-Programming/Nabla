@@ -4,11 +4,9 @@
 // Code for this scene node has been contributed by Anders la Cour-Harbo (alc)
 
 #include "CSkyDomeSceneNode.h"
-#include "IVideoDriver.h"
-#include "ISceneManager.h"
+
 #include "ICameraSceneNode.h"
-#include "IAnimatedMesh.h"
-#include "os.h"
+#include "ISceneManager.h"
 
 namespace irr
 {
@@ -31,10 +29,10 @@ namespace scene
 	to use a value slightly bigger than 1 to avoid a gap between some ground place and the sky. This
 	parameters stretches the image to fit the chosen "sphere-size". */
 
-CSkyDomeSceneNode::CSkyDomeSceneNode(video::IVirtualTexture* sky, uint32_t horiRes, uint32_t vertRes,
+CSkyDomeSceneNode::CSkyDomeSceneNode(core::smart_refctd_ptr<video::IVirtualTexture>&& texture, uint32_t horiRes, uint32_t vertRes,
 		float texturePercentage, float spherePercentage, float radius,
 		IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id)
-	: ISceneNode(parent, mgr, id), Buffer(0),
+	: ISceneNode(parent, mgr, id), Buffer(nullptr),
 	  HorizontalResolution(horiRes), VerticalResolution(vertRes),
 	  TexturePercentage(texturePercentage),
 	  SpherePercentage(spherePercentage), Radius(radius)
@@ -49,7 +47,7 @@ CSkyDomeSceneNode::CSkyDomeSceneNode(video::IVirtualTexture* sky, uint32_t horiR
 	Buffer->getMaterial().ZBuffer = video::ECFN_NEVER;
 	Buffer->getMaterial().BackfaceCulling = false;
 	Buffer->getMaterial().ZWriteEnable = false;
-	Buffer->getMaterial().setTexture(0, sky);
+	Buffer->getMaterial().setTexture(0, std::move(texture));
 	BoundingBox.MaxEdge.set(0,0,0);
 	BoundingBox.MinEdge.set(0,0,0);
 
@@ -145,8 +143,7 @@ void CSkyDomeSceneNode::generateMesh()
 		}
 	}
 
-    video::IGPUMeshDataFormatDesc* vao = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
-	Buffer->setMeshDataAndFormat(vao);
+    auto vao = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
 
 	video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
 	reqs.vulkanReqs.size = numOfIndices*sizeof(uint16_t);
@@ -156,24 +153,26 @@ void CSkyDomeSceneNode::generateMesh()
 	reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
 	reqs.prefersDedicatedAllocation = true;
 	reqs.requiresDedicatedAllocation = true;
-    video::IGPUBuffer* indexBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
-    indexBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),indices);
-    _IRR_ALIGNED_FREE(indices);
-	vao->setIndexBuffer(indexBuf);
-	Buffer->setIndexType(asset::EIT_16BIT);
-	Buffer->setIndexCount(numOfIndices);
-	indexBuf->drop();
+	{
+		auto indexBuf = core::smart_refctd_ptr<video::IGPUBuffer>(SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs, true), core::dont_grab);
+		indexBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0, reqs.vulkanReqs.size), indices);
+		_IRR_ALIGNED_FREE(indices);
+		vao->setIndexBuffer(std::move(indexBuf));
+		Buffer->setIndexType(asset::EIT_16BIT);
+		Buffer->setIndexCount(numOfIndices);
+	}
 
 	reqs.vulkanReqs.size = 4*numberOfVertices*(3+2);
 	reqs.vulkanReqs.alignment = 4;
-    video::IGPUBuffer* vAttr = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
-    vAttr->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),vertices);
-    _IRR_ALIGNED_FREE(vertices);
-    vao->setVertexAttrBuffer(vAttr,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,4*(3+2),0);
-    vao->setVertexAttrBuffer(vAttr,asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT,4*(3+2),4*3);
-    vAttr->drop();
+	{
+		auto vAttr = core::smart_refctd_ptr<video::IGPUBuffer>(SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs, true),core::dont_grab);
+		vAttr->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0, reqs.vulkanReqs.size), vertices);
+		_IRR_ALIGNED_FREE(vertices);
+		vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(vAttr), asset::EVAI_ATTR0, asset::EF_R32G32B32_SFLOAT, 4 * (3 + 2), 0);
+		vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(vAttr), asset::EVAI_ATTR2, asset::EF_R32G32_SFLOAT, 4 * (3 + 2), 4 * 3);
+	}
 
-    vao->drop();
+	Buffer->setMeshDataAndFormat(std::move(vao));
 }
 
 
@@ -247,23 +246,6 @@ video::SGPUMaterial& CSkyDomeSceneNode::getMaterial(uint32_t i)
 uint32_t CSkyDomeSceneNode::getMaterialCount() const
 {
 	return 1;
-}
-
-//! Creates a clone of this scene node and its children.
-ISceneNode* CSkyDomeSceneNode::clone(IDummyTransformationSceneNode* newParent, ISceneManager* newManager)
-{
-	if (!newParent)
-		newParent = Parent;
-	if (!newManager)
-		newManager = SceneManager;
-
-	CSkyDomeSceneNode* nb = new CSkyDomeSceneNode(this, newParent, newManager, ID);
-
-	nb->cloneMembers(this, newManager);
-
-	if ( newParent )
-		nb->drop();
-	return nb;
 }
 
 } // namespace scene

@@ -19,6 +19,9 @@ cmake_minimum_required(VERSION 3.14)
 
 project(Irrlicht LANGUAGES CXX C)
 
+#
+get_filename_component(IRR_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
+
 # Configure CCache if available
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
@@ -179,6 +182,10 @@ option(IRR_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 
+execute_process(COMMAND git submodule init
+		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+execute_process(COMMAND git submodule sync --recursive
+		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 add_subdirectory(source/Irrlicht) # Irrlicht code

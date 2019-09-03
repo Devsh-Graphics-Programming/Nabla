@@ -94,8 +94,10 @@
 // For dumb MSVC which now has to keep a spec bug to avoid breaking existing source code
 #if defined(_MSC_VER)
     #define IRR_FORCE_EBO __declspec(empty_bases)
+	#define IRR_NO_VTABLE __declspec(novtable)
 #else
     #define IRR_FORCE_EBO
+    #define IRR_NO_VTABLE
 #endif // old FORCE_EMPTY_BASE_OPT
 
 #if __GNUC__ < 7 || (__GNUC__ == 7 && (__GNUC_MINOR__ < 2)) // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=67054

@@ -3,49 +3,19 @@
 #include <iostream>
 #include <cstdio>
 
+#include "../../ext/ScreenShot/ScreenShot.h"
 #include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
-
 #include "../source/Irrlicht/COpenGLDriver.h"
 #include "COpenGLStateManager.h"
-
 #include "../ext/AutoExposure/CToneMapper.h"
+
+#include "../common/QToQuitEventReceiver.h"
 
 using namespace irr;
 using namespace core;
 
 
 #define OPENGL_DEBUG
-
-bool quit = false;
-
-//!Same As Last Example
-class MyEventReceiver : public IEventReceiver
-{
-public:
-
-	MyEventReceiver()
-	{
-	}
-
-	bool OnEvent(const SEvent& event)
-	{
-        if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
-        {
-            switch (event.KeyInput.Key)
-            {
-            case irr::KEY_KEY_Q: // switch wire frame mode
-                quit = true;
-                return true;
-            default:
-                break;
-            }
-        }
-
-		return false;
-	}
-
-private:
-};
 
 
 #ifdef OPENGL_DEBUG
@@ -203,7 +173,7 @@ int main()
 	if (device == 0)
 		return 1; // could not create selected driver.
 
-	MyEventReceiver receiver;
+	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
 	video::IVideoDriver* driver = device->getVideoDriver();
@@ -226,14 +196,14 @@ int main()
 #endif // OPENGL_DEBUG
 
 	//upload screendump to a texture
-	video::ITexture* hdrTex = driver->createGPUTexture(video::ITexture::ETT_2D,&params.WindowSize.Width,1,asset::EF_R16G16B16A16_SFLOAT);
+	auto hdrTex = driver->createGPUTexture(video::ITexture::ETT_2D,&params.WindowSize.Width,1,asset::EF_R16G16B16A16_SFLOAT);
 	uint32_t zeroArray[3] = {0,0,0};
 	uint32_t subSize[3] = {dynamicResolutionSize.Width,dynamicResolutionSize.Height,1};
 	hdrTex->updateSubRegion(asset::EF_R16G16B16A16_SFLOAT,tmpLoadingMem,zeroArray,subSize);
 	free(tmpLoadingMem);
 
 
-    video::IGPUMeshBuffer* fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(driver);
+    auto fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(driver);
 
     video::SGPUMaterial postProcMaterial;
     //! First need to make a material other than default to be able to draw with custom shader
@@ -244,7 +214,7 @@ int main()
                                                                         "","","", //! No Geometry or Tessellation Shaders
                                                                         "../postproc.frag",
                                                                         3,video::EMT_SOLID); //! 3 vertices per primitive (this is tessellation shader relevant only)
-    postProcMaterial.setTexture(0,hdrTex);
+    postProcMaterial.setTexture(0,core::smart_refctd_ptr(hdrTex));
 
 
 
@@ -266,12 +236,12 @@ int main()
 
 	uint64_t lastFPSTime = 0;
 
-	while(device->run()&&(!quit))
+	while(device->run()&&receiver.keepOpen())
 	{
 		driver->beginScene( false,false );
 
 
-        toneMapper->CalculateFrameExposureFactors(frameUniformBuffer,frameUniformBuffer,hdrTex);
+        toneMapper->CalculateFrameExposureFactors(frameUniformBuffer,frameUniformBuffer,core::smart_refctd_ptr(hdrTex));
 
 
         const video::COpenGLDriver::SAuxContext* foundConst = static_cast<video::COpenGLDriver*>(driver)->getThreadContext();
@@ -284,7 +254,7 @@ int main()
             found->setActiveUBO(0,1,buffers,offsets,sizes);
         }
         driver->setMaterial(postProcMaterial);
-        driver->drawMeshBuffer(fullScreenTriangle);
+        driver->drawMeshBuffer(fullScreenTriangle.get());
 
 		driver->endScene();
 
@@ -301,35 +271,12 @@ int main()
 	}
 
 	toneMapper->drop();
-	fullScreenTriangle->drop();
 
-
-    //create a screenshot
-	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
-        video::COpenGLExtensionHandler::extGlNamedFramebufferReadBuffer(0,GL_FRONT_LEFT);
-    glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
-    {
-        // images are horizontally flipped, so we have to fix that here.
-        uint8_t* pixels = (uint8_t*)screenshot->getData();
-
-        const int32_t pitch=screenshot->getPitch();
-        uint8_t* p2 = pixels + (params.WindowSize.Height - 1) * pitch;
-        uint8_t* tmpBuffer = new uint8_t[pitch];
-        for (uint32_t i=0; i < params.WindowSize.Height; i += 2)
-        {
-            memcpy(tmpBuffer, pixels, pitch);
-            memcpy(pixels, p2, pitch);
-            memcpy(p2, tmpBuffer, pitch);
-            pixels += pitch;
-            p2 -= pitch;
-        }
-        delete [] tmpBuffer;
-    }
-    asset::CImageData* img = new asset::CImageData(screenshot);
-    asset::IAssetWriter::SAssetWriteParams wparams(img);
-    device->getAssetManager().writeAsset("screenshot.png", wparams);
-    img->drop();
-    screenshot->drop();
+	//create a screenshot
+	{
+		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+	}
 
 	device->drop();
 

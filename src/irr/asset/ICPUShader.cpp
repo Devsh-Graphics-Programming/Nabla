@@ -1,7 +1,7 @@
 #include "irr/asset/ICPUShader.h"
 #include "spirv_cross/spirv_parser.hpp"
 #include "spirv_cross/spirv_cross.hpp"
-#include "irr/asset/EFormat.h"
+#include "irr/asset/format/EFormat.h"
 
 namespace irr { namespace asset
 {

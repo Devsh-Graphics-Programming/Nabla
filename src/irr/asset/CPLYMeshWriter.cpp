@@ -2,9 +2,9 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#include "IrrCompileConfig.h"
+#include "irr/core/core.h"
 
-//#ifdef _IRR_COMPILE_WITH_PLY_WRITER_
+#ifdef _IRR_COMPILE_WITH_PLY_WRITER_
 
 #include "CPLYMeshWriter.h"
 #include "os.h"
@@ -154,20 +154,19 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
         const asset::E_PRIMITIVE_TYPE primitiveT = mesh->getMeshBuffer(0)->getPrimitiveType();
         if (primitiveT == asset::EPT_TRIANGLE_FAN || primitiveT == asset::EPT_TRIANGLE_STRIP)
         {
-            asset::ICPUBuffer* buf = nullptr;
+			core::smart_refctd_ptr<ICPUBuffer> buf;
             if (primitiveT == asset::EPT_TRIANGLE_FAN)
             {
-                buf = CMeshManipulator().idxBufferFromTrianglesFanToTriangles(ind, idxCnt, idxtype);
+                buf = IMeshManipulator::idxBufferFromTrianglesFanToTriangles(ind, idxCnt, idxtype);
             }
             else if (primitiveT == asset::EPT_TRIANGLE_STRIP)
             {
-                buf = CMeshManipulator().idxBufferFromTriangleStripsToTriangles(ind, idxCnt, idxtype);
+                buf = IMeshManipulator::idxBufferFromTriangleStripsToTriangles(ind, idxCnt, idxtype);
             }
             needToFreeIndices = true;
             faceCount = buf->getSize() / (idxtype == asset::EIT_16BIT ? 2u : 4u) / 3u;
             indices = _IRR_ALIGNED_MALLOC(buf->getSize(),_IRR_SIMD_ALIGNMENT);
             memcpy(indices, buf->getPointer(), buf->getSize());
-            buf->drop();
         }
     }
     else
@@ -398,7 +397,7 @@ void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuf
     {
         _mbuf->getAttribute(ui, _vaid, _ix);
 
-        const uint32_t bytesPerCh = asset::getTexelOrBlockSize(t)/asset::getFormatChannelCount(t);
+        const uint32_t bytesPerCh = asset::getTexelOrBlockBytesize(t)/asset::getFormatChannelCount(t);
         if (bytesPerCh == 1u || t == asset::EF_A2B10G10R10_UINT_PACK32 || t == asset::EF_A2B10G10R10_SINT_PACK32 || t == asset::EF_A2B10G10R10_SSCALED_PACK32 || t == asset::EF_A2B10G10R10_USCALED_PACK32)
         {
             uint8_t a[4];
@@ -429,7 +428,7 @@ asset::ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrue
 {
     asset::ICPUMeshBuffer* mbCopy = new asset::ICPUMeshBuffer();
     auto origDesc = _mbuf->getMeshDataAndFormat();
-    asset::ICPUMeshDataFormatDesc* desc = new asset::ICPUMeshDataFormatDesc();
+    auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
     for (size_t i = asset::EVAI_ATTR0; i < asset::EVAI_COUNT; ++i)
     {
         asset::E_VERTEX_ATTRIBUTE_ID vaid = (asset::E_VERTEX_ATTRIBUTE_ID)i;
@@ -437,7 +436,7 @@ asset::ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrue
         if (origDesc->getMappedBuffer(vaid))
         {
             desc->setVertexAttrBuffer(
-                const_cast<asset::ICPUBuffer*>(origDesc->getMappedBuffer(vaid)),
+                core::smart_refctd_ptr<asset::ICPUBuffer>(const_cast<asset::ICPUBuffer*>(origDesc->getMappedBuffer(vaid))),
                 vaid,
                 asset::isNormalizedFormat(t) ? impl::getCorrespondingIntegerFormat(t) : t,
                 origDesc->getMappedBufferStride(vaid),
@@ -446,8 +445,7 @@ asset::ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrue
             );
         }
     }
-    mbCopy->setMeshDataAndFormat(desc);
-    desc->drop();
+    mbCopy->setMeshDataAndFormat(std::move(desc));
 
     mbCopy->setBaseVertex(_mbuf->getBaseVertex());
     mbCopy->setIndexCount(_mbuf->getIndexCount());
@@ -555,5 +553,5 @@ std::string CPLYMeshWriter::getTypeString(asset::E_FORMAT _t)
 } // end namespace
 } // end namespace
 
-//#endif // _IRR_COMPILE_WITH_PLY_WRITER_
+#endif // _IRR_COMPILE_WITH_PLY_WRITER_
 

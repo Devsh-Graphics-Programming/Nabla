@@ -10,13 +10,13 @@
 // After Irrlicht 0.12, Michael Zoech did some improvements to this renderer, I
 // merged this into Irrlicht 0.14, thanks to him for his work.
 
-#include "IrrCompileConfig.h"
+#include "irr/core/core.h"
+
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
 #include "COpenGLSLMaterialRenderer.h"
 #include "IGPUProgrammingServices.h"
 #include "IMaterialRendererServices.h"
-#include "IVideoDriver.h"
 #include "os.h"
 #include "COpenGLDriver.h"
 

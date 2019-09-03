@@ -4,7 +4,7 @@
 #include "CFinalBoneHierarchy.h"
 #include "IDummyTransformationSceneNode.h"
 #include "irr/core/alloc/PoolAddressAllocator.h"
-#include "irr/video/ResizableBufferingAllocator.h"
+#include "irr/video/alloc/ResizableBufferingAllocator.h"
 
 #include "IVideoDriver.h"
 
@@ -22,8 +22,7 @@ namespace scene
         Lets think about GPU Boning:
             Need to calculate Hierarchy Positions Unless all Level 1+ bones use Global Skinning Space
             Calculate by pingponging between buffer A and B, K times where K is the depth of the hierarchy of bones!
-            For XForm Feedback to work on that, it needs to output all of the joint hierarchy level data out at once for all bones.
-            Only Compute Shader/Pixel Shader with GL_LINES would be able to write to non-continous areas of memory.
+			Or use Timothy Lottes hierarchy traversal trick, and recompute previous level if not ready yet!
 
             INTERMEDIATE REPRESENTATION:
             [{Instance0_J0,Instance1_J0, ... , Instance1_J0},{Instance0_J1,Instance1_J1, ... , InstanceN_J1}, ... ,{Instance0_JM,Instance1_JM, ... , InstanceN_JM}]
@@ -36,9 +35,8 @@ namespace scene
 
 
             1) GPU calculated Final Bone Positions, hence Final BBox for each bone => Final BBox for Node
-            2) So either readback or culling performed on GPU => Write to constrained location (compute/imgstore buffer or FBO) or xform feedback compaction
+            2) So either readback or culling performed on GPU => Write to constrained location SSBO
                 2a) Would need an additional compaction or index construction step to retrieve instance data (bones and stuff)
-                2b) XForm Feedback step compacts the buffer and disallows for using same buffer+pass for different sized aux data (different data per-bone)
                     This also requires the use of atomics to query the offsets and counts of instances for each instance-subtype (per meshes drawn with different materials)
                     ALSO THE INSTANCE-SUBTYPES NEED TO BE IN CONTINUOUS BUFFERS!!! - GRANULE ALLOCATION SCREWED!!!
                     Would effectively require a multi-granule buffer
@@ -214,7 +212,7 @@ namespace scene
             };
 
             //! Constructor
-            ISkinningStateManager(const E_BONE_UPDATE_MODE& boneControl, video::IVideoDriver* driver, const CFinalBoneHierarchy* sourceHierarchy)
+            ISkinningStateManager(const E_BONE_UPDATE_MODE& boneControl, video::IVideoDriver* driver, const asset::CFinalBoneHierarchy* sourceHierarchy)
                     : usingGPUorCPUBoning(-100), boneControlMode(boneControl), referenceHierarchy(sourceHierarchy), instanceData(nullptr), instanceDataSize(0)
             {
                 referenceHierarchy->grab();
@@ -336,7 +334,7 @@ namespace scene
 
             int8_t usingGPUorCPUBoning;
             const E_BONE_UPDATE_MODE boneControlMode;
-            const CFinalBoneHierarchy* referenceHierarchy;
+            const asset::CFinalBoneHierarchy* referenceHierarchy;
 
             size_t actualSizeOfInstanceDataElement;
             class BoneHierarchyInstanceData : public core::AlignedBase<_IRR_SIMD_ALIGNMENT>

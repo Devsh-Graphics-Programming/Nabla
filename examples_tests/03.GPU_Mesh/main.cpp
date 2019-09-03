@@ -1,44 +1,16 @@
 #define _IRR_STATIC_LIB_
-#include <irrlicht.h>
 #include <iostream>
 #include <cstdio>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+#include <irrlicht.h>
+#include "../common/QToQuitEventReceiver.h"
+
+//! I advise to check out this file, its a basic input handler
+#include "../../ext/ScreenShot/ScreenShot.h"
 
 
 using namespace irr;
 using namespace core;
 
-
-/**
-We do cool stuff here, like make an event receiver to process input
-**/
-class MyEventReceiver : public IEventReceiver
-{
-public:
-
-	MyEventReceiver()
-	{
-	}
-
-	bool OnEvent(const SEvent& event)
-	{
-        if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
-        {
-            switch (event.KeyInput.Key)
-            {
-            case irr::KEY_KEY_Q: // switch wire frame mode
-                exit(0);
-                return true;
-            default:
-                break;
-            }
-        }
-
-		return false;
-	}
-
-private:
-};
 
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
@@ -98,6 +70,18 @@ int main()
 		return 1; // could not create selected driver.
 
 
+
+	//! disable mouse cursor, since camera will force it to the middle
+	//! and we don't want a jittery cursor in the middle distracting us
+	device->getCursorControl()->setVisible(false);
+
+	//! Since our cursor will be enslaved, there will be no way to close the window
+	//! So we listen for the "Q" key being pressed and exit the application
+	QToQuitEventReceiver receiver;
+	device->setEventReceiver(&receiver);
+
+
+
 	video::IVideoDriver* driver = device->getVideoDriver();
     SimpleCallBack* callBack = new SimpleCallBack();
 
@@ -113,6 +97,7 @@ int main()
     callBack->drop();
 
 
+	auto* assetMgr = device->getAssetManager();
 	scene::ISceneManager* smgr = device->getSceneManager();
 
 
@@ -125,37 +110,36 @@ int main()
 	switch (c)
 	{
         case '1':
-        {
-            asset::IAssetManager& assetMgr = device->getAssetManager();
-            asset::IAssetLoader::SAssetLoadParams lparams;
-            asset::ICPUTexture* cputextures[] {
-                static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_up.jpg", lparams)),
-                static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_dn.jpg", lparams)),
-                static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_lf.jpg", lparams)),
-                static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_rt.jpg", lparams)),
-                static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_ft.jpg", lparams)),
-                static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_bk.jpg", lparams))
-            };
-            core::vector<video::ITexture*> gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures+6);
+			{
+				asset::IAssetLoader::SAssetLoadParams lparams;
+				asset::ICPUTexture* cputextures[] {
+					static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_up.jpg", lparams).getContents().first->get()),
+					static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_dn.jpg", lparams).getContents().first->get()),
+					static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_lf.jpg", lparams).getContents().first->get()),
+					static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_rt.jpg", lparams).getContents().first->get()),
+					static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_ft.jpg", lparams).getContents().first->get()),
+					static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_bk.jpg", lparams).getContents().first->get())
+				};
+				auto gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures+6);
 
-            smgr->addSkyBoxSceneNode(
-                gputextures[0],
-                gputextures[1],
-                gputextures[2],
-                gputextures[3],
-                gputextures[4],
-                gputextures[5]
-            );
-        }
+				smgr->addSkyBoxSceneNode(
+					std::move(gputextures->operator[](0)),
+					std::move(gputextures->operator[](1)),
+					std::move(gputextures->operator[](2)),
+					std::move(gputextures->operator[](3)),
+					std::move(gputextures->operator[](4)),
+					std::move(gputextures->operator[](5))
+				);
+			}
             break;
         default:
-        {
-            asset::IAssetLoader::SAssetLoadParams lparams;
-            asset::ICPUTexture* cputexture = static_cast<asset::ICPUTexture*>(device->getAssetManager().getAsset("../../media/skydome.jpg", lparams));
-            video::ITexture* skydomeTexture = driver->getGPUObjectsFromAssets(&cputexture, (&cputexture)+1).front();
-            smgr->addSkyDomeSceneNode(skydomeTexture,16,8,0.95f,2.0f,10.f);
+			{
+				asset::IAssetLoader::SAssetLoadParams lparams;
+				auto cputexture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*assetMgr->getAsset("../../media/skydome.jpg", lparams).getContents().first);
+				auto skydomeTexture = std::move(driver->getGPUObjectsFromAssets(&cputexture.get(), (&cputexture.get())+1)->front());
+				smgr->addSkyDomeSceneNode(std::move(skydomeTexture),16,8,0.95f,2.0f,10.f);
 
-        }
+			}
             break;
 	}
 
@@ -173,20 +157,9 @@ int main()
 
     smgr->setActiveCamera(camera);
 
-
-	//! disable mouse cursor, since camera will force it to the middle
-	//! and we don't want a jittery cursor in the middle distracting us
-	device->getCursorControl()->setVisible(false);
-
-	//! Since our cursor will be enslaved, there will be no way to close the window
-	//! So we listen for the "Q" key being pressed and exit the application
-	MyEventReceiver receiver;
-	device->setEventReceiver(&receiver);
-
 	uint64_t lastFPSTime = 0;
 
-	while(device->run())
-	//if (device->isWindowActive())
+	while(device->run() && receiver.keepOpen())
 	{
 		driver->beginScene(true, true, video::SColor(255,255,255,255) );
 
@@ -228,26 +201,26 @@ int main()
                 driver->flushMappedMemoryRanges({video::IDriverMemoryAllocation::MappedMemoryRange(upStreamMem,offsets[0],sizes[0]),video::IDriverMemoryAllocation::MappedMemoryRange(upStreamMem,offsets[1],sizes[1])});
             }
 
+			auto mb = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>();
+			{
+				auto desc = driver->createGPUMeshDataFormatDesc();
+				{
+					auto buff = core::smart_refctd_ptr<video::IGPUBuffer>(upStreamBuff->getBuffer());
+					desc->setVertexAttrBuffer(core::smart_refctd_ptr(buff),asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,sizeof(VertexStruct),offsetof(VertexStruct,Pos[0])+offsets[0]);
+					desc->setVertexAttrBuffer(core::smart_refctd_ptr(buff),asset::EVAI_ATTR1,asset::EF_R8G8_UNORM,sizeof(VertexStruct),offsetof(VertexStruct,Col[0])+offsets[0]);
+					desc->setIndexBuffer(std::move(buff));
+				}
 
-            auto buff = upStreamBuff->getBuffer();
-            video::IGPUMeshDataFormatDesc* desc = driver->createGPUMeshDataFormatDesc();
-            desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,sizeof(VertexStruct),offsetof(VertexStruct,Pos[0])+offsets[0]);
-            desc->setVertexAttrBuffer(buff,asset::EVAI_ATTR1,asset::EF_R8G8_UNORM,sizeof(VertexStruct),offsetof(VertexStruct,Col[0])+offsets[0]);
-            desc->setIndexBuffer(buff);
-
-
-            video::IGPUMeshBuffer* mb = new video::IGPUMeshBuffer();
-            mb->setMeshDataAndFormat(desc);
-            mb->setIndexBufferOffset(offsets[1]);
-            mb->setIndexType(asset::EIT_16BIT);
-            mb->setIndexCount(2*3*6);
-            desc->drop();
+				mb->setIndexBufferOffset(offsets[1]);
+				mb->setIndexType(asset::EIT_16BIT);
+				mb->setIndexCount(2*3*6);
+				mb->setMeshDataAndFormat(std::move(desc));
+			}
 
 
             driver->setTransform(video::E4X3TS_WORLD,core::matrix4x3());
             driver->setMaterial(material);
-            driver->drawMeshBuffer(mb);
-            mb->drop();
+            driver->drawMeshBuffer(mb.get());
 
             upStreamBuff->multi_free(2u,(uint32_t*)&offsets,(uint32_t*)&sizes,driver->placeFence());
         }
@@ -266,31 +239,11 @@ int main()
 		}
 	}
 
-    //create a screenshot
-	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
-    glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
-    {
-        // images are horizontally flipped, so we have to fix that here.
-        uint8_t* pixels = (uint8_t*)screenshot->getData();
-
-        const int32_t pitch=screenshot->getPitch();
-        uint8_t* p2 = pixels + (params.WindowSize.Height - 1) * pitch;
-        uint8_t* tmpBuffer = new uint8_t[pitch];
-        for (uint32_t i=0; i < params.WindowSize.Height; i += 2)
-        {
-            memcpy(tmpBuffer, pixels, pitch);
-            memcpy(pixels, p2, pitch);
-            memcpy(p2, tmpBuffer, pitch);
-            pixels += pitch;
-            p2 -= pitch;
-        }
-        delete [] tmpBuffer;
-    }
-    asset::CImageData* img = new asset::CImageData(screenshot);
-    asset::IAssetWriter::SAssetWriteParams wparams(img);
-    device->getAssetManager().writeAsset("screenshot.png", wparams);
-    img->drop();
-    screenshot->drop();
+	//create a screenshot
+	{
+		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+	}
 
 	device->drop();
 

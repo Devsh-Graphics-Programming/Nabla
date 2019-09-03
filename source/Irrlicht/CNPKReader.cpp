@@ -9,7 +9,6 @@
 #ifdef __IRR_COMPILE_WITH_NPK_ARCHIVE_LOADER_
 
 #include "os.h"
-#include "coreutil.h"
 #include "CLimitReadFile.h"
 
 #ifdef _IRR_DEBUG

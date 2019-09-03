@@ -1,38 +1,10 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+#include "../common/QToQuitEventReceiver.h"
+#include "../../ext/ScreenShot/ScreenShot.h"
 
 using namespace irr;
 using namespace core;
-
-//!Same As Last Example
-class MyEventReceiver : public IEventReceiver
-{
-public:
-
-	MyEventReceiver()
-	{
-	}
-
-	bool OnEvent(const SEvent& event)
-	{
-        if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
-        {
-            switch (event.KeyInput.Key)
-            {
-            case irr::KEY_KEY_Q: // switch wire frame mode
-                exit(0);
-                return true;
-            default:
-                break;
-            }
-        }
-
-		return false;
-	}
-
-private:
-};
 
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
@@ -55,7 +27,6 @@ public:
 
     virtual void OnUnsetMaterial() {}
 };
-
 
 
 int main()
@@ -102,35 +73,38 @@ int main()
 	camera->setFarValue(100.0f);
     smgr->setActiveCamera(camera);
 	device->getCursorControl()->setVisible(false);
-	MyEventReceiver receiver;
+	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
-    asset::IAssetManager& assetMgr = device->getAssetManager();
-    asset::IAssetLoader::SAssetLoadParams lparams;
-    asset::ICPUTexture* cputextures[] {
-        static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/irrlicht2_dn.jpg", lparams)),
-        static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/skydome.jpg", lparams)),
-        static_cast<asset::ICPUTexture*>(assetMgr.getAsset("../../media/yellowflowers.dds", lparams)) //loads all mipmap levels
-    };
-    core::vector<video::ITexture*> gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures+3);
-
-
 	//! Test Creation Of Builtin
-	scene::IMeshSceneNode* cube = dynamic_cast<scene::IMeshSceneNode*>(smgr->addCubeSceneNode(1.f,0,-1));
-    cube->setRotation(core::vector3df(45,20,15));
-    cube->getMaterial(0).setTexture(0,gputextures[0]);
+	scene::IMeshSceneNode* cube = dynamic_cast<scene::IMeshSceneNode*>(smgr->addCubeSceneNode(1.f, 0, -1));
+	cube->setRotation(core::vector3df(45, 20, 15));
 
-	scene::IMeshSceneNode* sphere = dynamic_cast<scene::IMeshSceneNode*>(smgr->addSphereSceneNode(2,128));
-    sphere->getMaterial(0).setTexture(0,gputextures[1]);
-    sphere->getMaterial(0).MaterialType = material.MaterialType;
-    sphere->setPosition(core::vector3df(4,0,0));
+	scene::IMeshSceneNode* sphere = dynamic_cast<scene::IMeshSceneNode*>(smgr->addSphereSceneNode(2, 128));
+	sphere->getMaterial(0).MaterialType = material.MaterialType;
+	sphere->setPosition(core::vector3df(4, 0, 0));
 
-	scene::ISceneNode* billboard = smgr->addBillboardSceneNode(0,core::dimension2df(1.f,1.f),core::vector3df(-4,0,0));
-    billboard->getMaterial(0).setTexture(0,gputextures[2]);
+	scene::ISceneNode* billboard = smgr->addBillboardSceneNode(0, core::dimension2df(1.f, 1.f), core::vector3df(-4, 0, 0));
+
+	auto assetMgr = device->getAssetManager();
+	//! load textures and set them
+	{
+		asset::IAssetLoader::SAssetLoadParams lparams;
+		asset::ICPUTexture* cputextures[]{
+			static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_dn.jpg", lparams).getContents().first->get()),
+			static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/skydome.jpg", lparams).getContents().first->get()),
+			static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/yellowflowers.dds", lparams).getContents().first->get()) //loads all mipmap levels
+		};
+		auto gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures + 3);
+
+		cube->getMaterial(0).setTexture(0, std::move(gputextures->operator[](0u)));
+		sphere->getMaterial(0).setTexture(0, std::move(gputextures->operator[](1u)));
+		billboard->getMaterial(0).setTexture(0, std::move(gputextures->operator[](2u)));
+	}
 
 	uint64_t lastFPSTime = 0;
 
-	while(device->run())
+	while(device->run() && receiver.keepOpen())
 	//if (device->isWindowActive())
 	{
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );
@@ -154,31 +128,10 @@ int main()
 	}
 
     //create a screenshot
-	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
-    glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
-    {
-        // images are horizontally flipped, so we have to fix that here.
-        uint8_t* pixels = (uint8_t*)screenshot->getData();
-
-        const int32_t pitch=screenshot->getPitch();
-        uint8_t* p2 = pixels + (params.WindowSize.Height - 1) * pitch;
-        uint8_t* tmpBuffer = new uint8_t[pitch];
-        for (uint32_t i=0; i < params.WindowSize.Height; i += 2)
-        {
-            memcpy(tmpBuffer, pixels, pitch);
-            memcpy(pixels, p2, pitch);
-            memcpy(p2, tmpBuffer, pitch);
-            pixels += pitch;
-            p2 -= pitch;
-        }
-        delete [] tmpBuffer;
-    }
-    asset::CImageData* img = new asset::CImageData(screenshot);
-    asset::IAssetWriter::SAssetWriteParams wparams(img);
-    device->getAssetManager().writeAsset("screenshot.png", wparams);
-    img->drop();
-    screenshot->drop();
-	device->sleep(3000);
+	{
+		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(device,"screenshot.png",sourceRect,asset::EF_R8G8B8_SRGB);
+	}
 
 	device->drop();
 

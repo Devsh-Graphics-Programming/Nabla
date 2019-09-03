@@ -9,7 +9,7 @@
 
 #include "CPLYMeshFileLoader.h"
 #include "irr/asset/IMeshManipulator.h"
-#include "irr/video/SGPUMesh.h"
+#include "irr/video/CGPUMesh.h"
 
 #include "IReadFile.h"
 #include "os.h"
@@ -24,8 +24,7 @@ namespace asset
 
 
 // constructor
-CPLYMeshFileLoader::CPLYMeshFileLoader(scene::ISceneManager* smgr)
-: SceneManager(smgr)
+CPLYMeshFileLoader::CPLYMeshFileLoader()
 {
 }
 
@@ -65,10 +64,10 @@ bool CPLYMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
 }
 
 //! creates/loads an animated mesh from the file.
-asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	if (!_file)
-		return 0;
+        return {};
 
     SContext ctx;
 
@@ -78,11 +77,11 @@ asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 	// attempt to allocate the buffer and fill with data
 	if (!allocateBuffer(ctx))
 	{
-		return 0;
+        return {};
 	}
 
 	// start with empty mesh
-    asset::SCPUMesh* mesh = nullptr;
+    core::smart_refctd_ptr<asset::CCPUMesh> mesh;
 	uint32_t vertCount=0;
 
 	// Currently only supports ASCII meshes
@@ -235,10 +234,8 @@ asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 		if (continueReading)
 		{
 			// create a mesh buffer
-            asset::ICPUMeshBuffer *mb = new asset::ICPUMeshBuffer();
-            auto desc = new asset::ICPUMeshDataFormatDesc();
-            mb->setMeshDataAndFormat(desc);
-            desc->drop();
+            auto mb = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+            auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
 
             core::vector<core::vectorSIMDf> attribs[4];
             core::vector<uint32_t> indices;
@@ -268,17 +265,13 @@ asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 				}
 			}
 
-            if (!genVertBuffersForMBuffer(mb, attribs))
-            {
-                mb->drop();
-                return nullptr;
-            }
+            if (!genVertBuffersForMBuffer(mb.get(), attribs))
+                return {};
             if (indices.size())
             {
-                asset::ICPUBuffer* idxBuf = new asset::ICPUBuffer(4 * indices.size());
+                auto idxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(indices.size()*sizeof(uint32_t));
                 memcpy(idxBuf->getPointer(), indices.data(), idxBuf->getSize());
-                desc->setIndexBuffer(idxBuf);
-                idxBuf->drop();
+                desc->setIndexBuffer(std::move(idxBuf));
                 mb->setIndexCount(indices.size());
                 mb->setIndexType(asset::EIT_32BIT);
                 mb->setPrimitiveType(asset::EPT_TRIANGLES);
@@ -290,18 +283,18 @@ asset::IAsset* CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
                 //mb->getMaterial().setFlag(video::EMF_POINTCLOUD, true);
             }
 
-            mesh = new asset::SCPUMesh();
-
+			mb->setMeshDataAndFormat(std::move(desc));
 			mb->recalculateBoundingBox();
 			//if (!hasNormals)
 			//	SceneManager->getMeshManipulator()->recalculateNormals(mb);
-			mesh->addMeshBuffer(mb);
+
+			mesh = core::make_smart_refctd_ptr<CCPUMesh>();
+			mesh->addMeshBuffer(std::move(mb));
 			mesh->recalculateBoundingBox();
-			mb->drop();
 		}
 	}
 
-	return mesh;
+	return {mesh};
 }
 
 
@@ -585,18 +578,19 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 
     const size_t stride = std::accumulate(sizes, sizes+4, static_cast<size_t>(0));
 
-    asset::ICPUBuffer* buf = new asset::ICPUBuffer(_attribs[E_POS].size() * stride);
+	{
+		auto desc = _mbuf->getMeshDataAndFormat();
 
-    auto desc = _mbuf->getMeshDataAndFormat();
-    if (sizes[E_POS])
-        desc->setVertexAttrBuffer(buf, asset::EVAI_ATTR0, asset::EF_R32G32B32_SFLOAT, stride, offsets[E_POS]);
-    if (sizes[E_COL])
-        desc->setVertexAttrBuffer(buf, asset::EVAI_ATTR1, asset::EF_R32G32B32A32_SFLOAT, stride, offsets[E_COL]);
-    if (sizes[E_UV])
-        desc->setVertexAttrBuffer(buf, asset::EVAI_ATTR2, asset::EF_R32G32_SFLOAT, stride, offsets[E_UV]);
-    if (sizes[E_NORM])
-        desc->setVertexAttrBuffer(buf, asset::EVAI_ATTR3, asset::EF_R32G32B32_SFLOAT, stride, offsets[E_NORM]);
-    buf->drop();
+		auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(_attribs[E_POS].size()*stride);
+		if (sizes[E_POS])
+			desc->setVertexAttrBuffer(core::smart_refctd_ptr(buf), asset::EVAI_ATTR0, asset::EF_R32G32B32_SFLOAT, stride, offsets[E_POS]);
+		if (sizes[E_COL])
+			desc->setVertexAttrBuffer(core::smart_refctd_ptr(buf), asset::EVAI_ATTR1, asset::EF_R32G32B32A32_SFLOAT, stride, offsets[E_COL]);
+		if (sizes[E_UV])
+			desc->setVertexAttrBuffer(core::smart_refctd_ptr(buf), asset::EVAI_ATTR2, asset::EF_R32G32_SFLOAT, stride, offsets[E_UV]);
+		if (sizes[E_NORM])
+			desc->setVertexAttrBuffer(core::smart_refctd_ptr(buf), asset::EVAI_ATTR3, asset::EF_R32G32B32_SFLOAT, stride, offsets[E_NORM]);
+	}
 
     asset::E_VERTEX_ATTRIBUTE_ID vaids[4];
     vaids[E_POS] = asset::EVAI_ATTR0;

@@ -7,15 +7,15 @@
 
 #include <stack>
 
-#include "CFinalBoneHierarchy.h"
-#include "irr/video/SGPUMesh.h"
-#include "irr/video/CGPUSkinnedMesh.h"
 #include "os.h"
-#include "lz4/lib/lz4.h"
-#include "IrrlichtDevice.h"
-#include "irr/asset/bawformat/legacy/CBAWLegacy.h"
 #include "CMemoryFile.h"
+#include "CFinalBoneHierarchy.h"
+#include "irr/asset/IAssetManager.h"
+#include "irr/asset/bawformat/legacy/CBAWLegacy.h"
+#include "irr/video/CGPUMesh.h"
+#include "irr/video/CGPUSkinnedMesh.h"
 
+#include "lz4/lib/lz4.h"
 #undef Bool
 #include "lzma/C/LzmaDec.h"
 
@@ -37,14 +37,14 @@ CBAWMeshFileLoader::~CBAWMeshFileLoader()
 {
 }
 
-CBAWMeshFileLoader::CBAWMeshFileLoader(IrrlichtDevice* _dev) : m_device(_dev), m_sceneMgr(_dev->getSceneManager()), m_fileSystem(_dev->getFileSystem())
+CBAWMeshFileLoader::CBAWMeshFileLoader(IAssetManager* _manager) : m_manager(_manager), m_fileSystem(_manager->getFileSystem())
 {
 #ifdef _IRR_DEBUG
 	setDebugName("CBAWMeshFileLoader");
 #endif
 }
 
-asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+asset::SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 #ifdef _IRR_DEBUG
     auto time = std::chrono::high_resolution_clock::now();
@@ -72,14 +72,14 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
     if (!verifyFile<asset::BAWFileVn<_IRR_BAW_FORMAT_VERSION>>(ctx))
     {
-        return nullptr;
+        return {};
     }
 
     uint32_t blobCnt{};
 	uint32_t* offsets = nullptr;
     if (!validateHeaders<asset::BAWFileVn<_IRR_BAW_FORMAT_VERSION>, asset::BlobHeaderVn<_IRR_BAW_FORMAT_VERSION>>(&blobCnt, &offsets, (void**)&headers, ctx))
     {
-        return nullptr;
+        return {};
     }
 
 	const uint32_t BLOBS_FILE_OFFSET = asset::BAWFileVn<_IRR_BAW_FORMAT_VERSION>{ {}, blobCnt }.calcBlobsOffset();
@@ -99,7 +99,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
 	const asset::BlobLoadingParams params{
         this,
-        m_device,
+        m_manager,
         m_fileSystem,
         ctx.inner.mainFile->getFileName()[ctx.inner.mainFile->getFileName().size()-1] == '/' ? ctx.inner.mainFile->getFileName() : ctx.inner.mainFile->getFileName()+"/",
         ctx.inner.params,
@@ -135,7 +135,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
 		if (!blob)
 		{
-			return nullptr;
+            return {};
 		}
 
 		core::unordered_set<uint64_t> deps = ctx.loadingMgr.getNeededDeps(blobType, blob);
@@ -148,9 +148,10 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             }
         }
 
-        if (asset::IAsset* found = _override->findCachedAsset(thisCacheKey, nullptr, ctx.inner, hierLvl))
+        auto foundBundle = _override->findCachedAsset(thisCacheKey, nullptr, ctx.inner, hierLvl).getContents();
+        if (foundBundle.first!=foundBundle.second)
         {
-            ctx.createdObjs[handle] = toAddrUsedByBlobsLoadingMgr(found, blobType);
+            ctx.createdObjs[handle] = toAddrUsedByBlobsLoadingMgr(foundBundle.first->get(), blobType);
             continue;
         }
 
@@ -158,7 +159,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 
 		if (fail)
 		{
-			return nullptr;
+            return {};
 		}
 
 		if (!deps.size())
@@ -166,14 +167,14 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
             void* obj = ctx.createdObjs[handle];
 			ctx.loadingMgr.finalize(blobType, obj, blob, size, ctx.createdObjs, params);
             _IRR_ALIGNED_FREE(data->heapBlob);
-			blob = data->heapBlob = NULL;
+			blob = data->heapBlob = nullptr;
             insertAssetIntoCache(ctx, _override, obj, blobType, hierLvl, thisCacheKey);
 		}
 		else
 			toFinalize.push(data);
 	}
 
-	void* retval = NULL;
+	void* retval = nullptr;
 	while (!toFinalize.empty())
 	{
 		SBlobData* data = toFinalize.top();
@@ -201,7 +202,7 @@ asset::IAsset* CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::
 #endif // _IRR_DEBUG
 
     asset::ICPUMesh* mesh = reinterpret_cast<asset::ICPUMesh*>(retval);
-    return mesh;
+    return {core::smart_refctd_ptr<asset::IAsset>(mesh,core::dont_grab)};
 }
 
 bool CBAWMeshFileLoader::safeRead(io::IReadFile * _file, void * _buf, size_t _size) const

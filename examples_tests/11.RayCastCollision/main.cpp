@@ -1,39 +1,13 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+
+#include "../../ext/ScreenShot/ScreenShot.h"
+
+#include "../common/QToQuitEventReceiver.h"
+
 
 using namespace irr;
 using namespace core;
-
-//!Same As Last Example
-class MyEventReceiver : public IEventReceiver
-{
-public:
-
-	MyEventReceiver()
-	{
-	}
-
-	bool OnEvent(const SEvent& event)
-	{
-        if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
-        {
-            switch (event.KeyInput.Key)
-            {
-            case irr::KEY_KEY_Q: // switch wire frame mode
-                exit(0);
-                return true;
-            default:
-                break;
-            }
-        }
-
-		return false;
-	}
-
-private:
-};
-
 
 
 int main()
@@ -72,25 +46,27 @@ int main()
 	camera->setNearValue(0.01f);
 	camera->setFarValue(100.0f);
     smgr->setActiveCamera(camera);
-	//device->getCursorControl()->setVisible(false);
-	MyEventReceiver receiver;
+
+	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
 
     core::SCollisionEngine* gCollEng = new core::SCollisionEngine();
 
+	asset::IAssetManager* assetMgr = device->getAssetManager();
+
     asset::IAssetLoader::SAssetLoadParams lparams;
     asset::ICPUTexture* cputextures[]{
-        static_cast<asset::ICPUTexture*>(device->getAssetManager().getAsset("../../media/irrlicht2_dn.jpg", lparams)),
-        static_cast<asset::ICPUTexture*>(device->getAssetManager().getAsset("../../media/skydome.jpg", lparams))
+        static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_dn.jpg", lparams).getContents().first->get()),
+        static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/skydome.jpg", lparams).getContents().first->get())
     };
-    core::vector<video::ITexture*> gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures+2);
+    auto gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures+2);
 
 	//! Test Creation Of Builtin
-	scene::IMeshSceneNode* cube = dynamic_cast<scene::IMeshSceneNode*>(smgr->addCubeSceneNode(1.f,0,-1));
+	auto* cube = smgr->addCubeSceneNode(1.f,0,-1);
     cube->setRotation(core::vector3df(45,20,15));
-    cube->setMaterialFlag(video::EMF_BACK_FACE_CULLING,false);
-    cube->getMaterial(0).setTexture(0,gputextures[0]);
+	cube->getMaterial(0u).BackfaceCulling = false;
+    cube->getMaterial(0).setTexture(0,std::move(gputextures->operator[](0u)));
 	core::SCompoundCollider* compound = new core::SCompoundCollider();
 	compound->AddBox(core::SAABoxCollider(cube->getBoundingBox()));
 	core::SColliderData collData;
@@ -99,9 +75,9 @@ int main()
     gCollEng->addCompoundCollider(compound);
     compound->drop();
 
-	scene::IMeshSceneNode* sphere = dynamic_cast<scene::IMeshSceneNode*>(smgr->addSphereSceneNode(2,32));
-    sphere->setMaterialFlag(video::EMF_BACK_FACE_CULLING,false);
-    sphere->getMaterial(0).setTexture(0,gputextures[1]);
+	auto* sphere = smgr->addSphereSceneNode(2,32);
+	sphere->getMaterial(0u).BackfaceCulling = false;
+    sphere->getMaterial(0).setTexture(0,std::move(gputextures->operator[](1u)));
     sphere->getMaterial(0).MaterialType = material.MaterialType;
     sphere->setPosition(core::vector3df(4,0,0));
 	compound = new core::SCompoundCollider();
@@ -114,8 +90,7 @@ int main()
 	uint64_t lastFPSTime = 0;
 
     core::SColliderData hitPointData;
-	while(device->run())
-	//if (device->isWindowActive())
+	while(device->run() && receiver.keepOpen() )
 	{
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );
 
@@ -125,8 +100,8 @@ int main()
 
 		driver->endScene();
 
-        cube->setMaterialFlag(video::EMF_WIREFRAME,false);
-        sphere->setMaterialFlag(video::EMF_WIREFRAME,false);
+        cube->getMaterial(0u).Wireframe = false;
+        sphere->getMaterial(0u).Wireframe = false;
         core::vectorSIMDf origin,dir;
         origin.set(camera->getAbsolutePosition());
         dir.set(camera->getTarget());
@@ -136,7 +111,7 @@ int main()
         if (gCollEng->FastCollide(hitPointData,outLen,origin,dir,10.f))
         {
             if (hitPointData.attachedNode)
-                hitPointData.attachedNode->setMaterialFlag(video::EMF_WIREFRAME,true);
+                hitPointData.attachedNode->getMaterial(0u).Wireframe = true;
         }
 
 		// display frames per second in window title
@@ -157,29 +132,12 @@ int main()
 		}
 	}
 
-    //create a screenshot
-	video::IImage* screenshot = driver->createImage(asset::EF_B8G8R8A8_UNORM,params.WindowSize);
-    glReadPixels(0,0, params.WindowSize.Width,params.WindowSize.Height, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, screenshot->getData());
-    {
-        // images are horizontally flipped, so we have to fix that here.
-        uint8_t* pixels = (uint8_t*)screenshot->getData();
 
-        const int32_t pitch=screenshot->getPitch();
-        uint8_t* p2 = pixels + (params.WindowSize.Height - 1) * pitch;
-        uint8_t* tmpBuffer = new uint8_t[pitch];
-        for (uint32_t i=0; i < params.WindowSize.Height; i += 2)
-        {
-            memcpy(tmpBuffer, pixels, pitch);
-            memcpy(pixels, p2, pitch);
-            memcpy(p2, tmpBuffer, pitch);
-            pixels += pitch;
-            p2 -= pitch;
-        }
-        delete [] tmpBuffer;
-    }
-	driver->writeImageToFile(screenshot,"./screenshot.png");
-	screenshot->drop();
-	device->sleep(3000);
+	//create a screenshot
+	{
+		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+	}
 
 	device->drop();
 

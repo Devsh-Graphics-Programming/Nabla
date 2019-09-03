@@ -7,7 +7,7 @@
 
 #include "ILogger.h"
 #include "Keycodes.h"
-#include "irr/core/irrString.h"
+#include "irrString.h"
 
 namespace irr
 {

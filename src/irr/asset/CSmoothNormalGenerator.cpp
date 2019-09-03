@@ -44,12 +44,12 @@ namespace irr
 				acosf((b - c + a) / (2.f * bsqrt * asqrt)));
 		}
 
-		asset::ICPUMeshBuffer * irr::asset::CSmoothNormalGenerator::calculateNormals(asset::ICPUMeshBuffer * buffer, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, IMeshManipulator::VxCmpFunction vxcmp)
+		core::smart_refctd_ptr<asset::ICPUMeshBuffer> irr::asset::CSmoothNormalGenerator::calculateNormals(asset::ICPUMeshBuffer * buffer, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, IMeshManipulator::VxCmpFunction vxcmp)
 		{
 			VertexHashMap vertexArray = setupData(buffer, epsilon);
 			processConnectedVertices(buffer, vertexArray, epsilon, normalAttrID, vxcmp);
 
-			return buffer;
+			return core::smart_refctd_ptr<asset::ICPUMeshBuffer>(buffer);
 		}
 
 		CSmoothNormalGenerator::VertexHashMap::VertexHashMap(size_t _vertexCount, uint32_t _hashTableMaxSize, float _cellSize)

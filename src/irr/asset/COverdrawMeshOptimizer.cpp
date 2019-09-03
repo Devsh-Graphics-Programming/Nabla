@@ -9,18 +9,18 @@
 namespace irr { namespace asset
 {
 
-asset::ICPUMeshBuffer* COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _inbuffer, bool _createNew, float _threshold)
+core::smart_refctd_ptr<asset::ICPUMeshBuffer> COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _inbuffer, bool _createNew, float _threshold)
 {
 	if (!_inbuffer)
-		return NULL;
+		return nullptr;
 
 	const asset::E_INDEX_TYPE indexType = _inbuffer->getIndexType();
 	if (indexType == asset::EIT_UNKNOWN)
-		return NULL;
+		return nullptr;
 
 	const size_t indexSize = indexType == asset::EIT_16BIT ? 2u : 4u;
 
-	asset::ICPUMeshBuffer* outbuffer = _createNew ? CMeshManipulator().createMeshBufferDuplicate(_inbuffer) : _inbuffer;
+	auto outbuffer = _createNew ? IMeshManipulator::createMeshBufferDuplicate(_inbuffer) : core::smart_refctd_ptr<asset::ICPUMeshBuffer>(_inbuffer);
 
 	void* const indices = outbuffer->getIndices();
 	if (!indices)

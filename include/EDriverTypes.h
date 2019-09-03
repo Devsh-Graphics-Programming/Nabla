@@ -18,14 +18,6 @@ namespace video
             render and display any graphics. */
             EDT_NULL, // depr
 
-            //! The Burning's Software Renderer, stripped down
-            /** Basically it's the Burning's Software Renderer from vanilla Irrlicht.
-            It was stripped down to only provide rendering simple textured polygons
-            for a GUI rendering fallback when OpenGL is not available.
-            It still can do bilinear texel filtering. This renderer has been written
-            entirely by Thomas Alten, and backported by DevSH. */
-            EDT_BURNINGSVIDEO, //depr
-
             //! OpenGL device, available on most platforms.
             /** Performs hardware accelerated rendering of 3D and 2D
             primitives. */
