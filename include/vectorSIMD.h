@@ -439,14 +439,14 @@ namespace core
 	typedef vectorSIMDu32 vector3du32_SIMD;
 	typedef vectorSIMDu32 vector2du32_SIMD;
 
-	//static_assert(sizeof(vector4du32_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4du32_SIMD not same size as uvec4");
+	static_assert(sizeof(vector4du32_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4du32_SIMD not same size as uvec4");
 	static_assert(alignof(vector4du32_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4du32_SIMD not same alignment as uvec4");
 
 	typedef vectorSIMDi32 vector4di32_SIMD;
 	typedef vectorSIMDi32 vector3di32_SIMD;
 	typedef vectorSIMDi32 vector2di32_SIMD;
 
-	//static_assert(sizeof(vector4di32_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4di32_SIMD not same size as ivec4");
+	static_assert(sizeof(vector4di32_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4di32_SIMD not same size as ivec4");
 	static_assert(alignof(vector4di32_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4di32_SIMD not same alignment as ivec4");
 
 /*
@@ -968,7 +968,7 @@ namespace core
 	typedef vectorSIMDf vector3df_SIMD;
 	typedef vectorSIMDf vector2df_SIMD;
 
-	//static_assert(sizeof(vector4df_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4df_SIMD not same size as vec4");
+	static_assert(sizeof(vector4df_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4df_SIMD not same size as vec4");
 	static_assert(alignof(vector4df_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4df_SIMD not same alignment as vec4");
 
 
