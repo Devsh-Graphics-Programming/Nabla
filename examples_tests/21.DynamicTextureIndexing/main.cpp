@@ -49,13 +49,63 @@ struct IndirectDrawInfo
 	core::vector<DrawElementsIndirectCommand> indirectDrawData;
 	core::smart_refctd_ptr<video::IGPUBuffer> indirectDrawBuffer;
 
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxTexturesPerDraw = 1u; // need full bindless (by handle) to handle more than 32 textures
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxTexturesPerDraw = 2u; // need full bindless (by handle) to handle more than 32 textures
 	core::vector<std::array<core::smart_refctd_ptr<video::IVirtualTexture>,MaxTexturesPerDraw> > textures;
 
 	core::vector<video::IGPUMeshBuffer*> backup;
 };
 
 
+struct IndirectDrawKey : video::COpenGLVAOSpec::HashAttribs
+{
+	IndirectDrawKey(asset::IMeshDataFormatDesc<video::IGPUBuffer>* pipeline) : video::COpenGLVAOSpec::HashAttribs(dynamic_cast<video::COpenGLVAOSpec*>(pipeline)->getHash())
+	{
+		for (auto i = 0u; i < asset::EVAI_COUNT; i++)
+		{
+			auto attr = static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(i);
+			offset[i] = pipeline->getMappedBufferOffset(attr);
+		}
+	}
+
+	inline bool operator<(const IndirectDrawKey& other) const
+	{
+		if (video::COpenGLVAOSpec::HashAttribs::operator<(other))
+			return true;
+
+		if (video::COpenGLVAOSpec::HashAttribs::operator!=(other))
+			return false;
+
+		// parents equal, now compare children
+		for (auto i = 0u; i < asset::EVAI_COUNT; i++)
+		{
+			if (offset[i] < other.offset[i])
+				return true;
+			if (offset[i] > other.offset[i])
+				return false;
+		}
+		return false;
+	}
+
+	inline bool operator!=(const IndirectDrawKey& other) const
+	{
+		if (video::COpenGLVAOSpec::HashAttribs::operator!=(other))
+			return true;
+
+		for (auto i = 0u; i < asset::EVAI_COUNT; i++)
+		{
+			if (offset[i] != other.offset[i])
+				return true;
+		}
+		return false;
+	}
+
+	inline bool operator==(const IndirectDrawKey& other) const
+	{
+		return !((*this) != other);
+	}
+
+	uint32_t offset[asset::EVAI_COUNT];
+};
 
 int main()
 {
@@ -116,7 +166,7 @@ int main()
 
 
 	using pipeline_type = asset::IMeshDataFormatDesc<video::IGPUBuffer>;
-	core::map<video::COpenGLVAOSpec::HashAttribs, IndirectDrawInfo > indirectDraws;
+	core::map<IndirectDrawKey, IndirectDrawInfo> indirectDraws;
 	//{
 		//! read cache results -- speeds up mesh generation
 		{
@@ -151,7 +201,7 @@ int main()
 			pipeline_type* pipeline = mb->getMeshDataAndFormat();
 			const auto& descriptors = mb->getMaterial();
 
-			auto& info = indirectDraws[dynamic_cast<video::COpenGLVAOSpec*>(pipeline)->getHash()];
+			auto& info = indirectDraws[IndirectDrawKey(pipeline)];
 			if (info.indirectDrawData.size() == 0u)
 			{
 				info.material = mb->getMaterial();
