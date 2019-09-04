@@ -18,7 +18,7 @@ set(IRR_EXT_CEGUI_SRC
 
 set(IRR_EXT_CEGUI_EXTERNAL_INCLUDE
   "${CEGUI_INCLUDE_PATH}"
-  "${CMAKE_SOURCE_DIR}/3rdparty"
+  "${IRR_ROOT_PATH}/3rdparty"
   "${CMAKE_BINARY_DIR}/3rdparty/CEGUI/dependencies/install/include"
 )
 

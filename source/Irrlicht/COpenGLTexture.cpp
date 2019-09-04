@@ -10,7 +10,6 @@
 #include "COpenGLTexture.h"
 #include "COpenGLDriver.h"
 #include "os.h"
-#include "CColorConverter.h"
 
 
 
@@ -75,124 +74,6 @@ void COpenGLFilterableTexture::regenerateMipMapLevels()
 		return;
 
     COpenGLExtensionHandler::extGlGenerateTextureMipmap(TextureName,this->getOpenGLTextureType());
-}
-
-
-uint32_t COpenGLTexture::getOpenGLFormatBpp(const GLenum& colorformat)
-{
-    switch(colorformat)
-    {
-        case GL_COMPRESSED_RGB_S3TC_DXT1_EXT:
-        case GL_COMPRESSED_RGBA_S3TC_DXT1_EXT:
-            return 4;
-            break;
-        case GL_COMPRESSED_RGBA_S3TC_DXT3_EXT:
-        case GL_COMPRESSED_RGBA_S3TC_DXT5_EXT:
-            return 8;
-            break;
-        case GL_COMPRESSED_RED_RGTC1_EXT:
-            return 4;
-        case GL_COMPRESSED_RED_GREEN_RGTC2_EXT:
-            return 8;
-            break;
-        case GL_STENCIL_INDEX8:
-        case GL_RGBA2:
-        case GL_R3_G3_B2:
-        case GL_R8:
-        case GL_R8I:
-        case GL_R8UI:
-        case GL_R8_SNORM:
-            return 8;
-            break;
-        case GL_RGB4:
-            return 12;
-            break;
-        case GL_RGB5:
-            return 15;
-            break;
-        case GL_DEPTH_COMPONENT16:
-        case GL_RGBA4:
-        case GL_RGB5_A1:
-        case GL_RG8:
-        case GL_RG8I:
-        case GL_RG8UI:
-        case GL_RG8_SNORM:
-        case GL_R16:
-        case GL_R16I:
-        case GL_R16UI:
-        case GL_R16_SNORM:
-        case GL_R16F:
-            return 16;
-            break;
-        case GL_DEPTH_COMPONENT24:
-        case GL_RGB8:
-        case GL_RGB8I:
-        case GL_RGB8UI:
-        case GL_RGB8_SNORM:
-        case GL_SRGB8:
-            return 24;
-            break;
-        case GL_RGB10:
-            return 30;
-            break;
-        case GL_DEPTH24_STENCIL8:
-        case GL_DEPTH_COMPONENT32:
-        case GL_DEPTH_COMPONENT32F:
-        case GL_RGBA8:
-        case GL_RGBA8I:
-        case GL_RGBA8UI:
-        case GL_RGBA8_SNORM:
-        case GL_SRGB8_ALPHA8:
-        case GL_RGB10_A2:
-        case GL_RGB10_A2UI:
-        case GL_R11F_G11F_B10F:
-        case GL_RGB9_E5:
-        case GL_RG16:
-        case GL_RG16I:
-        case GL_RG16UI:
-        case GL_RG16F:
-        case GL_R32I:
-        case GL_R32UI:
-        case GL_R32F:
-            return 32;
-            break;
-        case GL_RGB12:
-            return 36;
-            break;
-        case GL_DEPTH32F_STENCIL8:
-            return 40;
-            break;
-        case GL_RGBA12:
-        case GL_RGB16:
-        case GL_RGB16I:
-        case GL_RGB16UI:
-        case GL_RGB16_SNORM:
-        case GL_RGB16F:
-            return 48;
-            break;
-        case GL_RGBA16:
-        case GL_RGBA16I:
-        case GL_RGBA16UI:
-        case GL_RGBA16F:
-        case GL_RG32I:
-        case GL_RG32UI:
-        case GL_RG32F:
-            return 64;
-            break;
-        case GL_RGB32I:
-        case GL_RGB32UI:
-        case GL_RGB32F:
-            return 96;
-            break;
-        case GL_RGBA32I:
-        case GL_RGBA32UI:
-        case GL_RGBA32F:
-            return 128;
-            break;
-        default:
-            return 0xdeadu;
-    }
-    return 0xdeadu;
 }
 
 
@@ -285,8 +166,8 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E_
 {
     using namespace asset;
 	// default
-	colorformat = GL_RGBA;
-	type = GL_UNSIGNED_BYTE;
+	colorformat = GL_INVALID_ENUM;
+	type = GL_INVALID_ENUM;
 
 	switch(format)
 	{
@@ -353,6 +234,14 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E_
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
+		case asset::EF_R8_SRGB:
+		{
+			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_sRGB_R8])
+				break;
+			colorformat = GL_RED;
+			type = GL_UNSIGNED_BYTE;
+		}
+			break;
         case asset::EF_R8G8_SNORM:
         {
             colorformat = GL_RG;
@@ -365,6 +254,14 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E_
 			type = GL_UNSIGNED_BYTE;
 		}
 			break;
+		case asset::EF_R8G8_SRGB:
+		{
+			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_sRGB_RG8])
+				break;
+			colorformat = GL_RG;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
         case asset::EF_R8G8B8_SNORM:
             colorformat = GL_RGB;
             type = GL_BYTE;
@@ -941,10 +838,11 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E_
 		}
 			break;
 		default:
-		{
-			os::Printer::log("Unsupported upload format", ELL_ERROR);
-		}
+			break;
 	}
+
+	if (colorformat==GL_INVALID_ENUM || type==GL_INVALID_ENUM)
+		os::Printer::log("Unsupported upload format", ELL_ERROR);
 }
 
 GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E_FORMAT &format)
@@ -988,8 +886,16 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E
 		case asset::EF_R8_UNORM:
 		    return GL_R8;
 			break;
+		case asset::EF_R8_SRGB:
+			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_sRGB_R8])
+				return GL_SR8_EXT;
+			break;
 		case asset::EF_R8G8_UNORM:
 		    return GL_RG8;
+			break;
+		case asset::EF_R8G8_SRGB:
+			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_sRGB_RG8])
+				return GL_SRG8_EXT;
 			break;
         case asset::EF_R8G8B8_UNORM:
             return GL_RGB8;
@@ -1271,13 +1177,12 @@ GLint COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E
             return GL_RGB9_E5;
             break;
 		default:
-		{
-#ifdef _IRR_DEBUG
-			os::Printer::log("Unsupported texture format", ELL_ERROR);
-#endif // _IRR_DEBUG
-			return GL_INVALID_ENUM;
-		}
+			break;
 	}
+#ifdef _IRR_DEBUG
+	os::Printer::log("Unsupported texture format", ELL_ERROR);
+#endif // _IRR_DEBUG
+	return GL_INVALID_ENUM;
 }
 
 asset::E_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum& sizedFormat)
@@ -1442,6 +1347,9 @@ asset::E_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum
         case GL_RG8:
             return asset::EF_R8G8_UNORM;
             break;
+		case GL_SR8_EXT:
+			return asset::EF_R8_SRGB;
+			break;
         case GL_RG8I:
             return asset::EF_R8G8_SINT;
             break;
@@ -1472,6 +1380,9 @@ asset::E_FORMAT COpenGLTexture::getColorFormatFromSizedOpenGLFormat(const GLenum
         case GL_RGB8:
             return asset::EF_R8G8B8_UNORM;
             break;
+		case GL_SRG8_EXT:
+			return asset::EF_R8G8_SRGB;
+			break;
         case GL_RGB8I:
             return asset::EF_R8G8B8_SINT;
             break;

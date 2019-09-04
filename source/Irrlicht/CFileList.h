@@ -5,8 +5,8 @@
 #ifndef __C_FILE_LIST_H_INCLUDED__
 #define __C_FILE_LIST_H_INCLUDED__
 
+#include "irr/core/core.h"
 #include "IFileList.h"
-#include "irr/core/irrString.h"
 
 
 namespace irr

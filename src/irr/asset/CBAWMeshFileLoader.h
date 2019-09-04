@@ -8,7 +8,6 @@
 
 
 #include "irr/asset/IAssetLoader.h"
-#include "ISceneManager.h"
 #include "IFileSystem.h"
 #include "irr/asset/ICPUMesh.h"
 #include "irr/asset/bawformat/legacy/CBAWLegacy.h"
@@ -17,13 +16,13 @@
 
 #include "os.h"
 
+
 namespace irr
 {
-class IrrlichtDevice;
-}
-
-namespace irr { namespace asset
+namespace asset
 {
+
+class IAssetManager;
 
 class CBAWMeshFileLoader : public asset::IAssetLoader
 {
@@ -95,7 +94,7 @@ protected:
 
 public:
 	//! Constructor
-	CBAWMeshFileLoader(IrrlichtDevice* _dev);
+	CBAWMeshFileLoader(IAssetManager* _manager);
 
 
     virtual bool isALoadableFileFormat(io::IReadFile* _file) const override
@@ -131,7 +130,7 @@ public:
 
     virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
-    virtual asset::IAsset* loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u);
+    virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u);
 
 private:
 	//! Verifies whether given file is of appropriate format. Also reads file version and assigns it to passed context object.
@@ -214,11 +213,12 @@ private:
             asset = reinterpret_cast<asset::ICPUTexture*>(_asset);
             break;
         }
-        if (asset && !asset->isInAResourceCache())
+        if (asset)
         {
-            _override->insertAssetIntoCache(asset, _cacheKey, _ctx.inner, _hierLvl);
-            // drop shouldn't be performed here at all; it's done in main loading function by ctx.releaseAllButThisOne(meshBlobDataIter);
-            // this is quite different from other loaders so explenation is probably wellcome
+			// drop shouldn't be performed here at all; it's done in main loading function by ctx.releaseAllButThisOne(meshBlobDataIter);
+			// this is quite different from other loaders so explenation is probably wellcome
+            SAssetBundle bundle{core::smart_refctd_ptr<asset::IAsset>(asset)}; // yes we want the extra grab
+            _override->insertAssetIntoCache(bundle, _cacheKey, _ctx.inner, _hierLvl);
         }
     }
 
@@ -320,8 +320,7 @@ private:
     }
 
 private:
-    IrrlichtDevice* m_device;
-	scene::ISceneManager* m_sceneMgr;
+    IAssetManager* m_manager;
 	io::IFileSystem* m_fileSystem;
 };
 

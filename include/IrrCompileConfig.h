@@ -47,14 +47,10 @@
 #if defined(_IRR_SERVER_)
 #   define NO_IRR_COMPILE_WITH_VULKAN_
 #   define NO_IRR_COMPILE_WITH_OPENGL_
-#   define NO_IRR_COMPILE_WITH_BURNINGSVIDEO_
 #endif
 
 #ifdef NO_IRR_COMPILE_WITH_OPENGL_
 #   undef _IRR_COMPILE_WITH_OPENGL_
-#endif
-#ifdef NO_IRR_COMPILE_WITH_BURNINGSVIDEO_
-#   undef _IRR_COMPILE_WITH_BURNINGSVIDEO_
 #endif
 
 // The Windows platform and API support SDL and WINDOW device
@@ -106,8 +102,8 @@
 #define _IRR_MATERIAL_MAX_UNIFORM_BUFFER_OBJECTS_ (24-_IRR_MATERIAL_MAX_DYNAMIC_UNIFORM_BUFFER_OBJECTS_) //opengl has one set of slots for both
 
 //! Maximum number of output buffers and streams a Transform Feedback Object can have
-#define _IRR_XFORM_FEEDBACK_MAX_BUFFERS_ 4
-#define _IRR_XFORM_FEEDBACK_MAX_STREAMS_ 4
+#define _IRR_XFORM_FEEDBACK_MAX_BUFFERS_ 4 //depr
+#define _IRR_XFORM_FEEDBACK_MAX_STREAMS_ 4 //depr
 
 //! Define _IRR_COMPILE_WITH_X11_ to compile the Irrlicht engine with X11 support.
 /** If you do not wish the engine to be compiled with X11, comment this
@@ -143,28 +139,6 @@ the engine will no longer read .png images. */
 #ifdef NO_IRR_COMPILE_WITH_LIBPNG_
 #undef _IRR_COMPILE_WITH_LIBPNG_
 #endif
-
-//! Define one of the three setting for Burning's Video Software Rasterizer
-/** So if we were marketing guys we could say Irrlicht has 4 Software-Rasterizers.
-	In a Nutshell:
-		All Burnings Rasterizers use 32 Bit Backbuffer, 32Bit Texture & 32 Bit Z or WBuffer,
-		16 Bit/32 Bit can be adjusted on a global flag.
-
-		BURNINGVIDEO_RENDERER_BEAUTIFUL
-			32 Bit + Vertexcolor + Lighting + Per Pixel Perspective Correct + SubPixel/SubTexel Correct +
-			Bilinear Texturefiltering + WBuffer
-
-		BURNINGVIDEO_RENDERER_FAST
-			32 Bit + Per Pixel Perspective Correct + SubPixel/SubTexel Correct + WBuffer +
-			Bilinear Dithering TextureFiltering + WBuffer
-
-		BURNINGVIDEO_RENDERER_ULTRA_FAST
-			16Bit + SubPixel/SubTexel Correct + ZBuffer
-*/
-
-#define BURNINGVIDEO_RENDERER_BEAUTIFUL
-//#define BURNINGVIDEO_RENDERER_FAST
-//#define BURNINGVIDEO_RENDERER_ULTRA_FAST
 
 //! Uncomment the following line if you want to ignore the deprecated warnings
 //#define IGNORE_DEPRECATED_WARNING
@@ -225,20 +199,7 @@ the engine will no longer read .png images. */
 #ifdef NO_IRR_COMPILE_WITH_PLY_WRITER_
 #undef _IRR_COMPILE_WITH_PLY_WRITER_
 #endif
-#ifndef NEW_MESHES
-//! Define _IRR_COMPILE_WITH_OBJ_WRITER_ if you want to write .obj files
-#define _IRR_COMPILE_WITH_OBJ_WRITER_
-#ifdef NO_IRR_COMPILE_WITH_OBJ_WRITER_
-#undef _IRR_COMPILE_WITH_OBJ_WRITER_
-#endif
-#endif // NEW_MESHES
 
-//! Define _IRR_COMPILE_WITH_BMP_LOADER_ if you want to load .bmp files
-//! Disabling this loader will also disable the built-in font
-#define _IRR_COMPILE_WITH_BMP_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_BMP_LOADER_
-#undef _IRR_COMPILE_WITH_BMP_LOADER_
-#endif
 //! Define _IRR_COMPILE_WITH_JPG_LOADER_ if you want to load .jpg files
 #define _IRR_COMPILE_WITH_JPG_LOADER_
 #ifdef NO_IRR_COMPILE_WITH_JPG_LOADER_
@@ -265,11 +226,6 @@ the engine will no longer read .png images. */
 #undef _IRR_COMPILE_WITH_TGA_LOADER_
 #endif
 
-//! Define _IRR_COMPILE_WITH_BMP_WRITER_ if you want to write .bmp files
-#define _IRR_COMPILE_WITH_BMP_WRITER_
-#ifdef NO_IRR_COMPILE_WITH_BMP_WRITER_
-#undef _IRR_COMPILE_WITH_BMP_WRITER_
-#endif
 //! Define _IRR_COMPILE_WITH_JPG_WRITER_ if you want to write .jpg files
 #define _IRR_COMPILE_WITH_JPG_WRITER_
 #ifdef NO_IRR_COMPILE_WITH_JPG_WRITER_

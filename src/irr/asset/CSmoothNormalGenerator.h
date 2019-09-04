@@ -15,7 +15,7 @@ namespace asset
 class CSmoothNormalGenerator
 {
 public:
-	static asset::ICPUMeshBuffer* calculateNormals(asset::ICPUMeshBuffer* buffer, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, IMeshManipulator::VxCmpFunction function);
+	static core::smart_refctd_ptr<asset::ICPUMeshBuffer> calculateNormals(asset::ICPUMeshBuffer* buffer, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, IMeshManipulator::VxCmpFunction function);
 
 	CSmoothNormalGenerator() = delete;
 	~CSmoothNormalGenerator() = delete;

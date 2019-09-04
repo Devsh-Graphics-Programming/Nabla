@@ -6,7 +6,7 @@
 #define __I_TRANSFORM_FEEDBACK_H_INCLUDED__
 
 #include "irr/core/IReferenceCounted.h"
-#include "irr/core/IThreadBound.h"
+#include "irr/core/parallel/IThreadBound.h"
 
 namespace irr
 {

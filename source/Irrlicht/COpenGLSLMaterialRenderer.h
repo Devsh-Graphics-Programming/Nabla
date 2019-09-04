@@ -5,11 +5,11 @@
 #ifndef __C_OPENGL_SHADER_LANGUAGE_MATERIAL_RENDERER_H_INCLUDED__
 #define __C_OPENGL_SHADER_LANGUAGE_MATERIAL_RENDERER_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "irr/core/core.h"
+
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
 #include "COpenGLExtensionHandler.h"
-
 
 #include "IMaterialRenderer.h"
 #include "IMaterialRendererServices.h"

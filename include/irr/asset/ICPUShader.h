@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <string>
 #include "irr/asset/IAsset.h"
+#include "irr/asset/ICPUBuffer.h"
 #include "irr/asset/ShaderCommons.h"
 
 namespace spirv_cross

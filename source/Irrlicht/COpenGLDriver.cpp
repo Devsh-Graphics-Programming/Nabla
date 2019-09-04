@@ -466,12 +466,12 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 	return true;
 }
 
-IGPUShader* COpenGLDriver::createGPUShader(const asset::ICPUShader* _cpushader)
+core::smart_refctd_ptr<IGPUShader> COpenGLDriver::createGPUShader(const asset::ICPUShader* _cpushader)
 {
-    return new COpenGLShader(_cpushader);
+    return core::make_smart_refctd_ptr<COpenGLShader>(_cpushader);
 }
 
-IGPUSpecializedShader* COpenGLDriver::createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo)
+core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo)
 {
     const COpenGLShader* glUnspec = static_cast<const COpenGLShader*>(_unspecialized);
     const asset::ICPUShader* cpuUnspec = glUnspec->getCPUCounterpart();
@@ -502,7 +502,7 @@ IGPUSpecializedShader* COpenGLDriver::createGPUSpecializedShader(const IGPUShade
 
     COpenGLSpecializedShader* gpuSpecialized = new COpenGLSpecializedShader(this, spv, _specInfo);
     spv->drop();
-    return gpuSpecialized;
+    return core::smart_refctd_ptr<COpenGLSpecializedShader>(gpuSpecialized, core::dont_grab);
 }
 
 bool COpenGLDriver::initAuxContext()
@@ -1064,14 +1064,14 @@ bool COpenGLDriver::genericDriverInit()
         auto reqs = getDownStreamingMemoryReqs();
         reqs.vulkanReqs.size = Params.StreamingDownloadBufferSize;
         reqs.vulkanReqs.alignment = 64u*1024u; // if you need larger alignments then you're not right in the head
-        defaultDownloadBuffer = new video::StreamingTransientDataBufferMT<>(this,reqs);
+        defaultDownloadBuffer = core::make_smart_refctd_ptr<video::StreamingTransientDataBufferMT<> >(this,reqs);
 	}
 	// up
 	{
         auto reqs = getUpStreamingMemoryReqs();
         reqs.vulkanReqs.size = Params.StreamingUploadBufferSize;
         reqs.vulkanReqs.alignment = 64u*1024u; // if you need larger alignments then you're not right in the head
-        defaultUploadBuffer = new video::StreamingTransientDataBufferMT<>(this,reqs);
+        defaultUploadBuffer = core::make_smart_refctd_ptr < video::StreamingTransientDataBufferMT<> >(this,reqs);
 	}
 
     DerivativeMapCreator = new CDerivativeMapCreator(this);
@@ -1297,7 +1297,7 @@ bool COpenGLDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
     {
         core::vectorSIMDf colorf(color.getRed(),color.getGreen(),color.getBlue(),color.getAlpha());
         colorf /= 255.f;
-        clearScreen(Params.Doublebuffer ? ESB_BACK_LEFT:ESB_FRONT_LEFT,reinterpret_cast<float*>(&colorf));
+        clearScreen(Params.Doublebuffer ? ESB_BACK_LEFT:ESB_FRONT_LEFT,colorf.pointer);
     }
 	return true;
 }
@@ -1349,9 +1349,9 @@ void COpenGLDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, 
     extGlCopyNamedBufferSubData(readbuffer->getOpenGLName(),writebuffer->getOpenGLName(),readOffset,writeOffset,length);
 }
 
-IGPUMeshDataFormatDesc* COpenGLDriver::createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr)
+core::smart_refctd_ptr<IGPUMeshDataFormatDesc> COpenGLDriver::createGPUMeshDataFormatDesc(core::CLeakDebugger* dbgr)
 {
-    return new COpenGLVAOSpec(dbgr);
+    return core::make_smart_refctd_ptr<COpenGLVAOSpec>(dbgr);
 }
 
 IQueryObject* COpenGLDriver::createPrimitivesGeneratedQuery()
@@ -1476,7 +1476,7 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
         return;
 
     const COpenGLVAOSpec* meshLayoutVAO = static_cast<const COpenGLVAOSpec*>(mb->getMeshDataAndFormat());
-    if (!found->setActiveVAO(meshLayoutVAO,mb->isIndexCountGivenByXFormFeedback() ? mb:NULL))
+    if (!found->setActiveVAO(meshLayoutVAO,mb))
         return;
 
 #ifdef _IRR_DEBUG
@@ -1541,22 +1541,8 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
 
     if (indexSize)
         extGlDrawElementsInstancedBaseVertexBaseInstance(primType,mb->getIndexCount(),indexSize,(void*)mb->getIndexBufferOffset(),mb->getInstanceCount(),mb->getBaseVertex(),mb->getBaseInstance());
-    else if (mb->isIndexCountGivenByXFormFeedback())
-    {
-    // some transform-feedback-related code was commented-out, so for sanity reasons i'm also commenting this out
-        /*
-        COpenGLTransformFeedback* xfmFb = static_cast<COpenGLTransformFeedback*>(mb->getXFormFeedback());
-#ifdef _IRR_DEBUG
-        if (xfmFb->isEnded())
-            os::Printer::log("Trying To DrawTransformFeedback which hasn't ended yet (call glEndTransformFeedback() on the damn thing)!\n",ELL_ERROR);
-        if (mb->getXFormFeedbackStream()>=MaxVertexStreams)
-            os::Printer::log("Trying to use more than GL_MAX_VERTEX_STREAMS vertex streams in transform feedback!\n",ELL_ERROR);
-#endif // _IRR_DEBUG
-        extGlDrawTransformFeedbackStreamInstanced(primType,xfmFb->getOpenGLHandle(),mb->getXFormFeedbackStream(),mb->getInstanceCount());
-        */
-    } 
     else
-        extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
+		extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
 }
 
 
@@ -1923,7 +1909,7 @@ COpenGLDriver::SAuxContext::COpenGLVAO::COpenGLVAO(const COpenGLVAOSpec* spec)
             extGlEnableVertexArrayAttrib(vao,attrId);
             extGlVertexArrayAttribBinding(vao,attrId,attrId);
 
-            if (isFloatingPointFormat(format) && getTexelOrBlockSize(format)/getFormatChannelCount(format)==8u)//DOUBLE
+            if (isFloatingPointFormat(format) && getTexelOrBlockBytesize(format)== getFormatChannelCount(format)*sizeof(double) )//DOUBLE
                 extGlVertexArrayAttribLFormat(vao, attrId, getFormatChannelCount(format), GL_DOUBLE, 0);
             else if (isFloatingPointFormat(format) || isScaledFormat(format) || isNormalizedFormat(format))//FLOATING-POINT, SCALED ("weak integer"), NORMALIZED
                 extGlVertexArrayAttribFormat(vao, attrId, isBGRALayoutFormat(format) ? GL_BGRA : getFormatChannelCount(format), formatEnumToGLenum(format), isNormalizedFormat(format) ? GL_TRUE : GL_FALSE, 0);
@@ -2168,16 +2154,16 @@ const GLuint& COpenGLDriver::SAuxContext::constructSamplerInCache(const uint64_t
     return (SamplerMap[hashVal] = samplerHandle);
 }
 
-bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, video::IVirtualTexture* texture, const video::STextureSamplingParams &sampleParams)
+bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, core::smart_refctd_ptr<IVirtualTexture>&& texture, const video::STextureSamplingParams &sampleParams)
 {
 	if (stage >= COpenGLExtensionHandler::MaxTextureUnits)
 		return false;
 
 
-    if (texture&&texture->getVirtualTextureType()==IVirtualTexture::EVTT_BUFFER_OBJECT&&!static_cast<COpenGLTextureBufferObject*>(texture)->rebindRevalidate())
+    if (texture&&texture->getVirtualTextureType()==IVirtualTexture::EVTT_BUFFER_OBJECT&&!static_cast<COpenGLTextureBufferObject*>(texture.get())->rebindRevalidate())
         return false;
 
-	if (CurrentTexture[stage]!=texture)
+	if (CurrentTexture[stage]!=texture.get())
     {
         const video::COpenGLTexture* oldTexture = dynamic_cast<const COpenGLTexture*>(CurrentTexture[stage]);
         GLenum oldTexType = GL_INVALID_ENUM;
@@ -2201,11 +2187,11 @@ bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, video::IVirtua
             }
             else
             {
-                const video::COpenGLTexture* newTexture = dynamic_cast<const COpenGLTexture*>(texture);
+                const video::COpenGLTexture* newTexture = dynamic_cast<const COpenGLTexture*>(texture.get());
                 GLenum newTexType = newTexture->getOpenGLTextureType();
 
                 if (Version<440 && !FeatureAvailable[IRR_ARB_multi_bind] && oldTexture && oldTexType!=newTexType)
-                    extGlBindTextures(stage,1,NULL,&oldTexType);
+                    extGlBindTextures(stage,1,nullptr,&oldTexType);
                 extGlBindTextures(stage,1,&newTexture->getOpenGLName(),&newTexType);
             }
         }
@@ -2246,13 +2232,12 @@ void COpenGLDriver::SAuxContext::STextureStageCache::remove(const IVirtualTextur
 {
     for (int32_t i = MATERIAL_MAX_TEXTURES-1; i>= 0; --i)
     {
-        if (CurrentTexture[i] == tex)
+        if (CurrentTexture[i].get() == tex)
         {
             GLenum target = dynamic_cast<const COpenGLTexture*>(tex)->getOpenGLTextureType();
-            COpenGLExtensionHandler::extGlBindTextures(i,1,NULL,&target);
-            COpenGLExtensionHandler::extGlBindSamplers(i,1,NULL);
-            tex->drop();
-            CurrentTexture[i] = 0;
+            COpenGLExtensionHandler::extGlBindTextures(i,1,nullptr,&target);
+            COpenGLExtensionHandler::extGlBindSamplers(i,1,nullptr);
+            CurrentTexture[i] = nullptr;
         }
     }
 }
@@ -2267,16 +2252,15 @@ void COpenGLDriver::SAuxContext::STextureStageCache::clear()
     {
         if (CurrentTexture[i])
         {
-            targets[i] = dynamic_cast<const COpenGLTexture*>(CurrentTexture[i])->getOpenGLTextureType();
-            CurrentTexture[i]->drop();
-            CurrentTexture[i] = NULL;
+            targets[i] = dynamic_cast<const COpenGLTexture*>(CurrentTexture[i].get())->getOpenGLTextureType();
+			CurrentTexture[i] = nullptr;
         }
         else
             targets[i] = GL_INVALID_ENUM;
     }
 
     COpenGLExtensionHandler::extGlBindTextures(0,MATERIAL_MAX_TEXTURES,textures,targets);
-    COpenGLExtensionHandler::extGlBindSamplers(0,MATERIAL_MAX_TEXTURES,NULL);
+    COpenGLExtensionHandler::extGlBindSamplers(0,MATERIAL_MAX_TEXTURES,nullptr);
 }
 
 
@@ -2286,9 +2270,9 @@ bool orderByMip(asset::CImageData* a, asset::CImageData* b)
 }
 
 
-//! returns a device dependent texture from a software surface (IImage)
-video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
-			const io::path& name, asset::E_FORMAT format)
+//! returns a device dependent texture
+core::smart_refctd_ptr<video::ITexture> COpenGLDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size,
+																					uint32_t mipmapLevels, const io::path& name, asset::E_FORMAT format)
 {
 #ifdef _IRR_DEBUG
     //if the max coords are not 0, then there is something seriously wrong
@@ -2346,34 +2330,38 @@ video::ITexture* COpenGLDriver::createDeviceDependentTexture(const ITexture::E_T
             mipmapLevels = 1;
     }
 
+	auto internalFormat = COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format);
+	if (internalFormat==GL_INVALID_ENUM)
+		return nullptr;
+
     switch (type)
     {
         case ITexture::ETT_1D:
-            return new COpenGL1DTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format), size, mipmapLevels, name);
+            return core::make_smart_refctd_ptr<COpenGL1DTexture>(internalFormat, size, mipmapLevels, name);
             break;
         case ITexture::ETT_2D:
-            return new COpenGL2DTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format), size, mipmapLevels, name);
+            return core::make_smart_refctd_ptr<COpenGL2DTexture>(internalFormat, size, mipmapLevels, name);
             break;
         case ITexture::ETT_3D:
-            return new COpenGL3DTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            return core::make_smart_refctd_ptr<COpenGL3DTexture>(internalFormat,size,mipmapLevels,name);
             break;
         case ITexture::ETT_1D_ARRAY:
-            return new COpenGL1DTextureArray(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            return core::make_smart_refctd_ptr<COpenGL1DTextureArray>(internalFormat,size,mipmapLevels,name);
             break;
         case ITexture::ETT_2D_ARRAY:
-            return new COpenGL2DTextureArray(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            return core::make_smart_refctd_ptr<COpenGL2DTextureArray>(internalFormat,size,mipmapLevels,name);
             break;
         case ITexture::ETT_CUBE_MAP:
-            return new COpenGLCubemapTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            return core::make_smart_refctd_ptr<COpenGLCubemapTexture>(internalFormat,size,mipmapLevels,name);
             break;
         case ITexture::ETT_CUBE_MAP_ARRAY:
-            return new COpenGLCubemapArrayTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),size,mipmapLevels,name);
+            return core::make_smart_refctd_ptr<COpenGLCubemapArrayTexture>(internalFormat,size,mipmapLevels,name);
             break;
         default:// ETT_CUBE_MAP, ETT_CUBE_MAP_ARRAY, ETT_TEXTURE_BUFFER
             break;
     }
 
-    return NULL;
+    return nullptr;
 }
 
 
@@ -2389,11 +2377,11 @@ void COpenGLDriver::setMaterial(const SGPUMaterial& material)
 
 	for (int32_t i = MaxTextureUnits-1; i>= 0; --i)
 	{
-		found->setActiveTexture(i, material.getTexture(i), material.TextureLayer[i].SamplingParams);
+		found->setActiveTexture(i, core::smart_refctd_ptr<video::IVirtualTexture>(material.getTexture(i)), material.TextureLayer[i].SamplingParams);
 	}
 }
 
-GLuint COpenGLDriver::getPipeline(const std::array<IGPUSpecializedShader*, 5u>& _shaders)
+GLuint COpenGLDriver::getPipeline(const std::array< core::smart_refctd_ptr<IGPUSpecializedShader>, 5u>& _shaders)
 {
     auto found = Pipelines.find({ _shaders, std::this_thread::get_id() });
     if (found != Pipelines.end())
@@ -2408,11 +2396,11 @@ GLuint COpenGLDriver::getPipeline(const std::array<IGPUSpecializedShader*, 5u>& 
         return glshdr->getOpenGLName(); 
     };
 
-    GLuint vs = getGLname(_shaders[0], GL_VERTEX_SHADER);
-    GLuint tess_ctrl = getGLname(_shaders[1], GL_TESS_CONTROL_SHADER);
-    GLuint tess_eval = getGLname(_shaders[2], GL_TESS_EVALUATION_SHADER);
-    GLuint gs = getGLname(_shaders[3], GL_GEOMETRY_SHADER);
-    GLuint fs = getGLname(_shaders[4], GL_FRAGMENT_SHADER);
+    GLuint vs = getGLname(_shaders[0].get(), GL_VERTEX_SHADER);
+    GLuint tess_ctrl = getGLname(_shaders[1].get(), GL_TESS_CONTROL_SHADER);
+    GLuint tess_eval = getGLname(_shaders[2].get(), GL_TESS_EVALUATION_SHADER);
+    GLuint gs = getGLname(_shaders[3].get(), GL_GEOMETRY_SHADER);
+    GLuint fs = getGLname(_shaders[4].get(), GL_FRAGMENT_SHADER);
 
     if (vs==0u)
         return 0u;
@@ -2549,7 +2537,7 @@ void COpenGLDriver::setBasicRenderStates(const SGPUMaterial& material, const SGP
 	// zwrite
 //	if (resetAllRenderStates || lastmaterial.ZWriteEnable != material.ZWriteEnable)
 	{
-		if (material.ZWriteEnable && (AllowZWriteOnTransparent || !material.isTransparent()))
+		if (material.ZWriteEnable)
 		{
 			glDepthMask(GL_TRUE);
 		}
@@ -2674,7 +2662,7 @@ void COpenGLDriver::setViewPort(const core::rect<int32_t>& area)
 	}
 }
 
-ITexture* COpenGLDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format)
+core::smart_refctd_ptr<ITexture> COpenGLDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format)
 {
     return createDeviceDependentTexture(type, size, mipmapLevels, "", format);
 }
@@ -2688,17 +2676,20 @@ IMultisampleTexture* COpenGLDriver::addMultisampleTexture(const IMultisampleText
     if (core::isNPoT(samples))
         return nullptr;
 
-	IMultisampleTexture* tex;
+	auto internalFormat = COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format);
+	if (internalFormat == GL_INVALID_ENUM)
+		return nullptr;
+
+	IMultisampleTexture* tex = nullptr;
 	switch (type)
 	{
         case IMultisampleTexture::EMTT_2D:
-            tex = new COpenGLMultisampleTexture(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),samples,size,fixedSampleLocations);
+            tex = new COpenGLMultisampleTexture(internalFormat,samples,size,fixedSampleLocations);
             break;
         case IMultisampleTexture::EMTT_2D_ARRAY:
-            tex = new COpenGLMultisampleTextureArray(COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format),samples,size,fixedSampleLocations);
+            tex = new COpenGLMultisampleTextureArray(internalFormat,samples,size,fixedSampleLocations);
             break;
         default:
-            tex = nullptr;
             break;
 	}
 

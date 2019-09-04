@@ -1103,23 +1103,13 @@ void CIrrDeviceWin32::createDriver()
 		#ifdef _IRR_COMPILE_WITH_OPENGL_
 		switchToFullScreen();
 
-		VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem, this, getAssetManager().getGLSLCompiler());
+		VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem, this, getAssetManager()->getGLSLCompiler());
 		if (!VideoDriver)
 		{
 			os::Printer::log("Could not create OpenGL driver.", ELL_ERROR);
 		}
 		#else
 		os::Printer::log("OpenGL driver was not compiled in.", ELL_ERROR);
-		#endif
-		break;
-
-	case video::EDT_BURNINGSVIDEO:
-		#ifdef _IRR_COMPILE_WITH_BURNINGSVIDEO_
-		switchToFullScreen();
-
-		VideoDriver = video::createBurningVideoDriver(this, CreationParams, FileSystem, this);
-		#else
-		os::Printer::log("Burning's Video driver was not compiled in.", ELL_ERROR);
 		#endif
 		break;
 
@@ -1211,56 +1201,6 @@ void CIrrDeviceWin32::setWindowCaption(const std::wstring& text)
 	SendMessageTimeoutW(HWnd, WM_SETTEXT, 0,
 			reinterpret_cast<LPARAM>(text.c_str()),
 			SMTO_ABORTIFHUNG, 2000, &dwResult);
-}
-
-
-//! presents a surface in the client area
-bool CIrrDeviceWin32::present(video::IImage* image, void* windowId, core::rect<int32_t>* src)
-{
-	HWND hwnd = HWnd;
-	if ( windowId )
-		hwnd = reinterpret_cast<HWND>(windowId);
-
-	HDC dc = GetDC(hwnd);
-
-	if ( dc )
-	{
-		RECT rect;
-		GetClientRect(hwnd, &rect);
-		const void* memory = (const void *)image->getData();
-
-		BITMAPV4HEADER bi;
-		ZeroMemory (&bi, sizeof(bi));
-		bi.bV4Size = sizeof(BITMAPINFOHEADER);
-		bi.bV4BitCount = (WORD)image->getBitsPerPixel();
-		bi.bV4Planes = 1;
-		bi.bV4Width = image->getDimension().Width;
-		bi.bV4Height = -((int32_t)image->getDimension().Height);
-		bi.bV4V4Compression = BI_BITFIELDS;
-		bi.bV4AlphaMask = image->getAlphaMask();
-		bi.bV4RedMask = image->getRedMask();
-		bi.bV4GreenMask = image->getGreenMask();
-		bi.bV4BlueMask = image->getBlueMask();
-
-		if ( src )
-		{
-			StretchDIBits(dc, 0,0, rect.right, rect.bottom,
-					src->UpperLeftCorner.X, src->UpperLeftCorner.Y,
-					src->getWidth(), src->getHeight(),
-					memory, (const BITMAPINFO*)(&bi), DIB_RGB_COLORS, SRCCOPY);
-		}
-		else
-		{
-			StretchDIBits(dc, 0,0, rect.right, rect.bottom,
-					0, 0, image->getDimension().Width, image->getDimension().Height,
-					memory, (const BITMAPINFO*)(&bi), DIB_RGB_COLORS, SRCCOPY);
-		}
-
-//		image->unlock();
-
-		ReleaseDC(hwnd, dc);
-	}
-	return true;
 }
 
 
@@ -1819,78 +1759,6 @@ void CIrrDeviceWin32::ReportLastWinApiError()
 			MessageBox(NULL, __TEXT("Unknown error"), pszCaption, MB_OK|MB_ICONERROR);
 		}
 	}
-}
-
-// Convert an Irrlicht texture to a Windows cursor
-// Based on http://www.codeguru.com/cpp/w-p/win32/cursors/article.php/c4529/
-HCURSOR CIrrDeviceWin32::TextureToCursor(HWND hwnd, irr::video::IImage * tex, const core::rect<int32_t>& sourceRect, const core::position2d<int32_t> &hotspot)
-{
-	//
-	// create the bitmaps needed for cursors from the texture
-
-	HDC dc = GetDC(hwnd);
-	HDC andDc = CreateCompatibleDC(dc);
-	HDC xorDc = CreateCompatibleDC(dc);
-	HBITMAP andBitmap = CreateCompatibleBitmap(dc, sourceRect.getWidth(), sourceRect.getHeight());
-	HBITMAP xorBitmap = CreateCompatibleBitmap(dc, sourceRect.getWidth(), sourceRect.getHeight());
-
-	HBITMAP oldAndBitmap = (HBITMAP)SelectObject(andDc, andBitmap);
-	HBITMAP oldXorBitmap = (HBITMAP)SelectObject(xorDc, xorBitmap);
-
-
-	asset::E_FORMAT format = tex->getColorFormat();
-	uint32_t bytesPerPixel = video::getBitsPerPixelFromFormat(format) / 8;
-	uint32_t bytesLeftGap = sourceRect.UpperLeftCorner.X * bytesPerPixel;
-	uint32_t bytesRightGap = tex->getPitch() - sourceRect.LowerRightCorner.X * bytesPerPixel;
-	const uint8_t* data = (const uint8_t*)tex->getData();
-	data += sourceRect.UpperLeftCorner.Y*tex->getPitch();
-	for ( int32_t y = 0; y < sourceRect.getHeight(); ++y )
-	{
-		data += bytesLeftGap;
-		for ( int32_t x = 0; x < sourceRect.getWidth(); ++x )
-		{
-			video::SColor pixelCol;
-			pixelCol.setData((const void*)data, format);
-			data += bytesPerPixel;
-
-			if ( pixelCol.getAlpha() == 0 )	// transparent
-			{
-				SetPixel(andDc, x, y, RGB(255,255,255));
-				SetPixel(xorDc, x, y, RGB(0,0,0));
-			}
-			else	// color
-			{
-				SetPixel(andDc, x, y, RGB(0,0,0));
-				SetPixel(xorDc, x, y, RGB(pixelCol.getRed(), pixelCol.getGreen(), pixelCol.getBlue()));
-			}
-		}
-		data += bytesRightGap;
-	}
-//	tex->unlock();
-
-	SelectObject(andDc, oldAndBitmap);
-	SelectObject(xorDc, oldXorBitmap);
-
-	DeleteDC(xorDc);
-	DeleteDC(andDc);
-
-	ReleaseDC(hwnd, dc);
-
-	// create the cursor
-
-	ICONINFO iconinfo;
-	iconinfo.fIcon = false;	// type is cursor not icon
-	iconinfo.xHotspot = hotspot.X;
-	iconinfo.yHotspot = hotspot.Y;
-	iconinfo.hbmMask = andBitmap;
-	iconinfo.hbmColor = xorBitmap;
-
-	HCURSOR cursor = CreateIconIndirect(&iconinfo);
-
-	DeleteObject(andBitmap);
-	DeleteObject(xorBitmap);
-
-	return cursor;
 }
 
 CIrrDeviceWin32::CCursorControl::CCursorControl(CIrrDeviceWin32* device, const core::dimension2d<uint32_t>& wsize, HWND hwnd, bool fullscreen)

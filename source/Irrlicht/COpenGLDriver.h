@@ -5,7 +5,7 @@
 #ifndef __C_VIDEO_OPEN_GL_H_INCLUDED__
 #define __C_VIDEO_OPEN_GL_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "irr/core/core.h"
 
 #include "SIrrCreationParameters.h"
 
@@ -421,8 +421,8 @@ namespace video
             return isColorRenderableFormat(_fmt) && (asset::isNormalizedFormat(_fmt) || asset::isFloatingPointFormat(_fmt));
         }
 
-        IGPUShader* createGPUShader(const asset::ICPUShader* _cpushader) override;
-        IGPUSpecializedShader* createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) override;
+        core::smart_refctd_ptr<IGPUShader> createGPUShader(const asset::ICPUShader* _cpushader) override;
+        core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) override;
 
 		//! generic version which overloads the unimplemented versions
 		bool changeRenderContext(const SExposedVideoData& videoData, void* device) {return false;}
@@ -431,11 +431,11 @@ namespace video
         const SAuxContext* getThreadContext(const std::thread::id& tid=std::this_thread::get_id()) const;
         bool deinitAuxContext();
 
-	    virtual video::IGPUMeshDataFormatDesc* createGPUMeshDataFormatDesc(core::LeakDebugger* dbgr=NULL);
+	    virtual core::smart_refctd_ptr<video::IGPUMeshDataFormatDesc> createGPUMeshDataFormatDesc(core::CLeakDebugger* dbgr=nullptr) override final;
 
-        virtual uint16_t retrieveDisplayRefreshRate() const override;
+        virtual uint16_t retrieveDisplayRefreshRate() const override final;
 
-		virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false);
+		virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override final;
 
         void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) override final;
 
@@ -544,7 +544,7 @@ namespace video
 		//! call.
 		virtual uint32_t getMaximalIndicesCount() const;
 
-        ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) override;
+        core::smart_refctd_ptr<ITexture> createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) override;
 
         //!
         virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false);
@@ -580,8 +580,8 @@ namespace video
 		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const uint32_t* vals);
 		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const float* vals);
 
-		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals);
-		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals);
+		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals) override;
+		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals) override;
 
 
 		virtual ITransformFeedback* createTransformFeedback();
@@ -618,7 +618,7 @@ namespace video
 		//! Returns the graphics card vendor name.
 		virtual std::string getVendorInfo() {return VendorName;}
 
-        GLuint getPipeline(const std::array<IGPUSpecializedShader*, 5u>& _shaders);
+        GLuint getPipeline(const std::array<core::smart_refctd_ptr<IGPUSpecializedShader>, 5u>& _shaders);
 
 		//! sets the needed renderstates
 		void setRenderStates3DMode();
@@ -675,7 +675,7 @@ namespace video
 
             //! sets the current Texture
             //! Returns whether setting was a success or not.
-            bool setActiveTexture(uint32_t stage, video::IVirtualTexture* texture, const video::STextureSamplingParams &sampleParams);
+            bool setActiveTexture(uint32_t stage, core::smart_refctd_ptr<IVirtualTexture>&& texture, const video::STextureSamplingParams &sampleParams);
 
             const GLuint& constructSamplerInCache(const uint64_t &hashVal);
 
@@ -874,45 +874,32 @@ namespace video
             //! Textures and Samplers
             class STextureStageCache : public core::AllocationOverrideDefault
             {
-                const IVirtualTexture* CurrentTexture[MATERIAL_MAX_TEXTURES];
-            public:
-                STextureStageCache()
-                {
-                    for (uint32_t i=0; i<MATERIAL_MAX_TEXTURES; ++i)
-                    {
-                        CurrentTexture[i] = 0;
-                    }
-                }
+					core::smart_refctd_ptr<const IVirtualTexture> CurrentTexture[MATERIAL_MAX_TEXTURES];
+				public:
+					STextureStageCache() = default;
 
-                ~STextureStageCache()
-                {
-                    clear();
-                }
+					~STextureStageCache()
+					{
+						clear();
+					}
 
-                void set(uint32_t stage, const IVirtualTexture* tex)
-                {
-                    if (stage<MATERIAL_MAX_TEXTURES)
-                    {
-                        const IVirtualTexture* oldTexture=CurrentTexture[stage];
-                        if (tex)
-                            tex->grab();
-                        CurrentTexture[stage]=tex;
-                        if (oldTexture)
-                            oldTexture->drop();
-                    }
-                }
+					void set(uint32_t stage, core::smart_refctd_ptr<const IVirtualTexture>&& tex)
+					{
+						if (stage<MATERIAL_MAX_TEXTURES)
+							CurrentTexture[stage] = std::move(tex);
+					}
 
-                const IVirtualTexture* operator[](int stage) const
-                {
-                    if ((uint32_t)stage<MATERIAL_MAX_TEXTURES)
-                        return CurrentTexture[stage];
-                    else
-                        return 0;
-                }
+					const IVirtualTexture* operator[](int stage) const
+					{
+						if (static_cast<uint32_t>(stage)<MATERIAL_MAX_TEXTURES)
+							return CurrentTexture[stage].get();
+						else
+							return 0;
+					}
 
-                void remove(const IVirtualTexture* tex);
+					void remove(const IVirtualTexture* tex);
 
-                void clear();
+					void clear();
             };
 
             //!
@@ -964,7 +951,7 @@ namespace video
         class CGPUObjectFromAssetConverter;
         friend class CGPUObjectFromAssetConverter;
 
-        using PipelineMapKeyT = std::pair<std::array<IGPUSpecializedShader*, 5u>, std::thread::id>;
+        using PipelineMapKeyT = std::pair<std::array<core::smart_refctd_ptr<IGPUSpecializedShader>, 5u>, std::thread::id>;
         core::map<PipelineMapKeyT, GLuint> Pipelines;
 
         bool runningInRenderDoc;
@@ -989,7 +976,7 @@ namespace video
 		bool genericDriverInit();
 
 		//! returns a device dependent texture from a software surface (IImage)
-		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM);
+		virtual core::smart_refctd_ptr<video::ITexture> createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM);
 
 		// returns the current size of the screen or rendertarget
 		virtual const core::dimension2d<uint32_t>& getCurrentRenderTargetSize() const;

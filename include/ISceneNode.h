@@ -5,13 +5,14 @@
 #ifndef __I_SCENE_NODE_H_INCLUDED__
 #define __I_SCENE_NODE_H_INCLUDED__
 
+#include "irr/core/core.h"
+
 #include "ESceneNodeTypes.h"
 #include "ECullingTypes.h"
 #include "EDebugSceneTypes.h"
 #include "ISceneNodeAnimator.h"
 #include "SMaterial.h"
 #include "ITexture.h"
-#include "irr/core/irrString.h"
 #include "aabbox3d.h"
 #include "matrix4x3.h"
 #include "IDummyTransformationSceneNode.h"
@@ -233,7 +234,7 @@ namespace scene
 		\return The material at that index. */
 		virtual video::SGPUMaterial& getMaterial(uint32_t num)
 		{
-			return video::IdentityMaterial;
+			return video::SGPUMaterial();
 		}
 
 
@@ -245,35 +246,23 @@ namespace scene
 		}
 
 
-		//! Sets all material flags at once to a new value.
-		/** Useful, for example, if you want the whole mesh to be
-		affected by light.
-		\param flag Which flag of all materials to be set.
-		\param newvalue New value of that flag. */
-		void setMaterialFlag(video::E_MATERIAL_FLAG flag, bool newvalue)
-		{
-			for (uint32_t i=0; i<getMaterialCount(); ++i)
-				getMaterial(i).setFlag(flag, newvalue);
-		}
-
-
 		//! Sets the texture of the specified layer in all materials of this scene node to the new texture.
 		/** \param textureLayer Layer of texture to be set. Must be a
 		value smaller than MATERIAL_MAX_TEXTURES.
 		\param texture New texture to be used. */
-		void setMaterialTexture(uint32_t textureLayer, video::IVirtualTexture* texture)
+		void setMaterialTexture(uint32_t textureLayer, core::smart_refctd_ptr<video::IVirtualTexture>&& texture) // kill this function
 		{
 			if (textureLayer >= video::MATERIAL_MAX_TEXTURES)
 				return;
 
 			for (uint32_t i=0; i<getMaterialCount(); ++i)
-				getMaterial(i).setTexture(textureLayer, texture);
+				getMaterial(i).setTexture(textureLayer, core::smart_refctd_ptr(texture));
 		}
 
 
 		//! Sets the material type of all materials in this scene node to a new material type.
 		/** \param newType New type of material to be set. */
-		void setMaterialType(const std::array<video::IGPUSpecializedShader*,5u>& newType)
+		void setMaterialType(const std::array<core::smart_refctd_ptr<video::IGPUSpecializedShader>,5u>& newType)
 		{
 			for (uint32_t i=0; i<getMaterialCount(); ++i)
 				getMaterial(i).Pipeline = newType;

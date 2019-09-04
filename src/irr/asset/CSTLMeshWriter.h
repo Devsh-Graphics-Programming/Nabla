@@ -13,8 +13,6 @@ namespace irr
 {
 namespace asset
 {
-	class ISceneManager;
-
 	//! class to write meshes, implementing a STL writer
 	class CSTLMeshWriter : public asset::IAssetWriter
 	{
@@ -22,7 +20,7 @@ namespace asset
             virtual ~CSTLMeshWriter();
 
         public:
-            CSTLMeshWriter(scene::ISceneManager* smgr);
+            CSTLMeshWriter();
 
             virtual const char** getAssociatedFileExtensions() const
             {
@@ -51,8 +49,6 @@ namespace asset
             // write face information to file
             void writeFaceText(io::IWriteFile* file, const core::vectorSIMDf& v1,
                 const core::vectorSIMDf& v2, const core::vectorSIMDf& v3);
-
-            scene::ISceneManager* SceneManager;
 	};
 
 } // end namespace

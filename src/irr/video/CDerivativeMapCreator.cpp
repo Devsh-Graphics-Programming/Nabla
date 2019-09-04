@@ -116,10 +116,10 @@ CDerivativeMapCreator::CDerivativeMapCreator(video::IVideoDriver* _driver) : m_d
     gldriver->extGlSamplerParameteri(m_bumpMapSampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
 
-video::IVirtualTexture* CDerivativeMapCreator::createDerivMapFromBumpMap(video::IVirtualTexture* _bumpMap, float _heightFactor, bool _texWrapRepeat) const
+core::smart_refctd_ptr<video::IVirtualTexture> CDerivativeMapCreator::createDerivMapFromBumpMap(video::IVirtualTexture* _bumpMap, float _heightFactor, bool _texWrapRepeat) const
 {
     const uint32_t* derivMap_sz = _bumpMap->getSize();
-    video::ITexture* derivMap = m_driver->createGPUTexture(video::ITexture::ETT_2D, derivMap_sz, 1u+uint32_t(std::floor(std::log2(float(core::max_(derivMap_sz[0], derivMap_sz[1]))))), asset::EF_R8G8_SNORM);
+	auto derivMap = m_driver->createGPUTexture(video::ITexture::ETT_2D, derivMap_sz, 1u+uint32_t(std::floor(std::log2(float(core::max_(derivMap_sz[0], derivMap_sz[1]))))), asset::EF_R8G8_SNORM);
 
     video::COpenGLDriver* gldriver = static_cast<video::COpenGLDriver*>(m_driver);
 
@@ -140,7 +140,7 @@ video::IVirtualTexture* CDerivativeMapCreator::createDerivMapFromBumpMap(video::
     GLint previousProgram;
     glGetIntegerv(GL_CURRENT_PROGRAM, &previousProgram);
 
-    gldriver->extGlBindImageTexture(0, static_cast<const video::COpenGL2DTexture*>(derivMap)->getOpenGLName(),
+    gldriver->extGlBindImageTexture(0, static_cast<const video::COpenGL2DTexture*>(derivMap.get())->getOpenGLName(),
         0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RG8_SNORM);
 
     gldriver->extGlUseProgram(m_deriv_map_gen_cs);

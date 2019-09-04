@@ -4,17 +4,14 @@
 #include "assert.h"
 #include <algorithm>
 #include <functional>
+#include "irr/core/core.h"
 #include "irr/asset/ICPUSkinnedMesh.h"
-#include "IGPUBuffer.h"
-#include "quaternion.h"
-#include "irr/core/Types.h"
-#include "irr/core/irrString.h"
-#include "irr/asset/bawformat/CBAWFile.h"
-#include "matrix3x4SIMD.h"
+#include "irr/asset/bawformat/BlobSerializable.h"
+#include "irr/asset/bawformat/blobs/FinalBoneHierarchyBlob.h"
 
 namespace irr
 {
-namespace scene
+namespace asset
 {
     //! If it has no animation, make 1 frame of animation with LocalMatrix
     class CFinalBoneHierarchy : public core::IReferenceCounted, public asset::BlobSerializable
@@ -28,10 +25,7 @@ namespace scene
                     free(boneFlatArray);
                 if (boneTreeLevelEnd)
                     free(boneTreeLevelEnd);
-/**
-                if (boundBuffer)
-                    boundBuffer->drop();
-**/
+
                 if (keyframes)
                     free(keyframes);
                 if (interpolatedAnimations)
@@ -61,7 +55,6 @@ namespace scene
 
             CFinalBoneHierarchy(const core::vector<asset::ICPUSkinnedMesh::SJoint*>& inLevelFixedJoints, const core::vector<size_t>& inJointsLevelEnd)
                     : boneCount(inLevelFixedJoints.size()), NumLevelsInHierarchy(inJointsLevelEnd.size()),
-                    ///boundBuffer(NULL),
                     keyframeCount(0), keyframes(NULL), interpolatedAnimations(NULL), nonInterpolatedAnimations(NULL)
             {
                 boneFlatArray = (BoneReferenceData*)malloc(sizeof(BoneReferenceData)*boneCount);
@@ -715,8 +708,7 @@ namespace scene
             const size_t NumLevelsInHierarchy;
             size_t* boneTreeLevelEnd;
 
-            ///video::IGPUBuffer* boundBuffer;
-
+            
             // animation data, independent of bone hierarchy to a degree
             size_t keyframeCount;
             float* keyframes;
@@ -724,7 +716,7 @@ namespace scene
             AnimationKeyData* nonInterpolatedAnimations;
     };
 
-} // end namespace scene
+} // end namespace asset
 } // end namespace irr
 
 #endif

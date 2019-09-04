@@ -2,41 +2,32 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#include "IrrCompileConfig.h"
+#include "irr/core/core.h"
 
 #ifdef _IRR_COMPILE_WITH_STL_WRITER_
 
 #include "CSTLMeshWriter.h"
+
 #include "os.h"
-#include "irr/asset/IMesh.h"
-#include "irr/video/IGPUMeshBuffer.h"
-#include "ISceneManager.h"
 #include "IWriteFile.h"
 #include "IFileSystem.h"
-#include "irr/core/math/plane3dSIMD.h"
-#include <sstream>
+#include "ISceneManager.h"
 
 namespace irr
 {
 namespace asset
 {
 
-CSTLMeshWriter::CSTLMeshWriter(scene::ISceneManager* smgr)
-	: SceneManager(smgr)
+CSTLMeshWriter::CSTLMeshWriter()
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("CSTLMeshWriter");
 	#endif
-
-	if (SceneManager)
-		SceneManager->grab();
 }
 
 
 CSTLMeshWriter::~CSTLMeshWriter()
 {
-	if (SceneManager)
-		SceneManager->drop();
 }
 
 //! writes a mesh

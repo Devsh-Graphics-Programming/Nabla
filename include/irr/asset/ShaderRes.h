@@ -4,7 +4,7 @@
 #include <cstdint>
 #include "irr/macros.h"
 #include "irr/asset/ShaderCommons.h"
-#include "irr/asset/EFormat.h"
+#include "irr/asset/format/EFormat.h"
 
 namespace irr { namespace asset
 {

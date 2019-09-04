@@ -7,7 +7,6 @@
 
 #include "IVideoDriver.h"
 #include "IFileSystem.h"
-#include "IImagePresenter.h"
 #include "IGPUProgrammingServices.h"
 #include "irr/asset/IMesh.h"
 #include "irr/video/IGPUMeshBuffer.h"
@@ -70,25 +69,13 @@ namespace video
 		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat);
 		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4SIMD& mat);
 
-		//! Retrieve the number of image loaders
-		virtual uint32_t getImageLoaderCount() const;
-
-		//! Retrieve the given image loader
-		virtual IImageLoader* getImageLoader(uint32_t n);
-
-		//! Retrieve the number of image writers
-		virtual uint32_t getImageWriterCount() const;
-
-		//! Retrieve the given image writer
-		virtual IImageWriter* getImageWriter(uint32_t n);
-
 		//! sets a material
 		virtual void setMaterial(const SGPUMaterial& material);
 
         //! GPU fence, is signalled when preceeding GPU work is completed
         virtual core::smart_refctd_ptr<IDriverFence> placeFence(const bool& implicitFlushWaitSameThread=false) {return nullptr;}
 
-        ITexture* createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) override;
+        core::smart_refctd_ptr<ITexture> createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) override;
 
 		//! A.
         virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const core::vector<asset::CImageData*>& mipChain)
@@ -288,12 +275,6 @@ namespace video
 		//! driver, it would return "Direct3D8.1".
 		virtual const wchar_t* getName() const;
 
-		//! Adds an external image loader to the engine.
-		virtual void addExternalImageLoader(IImageLoader* loader);
-
-		//! Adds an external image writer to the engine.
-		virtual void addExternalImageWriter(IImageWriter* writer);
-
 		virtual void removeMultisampleTexture(IMultisampleTexture* tex);
 
 		virtual void removeTextureBufferObject(ITextureBufferObject* tbo);
@@ -322,21 +303,6 @@ namespace video
 
 		//! Returns if a texture creation flag is enabled or disabled.
 		virtual bool getTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag) const;
-
-		//! Creates a software image from a file.
-		virtual core::vector<asset::CImageData*> createImageDataFromFile(const io::path& filename);
-
-		//! Creates a software image from a file.
-		virtual core::vector<asset::CImageData*> createImageDataFromFile(io::IReadFile* file);
-
-		//! Creates a software image from a byte array.
-		/** \param useForeignMemory: If true, the image will use the data pointer
-		directly and own it from now on, which means it will also try to delete [] the
-		data when the image will be destructed. If false, the memory will by copied. */
-		virtual IImage* createImageFromData(asset::CImageData* imageData, bool ownForeignMemory=true);
-
-		//!
-		virtual IImage* createImage(const asset::E_FORMAT& format, const core::dimension2d<uint32_t>& size);
 
 
 	public:
@@ -448,13 +414,6 @@ namespace video
         //    const char* geometryShaderEntryPointName="main",
         //    const char* pixelShaderEntryPointName="main");
 
-
-		//! Writes the provided image to disk file
-		virtual bool writeImageToFile(IImage* image, const io::path& filename, uint32_t param = 0);
-
-		//! Writes the provided image to a file.
-		virtual bool writeImageToFile(IImage* image, io::IWriteFile * file, uint32_t param = 0);
-
 		//! Sets the name of a material renderer.
 		virtual void setMaterialRendererName(int32_t idx, const char* name);
 
@@ -472,10 +431,6 @@ namespace video
 
 		//! Enable the 2d override material
 		virtual void enableMaterial2D(bool enable=true);
-
-		//! Only used by the engine internally.
-		virtual void setAllowZWriteOnTransparent(bool flag)
-		{ AllowZWriteOnTransparent=flag; }
 
 		//! Returns the maximum texture size supported.
 		virtual const uint32_t* getMaxTextureSize(const ITexture::E_TEXTURE_TYPE& type) const;
@@ -506,7 +461,7 @@ namespace video
 
 		//! returns a device dependent texture from a software surface (IImage)
 		//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
-		virtual video::ITexture* createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM);
+		virtual core::smart_refctd_ptr<video::ITexture> createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM);
 
 
 		// adds a material renderer and drops it afterwards. To be used for internal creation
@@ -517,23 +472,6 @@ namespace video
 
 		// prints renderer version
 		void printVersion();
-
-		//! normal map lookup 32 bit version
-		inline float nml32(int x, int y, int pitch, int height, int32_t *p) const
-		{
-			if (x < 0) x = pitch-1; if (x >= pitch) x = 0;
-			if (y < 0) y = height-1; if (y >= height) y = 0;
-			return (float)(((p[(y * pitch) + x])>>16) & 0xff);
-		}
-
-		//! normal map lookup 16 bit version
-		inline float nml16(int x, int y, int pitch, int height, int16_t *p) const
-		{
-			if (x < 0) x = pitch-1; if (x >= pitch) x = 0;
-			if (y < 0) y = height-1; if (y >= height) y = 0;
-
-			return (float) getAverage ( p[(y * pitch) + x] );
-		}
 
     protected:
 		struct SSurface
@@ -585,7 +523,7 @@ namespace video
                 virtual core::dimension2du getRenderableSize() const { return size; }
                 virtual E_DRIVER_TYPE getDriverType() const { return video::EDT_NULL; }
                 virtual asset::E_FORMAT getColorFormat() const { return asset::EF_A1R5G5B5_UNORM_PACK16; }
-                virtual uint32_t getPitch() const { return 0; }
+                virtual core::rational<uint32_t> getPitch() const { return {0u,1u}; }
                 virtual void regenerateMipMapLevels() {}
                 virtual bool updateSubRegion(const asset::E_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0) {return false;}
                 virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0) {return false;}
@@ -598,8 +536,6 @@ namespace video
 		core::vector<IMultisampleTexture*> MultisampleTextures;
 		core::vector<ITextureBufferObject*> TextureBufferObjects;
 
-		core::vector<video::IImageLoader*> SurfaceLoader;
-		core::vector<video::IImageWriter*> SurfaceWriter;
 		core::vector<SMaterialRenderer> MaterialRenderers;
 
 
@@ -627,8 +563,6 @@ namespace video
 		SGPUMaterial OverrideMaterial2D;
 		SGPUMaterial InitMaterial2D;
 		bool OverrideMaterial2DEnabled;
-
-		bool AllowZWriteOnTransparent;
 
 		uint32_t MaxTextureSizes[ITexture::ETT_COUNT][3];
 	};

@@ -1,4 +1,3 @@
-#include "IrrCompileConfig.h"
 #include "COpenGLVAOSpec.h"
 
 
@@ -26,7 +25,7 @@ namespace irr
 namespace video
 {
 
-COpenGLVAOSpec::COpenGLVAOSpec(core::LeakDebugger* dbgr) :  leakDebugger(dbgr)
+COpenGLVAOSpec::COpenGLVAOSpec(core::CLeakDebugger* dbgr) :  leakDebugger(dbgr)
 {
     if (leakDebugger)
         leakDebugger->registerObj(this);
@@ -42,7 +41,7 @@ COpenGLVAOSpec::~COpenGLVAOSpec()
 }
 
 
-void COpenGLVAOSpec::setVertexAttrBuffer(IGPUBuffer* attrBuf, asset::E_VERTEX_ATTRIBUTE_ID attrId, asset::E_FORMAT format, size_t stride, size_t offset, uint32_t divisor)
+void COpenGLVAOSpec::setVertexAttrBuffer(core::smart_refctd_ptr<IGPUBuffer>&& attrBuf, asset::E_VERTEX_ATTRIBUTE_ID attrId, asset::E_FORMAT format, size_t stride, size_t offset, uint32_t divisor)
 {
     if (attrId>= asset::EVAI_COUNT)
 #ifdef _IRR_DEBUG
@@ -62,21 +61,12 @@ void COpenGLVAOSpec::setVertexAttrBuffer(IGPUBuffer* attrBuf, asset::E_VERTEX_AT
 
     if (attrBuf)
     {
-        attrBuf->grab();
-        newStride = stride!=0u ? stride : getTexelOrBlockSize(format);
-        //bind new buffer
-        if (mappedAttrBuf[attrId])
-            mappedAttrBuf[attrId]->drop();
-        else
-            individualHashFields.enabledAttribs |= mask;
+		individualHashFields.enabledAttribs |= mask;
+        newStride = stride!=0u ? stride : getTexelOrBlockBytesize(format);
     }
     else
-    {
-        if (mappedAttrBuf[attrId])
-        {
-            individualHashFields.enabledAttribs &= invMask;
-            mappedAttrBuf[attrId]->drop();
-        }
+    {	
+		individualHashFields.enabledAttribs &= invMask;
         format = asset::EF_R32G32B32A32_SFLOAT;
         newStride = 16u;
         offset = 0u;
@@ -105,7 +95,7 @@ void COpenGLVAOSpec::setVertexAttrBuffer(IGPUBuffer* attrBuf, asset::E_VERTEX_AT
     attrOffset[attrId] = offset;
 
 
-    mappedAttrBuf[attrId] = attrBuf;
+    mappedAttrBuf[attrId] = std::move(attrBuf);
 }
 
 

@@ -3,10 +3,16 @@
 *.layout
 # Visual Studio Code
 .vscode/*
+# clion
+.idea/*
 # temporary compiler files
 *.objs*
 *.d
 *.o
+# visual studio debug files
+*.ilk
+*.pdb
+*_d.exe
 # CEGUI's downloaded dependencies on Windows
 3rdparty/CEGUI/cegui-deps-0.8.x-src.zip
 # usually where people build

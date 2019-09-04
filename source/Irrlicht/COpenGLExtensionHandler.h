@@ -5,16 +5,12 @@
 #ifndef __C_OPEN_GL_FEATURE_MAP_H_INCLUDED__
 #define __C_OPEN_GL_FEATURE_MAP_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "irr/core/core.h"
+
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
-#define _IRR_OPENGL_USE_EXTPOINTER_
-
 #include "IMaterialRendererServices.h"
-#include "irr/core/Types.h"
-#include "irr/macros.h"
 #include "os.h"
-#include "coreutil.h"
 
 #include "COpenGLStateManager.h"
 #include "COpenGLCubemapTexture.h"
@@ -308,6 +304,8 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_EXT_texture_snorm",
 	"GL_EXT_texture_sRGB",
 	"GL_EXT_texture_sRGB_decode",
+	"GL_EXT_texture_sRGB_R8",
+	"GL_EXT_texture_sRGB_RG8",
 	"GL_EXT_texture_swizzle",
 	"GL_EXT_texture_view",
 	"GL_EXT_timer_query",
@@ -757,6 +755,8 @@ class COpenGLExtensionHandler
 		IRR_EXT_texture_snorm,
 		IRR_EXT_texture_sRGB,
 		IRR_EXT_texture_sRGB_decode,
+		IRR_EXT_texture_sRGB_R8,
+		IRR_EXT_texture_sRGB_RG8,
 		IRR_EXT_texture_swizzle,
 		IRR_EXT_texture_view,
 		IRR_EXT_timer_query,
@@ -944,8 +944,8 @@ class COpenGLExtensionHandler
 
 
 
-	static core::LeakDebugger bufferLeaker;
-	static core::LeakDebugger textureLeaker;
+	static core::CLeakDebugger bufferLeaker;
+	static core::CLeakDebugger textureLeaker;
 
 	// deferred initialization
 	void initExtensions(bool stencilBuffer);
@@ -1777,33 +1777,22 @@ inline void COpenGLExtensionHandler::extGlTextureBufferRange(GLuint texture, GLe
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
+
         if (pGlTextureBufferRange)
             pGlTextureBufferRange(texture,internalformat,buffer,offset,length);
-#else
-        glTextureBufferRange(texture,internalformat,buffer,offset,length);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlTextureBufferRangeEXT)
             pGlTextureBufferRangeEXT(texture,GL_TEXTURE_BUFFER,internalformat,buffer,offset,length);
-#else
-        glTextureBufferRangeEXT(texture,GL_TEXTURE_BUFFER,internalformat,buffer,offset,length);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
     else
     {
         GLint bound;
         glGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &bound);
         glBindTexture(GL_TEXTURE_BUFFER, texture);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlTexBufferRange)
             pGlTexBufferRange(GL_TEXTURE_BUFFER,internalformat,buffer,offset,length);
-#else
-        glTexBufferRange(GL_TEXTURE_BUFFER,internalformat,buffer,offset,length);
-#endif // _IRR_OPENGL_USE_EXTPOINTER
         glBindTexture(GL_TEXTURE_BUFFER, bound);
     }
 }
@@ -1812,27 +1801,15 @@ inline void COpenGLExtensionHandler::extGlTextureStorage1D(GLuint texture, GLenu
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlTextureStorage1D)
             pGlTextureStorage1D(texture,levels,internalformat,width);
-#else
-        glTextureStorage1D(texture,levels,internalformat,width);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlTextureStorage1DEXT)
             pGlTextureStorage1DEXT(texture,target,levels,internalformat,width);
-#else
-        glTextureStorage1DEXT(texture,target,levels,internalformat,width);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlTexStorage1D)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         switch (target)
@@ -1845,11 +1822,7 @@ inline void COpenGLExtensionHandler::extGlTextureStorage1D(GLuint texture, GLenu
                 return;
         }
         glBindTexture(target, texture);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlTexStorage1D(target,levels,internalformat,width);
-#else
-        glTexStorage1D(target,levels,internalformat,width);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
         glBindTexture(target, bound);
     }
 }
@@ -1857,27 +1830,15 @@ inline void COpenGLExtensionHandler::extGlTextureStorage2D(GLuint texture, GLenu
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlTextureStorage2D)
             pGlTextureStorage2D(texture,levels,internalformat,width,height);
-#else
-        glTextureStorage2D(texture,levels,internalformat,width,height);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlTextureStorage2DEXT)
             pGlTextureStorage2DEXT(texture,target,levels,internalformat,width,height);
-#else
-        glTextureStorage2DEXT(texture,target,levels,internalformat,width,height);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlTexStorage2D)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         switch (target)
@@ -1899,11 +1860,7 @@ inline void COpenGLExtensionHandler::extGlTextureStorage2D(GLuint texture, GLenu
                 return;
         }
         glBindTexture(target, texture);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlTexStorage2D(target,levels,internalformat,width,height);
-#else
-        glTexStorage2D(target,levels,internalformat,width,height);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
         glBindTexture(target, bound);
     }
 }
@@ -2202,27 +2159,15 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage1D(GLuint tex
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlCompressedTextureSubImage1D)
             pGlCompressedTextureSubImage1D(texture, level, xoffset, width,format, imageSize, data);
-#else
-        glCompressedTextureSubImage1D(texture, level, xoffset, width,format, imageSize, data);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlCompressedTextureSubImage1DEXT)
             pGlCompressedTextureSubImage1DEXT(texture, target, level, xoffset, width,format, imageSize, data);
-#else
-        glCompressedTextureSubImage1DEXT(texture, target, level, xoffset, width,format, imageSize, data);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlCompressedTexSubImage1D)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         switch (target)
@@ -2235,11 +2180,7 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage1D(GLuint tex
                 return;
         }
         glBindTexture(target, texture);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlCompressedTexSubImage1D(target, level, xoffset, width,format, imageSize, data);
-#else
-        glCompressedTexSubImage1D(target, level, xoffset, width,format, imageSize, data);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
         glBindTexture(target, bound);
     }
 }
@@ -2247,27 +2188,15 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage2D(GLuint tex
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlCompressedTextureSubImage2D)
             pGlCompressedTextureSubImage2D(texture, level, xoffset, yoffset,width, height,format, imageSize, data);
-#else
-        glCompressedTextureSubImage2D(texture, level, xoffset, yoffset,width, height,format, imageSize, data);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlCompressedTextureSubImage2DEXT)
             pGlCompressedTextureSubImage2DEXT(texture, target, level, xoffset, yoffset,width, height,format, imageSize, data);
-#else
-        glCompressedTextureSubImage2DEXT(texture, target, level, xoffset, yoffset,width, height,format, imageSize, data);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlCompressedTexSubImage2D)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         switch (target)
@@ -2291,11 +2220,7 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage2D(GLuint tex
                 return;
         }
         glBindTexture(target, texture);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlCompressedTexSubImage2D(target, level, xoffset, yoffset,width, height,format, imageSize, data);
-#else
-        glCompressedTexSubImage2D(target, level, xoffset, yoffset,width, height,format, imageSize, data);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
         glBindTexture(target, bound);
     }
 }
@@ -2303,27 +2228,15 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage3D(GLuint tex
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlCompressedTextureSubImage3D)
             pGlCompressedTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
-#else
-        glCompressedTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlCompressedTextureSubImage3DEXT)
             pGlCompressedTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
-#else
-        glCompressedTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlCompressedTexSubImage3D)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         switch (target)
@@ -2345,11 +2258,7 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage3D(GLuint tex
                 return;
         }
         glBindTexture(target, texture);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlCompressedTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
-#else
-        glCompressedTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
         glBindTexture(target, bound);
     }
 }
@@ -2358,27 +2267,15 @@ inline void COpenGLExtensionHandler::extGlCopyTextureSubImage1D(GLuint texture, 
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlCopyTextureSubImage1D)
             pGlCopyTextureSubImage1D(texture, level, xoffset, x, y, width);
-#else
-        glCopyTextureSubImage1D(texture, level, xoffset, x, y, width);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlCopyTextureSubImage1DEXT)
             pGlCopyTextureSubImage1DEXT(texture, target, level, xoffset, x, y, width);
-#else
-        glCopyTextureSubImage1DEXT(texture, target, level, xoffset, x, y, width);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlCopyTexSubImage3D)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         switch (target)
@@ -2399,27 +2296,15 @@ inline void COpenGLExtensionHandler::extGlCopyTextureSubImage2D(GLuint texture, 
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlCopyTextureSubImage2D)
             pGlCopyTextureSubImage2D(texture, level, xoffset, yoffset, x, y, width, height);
-#else
-        glCopyTextureSubImage2D(texture, level, xoffset, yoffset, x, y, width, height);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlCopyTextureSubImage2DEXT)
             pGlCopyTextureSubImage2DEXT(texture, target, level, xoffset, yoffset, x, y, width, height);
-#else
-        glCopyTextureSubImage2DEXT(texture, target, level, xoffset, yoffset, x, y, width, height);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlCopyTexSubImage3D)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         switch (target)
@@ -2451,27 +2336,15 @@ inline void COpenGLExtensionHandler::extGlCopyTextureSubImage3D(GLuint texture, 
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlCopyTextureSubImage3D)
             pGlCopyTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, x, y, width, height);
-#else
-        glCopyTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, x, y, width, height);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlCopyTextureSubImage3DEXT)
             pGlCopyTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, x, y, width, height);
-#else
-        glCopyTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, x, y, width, height);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlCopyTexSubImage3D)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         switch (target)
@@ -2493,11 +2366,7 @@ inline void COpenGLExtensionHandler::extGlCopyTextureSubImage3D(GLuint texture, 
                 return;
         }
         glBindTexture(target, texture);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlCopyTexSubImage3D(target, level, xoffset, yoffset, zoffset, x, y, width, height);
-#else
-        glCopyTexSubImage3D(target, level, xoffset, yoffset, zoffset, x, y, width, height);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
         glBindTexture(target, bound);
     }
 }
@@ -2506,27 +2375,15 @@ inline void COpenGLExtensionHandler::extGlGenerateTextureMipmap(GLuint texture, 
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlGenerateTextureMipmap)
             pGlGenerateTextureMipmap(texture);
-#else
-        glGenerateTextureMipmap(texture);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlGenerateTextureMipmapEXT)
             pGlGenerateTextureMipmapEXT(texture,target);
-#else
-        glGenerateTextureMipmapEXT(texture,target);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlGenerateMipmap)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         switch (target)
@@ -2569,23 +2426,15 @@ inline void COpenGLExtensionHandler::extGlGenerateTextureMipmap(GLuint texture, 
                 return;
         }
         glBindTexture(target, texture);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlGenerateMipmap(target);
-#else
-        glGenerateMipmap(target);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
         glBindTexture(target, bound);
     }
 }
 
 inline void COpenGLExtensionHandler::extGlClampColor(GLenum target, GLenum clamp)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlClampColor)
         pGlClampColor(GL_CLAMP_READ_COLOR,clamp);
-#else
-    glClampColor(GL_CLAMP_READ_COLOR,clamp);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::setPixelUnpackAlignment(const uint32_t &pitchInBytes, void* ptr, const uint32_t& minimumAlignment)
@@ -2619,34 +2468,22 @@ inline void COpenGLExtensionHandler::setPixelUnpackAlignment(const uint32_t &pit
 
 inline void COpenGLExtensionHandler::extGlGenSamplers(GLsizei n, GLuint* samplers)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlGenSamplers)
         pGlGenSamplers(n,samplers);
-#else
-    glGenSamplers(n,samplers);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlDeleteSamplers(GLsizei n, GLuint* samplers)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlDeleteSamplers)
         pGlDeleteSamplers(n,samplers);
-#else
-    glDeleteSamplers(n,samplers);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlBindSamplers(const GLuint& first, const GLsizei& count, const GLuint* samplers)
 {
     if (Version>=440||FeatureAvailable[IRR_ARB_multi_bind])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlBindSamplers)
             pGlBindSamplers(first,count,samplers);
-    #else
-        glBindSamplers(first,count,samplers);
-    #endif // _IRR_OPENGL_USE_EXTPOINTER_
     }
     else
     {
@@ -2655,21 +2492,13 @@ inline void COpenGLExtensionHandler::extGlBindSamplers(const GLuint& first, cons
             GLuint unit = first+i;
             if (samplers)
             {
-            #ifdef _IRR_OPENGL_USE_EXTPOINTER_
                 if (pGlBindSampler)
                     pGlBindSampler(unit,samplers[i]);
-            #else
-                glBindSampler(unit,samplers[i]);
-            #endif // _IRR_OPENGL_USE_EXTPOINTER_
             }
             else
             {
-            #ifdef _IRR_OPENGL_USE_EXTPOINTER_
                 if (pGlBindSampler)
                     pGlBindSampler(unit,0);
-            #else
-                glBindSampler(unit,0);
-            #endif // _IRR_OPENGL_USE_EXTPOINTER_
             }
         }
     }
@@ -2677,33 +2506,21 @@ inline void COpenGLExtensionHandler::extGlBindSamplers(const GLuint& first, cons
 
 inline void COpenGLExtensionHandler::extGlSamplerParameteri(GLuint sampler, GLenum pname, GLint param)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlSamplerParameteri)
         pGlSamplerParameteri(sampler,pname,param);
-#else
-    glSamplerParameteri(sampler,pname,param);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlSamplerParameterf(GLuint sampler, GLenum pname, GLfloat param)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlSamplerParameterf)
         pGlSamplerParameterf(sampler,pname,param);
-#else
-    glSamplerParameterf(sampler,pname,param);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 
 inline void COpenGLExtensionHandler::extGlBindImageTexture(GLuint index, GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlBindImageTexture)
         pGlBindImageTexture(index,texture,level,layered,layer,access,format);
-#else
-    glBindImageTexture(index,texture,level,layered,layer,access,format);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 
@@ -2722,12 +2539,8 @@ inline void COpenGLExtensionHandler::extGlUseProgramStages(GLuint pipeline, GLbi
 
 inline GLuint COpenGLExtensionHandler::extGlCreateShader(GLenum shaderType)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlCreateShader)
 		return pGlCreateShader(shaderType);
-#else
-	return glCreateShader(shaderType);
-#endif
 	return 0;
 }
 
@@ -2740,367 +2553,223 @@ inline GLuint COpenGLExtensionHandler::extGlCreateShaderProgramv(GLenum shaderTy
 
 inline void COpenGLExtensionHandler::extGlShaderSource(GLuint shader, GLsizei numOfStrings, const char **strings, const GLint *lenOfStrings)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlShaderSource)
 		pGlShaderSource(shader, numOfStrings, strings, lenOfStrings);
-#else
-	glShaderSource(shader, numOfStrings, strings, (GLint *)lenOfStrings);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlCompileShader(GLuint shader)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlCompileShader)
 		pGlCompileShader(shader);
-#else
-	glCompileShader(shader);
-#endif
 }
 
 inline GLuint COpenGLExtensionHandler::extGlCreateProgram(void)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlCreateProgram)
 		return pGlCreateProgram();
-#else
-	return glCreateProgram();
-#endif
 	return 0;
 }
 
 inline void COpenGLExtensionHandler::extGlAttachShader(GLuint program, GLuint shader)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlAttachShader)
 		pGlAttachShader(program, shader);
-#else
-	glAttachShader(program, shader);
-#endif
 }
 
 
 inline void COpenGLExtensionHandler::extGlLinkProgram(GLuint program)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlLinkProgram)
 		pGlLinkProgram(program);
-#else
-	glLinkProgram(program);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlTransformFeedbackVaryings(GLuint program, GLsizei count, const char** varyings, GLenum bufferMode)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlTransformFeedbackVaryings)
         pGlTransformFeedbackVaryings(program,count,varyings,bufferMode);
-#else
-	glTransformFeedbackVaryings(program,count,varyings,bufferMode);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlUseProgram(GLuint prog)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlUseProgram)
 		pGlUseProgram(prog);
-#else
-	glUseProgram(prog);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlDeleteProgram(GLuint object)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlDeleteProgram)
 		pGlDeleteProgram(object);
-#else
-	glDeleteProgram(object);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlDeleteShader(GLuint shader)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlDeleteShader)
 		pGlDeleteShader(shader);
-#else
-	glDeleteShader(shader);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlGetAttachedShaders(GLuint program, GLsizei maxcount, GLsizei* count, GLuint* shaders)
 {
 	if (count)
 		*count=0;
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlGetAttachedShaders)
 		pGlGetAttachedShaders(program, maxcount, count, shaders);
-#else
-	glGetAttachedShaders(program, maxcount, count, shaders);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlGetShaderInfoLog(GLuint shader, GLsizei maxLength, GLsizei *length, GLchar *infoLog)
 {
 	if (length)
 		*length=0;
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlGetShaderInfoLog)
 		pGlGetShaderInfoLog(shader, maxLength, length, infoLog);
-#else
-	glGetShaderInfoLog(shader, maxLength, length, infoLog);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlGetProgramInfoLog(GLuint program, GLsizei maxLength, GLsizei *length, GLchar *infoLog)
 {
 	if (length)
 		*length=0;
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlGetProgramInfoLog)
 		pGlGetProgramInfoLog(program, maxLength, length, infoLog);
-#else
-	glGetProgramInfoLog(program, maxLength, length, infoLog);
-#endif
 }
 
 
 inline void COpenGLExtensionHandler::extGlGetShaderiv(GLuint shader, GLenum type, GLint *param)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlGetShaderiv)
 		pGlGetShaderiv(shader, type, param);
-#else
-	glGetShaderiv(shader, type, param);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlGetProgramiv(GLuint program, GLenum type, GLint *param)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlGetProgramiv)
 		pGlGetProgramiv(program, type, param);
-#else
-	glGetProgramiv(program, type, param);
-#endif
 }
 
 inline GLint COpenGLExtensionHandler::extGlGetUniformLocation(GLuint program, const char *name)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlGetUniformLocation)
 		return pGlGetUniformLocation(program, name);
-#else
-	return glGetUniformLocation(program, name);
-#endif
 	return -1;
 }
 
 inline void COpenGLExtensionHandler::extGlProgramUniform1fv(GLuint program, GLint loc, GLsizei count, const GLfloat *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniform1fv)
 		pGlProgramUniform1fv(program, loc, count, v);
-#else
-	glProgramUniform1fv(program, loc, count, v);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlProgramUniform2fv(GLuint program, GLint loc, GLsizei count, const GLfloat *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniform2fv)
 		pGlProgramUniform2fv(program, loc, count, v);
-#else
-	glProgramUniform2fv(program, loc, count, v);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlProgramUniform3fv(GLuint program, GLint loc, GLsizei count, const GLfloat *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniform3fv)
 		pGlProgramUniform3fv(program, loc, count, v);
-#else
-	glProgramUniform3fv(program, loc, count, v);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlProgramUniform4fv(GLuint program, GLint loc, GLsizei count, const GLfloat *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniform4fv)
 		pGlProgramUniform4fv(program, loc, count, v);
-#else
-	glProgramUniform4fv(program, loc, count, v);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlProgramUniform1iv(GLuint program, GLint loc, GLsizei count, const GLint *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniform1iv)
 		pGlProgramUniform1iv(program, loc, count, v);
-#else
-	glProgramUniform1iv(program, loc, count, v);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlProgramUniform2iv(GLuint program, GLint loc, GLsizei count, const GLint *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniform2iv)
 		pGlProgramUniform2iv(program, loc, count, v);
-#else
-	glProgramUniform2iv(program, loc, count, v);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlProgramUniform3iv(GLuint program, GLint loc, GLsizei count, const GLint *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniform3iv)
 		pGlProgramUniform3iv(program, loc, count, v);
-#else
-	glProgramUniform3iv(program, loc, count, v);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlProgramUniform4iv(GLuint program, GLint loc, GLsizei count, const GLint *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniform4iv)
 		pGlProgramUniform4iv(program, loc, count, v);
-#else
-	glProgramUniform4iv(program, loc, count, v);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlProgramUniform1uiv(GLuint program, GLint loc, GLsizei count, const GLuint *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniform1uiv)
 		pGlProgramUniform1uiv(program, loc, count, v);
-#else
-	glProgramUniform1uiv(program, loc, count, v);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlProgramUniform2uiv(GLuint program, GLint loc, GLsizei count, const GLuint *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniform2uiv)
 		pGlProgramUniform2uiv(program, loc, count, v);
-#else
-	glProgramUniform2uiv(program, loc, count, v);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlProgramUniform3uiv(GLuint program, GLint loc, GLsizei count, const GLuint *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniform3uiv)
 		pGlProgramUniform3uiv(program, loc, count, v);
-#else
-	glProgramUniform3uiv(program, loc, count, v);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlProgramUniform4uiv(GLuint program, GLint loc, GLsizei count, const GLuint *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniform4uiv)
 		pGlProgramUniform4uiv(program, loc, count, v);
-#else
-	glProgramUniform4uiv(program, loc, count, v);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlProgramUniformMatrix2fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniformMatrix2fv)
 		pGlProgramUniformMatrix2fv(program, loc, count, transpose, v);
-#else
-	glProgramUniformMatrix2fv(program, loc, count, transpose, v);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlProgramUniformMatrix3fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniformMatrix3fv)
 		pGlProgramUniformMatrix3fv(program, loc, count, transpose, v);
-#else
-	glProgramUniformMatrix3fv(program, loc, count, transpose, v);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlProgramUniformMatrix4fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniformMatrix4fv)
 		pGlProgramUniformMatrix4fv(program, loc, count, transpose, v);
-#else
-	glProgramUniformMatrix4fv(program, loc, count, transpose, v);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlProgramUniformMatrix2x3fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniformMatrix2x3fv)
 		pGlProgramUniformMatrix2x3fv(program, loc, count, transpose, v);
-#else
-	glProgramUniformMatrix2x3fv(program, loc, count, transpose, v);
-#endif
 }
 inline void COpenGLExtensionHandler::extGlProgramUniformMatrix2x4fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniformMatrix2x4fv)
 		pGlProgramUniformMatrix2x4fv(program, loc, count, transpose, v);
-#else
-	glProgramUniformMatrix2x4fv(program, loc, count, transpose, v);
-#endif
 }
 inline void COpenGLExtensionHandler::extGlProgramUniformMatrix3x2fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniformMatrix3x2fv)
 		pGlProgramUniformMatrix3x2fv(program, loc, count, transpose, v);
-#else
-	glProgramUniformMatrix3x2fv(program, loc, count, transpose, v);
-#endif
 }
 inline void COpenGLExtensionHandler::extGlProgramUniformMatrix3x4fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniformMatrix3x4fv)
 		pGlProgramUniformMatrix3x4fv(program, loc, count, transpose, v);
-#else
-	glProgramUniformMatrix3x4fv(program, loc, count, transpose, v);
-#endif
 }
 inline void COpenGLExtensionHandler::extGlProgramUniformMatrix4x2fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniformMatrix4x2fv)
 		pGlProgramUniformMatrix4x2fv(program, loc, count, transpose, v);
-#else
-	glProgramUniformMatrix4x2fv(program, loc, count, transpose, v);
-#endif
 }
 inline void COpenGLExtensionHandler::extGlProgramUniformMatrix4x3fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlProgramUniformMatrix4x3fv)
 		pGlProgramUniformMatrix4x3fv(program, loc, count, transpose, v);
-#else
-	glProgramUniformMatrix4x3fv(program, loc, count, transpose, v);
-#endif
 }
 
 
@@ -3111,54 +2780,34 @@ inline void COpenGLExtensionHandler::extGlGetActiveUniform(GLuint program,
 {
 	if (length)
 		*length=0;
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlGetActiveUniform)
 		pGlGetActiveUniform(program, index, maxlength, length, size, type, name);
-#else
-	glGetActiveUniform(program, index, maxlength, length, size, type, name);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlBindProgramPipeline(GLuint pipeline)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlBindProgramPipeline)
 		pGlBindProgramPipeline(pipeline);
-#else
-	glBindProgramPipeline(pipeline);
-#endif
 }
 
 
 
 inline void COpenGLExtensionHandler::extGlMemoryBarrier(GLbitfield barriers)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlMemoryBarrier)
 		pGlMemoryBarrier(barriers);
-#else
-	glMemoryBarrier(barriers);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlDispatchCompute(GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlDispatchCompute)
 		pGlDispatchCompute(num_groups_x,num_groups_y,num_groups_z);
-#else
-	glDispatchCompute(num_groups_x,num_groups_y,num_groups_z);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlDispatchComputeIndirect(GLintptr indirect)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlDispatchComputeIndirect)
 		pGlDispatchComputeIndirect(indirect);
-#else
-	glDispatchComputeIndirect(indirect);
-#endif
 }
 
 
@@ -3166,22 +2815,14 @@ inline void COpenGLExtensionHandler::extGlDispatchComputeIndirect(GLintptr indir
 
 inline void COpenGLExtensionHandler::extGlPointParameterf(GLint loc, GLfloat f)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlPointParameterf)
 		pGlPointParameterf(loc, f);
-#else
-	glPointParameterf(loc, f);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlPointParameterfv(GLint loc, const GLfloat *v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlPointParameterfv)
 		pGlPointParameterfv(loc, v);
-#else
-	glPointParameterfv(loc, v);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlStencilFuncSeparate(GLenum face, GLenum func, GLint ref, GLuint mask)
@@ -3534,25 +3175,17 @@ inline void COpenGLExtensionHandler::extGlCreateBuffers(GLsizei n, GLuint *buffe
 
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlCreateBuffers)
             pGlCreateBuffers(n, buffers);
         else if (buffers)
             memset(buffers,0,n*sizeof(GLuint));
-    #else
-        glCreateBuffers(n, buffers);
-    #endif
     }
     else
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlGenBuffers)
             pGlGenBuffers(n, buffers);
         else if (buffers)
             memset(buffers,0,n*sizeof(GLuint));
-    #else
-        glGenBuffers(n, buffers);
-    #endif
     }
 }
 
@@ -3563,46 +3196,29 @@ inline void COpenGLExtensionHandler::extGlDeleteBuffers(GLsizei n, const GLuint 
         COpenGLExtensionHandler::bufferLeaker.deregisterObj(buffers);
 #endif // OPENGL_LEAK_DEBUG
 
-
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlDeleteBuffers)
 		pGlDeleteBuffers(n, buffers);
-#else
-	glDeleteBuffers(n, buffers);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlBindBuffer(const GLenum& target, const GLuint& buffer)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlBindBuffer)
 		pGlBindBuffer(target, buffer);
-#else
-	glBindBuffer(target, buffer);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlBindBuffersBase(const GLenum& target, const GLuint& first, const GLsizei& count, const GLuint* buffers)
 {
     if (Version>=440||FeatureAvailable[IRR_ARB_multi_bind])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlBindBuffersBase)
             pGlBindBuffersBase(target,first,count,buffers);
-    #else
-        glBindBuffersBase(target,first,count,buffers);
-    #endif
     }
     else
     {
         for (GLsizei i=0; i<count; i++)
         {
-        #ifdef _IRR_OPENGL_USE_EXTPOINTER_
             if (pGlBindBufferBase)
                 pGlBindBufferBase(target,first+i,buffers ? buffers[i]:0);
-        #else
-            glBindBufferBase(target,first+i,buffers ? buffers[i]:0);
-        #endif
         }
     }
 }
@@ -3611,12 +3227,8 @@ inline void COpenGLExtensionHandler::extGlBindBuffersRange(const GLenum& target,
 {
     if (Version>=440||FeatureAvailable[IRR_ARB_multi_bind])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlBindBuffersRange)
             pGlBindBuffersRange(target,first,count,buffers,offsets,sizes);
-    #else
-        glBindBuffersRange(target,first,count,buffers,offsets,sizes);
-    #endif
     }
     else
     {
@@ -3624,21 +3236,13 @@ inline void COpenGLExtensionHandler::extGlBindBuffersRange(const GLenum& target,
         {
             if (buffers)
             {
-            #ifdef _IRR_OPENGL_USE_EXTPOINTER_
                 if (pGlBindBufferRange)
                     pGlBindBufferRange(target,first+i,buffers[i],offsets[i],sizes[i]);
-            #else
-                glBindBufferRange(target,first+i,buffers[i],offsets[i],sizes[i]);
-            #endif
             }
             else
             {
-            #ifdef _IRR_OPENGL_USE_EXTPOINTER_
                 if (pGlBindBufferBase)
                     pGlBindBufferBase(target,first+i,0);
-            #else
-                glBindBufferBase(target,first+i,0);
-            #endif
             }
         }
     }
@@ -3648,39 +3252,21 @@ inline void COpenGLExtensionHandler::extGlNamedBufferStorage(GLuint buffer, GLsi
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlNamedBufferStorage)
             pGlNamedBufferStorage(buffer,size,data,flags);
-    #else
-        glNamedBufferStorage(buffer,size,data,flags);
-    #endif
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlNamedBufferStorageEXT)
             pGlNamedBufferStorageEXT(buffer,size,data,flags);
-    #else
-        glNamedBufferStorageEXT(buffer,size,data,flags);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlBufferStorage&&pGlBindBuffer)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
         pGlBufferStorage(GL_ARRAY_BUFFER, size, data, flags);
         pGlBindBuffer(GL_ARRAY_BUFFER,bound);
-#else
-        glBindBuffer(GL_ARRAY_BUFFER,buffer);
-        glBufferStorage(GL_ARRAY_BUFFER, size, data, flags);
-        glBindBuffer(GL_ARRAY_BUFFER,bound);
-#endif
     }
 }
 
@@ -3688,39 +3274,21 @@ inline void COpenGLExtensionHandler::extGlNamedBufferSubData(GLuint buffer, GLin
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlNamedBufferSubData)
             pGlNamedBufferSubData(buffer,offset,size,data);
-    #else
-        glNamedBufferSubData(buffer,offset,size,data);
-    #endif
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlNamedBufferSubDataEXT)
             pGlNamedBufferSubDataEXT(buffer,offset,size,data);
-    #else
-        glNamedBufferSubDataEXT(buffer,offset,size,data);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlBufferSubData&&pGlBindBuffer)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
         pGlBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
         pGlBindBuffer(GL_ARRAY_BUFFER,bound);
-#else
-        glBindBuffer(GL_ARRAY_BUFFER,buffer);
-        glBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
-        glBindBuffer(GL_ARRAY_BUFFER,bound);
-#endif
     }
 }
 
@@ -3728,39 +3296,21 @@ inline void COpenGLExtensionHandler::extGlGetNamedBufferSubData(GLuint buffer, G
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlGetNamedBufferSubData)
             pGlGetNamedBufferSubData(buffer,offset,size,data);
-    #else
-        glGetNamedBufferSubData(buffer,offset,size,data);
-    #endif
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlGetNamedBufferSubDataEXT)
             pGlGetNamedBufferSubDataEXT(buffer,offset,size,data);
-    #else
-        glGetNamedBufferSubDataEXT(buffer,offset,size,data);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlGetBufferSubData&&pGlBindBuffer)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
         pGlGetBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
         pGlBindBuffer(GL_ARRAY_BUFFER,bound);
-#else
-        glBindBuffer(GL_ARRAY_BUFFER,buffer);
-        glGetBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
-        glBindBuffer(GL_ARRAY_BUFFER,bound);
-#endif
     }
 }
 
@@ -3768,40 +3318,22 @@ inline void *COpenGLExtensionHandler::extGlMapNamedBuffer(GLuint buffer, GLbitfi
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlMapNamedBuffer)
             return pGlMapNamedBuffer(buffer,access);
-    #else
-        return glMapNamedBuffer(buffer,access);
-    #endif
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlMapNamedBufferEXT)
             return pGlMapNamedBufferEXT(buffer,access);
-    #else
-        return glMapNamedBufferEXT(buffer,access);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlMapBuffer&&pGlBindBuffer)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLvoid* retval;
         GLint bound;
         glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
         retval = pGlMapBuffer(GL_ARRAY_BUFFER,access);
         pGlBindBuffer(GL_ARRAY_BUFFER,bound);
-#else
-        glBindBuffer(GL_ARRAY_BUFFER,buffer);
-        retval = glMapBuffer(GL_ARRAY_BUFFER,access);
-        glBindBuffer(GL_ARRAY_BUFFER,bound);
-#endif
         return retval;
     }
     return NULL;
@@ -3811,40 +3343,22 @@ inline void *COpenGLExtensionHandler::extGlMapNamedBufferRange(GLuint buffer, GL
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlMapNamedBufferRange)
             return pGlMapNamedBufferRange(buffer,offset,length,access);
-    #else
-        return glMapNamedBufferRange(buffer,offset,length,access);
-    #endif
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlMapNamedBufferRangeEXT)
             return pGlMapNamedBufferRangeEXT(buffer,offset,length,access);
-    #else
-        return glMapNamedBufferRangeEXT(buffer,offset,length,access);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlMapBufferRange&&pGlBindBuffer)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLvoid* retval;
         GLint bound;
         glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
         retval = pGlMapBufferRange(GL_ARRAY_BUFFER,offset,length,access);
         pGlBindBuffer(GL_ARRAY_BUFFER,bound);
-#else
-        glBindBuffer(GL_ARRAY_BUFFER,buffer);
-        retval = glMapBufferRange(GL_ARRAY_BUFFER,offset,length,access);
-        glBindBuffer(GL_ARRAY_BUFFER,bound);
-#endif
         return retval;
     }
     return NULL;
@@ -3854,39 +3368,21 @@ inline void COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(GLuint buf
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlFlushMappedNamedBufferRange)
             pGlFlushMappedNamedBufferRange(buffer,offset,length);
-    #else
-        glFlushMappedNamedBufferRange(buffer,offset,length);
-    #endif
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlFlushMappedNamedBufferRangeEXT)
             pGlFlushMappedNamedBufferRangeEXT(buffer,offset,length);
-    #else
-        glFlushMappedNamedBufferRangeEXT(buffer,offset,length);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlFlushMappedBufferRange&&pGlBindBuffer)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
         pGlFlushMappedBufferRange(GL_ARRAY_BUFFER, offset, length);
         pGlBindBuffer(GL_ARRAY_BUFFER,bound);
-#else
-        glBindBuffer(GL_ARRAY_BUFFER,buffer);
-        glFlushMappedBufferRange(GL_ARRAY_BUFFER, offset, length);
-        glBindBuffer(GL_ARRAY_BUFFER,bound);
-#endif
     }
 }
 
@@ -3894,40 +3390,22 @@ inline GLboolean COpenGLExtensionHandler::extGlUnmapNamedBuffer(GLuint buffer)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlUnmapNamedBuffer)
             return pGlUnmapNamedBuffer(buffer);
-    #else
-        return glUnmapNamedBuffer(buffer);
-    #endif
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlUnmapNamedBufferEXT)
             return pGlUnmapNamedBufferEXT(buffer);
-    #else
-        return glUnmapNamedBufferEXT(buffer);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlUnmapBuffer&&pGlBindBuffer)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLboolean retval;
         GLint bound;
         glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
         retval = pGlUnmapBuffer(GL_ARRAY_BUFFER);
         pGlBindBuffer(GL_ARRAY_BUFFER,bound);
-#else
-        glBindBuffer(GL_ARRAY_BUFFER,buffer);
-        retval = glUnmapBuffer(GL_ARRAY_BUFFER);
-        glBindBuffer(GL_ARRAY_BUFFER,bound);
-#endif
         return retval;
     }
     return false;
@@ -3937,39 +3415,21 @@ inline void COpenGLExtensionHandler::extGlClearNamedBufferData(GLuint buffer, GL
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlClearNamedBufferData)
             pGlClearNamedBufferData(buffer,internalformat,format,type,data);
-    #else
-        glClearNamedBufferData(buffer,internalformat,format,type,data);
-    #endif
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlClearNamedBufferDataEXT)
             pGlClearNamedBufferDataEXT(buffer,internalformat,format,type,data);
-    #else
-        glClearNamedBufferDataEXT(buffer,internalformat,format,type,data);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlClearBufferData&&pGlBindBuffer)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
         pGlClearBufferData(GL_ARRAY_BUFFER, internalformat,format,type,data);
         pGlBindBuffer(GL_ARRAY_BUFFER,bound);
-#else
-        glBindBuffer(GL_ARRAY_BUFFER,buffer);
-        glClearBufferData(GL_ARRAY_BUFFER, internalformat,format,type,data);
-        glBindBuffer(GL_ARRAY_BUFFER,bound);
-#endif
     }
 }
 
@@ -3977,39 +3437,21 @@ inline void COpenGLExtensionHandler::extGlClearNamedBufferSubData(GLuint buffer,
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlClearNamedBufferSubData)
             pGlClearNamedBufferSubData(buffer,internalformat,offset,size,format,type,data);
-    #else
-        glClearNamedBufferSubData(buffer,internalformat,offset,size,format,type,data);
-    #endif
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlClearNamedBufferSubDataEXT)
             pGlClearNamedBufferSubDataEXT(buffer,internalformat,offset,size,format,type,data);
-    #else
-        glClearNamedBufferSubDataEXT(buffer,internalformat,offset,size,format,type,data);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlClearBufferSubData&&pGlBindBuffer)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
         pGlClearBufferSubData(GL_ARRAY_BUFFER, internalformat,offset,size,format,type,data);
         pGlBindBuffer(GL_ARRAY_BUFFER,bound);
-#else
-        glBindBuffer(GL_ARRAY_BUFFER,buffer);
-        glClearBufferSubData(GL_ARRAY_BUFFER, internalformat,offset,size,format,type,data);
-        glBindBuffer(GL_ARRAY_BUFFER,bound);
-#endif
     }
 }
 
@@ -4017,95 +3459,53 @@ inline void COpenGLExtensionHandler::extGlCopyNamedBufferSubData(GLuint readBuff
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlCopyNamedBufferSubData)
             pGlCopyNamedBufferSubData(readBuffer, writeBuffer, readOffset, writeOffset, size);
-    #else
-        glCopyNamedBufferSubData(readBuffer, writeBuffer, readOffset, writeOffset, size);
-    #endif
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlNamedCopyBufferSubDataEXT)
             pGlNamedCopyBufferSubDataEXT(readBuffer, writeBuffer, readOffset, writeOffset, size);
-    #else
-        glNamedCopyBufferSubDataEXT(readBuffer, writeBuffer, readOffset, writeOffset, size);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlCopyBufferSubData&&pGlBindBuffer)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint boundRead,boundWrite;
         glGetIntegerv(GL_COPY_READ_BUFFER_BINDING,&boundRead);
         glGetIntegerv(GL_COPY_WRITE_BUFFER_BINDING,&boundWrite);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindBuffer(GL_COPY_READ_BUFFER,readBuffer);
         pGlBindBuffer(GL_COPY_WRITE_BUFFER,writeBuffer);
         pGlCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, readOffset, writeOffset, size);
         pGlBindBuffer(GL_COPY_READ_BUFFER,boundRead);
         pGlBindBuffer(GL_COPY_WRITE_BUFFER,boundWrite);
-#else
-        glBindBuffer(GL_COPY_READ_BUFFER,readBuffer);
-        glBindBuffer(GL_COPY_WRITE_BUFFER,writeBuffer);
-        glCopyBufferSubData(GL_COPY_READ_BUFFER, GL_COPY_WRITE_BUFFER, readOffset, writeOffset, size);
-        glBindBuffer(GL_COPY_READ_BUFFER,boundRead);
-        glBindBuffer(GL_COPY_WRITE_BUFFER,boundWrite);
-#endif
     }
 }
 
 inline GLboolean COpenGLExtensionHandler::extGlIsBuffer(GLuint buffer)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlIsBuffer)
 		return pGlIsBuffer(buffer);
 	return false;
-#else
-	return glIsBuffer(buffer);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlGetNamedBufferParameteriv(const GLuint& buffer, const GLenum& value, GLint* data)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlGetNamedBufferParameteriv)
             pGlGetNamedBufferParameteriv(buffer, value, data);
-    #else
-        glGetNamedBufferParameteriv(buffer, value, data);
-    #endif
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlGetNamedBufferParameterivEXT)
             pGlGetNamedBufferParameterivEXT(buffer, value, data);
-    #else
-        glGetNamedBufferParameterivEXT(buffer, value, data);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlGetBufferParameteriv&&pGlBindBuffer)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
         pGlGetBufferParameteriv(GL_ARRAY_BUFFER, value, data);
         pGlBindBuffer(GL_ARRAY_BUFFER,bound);
-#else
-        glBindBuffer(GL_ARRAY_BUFFER,buffer);
-        glGetBufferParameteriv(GL_ARRAY_BUFFER, value, data);
-        glBindBuffer(GL_ARRAY_BUFFER,bound);
-#endif
     }
 }
 
@@ -4113,30 +3513,16 @@ inline void COpenGLExtensionHandler::extGlGetNamedBufferParameteri64v(const GLui
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlGetNamedBufferParameteri64v)
             pGlGetNamedBufferParameteri64v(buffer, value, data);
-    #else
-        glGetNamedBufferParameteri64v(buffer, value, data);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlGetBufferParameteri64v&&pGlBindBuffer)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         GLint bound;
         glGetIntegerv(GL_ARRAY_BUFFER_BINDING,&bound);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindBuffer(GL_ARRAY_BUFFER,buffer);
         pGlGetBufferParameteri64v(GL_ARRAY_BUFFER, value, data);
         pGlBindBuffer(GL_ARRAY_BUFFER,bound);
-#else
-        glBindBuffer(GL_ARRAY_BUFFER,buffer);
-        glGetBufferParameteri64v(GL_ARRAY_BUFFER, value, data);
-        glBindBuffer(GL_ARRAY_BUFFER,bound);
-#endif
     }
 }
 
@@ -4145,75 +3531,45 @@ inline void COpenGLExtensionHandler::extGlCreateVertexArrays(GLsizei n, GLuint *
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlCreateVertexArrays)
             pGlCreateVertexArrays(n,arrays);
-    #else
-        glCreateVertexArrays(n,arrays);
-    #endif
     }
     else
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlGenVertexArrays)
             pGlGenVertexArrays(n,arrays);
         else
             memset(arrays,0,sizeof(GLuint)*n);
-    #else
-        glGenVertexArrays(n,arrays);
-    #endif
     }
 }
 
 inline void COpenGLExtensionHandler::extGlDeleteVertexArrays(GLsizei n, GLuint *arrays)
 {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlDeleteVertexArrays)
         pGlDeleteVertexArrays(n,arrays);
-    #else
-    glDeleteVertexArrays(n,arrays);
-    #endif
 }
 
 inline void COpenGLExtensionHandler::extGlBindVertexArray(GLuint vaobj)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlBindVertexArray)
         pGlBindVertexArray(vaobj);
-#else
-    glBindVertexArray(vaobj);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlVertexArrayElementBuffer(GLuint vaobj, GLuint buffer)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlVertexArrayElementBuffer)
             pGlVertexArrayElementBuffer(vaobj,buffer);
-    #else
-        glVertexArrayElementBuffer(vaobj,buffer);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlBindBuffer&&pGlBindVertexArray)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         // Save the previous bound vertex array
         GLint restoreVertexArray;
         glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindVertexArray(vaobj);
         pGlBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer);
         pGlBindVertexArray(restoreVertexArray);
-    #else
-        glBindVertexArray(vaobj);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer);
-        glBindVertexArray(restoreVertexArray);
-    #endif
     }
 }
 
@@ -4221,40 +3577,22 @@ inline void COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(GLuint vaobj, 
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlVertexArrayVertexBuffer)
             pGlVertexArrayVertexBuffer(vaobj,bindingindex,buffer,offset,stride);
-    #else
-        glVertexArrayVertexBuffer(vaobj,bindingindex,buffer,offset,stride);
-    #endif
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlVertexArrayBindVertexBufferEXT)
             pGlVertexArrayBindVertexBufferEXT(vaobj,bindingindex,buffer,offset,stride);
-    #else
-        glVertexArrayBindVertexBufferEXT(vaobj,bindingindex,buffer,offset,stride);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlBindVertexBuffer&&pGlBindVertexArray)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         // Save the previous bound vertex array
         GLint restoreVertexArray;
         glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindVertexArray(vaobj);
         pGlBindVertexBuffer(bindingindex,buffer,offset,stride);
         pGlBindVertexArray(restoreVertexArray);
-    #else
-        glBindVertexArray(vaobj);
-        glBindVertexBuffer(bindingindex,buffer,offset,stride);
-        glBindVertexArray(restoreVertexArray);
-    #endif
     }
 }
 
@@ -4262,40 +3600,22 @@ inline void COpenGLExtensionHandler::extGlVertexArrayAttribBinding(GLuint vaobj,
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlVertexArrayAttribBinding)
             pGlVertexArrayAttribBinding(vaobj,attribindex,bindingindex);
-    #else
-        glVertexArrayAttribBinding(vaobj,attribindex,bindingindex);
-    #endif
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlVertexArrayVertexAttribBindingEXT)
             pGlVertexArrayVertexAttribBindingEXT(vaobj,attribindex,bindingindex);
-    #else
-        glVertexArrayVertexAttribBindingEXT(vaobj,attribindex,bindingindex);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlVertexAttribBinding&&pGlBindVertexArray)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         // Save the previous bound vertex array
         GLint restoreVertexArray;
         glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindVertexArray(vaobj);
         pGlVertexAttribBinding(attribindex,bindingindex);
         pGlBindVertexArray(restoreVertexArray);
-    #else
-        glBindVertexArray(vaobj);
-        glVertexAttribBinding(attribindex,bindingindex);
-        glBindVertexArray(restoreVertexArray);
-    #endif
     }
 }
 
@@ -4303,40 +3623,22 @@ inline void COpenGLExtensionHandler::extGlEnableVertexArrayAttrib(GLuint vaobj, 
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlEnableVertexArrayAttrib)
             pGlEnableVertexArrayAttrib(vaobj,index);
-    #else
-        glEnableVertexArrayAttrib(vaobj,index);
-    #endif
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlEnableVertexArrayAttribEXT)
             pGlEnableVertexArrayAttribEXT(vaobj,index);
-    #else
-        glEnableVertexArrayAttribEXT(vaobj,index);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlEnableVertexAttribArray&&pGlBindVertexArray)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         // Save the previous bound vertex array
         GLint restoreVertexArray;
         glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindVertexArray(vaobj);
         pGlEnableVertexAttribArray(index);
         pGlBindVertexArray(restoreVertexArray);
-    #else
-        glBindVertexArray(vaobj);
-        glEnableVertexAttribArray(index);
-        glBindVertexArray(restoreVertexArray);
-    #endif
     }
 }
 
@@ -4344,40 +3646,22 @@ inline void COpenGLExtensionHandler::extGlDisableVertexArrayAttrib(GLuint vaobj,
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlDisableVertexArrayAttrib)
             pGlDisableVertexArrayAttrib(vaobj,index);
-    #else
-        glDisableVertexArrayAttrib(vaobj,index);
-    #endif
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlDisableVertexArrayAttribEXT)
             pGlDisableVertexArrayAttribEXT(vaobj,index);
-    #else
-        glDisableVertexArrayAttribEXT(vaobj,index);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlDisableVertexAttribArray&&pGlBindVertexArray)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         // Save the previous bound vertex array
         GLint restoreVertexArray;
         glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindVertexArray(vaobj);
         pGlDisableVertexAttribArray(index);
         pGlBindVertexArray(restoreVertexArray);
-    #else
-        glBindVertexArray(vaobj);
-        glDisableVertexAttribArray(index);
-        glBindVertexArray(restoreVertexArray);
-    #endif
     }
 }
 
@@ -4385,40 +3669,22 @@ inline void COpenGLExtensionHandler::extGlVertexArrayAttribFormat(GLuint vaobj, 
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlVertexArrayAttribFormat)
             pGlVertexArrayAttribFormat(vaobj,attribindex,size,type,normalized,relativeoffset);
-    #else
-        glVertexArrayAttribFormat(vaobj,attribindex,size,type,normalized,relativeoffset);
-    #endif
     }
     else if (!IsIntelGPU&&FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlVertexArrayVertexAttribFormatEXT)
             pGlVertexArrayVertexAttribFormatEXT(vaobj,attribindex,size,type,normalized,relativeoffset);
-    #else
-        glVertexArrayVertexAttribFormatEXT(vaobj,attribindex,size,type,normalized,relativeoffset);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlVertexAttribFormat&&pGlBindVertexArray)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         // Save the previous bound vertex array
         GLint restoreVertexArray;
         glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindVertexArray(vaobj);
         pGlVertexAttribFormat(attribindex,size,type,normalized,relativeoffset);
         pGlBindVertexArray(restoreVertexArray);
-    #else
-        glBindVertexArray(vaobj);
-        glVertexAttribFormat(attribindex,size,type,normalized,relativeoffset);
-        glBindVertexArray(restoreVertexArray);
-    #endif
     }
 }
 
@@ -4426,40 +3692,22 @@ inline void COpenGLExtensionHandler::extGlVertexArrayAttribIFormat(GLuint vaobj,
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlVertexArrayAttribIFormat)
             pGlVertexArrayAttribIFormat(vaobj,attribindex,size,type,relativeoffset);
-    #else
-        glVertexArrayAttribIFormat(vaobj,attribindex,size,type,relativeoffset);
-    #endif
     }
     else if (!IsIntelGPU&&FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlVertexArrayVertexAttribIFormatEXT)
             pGlVertexArrayVertexAttribIFormatEXT(vaobj,attribindex,size,type,relativeoffset);
-    #else
-        glVertexArrayVertexAttribIFormatEXT(vaobj,attribindex,size,type,relativeoffset);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlVertexAttribIFormat&&pGlBindVertexArray)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         // Save the previous bound vertex array
         GLint restoreVertexArray;
         glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindVertexArray(vaobj);
         pGlVertexAttribIFormat(attribindex,size,type,relativeoffset);
         pGlBindVertexArray(restoreVertexArray);
-    #else
-        glBindVertexArray(vaobj);
-        glVertexAttribIFormat(attribindex,size,type,relativeoffset);
-        glBindVertexArray(restoreVertexArray);
-    #endif
     }
 }
 
@@ -4467,40 +3715,22 @@ inline void COpenGLExtensionHandler::extGlVertexArrayAttribLFormat(GLuint vaobj,
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlVertexArrayAttribLFormat)
             pGlVertexArrayAttribLFormat(vaobj,attribindex,size,type,relativeoffset);
-    #else
-        pGlVertexArrayAttribLFormat(vaobj,attribindex,size,type,relativeoffset);
-    #endif
     }
     else if (!IsIntelGPU&&FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlVertexArrayVertexAttribLFormatEXT)
             pGlVertexArrayVertexAttribLFormatEXT(vaobj,attribindex,size,type,relativeoffset);
-    #else
-        pGlVertexArrayVertexAttribLFormatEXT(vaobj,attribindex,size,type,relativeoffset);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlVertexAttribLFormat&&pGlBindVertexArray)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         // Save the previous bound vertex array
         GLint restoreVertexArray;
         glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindVertexArray(vaobj);
         pGlVertexAttribLFormat(attribindex,size,type,relativeoffset);
         pGlBindVertexArray(restoreVertexArray);
-    #else
-        glBindVertexArray(vaobj);
-        glVertexAttribLFormat(attribindex,size,type,relativeoffset);
-        glBindVertexArray(restoreVertexArray);
-    #endif
     }
 }
 
@@ -4508,40 +3738,22 @@ inline void COpenGLExtensionHandler::extGlVertexArrayBindingDivisor(GLuint vaobj
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlVertexArrayBindingDivisor)
             pGlVertexArrayBindingDivisor(vaobj,bindingindex,divisor);
-    #else
-        glVertexArrayBindingDivisor(vaobj,bindingindex,divisor);
-    #endif
     }
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
     {
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlVertexArrayVertexBindingDivisorEXT)
             pGlVertexArrayVertexBindingDivisorEXT(vaobj,bindingindex,divisor);
-    #else
-        glVertexArrayVertexBindingDivisorEXT(vaobj,bindingindex,divisor);
-    #endif
     }
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     else if (pGlVertexBindingDivisor&&pGlBindVertexArray)
-#else
-    else
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
     {
         // Save the previous bound vertex array
         GLint restoreVertexArray;
         glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
-    #ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindVertexArray(vaobj);
         pGlVertexBindingDivisor(bindingindex,divisor);
         pGlBindVertexArray(restoreVertexArray);
-    #else
-        glBindVertexArray(vaobj);
-        glVertexBindingDivisor(bindingindex,divisor);
-        glBindVertexArray(restoreVertexArray);
-    #endif
     }
 }
 
@@ -4551,94 +3763,58 @@ inline void COpenGLExtensionHandler::extGlCreateTransformFeedbacks(GLsizei n, GL
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlCreateTransformFeedbacks)
             pGlCreateTransformFeedbacks(n,ids);
-#else
-        glCreateTransformFeedbacks(n,ids);
-#endif
     }
     else
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlGenTransformFeedbacks)
             pGlGenTransformFeedbacks(n,ids);
-#else
-        glGenTransformFeedbacks(n,ids);
-#endif
     }
 }
 
 inline void COpenGLExtensionHandler::extGlDeleteTransformFeedbacks(GLsizei n, const GLuint* ids)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlDeleteTransformFeedbacks)
         pGlDeleteTransformFeedbacks(n,ids);
-#else
-    glDeleteTransformFeedbacks(n,ids);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlBindTransformFeedback(GLenum target, GLuint id)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlBindTransformFeedback)
         pGlBindTransformFeedback(target,id);
-#else
-    glBindTransformFeedback(target,id);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlBeginTransformFeedback(GLenum primitiveMode)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlBeginTransformFeedback)
         pGlBeginTransformFeedback(primitiveMode);
-#else
-    glBeginTransformFeedback(primitiveMode);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlPauseTransformFeedback()
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlPauseTransformFeedback)
         pGlPauseTransformFeedback();
-#else
-    glPauseTransformFeedback();
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlResumeTransformFeedback()
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlResumeTransformFeedback)
         pGlResumeTransformFeedback();
-#else
-    glResumeTransformFeedback();
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlEndTransformFeedback()
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlEndTransformFeedback)
         pGlEndTransformFeedback();
-#else
-    glEndTransformFeedback();
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlTransformFeedbackBufferBase(GLuint xfb, GLuint index, GLuint buffer)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlTransformFeedbackBufferBase)
             pGlTransformFeedbackBufferBase(xfb,index,buffer);
-#else
-        glTransformFeedbackBufferBase(xfb,index,buffer);
-#endif
     }
     else
     {
@@ -4654,12 +3830,8 @@ inline void COpenGLExtensionHandler::extGlTransformFeedbackBufferRange(GLuint xf
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlTransformFeedbackBufferRange)
             pGlTransformFeedbackBufferRange(xfb,index,buffer,offset,size);
-#else
-        glTransformFeedbackBufferRange(xfb,index,buffer,offset,size);
-#endif
     }
     else
     {
@@ -4674,132 +3846,80 @@ inline void COpenGLExtensionHandler::extGlTransformFeedbackBufferRange(GLuint xf
 
 inline void COpenGLExtensionHandler::extGlPrimitiveRestartIndex(GLuint index)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlPrimitiveRestartIndex)
         pGlPrimitiveRestartIndex(index);
-#else
-    glPrimitiveRestartIndex(index);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlDrawArraysInstanced(GLenum mode, GLint first, GLsizei count, GLsizei instancecount)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlDrawArraysInstanced)
         pGlDrawArraysInstanced(mode,first,count,instancecount);
-#else
-    glDrawArraysInstanced(mode,first,count,instancecount);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlDrawArraysInstancedBaseInstance(GLenum mode, GLint first, GLsizei count, GLsizei instancecount, GLuint baseinstance)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlDrawArraysInstancedBaseInstance)
         pGlDrawArraysInstancedBaseInstance(mode,first,count,instancecount,baseinstance);
-#else
-    glDrawArraysInstancedBaseInstance(mode,first,count,instancecount,baseinstance);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlDrawElementsInstancedBaseVertex(GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount, GLint basevertex)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlDrawElementsInstancedBaseVertex)
         pGlDrawElementsInstancedBaseVertex(mode,count,type,indices,instancecount,basevertex);
-#else
-    glDrawElementsInstancedBaseVertex(mode,count,type,indices,instancecount,basevertex);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlDrawElementsInstancedBaseVertexBaseInstance(GLenum mode, GLsizei count, GLenum type, const void *indices, GLsizei instancecount, GLint basevertex, GLuint baseinstance)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlDrawElementsInstancedBaseVertexBaseInstance)
         pGlDrawElementsInstancedBaseVertexBaseInstance(mode,count,type,indices,instancecount,basevertex,baseinstance);
-#else
-    glDrawElementsInstancedBaseVertexBaseInstance(mode,count,type,indices,instancecount,basevertex,baseinstance);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlDrawTransformFeedback(GLenum mode, GLuint id)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlDrawTransformFeedback)
         pGlDrawTransformFeedback(mode,id);
-#else
-    glDrawTransformFeedback(mode,id);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlDrawTransformFeedbackInstanced(GLenum mode, GLuint id, GLsizei instancecount)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlDrawTransformFeedbackInstanced)
         pGlDrawTransformFeedbackInstanced(mode,id,instancecount);
-#else
-    glDrawTransformFeedbackInstanced(mode,id,instancecount);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlDrawTransformFeedbackStream(GLenum mode, GLuint id, GLuint stream)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlDrawTransformFeedbackStream)
         pGlDrawTransformFeedbackStream(mode,id,stream);
-#else
-    glDrawTransformFeedbackStream(mode,id,stream);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlDrawTransformFeedbackStreamInstanced(GLenum mode, GLuint id, GLuint stream, GLsizei instancecount)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlDrawTransformFeedbackStreamInstanced)
         pGlDrawTransformFeedbackStreamInstanced(mode,id,stream,instancecount);
-#else
-    glDrawTransformFeedbackStreamInstanced(mode,id,stream,instancecount);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlDrawArraysIndirect(GLenum mode, const void *indirect)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlDrawArraysIndirect)
         pGlDrawArraysIndirect(mode,indirect);
-#else
-    glDrawArraysIndirect(mode,indirect);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlDrawElementsIndirect)
         pGlDrawElementsIndirect(mode,type,indirect);
-#else
-    glDrawElementsIndirect(mode,type,indirect);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlMultiDrawArraysIndirect(GLenum mode, const void *indirect, GLsizei drawcount, GLsizei stride)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlMultiDrawArraysIndirect)
         pGlMultiDrawArraysIndirect(mode,indirect,drawcount,stride);
-#else
-    glMultiDrawArraysIndirect(mode,indirect,drawcount,stride);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 inline void COpenGLExtensionHandler::extGlMultiDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect, GLsizei drawcount, GLsizei stride)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
     if (pGlMultiDrawElementsIndirect)
         pGlMultiDrawElementsIndirect(mode,type,indirect,drawcount,stride);
-#else
-    glMultiDrawElementsIndirect(mode,type,indirect,drawcount,stride);
-#endif // _IRR_OPENGL_USE_EXTPOINTER_
 }
 
 
@@ -4808,137 +3928,81 @@ inline void COpenGLExtensionHandler::extGlMultiDrawElementsIndirect(GLenum mode,
 // ROP
 inline void COpenGLExtensionHandler::extGlBlendColor(float red, float green, float blue, float alpha)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlBlendColor)
 		pGlBlendColor(red,green,blue,alpha);
-#else
-	glBlendColor(red, green, blue, alpha);
-#endif
 }
 inline void COpenGLExtensionHandler::extGlDepthRangeIndexed(GLuint index, GLdouble nearVal, GLdouble farVal)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlDepthRangeIndexed)
 		pGlDepthRangeIndexed(index,nearVal,farVal);
-#else
-	glDepthRangeIndexed(index,nearVal,farVal);
-#endif
 }
 inline void COpenGLExtensionHandler::extGlViewportIndexedfv(GLuint index, const GLfloat* v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlViewportIndexedfv)
 		pGlViewportIndexedfv(index,v);
-#else
-	glViewportIndexedfv(index,v);
-#endif
 }
 inline void COpenGLExtensionHandler::extGlScissorIndexedv(GLuint index, const GLint* v)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlScissorIndexedv)
 		pGlScissorIndexedv(index,v);
-#else
-	glScissorIndexedv(index,v);
-#endif
 }
 inline void COpenGLExtensionHandler::extGlSampleCoverage(float value, bool invert)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlSampleCoverage)
 		pGlSampleCoverage(value,invert);
-#else
-	glSampleCoverage(value,invert);
-#endif
 }
 inline void COpenGLExtensionHandler::extGlSampleMaski(GLuint maskNumber, GLbitfield mask)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlSampleMaski)
 		pGlSampleMaski(maskNumber,mask);
-#else
-	glSampleMaski(maskNumber,mask);
-#endif
 }
 inline void COpenGLExtensionHandler::extGlMinSampleShading(float value)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlMinSampleShading)
 		pGlMinSampleShading(value);
-#else
-	glMinSampleShading(value);
-#endif
 }
 inline void COpenGLExtensionHandler::extGlBlendEquationSeparatei(GLuint buf, GLenum modeRGB, GLenum modeAlpha)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlBlendEquationSeparatei)
 		pGlBlendEquationSeparatei(buf,modeRGB,modeAlpha);
-#else
-	glBlendEquationSeparatei(buf,modeRGB,modeAlpha);
-#endif
 }
 inline void COpenGLExtensionHandler::extGlBlendFuncSeparatei(GLuint buf, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlBlendFuncSeparatei)
 		pGlBlendFuncSeparatei(buf,srcRGB,dstRGB,srcAlpha,dstAlpha);
-#else
-	glBlendFuncSeparatei(buf,srcRGB,dstRGB,srcAlpha,dstAlpha);
-#endif
 }
 inline void COpenGLExtensionHandler::extGlColorMaski(GLuint buf, GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlColorMaski)
 		pGlColorMaski(buf,red,green,blue,alpha);
-#else
-	glColorMaski(buf,red,green,blue,alpha);
-#endif
 }
 
 
 
 inline void COpenGLExtensionHandler::extGlBlendFuncSeparate(GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlBlendFuncSeparate)
 		pGlBlendFuncSeparate(srcRGB,dstRGB,srcAlpha,dstAlpha);
-#else
-	glBlendFuncSeparate(srcRGB,dstRGB,srcAlpha,dstAlpha);
-#endif
 }
 
 
 inline void COpenGLExtensionHandler::extGlColorMaskIndexed(GLuint buf, GLboolean r, GLboolean g, GLboolean b, GLboolean a)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlColorMaski)
 		pGlColorMaski(buf, r, g, b, a);
-#else
-	glColorMaski(buf,r,g,b,a);
-#endif
 }
 
 
 inline void COpenGLExtensionHandler::extGlEnableIndexed(GLenum target, GLuint index)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlEnablei)
 		pGlEnablei(target, index);
-#else
-    glEnablei(target, index);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlDisableIndexed(GLenum target, GLuint index)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlDisablei)
 		pGlDisablei(target, index);
-#else
-	glDisablei(target, index);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlBlendFuncIndexed(GLuint buf, GLenum src, GLenum dst)
@@ -4970,104 +4034,64 @@ inline void COpenGLExtensionHandler::extGlCreateQueries(GLenum target, GLsizei n
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlCreateQueries)
             pGlCreateQueries(target, n, ids);
-#else
-        glCreateQueries(target, n, ids);
-#endif
     }
     else
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlGenQueries)
             pGlGenQueries(n, ids);
-#else
-        glGenQueries(n, ids);
-#endif
     }
 }
 
 inline void COpenGLExtensionHandler::extGlDeleteQueries(GLsizei n, const GLuint *ids)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlDeleteQueries)
 		pGlDeleteQueries(n, ids);
-#else
-	glDeleteQueries(n, ids);
-#endif
 }
 
 inline GLboolean COpenGLExtensionHandler::extGlIsQuery(GLuint id)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlIsQuery)
 		return pGlIsQuery(id);
 	return false;
-#else
-	return glIsQuery(id);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlBeginQuery(GLenum target, GLuint id)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlBeginQuery)
 		pGlBeginQuery(target, id);
-#else
-	glBeginQuery(target, id);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlEndQuery(GLenum target)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlEndQuery)
 		pGlEndQuery(target);
-#else
-	glEndQuery(target);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlBeginQueryIndexed(GLenum target, GLuint index, GLuint id)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlBeginQueryIndexed)
 		pGlBeginQueryIndexed(target, index, id);
-#else
-	glBeginQueryIndexed(target, index, id);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlEndQueryIndexed(GLenum target, GLuint index)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlEndQueryIndexed)
 		pGlEndQueryIndexed(target, index);
-#else
-	glEndQueryIndexed(target, index);
-#endif
 }
 
 
 inline void COpenGLExtensionHandler::extGlGetQueryObjectuiv(GLuint id, GLenum pname, GLuint *params)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlGetQueryObjectuiv)
 		pGlGetQueryObjectuiv(id, pname, params);
-#else
-	glGetQueryObjectuiv(id, pname, params);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlGetQueryObjectui64v(GLuint id, GLenum pname, GLuint64 *params)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlGetQueryObjectui64v)
 		pGlGetQueryObjectui64v(id, pname, params);
-#else
-    glGetQueryObjectui64v(id, pname, params);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlGetQueryBufferObjectuiv(GLuint id, GLuint buffer, GLenum pname, GLintptr offset)
@@ -5082,27 +4106,17 @@ inline void COpenGLExtensionHandler::extGlGetQueryBufferObjectuiv(GLuint id, GLu
 
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlGetQueryBufferObjectuiv)
             pGlGetQueryBufferObjectuiv(id, buffer, pname, offset);
-#else
-        glGetQueryBufferObjectuiv(id, buffer, pname, offset);
-#endif
     }
     else
     {
         GLint restoreQueryBuffer;
         glGetIntegerv(GL_QUERY_BUFFER_BINDING, &restoreQueryBuffer);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindBuffer(GL_QUERY_BUFFER,id);
         if (pGlGetQueryObjectuiv)
             pGlGetQueryObjectuiv(id, pname, reinterpret_cast<GLuint*>(offset));
         pGlBindBuffer(GL_QUERY_BUFFER,restoreQueryBuffer);
-#else
-        glBindBuffer(GL_QUERY_BUFFER,id);
-        glGetQueryObjectuiv(id, pname, reinterpret_cast<GLuint*>(offset));
-        glBindBuffer(GL_QUERY_BUFFER,restoreQueryBuffer);
-#endif
     }
 }
 
@@ -5118,48 +4132,30 @@ inline void COpenGLExtensionHandler::extGlGetQueryBufferObjectui64v(GLuint id, G
 
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlGetQueryBufferObjectui64v)
             pGlGetQueryBufferObjectui64v(id, buffer, pname, offset);
-#else
-        glGetQueryBufferObjectui64v(id, buffer, pname, offset);
-#endif
     }
     else
     {
         GLint restoreQueryBuffer;
         glGetIntegerv(GL_QUERY_BUFFER_BINDING, &restoreQueryBuffer);
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         pGlBindBuffer(GL_QUERY_BUFFER,id);
         if (pGlGetQueryObjectui64v)
             pGlGetQueryObjectui64v(id, pname, reinterpret_cast<GLuint64*>(offset));
         pGlBindBuffer(GL_QUERY_BUFFER,restoreQueryBuffer);
-#else
-        glBindBuffer(GL_QUERY_BUFFER,id);
-        glGetQueryObjectui64v(id, pname, reinterpret_cast<GLuint64*>(offset));
-        glBindBuffer(GL_QUERY_BUFFER,restoreQueryBuffer);
-#endif
     }
 }
 
 inline void COpenGLExtensionHandler::extGlQueryCounter(GLuint id, GLenum target)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlQueryCounter)
 		pGlQueryCounter(id, target);
-#else
-    glQueryCounter(id, target);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlBeginConditionalRender(GLuint id, GLenum mode)
 {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
 	if (pGlBeginConditionalRender)
 		pGlBeginConditionalRender(id, mode);
-#else
-    glBeginConditionalRender(id, mode);
-#endif
 }
 
 inline void COpenGLExtensionHandler::extGlEndConditionalRender()
@@ -5219,12 +4215,8 @@ inline void COpenGLExtensionHandler::extGlGetInternalformativ(GLenum target, GLe
 {
     if (Version>=460 || FeatureAvailable[IRR_ARB_internalformat_query])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlGetInternalformativ)
             pGlGetInternalformativ(target, internalformat, pname, bufSize, params);
-#else
-        glGetInternalformativ(target, internalformat, pname, bufSize, params);
-#endif
     }
 }
 
@@ -5232,12 +4224,8 @@ inline void COpenGLExtensionHandler::extGlGetInternalformati64v(GLenum target, G
 {
     if (Version>=460 || FeatureAvailable[IRR_ARB_internalformat_query])
     {
-#ifdef _IRR_OPENGL_USE_EXTPOINTER_
         if (pGlGetInternalformati64v)
             pGlGetInternalformati64v(target, internalformat, pname, bufSize, params);
-#else
-        glGetInternalformati64v(target, internalformat, pname, bufSize, params);
-#endif
     }
 }
 

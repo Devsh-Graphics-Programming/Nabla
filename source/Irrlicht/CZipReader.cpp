@@ -21,7 +21,6 @@ extern "C" void bz_internal_error(int errorCode)
 
 #include "CFileList.h"
 #include "CReadFile.h"
-#include "coreutil.h"
 
 #include "IrrCompileConfig.h"
 #ifdef _IRR_COMPILE_WITH_ZLIB_

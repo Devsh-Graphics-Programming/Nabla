@@ -6,12 +6,10 @@
 #include "COpenGLExtensionHandler.h"
 #include "irr/video/COpenGLShader.h"
 
-namespace irr {
-namespace asset
-{
-class IGLSLCompiler;
-}
+#ifdef _IRR_COMPILE_WITH_OPENGL_
 
+namespace irr
+{
 namespace video
 {
 
@@ -29,7 +27,8 @@ private:
     GLenum m_stage;
 };
 
-}}
-
+}
+}
+#endif
 
 #endif//__IRR_C_OPENGL_SPECIALIZED_SHADER_H_INCLUDED__

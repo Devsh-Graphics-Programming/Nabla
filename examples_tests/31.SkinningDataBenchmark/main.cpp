@@ -283,9 +283,9 @@ int main(int _argCnt, char** _args)
     UBOManager uboMgr(16*sizeof(float)/*mat4*/, driver);
     uboMgr.bind(0u, 0, uboMgr.ubo->getSize());
 
-    asset::IAssetManager& assetMgr = device->getAssetManager();
+    asset::IAssetManager* assetMgr = device->getAssetManager();
     asset::IAssetLoader::SAssetLoadParams lparams;
-    asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>(assetMgr.getAsset("../../media/dwarf.baw", lparams));
+    auto cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*assetMgr->getAsset("../../media/dwarf.baw", lparams).getContents().first);
 
     using convfptr_t = size_t(*)(const float*, float*, const size_t, const size_t);
     convfptr_t convFunctions[5]{ &convertBuf1, &convertBuf2, &convertBuf3, &convertBuf4, &convertBuf5 };
@@ -294,7 +294,7 @@ int main(int _argCnt, char** _args)
     smaterial.MaterialType = newMaterialType;
 
 #define INSTANCE_CNT 100
-    video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
+    auto gpumesh = driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)->front();
     for (size_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)
         gpumesh->getMeshBuffer(i)->setInstanceCount(INSTANCE_CNT);
 
@@ -319,15 +319,9 @@ int main(int _argCnt, char** _args)
     free(contents);
     ifile->drop();
 
-    video::ITextureBufferObject* newTbo = method==0 ?
-        new video::COpenGLTextureBufferObject(static_cast<video::COpenGLBuffer*>(ssbuf), video::ITextureBufferObject::ETBOF_RGBA32F, 0, ssbuf->getSize()) :
-        nullptr;
+
     if (method == 0)
-    {
-        assert(newTbo->getBoundBuffer() != nullptr);
-        
-        smaterial.setTexture(3u, newTbo);
-    }
+        smaterial.setTexture(3u, core::make_smart_refctd_ptr<video::COpenGLTextureBufferObject>(static_cast<video::COpenGLBuffer*>(ssbuf), video::ITextureBufferObject::ETBOF_RGBA32F, 0, ssbuf->getSize()));
     else
     {
         auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(driver)->getThreadContext());
@@ -363,12 +357,12 @@ int main(int _argCnt, char** _args)
         {
             for (size_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)
             {
-                smaterial = gpumesh->getMeshBuffer(i)->getMaterial();
-                smaterial.MaterialType = newMaterialType;
+                auto matCopy = gpumesh->getMeshBuffer(i)->getMaterial();
+				matCopy.MaterialType = smaterial.MaterialType;
                 if (method == 0)
-                    smaterial.setTexture(3u, newTbo);
+					matCopy.TextureLayer[3u].Texture = matCopy.TextureLayer[3u].Texture;
 
-                driver->setMaterial(smaterial);
+                driver->setMaterial(matCopy);
                 driver->drawMeshBuffer(gpumesh->getMeshBuffer(i));
             }
         }
@@ -399,8 +393,6 @@ int main(int _argCnt, char** _args)
     ss << " frames)";
     os::Printer::log(ss.str(), std::to_string(elapsed));
 
-    if (newTbo)
-        newTbo->drop();
 	device->drop();
 
 	return 0;

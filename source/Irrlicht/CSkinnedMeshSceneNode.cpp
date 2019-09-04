@@ -224,22 +224,19 @@ void CSkinnedMeshSceneNode::render()
 
 
 //! Sets a new mesh
-void CSkinnedMeshSceneNode::setMesh(video::IGPUSkinnedMesh* inMesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControl)
+void CSkinnedMeshSceneNode::setMesh(core::smart_refctd_ptr<video::IGPUSkinnedMesh>&& inMesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControl)
 {
-    if (mesh)
-        mesh->drop();
     if (boneStateManager)
         boneStateManager->drop();
 
     if (!inMesh || !inMesh->getBoneReferenceHierarchy())
     {
-        mesh = NULL;
+        mesh = nullptr;
         boneStateManager = NULL;
         return;
     }
 
-    inMesh->grab();
-    mesh = inMesh;
+    mesh = std::move(inMesh);
     boneStateManager = new CSkinningStateManager(boneControl, SceneManager->getVideoDriver(), mesh->getBoneReferenceHierarchy());
 
     uint32_t ID = boneStateManager->addInstance(this);

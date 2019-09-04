@@ -7,10 +7,7 @@
 
 #include "IReadFile.h"
 #include "IWriteFile.h"
-#include "irr/core/Types.h"
-#include "irr/core/memory/new_delete.h"
-#include "irr/core/alloc/null_allocator.h"
-#include "coreutil.h"
+#include "irr/core/core.h"
 
 namespace irr
 {
