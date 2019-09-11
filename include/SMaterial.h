@@ -181,7 +181,6 @@ namespace video
 		//! Texture layer array.
 		SMaterialLayer<TexT> TextureLayer[MATERIAL_MAX_TEXTURES];
 
-        // TODO make it smart_refct_ptr<ShaderT> after merge of criss's fix
         std::array< core::smart_refctd_ptr<ShaderT>, 5u> Pipeline;
 
 		//! Type of the material. Specifies how everything is blended together
