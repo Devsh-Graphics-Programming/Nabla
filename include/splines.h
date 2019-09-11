@@ -305,7 +305,7 @@ class CLinearSpline : public ISpline
 class CQuadraticSpline : public ISpline
 {
     public:
-        CQuadraticSpline(vectorSIMDf* controlPoints, const size_t& count, const bool loop = false, const bool preemptFirstTurn=false) : ISpline(loop)
+        CQuadraticSpline(vectorSIMDf* controlPoints, const size_t& count, const bool loop = false) : ISpline(loop)
         {
             //assert(count<0x80000000u && count);
             float currentApproxLen;
@@ -323,17 +323,6 @@ class CQuadraticSpline : public ISpline
 
 
                 segments.push_back(Segment(controlPoints[0],controlPoints[1],currentApproxLen,firstWeight));
-            }
-            else if (preemptFirstTurn)
-            {
-                vectorSIMDf gradientAfter = controlPoints[2]-controlPoints[1];
-                vectorSIMDf gradientBefore = controlPoints[1]-controlPoints[0];
-                currentApproxLen = gradientBefore.getLengthAsFloat();
-                float nextApproxLen = gradientAfter.getLengthAsFloat();
-                vectorSIMDf gradient = normalize(gradientBefore/currentApproxLen+gradientAfter/nextApproxLen);
-
-
-                segments.push_back(Segment(gradient,controlPoints[0],controlPoints[1],currentApproxLen));
             }
             else
             {
@@ -420,6 +409,7 @@ class CQuadraticSpline : public ISpline
                     *paramHint = -1.f;
 
                 *paramHint = segments[actualSeg].getParameterFromArcLen(distanceAlongSeg,*paramHint,accuracyThresh);
+				assert(*paramHint < segments[actualSeg].parameterLength);
                 pos = segments[actualSeg].posHelper(*paramHint);
             }
             else
@@ -511,7 +501,7 @@ class CQuadraticSpline : public ISpline
 
         class Segment
         {
-            public:
+            public:/*
             Segment(const vectorSIMDf& startPt,const vectorSIMDf& endPt, const float& currentApproxLen, const vectorSIMDf& firstWeight)
             {
                 /// ad^2+bd+y0 = y1
@@ -535,35 +525,46 @@ class CQuadraticSpline : public ISpline
                 weights[0] = vectorSIMDf(0.f);
 
                 finalize(currentApproxLen);
-            }
-            Segment(const vectorSIMDf& firstEndGradient, const vectorSIMDf& startPt, const vectorSIMDf& endPt, const float& currentApproxLen) //! Unfinished
+            }*/
+            Segment(const vectorSIMDf& startPt, const vectorSIMDf& endPt, const vectorSIMDf& startGradient, const vectorSIMDf& endGradient, const float& currentApproxLen) //! Unfinished
             {
-                /// ad^2+bd+y0 = y1
-                /// ad+b = (y1-y0)/d
+				/// ad^2+bd+y0 = y1
+				weights[2] = startPt;
+                /// ad+b = (y1-y0)/d = w
+				auto approxMidGradient = (endPt-startPt)/currentApproxLen;
 
                 /// The differential 2ad+b is continuous
+				/// b = Kf'(0)
+				/// 2ad+Kf'(0) = Lf'(d)
+
+				/// a = (Lf'(d)-Kf'(0)) / (2d)
+				/// (Lf'(d)-Kf'(0))/2 + Kf'(0) = w
+				/// Lf'(d)+Kf'(0) = 2w
+				assert(dot(cross(firstGradient, endGradient), approxMidGradient).x < 0.001f);
+
                 /// At end require f'/|f'| = something -> (ad+(y1-y0)/d)^2 = something^2*(ad+(y1-y0)/d)
                     //botch solution ad = something-(y1-y0)/d
                     /// (ad-(y1-y0)/d)^2 = a^2 d^2 - 2 ad (y1-y0)/d + (y1-y0)^2/d^2 = something^2*ad-something^2*(y1-y0)/d
                     /// => ad = (y1-y0)/d - b
-                weights[2] = startPt;
                 weights[1] = (endPt-startPt)*2.f/currentApproxLen-firstEndGradient;
                 weights[0] = (firstEndGradient-(endPt-startPt)/currentApproxLen)/currentApproxLen;
 
                 finalize(currentApproxLen);
             }
-            Segment(const vectorSIMDf& startPt,const vectorSIMDf& endPt, const float& currentApproxLen, const Segment& previousSeg, const float& prevApproxLen)
+            Segment(const vectorSIMDf& startPt,const vectorSIMDf& endPt, const float& currentApproxLen, const Segment& previousSeg)
             {
+				weights[2] = startPt;
                 /// ad^2+bd+y0 = y1
-                /// ad+b = (y1-y0)/d
 
                 /// The differential 2ad+b is continuous
 
                 /// anywhere else
-                /// (2ad+b)_{i-1} = b_{i}
+                /// (2ad+b)_{i-1} = K b_{i}
+				weights[1] = previousSeg.weights[0] * previousSeg.parameterLength * 2.f + previousSeg.weights[1];
+
+				/// ad+b = (y1-y0)/d
+				/// a d + K b_1 = (y1-y0)/d
                 /// (ad+(y1-y0)/d)_{i-1} = b_{i}
-                weights[2] = startPt;
-                weights[1] = previousSeg.weights[0]*prevApproxLen*2.f+previousSeg.weights[1];
                 weights[0] = ((endPt-startPt)/currentApproxLen-weights[1])/currentApproxLen;
 
                 finalize(currentApproxLen);
@@ -688,7 +689,7 @@ class CQuadraticSpline : public ISpline
                         parameterHint = parameterHint+arcLenDiffAtParamGuess/differentialAtGuess;
                         arcLenDiffAtParamGuess = arcLen-getArcLenFromParameter(parameterHint);
                     }
-                    return parameterHint;
+                    return std::min(parameterHint,parameterLength);
                 }
                 else
                     return arcLen*lenC_reciprocal;
@@ -802,178 +803,6 @@ class CQuadraticBSpline : public CQuadraticSpline
             finalize();
         }
 };
-
-/*
-class CCubicSpline : public ISpline
-{
-    public:
-        CCubicSpline(vectorSIMDf* controlPoints, const size_t& count, const bool loop = false) : isLoop(loop)
-        {
-            //assert(count<0x80000000u);
-            finalize();
-        }
-        CCubicSpline(vectorSIMDf* controlPointsPos, bool* discontinuityPoints, const size_t& count, const bool loop = false) : isLoop(loop)
-        {
-            //assert(count<0x80000000u);
-            finalize();
-        }
-
-        //
-        virtual bool        isLoop() const {return isLoop;}
-        virtual size_t      getSegmentCount() const
-        {
-            return segments.size();
-        }
-        virtual float       getSplineLength() const
-        {
-            return splineLen;
-        }
-
-        //
-        virtual void        getSegmentLengths(float* outSegLens) const
-        {
-            for (size_t i=0; i<segments.size(); i++)
-                outSegLens[i] = segments[i].length;
-        }
-        virtual float       getSegmentLength(const uint32_t& segmentID) const
-        {
-            //assert(segmentID<segments.size());
-            return segments[segmentID].length;
-        }
-
-        //get position
-        //this function returns the id of the segment you might have moved into - 0xdeadbeefu is an error code
-        virtual uint32_t    getPos(vectorSIMDf& pos, const uint32_t& segmentID, float distance) const
-        {
-            uint32_t actualSeg;
-            if (isLoop)
-            {
-                actualSeg = segmentID%segments.size();
-                while (distance>=segments[actualSeg].length)
-                {
-                    distance -= segments[actualSeg].length;
-                    actualSeg++;
-                    if (actualSeg==segments.size())
-                        actualSeg = 0;
-                }
-            }
-            else
-            {
-                if (segmentID>=segments.size())
-                    return 0xdeadbeefu;
-
-                actualSeg = segmentID;
-                while (distance>=segments[actualSeg].length)
-                {
-                    distance -= segments[actualSeg].length;
-                    actualSeg++;
-                    if (actualSeg==segments.size())
-                        return 0xdeadbeefu;
-                }
-            }
-
-            float interpol = findFraction(actualSeg,distance);
-            pos = fractionHelper(actualSegment,interpol);
-
-            return true;
-        }
-        virtual bool        getPos_fromFraction(vectorSIMDf& pos, const uint32_t& segmentID, const float& interpolant) const
-        {
-            if (interpolant<0.f||interpolant>=1.f||segmentID>=segments.size())
-                return false;
-
-            pos = fractionHelper(segmentID,interpolant);
-
-            return true;
-        }
-
-        //to get direction to look in
-        virtual bool        getUnnormDirection(vectorSIMDf& tan, const uint32_t& segmentID, const float& distance)
-        {
-            if (segmentID>=segments.size()||distance>segments[segmentID].length)
-                return 0xdeadbeefu;
-
-            float interpol = findFraction(segmentID,distance);
-            tan = directionHelper(segmentID,interpol);
-
-            return true;
-        }
-        virtual bool        getUnnormDirection_fromFraction(vectorSIMDf& tan, const uint32_t& segmentID, const float& interpolant) const
-        {
-            if (interpolant<0.f||interpolant>=1.f||segmentID>=segments.size())
-                return false;
-
-            tan = directionHelper(segmentID,interpolant);
-
-            return true;
-        }
-
-        //baw specific
-        virtual const bool      canGiveParameterUntilBlockChange() const {return true;}
-        // pass in current position
-        virtual float           getParameterUntilBlockChange(const uint32_t& segmentID, const float& distanceAlongSeg) = 0;
-        virtual vector<float>   getBlockChangesInSegment(const uint32_t& segmentID) = 0;
-    private:
-        inline float findFraction(const uint32_t& segmentID, const float& distance) const
-        {
-            //
-        }
-
-        void finalize()
-        {
-            double lenDouble = 0;
-            for (size_t i=0; i<segments.size(); i++)
-            {
-                lenDouble += segments[i].length;
-            }
-            splineLen = lenDouble;
-        }
-
-        bool isLoop;
-
-        struct Segment
-        {
-            Segment(const vectorSIMDf& beforeStart,const vectorSIMDf& startPt,const vectorSIMDf& endPt,const vectorSIMDf& afterEnd)
-            {
-                weights[0] = startPt;
-                weights[1] = endPt-beforeStart;
-                vectorSIMDf a = beforeStart-startPt;
-                vectorSIMDf b = endPt-afterEnd;
-                weights[2] = 2.f*a+b;
-                weights[3] = -b-a;
-
-                length = 0;
-                vectorSIMDf currentPt = endPt;
-                core::vector<vectorSIMDf> lenPoints;
-                lenPoints.push_back(startPt);
-                while (lenPoints.size())
-                {
-                    vectorSIMDf diff = currentPt-lenPoints[lenPoints.size()-1];
-                    if (dot(diff,diff)>0.0025)
-                    {
-                        lenPoints[lenPoints.size()-1]
-                    }
-                }
-            }
-
-            inline vectorSIMDf fractionHelper(const float& interpolant) const
-            {
-                return ((weights[0]*interpolant+weights[1])*interpolant+weights[2])*interpolant+weights[3];
-            }
-            inline vectorSIMDf directionHelper(const float& interpolant) const
-            {
-                return (3.f*weights[0]*interpolant+2.f*weights[1])*interpolant+weights[2];
-            }
-
-            float length;
-            vectorSIMDf weights[4];
-        };
-
-        //core::vector<vectorSIMDf> controls;
-        core::vector<Segment> segments;
-        float splineLen;
-};
-*/
 
 }
 }
