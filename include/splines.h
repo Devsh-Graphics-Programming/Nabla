@@ -305,40 +305,33 @@ class CLinearSpline : public ISpline
 class CQuadraticSpline : public ISpline
 {
     public:
-        CQuadraticSpline(vectorSIMDf* controlPoints, const size_t& count, const bool loop = false) : ISpline(loop)
+        CQuadraticSpline(vectorSIMDf* controlPoints, const size_t& count, const bool loop = false, float tightness = 1.1107f) : ISpline(loop)
         {
-            //assert(count<0x80000000u && count);
-            float currentApproxLen;
+			assert(count>1ull);
+            vectorSIMDf startGradient;
             if (isLoop)
-            {
-                vectorSIMDf firstWeight;
-                vectorSIMDf addPart(0.f);
-                vectorSIMDf mulPart(1.f,1.f,1.f,0.f);/*
-                for (size_t i=0; i<count; i++)
-                {
-                    addPart += controlPoints[]-;
-                }*/
-                mulPart *= 2.f;
-                firstWeight = addPart/(vectorSIMDf(1.f,1.f,1.f,1.f)-mulPart);
-
-
-                segments.push_back(Segment(controlPoints[0],controlPoints[1],currentApproxLen,firstWeight));
-            }
+				startGradient = controlPoints[1]-controlPoints[count-1ull];
             else
-            {
-                currentApproxLen = (controlPoints[1]-controlPoints[0]).getLengthAsFloat();
-                segments.push_back(Segment(controlPoints[0],controlPoints[1],currentApproxLen));
-            }
+				startGradient = controlPoints[1]-controlPoints[0];
+         
+			float currentApproxLen = (controlPoints[1]-controlPoints[0]).getLengthAsFloat();
+			segments.push_back(Segment(controlPoints[0], controlPoints[1], startGradient, currentApproxLen, tightness));
 
-            float lastApproxLen = currentApproxLen;
-            for (size_t i=isLoop ? 1:2; i<count; i++)
+            for (size_t i=2; i<count; i++)
             {
-                vectorSIMDf startPt = controlPoints[i-1];
+                vectorSIMDf startPt = controlPoints[i-1ull];
                 vectorSIMDf endPt = controlPoints[i];
                 currentApproxLen = (endPt-startPt).getLengthAsFloat();
-                segments.push_back(Segment(startPt,endPt,currentApproxLen,segments[segments.size()-1],lastApproxLen));
-                lastApproxLen = currentApproxLen;
+                segments.push_back(Segment(segments.back(),startPt,endPt,currentApproxLen, tightness));
             }
+
+			if (isLoop)
+			{
+				vectorSIMDf startPt = controlPoints[count-1ull];
+				vectorSIMDf endPt = controlPoints[0];
+				currentApproxLen = (endPt-startPt).getLengthAsFloat();
+				segments.push_back(Segment(segments.back(),startPt,endPt,currentApproxLen, tightness));
+			}
 
             finalize();
         }
@@ -409,7 +402,7 @@ class CQuadraticSpline : public ISpline
                     *paramHint = -1.f;
 
                 *paramHint = segments[actualSeg].getParameterFromArcLen(distanceAlongSeg,*paramHint,accuracyThresh);
-				assert(*paramHint < segments[actualSeg].parameterLength);
+				//assert(*paramHint < segments[actualSeg].parameterLength);
                 pos = segments[actualSeg].posHelper(*paramHint);
             }
             else
@@ -501,260 +494,240 @@ class CQuadraticSpline : public ISpline
 
         class Segment
         {
-            public:/*
-            Segment(const vectorSIMDf& startPt,const vectorSIMDf& endPt, const float& currentApproxLen, const vectorSIMDf& firstWeight)
-            {
-                /// ad^2+bd+y0 = y1
-                /// ad+b = (y1-y0)/d
-                weights[2] = startPt;
-                weights[1] = (endPt-startPt)/currentApproxLen-firstWeight*currentApproxLen;
-                weights[0] = firstWeight;
+            public:
+				Segment(const vectorSIMDf& startPt, const vectorSIMDf& endPt, const vectorSIMDf& startGradient, float currentApproxLen, float tightness)
+				{
+					/// ad^2+bd+y0 = y1
+					weights[2] = startPt;
+					/// ad+b = (y1-y0)/d = w
+					auto approxMidGradient = (endPt-startPt)/currentApproxLen;
 
-                finalize(currentApproxLen);
-            }
-            Segment(const vectorSIMDf& startPt,const vectorSIMDf& endPt, const float& currentApproxLen)
-            {
-                /// ad^2+bd+y0 = y1
-                /// ad+b = (y1-y0)/d
+					float K;
+					auto comparelambda = [&]() -> bool
+					{
+						/// The differential 2ad+b is continuous
+						/// b = Kf'(0)
+						weights[1] = startGradient*K;
+						/// ad+Kf'(0) = w
+						/// a = (w-Kf'(0))/d
+						weights[0] = (approxMidGradient - weights[1]) / currentApproxLen;
+						finalize(currentApproxLen);
+						return this->length < tightness*currentApproxLen;
+					};
 
-                /// The differential 2ad+b is continuous
-                /// At start require f'' = 0 -> a = 0
-                /// => ad = (y1-y0)/d - b
-                weights[2] = startPt;
-                weights[1] = (endPt-startPt)/currentApproxLen;
-                weights[0] = vectorSIMDf(0.f);
+					uint32_t& it = reinterpret_cast<uint32_t&>(K);
+					uint32_t first = 0u;
+					int32_t count = 0x47800000;
+					while (count > 0)
+					{
+						it = first;
+						uint32_t step = count / 2u;
+						it += step;
+						if (comparelambda())
+						{
+							first = ++it;
+							count -= step + 1;
+						}
+						else
+							count = step;
+					}
+					it = first;
+					comparelambda();
+				}
+				Segment(const Segment& previousSeg, const vectorSIMDf& startPt,const vectorSIMDf& endPt, float currentApproxLen, float tightness) :
+					Segment(startPt,endPt,previousSeg.weights[0]*previousSeg.parameterLength*2.f+previousSeg.weights[1],currentApproxLen, tightness)
+				{
+				}
+				static Segment createForBSpline(const vectorSIMDf& startPt, const vectorSIMDf& midCtrl, const vectorSIMDf& endPt)
+				{
+					Segment seg;
+					seg.weights[2] = startPt;
+					seg.weights[1] = (midCtrl-startPt)*2.f;
+					seg.weights[0] = endPt+startPt-midCtrl*2.f;
 
-                finalize(currentApproxLen);
-            }*/
-            Segment(const vectorSIMDf& startPt, const vectorSIMDf& endPt, const vectorSIMDf& startGradient, const vectorSIMDf& endGradient, const float& currentApproxLen) //! Unfinished
-            {
-				/// ad^2+bd+y0 = y1
-				weights[2] = startPt;
-                /// ad+b = (y1-y0)/d = w
-				auto approxMidGradient = (endPt-startPt)/currentApproxLen;
+					float bLen = dot(seg.weights[1],seg.weights[1]).X;
+					if (bLen<0.000001f)
+					{
+						seg.weights[1] = endPt-startPt;
+						seg.weights[0].set(0.f,0.f,0.f);
+					}
+					else if (std::abs(dot(seg.weights[2],seg.weights[1]).X)>std::sqrt(bLen*dot(seg.weights[2],seg.weights[2]).X)*0.999999f)
+					{
+						seg.weights[1] = endPt-startPt;
+						seg.weights[0].set(0.f,0.f,0.f);
+					}
 
-                /// The differential 2ad+b is continuous
-				/// b = Kf'(0)
-				/// 2ad+Kf'(0) = Lf'(d)
+					seg.finalize(1.f);
+					return seg;
+				}
 
-				/// a = (Lf'(d)-Kf'(0)) / (2d)
-				/// (Lf'(d)-Kf'(0))/2 + Kf'(0) = w
-				/// Lf'(d)+Kf'(0) = 2w
-				assert(dot(cross(firstGradient, endGradient), approxMidGradient).x < 0.001f);
+				inline void finalize(const float &currentApproxLen)
+				{
+					parameterLength = currentApproxLen;
 
-                /// At end require f'/|f'| = something -> (ad+(y1-y0)/d)^2 = something^2*(ad+(y1-y0)/d)
-                    //botch solution ad = something-(y1-y0)/d
-                    /// (ad-(y1-y0)/d)^2 = a^2 d^2 - 2 ad (y1-y0)/d + (y1-y0)^2/d^2 = something^2*ad-something^2*(y1-y0)/d
-                    /// => ad = (y1-y0)/d - b
-                weights[1] = (endPt-startPt)*2.f/currentApproxLen-firstEndGradient;
-                weights[0] = (firstEndGradient-(endPt-startPt)/currentApproxLen)/currentApproxLen;
+					lenASq       = dot(weights[0],weights[0]).x;
+					double lenCSq= dot(weights[1],weights[1]).x;
+					lenC         = std::sqrt(lenCSq);
+					if (std::abs(lenASq)>0.000001f) //2.f*sqrt(lenASq)*lenC+term_b
+					{
+						/// integral sqrt(a x^2 + b x + c) dx =
+						/// ((2 a x + b) sqrt(x (a x + b) + c))/(4 a) - ((b^2 - 4 a c) log(2 sqrt(a) sqrt(x (a x + b) + c) + 2 a x + b))/(8 a^(3/2))
+						/// @ x=0
+						/// (b sqrt(c))/(4 a) - ((b^2 - 4 a c) log(2 sqrt(a) sqrt(c) + b))/(8 a^(3/2))
+						double term_b       = 4.f*dot(weights[1],weights[0]).x;
+						double lenASq_4     = lenASq*16.f;
+						double lenA_2       = std::sqrt(lenASq_4);
 
-                finalize(currentApproxLen);
-            }
-            Segment(const vectorSIMDf& startPt,const vectorSIMDf& endPt, const float& currentApproxLen, const Segment& previousSeg)
-            {
-				weights[2] = startPt;
-                /// ad^2+bd+y0 = y1
+						double lenBSq       = dot(weights[1],weights[1]).x;
 
-                /// The differential 2ad+b is continuous
+						/// integral sqrt(a x^2 + b x + c) dx =
+						/// ((2 a x + b) sqrt(x (a x + b) + c))/(4 a) - ((b^2 - 4 a c) log(2 sqrt(a) sqrt(x (a x + b) + c) + 2 a x + b))/(8 a^(3/2))
+						/// ((0.5 x + b/4a) sqrt(x (a x + b) + c)) - ((b*b/4a - c) log(2 sqrt(a) sqrt(x (a x + b) + c) + 2 a x + b))/(2 a^(1/2))
+						/// differential
+						/// ((2 a x + b) sqrt(x (a x + b) + c))/(4 a) - ((b^2 - 4 a c) log(2 sqrt(a) sqrt(x (a x + b) + c) + 2 a x + b))/(8 a^(3/2))
+						arcCalcConstants[0] = term_b/lenASq_4;
+						arcCalcConstants[1] = lenASq*4.f;
+						arcCalcConstants[2] = term_b;
+						arcCalcConstants[3] = lenCSq;
+						arcCalcConstants[4] = (arcCalcConstants[3]-term_b*arcCalcConstants[0])/lenA_2;
+						arcCalcConstants[5] = lenA_2;
 
-                /// anywhere else
-                /// (2ad+b)_{i-1} = K b_{i}
-				weights[1] = previousSeg.weights[0] * previousSeg.parameterLength * 2.f + previousSeg.weights[1];
+						//lowerIntegralValue      = 0.f;
+						//lowerIntegralValue      = getArcLenFromParameter(0.f);
+						lowerIntegralValue      = arcCalcConstants[0]*lenC+arcCalcConstants[4]*logf(arcCalcConstants[5]*lenC+term_b);
+						if (!isnan(lowerIntegralValue) && !isinf(lowerIntegralValue))
+						{
+							length = getArcLenFromParameter(parameterLength);
+							return;
+						}
+					}
 
-				/// ad+b = (y1-y0)/d
-				/// a d + K b_1 = (y1-y0)/d
-                /// (ad+(y1-y0)/d)_{i-1} = b_{i}
-                weights[0] = ((endPt-startPt)/currentApproxLen-weights[1])/currentApproxLen;
+					length = lenC*parameterLength;
+					lenC_reciprocal = reciprocal(lenC);
+					lowerIntegralValue = NAN;
+				}
 
-                finalize(currentApproxLen);
-            }
-            static Segment createForBSpline(const vectorSIMDf& startPt, const vectorSIMDf& midCtrl, const vectorSIMDf& endPt)
-            {
-                Segment seg;
-                seg.weights[2] = startPt;
-                seg.weights[1] = (midCtrl-startPt)*2.f;
-                seg.weights[0] = endPt+startPt-midCtrl*2.f;
+				inline float getArcLenFromParameter(const float &parameter) const
+				{
+#ifdef _IRR_DEBUG
+					assert(std::abs(lenASq)>0.000001f);
+					assert(!isnan(lowerIntegralValue));
+#endif
+					double ax = arcCalcConstants[1]*parameter;
+					double ax_b = ax+arcCalcConstants[2];
+					double theSquareRoot = std::sqrt(parameter*ax_b+arcCalcConstants[3]);
+					float higherIntTerm    = (0.5f*parameter+arcCalcConstants[0])*theSquareRoot+arcCalcConstants[4]*log(arcCalcConstants[5]*theSquareRoot+ax_b+ax);
+	/*
+					double a = dot(weights[0],weights[0]).x;
+					double b = dot(weights[0],weights[1]).x*2.f;
+					double c = dot(weights[1],weights[1]).x;
+					double higherIntTerm = ((2.f* a* parameter + b)*std::sqrt(parameter* (a *parameter + b) + c))/(4.f* a) - ((b*b - 4*a*c)*log(2.f*std::sqrt(a)*std::sqrt(parameter*(a*parameter + b) + c) + 2.f*a*parameter + b))/(8.f*a*std::sqrt(a));
+	*/
+	/*
+					/// extreme debug
+					double checkLen = 0.0;
+					vectorSIMDf prevPoint = weights[2];
+					for (size_t i=1; i<=1024*16; i++)
+					{
+						double tmp = double(i)/double(1024*16);
+						tmp *= parameter;
+						vectorSIMDf nextPoint = posHelper(tmp);
+						checkLen += (prevPoint - nextPoint).getLengthAsFloat();
+						prevPoint = nextPoint;
+					}
+					float diff = std::abs(higherIntTerm-lowerIntegralValue-checkLen);
+					assert(diff<0.001f);
+	*/
+					return higherIntTerm-lowerIntegralValue;
+				}
 
-                float bLen = dot(seg.weights[1],seg.weights[1]).X;
-                if (bLen<0.000001f)
-                {
-                    seg.weights[1] = endPt-startPt;
-                    seg.weights[0].set(0.f,0.f,0.f);
-                }
-                else if (std::abs(dot(seg.weights[2],seg.weights[1]).X)>std::sqrt(bLen*dot(seg.weights[2],seg.weights[2]).X)*0.999999f)
-                {
-                    seg.weights[1] = endPt-startPt;
-                    seg.weights[0].set(0.f,0.f,0.f);
-                }
+				inline float getParameterFromArcLen(const float& arcLen, float parameterHint, const float& accuracyThresh) const
+				{
+					if (!isnan(lowerIntegralValue))
+					{
+						if (arcLen<=accuracyThresh)
+							return arcLen;
+						if (arcLen>=length-accuracyThresh)
+							return parameterLength;
+						if (parameterHint<0.f||parameterHint>parameterLength)
+							parameterHint = parameterLength*(arcLen/length);
+						/// dist = IndefInt(param) - lowerIntVal
+						/// IndefInt^-1(dist+lowerIntVal) = param
+						/// Newton-Raphson      f = arcLen - getArcLenFromParameter(parameterHint);
+						/// Newton-Raphson      f' = -getArcLenFromParameter'(parameterHint);
+						float arcLenDiffAtParamGuess = arcLen-getArcLenFromParameter(parameterHint);
+						for (size_t i=0; std::abs(arcLenDiffAtParamGuess)>accuracyThresh&&i<32; i++)
+						{
+							float differentialAtGuess = directionHelper(parameterHint).getLengthAsFloat();
+							parameterHint = parameterHint+arcLenDiffAtParamGuess/differentialAtGuess;
+							arcLenDiffAtParamGuess = arcLen-getArcLenFromParameter(parameterHint);
+						}
+						return std::min(parameterHint,parameterLength);
+					}
+					else
+						return arcLen*lenC_reciprocal;
+				}
 
-                seg.finalize(1.f);
-                return seg;
-            }
+				inline vectorSIMDf posHelper(const float& parameter) const
+				{
+					return (weights[0]*parameter+weights[1])*parameter+weights[2];
+				}
+				inline vectorSIMDf directionHelper(const float& parameter) const
+				{
+					return weights[0]*parameter*2.f+weights[1];
+				}/*
+				inline float findNextBlockChange(const float& param) const
+				{
+					vectorSIMDf startingNegFrac = posHelper(param);
+					startingNegFrac = floor(startingNegFrac)-startingNegFrac;
+					vectorSIMDf dir = directionHelper(param);
+					float changes[3];
+					for (uint32_t i=0; i<3; i++)
+						changes[i] = findChange(startingNegFrac.pointer[i],dir.pointer[i]);
 
-            inline void finalize(const float &currentApproxLen)
-            {
-                parameterLength = currentApproxLen;
+					float smallest;
+					if (reinterpret_cast<uint32_t*>(changes)[0]<=reinterpret_cast<uint32_t*>(changes)[1])
+					{
+						if (reinterpret_cast<uint32_t*>(changes)[2]<=reinterpret_cast<uint32_t*>(changes)[0])
+							smallest = changes[2];
+						else
+							smallest = changes[0];
+					}
+					else if (reinterpret_cast<uint32_t*>(changes)[2]<=reinterpret_cast<uint32_t*>(changes)[1])
+					{
+						smallest = changes[2];
+					}
+					else
+						smallest = changes[1];
 
-                lenASq       = dot(weights[0],weights[0]).x;
-                double lenCSq= dot(weights[1],weights[1]).x;
-                lenC         = std::sqrt(lenCSq);
-                if (std::abs(lenASq)>0.000001f)
-                {
-                    /// integral sqrt(a x^2 + b x + c) dx =
-                    /// ((2 a x + b) sqrt(x (a x + b) + c))/(4 a) - ((b^2 - 4 a c) log(2 sqrt(a) sqrt(x (a x + b) + c) + 2 a x + b))/(8 a^(3/2))
-                    /// @ x=0
-                    /// (b sqrt(c))/(4 a) - ((b^2 - 4 a c) log(2 sqrt(a) sqrt(c) + b))/(8 a^(3/2))
-                    double term_b       = 4.f*dot(weights[1],weights[0]).x;
-                    double lenASq_4     = lenASq*16.f;
-                    double lenA_2       = std::sqrt(lenASq_4);
+					smallest_+= param;
+					if (smallest<length)
+						return smallest;
 
-                    double lenBSq       = dot(weights[1],weights[1]).x;
+					return -1.f;
+				}
+				inline float findChange(const float& currentNegFrac, const float& changePerParam) const
+				{
+					if (currentNegFrac==0.f||currentNegFrac==1.f)
+						return 0.f;
 
-                    /// integral sqrt(a x^2 + b x + c) dx =
-                    /// ((2 a x + b) sqrt(x (a x + b) + c))/(4 a) - ((b^2 - 4 a c) log(2 sqrt(a) sqrt(x (a x + b) + c) + 2 a x + b))/(8 a^(3/2))
-                    /// ((0.5 x + b/4a) sqrt(x (a x + b) + c)) - ((b*b/4a - c) log(2 sqrt(a) sqrt(x (a x + b) + c) + 2 a x + b))/(2 a^(1/2))
-                    /// differential
-                    /// ((2 a x + b) sqrt(x (a x + b) + c))/(4 a) - ((b^2 - 4 a c) log(2 sqrt(a) sqrt(x (a x + b) + c) + 2 a x + b))/(8 a^(3/2))
-                    arcCalcConstants[0] = term_b/lenASq_4;
-                    arcCalcConstants[1] = lenASq*4.f;
-                    arcCalcConstants[2] = term_b;
-                    arcCalcConstants[3] = lenCSq;
-                    arcCalcConstants[4] = (arcCalcConstants[3]-term_b*arcCalcConstants[0])/lenA_2;
-                    arcCalcConstants[5] = lenA_2;
+					if (changePerParam < -FLT_MIN)
+						return currentNegFrac/changePerParam;
+					else if (changePerParam > FLT_MIN)
+						return (1.f+currentNegFrac)/changePerParam;
 
-                    //lowerIntegralValue      = 0.f;
-                    //lowerIntegralValue      = getArcLenFromParameter(0.f);
-                    lowerIntegralValue      = arcCalcConstants[0]*lenC+arcCalcConstants[4]*logf(arcCalcConstants[5]*lenC+term_b);
-
-                    length = getArcLenFromParameter(parameterLength);
-                }
-                else
-                {
-                    length = lenC*parameterLength;
-                    lenC_reciprocal = reciprocal(lenC);
-                }
-            }
-
-            inline float getArcLenFromParameter(const float &parameter) const
-            {
-                //assert(std::abs(lenASq)>0.000001f);
-
-                double ax = arcCalcConstants[1]*parameter;
-                double ax_b = ax+arcCalcConstants[2];
-                double theSquareRoot = std::sqrt(parameter*ax_b+arcCalcConstants[3]);
-                float higherIntTerm    = (0.5f*parameter+arcCalcConstants[0])*theSquareRoot+arcCalcConstants[4]*log(arcCalcConstants[5]*theSquareRoot+ax_b+ax);
-/*
-                double a = dot(weights[0],weights[0]).x;
-                double b = dot(weights[0],weights[1]).x*2.f;
-                double c = dot(weights[1],weights[1]).x;
-                double higherIntTerm = ((2.f* a* parameter + b)*std::sqrt(parameter* (a *parameter + b) + c))/(4.f* a) - ((b*b - 4*a*c)*log(2.f*std::sqrt(a)*std::sqrt(parameter*(a*parameter + b) + c) + 2.f*a*parameter + b))/(8.f*a*std::sqrt(a));
-*/
-/*
-                /// extreme debug
-                double checkLen = 0.0;
-                vectorSIMDf prevPoint = weights[2];
-                for (size_t i=1; i<=1024*16; i++)
-                {
-                    double tmp = double(i)/double(1024*16);
-                    tmp *= parameter;
-                    vectorSIMDf nextPoint = posHelper(tmp);
-                    checkLen += (prevPoint - nextPoint).getLengthAsFloat();
-                    prevPoint = nextPoint;
-                }
-                float diff = std::abs(higherIntTerm-lowerIntegralValue-checkLen);
-                assert(diff<0.001f);
-*/
-                return higherIntTerm-lowerIntegralValue;
-            }
-
-            inline float getParameterFromArcLen(const float& arcLen, float parameterHint, const float& accuracyThresh) const
-            {
-                if (std::abs(lenASq)>0.000001f)
-                {
-                    if (arcLen<=accuracyThresh)
-                        return arcLen;
-                    if (arcLen>=length-accuracyThresh)
-                        return parameterLength;
-                    if (parameterHint<0.f||parameterHint>parameterLength)
-                        parameterHint = parameterLength*(arcLen/length);
-                    /// dist = IndefInt(param) - lowerIntVal
-                    /// IndefInt^-1(dist+lowerIntVal) = param
-                    /// Newton-Raphson      f = arcLen - getArcLenFromParameter(parameterHint);
-                    /// Newton-Raphson      f' = -getArcLenFromParameter'(parameterHint);
-                    float arcLenDiffAtParamGuess = arcLen-getArcLenFromParameter(parameterHint);
-                    for (size_t i=0; std::abs(arcLenDiffAtParamGuess)>accuracyThresh&&i<32; i++)
-                    {
-                        float differentialAtGuess = directionHelper(parameterHint).getLengthAsFloat();
-                        parameterHint = parameterHint+arcLenDiffAtParamGuess/differentialAtGuess;
-                        arcLenDiffAtParamGuess = arcLen-getArcLenFromParameter(parameterHint);
-                    }
-                    return std::min(parameterHint,parameterLength);
-                }
-                else
-                    return arcLen*lenC_reciprocal;
-            }
-
-            inline vectorSIMDf posHelper(const float& parameter) const
-            {
-                return (weights[0]*parameter+weights[1])*parameter+weights[2];
-            }
-            inline vectorSIMDf directionHelper(const float& parameter) const
-            {
-                return weights[0]*parameter*2.f+weights[1];
-            }/*
-            inline float findNextBlockChange(const float& param) const
-            {
-                vectorSIMDf startingNegFrac = posHelper(param);
-                startingNegFrac = floor(startingNegFrac)-startingNegFrac;
-                vectorSIMDf dir = directionHelper(param);
-                float changes[3];
-                for (uint32_t i=0; i<3; i++)
-                    changes[i] = findChange(startingNegFrac.pointer[i],dir.pointer[i]);
-
-                float smallest;
-                if (reinterpret_cast<uint32_t*>(changes)[0]<=reinterpret_cast<uint32_t*>(changes)[1])
-                {
-                    if (reinterpret_cast<uint32_t*>(changes)[2]<=reinterpret_cast<uint32_t*>(changes)[0])
-                        smallest = changes[2];
-                    else
-                        smallest = changes[0];
-                }
-                else if (reinterpret_cast<uint32_t*>(changes)[2]<=reinterpret_cast<uint32_t*>(changes)[1])
-                {
-                    smallest = changes[2];
-                }
-                else
-                    smallest = changes[1];
-
-                smallest_+= param;
-                if (smallest<length)
-                    return smallest;
-
-                return -1.f;
-            }
-            inline float findChange(const float& currentNegFrac, const float& changePerParam) const
-            {
-                if (currentNegFrac==0.f||currentNegFrac==1.f)
-                    return 0.f;
-
-                if (changePerParam < -FLT_MIN)
-                    return currentNegFrac/changePerParam;
-                else if (changePerParam > FLT_MIN)
-                    return (1.f+currentNegFrac)/changePerParam;
-
-                return -1.f;
-            }*/
+					return -1.f;
+				}*/
 
 
-            float length,parameterLength,lenASq,lowerIntegralValue;
-            union
-            {
-                float lenC;
-                float lenC_reciprocal;
-            };
-            float arcCalcConstants[6];
-            vectorSIMDf weights[3];
+				float length,parameterLength,lenASq,lowerIntegralValue;
+				union
+				{
+					float lenC;
+					float lenC_reciprocal;
+				};
+				float arcCalcConstants[6];
+				vectorSIMDf weights[3];
 
             private:
                 Segment() {}
