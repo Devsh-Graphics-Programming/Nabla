@@ -1,10 +1,10 @@
 #ifndef __IRR_I_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
 #define __IRR_I_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
 #include "irr/asset/format/EFormat.h"
 #include "irr/core/math/irrMath.h"
 #include "irr/asset/ShaderCommons.h"
+#include "irr/asset/IPipeline.h"
 #include <algorithm>
 
 namespace irr {
@@ -209,8 +209,10 @@ struct SBlendParams
 };
 
 template<typename SpecShaderType, typename LayoutType>
-class IRenderpassIndependentPipeline
+class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 {
+    constexpr size_t MAX_VERTEX_ATTRIB_COUNT = 16ull;
+    constexpr size_t SHADER_STAGE_COUNT = 5ull;
 protected:
     IRenderpassIndependentPipeline(
         core::smart_refctd_ptr<LayoutType> _layout,
@@ -223,13 +225,13 @@ protected:
         SBlendParams _blendParams,
         SPrimitiveAssemblyParams _primAsmParams,
         SRaserizationParams _rasterParams
-    ) : m_layout(_layout),
+    ) : IPipeline<LayoutType>(std::move(_layout)),
         m_shaders{_vs, _tcs, _tes, _gs, _fs},
         m_blendParams(_blendParams),
         m_primAsmParams(_primAsmParams),
         m_rasterParams(_rasterParams)
     {
-        std::copy(_vertexInputParams, _vertexInputParams+16, m_vertexInputParams);
+        std::copy(_vertexInputParams, _vertexInputParams+MAX_VERTEX_ATTRIB_COUNT, m_vertexInputParams);
     }
     virtual ~IRenderpassIndependentPipeline() = default;
 
@@ -244,13 +246,12 @@ public:
     inline const SVertexInputParams& getVertexInputParams(uint32_t _ix) const { return m_vertexInputParams[_ix]; }
 
 protected:
-    core::smart_refctd_ptr<LayoutType> m_layout;
-    core::smart_refctd_ptr<SpecShaderType> m_shaders[5];
+    core::smart_refctd_ptr<SpecShaderType> m_shaders[SHADER_STAGE_COUNT];
 
     SBlendParams m_blendParams;
     SPrimitiveAssemblyParams m_primAsmParams;
     SRaserizationParams m_rasterParams;
-    SVertexInputParams m_vertexInputParams[16];
+    SVertexInputParams m_vertexInputParams[MAX_VERTEX_ATTRIB_COUNT];
 };
 
 }
