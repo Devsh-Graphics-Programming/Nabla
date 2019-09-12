@@ -164,8 +164,6 @@ endif()
 
 option(IRR_COMPILE_WITH_OPENGL "Compile with OpenGL backend?" ON)
 
-option(IRR_COMPILE_WITH_BURNINGSVIDEO "Compile with software backend?" ON)
-
 option(IRR_PCH "Enable pre-compiled header" ON)
 
 option(IRR_FAST_MATH "Enable fast low-precision math" ON)
