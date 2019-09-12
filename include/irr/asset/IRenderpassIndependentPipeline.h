@@ -5,38 +5,26 @@
 #include "irr/core/math/irrMath.h"
 #include "irr/asset/ShaderCommons.h"
 #include "irr/asset/IPipeline.h"
+#include "irr/macros.h"
 #include <algorithm>
 
 namespace irr {
 namespace asset
 {
 
-enum E_PRIMITIVE_TYPE
+enum E_PRIMITIVE_TOPOLOGY
 {
-    //! All vertices are non-connected points.
-    EPT_POINTS = 0,
-
-    //! All vertices form a single connected line.
-    EPT_LINE_STRIP,
-
-    //! Just as LINE_STRIP, but the last and the first vertex is also connected.
-    EPT_LINE_LOOP,
-
-    //! Every two vertices are connected creating n/2 lines.
-    EPT_LINES,
-
-    //! After the first two vertices each vertex defines a new triangle.
-    //! Always the two last and the new one form a new triangle.
-    EPT_TRIANGLE_STRIP,
-
-    //! After the first two vertices each vertex defines a new triangle.
-    //! All around the common first vertex.
-    EPT_TRIANGLE_FAN,
-
-    //! Explicitly set all vertices for each triangle.
-    EPT_TRIANGLES
-
-    // missing adjacency types and patches
+    EPT_POINT_LIST = 0,
+    EPT_LINE_LIST = 1,
+    EPT_LINE_STRIP = 2,
+    EPT_TRIANGLE_LIST = 3,
+    EPT_TRIANGLE_STRIP = 4,
+    EPT_TRIANGLE_FAN = 5,
+    EPT_LINE_LIST_WITH_ADJACENCY = 6,
+    EPT_LINE_STRIP_WITH_ADJACENCY = 7,
+    EPT_TRIANGLE_LIST_WITH_ADJACENCY = 8,
+    EPT_TRIANGLE_STRIP_WITH_ADJACENCY = 9,
+    EPT_PATCH_LIST = 10
 };
 
 struct SVertexInputParams
@@ -50,7 +38,7 @@ struct SVertexInputParams
 
 struct SPrimitiveAssemblyParams
 {
-    E_PRIMITIVE_TYPE primitiveType;
+    E_PRIMITIVE_TOPOLOGY primitiveType;
     bool primitiveRestartEnable;
     uint32_t tessPatchVertCount;
 };
@@ -113,7 +101,7 @@ enum E_SAMPLE_COUNT
     ESC_64_BIT = 0x00000040
 };
 
-struct SRaserizationParams
+struct SRasterizationParams
 {
     SStencilOpParams frontStencilOps;
     SStencilOpParams backStencilOps;
@@ -208,11 +196,33 @@ struct SBlendParams
     SColorAttachmentBlendParams blendParams[8];
 };
 
+//! Available vertex attribute ids
+/** As of 2018 most OpenGL and Vulkan implementations support 16 attributes (some CAD GPUs more) */
+enum E_VERTEX_ATTRIBUTE_ID
+{
+    EVAI_ATTR0 = 0,
+    EVAI_ATTR1,
+    EVAI_ATTR2,
+    EVAI_ATTR3,
+    EVAI_ATTR4,
+    EVAI_ATTR5,
+    EVAI_ATTR6,
+    EVAI_ATTR7,
+    EVAI_ATTR8,
+    EVAI_ATTR9,
+    EVAI_ATTR10,
+    EVAI_ATTR11,
+    EVAI_ATTR12,
+    EVAI_ATTR13,
+    EVAI_ATTR14,
+    EVAI_ATTR15,
+    EVAI_COUNT
+};
+
 template<typename SpecShaderType, typename LayoutType>
 class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 {
-    constexpr size_t MAX_VERTEX_ATTRIB_COUNT = 16ull;
-    constexpr size_t SHADER_STAGE_COUNT = 5ull;
+    IRR_INLINE_STATIC_CONSTEXPR size_t SHADER_STAGE_COUNT = 5ull;
 protected:
     IRenderpassIndependentPipeline(
         core::smart_refctd_ptr<LayoutType> _layout,
@@ -224,14 +234,14 @@ protected:
         const SVertexInputParams* _vertexInputParams,
         SBlendParams _blendParams,
         SPrimitiveAssemblyParams _primAsmParams,
-        SRaserizationParams _rasterParams
+        SRasterizationParams _rasterParams
     ) : IPipeline<LayoutType>(std::move(_layout)),
         m_shaders{_vs, _tcs, _tes, _gs, _fs},
         m_blendParams(_blendParams),
         m_primAsmParams(_primAsmParams),
         m_rasterParams(_rasterParams)
     {
-        std::copy(_vertexInputParams, _vertexInputParams+MAX_VERTEX_ATTRIB_COUNT, m_vertexInputParams);
+        std::copy(_vertexInputParams, _vertexInputParams+EVAI_COUNT, m_vertexInputParams);
     }
     virtual ~IRenderpassIndependentPipeline() = default;
 
@@ -241,7 +251,7 @@ public:
 
     inline const SBlendParams& getBlendParams() const { return m_blendParams; }
     inline const SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() const { return m_primAsmParams; }
-    inline const SRaserizationParams& getRasterizationParams() const { return m_rasterParams; }
+    inline const SRasterizationParams& getRasterizationParams() const { return m_rasterParams; }
     inline const SVertexInputParams* getVertexInputParams() const { return m_vertexInputParams; }
     inline const SVertexInputParams& getVertexInputParams(uint32_t _ix) const { return m_vertexInputParams[_ix]; }
 
@@ -250,8 +260,8 @@ protected:
 
     SBlendParams m_blendParams;
     SPrimitiveAssemblyParams m_primAsmParams;
-    SRaserizationParams m_rasterParams;
-    SVertexInputParams m_vertexInputParams[MAX_VERTEX_ATTRIB_COUNT];
+    SRasterizationParams m_rasterParams;
+    SVertexInputParams m_vertexInputParams[EVAI_COUNT];
 };
 
 }

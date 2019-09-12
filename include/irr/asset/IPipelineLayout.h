@@ -14,11 +14,11 @@ protected:
     virtual ~IPipelineLayout() = default;
 
 public:
-    void setDescSetLayout(core::smart_refctd_ptr<DescLayoutType> _layout, uint32_t _num)
-    {
-        assert(_num < 4u);
-        m_descSetLayouts[_num] = _layout;
-    }
+    IPipelineLayout(
+        core::smart_refctd_ptr<DescLayoutType> _layout0, core::smart_refctd_ptr<DescLayoutType> _layout1 = nullptr,
+        core::smart_refctd_ptr<DescLayoutType> _layout2 = nullptr, core::smart_refctd_ptr<DescLayoutType> _layout3 = nullptr
+    ) : m_descSetLayouts{_layout0, _layout1, _layout2, _layout3}
+    {}
 
 protected:
     core::smart_refctd_ptr<DescLayoutType> m_descSetLayouts[4];

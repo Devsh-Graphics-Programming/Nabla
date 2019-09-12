@@ -11,6 +11,9 @@ namespace video
 
 class IGPUPipelineLayout : public core::IReferenceCounted, public asset::IPipelineLayout<IGPUDescriptorSetLayout>
 {
+public:
+    using asset::IPipelineLayout<IGPUDescriptorSetLayout>::IPipelineLayout;
+
 protected:
     virtual ~IGPUPipelineLayout() = default;
 };

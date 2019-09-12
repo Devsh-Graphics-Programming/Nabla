@@ -10,6 +10,9 @@ namespace irr { namespace asset
 
 class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorSetLayout>
 {
+public:
+    using IPipelineLayout<ICPUDescriptorSetLayout>::IPipelineLayout;
+
 protected:
     virtual ~ICPUPipelineLayout() = default;
 };

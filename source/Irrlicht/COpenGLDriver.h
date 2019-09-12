@@ -1022,7 +1022,7 @@ namespace video
         FW_Mutex* glContextMutex;
 		SAuxContext* AuxContexts;
         CDerivativeMapCreator* DerivativeMapCreator;
-        const asset::IGLSLCompiler* GLSLCompiler;
+        core::smart_refctd_ptr<const asset::IGLSLCompiler> GLSLCompiler;
 
 		E_DEVICE_TYPE DeviceType;
 	};
