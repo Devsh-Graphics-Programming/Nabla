@@ -31,7 +31,7 @@ The authors of IrrlichtBAW are:
 - Przemysław Pachytel [@Przemog1](https://github.com/Przemog1) (Junior Programmer)
 - [@manhnt9](https://github.com/manhnt9) Nguyễn Tiến Mạnh (CEGUI, Build System and Radeon Rays investigations)
 - [@florastamine](https://github.com/florastamine) Nguyễn Ngọc Huy (sRGB-Correct Image Loaders, CEGUI and BRDF Explorer GUI)
-- [@khom-khun](https://github.com/khom-khun) for the pending Bullet Physics Extension and [the irrBaW-test repository of easy to understand demos](https://github.com/khom-khun/irrBAW-test)
+- [@khom-khun](https://github.com/khom-khun) for Bullet Physics Extension + Example and [the irrBaW-test repository of easy to understand demos](https://github.com/khom-khun/irrBAW-test)
 - Søren Gronbech 
 
 Words of appreciation for developers developers whose software has been used in IrrlichtBAW, currently and in the past:

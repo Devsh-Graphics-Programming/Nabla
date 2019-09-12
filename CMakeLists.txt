@@ -178,6 +178,8 @@ option(IRR_BUILD_CEGUI "Enable CEGUI building and integration?" OFF)
 
 option(IRR_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 
+option(IRR_BUILD_DOCS "Enable building documentation?" ON)
+
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 
 execute_process(COMMAND git submodule init
@@ -196,4 +198,8 @@ add_subdirectory(ext)
 
 if(IRR_BUILD_EXAMPLES)
 	add_subdirectory(examples_tests)
+endif()
+
+if(IRR_BUILD_DOCS)
+	add_subdirectory(docs)
 endif()

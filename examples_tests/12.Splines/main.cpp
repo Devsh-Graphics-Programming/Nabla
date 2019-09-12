@@ -13,6 +13,7 @@ vector3df camPos;
 vector<vectorSIMDf> controlPts;
 ISpline* spline = NULL;
 
+
 //!Same As Last Example
 class MyEventReceiver : public QToQuitEventReceiver
 {
@@ -60,7 +61,7 @@ public:
                         spline = NULL;
                         if (controlPts.size())
                         {
-                            spline = new irr::core::CQuadraticBSpline(controlPts.data(),controlPts.size(),false);
+                            spline = new irr::core::CQuadraticSpline(controlPts.data(),controlPts.size(),false);
                             printf("Total Len %f\n",spline->getSplineLength());
                             for (size_t i=0; i<spline->getSegmentCount(); i++)
                                 printf("Seg: %d \t\t %f\n",i,spline->getSegmentLength(i));
@@ -76,7 +77,7 @@ public:
                         spline = NULL;
                         if (controlPts.size())
                         {
-                            spline = new CQuadraticBSpline(controlPts.data(),controlPts.size(),true); //make it a loop
+                            spline = new irr::core::CQuadraticSpline(controlPts.data(),controlPts.size(),true); //make it a loop
                             printf("Total Len %f\n",spline->getSplineLength());
                             for (size_t i=0; i<spline->getSegmentCount(); i++)
                                 printf("Seg: %d \t\t %f\n",i,spline->getSegmentLength(i));
@@ -177,11 +178,13 @@ int main()
     float cubeParameterHint = 0.f;
     uint32_t cubeSegment = 0;
 
-    #define kCircleControlPts 3
+    #define kCircleControlPts 4
     for (size_t i=0; i<kCircleControlPts; i++)
     {
         float x = float(i)*core::PI*2.f/float(kCircleControlPts);
-        controlPts.push_back(vectorSIMDf(sin(x),0,-cos(x))*4.f);
+        vectorSIMDf pos(sin(x),0,-cos(x)); pos *= 4.f;
+        controlPts.push_back(pos);
+		smgr->addCubeSceneNode(0.5f, 0, -1, pos.getAsVector3df());
     }
 
 
