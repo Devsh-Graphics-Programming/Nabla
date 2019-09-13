@@ -250,7 +250,7 @@ namespace scene
 		/** \param textureLayer Layer of texture to be set. Must be a
 		value smaller than MATERIAL_MAX_TEXTURES.
 		\param texture New texture to be used. */
-		void setMaterialTexture(uint32_t textureLayer, core::smart_refctd_ptr<video::IVirtualTexture>&& texture) // kill this function
+		void setMaterialTexture(uint32_t textureLayer, core::smart_refctd_ptr<video::IRenderableVirtualTexture>&& texture) // kill this function
 		{
 			if (textureLayer >= video::MATERIAL_MAX_TEXTURES)
 				return;

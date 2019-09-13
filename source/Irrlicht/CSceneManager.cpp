@@ -450,7 +450,7 @@ ISceneNode* CSceneManager::addSkyBoxSceneNode(	core::smart_refctd_ptr<video::ITe
 
 //! Adds a skydome scene node. A skydome is a large (half-) sphere with a
 //! panoramic texture on it and is drawn around the camera position.
-ISceneNode* CSceneManager::addSkyDomeSceneNode(	core::smart_refctd_ptr<video::IVirtualTexture>&& texture, uint32_t horiRes,
+ISceneNode* CSceneManager::addSkyDomeSceneNode(	core::smart_refctd_ptr<video::IRenderableVirtualTexture>&& texture, uint32_t horiRes,
 	uint32_t vertRes, float texturePercentage, float spherePercentage, float radius, IDummyTransformationSceneNode* parent,
 	int32_t id)
 {

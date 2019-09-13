@@ -11,7 +11,7 @@
 #include "EMaterialTypes.h"
 #include "SMaterialLayer.h"
 #include "irr/asset/ICPUTexture.h"
-#include "IVirtualTexture.h"
+#include "IRenderableVirtualTexture.h"
 #include "irr/asset/ICPUSpecializedShader.h"
 #include "irr/video/IGPUSpecializedShader.h"
 
@@ -386,7 +386,7 @@ namespace video
 
 #include "irr/irrunpack.h"
 
-    using SGPUMaterial = SMaterial<IVirtualTexture, IGPUSpecializedShader>;
+    using SGPUMaterial = SMaterial<IRenderableVirtualTexture, IGPUSpecializedShader>;
     using SCPUMaterial = SMaterial<asset::ICPUTexture, asset::ICPUSpecializedShader>;
 
 

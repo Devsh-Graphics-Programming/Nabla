@@ -7,7 +7,7 @@
 using namespace irr;
 using namespace video;
 
-uint64_t STextureSamplingParams::calculateHash(const IVirtualTexture* tex) const
+uint64_t STextureSamplingParams::calculateHash(const IRenderableVirtualTexture* tex) const
 {
 #ifdef _IRR_COMPILE_WITH_OPENGL_
     if (!tex||tex->getDriverType()!=EDT_OPENGL)
@@ -17,7 +17,7 @@ uint64_t STextureSamplingParams::calculateHash(const IVirtualTexture* tex) const
     STextureSamplingParams tmp = *reinterpret_cast<STextureSamplingParams*>(&zero64);
 
     bool couldWantToUseMipmaps = false;
-    if (tex->getVirtualTextureType()==IVirtualTexture::EVTT_OPAQUE_FILTERABLE)
+    if (tex->getVirtualTextureType()==IRenderableVirtualTexture::EVTT_OPAQUE_FILTERABLE)
     {
         couldWantToUseMipmaps = UseMipmaps&&static_cast<const ITexture*>(tex)->hasMipMaps();
 

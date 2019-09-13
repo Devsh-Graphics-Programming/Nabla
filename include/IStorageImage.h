@@ -7,7 +7,7 @@
 
 #include "stdint.h"
 #include "IVulkanPrebaked.h"
-#include "IVirtualTexture.h"
+#include "IRenderableVirtualTexture.h"
 
 namespace irr
 {
@@ -26,7 +26,7 @@ class IStorageImage : public virtual IVulkanPrebaked
         {
         }
 
-        IVirtualTexture* texture; //change to texture view later
+        IRenderableVirtualTexture* texture; //change to texture view later
 };
 
 

@@ -29,7 +29,7 @@ namespace scene
 	to use a value slightly bigger than 1 to avoid a gap between some ground place and the sky. This
 	parameters stretches the image to fit the chosen "sphere-size". */
 
-CSkyDomeSceneNode::CSkyDomeSceneNode(core::smart_refctd_ptr<video::IVirtualTexture>&& texture, uint32_t horiRes, uint32_t vertRes,
+CSkyDomeSceneNode::CSkyDomeSceneNode(core::smart_refctd_ptr<video::IRenderableVirtualTexture>&& texture, uint32_t horiRes, uint32_t vertRes,
 		float texturePercentage, float spherePercentage, float radius,
 		IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id)
 	: ISceneNode(parent, mgr, id), Buffer(nullptr),

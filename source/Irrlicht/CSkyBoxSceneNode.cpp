@@ -225,9 +225,9 @@ void CSkyBoxSceneNode::render()
 			idx = lookVect.Z > 0 ? 1 : 3;
 		}
 
-		video::IVirtualTexture* vtex = Material[idx].getTexture(0);
+		video::IRenderableVirtualTexture* vtex = Material[idx].getTexture(0);
 
-		if ( vtex && vtex->getVirtualTextureType()==video::IVirtualTexture::EVTT_OPAQUE_FILTERABLE )
+		if ( vtex && vtex->getVirtualTextureType()==video::IRenderableVirtualTexture::EVTT_OPAQUE_FILTERABLE )
 		{
 		    video::ITexture* texture = static_cast<video::ITexture*>(vtex);
 

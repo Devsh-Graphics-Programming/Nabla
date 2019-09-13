@@ -11,7 +11,7 @@ namespace irr
 {
 namespace video
 {
-    class IVirtualTexture;
+    class IRenderableVirtualTexture;
 
 	//! Texture coord clamp mode outside [0.0, 1.0]
 	enum E_TEXTURE_CLAMP
@@ -164,7 +164,7 @@ namespace video
             return retval;
 		}
 
-		uint64_t calculateHash(const IVirtualTexture* tex) const;
+		uint64_t calculateHash(const IRenderableVirtualTexture* tex) const;
     } PACK_STRUCT;
 
 static_assert(sizeof(STextureSamplingParams)==8,"STextureSamplingParams struct wrong size, will break BaW Loader and Writer!");

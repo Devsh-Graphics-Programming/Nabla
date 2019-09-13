@@ -2154,13 +2154,13 @@ const GLuint& COpenGLDriver::SAuxContext::constructSamplerInCache(const uint64_t
     return (SamplerMap[hashVal] = samplerHandle);
 }
 
-bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, core::smart_refctd_ptr<IVirtualTexture>&& texture, const video::STextureSamplingParams &sampleParams)
+bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, core::smart_refctd_ptr<IRenderableVirtualTexture>&& texture, const video::STextureSamplingParams &sampleParams)
 {
 	if (stage >= COpenGLExtensionHandler::MaxTextureUnits)
 		return false;
 
 
-    if (texture&&texture->getVirtualTextureType()==IVirtualTexture::EVTT_BUFFER_OBJECT&&!static_cast<COpenGLTextureBufferObject*>(texture.get())->rebindRevalidate())
+    if (texture&&texture->getVirtualTextureType()==IRenderableVirtualTexture::EVTT_BUFFER_OBJECT&&!static_cast<COpenGLTextureBufferObject*>(texture.get())->rebindRevalidate())
         return false;
 
 	if (CurrentTexture[stage]!=texture.get())
@@ -2199,8 +2199,8 @@ bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, core::smart_re
 
     if (CurrentTexture[stage])
     {
-        if (CurrentTexture[stage]->getVirtualTextureType()!=IVirtualTexture::EVTT_BUFFER_OBJECT&&
-            CurrentTexture[stage]->getVirtualTextureType()!=IVirtualTexture::EVTT_2D_MULTISAMPLE)
+        if (CurrentTexture[stage]->getVirtualTextureType()!=IRenderableVirtualTexture::EVTT_BUFFER_OBJECT&&
+            CurrentTexture[stage]->getVirtualTextureType()!=IRenderableVirtualTexture::EVTT_2D_MULTISAMPLE)
         {
             uint64_t hashVal = sampleParams.calculateHash(CurrentTexture[stage]);
             if (CurrentSamplerHash[stage]!=hashVal)
@@ -2228,7 +2228,7 @@ bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, core::smart_re
 }
 
 
-void COpenGLDriver::SAuxContext::STextureStageCache::remove(const IVirtualTexture* tex)
+void COpenGLDriver::SAuxContext::STextureStageCache::remove(const IRenderableVirtualTexture* tex)
 {
     for (int32_t i = MATERIAL_MAX_TEXTURES-1; i>= 0; --i)
     {
@@ -2377,7 +2377,7 @@ void COpenGLDriver::setMaterial(const SGPUMaterial& material)
 
 	for (int32_t i = MaxTextureUnits-1; i>= 0; --i)
 	{
-		found->setActiveTexture(i, core::smart_refctd_ptr<video::IVirtualTexture>(material.getTexture(i)), material.TextureLayer[i].SamplingParams);
+		found->setActiveTexture(i, core::smart_refctd_ptr<video::IRenderableVirtualTexture>(material.getTexture(i)), material.TextureLayer[i].SamplingParams);
 	}
 }
 

@@ -248,7 +248,7 @@ bool COpenGLFrameBuffer::rebindRevalidate()
         uint64_t revalidationStamp = 0;
         switch (attachments[i]->getVirtualTextureType())
         {
-            case IVirtualTexture::EVTT_OPAQUE_FILTERABLE:
+            case IRenderableVirtualTexture::EVTT_OPAQUE_FILTERABLE:
                 {
                     ITexture* typeTex = static_cast<ITexture*>(attachments[i]);
                     revalidationStamp = dynamic_cast<COpenGLTexture*>(typeTex)->hasOpenGLNameChanged();
@@ -256,7 +256,7 @@ bool COpenGLFrameBuffer::rebindRevalidate()
                         attach((E_FBO_ATTACHMENT_POINT)i,typeTex,cachedLevel[i],cachedLayer[i]);
                 }
                 break;
-            case IVirtualTexture::EVTT_2D_MULTISAMPLE:
+            case IRenderableVirtualTexture::EVTT_2D_MULTISAMPLE:
                 {
                     IMultisampleTexture* typeTex = static_cast<IMultisampleTexture*>(attachments[i]);
                     revalidationStamp = dynamic_cast<COpenGLTexture*>(typeTex)->hasOpenGLNameChanged();

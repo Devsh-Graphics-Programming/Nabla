@@ -10,7 +10,7 @@
 #include "IDescriptorSetLayout.h"
 #include "IGPUBuffer.h"
 #include "STextureSamplingParams.h"
-#include "IVirtualTexture.h"
+#include "IRenderableVirtualTexture.h"
 
 namespace irr
 {
@@ -50,7 +50,7 @@ class IDescriptorSet : public virtual IVulkanPrebaked
                 CombinedImageSampler() : texture(NULL)
                 {
                 }
-                CombinedImageSampler(IVirtualTexture* inTexture, STextureSamplingParams inSampler) //0 means whole range
+                CombinedImageSampler(IRenderableVirtualTexture* inTexture, STextureSamplingParams inSampler) //0 means whole range
                     : texture(NULL)
                 {
                     if (!inTexture)
@@ -69,7 +69,7 @@ class IDescriptorSet : public virtual IVulkanPrebaked
                         texture->drop();
                 }
 
-                IVirtualTexture* texture;
+                IRenderableVirtualTexture* texture;
                 STextureSamplingParams sampler;
         };
         CombinedImageSampler texturesAndSamplers[_IRR_MATERIAL_MAX_TEXTURES_];

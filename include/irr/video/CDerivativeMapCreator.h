@@ -7,7 +7,7 @@ namespace irr { namespace video
 {
 
 class IVideoDriver;
-class IVirtualTexture;
+class IRenderableVirtualTexture;
 
 class CDerivativeMapCreator final : public core::IReferenceCounted
 {
@@ -16,7 +16,7 @@ protected:
 
 public:
     CDerivativeMapCreator(video::IVideoDriver* _driver);
-	core::smart_refctd_ptr<video::IVirtualTexture> createDerivMapFromBumpMap(video::IVirtualTexture* _bumpMap, float _heightFactor, bool _texWrapRepeat = false) const;
+	core::smart_refctd_ptr<video::IRenderableVirtualTexture> createDerivMapFromBumpMap(video::IRenderableVirtualTexture* _bumpMap, float _heightFactor, bool _texWrapRepeat = false) const;
 
 private:
     uint32_t createComputeShader(const char*) const;

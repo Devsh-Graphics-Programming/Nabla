@@ -9,7 +9,7 @@
 #include "dimension2d.h"
 #include "irr/asset/CImageData.h"
 #include "IFrameBuffer.h"
-#include "IVirtualTexture.h"
+#include "IRenderableVirtualTexture.h"
 #include "IDriverMemoryBacked.h"
 
 namespace irr

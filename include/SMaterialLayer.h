@@ -7,7 +7,7 @@
 
 #include "irr/asset/ICPUTexture.h"
 #include "STextureSamplingParams.h"
-#include "IVirtualTexture.h"
+#include "IRenderableVirtualTexture.h"
 
 namespace irr
 {

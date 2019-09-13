@@ -5,14 +5,14 @@
 #ifndef __I_TEXTURE_BUFFER_OBJECT_H_INCLUDED__
 #define __I_TEXTURE_BUFFER_OBJECT_H_INCLUDED__
 
-#include "IVirtualTexture.h"
+#include "IRenderableVirtualTexture.h"
 
 namespace irr
 {
 namespace video
 {
 
-class ITextureBufferObject : public IVirtualTexture
+class ITextureBufferObject : public IRenderableVirtualTexture
 {
         _IRR_INTERFACE_CHILD(ITextureBufferObject) {}
     public:
@@ -59,6 +59,9 @@ class ITextureBufferObject : public IVirtualTexture
         };
 
         virtual E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_BUFFER_OBJECT;}
+
+        //this is going to be nuked anyway
+        virtual core::dimension2du getRenderableSize() const { return {0,0}; }
 
         // Use ETBOF_COUNT to keep current format
         virtual bool bind(IGPUBuffer* buffer, E_TEXURE_BUFFER_OBJECT_FORMAT format=ETBOF_COUNT, const size_t& offset=0, const size_t& length=0) = 0;

@@ -675,7 +675,7 @@ namespace video
 
             //! sets the current Texture
             //! Returns whether setting was a success or not.
-            bool setActiveTexture(uint32_t stage, core::smart_refctd_ptr<IVirtualTexture>&& texture, const video::STextureSamplingParams &sampleParams);
+            bool setActiveTexture(uint32_t stage, core::smart_refctd_ptr<IRenderableVirtualTexture>&& texture, const video::STextureSamplingParams &sampleParams);
 
             const GLuint& constructSamplerInCache(const uint64_t &hashVal);
 
@@ -874,7 +874,7 @@ namespace video
             //! Textures and Samplers
             class STextureStageCache : public core::AllocationOverrideDefault
             {
-					core::smart_refctd_ptr<const IVirtualTexture> CurrentTexture[MATERIAL_MAX_TEXTURES];
+					core::smart_refctd_ptr<const IRenderableVirtualTexture> CurrentTexture[MATERIAL_MAX_TEXTURES];
 				public:
 					STextureStageCache() = default;
 
@@ -883,13 +883,13 @@ namespace video
 						clear();
 					}
 
-					void set(uint32_t stage, core::smart_refctd_ptr<const IVirtualTexture>&& tex)
+					void set(uint32_t stage, core::smart_refctd_ptr<const IRenderableVirtualTexture>&& tex)
 					{
 						if (stage<MATERIAL_MAX_TEXTURES)
 							CurrentTexture[stage] = std::move(tex);
 					}
 
-					const IVirtualTexture* operator[](int stage) const
+					const IRenderableVirtualTexture* operator[](int stage) const
 					{
 						if (static_cast<uint32_t>(stage)<MATERIAL_MAX_TEXTURES)
 							return CurrentTexture[stage].get();
@@ -897,7 +897,7 @@ namespace video
 							return 0;
 					}
 
-					void remove(const IVirtualTexture* tex);
+					void remove(const IRenderableVirtualTexture* tex);
 
 					void clear();
             };

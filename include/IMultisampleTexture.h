@@ -8,7 +8,7 @@
 #include "path.h"
 #include "dimension2d.h"
 #include "irr/asset/CImageData.h"
-#include "IVirtualTexture.h"
+#include "IRenderableVirtualTexture.h"
 #include "IFrameBuffer.h"
 
 namespace irr
