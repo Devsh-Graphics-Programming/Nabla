@@ -129,7 +129,7 @@ namespace video
 
             void setVertexAttrBuffer(core::smart_refctd_ptr<IGPUBuffer>&& attrBuf, asset::E_VERTEX_ATTRIBUTE_ID attrId, asset::E_FORMAT format, size_t stride=0, size_t offset=0, uint32_t divisor=0) override;
 
-            inline const core::smart_refctd_ptr<IGPUBuffer> const* getMappedBuffers() const
+            inline const core::smart_refctd_ptr<IGPUBuffer>* const getMappedBuffers() const
             {
                 return mappedAttrBuf;
             }

@@ -27,7 +27,7 @@ CMeshSceneNodeInstanced::CMeshSceneNodeInstanced(IDummyTransformationSceneNode* 
     : IMeshSceneNodeInstanced(parent, mgr, id, position, rotation, scale),
     instanceBBoxes(nullptr), instanceBBoxesCount(0), flagQueryForRetrieval(false),
     gpuCulledLodInstanceDataBuffer(), dataPerInstanceOutputSize(0),
-    extraDataInstanceSize(0), dataPerInstanceInputSize(0), cachedMaterialCount(0)
+    extraDataInstanceSize(0), dataPerInstanceInputSize(0)
 {
     #ifdef _IRR_DEBUG
     setDebugName("CMeshSceneNodeInstanced");
@@ -149,8 +149,6 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
 
     for (size_t i=0; i<levelsOfDetail.size(); i++)
     {
-        cachedMaterialCount += levelsOfDetail[i].mesh->getMeshBufferCount();
-
         LoDData tmp;
         tmp.distanceSQ = levelsOfDetail[i].lodDistance;
         tmp.distanceSQ *= tmp.distanceSQ;

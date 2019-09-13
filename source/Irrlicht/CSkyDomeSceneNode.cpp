@@ -231,22 +231,5 @@ void CSkyDomeSceneNode::OnRegisterSceneNode()
 }
 
 
-//! returns the material based on the zero based index i. To get the amount
-//! of materials used by this scene node, use getMaterialCount().
-//! This function is needed for inserting the node into the scene hirachy on a
-//! optimal position for minimizing renderstate changes, but can also be used
-//! to directly modify the material of a scene node.
-video::SGPUMaterial& CSkyDomeSceneNode::getMaterial(uint32_t i)
-{
-	return Buffer->getMaterial();
-}
-
-
-//! returns amount of materials used by this scene node.
-uint32_t CSkyDomeSceneNode::getMaterialCount() const
-{
-	return 1;
-}
-
 } // namespace scene
 } // namespace irr

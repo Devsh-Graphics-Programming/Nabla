@@ -44,16 +44,6 @@ namespace scene
             //! returns the axis aligned bounding box of this node
             virtual const core::aabbox3d<float>& getBoundingBox();
 
-            //! returns the material based on the zero based index i. To get the amount
-            //! of materials used by this scene node, use getMaterialCount().
-            //! This function is needed for inserting the node into the scene hirachy on a
-            //! optimal position for minimizing renderstate changes, but can also be used
-            //! to directly modify the material of a scene node.
-            virtual video::SGPUMaterial& getMaterial(uint32_t i);
-
-            //! returns amount of materials used by this scene node.
-            virtual uint32_t getMaterialCount() const;
-
             //! Returns type of the scene node
             virtual ESCENE_NODE_TYPE getType() const { return ESNT_SKY_BOX; }
 

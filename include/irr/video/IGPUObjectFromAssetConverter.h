@@ -85,7 +85,7 @@ class IGPUObjectFromAssetConverter
 			{
 				if (!el)
 				{
-					redirs.push_back(0xdeadbeefbadc0ffeull);
+					redirs.push_back(0xdeadbeefu);
 					continue;
 				}
 
@@ -304,7 +304,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
 }
 auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset::ICPUMesh** const _end) -> created_gpu_object_array<asset::ICPUMesh>
 {
-	const auto assetCount = std::distance(_begin, _end);
+	const size_t assetCount = std::distance(_begin, _end);
 	auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUMesh> >(assetCount);
 
 	core::vector<asset::ICPUMeshBuffer*> cpuDeps; cpuDeps.reserve(assetCount);

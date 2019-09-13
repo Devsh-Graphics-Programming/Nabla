@@ -159,7 +159,7 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     //mesh->getMeshBuffer(0)->setPrimitiveType(EPT_POINTS);
 	mesh->recalculateBoundingBox(true);
 
-    return SAssetBundle{std::move(mesh)};
+    return SAssetBundle({std::move(mesh)});
 }
 
 bool CSTLMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const

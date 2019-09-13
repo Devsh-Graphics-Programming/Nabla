@@ -129,14 +129,6 @@ namespace scene
 			bool noVerticalMovement=false, float jumpSpeed = 0.f,
 			bool invertMouseY=false, bool makeActive=true);
 
-		//! Adds a billboard scene node to the scene. A billboard is like a 3d sprite: A 2d element,
-		//! which always looks to the camera. It is usually used for things like explosions, fire,
-		//! lensflares and things like that.
-		virtual IBillboardSceneNode* addBillboardSceneNode(IDummyTransformationSceneNode* parent = 0,
-			const core::dimension2d<float>& size = core::dimension2d<float>(10.0f, 10.0f),
-			const core::vector3df& position = core::vector3df(0,0,0), int32_t id=-1,
-			video::SColor shadeTop = 0xFFFFFFFF, video::SColor shadeBottom = 0xFFFFFFFF);
-
 		//! Adds a skybox scene node. A skybox is a big cube with 6 textures on it and
 		//! is drawn around the camera position.
 		virtual ISceneNode* addSkyBoxSceneNode(	core::smart_refctd_ptr<video::ITexture>&& top,
@@ -262,22 +254,30 @@ namespace scene
 		struct DefaultNodeEntry
 		{
 				DefaultNodeEntry(ISceneNode* n) :
-					Node(n), renderPriority(0x80000000u), Material(video::EMT_SOLID)
+					Node(n), renderPriority(0x80000000u)
 				{
 					renderPriority = n->getRenderPriorityScore();
+#ifdef REIMPLEMENT_THIS
 					if (n->getMaterialCount())
 						Material = n->getMaterial(0).MaterialType;
+#endif
 				}
 
 				bool operator < (const DefaultNodeEntry& other) const
 				{
+#ifdef REIMPLEMENT_THIS
 					return (renderPriority < other.renderPriority)||(renderPriority==other.renderPriority && Material<other.Material);
+#else
+					return renderPriority < other.renderPriority;
+#endif
 				}
 
 				ISceneNode* Node;
 			private:
 				uint32_t renderPriority;
+#ifdef REIMPLEMENT_THIS
 				video::E_MATERIAL_TYPE Material;
+#endif
 		};
 
 		//! sort on distance (center) to camera

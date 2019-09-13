@@ -258,24 +258,6 @@ void CSkyBoxSceneNode::OnRegisterSceneNode()
 	ISceneNode::OnRegisterSceneNode();
 }
 
-
-//! returns the material based on the zero based index i. To get the amount
-//! of materials used by this scene node, use getMaterialCount().
-//! This function is needed for inserting the node into the scene hirachy on a
-//! optimal position for minimizing renderstate changes, but can also be used
-//! to directly modify the material of a scene node.
-video::SGPUMaterial& CSkyBoxSceneNode::getMaterial(uint32_t i)
-{
-	return Material[i];
-}
-
-
-//! returns amount of materials used by this scene node.
-uint32_t CSkyBoxSceneNode::getMaterialCount() const
-{
-	return 6;
-}
-
 } // end namespace scene
 } // end namespace irr
 

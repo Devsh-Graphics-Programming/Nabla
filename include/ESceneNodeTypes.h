@@ -37,9 +37,6 @@ namespace scene
 		//! Camera Scene Node
 		ESNT_CAMERA         = MAKE_IRR_ID('c','a','m','_'),
 
-		//! Billboard Scene Node
-		ESNT_BILLBOARD      = MAKE_IRR_ID('b','i','l','l'), //die
-
 		//! Animated Mesh Scene Node
 		ESNT_ANIMATED_MESH  = MAKE_IRR_ID('a','m','s','h'),
 		ESNT_ANIMATED_MESH_INSTANCED = MAKE_IRR_ID('a','m','s','I'),
