@@ -20,7 +20,7 @@
 #include "COpenGLCubemapArrayTexture.h"
 #include "COpenGLMultisampleTexture.h"
 #include "COpenGLMultisampleTextureArray.h"
-#include "COpenGLTextureBufferObject.h"
+#include "irr/video/COpenGLBufferView.h"
 
 #include "irr/video/COpenGLShader.h"
 #include "irr/video/COpenGLSpecializedShader.h"
@@ -2159,10 +2159,6 @@ bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, core::smart_re
 	if (stage >= COpenGLExtensionHandler::MaxTextureUnits)
 		return false;
 
-
-    if (texture&&texture->getVirtualTextureType()==IRenderableVirtualTexture::EVTT_BUFFER_OBJECT&&!static_cast<COpenGLTextureBufferObject*>(texture.get())->rebindRevalidate())
-        return false;
-
 	if (CurrentTexture[stage]!=texture.get())
     {
         const video::COpenGLTexture* oldTexture = dynamic_cast<const COpenGLTexture*>(CurrentTexture[stage]);
@@ -2699,15 +2695,16 @@ IMultisampleTexture* COpenGLDriver::addMultisampleTexture(const IMultisampleText
 	return tex;
 }
 
-ITextureBufferObject* COpenGLDriver::addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format, const size_t& offset, const size_t& length)
+IGPUBufferView* COpenGLDriver::addTextureBufferObject(IGPUBuffer* buf, asset::E_FORMAT format, const size_t& offset, const size_t& length)
 {
     COpenGLBuffer* buffer = static_cast<COpenGLBuffer*>(buf);
     if (!buffer)
         return nullptr;
 
-    ITextureBufferObject* tbo = new COpenGLTextureBufferObject(buffer,format,offset,length);
-	CNullDriver::addTextureBufferObject(tbo);
-    return tbo;
+    //ITextureBufferObject* tbo = new COpenGLTextureBufferObject(buffer,format,offset,length);
+    IGPUBufferView* bufferView = new COpenGLBufferView(core::smart_refctd_ptr<IGPUBuffer>(buf), format, offset, length);
+	CNullDriver::addTextureBufferObject(bufferView);
+    return bufferView;
 }
 
 IFrameBuffer* COpenGLDriver::addFrameBuffer()

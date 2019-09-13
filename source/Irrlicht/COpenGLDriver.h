@@ -550,7 +550,7 @@ namespace video
         virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false);
 
 		//! A.
-        virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0);
+        virtual IGPUBufferView* addTextureBufferObject(IGPUBuffer* buf, asset::E_FORMAT format = asset::EF_R8G8B8A8_UNORM, const size_t& offset=0, const size_t& length=0);
 
         virtual IFrameBuffer* addFrameBuffer();
 

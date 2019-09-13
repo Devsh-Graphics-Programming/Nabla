@@ -318,12 +318,12 @@ void CNullDriver::removeMultisampleTexture(IMultisampleTexture* tex)
     tex->drop();
 }
 
-void CNullDriver::removeTextureBufferObject(ITextureBufferObject* tbo)
+void CNullDriver::removeTextureBufferObject(IGPUBufferView* tbo)
 {
-    auto it = std::lower_bound(TextureBufferObjects.begin(),TextureBufferObjects.end(),tbo);
-    if (it==TextureBufferObjects.end() || tbo<*it)
+    auto it = std::lower_bound(BufferViews.begin(), BufferViews.end(),tbo);
+    if (it== BufferViews.end() || tbo<*it)
         return;
-    TextureBufferObjects.erase(it);
+    BufferViews.erase(it);
 
     tbo->drop();
 }
@@ -345,9 +345,9 @@ void CNullDriver::removeAllTextureBufferObjects()
 {
 	setMaterial ( SGPUMaterial() );
 
-	for (uint32_t i=0; i<TextureBufferObjects.size(); ++i)
-		TextureBufferObjects[i]->drop();
-    TextureBufferObjects.clear();
+	for (uint32_t i=0; i<BufferViews.size(); ++i)
+        BufferViews[i]->drop();
+    BufferViews.clear();
 }
 
 void CNullDriver::removeAllFrameBuffers()
@@ -1097,10 +1097,10 @@ void CNullDriver::addMultisampleTexture(IMultisampleTexture* tex)
 	std::sort(MultisampleTextures.begin(),MultisampleTextures.end());
 }
 
-void CNullDriver::addTextureBufferObject(ITextureBufferObject* tbo)
+void CNullDriver::addTextureBufferObject(IGPUBufferView* bufview)
 {
-	TextureBufferObjects.push_back(tbo);
-	std::sort(TextureBufferObjects.begin(),TextureBufferObjects.end());
+    BufferViews.push_back(bufview);
+	std::sort(BufferViews.begin(), BufferViews.end());
 }
 
 

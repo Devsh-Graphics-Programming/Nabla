@@ -15,6 +15,7 @@
 #include "SExposedVideoData.h"
 #include "IDriver.h"
 #include "irr/video/CDerivativeMapCreator.h"
+#include "irr/video/IGPUBufferView.h"
 
 namespace irr
 {
@@ -171,7 +172,7 @@ namespace video
                                                            asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false) {return nullptr;}
 
         //! A.
-        virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8,
+        virtual IGPUBufferView* addTextureBufferObject(IGPUBuffer* buf, asset::E_FORMAT format = asset::EF_R8G8B8A8_UNORM,
                                                              const size_t& offset=0, const size_t& length=0) {return nullptr;}
 
 		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
@@ -182,7 +183,7 @@ namespace video
 
 		virtual void removeMultisampleTexture(IMultisampleTexture* tex) =0;
 
-		virtual void removeTextureBufferObject(ITextureBufferObject* tbo) =0;
+		virtual void removeTextureBufferObject(IGPUBufferView* tbo) =0;
 
         virtual void removeFrameBuffer(IFrameBuffer* framebuf) = 0;
 

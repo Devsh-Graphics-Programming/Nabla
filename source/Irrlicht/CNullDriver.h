@@ -277,7 +277,7 @@ namespace video
 
 		virtual void removeMultisampleTexture(IMultisampleTexture* tex);
 
-		virtual void removeTextureBufferObject(ITextureBufferObject* tbo);
+		virtual void removeTextureBufferObject(IGPUBufferView* tbo);
 
 		virtual void removeFrameBuffer(IFrameBuffer* framebuf);
 
@@ -457,7 +457,7 @@ namespace video
 	protected:
         void addMultisampleTexture(IMultisampleTexture* tex);
 
-        void addTextureBufferObject(ITextureBufferObject* tbo);
+        void addTextureBufferObject(IGPUBufferView* bufview);
 
 		//! returns a device dependent texture from a software surface (IImage)
 		//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
@@ -534,7 +534,7 @@ namespace video
 		};
 
 		core::vector<IMultisampleTexture*> MultisampleTextures;
-		core::vector<ITextureBufferObject*> TextureBufferObjects;
+		core::vector<IGPUBufferView*> BufferViews;
 
 		core::vector<SMaterialRenderer> MaterialRenderers;
 

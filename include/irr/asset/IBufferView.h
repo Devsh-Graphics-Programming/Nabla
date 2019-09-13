@@ -35,7 +35,7 @@ public:
 
     E_FORMAT getFormat() const { return m_format; }
     size_t getOffsetInBuffer() const { return m_offset; }
-    size_t getSize() const { return m_size; }
+    size_t getByteSize() const { return m_size; }
 };
 
 }}
