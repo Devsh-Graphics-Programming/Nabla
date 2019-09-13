@@ -81,10 +81,9 @@ int main()
 	cube->setRotation(core::vector3df(45, 20, 15));
 
 	scene::IMeshSceneNode* sphere = dynamic_cast<scene::IMeshSceneNode*>(smgr->addSphereSceneNode(2, 128));
-	sphere->getMaterial(0).MaterialType = material.MaterialType;
+    sphere->getMesh()->getMeshBuffer(0)->getMaterial().MaterialType = material.MaterialType;
 	sphere->setPosition(core::vector3df(4, 0, 0));
 
-	scene::ISceneNode* billboard = smgr->addBillboardSceneNode(0, core::dimension2df(1.f, 1.f), core::vector3df(-4, 0, 0));
 
 	auto assetMgr = device->getAssetManager();
 	//! load textures and set them
@@ -92,14 +91,12 @@ int main()
 		asset::IAssetLoader::SAssetLoadParams lparams;
 		asset::ICPUTexture* cputextures[]{
 			static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_dn.jpg", lparams).getContents().first->get()),
-			static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/skydome.jpg", lparams).getContents().first->get()),
-			static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/yellowflowers.dds", lparams).getContents().first->get()) //loads all mipmap levels
+			static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/skydome.jpg", lparams).getContents().first->get())
 		};
 		auto gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures + 3);
 
-		cube->getMaterial(0).setTexture(0, std::move(gputextures->operator[](0u)));
-		sphere->getMaterial(0).setTexture(0, std::move(gputextures->operator[](1u)));
-		billboard->getMaterial(0).setTexture(0, std::move(gputextures->operator[](2u)));
+ 		cube->getMesh()->getMeshBuffer(0)->getMaterial().setTexture(0, std::move(gputextures->operator[](0u)));
+ 		sphere->getMesh()->getMeshBuffer(0)->getMaterial().setTexture(0, std::move(gputextures->operator[](1u)));
 	}
 
 	uint64_t lastFPSTime = 0;
