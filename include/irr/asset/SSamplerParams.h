@@ -67,7 +67,8 @@ struct SSamplerParams
         uint32_t MinFilter : 1;
         uint32_t MaxFilter : 1;
         uint32_t MipmapMode : 1;
-        uint32_t Anisotropy : 5;
+        //! Encoded as power of two (so that if you need 16, Anisotropy should be 4); max value is 5
+        uint32_t Anisotropy : 3;
         uint32_t CompareEnable : 1;
         uint32_t CompareFunc : 3;
     };

@@ -6,6 +6,7 @@
 #include "irr/asset/ShaderCommons.h"
 #include "irr/asset/IPipeline.h"
 #include "irr/macros.h"
+#include "irr/core/memory/refctd_dynamic_array.h"
 #include <algorithm>
 
 namespace irr {
@@ -27,13 +28,32 @@ enum E_PRIMITIVE_TOPOLOGY
     EPT_PATCH_LIST = 10
 };
 
+enum E_VERTEX_INPUT_RATE
+{
+    EVIR_PER_VERTEX = 0,
+    EVIR_PER_INSTANCE = 1
+};
+
+struct SVertexInputAttribParams
+{
+    E_FORMAT format;
+    uint32_t offset;
+};
+struct SVertexInputBindingParams
+{
+    uint32_t binding;
+    uint32_t stride;
+    E_VERTEX_INPUT_RATE inputRate;
+};
 struct SVertexInputParams
 {
-    bool enabled;
-    bool perInstance;
-    E_FORMAT format;
-    uint32_t stride;
-    uint32_t offset;
+    _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = 16u;
+
+    uint16_t enabledAttribFlags;
+    SVertexInputAttribParams attributes[16];
+    core::smart_refctd_dynamic_array<SVertexInputBindingParams> bindings;
+
+    static_assert(sizeof(enabledAttribFlags)*8 >= MAX_VERTEX_ATTRIB_COUNT, "Insufficient flag bits for number of supported attributes");
 };
 
 struct SPrimitiveAssemblyParams
@@ -112,17 +132,17 @@ struct SRasterizationParams
     uint32_t sampleMask[2];
     E_COMPARE_OP depthCompareOp;
     float minSampleShading;
-    bool depthClampEnable;
-    bool rasterizerDiscard;
-    bool fronFaceIsCCW;
-    bool depthBiasEnable;
-    bool sampleShadingEnable;
-    bool alphaToCoverageEnable;
-    bool alphaToOneEnable;
-    bool depthTestEnable;
-    bool depthWriteEnable;
-    bool depthBoundsTestEnable;
-    bool stencilTestEnable;
+    uint16_t depthClampEnable : 1;
+    uint16_t rasterizerDiscard : 1;
+    uint16_t fronFaceIsCCW : 1;
+    uint16_t depthBiasEnable : 1;
+    uint16_t sampleShadingEnable : 1;
+    uint16_t alphaToCoverageEnable : 1;
+    uint16_t alphaToOneEnable : 1;
+    uint16_t depthTestEnable : 1;
+    uint16_t depthWriteEnable : 1;
+    uint16_t depthBoundsTestEnable : 1;
+    uint16_t stencilTestEnable : 1;
 };
 
 enum E_LOGIC_OP
@@ -173,7 +193,8 @@ enum E_BLEND_OP
     EBO_ADD = 0,
     EBO_SUBTRACT = 1,
     EBO_REVERSE_SUBTRACT = 2,
-    EBO_MIN = 3
+    EBO_MIN = 3,
+    EBO_MAX = 4
 };
 
 struct SColorAttachmentBlendParams
@@ -182,7 +203,7 @@ struct SColorAttachmentBlendParams
     uint32_t blendEnable : 1;
     uint32_t srcColorFactor : 5;
     uint32_t dstColorFactor : 5;
-    uint32_t colorBlendOp : 2;
+    uint32_t colorBlendOp : 3;
     uint32_t srcAlphaFactor : 5;
     uint32_t dstAlphaFactor : 5;
     uint32_t alphaBlendOp : 2;
@@ -191,13 +212,14 @@ struct SColorAttachmentBlendParams
 
 struct SBlendParams
 {
-    bool logicOpEnable;
-    E_LOGIC_OP logicOp;
-    SColorAttachmentBlendParams blendParams[8];
+    _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_COLOR_ATTACHMENT_COUNT = 8u;
+    uint32_t logicOpEnable : 1;
+    uint32_t logicOp : 4;
+    SColorAttachmentBlendParams blendParams[MAX_COLOR_ATTACHMENT_COUNT];
 };
 
-//! Available vertex attribute ids
-/** As of 2018 most OpenGL and Vulkan implementations support 16 attributes (some CAD GPUs more) */
+//TODO put into legacy namespace later
+/*
 enum E_VERTEX_ATTRIBUTE_ID
 {
     EVAI_ATTR0 = 0,
@@ -218,11 +240,13 @@ enum E_VERTEX_ATTRIBUTE_ID
     EVAI_ATTR15,
     EVAI_COUNT
 };
+*/
 
 template<typename SpecShaderType, typename LayoutType>
 class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 {
-    IRR_INLINE_STATIC_CONSTEXPR size_t SHADER_STAGE_COUNT = 5ull;
+    _IRR_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 5u;
+
 protected:
     IRenderpassIndependentPipeline(
         core::smart_refctd_ptr<LayoutType> _layout,
@@ -231,17 +255,17 @@ protected:
         core::smart_refctd_ptr<SpecShaderType> _tes,
         core::smart_refctd_ptr<SpecShaderType> _gs,
         core::smart_refctd_ptr<SpecShaderType> _fs,
-        const SVertexInputParams* _vertexInputParams,
-        SBlendParams _blendParams,
-        SPrimitiveAssemblyParams _primAsmParams,
-        SRasterizationParams _rasterParams
+        const SVertexInputParams& _vertexInputParams,
+        const SBlendParams& _blendParams,
+        const SPrimitiveAssemblyParams& _primAsmParams,
+        const SRasterizationParams& _rasterParams
     ) : IPipeline<LayoutType>(std::move(_layout)),
         m_shaders{_vs, _tcs, _tes, _gs, _fs},
         m_blendParams(_blendParams),
         m_primAsmParams(_primAsmParams),
-        m_rasterParams(_rasterParams)
+        m_rasterParams(_rasterParams),
+        m_vertexInputParams(_vertexInputParams)
     {
-        std::copy(_vertexInputParams, _vertexInputParams+EVAI_COUNT, m_vertexInputParams);
     }
     virtual ~IRenderpassIndependentPipeline() = default;
 
@@ -261,7 +285,7 @@ protected:
     SBlendParams m_blendParams;
     SPrimitiveAssemblyParams m_primAsmParams;
     SRasterizationParams m_rasterParams;
-    SVertexInputParams m_vertexInputParams[EVAI_COUNT];
+    SVertexInputParams m_vertexInputParams;
 };
 
 }

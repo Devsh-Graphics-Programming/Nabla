@@ -13,7 +13,7 @@ namespace asset
 {
 	//! An enum for the color format of textures used by the Irrlicht Engine.
 	/** A color format specifies how color information is stored. */
-	enum E_FORMAT
+	enum E_FORMAT : uint32_t
 	{
         //! Custom shizz we wont ever use
         EF_D16_UNORM,

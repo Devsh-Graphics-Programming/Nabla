@@ -17,6 +17,9 @@ public:
         IBufferView<ICPUBuffer>(std::move(_buffer), _format, _offset, _size)
     {}
 
+    inline void setOffsetInBuffer(size_t _offset) { m_offset = _offset; }
+    inline void setSize(size_t _size) { m_size = _size; }
+
 protected:
     virtual ~ICPUBufferView() = default;
 };

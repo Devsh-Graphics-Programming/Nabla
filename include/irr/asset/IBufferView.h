@@ -13,7 +13,8 @@ template<typename BufferType>
 class IBufferView
 {
 public:
-    _IRR_STATIC_INLINE_CONSTEXPR size_t whole_buffer = static_cast<size_t>(-1);
+    _IRR_STATIC_INLINE_CONSTEXPR size_t whole_buffer = ~static_cast<size_t>(0u);
+
 protected:
     IBufferView(core::smart_refctd_ptr<BufferType> _buffer, E_FORMAT _format, size_t _offset, size_t _size) :
         m_buffer(_buffer), m_format(_format), m_offset(_offset), m_size(_size)
