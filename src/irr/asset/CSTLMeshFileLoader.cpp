@@ -76,7 +76,7 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         {
         core::vectorSIMDf n;
 		getNextVector(_file, n, binary);
-        normals.push_back(n);
+        normals.push_back(core::normalize(n));
         }
 
 		if (!binary)
