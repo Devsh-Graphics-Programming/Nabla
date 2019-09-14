@@ -14,6 +14,54 @@ vector<vectorSIMDf> controlPts;
 ISpline* spline = NULL;
 
 
+template<typename IteratorType>
+vector<vectorSIMDf> preprocessBSplineControlPoints(const IteratorType& _begin, const IteratorType& _end, bool loop=false, float curveRelativeLen=0.25f)
+{
+	//assert(curveRelativeLen < 0.5f);
+	auto ptCount = std::distance(_begin, _end);
+	if (ptCount<2u)
+		return {};
+
+	ptCount *= 2u;
+	if (!loop)
+		ptCount-=2;
+	vector<vectorSIMDf> retval(ptCount);
+	auto out = retval.begin();
+
+	auto it = _begin;
+	auto _back = _end - 1;
+	vectorSIMDf prev;
+	if (loop)
+		prev = *_back;
+	else
+	{
+		prev = *_begin;
+		*(out++) = *(it++);
+	}
+
+	auto addDoublePoint = [&](const vectorSIMDf& original, vectorSIMDf next)
+	{
+		auto tangent = (next - prev) * curveRelativeLen;
+		*(out++) = original - tangent;
+		*(out++) = original + tangent;
+	};
+	while (it!=_back)
+	{
+		const auto& orig = *(it++);
+		addDoublePoint(orig, *it);
+		prev = orig;
+	}
+
+	if (loop)
+	{
+		addDoublePoint(*_back,*_begin);
+	}
+	else
+		*(out++) = *_back;
+
+	return retval;
+}
+
 //!Same As Last Example
 class MyEventReceiver : public QToQuitEventReceiver
 {
@@ -61,7 +109,8 @@ public:
                         spline = NULL;
                         if (controlPts.size())
                         {
-                            spline = new irr::core::CQuadraticSpline(controlPts.data(),controlPts.size(),false);
+							auto prep = preprocessBSplineControlPoints(controlPts.cbegin(), controlPts.cend(), false);
+                            spline = new irr::core::CQuadraticBSpline(prep.data(),prep.size(),false);
                             printf("Total Len %f\n",spline->getSplineLength());
                             for (size_t i=0; i<spline->getSegmentCount(); i++)
                                 printf("Seg: %d \t\t %f\n",i,spline->getSegmentLength(i));
@@ -77,7 +126,8 @@ public:
                         spline = NULL;
                         if (controlPts.size())
                         {
-                            spline = new irr::core::CQuadraticSpline(controlPts.data(),controlPts.size(),true); //make it a loop
+							auto prep = preprocessBSplineControlPoints(controlPts.cbegin(), controlPts.cend(), true);
+							spline = new irr::core::CQuadraticBSpline(prep.data(), prep.size(), true); //make it a loop
                             printf("Total Len %f\n",spline->getSplineLength());
                             for (size_t i=0; i<spline->getSegmentCount(); i++)
                                 printf("Seg: %d \t\t %f\n",i,spline->getSegmentLength(i));
@@ -168,10 +218,10 @@ int main()
 		};
 		auto gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures + 2);
 
-		cube->getMaterial(0).setTexture(0, std::move(gputextures->operator[](0u)));
+		cube->getMesh()->getMeshBuffer(0)->getMaterial().setTexture(0, std::move(gputextures->operator[](0u)));
 
 		auto* billboard = smgr->addCubeSceneNode(2.f, 0, -1, core::vector3df(0, 0, 0));
-		billboard->getMaterial(0).setTexture(0, std::move(gputextures->operator[](1u)));
+		billboard->getMesh()->getMeshBuffer(0)->getMaterial().setTexture(0, std::move(gputextures->operator[](1u)));
 	}
 
     float cubeDistance = 0.f;
