@@ -31,10 +31,6 @@ int main()
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 
-    //! First need to make a material other than default to be able to draw with custom shader
-    video::SGPUMaterial material;
-    material.BackfaceCulling = false; //! Triangles will be visible from both sides
-
 
 
 	scene::ISceneManager* smgr = device->getSceneManager();
@@ -62,11 +58,29 @@ int main()
     };
     auto gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures+2);
 
-	//! Test Creation Of Builtin
+	//!
+	auto setTextureAndDisableBackfaceCullOnAllMaterials = [](auto* mesh, core::smart_refctd_ptr<video::ITexture>&& texture)
+	{
+		for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
+		{
+			auto& material = mesh->getMeshBuffer(i)->getMaterial();
+			material.BackfaceCulling = false;
+			material.setTexture(0, std::move(texture));
+		}
+	};
+	auto setWireframeOnAllMaterials = [](auto* mesh, bool value)
+	{
+		for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
+		{
+			auto& material = mesh->getMeshBuffer(i)->getMaterial();
+			material.Wireframe = value;
+		}
+	};
+
+	//!
 	auto* cube = smgr->addCubeSceneNode(1.f,0,-1);
     cube->setRotation(core::vector3df(45,20,15));
-	cube->getMaterial(0u).BackfaceCulling = false;
-    cube->getMaterial(0).setTexture(0,std::move(gputextures->operator[](0u)));
+	setTextureAndDisableBackfaceCullOnAllMaterials(cube->getMesh(), std::move(gputextures->operator[](0u)));
 	core::SCompoundCollider* compound = new core::SCompoundCollider();
 	compound->AddBox(core::SAABoxCollider(cube->getBoundingBox()));
 	core::SColliderData collData;
@@ -76,9 +90,7 @@ int main()
     compound->drop();
 
 	auto* sphere = smgr->addSphereSceneNode(2,32);
-	sphere->getMaterial(0u).BackfaceCulling = false;
-    sphere->getMaterial(0).setTexture(0,std::move(gputextures->operator[](1u)));
-    sphere->getMaterial(0).MaterialType = material.MaterialType;
+	setTextureAndDisableBackfaceCullOnAllMaterials(sphere->getMesh(), std::move(gputextures->operator[](1u)));
     sphere->setPosition(core::vector3df(4,0,0));
 	compound = new core::SCompoundCollider();
 	compound->AddEllipsoid(core::vectorSIMDf(),core::vectorSIMDf(2.f)); //! TODO see why the collider doesn't exactly match up with the mesh
@@ -100,8 +112,9 @@ int main()
 
 		driver->endScene();
 
-        cube->getMaterial(0u).Wireframe = false;
-        sphere->getMaterial(0u).Wireframe = false;
+		setWireframeOnAllMaterials(cube->getMesh(),false);
+		setWireframeOnAllMaterials(sphere->getMesh(),false);
+
         core::vectorSIMDf origin,dir;
         origin.set(camera->getAbsolutePosition());
         dir.set(camera->getTarget());
@@ -110,8 +123,11 @@ int main()
         float outLen;
         if (gCollEng->FastCollide(hitPointData,outLen,origin,dir,10.f))
         {
-            if (hitPointData.attachedNode)
-                hitPointData.attachedNode->getMaterial(0u).Wireframe = true;
+			if (hitPointData.attachedNode)
+			{
+				// I'm sure that the ISceneNode can be cast to IMeshSceneNode
+				setWireframeOnAllMaterials(static_cast<scene::IMeshSceneNode*>(hitPointData.attachedNode)->getMesh(),true);
+			}
         }
 
 		// display frames per second in window title

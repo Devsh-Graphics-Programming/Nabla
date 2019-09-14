@@ -93,7 +93,7 @@ int main()
 			static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_dn.jpg", lparams).getContents().first->get()),
 			static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/skydome.jpg", lparams).getContents().first->get())
 		};
-		auto gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures + 3);
+		auto gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures + 2);
 
  		cube->getMesh()->getMeshBuffer(0)->getMaterial().setTexture(0, std::move(gputextures->operator[](0u)));
  		sphere->getMesh()->getMeshBuffer(0)->getMaterial().setTexture(0, std::move(gputextures->operator[](1u)));
