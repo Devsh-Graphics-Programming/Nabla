@@ -222,21 +222,6 @@ namespace scene
 			ID = id;
 		}
 
-/* KILL
-		void setMaterialTexture(uint32_t textureLayer, core::smart_refctd_ptr<video::IVirtualTexture>&& texture) // kill this function
-		{
-			if (textureLayer >= video::MATERIAL_MAX_TEXTURES)
-				return;
-
-			for (uint32_t i=0; i<getMaterialCount(); ++i)
-				getMaterial(i).setTexture(textureLayer, core::smart_refctd_ptr(texture));
-		}
-		void setMaterialType(video::E_MATERIAL_TYPE newType)
-		{
-			for (uint32_t i=0; i<getMaterialCount(); ++i)
-				getMaterial(i).MaterialType = newType;
-		}
-*/
 
 		//! Enables or disables automatic culling based on the bounding box.
 		/** Automatic culling is enabled by default. Note that not
