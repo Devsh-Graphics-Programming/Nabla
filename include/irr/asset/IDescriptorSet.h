@@ -9,7 +9,7 @@
 namespace irr { namespace asset
 {
 
-enum E_IMAGE_LAYOUT
+enum E_IMAGE_LAYOUT : uint32_t
 {
     EIL_UNDEFINED = 0,
     EIL_GENERAL = 1,

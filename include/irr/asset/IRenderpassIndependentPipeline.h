@@ -42,7 +42,6 @@ struct SVertexInputAttribParams
 };
 struct SVertexInputBindingParams
 {
-    uint32_t binding;
     uint32_t stride;
     E_VERTEX_INPUT_RATE inputRate;
 };
@@ -53,7 +52,9 @@ struct SVertexInputParams
 
     uint16_t enabledAttribFlags;
     uint16_t enabledBindingFlags;
+    //! index in array denotes location (attribute ID)
     SVertexInputAttribParams attributes[MAX_VERTEX_ATTRIB_COUNT];
+    //! index in array denotes binding number
     SVertexInputBindingParams bindings[MAX_ATTR_BUF_BINDING_COUNT];
 
     static_assert(sizeof(enabledAttribFlags)*8 >= MAX_VERTEX_ATTRIB_COUNT, "Insufficient flag bits for number of supported attributes");
@@ -321,14 +322,12 @@ protected:
     virtual ~IRenderpassIndependentPipeline() = default;
 
 public:
-    inline const LayoutType* getLayout() const { return m_layout.get(); }
     inline const SpecShaderType* getShaderAtStage(E_SHADER_STAGE _stage) const { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
 
     inline const SBlendParams& getBlendParams() const { return m_blendParams; }
     inline const SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() const { return m_primAsmParams; }
     inline const SRasterizationParams& getRasterizationParams() const { return m_rasterParams; }
-    inline const SVertexInputParams* getVertexInputParams() const { return m_vertexInputParams; }
-    inline const SVertexInputParams& getVertexInputParams(uint32_t _ix) const { return m_vertexInputParams[_ix]; }
+    inline const SVertexInputParams& getVertexInputParams() const { return m_vertexInputParams; }
 
 protected:
     core::smart_refctd_ptr<SpecShaderType> m_shaders[SHADER_STAGE_COUNT];

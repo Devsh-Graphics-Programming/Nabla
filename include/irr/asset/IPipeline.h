@@ -11,6 +11,9 @@ namespace asset
 template<typename LayoutType>
 class IPipeline
 {
+public:
+    inline const LayoutType* getLayout() const { return m_layout.get(); }
+
 protected:
     IPipeline(core::smart_refctd_ptr<LayoutType>&& _layout) : m_layout(std::move(_layout)) {};
     virtual ~IPipeline() = default;

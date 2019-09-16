@@ -11,17 +11,14 @@
 
 #include "ITransformFeedback.h"
 #include "IGPUBuffer.h"
+#include "IGPUDescriptorSet.h"
+#include "IGPURenderpassIndependentPipeline.h"
 
 namespace irr
 {
 namespace video
 {
-	// will be replaced by graphics pipeline layout object
-	class IGPUMeshDataFormatDesc : public asset::IMeshDataFormatDesc<video::IGPUBuffer>
-	{
-	};
-
-	class IGPUMeshBuffer final : public asset::IMeshBuffer<video::IGPUBuffer>
+	class IGPUMeshBuffer final : public asset::IMeshBuffer<IGPUBuffer,IGPUDescriptorSet,IGPURenderpassIndependentPipeline>
 	{
 	};
 
