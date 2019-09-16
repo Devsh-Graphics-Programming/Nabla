@@ -20,6 +20,14 @@ namespace video
 {
 	class IGPUMeshBuffer final : public asset::IMeshBuffer<IGPUBuffer,IGPUDescriptorSet,IGPURenderpassIndependentPipeline>
 	{
+    public:
+        _IRR_STATIC_INLINE_CONSTEXPR size_t PUSH_CONSTANTS_BYTESIZE = 128u;
+
+        uint8_t* getPushConstantsDataPtr() { return m_pushConstantsData; }
+        const uint8_t* getPushConstantsDataPtr() const { return m_pushConstantsData; }
+
+    private:
+        uint8_t m_pushConstantsData[PUSH_CONSTANTS_BYTESIZE];
 	};
 
 } // end namespace video
