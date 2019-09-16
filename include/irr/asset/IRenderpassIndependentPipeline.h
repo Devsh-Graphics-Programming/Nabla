@@ -13,7 +13,7 @@ namespace irr {
 namespace asset
 {
 
-enum E_PRIMITIVE_TOPOLOGY
+enum E_PRIMITIVE_TOPOLOGY : uint32_t
 {
     EPT_POINT_LIST = 0,
     EPT_LINE_LIST = 1,
@@ -28,7 +28,7 @@ enum E_PRIMITIVE_TOPOLOGY
     EPT_PATCH_LIST = 10
 };
 
-enum E_VERTEX_INPUT_RATE
+enum E_VERTEX_INPUT_RATE : uint32_t
 {
     EVIR_PER_VERTEX = 0,
     EVIR_PER_INSTANCE = 1
@@ -36,6 +36,7 @@ enum E_VERTEX_INPUT_RATE
 
 struct SVertexInputAttribParams
 {
+    uint32_t binding;
     E_FORMAT format;
     uint32_t offset;
 };
@@ -48,12 +49,15 @@ struct SVertexInputBindingParams
 struct SVertexInputParams
 {
     _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = 16u;
+    _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_ATTR_BUF_BINDING_COUNT = 16u;
 
     uint16_t enabledAttribFlags;
-    SVertexInputAttribParams attributes[16];
-    core::smart_refctd_dynamic_array<SVertexInputBindingParams> bindings;
+    uint16_t enabledBindingFlags;
+    SVertexInputAttribParams attributes[MAX_VERTEX_ATTRIB_COUNT];
+    SVertexInputBindingParams bindings[MAX_ATTR_BUF_BINDING_COUNT];
 
     static_assert(sizeof(enabledAttribFlags)*8 >= MAX_VERTEX_ATTRIB_COUNT, "Insufficient flag bits for number of supported attributes");
+    static_assert(sizeof(enabledBindingFlags)*8 >= MAX_ATTR_BUF_BINDING_COUNT, "Insufficient flag bits for number of supported bindings");
 };
 
 struct SPrimitiveAssemblyParams
@@ -63,7 +67,7 @@ struct SPrimitiveAssemblyParams
     uint32_t tessPatchVertCount;
 };
 
-enum E_STENCIL_OP
+enum E_STENCIL_OP : uint32_t
 {
     ESO_KEEP = 0,
     ESO_ZERO = 1,
@@ -75,7 +79,7 @@ enum E_STENCIL_OP
     ESO_DECREMENT_AND_WRAP = 7
 };
 
-enum E_COMPARE_OP
+enum E_COMPARE_OP : uint32_t
 {
     ECO_NEVER = 0,
     ECO_LESS = 1,
@@ -95,14 +99,14 @@ struct SStencilOpParams
     E_COMPARE_OP compareOp;
 };
 
-enum E_POLYGON_MODE
+enum E_POLYGON_MODE : uint32_t
 {
     EPM_FILL = 0,
     EPM_LINE = 1,
     EPM_POINT = 2
 };
 
-enum E_FACE_CULL_MODE
+enum E_FACE_CULL_MODE : uint32_t
 {
     EFCM_NONE = 0,
     EFCM_FRONT_BIT = 1,
@@ -110,7 +114,7 @@ enum E_FACE_CULL_MODE
     EFCM_FRONT_AND_BACK = 3
 };
 
-enum E_SAMPLE_COUNT
+enum E_SAMPLE_COUNT : uint32_t
 {
     ESC_1_BIT = 0x00000001,
     ESC_2_BIT = 0x00000002,
@@ -145,7 +149,7 @@ struct SRasterizationParams
     uint16_t stencilTestEnable : 1;
 };
 
-enum E_LOGIC_OP
+enum E_LOGIC_OP : uint32_t
 {
     ELO_CLEAR = 0,
     ELO_AND = 1,
@@ -165,7 +169,7 @@ enum E_LOGIC_OP
     ELO_SET = 15
 };
 
-enum E_BLEND_FACTOR
+enum E_BLEND_FACTOR : uint32_t
 {
     EBF_ZERO = 0,
     EBF_ONE = 1,
@@ -188,31 +192,78 @@ enum E_BLEND_FACTOR
     EBF_ONE_MINUS_SRC1_ALPHA = 18
 };
 
-enum E_BLEND_OP
+enum E_BLEND_OP : uint32_t
 {
     EBO_ADD = 0,
     EBO_SUBTRACT = 1,
     EBO_REVERSE_SUBTRACT = 2,
     EBO_MIN = 3,
-    EBO_MAX = 4
+    EBO_MAX = 4,
+    EBO_ZERO_EXT,
+    EBO_SRC_EXT,
+    EBO_DST_EXT,
+    EBO_SRC_OVER_EXT,
+    EBO_DST_OVER_EXT,
+    EBO_SRC_IN_EXT,
+    EBO_DST_IN_EXT,
+    EBO_SRC_OUT_EXT,
+    EBO_DST_OUT_EXT,
+    EBO_SRC_ATOP_EXT,
+    EBO_DST_ATOP_EXT,
+    EBO_XOR_EXT,
+    EBO_MULTIPLY_EXT,
+    EBO_SCREEN_EXT,
+    EBO_OVERLAY_EXT,
+    EBO_DARKEN_EXT,
+    EBO_LIGHTEN_EXT,
+    EBO_COLORDODGE_EXT,
+    EBO_COLORBURN_EXT,
+    EBO_HARDLIGHT_EXT,
+    EBO_SOFTLIGHT_EXT,
+    EBO_DIFFERENCE_EXT,
+    EBO_EXCLUSION_EXT,
+    EBO_INVERT_EXT,
+    EBO_INVERT_RGB_EXT,
+    EBO_LINEARDODGE_EXT,
+    EBO_LINEARBURN_EXT,
+    EBO_VIVIDLIGHT_EXT,
+    EBO_LINEARLIGHT_EXT,
+    EBO_PINLIGHT_EXT,
+    EBO_HARDMIX_EXT,
+    EBO_HSL_HUE_EXT,
+    EBO_HSL_SATURATION_EXT,
+    EBO_HSL_COLOR_EXT,
+    EBO_HSL_LUMINOSITY_EXT,
+    EBO_PLUS_EXT,
+    EBO_PLUS_CLAMPED_EXT,
+    EBO_PLUS_CLAMPED_ALPHA_EXT,
+    EBO_PLUS_DARKER_EXT,
+    EBO_MINUS_EXT,
+    EBO_MINUS_CLAMPED_EXT,
+    EBO_CONTRAST_EXT,
+    EBO_INVERT_OVG_EXT,
+    EBO_RED_EXT,
+    EBO_GREEN_EXT,
+    EBO_BLUE_EXT
 };
 
 struct SColorAttachmentBlendParams
 {
-    uint32_t attachmentEnabled : 1;
-    uint32_t blendEnable : 1;
-    uint32_t srcColorFactor : 5;
-    uint32_t dstColorFactor : 5;
-    uint32_t colorBlendOp : 3;
-    uint32_t srcAlphaFactor : 5;
-    uint32_t dstAlphaFactor : 5;
-    uint32_t alphaBlendOp : 2;
-    uint32_t colorWriteMask : 4;
+    uint8_t attachmentEnabled : 1;
+    uint8_t blendEnable : 1;
+    uint8_t srcColorFactor : 5;
+    uint8_t dstColorFactor : 5;
+    uint8_t colorBlendOp : 6;
+    uint8_t srcAlphaFactor : 5;
+    uint8_t dstAlphaFactor : 5;
+    uint8_t alphaBlendOp : 2;
+    uint8_t colorWriteMask : 4;
 };
+static_assert(sizeof(SColorAttachmentBlendParams)==5u, "Unexpected size of SColorAttachmentBlendParams (should be 5)");
 
 struct SBlendParams
 {
-    _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_COLOR_ATTACHMENT_COUNT = 8u;
+    _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_COLOR_ATTACHMENT_COUNT = sizeof(SColorAttachmentBlendParams);
     uint32_t logicOpEnable : 1;
     uint32_t logicOp : 4;
     SColorAttachmentBlendParams blendParams[MAX_COLOR_ATTACHMENT_COUNT];

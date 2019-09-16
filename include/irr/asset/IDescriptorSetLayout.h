@@ -25,28 +25,25 @@ enum E_DESCRIPTOR_TYPE
 
 class IDescriptorSetLayout
 {
-    template<typename SamplersType>
-    struct SBinding_
+public:
+    struct SBinding
     {
         E_DESCRIPTOR_TYPE type;
         uint32_t count;
         E_SHADER_STAGE stageFlags;
-        SamplersType samplers;
+        const SSamplerParams* samplers;
     };
-    using SBinding_internal = SBinding_<const SSamplerParams*>;
-public:
-    using SBinding = SBinding_<core::smart_refctd_dynamic_array<SSamplerParams>>;
 
 protected:
     IDescriptorSetLayout(const SBinding* const _begin, const SBinding* const _end) : 
-        m_bindings(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBinding_internal>>(_end-_begin,nullptr))
+        m_bindings(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBinding>>(_end-_begin))
     {
         size_t bndCount = _end-_begin;
         size_t immSamplerCount = 0ull;
         for (size_t i = 0ull; i < bndCount; ++i) {
             const auto& bnd = _begin[i];
             if (bnd.type==EDT_COMBINED_IMAGE_SAMPLER && bnd.samplers)
-                immSamplerCount += bnd.samplers->size();
+                immSamplerCount += bnd.count;
         }
         m_samplers = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SSamplerParams>>(immSamplerCount);
 
@@ -63,9 +60,9 @@ protected:
             if (bnd_in.type==EDT_COMBINED_IMAGE_SAMPLER && bnd_in.samplers)
             {
                 bnd_out.samplers = reinterpret_cast<const SSamplerParams*>(immSamplersOffset);
-                for (size_t s = 0ull; s < bnd_in.samplers->size(); ++s)
-                    m_samplers->operator[](immSamplersOffset+s) = bnd_in.samplers->operator[](s);
-                immSamplersOffset += bnd_in.samplers->size();
+                for (uint32_t s = 0ull; s < bnd_in.count; ++s)
+                    m_samplers->operator[](immSamplersOffset+s) = bnd_in.samplers[s];
+                immSamplersOffset += bnd_in.count;
             }
         }
 
@@ -79,7 +76,7 @@ protected:
     }
     virtual ~IDescriptorSetLayout() = default;
 
-    core::smart_refctd_dynamic_array<SBinding_internal> m_bindings;
+    core::smart_refctd_dynamic_array<SBinding> m_bindings;
     core::smart_refctd_dynamic_array<SSamplerParams> m_samplers;
 };
 
