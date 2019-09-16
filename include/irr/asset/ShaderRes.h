@@ -106,9 +106,13 @@ struct SShaderMemoryBlock
             SMember* array;
             size_t count;
         } members;
+        std::string name;
     };
 
     SMember::SMembers members;
+
+    //! Note: for SSBOs and UBOs it's the block name, but for push_constant it's the instance name.
+    std::string name;
 
     //! size!=rtSizedArrayOneElementSize implies that last member is rutime-sized array (e.g. buffer SSBO { float buf[]; }).
     //! Use getRuntimeSize for size of the struct with assumption of passed number of elements.

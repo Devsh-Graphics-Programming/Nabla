@@ -41,13 +41,17 @@ public:
 
     @param _entryPoint Must be "main" since shaderc does not allow other entry points for GLSL. Kept with hope that shaderc will drop that requirement.
     @param _compilationId String that will be printed along with possible errors as source identifier.
+    @param _genDebugInfo Requests compiler to generate debug info (most importantly objects' names).
+        This parameter's value is ignored in OpenGL backend and always set to true.
+        The rationale here is that names must be known in order to properly set push constants.
+        This also means that the engine, while running on OpenGL, won't be able to set push constants for shaders loaded as SPIR-V without debug info.
     @param _outAssembly Optional parameter; if not nullptr, SPIR-V assembly is saved in there.
 
     @returns Shader containing SPIR-V bytecode.
     */
-    ICPUShader* createSPIRVFromGLSL(const char* _glslCode, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, std::string* _outAssembly = nullptr) const;
+    ICPUShader* createSPIRVFromGLSL(const char* _glslCode, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo = false, std::string* _outAssembly = nullptr) const;
 
-    ICPUShader* createSPIRVFromGLSL(io::IReadFile* _sourcefile, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, std::string* _outAssembly = nullptr) const;
+    ICPUShader* createSPIRVFromGLSL(io::IReadFile* _sourcefile, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo = false, std::string* _outAssembly = nullptr) const;
 
     /**
     Resolves ALL #include directives regardless of any other preprocessor directive.

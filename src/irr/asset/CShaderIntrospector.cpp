@@ -194,11 +194,13 @@ SIntrospectionData CShaderIntrospector::doIntrospection(spirv_cross::Compiler& _
     for (const spirv_cross::Resource& r : resources.uniform_buffers)
     {
         SShaderResourceVariant& res = addResource_common(r, ESRT_UNIFORM_BUFFER, mapId2SpecConst);
+        static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_UNIFORM_BUFFER>()).name = r.name;
         shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_UNIFORM_BUFFER>()), r.base_type_id, r.id, mapId2SpecConst);
     }
     for (const spirv_cross::Resource& r : resources.storage_buffers)
     {
         SShaderResourceVariant& res = addResource_common(r, ESRT_STORAGE_BUFFER, mapId2SpecConst);
+        static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_STORAGE_BUFFER>()).name = r.name;
         shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_STORAGE_BUFFER>()), r.base_type_id, r.id, mapId2SpecConst);
     }
     for (const spirv_cross::Resource& r : resources.subpass_inputs)
@@ -254,6 +256,7 @@ SIntrospectionData CShaderIntrospector::doIntrospection(spirv_cross::Compiler& _
     {
         const spirv_cross::Resource& r = resources.push_constant_buffers.front();
         introData.pushConstant.present = true;
+        static_cast<impl::SShaderMemoryBlock&>(introData.pushConstant.info).name = r.name;
         shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(introData.pushConstant.info), r.base_type_id, r.id, mapId2SpecConst);
     }
 
@@ -292,6 +295,7 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
     for (uint32_t m = 0u; m < memberCnt; ++m) {
         MembT& member = _dstMembers.array[m];
 
+        member.name = _comp.get_member_name(_parentType.self, m);
         member.size = _comp.get_declared_struct_member_size(_parentType, m);
         member.offset = _baseOffset + _comp.type_struct_member_offset(_parentType, m);
 

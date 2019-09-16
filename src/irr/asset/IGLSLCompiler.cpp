@@ -27,16 +27,22 @@ IGLSLCompiler::IGLSLCompiler(io::IFileSystem* _fs) :
     builtinLdr->drop();
 }
 
-ICPUShader* IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, std::string* _outAssembly) const
+ICPUShader* IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo, std::string* _outAssembly) const
 {
     //shaderc requires entry point to be "main" in GLSL
     if (strcmp(_entryPoint, "main") != 0)
         return nullptr;
 
+#ifdef _IRR_COMPILE_WITH_OPENGL_
+    _genDebugInfo = true;
+#endif
+
     shaderc::Compiler comp;
     shaderc::CompileOptions options;//default options
     const shaderc_shader_kind stage = _stage==ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(_stage);
     const size_t glsl_len = strlen(_glslCode);
+    if (_genDebugInfo)
+        options.SetGenerateDebugInfo();
 
     shaderc::AssemblyCompilationResult asm_res;
     shaderc::SpvCompilationResult bin_res;
@@ -63,7 +69,7 @@ ICPUShader* IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, E_SHADER_S
     return shader;
 }
 
-ICPUShader* IGLSLCompiler::createSPIRVFromGLSL(io::IReadFile* _sourcefile, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, std::string* _outAssembly) const
+ICPUShader* IGLSLCompiler::createSPIRVFromGLSL(io::IReadFile* _sourcefile, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo, std::string* _outAssembly) const
 {
     std::string glsl(_sourcefile->getSize(), '\0');
     _sourcefile->read(glsl.data(), glsl.size());
