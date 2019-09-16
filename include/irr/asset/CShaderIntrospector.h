@@ -19,23 +19,17 @@ namespace irr
 namespace asset
 {
 
-struct SIntrospectionData
+class CIntrospectionData : public core::IReferenceCounted
 {
+protected:
+    ~CIntrospectionData();
+
+public:
     struct SSpecConstant
     {
-        enum E_TYPE
-        {
-            ET_U64,
-            ET_I64,
-            ET_U32,
-            ET_I32,
-            ET_F64,
-            ET_F32
-        };
-
         uint32_t id;
         size_t byteSize;
-        E_TYPE type;
+        E_GLSL_VAR_TYPE type;
         std::string name;
         union {
             uint64_t u64;
@@ -77,24 +71,17 @@ public:
 
     //In the future there's also going list of enabled extensions
     CShaderIntrospector(const IGLSLCompiler* _glslcomp, const SEntryPointStagePair& _ep) : m_glslCompiler(_glslcomp,core::dont_grab), m_entryPoint(_ep) {}
-    ~CShaderIntrospector() {
-        for (auto& introData : m_introspectionCache)
-            deinitIntrospectionData(introData.second);
-    }
 
-    const SIntrospectionData* introspect(const ICPUShader* _shader);
+    const CIntrospectionData* introspect(const ICPUShader* _shader);
 private:
-    SIntrospectionData doIntrospection(spirv_cross::Compiler& _comp, const SEntryPointStagePair& _ep) const;
-    void shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const core::unordered_map<uint32_t, const SIntrospectionData::SSpecConstant*>& _mapId2sconst) const;
+    CIntrospectionData* doIntrospection(spirv_cross::Compiler& _comp, const SEntryPointStagePair& _ep) const;
+    void shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const core::unordered_map<uint32_t, const CIntrospectionData::SSpecConstant*>& _mapId2sconst) const;
     size_t calcBytesizeforType(spirv_cross::Compiler& _comp, const spirv_cross::SPIRType& _type) const;
-
-    static void deinitIntrospectionData(SIntrospectionData& _data);
-    static void deinitShdrMemBlock(impl::SShaderMemoryBlock& _res);
 
 private:
     core::smart_refctd_ptr<const IGLSLCompiler> m_glslCompiler;
     SEntryPointStagePair m_entryPoint;
-    core::unordered_map<const ICPUShader*, SIntrospectionData> m_introspectionCache;
+    core::unordered_map<const ICPUShader*, core::smart_refctd_ptr<CIntrospectionData>> m_introspectionCache;
 };
 
 }//asset

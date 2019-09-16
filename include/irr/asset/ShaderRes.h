@@ -36,6 +36,16 @@ enum E_SHADER_INFO_TYPE : uint8_t
     //! e.g. `out vec4 Color;` in fragment shader
     ESIT_STAGE_OUTPUT
 };
+enum E_GLSL_VAR_TYPE
+{
+    EGVT_U64,
+    EGVT_I64,
+    EGVT_U32,
+    EGVT_I32,
+    EGVT_F64,
+    EGVT_F32,
+    EGVT_UNKNOWN_OR_STRUCT
+};
 
 template<E_SHADER_RESOURCE_TYPE restype>
 struct SShaderResource;
@@ -101,6 +111,7 @@ struct SShaderMemoryBlock
         //! (mtxRowCnt>1 && mtxColCnt==1) implies vector
         //! (mtxRowCnt==1 && mtxColCnt==1) implies basic type (i.e. int/uint/float/...)
         uint32_t mtxRowCnt, mtxColCnt;
+        E_GLSL_VAR_TYPE type;
         //TODO change to core::dynamic_array later
         struct SMembers {
             SMember* array;

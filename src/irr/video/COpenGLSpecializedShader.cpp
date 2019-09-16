@@ -88,7 +88,7 @@ static GLenum ESS2GLenum(asset::E_SHADER_STAGE _stage)
 
 }//namesapce impl
 
-COpenGLSpecializedShader::COpenGLSpecializedShader(const video::IVideoDriver* _driver, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo) :
+COpenGLSpecializedShader::COpenGLSpecializedShader(const video::IVideoDriver* _driver, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection) :
     m_GLname(0u),
     m_stage(impl::ESS2GLenum(_specInfo->shaderStage))
 {
@@ -114,10 +114,104 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(const video::IVideoDriver* _d
 
     GLchar logbuf[1u<<12]; //4k
     driver->extGlGetProgramInfoLog(m_GLname, sizeof(logbuf), nullptr, logbuf);
-    os::Printer::log(logbuf, ELL_ERROR);
+    if (logbuf[0])
+        os::Printer::log(logbuf, ELL_ERROR);
 
-    // TODO:
-    // what should be interface for setting push_constants (regular uniform on GL backend) for now?
+    m_introspectionData = core::smart_refctd_ptr<asset::CIntrospectionData>(_introspection);
+}
+
+void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* _pcData)
+{
+    if (m_uniformsList.empty())
+        buildUniformsList();
+
+    using gl = COpenGLExtensionHandler;
+    for (const SUniform& u : m_uniformsList)
+    {
+        const SMember& m = u.m;
+        auto is_mtx = [&m] { return (m.mtxRowCnt>1u && m.mtxColCnt>1u); };
+        auto is_single_or_vec = [&m] { return (m.mtxRowCnt>=1u && m.mtxColCnt==1u); };
+
+        if (is_mtx() && m.type==asset::EGVT_F32) {
+            core::vector<GLfloat> matrix_data(m.mtxRowCnt*m.mtxColCnt*m.count);
+            for (uint32_t i = 0u; i < m.count; ++i)
+            {
+                for (uint32_t c = 0u; c < m.mtxColCnt; ++c) {
+                    const GLfloat* col = reinterpret_cast<const GLfloat*>(_pcData + m.offset + i*m.arrayStride + c*m.mtxStride);
+                    matrix_data.insert(matrix_data.cend(), col, col+m.mtxRowCnt);
+                }
+            }
+            PFNGLPROGRAMUNIFORMMATRIX4FVPROC glProgramUniformMatrixNxMfv_fptr[3][3]{ //N - num of columns, M - num of rows because of weird OpenGL naming convention
+                {&gl::extGlProgramUniformMatrix2fv, &gl::extGlProgramUniformMatrix2x3fv, &gl::extGlProgramUniformMatrix2x4fv},//2xM
+                {&gl::extGlProgramUniformMatrix3x2fv, &gl::extGlProgramUniformMatrix3fv, &gl::extGlProgramUniformMatrix3x4fv},//3xM
+                {&gl::extGlProgramUniformMatrix4x2fv, &gl::extGlProgramUniformMatrix4x3fv, &gl::extGlProgramUniformMatrix4fv} //4xM
+            };
+            glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt-2u][m.mtxRowCnt-2u](m_GLname, u.location, m.count, GL_FALSE, matrix_data.data());
+        }
+        else if (is_single_or_vec()) {
+            core::vector<GLuint> vector_data(m.count*m.mtxRowCnt);
+            for (uint32_t i = 0u; i < m.count; ++i) {
+                const GLuint* vec = reinterpret_cast<const GLuint*>(_pcData + i*m.mtxRowCnt);
+                vector_data.insert(vector_data.end(), vec, vec+m.mtxRowCnt);
+            }
+            switch (m.type) {
+            case asset::EGVT_F32:
+            {
+                PFNGLPROGRAMUNIFORM1FVPROC glProgramUniformNfv_fptr[4]{
+                    &gl::extGlProgramUniform1fv, &gl::extGlProgramUniform2fv, &gl::extGlProgramUniform3fv, &gl::extGlProgramUniform4fv
+                };
+                glProgramUniformNfv_fptr[m.mtxRowCnt-1u](m_GLname, u.location, m.count, reinterpret_cast<const GLfloat*>(vector_data.data()));
+                break;
+            }
+            case asset::EGVT_I32:
+            {
+                PFNGLPROGRAMUNIFORM1IVPROC glProgramUniformNiv_fptr[4]{
+                    &gl::extGlProgramUniform1iv, &gl::extGlProgramUniform2iv, &gl::extGlProgramUniform3iv, &gl::extGlProgramUniform4iv
+                };
+                glProgramUniformNiv_fptr[m.mtxRowCnt-1u](m_GLname, u.location, m.count, reinterpret_cast<const GLint*>(vector_data.data()));
+                break;
+            }
+            case asset::EGVT_U32:
+            {
+                PFNGLPROGRAMUNIFORM1UIVPROC glProgramUniformNuiv_fptr[4]{
+                    &gl::extGlProgramUniform1uiv, &gl::extGlProgramUniform2uiv, &gl::extGlProgramUniform3uiv, &gl::extGlProgramUniform4uiv
+                };
+                glProgramUniformNuiv_fptr[m.mtxRowCnt-1u](m_GLname, u.location, m.count, vector_data.data());
+                break;
+            }
+            }
+        }
+    }
+}
+
+void COpenGLSpecializedShader::buildUniformsList()
+{
+    const auto& pc = m_introspectionData->pushConstant;
+    if (!pc.present)
+        return;
+
+    const auto& pc_layout = pc.info;
+    core::queue<SMember> q;
+    SMember initial;
+    initial.type = asset::EGVT_UNKNOWN_OR_STRUCT;
+    initial.members = pc_layout.members;
+    q.push(initial);
+    while (!q.empty())
+    {
+        const SMember top = q.front();
+        q.pop();
+        if (top.type == asset::EGVT_UNKNOWN_OR_STRUCT && top.members.count) {
+            for (size_t i = 0ull; i < top.members.count; ++i) {
+                SMember m = top.members.array[i];
+                m.name = top.name + "." + m.name;
+                q.push(m);
+            }
+            continue;
+        }
+        using gl = COpenGLExtensionHandler;
+        const GLint location = gl::extGlGetUniformLocation(m_GLname, top.name.c_str());
+        m_uniformsList.emplace_back(top, location);
+    }
 }
 
 }}//irr::video

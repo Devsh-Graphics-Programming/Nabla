@@ -25,6 +25,7 @@
 #include "irr/video/COpenGLShader.h"
 #include "irr/video/COpenGLSpecializedShader.h"
 #include "irr/asset/IGLSLCompiler.h"
+#include "irr/asset/CShaderIntrospector.h"
 
 #include "COpenGLBuffer.h"
 #include "COpenGLFrameBuffer.h"
@@ -479,7 +480,7 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     const std::string& EP = _specInfo->entryPoint;
     const asset::E_SHADER_STAGE stage = _specInfo->shaderStage;
 
-    const asset::ICPUBuffer* spv = nullptr;
+    const asset::ICPUShader* spvCPUShader = nullptr;
     if (cpuUnspec->containsGLSL()) {
         //TODO insert enabled extensions #defines into GLSL
         auto spvShader = core::smart_refctd_ptr<asset::ICPUShader>(
@@ -492,16 +493,18 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
         if (!spvShader)
             return nullptr;
 
-        spv = spvShader->getSPVorGLSL();
-        spv->grab();
+        spvCPUShader = spvShader.get();
+        spvCPUShader->grab();
     }
     else {
-        spv = cpuUnspec->getSPVorGLSL();
-        spv->grab();
+        spvCPUShader = cpuUnspec;
+        spvCPUShader->grab();
     }
 
-    COpenGLSpecializedShader* gpuSpecialized = new COpenGLSpecializedShader(this, spv, _specInfo);
-    spv->drop();
+    asset::CShaderIntrospector introspector(GLSLCompiler.get(), {_specInfo->entryPoint, _specInfo->shaderStage});
+    const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader);
+    COpenGLSpecializedShader* gpuSpecialized = new COpenGLSpecializedShader(this, spvCPUShader->getSPVorGLSL(), _specInfo, introspection);
+    spvCPUShader->drop();
     return core::smart_refctd_ptr<COpenGLSpecializedShader>(gpuSpecialized, core::dont_grab);
 }
 
