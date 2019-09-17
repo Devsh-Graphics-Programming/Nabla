@@ -83,7 +83,7 @@ bool CElementFilm::processAttributes(const char** _atts)
 	return true;
 }
 
-bool CElementFilm::onEndTag(asset::IAssetManager& _assetManager)
+bool CElementFilm::onEndTag(asset::IAssetManager* _assetManager)
 {
 	switch (data.type)
 	{

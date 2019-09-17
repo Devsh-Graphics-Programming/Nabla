@@ -191,7 +191,7 @@ class CElementFilm : public IElement
 {
 public:
 	virtual bool processAttributes(const char** _atts) override;
-	virtual bool onEndTag(asset::IAssetManager& _assetManager) override;
+	virtual bool onEndTag(asset::IAssetManager* _assetManager) override;
 	virtual IElement::Type getType() const override { return IElement::Type::FILM; }
 	virtual std::string getLogName() const override { return "film"; }
 

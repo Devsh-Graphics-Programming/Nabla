@@ -57,7 +57,7 @@ public:
 	}
 	//
 	
-	virtual bool onEndTag(asset::IAssetManager& _assetManager) = 0;
+	virtual bool onEndTag(asset::IAssetManager* _assetManager) = 0;
 	virtual IElement::Type getType() const = 0;
 	virtual std::string getLogName() const = 0;
 	virtual ~IElement() = default;

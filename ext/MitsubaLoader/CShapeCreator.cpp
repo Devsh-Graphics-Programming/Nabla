@@ -4,7 +4,7 @@
 
 namespace irr { namespace ext { namespace MitsubaLoader {
 
-asset::ICPUMesh* CShapeCreator::createCube(asset::IAssetManager& _assetManager, const core::vector<SPropertyElementData>& properties)
+core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createCube(asset::IAssetManager* _assetManager, const core::vector<SPropertyElementData>& properties)
 {
 	bool flipNormalsFlag = false;
 
@@ -23,7 +23,7 @@ asset::ICPUMesh* CShapeCreator::createCube(asset::IAssetManager& _assetManager, 
 		}
 	}
 
-	asset::ICPUMesh* mesh = _assetManager.getGeometryCreator()->createCubeMesh(core::vector3df(1.0f, 1.0f, 1.0f));
+	auto mesh = _assetManager->getGeometryCreator()->createCubeMesh(core::vector3df(1.0f, 1.0f, 1.0f));
 
 	if (mesh == nullptr)
 		return nullptr;
@@ -31,13 +31,13 @@ asset::ICPUMesh* CShapeCreator::createCube(asset::IAssetManager& _assetManager, 
 	if (flipNormalsFlag)
 	{
 		for (int i = 0; i < mesh->getMeshBufferCount(); i++)
-			_assetManager.getMeshManipulator()->flipSurfaces(mesh->getMeshBuffer(i));
+			_assetManager->getMeshManipulator()->flipSurfaces(mesh->getMeshBuffer(i));
 	}
 
 	return mesh;
 }
 
-asset::ICPUMesh* CShapeCreator::createSphere(asset::IAssetManager& _assetManager, const core::vector<SPropertyElementData>& properties, core::matrix4SIMD& transform)
+core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createSphere(asset::IAssetManager* _assetManager, const core::vector<SPropertyElementData>& properties, core::matrix4SIMD& transform)
 {
 	bool flipNormalsFlag = false;
 	core::vector3df_SIMD center;
@@ -69,7 +69,7 @@ asset::ICPUMesh* CShapeCreator::createSphere(asset::IAssetManager& _assetManager
 		}
 	}
 
-	asset::ICPUMesh* mesh = _assetManager.getGeometryCreator()->createSphereMesh(radius, 32, 32);
+	auto mesh = _assetManager->getGeometryCreator()->createSphereMesh(radius, 32, 32);
 
 	if (mesh == nullptr)
 		return nullptr;
@@ -77,7 +77,7 @@ asset::ICPUMesh* CShapeCreator::createSphere(asset::IAssetManager& _assetManager
 	if (flipNormalsFlag)
 	{
 		for (int i = 0; i < mesh->getMeshBufferCount(); i++)
-			_assetManager.getMeshManipulator()->flipSurfaces(mesh->getMeshBuffer(i));
+			_assetManager->getMeshManipulator()->flipSurfaces(mesh->getMeshBuffer(i));
 	}
 
 	transform.setTranslation(transform.getTranslation() + center);
@@ -85,7 +85,7 @@ asset::ICPUMesh* CShapeCreator::createSphere(asset::IAssetManager& _assetManager
 	return mesh;
 }
 
-asset::ICPUMesh* CShapeCreator::createCylinder(asset::IAssetManager& _assetManager, const core::vector<SPropertyElementData>& properties, core::matrix4SIMD& _transform)
+core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createCylinder(asset::IAssetManager* _assetManager, const core::vector<SPropertyElementData>& properties, core::matrix4SIMD& _transform)
 {
 	/*bool flipNormalsFlag = false;
 	core::vectorSIMDf p0(0.0f);
@@ -126,7 +126,7 @@ asset::ICPUMesh* CShapeCreator::createCylinder(asset::IAssetManager& _assetManag
 
 	const float cylinderHeight = (p0 - p1).getLengthAsFloat();
 
-	asset::ICPUMesh* mesh = _assetManager.getGeometryCreator()->createCylinderMesh(radius, cylinderHeight, 32, 0xffffffff, false);
+	auto mesh = _assetManager.getGeometryCreator()->createCylinderMesh(radius, cylinderHeight, 32, 0xffffffff, false);
 	if (!mesh)
 		return false;
 
@@ -172,7 +172,7 @@ asset::ICPUMesh* CShapeCreator::createCylinder(asset::IAssetManager& _assetManag
 	return nullptr;
 }
 
-asset::ICPUMesh* CShapeCreator::createRectangle(asset::IAssetManager& _assetManager, const core::vector<SPropertyElementData>& properties)
+core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createRectangle(asset::IAssetManager* _assetManager, const core::vector<SPropertyElementData>& properties)
 {
 	bool flipNormalsFlag = false;
 
@@ -190,7 +190,7 @@ asset::ICPUMesh* CShapeCreator::createRectangle(asset::IAssetManager& _assetMana
 		}
 	}
 
-	asset::ICPUMesh* mesh = _assetManager.getGeometryCreator()->createRectangleMesh(core::vector2df_SIMD(1.0f, 1.0f));
+	auto mesh = _assetManager->getGeometryCreator()->createRectangleMesh(core::vector2df_SIMD(1.0f, 1.0f));
 
 	if (mesh == nullptr)
 		return nullptr;
@@ -198,13 +198,13 @@ asset::ICPUMesh* CShapeCreator::createRectangle(asset::IAssetManager& _assetMana
 	if (flipNormalsFlag)
 	{
 		for (int i = 0; i < mesh->getMeshBufferCount(); i++)
-			_assetManager.getMeshManipulator()->flipSurfaces(mesh->getMeshBuffer(i));
+			_assetManager->getMeshManipulator()->flipSurfaces(mesh->getMeshBuffer(i));
 	}
 
 	return mesh;
 }
 
-asset::ICPUMesh* CShapeCreator::createDisk(asset::IAssetManager& _assetManager, const core::vector<SPropertyElementData>& properties)
+core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createDisk(asset::IAssetManager* _assetManager, const core::vector<SPropertyElementData>& properties)
 {
 	bool flipNormalsFlag = false;
 
@@ -223,7 +223,7 @@ asset::ICPUMesh* CShapeCreator::createDisk(asset::IAssetManager& _assetManager, 
 		}
 	}
 
-	asset::ICPUMesh* mesh = _assetManager.getGeometryCreator()->createDiskMesh(1.0f, 64);
+	auto mesh = _assetManager->getGeometryCreator()->createDiskMesh(1.0f, 64);
 
 	if (mesh == nullptr)
 		return nullptr;
@@ -231,13 +231,13 @@ asset::ICPUMesh* CShapeCreator::createDisk(asset::IAssetManager& _assetManager, 
 	if (flipNormalsFlag)
 	{
 		for (int i = 0; i < mesh->getMeshBufferCount(); i++)
-			_assetManager.getMeshManipulator()->flipSurfaces(mesh->getMeshBuffer(i));
+			_assetManager->getMeshManipulator()->flipSurfaces(mesh->getMeshBuffer(i));
 	}
 
 	return mesh;
 }
 
-asset::ICPUMesh* CShapeCreator::createOBJ(asset::IAssetManager& _assetManager, const core::vector<SPropertyElementData>& properties)
+core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createOBJ(asset::IAssetManager* _assetManager, const core::vector<SPropertyElementData>& properties)
 {
 	std::string fileName;
 	bool flipNormalsFlag = false;
@@ -298,56 +298,59 @@ asset::ICPUMesh* CShapeCreator::createOBJ(asset::IAssetManager& _assetManager, c
 		return nullptr;
 	}
 
-	asset::SAssetBundle bundle = _assetManager.getAsset(fileName, asset::IAssetLoader::SAssetLoadParams());
-	asset::ICPUMesh* mesh = static_cast<asset::ICPUMesh*>(bundle.getContents().first->get());
+	core::smart_refctd_ptr<asset::ICPUMesh> mesh;
+	{
+		asset::SAssetBundle bundle = _assetManager->getAsset(fileName, asset::IAssetLoader::SAssetLoadParams());
+		mesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*bundle.getContents().first);
+	}
 
-	if (mesh == nullptr)
+	if (!mesh)
 		return nullptr;
 
 	if (flipNormalsFlag)
 	{
 		for (int i = 0; i < mesh->getMeshBufferCount(); i++)
-			_assetManager.getMeshManipulator()->flipSurfaces(mesh->getMeshBuffer(i));
+			_assetManager->getMeshManipulator()->flipSurfaces(mesh->getMeshBuffer(i));
 	}
 
 	if (faceNormals)
 	{
-		asset::SCPUMesh* newMesh = new asset::SCPUMesh();
+		auto newMesh = new asset::CCPUMesh();
 
 		for (int i = 0; i < mesh->getMeshBufferCount(); i++)
 		{
-			asset::ICPUMeshBuffer* upBuffer = _assetManager.getMeshManipulator()->createMeshBufferUniquePrimitives(mesh->getMeshBuffer(i));
+			auto upBuffer = _assetManager->getMeshManipulator()->createMeshBufferUniquePrimitives(mesh->getMeshBuffer(i));
 
-			_assetManager.getMeshManipulator()->calculateSmoothNormals(upBuffer, false, 1.525e-5f, asset::EVAI_ATTR3,
+			_assetManager->getMeshManipulator()->calculateSmoothNormals(upBuffer.get(), false, 1.525e-5f, asset::EVAI_ATTR3,
 				[](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
 				{
 					return a.indexOffset == b.indexOffset;
 				});
 
-			newMesh->addMeshBuffer(upBuffer);
+			newMesh->addMeshBuffer(std::move(upBuffer));
 		}
 
 		mesh = newMesh;
 	}
 	else if (smoothNormals)
 	{
-		asset::SCPUMesh* newMesh = new asset::SCPUMesh();
+		auto newMesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
 		asset::IMeshManipulator::SErrorMetric metrics[16];
 
 		for (int i = 0; i < mesh->getMeshBufferCount(); i++)
 		{
-			asset::ICPUMeshBuffer* upBuffer = _assetManager.getMeshManipulator()->createMeshBufferUniquePrimitives(mesh->getMeshBuffer(i));
+			auto upBuffer = _assetManager->getMeshManipulator()->createMeshBufferUniquePrimitives(mesh->getMeshBuffer(i));
 			const float smoothAngleCos = cos(maxSmoothAngle);
 
-			_assetManager.getMeshManipulator()->calculateSmoothNormals(upBuffer, false, 1.525e-5f, asset::EVAI_ATTR3,
+			_assetManager->getMeshManipulator()->calculateSmoothNormals(upBuffer.get(), false, 1.525e-5f, asset::EVAI_ATTR3,
 				[&](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
 				{
 					return a.parentTriangleFaceNormal.dotProductAsFloat(b.parentTriangleFaceNormal) >= smoothAngleCos;
 				});
 
-			newMesh->addMeshBuffer(upBuffer);
+			_assetManager->getMeshManipulator()->createMeshBufferWelded(upBuffer.get(), metrics);
 
-			_assetManager.getMeshManipulator()->createMeshBufferWelded(upBuffer, metrics);
+			newMesh->addMeshBuffer(std::move(upBuffer));
 		}
 
 		mesh = newMesh;
@@ -356,17 +359,19 @@ asset::ICPUMesh* CShapeCreator::createOBJ(asset::IAssetManager& _assetManager, c
 	if (flipTexCoords)
 	{
 		//TODO
+		assert(false);
 	}
 
 	if (collapse)
 	{
 		//TODO
+		assert(false);
 	}
 
 	return mesh;
 }
 
-asset::ICPUMesh* CShapeCreator::createPLY(asset::IAssetManager& _assetManager, const core::vector<SPropertyElementData>& properties)
+core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createPLY(asset::IAssetManager* _assetManager, const core::vector<SPropertyElementData>& properties)
 {
 	return nullptr;
 }

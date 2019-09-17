@@ -55,7 +55,7 @@ class ParserManager
 
 public:
 	//! Constructor 
-	ParserManager(irr::asset::IAssetManager& _assetManager, XML_Parser _parser)
+	ParserManager(irr::asset::IAssetManager* _assetManager, XML_Parser _parser)
 		: assetManager(_assetManager),
 		scene(nullptr),
 		parser(_parser)
@@ -80,7 +80,7 @@ private:
 	bool processProperty(const char* _el, const char** _atts);
 
 private:
-	irr::asset::IAssetManager& assetManager;
+	irr::asset::IAssetManager* assetManager;
 
 	/*root element, which will hold all loaded assets and material data
 	in irr::asset::SCPUMesh (for now) instance*/

@@ -40,7 +40,7 @@ bool CElementSampler::processAttributes(const char** _atts)
 	return true;
 }
 
-bool CElementSampler::onEndTag(asset::IAssetManager& _assetManager)
+bool CElementSampler::onEndTag(asset::IAssetManager* _assetManager)
 {
 	bool dimensionSet = false;
 	bool scrambleSet = false;

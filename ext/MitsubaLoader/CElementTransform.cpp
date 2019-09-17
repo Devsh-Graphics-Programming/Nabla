@@ -25,7 +25,7 @@ bool CElementTransform::processAttributes(const char** _atts)
 	return true;
 }
 
-bool CElementTransform::onEndTag(asset::IAssetManager& _assetManager)
+bool CElementTransform::onEndTag(asset::IAssetManager* _assetManager)
 {
 	for (auto& property : properties)
 	{

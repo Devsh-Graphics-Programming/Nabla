@@ -29,7 +29,7 @@ bool CMitsubaScene::processAttributes(const char** _atts)
 	return false;
 }
 
-bool CMitsubaScene::onEndTag(asset::IAssetManager& _assetManager) 
+bool CMitsubaScene::onEndTag(asset::IAssetManager* _assetManager) 
 {
 	return true;
 }

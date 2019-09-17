@@ -219,7 +219,7 @@ class CElementEmitter : public IElement
 public:
 	virtual bool processAttributes(const char** _atts) override;
 	virtual bool processChildData(IElement* _child) override;
-	virtual bool onEndTag(asset::IAssetManager& _assetManager) override;
+	virtual bool onEndTag(asset::IAssetManager* _assetManager) override;
 	virtual IElement::Type getType() const override { return IElement::Type::EMITTER; }
 	virtual std::string getLogName() const override { return "emitter"; }
 

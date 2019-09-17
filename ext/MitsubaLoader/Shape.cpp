@@ -53,7 +53,7 @@ bool CShape::processChildData(IElement* _child)
 	}	
 }
 
-bool CShape::onEndTag(asset::IAssetManager& _assetManager)
+bool CShape::onEndTag(asset::IAssetManager* _assetManager)
 {
 	if (type == "cube")
 	{

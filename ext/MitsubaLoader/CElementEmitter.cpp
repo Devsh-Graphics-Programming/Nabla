@@ -123,7 +123,7 @@ bool CElementEmitter::processChildData(IElement* _child)
 	}
 }
 
-bool CElementEmitter::onEndTag(asset::IAssetManager& _assetManager)
+bool CElementEmitter::onEndTag(asset::IAssetManager* _assetManager)
 {
 	switch (data.type)
 	{

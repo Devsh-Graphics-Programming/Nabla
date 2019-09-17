@@ -117,7 +117,7 @@ bool CElementSensor::processChildData(IElement* _child)
 	}
 }
 
-bool CElementSensor::onEndTag(asset::IAssetManager& _assetManager)
+bool CElementSensor::onEndTag(asset::IAssetManager* _assetManager)
 {
 	switch (data.type)
 	{

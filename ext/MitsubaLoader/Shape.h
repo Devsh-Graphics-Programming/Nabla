@@ -18,7 +18,7 @@ public:
 
 	virtual bool processAttributes(const char** _atts) override;
 	virtual bool processChildData(IElement* _child) override;
-	virtual bool onEndTag(asset::IAssetManager& _assetManager) override;
+	virtual bool onEndTag(asset::IAssetManager* _assetManager) override;
 
 	virtual IElement::Type getType() const override { return IElement::Type::SHAPE; };
 	virtual std::string getLogName() const { return "shape"; };
@@ -26,10 +26,10 @@ public:
 	virtual ~CShape() = default;
 
 protected:
-	void flipNormals(asset::IAssetManager& _assetManager)
+	void flipNormals(asset::IAssetManager* _assetManager)
 	{
 		for (int i = 0; i < mesh->getMeshBufferCount(); i++)
-			_assetManager.getMeshManipulator()->flipSurfaces(mesh->getMeshBuffer(i));
+			_assetManager->getMeshManipulator()->flipSurfaces(mesh->getMeshBuffer(i));
 	}
 
 protected:

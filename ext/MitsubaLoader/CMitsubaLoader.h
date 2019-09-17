@@ -39,7 +39,7 @@ public:
 	virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 private:
 	IrrlichtDevice* m_device;
-	asset::IAssetManager& m_assetManager;
+	asset::IAssetManager* m_assetManager;
 };
 
 }

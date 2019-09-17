@@ -1,13 +1,12 @@
 #include "../../ext/MitsubaLoader/CMitsubaLoader.h"
 #include "../3rdparty/libexpat/expat/lib/expat.h"
-#include "irr/asset/SCPUMesh.h"
 #include "irr/asset/IAssetManager.h"
 
 #include "../../ext/MitsubaLoader/IElement.h"
 #include "../../ext/MitsubaLoader/CMitsubaScene.h"
 
 #include "IrrlichtDevice.h"
-#include "C:\IrrlichtBAW\IrrlichtBAW\include\irr\asset\IAssetLoader.h"
+#include "irr\asset\IAssetLoader.h"
 #include <stack>
 #include <chrono>
 
