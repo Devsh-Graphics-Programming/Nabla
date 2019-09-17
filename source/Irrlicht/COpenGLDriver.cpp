@@ -503,7 +503,13 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
 
     asset::CShaderIntrospector introspector(GLSLCompiler.get(), {_specInfo->entryPoint, _specInfo->shaderStage});
     const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader);
-    COpenGLSpecializedShader* gpuSpecialized = new COpenGLSpecializedShader(this, spvCPUShader->getSPVorGLSL(), _specInfo, introspection);
+    if (introspection->pushConstant.present && introspection->pushConstant.info.name.empty())
+    {
+        assert(false);//abort on debug build
+        os::Printer::log("Attempted to create OpenGL GPU specialized shader from SPIR-V without debug info - unable to set push constants. Creation failed.", ELL_ERROR);
+        return nullptr;//release build: maybe let it return the shader
+    }
+    COpenGLSpecializedShader* gpuSpecialized = new COpenGLSpecializedShader(this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, introspection);
     spvCPUShader->drop();
     return core::smart_refctd_ptr<COpenGLSpecializedShader>(gpuSpecialized, core::dont_grab);
 }

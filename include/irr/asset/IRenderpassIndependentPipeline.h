@@ -38,7 +38,7 @@ struct SVertexInputAttribParams
 {
     uint32_t binding;
     E_FORMAT format;
-    uint32_t offset;
+    uint32_t relativeOffset;
 };
 struct SVertexInputBindingParams
 {
@@ -260,11 +260,11 @@ struct SColorAttachmentBlendParams
     uint8_t alphaBlendOp : 2;
     uint8_t colorWriteMask : 4;
 };
-static_assert(sizeof(SColorAttachmentBlendParams)==5u, "Unexpected size of SColorAttachmentBlendParams (should be 5)");
+static_assert(sizeof(SColorAttachmentBlendParams)==6u, "Unexpected size of SColorAttachmentBlendParams (should be 6)");
 
 struct SBlendParams
 {
-    _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_COLOR_ATTACHMENT_COUNT = sizeof(SColorAttachmentBlendParams);
+    _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_COLOR_ATTACHMENT_COUNT = 8u;
     uint32_t logicOpEnable : 1;
     uint32_t logicOp : 4;
     SColorAttachmentBlendParams blendParams[MAX_COLOR_ATTACHMENT_COUNT];

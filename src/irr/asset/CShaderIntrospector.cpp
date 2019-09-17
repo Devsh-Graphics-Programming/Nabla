@@ -67,14 +67,14 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
     if (!_shader)
         return nullptr;
 
-    auto found = m_introspectionCache.find(_shader);
+    auto found = m_introspectionCache.find(core::smart_refctd_ptr<const ICPUShader>(_shader));
     if (found != m_introspectionCache.end())
         return found->second.get();
 
     auto introspectSPV = [this](const ICPUShader* _spvshader) {
         const ICPUBuffer* spv = _spvshader->getSPVorGLSL();
         spirv_cross::Compiler comp(reinterpret_cast<const uint32_t*>(spv->getPointer()), spv->getSize()/4u);
-        return core::smart_refctd_ptr<CIntrospectionData>(doIntrospection(comp, m_entryPoint), core::dont_grab);
+        return doIntrospection(comp, m_entryPoint);
     };
 
     if (_shader->containsGLSL()) {
@@ -89,11 +89,11 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
         if (!spvShader)
             return nullptr;
 
-        return m_introspectionCache.insert({_shader, introspectSPV(spvShader.get())}).first->second.get();
+        return m_introspectionCache.insert({core::smart_refctd_ptr<const ICPUShader>(_shader), introspectSPV(spvShader.get())}).first->second.get();
     }
     else {
         // TODO (?) when we have enabled_extensions_list it may validate whether all extensions in list are also present in spv
-        return m_introspectionCache.insert({_shader, introspectSPV(_shader)}).first->second.get();
+        return m_introspectionCache.insert({core::smart_refctd_ptr<const ICPUShader>(_shader), introspectSPV(_shader)}).first->second.get();
     }
 }
 
@@ -118,13 +118,13 @@ static E_GLSL_VAR_TYPE spvcrossType2E_TYPE(spirv_cross::SPIRType::BaseType _base
     }
 }
 
-CIntrospectionData* CShaderIntrospector::doIntrospection(spirv_cross::Compiler& _comp, const SEntryPointStagePair& _ep) const
+core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(spirv_cross::Compiler& _comp, const SEntryPointStagePair& _ep) const
 {
     spv::ExecutionModel stage = ESS2spvExecModel(_ep.second);
     if (stage == spv::ExecutionModelMax)
         return nullptr;
 
-    CIntrospectionData* introData = new CIntrospectionData();
+    core::smart_refctd_ptr<CIntrospectionData> introData = core::make_smart_refctd_ptr<CIntrospectionData>();
     introData->pushConstant.present = false;
     auto addResource_common = [&introData, &_comp] (const spirv_cross::Resource& r, E_SHADER_RESOURCE_TYPE restype, const core::unordered_map<uint32_t, const CIntrospectionData::SSpecConstant*>& _mapId2sconst) -> SShaderResourceVariant& {
         const uint32_t descSet = _comp.get_decoration(r.id, spv::DecorationDescriptorSet);
@@ -299,6 +299,7 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
         m.arrayStride = 0u;
         m.mtxStride = 0u;
         m.mtxRowCnt = m.mtxColCnt = 1u;
+        m.rowMajor = false;
         m.type = EGVT_UNKNOWN_OR_STRUCT;
         m.members.array = nullptr;
         m.members.count = 0u;
@@ -316,6 +317,7 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
         member.name = _comp.get_member_name(_parentType.self, m);
         member.size = _comp.get_declared_struct_member_size(_parentType, m);
         member.offset = _baseOffset + _comp.type_struct_member_offset(_parentType, m);
+        member.rowMajor = _comp.get_member_decoration(_parentType.self, m, spv::DecorationRowMajor);//TODO check whether spirv-cross works with this decor
         member.type = spvcrossType2E_TYPE(mtype.basetype);
 
         if (mtype.array.size())

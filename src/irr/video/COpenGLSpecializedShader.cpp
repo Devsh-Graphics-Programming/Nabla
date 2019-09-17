@@ -2,6 +2,7 @@
 #include "spirv_cross/spirv_glsl.hpp"
 #include "COpenGLDriver.h"
 #include "irr/asset/spvUtils.h"
+#include <algorithm>
 
 namespace irr { namespace video
 {
@@ -88,16 +89,14 @@ static GLenum ESS2GLenum(asset::E_SHADER_STAGE _stage)
 
 }//namesapce impl
 
-COpenGLSpecializedShader::COpenGLSpecializedShader(const video::IVideoDriver* _driver, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection) :
+COpenGLSpecializedShader::COpenGLSpecializedShader(uint32_t _glslVersion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection) :
     m_GLname(0u),
     m_stage(impl::ESS2GLenum(_specInfo->shaderStage))
 {
-    const video::COpenGLDriver* driver = static_cast<const video::COpenGLDriver*>(_driver);
-
     spirv_cross::CompilerGLSL comp(reinterpret_cast<const uint32_t*>(_spirv->getPointer()), _spirv->getSize()/4u);
     comp.set_entry_point(_specInfo->entryPoint.c_str(), asset::ESS2spvExecModel(_specInfo->shaderStage));
     spirv_cross::CompilerGLSL::Options options;
-    options.version = driver->ShaderLanguageVersion;
+    options.version = _glslVersion;
     //vulkan_semantics=false cases spirv_cross to translate push_constants into non-UBO uniform of struct type! Exactly like we wanted!
     options.vulkan_semantics = false; // with this it's likely that SPIRV-Cross will take care of built-in variables renaming, but need testing
     options.separate_shader_objects = true;
@@ -110,10 +109,10 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(const video::IVideoDriver* _d
     const char* glslCode_cstr = glslCode.c_str();
     //printf(glslCode.c_str());
 
-    m_GLname = driver->extGlCreateShaderProgramv(m_stage, 1u, &glslCode_cstr);
+    m_GLname = COpenGLExtensionHandler::extGlCreateShaderProgramv(m_stage, 1u, &glslCode_cstr);
 
     GLchar logbuf[1u<<12]; //4k
-    driver->extGlGetProgramInfoLog(m_GLname, sizeof(logbuf), nullptr, logbuf);
+    COpenGLExtensionHandler::extGlGetProgramInfoLog(m_GLname, sizeof(logbuf), nullptr, logbuf);
     if (logbuf[0])
         os::Printer::log(logbuf, ELL_ERROR);
 
@@ -136,7 +135,8 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
             core::vector<GLfloat> matrix_data(m.mtxRowCnt*m.mtxColCnt*m.count);
             for (uint32_t i = 0u; i < m.count; ++i)
             {
-                for (uint32_t c = 0u; c < m.mtxColCnt; ++c) {
+                const uint32_t rowOrColCnt = m.rowMajor ? m.mtxRowCnt : m.mtxColCnt;
+                for (uint32_t c = 0u; c < rowOrColCnt; ++c) {
                     const GLfloat* col = reinterpret_cast<const GLfloat*>(_pcData + m.offset + i*m.arrayStride + c*m.mtxStride);
                     matrix_data.insert(matrix_data.cend(), col, col+m.mtxRowCnt);
                 }
@@ -146,7 +146,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
                 {&gl::extGlProgramUniformMatrix3x2fv, &gl::extGlProgramUniformMatrix3fv, &gl::extGlProgramUniformMatrix3x4fv},//3xM
                 {&gl::extGlProgramUniformMatrix4x2fv, &gl::extGlProgramUniformMatrix4x3fv, &gl::extGlProgramUniformMatrix4fv} //4xM
             };
-            glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt-2u][m.mtxRowCnt-2u](m_GLname, u.location, m.count, GL_FALSE, matrix_data.data());
+            glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt-2u][m.mtxRowCnt-2u](m_GLname, u.location, m.count, m.rowMajor?GL_TRUE:GL_FALSE, matrix_data.data());
         }
         else if (is_single_or_vec()) {
             core::vector<GLuint> vector_data(m.count*m.mtxRowCnt);
@@ -204,14 +204,18 @@ void COpenGLSpecializedShader::buildUniformsList()
             for (size_t i = 0ull; i < top.members.count; ++i) {
                 SMember m = top.members.array[i];
                 m.name = top.name + "." + m.name;
+                if (m.count > 1u)
+                    m.name += "[0]";
                 q.push(m);
             }
             continue;
         }
         using gl = COpenGLExtensionHandler;
         const GLint location = gl::extGlGetUniformLocation(m_GLname, top.name.c_str());
+        assert(location != -1);
         m_uniformsList.emplace_back(top, location);
     }
+    std::sort(m_uniformsList.begin(), m_uniformsList.end(), [](const SUniform& a, const SUniform& b) { return a.location < b.location; });
 }
 
 }}//irr::video

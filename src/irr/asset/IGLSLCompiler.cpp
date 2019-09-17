@@ -33,10 +33,6 @@ ICPUShader* IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, E_SHADER_S
     if (strcmp(_entryPoint, "main") != 0)
         return nullptr;
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
-    _genDebugInfo = true;
-#endif
-
     shaderc::Compiler comp;
     shaderc::CompileOptions options;//default options
     const shaderc_shader_kind stage = _stage==ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(_stage);

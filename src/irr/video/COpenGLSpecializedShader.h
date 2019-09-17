@@ -17,7 +17,7 @@ namespace video
 class COpenGLSpecializedShader : public IGPUSpecializedShader
 {
 public:
-    COpenGLSpecializedShader(const video::IVideoDriver* _driver, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection);
+    COpenGLSpecializedShader(uint32_t _glslVersion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection);
 
     void setUniformsImitatingPushConstants(const uint8_t* _pcData);
 

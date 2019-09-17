@@ -74,14 +74,14 @@ public:
 
     const CIntrospectionData* introspect(const ICPUShader* _shader);
 private:
-    CIntrospectionData* doIntrospection(spirv_cross::Compiler& _comp, const SEntryPointStagePair& _ep) const;
+    core::smart_refctd_ptr<CIntrospectionData> doIntrospection(spirv_cross::Compiler& _comp, const SEntryPointStagePair& _ep) const;
     void shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const core::unordered_map<uint32_t, const CIntrospectionData::SSpecConstant*>& _mapId2sconst) const;
     size_t calcBytesizeforType(spirv_cross::Compiler& _comp, const spirv_cross::SPIRType& _type) const;
 
 private:
     core::smart_refctd_ptr<const IGLSLCompiler> m_glslCompiler;
     SEntryPointStagePair m_entryPoint;
-    core::unordered_map<const ICPUShader*, core::smart_refctd_ptr<CIntrospectionData>> m_introspectionCache;
+    core::unordered_map<core::smart_refctd_ptr<const ICPUShader>, core::smart_refctd_ptr<CIntrospectionData>> m_introspectionCache;
 };
 
 }//asset

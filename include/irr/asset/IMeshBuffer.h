@@ -28,8 +28,15 @@ enum E_MESH_BUFFER_TYPE
 template <class BufferType, class DescSetType, class PipelineType>
 class IMeshBuffer : public virtual core::IReferenceCounted
 {
+public:
+    struct SBufferBinding {
+        uint64_t offset = 0ull;
+        core::smart_refctd_ptr<BufferType> buffer = nullptr;
+    };
+
 protected:
     _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT;
+    _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_ATTR_BUF_BINDING_COUNT = SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT;
 
 	virtual ~IMeshBuffer()
 	{
@@ -39,8 +46,8 @@ protected:
 
     core::aabbox3df boundingBox;
 
-    core::smart_refctd_ptr<BufferType> m_vertexBuffers[16];
-    core::smart_refctd_ptr<BufferType> m_indexBuffer;
+    SBufferBinding m_vertexBufferBindings[MAX_ATTR_BUF_BINDING_COUNT];
+    SBufferBinding m_indexBufferBinding;
 
     //! Descriptor set which goes to set=3
     core::smart_refctd_ptr<DescSetType> m_descriptorSet;
@@ -50,7 +57,6 @@ protected:
 	E_INDEX_TYPE indexType;
 	int32_t baseVertex;
     uint64_t indexCount;
-    size_t indexBufOffset;
     //
     size_t instanceCount;
     uint32_t baseInstance;
@@ -64,7 +70,7 @@ public:
 	@param dbgr Pointer to leak debugger object.
 	*/
 	IMeshBuffer(core::CLeakDebugger* dbgr=nullptr) :
-                        boundingBox(), indexType(EIT_UNKNOWN), baseVertex(0), indexCount(0u), indexBufOffset(0ull),
+                        boundingBox(), indexType(EIT_UNKNOWN), baseVertex(0), indexCount(0u),
 						instanceCount(1ull), baseInstance(0u), leakDebugger(dbgr)
 	{
 		if (leakDebugger)
@@ -104,25 +110,18 @@ public:
     inline uint32_t getAttribOffset(uint32_t attrId) const
     {
         const auto& vtxInputParams = m_pipeline->getVertexInputParams();
-        return vtxInputParams.attributes[attrId].offset;
+        return vtxInputParams.attributes[attrId].relativeOffset;
     }
-    inline BufferType* getAttribBoundBuffer(uint32_t attrId) const
+    inline const SBufferBinding* getAttribBoundBuffer(uint32_t attrId) const
     {
         const uint32_t bnd = getBindingNumForAttribute(attrId);
-        return m_vertexBuffers[bnd].get();
+        return &m_vertexBufferBindings[bnd];
     }
 
 	//! Get type of index data which is stored in this meshbuffer.
 	/** \return Index type of this buffer. */
 	inline const E_INDEX_TYPE& getIndexType() const {return indexType;}
 	inline void setIndexType(const E_INDEX_TYPE& type) {indexType = type;}
-
-	//! Sets offset in mapped index buffer.
-	/** @param byteOffset Offset in bytes. */
-	inline void setIndexBufferOffset(const size_t& byteOffset) {indexBufOffset = byteOffset;}
-	//! Accesses offset in mapped index buffer.
-	/** @returns Offset in bytes. */
-	inline const size_t& getIndexBufferOffset() const {return indexBufOffset;}
 
 	//! Get amount of indices in this meshbuffer.
 	/** \return Number of indices in this buffer. */
@@ -146,9 +145,9 @@ public:
             switch (indexType)
             {
                 case EIT_16BIT:
-                    return indexCount*2+indexBufOffset < m_indexBuffer->getSize();
+                    return indexCount*2+m_indexBufferBinding.offset < m_indexBuffer->getSize();
                 case EIT_32BIT:
-                    return indexCount*4+indexBufOffset < m_indexBuffer->getSize();
+                    return indexCount*4+m_indexBufferBinding.offset < m_indexBuffer->getSize();
                 default:
                     return false;
             }

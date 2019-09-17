@@ -88,7 +88,7 @@ public:
     inline size_t calcVertexCount() const
     {
         size_t vertexCount = 0u;
-        if (m_indexBuffer)
+        if (m_indexBufferBinding.buffer)
         {
             if (getIndexType() == EIT_16BIT)
             {
@@ -141,10 +141,10 @@ public:
     /** \return Pointer to indices array. */
     inline void* getIndices()
     {
-        if (!m_indexBuffer)
+        if (!m_indexBufferBinding.buffer)
             return nullptr;
 
-        return reinterpret_cast<uint8_t*>(m_indexBuffer->getPointer()) + indexBufOffset;
+        return reinterpret_cast<uint8_t*>(m_indexBufferBinding.buffer->getPointer()) + m_indexBufferBinding.offset;
     }
 
     //! Get access to Indices.
@@ -153,10 +153,10 @@ public:
     \return Pointer to index array. */
     inline const void* getIndices() const
     {
-        if (!m_indexBuffer)
+        if (!m_indexBufferBinding.buffer)
             return nullptr;
 
-        return reinterpret_cast<const uint8_t*>(m_indexBuffer->getPointer()) + indexBufOffset;
+        return reinterpret_cast<const uint8_t*>(m_indexBufferBinding.buffer->getPointer()) + m_indexBufferBinding.offset;
     }
 
     //! Accesses given index of mapped position attribute buffer.
@@ -196,13 +196,13 @@ public:
         if (!isVertexAttribBufferBindingEnabled(bindingNum))
             return nullptr;
 
-        ICPUBuffer* mappedAttrBuf = m_vertexBuffers[bindingNum].get();
+        ICPUBuffer* mappedAttrBuf = m_vertexBufferBindings[bindingNum].buffer.get();
         if (!mappedAttrBuf)
             return nullptr;
 
         int64_t ix = baseVertex;
         ix *= vtxInputParams.bindings[bindingNum].stride;
-        ix += vtxInputParams.attributes[attrId].offset;
+        ix += (m_vertexBufferBindings[bindingNum].offset + vtxInputParams.attributes[attrId].relativeOffset);
         if (ix < 0 || static_cast<uint64_t>(ix) >= mappedAttrBuf->getSize())
             return nullptr;
 
@@ -264,7 +264,7 @@ public:
 
         const uint8_t* src = getAttribPointer(attrId);
         src += ix * getAttribStride(attrId);
-        if (src >= reinterpret_cast<const uint8_t*>(m_vertexBuffers[bindingId]->getPointer()) + m_vertexBuffers[bindingId]->getSize())
+        if (src >= reinterpret_cast<const uint8_t*>(m_vertexBufferBindings[bindingId].buffer->getPointer()) + m_vertexBufferBindings[bindingId].buffer->getSize())
             return false;
 
         return getAttribute(output, src, getAttribFormat(attrId));
@@ -316,7 +316,7 @@ public:
 
         const uint8_t* src = getAttribPointer(attrId);
         src += ix * getAttribStride(attrId);
-        ICPUBuffer* buf = getAttribBoundBuffer(attrId);
+        ICPUBuffer* buf = getAttribBoundBuffer(attrId)->buffer.get();
         if (src >= reinterpret_cast<const uint8_t*>(buf->getPointer()) + buf->getSize())
             return false;
 
@@ -368,7 +368,7 @@ public:
 
         uint8_t* dst = getAttribPointer(attrId);
         dst += ix * getAttribStride(attrId);
-        ICPUBuffer* buf = getAttribBoundBuffer(attrId);
+        ICPUBuffer* buf = getAttribBoundBuffer(attrId)->buffer.get();
         if (dst >= ((const uint8_t*)(buf->getPointer())) + buf->getSize())
             return false;
 
@@ -409,7 +409,7 @@ public:
 
         uint8_t* dst = getAttribPointer(attrId);
         dst += ix * getAttribStride(attrId);
-        ICPUBuffer* buf = getAttribBoundBuffer(attrId);
+        ICPUBuffer* buf = getAttribBoundBuffer(attrId)->buffer.get();
         if (dst >= ((const uint8_t*)(buf->getPointer())) + buf->getSize())
             return false;
 
@@ -426,7 +426,7 @@ public:
             return;
         }
 
-        const ICPUBuffer* mappedAttrBuf = getAttribBoundBuffer(posAttrId);
+        const ICPUBuffer* mappedAttrBuf = getAttribBoundBuffer(posAttrId)->buffer.get();
         if (posAttrId >= MAX_VERTEX_ATTRIB_COUNT || !mappedAttrBuf)
         {
             boundingBox.reset(core::vector3df(0.f));

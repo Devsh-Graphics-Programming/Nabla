@@ -111,6 +111,8 @@ struct SShaderMemoryBlock
         //! (mtxRowCnt>1 && mtxColCnt==1) implies vector
         //! (mtxRowCnt==1 && mtxColCnt==1) implies basic type (i.e. int/uint/float/...)
         uint32_t mtxRowCnt, mtxColCnt;
+        //! rowMajor=false implies col-major
+        bool rowMajor;
         E_GLSL_VAR_TYPE type;
         //TODO change to core::dynamic_array later
         struct SMembers {
