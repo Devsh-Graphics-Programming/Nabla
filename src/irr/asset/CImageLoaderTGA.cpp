@@ -293,7 +293,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
     asset::ICPUTexture* tex = asset::ICPUTexture::create(images, _file->getFileName().c_str());
     for (auto& img : images)
         img->drop();
-    return {core::smart_refctd_ptr<IAsset>(tex, core::dont_grab)};
+    return SAssetBundle({core::smart_refctd_ptr<IAsset>(tex, core::dont_grab)});
 }
 
 } // end namespace video

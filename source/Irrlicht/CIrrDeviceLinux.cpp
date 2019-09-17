@@ -15,7 +15,6 @@
 #include "IEventReceiver.h"
 #include "ISceneManager.h"
 #include "os.h"
-#include "coreutil.h"
 #include "Keycodes.h"
 #include "COSOperator.h"
 #include "SIrrCreationParameters.h"
@@ -986,15 +985,6 @@ void CIrrDeviceLinux::createDriver()
 	switch(CreationParams.DriverType)
 	{
 #ifdef _IRR_COMPILE_WITH_X11_
-
-	case video::EDT_BURNINGSVIDEO:
-		#ifdef _IRR_COMPILE_WITH_BURNINGSVIDEO_
-		VideoDriver = video::createBurningVideoDriver(this, CreationParams, FileSystem, this);
-		#else
-		os::Printer::log("Burning's video driver was not compiled in.", ELL_ERROR);
-		#endif
-		break;
-
 	case video::EDT_OPENGL:
 		#ifdef _IRR_COMPILE_WITH_OPENGL_
 		if (Context)

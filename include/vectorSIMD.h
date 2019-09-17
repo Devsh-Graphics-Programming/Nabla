@@ -258,7 +258,7 @@ namespace core
 #include "SIMDswizzle.h"
 
 #ifdef __GNUC__
-// warning: ignoring attributes on template argument ‘__m128i {aka __vector(2) long long int}’ [-Wignored-attributes] (etc...)
+// warning: ignoring attributes on template argument Â‘__m128i {aka __vector(2) long long int}Â’ [-Wignored-attributes] (etc...)
 #   pragma GCC diagnostic push
 #   pragma GCC diagnostic ignored "-Wignored-attributes"
 #endif
@@ -374,7 +374,7 @@ namespace core
 */
 		inline vector4db_SIMD operator==(const vectorSIMD_32<T>& other) const
 		{
-			return vector4db_SIMD(_mm_cmpeq_epi32(getAsRegister(),other.getAsRegister()));
+			return vector4db_SIMD(_mm_cmpeq_epi32(vectorSIMDIntBase::getAsRegister(),other.getAsRegister()));
 		}
 		inline vector4db_SIMD operator!=(const vectorSIMD_32<T>& other) const
 		{
@@ -849,7 +849,7 @@ namespace core
 
 	//!
 	template<class T>
-	vectorSIMD_32<T>::vectorSIMD_32<T>(const vectorSIMDf& other)
+	vectorSIMD_32<T>::vectorSIMD_32(const vectorSIMDf& other)
 	{
 		_mm_store_si128(reinterpret_cast<__m128i*>(pointer), _mm_cvtps_epi32(other.getAsRegister()));
 	}
@@ -1001,7 +1001,7 @@ namespace core
 
 
 #ifdef __GNUC__
-	// warning: ignoring attributes on template argument ‘__m128i {aka __vector(2) long long int}’ [-Wignored-attributes] (etc...)
+	// warning: ignoring attributes on template argument Â‘__m128i {aka __vector(2) long long int}Â’ [-Wignored-attributes] (etc...)
 #   pragma GCC diagnostic push
 #   pragma GCC diagnostic ignored "-Wignored-attributes"
 #endif

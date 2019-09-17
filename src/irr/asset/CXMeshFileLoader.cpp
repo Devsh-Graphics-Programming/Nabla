@@ -202,7 +202,7 @@ asset::SAssetBundle CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asse
 	os::Printer::log(tmpString.str());
 //#endif
 
-	return {core::smart_refctd_ptr<IAsset>(retVal, core::dont_grab)};
+	return SAssetBundle({core::smart_refctd_ptr<IAsset>(retVal, core::dont_grab)});
 }
 
 class SuperSkinningTMPStruct

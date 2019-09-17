@@ -662,7 +662,7 @@ namespace video
                 indirectDraw.set(buff);
             }
 
-            bool setActiveVAO(const COpenGLVAOSpec* const spec, const video::IGPUMeshBuffer* correctOffsetsForXFormDraw=NULL);
+            bool setActiveVAO(const COpenGLVAOSpec* const spec);
 
             //! sets the current Texture
             //! Returns whether setting was a success or not.

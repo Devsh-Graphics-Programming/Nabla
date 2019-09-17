@@ -8,7 +8,7 @@
 #include "stdint.h"
 #include "IVulkanPrebaked.h"
 #include "IShader.h"
-#include "IMeshBuffer.h"
+#include "irr/asset/IMeshBuffer.h"
 #include "IDescriptorSetLayout.h"
 ///#include "SRasterState.h"
 

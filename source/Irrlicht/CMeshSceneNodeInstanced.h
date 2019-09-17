@@ -45,26 +45,6 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
         //!
         virtual bool supportsDriverFence() const {return true;}
 
-        //! returns the material based on the zero based index i. To get the amount
-        //! of materials used by this scene node, use getMaterialCount().
-        //! This function is needed for inserting the node into the scene hirachy on a
-        //! optimal position for minimizing renderstate changes, but can also be used
-        //! to directly modify the material of a scene node.
-        virtual video::SGPUMaterial& getMaterial(uint32_t i)
-        {
-            uint32_t cumMaterialCnt = 0;
-            for (size_t j=0; j<LoD.size(); j++)
-            {
-                if (i-cumMaterialCnt<LoD[j].mesh->getMeshBufferCount())
-                    return LoD[j].mesh->getMeshBuffer(i-cumMaterialCnt)->getMaterial();
-                else
-                    cumMaterialCnt += LoD[j].mesh->getMeshBufferCount();
-            }
-            return ISceneNode::getMaterial(i);
-        }
-        //! returns amount of materials used by this scene node.
-        virtual uint32_t getMaterialCount() const {return cachedMaterialCount;}
-
         //! Sets a new mesh to display
         /** \param mesh Mesh to display. */
         virtual bool setLoDMeshes(	const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput,
@@ -152,7 +132,6 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
         void RecullInstances();
         core::aabbox3d<float> Box;
         core::aabbox3d<float> LoDInvariantBox;
-        uint32_t cachedMaterialCount;
 
         struct LoDData
         {

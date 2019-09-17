@@ -319,7 +319,7 @@ class COpenGLTextureBufferObject : public COpenGLTexture, public ITextureBufferO
 
         uint32_t TextureSize;
 
-        GLint InternalFormat;
+        GLenum InternalFormat;
         asset::E_FORMAT ColorFormat;
 };
 

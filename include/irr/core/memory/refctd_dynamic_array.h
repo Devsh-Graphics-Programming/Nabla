@@ -13,7 +13,9 @@ namespace core
 template<typename T, class allocator = allocator<T>>
 class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dynamic_array<T,allocator,refctd_dynamic_array<T,allocator> >
 {
+		friend class dynamic_array<T, allocator, refctd_dynamic_array<T, allocator> >;
 		using base_t = dynamic_array<T, allocator, refctd_dynamic_array<T, allocator> >;
+
 		static_assert(sizeof(base_t) == sizeof(impl::dynamic_array_base<T, allocator>), "memory has been added to dynamic_array");
 		static_assert(sizeof(base_t) == sizeof(dynamic_array<T, allocator>),"non-CRTP and CRTP base class definitions differ in size");
 
@@ -23,7 +25,6 @@ class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dyna
 
 		_IRR_RESOLVE_NEW_DELETE_AMBIGUITY(base_t) // only want new and delete operators from `dynamic_array`
 	protected:
-		friend class base_t;
 
 		inline refctd_dynamic_array(size_t _length, const allocator& _alctr = allocator()) : base_t(_length, _alctr) {}
 		inline refctd_dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator()) : base_t(_length, _val, _alctr) {}

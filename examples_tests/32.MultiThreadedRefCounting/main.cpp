@@ -30,7 +30,7 @@ int main()
         {
             r->drop();
         }
-#endif TEST_COUNT_AFTER
+#endif // TEST_COUNT_AFTER
     }
 
     #pragma omp for

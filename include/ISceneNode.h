@@ -11,7 +11,6 @@
 #include "ECullingTypes.h"
 #include "EDebugSceneTypes.h"
 #include "ISceneNodeAnimator.h"
-#include "SMaterial.h"
 #include "ITexture.h"
 #include "aabbox3d.h"
 #include "matrix4x3.h"
@@ -221,51 +220,6 @@ namespace scene
 		virtual void setID(int32_t id)
 		{
 			ID = id;
-		}
-
-
-		//! Returns the material based on the zero based index i.
-		/** To get the amount of materials used by this scene node, use
-		getMaterialCount(). This function is needed for inserting the
-		node into the scene hierarchy at an optimal position for
-		minimizing renderstate changes, but can also be used to
-		directly modify the material of a scene node.
-		\param num Zero based index. The maximal value is getMaterialCount() - 1.
-		\return The material at that index. */
-		virtual video::SGPUMaterial& getMaterial(uint32_t num)
-		{
-			return video::SGPUMaterial();
-		}
-
-
-		//! Get amount of materials used by this scene node.
-		/** \return Current amount of materials of this scene node. */
-		virtual uint32_t getMaterialCount() const
-		{
-			return 0;
-		}
-
-
-		//! Sets the texture of the specified layer in all materials of this scene node to the new texture.
-		/** \param textureLayer Layer of texture to be set. Must be a
-		value smaller than MATERIAL_MAX_TEXTURES.
-		\param texture New texture to be used. */
-		void setMaterialTexture(uint32_t textureLayer, core::smart_refctd_ptr<video::IVirtualTexture>&& texture) // kill this function
-		{
-			if (textureLayer >= video::MATERIAL_MAX_TEXTURES)
-				return;
-
-			for (uint32_t i=0; i<getMaterialCount(); ++i)
-				getMaterial(i).setTexture(textureLayer, core::smart_refctd_ptr(texture));
-		}
-
-
-		//! Sets the material type of all materials in this scene node to a new material type.
-		/** \param newType New type of material to be set. */
-		void setMaterialType(video::E_MATERIAL_TYPE newType)
-		{
-			for (uint32_t i=0; i<getMaterialCount(); ++i)
-				getMaterial(i).MaterialType = newType;
 		}
 
 

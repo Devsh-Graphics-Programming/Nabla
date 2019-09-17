@@ -11,7 +11,7 @@ namespace video
 {
 
 	//! Abstracted and easy to use fixed function/programmable pipeline material modes.
-	enum E_MATERIAL_TYPE
+	enum E_MATERIAL_TYPE : uint32_t
 	{
 		//! Standard solid material.
 		/** Only first texture is used, which is supposed to be the
@@ -43,12 +43,9 @@ namespace video
 		EMT_TRANSPARENT_ALPHA_CHANNEL,
 
 		//! Makes the material transparent based on the vertex alpha value.
-		EMT_TRANSPARENT_VERTEX_ALPHA,
+		EMT_TRANSPARENT_VERTEX_ALPHA, // kill @Crisspl
 
-		EMT_COUNT,
-
-		//! This value is not used. It only forces this enumeration to compile to 32 bit.
-		EMT_FORCE_32BIT = 0x7fffffff
+		EMT_COUNT
 	};
 
 	//! Array holding the built in material type names

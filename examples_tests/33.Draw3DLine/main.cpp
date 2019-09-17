@@ -89,8 +89,6 @@ int main()
         }
     }
 
-    draw3DLine->drop();
-
     //create a screenshot
 	{
 		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);

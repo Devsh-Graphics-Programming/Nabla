@@ -32,6 +32,9 @@ else(CCACHE_FOUND)
   option(USE_CCACHE "Some dependency is using it, but I just don't know which!" OFF)
 endif(CCACHE_FOUND)
 
+# global IDE stuff for examples
+set(CMAKE_CODELITE_USE_TARGETS ON CACHE BOOL "")
+
 if((MSVC_VERSION AND NOT ${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 19.11) OR
   (CMAKE_COMPILER_IS_GNUCXX AND NOT ${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 7.0) OR
   (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND NOT ${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 3.9))
@@ -164,8 +167,6 @@ endif()
 
 option(IRR_COMPILE_WITH_OPENGL "Compile with OpenGL backend?" ON)
 
-option(IRR_COMPILE_WITH_BURNINGSVIDEO "Compile with software backend?" ON)
-
 option(IRR_PCH "Enable pre-compiled header" ON)
 
 option(IRR_FAST_MATH "Enable fast low-precision math" ON)
@@ -179,6 +180,8 @@ option(IRR_BUILD_MITSUBA_LOADER "Enable irr::ext::MitsubaLoader?" ON)
 option(IRR_BUILD_CEGUI "Enable CEGUI building and integration?" OFF)
 
 option(IRR_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
+
+option(IRR_BUILD_DOCS "Enable building documentation?" ON)
 
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 
@@ -198,4 +201,8 @@ add_subdirectory(ext)
 
 if(IRR_BUILD_EXAMPLES)
 	add_subdirectory(examples_tests)
+endif()
+
+if(IRR_BUILD_DOCS)
+	add_subdirectory(docs)
 endif()

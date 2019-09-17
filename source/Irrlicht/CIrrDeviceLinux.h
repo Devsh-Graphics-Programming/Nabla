@@ -11,28 +11,28 @@
 
 #include "CIrrDeviceStub.h"
 #include "IrrlichtDevice.h"
-#include "IImagePresenter.h"
 #include "ICursorControl.h"
 #include "os.h"
 
 #ifdef _IRR_COMPILE_WITH_X11_
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
-#include <GL/gl.h>
-#include <GL/glx.h>
-#include "glxext.h"
-#endif
+#include "COpenGLStateManager.h"
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/cursorfont.h>
 #ifdef _IRR_LINUX_X11_VIDMODE_
-#include <X11/extensions/xf86vmode.h>
+    #include <X11/extensions/xf86vmode.h>
 #endif
 #ifdef _IRR_LINUX_X11_RANDR_
-#include <X11/extensions/Xrandr.h>
+    #include <X11/extensions/Xrandr.h>
 #endif
 #include <X11/keysym.h>
+
+#ifdef _IRR_COMPILE_WITH_OPENGL_
+    #include "GL/glx.h"
+    #include "../src/3rdparty/GL/glxext.h"
+#endif
 
 #else
 #define KeySym int32_t
@@ -41,7 +41,7 @@
 namespace irr
 {
 
-	class CIrrDeviceLinux : public CIrrDeviceStub, public video::IImagePresenter
+	class CIrrDeviceLinux : public CIrrDeviceStub
 	{
         protected:
             //! destructor
@@ -75,9 +75,6 @@ namespace irr
 
             //! returns color format of the window.
             virtual asset::E_FORMAT getColorFormat() const;
-
-            //! presents a surface in the client area
-            virtual bool present(video::IImage* surface, void* windowId=0, core::rect<int32_t>* src=0 );
 
             //! notifies the device that it should close itself
             virtual void closeDevice();
@@ -117,15 +114,6 @@ namespace irr
             {
                     return EIDT_X11;
             }
-
-    #ifdef _IRR_COMPILE_WITH_X11_
-            // convert an Irrlicht texture to a X11 cursor
-            Cursor TextureToCursor(irr::video::IImage * tex, const core::rect<int32_t>& sourceRect, const core::position2d<int32_t> &hotspot);
-            Cursor TextureToMonochromeCursor(irr::video::IImage * tex, const core::rect<int32_t>& sourceRect, const core::position2d<int32_t> &hotspot);
-    #ifdef _IRR_LINUX_XCURSOR_
-            Cursor TextureToARGBCursor(irr::video::IImage * tex, const core::rect<int32_t>& sourceRect, const core::position2d<int32_t> &hotspot);
-    #endif
-    #endif
 
 
         private:

@@ -287,10 +287,10 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	images.push_back(image);
 #endif // _IRR_COMPILE_WITH_LIBPNG_
 
-    asset::ICPUTexture* tex = asset::ICPUTexture::create(images, _file->getFileName().c_str());
+    ICPUTexture* tex = ICPUTexture::create(images, _file->getFileName().c_str());
     for (auto& img : images)
         img->drop();
-    return {core::smart_refctd_ptr<IAsset>(tex, core::dont_grab)};
+    return SAssetBundle({core::smart_refctd_ptr<IAsset>(tex, core::dont_grab)});
 }
 
 
