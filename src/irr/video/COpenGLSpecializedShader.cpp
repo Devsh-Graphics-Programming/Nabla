@@ -132,13 +132,16 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
         auto is_single_or_vec = [&m] { return (m.mtxRowCnt>=1u && m.mtxColCnt==1u); };
 
         if (is_mtx() && m.type==asset::EGVT_F32) {
-            core::vector<GLfloat> matrix_data(m.mtxRowCnt*m.mtxColCnt*m.count);
-            for (uint32_t i = 0u; i < m.count; ++i)
+            std::array<GLfloat, IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE/sizeof(GLfloat)> matrix_data;
+            const uint32_t count = std::min<uint32_t>(m.count, matrix_data.size()/(m.count*m.mtxRowCnt*m.mtxColCnt));
+            for (uint32_t i = 0u; i < count; ++i)
             {
                 const uint32_t rowOrColCnt = m.rowMajor ? m.mtxRowCnt : m.mtxColCnt;
                 for (uint32_t c = 0u; c < rowOrColCnt; ++c) {
                     const GLfloat* col = reinterpret_cast<const GLfloat*>(_pcData + m.offset + i*m.arrayStride + c*m.mtxStride);
-                    matrix_data.insert(matrix_data.cend(), col, col+m.mtxRowCnt);
+                    const uint32_t len = m.rowMajor ? m.mtxColCnt : m.mtxRowCnt;
+                    GLfloat* ptr = matrix_data.data() + (i*m.mtxRowCnt*m.mtxColCnt) + (c*len);
+                    memcpy(ptr, col, len*sizeof(GLfloat));
                 }
             }
             PFNGLPROGRAMUNIFORMMATRIX4FVPROC glProgramUniformMatrixNxMfv_fptr[3][3]{ //N - num of columns, M - num of rows because of weird OpenGL naming convention
@@ -149,10 +152,12 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
             glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt-2u][m.mtxRowCnt-2u](m_GLname, u.location, m.count, m.rowMajor?GL_TRUE:GL_FALSE, matrix_data.data());
         }
         else if (is_single_or_vec()) {
-            core::vector<GLuint> vector_data(m.count*m.mtxRowCnt);
-            for (uint32_t i = 0u; i < m.count; ++i) {
+            std::array<GLuint, IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE/sizeof(GLuint)> vector_data;
+            const uint32_t count = vector_data.size()/(m.count*m.mtxRowCnt);
+            for (uint32_t i = 0u; i < count; ++i) {
                 const GLuint* vec = reinterpret_cast<const GLuint*>(_pcData + i*m.mtxRowCnt);
-                vector_data.insert(vector_data.end(), vec, vec+m.mtxRowCnt);
+                GLuint* ptr = vector_data.data() + i*m.mtxRowCnt;
+                memcpy(ptr, vec, sizeof(GLuint)*m.mtxRowCnt);
             }
             switch (m.type) {
             case asset::EGVT_F32:

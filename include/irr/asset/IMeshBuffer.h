@@ -33,6 +33,7 @@ public:
         uint64_t offset = 0ull;
         core::smart_refctd_ptr<BufferType> buffer = nullptr;
     };
+    _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_PUSH_CONSTANT_BYTESIZE = 128u;
 
 protected:
     _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT;
@@ -63,6 +64,9 @@ protected:
 
     //debug
     core::CLeakDebugger* leakDebugger;
+
+    uint8_t m_pushConstantsData[MAX_PUSH_CONSTANT_BYTESIZE];
+
 public:
 	//! Constructor.
 	/**
@@ -189,6 +193,9 @@ public:
 	{
 		boundingBox = box;
 	}
+
+    uint8_t* getPushConstantsDataPtr() { return m_pushConstantsData; }
+    const uint8_t* getPushConstantsDataPtr() const { return m_pushConstantsData; }
 };
 
 }}
