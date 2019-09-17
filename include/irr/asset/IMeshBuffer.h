@@ -50,6 +50,7 @@ protected:
     SBufferBinding m_vertexBufferBindings[MAX_ATTR_BUF_BINDING_COUNT];
     SBufferBinding m_indexBufferBinding;
 
+
     //! Descriptor set which goes to set=3
     core::smart_refctd_ptr<DescSetType> m_descriptorSet;
     core::smart_refctd_ptr<PipelineType> m_pipeline;
@@ -57,6 +58,7 @@ protected:
 	//indices
 	E_INDEX_TYPE indexType;
 	int32_t baseVertex;
+    alignas(64) uint8_t m_pushConstantsData[MAX_PUSH_CONSTANT_BYTESIZE]{};//here alignas(64) takes no extra place
     uint64_t indexCount;
     //
     size_t instanceCount;
@@ -64,8 +66,6 @@ protected:
 
     //debug
     core::CLeakDebugger* leakDebugger;
-
-    uint8_t m_pushConstantsData[MAX_PUSH_CONSTANT_BYTESIZE];
 
 public:
 	//! Constructor.

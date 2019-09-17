@@ -1142,6 +1142,8 @@ class COpenGLExtensionHandler
 	static void extGlProgramUniformMatrix4x3fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
 	static void extGlGetActiveUniform(GLuint program, GLuint index, GLsizei maxlength, GLsizei *length, GLint *size, GLenum *type, GLchar *name);
 	static void extGlBindProgramPipeline(GLuint pipeline);
+    static void extGlGetProgramBinary(GLuint program, GLsizei bufSize, GLsizei* length, GLenum* binaryFormat, void* binary);
+    static void extGlProgramBinary(GLuint program, GLenum binaryFormat, const void* binary, GLsizei length);
 
 	//compute
     static void extGlMemoryBarrier(GLbitfield barriers);
@@ -1428,6 +1430,8 @@ class COpenGLExtensionHandler
     static PFNGLPOINTPARAMETERFPROC  pGlPointParameterf;
     static PFNGLPOINTPARAMETERFVPROC pGlPointParameterfv;
     static PFNGLBINDPROGRAMPIPELINEPROC pGlBindProgramPipeline;
+    static PFNGLGETPROGRAMBINARYPROC pGlGetProgramBinary;
+    static PFNGLPROGRAMBINARYPROC pGlProgramBinary;
 
 	// Compute
 	static PFNGLMEMORYBARRIERPROC pGlMemoryBarrier;
@@ -2788,6 +2792,18 @@ inline void COpenGLExtensionHandler::extGlBindProgramPipeline(GLuint pipeline)
 {
 	if (pGlBindProgramPipeline)
 		pGlBindProgramPipeline(pipeline);
+}
+
+inline void COpenGLExtensionHandler::extGlGetProgramBinary(GLuint program, GLsizei bufSize, GLsizei* length, GLenum* binaryFormat, void* binary)
+{
+    if (pGlGetProgramBinary)
+        pGlGetProgramBinary(program, bufSize, length, binaryFormat, binary);
+}
+
+inline void COpenGLExtensionHandler::extGlProgramBinary(GLuint program, GLenum binaryFormat, const void* binary, GLsizei length)
+{
+    if (pGlProgramBinary)
+        pGlProgramBinary(program, binaryFormat, binary, length);
 }
 
 

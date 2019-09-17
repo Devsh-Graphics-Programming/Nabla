@@ -322,6 +322,8 @@ PFNGLPROGRAMUNIFORMMATRIX4X3FVPROC COpenGLExtensionHandler::pGlProgramUniformMat
 //
 PFNGLGETACTIVEUNIFORMPROC COpenGLExtensionHandler::pGlGetActiveUniform = nullptr;
 PFNGLBINDPROGRAMPIPELINEPROC COpenGLExtensionHandler::pGlBindProgramPipeline = nullptr;
+PFNGLGETPROGRAMBINARYPROC COpenGLExtensionHandler::pGlGetProgramBinary = nullptr;
+PFNGLPROGRAMBINARYPROC COpenGLExtensionHandler::pGlProgramBinary = nullptr;
 
 // Criss
 PFNGLMEMORYBARRIERPROC COpenGLExtensionHandler::pGlMemoryBarrier = nullptr;
@@ -1218,6 +1220,8 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlProgramUniformMatrix4x3fv = (PFNGLPROGRAMUNIFORMMATRIX4X3FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniformMatrix4x3fv");
 	pGlGetActiveUniform = (PFNGLGETACTIVEUNIFORMPROC) IRR_OGL_LOAD_EXTENSION("glGetActiveUniform");
     pGlBindProgramPipeline = (PFNGLBINDPROGRAMPIPELINEPROC) IRR_OGL_LOAD_EXTENSION("glBindProgramPipeline");
+    pGlGetProgramBinary = (PFNGLGETPROGRAMBINARYPROC) IRR_OGL_LOAD_EXTENSION("glGetProgramBinary");
+    pGlProgramBinary = (PFNGLPROGRAMBINARYPROC) IRR_OGL_LOAD_EXTENSION("glProgramBinary");
 
 	//Criss
 	pGlMemoryBarrier = (PFNGLMEMORYBARRIERPROC) IRR_OGL_LOAD_EXTENSION("glMemoryBarrier");
