@@ -15,7 +15,7 @@ class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dyna
 {
 		friend class dynamic_array<T, allocator, refctd_dynamic_array<T, allocator> >;
 		using base_t = dynamic_array<T, allocator, refctd_dynamic_array<T, allocator> >;
-        
+
 		static_assert(sizeof(base_t) == sizeof(impl::dynamic_array_base<T, allocator>), "memory has been added to dynamic_array");
 		static_assert(sizeof(base_t) == sizeof(dynamic_array<T, allocator>),"non-CRTP and CRTP base class definitions differ in size");
 
@@ -26,9 +26,12 @@ class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dyna
 		_IRR_RESOLVE_NEW_DELETE_AMBIGUITY(base_t) // only want new and delete operators from `dynamic_array`
 	protected:
 
-		refctd_dynamic_array(size_t _length, const allocator& _alctr = allocator()) : base_t(_length, _alctr) {}
-		refctd_dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator()) : base_t(_length, _val, _alctr) {}
-		refctd_dynamic_array(std::initializer_list<T> _contents, const allocator& _alctr = allocator()) : base_t(std::move(_contents), _alctr) {}
+		inline refctd_dynamic_array(size_t _length, const allocator& _alctr = allocator()) : base_t(_length, _alctr) {}
+		inline refctd_dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator()) : base_t(_length, _val, _alctr) {}
+		template<typename container_t, typename iterator_t = typename container_t::iterator>
+		inline refctd_dynamic_array(const container_t& _containter, const allocator& _alctr = allocator()) : base_t(_containter, _alctr) {}
+		template<typename container_t, typename iterator_t = typename container_t::iterator>
+		inline refctd_dynamic_array(container_t&& _containter, const allocator& _alctr = allocator()) : base_t(std::move(_containter),_alctr) {}
 
 		virtual ~refctd_dynamic_array() = default;
 };

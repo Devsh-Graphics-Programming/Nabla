@@ -560,6 +560,119 @@ asset::ICPUMesh* CGeometryCreator::createConeMesh(float radius, float length, ui
 }
 
 
+asset::ICPUMesh* CGeometryCreator::createRectangleMesh(const core::vector2df_SIMD& _size) const
+{
+	// Create indices
+	uint16_t u[6];
+
+	/*
+	0---1
+	| / |
+	3---2
+	*/
+	u[0] = 0;
+	u[1] = 3;
+	u[2] = 1;
+	u[3] = 1;
+	u[4] = 3;
+	u[5] = 2;
+
+	auto indices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(u));
+	memcpy(indices->getPointer(), u, sizeof(u));
+
+
+	auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
+	desc->setIndexBuffer(std::move(indices));
+
+	auto buffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+	buffer->setIndexType(asset::EIT_16BIT);
+	buffer->setIndexCount(sizeof(u) / sizeof(*u));
+
+	// Create vertices
+	const size_t vertexSize = sizeof(CGeometryCreator::RectangleVertex);
+	auto vertices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(4 * vertexSize);
+	RectangleVertex* ptr = (RectangleVertex*)vertices->getPointer();
+
+	ptr[0] = RectangleVertex(core::vector3df_SIMD(-1.0f,  1.0f, 0.0f) * _size, video::SColor(0xFFFFFFFFu), 
+		core::vector2du32_SIMD(0u, 1u), core::vector3df_SIMD(0.0f, 0.0f, 1.0f));
+	ptr[1] = RectangleVertex(core::vector3df_SIMD( 1.0f,  1.0f, 0.0f) * _size, video::SColor(0xFFFFFFFFu),
+		core::vector2du32_SIMD(1u, 1u), core::vector3df_SIMD(0.0f, 0.0f, 1.0f));
+	ptr[2] = RectangleVertex(core::vector3df_SIMD( 1.0f, -1.0f, 0.0f) * _size, video::SColor(0xFFFFFFFFu),
+		core::vector2du32_SIMD(1u, 0u), core::vector3df_SIMD(0.0f, 0.0f, 1.0f));
+	ptr[3] = RectangleVertex(core::vector3df_SIMD(-1.0f, -1.0f, 0.0f) * _size, video::SColor(0xFFFFFFFFu),
+		core::vector2du32_SIMD(0u, 0u), core::vector3df_SIMD(0.0f, 0.0f, 1.0f));
+
+	desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertices), asset::EVAI_ATTR0, asset::EF_R32G32B32_SFLOAT, vertexSize, offsetof(RectangleVertex, pos));
+	desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertices), asset::EVAI_ATTR1, asset::EF_R8G8B8A8_UNORM, vertexSize, offsetof(RectangleVertex, color));
+	desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertices), asset::EVAI_ATTR2, asset::EF_R8G8_USCALED, vertexSize, offsetof(RectangleVertex, uv));
+	desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertices), asset::EVAI_ATTR3, asset::EF_R32G32B32_SFLOAT, vertexSize, offsetof(RectangleVertex, normal));
+
+	buffer->setMeshDataAndFormat(std::move(desc));
+
+	auto mesh = new asset::CCPUMesh();
+	mesh->addMeshBuffer(std::move(buffer));
+
+	mesh->recalculateBoundingBox();
+	return mesh;
+}
+
+asset::ICPUMesh* CGeometryCreator::createDiskMesh(float radius, uint32_t tesselation) const
+{
+	auto buffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+	buffer->setPrimitiveType(asset::E_PRIMITIVE_TYPE::EPT_TRIANGLE_FAN); // change to indexed later
+
+	const size_t vertexCount = 2u + tesselation;
+
+	//buffer->setIndexType(asset::EIT_16BIT);
+	buffer->setIndexCount(vertexCount);
+
+	const size_t vertexSize = sizeof(CGeometryCreator::DiskVertex);
+	const float angle = 360.0f / static_cast<float>(tesselation);
+	
+	auto vertices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vertexCount * vertexSize);
+	DiskVertex* ptr = (DiskVertex*)vertices->getPointer();
+
+	const core::vectorSIMDf v0(0.0f, radius, 0.0f, 0.0f);
+	core::matrix3x4SIMD rotation;
+
+	//center
+	ptr[0] = DiskVertex(core::vector3df_SIMD(0.0f), video::SColor(0xFFFFFFFFu),
+		core::vector2du32_SIMD(0u, 1u), core::vector3df_SIMD(0.0f, 0.0f, 1.0f));
+
+	//v0
+	ptr[1] = DiskVertex(v0, video::SColor(0xFFFFFFFFu),
+		core::vector2du32_SIMD(0u, 1u), core::vector3df_SIMD(0.0f, 0.0f, 1.0f));
+
+	//vn
+	ptr[vertexCount - 1] = ptr[1];
+
+	//v1, v2, ..., vn-1
+	for (int i = 2; i < vertexCount-1; i++)
+	{
+		core::vectorSIMDf vn;
+		core::matrix3x4SIMD rotMatrix;
+		rotMatrix.setRotation(core::quaternion(0.0f, 0.0f, core::degToRad(angle * (i - 1))));
+		rotMatrix.transformVect(vn, v0);
+
+		ptr[i] = DiskVertex(vn, video::SColor(0xFFFFFFFFu),
+			core::vector2du32_SIMD(0u, 1u), core::vector3df_SIMD(0.0f, 0.0f, 1.0f));
+	}
+
+	auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
+	desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertices), asset::EVAI_ATTR0, asset::EF_R32G32B32_SFLOAT, vertexSize, offsetof(DiskVertex, pos));
+	desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertices), asset::EVAI_ATTR1, asset::EF_R8G8B8A8_UNORM, vertexSize, offsetof(DiskVertex, color));
+	desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertices), asset::EVAI_ATTR2, asset::EF_R8G8_USCALED, vertexSize, offsetof(DiskVertex, uv));
+	desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertices), asset::EVAI_ATTR3, asset::EF_R32G32B32_SFLOAT, vertexSize, offsetof(DiskVertex, normal));
+	buffer->setMeshDataAndFormat(std::move(desc));
+
+	auto mesh = new asset::CCPUMesh();
+	mesh->addMeshBuffer(std::move(buffer));
+
+	mesh->recalculateBoundingBox();
+	return mesh;
+}
+
+
 } // end namespace asset
 } // end namespace irr
 

@@ -212,7 +212,7 @@ namespace asset
 		//! Get amount of polygons in mesh buffer.
 		/** \param meshbuffer Input mesh buffer
 		\param Outputted Number of polygons in mesh buffer, if successful.
-		\return If successfully can provide information, i.e. if XFormFeedback is providing PolyCount we dont know how many there are */
+		\return If successfully can provide information */
 		template<typename T>
 		static inline bool getPolyCount(uint32_t& outCount, IMeshBuffer<T>* meshbuffer)
 		{
@@ -254,7 +254,7 @@ namespace asset
 		//! Get amount of polygons in mesh.
 		/** \param meshbuffer Input mesh
 		\param Outputted Number of polygons in mesh, if successful.
-		\return If successfully can provide information, i.e. if XFormFeedback is providing PolyCount we dont know how many there are */
+		\return If successfully can provide information */
 		template<typename T>
 		static inline bool getPolyCount(uint32_t& outCount, IMesh<T>* mesh)
 		{

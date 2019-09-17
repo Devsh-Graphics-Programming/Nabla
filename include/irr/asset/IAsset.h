@@ -4,7 +4,9 @@
 #include <string>
 #include "irr/core/core.h"
 
-namespace irr { namespace asset
+namespace irr
+{
+namespace asset
 {
 
 class IAssetManager;
@@ -98,7 +100,8 @@ class SAssetBundle
 public:
     using contents_container_t = core::refctd_dynamic_array<core::smart_refctd_ptr<IAsset> >;
     
-    SAssetBundle(std::initializer_list<contents_container_t::value_type> _contents = {}) : m_contents(contents_container_t::create_dynamic_array(_contents),core::dont_grab)
+    template<typename container_t>
+    SAssetBundle(containter_t&& _contents) : m_contents(std::move(_contents))
     {
         auto allSameTypeAndNotNull = [&_contents] {
             if (_contents.size()==0ull)
@@ -150,6 +153,7 @@ private:
     core::smart_refctd_ptr<const contents_container_t> m_contents;
 };
 
-}}
+}
+}
 
 #endif // __IRR_I_ASSET_H_INCLUDED__

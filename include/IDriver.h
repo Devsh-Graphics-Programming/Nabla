@@ -254,7 +254,7 @@ namespace video
 
             //these will have to be created by a query pool anyway
             virtual IQueryObject* createPrimitivesGeneratedQuery() {return nullptr;}
-            virtual IQueryObject* createXFormFeedbackPrimitiveQuery() {return nullptr;} //depr
+            virtual IQueryObject* createXFormFeedbackPrimitiveQuery() {return nullptr;} // depr
             virtual IQueryObject* createElapsedTimeQuery() {return nullptr;}
             virtual IGPUTimestampQuery* createTimestampQuery() {return nullptr;}
 
