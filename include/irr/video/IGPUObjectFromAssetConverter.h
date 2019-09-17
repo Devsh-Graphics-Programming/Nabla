@@ -85,7 +85,7 @@ class IGPUObjectFromAssetConverter
 			{
 				if (!el)
 				{
-					redirs.push_back(0xdeadbeefbadc0ffeull);
+					redirs.push_back(0xdeadbeefu);
 					continue;
 				}
 
@@ -147,7 +147,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asse
 }
 auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset::ICPUMeshBuffer** _end) -> created_gpu_object_array<asset::ICPUMeshBuffer>
 {
-	const auto assetCount = std::distance(_begin, _end);
+	const size_t assetCount = std::distance(_begin, _end);
 	auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUMeshBuffer> >(assetCount);
 
     struct VaoConfig //! ~@Crisspl why on earth is the create<ICPUMeshBuffer> function creating the pipelines/VAOs as well?~ Because MeshBuffer holds the index buffer, but MeshDataFormatDesc holds the other buffer bindings
@@ -254,25 +254,40 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
         }
         output->getMaterial() = mat;
 
-        const VaoConfig& vaoConf = vaoConfigs[i];
+        VaoConfig& vaoConf = vaoConfigs[i];
         if (!vaoConf.noAttributes)
         {
+			uint32_t minBase = ~0u;
+			for (size_t k = 0u; k < asset::EVAI_COUNT; ++k)
+			{
+				if (!vaoConf.oldbuffer[k])
+					continue;
+
+				auto redir = bufRedir[i*MaxBuffersPerVAO+k];
+				const auto& buffDep = gpuBufDeps->operator[](redir);
+				vaoConf.offsets[k] += buffDep->getOffset();
+				uint32_t possibleBase = vaoConf.offsets[k]/vaoConf.strides[k];
+				if (possibleBase<minBase)
+					minBase = possibleBase;
+			}
+			output->setBaseVertex(output->getBaseVertex()+minBase);
+
             auto vao = m_driver->createGPUMeshDataFormatDesc();
             for (size_t k = 0u; k < asset::EVAI_COUNT; ++k)
             {
-                if (vaoConf.oldbuffer[k])
-                {
-					auto redir = bufRedir[i*MaxBuffersPerVAO+k];
-					auto& buffDep = gpuBufDeps->operator[](redir);
-                    vao->setVertexAttrBuffer(
-                        core::smart_refctd_ptr<IGPUBuffer>(buffDep->getBuffer()), // yes construct new shared ptr, we want a grab
-                        asset::E_VERTEX_ATTRIBUTE_ID(k),
-                        vaoConf.formats[k],
-                        vaoConf.strides[k],
-                        vaoConf.offsets[k] + buffDep->getOffset(),
-                        vaoConf.divisors[k]
-                    );
-                }
+				if (!vaoConf.oldbuffer[k])
+					continue;
+                
+				auto redir = bufRedir[i*MaxBuffersPerVAO+k];
+				auto& buffDep = gpuBufDeps->operator[](redir);
+                vao->setVertexAttrBuffer(
+                    core::smart_refctd_ptr<IGPUBuffer>(buffDep->getBuffer()), // yes construct new shared ptr, we want a grab
+                    asset::E_VERTEX_ATTRIBUTE_ID(k),
+                    vaoConf.formats[k],
+                    vaoConf.strides[k],
+                    vaoConf.offsets[k]-minBase*vaoConf.strides[k],
+                    vaoConf.divisors[k]
+                );
             }
             if (vaoConf.idxbuf)
             {
@@ -289,7 +304,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
 }
 auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset::ICPUMesh** const _end) -> created_gpu_object_array<asset::ICPUMesh>
 {
-	const auto assetCount = std::distance(_begin, _end);
+	const size_t assetCount = std::distance(_begin, _end);
 	auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUMesh> >(assetCount);
 
 	core::vector<asset::ICPUMeshBuffer*> cpuDeps; cpuDeps.reserve(assetCount);

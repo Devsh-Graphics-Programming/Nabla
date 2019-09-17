@@ -436,7 +436,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		}
 		meshbuffer->setMeshDataAndFormat(std::move(desc));
 
-        SAssetBundle bundle{std::move(meshbuffer)};
+        SAssetBundle bundle({std::move(meshbuffer)});
         _override->insertAssetIntoCache(bundle, genKeyForMeshBuf(ctx, _file->getFileName().c_str(), ctx.Materials[m]->Name, ctx.Materials[m]->Group), ctx.inner, 1u);
         //transfer ownership to smart_refctd_ptr, so instead of grab() in smart_refctd_ptr and drop() here, just do nothing (thus dont_grab goes as smart ptr ctor arg)
 	}
@@ -452,7 +452,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         return {};
     }
 
-	return {core::smart_refctd_ptr<IAsset>(mesh,core::dont_grab)};
+	return SAssetBundle({core::smart_refctd_ptr<IAsset>(mesh,core::dont_grab)});
 }
 
 

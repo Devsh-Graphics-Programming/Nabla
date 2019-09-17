@@ -5,6 +5,7 @@
 #ifndef __C_OPEN_GL_FEATURE_MAP_H_INCLUDED__
 #define __C_OPEN_GL_FEATURE_MAP_H_INCLUDED__
 
+#include "IrrCompileConfig.h"
 #include "irr/core/core.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
@@ -14,6 +15,17 @@
 
 #include "COpenGLStateManager.h"
 #include "COpenGLCubemapTexture.h"
+
+#ifdef _IRR_WINDOWS_API_
+	// include windows headers for HWND
+	#define WIN32_LEAN_AND_MEAN
+	#define NOMINMAX
+	#include <windows.h>
+	#include "../src/3rdparty/GL/wglext.h"
+#elif defined(_IRR_COMPILE_WITH_X11_)
+    #include "GL/glx.h"
+    #include "../src/3rdparty/GL/glxext.h"
+#endif
 
 namespace irr
 {

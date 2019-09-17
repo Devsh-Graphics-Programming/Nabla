@@ -86,14 +86,14 @@ void CSkinnedMeshSceneNode::OnRegisterSceneNode()
 		int solidCount = 0;
 
         // count copied materials
-        for (uint32_t i=0; i<Materials.size(); ++i)
+        for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
         {
             video::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
             if (!mb||mb->getIndexCount()<1)
                 continue;
 
             video::IMaterialRenderer* rnd =
-                driver->getMaterialRenderer(Materials[i].MaterialType);
+                driver->getMaterialRenderer(mb->getMaterial().MaterialType);
 
             if (rnd && rnd->isTransparent())
                 ++transparentCount;
@@ -179,7 +179,7 @@ void CSkinnedMeshSceneNode::render()
             video::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
             if (mb)
             {
-                const video::SGPUMaterial& material = Materials[i];
+                const video::SGPUMaterial& material = mb->getMaterial();
 
                 video::IMaterialRenderer* rnd = driver->getMaterialRenderer(material.MaterialType);
                 bool transparent = (rnd && rnd->isTransparent());
@@ -203,22 +203,6 @@ void CSkinnedMeshSceneNode::render()
 		video::SGPUMaterial debug_mat;
         debug_mat.Thickness = 3.f;
 		driver->setMaterial(debug_mat);
-/**
-		// show mesh
-		if (DebugDataVisible & scene::EDS_MESH_WIRE_OVERLAY)
-		{
-			debug_mat.Wireframe = true;
-			debug_mat.ZBuffer = video::ECFN_NEVER;
-			driver->setMaterial(debug_mat);
-
-			for (uint32_t g=0; g<mesh->getMeshBufferCount(); ++g)
-			{
-				IGPUMeshBuffer* mb = mesh->getMeshBuffer(g);
-				driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
-				driver->drawMeshBuffer(mb,(AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
-			}
-		}
-**/
 	}
 }
 
@@ -244,19 +228,6 @@ void CSkinnedMeshSceneNode::setMesh(core::smart_refctd_ptr<video::IGPUSkinnedMes
 
     setFrameLoop(mesh->getBoneReferenceHierarchy()->getKeys()[0], mesh->getBoneReferenceHierarchy()->getKeys()[mesh->getBoneReferenceHierarchy()->getKeyFrameCount()-1]);
     boneStateManager->performBoning();
-
-
-    Materials.clear();
-    Materials.resize(mesh->getMeshBufferCount());
-
-    for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
-    {
-        video::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
-        if (mb)
-            Materials[i] = mb->getMaterial();
-        else
-            Materials[i] = video::SGPUMaterial();
-    }
 }
 
 

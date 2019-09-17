@@ -1429,7 +1429,7 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
         return;
 
     const COpenGLVAOSpec* meshLayoutVAO = static_cast<const COpenGLVAOSpec*>(mb->getMeshDataAndFormat());
-    if (!found->setActiveVAO(meshLayoutVAO,mb))
+    if (!found->setActiveVAO(meshLayoutVAO))
         return;
 
 #ifdef _IRR_DEBUG
@@ -1968,7 +1968,7 @@ void COpenGLDriver::SAuxContext::COpenGLVAO::bindBuffers(   const COpenGLBuffer*
     lastValidated = beginStamp;
 }
 
-bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* const spec, const IGPUMeshBuffer* correctOffsetsForXFormDraw)
+bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* const spec)
 {
     if (!spec)
     {
@@ -1998,30 +1998,7 @@ bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* const spec, 
         extGlBindVertexArray(CurrentVAO.second->getOpenGLName());
     }
 
-    if (correctOffsetsForXFormDraw)
-    {
-        size_t offsets[asset::EVAI_COUNT] = {0};
-        memcpy(offsets,&spec->getMappedBufferOffset(asset::EVAI_ATTR0),sizeof(offsets));
-        for (size_t i=0; i<asset::EVAI_COUNT; i++)
-        {
-            if (!spec->getMappedBuffer((asset::E_VERTEX_ATTRIBUTE_ID)i))
-                continue;
-
-            if (spec->getAttribDivisor((asset::E_VERTEX_ATTRIBUTE_ID)i))
-            {
-                if (correctOffsetsForXFormDraw->getBaseInstance())
-                    offsets[i] += spec->getMappedBufferStride((asset::E_VERTEX_ATTRIBUTE_ID)i)*correctOffsetsForXFormDraw->getBaseInstance();
-            }
-            else
-            {
-                if (correctOffsetsForXFormDraw->getBaseVertex())
-                    offsets[i] = int64_t(offsets[i])+int64_t(spec->getMappedBufferStride((asset::E_VERTEX_ATTRIBUTE_ID)i))*correctOffsetsForXFormDraw->getBaseVertex();
-            }
-        }
-        CurrentVAO.second->bindBuffers(static_cast<const COpenGLBuffer*>(spec->getIndexBuffer()),reinterpret_cast<const COpenGLBuffer* const*>(spec->getMappedBuffers()),offsets,&spec->getMappedBufferStride(asset::EVAI_ATTR0));
-    }
-    else
-        CurrentVAO.second->bindBuffers(static_cast<const COpenGLBuffer*>(spec->getIndexBuffer()),reinterpret_cast<const COpenGLBuffer* const*>(spec->getMappedBuffers()),&spec->getMappedBufferOffset(asset::EVAI_ATTR0),&spec->getMappedBufferStride(asset::EVAI_ATTR0));
+    CurrentVAO.second->bindBuffers(static_cast<const COpenGLBuffer*>(spec->getIndexBuffer()),reinterpret_cast<const COpenGLBuffer* const*>(spec->getMappedBuffers()),&spec->getMappedBufferOffset(asset::EVAI_ATTR0),&spec->getMappedBufferStride(asset::EVAI_ATTR0));
 
     return true;
 }

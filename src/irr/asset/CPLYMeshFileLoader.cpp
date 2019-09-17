@@ -294,7 +294,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		}
 	}
 
-	return {mesh};
+	return SAssetBundle({mesh});
 }
 
 

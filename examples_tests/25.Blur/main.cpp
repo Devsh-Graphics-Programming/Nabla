@@ -130,7 +130,7 @@ int main()
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
 
     auto gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1)->front();
-    video::SGPUMaterial& mutableMaterial = smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh))->getMaterial(0);
+    video::SGPUMaterial& mutableMaterial = smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh))->getMesh()->getMeshBuffer(0)->getMaterial();
     mutableMaterial.MaterialType = static_cast<video::E_MATERIAL_TYPE>(newMaterialType);
     mutableMaterial.TextureLayer[0].Texture = outputTex;
 
@@ -140,7 +140,7 @@ int main()
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
 
     gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1)->front();
-    video::SGPUMaterial& mat2 = smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh), nullptr, -1, vector3df(10.f, 0.f, 0.f))->getMaterial(0);
+    video::SGPUMaterial& mat2 = smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh), nullptr, -1, vector3df(10.f, 0.f, 0.f))->getMesh()->getMeshBuffer(0)->getMaterial();
     mat2.MaterialType = static_cast<video::E_MATERIAL_TYPE>(newMaterialType);
     mat2.TextureLayer[0].Texture = texture;
 

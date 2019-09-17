@@ -8,8 +8,6 @@
 #include <algorithm>
 
 #include "irr/asset/asset.h"
-
-#include "ITransformFeedback.h"
 #include "IGPUBuffer.h"
 
 namespace irr
