@@ -26,9 +26,12 @@ class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dyna
 	protected:
 		friend class base_t;
 
-		refctd_dynamic_array(size_t _length, const allocator& _alctr = allocator()) : base_t(_length, _alctr) {}
-		refctd_dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator()) : base_t(_length, _val, _alctr) {}
-		refctd_dynamic_array(std::initializer_list<T> _contents, const allocator& _alctr = allocator()) : base_t(std::move(_contents), _alctr) {}
+		inline refctd_dynamic_array(size_t _length, const allocator& _alctr = allocator()) : base_t(_length, _alctr) {}
+		inline refctd_dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator()) : base_t(_length, _val, _alctr) {}
+		template<typename container_t, typename iterator_t = typename container_t::iterator>
+		inline refctd_dynamic_array(const container_t& _containter, const allocator& _alctr = allocator()) : base_t(_containter, _alctr) {}
+		template<typename container_t, typename iterator_t = typename container_t::iterator>
+		inline refctd_dynamic_array(container_t&& _containter, const allocator& _alctr = allocator()) : base_t(std::move(_containter),_alctr) {}
 
 		virtual ~refctd_dynamic_array() = default;
 };
