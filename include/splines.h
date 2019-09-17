@@ -551,7 +551,7 @@ class CQuadraticSpline : public ISpline
 						seg.weights[1] = endPt-startPt;
 						seg.weights[0].set(0.f,0.f,0.f);
 					}
-					else if (std::abs(dot(seg.weights[2],seg.weights[1]).X)>std::sqrt(bLen*dot(seg.weights[2],seg.weights[2]).X)*0.999999f)
+					else if (std::abs(dot(seg.weights[0],seg.weights[1]).X)>std::sqrt(bLen*dot(seg.weights[0],seg.weights[0]).X)*0.999999f)
 					{
 						seg.weights[1] = endPt-startPt;
 						seg.weights[0].set(0.f,0.f,0.f);
@@ -565,92 +565,85 @@ class CQuadraticSpline : public ISpline
 				{
 					parameterLength = currentApproxLen;
 
-					lenASq       = dot(weights[0],weights[0]).x;
-					double lenCSq= dot(weights[1],weights[1]).x;
-					lenC         = std::sqrt(lenCSq);
-					if (std::abs(lenASq)>0.000001f) //2.f*sqrt(lenASq)*lenC+term_b
+					float a = 4.f * weights[0].dotProductAsFloat(weights[0]);
+					float b = 4.f * weights[0].dotProductAsFloat(weights[1]);
+					float c = weights[1].dotProductAsFloat(weights[1]);
+
+					integrationConstants[0] = 0.25f*b/a;
+					integrationConstants[1] = sqrtf(c) * integrationConstants[0];
+					integrationConstants[2] = 2.f * sqrtf(core::max_(a*c, 0.f)) + b;
+					integrationConstants[3] = 2.f * a;
+					integrationConstants[4] = 2.f * sqrtf(a);
+					integrationConstants[5] = b;
+					integrationConstants[6] = (0.25f*b*b/a-c) / integrationConstants[4];
+
+					arcLen2ParameterLinear = 0.f;
+					length = getArcLenFromParameter(parameterLength);
+					if (isinf(length))
 					{
-						/// integral sqrt(a x^2 + b x + c) dx =
-						/// ((2 a x + b) sqrt(x (a x + b) + c))/(4 a) - ((b^2 - 4 a c) log(2 sqrt(a) sqrt(x (a x + b) + c) + 2 a x + b))/(8 a^(3/2))
-						/// @ x=0
-						/// (b sqrt(c))/(4 a) - ((b^2 - 4 a c) log(2 sqrt(a) sqrt(c) + b))/(8 a^(3/2))
-						double term_b       = 4.f*dot(weights[1],weights[0]).x;
-						double lenASq_4     = lenASq*16.f;
-						double lenA_2       = std::sqrt(lenASq_4);
-
-						double lenBSq       = dot(weights[1],weights[1]).x;
-
-						/// integral sqrt(a x^2 + b x + c) dx =
-						/// ((2 a x + b) sqrt(x (a x + b) + c))/(4 a) - ((b^2 - 4 a c) log(2 sqrt(a) sqrt(x (a x + b) + c) + 2 a x + b))/(8 a^(3/2))
-						/// ((0.5 x + b/4a) sqrt(x (a x + b) + c)) - ((b*b/4a - c) log(2 sqrt(a) sqrt(x (a x + b) + c) + 2 a x + b))/(2 a^(1/2))
-						/// differential
-						/// ((2 a x + b) sqrt(x (a x + b) + c))/(4 a) - ((b^2 - 4 a c) log(2 sqrt(a) sqrt(x (a x + b) + c) + 2 a x + b))/(8 a^(3/2))
-						arcCalcConstants[0] = term_b/lenASq_4;
-						arcCalcConstants[1] = lenASq*4.f;
-						arcCalcConstants[2] = term_b;
-						arcCalcConstants[3] = lenCSq;
-						arcCalcConstants[4] = (arcCalcConstants[3]-term_b*arcCalcConstants[0])/lenA_2;
-						arcCalcConstants[5] = lenA_2;
-
-						//lowerIntegralValue      = 0.f;
-						//lowerIntegralValue      = getArcLenFromParameter(0.f);
-						lowerIntegralValue      = arcCalcConstants[0]*lenC+arcCalcConstants[4]*logf(arcCalcConstants[5]*lenC+term_b);
-						if (!isnan(lowerIntegralValue) && !isinf(lowerIntegralValue))
-						{
-							length = getArcLenFromParameter(parameterLength);
-							return;
-						}
+						integrationConstants[0] = INFINITY;
+						integrationConstants[2] = 0.f;
+						if (a < 1.0e-10)
+							length = sqrtf(c)*parameterLength;
+						else
+							assert(false);
 					}
-
-					length = lenC*parameterLength;
-					lenC_reciprocal = reciprocal(lenC);
-					lowerIntegralValue = NAN;
+					else
+					{
+#ifdef _IRR_DEBUG
+						assert(integrationConstants[0] < 10000000.f);
+						assert(integrationConstants[2] >= 0.f);
+#endif
+					}
+					arcLen2ParameterLinear = parameterLength / length;
 				}
 
 				inline float getArcLenFromParameter(const float &parameter) const
 				{
-#ifdef _IRR_DEBUG
-					assert(std::abs(lenASq)>0.000001f);
-					assert(!isnan(lowerIntegralValue));
-#endif
-					double ax = arcCalcConstants[1]*parameter;
-					double ax_b = ax+arcCalcConstants[2];
-					double theSquareRoot = std::sqrt(parameter*ax_b+arcCalcConstants[3]);
-					float higherIntTerm    = (0.5f*parameter+arcCalcConstants[0])*theSquareRoot+arcCalcConstants[4]*log(arcCalcConstants[5]*theSquareRoot+ax_b+ax);
-	/*
-					double a = dot(weights[0],weights[0]).x;
-					double b = dot(weights[0],weights[1]).x*2.f;
-					double c = dot(weights[1],weights[1]).x;
-					double higherIntTerm = ((2.f* a* parameter + b)*std::sqrt(parameter* (a *parameter + b) + c))/(4.f* a) - ((b*b - 4*a*c)*log(2.f*std::sqrt(a)*std::sqrt(parameter*(a*parameter + b) + c) + 2.f*a*parameter + b))/(8.f*a*std::sqrt(a));
-	*/
-	/*
-					/// extreme debug
-					double checkLen = 0.0;
-					vectorSIMDf prevPoint = weights[2];
-					for (size_t i=1; i<=1024*16; i++)
+					if (integrationConstants[0] < 10000000.f && integrationConstants[2] > 1.0e-40)
 					{
-						double tmp = double(i)/double(1024*16);
-						tmp *= parameter;
-						vectorSIMDf nextPoint = posHelper(tmp);
-						checkLen += (prevPoint - nextPoint).getLengthAsFloat();
-						prevPoint = nextPoint;
+						auto differential = directionHelper(parameter);
+						float differentialLen = differential.getLengthAsFloat();
+
+						float a = 4.f*weights[0].dotProductAsFloat(weights[0]);
+						float b = 4.f*weights[0].dotProductAsFloat(weights[1]);
+						float c = weights[1].dotProductAsFloat(weights[1]);
+
+						//float x = parameter;
+
+						/// integral sqrt(a x^2 + b x + c) dx =
+						/// ((b + 2 a x) Sqrt[c + x (b + a x)])/(4 a) - ((b^2 - 4 a c) Log[b + 2 a x + 2 Sqrt[a] Sqrt[c + x (b + a x)]])/(8 a^(3/2))
+						/// ((2 a x + b) differentialLen)/(4 a) - ((b^2 - 4 a c) log(2 sqrt(a) differentialLen + 2 a x + b))/(8 a^(3/2))
+						/// @ x=0
+						/// (b sqrt(c))/(4 a) - ((b^2 - 4 a c) log(2 sqrt(a) sqrt(c) + b))/(8 a^(3/2))
+
+						/// Non Log
+						/// ((2 a x + b) differentialLen - b sqrt(c))/(4 a)
+						//float non_log_term = ((2.f*a*x+b)*differentialLen-b*sqrtf(c))/(4.f*a);
+						float non_log_term = (0.5f*parameter+integrationConstants[0])*differentialLen-integrationConstants[1];
+
+						/// Log 
+						/// (log(2 sqrt(a) sqrt(c) + b)) - log(2 sqrt(a) differentialLen + 2 a x + b)))     ((b^2 - 4 a c)/(8 a^(3/2))
+						/// log((2 sqrt(a c) + b))/(2 sqrt(a) differentialLen + 2 a x + b)))     ((b^2 - 4 a c)/(8 a^(3/2))
+						float log_argument = integrationConstants[2] / (integrationConstants[3] * parameter + integrationConstants[4] * differentialLen+integrationConstants[5]);
+						float log_term = logf(log_argument)*integrationConstants[6];
+
+						return non_log_term + log_term;
 					}
-					float diff = std::abs(higherIntTerm-lowerIntegralValue-checkLen);
-					assert(diff<0.001f);
-	*/
-					return higherIntTerm-lowerIntegralValue;
+					else
+						return parameter/arcLen2ParameterLinear;
 				}
 
 				inline float getParameterFromArcLen(const float& arcLen, float parameterHint, const float& accuracyThresh) const
 				{
-					if (!isnan(lowerIntegralValue))
+					if (true)
 					{
 						if (arcLen<=accuracyThresh)
 							return arcLen;
 						if (arcLen>=length-accuracyThresh)
 							return parameterLength;
 						if (parameterHint<0.f||parameterHint>parameterLength)
-							parameterHint = parameterLength*(arcLen/length);
+							parameterHint = arcLen*arcLen2ParameterLinear;
 						/// dist = IndefInt(param) - lowerIntVal
 						/// IndefInt^-1(dist+lowerIntVal) = param
 						/// Newton-Raphson      f = arcLen - getArcLenFromParameter(parameterHint);
@@ -659,13 +652,13 @@ class CQuadraticSpline : public ISpline
 						for (size_t i=0; std::abs(arcLenDiffAtParamGuess)>accuracyThresh&&i<32; i++)
 						{
 							float differentialAtGuess = directionHelper(parameterHint).getLengthAsFloat();
-							parameterHint = parameterHint+arcLenDiffAtParamGuess/differentialAtGuess;
+							parameterHint += arcLenDiffAtParamGuess/differentialAtGuess;
 							arcLenDiffAtParamGuess = arcLen-getArcLenFromParameter(parameterHint);
 						}
 						return std::min(parameterHint,parameterLength);
 					}
 					else
-						return arcLen*lenC_reciprocal;
+						return arcLen*arcLen2ParameterLinear;
 				}
 
 				inline vectorSIMDf posHelper(const float& parameter) const
@@ -720,14 +713,14 @@ class CQuadraticSpline : public ISpline
 				}*/
 
 
-				float length,parameterLength,lenASq,lowerIntegralValue;
-				union
-				{
-					float lenC;
-					float lenC_reciprocal;
-				};
-				float arcCalcConstants[6];
+				float arcLen2ParameterLinear;
+				//
+				float integrationConstants[7];
+				//
 				vectorSIMDf weights[3];
+
+				//
+				float length, parameterLength;
 
             private:
                 Segment() {}

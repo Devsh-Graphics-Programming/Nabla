@@ -42,7 +42,7 @@ struct S3DLineVertex
 class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmovable
 {
     public:
-        static CDraw3DLine* create(video::IVideoDriver* _driver);
+        static core::smart_refctd_ptr<CDraw3DLine> create(video::IVideoDriver* _driver);
 
         void draw(
             float fromX, float fromY, float fromZ,
@@ -56,7 +56,7 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
         CDraw3DLine(video::IVideoDriver* _driver);
 		virtual ~CDraw3DLine() {}
 
-        video::IVideoDriver* m_driver;
+        core::smart_refctd_ptr<video::IVideoDriver> m_driver;
         video::SGPUMaterial m_material;
         core::smart_refctd_ptr<video::IGPUMeshBuffer> m_meshBuffer;
         const uint32_t alignments[1] = { sizeof(S3DLineVertex) };
