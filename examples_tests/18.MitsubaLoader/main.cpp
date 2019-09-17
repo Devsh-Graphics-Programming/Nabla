@@ -136,8 +136,10 @@ int main()
 #endif
 	asset::SAssetBundle meshes = am->getAsset(filePath, {});
 
+	driver->getGPUObjectsFromAssets(meshes.getContents().first, meshes.getContents().second);
 	for (int i = 0; i < meshes.getSize(); i++)
 	{
+		meshes.getContents().first
 		asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>((meshes.getContents().first + i)->get());
 		video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1)[0];
 		smgr->addMeshSceneNode(gpumesh)->setMaterialType(newMaterialType);
