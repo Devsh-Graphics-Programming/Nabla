@@ -131,7 +131,7 @@ public:
         inline virtual SAssetBundle handleLoadFail(bool& outAddToCache, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
         {
             outAddToCache = false; // if you want to return a “default error asset”
-            return {};
+            return SAssetBundle();
         }
 
         //! After a successful load of an asset or sub-asset

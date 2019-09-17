@@ -25,7 +25,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createCube(asset::IAssetM
 
 	auto mesh = _assetManager->getGeometryCreator()->createCubeMesh(core::vector3df(1.0f, 1.0f, 1.0f));
 
-	if (mesh == nullptr)
+	if (!mesh)
 		return nullptr;
 
 	if (flipNormalsFlag)
@@ -71,7 +71,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createSphere(asset::IAsse
 
 	auto mesh = _assetManager->getGeometryCreator()->createSphereMesh(radius, 32, 32);
 
-	if (mesh == nullptr)
+	if (!mesh)
 		return nullptr;
 
 	if (flipNormalsFlag)
@@ -192,7 +192,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createRectangle(asset::IA
 
 	auto mesh = _assetManager->getGeometryCreator()->createRectangleMesh(core::vector2df_SIMD(1.0f, 1.0f));
 
-	if (mesh == nullptr)
+	if (!mesh)
 		return nullptr;
 
 	if (flipNormalsFlag)
@@ -225,7 +225,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createDisk(asset::IAssetM
 
 	auto mesh = _assetManager->getGeometryCreator()->createDiskMesh(1.0f, 64);
 
-	if (mesh == nullptr)
+	if (!mesh)
 		return nullptr;
 
 	if (flipNormalsFlag)
@@ -315,7 +315,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createOBJ(asset::IAssetMa
 
 	if (faceNormals)
 	{
-		auto newMesh = new asset::CCPUMesh();
+		auto newMesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
 
 		for (int i = 0; i < mesh->getMeshBufferCount(); i++)
 		{

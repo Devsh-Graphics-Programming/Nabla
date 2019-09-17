@@ -243,8 +243,8 @@ IMeshSceneNode* CSceneManager::addCubeSceneNode(float size, IDummyTransformation
 		parent = this;
 
 	auto* geomCreator = Device->getAssetManager()->getGeometryCreator();
-	asset::ICPUMesh* cpumesh = geomCreator->createCubeMesh(core::vector3df(size));
-	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1);
+	auto cpumesh = geomCreator->createCubeMesh(core::vector3df(size));
+	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get()) + 1);
 	assert(res->size());
 
 	// its okay to std::move because this was the only copy of the refctd array 
@@ -261,8 +261,8 @@ IMeshSceneNode* CSceneManager::addSphereSceneNode(float radius, int32_t polyCoun
 		parent = this;
 
 	auto* geomCreator = Device->getAssetManager()->getGeometryCreator();
-	asset::ICPUMesh* cpumesh = geomCreator->createSphereMesh(radius, polyCount, polyCount);
-	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1);
+	auto cpumesh = geomCreator->createSphereMesh(radius, polyCount, polyCount);
+	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get()) + 1);
 	assert(res->size());
 
 	// its okay to std::move because ths was the only copy of the rectd array
