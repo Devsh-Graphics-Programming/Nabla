@@ -120,22 +120,21 @@ int main()
 		return 1; // could not create selected driver.
 
 	io::IFileSystem* fs = device->getFileSystem();
-	asset::IAssetManager& am = device->getAssetManager();
+	asset::IAssetManager* am = device->getAssetManager();
 
-	am.addAssetLoader(new irr::ext::MitsubaLoader::CMitsubaLoader(device));
+	am.addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(device));
 
 #define MITSUBA_LOADER_TESTS
 
 #ifdef MITSUBA_LOADER_TESTS
-	std::string filePath = "C:/IrrlichtBAW/IrrlichtBAW/ext/MitsubaLoader/testScene.xml";
-	//std::string filePath = "C:\\IrrlichtBAW\\IrrlichtBAW\\examples_tests\\media\\mitsuba\\staircase2\\scene.xml";
+	std::string filePath = "../../media/mitsuba/staircase2/scene.xml";
 #else
-	pfd::message("Choose file to load", "Choose mitsuba XML file to load. \nIf you cancel or choosen file fails to load bathroom will be loaded.", pfd::choice::ok);
+	pfd::message("Choose file to load", "Choose mitsuba XML file to load or ZIP containing an XML. \nIf you cancel or choosen file fails to load bathroom will be loaded.", pfd::choice::ok);
 	pfd::open_file file("Choose XML file", "", { "XML files (.xml)", "*.xml" });
 	std::string filePath = file.result().empty() ? "C:\\IrrlichtBAW\\/IrrlichtBAW\\examples_tests\\media\\mitsuba\\bathroom\\sce===
 		netest.xml" : file.result()[0];
 #endif
-	asset::SAssetBundle meshes = am.getAsset(filePath, {});
+	asset::SAssetBundle meshes = am->getAsset(filePath, {});
 
 	for (int i = 0; i < meshes.getSize(); i++)
 	{

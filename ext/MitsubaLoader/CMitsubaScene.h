@@ -21,7 +21,7 @@ public:
 
 	inline asset::SAssetBundle releaseMeshes()
 	{
-		return asset::SAssetBundle();// (core::make_refctd_dynamic_array<const asset::SAssetBundle::contents_container_t>(std::move(meshes)));
+		return asset::SAssetBundle(std::move(meshes));
 	}
 
 private:
