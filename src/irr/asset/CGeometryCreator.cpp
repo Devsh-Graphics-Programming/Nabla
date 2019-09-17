@@ -13,7 +13,7 @@ namespace irr
 namespace asset
 {
 
-asset::ICPUMesh* CGeometryCreator::createCubeMesh(const core::vector3df& size) const
+core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCubeMesh(const core::vector3df& size) const
 {
 	auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
 	auto buffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
@@ -142,7 +142,7 @@ asset::ICPUMesh* CGeometryCreator::createCubeMesh(const core::vector3df& size) c
 
 	buffer->setMeshDataAndFormat(std::move(desc));
 
-	auto mesh = new asset::CCPUMesh();
+	auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
 	mesh->addMeshBuffer(std::move(buffer));
 
 	mesh->recalculateBoundingBox();
@@ -154,7 +154,7 @@ asset::ICPUMesh* CGeometryCreator::createCubeMesh(const core::vector3df& size) c
 	a cylinder, a cone and a cross
 	point up on (0,1.f, 0.f )
 */
-asset::ICPUMesh* CGeometryCreator::createArrowMesh(const uint32_t tesselationCylinder,
+core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createArrowMesh(const uint32_t tesselationCylinder,
 						const uint32_t tesselationCone,
 						const float height,
 						const float cylinderHeight,
@@ -165,8 +165,8 @@ asset::ICPUMesh* CGeometryCreator::createArrowMesh(const uint32_t tesselationCyl
 {
     assert(height > cylinderHeight);
 
-    auto cylinder = core::smart_refctd_ptr<asset::ICPUMesh>(createCylinderMesh(width0, cylinderHeight, tesselationCylinder, vtxColor0, false));
-    asset::CCPUMesh* cone = static_cast<asset::CCPUMesh*>(createConeMesh(width1, height-cylinderHeight, tesselationCone, vtxColor1, vtxColor1));
+    auto cylinder = createCylinderMesh(width0, cylinderHeight, tesselationCylinder, vtxColor0, false);
+    auto cone = core::move_and_static_cast<asset::CCPUMesh>(createConeMesh(width1, height-cylinderHeight, tesselationCone, vtxColor1, vtxColor1));
 
     if (!cylinder || !cone)
         return nullptr;
@@ -187,7 +187,7 @@ asset::ICPUMesh* CGeometryCreator::createArrowMesh(const uint32_t tesselationCyl
 
 
 /* A sphere with proper normals and texture coords */
-asset::ICPUMesh* CGeometryCreator::createSphereMesh(float radius, uint32_t polyCountX, uint32_t polyCountY) const
+core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createSphereMesh(float radius, uint32_t polyCountX, uint32_t polyCountY) const
 {
 	// thanks to Alfaz93 who made his code available for Irrlicht on which
 	// this one is based!
@@ -201,7 +201,7 @@ asset::ICPUMesh* CGeometryCreator::createSphereMesh(float radius, uint32_t polyC
 
 	const uint32_t polyCountXPitch = polyCountX+1; // get to same vertex on next level
 
-	asset::CCPUMesh* mesh = new asset::CCPUMesh;
+	auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
 	{
 		auto buffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
 		{
@@ -391,7 +391,7 @@ asset::ICPUMesh* CGeometryCreator::createSphereMesh(float radius, uint32_t polyC
 
 
 /* A cylinder with proper normals and texture coords */
-asset::ICPUMesh* CGeometryCreator::createCylinderMesh(float radius, float length,
+core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCylinderMesh(float radius, float length,
 			uint32_t tesselation, const video::SColor& color,
 			bool closeTop, float oblique) const
 {
@@ -470,7 +470,7 @@ asset::ICPUMesh* CGeometryCreator::createCylinderMesh(float radius, float length
         indices[j++] = (i+1u == vtxCnt/2u ? 1u : i+1u) + topCenterIx;
     }
 
-    asset::CCPUMesh* mesh = new asset::CCPUMesh();
+    auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
     auto meshbuf = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
 	{
 		auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
@@ -495,7 +495,7 @@ asset::ICPUMesh* CGeometryCreator::createCylinderMesh(float radius, float length
 }
 
 /* A cone with proper normals and texture coords */
-asset::ICPUMesh* CGeometryCreator::createConeMesh(float radius, float length, uint32_t tesselation,
+core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createConeMesh(float radius, float length, uint32_t tesselation,
 					const video::SColor& colorTop,
 					const video::SColor& colorBottom,
 					float oblique) const
@@ -541,7 +541,7 @@ asset::ICPUMesh* CGeometryCreator::createConeMesh(float radius, float length, ui
         indices[j++] = i+1u == vtxCnt ? 2u : i+1u;
     }
 
-    asset::CCPUMesh* mesh = new asset::CCPUMesh();
+    auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
     auto meshbuf = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
     auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
     desc->setVertexAttrBuffer(core::smart_refctd_ptr(vtxBuf), asset::EVAI_ATTR0, asset::EF_R32G32B32_SFLOAT, sizeof(ConeVertex), offsetof(ConeVertex, pos));
@@ -560,7 +560,7 @@ asset::ICPUMesh* CGeometryCreator::createConeMesh(float radius, float length, ui
 }
 
 
-asset::ICPUMesh* CGeometryCreator::createRectangleMesh(const core::vector2df_SIMD& _size) const
+core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createRectangleMesh(const core::vector2df_SIMD& _size) const
 {
 	// Create indices
 	uint16_t u[6];
@@ -609,14 +609,14 @@ asset::ICPUMesh* CGeometryCreator::createRectangleMesh(const core::vector2df_SIM
 
 	buffer->setMeshDataAndFormat(std::move(desc));
 
-	auto mesh = new asset::CCPUMesh();
+	auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
 	mesh->addMeshBuffer(std::move(buffer));
 
 	mesh->recalculateBoundingBox();
 	return mesh;
 }
 
-asset::ICPUMesh* CGeometryCreator::createDiskMesh(float radius, uint32_t tesselation) const
+core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createDiskMesh(float radius, uint32_t tesselation) const
 {
 	auto buffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
 	buffer->setPrimitiveType(asset::E_PRIMITIVE_TYPE::EPT_TRIANGLE_FAN); // change to indexed later
@@ -665,7 +665,7 @@ asset::ICPUMesh* CGeometryCreator::createDiskMesh(float radius, uint32_t tessela
 	desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertices), asset::EVAI_ATTR3, asset::EF_R32G32B32_SFLOAT, vertexSize, offsetof(DiskVertex, normal));
 	buffer->setMeshDataAndFormat(std::move(desc));
 
-	auto mesh = new asset::CCPUMesh();
+	auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
 	mesh->addMeshBuffer(std::move(buffer));
 
 	mesh->recalculateBoundingBox();
