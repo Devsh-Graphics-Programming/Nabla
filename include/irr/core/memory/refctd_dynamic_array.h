@@ -14,7 +14,6 @@ template<typename T, class allocator = allocator<T>>
 class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dynamic_array<T,allocator,refctd_dynamic_array<T,allocator> >
 {
 		using base_t = dynamic_array<T, allocator, refctd_dynamic_array<T, allocator> >;
-		friend class base_t;
 		static_assert(sizeof(base_t) == sizeof(impl::dynamic_array_base<T, allocator>), "memory has been added to dynamic_array");
 		static_assert(sizeof(base_t) == sizeof(dynamic_array<T, allocator>),"non-CRTP and CRTP base class definitions differ in size");
 

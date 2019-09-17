@@ -97,58 +97,60 @@ public:
 
 class SAssetBundle
 {
-    using contents_container_t = core::refctd_dynamic_array<core::smart_refctd_ptr<IAsset> >;
-public:
-    SAssetBundle(std::initializer_list<contents_container_t::value_type> _contents = {}) : m_contents(contents_container_t::create_dynamic_array(_contents),core::dont_grab)
-    {
-        auto allSameTypeAndNotNull = [&_contents] {
-            if (_contents.size()==0ull)
-                return true;
-            if (!*_contents.begin())
-                return false;
-            IAsset::E_TYPE t = (*_contents.begin())->getAssetType();
-            for (const auto& ast : _contents)
-                if (!ast || ast->getAssetType() != t)
-                    return false;
-            return true;
-        };
-        assert(allSameTypeAndNotNull());
-    }
+	public:
+		using contents_container_t = core::refctd_dynamic_array<core::smart_refctd_ptr<IAsset> >;
 
-    inline IAsset::E_TYPE getAssetType() const { return m_contents->front()->getAssetType(); }
+		SAssetBundle(core::smart_refctd_ptr<const contents_container_t>&& _contents) : m_contents(std::move(_contents))
+		{
+			auto allSameTypeAndNotNull = [&] {
+				if (m_contents->size()==0ull)
+					return true;
+				if (!*m_contents->begin())
+					return false;
+				IAsset::E_TYPE t = (*m_contents->begin())->getAssetType();
+				for (auto it = m_contents->begin(); it!=m_contents->end(); it++)
+					if (!*it || (*it)->getAssetType() != t)
+						return false;
+				return true;
+			};
+			assert(allSameTypeAndNotNull());
+		}
+		SAssetBundle(std::initializer_list<contents_container_t::value_type> _contents = {}) : SAssetBundle(core::smart_refctd_ptr<const contents_container_t>(contents_container_t::create_dynamic_array(_contents), core::dont_grab)) {}
 
-    inline std::pair<const core::smart_refctd_ptr<IAsset>*, const core::smart_refctd_ptr<IAsset>*> getContents() const
-    {
-        return {m_contents->begin(), m_contents->end()};
-    }
+		inline IAsset::E_TYPE getAssetType() const { return m_contents->front()->getAssetType(); }
 
-    //! Whether this asset bundle is in a cache and should be removed from cache to destroy
-    inline bool isInAResourceCache() const { return m_isCached; }
-    //! Only valid if isInAResourceCache() returns true
-    std::string getCacheKey() const { return m_cacheKey; }
+		inline std::pair<const core::smart_refctd_ptr<IAsset>*, const core::smart_refctd_ptr<IAsset>*> getContents() const
+		{
+			return {m_contents->begin(), m_contents->end()};
+		}
 
-    size_t getSize() const { return m_contents->size(); }
-    bool isEmpty() const { return getSize()==0ull; }
+		//! Whether this asset bundle is in a cache and should be removed from cache to destroy
+		inline bool isInAResourceCache() const { return m_isCached; }
+		//! Only valid if isInAResourceCache() returns true
+		std::string getCacheKey() const { return m_cacheKey; }
 
-    bool operator==(const SAssetBundle& _other) const
-    {
-        return _other.m_contents == m_contents;
-    }
-    bool operator!=(const SAssetBundle& _other) const
-    {
-        return !((*this) != _other);
-    }
+		size_t getSize() const { return m_contents->size(); }
+		bool isEmpty() const { return getSize()==0ull; }
 
-private:
-    friend class IAssetManager;
+		bool operator==(const SAssetBundle& _other) const
+		{
+			return _other.m_contents == m_contents;
+		}
+		bool operator!=(const SAssetBundle& _other) const
+		{
+			return !((*this) != _other);
+		}
 
-    inline void setNewCacheKey(const std::string& newKey) { m_cacheKey = newKey; }
-    inline void setNewCacheKey(std::string&& newKey) { m_cacheKey = std::move(newKey); }
-    inline void setCached(bool val) { m_isCached = val; }
+	private:
+		friend class IAssetManager;
 
-    std::string m_cacheKey;
-    bool m_isCached = false;
-    core::smart_refctd_ptr<const contents_container_t> m_contents;
+		inline void setNewCacheKey(const std::string& newKey) { m_cacheKey = newKey; }
+		inline void setNewCacheKey(std::string&& newKey) { m_cacheKey = std::move(newKey); }
+		inline void setCached(bool val) { m_isCached = val; }
+
+		std::string m_cacheKey;
+		bool m_isCached = false;
+		core::smart_refctd_ptr<const contents_container_t> m_contents;
 };
 
 }
