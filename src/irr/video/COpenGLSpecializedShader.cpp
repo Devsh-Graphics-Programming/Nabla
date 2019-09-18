@@ -89,12 +89,13 @@ static GLenum ESS2GLenum(asset::E_SHADER_STAGE _stage)
 
 }//namesapce impl
 
-COpenGLSpecializedShader::COpenGLSpecializedShader(const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection) :
+COpenGLSpecializedShader::COpenGLSpecializedShader(size_t _ctxCount, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection) :
     m_stage(impl::ESS2GLenum(_specInfo->shaderStage)),
     m_spirv(core::smart_refctd_ptr<const asset::ICPUBuffer>(_spirv)),
     m_specInfo(core::smart_refctd_ptr<const asset::ISpecializationInfo>(_specInfo)),
     m_introspectionData(core::smart_refctd_ptr<asset::CIntrospectionData>(_introspection))
 {
+    m_GLnames.reserve(_ctxCount);
 }
 
 GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion)

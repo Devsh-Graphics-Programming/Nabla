@@ -644,7 +644,6 @@ namespace video
         {
         //public:
             _IRR_STATIC_INLINE_CONSTEXPR size_t maxVAOCacheSize = 0x1u<<14; //make this cache configurable
-            _IRR_STATIC_INLINE_CONSTEXPR size_t maxShaderProgramCacheSize = 0x1u<<14; //not too large?
 
             SAuxContext() : threadId(std::thread::id()), ctx(NULL), XFormFeedbackRunning(false), CurrentXFormFeedback(NULL),
                             CurrentFBO(0), CurrentRendertargetSize(0,0)
@@ -848,38 +847,6 @@ namespace video
             typedef std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> HashVAOPair;
             HashVAOPair                 CurrentVAO;
             core::vector<HashVAOPair>    VAOMap;
-            // TODO this has to be peridically searched for shaders with refcount=1 and cleared
-            core::CObjectCache<core::smart_refctd_ptr<COpenGLSpecializedShader>, GLuint> ShaderProgramCache;
-
-            GLuint getShaderProgramGLname(COpenGLSpecializedShader* _shader)
-            {
-                auto rng = ShaderProgramCache.findRange(core::smart_refctd_ptr<COpenGLSpecializedShader>(_shader));
-                if (rng.first != rng.second)
-                    return rng.first->second;
-
-                //TODO
-                //what if 2 threads goes into this function at the same time with the same _shader?
-                //could make RW lock inside COpenGLSpecializedShader, in this case "reader" would be COpenGLSpecializedShader::getProgramBinary() and "writer" - COpenGLSpecializedShader::compile()
-                if (_shader->getProgramBinary().binary) //already compiled and binary is available
-                {
-                    const COpenGLSpecializedShader::SProgramBinary& bin = _shader->getProgramBinary();
-                    const GLuint GLname = COpenGLExtensionHandler::extGlCreateProgram();
-                    COpenGLExtensionHandler::extGlProgramBinary(GLname, bin.format, bin.binary->data(), bin.binary->size());
-
-                    ShaderProgramCache.insert(
-                        core::smart_refctd_ptr<COpenGLSpecializedShader>(_shader),
-                        GLname
-                    );
-                    return GLname;
-                }
-
-                const GLuint GLname = _shader->compile(COpenGLExtensionHandler::ShaderLanguageVersion);
-                ShaderProgramCache.insert(
-                    core::smart_refctd_ptr<COpenGLSpecializedShader>(_shader),
-                    GLname
-                );
-                return GLname;
-            }
 
             inline size_t getVAOCacheSize() const
             {
