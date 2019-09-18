@@ -682,6 +682,7 @@ namespace video
 
         //private:
             std::thread::id threadId;
+            uint8_t ID; //index in array of contexts, just to be easier in use
             #ifdef _IRR_WINDOWS_API_
                 HGLRC ctx;
             #endif

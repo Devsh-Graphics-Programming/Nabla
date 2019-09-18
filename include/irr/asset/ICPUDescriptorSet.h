@@ -5,14 +5,15 @@
 #include "irr/asset/IAsset.h"
 #include "irr/asset/ICPUTexture.h"
 #include "irr/asset/ICPUBuffer.h"
+#include "irr/asset/ICPUBufferView.h"
 
 namespace irr { namespace asset
 {
 
-class ICPUDescriptorSet : public IDescriptorSet<ICPUBuffer, ICPUTexture>, public IAsset
+class ICPUDescriptorSet : public IDescriptorSet<ICPUBuffer, ICPUTexture, ICPUBufferView>, public IAsset
 {
 public:
-    using IDescriptorSet<ICPUBuffer, ICPUTexture>::IDescriptorSet;
+    using IDescriptorSet<ICPUBuffer, ICPUTexture, ICPUBufferView>::IDescriptorSet;
 
 protected:
     virtual ~ICPUDescriptorSet() = default;

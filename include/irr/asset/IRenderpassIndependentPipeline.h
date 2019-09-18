@@ -297,9 +297,17 @@ enum E_VERTEX_ATTRIBUTE_ID
 template<typename SpecShaderType, typename LayoutType>
 class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 {
+protected:
     _IRR_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 5u;
 
-protected:
+    enum {
+        VERTEX_SHADER_IX = 0,
+        TESS_CTRL_SHADER_IX = 1,
+        TESS_EVAL_SHADER_IX = 2,
+        GEOMETRY_SHADER_IX = 3,
+        FRAGMENT_SHADER_IX = 4
+    };
+
     IRenderpassIndependentPipeline(
         core::smart_refctd_ptr<LayoutType> _layout,
         core::smart_refctd_ptr<SpecShaderType> _vs,

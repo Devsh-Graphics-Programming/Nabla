@@ -7,7 +7,6 @@
 #include "irr/video/COpenGLShader.h"
 #include "irr/asset/CShaderIntrospector.h"
 #include "irr/core/memory/refctd_dynamic_array.h"
-#include <mutex>
 #include <algorithm>
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
@@ -25,25 +24,16 @@ public:
         core::smart_refctd_dynamic_array<uint8_t> binary;
     };
 
-    COpenGLSpecializedShader(size_t _ctxCount, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection);
+    COpenGLSpecializedShader(size_t _ctxCount, uint32_t _ctxID, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection);
 
-    inline GLuint getGLnameForCtx(const void* _ctx)
+    inline GLuint getGLnameForCtx(uint32_t _ctxID)
     {
-        std::unique_lock<std::mutex> lock(m_getGLnameMutex);
+        if ((*m_GLnames)[_ctxID])
+            return (*m_GLnames)[_ctxID];
 
-        auto found = std::find_if(m_GLnames.begin(), m_GLnames.end(), [&_ctx] (const CtxGLnamePair& n) { return n.first==_ctx; });
-        if (found != m_GLnames.end())
-            return found->second;
-
-        if (m_binary.binary) {
-            const GLuint GLname = COpenGLExtensionHandler::extGlCreateProgram();
-            COpenGLExtensionHandler::extGlProgramBinary(GLname, m_binary.format, m_binary.binary->data(), m_binary.binary->size());
-            m_GLnames.emplace_back(_ctx, GLname);
-            return GLname;
-        }
-
-        const GLuint GLname = compile(COpenGLExtensionHandler::ShaderLanguageVersion);
-        m_GLnames.emplace_back(_ctx, GLname);
+        const GLuint GLname = COpenGLExtensionHandler::extGlCreateProgram();
+        COpenGLExtensionHandler::extGlProgramBinary(GLname, m_binary.format, m_binary.binary->data(), m_binary.binary->size());
+        (*m_GLnames)[_ctxID] = GLname;
         return GLname;
     }
 
@@ -55,8 +45,8 @@ protected:
     ~COpenGLSpecializedShader()
     {
         //shader programs can be shared so all names can be freed by any thread
-        for (auto& n : m_GLnames)
-            COpenGLExtensionHandler::extGlDeleteProgram(n.second);
+        for (auto& n : *m_GLnames)
+            COpenGLExtensionHandler::extGlDeleteProgram(n);
     }
 
 private:
@@ -65,8 +55,7 @@ private:
     void buildUniformsList(GLuint _GLname);
 
 private:
-    using CtxGLnamePair = std::pair<const void*, GLuint>;
-    core::vector<CtxGLnamePair> m_GLnames;
+    core::smart_refctd_dynamic_array<GLuint> m_GLnames;
     GLenum m_stage;
     //! Held until compilation of shader
     core::smart_refctd_ptr<const asset::ICPUBuffer> m_spirv;
@@ -75,8 +64,6 @@ private:
     //used for setting uniforms ("push constants")
     core::smart_refctd_ptr<asset::CIntrospectionData> m_introspectionData = nullptr;
     SProgramBinary m_binary;
-
-    std::mutex m_getGLnameMutex;
 
     using SMember = asset::impl::SShaderMemoryBlock::SMember;
     struct SUniform {

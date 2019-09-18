@@ -4,14 +4,15 @@
 #include "irr/asset/IDescriptorSet.h"
 #include "IGPUBuffer.h"
 #include "ITexture.h"
+#include "irr/video/IGPUBufferView.h"
 
 namespace irr { namespace video
 {
 
-class IGPUDescriptorSet : public asset::IDescriptorSet<IGPUBuffer, ITexture>, public core::IReferenceCounted
+class IGPUDescriptorSet : public asset::IDescriptorSet<IGPUBuffer, ITexture, IGPUBufferView>, public core::IReferenceCounted
 {
 public:
-    using asset::IDescriptorSet<IGPUBuffer, ITexture>::IDescriptorSet;
+    using asset::IDescriptorSet<IGPUBuffer, ITexture, IGPUBufferView>::IDescriptorSet;
 
 protected:
     virtual ~IGPUDescriptorSet() = default;

@@ -36,7 +36,7 @@ public:
     {
         core::smart_refctd_ptr<BufferType> buffer;
         size_t offset;
-        size_t range;
+        size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
     };
     struct SDescriptorImageInfo
     {

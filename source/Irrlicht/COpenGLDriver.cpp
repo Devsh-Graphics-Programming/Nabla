@@ -419,11 +419,13 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
     {
         AuxContexts[0].threadId = std::this_thread::get_id();
         AuxContexts[0].ctx = hrc;
+        AuxContexts[0].ID = 0u;
     }
 	for (size_t i=1; i<=Params.AuxGLContexts; i++)
     {
         AuxContexts[i].threadId = std::thread::id(); //invalid ID
         AuxContexts[i].ctx = wglCreateContextAttribs_ARB(HDc, hrc, iAttribs);
+        AuxContexts[i].ID = i;
     }
 
 	// set exposed data
@@ -509,7 +511,9 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
         os::Printer::log("Attempted to create OpenGL GPU specialized shader from SPIR-V without debug info - unable to set push constants. Creation failed.", ELL_ERROR);
         return nullptr;//release build: maybe let it return the shader
     }
-    COpenGLSpecializedShader* gpuSpecialized = new COpenGLSpecializedShader(this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, introspection);
+
+    auto ctx = getThreadContext_helper(false);
+    COpenGLSpecializedShader* gpuSpecialized = new COpenGLSpecializedShader(Params.AuxGLContexts+1u, ctx->ID, this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, introspection);
     spvCPUShader->drop();
     return core::smart_refctd_ptr<COpenGLSpecializedShader>(gpuSpecialized, core::dont_grab);
 }
