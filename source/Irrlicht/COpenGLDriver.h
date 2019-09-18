@@ -619,8 +619,6 @@ namespace video
 		//! Returns the graphics card vendor name.
 		virtual std::string getVendorInfo() {return VendorName;}
 
-        GLuint getPipeline(const std::array<core::smart_refctd_ptr<IGPUSpecializedShader>, 5u>& _shaders);
-
 		//! sets the needed renderstates
 		void setRenderStates3DMode();
 

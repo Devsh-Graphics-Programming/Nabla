@@ -2390,50 +2390,6 @@ void COpenGLDriver::setMaterial(const SGPUMaterial& material)
 	}
 }
 
-GLuint COpenGLDriver::getPipeline(const std::array< core::smart_refctd_ptr<IGPUSpecializedShader>, 5u>& _shaders)
-{
-    auto found = Pipelines.find({ _shaders, std::this_thread::get_id() });
-    if (found != Pipelines.end())
-        return found->second;
-
-    auto getGLname = [](IGPUSpecializedShader* _shdr, GLenum _expectedStage) { 
-        auto glshdr = static_cast<COpenGLSpecializedShader*>(_shdr);
-        if (!glshdr)
-            return 0u;
-        if (glshdr->getStage() != _expectedStage)
-            return 0u;
-        return glshdr->getOpenGLName(); 
-    };
-
-    GLuint vs = getGLname(_shaders[0].get(), GL_VERTEX_SHADER);
-    GLuint tess_ctrl = getGLname(_shaders[1].get(), GL_TESS_CONTROL_SHADER);
-    GLuint tess_eval = getGLname(_shaders[2].get(), GL_TESS_EVALUATION_SHADER);
-    GLuint gs = getGLname(_shaders[3].get(), GL_GEOMETRY_SHADER);
-    GLuint fs = getGLname(_shaders[4].get(), GL_FRAGMENT_SHADER);
-
-    if (vs==0u)
-        return 0u;
-
-    GLuint pipeline{};
-    extGlCreateProgramPipelines(1u, &pipeline);
-
-    auto addProgram = [&pipeline](GLuint program, GLbitfield stage) {
-        if (!program)
-            return;
-        extGlUseProgramStages(pipeline, stage, program);
-    };
-
-    addProgram(vs, GL_VERTEX_SHADER_BIT);
-    addProgram(tess_ctrl, GL_TESS_CONTROL_SHADER_BIT);
-    addProgram(tess_eval, GL_TESS_EVALUATION_SHADER_BIT);
-    addProgram(gs, GL_GEOMETRY_SHADER_BIT);
-    addProgram(fs, GL_FRAGMENT_SHADER_BIT);
-
-    Pipelines[{_shaders, std::this_thread::get_id()}] = pipeline;
-
-    return pipeline;
-}
-
 //! sets the needed renderstates
 void COpenGLDriver::setRenderStates3DMode()
 {
