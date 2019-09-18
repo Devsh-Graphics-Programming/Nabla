@@ -96,14 +96,6 @@ int main()
 
 	scene::ISceneManager* smgr = device->getSceneManager();
 	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
-	scene::ICameraSceneNode* camera =
-		smgr->addCameraSceneNodeFPS(0, 100.0f, 0.01f);
-	camera->setPosition(core::vector3df(0, 0, 3));
-	camera->setTarget(core::vector3df(0, 0, 0));
-	camera->setNearValue(0.01f);
-	camera->setFarValue(10000.0f);
-	smgr->setActiveCamera(camera);
-	device->getCursorControl()->setVisible(false);
 	MyEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
@@ -120,31 +112,76 @@ int main()
 		return 1; // could not create selected driver.
 
 	io::IFileSystem* fs = device->getFileSystem();
-	asset::IAssetManager& am = device->getAssetManager();
+	asset::IAssetManager* am = device->getAssetManager();
 
-	am.addAssetLoader(new irr::ext::MitsubaLoader::CMitsubaLoader(device));
+	am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(device));
 
+	std::string filePath = "../../media/mitsuba/staircase2.zip";
 #define MITSUBA_LOADER_TESTS
-
-#ifdef MITSUBA_LOADER_TESTS
-	std::string filePath = "C:/IrrlichtBAW/IrrlichtBAW/ext/MitsubaLoader/testScene.xml";
-	//std::string filePath = "C:\\IrrlichtBAW\\IrrlichtBAW\\examples_tests\\media\\mitsuba\\staircase2\\scene.xml";
-#else
-	pfd::message("Choose file to load", "Choose mitsuba XML file to load. \nIf you cancel or choosen file fails to load bathroom will be loaded.", pfd::choice::ok);
-	pfd::open_file file("Choose XML file", "", { "XML files (.xml)", "*.xml" });
-	std::string filePath = file.result().empty() ? "C:\\IrrlichtBAW\\/IrrlichtBAW\\examples_tests\\media\\mitsuba\\bathroom\\sce===
-		netest.xml" : file.result()[0];
+#ifndef MITSUBA_LOADER_TESTS
+	pfd::message("Choose file to load", "Choose mitsuba XML file to load or ZIP containing an XML. \nIf you cancel or choosen file fails to load bathroom will be loaded.", pfd::choice::ok);
+	pfd::open_file file("Choose XML or ZIP file", "../../media/mitsuba", { "XML files (.xml)", "*.xml", "ZIP files (.zip)", "*.zip" });
+	if (!file.result().empty())
+		filePath = file.result()[0];
 #endif
-	asset::SAssetBundle meshes = am.getAsset(filePath, {});
-
-	for (int i = 0; i < meshes.getSize(); i++)
+	if (core::hasFileExtension(io::path(filePath.c_str()), "zip", "ZIP"))
 	{
-		asset::ICPUMesh* cpumesh = static_cast<asset::ICPUMesh*>((meshes.getContents().first + i)->get());
-		video::IGPUMesh* gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1)[0];
-		smgr->addMeshSceneNode(gpumesh)->setMaterialType(newMaterialType);
-		gpumesh->drop();
+		io::IFileArchive* arch = nullptr;
+		device->getFileSystem()->addFileArchive(filePath.c_str(),false,false,io::EFAT_ZIP,"",&arch);
+		if (!arch)
+			device->getFileSystem()->addFileArchive("../../media/mitsuba/staircase2.zip", false, false, io::EFAT_ZIP, "", &arch);
+		if (!arch)
+			return 2;
+
+		auto flist = arch->getFileList();
+		if (!flist)
+			return 3;
+		auto files = flist->getFiles();
+
+		for (auto it=files.begin(); it!=files.end(); )
+		{
+			if (core::hasFileExtension(it->FullName, "xml", "XML"))
+				it++;
+			else
+				it = files.erase(it);
+		}
+		if (files.size() == 0u)
+			return 4;
+
+		std::cout << "Choose File (0-" << files.size() - 1ull << "):" << std::endl;
+		for (auto i = 0u; i < files.size(); i++)
+			std::cout << i << ": " << files[i].FullName.c_str() << std::endl;
+		uint32_t chosen = 0;
+#ifndef MITSUBA_LOADER_TESTS
+		std::cin >> chosen;
+#endif
+		if (chosen >= files.size())
+			chosen = 0u;
+
+		filePath = files[chosen].FullName.c_str();
 	}
 
+	asset::SAssetBundle meshes = am->getAsset(filePath, {});
+
+	{
+		auto gpumeshes = driver->getGPUObjectsFromAssets<asset::ICPUMesh>(meshes.getContents().first, meshes.getContents().second);
+		for (int i = 0; i < gpumeshes->size(); i++)
+		{
+			const auto& gpumesh = gpumeshes->operator[](i);
+			for (auto i=0u; i<gpumesh->getMeshBufferCount(); i++)
+				gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = newMaterialType;
+			smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh));
+		}
+	}
+
+	scene::ICameraSceneNode* camera =
+		smgr->addCameraSceneNodeFPS(0, 100.0f, 0.01f);
+	camera->setPosition(core::vector3df(0, 0, 3));
+	camera->setTarget(core::vector3df(0, 0, 0));
+	camera->setNearValue(0.01f);
+	camera->setFarValue(10000.0f);
+	smgr->setActiveCamera(camera);
+	device->getCursorControl()->setVisible(false);
 	while (!quit && device->run())
 	{
 		driver->beginScene(true, true, video::SColor(255, 0, 0, 255));

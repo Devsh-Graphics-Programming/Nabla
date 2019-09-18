@@ -6,7 +6,7 @@
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 
 #include "../../ext/MitsubaLoader/Shape.h"
-#include "../../include/matrix4SIMD.h"
+#include "matrix4SIMD.h"
 #include "../../ext/MitsubaLoader/CElementSampler.h"
 
 namespace irr { namespace ext { namespace MitsubaLoader {

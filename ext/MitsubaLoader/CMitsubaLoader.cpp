@@ -1,5 +1,5 @@
 #include "../../ext/MitsubaLoader/CMitsubaLoader.h"
-#include "../3rdparty/libexpat/expat/lib/expat.h"
+#include "expat/lib/expat.h"
 #include "irr/asset/IAssetManager.h"
 
 #include "../../ext/MitsubaLoader/IElement.h"
