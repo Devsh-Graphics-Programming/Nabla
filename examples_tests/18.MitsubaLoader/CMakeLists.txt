@@ -4,4 +4,14 @@ if(NOT RES)
 	message(FATAL_ERROR "common.cmake not found. Should be in {repo_root}/cmake directory")
 endif()
 
-irr_create_executable_project("" "" "${IRR_EXT_MITSUBA_LOADER_INCLUDE_DIRS}" "${IRR_EXT_MITSUBA_LOADER_LIB}")
+set(MITSUBA_EXAMPLE_LIBS
+	${IRR_EXT_MITSUBA_LOADER_LIB}
+	${MITSUBA_LOADER_DEPENDENT_LIBS}
+)
+
+irr_create_executable_project(
+	""
+	""
+	"${IRR_EXT_MITSUBA_LOADER_INCLUDE_DIRS}"
+	"${MITSUBA_EXAMPLE_LIBS}"
+)
