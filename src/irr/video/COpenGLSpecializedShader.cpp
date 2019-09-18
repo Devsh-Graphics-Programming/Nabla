@@ -43,9 +43,12 @@ static void reorderBindings(spirv_cross::CompilerGLSL& _comp)
         std::sort(res.begin(), res.end(), cmp);
     };
     auto reorder_ = [&_comp](spirv_cross::SmallVector<spirv_cross::Resource>& res) {
+        uint32_t availableBinding = 0u;
         for (uint32_t i = 0u; i < res.size(); ++i) {
             const spirv_cross::Resource& r = res[i];
-            _comp.set_decoration(r.id, spv::DecorationBinding, i);
+            const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
+            _comp.set_decoration(r.id, spv::DecorationBinding, availableBinding);
+            availableBinding += type.array[0];
             _comp.unset_decoration(r.id, spv::DecorationDescriptorSet);
         }
     };
