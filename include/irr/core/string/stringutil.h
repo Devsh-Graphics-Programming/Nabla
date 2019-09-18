@@ -199,7 +199,7 @@ namespace core
 		{
 			if (compareStrings(retval, filename, extPos, ext))
 				return true;
-			compareStrings(retval, filename, extPos, exts...);
+			return compareStrings(retval, filename, extPos, exts...);
 		}
 	}
 	template<typename string_type, typename... ext_string_type>

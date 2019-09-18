@@ -112,7 +112,7 @@ class SAssetBundle
 public:
     using contents_container_t = core::refctd_dynamic_array<core::smart_refctd_ptr<IAsset> >;
     
-	SAssetBundle() : m_contents(nullptr) {}
+	SAssetBundle() : m_contents(contents_container_t::create_dynamic_array(0u), core::dont_grab) {}
 	SAssetBundle(std::initializer_list<core::smart_refctd_ptr<IAsset> > _contents) : m_contents(contents_container_t::create_dynamic_array(_contents),core::dont_grab)
 	{
 		assert(allSameTypeAndNotNull());

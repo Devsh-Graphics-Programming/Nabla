@@ -124,7 +124,7 @@ int main()
 	if (!file.result().empty())
 		filePath = file.result()[0];
 #endif
-	if (core::hasFileExtension(io::path(filePath.c_str()), ".zip", ".ZIP"))
+	if (core::hasFileExtension(io::path(filePath.c_str()), "zip", "ZIP"))
 	{
 		io::IFileArchive* arch = nullptr;
 		device->getFileSystem()->addFileArchive(filePath.c_str(),false,false,io::EFAT_ZIP,"",&arch);
@@ -137,11 +137,10 @@ int main()
 		if (!flist)
 			return 3;
 		auto files = flist->getFiles();
-		flist->drop();
 
 		for (auto it=files.begin(); it!=files.end(); )
 		{
-			if (core::hasFileExtension(it->FullName, ".xml", ".XML"))
+			if (core::hasFileExtension(it->FullName, "xml", "XML"))
 				it++;
 			else
 				it = files.erase(it);
@@ -153,7 +152,9 @@ int main()
 		for (auto i = 0u; i < files.size(); i++)
 			std::cout << i << ": " << files[i].FullName.c_str() << std::endl;
 		uint32_t chosen = 0;
-		//std::cin >> chosen;
+#ifndef MITSUBA_LOADER_TESTS
+		std::cin >> chosen;
+#endif
 		if (chosen >= files.size())
 			chosen = 0u;
 
