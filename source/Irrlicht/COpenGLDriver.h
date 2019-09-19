@@ -28,6 +28,9 @@ namespace irr
 #include "COpenGLVAOSpec.h"
 #include "COpenCLHandler.h"
 #include "irr/video/COpenGLSpecializedShader.h"
+#include "irr/video/COpenGLRenderpassIndependentPipeline.h"
+#include "irr/video/COpenGLDescriptorSet.h"
+#include "irr/video/COpenGLPipelineLayout.h"
 
 #include <map>
 #include "FW_Mutex.h"
@@ -676,6 +679,8 @@ namespace video
             //! Returns whether setting was a success or not.
             bool setActiveTexture(uint32_t stage, core::smart_refctd_ptr<IRenderableVirtualTexture>&& texture, const video::STextureSamplingParams &sampleParams);
 
+            void setActiveBindings(const COpenGLDescriptorSet* descriptorSets[4]);
+
             const GLuint& constructSamplerInCache(const uint64_t &hashVal);
 
         //private:
@@ -695,6 +700,7 @@ namespace video
             bool                                         XFormFeedbackRunning; // TODO: delete
             COpenGLTransformFeedback* CurrentXFormFeedback; //TODO: delete
 
+            COpenGLRenderpassIndependentPipeline* CurrentRenderpassPipeline;
 
             //! FBOs
             core::vector<IFrameBuffer*>  FrameBuffers;

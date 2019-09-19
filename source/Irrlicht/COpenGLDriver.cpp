@@ -2236,6 +2236,28 @@ bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, core::smart_re
 	return true;
 }
 
+void COpenGLDriver::SAuxContext::setActiveBindings(const COpenGLDescriptorSet* descriptorSets[4])
+{
+    //TODO optimize this
+    for (uint32_t i = 0u; i < 4u; ++i)
+    {
+        const COpenGLDescriptorSet* ds = descriptorSets[i];
+        if (!ds)
+            continue;
+
+        const auto& multibindParams = ds->getMultibindParams();
+        const auto& multibind_first_count = static_cast<const COpenGLPipelineLayout*>(CurrentRenderpassPipeline->getLayout())->getMultibindParamsForDescSet(i);
+        
+        if (multibind_first_count.ubos.count > 0u)
+            extGlBindBuffersRange(GL_UNIFORM_BUFFER, multibind_first_count.ubos.first, multibind_first_count.ubos.count, multibindParams.ubos.buffers, multibindParams.ubos.offsets, multibindParams.ubos.sizes);
+        if (multibind_first_count.ssbos.count > 0u)
+            extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, multibind_first_count.ssbos.first, multibind_first_count.ssbos.count, multibindParams.ssbos.buffers, multibindParams.ssbos.offsets, multibindParams.ssbos.sizes);
+        if (multibind_first_count.textures.count > 0u)
+            extGlBindTextures(multibind_first_count.textures.first, multibind_first_count.textures.count, multibindParams.textures.textures, multibindParams.textures.targets);
+        //TODO storage images
+    }
+}
+
 
 void COpenGLDriver::SAuxContext::STextureStageCache::remove(const IRenderableVirtualTexture* tex)
 {

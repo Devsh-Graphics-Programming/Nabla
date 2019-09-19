@@ -35,6 +35,8 @@ public:
 
         for (size_t i = 0u; m_descSetLayouts.size(); ++i) {
             IGPUDescriptorSetLayout* descSetLayout = m_descSetLayouts[i].get();
+            if (!descSetLayout)
+                continue;
 
             auto reset = [](SMultibindParams::SFirstCount& _fc) {
                 _fc.first = _fc.count;
