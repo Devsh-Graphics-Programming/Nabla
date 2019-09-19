@@ -8,11 +8,12 @@
 #include "irr/asset/IAsset.h"
 #include "irr/asset/CImageData.h"
 #include "ITexture.h" // for ITexture::E_TEXTURE_COUNT ... this enum should be in global scope
+#include "irr/asset/IDescriptor.h"
 
 namespace irr { namespace asset
 {
 
-class ICPUTexture : public IAsset
+class ICPUTexture : public IAsset, public IDescriptor
 {
 protected:
     uint32_t m_size[3];

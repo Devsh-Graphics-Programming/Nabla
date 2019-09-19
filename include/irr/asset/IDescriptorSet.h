@@ -5,6 +5,7 @@
 #include "irr/asset/SSamplerParams.h"
 #include "irr/asset/IDescriptorSetLayout.h"//for E_DESCRIPTOR_TYPE
 #include "irr/asset/format/EFormat.h"
+#include "irr/asset/IDescriptor.h"
 
 namespace irr { namespace asset
 {
@@ -31,28 +32,29 @@ enum E_IMAGE_LAYOUT : uint32_t
 template<typename BufferType, typename TextureType, typename BufferViewType>
 class IDescriptorSet
 {
-public:
-    struct SDescriptorBufferInfo
+protected:
+    struct SDescriptorInfo
     {
-        core::smart_refctd_ptr<BufferType> buffer;
-        size_t offset;
-        size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
-    };
-    struct SDescriptorImageInfo
-    {
-        SSamplerParams sampler;
-        core::smart_refctd_ptr<TextureType> imageView;
-        //! Irrelevant in OpenGL backend
-        E_IMAGE_LAYOUT imageLayout;
+        core::smart_refctd_ptr<IDescriptor> desc;
+        struct SDescriptorBufferInfo
+        {
+            size_t offset;
+            size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
+        } buffer;
+        struct SDescriptorImageInfo
+        {
+            SSamplerParams sampler;
+            //! Irrelevant in OpenGL backend
+            E_IMAGE_LAYOUT imageLayout;
+        } image;
     };
 
+public:
     struct SWriteDescriptorSet
     {
         uint32_t binding;
         E_DESCRIPTOR_TYPE descriptorType;
-        core::smart_refctd_dynamic_array<SDescriptorBufferInfo> bufferInfo;
-        core::smart_refctd_dynamic_array<SDescriptorImageInfo> imageInfo;
-        core::smart_refctd_dynamic_array<core::smart_refctd_ptr<BufferViewType>> texelBufferView;
+        core::smart_refctd_dynamic_array<SDescriptorInfo> info;
     };
 
 protected:

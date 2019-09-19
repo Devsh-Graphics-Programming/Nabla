@@ -4,6 +4,7 @@
 #include "irr/asset/ShaderCommons.h"
 #include "irr/asset/SSamplerParams.h"
 #include "irr/core/memory/refctd_dynamic_array.h"
+#include "irr/core/SRange.h"
 
 namespace irr { namespace asset
 {
@@ -78,6 +79,9 @@ protected:
 
     core::smart_refctd_dynamic_array<SBinding> m_bindings;
     core::smart_refctd_dynamic_array<SSamplerParams> m_samplers;
+
+public:
+    core::SRange<const SBinding> getBindings() const { return {m_bindings->data(), m_bindings->data()+m_bindings->size()}; }
 };
 
 }}

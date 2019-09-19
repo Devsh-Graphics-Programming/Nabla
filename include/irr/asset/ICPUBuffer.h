@@ -12,13 +12,14 @@
 #include "irr/core/alloc/null_allocator.h"
 #include "irr/asset/IAsset.h"
 #include "irr/asset/bawformat/blobs/RawBufferBlob.h"
+#include "irr/asset/IDescriptor.h"
 
 namespace irr
 {
 namespace asset
 {
 
-class ICPUBuffer : public core::IBuffer, public asset::IAsset
+class ICPUBuffer : public core::IBuffer, public asset::IAsset, public IDescriptor
 {
     protected:
         virtual ~ICPUBuffer()

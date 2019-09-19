@@ -4,13 +4,14 @@
 #include "irr/core/IReferenceCounted.h"//for smart_refctd_ptr
 #include "irr/asset/format/EFormat.h"
 #include "irr/macros.h"
+#include "irr/asset/IDescriptor.h"
 
 namespace irr {
 namespace asset
 {
 
 template<typename BufferType>
-class IBufferView
+class IBufferView : public IDescriptor
 {
 public:
     _IRR_STATIC_INLINE_CONSTEXPR size_t whole_buffer = ~static_cast<size_t>(0u);
