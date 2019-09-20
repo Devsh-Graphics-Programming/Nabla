@@ -1,6 +1,8 @@
 #include "../../ext/MitsubaLoader/PropertyElement.h"
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 
+#include "irr/asset/format/decodePixels.h"
+
 namespace irr
 {
 namespace ext
@@ -45,7 +47,7 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 			result.ivalue = atoi(value);
 			break;
 		case SPropertyElementData::Type::BOOLEAN:
-			result.bvalue = retriveBooleanValue(value);
+			result.bvalue = retrieveBooleanValue(value,success);
 			break;
 		case SPropertyElementData::Type::STRING:
 			auto len = strlen(value);
@@ -54,19 +56,37 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 			result.svalue = tmp;
 			break;
 		case SPropertyElementData::Type::RGB:
+			result.vvalue = retrieveVector(value, success);
+			break;
 		case SPropertyElementData::Type::SRGB:
+			{
+				bool tryVec = true;
+				result.vvalue = retrieveVector(value, tryVec);
+				if (!tryVec)
+					result.vvalue = retrieveHex(value, success);
+				for (auto i=0; i<3u; i++)
+					result.vvalue[i] = video::impl::srgb2lin(result.vvalue[i]);
+			}
+			break;
 		case SPropertyElementData::Type::VECTOR:
 		case SPropertyElementData::Type::POINT:
+			// only x,y,z acceptable
 			vvalue = other.vvalue;
 			break;
 		case SPropertyElementData::Type::SPECTRUM:
-			assert(false);
+		case SPropertyElementData::Type::BLACKBODY:
+			result.type = SPropertyElementData::Type::INVALID;
 			break;
 		case SPropertyElementData::Type::MATRIX:
+			// value
 		case SPropertyElementData::Type::TRANSLATE:
+			// only x,y,z acceptable
 		case SPropertyElementData::Type::ROTATE:
+			// only x,y,z + angle
 		case SPropertyElementData::Type::SCALE:
+			// value or x,y,z
 		case SPropertyElementData::Type::LOOKAT:
+			// origin + target + optional up
 			mvalue = other.mvalue;
 			break;
 		default:
@@ -134,23 +154,7 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 	}
 	else if (elName == "scale")
 	{
-		result.type = SPropertyElementData::Type::SCALE;
-
-		bool errorOccured = false;
-		//value should contain only one number here!
-		const std::string val = findStandardValue(_atts, errorOccured, { "name", "x", "y", "z" });
-
-		if (errorOccured)
-		{
-			_IRR_DEBUG_BREAK_IF(true);
-			return std::make_pair(false, SPropertyElementData());
-		}
-
-		if (val != "not set")
-		{
-			result.value = val + ' ' + val + ' ' + val;
-			return std::make_pair(true, result);
-		}
+		// find out if we go by "value" or "x y z"
 
 		result.value = findAndConvertXYZAttsToSingleString(_atts, errorOccured, { "name" });
 
@@ -225,14 +229,6 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 		return std::make_pair(true, result);
 		
 	}
-	else if (elName == "vector")
-	{
-		result.type = SPropertyElementData::Type::VECTOR;
-		_IRR_DEBUG_BREAK_IF(true);
-	}
-
-	bool errorOccurred;
-	result.value = findStandardValue(_atts, errorOccurred, { "name" });
 }
 
 bool CPropertyElementManager::retrieveBooleanValue(const std::string& _data, bool& success)
@@ -304,15 +300,38 @@ core::vectorSIMDf CPropertyElementManager::retrieveVector(const std::string& _da
 				vectorData[3] = 0.0f;
 				break;
 			}
-
-			_IRR_DEBUG_BREAK_IF(true);
-			ParserLog::invalidXMLFileStructure("Invalid vector specified.");
 			success = false;
 			return core::vectorSIMDf();
 		}
 	}
 
 	return core::vectorSIMDf(vectorData);
+}
+
+core::vectorSIMDf CPropertyElementManager::retrieveHex(const std::string& _data, bool& success)
+{
+	core::vectorSIMDf zero;
+	auto ptr = _data.begin();
+	if (_data.size()!=7u || *ptr!='#')
+	{
+		success = false;
+		return zero;
+	}
+
+	core::vectorSIMDf retval(0.f, 0.f, 0.f, 255.f);
+	for (auto i = 0; i < 3; i++)
+	for (auto j = 4; j >=0;j-=4)
+	{
+		char c = *(++ptr);
+		if (!isxdigit(c))
+		{
+			success = false;
+			return zero;
+		}
+		int intval = (c >= 'A') ? (c - 'A' + 10) : (c - '0');
+		retval[i] += float(intval <<j);
+	}
+	return retval/255.f;
 }
 
 std::string CPropertyElementManager::findStandardValue(const char** _atts, bool& _errorOccurred, const core::vector<std::string>& _acceptableAttributes)

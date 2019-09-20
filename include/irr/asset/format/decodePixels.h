@@ -7,7 +7,7 @@
 #include "irr/core/core.h"
 #include "irr/asset/format/EFormat.h"
 
-namespace irr { namespace video
+namespace irr { namespace video // why is this in the video namespace!?
 {
 	template<asset::E_FORMAT fmt, typename T>
     inline typename

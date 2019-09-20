@@ -43,6 +43,7 @@ struct SPropertyElementData
 		RGB,
 		SRGB,
 		SPECTRUM, // not supported, provided for completeness
+		BLACKBODY, // not supported, provided for completeness
 		MATRIX,
 		TRANSLATE,
 		ROTATE,
@@ -135,6 +136,7 @@ struct SPropertyElementData
 				vvalue = other.vvalue;
 				break;
 			case Type::SPECTRUM:
+			case Type::BLACKBODY:
 				assert(false);
 				break;
 			case Type::MATRIX:
@@ -175,6 +177,7 @@ struct SPropertyElementData
 			vvalue = other.vvalue;
 			break;
 		case Type::SPECTRUM:
+		case Type::BLACKBODY:
 			assert(false);
 			break;
 		case Type::MATRIX:
@@ -206,16 +209,17 @@ struct SPropertyElementData
 
 class CPropertyElementManager
 {
-public:
-	static std::pair<bool, SPropertyElementData> createPropertyData(const char* _el, const char** _atts);
+	public:
+		static std::pair<bool, SPropertyElementData> createPropertyData(const char* _el, const char** _atts);
 
-	static bool retriveBooleanValue(const std::string& _data);
-	static core::matrix4SIMD retriveMatrix(const std::string& _data);
-	static core::vectorSIMDf retriveVector(const std::string& _data);
+		static bool retrieveBooleanValue(const std::string& _data, bool& success);
+		static core::matrix4SIMD retrieveMatrix(const std::string& _data, bool& success);
+		static core::vectorSIMDf retrieveVector(const std::string& _data, bool& success);
+		static core::vectorSIMDf retrieveHex(const std::string& _data, bool& success);
 
-private:
-	static std::string findStandardValue(const char** _atts, bool& _errorOccurred, const core::vector<std::string>& _acceptableAttributes);
-	static std::string findAndConvertXYZAttsToSingleString(const char** _atts, bool& _errorOccurred, const core::vector<std::string>& _acceptableAttributes);
+	private:
+		static std::string findStandardValue(const char** _atts, bool& _errorOccurred, const core::vector<std::string>& _acceptableAttributes);
+		static std::string findAndConvertXYZAttsToSingleString(const char** _atts, bool& _errorOccurred, const core::vector<std::string>& _acceptableAttributes);
 
 };
 
