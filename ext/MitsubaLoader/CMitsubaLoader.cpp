@@ -24,8 +24,6 @@ namespace irr { namespace ext { namespace MitsubaLoader {
  
  - how should loader treat upper/lower case letters in xml?
 
- - create an issue about isALoadableFileFormat in CBAWMeshFileLoader
-
  - proper log messages
 
  - idk if I use flipsurfaces correctly.. 
@@ -61,12 +59,33 @@ CMitsubaLoader::CMitsubaLoader(IrrlichtDevice* device)
 
 bool CMitsubaLoader::isALoadableFileFormat(io::IReadFile* _file) const
 {
-	//not implemented
-	//_IRR_DEBUG_BREAK_IF(true);
-	return true;
-}
+	constexpr uint32_t stackSize = 16u*1024u;
+	char tempBuff[stackSize+1];
+	tempBuff[stackSize] = 0;
 
-		//SHAPE CUBE ON BEGIN TAG printed twice
+	const char* stringsToFind[] = { "<?xml", "version", "scene"};
+	constexpr uint32_t maxStringSize = 8u; // "version\0"
+	static_assert(stackSize > 2u*maxStringSize, "WTF?");
+
+	const auto fileSize = _file->getSize();
+	while (true)
+	{
+		auto pos = _file->getPos();
+		if (pos >= fileSize)
+			break;
+		if (pos > maxStringSize)
+			_file->seek(_file->getPos()-maxStringSize);
+		_file->read(tempBuff,stackSize);
+		for (auto i=0u; i<sizeof(stringsToFind)/sizeof(const char*); i++)
+		if (strstr(tempBuff, stringsToFind[i]))
+		{
+			_file->seek(0);
+			return true;
+		}
+	}
+	_file->seek(0);
+	return false;
+}
 
 const char** CMitsubaLoader::getAssociatedFileExtensions() const
 {
@@ -77,7 +96,6 @@ const char** CMitsubaLoader::getAssociatedFileExtensions() const
 
 asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-	//TODO: error handling
 	XML_Parser parser = XML_ParserCreate(nullptr);
 	XML_SetElementHandler(parser, elementHandlerStart, elementHandlerEnd);
 
@@ -86,12 +104,11 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 	//from now data (instance of ParserData struct) will be visible to expat handlers
 	XML_SetUserData(parser, &parserManager);
 
-	const char* buff = new char[_file->getSize()];
-
-	//will replace it with something like safeRead from CBAWMeshLoader
+	char* buff = (char*)_IRR_ALIGNED_MALLOC(_file->getSize(),4192u);
 	_file->read((void*)buff, _file->getSize());
 
 	XML_Status parseStatus = XML_Parse(parser, buff, _file->getSize(), 0);
+	_IRR_ALIGNED_FREE(buff);
 
 	switch (parseStatus)
 	{
