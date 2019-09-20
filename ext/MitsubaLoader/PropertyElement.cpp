@@ -27,69 +27,86 @@ const core::unordered_map<std::string,SPropertyElementData::Type,CaseInsensitive
 	{"point",		SPropertyElementData::Type::POINT},
 	{"vector",		SPropertyElementData::Type::VECTOR}
 };
-const char** SPropertyElementData::attributeStrings[SPropertyElementData::Type::INVALID] = {
-	{"value",nullptr}, // FLOAT
-	{"value",nullptr}, // INTEGER
-	{"value",nullptr}, // BOOLEAN
-	{"value",nullptr}, // STRING
-	{"value","intent",nullptr}, // RGB
-	{"value","intent",nullptr}, // SRGB
-	{"value","intent","filename",nullptr}, // SPECTRUM
-	{"temperature","scale",nullptr}, // BLACKBODY
-	{"value",nullptr}, // MATRIX
-	{"x","y","z",nullptr}, // TRANSLATE
-	{"x","y","z","angle",nullptr}, // ROTATE
-	{"x","y","z","value",nullptr}, // SCALE
-	{"origin","target","up",nullptr}, // LOOKAT
-	{"x","y","z",nullptr}, // POINT
-	{"x","y","z",nullptr} // VECTOR
+const char* SPropertyElementData::attributeStrings[SPropertyElementData::Type::INVALID][SPropertyElementData::MaxAttributes] = {
+	{"value"}, // FLOAT
+	{"value"}, // INTEGER
+	{"value"}, // BOOLEAN
+	{"value"}, // STRING
+	{"value","intent"}, // RGB
+	{"value","intent"}, // SRGB
+	{"value","intent","filename"}, // SPECTRUM
+	{"temperature","scale"}, // BLACKBODY
+	{"value"}, // MATRIX
+	{"x","y","z"}, // TRANSLATE
+	{"x","y","z","angle"}, // ROTATE
+	{"value","x","y","z"}, // SCALE
+	{"origin","target","up"}, // LOOKAT
+	{"x","y","z"}, // POINT
+	{"x","y","z"} // VECTOR
 };
 
 std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyData(const char* _el, const char** _atts)
 {
 	SPropertyElementData result(_el);
-	const char* value = result.initialize(_atts);
-	if (!value)
+
+	const char* desiredAttributes[SPropertyElementData::MaxAttributes] = { nullptr };
+	if (!result.initialize(desiredAttributes, _atts))
 	{
 		_IRR_DEBUG_BREAK_IF(true);
 		return std::make_pair(false, SPropertyElementData());
 	}
 
 	bool success = true;
+	#define FAIL_IF_ATTRIBUTE_NULL(N) if (!desiredAttributes[N]) {success = false; break;}
 	switch (result.type)
 	{
 		case SPropertyElementData::Type::FLOAT:
-			result.fvalue = atof(value);
+			FAIL_IF_ATTRIBUTE_NULL(0u)
+			result.fvalue = atof(desiredAttributes[0]);
 			break;
 		case SPropertyElementData::Type::INTEGER:
-			result.ivalue = atoi(value);
+			FAIL_IF_ATTRIBUTE_NULL(0u)
+			result.ivalue = atoi(desiredAttributes[0]);
 			break;
 		case SPropertyElementData::Type::BOOLEAN:
-			result.bvalue = retrieveBooleanValue(value,success);
+			FAIL_IF_ATTRIBUTE_NULL(0u)
+			result.bvalue = retrieveBooleanValue(desiredAttributes[0],success);
 			break;
 		case SPropertyElementData::Type::STRING:
-			auto len = strlen(value);
+			FAIL_IF_ATTRIBUTE_NULL(0u)
+			auto len = strlen(desiredAttributes[0]);
 			auto* tmp = (char*)_IRR_ALIGNED_MALLOC(len + 1u, 64u);
-			strcpy(tmp, value); tmp[len] = 0;
+			strcpy(tmp, desiredAttributes[0]); tmp[len] = 0;
 			result.svalue = tmp;
 			break;
 		case SPropertyElementData::Type::RGB:
-			result.vvalue = retrieveVector(value, success);
+			FAIL_IF_ATTRIBUTE_NULL(0u)
+			result.vvalue = retrieveVector(desiredAttributes[0], success);
 			break;
 		case SPropertyElementData::Type::SRGB:
+			FAIL_IF_ATTRIBUTE_NULL(0u)
 			{
 				bool tryVec = true;
-				result.vvalue = retrieveVector(value, tryVec);
+				result.vvalue = retrieveVector(desiredAttributes[0], tryVec);
 				if (!tryVec)
-					result.vvalue = retrieveHex(value, success);
+					result.vvalue = retrieveHex(desiredAttributes[0], success);
 				for (auto i=0; i<3u; i++)
 					result.vvalue[i] = video::impl::srgb2lin(result.vvalue[i]);
 			}
 			break;
 		case SPropertyElementData::Type::VECTOR:
 		case SPropertyElementData::Type::POINT:
-			// only x,y,z acceptable
-			vvalue = other.vvalue;
+			result.vvalue.set(0.f, 0.f, 0.f);
+			for (auto i=0u; i<3u; i++)
+			{
+				if (desiredAttributes[i])
+					result.vvalue[i] = atof(desiredAttributes[i]);
+				else
+				{
+					success = false;
+					break;
+				}
+			}
 			break;
 		case SPropertyElementData::Type::SPECTRUM:
 		case SPropertyElementData::Type::BLACKBODY:
@@ -98,11 +115,26 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 		case SPropertyElementData::Type::MATRIX:
 			// value
 		case SPropertyElementData::Type::TRANSLATE:
-			// only x,y,z acceptable
+			result.vvalue.set(0.f, 0.f, 0.f);
+			for (auto i=0u; i<3u; i++)
+			if (desiredAttributes[i])
+				result.vvalue[i] = atof(desiredAttributes[i]);
+			break;
 		case SPropertyElementData::Type::ROTATE:
 			// only x,y,z + angle
+			break;
 		case SPropertyElementData::Type::SCALE:
-			// value or x,y,z
+			result.vvalue.set(1.f, 1.f, 1.f);
+			if (desiredAttributes[0])
+			{
+				float uniformScale = atof(desiredAttributes[0]);
+				result.vvalue.set(uniformScale, uniformScale, uniformScale);
+			}
+			else
+			for (auto i=0u; i<3u; i++)
+			if (desiredAttributes[i+1u])
+				result.vvalue[i] = atof(desiredAttributes[i+1u]);
+			break;
 		case SPropertyElementData::Type::LOOKAT:
 			// origin + target + optional up
 			mvalue = other.mvalue;
@@ -116,7 +148,7 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 	if (success)
 		return std::make_pair(true, result);
 
-	ParserLog::invalidXMLFileStructure("invalid element, name:\'" + result.name + "\' value:\'" + value + "\'");
+	ParserLog::invalidXMLFileStructure("invalid element, name:\'" + result.name + "\'"); // in the future print values
 	return std::make_pair(false, SPropertyElementData());
 
 	if (elName == "translate")
@@ -170,21 +202,6 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 
 		return std::make_pair(true, result);
 	}
-	else if (elName == "scale")
-	{
-		// find out if we go by "value" or "x y z"
-
-		result.value = findAndConvertXYZAttsToSingleString(_atts, errorOccured, { "name" });
-
-		if (errorOccured)
-		{
-			_IRR_DEBUG_BREAK_IF(true);
-			return std::make_pair(false, SPropertyElementData());
-		}
-
-		return std::make_pair(true, result);
-
-	}
 	else if (elName == "lookat")
 	{
 		result.type = SPropertyElementData::Type::LOOKAT;
@@ -225,27 +242,6 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 		result.value = ss.str();
 
 		return std::make_pair(true, result);
-	}
-	else if (elName == "point")
-	{
-		result.type = SPropertyElementData::Type::POINT;
-
-		bool errorOccurred = false;
-		result.value = findStandardValue(_atts, errorOccurred, { "name", "x", "y", "z" });
-
-		if (errorOccurred)
-			return std::make_pair(false, SPropertyElementData());
-
-		if (result.value != "not set")
-			return std::make_pair(true, result);
-
-		result.value = findAndConvertXYZAttsToSingleString(_atts, errorOccurred, { "name" });
-
-		if (errorOccurred)
-			return std::make_pair(false, SPropertyElementData());
-
-		return std::make_pair(true, result);
-		
 	}
 }
 
@@ -350,43 +346,6 @@ core::vectorSIMDf CPropertyElementManager::retrieveHex(const std::string& _data,
 		retval[i] += float(intval <<j);
 	}
 	return retval/255.f;
-}
-
-std::string CPropertyElementManager::findStandardValue(const char** _atts, bool& _errorOccurred, const core::vector<std::string>& _acceptableAttributes)
-{
-	std::string value = "not set";
-
-	for (int i = 0; _atts[i]; i += 2)
-	{
-		if (!std::strcmp(_atts[i], "value"))
-		{
-			value = _atts[i + 1];
-		}
-		else
-		{
-			bool acceptableAttrFound = false;
-			const std::string currAttr = _atts[i];
-			for (const std::string& attr : _acceptableAttributes)
-			{
-				if (currAttr == attr)
-				{
-					acceptableAttrFound = true;
-					break;
-				}
-			}
-
-			if (acceptableAttrFound)
-				continue;
-
-			ParserLog::invalidXMLFileStructure(std::string(_atts[i]) + "is not an attribute of the property element");
-			_IRR_DEBUG_BREAK_IF(true);
-			_errorOccurred = true;
-			return value;
-		}
-	}
-
-	_errorOccurred = false;
-	return value;
 }
 
 std::string CPropertyElementManager::findAndConvertXYZAttsToSingleString(const char** _atts, bool& _errorOccurred, const core::vector<std::string>& _acceptableAttributes)

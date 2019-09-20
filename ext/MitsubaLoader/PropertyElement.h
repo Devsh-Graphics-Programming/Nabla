@@ -55,7 +55,8 @@ struct SPropertyElementData
 	};
 
 	static const core::unordered_map<std::string,Type,CaseInsensitiveHash,CaseInsensitiveEquals> StringToType;
-	static const char** attributeStrings[Type::INVALID];
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxAttributes = 4u;
+	static const char* attributeStrings[Type::INVALID][MaxAttributes];
 
 	SPropertyElementData() : type(Type::INVALID), name("")
 	{
@@ -81,31 +82,39 @@ struct SPropertyElementData
 			_IRR_ALIGNED_FREE((void*)svalue);
 	}
 
-	const char* initialize(const char** _atts)
+	bool initialize(const char** _atts, const char** outputMatch)
 	{
-		if (!_atts)
-			return nullptr;
+		if (type==Type::INVALID || !_atts)
+			return false;
 
-		const char* value = nullptr;
 		for (auto it = _atts; *it; it++)
 		{
 			if (core::strcmpi(*it, "name"))
 			{
 				it++;
 				if (*it)
+				{
 					name = *it;
+					continue;
+				}
 				else
-					break;
+					return false;
 			}
-			else if (core::strcmpi(*it, "value"))
+
+			for (auto i=0u; i<MaxAttributes; i++)
+			if (core::strcmpi(*it, attributeStrings[type][i]))
 			{
 				it++;
-				if (*it)
-					value = *it;
-				break;
+				if (!outputMatch[i] && *it)
+				{
+					outputMatch[i] = *it;
+					break;
+				}
+				else
+					return false;
 			}
 		}
-		return value;
+		return true;
 	}
 
 	inline SPropertyElementData& operator=(const SPropertyElementData& other)
@@ -217,10 +226,6 @@ class CPropertyElementManager
 		static core::matrix4SIMD retrieveMatrix(const std::string& _data, bool& success);
 		static core::vectorSIMDf retrieveVector(const std::string& _data, bool& success);
 		static core::vectorSIMDf retrieveHex(const std::string& _data, bool& success);
-
-	private:
-		static std::string findStandardValue(const char** _atts, bool& _errorOccurred, const core::vector<std::string>& _acceptableAttributes);
-		static std::string findAndConvertXYZAttsToSingleString(const char** _atts, bool& _errorOccurred, const core::vector<std::string>& _acceptableAttributes);
 
 };
 
