@@ -1,19 +1,22 @@
 #ifndef __I_PARSER_UTIL_H_INCLUDED__
 #define __I_PARSER_UTIL_H_INCLUDED__
 
-#include "../3rdparty/libexpat/expat/lib/expat.h"
-#include "irr/asset/IAssetManager.h"
-
+#include "irr/asset/IAssetLoader.h"
 #include "../../ext/MitsubaLoader/CMitsubaScene.h"
-
 #include "../../ext/MitsubaLoader/IElement.h"
 
-#include "irr/asset/IAssetLoader.h"
-#include "ISceneManager.h"
-#include "IFileSystem.h"
-#include "irr/asset/ICPUMesh.h"
+#include "expat/lib/expat.h"
 
-namespace irr { namespace ext { namespace MitsubaLoader {
+#include <stack>
+
+
+namespace irr
+{
+namespace ext
+{
+namespace MitsubaLoader
+{
+
 
 //now unsupported elements (like  <sensor> (for now), for example) and its children elements will be ignored
 class ParserFlowController
@@ -52,56 +55,61 @@ public:
 //struct, which will be passed to expat handlers as user data (first argument) see: XML_StartElementHandler or XML_EndElementHandler in expat.h
 class ParserManager
 {
+	public:
+		//! Constructor 
+		ParserManager(asset::IAssetLoader::IAssetLoaderOverride* _override, XML_Parser _parser)
+			: m_override(_override), m_parser(_parser), scene(nullptr)
+		{
+		}
 
-public:
-	//! Constructor 
-	ParserManager(irr::asset::IAssetManager* _assetManager, XML_Parser _parser)
-		: assetManager(_assetManager),
-		scene(nullptr),
-		parser(_parser)
-	{
-		
-	}
+		auto& getParserFlowController() { return pfc; }
+		auto& getParserFlowController() const { return pfc; }
 
-	void parseElement(const char* _el, const char** _atts);
-	//TODO: getAssetBundle();
+		inline void killParseWithError(const std::string& message)
+		{
+			_IRR_DEBUG_BREAK_IF(true);
+			ParserLog::invalidXMLFileStructure(message);
+			XML_StopParser(m_parser, false);
+		}
 
-	void onEnd(const std::string&);
+		void parseElement(const char* _el, const char** _atts);
+		//TODO: getAssetBundle();
 
-	inline CMitsubaScene& getScene() { return *scene; }
+		void onEnd(const std::string&);
 
-private:
-	void addElementToStack(std::unique_ptr<IElement>&& element);
+		inline CMitsubaScene& getScene() { return *scene; }
 
-	inline bool isSceneActive() { return static_cast<bool>(scene.get()); }
+	private:
+		void addElementToStack(std::unique_ptr<IElement>&& element);
 
-	bool checkIfPropertyElement(const std::string& _el);
+		inline bool isSceneActive() { return static_cast<bool>(scene.get()); }
 
-	bool processProperty(const char* _el, const char** _atts);
+		bool checkIfPropertyElement(const std::string& _el);
 
-private:
-	irr::asset::IAssetManager* assetManager;
+		bool processProperty(const char* _el, const char** _atts);
 
-	/*root element, which will hold all loaded assets and material data
-	in irr::asset::SCPUMesh (for now) instance*/
-	std::unique_ptr<CMitsubaScene> scene;
+	private:
+		asset::IAssetLoader::IAssetLoaderOverride* m_override;
+		XML_Parser m_parser;
 
-	/*stack of currently processed elements
-	each element of index N is parent of the element of index N+1
-	the scene element is a parent of all elements of index 0 */
-	core::stack<std::unique_ptr<IElement>> elements; 
+		/*root element, which will hold all loaded assets and material data
+		in asset::SCPUMesh (for now) instance*/
+		std::unique_ptr<CMitsubaScene> scene;
 
-	XML_Parser parser;
+		/*stack of currently processed elements
+		each element of index N is parent of the element of index N+1
+		the scene element is a parent of all elements of index 0 */
+		core::stack<std::unique_ptr<IElement>> elements; 
 
-	ParserFlowController pfc;
+		ParserFlowController pfc;
 
-	static constexpr const char* propertyElements[] = { 
-		"float", "string", "boolean", "integer", 
-		"rgb", "srgb", "spectrum", 
-		"point", "vector", 
-		"matrix", "rotate", "translate", "scale", "lookat",
-		nullptr
-	};
+		_IRR_STATIC_INLINE_CONSTEXPR const char* propertyElements[] = { 
+			"float", "string", "boolean", "integer", 
+			"rgb", "srgb", "spectrum", "blackbody",
+			"point", "vector", 
+			"matrix", "rotate", "translate", "scale", "lookat",
+			"animation"
+		};
 };
 
 void elementHandlerStart(void* _data, const char* _el, const char** _atts);

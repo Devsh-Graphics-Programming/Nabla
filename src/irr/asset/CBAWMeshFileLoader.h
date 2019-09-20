@@ -483,6 +483,7 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData_t<HeaderT> & _data,
     return dst;
 }
 
-}} // irr::scene
+}
+}
 
 #endif

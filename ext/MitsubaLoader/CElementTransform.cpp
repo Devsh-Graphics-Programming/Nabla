@@ -3,30 +3,33 @@
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 #include "../../ext/MitsubaLoader/PropertyElement.h"
 
-namespace irr { namespace ext { namespace MitsubaLoader {
+namespace irr
+{
+namespace ext
+{
+namespace MitsubaLoader
+{
 
 
 bool CElementTransform::processAttributes(const char** _atts)
 {
-	//only type is an acceptable argument
-	for (int i = 0; _atts[i]; i += 2)
+	if (IElement::areAttributesInvalid(_atts, 0u))
+		return false;
+
+	if (_atts && _atts[0])
 	{
-		if (!std::strcmp(_atts[i], "name"))
-		{
-			name = _atts[i + 1];
-		}
+		if (!core::strcmpi(_atts[0], "name"))
+			name = _atts[1];
 		else
-		{
-			//ParserLog::wrongAttribute(_atts[i], getLogName());
 			return false;
-		}
 	}
 
 	return true;
 }
 
-bool CElementTransform::onEndTag(asset::IAssetManager* _assetManager)
+bool CElementTransform::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override)
 {
+#ifdef NEW_MITSUBA
 	for (auto& property : properties)
 	{
 		if (property.type == SPropertyElementData::Type::MATRIX)
@@ -76,9 +79,8 @@ bool CElementTransform::onEndTag(asset::IAssetManager* _assetManager)
 			return false;
 		}
 	}
-
+#endif
 	return true;
-	//return _parent->processChildData(this);
 }
 
 }

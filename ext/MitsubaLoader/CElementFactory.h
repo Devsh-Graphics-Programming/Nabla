@@ -1,12 +1,15 @@
 #ifndef __I_ELEMENT_FACTORY_H_INCLUDED__
 #define __I_ELEMENT_FACTORY_H_INCLUDED__
 
-#include "irr/asset/IAssetManager.h"
-#include "../../ext/MitsubaLoader/IElement.h"
-#include <memory>
 
-namespace irr { namespace ext { namespace MitsubaLoader {
+namespace irr
+{
+namespace ext
+{
+namespace MitsubaLoader
+{
 
+class IElement;
 
 class CElementFactory
 {

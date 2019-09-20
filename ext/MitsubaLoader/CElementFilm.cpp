@@ -83,7 +83,7 @@ bool CElementFilm::processAttributes(const char** _atts)
 	return true;
 }
 
-bool CElementFilm::onEndTag(asset::IAssetManager* _assetManager)
+bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override)
 {
 	switch (data.type)
 	{
@@ -107,6 +107,7 @@ bool CElementFilm::onEndTag(asset::IAssetManager* _assetManager)
 
 bool CElementFilm::processSharedDataProperty(const SPropertyElementData& _property)
 {
+#ifdef NEW_MITSUBA
 	if (_property.type == SPropertyElementData::Type::INTEGER)
 	{
 		if (_property.name == "width")
@@ -168,12 +169,13 @@ bool CElementFilm::processSharedDataProperty(const SPropertyElementData& _proper
 		_IRR_DEBUG_BREAK_IF(true);
 		return false;
 	}
-	
+#endif
 	return true;
 }
 
 bool CElementFilm::processHDRFilmProperties()
 {
+#ifdef NEW_MITSUBA
 	for (const SPropertyElementData& property : properties)
 	{
 		if (property.type == SPropertyElementData::Type::STRING &&
@@ -228,12 +230,13 @@ bool CElementFilm::processHDRFilmProperties()
 			return false;
 		}
 	}
-
+#endif
 	return true;
 }
 
 bool CElementFilm::processTiledHDRFilmProperties()
 {
+#ifdef NEW_MITSUBA
 	for (const SPropertyElementData& property : properties)
 	{
 		if (property.type == SPropertyElementData::Type::STRING &&
@@ -254,12 +257,13 @@ bool CElementFilm::processTiledHDRFilmProperties()
 			return false;
 		}
 	}
-
+#endif
 	return true;
 }
 
 bool CElementFilm::processLDRFilmProperties()
 {
+#ifdef NEW_MITSUBA
 	for (const SPropertyElementData& property : properties)
 	{
 		if (property.type == SPropertyElementData::Type::STRING &&
@@ -334,12 +338,13 @@ bool CElementFilm::processLDRFilmProperties()
 			return false;
 		}
 	}
-
+#endif
 	return true;
 }
 
 bool CElementFilm::processMFilmProperties()
 {
+#ifdef NEW_MITSUBA
 	for (const SPropertyElementData& property : properties)
 	{
 		if (property.type == SPropertyElementData::Type::STRING)
@@ -383,7 +388,7 @@ bool CElementFilm::processMFilmProperties()
 			return false;
 		}
 	}
-
+#endif
 	return true;
 }
 

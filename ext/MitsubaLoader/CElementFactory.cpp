@@ -1,10 +1,6 @@
 #include "../../ext/MitsubaLoader/CElementFactory.h"
-#include "irrlicht.h"
-
-#include <string>
 
 #include "../../ext/MitsubaLoader/ParserUtil.h"
-#include "../../ext/MitsubaLoader/IElement.h"
 #include "../../ext/MitsubaLoader/CElementTransform.h"
 #include "../../ext/MitsubaLoader/CElementSensor.h"
 #include "../../ext/MitsubaLoader/CElementSampler.h"
@@ -13,7 +9,12 @@
 #include "../../ext/MitsubaLoader/CShapeCreator.h"
 #include "../../ext/MitsubaLoader/Shape.h"
 
-namespace irr { namespace ext { namespace MitsubaLoader {
+namespace irr
+{
+namespace ext
+{
+namespace MitsubaLoader
+{
 
 //TODO: elementFactory should be an actuall class with distinct private member functions..
 

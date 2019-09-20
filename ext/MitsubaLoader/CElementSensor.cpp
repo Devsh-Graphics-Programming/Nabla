@@ -117,7 +117,7 @@ bool CElementSensor::processChildData(IElement* _child)
 	}
 }
 
-bool CElementSensor::onEndTag(asset::IAssetManager* _assetManager)
+bool CElementSensor::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override)
 {
 	switch (data.type)
 	{
@@ -160,6 +160,7 @@ bool CElementSensor::onEndTag(asset::IAssetManager* _assetManager)
 
 bool CElementSensor::processSharedDataProperty(const SPropertyElementData& _property)
 {
+#ifdef NEW_MITSUBA
 	if (_property.type == SPropertyElementData::Type::FLOAT)
 	{
 		if (_property.name == "shutterOpen")
@@ -183,12 +184,13 @@ bool CElementSensor::processSharedDataProperty(const SPropertyElementData& _prop
 		_IRR_DEBUG_BREAK_IF(true);
 		return false;
 	}
-	
+#endif
 	return true;
 }
 
 bool CElementSensor::processPerspectiveSensorProperties()
 {
+#ifdef NEW_MITSUBA
 	for (const SPropertyElementData& property : properties)
 	{
 		if (property.type == SPropertyElementData::Type::STRING &&
@@ -238,12 +240,13 @@ bool CElementSensor::processPerspectiveSensorProperties()
 			return false;
 		}
 	}
-
+#endif
 	return true;
 }
 
 bool CElementSensor::processThinlensSensorProperties()
 {
+#ifdef NEW_MITSUBA
 	for (const SPropertyElementData& property : properties)
 	{
 		if (property.type == SPropertyElementData::Type::STRING &&
@@ -301,12 +304,13 @@ bool CElementSensor::processThinlensSensorProperties()
 			return false;
 		}
 	}
-
+#endif
 	return true;
 }
 
 bool CElementSensor::processOrthographicSensorProperties()
 {
+#ifdef NEW_MITSUBA
 	for (const SPropertyElementData& property : properties)
 	{
 		if (property.type == SPropertyElementData::Type::FLOAT)
@@ -332,12 +336,13 @@ bool CElementSensor::processOrthographicSensorProperties()
 			return false;
 		}
 	}
-
+#endif
 	return true;
 }
 
 bool CElementSensor::processTelecentricSensorProperties()
 {
+#ifdef NEW_MITSUBA
 	for (const SPropertyElementData& property : properties)
 	{
 		if (property.type == SPropertyElementData::Type::FLOAT)
@@ -371,7 +376,7 @@ bool CElementSensor::processTelecentricSensorProperties()
 			return false;
 		}
 	}
-
+#endif
 	return true;
 }
 

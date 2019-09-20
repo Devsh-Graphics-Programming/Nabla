@@ -142,6 +142,25 @@ namespace core
 			>0 - the first character that does not match has a greater value in str1 than in str2
 	*/
 	template<typename T>
+	inline int32_t strcmpi(const T* str1, const T* str2)
+	{
+		const T* c1 = str1;
+		const T* c2 = str2;
+		for (; (*c1!=0)&&(*c2!=0); ++c1, ++c2)
+		{
+			int32_t val1 = tolower(*c1);
+			int32_t val2 = tolower(*c2);
+			if (val1 != val2)
+				return val1 - val2;
+		}
+		if (*c1) // first is longer
+			return 1; // future core::strlen(c1)
+		if (*c2)
+			return -1; // future core::strlen(c2)
+
+		return 0;
+	}
+	template<typename T>
 	inline int32_t strcmpi(const T& str1, const T& str2)
 	{
 		if (str1.size() != str2.size())

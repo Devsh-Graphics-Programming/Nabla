@@ -2,9 +2,14 @@
 #define __C_ELEMENT_SAMPLER_H_INCLUDED__
 
 #include "../../ext/MitsubaLoader/IElement.h"
-#include "irrlicht.h"
 
-namespace irr { namespace ext { namespace MitsubaLoader {
+namespace irr
+{
+namespace ext
+{
+namespace MitsubaLoader
+{
+
 
 enum class ESamplerType
 {
@@ -35,7 +40,7 @@ public:
 		:data({ESamplerType::NONE, 4, 4}) {};
 
 	virtual bool processAttributes(const char** _atts) override;
-	virtual bool onEndTag(asset::IAssetManager* _assetManager) override;
+	virtual bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override) override;
 	virtual IElement::Type getType() const override { return IElement::Type::SAMPLER; }
 	virtual std::string getLogName() const override { return "sampler"; }
 

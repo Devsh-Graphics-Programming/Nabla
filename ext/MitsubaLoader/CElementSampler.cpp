@@ -40,8 +40,9 @@ bool CElementSampler::processAttributes(const char** _atts)
 	return true;
 }
 
-bool CElementSampler::onEndTag(asset::IAssetManager* _assetManager)
+bool CElementSampler::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override)
 {
+#ifdef NEW_MITSUBA
 	bool dimensionSet = false;
 	bool scrambleSet = false;
 
@@ -127,7 +128,7 @@ bool CElementSampler::onEndTag(asset::IAssetManager* _assetManager)
 	}
 	
 	}
-
+#endif
 	return true;
 }
 

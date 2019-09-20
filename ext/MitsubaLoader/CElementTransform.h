@@ -2,15 +2,21 @@
 #define __C_ELEMENT_TRANSFORM_H_INCLUDED__
 
 #include "../../ext/MitsubaLoader/IElement.h"
-#include "irrlicht.h"
 
-namespace irr { namespace ext { namespace MitsubaLoader {
 
+namespace irr
+{
+namespace ext
+{
+namespace MitsubaLoader
+{
+
+// kill
 class CElementTransform : public IElement
 {
 public:
 	virtual bool processAttributes(const char** _args) override;
-	virtual bool onEndTag(asset::IAssetManager* _assetManager) override;
+	virtual bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override) override;
 	virtual IElement::Type getType() const override { return IElement::Type::TRANSFORM; };
 	virtual std::string getLogName() const override { return "transform"; };
 

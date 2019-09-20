@@ -1,18 +1,15 @@
+#include "os.h"
+
 #include "../../ext/MitsubaLoader/CMitsubaLoader.h"
-#include "expat/lib/expat.h"
-#include "irr/asset/IAssetManager.h"
+#include "../../ext/MitsubaLoader/ParserUtil.h"
 
-#include "../../ext/MitsubaLoader/IElement.h"
-#include "../../ext/MitsubaLoader/CMitsubaScene.h"
 
-#include "IrrlichtDevice.h"
-#include "irr\asset\IAssetLoader.h"
-#include <stack>
-#include <chrono>
-
-#include "ParserUtil.h"
-
-namespace irr { namespace ext { namespace MitsubaLoader {
+namespace irr
+{
+namespace ext
+{
+namespace MitsubaLoader
+{
 
 //TODO: 
 /*
@@ -21,10 +18,6 @@ namespace irr { namespace ext { namespace MitsubaLoader {
  - handle 'version' attribute
 
  - make sure that default values for <float .. /> <boolean .. /> etc. are correct
- 
- - how should loader treat upper/lower case letters in xml?
-
- - proper log messages
 
  - idk if I use flipsurfaces correctly.. 
 
@@ -48,9 +41,7 @@ namespace irr { namespace ext { namespace MitsubaLoader {
 */
 
 
-CMitsubaLoader::CMitsubaLoader(IrrlichtDevice* device)
-	:m_device(device),
-	m_assetManager(device->getAssetManager())
+CMitsubaLoader::CMitsubaLoader()
 {
 #ifdef _IRR_DEBUG
 	setDebugName("CMitsubaLoader");
@@ -97,14 +88,20 @@ const char** CMitsubaLoader::getAssociatedFileExtensions() const
 asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	XML_Parser parser = XML_ParserCreate(nullptr);
+	if (!parser)
+	{
+		os::Printer::log("Could not create XML Parser!", ELL_ERROR);
+		return {};
+	}
+
 	XML_SetElementHandler(parser, elementHandlerStart, elementHandlerEnd);
 
-	ParserManager parserManager(m_assetManager, parser);
+	ParserManager parserManager(_override, parser);
 	
 	//from now data (instance of ParserData struct) will be visible to expat handlers
 	XML_SetUserData(parser, &parserManager);
 
-	char* buff = (char*)_IRR_ALIGNED_MALLOC(_file->getSize(),4192u);
+	char* buff = (char*)_IRR_ALIGNED_MALLOC(_file->getSize(),4096u);
 	_file->read((void*)buff, _file->getSize());
 
 	XML_Status parseStatus = XML_Parse(parser, buff, _file->getSize(), 0);
@@ -112,19 +109,19 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 
 	switch (parseStatus)
 	{
-	case XML_STATUS_ERROR:
-	{
-		std::cout << "Parse status: XML_STATUS_ERROR\n";
-		return {};
-	}
-	break;
-	case XML_STATUS_OK:
-		std::cout << "Parse status: XML_STATUS_OK\n";
-		break;
+		case XML_STATUS_ERROR:
+			{
+				os::Printer::log("Parse status: XML_STATUS_ERROR", ELL_ERROR);
+				return {};
+			}
+			break;
+		case XML_STATUS_OK:
+			os::Printer::log("Parse status: XML_STATUS_OK", ELL_INFORMATION);
+			break;
 
-	case XML_STATUS_SUSPENDED:
-		std::cout << "Parse status: XML_STATUS_SUSPENDED\n";
-		break;
+		case XML_STATUS_SUSPENDED:
+			os::Printer::log("Parse status: XML_STATUS_SUSPENDED", ELL_INFORMATION);
+			break;
 	}
 
 	XML_ParserFree(parser);	

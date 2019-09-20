@@ -1,59 +1,90 @@
 #include "../../ext/MitsubaLoader/PropertyElement.h"
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 
-namespace irr { namespace ext { namespace MitsubaLoader {
+namespace irr
+{
+namespace ext
+{
+namespace MitsubaLoader
+{
+
+const core::unordered_map<std::string,SPropertyElementData::Type,CaseInsensitiveHash,CaseInsensitiveEquals> SPropertyElementData::StringToType = {
+	{"float",		SPropertyElementData::Type::FLOAT},
+	{"integer",		SPropertyElementData::Type::INTEGER},
+	{"boolean",		SPropertyElementData::Type::BOOLEAN},
+	{"string",		SPropertyElementData::Type::STRING},
+	{"rgb",			SPropertyElementData::Type::RGB},
+	{"srgb",		SPropertyElementData::Type::SRGB},
+	{"spectrum",	SPropertyElementData::Type::SPECTRUM},
+	{"matrix",		SPropertyElementData::Type::MATRIX},
+	{"translate",	SPropertyElementData::Type::TRANSLATE},
+	{"rotate",		SPropertyElementData::Type::ROTATE},
+	{"scale",		SPropertyElementData::Type::SCALE},
+	{"lookat",		SPropertyElementData::Type::LOOKAT},
+	{"point",		SPropertyElementData::Type::POINT},
+	{"vector",		SPropertyElementData::Type::VECTOR}
+};
 
 std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyData(const char* _el, const char** _atts)
 {
-	SPropertyElementData result;
-	std::string elName = _el;
-
-	for (int i = 0; _atts[i]; i += 2)
+	SPropertyElementData result(_el);
+	const char* value = result.initialize(_atts);
+	if (!value)
 	{
-		if (!std::strcmp(_atts[i], "name"))
-		{
-			result.name = _atts[i + 1];
+		_IRR_DEBUG_BREAK_IF(true);
+		return std::make_pair(false, SPropertyElementData());
+	}
+
+	bool success = true;
+	switch (result.type)
+	{
+		case SPropertyElementData::Type::FLOAT:
+			result.fvalue = atof(value);
 			break;
-		}
+		case SPropertyElementData::Type::INTEGER:
+			result.ivalue = atoi(value);
+			break;
+		case SPropertyElementData::Type::BOOLEAN:
+			result.bvalue = retriveBooleanValue(value);
+			break;
+		case SPropertyElementData::Type::STRING:
+			auto len = strlen(value);
+			auto* tmp = (char*)_IRR_ALIGNED_MALLOC(len + 1u, 64u);
+			strcpy(tmp, value); tmp[len] = 0;
+			result.svalue = tmp;
+			break;
+		case SPropertyElementData::Type::RGB:
+		case SPropertyElementData::Type::SRGB:
+		case SPropertyElementData::Type::VECTOR:
+		case SPropertyElementData::Type::POINT:
+			vvalue = other.vvalue;
+			break;
+		case SPropertyElementData::Type::SPECTRUM:
+			assert(false);
+			break;
+		case SPropertyElementData::Type::MATRIX:
+		case SPropertyElementData::Type::TRANSLATE:
+		case SPropertyElementData::Type::ROTATE:
+		case SPropertyElementData::Type::SCALE:
+		case SPropertyElementData::Type::LOOKAT:
+			mvalue = other.mvalue;
+			break;
+		default:
+			success = false;
+			break;
 	}
 
-	if (elName == "float")
-	{
-		result.type = SPropertyElementData::Type::FLOAT;
-	}
-	else if (elName == "integer")
-	{
-		result.type = SPropertyElementData::Type::INTEGER;
-	}
-	else if (elName == "boolean")
-	{
-		result.type = SPropertyElementData::Type::BOOLEAN;
-	}
-	else if (elName == "string")
-	{
-		result.type = SPropertyElementData::Type::STRING;
-	}
-	else if (elName == "rgb")
-	{
-		result.type = SPropertyElementData::Type::RGB;
-	}
-	else if (elName == "srgb")
-	{
-		result.type = SPropertyElementData::Type::SRGB;
-	}
-	else if (elName == "spectrum")
-	{
-		result.type = SPropertyElementData::Type::SPECTRUM;
-	}
-	else if (elName == "matrix")
-	{
-		result.type = SPropertyElementData::Type::MATRIX;
-	}
-	else if (elName == "translate")
+	_IRR_DEBUG_BREAK_IF(!success);
+	if (success)
+		return std::make_pair(true, result);
+
+	ParserLog::invalidXMLFileStructure("invalid element, name:\'" + result.name + "\' value:\'" + value + "\'");
+	return std::make_pair(false, SPropertyElementData());
+
+	if (elName == "translate")
 	{
 		result.type = SPropertyElementData::Type::TRANSLATE;
 
-		bool errorOccurred = false;
 		result.value = findAndConvertXYZAttsToSingleString(_atts, errorOccurred, { "name" });
 		return std::make_pair(true, result);
 	}
@@ -202,40 +233,9 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 
 	bool errorOccurred;
 	result.value = findStandardValue(_atts, errorOccurred, { "name" });
-
-	if (errorOccurred)
-	{
-		_IRR_DEBUG_BREAK_IF(true);
-		return std::make_pair(false, SPropertyElementData());
-	}
-		
-
-	return std::make_pair(true, result);		
 }
 
-float CPropertyElementManager::retriveFloatValue(const std::string& _data)
-{
-	std::stringstream ss;
-	ss << _data;
-
-	float result = std::numeric_limits<float>::quiet_NaN();
-
-	ss >> result;
-	return result;
-}
-
-int CPropertyElementManager::retriveIntValue(const std::string& _data)
-{
-	std::stringstream ss;
-	ss << _data;
-
-	int result = 0;
-
-	ss >> result;
-	return result;
-}
-
-bool CPropertyElementManager::retriveBooleanValue(const std::string& _data)
+bool CPropertyElementManager::retrieveBooleanValue(const std::string& _data, bool& success)
 {
 	if (_data == "true")
 	{
@@ -248,11 +248,12 @@ bool CPropertyElementManager::retriveBooleanValue(const std::string& _data)
 	else
 	{
 		_IRR_DEBUG_BREAK_IF(true);
-		ParserLog::invalidXMLFileStructure(_data + "is not an attribute of boolean element");
+		ParserLog::invalidXMLFileStructure("Invalid boolean specified.");
+		success = false;
 	}
 }
 
-core::matrix4SIMD CPropertyElementManager::retriveMatrix(const std::string& _data)
+core::matrix4SIMD CPropertyElementManager::retrieveMatrix(const std::string& _data, bool& success)
 {
 	std::string str = _data;
 	std::replace(str.begin(), str.end(), ',', ' ');
@@ -272,6 +273,7 @@ core::matrix4SIMD CPropertyElementManager::retriveMatrix(const std::string& _dat
 		{
 			_IRR_DEBUG_BREAK_IF(true);
 			ParserLog::invalidXMLFileStructure("Invalid matrix specified.");
+			success = false;
 			return core::matrix4SIMD();
 		}
 	}
@@ -279,7 +281,7 @@ core::matrix4SIMD CPropertyElementManager::retriveMatrix(const std::string& _dat
 	return core::matrix4SIMD(matrixData);
 }
 
-core::vectorSIMDf CPropertyElementManager::retriveVector(const std::string& _data)
+core::vectorSIMDf CPropertyElementManager::retrieveVector(const std::string& _data, bool& success)
 {
 	std::string str = _data;
 	std::replace(str.begin(), str.end(), ',', ' ');
@@ -305,6 +307,7 @@ core::vectorSIMDf CPropertyElementManager::retriveVector(const std::string& _dat
 
 			_IRR_DEBUG_BREAK_IF(true);
 			ParserLog::invalidXMLFileStructure("Invalid vector specified.");
+			success = false;
 			return core::vectorSIMDf();
 		}
 	}
