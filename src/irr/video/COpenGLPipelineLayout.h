@@ -51,6 +51,8 @@ public:
                     params.ssbos.count += bnd.count;
                 else if (bnd.type == asset::EDT_COMBINED_IMAGE_SAMPLER || bnd.type == asset::EDT_UNIFORM_TEXEL_BUFFER)
                     params.textures.count += bnd.count;
+                else if (bnd.type == asset::EDT_STORAGE_IMAGE || bnd.type == asset::EDT_STORAGE_TEXEL_BUFFER)
+                    params.textureImages.count += bnd.count;
             }
             m_multibindParams[i] = params;
 

@@ -268,6 +268,7 @@ PFNGLSAMPLERPARAMETERFPROC COpenGLExtensionHandler::pGlSamplerParameterf = nullp
 
 //
 PFNGLBINDIMAGETEXTUREPROC COpenGLExtensionHandler::pGlBindImageTexture = nullptr;
+PFNGLBINDIMAGETEXTURESPROC COpenGLExtensionHandler::pGlBindImageTextures = nullptr;
 
         //stuff
 PFNGLBINDBUFFERBASEPROC COpenGLExtensionHandler::pGlBindBufferBase = nullptr;
@@ -1169,7 +1170,7 @@ void COpenGLExtensionHandler::loadFunctions()
 
     //
     pGlBindImageTexture = (PFNGLBINDIMAGETEXTUREPROC) IRR_OGL_LOAD_EXTENSION( "glBindImageTexture");
-
+    pGlBindImageTextures = (PFNGLBINDIMAGETEXTURESPROC) IRR_OGL_LOAD_EXTENSION( "glBindImageTextures" );
 
     //
     pGlBindBufferBase = (PFNGLBINDBUFFERBASEPROC) IRR_OGL_LOAD_EXTENSION("glBindBufferBase");

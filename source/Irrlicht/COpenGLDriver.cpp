@@ -2254,7 +2254,8 @@ void COpenGLDriver::SAuxContext::setActiveBindings(const COpenGLDescriptorSet* d
             extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, multibind_first_count.ssbos.first, multibind_first_count.ssbos.count, multibindParams.ssbos.buffers, multibindParams.ssbos.offsets, multibindParams.ssbos.sizes);
         if (multibind_first_count.textures.count > 0u)
             extGlBindTextures(multibind_first_count.textures.first, multibind_first_count.textures.count, multibindParams.textures.textures, multibindParams.textures.targets);
-        //TODO storage images
+        if (multibind_first_count.textureImages.count > 0u)
+            extGlBindImageTextures(multibind_first_count.textureImages.first, multibind_first_count.textureImages.count, multibindParams.textureImages.textures, multibindParams.textureImages.formats);
     }
 }
 

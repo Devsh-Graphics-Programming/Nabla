@@ -13,6 +13,7 @@
 #include "COpenGLCubemapArrayTexture.h"
 #include "COpenGL3DTexture.h"
 #include "COpenGLBufferView.h"
+#include "COpenGLTextureView.h"
 
 namespace irr {
 namespace video
@@ -34,21 +35,16 @@ public:
             const GLuint* textures;
             const GLenum* targets;//for when ARB_multi_bind isn't there
         };
-        struct STexImageBindings //in this case ARB_multi_bind is useless
+        struct SMultibindTextureImages
         {
             const GLuint* textures;
-            const GLint* levels;
-            const GLboolean* layered;
-            const GLint* layers;
-            const GLenum* access;
             const GLenum* formats;
         };
         
         SMultibindBuffers ubos;
         SMultibindBuffers ssbos;
         SMultibindTextures textures;
-        //unused as for now TODO
-        STexImageBindings textureImages;
+        SMultibindTextureImages textureImages;
     };
 
 public:
@@ -57,6 +53,7 @@ public:
         size_t uboCount = 0ull;
         size_t ssboCount = 0ull;
         size_t textureCount = 0ull;
+        size_t imageCount = 0ull;
         for (const auto& desc : (*m_descriptors))
         {
             switch (desc.descriptorType)
@@ -72,20 +69,27 @@ public:
             case asset::EDT_COMBINED_IMAGE_SAMPLER:
                 textureCount += desc.info->size();
                 break;
+            case asset::EDT_STORAGE_IMAGE:
+                _IRR_FALLTHROUGH;
+            case asset::EDT_STORAGE_TEXEL_BUFFER:
+                imageCount += desc.info->size();
             default: break;
             }
         }
 
-        m_names = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(uboCount+ssboCount+textureCount);
+        m_names = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(uboCount+ssboCount+textureCount+imageCount);
         m_offsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLintptr>>(uboCount+ssboCount);
         m_sizes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(uboCount+ssboCount);
-        m_texTargets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(textureCount);
+        m_extraEnums = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(textureCount+imageCount);
 
         const size_t uboNamesOffset = 0ull;
         const size_t ssboNamesOffset = uboCount;
         const size_t texNamesOffset = uboCount+ssboCount;
+        const size_t imagNamesOffset = texNamesOffset + textureCount;
         const size_t uboBufOffset = 0ull;
         const size_t ssboBufOffset = uboCount;
+        const size_t enums_texTargetsOffset = 0ull;
+        const size_t enums_imagFormatsOffset = textureCount;
 
         auto setBufMultibindParams = [this](SMultibindParams::SMultibindBuffers& _params, size_t _namesOffset, size_t _offset) {
             _params.buffers = (*m_names).data() + _namesOffset;
@@ -95,7 +99,8 @@ public:
         setBufMultibindParams(m_multibindParams.ubos, uboNamesOffset, uboBufOffset);
         setBufMultibindParams(m_multibindParams.ssbos, ssboNamesOffset, ssboBufOffset);
         m_multibindParams.textures.textures = (*m_names).data() + texNamesOffset;
-        m_multibindParams.textures.targets = (*m_texTargets).data();
+        m_multibindParams.textures.targets = (*m_extraEnums).data() + enums_texTargetsOffset;
+        m_multibindParams.textureImages.formats = (*m_extraEnums).data() + enums_imagFormatsOffset;
 
         auto castToCOpenGLTexture = [](asset::IDescriptor* _tex) -> COpenGLTexture* {
             ITexture* tex = static_cast<ITexture*>(_tex);
@@ -119,7 +124,7 @@ public:
                 return nullptr;
             }
         };
-        size_t u=0ull, s=0ull, t=0ull;
+        size_t u=0ull, s=0ull, t=0ull, i=0ull;
         for (const auto& desc : (*m_descriptors))
         {
             if (desc.descriptorType==asset::EDT_UNIFORM_BUFFER)
@@ -139,14 +144,27 @@ public:
             else if (desc.descriptorType==asset::EDT_COMBINED_IMAGE_SAMPLER)
                 for (const auto& info : (*desc.info)) {
                     (*m_names)[texNamesOffset + t] = castToCOpenGLTexture(info.desc.get())->getOpenGLName();
-                    (*m_texTargets)[t] = castToCOpenGLTexture(info.desc.get())->getOpenGLTextureType();
+                    (*m_extraEnums)[enums_texTargetsOffset + t] = castToCOpenGLTexture(info.desc.get())->getOpenGLTextureType();
                     ++t;
                 }
             else if (desc.descriptorType==asset::EDT_UNIFORM_TEXEL_BUFFER)
                 for (const auto& info : (*desc.info)) {
                     (*m_names)[texNamesOffset + t] = static_cast<COpenGLBufferView*>(info.desc.get())->getOpenGLName();
-                    (*m_texTargets)[t] = GL_TEXTURE_BUFFER;
+                    (*m_extraEnums)[enums_texTargetsOffset + t] = GL_TEXTURE_BUFFER;
                     ++t;
+                }
+            else if (desc.descriptorType==asset::EDT_STORAGE_IMAGE)
+                for (const auto& info : (*desc.info)) {
+                    (*m_names)[imagNamesOffset + i] = static_cast<COpenGLTextureView*>(info.desc.get())->getOpenGLName();
+                    (*m_extraEnums)[enums_imagFormatsOffset + i] = static_cast<COpenGLTextureView*>(info.desc.get())->getInternalFormat();
+                    ++i;
+                }
+            else if (desc.descriptorType==asset::EDT_STORAGE_TEXEL_BUFFER)
+                for (const auto& info : (*desc.info)) {
+                    //TODO not sure. should STORAGE_TEXEL_BUFFER come from COpenGLBufferView?
+                    (*m_names)[imagNamesOffset + i] = static_cast<COpenGLBufferView*>(info.desc.get())->getOpenGLName();
+                    (*m_extraEnums)[enums_imagFormatsOffset + i] = static_cast<COpenGLBufferView*>(info.desc.get())->getInternalFormat();
+                    ++i;
                 }
         }
     }
@@ -158,7 +176,7 @@ private:
     core::smart_refctd_dynamic_array<GLuint> m_names;
     core::smart_refctd_dynamic_array<GLintptr> m_offsets;
     core::smart_refctd_dynamic_array<GLsizeiptr> m_sizes;
-    core::smart_refctd_dynamic_array<GLenum> m_texTargets;
+    core::smart_refctd_dynamic_array<GLenum> m_extraEnums;
 };
 
 }}

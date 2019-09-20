@@ -1090,6 +1090,7 @@ class COpenGLExtensionHandler
 
     //
     static void extGlBindImageTexture(GLuint index, GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format);
+    static void extGlBindImageTextures(GLuint first, GLsizei count, const GLuint* textures, const GLenum* formats);
 
 
 	static void extGlPointParameterf(GLint loc, GLfloat f);
@@ -1377,6 +1378,7 @@ class COpenGLExtensionHandler
 
     //
     static PFNGLBINDIMAGETEXTUREPROC pGlBindImageTexture;
+    static PFNGLBINDIMAGETEXTURESPROC pGlBindImageTextures;
 
     // stuff
     static PFNGLBINDBUFFERBASEPROC pGlBindBufferBase;
@@ -2527,6 +2529,20 @@ inline void COpenGLExtensionHandler::extGlBindImageTexture(GLuint index, GLuint 
         pGlBindImageTexture(index,texture,level,layered,layer,access,format);
 }
 
+
+inline void COpenGLExtensionHandler::extGlBindImageTextures(GLuint first, GLsizei count, const GLuint* textures, const GLenum* formats)
+{
+    if (pGlBindImageTextures)
+        pGlBindImageTextures(first, count, textures);
+    else {
+        for (GLuint i = 0u; i < count; ++i) {
+            if (!textures || textures[i] == 0u)
+                extGlBindImageTexture(first+i, 0u, 0u, GL_FALSE, 0, GL_READ_WRITE, GL_R8);
+            else
+                extGlBindImageTexture(first+i, textures[i], 0, GL_TRUE, 0, GL_READ_WRITE, formats[i]);
+        }
+    }
+}
 
 
 inline void COpenGLExtensionHandler::extGlCreateProgramPipelines(GLsizei n, GLuint * pipelines)
