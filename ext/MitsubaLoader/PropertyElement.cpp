@@ -1,7 +1,8 @@
+#include "quaternion.h"
+#include "irr/asset/format/decodePixels.h"
+
 #include "../../ext/MitsubaLoader/PropertyElement.h"
 #include "../../ext/MitsubaLoader/ParserUtil.h"
-
-#include "irr/asset/format/decodePixels.h"
 
 namespace irr
 {
@@ -38,7 +39,7 @@ const char* SPropertyElementData::attributeStrings[SPropertyElementData::Type::I
 	{"temperature","scale"}, // BLACKBODY
 	{"value"}, // MATRIX
 	{"x","y","z"}, // TRANSLATE
-	{"x","y","z","angle"}, // ROTATE
+	{"angle","x","y","z"}, // ROTATE
 	{"value","x","y","z"}, // SCALE
 	{"origin","target","up"}, // LOOKAT
 	{"x","y","z"}, // POINT
@@ -113,7 +114,9 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 			result.type = SPropertyElementData::Type::INVALID;
 			break;
 		case SPropertyElementData::Type::MATRIX:
-			// value
+			FAIL_IF_ATTRIBUTE_NULL(0u)
+			result.mvalue = retrieveMatrix(desiredAttributes[0],success);
+			break;
 		case SPropertyElementData::Type::TRANSLATE:
 			result.vvalue.set(0.f, 0.f, 0.f);
 			for (auto i=0u; i<3u; i++)
@@ -121,7 +124,20 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 				result.vvalue[i] = atof(desiredAttributes[i]);
 			break;
 		case SPropertyElementData::Type::ROTATE:
-			// only x,y,z + angle
+			FAIL_IF_ATTRIBUTE_NULL(0u) // have to have an angle
+			result.vvalue.set(0.f, 0.f, 0.f);
+			for (auto i=0u; i<3u; i++)
+			if (desiredAttributes[i])
+				result.vvalue[i] = atof(desiredAttributes[i]);
+			if ((core::vectorSIMDf(0.f) == result.vvalue).all())
+			{
+				success = false;
+				break;
+			}
+			result.vvalue = core::normalize(result.vvalue);
+			{
+				result.mvalue = core::quaternion::fromAngleAxis(atof(desiredAttributes[0])*core::DEGTORAD,result.vvalue).getMatrix();
+			}
 			break;
 		case SPropertyElementData::Type::SCALE:
 			result.vvalue.set(1.f, 1.f, 1.f);
@@ -136,8 +152,29 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 				result.vvalue[i] = atof(desiredAttributes[i+1u]);
 			break;
 		case SPropertyElementData::Type::LOOKAT:
-			// origin + target + optional up
-			mvalue = other.mvalue;
+			FAIL_IF_ATTRIBUTE_NULL(0u)
+			FAIL_IF_ATTRIBUTE_NULL(1u)
+			{
+				core::vectorSIMDf origin,target,up;
+				origin = retrieveVector(desiredAttributes[0u], success);
+				target = retrieveVector(desiredAttributes[1u], success);
+				if (desiredAttributes[2u])
+					up = retrieveVector(desiredAttributes[2u],success);
+				else
+				{
+					auto viewDirection = target - origin;
+					float maxDot = viewDirection[0];
+					uint32_t index = 0u;
+					for (auto i = 1u; i < 3u; i++)
+					if (viewDirection[i] < maxDot)
+					{
+						maxDot = viewDirection[i];
+						index = i;
+					}
+					up[index] = 1.f;
+				}
+				result.mvalue = ;
+			}
 			break;
 		default:
 			success = false;
@@ -150,99 +187,6 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 
 	ParserLog::invalidXMLFileStructure("invalid element, name:\'" + result.name + "\'"); // in the future print values
 	return std::make_pair(false, SPropertyElementData());
-
-	if (elName == "translate")
-	{
-		result.type = SPropertyElementData::Type::TRANSLATE;
-
-		result.value = findAndConvertXYZAttsToSingleString(_atts, errorOccurred, { "name" });
-		return std::make_pair(true, result);
-	}
-	else if (elName == "rotate")
-	{
-		result.type = SPropertyElementData::Type::ROTATE;
-
-		bool errorOccured = false;
-		const std::string axisStr = findAndConvertXYZAttsToSingleString(_atts, errorOccured, { "name", "angle" });
-
-		if (errorOccured)
-			return std::make_pair(false, SPropertyElementData());
-
-		const core::vector3df_SIMD rotationAxis = core::normalize(retriveVector(axisStr));
-
-		if (rotationAxis.getLengthAsFloat() == 0.0f)
-		{
-			ParserLog::invalidXMLFileStructure("invalid rotation axis");
-			return std::make_pair(false, SPropertyElementData());
-		}
-
-		float angle = 0.0f;
-
-		for (int i = 0; _atts[i]; i += 2)
-		{
-			if (!std::strcmp(_atts[i], "angle"))
-			{
-				angle = retriveFloatValue(_atts[i + 1]);
-			}
-		}
-		
-		core::quaternion resultingQuaternion = core::quaternion::fromAngleAxis(angle, rotationAxis);
-
-		std::stringstream ss;
-		float tmpCoord;
-
-		for (int i = 0; i < 4; i++)
-		{
-			tmpCoord = resultingQuaternion.getPointer()[i];
-			ss << tmpCoord << ' ';
-		}
-			
-		
-		result.value = ss.str();
-
-		return std::make_pair(true, result);
-	}
-	else if (elName == "lookat")
-	{
-		result.type = SPropertyElementData::Type::LOOKAT;
-
-		std::string originStr = "0.0 0.0 0.0";
-		std::string targetStr = "0.0 0.0 -1.0";
-		std::string upStr = "0.0 1.0 0.0";
-
-		for (int i = 0; _atts[i]; i += 2)
-		{
-			if (!std::strcmp(_atts[i], "origin"))
-			{
-				originStr = _atts[i + 1];
-			}
-			else if (!std::strcmp(_atts[i], "target"))
-			{
-				targetStr = _atts[i + 1];
-			}
-			else if (!std::strcmp(_atts[i], "up"))
-			{
-				upStr = _atts[i + 1];
-			}
-		}
-
-		core::vector3df_SIMD origin = retriveVector(originStr);
-		core::vector3df_SIMD target = retriveVector(targetStr);
-		core::vector3df_SIMD up = retriveVector(upStr);
-
-		core::matrix4SIMD lookAt = core::matrix4SIMD::buildCameraLookAtMatrixRH(origin, target, up);
-
-		std::stringstream ss;
-		
-		for (int i = 0; i < 16; i++)
-		{
-			ss << lookAt.pointer()[i] << ' ';
-		}
-
-		result.value = ss.str();
-
-		return std::make_pair(true, result);
-	}
 }
 
 bool CPropertyElementManager::retrieveBooleanValue(const std::string& _data, bool& success)
@@ -268,16 +212,14 @@ core::matrix4SIMD CPropertyElementManager::retrieveMatrix(const std::string& _da
 	std::string str = _data;
 	std::replace(str.begin(), str.end(), ',', ' ');
 
-	float matrixData[16];
+	core::matrix4SIMD matrixData;
 	std::stringstream ss;
 	ss << str;
 
-	for (int i = 0; i < 16; i++)
+	for (auto i=0u; i<16u; i++)
 	{
 		float f = std::numeric_limits<float>::quiet_NaN();
 		ss >> f;
-
-		matrixData[i] = f;
 
 		if (isnan(f))
 		{
@@ -286,9 +228,10 @@ core::matrix4SIMD CPropertyElementManager::retrieveMatrix(const std::string& _da
 			success = false;
 			return core::matrix4SIMD();
 		}
+		matrixData.pointer()[i] = f;
 	}
 
-	return core::matrix4SIMD(matrixData);
+	return matrixData;
 }
 
 core::vectorSIMDf CPropertyElementManager::retrieveVector(const std::string& _data, bool& success)
@@ -346,52 +289,6 @@ core::vectorSIMDf CPropertyElementManager::retrieveHex(const std::string& _data,
 		retval[i] += float(intval <<j);
 	}
 	return retval/255.f;
-}
-
-std::string CPropertyElementManager::findAndConvertXYZAttsToSingleString(const char** _atts, bool& _errorOccurred, const core::vector<std::string>& _acceptableAttributes)
-{
-	std::string values[3] = { "0.0", "0.0", "0.0" };
-
-	for (int i = 0; _atts[i]; i += 2)
-	{
-		if (!std::strcmp(_atts[i], "x"))
-		{
-			values[0] = _atts[i + 1];
-		}
-		else if (!std::strcmp(_atts[i], "y"))
-		{
-			values[1] = _atts[i + 1];
-		}
-		else if (!std::strcmp(_atts[i], "z"))
-		{
-			values[2] = _atts[i + 1];
-		}
-		else
-		{
-			bool acceptableAttrFound = false;
-			const std::string currAttr = _atts[i];
-			for (const std::string& attr : _acceptableAttributes)
-			{
-				if (currAttr == attr)
-				{
-					acceptableAttrFound = true;
-					break;
-				}
-			}
-
-			if (acceptableAttrFound)
-				break;
-
-			ParserLog::invalidXMLFileStructure(std::string(_atts[i]) + "is not an attribute of the property element");
-			_IRR_DEBUG_BREAK_IF(true);
-			_errorOccurred = true;
-			return "";
-		}
-	}
-
-	_errorOccurred = false;
-	std::string result = values[0] + ' ' + values[1] + ' ' + values[2];
-	return result;
 }
 
 }
