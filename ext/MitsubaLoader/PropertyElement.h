@@ -34,7 +34,7 @@ struct CaseInsensitiveEquals
 
 struct SPropertyElementData
 {
-	enum class Type
+	enum Type
 	{
 		FLOAT,
 		INTEGER,
@@ -55,6 +55,7 @@ struct SPropertyElementData
 	};
 
 	static const core::unordered_map<std::string,Type,CaseInsensitiveHash,CaseInsensitiveEquals> StringToType;
+	static const char** attributeStrings[Type::INVALID];
 
 	SPropertyElementData() : type(Type::INVALID), name("")
 	{

@@ -18,6 +18,7 @@ const core::unordered_map<std::string,SPropertyElementData::Type,CaseInsensitive
 	{"rgb",			SPropertyElementData::Type::RGB},
 	{"srgb",		SPropertyElementData::Type::SRGB},
 	{"spectrum",	SPropertyElementData::Type::SPECTRUM},
+	{"blackbody",	SPropertyElementData::Type::BLACKBODY},
 	{"matrix",		SPropertyElementData::Type::MATRIX},
 	{"translate",	SPropertyElementData::Type::TRANSLATE},
 	{"rotate",		SPropertyElementData::Type::ROTATE},
@@ -25,6 +26,23 @@ const core::unordered_map<std::string,SPropertyElementData::Type,CaseInsensitive
 	{"lookat",		SPropertyElementData::Type::LOOKAT},
 	{"point",		SPropertyElementData::Type::POINT},
 	{"vector",		SPropertyElementData::Type::VECTOR}
+};
+const char** SPropertyElementData::attributeStrings[SPropertyElementData::Type::INVALID] = {
+	{"value",nullptr}, // FLOAT
+	{"value",nullptr}, // INTEGER
+	{"value",nullptr}, // BOOLEAN
+	{"value",nullptr}, // STRING
+	{"value","intent",nullptr}, // RGB
+	{"value","intent",nullptr}, // SRGB
+	{"value","intent","filename",nullptr}, // SPECTRUM
+	{"temperature","scale",nullptr}, // BLACKBODY
+	{"value",nullptr}, // MATRIX
+	{"x","y","z",nullptr}, // TRANSLATE
+	{"x","y","z","angle",nullptr}, // ROTATE
+	{"x","y","z","value",nullptr}, // SCALE
+	{"origin","target","up",nullptr}, // LOOKAT
+	{"x","y","z",nullptr}, // POINT
+	{"x","y","z",nullptr} // VECTOR
 };
 
 std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyData(const char* _el, const char** _atts)
