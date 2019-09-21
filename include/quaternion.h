@@ -7,7 +7,7 @@
 
 
 #include "irr/core/math/irrMath.h"
-#include "matrix4x3.h"
+#include "matrix4x3.h" // kill
 #include "vectorSIMD.h"
 
 
@@ -238,14 +238,13 @@ class quaternion : private vectorSIMDf
 		//! Creates a matrix from this quaternion
         inline matrix4x3 getMatrix() const
         {
-            matrix4x3 m;
+			matrix4x3 m;
             getMatrix(m);
             return m;
         }
 
 		//! Creates a matrix from this quaternion
-		void getMatrix( matrix4x3 &dest, const vector3df_SIMD &translation=vectorSIMDf() ) const;
-		void getMatrix_Sub3x3Transposed( matrix4x3 &dest, const vector3df_SIMD &translation=vectorSIMDf() ) const;
+		void getMatrix(matrix4x3& dest, const vector3df_SIMD& translation=vectorSIMDf() ) const;
 
 		//! Inverts this quaternion
 		inline void makeInverse()
@@ -349,8 +348,8 @@ static_assert(sizeof(quaternion) == sizeof(vectorSIMDf), "Quaternion not same si
 /*!
 	Creates a matrix from this quaternion
 */
-inline void quaternion::getMatrix(matrix4x3 &dest,
-		const core::vector3df_SIMD &center) const
+inline void quaternion::getMatrix(matrix4x3& dest,
+		const core::vector3df_SIMD& center) const
 {
 	dest(0,0) = 1.0f - 2.0f*Y*Y - 2.0f*Z*Z;
 	dest(1,0) = 2.0f*X*Y + 2.0f*Z*W;
@@ -368,27 +367,6 @@ inline void quaternion::getMatrix(matrix4x3 &dest,
 	dest(1,3) = center.Y;
 	dest(2,3) = center.Z;
 }
-
-inline void quaternion::getMatrix_Sub3x3Transposed(matrix4x3 &dest,
-		const core::vector3df_SIMD &center) const
-{
-	dest(0,0) = 1.0f - 2.0f*Y*Y - 2.0f*Z*Z;
-	dest(0,1) = 2.0f*X*Y + 2.0f*Z*W;
-	dest(0,2) = 2.0f*X*Z - 2.0f*Y*W;
-
-	dest(1,0) = 2.0f*X*Y - 2.0f*Z*W;
-	dest(1,1) = 1.0f - 2.0f*X*X - 2.0f*Z*Z;
-	dest(1,2) = 2.0f*Z*Y + 2.0f*X*W;
-
-	dest(2,0) = 2.0f*X*Z + 2.0f*Y*W;
-	dest(2,1) = 2.0f*Z*Y - 2.0f*X*W;
-	dest(2,2) = 1.0f - 2.0f*X*X - 2.0f*Y*Y;
-
-	dest(0,3) = center.X;
-	dest(1,3) = center.Y;
-	dest(2,3) = center.Z;
-}
-
 
 // set this quaternion to the result of the linear interpolation between two quaternions
 inline quaternion quaternion::lerp(const quaternion &q1, const quaternion &q2, const float& interpolant, const bool& wrongDoubleCover)

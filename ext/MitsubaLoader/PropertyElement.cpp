@@ -1,4 +1,6 @@
 #include "quaternion.h"
+#include "matrix3x4SIMD.h"
+#include "matrix4SIMD.h"
 #include "irr/asset/format/decodePixels.h"
 
 #include "../../ext/MitsubaLoader/PropertyElement.h"
@@ -136,7 +138,9 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 			}
 			result.vvalue = core::normalize(result.vvalue);
 			{
-				result.mvalue = core::quaternion::fromAngleAxis(atof(desiredAttributes[0])*core::DEGTORAD,result.vvalue).getMatrix();
+				core::matrix3x4SIMD m;
+				m.setRotation(core::quaternion::fromAngleAxis(atof(desiredAttributes[0])*core::DEGTORAD,result.vvalue));
+;				result.mvalue = core::matrix4SIMD(m);
 			}
 			break;
 		case SPropertyElementData::Type::SCALE:
@@ -173,7 +177,7 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 					}
 					up[index] = 1.f;
 				}
-				result.mvalue = ;
+				result.mvalue = core::matrix4SIMD::buildCameraLookAtMatrixLH(origin,target,up); // is this correct?
 			}
 			break;
 		default:
