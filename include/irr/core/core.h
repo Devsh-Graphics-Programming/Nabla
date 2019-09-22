@@ -28,6 +28,7 @@
 #include "irr/core/alloc/PoolAddressAllocator.h"
 #include "irr/core/alloc/ResizableHeterogenousMemoryAllocator.h"
 #include "irr/core/alloc/StackAddressAllocator.h"
+#include "irr/core/alloc/SimpleBlockBasedAllocator.h"
 // math
 #include "irr/core/math/floatutil.h"
 #include "irr/core/math/irrMath.h"
