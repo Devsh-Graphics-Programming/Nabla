@@ -126,8 +126,7 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 
 	XML_ParserFree(parser);	
 
-	return {};
-	//return parserManager.getScene().releaseMeshes();
+	return {parserManager.releaseTopLevelResources()};
 }
 
 }

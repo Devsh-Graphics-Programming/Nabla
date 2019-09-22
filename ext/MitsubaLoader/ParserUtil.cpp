@@ -14,6 +14,7 @@ namespace ext
 namespace MitsubaLoader
 {
 
+
 void ParserLog::invalidXMLFileStructure(const std::string& errorMessage)
 {
 	std::string message = "Mitsuba loader error - Invalid .xml file structure: \'"
@@ -161,7 +162,7 @@ void ParserManager::onEnd(const char* _el)
 	IElement* element = elements.top();
 	elements.pop();
 
-	if (!element->onEndTag(m_override))
+	if (!element->onEndTag(m_override, m_globalMetadata.get()))
 	{
 		killParseWithError(element->getLogName()+" could not onEndTag");
 		return;

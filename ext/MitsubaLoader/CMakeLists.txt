@@ -2,12 +2,13 @@ include(../../cmake/common.cmake)
 
 
 set(IRR_EXT_MITSUBA_LOADER_H
+	CElementIntegrator.h
 	CElementEmitter.h
 	CElementFactory.h
 	CElementFilm.h
-	CElementSampler.h
 	CElementSensor.h
 	CElementTransform.h
+	CGlobalMitsubaMetadata.h
 	CMitsubaLoader.h
 	CShapeCreator.h
 	IElement.h
@@ -17,10 +18,11 @@ set(IRR_EXT_MITSUBA_LOADER_H
 )
 
 set(IRR_EXT_MITSUBA_LOADER_SRC
+	CElementIntegrator.cpp
+	CElementSampler.cpp
 	#CElementEmitter.cpp
 	#CElementFactory.cpp
 	#CElementFilm.cpp
-	CElementSampler.cpp
 	#CElementSensor.cpp
 	#CElementTransform.cpp
 	CMitsubaLoader.cpp

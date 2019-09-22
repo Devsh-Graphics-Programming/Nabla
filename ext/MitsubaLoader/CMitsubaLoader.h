@@ -5,53 +5,14 @@
 #include "irr/asset/asset.h"
 #include "IFileSystem.h"
 
+#include "../../ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
+
 namespace irr
 {
 namespace ext
 {
 namespace MitsubaLoader
 {
-
-class Emitter {};
-
-class CGlobalMitsubaMetadata : public core::IReferenceCounted
-{
-	public:
-	//protected:
-		core::vector<Emitter> emitters;
-};
-
-class IMitsubaMetadata : public asset::IAssetMetadata
-{
-	public:
-		IMitsubaMetadata(core::smart_refctd_ptr<CGlobalMitsubaMetadata>&& _gmeta) : globalMetadata(_gmeta) {}
-
-		const char* getLoaderName() const override {return "Mistuba";}
-
-		const std::string id;
-		const core::smart_refctd_ptr<CGlobalMitsubaMetadata> globalMetadata;
-};
-
-// nested <shapes>
-class IMeshMetadata : public IMitsubaMetadata
-{
-	public:
-		const auto& getInstances() const { return instances; }
-	protected:
-		core::vector<core::matrix4SIMD> instances;
-};
-
-// <shape>
-class IMeshBufferMetadata : public IMitsubaMetadata
-{
-};
-
-//! not used yet
-class IGraphicsPipelineMetadata : public IMitsubaMetadata
-{
-	public:
-	protected:
-};
 
 
 class CMitsubaLoader : public asset::IAssetLoader

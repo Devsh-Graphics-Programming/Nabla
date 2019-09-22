@@ -9,22 +9,14 @@ namespace ext
 namespace MitsubaLoader
 {
 
-
-template<>
-IElement* CElementFactory::createElement<CElementIntegrator>(const char** _atts, ParserManager* _util)
-{
-	core::vector<CElementIntegrator>& pool = _util->objects.getPool<CElementIntegrator>();
-	pool.emplace_back();
-	return &pool.back();
-}
-
 const core::unordered_map<std::string, std::pair<CElementFactory::element_creation_func,bool>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> CElementFactory::createElementTable =
 {
-	{"integrator",{CElementFactory::createElement<CElementIntegrator>,true}}
+	{"integrator",{CElementFactory::createElement<CElementIntegrator>,true}},
+	{"sampler",{CElementFactory::createElement<CElementSampler>,true}}
 };
 /*
 _IRR_STATIC_INLINE_CONSTEXPR const char* complexElements[] = {
-	"alias","transform","ref","integrator","sensor","film",
+	"alias","transform","ref","sensor","film",
 	"rfilter","shape","bsdf","texture","emitter"
 };
 */
@@ -72,20 +64,6 @@ IElement* CElementFactory::createElement(const char* _el, const char** _atts)
 		}
 
 		return sensor;
-	}
-	else
-	if (!std::strcmp(_el, "sampler"))
-	{
-		CElementSampler* sampler = new CElementSampler();
-
-		if (!sampler->processAttributes(_atts))
-		{
-			delete sampler;
-			_IRR_DEBUG_BREAK_IF(true);
-			return nullptr;
-		}
-
-		return sampler;
 	}
 	else
 	if (!std::strcmp(_el, "film"))

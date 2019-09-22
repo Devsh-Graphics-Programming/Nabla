@@ -1,7 +1,7 @@
 #ifndef __I_ELEMENT_FACTORY_H_INCLUDED__
 #define __I_ELEMENT_FACTORY_H_INCLUDED__
 
-#include "../../ext/MitsubaLoader/IElement.h"
+#include "../../ext/MitsubaLoader/CElementSampler.h"
 
 namespace irr
 {
@@ -14,19 +14,14 @@ class ParserManager;
 
 class CElementIntegrator : public IElement
 {
-	bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override) override { return true; }
+	bool addProperty(SPropertyElementData&& _property) override {}
+	bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override { return true; }
 	IElement::Type getType() const override { return IElement::Type::INTEGRATOR; }
 	std::string getLogName() const override { return "integrator"; }
-
-	// TODO refactor
-	void addProperty(const SPropertyElementData& _property) override {}
-
-	void addProperty(SPropertyElementData&& _property) override {}
 };
 class CElementSensor {};
 class CElementFilm {};
 class CElementRFilter {};
-class CElementSampler {};
 class CElementShape {};
 class CElementBSDF {};
 class CElementTexture {};

@@ -12,14 +12,16 @@ namespace ext
 namespace MitsubaLoader
 {
 
+class CGlobalMitsubaMetadata;
+
 class IElement
 {
 	public:
 		enum class Type
 		{
 			INTEGRATOR,
-
 			SAMPLER,
+
 			FILM,
 			SENSOR,
 			EMITTER,
@@ -38,33 +40,20 @@ class IElement
 
 	public:
 		virtual ~IElement() = default;
+	
+		virtual IElement::Type getType() const = 0;
+		virtual std::string getLogName() const = 0;
 
-		//! default implementation for elements that doesnt have any attributes
-		virtual bool processAttributes(const char** _atts)
-		{
-			if (_atts && _atts[0])
-				return false;
-
-			return true;
-		}
-
+		virtual bool addProperty(SPropertyElementData&& _property) = 0;
+		virtual bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) = 0;
 		//! default implementation for elements that doesnt have any children
 		virtual bool processChildData(IElement* _child)
 		{
 			return !_child;
 		}
 		//
-	
-		virtual bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override) = 0;
-		virtual IElement::Type getType() const = 0;
-		virtual std::string getLogName() const = 0;
 
-		// TODO refactor
-		virtual void addProperty(const SPropertyElementData& _property) = 0;
 
-		virtual void addProperty(SPropertyElementData&& _property) = 0;
-
-	protected:
 		static inline bool areAttributesInvalid(const char** _atts, uint32_t minAttrCount)
 		{
 			if (!_atts)
@@ -77,6 +66,17 @@ class IElement
 			}
 
 			return i < minAttrCount || (i % 2u == 0u);
+		}
+		static inline bool invalidAttributeCount(const char** _atts, uint32_t attrCount)
+		{
+			if (!_atts)
+				return true;
+
+			for (uint32_t i=0u; i<attrCount; i++)
+			if (!_atts[i])
+				return true;
+			
+			return _atts[attrCount];
 		}
 };
 

@@ -1,10 +1,13 @@
 #ifndef __I_PARSER_UTIL_H_INCLUDED__
 #define __I_PARSER_UTIL_H_INCLUDED__
 
+#include "irr/core/alloc/SimpleBlockBasedAllocator.h"
+
 #include "irr/asset/IAssetLoader.h"
 #include "irr/asset/CCPUMesh.h"
 
 #include "../../ext/MitsubaLoader/CElementFactory.h"
+#include "../../ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
 
 #include "expat/lib/expat.h"
 
@@ -17,7 +20,7 @@ namespace ext
 {
 namespace MitsubaLoader
 {
-
+	   	  
 //now unsupported elements (like  <sensor> (for now), for example) and its children elements will be ignored
 class ParserFlowController
 {
@@ -52,13 +55,24 @@ public:
 
 
 template<typename... types>
-class ElementPool : public std::tuple<core::vector<types>...>
+class ElementPool // : public std::tuple<core::vector<types>...>
 {
+		core::SimpleBlockBasedAllocatorST<core::LinearAddressAllocator<uint32_t> > poolAllocator;
 	public:
+		ElementPool() : poolAllocator(4096u*1024u, 256u) {}
+
+		template<typename T, typename... Args>
+		inline T* construct(Args&& ... args)
+		{
+			T* ptr = poolAllocator.allocate(sizeof(T), alignof(T));
+			return new (ptr) T(std::forward<Args>(args)...);
+		}
+		/*
 		template<typename T>
 		inline auto& getPool() { return std::get<core::vector<T> >(*this); }
 		template<typename T>
 		inline const auto& getPool() const { return std::get<core::vector<T> >(*this); }
+		*/
 };
 
 //struct, which will be passed to expat handlers as user data (first argument) see: XML_StartElementHandler or XML_EndElementHandler in expat.h
@@ -85,6 +99,8 @@ class ParserManager
 
 		void onEnd(const char* _el);
 
+		inline auto&& releaseTopLevelResources() { return std::move(shapegroups); }
+
 	private:
 		void processProperty(const char* _el, const char** _atts);
 
@@ -94,6 +110,8 @@ class ParserManager
 
 		//
 		uint32_t m_sceneDeclCount;
+		//
+		core::smart_refctd_ptr<CGlobalMitsubaMetadata> m_globalMetadata;
 		//
 		core::vector<core::smart_refctd_ptr<asset::CCPUMesh>> shapegroups;
 		//
