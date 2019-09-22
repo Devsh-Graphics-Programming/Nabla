@@ -17,8 +17,8 @@ class IElement
 	public:
 		enum class Type
 		{
-			NONE,
-			SCENE,
+			INTEGRATOR,
+
 			SAMPLER,
 			FILM,
 			SENSOR,
@@ -26,12 +26,14 @@ class IElement
 
 			//shapes
 			SHAPE,
+			INSTANCE,
 
 			//other
 			TRANSFORM,
 			TEXTURE,
 			MATERIAL,
-			MEDIUM
+			MEDIUM,
+			INVALID,
 		};
 
 	public:
@@ -58,15 +60,9 @@ class IElement
 		virtual std::string getLogName() const = 0;
 
 		// TODO refactor
-		void addProperty(const SPropertyElementData& _property)
-		{
-			properties.emplace_back(_property);
-		}
+		virtual void addProperty(const SPropertyElementData& _property) = 0;
 
-		void addProperty(SPropertyElementData&& _property)
-		{
-			properties.emplace_back(std::move(_property));
-		}
+		virtual void addProperty(SPropertyElementData&& _property) = 0;
 
 	protected:
 		static inline bool areAttributesInvalid(const char** _atts, uint32_t minAttrCount)
@@ -82,8 +78,6 @@ class IElement
 
 			return i < minAttrCount || (i % 2u == 0u);
 		}
-
-		core::vector<SPropertyElementData> properties; // kill
 };
 
 }

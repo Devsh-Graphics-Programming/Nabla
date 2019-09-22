@@ -2,8 +2,9 @@
 #define __I_PARSER_UTIL_H_INCLUDED__
 
 #include "irr/asset/IAssetLoader.h"
-#include "../../ext/MitsubaLoader/CMitsubaScene.h"
-#include "../../ext/MitsubaLoader/IElement.h"
+#include "irr/asset/CCPUMesh.h"
+
+#include "../../ext/MitsubaLoader/CElementFactory.h"
 
 #include "expat/lib/expat.h"
 
@@ -16,7 +17,6 @@ namespace ext
 {
 namespace MitsubaLoader
 {
-
 
 //now unsupported elements (like  <sensor> (for now), for example) and its children elements will be ignored
 class ParserFlowController
@@ -31,10 +31,9 @@ public:
 	inline bool isParsingSuspended() const { return isParsingSuspendedFlag; }
 
 private:
-	static constexpr const char* unsElements[] = 
+	_IRR_STATIC_INLINE_CONSTEXPR const char* unsElements[] =
 	{ 
-		"integrator", "emitter", "ref", "bsdf",  
-		"rfilter", "medium", "include", nullptr 
+		"animation", "medium", "default", nullptr 
 	};
 	bool isParsingSuspendedFlag;
 	std::string notSupportedElement;
@@ -52,13 +51,23 @@ public:
 };
 
 
+template<typename... types>
+class ElementPool : public std::tuple<core::vector<types>...>
+{
+	public:
+		template<typename T>
+		inline auto& getPool() { return std::get<core::vector<T> >(*this); }
+		template<typename T>
+		inline const auto& getPool() const { return std::get<core::vector<T> >(*this); }
+};
+
 //struct, which will be passed to expat handlers as user data (first argument) see: XML_StartElementHandler or XML_EndElementHandler in expat.h
 class ParserManager
 {
 	public:
 		//! Constructor 
 		ParserManager(asset::IAssetLoader::IAssetLoaderOverride* _override, XML_Parser _parser)
-			: m_override(_override), m_parser(_parser), scene(nullptr)
+			: m_override(_override), m_parser(_parser), m_sceneDeclCount(0)
 		{
 		}
 
@@ -73,43 +82,45 @@ class ParserManager
 		}
 
 		void parseElement(const char* _el, const char** _atts);
-		//TODO: getAssetBundle();
 
-		void onEnd(const std::string&);
-
-		inline CMitsubaScene& getScene() { return *scene; }
+		void onEnd(const char* _el);
 
 	private:
-		void addElementToStack(std::unique_ptr<IElement>&& element);
-
-		inline bool isSceneActive() { return static_cast<bool>(scene.get()); }
-
-		bool checkIfPropertyElement(const std::string& _el);
-
-		bool processProperty(const char* _el, const char** _atts);
+		void processProperty(const char* _el, const char** _atts);
 
 	private:
 		asset::IAssetLoader::IAssetLoaderOverride* m_override;
 		XML_Parser m_parser;
 
-		/*root element, which will hold all loaded assets and material data
-		in asset::SCPUMesh (for now) instance*/
-		std::unique_ptr<CMitsubaScene> scene;
+		//
+		uint32_t m_sceneDeclCount;
+		//
+		core::vector<core::smart_refctd_ptr<asset::CCPUMesh>> shapegroups;
+		//
+		ElementPool<
+			CElementIntegrator,
+			CElementSensor,
+			CElementFilm,
+			CElementRFilter,
+			CElementSampler,
+			CElementShape,
+			CElementBSDF,
+			CElementTexture,
+			CElementEmitter
+					> objects;
+		// aliases and names
+		core::unordered_map<std::string, IElement*,core::CaseInsensitiveHash,core::CaseInsensitiveHash> handles;
 
 		/*stack of currently processed elements
 		each element of index N is parent of the element of index N+1
 		the scene element is a parent of all elements of index 0 */
-		core::stack<std::unique_ptr<IElement>> elements; 
+		core::stack<IElement*> elements; 
 
 		ParserFlowController pfc;
 
-		_IRR_STATIC_INLINE_CONSTEXPR const char* propertyElements[] = { 
-			"float", "string", "boolean", "integer", 
-			"rgb", "srgb", "spectrum", "blackbody",
-			"point", "vector", 
-			"matrix", "rotate", "translate", "scale", "lookat",
-			"animation"
-		};
+		const static core::unordered_set<std::string, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> propertyElements;
+
+		friend class CElementFactory;
 };
 
 void elementHandlerStart(void* _data, const char* _el, const char** _atts);

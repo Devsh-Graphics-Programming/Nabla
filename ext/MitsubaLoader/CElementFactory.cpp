@@ -1,13 +1,6 @@
 #include "../../ext/MitsubaLoader/CElementFactory.h"
 
 #include "../../ext/MitsubaLoader/ParserUtil.h"
-#include "../../ext/MitsubaLoader/CElementTransform.h"
-#include "../../ext/MitsubaLoader/CElementSensor.h"
-#include "../../ext/MitsubaLoader/CElementSampler.h"
-#include "../../ext/MitsubaLoader/CElementFilm.h"
-#include "../../ext/MitsubaLoader/CElementEmitter.h"
-#include "../../ext/MitsubaLoader/CShapeCreator.h"
-#include "../../ext/MitsubaLoader/Shape.h"
 
 namespace irr
 {
@@ -16,8 +9,27 @@ namespace ext
 namespace MitsubaLoader
 {
 
-//TODO: elementFactory should be an actuall class with distinct private member functions..
 
+template<>
+IElement* CElementFactory::createElement<CElementIntegrator>(const char** _atts, ParserManager* _util)
+{
+	core::vector<CElementIntegrator>& pool = _util->objects.getPool<CElementIntegrator>();
+	pool.emplace_back();
+	return &pool.back();
+}
+
+const core::unordered_map<std::string, std::pair<CElementFactory::element_creation_func,bool>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> CElementFactory::createElementTable =
+{
+	{"integrator",{CElementFactory::createElement<CElementIntegrator>,true}}
+};
+/*
+_IRR_STATIC_INLINE_CONSTEXPR const char* complexElements[] = {
+	"alias","transform","ref","integrator","sensor","film",
+	"rfilter","shape","bsdf","texture","emitter"
+};
+*/
+
+#if 0
 IElement* CElementFactory::createElement(const char* _el, const char** _atts)
 {
 	//should be removing white spaces performed before string comparison?
@@ -110,12 +122,6 @@ IElement* CElementFactory::createElement(const char* _el, const char** _atts)
 		return nullptr;
 	}
 }
-
-IElement* CElementFactory::parseScene(const char* _el, const char** _atts)
-{
-	return new CMitsubaScene();
-}
-
 IElement* CElementFactory::parseShape(const char* _el, const char** _atts)
 {
 	CShape* result = new CShape();
@@ -130,6 +136,7 @@ IElement* CElementFactory::parseShape(const char* _el, const char** _atts)
 	//ParserLog::mitsubaLoaderError("There is no type attribute for shape element. \n");
 	return result;
 }
+#endif
 
 }
 }

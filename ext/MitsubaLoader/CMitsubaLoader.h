@@ -32,13 +32,16 @@ class IMitsubaMetadata : public asset::IAssetMetadata
 		const core::smart_refctd_ptr<CGlobalMitsubaMetadata> globalMetadata;
 };
 
+// nested <shapes>
 class IMeshMetadata : public IMitsubaMetadata
 {
 	public:
+		const auto& getInstances() const { return instances; }
 	protected:
-		core::matrix4SIMD transform;
+		core::vector<core::matrix4SIMD> instances;
 };
 
+// <shape>
 class IMeshBufferMetadata : public IMitsubaMetadata
 {
 };

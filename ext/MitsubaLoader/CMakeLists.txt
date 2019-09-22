@@ -9,7 +9,6 @@ set(IRR_EXT_MITSUBA_LOADER_H
 	CElementSensor.h
 	CElementTransform.h
 	CMitsubaLoader.h
-	CMitsubaScene.h
 	CShapeCreator.h
 	IElement.h
 	ParserUtil.h
@@ -18,18 +17,17 @@ set(IRR_EXT_MITSUBA_LOADER_H
 )
 
 set(IRR_EXT_MITSUBA_LOADER_SRC
-	CElementEmitter.cpp
-	CElementFactory.cpp
-	CElementFilm.cpp
+	#CElementEmitter.cpp
+	#CElementFactory.cpp
+	#CElementFilm.cpp
 	CElementSampler.cpp
-	CElementSensor.cpp
-	CElementTransform.cpp
+	#CElementSensor.cpp
+	#CElementTransform.cpp
 	CMitsubaLoader.cpp
-	CMitsubaScene.cpp
-	CShapeCreator.cpp
+	#CShapeCreator.cpp
 	ParserUtil.cpp
 	PropertyElement.cpp
-	Shape.cpp
+	#Shape.cpp
 )
 
 set(IRR_EXT_MITSUBA_LOADER_EXTERNAL_INCLUDE
