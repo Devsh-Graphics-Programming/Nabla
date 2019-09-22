@@ -176,6 +176,27 @@ namespace core
 		return 0;
 	}
 
+	//! DOCUMENTATION TODO
+	struct CaseInsensitiveHash
+	{
+		inline std::size_t operator()(const std::string& val) const
+		{
+			std::size_t seed = 0;
+			for (auto it = val.begin(); it != val.end(); it++)
+			{
+				seed ^= ~std::size_t(std::tolower(*it)) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			}
+			return seed;
+		}
+	};
+	struct CaseInsensitiveEquals
+	{
+		inline bool operator()(const std::string& A, const std::string& B) const
+		{
+			return core::strcmpi(A, B) != 0;
+		}
+	};
+
 	//! Gets the the last character of given string.
 	/** @param str1 Given string.
 	@returns Last character of the string or 0 if contains no characters.

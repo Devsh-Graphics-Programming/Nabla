@@ -13,7 +13,7 @@ namespace ext
 namespace MitsubaLoader
 {
 
-const core::unordered_map<std::string,SPropertyElementData::Type,CaseInsensitiveHash,CaseInsensitiveEquals> SPropertyElementData::StringToType = {
+const core::unordered_map<std::string,SPropertyElementData::Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> SPropertyElementData::StringToType = {
 	{"float",		SPropertyElementData::Type::FLOAT},
 	{"integer",		SPropertyElementData::Type::INTEGER},
 	{"boolean",		SPropertyElementData::Type::BOOLEAN},
@@ -77,10 +77,12 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 			break;
 		case SPropertyElementData::Type::STRING:
 			FAIL_IF_ATTRIBUTE_NULL(0u)
-			auto len = strlen(desiredAttributes[0]);
-			auto* tmp = (char*)_IRR_ALIGNED_MALLOC(len + 1u, 64u);
-			strcpy(tmp, desiredAttributes[0]); tmp[len] = 0;
-			result.svalue = tmp;
+			{
+				auto len = strlen(desiredAttributes[0]);
+				auto* tmp = (char*)_IRR_ALIGNED_MALLOC(len + 1u, 64u);
+				strcpy(tmp, desiredAttributes[0]); tmp[len] = 0;
+				result.svalue = tmp;
+			}
 			break;
 		case SPropertyElementData::Type::RGB:
 			FAIL_IF_ATTRIBUTE_NULL(0u)

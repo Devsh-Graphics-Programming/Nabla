@@ -12,26 +12,6 @@ namespace ext
 namespace MitsubaLoader
 {
 
-struct CaseInsensitiveHash
-{
-	inline std::size_t operator()(const std::string& val) const
-	{
-		std::size_t seed = 0;
-		for (auto it=val.begin(); it!=val.end(); it++)
-		{
-			seed ^= ~std::size_t(std::tolower(*it)) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
-		}
-		return seed;
-	}
-};
-struct CaseInsensitiveEquals
-{
-	inline bool operator()(const std::string& A, const std::string& B) const
-	{
-		return core::strcmpi(A,B)!=0;
-	}
-};
-
 struct SPropertyElementData
 {
 	enum Type
@@ -54,7 +34,7 @@ struct SPropertyElementData
 		INVALID
 	};
 
-	static const core::unordered_map<std::string,Type,CaseInsensitiveHash,CaseInsensitiveEquals> StringToType;
+	static const core::unordered_map<std::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxAttributes = 4u;
 	static const char* attributeStrings[Type::INVALID][MaxAttributes];
 
@@ -133,11 +113,13 @@ struct SPropertyElementData
 				bvalue = other.bvalue;
 				break;
 			case Type::STRING:
+			{
 				auto len = strlen(other.svalue);
 				auto* tmp = (char*)_IRR_ALIGNED_MALLOC(len+1u,64u);
 				memcpy(tmp,other.svalue,len);
 				tmp[len] = 0;
 				svalue = tmp;
+			}
 				break;
 			case Type::RGB:
 			case Type::SRGB:
