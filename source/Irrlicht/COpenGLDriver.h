@@ -679,7 +679,7 @@ namespace video
             //! Returns whether setting was a success or not.
             bool setActiveTexture(uint32_t stage, core::smart_refctd_ptr<IRenderableVirtualTexture>&& texture, const video::STextureSamplingParams &sampleParams);
 
-            void setActiveBindings(const COpenGLDescriptorSet* descriptorSets[4]);
+            void setActiveDescriptorSet(uint32_t index, const COpenGLDescriptorSet* descriptorSets);
 
             const GLuint& constructSamplerInCache(const uint64_t &hashVal);
 

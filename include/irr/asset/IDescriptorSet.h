@@ -36,17 +36,19 @@ protected:
     struct SDescriptorInfo
     {
         core::smart_refctd_ptr<IDescriptor> desc;
-        struct SDescriptorBufferInfo
-        {
-            size_t offset;
-            size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
-        } buffer;
-        struct SDescriptorImageInfo
-        {
-            SSamplerParams sampler;
-            //! Irrelevant in OpenGL backend
-            E_IMAGE_LAYOUT imageLayout;
-        } image;
+        union {
+            struct SDescriptorBufferInfo
+            {
+                size_t offset;
+                size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
+            } buffer;
+            struct SDescriptorImageInfo
+            {
+                SSamplerParams sampler;
+                //! Irrelevant in OpenGL backend
+                E_IMAGE_LAYOUT imageLayout;
+            } image;
+        };
     };
 
 public:
