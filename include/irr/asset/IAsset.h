@@ -42,22 +42,32 @@ public:
         ET_SHADER = 1u<<7u,
         //! asset::ICPUSpecializedShader
         ET_SPECIALIZED_SHADER = 1u<<8,
-        //! asset::ICPUMeshDataFormatDesc
-        ET_MESH_DATA_DESCRIPTOR = 1u<<8,
-        //! reserved, to implement later
+        //! asset::ICPURenderpassIndependentPipeline
         ET_GRAPHICS_PIPELINE = 1u<<9u,
         //! reserved, to implement later
         ET_SCENE = 1u<<10u,
+        //! asset::ICPUComputePipeline
+        ET_COMPUTE_PIPELINE = 1u<<11,
+        //! asset::ICPUTextureView
+        ET_TEXTURE_VIEW = 1u<<12,
+        //! asset::ICPUDescriptorSetLayout
+        ET_DESCRIPTOR_SET_LAYOUT = 1u<<13,
+        //! asset::ICPUDescriptorSet
+        ET_DESCRIPTOR_SET = 1u<<14,
+        //! asset::ICPUPipelineLayout
+        ET_PIPELINE_LAYOUT = 1u<<15,
+        //! asset::ICPUBufferView
+        ET_BUFFER_VIEW = 1u<<16,
         //! lights, etc.
         ET_IMPLEMENTATION_SPECIFIC_METADATA = 1u<<31u
         //! Reserved special value used for things like terminating lists of this enum
     };
-    constexpr static size_t ET_STANDARD_TYPES_COUNT = 12u;
+    constexpr static size_t ET_STANDARD_TYPES_COUNT = 17u;
 
     static uint32_t typeFlagToIndex(E_TYPE _type)
     {
-        uint32_t type = (uint32_t)_type;
-        uint32_t r = 0u;
+        uint64_t type = static_cast<uint64_t>(_type);
+        uint64_t r = 0u;
         while (type >>= 1u) ++r;
         return r;
     }

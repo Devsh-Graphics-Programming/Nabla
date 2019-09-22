@@ -16,6 +16,10 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 public:
     using base_t::base_t;
 
+    size_t conservativeSizeEstimate() const override { return sizeof(base_t); }
+    void convertToDummyObject() override { }
+    E_TYPE getAssetType() const override { return ET_GRAPHICS_PIPELINE; }
+
     //maybe setters (shaders, layout, other params) for CPU counterpart only
 
 protected:

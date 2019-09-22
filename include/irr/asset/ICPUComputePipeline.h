@@ -17,6 +17,10 @@ class ICPUComputePipeline : public IComputePipeline<ICPUSpecializedShader, ICPUP
 public:
     using base_t::base_t;
 
+    size_t conservativeSizeEstimate() const override { return sizeof(base_t); }
+    void convertToDummyObject() override { }
+    E_TYPE getAssetType() const override { return ET_COMPUTE_PIPELINE; }
+
 protected:
     virtual ~ICPUComputePipeline() = default;
 };

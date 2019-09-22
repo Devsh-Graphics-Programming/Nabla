@@ -15,6 +15,10 @@ class ICPUDescriptorSet : public IDescriptorSet<ICPUBuffer, ICPUTexture, ICPUBuf
 public:
     using IDescriptorSet<ICPUBuffer, ICPUTexture, ICPUBufferView>::IDescriptorSet;
 
+    size_t conservativeSizeEstimate() const override { return m_descriptors->size()*sizeof(SWriteDescriptorSet); }
+    void convertToDummyObject() override { m_descriptors = nullptr; }
+    E_TYPE getAssetType() const override { return ET_DESCRIPTOR_SET; }
+
 protected:
     virtual ~ICPUDescriptorSet() = default;
 };

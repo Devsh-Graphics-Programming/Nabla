@@ -13,6 +13,10 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 public:
     using IPipelineLayout<ICPUDescriptorSetLayout>::IPipelineLayout;
 
+    size_t conservativeSizeEstimate() const override { return m_descSetLayouts.size()*sizeof(void*) + m_pushConstantRanges->size()*sizeof(SPushConstantRange); }
+    void convertToDummyObject() override { m_pushConstantRanges = nullptr; }
+    E_TYPE getAssetType() const override { return ET_PIPELINE_LAYOUT; }
+
 protected:
     virtual ~ICPUPipelineLayout() = default;
 };

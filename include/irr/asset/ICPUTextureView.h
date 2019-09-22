@@ -10,6 +10,11 @@ namespace asset
 
 class ICPUTextureView : public IAsset, public IDescriptor
 {
+public:
+    size_t conservativeSizeEstimate() const override { return 0ull /*TODO*/; }
+    void convertToDummyObject() override { } //possibly TODO
+    E_TYPE getAssetType() const override { return ET_TEXTURE_VIEW; }
+
 protected:
     virtual ~ICPUTextureView() = default;
 };

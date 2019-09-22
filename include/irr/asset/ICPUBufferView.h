@@ -17,6 +17,10 @@ public:
         IBufferView<ICPUBuffer>(std::move(_buffer), _format, _offset, _size)
     {}
 
+    size_t conservativeSizeEstimate() const override { return m_size; }
+    void convertToDummyObject() override { }
+    E_TYPE getAssetType() const override { return ET_BUFFER_VIEW; }
+
     inline void setOffsetInBuffer(size_t _offset) { m_offset = _offset; }
     inline void setSize(size_t _size) { m_size = _size; }
 
