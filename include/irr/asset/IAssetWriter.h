@@ -9,6 +9,15 @@
 namespace irr { namespace asset
 {
 
+//! Writing flags
+/**
+	They have an impact on writing (saving) an Asset.
+
+	E_WRITER_FLAGS::EWF_NONE means that there aren't writer flags (default)
+	E_WRITER_FLAGS::EWF_COMPRESSED means that it has to write in a way that consumes less disk space if possible 
+	E_WRITER_FLAGS::EWF_ENCRYPTED means that it has to write in encrypted way if possible
+	E_WRITER_FLAGS::EWF_BINARY means that it has to write in binary format rather than text if possible
+*/
 enum E_WRITER_FLAGS : uint32_t
 {
     //! no writer flags (default writer settings)
@@ -24,6 +33,30 @@ enum E_WRITER_FLAGS : uint32_t
     EWF_BINARY = 1u<<2u
 };
 
+//! A class that defines rules during Asset-writing (saving) process
+/**
+	Some assets can be saved to file (or memory file) by classes derived from IAssetWriter.
+	These classes must be registered with IAssetManager::addAssetWriter() which will add it
+	to the list of writers (grab return 0-based index) or just not register the writer upon 
+	failure (don’t grab and return 0xdeadbeefu).
+
+	The writing is impacted by writing flags, defined as E_WRITER_FLAGS.
+
+	When the class derived from IAssetWriter is added, its put once on a 
+	std::multimap<std::pair<IAsset::E_TYPE,std::string>,IAssetWriter*> for every 
+	asset type and file extension it supports, and once on a std::multimap<IAsset::E_TYPE,IAssetWriter*> 
+	for every asset type it supports.
+
+	The writers are tried in the order they were registered per-asset-type-and-file-extension, 
+	or in the per-asset-type order in the case of writing straight to file without a name.
+
+	An IAssetWriter can only be removed/deregistered by its original pointer or global loader index.
+
+	@see IReferenceCounted::grab()
+	@see IAsset
+	@see IAssetManager
+	@see IAssetLoader
+*/
 class IAssetWriter : public virtual core::IReferenceCounted
 {
 public:

@@ -7,9 +7,47 @@
 namespace irr { namespace asset
 {
 
+//! A class that defines rules during Asset-loading process
+/**
+	Every Asset must be loaded by a particular class derived from IAssetLoader.
+	These classes must be registered with IAssetManager::addAssetLoader() which will 
+	add it to the list of loaders (grab return 0-based index) or just not register 
+	the loader upon failure (don’t grab and return 0xdeadbeefu).
+
+	The loading is impacted by caching and resource duplication flags, defined as IAssetLoader::E_CACHING_FLAGS.
+
+	When the class derived from IAssetLoader is added, its put once on an 
+	std::vector<IAssetLoader*> and once on an std::multimap<std::string,IAssetLoader*> 
+	inside the IAssetManager for every associated file extension it reports.
+
+	The loaders are tried in the order they were registered per file extensions, 
+	and later in the global order in case of needing to fallback to examining files.
+
+	An IAssetLoader can only be removed/deregistered by its original pointer or global loader index.
+
+	@see IReferenceCounted::grab()
+	@see IAsset
+	@see IAssetManager
+	@see IAssetWriter
+*/
+
 class IAssetLoader : public virtual core::IReferenceCounted
 {
 public:
+
+	//! Caching and resource duplication flags 
+	/**
+		They have an impact on loading an Asset.
+
+		E_CACHING_FLAGS::ECF_CACHE_EVERYTHING means that //TODO
+		E_CACHING_FLAGS::ECF_DONT_CACHE_TOP_LEVEL means that master/parent is searched for in the caches, 
+		but not added to the cache if not found and loaded.
+		E_CACHING_FLAGS::ECF_DUPLICATE_TOP_LEVEL means that master/parent object is loaded without searching
+		for it in the cache, nor adding it to the cache after the load.
+		E_CACHING_FLAGS::ECF_DONT_CACHE_REFERENCES means that it concerns any asset that the top level asset refers to, such as a texture
+		E_CACHING_FLAGS::ECF_DUPLICATE_REFERENCES means almost the same as E_CACHING_FLAGS::ECF_DUPLICATE_TOP_LEVEL but for any asset in the chain
+	*/
+
     enum E_CACHING_FLAGS : uint64_t
     {
         ECF_CACHE_EVERYTHING = 0,

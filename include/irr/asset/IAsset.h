@@ -21,9 +21,51 @@ public:
     virtual const char* getLoaderName() = 0;
 };
 
+//! An interface class representing any kind of cpu-objects with capability of being cached
+/**
+	Actually it can be anything like cpu-side meshes scenes, texture data and material pipelines, 
+	but must be serializable into/from .baw file format, unless it comes from an extension (irr::ext), 
+	so forth cached. There are different asset types you can find at IAsset::E_TYPE. 
+	IAsset doesn't provide direct instantiation (virtual destructor), much like IReferenceCounted.
+
+	Every asset must be loaded by a particular class derived from IAssetLoader.
+	
+	@see IAssetLoader
+	@see IAssetManager
+	@see IAssetWriter
+	@see IReferenceCounted
+*/
+
 class IAsset : virtual public core::IReferenceCounted
 {
 public:
+
+	/**
+		Values of E_TYPE represents an Asset type.
+
+		Entire enum as type represents a register with bit flags,
+		which represent an available Asset type.
+
+		@see IAsset
+
+		ET_BUFFER represents asset::ICPUBuffer
+		ET_SUB_IMAGE represents asset::CImageData
+		ET_IMAGE represents ICPUTexture
+		ET_SUB_MESH represents
+		ET_MESH represents
+		ET_SKELETON represents
+		ET_KEYFRAME_ANIMATION represents
+		ET_SHADER represents
+		ET_SPECIALIZED_SHADER represents
+		ET_MESH_DATA_DESCRIPTOR represents
+		ET_GRAPHICS_PIPELINE represents
+		ET_SCENE represents
+		ET_IMPLEMENTATION_SPECIFIC_METADATA represents a special value used for things like terminating lists of this enum
+
+		Pay attention that a register is limited to 32 bits.
+
+	*/
+
     enum E_TYPE : uint64_t
     {
         //! asset::ICPUBuffer
@@ -54,7 +96,7 @@ public:
         ET_IMPLEMENTATION_SPECIFIC_METADATA = 1u<<31u
         //! Reserved special value used for things like terminating lists of this enum
     };
-    constexpr static size_t ET_STANDARD_TYPES_COUNT = 12u;
+    constexpr static size_t ET_STANDARD_TYPES_COUNT = 12u; //!< The variable shows valid amount of available Asset types in E_TYPE bit register
 
     static uint32_t typeFlagToIndex(E_TYPE _type)
     {
@@ -128,8 +170,14 @@ public:
         assert(allSameTypeAndNotNull());
     }
 
+	//! Returns an Asset type associated with the Asset
+	/**
+		An Asset type is specified in bit register 
+		@see E_TYPE
+	*/
     inline IAsset::E_TYPE getAssetType() const { return m_contents->front()->getAssetType(); }
 
+	//! Getting beginning and end of an Asset stored by m_contents
     inline std::pair<const core::smart_refctd_ptr<IAsset>*, const core::smart_refctd_ptr<IAsset>*> getContents() const
     {
         return {m_contents->begin(), m_contents->end()};
@@ -140,13 +188,18 @@ public:
     //! Only valid if isInAResourceCache() returns true
     std::string getCacheKey() const { return m_cacheKey; }
 
+	//! Getting size of an Asset stored by m_contents
     size_t getSize() const { return m_contents->size(); }
+	//! Checking if an Asset stored by m_contents is empty
     bool isEmpty() const { return getSize()==0ull; }
 
+	//! Overloaded operator checking if both Assets\b are\b the same objects in memory
     bool operator==(const SAssetBundle& _other) const
     {
         return _other.m_contents == m_contents;
     }
+
+	//! Overloaded operator checking if both Assets\b aren't\b the same objects in memory
     bool operator!=(const SAssetBundle& _other) const
     {
         return !((*this) != _other);

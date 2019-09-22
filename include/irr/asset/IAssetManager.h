@@ -31,6 +31,18 @@ namespace asset
     std::function<void(SAssetBundle&)> makeAssetGreetFunc(const IAssetManager* const _mgr);
     std::function<void(SAssetBundle&)> makeAssetDisposeFunc(const IAssetManager* const _mgr);
 
+	//! Class responsible for handling loading of assets from file system or other resources
+	/**
+		It provides the default methods for converting CPU assets to GPU objects, methods 
+		for exporting CPU assets, as well as synthetic asset creators like the IGeometryCreator.
+		There is a loading, writing and creation functionality that is thread-safe.
+
+		IAssetManager performs caching of CPU assets associated with resource handles such as names, 
+		filenames, UUIDs. However there are separate caches for each asset type.
+
+		@see IAsset
+
+	*/
 	class IAssetManager : public core::IReferenceCounted
 	{
         // the point of those functions is that lambdas returned by them "inherits" friendship
