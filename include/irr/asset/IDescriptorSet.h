@@ -6,6 +6,7 @@
 #include "irr/asset/IDescriptorSetLayout.h"//for E_DESCRIPTOR_TYPE
 #include "irr/asset/format/EFormat.h"
 #include "irr/asset/IDescriptor.h"
+#include <algorithm>
 
 namespace irr { namespace asset
 {
@@ -60,10 +61,26 @@ public:
     };
 
 protected:
-    IDescriptorSet(core::smart_refctd_dynamic_array<SWriteDescriptorSet>&& _descriptors) : m_descriptors(std::move(_descriptors)) {}
+    /**
+    @param _descriptors Entries must be sorted by binding number
+    */
+    IDescriptorSet(core::smart_refctd_dynamic_array<SWriteDescriptorSet>&& _descriptors, core::smart_refctd_dynamic_array<uint32_t>&& _dynOffsets) : 
+        m_descriptors(std::move(_descriptors)), m_dynamicOffsets(std::move(_dynOffsets)) 
+    {
+        auto is_not_sorted = [this] {
+            for (auto it = m_descriptors->cbegin()+1; it != m_descriptors->cend(); ++it)
+                if (it->binding <= (it-1)->binding)
+                    return false;
+            return true;
+        };
+        auto is_dynamic = [] (const SWriteDescriptorSet& _entry) { return _entry.descriptorType==EDT_UNIFORM_BUFFER_DYNAMIC || _entry.descriptorType==EDT_STORAGE_BUFFER_DYNAMIC; };
+        assert(std::count_if(m_descriptors->cbegin(), m_descriptors->end(), is_dynamic) == m_dynamicOffsets->size());
+        assert(!is_not_sorted);
+    }
     virtual ~IDescriptorSet() = default;
 
     core::smart_refctd_dynamic_array<SWriteDescriptorSet> m_descriptors;
+    core::smart_refctd_dynamic_array<uint32_t> m_dynamicOffsets;
 };
 
 }}

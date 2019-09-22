@@ -45,9 +45,9 @@ public:
 
             auto bindings = descSetLayout->getBindings();
             for (const auto& bnd : bindings) {
-                if (bnd.type == asset::EDT_UNIFORM_BUFFER)
+                if (bnd.type == asset::EDT_UNIFORM_BUFFER || bnd.type == asset::EDT_UNIFORM_BUFFER_DYNAMIC)
                     params.ubos.count += bnd.count;
-                else if (bnd.type == asset::EDT_STORAGE_BUFFER)
+                else if (bnd.type == asset::EDT_STORAGE_BUFFER || bnd.type == asset::EDT_STORAGE_BUFFER_DYNAMIC)
                     params.ssbos.count += bnd.count;
                 else if (bnd.type == asset::EDT_COMBINED_IMAGE_SAMPLER || bnd.type == asset::EDT_UNIFORM_TEXEL_BUFFER)
                     params.textures.count += bnd.count;

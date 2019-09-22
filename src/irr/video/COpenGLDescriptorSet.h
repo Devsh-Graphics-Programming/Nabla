@@ -48,7 +48,8 @@ public:
     };
 
 public:
-    COpenGLDescriptorSet(core::smart_refctd_dynamic_array<SWriteDescriptorSet>&& _descriptors) : IGPUDescriptorSet(std::move(_descriptors))
+    COpenGLDescriptorSet(core::smart_refctd_dynamic_array<SWriteDescriptorSet>&& _descriptors, core::smart_refctd_dynamic_array<uint32_t>&& _dynOffsets)
+        : IGPUDescriptorSet(std::move(_descriptors), std::move(_dynOffsets))
     {
         size_t uboCount = 0ull;
         size_t ssboCount = 0ull;
@@ -59,9 +60,13 @@ public:
             switch (desc.descriptorType)
             {
             case asset::EDT_UNIFORM_BUFFER:
+                _IRR_FALLTHROUGH;
+            case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
                 uboCount += desc.info->size();
                 break;
             case asset::EDT_STORAGE_BUFFER:
+                _IRR_FALLTHROUGH;
+            case asset::EDT_STORAGE_BUFFER_DYNAMIC:
                 ssboCount += desc.info->size();
                 break;
             case asset::EDT_UNIFORM_TEXEL_BUFFER: //GL_TEXTURE_BUFFER
@@ -125,21 +130,26 @@ public:
             }
         };
         size_t u=0ull, s=0ull, t=0ull, i=0ull;
+        size_t dyn_offset_iter = 0ull;
         for (const auto& desc : (*m_descriptors))
         {
-            if (desc.descriptorType==asset::EDT_UNIFORM_BUFFER)
+            if (desc.descriptorType==asset::EDT_UNIFORM_BUFFER || desc.descriptorType==asset::EDT_UNIFORM_BUFFER_DYNAMIC)
                 for (const auto& info : (*desc.info)) {
+                    const uint32_t extra_offset = (desc.descriptorType==asset::EDT_UNIFORM_BUFFER_DYNAMIC) ? (*m_dynamicOffsets)[dyn_offset_iter] : 0u;
                     (*m_names)[uboNamesOffset + u] = static_cast<COpenGLBuffer*>(info.desc.get())->getOpenGLName();
                     (*m_offsets)[uboBufOffset + u] = info.buffer.offset;
                     (*m_sizes)[uboBufOffset + u] = info.buffer.size;
                     ++u;
+                    dyn_offset_iter += (desc.descriptorType==asset::EDT_UNIFORM_BUFFER_DYNAMIC);
                 }
-            else if (desc.descriptorType==asset::EDT_STORAGE_BUFFER)
+            else if (desc.descriptorType==asset::EDT_STORAGE_BUFFER || desc.descriptorType==asset::EDT_STORAGE_BUFFER_DYNAMIC)
                 for (const auto& info : (*desc.info)) {
+                    const uint32_t extra_offset = (desc.descriptorType==asset::EDT_STORAGE_BUFFER_DYNAMIC) ? (*m_dynamicOffsets)[dyn_offset_iter] : 0u;
                     (*m_names)[ssboNamesOffset + s] = static_cast<COpenGLBuffer*>(info.desc.get())->getOpenGLName();
                     (*m_offsets)[ssboBufOffset + s] = info.buffer.offset;
                     (*m_sizes)[ssboBufOffset + s] = info.buffer.size;
                     ++s;
+                    dyn_offset_iter += (desc.descriptorType==asset::EDT_STORAGE_BUFFER_DYNAMIC);
                 }
             else if (desc.descriptorType==asset::EDT_COMBINED_IMAGE_SAMPLER)
                 for (const auto& info : (*desc.info)) {
@@ -161,7 +171,6 @@ public:
                 }
             else if (desc.descriptorType==asset::EDT_STORAGE_TEXEL_BUFFER)
                 for (const auto& info : (*desc.info)) {
-                    //TODO not sure. should STORAGE_TEXEL_BUFFER come from COpenGLBufferView?
                     (*m_names)[imagNamesOffset + i] = static_cast<COpenGLBufferView*>(info.desc.get())->getOpenGLName();
                     (*m_extraEnums)[enums_imagFormatsOffset + i] = static_cast<COpenGLBufferView*>(info.desc.get())->getInternalFormat();
                     ++i;
