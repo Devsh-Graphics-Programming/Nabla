@@ -2,6 +2,7 @@
 #define __I_ELEMENT_FACTORY_H_INCLUDED__
 
 #include "../../ext/MitsubaLoader/CElementSampler.h"
+#include "../../ext/MitsubaLoader/CElementIntegrator.h"
 
 namespace irr
 {
@@ -12,13 +13,6 @@ namespace MitsubaLoader
 
 class ParserManager;
 
-class CElementIntegrator : public IElement
-{
-	bool addProperty(SPropertyElementData&& _property) override {}
-	bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override { return true; }
-	IElement::Type getType() const override { return IElement::Type::INTEGRATOR; }
-	std::string getLogName() const override { return "integrator"; }
-};
 class CElementSensor {};
 class CElementFilm {};
 class CElementRFilter {};

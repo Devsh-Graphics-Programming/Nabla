@@ -60,6 +60,7 @@ IElement* CElementFactory::createElement<CElementSampler>(const char** _atts, Pa
 		default:
 			break;
 	}
+	return obj;
 }
 
 bool CElementSampler::addProperty(SPropertyElementData&& _property)
@@ -85,7 +86,7 @@ bool CElementSampler::addProperty(SPropertyElementData&& _property)
 		_property.name == "dimension")
 	{
 		dimension = _property.ivalue;
-		if (type == Type::INDEPENDENT || type == Type::HALTON || type == Type::HAMMERSLEY || )
+		if (type == Type::INDEPENDENT || type == Type::HALTON || type == Type::HAMMERSLEY)
 		{
 			ParserLog::invalidXMLFileStructure("this sampler type does not take these parameters");
 			_IRR_DEBUG_BREAK_IF(true);
@@ -97,7 +98,7 @@ bool CElementSampler::addProperty(SPropertyElementData&& _property)
 		_property.name == "scramble")
 	{
 		scramble = _property.ivalue;
-		if (type==Type::INDEPENDENT || type==Type::STRATIFIED || type == Type::LDSAMPLER || )
+		if (type==Type::INDEPENDENT || type==Type::STRATIFIED || type == Type::LDSAMPLER)
 		{
 			ParserLog::invalidXMLFileStructure("this sampler type does not take these parameters");
 			_IRR_DEBUG_BREAK_IF(true);
@@ -123,7 +124,7 @@ bool CElementSampler::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _overr
 	}
 
 	// add to global metadata
-	if (type != Type::NONE)
+	if (globalMetadata->sampler.type!=CElementSampler::Type::NONE)
 	{
 		ParserLog::invalidXMLFileStructure(getLogName() + ": cannot have two samplers in a scene");
 		_IRR_DEBUG_BREAK_IF(true);

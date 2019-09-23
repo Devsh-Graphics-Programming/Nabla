@@ -70,7 +70,7 @@ class SimpleBlockBasedAllocator
 
 		inline void*	allocate(size_type bytes, size_type alignment) noexcept
 		{
-			constexpr auto invalid_address = address_allocator_traits<AddressAllocator>::invalid_address;
+			constexpr auto invalid_address = AddressAllocator::invalid_address;
 
 			size_type addr = invalid_address;
 			address_allocator_traits<AddressAllocator>::multi_alloc_addr(addrAlloc, 1u, &addr, &bytes, &alignment);

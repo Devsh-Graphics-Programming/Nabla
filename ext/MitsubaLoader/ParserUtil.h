@@ -1,8 +1,7 @@
 #ifndef __I_PARSER_UTIL_H_INCLUDED__
 #define __I_PARSER_UTIL_H_INCLUDED__
 
-#include "irr/core/alloc/SimpleBlockBasedAllocator.h"
-
+#include "irr/core/core.h"
 #include "irr/asset/IAssetLoader.h"
 #include "irr/asset/CCPUMesh.h"
 
@@ -64,7 +63,7 @@ class ElementPool // : public std::tuple<core::vector<types>...>
 		template<typename T, typename... Args>
 		inline T* construct(Args&& ... args)
 		{
-			T* ptr = poolAllocator.allocate(sizeof(T), alignof(T));
+			T* ptr = reinterpret_cast<T*>(poolAllocator.allocate(sizeof(T), alignof(T)));
 			return new (ptr) T(std::forward<Args>(args)...);
 		}
 		/*

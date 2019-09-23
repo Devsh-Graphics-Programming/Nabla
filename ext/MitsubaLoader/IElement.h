@@ -22,8 +22,8 @@ class IElement
 			INTEGRATOR,
 			SAMPLER,
 
-			FILM,
 			SENSOR,
+			FILM,
 			EMITTER,
 
 			//shapes

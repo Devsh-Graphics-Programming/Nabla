@@ -186,6 +186,14 @@ struct SPropertyElementData
 		return *this;
 	}
 
+
+	template<uint32_t property_type>
+	struct get_typename;
+	template<uint32_t property_type>
+	//const typename get_typename<property_type>::type& getProperty() const;
+	const auto& getProperty() const;
+
+
 	SPropertyElementData::Type type;
 	std::string name;
 	union
@@ -198,6 +206,67 @@ struct SPropertyElementData
 		core::matrix4SIMD	mvalue; // matrix, translate, rotate, scale, lookat
 	};
 };
+
+template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::FLOAT>
+{ using type = float; };
+template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::INTEGER>
+{ using type = int32_t; };
+template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::BOOLEAN>
+{ using type = bool; };
+template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::STRING>
+{ using type = const char*; };
+template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::RGB>
+{ using type = core::vectorSIMDf; };
+template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::SRGB>
+{ using type = core::vectorSIMDf; };
+template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::VECTOR>
+{ using type = core::vectorSIMDf; };
+template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::POINT>
+{ using type = core::vectorSIMDf; };
+template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::SPECTRUM>
+{ using type = void; };
+template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::BLACKBODY>
+{ using type = void; };
+template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::MATRIX>
+{ using type = core::matrix4SIMD; };
+template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::TRANSLATE>
+{ using type = core::matrix4SIMD; };
+template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::ROTATE>
+{ using type = core::matrix4SIMD; };
+template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::SCALE>
+{ using type = core::matrix4SIMD; };
+template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::LOOKAT>
+{ using type = core::matrix4SIMD; };
+template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::INVALID>
+{ using type = void; };
+
+template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::FLOAT>() const
+{ return fvalue; }
+template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::INTEGER>() const
+{ return ivalue; }
+template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::BOOLEAN>() const
+{ return bvalue; }
+template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::STRING>() const
+{ return svalue; }
+template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::RGB>() const
+{ return vvalue; }
+template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::SRGB>() const
+{ return vvalue; }
+template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::VECTOR>() const
+{ return vvalue; }
+template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::POINT>() const
+{ return vvalue; }
+template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::MATRIX>() const
+{ return mvalue; }
+template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::TRANSLATE>() const
+{ return mvalue; }
+template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::ROTATE>() const
+{ return mvalue; }
+template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::SCALE>() const
+{ return mvalue; }
+template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::LOOKAT>() const
+{ return mvalue; }
+
 
 class CPropertyElementManager
 {

@@ -39,9 +39,6 @@ class CElementSampler : public IElement
 			int dimension;
 			int scramble;
 		};
-	private:
-		bool dimensionSet = false;
-		bool scrambleSet = false;
 };
 
 
