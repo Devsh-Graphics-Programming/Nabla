@@ -1,6 +1,8 @@
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 #include "../../ext/MitsubaLoader/CElementFactory.h"
 
+#include <functional>
+
 namespace irr
 {
 namespace ext
@@ -121,44 +123,112 @@ struct is_one_of;
 bool CElementIntegrator::addProperty(SPropertyElementData&& _property)
 {
 	bool error = false;
-#define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE, ... )		[&](auto& state) -> void { \
-		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
-		{ \
-			if (_property.type!=PROPERTY_TYPE) { \
-				error = true; \
-				return; \
+	auto dispatch = [&](auto func) -> void
+	{
+		switch (type)
+		{
+			case CElementIntegrator::Type::AO:
+				func(ao);
+				break;
+			case CElementIntegrator::Type::DIRECT:
+				func(direct);
+				break;
+			case CElementIntegrator::Type::PATH:
+				func(path);
+				break;
+			case CElementIntegrator::Type::VOL_PATH_SIMPLE:
+				func(volpath_simple);
+				break;
+			case CElementIntegrator::Type::VOL_PATH:
+				func(volpath);
+				break;
+			case CElementIntegrator::Type::BDPT:
+				func(bdpt);
+				break;
+			case CElementIntegrator::Type::PHOTONMAPPER:
+				func(photonmapper);
+				break;
+			case CElementIntegrator::Type::PPM:
+				func(ppm);
+				break;
+			case CElementIntegrator::Type::SPPM:
+				func(sppm);
+				break;
+			case CElementIntegrator::Type::PSSMLT:
+				func(pssmlt);
+				break;
+			case CElementIntegrator::Type::MLT:
+				func(mlt);
+				break;
+			case CElementIntegrator::Type::ERPT:
+				func(erpt);
+				break;
+			case CElementIntegrator::Type::ADJ_P_TRACER:
+				func(ptracer);
+				break;
+			case CElementIntegrator::Type::ADAPTIVE:
+				func(adaptive);
+				break;
+			case CElementIntegrator::Type::VPL:
+				func(vpl);
+				break;
+			case CElementIntegrator::Type::IRR_CACHE:
+				func(irrcache);
+				break;
+			case CElementIntegrator::Type::MULTI_CHANNEL:
+				func(multichannel);
+				break;
+			case CElementIntegrator::Type::FIELD_EXTRACT:
+				func(field);
+				break;
+			default:
+				error = true;
+				break;
+		}
+	};
+
+#define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE, ... )		[&]() -> void { \
+		dispatch([&](auto& state) -> void { \
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+			{ \
+				if (_property.type!=PROPERTY_TYPE) { \
+					error = true; \
+					return; \
+				} \
+				state. ## MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
 			} \
-			state. ## MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
-		} \
-		IRR_PSEUDO_IF_CONSTEXPR_END \
+			IRR_PSEUDO_IF_CONSTEXPR_END \
+		}); \
 	}
 
 	auto processRayLength = SET_PROPERTY_TEMPLATE(rayLength,SPropertyElementData::Type::FLOAT,AmbientOcclusion);
 	auto processEmitterSamples = SET_PROPERTY_TEMPLATE(emitterSamples,SPropertyElementData::Type::INTEGER,DirectIllumination);
 	auto processBSDFSamples = SET_PROPERTY_TEMPLATE(bsdfSamples,SPropertyElementData::Type::INTEGER,DirectIllumination);
-	auto processShadingSamples = [&](auto& state) -> void
-	{
-		using state_type = std::remove_reference<decltype(state)>::type;
+	auto processShadingSamples = [&]() -> void
+	{ 
+		dispatch([&](auto& state) -> void {
+			using state_type = std::remove_reference<decltype(state)>::type;
 
-		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,AmbientOcclusion>::value)
-		{
-			if (_property.type!=SPropertyElementData::Type::INTEGER)
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,AmbientOcclusion>::value)
 			{
-				error = true;
-				return;
+				if (_property.type!=SPropertyElementData::Type::INTEGER)
+				{
+					error = true;
+					return;
+				}
+				state.shadingSamples = _property.getProperty<SPropertyElementData::Type::INTEGER>();
 			}
-			state.shadingSamples = _property.getProperty<SPropertyElementData::Type::INTEGER>();
-		}
-		IRR_PSEUDO_ELSE_CONSTEXPR
-		{
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,DirectIllumination>::value)
+			IRR_PSEUDO_ELSE_CONSTEXPR
 			{
-				processEmitterSamples(state);
-				processBSDFSamples(state);
+				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,DirectIllumination>::value)
+				{
+					processEmitterSamples();
+					processBSDFSamples();
+				}
+				IRR_PSEUDO_IF_CONSTEXPR_END
 			}
 			IRR_PSEUDO_IF_CONSTEXPR_END
-		}
-		IRR_PSEUDO_IF_CONSTEXPR_END
+		});
 	};
 	auto processStrictNormals = SET_PROPERTY_TEMPLATE(strictNormals,SPropertyElementData::Type::BOOLEAN,DirectIllumination,PathTracing);
 	auto processHideEmitters = SET_PROPERTY_TEMPLATE(hideEmitters,SPropertyElementData::Type::BOOLEAN,DirectIllumination,PathTracing,PhotonMapping);
@@ -199,41 +269,59 @@ bool CElementIntegrator::addProperty(SPropertyElementData&& _property)
 	auto processNumChains = SET_PROPERTY_TEMPLATE(numChains,SPropertyElementData::Type::FLOAT,EnergyRedistributionPathTracing);
 	auto processMaxChains = SET_PROPERTY_TEMPLATE(maxChains,SPropertyElementData::Type::FLOAT,EnergyRedistributionPathTracing);
 	auto processChainLength = SET_PROPERTY_TEMPLATE(chainLength,SPropertyElementData::Type::INTEGER,EnergyRedistributionPathTracing);
-	auto processDirectSamples = SET_PROPERTY_TEMPLATE(directSamples,SPropertyElementData::Type::INTEGER,EnergyRedistributionPathTracing);
 	auto processBruteForce = SET_PROPERTY_TEMPLATE(bruteForce,SPropertyElementData::Type::BOOLEAN,AdjointParticleTracing);
 	auto processShadowMap = SET_PROPERTY_TEMPLATE(shadowMap,SPropertyElementData::Type::INTEGER,VirtualPointLights);
 	auto processClamping = SET_PROPERTY_TEMPLATE(clamping,SPropertyElementData::Type::FLOAT,VirtualPointLights);
-	auto processField = [&](auto& state) -> void
+	auto processField = [&]() -> void
 	{
-		using state_type = std::remove_reference<decltype(state)>::type;
-		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,FieldExtraction>::value)
+		dispatch([&](auto& state) -> void
 		{
-			if (_property.type != SPropertyElementData::Type::STRING)
+			using state_type = std::remove_reference<decltype(state)>::type;
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,FieldExtraction>::value)
 			{
-				error = true;
-				return;
+				if (_property.type != SPropertyElementData::Type::STRING)
+				{
+					error = true;
+					return;
+				}
+				static const core::unordered_map<std::string,FieldExtraction::Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
+				{
+					{"position",FieldExtraction::Type::POSITION},
+					{"relPosition",FieldExtraction::Type::RELATIVE_POSITION},
+					{"distance",FieldExtraction::Type::DISTANCE},
+					{"geoNormal",FieldExtraction::Type::GEOMETRIC_NORMAL},
+					{"shNormal",FieldExtraction::Type::SHADING_NORMAL},
+					{"uv",FieldExtraction::Type::UV_COORD},
+					{"albedo",FieldExtraction::Type::ALBEDO},
+					{"shapeIndex",FieldExtraction::Type::SHAPE_INDEX},
+					{"primIndex",FieldExtraction::Type::PRIMITIVE_INDEX}
+				};
+				auto found = StringToType.find(_property.svalue);
+				if (found!=StringToType.end())
+					state.field = found->second;
+				else
+					state.field = FieldExtraction::Type::INVALID;
 			}
-			static const core::unordered_map<std::string,FieldExtraction::Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
-			{
-				{"position",FieldExtraction::Type::POSITION},
-				{"relPosition",FieldExtraction::Type::RELATIVE_POSITION},
-				{"distance",FieldExtraction::Type::DISTANCE},
-				{"geoNormal",FieldExtraction::Type::GEOMETRIC_NORMAL},
-				{"shNormal",FieldExtraction::Type::SHADING_NORMAL},
-				{"uv",FieldExtraction::Type::UV_COORD},
-				{"albedo",FieldExtraction::Type::ALBEDO},
-				{"shapeIndex",FieldExtraction::Type::SHAPE_INDEX},
-				{"primIndex",FieldExtraction::Type::PRIMITIVE_INDEX}
-			};
-			auto found = 
-			if (found!=StringToType.end())
-				state.field = found->second;
-			else
-				state.field = FieldExtraction::Type::INVALID;
-		}
-		IRR_PSEUDO_IF_CONSTEXPR_END
+			IRR_PSEUDO_IF_CONSTEXPR_END
+		});
 	};
-	auto processUndefined = SET_PROPERTY_TEMPLATE(undefined,SPropertyElementData::Type::FLOAT,FieldExtraction); // TODO: redo
+	auto processUndefined = [&]() -> void
+	{
+		dispatch([&](auto& state) -> void {
+			using state_type = std::remove_reference<decltype(state)>::type;
+
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type, FieldExtraction>::value)
+			{
+				if (_property.type != SPropertyElementData::Type::FLOAT && _property.type != SPropertyElementData::Type::SPECTRUM)
+				{
+					error = true;
+					return;
+				}
+				state.undefined = _property; // TODO: redo
+			}
+			IRR_PSEUDO_IF_CONSTEXPR_END
+		});
+	};
 	auto processMaxError = SET_PROPERTY_TEMPLATE(maxError,SPropertyElementData::Type::FLOAT,AdaptiveIntegrator);
 	auto processPValue = SET_PROPERTY_TEMPLATE(pValue,SPropertyElementData::Type::FLOAT,AdaptiveIntegrator);
 	auto processMaxSampleFactor = SET_PROPERTY_TEMPLATE(maxSampleFactor,SPropertyElementData::Type::INTEGER,AdaptiveIntegrator);
@@ -247,7 +335,7 @@ bool CElementIntegrator::addProperty(SPropertyElementData&& _property)
 	auto processIndirecOnly = SET_PROPERTY_TEMPLATE(indirectOnly,SPropertyElementData::Type::BOOLEAN,IrradianceCacheIntegrator);
 	auto processDebug = SET_PROPERTY_TEMPLATE(debug,SPropertyElementData::Type::BOOLEAN,IrradianceCacheIntegrator);
 
-	static const core::unordered_map<std::string, decltype(processShadingSamples), core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
+	static const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{
 		{"shadingSamples",processShadingSamples},
 		{"rayLength",processRayLength},
@@ -285,7 +373,6 @@ bool CElementIntegrator::addProperty(SPropertyElementData&& _property)
 		{"numChains",processNumChains},
 		{"maxChains",processMaxChains},
 		{"chainLength",processChainLength},
-		{"directSamples",processDirectSamples},
 		{"bruteForce",processBruteForce},
 		{"shadowMap",processShadowMap},
 		{"clamping",processClamping},
@@ -314,67 +401,7 @@ bool CElementIntegrator::addProperty(SPropertyElementData&& _property)
 		return false;
 	}
 
-	switch (type)
-	{
-		case CElementIntegrator::Type::AO:
-			found->second(ao);
-			break;
-		case CElementIntegrator::Type::DIRECT:
-			found->second(direct);
-			break;
-		case CElementIntegrator::Type::PATH:
-			found->second(path);
-			break;
-		case CElementIntegrator::Type::VOL_PATH_SIMPLE:
-			found->second(volpath_simple);
-			break;
-		case CElementIntegrator::Type::VOL_PATH:
-			found->second(volpath);
-			break;
-		case CElementIntegrator::Type::BDPT:
-			found->second(bdpt);
-			break;
-		case CElementIntegrator::Type::PHOTONMAPPER:
-			found->second(photonmapper);
-			break;
-		case CElementIntegrator::Type::PPM:
-			found->second(ppm);
-			break;
-		case CElementIntegrator::Type::SPPM:
-			found->second(sppm);
-			break;
-		case CElementIntegrator::Type::PSSMLT:
-			found->second(pssmlt);
-			break;
-		case CElementIntegrator::Type::MLT:
-			found->second(mlt);
-			break;
-		case CElementIntegrator::Type::ERPT:
-			found->second(erpt);
-			break;
-		case CElementIntegrator::Type::ADJ_P_TRACER:
-			found->second(ptracer);
-			break;
-		case CElementIntegrator::Type::ADAPTIVE:
-			found->second(adaptive);
-			break;
-		case CElementIntegrator::Type::VPL:
-			found->second(vpl);
-			break;
-		case CElementIntegrator::Type::IRR_CACHE:
-			found->second(irrcache);
-			break;
-		case CElementIntegrator::Type::MULTI_CHANNEL:
-			found->second(multichannel);
-			break;
-		case CElementIntegrator::Type::FIELD_EXTRACT:
-			found->second(field);
-			break;
-		default:
-			error = true;
-			break;
-	}
-
+	found->second();
 	return !error;
 }
 

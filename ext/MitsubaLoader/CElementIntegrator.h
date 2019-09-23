@@ -134,7 +134,7 @@ class CElementIntegrator : public IElement
 		};
 		struct VirtualPointLights
 		{
-			int32_t maxDepth = 5;
+			int32_t maxPathDepth = 5;
 			int32_t shadowMap = 512;
 			float clamping = 0.1f;
 		};
