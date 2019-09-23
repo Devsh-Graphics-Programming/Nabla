@@ -2,179 +2,169 @@
 #define __C_ELEMENT_SENSOR_H_INCLUDED__
 
 #include "../../ext/MitsubaLoader/IElement.h"
+#include "../../ext/MitsubaLoader/CElementTransform.h"
+//#include "../../ext/MitsubaLoader/CElementAnimation.h"
 #include "../../ext/MitsubaLoader/CElementFilm.h"
 #include "../../ext/MitsubaLoader/CElementSampler.h"
 
-#include "irrlicht.h"
 
-namespace irr { namespace ext { namespace MitsubaLoader {
-
-enum class ESensorType
+namespace irr
 {
-	NONE,
-	PERSPECTIVE,
-	THINLENS,
-	ORTHOGRAPHIC,
-	TELECENTRIC,
-	SPHERICAL,
-	IRRADIANCEMETER,
-	RADIANCEMETER,
-	FLUENCEMETER
-};
-
-enum class EFOVAxis
+namespace ext
 {
-	X,
-	Y,
-	DIAGONAL,
-	SMALLER,
-	LARGER
-};
-
-struct SSensorMetadata
+namespace MitsubaLoader
 {
-	SSensorMetadata()
-		:type(ESensorType::NONE) {};
 
-	SSensorMetadata(const SSensorMetadata& other)
-		: type(other.type), shutterOpen(other.shutterOpen), shutterClose(other.shutterClose)
-	{
-		switch (other.type)
-		{
-		case ESensorType::PERSPECTIVE:
-			perspectiveData = other.perspectiveData;
-			break;
-
-		case ESensorType::THINLENS:
-			thinlensData = other.thinlensData;
-			break;
-
-		case ESensorType::ORTHOGRAPHIC:
-			perspectiveData = other.perspectiveData;
-			break;
-
-		case ESensorType::TELECENTRIC:
-			telecentricData = other.telecentricData;
-			break;
-
-		case ESensorType::SPHERICAL:
-			sphericalData = other.sphericalData;
-			break;
-
-		case ESensorType::RADIANCEMETER:
-			radiancemeterData = other.radiancemeterData;
-			break;
-
-		case ESensorType::FLUENCEMETER:
-			fluencemeterData = other.fluencemeterData;
-			break;
-
-		default:
-			assert(false);
-		}
-	}
-
-	~SSensorMetadata()
-	{
-
-	}
-
-	SSamplerMetadata samperData;
-	SFilmMetadata filmData;
-
-	ESensorType type;
-
-	float shutterOpen = 0.0f;
-	float shutterClose = 0.0f;
-
-	union
-	{
-		struct PerspectiveData
-		{
-			core::matrix4SIMD toWorld;
-			std::string focalLength;
-			EFOVAxis fovAxis;
-			float fov;
-			float nearClip;
-			float farClip;
-
-		} perspectiveData;
-
-		struct ThinlensData
-		{
-			core::matrix4SIMD toWorld;
-			std::string focalLength;
-			EFOVAxis fovAxis;
-			float fov;
-			float nearClip;
-			float farClip;
-			float apertureRadius;
-			float focusDistance;
-
-		} thinlensData;
-
-		struct OrthographicData
-		{
-			core::matrix4SIMD toWorld;
-			float nearClip;
-			float farClip;
-
-		} orthographicData;
-
-		struct TelecentricData
-		{
-			core::matrix4SIMD toWorld;
-			float nearClip;
-			float farClip;
-			float apertureRadius;
-			float focusDistance;
-
-		} telecentricData;
-
-		struct SphericalData
-		{
-			core::matrix4SIMD toWorld;
-
-		} sphericalData;
-
-		struct RadiancemeterData
-		{
-			core::matrix4SIMD toWorld;
-
-		} radiancemeterData;
-
-		struct FluencemeterData
-		{
-			core::matrix4SIMD toWorld;
-
-		} fluencemeterData;
-	};
-};
+class CGlobalMitsubaMetadata;
 
 class CElementSensor : public IElement
 {
-public:
-	virtual bool processAttributes(const char** _atts) override;
-	virtual bool processChildData(IElement* _child) override;
-	virtual bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override) override;
-	virtual IElement::Type getType() const override { return IElement::Type::SENSOR; }
-	virtual std::string getLogName() const override { return "sensor"; }
+	public:
+		enum Type
+		{
+			INVALID,
+			PERSPECTIVE,
+			THINLENS,
+			ORTHOGRAPHIC,
+			TELECENTRIC,
+			SPHERICAL,
+			IRRADIANCEMETER,
+			RADIANCEMETER,
+			FLUENCEMETER,
+			PERSPECTIVE_RDIST
+		};
+	struct ShutterSensor
+	{
+		float shutterOpen = 0.f;
+		float shutterClose = 0.f;
+	};
+	struct CameraBase : ShutterSensor
+	{
+		float nearClip = 0.01f;
+		float farClip = 10000.f;
+	};
+		struct PerspectivePinhole : CameraBase
+		{
+			enum class EFOVAxis
+			{
+				X,
+				Y,
+				DIAGONAL,
+				SMALLER,
+				LARGER
+			};
 
-	SSensorMetadata getMetadata() { return data; }
+			void setFoVFromFocalLength(float focalLength)
+			{
+				_IRR_DEBUG_BREAK_IF(true); // TODO
+			}
 
-private:
-	bool processSharedDataProperty(const SPropertyElementData& _property);
-	bool processPerspectiveSensorProperties();
-	bool processThinlensSensorProperties();
-	bool processOrthographicSensorProperties();
-	bool processTelecentricSensorProperties();
+			float fov = 53.2f;
+			EFOVAxis fovAxis = EFOVAxis::X;
+		};
+		struct Orthographic : CameraBase
+		{
+		};
+	struct DepthOfFieldBase
+	{
+		float apertureRadius = 0.f;
+		float focusDistance = 0.f;
+	};
+		struct PerspectiveThinLens : PerspectivePinhole, DepthOfFieldBase
+		{
+		};
+		struct TelecentricLens : Orthographic, DepthOfFieldBase
+		{
+		};
+		struct SphericalCamera : ShutterSensor
+		{
+		};
+		struct IrradianceMeter : ShutterSensor
+		{
+		};
+		struct RadianceMeter : ShutterSensor
+		{
+		};
+		struct FluenceMeter : ShutterSensor
+		{
+		};/*
+		struct PerspectivePinholeRadialDistortion : PerspectivePinhole
+		{
+			kc;
+		};*/
 
-private:
-	SSensorMetadata data;
-	core::matrix4SIMD transform;
+		CElementSensor() : type(Type::INVALID), toWorldType(IElement::Type::TRANSFORM), film(), sampler()
+		{
+		}
+		virtual ~CElementSenseor()
+		{
+		}
 
+		bool addProperty(SPropertyElementData&& _property) override;
+		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override;
+		IElement::Type getType() const override { return IElement::Type::SENSOR; }
+		std::string getLogName() const override { return "sensor"; }
+
+		bool processChildData(IElement* _child) override
+		{
+			if (!_child)
+				return true;
+			switch (_child->getType())
+			{
+				case IElement::Type::TRANSFORM:
+					auto tform = static_cast<CElementTransform>(_child);
+					if (tform->name!="toWorld")
+						return false;
+					toWorlType = IElement::Type::TRANSFORM;
+					transform = *tform;
+					return true;
+					break;/*
+				case IElement::Type::ANIMATION:
+					auto anim = static_cast<CElementAnimation>(_child);
+					if (anim->name!="toWorld")
+						return false;
+					toWorlType = IElement::Type::ANIMATION;
+					animation = anim;
+					return true;
+					break;*/
+				case IElement::Type::FILM:
+					film = *static_cast<CElementFilm>(_child);
+					if (film.type != CElementFilm::Type::INVALID)
+						return true;
+					break;
+				case IElement::Type::SAMPLER:
+					sampler = *static_cast<CElementSampler>(_child);
+					if (sampler.type != CElementSampler::Type::INVALID)
+						return true;
+					break;
+			}
+			return false;
+		}
+
+		//
+		Type type;
+		// nullptr means identity matrix
+		IElement::Type toWorldType;
+		union
+		{
+			CElementTransform transform;
+			//CElementAnimation* animation;
+		};
+		union
+		{
+			PerspectivePinhole	persepective;
+			PerspectiveThinLens	thinlens;
+			Orthographic		orthographic;
+			TelecentricLens		telecentric;
+			SphericalCamera		spherical;
+			IrradianceMeter		irradiancemeter;
+			RadianceMeter		radiancemeter;
+			FluenceMeter		fluencemeter;
+			//PerspectivePinholeRadialDistortion perspective_rdist;
+		};
+		CElementFilm	film;
+		CElementSampler	sampler;
 };
-
 
 
 }

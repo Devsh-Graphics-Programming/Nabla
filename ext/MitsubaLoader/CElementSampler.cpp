@@ -116,23 +116,14 @@ bool CElementSampler::addProperty(SPropertyElementData&& _property)
 
 bool CElementSampler::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata)
 {
-	if (type == Type::NONE)
+	if (type == Type::INVALID)
 	{
 		ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
 		_IRR_DEBUG_BREAK_IF(true);
 		return true;
 	}
 
-	// add to global metadata
-	if (globalMetadata->sampler.type!=CElementSampler::Type::NONE)
-	{
-		ParserLog::invalidXMLFileStructure(getLogName() + ": cannot have two samplers in a scene");
-		_IRR_DEBUG_BREAK_IF(true);
-		return true;
-	}
-	else
-		globalMetadata->sampler = *this;
-
+	// TODO: Validation
 
 	return true;
 }

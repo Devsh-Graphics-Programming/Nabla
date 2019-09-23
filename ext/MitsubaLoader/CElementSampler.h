@@ -17,7 +17,7 @@ class CElementSampler : public IElement
 	public:
 		enum Type
 		{
-			NONE,
+			INVALID,
 			INDEPENDENT,
 			STRATIFIED,
 			LDSAMPLER,
@@ -26,6 +26,9 @@ class CElementSampler : public IElement
 			SOBOL
 		};
 
+		CElementSampler() : type(INVALID), sampleCount(4) {}
+		virtual ~CElementSampler() {}
+
 		bool addProperty(SPropertyElementData&& _property) override;
 		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override;
 		IElement::Type getType() const override { return IElement::Type::SAMPLER; }
@@ -33,14 +36,13 @@ class CElementSampler : public IElement
 
 		// make these public
 		Type type;
-		int sampleCount;
+		int32_t sampleCount;
 		union
 		{
-			int dimension;
-			int scramble;
+			int32_t dimension;
+			int32_t scramble;
 		};
 };
-
 
 
 }

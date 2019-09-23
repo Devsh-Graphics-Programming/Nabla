@@ -238,7 +238,7 @@ class CElementIntegrator : public IElement
 			return false;
 		}
 
-		// make these public
+		//
 		Type type;
 		union
 		{
@@ -261,7 +261,6 @@ class CElementIntegrator : public IElement
 			MultiChannelIntegrator						multichannel;
 			FieldExtraction								field;
 		};
-	private:
 };
 
 

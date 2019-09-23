@@ -1,7 +1,9 @@
 #ifndef __I_ELEMENT_FACTORY_H_INCLUDED__
 #define __I_ELEMENT_FACTORY_H_INCLUDED__
 
-#include "../../ext/MitsubaLoader/CElementSampler.h"
+//#include "../../ext/MitsubaLoader/CElementSensor.h"
+	#include "../../ext/MitsubaLoader/CElementFilm.h"
+	#include "../../ext/MitsubaLoader/CElementSampler.h"
 #include "../../ext/MitsubaLoader/CElementIntegrator.h"
 
 namespace irr
@@ -14,8 +16,6 @@ namespace MitsubaLoader
 class ParserManager;
 
 class CElementSensor {};
-class CElementFilm {};
-class CElementRFilter {};
 class CElementShape {};
 class CElementBSDF {};
 class CElementTexture {};
@@ -30,8 +30,8 @@ class CElementFactory
 		//constructs certain elements based on element's name and its attributes
 		template<class element_type>
 		static IElement* createElement(const char** _atts, ParserManager* _util);
-
 };
+
 
 }
 }

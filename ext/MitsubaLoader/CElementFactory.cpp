@@ -11,13 +11,15 @@ namespace MitsubaLoader
 
 const core::unordered_map<std::string, std::pair<CElementFactory::element_creation_func,bool>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> CElementFactory::createElementTable =
 {
-	{"integrator",{CElementFactory::createElement<CElementIntegrator>,true}},
-	{"sampler",{CElementFactory::createElement<CElementSampler>,true}}
+	{"integrator",	{CElementFactory::createElement<CElementIntegrator>,true}},
+	//{"sensor",	{CElementFactory::createElement<CElementSensor>,true}},
+	{"film",		{CElementFactory::createElement<CElementFilm>,true}},
+	{"rfilter",		{CElementFactory::createElement<CElementRFilter>,true}},
+	{"sampler",		{CElementFactory::createElement<CElementSampler>,true}}
 };
 /*
 _IRR_STATIC_INLINE_CONSTEXPR const char* complexElements[] = {
-	"alias","transform","ref","sensor","film",
-	"rfilter","shape","bsdf","texture","emitter"
+	"alias","transform","ref","shape","bsdf","texture","emitter"
 };
 */
 
@@ -52,34 +54,6 @@ IElement* CElementFactory::createElement(const char* _el, const char** _atts)
 		return transform;
 	}
 	else
-	if (!std::strcmp(_el, "sensor"))
-	{
-		CElementSensor* sensor = new CElementSensor();
-
-		if (!sensor->processAttributes(_atts))
-		{
-			delete sensor;
-			_IRR_DEBUG_BREAK_IF(true);
-			return nullptr;
-		}
-
-		return sensor;
-	}
-	else
-	if (!std::strcmp(_el, "film"))
-	{
-		CElementFilm* film = new CElementFilm();
-
-		if (!film->processAttributes(_atts))
-		{
-			delete film;
-			_IRR_DEBUG_BREAK_IF(true);
-			return nullptr;
-		}
-
-		return film;
-	}
-	else
 	if (!std::strcmp(_el, "emitter"))
 	{
 		CElementEmitter* emitter = new CElementEmitter();
@@ -92,12 +66,6 @@ IElement* CElementFactory::createElement(const char* _el, const char** _atts)
 		}
 
 		return emitter;
-	}
-	else
-	{
-		ParserLog::invalidXMLFileStructure("element " + std::string(_el) + "is unknown. \n");
-		_IRR_DEBUG_BREAK_IF(true);
-		return nullptr;
 	}
 }
 IElement* CElementFactory::parseShape(const char* _el, const char** _atts)

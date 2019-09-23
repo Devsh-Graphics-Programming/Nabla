@@ -1,7 +1,7 @@
 #ifndef __C_GLOBAL_MITSUBA_METADATA_H_INCLUDED__
 #define __C_GLOBAL_MITSUBA_METADATA_H_INCLUDED__
 
-#include "../../ext/MitsubaLoader/CElementSampler.h"
+#include "../../ext/MitsubaLoader/CElementIntegrator.h"
 
 namespace irr
 {
@@ -15,12 +15,11 @@ class CGlobalMitsubaMetadata : public core::IReferenceCounted
 	public:
 		CGlobalMitsubaMetadata()
 		{
-			sampler.type = CElementSampler::Type::NONE;
-			//integrator.type = CElementIntegrator::Type::;
+			integrator.type = CElementIntegrator::Type::INVALID;
 		}
 
-		CElementSampler sampler;
-		//CElementIntegrator integrator;
+		CElementIntegrator integrator;
+		//core::vector<CElementSensor> sensor; //sensors?
 		//core::vector<Emitter> emitters;
 };
 

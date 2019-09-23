@@ -117,9 +117,6 @@ IElement* CElementFactory::createElement<CElementIntegrator>(const char** _atts,
 	return obj;
 }
 
-template<typename types>
-struct is_one_of;
-
 bool CElementIntegrator::addProperty(SPropertyElementData&& _property)
 {
 	bool error = false;

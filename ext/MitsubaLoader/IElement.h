@@ -20,10 +20,11 @@ class IElement
 		enum class Type
 		{
 			INTEGRATOR,
-			SAMPLER,
-
 			SENSOR,
 			FILM,
+			RFILTER,
+			SAMPLER,
+
 			EMITTER,
 
 			//shapes
