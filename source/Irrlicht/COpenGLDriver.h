@@ -47,6 +47,98 @@ namespace video
 	class COpenGLTexture;
 	class COpenGLFrameBuffer;
 
+    enum GL_STATE_BITS : uint32_t
+    {
+        // has to be flushed before constants are pushed (before `extGlProgramUniform*`)
+        GSB_PIPELINE = 0x1u,
+        // (all stancil, depth, etc state) change just before draw
+        GSB_RASTER_PARAMETERS = 0x2u,
+        // we want the two to happen together and just before a draw (set VAO first, then binding)
+        GSB_VAO_AND_VERTEX_INPUT = 0x4u,
+        // flush just before (indirect)dispatch or (multi)(indirect)draw, textures and samplers first, then storage image, then SSBO, finally UBO
+        GSB_DESCRIPTOR_SETS = 0x8u,
+        // flush everything
+        GSB_ALL = ~0x0u
+    };
+    struct SOpenGLState
+    {
+        GLuint pipeline;
+
+        struct {
+            //in GL it is possible to set polygon mode separately for back- and front-faces, but in VK it's one setting for both
+            GLenum polygonMode = GL_FILL;
+            GLenum cullFace = GL_BACK;
+            //in VK stencil params (both: stencilOp and stencilFunc) are 2 distinct for back- and front-faces, but in GL it's one for both
+            struct SStencilOp {
+                GLenum sfail = GL_KEEP;
+                GLenum dpfail = GL_KEEP;
+                GLenum dppass = GL_KEEP;
+                bool operator!=(const SStencilOp& rhs) const { return sfail!=rhs.sfail || dpfail!=rhs.dpfail || dppass!=rhs.dppass; }
+            };
+            SStencilOp stencilOp_front, stencilOp_back;
+            struct SStencilFunc {
+                GLenum func = GL_ALWAYS;
+                GLint ref = 0;
+                GLuint mask = ~static_cast<GLuint>(0u);
+                bool operator!=(const SStencilFunc& rhs) const { return func!=rhs.func || ref!=rhs.ref || mask!=rhs.mask; }
+            };
+            SStencilFunc stencilFunc_front, stencilFunc_back;
+            GLenum depthFunc = GL_LESS;
+            GLenum frontFace = GL_CCW;
+            GLboolean depthClampEnable = 0;
+            GLboolean rasterizerDiscardEnable = 0;
+            //this should enable GL_POLYGON_OFFSET_POINT or GL_POLYGON_OFFSET_LINE or GL_POLYGON_OFFSET_FILL based on polygonMode
+            GLboolean polygonOffsetEnable = 0;
+            struct {
+                GLfloat factor = 0.f;//depthBiasSlopeFactor 
+                GLfloat units = 0.f;//depthBiasConstantFactor 
+            } polygonOffset;
+            GLfloat lineWidth = 1.f;
+            GLboolean sampleShadingEnable = 0;
+            GLfloat minSampleShading = 0.f;
+            GLboolean sampleMaskEnable = 0;
+            GLbitfield sampleMask[2]{}; //init val? TODO
+            GLboolean sampleAlphaToCoverageEnable = 0;
+            GLboolean sampleAlphaToOneEnable = 0;
+            GLboolean depthTestEnable = 0;
+            GLboolean depthWriteEnable = 1;
+            //GLboolean depthBoundsTestEnable;
+            GLboolean stencilTestEnable = 0;
+        } rasterParams;
+
+        struct {
+            //GLuint vao; //vao will be found in cache (or created) based on params
+            uint32_t mapAttrToBinding[16]{};
+            struct {
+                GLuint buf = 0;
+                GLintptr offset = 0;
+                GLsizei stride = 0;
+            } bindings[16];
+            uint16_t divisors = 0x0000;
+            GLuint indexBuf;
+        } vertexInputParams;
+
+        struct {
+            struct SBuffers {
+                GLuint buffers[16]{};
+                GLintptr offsets[16]{};
+                GLsizeiptr sizes[16]{};
+            };
+            SBuffers ubos;
+            SBuffers ssbos;
+
+            struct {
+                GLuint textures[80]{};
+                GLenum targets[80];
+            } textures;
+            GLuint samplers[80]{};
+            struct {
+                GLuint textures[80]{};
+                GLenum formats[80];
+            } images;
+        } descriptorsParams;
+    };
+
 	class COpenGLDriver : public CNullDriver, public IMaterialRendererServices, public COpenGLExtensionHandler
 	{
     protected:
@@ -681,8 +773,13 @@ namespace video
 
             void setActiveDescriptorSet(uint32_t index, const COpenGLDescriptorSet* descriptorSets);
 
+            void flushState(GL_STATE_BITS stateBits);
+
             const GLuint& constructSamplerInCache(const uint64_t &hashVal);
 
+
+            SOpenGLState currentState;
+            SOpenGLState nextState;
         //private:
             std::thread::id threadId;
             uint8_t ID; //index in array of contexts, just to be easier in use

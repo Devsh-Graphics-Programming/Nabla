@@ -98,6 +98,8 @@ struct SStencilOpParams
     E_STENCIL_OP passOp;
     E_STENCIL_OP depthFailOp;
     E_COMPARE_OP compareOp;
+    uint32_t writeMask;
+    uint32_t reference;
 };
 
 enum E_POLYGON_MODE : uint32_t
@@ -133,7 +135,7 @@ struct SRasterizationParams
     uint32_t viewportCount;
     E_POLYGON_MODE polygonMode;
     E_FACE_CULL_MODE faceCullingMode;
-    E_SAMPLE_COUNT raserizationSamplesHint;
+    E_SAMPLE_COUNT rasterizationSamplesHint;
     uint32_t sampleMask[2];
     E_COMPARE_OP depthCompareOp;
     float minSampleShading;

@@ -2255,6 +2255,209 @@ void COpenGLDriver::SAuxContext::setActiveDescriptorSet(uint32_t index, const CO
         extGlBindImageTextures(multibind_first_count.textureImages.first, multibind_first_count.textureImages.count, multibindParams.textureImages.textures, multibindParams.textureImages.formats);
 }
 
+void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
+{
+    if (stateBits & GSB_PIPELINE)
+    {
+        if (nextState.pipeline != currentState.pipeline)
+            COpenGLExtensionHandler::extGlBindProgramPipeline(nextState.pipeline);
+        nextState.pipeline = currentState.pipeline;
+    }
+    if (stateBits & GSB_RASTER_PARAMETERS)
+    {
+#define STATE_NEQ(member) (nextState.member != currentState.member)
+#define UPDATE_STATE(member) (currentState.member = nextState.member)
+        decltype(glEnable)* disable_enable_fptr[2]{ &glDisable, &glEnable };
+
+        if (STATE_NEQ(rasterParams.polygonMode)) {
+            glPolygonMode(GL_FRONT_AND_BACK, nextState.rasterParams.polygonMode);
+            UPDATE_STATE(rasterParams.polygonMode);
+        }
+        if (STATE_NEQ(rasterParams.cullFace)) {
+            glCullFace(nextState.rasterParams.cullFace);
+            UPDATE_STATE(rasterParams.cullFace);
+        }
+        if (STATE_NEQ(rasterParams.stencilTestEnable)) {
+            disable_enable_fptr[nextState.rasterParams.stencilTestEnable](GL_STENCIL_TEST);
+            UPDATE_STATE(rasterParams.stencilTestEnable);
+        }
+        if (nextState.rasterParams.stencilTestEnable && STATE_NEQ(rasterParams.stencilOp_front)) {
+            COpenGLExtensionHandler::extGlStencilOpSeparate(GL_FRONT, nextState.rasterParams.stencilOp_front.sfail, nextState.rasterParams.stencilOp_front.dpfail, nextState.rasterParams.stencilOp_front.dppass);
+            UPDATE_STATE(rasterParams.stencilOp_front);
+        }
+        if (nextState.rasterParams.stencilTestEnable && STATE_NEQ(rasterParams.stencilOp_back)) {
+            COpenGLExtensionHandler::extGlStencilOpSeparate(GL_BACK, nextState.rasterParams.stencilOp_back.sfail, nextState.rasterParams.stencilOp_back.dpfail, nextState.rasterParams.stencilOp_back.dppass);
+            UPDATE_STATE(rasterParams.stencilOp_back);
+        }
+        if (nextState.rasterParams.stencilTestEnable && STATE_NEQ(rasterParams.stencilFunc_front)) {
+            COpenGLExtensionHandler::extGlStencilFuncSeparate(GL_FRONT, nextState.rasterParams.stencilFunc_front.func, nextState.rasterParams.stencilFunc_front.ref, nextState.rasterParams.stencilFunc_front.mask);
+            UPDATE_STATE(rasterParams.stencilFunc_front);
+        }
+        if (nextState.rasterParams.stencilTestEnable && STATE_NEQ(rasterParams.stencilFunc_back)) {
+            COpenGLExtensionHandler::extGlStencilFuncSeparate(GL_FRONT, nextState.rasterParams.stencilFunc_back.func, nextState.rasterParams.stencilFunc_back.ref, nextState.rasterParams.stencilFunc_back.mask);
+            UPDATE_STATE(rasterParams.stencilFunc_back);
+        }
+        if (STATE_NEQ(rasterParams.depthTestEnable)) {
+            disable_enable_fptr[nextState.rasterParams.depthTestEnable](GL_DEPTH_TEST);
+            UPDATE_STATE(rasterParams.depthTestEnable);
+        }
+        if (nextState.rasterParams.depthTestEnable && STATE_NEQ(rasterParams.depthFunc)) {
+            glDepthFunc(nextState.rasterParams.depthFunc);
+            UPDATE_STATE(rasterParams.depthFunc);
+        }
+        if (STATE_NEQ(rasterParams.frontFace)) {
+            glFrontFace(nextState.rasterParams.frontFace);
+            UPDATE_STATE(rasterParams.frontFace);
+        }
+        if (STATE_NEQ(rasterParams.depthClampEnable)) {
+            disable_enable_fptr[nextState.rasterParams.depthClampEnable](GL_DEPTH_CLAMP);
+            UPDATE_STATE(rasterParams.depthClampEnable);
+        }
+        if (STATE_NEQ(rasterParams.rasterizerDiscardEnable)) {
+            disable_enable_fptr[nextState.rasterParams.rasterizerDiscardEnable](GL_RASTERIZER_DISCARD);
+            UPDATE_STATE(rasterParams.rasterizerDiscardEnable);
+        }
+        //if (STATE_NEQ(rasterParams.polygonOffsetEnable))
+        if (STATE_NEQ(rasterParams.lineWidth)) {
+            glLineWidth(nextState.rasterParams.lineWidth);
+            UPDATE_STATE(rasterParams.lineWidth);
+        }
+        if (STATE_NEQ(rasterParams.sampleShadingEnable)) {
+            disable_enable_fptr[nextState.rasterParams.sampleShadingEnable](GL_SAMPLE_SHADING);
+            UPDATE_STATE(rasterParams.sampleShadingEnable);
+        }
+        if (nextState.rasterParams.sampleShadingEnable && STATE_NEQ(rasterParams.minSampleShading)) {
+            COpenGLExtensionHandler::extGlMinSampleShading(nextState.rasterParams.minSampleShading);
+            UPDATE_STATE(rasterParams.minSampleShading);
+        }
+        if (STATE_NEQ(rasterParams.sampleMaskEnable)) {
+            disable_enable_fptr[nextState.rasterParams.sampleMaskEnable](GL_SAMPLE_MASK);
+            UPDATE_STATE(rasterParams.sampleMaskEnable);
+        }
+        if (nextState.rasterParams.sampleMaskEnable && STATE_NEQ(rasterParams.sampleMask[0])) {
+            COpenGLExtensionHandler::extGlSampleMaski(0u, nextState.rasterParams.sampleMask[0]);
+            UPDATE_STATE(rasterParams.sampleMask[0]);
+        }
+        if (nextState.rasterParams.sampleMaskEnable && STATE_NEQ(rasterParams.sampleMask[1])) {
+            COpenGLExtensionHandler::extGlSampleMaski(1u, nextState.rasterParams.sampleMask[1]);
+            UPDATE_STATE(rasterParams.sampleMask[1]);
+        }
+        if (STATE_NEQ(rasterParams.depthWriteEnable)) {
+            glDepthMask(nextState.rasterParams.depthWriteEnable);
+            UPDATE_STATE(rasterParams.depthWriteEnable);
+        }
+#undef STATE_NEQ
+#undef UPDATE_STATE
+    }
+    if (stateBits & GSB_VAO_AND_VERTEX_INPUT)
+    {
+    }
+    if (stateBits & GSB_DESCRIPTOR_SETS)
+    {
+        auto rebindBuffers = [this](GLenum target, const auto& currBufs, const auto& nextBufs)
+        {
+            auto bufBndDiffers = [](const auto& curr, const auto& next, uint32_t ix) {
+                return curr.buffers[ix] != next.buffers[ix] || curr.offsets[ix] != next.offsets[ix] || curr.sizes[ix] != next.sizes[ix];
+            };
+#define BUF_NEQ(ix) bufBndDiffers(currBufs, nextBufs, ix)
+
+            constexpr GLuint invalid_ix = static_cast<GLuint>(-1);
+            GLuint first = invalid_ix;
+            GLsizei count = 0u;
+            for (uint32_t i = 0u; i < 16u; ++i)
+            {
+                if (BUF_NEQ(i)) {
+                    if (first == invalid_ix)
+                        first = i;
+                    ++count;
+                }
+                else {
+                    if (count)
+                        COpenGLExtensionHandler::extGlBindBuffersRange(target, first, count, nextBufs.buffers+first, nextBufs.offsets+first, nextBufs.sizes+first);
+                    first = invalid_ix;
+                    count = 0u;
+                }
+            }
+#undef BUF_NEQ
+        };
+
+        //UBOs
+        rebindBuffers(GL_UNIFORM_BUFFER, currentState.descriptorsParams.ubos, nextState.descriptorsParams.ubos);
+        currentState.descriptorsParams.ubos = nextState.descriptorsParams.ubos;
+        //SSBOs
+        rebindBuffers(GL_SHADER_STORAGE_BUFFER, currentState.descriptorsParams.ssbos, nextState.descriptorsParams.ssbos);
+        currentState.descriptorsParams.ssbos = nextState.descriptorsParams.ssbos;
+
+        //textures
+        GLenum texTargets[80]{};
+        for (uint32_t i = 0u; i < 80u; ++i)
+        {
+            if (nextState.descriptorsParams.textures.textures[i]==0u && currentState.descriptorsParams.textures.textures[i]!=0u)
+                texTargets[i] = currentState.descriptorsParams.textures.targets[i];
+            else if (nextState.descriptorsParams.textures.textures[i]!=0u)
+                texTargets[i] = nextState.descriptorsParams.textures.targets[i];
+        }
+        constexpr GLuint invalid_ix = static_cast<GLuint>(-1);
+        GLuint first = invalid_ix;
+        GLsizei count = 0u;
+        for (uint32_t i = 0u; i < 80u; ++i)
+        {
+            if (nextState.descriptorsParams.textures.textures[i] != currentState.descriptorsParams.textures.textures[i]) {
+                if (first == invalid_ix)
+                    first = i;
+                ++count;
+            }
+            else {
+                if (count)
+                    COpenGLExtensionHandler::extGlBindTextures(first, count, nextState.descriptorsParams.textures.textures+first, texTargets+first);
+                first = invalid_ix;
+                count = 0u;
+            }
+        }
+        currentState.descriptorsParams.textures = nextState.descriptorsParams.textures;
+
+        //samplers
+        first = invalid_ix;
+        count = 0u;
+        for (uint32_t i = 0u; i < 80u; ++i)
+        {
+            if (nextState.descriptorsParams.samplers[i] != currentState.descriptorsParams.samplers[i]) {
+                if (first == invalid_ix)
+                    first = i;
+                ++count;
+            }
+            else {
+                if (count)
+                    COpenGLExtensionHandler::extGlBindSamplers(first, count, nextState.descriptorsParams.samplers+first);
+                first = invalid_ix;
+                count = 0u;
+            }
+        }
+        memcpy(currentState.descriptorsParams.samplers, nextState.descriptorsParams.samplers, sizeof(currentState.descriptorsParams.samplers));
+
+        //images
+        first = invalid_ix;
+        count = 0u;
+        for (uint32_t i = 0u; i < 80u; ++i)
+        {
+            if (nextState.descriptorsParams.images.textures[i] != currentState.descriptorsParams.images.textures[i]) {
+                if (first == invalid_ix)
+                    first = i;
+                ++count;
+            }
+            else {
+                if (count)
+                    COpenGLExtensionHandler::extGlBindImageTextures(first, count, nextState.descriptorsParams.images.textures+first, nextState.descriptorsParams.images.formats+first);
+                first = invalid_ix;
+                count = 0u;
+            }
+        }
+        currentState.descriptorsParams.images = nextState.descriptorsParams.images;
+    }
+
+    nextState = currentState;
+}
+
 
 void COpenGLDriver::SAuxContext::STextureStageCache::remove(const IRenderableVirtualTexture* tex)
 {
