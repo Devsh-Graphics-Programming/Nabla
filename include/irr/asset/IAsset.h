@@ -21,12 +21,14 @@ public:
     virtual const char* getLoaderName() = 0;
 };
 
-//! An interface class representing any kind of cpu-objects with capability of being cached
+//! An abstract data type class representing an interface of any kind of cpu-objects with capability of being cached
 /**
-	Actually it can be anything like cpu-side meshes scenes, texture data and material pipelines, 
+	Actually an Asset is a class deriving from it that can be anything like cpu-side meshes scenes, texture data and material pipelines, 
 	but must be serializable into/from .baw file format, unless it comes from an extension (irr::ext), 
 	so forth cached. There are different asset types you can find at IAsset::E_TYPE. 
 	IAsset doesn't provide direct instantiation (virtual destructor), much like IReferenceCounted.
+
+	Asset type's naming-convention is ICPU_x, where _x is a name of an Asset, eg. ICPUBuffer, ICPUMesh e.t.c
 
 	Every asset must be loaded by a particular class derived from IAssetLoader.
 	
@@ -42,9 +44,16 @@ public:
 
 	/**
 		Values of E_TYPE represents an Asset type.
-
-		Entire enum as type represents a register with bit flags,
-		which represent an available Asset type.
+		
+		Types are provided, so known is that the type you're casting to is right, eg.
+		If there is an Asset represeting ICPUBuffer, after calling a function returning
+		a type, it should return you a type associated with it, so
+		
+		\code{.cpp}
+		IAsset* asset;
+		if(asset->getType() == ET_BUFFER)
+			reinterpret_cast<ICPUBuffer*>(asset) // it is safe
+		\endcode
 
 		@see IAsset
 
@@ -62,10 +71,10 @@ public:
 		ET_SCENE represents
 		ET_IMPLEMENTATION_SPECIFIC_METADATA represents a special value used for things like terminating lists of this enum
 
-		Pay attention that a register is limited to 32 bits.
+		Pay attention that an Asset type represents one single bit, so there is a limit to 64 bits.
 
 	*/
-
+	
     enum E_TYPE : uint64_t
     {
         //! asset::ICPUBuffer
@@ -96,8 +105,9 @@ public:
         ET_IMPLEMENTATION_SPECIFIC_METADATA = 1u<<31u
         //! Reserved special value used for things like terminating lists of this enum
     };
-    constexpr static size_t ET_STANDARD_TYPES_COUNT = 12u; //!< The variable shows valid amount of available Asset types in E_TYPE bit register
+    constexpr static size_t ET_STANDARD_TYPES_COUNT = 12u; //!< The variable shows valid amount of available Asset types in E_TYPE enum
 
+	//! Returns a representaion of an Asset type in decimal system
     static uint32_t typeFlagToIndex(E_TYPE _type)
     {
         uint32_t type = (uint32_t)_type;
@@ -170,9 +180,9 @@ public:
         assert(allSameTypeAndNotNull());
     }
 
-	//! Returns an Asset type associated with the Asset
+	//! Returning a type associated with current stored Assets
 	/**
-		An Asset type is specified in bit register 
+		An Asset type is specified in E_TYPE enum
 		@see E_TYPE
 	*/
     inline IAsset::E_TYPE getAssetType() const { return m_contents->front()->getAssetType(); }
@@ -188,18 +198,18 @@ public:
     //! Only valid if isInAResourceCache() returns true
     std::string getCacheKey() const { return m_cacheKey; }
 
-	//! Getting size of an Asset stored by m_contents
+	//! Getting size of a collection of Assets stored by m_contents
     size_t getSize() const { return m_contents->size(); }
-	//! Checking if an Asset stored by m_contents is empty
+	//! Checking if a collection of Assets stored by m_contents is empty
     bool isEmpty() const { return getSize()==0ull; }
 
-	//! Overloaded operator checking if both Assets\b are\b the same objects in memory
+	//! Overloaded operator checking if both collections of Assets\b are\b the same arrays in memory
     bool operator==(const SAssetBundle& _other) const
     {
         return _other.m_contents == m_contents;
     }
 
-	//! Overloaded operator checking if both Assets\b aren't\b the same objects in memory
+	//! Overloaded operator checking if both collections of Assets\b aren't\b the same arrays in memory
     bool operator!=(const SAssetBundle& _other) const
     {
         return !((*this) != _other);

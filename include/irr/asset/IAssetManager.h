@@ -33,9 +33,9 @@ namespace asset
 
 	//! Class responsible for handling loading of assets from file system or other resources
 	/**
-		It provides the default methods for converting CPU assets to GPU objects, methods 
-		for exporting CPU assets, as well as synthetic asset creators like the IGeometryCreator.
-		There is a loading, writing and creation functionality that is thread-safe.
+		It provides a loading, writing and creation functionality that is almost thread-safe.
+		There is one issue with threading, starting loading the same asset at the exact same time 
+		may end up with two copies in the cache.
 
 		IAssetManager performs caching of CPU assets associated with resource handles such as names, 
 		filenames, UUIDs. However there are separate caches for each asset type.

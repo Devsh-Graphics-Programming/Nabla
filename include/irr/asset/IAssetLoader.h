@@ -7,7 +7,7 @@
 namespace irr { namespace asset
 {
 
-//! A class that defines rules during Asset-loading process
+//! A class automating process of loading Assets from resources, eg. files
 /**
 	Every Asset must be loaded by a particular class derived from IAssetLoader.
 	These classes must be registered with IAssetManager::addAssetLoader() which will 
@@ -15,6 +15,18 @@ namespace irr { namespace asset
 	the loader upon failure (don’t grab and return 0xdeadbeefu).
 
 	The loading is impacted by caching and resource duplication flags, defined as IAssetLoader::E_CACHING_FLAGS.
+
+	There are defined rules of loading process, that can be overwritten, but basically
+	a mesh can reference a submesh, a submesh can reference a material, a material 
+	can reference a texture, etc. You can look at it as recursive function, the LEVEL
+	is actually how deep the stack you are. The flag is a bitfield with 2 bits per level,
+	and the enums provie are some useful constants. Different combinations are valid as well, so
+	
+	\code{.cpp}
+	static_cast<E_CACHING_FLAGS>(ECF_DONT_CACHE_TOP_LEVEL << 4ull) 
+	\endcode
+
+	Anything on level 2 will not get cached (top is 0, but we have shifted for 4 bits, where 2 bits represent one single level, so we've been on second level) 
 
 	When the class derived from IAssetLoader is added, its put once on an 
 	std::vector<IAssetLoader*> and once on an std::multimap<std::string,IAssetLoader*> 
@@ -39,11 +51,12 @@ public:
 	/**
 		They have an impact on loading an Asset.
 
-		E_CACHING_FLAGS::ECF_CACHE_EVERYTHING means that //TODO
+		E_CACHING_FLAGS::ECF_CACHE_EVERYTHING is default, means that asset you can find in previously cached asset will be just returned.
+		There may occour that you can't, so it will be loaded and added to the cache before returning
 		E_CACHING_FLAGS::ECF_DONT_CACHE_TOP_LEVEL means that master/parent is searched for in the caches, 
-		but not added to the cache if not found and loaded.
+		but not added to the cache if not found and loaded
 		E_CACHING_FLAGS::ECF_DUPLICATE_TOP_LEVEL means that master/parent object is loaded without searching
-		for it in the cache, nor adding it to the cache after the load.
+		for it in the cache, nor adding it to the cache after the load
 		E_CACHING_FLAGS::ECF_DONT_CACHE_REFERENCES means that it concerns any asset that the top level asset refers to, such as a texture
 		E_CACHING_FLAGS::ECF_DUPLICATE_REFERENCES means almost the same as E_CACHING_FLAGS::ECF_DUPLICATE_TOP_LEVEL but for any asset in the chain
 	*/
@@ -142,10 +155,8 @@ public:
         }
 
         //! Called before loading a file
-        // (Criss) Whats does this one?
         inline virtual void getLoadFilename(std::string& inOutFilename, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel) {} //default do nothing
 
-        // (Criss) Also what does this one?
         inline virtual io::IReadFile* getLoadFile(io::IReadFile* inFile, const std::string& supposedFilename, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
         {
             return inFile;
