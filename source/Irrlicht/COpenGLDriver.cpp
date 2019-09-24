@@ -2259,9 +2259,11 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
 {
     if (stateBits & GSB_PIPELINE)
     {
-        if (nextState.pipeline != currentState.pipeline)
-            COpenGLExtensionHandler::extGlBindProgramPipeline(nextState.pipeline);
-        nextState.pipeline = currentState.pipeline;
+        if (nextState.pipeline != currentState.pipeline) {
+            //TODO find pipeline GL name in cache and bind
+            //COpenGLExtensionHandler::extGlBindProgramPipeline(nextState.pipeline);
+        }
+        currentState.pipeline = nextState.pipeline;
     }
     if (stateBits & GSB_RASTER_PARAMETERS)
     {
@@ -2317,7 +2319,16 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
             disable_enable_fptr[nextState.rasterParams.rasterizerDiscardEnable](GL_RASTERIZER_DISCARD);
             UPDATE_STATE(rasterParams.rasterizerDiscardEnable);
         }
-        //if (STATE_NEQ(rasterParams.polygonOffsetEnable))
+        if (STATE_NEQ(rasterParams.polygonOffsetEnable)) {
+            disable_enable_fptr[nextState.rasterParams.polygonOffsetEnable](GL_POLYGON_OFFSET_POINT);
+            disable_enable_fptr[nextState.rasterParams.polygonOffsetEnable](GL_POLYGON_OFFSET_LINE);
+            disable_enable_fptr[nextState.rasterParams.polygonOffsetEnable](GL_POLYGON_OFFSET_FILL);
+            UPDATE_STATE(rasterParams.polygonOffsetEnable);
+        }
+        if (STATE_NEQ(rasterParams.polygonOffset)) {
+            glPolygonOffset(nextState.rasterParams.polygonOffset.factor, nextState.rasterParams.polygonOffset.units);
+            UPDATE_STATE(rasterParams.polygonOffset);
+        }
         if (STATE_NEQ(rasterParams.lineWidth)) {
             glLineWidth(nextState.rasterParams.lineWidth);
             UPDATE_STATE(rasterParams.lineWidth);
@@ -2346,113 +2357,177 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
             glDepthMask(nextState.rasterParams.depthWriteEnable);
             UPDATE_STATE(rasterParams.depthWriteEnable);
         }
+        if (STATE_NEQ(rasterParams.logicOpEnable)) {
+            disable_enable_fptr[nextState.rasterParams.logicOpEnable](GL_COLOR_LOGIC_OP);
+            UPDATE_STATE(rasterParams.logicOpEnable);
+        }
+        if (STATE_NEQ(rasterParams.logicOp)) {
+            glLogicOp(nextState.rasterParams.logicOp);
+            UPDATE_STATE(rasterParams.logicOp);
+        }
+        decltype(COpenGLExtensionHandler::extGlEnablei)* disable_enable_indexed_fptr[2]{ &COpenGLExtensionHandler::extGlDisablei, &COpenGLExtensionHandler::extGlEnablei };
+        for (GLuint i = 0u; asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; ++i)
+        {
+            if (STATE_NEQ(rasterParams.drawbufferBlend[i].blendEnable)) {
+                disable_enable_indexed_fptr[nextState.rasterParams.drawbufferBlend[i].blendEnable](GL_BLEND, i);
+                UPDATE_STATE(rasterParams.drawbufferBlend[i].blendEnable);
+            }
+            if (STATE_NEQ(rasterParams.drawbufferBlend[i].blendFunc)) {
+                COpenGLExtensionHandler::extGlBlendFuncSeparatei(i,
+                    nextState.rasterParams.drawbufferBlend[i].blendFunc.srcRGB,
+                    nextState.rasterParams.drawbufferBlend[i].blendFunc.dstRGB,
+                    nextState.rasterParams.drawbufferBlend[i].blendFunc.srcAlpha,
+                    nextState.rasterParams.drawbufferBlend[i].blendFunc.dstAlpha
+                );
+                UPDATE_STATE(rasterParams.drawbufferBlend[i].blendFunc);
+            }
+            if (STATE_NEQ(rasterParams.drawbufferBlend[i].blendEquation)) {
+                COpenGLExtensionHandler::extGlBlendEquationSeparatei(i,
+                    nextState.rasterParams.drawbufferBlend[i].blendEquation.modeRGB,
+                    nextState.rasterParams.drawbufferBlend[i].blendEquation.modeAlpha
+                );
+                UPDATE_STATE(rasterParams.drawbufferBlend[i].blendEquation);
+            }
+            if (STATE_NEQ(rasterParams.drawbufferBlend[i].colorMask)) {
+                COpenGLExtensionHandler::extGlColorMaski(i,
+                    nextState.rasterParams.drawbufferBlend[i].colorMask.colorWritemask[0],
+                    nextState.rasterParams.drawbufferBlend[i].colorMask.colorWritemask[1],
+                    nextState.rasterParams.drawbufferBlend[i].colorMask.colorWritemask[2],
+                    nextState.rasterParams.drawbufferBlend[i].colorMask.colorWritemask[3]
+                );
+                UPDATE_STATE(rasterParams.drawbufferBlend[i].colorMask);
+            }
+        }
+    }
+    if ((stateBits & GSB_VAO_AND_VERTEX_INPUT) && currentState.pipeline)
+    {
+        if (nextState.vertexInputParams.vao.second.GLname == 0u)
+        {
+            extGlBindVertexArray(0u);
+            freeUpVAOCache(true);
+            currentState.vertexInputParams.vao = { COpenGLRenderpassIndependentPipeline::SVAOHash(), {0u, 0u} };
+        }
+        else if (STATE_NEQ(vertexInputParams.vao.first))
+        {
+            bool brandNewVAO = false;//if VAO is taken from cache we don't have to modify VAO state that is part of hashval (everything except index and vertex buf bindings)
+            auto hashVal = nextState.vertexInputParams.vao.first;
+            auto it = std::lower_bound(VAOMap.begin(), VAOMap.end(), SOpenGLState::HashVAOPair(hashVal, {}));
+            if (it != VAOMap.end() && it->first == hashVal) {
+                it->second.lastValidated = CNullDriver::ReallocationCounter;
+                currentState.vertexInputParams.vao = *it;
+            }
+            else
+            {
+                GLuint GLvao;
+                COpenGLExtensionHandler::extGlCreateVertexArrays(1u, &GLvao);
+                SOpenGLState::SVAO vao;
+                vao.GLname = GLvao;
+                vao.lastValidated = CNullDriver::ReallocationCounter;
+                currentState.vertexInputParams.vao = SOpenGLState::HashVAOPair{hashVal, vao};
+                VAOMap.insert(it, currentState.vertexInputParams.vao);
+                brandNewVAO = true;
+            }
+            GLuint vao = currentState.vertexInputParams.vao.second.GLname;
+            COpenGLExtensionHandler::extGlBindVertexArray(vao);
+
+            bool updatedBindings[16]{};
+            for (uint32_t attr = 0u; attr < 16u; ++attr)
+            {
+                if (hashVal.attribFormatAndComponentCount[attr] != asset::EF_UNKNOWN) {
+                    if (brandNewVAO)
+                        extGlEnableVertexArrayAttrib(currentState.vertexInputParams.vao.second.GLname, attr);
+                }
+                else 
+                    continue;
+
+                const uint32_t bnd = hashVal.getBindingForAttrib(attr);
+
+                if (brandNewVAO)
+                {
+                    extGlVertexArrayAttribBinding(vao, attr, bnd);
+
+                    const asset::E_FORMAT format = static_cast<asset::E_FORMAT>(hashVal.attribFormatAndComponentCount[attr]);
+
+                    if (isFloatingPointFormat(format) && getTexelOrBlockBytesize(format) == getFormatChannelCount(format) * sizeof(double))//DOUBLE
+                        extGlVertexArrayAttribLFormat(vao, attr, getFormatChannelCount(format), GL_DOUBLE, hashVal.getRelativeOffsetForAttrib(attr));
+                    else if (isFloatingPointFormat(format) || isScaledFormat(format) || isNormalizedFormat(format))//FLOATING-POINT, SCALED ("weak integer"), NORMALIZED
+                        extGlVertexArrayAttribFormat(vao, attr, isBGRALayoutFormat(format) ? GL_BGRA : getFormatChannelCount(format), formatEnumToGLenum(format), isNormalizedFormat(format) ? GL_TRUE : GL_FALSE, hashVal.getRelativeOffsetForAttrib(attr));
+                    else if (isIntegerFormat(format))//INTEGERS
+                        extGlVertexArrayAttribIFormat(vao, attr, getFormatChannelCount(format), formatEnumToGLenum(format), hashVal.getRelativeOffsetForAttrib(attr));
+
+                    if (!updatedBindings[bnd]) {
+                        extGlVertexArrayBindingDivisor(vao, bnd, hashVal.getDivisorForBinding(bnd));
+                        updatedBindings[bnd] = true;
+                    }
+                }
+
+                if (STATE_NEQ(vertexInputParams.bindings[bnd]))//this if-statement also doesnt allow GlVertexArrayVertexBuffer be called multiple times for single binding
+                {
+                    extGlVertexArrayVertexBuffer(vao, bnd, nextState.vertexInputParams.bindings[bnd].buf, nextState.vertexInputParams.bindings[bnd].offset, hashVal.getStrideForBinding(bnd));
+                    UPDATE_STATE(vertexInputParams.bindings[bnd]);
+                }
+            }
+            if (STATE_NEQ(vertexInputParams.indexBuf))
+            {
+                extGlVertexArrayElementBuffer(vao, nextState.vertexInputParams.indexBuf);
+                UPDATE_STATE(vertexInputParams.indexBuf);
+            }
+        }
+    }
 #undef STATE_NEQ
 #undef UPDATE_STATE
-    }
-    if (stateBits & GSB_VAO_AND_VERTEX_INPUT)
+    if ((stateBits & GSB_DESCRIPTOR_SETS) && currentState.pipeline)
     {
-    }
-    if (stateBits & GSB_DESCRIPTOR_SETS)
-    {
-        auto rebindBuffers = [this](GLenum target, const auto& currBufs, const auto& nextBufs)
-        {
-            auto bufBndDiffers = [](const auto& curr, const auto& next, uint32_t ix) {
-                return curr.buffers[ix] != next.buffers[ix] || curr.offsets[ix] != next.offsets[ix] || curr.sizes[ix] != next.sizes[ix];
-            };
-#define BUF_NEQ(ix) bufBndDiffers(currBufs, nextBufs, ix)
+        GLuint ubonames[MAX_UBO_BINDING_COUNT]{};
+        GLintptr ubooffsets[MAX_UBO_BINDING_COUNT]{};
+        GLsizeiptr ubosizes[MAX_UBO_BINDING_COUNT]{};
 
-            constexpr GLuint invalid_ix = static_cast<GLuint>(-1);
-            GLuint first = invalid_ix;
-            GLsizei count = 0u;
-            for (uint32_t i = 0u; i < 16u; ++i)
-            {
-                if (BUF_NEQ(i)) {
-                    if (first == invalid_ix)
-                        first = i;
-                    ++count;
-                }
-                else {
-                    if (count)
-                        COpenGLExtensionHandler::extGlBindBuffersRange(target, first, count, nextBufs.buffers+first, nextBufs.offsets+first, nextBufs.sizes+first);
-                    first = invalid_ix;
-                    count = 0u;
-                }
+        GLuint ssbonames[MAX_SSBO_BINDING_COUNT]{};
+        GLintptr ssbooffsets[MAX_SSBO_BINDING_COUNT]{};
+        GLsizeiptr ssbosizes[MAX_SSBO_BINDING_COUNT]{};
+
+        GLuint texnames[MAX_TEXTURE_BINDING_COUNT]{};
+        GLenum textargets[MAX_TEXTURE_BINDING_COUNT]{};
+
+        GLuint imgnames[MAX_IMAGE_BINDING_COUNT]{};
+        GLenum imgformats[MAX_IMAGE_BINDING_COUNT]{};
+
+
+        bool needRebind = false;
+        for (uint32_t i = 0u; i < 4u; ++i)
+        {
+            if (nextState.descriptorsParams.descSets[i] != currentState.descriptorsParams.descSets[i]) {
+                currentState.descriptorsParams.descSets[i] = nextState.descriptorsParams.descSets[i];
+                needRebind = true;
             }
-#undef BUF_NEQ
-        };
+            if (!currentState.descriptorsParams.descSets[i])
+                continue;
 
-        //UBOs
-        rebindBuffers(GL_UNIFORM_BUFFER, currentState.descriptorsParams.ubos, nextState.descriptorsParams.ubos);
-        currentState.descriptorsParams.ubos = nextState.descriptorsParams.ubos;
-        //SSBOs
-        rebindBuffers(GL_SHADER_STORAGE_BUFFER, currentState.descriptorsParams.ssbos, nextState.descriptorsParams.ssbos);
-        currentState.descriptorsParams.ssbos = nextState.descriptorsParams.ssbos;
+            const auto& first_count = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline->getLayout())->getMultibindParamsForDescSet(i);
+            const auto& multibind_params = nextState.descriptorsParams.descSets[i]->getMultibindParams();
 
-        //textures
-        GLenum texTargets[80]{};
-        for (uint32_t i = 0u; i < 80u; ++i)
-        {
-            if (nextState.descriptorsParams.textures.textures[i]==0u && currentState.descriptorsParams.textures.textures[i]!=0u)
-                texTargets[i] = currentState.descriptorsParams.textures.targets[i];
-            else if (nextState.descriptorsParams.textures.textures[i]!=0u)
-                texTargets[i] = nextState.descriptorsParams.textures.targets[i];
+            std::copy(multibind_params.ubos.buffers, multibind_params.ubos.buffers + first_count.ubos.count, ubonames + first_count.ubos.first);
+            std::copy(multibind_params.ubos.offsets, multibind_params.ubos.offsets + first_count.ubos.count, ubooffsets + first_count.ubos.first);
+            std::copy(multibind_params.ubos.sizes, multibind_params.ubos.sizes + first_count.ubos.count, ubosizes + first_count.ubos.first);
+
+            std::copy(multibind_params.ssbos.buffers, multibind_params.ssbos.buffers + first_count.ssbos.count, ssbonames + first_count.ssbos.first);
+            std::copy(multibind_params.ssbos.offsets, multibind_params.ssbos.offsets + first_count.ssbos.count, ssbooffsets + first_count.ssbos.first);
+            std::copy(multibind_params.ssbos.sizes, multibind_params.ssbos.sizes + first_count.ssbos.count, ssbosizes + first_count.ssbos.first);
+
+            std::copy(multibind_params.textures.textures, multibind_params.textures.textures + first_count.textures.count, texnames + first_count.textures.first);
+            std::copy(multibind_params.textures.targets, multibind_params.textures.targets + first_count.textures.count, texnames + first_count.textures.first);
+
+            std::copy(multibind_params.textureImages.textures, multibind_params.textureImages.textures + first_count.textureImages.count, imgnames + first_count.textureImages.first);
+            std::copy(multibind_params.textureImages.formats, multibind_params.textureImages.formats + first_count.textureImages.count, imgformats + first_count.textureImages.first);
         }
-        constexpr GLuint invalid_ix = static_cast<GLuint>(-1);
-        GLuint first = invalid_ix;
-        GLsizei count = 0u;
-        for (uint32_t i = 0u; i < 80u; ++i)
+        if (needRebind)
         {
-            if (nextState.descriptorsParams.textures.textures[i] != currentState.descriptorsParams.textures.textures[i]) {
-                if (first == invalid_ix)
-                    first = i;
-                ++count;
-            }
-            else {
-                if (count)
-                    COpenGLExtensionHandler::extGlBindTextures(first, count, nextState.descriptorsParams.textures.textures+first, texTargets+first);
-                first = invalid_ix;
-                count = 0u;
-            }
+            COpenGLExtensionHandler::extGlBindBuffersRange(GL_UNIFORM_BUFFER, 0u, MAX_UBO_BINDING_COUNT, ubonames, ubooffsets, ubosizes);
+            COpenGLExtensionHandler::extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, 0u, MAX_SSBO_BINDING_COUNT, ssbonames, ssbooffsets, ssbosizes);
+            COpenGLExtensionHandler::extGlBindTextures(0u, MAX_TEXTURE_BINDING_COUNT, texnames, textargets);//TODO this might be problematic if ARB_multi_bind is not available (need to unbind textures of different type possibly bound to the same tex unit)
+            //TODO bind samplers
+            COpenGLExtensionHandler::extGlBindImageTextures(0u, MAX_IMAGE_BINDING_COUNT, imgnames, imgformats);
         }
-        currentState.descriptorsParams.textures = nextState.descriptorsParams.textures;
-
-        //samplers
-        first = invalid_ix;
-        count = 0u;
-        for (uint32_t i = 0u; i < 80u; ++i)
-        {
-            if (nextState.descriptorsParams.samplers[i] != currentState.descriptorsParams.samplers[i]) {
-                if (first == invalid_ix)
-                    first = i;
-                ++count;
-            }
-            else {
-                if (count)
-                    COpenGLExtensionHandler::extGlBindSamplers(first, count, nextState.descriptorsParams.samplers+first);
-                first = invalid_ix;
-                count = 0u;
-            }
-        }
-        memcpy(currentState.descriptorsParams.samplers, nextState.descriptorsParams.samplers, sizeof(currentState.descriptorsParams.samplers));
-
-        //images
-        first = invalid_ix;
-        count = 0u;
-        for (uint32_t i = 0u; i < 80u; ++i)
-        {
-            if (nextState.descriptorsParams.images.textures[i] != currentState.descriptorsParams.images.textures[i]) {
-                if (first == invalid_ix)
-                    first = i;
-                ++count;
-            }
-            else {
-                if (count)
-                    COpenGLExtensionHandler::extGlBindImageTextures(first, count, nextState.descriptorsParams.images.textures+first, nextState.descriptorsParams.images.formats+first);
-                first = invalid_ix;
-                count = 0u;
-            }
-        }
-        currentState.descriptorsParams.images = nextState.descriptorsParams.images;
     }
 
     nextState = currentState;

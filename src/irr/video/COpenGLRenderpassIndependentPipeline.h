@@ -21,54 +21,112 @@ public:
             return sizeof(hashVal)/sizeof(uint32_t);
         }
 
-        bool operator!=(const SVAOHash& rhs) const 
+        inline bool operator!=(const SVAOHash& rhs) const 
         {
             for (size_t i = 0u; i < getHashLength(); ++i)
                 if (hashVal[i] != rhs.hashVal[i])
                     return true;
             return false;
         }
-        bool operator==(const SVAOHash& rhs) const
+        inline bool operator==(const SVAOHash& rhs) const
         {
             return !((*this) != rhs);
         }
-
-        uint32_t getRelativeOffsetForAttrib(uint32_t _attr) const
+        inline bool operator<(const SVAOHash& rhs) const
         {
-            if (_attr == 5u)
-            {
-                uint32_t val = (relOffsets[0] & (0xfu<<60)) >> 60;
-                val |= (relOffsets[1] & 0xffu) << 4;
-                return val;
-            }
-            if (_attr == 11u)
-            {
-                uint32_t val = (relOffsets[1] & (0xffu<<56)) >> 56;
-                val |= (relOffsets[2] & 0xfu) << 8;
-                return val;
-            }
-            const uint32_t ix = (_attr > 5u) + (_attr > 11u);
-            const uint32_t shift = (_attr*12u) - (ix*64u);
+            for (size_t i = 0u; i < getHashLength(); ++i)
+                if (hashVal[i] < rhs.hashVal[i])
+                    return true;
+            return false;
+        }
 
-            return (relOffsets[ix]>>shift) & 0xfffu;
+        inline uint32_t getRelativeOffsetForAttrib(uint32_t _attr) const
+        {
+            return extract12bits(_attr, relOffsets);
+        }
+        inline void setRelativeOffsetForAttrib(uint32_t _attr, uint64_t _val)
+        {
+            return set12bits(_attr, relOffsets, _val);
+        }
+        inline uint32_t getStrideForBinding(uint32_t _bnd) const
+        {
+            return extract12bits(_bnd, strides);
+        }
+        inline void setStrideForBinding(uint32_t _bnd, uint64_t _val)
+        {
+            return set12bits(_bnd, strides, _val);
+        }
+
+        inline uint32_t getBindingForAttrib(uint32_t _attr) const
+        {
+            const uint32_t shift = 4u*_attr;
+            return (mapAttrToBinding>>shift) & 0xfull;
+        }
+
+        inline uint32_t getDivisorForBinding(uint32_t _bnd) const
+        {
+            return (divisors >> _bnd) & 1u;
         }
 
         union {
 #include "irr/irrpack.h"
             struct {
-                //can't find any info about what's guaranteed "min max" for rel offset, but here i'm assuming 2048 (same as with stride)
-                uint64_t relOffsets[3];
-                //GL's guaranteed minimal for max stride is 2048 so 12 bits per attrib needed
-                //TODO do we want to include stride in hash? Stride is parameter of binding, while relative offset is parameter of attribute
+                uint64_t relOffsets[3];//16*12 bits
                 uint64_t strides[3];//16*12 bits
                 uint64_t mapAttrToBinding;//16*4 bits
-                uint16_t enabledAttribs;
                 uint16_t divisors;
-                uint8_t attribFormatAndComponentCount[16];
+                //E_FORMAT values
+                uint8_t attribFormatAndComponentCount[16];//attribute X is enabled if attribFormatAndComponentCount[X]==EF_UNKNOWN
             } PACK_STRUCT;
 #include "irr/irrunpack.h"
-            uint32_t hashVal[7];
+            uint32_t hashVal[19]{};
         };
+
+    private:
+        inline static uint32_t extract12bits(uint32_t _ix, const uint64_t _bits[3])
+        {
+            if (_ix == 5u)
+            {
+                uint32_t val = (_bits[0] & (0xfu << 60)) >> 60;
+                val |= (_bits[1] & 0xffu) << 4;
+                return val;
+            }
+            if (_ix == 11u)
+            {
+                uint32_t val = (_bits[1] & (0xffu << 56)) >> 56;
+                val |= (_bits[2] & 0xfu) << 8;
+                return val;
+            }
+            const uint32_t ix = (_ix > 5u) + (_ix > 11u);
+            const uint32_t shift = (_ix * 12u) - (ix * 64u);
+
+            return (_bits[ix] >> shift) & 0xfffu;
+        }
+        inline static void set12bits(uint32_t _ix, uint64_t _bits[3], uint64_t _val)
+        {
+            assert(!(_val & (~0xfffull)));//bits higher than [0..11] must not be set
+            if (_ix == 5u)
+            {
+                _bits[0] &= (~(0xfull >> 60));
+                _bits[0] |= (_val >> 60);
+                _bits[1] &= (~0xffull);
+                _bits[1] |= (_val << 4);
+                return;
+            }
+            if (_ix == 11u)
+            {
+                _bits[1] &= (~(0xffull >> 56));
+                _bits[1] |= (_val >> 56);
+                _bits[2] &= (~0xfull);
+                _bits[2] |= (_val << 8);
+                return;
+            }
+
+            const uint32_t ix = (_ix > 5u) + (_ix > 11u);
+            const uint32_t shift = (_ix * 12u) - (ix * 64u);
+            _bits[ix] &= (~(0xfffu << shift));
+            _bits[ix] |= (_val << shift);
+        }
     };
 
 private:

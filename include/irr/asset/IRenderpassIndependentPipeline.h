@@ -260,6 +260,7 @@ struct SColorAttachmentBlendParams
     uint8_t srcAlphaFactor : 5;
     uint8_t dstAlphaFactor : 5;
     uint8_t alphaBlendOp : 2;
+    //RGBA, LSB is R, MSB is A
     uint8_t colorWriteMask : 4;
 };
 static_assert(sizeof(SColorAttachmentBlendParams)==6u, "Unexpected size of SColorAttachmentBlendParams (should be 6)");

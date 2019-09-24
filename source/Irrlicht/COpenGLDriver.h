@@ -62,7 +62,13 @@ namespace video
     };
     struct SOpenGLState
     {
-        GLuint pipeline;
+        struct SVAO {
+            GLuint GLname;
+            uint64_t lastValidated;
+        };
+        typedef std::pair<COpenGLRenderpassIndependentPipeline::SVAOHash, SVAO> HashVAOPair;
+
+        const COpenGLRenderpassIndependentPipeline* pipeline;
 
         struct {
             //in GL it is possible to set polygon mode separately for back- and front-faces, but in VK it's one setting for both
@@ -87,11 +93,11 @@ namespace video
             GLenum frontFace = GL_CCW;
             GLboolean depthClampEnable = 0;
             GLboolean rasterizerDiscardEnable = 0;
-            //this should enable GL_POLYGON_OFFSET_POINT or GL_POLYGON_OFFSET_LINE or GL_POLYGON_OFFSET_FILL based on polygonMode
             GLboolean polygonOffsetEnable = 0;
-            struct {
+            struct SPolyOffset {
                 GLfloat factor = 0.f;//depthBiasSlopeFactor 
                 GLfloat units = 0.f;//depthBiasConstantFactor 
+                bool operator!=(const SPolyOffset& rhs) const { return factor!=rhs.factor || units!=rhs.units; }
             } polygonOffset;
             GLfloat lineWidth = 1.f;
             GLboolean sampleShadingEnable = 0;
@@ -104,43 +110,52 @@ namespace video
             GLboolean depthWriteEnable = 1;
             //GLboolean depthBoundsTestEnable;
             GLboolean stencilTestEnable = 0;
+
+            GLboolean logicOpEnable = 0;
+            GLenum logicOp = GL_COPY;
+            struct SDrawbufferBlending
+            {
+                GLboolean blendEnable = 0;
+                struct SBlendFunc {
+                    GLenum srcRGB = GL_ONE;
+                    GLenum dstRGB = GL_ZERO;
+                    GLenum srcAlpha = GL_ONE;
+                    GLenum dstAlpha = GL_ZERO;
+                    bool operator!=(const SBlendFunc& rhs) const { return srcRGB!=rhs.srcRGB || dstRGB!=rhs.dstRGB || srcAlpha!=rhs.srcAlpha || dstAlpha!=rhs.dstAlpha; }
+                } blendFunc;
+                struct SBlendEq {
+                    GLenum modeRGB = GL_FUNC_ADD;
+                    GLenum modeAlpha = GL_FUNC_ADD;
+                    bool operator!=(const SBlendEq& rhs) const { return modeRGB!=rhs.modeRGB || modeAlpha!=rhs.modeAlpha; }
+                } blendEquation;
+                struct SColorWritemask {
+                    GLboolean colorWritemask[4]{ 1,1,1,1 };
+                    bool operator!=(const SColorWritemask& rhs) const { return memcmp(colorWritemask, rhs.colorWritemask, 4); }
+                } colorMask;
+            } drawbufferBlend[asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT];
         } rasterParams;
 
         struct {
-            //GLuint vao; //vao will be found in cache (or created) based on params
-            uint32_t mapAttrToBinding[16]{};
-            struct {
+            HashVAOPair vao;
+            struct SBnd {
                 GLuint buf = 0;
                 GLintptr offset = 0;
-                GLsizei stride = 0;
+                bool operator!=(const SBnd& rhs) const { return buf!=rhs.buf || offset!=rhs.offset; }
             } bindings[16];
-            uint16_t divisors = 0x0000;
             GLuint indexBuf;
         } vertexInputParams;
 
         struct {
-            struct SBuffers {
-                GLuint buffers[16]{};
-                GLintptr offsets[16]{};
-                GLsizeiptr sizes[16]{};
-            };
-            SBuffers ubos;
-            SBuffers ssbos;
-
-            struct {
-                GLuint textures[80]{};
-                GLenum targets[80];
-            } textures;
-            GLuint samplers[80]{};
-            struct {
-                GLuint textures[80]{};
-                GLenum formats[80];
-            } images;
+            const COpenGLDescriptorSet* descSets[4];
         } descriptorsParams;
     };
 
 	class COpenGLDriver : public CNullDriver, public IMaterialRendererServices, public COpenGLExtensionHandler
 	{
+        _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_UBO_BINDING_COUNT = 16u;
+        _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_SSBO_BINDING_COUNT = 16u;
+        _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_TEXTURE_BINDING_COUNT = 80u;
+        _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_IMAGE_BINDING_COUNT = 80u;
     protected:
 		//! destructor
 		virtual ~COpenGLDriver();
@@ -797,8 +812,6 @@ namespace video
             bool                                         XFormFeedbackRunning; // TODO: delete
             COpenGLTransformFeedback* CurrentXFormFeedback; //TODO: delete
 
-            COpenGLRenderpassIndependentPipeline* CurrentRenderpassPipeline;
-
             //! FBOs
             core::vector<IFrameBuffer*>  FrameBuffers;
             COpenGLFrameBuffer*         CurrentFBO;
@@ -946,9 +959,7 @@ namespace video
             };
 
             //!
-            typedef std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> HashVAOPair;
-            HashVAOPair                 CurrentVAO;
-            core::vector<HashVAOPair>    VAOMap;
+            core::vector<SOpenGLState::HashVAOPair> VAOMap;
 
             inline size_t getVAOCacheSize() const
             {
@@ -959,12 +970,12 @@ namespace video
             {
                 for(auto it = VAOMap.begin(); VAOMap.size()>maxVAOCacheSize&&it!=VAOMap.end();)
                 {
-                    if (it->first==CurrentVAO.first)
+                    if (it->first==currentState.vertexInputParams.vao.first)
                         continue;
 
-                    if (CNullDriver::ReallocationCounter-it->second->getLastBoundStamp()>1000) //maybe make this configurable
+                    if (CNullDriver::ReallocationCounter-it->second.lastValidated>1000) //maybe make this configurable
                     {
-                        delete it->second;
+                        COpenGLExtensionHandler::extGlDeleteVertexArrays(1, &it->second.GLname);
                         it = VAOMap.erase(it);
                         if (exitOnFirstDelete)
                             return;
