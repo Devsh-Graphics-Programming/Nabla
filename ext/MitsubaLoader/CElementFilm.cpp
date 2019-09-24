@@ -36,7 +36,7 @@ IElement* CElementFactory::createElement<CElementFilm>(const char** _atts, Parse
 		return nullptr;
 	}
 
-	CElementIntegrator* obj = _util->objects.construct<CElementIntegrator>();
+	CElementFilm* obj = _util->objects.construct<CElementFilm>();
 	if (!obj)
 		return nullptr;
 
@@ -44,14 +44,16 @@ IElement* CElementFactory::createElement<CElementFilm>(const char** _atts, Parse
 	// defaults
 	switch (obj->type)
 	{
-		case CElementFilm::Type::TILED_HDR:
-			obj-> = ;
-			break;
 		case CElementFilm::Type::LDR_FILM:
+			obj->fileFormat = CElementFilm::FileFormat::PNG;
 			obj->ldrfilm = CElementFilm::LDR();
 			break;
 		case CElementFilm::Type::MFILM:
-			obj->m = CElementFilm::M();
+			obj->width = 1;
+			obj->height = 1;
+			obj->fileFormat = CElementFilm::FileFormat::MATLAB;
+			obj->pixelFormat = CElementFilm::PixelFormat::LUMINANCE;
+			obj->mfilm = CElementFilm::M();
 			break;
 		default:
 			break;
@@ -62,71 +64,113 @@ IElement* CElementFactory::createElement<CElementFilm>(const char** _atts, Parse
 
 bool CElementFilm::addProperty(SPropertyElementData&& _property)
 {
-	bool error = false;/*
+	bool error = type==Type::INVALID;
+#define SET_PROPERTY(MEMBER,PROPERTY_TYPE)		[&]() -> void { \
+		if (_property.type!=PROPERTY_TYPE) { \
+			error = true; \
+			return; \
+		} \
+		MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
+	}
+	auto setWidth			= SET_PROPERTY(width,SPropertyElementData::Type::INTEGER);
+	auto setHeight			= SET_PROPERTY(height,SPropertyElementData::Type::INTEGER);
+	auto setCropOffsetX		= SET_PROPERTY(cropOffsetX,SPropertyElementData::Type::INTEGER);
+	auto setCropOffsetY		= SET_PROPERTY(cropOffsetY,SPropertyElementData::Type::INTEGER);
+	auto setCropWidth		= SET_PROPERTY(cropWidth,SPropertyElementData::Type::INTEGER);
+	auto setCropHeight		= SET_PROPERTY(cropHeight,SPropertyElementData::Type::INTEGER);
+	auto setFileFormat = [&]() -> void
+	{
+		if (_property.type!=SPropertyElementData::Type::STRING)
+		{
+			error = true;
+			return;
+		}
+		static const core::unordered_map<std::string, FileFormat, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
+		{
+			{"openexr",		OPENEXR},
+			{"rgbe",		RGBE},
+			{"pfm",			PFM},
+			{"matlab",		MATLAB},
+			{"mathematica",	MATHEMATICA},
+			{"numpy",		NUMPY}
+		};
+		auto found = StringToType.find(_property.svalue);
+		if (found!=StringToType.end())
+		{
+			error = true;
+			return;
+		}
+		fileFormat = found->second;
+	};
+	auto setPixelFormat = [&]() -> void
+	{
+		if (_property.type!=SPropertyElementData::Type::STRING)
+		{
+			error = true;
+			return;
+		}
+		static const core::unordered_map<std::string, PixelFormat, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
+		{
+			{"luminance",		LUMINANCE},
+			{"luminanceAlpha",	LUMINANCE_ALPHA},
+			{"rgb",				RGB},
+			{"rgba",			RGBA},
+			{"xyz",				XYZ},
+			{"xyza",			XYZA},
+			{"spectrum",		SPECTRUM},
+			{"spectrumAlpha",	SPECTRUM_ALPHA}
+		};
+		auto found = StringToType.find(_property.svalue);
+		if (found!=StringToType.end())
+		{
+			error = true;
+			return;
+		}
+		pixelFormat = found->second;
+	};
+	auto setComponentFormat = [&]() -> void
+	{
+		if (_property.type!=SPropertyElementData::Type::STRING || type==Type::LDR_FILM || type==Type::MFILM)
+		{
+			error = true;
+			return;
+		}
+		static const core::unordered_map<std::string, ComponentFormat, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
+		{
+			{"float16",	FLOAT16},
+			{"float32",	FLOAT32},
+			{"uint32",	UINT32}
+		};
+		auto found = StringToType.find(_property.svalue);
+		if (found!=StringToType.end())
+		{
+			error = true;
+			return;
+		}
+		componentFormat = found->second;
+	};
+	auto setBanner			= SET_PROPERTY(banner,SPropertyElementData::Type::BOOLEAN);
+	auto setHighQualityEdges= SET_PROPERTY(highQualityEdges,SPropertyElementData::Type::BOOLEAN);
+	
+
 	auto dispatch = [&](auto func) -> void
 	{
 		switch (type)
 		{
-		case CElementIntegrator::Type::AO:
-			func(ao);
-			break;
-		case CElementIntegrator::Type::DIRECT:
-			func(direct);
-			break;
-		case CElementIntegrator::Type::PATH:
-			func(path);
-			break;
-		case CElementIntegrator::Type::VOL_PATH_SIMPLE:
-			func(volpath_simple);
-			break;
-		case CElementIntegrator::Type::VOL_PATH:
-			func(volpath);
-			break;
-		case CElementIntegrator::Type::BDPT:
-			func(bdpt);
-			break;
-		case CElementIntegrator::Type::PHOTONMAPPER:
-			func(photonmapper);
-			break;
-		case CElementIntegrator::Type::PPM:
-			func(ppm);
-			break;
-		case CElementIntegrator::Type::SPPM:
-			func(sppm);
-			break;
-		case CElementIntegrator::Type::PSSMLT:
-			func(pssmlt);
-			break;
-		case CElementIntegrator::Type::MLT:
-			func(mlt);
-			break;
-		case CElementIntegrator::Type::ERPT:
-			func(erpt);
-			break;
-		case CElementIntegrator::Type::ADJ_P_TRACER:
-			func(ptracer);
-			break;
-		case CElementIntegrator::Type::ADAPTIVE:
-			func(adaptive);
-			break;
-		case CElementIntegrator::Type::VPL:
-			func(vpl);
-			break;
-		case CElementIntegrator::Type::IRR_CACHE:
-			func(irrcache);
-			break;
-		case CElementIntegrator::Type::MULTI_CHANNEL:
-			func(multichannel);
-			break;
-		case CElementIntegrator::Type::FIELD_EXTRACT:
-			func(field);
-			break;
-		default:
-			error = true;
-			break;
+			case CElementFilm::Type::HDR_FILM:
+				func(hdrfilm);
+				break;
+			case CElementFilm::Type::LDR_FILM:
+				func(ldrfilm);
+				break;
+			case CElementFilm::Type::MFILM:
+				func(mfilm);
+				break;
+			default:
+				error = true;
+				break;
 		}
 	};
-
 #define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE, ... )		[&]() -> void { \
 		dispatch([&](auto& state) -> void { \
 			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
@@ -141,151 +185,73 @@ bool CElementFilm::addProperty(SPropertyElementData&& _property)
 		}); \
 	}
 
-	auto processRayLength = SET_PROPERTY_TEMPLATE(rayLength, SPropertyElementData::Type::FLOAT, AmbientOcclusion);
-	auto processEmitterSamples = SET_PROPERTY_TEMPLATE(emitterSamples, SPropertyElementData::Type::INTEGER, DirectIllumination);
-	auto processBSDFSamples = SET_PROPERTY_TEMPLATE(bsdfSamples, SPropertyElementData::Type::INTEGER, DirectIllumination);
-	auto processShadingSamples = [&]() -> void
+	auto setAttachLog = SET_PROPERTY_TEMPLATE(attachLog, SPropertyElementData::Type::BOOLEAN, HDR);
+	auto setTonemapMethod = [&]() -> void
 	{
-		dispatch([&](auto& state) -> void {
-			using state_type = std::remove_reference<decltype(state)>::type;
+		if (_property.type != SPropertyElementData::Type::STRING || type == Type::LDR_FILM)
+		{
+			error = true;
+			return;
+		}
+		static const core::unordered_map<std::string, LDR::TonemapMethod, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
+		{
+			{"gamma",	LDR::GAMMA},
+			{"reinhard",LDR::REINHARD}
+		};
+		auto found = StringToType.find(_property.svalue);
+		if (found != StringToType.end())
+		{
+			error = true;
+			return;
+		}
+		ldrfilm.tonemapMethod = found->second;
+	};
+	auto setGamma = SET_PROPERTY_TEMPLATE(gamma, SPropertyElementData::Type::FLOAT, LDR);
+	auto setExposure = SET_PROPERTY_TEMPLATE(exposure, SPropertyElementData::Type::FLOAT, LDR);
+	auto setKey = SET_PROPERTY_TEMPLATE(key, SPropertyElementData::Type::FLOAT, LDR);
+	auto setBurn = SET_PROPERTY_TEMPLATE(burn, SPropertyElementData::Type::FLOAT, LDR);
+	auto setDigits = SET_PROPERTY_TEMPLATE(digits, SPropertyElementData::Type::INTEGER, M);
+	auto setVariable = [&]() -> void
+	{
+		if (_property.type != SPropertyElementData::Type::STRING || type == Type::MFILM)
+		{
+			error = true;
+			return;
+		}
+		size_t len = std::min(strlen(_property.svalue),M::MaxVarNameLen);
+		memcpy(mfilm.variable,_property.svalue,len);
+		mfilm.variable[len] = 0;
+	};
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type, AmbientOcclusion>::value)
-			{
-				if (_property.type != SPropertyElementData::Type::INTEGER)
-				{
-					error = true;
-					return;
-				}
-				state.shadingSamples = _property.getProperty<SPropertyElementData::Type::INTEGER>();
-			}
-			IRR_PSEUDO_ELSE_CONSTEXPR
-			{
-				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,DirectIllumination>::value)
-				{
-					processEmitterSamples();
-					processBSDFSamples();
-				}
-				IRR_PSEUDO_IF_CONSTEXPR_END
-			}
-				IRR_PSEUDO_IF_CONSTEXPR_END
-			});
-	};
-	auto processStrictNormals = SET_PROPERTY_TEMPLATE(strictNormals, SPropertyElementData::Type::BOOLEAN, DirectIllumination, PathTracing);
-	auto processHideEmitters = SET_PROPERTY_TEMPLATE(hideEmitters, SPropertyElementData::Type::BOOLEAN, DirectIllumination, PathTracing, PhotonMapping);
-#define ALL_PHOTONMAPPING_TYPES PhotonMapping,ProgressivePhotonMapping,StochasticProgressivePhotonMapping
-#define ALL_MLT_TYPES			PrimarySampleSpaceMetropolisLightTransport,PathSpaceMetropolisLightTransport
-#define ALL_MC_TYPES			PathTracing,SimpleVolumetricPathTracing,ExtendedVolumetricPathTracing,BiDirectionalPathTracing, \
-								ALL_PHOTONMAPPING_TYPES,ALL_MLT_TYPES,EnergyRedistributionPathTracing,AdjointParticleTracing
-	auto processMaxDepth = SET_PROPERTY_TEMPLATE(maxPathDepth, SPropertyElementData::Type::INTEGER, ALL_MC_TYPES, VirtualPointLights);
-	auto processRRDepth = SET_PROPERTY_TEMPLATE(russianRouletteDepth, SPropertyElementData::Type::INTEGER, ALL_MC_TYPES);
-#undef ALL_MC_TYPES
-	auto processLightImage = SET_PROPERTY_TEMPLATE(lightImage, SPropertyElementData::Type::BOOLEAN, BiDirectionalPathTracing);
-	auto processSampleDirect = SET_PROPERTY_TEMPLATE(sampleDirect, SPropertyElementData::Type::BOOLEAN, BiDirectionalPathTracing);
-	auto processGranularity = SET_PROPERTY_TEMPLATE(granularity, SPropertyElementData::Type::INTEGER, ALL_PHOTONMAPPING_TYPES, AdjointParticleTracing);
-#undef ALL_PHOTONMAPPING_TYPES
-	auto processDirectSamples = SET_PROPERTY_TEMPLATE(directSamples, SPropertyElementData::Type::INTEGER, PhotonMapping, ALL_MLT_TYPES, EnergyRedistributionPathTracing);
-	auto processGlossySamples = SET_PROPERTY_TEMPLATE(glossySamples, SPropertyElementData::Type::INTEGER, PhotonMapping);
-	auto processGlobalPhotons = SET_PROPERTY_TEMPLATE(globalPhotons, SPropertyElementData::Type::INTEGER, PhotonMapping);
-	auto processCausticPhotons = SET_PROPERTY_TEMPLATE(causticPhotons, SPropertyElementData::Type::INTEGER, PhotonMapping);
-	auto processVolumePhotons = SET_PROPERTY_TEMPLATE(volumePhotons, SPropertyElementData::Type::INTEGER, PhotonMapping);
-	auto processGlobalLookupRadius = SET_PROPERTY_TEMPLATE(globalLURadius, SPropertyElementData::Type::FLOAT, PhotonMapping);
-	auto processCausticLookupRadius = SET_PROPERTY_TEMPLATE(causticLURadius, SPropertyElementData::Type::FLOAT, PhotonMapping);
-	auto processLookupSize = SET_PROPERTY_TEMPLATE(LUSize, SPropertyElementData::Type::INTEGER, PhotonMapping);
-	auto processPhotonCount = SET_PROPERTY_TEMPLATE(photonCount, SPropertyElementData::Type::INTEGER, ProgressivePhotonMapping, StochasticProgressivePhotonMapping);
-	auto processInitialRadius = SET_PROPERTY_TEMPLATE(initialRadius, SPropertyElementData::Type::FLOAT, ProgressivePhotonMapping, StochasticProgressivePhotonMapping);
-	auto processAlpha = SET_PROPERTY_TEMPLATE(alpha, SPropertyElementData::Type::FLOAT, ProgressivePhotonMapping, StochasticProgressivePhotonMapping);
-	auto processMaxPasses = SET_PROPERTY_TEMPLATE(maxPasses, SPropertyElementData::Type::INTEGER, ProgressivePhotonMapping, StochasticProgressivePhotonMapping);
-	auto processLuminanceSamples = SET_PROPERTY_TEMPLATE(luminanceSamples, SPropertyElementData::Type::INTEGER, ALL_MLT_TYPES);
-	auto processTwoStage = SET_PROPERTY_TEMPLATE(twoStage, SPropertyElementData::Type::BOOLEAN, ALL_MLT_TYPES);
-#undef ALL_MLT_TYPES
-	auto processBidirectional = SET_PROPERTY_TEMPLATE(bidirectional, SPropertyElementData::Type::BOOLEAN, PrimarySampleSpaceMetropolisLightTransport);
-	auto processPLarge = SET_PROPERTY_TEMPLATE(pLarge, SPropertyElementData::Type::FLOAT, PrimarySampleSpaceMetropolisLightTransport);
-	auto processLensPerturbation = SET_PROPERTY_TEMPLATE(lensPerturbation, SPropertyElementData::Type::BOOLEAN, PathSpaceMetropolisLightTransport, EnergyRedistributionPathTracing);
-	auto processMultiChainPerturbation = SET_PROPERTY_TEMPLATE(multiChainPerturbation, SPropertyElementData::Type::BOOLEAN, PathSpaceMetropolisLightTransport, EnergyRedistributionPathTracing);
-	auto processCausticPerturbation = SET_PROPERTY_TEMPLATE(causticPerturbation, SPropertyElementData::Type::BOOLEAN, PathSpaceMetropolisLightTransport, EnergyRedistributionPathTracing);
-	auto processManifoldPerturbation = SET_PROPERTY_TEMPLATE(manifoldPerturbation, SPropertyElementData::Type::BOOLEAN, PathSpaceMetropolisLightTransport, EnergyRedistributionPathTracing);
-	auto processLambda = SET_PROPERTY_TEMPLATE(lambda, SPropertyElementData::Type::FLOAT, PathSpaceMetropolisLightTransport, EnergyRedistributionPathTracing);
-	auto processBidirectionalMutation = SET_PROPERTY_TEMPLATE(bidirectionalMutation, SPropertyElementData::Type::BOOLEAN, PathSpaceMetropolisLightTransport);
-	auto processNumChains = SET_PROPERTY_TEMPLATE(numChains, SPropertyElementData::Type::FLOAT, EnergyRedistributionPathTracing);
-	auto processMaxChains = SET_PROPERTY_TEMPLATE(maxChains, SPropertyElementData::Type::FLOAT, EnergyRedistributionPathTracing);
-	auto processChainLength = SET_PROPERTY_TEMPLATE(chainLength, SPropertyElementData::Type::INTEGER, EnergyRedistributionPathTracing);
-	auto processBruteForce = SET_PROPERTY_TEMPLATE(bruteForce, SPropertyElementData::Type::BOOLEAN, AdjointParticleTracing);
-	auto processShadowMap = SET_PROPERTY_TEMPLATE(shadowMap, SPropertyElementData::Type::INTEGER, VirtualPointLights);
-	auto processClamping = SET_PROPERTY_TEMPLATE(clamping, SPropertyElementData::Type::FLOAT, VirtualPointLights);
-	auto processField = [&]() -> void
-	{
-		dispatch([&](auto& state) -> void
-			{
-				using state_type = std::remove_reference<decltype(state)>::type;
-				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type, FieldExtraction>::value)
-				{
-					if (_property.type != SPropertyElementData::Type::STRING)
-					{
-						error = true;
-						return;
-					}
-					static const core::unordered_map<std::string, FieldExtraction::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
-					{
-						{"position",FieldExtraction::Type::POSITION},
-						{"relPosition",FieldExtraction::Type::RELATIVE_POSITION},
-						{"distance",FieldExtraction::Type::DISTANCE},
-						{"geoNormal",FieldExtraction::Type::GEOMETRIC_NORMAL},
-						{"shNormal",FieldExtraction::Type::SHADING_NORMAL},
-						{"uv",FieldExtraction::Type::UV_COORD},
-						{"albedo",FieldExtraction::Type::ALBEDO},
-						{"shapeIndex",FieldExtraction::Type::SHAPE_INDEX},
-						{"primIndex",FieldExtraction::Type::PRIMITIVE_INDEX}
-					};
-					auto found = StringToType.find(_property.svalue);
-					if (found != StringToType.end())
-						state.field = found->second;
-					else
-						state.field = FieldExtraction::Type::INVALID;
-				}
-				IRR_PSEUDO_IF_CONSTEXPR_END
-			});
-	};
-	auto processUndefined = [&]() -> void
-	{
-		dispatch([&](auto& state) -> void {
-			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type, FieldExtraction>::value)
-			{
-				if (_property.type != SPropertyElementData::Type::FLOAT && _property.type != SPropertyElementData::Type::SPECTRUM)
-				{
-					error = true;
-					return;
-				}
-				state.undefined = _property; // TODO: redo
-			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
-			});
-	};
-	auto processMaxError = SET_PROPERTY_TEMPLATE(maxError, SPropertyElementData::Type::FLOAT, AdaptiveIntegrator);
-	auto processPValue = SET_PROPERTY_TEMPLATE(pValue, SPropertyElementData::Type::FLOAT, AdaptiveIntegrator);
-	auto processMaxSampleFactor = SET_PROPERTY_TEMPLATE(maxSampleFactor, SPropertyElementData::Type::INTEGER, AdaptiveIntegrator);
-	auto processResolution = SET_PROPERTY_TEMPLATE(resolution, SPropertyElementData::Type::INTEGER, IrradianceCacheIntegrator);
-	auto processQuality = SET_PROPERTY_TEMPLATE(quality, SPropertyElementData::Type::FLOAT, IrradianceCacheIntegrator);
-	auto processGradients = SET_PROPERTY_TEMPLATE(gradients, SPropertyElementData::Type::BOOLEAN, IrradianceCacheIntegrator);
-	auto processClampNeighbour = SET_PROPERTY_TEMPLATE(clampNeighbour, SPropertyElementData::Type::BOOLEAN, IrradianceCacheIntegrator);
-	auto processClampScreen = SET_PROPERTY_TEMPLATE(clampScreen, SPropertyElementData::Type::BOOLEAN, IrradianceCacheIntegrator);
-	auto processOverture = SET_PROPERTY_TEMPLATE(overture, SPropertyElementData::Type::BOOLEAN, IrradianceCacheIntegrator);
-	auto processQualityAdjustment = SET_PROPERTY_TEMPLATE(qualityAdjustment, SPropertyElementData::Type::FLOAT, IrradianceCacheIntegrator);
-	auto processIndirecOnly = SET_PROPERTY_TEMPLATE(indirectOnly, SPropertyElementData::Type::BOOLEAN, IrradianceCacheIntegrator);
-	auto processDebug = SET_PROPERTY_TEMPLATE(debug, SPropertyElementData::Type::BOOLEAN, IrradianceCacheIntegrator);
-	*/
 	static const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{
-		//{"shadingSamples",processShadingSamples},
-		//{"shadingSamples",processShadingSamples}
+		{"width",				setWidth},
+		{"height",				setHeight},
+		{"cropOffsetX",			setCropOffsetX},
+		{"cropOffsetY",			setCropOffsetY},
+		{"cropWidth",			setCropWidth},
+		{"cropHeight",			setCropHeight},
+		{"fileFormat",			setFileFormat},
+		{"pixelFormat",			setPixelFormat},
+		{"componentFormat",		setComponentFormat},
+		{"banner",				setBanner},
+		{"highQualityEdges",	setHighQualityEdges},
+		{"attachLog",			setAttachLog},
+		{"tonemapMethod",		setTonemapMethod},
+		{"gamma",				setGamma},
+		{"exposure",			setExposure},
+		{"key",					setKey},
+		{"burn",				setBurn},
+		{"digits",				setDigits},
+		{"variable",			setVariable}
 	};
 
 	auto found = SetPropertyMap.find(_property.name);
 	if (found != SetPropertyMap.end())
 	{
 		_IRR_DEBUG_BREAK_IF(true);
-		ParserLog::invalidXMLFileStructure("No Film can have such property set with name: " + _property.name);
+		ParserLog::invalidXMLFileStructure("No Film can have such property set with name: " + _property.name+"\nRemember we don't support \"render-time annotations\"");
 		return false;
 	}
 
@@ -295,9 +261,105 @@ bool CElementFilm::addProperty(SPropertyElementData&& _property)
 
 bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata)
 {
+	cropOffsetX = std::max(cropOffsetX,0);
+	cropOffsetY = std::max(cropOffsetY,0);
+	cropWidth = std::min(cropWidth,width-cropOffsetX);
+	cropHeight = std::min(cropHeight,height-cropOffsetY);
+
 	switch (type)
 	{
 		case Type::HDR_FILM:
+			switch (fileFormat)
+			{
+				case OPENEXR:
+					_IRR_FALLTHROUGH;
+				case RGBE:
+					_IRR_FALLTHROUGH;
+				case PFM:
+					break;
+				default:
+					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");
+					_IRR_DEBUG_BREAK_IF(true);
+					return false;
+			};
+			break;
+		case Type::TILED_HDR:
+			switch (fileFormat)
+			{
+				case OPENEXR:
+					break;
+				default:
+					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");
+					_IRR_DEBUG_BREAK_IF(true);
+					return false;
+			};
+			break;
+		case Type::LDR_FILM:
+			switch (fileFormat)
+			{
+				case PNG:
+					_IRR_FALLTHROUGH;
+				case JPEG:
+					_IRR_FALLTHROUGH;
+				default:
+					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");
+					_IRR_DEBUG_BREAK_IF(true);
+					return false;
+			};
+			switch (pixelFormat)
+			{
+				case LUMINANCE_ALPHA:
+					_IRR_FALLTHROUGH;
+				case RGBA:
+					if (type==PNG)
+						break;
+					_IRR_FALLTHROUGH;
+				case XYZ:
+					_IRR_FALLTHROUGH;
+				case XYZA:
+					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this pixel format");
+					_IRR_DEBUG_BREAK_IF(true);
+					return false;
+					break;
+				default:
+					break;
+			};
+			break;
+		case Type::MFILM:
+			switch (fileFormat)
+			{
+				case MATLAB:
+					_IRR_FALLTHROUGH;
+				case MATHEMATICA:
+					_IRR_FALLTHROUGH;
+				case NUMPY:
+					break;
+				default:
+					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");
+					_IRR_DEBUG_BREAK_IF(true);
+					return false;
+			};
+			switch (pixelFormat)
+			{
+				case XYZ:
+					_IRR_FALLTHROUGH;
+				case XYZA:
+					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this pixel format");
+					_IRR_DEBUG_BREAK_IF(true);
+					return false;
+					break;
+				default:
+					break;
+			};
+			switch (componentFormat)
+			{
+				case FLOAT32:
+					break;
+				default:
+					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this component format");
+					_IRR_DEBUG_BREAK_IF(true);
+					return false;
+			};
 			break;
 		default:
 			ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
