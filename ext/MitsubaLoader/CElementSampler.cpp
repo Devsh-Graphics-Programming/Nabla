@@ -12,9 +12,9 @@ namespace MitsubaLoader
 template<>
 IElement* CElementFactory::createElement<CElementSampler>(const char** _atts, ParserManager* _util)
 {
-	if (IElement::invalidAttributeCount(_atts, 2u))
-		return nullptr;
-	if (core::strcmpi(_atts[0], "type"))
+	const char* type;
+	const char* id;
+	if (!IElement::getTypeAndIDStrings(type, id, _atts))
 		return nullptr;
 
 	static const core::unordered_map<std::string, CElementSampler::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
@@ -27,7 +27,7 @@ IElement* CElementFactory::createElement<CElementSampler>(const char** _atts, Pa
 		std::make_pair("sobol", CElementSampler::Type::SOBOL)
 	};
 
-	auto found = StringToType.find(_atts[1]);
+	auto found = StringToType.find(type);
 	if (found==StringToType.end())
 	{
 		ParserLog::invalidXMLFileStructure("unknown type");
@@ -35,7 +35,7 @@ IElement* CElementFactory::createElement<CElementSampler>(const char** _atts, Pa
 		return nullptr;
 	}
 
-	CElementSampler* obj = _util->objects.construct<CElementSampler>();
+	CElementSampler* obj = _util->objects.construct<CElementSampler>(id);
 	if (!obj)
 		return nullptr;
 
@@ -75,7 +75,7 @@ bool CElementSampler::addProperty(SPropertyElementData&& _property)
 				sampleCount = ceilf(sqrtf(sampleCount));
 				break;
 			case Type::LDSAMPLER:
-				sampleCount = core::roundUpToPoT(sampleCount);
+				//sampleCount = core::roundUpToPoT<int32_t>(sampleCount);
 				break;
 			default:
 				break;

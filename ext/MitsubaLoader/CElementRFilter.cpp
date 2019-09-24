@@ -14,9 +14,9 @@ namespace MitsubaLoader
 template<>
 IElement* CElementFactory::createElement<CElementRFilter>(const char** _atts, ParserManager* _util)
 {
-	if (IElement::invalidAttributeCount(_atts, 2u))
-		return nullptr;
-	if (core::strcmpi(_atts[0], "type"))
+	const char* type;
+	const char* id;
+	if (!IElement::getTypeAndIDStrings(type, id, _atts))
 		return nullptr;
 
 	static const core::unordered_map<std::string,CElementRFilter::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
@@ -29,7 +29,7 @@ IElement* CElementFactory::createElement<CElementRFilter>(const char** _atts, Pa
 		std::make_pair("lanczos", CElementRFilter::Type::LANCZOS)
 	};
 
-	auto found = StringToType.find(_atts[1]);
+	auto found = StringToType.find(type);
 	if (found==StringToType.end())
 	{
 		ParserLog::invalidXMLFileStructure("unknown type");
@@ -37,7 +37,7 @@ IElement* CElementFactory::createElement<CElementRFilter>(const char** _atts, Pa
 		return nullptr;
 	}
 
-	CElementRFilter* obj = _util->objects.construct<CElementRFilter>();
+	CElementRFilter* obj = _util->objects.construct<CElementRFilter>(id);
 	if (!obj)
 		return nullptr;
 

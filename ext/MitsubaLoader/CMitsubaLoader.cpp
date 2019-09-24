@@ -13,31 +13,12 @@ namespace MitsubaLoader
 
 //TODO: 
 /*
- - proper handling of incorrect .xml file structure (in some situations parsing should be stoped and nullptr should be returned
-   from CMitsubaLoader::loadAsset, and in other situations only warning should be shown.)
- - handle 'version' attribute
-
- - make sure that default values for <float .. /> <boolean .. /> etc. are correct
-
  - idk if I use flipsurfaces correctly.. 
 
  - acording cylinder: close top leaves one top still closed, also this:
 	"Note that the cylinder does not have endcaps – also,
 	it’s interior has inward-facing normals, which most scattering models in Mitsuba will treat as fully
 	absorbing. If this is not desirable, consider using the twosided plugin." ...
-
- - (PropertyElement.cpp) these property elements must be finished: rgb, srgb, spectrum, vector
-
- - rotate doesn't work..
-
- - (PropertyElement.cpp) use regex
-
- - srgb -> rgb
-
- - process value of rgb and srgb property correctly when value is in hex
-
- - <integer> property value validation
-
 */
 
 
@@ -120,7 +101,10 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 			break;
 
 		case XML_STATUS_SUSPENDED:
-			os::Printer::log("Parse status: XML_STATUS_SUSPENDED", ELL_INFORMATION);
+			{
+				os::Printer::log("Parse status: XML_STATUS_SUSPENDED", ELL_INFORMATION);
+				return {};
+			}
 			break;
 	}
 

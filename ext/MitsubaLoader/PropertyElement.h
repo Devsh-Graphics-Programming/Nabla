@@ -190,8 +190,7 @@ struct SPropertyElementData
 	template<uint32_t property_type>
 	struct get_typename;
 	template<uint32_t property_type>
-	//const typename get_typename<property_type>::type& getProperty() const;
-	const auto& getProperty() const;
+	const typename get_typename<property_type>::type& getProperty() const;
 
 
 	SPropertyElementData::Type type;
@@ -239,33 +238,6 @@ template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type:
 { using type = core::matrix4SIMD; };
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::INVALID>
 { using type = void; };
-
-template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::FLOAT>() const
-{ return fvalue; }
-template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::INTEGER>() const
-{ return ivalue; }
-template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::BOOLEAN>() const
-{ return bvalue; }
-template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::STRING>() const
-{ return svalue; }
-template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::RGB>() const
-{ return vvalue; }
-template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::SRGB>() const
-{ return vvalue; }
-template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::VECTOR>() const
-{ return vvalue; }
-template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::POINT>() const
-{ return vvalue; }
-template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::MATRIX>() const
-{ return mvalue; }
-template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::TRANSLATE>() const
-{ return mvalue; }
-template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::ROTATE>() const
-{ return mvalue; }
-template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::SCALE>() const
-{ return mvalue; }
-template<> const auto& SPropertyElementData::getProperty<SPropertyElementData::Type::LOOKAT>() const
-{ return mvalue; }
 
 
 class CPropertyElementManager

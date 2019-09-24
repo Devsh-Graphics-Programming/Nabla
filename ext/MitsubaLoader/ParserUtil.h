@@ -19,6 +19,7 @@ namespace ext
 {
 namespace MitsubaLoader
 {
+
 	   	  
 //now unsupported elements (like  <sensor> (for now), for example) and its children elements will be ignored
 class ParserFlowController
@@ -66,12 +67,6 @@ class ElementPool // : public std::tuple<core::vector<types>...>
 			T* ptr = reinterpret_cast<T*>(poolAllocator.allocate(sizeof(T), alignof(T)));
 			return new (ptr) T(std::forward<Args>(args)...);
 		}
-		/*
-		template<typename T>
-		inline auto& getPool() { return std::get<core::vector<T> >(*this); }
-		template<typename T>
-		inline const auto& getPool() const { return std::get<core::vector<T> >(*this); }
-		*/
 };
 
 //struct, which will be passed to expat handlers as user data (first argument) see: XML_StartElementHandler or XML_EndElementHandler in expat.h
@@ -126,7 +121,7 @@ class ParserManager
 			CElementEmitter
 					> objects;
 		// aliases and names
-		core::unordered_map<std::string, IElement*,core::CaseInsensitiveHash,core::CaseInsensitiveHash> handles;
+		core::unordered_map<std::string,IElement*,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> handles;
 
 		/*stack of currently processed elements
 		each element of index N is parent of the element of index N+1
@@ -134,8 +129,6 @@ class ParserManager
 		core::stack<IElement*> elements; 
 
 		ParserFlowController pfc;
-
-		const static core::unordered_set<std::string, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> propertyElements;
 
 		friend class CElementFactory;
 };

@@ -389,7 +389,7 @@ namespace core
     template<typename INT_TYPE>
     inline constexpr INT_TYPE roundUpToPoT(INT_TYPE value)
     {
-         return INT_TYPE(0x1u)<<INT_TYPE(1+core::findMSB(value-INT_TYPE(1)));
+         return INT_TYPE(0x1u)<<INT_TYPE(1+core::findMSB<INT_TYPE>(value-INT_TYPE(1)));
     }
 
     template<typename INT_TYPE>

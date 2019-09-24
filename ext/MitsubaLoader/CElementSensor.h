@@ -45,8 +45,9 @@ class CElementSensor : public IElement
 	};
 		struct PerspectivePinhole : CameraBase
 		{
-			enum class EFOVAxis
+			enum class FOVAxis
 			{
+				INVALID,
 				X,
 				Y,
 				DIAGONAL,
@@ -60,7 +61,7 @@ class CElementSensor : public IElement
 			}
 
 			float fov = 53.2f;
-			EFOVAxis fovAxis = EFOVAxis::X;
+			FOVAxis fovAxis = FOVAxis::X;
 		};
 		struct Orthographic : CameraBase
 		{
@@ -93,11 +94,52 @@ class CElementSensor : public IElement
 			kc;
 		};*/
 
-		CElementSensor() : type(Type::INVALID), toWorldType(IElement::Type::TRANSFORM), film(), sampler()
+		CElementSensor(const char* id) : IElement(id), type(Type::INVALID), toWorldType(IElement::Type::TRANSFORM), film(""), sampler("")
 		{
 		}
-		virtual ~CElementSenseor()
+		CElementSensor(const CElementSensor& other) : IElement(""), film(""), sampler("")
 		{
+			operator=(other);
+		}
+		virtual ~CElementSensor()
+		{
+		}
+
+		inline CElementSensor& operator=(const CElementSensor& other)
+		{
+			IElement::operator=(other);
+			switch (type)
+			{
+				case CElementSensor::Type::PERSPECTIVE:
+					perspective = PerspectivePinhole();
+					break;
+				case CElementSensor::Type::THINLENS:
+					thinlens = PerspectiveThinLens();
+					break;
+				case CElementSensor::Type::ORTHOGRAPHIC:
+					orthographic = Orthographic();
+					break;
+				case CElementSensor::Type::TELECENTRIC:
+					telecentric = TelecentricLens();
+					break;
+				case CElementSensor::Type::SPHERICAL:
+					spherical = SphericalCamera();
+					break;
+				case CElementSensor::Type::IRRADIANCEMETER:
+					irradiancemeter = IrradianceMeter();
+					break;
+				case CElementSensor::Type::RADIANCEMETER:
+					radiancemeter = RadianceMeter();
+					break;
+				case CElementSensor::Type::FLUENCEMETER:
+					fluencemeter = FluenceMeter();
+					break;
+				default:
+					break;
+			}
+			film = other.film;
+			sampler = other.sampler;
+			return *this;
 		}
 
 		bool addProperty(SPropertyElementData&& _property) override;
@@ -112,12 +154,14 @@ class CElementSensor : public IElement
 			switch (_child->getType())
 			{
 				case IElement::Type::TRANSFORM:
-					auto tform = static_cast<CElementTransform>(_child);
-					if (tform->name!="toWorld")
-						return false;
-					toWorlType = IElement::Type::TRANSFORM;
-					transform = *tform;
-					return true;
+					{
+						auto tform = static_cast<CElementTransform*>(_child);
+						if (tform->name!="toWorld")
+							return false;
+						toWorldType = IElement::Type::TRANSFORM;
+						transform = *tform;
+						return true;
+					}
 					break;/*
 				case IElement::Type::ANIMATION:
 					auto anim = static_cast<CElementAnimation>(_child);
@@ -128,12 +172,12 @@ class CElementSensor : public IElement
 					return true;
 					break;*/
 				case IElement::Type::FILM:
-					film = *static_cast<CElementFilm>(_child);
+					film = *static_cast<CElementFilm*>(_child);
 					if (film.type != CElementFilm::Type::INVALID)
 						return true;
 					break;
 				case IElement::Type::SAMPLER:
-					sampler = *static_cast<CElementSampler>(_child);
+					sampler = *static_cast<CElementSampler*>(_child);
 					if (sampler.type != CElementSampler::Type::INVALID)
 						return true;
 					break;
@@ -152,7 +196,7 @@ class CElementSensor : public IElement
 		};
 		union
 		{
-			PerspectivePinhole	persepective;
+			PerspectivePinhole	perspective;
 			PerspectiveThinLens	thinlens;
 			Orthographic		orthographic;
 			TelecentricLens		telecentric;

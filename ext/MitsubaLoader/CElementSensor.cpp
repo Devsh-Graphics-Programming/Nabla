@@ -10,13 +10,12 @@ namespace ext
 namespace MitsubaLoader
 {
 	
-
 template<>
 IElement* CElementFactory::createElement<CElementSensor>(const char** _atts, ParserManager* _util)
 {
-	if (IElement::invalidAttributeCount(_atts, 2u))
-		return nullptr;
-	if (core::strcmpi(_atts[0], "type"))
+	const char* type;
+	const char* id;
+	if (!IElement::getTypeAndIDStrings(type,id,_atts))
 		return nullptr;
 
 	static const core::unordered_map<std::string, CElementSensor::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
@@ -32,7 +31,7 @@ IElement* CElementFactory::createElement<CElementSensor>(const char** _atts, Par
 		{"perspective_rdist",	CElementSensor::PERSPECTIVE_RDIST}*/
 	};
 
-	auto found = StringToType.find(_atts[1]);
+	auto found = StringToType.find(type);
 	if (found==StringToType.end())
 	{
 		ParserLog::invalidXMLFileStructure("unknown type");
@@ -40,7 +39,7 @@ IElement* CElementFactory::createElement<CElementSensor>(const char** _atts, Par
 		return nullptr;
 	}
 
-	CElementSensor* obj = _util->objects.construct<CElementSensor>();
+	CElementSensor* obj = _util->objects.construct<CElementSensor>(id);
 	if (!obj)
 		return nullptr;
 
@@ -55,10 +54,22 @@ IElement* CElementFactory::createElement<CElementSensor>(const char** _atts, Par
 			obj->thinlens = CElementSensor::PerspectiveThinLens();
 			break;
 		case CElementSensor::Type::ORTHOGRAPHIC:
-			obj->perspective = CElementSensor::Orthographic();
+			obj->orthographic = CElementSensor::Orthographic();
 			break;
-		case CElementSensor::Type::ORTHOGRAPHIC:
-			obj->perspective = CElementSensor::Orthographic();
+		case CElementSensor::Type::TELECENTRIC:
+			obj->telecentric = CElementSensor::TelecentricLens();
+			break;
+		case CElementSensor::Type::SPHERICAL:
+			obj->spherical = CElementSensor::SphericalCamera();
+			break;
+		case CElementSensor::Type::IRRADIANCEMETER:
+			obj->irradiancemeter = CElementSensor::IrradianceMeter();
+			break;
+		case CElementSensor::Type::RADIANCEMETER:
+			obj->radiancemeter = CElementSensor::RadianceMeter();
+			break;
+		case CElementSensor::Type::FLUENCEMETER:
+			obj->fluencemeter = CElementSensor::FluenceMeter();
 			break;
 		default:
 			break;
@@ -68,64 +79,34 @@ IElement* CElementFactory::createElement<CElementSensor>(const char** _atts, Par
 
 bool CElementSensor::addProperty(SPropertyElementData&& _property)
 {
-	bool error = false;/*
+	bool error = false;
 	auto dispatch = [&](auto func) -> void
 	{
 		switch (type)
 		{
-			case CElementIntegrator::Type::AO:
-				func(ao);
+			case CElementSensor::Type::PERSPECTIVE:
+				func(perspective);
 				break;
-			case CElementIntegrator::Type::DIRECT:
-				func(direct);
+			case CElementSensor::Type::THINLENS:
+				func(thinlens);
 				break;
-			case CElementIntegrator::Type::PATH:
-				func(path);
+			case CElementSensor::Type::ORTHOGRAPHIC:
+				func(orthographic);
 				break;
-			case CElementIntegrator::Type::VOL_PATH_SIMPLE:
-				func(volpath_simple);
+			case CElementSensor::Type::TELECENTRIC:
+				func(telecentric);
 				break;
-			case CElementIntegrator::Type::VOL_PATH:
-				func(volpath);
+			case CElementSensor::Type::SPHERICAL:
+				func(spherical);
 				break;
-			case CElementIntegrator::Type::BDPT:
-				func(bdpt);
+			case CElementSensor::Type::IRRADIANCEMETER:
+				func(irradiancemeter);
 				break;
-			case CElementIntegrator::Type::PHOTONMAPPER:
-				func(photonmapper);
+			case CElementSensor::Type::RADIANCEMETER:
+				func(radiancemeter);
 				break;
-			case CElementIntegrator::Type::PPM:
-				func(ppm);
-				break;
-			case CElementIntegrator::Type::SPPM:
-				func(sppm);
-				break;
-			case CElementIntegrator::Type::PSSMLT:
-				func(pssmlt);
-				break;
-			case CElementIntegrator::Type::MLT:
-				func(mlt);
-				break;
-			case CElementIntegrator::Type::ERPT:
-				func(erpt);
-				break;
-			case CElementIntegrator::Type::ADJ_P_TRACER:
-				func(ptracer);
-				break;
-			case CElementIntegrator::Type::ADAPTIVE:
-				func(adaptive);
-				break;
-			case CElementIntegrator::Type::VPL:
-				func(vpl);
-				break;
-			case CElementIntegrator::Type::IRR_CACHE:
-				func(irrcache);
-				break;
-			case CElementIntegrator::Type::MULTI_CHANNEL:
-				func(multichannel);
-				break;
-			case CElementIntegrator::Type::FIELD_EXTRACT:
-				func(field);
+			case CElementSensor::Type::FLUENCEMETER:
+				func(fluencemeter);
 				break;
 			default:
 				error = true;
@@ -133,9 +114,9 @@ bool CElementSensor::addProperty(SPropertyElementData&& _property)
 		}
 	};
 
-#define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE, ... )		[&]() -> void { \
+#define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE,BASE)		[&]() -> void { \
 		dispatch([&](auto& state) -> void { \
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_base_of<BASE,std::remove_reference<decltype(state)>::type >::value) \
 			{ \
 				if (_property.type!=PROPERTY_TYPE) { \
 					error = true; \
@@ -147,207 +128,68 @@ bool CElementSensor::addProperty(SPropertyElementData&& _property)
 		}); \
 	}
 
-	auto processRayLength = SET_PROPERTY_TEMPLATE(rayLength,SPropertyElementData::Type::FLOAT,AmbientOcclusion);
-	auto processEmitterSamples = SET_PROPERTY_TEMPLATE(emitterSamples,SPropertyElementData::Type::INTEGER,DirectIllumination);
-	auto processBSDFSamples = SET_PROPERTY_TEMPLATE(bsdfSamples,SPropertyElementData::Type::INTEGER,DirectIllumination);
-	auto processShadingSamples = [&]() -> void
-	{ 
-		dispatch([&](auto& state) -> void {
-			using state_type = std::remove_reference<decltype(state)>::type;
-
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,AmbientOcclusion>::value)
-			{
-				if (_property.type!=SPropertyElementData::Type::INTEGER)
-				{
-					error = true;
-					return;
-				}
-				state.shadingSamples = _property.getProperty<SPropertyElementData::Type::INTEGER>();
-			}
-			IRR_PSEUDO_ELSE_CONSTEXPR
-			{
-				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,DirectIllumination>::value)
-				{
-					processEmitterSamples();
-					processBSDFSamples();
-				}
-				IRR_PSEUDO_IF_CONSTEXPR_END
-			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
-		});
-	};
-	auto processStrictNormals = SET_PROPERTY_TEMPLATE(strictNormals,SPropertyElementData::Type::BOOLEAN,DirectIllumination,PathTracing);
-	auto processHideEmitters = SET_PROPERTY_TEMPLATE(hideEmitters,SPropertyElementData::Type::BOOLEAN,DirectIllumination,PathTracing,PhotonMapping);
-#define ALL_PHOTONMAPPING_TYPES PhotonMapping,ProgressivePhotonMapping,StochasticProgressivePhotonMapping
-#define ALL_MLT_TYPES			PrimarySampleSpaceMetropolisLightTransport,PathSpaceMetropolisLightTransport
-#define ALL_MC_TYPES			PathTracing,SimpleVolumetricPathTracing,ExtendedVolumetricPathTracing,BiDirectionalPathTracing, \
-								ALL_PHOTONMAPPING_TYPES,ALL_MLT_TYPES,EnergyRedistributionPathTracing,AdjointParticleTracing
-	auto processMaxDepth = SET_PROPERTY_TEMPLATE(maxPathDepth,SPropertyElementData::Type::INTEGER,ALL_MC_TYPES, VirtualPointLights);
-	auto processRRDepth = SET_PROPERTY_TEMPLATE(russianRouletteDepth,SPropertyElementData::Type::INTEGER,ALL_MC_TYPES);
-#undef ALL_MC_TYPES
-	auto processLightImage = SET_PROPERTY_TEMPLATE(lightImage,SPropertyElementData::Type::BOOLEAN,BiDirectionalPathTracing);
-	auto processSampleDirect = SET_PROPERTY_TEMPLATE(sampleDirect,SPropertyElementData::Type::BOOLEAN,BiDirectionalPathTracing);
-	auto processGranularity = SET_PROPERTY_TEMPLATE(granularity,SPropertyElementData::Type::INTEGER,ALL_PHOTONMAPPING_TYPES,AdjointParticleTracing);
-#undef ALL_PHOTONMAPPING_TYPES
-	auto processDirectSamples = SET_PROPERTY_TEMPLATE(directSamples,SPropertyElementData::Type::INTEGER,PhotonMapping,ALL_MLT_TYPES,EnergyRedistributionPathTracing);
-	auto processGlossySamples = SET_PROPERTY_TEMPLATE(glossySamples,SPropertyElementData::Type::INTEGER,PhotonMapping);
-	auto processGlobalPhotons = SET_PROPERTY_TEMPLATE(globalPhotons,SPropertyElementData::Type::INTEGER,PhotonMapping);
-	auto processCausticPhotons = SET_PROPERTY_TEMPLATE(causticPhotons,SPropertyElementData::Type::INTEGER,PhotonMapping);
-	auto processVolumePhotons = SET_PROPERTY_TEMPLATE(volumePhotons,SPropertyElementData::Type::INTEGER,PhotonMapping);
-	auto processGlobalLookupRadius = SET_PROPERTY_TEMPLATE(globalLURadius,SPropertyElementData::Type::FLOAT,PhotonMapping);
-	auto processCausticLookupRadius = SET_PROPERTY_TEMPLATE(causticLURadius,SPropertyElementData::Type::FLOAT,PhotonMapping);
-	auto processLookupSize = SET_PROPERTY_TEMPLATE(LUSize,SPropertyElementData::Type::INTEGER,PhotonMapping);
-	auto processPhotonCount = SET_PROPERTY_TEMPLATE(photonCount,SPropertyElementData::Type::INTEGER,ProgressivePhotonMapping,StochasticProgressivePhotonMapping);
-	auto processInitialRadius = SET_PROPERTY_TEMPLATE(initialRadius,SPropertyElementData::Type::FLOAT,ProgressivePhotonMapping,StochasticProgressivePhotonMapping);
-	auto processAlpha = SET_PROPERTY_TEMPLATE(alpha,SPropertyElementData::Type::FLOAT,ProgressivePhotonMapping,StochasticProgressivePhotonMapping);
-	auto processMaxPasses = SET_PROPERTY_TEMPLATE(maxPasses,SPropertyElementData::Type::INTEGER,ProgressivePhotonMapping,StochasticProgressivePhotonMapping);
-	auto processLuminanceSamples = SET_PROPERTY_TEMPLATE(luminanceSamples,SPropertyElementData::Type::INTEGER,ALL_MLT_TYPES);
-	auto processTwoStage = SET_PROPERTY_TEMPLATE(twoStage,SPropertyElementData::Type::BOOLEAN,ALL_MLT_TYPES);
-#undef ALL_MLT_TYPES
-	auto processBidirectional = SET_PROPERTY_TEMPLATE(bidirectional,SPropertyElementData::Type::BOOLEAN,PrimarySampleSpaceMetropolisLightTransport);
-	auto processPLarge = SET_PROPERTY_TEMPLATE(pLarge,SPropertyElementData::Type::FLOAT,PrimarySampleSpaceMetropolisLightTransport);
-	auto processLensPerturbation = SET_PROPERTY_TEMPLATE(lensPerturbation,SPropertyElementData::Type::BOOLEAN,PathSpaceMetropolisLightTransport,EnergyRedistributionPathTracing);
-	auto processMultiChainPerturbation = SET_PROPERTY_TEMPLATE(multiChainPerturbation,SPropertyElementData::Type::BOOLEAN,PathSpaceMetropolisLightTransport,EnergyRedistributionPathTracing);
-	auto processCausticPerturbation = SET_PROPERTY_TEMPLATE(causticPerturbation,SPropertyElementData::Type::BOOLEAN,PathSpaceMetropolisLightTransport,EnergyRedistributionPathTracing);
-	auto processManifoldPerturbation = SET_PROPERTY_TEMPLATE(manifoldPerturbation,SPropertyElementData::Type::BOOLEAN,PathSpaceMetropolisLightTransport,EnergyRedistributionPathTracing);
-	auto processLambda = SET_PROPERTY_TEMPLATE(lambda,SPropertyElementData::Type::FLOAT,PathSpaceMetropolisLightTransport,EnergyRedistributionPathTracing);
-	auto processBidirectionalMutation = SET_PROPERTY_TEMPLATE(bidirectionalMutation,SPropertyElementData::Type::BOOLEAN,PathSpaceMetropolisLightTransport);
-	auto processNumChains = SET_PROPERTY_TEMPLATE(numChains,SPropertyElementData::Type::FLOAT,EnergyRedistributionPathTracing);
-	auto processMaxChains = SET_PROPERTY_TEMPLATE(maxChains,SPropertyElementData::Type::FLOAT,EnergyRedistributionPathTracing);
-	auto processChainLength = SET_PROPERTY_TEMPLATE(chainLength,SPropertyElementData::Type::INTEGER,EnergyRedistributionPathTracing);
-	auto processBruteForce = SET_PROPERTY_TEMPLATE(bruteForce,SPropertyElementData::Type::BOOLEAN,AdjointParticleTracing);
-	auto processShadowMap = SET_PROPERTY_TEMPLATE(shadowMap,SPropertyElementData::Type::INTEGER,VirtualPointLights);
-	auto processClamping = SET_PROPERTY_TEMPLATE(clamping,SPropertyElementData::Type::FLOAT,VirtualPointLights);
-	auto processField = [&]() -> void
+	auto setFov = SET_PROPERTY_TEMPLATE(fov,SPropertyElementData::Type::FLOAT,PerspectivePinhole);
+	auto setFovAxis = [&]() -> void
 	{
 		dispatch([&](auto& state) -> void
 		{
 			using state_type = std::remove_reference<decltype(state)>::type;
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,FieldExtraction>::value)
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_base_of<state_type,PerspectivePinhole>::value)
 			{
 				if (_property.type != SPropertyElementData::Type::STRING)
 				{
 					error = true;
 					return;
 				}
-				static const core::unordered_map<std::string,FieldExtraction::Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
+				static const core::unordered_map<std::string,PerspectivePinhole::FOVAxis,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
 				{
-					{"position",FieldExtraction::Type::POSITION},
-					{"relPosition",FieldExtraction::Type::RELATIVE_POSITION},
-					{"distance",FieldExtraction::Type::DISTANCE},
-					{"geoNormal",FieldExtraction::Type::GEOMETRIC_NORMAL},
-					{"shNormal",FieldExtraction::Type::SHADING_NORMAL},
-					{"uv",FieldExtraction::Type::UV_COORD},
-					{"albedo",FieldExtraction::Type::ALBEDO},
-					{"shapeIndex",FieldExtraction::Type::SHAPE_INDEX},
-					{"primIndex",FieldExtraction::Type::PRIMITIVE_INDEX}
+					{"x",		PerspectivePinhole::FOVAxis::X},
+					{"y",		PerspectivePinhole::FOVAxis::Y},
+					{"diagonal",PerspectivePinhole::FOVAxis::DIAGONAL},
+					{"smaller",	PerspectivePinhole::FOVAxis::SMALLER},
+					{"larger",	PerspectivePinhole::FOVAxis::LARGER}
 				};
 				auto found = StringToType.find(_property.svalue);
 				if (found!=StringToType.end())
-					state.field = found->second;
+					state.fovAxis = found->second;
 				else
-					state.field = FieldExtraction::Type::INVALID;
+					state.fovAxis = PerspectivePinhole::FOVAxis::INVALID;
 			}
 			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
-	auto processUndefined = [&]() -> void
-	{
-		dispatch([&](auto& state) -> void {
-			using state_type = std::remove_reference<decltype(state)>::type;
-
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type, FieldExtraction>::value)
-			{
-				if (_property.type != SPropertyElementData::Type::FLOAT && _property.type != SPropertyElementData::Type::SPECTRUM)
-				{
-					error = true;
-					return;
-				}
-				state.undefined = _property; // TODO: redo
-			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
-		});
-	};
-	auto processMaxError = SET_PROPERTY_TEMPLATE(maxError,SPropertyElementData::Type::FLOAT,AdaptiveIntegrator);
-	auto processPValue = SET_PROPERTY_TEMPLATE(pValue,SPropertyElementData::Type::FLOAT,AdaptiveIntegrator);
-	auto processMaxSampleFactor = SET_PROPERTY_TEMPLATE(maxSampleFactor,SPropertyElementData::Type::INTEGER,AdaptiveIntegrator);
-	auto processResolution = SET_PROPERTY_TEMPLATE(resolution,SPropertyElementData::Type::INTEGER,IrradianceCacheIntegrator);
-	auto processQuality = SET_PROPERTY_TEMPLATE(quality,SPropertyElementData::Type::FLOAT,IrradianceCacheIntegrator);
-	auto processGradients = SET_PROPERTY_TEMPLATE(gradients,SPropertyElementData::Type::BOOLEAN,IrradianceCacheIntegrator);
-	auto processClampNeighbour = SET_PROPERTY_TEMPLATE(clampNeighbour,SPropertyElementData::Type::BOOLEAN,IrradianceCacheIntegrator);
-	auto processClampScreen = SET_PROPERTY_TEMPLATE(clampScreen,SPropertyElementData::Type::BOOLEAN,IrradianceCacheIntegrator);
-	auto processOverture = SET_PROPERTY_TEMPLATE(overture,SPropertyElementData::Type::BOOLEAN,IrradianceCacheIntegrator);
-	auto processQualityAdjustment = SET_PROPERTY_TEMPLATE(qualityAdjustment,SPropertyElementData::Type::FLOAT,IrradianceCacheIntegrator);
-	auto processIndirecOnly = SET_PROPERTY_TEMPLATE(indirectOnly,SPropertyElementData::Type::BOOLEAN,IrradianceCacheIntegrator);
-	auto processDebug = SET_PROPERTY_TEMPLATE(debug,SPropertyElementData::Type::BOOLEAN,IrradianceCacheIntegrator);
+	auto setShutterOpen		= SET_PROPERTY_TEMPLATE(shutterOpen,SPropertyElementData::Type::FLOAT,ShutterSensor);
+	auto setShutterClose	= SET_PROPERTY_TEMPLATE(shutterClose,SPropertyElementData::Type::FLOAT,ShutterSensor);
+	auto setNearClip		= SET_PROPERTY_TEMPLATE(nearClip,SPropertyElementData::Type::FLOAT,CameraBase);
+	auto setFarClip			= SET_PROPERTY_TEMPLATE(farClip,SPropertyElementData::Type::FLOAT,CameraBase);
+	auto setFocusDistance	= SET_PROPERTY_TEMPLATE(focusDistance,SPropertyElementData::Type::FLOAT,DepthOfFieldBase);
+	auto setApertureRadius	= SET_PROPERTY_TEMPLATE(apertureRadius,SPropertyElementData::Type::FLOAT,DepthOfFieldBase);
+	//auto setKc			= SET_PROPERTY_TEMPLATE(apertureRadius,SPropertyElementData::Type::STRING,PerspectivePinholeRadialDistortion);
 
 	static const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{
-		{"shadingSamples",processShadingSamples},
-		{"rayLength",processRayLength},
-		{"emitterSamples",processEmitterSamples},
-		{"bsdfSamples",processBSDFSamples},
-		{"strictNormals",processStrictNormals},
-		{"hideEmitters",processHideEmitters},
-		{"maxDepth",processMaxDepth},
-		{"rrDepth",processRRDepth},
-		{"lightImage",processLightImage},
-		{"sampleDirect",processSampleDirect},
-		{"granularity",processGranularity},
-		{"directSamples",processDirectSamples},
-		{"glossySamples",processGlossySamples},
-		{"globalPhotons",processGlobalPhotons},
-		{"causticPhotons",processCausticPhotons},
-		{"volumePhotons",processVolumePhotons},
-		{"globalLookupRadius",processGlobalLookupRadius},
-		{"causticLookupRadius",processCausticLookupRadius},
-		{"lookupSize",processLookupSize},
-		{"photonCount",processPhotonCount},
-		{"initialRadius",processInitialRadius},
-		{"alpha",processAlpha},
-		{"maxPasses",processMaxPasses},
-		{"luminanceSamples",processLuminanceSamples},
-		{"twoStage",processTwoStage},
-		{"bidirectional",processBidirectional},
-		{"pLarge",processPLarge},
-		{"lensPerturbation",processLensPerturbation},
-		{"multiChainPerturbation",processMultiChainPerturbation},
-		{"causticPerturbation",processCausticPerturbation},
-		{"manifoldPerturbation",processManifoldPerturbation},
-		{"lambda",processLambda},
-		{"bidirectionalMutation",processBidirectionalMutation},
-		{"numChains",processNumChains},
-		{"maxChains",processMaxChains},
-		{"chainLength",processChainLength},
-		{"bruteForce",processBruteForce},
-		{"shadowMap",processShadowMap},
-		{"clamping",processClamping},
-		{"field",processField},
-		{"undefined",processUndefined},
-		{"maxError",processMaxError},
-		{"pValue",processPValue},
-		{"maxSampleFactor",processMaxSampleFactor},
-		{"resolution",processResolution},
-		{"quality",processQuality},
-		{"gradients",processGradients},
-		{"clampNeighbour",processClampNeighbour},
-		{"clampScreen",processClampScreen},
-		{"overture",processOverture},
-		{"qualityAdjustment",processQualityAdjustment},
-		{"indirectOnly",processIndirecOnly},
-		{"debug",processDebug},
+		//{"focalLength",	noIdeaHowToProcessValue},
+		{"fov",				setFov},
+		{"fovAxis",			setFovAxis},
+		{"shutterOpen",		setShutterOpen},
+		{"shuttterClose",	setShutterClose},
+		{"nearClip",		setNearClip},
+		{"farClip",			setFarClip},
+		{"focusDistance",	setFocusDistance},
+		{"apertureRadius",	setApertureRadius}/*,
+		{"kc",				setKc}*/
 	};
 	
 
 	auto found = SetPropertyMap.find(_property.name);
-	if (found !=SetPropertyMap.end())
+	if (found!=SetPropertyMap.end())
 	{
 		_IRR_DEBUG_BREAK_IF(true);
 		ParserLog::invalidXMLFileStructure("No Integrator can have such property set with name: "+_property.name);
 		return false;
 	}
 
-	found->second();*/
+	found->second();
 	return !error;
 }
 
@@ -360,23 +202,10 @@ bool CElementSensor::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _overri
 		return true;
 	}
 
-	if (film.type ==)
-	{
-	}
-	if (sampler.type ==)
-	{
-	}
-
+	// TODO: some validation
 
 	// add to global metadata
-	if (globalMetadata->sensor.type != CElementSensor::Type::INVALID)
-	{
-		ParserLog::invalidXMLFileStructure(getLogName() + ": cannot have two sensors in a scene");
-		_IRR_DEBUG_BREAK_IF(true);
-		return true;
-	}
-	else
-		globalMetadata->sensor = *this;
+	globalMetadata->sensors.push_back(*this);
 
 	return true;
 }

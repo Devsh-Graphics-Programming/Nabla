@@ -1,6 +1,8 @@
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 #include "../../ext/MitsubaLoader/CElementFactory.h"
 
+#include "../../ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
+
 #include <functional>
 
 namespace irr
@@ -14,9 +16,9 @@ namespace MitsubaLoader
 template<>
 IElement* CElementFactory::createElement<CElementIntegrator>(const char** _atts, ParserManager* _util)
 {
-	if (IElement::invalidAttributeCount(_atts, 2u))
-		return nullptr;
-	if (core::strcmpi(_atts[0], "type"))
+	const char* type;
+	const char* id;
+	if (!IElement::getTypeAndIDStrings(type, id, _atts))
 		return nullptr;
 
 	static const core::unordered_map<std::string, CElementIntegrator::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
@@ -41,7 +43,7 @@ IElement* CElementFactory::createElement<CElementIntegrator>(const char** _atts,
 		{"field",			CElementIntegrator::Type::FIELD_EXTRACT}
 	};
 
-	auto found = StringToType.find(_atts[1]);
+	auto found = StringToType.find(type);
 	if (found==StringToType.end())
 	{
 		ParserLog::invalidXMLFileStructure("unknown type");
@@ -49,7 +51,7 @@ IElement* CElementFactory::createElement<CElementIntegrator>(const char** _atts,
 		return nullptr;
 	}
 
-	CElementIntegrator* obj = _util->objects.construct<CElementIntegrator>();
+	CElementIntegrator* obj = _util->objects.construct<CElementIntegrator>(id);
 	if (!obj)
 		return nullptr;
 
@@ -414,6 +416,14 @@ bool CElementIntegrator::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _ov
 	// TODO: Validation
 	{
 	}
+
+	if (globalMetadata->integrator.type!=Type::INVALID)
+	{
+		ParserLog::invalidXMLFileStructure(getLogName() + ": already specified an integrator");
+		_IRR_DEBUG_BREAK_IF(true);
+		return true;
+	}
+	globalMetadata->integrator = *this;
 
 	return true;
 }

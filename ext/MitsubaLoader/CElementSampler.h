@@ -26,7 +26,7 @@ class CElementSampler : public IElement
 			SOBOL
 		};
 
-		CElementSampler() : type(INVALID), sampleCount(4) {}
+		CElementSampler(const char* id) : IElement(id), type(INVALID), sampleCount(4) {}
 		virtual ~CElementSampler() {}
 
 		bool addProperty(SPropertyElementData&& _property) override;

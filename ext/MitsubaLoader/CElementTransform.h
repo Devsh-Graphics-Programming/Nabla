@@ -11,22 +11,20 @@ namespace ext
 namespace MitsubaLoader
 {
 
-// kill
+
 class CElementTransform : public IElement
 {
-public:
-	virtual bool processAttributes(const char** _args) override;
-	virtual bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override) override;
-	virtual IElement::Type getType() const override { return IElement::Type::TRANSFORM; };
-	virtual std::string getLogName() const override { return "transform"; };
+	public:
+		CElementTransform(std::string&& _name) : IElement(""), name(_name), matrix() {}
+		virtual ~CElementTransform() {}
 
-	inline const core::matrix4SIMD getMatrix() const { return matrix; }
-	inline const std::string getName() const { return name; }
+		bool addProperty(SPropertyElementData&& _property) override;
+		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override { return true; }
+		IElement::Type getType() const override { return IElement::Type::TRANSFORM; }
+		std::string getLogName() const override { return "transform"; }
 
-private:
-	core::matrix4SIMD matrix;
-	std::string name;
-
+		std::string name;
+		core::matrix4SIMD matrix;
 };
 
 }

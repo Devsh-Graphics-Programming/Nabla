@@ -41,7 +41,7 @@ class CElementRFilter : public IElement
 			int32_t lobes = 3;
 		};
 
-		CElementRFilter() : type(GAUSSIAN)
+		CElementRFilter(const char* id) : IElement(id), type(GAUSSIAN)
 		{
 			gaussian = Gaussian();
 		}

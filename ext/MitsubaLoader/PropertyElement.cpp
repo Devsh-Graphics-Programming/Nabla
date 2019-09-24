@@ -13,6 +13,33 @@ namespace ext
 namespace MitsubaLoader
 {
 
+template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::FLOAT>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::FLOAT>() const
+{ return fvalue; }
+template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::INTEGER>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::INTEGER>() const
+{ return ivalue; }
+template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::BOOLEAN>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::BOOLEAN>() const
+{ return bvalue; }
+template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::STRING>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::STRING>() const
+{ return svalue; }
+template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::RGB>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::RGB>() const
+{ return vvalue; }
+template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::SRGB>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::SRGB>() const
+{ return vvalue; }
+template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::VECTOR>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::VECTOR>() const
+{ return vvalue; }
+template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::POINT>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::POINT>() const
+{ return vvalue; }
+template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::MATRIX>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::MATRIX>() const
+{ return mvalue; }
+template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::TRANSLATE>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::TRANSLATE>() const
+{ return mvalue; }
+template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::ROTATE>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::ROTATE>() const
+{ return mvalue; }
+template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::SCALE>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::SCALE>() const
+{ return mvalue; }
+template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::LOOKAT>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::LOOKAT>() const
+{ return mvalue; }
+
 const core::unordered_map<std::string,SPropertyElementData::Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> SPropertyElementData::StringToType = {
 	{"float",		SPropertyElementData::Type::FLOAT},
 	{"integer",		SPropertyElementData::Type::INTEGER},

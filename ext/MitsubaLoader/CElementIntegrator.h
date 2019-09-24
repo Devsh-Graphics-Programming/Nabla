@@ -190,11 +190,77 @@ class CElementIntegrator : public IElement
 		{
 		};
 
-		CElementIntegrator() : type(Type::INVALID)
+		CElementIntegrator(const char* id) : IElement(id), type(Type::INVALID)
 		{
 		}
 		virtual ~CElementIntegrator()
 		{
+		}
+
+		inline CElementIntegrator& operator=(const CElementIntegrator& other)
+		{
+			IElement::operator=(other);
+			type = other.type;
+			switch (type)
+			{
+				case CElementIntegrator::Type::AO:
+					ao = other.ao;
+					break;
+				case CElementIntegrator::Type::DIRECT:
+					direct = other.direct;
+					break;
+				case CElementIntegrator::Type::PATH:
+					path = other.path;
+					break;
+				case CElementIntegrator::Type::VOL_PATH_SIMPLE:
+					volpath_simple = other.volpath_simple;
+					break;
+				case CElementIntegrator::Type::VOL_PATH:
+					volpath = other.volpath;
+					break;
+				case CElementIntegrator::Type::BDPT:
+					bdpt = other.bdpt;
+					break;
+				case CElementIntegrator::Type::PHOTONMAPPER:
+					photonmapper = other.photonmapper;
+					break;
+				case CElementIntegrator::Type::PPM:
+					ppm = other.ppm;
+					break;
+				case CElementIntegrator::Type::SPPM:
+					sppm = other.sppm;
+					break;
+				case CElementIntegrator::Type::PSSMLT:
+					pssmlt = other.pssmlt;
+					break;
+				case CElementIntegrator::Type::MLT:
+					mlt = other.mlt;
+					break;
+				case CElementIntegrator::Type::ERPT:
+					erpt = other.erpt;
+					break;
+				case CElementIntegrator::Type::ADJ_P_TRACER:
+					ptracer = other.ptracer;
+					break;
+				case CElementIntegrator::Type::ADAPTIVE:
+					adaptive = other.adaptive;
+					break;
+				case CElementIntegrator::Type::VPL:
+					vpl = other.vpl;
+					break;
+				case CElementIntegrator::Type::IRR_CACHE:
+					irrcache = other.irrcache;
+					break;
+				case CElementIntegrator::Type::MULTI_CHANNEL:
+					multichannel = other.multichannel;
+					break;
+				case CElementIntegrator::Type::FIELD_EXTRACT:
+					field = other.field;
+					break;
+				default:
+					break;
+			}
+			return *this;
 		}
 
 		bool addProperty(SPropertyElementData&& _property) override;

@@ -39,7 +39,7 @@ void elementHandlerEnd(void* _data, const char* _el)
 }
 
 
-const core::unordered_set<std::string,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> ParserManager::propertyElements = {
+static const core::unordered_set<std::string,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> propertyElements = {
 	"float", "string", "boolean", "integer",
 	"rgb", "srgb", "spectrum", "blackbody",
 	"point", "vector",
@@ -77,6 +77,7 @@ void ParserManager::parseElement(const char* _el, const char** _atts)
 			ParserLog::invalidXMLFileStructure("Version " + std::string(_atts[1]) + " is unsupported");
 			return;
 		}
+		m_sceneDeclCount++;
 		return;
 	}
 
@@ -108,8 +109,11 @@ void ParserManager::parseElement(const char* _el, const char** _atts)
 
 	IElement* el = found->second.first(_atts, this);
 	bool goesOnStack = found->second.second;
-	if (goesOnStack)
-		elements.push(el);
+	if (!goesOnStack)
+		return;
+	
+	elements.push(el);
+	handles[el->id] = el;
 }
 
 void ParserManager::processProperty(const char* _el, const char** _atts)

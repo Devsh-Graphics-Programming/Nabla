@@ -25,21 +25,22 @@ class IElement
 			RFILTER,
 			SAMPLER,
 
+			SHAPE,
+			INSTANCE,
 			EMITTER,
 
 			//shapes
-			SHAPE,
-			INSTANCE,
-
-			//other
-			TRANSFORM,
+			BSDF,
 			TEXTURE,
-			MATERIAL,
-			MEDIUM,
-			INVALID,
-		};
 
+			// those that should really be properties
+			TRANSFORM,
+			ANIMATION
+		};
 	public:
+		std::string id;
+
+		IElement(const char* _id) : id(_id) {}
 		virtual ~IElement() = default;
 	
 		virtual IElement::Type getType() const = 0;
@@ -54,7 +55,33 @@ class IElement
 		}
 		//
 
-
+		static inline bool getTypeString(std::add_lvalue_reference<const char*>::type outType, const char** _atts)
+		{
+			const char* thrownAwayID;
+			return getTypeAndIDStrings(outType,thrownAwayID,_atts);
+		}
+		static inline bool getTypeAndIDStrings(std::add_lvalue_reference<const char*>::type outType, std::add_lvalue_reference<const char*>::type outID, const char** _atts)
+		{
+			outType = nullptr;
+			outID = nullptr;
+			if (areAttributesInvalid(_atts,2u))
+				return false;
+			if (core::strcmpi(_atts[0],"type"))
+			{
+				if (core::strcmpi(_atts[2],"type"))
+					return false;
+				outType = _atts[3];
+				if (core::strcmpi(_atts[0], "id"))
+					outID = _atts[1];
+			}
+			else
+			{
+				outType = _atts[1];
+				if (core::strcmpi(_atts[2],"id"))
+					outID = _atts[3];
+			}
+			return true;
+		}
 		static inline bool areAttributesInvalid(const char** _atts, uint32_t minAttrCount)
 		{
 			if (!_atts)

@@ -15,9 +15,9 @@ namespace MitsubaLoader
 template<>
 IElement* CElementFactory::createElement<CElementFilm>(const char** _atts, ParserManager* _util)
 {
-	if (IElement::invalidAttributeCount(_atts, 2u))
-		return nullptr;
-	if (core::strcmpi(_atts[0], "type"))
+	const char* type;
+	const char* id;
+	if (!IElement::getTypeAndIDStrings(type, id, _atts))
 		return nullptr;
 
 	static const core::unordered_map<std::string, CElementFilm::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
@@ -28,7 +28,7 @@ IElement* CElementFactory::createElement<CElementFilm>(const char** _atts, Parse
 		{"mfilm",		CElementFilm::Type::MFILM}
 	};
 
-	auto found = StringToType.find(_atts[1]);
+	auto found = StringToType.find(type);
 	if (found==StringToType.end())
 	{
 		ParserLog::invalidXMLFileStructure("unknown type");
@@ -36,7 +36,7 @@ IElement* CElementFactory::createElement<CElementFilm>(const char** _atts, Parse
 		return nullptr;
 	}
 
-	CElementFilm* obj = _util->objects.construct<CElementFilm>();
+	CElementFilm* obj = _util->objects.construct<CElementFilm>(id);
 	if (!obj)
 		return nullptr;
 

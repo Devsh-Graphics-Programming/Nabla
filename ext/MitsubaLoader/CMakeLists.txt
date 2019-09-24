@@ -5,11 +5,11 @@ set(IRR_EXT_MITSUBA_LOADER_H
 	PropertyElement.h
 	IElement.h
 	CElementIntegrator.h
-	#CElementSensor.h
+	CElementSensor.h
 	CElementFilm.h
 	CElementRFilter.h
 	CElementSampler.h
-	#CElementTransform.h
+	CElementTransform.h
 	#CElementEmitter.h
 	CElementFactory.h
 	#CShapeCreator.h
@@ -22,13 +22,13 @@ set(IRR_EXT_MITSUBA_LOADER_H
 set(IRR_EXT_MITSUBA_LOADER_SRC
 	PropertyElement.cpp
 	CElementIntegrator.cpp
-	#CElementSensor.cpp
+	CElementSensor.cpp
 	CElementFilm.cpp
 	CElementRFilter.cpp
 	CElementSampler.cpp
-	#CElementTransform.cpp
+	CElementTransform.cpp
 	#CElementEmitter.cpp
-	#CElementFactory.cpp
+	CElementFactory.cpp
 	CMitsubaLoader.cpp
 	#CShapeCreator.cpp
 	ParserUtil.cpp

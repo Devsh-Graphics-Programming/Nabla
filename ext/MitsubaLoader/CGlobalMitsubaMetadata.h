@@ -2,6 +2,7 @@
 #define __C_GLOBAL_MITSUBA_METADATA_H_INCLUDED__
 
 #include "../../ext/MitsubaLoader/CElementIntegrator.h"
+#include "../../ext/MitsubaLoader/CElementSensor.h"
 
 namespace irr
 {
@@ -13,13 +14,13 @@ namespace MitsubaLoader
 class CGlobalMitsubaMetadata : public core::IReferenceCounted
 {
 	public:
-		CGlobalMitsubaMetadata()
+		CGlobalMitsubaMetadata() : integrator("")
 		{
 			integrator.type = CElementIntegrator::Type::INVALID;
 		}
 
 		CElementIntegrator integrator;
-		//core::vector<CElementSensor> sensor; //sensors?
+		core::vector<CElementSensor> sensors;
 		//core::vector<Emitter> emitters;
 };
 

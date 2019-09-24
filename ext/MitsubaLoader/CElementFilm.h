@@ -85,10 +85,10 @@ class CElementFilm : public IElement
 			char variable[MaxVarNameLen+1];
 		};
 
-		CElementFilm() : type(Type::HDR_FILM), width(768), height(576),
-			cropOffsetX(0), cropOffsetY(0), cropWidth(INT_MAX), cropHeight(INT_MAX),
+		CElementFilm(const char* id) : IElement(id), type(Type::HDR_FILM),
+			width(768), height(576), cropOffsetX(0), cropOffsetY(0), cropWidth(INT_MAX), cropHeight(INT_MAX),
 			fileFormat(OPENEXR), pixelFormat(RGB), componentFormat(FLOAT16),
-			banner(true), highQualityEdges(false), rfilter()
+			banner(true), highQualityEdges(false), rfilter("")
 		{
 			hdrfilm = HDR();
 		}
