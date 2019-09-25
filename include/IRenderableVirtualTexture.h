@@ -30,7 +30,6 @@ class IRenderableVirtualTexture : public virtual core::IReferenceCounted
         {
             EVTT_OPAQUE_FILTERABLE,
             EVTT_2D_MULTISAMPLE,
-            EVTT_BUFFER_OBJECT,
             EVTT_VIEW,
             EVTT_COUNT
         };
