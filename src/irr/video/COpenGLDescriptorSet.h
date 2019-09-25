@@ -53,6 +53,8 @@ public:
     COpenGLDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout> _layout, core::smart_refctd_dynamic_array<SWriteDescriptorSet>&& _descriptors)
         : IGPUDescriptorSet(std::move(_layout), std::move(_descriptors))
     {
+        assert(m_descriptors->size() == m_layout->getBindings().length());
+
         size_t uboCount = 0ull;
         size_t ssboCount = 0ull;
         size_t textureCount = 0ull;
@@ -94,8 +96,10 @@ public:
         const size_t texNamesOffset = uboCount+ssboCount;
         const size_t imagNamesOffset = texNamesOffset + textureCount;
         const size_t samplerNamesOffset = imagNamesOffset + imageCount;
-        const size_t uboBufOffset = 0ull;
+
+        const size_t uboBufOffset = 0ull;//buffer-specific offsets for `offsets` and `sizes` arrays
         const size_t ssboBufOffset = uboCount;
+
         const size_t enums_texTargetsOffset = 0ull;
         const size_t enums_imagFormatsOffset = textureCount;
 

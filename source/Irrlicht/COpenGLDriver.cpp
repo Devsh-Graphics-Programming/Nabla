@@ -892,39 +892,15 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
         found->CurrentFBO = NULL;
     }
 
-    extGlBindTransformFeedback(GL_TRANSFORM_FEEDBACK,0);
-    if (found->CurrentXFormFeedback)
-    {
-        if (!found->CurrentXFormFeedback->isEnded())
-        {
-            assert(found->CurrentXFormFeedback->isActive());
-            found->CurrentXFormFeedback->endFeedback();
-            found->XFormFeedbackRunning = false;
-        }
-
-        found->CurrentXFormFeedback->drop();
-		found->CurrentXFormFeedback = NULL;
-    }
-
-
     extGlUseProgram(0);
     removeAllFrameBuffers();
 
     extGlBindVertexArray(0);
-    found->CurrentVAO = std::pair<COpenGLVAOSpec::HashAttribs,SAuxContext::COpenGLVAO*>(COpenGLVAOSpec::HashAttribs(),nullptr);
-	for(auto it = found->VAOMap.begin(); it != found->VAOMap.end(); it++)
+    for (auto& vao : found->VAOMap)
     {
-        delete it->second;
+        extGlDeleteVertexArrays(1, &vao.second.GLname);
     }
     found->VAOMap.clear();
-
-	found->CurrentTexture.clear();
-
-	for(core::unordered_map<uint64_t,GLuint>::iterator it = found->SamplerMap.begin(); it != found->SamplerMap.end(); it++)
-    {
-        extGlDeleteSamplers(1,&it->second);
-    }
-    found->SamplerMap.clear();
 
     glFinish();
 }
@@ -1703,100 +1679,6 @@ void COpenGLDriver::drawIndexedIndirect(const asset::IMeshDataFormatDesc<video::
 }
 
 
-template<GLenum BIND_POINT,size_t BIND_POINTS>
-void COpenGLDriver::SAuxContext::BoundIndexedBuffer<BIND_POINT,BIND_POINTS>::set(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** const buffers, const ptrdiff_t* const offsets, const ptrdiff_t* const sizes)
-{
-    if (!buffers)
-    {
-        bool needRebind = false;
-
-        for (uint32_t i=0; i<count; i++)
-        {
-            uint32_t actualIx = i+first;
-            if (boundBuffer[actualIx])
-            {
-                needRebind = true;
-                boundBuffer[actualIx]->drop();
-                boundBuffer[actualIx] = nullptr;
-            }
-        }
-
-        if (needRebind)
-            extGlBindBuffersRange(BIND_POINT,first,count,nullptr,nullptr,nullptr);
-        return;
-    }
-
-    uint32_t newFirst = BIND_POINTS;
-    uint32_t newLast = 0;
-
-    GLuint toBind[BIND_POINTS];
-    for (uint32_t i=0; i<count; i++)
-    {
-        toBind[i] = buffers[i] ? buffers[i]->getOpenGLName():0;
-
-        uint32_t actualIx = i+first;
-        if (boundBuffer[actualIx]!=buffers[i]) //buffers are different
-        {
-            if (buffers[i])
-                buffers[i]->grab();
-            if (boundBuffer[actualIx])
-                boundBuffer[actualIx]->drop();
-            boundBuffer[actualIx] = buffers[i];
-        }
-        else if (!buffers[i]) //change of range on a null binding doesn't matter
-            continue;
-        else if (offsets[i]==boundOffsets[actualIx]&&
-                 sizes[i]==boundSizes[actualIx]&&
-                 buffers[i]->getLastTimeReallocated()<=lastValidatedBuffer[actualIx]) //everything has to be the same and up to date
-            continue;
-
-        boundOffsets[actualIx] = offsets[i];
-        boundSizes[actualIx] = sizes[i];
-        lastValidatedBuffer[actualIx] = boundBuffer[actualIx]->getLastTimeReallocated();
-
-        newLast = i;
-        if (newFirst==BIND_POINTS)
-            newFirst = i;
-    }
-
-    if (newFirst>newLast)
-        return;
-
-    extGlBindBuffersRange(BIND_POINT,first+newFirst,newLast-newFirst+1,toBind+newFirst,offsets+newFirst,sizes+newFirst);
-}
-
-template class COpenGLDriver::SAuxContext::BoundIndexedBuffer<GL_SHADER_STORAGE_BUFFER,OGL_MAX_BUFFER_BINDINGS>;
-template class COpenGLDriver::SAuxContext::BoundIndexedBuffer<GL_UNIFORM_BUFFER,OGL_MAX_BUFFER_BINDINGS>;
-
-
-template<GLenum BIND_POINT>
-void COpenGLDriver::SAuxContext::BoundBuffer<BIND_POINT>::set(const COpenGLBuffer* buff)
-{
-    if (!buff)
-    {
-        if (boundBuffer)
-        {
-            boundBuffer->drop();
-            boundBuffer = nullptr;
-            extGlBindBuffer(BIND_POINT,0);
-        }
-
-        return;
-    }
-
-    if (boundBuffer!=buff)
-    {
-        buff->grab();
-        if (boundBuffer)
-            boundBuffer->drop();
-        boundBuffer = buff;
-    }
-    else if (!boundBuffer||boundBuffer->getLastTimeReallocated()<=lastValidatedBuffer)
-        return;
-
-    extGlBindBuffer(BIND_POINT,boundBuffer->getOpenGLName());
-    lastValidatedBuffer = boundBuffer->getLastTimeReallocated();
-}
 
 
 static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
@@ -1897,326 +1779,6 @@ static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
 
     default: return (GLenum)0;
     }
-}
-
-COpenGLDriver::SAuxContext::COpenGLVAO::COpenGLVAO(const COpenGLVAOSpec* spec)
-        : vao(0), lastValidated(0)
-#ifdef _IRR_DEBUG
-            ,debugHash(spec->getHash())
-#endif // _IRR_DEBUG
-{
-    extGlCreateVertexArrays(1,&vao);
-
-    memcpy(attrOffset,&spec->getMappedBufferOffset(asset::EVAI_ATTR0),sizeof(attrOffset));
-    for (asset::E_VERTEX_ATTRIBUTE_ID attrId=asset::EVAI_ATTR0; attrId<asset::EVAI_COUNT; attrId = static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(attrId+1))
-    {
-        const IGPUBuffer* buf = spec->getMappedBuffer(attrId);
-        mappedAttrBuf[attrId] = static_cast<const COpenGLBuffer*>(buf);
-        if (mappedAttrBuf[attrId])
-        {
-            const asset::E_FORMAT format = spec->getAttribFormat(attrId);
-
-            mappedAttrBuf[attrId]->grab();
-            attrStride[attrId] = spec->getMappedBufferStride(attrId);
-
-            extGlEnableVertexArrayAttrib(vao,attrId);
-            extGlVertexArrayAttribBinding(vao,attrId,attrId);
-
-            if (isFloatingPointFormat(format) && getTexelOrBlockBytesize(format)== getFormatChannelCount(format)*sizeof(double) )//DOUBLE
-                extGlVertexArrayAttribLFormat(vao, attrId, getFormatChannelCount(format), GL_DOUBLE, 0);
-            else if (isFloatingPointFormat(format) || isScaledFormat(format) || isNormalizedFormat(format))//FLOATING-POINT, SCALED ("weak integer"), NORMALIZED
-                extGlVertexArrayAttribFormat(vao, attrId, isBGRALayoutFormat(format) ? GL_BGRA : getFormatChannelCount(format), formatEnumToGLenum(format), isNormalizedFormat(format) ? GL_TRUE : GL_FALSE, 0);
-            else if (isIntegerFormat(format))//INTEGERS
-                extGlVertexArrayAttribIFormat(vao, attrId, getFormatChannelCount(format), formatEnumToGLenum(format), 0);
-
-            extGlVertexArrayBindingDivisor(vao,attrId,spec->getAttribDivisor(attrId));
-            extGlVertexArrayVertexBuffer(vao,attrId,mappedAttrBuf[attrId]->getOpenGLName(),attrOffset[attrId],attrStride[attrId]);
-        }
-        else
-        {
-            mappedAttrBuf[attrId] = nullptr;
-            attrStride[attrId] = 16;
-        }
-    }
-
-
-    mappedIndexBuf = static_cast<const COpenGLBuffer*>(spec->getIndexBuffer());
-    if (mappedIndexBuf)
-    {
-        mappedIndexBuf->grab();
-        extGlVertexArrayElementBuffer(vao,mappedIndexBuf->getOpenGLName());
-    }
-}
-
-COpenGLDriver::SAuxContext::COpenGLVAO::~COpenGLVAO()
-{
-    if (vao)
-        extGlDeleteVertexArrays(1,&vao);
-
-    for (asset::E_VERTEX_ATTRIBUTE_ID attrId=asset::EVAI_ATTR0; attrId<asset::EVAI_COUNT; attrId = static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(attrId+1))
-    {
-        if (!mappedAttrBuf[attrId])
-            continue;
-
-        mappedAttrBuf[attrId]->drop();
-    }
-
-    if (mappedIndexBuf)
-        mappedIndexBuf->drop();
-}
-
-void COpenGLDriver::SAuxContext::COpenGLVAO::bindBuffers(   const COpenGLBuffer* indexBuf,
-                                                            const COpenGLBuffer* const* attribBufs,
-                                                            const size_t offsets[asset::EVAI_COUNT],
-                                                            const uint32_t strides[asset::EVAI_COUNT])
-{
-    uint64_t beginStamp = CNullDriver::ReallocationCounter;
-
-    for (asset::E_VERTEX_ATTRIBUTE_ID attrId=asset::EVAI_ATTR0; attrId<asset::EVAI_COUNT; attrId = static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(attrId+1))
-    {
-#ifdef _IRR_DEBUG
-        assert( (mappedAttrBuf[attrId]==NULL && attribBufs[attrId]==NULL)||
-                (mappedAttrBuf[attrId]!=NULL && attribBufs[attrId]!=NULL));
-#endif // _IRR_DEBUG
-        if (!mappedAttrBuf[attrId])
-            continue;
-
-        bool rebind = false;
-        if (mappedAttrBuf[attrId]!=attribBufs[attrId])
-        {
-            mappedAttrBuf[attrId]->drop();
-            mappedAttrBuf[attrId] = attribBufs[attrId];
-            mappedAttrBuf[attrId]->grab();
-            rebind = true;
-        }
-        if (attrOffset[attrId]!=offsets[attrId])
-        {
-            attrOffset[attrId] = offsets[attrId];
-            rebind = true;
-        }
-        if (attrStride[attrId]!=strides[attrId])
-        {
-            attrStride[attrId] = strides[attrId];
-            rebind = true;
-        }
-
-        if (rebind||mappedAttrBuf[attrId]->getLastTimeReallocated()>lastValidated)
-            extGlVertexArrayVertexBuffer(vao,attrId,mappedAttrBuf[attrId]->getOpenGLName(),attrOffset[attrId],attrStride[attrId]);
-    }
-
-    bool rebind = false;
-    if (indexBuf!=mappedIndexBuf)
-    {
-        if (indexBuf)
-            indexBuf->grab();
-        if (mappedIndexBuf)
-            mappedIndexBuf->drop();
-        mappedIndexBuf = indexBuf;
-        rebind = true;
-    }
-    else if (mappedIndexBuf&&mappedIndexBuf->getLastTimeReallocated()>lastValidated)
-        rebind = true;
-
-    if (rebind)
-    {
-        if (mappedIndexBuf)
-            extGlVertexArrayElementBuffer(vao,mappedIndexBuf->getOpenGLName());
-        else
-            extGlVertexArrayElementBuffer(vao,0);
-    }
-
-    lastValidated = beginStamp;
-}
-
-bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* const spec, const IGPUMeshBuffer* correctOffsetsForXFormDraw)
-{
-    if (!spec)
-    {
-        CurrentVAO = HashVAOPair(COpenGLVAOSpec::HashAttribs(),nullptr);
-        extGlBindVertexArray(0);
-        freeUpVAOCache(true);
-        return false;
-    }
-
-    const COpenGLVAOSpec::HashAttribs& hashVal = spec->getHash();
-	if (CurrentVAO.first!=hashVal)
-    {
-        auto it = std::lower_bound(VAOMap.begin(),VAOMap.end(),HashVAOPair(hashVal,nullptr),[](HashVAOPair lhs, HashVAOPair rhs) -> bool { return lhs.first < rhs.first; });
-        if (it != VAOMap.end() && it->first==hashVal)
-            CurrentVAO = *it;
-        else
-        {
-            COpenGLVAO* vao = new COpenGLVAO(spec);
-            CurrentVAO = HashVAOPair(hashVal,vao);
-            VAOMap.insert(it,CurrentVAO);
-        }
-
-        #ifdef _IRR_DEBUG
-            assert(!(CurrentVAO.second->getDebugHash()!=hashVal));
-        #endif // _IRR_DEBUG
-
-        extGlBindVertexArray(CurrentVAO.second->getOpenGLName());
-    }
-
-    if (correctOffsetsForXFormDraw)
-    {
-        size_t offsets[asset::EVAI_COUNT] = {0};
-        memcpy(offsets,&spec->getMappedBufferOffset(asset::EVAI_ATTR0),sizeof(offsets));
-        for (size_t i=0; i<asset::EVAI_COUNT; i++)
-        {
-            if (!spec->getMappedBuffer((asset::E_VERTEX_ATTRIBUTE_ID)i))
-                continue;
-
-            if (spec->getAttribDivisor((asset::E_VERTEX_ATTRIBUTE_ID)i))
-            {
-                if (correctOffsetsForXFormDraw->getBaseInstance())
-                    offsets[i] += spec->getMappedBufferStride((asset::E_VERTEX_ATTRIBUTE_ID)i)*correctOffsetsForXFormDraw->getBaseInstance();
-            }
-            else
-            {
-                if (correctOffsetsForXFormDraw->getBaseVertex())
-                    offsets[i] = int64_t(offsets[i])+int64_t(spec->getMappedBufferStride((asset::E_VERTEX_ATTRIBUTE_ID)i))*correctOffsetsForXFormDraw->getBaseVertex();
-            }
-        }
-        CurrentVAO.second->bindBuffers(static_cast<const COpenGLBuffer*>(spec->getIndexBuffer()),reinterpret_cast<const COpenGLBuffer* const*>(spec->getMappedBuffers()),offsets,&spec->getMappedBufferStride(asset::EVAI_ATTR0));
-    }
-    else
-        CurrentVAO.second->bindBuffers(static_cast<const COpenGLBuffer*>(spec->getIndexBuffer()),reinterpret_cast<const COpenGLBuffer* const*>(spec->getMappedBuffers()),&spec->getMappedBufferOffset(asset::EVAI_ATTR0),&spec->getMappedBufferStride(asset::EVAI_ATTR0));
-
-    return true;
-}
-
-
-const GLuint& COpenGLDriver::SAuxContext::constructSamplerInCache(const uint64_t &hashVal)
-{
-    GLuint samplerHandle;
-    extGlGenSamplers(1,&samplerHandle);
-
-    const STextureSamplingParams* tmpTSP = reinterpret_cast<const STextureSamplingParams*>(&hashVal);
-
-    switch (tmpTSP->MinFilter)
-    {
-        case ETFT_NEAREST_NO_MIP:
-            extGlSamplerParameteri(samplerHandle, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-            break;
-        case ETFT_LINEAR_NO_MIP:
-            extGlSamplerParameteri(samplerHandle, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            break;
-        case ETFT_NEAREST_NEARESTMIP:
-            extGlSamplerParameteri(samplerHandle, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
-            break;
-        case ETFT_LINEAR_NEARESTMIP:
-            extGlSamplerParameteri(samplerHandle, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
-            break;
-        case ETFT_NEAREST_LINEARMIP:
-            extGlSamplerParameteri(samplerHandle, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
-            break;
-        case ETFT_LINEAR_LINEARMIP:
-            extGlSamplerParameteri(samplerHandle, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-            break;
-    }
-
-    extGlSamplerParameteri(samplerHandle, GL_TEXTURE_MAG_FILTER, tmpTSP->MaxFilter ? GL_LINEAR : GL_NEAREST);
-
-    if (tmpTSP->AnisotropicFilter)
-        extGlSamplerParameteri(samplerHandle, GL_TEXTURE_MAX_ANISOTROPY_EXT, core::min_(tmpTSP->AnisotropicFilter+1u,uint32_t(MaxAnisotropy)));
-
-    extGlSamplerParameteri(samplerHandle, GL_TEXTURE_WRAP_S, getTextureWrapMode(tmpTSP->TextureWrapU));
-    extGlSamplerParameteri(samplerHandle, GL_TEXTURE_WRAP_T, getTextureWrapMode(tmpTSP->TextureWrapV));
-    extGlSamplerParameteri(samplerHandle, GL_TEXTURE_WRAP_R, getTextureWrapMode(tmpTSP->TextureWrapW));
-
-    extGlSamplerParameterf(samplerHandle, GL_TEXTURE_LOD_BIAS, tmpTSP->LODBias);
-    extGlSamplerParameteri(samplerHandle, GL_TEXTURE_CUBE_MAP_SEAMLESS, tmpTSP->SeamlessCubeMap);
-
-    return (SamplerMap[hashVal] = samplerHandle);
-}
-
-bool COpenGLDriver::SAuxContext::setActiveTexture(uint32_t stage, core::smart_refctd_ptr<IRenderableVirtualTexture>&& texture, const video::STextureSamplingParams &sampleParams)
-{
-	if (stage >= COpenGLExtensionHandler::MaxTextureUnits)
-		return false;
-
-	if (CurrentTexture[stage]!=texture.get())
-    {
-        const video::COpenGLTexture* oldTexture = dynamic_cast<const COpenGLTexture*>(CurrentTexture[stage]);
-        GLenum oldTexType = GL_INVALID_ENUM;
-        if (oldTexture)
-            oldTexType = oldTexture->getOpenGLTextureType();
-        CurrentTexture.set(stage,texture);
-
-        if (!texture)
-        {
-            if (oldTexture)
-                extGlBindTextures(stage,1,NULL,&oldTexType);
-        }
-        else
-        {
-            if (texture->getDriverType() != EDT_OPENGL)
-            {
-                CurrentTexture.set(stage, 0);
-                if (oldTexture)
-                    extGlBindTextures(stage,1,NULL,&oldTexType);
-                os::Printer::log("Fatal Error: Tried to set a texture not owned by this driver.", ELL_ERROR);
-            }
-            else
-            {
-                const video::COpenGLTexture* newTexture = dynamic_cast<const COpenGLTexture*>(texture.get());
-                GLenum newTexType = newTexture->getOpenGLTextureType();
-
-                if (Version<440 && !FeatureAvailable[IRR_ARB_multi_bind] && oldTexture && oldTexType!=newTexType)
-                    extGlBindTextures(stage,1,nullptr,&oldTexType);
-                extGlBindTextures(stage,1,&newTexture->getOpenGLName(),&newTexType);
-            }
-        }
-    }
-
-    if (CurrentTexture[stage])
-    {
-        if (CurrentTexture[stage]->getVirtualTextureType()!=IRenderableVirtualTexture::EVTT_BUFFER_OBJECT&&
-            CurrentTexture[stage]->getVirtualTextureType()!=IRenderableVirtualTexture::EVTT_2D_MULTISAMPLE)
-        {
-            uint64_t hashVal = sampleParams.calculateHash(CurrentTexture[stage]);
-            if (CurrentSamplerHash[stage]!=hashVal)
-            {
-                CurrentSamplerHash[stage] = hashVal;
-                auto it = SamplerMap.find(hashVal);
-                if (it != SamplerMap.end())
-                {
-                    extGlBindSamplers(stage,1,&it->second);
-                }
-                else
-                {
-                    extGlBindSamplers(stage,1,&constructSamplerInCache(hashVal));
-                }
-            }
-        }
-    }
-    else if (CurrentSamplerHash[stage]!=0xffffffffffffffffull)
-    {
-        CurrentSamplerHash[stage] = 0xffffffffffffffffull;
-        extGlBindSamplers(stage,1,NULL);
-    }
-
-	return true;
-}
-
-void COpenGLDriver::SAuxContext::setActiveDescriptorSet(uint32_t index, const COpenGLDescriptorSet* ds)
-{
-    //TODO optimize this
-    if (!ds)
-        return;
-
-    const auto& multibindParams = ds->getMultibindParams();
-    const auto& multibind_first_count = static_cast<const COpenGLPipelineLayout*>(CurrentRenderpassPipeline->getLayout())->getMultibindParamsForDescSet(index);
-        
-    if (multibind_first_count.ubos.count > 0u)
-        extGlBindBuffersRange(GL_UNIFORM_BUFFER, multibind_first_count.ubos.first, multibind_first_count.ubos.count, multibindParams.ubos.buffers, multibindParams.ubos.offsets, multibindParams.ubos.sizes);
-    if (multibind_first_count.ssbos.count > 0u)
-        extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, multibind_first_count.ssbos.first, multibind_first_count.ssbos.count, multibindParams.ssbos.buffers, multibindParams.ssbos.offsets, multibindParams.ssbos.sizes);
-    if (multibind_first_count.textures.count > 0u)
-        extGlBindTextures(multibind_first_count.textures.first, multibind_first_count.textures.count, multibindParams.textures.textures, multibindParams.textures.targets);
-    if (multibind_first_count.textureImages.count > 0u)
-        extGlBindImageTextures(multibind_first_count.textureImages.first, multibind_first_count.textureImages.count, multibindParams.textureImages.textures, multibindParams.textureImages.formats);
 }
 
 void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
@@ -2427,21 +1989,27 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
 
                 if (STATE_NEQ(vertexInputParams.bindings[bnd]))//this if-statement also doesnt allow GlVertexArrayVertexBuffer be called multiple times for single binding
                 {
-                    extGlVertexArrayVertexBuffer(vao, bnd, nextState.vertexInputParams.bindings[bnd].buf, nextState.vertexInputParams.bindings[bnd].offset, hashVal.getStrideForBinding(bnd));
+                    extGlVertexArrayVertexBuffer(vao, bnd, nextState.vertexInputParams.bindings[bnd].buf->getOpenGLName(), nextState.vertexInputParams.bindings[bnd].offset, hashVal.getStrideForBinding(bnd));
                     UPDATE_STATE(vertexInputParams.bindings[bnd]);
                 }
             }
             if (STATE_NEQ(vertexInputParams.indexBuf))
             {
-                extGlVertexArrayElementBuffer(vao, nextState.vertexInputParams.indexBuf);
+                extGlVertexArrayElementBuffer(vao, nextState.vertexInputParams.indexBuf ? nextState.vertexInputParams.indexBuf->getOpenGLName() : 0u);
                 UPDATE_STATE(vertexInputParams.indexBuf);
             }
+        }
+        if (STATE_NEQ(vertexInputParams.indirectDrawBuf))
+        {
+            extGlBindBuffer(GL_DRAW_INDIRECT_BUFFER, nextState.vertexInputParams.indirectDrawBuf ? nextState.vertexInputParams.indirectDrawBuf->getOpenGLName() : 0u);
+            UPDATE_STATE(vertexInputParams.indirectDrawBuf);
         }
     }
 #undef STATE_NEQ
 #undef UPDATE_STATE
     if ((stateBits & GSB_DESCRIPTOR_SETS) && currentState.pipeline)
     {
+        //TODO get rid of constants and use runtime-queried binding point counts
         GLuint ubonames[MAX_UBO_BINDING_COUNT]{};
         GLintptr ubooffsets[MAX_UBO_BINDING_COUNT]{};
         GLsizeiptr ubosizes[MAX_UBO_BINDING_COUNT]{};
@@ -2488,9 +2056,8 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
         {
             COpenGLExtensionHandler::extGlBindBuffersRange(GL_UNIFORM_BUFFER, 0u, MAX_UBO_BINDING_COUNT, ubonames, ubooffsets, ubosizes);
             COpenGLExtensionHandler::extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, 0u, MAX_SSBO_BINDING_COUNT, ssbonames, ssbooffsets, ssbosizes);
-            COpenGLExtensionHandler::extGlBindTextures(0u, MAX_TEXTURE_BINDING_COUNT, texnames, nullptr);
+            COpenGLExtensionHandler::extGlBindTextures(0u, MAX_TEXTURE_BINDING_COUNT, texnames, nullptr); //targets=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
             COpenGLExtensionHandler::extGlBindSamplers(0u, MAX_TEXTURE_BINDING_COUNT, smplrnames);
-            //TODO bind samplers
             COpenGLExtensionHandler::extGlBindImageTextures(0u, MAX_IMAGE_BINDING_COUNT, imgnames, imgformats);
         }
     }

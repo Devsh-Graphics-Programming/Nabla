@@ -25,6 +25,8 @@ namespace core
 			T* begin() { return m_begin; }
 			T* end() { return m_end; }
 
+            size_t length() const { return m_end-m_begin; }
+
 		private:
 			T* m_begin, * m_end;
 	};

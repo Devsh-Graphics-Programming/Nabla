@@ -46,6 +46,12 @@ class COpenGLSampler : public IGPUSampler
         return mode;
     }
 
+protected:
+    ~COpenGLSampler()
+    {
+        COpenGLExtensionHandler::extGlDeleteSamplers(1, &m_GLname);
+    }
+
 public:
     COpenGLSampler(const asset::ISampler::SParams& _params) : IGPUSampler(_params)
     {

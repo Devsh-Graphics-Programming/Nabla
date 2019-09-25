@@ -2,8 +2,8 @@
 // This file is part of "IrrlichtBAw".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#ifndef __I_VIRTUAL_TEXTURE_H_INCLUDED__
-#define __I_VIRTUAL_TEXTURE_H_INCLUDED__
+#ifndef __I_RENDERABLE_VIRTUAL_TEXTURE_H_INCLUDED__
+#define __I_RENDERABLE_VIRTUAL_TEXTURE_H_INCLUDED__
 
 #include "irr/asset/CImageData.h"
 #include "IFrameBuffer.h"
@@ -70,4 +70,4 @@ class IRenderableVirtualTexture : public virtual core::IReferenceCounted
 }
 }
 
-#endif // __I_VIRTUAL_TEXTURE_H_INCLUDED__
+#endif // __I_RENDERABLE_VIRTUAL_TEXTURE_H_INCLUDED__
