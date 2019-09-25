@@ -64,8 +64,8 @@ protected:
     /**
     @param _descriptors Entries must be sorted by binding number
     */
-    IDescriptorSet(core::smart_refctd_dynamic_array<SWriteDescriptorSet>&& _descriptors, core::smart_refctd_dynamic_array<uint32_t>&& _dynOffsets) : 
-        m_descriptors(std::move(_descriptors)), m_dynamicOffsets(std::move(_dynOffsets)) 
+    IDescriptorSet(core::smart_refctd_dynamic_array<SWriteDescriptorSet>&& _descriptors) : 
+        m_descriptors(std::move(_descriptors)) 
     {
         auto is_not_sorted = [this] {
             for (auto it = m_descriptors->cbegin()+1; it != m_descriptors->cend(); ++it)
@@ -80,7 +80,6 @@ protected:
     virtual ~IDescriptorSet() = default;
 
     core::smart_refctd_dynamic_array<SWriteDescriptorSet> m_descriptors;
-    core::smart_refctd_dynamic_array<uint32_t> m_dynamicOffsets;
 };
 
 }}

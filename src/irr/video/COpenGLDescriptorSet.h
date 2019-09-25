@@ -48,8 +48,8 @@ public:
     };
 
 public:
-    COpenGLDescriptorSet(core::smart_refctd_dynamic_array<SWriteDescriptorSet>&& _descriptors, core::smart_refctd_dynamic_array<uint32_t>&& _dynOffsets)
-        : IGPUDescriptorSet(std::move(_descriptors), std::move(_dynOffsets))
+    COpenGLDescriptorSet(core::smart_refctd_dynamic_array<SWriteDescriptorSet>&& _descriptors)
+        : IGPUDescriptorSet(std::move(_descriptors))
     {
         size_t uboCount = 0ull;
         size_t ssboCount = 0ull;
@@ -135,7 +135,6 @@ public:
         {
             if (desc.descriptorType==asset::EDT_UNIFORM_BUFFER || desc.descriptorType==asset::EDT_UNIFORM_BUFFER_DYNAMIC)
                 for (const auto& info : (*desc.info)) {
-                    const uint32_t extra_offset = (desc.descriptorType==asset::EDT_UNIFORM_BUFFER_DYNAMIC) ? (*m_dynamicOffsets)[dyn_offset_iter] : 0u;
                     (*m_names)[uboNamesOffset + u] = static_cast<COpenGLBuffer*>(info.desc.get())->getOpenGLName();
                     (*m_offsets)[uboBufOffset + u] = info.buffer.offset;
                     (*m_sizes)[uboBufOffset + u] = info.buffer.size;
@@ -144,7 +143,6 @@ public:
                 }
             else if (desc.descriptorType==asset::EDT_STORAGE_BUFFER || desc.descriptorType==asset::EDT_STORAGE_BUFFER_DYNAMIC)
                 for (const auto& info : (*desc.info)) {
-                    const uint32_t extra_offset = (desc.descriptorType==asset::EDT_STORAGE_BUFFER_DYNAMIC) ? (*m_dynamicOffsets)[dyn_offset_iter] : 0u;
                     (*m_names)[ssboNamesOffset + s] = static_cast<COpenGLBuffer*>(info.desc.get())->getOpenGLName();
                     (*m_offsets)[ssboBufOffset + s] = info.buffer.offset;
                     (*m_sizes)[ssboBufOffset + s] = info.buffer.size;

@@ -2086,42 +2086,6 @@ bool COpenGLDriver::SAuxContext::setActiveVAO(const COpenGLVAOSpec* const spec, 
     return true;
 }
 
-//! Get native wrap mode value
-inline GLint getTextureWrapMode(uint8_t clamp)
-{
-	GLint mode=GL_REPEAT;
-	switch (clamp)
-	{
-		case ETC_REPEAT:
-			mode=GL_REPEAT;
-			break;
-		case ETC_CLAMP_TO_EDGE:
-			mode=GL_CLAMP_TO_EDGE;
-			break;
-		case ETC_CLAMP_TO_BORDER:
-            mode=GL_CLAMP_TO_BORDER;
-			break;
-		case ETC_MIRROR:
-            mode=GL_MIRRORED_REPEAT;
-			break;
-		case ETC_MIRROR_CLAMP_TO_EDGE:
-			if (COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_mirror_clamp])
-				mode = GL_MIRROR_CLAMP_TO_EDGE_EXT;
-			else if (COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_ATI_texture_mirror_once])
-				mode = GL_MIRROR_CLAMP_TO_EDGE_ATI;
-			else
-				mode = GL_CLAMP;
-			break;
-		case ETC_MIRROR_CLAMP_TO_BORDER:
-			if (COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_mirror_clamp])
-				mode = GL_MIRROR_CLAMP_TO_BORDER_EXT;
-			else
-				mode = GL_CLAMP;
-			break;
-	}
-	return mode;
-}
-
 
 const GLuint& COpenGLDriver::SAuxContext::constructSamplerInCache(const uint64_t &hashVal)
 {
