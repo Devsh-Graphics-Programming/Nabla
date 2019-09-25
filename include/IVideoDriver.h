@@ -10,7 +10,6 @@
 #include "matrixutil.h"
 #include "dimension2d.h"
 #include "position2d.h"
-#include "SMaterial.h"
 #include "IDriverFence.h"
 #include "SExposedVideoData.h"
 #include "IDriver.h"
@@ -162,11 +161,6 @@ namespace video
 
 		virtual const core::matrix4SIMD& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state) =0;
 
-		//! Sets a material.
-		/** All 3d drawing functions will draw geometry using this material thereafter.
-		\param material: Material to be used from now on. */
-		virtual void setMaterial(const SGPUMaterial& material) =0;
-
         //! A.
         virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size,
                                                            asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false) {return nullptr;}
@@ -224,29 +218,6 @@ namespace video
 
 		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals) =0;
 		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals) =0;
-
-
-
-		virtual ITransformFeedback* createTransformFeedback() = 0;
-
-		//!
-		virtual void bindTransformFeedback(ITransformFeedback* xformFeedback) = 0;
-
-		virtual ITransformFeedback* getBoundTransformFeedback() = 0;
-
-        /** Only POINTS, LINES, and TRIANGLES are allowed as capture types.. no strips or fans!
-        This issues an implicit call to bindTransformFeedback()
-        **/
-		virtual void beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const asset::E_PRIMITIVE_TYPE& primType=asset::EPT_POINTS) = 0;
-
-		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
-		virtual void pauseTransformFeedback() = 0;
-
-		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
-		virtual void resumeTransformFeedback() = 0;
-
-        //! This issues an implicit call to bindTransformFeedback(NULL)
-		virtual void endTransformFeedback() = 0;
 
 
 		//! Sets a new viewport.
@@ -516,14 +487,6 @@ namespace video
 		exisiting */
 		virtual const char* getMaterialRendererName(uint32_t idx) const =0;
 
-		//! Sets the name of a material renderer.
-		/** Will have no effect on built-in material renderers.
-		\param idx: Id of the material renderer. Can be a value of the
-		E_MATERIAL_TYPE enum or a value which was returned by
-		addMaterialRenderer().
-		\param name: New name of the material renderer. */
-		virtual void setMaterialRendererName(int32_t idx, const char* name) =0;
-
 		//! Returns driver and operating system specific data about the IVideoDriver.
 		/** This method should only be used if the engine should be
 		extended without having to modify the source of the engine.
@@ -546,27 +509,6 @@ namespace video
 		virtual void enableClipPlane(uint32_t index, bool enable) =0;
 
         virtual const CDerivativeMapCreator* getDerivativeMapCreator() const { return nullptr; }
-
-		//! Get the 2d override material for altering its values
-		/** The 2d override materual allows to alter certain render
-		states of the 2d methods. Not all members of SGPUMaterial are
-		honored, especially not MaterialType and Textures. Moreover,
-		the zbuffer is always ignored, and lighting is always off. All
-		other flags can be changed, though some might have to effect
-		in most cases.
-		Please note that you have to enable/disable this effect with
-		enableInitMaterial2D(). This effect is costly, as it increases
-		the number of state changes considerably. Always reset the
-		values when done.
-		\return Material reference which should be altered to reflect
-		the new settings.
-		*/
-		virtual SGPUMaterial& getMaterial2D() =0;
-
-		//! Enable the 2d override material
-		/** \param enable Flag which tells whether the material shall be
-		enabled or disabled. */
-		virtual void enableMaterial2D(bool enable=true) =0;
 	};
 
 } // end namespace video

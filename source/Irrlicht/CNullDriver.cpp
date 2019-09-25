@@ -302,12 +302,6 @@ const core::matrix4SIMD& CNullDriver::getTransform(const E_PROJECTION_TRANSFORMA
     return ProjectionMatrices[state];
 }
 
-
-//! sets a material
-void CNullDriver::setMaterial(const SGPUMaterial& material)
-{
-}
-
 void CNullDriver::removeMultisampleTexture(IMultisampleTexture* tex)
 {
     auto it = std::lower_bound(MultisampleTextures.begin(),MultisampleTextures.end(),tex);
@@ -1137,31 +1131,6 @@ void CNullDriver::clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* va
 {
 }
 
-void CNullDriver::bindTransformFeedback(ITransformFeedback* xformFeedback)
-{
-    os::Printer::log("Transform Feedback Not supported by this Driver!\n",ELL_ERROR);
-}
-
-void CNullDriver::beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const asset::E_PRIMITIVE_TYPE& primType)
-{
-    os::Printer::log("Transform Feedback Not supported by this Driver!\n",ELL_ERROR);
-}
-
-void CNullDriver::pauseTransformFeedback()
-{
-    os::Printer::log("Transform Feedback Not supported by this Driver!\n",ELL_ERROR);
-}
-
-void CNullDriver::resumeTransformFeedback()
-{
-    os::Printer::log("Transform Feedback Not supported by this Driver!\n",ELL_ERROR);
-}
-
-void CNullDriver::endTransformFeedback()
-{
-    os::Printer::log("Transform Feedback Not supported by this Driver!\n",ELL_ERROR);
-}
-
 
 // prints renderer version
 void CNullDriver::printVersion()
@@ -1194,19 +1163,6 @@ IVideoDriver* createNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const c
 void CNullDriver::enableClipPlane(uint32_t index, bool enable)
 {
 	// not necessary
-}
-
-//! Get the 2d override material for altering its values
-SGPUMaterial& CNullDriver::getMaterial2D()
-{
-	return OverrideMaterial2D;
-}
-
-
-//! Enable the 2d override material
-void CNullDriver::enableMaterial2D(bool enable)
-{
-	OverrideMaterial2DEnabled=enable;
 }
 
 

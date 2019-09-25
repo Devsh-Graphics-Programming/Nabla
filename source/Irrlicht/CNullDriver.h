@@ -69,9 +69,6 @@ namespace video
 		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat);
 		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4SIMD& mat);
 
-		//! sets a material
-		virtual void setMaterial(const SGPUMaterial& material);
-
         //! GPU fence, is signalled when preceeding GPU work is completed
         virtual core::smart_refctd_ptr<IDriverFence> placeFence(const bool& implicitFlushWaitSameThread=false) {return nullptr;}
 
@@ -135,27 +132,6 @@ namespace video
 
 		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals);
 		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals);
-
-
-		virtual ITransformFeedback* createTransformFeedback() {return NULL;}
-
-		//!
-		virtual void bindTransformFeedback(ITransformFeedback* xformFeedback);
-
-		virtual ITransformFeedback* getBoundTransformFeedback() {return NULL;}
-
-        /** Only POINTS, LINES, and TRIANGLES are allowed as capture types.. no strips or fans!
-        This issues an implicit call to bindTransformFeedback()
-        **/
-		virtual void beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const asset::E_PRIMITIVE_TYPE& primType=asset::EPT_POINTS);
-
-		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
-		virtual void pauseTransformFeedback();
-
-		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
-		virtual void resumeTransformFeedback();
-
-		virtual void endTransformFeedback();
 
 
 		//! sets a viewport
@@ -414,9 +390,6 @@ namespace video
         //    const char* geometryShaderEntryPointName="main",
         //    const char* pixelShaderEntryPointName="main");
 
-		//! Sets the name of a material renderer.
-		virtual void setMaterialRendererName(int32_t idx, const char* name);
-
 		//! Enable/disable a clipping plane.
 		//! There are at least 6 clipping planes available for the user to set at will.
 		//! \param index: The plane index. Must be between 0 and MaxUserClipPlanes.
@@ -425,12 +398,6 @@ namespace video
 
 		//! Returns the graphics card vendor name.
 		virtual std::string getVendorInfo() {return "Not available on this driver.";}
-
-		//! Get the 2d override material for altering its values
-		virtual SGPUMaterial& getMaterial2D();
-
-		//! Enable the 2d override material
-		virtual void enableMaterial2D(bool enable=true);
 
 		//! Returns the maximum texture size supported.
 		virtual const uint32_t* getMaxTextureSize(const ITexture::E_TEXTURE_TYPE& type) const;
@@ -560,8 +527,6 @@ namespace video
 
 		SExposedVideoData ExposedData;
 
-		SGPUMaterial OverrideMaterial2D;
-		SGPUMaterial InitMaterial2D;
 		bool OverrideMaterial2DEnabled;
 
 		uint32_t MaxTextureSizes[ITexture::ETT_COUNT][3];

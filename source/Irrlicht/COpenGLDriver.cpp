@@ -29,7 +29,6 @@
 
 #include "COpenGLBuffer.h"
 #include "COpenGLFrameBuffer.h"
-#include "COpenGLSLMaterialRenderer.h"
 #include "COpenGLQuery.h"
 #include "COpenGLTimestampQuery.h"
 #include "os.h"
@@ -2357,231 +2356,6 @@ core::smart_refctd_ptr<video::ITexture> COpenGLDriver::createDeviceDependentText
 }
 
 
-//! Sets a material. All 3d drawing functions draw geometry now using this material.
-void COpenGLDriver::setMaterial(const SGPUMaterial& material)
-{
-    SAuxContext* found = getThreadContext_helper(false);
-    if (!found)
-        return;
-
-
-	Material = material;
-
-	for (int32_t i = MaxTextureUnits-1; i>= 0; --i)
-	{
-		found->setActiveTexture(i, core::smart_refctd_ptr<video::IRenderableVirtualTexture>(material.getTexture(i)), material.TextureLayer[i].SamplingParams);
-	}
-}
-
-//! sets the needed renderstates
-void COpenGLDriver::setRenderStates3DMode()
-{
-    SAuxContext* found = getThreadContext_helper(false);
-    if (!found)
-        return;
-
-	if (CurrentRenderMode != ERM_3D)
-	{
-		// Reset Texture Stages
-		glDisable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-		ResetRenderStates = true;
-	}
-
-    //actually i'm commenting-out ALMOST all in this if-statemenet
-	if (ResetRenderStates || LastMaterial != Material)
-	{
-		// unset old material
-
-		/* TODO what OnUnsetMaterial() is responsible for? Can i remove this?
-        if (LastMaterial.Pipeline != Material.Pipeline &&
-				static_cast<uint32_t>(LastMaterial.MaterialType) < MaterialRenderers.size())
-			MaterialRenderers[LastMaterial.MaterialType].Renderer->OnUnsetMaterial();*/
-
-		// set new material.
-		//if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
-			MaterialRenderers[0].Renderer->OnSetMaterial(
-				Material, LastMaterial, ResetRenderStates, this);
-
-            extGlUseProgram(0u);//shouldnt really be here
-            extGlBindProgramPipeline(getPipeline(Material.Pipeline));
-/*
-        WARNING! Commented-out this transform-feedback-related piece of code 
-        because i have no idea about this and i have no time to make it work with E_MATERIAL_TYPE->array_of_shaders changes
-        Plus AFAIK it's going to be removed from the engine anyway..
-
-		if (found->CurrentXFormFeedback&&found->XFormFeedbackRunning)
-        {
-            if (Material.MaterialType==found->CurrentXFormFeedback->getMaterialType())
-            {
-                if (!found->CurrentXFormFeedback->isActive())
-                    found->CurrentXFormFeedback->beginResumeFeedback();
-            }
-            else if (found->CurrentXFormFeedback->isActive()) //Material Type not equal to intial
-                found->CurrentXFormFeedback->pauseFeedback();
-        }
-*/
-		LastMaterial = Material;
-		ResetRenderStates = false;
-	}
-
-	//if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
-		MaterialRenderers[0].Renderer->OnRender(this);
-
-	CurrentRenderMode = ERM_3D;
-}
-
-
-
-
-//! Can be called by an IMaterialRenderer to make its work easier.
-void COpenGLDriver::setBasicRenderStates(const SGPUMaterial& material, const SGPUMaterial& lastmaterial,
-	bool resetAllRenderStates)
-{
-	// fillmode
-	if (resetAllRenderStates || (lastmaterial.Wireframe != material.Wireframe) || (lastmaterial.PointCloud != material.PointCloud))
-		glPolygonMode(GL_FRONT_AND_BACK, material.Wireframe ? GL_LINE : material.PointCloud? GL_POINT : GL_FILL);
-
-	// zbuffer
-	if (resetAllRenderStates || lastmaterial.ZBuffer != material.ZBuffer)
-	{
-		switch (material.ZBuffer)
-		{
-			case ECFN_NEVER:
-				glDisable(GL_DEPTH_TEST);
-				break;
-			case ECFN_LESSEQUAL:
-				glEnable(GL_DEPTH_TEST);
-				glDepthFunc(GL_LEQUAL);
-				break;
-			case ECFN_EQUAL:
-				glEnable(GL_DEPTH_TEST);
-				glDepthFunc(GL_EQUAL);
-				break;
-			case ECFN_LESS:
-				glEnable(GL_DEPTH_TEST);
-				glDepthFunc(GL_LESS);
-				break;
-			case ECFN_NOTEQUAL:
-				glEnable(GL_DEPTH_TEST);
-				glDepthFunc(GL_NOTEQUAL);
-				break;
-			case ECFN_GREATEREQUAL:
-				glEnable(GL_DEPTH_TEST);
-				glDepthFunc(GL_GEQUAL);
-				break;
-			case ECFN_GREATER:
-				glEnable(GL_DEPTH_TEST);
-				glDepthFunc(GL_GREATER);
-				break;
-			case ECFN_ALWAYS:
-				glEnable(GL_DEPTH_TEST);
-				glDepthFunc(GL_ALWAYS);
-				break;
-		}
-	}
-
-	// zwrite
-//	if (resetAllRenderStates || lastmaterial.ZWriteEnable != material.ZWriteEnable)
-	{
-		if (material.ZWriteEnable)
-		{
-			glDepthMask(GL_TRUE);
-		}
-		else
-			glDepthMask(GL_FALSE);
-	}
-
-	// back face culling
-	if (resetAllRenderStates || (lastmaterial.FrontfaceCulling != material.FrontfaceCulling) || (lastmaterial.BackfaceCulling != material.BackfaceCulling))
-	{
-		if ((material.FrontfaceCulling) && (material.BackfaceCulling))
-		{
-			glCullFace(GL_FRONT_AND_BACK);
-			glEnable(GL_CULL_FACE);
-		}
-		else
-		if (material.BackfaceCulling)
-		{
-			glCullFace(GL_BACK);
-			glEnable(GL_CULL_FACE);
-		}
-		else
-		if (material.FrontfaceCulling)
-		{
-			glCullFace(GL_FRONT);
-			glEnable(GL_CULL_FACE);
-		}
-		else
-			glDisable(GL_CULL_FACE);
-	}
-
-	if (resetAllRenderStates || (lastmaterial.RasterizerDiscard != material.RasterizerDiscard))
-    {
-        if (material.RasterizerDiscard)
-            glEnable(GL_RASTERIZER_DISCARD);
-        else
-            glDisable(GL_RASTERIZER_DISCARD);
-    }
-
-	// Color Mask
-	if (resetAllRenderStates || lastmaterial.ColorMask != material.ColorMask)
-	{
-		glColorMask(
-			(material.ColorMask & ECP_RED)?GL_TRUE:GL_FALSE,
-			(material.ColorMask & ECP_GREEN)?GL_TRUE:GL_FALSE,
-			(material.ColorMask & ECP_BLUE)?GL_TRUE:GL_FALSE,
-			(material.ColorMask & ECP_ALPHA)?GL_TRUE:GL_FALSE);
-	}
-
-	if (resetAllRenderStates|| lastmaterial.BlendOperation != material.BlendOperation)
-	{
-		if (material.BlendOperation==EBO_NONE)
-			glDisable(GL_BLEND);
-		else
-		{
-			glEnable(GL_BLEND);
-			switch (material.BlendOperation)
-			{
-			case EBO_SUBTRACT:
-                extGlBlendEquation(GL_FUNC_SUBTRACT);
-				break;
-			case EBO_REVSUBTRACT:
-                extGlBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
-				break;
-			case EBO_MIN:
-                extGlBlendEquation(GL_MIN);
-				break;
-			case EBO_MAX:
-                extGlBlendEquation(GL_MAX);
-				break;
-			default:
-				extGlBlendEquation(GL_FUNC_ADD);
-				break;
-			}
-		}
-	}
-
-
-	// thickness
-	if (resetAllRenderStates || lastmaterial.Thickness != material.Thickness)
-	{
-        glPointSize(core::clamp(static_cast<GLfloat>(material.Thickness), DimAliasedPoint[0], DimAliasedPoint[1]));
-        glLineWidth(core::clamp(static_cast<GLfloat>(material.Thickness), DimAliasedLine[0], DimAliasedLine[1]));
-	}
-}
-
-
-//! Enable the 2d override material
-void COpenGLDriver::enableMaterial2D(bool enable)
-{
-	if (!enable)
-		CurrentRenderMode = ERM_NONE;
-	CNullDriver::enableMaterial2D(enable);
-}
-
-
 //! \return Returns the name of the video driver.
 const wchar_t* COpenGLDriver::getName() const
 {
@@ -2714,12 +2488,6 @@ E_DRIVER_TYPE COpenGLDriver::getDriverType() const
 asset::E_FORMAT COpenGLDriver::getColorFormat() const
 {
 	return ColorFormat;
-}
-
-
-void COpenGLDriver::setShaderConstant(const void* data, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number)
-{
-	os::Printer::log("Error: Please call services->setShaderConstant(), not VideoDriver->setShaderConstant().");
 }
 
 /*
@@ -2944,6 +2712,7 @@ bool COpenGLDriver::setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewpo
     if (found->CurrentFBO)
         found->CurrentFBO->drop();
     found->CurrentFBO = static_cast<COpenGLFrameBuffer*>(frameBuffer);
+    //TODO what was it supposed to be used for? I need to know if i have to do somehing with GL state here
     ResetRenderStates=true; //! OPTIMIZE: Needed?
 
 
@@ -2970,8 +2739,9 @@ void COpenGLDriver::clearZBuffer(const float &depth)
         return;
 
 
-    glDepthMask(GL_TRUE);
-    LastMaterial.ZWriteEnable=true;
+    found->nextState.rasterParams.depthWriteEnable = 1;
+    //TODO or maybe i can just assume it should be enabled at this point?
+    found->flushState(GSB_RASTER_PARAMETERS);
 
     if (found->CurrentFBO)
         extGlClearNamedFramebufferfv(found->CurrentFBO->getOpenGLName(),GL_DEPTH,0,&depth);
@@ -3086,162 +2856,6 @@ void COpenGLDriver::clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* 
             extGlClearNamedFramebufferuiv(0,GL_COLOR,0,vals);
             break;
     }
-}
-
-
-ITransformFeedback* COpenGLDriver::createTransformFeedback()
-{
-    return new COpenGLTransformFeedback();
-}
-
-
-void COpenGLDriver::bindTransformFeedback(ITransformFeedback* xformFeedback)
-{
-    SAuxContext* found = getThreadContext_helper(false);
-    if (!found)
-        return;
-
-    bindTransformFeedback(xformFeedback,found);
-}
-
-void COpenGLDriver::bindTransformFeedback(ITransformFeedback* xformFeedback, SAuxContext* toContext)
-{
-    if (xformFeedback)
-    {
-        _IRR_CHECK_OWNING_THREAD(xformFeedback,return;);
-    }
-
-    if (toContext->CurrentXFormFeedback==xformFeedback)
-        return;
-
-    if (toContext->CurrentXFormFeedback)
-    {
-#ifdef _IRR_DEBUG
-        if (!toContext->CurrentXFormFeedback->isEnded())
-            os::Printer::log("FIDDLING WITH XFORM FEEDBACK BINDINGS WHILE THE BOUND XFORMFEEDBACK HASN't ENDED!\n",ELL_ERROR);
-#endif // _IRR_DEBUG
-        toContext->CurrentXFormFeedback->drop();
-    }
-
-    toContext->CurrentXFormFeedback = static_cast<COpenGLTransformFeedback*>(xformFeedback);
-
-    if (!toContext->CurrentXFormFeedback)
-    {
-	    extGlBindTransformFeedback(GL_TRANSFORM_FEEDBACK,0);
-		toContext->CurrentXFormFeedback = NULL;
-	}
-    else
-    {
-#ifdef _IRR_DEBUG
-        if (!toContext->CurrentXFormFeedback->isEnded())
-            os::Printer::log("WHY IS A NOT PREVIOUSLY BOUND XFORM FEEDBACK STARTED!?\n",ELL_ERROR);
-#endif // _IRR_DEBUG
-        toContext->CurrentXFormFeedback->grab();
-        extGlBindTransformFeedback(GL_TRANSFORM_FEEDBACK,toContext->CurrentXFormFeedback->getOpenGLHandle());
-    }
-}
-
-void COpenGLDriver::beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const asset::E_PRIMITIVE_TYPE& primType)
-{
-    if (xformFeedback)
-    {
-        _IRR_CHECK_OWNING_THREAD(xformFeedback,return;);
-    }
-
-    SAuxContext* found = getThreadContext_helper(false);
-    if (!found)
-        return;
-
-
-    //grabs a ref
-    bindTransformFeedback(xformFeedback,found);
-    if (!xformFeedback)
-    {
-        found->XFormFeedbackRunning = false;
-        return;
-    }
-
-	switch (primType)
-	{
-		case asset::EPT_POINTS:
-            found->CurrentXFormFeedback->setPrimitiveType(GL_POINTS);
-            break;
-		case asset::EPT_LINE_STRIP:
-			_IRR_FALLTHROUGH;
-		case asset::EPT_LINE_LOOP:
-			os::Printer::log("Not using PROPER TRANSFORM FEEDBACK primitive type (only EPT_POINTS, EPT_LINES and EPT_TRIANGLES allowed!)!\n",ELL_ERROR);
-            break;
-		case asset::EPT_LINES:
-            found->CurrentXFormFeedback->setPrimitiveType(GL_LINES);
-            break;
-		case asset::EPT_TRIANGLE_STRIP:
-			_IRR_FALLTHROUGH;
-		case asset::EPT_TRIANGLE_FAN:
-			os::Printer::log("Not using PROPER TRANSFORM FEEDBACK primitive type (only EPT_POINTS, EPT_LINES and EPT_TRIANGLES allowed!)!\n",ELL_ERROR);
-            break;
-		case asset::EPT_TRIANGLES:
-            found->CurrentXFormFeedback->setPrimitiveType(GL_TRIANGLES);
-            break;
-	}
-	found->CurrentXFormFeedback->setMaterialType(xformFeedbackShader);
-
-	found->XFormFeedbackRunning = true;
-
-    //WARNING turning off all transform-feedback-pieces of code! Because i have no idea about this and no time to integrate shaders into it!
-    /*
-	if (Material.MaterialType==xformFeedbackShader)
-	{
-        if (LastMaterial.MaterialType!=xformFeedbackShader)
-            setRenderStates3DMode();
-
-		if (!found->CurrentXFormFeedback->isActive())
-			found->CurrentXFormFeedback->beginResumeFeedback();
-	}
-    */
-}
-
-void COpenGLDriver::pauseTransformFeedback()
-{
-    SAuxContext* found = getThreadContext_helper(false);
-    if (!found)
-        return;
-
-
-	found->XFormFeedbackRunning = false;
-    found->CurrentXFormFeedback->pauseFeedback();
-}
-
-void COpenGLDriver::resumeTransformFeedback()
-{
-    SAuxContext* found = getThreadContext_helper(false);
-    if (!found)
-        return;
-
-
-	found->XFormFeedbackRunning = true;
-    found->CurrentXFormFeedback->beginResumeFeedback();
-}
-
-void COpenGLDriver::endTransformFeedback()
-{
-    SAuxContext* found = getThreadContext_helper(false);
-    if (!found)
-        return;
-
-
-    if (!found->CurrentXFormFeedback)
-    {
-        os::Printer::log("No Transform Feedback Object bound, possible redundant glEndTransform...!\n", ELL_ERROR);
-        return;
-    }
-#ifdef _IRR_DEBUG
-    if (!found->CurrentXFormFeedback->isActive())
-        os::Printer::log("Ending an already paused transform feedback, the pause call is redundant!\n", ELL_ERROR);
-#endif // _IRR_DEBUG
-    found->CurrentXFormFeedback->endFeedback();
-    found->XFormFeedbackRunning = false;
-    ///In the interest of binding speed we wont release the CurrentXFormFeedback
-    //bindTransformFeedback(NULL,found);
 }
 
 //! Enable/disable a clipping plane.

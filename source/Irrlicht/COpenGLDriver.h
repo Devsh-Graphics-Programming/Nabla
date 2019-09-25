@@ -20,12 +20,10 @@ namespace irr
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
 #include "CNullDriver.h"
-#include "IMaterialRendererServices.h"
 // also includes the OpenGL stuff
 #include "COpenGLExtensionHandler.h"
 #include "COpenGLDriverFence.h"
 #include "COpenGLTransformFeedback.h"
-#include "COpenGLVAOSpec.h"
 #include "COpenCLHandler.h"
 #include "irr/video/COpenGLSpecializedShader.h"
 #include "irr/video/COpenGLRenderpassIndependentPipeline.h"
@@ -154,7 +152,7 @@ namespace video
         } descriptorsParams;
     };
 
-	class COpenGLDriver : public CNullDriver, public IMaterialRendererServices, public COpenGLExtensionHandler
+	class COpenGLDriver : public CNullDriver, public COpenGLExtensionHandler
 	{
         _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_UBO_BINDING_COUNT = 16u;
         _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_SSBO_BINDING_COUNT = 16u;
@@ -597,14 +595,6 @@ namespace video
 		//!
 		virtual void issueGPUTextureBarrier() {COpenGLExtensionHandler::extGlTextureBarrier();}
 
-
-		virtual const video::SGPUMaterial& getCurrentMaterial() const {return Material;}
-
-		//! Sets a material. All 3d drawing functions draw geometry now
-		//! using this material.
-		//! \param material: Material to be used from now on.
-		virtual void setMaterial(const SGPUMaterial& material);
-
         //! needs to be "deleted" since its not refcounted
         virtual core::smart_refctd_ptr<IDriverFence> placeFence(const bool& implicitFlushWaitSameThread=false) override final
         {
@@ -623,13 +613,6 @@ namespace video
 
 		//! get color format of the current color buffer
 		virtual asset::E_FORMAT getColorFormat() const;
-
-		//! Can be called by an IMaterialRenderer to make its work easier.
-		virtual void setBasicRenderStates(const SGPUMaterial& material, const SGPUMaterial& lastmaterial,
-			bool resetAllRenderstates);
-
-
-        virtual void setShaderConstant(const void* data, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1);
 
         /*
         virtual int32_t addHighLevelShaderMaterial(
@@ -698,27 +681,6 @@ namespace video
 		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals) override;
 		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals) override;
 
-
-		virtual ITransformFeedback* createTransformFeedback();
-
-		//!
-		virtual void bindTransformFeedback(ITransformFeedback* xformFeedback);
-
-		virtual ITransformFeedback* getBoundTransformFeedback() {return getThreadContext_helper(false,std::this_thread::get_id())->CurrentXFormFeedback;}
-
-        /** Only POINTS, LINES, and TRIANGLES are allowed as capture types.. no strips or fans!
-        This issues an implicit call to bindTransformFeedback()
-        **/
-		virtual void beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const asset::E_PRIMITIVE_TYPE& primType= asset::EPT_POINTS);
-
-		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
-		virtual void pauseTransformFeedback();
-
-		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
-		virtual void resumeTransformFeedback();
-
-		virtual void endTransformFeedback();
-
         const CDerivativeMapCreator* getDerivativeMapCreator() const override { return DerivativeMapCreator; };
 
 		//! Enable/disable a clipping plane.
@@ -727,14 +689,8 @@ namespace video
 		//! \param enable: If true, enable the clipping plane else disable it.
 		virtual void enableClipPlane(uint32_t index, bool enable);
 
-		//! Enable the 2d override material
-		virtual void enableMaterial2D(bool enable=true);
-
 		//! Returns the graphics card vendor name.
 		virtual std::string getVendorInfo() {return VendorName;}
-
-		//! sets the needed renderstates
-		void setRenderStates3DMode();
 
 		//!
 		const size_t& getMaxConcurrentShaderInvocations() const {return maxConcurrentShaderInvocations;}
@@ -861,22 +817,6 @@ namespace video
         core::map<PipelineMapKeyT, GLuint> Pipelines;
 
         bool runningInRenderDoc;
-
-		//! enumeration for rendering modes such as 2d and 3d for minizing the switching of renderStates.
-		enum E_RENDER_MODE
-		{
-			ERM_NONE = 0,	// no render state has been set yet.
-			ERM_2D,		// 2d drawing rendermode
-			ERM_3D		// 3d rendering mode
-		};
-
-		E_RENDER_MODE CurrentRenderMode;
-		//! bool to make all renderstates reset if set to true.
-		bool ResetRenderStates;
-
-		SGPUMaterial Material, LastMaterial;
-
-
 
 		//! inits the parts of the open gl driver used on all platforms
 		bool genericDriverInit();
