@@ -63,7 +63,6 @@
 #include "IEventReceiver.h"
 #include "IFileList.h"
 #include "IFileSystem.h"
-#include "IGPUProgrammingServices.h"
 #include "ILogger.h"
 #include "IMaterialRenderer.h"
 #include "IMaterialRendererServices.h"
