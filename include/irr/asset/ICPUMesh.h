@@ -1,7 +1,6 @@
 #ifndef __IRR_I_CPU_MESH_H_INCLUDED__
 #define __IRR_I_CPU_MESH_H_INCLUDED__
 
-#include "irr/core/math/irrMath.h"
 #include "irr/asset/IMesh.h"
 #include "irr/asset/IAsset.h"
 #include "irr/asset/ICPUMeshBuffer.h"

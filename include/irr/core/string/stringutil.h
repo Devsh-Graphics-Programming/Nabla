@@ -193,7 +193,7 @@ namespace core
 	{
 		inline bool operator()(const std::string& A, const std::string& B) const
 		{
-			return core::strcmpi(A, B) != 0;
+			return core::strcmpi(A, B)==0;
 		}
 	};
 

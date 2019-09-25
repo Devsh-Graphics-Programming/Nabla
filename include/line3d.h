@@ -5,7 +5,7 @@
 #ifndef __IRR_LINE_3D_H_INCLUDED__
 #define __IRR_LINE_3D_H_INCLUDED__
 
-#include "vector3d.h"
+#include "vectorSIMD.h"
 
 namespace irr
 {

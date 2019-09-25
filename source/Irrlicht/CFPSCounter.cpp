@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "CFPSCounter.h"
-#include "irr/core/math/irrMath.h"
+//#include "irr/core/math/irrMath.h"
 
 namespace irr
 {

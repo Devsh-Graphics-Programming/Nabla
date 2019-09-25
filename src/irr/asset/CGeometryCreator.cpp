@@ -324,7 +324,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createSphereMesh(float
 					//if (y==0)
 					//{
 						if (normal.Y != -1.0f && normal.Y != 1.0f)
-							tu = static_cast<float>(acos(core::clamp(normal.X/sinay, -1.0, 1.0)) * 0.5 *core::RECIPROCAL_PI64);
+							tu = static_cast<float>(acos(core::clamp(normal.X/sinay, -1.0, 1.0)) * 0.5 *core::RECIPROCAL_PI<double>());
 						if (normal.Z < 0.0f)
 							tu=1-tu;
 					//}
@@ -335,7 +335,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createSphereMesh(float
 					((float*)tmpMemPtr)[1] = pos.Y;
 					((float*)tmpMemPtr)[2] = pos.Z;
 					((float*)tmpMemPtr)[4] = tu;
-					((float*)tmpMemPtr)[5] = static_cast<float>(ay*core::RECIPROCAL_PI64);
+					((float*)tmpMemPtr)[5] = static_cast<float>(ay*core::RECIPROCAL_PI<double>());
 					((uint32_t*)tmpMemPtr)[6] = quantizedNormal;
 
 					tmpMemPtr += vertexSize;
@@ -407,7 +407,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCylinderMesh(flo
     uint8_t glcolor[4];
     color.toOpenGLColor(glcolor);
 
-    const float tesselationRec = core::reciprocal((float)tesselation);
+    const float tesselationRec = core::reciprocal_approxim<float>(tesselation);
     const float step = (2.f*core::PI)/tesselation;
     for (uint32_t i = 1u; i < vtxCnt/2u; ++i)
     {

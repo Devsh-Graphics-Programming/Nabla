@@ -202,10 +202,10 @@ namespace video
 		constructed from. */
 		SColorf(SColor c)
 		{
-			r = c.getRed();
-			g = c.getGreen();
-			b = c.getBlue();
-			a = c.getAlpha();
+			r = static_cast<float>(c.getRed());
+			g = static_cast<float>(c.getGreen());
+			b = static_cast<float>(c.getBlue());
+			a = static_cast<float>(c.getAlpha());
 
 			const float inv = 1.0f / 255.0f;
 			*this *= inv;
@@ -232,7 +232,7 @@ namespace video
 		{
 		    vectorSIMDf tmp = (*this) * 255.f;
 
-			return SColor((uint32_t)core::round32(tmp.a), (uint32_t)core::round32(tmp.r), (uint32_t)core::round32(tmp.g), (uint32_t)core::round32(tmp.b));
+			return SColor(core::round<float, uint32_t>(tmp.a), core::round<float, uint32_t>(tmp.r), core::round<float, uint32_t>(tmp.g), core::round<float, uint32_t>(tmp.b));
 		}
 
 		//! Sets three color components to new values at once.

@@ -5,7 +5,7 @@
 #ifndef __IRR_POINT_3D_H_INCLUDED__
 #define __IRR_POINT_3D_H_INCLUDED__
 
-#include "irr/core/math/irrMath.h"
+#include "irr/core/math/glslFunctions.h"
 
 namespace irr
 {
@@ -94,23 +94,15 @@ namespace core
 		//! use weak float compare
 		bool operator==(const vector3d<T>& other) const
 		{
-			return this->equals(other);
+			return core::equals<vector3d<T>,float>(*this,other);
 		}
 
 		bool operator!=(const vector3d<T>& other) const
 		{
-			return !this->equals(other);
+			return !operator==(other);
 		}
 
 		// functions
-
-		//! returns if this vector equals the other one, taking floating point rounding errors into account
-		bool equals(const vector3d<T>& other, const T tolerance = (T)ROUNDING_ERROR_f32 ) const
-		{
-			return core::equals(X, other.X, tolerance) &&
-				core::equals(Y, other.Y, tolerance) &&
-				core::equals(Z, other.Z, tolerance);
-		}
 
 		vector3d<T>& set(const T nx, const T ny, const T nz) {X=nx; Y=ny; Z=nz; return *this;}
 		vector3d<T>& set(const vector3d<T>& p) {X=p.X; Y=p.Y; Z=p.Z;return *this;}
@@ -161,23 +153,6 @@ namespace core
 			const T f = (end - begin).getLengthSQ();
 			return getDistanceFromSQ(begin) <= f &&
 				getDistanceFromSQ(end) <= f;
-		}
-
-		//! Normalizes the vector.
-		/** In case of the 0 vector the result is still 0, otherwise
-		the length of the vector will be 1.
-		\return Reference to this vector after normalization. */
-		vector3d<T>& normalize()
-		{
-			double length = X*X + Y*Y + Z*Z;
-			if (length == 0 ) // this check isn't an optimization but prevents getting NAN in the sqrt.
-				return *this;
-			length = core::reciprocal_squareroot(length);
-
-			X = (T)(X * length);
-			Y = (T)(Y * length);
-			Z = (T)(Z * length);
-			return *this;
 		}
 
 		//! Sets the length of the vector to a new value
@@ -294,30 +269,6 @@ namespace core
 			return angle;
 		}
 
-		//! Get the spherical coordinate angles
-		/** This returns Euler degrees for the point represented by
-		this vector.  The calculation assumes the pole at (0,1,0) and
-		returns the angles in X and Y.
-		*/
-		vector3d<T> getSphericalCoordinateAngles() const
-		{
-			vector3d<T> angle;
-			const double length = X*X + Y*Y + Z*Z;
-
-			if (length)
-			{
-				if (X!=0)
-				{
-					angle.Y = (T)(atan2((double)Z,(double)X) * RADTODEG64);
-				}
-				else if (Z<0)
-					angle.Y=180;
-
-				angle.X = (T)(acos(Y * core::reciprocal_squareroot(length)) * RADTODEG64);
-			}
-			return angle;
-		}
-
 		//! Builds a direction vector from (this) rotation vector.
 		/** This vector is assumed to be a rotation vector composed of 3 Euler angle rotations, in degrees.
 		The implementation performs the same calculations as using a matrix to do the rotation.
@@ -393,25 +344,6 @@ namespace core
 	template <>
 	inline vector3d<int32_t>& vector3d<int32_t>::operator /=(int32_t val) {X/=val;Y/=val;Z/=val; return *this;}
 
-	template <>
-	inline vector3d<int32_t> vector3d<int32_t>::getSphericalCoordinateAngles() const
-	{
-		vector3d<int32_t> angle;
-		const double length = X*X + Y*Y + Z*Z;
-
-		if (length)
-		{
-			if (X!=0)
-			{
-				angle.Y = round32((float)(atan2((double)Z,(double)X) * RADTODEG64));
-			}
-			else if (Z<0)
-				angle.Y=180;
-
-			angle.X = round32((float)(acos(Y * core::reciprocal_squareroot(length)) * RADTODEG64));
-		}
-		return angle;
-	}
 
 	//! Typedef for a float 3d vector.
 	typedef vector3d<float> vector3df;

@@ -62,7 +62,7 @@ void CSceneNodeAnimatorFollowSpline::animateNode(IDummyTransformationSceneNode* 
 		return;
 	}
 	const bool pong = PingPong && (unwrappedIdx/(pSize-1))%2;
-	const float u =  pong ? 1.f-core::fract ( dt ) : core::fract ( dt );
+	const float u =  pong ? 1.f-core::fract<float>( dt ) : core::fract<float>( dt );
 	const int32_t idx = pong ?	(pSize-2) - (unwrappedIdx % (pSize-1))
 						: (PingPong ? unwrappedIdx % (pSize-1)
 									: unwrappedIdx % pSize);

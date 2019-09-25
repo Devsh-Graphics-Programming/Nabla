@@ -119,9 +119,6 @@ namespace irr
             //! \return Returns only 1,2 or 3. A 4th click will start with 1 again.
             virtual uint32_t checkSuccessiveClicks(int32_t mouseX, int32_t mouseY, EMOUSE_INPUT_EVENT inputEvent );
 
-            void calculateGammaRamp ( uint16_t *ramp, float gamma, float relativebrightness, float relativecontrast );
-            void calculateGammaFromRamp ( float &gamma, const uint16_t *ramp );
-
             video::IVideoDriver* VideoDriver;
             scene::ISceneManager* SceneManager;
             irr::ITimer* Timer;

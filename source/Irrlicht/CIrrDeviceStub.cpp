@@ -264,48 +264,6 @@ bool CIrrDeviceStub::activateJoysticks(core::vector<SJoystickInfo> & joystickInf
 	return false;
 }
 
-/*!
-*/
-void CIrrDeviceStub::calculateGammaRamp ( uint16_t *ramp, float gamma, float relativebrightness, float relativecontrast )
-{
-	int32_t i;
-	int32_t value;
-	int32_t rbright = (int32_t) ( relativebrightness * (65535.f / 4 ) );
-	float rcontrast = 1.f / (255.f - ( relativecontrast * 127.5f ) );
-
-	gamma = gamma > 0.f ? 1.0f / gamma : 0.f;
-
-	for ( i = 0; i < 256; ++i )
-	{
-		value = (int32_t)(pow( rcontrast * i, gamma)*65535.f + 0.5f );
-		ramp[i] = (uint16_t) core::s32_clamp ( value + rbright, 0, 65535 );
-	}
-
-}
-
-void CIrrDeviceStub::calculateGammaFromRamp ( float &gamma, const uint16_t *ramp )
-{
-	/* The following is adapted from a post by Garrett Bass on OpenGL
-	Gamedev list, March 4, 2000.
-	*/
-	float sum = 0.0;
-	int32_t i, count = 0;
-
-	gamma = 1.0;
-	for ( i = 1; i < 256; ++i ) {
-		if ( (ramp[i] != 0) && (ramp[i] != 65535) ) {
-			float B = (float)i / 256.f;
-			float A = ramp[i] / 65535.f;
-			sum += (float) ( logf(A) / logf(B) );
-			count++;
-		}
-	}
-	if ( count && sum ) {
-		gamma = 1.0f / (sum / count);
-	}
-
-}
-
 
 //! Set the maximal elapsed time between 2 clicks to generate doubleclicks for the mouse. It also affects tripleclick behavior.
 void CIrrDeviceStub::setDoubleClickTime( uint32_t timeMs )

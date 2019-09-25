@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "CVideoModeList.h"
-#include "irr/core/math/irrMath.h"
+//#include "irr/core/math/irrMath.h"
 
 #include <algorithm>
 

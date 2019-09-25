@@ -7,7 +7,8 @@
 
 #include "IrrCompileConfig.h"
 
-#include "irr/core/math/irrMath.h"
+#include "irr/core/math/intutil.h"
+#include "irr/core/math/glslFunctions.h"
 
 #include "irr/core/alloc/AddressAllocatorBase.h"
 
