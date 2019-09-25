@@ -3,14 +3,15 @@
 
 #include "irr/asset/IDescriptorSetLayout.h"
 #include "irr/core/IReferenceCounted.h"
+#include "irr/video/IGPUSampler.h"
 
 namespace irr { namespace video
 {
 
-class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout, public core::IReferenceCounted
+class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>, public core::IReferenceCounted
 {
 public:
-    using IDescriptorSetLayout::IDescriptorSetLayout;
+    using IDescriptorSetLayout<IGPUSampler>::IDescriptorSetLayout;
 
 protected:
     virtual ~IGPUDescriptorSetLayout() = default;

@@ -2451,7 +2451,7 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
         GLsizeiptr ssbosizes[MAX_SSBO_BINDING_COUNT]{};
 
         GLuint texnames[MAX_TEXTURE_BINDING_COUNT]{};
-        GLenum textargets[MAX_TEXTURE_BINDING_COUNT]{};
+        GLuint smplrnames[MAX_TEXTURE_BINDING_COUNT]{};
 
         GLuint imgnames[MAX_IMAGE_BINDING_COUNT]{};
         GLenum imgformats[MAX_IMAGE_BINDING_COUNT]{};
@@ -2479,7 +2479,7 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
             std::copy(multibind_params.ssbos.sizes, multibind_params.ssbos.sizes + first_count.ssbos.count, ssbosizes + first_count.ssbos.first);
 
             std::copy(multibind_params.textures.textures, multibind_params.textures.textures + first_count.textures.count, texnames + first_count.textures.first);
-            std::copy(multibind_params.textures.targets, multibind_params.textures.targets + first_count.textures.count, texnames + first_count.textures.first);
+            std::copy(multibind_params.textures.samplers, multibind_params.textures.samplers + first_count.textures.count, smplrnames + first_count.textures.first);
 
             std::copy(multibind_params.textureImages.textures, multibind_params.textureImages.textures + first_count.textureImages.count, imgnames + first_count.textureImages.first);
             std::copy(multibind_params.textureImages.formats, multibind_params.textureImages.formats + first_count.textureImages.count, imgformats + first_count.textureImages.first);
@@ -2488,7 +2488,8 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
         {
             COpenGLExtensionHandler::extGlBindBuffersRange(GL_UNIFORM_BUFFER, 0u, MAX_UBO_BINDING_COUNT, ubonames, ubooffsets, ubosizes);
             COpenGLExtensionHandler::extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, 0u, MAX_SSBO_BINDING_COUNT, ssbonames, ssbooffsets, ssbosizes);
-            COpenGLExtensionHandler::extGlBindTextures(0u, MAX_TEXTURE_BINDING_COUNT, texnames, textargets);//TODO this might be problematic if ARB_multi_bind is not available (need to unbind textures of different type possibly bound to the same tex unit)
+            COpenGLExtensionHandler::extGlBindTextures(0u, MAX_TEXTURE_BINDING_COUNT, texnames, nullptr);
+            COpenGLExtensionHandler::extGlBindSamplers(0u, MAX_TEXTURE_BINDING_COUNT, smplrnames);
             //TODO bind samplers
             COpenGLExtensionHandler::extGlBindImageTextures(0u, MAX_IMAGE_BINDING_COUNT, imgnames, imgformats);
         }

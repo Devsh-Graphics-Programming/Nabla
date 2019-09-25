@@ -6,14 +6,16 @@
 #include "irr/asset/ICPUTexture.h"
 #include "irr/asset/ICPUBuffer.h"
 #include "irr/asset/ICPUBufferView.h"
+#include "irr/asset/ICPUSampler.h"
+#include "irr/asset/ICPUDescriptorSetLayout.h"
 
 namespace irr { namespace asset
 {
 
-class ICPUDescriptorSet : public IDescriptorSet<ICPUBuffer, ICPUTexture, ICPUBufferView>, public IAsset
+class ICPUDescriptorSet : public IDescriptorSet<ICPUDescriptorSetLayout, ICPUBuffer, ICPUTexture, ICPUBufferView, ICPUSampler>, public IAsset
 {
 public:
-    using IDescriptorSet<ICPUBuffer, ICPUTexture, ICPUBufferView>::IDescriptorSet;
+    using IDescriptorSet<ICPUDescriptorSetLayout, ICPUBuffer, ICPUTexture, ICPUBufferView, ICPUSampler>::IDescriptorSet;
 
     size_t conservativeSizeEstimate() const override { return m_descriptors->size()*sizeof(SWriteDescriptorSet); }
     void convertToDummyObject() override { m_descriptors = nullptr; }

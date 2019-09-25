@@ -2,7 +2,6 @@
 #define __IRR_I_DESCRIPTOR_SET_H_INCLUDED__
 
 #include "irr/core/memory/refctd_dynamic_array.h"
-#include "irr/asset/SSamplerParams.h"
 #include "irr/asset/IDescriptorSetLayout.h"//for E_DESCRIPTOR_TYPE
 #include "irr/asset/format/EFormat.h"
 #include "irr/asset/IDescriptor.h"
@@ -30,7 +29,7 @@ enum E_IMAGE_LAYOUT : uint32_t
     EIL_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT = 1000218000
 };
 
-template<typename BufferType, typename TextureType, typename BufferViewType>
+template<typename LayoutType, typename BufferType, typename TextureType, typename BufferViewType, typename SamplerType>
 class IDescriptorSet
 {
 protected:
@@ -45,7 +44,7 @@ protected:
             } buffer;
             struct SDescriptorImageInfo
             {
-                SSamplerParams sampler;
+                core::smart_refctd_ptr<SamplerType> sampler;
                 //! Irrelevant in OpenGL backend
                 E_IMAGE_LAYOUT imageLayout;
             } image;
@@ -62,10 +61,11 @@ public:
 
 protected:
     /**
+    @param _layout Bindings in layout must go in the same order as corresponding descriptors (SWriteDescriptorSet) in `_descriptors` parameter (this requirement should be probably dropped in the future)
     @param _descriptors Entries must be sorted by binding number
     */
-    IDescriptorSet(core::smart_refctd_dynamic_array<SWriteDescriptorSet>&& _descriptors) : 
-        m_descriptors(std::move(_descriptors)) 
+    IDescriptorSet(core::smart_refctd_ptr<LayoutType> _layout, core::smart_refctd_dynamic_array<SWriteDescriptorSet>&& _descriptors) :
+        m_layout(_layout), m_descriptors(std::move(_descriptors)) 
     {
         auto is_not_sorted = [this] {
             for (auto it = m_descriptors->cbegin()+1; it != m_descriptors->cend(); ++it)
@@ -79,6 +79,7 @@ protected:
     }
     virtual ~IDescriptorSet() = default;
 
+    core::smart_refctd_ptr<LayoutType> m_layout;
     core::smart_refctd_dynamic_array<SWriteDescriptorSet> m_descriptors;
 };
 

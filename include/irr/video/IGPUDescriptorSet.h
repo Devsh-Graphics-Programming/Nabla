@@ -5,14 +5,16 @@
 #include "IGPUBuffer.h"
 #include "ITexture.h"
 #include "irr/video/IGPUBufferView.h"
+#include "irr/video/IGPUSampler.h"
+#include "irr/video/IGPUDescriptorSetLayout.h"
 
 namespace irr { namespace video
 {
 
-class IGPUDescriptorSet : public asset::IDescriptorSet<IGPUBuffer, ITexture, IGPUBufferView>, public core::IReferenceCounted
+class IGPUDescriptorSet : public asset::IDescriptorSet<IGPUDescriptorSetLayout, IGPUBuffer, ITexture, IGPUBufferView, IGPUSampler>, public core::IReferenceCounted
 {
 public:
-    using asset::IDescriptorSet<IGPUBuffer, ITexture, IGPUBufferView>::IDescriptorSet;
+    using asset::IDescriptorSet<IGPUDescriptorSetLayout, IGPUBuffer, ITexture, IGPUBufferView, IGPUSampler>::IDescriptorSet;
 
 protected:
     virtual ~IGPUDescriptorSet() = default;

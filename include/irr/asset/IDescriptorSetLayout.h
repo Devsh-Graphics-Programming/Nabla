@@ -2,7 +2,6 @@
 #define __IRR_I_DESCRIPTOR_SET_LAYOUT_H_INCLUDED__
 
 #include "irr/asset/ShaderCommons.h"
-#include "irr/asset/SSamplerParams.h"
 #include "irr/core/memory/refctd_dynamic_array.h"
 #include "irr/core/SRange.h"
 
@@ -24,6 +23,7 @@ enum E_DESCRIPTOR_TYPE
     EDT_INPUT_ATTACHMENT = 10
 };
 
+template<typename SamplerType>
 class IDescriptorSetLayout
 {
 public:
@@ -32,7 +32,7 @@ public:
         E_DESCRIPTOR_TYPE type;
         uint32_t count;
         E_SHADER_STAGE stageFlags;
-        const SSamplerParams* samplers;
+        const core::smart_refctd_ptr<SamplerType>* samplers;
     };
 
 protected:
@@ -46,7 +46,7 @@ protected:
             if (bnd.type==EDT_COMBINED_IMAGE_SAMPLER && bnd.samplers)
                 immSamplerCount += bnd.count;
         }
-        m_samplers = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SSamplerParams>>(immSamplerCount);
+        m_samplers = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<SamplerType>>>(immSamplerCount);
 
         size_t immSamplersOffset = 0u;
         for (size_t i = 0ull; i < bndCount; ++i)
@@ -78,7 +78,7 @@ protected:
     virtual ~IDescriptorSetLayout() = default;
 
     core::smart_refctd_dynamic_array<SBinding> m_bindings;
-    core::smart_refctd_dynamic_array<SSamplerParams> m_samplers;
+    core::smart_refctd_dynamic_array<core::smart_refctd_ptr<SamplerType>> m_samplers;
 
 public:
     core::SRange<const SBinding> getBindings() const { return {m_bindings->data(), m_bindings->data()+m_bindings->size()}; }

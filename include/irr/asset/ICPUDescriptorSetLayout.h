@@ -3,20 +3,20 @@
 
 #include "irr/asset/IDescriptorSetLayout.h"
 #include "irr/asset/IAsset.h"
+#include "irr/asset/ICPUSampler.h"
 
 namespace irr { namespace asset
 {
 
-class ICPUDescriptorSetLayout : public IDescriptorSetLayout, public IAsset
+class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public IAsset
 {
 public:
-    using IDescriptorSetLayout::IDescriptorSetLayout;
+    using IDescriptorSetLayout<ICPUSampler>::IDescriptorSetLayout;
 
-    size_t conservativeSizeEstimate() const override { return m_bindings->size()*sizeof(SBinding) + m_samplers->size()*sizeof(SSamplerParams); }
+    size_t conservativeSizeEstimate() const override { return m_bindings->size()*sizeof(SBinding) + m_samplers->size()*sizeof(void*); }
     void convertToDummyObject() override
     {
         m_bindings = nullptr;
-        m_samplers = nullptr;
     }
     E_TYPE getAssetType() const override { return ET_DESCRIPTOR_SET_LAYOUT; }
 
