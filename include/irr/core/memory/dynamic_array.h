@@ -27,6 +27,17 @@ namespace impl
 	};
 }
 
+//! Class for array type, that allocates memory one time dynamically for specified constant amount of objects
+/**
+	An array is allocated dynamically, so not on stack.
+	There is no case you can change the size of such an array in.
+	The adventage of this class is core::dynamic_array has constant storage size,
+	so only one allocation is performed once (member and data storage on single allocation),
+	instead of unnecessary 2 allocations that might appear, if there were not such a class
+	handling it.
+
+	@see core::refctd_dynamic_array
+*/
 template<typename T, class allocator = core::allocator<T>, class CRTP=void>
 class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<T,allocator>
 {

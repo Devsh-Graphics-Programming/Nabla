@@ -165,8 +165,13 @@ namespace asset
 			}
 		}
 
+		//TODO change name
         //! _supposedFilename is filename as it was, not touched by loader override with _override->getLoadFilename()
-        //TODO change name
+		/**
+			Attempting of getting an Asset. Valid loaders for certein extension are searched. If none of those can't
+			deal with file with certein extension adjusted to found loaders, then the tryout is performed, and the funtion
+			iterates through all available loaders counting on that one of them might work.
+		*/
         SAssetBundle getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
             IAssetLoader::SAssetLoadContext ctx{_params, _file};

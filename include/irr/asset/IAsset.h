@@ -11,13 +11,20 @@ namespace asset
 
 class IAssetManager;
 
+//! A class managing Asset's extra metadata context
+/**
+	Sometimes there may be nedeed attaching some metadata by a Loader
+	into Asset structure - that's why the class is defined.
+	Pay attention that it hasn't been done exactly yet, engine doesn't provide
+	metadata injecting.
+*/
 class IAssetMetadata : public core::IReferenceCounted
 {
 protected:
     virtual ~IAssetMetadata() = default;
 
 public:
-    //! this could actually be reworked to something more usable
+    //! This could actually be reworked to something more usable
     virtual const char* getLoaderName() = 0;
 };
 
@@ -131,22 +138,36 @@ private:
     void setMetadata(core::smart_refctd_ptr<IAssetMetadata>&& _metadata) { m_metadata = std::move(_metadata); }
 
 protected:
-    bool isDummyObjectForCacheAliasing;
+    bool isDummyObjectForCacheAliasing; //!< A bool for setting whether Asset is in dummy state. @see convertToDummyObject()
+
     //! To be implemented by base classes, dummies must retain references to other assets
     //! but cleans up all other resources which are not assets.
+	/**
+		Converting to a GPU object is equivalent of signing an Asset as dummy object.
+		If an Asset is being converted to a GPU object, its resources are no longer needed in RAM memory,
+		so everything it has allocated becomes deleted, but the Asset itself remains untouched, 
+		because it's needed as a key by some funtions that find GPU objects.
+		It involves all CPU objects (Assets).
+
+		So an Asset becomes GPU object and deletes some resources in RAM memory.
+	*/
     virtual void convertToDummyObject() = 0;
+
     //! Checks if the object is either not dummy or dummy but in some cache for a purpose
     inline bool isInValidState() { return !isDummyObjectForCacheAliasing /* || !isCached TODO*/; }
+
     //! Pure virtual destructor to ensure no instantiation
     virtual ~IAsset() = 0;
 
 public:
-    //! To be implemented by derived classes
+    //! To be implemented by derived classes. Returns a type of an Asset
     virtual E_TYPE getAssetType() const = 0;
-    //! 
+
+    //! Returning isDummyObjectForCacheAliasing, specifies whether Asset in dummy state
     inline bool isADummyObjectForCache() const { return isDummyObjectForCacheAliasing; }
 };
 
+//! A class storing Assets with the same type
 class SAssetBundle
 {
 	inline bool allSameTypeAndNotNull()
@@ -182,7 +203,7 @@ public:
 
 	//! Returning a type associated with current stored Assets
 	/**
-		An Asset type is specified in E_TYPE enum
+		An Asset type is specified in E_TYPE enum.
 		@see E_TYPE
 	*/
     inline IAsset::E_TYPE getAssetType() const { return m_contents->front()->getAssetType(); }
@@ -195,11 +216,13 @@ public:
 
     //! Whether this asset bundle is in a cache and should be removed from cache to destroy
     inline bool isInAResourceCache() const { return m_isCached; }
+
     //! Only valid if isInAResourceCache() returns true
     std::string getCacheKey() const { return m_cacheKey; }
 
 	//! Getting size of a collection of Assets stored by m_contents
     size_t getSize() const { return m_contents->size(); }
+
 	//! Checking if a collection of Assets stored by m_contents is empty
     bool isEmpty() const { return getSize()==0ull; }
 

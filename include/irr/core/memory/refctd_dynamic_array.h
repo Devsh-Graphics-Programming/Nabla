@@ -10,6 +10,20 @@ namespace irr
 namespace core
 {
 
+//! Class for array type, that allocates memory one time dynamically for specified constant amount of objects
+/**
+	An array is allocated dynamically, so not on stack.
+	There is no case you can change the size of such an array in.
+	The adventage of this class is core::dynamic_array has constant storage size,
+	so only one allocation is performed once (member and data storage on single allocation),
+	instead of unnecessary 2 allocations that might appear, if there were not such a class
+	handling it.
+
+	Pay attention it additionally derives from IReferenceCounted, so all adventages and behaviours of IReferenceCounted are provided indeed.
+
+	@see IReferenceCounted
+	@see core::dynamic_array
+*/
 template<typename T, class allocator = allocator<T>>
 class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dynamic_array<T,allocator,refctd_dynamic_array<T,allocator> >
 {

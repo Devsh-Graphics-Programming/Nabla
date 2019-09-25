@@ -18,6 +18,14 @@ namespace irr
 namespace asset
 {
 
+//! One of CPU class-object representing an Asset
+/**
+	An Asset is a CPU object which needs to be loaded for caching it to RAM memory,
+	and then must to be converted to GPU object!
+
+	@see IAsset
+*/
+
 class ICPUBuffer : public core::IBuffer, public asset::IAsset
 {
     protected:

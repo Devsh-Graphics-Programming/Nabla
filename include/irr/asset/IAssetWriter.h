@@ -13,10 +13,10 @@ namespace irr { namespace asset
 /**
 	They have an impact on writing (saving) an Asset.
 
-	E_WRITER_FLAGS::EWF_NONE means that there aren't writer flags (default)
-	E_WRITER_FLAGS::EWF_COMPRESSED means that it has to write in a way that consumes less disk space if possible 
-	E_WRITER_FLAGS::EWF_ENCRYPTED means that it has to write in encrypted way if possible
-	E_WRITER_FLAGS::EWF_BINARY means that it has to write in binary format rather than text if possible
+	E_WRITER_FLAGS::EWF_NONE means that there aren't writer flags (default).
+	E_WRITER_FLAGS::EWF_COMPRESSED means that it has to write in a way that consumes less disk space if possible.
+	E_WRITER_FLAGS::EWF_ENCRYPTED means that it has to write in encrypted way if possible.
+	E_WRITER_FLAGS::EWF_BINARY means that it has to write in binary format rather than text if possible.
 */
 enum E_WRITER_FLAGS : uint32_t
 {
@@ -42,6 +42,9 @@ enum E_WRITER_FLAGS : uint32_t
 
 	The writing is impacted by writing flags, defined as E_WRITER_FLAGS.
 
+	Remember that loaded Asset doesn't actually know how it was created in reference to certain file extension it was called from,
+	so if you loaded an Asset from .baw, you can save it to another file with different extension if a valid writer is provided.
+
 	When the class derived from IAssetWriter is added, its put once on a 
 	std::multimap<std::pair<IAsset::E_TYPE,std::string>,IAssetWriter*> for every 
 	asset type and file extension it supports, and once on a std::multimap<IAsset::E_TYPE,IAssetWriter*> 
@@ -56,6 +59,7 @@ enum E_WRITER_FLAGS : uint32_t
 	@see IAsset
 	@see IAssetManager
 	@see IAssetLoader
+	@see E_WRITER_FLAGS
 */
 class IAssetWriter : public virtual core::IReferenceCounted
 {
