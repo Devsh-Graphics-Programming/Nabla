@@ -6,29 +6,13 @@
 #define __S_TEXTURE_SAMPLING_PARAMS_H_INCLUDED__
 
 #include "irr/core/Types.h"
-
+//TODO nukt this file
 namespace irr
 {
 namespace video
 {
     class IRenderableVirtualTexture;
 
-	//! Texture coord clamp mode outside [0.0, 1.0]
-	enum E_TEXTURE_CLAMP
-	{
-		//! Texture repeats
-		ETC_REPEAT = 0,
-		//! Texture is clamped to the edge pixel
-		ETC_CLAMP_TO_EDGE,
-		//! Texture is clamped to the border pixel (if exists)
-		ETC_CLAMP_TO_BORDER,
-		//! Texture is alternatingly mirrored (0..1..0..1..0..)
-		ETC_MIRROR,
-		//! Texture is mirrored once and then clamped to edge
-		ETC_MIRROR_CLAMP_TO_EDGE,
-		//! Texture is mirrored once and then clamped to border
-		ETC_MIRROR_CLAMP_TO_BORDER
-	};
 	static const char* const aTextureClampNames[] = {
 			"texture_clamp_repeat",
 			"texture_clamp_clamp_to_edge",

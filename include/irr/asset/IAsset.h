@@ -58,11 +58,13 @@ public:
         ET_PIPELINE_LAYOUT = 1u<<15,
         //! asset::ICPUBufferView
         ET_BUFFER_VIEW = 1u<<16,
+        //! asset::ICPUSampler
+        ET_SAMPLER = 1u<<17,
         //! lights, etc.
         ET_IMPLEMENTATION_SPECIFIC_METADATA = 1u<<31u
         //! Reserved special value used for things like terminating lists of this enum
     };
-    constexpr static size_t ET_STANDARD_TYPES_COUNT = 17u;
+    constexpr static size_t ET_STANDARD_TYPES_COUNT = 18u;
 
     static uint32_t typeFlagToIndex(E_TYPE _type)
     {

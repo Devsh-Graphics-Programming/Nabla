@@ -36,7 +36,7 @@ enum E_TEXTURE_BORDER_COLOR
 enum E_TEXTURE_FILTER
 {
     ETF_NEAREST = 0,
-    ETF_LINEAR,
+    ETF_LINEAR
 };
 
 enum E_SAMPLER_MIPMAP_MODE
@@ -54,7 +54,7 @@ enum E_COMPARE_OP
     ECO_GREATER,
     ECO_NOT_EQUAL,
     ECO_GREATER_OR_EQUAL,
-    ECO_ALWAYS,
+    ECO_ALWAYS
 };
 
 struct SSamplerParams
@@ -68,11 +68,11 @@ struct SSamplerParams
         uint32_t MaxFilter : 1;
         uint32_t MipmapMode : 1;
         //! Encoded as power of two (so that if you need 16, Anisotropy should be 4); max value is 5
-        uint32_t Anisotropy : 3;
+        uint32_t AnisotropicFilter : 3;
         uint32_t CompareEnable : 1;
         uint32_t CompareFunc : 3;
     };
-    float LoadBias;
+    float LodBias;
     float MinLod;
     float MaxLod;
 };
