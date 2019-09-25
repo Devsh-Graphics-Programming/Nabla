@@ -247,10 +247,6 @@ namespace video
             virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length) {}
 
 
-            //! Creates a VAO or InputAssembly for OpenGL and Vulkan respectively
-            virtual core::smart_refctd_ptr<video::IGPUMeshDataFormatDesc> createGPUMeshDataFormatDesc(core::CLeakDebugger* dbgr=NULL) {return nullptr;}
-
-
             //! Creates a framebuffer object with no attachments
             virtual IFrameBuffer* addFrameBuffer() {return nullptr;}
 

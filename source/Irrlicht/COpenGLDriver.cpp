@@ -71,7 +71,7 @@ namespace video
 COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp)
 : CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
-	runningInRenderDoc(false),  CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(asset::EF_R8G8B8_UNORM), Params(params),
+	runningInRenderDoc(false),  /*ResetRenderStates(true),*/ ColorFormat(asset::EF_R8G8B8_UNORM), Params(params),
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
 	AuxContexts(0), DerivativeMapCreator(nullptr), GLSLCompiler(glslcomp), DeviceType(EIDT_WIN32)
 {
@@ -1037,18 +1037,9 @@ bool COpenGLDriver::genericDriverInit()
 	// adjust flat coloring scheme to DirectX version
 	///extGlProvokingVertex(GL_FIRST_VERTEX_CONVENTION_EXT);
 
-	// create material renderers
-	//createMaterialRenderers();
-    //WARNING EMT_SOLID and other "default shaders" won't work now
-
-    int32_t dummy;
-    MaterialRenderers.push_back({ "", new COpenGLSLMaterialRenderer(this, dummy) });
-
-	// set the renderstates
-	setRenderStates3DMode();
-
 	// We need to reset once more at the beginning of the first rendering.
 	// This fixes problems with intermediate changes to the material during texture load.
+    //TODO hm? should i worry about that?
 	ResetRenderStates = true;
 
 	// down
@@ -1114,6 +1105,7 @@ public:
 */
 void COpenGLDriver::createMaterialRenderers()
 {
+    /*
 	// create OpenGL material renderers
     const char* std_vert =
     "#version 430 core\n"
@@ -1225,6 +1217,7 @@ void COpenGLDriver::createMaterialRenderers()
         rdr->drop();
 
     //sdCB->drop();
+    */
 }
 
 
@@ -1339,11 +1332,6 @@ void COpenGLDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, 
     COpenGLBuffer* readbuffer = static_cast<COpenGLBuffer*>(readBuffer);
     COpenGLBuffer* writebuffer = static_cast<COpenGLBuffer*>(writeBuffer);
     extGlCopyNamedBufferSubData(readbuffer->getOpenGLName(),writebuffer->getOpenGLName(),readOffset,writeOffset,length);
-}
-
-core::smart_refctd_ptr<IGPUMeshDataFormatDesc> COpenGLDriver::createGPUMeshDataFormatDesc(core::CLeakDebugger* dbgr)
-{
-    return core::make_smart_refctd_ptr<COpenGLVAOSpec>(dbgr);
 }
 
 IQueryObject* COpenGLDriver::createPrimitivesGeneratedQuery()

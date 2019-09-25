@@ -544,8 +544,6 @@ namespace video
         const SAuxContext* getThreadContext(const std::thread::id& tid=std::this_thread::get_id()) const;
         bool deinitAuxContext();
 
-	    virtual core::smart_refctd_ptr<video::IGPUMeshDataFormatDesc> createGPUMeshDataFormatDesc(core::CLeakDebugger* dbgr=nullptr) override final;
-
         virtual uint16_t retrieveDisplayRefreshRate() const override final;
 
 		virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override final;
