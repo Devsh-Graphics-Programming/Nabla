@@ -73,6 +73,7 @@ namespace video
         struct {
             //in GL it is possible to set polygon mode separately for back- and front-faces, but in VK it's one setting for both
             GLenum polygonMode = GL_FILL;
+            GLenum faceCullingEnable = 0;
             GLenum cullFace = GL_BACK;
             //in VK stencil params (both: stencilOp and stencilFunc) are 2 distinct for back- and front-faces, but in GL it's one for both
             struct SStencilOp {
@@ -787,6 +788,8 @@ namespace video
 
             //!
             core::vector<SOpenGLState::HashVAOPair> VAOMap;
+
+            void updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline);
 
             inline size_t getVAOCacheSize() const
             {

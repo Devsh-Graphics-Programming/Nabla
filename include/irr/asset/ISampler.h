@@ -1,8 +1,6 @@
 #ifndef __IRR_I_SAMPLER_H_INCLUDED__
 #define __IRR_I_SAMPLER_H_INCLUDED__
 
-#include "irr/asset/SSamplerParams.h"
-
 namespace irr {
 namespace asset
 {

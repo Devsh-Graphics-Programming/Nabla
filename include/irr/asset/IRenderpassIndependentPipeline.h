@@ -139,9 +139,11 @@ struct SRasterizationParams
     uint32_t sampleMask[2];
     E_COMPARE_OP depthCompareOp;
     float minSampleShading;
+    float depthBiasSlopeFactor;
+    float depthBiasConstantFactor;
     uint16_t depthClampEnable : 1;
     uint16_t rasterizerDiscard : 1;
-    uint16_t fronFaceIsCCW : 1;
+    uint16_t frontFaceIsCCW : 1;
     uint16_t depthBiasEnable : 1;
     uint16_t sampleShadingEnable : 1;
     uint16_t alphaToCoverageEnable : 1;

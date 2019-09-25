@@ -5,6 +5,7 @@
 #include "irr/macros.h"
 #include "irr/asset/ShaderCommons.h"
 #include "irr/core/memory/refctd_dynamic_array.h"
+#include "irr/core/SRange.h"
 #include <algorithm>
 #include <array>
 
@@ -36,8 +37,8 @@ protected:
         std::copy(_pcRangesBegin, _pcRangesEnd, m_pushConstantRanges->begin());
     }
 
-    const DescLayoutType* getDescriptorSetLayout(uint32_t _set) const { return m_descSetLayouts[_set]; }
-    const core::refctd_dynamic_array<SPushConstantRange>* getPushConstantRanges() const { return m_pushConstantRanges.get(); }
+    const DescLayoutType* getDescriptorSetLayout(uint32_t _set) const { return m_descSetLayouts[_set].get(); }
+    core::SRange<const SPushConstantRange> getPushConstantRanges() const { return {m_pushConstantRanges->data(), m_pushConstantRanges->data()+m_pushConstantRanges->size()}; }
 
     std::array<core::smart_refctd_ptr<DescLayoutType>, 4> m_descSetLayouts;
     core::smart_refctd_dynamic_array<SPushConstantRange> m_pushConstantRanges;

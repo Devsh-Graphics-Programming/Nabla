@@ -69,7 +69,7 @@ public:
         gl::extGlSamplerParameteri(m_GLname, GL_TEXTURE_MAG_FILTER, m_params.MaxFilter==ETF_NEAREST ? GL_NEAREST : GL_LINEAR);
 
         if (m_params.AnisotropicFilter)
-            gl::extGlSamplerParameteri(m_GLname, GL_TEXTURE_MAX_ANISOTROPY_EXT, std::min(m_params.AnisotropicFilter, uint32_t(gl::MaxAnisotropy)));
+            gl::extGlSamplerParameteri(m_GLname, GL_TEXTURE_MAX_ANISOTROPY_EXT, std::min(1u<<m_params.AnisotropicFilter, uint32_t(gl::MaxAnisotropy)));
 
         gl::extGlSamplerParameteri(m_GLname, GL_TEXTURE_WRAP_S, getTextureWrapMode(m_params.TextureWrapU));
         gl::extGlSamplerParameteri(m_GLname, GL_TEXTURE_WRAP_T, getTextureWrapMode(m_params.TextureWrapV));

@@ -902,6 +902,10 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
     }
     found->VAOMap.clear();
 
+    //force drop of all all grabbed (through smart_refctd_ptr) resources (descriptor sets, buffers, program pipeline)
+    found->currentState = SOpenGLState();
+    found->nextState = SOpenGLState();
+
     glFinish();
 }
 
@@ -1801,6 +1805,10 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
             glPolygonMode(GL_FRONT_AND_BACK, nextState.rasterParams.polygonMode);
             UPDATE_STATE(rasterParams.polygonMode);
         }
+        if (STATE_NEQ(rasterParams.faceCullingEnable)) {
+            disable_enable_fptr[nextState.rasterParams.faceCullingEnable](GL_CULL_FACE);
+            UPDATE_STATE(rasterParams.faceCullingEnable);
+        }
         if (STATE_NEQ(rasterParams.cullFace)) {
             glCullFace(nextState.rasterParams.cullFace);
             UPDATE_STATE(rasterParams.cullFace);
@@ -2065,41 +2073,187 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
     nextState = currentState;
 }
 
-
-void COpenGLDriver::SAuxContext::STextureStageCache::remove(const IRenderableVirtualTexture* tex)
+static GLenum getGLpolygonMode(asset::E_POLYGON_MODE pm)
 {
-    for (int32_t i = MATERIAL_MAX_TEXTURES-1; i>= 0; --i)
+    const GLenum glpm[3]{ GL_FILL, GL_LINE, GL_POINT };
+    return glpm[pm];
+}
+static GLenum getGLcullFace(asset::E_FACE_CULL_MODE cf)
+{
+    const GLenum glcf[4]{ 0, GL_FRONT, GL_BACK, GL_FRONT_AND_BACK };
+    return glcf[cf];
+}
+static GLenum getGLstencilOp(asset::E_STENCIL_OP so)
+{
+    using namespace asset;
+    switch (so) {
+    case ESO_KEEP: return GL_KEEP;
+    case ESO_ZERO: return GL_ZERO;
+    case ESO_REPLACE: return GL_REPLACE;
+    case ESO_INCREMENT_AND_CLAMP: return GL_INCR;
+    case ESO_DECREMENT_AND_CLAMP: return GL_DECR;
+    case ESO_INVERT: return GL_INVERT;
+    case ESO_INCREMENT_AND_WRAP: return GL_INCR_WRAP;
+    case ESO_DECREMENT_AND_WRAP: return GL_DECR_WRAP;
+    }
+}
+static GLenum getGLcmpFunc(asset::E_COMPARE_OP sf)
+{
+    using namespace asset;
+    switch (sf) {
+    case ECO_NEVER: return GL_NEVER;
+    case ECO_LESS: return GL_LESS;
+    case ECO_EQUAL: return GL_EQUAL;
+    case ECO_LESS_OR_EQUAL: return GL_LEQUAL;
+    case ECO_GREATER: return GL_GREATER;
+    case ECO_NOT_EQUAL: return GL_NOTEQUAL;
+    case ECO_GREATER_OR_EQUAL: return GL_GEQUAL;
+    case ECO_ALWAYS: return GL_ALWAYS;
+    }
+}
+static GLenum getGLlogicOp(asset::E_LOGIC_OP lo)
+{
+    using namespace asset;
+    switch (lo)
     {
-        if (CurrentTexture[i].get() == tex)
-        {
-            GLenum target = dynamic_cast<const COpenGLTexture*>(tex)->getOpenGLTextureType();
-            COpenGLExtensionHandler::extGlBindTextures(i,1,nullptr,&target);
-            COpenGLExtensionHandler::extGlBindSamplers(i,1,nullptr);
-            CurrentTexture[i] = nullptr;
-        }
+    case ELO_CLEAR: return GL_CLEAR;
+    case ELO_AND: return GL_AND;
+    case ELO_AND_REVERSE: return GL_AND_REVERSE;
+    case ELO_COPY: return GL_COPY;
+    case ELO_AND_INVERTED: return GL_AND_INVERTED;
+    case ELO_NO_OP: return GL_NOOP;
+    case ELO_XOR: return GL_XOR;
+    case ELO_OR: return GL_OR;
+    case ELO_NOR: return GL_NOR;
+    case ELO_EQUIVALENT: return GL_EQUIV;
+    case ELO_INVERT: return GL_INVERT;
+    case ELO_OR_REVERSE: return GL_OR_REVERSE;
+    case ELO_COPY_INVERTED: return GL_COPY_INVERTED;
+    case ELO_OR_INVERTED: return GL_OR_INVERTED;
+    case ELO_NAND: return GL_NAND;
+    case ELO_SET: return GL_SET;
+    }
+}
+static GLenum getGLblendFunc(asset::E_BLEND_FACTOR bf)
+{
+    using namespace asset;
+    switch (bf)
+    {
+    case EBF_ZERO: return GL_ZERO;
+    case EBF_ONE: return GL_ONE;
+    case EBF_SRC_COLOR: return GL_SRC_COLOR;
+    case EBF_ONE_MINUS_SRC_COLOR: return GL_ONE_MINUS_SRC_COLOR;
+    case EBF_DST_COLOR: return GL_DST_COLOR;
+    case EBF_ONE_MINUS_DST_COLOR: return GL_ONE_MINUS_DST_COLOR;
+    case EBF_SRC_ALPHA: return GL_SRC_ALPHA;
+    case EBF_ONE_MINUS_SRC_ALPHA: return GL_ONE_MINUS_SRC_ALPHA;
+    case EBF_DST_ALPHA: return GL_DST_ALPHA;
+    case EBF_ONE_MINUS_DST_ALPHA: return GL_ONE_MINUS_DST_ALPHA;
+    case EBF_CONSTANT_COLOR: return GL_CONSTANT_COLOR;
+    case EBF_ONE_MINUS_CONSTANT_COLOR: return GL_ONE_MINUS_CONSTANT_COLOR;
+    case EBF_CONSTANT_ALPHA: return GL_CONSTANT_ALPHA;
+    case EBF_ONE_MINUS_CONSTANT_ALPHA: return GL_ONE_MINUS_CONSTANT_ALPHA;
+    case EBF_SRC_ALPHA_SATURATE: return GL_SRC_ALPHA_SATURATE;
+    case EBF_SRC1_COLOR: return GL_SRC1_COLOR;
+    case EBF_ONE_MINUS_SRC1_COLOR: return GL_ONE_MINUS_SRC1_COLOR;
+    case EBF_SRC1_ALPHA: return GL_SRC1_ALPHA;
+    case EBF_ONE_MINUS_SRC1_ALPHA: return GL_ONE_MINUS_SRC1_ALPHA;
+    }
+}
+static GLenum getGLblendEq(asset::E_BLEND_OP bo)
+{
+    using namespace asset;
+    switch (bo)
+    {
+    case EBO_ADD: return GL_FUNC_ADD;
+    case EBO_SUBTRACT: return GL_FUNC_SUBTRACT;
+    case EBO_REVERSE_SUBTRACT: return GL_FUNC_REVERSE_SUBTRACT;
+    case EBO_MIN: return GL_MIN;
+    case EBO_MAX: return GL_MAX;
+    default: return GL_INVALID_ENUM;
     }
 }
 
-void COpenGLDriver::SAuxContext::STextureStageCache::clear()
+void COpenGLDriver::SAuxContext::updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline)
 {
-    // Drop all the CurrentTexture handles
-    GLuint textures[MATERIAL_MAX_TEXTURES] = {0};
-    GLenum targets[MATERIAL_MAX_TEXTURES];
+    nextState.pipeline = core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline>(
+        static_cast<const COpenGLRenderpassIndependentPipeline*>(_pipeline)
+    );
+    const auto& ppln = nextState.pipeline;
 
-    for (uint32_t i=0; i<MATERIAL_MAX_TEXTURES; ++i)
-    {
-        if (CurrentTexture[i])
-        {
-            targets[i] = dynamic_cast<const COpenGLTexture*>(CurrentTexture[i].get())->getOpenGLTextureType();
-			CurrentTexture[i] = nullptr;
-        }
-        else
-            targets[i] = GL_INVALID_ENUM;
+    const auto& raster_src = ppln->getRasterizationParams();
+    auto& raster_dst = nextState.rasterParams;
+
+    raster_dst.polygonMode = getGLpolygonMode(raster_src.polygonMode);
+    if (raster_src.faceCullingMode == asset::EFCM_NONE)
+        raster_dst.faceCullingEnable = 0;
+    else {
+        raster_dst.faceCullingEnable = 1;
+        raster_dst.cullFace = getGLcullFace(raster_src.faceCullingMode);
+    }
+    
+    const asset::SStencilOpParams* stencil_src[2]{ &raster_src.frontStencilOps, &raster_src.backStencilOps };
+    decltype(raster_dst.stencilOp_front)* stencilo_dst[2]{ &raster_dst.stencilOp_front, &raster_dst.stencilOp_back };
+    for (uint32_t i = 0u; i < 2u; ++i) {
+        stencilo_dst[i]->sfail = getGLstencilOp(stencil_src[i]->failOp);
+        stencilo_dst[i]->dpfail = getGLstencilOp(stencil_src[i]->depthFailOp);
+        stencilo_dst[i]->dppass = getGLstencilOp(stencil_src[i]->passOp);
     }
 
-    COpenGLExtensionHandler::extGlBindTextures(0,MATERIAL_MAX_TEXTURES,textures,targets);
-    COpenGLExtensionHandler::extGlBindSamplers(0,MATERIAL_MAX_TEXTURES,nullptr);
+    decltype(raster_dst.stencilFunc_front)* stencilf_dst[2]{ &raster_dst.stencilFunc_front, &raster_dst.stencilFunc_back };
+    for (uint32_t i = 0u; i < 2u; ++i) {
+        stencilf_dst[i]->func = getGLcmpFunc(stencil_src[i]->compareOp);
+        stencilf_dst[i]->ref = stencil_src[i]->reference;
+        stencilf_dst[i]->mask = stencil_src[i]->writeMask;
+    }
+
+    raster_dst.depthFunc = getGLcmpFunc(raster_src.depthCompareOp);
+    raster_dst.frontFace = raster_src.frontFaceIsCCW ? GL_CCW : GL_CW;
+    raster_dst.depthClampEnable = raster_src.depthClampEnable;
+    raster_dst.rasterizerDiscardEnable = raster_src.rasterizerDiscard;
+
+    raster_dst.polygonOffsetEnable = raster_src.depthBiasEnable;
+    raster_dst.polygonOffset.factor = raster_src.depthBiasSlopeFactor;
+    raster_dst.polygonOffset.units = raster_src.depthBiasSlopeFactor;
+
+    raster_dst.sampleShadingEnable = raster_src.sampleShadingEnable;
+    raster_dst.minSampleShading = raster_src.minSampleShading;
+
+    //raster_dst.sampleMaskEnable = ???
+    raster_dst.sampleMask[0] = raster_src.sampleMask[0];
+    raster_dst.sampleMask[1] = raster_src.sampleMask[1];
+
+    raster_dst.sampleAlphaToCoverageEnable = raster_src.alphaToCoverageEnable;
+    raster_dst.sampleAlphaToOneEnable = raster_src.alphaToOneEnable;
+
+    raster_dst.depthTestEnable = raster_src.depthTestEnable;
+    raster_dst.depthWriteEnable = raster_src.depthWriteEnable;
+    raster_dst.stencilTestEnable = raster_src.stencilTestEnable;
+
+    const auto& blend_src = ppln->getBlendParams();
+    raster_dst.logicOpEnable = blend_src.logicOpEnable;
+    raster_dst.logicOp = getGLlogicOp(static_cast<asset::E_LOGIC_OP>(blend_src.logicOp));
+
+    for (size_t i = 0ull; i < asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; ++i) {
+        const auto& attach_src = blend_src.blendParams[i];
+        auto& attach_dst = raster_dst.drawbufferBlend[i];
+
+        attach_dst.blendEnable = attach_src.blendEnable;
+        attach_dst.blendFunc.srcRGB = getGLblendFunc(static_cast<asset::E_BLEND_FACTOR>(attach_src.srcColorFactor));
+        attach_dst.blendFunc.dstRGB = getGLblendFunc(static_cast<asset::E_BLEND_FACTOR>(attach_src.dstColorFactor));
+        attach_dst.blendFunc.srcAlpha = getGLblendFunc(static_cast<asset::E_BLEND_FACTOR>(attach_src.srcAlphaFactor));
+        attach_dst.blendFunc.dstAlpha = getGLblendFunc(static_cast<asset::E_BLEND_FACTOR>(attach_src.dstAlphaFactor));
+
+        attach_dst.blendEquation.modeRGB = getGLblendEq(static_cast<asset::E_BLEND_OP>(attach_src.colorBlendOp));
+        assert(attach_dst.blendEquation.modeRGB != GL_INVALID_ENUM);
+        attach_dst.blendEquation.modeAlpha = getGLblendEq(static_cast<asset::E_BLEND_OP>(attach_src.alphaBlendOp));
+        assert(attach_dst.blendEquation.modeAlpha != GL_INVALID_ENUM);
+
+        for (uint32_t j = 0u; j < 4u; ++j)
+            attach_dst.colorMask.colorWritemask[j] = (attach_src.colorWriteMask>>j)&1u;
+    }
 }
+
 
 
 bool orderByMip(asset::CImageData* a, asset::CImageData* b)
