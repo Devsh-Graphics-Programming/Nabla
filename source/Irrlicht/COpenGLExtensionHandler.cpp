@@ -265,6 +265,7 @@ PFNGLBINDSAMPLERPROC COpenGLExtensionHandler::pGlBindSampler = nullptr;
 PFNGLBINDSAMPLERSPROC COpenGLExtensionHandler::pGlBindSamplers = nullptr;
 PFNGLSAMPLERPARAMETERIPROC COpenGLExtensionHandler::pGlSamplerParameteri = nullptr;
 PFNGLSAMPLERPARAMETERFPROC COpenGLExtensionHandler::pGlSamplerParameterf = nullptr;
+PFNGLSAMPLERPARAMETERFVPROC COpenGLExtensionHandler::pGlSamplerParameterfv = nullptr;
 
 //
 PFNGLBINDIMAGETEXTUREPROC COpenGLExtensionHandler::pGlBindImageTexture = nullptr;
@@ -1161,12 +1162,14 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlClampColor = (PFNGLCLAMPCOLORPROC) IRR_OGL_LOAD_EXTENSION( "glClampColor");
 
     //samplers
+    pGlCreateSamplers = (PFNGLCREATESAMPLERSPROC)IRR_OGL_LOAD_EXTENSION("glCreateSamplers");
     pGlGenSamplers = (PFNGLGENSAMPLERSPROC) IRR_OGL_LOAD_EXTENSION( "glGenSamplers");
     pGlDeleteSamplers = (PFNGLDELETESAMPLERSPROC) IRR_OGL_LOAD_EXTENSION( "glDeleteSamplers");
     pGlBindSampler = (PFNGLBINDSAMPLERPROC) IRR_OGL_LOAD_EXTENSION( "glBindSampler");
     pGlBindSamplers = (PFNGLBINDSAMPLERSPROC) IRR_OGL_LOAD_EXTENSION( "glBindSamplers");
     pGlSamplerParameteri = (PFNGLSAMPLERPARAMETERIPROC) IRR_OGL_LOAD_EXTENSION( "glSamplerParameteri");
     pGlSamplerParameterf = (PFNGLSAMPLERPARAMETERFPROC) IRR_OGL_LOAD_EXTENSION( "glSamplerParameterf");
+    pGlSamplerParameterfv = (PFNGLSAMPLERPARAMETERFVPROC)IRR_OGL_LOAD_EXTENSION("glSamplerParameterfv");
 
     //
     pGlBindImageTexture = (PFNGLBINDIMAGETEXTUREPROC) IRR_OGL_LOAD_EXTENSION( "glBindImageTexture");

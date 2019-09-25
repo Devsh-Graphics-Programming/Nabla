@@ -31,10 +31,8 @@ class COpenGLSampler : public IGPUSampler
             mode = GL_MIRRORED_REPEAT;
             break;
         case ETC_MIRROR_CLAMP_TO_EDGE:
-            if (COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_mirror_clamp])
-                mode = GL_MIRROR_CLAMP_TO_EDGE_EXT;
-            else if (COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_ATI_texture_mirror_once])
-                mode = GL_MIRROR_CLAMP_TO_EDGE_ATI;
+            if (COpenGLExtensionHandler::Version >= 440 || COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_mirror_clamp] || COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_ATI_texture_mirror_once])
+                mode = GL_MIRROR_CLAMP_TO_EDGE;
             else
                 mode = GL_CLAMP;
             break;
@@ -49,12 +47,12 @@ class COpenGLSampler : public IGPUSampler
     }
 
 public:
-    COpenGLSampler(const asset::SSamplerParams& _params) : IGPUSampler(_params)
+    COpenGLSampler(const asset::ISampler::SParams& _params) : IGPUSampler(_params)
     {
         using gl = COpenGLExtensionHandler;
 
         GLuint m_GLname;
-        gl::extGlCreateSamplers(1, &m_GLname);//TODO load GlCreateSamplers
+        gl::extGlCreateSamplers(1, &m_GLname);//TODO before we were using GlGenSamplers for some reason..
 
         GLenum minFilterMap[2][2]{
             {GL_NEAREST_MIPMAP_NEAREST, GL_NEAREST_MIPMAP_LINEAR},
@@ -62,7 +60,7 @@ public:
         };
 
         gl::extGlSamplerParameteri(m_GLname, GL_TEXTURE_MIN_FILTER, minFilterMap[m_params.MinFilter][m_params.MipmapMode]);
-        gl::extGlSamplerParameteri(m_GLname, GL_TEXTURE_MAG_FILTER, m_params.MaxFilter==asset::ETF_NEAREST ? GL_NEAREST : GL_LINEAR);
+        gl::extGlSamplerParameteri(m_GLname, GL_TEXTURE_MAG_FILTER, m_params.MaxFilter==ETF_NEAREST ? GL_NEAREST : GL_LINEAR);
 
         if (m_params.AnisotropicFilter)
             gl::extGlSamplerParameteri(m_GLname, GL_TEXTURE_MAX_ANISOTROPY_EXT, std::min(m_params.AnisotropicFilter, uint32_t(gl::MaxAnisotropy)));
@@ -96,7 +94,7 @@ public:
             {1.f, 1.f, 1.f, 1.f}
         };
         if (m_params.BorderColor/2u)
-            gl::extGlSamplerParameterfv(m_GLname, GL_TEXTURE_BORDER_COLOR, borderColorMap[m_params.BorderColor/2u]);//TODO load GlSamplerParameterfv
+            gl::extGlSamplerParameterfv(m_GLname, GL_TEXTURE_BORDER_COLOR, borderColorMap[m_params.BorderColor/2u]);
     }
 
     GLuint getOpenGLName() const { return m_GLname; }

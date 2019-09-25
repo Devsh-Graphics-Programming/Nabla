@@ -1082,11 +1082,13 @@ class COpenGLExtensionHandler
     static void extGlClampColor(GLenum target, GLenum clamp);
     static void setPixelUnpackAlignment(const uint32_t &pitchInBytes, void* ptr, const uint32_t& minimumAlignment=1);
 
+    static void extGlCreateSamplers(GLsizei n, GLuint* samplers);
     static void extGlGenSamplers(GLsizei n, GLuint* samplers);
     static void extGlDeleteSamplers(GLsizei n, GLuint* samplers);
     static void extGlBindSamplers(const GLuint& first, const GLsizei& count, const GLuint* samplers);
     static void extGlSamplerParameteri(GLuint sampler, GLenum pname, GLint param);
     static void extGlSamplerParameterf(GLuint sampler, GLenum pname, GLfloat param);
+    static void extGlSamplerParameterfv(GLuint sampler, GLenum pname, const GLfloat* params);
 
     //
     static void extGlBindImageTexture(GLuint index, GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format);
@@ -1369,12 +1371,13 @@ class COpenGLExtensionHandler
 
     //samplers
     static PFNGLGENSAMPLERSPROC pGlGenSamplers;
-    static PFNGLCREATESAMPLERSPROC pGlCreateSamplers; //NULL
+    static PFNGLCREATESAMPLERSPROC pGlCreateSamplers;
     static PFNGLDELETESAMPLERSPROC pGlDeleteSamplers;
     static PFNGLBINDSAMPLERPROC pGlBindSampler;
     static PFNGLBINDSAMPLERSPROC pGlBindSamplers;
     static PFNGLSAMPLERPARAMETERIPROC pGlSamplerParameteri;
     static PFNGLSAMPLERPARAMETERFPROC pGlSamplerParameterf;
+    static PFNGLSAMPLERPARAMETERFVPROC pGlSamplerParameterfv;
 
     //
     static PFNGLBINDIMAGETEXTUREPROC pGlBindImageTexture;
@@ -2472,6 +2475,12 @@ inline void COpenGLExtensionHandler::setPixelUnpackAlignment(const uint32_t &pit
     pixelUnpackAlignment = textureUploadAlignment;
 }
 
+inline void COpenGLExtensionHandler::extGlCreateSamplers(GLsizei n, GLuint* samplers)
+{
+    if (pGlCreateSamplers)
+        pGlCreateSamplers(n, samplers);
+}
+
 inline void COpenGLExtensionHandler::extGlGenSamplers(GLsizei n, GLuint* samplers)
 {
     if (pGlGenSamplers)
@@ -2520,6 +2529,12 @@ inline void COpenGLExtensionHandler::extGlSamplerParameterf(GLuint sampler, GLen
 {
     if (pGlSamplerParameterf)
         pGlSamplerParameterf(sampler,pname,param);
+}
+
+inline void COpenGLExtensionHandler::extGlSamplerParameterfv(GLuint sampler, GLenum pname, const GLfloat* params)
+{
+    if (pGlSamplerParameterfv)
+        pGlSamplerParameterfv(sampler, pname, params);
 }
 
 
