@@ -9,7 +9,6 @@
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
-#include "IMaterialRendererServices.h"
 #include "os.h"
 
 #include "COpenGLStateManager.h"
@@ -38,9 +37,6 @@ struct DrawElementsIndirectCommand
     GLuint baseVertex;
     GLuint baseInstance;
 };
-
-
-E_SHADER_CONSTANT_TYPE getIrrUniformType(GLenum oglType);
 
 
 static const char* const OpenGLFeatureStrings[] = {
@@ -2479,6 +2475,9 @@ inline void COpenGLExtensionHandler::extGlCreateSamplers(GLsizei n, GLuint* samp
 {
     if (pGlCreateSamplers)
         pGlCreateSamplers(n, samplers);
+    else if (pGlGenSamplers)
+        pGlGenSamplers(n, samplers);
+    else memset(samplers, 0, 4*n);
 }
 
 inline void COpenGLExtensionHandler::extGlGenSamplers(GLsizei n, GLuint* samplers)

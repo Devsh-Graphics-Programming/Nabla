@@ -7,7 +7,6 @@
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
 #include "COpenGLExtensionHandler.h"
-#include "SMaterial.h" // for MATERIAL_MAX_TEXTURES
 
 namespace irr
 {
@@ -70,71 +69,6 @@ namespace video
 #define glBindVertexArray_MACRO COpenGLExtensionHandler::extGlBindVertexArray
 
 #include "COpenGLStateManagerImpl.h"
-
-
-
-
-E_SHADER_CONSTANT_TYPE getIrrUniformType(GLenum oglType)
-{
-    switch (oglType)
-    {
-    case GL_FLOAT:
-        return ESCT_FLOAT;
-    case GL_FLOAT_VEC2:
-        return ESCT_FLOAT_VEC2;
-    case GL_FLOAT_VEC3:
-        return ESCT_FLOAT_VEC3;
-    case GL_FLOAT_VEC4:
-        return ESCT_FLOAT_VEC4;
-    case GL_INT:
-        return ESCT_INT;
-    case GL_INT_VEC2:
-        return ESCT_INT_VEC2;
-    case GL_INT_VEC3:
-        return ESCT_INT_VEC3;
-    case GL_INT_VEC4:
-        return ESCT_INT_VEC4;
-    case GL_UNSIGNED_INT:
-        return ESCT_UINT;
-    case GL_UNSIGNED_INT_VEC2:
-        return ESCT_UINT_VEC2;
-    case GL_UNSIGNED_INT_VEC3:
-        return ESCT_UINT_VEC3;
-    case GL_UNSIGNED_INT_VEC4:
-        return ESCT_UINT_VEC4;
-    case GL_BOOL:
-        return ESCT_BOOL;
-    case GL_BOOL_VEC2:
-        return ESCT_BOOL_VEC2;
-    case GL_BOOL_VEC3:
-        return ESCT_BOOL_VEC3;
-    case GL_BOOL_VEC4:
-        return ESCT_BOOL_VEC4;
-    case GL_FLOAT_MAT2:
-        return ESCT_FLOAT_MAT2;
-    case GL_FLOAT_MAT3:
-        return ESCT_FLOAT_MAT3;
-    case GL_FLOAT_MAT4:
-        return ESCT_FLOAT_MAT4;
-    case GL_FLOAT_MAT2x3:
-        return ESCT_FLOAT_MAT2x3;
-    case GL_FLOAT_MAT2x4:
-        return ESCT_FLOAT_MAT2x4;
-    case GL_FLOAT_MAT3x2:
-        return ESCT_FLOAT_MAT3x2;
-    case GL_FLOAT_MAT3x4:
-        return ESCT_FLOAT_MAT3x4;
-    case GL_FLOAT_MAT4x2:
-        return ESCT_FLOAT_MAT4x2;
-    case GL_FLOAT_MAT4x3:
-        return ESCT_FLOAT_MAT4x3;
-    case GL_SAMPLER_1D:
-    default:
-        return ESCT_INVALID_COUNT;
-    }
-
-    return ESCT_INVALID_COUNT;
-}
 
 
 uint16_t COpenGLExtensionHandler::Version = 0;
@@ -983,8 +917,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 
     num=0;
     glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &num);
-    //can we get rid of that? I don't really see reason for this clamp at this level of abstraction
-	MaxTextureUnits = core::min_(static_cast<uint8_t>(num), static_cast<uint8_t>(MATERIAL_MAX_TEXTURES));
+	MaxTextureUnits = num;
 
     //num=100000000u;
 	//glGetIntegerv(GL_MAX_ELEMENTS_INDICES,&num);
