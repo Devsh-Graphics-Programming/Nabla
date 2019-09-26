@@ -109,6 +109,19 @@ namespace video
             GLboolean depthWriteEnable = 1;
             //GLboolean depthBoundsTestEnable;
             GLboolean stencilTestEnable = 0;
+            GLboolean framebufferSRGB = 0;
+            GLboolean ditherEnable = 1;
+            GLboolean multisampleEnable = 1;
+            GLboolean textureCubemapSeamlessEnable = 0;
+            struct {
+                GLenum origin;
+                GLenum depth;
+            } clipControl;
+            GLfloat clearDepth;
+            struct {
+                GLclampd znear;
+                GLclampd zfar;
+            } depthRange;
 
             GLboolean logicOpEnable = 0;
             GLenum logicOp = GL_COPY;
@@ -802,9 +815,6 @@ namespace video
         SAuxContext* getThreadContext_helper(const bool& alreadyLockedMutex, const std::thread::id& tid = std::this_thread::get_id());
 
         void cleanUpContextBeforeDelete();
-
-
-        void bindTransformFeedback(ITransformFeedback* xformFeedback, SAuxContext* toContext);
 
 
         //COpenGLDriver::CGPUObjectFromAssetConverter

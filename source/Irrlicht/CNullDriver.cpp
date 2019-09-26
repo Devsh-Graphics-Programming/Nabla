@@ -4,7 +4,6 @@
 
 #include "CNullDriver.h"
 #include "os.h"
-#include "IMaterialRenderer.h"
 #include "IAnimatedMeshSceneNode.h"
 #include "irr/asset/CMeshManipulator.h"
 #include "CMeshSceneNodeInstanced.h"
@@ -32,7 +31,7 @@ int32_t CNullDriver::incrementAndFetchReallocCounter()
 
 //! constructor
 CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
-: IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), ScreenSize(screenSize), boxLineMesh(0),
+: IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), ScreenSize(screenSize), 
 	PrimitivesDrawn(0), TextureCreationFlags(0),
 	OverrideMaterial2DEnabled(false),
 	matrixModifiedBits(0)
@@ -85,32 +84,14 @@ CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::d
 
 	// set ExposedData to 0
 	memset(&ExposedData, 0, sizeof(ExposedData));
-
-	InitMaterial2D.ZWriteEnable=false;
-	InitMaterial2D.ZBuffer=video::ECFN_NEVER;
-	for (uint32_t i=0; i<video::MATERIAL_MAX_TEXTURES; ++i)
-	{
-		InitMaterial2D.TextureLayer[i].SamplingParams.MinFilter = video::ETFT_NEAREST_NEARESTMIP;
-		InitMaterial2D.TextureLayer[i].SamplingParams.MaxFilter = video::ETFT_NEAREST_NO_MIP;
-		InitMaterial2D.TextureLayer[i].SamplingParams.TextureWrapU = video::ETC_REPEAT;
-		InitMaterial2D.TextureLayer[i].SamplingParams.TextureWrapV = video::ETC_REPEAT;
-        InitMaterial2D.TextureLayer[i].SamplingParams.UseMipmaps = false;
-	}
-	OverrideMaterial2D=InitMaterial2D;
 }
 
 
 //! destructor
 CNullDriver::~CNullDriver()
 {
-    if (boxLineMesh)
-        boxLineMesh->drop();
-
 	if (FileSystem)
 		FileSystem->drop();
-
-	// delete material renderers
-	deleteMaterialRenders();
 }
 
 //! applications must call this method before performing any rendering. returns false if failed.
@@ -328,8 +309,6 @@ void CNullDriver::removeFrameBuffer(IFrameBuffer* framebuf)
 
 void CNullDriver::removeAllMultisampleTextures()
 {
-	setMaterial ( SGPUMaterial() );
-
 	for (uint32_t i=0; i<MultisampleTextures.size(); ++i)
 		MultisampleTextures[i]->drop();
     MultisampleTextures.clear();
@@ -337,8 +316,6 @@ void CNullDriver::removeAllMultisampleTextures()
 
 void CNullDriver::removeAllTextureBufferObjects()
 {
-	setMaterial ( SGPUMaterial() );
-
 	for (uint32_t i=0; i<BufferViews.size(); ++i)
         BufferViews[i]->drop();
     BufferViews.clear();
@@ -590,16 +567,13 @@ void CNullDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
     uint32_t increment = mb->getInstanceCount();
     switch (mb->getPrimitiveType())
     {
-        case asset::EPT_POINTS:
+        case asset::EPT_POINT_LIST:
             increment *= mb->getIndexCount();
             break;
         case asset::EPT_LINE_STRIP:
             increment *= mb->getIndexCount()-1;
             break;
-        case asset::EPT_LINE_LOOP:
-            increment *= mb->getIndexCount();
-            break;
-        case asset::EPT_LINES:
+        case asset::EPT_LINE_LIST:
             increment *= mb->getIndexCount()/2;
             break;
         case asset::EPT_TRIANGLE_STRIP:
@@ -608,7 +582,7 @@ void CNullDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
         case asset::EPT_TRIANGLE_FAN:
             increment *= mb->getIndexCount()-2;
             break;
-        case asset::EPT_TRIANGLES:
+        case asset::EPT_TRIANGLE_LIST:
             increment *= mb->getIndexCount()/3;
             break;
     }
@@ -694,53 +668,6 @@ void CNullDriver::OnResize(const core::dimension2d<uint32_t>& size)
 }
 
 
-// adds a material renderer and drops it afterwards. To be used for internal creation
-int32_t CNullDriver::addAndDropMaterialRenderer(IMaterialRenderer* m)
-{
-	int32_t i = addMaterialRenderer(m);
-
-	if (m)
-		m->drop();
-
-	return i;
-}
-
-
-//! Adds a new material renderer to the video device.
-int32_t CNullDriver::addMaterialRenderer(IMaterialRenderer* renderer, const char* name)
-{
-	if (!renderer)
-		return -1;
-
-	SMaterialRenderer r;
-	r.Renderer = renderer;
-	r.Name = name;
-
-	if (name == 0 && (MaterialRenderers.size() < (sizeof(sBuiltInMaterialTypeNames) / sizeof(char*))-1 ))
-	{
-		// set name of built in renderer so that we don't have to implement name
-		// setting in all available renderers.
-		r.Name = sBuiltInMaterialTypeNames[MaterialRenderers.size()];
-	}
-
-	MaterialRenderers.push_back(r);
-	renderer->grab();
-
-	return MaterialRenderers.size()-1;
-}
-
-
-//! Sets the name of a material renderer.
-void CNullDriver::setMaterialRendererName(int32_t idx, const char* name)
-{
-	if (idx < int32_t(sizeof(sBuiltInMaterialTypeNames) / sizeof(char*))-1 ||
-		idx >= (int32_t)MaterialRenderers.size())
-		return;
-
-	MaterialRenderers[idx].Name = name;
-}
-
-
 //! Returns driver and operating system specific data about the IVideoDriver.
 const SExposedVideoData& CNullDriver::getExposedVideoData()
 {
@@ -752,50 +679,6 @@ const SExposedVideoData& CNullDriver::getExposedVideoData()
 E_DRIVER_TYPE CNullDriver::getDriverType() const
 {
 	return EDT_NULL;
-}
-
-
-//! deletes all material renderers
-void CNullDriver::deleteMaterialRenders()
-{
-	// delete material renderers
-	for (uint32_t i=0; i<MaterialRenderers.size(); ++i)
-    {
-		if (MaterialRenderers[i].Renderer)
-			MaterialRenderers[i].Renderer->drop();
-    }
-
-	MaterialRenderers.clear();
-}
-
-
-//! Returns pointer to material renderer or null
-IMaterialRenderer* CNullDriver::getMaterialRenderer(uint32_t idx)
-{
-    //TODO
-	/*if ( idx < MaterialRenderers.size() )
-		return MaterialRenderers[idx].Renderer;
-	else
-		return 0;
-        */
-    return nullptr;
-}
-
-
-//! Returns amount of currently available material renderers.
-uint32_t CNullDriver::getMaterialRendererCount() const
-{
-	return MaterialRenderers.size();
-}
-
-
-//! Returns name of the material renderer
-const char* CNullDriver::getMaterialRendererName(uint32_t idx) const
-{
-	if ( idx < MaterialRenderers.size() )
-		return MaterialRenderers[idx].Name.c_str();
-
-	return 0;
 }
 
 /*
@@ -1145,14 +1028,6 @@ void CNullDriver::printVersion()
 IVideoDriver* createNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
 {
 	CNullDriver* nullDriver = new CNullDriver(dev, io, screenSize);
-
-	// create empty material renderers
-	for(uint32_t i=0; sBuiltInMaterialTypeNames[i]; ++i)
-	{
-		IMaterialRenderer* imr = new IMaterialRenderer();
-		nullDriver->addMaterialRenderer(imr);
-		imr->drop();
-	}
 
 	return nullDriver;
 }

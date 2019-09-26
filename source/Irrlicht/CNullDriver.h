@@ -7,7 +7,6 @@
 
 #include "IVideoDriver.h"
 #include "IFileSystem.h"
-#include "IGPUProgrammingServices.h"
 #include "irr/asset/IMesh.h"
 #include "irr/video/IGPUMeshBuffer.h"
 #include "IMeshSceneNode.h"
@@ -32,7 +31,7 @@ namespace video
 	class IImageLoader;
 	class IImageWriter;
 
-	class CNullDriver : public IVideoDriver //, public IGPUProgrammingServices
+	class CNullDriver : public IVideoDriver
 	{
     protected:
 		//! destructor
@@ -291,10 +290,6 @@ namespace video
 		/** Used to notify the driver that the window was resized. */
 		virtual void OnResize(const core::dimension2d<uint32_t>& size);
 
-		//! Adds a new material renderer to the video device.
-		virtual int32_t addMaterialRenderer(IMaterialRenderer* renderer,
-				const char* name = 0);
-
 		//! Returns driver and operating system specific data about the IVideoDriver.
 		virtual const SExposedVideoData& getExposedVideoData();
 
@@ -305,18 +300,6 @@ namespace video
 		virtual const core::matrix4x3& getTransform(const E_4X3_TRANSFORMATION_STATE& state);
 
 		virtual const core::matrix4SIMD& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state);
-
-		//! Returns pointer to the IGPUProgrammingServices interface.
-		//virtual IGPUProgrammingServices* getGPUProgrammingServices();
-
-		//! Returns pointer to material renderer or null
-		virtual IMaterialRenderer* getMaterialRenderer(uint32_t idx);
-
-		//! Returns amount of currently available material renderers.
-		virtual uint32_t getMaterialRendererCount() const;
-
-		//! Returns name of the material renderer
-		virtual const char* getMaterialRendererName(uint32_t idx) const;
 
         //virtual int32_t addHighLevelShaderMaterial(
         //    const char* vertexShaderProgram,
@@ -430,13 +413,6 @@ namespace video
 		//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
 		virtual core::smart_refctd_ptr<video::ITexture> createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM);
 
-
-		// adds a material renderer and drops it afterwards. To be used for internal creation
-		int32_t addAndDropMaterialRenderer(IMaterialRenderer* m);
-
-		//! deletes all material renderers
-		void deleteMaterialRenders();
-
 		// prints renderer version
 		void printVersion();
 
@@ -458,12 +434,6 @@ namespace video
                     return Surface < other.Surface;
                 */
 			}
-		};
-
-		struct SMaterialRenderer
-		{
-			core::stringc Name;
-			IMaterialRenderer* Renderer;
 		};
 
 		class SDummyTexture : public ITexture
@@ -503,8 +473,6 @@ namespace video
 		core::vector<IMultisampleTexture*> MultisampleTextures;
 		core::vector<IGPUBufferView*> BufferViews;
 
-		core::vector<SMaterialRenderer> MaterialRenderers;
-
 
         IQueryObject* currentQuery[EQOT_COUNT][_IRR_XFORM_FEEDBACK_MAX_STREAMS_];
 
@@ -518,8 +486,6 @@ namespace video
 		core::matrix4x3 TransformationMatrices[E4X3TS_COUNT];
 
 		CFPSCounter FPSCounter;
-
-        video::IGPUMeshBuffer* boxLineMesh;
 
 		uint32_t PrimitivesDrawn;
 

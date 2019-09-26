@@ -13,7 +13,7 @@ namespace irr {
 namespace asset
 {
 
-enum E_PRIMITIVE_TOPOLOGY : uint32_t
+enum E_PRIMITIVE_TOPOLOGY : uint8_t
 {
     EPT_POINT_LIST = 0,
     EPT_LINE_LIST = 1,
@@ -28,7 +28,7 @@ enum E_PRIMITIVE_TOPOLOGY : uint32_t
     EPT_PATCH_LIST = 10
 };
 
-enum E_VERTEX_INPUT_RATE : uint32_t
+enum E_VERTEX_INPUT_RATE : uint8_t
 {
     EVIR_PER_VERTEX = 0,
     EVIR_PER_INSTANCE = 1
@@ -68,7 +68,7 @@ struct SPrimitiveAssemblyParams
     uint32_t tessPatchVertCount;
 };
 
-enum E_STENCIL_OP : uint32_t
+enum E_STENCIL_OP : uint8_t
 {
     ESO_KEEP = 0,
     ESO_ZERO = 1,
@@ -80,7 +80,7 @@ enum E_STENCIL_OP : uint32_t
     ESO_DECREMENT_AND_WRAP = 7
 };
 
-enum E_COMPARE_OP : uint32_t
+enum E_COMPARE_OP : uint8_t
 {
     ECO_NEVER = 0,
     ECO_LESS = 1,
@@ -102,14 +102,14 @@ struct SStencilOpParams
     uint32_t reference;
 };
 
-enum E_POLYGON_MODE : uint32_t
+enum E_POLYGON_MODE : uint8_t
 {
     EPM_FILL = 0,
     EPM_LINE = 1,
     EPM_POINT = 2
 };
 
-enum E_FACE_CULL_MODE : uint32_t
+enum E_FACE_CULL_MODE : uint8_t
 {
     EFCM_NONE = 0,
     EFCM_FRONT_BIT = 1,
@@ -117,7 +117,7 @@ enum E_FACE_CULL_MODE : uint32_t
     EFCM_FRONT_AND_BACK = 3
 };
 
-enum E_SAMPLE_COUNT : uint32_t
+enum E_SAMPLE_COUNT : uint8_t
 {
     ESC_1_BIT = 0x00000001,
     ESC_2_BIT = 0x00000002,
@@ -154,7 +154,7 @@ struct SRasterizationParams
     uint16_t stencilTestEnable : 1;
 };
 
-enum E_LOGIC_OP : uint32_t
+enum E_LOGIC_OP : uint8_t
 {
     ELO_CLEAR = 0,
     ELO_AND = 1,
@@ -174,7 +174,7 @@ enum E_LOGIC_OP : uint32_t
     ELO_SET = 15
 };
 
-enum E_BLEND_FACTOR : uint32_t
+enum E_BLEND_FACTOR : uint8_t
 {
     EBF_ZERO = 0,
     EBF_ONE = 1,
@@ -197,7 +197,7 @@ enum E_BLEND_FACTOR : uint32_t
     EBF_ONE_MINUS_SRC1_ALPHA = 18
 };
 
-enum E_BLEND_OP : uint32_t
+enum E_BLEND_OP : uint8_t
 {
     EBO_ADD = 0,
     EBO_SUBTRACT = 1,

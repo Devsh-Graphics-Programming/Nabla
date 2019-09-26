@@ -27,10 +27,6 @@ namespace io
 namespace video
 {
 	class CImageData;
-	class IImageLoader;
-	class IImageWriter;
-	class IMaterialRenderer;
-	class IGPUProgrammingServices;
     class IGPUShader;
     class IGPUSpecializedShader;
 
@@ -442,50 +438,6 @@ namespace video
 		/** Used to notify the driver that the window was resized.
 		Usually, there is no need to call this method. */
 		virtual void OnResize(const core::dimension2d<uint32_t>& size) =0;
-
-		//! Adds a new material renderer to the video device.
-		/** Use this method to extend the VideoDriver with new material
-		types. To extend the engine using this method do the following:
-		Derive a class from IMaterialRenderer and override the methods
-		you need. For setting the right renderstates, you can try to
-		get a pointer to the real rendering device using
-		IVideoDriver::getExposedVideoData(). Add your class with
-		IVideoDriver::addMaterialRenderer(). To use an object being
-		displayed with your new material, set the MaterialType member of
-		the SGPUMaterial struct to the value returned by this method.
-		If you simply want to create a new material using vertex and/or
-		pixel shaders it would be easier to use the
-		video::IGPUProgrammingServices interface which you can get
-		using the getGPUProgrammingServices() method.
-		\param renderer A pointer to the new renderer.
-		\param name Optional name for the material renderer entry.
-		\return The number of the material type which can be set in
-		SGPUMaterial::MaterialType to use the renderer. -1 is returned if
-		an error occured. */
-		virtual int32_t addMaterialRenderer(IMaterialRenderer* renderer, const char* name =0) =0;
-
-		//! Get access to a material renderer by index.
-		/** \param idx Id of the material renderer. Can be a value of
-		the E_MATERIAL_TYPE enum or a value which was returned by
-		addMaterialRenderer().
-		\return Pointer to material renderer or null if not existing. */
-		virtual IMaterialRenderer* getMaterialRenderer(uint32_t idx) =0;
-
-		//! Get amount of currently available material renderers.
-		/** \return Amount of currently available material renderers. */
-		virtual uint32_t getMaterialRendererCount() const =0;
-
-		//! Get name of a material renderer
-		/** This string can, e.g., be used to test if a specific
-		renderer already has been registered/created, or use this
-		string to store data about materials: This returned name will
-		be also used when serializing materials.
-		\param idx Id of the material renderer. Can be a value of the
-		E_MATERIAL_TYPE enum or a value which was returned by
-		addMaterialRenderer().
-		\return String with the name of the renderer, or 0 if not
-		exisiting */
-		virtual const char* getMaterialRendererName(uint32_t idx) const =0;
 
 		//! Returns driver and operating system specific data about the IVideoDriver.
 		/** This method should only be used if the engine should be

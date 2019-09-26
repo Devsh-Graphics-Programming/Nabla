@@ -742,8 +742,6 @@ COpenGLDriver::~COpenGLDriver()
 
     cleanUpContextBeforeDelete();
 
-	deleteMaterialRenders();
-
     //! Spin wait for other contexts to deinit
     //! @TODO: Change trylock to semaphore
 	while (true)
@@ -1024,23 +1022,23 @@ bool COpenGLDriver::genericDriverInit()
 	// Reset The Current Viewport
 	glViewport(0, 0, Params.WindowSize.Width, Params.WindowSize.Height);
 
-	glEnable(GL_FRAMEBUFFER_SRGB);
-    glDisable(GL_DITHER);
-    glDisable(GL_MULTISAMPLE);
-    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
-    extGlClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE);
-	glClearDepth(0.0);
-	glDepthFunc(GL_GEQUAL);
-	glDepthRange(1.0,0.0);
-	glFrontFace(GL_CCW);
-
 	// adjust flat coloring scheme to DirectX version
 	///extGlProvokingVertex(GL_FIRST_VERTEX_CONVENTION_EXT);
 
 	// We need to reset once more at the beginning of the first rendering.
 	// This fixes problems with intermediate changes to the material during texture load.
-    //TODO hm? should i worry about that?
-	ResetRenderStates = true;
+    SAuxContext* found = getThreadContext_helper(false);
+    found->nextState.rasterParams.framebufferSRGB = 1;
+    found->nextState.rasterParams.ditherEnable = 0;
+    found->nextState.rasterParams.multisampleEnable = 0;
+    found->nextState.rasterParams.textureCubemapSeamlessEnable = 1;
+    found->nextState.rasterParams.clipControl.origin = GL_UPPER_LEFT;
+    found->nextState.rasterParams.clipControl.depth = GL_ZERO_TO_ONE;
+    found->nextState.rasterParams.clearDepth = 0.f;
+    found->nextState.rasterParams.depthRange.znear = 1.0;
+    found->nextState.rasterParams.depthRange.zfar = 0.0;
+    found->nextState.rasterParams.depthFunc = GL_GEQUAL;
+    found->nextState.rasterParams.frontFace = GL_CCW;
 
 	// down
 	{
@@ -2700,8 +2698,7 @@ bool COpenGLDriver::setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewpo
     if (found->CurrentFBO)
         found->CurrentFBO->drop();
     found->CurrentFBO = static_cast<COpenGLFrameBuffer*>(frameBuffer);
-    //TODO what was it supposed to be used for? I need to know if i have to do somehing with GL state here
-    ResetRenderStates=true; //! OPTIMIZE: Needed?
+    found->flushState(GSB_ALL); //! OPTIMIZE: Needed?
 
 
     return true;
@@ -2728,7 +2725,6 @@ void COpenGLDriver::clearZBuffer(const float &depth)
 
 
     found->nextState.rasterParams.depthWriteEnable = 1;
-    //TODO or maybe i can just assume it should be enabled at this point?
     found->flushState(GSB_RASTER_PARAMETERS);
 
     if (found->CurrentFBO)
