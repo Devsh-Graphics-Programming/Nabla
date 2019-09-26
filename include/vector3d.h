@@ -62,23 +62,23 @@ namespace core
 		//! sort in order X, Y, Z. Equality with rounding tolerance.
 		bool operator<=(const vector3d<T>&other) const
 		{
-			return 	(X<other.X || core::equals(X, other.X)) ||
-					(core::equals(X, other.X) && (Y<other.Y || core::equals(Y, other.Y))) ||
-					(core::equals(X, other.X) && core::equals(Y, other.Y) && (Z<other.Z || core::equals(Z, other.Z)));
+			return 	X<=other.X ||
+					(X==other.X && Y<=other.Y) ||
+					(X==other.X && Y==other.Y && Z<=other.Z);
 		}
 
 		//! sort in order X, Y, Z. Equality with rounding tolerance.
 		bool operator>=(const vector3d<T>&other) const
 		{
-			return 	(X>other.X || core::equals(X, other.X)) ||
-					(core::equals(X, other.X) && (Y>other.Y || core::equals(Y, other.Y))) ||
-					(core::equals(X, other.X) && core::equals(Y, other.Y) && (Z>other.Z || core::equals(Z, other.Z)));
+			return 	X>=other.X ||
+					(X==other.X && Y>=other.Y) ||
+					(X==other.X && Y==other.Y && Z>=other.Z);
 		}
-
+/*
 		//! sort in order X, Y, Z. Difference must be above rounding tolerance.
 		bool operator<(const vector3d<T>&other) const
 		{
-			return 	(X<other.X && !core::equals(X, other.X)) ||
+			return 	(X<other.X ||
 					(core::equals(X, other.X) && Y<other.Y && !core::equals(Y, other.Y)) ||
 					(core::equals(X, other.X) && core::equals(Y, other.Y) && Z<other.Z && !core::equals(Z, other.Z));
 		}
@@ -90,11 +90,11 @@ namespace core
 					(core::equals(X, other.X) && Y>other.Y && !core::equals(Y, other.Y)) ||
 					(core::equals(X, other.X) && core::equals(Y, other.Y) && Z>other.Z && !core::equals(Z, other.Z));
 		}
-
+*/
 		//! use weak float compare
 		bool operator==(const vector3d<T>& other) const
 		{
-			return core::equals<vector3d<T>,float>(*this,other);
+			return core::equals<vector3d<T> >(*this,other,vector3d<T>(core::ROUNDING_ERROR<T>()));
 		}
 
 		bool operator!=(const vector3d<T>& other) const
@@ -176,9 +176,8 @@ namespace core
 		\param center The center of the rotation. */
 		void rotateXZBy(double degrees, const vector3d<T>& center=vector3d<T>())
 		{
-			degrees *= DEGTORAD64;
-			double cs = cos(degrees);
-			double sn = sin(degrees);
+			double cs = cos(radians(degrees));
+			double sn = sin(radians(degrees));
 			X -= center.X;
 			Z -= center.Z;
 			set((T)(X*cs - Z*sn), Y, (T)(X*sn + Z*cs));
@@ -191,9 +190,8 @@ namespace core
 		\param center: The center of the rotation. */
 		void rotateXYBy(double degrees, const vector3d<T>& center=vector3d<T>())
 		{
-			degrees *= DEGTORAD64;
-			double cs = cos(degrees);
-			double sn = sin(degrees);
+			double cs = cos(radians(degrees));
+			double sn = sin(radians(degrees));
 			X -= center.X;
 			Y -= center.Y;
 			set((T)(X*cs - Y*sn), (T)(X*sn + Y*cs), Z);
@@ -249,7 +247,7 @@ namespace core
 		{
 			vector3d<T> angle;
 
-			const double tmp = (atan2((double)X, (double)Z) * RADTODEG64);
+			const double tmp = core::degrees(atan2((double)X, (double)Z));
 			angle.Y = (T)tmp;
 
 			if (angle.Y < 0)
@@ -257,9 +255,9 @@ namespace core
 			if (angle.Y >= 360)
 				angle.Y -= 360;
 
-			const double z1 = core::squareroot(X*X + Z*Z);
+			const double z1 = core::sqrt(X*X + Z*Z);
 
-			angle.X = (T)(atan2((double)z1, (double)Y) * RADTODEG64 - 90.0);
+			angle.X = (T)(core::degrees(atan2((double)z1, (double)Y)) - 90.0);
 
 			if (angle.X < 0)
 				angle.X += 360;
@@ -279,12 +277,12 @@ namespace core
 		(in degrees) represented by this vector. */
 		vector3d<T> rotationToDirection(const vector3d<T> & forwards = vector3d<T>(0, 0, 1)) const
 		{
-			const double cr = cos( core::DEGTORAD64 * X );
-			const double sr = sin( core::DEGTORAD64 * X );
-			const double cp = cos( core::DEGTORAD64 * Y );
-			const double sp = sin( core::DEGTORAD64 * Y );
-			const double cy = cos( core::DEGTORAD64 * Z );
-			const double sy = sin( core::DEGTORAD64 * Z );
+			const double cr = cos( core::radians(X) );
+			const double sr = sin( core::radians(X) );
+			const double cp = cos( core::radians(Y) );
+			const double sp = sin( core::radians(Y) );
+			const double cy = cos( core::radians(Z) );
+			const double sy = sin( core::radians(Z) );
 
 			const double srsp = sr*sp;
 			const double crsp = cr*sp;

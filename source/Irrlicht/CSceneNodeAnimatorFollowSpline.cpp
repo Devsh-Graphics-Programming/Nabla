@@ -54,7 +54,7 @@ void CSceneNodeAnimatorFollowSpline::animateNode(IDummyTransformationSceneNode* 
 	}
 
 	const float dt = ( (timeMs-StartTime) * Speed * 0.001f );
-	const int32_t unwrappedIdx = core::floor32( dt );
+	const int32_t unwrappedIdx = core::floor( dt );
 	if ( !Loop && unwrappedIdx >= (int32_t)pSize-1 )
 	{
 		node->setPosition(Points[pSize-1]);

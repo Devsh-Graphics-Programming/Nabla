@@ -287,8 +287,8 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createSphereMesh(float
 				tmpMem[i*vertexSize+3*4+3] = 255;
 			}
 			// calculate the angle which separates all points in a circle
-			const double AngleX = 2 * core::PI / polyCountX;
-			const double AngleY = core::PI / polyCountY;
+			const float AngleX = 2 * core::PI<float>() / polyCountX;
+			const float AngleY = core::PI<float>() / polyCountY;
 
 			double axz;
 
@@ -408,7 +408,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCylinderMesh(flo
     color.toOpenGLColor(glcolor);
 
     const float tesselationRec = core::reciprocal_approxim<float>(tesselation);
-    const float step = (2.f*core::PI)/tesselation;
+    const float step = (2.f*core::PI<float>())/tesselation;
     for (uint32_t i = 1u; i < vtxCnt/2u; ++i)
     {
         core::vectorSIMDf p(std::cos(i*step), 0.f, std::sin(i*step), 0.f);
@@ -505,7 +505,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createConeMesh(float r
     ConeVertex* vertices = reinterpret_cast<ConeVertex*>(vtxBuf->getPointer());
     std::fill(vertices, vertices + vtxCnt, ConeVertex(core::vectorSIMDf(0.f), 0u, colorBottom));
 
-    const float step = (2.f*core::PI) / tesselation;
+    const float step = (2.f*core::PI<float>()) / tesselation;
     for (uint32_t i = 2u; i < vtxCnt; ++i)
     {
         const core::vectorSIMDf p(std::cos(i*step), 0.f, std::sin(i*step), 0.f);
@@ -651,7 +651,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createDiskMesh(float r
 	{
 		core::vectorSIMDf vn;
 		core::matrix3x4SIMD rotMatrix;
-		rotMatrix.setRotation(core::quaternion(0.0f, 0.0f, core::degToRad(angle * (i - 1))));
+		rotMatrix.setRotation(core::quaternion(0.0f, 0.0f, core::radians(angle * (i - 1))));
 		rotMatrix.transformVect(vn, v0);
 
 		ptr[i] = DiskVertex(vn, video::SColor(0xFFFFFFFFu),

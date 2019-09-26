@@ -61,8 +61,8 @@ void CFPSCounter::registerFrame(const std::chrono::high_resolution_clock::time_p
 	{
 		const double invDelta = core::reciprocal ( (double) delta.count() );
 
-		FPS = core::ceil32 ( (static_cast<double>(decltype(delta)::period::den) * FramesCounted)  * invDelta );
-		PrimitiveAverage = core::ceil32 ( (static_cast<double>(decltype(delta)::period::den) * PrimitivesCounted ) * invDelta);
+		FPS = core::ceil<double>( (static_cast<double>(decltype(delta)::period::den) * FramesCounted)  * invDelta );
+		PrimitiveAverage = core::ceil<double>( (static_cast<double>(decltype(delta)::period::den) * PrimitivesCounted ) * invDelta);
 
 		FramesCounted = 0;
 		PrimitivesCounted = 0;

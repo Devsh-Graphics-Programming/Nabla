@@ -160,13 +160,13 @@ bool CIrrDeviceStub::checkVersion(const char* version)
 //! Compares to the last call of this function to return double and triple clicks.
 uint32_t CIrrDeviceStub::checkSuccessiveClicks(int32_t mouseX, int32_t mouseY, EMOUSE_INPUT_EVENT inputEvent )
 {
-	const int32_t MAX_MOUSEMOVE = 3;
+	const int32_t maxMOUSEMOVE = 3;
 
 	uint32_t clickTime = getTimer()->getRealTime();
 
 	if ( (clickTime-MouseMultiClicks.LastClickTime) < MouseMultiClicks.DoubleClickTime
-		&& core::abs_(MouseMultiClicks.LastClick.X - mouseX ) <= MAX_MOUSEMOVE
-		&& core::abs_(MouseMultiClicks.LastClick.Y - mouseY ) <= MAX_MOUSEMOVE
+		&& core::abs(MouseMultiClicks.LastClick.X - mouseX ) <= maxMOUSEMOVE
+		&& core::abs(MouseMultiClicks.LastClick.Y - mouseY ) <= maxMOUSEMOVE
 		&& MouseMultiClicks.CountSuccessiveClicks < 3
 		&& MouseMultiClicks.LastMouseInputEvent == inputEvent
 	   )

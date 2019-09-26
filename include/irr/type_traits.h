@@ -23,7 +23,7 @@ struct is_any_of : std::integral_constant<bool,
 	std::conditional<
 		std::is_same<T, U>::value,
 		std::true_type,
-		is_any_of<T, Us...>
+		irr::is_any_of<T, Us...>
 	>::type::value
 >
 {};

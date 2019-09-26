@@ -53,7 +53,7 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
 
         inline size_type    max_size() noexcept {return Base::max_size();}
 
-        inline size_type    max_alignment() const noexcept {return Base::max_alignment();}
+        inline size_type    max_alignment() const noexcept {return Base::maxalignment();}
 
 
         template<typename... Args>
@@ -141,7 +141,7 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
 
 
         //! this value should be immutable
-        inline size_type    max_alignment() const noexcept {return Base::max_alignment();}
+        inline size_type    max_alignment() const noexcept {return Base::maxalignment();}
 
 
         template<typename... Args>

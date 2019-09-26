@@ -41,7 +41,7 @@ inline matrix4SIMD& matrix4SIMD::operator*=(float _scalar)
 
 inline bool matrix4SIMD::isIdentity(float _tolerance) const
 {
-	return core::equals<matrix4SIMD, float>(*this, matrix4SIMD(), _tolerance);
+	return core::equals<matrix4SIMD>(*this, matrix4SIMD(), core::ROUNDING_ERROR<matrix4SIMD>());
 }
 
 #ifdef __IRR_COMPILE_WITH_SSE3

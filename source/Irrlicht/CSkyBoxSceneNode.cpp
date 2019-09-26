@@ -198,12 +198,9 @@ void CSkyBoxSceneNode::render()
 		// draw orthogonal skybox,
 		// simply choose one texture and draw it as 2d picture.
 		// there could be better ways to do this, but currently I think this is ok.
-
-		core::vector3df lookVect = camera->getTarget() - camera->getAbsolutePosition();
-		lookVect.normalize();
-		core::vector3df absVect( core::abs_(lookVect.X),
-					 core::abs_(lookVect.Y),
-					 core::abs_(lookVect.Z));
+		core::vectorSIMDf absPos; absPos.set(camera->getAbsolutePosition());
+		core::vectorSIMDf lookVect = core::normalize(camera->getTarget() - absPos);
+		core::vectorSIMDf absVect = core::abs(lookVect);
 
 		int idx = 0;
 

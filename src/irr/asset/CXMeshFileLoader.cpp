@@ -1577,7 +1577,7 @@ bool CXMeshFileLoader::parseDataObjectMeshVertexColors(SContext& _ctx, SXMesh &m
 
 	mesh.HasVertexColors=true;
 	const typename decltype(mesh.Colors)::size_type nColors = readInt(_ctx);
-	mesh.Colors.resize(core::max_(mesh.Colors.size(),nColors));
+	mesh.Colors.resize(core::max(mesh.Colors.size(),nColors));
 	for (uint32_t i=0; i<nColors; ++i)
 	{
 		const uint32_t Index=readInt(_ctx);

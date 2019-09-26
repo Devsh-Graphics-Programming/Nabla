@@ -119,7 +119,7 @@ CDerivativeMapCreator::CDerivativeMapCreator(video::IVideoDriver* _driver) : m_d
 core::smart_refctd_ptr<video::IVirtualTexture> CDerivativeMapCreator::createDerivMapFromBumpMap(video::IVirtualTexture* _bumpMap, float _heightFactor, bool _texWrapRepeat) const
 {
     const uint32_t* derivMap_sz = _bumpMap->getSize();
-	auto derivMap = m_driver->createGPUTexture(video::ITexture::ETT_2D, derivMap_sz, 1u+uint32_t(std::floor(std::log2(float(core::max_(derivMap_sz[0], derivMap_sz[1]))))), asset::EF_R8G8_SNORM);
+	auto derivMap = m_driver->createGPUTexture(video::ITexture::ETT_2D, derivMap_sz, 1u+uint32_t(std::floor(std::log2(float(core::max(derivMap_sz[0], derivMap_sz[1]))))), asset::EF_R8G8_SNORM);
 
     video::COpenGLDriver* gldriver = static_cast<video::COpenGLDriver*>(m_driver);
 

@@ -168,7 +168,7 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 			result.vvalue = core::normalize(result.vvalue);
 			{
 				core::matrix3x4SIMD m;
-				m.setRotation(core::quaternion::fromAngleAxis(atof(desiredAttributes[0])*core::DEGTORAD,result.vvalue));
+				m.setRotation(core::quaternion::fromAngleAxis(core::radians(atof(desiredAttributes[0])),result.vvalue));
 ;				result.mvalue = core::matrix4SIMD(m);
 			}
 			break;
