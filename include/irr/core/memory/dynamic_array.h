@@ -29,12 +29,20 @@ namespace impl
 
 //! Class for array type, that allocates memory one time dynamically for specified constant amount of objects
 /**
-	An array is allocated dynamically, so not on stack.
-	There is no case you can change the size of such an array in.
-	The adventage of this class is core::dynamic_array has constant storage size,
-	so only one allocation is performed once (member and data storage on single allocation),
-	instead of unnecessary 2 allocations that might appear, if there were not such a class
-	handling it.
+	An array is allocated dynamically, not on stack, so compared to std::array its size can be determined at runtime,
+	but there is no case in you can change the size of such an array.
+
+	The adventage of this class is that it has constant storage size,
+	so only one allocation is performed once compared to std::vector (member and data storage on single allocation),
+	instead of unnecessary 2 allocations std::vector performs.
+
+	As a consequence
+	
+	\code{.cpp}
+	sizeof(dynamic_array<T,allocator>) 
+	\endcode
+	
+	is completely meaningless since the size isn't known on compile-time, and it can only be allocated on the heap and is furthermore non-copyable.
 
 	@see core::refctd_dynamic_array
 */

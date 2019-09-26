@@ -11,12 +11,20 @@ namespace asset
 
 class IAssetManager;
 
-//! A class managing Asset's extra metadata context
+//! A class managing Asset's metadata context
 /**
 	Sometimes there may be nedeed attaching some metadata by a Loader
 	into Asset structure - that's why the class is defined.
+
 	Pay attention that it hasn't been done exactly yet, engine doesn't provide
 	metadata injecting.
+
+	Metadata are extra data retrieved by the loader, which aren't ubiquitously representable by the engine.
+	These could be for instance global data about the file or scene, IDs, names, default view/projection,
+	complex animations and hierarchies, physics simulation data, AI data, lighting or extra material metadata.
+
+	Flexibility has been provided, it is expected each loader has its own base metadata class implementing the 
+	IAssetMetadata interface with its own type enum that other loader's metadata classes derive from the base.
 */
 class IAssetMetadata : public core::IReferenceCounted
 {
@@ -30,6 +38,14 @@ public:
 
 //! An abstract data type class representing an interface of any kind of cpu-objects with capability of being cached
 /**
+	An Asset is a CPU object which needs to be loaded for caching it to RAM memory,
+	or needs to be filled with Asset-data if it has to be created by hand,
+	and then may be converted to GPU object, but it isn't necessary in each case! For instance
+	ICPUBuffer which is an Asset opens a nice way to represent a plain byte array, but doesn't need
+	to be converted into GPU object!
+
+	@see ICPUBuffer
+
 	Actually an Asset is a class deriving from it that can be anything like cpu-side meshes scenes, texture data and material pipelines, 
 	but must be serializable into/from .baw file format, unless it comes from an extension (irr::ext), 
 	so forth cached. There are different asset types you can find at IAsset::E_TYPE. 
@@ -59,7 +75,7 @@ public:
 		\code{.cpp}
 		IAsset* asset;
 		if(asset->getType() == ET_BUFFER)
-			reinterpret_cast<ICPUBuffer*>(asset) // it is safe
+			static_cast<ICPUBuffer*>(asset) // it is safe
 		\endcode
 
 		@see IAsset
@@ -143,13 +159,17 @@ protected:
     //! To be implemented by base classes, dummies must retain references to other assets
     //! but cleans up all other resources which are not assets.
 	/**
-		Converting to a GPU object is equivalent of signing an Asset as dummy object.
-		If an Asset is being converted to a GPU object, its resources are no longer needed in RAM memory,
-		so everything it has allocated becomes deleted, but the Asset itself remains untouched, 
-		because it's needed as a key by some funtions that find GPU objects.
-		It involves all CPU objects (Assets).
+		Dummy object is an object which is converted to GPU object or which is about to be converted to GPU object.
+		Take into account that\b convertToDummyObject() itself doesn't perform exactly converting to GPU object\b. 
 
-		So an Asset becomes GPU object and deletes some resources in RAM memory.
+		@see IAssetManager::convertAssetToEmptyCacheHandle(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject)
+
+		If an Asset is being converted to a GPU object, its resources are no longer needed in RAM memory,
+		so everything it has allocated becomes deleted, but the Asset itself remains untouched, so that is the 
+		pointer for an Asset and the memory allocated for that pointer. It's because it's needed as a key by some 
+		functions that find GPU objects. It involves all CPU objects (Assets).
+
+		So an Asset signed as dummy becomes GPU object and deletes some resources in RAM memory.
 	*/
     virtual void convertToDummyObject() = 0;
 

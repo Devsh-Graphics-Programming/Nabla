@@ -20,8 +20,8 @@ namespace asset
 
 //! One of CPU class-object representing an Asset
 /**
-	An Asset is a CPU object which needs to be loaded for caching it to RAM memory,
-	and then must to be converted to GPU object!
+	One of Assets used for storage of large arrays, so that storage can be decoupled
+	from other objects such as meshbuffers, images, animations and shader source/bytecode.
 
 	@see IAsset
 */

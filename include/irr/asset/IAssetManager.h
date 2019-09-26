@@ -168,9 +168,14 @@ namespace asset
 		//TODO change name
         //! _supposedFilename is filename as it was, not touched by loader override with _override->getLoadFilename()
 		/**
-			Attempting of getting an Asset. Valid loaders for certein extension are searched. If none of those can't
-			deal with file with certein extension adjusted to found loaders, then the tryout is performed, and the funtion
-			iterates through all available loaders counting on that one of them might work.
+			Attempts to fetch an Asset Bundle. Valid loaders for certain extension are searched. So if we were to handle .baw file extension, specified
+			loaders dealing with it would be fetched. If none of those loaders can't deal with the file, then one more tryout is performed, so a function
+			iterates through all available loaders regardless of supported file extensions they deal with counting on that one of them might work.
+
+			Furthermore if an Asset Bundle hasn't been loaded to cache before, it becomes loaded into cache memory and the function returns it. Otherwise
+			it is simply returned.
+
+			@see SAssetBundle
 		*/
         SAssetBundle getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
@@ -377,7 +382,9 @@ namespace asset
         }
 
         //! This function frees most of the memory consumed by IAssets, but not destroying them.
-        /** Keeping assets around (by their pointers) helps a lot by letting the loaders retrieve them from the cache and not load cpu objects which have been loaded, converted to gpu resources and then would have been disposed of. However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
+        /** Keeping assets around (by their pointers) helps a lot by letting the loaders retrieve them from the cache 
+		and not load cpu objects which have been loaded, converted to gpu resources and then would have been disposed of.
+		However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
         void convertAssetToEmptyCacheHandle(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject)
         {
 			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
@@ -411,7 +418,8 @@ namespace asset
 		// we need a removeCachedGPUObjects(const IAsset* _asset) but CObjectCache.h needs a `removeAllAssociatedObjects(const Key& _key)`
 
         //! Writing an asset
-        /** Compression level is a number between 0 and 1 to signify how much storage we are trading for writing time or quality, this is a non-linear scale and has different meanings and results with different asset types and writers. */
+        /** Compression level is a number between 0 and 1 to signify how much storage we are trading for writing time or quality, this is a non-linear 
+		scale and has different meanings and results with different asset types and writers. */
         bool writeAsset(const std::string& _filename, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override)
         {
             IAssetWriter::IAssetWriterOverride defOverride;
