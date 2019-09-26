@@ -23,6 +23,14 @@ class CElementTransform : public IElement
 		IElement::Type getType() const override { return IElement::Type::TRANSFORM; }
 		std::string getLogName() const override { return "transform"; }
 
+		inline CElementTransform& operator=(const CElementTransform& other)
+		{
+			IElement::operator=(other);
+			name = other.name;
+			matrix = other.matrix;
+			return *this;
+		}
+
 		std::string name;
 		core::matrix4SIMD matrix;
 };

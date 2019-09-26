@@ -46,6 +46,7 @@ IElement* CElementFactory::createElement<CElementFilm>(const char** _atts, Parse
 	{
 		case CElementFilm::Type::LDR_FILM:
 			obj->fileFormat = CElementFilm::FileFormat::PNG;
+			//obj->componentFormat = UINT8;
 			obj->ldrfilm = CElementFilm::LDR();
 			break;
 		case CElementFilm::Type::MFILM:
@@ -95,7 +96,7 @@ bool CElementFilm::addProperty(SPropertyElementData&& _property)
 			{"numpy",		NUMPY}
 		};
 		auto found = StringToType.find(_property.svalue);
-		if (found!=StringToType.end())
+		if (found==StringToType.end())
 		{
 			error = true;
 			return;
@@ -121,7 +122,7 @@ bool CElementFilm::addProperty(SPropertyElementData&& _property)
 			{"spectrumAlpha",	SPECTRUM_ALPHA}
 		};
 		auto found = StringToType.find(_property.svalue);
-		if (found!=StringToType.end())
+		if (found==StringToType.end())
 		{
 			error = true;
 			return;
@@ -142,7 +143,7 @@ bool CElementFilm::addProperty(SPropertyElementData&& _property)
 			{"uint32",	UINT32}
 		};
 		auto found = StringToType.find(_property.svalue);
-		if (found!=StringToType.end())
+		if (found==StringToType.end())
 		{
 			error = true;
 			return;
@@ -248,7 +249,7 @@ bool CElementFilm::addProperty(SPropertyElementData&& _property)
 	};
 
 	auto found = SetPropertyMap.find(_property.name);
-	if (found != SetPropertyMap.end())
+	if (found == SetPropertyMap.end())
 	{
 		_IRR_DEBUG_BREAK_IF(true);
 		ParserLog::invalidXMLFileStructure("No Film can have such property set with name: " + _property.name+"\nRemember we don't support \"render-time annotations\"");
@@ -301,6 +302,7 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 					_IRR_FALLTHROUGH;
 				case JPEG:
 					_IRR_FALLTHROUGH;
+					break;
 				default:
 					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");
 					_IRR_DEBUG_BREAK_IF(true);

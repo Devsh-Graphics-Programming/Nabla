@@ -16,18 +16,18 @@ IElement* CElementFactory::processAlias(const char** _atts, ParserManager* _util
 	const char* as = nullptr;
 	if (IElement::areAttributesInvalid(_atts, 2u))
 		return nullptr;
-	if (core::strcmpi(_atts[0], "id"))
+	if (core::strcmpi(_atts[0], "id")==0)
 	{
-		if (core::strcmpi(_atts[2], "id"))
+		if (core::strcmpi(_atts[2], "id")==0)
 			return nullptr;
 		id = _atts[3];
-		if (core::strcmpi(_atts[0], "as"))
+		if (core::strcmpi(_atts[0], "as")==0)
 			as = _atts[1];
 	}
 	else
 	{
 		id = _atts[1];
-		if (core::strcmpi(_atts[2], "as"))
+		if (core::strcmpi(_atts[2], "as")==0)
 			as = _atts[3];
 	}
 

@@ -80,7 +80,7 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 	SPropertyElementData result(_el);
 
 	const char* desiredAttributes[SPropertyElementData::MaxAttributes] = { nullptr };
-	if (!result.initialize(desiredAttributes, _atts))
+	if (!result.initialize(_atts, desiredAttributes))
 	{
 		_IRR_DEBUG_BREAK_IF(true);
 		return std::make_pair(false, SPropertyElementData());

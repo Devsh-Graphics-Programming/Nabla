@@ -74,8 +74,9 @@ class ParserManager
 {
 	public:
 		//! Constructor 
-		ParserManager(asset::IAssetLoader::IAssetLoaderOverride* _override, XML_Parser _parser)
-			: m_override(_override), m_parser(_parser), m_sceneDeclCount(0)
+		ParserManager(asset::IAssetLoader::IAssetLoaderOverride* _override, XML_Parser _parser) :
+								m_override(_override), m_parser(_parser), m_sceneDeclCount(0),
+								m_globalMetadata(core::make_smart_refctd_ptr<CGlobalMitsubaMetadata>())
 		{
 		}
 

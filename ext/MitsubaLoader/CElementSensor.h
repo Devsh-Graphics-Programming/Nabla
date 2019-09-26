@@ -94,10 +94,10 @@ class CElementSensor : public IElement
 			kc;
 		};*/
 
-		CElementSensor(const char* id) : IElement(id), type(Type::INVALID), toWorldType(IElement::Type::TRANSFORM), film(""), sampler("")
+		CElementSensor(const char* id) : IElement(id), type(Type::INVALID), /*toWorldType(IElement::Type::TRANSFORM),*/ transform(""), film(""), sampler("")
 		{
 		}
-		CElementSensor(const CElementSensor& other) : IElement(""), film(""), sampler("")
+		CElementSensor(const CElementSensor& other) : IElement(""), transform(""), film(""), sampler("")
 		{
 			operator=(other);
 		}
@@ -108,31 +108,32 @@ class CElementSensor : public IElement
 		inline CElementSensor& operator=(const CElementSensor& other)
 		{
 			IElement::operator=(other);
+			transform = other.transform;
 			switch (type)
 			{
 				case CElementSensor::Type::PERSPECTIVE:
-					perspective = PerspectivePinhole();
+					perspective = other.perspective;
 					break;
 				case CElementSensor::Type::THINLENS:
-					thinlens = PerspectiveThinLens();
+					thinlens = other.thinlens;
 					break;
 				case CElementSensor::Type::ORTHOGRAPHIC:
-					orthographic = Orthographic();
+					orthographic = other.orthographic;
 					break;
 				case CElementSensor::Type::TELECENTRIC:
-					telecentric = TelecentricLens();
+					telecentric = other.telecentric;
 					break;
 				case CElementSensor::Type::SPHERICAL:
-					spherical = SphericalCamera();
+					spherical = other.spherical;
 					break;
 				case CElementSensor::Type::IRRADIANCEMETER:
-					irradiancemeter = IrradianceMeter();
+					irradiancemeter = other.irradiancemeter;
 					break;
 				case CElementSensor::Type::RADIANCEMETER:
-					radiancemeter = RadianceMeter();
+					radiancemeter = other.radiancemeter;
 					break;
 				case CElementSensor::Type::FLUENCEMETER:
-					fluencemeter = FluenceMeter();
+					fluencemeter = other.fluencemeter;
 					break;
 				default:
 					break;
@@ -158,7 +159,7 @@ class CElementSensor : public IElement
 						auto tform = static_cast<CElementTransform*>(_child);
 						if (tform->name!="toWorld")
 							return false;
-						toWorldType = IElement::Type::TRANSFORM;
+						//toWorldType = IElement::Type::TRANSFORM;
 						transform = *tform;
 						return true;
 					}
@@ -187,13 +188,14 @@ class CElementSensor : public IElement
 
 		//
 		Type type;
-		// nullptr means identity matrix
+		CElementTransform transform;/*
 		IElement::Type toWorldType;
+		// nullptr means identity matrix
 		union
 		{
-			CElementTransform transform;
-			//CElementAnimation* animation;
-		};
+			CElementTransform* transform;
+			CElementAnimation* animation;
+		};*/
 		union
 		{
 			PerspectivePinhole	perspective;

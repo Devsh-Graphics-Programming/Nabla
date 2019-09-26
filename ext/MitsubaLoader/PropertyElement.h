@@ -69,7 +69,7 @@ struct SPropertyElementData
 
 		for (auto it = _atts; *it; it++)
 		{
-			if (core::strcmpi(*it, "name"))
+			if (core::strcmpi(*it, "name")==0)
 			{
 				it++;
 				if (*it)
@@ -82,7 +82,7 @@ struct SPropertyElementData
 			}
 
 			for (auto i=0u; i<MaxAttributes; i++)
-			if (core::strcmpi(*it, attributeStrings[type][i]))
+			if (core::strcmpi(*it, attributeStrings[type][i])==0)
 			{
 				it++;
 				if (!outputMatch[i] && *it)

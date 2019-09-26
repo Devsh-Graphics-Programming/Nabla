@@ -182,7 +182,7 @@ bool CElementSensor::addProperty(SPropertyElementData&& _property)
 	
 
 	auto found = SetPropertyMap.find(_property.name);
-	if (found!=SetPropertyMap.end())
+	if (found==SetPropertyMap.end())
 	{
 		_IRR_DEBUG_BREAK_IF(true);
 		ParserLog::invalidXMLFileStructure("No Integrator can have such property set with name: "+_property.name);

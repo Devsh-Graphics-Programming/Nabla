@@ -40,7 +40,7 @@ class IElement
 	public:
 		std::string id;
 
-		IElement(const char* _id) : id(_id) {}
+		IElement(const char* _id) : id(_id ? _id:"") {}
 		virtual ~IElement() = default;
 	
 		virtual IElement::Type getType() const = 0;
@@ -68,16 +68,16 @@ class IElement
 				return false;
 			if (core::strcmpi(_atts[0],"type"))
 			{
-				if (core::strcmpi(_atts[2],"type"))
+				if (!_atts[2] || core::strcmpi(_atts[2],"type"))
 					return false;
 				outType = _atts[3];
-				if (core::strcmpi(_atts[0], "id"))
+				if (core::strcmpi(_atts[0], "id")==0)
 					outID = _atts[1];
 			}
 			else
 			{
 				outType = _atts[1];
-				if (core::strcmpi(_atts[2],"id"))
+				if (_atts[2] && core::strcmpi(_atts[2],"id")==0)
 					outID = _atts[3];
 			}
 			return true;
@@ -93,7 +93,7 @@ class IElement
 				i++;
 			}
 
-			return i < minAttrCount || (i % 2u == 0u);
+			return i < minAttrCount || (i % 2u);
 		}
 		static inline bool invalidAttributeCount(const char** _atts, uint32_t attrCount)
 		{

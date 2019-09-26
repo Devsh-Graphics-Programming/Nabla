@@ -5,6 +5,7 @@
 #ifndef __I_GEOMETRY_CREATOR_H_INCLUDED__
 #define __I_GEOMETRY_CREATOR_H_INCLUDED__
 
+#include "irr/core/core.h"
 #include "irr/asset/ICPUMesh.h"
 
 namespace irr

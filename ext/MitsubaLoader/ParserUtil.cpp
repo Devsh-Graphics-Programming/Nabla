@@ -113,7 +113,8 @@ void ParserManager::parseElement(const char* _el, const char** _atts)
 		return;
 	
 	elements.push(el);
-	handles[el->id] = el;
+	if (el && el->id.size())
+		handles[el->id] = el;
 }
 
 void ParserManager::processProperty(const char* _el, const char** _atts)
@@ -172,7 +173,7 @@ void ParserManager::onEnd(const char* _el)
 		return;
 	}
 
-	if (!elements.empty() == false)
+	if (!elements.empty())
 	{
 		if (!elements.top()->processChildData(element))
 			killParseWithError(element->getLogName() + " could not processChildData");

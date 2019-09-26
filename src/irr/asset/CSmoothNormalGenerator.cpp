@@ -1,3 +1,5 @@
+#include "irr/core/core.h"
+
 #include "CSmoothNormalGenerator.h"
 
 #include <iostream>

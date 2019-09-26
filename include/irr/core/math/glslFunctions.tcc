@@ -208,17 +208,6 @@ IRR_FORCE_INLINE vectorSIMDf cross<vectorSIMDf>(const vectorSIMDf& a, const vect
 #endif
 }
 
-template<typename T>
-IRR_FORCE_INLINE T normalize(const T& v)
-{
-	auto d = dot<T>(v, v);
-#ifdef __IRR_FAST_MATH
-	return v * core::inversesqrt<T>(d);
-#else
-	return v / core::sqrt<T>(d);
-#endif
-}
-
 
 template<>
 IRR_FORCE_INLINE int32_t findLSB<uint32_t>(uint32_t x)

@@ -1,3 +1,5 @@
+#include "irr/core/core.h"
+
 #include "COverdrawMeshOptimizer.h"
 
 #include <vector>
