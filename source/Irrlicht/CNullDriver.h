@@ -109,6 +109,8 @@ namespace video
             return EMCE_NO_ERR;
         }
 
+        virtual bool setGraphicsPipeline(const IGPURenderpassIndependentPipeline* _gpipeline) override { return false; }
+
 		//! Sets new multiple render targets.
 		virtual bool setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewport=true);
 

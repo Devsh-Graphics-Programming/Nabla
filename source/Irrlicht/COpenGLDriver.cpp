@@ -1441,6 +1441,35 @@ static inline uint8_t* buffer_offset(const long offset)
 	return ((uint8_t*)0 + offset);
 }
 
+static GLenum getGLprimitiveType(asset::E_PRIMITIVE_TOPOLOGY pt)
+{
+    using namespace asset;
+    switch (pt)
+    {
+    case EPT_POINT_LIST:
+        return GL_POINTS;
+    case EPT_LINE_LIST:
+        return GL_LINES;
+    case EPT_LINE_STRIP:
+        return GL_LINE_STRIP;
+    case EPT_TRIANGLE_LIST:
+        return GL_TRIANGLES;
+    case EPT_TRIANGLE_STRIP:
+        return GL_TRIANGLE_STRIP;
+    case EPT_TRIANGLE_FAN:
+        return GL_TRIANGLE_FAN;
+    case EPT_LINE_LIST_WITH_ADJACENCY:
+        return GL_LINES_ADJACENCY;
+    case EPT_LINE_STRIP_WITH_ADJACENCY:
+        return GL_LINE_STRIP_ADJACENCY;
+    case EPT_TRIANGLE_LIST_WITH_ADJACENCY:
+        return GL_TRIANGLES_ADJACENCY;
+    case EPT_TRIANGLE_STRIP_WITH_ADJACENCY:
+        return GL_TRIANGLE_STRIP_ADJACENCY;
+    case EPT_PATCH_LIST:
+        return GL_PATCHES;
+    }
+}
 
 
 void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
@@ -1451,10 +1480,10 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
     SAuxContext* found = getThreadContext_helper(false);
     if (!found)
         return;
-
-    const COpenGLVAOSpec* meshLayoutVAO = static_cast<const COpenGLVAOSpec*>(mb->getMeshDataAndFormat());
-    if (!found->setActiveVAO(meshLayoutVAO,mb))
+    if (!found->nextState.pipeline)
         return;
+
+    found->updateNextState_vertexInput(mb->getVertexBufferBindings(), mb->getIndexBufferBinding()->buffer.get(), nullptr, nullptr);
 
 #ifdef _IRR_DEBUG
 	if (mb->getIndexCount() > getMaximalIndicesCount())
@@ -1467,11 +1496,8 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
 
 	CNullDriver::drawMeshBuffer(mb);
 
-	// draw everything
-	setRenderStates3DMode();
-
 	GLenum indexSize=0;
-    if (meshLayoutVAO->getIndexBuffer())
+    if (mb->getIndexBufferBinding()->buffer)
     {
         switch (mb->getIndexType())
         {
@@ -1490,34 +1516,18 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
         }
     }
 
-    GLenum primType = primitiveTypeToGL(mb->getPrimitiveType());
-	switch (mb->getPrimitiveType())
-	{
-		case asset::EPT_POINTS:
-		{
-			// prepare size and attenuation (where supported)
-			GLfloat particleSize=Material.Thickness;
-			extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
-			glPointSize(particleSize);
 
-		}
-			break;
-		case asset::EPT_TRIANGLES:
-        {
-            //if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
-            {
-                COpenGLSLMaterialRenderer* shaderRenderer = static_cast<COpenGLSLMaterialRenderer*>(MaterialRenderers[0].Renderer);
-                if (shaderRenderer&&Material.Pipeline[1])
-                    primType = GL_PATCHES;
-            }
-        }
-			break;
-        default:
-			break;
-	}
+    found->flushState(GSB_ALL);
 
-    if (indexSize)
-        extGlDrawElementsInstancedBaseVertexBaseInstance(primType,mb->getIndexCount(),indexSize,(void*)mb->getIndexBufferOffset(),mb->getInstanceCount(),mb->getBaseVertex(),mb->getBaseInstance());
+    GLenum primType = getGLprimitiveType(found->currentState.pipeline->getPrimitiveAssemblyParams().primitiveType);
+    if (primType==GL_POINTS)
+        extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
+
+    if (indexSize) {
+        static_assert(sizeof(mb->getIndexBufferBinding()->offset) == sizeof(void*), "Might break without this requirement");
+        const void* const idxBufOffset = reinterpret_cast<void*>(mb->getIndexBufferBinding()->offset);
+        extGlDrawElementsInstancedBaseVertexBaseInstance(primType, mb->getIndexCount(), indexSize, idxBufOffset, mb->getInstanceCount(), mb->getBaseVertex(), mb->getBaseInstance());
+    }
     else
 		extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
 }
@@ -1876,6 +1886,24 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
             glDepthMask(nextState.rasterParams.depthWriteEnable);
             UPDATE_STATE(rasterParams.depthWriteEnable);
         }
+        if (STATE_NEQ(rasterParams.multisampleEnable)) {
+            disable_enable_fptr[nextState.rasterParams.multisampleEnable](GL_MULTISAMPLE);
+            UPDATE_STATE(rasterParams.multisampleEnable);
+        }
+        if (STATE_NEQ(rasterParams.clipControl)) {
+            COpenGLExtensionHandler::extGlClipControl(nextState.rasterParams.clipControl.origin, nextState.rasterParams.clipControl.depth);
+            UPDATE_STATE(rasterParams.clipControl);
+        }
+        if (STATE_NEQ(rasterParams.depthRange)) {
+            glDepthRange(nextState.rasterParams.depthRange.znear, nextState.rasterParams.depthRange.zfar);
+            UPDATE_STATE(rasterParams.depthRange);
+        }
+        if (STATE_NEQ(rasterParams.primitiveRestartEnable)) {
+            disable_enable_fptr[nextState.rasterParams.primitiveRestartEnable](GL_PRIMITIVE_RESTART);
+            UPDATE_STATE(rasterParams.primitiveRestartEnable);
+        }
+
+
         if (STATE_NEQ(rasterParams.logicOpEnable)) {
             disable_enable_fptr[nextState.rasterParams.logicOpEnable](GL_COLOR_LOGIC_OP);
             UPDATE_STATE(rasterParams.logicOpEnable);
@@ -1982,6 +2010,7 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
 
                 if (STATE_NEQ(vertexInputParams.bindings[bnd]))//this if-statement also doesnt allow GlVertexArrayVertexBuffer be called multiple times for single binding
                 {
+                    assert(nextState.vertexInputParams.bindings[bnd].buf);//something went wrong
                     extGlVertexArrayVertexBuffer(vao, bnd, nextState.vertexInputParams.bindings[bnd].buf->getOpenGLName(), nextState.vertexInputParams.bindings[bnd].offset, hashVal.getStrideForBinding(bnd));
                     UPDATE_STATE(vertexInputParams.bindings[bnd]);
                 }
@@ -1996,6 +2025,11 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
         {
             extGlBindBuffer(GL_DRAW_INDIRECT_BUFFER, nextState.vertexInputParams.indirectDrawBuf ? nextState.vertexInputParams.indirectDrawBuf->getOpenGLName() : 0u);
             UPDATE_STATE(vertexInputParams.indirectDrawBuf);
+        }
+        if (STATE_NEQ(vertexInputParams.parameterBuf))
+        {
+            extGlBindBuffer(GL_DRAW_INDIRECT_BUFFER, nextState.vertexInputParams.parameterBuf ? nextState.vertexInputParams.parameterBuf->getOpenGLName() : 0u);
+            UPDATE_STATE(vertexInputParams.parameterBuf);
         }
     }
 #undef STATE_NEQ
@@ -2319,6 +2353,29 @@ void COpenGLDriver::SAuxContext::updateNextState_pipelineAndRaster(const IGPURen
     }
 }
 
+void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT], const IGPUBuffer* _indexBuffer, const IGPUBuffer* _indirectDrawBuffer, const IGPUBuffer* _paramBuffer)
+{
+    for (size_t i = 0ull; i < IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+    {
+        const IGPUMeshBuffer::SBufferBinding& bnd = _vtxBindings[i];
+        if (bnd.buffer) {
+            const COpenGLBuffer* buf = static_cast<COpenGLBuffer*>(bnd.buffer.get());
+            nextState.vertexInputParams.bindings[i] = {core::smart_refctd_ptr<const COpenGLBuffer>(buf), bnd.offset};
+        }
+    }
+    const COpenGLBuffer* buf = static_cast<const COpenGLBuffer*>(_indexBuffer);
+    nextState.vertexInputParams.indexBuf = core::smart_refctd_ptr<const COpenGLBuffer>(buf);
+
+    buf = static_cast<const COpenGLBuffer*>(_indirectDrawBuffer);
+    nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr<const COpenGLBuffer>(buf);
+
+    buf = static_cast<const COpenGLBuffer*>(_paramBuffer);
+    nextState.vertexInputParams.parameterBuf = core::smart_refctd_ptr<const COpenGLBuffer>(buf);
+
+    //nextState.pipeline is the one set in updateNextState_pipelineAndRaster() or is the same object as currentState.pipeline
+    nextState.vertexInputParams.vao.first = nextState.pipeline->getVAOHash();
+}
+
 
 
 bool orderByMip(asset::CImageData* a, asset::CImageData* b)
@@ -2542,7 +2599,6 @@ void COpenGLDriver::removeAllFrameBuffers()
     found->FrameBuffers.clear();
 }
 
-
 //! Returns type of video driver
 E_DRIVER_TYPE COpenGLDriver::getDriverType() const
 {
@@ -2706,6 +2762,16 @@ uint32_t COpenGLDriver::getMaximalIndicesCount() const
 	return MaxIndices;
 }
 
+bool COpenGLDriver::setGraphicsPipeline(const IGPURenderpassIndependentPipeline* _gpipeline)
+{
+    SAuxContext* found = getThreadContext_helper(false);
+    if (!found || !_gpipeline)
+        return false;
+
+    found->updateNextState_pipelineAndRaster(_gpipeline);
+
+    return true;
+}
 
 
 //! Sets multiple render targets

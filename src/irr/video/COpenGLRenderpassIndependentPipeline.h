@@ -12,7 +12,40 @@ namespace video
 class COpenGLRenderpassIndependentPipeline : public IGPURenderpassIndependentPipeline
 {
 public:
-    using IGPURenderpassIndependentPipeline::IGPURenderpassIndependentPipeline;
+    COpenGLRenderpassIndependentPipeline(
+        core::smart_refctd_ptr<IGPUPipelineLayout> _layout,
+        core::smart_refctd_ptr<IGPUSpecializedShader> _vs,
+        core::smart_refctd_ptr<IGPUSpecializedShader> _tcs,
+        core::smart_refctd_ptr<IGPUSpecializedShader> _tes,
+        core::smart_refctd_ptr<IGPUSpecializedShader> _gs,
+        core::smart_refctd_ptr<IGPUSpecializedShader> _fs,
+        const asset::SVertexInputParams& _vertexInputParams,
+        const asset::SBlendParams& _blendParams,
+        const asset::SPrimitiveAssemblyParams& _primAsmParams,
+        const asset::SRasterizationParams& _rasterParams
+    ) : IGPURenderpassIndependentPipeline(
+        std::move(_layout), std::move(_vs), std::move(_tcs), std::move(_tes), std::move(_gs), std::move(_fs),
+        _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
+    ) 
+    {
+        static_assert(asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT == asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT, "This code below has to be divided into 2 loops");
+        static_assert(asset::EF_UNKNOWN <= 255u, "All E_FORMAT values must fit in 1 byte");
+        for (size_t i = 0ull; i < asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+        {
+            if (!((m_vertexInputParams.enabledAttribFlags >> i) & 1u)) {
+                m_vaoHashval.attribFormatAndComponentCount[i] = asset::EF_UNKNOWN;
+                continue;
+            }
+
+            m_vaoHashval.attribFormatAndComponentCount[i] = m_vertexInputParams.attributes[i].format;
+            m_vaoHashval.setRelativeOffsetForAttrib(i, m_vertexInputParams.attributes[i].relativeOffset);
+
+            const uint32_t bnd = m_vertexInputParams.attributes[i].binding;
+            m_vaoHashval.mapAttrToBinding |= (bnd<<(i*4));
+            m_vaoHashval.setStrideForBinding(bnd, m_vertexInputParams.bindings[bnd].stride);
+            m_vaoHashval.divisors |= (m_vertexInputParams.bindings[bnd].inputRate==asset::EVIR_PER_VERTEX ? 0u : 1u) << bnd;
+        }
+    }
 
     struct SVAOHash
     {
@@ -129,7 +162,10 @@ public:
         }
     };
 
+    const SVAOHash& getVAOHash() const { return m_vaoHashval; }
+
 private:
+    // TODO move GL object creation to driver
     GLuint createGLobject(uint32_t _ctxID)
     {
         static_assert(SHADER_STAGE_COUNT == 5u, "SHADER_STAGE_COUNT is expected to be 5");
@@ -153,6 +189,8 @@ private:
         
         return pipeline;
     }
+
+    SVAOHash m_vaoHashval;
 };
 
 }}

@@ -110,14 +110,17 @@ namespace video
             //GLboolean depthBoundsTestEnable;
             GLboolean stencilTestEnable = 0;
             GLboolean multisampleEnable = 1;
-            struct {
+            struct SClipCtrl {
                 GLenum origin;
                 GLenum depth;
+                bool operator!=(const SClipCtrl& rhs) const { return origin!=rhs.origin || depth!=rhs.depth; }
             } clipControl;
-            struct {
+            struct SDepthRng {
                 GLclampd znear;
                 GLclampd zfar;
+                bool operator!=(const SDepthRng& rhs) const { return znear!=rhs.znear || zfar!=rhs.zfar; }
             } depthRange;
+            GLboolean primitiveRestartEnable = 0;
 
             GLboolean logicOpEnable = 0;
             GLenum logicOp = GL_COPY;
@@ -146,14 +149,15 @@ namespace video
         struct {
             HashVAOPair vao;
             struct SBnd {
-                core::smart_refctd_ptr<const COpenGLBuffer> buf = 0;
+                core::smart_refctd_ptr<const COpenGLBuffer> buf;
                 GLintptr offset = 0;
                 bool operator!=(const SBnd& rhs) const { return buf!=rhs.buf || offset!=rhs.offset; }
-            } bindings[16];
+            } bindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
             core::smart_refctd_ptr<const COpenGLBuffer> indexBuf;
 
             //putting it here because idk where else
             core::smart_refctd_ptr<const COpenGLBuffer> indirectDrawBuf;
+            core::smart_refctd_ptr<const COpenGLBuffer> parameterBuf;//GL>=4.6
         } vertexInputParams;
 
         struct {
@@ -660,6 +664,7 @@ namespace video
 
         virtual void removeAllFrameBuffers();
 
+        bool setGraphicsPipeline(const IGPURenderpassIndependentPipeline* _gpipeline) override;
 
 		virtual bool setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewport=true);
 
@@ -749,6 +754,13 @@ namespace video
             core::vector<SOpenGLState::HashVAOPair> VAOMap;
 
             void updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline);
+            //! Must be called AFTER updateNextState_pipelineAndRaster() if pipeline and raster params have to be modified at all in this pass
+            void updateNextState_vertexInput(
+                const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                const IGPUBuffer* _indexBuffer,
+                const IGPUBuffer* _indirectDrawBuffer,
+                const IGPUBuffer* _paramBuffer
+            );
 
             inline size_t getVAOCacheSize() const
             {

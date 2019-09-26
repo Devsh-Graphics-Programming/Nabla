@@ -1,7 +1,6 @@
 #ifndef __IRR_I_MESH_BUFFER_H_INCLUDED__
 #define __IRR_I_MESH_BUFFER_H_INCLUDED__
 
-#include "SMaterial.h"
 #include "irr/asset/IRenderpassIndependentPipeline.h"
 
 namespace irr
@@ -35,10 +34,10 @@ public:
     };
     _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_PUSH_CONSTANT_BYTESIZE = 128u;
 
-protected:
     _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT;
     _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_ATTR_BUF_BINDING_COUNT = SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT;
 
+protected:
 	virtual ~IMeshBuffer()
 	{
         if (leakDebugger)
@@ -58,7 +57,7 @@ protected:
 	//indices
 	E_INDEX_TYPE indexType;
 	int32_t baseVertex;
-    alignas(64) uint8_t m_pushConstantsData[MAX_PUSH_CONSTANT_BYTESIZE]{};//here alignas(64) takes no extra place
+    alignas(64) uint8_t m_pushConstantsData[MAX_PUSH_CONSTANT_BYTESIZE]{};//by putting m_pushConstantsData here, alignas(64) takes no extra place
     uint64_t indexCount;
     //
     size_t instanceCount;
@@ -120,6 +119,18 @@ public:
     {
         const uint32_t bnd = getBindingNumForAttribute(attrId);
         return &m_vertexBufferBindings[bnd];
+    }
+    inline const SBufferBinding* getVertexBufferBindings() const
+    {
+        return getAttribBoundBuffer(0u);
+    }
+    inline const SBufferBinding* getIndexBufferBinding() const
+    {
+        return m_indexBufferBinding;
+    }
+    inline const PipelineType* getPipeline() const
+    {
+        return m_pipeline.get();
     }
 
 	//! Get type of index data which is stored in this meshbuffer.
