@@ -1028,13 +1028,12 @@ bool COpenGLDriver::genericDriverInit()
 	// We need to reset once more at the beginning of the first rendering.
 	// This fixes problems with intermediate changes to the material during texture load.
     SAuxContext* found = getThreadContext_helper(false);
-    found->nextState.rasterParams.framebufferSRGB = 1;
-    found->nextState.rasterParams.ditherEnable = 0;
+    glEnable(GL_FRAMEBUFFER_SRGB);
+    glDisable(GL_DITHER);
     found->nextState.rasterParams.multisampleEnable = 0;
-    found->nextState.rasterParams.textureCubemapSeamlessEnable = 1;
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
     found->nextState.rasterParams.clipControl.origin = GL_UPPER_LEFT;
     found->nextState.rasterParams.clipControl.depth = GL_ZERO_TO_ONE;
-    found->nextState.rasterParams.clearDepth = 0.f;
     found->nextState.rasterParams.depthRange.znear = 1.0;
     found->nextState.rasterParams.depthRange.zfar = 0.0;
     found->nextState.rasterParams.depthFunc = GL_GEQUAL;

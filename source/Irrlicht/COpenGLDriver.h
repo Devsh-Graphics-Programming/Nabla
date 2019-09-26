@@ -102,22 +102,18 @@ namespace video
             GLboolean sampleShadingEnable = 0;
             GLfloat minSampleShading = 0.f;
             GLboolean sampleMaskEnable = 0;
-            GLbitfield sampleMask[2]{}; //init val? TODO
+            GLbitfield sampleMask[2]{~static_cast<GLbitfield>(0), ~static_cast<GLbitfield>(0)};
             GLboolean sampleAlphaToCoverageEnable = 0;
             GLboolean sampleAlphaToOneEnable = 0;
             GLboolean depthTestEnable = 0;
             GLboolean depthWriteEnable = 1;
             //GLboolean depthBoundsTestEnable;
             GLboolean stencilTestEnable = 0;
-            GLboolean framebufferSRGB = 0;
-            GLboolean ditherEnable = 1;
             GLboolean multisampleEnable = 1;
-            GLboolean textureCubemapSeamlessEnable = 0;
             struct {
                 GLenum origin;
                 GLenum depth;
             } clipControl;
-            GLfloat clearDepth;
             struct {
                 GLclampd znear;
                 GLclampd zfar;
