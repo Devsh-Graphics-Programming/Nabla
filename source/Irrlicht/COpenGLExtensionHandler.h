@@ -980,6 +980,15 @@ class COpenGLExtensionHandler
     static uint64_t maxTBOSize;
     //!
     static uint64_t maxBufferSize;
+    //!
+    static uint32_t maxUBOBindings;
+    //!
+    static uint32_t maxSSBOBindings;
+    //! For vertex and fragment shaders
+    //! If both the vertex shader and the fragment processing stage access the same texture image unit, then that counts as using two texture image units against this limit.
+    static uint32_t maxTextureBindings;
+    //! For compute shader
+    static uint32_t maxTextureBindingsCompute;
 	//!
 	static int32_t minMemoryMapAlignment;
     //!

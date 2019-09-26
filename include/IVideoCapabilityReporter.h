@@ -119,6 +119,12 @@ namespace video
         virtual uint64_t getMaxSSBOSize() const = 0;
         virtual uint64_t getMaxTBOSize() const = 0;
         virtual uint64_t getMaxBufferSize() const = 0;
+
+        virtual uint32_t getMaxUBOBindings() const = 0;
+        virtual uint32_t getMaxSSBOBindings() const = 0;
+        virtual uint32_t getMaxTextureBindings() const = 0;
+        virtual uint32_t getMaxTextureBindingsCompute() const = 0;
+        //TODO WTF?? there's no query for image bindings??
 	};
 
 } // end namespace video

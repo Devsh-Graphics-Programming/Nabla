@@ -23,6 +23,7 @@ public:
         uint32_t offset;
         uint32_t size;
     };
+    _IRR_STATIC_INLINE_CONSTEXPR size_t DESCRIPTOR_SET_COUNT = 4u;
 
 protected:
     virtual ~IPipelineLayout() = default;
@@ -40,7 +41,7 @@ protected:
     const DescLayoutType* getDescriptorSetLayout(uint32_t _set) const { return m_descSetLayouts[_set].get(); }
     core::SRange<const SPushConstantRange> getPushConstantRanges() const { return {m_pushConstantRanges->data(), m_pushConstantRanges->data()+m_pushConstantRanges->size()}; }
 
-    std::array<core::smart_refctd_ptr<DescLayoutType>, 4> m_descSetLayouts;
+    std::array<core::smart_refctd_ptr<DescLayoutType>, DESCRIPTOR_SET_COUNT> m_descSetLayouts;
     core::smart_refctd_dynamic_array<SPushConstantRange> m_pushConstantRanges;
 };
 

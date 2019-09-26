@@ -157,16 +157,12 @@ namespace video
         } vertexInputParams;
 
         struct {
-            core::smart_refctd_ptr<const COpenGLDescriptorSet> descSets[4];
+            core::smart_refctd_ptr<const COpenGLDescriptorSet> descSets[video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
         } descriptorsParams;
     };
 
 	class COpenGLDriver : public CNullDriver, public COpenGLExtensionHandler
 	{
-        _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_UBO_BINDING_COUNT = 16u;
-        _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_SSBO_BINDING_COUNT = 16u;
-        _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_TEXTURE_BINDING_COUNT = 80u;
-        _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_IMAGE_BINDING_COUNT = 80u;
     protected:
 		//! destructor
 		virtual ~COpenGLDriver();
