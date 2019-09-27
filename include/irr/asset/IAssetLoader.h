@@ -18,7 +18,7 @@ namespace irr { namespace asset
 
 	There are defined rules of loading process, that can be overwritten, but basically
 	a mesh can reference a submesh, a submesh can reference a material, a material 
-	can reference a texture, etc. You can look at it as recursive function, the LEVEL
+	can reference a texture, etc. You can look at it as recursive function, the LEVEL (\bhierarchyLevel\b)
 	is actually how deep the stack you are. The flag is a bitfield with 2 bits per level,
 	and the enums provie are some useful constants. Different combinations are valid as well, so
 	
@@ -74,6 +74,17 @@ public:
         ECF_DUPLICATE_REFERENCES = 0xffffffffffffffffull
     };
 
+	//! Struct storing important data used for Asset loading process
+	/**
+		Struct stores a key decryptionKey for potentially encrypted files, it is used to decrypt them. You can find an usage
+		example in CBAWMeshFileLoader .cpp file. Since decryptionKey is a pointer, size must be specified 
+		for iterating through key properly and decryptionKeyLen stores it.
+		Current flags set by user that defines rules during loading process are stored in cacheFlags.
+
+		@see CBAWMeshFileLoader
+		@see E_CACHING_FLAGS
+	*/
+
     struct SAssetLoadParams
     {
         SAssetLoadParams(const size_t& _decryptionKeyLen = 0u, const uint8_t* _decryptionKey = nullptr, const E_CACHING_FLAGS& _cacheFlags = ECF_CACHE_EVERYTHING)
@@ -86,6 +97,14 @@ public:
     };
 
     //! Struct for keeping the state of the current loadoperation for safe threading
+	/**
+		Important data used for Asset loading process is stored by params.
+		Also a path to Asset data file is specified, stored by mainFile. You can store path
+		to file as an absolute path or a relative path, flexibility is provided.
+
+		@see SAssetLoadParams
+	*/
+
     struct SAssetLoadContext
     {
         const SAssetLoadParams params;
@@ -126,7 +145,13 @@ public:
         return (E_CACHING_FLAGS)(ECF_DUPLICATE_REFERENCES >> N);
     }
 
-    //! Override class to facilitate changing how assets are loaded
+	//! Class for user to override functions to facilitate changing the way assets are loaded
+	/**
+		Each loader may override those functions to get more control on some process, but default implementations are provided.
+		It handles such operations like finding Assets cached so far, inserting them to cache, getting path to
+		file with Asset data, handling predefined opeartions if Assets searching fails or loading them, etc.
+	*/
+
     class IAssetLoaderOverride
     {
     protected:
@@ -155,6 +180,16 @@ public:
         }
 
         //! Called before loading a file
+		/**
+			\param inOutFilename is a path to file Asset will be loaded from.
+			\param ctx provides data required for loading process
+			\param hierarchyLevel specifies how deep are we being in some referenced-struct-data in a file.
+
+			More information about hierarchy level you can find at IAssetLoader description.
+
+			@see IAssetLoader
+			@see SAssetLoadContext
+		*/
         inline virtual void getLoadFilename(std::string& inOutFilename, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel) {} //default do nothing
 
         inline virtual io::IReadFile* getLoadFile(io::IReadFile* inFile, const std::string& supposedFilename, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)

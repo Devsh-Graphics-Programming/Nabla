@@ -231,15 +231,15 @@ namespace asset
             return asset;
         }
         //TODO change name
-        SAssetBundle getAssetInHierarchy(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+        SAssetBundle getAssetInHierarchy(const std::string& _filePath, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
             IAssetLoader::SAssetLoadContext ctx{_params, nullptr};
 
-            std::string filename = _filename;
-            _override->getLoadFilename(filename, ctx, _hierarchyLevel);
-            io::IReadFile* file = m_fileSystem->createAndOpenFile(filename.c_str());
+            std::string filePath = _filePath;
+            _override->getLoadFilename(filePath, ctx, _hierarchyLevel);
+            io::IReadFile* file = m_fileSystem->createAndOpenFile(filePath.c_str());
 
-            SAssetBundle asset = getAssetInHierarchy(file, _filename, _params, _hierarchyLevel, _override);
+            SAssetBundle asset = getAssetInHierarchy(file, _filePath, _params, _hierarchyLevel, _override);
 
             if (file)
                 file->drop();
