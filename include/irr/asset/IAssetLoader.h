@@ -64,14 +64,10 @@ public:
     enum E_CACHING_FLAGS : uint64_t
     {
         ECF_CACHE_EVERYTHING = 0,
-        //! master/parent is searched for in the caches, but not added to the cache if not found and loaded
-        ECF_DONT_CACHE_TOP_LEVEL = 0x1ull,
-        //! master/parent object is loaded without searching for it in the cache, nor adding it to the cache after the load   
-        ECF_DUPLICATE_TOP_LEVEL = 0x3ull,
-        //! this concerns any asset that the top level asset refers to, such as a texture
-        ECF_DONT_CACHE_REFERENCES = 0x5555555555555555ull,
-        //! meaning identical as to ECF_DUPLICATE_TOP_LEVEL but for any asset in the chain
-        ECF_DUPLICATE_REFERENCES = 0xffffffffffffffffull
+        ECF_DONT_CACHE_TOP_LEVEL = 0x1ull,						//!< master/parent is searched for in the caches, but not added to the cache if not found and loaded   
+        ECF_DUPLICATE_TOP_LEVEL = 0x3ull,						//!< master/parent object is loaded without searching for it in the cache, nor adding it to the cache after the load
+        ECF_DONT_CACHE_REFERENCES = 0x5555555555555555ull,		//!< this concerns any asset that the top level asset refers to, such as a texture
+        ECF_DUPLICATE_REFERENCES = 0xffffffffffffffffull		//!< meaning identical as to ECF_DUPLICATE_TOP_LEVEL but for any asset in the chain
     };
 
 	//! Struct storing important data used for Asset loading process
@@ -91,9 +87,9 @@ public:
             : decryptionKeyLen(_decryptionKeyLen), decryptionKey(_decryptionKey), cacheFlags(_cacheFlags)
         {
         }
-        size_t decryptionKeyLen;
-        const uint8_t* decryptionKey;
-        const E_CACHING_FLAGS cacheFlags;
+        size_t decryptionKeyLen;			 //!< The size of decryptionKey
+        const uint8_t* decryptionKey;		 //!< The key it used to decrypt potentially encrypted files
+        const E_CACHING_FLAGS cacheFlags;	 //!< Flags defining rules during loading process
     };
 
     //! Struct for keeping the state of the current loadoperation for safe threading
@@ -107,8 +103,8 @@ public:
 
     struct SAssetLoadContext
     {
-        const SAssetLoadParams params;
-        io::IReadFile* mainFile;
+        const SAssetLoadParams params;		//!< Data used for Asset loading process
+        io::IReadFile* mainFile;			//!< A path to Asset data file
     };
 
     // following could be inlined

@@ -20,17 +20,10 @@ namespace irr { namespace asset
 */
 enum E_WRITER_FLAGS : uint32_t
 {
-    //! no writer flags (default writer settings)
-    EWF_NONE = 0u,
-
-    //! write in a way that consumes less disk space if possible
-    EWF_COMPRESSED = 1u<<0u,
-
-    //! write encrypted if possible
-    EWF_ENCRYPTED = 1u<<1u,
-
-    //! write in binary format rather than text if possible
-    EWF_BINARY = 1u<<2u
+    EWF_NONE = 0u,						//!< No writer flags (default writer settings)
+    EWF_COMPRESSED = 1u<<0u,			//!< Write in a way that consumes less disk space if possible
+    EWF_ENCRYPTED = 1u<<1u,				//!< Write encrypted if possible
+    EWF_BINARY = 1u<<2u					//!< Write in binary format rather than text if possible
 };
 
 //! A class that defines rules during Asset-writing (saving) process
@@ -64,6 +57,20 @@ enum E_WRITER_FLAGS : uint32_t
 class IAssetWriter : public virtual core::IReferenceCounted
 {
 public:
+
+	//! Struct storing important data used for Asset writing process
+	/**
+		Struct stores an Asset on which entire writing process is based. It also stores decryptionKey for file encryption. 
+		You can find an usage example in CBAWMeshFileLoader .cpp file. Since decryptionKey is a pointer, size must be specified 
+		for iterating through key properly and decryptionKeyLen stores it.
+		Current flags set by user that defines rules during writing process are stored in flags.
+		Compression level dependent on entire Asset size and it's data is stored in compressionLevel.
+		The more size it has, the more compression level is. Indeed user data is specified in userData.
+
+		@see CBAWMeshFileLoader
+		@see E_WRITER_FLAGS
+	*/
+
     struct SAssetWriteParams
     {
         SAssetWriteParams(IAsset* _asset, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr) :
@@ -82,6 +89,14 @@ public:
     };
 
     //! Struct for keeping the state of the current write operation for safe threading
+	/**
+		Important data used for Asset writing process is stored by params.
+		Also a path to Asset data file to write is specified, stored by outputFile.
+		You can store path to file as an absolute path or a relative path, flexibility is provided.
+
+		@see SAssetWriteParams
+	*/
+
     struct SAssetWriteContext
     {
         const SAssetWriteParams params;

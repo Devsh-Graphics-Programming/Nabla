@@ -100,37 +100,29 @@ public:
 	
     enum E_TYPE : uint64_t
     {
-        //! asset::ICPUBuffer
-        ET_BUFFER = 1u<<0u,
-        //! asset::CImageData - maybe rename to asset::CSubImageData
-        ET_SUB_IMAGE = 1u<<1u,
-        //! asset::ICPUTexture
-        ET_IMAGE = 1u<<2u,
-        //! asset::ICPUMeshBuffer
-        ET_SUB_MESH = 1u<<3u,
-        //! asset::ICPUMesh
-        ET_MESH = 1u<<4u,
-        //! asset::ICPUSkeleton - to be done by splitting CFinalBoneHierarchy
-        ET_SKELETON = 1u<<5u,
-        //! asset::ICPUKeyframeAnimation - from CFinalBoneHierarchy
-        ET_KEYFRAME_ANIMATION = 1u<<6u,
-        //! asset::ICPUShader
-        ET_SHADER = 1u<<7u,
-        //! asset::ICPUSpecializedShader
-        ET_SPECIALIZED_SHADER = 1u<<8,
-        //! asset::ICPUMeshDataFormatDesc
-        ET_MESH_DATA_DESCRIPTOR = 1u<<8,
-        //! reserved, to implement later
-        ET_GRAPHICS_PIPELINE = 1u<<9u,
-        //! reserved, to implement later
-        ET_SCENE = 1u<<10u,
-        //! lights, etc.
-        ET_IMPLEMENTATION_SPECIFIC_METADATA = 1u<<31u
+        ET_BUFFER = 1u<<0u,								//!< asset::ICPUBuffer
+        ET_SUB_IMAGE = 1u<<1u,						    //!< asset::CImageData - maybe rename to asset::CSubImageData
+        ET_IMAGE = 1u<<2u,								//!< asset::ICPUTexture
+        ET_SUB_MESH = 1u<<3u,							//!< asset::ICPUMeshBuffer
+        ET_MESH = 1u<<4u,								//!< asset::ICPUMesh
+        ET_SKELETON = 1u<<5u,							//!< asset::ICPUSkeleton - to be done by splitting CFinalBoneHierarchy
+        ET_KEYFRAME_ANIMATION = 1u<<6u,					//!< asset::ICPUKeyframeAnimation - from CFinalBoneHierarchy
+        ET_SHADER = 1u<<7u,								//!< asset::ICPUShader
+        ET_SPECIALIZED_SHADER = 1u<<8,					//!< asset::ICPUSpecializedShader
+        ET_MESH_DATA_DESCRIPTOR = 1u<<8,				//!< asset::ICPUMeshDataFormatDesc
+        ET_GRAPHICS_PIPELINE = 1u<<9u,					//!< reserved, to implement later
+        ET_SCENE = 1u<<10u,								//!< reserved, to implement later
+        ET_IMPLEMENTATION_SPECIFIC_METADATA = 1u<<31u	//!< lights, etc.
         //! Reserved special value used for things like terminating lists of this enum
     };
     constexpr static size_t ET_STANDARD_TYPES_COUNT = 12u; //!< The variable shows valid amount of available Asset types in E_TYPE enum
 
 	//! Returns a representaion of an Asset type in decimal system
+	/**
+		Each value is returned from the range 0 to (ET_STANDARD_TYPES_COUNT - 1) to provide
+		easy way to handle arrays operations. For instance ET_SUB_IMAGE returns 1 and ET_MESH
+		returns 4.
+	*/
     static uint32_t typeFlagToIndex(E_TYPE _type)
     {
         uint32_t type = (uint32_t)_type;
@@ -141,9 +133,18 @@ public:
 
     IAsset() : isDummyObjectForCacheAliasing{false}, m_metadata{nullptr} {}
 
+	//! Returns whole size associated with an Asset and its data
+	/**
+		The size is used to determine compression level while writing process 
+		is performed. As you expect, the more size Asset has, the more compression
+		level is.
+	*/
     virtual size_t conservativeSizeEstimate() const = 0;
 
+	//! Returns Asset's metadata. @see IAssetMetadata
     IAssetMetadata* getMetadata() { return m_metadata.get(); }
+
+	//! Returns Asset's metadata. @see IAssetMetadata
     const IAssetMetadata* getMetadata() const { return m_metadata.get(); }
 
     friend IAssetManager;
