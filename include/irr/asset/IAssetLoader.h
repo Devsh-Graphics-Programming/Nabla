@@ -175,11 +175,17 @@ public:
             return {};
         }
 
-        //! Called before loading a file
+        //! Called before loading a file 
 		/**
-			\param inOutFilename is a path to file Asset will be loaded from.
-			\param ctx provides data required for loading process
-			\param hierarchyLevel specifies how deep are we being in some referenced-struct-data in a file.
+			\param inOutFilename is a path to file Asset data needs to correspond with. A path changes over time for each dependent resource.
+			Actually, override decides how to resolve a local path or even a URL into a "proper" filename.
+			\param ctx provides data required for loading process.
+			\param hierarchyLevel specifies how deep are we being in some referenced-struct-data in a file,
+			but it is more like a stack counter.
+
+			Expected behaviour is that Asset loading will get called recursively. For instance mesh needs material, material needs texture, etc.
+			GetLoadFilename() could be called separately for each dependent resource from deeper recursions in the loading stack.
+			So inOutFilename is provided, and if path to a texture needed by a material is required - inOutFilename will store it after calling the function.
 
 			More information about hierarchy level you can find at IAssetLoader description.
 
