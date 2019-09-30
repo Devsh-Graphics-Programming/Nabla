@@ -65,7 +65,8 @@ public:
 		for iterating through key properly and decryptionKeyLen stores it.
 		Current flags set by user that defines rules during writing process are stored in flags.
 		Compression level dependent on entire Asset size and it's data is stored in compressionLevel.
-		The more size it has, the more compression level is. Indeed user data is specified in userData.
+		The more size it has, the more compression level is. Indeed user data is specified in userData and
+		it holds writer-dependets parameters. It is usually a struct provided by a writer author.
 
 		@see CBAWMeshFileLoader
 		@see E_WRITER_FLAGS

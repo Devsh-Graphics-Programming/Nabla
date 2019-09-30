@@ -286,6 +286,26 @@ namespace asset
         }
 
         //TODO change name
+		//! Check whether Assets exist in cache using a key and optionally their types
+		/*
+			\param _inOutStorageSize holds beginning size of Assets. Note that it changes,
+			but if we expect 5 objects, it will hold finally (5 * sizeOfAsset) or \bless\b since 
+			operation may fail.
+			\param _out is a pointer that specifies an adress that new SAssetBundle will be copied to.
+			\param _key stores a key used for Assets searching.
+			\param _types stores null-terminated Asset types for better performance while searching.
+
+			If types of Assets are specified, task is easier and more performance is ensured, 
+			because Assets are being searched only in certain cache using a key (cache that matches
+			with Assets type). If there aren't any types specified, Assets are being search in whole cache.
+
+			Found Assets are being copied to _out.
+
+			If Assets exist, true is returned - otherwise false.
+
+			@see SAssetBundle
+			@see IAsset::E_TYPE
+		*/
         inline bool findAssets(size_t& _inOutStorageSize, SAssetBundle* _out, const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
         {
             size_t availableSize = _inOutStorageSize;
@@ -318,7 +338,8 @@ namespace asset
             }
             return res;
         }
-        //TODO change name (plural)
+        
+		//! It finds Assets and returnes all found. 
         inline core::vector<SAssetBundle> findAssets(const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
         {
             size_t reqSz = 0u;
@@ -343,6 +364,10 @@ namespace asset
             return res;
         }
 
+		//! It injects metadata into Asset structure
+		/**
+			@see IAssetMetadata
+		*/
         inline void setAssetMetadata(IAsset* _asset, core::smart_refctd_ptr<IAssetMetadata>&& _metadata)
         {
             _asset->setMetadata(std::move(_metadata));
