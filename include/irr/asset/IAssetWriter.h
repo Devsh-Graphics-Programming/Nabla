@@ -12,6 +12,11 @@ namespace irr { namespace asset
 //! Writing flags
 /**
 	They have an impact on writing (saving) an Asset.
+	Take into account that a writer may not support all of those flags.
+	For instance, if there is a PNG or JPG writer, it won't write encrypted images.
+
+	@see IAssetWriter::getSupportedFlags()
+	@see IAssetWriter::getForcedFlags()
 
 	E_WRITER_FLAGS::EWF_NONE means that there aren't writer flags (default).
 	E_WRITER_FLAGS::EWF_COMPRESSED means that it has to write in a way that consumes less disk space if possible.
@@ -62,9 +67,9 @@ public:
 	/**
 		Struct stores an Asset on which entire writing process is based. It also stores decryptionKey for file encryption. 
 		You can find an usage example in CBAWMeshFileLoader .cpp file. Since decryptionKey is a pointer, size must be specified 
-		for iterating through key properly and decryptionKeyLen stores it.
+		for iterating through key properly and encryptionKeyLen stores it.
 		Current flags set by user that defines rules during writing process are stored in flags.
-		Compression level dependent on entire Asset size and it's data is stored in compressionLevel.
+		Compression level dependent on entire Asset size reserved for writing is stored in compressionLevel.
 		The more size it has, the more compression level is. Indeed user data is specified in userData and
 		it holds writer-dependets parameters. It is usually a struct provided by a writer author.
 
@@ -81,12 +86,12 @@ public:
         {
         }
 
-        const IAsset* rootAsset;
-        E_WRITER_FLAGS flags;
-        float compressionLevel;
-        size_t encryptionKeyLen;
-        const uint8_t* encryptionKey;
-        const void* userData;
+        const IAsset* rootAsset;			//!< An Asset on which entire writing process is based.
+        E_WRITER_FLAGS flags;				//!< Flags set by user that defines rules during writing process.
+        float compressionLevel;				//!< The more compression level, the more expensive (slower) compression algorithm is launched. @see IAsset::conservativeSizeEstimate().
+        size_t encryptionKeyLen;			//!< Stores a size of data in encryptionKey pointer for correct iteration.
+        const uint8_t* encryptionKey;		//!< Stores an encryption key used for encryption process.
+        const void* userData;				//!< Stores writer-dependets parameters. It is usually a struct provided by a writer author.
     };
 
     //! Struct for keeping the state of the current write operation for safe threading
@@ -105,12 +110,15 @@ public:
     };
 
 public:
+
     //! Returns an array of string literals terminated by nullptr
     virtual const char** getAssociatedFileExtensions() const = 0;
 
     //! Returns the assets which can be written out by the loader
-    /** Bits of the returned value correspond to each IAsset::E_TYPE
-    enumeration member, and the return value cannot be 0. */
+    /** 
+		Bits of the returned value correspond to each IAsset::E_TYPE
+		enumeration member, and the return value cannot be 0.
+	*/
     virtual uint64_t getSupportedAssetTypesBitfield() const { return 0; }
 
     //! Returns which flags are supported for writing modes
@@ -120,6 +128,11 @@ public:
     virtual uint32_t getForcedFlags() = 0;
 
     //! Override class to facilitate changing how assets are written, especially the sub-assets
+	/*
+		Each writer may override those functions to get more control on some process, but default implementations are provided.
+		It handles getter-functions (eg. getting writing flags, compression level, encryption key or extra file paths). It
+		also has a function for handling writing errors.
+	*/
     class IAssetWriterOverride
     {
         //! The only reason these functions are not declared static is to allow stateful overrides

@@ -120,7 +120,7 @@ public:
 	//! Returns a representaion of an Asset type in decimal system
 	/**
 		Each value is returned from the range 0 to (ET_STANDARD_TYPES_COUNT - 1) to provide
-		easy way to handle arrays operations. For instance ET_SUB_IMAGE returns 1 and ET_MESH
+		easy way to handle array indexing. For instance ET_SUB_IMAGE returns 1 and ET_MESH
 		returns 4.
 	*/
     static uint32_t typeFlagToIndex(E_TYPE _type)
@@ -133,11 +133,14 @@ public:
 
     IAsset() : isDummyObjectForCacheAliasing{false}, m_metadata{nullptr} {}
 
-	//! Returns whole size associated with an Asset and its data
+	//! Returns correct size reserved associated with an Asset and its data
 	/**
-		The size is used to determine compression level while writing process 
-		is performed. As you expect, the more size Asset has, the more compression
-		level is.
+		Some containers like std::vector reserves usually more memory than they actually need. 
+		Similar behaviour appears here and it is actually necessary to reserve the correct amount of memory when writing to file.
+		The value returned can be greater than memory actually needed and that symbolizes the name "conservative".
+
+		Additionally the size is used to determine compression level while writing process is performed.
+		As you expect, the bigger the size returned the more likely it is to be compressed with a more expensive (slower) algorithm.
 	*/
     virtual size_t conservativeSizeEstimate() const = 0;
 
