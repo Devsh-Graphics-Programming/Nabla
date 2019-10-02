@@ -10,6 +10,7 @@ set(IRR_EXT_MITSUBA_LOADER_H
 	CElementRFilter.h
 	CElementSampler.h
 	CElementTransform.h
+	CElementBSDF.h
 	#CElementEmitter.h
 	CElementFactory.h
 	#CShapeCreator.h
@@ -27,6 +28,7 @@ set(IRR_EXT_MITSUBA_LOADER_SRC
 	CElementRFilter.cpp
 	CElementSampler.cpp
 	CElementTransform.cpp
+	CElementBSDF.cpp
 	#CElementEmitter.cpp
 	CElementFactory.cpp
 	CMitsubaLoader.cpp

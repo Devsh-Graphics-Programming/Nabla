@@ -47,7 +47,7 @@ class CElementRFilter : public IElement
 		}
 		virtual ~CElementRFilter() {}
 
-		bool addProperty(SPropertyElementData&& _property) override;
+		bool addProperty(SNamedPropertyElement&& _property) override;
 		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override;
 		IElement::Type getType() const override { return IElement::Type::RFILTER; }
 		std::string getLogName() const override { return "rfilter"; }

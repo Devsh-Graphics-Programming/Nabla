@@ -77,7 +77,7 @@ IElement* CElementFactory::createElement<CElementSensor>(const char** _atts, Par
 	return obj;
 }
 
-bool CElementSensor::addProperty(SPropertyElementData&& _property)
+bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
 {
 	bool error = false;
 	auto dispatch = [&](auto func) -> void
@@ -128,7 +128,7 @@ bool CElementSensor::addProperty(SPropertyElementData&& _property)
 		}); \
 	}
 
-	auto setFov = SET_PROPERTY_TEMPLATE(fov,SPropertyElementData::Type::FLOAT,PerspectivePinhole);
+	auto setFov = SET_PROPERTY_TEMPLATE(fov,SNamedPropertyElement::Type::FLOAT,PerspectivePinhole);
 	auto setFovAxis = [&]() -> void
 	{
 		dispatch([&](auto& state) -> void
@@ -136,7 +136,7 @@ bool CElementSensor::addProperty(SPropertyElementData&& _property)
 			using state_type = std::remove_reference<decltype(state)>::type;
 			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_base_of<state_type,PerspectivePinhole>::value)
 			{
-				if (_property.type != SPropertyElementData::Type::STRING)
+				if (_property.type != SNamedPropertyElement::Type::STRING)
 				{
 					error = true;
 					return;
@@ -158,13 +158,13 @@ bool CElementSensor::addProperty(SPropertyElementData&& _property)
 			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
-	auto setShutterOpen		= SET_PROPERTY_TEMPLATE(shutterOpen,SPropertyElementData::Type::FLOAT,ShutterSensor);
-	auto setShutterClose	= SET_PROPERTY_TEMPLATE(shutterClose,SPropertyElementData::Type::FLOAT,ShutterSensor);
-	auto setNearClip		= SET_PROPERTY_TEMPLATE(nearClip,SPropertyElementData::Type::FLOAT,CameraBase);
-	auto setFarClip			= SET_PROPERTY_TEMPLATE(farClip,SPropertyElementData::Type::FLOAT,CameraBase);
-	auto setFocusDistance	= SET_PROPERTY_TEMPLATE(focusDistance,SPropertyElementData::Type::FLOAT,DepthOfFieldBase);
-	auto setApertureRadius	= SET_PROPERTY_TEMPLATE(apertureRadius,SPropertyElementData::Type::FLOAT,DepthOfFieldBase);
-	//auto setKc			= SET_PROPERTY_TEMPLATE(apertureRadius,SPropertyElementData::Type::STRING,PerspectivePinholeRadialDistortion);
+	auto setShutterOpen		= SET_PROPERTY_TEMPLATE(shutterOpen,SNamedPropertyElement::Type::FLOAT,ShutterSensor);
+	auto setShutterClose	= SET_PROPERTY_TEMPLATE(shutterClose,SNamedPropertyElement::Type::FLOAT,ShutterSensor);
+	auto setNearClip		= SET_PROPERTY_TEMPLATE(nearClip,SNamedPropertyElement::Type::FLOAT,CameraBase);
+	auto setFarClip			= SET_PROPERTY_TEMPLATE(farClip,SNamedPropertyElement::Type::FLOAT,CameraBase);
+	auto setFocusDistance	= SET_PROPERTY_TEMPLATE(focusDistance,SNamedPropertyElement::Type::FLOAT,DepthOfFieldBase);
+	auto setApertureRadius	= SET_PROPERTY_TEMPLATE(apertureRadius,SNamedPropertyElement::Type::FLOAT,DepthOfFieldBase);
+	//auto setKc			= SET_PROPERTY_TEMPLATE(apertureRadius,SNamedPropertyElement::Type::STRING,PerspectivePinholeRadialDistortion);
 
 	static const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{

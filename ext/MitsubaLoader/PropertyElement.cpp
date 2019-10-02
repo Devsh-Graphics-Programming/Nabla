@@ -75,15 +75,15 @@ const char* SPropertyElementData::attributeStrings[SPropertyElementData::Type::I
 	{"x","y","z"} // VECTOR
 };
 
-std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyData(const char* _el, const char** _atts)
+std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyData(const char* _el, const char** _atts)
 {
-	SPropertyElementData result(_el);
+	SNamedPropertyElement result(_el);
 
 	const char* desiredAttributes[SPropertyElementData::MaxAttributes] = { nullptr };
 	if (!result.initialize(_atts, desiredAttributes))
 	{
 		_IRR_DEBUG_BREAK_IF(true);
-		return std::make_pair(false, SPropertyElementData());
+		return std::make_pair(false, SNamedPropertyElement());
 	}
 
 	bool success = true;
@@ -219,7 +219,7 @@ std::pair<bool, SPropertyElementData> CPropertyElementManager::createPropertyDat
 		return std::make_pair(true, result);
 
 	ParserLog::invalidXMLFileStructure("invalid element, name:\'" + result.name + "\'"); // in the future print values
-	return std::make_pair(false, SPropertyElementData());
+	return std::make_pair(false, SNamedPropertyElement());
 }
 
 bool CPropertyElementManager::retrieveBooleanValue(const std::string& _data, bool& success)

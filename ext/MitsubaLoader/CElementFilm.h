@@ -96,7 +96,7 @@ class CElementFilm : public IElement
 		{
 		}
 
-		bool addProperty(SPropertyElementData&& _property) override;
+		bool addProperty(SNamedPropertyElement&& _property) override;
 		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override;
 		IElement::Type getType() const override { return IElement::Type::FILM; }
 		std::string getLogName() const override { return "film"; }

@@ -67,9 +67,9 @@ IElement* CElementFactory::createElement<CElementRFilter>(const char** _atts, Pa
 	return obj;
 }
 
-bool CElementRFilter::addProperty(SPropertyElementData&& _property)
+bool CElementRFilter::addProperty(SNamedPropertyElement&& _property)
 {
-	if (_property.type == SPropertyElementData::Type::INTEGER)
+	if (_property.type == SNamedPropertyElement::Type::INTEGER)
 	{
 		if (core::strcmpi(_property.name,std::string("lobes")))
 		{
@@ -81,7 +81,7 @@ bool CElementRFilter::addProperty(SPropertyElementData&& _property)
 		return true;
 	}
 	else
-	if (_property.type == SPropertyElementData::Type::FLOAT)
+	if (_property.type == SNamedPropertyElement::Type::FLOAT)
 	{
 		if (core::strcmpi(_property.name,std::string("b"))==0)
 		{

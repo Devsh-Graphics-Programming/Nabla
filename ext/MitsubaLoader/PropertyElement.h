@@ -38,9 +38,17 @@ struct SPropertyElementData
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxAttributes = 4u;
 	static const char* attributeStrings[Type::INVALID][MaxAttributes];
 
-	SPropertyElementData() : type(Type::INVALID), name("")
+	SPropertyElementData() : type(Type::INVALID)
 	{
 		std::fill(mvalue.pointer(), mvalue.pointer() + 16, 0.f);
+	}
+	SPropertyElementData(const SNamedPropertyElement& other) : SPropertyElementData()
+	{
+		operator=(other);
+	}
+	SPropertyElementData(SNamedPropertyElement&& other) : SPropertyElementData()
+	{
+		operator=(std::move(other));
 	}
 	SPropertyElementData(const std::string& _type) : SPropertyElementData()
 	{
@@ -48,13 +56,25 @@ struct SPropertyElementData
 		if (found != StringToType.end())
 			type = found->second;
 	}
-	SPropertyElementData(const SPropertyElementData& other) : SPropertyElementData()
+	explicit SPropertyElementData(float value)				: type(FLOAT)	{ fvalue = value; }
+	explicit SPropertyElementData(int32_t value)			: type(INTEGER) { ivalue = value; }
+	explicit SPropertyElementData(bool value)				: type(BOOLEAN) { bvalue = value; }
+	//explicit SPropertyElementData(const std::string& value) : type(STRING) { #error }
+	explicit SPropertyElementData(Type _type, const core::vectorSIMDf& value) : type(INVALID)
 	{
-		operator=(other);
-	}
-	SPropertyElementData(SPropertyElementData&& other) : SPropertyElementData()
-	{
-		operator=(std::move(other));
+		switch (_type)
+		{
+			case Type::RGB:
+			case Type::SRGB:
+			case Type::VECTOR:
+			case Type::POINT:
+				type = _type;
+				vvalue = value;
+				break;
+			default:
+				assert(false);
+				break;
+		};
 	}
 	~SPropertyElementData()
 	{
@@ -62,45 +82,9 @@ struct SPropertyElementData
 			_IRR_ALIGNED_FREE((void*)svalue);
 	}
 
-	bool initialize(const char** _atts, const char** outputMatch)
-	{
-		if (type==Type::INVALID || !_atts)
-			return false;
-
-		for (auto it = _atts; *it; it++)
-		{
-			if (core::strcmpi(*it, "name")==0)
-			{
-				it++;
-				if (*it)
-				{
-					name = *it;
-					continue;
-				}
-				else
-					return false;
-			}
-
-			for (auto i=0u; i<MaxAttributes; i++)
-			if (core::strcmpi(*it, attributeStrings[type][i])==0)
-			{
-				it++;
-				if (!outputMatch[i] && *it)
-				{
-					outputMatch[i] = *it;
-					break;
-				}
-				else
-					return false;
-			}
-		}
-		return true;
-	}
-
 	inline SPropertyElementData& operator=(const SPropertyElementData& other)
 	{
 		type = other.type;
-		name = other.name;
 		switch (other.type)
 		{
 			case Type::FLOAT:
@@ -147,40 +131,39 @@ struct SPropertyElementData
 	inline SPropertyElementData& operator=(SPropertyElementData&& other)
 	{
 		std::swap(type,other.type);
-		std::swap(name,other.name);
 		switch (other.type)
 		{
-		case Type::FLOAT:
-			fvalue = other.fvalue;
-			break;
-		case Type::INTEGER:
-			ivalue = other.ivalue;
-			break;
-		case Type::BOOLEAN:
-			bvalue = other.bvalue;
-			break;
-		case Type::STRING:
-			svalue = other.svalue;
-			break;
-		case Type::RGB:
-		case Type::SRGB:
-		case Type::VECTOR:
-		case Type::POINT:
-			vvalue = other.vvalue;
-			break;
-		case Type::SPECTRUM:
-		case Type::BLACKBODY:
-			assert(false);
-			break;
-		case Type::MATRIX:
-		case Type::TRANSLATE:
-		case Type::ROTATE:
-		case Type::SCALE:
-		case Type::LOOKAT:
-			mvalue = other.mvalue;
-			break;
-		default:
-			break;
+			case Type::FLOAT:
+				fvalue = other.fvalue;
+				break;
+			case Type::INTEGER:
+				ivalue = other.ivalue;
+				break;
+			case Type::BOOLEAN:
+				bvalue = other.bvalue;
+				break;
+			case Type::STRING:
+				svalue = other.svalue;
+				break;
+			case Type::RGB:
+			case Type::SRGB:
+			case Type::VECTOR:
+			case Type::POINT:
+				vvalue = other.vvalue;
+				break;
+			case Type::SPECTRUM:
+			case Type::BLACKBODY:
+				assert(false);
+				break;
+			case Type::MATRIX:
+			case Type::TRANSLATE:
+			case Type::ROTATE:
+			case Type::SCALE:
+			case Type::LOOKAT:
+				mvalue = other.mvalue;
+				break;
+			default:
+				break;
 		}
 		std::fill(other.mvalue.pointer(), other.mvalue.pointer() + 16, 0.f);
 		return *this;
@@ -194,7 +177,6 @@ struct SPropertyElementData
 
 
 	SPropertyElementData::Type type;
-	std::string name;
 	union
 	{
 		float				fvalue;
@@ -204,6 +186,83 @@ struct SPropertyElementData
 		core::vectorSIMDf	vvalue; // rgb, srgb, vector, point
 		core::matrix4SIMD	mvalue; // matrix, translate, rotate, scale, lookat
 	};
+};
+
+struct SNamedPropertyElement : SPropertyElementData
+{
+	SNamedPropertyElement() : SPropertyElementData(), name("")
+	{
+		std::fill(mvalue.pointer(), mvalue.pointer() + 16, 0.f);
+	}
+	SNamedPropertyElement(const std::string& _type) : SNamedPropertyElement()
+	{
+		auto found = SPropertyElementData::StringToType.find(_type);
+		if (found != SPropertyElementData::StringToType.end())
+			type = found->second;
+	}
+	SNamedPropertyElement(const SNamedPropertyElement& other) : SNamedPropertyElement()
+	{
+		operator=(other);
+	}
+	SNamedPropertyElement(SNamedPropertyElement&& other) : SNamedPropertyElement()
+	{
+		operator=(std::move(other));
+	}
+	~SNamedPropertyElement()
+	{
+		if (type == Type::STRING)
+			_IRR_ALIGNED_FREE((void*)svalue);
+	}
+
+	bool initialize(const char** _atts, const char** outputMatch)
+	{
+		if (type == Type::INVALID || !_atts)
+			return false;
+
+		for (auto it = _atts; *it; it++)
+		{
+			if (core::strcmpi(*it, "name") == 0)
+			{
+				it++;
+				if (*it)
+				{
+					name = *it;
+					continue;
+				}
+				else
+					return false;
+			}
+
+			for (auto i = 0u; i < SPropertyElementData::MaxAttributes; i++)
+				if (core::strcmpi(*it, SPropertyElementData::attributeStrings[type][i]) == 0)
+				{
+					it++;
+					if (!outputMatch[i] && *it)
+					{
+						outputMatch[i] = *it;
+						break;
+					}
+					else
+						return false;
+				}
+		}
+		return true;
+	}
+
+	inline SNamedPropertyElement& operator=(const SNamedPropertyElement& other)
+	{
+		SPropertyElementData::operator=(other);
+		name = other.name;
+		return *this;
+	}
+	inline SNamedPropertyElement& operator=(SNamedPropertyElement&& other)
+	{
+		SPropertyElementData::operator=(std::move(other));
+		std::swap(name, other.name);
+		return *this;
+	}
+
+	std::string name;
 };
 
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::FLOAT>
@@ -243,7 +302,7 @@ template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type:
 class CPropertyElementManager
 {
 	public:
-		static std::pair<bool, SPropertyElementData> createPropertyData(const char* _el, const char** _atts);
+		static std::pair<bool, SNamedPropertyElement> createPropertyData(const char* _el, const char** _atts);
 
 		static bool retrieveBooleanValue(const std::string& _data, bool& success);
 		static core::matrix4SIMD retrieveMatrix(const std::string& _data, bool& success);

@@ -63,7 +63,7 @@ IElement* CElementFactory::createElement<CElementFilm>(const char** _atts, Parse
 }
 
 
-bool CElementFilm::addProperty(SPropertyElementData&& _property)
+bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 {
 	bool error = type==Type::INVALID;
 #define SET_PROPERTY(MEMBER,PROPERTY_TYPE)		[&]() -> void { \
@@ -73,15 +73,15 @@ bool CElementFilm::addProperty(SPropertyElementData&& _property)
 		} \
 		MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
 	}
-	auto setWidth			= SET_PROPERTY(width,SPropertyElementData::Type::INTEGER);
-	auto setHeight			= SET_PROPERTY(height,SPropertyElementData::Type::INTEGER);
-	auto setCropOffsetX		= SET_PROPERTY(cropOffsetX,SPropertyElementData::Type::INTEGER);
-	auto setCropOffsetY		= SET_PROPERTY(cropOffsetY,SPropertyElementData::Type::INTEGER);
-	auto setCropWidth		= SET_PROPERTY(cropWidth,SPropertyElementData::Type::INTEGER);
-	auto setCropHeight		= SET_PROPERTY(cropHeight,SPropertyElementData::Type::INTEGER);
+	auto setWidth			= SET_PROPERTY(width,SNamedPropertyElement::Type::INTEGER);
+	auto setHeight			= SET_PROPERTY(height,SNamedPropertyElement::Type::INTEGER);
+	auto setCropOffsetX		= SET_PROPERTY(cropOffsetX,SNamedPropertyElement::Type::INTEGER);
+	auto setCropOffsetY		= SET_PROPERTY(cropOffsetY,SNamedPropertyElement::Type::INTEGER);
+	auto setCropWidth		= SET_PROPERTY(cropWidth,SNamedPropertyElement::Type::INTEGER);
+	auto setCropHeight		= SET_PROPERTY(cropHeight,SNamedPropertyElement::Type::INTEGER);
 	auto setFileFormat = [&]() -> void
 	{
-		if (_property.type!=SPropertyElementData::Type::STRING)
+		if (_property.type!=SNamedPropertyElement::Type::STRING)
 		{
 			error = true;
 			return;
@@ -105,7 +105,7 @@ bool CElementFilm::addProperty(SPropertyElementData&& _property)
 	};
 	auto setPixelFormat = [&]() -> void
 	{
-		if (_property.type!=SPropertyElementData::Type::STRING)
+		if (_property.type!=SNamedPropertyElement::Type::STRING)
 		{
 			error = true;
 			return;
@@ -131,7 +131,7 @@ bool CElementFilm::addProperty(SPropertyElementData&& _property)
 	};
 	auto setComponentFormat = [&]() -> void
 	{
-		if (_property.type!=SPropertyElementData::Type::STRING || type==Type::LDR_FILM || type==Type::MFILM)
+		if (_property.type!=SNamedPropertyElement::Type::STRING || type==Type::LDR_FILM || type==Type::MFILM)
 		{
 			error = true;
 			return;
@@ -150,8 +150,8 @@ bool CElementFilm::addProperty(SPropertyElementData&& _property)
 		}
 		componentFormat = found->second;
 	};
-	auto setBanner			= SET_PROPERTY(banner,SPropertyElementData::Type::BOOLEAN);
-	auto setHighQualityEdges= SET_PROPERTY(highQualityEdges,SPropertyElementData::Type::BOOLEAN);
+	auto setBanner			= SET_PROPERTY(banner,SNamedPropertyElement::Type::BOOLEAN);
+	auto setHighQualityEdges= SET_PROPERTY(highQualityEdges,SNamedPropertyElement::Type::BOOLEAN);
 	
 
 	auto dispatch = [&](auto func) -> void
@@ -186,10 +186,10 @@ bool CElementFilm::addProperty(SPropertyElementData&& _property)
 		}); \
 	}
 
-	auto setAttachLog = SET_PROPERTY_TEMPLATE(attachLog, SPropertyElementData::Type::BOOLEAN, HDR);
+	auto setAttachLog = SET_PROPERTY_TEMPLATE(attachLog, SNamedPropertyElement::Type::BOOLEAN, HDR);
 	auto setTonemapMethod = [&]() -> void
 	{
-		if (_property.type != SPropertyElementData::Type::STRING || type == Type::LDR_FILM)
+		if (_property.type != SNamedPropertyElement::Type::STRING || type == Type::LDR_FILM)
 		{
 			error = true;
 			return;
@@ -207,14 +207,14 @@ bool CElementFilm::addProperty(SPropertyElementData&& _property)
 		}
 		ldrfilm.tonemapMethod = found->second;
 	};
-	auto setGamma = SET_PROPERTY_TEMPLATE(gamma, SPropertyElementData::Type::FLOAT, LDR);
-	auto setExposure = SET_PROPERTY_TEMPLATE(exposure, SPropertyElementData::Type::FLOAT, LDR);
-	auto setKey = SET_PROPERTY_TEMPLATE(key, SPropertyElementData::Type::FLOAT, LDR);
-	auto setBurn = SET_PROPERTY_TEMPLATE(burn, SPropertyElementData::Type::FLOAT, LDR);
-	auto setDigits = SET_PROPERTY_TEMPLATE(digits, SPropertyElementData::Type::INTEGER, M);
+	auto setGamma = SET_PROPERTY_TEMPLATE(gamma, SNamedPropertyElement::Type::FLOAT, LDR);
+	auto setExposure = SET_PROPERTY_TEMPLATE(exposure, SNamedPropertyElement::Type::FLOAT, LDR);
+	auto setKey = SET_PROPERTY_TEMPLATE(key, SNamedPropertyElement::Type::FLOAT, LDR);
+	auto setBurn = SET_PROPERTY_TEMPLATE(burn, SNamedPropertyElement::Type::FLOAT, LDR);
+	auto setDigits = SET_PROPERTY_TEMPLATE(digits, SNamedPropertyElement::Type::INTEGER, M);
 	auto setVariable = [&]() -> void
 	{
-		if (_property.type != SPropertyElementData::Type::STRING || type == Type::MFILM)
+		if (_property.type != SNamedPropertyElement::Type::STRING || type == Type::MFILM)
 		{
 			error = true;
 			return;

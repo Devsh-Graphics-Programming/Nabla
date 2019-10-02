@@ -63,9 +63,9 @@ IElement* CElementFactory::createElement<CElementSampler>(const char** _atts, Pa
 	return obj;
 }
 
-bool CElementSampler::addProperty(SPropertyElementData&& _property)
+bool CElementSampler::addProperty(SNamedPropertyElement&& _property)
 {
-	if (_property.type == SPropertyElementData::Type::INTEGER &&
+	if (_property.type == SNamedPropertyElement::Type::INTEGER &&
 		_property.name == "sampleCount")
 	{
 		sampleCount = _property.ivalue;
@@ -82,7 +82,7 @@ bool CElementSampler::addProperty(SPropertyElementData&& _property)
 		}
 	}
 	else
-	if (_property.type == SPropertyElementData::Type::INTEGER &&
+	if (_property.type == SNamedPropertyElement::Type::INTEGER &&
 		_property.name == "dimension")
 	{
 		dimension = _property.ivalue;
@@ -94,7 +94,7 @@ bool CElementSampler::addProperty(SPropertyElementData&& _property)
 		}
 	}
 	else
-	if (_property.type == SPropertyElementData::Type::INTEGER &&
+	if (_property.type == SNamedPropertyElement::Type::INTEGER &&
 		_property.name == "scramble")
 	{
 		scramble = _property.ivalue;

@@ -3,6 +3,8 @@
 
 #include "../../ext/MitsubaLoader/CElementSensor.h"
 #include "../../ext/MitsubaLoader/CElementIntegrator.h"
+//#include "../../ext/MitsubaLoader/CElementShape.h"
+	#include "../../ext/MitsubaLoader/CElementBSDF.h"
 
 namespace irr
 {
@@ -14,8 +16,6 @@ namespace MitsubaLoader
 class ParserManager;
 
 class CElementShape {};
-class CElementBSDF {};
-class CElementTexture {};
 class CElementEmitter {};
 
 class CElementFactory

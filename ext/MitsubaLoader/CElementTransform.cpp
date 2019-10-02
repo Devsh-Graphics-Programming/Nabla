@@ -20,19 +20,19 @@ IElement* CElementFactory::createElement<CElementTransform>(const char** _atts, 
 	return _util->objects.construct<CElementTransform>(_atts[1]);
 }
 
-bool CElementTransform::addProperty(SPropertyElementData&& _property)
+bool CElementTransform::addProperty(SNamedPropertyElement&& _property)
 {
 	switch (_property.type)
 	{
-		case SPropertyElementData::Type::MATRIX:
+		case SNamedPropertyElement::Type::MATRIX:
 			_IRR_FALLTHROUGH;
-		case SPropertyElementData::Type::TRANSLATE:
+		case SNamedPropertyElement::Type::TRANSLATE:
 			_IRR_FALLTHROUGH;
-		case SPropertyElementData::Type::ROTATE:
+		case SNamedPropertyElement::Type::ROTATE:
 			_IRR_FALLTHROUGH;
-		case SPropertyElementData::Type::SCALE:
+		case SNamedPropertyElement::Type::SCALE:
 			_IRR_FALLTHROUGH;
-		case SPropertyElementData::Type::LOOKAT:
+		case SNamedPropertyElement::Type::LOOKAT:
 			matrix = core::concatenateBFollowedByA(_property.mvalue, matrix);
 			break;
 		default:

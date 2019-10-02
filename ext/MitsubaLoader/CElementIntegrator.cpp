@@ -119,7 +119,7 @@ IElement* CElementFactory::createElement<CElementIntegrator>(const char** _atts,
 	return obj;
 }
 
-bool CElementIntegrator::addProperty(SPropertyElementData&& _property)
+bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property)
 {
 	bool error = false;
 	auto dispatch = [&](auto func) -> void
@@ -200,9 +200,9 @@ bool CElementIntegrator::addProperty(SPropertyElementData&& _property)
 		}); \
 	}
 
-	auto processRayLength = SET_PROPERTY_TEMPLATE(rayLength,SPropertyElementData::Type::FLOAT,AmbientOcclusion);
-	auto processEmitterSamples = SET_PROPERTY_TEMPLATE(emitterSamples,SPropertyElementData::Type::INTEGER,DirectIllumination);
-	auto processBSDFSamples = SET_PROPERTY_TEMPLATE(bsdfSamples,SPropertyElementData::Type::INTEGER,DirectIllumination);
+	auto processRayLength = SET_PROPERTY_TEMPLATE(rayLength,SNamedPropertyElement::Type::FLOAT,AmbientOcclusion);
+	auto processEmitterSamples = SET_PROPERTY_TEMPLATE(emitterSamples,SNamedPropertyElement::Type::INTEGER,DirectIllumination);
+	auto processBSDFSamples = SET_PROPERTY_TEMPLATE(bsdfSamples,SNamedPropertyElement::Type::INTEGER,DirectIllumination);
 	auto processShadingSamples = [&]() -> void
 	{ 
 		dispatch([&](auto& state) -> void {
@@ -210,12 +210,12 @@ bool CElementIntegrator::addProperty(SPropertyElementData&& _property)
 
 			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,AmbientOcclusion>::value)
 			{
-				if (_property.type!=SPropertyElementData::Type::INTEGER)
+				if (_property.type!=SNamedPropertyElement::Type::INTEGER)
 				{
 					error = true;
 					return;
 				}
-				state.shadingSamples = _property.getProperty<SPropertyElementData::Type::INTEGER>();
+				state.shadingSamples = _property.getProperty<SNamedPropertyElement::Type::INTEGER>();
 			}
 			IRR_PSEUDO_ELSE_CONSTEXPR
 			{
@@ -229,48 +229,48 @@ bool CElementIntegrator::addProperty(SPropertyElementData&& _property)
 			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
-	auto processStrictNormals = SET_PROPERTY_TEMPLATE(strictNormals,SPropertyElementData::Type::BOOLEAN,DirectIllumination,PathTracing);
-	auto processHideEmitters = SET_PROPERTY_TEMPLATE(hideEmitters,SPropertyElementData::Type::BOOLEAN,DirectIllumination,PathTracing,PhotonMapping);
+	auto processStrictNormals = SET_PROPERTY_TEMPLATE(strictNormals,SNamedPropertyElement::Type::BOOLEAN,DirectIllumination,PathTracing);
+	auto processHideEmitters = SET_PROPERTY_TEMPLATE(hideEmitters,SNamedPropertyElement::Type::BOOLEAN,DirectIllumination,PathTracing,PhotonMapping);
 #define ALL_PHOTONMAPPING_TYPES PhotonMapping,ProgressivePhotonMapping,StochasticProgressivePhotonMapping
 #define ALL_MLT_TYPES			PrimarySampleSpaceMetropolisLightTransport,PathSpaceMetropolisLightTransport
 #define ALL_MC_TYPES			PathTracing,SimpleVolumetricPathTracing,ExtendedVolumetricPathTracing,BiDirectionalPathTracing, \
 								ALL_PHOTONMAPPING_TYPES,ALL_MLT_TYPES,EnergyRedistributionPathTracing,AdjointParticleTracing
-	auto processMaxDepth = SET_PROPERTY_TEMPLATE(maxPathDepth,SPropertyElementData::Type::INTEGER,ALL_MC_TYPES, VirtualPointLights);
-	auto processRRDepth = SET_PROPERTY_TEMPLATE(russianRouletteDepth,SPropertyElementData::Type::INTEGER,ALL_MC_TYPES);
+	auto processMaxDepth = SET_PROPERTY_TEMPLATE(maxPathDepth,SNamedPropertyElement::Type::INTEGER,ALL_MC_TYPES, VirtualPointLights);
+	auto processRRDepth = SET_PROPERTY_TEMPLATE(russianRouletteDepth,SNamedPropertyElement::Type::INTEGER,ALL_MC_TYPES);
 #undef ALL_MC_TYPES
-	auto processLightImage = SET_PROPERTY_TEMPLATE(lightImage,SPropertyElementData::Type::BOOLEAN,BiDirectionalPathTracing);
-	auto processSampleDirect = SET_PROPERTY_TEMPLATE(sampleDirect,SPropertyElementData::Type::BOOLEAN,BiDirectionalPathTracing);
-	auto processGranularity = SET_PROPERTY_TEMPLATE(granularity,SPropertyElementData::Type::INTEGER,ALL_PHOTONMAPPING_TYPES,AdjointParticleTracing);
+	auto processLightImage = SET_PROPERTY_TEMPLATE(lightImage,SNamedPropertyElement::Type::BOOLEAN,BiDirectionalPathTracing);
+	auto processSampleDirect = SET_PROPERTY_TEMPLATE(sampleDirect,SNamedPropertyElement::Type::BOOLEAN,BiDirectionalPathTracing);
+	auto processGranularity = SET_PROPERTY_TEMPLATE(granularity,SNamedPropertyElement::Type::INTEGER,ALL_PHOTONMAPPING_TYPES,AdjointParticleTracing);
 #undef ALL_PHOTONMAPPING_TYPES
-	auto processDirectSamples = SET_PROPERTY_TEMPLATE(directSamples,SPropertyElementData::Type::INTEGER,PhotonMapping,ALL_MLT_TYPES,EnergyRedistributionPathTracing);
-	auto processGlossySamples = SET_PROPERTY_TEMPLATE(glossySamples,SPropertyElementData::Type::INTEGER,PhotonMapping);
-	auto processGlobalPhotons = SET_PROPERTY_TEMPLATE(globalPhotons,SPropertyElementData::Type::INTEGER,PhotonMapping);
-	auto processCausticPhotons = SET_PROPERTY_TEMPLATE(causticPhotons,SPropertyElementData::Type::INTEGER,PhotonMapping);
-	auto processVolumePhotons = SET_PROPERTY_TEMPLATE(volumePhotons,SPropertyElementData::Type::INTEGER,PhotonMapping);
-	auto processGlobalLookupRadius = SET_PROPERTY_TEMPLATE(globalLURadius,SPropertyElementData::Type::FLOAT,PhotonMapping);
-	auto processCausticLookupRadius = SET_PROPERTY_TEMPLATE(causticLURadius,SPropertyElementData::Type::FLOAT,PhotonMapping);
-	auto processLookupSize = SET_PROPERTY_TEMPLATE(LUSize,SPropertyElementData::Type::INTEGER,PhotonMapping);
-	auto processPhotonCount = SET_PROPERTY_TEMPLATE(photonCount,SPropertyElementData::Type::INTEGER,ProgressivePhotonMapping,StochasticProgressivePhotonMapping);
-	auto processInitialRadius = SET_PROPERTY_TEMPLATE(initialRadius,SPropertyElementData::Type::FLOAT,ProgressivePhotonMapping,StochasticProgressivePhotonMapping);
-	auto processAlpha = SET_PROPERTY_TEMPLATE(alpha,SPropertyElementData::Type::FLOAT,ProgressivePhotonMapping,StochasticProgressivePhotonMapping);
-	auto processMaxPasses = SET_PROPERTY_TEMPLATE(maxPasses,SPropertyElementData::Type::INTEGER,ProgressivePhotonMapping,StochasticProgressivePhotonMapping);
-	auto processLuminanceSamples = SET_PROPERTY_TEMPLATE(luminanceSamples,SPropertyElementData::Type::INTEGER,ALL_MLT_TYPES);
-	auto processTwoStage = SET_PROPERTY_TEMPLATE(twoStage,SPropertyElementData::Type::BOOLEAN,ALL_MLT_TYPES);
+	auto processDirectSamples = SET_PROPERTY_TEMPLATE(directSamples,SNamedPropertyElement::Type::INTEGER,PhotonMapping,ALL_MLT_TYPES,EnergyRedistributionPathTracing);
+	auto processGlossySamples = SET_PROPERTY_TEMPLATE(glossySamples,SNamedPropertyElement::Type::INTEGER,PhotonMapping);
+	auto processGlobalPhotons = SET_PROPERTY_TEMPLATE(globalPhotons,SNamedPropertyElement::Type::INTEGER,PhotonMapping);
+	auto processCausticPhotons = SET_PROPERTY_TEMPLATE(causticPhotons,SNamedPropertyElement::Type::INTEGER,PhotonMapping);
+	auto processVolumePhotons = SET_PROPERTY_TEMPLATE(volumePhotons,SNamedPropertyElement::Type::INTEGER,PhotonMapping);
+	auto processGlobalLookupRadius = SET_PROPERTY_TEMPLATE(globalLURadius,SNamedPropertyElement::Type::FLOAT,PhotonMapping);
+	auto processCausticLookupRadius = SET_PROPERTY_TEMPLATE(causticLURadius,SNamedPropertyElement::Type::FLOAT,PhotonMapping);
+	auto processLookupSize = SET_PROPERTY_TEMPLATE(LUSize,SNamedPropertyElement::Type::INTEGER,PhotonMapping);
+	auto processPhotonCount = SET_PROPERTY_TEMPLATE(photonCount,SNamedPropertyElement::Type::INTEGER,ProgressivePhotonMapping,StochasticProgressivePhotonMapping);
+	auto processInitialRadius = SET_PROPERTY_TEMPLATE(initialRadius,SNamedPropertyElement::Type::FLOAT,ProgressivePhotonMapping,StochasticProgressivePhotonMapping);
+	auto processAlpha = SET_PROPERTY_TEMPLATE(alpha,SNamedPropertyElement::Type::FLOAT,ProgressivePhotonMapping,StochasticProgressivePhotonMapping);
+	auto processMaxPasses = SET_PROPERTY_TEMPLATE(maxPasses,SNamedPropertyElement::Type::INTEGER,ProgressivePhotonMapping,StochasticProgressivePhotonMapping);
+	auto processLuminanceSamples = SET_PROPERTY_TEMPLATE(luminanceSamples,SNamedPropertyElement::Type::INTEGER,ALL_MLT_TYPES);
+	auto processTwoStage = SET_PROPERTY_TEMPLATE(twoStage,SNamedPropertyElement::Type::BOOLEAN,ALL_MLT_TYPES);
 #undef ALL_MLT_TYPES
-	auto processBidirectional = SET_PROPERTY_TEMPLATE(bidirectional,SPropertyElementData::Type::BOOLEAN,PrimarySampleSpaceMetropolisLightTransport);
-	auto processPLarge = SET_PROPERTY_TEMPLATE(pLarge,SPropertyElementData::Type::FLOAT,PrimarySampleSpaceMetropolisLightTransport);
-	auto processLensPerturbation = SET_PROPERTY_TEMPLATE(lensPerturbation,SPropertyElementData::Type::BOOLEAN,PathSpaceMetropolisLightTransport,EnergyRedistributionPathTracing);
-	auto processMultiChainPerturbation = SET_PROPERTY_TEMPLATE(multiChainPerturbation,SPropertyElementData::Type::BOOLEAN,PathSpaceMetropolisLightTransport,EnergyRedistributionPathTracing);
-	auto processCausticPerturbation = SET_PROPERTY_TEMPLATE(causticPerturbation,SPropertyElementData::Type::BOOLEAN,PathSpaceMetropolisLightTransport,EnergyRedistributionPathTracing);
-	auto processManifoldPerturbation = SET_PROPERTY_TEMPLATE(manifoldPerturbation,SPropertyElementData::Type::BOOLEAN,PathSpaceMetropolisLightTransport,EnergyRedistributionPathTracing);
-	auto processLambda = SET_PROPERTY_TEMPLATE(lambda,SPropertyElementData::Type::FLOAT,PathSpaceMetropolisLightTransport,EnergyRedistributionPathTracing);
-	auto processBidirectionalMutation = SET_PROPERTY_TEMPLATE(bidirectionalMutation,SPropertyElementData::Type::BOOLEAN,PathSpaceMetropolisLightTransport);
-	auto processNumChains = SET_PROPERTY_TEMPLATE(numChains,SPropertyElementData::Type::FLOAT,EnergyRedistributionPathTracing);
-	auto processMaxChains = SET_PROPERTY_TEMPLATE(maxChains,SPropertyElementData::Type::FLOAT,EnergyRedistributionPathTracing);
-	auto processChainLength = SET_PROPERTY_TEMPLATE(chainLength,SPropertyElementData::Type::INTEGER,EnergyRedistributionPathTracing);
-	auto processBruteForce = SET_PROPERTY_TEMPLATE(bruteForce,SPropertyElementData::Type::BOOLEAN,AdjointParticleTracing);
-	auto processShadowMap = SET_PROPERTY_TEMPLATE(shadowMap,SPropertyElementData::Type::INTEGER,VirtualPointLights);
-	auto processClamping = SET_PROPERTY_TEMPLATE(clamping,SPropertyElementData::Type::FLOAT,VirtualPointLights);
+	auto processBidirectional = SET_PROPERTY_TEMPLATE(bidirectional,SNamedPropertyElement::Type::BOOLEAN,PrimarySampleSpaceMetropolisLightTransport);
+	auto processPLarge = SET_PROPERTY_TEMPLATE(pLarge,SNamedPropertyElement::Type::FLOAT,PrimarySampleSpaceMetropolisLightTransport);
+	auto processLensPerturbation = SET_PROPERTY_TEMPLATE(lensPerturbation,SNamedPropertyElement::Type::BOOLEAN,PathSpaceMetropolisLightTransport,EnergyRedistributionPathTracing);
+	auto processMultiChainPerturbation = SET_PROPERTY_TEMPLATE(multiChainPerturbation,SNamedPropertyElement::Type::BOOLEAN,PathSpaceMetropolisLightTransport,EnergyRedistributionPathTracing);
+	auto processCausticPerturbation = SET_PROPERTY_TEMPLATE(causticPerturbation,SNamedPropertyElement::Type::BOOLEAN,PathSpaceMetropolisLightTransport,EnergyRedistributionPathTracing);
+	auto processManifoldPerturbation = SET_PROPERTY_TEMPLATE(manifoldPerturbation,SNamedPropertyElement::Type::BOOLEAN,PathSpaceMetropolisLightTransport,EnergyRedistributionPathTracing);
+	auto processLambda = SET_PROPERTY_TEMPLATE(lambda,SNamedPropertyElement::Type::FLOAT,PathSpaceMetropolisLightTransport,EnergyRedistributionPathTracing);
+	auto processBidirectionalMutation = SET_PROPERTY_TEMPLATE(bidirectionalMutation,SNamedPropertyElement::Type::BOOLEAN,PathSpaceMetropolisLightTransport);
+	auto processNumChains = SET_PROPERTY_TEMPLATE(numChains,SNamedPropertyElement::Type::FLOAT,EnergyRedistributionPathTracing);
+	auto processMaxChains = SET_PROPERTY_TEMPLATE(maxChains,SNamedPropertyElement::Type::FLOAT,EnergyRedistributionPathTracing);
+	auto processChainLength = SET_PROPERTY_TEMPLATE(chainLength,SNamedPropertyElement::Type::INTEGER,EnergyRedistributionPathTracing);
+	auto processBruteForce = SET_PROPERTY_TEMPLATE(bruteForce,SNamedPropertyElement::Type::BOOLEAN,AdjointParticleTracing);
+	auto processShadowMap = SET_PROPERTY_TEMPLATE(shadowMap,SNamedPropertyElement::Type::INTEGER,VirtualPointLights);
+	auto processClamping = SET_PROPERTY_TEMPLATE(clamping,SNamedPropertyElement::Type::FLOAT,VirtualPointLights);
 	auto processField = [&]() -> void
 	{
 		dispatch([&](auto& state) -> void
@@ -278,7 +278,7 @@ bool CElementIntegrator::addProperty(SPropertyElementData&& _property)
 			using state_type = std::remove_reference<decltype(state)>::type;
 			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,FieldExtraction>::value)
 			{
-				if (_property.type != SPropertyElementData::Type::STRING)
+				if (_property.type != SNamedPropertyElement::Type::STRING)
 				{
 					error = true;
 					return;
@@ -311,7 +311,7 @@ bool CElementIntegrator::addProperty(SPropertyElementData&& _property)
 
 			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type, FieldExtraction>::value)
 			{
-				if (_property.type != SPropertyElementData::Type::FLOAT && _property.type != SPropertyElementData::Type::SPECTRUM)
+				if (_property.type != SNamedPropertyElement::Type::FLOAT && _property.type != SNamedPropertyElement::Type::SPECTRUM)
 				{
 					error = true;
 					return;
@@ -321,18 +321,18 @@ bool CElementIntegrator::addProperty(SPropertyElementData&& _property)
 			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
-	auto processMaxError = SET_PROPERTY_TEMPLATE(maxError,SPropertyElementData::Type::FLOAT,AdaptiveIntegrator);
-	auto processPValue = SET_PROPERTY_TEMPLATE(pValue,SPropertyElementData::Type::FLOAT,AdaptiveIntegrator);
-	auto processMaxSampleFactor = SET_PROPERTY_TEMPLATE(maxSampleFactor,SPropertyElementData::Type::INTEGER,AdaptiveIntegrator);
-	auto processResolution = SET_PROPERTY_TEMPLATE(resolution,SPropertyElementData::Type::INTEGER,IrradianceCacheIntegrator);
-	auto processQuality = SET_PROPERTY_TEMPLATE(quality,SPropertyElementData::Type::FLOAT,IrradianceCacheIntegrator);
-	auto processGradients = SET_PROPERTY_TEMPLATE(gradients,SPropertyElementData::Type::BOOLEAN,IrradianceCacheIntegrator);
-	auto processClampNeighbour = SET_PROPERTY_TEMPLATE(clampNeighbour,SPropertyElementData::Type::BOOLEAN,IrradianceCacheIntegrator);
-	auto processClampScreen = SET_PROPERTY_TEMPLATE(clampScreen,SPropertyElementData::Type::BOOLEAN,IrradianceCacheIntegrator);
-	auto processOverture = SET_PROPERTY_TEMPLATE(overture,SPropertyElementData::Type::BOOLEAN,IrradianceCacheIntegrator);
-	auto processQualityAdjustment = SET_PROPERTY_TEMPLATE(qualityAdjustment,SPropertyElementData::Type::FLOAT,IrradianceCacheIntegrator);
-	auto processIndirecOnly = SET_PROPERTY_TEMPLATE(indirectOnly,SPropertyElementData::Type::BOOLEAN,IrradianceCacheIntegrator);
-	auto processDebug = SET_PROPERTY_TEMPLATE(debug,SPropertyElementData::Type::BOOLEAN,IrradianceCacheIntegrator);
+	auto processMaxError = SET_PROPERTY_TEMPLATE(maxError,SNamedPropertyElement::Type::FLOAT,AdaptiveIntegrator);
+	auto processPValue = SET_PROPERTY_TEMPLATE(pValue,SNamedPropertyElement::Type::FLOAT,AdaptiveIntegrator);
+	auto processMaxSampleFactor = SET_PROPERTY_TEMPLATE(maxSampleFactor,SNamedPropertyElement::Type::INTEGER,AdaptiveIntegrator);
+	auto processResolution = SET_PROPERTY_TEMPLATE(resolution,SNamedPropertyElement::Type::INTEGER,IrradianceCacheIntegrator);
+	auto processQuality = SET_PROPERTY_TEMPLATE(quality,SNamedPropertyElement::Type::FLOAT,IrradianceCacheIntegrator);
+	auto processGradients = SET_PROPERTY_TEMPLATE(gradients,SNamedPropertyElement::Type::BOOLEAN,IrradianceCacheIntegrator);
+	auto processClampNeighbour = SET_PROPERTY_TEMPLATE(clampNeighbour,SNamedPropertyElement::Type::BOOLEAN,IrradianceCacheIntegrator);
+	auto processClampScreen = SET_PROPERTY_TEMPLATE(clampScreen,SNamedPropertyElement::Type::BOOLEAN,IrradianceCacheIntegrator);
+	auto processOverture = SET_PROPERTY_TEMPLATE(overture,SNamedPropertyElement::Type::BOOLEAN,IrradianceCacheIntegrator);
+	auto processQualityAdjustment = SET_PROPERTY_TEMPLATE(qualityAdjustment,SNamedPropertyElement::Type::FLOAT,IrradianceCacheIntegrator);
+	auto processIndirecOnly = SET_PROPERTY_TEMPLATE(indirectOnly,SNamedPropertyElement::Type::BOOLEAN,IrradianceCacheIntegrator);
+	auto processDebug = SET_PROPERTY_TEMPLATE(debug,SNamedPropertyElement::Type::BOOLEAN,IrradianceCacheIntegrator);
 
 	static const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{

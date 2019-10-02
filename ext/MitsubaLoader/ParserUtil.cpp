@@ -175,7 +175,8 @@ void ParserManager::onEnd(const char* _el)
 
 	if (!elements.empty())
 	{
-		if (!elements.top()->processChildData(element))
+		IElement* parent = elements.top();
+		if (!parent->processChildData(element))
 			killParseWithError(element->getLogName() + " could not processChildData");
 
 		return;

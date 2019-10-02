@@ -46,7 +46,7 @@ class IElement
 		virtual IElement::Type getType() const = 0;
 		virtual std::string getLogName() const = 0;
 
-		virtual bool addProperty(SPropertyElementData&& _property) = 0;
+		virtual bool addProperty(SNamedPropertyElement&& _property) = 0;
 		virtual bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) = 0;
 		//! default implementation for elements that doesnt have any children
 		virtual bool processChildData(IElement* _child)
