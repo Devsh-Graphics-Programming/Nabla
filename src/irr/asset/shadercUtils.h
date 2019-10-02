@@ -5,7 +5,7 @@
 
 #include <shaderc/shaderc.hpp>
 #include "irr/asset/ShaderCommons.h"
-#include "irr/core/math/irrMath.h"
+//#include "irr/core/math/irrMath.h"
 
 namespace irr { namespace asset
 {

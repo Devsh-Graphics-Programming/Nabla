@@ -323,7 +323,7 @@ ISkinnedMeshSceneNode* CSceneManager::addSkinnedMeshSceneNode(
 //! the camera will move too.
 //! \return Returns pointer to interface to camera
 ICameraSceneNode* CSceneManager::addCameraSceneNode(IDummyTransformationSceneNode* parent,
-	const core::vector3df& position, const core::vector3df& lookat, int32_t id,
+	const core::vector3df& position, const core::vectorSIMDf& lookat, int32_t id,
 	bool makeActive)
 {
 	if (!parent)
@@ -347,7 +347,7 @@ ICameraSceneNode* CSceneManager::addCameraSceneNodeMaya(IDummyTransformationScen
 	bool makeActive)
 {
 	ICameraSceneNode* node = addCameraSceneNode(parent, core::vector3df(),
-			core::vector3df(0,0,100), id, makeActive);
+			core::vectorSIMDf(0,0,100), id, makeActive);
 	if (node)
 	{
 		ISceneNodeAnimator* anm = new CSceneNodeAnimatorCameraMaya(CursorControl,
@@ -367,7 +367,7 @@ ICameraSceneNode* CSceneManager::addCameraSceneNodeModifiedMaya(IDummyTransforma
 	bool makeActive)
 {
 	ICameraSceneNode* node = addCameraSceneNode(parent, core::vector3df(),
-		core::vector3df(0, 0, 100), id, makeActive);
+		core::vectorSIMDf(0, 0, 100), id, makeActive);
 	if (node)
 	{
 		ISceneNodeAnimator* anm = new CSceneNodeAnimatorCameraModifiedMaya(CursorControl,
@@ -389,7 +389,7 @@ ICameraSceneNode* CSceneManager::addCameraSceneNodeFPS(IDummyTransformationScene
 	bool invertMouseY, bool makeActive)
 {
 	ICameraSceneNode* node = addCameraSceneNode(parent, core::vector3df(),
-			core::vector3df(0,0,100), id, makeActive);
+			core::vectorSIMDf(0,0,100), id, makeActive);
 	if (node)
 	{
 		ISceneNodeAnimator* anm = new CSceneNodeAnimatorCameraFPS(CursorControl,
@@ -773,11 +773,11 @@ ISceneNodeAnimator* CSceneManager::createRotationAnimator(const core::vector3df&
 //! creates a fly circle animator, which lets the attached scene node fly around a center.
 ISceneNodeAnimator* CSceneManager::createFlyCircleAnimator(
 		const core::vector3df& center, float radius, float speed,
-		const core::vector3df& direction,
+		const core::vectorSIMDf& direction,
 		float startPosition,
 		float radiusEllipsoid)
 {
-	const float orbitDurationMs = (core::DEGTORAD * 360.f) / speed;
+	const float orbitDurationMs = core::radians(360.f) / speed;
 	const uint32_t effectiveTime = std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count() + (uint32_t)(orbitDurationMs * startPosition);
 
 	ISceneNodeAnimator* anim = new CSceneNodeAnimatorFlyCircle(
@@ -789,8 +789,8 @@ ISceneNodeAnimator* CSceneManager::createFlyCircleAnimator(
 
 //! Creates a fly straight animator, which lets the attached scene node
 //! fly or move along a line between two points.
-ISceneNodeAnimator* CSceneManager::createFlyStraightAnimator(const core::vector3df& startPoint,
-					const core::vector3df& endPoint, uint32_t timeForWay, bool loop,bool pingpong)
+ISceneNodeAnimator* CSceneManager::createFlyStraightAnimator(const core::vectorSIMDf& startPoint,
+					const core::vectorSIMDf& endPoint, uint32_t timeForWay, bool loop,bool pingpong)
 {
 	ISceneNodeAnimator* anim = new CSceneNodeAnimatorFlyStraight(startPoint,
 		endPoint, timeForWay, loop, std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count(), pingpong);

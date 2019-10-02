@@ -1,20 +1,27 @@
+#include "os.h"
+
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 #include "../../ext/MitsubaLoader/CElementFactory.h"
 
-#include "irrlicht.h"
+#include "expat/lib/expat.h"
+
 #include <memory>
 
-namespace irr { namespace ext { namespace MitsubaLoader {
+namespace irr
+{
+namespace ext
+{
+namespace MitsubaLoader
+{
+
 
 void ParserLog::invalidXMLFileStructure(const std::string& errorMessage)
 {
-	std::string message = "Mitsuba loader error:\nInvalid .xml file structure: '"
-		+ errorMessage + '\n';
+	std::string message = "Mitsuba loader error - Invalid .xml file structure: \'"
+		+ errorMessage + '\'';
 
-	//or os::Printer::log ?
-	os::Printer::print(message);
-
-	//_IRR_DEBUG_BREAK_IF(true);
+	os::Printer::log(message.c_str(), ELL_ERROR);
+	_IRR_DEBUG_BREAK_IF(true);
 }
 
 void elementHandlerStart(void* _data, const char* _el, const char** _atts)
@@ -27,16 +34,17 @@ void elementHandlerStart(void* _data, const char* _el, const char** _atts)
 void elementHandlerEnd(void* _data, const char* _el)
 {
 	ParserManager* mgr = static_cast<ParserManager*>(_data);
-	
-	/*
-	if (data->pfc.isParsingSuspended())
-	{
-		data->pfc.checkForUnsuspend(_el);
-		return;
-	}*/
 
 	mgr->onEnd(_el);
 }
+
+
+static const core::unordered_set<std::string,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> propertyElements = {
+	"float", "string", "boolean", "integer",
+	"rgb", "srgb", "spectrum", "blackbody",
+	"point", "vector",
+	"matrix", "rotate", "translate", "scale", "lookat"
+};
 
 void ParserManager::parseElement(const char* _el, const char** _atts)
 {
@@ -49,136 +57,130 @@ void ParserManager::parseElement(const char* _el, const char** _atts)
 	if (pfc.isParsingSuspended())
 		return;
 
-	if (!std::strcmp(_el, "scene"))
+	if (core::strcmpi(_el, "scene") == 0)
 	{
-		if (isSceneActive())
+		auto count = 0u;
+		while (_atts && _atts[count]) { count++; }
+		if (count != 2u)
 		{
-			ParserLog::invalidXMLFileStructure("scene is already declared");
-			XML_StopParser(parser, false);
-			_IRR_DEBUG_BREAK_IF(true);
+			killParseWithError("Wrong number of attributes for scene element");
 			return;
 		}
-		else if (isSceneActive() == false)
+
+		if (core::strcmpi(_atts[0], "version"))
 		{
-			scene.reset(new CMitsubaScene());
+			ParserLog::invalidXMLFileStructure(std::string(_atts[0]) + " is not an attribute of scene element");
 			return;
 		}
-	}
-
-	if (!isSceneActive())
-	{
-		ParserLog::invalidXMLFileStructure("there is no scene element.");
-		XML_StopParser(parser, false);
-		_IRR_DEBUG_BREAK_IF(true);
-		return;
-	}
-
-	if (checkIfPropertyElement(_el))
-	{
-		if (!processProperty(_el, _atts))
+		else if (core::strcmpi(_atts[1], "0.5.0"))
 		{
-			ParserLog::invalidXMLFileStructure("invalid property element.");
-			XML_StopParser(parser, false);
-			_IRR_DEBUG_BREAK_IF(true);
+			ParserLog::invalidXMLFileStructure("Version " + std::string(_atts[1]) + " is unsupported");
+			return;
 		}
-
+		m_sceneDeclCount++;
 		return;
 	}
 
-	std::unique_ptr<IElement> element(CElementFactory::createElement(_el, _atts));
-
-	if (element.get() == nullptr)
+	if (m_sceneDeclCount==0u)
 	{
-		XML_StopParser(parser, false);
-		_IRR_DEBUG_BREAK_IF(true);
+		killParseWithError("there is no scene element");
+		return;
+	}
+	
+	if (core::strcmpi(_el, "include") == 0)
+	{
+		assert(false); // TODO
 		return;
 	}
 
-	addElementToStack(std::move(element));
-
-}
-
-void ParserManager::addElementToStack(std::unique_ptr<IElement>&& element)
-{
-	elements.push(std::move(element));
-}
-
-bool ParserManager::checkIfPropertyElement(const std::string& _el)
-{
-	for (int i = 0; propertyElements[i]; i++)
+	if (propertyElements.find(_el)!=propertyElements.end())
 	{
-		if (_el == propertyElements[i])
-			return true;
+		processProperty(_el, _atts);
+		return;
 	}
 
-	return false;
+	const auto& _map = CElementFactory::createElementTable;
+	auto found = _map.find(_el);
+	if (found==_map.end())
+	{
+		killParseWithError(std::string("Could not process element ") + _el);
+		return;
+	}
+
+	IElement* el = found->second.first(_atts, this);
+	bool goesOnStack = found->second.second;
+	if (!goesOnStack)
+		return;
+	
+	elements.push(el);
+	if (el && el->id.size())
+		handles[el->id] = el;
 }
 
-bool ParserManager::processProperty(const char* _el, const char** _atts)
+void ParserManager::processProperty(const char* _el, const char** _atts)
 {
 	if (elements.empty())
 	{
-		ParserLog::invalidXMLFileStructure("weeeeeeeeeeeeeeewwwwwww.");
-		XML_StopParser(parser, false);
-		_IRR_DEBUG_BREAK_IF(true);
-		return false;
+		killParseWithError("cannot set a property with no element on the stack.");
+		return;
+	}
+	if (!elements.top())
+	{
+		ParserLog::invalidXMLFileStructure("cannot set property on element that failed to be created.");
+		return;
 	}
 
 	auto optProperty = CPropertyElementManager::createPropertyData(_el, _atts);
 
 	if (optProperty.first == false)
-		return false;
+	{
+		ParserLog::invalidXMLFileStructure("could not create property data.");
+		return;
+	}
 
 	elements.top()->addProperty(std::move(optProperty.second));
 
-	return true;
+	return;
 }
 
-void ParserManager::onEnd(const std::string& _el)
+void ParserManager::onEnd(const char* _el)
 {
 	if (pfc.isParsingSuspended())
 	{
 		pfc.checkForUnsuspend(_el);
 		return;
 	}
-
-	if (checkIfPropertyElement(_el))
+	
+	if (propertyElements.find(_el)!=propertyElements.end())
 		return;
 
-	if (elements.empty() == false)
+	if (core::strcmpi(_el, "scene") == 0)
 	{
-		std::unique_ptr<IElement> element(std::move(elements.top()));
-		elements.pop();
-
-		if (!element->onEndTag(assetManager))
-		{
-			ParserLog::invalidXMLFileStructure(element->getLogName());
-			XML_StopParser(parser, false);
-			_IRR_DEBUG_BREAK_IF(true);
-			return;
-		}
-
-		if (elements.empty() == false)
-		{
-			if (!elements.top()->processChildData(element.get()))
-			{
-				XML_StopParser(parser, false);
-				_IRR_DEBUG_BREAK_IF(true);
-				return;
-			}
-
-			return;
-		}
-		else
-		{
-			scene->processChildData(element.get());
-		}
-	}
-	else
-	{
-		scene->onEndTag(this->assetManager);
+		m_sceneDeclCount--;
+		return;
 	}
 
+	if (elements.empty())
+		return;
+
+
+	IElement* element = elements.top();
+	elements.pop();
+
+	if (!element->onEndTag(m_override, m_globalMetadata.get()))
+	{
+		killParseWithError(element->getLogName()+" could not onEndTag");
+		return;
+	}
+
+	if (!elements.empty())
+	{
+		IElement* parent = elements.top();
+		if (!parent->processChildData(element))
+			killParseWithError(element->getLogName() + " could not processChildData");
+
+		return;
+	}
 }
 
 void ParserFlowController::checkForUnsuspend(const std::string& _el)

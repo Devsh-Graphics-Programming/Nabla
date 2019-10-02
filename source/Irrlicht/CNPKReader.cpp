@@ -236,7 +236,7 @@ void CNPKReader::readString(core::stringc& name)
 	name.reserve(stringSize);
 	while(stringSize)
 	{
-		const short next = core::min_(stringSize, (short)255);
+		const short next = core::min(stringSize, (short)255);
 		File->read(buf,next);
 		buf[next]=0;
 		name.append(buf);

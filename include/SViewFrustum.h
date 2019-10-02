@@ -5,9 +5,7 @@
 #ifndef __S_VIEW_FRUSTUM_H_INCLUDED__
 #define __S_VIEW_FRUSTUM_H_INCLUDED__
 
-#include "irr/core/math/plane3dSIMD.h"
-#include "aabbox3d.h"
-#include "matrix4SIMD.h"
+#include "irr/core/core.h"
 #include "IVideoDriver.h"
 
 namespace irr

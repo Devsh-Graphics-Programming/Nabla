@@ -2,6 +2,8 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
+#include "irr/core/core.h"
+
 #include "CSceneNodeAnimatorFlyCircle.h"
 
 namespace irr
@@ -13,9 +15,9 @@ namespace scene
 //! constructor
 CSceneNodeAnimatorFlyCircle::CSceneNodeAnimatorFlyCircle(uint32_t time,
 		const core::vector3df& center, float radius, float speed,
-		const core::vector3df& direction, float radiusEllipsoid)
-	: Center(center), Direction(direction), Radius(radius),
-	RadiusEllipsoid(radiusEllipsoid), Speed(speed), StartTime(time)
+		const core::vectorSIMDf& direction, float radiusEllipsoid)
+			: Center(center), Direction(direction), Radius(radius),
+			RadiusEllipsoid(radiusEllipsoid), Speed(speed), StartTime(time)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("CSceneNodeAnimatorFlyCircle");
@@ -26,13 +28,13 @@ CSceneNodeAnimatorFlyCircle::CSceneNodeAnimatorFlyCircle(uint32_t time,
 
 void CSceneNodeAnimatorFlyCircle::init()
 {
-	Direction.normalize();
+	Direction = core::normalize(Direction);
 
 	if (Direction.Y != 0)
-		VecV = core::vector3df(50,0,0).crossProduct(Direction).normalize();
+		VecV = core::normalize(core::cross(core::vectorSIMDf(50,0,0),Direction));
 	else
-		VecV = core::vector3df(0,50,0).crossProduct(Direction).normalize();
-	VecU = VecV.crossProduct(Direction).normalize();
+		VecV = core::normalize(core::cross(core::vectorSIMDf(0,50,0),Direction));
+	VecU = core::normalize(core::cross(VecV,Direction));
 }
 
 
@@ -52,7 +54,7 @@ void CSceneNodeAnimatorFlyCircle::animateNode(IDummyTransformationSceneNode* nod
 
 //	node->setPosition(Center + Radius * ((VecU*cosf(time)) + (VecV*sinf(time))));
 	float r2 = RadiusEllipsoid == 0.f ? Radius : RadiusEllipsoid;
-	node->setPosition(Center + (Radius*cosf(time)*VecU) + (r2*sinf(time)*VecV ) );
+	node->setPosition(Center + (VecU*Radius*cosf(time) + VecV*r2*sinf(time) ).getAsVector3df() );
 }
 
 

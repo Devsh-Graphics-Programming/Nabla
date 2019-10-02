@@ -6,6 +6,7 @@ namespace irr { namespace ext { namespace MitsubaLoader {
 
 core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createCube(asset::IAssetManager* _assetManager, const core::vector<SPropertyElementData>& properties)
 {
+#ifdef NEW_MITSUBA
 	bool flipNormalsFlag = false;
 
 	for (int i = 0; i < properties.size(); i++)
@@ -35,10 +36,13 @@ core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createCube(asset::IAssetM
 	}
 
 	return mesh;
+#endif
+	return nullptr;
 }
 
 core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createSphere(asset::IAssetManager* _assetManager, const core::vector<SPropertyElementData>& properties, core::matrix4SIMD& transform)
 {
+#ifdef NEW_MITSUBA
 	bool flipNormalsFlag = false;
 	core::vector3df_SIMD center;
 	float radius = 1.0f;
@@ -83,97 +87,19 @@ core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createSphere(asset::IAsse
 	transform.setTranslation(transform.getTranslation() + center);
 
 	return mesh;
+#endif
+	return nullptr;
 }
 
 core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createCylinder(asset::IAssetManager* _assetManager, const core::vector<SPropertyElementData>& properties, core::matrix4SIMD& _transform)
 {
-	/*bool flipNormalsFlag = false;
-	core::vectorSIMDf p0(0.0f);
-	core::vectorSIMDf p1(0.0f, 0.0f, 1.0f);
-	float radius = 1.0f;
-
-	for (int i = 0; i < properties.size(); i++)
-	{
-		if (properties[i].type == SPropertyElementData::Type::BOOLEAN &&
-			properties[i].name == "flipNormals")
-		{
-			flipNormalsFlag = CPropertyElementManager::retriveBooleanValue(properties[i].value);
-		}
-		else
-		if (properties[i].type == SPropertyElementData::Type::POINT &&
-			properties[i].name == "p0")
-		{
-			p0 = CPropertyElementManager::retriveVector(properties[i].value);
-		}
-		else
-		if (properties[i].type == SPropertyElementData::Type::POINT &&
-			properties[i].name == "p0")
-		{
-			p1 = CPropertyElementManager::retriveVector(properties[i].value);
-		}
-		else
-		if (properties[i].type == SPropertyElementData::Type::FLOAT &&
-			properties[i].name == "radius")
-		{
-			radius = CPropertyElementManager::retriveFloatValue(properties[i].value);
-		}
-		else
-		{
-			ParserLog::invalidXMLFileStructure(properties[i].name + " wat is this?");
-			return nullptr;
-		}
-	}
-
-	const float cylinderHeight = (p0 - p1).getLengthAsFloat();
-
-	auto mesh = _assetManager.getGeometryCreator()->createCylinderMesh(radius, cylinderHeight, 32, 0xffffffff, false);
-	if (!mesh)
-		return false;
-
-	core::vectorSIMDf vec = p1 - p0;
-	vec /= vec.getLengthAsFloat();
-
-	core::quaternion rotation = core::quaternion::rotationFromTo(core::vectorSIMDf(0.0f, 1.0f, 0.0f), vec);
-	core::matrix4x3 rotationMatrix = rotation.getMatrix();
-
-	core::vectorSIMDf r1;
-	r1.x = rotationMatrix.getColumn(0).X;
-	r1.y = rotationMatrix.getColumn(1).X;
-	r1.z = rotationMatrix.getColumn(2).X;
-	r1.w = rotationMatrix.getColumn(3).X;
-
-	core::vectorSIMDf r2;
-	r2.x = rotationMatrix.getColumn(0).Y;
-	r2.y = rotationMatrix.getColumn(1).Y;
-	r2.z = rotationMatrix.getColumn(2).Y;
-	r2.w = rotationMatrix.getColumn(3).Y;
-
-	core::vectorSIMDf r3;
-	r3.x = rotationMatrix.getColumn(0).Z;
-	r3.y = rotationMatrix.getColumn(1).Z;
-	r3.z = rotationMatrix.getColumn(2).Z;
-	r3.w = rotationMatrix.getColumn(3).Z;
-
-	core::matrix4SIMD matrix(r1, r2, r3, core::vectorSIMDf(0.0f, 0.0f, 0.0f, 1.0f));
-	matrix.setTranslation(p0);
-
-	_transform = core::concatenateBFollowedByA(matrix, _transform);
-
-	if (flipNormalsFlag)
-	{
-		{
-			for (int i = 0; i < mesh->getMeshBufferCount(); i++)
-				_assetManager.getMeshManipulator()->flipSurfaces(mesh->getMeshBuffer(i));
-		}
-	}
-
-	return mesh;*/
 	_IRR_DEBUG_BREAK_IF(true);
 	return nullptr;
 }
 
 core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createRectangle(asset::IAssetManager* _assetManager, const core::vector<SPropertyElementData>& properties)
 {
+#ifdef NEW_MITSUBA
 	bool flipNormalsFlag = false;
 
 	for (int i = 0; i < properties.size(); i++)
@@ -235,10 +161,13 @@ core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createDisk(asset::IAssetM
 	}
 
 	return mesh;
+#endif
+	return nullptr;
 }
 
 core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createOBJ(asset::IAssetManager* _assetManager, const core::vector<SPropertyElementData>& properties)
 {
+#ifdef NEW_MITSUBA
 	std::string fileName;
 	bool flipNormalsFlag = false;
 	bool faceNormals = false;
@@ -369,6 +298,8 @@ core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createOBJ(asset::IAssetMa
 	}
 
 	return mesh;
+#endif
+	return nullptr;
 }
 
 core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createPLY(asset::IAssetManager* _assetManager, const core::vector<SPropertyElementData>& properties)

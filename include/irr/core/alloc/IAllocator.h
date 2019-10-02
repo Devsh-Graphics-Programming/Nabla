@@ -21,7 +21,7 @@ class IRR_FORCE_EBO IAllocator
         virtual void*   allocate(size_t n, void* hint=nullptr) noexcept = 0;
         virtual void    deallocate(void* p, size_t n) noexcept = 0;
 
-        virtual size_t  max_size() const noexcept = 0;
+        virtual size_t  maxsize() const noexcept = 0;
 };
 
 
@@ -40,7 +40,7 @@ class IRR_FORCE_EBO IAllocatorAdaptor final : private Alloc, public IAllocator
             getBaseRef().deallocate(static_cast<typename Alloc::pointer>(p),n);
         }
 
-        virtual size_t  max_size() const noexcept {return getBaseRef().max_size();}
+        virtual size_t  maxsize() const noexcept {return getBaseRef().maxsize();}
 };
 
 }

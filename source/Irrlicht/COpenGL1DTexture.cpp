@@ -90,7 +90,7 @@ bool COpenGL1DTexture::resize(const uint32_t* size, const uint32_t &mipLevels)
         if (mipLevels==0)
             MipLevelsStored = defaultMipMapCount;
         else
-            MipLevelsStored = core::min_(mipLevels,defaultMipMapCount);
+            MipLevelsStored = core::min(mipLevels,defaultMipMapCount);
     }
 
     TextureSize[0] = size[0];

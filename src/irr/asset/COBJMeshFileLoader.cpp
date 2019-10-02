@@ -961,7 +961,7 @@ uint32_t COBJMeshFileLoader::copyWord(char* outBuf, const char* const inBuf, uin
 		++i;
 	}
 
-	uint32_t length = core::min_(i, outBufLength-1);
+	uint32_t length = core::min(i, outBufLength-1);
 	for (uint32_t j=0; j<length; ++j)
 		outBuf[j] = inBuf[j];
 

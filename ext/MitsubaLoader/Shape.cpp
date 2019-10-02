@@ -53,9 +53,9 @@ bool CShape::processChildData(IElement* _child)
 	}	
 }
 
-bool CShape::onEndTag(asset::IAssetManager* _assetManager)
+bool CShape::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override)
 {
-	if (type == "cube")
+	/*if (type == "cube")
 	{
 		mesh = CShapeCreator::createCube(_assetManager, properties);
 	}
@@ -83,7 +83,7 @@ bool CShape::onEndTag(asset::IAssetManager* _assetManager)
 	{
 		mesh = CShapeCreator::createPLY(_assetManager, properties);
 	}
-	else
+	else*/
 	{
 		ParserLog::invalidXMLFileStructure(type + " is not available shape type");
 		return false;

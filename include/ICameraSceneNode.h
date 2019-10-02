@@ -83,7 +83,7 @@ namespace scene
 
 		//! Gets the current look at target of the camera
 		/** \return The current look at target of the camera, in world co-ordinates */
-		virtual const core::vector3df& getTarget() const =0;
+		virtual const core::vectorSIMDf& getTarget() const =0;
 
 		//! Sets the up vector of the camera.
 		/** \param pos: New upvector of the camera. */
@@ -91,7 +91,7 @@ namespace scene
 
 		//! Gets the up vector of the camera.
 		/** \return The up vector of the camera, in world space. */
-		virtual const core::vector3df& getUpVector() const =0;
+		virtual const core::vectorSIMDf& getUpVector() const =0;
 
 		//! Gets the value of the near plane of the camera.
 		/** \return The value of the near plane of the camera. */

@@ -67,7 +67,6 @@
 #include "IVirtualTexture.h"
 #include "IWriteFile.h"
 #include "Keycodes.h"
-#include "line2d.h"
 #include "line3d.h"
 #include "matrix3x4SIMD.h"
 #include "matrix4SIMD.h"

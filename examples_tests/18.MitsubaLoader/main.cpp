@@ -114,7 +114,7 @@ int main()
 	io::IFileSystem* fs = device->getFileSystem();
 	asset::IAssetManager* am = device->getAssetManager();
 
-	am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(device));
+	am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>());
 
 	std::string filePath = "../../media/mitsuba/staircase2.zip";
 #define MITSUBA_LOADER_TESTS

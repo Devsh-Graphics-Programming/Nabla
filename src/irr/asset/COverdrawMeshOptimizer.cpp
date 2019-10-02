@@ -1,3 +1,5 @@
+#include "irr/core/core.h"
+
 #include "COverdrawMeshOptimizer.h"
 
 #include <vector>
@@ -217,13 +219,13 @@ void COverdrawMeshOptimizer::calcSortData(ClusterSortData* _dst, const IdxT* _in
 			const core::vectorSIMDf& p1 = _positions[_indices[i+1]];
 			const core::vectorSIMDf& p2 = _positions[_indices[i+2]];
 
-			const core::vectorSIMDf normal = (p1 - p0).crossProduct(p2 - p0);
+			const core::vectorSIMDf normal = core::cross(p1 - p0,p2 - p0);
 
-			const float area = normal.getLengthAsFloat();
+			const auto area = core::length(normal);
 
 			clusterCentroid += (p0 + p1 + p2) * (area / 3.f);
 			clusterNormal += normal;
-			clusterArea += area;
+			clusterArea += area[0];
 		}
 
 		const float invClusterArea = !clusterArea ? 0.f : 1.f/clusterArea;
@@ -234,7 +236,7 @@ void COverdrawMeshOptimizer::calcSortData(ClusterSortData* _dst, const IdxT* _in
 		core::vectorSIMDf centroidVec = clusterCentroid - meshCentroid;
 
 		_dst[cluster].cluster = (uint32_t)cluster;
-		_dst[cluster].dot = centroidVec.dotProduct(clusterNormal).x;
+		_dst[cluster].dot = core::dot(centroidVec,clusterNormal)[0];
 	}
 }
 

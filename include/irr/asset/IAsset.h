@@ -18,7 +18,7 @@ protected:
 
 public:
     //! this could actually be reworked to something more usable
-    virtual const char* getLoaderName() = 0;
+    virtual const char* getLoaderName() const = 0;
 };
 
 class IAsset : virtual public core::IReferenceCounted

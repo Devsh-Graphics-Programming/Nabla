@@ -259,7 +259,7 @@ public:
         // find last forward or backslash
         int32_t lastSlash = filename.findLast('/');
         const int32_t lastBackSlash = filename.findLast('\\'); //! Just remove those '\' on Linux
-        lastSlash = core::max_(lastSlash, lastBackSlash);
+        lastSlash = core::max(lastSlash, lastBackSlash);
 
         if ((uint32_t)lastSlash < filename.size())
             return filename.subString(0, lastSlash);
@@ -324,7 +324,7 @@ public:
         // find last forward or backslash
         int32_t lastSlash = filename.findLast('/');
         const int32_t lastBackSlash = filename.findLast('\\'); //! Just remove those '\' on Linux
-        lastSlash = core::max_(lastSlash, lastBackSlash);
+        lastSlash = core::max(lastSlash, lastBackSlash);
 
         // get number of chars after last dot
         int32_t end = 0;

@@ -21,8 +21,8 @@ namespace video
         for (uint32_t i=1; i<MipLevelsStored; i++)
         {
             core::dimension2d<uint32_t> tmpSize = size;
-            tmpSize.Width = core::max_(tmpSize.Width/(0x1u<<i),0x1u);
-            tmpSize.Height = core::max_(tmpSize.Height/(0x1u<<i),0x1u);
+            tmpSize.Width = core::max(tmpSize.Width/(0x1u<<i),0x1u);
+            tmpSize.Height = core::max(tmpSize.Height/(0x1u<<i),0x1u);
             size_t levelByteSize;
             if (compressed)
             {
@@ -112,13 +112,13 @@ bool COpenGL2DTexture::resize(const uint32_t* size, const uint32_t &mipLevels)
 
     recreateName(getOpenGLTextureType());
 
-    uint32_t defaultMipMapCount = 1u+uint32_t(floorf(log2(float(core::max_(size[0],size[1])))));
+    uint32_t defaultMipMapCount = 1u+uint32_t(floorf(log2(float(core::max(size[0],size[1])))));
     if (MipLevelsStored>1)
     {
         if (mipLevels==0)
             MipLevelsStored = defaultMipMapCount;
         else
-            MipLevelsStored = core::min_(mipLevels,defaultMipMapCount);
+            MipLevelsStored = core::min(mipLevels,defaultMipMapCount);
     }
 
     TextureSize[0] = size[0];

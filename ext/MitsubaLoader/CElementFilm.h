@@ -1,214 +1,136 @@
 #ifndef __C_ELEMENT_FILM_H_INCLUDED__
 #define __C_ELEMENT_FILM_H_INCLUDED__
 
-#include "../../ext/MitsubaLoader/IElement.h"
-#include "irrlicht.h"
+#include "irr/macros.h"
 
-namespace irr { namespace ext { namespace MitsubaLoader {
+#include "../../ext/MitsubaLoader/CElementRFilter.h"
 
-	/*The options are float16, float32, or
-		uint32. (Default: float16).*/
-
-enum class ETonemapMethod
+namespace irr
 {
-	GAMMA,
-	REINHARD
-};
-
-enum class EComponentFormat
+namespace ext
 {
-	FLOAT16,
-	FLOAT32,
-	UINT32
-};
-
-enum class EHDRFileFormat
+namespace MitsubaLoader
 {
-	OPENEXR,
-	RGBE,
-	PFM
-};
 
-enum class ELDRFileFormat
-{
-	PNG,
-	JPEG
-};
-
-enum class EMFileFormat
-{
-	MATLAB,
-	MATHEMATICA,
-	NUMPY
-};
-
-enum class EFilmType
-{
-	NONE,
-	HDR_FILM,
-	TILED_HDR_FILM,
-	LDR_FILM,
-	M_FILM
-};
-
-enum class EPixelFormat
-{
-	LUMINANCE, 
-	LUMINANCE_ALPHA, 
-	RGB, 
-	RGBA,
-	XYZ,
-	XYZA,
-	SPECTRUM, 
-	SPECTRUM_ALPHA
-};
-
-struct SFilmMetadata
-{
-	SFilmMetadata() 
-		:type(EFilmType::NONE) {};
-
-	SFilmMetadata(const SFilmMetadata& other)
-		:type(other.type), width(other.width), height(other.height),
-		isCropUsed(other.isCropUsed), cropOffsetX(other.cropOffsetX), cropOffsetY(other.cropOffsetY),
-		cropWidth(other.cropWidth), cropHeight(other.cropHeight), pixelFormat(other.pixelFormat)
-	{
-		switch (other.type)
-		{
-		case EFilmType::HDR_FILM:
-			hdrFilmData = other.hdrFilmData;
-			break;
-
-		case EFilmType::TILED_HDR_FILM:
-			tiledHdrFilmData = other.tiledHdrFilmData;
-			break;
-
-		case EFilmType::LDR_FILM:
-			ldrFilmData = other.ldrFilmData;
-			break;
-
-		case EFilmType::M_FILM:
-			mFilmData = other.mFilmData;
-			break;
-		}
-	}
-
-	SFilmMetadata& operator=(const SFilmMetadata& other)
-	{
-		type = other.type;
-		width = other.width; 
-		height = other.height;
-		isCropUsed = other.isCropUsed;
-		cropOffsetX = other.cropOffsetX; 
-		cropOffsetY = other.cropOffsetY;
-		cropWidth = other.cropWidth; 
-		cropHeight = other.cropHeight; 
-		pixelFormat = other.pixelFormat;
-
-		switch (other.type)
-		{
-		case EFilmType::HDR_FILM:
-			hdrFilmData = other.hdrFilmData;
-			break;
-
-		case EFilmType::TILED_HDR_FILM:
-			tiledHdrFilmData = other.tiledHdrFilmData;
-			break;
-
-		case EFilmType::LDR_FILM:
-			ldrFilmData = other.ldrFilmData;
-			break;
-
-		case EFilmType::M_FILM:
-			mFilmData = other.mFilmData;
-			break;
-		}
-
-		return *this;
-	}
-
-	~SFilmMetadata()
-	{
-
-	}
-
-	EFilmType type;
-
-	int width = 768;
-	int height = 576;
-
-	bool isCropUsed = false;
-	int cropOffsetX = 0.0f;
-	int cropOffsetY = 0.0f;
-	int cropWidth = 0.0f;
-	int cropHeight = 0.0f;
-
-	//rfilter
-
-	EPixelFormat pixelFormat = EPixelFormat::RGB;
-	
-	union
-	{
-		struct HdrFilmData
-		{
-			EHDRFileFormat fileFormat;
-			EComponentFormat componentFormat;
-			bool attachLog;
-			bool banner;
-			bool highQualityEdges;
-		} hdrFilmData;
-
-		struct TiledHdrFilmData
-		{
-			EComponentFormat componentFormat;
-		} tiledHdrFilmData;
-
-		struct LdrFilmData
-		{
-			ELDRFileFormat fileFormat;
-			ETonemapMethod tonemapMethod;
-			float gamma;
-			float exposure;
-			float key;
-			float burn;
-			bool banner;
-			bool highQualityEdges;
-
-		} ldrFilmData;
-
-		struct MFilmData
-		{
-			EMFileFormat fileFormat;
-			int digits;
-			std::string variable;
-			bool highQualityEdges;
-			
-		} mFilmData;
-	};
-};
+class CGlobalMitsubaMetadata;
 
 class CElementFilm : public IElement
 {
-public:
-	virtual bool processAttributes(const char** _atts) override;
-	virtual bool onEndTag(asset::IAssetManager* _assetManager) override;
-	virtual IElement::Type getType() const override { return IElement::Type::FILM; }
-	virtual std::string getLogName() const override { return "film"; }
+	public:
+		enum Type
+		{
+			INVALID,
+			HDR_FILM,
+			TILED_HDR,
+			LDR_FILM,
+			MFILM
+		};
+		enum PixelFormat
+		{
+			LUMINANCE,
+			LUMINANCE_ALPHA,
+			RGB,
+			RGBA,
+			XYZ,
+			XYZA,
+			SPECTRUM,
+			SPECTRUM_ALPHA
+		};
+		enum FileFormat
+		{
+			OPENEXR,
+			RGBE,
+			PFM,
+			PNG,
+			JPEG,
+			MATLAB,
+			MATHEMATICA,
+			NUMPY
+		};
+		enum ComponentFormat
+		{
+			FLOAT16,
+			FLOAT32,
+			UINT32
+		};
+		struct HDR
+		{
+			bool attachLog = true;
+		};
+		struct LDR
+		{
+			enum TonemapMethod
+			{
+				GAMMA,
+				REINHARD
+			};
+			TonemapMethod tonemapMethod = GAMMA;
+			float gamma = -1.f; // should really be an OETF choice
+			float exposure = 0.f;
+			float key = 0.18;
+			float burn = 0.f;
+		};
+		struct M
+		{
+			M() : digits(4)
+			{
+				variable[0] = 'd';
+				variable[1] = 'a';
+				variable[2] = 't';
+				variable[3] = 'a';
+				variable[4] = 0;
+			}
+			int32_t digits;
+			_IRR_STATIC_INLINE_CONSTEXPR size_t MaxVarNameLen = 63; // matlab
+			char variable[MaxVarNameLen+1];
+		};
 
-	SFilmMetadata getMetadata() const { return data; };
+		CElementFilm(const char* id) : IElement(id), type(Type::HDR_FILM),
+			width(768), height(576), cropOffsetX(0), cropOffsetY(0), cropWidth(INT_MAX), cropHeight(INT_MAX),
+			fileFormat(OPENEXR), pixelFormat(RGB), componentFormat(FLOAT16),
+			banner(true), highQualityEdges(false), rfilter("")
+		{
+			hdrfilm = HDR();
+		}
+		virtual ~CElementFilm()
+		{
+		}
 
-private:
-	bool processSharedDataProperty(const SPropertyElementData& _property);
-	bool processHDRFilmProperties();
-	bool processTiledHDRFilmProperties();
-	bool processLDRFilmProperties();
-	bool processMFilmProperties();
+		bool addProperty(SNamedPropertyElement&& _property) override;
+		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override;
+		IElement::Type getType() const override { return IElement::Type::FILM; }
+		std::string getLogName() const override { return "film"; }
 
-private:
-	SFilmMetadata data;
+		virtual bool processChildData(IElement* _child)
+		{
+			if (!_child)
+				return true;
+			if (_child->getType() != IElement::Type::RFILTER)
+				return false;
+			auto _rfilter = static_cast<CElementRFilter*>(_child);
+			if (_rfilter->type == CElementRFilter::Type::INVALID)
+				return false;
+			rfilter = *_rfilter;
+			return true;
+		}
 
+		// make these public
+		Type			type;
+		int32_t			width,height;
+		int32_t			cropOffsetX,cropOffsetY,cropWidth,cropHeight;
+		FileFormat		fileFormat;
+		PixelFormat		pixelFormat;
+		ComponentFormat	componentFormat;
+		bool banner;
+		bool highQualityEdges;
+		CElementRFilter rfilter;
+		union
+		{
+			HDR hdrfilm;
+			LDR ldrfilm;
+			M	mfilm;
+		};
 };
-
 
 
 }

@@ -123,7 +123,7 @@ bool CElementEmitter::processChildData(IElement* _child)
 	}
 }
 
-bool CElementEmitter::onEndTag(asset::IAssetManager* _assetManager)
+bool CElementEmitter::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override)
 {
 	switch (data.type)
 	{
@@ -161,6 +161,7 @@ bool CElementEmitter::onEndTag(asset::IAssetManager* _assetManager)
 
 bool CElementEmitter::processSharedDataProperty(const SPropertyElementData& _property)
 {
+#ifdef NEW_MITSUBA
 	if (_property.type == SPropertyElementData::Type::FLOAT)
 	{
 		if (_property.name == "shutterOpen")
@@ -184,12 +185,13 @@ bool CElementEmitter::processSharedDataProperty(const SPropertyElementData& _pro
 		_IRR_DEBUG_BREAK_IF(true);
 		return false;
 	}
-	
+#endif
 	return true;
 }
 
 bool CElementEmitter::processPointEmitterProperties()
 {
+#ifdef NEW_MISTUBA
 	for (const SPropertyElementData& property : properties)
 	{
 		if (property.type == SPropertyElementData::Type::POINT &&
@@ -216,7 +218,7 @@ bool CElementEmitter::processPointEmitterProperties()
 			return false;
 		}
 	}
-
+#endif
 	return true;
 }
 
@@ -247,6 +249,7 @@ bool CElementEmitter::processCollimatedEmitterProperties()
 
 bool CElementEmitter::processConstantEmitterProperties()
 {
+#ifdef NEW_MITSUBA
 	for (const SPropertyElementData& property : properties)
 	{
 		if ((property.type == SPropertyElementData::Type::RGB ||
@@ -267,7 +270,7 @@ bool CElementEmitter::processConstantEmitterProperties()
 			return false;
 		}
 	}
-
+#endif
 	return true;
 }
 

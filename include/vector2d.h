@@ -66,83 +66,54 @@ public:
 	//! sort in order X, Y. Equality with rounding tolerance.
 	bool operator<=(const vector2d<T>&other) const
 	{
-		return 	(X<other.X || core::equals(X, other.X)) ||
-				(core::equals(X, other.X) && (Y<other.Y || core::equals(Y, other.Y)));
+		return 	X<=other.X ||
+				(X==other.X && Y<=other.Y);
 	}
 
 	//! sort in order X, Y. Equality with rounding tolerance.
 	bool operator>=(const vector2d<T>&other) const
 	{
-		return 	(X>other.X || core::equals(X, other.X)) ||
-				(core::equals(X, other.X) && (Y>other.Y || core::equals(Y, other.Y)));
+		return 	X>=other.X || 
+				(X==other.X && Y>=other.Y);
 	}
 
 	//! sort in order X, Y. Difference must be above rounding tolerance.
 	bool operator<(const vector2d<T>&other) const
 	{
-		return 	(X<other.X && !core::equals(X, other.X)) ||
-				(core::equals(X, other.X) && Y<other.Y && !core::equals(Y, other.Y));
+		return 	X<other.X ||
+				X==other.X && Y<other.Y;
 	}
 
 	//! sort in order X, Y. Difference must be above rounding tolerance.
 	bool operator>(const vector2d<T>&other) const
 	{
-		return 	(X>other.X && !core::equals(X, other.X)) ||
-				(core::equals(X, other.X) && Y>other.Y && !core::equals(Y, other.Y));
+		return 	X>other.X ||
+				X==other.X && Y>other.Y;
 	}
 
-	bool operator==(const vector2d<T>& other) const { return equals(other); }
-	bool operator!=(const vector2d<T>& other) const { return !equals(other); }
+	bool operator==(const vector2d<T>& other) const { return !operator!=(other); }
+	bool operator!=(const vector2d<T>& other) const { return X!=other.X||Y!=other.Y; }
 
 	// functions
 
-	//! Checks if this vector equals the other one.
-	/** Takes floating point rounding errors into account.
-	\param other Vector to compare with.
-	\return True if the two vector are (almost) equal, else false. */
-	bool equals(const vector2d<T>& other) const
-	{
-		return core::equals(X, other.X) && core::equals(Y, other.Y);
-	}
-
 	vector2d<T>& set(T nx, T ny) {X=nx; Y=ny; return *this; }
 	vector2d<T>& set(const vector2d<T>& p) { X=p.X; Y=p.Y; return *this; }
-
-	//! Gets the length of the vector.
-	/** \return The length of the vector. */
+/*
 	T getLength() const { return core::squareroot( X*X + Y*Y ); }
-
-	//! Get the squared length of this vector
-	/** This is useful because it is much faster than getLength().
-	\return The squared length of the vector. */
 	T getLengthSQ() const { return X*X + Y*Y; }
-
-	//! Get the dot product of this vector with another.
-	/** \param other Other vector to take dot product with.
-	\return The dot product of the two vectors. */
 	T dotProduct(const vector2d<T>& other) const
 	{
 		return X*other.X + Y*other.Y;
 	}
-
-	//! Gets distance from another point.
-	/** Here, the vector is interpreted as a point in 2-dimensional space.
-	\param other Other vector to measure from.
-	\return Distance from other point. */
 	T getDistanceFrom(const vector2d<T>& other) const
 	{
 		return vector2d<T>(X - other.X, Y - other.Y).getLength();
 	}
-
-	//! Returns squared distance from another point.
-	/** Here, the vector is interpreted as a point in 2-dimensional space.
-	\param other Other vector to measure from.
-	\return Squared distance from other point. */
 	T getDistanceFromSQ(const vector2d<T>& other) const
 	{
 		return vector2d<T>(X - other.X, Y - other.Y).getLengthSQ();
 	}
-
+*/
 	//! rotates the point anticlockwise around a center by an amount of degrees.
 	/** \param degrees Amount of degrees to rotate by, anticlockwise.
 	\param center Rotation center.
@@ -160,20 +131,6 @@ public:
 
 		X += center.X;
 		Y += center.Y;
-		return *this;
-	}
-
-	//! Normalize the vector.
-	/** The null vector is left untouched.
-	\return Reference to this vector, after normalization. */
-	vector2d<T>& normalize()
-	{
-		float length = (float)(X*X + Y*Y);
-		if ( length == 0 )
-			return *this;
-		length = core::reciprocal_squareroot ( length );
-		X = (T)(X * length);
-		Y = (T)(Y * length);
 		return *this;
 	}
 
@@ -213,7 +170,7 @@ public:
 
 		// don't use getLength here to avoid precision loss with int32_t vectors
 		// avoid floating-point trouble as sqrt(y*y) is occasionally larger than y, so clamp
-		const double tmp = core::clamp(Y / sqrt((double)(X*X + Y*Y)), -1.0, 1.0);
+		const double tmp = core::clamp(Y / std::sqrt((double)(X*X + Y*Y)), -1.0, 1.0);
 		const double angle = atan( core::squareroot(1 - tmp*tmp) / tmp) * RADTODEG64;
 
 		if (X>0 && Y>0)
@@ -247,7 +204,7 @@ public:
 		if ( tmp > 1.0 ) //   avoid floating-point trouble
 			tmp = 1.0;
 
-		return atan(sqrt(1 - tmp*tmp) / tmp) * RADTODEG64;
+		return atan(std::sqrt(1 - tmp*tmp) / tmp) * RADTODEG64;
 	}
 
 	//! Returns if this vector interpreted as a point is on a line between two other points.

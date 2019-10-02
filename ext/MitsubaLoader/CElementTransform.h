@@ -2,25 +2,37 @@
 #define __C_ELEMENT_TRANSFORM_H_INCLUDED__
 
 #include "../../ext/MitsubaLoader/IElement.h"
-#include "irrlicht.h"
 
-namespace irr { namespace ext { namespace MitsubaLoader {
+
+namespace irr
+{
+namespace ext
+{
+namespace MitsubaLoader
+{
+
 
 class CElementTransform : public IElement
 {
-public:
-	virtual bool processAttributes(const char** _args) override;
-	virtual bool onEndTag(asset::IAssetManager* _assetManager) override;
-	virtual IElement::Type getType() const override { return IElement::Type::TRANSFORM; };
-	virtual std::string getLogName() const override { return "transform"; };
+	public:
+		CElementTransform(std::string&& _name) : IElement(""), name(_name), matrix() {}
+		virtual ~CElementTransform() {}
 
-	inline const core::matrix4SIMD getMatrix() const { return matrix; }
-	inline const std::string getName() const { return name; }
+		bool addProperty(SPropertyElementData&& _property) override;
+		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override { return true; }
+		IElement::Type getType() const override { return IElement::Type::TRANSFORM; }
+		std::string getLogName() const override { return "transform"; }
 
-private:
-	core::matrix4SIMD matrix;
-	std::string name;
+		inline CElementTransform& operator=(const CElementTransform& other)
+		{
+			IElement::operator=(other);
+			name = other.name;
+			matrix = other.matrix;
+			return *this;
+		}
 
+		std::string name;
+		core::matrix4SIMD matrix;
 };
 
 }

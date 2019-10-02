@@ -1,24 +1,37 @@
 #ifndef __I_ELEMENT_FACTORY_H_INCLUDED__
 #define __I_ELEMENT_FACTORY_H_INCLUDED__
 
-#include "irr/asset/IAssetManager.h"
-#include "../../ext/MitsubaLoader/IElement.h"
-#include <memory>
+#include "../../ext/MitsubaLoader/CElementSensor.h"
+#include "../../ext/MitsubaLoader/CElementIntegrator.h"
+//#include "../../ext/MitsubaLoader/CElementShape.h"
+	#include "../../ext/MitsubaLoader/CElementBSDF.h"
 
-namespace irr { namespace ext { namespace MitsubaLoader {
+namespace irr
+{
+namespace ext
+{
+namespace MitsubaLoader
+{
 
+class ParserManager;
+
+class CElementShape {};
+class CElementEmitter {};
 
 class CElementFactory
 {
-public:
-	//constructs certain elements based on element's name and its attributes
-	static IElement* createElement(const char* _el, const char** _atts);
+	public:
+		using element_creation_func = IElement*(*)(const char**, ParserManager*);
+		const static core::unordered_map<std::string, std::pair<element_creation_func,bool>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> createElementTable;
 
-private:
-	static IElement* parseScene(const char* _el, const char** _atts);
-	static IElement* parseShape(const char* _el, const char** _atts);
-
+		//constructs certain elements based on element's name and its attributes
+		template<class element_type>
+		static IElement* createElement(const char** _atts, ParserManager* _util);
+		//
+		static IElement* processAlias(const char** _atts, ParserManager* _util);
+		static IElement* processRef(const char** _atts, ParserManager* _util);
 };
+
 
 }
 }
