@@ -263,7 +263,7 @@ class CElementIntegrator : public IElement
 			return *this;
 		}
 
-		bool addProperty(SPropertyElementData&& _property) override;
+		bool addProperty(SNamedPropertyElement&& _property) override;
 		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override;
 		IElement::Type getType() const override { return IElement::Type::INTEGRATOR; }
 		std::string getLogName() const override { return "integrator"; }

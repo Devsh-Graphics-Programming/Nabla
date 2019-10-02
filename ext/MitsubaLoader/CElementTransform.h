@@ -18,7 +18,7 @@ class CElementTransform : public IElement
 		CElementTransform(std::string&& _name) : IElement(""), name(_name), matrix() {}
 		virtual ~CElementTransform() {}
 
-		bool addProperty(SPropertyElementData&& _property) override;
+		bool addProperty(SNamedPropertyElement&& _property) override;
 		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override { return true; }
 		IElement::Type getType() const override { return IElement::Type::TRANSFORM; }
 		std::string getLogName() const override { return "transform"; }

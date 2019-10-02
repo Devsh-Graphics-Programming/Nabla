@@ -25,7 +25,7 @@ IElement* CElementFactory::createElement<CElementBSDF>(const char** _atts, Parse
 	{
 		{"diffuse",			CElementBSDF::Type::DIFFUSE},
 		{"roughdiffuse",	CElementBSDF::Type::ROUGHDIFFUSE},
-		{"dielectric",		CElementBSDF::Type::PATH},
+		{"dielectric",		CElementBSDF::Type::DIELECTRIC},
 		{"thindielectric",	CElementBSDF::Type::THINDIELECTRIC},
 		{"roughdielectric",	CElementBSDF::Type::ROUGHDIELECTRIC},
 		{"conductor",		CElementBSDF::Type::CONDUCTOR},
@@ -63,61 +63,61 @@ IElement* CElementFactory::createElement<CElementBSDF>(const char** _atts, Parse
 	switch (obj->type)
 	{
 		case CElementBSDF::Type::DIFFUSE:
-			IRR_FALLTHROUGH;
+			_IRR_FALLTHROUGH;
 		case CElementBSDF::Type::ROUGHDIFFUSE:
-			diffuse = AllDiffuse();
+			obj->diffuse = CElementBSDF::AllDiffuse();
 			break;
 		case CElementBSDF::Type::DIELECTRIC:
-			IRR_FALLTHROUGH;
+			_IRR_FALLTHROUGH;
 		case CElementBSDF::Type::THINDIELECTRIC:
-			IRR_FALLTHROUGH;
+			_IRR_FALLTHROUGH;
 		case CElementBSDF::Type::ROUGHDIELECTRIC:
-			dieletric = AllDielectric();
+			obj->dielectric = CElementBSDF::AllDielectric();
 			break;
 		case CElementBSDF::Type::CONDUCTOR:
-			IRR_FALLTHROUGH;
+			_IRR_FALLTHROUGH;
 		case CElementBSDF::Type::ROUGHCONDUCTOR:
-			conductor = AllConductor();
+			obj->conductor = CElementBSDF::AllConductor();
 			break;
 		case CElementBSDF::Type::PLASTIC:
-			IRR_FALLTHROUGH;
+			_IRR_FALLTHROUGH;
 		case CElementBSDF::Type::ROUGHPLASTIC:
-			plastic = AllPlastic();
+			obj->plastic = CElementBSDF::AllPlastic();
 			break;
 		case CElementBSDF::Type::COATING:
-			IRR_FALLTHROUGH;
+			_IRR_FALLTHROUGH;
 		case CElementBSDF::Type::ROUGHCOATING:
-			coating = AllCoating();
+			obj->coating = CElementBSDF::AllCoating();
 			break;
 		case CElementBSDF::Type::BUMPMAP:
-			bumpmap = BumpMap();
+			obj->bumpmap = CElementBSDF::BumpMap();
 			break;
 		case CElementBSDF::Type::PHONG:
-			phong = Phong();
+			obj->phong = CElementBSDF::Phong();
 			break;
 		case CElementBSDF::Type::WARD:
-			ward = Ward();
+			obj->ward = CElementBSDF::Ward();
 			break;
 		case CElementBSDF::Type::MIXTURE_BSDF:
-			mixturebsdf = MixtureBSDF();
+			obj->mixturebsdf = CElementBSDF::MixtureBSDF();
 			break;
 		case CElementBSDF::Type::BLEND_BSDF:
-			blendbsdf = BlendBSDF();
+			obj->blendbsdf = CElementBSDF::BlendBSDF();
 			break;
 		case CElementBSDF::Type::MASK:
-			mask = Mask();
+			obj->mask = CElementBSDF::Mask();
 			break;
 		case CElementBSDF::Type::TWO_SIDED:
-			twosided = TwoSided();
+			obj->twosided = CElementBSDF::TwoSided();
 			break;
 		case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
-			difftrans = DiffuseTransmitter();
+			obj->difftrans = CElementBSDF::DiffuseTransmitter();
 			break;
 		//case CElementBSDF::Type::HANRAHAN_KRUEGER:
-			//hk = HanrahanKrueger();
+			//hk = CElementBSDF::HanrahanKrueger();
 			//break;
 		//case CElementBSDF::Type::IRAWAN_MARSCHNER:
-			//irawan = IrawanMarschner();
+			//irawan = CElementBSDF::IrawanMarschner();
 			//break;
 		default:
 			break;
@@ -125,33 +125,40 @@ IElement* CElementFactory::createElement<CElementBSDF>(const char** _atts, Parse
 	return obj;
 }
 
-
-const core::unordered_map<std::string, float, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> AllDielectric::NamedIndicesOfRefraction =
+float CElementBSDF::TransmissiveBase::findIOR(const std::string& name)
 {
-	{"vacuum",					1.f},
-	{"helium",					1.00004f},
-	{"hydrogen",				1.00013f},
-	{"air",						1.00028f},
-	{"carbon dioxide",			1.00045f},
-	{"water ice",				1.31f},
-	{"water",					1.333f},
-	{"acetone",					1.36f},
-	{"ethanol",					1.361f},
-	{"fused quartz",			1.458f},
-	{"carbon tetrachloride",	1.461f},
-	{"pyrex",					1.47f},
-	{"glycerol",				1.4729f},
-	{"acrylic glass",			1.49f},
-	{"polypropylene",			1.49f},
-	{"benzene",					1.501f},
-	{"bk7",						1.5046f},
-	{"silicone oil",			1.52045f},
-	{"sodium chloride",			1.544f},
-	{"amber",					1.55f},
-	{"pet",						1.575f},
-	{"bromine",					1.661f},
-	{"diamond",					2.419f}
-};
+	static const core::unordered_map<std::string, float, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> NamedIndicesOfRefraction =
+	{
+		{"vacuum",					1.f},
+		{"helium",					1.00004f},
+		{"hydrogen",				1.00013f},
+		{"air",						1.00028f},
+		{"carbon dioxide",			1.00045f},
+		{"water ice",				1.31f},
+		{"water",					1.333f},
+		{"acetone",					1.36f},
+		{"ethanol",					1.361f},
+		{"fused quartz",			1.458f},
+		{"carbon tetrachloride",	1.461f},
+		{"pyrex",					1.47f},
+		{"glycerol",				1.4729f},
+		{"acrylic glass",			1.49f},
+		{"polypropylene",			1.49f},
+		{"benzene",					1.501f},
+		{"bk7",						1.5046f},
+		{"silicone oil",			1.52045f},
+		{"sodium chloride",			1.544f},
+		{"amber",					1.55f},
+		{"pet",						1.575f},
+		{"bromine",					1.661f},
+		{"diamond",					2.419f}
+	};
+	auto found = NamedIndicesOfRefraction.find(name);
+	if (found != NamedIndicesOfRefraction.end())
+		return NAN;
+	return found->second;
+}
+
 
 CElementBSDF::AllConductor::AllConductor(const std::string& material) : RoughSpecularBase(0.1)
 {
@@ -232,12 +239,12 @@ CElementBSDF::AllConductor::AllConductor(const std::string& material) : RoughSpe
 		assert(found != NamedConductors.end());
 	}
 
-	eta = found->second->first;
-	k = found->second->second;
-	extEta = TransmissiveBase::NamedIndicesOfRefraction["air"];
+	eta = found->second.first;
+	k = found->second.second;
+	extEta = TransmissiveBase::findIOR("air");
 }
 
-bool CElementBSDF::addProperty(SPropertyElementData&& _property)
+bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 {
 	bool error = false;
 	auto dispatch = [&](auto func) -> void
@@ -245,29 +252,29 @@ bool CElementBSDF::addProperty(SPropertyElementData&& _property)
 		switch (type)
 		{
 			case CElementBSDF::Type::DIFFUSE:
-				IRR_FALLTHROUGH;
+				_IRR_FALLTHROUGH;
 			case CElementBSDF::Type::ROUGHDIFFUSE:
 				func(diffuse);
 				break;
 			case CElementBSDF::Type::DIELECTRIC:
-				IRR_FALLTHROUGH;
+				_IRR_FALLTHROUGH;
 			case CElementBSDF::Type::THINDIELECTRIC:
-				IRR_FALLTHROUGH;
+				_IRR_FALLTHROUGH;
 			case CElementBSDF::Type::ROUGHDIELECTRIC:
 				func(dielectric);
 				break;
 			case CElementBSDF::Type::CONDUCTOR:
-				IRR_FALLTHROUGH;
+				_IRR_FALLTHROUGH;
 			case CElementBSDF::Type::ROUGHCONDUCTOR:
 				func(conductor);
 				break;
 			case CElementBSDF::Type::PLASTIC:
-				IRR_FALLTHROUGH;
+				_IRR_FALLTHROUGH;
 			case CElementBSDF::Type::ROUGHPLASTIC:
 				func(plastic);
 				break;
 			case CElementBSDF::Type::COATING:
-				IRR_FALLTHROUGH;
+				_IRR_FALLTHROUGH;
 			case CElementBSDF::Type::ROUGHCOATING:
 				func(coating);
 				break;
@@ -554,7 +561,7 @@ bool CElementBSDF::addProperty(SPropertyElementData&& _property)
 }
 
 
-bool CElementBSDF::processChildData(IElement* _child)
+bool CElementBSDF::processChildData(IElement* _child, const char* name)
 {
 	if (!_child)
 		return true;
@@ -563,7 +570,7 @@ bool CElementBSDF::processChildData(IElement* _child)
 	{
 		case IElement::Type::TEXTURE:
 			{
-				static const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
+				static const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetChildMap =
 				{
 					{"reflectance",				processReflectance},
 					{"alpha",					processAlpha},
@@ -581,7 +588,7 @@ bool CElementBSDF::processChildData(IElement* _child)
 				};
 
 				auto _texture = static_cast<CElementTexture*>(_child);
-				auto found = SetChildMap.find(_child.name);
+				auto found = SetChildMap.find(name);
 				if (found==SetChildMap.end())
 				{
 					switch (type)
@@ -606,7 +613,7 @@ bool CElementBSDF::processChildData(IElement* _child)
 				switch (type)
 				{
 					case Type::COATING:
-						IRR_FALLTHROUGH;
+						_IRR_FALLTHROUGH;
 					case Type::ROUGHCOATING:
 						if (coating.childCount < AllCoating::MaxChildCount)
 							coating.bsdf[coating.childCount++] = _bsdf;
@@ -637,7 +644,7 @@ bool CElementBSDF::processChildData(IElement* _child)
 						else
 							return false;
 						break;
-					case Type::TWOSIDED:
+					case Type::TWO_SIDED:
 						if (twosided.childCount < TwoSided::MaxChildCount)
 							twosided.bsdf[twosided.childCount++] = _bsdf;
 						else

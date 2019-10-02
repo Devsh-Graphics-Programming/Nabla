@@ -10,11 +10,11 @@ set(IRR_EXT_MITSUBA_LOADER_H
 	CElementRFilter.h
 	CElementSampler.h
 	CElementTransform.h
+	#CElementShape.h
 	CElementBSDF.h
+	CElementTexture.h
 	#CElementEmitter.h
 	CElementFactory.h
-	#CShapeCreator.h
-	#Shape.h
 	CGlobalMitsubaMetadata.h
 	ParserUtil.h
 	CMitsubaLoader.h
@@ -28,13 +28,13 @@ set(IRR_EXT_MITSUBA_LOADER_SRC
 	CElementRFilter.cpp
 	CElementSampler.cpp
 	CElementTransform.cpp
+	#CElementShape.cpp
 	CElementBSDF.cpp
+	CElementTexture.cpp
 	#CElementEmitter.cpp
 	CElementFactory.cpp
 	CMitsubaLoader.cpp
-	#CShapeCreator.cpp
 	ParserUtil.cpp
-	#Shape.cpp
 )
 
 set(IRR_EXT_MITSUBA_LOADER_EXTERNAL_INCLUDE
