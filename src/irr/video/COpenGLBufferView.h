@@ -13,7 +13,7 @@ namespace video
 class COpenGLBufferView : public IGPUBufferView
 {
 public:
-    COpenGLBufferView(core::smart_refctd_ptr<COpenGLBuffer> _buffer, asset::E_FORMAT _format, size_t _offset = 0ull, size_t _size = COpenGLBufferView::whole_buffer) :
+    COpenGLBufferView(core::smart_refctd_ptr<COpenGLBuffer>&& _buffer, asset::E_FORMAT _format, size_t _offset = 0ull, size_t _size = COpenGLBufferView::whole_buffer) :
         IGPUBufferView(std::move(_buffer), _format, _offset, _size), m_textureName(0u), m_GLformat(GL_INVALID_ENUM), m_textureSize(0u)
     {
         COpenGLExtensionHandler::extGlCreateTextures(GL_TEXTURE_BUFFER, 1, &m_textureName);
@@ -29,10 +29,6 @@ public:
 
     GLuint getOpenGLName() const { return m_textureName; }
     GLenum getInternalFormat() const { return m_GLformat; }
-
-    E_DRIVER_TYPE getDriverType() const override { return EDT_OPENGL; }
-
-    const uint32_t* getSize() const override { return &m_textureSize; }
 
 private:
     GLuint m_textureName;

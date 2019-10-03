@@ -27,9 +27,9 @@ public:
 
     COpenGLPipelineLayout(
         const SPushConstantRange* const _pcRangesBegin, const SPushConstantRange* const _pcRangesEnd,
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout> _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout> _layout1,
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout> _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout> _layout3
-    ) : IGPUPipelineLayout(_pcRangesBegin, _pcRangesEnd, _layout0, _layout1, _layout2, _layout3)
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1,
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3
+    ) : IGPUPipelineLayout(_pcRangesBegin, _pcRangesEnd, std::move(_layout0), std::move(_layout1), std::move(_layout2), std::move(_layout3))
     {
         SMultibindParams params;
 
@@ -39,7 +39,7 @@ public:
                 continue;
 
             auto reset = [](SMultibindParams::SFirstCount& _fc) {
-                _fc.first = _fc.count;
+                _fc.first += _fc.count;
                 _fc.count = 0u;
             };
 

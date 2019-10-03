@@ -406,10 +406,11 @@ namespace video
 
         virtual uint64_t getMaxBufferSize() const override { return 0ull; }
 
-        virtual uint32_t getMaxUBOBindings() const { return 0u; }
-        virtual uint32_t getMaxSSBOBindings() const { return 0u; }
-        virtual uint32_t getMaxTextureBindings() const { return 0u; }
-        virtual uint32_t getMaxTextureBindingsCompute() const { return 0u; }
+        uint32_t getMaxUBOBindings() const override { return 0u; }
+        uint32_t getMaxSSBOBindings() const override { return 0u; }
+        uint32_t getMaxTextureBindings() const override { return 0u; }
+        uint32_t getMaxTextureBindingsCompute() const override { return 0u; }
+        uint32_t getMaxImageBindings() const override { return 0u; }
 
 	protected:
         void addMultisampleTexture(IMultisampleTexture* tex);

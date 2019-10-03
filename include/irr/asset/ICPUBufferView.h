@@ -21,6 +21,8 @@ public:
     void convertToDummyObject() override { }
     E_TYPE getAssetType() const override { return ET_BUFFER_VIEW; }
 
+    ICPUBuffer* getUnderlyingBuffer() { return m_buffer.get(); }
+
     inline void setOffsetInBuffer(size_t _offset) { m_offset = _offset; }
     inline void setSize(size_t _size) { m_size = _size; }
 

@@ -517,6 +517,31 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     return core::smart_refctd_ptr<COpenGLSpecializedShader>(gpuSpecialized, core::dont_grab);
 }
 
+core::smart_refctd_ptr<IGPUBufferView> COpenGLDriver::createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset, size_t _size)
+{
+    COpenGLBuffer* glbuf = static_cast<COpenGLBuffer*>(_underlying);
+    return core::make_smart_refctd_ptr<COpenGLBufferView>(core::smart_refctd_ptr<COpenGLBuffer>(glbuf), _fmt, _offset, _size);
+}
+
+core::smart_refctd_ptr<IGPUDescriptorSetLayout> COpenGLDriver::createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end)
+{
+    return core::make_smart_refctd_ptr<IGPUDescriptorSetLayout>(_begin, _end);//there's no COpenGLDescriptorSetLayout (no need for such)
+}
+
+core::smart_refctd_ptr<IGPUSampler> COpenGLDriver::createGPUSampler(const IGPUSampler::SParams& _params)
+{
+    return core::make_smart_refctd_ptr<COpenGLSampler>(_params);
+}
+
+core::smart_refctd_ptr<IGPUPipelineLayout> COpenGLDriver::createGPUPipelineLayout(const asset::SPushConstantRange* const _pcRangesBegin, const asset::SPushConstantRange* const _pcRangesEnd, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3)
+{
+    return core::make_smart_refctd_ptr<COpenGLPipelineLayout>(
+        _pcRangesBegin, _pcRangesEnd,
+        std::move(_layout0), std::move(_layout1),
+        std::move(_layout2), std::move(_layout3)
+        );
+}
+
 bool COpenGLDriver::initAuxContext()
 {
 	if (!AuxContexts) // opengl dead and never inited
@@ -2028,7 +2053,7 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
         }
         if (STATE_NEQ(vertexInputParams.parameterBuf))
         {
-            extGlBindBuffer(GL_DRAW_INDIRECT_BUFFER, nextState.vertexInputParams.parameterBuf ? nextState.vertexInputParams.parameterBuf->getOpenGLName() : 0u);
+            extGlBindBuffer(GL_PARAMETER_BUFFER, nextState.vertexInputParams.parameterBuf ? nextState.vertexInputParams.parameterBuf->getOpenGLName() : 0u);
             UPDATE_STATE(vertexInputParams.parameterBuf);
         }
     }
@@ -2148,8 +2173,11 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
             maxIndex = first_count.ubos.first + first_count.ubos.count;
 #define CLAMP_COUNT(resname,limit,printstr) \
             maxIndex = first_count.resname.first + first_count.resname.count;\
-            if (printWarnings)\
-                os::Printer::log(std::string("Warning: tried to bind unsupported amount of ") + #printstr + " descriptors!", ELL_WARNING);\
+            if (printWarnings) {\
+                char logbuf[200]{};\
+                sprintf(logbuf, "Warning: tried to bind unsupported amount of %s descriptors!", #printstr);\
+                os::Printer::log(logbuf, ELL_WARNING);\
+            }\
             (first_count.resname.count - std::max(0, static_cast<int32_t>(maxIndex)-static_cast<int32_t>(limit)))
 
             count = CLAMP_COUNT(ubos, COpenGLExtensionHandler::maxUBOBindings, UBO);
@@ -2159,7 +2187,7 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
             count = CLAMP_COUNT(textures, COpenGLExtensionHandler::maxTextureBindings, texture); //TODO should use maxTextureBindingsCompute for compute
             extGlBindTextures(first_count.textures.first, count, texnames, nullptr); //targets=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
             extGlBindSamplers(first_count.textures.first, count, smplrnames);
-            count = CLAMP_COUNT(textureImages, COpenGLExtensionHandler::maxTextureBindings, image); //OpenGL does not have query for images so i assume the limit is same as for textures
+            count = CLAMP_COUNT(textureImages, COpenGLExtensionHandler::maxImageBindings, image); //OpenGL does not have query for images so i assume the limit is same as for textures
             extGlBindImageTextures(first_count.textureImages.first, count, imgnames, nullptr); //formats=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
 #undef CLAMP_COUNT
         }

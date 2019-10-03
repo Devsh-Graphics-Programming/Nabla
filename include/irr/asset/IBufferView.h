@@ -17,8 +17,8 @@ public:
     _IRR_STATIC_INLINE_CONSTEXPR size_t whole_buffer = ~static_cast<size_t>(0u);
 
 protected:
-    IBufferView(core::smart_refctd_ptr<BufferType> _buffer, E_FORMAT _format, size_t _offset, size_t _size) :
-        m_buffer(_buffer), m_format(_format), m_offset(_offset), m_size(_size)
+    IBufferView(core::smart_refctd_ptr<BufferType>&& _buffer, E_FORMAT _format, size_t _offset, size_t _size) :
+        m_buffer(std::move(_buffer)), m_format(_format), m_offset(_offset), m_size(_size)
     {
         if (m_size == whole_buffer)
             m_size = m_buffer->getSize() - m_offset;
@@ -32,7 +32,6 @@ protected:
 
 public:
     const BufferType* getUnderlyingBuffer() const { return m_buffer.get(); }
-    BufferType* getUnderlyingBuffer() { return m_buffer.get(); }
 
     E_FORMAT getFormat() const { return m_format; }
     size_t getOffsetInBuffer() const { return m_offset; }

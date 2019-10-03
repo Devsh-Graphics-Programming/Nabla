@@ -111,13 +111,13 @@ namespace video
             GLboolean stencilTestEnable = 0;
             GLboolean multisampleEnable = 1;
             struct SClipCtrl {
-                GLenum origin;
-                GLenum depth;
+                GLenum origin = GL_LOWER_LEFT;
+                GLenum depth = GL_NEGATIVE_ONE_TO_ONE;
                 bool operator!=(const SClipCtrl& rhs) const { return origin!=rhs.origin || depth!=rhs.depth; }
             } clipControl;
             struct SDepthRng {
-                GLclampd znear;
-                GLclampd zfar;
+                GLclampd znear = 0.0;
+                GLclampd zfar = 1.0;
                 bool operator!=(const SDepthRng& rhs) const { return znear!=rhs.znear || zfar!=rhs.zfar; }
             } depthRange;
             GLboolean primitiveRestartEnable = 0;
@@ -546,6 +546,18 @@ namespace video
         core::smart_refctd_ptr<IGPUShader> createGPUShader(const asset::ICPUShader* _cpushader) override;
         core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) override;
 
+        core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset, size_t _size) override;
+
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override;
+
+        core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override;
+
+        core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout(
+            const asset::SPushConstantRange* const _pcRangesBegin = nullptr, const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
+            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr,
+            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3 = nullptr
+        ) override;
+
 		//! generic version which overloads the unimplemented versions
 		bool changeRenderContext(const SExposedVideoData& videoData, void* device) {return false;}
 
@@ -814,6 +826,12 @@ namespace video
 
         //!
         virtual uint64_t getMaxBufferSize() const override { return COpenGLExtensionHandler::maxBufferSize; }
+
+        uint32_t getMaxUBOBindings() const override { return COpenGLExtensionHandler::maxUBOBindings; }
+        uint32_t getMaxSSBOBindings() const override { return COpenGLExtensionHandler::maxSSBOBindings; }
+        uint32_t getMaxTextureBindings() const override { return COpenGLExtensionHandler::maxTextureBindings; }
+        uint32_t getMaxTextureBindingsCompute() const override { return COpenGLExtensionHandler::maxTextureBindingsCompute; }
+        uint32_t getMaxImageBindings() const override { return COpenGLExtensionHandler::maxImageBindings; }
 
     private:
         SAuxContext* getThreadContext_helper(const bool& alreadyLockedMutex, const std::thread::id& tid = std::this_thread::get_id());

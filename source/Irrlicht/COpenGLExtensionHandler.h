@@ -989,6 +989,8 @@ class COpenGLExtensionHandler
     static uint32_t maxTextureBindings;
     //! For compute shader
     static uint32_t maxTextureBindingsCompute;
+    //!
+    static uint32_t maxImageBindings;
 	//!
 	static int32_t minMemoryMapAlignment;
     //!
