@@ -367,117 +367,6 @@ const core::rect<int32_t>& CNullDriver::getViewPort() const
 }
 
 
-
-//! draws an 2d image
-void CNullDriver::draw2DImage(const video::ITexture* texture, const core::position2d<int32_t>& destPos)
-{
-	if (!texture)
-		return;
-
-	draw2DImage(texture,destPos, core::rect<int32_t>(core::position2d<int32_t>(0,0),
-												core::dimension2di(*reinterpret_cast<const core::dimension2du*>(texture->getSize()))));
-}
-
-
-
-//! draws a set of 2d images, using a color and the alpha channel of the
-//! texture if desired. The images are drawn beginning at pos and concatenated
-//! in one line. All drawings are clipped against clipRect (if != 0).
-//! The subtextures are defined by the array of sourceRects and are chosen
-//! by the indices given.
-void CNullDriver::draw2DImageBatch(const video::ITexture* texture,
-				const core::position2d<int32_t>& pos,
-				const core::vector<core::rect<int32_t> >& sourceRects,
-				const core::vector<int32_t>& indices,
-				int32_t kerningWidth,
-				const core::rect<int32_t>* clipRect, SColor color,
-				bool useAlphaChannelOfTexture)
-{
-	core::position2d<int32_t> target(pos);
-
-	for (uint32_t i=0; i<indices.size(); ++i)
-	{
-		draw2DImage(texture, target, sourceRects[indices[i]],
-				clipRect, color, useAlphaChannelOfTexture);
-		target.X += sourceRects[indices[i]].getWidth();
-		target.X += kerningWidth;
-	}
-}
-
-//! draws a set of 2d images, using a color and the alpha channel of the
-//! texture if desired.
-void CNullDriver::draw2DImageBatch(const video::ITexture* texture,
-				const core::vector<core::position2d<int32_t> >& positions,
-				const core::vector<core::rect<int32_t> >& sourceRects,
-				const core::rect<int32_t>* clipRect,
-				SColor color,
-				bool useAlphaChannelOfTexture)
-{
-	const uint32_t drawCount = core::min_<uint32_t>(positions.size(), sourceRects.size());
-
-	for (uint32_t i=0; i<drawCount; ++i)
-	{
-		draw2DImage(texture, positions[i], sourceRects[i],
-				clipRect, color, useAlphaChannelOfTexture);
-	}
-}
-
-
-//! Draws a part of the texture into the rectangle.
-void CNullDriver::draw2DImage(const video::ITexture* texture, const core::rect<int32_t>& destRect,
-	const core::rect<int32_t>& sourceRect, const core::rect<int32_t>* clipRect,
-	const video::SColor* const colors, bool useAlphaChannelOfTexture)
-{
-	if (destRect.isValid())
-		draw2DImage(texture, core::position2d<int32_t>(destRect.UpperLeftCorner),
-				sourceRect, clipRect, colors?colors[0]:video::SColor(0xffffffff),
-				useAlphaChannelOfTexture);
-}
-
-
-//! Draws a 2d image, using a color (if color is other then Color(255,255,255,255)) and the alpha channel of the texture if wanted.
-void CNullDriver::draw2DImage(const video::ITexture* texture, const core::position2d<int32_t>& destPos,
-				const core::rect<int32_t>& sourceRect,
-				const core::rect<int32_t>* clipRect, SColor color,
-				bool useAlphaChannelOfTexture)
-{
-}
-
-
-//! Draws the outline of a 2d rectangle
-void CNullDriver::draw2DRectangleOutline(const core::recti& pos, SColor color)
-{
-	draw2DLine(pos.UpperLeftCorner, core::position2di(pos.LowerRightCorner.X, pos.UpperLeftCorner.Y), color);
-	draw2DLine(core::position2di(pos.LowerRightCorner.X, pos.UpperLeftCorner.Y), pos.LowerRightCorner, color);
-	draw2DLine(pos.LowerRightCorner, core::position2di(pos.UpperLeftCorner.X, pos.LowerRightCorner.Y), color);
-	draw2DLine(core::position2di(pos.UpperLeftCorner.X, pos.LowerRightCorner.Y), pos.UpperLeftCorner, color);
-}
-
-
-//! Draw a 2d rectangle
-void CNullDriver::draw2DRectangle(SColor color, const core::rect<int32_t>& pos, const core::rect<int32_t>* clip)
-{
-	draw2DRectangle(pos, color, color, color, color, clip);
-}
-
-
-
-//! Draws a 2d rectangle with a gradient.
-void CNullDriver::draw2DRectangle(const core::rect<int32_t>& pos,
-	SColor colorLeftUp, SColor colorRightUp, SColor colorLeftDown, SColor colorRightDown,
-	const core::rect<int32_t>* clip)
-{
-}
-
-
-
-//! Draws a 2d line.
-void CNullDriver::draw2DLine(const core::position2d<int32_t>& start,
-				const core::position2d<int32_t>& end, SColor color)
-{
-}
-
-
 //! returns color format
 asset::E_FORMAT CNullDriver::getColorFormat() const
 {
@@ -565,7 +454,7 @@ void CNullDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
 		return;
 
     uint32_t increment = mb->getInstanceCount();
-    switch (mb->getPrimitiveType())
+    switch (mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType)
     {
         case asset::EPT_POINT_LIST:
             increment *= mb->getIndexCount();
