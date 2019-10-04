@@ -83,7 +83,7 @@ int32_t COpenGLExtensionHandler::reqTBOAlignment = 0;
 
 uint64_t COpenGLExtensionHandler::maxUBOSize = 0;
 uint64_t COpenGLExtensionHandler::maxSSBOSize = 0;
-uint64_t COpenGLExtensionHandler::maxTBOSize = 0;
+uint64_t COpenGLExtensionHandler::maxTBOSizeInTexels = 0;
 uint64_t COpenGLExtensionHandler::maxBufferSize = 0;
 
 int32_t COpenGLExtensionHandler::minMemoryMapAlignment = 0;
@@ -762,8 +762,8 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 
     extGlGetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, reinterpret_cast<GLint64*>(&maxUBOSize));
     extGlGetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, reinterpret_cast<GLint64*>(&maxSSBOSize));
-    extGlGetInteger64v(GL_MAX_TEXTURE_BUFFER_SIZE, reinterpret_cast<GLint64*>(&maxTBOSize));
-    maxBufferSize = std::max(maxUBOSize, std::max(maxSSBOSize, maxTBOSize));
+    extGlGetInteger64v(GL_MAX_TEXTURE_BUFFER_SIZE, reinterpret_cast<GLint64*>(&maxTBOSizeInTexels));
+    maxBufferSize = std::max(maxUBOSize, maxSSBOSize);
 
     glGetIntegerv(GL_MAX_COMBINED_UNIFORM_BLOCKS, reinterpret_cast<GLint*>(&maxUBOBindings));
     glGetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS, reinterpret_cast<GLint*>(&maxSSBOBindings));

@@ -977,7 +977,7 @@ class COpenGLExtensionHandler
     //!
     static uint64_t maxSSBOSize;
     //!
-    static uint64_t maxTBOSize;
+    static uint64_t maxTBOSizeInTexels;
     //!
     static uint64_t maxBufferSize;
     //!

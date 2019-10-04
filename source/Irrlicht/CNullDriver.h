@@ -44,11 +44,12 @@ namespace video
 		//! constructor
 		CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
 
-        inline virtual bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const override { return false; }
-        inline virtual bool isColorRenderableFormat(asset::E_FORMAT _fmt) const override { return false; }
-        inline virtual bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const override { return false; }
-        inline virtual bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const override { return false; }
-        inline virtual bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline bool isAllowedBufferViewFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline bool isColorRenderableFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const override { return false; }
 
 		//!
         virtual bool initAuxContext() {return false;}

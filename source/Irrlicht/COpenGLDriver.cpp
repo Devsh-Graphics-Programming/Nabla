@@ -519,6 +519,11 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
 
 core::smart_refctd_ptr<IGPUBufferView> COpenGLDriver::createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset, size_t _size)
 {
+    if (_size > (maxTBOSizeInTexels * asset::getTexelOrBlockBytesize(_fmt)))
+        return nullptr;
+    if (!isAllowedBufferViewFormat(_fmt))
+        return nullptr;
+
     COpenGLBuffer* glbuf = static_cast<COpenGLBuffer*>(_underlying);
     return core::make_smart_refctd_ptr<COpenGLBufferView>(core::smart_refctd_ptr<COpenGLBuffer>(glbuf), _fmt, _offset, _size);
 }

@@ -105,6 +105,7 @@ namespace video
         virtual bool deinitAuxContext() = 0;
 
 
+        virtual bool isAllowedBufferViewFormat(asset::E_FORMAT _fmt) const = 0;
         virtual bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const = 0;
         virtual bool isColorRenderableFormat(asset::E_FORMAT _fmt) const = 0;
         virtual bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const = 0;

@@ -196,6 +196,52 @@ namespace video
 		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceMacOSX *device, asset::IGLSLCompiler* glslcomp);
 		#endif
 
+        inline bool isAllowedBufferViewFormat(asset::E_FORMAT _fmt) const override
+        {
+            using namespace asset;
+            switch (_fmt)
+            {
+            case EF_R8_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R32_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R8_SINT: _IRR_FALLTHROUGH;
+            case EF_R16_SINT: _IRR_FALLTHROUGH;
+            case EF_R32_SINT: _IRR_FALLTHROUGH;
+            case EF_R8_UINT: _IRR_FALLTHROUGH;
+            case EF_R16_UINT: _IRR_FALLTHROUGH;
+            case EF_R32_UINT: _IRR_FALLTHROUGH;
+            case EF_R8G8_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R32G32_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R8G8_SINT: _IRR_FALLTHROUGH;
+            case EF_R16G16_SINT: _IRR_FALLTHROUGH;
+            case EF_R32G32_SINT: _IRR_FALLTHROUGH;
+            case EF_R8G8_UINT: _IRR_FALLTHROUGH;
+            case EF_R16G16_UINT: _IRR_FALLTHROUGH;
+            case EF_R32G32_UINT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32_SINT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32_UINT: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32A32_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_SINT: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_SINT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32A32_SINT: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_UINT: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_UINT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32A32_UINT:
+                return true;
+                break;
+            default:
+                return false;
+                break;
+            }
+        }
+
         inline virtual bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const override
         {
             using namespace asset;
