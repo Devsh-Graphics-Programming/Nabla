@@ -122,11 +122,11 @@ public:
     }
     inline const SBufferBinding* getVertexBufferBindings() const
     {
-        return getAttribBoundBuffer(0u);
+        return m_vertexBufferBindings;
     }
     inline const SBufferBinding* getIndexBufferBinding() const
     {
-        return m_indexBufferBinding;
+        return &m_indexBufferBinding;
     }
     inline const PipelineType* getPipeline() const
     {

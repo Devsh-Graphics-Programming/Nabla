@@ -71,7 +71,20 @@ public:
 
     virtual E_MESH_BUFFER_TYPE getMeshBufferType() const { return EMBT_NOT_ANIMATED; }
 
-    //impossible to implement in meshbuffer
+    inline SBufferBinding* getAttribBoundBuffer(uint32_t attrId)
+    {
+        const uint32_t bnd = getBindingNumForAttribute(attrId);
+        return &m_vertexBufferBindings[bnd];
+    }
+    inline SBufferBinding* getVertexBufferBindings()
+    {
+        return m_vertexBufferBindings;
+    }
+    inline SBufferBinding* getIndexBufferBinding() 
+    {
+        return &m_indexBufferBinding;
+    }
+
     inline size_t calcVertexSize() const
     {
         if (!m_pipeline)
@@ -316,8 +329,8 @@ public:
 
         const uint8_t* src = getAttribPointer(attrId);
         src += ix * getAttribStride(attrId);
-        ICPUBuffer* buf = getAttribBoundBuffer(attrId)->buffer.get();
-        if (src >= reinterpret_cast<const uint8_t*>(buf->getPointer()) + buf->getSize())
+        const ICPUBuffer* buf = base_t::getAttribBoundBuffer(attrId)->buffer.get();
+        if (!buf || src >= reinterpret_cast<const uint8_t*>(buf->getPointer()) + buf->getSize())
             return false;
 
         return getAttribute(output, src, getAttribFormat(attrId));
@@ -369,7 +382,7 @@ public:
         uint8_t* dst = getAttribPointer(attrId);
         dst += ix * getAttribStride(attrId);
         ICPUBuffer* buf = getAttribBoundBuffer(attrId)->buffer.get();
-        if (dst >= ((const uint8_t*)(buf->getPointer())) + buf->getSize())
+        if (!buf || dst >= ((const uint8_t*)(buf->getPointer())) + buf->getSize())
             return false;
 
         return setAttribute(input, dst, getAttribFormat(attrId));

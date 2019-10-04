@@ -89,12 +89,6 @@
 #endif
 
 
-//! Maximum number of textures and input images we can feed to a shader
-/** These limits will most likely be below your GPU hardware limits
-**/
-#define _IRR_MATERIAL_MAX_TEXTURES_ 8
-#define _IRR_MATERIAL_MAX_IMAGES_ 8
-
 //! Maximum of other shader input (output) slots
 #define _IRR_MATERIAL_MAX_DYNAMIC_SHADER_STORAGE_OBJECTS_ 4
 #define _IRR_MATERIAL_MAX_SHADER_STORAGE_OBJECTS_ (16-_IRR_MATERIAL_MAX_DYNAMIC_SHADER_STORAGE_OBJECTS_) //opengl has one set of slots for both
