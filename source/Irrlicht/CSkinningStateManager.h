@@ -16,38 +16,27 @@ namespace scene
 
     class CSkinningStateManager : public ISkinningStateManager
     {
+            _IRR_STATIC_INLINE_CONSTEXPR asset::E_FORMAT TBO_FORMAT = asset::EF_R32G32B32A32_SFLOAT;
             video::IVideoDriver* Driver;
-#ifdef _IRR_COMPILE_WITH_OPENGL_
-            video::ITextureBufferObject* TBO;
-#endif
+            core::smart_refctd_ptr<video::IGPUBufferView> TBO;
+
         protected:
-            virtual ~CSkinningStateManager()
-            {
-#ifdef _IRR_COMPILE_WITH_OPENGL_
-                Driver->removeTextureBufferObject(TBO);
-#endif // _IRR_COMPILE_WITH_OPENGL_
-            }
+            virtual ~CSkinningStateManager() = default;
 
         public:
             CSkinningStateManager(const E_BONE_UPDATE_MODE& boneControl, video::IVideoDriver* driver, const asset::CFinalBoneHierarchy* sourceHierarchy)
                                     : ISkinningStateManager(boneControl,driver,sourceHierarchy), Driver(driver)
             {
-#ifdef _IRR_COMPILE_WITH_OPENGL_
-                TBO = driver->addTextureBufferObject(instanceBoneDataAllocator->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F);
-#endif // _IRR_COMPILE_WITH_OPENGL_
+                TBO = driver->createGPUBufferView(instanceBoneDataAllocator->getFrontBuffer(), TBO_FORMAT);
             }
 
             //
             const void* getRawBoneData() {return instanceBoneDataAllocator->getBackBufferPointer();}
 
             //
-            virtual video::ITextureBufferObject* getBoneDataTBO() const
+            virtual video::IGPUBufferView* getBoneDataTBO() const override
             {
-#ifdef _IRR_COMPILE_WITH_OPENGL_
-                return TBO;
-#else
-                return NULL;
-#endif // _IRR_COMPILE_WITH_OPENGL_
+                return TBO.get();
             }
 
             //
@@ -64,10 +53,9 @@ namespace scene
                 auto instanceCapacity = getDataInstanceCapacity();
                 if (instanceDataSize!=instanceCapacity)
                 {
-#ifdef _IRR_COMPILE_WITH_OPENGL_
-                    if (TBO->getByteSize()!=instanceBoneDataAllocator->getFrontBuffer()->getSize())
-                        TBO->bind(instanceBoneDataAllocator->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F); //can't clandestine re-bind because it won't change the length :D
-#endif // _IRR_COMPILE_WITH_OPENGL_
+                    if (TBO->getByteSize() != instanceBoneDataAllocator->getFrontBuffer()->getSize())
+                        TBO = Driver->createGPUBufferView(instanceBoneDataAllocator->getFrontBuffer(), TBO_FORMAT);
+
                     auto newInstanceDataSize = instanceCapacity*actualSizeOfInstanceDataElement;
                     uint8_t* newInstanceData = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(newInstanceDataSize,_IRR_SIMD_ALIGNMENT));
                     auto oldInstanceDataByteSize = instanceDataSize*actualSizeOfInstanceDataElement;
@@ -144,10 +132,8 @@ namespace scene
             {
                 if (ISkinningStateManager::dropInstance(ID))
                 {
-#ifdef _IRR_COMPILE_WITH_OPENGL_
                     if (TBO->getByteSize()!=instanceBoneDataAllocator->getFrontBuffer()->getSize())
-                        TBO->bind(instanceBoneDataAllocator->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F); //can't clandestine re-bind because it won't change the length :D
-#endif // _IRR_COMPILE_WITH_OPENGL_
+                        TBO = Driver->createGPUBufferView(instanceBoneDataAllocator->getFrontBuffer(), TBO_FORMAT);
                     return true;
                 }
                 else
@@ -282,10 +268,8 @@ namespace scene
             inline void TrySwapBoneBuffer()
             {
                 instanceBoneDataAllocator->pushBuffer(Driver->getDefaultUpStreamingBuffer());
-#ifdef _IRR_COMPILE_WITH_OPENGL_
                 if (TBO->getByteSize()!=instanceBoneDataAllocator->getFrontBuffer()->getSize())
-                    TBO->bind(instanceBoneDataAllocator->getFrontBuffer(),video::ITextureBufferObject::ETBOF_RGBA32F); //can't clandestine re-bind because it won't change the range length :D
-#endif // _IRR_COMPILE_WITH_OPENGL_
+                    TBO = Driver->createGPUBufferView(instanceBoneDataAllocator->getFrontBuffer(), TBO_FORMAT);
             }
 
             virtual void performBoning()
