@@ -13,12 +13,12 @@ class COpenGLRenderpassIndependentPipeline : public IGPURenderpassIndependentPip
 {
 public:
     COpenGLRenderpassIndependentPipeline(
-        core::smart_refctd_ptr<IGPUPipelineLayout> _layout,
-        core::smart_refctd_ptr<IGPUSpecializedShader> _vs,
-        core::smart_refctd_ptr<IGPUSpecializedShader> _tcs,
-        core::smart_refctd_ptr<IGPUSpecializedShader> _tes,
-        core::smart_refctd_ptr<IGPUSpecializedShader> _gs,
-        core::smart_refctd_ptr<IGPUSpecializedShader> _fs,
+        core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+        core::smart_refctd_ptr<IGPUSpecializedShader>&& _vs,
+        core::smart_refctd_ptr<IGPUSpecializedShader>&& _tcs,
+        core::smart_refctd_ptr<IGPUSpecializedShader>&& _tes,
+        core::smart_refctd_ptr<IGPUSpecializedShader>&& _gs,
+        core::smart_refctd_ptr<IGPUSpecializedShader>&& _fs,
         const asset::SVertexInputParams& _vertexInputParams,
         const asset::SBlendParams& _blendParams,
         const asset::SPrimitiveAssemblyParams& _primAsmParams,
@@ -29,7 +29,7 @@ public:
     ) 
     {
         static_assert(asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT == asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT, "This code below has to be divided into 2 loops");
-        static_assert(asset::EF_UNKNOWN <= 255u, "All E_FORMAT values must fit in 1 byte");
+        static_assert(asset::EF_UNKNOWN <= 0xffu, "All E_FORMAT values must fit in 1 byte");
         for (size_t i = 0ull; i < asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
         {
             if (!((m_vertexInputParams.enabledAttribFlags >> i) & 1u)) {
@@ -43,7 +43,7 @@ public:
             const uint32_t bnd = m_vertexInputParams.attributes[i].binding;
             m_vaoHashval.mapAttrToBinding |= (bnd<<(i*4));
             m_vaoHashval.setStrideForBinding(bnd, m_vertexInputParams.bindings[bnd].stride);
-            m_vaoHashval.divisors |= (m_vertexInputParams.bindings[bnd].inputRate==asset::EVIR_PER_VERTEX ? 0u : 1u) << bnd;
+            m_vaoHashval.divisors |= ((m_vertexInputParams.bindings[bnd].inputRate==asset::EVIR_PER_VERTEX ? 0u : 1u) << bnd);
         }
     }
 

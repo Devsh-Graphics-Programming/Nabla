@@ -5,6 +5,7 @@
 #include "irr/asset/IDescriptorSetLayout.h"//for E_DESCRIPTOR_TYPE
 #include "irr/asset/format/EFormat.h"
 #include "irr/asset/IDescriptor.h"
+#include "irr/core/SRange.h"
 #include <algorithm>
 
 namespace irr { namespace asset
@@ -32,7 +33,7 @@ enum E_IMAGE_LAYOUT : uint32_t
 template<typename LayoutType, typename BufferType, typename TextureType, typename BufferViewType, typename SamplerType>
 class IDescriptorSet
 {
-protected:
+public:
     struct SDescriptorInfo
     {
         core::smart_refctd_ptr<IDescriptor> desc;
@@ -51,7 +52,6 @@ protected:
         };
     };
 
-public:
     struct SWriteDescriptorSet
     {
         uint32_t binding;
@@ -64,8 +64,8 @@ protected:
     @param _layout Bindings in layout must go in the same order as corresponding descriptors (SWriteDescriptorSet) in `_descriptors` parameter (this requirement should be probably dropped in the future)
     @param _descriptors Entries must be sorted by binding number
     */
-    IDescriptorSet(core::smart_refctd_ptr<LayoutType> _layout, core::smart_refctd_dynamic_array<SWriteDescriptorSet>&& _descriptors) :
-        m_layout(_layout), m_descriptors(std::move(_descriptors)) 
+    IDescriptorSet(core::smart_refctd_ptr<LayoutType>&& _layout, core::smart_refctd_dynamic_array<SWriteDescriptorSet>&& _descriptors) :
+        m_layout(std::move(_layout)), m_descriptors(std::move(_descriptors)) 
     {
         auto is_not_sorted = [this] {
             for (auto it = m_descriptors->cbegin()+1; it != m_descriptors->cend(); ++it)
@@ -78,6 +78,9 @@ protected:
         assert(!is_not_sorted);
     }
     virtual ~IDescriptorSet() = default;
+
+    const LayoutType* getLayout() const { return m_layout.get(); }
+    core::SRange<const SWriteDescriptorSet> getDescriptors() const { return {m_descriptors->begin(), m_descriptors->end()}; }
 
     core::smart_refctd_ptr<LayoutType> m_layout;
     core::smart_refctd_dynamic_array<SWriteDescriptorSet> m_descriptors;

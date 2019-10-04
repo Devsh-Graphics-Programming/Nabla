@@ -604,6 +604,21 @@ namespace video
             core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3 = nullptr
         ) override;
 
+        core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
+            core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+            core::smart_refctd_ptr<IGPUSpecializedShader>&& _vs,
+            core::smart_refctd_ptr<IGPUSpecializedShader>&& _tcs,
+            core::smart_refctd_ptr<IGPUSpecializedShader>&& _tes,
+            core::smart_refctd_ptr<IGPUSpecializedShader>&& _gs,
+            core::smart_refctd_ptr<IGPUSpecializedShader>&& _fs,
+            const asset::SVertexInputParams& _vertexInputParams,
+            const asset::SBlendParams& _blendParams,
+            const asset::SPrimitiveAssemblyParams& _primAsmParams,
+            const asset::SRasterizationParams& _rasterParams
+        ) override;
+
+        core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>&& _descriptors) override;
+
 		//! generic version which overloads the unimplemented versions
 		bool changeRenderContext(const SExposedVideoData& videoData, void* device) {return false;}
 

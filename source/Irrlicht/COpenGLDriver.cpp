@@ -547,6 +547,26 @@ core::smart_refctd_ptr<IGPUPipelineLayout> COpenGLDriver::createGPUPipelineLayou
         );
 }
 
+core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createGPURenderpassIndependentPipeline(core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, core::smart_refctd_ptr<IGPUSpecializedShader>&& _vs, core::smart_refctd_ptr<IGPUSpecializedShader>&& _tcs, core::smart_refctd_ptr<IGPUSpecializedShader>&& _tes, core::smart_refctd_ptr<IGPUSpecializedShader>&& _gs, core::smart_refctd_ptr<IGPUSpecializedShader>&& _fs, const asset::SVertexInputParams& _vertexInputParams, const asset::SBlendParams& _blendParams, const asset::SPrimitiveAssemblyParams& _primAsmParams, const asset::SRasterizationParams& _rasterParams)
+{
+    if (!_layout || !_vs)
+        return nullptr;
+
+    return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
+        std::move(_layout),
+        std::move(_vs), std::move(_tcs), std::move(_tes), std::move(_gs), std::move(_fs),
+        _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
+        );
+}
+
+core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>&& _descriptors)
+{
+    if (!_layout || !_descriptors || !_descriptors->size())
+        return nullptr;
+
+    return core::make_smart_refctd_ptr<COpenGLDescriptorSet>(std::move(_layout), std::move(_descriptors));
+}
+
 bool COpenGLDriver::initAuxContext()
 {
 	if (!AuxContexts) // opengl dead and never inited

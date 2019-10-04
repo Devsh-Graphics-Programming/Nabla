@@ -20,7 +20,10 @@ public:
     void convertToDummyObject() override { }
     E_TYPE getAssetType() const override { return ET_GRAPHICS_PIPELINE; }
 
-    //maybe setters (shaders, layout, other params) for CPU counterpart only
+    inline ICPUPipelineLayout* getLayout() { return m_layout.get(); }
+
+    inline ICPUSpecializedShader* getShaderAtStage(E_SHADER_STAGE _stage) { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
+    inline ICPUSpecializedShader* getShaderAtIndex(E_SHADER_STAGE_IX _ix) { return m_shaders[_ix].get(); }
 
 protected:
     virtual ~ICPURenderpassIndependentPipeline() = default;

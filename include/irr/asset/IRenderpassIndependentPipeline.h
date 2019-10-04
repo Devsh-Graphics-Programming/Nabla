@@ -302,30 +302,32 @@ enum E_VERTEX_ATTRIBUTE_ID
 template<typename SpecShaderType, typename LayoutType>
 class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 {
-protected:
+public:
     _IRR_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 5u;
 
-    enum {
-        VERTEX_SHADER_IX = 0,
-        TESS_CTRL_SHADER_IX = 1,
-        TESS_EVAL_SHADER_IX = 2,
-        GEOMETRY_SHADER_IX = 3,
-        FRAGMENT_SHADER_IX = 4
+    enum E_SHADER_STAGE_IX
+    {
+        ESSI_VERTEX_SHADER_IX = 0,
+        ESSI_TESS_CTRL_SHADER_IX = 1,
+        ESSI_TESS_EVAL_SHADER_IX = 2,
+        ESSI_GEOMETRY_SHADER_IX = 3,
+        ESSI_FRAGMENT_SHADER_IX = 4
     };
 
+protected:
     IRenderpassIndependentPipeline(
-        core::smart_refctd_ptr<LayoutType> _layout,
-        core::smart_refctd_ptr<SpecShaderType> _vs,
-        core::smart_refctd_ptr<SpecShaderType> _tcs,
-        core::smart_refctd_ptr<SpecShaderType> _tes,
-        core::smart_refctd_ptr<SpecShaderType> _gs,
-        core::smart_refctd_ptr<SpecShaderType> _fs,
+        core::smart_refctd_ptr<LayoutType>&& _layout,
+        core::smart_refctd_ptr<SpecShaderType>&& _vs,
+        core::smart_refctd_ptr<SpecShaderType>&& _tcs,
+        core::smart_refctd_ptr<SpecShaderType>&& _tes,
+        core::smart_refctd_ptr<SpecShaderType>&& _gs,
+        core::smart_refctd_ptr<SpecShaderType>&& _fs,
         const SVertexInputParams& _vertexInputParams,
         const SBlendParams& _blendParams,
         const SPrimitiveAssemblyParams& _primAsmParams,
         const SRasterizationParams& _rasterParams
     ) : IPipeline<LayoutType>(std::move(_layout)),
-        m_shaders{_vs, _tcs, _tes, _gs, _fs},
+        m_shaders{std::move(_vs), std::move(_tcs), std::move(_tes), std::move(_gs), std::move(_fs)},
         m_blendParams(_blendParams),
         m_primAsmParams(_primAsmParams),
         m_rasterParams(_rasterParams),
@@ -335,7 +337,10 @@ protected:
     virtual ~IRenderpassIndependentPipeline() = default;
 
 public:
+    inline const LayoutType* getLayout() const { return IPipeline<LayoutType>::m_layout.get(); }
+
     inline const SpecShaderType* getShaderAtStage(E_SHADER_STAGE _stage) const { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
+    inline const SpecShaderType* getShaderAtIndex(E_SHADER_STAGE_IX _ix) const { return m_shaders[_ix].get(); }
 
     inline const SBlendParams& getBlendParams() const { return m_blendParams; }
     inline const SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() const { return m_primAsmParams; }

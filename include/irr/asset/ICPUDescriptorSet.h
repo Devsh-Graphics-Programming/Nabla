@@ -21,6 +21,9 @@ public:
     void convertToDummyObject() override { m_descriptors = nullptr; }
     E_TYPE getAssetType() const override { return ET_DESCRIPTOR_SET; }
 
+    ICPUDescriptorSetLayout* getLayout() { return m_layout.get(); }
+    core::SRange<SWriteDescriptorSet> getDescriptors() { return { m_descriptors->begin(), m_descriptors->end() }; }
+
 protected:
     virtual ~ICPUDescriptorSet() = default;
 };

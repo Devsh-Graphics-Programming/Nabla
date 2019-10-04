@@ -65,17 +65,17 @@ struct asset_traits<asset::ICPUSpecializedShader> { using GPUObjectType = video:
 template<>
 struct asset_traits<asset::ICPUBufferView> { using GPUObjectType = video::IGPUBufferView; };
 template<>
-struct asset_traits<asset::ICPUDescriptorSet> { using GPUObjectType = video::IGPUDescriptorSet; };//TODO IGPUObjectFromAssetConverter::create
+struct asset_traits<asset::ICPUDescriptorSet> { using GPUObjectType = video::IGPUDescriptorSet; };
 template<>
 struct asset_traits<asset::ICPUDescriptorSetLayout> { using GPUObjectType = video::IGPUDescriptorSetLayout; };
 template<>
 struct asset_traits<asset::ICPUPipelineLayout> { using GPUObjectType = video::IGPUPipelineLayout; };
 template<>
-struct asset_traits<asset::ICPURenderpassIndependentPipeline> { using GPUObjectType = video::IGPURenderpassIndependentPipeline; };//TODO IGPUObjectFromAssetConverter::create
+struct asset_traits<asset::ICPURenderpassIndependentPipeline> { using GPUObjectType = video::IGPURenderpassIndependentPipeline; };
 template<>
 struct asset_traits<asset::ICPUSampler> { using GPUObjectType = video::IGPUSampler; };
 template<>
-struct asset_traits<asset::ICPUTextureView> { using GPUObjectType = video::IGPUTextureView; };//TODO IGPUObjectFromAssetConverter::create
+struct asset_traits<asset::ICPUTextureView> { using GPUObjectType = video::IGPUTextureView; };
 
 
 template<typename AssetType>

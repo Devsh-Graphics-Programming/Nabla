@@ -50,7 +50,7 @@ public:
     };
 
 public:
-    COpenGLDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout> _layout, core::smart_refctd_dynamic_array<SWriteDescriptorSet>&& _descriptors)
+    COpenGLDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<SWriteDescriptorSet>&& _descriptors)
         : IGPUDescriptorSet(std::move(_layout), std::move(_descriptors))
     {
         assert(m_descriptors->size() == m_layout->getBindings().length());
