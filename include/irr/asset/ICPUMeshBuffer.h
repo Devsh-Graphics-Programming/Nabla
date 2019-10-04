@@ -55,9 +55,9 @@ class ICPUMeshBuffer : public IMeshBuffer<ICPUBuffer, ICPUDescriptorSet, ICPURen
     //vertices
     uint32_t posAttrId;
 protected:
-	virtual ~ICPUMeshBuffer() {}
+    virtual ~ICPUMeshBuffer() = default;
 public:
-    ICPUMeshBuffer(core::CLeakDebugger* dbgr = nullptr) : base_t(dbgr), posAttrId(0u) {}
+    using base_t::base_t;
 
     virtual void* serializeToBlob(void* _stackPtr = nullptr, const size_t& _stackSize = 0) const override
     {
@@ -83,6 +83,14 @@ public:
     inline SBufferBinding* getIndexBufferBinding() 
     {
         return &m_indexBufferBinding;
+    }
+    inline ICPURenderpassIndependentPipeline* getPipeline()
+    {
+        return m_pipeline.get();
+    }
+    inline ICPUDescriptorSet* getAttachedDescriptorSet()
+    {
+        return m_descriptorSet.get();
     }
 
     inline size_t calcVertexSize() const

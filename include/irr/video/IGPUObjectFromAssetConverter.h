@@ -159,139 +159,73 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
 	const auto assetCount = std::distance(_begin, _end);
 	auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUMeshBuffer> >(assetCount);
 
-    struct VaoConfig //! ~@Crisspl why on earth is the create<ICPUMeshBuffer> function creating the pipelines/VAOs as well?~ Because MeshBuffer holds the index buffer, but MeshDataFormatDesc holds the other buffer bindings
+    core::vector<asset::ICPURenderpassIndependentPipeline*> cpuPipelines;
+    cpuPipelines.reserve(assetCount);
+    core::vector<asset::ICPUBuffer*> cpuBuffers;
+    cpuBuffers.reserve(assetCount * (asset::ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT+1u));
+    core::vector<asset::ICPUDescriptorSet*> cpuDescSets;
+    cpuDescSets.reserve(assetCount);
+
+    for (ptrdiff_t i = 0u; i < assetCount; ++i)
     {
-        VaoConfig() : noAttributes{ true }, idxbuf{ nullptr }
+        asset::ICPUMeshBuffer* cpumb = _begin[i];
+
+        if (cpumb->getPipeline())
+            cpuPipelines.push_back(cpumb->getPipeline());
+
+        for (size_t b = 0ull; b < asset::ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; ++b)
         {
-            std::fill(oldbuffer, oldbuffer + asset::EVAI_COUNT, nullptr);
+            if (asset::ICPUBuffer* buf = cpumb->getVertexBufferBindings()[b].buffer.get())
+                cpuBuffers.push_back(buf);
         }
-
-        const asset::ICPUBuffer* oldbuffer[asset::EVAI_COUNT];
-        asset::E_FORMAT formats[asset::EVAI_COUNT];
-        size_t strides[asset::EVAI_COUNT];
-        size_t offsets[asset::EVAI_COUNT];
-        uint32_t divisors[asset::EVAI_COUNT];
-        const asset::ICPUBuffer* idxbuf;
-        bool noAttributes;
-    };
-
-
-	core::vector<VaoConfig> vaoConfigs(assetCount);
-	core::vector<SCPUMaterial> cpumaterials(assetCount);
-
-	constexpr auto MaxBuffersPerVAO = (asset::EVAI_COUNT + 1u);
-	core::vector<asset::ICPUBuffer*> cpuBufDeps(MaxBuffersPerVAO*assetCount,nullptr);
-	core::vector<asset::ICPUTexture*> cpuTexDeps(_IRR_MATERIAL_MAX_TEXTURES_*assetCount,nullptr);
-	for (auto j=0u; j<assetCount; j++)
-	{
-		auto& output = res->operator[](j);
-
-		auto* const _asset = _begin[j];
-		const asset::ICPUMeshDataFormatDesc* origdesc = static_cast<asset::ICPUMeshDataFormatDesc*>(_asset->getMeshDataAndFormat());
-		if (!origdesc)
-		{
-			output = nullptr;
-			continue;
-		}
-
-		VaoConfig vaoConf;
-		for (auto i=0u; i<asset::EVAI_COUNT; i++)
-		{
-			asset::E_VERTEX_ATTRIBUTE_ID attrId = static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(i);
-			vaoConf.oldbuffer[attrId] = origdesc->getMappedBuffer(attrId);
-			if (vaoConf.oldbuffer[attrId])
-			{
-				cpuBufDeps[j*MaxBuffersPerVAO+i] = const_cast<asset::ICPUBuffer*>(vaoConf.oldbuffer[attrId]);
-				vaoConf.noAttributes = false;
-			}
-
-			vaoConf.formats[attrId] = origdesc->getAttribFormat(attrId);
-			vaoConf.strides[attrId] = origdesc->getMappedBufferStride(attrId);
-			vaoConf.offsets[attrId] = origdesc->getMappedBufferOffset(attrId);
-			vaoConf.divisors[attrId] = origdesc->getAttribDivisor(attrId);
-		}
-		vaoConf.idxbuf = origdesc->getIndexBuffer();
-		if (vaoConf.idxbuf)
-			cpuBufDeps[j*MaxBuffersPerVAO+asset::EVAI_COUNT] = const_cast<asset::ICPUBuffer*>(vaoConf.idxbuf);
-		vaoConfigs[j] = std::move(vaoConf);
-
-		const auto& mat = cpumaterials[j] = _asset->getMaterial();
-		for (auto i=0u; i<_IRR_MATERIAL_MAX_TEXTURES_; i++)
-			cpuTexDeps[_IRR_MATERIAL_MAX_TEXTURES_*j+i] = mat.getTexture(i);
-
-
-        auto gpuMeshBuf = core::make_smart_refctd_ptr<IGPUMeshBuffer>();
-        gpuMeshBuf->setIndexType(_asset->getIndexType());
-        gpuMeshBuf->setBaseVertex(_asset->getBaseVertex());
-        gpuMeshBuf->setIndexCount(_asset->getIndexCount());
-        gpuMeshBuf->setIndexBufferOffset(_asset->getIndexBufferOffset());
-        gpuMeshBuf->setInstanceCount(_asset->getInstanceCount());
-        gpuMeshBuf->setBaseInstance(_asset->getBaseInstance());
-        gpuMeshBuf->setPrimitiveType(_asset->getPrimitiveType());
-        const core::aabbox3df oldBBox = _asset->getBoundingBox();
-        if (_asset->getMeshBufferType() != asset::EMBT_ANIMATED_SKINNED)
-            _asset->recalculateBoundingBox();
-        gpuMeshBuf->setBoundingBox(_asset->getBoundingBox());
-        if (_asset->getMeshBufferType() != asset::EMBT_ANIMATED_SKINNED)
-            _asset->setBoundingBox(oldBBox);
-
-        output = std::move(gpuMeshBuf);
+        if (asset::ICPUBuffer* buf = cpumb->getIndexBufferBinding()->buffer.get())
+            cpuBuffers.push_back(buf);
     }
 
-    const core::vector<size_t> bufRedir = eliminateDuplicatesAndGenRedirs(cpuBufDeps);
-    const core::vector<size_t> texRedir = eliminateDuplicatesAndGenRedirs(cpuTexDeps);
-    auto gpuBufDeps = getGPUObjectsFromAssets(cpuBufDeps.data(), cpuBufDeps.data() + cpuBufDeps.size());
-    auto gpuTexDeps = getGPUObjectsFromAssets(cpuTexDeps.data(), cpuTexDeps.data() + cpuTexDeps.size());
-    for (size_t i = 0u; i <assetCount; ++i)
+    using redirs_t = core::vector<size_t>;
+
+    redirs_t pplnRedirs = eliminateDuplicatesAndGenRedirs(cpuPipelines);
+    redirs_t bufRedirs = eliminateDuplicatesAndGenRedirs(cpuBuffers);
+    redirs_t dsRedirs = eliminateDuplicatesAndGenRedirs(cpuDescSets);
+
+    auto gpuPipelines = getGPUObjectsFromAssets(cpuPipelines.data(), cpuPipelines.data()+cpuPipelines.size());
+    auto gpuBuffers = getGPUObjectsFromAssets(cpuBuffers.data(), cpuBuffers.data()+cpuBuffers.size());
+    auto gpuDescSets = getGPUObjectsFromAssets(cpuDescSets.data(), cpuDescSets.data()+cpuDescSets.size());
+
+    size_t pplnIter = 0ull, bufIter = 0ull, dsIter = 0ull;
+    for (ptrdiff_t i = 0u; i < assetCount; ++i)
     {
-		auto& output = res->operator[](i);
-		if (!output)
-			continue;
+        asset::ICPUMeshBuffer* cpumb = _begin[i];
 
-		// TODO: All this shit is a terrible hack, REDO: @Crisspl WATCH OUT WITH THE BLOODY Shaders!
-        SGPUMaterial mat;
-        static_assert(sizeof(SCPUMaterial) == sizeof(SGPUMaterial), "SCPUMaterial and SGPUMaterial are NOT same sizes!");
-        memcpy(&mat, &cpumaterials[i], sizeof(mat)); // this will mess up refcounting
-        for (size_t k = 0u; k < _IRR_MATERIAL_MAX_TEXTURES_; ++k)
+        IGPURenderpassIndependentPipeline* gpuppln = nullptr;
+        if (cpumb->getPipeline())
+            gpuppln = (*gpuPipelines)[pplnRedirs[pplnIter++]].get();
+        IGPUDescriptorSet* gpuds = nullptr;
+        if (cpumb->getAttachedDescriptorSet())
+            gpuds = (*gpuDescSets)[dsRedirs[dsIter++]].get();
+
+        IGPUMeshBuffer::SBufferBinding vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
+        for (size_t b = 0ull; b < IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; ++b)
         {
-            if (mat.getTexture(k))
-            {
-				memset(&mat.TextureLayer[k].Texture, 0, sizeof(void*)); // don't mess up reference counting
-				auto redir = texRedir[i*_IRR_MATERIAL_MAX_TEXTURES_+k];
-                mat.setTexture(k, core::smart_refctd_ptr(gpuTexDeps->operator[](redir)));
+            const asset::ICPUMeshBuffer::SBufferBinding& cpubnd = cpumb->getVertexBufferBindings()[b];
+            if (cpubnd.buffer) {
+                vtxBindings[b].offset = cpubnd.offset;
+                auto& gpubuf = (*gpuBuffers)[bufRedirs[bufIter++]];
+                vtxBindings[b].offset += gpubuf->getOffset();
+                vtxBindings[b].buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
             }
         }
-        output->getMaterial() = mat;
 
-        const VaoConfig& vaoConf = vaoConfigs[i];
-        if (!vaoConf.noAttributes)
+        IGPUMeshBuffer::SBufferBinding idxBinding;
+        if (cpumb->getIndexBufferBinding()->buffer)
         {
-            auto vao = m_driver->createGPUMeshDataFormatDesc();
-            for (size_t k = 0u; k < asset::EVAI_COUNT; ++k)
-            {
-                if (vaoConf.oldbuffer[k])
-                {
-					auto redir = bufRedir[i*MaxBuffersPerVAO+k];
-					auto& buffDep = gpuBufDeps->operator[](redir);
-                    vao->setVertexAttrBuffer(
-                        core::smart_refctd_ptr<IGPUBuffer>(buffDep->getBuffer()), // yes construct new shared ptr, we want a grab
-                        asset::E_VERTEX_ATTRIBUTE_ID(k),
-                        vaoConf.formats[k],
-                        vaoConf.strides[k],
-                        vaoConf.offsets[k] + buffDep->getOffset(),
-                        vaoConf.divisors[k]
-                    );
-                }
-            }
-            if (vaoConf.idxbuf)
-            {
-				auto redir = bufRedir[i*MaxBuffersPerVAO+asset::EVAI_COUNT];
-				auto& buffDep = gpuBufDeps->operator[](redir);
-                vao->setIndexBuffer(core::smart_refctd_ptr<IGPUBuffer>(buffDep->getBuffer())); // yes construct a new shared ptr, we want a grab
-                output->setIndexBufferOffset(output->getIndexBufferOffset() + buffDep->getOffset());
-            }
-			output->setMeshDataAndFormat(std::move(vao));
+            idxBinding.offset = cpumb->getIndexBufferBinding()->offset;
+            auto& gpubuf = (*gpuBuffers)[bufRedirs[bufIter++]];
+            idxBinding.offset += gpubuf->getOffset();
+            idxBinding.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
         }
+
+        (*res)[i] = core::make_smart_refctd_ptr<IGPUMeshBuffer>(std::move(gpuppln), std::move(gpuds), vtxBindings, std::move(idxBinding));
     }
 
     return res;

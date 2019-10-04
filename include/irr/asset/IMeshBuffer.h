@@ -2,6 +2,7 @@
 #define __IRR_I_MESH_BUFFER_H_INCLUDED__
 
 #include "irr/asset/IRenderpassIndependentPipeline.h"
+#include <algorithm>
 
 namespace irr
 {
@@ -63,21 +64,19 @@ protected:
     size_t instanceCount;
     uint32_t baseInstance;
 
-    //debug
-    core::CLeakDebugger* leakDebugger;
-
 public:
 	//! Constructor.
-	/**
-	@param layout Smart pointer to descriptor of mesh data object.
-	@param dbgr Pointer to leak debugger object.
-	*/
-	IMeshBuffer(core::CLeakDebugger* dbgr=nullptr) :
-                        boundingBox(), indexType(EIT_UNKNOWN), baseVertex(0), indexCount(0u),
-						instanceCount(1ull), baseInstance(0u), leakDebugger(dbgr)
+    /**
+    Note that ALL parameters are move-assigned to meshbuffer's members!
+    */
+	IMeshBuffer(core::smart_refctd_ptr<PipelineType>&& _pipeline, core::smart_refctd_ptr<DescSetType>&& _ds,
+        SBufferBinding _vtxBindings[MAX_ATTR_BUF_BINDING_COUNT],
+        SBufferBinding&& _indexBinding
+        ) : m_indexBufferBinding(std::move(_indexBinding)), m_descriptorSet(std::move(_ds)), m_pipeline(std::move(_pipeline)),
+            boundingBox(), indexType(EIT_UNKNOWN), baseVertex(0), indexCount(0u),
+            instanceCount(1ull), baseInstance(0u)
 	{
-		if (leakDebugger)
-			leakDebugger->registerObj(this);
+        std::move(_vtxBindings, _vtxBindings+MAX_ATTR_BUF_BINDING_COUNT, m_vertexBufferBindings);
 	}
 
     inline bool isAttributeEnabled(uint32_t attrId) const
@@ -131,6 +130,10 @@ public:
     inline const PipelineType* getPipeline() const
     {
         return m_pipeline.get();
+    }
+    inline const DescSetType* getAttachedDescriptorSet() const
+    {
+        return m_descriptorSet.get();
     }
 
 	//! Get type of index data which is stored in this meshbuffer.

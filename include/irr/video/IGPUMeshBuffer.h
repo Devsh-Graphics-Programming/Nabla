@@ -20,6 +20,10 @@ namespace video
 {
 	class IGPUMeshBuffer final : public asset::IMeshBuffer<IGPUBuffer,IGPUDescriptorSet,IGPURenderpassIndependentPipeline>
 	{
+        using base_t = asset::IMeshBuffer<IGPUBuffer, IGPUDescriptorSet, IGPURenderpassIndependentPipeline>;
+
+    public:
+        using base_t::base_t;
 	};
 
 } // end namespace video
