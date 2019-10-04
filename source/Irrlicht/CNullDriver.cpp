@@ -293,16 +293,6 @@ void CNullDriver::removeMultisampleTexture(IMultisampleTexture* tex)
     tex->drop();
 }
 
-void CNullDriver::removeTextureBufferObject(IGPUBufferView* tbo)
-{
-    auto it = std::lower_bound(BufferViews.begin(), BufferViews.end(),tbo);
-    if (it== BufferViews.end() || tbo<*it)
-        return;
-    BufferViews.erase(it);
-
-    tbo->drop();
-}
-
 void CNullDriver::removeFrameBuffer(IFrameBuffer* framebuf)
 {
 }

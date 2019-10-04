@@ -171,8 +171,6 @@ namespace video
 
 		virtual void removeMultisampleTexture(IMultisampleTexture* tex) =0;
 
-		virtual void removeTextureBufferObject(IGPUBufferView* tbo) =0;
-
         virtual void removeFrameBuffer(IFrameBuffer* framebuf) = 0;
 
 		virtual void removeAllMultisampleTextures() =0;

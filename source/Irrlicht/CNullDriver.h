@@ -177,8 +177,6 @@ namespace video
 
 		virtual void removeMultisampleTexture(IMultisampleTexture* tex);
 
-		virtual void removeTextureBufferObject(IGPUBufferView* tbo);
-
 		virtual void removeFrameBuffer(IFrameBuffer* framebuf);
 
 		virtual void removeAllMultisampleTextures();
@@ -400,7 +398,6 @@ namespace video
 		};
 
 		core::vector<IMultisampleTexture*> MultisampleTextures;
-		core::vector<IGPUBufferView*> BufferViews;
 
 
         IQueryObject* currentQuery[EQOT_COUNT][_IRR_XFORM_FEEDBACK_MAX_STREAMS_];
