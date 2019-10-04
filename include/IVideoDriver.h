@@ -163,10 +163,6 @@ namespace video
         virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size,
                                                            asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false) {return nullptr;}
 
-        //! A.
-        virtual IGPUBufferView* addTextureBufferObject(IGPUBuffer* buf, asset::E_FORMAT format = asset::EF_R8G8B8A8_UNORM,
-                                                             const size_t& offset=0, const size_t& length=0) {return nullptr;}
-
 		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
                                         bool copyDepth=true, bool copyStencil=true,
 										core::recti srcRect=core::recti(0,0,0,0),

@@ -863,12 +863,6 @@ void CNullDriver::addMultisampleTexture(IMultisampleTexture* tex)
 	std::sort(MultisampleTextures.begin(),MultisampleTextures.end());
 }
 
-void CNullDriver::addTextureBufferObject(IGPUBufferView* bufview)
-{
-    BufferViews.push_back(bufview);
-	std::sort(BufferViews.begin(), BufferViews.end());
-}
-
 
 void CNullDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool copyDepth, bool copyStencil,
 									core::recti srcRect, core::recti dstRect,

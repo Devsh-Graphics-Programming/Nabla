@@ -523,6 +523,8 @@ core::smart_refctd_ptr<IGPUBufferView> COpenGLDriver::createGPUBufferView(IGPUBu
         return nullptr;
     if (!isAllowedBufferViewFormat(_fmt))
         return nullptr;
+    if ((_offset / reqTBOAlignment)*reqTBOAlignment != _offset)
+        return nullptr;
 
     COpenGLBuffer* glbuf = static_cast<COpenGLBuffer*>(_underlying);
     return core::make_smart_refctd_ptr<COpenGLBufferView>(core::smart_refctd_ptr<COpenGLBuffer>(glbuf), _fmt, _offset, _size);
@@ -2595,18 +2597,6 @@ IMultisampleTexture* COpenGLDriver::addMultisampleTexture(const IMultisampleText
         CNullDriver::addMultisampleTexture(tex);
 
 	return tex;
-}
-
-IGPUBufferView* COpenGLDriver::addTextureBufferObject(IGPUBuffer* buf, asset::E_FORMAT format, const size_t& offset, const size_t& length)
-{
-    COpenGLBuffer* buffer = static_cast<COpenGLBuffer*>(buf);
-    if (!buffer)
-        return nullptr;
-
-    //ITextureBufferObject* tbo = new COpenGLTextureBufferObject(buffer,format,offset,length);
-    IGPUBufferView* bufferView = new COpenGLBufferView(core::smart_refctd_ptr<IGPUBuffer>(buf), format, offset, length);
-	CNullDriver::addTextureBufferObject(bufferView);
-    return bufferView;
 }
 
 IFrameBuffer* COpenGLDriver::addFrameBuffer()

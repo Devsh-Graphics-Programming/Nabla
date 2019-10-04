@@ -325,7 +325,7 @@ namespace video
 
         virtual uint64_t getMaxSSBOSize() const override { return 0ull; }
 
-        virtual uint64_t getMaxTBOSize() const override { return 0ull; }
+        virtual uint64_t getMaxTBOSizeInTexels() const override { return 0ull; }
 
         virtual uint64_t getMaxBufferSize() const override { return 0ull; }
 
@@ -337,8 +337,6 @@ namespace video
 
 	protected:
         void addMultisampleTexture(IMultisampleTexture* tex);
-
-        void addTextureBufferObject(IGPUBufferView* bufview);
 
 		//! returns a device dependent texture from a software surface (IImage)
 		//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES

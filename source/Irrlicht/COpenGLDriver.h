@@ -727,9 +727,6 @@ namespace video
         //!
         virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false);
 
-		//! A.
-        virtual IGPUBufferView* addTextureBufferObject(IGPUBuffer* buf, asset::E_FORMAT format = asset::EF_R8G8B8A8_UNORM, const size_t& offset=0, const size_t& length=0);
-
         virtual IFrameBuffer* addFrameBuffer();
 
         //! Remove
@@ -883,7 +880,7 @@ namespace video
         virtual uint64_t getMaxSSBOSize() const override { return COpenGLExtensionHandler::maxSSBOSize; }
 
         //!
-        virtual uint64_t getMaxTBOSize() const override { return COpenGLExtensionHandler::maxTBOSize; }
+        virtual uint64_t getMaxTBOSizeInTexels() const override { return COpenGLExtensionHandler::maxTBOSizeInTexels; }
 
         //!
         virtual uint64_t getMaxBufferSize() const override { return COpenGLExtensionHandler::maxBufferSize; }

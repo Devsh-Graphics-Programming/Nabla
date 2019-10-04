@@ -117,7 +117,7 @@ namespace video
 
         virtual uint64_t getMaxUBOSize() const = 0;
         virtual uint64_t getMaxSSBOSize() const = 0;
-        virtual uint64_t getMaxTBOSize() const = 0;
+        virtual uint64_t getMaxTBOSizeInTexels() const = 0;
         virtual uint64_t getMaxBufferSize() const = 0;
 
         virtual uint32_t getMaxUBOBindings() const = 0;
