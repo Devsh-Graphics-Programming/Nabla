@@ -6,6 +6,7 @@
 #define __IRR_FLOAT_UTIL_H_INCLUDED__
 
 
+#include <float.h>
 #include <stdint.h>
 
 #include "irr/macros.h"

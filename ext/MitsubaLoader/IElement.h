@@ -49,7 +49,7 @@ class IElement
 		virtual bool addProperty(SNamedPropertyElement&& _property) = 0;
 		virtual bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) = 0;
 		//! default implementation for elements that doesnt have any children
-		virtual bool processChildData(IElement* _child)
+		virtual bool processChildData(IElement* _child, const char* name)
 		{
 			return !_child;
 		}

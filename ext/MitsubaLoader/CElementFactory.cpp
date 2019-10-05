@@ -56,6 +56,12 @@ IElement* CElementFactory::processRef(const char** _atts, ParserManager* _util)
 			name = _atts[3];
 	}
 
+	if (name)
+	{
+		assert(false); // TODO: proper name handling (stack must consist of name + element pointer = addChild needs a rework)
+		return nullptr;
+	}
+
 	auto* original = _util->handles[id];
 	// do it but need to give it a different name as parameter input :s
 
@@ -73,12 +79,13 @@ const core::unordered_map<std::string, std::pair<CElementFactory::element_creati
 	{"transform",	{CElementFactory::createElement<CElementTransform>,true}},
 	//{"animation",	{CElementFactory::createElement<CElementAnimation>,true}},
 	{"bsdf",		{CElementFactory::createElement<CElementBSDF>,true}},
+	{"texture",		{CElementFactory::createElement<CElementTexture>,true}},
 	{"alias",		{CElementFactory::processAlias,true}},
 	{"ref",			{CElementFactory::processRef,true}}
 };
 /*
 _IRR_STATIC_INLINE_CONSTEXPR const char* complexElements[] = {
-	"shape","texture","emitter"
+	"shape","emitter"
 };
 */
 

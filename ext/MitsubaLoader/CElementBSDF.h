@@ -40,23 +40,17 @@ class CElementBSDF : public IElement
 			//HANRAHAN_KRUEGER,
 			//IRAWAN_MARSCHNER
 		};
-	struct FloatOrTexture
-	{
-		SPropertyElementData value;
-		CElementTexture* texture; // only used if value.type==INVALID
-	};
-	struct SpectrumOrTexture : FloatOrTexture
-	{
-	};
 		struct DiffuseTransmitter
 		{
-			SpectrumOrTexture transmittance = 0.5f;
+			DiffuseTransmitter() : transmittance(0.5f) {}
+			CElementTexture::SpectrumOrTexture transmittance;
 		};
 		struct AllDiffuse
 		{
-			SpectrumOrTexture reflectance = 0.5f;
-			SpectrumOrTexture alpha = 0.2f; // not the parameter from Oren-Nayar
-			bool useFastApprox;
+			AllDiffuse() : reflectance(0.5f), alpha(0.2f), useFastApprox(false) {}
+			CElementTexture::SpectrumOrTexture	reflectance;
+			CElementTexture::SpectrumOrTexture	alpha; // not the parameter from Oren-Nayar
+			bool								useFastApprox;
 		};
 	struct RoughSpecularBase
 	{
@@ -68,62 +62,103 @@ class CElementBSDF : public IElement
 			ASHIKHMIN_SHIRLEY
 		};
 
-		RoughSpecularBase(float defaultAlpha) : distribution(BECKMANN)
+		RoughSpecularBase(float defaultAlpha) : distribution(BECKMANN), specularReflectance(1.f)
 		{
 			alpha = defaultAlpha;
+		}
+		virtual ~RoughSpecularBase() {}
+
+		inline RoughSpecularBase& operator=(const RoughSpecularBase& other)
+		{
+			distribution = other.distribution;
+			switch (distribution)
+			{
+				case ASHIKHMIN_SHIRLEY:
+					alphaU = other.alphaU;
+					alphaV = other.alphaV;
+					break;
+				default:
+					alpha = other.alpha;
+					break;
+			}
+			specularReflectance = other.specularReflectance;
+			return *this;
 		}
 
 		NormalDistributionFunction distribution;
 		union
 		{
-			FloatOrTexture alpha;
+			CElementTexture::FloatOrTexture alpha;
 			struct
 			{
-				FloatOrTexture alphaU;
-				FloatOrTexture alphaV;
+				CElementTexture::FloatOrTexture alphaU;
+				CElementTexture::FloatOrTexture alphaV;
 			};
 		};
-		SpectrumOrTexture specularReflectance = 1.f;
+		CElementTexture::SpectrumOrTexture specularReflectance;
 	};
 	struct TransmissiveBase
 	{
-		static const core::unordered_map<std::string, float, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> NamedIndicesOfRefraction;
+		static float findIOR(const std::string& name);
 
-		TransmissiveBase(float intIOR, float extIOR) : intIOR(_intIOR), extIOR(_extIOR), specularTransmittance(1.f) {}
-		TransmissiveBase(const std::string& intIOR, const std::string& extIOR)
+		TransmissiveBase(float _intIOR, float _extIOR) : intIOR(_intIOR), extIOR(_extIOR), specularTransmittance(1.f) {}
+		TransmissiveBase(const std::string& _intIOR, const std::string& _extIOR) : TransmissiveBase(findIOR(_intIOR), findIOR(_extIOR)) {}
+
+		inline TransmissiveBase& operator=(const TransmissiveBase& other)
 		{
-			intIOR = NamedIndicesOfRefraction[intIOR];
-			extIOR = NamedIndicesOfRefraction[extIOR];
-			specularTransmittance = 1.f;
+			intIOR = other.intIOR;
+			extIOR = other.extIOR;
+			specularTransmittance = other.specularTransmittance;
+			return *this;
 		}
 
 		float intIOR;
 		float extIOR;
-		SpectrumOrTexture specularTransmittance;
+		CElementTexture::SpectrumOrTexture specularTransmittance;
 	};
 		struct AllDielectric : RoughSpecularBase, TransmissiveBase
 		{
 			AllDielectric() : RoughSpecularBase(0.1f), TransmissiveBase("bk7","air") {}
 			AllDielectric(float intIOR, float extIOR) : RoughSpecularBase(0.1f), TransmissiveBase(intIOR,extIOR) {}
 			AllDielectric(const std::string& intIOR, const std::string& extIOR) : RoughSpecularBase(0.1f), TransmissiveBase(intIOR,extIOR) {}
+
+			inline AllDielectric& operator=(const AllDielectric& other)
+			{
+				RoughSpecularBase::operator=(other);
+				TransmissiveBase::operator=(other);
+				return *this;
+			}
 		};
 		struct AllConductor : RoughSpecularBase
 		{
 			AllConductor() : AllConductor("cu") {}
 			AllConductor(const std::string& material);
-			AllConductor(SPropertyElementData&& _eta, SPropertyElementData&& _k) : eta(_eta), k(_k), eta(TransmissiveBase::NamedIndicesOfRefraction["air"]) {}
+			AllConductor(SPropertyElementData&& _eta, SPropertyElementData&& _k) : RoughSpecularBase(0.1f), eta(_eta), k(_k), extEta(TransmissiveBase::findIOR("air")) {}
+
+			inline AllConductor& operator=(const AllConductor& other)
+			{
+				RoughSpecularBase::operator=(other);
+				return *this;
+			}
 
 			SPropertyElementData eta,k;
 			float extEta;
 		};
 		struct AllPlastic : RoughSpecularBase, TransmissiveBase
 		{
-			AllDielectric() : RoughSpecularBase(0.1f), TransmissiveBase("polypropylene", "air"), nonlinear(false) {}
-			AllDielectric(float intIOR, float extIOR) : RoughSpecularBase(0.1f), TransmissiveBase(intIOR, extIOR), nonlinear(false) {}
-			AllDielectric(const std::string& intIOR, const std::string& extIOR) : RoughSpecularBase(0.1f), TransmissiveBase(intIOR, extIOR), nonlinear(false) {}
+			AllPlastic() : RoughSpecularBase(0.1f), TransmissiveBase("polypropylene", "air"), nonlinear(false) {}
+			AllPlastic(float intIOR, float extIOR) : RoughSpecularBase(0.1f), TransmissiveBase(intIOR, extIOR), nonlinear(false) {}
+			AllPlastic(const std::string& intIOR, const std::string& extIOR) : RoughSpecularBase(0.1f), TransmissiveBase(intIOR, extIOR), nonlinear(false) {}
+
+			inline AllPlastic& operator=(const AllPlastic& other)
+			{
+				RoughSpecularBase::operator=(other);
+				TransmissiveBase::operator=(other);
+				return *this;
+			}
 
 			bool nonlinear;
-			SpectrumOrTexture diffuseReflectance = 0.5f;
+			CElementTexture::SpectrumOrTexture diffuseReflectance = 0.5f;
 		};/*
 		struct HanrahanKrueger
 		{
@@ -154,13 +189,24 @@ class CElementBSDF : public IElement
 	{
 		_IRR_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 32u;
 		size_t childCount = 0u;
-		CElementBSDF* bsdf[MaxChildCount] = nullptr;
+		CElementBSDF* bsdf[MaxChildCount] = { nullptr };
 	};
 		struct AllCoating : RoughSpecularBase, TransmissiveBase, MetaBSDF
 		{
 			_IRR_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 1u;
+
+			AllCoating() : RoughSpecularBase(0.1f), TransmissiveBase("bk7","air"), MetaBSDF(), thickness(1.f), sigmaA(0.f) {}
+
+			inline AllCoating& operator=(const AllCoating& other)
+			{
+				RoughSpecularBase::operator=(other);
+				TransmissiveBase::operator=(other);
+				MetaBSDF::operator=(other);
+				return *this;
+			}
+
 			float thickness;
-			SpectrumOrTexture sigmaA;
+			CElementTexture::SpectrumOrTexture sigmaA;
 		};
 		struct BumpMap : MetaBSDF
 		{
@@ -168,17 +214,23 @@ class CElementBSDF : public IElement
 		};
 		struct MixtureBSDF : MetaBSDF
 		{
-			float weights[MetaBSDF::MaxChildCount] = 1.f;
+			float weights[MetaBSDF::MaxChildCount] = { 1.f };
 		};
 		struct BlendBSDF : MetaBSDF
 		{
 			_IRR_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 2u;
-			FloatOrTexture weight = 0.5f;
+
+			BlendBSDF() : weight(0.5f) {}
+
+			CElementTexture::FloatOrTexture weight;
 		};
 		struct Mask : MetaBSDF
 		{
 			_IRR_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 1u;
-			SpectrumOrTexture opacity;
+
+			Mask() : opacity(0.5f) {}
+
+			CElementTexture::SpectrumOrTexture opacity;
 		};
 		struct TwoSided : MetaBSDF
 		{
@@ -188,8 +240,8 @@ class CElementBSDF : public IElement
 		struct Phong
 		{
 			float exponent = 30.f;
-			SpectrumOrTexture specularReflectance = 0.2f;
-			SpectrumOrTexture diffuseReflectance = 0.5f;
+			CElementTexture::SpectrumOrTexture specularReflectance = 0.2f;
+			CElementTexture::SpectrumOrTexture diffuseReflectance = 0.5f;
 		};
 		struct Ward
 		{
@@ -200,10 +252,10 @@ class CElementBSDF : public IElement
 				BALANCED
 			};
 			Type variant = BALANCED;
-			FloatOrTexture alphaU = 0.1f;
-			FloatOrTexture alphaV = 0.1f;
-			SpectrumOrTexture specularReflectance = 0.2f;
-			SpectrumOrTexture diffuseReflectance = 0.5f;
+			CElementTexture::FloatOrTexture alphaU = 0.1f;
+			CElementTexture::FloatOrTexture alphaV = 0.1f;
+			CElementTexture::SpectrumOrTexture specularReflectance = 0.2f;
+			CElementTexture::SpectrumOrTexture diffuseReflectance = 0.5f;
 		};
 
 		CElementBSDF(const char* id) : IElement(id), type(Type::INVALID)
@@ -220,29 +272,29 @@ class CElementBSDF : public IElement
 			switch (type)
 			{
 				case CElementBSDF::Type::DIFFUSE:
-					IRR_FALLTHROUGH;
+					_IRR_FALLTHROUGH;
 				case CElementBSDF::Type::ROUGHDIFFUSE:
 					diffuse = other.diffuse;
 					break;
 				case CElementBSDF::Type::DIELECTRIC:
-					IRR_FALLTHROUGH;
+					_IRR_FALLTHROUGH;
 				case CElementBSDF::Type::THINDIELECTRIC:
-					IRR_FALLTHROUGH;
+					_IRR_FALLTHROUGH;
 				case CElementBSDF::Type::ROUGHDIELECTRIC:
-					dieletric = other.dielectric;
+					dielectric = other.dielectric;
 					break;
 				case CElementBSDF::Type::CONDUCTOR:
-					IRR_FALLTHROUGH;
+					_IRR_FALLTHROUGH;
 				case CElementBSDF::Type::ROUGHCONDUCTOR:
 					conductor = other.conductor;
 					break;
 				case CElementBSDF::Type::PLASTIC:
-					IRR_FALLTHROUGH;
+					_IRR_FALLTHROUGH;
 				case CElementBSDF::Type::ROUGHPLASTIC:
 					plastic = other.plastic;
 					break;
 				case CElementBSDF::Type::COATING:
-					IRR_FALLTHROUGH;
+					_IRR_FALLTHROUGH;
 				case CElementBSDF::Type::ROUGHCOATING:
 					coating = other.coating;
 					break;
@@ -282,12 +334,12 @@ class CElementBSDF : public IElement
 			return *this;
 		}
 
-		bool addProperty(SPropertyElementData&& _property) override;
+		bool addProperty(SNamedPropertyElement&& _property) override;
 		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override;
 		IElement::Type getType() const override { return IElement::Type::BSDF; }
 		std::string getLogName() const override { return "bsdf"; }
 
-		bool processChildData(IElement* _child) override;
+		bool processChildData(IElement* _child, const char* name) override;
 
 		//
 		Type type;

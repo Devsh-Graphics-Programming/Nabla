@@ -29,7 +29,7 @@ class CElementSampler : public IElement
 		CElementSampler(const char* id) : IElement(id), type(INVALID), sampleCount(4) {}
 		virtual ~CElementSampler() {}
 
-		bool addProperty(SPropertyElementData&& _property) override;
+		bool addProperty(SNamedPropertyElement&& _property) override;
 		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override;
 		IElement::Type getType() const override { return IElement::Type::SAMPLER; }
 		std::string getLogName() const override { return "sampler"; }

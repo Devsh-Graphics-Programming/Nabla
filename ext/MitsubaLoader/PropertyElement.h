@@ -38,29 +38,29 @@ struct SPropertyElementData
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxAttributes = 4u;
 	static const char* attributeStrings[Type::INVALID][MaxAttributes];
 
-	SPropertyElementData() : type(Type::INVALID)
+	inline SPropertyElementData() : type(Type::INVALID)
 	{
 		std::fill(mvalue.pointer(), mvalue.pointer() + 16, 0.f);
 	}
-	SPropertyElementData(const SNamedPropertyElement& other) : SPropertyElementData()
+	inline SPropertyElementData(const SPropertyElementData& other) : SPropertyElementData()
 	{
 		operator=(other);
 	}
-	SPropertyElementData(SNamedPropertyElement&& other) : SPropertyElementData()
+	inline SPropertyElementData(SPropertyElementData&& other) : SPropertyElementData()
 	{
 		operator=(std::move(other));
 	}
-	SPropertyElementData(const std::string& _type) : SPropertyElementData()
+	inline SPropertyElementData(const std::string& _type) : SPropertyElementData()
 	{
 		auto found = StringToType.find(_type);
 		if (found != StringToType.end())
 			type = found->second;
 	}
-	explicit SPropertyElementData(float value)				: type(FLOAT)	{ fvalue = value; }
-	explicit SPropertyElementData(int32_t value)			: type(INTEGER) { ivalue = value; }
-	explicit SPropertyElementData(bool value)				: type(BOOLEAN) { bvalue = value; }
+	inline explicit SPropertyElementData(float value)				: type(FLOAT)	{ fvalue = value; }
+	inline explicit SPropertyElementData(int32_t value)			: type(INTEGER) { ivalue = value; }
+	inline explicit SPropertyElementData(bool value)				: type(BOOLEAN) { bvalue = value; }
 	//explicit SPropertyElementData(const std::string& value) : type(STRING) { #error }
-	explicit SPropertyElementData(Type _type, const core::vectorSIMDf& value) : type(INVALID)
+	inline explicit SPropertyElementData(Type _type, const core::vectorSIMDf& value) : type(INVALID)
 	{
 		switch (_type)
 		{
