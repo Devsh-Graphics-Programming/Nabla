@@ -73,8 +73,6 @@ protected:
                     return false;
             return true;
         };
-        auto is_dynamic = [] (const SWriteDescriptorSet& _entry) { return _entry.descriptorType==EDT_UNIFORM_BUFFER_DYNAMIC || _entry.descriptorType==EDT_STORAGE_BUFFER_DYNAMIC; };
-        assert(std::count_if(m_descriptors->cbegin(), m_descriptors->end(), is_dynamic) == m_dynamicOffsets->size());
         assert(!is_not_sorted);
     }
     virtual ~IDescriptorSet() = default;

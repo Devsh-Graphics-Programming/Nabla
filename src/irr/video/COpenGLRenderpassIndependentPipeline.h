@@ -174,7 +174,7 @@ private:
 
         GLuint pipeline = 0u;
         COpenGLExtensionHandler::extGlCreateProgramPipelines(1u, &pipeline);
-
+        
         for (uint32_t ix = 0u; ix < SHADER_STAGE_COUNT; ++ix) {
             COpenGLSpecializedShader* glshdr = static_cast<COpenGLSpecializedShader*>(m_shaders[ix].get());
             GLuint progName = 0u;

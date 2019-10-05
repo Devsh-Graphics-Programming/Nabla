@@ -468,112 +468,6 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 	return true;
 }
 
-core::smart_refctd_ptr<IGPUShader> COpenGLDriver::createGPUShader(const asset::ICPUShader* _cpushader)
-{
-    return core::make_smart_refctd_ptr<COpenGLShader>(_cpushader);
-}
-
-core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo)
-{
-    const COpenGLShader* glUnspec = static_cast<const COpenGLShader*>(_unspecialized);
-    const asset::ICPUShader* cpuUnspec = glUnspec->getCPUCounterpart();
-
-    const std::string& EP = _specInfo->entryPoint;
-    const asset::E_SHADER_STAGE stage = _specInfo->shaderStage;
-
-    const asset::ICPUShader* spvCPUShader = nullptr;
-    if (cpuUnspec->containsGLSL()) {
-        //TODO insert enabled extensions #defines into GLSL
-        auto spvShader = core::smart_refctd_ptr<asset::ICPUShader>(
-            GLSLCompiler->createSPIRVFromGLSL(
-                reinterpret_cast<const char*>(cpuUnspec->getSPVorGLSL()->getPointer()),
-                stage,
-                EP.c_str(),
-                "????"
-            ), core::dont_grab);
-        if (!spvShader)
-            return nullptr;
-
-        spvCPUShader = spvShader.get();
-        spvCPUShader->grab();
-    }
-    else {
-        spvCPUShader = cpuUnspec;
-        spvCPUShader->grab();
-    }
-
-    asset::CShaderIntrospector introspector(GLSLCompiler.get(), {_specInfo->entryPoint, _specInfo->shaderStage});
-    const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader);
-    if (introspection->pushConstant.present && introspection->pushConstant.info.name.empty())
-    {
-        assert(false);//abort on debug build
-        os::Printer::log("Attempted to create OpenGL GPU specialized shader from SPIR-V without debug info - unable to set push constants. Creation failed.", ELL_ERROR);
-        return nullptr;//release build: maybe let it return the shader
-    }
-
-    auto ctx = getThreadContext_helper(false);
-    COpenGLSpecializedShader* gpuSpecialized = new COpenGLSpecializedShader(Params.AuxGLContexts+1u, ctx->ID, this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, introspection);
-    spvCPUShader->drop();
-    return core::smart_refctd_ptr<COpenGLSpecializedShader>(gpuSpecialized, core::dont_grab);
-}
-
-core::smart_refctd_ptr<IGPUBufferView> COpenGLDriver::createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset, size_t _size)
-{
-    if (!_underlying)
-        return nullptr;
-    const size_t effectiveSize = (_size!=IGPUBufferView::whole_buffer) ? (_underlying->getSize() - _offset) : _size;
-    if ((_offset+effectiveSize) > _underlying->getSize())
-        return nullptr;
-    if ((_offset / reqTBOAlignment)*reqTBOAlignment != _offset) //offset must be aligned to GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT
-        return nullptr;
-    if (!isAllowedBufferViewFormat(_fmt))
-        return nullptr;
-    if (effectiveSize > (maxTBOSizeInTexels * asset::getTexelOrBlockBytesize(_fmt)))
-        return nullptr;
-
-    COpenGLBuffer* glbuf = static_cast<COpenGLBuffer*>(_underlying);
-    return core::make_smart_refctd_ptr<COpenGLBufferView>(core::smart_refctd_ptr<COpenGLBuffer>(glbuf), _fmt, _offset, _size);
-}
-
-core::smart_refctd_ptr<IGPUDescriptorSetLayout> COpenGLDriver::createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end)
-{
-    return core::make_smart_refctd_ptr<IGPUDescriptorSetLayout>(_begin, _end);//there's no COpenGLDescriptorSetLayout (no need for such)
-}
-
-core::smart_refctd_ptr<IGPUSampler> COpenGLDriver::createGPUSampler(const IGPUSampler::SParams& _params)
-{
-    return core::make_smart_refctd_ptr<COpenGLSampler>(_params);
-}
-
-core::smart_refctd_ptr<IGPUPipelineLayout> COpenGLDriver::createGPUPipelineLayout(const asset::SPushConstantRange* const _pcRangesBegin, const asset::SPushConstantRange* const _pcRangesEnd, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3)
-{
-    return core::make_smart_refctd_ptr<COpenGLPipelineLayout>(
-        _pcRangesBegin, _pcRangesEnd,
-        std::move(_layout0), std::move(_layout1),
-        std::move(_layout2), std::move(_layout3)
-        );
-}
-
-core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createGPURenderpassIndependentPipeline(core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, core::smart_refctd_ptr<IGPUSpecializedShader>&& _vs, core::smart_refctd_ptr<IGPUSpecializedShader>&& _tcs, core::smart_refctd_ptr<IGPUSpecializedShader>&& _tes, core::smart_refctd_ptr<IGPUSpecializedShader>&& _gs, core::smart_refctd_ptr<IGPUSpecializedShader>&& _fs, const asset::SVertexInputParams& _vertexInputParams, const asset::SBlendParams& _blendParams, const asset::SPrimitiveAssemblyParams& _primAsmParams, const asset::SRasterizationParams& _rasterParams)
-{
-    if (!_layout || !_vs)
-        return nullptr;
-
-    return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
-        std::move(_layout),
-        std::move(_vs), std::move(_tcs), std::move(_tes), std::move(_gs), std::move(_fs),
-        _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
-        );
-}
-
-core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>&& _descriptors)
-{
-    if (!_layout || !_descriptors || !_descriptors->size())
-        return nullptr;
-
-    return core::make_smart_refctd_ptr<COpenGLDescriptorSet>(std::move(_layout), std::move(_descriptors));
-}
-
 bool COpenGLDriver::initAuxContext()
 {
 	if (!AuxContexts) // opengl dead and never inited
@@ -1341,6 +1235,125 @@ bool COpenGLDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
 	return true;
 }
 
+
+core::smart_refctd_ptr<IGPUShader> COpenGLDriver::createGPUShader(const asset::ICPUShader* _cpushader)
+{
+    return core::make_smart_refctd_ptr<COpenGLShader>(_cpushader);
+}
+
+core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo)
+{
+    const COpenGLShader* glUnspec = static_cast<const COpenGLShader*>(_unspecialized);
+    const asset::ICPUShader* cpuUnspec = glUnspec->getCPUCounterpart();
+
+    const std::string& EP = _specInfo->entryPoint;
+    const asset::E_SHADER_STAGE stage = _specInfo->shaderStage;
+
+    const asset::ICPUShader* spvCPUShader = nullptr;
+    if (cpuUnspec->containsGLSL()) {
+        //TODO insert enabled extensions #defines into GLSL
+        auto spvShader = core::smart_refctd_ptr<asset::ICPUShader>(
+            GLSLCompiler->createSPIRVFromGLSL(
+                reinterpret_cast<const char*>(cpuUnspec->getSPVorGLSL()->getPointer()),
+                stage,
+                EP.c_str(),
+                "????"
+            ), core::dont_grab);
+        if (!spvShader)
+            return nullptr;
+
+        spvCPUShader = spvShader.get();
+        spvCPUShader->grab();
+    }
+    else {
+        spvCPUShader = cpuUnspec;
+        spvCPUShader->grab();
+    }
+
+    asset::CShaderIntrospector introspector(GLSLCompiler.get(), { _specInfo->entryPoint, _specInfo->shaderStage });
+    const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader);
+    if (introspection->pushConstant.present && introspection->pushConstant.info.name.empty())
+    {
+        assert(false);//abort on debug build
+        os::Printer::log("Attempted to create OpenGL GPU specialized shader from SPIR-V without debug info - unable to set push constants. Creation failed.", ELL_ERROR);
+        return nullptr;//release build: maybe let it return the shader
+    }
+
+    auto ctx = getThreadContext_helper(false);
+    COpenGLSpecializedShader* gpuSpecialized = new COpenGLSpecializedShader(Params.AuxGLContexts + 1u, ctx->ID, this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, introspection);
+    spvCPUShader->drop();
+    return core::smart_refctd_ptr<COpenGLSpecializedShader>(gpuSpecialized, core::dont_grab);
+}
+
+core::smart_refctd_ptr<IGPUBufferView> COpenGLDriver::createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset, size_t _size)
+{
+    if (!_underlying)
+        return nullptr;
+    const size_t effectiveSize = (_size != IGPUBufferView::whole_buffer) ? (_underlying->getSize() - _offset) : _size;
+    if ((_offset + effectiveSize) > _underlying->getSize())
+        return nullptr;
+    if ((_offset / reqTBOAlignment)*reqTBOAlignment != _offset) //offset must be aligned to GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT
+        return nullptr;
+    if (!isAllowedBufferViewFormat(_fmt))
+        return nullptr;
+    if (effectiveSize > (maxTBOSizeInTexels * asset::getTexelOrBlockBytesize(_fmt)))
+        return nullptr;
+
+    COpenGLBuffer* glbuf = static_cast<COpenGLBuffer*>(_underlying);
+    return core::make_smart_refctd_ptr<COpenGLBufferView>(core::smart_refctd_ptr<COpenGLBuffer>(glbuf), _fmt, _offset, _size);
+}
+
+core::smart_refctd_ptr<IGPUDescriptorSetLayout> COpenGLDriver::createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end)
+{
+    return core::make_smart_refctd_ptr<IGPUDescriptorSetLayout>(_begin, _end);//there's no COpenGLDescriptorSetLayout (no need for such)
+}
+
+core::smart_refctd_ptr<IGPUSampler> COpenGLDriver::createGPUSampler(const IGPUSampler::SParams& _params)
+{
+    return core::make_smart_refctd_ptr<COpenGLSampler>(_params);
+}
+
+core::smart_refctd_ptr<IGPUPipelineLayout> COpenGLDriver::createGPUPipelineLayout(const asset::SPushConstantRange* const _pcRangesBegin, const asset::SPushConstantRange* const _pcRangesEnd, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3)
+{
+    return core::make_smart_refctd_ptr<COpenGLPipelineLayout>(
+        _pcRangesBegin, _pcRangesEnd,
+        std::move(_layout0), std::move(_layout1),
+        std::move(_layout2), std::move(_layout3)
+        );
+}
+
+core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createGPURenderpassIndependentPipeline(core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, core::smart_refctd_ptr<IGPUSpecializedShader>&& _vs, core::smart_refctd_ptr<IGPUSpecializedShader>&& _tcs, core::smart_refctd_ptr<IGPUSpecializedShader>&& _tes, core::smart_refctd_ptr<IGPUSpecializedShader>&& _gs, core::smart_refctd_ptr<IGPUSpecializedShader>&& _fs, const asset::SVertexInputParams& _vertexInputParams, const asset::SBlendParams& _blendParams, const asset::SPrimitiveAssemblyParams& _primAsmParams, const asset::SRasterizationParams& _rasterParams)
+{
+    if (!_layout || !_vs)
+        return nullptr;
+
+#define GET_SHADER_STAGE(shdr) (static_cast<COpenGLSpecializedShader*>(shdr.get())->getStage())
+    if (GET_SHADER_STAGE(_vs) != GL_VERTEX_SHADER)
+        return nullptr;
+    if (_tcs && (GET_SHADER_STAGE(_tcs) != GL_TESS_CONTROL_SHADER))
+        return nullptr;
+    if (_tes && (GET_SHADER_STAGE(_tes) != GL_TESS_EVALUATION_SHADER))
+        return nullptr;
+    if (_gs && (GET_SHADER_STAGE(_gs) != GL_GEOMETRY_SHADER))
+        return nullptr;
+    if (_fs && (GET_SHADER_STAGE(_fs) != GL_FRAGMENT_SHADER))
+        return nullptr;
+#undef GET_SHADER_STAGE
+
+    return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
+        std::move(_layout),
+        std::move(_vs), std::move(_tcs), std::move(_tes), std::move(_gs), std::move(_fs),
+        _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
+        );
+}
+
+core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>&& _descriptors)
+{
+    if (!_layout || !_descriptors || !_descriptors->size())
+        return nullptr;
+
+    return core::make_smart_refctd_ptr<COpenGLDescriptorSet>(std::move(_layout), std::move(_descriptors));
+}
 
 IGPUBuffer* COpenGLDriver::createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData)
 {
