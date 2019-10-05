@@ -32,7 +32,7 @@ namespace scene
 		//! Returns type of the scene node
 		virtual ESCENE_NODE_TYPE getType() const override { return ESNT_SKINNED_MESH; }
 
-		virtual video::ITextureBufferObject* getBonePoseTBO() const =0;
+		virtual video::IGPUBufferView* getBonePoseTBO() const =0;
 
 		//! Sets the current frame number.
 		/** From now on the animation is played from this frame.

@@ -61,7 +61,7 @@ namespace scene
 
             const void* getRawBoneData() {return boneStateManager->getRawBoneData();}
 
-            virtual video::ITextureBufferObject* getBonePoseTBO() const override
+            virtual video::IGPUBufferView* getBonePoseTBO() const override
             {
                 if (!boneStateManager)
                     return nullptr;
