@@ -33,6 +33,14 @@ protected:
 
 public:
     //! This could actually be reworked to something more usable
+	/*
+		To implement by user. Returns a Loader name that may attach some metadata into Asset structure.
+
+		@see IAssetMetadata
+
+		Due to external and custom Asset Loaders static_cast cannot be protected with a type enum comparision, 
+		so a string is provided.
+	*/
     virtual const char* getLoaderName() = 0;
 };
 
