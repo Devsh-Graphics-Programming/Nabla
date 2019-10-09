@@ -33,6 +33,27 @@ public:
         uint32_t count;
         E_SHADER_STAGE stageFlags;
         const core::smart_refctd_ptr<SamplerType>* samplers;
+
+        bool operator==(const SBinding& rhs) const
+        {
+            if (type != rhs.type)
+                return false;
+            if (count != rhs.type)
+                return false;
+            if (stageFlags != rhs.stageFlags)
+                return false;
+
+            if (!samplers && !rhs.samplers)
+                return true;
+            else if ((samplers && !rhs.samplers) || (!samplers && rhs.samplers))
+                return false;
+
+            for (uint32_t i = 0u; i < count; ++i)
+                if (samplers[i]->getParams() != rhs.samplers[i]->getParams())
+                    return false;
+
+            return true;
+        }
     };
 
 protected:
@@ -71,6 +92,7 @@ protected:
         {
             auto& bnd = m_bindings->operator[](i);
 
+            static_assert(sizeof(size_t)==sizeof(bnd.samplers), "Bad reinterpret_cast!");
             if (bnd.type==EDT_COMBINED_IMAGE_SAMPLER && bnd.samplers)
                 bnd.samplers = m_samplers->data() + reinterpret_cast<size_t>(bnd.samplers);
         }
@@ -81,6 +103,20 @@ protected:
     core::smart_refctd_dynamic_array<core::smart_refctd_ptr<SamplerType>> m_samplers;
 
 public:
+    bool isIdenticallyDefined(const IDescriptorSetLayout<SamplerType>* _other) const
+    {
+        if (getBindings().length() != _other->getBindings().length())
+            return false;
+
+        const size_t cnt = getBindings().length();
+        const SBinding* lhs = getBindings().begin();
+        const SBinding* rhs = _other->getBindings().begin();
+        for (size_t i = 0ull; i < cnt; ++i)
+            if (lhs[i] != rhs[i])
+                return false;
+        return true;
+    }
+
     core::SRange<const SBinding> getBindings() const { return {m_bindings->data(), m_bindings->data()+m_bindings->size()}; }
 };
 

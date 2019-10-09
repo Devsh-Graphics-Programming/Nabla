@@ -86,6 +86,12 @@ namespace video
 	    EMCE_OTHER_ERR
 	};
 
+    enum E_PIPELINE_BIND_POINT
+    {
+        EPBP_GRAPHICS = 0,
+        EPBP_COMPUTE = 1
+    };
+
 	//! Interface to driver which is able to perform 2d and 3d graphics functions.
 	/** This interface is one of the most important interfaces of
 	the Irrlicht Engine: All rendering and texture manipulation is done with
@@ -111,6 +117,12 @@ namespace video
         virtual bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const = 0;
         virtual bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const = 0;
         virtual bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const = 0;
+
+
+        virtual bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) = 0;
+
+        virtual bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType,uint32_t _first, uint32_t _count,
+            video::IGPUDescriptorSet** _descSets, uint32_t _dynOffsetCount, const uint32_t* _dynOffsets) = 0;
 
 		//! Applications must call this method before performing any rendering.
 		/** This method can clear the back- and the z-buffer.

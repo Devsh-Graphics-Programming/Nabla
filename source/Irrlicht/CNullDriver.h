@@ -51,6 +51,11 @@ namespace video
         inline bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const override { return false; }
         inline bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const override { return false; }
 
+        bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override { return false; }
+
+        bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, uint32_t _first, uint32_t _count,
+            video::IGPUDescriptorSet** _descSets, uint32_t _dynOffsetCount, const uint32_t* _dynOffsets) override { return false; }
+
 		//!
         virtual bool initAuxContext() {return false;}
         virtual bool deinitAuxContext() {return false;}

@@ -589,6 +589,11 @@ namespace video
             return isColorRenderableFormat(_fmt) && (asset::isNormalizedFormat(_fmt) || asset::isFloatingPointFormat(_fmt));
         }
 
+        bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override;
+
+        bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, uint32_t _first, uint32_t _count,
+            video::IGPUDescriptorSet** _descSets, uint32_t _dynOffsetCount, const uint32_t* _dynOffsets) override;
+
         core::smart_refctd_ptr<IGPUShader> createGPUShader(const asset::ICPUShader* _cpushader) override;
         core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) override;
 

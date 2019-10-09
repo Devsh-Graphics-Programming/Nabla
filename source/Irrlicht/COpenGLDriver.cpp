@@ -1236,6 +1236,56 @@ bool COpenGLDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
 }
 
 
+bool COpenGLDriver::bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline)
+{
+    SAuxContext* ctx = getThreadContext_helper(false);
+    if (!ctx)
+        return false;
+
+    COpenGLRenderpassIndependentPipeline* glpipeline = static_cast<COpenGLRenderpassIndependentPipeline*>(_gpipeline);
+    ctx->nextState.pipeline = core::smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(glpipeline);
+
+    //all code below this line is descriptor set bindings invalidation according to pipeline layout compatibility rules (https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#descriptorsets-compatibility)
+    if (!ctx->currentState.pipeline || !_gpipeline)
+    {
+        std::fill(ctx->nextState.descriptorsParams.descSets, ctx->nextState.descriptorsParams.descSets + IGPUPipelineLayout::DESCRIPTOR_SET_COUNT, nullptr);
+        return true;
+    }
+    
+    uint32_t compatibilityLimit = IGPUPipelineLayout::DESCRIPTOR_SET_COUNT;
+    if (ctx->currentState.pipeline)
+    {
+        const IGPUPipelineLayout* nextLayout = _gpipeline->getLayout();
+        compatibilityLimit = ctx->currentState.pipeline->getLayout()->isCompatibleForSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u, nextLayout);
+    }
+
+    if (compatibilityLimit == IGPUPipelineLayout::DESCRIPTOR_SET_COUNT)
+        std::fill(ctx->nextState.descriptorsParams.descSets, ctx->nextState.descriptorsParams.descSets + IGPUPipelineLayout::DESCRIPTOR_SET_COUNT, nullptr);
+    else
+    {
+        for (uint32_t i = compatibilityLimit+1u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+            ctx->nextState.descriptorsParams.descSets[i] = nullptr;
+    }
+
+    return true;
+}
+
+bool COpenGLDriver::bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, uint32_t _first, uint32_t _count, video::IGPUDescriptorSet** _descSets, uint32_t _dynOffsetCount, const uint32_t* _dynOffsets)
+{
+    //TODO take into account `_pipelineType` param and adjust this function when compute pipelines come in
+    SAuxContext* ctx = getThreadContext_helper(false);
+    if (!ctx)
+        return false;
+
+    if (_first + _count >= IGPUPipelineLayout::DESCRIPTOR_SET_COUNT)
+        return false;
+
+    for (uint32_t i = 0u; i < _count; ++i)
+        ctx->nextState.descriptorsParams.descSets[_first+i] = core::smart_refctd_ptr<IGPUDescriptorSet>(_descSets[i]);
+
+    //TODO dynamic offsets
+}
+
 core::smart_refctd_ptr<IGPUShader> COpenGLDriver::createGPUShader(const asset::ICPUShader* _cpushader)
 {
     return core::make_smart_refctd_ptr<COpenGLShader>(_cpushader);
@@ -2206,33 +2256,19 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
             std::copy(multibind_params.textureImages.textures, multibind_params.textureImages.textures + first_count.textureImages.count, imgnames);
 
 
-            GLsizei maxIndex{};
             GLsizei count{};
-            bool printWarnings =
-#ifdef _IRR_DEBUG
-                true;
-#else
-                false;
-#endif
 
-            maxIndex = first_count.ubos.first + first_count.ubos.count;
 #define CLAMP_COUNT(resname,limit,printstr) \
-            maxIndex = first_count.resname.first + first_count.resname.count;\
-            if (printWarnings) {\
-                char logbuf[200]{};\
-                sprintf(logbuf, "Warning: tried to bind unsupported amount of %s descriptors!", #printstr);\
-                os::Printer::log(logbuf, ELL_WARNING);\
-            }\
-            (first_count.resname.count - std::max(0, static_cast<int32_t>(maxIndex)-static_cast<int32_t>(limit)))
+            count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_count.resname.first + first_count.resname.count)-static_cast<int32_t>(limit)))
 
-            count = CLAMP_COUNT(ubos, COpenGLExtensionHandler::maxUBOBindings, UBO);
+            CLAMP_COUNT(ubos, COpenGLExtensionHandler::maxUBOBindings, UBO);
             extGlBindBuffersRange(GL_UNIFORM_BUFFER, first_count.ubos.first, count, ubonames, ubooffsets, ubosizes);
-            count = CLAMP_COUNT(ssbos, COpenGLExtensionHandler::maxSSBOBindings, SSBO);
+            CLAMP_COUNT(ssbos, COpenGLExtensionHandler::maxSSBOBindings, SSBO);
             extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, first_count.ssbos.first, count, ssbonames, ssbooffsets, ssbosizes);
-            count = CLAMP_COUNT(textures, COpenGLExtensionHandler::maxTextureBindings, texture); //TODO should use maxTextureBindingsCompute for compute
+            CLAMP_COUNT(textures, COpenGLExtensionHandler::maxTextureBindings, texture); //TODO should use maxTextureBindingsCompute for compute
             extGlBindTextures(first_count.textures.first, count, texnames, nullptr); //targets=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
             extGlBindSamplers(first_count.textures.first, count, smplrnames);
-            count = CLAMP_COUNT(textureImages, COpenGLExtensionHandler::maxImageBindings, image); //OpenGL does not have query for images so i assume the limit is same as for textures
+            CLAMP_COUNT(textureImages, COpenGLExtensionHandler::maxImageBindings, image);
             extGlBindImageTextures(first_count.textureImages.first, count, imgnames, nullptr); //formats=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
 #undef CLAMP_COUNT
         }
