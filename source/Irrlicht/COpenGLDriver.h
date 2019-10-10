@@ -737,8 +737,6 @@ namespace video
 
         virtual void removeAllFrameBuffers();
 
-        bool setGraphicsPipeline(const IGPURenderpassIndependentPipeline* _gpipeline) override;
-
 		virtual bool setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewport=true);
 
 		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,

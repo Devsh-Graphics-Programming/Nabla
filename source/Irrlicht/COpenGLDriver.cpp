@@ -1241,8 +1241,7 @@ bool COpenGLDriver::bindGraphicsPipeline(video::IGPURenderpassIndependentPipelin
     if (!ctx)
         return false;
 
-    COpenGLRenderpassIndependentPipeline* glpipeline = static_cast<COpenGLRenderpassIndependentPipeline*>(_gpipeline);
-    ctx->nextState.pipeline = core::smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(glpipeline);
+    ctx->updateNextState_pipelineAndRaster(_gpipeline);
 
     //all code below this line is descriptor set bindings invalidation according to pipeline layout compatibility rules (https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#descriptorsets-compatibility)
     if (!ctx->currentState.pipeline || !_gpipeline)
@@ -2151,73 +2150,9 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
 #undef UPDATE_STATE
     if (stateBits & GSB_DESCRIPTOR_SETS)
     {
-        //provide storage for multibind calls' parameters
-        constexpr size_t UNIT_SIZE = 5*sizeof(GLuint) + 2*sizeof(GLintptr) + 2*sizeof(GLsizeiptr);
-        uint8_t stackmem[1u<<14]{};//16k bytes
-        constexpr size_t ARRAY_SIZE = sizeof(stackmem)/UNIT_SIZE;
-
-#define ASSIGN_MEM(arrayname) reinterpret_cast<decltype(arrayname)>(stackmem+offset)
-#define UPDATE_OFFSET(arrayname) offset += ARRAY_SIZE*sizeof(*arrayname)
-        size_t offset = 0ull;
-        GLuint* const ubonames = ASSIGN_MEM(ubonames);
-        UPDATE_OFFSET(ubonames);
-        GLintptr* const ubooffsets = ASSIGN_MEM(ubooffsets);
-        UPDATE_OFFSET(ubooffsets);
-        GLsizeiptr* const ubosizes = ASSIGN_MEM(ubosizes);
-        UPDATE_OFFSET(ubosizes);
-
-        GLuint* const ssbonames = ASSIGN_MEM(ssbonames);
-        UPDATE_OFFSET(ssbonames);
-        GLintptr* const ssbooffsets = ASSIGN_MEM(ssbooffsets);
-        UPDATE_OFFSET(ssbooffsets);
-        GLsizeiptr* const ssbosizes = ASSIGN_MEM(ssbosizes);
-        UPDATE_OFFSET(ssbosizes);
-
-        GLuint* const texnames = ASSIGN_MEM(texnames);
-        UPDATE_OFFSET(texnames);
-        GLuint* const smplrnames = ASSIGN_MEM(smplrnames);
-        UPDATE_OFFSET(smplrnames);
-
-        GLuint* const imgnames = ASSIGN_MEM(imgnames);
-#undef UPDATE_OFFSET
-#undef ASSIGN_MEM
-
-        //unbind previous descriptor sets
-        bool needRebind = prevPipeline != nextState.pipeline;//TODO could optimize to checking pipeline layouts or even pipeline layouts compatibility (that would probably result in needResult being true less often)
-        {
-            constexpr GLuint invalid = ~static_cast<GLuint>(0u);
-            std::pair<GLuint, GLsizei> ubos{invalid,0}, ssbos{invalid,0}, textures{invalid,0}, textureImages{invalid,0};
-            for (uint32_t i = 0u; i < video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
-            {
-                if (!prevPipeline)
-                    break;
-
-                const auto& first_count = static_cast<const COpenGLPipelineLayout*>(prevPipeline->getLayout())->getMultibindParamsForDescSet(i);
-                const auto& multibind_params = currentState.descriptorsParams.descSets[i]->getMultibindParams();
-                if (needRebind || (nextState.descriptorsParams.descSets[i] != currentState.descriptorsParams.descSets[i]))
-                {
-                    needRebind = true;
-#define OVERRIDE_FIRST(resname) if (resname.first == invalid) { resname.first = first_count.resname.first; }
-                    OVERRIDE_FIRST(ubos);
-                    ubos.second += first_count.ubos.count;
-                    OVERRIDE_FIRST(ssbos);
-                    ssbos.second += first_count.ssbos.count;
-                    OVERRIDE_FIRST(textures);
-                    textures.second += first_count.textures.count;
-                    OVERRIDE_FIRST(textureImages);
-                    textureImages.second += first_count.textureImages.count;
-#undef OVERRIDE_FIRST
-                }
-            }
-            extGlBindBuffersRange(GL_UNIFORM_BUFFER, ubos.first, ubos.second, ubonames, ubooffsets, ubosizes);
-            extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, ssbos.first, ssbos.second, ssbonames, ssbooffsets, ssbosizes);
-            extGlBindTextures(textures.first, textures.second, texnames, nullptr); //targets=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
-            extGlBindSamplers(textures.first, textures.second, smplrnames);
-            extGlBindImageTextures(textureImages.first, textureImages.second, imgnames, nullptr); //formats=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
-        }
-
         //bind new descriptor sets
-        needRebind = prevPipeline != nextState.pipeline;
+        int64_t newUboCount = 0u, newSsboCount = 0u, newTexCount = 0u, newImgCount = 0u;
+        bool needRebind = prevPipeline != nextState.pipeline;
         for (uint32_t i = 0u; i < video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
         {
             if (!nextState.pipeline)
@@ -2233,39 +2168,48 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
             const auto& first_count = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline->getLayout())->getMultibindParamsForDescSet(i);
             const auto& multibind_params = nextState.descriptorsParams.descSets[i]->getMultibindParams();
 
-            assert(ARRAY_SIZE <= first_count.ubos.count);
-            std::copy(multibind_params.ubos.buffers, multibind_params.ubos.buffers + first_count.ubos.count, ubonames);
-            std::copy(multibind_params.ubos.offsets, multibind_params.ubos.offsets + first_count.ubos.count, ubooffsets);
-            std::copy(multibind_params.ubos.sizes, multibind_params.ubos.sizes + first_count.ubos.count, ubosizes);
-
-            assert(ARRAY_SIZE <= first_count.ssbos.count);
-            std::copy(multibind_params.ssbos.buffers, multibind_params.ssbos.buffers + first_count.ssbos.count, ssbonames);
-            std::copy(multibind_params.ssbos.offsets, multibind_params.ssbos.offsets + first_count.ssbos.count, ssbooffsets);
-            std::copy(multibind_params.ssbos.sizes, multibind_params.ssbos.sizes + first_count.ssbos.count, ssbosizes);
-
-            assert(ARRAY_SIZE <= first_count.textures.count);
-            std::copy(multibind_params.textures.textures, multibind_params.textures.textures + first_count.textures.count, texnames);
-            std::copy(multibind_params.textures.samplers, multibind_params.textures.samplers + first_count.textures.count, smplrnames);
-
-            assert(ARRAY_SIZE <= first_count.textureImages.count);
-            std::copy(multibind_params.textureImages.textures, multibind_params.textureImages.textures + first_count.textureImages.count, imgnames);
-
-
             GLsizei count{};
 
 #define CLAMP_COUNT(resname,limit,printstr) \
             count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_count.resname.first + first_count.resname.count)-static_cast<int32_t>(limit)))
 
             CLAMP_COUNT(ubos, COpenGLExtensionHandler::maxUBOBindings, UBO);
-            extGlBindBuffersRange(GL_UNIFORM_BUFFER, first_count.ubos.first, count, ubonames, ubooffsets, ubosizes);
+            newUboCount = first_count.ubos.first + count;
+            extGlBindBuffersRange(GL_UNIFORM_BUFFER, first_count.ubos.first, count, multibind_params.ubos.buffers, multibind_params.ubos.offsets, multibind_params.ubos.sizes);
             CLAMP_COUNT(ssbos, COpenGLExtensionHandler::maxSSBOBindings, SSBO);
-            extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, first_count.ssbos.first, count, ssbonames, ssbooffsets, ssbosizes);
+            newSsboCount = first_count.ssbos.first + count;
+            extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, first_count.ssbos.first, count, multibind_params.ubos.buffers, multibind_params.ubos.offsets, multibind_params.ubos.sizes);
             CLAMP_COUNT(textures, COpenGLExtensionHandler::maxTextureBindings, texture); //TODO should use maxTextureBindingsCompute for compute
-            extGlBindTextures(first_count.textures.first, count, texnames, nullptr); //targets=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
-            extGlBindSamplers(first_count.textures.first, count, smplrnames);
+            newTexCount = first_count.textures.first + count;
+            extGlBindTextures(first_count.textures.first, count, multibind_params.textures.textures, nullptr); //targets=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
+            extGlBindSamplers(first_count.textures.first, count, multibind_params.textures.samplers);
             CLAMP_COUNT(textureImages, COpenGLExtensionHandler::maxImageBindings, image);
-            extGlBindImageTextures(first_count.textureImages.first, count, imgnames, nullptr); //formats=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
+            newTexCount = first_count.textureImages.first + count;
+            extGlBindImageTextures(first_count.textureImages.first, count, multibind_params.textureImages.textures, nullptr); //formats=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
 #undef CLAMP_COUNT
+        }
+
+        //unbind previous descriptors if needed (if bindings not replaced by new multibind calls)
+        int64_t prevUboCount = 0u, prevSsboCount = 0u, prevTexCount = 0u, prevImgCount = 0u;
+        {
+            const auto& first_count = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline->getLayout())->getMultibindParamsForDescSet(video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u);
+
+            prevUboCount = first_count.ubos.first + first_count.ubos.count;
+            prevSsboCount = first_count.ssbos.first + first_count.ssbos.count;
+            prevTexCount = first_count.textures.first + first_count.textures.count;
+            prevImgCount = first_count.textureImages.first + first_count.textureImages.count;
+
+            int64_t diff = 0LL;
+            if ((diff = prevUboCount - newUboCount) > 0LL)
+                extGlBindBuffersRange(GL_UNIFORM_BUFFER, newUboCount, diff, nullptr, nullptr, nullptr);
+            if ((diff = prevSsboCount - newSsboCount) > 0LL)
+                extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, newSsboCount, diff, nullptr, nullptr, nullptr);
+            if ((diff = prevTexCount - newTexCount) > 0LL) {
+                extGlBindTextures(newTexCount, diff, nullptr, nullptr);
+                extGlBindSamplers(newTexCount, diff, nullptr);
+            }
+            if ((diff = prevImgCount - newImgCount) > 0LL)
+                extGlBindImageTextures(newImgCount, diff, nullptr, nullptr);
         }
 
         //update state in state tracker
@@ -2855,18 +2799,6 @@ uint32_t COpenGLDriver::getMaximalIndicesCount() const
 {
 	return MaxIndices;
 }
-
-bool COpenGLDriver::setGraphicsPipeline(const IGPURenderpassIndependentPipeline* _gpipeline)
-{
-    SAuxContext* found = getThreadContext_helper(false);
-    if (!found || !_gpipeline)
-        return false;
-
-    found->updateNextState_pipelineAndRaster(_gpipeline);
-
-    return true;
-}
-
 
 //! Sets multiple render targets
 bool COpenGLDriver::setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewport)

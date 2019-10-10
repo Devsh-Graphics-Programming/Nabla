@@ -199,8 +199,6 @@ namespace video
 		virtual void beginQuery(IQueryObject* query, const size_t& index) = 0;
 		virtual void endQuery(IQueryObject* query, const size_t& index) = 0;
 
-        virtual bool setGraphicsPipeline(const IGPURenderpassIndependentPipeline* _gpipeline) = 0;
-
 		//! Sets new multiple render targets.
 		virtual bool setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewport=true) = 0;
 

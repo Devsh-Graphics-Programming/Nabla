@@ -26,7 +26,7 @@ public:
     };
 
     COpenGLPipelineLayout(
-        const SPushConstantRange* const _pcRangesBegin, const SPushConstantRange* const _pcRangesEnd,
+        const asset::SPushConstantRange* const _pcRangesBegin, const asset::SPushConstantRange* const _pcRangesEnd,
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1,
         core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3
     ) : IGPUPipelineLayout(_pcRangesBegin, _pcRangesEnd, std::move(_layout0), std::move(_layout1), std::move(_layout2), std::move(_layout3))
@@ -35,15 +35,13 @@ public:
 
         for (size_t i = 0u; m_descSetLayouts.size(); ++i) {
             IGPUDescriptorSetLayout* descSetLayout = m_descSetLayouts[i].get();
-            if (!descSetLayout)
-                continue;
 
             auto reset = [](SMultibindParams::SFirstCount& _fc) {
                 _fc.first += _fc.count;
                 _fc.count = 0u;
             };
 
-            auto bindings = descSetLayout->getBindings();
+            auto bindings = descSetLayout ? descSetLayout->getBindings() : core::SRange<const IGPUDescriptorSetLayout::SBinding>(nullptr, nullptr);
             for (const auto& bnd : bindings) {
                 if (bnd.type == asset::EDT_UNIFORM_BUFFER || bnd.type == asset::EDT_UNIFORM_BUFFER_DYNAMIC)
                     params.ubos.count += bnd.count;
