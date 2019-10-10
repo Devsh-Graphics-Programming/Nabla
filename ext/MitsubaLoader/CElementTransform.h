@@ -15,7 +15,7 @@ namespace MitsubaLoader
 class CElementTransform : public IElement
 {
 	public:
-		CElementTransform(std::string&& _name) : IElement(""), name(_name), matrix() {}
+		CElementTransform() : IElement(""), matrix() {}
 		virtual ~CElementTransform() {}
 
 		bool addProperty(SNamedPropertyElement&& _property) override;
@@ -26,12 +26,10 @@ class CElementTransform : public IElement
 		inline CElementTransform& operator=(const CElementTransform& other)
 		{
 			IElement::operator=(other);
-			name = other.name;
 			matrix = other.matrix;
 			return *this;
 		}
 
-		std::string name;
 		core::matrix4SIMD matrix;
 };
 

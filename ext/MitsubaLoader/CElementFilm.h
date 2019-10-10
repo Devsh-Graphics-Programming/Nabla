@@ -101,7 +101,7 @@ class CElementFilm : public IElement
 		IElement::Type getType() const override { return IElement::Type::FILM; }
 		std::string getLogName() const override { return "film"; }
 
-		virtual bool processChildData(IElement* _child)
+		inline bool processChildData(IElement* _child, const std::string& name) override
 		{
 			if (!_child)
 				return true;

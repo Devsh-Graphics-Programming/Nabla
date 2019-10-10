@@ -14,12 +14,13 @@ namespace MitsubaLoader
 
 
 template<>
-IElement* CElementFactory::createElement<CElementTexture>(const char** _atts, ParserManager* _util)
+CElementFactory::return_type CElementFactory::createElement<CElementTexture>(const char** _atts, ParserManager* _util)
 {
 	const char* type;
 	const char* id;
-	if (!IElement::getTypeAndIDStrings(type, id, _atts))
-		return nullptr;
+	std::string name;
+	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
+		return CElementFactory::return_type(nullptr,"");
 
 	static const core::unordered_map<std::string, CElementTexture::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
 	{
@@ -32,12 +33,12 @@ IElement* CElementFactory::createElement<CElementTexture>(const char** _atts, Pa
 	{
 		ParserLog::invalidXMLFileStructure("unknown type");
 		_IRR_DEBUG_BREAK_IF(false);
-		return nullptr;
+		return CElementFactory::return_type(nullptr,"");
 	}
 
 	CElementTexture* obj = _util->objects.construct<CElementTexture>(id);
 	if (!obj)
-		return nullptr;
+		return CElementFactory::return_type(nullptr,"");
 
 	obj->type = found->second;
 	// defaults
@@ -52,7 +53,7 @@ IElement* CElementFactory::createElement<CElementTexture>(const char** _atts, Pa
 		default:
 			break;
 	}
-	return obj;
+	return CElementFactory::return_type(obj, std::move(name));
 }
 
 bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
@@ -73,6 +74,9 @@ bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
 		{
 			case CElementTexture::Type::BITMAP:
 				func(bitmap);
+				break;
+			case CElementTexture::Type::SCALE:
+				func(scale);
 				break;
 			default:
 				error = true;
@@ -177,7 +181,7 @@ bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
 				auto found = StringToType.end();
 				if (_property.type==SPropertyElementData::Type::STRING)
 					found = StringToType.find(_property.getProperty<SPropertyElementData::Type::STRING>());
-				if (found!=StringToType.end())
+				if (found==StringToType.end())
 				{
 					error = true;
 					return;
@@ -226,7 +230,7 @@ bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
 }
 
 
-bool CElementTexture::processChildData(IElement* _child, const char* name)
+bool CElementTexture::processChildData(IElement* _child, const std::string& name)
 {
 	if (!_child)
 		return true;

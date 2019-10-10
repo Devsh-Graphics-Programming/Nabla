@@ -162,7 +162,7 @@ class CElementTexture : public IElement
 		IElement::Type getType() const override { return IElement::Type::TEXTURE; }
 		std::string getLogName() const override { return "texture"; }
 
-		bool processChildData(IElement* _child, const char* name) override;
+		bool processChildData(IElement* _child, const std::string& name) override;
 
 		//
 		Type type;

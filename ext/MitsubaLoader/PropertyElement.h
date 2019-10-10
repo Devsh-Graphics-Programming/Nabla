@@ -56,11 +56,11 @@ struct SPropertyElementData
 		if (found != StringToType.end())
 			type = found->second;
 	}
-	inline explicit SPropertyElementData(float value)				: type(FLOAT)	{ fvalue = value; }
-	inline explicit SPropertyElementData(int32_t value)			: type(INTEGER) { ivalue = value; }
-	inline explicit SPropertyElementData(bool value)				: type(BOOLEAN) { bvalue = value; }
-	//explicit SPropertyElementData(const std::string& value) : type(STRING) { #error }
-	inline explicit SPropertyElementData(Type _type, const core::vectorSIMDf& value) : type(INVALID)
+	inline explicit SPropertyElementData(float value)								: type(FLOAT)	{ fvalue = value; }
+	inline explicit SPropertyElementData(int32_t value)								: type(INTEGER) { ivalue = value; }
+	inline explicit SPropertyElementData(bool value)								: type(BOOLEAN) { bvalue = value; }
+	//explicit SPropertyElementData(const std::string& value)						: type(STRING) { #error }
+	inline explicit SPropertyElementData(Type _type, const core::vectorSIMDf& value): type(INVALID)
 	{
 		switch (_type)
 		{
@@ -85,7 +85,7 @@ struct SPropertyElementData
 	inline SPropertyElementData& operator=(const SPropertyElementData& other)
 	{
 		type = other.type;
-		switch (other.type)
+		switch (type)
 		{
 			case Type::FLOAT:
 				fvalue = other.fvalue;
@@ -131,7 +131,7 @@ struct SPropertyElementData
 	inline SPropertyElementData& operator=(SPropertyElementData&& other)
 	{
 		std::swap(type,other.type);
-		switch (other.type)
+		switch (type)
 		{
 			case Type::FLOAT:
 				fvalue = other.fvalue;
@@ -163,9 +163,9 @@ struct SPropertyElementData
 				mvalue = other.mvalue;
 				break;
 			default:
+				std::fill(other.mvalue.pointer(), other.mvalue.pointer() + 16, 0.f);
 				break;
 		}
-		std::fill(other.mvalue.pointer(), other.mvalue.pointer() + 16, 0.f);
 		return *this;
 	}
 
@@ -192,7 +192,6 @@ struct SNamedPropertyElement : SPropertyElementData
 {
 	SNamedPropertyElement() : SPropertyElementData(), name("")
 	{
-		std::fill(mvalue.pointer(), mvalue.pointer() + 16, 0.f);
 	}
 	SNamedPropertyElement(const std::string& _type) : SNamedPropertyElement()
 	{
@@ -202,16 +201,11 @@ struct SNamedPropertyElement : SPropertyElementData
 	}
 	SNamedPropertyElement(const SNamedPropertyElement& other) : SNamedPropertyElement()
 	{
-		operator=(other);
+		SNamedPropertyElement::operator=(other);
 	}
 	SNamedPropertyElement(SNamedPropertyElement&& other) : SNamedPropertyElement()
 	{
-		operator=(std::move(other));
-	}
-	~SNamedPropertyElement()
-	{
-		if (type == Type::STRING)
-			_IRR_ALIGNED_FREE((void*)svalue);
+		SNamedPropertyElement::operator=(std::move(other));
 	}
 
 	bool initialize(const char** _atts, const char** outputMatch)

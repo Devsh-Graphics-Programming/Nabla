@@ -94,10 +94,10 @@ class CElementSensor : public IElement
 			kc;
 		};*/
 
-		CElementSensor(const char* id) : IElement(id), type(Type::INVALID), /*toWorldType(IElement::Type::TRANSFORM),*/ transform(""), film(""), sampler("")
+		CElementSensor(const char* id) : IElement(id), type(Type::INVALID), /*toWorldType(IElement::Type::TRANSFORM),*/ transform(), film(""), sampler("")
 		{
 		}
-		CElementSensor(const CElementSensor& other) : IElement(""), transform(""), film(""), sampler("")
+		CElementSensor(const CElementSensor& other) : IElement(""), transform(), film(""), sampler("")
 		{
 			operator=(other);
 		}
@@ -148,7 +148,7 @@ class CElementSensor : public IElement
 		IElement::Type getType() const override { return IElement::Type::SENSOR; }
 		std::string getLogName() const override { return "sensor"; }
 
-		bool processChildData(IElement* _child) override
+		bool processChildData(IElement* _child, const std::string& name) override
 		{
 			if (!_child)
 				return true;
@@ -157,7 +157,7 @@ class CElementSensor : public IElement
 				case IElement::Type::TRANSFORM:
 					{
 						auto tform = static_cast<CElementTransform*>(_child);
-						if (tform->name!="toWorld")
+						if (name!="toWorld")
 							return false;
 						//toWorldType = IElement::Type::TRANSFORM;
 						transform = *tform;

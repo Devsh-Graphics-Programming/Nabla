@@ -12,12 +12,13 @@ namespace MitsubaLoader
 
 
 template<>
-IElement* CElementFactory::createElement<CElementRFilter>(const char** _atts, ParserManager* _util)
+CElementFactory::return_type CElementFactory::createElement<CElementRFilter>(const char** _atts, ParserManager* _util)
 {
 	const char* type;
 	const char* id;
-	if (!IElement::getTypeAndIDStrings(type, id, _atts))
-		return nullptr;
+	std::string name;
+	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
+		return CElementFactory::return_type(nullptr, "");
 
 	static const core::unordered_map<std::string,CElementRFilter::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
 	{
@@ -34,12 +35,12 @@ IElement* CElementFactory::createElement<CElementRFilter>(const char** _atts, Pa
 	{
 		ParserLog::invalidXMLFileStructure("unknown type");
 		_IRR_DEBUG_BREAK_IF(false);
-		return nullptr;
+		return CElementFactory::return_type(nullptr, "");
 	}
 
 	CElementRFilter* obj = _util->objects.construct<CElementRFilter>(id);
 	if (!obj)
-		return nullptr;
+		return CElementFactory::return_type(nullptr, "");
 
 	obj->type = found->second;
 	//validation
@@ -64,7 +65,7 @@ IElement* CElementFactory::createElement<CElementRFilter>(const char** _atts, Pa
 		default:
 			break;
 	}
-	return obj;
+	return CElementFactory::return_type(obj, std::move(name));
 }
 
 bool CElementRFilter::addProperty(SNamedPropertyElement&& _property)

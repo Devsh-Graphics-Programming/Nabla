@@ -11,12 +11,13 @@ namespace MitsubaLoader
 {
 	
 template<>
-IElement* CElementFactory::createElement<CElementSensor>(const char** _atts, ParserManager* _util)
+CElementFactory::return_type CElementFactory::createElement<CElementSensor>(const char** _atts, ParserManager* _util)
 {
 	const char* type;
 	const char* id;
-	if (!IElement::getTypeAndIDStrings(type,id,_atts))
-		return nullptr;
+	std::string name;
+	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
+		return CElementFactory::return_type(nullptr,"");
 
 	static const core::unordered_map<std::string, CElementSensor::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
 	{
@@ -36,12 +37,12 @@ IElement* CElementFactory::createElement<CElementSensor>(const char** _atts, Par
 	{
 		ParserLog::invalidXMLFileStructure("unknown type");
 		_IRR_DEBUG_BREAK_IF(false);
-		return nullptr;
+		return CElementFactory::return_type(nullptr, "");
 	}
 
 	CElementSensor* obj = _util->objects.construct<CElementSensor>(id);
 	if (!obj)
-		return nullptr;
+		return CElementFactory::return_type(nullptr, "");
 
 	obj->type = found->second;
 	// defaults
@@ -74,7 +75,7 @@ IElement* CElementFactory::createElement<CElementSensor>(const char** _atts, Par
 		default:
 			break;
 	}
-	return obj;
+	return CElementFactory::return_type(obj, std::move(name));
 }
 
 bool CElementSensor::addProperty(SNamedPropertyElement&& _property)

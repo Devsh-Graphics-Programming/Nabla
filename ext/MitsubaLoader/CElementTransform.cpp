@@ -10,14 +10,14 @@ namespace MitsubaLoader
 
 	
 template<>
-IElement* CElementFactory::createElement<CElementTransform>(const char** _atts, ParserManager* _util)
+CElementFactory::return_type CElementFactory::createElement<CElementTransform>(const char** _atts, ParserManager* _util)
 {
 	if (IElement::invalidAttributeCount(_atts, 2u))
-		return nullptr;
+		return CElementFactory::return_type(nullptr,"");
 	if (core::strcmpi(_atts[0], "name"))
-		return nullptr;
+		return CElementFactory::return_type(nullptr,"");
 	
-	return _util->objects.construct<CElementTransform>(_atts[1]);
+	return CElementFactory::return_type(_util->objects.construct<CElementTransform>(),_atts[1]);
 }
 
 bool CElementTransform::addProperty(SNamedPropertyElement&& _property)

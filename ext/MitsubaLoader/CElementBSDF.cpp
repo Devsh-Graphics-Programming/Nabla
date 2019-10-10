@@ -14,12 +14,13 @@ namespace MitsubaLoader
 
 
 template<>
-IElement* CElementFactory::createElement<CElementBSDF>(const char** _atts, ParserManager* _util)
+CElementFactory::return_type CElementFactory::createElement<CElementBSDF>(const char** _atts, ParserManager* _util)
 {
 	const char* type;
 	const char* id;
-	if (!IElement::getTypeAndIDStrings(type, id, _atts))
-		return nullptr;
+	std::string name;
+	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
+		return CElementFactory::return_type(nullptr, "");
 
 	static const core::unordered_map<std::string, CElementBSDF::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
 	{
@@ -51,12 +52,12 @@ IElement* CElementFactory::createElement<CElementBSDF>(const char** _atts, Parse
 	{
 		ParserLog::invalidXMLFileStructure("unknown type");
 		_IRR_DEBUG_BREAK_IF(false);
-		return nullptr;
+		return CElementFactory::return_type(nullptr, "");
 	}
 
 	CElementBSDF* obj = _util->objects.construct<CElementBSDF>(id);
 	if (!obj)
-		return nullptr;
+		return CElementFactory::return_type(nullptr, "");
 
 	obj->type = found->second;
 	// defaults
@@ -122,7 +123,7 @@ IElement* CElementFactory::createElement<CElementBSDF>(const char** _atts, Parse
 		default:
 			break;
 	}
-	return obj;
+	return CElementFactory::return_type(obj, std::move(name));
 }
 
 float CElementBSDF::TransmissiveBase::findIOR(const std::string& name)
@@ -154,7 +155,7 @@ float CElementBSDF::TransmissiveBase::findIOR(const std::string& name)
 		{"diamond",					2.419f}
 	};
 	auto found = NamedIndicesOfRefraction.find(name);
-	if (found != NamedIndicesOfRefraction.end())
+	if (found == NamedIndicesOfRefraction.end())
 		return NAN;
 	return found->second;
 }
@@ -314,6 +315,40 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 		}
 	};
 
+#define SET_FLOAT(MEMBER, ... )		[&]() -> void { \
+		dispatch([&](auto& state) -> void { \
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+			{ \
+				switch (_property.type) { \
+					case SPropertyElementData::Type::FLOAT: \
+						state. ## MEMBER = SPropertyElementData(_property); \
+						break; \
+					default: \
+						error = true; \
+						break; \
+				} \
+			} \
+			IRR_PSEUDO_IF_CONSTEXPR_END \
+		}); \
+	}
+#define SET_SPECTRUM(MEMBER, ... )		[&]() -> void { \
+		dispatch([&](auto& state) -> void { \
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+			{ \
+				switch (_property.type) { \
+					case SPropertyElementData::Type::FLOAT: \
+					case SPropertyElementData::Type::RGB: \
+					case SPropertyElementData::Type::SRGB: \
+						state. ## MEMBER = SPropertyElementData(_property); \
+						break; \
+					default: \
+						error = true; \
+						break; \
+				} \
+			} \
+			IRR_PSEUDO_IF_CONSTEXPR_END \
+		}); \
+	}
 #define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE, ... )		[&]() -> void { \
 		dispatch([&](auto& state) -> void { \
 			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
@@ -328,42 +363,52 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 		}); \
 	}
 
-	auto processReflectance = SET_XYZ(reflectance,AllDiffuse);
+	auto processReflectance = SET_SPECTRUM(reflectance,AllDiffuse);
 	auto processDistribution = [&]() -> void
 	{ 
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,AllDielectric>::value)
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_base_of<RoughSpecularBase,state_type>::value)
 			{
-				found;
+				static const core::unordered_map<std::string, RoughSpecularBase::NormalDistributionFunction, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
+				{
+					{"beckmann",RoughSpecularBase::NormalDistributionFunction::BECKMANN},
+					{"ggx",		RoughSpecularBase::NormalDistributionFunction::GGX},
+					{"phong",	RoughSpecularBase::NormalDistributionFunction::PHONG},
+					{"as",		RoughSpecularBase::NormalDistributionFunction::ASHIKHMIN_SHIRLEY}
+				};
+
+				auto found = StringToType.end();
 				if (_property.type==SPropertyElementData::Type::STRING)
-					found = [_property.getProperty<SPropertyElementData::Type::STRING>()];
-				if (found!=.end())
+					found = StringToType.find(_property.getProperty<SPropertyElementData::Type::STRING>());
+				if (found==StringToType.end())
 				{
 					error = true;
 					return;
 				}
-				distribution = found->second;
+				state.distribution = found->second;
 			}
 			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
-	auto processAlpha = SET_XYZ(alpha,AllDiffuse);
-	auto processAlphaU = SET_XYZ(alphaU,AllDiffuse);
-	auto processAlphaV = SET_XYZ(alphaV,AllDiffuse);
+#define TRANSMISSIVE_TYPES AllDielectric,AllPlastic,AllCoating
+#define SPECULAR_TYPES TRANSMISSIVE_TYPES,AllConductor
+	auto processAlpha = SET_FLOAT(alpha, AllDiffuse,SPECULAR_TYPES);
+	auto processAlphaU = SET_FLOAT(alphaU, SPECULAR_TYPES);
+	auto processAlphaV = SET_FLOAT(alphaV, SPECULAR_TYPES);
 	auto processUseFastApprox = SET_PROPERTY_TEMPLATE(useFastApprox,SPropertyElementData::Type::BOOLEAN,AllDiffuse);
 	auto processIntIOR = [&]() -> void
 	{ 
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,AllDielectric>::value)
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<state_type,TRANSMISSIVE_TYPES>::value)
 			{
 				if (_property.type==SPropertyElementData::Type::FLOAT)
 					state.intIOR = _property.getProperty<SPropertyElementData::Type::FLOAT>();
 				else if (_property.type==SPropertyElementData::Type::STRING)
-					state.intIOR = TransmissiveBase::NamedIndicesOfRefraction[_property.getProperty<SPropertyElementData::Type::STRING>()];
+					state.intIOR = TransmissiveBase::findIOR(_property.getProperty<SPropertyElementData::Type::STRING>());
 				else
 					error = true;
 			}
@@ -375,21 +420,23 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,AllDielectric>::value)
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<state_type,TRANSMISSIVE_TYPES>::value)
 			{
 				if (_property.type==SPropertyElementData::Type::FLOAT)
 					state.extIOR = _property.getProperty<SPropertyElementData::Type::FLOAT>();
 				else if (_property.type==SPropertyElementData::Type::STRING)
-					state.extIOR = TransmissiveBase::NamedIndicesOfRefraction[_property.getProperty<SPropertyElementData::Type::STRING>()];
+					state.extIOR = TransmissiveBase::findIOR(_property.getProperty<SPropertyElementData::Type::STRING>());
 				else
 					error = true;
 			}
 			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
-	auto processSpecularReflectance = SET_XYZ(specularReflectance, AllDielectric);
-	auto processDiffuseReflectance = SET_XYZ(diffuseReflectance, AllDielectric);
-	auto processSpecularTransmittance = SET_XYZ(specularTransmittance, AllDielectric);
+	auto processSpecularReflectance = SET_SPECTRUM(specularReflectance, SPECULAR_TYPES,Phong,Ward);
+	auto processDiffuseReflectance = SET_SPECTRUM(diffuseReflectance, AllPlastic,Phong,Ward);
+	auto processSpecularTransmittance = SET_SPECTRUM(specularTransmittance, TRANSMISSIVE_TYPES);
+#undef SPECULAR_TYPES
+#undef TRANSMISSIVE_TYPES
 	auto processMaterial = [&]() -> void
 	{ 
 		dispatch([&](auto& state) -> void {
@@ -397,17 +444,10 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 
 			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,AllConductor>::value)
 			{
-				found;
-				if (_property.type==SPropertyElementData::Type::STRING)
-					found = [_property.getProperty<SPropertyElementData::Type::STRING>()];
-				if (found!=.end())
-				{
+				if (_property.type == SPropertyElementData::Type::STRING)
+					conductor = AllConductor(_property.getProperty<SPropertyElementData::Type::STRING>());
+				else
 					error = true;
-					return;
-				}
-
-				eta = ;
-				k = ;
 			}/*
 			IRR_PSEUDO_IF_CONSTEXPR_ELSE
 			{
@@ -419,8 +459,8 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
-	auto processEta = SET_XYZ(eta, AllConductor);
-	auto processK = SET_XYZ(k, AllConductor);
+	auto processEta = SET_SPECTRUM(eta, AllConductor);
+	auto processK = SET_SPECTRUM(k, AllConductor);
 	auto processExtEta = [&]() -> void
 	{ 
 		dispatch([&](auto& state) -> void {
@@ -431,7 +471,7 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 				if (_property.type==SPropertyElementData::Type::FLOAT)
 					state.extEta = _property.getProperty<SPropertyElementData::Type::FLOAT>();
 				else if (_property.type==SPropertyElementData::Type::STRING)
-					state.extEta = TransmissiveBase::NamedIndicesOfRefraction[_property.getProperty<SPropertyElementData::Type::STRING>()];
+					state.extEta = TransmissiveBase::findIOR(_property.getProperty<SPropertyElementData::Type::STRING>());
 				else
 					error = true;
 			}
@@ -440,8 +480,8 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 	};
 	auto processNonlinear = SET_PROPERTY_TEMPLATE(nonlinear, SPropertyElementData::Type::BOOLEAN, AllPlastic);
 	auto processThickness = SET_PROPERTY_TEMPLATE(thickness, SPropertyElementData::Type::FLOAT, AllCoating);
-	auto processSigmaA = SET_XYZ(sigmaA, AllCoating);
-	auto processExponent = SET_XYZ(exponent, Phong);
+	auto processSigmaA = SET_SPECTRUM(sigmaA, AllCoating);
+	auto processExponent = SET_FLOAT(exponent, Phong);
 	auto processVariant = [&]() -> void
 	{ 
 		dispatch([&](auto& state) -> void {
@@ -458,7 +498,7 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 				auto found = StringToType.end();
 				if (_property.type==SPropertyElementData::Type::STRING)
 					found = StringToType.find(_property.getProperty<SPropertyElementData::Type::STRING>());
-				if (found!=StringToType.end())
+				if (found==StringToType.end())
 				{
 					error = true;
 					return;
@@ -475,21 +515,23 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 
 			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,MixtureBSDF>::value)
 			{
-				std::istringstream sstr;
-				if (_property.type==SPropertyElementData::Type::STRING)
-					sstr = _property.getProperty<SPropertyElementData::Type::STRING>();
-				
-				while (pop)
+				if (_property.type == SPropertyElementData::Type::STRING)
 				{
-					state.weights[state.weight++] = ;
+					error = true;
+					return;
 				}
+
+				std::istringstream sstr(_property.getProperty<SPropertyElementData::Type::STRING>());
+				std::string token;
+				while (std::getline(sstr, token, ','))
+					state.weights[state.weightCount++] = std::stof(token);
 			}
 			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
-	auto processWeight = SET_XYZ(weight, BlendBSDF);
-	auto processOpacity = SET_XYZ(opacity, Mask);
-	auto processTransmittance = SET_XYZ(transmittance, DiffuseTransmitter);
+	auto processWeight = SET_FLOAT(weight, BlendBSDF);
+	auto processOpacity = SET_SPECTRUM(opacity, Mask);
+	auto processTransmittance = SET_SPECTRUM(transmittance, DiffuseTransmitter);
 	// TODO: set HK and IRAWAN parameters
 	/*
 	auto processField = [&]() -> void
@@ -514,6 +556,9 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 		});
 	};
 	*/
+#undef SET_FLOAT
+#undef SET_SPECTRUM
+#undef SET_PROPERTY_TEMPLATE
 	static const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{
 		{"reflectance",				processReflectance},
@@ -561,7 +606,7 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 }
 
 
-bool CElementBSDF::processChildData(IElement* _child, const char* name)
+bool CElementBSDF::processChildData(IElement* _child, const std::string& name)
 {
 	if (!_child)
 		return true;
@@ -570,6 +615,104 @@ bool CElementBSDF::processChildData(IElement* _child, const char* name)
 	{
 		case IElement::Type::TEXTURE:
 			{
+				auto _texture = static_cast<CElementTexture*>(_child);
+
+				bool error = false;
+				auto dispatch = [&](auto func) -> void
+				{
+					switch (type)
+					{
+						case CElementBSDF::Type::DIFFUSE:
+							_IRR_FALLTHROUGH;
+						case CElementBSDF::Type::ROUGHDIFFUSE:
+							func(diffuse);
+							break;
+						case CElementBSDF::Type::DIELECTRIC:
+							_IRR_FALLTHROUGH;
+						case CElementBSDF::Type::THINDIELECTRIC:
+							_IRR_FALLTHROUGH;
+						case CElementBSDF::Type::ROUGHDIELECTRIC:
+							func(dielectric);
+							break;
+						case CElementBSDF::Type::CONDUCTOR:
+							_IRR_FALLTHROUGH;
+						case CElementBSDF::Type::ROUGHCONDUCTOR:
+							func(conductor);
+							break;
+						case CElementBSDF::Type::PLASTIC:
+							_IRR_FALLTHROUGH;
+						case CElementBSDF::Type::ROUGHPLASTIC:
+							func(plastic);
+							break;
+						case CElementBSDF::Type::COATING:
+							_IRR_FALLTHROUGH;
+						case CElementBSDF::Type::ROUGHCOATING:
+							func(coating);
+							break;
+						case CElementBSDF::Type::BUMPMAP:
+							func(bumpmap);
+							break;
+						case CElementBSDF::Type::PHONG:
+							func(phong);
+							break;
+						case CElementBSDF::Type::WARD:
+							func(ward);
+							break;
+						case CElementBSDF::Type::MIXTURE_BSDF:
+							func(mixturebsdf);
+							break;
+						case CElementBSDF::Type::BLEND_BSDF:
+							func(blendbsdf);
+							break;
+						case CElementBSDF::Type::MASK:
+							func(mask);
+							break;
+						case CElementBSDF::Type::TWO_SIDED:
+							func(twosided);
+							break;
+						case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
+							func(difftrans);
+							break;
+						//case CElementBSDF::Type::HANRAHAN_KRUEGER:
+							//func(hk);
+							//break;
+						//case CElementBSDF::Type::IRAWAN_MARSCHNER:
+							//func(irwan);
+							//break;
+						default:
+							error = true;
+							break;
+					}
+				};
+#define SET_TEXTURE(MEMBER, ... )		[&]() -> void { \
+					dispatch([&](auto& state) -> void { \
+						IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+						{ \
+							state. ## MEMBER.value.type = SPropertyElementData::Type::INVALID; \
+							state. ## MEMBER.texture = _texture; \
+						} \
+						IRR_PSEUDO_IF_CONSTEXPR_END \
+					}); \
+				}
+
+				auto processReflectance = SET_TEXTURE(reflectance, AllDiffuse);
+#define TRANSMISSIVE_TYPES AllDielectric,AllPlastic,AllCoating
+#define SPECULAR_TYPES TRANSMISSIVE_TYPES,AllConductor
+				auto processAlpha = SET_TEXTURE(alpha, AllDiffuse,SPECULAR_TYPES);
+				auto processAlphaU = SET_TEXTURE(alphaU, SPECULAR_TYPES);
+				auto processAlphaV = SET_TEXTURE(alphaV, SPECULAR_TYPES);
+				auto processSpecularReflectance = SET_TEXTURE(specularReflectance, SPECULAR_TYPES,Phong,Ward);
+				auto processDiffuseReflectance = SET_TEXTURE(diffuseReflectance, AllPlastic,Phong,Ward);
+				auto processSpecularTransmittance = SET_TEXTURE(specularTransmittance, TRANSMISSIVE_TYPES);
+				auto processSigmaA = SET_TEXTURE(sigmaA, AllCoating);
+				auto processExponent = SET_TEXTURE(exponent, Phong);
+				auto processWeight = SET_TEXTURE(weight, BlendBSDF);
+				auto processOpacity = SET_TEXTURE(opacity, Mask);
+				auto processTransmittance = SET_TEXTURE(transmittance, DiffuseTransmitter);
+#undef TRANSMISSIVE_TYPES
+#undef SPECULAR_TYPES
+#undef SET_TEXTURE
+
 				static const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetChildMap =
 				{
 					{"reflectance",				processReflectance},
@@ -581,13 +724,14 @@ bool CElementBSDF::processChildData(IElement* _child, const char* name)
 					{"specularTransmittance",	processSpecularTransmittance},
 					{"sigmaA",					processSigmaA},
 					{"exponent",				processExponent},
+					{"weight",					processWeight},
+					{"opacity",					processOpacity},
 					{"transmittance",			processTransmittance}//,
 					//{"sigmaS",				processSigmaS},
 					//{"sigmaT",				processSigmaT},
 					//{"albedo",				processAlbedo}
 				};
 
-				auto _texture = static_cast<CElementTexture*>(_child);
 				auto found = SetChildMap.find(name);
 				if (found==SetChildMap.end())
 				{
@@ -598,13 +742,16 @@ bool CElementBSDF::processChildData(IElement* _child, const char* name)
 							break;
 						default:
 							_IRR_DEBUG_BREAK_IF(true);
-							ParserLog::invalidXMLFileStructure("No BSDF can have such property set with name: " + _child.name);
+							ParserLog::invalidXMLFileStructure("No BSDF can have such property set with name: " + name);
 							return false;
 							break;
 					}
 				}
 				else
 					found->second();
+
+				if (error)
+					return false;
 			}
 			break;
 		case IElement::Type::BSDF:

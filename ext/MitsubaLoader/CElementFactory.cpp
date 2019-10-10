@@ -10,62 +10,42 @@ namespace MitsubaLoader
 {
 
 
-IElement* CElementFactory::processAlias(const char** _atts, ParserManager* _util)
+CElementFactory::return_type CElementFactory::processAlias(const char** _atts, ParserManager* _util)
 {
 	const char* id = nullptr;
 	const char* as = nullptr;
-	if (IElement::areAttributesInvalid(_atts, 2u))
-		return nullptr;
-	if (core::strcmpi(_atts[0], "id")==0)
+	std::string name;
+	if (IElement::areAttributesInvalid(_atts, 4u))
+		return CElementFactory::return_type(nullptr,std::move(name));
+
+	while (*_atts)
 	{
-		if (core::strcmpi(_atts[2], "id")==0)
-			return nullptr;
-		id = _atts[3];
-		if (core::strcmpi(_atts[0], "as")==0)
+		if (core::strcmpi(_atts[0], "id")==0)
+			id = _atts[1];
+		else if (core::strcmpi(_atts[0], "as")==0)
 			as = _atts[1];
+		else if (core::strcmpi(_atts[0], "name")==0)
+			name = _atts[1];
+		_atts += 2;
 	}
-	else
-	{
-		id = _atts[1];
-		if (core::strcmpi(_atts[2], "as")==0)
-			as = _atts[3];
-	}
+
+	if (!id || !as)
+		return CElementFactory::return_type(nullptr,std::move(name));
 
 	auto* original = _util->handles[id];
 	_util->handles[as] = original;
-	return original;
+	return CElementFactory::return_type(original,std::move(name));
 }
-IElement* CElementFactory::processRef(const char** _atts, ParserManager* _util)
-{
-	const char* id = nullptr;
-	const char* name = nullptr;
-	if (IElement::areAttributesInvalid(_atts, 2u))
-		return nullptr;
-	if (core::strcmpi(_atts[0], "id")==0)
-	{
-		if (core::strcmpi(_atts[2], "id")==0)
-			return nullptr;
-		id = _atts[3];
-		if (core::strcmpi(_atts[0], "name")==0)
-			name = _atts[1];
-	}
-	else
-	{
-		id = _atts[1];
-		if (core::strcmpi(_atts[2], "name")==0)
-			name = _atts[3];
-	}
 
-	if (name)
-	{
-		assert(false); // TODO: proper name handling (stack must consist of name + element pointer = addChild needs a rework)
-		return nullptr;
-	}
+CElementFactory::return_type CElementFactory::processRef(const char** _atts, ParserManager* _util)
+{
+	const char* id;
+	std::string name;
+	if (!IElement::getIDAndName(id,name,_atts))
+		return CElementFactory::return_type(nullptr, std::move(name));
 
 	auto* original = _util->handles[id];
-	// do it but need to give it a different name as parameter input :s
-
-	return original;
+	return CElementFactory::return_type(original, std::move(name));
 }
 
 

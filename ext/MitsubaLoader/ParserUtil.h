@@ -127,7 +127,7 @@ class ParserManager
 		/*stack of currently processed elements
 		each element of index N is parent of the element of index N+1
 		the scene element is a parent of all elements of index 0 */
-		core::stack<IElement*> elements; 
+		core::stack<std::pair<IElement*,std::string> > elements; 
 
 		ParserFlowController pfc;
 

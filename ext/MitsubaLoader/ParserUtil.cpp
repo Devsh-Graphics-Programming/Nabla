@@ -107,14 +107,14 @@ void ParserManager::parseElement(const char* _el, const char** _atts)
 		return;
 	}
 
-	IElement* el = found->second.first(_atts, this);
+	auto el = found->second.first(_atts, this);
 	bool goesOnStack = found->second.second;
 	if (!goesOnStack)
 		return;
 	
 	elements.push(el);
-	if (el && el->id.size())
-		handles[el->id] = el;
+	if (el.first && el.first->id.size())
+		handles[el.first->id] = el.first;
 }
 
 void ParserManager::processProperty(const char* _el, const char** _atts)
@@ -124,7 +124,7 @@ void ParserManager::processProperty(const char* _el, const char** _atts)
 		killParseWithError("cannot set a property with no element on the stack.");
 		return;
 	}
-	if (!elements.top())
+	if (!elements.top().first)
 	{
 		ParserLog::invalidXMLFileStructure("cannot set property on element that failed to be created.");
 		return;
@@ -138,7 +138,7 @@ void ParserManager::processProperty(const char* _el, const char** _atts)
 		return;
 	}
 
-	elements.top()->addProperty(std::move(optProperty.second));
+	elements.top().first->addProperty(std::move(optProperty.second));
 
 	return;
 }
@@ -164,20 +164,20 @@ void ParserManager::onEnd(const char* _el)
 		return;
 
 
-	IElement* element = elements.top();
+	auto element = elements.top();
 	elements.pop();
 
-	if (!element->onEndTag(m_override, m_globalMetadata.get()))
+	if (!element.first->onEndTag(m_override, m_globalMetadata.get()))
 	{
-		killParseWithError(element->getLogName()+" could not onEndTag");
+		killParseWithError(element.first->getLogName()+" could not onEndTag");
 		return;
 	}
 
 	if (!elements.empty())
 	{
-		IElement* parent = elements.top();
-		if (!parent->processChildData(element,name))
-			killParseWithError(element->getLogName() + " could not processChildData with name: "+name);
+		IElement* parent = elements.top().first;
+		if (!parent->processChildData(element.first,element.second))
+			killParseWithError(element.first->getLogName() + " could not processChildData with name: "+element.second);
 
 		return;
 	}

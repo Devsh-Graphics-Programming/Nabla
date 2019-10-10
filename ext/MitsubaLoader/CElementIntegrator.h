@@ -268,7 +268,7 @@ class CElementIntegrator : public IElement
 		IElement::Type getType() const override { return IElement::Type::INTEGRATOR; }
 		std::string getLogName() const override { return "integrator"; }
 
-		bool processChildData(IElement* _child) override
+		bool processChildData(IElement* _child, const std::string& name) override
 		{
 			if (!_child)
 				return true;

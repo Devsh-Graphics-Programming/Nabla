@@ -216,7 +216,7 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 
 	_IRR_DEBUG_BREAK_IF(!success);
 	if (success)
-		return std::make_pair(true, result);
+		return std::make_pair(true, std::move(result));
 
 	ParserLog::invalidXMLFileStructure("invalid element, name:\'" + result.name + "\'"); // in the future print values
 	return std::make_pair(false, SNamedPropertyElement());

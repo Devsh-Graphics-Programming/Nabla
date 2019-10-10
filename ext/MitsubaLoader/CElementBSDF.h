@@ -43,13 +43,29 @@ class CElementBSDF : public IElement
 		struct DiffuseTransmitter
 		{
 			DiffuseTransmitter() : transmittance(0.5f) {}
+
+			inline DiffuseTransmitter& operator=(const DiffuseTransmitter& other)
+			{
+				transmittance = other.transmittance;
+				return *this;
+			}
+
 			CElementTexture::SpectrumOrTexture transmittance;
 		};
 		struct AllDiffuse
 		{
 			AllDiffuse() : reflectance(0.5f), alpha(0.2f), useFastApprox(false) {}
+
+			inline AllDiffuse& operator=(const AllDiffuse& other)
+			{
+				reflectance = other.reflectance;
+				alpha = other.alpha;
+				useFastApprox = other.useFastApprox;
+				return *this;
+			}
+
 			CElementTexture::SpectrumOrTexture	reflectance;
-			CElementTexture::SpectrumOrTexture	alpha; // not the parameter from Oren-Nayar
+			CElementTexture::FloatOrTexture		alpha; // not the parameter from Oren-Nayar
 			bool								useFastApprox;
 		};
 	struct RoughSpecularBase
@@ -214,6 +230,7 @@ class CElementBSDF : public IElement
 		};
 		struct MixtureBSDF : MetaBSDF
 		{
+			uint32_t weightCount = 0u;
 			float weights[MetaBSDF::MaxChildCount] = { 1.f };
 		};
 		struct BlendBSDF : MetaBSDF
@@ -239,7 +256,7 @@ class CElementBSDF : public IElement
 		// legacy and evil
 		struct Phong
 		{
-			float exponent = 30.f;
+			CElementTexture::FloatOrTexture exponent = 30.f;
 			CElementTexture::SpectrumOrTexture specularReflectance = 0.2f;
 			CElementTexture::SpectrumOrTexture diffuseReflectance = 0.5f;
 		};
@@ -339,7 +356,7 @@ class CElementBSDF : public IElement
 		IElement::Type getType() const override { return IElement::Type::BSDF; }
 		std::string getLogName() const override { return "bsdf"; }
 
-		bool processChildData(IElement* _child, const char* name) override;
+		bool processChildData(IElement* _child, const std::string& name) override;
 
 		//
 		Type type;

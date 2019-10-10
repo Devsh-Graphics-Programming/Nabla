@@ -49,38 +49,41 @@ class IElement
 		virtual bool addProperty(SNamedPropertyElement&& _property) = 0;
 		virtual bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) = 0;
 		//! default implementation for elements that doesnt have any children
-		virtual bool processChildData(IElement* _child, const char* name)
+		virtual bool processChildData(IElement* _child, const std::string& name)
 		{
 			return !_child;
 		}
 		//
-
+		/*
 		static inline bool getTypeString(std::add_lvalue_reference<const char*>::type outType, const char** _atts)
 		{
 			const char* thrownAwayID;
-			return getTypeAndIDStrings(outType,thrownAwayID,_atts);
-		}
-		static inline bool getTypeAndIDStrings(std::add_lvalue_reference<const char*>::type outType, std::add_lvalue_reference<const char*>::type outID, const char** _atts)
+			return getTypeIDAndNameStrings(outType,thrownAwayID,,_atts);
+		}*/
+		static inline bool getTypeIDAndNameStrings(std::add_lvalue_reference<const char*>::type outType, std::add_lvalue_reference<const char*>::type outID, std::string& name, const char** _atts)
 		{
 			outType = nullptr;
 			outID = nullptr;
+			name = "";
 			if (areAttributesInvalid(_atts,2u))
 				return false;
-			if (core::strcmpi(_atts[0],"type"))
+
+			while (*_atts)
 			{
-				if (!_atts[2] || core::strcmpi(_atts[2],"type"))
-					return false;
-				outType = _atts[3];
-				if (core::strcmpi(_atts[0], "id")==0)
+				if (core::strcmpi(_atts[0], "id") == 0)
 					outID = _atts[1];
+				else if (core::strcmpi(_atts[0], "type") == 0)
+					outType = _atts[1];
+				else if (core::strcmpi(_atts[0], "name") == 0)
+					name = _atts[1];
+				_atts += 2;
 			}
-			else
-			{
-				outType = _atts[1];
-				if (_atts[2] && core::strcmpi(_atts[2],"id")==0)
-					outID = _atts[3];
-			}
-			return true;
+			return outType;
+		}
+		static inline bool getIDAndName(std::add_lvalue_reference<const char*>::type id, std::string& name, const char** _atts)
+		{
+			const char* thrownAwayType;
+			return getTypeIDAndNameStrings(thrownAwayType,id,name,_atts);
 		}
 		static inline bool areAttributesInvalid(const char** _atts, uint32_t minAttrCount)
 		{
