@@ -88,8 +88,23 @@ public:
         float MinLod;
         float MaxLod;
 
-        //TODO not sure about this since there's a few unused bits in bitfields block (not sure they have any guaranteed value)
-        inline bool operator==(const SParams& rhs) const { return memcmp(this, &rhs, sizeof(*this))==0; }
+        inline bool operator==(const SParams& rhs) const
+        {
+            return 
+                TextureWrapU==rhs.TextureWrapU &&
+                TextureWrapV==rhs.TextureWrapV &&
+                TextureWrapW==rhs.TextureWrapW &&
+                BorderColor==rhs.BorderColor &&
+                MinFilter==rhs.MinFilter &&
+                MaxFilter==rhs.MaxFilter &&
+                MipmapMode==rhs.MipmapMode &&
+                AnisotropicFilter==rhs.AnisotropicFilter &&
+                CompareEnable==rhs.CompareEnable &&
+                CompareFunc==rhs.CompareFunc &&
+                LodBias==rhs.LodBias &&
+                MinLod==rhs.MinLod &&
+                MaxLod==rhs.MaxLod;
+        }
         inline bool operator!=(const SParams& rhs) const { return !((*this)==rhs); }
     } PACK_STRUCT;
 #include "irr/irrunpack.h"

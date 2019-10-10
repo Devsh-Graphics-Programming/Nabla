@@ -2304,16 +2304,10 @@ static GLenum getGLblendFunc(asset::E_BLEND_FACTOR bf)
 }
 static GLenum getGLblendEq(asset::E_BLEND_OP bo)
 {
-    using namespace asset;
-    switch (bo)
-    {
-    case EBO_ADD: return GL_FUNC_ADD;
-    case EBO_SUBTRACT: return GL_FUNC_SUBTRACT;
-    case EBO_REVERSE_SUBTRACT: return GL_FUNC_REVERSE_SUBTRACT;
-    case EBO_MIN: return GL_MIN;
-    case EBO_MAX: return GL_MAX;
-    default: return GL_INVALID_ENUM;
-    }
+    GLenum glbo[]{ GL_FUNC_ADD, GL_FUNC_SUBTRACT, GL_FUNC_REVERSE_SUBTRACT, GL_MIN, GL_MAX };
+    if (bo >= std::extent<decltype(glbo)>::value)
+        return GL_INVALID_ENUM;
+    return glbo[bo];
 }
 
 void COpenGLDriver::SAuxContext::updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline)
