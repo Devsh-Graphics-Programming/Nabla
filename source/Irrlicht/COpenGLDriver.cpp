@@ -1298,7 +1298,7 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     const std::string& EP = _specInfo->entryPoint;
     const asset::E_SHADER_STAGE stage = _specInfo->shaderStage;
 
-    const asset::ICPUShader* spvCPUShader = nullptr;
+    core::smart_refctd_ptr<const asset::ICPUShader> spvCPUShader = nullptr;
     if (cpuUnspec->containsGLSL()) {
         //TODO insert enabled extensions #defines into GLSL
         auto spvShader = core::smart_refctd_ptr<asset::ICPUShader>(
@@ -1311,16 +1311,14 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
         if (!spvShader)
             return nullptr;
 
-        spvCPUShader = spvShader.get();
-        spvCPUShader->grab();
+        spvCPUShader = core::smart_refctd_ptr<const asset::ICPUShader>(spvShader.get());
     }
     else {
-        spvCPUShader = cpuUnspec;
-        spvCPUShader->grab();
+        spvCPUShader = core::smart_refctd_ptr<const asset::ICPUShader>(cpuUnspec);
     }
 
     asset::CShaderIntrospector introspector(GLSLCompiler.get(), { _specInfo->entryPoint, _specInfo->shaderStage });
-    const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader);
+    const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get());
     if (introspection->pushConstant.present && introspection->pushConstant.info.name.empty())
     {
         assert(false);//abort on debug build
@@ -1330,7 +1328,6 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
 
     auto ctx = getThreadContext_helper(false);
     COpenGLSpecializedShader* gpuSpecialized = new COpenGLSpecializedShader(Params.AuxGLContexts + 1u, ctx->ID, this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, introspection);
-    spvCPUShader->drop();
     return core::smart_refctd_ptr<COpenGLSpecializedShader>(gpuSpecialized, core::dont_grab);
 }
 
