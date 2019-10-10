@@ -56,18 +56,15 @@ const core::unordered_map<std::string, std::pair<CElementFactory::element_creati
 	{"film",		{CElementFactory::createElement<CElementFilm>,true}},
 	{"rfilter",		{CElementFactory::createElement<CElementRFilter>,true}},
 	{"sampler",		{CElementFactory::createElement<CElementSampler>,true}},
+	{"shape",		{CElementFactory::createElement<CElementShape>,true}},
 	{"transform",	{CElementFactory::createElement<CElementTransform>,true}},
 	//{"animation",	{CElementFactory::createElement<CElementAnimation>,true}},
 	{"bsdf",		{CElementFactory::createElement<CElementBSDF>,true}},
 	{"texture",		{CElementFactory::createElement<CElementTexture>,true}},
+	{"emitter",		{CElementFactory::createElement<CElementEmitter>,true}},
 	{"alias",		{CElementFactory::processAlias,true}},
 	{"ref",			{CElementFactory::processRef,true}}
 };
-/*
-_IRR_STATIC_INLINE_CONSTEXPR const char* complexElements[] = {
-	"shape","emitter"
-};
-*/
 
 }
 }
