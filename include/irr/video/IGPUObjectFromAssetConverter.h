@@ -226,6 +226,12 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
         }
 
         (*res)[i] = core::make_smart_refctd_ptr<IGPUMeshBuffer>(std::move(gpuppln), std::move(gpuds), vtxBindings, std::move(idxBinding));
+        const core::aabbox3df oldBBox = cpumb->getBoundingBox();
+        if (cpumb->getMeshBufferType() != asset::EMBT_ANIMATED_SKINNED)
+            cpumb->recalculateBoundingBox();
+        (*res)[i]->setBoundingBox(cpumb->getBoundingBox());
+        if (cpumb->getMeshBufferType() != asset::EMBT_ANIMATED_SKINNED)
+            cpumb->setBoundingBox(oldBBox);
     }
 
     return res;
