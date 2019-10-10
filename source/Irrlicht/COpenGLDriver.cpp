@@ -980,7 +980,6 @@ bool COpenGLDriver::genericDriverInit()
 	// This fixes problems with intermediate changes to the material during texture load.
     SAuxContext* found = getThreadContext_helper(false);
     glEnable(GL_FRAMEBUFFER_SRGB);
-    glDisable(GL_DITHER);
     found->nextState.rasterParams.multisampleEnable = 0;
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
     found->nextState.rasterParams.clipControl.origin = GL_UPPER_LEFT;

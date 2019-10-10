@@ -7,7 +7,6 @@
 #include "COpenGLDriver.h"
 #include "ISceneManager.h"
 #include "ICameraSceneNode.h"
-#include "IMaterialRenderer.h"
 #include "os.h"
 #include "irr/video/CGPUMesh.h"
 

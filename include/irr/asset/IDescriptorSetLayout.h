@@ -49,7 +49,7 @@ public:
                 return false;
 
             for (uint32_t i = 0u; i < count; ++i)
-                if (samplers[i]->getParams() != rhs.samplers[i]->getParams())
+                if (samplers[i] != rhs.samplers[i])
                     return false;
 
             return true;
