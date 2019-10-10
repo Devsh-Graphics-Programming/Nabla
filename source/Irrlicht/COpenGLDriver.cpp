@@ -2192,7 +2192,7 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
         //unbind previous descriptors if needed (if bindings not replaced by new multibind calls)
         int64_t prevUboCount = 0u, prevSsboCount = 0u, prevTexCount = 0u, prevImgCount = 0u;
         {
-            const auto& first_count = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline->getLayout())->getMultibindParamsForDescSet(video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u);
+            const auto& first_count = static_cast<const COpenGLPipelineLayout*>(prevPipeline->getLayout())->getMultibindParamsForDescSet(video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u);
 
             prevUboCount = first_count.ubos.first + first_count.ubos.count;
             prevSsboCount = first_count.ssbos.first + first_count.ssbos.count;
