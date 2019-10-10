@@ -757,8 +757,11 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	GLint num = 0;
 
 	glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &reqUBOAlignment);
+    assert(core::is_alignment(reqUBOAlignment));
 	glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &reqSSBOAlignment);
+    assert(core::is_alignment(reqSSBOAlignment));
 	glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &reqTBOAlignment);
+    assert(core::is_alignment(reqTBOAlignment));
 
     extGlGetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, reinterpret_cast<GLint64*>(&maxUBOSize));
     extGlGetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, reinterpret_cast<GLint64*>(&maxSSBOSize));

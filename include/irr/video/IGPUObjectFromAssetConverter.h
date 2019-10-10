@@ -30,7 +30,7 @@ class IGPUObjectFromAssetConverter
 		virtual ~IGPUObjectFromAssetConverter() = default;
 
 		inline virtual created_gpu_object_array<asset::ICPUBuffer>				            create(asset::ICPUBuffer** const _begin, asset::ICPUBuffer** const _end);
-		inline virtual created_gpu_object_array<asset::ICPUMeshBuffer>			            create(asset::ICPUMeshBuffer** const _begin, asset::ICPUMeshBuffer** const _end); // soon ICPUMeshBuffer will hold all its own buffer bindings
+		inline virtual created_gpu_object_array<asset::ICPUMeshBuffer>			            create(asset::ICPUMeshBuffer** const _begin, asset::ICPUMeshBuffer** const _end);
 		inline virtual created_gpu_object_array<asset::ICPUMesh>				            create(asset::ICPUMesh** const _begin, asset::ICPUMesh** const _end);
 		inline virtual created_gpu_object_array<asset::ICPUTexture>				            create(asset::ICPUTexture** const _begin, asset::ICPUTexture** const _end);
         inline virtual created_gpu_object_array<asset::ICPUShader>				            create(asset::ICPUShader** const _begin, asset::ICPUShader** const _end);

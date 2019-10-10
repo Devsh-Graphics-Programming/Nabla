@@ -1090,7 +1090,6 @@ class COpenGLExtensionHandler
     static void setPixelUnpackAlignment(const uint32_t &pitchInBytes, void* ptr, const uint32_t& minimumAlignment=1);
 
     static void extGlCreateSamplers(GLsizei n, GLuint* samplers);
-    static void extGlGenSamplers(GLsizei n, GLuint* samplers);
     static void extGlDeleteSamplers(GLsizei n, GLuint* samplers);
     static void extGlBindSamplers(const GLuint& first, const GLsizei& count, const GLuint* samplers);
     static void extGlSamplerParameteri(GLuint sampler, GLenum pname, GLint param);
@@ -2489,12 +2488,6 @@ inline void COpenGLExtensionHandler::extGlCreateSamplers(GLsizei n, GLuint* samp
     else if (pGlGenSamplers)
         pGlGenSamplers(n, samplers);
     else memset(samplers, 0, 4*n);
-}
-
-inline void COpenGLExtensionHandler::extGlGenSamplers(GLsizei n, GLuint* samplers)
-{
-    if (pGlGenSamplers)
-        pGlGenSamplers(n,samplers);
 }
 
 inline void COpenGLExtensionHandler::extGlDeleteSamplers(GLsizei n, GLuint* samplers)

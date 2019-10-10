@@ -81,15 +81,21 @@ public:
 
     inline bool isAttributeEnabled(uint32_t attrId) const
     {
+        if (attrId >= MAX_VERTEX_ATTRIB_COUNT)
+            return false;
         const auto& vtxInputParams = m_pipeline->getVertexInputParams();
         if (!(vtxInputParams.enabledAttribFlags & (1u<<attrId)))
             return false;
+        return true;
     }
     inline bool isVertexAttribBufferBindingEnabled(uint32_t bndId) const
     {
+        if (bndId >= MAX_ATTR_BUF_BINDING_COUNT)
+            return false;
         const auto& vtxInputParams = m_pipeline->getVertexInputParams();
         if (!(vtxInputParams.enabledBindingFlags & (1u<<bndId)))
             return false;
+        return true;
     }
     //! WARNING: does not check whether attribute and binding are enabled!
     inline uint32_t getBindingNumForAttribute(uint32_t attrId) const

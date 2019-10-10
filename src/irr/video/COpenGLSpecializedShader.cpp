@@ -147,6 +147,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
     if (m_uniformsList.empty())
         buildUniformsList(_GLname);
 
+    //TODO alignment check, assert that uniform ptr is aligned to alignof(uniformType)
     using gl = COpenGLExtensionHandler;
     for (const SUniform& u : m_uniformsList)
     {

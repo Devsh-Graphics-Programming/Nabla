@@ -1338,7 +1338,7 @@ core::smart_refctd_ptr<IGPUBufferView> COpenGLDriver::createGPUBufferView(IGPUBu
     const size_t effectiveSize = (_size != IGPUBufferView::whole_buffer) ? (_underlying->getSize() - _offset) : _size;
     if ((_offset + effectiveSize) > _underlying->getSize())
         return nullptr;
-    if ((_offset / reqTBOAlignment)*reqTBOAlignment != _offset) //offset must be aligned to GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT
+    if (!core::is_aligned_to(_offset, reqTBOAlignment)) //offset must be aligned to GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT
         return nullptr;
     if (!isAllowedBufferViewFormat(_fmt))
         return nullptr;
@@ -1898,16 +1898,15 @@ static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
 void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
 {
     core::smart_refctd_ptr<COpenGLRenderpassIndependentPipeline> prevPipeline = currentState.pipeline;
-    if (stateBits & GSB_PIPELINE)
+    if (stateBits & GSB_PIPELINE_AND_RASTER_PARAMETERS)
     {
         if (nextState.pipeline != currentState.pipeline) {
             //TODO find pipeline GL name in cache and bind
             //COpenGLExtensionHandler::extGlBindProgramPipeline(nextState.pipeline);
         }
         currentState.pipeline = nextState.pipeline;
-    }
-    if (stateBits & GSB_RASTER_PARAMETERS)
-    {
+
+
 #define STATE_NEQ(member) (nextState.member != currentState.member)
 #define UPDATE_STATE(member) (currentState.member = nextState.member)
         decltype(glEnable)* disable_enable_fptr[2]{ &glDisable, &glEnable };
@@ -2279,12 +2278,12 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
 
 static GLenum getGLpolygonMode(asset::E_POLYGON_MODE pm)
 {
-    const GLenum glpm[3]{ GL_FILL, GL_LINE, GL_POINT };
+    const static GLenum glpm[3]{ GL_FILL, GL_LINE, GL_POINT };
     return glpm[pm];
 }
 static GLenum getGLcullFace(asset::E_FACE_CULL_MODE cf)
 {
-    const GLenum glcf[4]{ 0, GL_FRONT, GL_BACK, GL_FRONT_AND_BACK };
+    const static GLenum glcf[4]{ 0, GL_FRONT, GL_BACK, GL_FRONT_AND_BACK };
     return glcf[cf];
 }
 static GLenum getGLstencilOp(asset::E_STENCIL_OP so)
@@ -2433,6 +2432,8 @@ void COpenGLDriver::SAuxContext::updateNextState_pipelineAndRaster(const IGPURen
     raster_dst.depthTestEnable = raster_src.depthTestEnable;
     raster_dst.depthWriteEnable = raster_src.depthWriteEnable;
     raster_dst.stencilTestEnable = raster_src.stencilTestEnable;
+
+    raster_dst.multisampleEnable = (raster_src.rasterizationSamplesHint > asset::ESC_1_BIT);
 
     const auto& blend_src = ppln->getBlendParams();
     raster_dst.logicOpEnable = blend_src.logicOpEnable;
@@ -2963,13 +2964,20 @@ void COpenGLDriver::clearZBuffer(const float &depth)
         return;
 
 
+    GLboolean depthWrite = found->nextState.rasterParams.depthWriteEnable;
+    GLboolean rasterizerDiscard = found->nextState.rasterParams.rasterizerDiscardEnable;
+
     found->nextState.rasterParams.depthWriteEnable = 1;
-    found->flushState(GSB_RASTER_PARAMETERS);
+    found->nextState.rasterParams.rasterizerDiscardEnable = 0;
+    found->flushState(GSB_PIPELINE_AND_RASTER_PARAMETERS);
 
     if (found->CurrentFBO)
         extGlClearNamedFramebufferfv(found->CurrentFBO->getOpenGLName(),GL_DEPTH,0,&depth);
     else
         extGlClearNamedFramebufferfv(0,GL_DEPTH,0,&depth);
+
+    found->nextState.rasterParams.depthWriteEnable = depthWrite;
+    found->nextState.rasterParams.rasterizerDiscardEnable = rasterizerDiscard;
 }
 
 void COpenGLDriver::clearStencilBuffer(const int32_t &stencil)
