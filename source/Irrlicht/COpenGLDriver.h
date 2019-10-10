@@ -113,11 +113,6 @@ namespace video
                 GLenum depth = GL_NEGATIVE_ONE_TO_ONE;
                 bool operator!=(const SClipCtrl& rhs) const { return origin!=rhs.origin || depth!=rhs.depth; }
             } clipControl;
-            struct SDepthRng {
-                GLclampd znear = 0.0;
-                GLclampd zfar = 1.0;
-                bool operator!=(const SDepthRng& rhs) const { return znear!=rhs.znear || zfar!=rhs.zfar; }
-            } depthRange;
             GLboolean primitiveRestartEnable = 0;
 
             GLboolean logicOpEnable = 0;

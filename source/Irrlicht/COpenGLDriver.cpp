@@ -979,13 +979,12 @@ bool COpenGLDriver::genericDriverInit()
 	// We need to reset once more at the beginning of the first rendering.
 	// This fixes problems with intermediate changes to the material during texture load.
     SAuxContext* found = getThreadContext_helper(false);
-    glEnable(GL_FRAMEBUFFER_SRGB);
+    glEnable(GL_FRAMEBUFFER_SRGB);//once set and should never change (engine doesnt track it)
+    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);//once set and should never change (engine doesnt track it)
+    glDepthRange(1.0, 0.0);//once set and should never change (engine doesnt track it)
     found->nextState.rasterParams.multisampleEnable = 0;
-    glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
     found->nextState.rasterParams.clipControl.origin = GL_UPPER_LEFT;
     found->nextState.rasterParams.clipControl.depth = GL_ZERO_TO_ONE;
-    found->nextState.rasterParams.depthRange.znear = 1.0;
-    found->nextState.rasterParams.depthRange.zfar = 0.0;
     found->nextState.rasterParams.depthFunc = GL_GEQUAL;
     found->nextState.rasterParams.frontFace = GL_CCW;
 
@@ -2007,10 +2006,6 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
         if (STATE_NEQ(rasterParams.clipControl)) {
             COpenGLExtensionHandler::extGlClipControl(nextState.rasterParams.clipControl.origin, nextState.rasterParams.clipControl.depth);
             UPDATE_STATE(rasterParams.clipControl);
-        }
-        if (STATE_NEQ(rasterParams.depthRange)) {
-            glDepthRange(nextState.rasterParams.depthRange.znear, nextState.rasterParams.depthRange.zfar);
-            UPDATE_STATE(rasterParams.depthRange);
         }
         if (STATE_NEQ(rasterParams.primitiveRestartEnable)) {
             disable_enable_fptr[nextState.rasterParams.primitiveRestartEnable](GL_PRIMITIVE_RESTART);
