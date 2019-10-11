@@ -27,20 +27,20 @@ public:
     {
         struct SMultibindBuffers
         {
-            const GLuint* buffers;
-            const GLintptr* offsets;
-            const GLsizeiptr* sizes;
+            const GLuint* buffers = nullptr;
+            const GLintptr* offsets = nullptr;
+            const GLsizeiptr* sizes = nullptr;
         };
         struct SMultibindTextures
         {
-            const GLuint* textures;
-            const GLenum* targets;//for when ARB_multi_bind isn't there
-            const GLuint* samplers;
+            const GLuint* textures = nullptr;
+            const GLenum* targets = nullptr;//for when ARB_multi_bind isn't there
+            const GLuint* samplers = nullptr;
         };
         struct SMultibindTextureImages
         {
-            const GLuint* textures;
-            const GLenum* formats;
+            const GLuint* textures = nullptr;
+            const GLenum* formats = nullptr;
         };
         
         SMultibindBuffers ubos;

@@ -10,9 +10,7 @@ namespace irr { namespace asset
 
 enum E_DESCRIPTOR_TYPE
 {
-    EDT_SAMPLER = 0,
     EDT_COMBINED_IMAGE_SAMPLER = 1,
-    EDT_SAMPLED_IMAGE = 2,
     EDT_STORAGE_IMAGE = 3,
     EDT_UNIFORM_TEXEL_BUFFER = 4,
     EDT_STORAGE_TEXEL_BUFFER = 5,
