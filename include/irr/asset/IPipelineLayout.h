@@ -69,7 +69,7 @@ public:
     */
     uint32_t isCompatibleForSet(const uint32_t _setNum, const IPipelineLayout<DescLayoutType>* _other) const
     {
-        if ((_setNum >= DESCRIPTOR_SET_COUNT) || !isCompatibleForPushConstants(_other))
+        if ((_setNum >= DESCRIPTOR_SET_COUNT)) //vulkan would also care about push constant ranges compatibility here
             return DESCRIPTOR_SET_COUNT;
 
         for (uint32_t i = 0u; i <= _setNum; ++i)
