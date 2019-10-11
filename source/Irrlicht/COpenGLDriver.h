@@ -154,7 +154,12 @@ namespace video
         } vertexInputParams;
 
         struct {
-            core::smart_refctd_ptr<const COpenGLDescriptorSet> descSets[video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
+            struct SDescSetBnd {
+                core::smart_refctd_ptr<const COpenGLPipelineLayout> pplnLayout;
+                core::smart_refctd_ptr<const COpenGLDescriptorSet> set;
+                core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets;
+            };
+            SDescSetBnd descSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
         } descriptorsParams;
     };
 
@@ -584,8 +589,8 @@ namespace video
 
         bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override;
 
-        bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, uint32_t _first, uint32_t _count,
-            video::IGPUDescriptorSet** _descSets, uint32_t _dynOffsetCount, const uint32_t* _dynOffsets) override;
+        bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
+            uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override;
 
         core::smart_refctd_ptr<IGPUShader> createGPUShader(const asset::ICPUShader* _cpushader) override;
         core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) override;

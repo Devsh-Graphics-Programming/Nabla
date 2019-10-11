@@ -1242,45 +1242,55 @@ bool COpenGLDriver::bindGraphicsPipeline(video::IGPURenderpassIndependentPipelin
 
     ctx->updateNextState_pipelineAndRaster(_gpipeline);
 
-    //all code below this line is descriptor set bindings invalidation according to pipeline layout compatibility rules (https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#descriptorsets-compatibility)
-    if (!ctx->currentState.pipeline || !_gpipeline)
-    {
-        std::fill(ctx->nextState.descriptorsParams.descSets, ctx->nextState.descriptorsParams.descSets + IGPUPipelineLayout::DESCRIPTOR_SET_COUNT, nullptr);
-        return true;
-    }
-    
-    uint32_t compatibilityLimit = IGPUPipelineLayout::DESCRIPTOR_SET_COUNT;
-    if (ctx->currentState.pipeline)
-    {
-        const IGPUPipelineLayout* nextLayout = _gpipeline->getLayout();
-        compatibilityLimit = ctx->currentState.pipeline->getLayout()->isCompatibleForSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u, nextLayout);
-    }
-
-    if (compatibilityLimit == IGPUPipelineLayout::DESCRIPTOR_SET_COUNT)
-        std::fill(ctx->nextState.descriptorsParams.descSets, ctx->nextState.descriptorsParams.descSets + IGPUPipelineLayout::DESCRIPTOR_SET_COUNT, nullptr);
-    else
-    {
-        for (uint32_t i = compatibilityLimit+1u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
-            ctx->nextState.descriptorsParams.descSets[i] = nullptr;
-    }
-
     return true;
 }
 
-bool COpenGLDriver::bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, uint32_t _first, uint32_t _count, video::IGPUDescriptorSet** _descSets, uint32_t _dynOffsetCount, const uint32_t* _dynOffsets)
+bool COpenGLDriver::bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
+    uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets)
 {
     //TODO take into account `_pipelineType` param and adjust this function when compute pipelines come in
+    if (_first + _count >= IGPUPipelineLayout::DESCRIPTOR_SET_COUNT)
+        return false;
+
     SAuxContext* ctx = getThreadContext_helper(false);
     if (!ctx)
         return false;
 
-    if (_first + _count >= IGPUPipelineLayout::DESCRIPTOR_SET_COUNT)
-        return false;
+    uint32_t compatibilityLimits[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{}; //actually more like "compatibility limit + 1" (i.e. 0 mean not comaptible at all)
+    for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+    {
+        const uint32_t lim = ctx->nextState.descriptorsParams.descSets[i].pplnLayout ? //if no descriptor set bound at this index
+            ctx->nextState.descriptorsParams.descSets[i].pplnLayout->isCompatibleForSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u, _layout) : 0u;
+        
+        compatibilityLimits[i] = (lim == IGPUPipelineLayout::DESCRIPTOR_SET_COUNT) ? 0u : (lim + 1u);
+    }
 
-    for (uint32_t i = 0u; i < _count; ++i)
-        ctx->nextState.descriptorsParams.descSets[_first+i] = core::smart_refctd_ptr<IGPUDescriptorSet>(_descSets[i]);
+    /*
+    https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#descriptorsets-compatibility
+    When binding a descriptor set (see Descriptor Set Binding) to set number N, if the previously bound descriptor sets for sets zero through N-1 were all bound using compatible pipeline layouts, then performing this binding does not disturb any of the lower numbered sets.
+    */
+    for (uint32_t i = 0u; i < _first; i++)
+        if (compatibilityLimits[i] <= i)
+            ctx->nextState.descriptorsParams.descSets[i] = { nullptr,nullptr,nullptr };
 
-    //TODO dynamic offsets
+    /*
+    If, additionally, the previous bound descriptor set for set N was bound using a pipeline layout compatible for set N, then the bindings in sets numbered greater than N are also not disturbed.
+    */
+    if (compatibilityLimits[_first] <= _first)
+        for (uint32_t i = _first + _count; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
+            ctx->nextState.descriptorsParams.descSets[i] = { nullptr,nullptr,nullptr };
+
+    for (uint32_t i = 0u; i < _count; i++)
+    {
+        ctx->nextState.descriptorsParams.descSets[_first + i] = 
+        {
+        core::smart_refctd_ptr<const COpenGLPipelineLayout>(static_cast<const COpenGLPipelineLayout*>(_layout)),
+        core::smart_refctd_ptr<const COpenGLDescriptorSet>(static_cast<const COpenGLDescriptorSet*>(_descSets[i])),
+        std::move(_dynamicOffsets[i])
+        };
+    }
+
+    return true;
 }
 
 core::smart_refctd_ptr<IGPUShader> COpenGLDriver::createGPUShader(const asset::ICPUShader* _cpushader)
@@ -2160,7 +2170,7 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
 
             const auto& first_count = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline->getLayout())->getMultibindParamsForDescSet(i);
 
-            if (i < compatibilityLimitPlusOne)
+            if (i < compatibilityLimitPlusOne)//if prev and curr pipeline layouts are compatible for set N and currState.set[N]==nextState.set[N] then binding set N would be redundant
             {
                 GLsizei count{};
 
@@ -2180,9 +2190,11 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
                 continue;
             }
 
-            const auto& multibind_params = nextState.descriptorsParams.descSets[i] ? 
-                nextState.descriptorsParams.descSets[i]->getMultibindParams() :
+            const auto& multibind_params = nextState.descriptorsParams.descSets[i].set ? 
+                nextState.descriptorsParams.descSets[i].set->getMultibindParams() :
                 COpenGLDescriptorSet::SMultibindParams{};//all nullptr
+
+            //TODO dynamic offsets
 
             extGlBindBuffersRange(GL_UNIFORM_BUFFER, first_count.ubos.first, (newUboCount - first_count.ubos.first), multibind_params.ubos.buffers, multibind_params.ubos.offsets, multibind_params.ubos.sizes);
             extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, first_count.ssbos.first, (newSsboCount - first_count.ssbos.first), multibind_params.ubos.buffers, multibind_params.ubos.offsets, multibind_params.ubos.sizes);
@@ -2322,6 +2334,9 @@ void COpenGLDriver::SAuxContext::updateNextState_pipelineAndRaster(const IGPURen
     nextState.pipeline = core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline>(
         static_cast<const COpenGLRenderpassIndependentPipeline*>(_pipeline)
     );
+    if (_pipeline)
+        return;
+
     const auto& ppln = nextState.pipeline;
 
     const auto& raster_src = ppln->getRasterizationParams();

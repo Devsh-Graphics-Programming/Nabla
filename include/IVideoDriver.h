@@ -121,8 +121,9 @@ namespace video
 
         virtual bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) = 0;
 
-        virtual bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType,uint32_t _first, uint32_t _count,
-            video::IGPUDescriptorSet** _descSets, uint32_t _dynOffsetCount, const uint32_t* _dynOffsets) = 0;
+        //! WARNING: Note that elements of _dynamicOffsets will be moved-assigned!
+        virtual bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
+            uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) = 0;
 
 		//! Applications must call this method before performing any rendering.
 		/** This method can clear the back- and the z-buffer.
