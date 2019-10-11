@@ -21,27 +21,6 @@ namespace MitsubaLoader
 {
 
 	   	  
-//now unsupported elements (like  <sensor> (for now), for example) and its children elements will be ignored
-class ParserFlowController
-{
-public:
-	ParserFlowController()
-		:isParsingSuspendedFlag(false) {};
-
-	bool suspendParsingIfElNotSupported(const std::string& _el);
-	void checkForUnsuspend(const std::string& _el);
-
-	inline bool isParsingSuspended() const { return isParsingSuspendedFlag; }
-
-private:
-	_IRR_STATIC_INLINE_CONSTEXPR const char* unsElements[] =
-	{ 
-		"animation", "medium", "default", nullptr 
-	};
-	bool isParsingSuspendedFlag;
-	std::string notSupportedElement;
-
-};
 
 class ParserLog
 {
@@ -79,9 +58,6 @@ class ParserManager
 								m_globalMetadata(core::make_smart_refctd_ptr<CGlobalMitsubaMetadata>())
 		{
 		}
-
-		auto& getParserFlowController() { return pfc; }
-		auto& getParserFlowController() const { return pfc; }
 
 		inline void killParseWithError(const std::string& message)
 		{
@@ -128,8 +104,6 @@ class ParserManager
 		each element of index N is parent of the element of index N+1
 		the scene element is a parent of all elements of index 0 */
 		core::stack<std::pair<IElement*,std::string> > elements; 
-
-		ParserFlowController pfc;
 
 		friend class CElementFactory;
 };

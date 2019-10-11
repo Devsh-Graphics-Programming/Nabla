@@ -99,10 +99,10 @@ class CElementShape : public IElement
 			CElementTexture* texture;
 		};*/
 
-		CElementShape(const char* id) : IElement(id), type(Type::INVALID), /*toWorldType(IElement::Type::TRANSFORM),*/ transform(), bsdf(""), emitter("")
+		CElementShape(const char* id) : IElement(id), type(Type::INVALID), /*toWorldType(IElement::Type::TRANSFORM),*/ transform(), bsdf(nullptr), emitter(nullptr)
 		{
 		}
-		CElementShape(const CElementShape& other) : IElement(""), transform(), bsdf(""), emitter("")
+		CElementShape(const CElementShape& other) : IElement(""), transform(), bsdf(nullptr), emitter(nullptr)
 		{
 			operator=(other);
 		}
@@ -194,8 +194,8 @@ class CElementShape : public IElement
 			//Heightfield	heightfield;
 		};
 		// optionals
-		CElementBSDF	bsdf;
-		CElementEmitter emitter;
+		CElementBSDF*	bsdf;
+		CElementEmitter*emitter;
 };
 
 

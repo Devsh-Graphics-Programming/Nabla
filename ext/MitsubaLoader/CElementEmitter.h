@@ -197,6 +197,12 @@ class CElementEmitter : public IElement
 					animation = anim;
 					return true;
 					break;*/
+				case IElement::Type::TEXTURE:
+					if (type!=SPOT || name!="texture")
+						return false;
+					spot.texture = static_cast<CElementTexture*>(_child);
+					return true;
+					break;
 				default:
 					break;
 			}

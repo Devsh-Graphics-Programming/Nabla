@@ -206,7 +206,7 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 					}
 					up[index] = 1.f;
 				}
-				result.mvalue = core::matrix4SIMD::buildCameraLookAtMatrixLH(origin,target,up); // is this correct?
+				result.mvalue = core::matrix4SIMD::buildCameraLookAtMatrixRH(origin,target,up);
 			}
 			break;
 		default:

@@ -255,13 +255,13 @@ bool CElementShape::processChildData(IElement* _child, const std::string& name)
 			}
 			break;
 		case IElement::Type::BSDF:
-			bsdf = *static_cast<CElementBSDF*>(_child);
-			if (bsdf.type != CElementBSDF::Type::INVALID)
+			bsdf = static_cast<CElementBSDF*>(_child);
+			if (bsdf->type != CElementBSDF::Type::INVALID)
 				return true;
 			break;
 		case IElement::Type::EMITTER:
-			emitter = *static_cast<CElementEmitter*>(_child);
-			if (emitter.type != CElementEmitter::Type::INVALID)
+			emitter = static_cast<CElementEmitter*>(_child);
+			if (emitter->type != CElementEmitter::Type::INVALID)
 				return true;
 			break;
 		default:

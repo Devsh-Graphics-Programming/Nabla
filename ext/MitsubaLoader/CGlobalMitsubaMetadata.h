@@ -21,7 +21,7 @@ class CGlobalMitsubaMetadata : public core::IReferenceCounted
 
 		CElementIntegrator integrator;
 		core::vector<CElementSensor> sensors;
-		//core::vector<Emitter> emitters;
+		core::vector<CElementEmitter> emitters;
 };
 
 

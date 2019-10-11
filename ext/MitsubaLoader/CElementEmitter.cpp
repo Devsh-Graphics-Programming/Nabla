@@ -141,26 +141,107 @@ bool CElementEmitter::addProperty(SNamedPropertyElement&& _property)
 			IRR_PSEUDO_IF_CONSTEXPR_END \
 		}); \
 	}
+#define SET_SPECTRUM(MEMBER, ... )		[&]() -> void { \
+		dispatch([&](auto& state) -> void { \
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+			{ \
+				switch (_property.type) { \
+					case SPropertyElementData::Type::FLOAT: \
+						state. ## MEMBER.x = state. ## MEMBER.y = state. ## MEMBER.z = _property.getProperty<SPropertyElementData::Type::FLOAT>(); \
+						break; \
+					case SPropertyElementData::Type::RGB: \
+						state. ## MEMBER = _property.getProperty<SPropertyElementData::Type::RGB>(); \
+						break; \
+					case SPropertyElementData::Type::SRGB: \
+						state. ## MEMBER = _property.getProperty<SPropertyElementData::Type::SRGB>(); \
+						break; \
+					default: \
+						error = true; \
+						break; \
+				} \
+			} \
+			IRR_PSEUDO_IF_CONSTEXPR_END \
+		}); \
+	}
 
 	auto setSamplingWeight = SET_PROPERTY_TEMPLATE(samplingWeight, SNamedPropertyElement::Type::FLOAT, Point,Area,Spot,Directional,Collimated,/*Sky,Sun,SunSky,*/EnvMap,Constant);
-	auto setIntensity = [&]() -> void {
-	};
+	auto setIntensity = SET_SPECTRUM(intensity, Point,Spot);
 	auto setPosition = [&]() -> void {
 		if (_property.type!=SNamedPropertyElement::Type::POINT || type!=Type::POINT)
 		{
 			error = true;
 			return;
 		}
-		transform.matrix.setTranslation(-_property.vvalue);
+		transform.matrix.setTranslation(_property.vvalue);
 	};
+	auto setRadiance = SET_SPECTRUM(radiance, Area,Constant);
+	auto setCutoffAngle = SET_PROPERTY_TEMPLATE(cutoffAngle, SNamedPropertyElement::Type::FLOAT, Spot);
+	auto setBeamWidth = SET_PROPERTY_TEMPLATE(beamWidth, SNamedPropertyElement::Type::FLOAT, Spot);
 	auto setDirection = [&]() -> void {
 		if (_property.type != SNamedPropertyElement::Type::VECTOR || type != Type::DIRECTIONAL)
 		{
 			error = true;
 			return;
 		}
-		transform.matrix = core::matrix4SIMD::buildCameraLookAtMatrixLH(-_property.vvalue);
+		core::vectorSIMDf up(0.f);
+		float maxDot = _property.vvalue[0];
+		uint32_t index = 0u;
+		for (auto i=1u; i<3u; i++)
+		if (_property.vvalue[i] < maxDot)
+		{
+			maxDot = _property.vvalue[i];
+			index = i;
+		}
+		up[index] = 1.f;
+		transform.matrix = core::matrix4SIMD::buildCameraLookAtMatrixRH(core::vectorSIMDf(),_property.vvalue,up);
 	};
+	auto setPower = SET_SPECTRUM(power, Collimated);
+	auto setFilename = [&]() -> void
+	{ 
+		dispatch([&](auto& state) -> void {
+			using state_type = std::remove_reference<decltype(state)>::type;
+
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,EnvMap>::value)
+			{
+				envmap.filename = std::move(_property);
+			}
+			IRR_PSEUDO_IF_CONSTEXPR_END
+		});
+	};
+	auto setScale = SET_PROPERTY_TEMPLATE(scale, SNamedPropertyElement::Type::FLOAT, EnvMap);
+	auto setGamma = SET_PROPERTY_TEMPLATE(gamma, SNamedPropertyElement::Type::FLOAT, EnvMap);
+	//auto setCache = SET_PROPERTY_TEMPLATE(cache, SNamedPropertyElement::Type::BOOLEAN, EnvMap);
+#undef SET_SPECTRUM
+#undef SET_PROPERTY_TEMPLATE
+	static const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
+	{
+		{"samplingWeight",	setSamplingWeight},
+		{"intensity",		setIntensity},
+		{"position",		setPosition},
+		{"radiance",		setRadiance},
+		{"cutoffAngle",		setCutoffAngle},
+		{"beamWidth",		setBeamWidth},
+		{"direction",		setDirection},
+		{"power",			setPower},/*
+		{"turbidity",		setTurbidity},
+		{"",				set},
+		{"sunRadiusScale",	setSunRadiusScale},*/
+		{"filename",		setFilename},
+		{"scale",			setScale},
+		{"gamma",			setGamma}//,
+		//{"cache",			setCache},
+	};
+
+	auto found = SetPropertyMap.find(_property.name);
+	if (found==SetPropertyMap.end())
+	{
+		_IRR_DEBUG_BREAK_IF(true);
+		ParserLog::invalidXMLFileStructure("No Emitter can have such property set with name: " + _property.name);
+		return false;
+	}
+
+	found->second();
+	return !error;
 }
 
 bool CElementEmitter::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata)

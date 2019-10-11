@@ -54,12 +54,6 @@ class IElement
 			return !_child;
 		}
 		//
-		/*
-		static inline bool getTypeString(std::add_lvalue_reference<const char*>::type outType, const char** _atts)
-		{
-			const char* thrownAwayID;
-			return getTypeIDAndNameStrings(outType,thrownAwayID,,_atts);
-		}*/
 		static inline bool getTypeIDAndNameStrings(std::add_lvalue_reference<const char*>::type outType, std::add_lvalue_reference<const char*>::type outID, std::string& name, const char** _atts)
 		{
 			outType = nullptr;
@@ -83,7 +77,8 @@ class IElement
 		static inline bool getIDAndName(std::add_lvalue_reference<const char*>::type id, std::string& name, const char** _atts)
 		{
 			const char* thrownAwayType;
-			return getTypeIDAndNameStrings(thrownAwayType,id,name,_atts);
+			getTypeIDAndNameStrings(thrownAwayType,id,name,_atts);
+			return id;
 		}
 		static inline bool areAttributesInvalid(const char** _atts, uint32_t minAttrCount)
 		{

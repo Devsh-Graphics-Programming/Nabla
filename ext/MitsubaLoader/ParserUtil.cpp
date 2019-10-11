@@ -48,15 +48,6 @@ static const core::unordered_set<std::string,core::CaseInsensitiveHash,core::Cas
 
 void ParserManager::parseElement(const char* _el, const char** _atts)
 {
-	if (!pfc.suspendParsingIfElNotSupported(_el))
-	{
-		ParserLog::invalidXMLFileStructure(std::string(_el) + " is not supported");
-		return;
-	}
-
-	if (pfc.isParsingSuspended())
-		return;
-
 	if (core::strcmpi(_el, "scene") == 0)
 	{
 		auto count = 0u;
@@ -103,7 +94,8 @@ void ParserManager::parseElement(const char* _el, const char** _atts)
 	auto found = _map.find(_el);
 	if (found==_map.end())
 	{
-		killParseWithError(std::string("Could not process element ") + _el);
+		ParserLog::invalidXMLFileStructure(std::string("Could not process element ") + _el);
+		elements.push({nullptr,""});
 		return;
 	}
 
@@ -144,13 +136,7 @@ void ParserManager::processProperty(const char* _el, const char** _atts)
 }
 
 void ParserManager::onEnd(const char* _el)
-{
-	if (pfc.isParsingSuspended())
-	{
-		pfc.checkForUnsuspend(_el);
-		return;
-	}
-	
+{	
 	if (propertyElements.find(_el)!=propertyElements.end())
 		return;
 
@@ -167,7 +153,7 @@ void ParserManager::onEnd(const char* _el)
 	auto element = elements.top();
 	elements.pop();
 
-	if (!element.first->onEndTag(m_override, m_globalMetadata.get()))
+	if (element.first && !element.first->onEndTag(m_override, m_globalMetadata.get()))
 	{
 		killParseWithError(element.first->getLogName()+" could not onEndTag");
 		return;
@@ -176,36 +162,16 @@ void ParserManager::onEnd(const char* _el)
 	if (!elements.empty())
 	{
 		IElement* parent = elements.top().first;
-		if (!parent->processChildData(element.first,element.second))
-			killParseWithError(element.first->getLogName() + " could not processChildData with name: "+element.second);
+		if (!parent->processChildData(element.first, element.second))
+		{
+			if (element.first)
+				killParseWithError(element.first->getLogName() + " could not processChildData with name: " + element.second);
+			else
+				killParseWithError("Failed to add a nullptr child with name: " + element.second);
+		}
 
 		return;
 	}
-}
-
-void ParserFlowController::checkForUnsuspend(const std::string& _el)
-{
-	if (_el == notSupportedElement.c_str())
-	{
-		isParsingSuspendedFlag = false;
-		notSupportedElement.clear();
-	}
-}
-
-bool ParserFlowController::suspendParsingIfElNotSupported(const std::string& _el)
-{
-	for (int i = 0; unsElements[i]; i++)
-	{
-		if (_el == unsElements[i])
-		{
-			isParsingSuspendedFlag = true;
-			notSupportedElement = _el;
-
-			return false;
-		}
-	}
-
-	return true;
 }
 
 }
