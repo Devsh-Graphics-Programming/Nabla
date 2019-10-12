@@ -30,6 +30,7 @@ public:
             const GLuint* buffers = nullptr;
             const GLintptr* offsets = nullptr;
             const GLsizeiptr* sizes = nullptr;
+            const uint32_t* dynOffsetIxs = nullptr;
         };
         struct SMultibindTextures
         {
@@ -55,22 +56,22 @@ public:
     {
         assert(m_descriptors->size() == m_layout->getBindings().length());
 
-        size_t uboCount = 0ull;
-        size_t ssboCount = 0ull;
+        size_t uboCount = 0ull;//includes dynamics
+        size_t ssboCount = 0ull;//includes dynamics
         size_t textureCount = 0ull;
         size_t imageCount = 0ull;
         for (const auto& desc : (*m_descriptors))
         {
             switch (desc.descriptorType)
             {
-            case asset::EDT_UNIFORM_BUFFER:
-                _IRR_FALLTHROUGH;
             case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
+                _IRR_FALLTHROUGH;
+            case asset::EDT_UNIFORM_BUFFER:
                 uboCount += desc.info->size();
                 break;
-            case asset::EDT_STORAGE_BUFFER:
-                _IRR_FALLTHROUGH;
             case asset::EDT_STORAGE_BUFFER_DYNAMIC:
+                _IRR_FALLTHROUGH;
+            case asset::EDT_STORAGE_BUFFER:
                 ssboCount += desc.info->size();
                 break;
             case asset::EDT_UNIFORM_TEXEL_BUFFER: //GL_TEXTURE_BUFFER
@@ -86,10 +87,11 @@ public:
             }
         }
 
-        m_names = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(uboCount+ssboCount+(2*textureCount)+imageCount);
+        m_names = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(uboCount+ssboCount+(2ull*textureCount)+imageCount);
         m_offsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLintptr>>(uboCount+ssboCount);
         m_sizes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(uboCount+ssboCount);
         m_extraEnums = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(textureCount+imageCount);
+        m_dynOffsetIxs = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(m_offsets->size());
 
         const size_t uboNamesOffset = 0ull;
         const size_t ssboNamesOffset = uboCount;
@@ -107,6 +109,7 @@ public:
             _params.buffers = (*m_names).data() + _namesOffset;
             _params.offsets = (*m_offsets).data() + _offset;
             _params.sizes = (*m_sizes).data() + _offset;
+            _params.dynOffsetIxs = (*m_dynOffsetIxs).data() + _offset;
         };
         setBufMultibindParams(m_multibindParams.ubos, uboNamesOffset, uboBufOffset);
         setBufMultibindParams(m_multibindParams.ssbos, ssboNamesOffset, ssboBufOffset);
@@ -139,7 +142,7 @@ public:
             }
         };
         size_t u=0ull, s=0ull, t=0ull, i=0ull;
-        size_t dyn_offset_iter = 0ull;
+        uint32_t dyn_offset_iter = 0u;
         const IGPUDescriptorSetLayout::SBinding* layoutBindings = m_layout->getBindings().begin;
         size_t desc_iter = 0ull;
         for (const auto& desc : (*m_descriptors))
@@ -149,16 +152,24 @@ public:
                     (*m_names)[uboNamesOffset + u] = static_cast<COpenGLBuffer*>(info.desc.get())->getOpenGLName();
                     (*m_offsets)[uboBufOffset + u] = info.buffer.offset;
                     (*m_sizes)[uboBufOffset + u] = info.buffer.size;
+                    if (desc.descriptorType == asset::EDT_UNIFORM_BUFFER_DYNAMIC)
+                        (*m_dynOffsetIxs)[uboBufOffset + u] = dyn_offset_iter++;
+                    else
+                        (*m_dynOffsetIxs)[uboBufOffset + u] = ~static_cast<uint32_t>(0u);
+
                     ++u;
-                    dyn_offset_iter += (desc.descriptorType==asset::EDT_UNIFORM_BUFFER_DYNAMIC);
                 }
             else if (desc.descriptorType==asset::EDT_STORAGE_BUFFER || desc.descriptorType==asset::EDT_STORAGE_BUFFER_DYNAMIC)
                 for (const auto& info : (*desc.info)) {
                     (*m_names)[ssboNamesOffset + s] = static_cast<COpenGLBuffer*>(info.desc.get())->getOpenGLName();
                     (*m_offsets)[ssboBufOffset + s] = info.buffer.offset;
                     (*m_sizes)[ssboBufOffset + s] = info.buffer.size;
+                    if (desc.descriptorType == asset::EDT_STORAGE_BUFFER_DYNAMIC)
+                        (*m_dynOffsetIxs)[ssboBufOffset + s] = dyn_offset_iter++;
+                    else
+                        (*m_dynOffsetIxs)[ssboBufOffset + s] = ~static_cast<uint32_t>(0u);
+
                     ++s;
-                    dyn_offset_iter += (desc.descriptorType==asset::EDT_STORAGE_BUFFER_DYNAMIC);
                 }
             else if (desc.descriptorType==asset::EDT_COMBINED_IMAGE_SAMPLER)
             {
@@ -205,6 +216,7 @@ private:
     core::smart_refctd_dynamic_array<GLintptr> m_offsets;
     core::smart_refctd_dynamic_array<GLsizeiptr> m_sizes;
     core::smart_refctd_dynamic_array<GLenum> m_extraEnums;
+    core::smart_refctd_dynamic_array<uint32_t> m_dynOffsetIxs;
 };
 
 }}

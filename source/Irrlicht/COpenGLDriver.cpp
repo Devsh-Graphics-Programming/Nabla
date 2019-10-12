@@ -2170,7 +2170,6 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
 
             const auto& first_count = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline->getLayout())->getMultibindParamsForDescSet(i);
 
-            if (i < compatibilityLimitPlusOne)//if prev and curr pipeline layouts are compatible for set N and currState.set[N]==nextState.set[N] then binding set N would be redundant
             {
                 GLsizei count{};
 
@@ -2186,26 +2185,52 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
                 CLAMP_COUNT(textureImages, COpenGLExtensionHandler::maxImageBindings, image);
                 newImgCount = first_count.textureImages.first + count;
 #undef CLAMP_COUNT
-
-                continue;
             }
+
+            if (i < compatibilityLimitPlusOne)//if prev and curr pipeline layouts are compatible for set N and currState.set[N]==nextState.set[N] then binding set N would be redundant
+                continue;
 
             const auto& multibind_params = nextState.descriptorsParams.descSets[i].set ? 
                 nextState.descriptorsParams.descSets[i].set->getMultibindParams() :
                 COpenGLDescriptorSet::SMultibindParams{};//all nullptr
 
-            //TODO dynamic offsets
+            const GLsizei localUboCount = (newUboCount - first_count.ubos.first);//"local" as in this DS
+            const GLsizei localSsboCount = (newSsboCount - first_count.ssbos.first);//"local" as in this DS
+            //not entirely sure those MAXes are right
+            constexpr size_t MAX_UBO_COUNT = 96ull;
+            constexpr size_t MAX_SSBO_COUNT = 91ull;
+            GLintptr uboOffsets_array[MAX_UBO_COUNT]{};
+            GLintptr* const uboOffsets = nextState.descriptorsParams.descSets[i].set ? uboOffsets_array : nullptr;
+            GLintptr ssboOffsets_array[MAX_SSBO_COUNT]{};
+            GLintptr* const ssboOffsets = nextState.descriptorsParams.descSets[i].set ? ssboOffsets_array : nullptr;
 
-            extGlBindBuffersRange(GL_UNIFORM_BUFFER, first_count.ubos.first, (newUboCount - first_count.ubos.first), multibind_params.ubos.buffers, multibind_params.ubos.offsets, multibind_params.ubos.sizes);
-            extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, first_count.ssbos.first, (newSsboCount - first_count.ssbos.first), multibind_params.ubos.buffers, multibind_params.ubos.offsets, multibind_params.ubos.sizes);
+            if (uboOffsets)
+                memcpy(uboOffsets, multibind_params.ubos.offsets, localUboCount*sizeof(GLintptr));
+            //if the loop below crashes, it means that there are dynamic UBOs in the DS, but the DS was bound with no (or not enough) dynamic offsets
+            //or for some weird reason (bug) descSets[i].set is nullptr, but descSets[i].dynamicOffsets is not
+            for (GLsizei u = 0u; ((u < localUboCount) && nextState.descriptorsParams.descSets[i].dynamicOffsets); ++u)
+                if (multibind_params.ubos.dynOffsetIxs[u] < nextState.descriptorsParams.descSets[i].dynamicOffsets->size())
+                    uboOffsets[u] += nextState.descriptorsParams.descSets[i].dynamicOffsets->operator[](multibind_params.ubos.dynOffsetIxs[u]);
+
+            if (ssboOffsets)
+                memcpy(ssboOffsets, multibind_params.ssbos.offsets, localSsboCount*sizeof(GLintptr));
+            //if the loop below crashes, it means that there are dynamic SSBOs in the DS, but the DS was bound with no (or not enough) dynamic offsets
+            //or for some weird reason (bug) descSets[i].set is nullptr, but descSets[i].dynamicOffsets is not
+            for (GLsizei s = 0u; ((s < localSsboCount) && nextState.descriptorsParams.descSets[i].dynamicOffsets); ++s)
+                if (multibind_params.ssbos.dynOffsetIxs[s] < nextState.descriptorsParams.descSets[i].dynamicOffsets->size())
+                    ssboOffsets[s] += nextState.descriptorsParams.descSets[i].dynamicOffsets->operator[](multibind_params.ssbos.dynOffsetIxs[s]);
+
+            extGlBindBuffersRange(GL_UNIFORM_BUFFER, first_count.ubos.first, localUboCount, multibind_params.ubos.buffers, uboOffsets, multibind_params.ubos.sizes);
+            extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, first_count.ssbos.first, localSsboCount, multibind_params.ssbos.buffers, ssboOffsets, multibind_params.ssbos.sizes);
             extGlBindTextures(first_count.textures.first, (newTexCount - first_count.textures.first), multibind_params.textures.textures, nullptr); //targets=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
             extGlBindSamplers(first_count.textures.first, (newTexCount - first_count.textures.first), multibind_params.textures.samplers);
             extGlBindImageTextures(first_count.textureImages.first, (newImgCount - first_count.textureImages.first), multibind_params.textureImages.textures, nullptr); //formats=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
         }
 
         //unbind previous descriptors if needed (if bindings not replaced by new multibind calls)
-        int64_t prevUboCount = 0u, prevSsboCount = 0u, prevTexCount = 0u, prevImgCount = 0u;
+        if (prevPipeline)//if previous pipeline was nullptr, then no descriptors were bound
         {
+            int64_t prevUboCount = 0u, prevSsboCount = 0u, prevTexCount = 0u, prevImgCount = 0u;
             const auto& first_count = static_cast<const COpenGLPipelineLayout*>(prevPipeline->getLayout())->getMultibindParamsForDescSet(video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u);
 
             prevUboCount = first_count.ubos.first + first_count.ubos.count;
