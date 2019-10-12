@@ -305,7 +305,7 @@ class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 public:
     _IRR_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 5u;
 
-    enum E_SHADER_STAGE_IX
+    enum E_SHADER_STAGE_IX : uint32_t
     {
         ESSI_VERTEX_SHADER_IX = 0,
         ESSI_TESS_CTRL_SHADER_IX = 1,
@@ -340,7 +340,7 @@ public:
     inline const LayoutType* getLayout() const { return IPipeline<LayoutType>::m_layout.get(); }
 
     inline const SpecShaderType* getShaderAtStage(E_SHADER_STAGE _stage) const { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
-    inline const SpecShaderType* getShaderAtIndex(E_SHADER_STAGE_IX _ix) const { return m_shaders[_ix].get(); }
+    inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
 
     inline const SBlendParams& getBlendParams() const { return m_blendParams; }
     inline const SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() const { return m_primAsmParams; }

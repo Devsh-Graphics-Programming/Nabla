@@ -790,6 +790,8 @@ namespace video
         struct SAuxContext
         {
         //public:
+            using SGraphicsPipelineHash = std::array<GLuint, COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT>;
+
             _IRR_STATIC_INLINE_CONSTEXPR size_t maxVAOCacheSize = 0x1u<<14; //make this cache configurable
 
             SAuxContext() : threadId(std::thread::id()), ctx(NULL),
@@ -823,6 +825,9 @@ namespace video
 
             //!
             core::vector<SOpenGLState::HashVAOPair> VAOMap;
+            core::map<SGraphicsPipelineHash, GLuint> GraphicsPipelineMap;
+
+            GLuint createGraphicsPipelineInCache(const SGraphicsPipelineHash& _hash);
 
             void updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline);
             //! Must be called AFTER updateNextState_pipelineAndRaster() if pipeline and raster params have to be modified at all in this pass

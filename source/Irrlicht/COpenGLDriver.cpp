@@ -1909,10 +1909,26 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
     if (stateBits & GSB_PIPELINE_AND_RASTER_PARAMETERS)
     {
         if (nextState.pipeline != currentState.pipeline) {
-            //TODO find pipeline GL name in cache and bind
-            //COpenGLExtensionHandler::extGlBindProgramPipeline(nextState.pipeline);
+            SGraphicsPipelineHash hash;
+            for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
+            {
+                hash[i] = currentState.pipeline->getShaderAtIndex(i) ?
+                    static_cast<const COpenGLSpecializedShader*>(currentState.pipeline->getShaderAtIndex(i))->getGLnameForCtx(this->ID) :
+                    0u;
+            }
+
+            GLuint GLname = 0u;
+            auto found = GraphicsPipelineMap.find(hash);
+            if (found != GraphicsPipelineMap.end())
+                GLname = found->second;
+            else
+                GLname = createGraphicsPipelineInCache(hash);
+
+            extGlUseProgram(0);//TODO hm??
+            extGlBindProgramPipeline(GLname);
+
+            currentState.pipeline = nextState.pipeline;
         }
-        currentState.pipeline = nextState.pipeline;
 
 
 #define STATE_NEQ(member) (nextState.member != currentState.member)
@@ -2352,6 +2368,26 @@ static GLenum getGLblendEq(asset::E_BLEND_OP bo)
     if (bo >= std::extent<decltype(glbo)>::value)
         return GL_INVALID_ENUM;
     return glbo[bo];
+}
+
+GLuint COpenGLDriver::SAuxContext::createGraphicsPipelineInCache(const SGraphicsPipelineHash& _hash)
+{
+    constexpr size_t STAGE_CNT = COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT;
+    static_assert(STAGE_CNT == 5u, "SHADER_STAGE_COUNT is expected to be 5");
+    const GLenum stages[5]{ GL_VERTEX_SHADER, GL_TESS_CONTROL_SHADER, GL_TESS_EVALUATION_SHADER, GL_GEOMETRY_SHADER, GL_FRAGMENT_SHADER };
+    const GLenum stageFlags[5]{ GL_VERTEX_SHADER_BIT, GL_TESS_CONTROL_SHADER_BIT, GL_TESS_EVALUATION_SHADER_BIT, GL_GEOMETRY_SHADER_BIT, GL_FRAGMENT_SHADER_BIT };
+
+    GLuint GLpipeline = 0u;
+    COpenGLExtensionHandler::extGlCreateProgramPipelines(1u, &GLpipeline);
+
+    for (uint32_t ix = 0u; ix < STAGE_CNT; ++ix) {
+        GLuint progName = _hash[ix];
+
+        if (progName)
+            COpenGLExtensionHandler::extGlUseProgramStages(GLpipeline, stageFlags[ix], progName);
+    }
+
+    return GLpipeline;
 }
 
 void COpenGLDriver::SAuxContext::updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline)
