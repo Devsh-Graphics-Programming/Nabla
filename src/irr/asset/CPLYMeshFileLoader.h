@@ -47,7 +47,6 @@ public:
 
 	//! creates/loads an animated mesh from the file.
     virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
-
 private:
 
 	struct SPLYProperty

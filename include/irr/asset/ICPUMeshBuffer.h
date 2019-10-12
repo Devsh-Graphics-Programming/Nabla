@@ -84,6 +84,14 @@ public:
     {
         return &m_indexBufferBinding;
     }
+	inline void setIndexBufferBinding(asset::ICPUBuffer& buffer)
+	{
+		m_indexBufferBinding.buffer = irr::core::make_smart_refctd_ptr<asset::ICPUBuffer>(buffer);
+	}
+	inline void setIndexBufferBinding(irr::core::smart_refctd_ptr<asset::ICPUBuffer>& buffer)
+	{
+		m_indexBufferBinding.buffer = buffer;
+	}
     inline ICPURenderpassIndependentPipeline* getPipeline()
     {
         return m_pipeline.get();
@@ -92,6 +100,16 @@ public:
     {
         return m_descriptorSet.get();
     }
+	inline void setVertexAttrBuffer(core::smart_refctd_ptr<ICPUBuffer> &buffer, uint16_t attribIndex, E_FORMAT format, uint32_t stride, uint32_t offset)
+	{
+		auto &params(const_cast<SVertexInputParams&>(getPipeline()->getVertexInputParams()));
+
+		params.attributes[attribIndex].binding = attribIndex;
+		params.attributes[attribIndex].format = format;
+		params.attributes[attribIndex].relativeOffset = offset;
+		params.bindings[attribIndex].inputRate;
+		params.bindings[attribIndex].stride = stride;
+	}
 
     inline size_t calcVertexSize() const
     {
