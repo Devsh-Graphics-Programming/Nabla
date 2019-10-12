@@ -346,6 +346,7 @@ public:
     inline const SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() const { return m_primAsmParams; }
     inline const SRasterizationParams& getRasterizationParams() const { return m_rasterParams; }
     inline const SVertexInputParams& getVertexInputParams() const { return m_vertexInputParams; }
+    inline SVertexInputParams& getVertexInputParams() { return m_vertexInputParams; }
 
 protected:
     core::smart_refctd_ptr<SpecShaderType> m_shaders[SHADER_STAGE_COUNT];

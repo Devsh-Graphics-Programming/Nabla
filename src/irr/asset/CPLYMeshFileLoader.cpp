@@ -269,10 +269,11 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 return {};
             if (indices.size())
             {
-                auto idxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(indices.size()*sizeof(uint32_t));
-                memcpy(idxBuf->getPointer(), indices.data(), idxBuf->getSize());
+				ICPUMeshBuffer::SBufferBinding bufferBinding;
+				bufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(indices.size() * sizeof(uint32_t));
 
-				mb->setIndexBufferBinding(idxBuf);
+                memcpy(bufferBinding.buffer->getPointer(), indices.data(), bufferBinding.buffer->getSize());
+				mb->setIndexBufferBinding(std::move(bufferBinding));
                 mb->setIndexCount(indices.size());
                 mb->setIndexType(asset::EIT_32BIT);
 				mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST;
@@ -580,7 +581,6 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 	const size_t stride = std::accumulate(sizes, sizes + 4, static_cast<size_t>(0));
 
 	{
-		auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(_attribs[E_POS].size() * stride);
 		std::vector<std::pair<uint16_t, E_FORMAT>> perIndexDataThatChanges{std::make_pair(E_POS, asset::EF_R32G32B32_SFLOAT), std::make_pair(E_COL, asset::EF_R32G32B32A32_SFLOAT), std::make_pair(E_UV, asset::EF_R32G32_SFLOAT), std::make_pair(E_NORM, asset::EF_R32G32B32_SFLOAT)};
 
 		for (const auto& attributeIndexExtra : perIndexDataThatChanges)
@@ -588,7 +588,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 			{
 				if (sizes[attribIndex])
 				{
-					_mbuf->setVertexAttrBuffer(core::smart_refctd_ptr(buf), attribIndex, formatToSend, stride, offsets[offsetIndex]);
+					_mbuf->setVertexAttrBuffer(attribIndex, formatToSend, stride, offsets[offsetIndex]);
 					putAttr(_mbuf, attribIndex);
 				}
 
