@@ -25,7 +25,9 @@ public:
     inline ICPUSpecializedShader* getShaderAtStage(E_SHADER_STAGE _stage) { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
     inline ICPUSpecializedShader* getShaderAtIndex(E_SHADER_STAGE_IX _ix) { return m_shaders[_ix].get(); }
 
+	inline SBlendParams& getBlendParams() { return m_blendParams; }
 	inline SPrimitiveAssemblyParams &getPrimitiveAssemblyParams() { return m_primAsmParams; }
+	inline SRasterizationParams& getRasterizationParams() { return m_rasterParams; }
 
 protected:
     virtual ~ICPURenderpassIndependentPipeline() = default;

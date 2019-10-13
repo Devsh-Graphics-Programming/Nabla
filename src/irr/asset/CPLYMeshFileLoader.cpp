@@ -265,15 +265,15 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				}
 			}
 
-            if (!genVertBuffersForMBuffer(mb.get(), attribs))
-                return {};
             if (indices.size())
             {
 				ICPUMeshBuffer::SBufferBinding bufferBinding;
 				bufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(indices.size() * sizeof(uint32_t));
-
                 memcpy(bufferBinding.buffer->getPointer(), indices.data(), bufferBinding.buffer->getSize());
-				mb->setIndexBufferBinding(std::move(bufferBinding));
+
+				if (!genVertBuffersForMBuffer(mb.get(), attribs, bufferBinding))
+					return {};
+
                 mb->setIndexCount(indices.size());
                 mb->setIndexType(asset::EIT_32BIT);
 				mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST;
@@ -549,7 +549,7 @@ void CPLYMeshFileLoader::moveForward(SContext& _ctx, uint32_t bytes)
 		_ctx.StartPointer = +_ctx.EndPointer;
 }
 
-bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const
+bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4], ICPUMeshBuffer::SBufferBinding& bufferBinding) const
 {
 	{
 		size_t check = _attribs[0].size();
@@ -588,7 +588,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 			{
 				if (sizes[attribIndex])
 				{
-					_mbuf->setVertexAttrBuffer(attribIndex, formatToSend, stride, offsets[offsetIndex]);
+					_mbuf->setVertexAttrBuffer(std::move(bufferBinding), attribIndex, formatToSend, stride, offsets[offsetIndex]);
 					putAttr(_mbuf, attribIndex);
 				}
 

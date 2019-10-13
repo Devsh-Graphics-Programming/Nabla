@@ -157,10 +157,8 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		for(const auto& attributeIndexExtra : perIndexDataThatChanges)
 			[&](auto attribIndex, auto formatToSend, auto offsetToSend)
 			{
-				meshbuffer->setVertexAttrBuffer(attribIndex, formatToSend, vtxSize, offsetToSend);
+				meshbuffer->setVertexAttrBuffer(std::move(bufferBinding), attribIndex, formatToSend, vtxSize, offsetToSend);
 			}(std::get<0>(attributeIndexExtra), std::get<1>(attributeIndexExtra), std::get<2>(attributeIndexExtra));
-
-		meshbuffer->setIndexBufferBinding(std::move(bufferBinding));
 	}
 
 	mesh->addMeshBuffer(std::move(meshbuffer));

@@ -89,6 +89,11 @@ public:
 		m_indexBufferBinding.buffer = irr::core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufferBinding.buffer);
 		m_indexBufferBinding.offset = bufferBinding.offset;
 	}
+	inline void setIndexBufferBinding(SBufferBinding& bufferBinding)
+	{
+		m_indexBufferBinding.buffer = irr::core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufferBinding.buffer);
+		m_indexBufferBinding.offset = bufferBinding.offset;
+	}
     inline ICPURenderpassIndependentPipeline* getPipeline()
     {
         return m_pipeline.get();
@@ -97,7 +102,7 @@ public:
     {
         return m_descriptorSet.get();
     }
-	inline void setVertexAttrBuffer(uint16_t attribIndex, E_FORMAT format, uint32_t stride, uint32_t offset)
+	inline void setVertexAttrBuffer(SBufferBinding&& bufferBinding, uint16_t attribIndex, E_FORMAT format, uint32_t stride, uint32_t offset)
 	{
 		auto areParamsInValidRange = [&]()
 		{
@@ -124,6 +129,7 @@ public:
 		{
 			auto& params(getPipeline()->getVertexInputParams());
 
+			setIndexBufferBinding(bufferBinding);
 			params.attributes[attribIndex].binding = attribIndex;
 			params.attributes[attribIndex].format = format;
 			params.attributes[attribIndex].relativeOffset = offset;
