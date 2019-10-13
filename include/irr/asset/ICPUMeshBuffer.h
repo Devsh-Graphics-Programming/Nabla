@@ -99,12 +99,36 @@ public:
     }
 	inline void setVertexAttrBuffer(uint16_t attribIndex, E_FORMAT format, uint32_t stride, uint32_t offset)
 	{
-		auto &params(getPipeline()->getVertexInputParams());
+		auto areParamsInValidRange = [&]()
+		{
+			auto isParamValid = [](const uint32_t &value, const uint32_t &maxRange)
+			{
+				if (value <= maxRange)
+					return true;
+				else
+				{
+					std::string irrlichWayToHandleErrors("error handle: out of range (" + std::to_string(value) + ")!\n"); // TODO there should be an Irrlich way to raport errors
+					return false;
+				}
+			};
 
-		params.attributes[attribIndex].binding = attribIndex;
-		params.attributes[attribIndex].format = format;
-		params.attributes[attribIndex].relativeOffset = offset;
-		params.bindings[attribIndex].stride = stride;
+			std::vector<std::pair<uint32_t, uint32_t>> valuesAndAssignedMaxRanges({ std::make_pair(attribIndex, SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT), std::make_pair(stride, TODO), std::make_pair(offset, TODO) });  // TODO find those constexpr
+			for (auto& it : valuesAndAssignedMaxRanges)
+				if (!isParamValid(it.first, it.second))
+					return false;
+
+			return true;
+		};
+
+		if (areParamsInValidRange())
+		{
+			auto& params(getPipeline()->getVertexInputParams());
+
+			params.attributes[attribIndex].binding = attribIndex;
+			params.attributes[attribIndex].format = format;
+			params.attributes[attribIndex].relativeOffset = offset;
+			params.bindings[attribIndex].stride = stride;
+		}
 	}
 
     inline size_t calcVertexSize() const
