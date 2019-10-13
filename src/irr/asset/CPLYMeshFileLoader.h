@@ -128,17 +128,19 @@ private:
         core::vector<std::unique_ptr<SPLYElement>> ElementList;
 
 		std::unique_ptr<io::IReadFile> File;
-		std::shared_ptr<char> Buffer;
+		std::unique_ptr<char> Buffer;
         bool IsBinaryFile = false, IsWrongEndian = false, EndOfFile = false;
         int32_t LineLength = 0, WordLength = 0;
-		std::shared_ptr<char> StartPointer, EndPointer, LineEndPointer;
+		char* StartPointer = nullptr, *EndPointer = nullptr, *LineEndPointer = nullptr;
 
-        ~SContext()
-        {
-            if (File)
-                File->drop();
-            ElementList.clear();
-        }
+		std::function<void()> deallocate = [&]()
+		{ 
+			if (File)
+				File->drop();
+			ElementList.clear();
+		};
+
+		core::SRAIIBasedExiter<decltype(deallocate)> exiter = core::makeRAIIExiter(deallocate);
     };
 
     enum { E_POS = 0, E_UV = 2, E_NORM = 3, E_COL = 1 };

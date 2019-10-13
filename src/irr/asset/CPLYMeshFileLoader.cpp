@@ -210,7 +210,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				readingHeader = false;
 				if (ctx.IsBinaryFile)
 				{
-                    ctx.StartPointer = std::make_shared<char>(ctx.LineEndPointer.get() + 1);
+                    ctx.StartPointer = ctx.LineEndPointer + 1;
 				}
 			}
 			else if (strcmp(word, "comment") == 0)
@@ -469,13 +469,10 @@ void CPLYMeshFileLoader::skipProperty(SContext& _ctx, const SPLYProperty &Proper
 
 bool CPLYMeshFileLoader::allocateBuffer(SContext& _ctx)
 {
-	// Destroy the element list if it exists
-	for (uint32_t i=0; i<_ctx.ElementList.size(); ++i)
-		delete _ctx.ElementList[i];
-    _ctx.ElementList.clear();
+	_ctx.ElementList.clear();
 
 	if (!_ctx.Buffer.get())
-        _ctx.Buffer = std::move(std::shared_ptr<char>(new char[PLY_INPUT_BUFFER_SIZE]));
+        _ctx.Buffer = std::move(std::make_unique<char>(new char[PLY_INPUT_BUFFER_SIZE]));
 
 	// not enough memory?
 	if (!_ctx.Buffer.get())
@@ -484,9 +481,9 @@ bool CPLYMeshFileLoader::allocateBuffer(SContext& _ctx)
 	// blank memory
 	memset(_ctx.Buffer.get(), 0, PLY_INPUT_BUFFER_SIZE);
 
-    _ctx.StartPointer = _ctx.Buffer;
-    _ctx.EndPointer = _ctx.Buffer;
-    _ctx.LineEndPointer = std::make_shared<char>(_ctx.Buffer.get() - 1);
+    _ctx.StartPointer = _ctx.Buffer.get();
+    _ctx.EndPointer = _ctx.Buffer.get();
+    _ctx.LineEndPointer = _ctx.Buffer.get() - 1;
     _ctx.WordLength = -1;
     _ctx.EndOfFile = false;
 
@@ -503,15 +500,15 @@ void CPLYMeshFileLoader::fillBuffer(SContext& _ctx)
 	if (_ctx.EndOfFile)
 		return;
 
-	uint32_t length = (uint32_t)(_ctx.EndPointer.get() - _ctx.StartPointer.get());
-	if (length && _ctx.StartPointer != _ctx.Buffer)
+	uint32_t length = (uint32_t)(_ctx.EndPointer - _ctx.StartPointer);
+	if (length && _ctx.StartPointer != _ctx.Buffer.get())
 	{
 		// copy the remaining data to the start of the buffer
-		memcpy(_ctx.Buffer.get(), _ctx.StartPointer.get(), length);
+		memcpy(_ctx.Buffer.get(), _ctx.StartPointer, length);
 	}
 	// reset start position
-	_ctx.StartPointer = _ctx.Buffer;
-	_ctx.EndPointer = std::make_shared<char>(_ctx.StartPointer.get() + length);
+	_ctx.StartPointer = _ctx.Buffer.get();
+	_ctx.EndPointer = _ctx.StartPointer + length;
 
 	if (_ctx.File->getPos() == _ctx.File->getSize())
 	{
@@ -520,16 +517,16 @@ void CPLYMeshFileLoader::fillBuffer(SContext& _ctx)
 	else
 	{
 		// read data from the file
-		uint32_t count = _ctx.File->read(_ctx.EndPointer.get(), PLY_INPUT_BUFFER_SIZE - length);
+		uint32_t count = _ctx.File->read(_ctx.EndPointer, PLY_INPUT_BUFFER_SIZE - length);
 
 		// increment the end pointer by the number of bytes read
-		_ctx.EndPointer = std::make_shared<char>(_ctx.EndPointer.get() + count);
+		_ctx.EndPointer+= count;
 
 		// if we didn't completely fill the buffer
 		if (count != PLY_INPUT_BUFFER_SIZE - length)
 		{
 			// blank the rest of the memory
-			memset(_ctx.EndPointer.get(), 0, _ctx.Buffer.get() + PLY_INPUT_BUFFER_SIZE - _ctx.EndPointer.get());
+			memset(_ctx.EndPointer, 0, _ctx.Buffer.get() + PLY_INPUT_BUFFER_SIZE - _ctx.EndPointer);
 
 			// end of file
 			_ctx.EndOfFile = true;
@@ -541,12 +538,12 @@ void CPLYMeshFileLoader::fillBuffer(SContext& _ctx)
 // skips x bytes in the file, getting more data if required
 void CPLYMeshFileLoader::moveForward(SContext& _ctx, uint32_t bytes)
 {
-	if (_ctx.StartPointer.get() + bytes >= _ctx.EndPointer.get())
+	if (_ctx.StartPointer + bytes >= _ctx.EndPointer)
 		fillBuffer(_ctx);
-	if (_ctx.StartPointer.get() + bytes < _ctx.EndPointer.get())
-		_ctx.StartPointer = std::make_shared<char>(_ctx.StartPointer.get() + bytes);
+	if (_ctx.StartPointer + bytes < _ctx.EndPointer)
+		_ctx.StartPointer += bytes;
 	else
-		_ctx.StartPointer = std::make_shared<char>(+_ctx.EndPointer.get());
+		_ctx.StartPointer = _ctx.EndPointer;
 }
 
 bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4], ICPUMeshBuffer::SBufferBinding& bufferBinding) const
@@ -650,35 +647,35 @@ E_PLY_PROPERTY_TYPE CPLYMeshFileLoader::getPropertyType(const char* typeString) 
 char* CPLYMeshFileLoader::getNextLine(SContext& _ctx)
 {
 	// move the start pointer along
-	_ctx.StartPointer = std::make_shared<char>(_ctx.LineEndPointer.get() + 1);
+	_ctx.StartPointer = _ctx.LineEndPointer + 1;
 
 	// crlf split across buffer move
-	if (*_ctx.StartPointer.get() == '\n')
+	if (*_ctx.StartPointer == '\n')
 	{
 		*_ctx.StartPointer = '\0';
-		_ctx.StartPointer = std::make_shared<char>(_ctx.StartPointer.get() + 1);
+		++_ctx.StartPointer;
 	}
 
 	// begin at the start of the next line
-	char* pos = _ctx.StartPointer.get();
-	while (pos < _ctx.EndPointer.get() && *pos && *pos != '\r' && *pos != '\n')
+	char* pos = _ctx.StartPointer;
+	while (pos < _ctx.EndPointer && *pos && *pos != '\r' && *pos != '\n')
 		++pos;
 
-	if ( pos < _ctx.EndPointer.get() && ( *(pos+1) == '\r' || *(pos+1) == '\n') )
+	if ( pos < _ctx.EndPointer && ( *(pos+1) == '\r' || *(pos+1) == '\n') )
 	{
 		*pos = '\0';
 		++pos;
 	}
 
 	// we have reached the end of the buffer
-	if (pos >= _ctx.EndPointer.get())
+	if (pos >= _ctx.EndPointer)
 	{
 		// get data from the file
 		if (!_ctx.EndOfFile)
 		{
 			fillBuffer(_ctx);
 			// reset line end pointer
-            _ctx.LineEndPointer = std::make_shared<char>(_ctx.StartPointer.get() - 1);
+            _ctx.LineEndPointer = _ctx.StartPointer - 1;
 
 			if (_ctx.StartPointer != _ctx.EndPointer)
 				return getNextLine(_ctx);
@@ -688,19 +685,19 @@ char* CPLYMeshFileLoader::getNextLine(SContext& _ctx)
 		else
 		{
 			// EOF
-            _ctx.StartPointer = std::make_shared<char>(_ctx.EndPointer.get() - 1);
+            _ctx.StartPointer = _ctx.EndPointer - 1;
 			*_ctx.StartPointer = '\0';
-			return _ctx.StartPointer.get();
+			return _ctx.StartPointer;
 		}
 	}
 	else
 	{
 		// null terminate the string in place
 		*pos = '\0';
-        _ctx.LineEndPointer = std::make_shared<char>(pos);
+        _ctx.LineEndPointer = pos;
         _ctx.WordLength = -1;
 		// return pointer to the start of the line
-		return _ctx.StartPointer.get();
+		return _ctx.StartPointer;
 	}
 }
 
@@ -710,30 +707,30 @@ char* CPLYMeshFileLoader::getNextLine(SContext& _ctx)
 char* CPLYMeshFileLoader::getNextWord(SContext& _ctx)
 {
 	// move the start pointer along
-    _ctx.StartPointer = std::make_shared<char>(_ctx.StartPointer.get() + _ctx.WordLength + 1);
+    _ctx.StartPointer += _ctx.WordLength + 1;
     if (!*_ctx.StartPointer)
         getNextLine(_ctx);
 
 	if (_ctx.StartPointer == _ctx.LineEndPointer)
 	{
         _ctx.WordLength = -1; //
-		return _ctx.LineEndPointer.get();
+		return _ctx.LineEndPointer;
 	}
 	// begin at the start of the next word
-	char* pos = _ctx.StartPointer.get();
-	while (*pos && pos < _ctx.LineEndPointer.get() && pos < _ctx.EndPointer.get() && *pos != ' ' && *pos != '\t')
+	char* pos = _ctx.StartPointer;
+	while (*pos && pos < _ctx.LineEndPointer && pos < _ctx.EndPointer && *pos != ' ' && *pos != '\t')
 		++pos;
 
-	while(*pos && pos < _ctx.LineEndPointer.get() && pos < _ctx.EndPointer.get() && (*pos == ' ' || *pos == '\t') )
+	while(*pos && pos < _ctx.LineEndPointer && pos < _ctx.EndPointer && (*pos == ' ' || *pos == '\t') )
 	{
 		// null terminate the string in place
 		*pos = '\0';
 		++pos;
 	}
 	--pos;
-    _ctx.WordLength = (int32_t)(pos - _ctx.StartPointer.get());
+    _ctx.WordLength = (int32_t)(pos - _ctx.StartPointer);
 	// return pointer to the start of the word
-	return _ctx.StartPointer.get();
+	return _ctx.StartPointer;
 }
 
 
@@ -744,52 +741,52 @@ float CPLYMeshFileLoader::getFloat(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 
 	if (_ctx.IsBinaryFile)
 	{
-		if (_ctx.EndPointer.get() - _ctx.StartPointer.get() < 8)
+		if (_ctx.EndPointer - _ctx.StartPointer < 8)
 			fillBuffer(_ctx);
 
-		if (_ctx.EndPointer.get() - _ctx.StartPointer.get() > 0)
+		if (_ctx.EndPointer - _ctx.StartPointer > 0)
 		{
 			switch (t)
 			{
 			case EPLYPT_INT8:
 				retVal = *_ctx.StartPointer;
-                _ctx.StartPointer = std::make_shared<char>(_ctx.StartPointer.get() + 1);
+                ++_ctx.StartPointer;
 				break;
 			case EPLYPT_INT16:
 				if (_ctx.IsWrongEndian)
-					retVal = os::Byteswap::byteswap(*(reinterpret_cast<int16_t*>(_ctx.StartPointer.get())));
+					retVal = os::Byteswap::byteswap(*(reinterpret_cast<int16_t*>(_ctx.StartPointer)));
 				else
-					retVal = *(reinterpret_cast<int16_t*>(_ctx.StartPointer.get()));
-                _ctx.StartPointer = std::make_shared<char>(_ctx.StartPointer.get() + 2);
+					retVal = *(reinterpret_cast<int16_t*>(_ctx.StartPointer));
+                _ctx.StartPointer += 2;
 				break;
 			case EPLYPT_INT32:
 				if (_ctx.IsWrongEndian)
-					retVal = float(os::Byteswap::byteswap(*(reinterpret_cast<int32_t*>(_ctx.StartPointer.get()))));
+					retVal = float(os::Byteswap::byteswap(*(reinterpret_cast<int32_t*>(_ctx.StartPointer))));
 				else
-					retVal = float(*(reinterpret_cast<int32_t*>(_ctx.StartPointer.get())));
-                _ctx.StartPointer = std::make_shared<char>(_ctx.StartPointer.get() + 4);
+					retVal = float(*(reinterpret_cast<int32_t*>(_ctx.StartPointer)));
+                _ctx.StartPointer += 4;
 				break;
 			case EPLYPT_FLOAT32:
 				if (_ctx.IsWrongEndian)
-					retVal = os::Byteswap::byteswap(*(reinterpret_cast<float*>(_ctx.StartPointer.get())));
+					retVal = os::Byteswap::byteswap(*(reinterpret_cast<float*>(_ctx.StartPointer)));
 				else
-					retVal = *(reinterpret_cast<float*>(_ctx.StartPointer.get()));
-                _ctx.StartPointer = std::make_shared<char>(_ctx.StartPointer.get() + 4);
+					retVal = *(reinterpret_cast<float*>(_ctx.StartPointer));
+                _ctx.StartPointer += 4;
 				break;
 			case EPLYPT_FLOAT64:
                 char tmp[8];
-                memcpy(tmp, _ctx.StartPointer.get(), 8);
+                memcpy(tmp, _ctx.StartPointer, 8);
                 if (_ctx.IsWrongEndian)
                     for (size_t i = 0u; i < 4u; ++i)
                         std::swap(tmp[i], tmp[7u-i]);
 				retVal = float(*(reinterpret_cast<double*>(tmp)));
-                _ctx.StartPointer = std::make_shared<char>(_ctx.StartPointer.get() + 8);
+                _ctx.StartPointer += 8;
 				break;
 			case EPLYPT_LIST:
 			case EPLYPT_UNKNOWN:
 			default:
 				retVal = 0.0f;
-                _ctx.StartPointer = std::make_shared<char>(_ctx.StartPointer.get() + 1); // ouch!
+                ++_ctx.StartPointer; // ouch!
 			}
 		}
 		else
@@ -827,48 +824,48 @@ uint32_t CPLYMeshFileLoader::getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 
 	if (_ctx.IsBinaryFile)
 	{
-		if (!_ctx.EndOfFile && _ctx.EndPointer.get() - _ctx.StartPointer.get() < 8)
+		if (!_ctx.EndOfFile && _ctx.EndPointer - _ctx.StartPointer < 8)
 			fillBuffer(_ctx);
 
-		if (_ctx.EndPointer.get() - _ctx.StartPointer.get())
+		if (_ctx.EndPointer - _ctx.StartPointer)
 		{
 			switch (t)
 			{
 			case EPLYPT_INT8:
 				retVal = *_ctx.StartPointer;
-                _ctx.StartPointer = std::make_shared<char>(_ctx.StartPointer.get() + 1);
+                ++_ctx.StartPointer;
 				break;
 			case EPLYPT_INT16:
 				if (_ctx.IsWrongEndian)
-					retVal = os::Byteswap::byteswap(*(reinterpret_cast<uint16_t*>(_ctx.StartPointer.get())));
+					retVal = os::Byteswap::byteswap(*(reinterpret_cast<uint16_t*>(_ctx.StartPointer)));
 				else
-					retVal = *(reinterpret_cast<uint16_t*>(_ctx.StartPointer.get()));
-                _ctx.StartPointer = std::make_shared<char>(_ctx.StartPointer.get() + 2);
+					retVal = *(reinterpret_cast<uint16_t*>(_ctx.StartPointer));
+                _ctx.StartPointer += 2;
 				break;
 			case EPLYPT_INT32:
 				if (_ctx.IsWrongEndian)
-					retVal = os::Byteswap::byteswap(*(reinterpret_cast<int32_t*>(_ctx.StartPointer.get())));
+					retVal = os::Byteswap::byteswap(*(reinterpret_cast<int32_t*>(_ctx.StartPointer)));
 				else
-					retVal = *(reinterpret_cast<int32_t*>(_ctx.StartPointer.get()));
-                _ctx.StartPointer = std::make_shared<char>(_ctx.StartPointer.get() + 4);
+					retVal = *(reinterpret_cast<int32_t*>(_ctx.StartPointer));
+                _ctx.StartPointer += 4;
 				break;
 			case EPLYPT_FLOAT32:
 				if (_ctx.IsWrongEndian)
-					retVal = (uint32_t)os::Byteswap::byteswap(*(reinterpret_cast<float*>(_ctx.StartPointer.get())));
+					retVal = (uint32_t)os::Byteswap::byteswap(*(reinterpret_cast<float*>(_ctx.StartPointer)));
 				else
-					retVal = (uint32_t)(*(reinterpret_cast<float*>(_ctx.StartPointer.get())));
-				_ctx.StartPointer = std::make_shared<char>(_ctx.StartPointer.get() + 4);
+					retVal = (uint32_t)(*(reinterpret_cast<float*>(_ctx.StartPointer)));
+				_ctx.StartPointer += 4;
 				break;
 			case EPLYPT_FLOAT64:
 				// todo: byteswap 64-bit
-				retVal = (uint32_t)(*(reinterpret_cast<double*>(_ctx.StartPointer.get())));
-                _ctx.StartPointer = std::make_shared<char>(_ctx.StartPointer.get() + 8);
+				retVal = (uint32_t)(*(reinterpret_cast<double*>(_ctx.StartPointer)));
+                _ctx.StartPointer += 8;
 				break;
 			case EPLYPT_LIST:
 			case EPLYPT_UNKNOWN:
 			default:
 				retVal = 0;
-                _ctx.StartPointer = std::make_shared<char>(_ctx.StartPointer.get() + 1); // ouch!
+                ++_ctx.StartPointer; // ouch!
 			}
 		}
 		else
