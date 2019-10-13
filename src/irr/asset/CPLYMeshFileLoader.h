@@ -125,26 +125,18 @@ private:
 
     struct SContext
     {
-        core::vector<SPLYElement*> ElementList;
+        core::vector<std::unique_ptr<SPLYElement>> ElementList;
 
-        io::IReadFile *File = nullptr;
-        char *Buffer = nullptr;
+		std::unique_ptr<io::IReadFile> File;
+		std::shared_ptr<char> Buffer;
         bool IsBinaryFile = false, IsWrongEndian = false, EndOfFile = false;
         int32_t LineLength = 0, WordLength = 0;
-        char *StartPointer = nullptr, *EndPointer = nullptr, *LineEndPointer = nullptr;
+		std::shared_ptr<char> StartPointer, EndPointer, LineEndPointer;
 
         ~SContext()
         {
             if (File)
                 File->drop();
-            File = nullptr;
-            if (Buffer)
-            {
-                delete[] Buffer;
-                Buffer = nullptr;
-            }
-            for (auto& e : ElementList)
-                if (e) delete e;
             ElementList.clear();
         }
     };
