@@ -108,7 +108,6 @@
 #include "CMeshSceneNode.h"
 #include "CMeshSceneNodeInstanced.h"
 #include "CMountPointReader.h"
-#include "CNPKReader.h"
 #include "CNullDriver.h"
 #include "COpenCLHandler.h"
 #include "COpenGL1DTexture.h"
@@ -150,7 +149,6 @@
 #include "CSkyDomeSceneNode.h"
 #include "CTarReader.h"
 #include "CVideoModeList.h"
-#include "CWADReader.h"
 #include "CWriteFile.h"
 #include "CZipReader.h"
 #include "FW_Mutex.h" // refactor

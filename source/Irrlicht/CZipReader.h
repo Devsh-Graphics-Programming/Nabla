@@ -161,11 +161,11 @@ namespace io
 		//! Creates an archive from the filename
 		/** \param file File handle to check.
 		\return Pointer to newly created archive, or 0 upon error. */
-		virtual IFileArchive* createArchive(const io::path& filename, bool ignoreCase, bool ignorePaths) const;
+		virtual IFileArchive* createArchive(const io::path& filename) const;
 
 		//! creates/loads an archive from the file.
 		//! \return Pointer to the created archive. Returns 0 if loading failed.
-		virtual io::IFileArchive* createArchive(io::IReadFile* file, bool ignoreCase, bool ignorePaths) const;
+		virtual io::IFileArchive* createArchive(io::IReadFile* file) const;
 
 	private:
 		io::IFileSystem* FileSystem;
@@ -182,7 +182,7 @@ namespace io
 
         public:
             //! constructor
-            CZipReader(IReadFile* file, bool ignoreCase, bool ignorePaths, bool isGZip=false);
+            CZipReader(IReadFile* file, bool isGZip=false);
 
             //! opens a file by file name
             virtual IReadFile* createAndOpenFile(const io::path& filename);
