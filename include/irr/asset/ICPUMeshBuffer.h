@@ -86,12 +86,7 @@ public:
     }	
 	inline void setIndexBufferBinding(SBufferBinding&& bufferBinding)
 	{
-		m_indexBufferBinding.buffer = irr::core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufferBinding.buffer);
-		m_indexBufferBinding.offset = bufferBinding.offset;
-	}
-	inline void setIndexBufferBinding(SBufferBinding& bufferBinding)
-	{
-		m_indexBufferBinding.buffer = irr::core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufferBinding.buffer);
+		m_indexBufferBinding.buffer = std::move(bufferBinding.buffer);
 		m_indexBufferBinding.offset = bufferBinding.offset;
 	}
     inline ICPURenderpassIndependentPipeline* getPipeline()
@@ -111,13 +106,10 @@ public:
 				if (value <= maxRange)
 					return true;
 				else
-				{
-					std::string irrlichWayToHandleErrors("error handle: out of range (" + std::to_string(value) + ")!\n"); // TODO there should be an Irrlich way to raport errors
 					return false;
-				}
 			};
-
-			std::vector<std::pair<uint32_t, uint32_t>> valuesAndAssignedMaxRanges({ std::make_pair(attribIndex, SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT), std::make_pair(stride, TODO), std::make_pair(offset, TODO) });  // TODO find those constexpr
+			
+			const static std::array<std::pair<uint32_t, uint32_t>, 3> valuesAndAssignedMaxRanges({ std::make_pair(attribIndex, SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT), std::make_pair(stride, 2047ull), std::make_pair(offset, 2047ull) });
 			for (auto& it : valuesAndAssignedMaxRanges)
 				if (!isParamValid(it.first, it.second))
 					return false;
@@ -129,7 +121,7 @@ public:
 		{
 			auto& params(getPipeline()->getVertexInputParams());
 
-			setIndexBufferBinding(bufferBinding);
+			setIndexBufferBinding(std::move(bufferBinding));
 			params.attributes[attribIndex].binding = attribIndex;
 			params.attributes[attribIndex].format = format;
 			params.attributes[attribIndex].relativeOffset = offset;

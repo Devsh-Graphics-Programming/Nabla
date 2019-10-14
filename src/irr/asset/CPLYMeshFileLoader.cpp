@@ -67,7 +67,6 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
     SContext ctx;
 	ctx.File = std::move(core::make_smart_refctd_ptr<io::IReadFile>(_file));
-	ctx.File->grab();
 
 	// attempt to allocate the buffer and fill with data
 	if (!allocateBuffer(ctx))
@@ -573,7 +572,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 	const size_t stride = std::accumulate(sizes, sizes + 4, static_cast<size_t>(0));
 
 	{
-		std::vector<std::pair<uint16_t, E_FORMAT>> perIndexDataThatChanges{std::make_pair(E_POS, asset::EF_R32G32B32_SFLOAT), std::make_pair(E_COL, asset::EF_R32G32B32A32_SFLOAT), std::make_pair(E_UV, asset::EF_R32G32_SFLOAT), std::make_pair(E_NORM, asset::EF_R32G32B32_SFLOAT)};
+		const static std::array<std::pair<uint16_t, E_FORMAT>, 4> perIndexDataThatChanges{std::make_pair(E_POS, asset::EF_R32G32B32_SFLOAT), std::make_pair(E_COL, asset::EF_R32G32B32A32_SFLOAT), std::make_pair(E_UV, asset::EF_R32G32_SFLOAT), std::make_pair(E_NORM, asset::EF_R32G32B32_SFLOAT)};
 
 		for (const auto& attributeIndexExtra : perIndexDataThatChanges)
 			[&](auto attribIndex, auto formatToSend, auto offsetIndex)

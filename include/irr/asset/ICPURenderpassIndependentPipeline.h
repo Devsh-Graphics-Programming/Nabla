@@ -28,6 +28,7 @@ public:
 	inline SBlendParams& getBlendParams() { return m_blendParams; }
 	inline SPrimitiveAssemblyParams &getPrimitiveAssemblyParams() { return m_primAsmParams; }
 	inline SRasterizationParams& getRasterizationParams() { return m_rasterParams; }
+	inline SVertexInputParams& getVertexInputParams() { return m_vertexInputParams; }
 
 protected:
     virtual ~ICPURenderpassIndependentPipeline() = default;
