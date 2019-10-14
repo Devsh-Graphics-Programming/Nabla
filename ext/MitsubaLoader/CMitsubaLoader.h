@@ -19,9 +19,11 @@ class CMitsubaLoader : public asset::IAssetLoader
 {
 public:
 	//! Constructor
-	CMitsubaLoader();
+	CMitsubaLoader(asset::IAssetManager* _manager);
 
 protected:
+	asset::IAssetManager* manager;
+
 	//! Destructor
 	virtual ~CMitsubaLoader() = default;
 

@@ -559,7 +559,7 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 #undef SET_FLOAT
 #undef SET_SPECTRUM
 #undef SET_PROPERTY_TEMPLATE
-	static const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
+	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{
 		{"reflectance",				processReflectance},
 		{"distribution",			processDistribution},
@@ -596,7 +596,6 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 	auto found = SetPropertyMap.find(_property.name);
 	if (found==SetPropertyMap.end())
 	{
-		_IRR_DEBUG_BREAK_IF(true);
 		ParserLog::invalidXMLFileStructure("No BSDF can have such property set with name: "+_property.name);
 		return false;
 	}

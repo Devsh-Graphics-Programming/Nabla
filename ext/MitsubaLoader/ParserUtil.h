@@ -70,7 +70,10 @@ class ParserManager
 
 		void onEnd(const char* _el);
 
-		inline auto&& releaseTopLevelResources() { return std::move(shapegroups); }
+		//
+		core::vector<std::pair<CElementShape*,std::string> > shapegroups;
+		//
+		core::smart_refctd_ptr<CGlobalMitsubaMetadata> m_globalMetadata;
 
 	private:
 		void processProperty(const char* _el, const char** _atts);
@@ -82,9 +85,7 @@ class ParserManager
 		//
 		uint32_t m_sceneDeclCount;
 		//
-		core::smart_refctd_ptr<CGlobalMitsubaMetadata> m_globalMetadata;
-		//
-		core::vector<core::smart_refctd_ptr<asset::CCPUMesh>> shapegroups;
+		void recordShape(const std::pair<CElementShape*,std::string>&& shape);
 		//
 		ElementPool<
 			CElementIntegrator,

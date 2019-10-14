@@ -266,7 +266,7 @@ bool CElementEmitter::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _overr
 		case Type::AREA:
 			break;
 		default:
-			// TODO: add to global emitters
+			globalMetadata->emitters.push_back(*this);
 			break;
 	}
 

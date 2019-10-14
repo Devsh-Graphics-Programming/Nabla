@@ -108,6 +108,7 @@ class CElementSensor : public IElement
 		inline CElementSensor& operator=(const CElementSensor& other)
 		{
 			IElement::operator=(other);
+			type = other.type;
 			transform = other.transform;
 			switch (type)
 			{

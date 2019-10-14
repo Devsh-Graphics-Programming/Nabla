@@ -1,8 +1,10 @@
 #ifndef __C_ELEMENT_EMITTER_H_INCLUDED__
 #define __C_ELEMENT_EMITTER_H_INCLUDED__
 
+#include <cmath>
+
 #include "vectorSIMD.h"
-#include "../../ext/MitsubaLoader/IElement.h"
+#include "../../ext/MitsubaLoader/CElementTexture.h"
 
 namespace irr
 {

@@ -4,42 +4,6 @@
 
 namespace irr { namespace ext { namespace MitsubaLoader {
 
-core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createCube(asset::IAssetManager* _assetManager, const core::vector<SPropertyElementData>& properties)
-{
-#ifdef NEW_MITSUBA
-	bool flipNormalsFlag = false;
-
-	for (int i = 0; i < properties.size(); i++)
-	{
-		if (properties[i].type == SPropertyElementData::Type::BOOLEAN &&
-			properties[i].name == "flipNormals")
-		{
-			flipNormalsFlag = CPropertyElementManager::retriveBooleanValue(properties[i].value);
-		}
-		else
-		{
-			ParserLog::invalidXMLFileStructure(properties[i].name + " wat is this?");
-			_IRR_DEBUG_BREAK_IF(true);
-			return nullptr;
-		}
-	}
-
-	auto mesh = _assetManager->getGeometryCreator()->createCubeMesh(core::vector3df(1.0f, 1.0f, 1.0f));
-
-	if (!mesh)
-		return nullptr;
-
-	if (flipNormalsFlag)
-	{
-		for (int i = 0; i < mesh->getMeshBufferCount(); i++)
-			_assetManager->getMeshManipulator()->flipSurfaces(mesh->getMeshBuffer(i));
-	}
-
-	return mesh;
-#endif
-	return nullptr;
-}
-
 core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createSphere(asset::IAssetManager* _assetManager, const core::vector<SPropertyElementData>& properties, core::matrix4SIMD& transform)
 {
 #ifdef NEW_MITSUBA

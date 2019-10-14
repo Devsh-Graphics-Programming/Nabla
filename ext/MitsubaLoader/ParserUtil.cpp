@@ -136,8 +136,8 @@ void ParserManager::processProperty(const char* _el, const char** _atts)
 }
 
 void ParserManager::onEnd(const char* _el)
-{	
-	if (propertyElements.find(_el)!=propertyElements.end())
+{
+	if (propertyElements.find(_el) != propertyElements.end())
 		return;
 
 	if (core::strcmpi(_el, "scene") == 0)
@@ -155,7 +155,7 @@ void ParserManager::onEnd(const char* _el)
 
 	if (element.first && !element.first->onEndTag(m_override, m_globalMetadata.get()))
 	{
-		killParseWithError(element.first->getLogName()+" could not onEndTag");
+		killParseWithError(element.first->getLogName() + " could not onEndTag");
 		return;
 	}
 
@@ -172,7 +172,17 @@ void ParserManager::onEnd(const char* _el)
 
 		return;
 	}
+
+	if (element.first && element.first->getType()==IElement::Type::SHAPE)
+		recordShape({static_cast<CElementShape*>(element.first),std::move(element.second)});
 }
+
+void ParserManager::recordShape(const std::pair<CElementShape*,std::string>&& shape)
+{
+	if (shape.first)
+		shapegroups.emplace_back(shape);
+}
+
 
 }
 }
