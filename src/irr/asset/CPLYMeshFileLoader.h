@@ -13,6 +13,9 @@ namespace irr
 namespace asset
 {
 
+// input buffer must be at least twice as long as the longest line in the file
+#define PLY_INPUT_BUFFER_SIZE 51200 // file is loaded in 50k chunks
+
 enum E_PLY_PROPERTY_TYPE
 {
 	EPLYPT_INT8  = 0,
@@ -125,18 +128,21 @@ private:
 
     struct SContext
     {
-        core::vector<std::unique_ptr<SPLYElement>> ElementList;
-
-		std::unique_ptr<io::IReadFile> File;
-		std::unique_ptr<char> Buffer;
+        core::vector<core::smart_refctd_ptr<SPLYElement>> ElementList;
+	
+		core::smart_refctd_ptr<io::IReadFile> File;
+		char* Buffer = nullptr;
         bool IsBinaryFile = false, IsWrongEndian = false, EndOfFile = false;
         int32_t LineLength = 0, WordLength = 0;
 		char* StartPointer = nullptr, *EndPointer = nullptr, *LineEndPointer = nullptr;
 
 		std::function<void()> deallocate = [&]()
 		{ 
-			if (File)
-				File->drop();
+			if (Buffer)
+			{
+				_IRR_DELETE_ARRAY(Buffer, PLY_INPUT_BUFFER_SIZE);
+				Buffer = nullptr;
+			}
 			ElementList.clear();
 		};
 

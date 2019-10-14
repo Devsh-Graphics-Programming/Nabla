@@ -19,10 +19,6 @@ namespace irr
 namespace asset
 {
 
-// input buffer must be at least twice as long as the longest line in the file
-#define PLY_INPUT_BUFFER_SIZE 51200 // file is loaded in 50k chunks
-
-
 // constructor
 CPLYMeshFileLoader::CPLYMeshFileLoader()
 {
@@ -70,8 +66,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         return {};
 
     SContext ctx;
-
-	ctx.File = std::move(std::make_unique<io::IReadFile>(_file));
+	ctx.File = std::move(core::make_smart_refctd_ptr<io::IReadFile>(_file));
 	ctx.File->grab();
 
 	// attempt to allocate the buffer and fill with data
@@ -150,7 +145,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				else
 				{
 					// get element
-					std::unique_ptr<SPLYElement> el = std::move(ctx.ElementList[ctx.ElementList.size()-1]);
+					core::smart_refctd_ptr<SPLYElement> el = std::move(ctx.ElementList[ctx.ElementList.size()-1]);
 				
 					// fill property struct
 					SPLYProperty prop;
@@ -471,19 +466,19 @@ bool CPLYMeshFileLoader::allocateBuffer(SContext& _ctx)
 {
 	_ctx.ElementList.clear();
 
-	if (!_ctx.Buffer.get())
-        _ctx.Buffer = std::move(std::make_unique<char>(new char[PLY_INPUT_BUFFER_SIZE]));
+	if (!_ctx.Buffer)
+        _ctx.Buffer = _IRR_NEW_ARRAY(char, PLY_INPUT_BUFFER_SIZE);
 
 	// not enough memory?
-	if (!_ctx.Buffer.get())
+	if (!_ctx.Buffer)
 		return false;
 
 	// blank memory
-	memset(_ctx.Buffer.get(), 0, PLY_INPUT_BUFFER_SIZE);
+	memset(_ctx.Buffer, 0, PLY_INPUT_BUFFER_SIZE);
 
-    _ctx.StartPointer = _ctx.Buffer.get();
-    _ctx.EndPointer = _ctx.Buffer.get();
-    _ctx.LineEndPointer = _ctx.Buffer.get() - 1;
+    _ctx.StartPointer = _ctx.Buffer;
+    _ctx.EndPointer = _ctx.Buffer;
+    _ctx.LineEndPointer = _ctx.Buffer - 1;
     _ctx.WordLength = -1;
     _ctx.EndOfFile = false;
 
@@ -501,13 +496,13 @@ void CPLYMeshFileLoader::fillBuffer(SContext& _ctx)
 		return;
 
 	uint32_t length = (uint32_t)(_ctx.EndPointer - _ctx.StartPointer);
-	if (length && _ctx.StartPointer != _ctx.Buffer.get())
+	if (length && _ctx.StartPointer != _ctx.Buffer)
 	{
 		// copy the remaining data to the start of the buffer
-		memcpy(_ctx.Buffer.get(), _ctx.StartPointer, length);
+		memcpy(_ctx.Buffer, _ctx.StartPointer, length);
 	}
 	// reset start position
-	_ctx.StartPointer = _ctx.Buffer.get();
+	_ctx.StartPointer = _ctx.Buffer;
 	_ctx.EndPointer = _ctx.StartPointer + length;
 
 	if (_ctx.File->getPos() == _ctx.File->getSize())
@@ -526,7 +521,7 @@ void CPLYMeshFileLoader::fillBuffer(SContext& _ctx)
 		if (count != PLY_INPUT_BUFFER_SIZE - length)
 		{
 			// blank the rest of the memory
-			memset(_ctx.EndPointer, 0, _ctx.Buffer.get() + PLY_INPUT_BUFFER_SIZE - _ctx.EndPointer);
+			memset(_ctx.EndPointer, 0, _ctx.Buffer + PLY_INPUT_BUFFER_SIZE - _ctx.EndPointer);
 
 			// end of file
 			_ctx.EndOfFile = true;
@@ -680,7 +675,7 @@ char* CPLYMeshFileLoader::getNextLine(SContext& _ctx)
 			if (_ctx.StartPointer != _ctx.EndPointer)
 				return getNextLine(_ctx);
 			else
-				return _ctx.Buffer.get();
+				return _ctx.Buffer;
 		}
 		else
 		{
