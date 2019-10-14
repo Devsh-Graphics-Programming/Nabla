@@ -71,8 +71,7 @@ public:
 	*/
 	virtual core::smart_refctd_ptr<asset::ICPUMesh> createCylinderMesh(float radius, float length,
 			uint32_t tesselation,
-			const video::SColor& color=video::SColor(0xffffffff),
-			bool closeTop=true, float oblique=0.f) const =0;
+			const video::SColor& color=video::SColor(0xffffffff)) const =0;
 
 	//! Create a cone mesh.
 	/**
