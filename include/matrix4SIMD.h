@@ -56,6 +56,11 @@ class matrix4SIMD// : public AlignedBase<_IRR_SIMD_ALIGNMENT> don't inherit from
 			rows[3].set(0.f,0.f,0.f,1.f);
 		}
 
+		inline matrix3x4SIMD extractSub3x4() const
+		{
+			return matrix3x4SIMD(rows[0],rows[1],rows[2]);
+		}
+
 		//! Access by row
 		inline const vectorSIMDf& getRow(size_t _rown) const{ return rows[_rown]; }
 		inline vectorSIMDf& getRow(size_t _rown) { return rows[_rown]; }

@@ -36,9 +36,9 @@ class SimpleBlockBasedAllocator
 		template<typename... Args>
 		SimpleBlockBasedAllocator(size_type _blockSize=4096u*1024u, size_type _maxBlockCount=256u, const Args&... args) :
 			blockSize(_blockSize), maxBlockCount(_maxBlockCount), metaAlloc(),
-			cachedLocalMemSize(core::alignUp(address_allocator_traits<AddressAllocator>::reserved_size(meta_alignment,blockSize*maxBlockCount,args...),alignof(uint8_t*))+maxBlockCount*sizeof(uint8_t*)),
-			addrAlloc(metaAlloc.allocate(cachedLocalMemSize,meta_alignment), 0u, 0u, meta_alignment, blockSize*maxBlockCount, args...),
-			blocks(reinterpret_cast<uint8_t**>(const_cast<void*>(address_allocator_traits<AddressAllocator>::getReservedSpacePtr(addrAlloc)))-maxBlockCount),
+			cachedLocalMemSize(core::alignUp(maxBlockCount*sizeof(uint8_t*),meta_alignment)+address_allocator_traits<AddressAllocator>::reserved_size(meta_alignment,blockSize*maxBlockCount,args...)),
+			blocks(reinterpret_cast<uint8_t**>(metaAlloc.allocate(cachedLocalMemSize, meta_alignment))),
+			addrAlloc(reinterpret_cast<uint8_t*>(blocks)+core::alignUp(maxBlockCount*sizeof(uint8_t*),meta_alignment), 0u, 0u, meta_alignment, blockSize*maxBlockCount, args...),
 			blockAlloc()
 		{
 			assert(blockSize%meta_alignment==0u);
@@ -53,8 +53,8 @@ class SimpleBlockBasedAllocator
 			std::swap(maxBlockCount, other.maxBlockCount);
 			std::swap(metaAlloc, other.metaAlloc);
 			std::swap(cachedLocalMemSize, other.cachedLocalMemSize);
-			std::swap(addrAlloc, other.addrAlloc);
 			std::swap(blocks, other.blocks);
+			std::swap(addrAlloc, other.addrAlloc);
             std::swap(blockAlloc,other.blockAlloc);
             return *this;
         }
@@ -111,9 +111,9 @@ class SimpleBlockBasedAllocator
 				return true;
 			if (cachedLocalMemSize != other.cachedLocalMemSize)
 				return true;
-			if (addrAlloc != other.addrAlloc)
-				return true;
 			if (blocks != other.blocks)
+				return true;
+			if (addrAlloc != other.addrAlloc)
 				return true;
 			if (blockAlloc != other.blockAlloc)
 				return true;
@@ -128,8 +128,8 @@ class SimpleBlockBasedAllocator
 		size_type maxBlockCount;
 		DataAllocator<uint8_t> metaAlloc;
 		size_t cachedLocalMemSize;
-		AddressAllocator addrAlloc;
 		uint8_t** blocks;
+		AddressAllocator addrAlloc;
 		DataAllocator<uint8_t> blockAlloc;
 
 		uint8_t* createBlock()
