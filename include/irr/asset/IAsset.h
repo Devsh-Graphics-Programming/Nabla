@@ -108,26 +108,25 @@ public:
 	
     enum E_TYPE : uint64_t
     {
-        ET_BUFFER = 1u<<0u,								//!< asset::ICPUBuffer
-        ET_SUB_IMAGE = 1u<<1u,						    //!< asset::CImageData - maybe rename to asset::CSubImageData
-        ET_IMAGE = 1u<<2u,								//!< asset::ICPUTexture
-        ET_SUB_MESH = 1u<<3u,							//!< asset::ICPUMeshBuffer
-        ET_MESH = 1u<<4u,								//!< asset::ICPUMesh
-        ET_SKELETON = 1u<<5u,							//!< asset::ICPUSkeleton - to be done by splitting CFinalBoneHierarchy
-        ET_KEYFRAME_ANIMATION = 1u<<6u,					//!< asset::ICPUKeyframeAnimation - from CFinalBoneHierarchy
-        ET_SHADER = 1u<<7u,								//!< asset::ICPUShader
-        ET_SPECIALIZED_SHADER = 1u<<8,					//!< asset::ICPUSpecializedShader
-        ET_MESH_DATA_DESCRIPTOR = 1u<<8,				//!< asset::ICPUMeshDataFormatDesc
-        ET_GRAPHICS_PIPELINE = 1u<<9u,					//!< reserved, to implement later
-        ET_SCENE = 1u<<10u,								//!< reserved, to implement later
-        ET_COMPUTE_PIPELINE = 1u<<11,                   //!< asset::ICPUComputePipeline
-        ET_TEXTURE_VIEW = 1u<<12,                       //!< asset::ICPUTextureView
-        ET_DESCRIPTOR_SET_LAYOUT = 1u<<13,              //!< asset::ICPUDescriptorSetLayout
-        ET_DESCRIPTOR_SET = 1u<<14,                     //!< asset::ICPUDescriptorSet
-        ET_PIPELINE_LAYOUT = 1u<<15,                    //!< assetICPUPipelineLayout
-        ET_BUFFER_VIEW = 1u<<16,                        //!< asset::ICPUBufferView
-        ET_SAMPLER = 1u<<17,                            //!< asset::ICPUSampler
-        ET_IMPLEMENTATION_SPECIFIC_METADATA = 1u<<31u   //!< lights, etc.
+        ET_BUFFER = 1ull<<0u,								//!< asset::ICPUBuffer
+        ET_SUB_IMAGE = 1ull<<1u,						    //!< asset::CImageData - maybe rename to asset::CSubImageData
+        ET_IMAGE = 1ull<<2u,								//!< asset::ICPUTexture
+        ET_SUB_MESH = 1ull<<3u,							    //!< asset::ICPUMeshBuffer
+        ET_MESH = 1ull<<4u,								    //!< asset::ICPUMesh
+        ET_SKELETON = 1ull<<5u,							    //!< asset::ICPUSkeleton - to be done by splitting CFinalBoneHierarchy
+        ET_KEYFRAME_ANIMATION = 1ull<<6u,					//!< asset::ICPUKeyframeAnimation - from CFinalBoneHierarchy
+        ET_SHADER = 1ull<<7u,								//!< asset::ICPUShader
+        ET_SPECIALIZED_SHADER = 1ull<<8,					//!< asset::ICPUSpecializedShader
+        ET_GRAPHICS_PIPELINE = 1ull<<9u,					//!< asset::ICPURenderpassIndependentPipeline
+        ET_SCENE = 1ull<<10u,								//!< reserved, to implement later
+        ET_COMPUTE_PIPELINE = 1ull<<11,                     //!< asset::ICPUComputePipeline
+        ET_TEXTURE_VIEW = 1ull<<12,                         //!< asset::ICPUTextureView
+        ET_DESCRIPTOR_SET_LAYOUT = 1ull<<13,                //!< asset::ICPUDescriptorSetLayout
+        ET_DESCRIPTOR_SET = 1ull<<14,                       //!< asset::ICPUDescriptorSet
+        ET_PIPELINE_LAYOUT = 1ull<<15,                      //!< asset::ICPUPipelineLayout
+        ET_BUFFER_VIEW = 1ull<<16,                          //!< asset::ICPUBufferView
+        ET_SAMPLER = 1ull<<17,                              //!< asset::ICPUSampler
+        ET_IMPLEMENTATION_SPECIFIC_METADATA = 1ull<<31u     //!< lights, etc.
         //! Reserved special value used for things like terminating lists of this enum
     };
     constexpr static size_t ET_STANDARD_TYPES_COUNT = 18u;

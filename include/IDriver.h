@@ -21,7 +21,6 @@ namespace video
 }
 
 #include "IMultisampleTexture.h"
-#include "ITextureBufferObject.h"
 #include "IFrameBuffer.h"
 #include "IVideoCapabilityReporter.h"
 #include "IQueryObject.h"
@@ -133,11 +132,7 @@ namespace video
 
             virtual core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
                 core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-                core::smart_refctd_ptr<IGPUSpecializedShader>&& _vs,
-                core::smart_refctd_ptr<IGPUSpecializedShader>&& _tcs,
-                core::smart_refctd_ptr<IGPUSpecializedShader>&& _tes,
-                core::smart_refctd_ptr<IGPUSpecializedShader>&& _gs,
-                core::smart_refctd_ptr<IGPUSpecializedShader>&& _fs,
+                IGPUSpecializedShader** _shaders,
                 const asset::SVertexInputParams& _vertexInputParams,
                 const asset::SBlendParams& _blendParams,
                 const asset::SPrimitiveAssemblyParams& _primAsmParams,

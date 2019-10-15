@@ -320,24 +320,22 @@ public:
     };
 
 protected:
+    //! @param _shaders Must be pointer to array of SHADER_STAGE_COUNT elements. Shaders must go in order VS, TCS, TES, GS, FS.
     IRenderpassIndependentPipeline(
         core::smart_refctd_ptr<LayoutType>&& _layout,
-        core::smart_refctd_ptr<SpecShaderType>&& _vs,
-        core::smart_refctd_ptr<SpecShaderType>&& _tcs,
-        core::smart_refctd_ptr<SpecShaderType>&& _tes,
-        core::smart_refctd_ptr<SpecShaderType>&& _gs,
-        core::smart_refctd_ptr<SpecShaderType>&& _fs,
+        SpecShaderType** _shaders,
         const SVertexInputParams& _vertexInputParams,
         const SBlendParams& _blendParams,
         const SPrimitiveAssemblyParams& _primAsmParams,
         const SRasterizationParams& _rasterParams
     ) : IPipeline<LayoutType>(std::move(_layout)),
-        m_shaders{std::move(_vs), std::move(_tcs), std::move(_tes), std::move(_gs), std::move(_fs)},
         m_blendParams(_blendParams),
         m_primAsmParams(_primAsmParams),
         m_rasterParams(_rasterParams),
         m_vertexInputParams(_vertexInputParams)
     {
+        for (size_t i = 0ull; i < SHADER_STAGE_COUNT; ++i)
+            m_shaders[i] = core::smart_refctd_ptr<SpecShaderType>(_shaders[i]);
     }
     virtual ~IRenderpassIndependentPipeline() = default;
 

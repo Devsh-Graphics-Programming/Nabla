@@ -560,11 +560,7 @@ inline created_gpu_object_array<asset::ICPURenderpassIndependentPipeline> IGPUOb
 
         (*res)[i] = m_driver->createGPURenderpassIndependentPipeline(
             core::smart_refctd_ptr<IGPUPipelineLayout>(layout),
-            core::smart_refctd_ptr<IGPUSpecializedShader>(shaders[0]),
-            core::smart_refctd_ptr<IGPUSpecializedShader>(shaders[1]),
-            core::smart_refctd_ptr<IGPUSpecializedShader>(shaders[2]),
-            core::smart_refctd_ptr<IGPUSpecializedShader>(shaders[3]),
-            core::smart_refctd_ptr<IGPUSpecializedShader>(shaders[4]),
+            shaders,
             cpuppln->getVertexInputParams(),
             cpuppln->getBlendParams(),
             cpuppln->getPrimitiveAssemblyParams(),
