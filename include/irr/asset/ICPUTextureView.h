@@ -2,13 +2,13 @@
 #define __IRR_I_CPU_TEXTURE_VIEW_H_INCLUDED__
 
 #include "irr/asset/IAsset.h"
-#include "irr/asset/IDescriptor.h"
+#include "irr/asset/ITextureView.h"
 
 namespace irr {
 namespace asset
 {
 
-class ICPUTextureView : public IAsset, public IDescriptor
+class ICPUTextureView : public IAsset, public ITextureView
 {
 public:
     size_t conservativeSizeEstimate() const override { return 0ull /*TODO*/; }
