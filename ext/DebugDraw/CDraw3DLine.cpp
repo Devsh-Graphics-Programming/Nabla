@@ -8,9 +8,9 @@ using namespace asset;
 using namespace ext;
 using namespace DebugDraw;
 
-CDraw3DLine* CDraw3DLine::create(IVideoDriver* _driver)
+core::smart_refctd_ptr<CDraw3DLine> CDraw3DLine::create(IVideoDriver* _driver)
 {
-    return new CDraw3DLine(_driver);
+    return core::smart_refctd_ptr<CDraw3DLine>(new CDraw3DLine(_driver),core::dont_grab);
 }
 
 CDraw3DLine::CDraw3DLine(IVideoDriver* _driver)

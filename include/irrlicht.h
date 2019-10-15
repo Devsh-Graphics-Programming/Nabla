@@ -56,7 +56,6 @@
 #include "ESceneNodeTypes.h"
 #include "IAnimatedMesh.h"
 #include "IAnimatedMeshSceneNode.h"
-#include "IBillboardSceneNode.h"
 #include "ICameraSceneNode.h"
 #include "ICursorControl.h"
 #include "IDummyTransformationSceneNode.h"
@@ -167,17 +166,22 @@ namespace irr
 	{
 	}
 
-	//! This namespace provides interfaces for input/output: Reading and writing files, accessing zip archives, xml files, ...
+	//! This namespace provides interfaces for input/output: Reading and writing files, accessing zip archives, faking files ...
 	namespace io
 	{
 	}
+    
+    //! All asset loading and mutation is performed here: Loading and Saving Images, Models, Shaders, Mesh and Texture CPU manipulation ...
+    namespace asset
+    {
+    }
 
-	//! All scene management can be found in this namespace: Mesh loading, special scene nodes like octrees and billboards, ...
+	//! All scene management can be found in this namespace: scene graph, scene nodes, cameras, animation, etc...
 	namespace scene
 	{
 	}
 
-	//! The video namespace contains classes for accessing the video driver. All 2d and 3d rendering is done here.
+	//! The video namespace contains classes for accessing the graphics API
 	namespace video
 	{
 	}

@@ -250,14 +250,14 @@ int main()
 
 	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
 	//add a floor
-	scene::ISceneNode* floor = smgr->addCubeSceneNode(kInstanceSquareSize*20.f,0,-1,core::vector3df(0,-0.75f,0),core::vector3df(0,0,0),core::vector3df(1.f,1.f/(kInstanceSquareSize*20.f),1.f));
-	video::SGPUMaterial& floorMaterial = floor->getMaterial(0);
+	auto* floor = smgr->addCubeSceneNode(kInstanceSquareSize*20.f,0,-1,core::vector3df(0,-0.75f,0),core::vector3df(0,0,0),core::vector3df(1.f,1.f/(kInstanceSquareSize*20.f),1.f));
+	video::SGPUMaterial& floorMaterial = floor->getMesh()->getMeshBuffer(0)->getMaterial();
 	floorMaterial.setTexture(0,core::smart_refctd_ptr(driver->getGPUObjectsFromAssets(&wallTexture.get(), (&wallTexture.get())+1)->front()));
 	floorMaterial.setTexture(1,core::smart_refctd_ptr(cubeMap));
     floorMaterial.setTexture(4,core::smart_refctd_ptr(derivMap));
 	floorMaterial.MaterialType = litSolidMaterialType;
 
-	scene::ISceneNode* anodes[kInstanceSquareSize*kInstanceSquareSize] = {0};
+	scene::ISkinnedMeshSceneNode* anodes[kInstanceSquareSize*kInstanceSquareSize] = {0};
 
 	//! For Shadow Optimization
 	scene::ISkinnedMeshSceneNode* fastestNode = NULL;
@@ -276,15 +276,31 @@ int main()
 				anode->setScale(core::vector3df(0.05f));
 				anode->setPosition(core::vector3df(x, 0.f, z)*4.f);
 				anode->setAnimationSpeed(18.f*float(x + 1 + (z + 1)*kInstanceSquareSize) / float(kInstanceSquareSize*kInstanceSquareSize));
-				anode->setMaterialType(skinnedMaterialType);
-				anode->setMaterialTexture(1, cubeMap);
-				anode->setMaterialTexture(3, core::smart_refctd_ptr<video::ITextureBufferObject>(anode->getBonePoseTBO()));
-                anode->setMaterialTexture(4, core::smart_refctd_ptr(derivMap));
+
+				auto setMaterialTypeAndDescriptorsOnAllMaterials = [=](auto* mesh)
+				{
+					for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
+					{
+						auto& material = mesh->getMeshBuffer(i)->getMaterial();
+						material.MaterialType = skinnedMaterialType;
+						material.setTexture(1, core::smart_refctd_ptr(cubeMap));
+						material.setTexture(3, core::smart_refctd_ptr<video::ITextureBufferObject>(anode->getBonePoseTBO()));
+						material.setTexture(4, core::smart_refctd_ptr(derivMap));
+					}
+				};
+				setMaterialTypeAndDescriptorsOnAllMaterials(anode->getMesh());
 			}
         fastestNode = anode;
 		gpumesh->drop();
 	}
 
+	//! Material setting lambda
+	auto setMaterialTypeOnAllMeshBuffers = [](auto* node, auto type)
+	{
+		auto* mesh = node->getMesh();
+		for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
+			mesh->getMeshBuffer(i)->getMaterial().MaterialType = type;
+	};
 
 	uint64_t lastFPSTime = 0;
 	float lastFastestMeshFrameNr = -1.f;
@@ -308,10 +324,10 @@ int main()
             //! draw shadows
             smgr->setActiveCamera(NULL);
 
-            floor->setMaterialType(shadowMaterialType);
+			setMaterialTypeOnAllMeshBuffers(floor,shadowMaterialType);
             for (size_t x=0; x<kInstanceSquareSize; x++)
             for (size_t z=0; z<kInstanceSquareSize; z++)
-                anodes[x+kInstanceSquareSize*z]->setMaterialType(skinnedShadowMaterialType);
+				setMaterialTypeOnAllMeshBuffers(anodes[x+kInstanceSquareSize*z],skinnedShadowMaterialType);
 
             driver->setRenderTarget(fbo,true);
             driver->clearZBuffer(0.f);
@@ -328,10 +344,10 @@ int main()
             }
             smgr->drawAll();
 
-            floor->setMaterialType(litSolidMaterialType);
+			setMaterialTypeOnAllMeshBuffers(floor,litSolidMaterialType);
             for (size_t x=0; x<kInstanceSquareSize; x++)
             for (size_t z=0; z<kInstanceSquareSize; z++)
-                anodes[x+kInstanceSquareSize*z]->setMaterialType(skinnedMaterialType);
+				setMaterialTypeOnAllMeshBuffers(anodes[x+kInstanceSquareSize*z],skinnedMaterialType);
 
             driver->setRenderTarget(0,true);
 

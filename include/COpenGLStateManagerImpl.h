@@ -436,8 +436,8 @@ COpenGLState COpenGLState::collectGLState(  bool careAboutHints, //should be def
 
     if (careAboutUBO)
     {
-        int32_t maxUBOs = 0;
-        glGetIntegerv(GL_MAX_UNIFORM_BUFFER_BINDINGS,&maxUBOs);
+        uint32_t maxUBOs = 0;
+        glGetIntegerv(GL_MAX_UNIFORM_BUFFER_BINDINGS,reinterpret_cast<int32_t*>(&maxUBOs));
         if (maxUBOs>OGL_MAX_BUFFER_BINDINGS)
             maxUBOs = OGL_MAX_BUFFER_BINDINGS;
 

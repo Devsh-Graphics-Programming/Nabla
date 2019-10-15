@@ -77,14 +77,20 @@ macro(irr_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	set_target_properties(${EXECUTABLE_NAME}
 		PROPERTIES
 		RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin"
+		VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/bin" # for visual studio code
 	)
 	if(MSVC)
 		set_target_properties(${EXECUTABLE_NAME}
 			PROPERTIES
 			RUNTIME_OUTPUT_DIRECTORY_DEBUG "${PROJECT_SOURCE_DIR}/bin"
 			RUNTIME_OUTPUT_DIRECTORY_RELEASE "${PROJECT_SOURCE_DIR}/bin"
-			VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/bin" # seems like has no effect
 		)
+	#if anybody knows how to do it, lemme know!
+	#else()
+	#	set_target_properties(${EXECUTABLE_NAME}
+	#		PROPERTIES
+	#		IDE_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/bin"
+	#	)
 	endif()
 endmacro()
 

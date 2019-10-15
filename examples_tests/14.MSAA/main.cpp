@@ -162,6 +162,16 @@ int main()
 		scene::ISkinnedMeshSceneNode* anode = 0;
 		auto gpumesh = driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)->front();
 
+		auto setMaterialTypeAndBufferViewOnAllMaterials = [](auto* mesh, auto newMaterialType, auto* tbo)
+		{
+			for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
+			{
+				auto& material = mesh->getMeshBuffer(i)->getMaterial();
+				material.MaterialType = newMaterialType;
+				material.setTexture(3u, core::smart_refctd_ptr<video::ITextureBufferObject>(tbo));
+			}
+		};
+
 		for (size_t x = 0; x<kInstanceSquareSize; x++)
 			for (size_t z = 0; z<kInstanceSquareSize; z++)
 			{
@@ -169,8 +179,7 @@ int main()
 				anode->setScale(core::vector3df(0.05f));
 				anode->setPosition(core::vector3df(x, 0.f, z)*4.f);
 				anode->setAnimationSpeed(18.f*float(x + 1 + (z + 1)*kInstanceSquareSize) / float(kInstanceSquareSize*kInstanceSquareSize));
-				anode->setMaterialType(newMaterialType);
-				anode->setMaterialTexture(3, core::smart_refctd_ptr<video::ITextureBufferObject>(anode->getBonePoseTBO()));
+				setMaterialTypeAndBufferViewOnAllMaterials(anode->getMesh(), newMaterialType, anode->getBonePoseTBO());
 			}
 
 		gpumesh->drop();

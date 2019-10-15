@@ -90,8 +90,8 @@ namespace irr
 					MouseKeys[2] = false;
 
 				MousePos = CursorControl->getRelativePosition();
+                break;
 			}
-			break;
 			case EMIE_MOUSE_WHEEL:
 			{
 				if (!StepZooming && !Zooming)
@@ -99,6 +99,7 @@ namespace irr
 					StepZooming = true;
 					ZoomDelta = event.MouseInput.Wheel * ScrllZoomSpeed;
 				}
+                break;
 			}
 				
 			case EMIE_LMOUSE_DOUBLE_CLICK:
