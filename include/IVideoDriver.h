@@ -182,13 +182,7 @@ namespace video
 										core::recti dstRect=core::recti(0,0,0,0),
 										bool bilinearFilter=false) = 0;
 
-		virtual void removeMultisampleTexture(IMultisampleTexture* tex) =0;
-
         virtual void removeFrameBuffer(IFrameBuffer* framebuf) = 0;
-
-		virtual void removeAllMultisampleTextures() =0;
-
-		virtual void removeAllTextureBufferObjects() =0;
 
 		//! This only removes all IFrameBuffers created in the calling thread.
 		virtual void removeAllFrameBuffers() =0;
