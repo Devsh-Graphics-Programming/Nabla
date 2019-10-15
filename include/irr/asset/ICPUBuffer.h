@@ -8,7 +8,7 @@
 
 #include <type_traits>
 
-#include "irr/core/IBuffer.h"
+#include "irr/asset/IBuffer.h"
 #include "irr/core/alloc/null_allocator.h"
 #include "irr/asset/IAsset.h"
 #include "irr/asset/bawformat/blobs/RawBufferBlob.h"
@@ -26,7 +26,7 @@ namespace asset
 
 	@see IAsset
 */
-class ICPUBuffer : public core::IBuffer, public asset::IAsset, public IDescriptor
+class ICPUBuffer : public asset::IBuffer, public asset::IAsset, public IDescriptor
 {
     protected:
         virtual ~ICPUBuffer()
