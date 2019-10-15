@@ -80,7 +80,7 @@ asset::SAssetBundle CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asse
 	auto time = std::chrono::high_resolution_clock::now();
 //#endif
 
-    SContext ctx(asset::IAssetLoader::SAssetLoadContext{_params, _file}, _override);
+    SContext ctx(asset::IAssetLoader::SAssetLoadContext{_params, _file},_hierarchyLevel, _override);
 
 	if (!_file)
         return {};
@@ -1577,7 +1577,7 @@ bool CXMeshFileLoader::parseDataObjectMeshVertexColors(SContext& _ctx, SXMesh &m
 
 	mesh.HasVertexColors=true;
 	const typename decltype(mesh.Colors)::size_type nColors = readInt(_ctx);
-	mesh.Colors.resize(core::max_(mesh.Colors.size(),nColors));
+	mesh.Colors.resize(core::max(mesh.Colors.size(),nColors));
 	for (uint32_t i=0; i<nColors; ++i)
 	{
 		const uint32_t Index=readInt(_ctx);
@@ -1739,7 +1739,7 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 
 		auto loadAndSetTexture = [&](uint32_t texSlot, auto path)
 		{
-			auto bundle = interm_getAssetInHierarchy(AssetManager, path.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents();
+			auto bundle = interm_getAssetInHierarchy(AssetManager, path.c_str(), _ctx.Inner.params, _ctx.topHierarchyLevel+ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride).getContents();
 			if (bundle.first != bundle.second)
 				material.setTexture(texSlot, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*bundle.first));
 		};
@@ -1796,7 +1796,7 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 			{
 				TextureFileName= _ctx.FilePath + io::IFileSystem::getFileBasename(TextureFileName);
                 if (FileSystem->existFile(TextureFileName))
-					material.setTexture(1, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*interm_getAssetInHierarchy(AssetManager, TextureFileName.c_str(), _ctx.Inner.params, 2u, _ctx.loaderOverride).getContents().first));
+					material.setTexture(1, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*interm_getAssetInHierarchy(AssetManager, TextureFileName.c_str(), _ctx.Inner.params, _ctx.topHierarchyLevel+ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride).getContents().first));
 				// working directory
                 else
 					loadAndSetTexture(1u, io::IFileSystem::getFileBasename(TextureFileName));

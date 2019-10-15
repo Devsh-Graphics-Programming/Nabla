@@ -5,7 +5,7 @@
 #ifndef __IRR_NORMAL_QUANTIZATION_H_INCLUDED__
 #define __IRR_NORMAL_QUANTIZATION_H_INCLUDED__
 
-#include "vectorSIMD.h"
+#include "irr/core/math/glslFunctions.tcc"
 #include <vector>
 #include <fstream>
 #include <iterator>
@@ -65,7 +65,7 @@ namespace asset
         fittingVector = abs(fittingVector);
 
 		// precise normalize
-		auto vectorForDots = fittingVector.preciseDivision(fittingVector.getLength());
+		auto vectorForDots = fittingVector.preciseDivision(length(fittingVector));
 
         float maxNormalComp;
         core::vectorSIMDf corners[4];
@@ -114,7 +114,7 @@ namespace asset
 		auto evaluateFit = [&](const core::vectorSIMDf& newFit) -> void
 		{
 			auto newFitLen = core::length(newFit);
-			auto dp = core::dot(newFit,vectorForDots).preciseDivision(newFitLen);
+			auto dp = core::dot<core::vectorSIMDf>(newFit,vectorForDots).preciseDivision(newFitLen);
 			if (dp[0] > closestTo1)
 			{
 				closestTo1 = dp[0];

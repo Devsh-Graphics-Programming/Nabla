@@ -2,6 +2,7 @@
 #define __IRR_CONVERT_COLOR_H_INCLUDED__
 
 #include <cassert>
+#include <type_traits>
 
 #include "irr/static_if.h"
 #include "irr/asset/format/EFormat.h"
@@ -74,9 +75,39 @@ namespace irr { namespace video
     } //namespace impl
 
 
-    template<asset::E_FORMAT sF, asset::E_FORMAT dF>
-    inline void convertColor(const void* srcPix[4], void* dstPix, uint32_t _blockX, uint32_t _blockY)
+	struct DefaultSwizzle
+	{
+		template<typename type>
+		constexpr void operator()(type vect[4]) const {}
+	};
+	struct PolymorphicSwizzle
+	{
+		virtual void impl(double vect[4]) const = 0;
+		virtual void impl(uint64_t vect[4]) const = 0;
+		virtual void impl(int64_t vect[4]) const = 0;
+
+		template<typename type>
+		inline void operator()(type vect[4]) const
+		{
+			impl(vect);
+		}
+	};
+
+    template<asset::E_FORMAT sF, asset::E_FORMAT dF, class Swizzle = DefaultSwizzle >
+    inline void convertColor(const void* srcPix[4], void* dstPix, uint32_t _blockX, uint32_t _blockY, PolymorphicSwizzle* swizzle = nullptr)
     {
+	#define SWIZZLE(X) \
+		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(/*std::is_void<Swizzle>::value*/false) \
+		{ \
+			if (swizzle) \
+				swizzle->operator()(X); \
+		} \
+		IRR_PSEUDO_ELSE_CONSTEXPR \
+		{ \
+			Swizzle()(X); \
+		} \
+		IRR_PSEUDO_IF_CONSTEXPR_END 
+
         using namespace asset;
         if (isIntegerFormat<sF>() && isIntegerFormat<dF>())
         {
@@ -85,6 +116,7 @@ namespace irr { namespace video
 
             decT decbuf[4];
             impl::SCallDecode<sF, decT>{}(srcPix, decbuf, _blockX, _blockY);
+			SWIZZLE(decbuf)
             impl::SCallEncode<dF, encT>{}(dstPix, reinterpret_cast<encT*>(decbuf));
         }
         else if (
@@ -96,6 +128,7 @@ namespace irr { namespace video
 
             decT decbuf[4];
             impl::SCallDecode<sF, decT>{}(srcPix, decbuf, _blockX, _blockY);
+			SWIZZLE(decbuf)
             impl::SCallEncode<dF, encT>{}(dstPix, decbuf);
         }
         else if ((isFloatingPointFormat<sF>() || isScaledFormat<sF>() || isNormalizedFormat<sF>()) && isIntegerFormat<dF>())
@@ -105,6 +138,7 @@ namespace irr { namespace video
 
             decT decbuf[4];
             impl::SCallDecode<sF, decT>{}(srcPix, decbuf, _blockX, _blockY);
+			SWIZZLE(decbuf)
             encT encbuf[4];
             for (uint32_t i = 0u; i < 4u; ++i)
                 encbuf[i] = decbuf[i];
@@ -117,14 +151,16 @@ namespace irr { namespace video
 
             decT decbuf[4];
             impl::SCallDecode<sF, decT>{}(srcPix, decbuf, _blockX, _blockY);
+			SWIZZLE(decbuf)
             encT encbuf[4];
             for (uint32_t i = 0u; i < 4u; ++i)
                 encbuf[i] = decbuf[i];
             impl::SCallEncode<dF, encT>{}(dstPix, encbuf);
         }
+	#undef SWIZZLE
     }
-    template<asset::E_FORMAT sF, asset::E_FORMAT dF>
-    inline void convertColor(const void* srcPix[4], void* dstPix, size_t _pixOrBlockCnt, core::vector3d<uint32_t>& _imgSize)
+    template<asset::E_FORMAT sF, asset::E_FORMAT dF, class Swizzle = DefaultSwizzle >
+    inline void convertColor(const void* srcPix[4], void* dstPix, size_t _pixOrBlockCnt, core::vector3d<uint32_t>& _imgSize, PolymorphicSwizzle* swizzle = nullptr)
     {
         using namespace asset;
 
@@ -152,7 +188,7 @@ namespace irr { namespace video
                 for (uint32_t y = 0u; y < sdims.Y; ++y)
                 {
                     const ptrdiff_t off = ((sdims.Y * py + y)*_imgSize.X + px * sdims.X + x);
-                    convertColor<sF, dF>(reinterpret_cast<const void**>(src), dst_begin + static_cast<ptrdiff_t>(dstStride)*off, x, y);
+                    convertColor<sF, dF, Swizzle>(reinterpret_cast<const void**>(src), dst_begin + static_cast<ptrdiff_t>(dstStride)*off, x, y, swizzle);
                 }
             }
             if (!isPlanarFormat<sF>())
@@ -169,7 +205,8 @@ namespace irr { namespace video
         }
     }
 
-    void convertColor(asset::E_FORMAT _sfmt, asset::E_FORMAT _dfmt, const void* _srcPix[4], void* _dstPix, size_t _pixOrBlockCnt, core::vector3d<uint32_t>& _imgSize);
+
+    void convertColor(asset::E_FORMAT _sfmt, asset::E_FORMAT _dfmt, const void* _srcPix[4], void* _dstPix, size_t _pixOrBlockCnt, core::vector3d<uint32_t>& _imgSize, PolymorphicSwizzle* swizzle=nullptr);
 }} //irr:video
 
 #ifdef __GNUC__

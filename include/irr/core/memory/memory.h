@@ -5,8 +5,9 @@
 #ifndef __IRR_MEMORY_H_INCLUDED__
 #define __IRR_MEMORY_H_INCLUDED__
 
-#include "irr/core/math/irrMath.h"
+#include "irr/core/math/intutil.h"
 #include "irr/void_t.h"
+
 #include <typeinfo>
 #include <cstddef>
 

@@ -94,11 +94,11 @@ class SCollisionEngine : public AllocationOverrideDefault
             if (transformedPos.w < 0)
                 return position2d<int32_t>(-10000,-10000);
 
-            const float zDiv = transformedPos.w==0.f  ?  1.f:reciprocal(transformedPos).w;
+            const float zDiv = transformedPos.w==0.f  ?  1.f:reciprocal_approxim(transformedPos).w;
 
             return position2d<int32_t>(
-                        dim.Width + round32(dim.Width * (transformedPos.x * zDiv)),
-                        dim.Height - round32(dim.Height * (transformedPos.y * zDiv)));
+                        dim.Width + round<float,int32_t>(dim.Width * (transformedPos.x * zDiv)),
+                        dim.Height - round<float,int32_t>(dim.Height * (transformedPos.y * zDiv)));
 		}
 
 		//! Adds a collider

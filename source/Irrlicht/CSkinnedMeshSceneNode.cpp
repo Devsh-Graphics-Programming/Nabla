@@ -238,13 +238,13 @@ bool CSkinnedMeshSceneNode::setFrameLoop(const float& begin, const float& end)
 	const float maxFrameCount = mesh->getLastFrame();
 	if (end < begin)
 	{
-		StartFrame = core::s32_clamp(end, mesh->getFirstFrame(), maxFrameCount);
-		EndFrame = core::s32_clamp(begin, StartFrame, maxFrameCount);
+		StartFrame = core::clamp(end, mesh->getFirstFrame(), maxFrameCount);
+		EndFrame = core::clamp(begin, StartFrame, maxFrameCount);
 	}
 	else
 	{
-		StartFrame = core::s32_clamp(begin, mesh->getFirstFrame(), maxFrameCount);
-		EndFrame = core::s32_clamp(end, StartFrame, maxFrameCount);
+		StartFrame = core::clamp(begin, mesh->getFirstFrame(), maxFrameCount);
+		EndFrame = core::clamp(end, StartFrame, maxFrameCount);
 	}
 	if (FramesPerSecond < 0)
 		setCurrentFrame((float)EndFrame);

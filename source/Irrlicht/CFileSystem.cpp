@@ -10,9 +10,7 @@
 #include "CZipReader.h"
 #include "CMountPointReader.h"
 #include "CPakReader.h"
-#include "CNPKReader.h"
 #include "CTarReader.h"
-#include "CWADReader.h"
 #include "CFileList.h"
 #include "stdio.h"
 #include "os.h"
@@ -59,16 +57,8 @@ CFileSystem::CFileSystem()
 	ArchiveLoader.push_back(new CArchiveLoaderPAK(this));
 #endif
 
-#ifdef __IRR_COMPILE_WITH_NPK_ARCHIVE_LOADER_
-	ArchiveLoader.push_back(new CArchiveLoaderNPK(this));
-#endif
-
 #ifdef __IRR_COMPILE_WITH_TAR_ARCHIVE_LOADER_
 	ArchiveLoader.push_back(new CArchiveLoaderTAR(this));
-#endif
-
-#ifdef __IRR_COMPILE_WITH_WAD_ARCHIVE_LOADER_
-	ArchiveLoader.push_back(new CArchiveLoaderWAD(this));
 #endif
 
 #ifdef __IRR_COMPILE_WITH_MOUNT_ARCHIVE_LOADER_
@@ -207,8 +197,7 @@ bool CFileSystem::moveFileArchive(uint32_t sourceIndex, int32_t relative)
 
 
 //! Adds an archive to the file system.
-bool CFileSystem::addFileArchive(const io::path& filename, bool ignoreCase,
-			  bool ignorePaths, E_FILE_ARCHIVE_TYPE archiveType,
+bool CFileSystem::addFileArchive(const io::path& filename, E_FILE_ARCHIVE_TYPE archiveType,
 			  const core::stringc& password,
 			  IFileArchive** retArchive)
 {
@@ -229,7 +218,7 @@ bool CFileSystem::addFileArchive(const io::path& filename, bool ignoreCase,
 		{
 			if (ArchiveLoader[i]->isALoadableFileFormat(filename))
 			{
-				archive = ArchiveLoader[i]->createArchive(filename, ignoreCase, ignorePaths);
+				archive = ArchiveLoader[i]->createArchive(filename);
 				if (archive)
 					break;
 			}
@@ -247,7 +236,7 @@ bool CFileSystem::addFileArchive(const io::path& filename, bool ignoreCase,
 					if (ArchiveLoader[i]->isALoadableFileFormat(file))
 					{
 						file->seek(0);
-						archive = ArchiveLoader[i]->createArchive(file, ignoreCase, ignorePaths);
+						archive = ArchiveLoader[i]->createArchive(file);
 						if (archive)
 							break;
 					}
@@ -278,7 +267,7 @@ bool CFileSystem::addFileArchive(const io::path& filename, bool ignoreCase,
 					if (ArchiveLoader[i]->isALoadableFileFormat(file))
 					{
 						file->seek(0);
-						archive = ArchiveLoader[i]->createArchive(file, ignoreCase, ignorePaths);
+						archive = ArchiveLoader[i]->createArchive(file);
 						if (archive)
 							break;
 					}
@@ -337,8 +326,7 @@ bool CFileSystem::changeArchivePassword(const path& filename,
 	return false;
 }
 
-bool CFileSystem::addFileArchive(IReadFile* file, bool ignoreCase,
-		bool ignorePaths, E_FILE_ARCHIVE_TYPE archiveType,
+bool CFileSystem::addFileArchive(IReadFile* file, E_FILE_ARCHIVE_TYPE archiveType,
 		const core::stringc& password, IFileArchive** retArchive)
 {
 	if (!file || archiveType == EFAT_FOLDER)
@@ -359,7 +347,7 @@ bool CFileSystem::addFileArchive(IReadFile* file, bool ignoreCase,
 			{
 				if (ArchiveLoader[i]->isALoadableFileFormat(file->getFileName()))
 				{
-					archive = ArchiveLoader[i]->createArchive(file, ignoreCase, ignorePaths);
+					archive = ArchiveLoader[i]->createArchive(file);
 					if (archive)
 						break;
 				}
@@ -374,7 +362,7 @@ bool CFileSystem::addFileArchive(IReadFile* file, bool ignoreCase,
 					if (ArchiveLoader[i]->isALoadableFileFormat(file))
 					{
 						file->seek(0);
-						archive = ArchiveLoader[i]->createArchive(file, ignoreCase, ignorePaths);
+						archive = ArchiveLoader[i]->createArchive(file);
 						if (archive)
 							break;
 					}
@@ -393,7 +381,7 @@ bool CFileSystem::addFileArchive(IReadFile* file, bool ignoreCase,
 					if (ArchiveLoader[i]->isALoadableFileFormat(file))
 					{
 						file->seek(0);
-						archive = ArchiveLoader[i]->createArchive(file, ignoreCase, ignorePaths);
+						archive = ArchiveLoader[i]->createArchive(file);
 						if (archive)
 							break;
 					}
@@ -757,7 +745,7 @@ IFileList* CFileSystem::createFileList()
 		#ifdef _IRR_WINDOWS_API_
 		#if !defined ( _WIN32_WCE )
 
-		r = new CFileList(Path, true, false);
+		r = new CFileList(Path);
 
 		// TODO: Should be unified once mingw adapts the proper types
 #if defined(__GNUC__)
@@ -832,7 +820,7 @@ IFileList* CFileSystem::createFileList()
 	else
 	{
 		//! create file list for the virtual filesystem
-		r = new CFileList(Path, false, false);
+		r = new CFileList(Path);
 
 		//! add relative navigation
 		SFileListEntry e2;
@@ -862,9 +850,9 @@ IFileList* CFileSystem::createFileList()
 }
 
 //! Creates an empty filelist
-IFileList* CFileSystem::createEmptyFileList(const io::path& path, bool ignoreCase, bool ignorePaths)
+IFileList* CFileSystem::createEmptyFileList(const io::path& path)
 {
-	return new CFileList(path, ignoreCase, ignorePaths);
+	return new CFileList(path);
 }
 
 

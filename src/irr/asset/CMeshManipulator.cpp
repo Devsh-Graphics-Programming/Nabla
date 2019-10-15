@@ -924,13 +924,10 @@ void CMeshManipulator::_filterInvalidTriangles(ICPUMeshBuffer* _input)
         [&_input](const Triangle& _t) {
             core::vectorSIMDf p0, p1, p2;
             const E_VERTEX_ATTRIBUTE_ID pvaid = _input->getPositionAttributeIx();
-            uint32_t m = 0xffffffff;
-            const core::vectorSIMDu32 mask(m, m, m, 0);
             _input->getAttribute(p0, pvaid, _t.i[0]);
             _input->getAttribute(p1, pvaid, _t.i[1]);
             _input->getAttribute(p2, pvaid, _t.i[2]);
-            p0 &= mask; p1 &= mask; p2 &= mask;
-            return (p0 == p1).all() || (p0 == p2).all() || (p1 == p2).all();
+			return core::length(core::cross(p1 - p0, p2 - p0)).x<=1.0e-19F;
     });
     const size_t newSize = std::distance(begin, newEnd) * sizeof(Triangle);
 

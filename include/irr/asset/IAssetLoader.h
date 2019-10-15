@@ -1,6 +1,8 @@
 #ifndef __IRR_I_ASSET_LOADER_H_INCLUDED__
 #define __IRR_I_ASSET_LOADER_H_INCLUDED__
 
+#include "irr/core/core.h"
+
 #include "IAsset.h"
 #include "IReadFile.h"
 

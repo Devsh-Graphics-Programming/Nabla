@@ -422,13 +422,13 @@ bool CIrrDeviceSDL::run()
 		{
 			int j;
 			// query all buttons
-			const int numButtons = core::min_(SDL_JoystickNumButtons(joystick), 32);
+			const int numButtons = core::min(SDL_JoystickNumButtons(joystick), 32);
 			joyevent.JoystickEvent.ButtonStates=0;
 			for (j=0; j<numButtons; ++j)
 				joyevent.JoystickEvent.ButtonStates |= (SDL_JoystickGetButton(joystick, j)<<j);
 
 			// query all axes, already in correct range
-			const int numAxes = core::min_(SDL_JoystickNumAxes(joystick), (int)SEvent::SJoystickEvent::NUMBER_OF_AXES);
+			const int numAxes = core::min(SDL_JoystickNumAxes(joystick), (int)SEvent::SJoystickEvent::NUMBER_OF_AXES);
 			joyevent.JoystickEvent.Axis[SEvent::SJoystickEvent::AXIS_X]=0;
 			joyevent.JoystickEvent.Axis[SEvent::SJoystickEvent::AXIS_Y]=0;
 			joyevent.JoystickEvent.Axis[SEvent::SJoystickEvent::AXIS_Z]=0;
@@ -498,7 +498,7 @@ bool CIrrDeviceSDL::activateJoysticks(core::vector<SJoystickInfo> & joystickInfo
 	joystickInfo.clear();
 
 	// we can name up to 256 different joysticks
-	const int numJoysticks = core::min_(SDL_NumJoysticks(), 256);
+	const int numJoysticks = core::min(SDL_NumJoysticks(), 256);
 	Joysticks.reserve(numJoysticks);
 	joystickInfo.reserve(numJoysticks);
 
