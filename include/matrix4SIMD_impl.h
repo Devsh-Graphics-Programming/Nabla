@@ -206,8 +206,8 @@ inline matrix4SIMD matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(float fiel
 	matrix4SIMD m;
 	m.rows[0] = vectorSIMDf(w, 0.f, 0.f, 0.f);
 	m.rows[1] = vectorSIMDf(0.f, -h, 0.f, 0.f);
-	m.rows[2] = vectorSIMDf(0.f, 0.f, zFar/(zFar-zNear), -zNear*zFar/(zFar-zNear));
-	m.rows[3] = vectorSIMDf(0.f, 0.f, 1.f, 0.f);
+	m.rows[2] = vectorSIMDf(0.f, 0.f, -zFar/(zFar-zNear), -zNear*zFar/(zFar-zNear));
+	m.rows[3] = vectorSIMDf(0.f, 0.f, -1.f, 0.f);
 
 	return m;
 }
@@ -221,7 +221,7 @@ inline matrix4SIMD matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(float fiel
 
 	matrix4SIMD m;
 	m.rows[0] = vectorSIMDf(w, 0.f, 0.f, 0.f);
-	m.rows[1] = vectorSIMDf(0.f, (float)h, 0.f, 0.f);
+	m.rows[1] = vectorSIMDf(0.f, -h, 0.f, 0.f);
 	m.rows[2] = vectorSIMDf(0.f, 0.f, zFar/(zFar-zNear), -zNear*zFar/(zFar-zNear));
 	m.rows[3] = vectorSIMDf(0.f, 0.f, 1.f, 0.f);
 
@@ -237,7 +237,7 @@ inline matrix4SIMD matrix4SIMD::buildProjectionMatrixOrthoRH(float widthOfViewVo
 	matrix4SIMD m;
 	m.rows[0] = vectorSIMDf(2.f/widthOfViewVolume, 0.f, 0.f, 0.f);
 	m.rows[1] = vectorSIMDf(0.f, -2.f/heightOfViewVolume, 0.f, 0.f);
-	m.rows[2] = vectorSIMDf(0.f, 0.f, 1.f/(zFar-zNear), -zNear/(zFar-zNear));
+	m.rows[2] = vectorSIMDf(0.f, 0.f, -1.f/(zFar-zNear), -zNear/(zFar-zNear));
 	m.rows[3] = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
 
 	return m;
@@ -250,7 +250,7 @@ inline matrix4SIMD matrix4SIMD::buildProjectionMatrixOrthoLH(float widthOfViewVo
 
 	matrix4SIMD m;
 	m.rows[0] = vectorSIMDf(2.f/widthOfViewVolume, 0.f, 0.f, 0.f);
-	m.rows[1] = vectorSIMDf(0.f, 2.f/heightOfViewVolume, 0.f, 0.f);
+	m.rows[1] = vectorSIMDf(0.f, -2.f/heightOfViewVolume, 0.f, 0.f);
 	m.rows[2] = vectorSIMDf(0.f, 0.f, 1.f/(zFar-zNear), -zNear/(zFar-zNear));
 	m.rows[3] = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
 

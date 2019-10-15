@@ -209,7 +209,10 @@ void CCameraSceneNode::setFOV(float f)
 
 void CCameraSceneNode::recalculateProjectionMatrix()
 {
-	projMatrix = core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(Fovy, Aspect, ZNear, ZFar);
+	if (leftHanded)
+		projMatrix = core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(Fovy, Aspect, ZNear, ZFar);
+	else
+		projMatrix = core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(Fovy, Aspect, ZNear, ZFar);
 	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
 }
 
