@@ -81,8 +81,8 @@ int main()
 
 		am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(am));
 
-		std::string filePath = "../../media/mitsuba/bedroom.zip";
-	#define MITSUBA_LOADER_TESTS
+		std::string filePath = "../../media/mitsuba/staircase2.zip";
+	//#define MITSUBA_LOADER_TESTS
 	#ifndef MITSUBA_LOADER_TESTS
 		pfd::message("Choose file to load", "Choose mitsuba XML file to load or ZIP containing an XML. \nIf you cancel or choosen file fails to load staircase will be loaded.", pfd::choice::ok);
 		pfd::open_file file("Choose XML or ZIP file", "../../media/mitsuba", { "XML files (.xml)", "*.xml", "ZIP files (.zip)", "*.zip" });
@@ -213,6 +213,7 @@ int main()
 			auto node = smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh));
 			node->setRelativeTransformationMatrix(meshmeta->getInstances()[0].getAsRetardedIrrlichtMatrix());
 		}
+		//meshes = asset::SAssetBundle();
 	}
 
 	// camera and viewport
