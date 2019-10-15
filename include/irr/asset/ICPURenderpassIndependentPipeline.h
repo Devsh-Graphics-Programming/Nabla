@@ -23,7 +23,15 @@ public:
     inline ICPUPipelineLayout* getLayout() { return m_layout.get(); }
 
     inline ICPUSpecializedShader* getShaderAtStage(E_SHADER_STAGE _stage) { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
-    inline ICPUSpecializedShader* getShaderAtIndex(E_SHADER_STAGE_IX _ix) { return m_shaders[_ix].get(); }
+    inline ICPUSpecializedShader* getShaderAtIndex(uint32_t _ix) { return m_shaders[_ix].get(); }
+
+    inline SBlendParams& getBlendParams() { return m_blendParams; }
+    inline SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() { return m_primAsmParams; }
+    inline SRasterizationParams& getRasterizationParams() { return m_rasterParams; }
+    inline SVertexInputParams& getVertexInputParams() { return m_vertexInputParams; }
+
+    inline void setShaderAtStage(E_SHADER_STAGE _stage, ICPUSpecializedShader* _shdr) { m_shaders[core::findLSB<uint32_t>(_stage)] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr); }
+    inline void setShaderAtIndex(uint32_t _ix, ICPUSpecializedShader* _shdr) { m_shaders[_ix] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr); }
 
 protected:
     virtual ~ICPURenderpassIndependentPipeline() = default;

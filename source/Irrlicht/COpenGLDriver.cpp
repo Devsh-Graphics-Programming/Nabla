@@ -983,8 +983,6 @@ bool COpenGLDriver::genericDriverInit()
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);//once set and should never change (engine doesnt track it)
     glDepthRange(1.0, 0.0);//once set and should never change (engine doesnt track it)
     found->nextState.rasterParams.multisampleEnable = 0;
-    found->nextState.rasterParams.clipControl.origin = GL_UPPER_LEFT;
-    found->nextState.rasterParams.clipControl.depth = GL_ZERO_TO_ONE;
     found->nextState.rasterParams.depthFunc = GL_GEQUAL;
     found->nextState.rasterParams.frontFace = GL_CCW;
 
@@ -1286,7 +1284,7 @@ bool COpenGLDriver::bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, cons
         {
         core::smart_refctd_ptr<const COpenGLPipelineLayout>(static_cast<const COpenGLPipelineLayout*>(_layout)),
         core::smart_refctd_ptr<const COpenGLDescriptorSet>(static_cast<const COpenGLDescriptorSet*>(_descSets[i])),
-        std::move(_dynamicOffsets[i])
+        _dynamicOffsets[i] //intentionally copy, not move
         };
     }
 
@@ -1516,7 +1514,7 @@ void COpenGLDriver::endQuery(IQueryObject* query)
 
 void COpenGLDriver::beginQuery(IQueryObject* query, const size_t& index)
 {
-    if (index>=_IRR_XFORM_FEEDBACK_MAX_STREAMS_)
+    if (index>=/*_IRR_XFORM_FEEDBACK_MAX_STREAMS_*/4u)
         return; //error
 
     if (!query||(query->getQueryObjectType()!=EQOT_PRIMITIVES_GENERATED&&query->getQueryObjectType()!=EQOT_XFORM_FEEDBACK_PRIMITIVES_WRITTEN))
@@ -1538,7 +1536,7 @@ void COpenGLDriver::beginQuery(IQueryObject* query, const size_t& index)
 }
 void COpenGLDriver::endQuery(IQueryObject* query, const size_t& index)
 {
-    if (index>=_IRR_XFORM_FEEDBACK_MAX_STREAMS_)
+    if (index>=/*_IRR_XFORM_FEEDBACK_MAX_STREAMS_*/4u)
         return; //error
 
     if (!query||(query->getQueryObjectType()!=EQOT_PRIMITIVES_GENERATED&&query->getQueryObjectType()!=EQOT_XFORM_FEEDBACK_PRIMITIVES_WRITTEN))
@@ -2029,10 +2027,6 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
             disable_enable_fptr[nextState.rasterParams.multisampleEnable](GL_MULTISAMPLE);
             UPDATE_STATE(rasterParams.multisampleEnable);
         }
-        if (STATE_NEQ(rasterParams.clipControl)) {
-            COpenGLExtensionHandler::extGlClipControl(nextState.rasterParams.clipControl.origin, nextState.rasterParams.clipControl.depth);
-            UPDATE_STATE(rasterParams.clipControl);
-        }
         if (STATE_NEQ(rasterParams.primitiveRestartEnable)) {
             disable_enable_fptr[nextState.rasterParams.primitiveRestartEnable](GL_PRIMITIVE_RESTART);
             UPDATE_STATE(rasterParams.primitiveRestartEnable);
@@ -2287,80 +2281,28 @@ static GLenum getGLcullFace(asset::E_FACE_CULL_MODE cf)
 }
 static GLenum getGLstencilOp(asset::E_STENCIL_OP so)
 {
-    using namespace asset;
-    switch (so) {
-    case ESO_KEEP: return GL_KEEP;
-    case ESO_ZERO: return GL_ZERO;
-    case ESO_REPLACE: return GL_REPLACE;
-    case ESO_INCREMENT_AND_CLAMP: return GL_INCR;
-    case ESO_DECREMENT_AND_CLAMP: return GL_DECR;
-    case ESO_INVERT: return GL_INVERT;
-    case ESO_INCREMENT_AND_WRAP: return GL_INCR_WRAP;
-    case ESO_DECREMENT_AND_WRAP: return GL_DECR_WRAP;
-    }
+    static const GLenum glso[]{ GL_KEEP, GL_ZERO, GL_REPLACE, GL_INCR, GL_DECR, GL_INVERT, GL_INCR_WRAP, GL_DECR_WRAP };
+    return glso[so];
 }
 static GLenum getGLcmpFunc(asset::E_COMPARE_OP sf)
 {
-    using namespace asset;
-    switch (sf) {
-    case ECO_NEVER: return GL_NEVER;
-    case ECO_LESS: return GL_LESS;
-    case ECO_EQUAL: return GL_EQUAL;
-    case ECO_LESS_OR_EQUAL: return GL_LEQUAL;
-    case ECO_GREATER: return GL_GREATER;
-    case ECO_NOT_EQUAL: return GL_NOTEQUAL;
-    case ECO_GREATER_OR_EQUAL: return GL_GEQUAL;
-    case ECO_ALWAYS: return GL_ALWAYS;
-    }
+    static const GLenum glsf[]{ GL_NEVER, GL_LESS, GL_EQUAL, GL_LEQUAL, GL_GREATER, GL_NOTEQUAL, GL_GEQUAL, GL_ALWAYS };
+    return glsf[sf];
 }
 static GLenum getGLlogicOp(asset::E_LOGIC_OP lo)
 {
-    using namespace asset;
-    switch (lo)
-    {
-    case ELO_CLEAR: return GL_CLEAR;
-    case ELO_AND: return GL_AND;
-    case ELO_AND_REVERSE: return GL_AND_REVERSE;
-    case ELO_COPY: return GL_COPY;
-    case ELO_AND_INVERTED: return GL_AND_INVERTED;
-    case ELO_NO_OP: return GL_NOOP;
-    case ELO_XOR: return GL_XOR;
-    case ELO_OR: return GL_OR;
-    case ELO_NOR: return GL_NOR;
-    case ELO_EQUIVALENT: return GL_EQUIV;
-    case ELO_INVERT: return GL_INVERT;
-    case ELO_OR_REVERSE: return GL_OR_REVERSE;
-    case ELO_COPY_INVERTED: return GL_COPY_INVERTED;
-    case ELO_OR_INVERTED: return GL_OR_INVERTED;
-    case ELO_NAND: return GL_NAND;
-    case ELO_SET: return GL_SET;
-    }
+    static const GLenum gllo[]{ GL_CLEAR, GL_AND, GL_AND_REVERSE, GL_COPY, GL_AND_INVERTED, GL_NOOP, GL_XOR, GL_OR, GL_NOR, GL_EQUIV, GL_INVERT, GL_OR_REVERSE,
+        GL_COPY_INVERTED, GL_OR_INVERTED, GL_NAND, GL_SET
+    };
+    return gllo[lo];
 }
 static GLenum getGLblendFunc(asset::E_BLEND_FACTOR bf)
 {
-    using namespace asset;
-    switch (bf)
-    {
-    case EBF_ZERO: return GL_ZERO;
-    case EBF_ONE: return GL_ONE;
-    case EBF_SRC_COLOR: return GL_SRC_COLOR;
-    case EBF_ONE_MINUS_SRC_COLOR: return GL_ONE_MINUS_SRC_COLOR;
-    case EBF_DST_COLOR: return GL_DST_COLOR;
-    case EBF_ONE_MINUS_DST_COLOR: return GL_ONE_MINUS_DST_COLOR;
-    case EBF_SRC_ALPHA: return GL_SRC_ALPHA;
-    case EBF_ONE_MINUS_SRC_ALPHA: return GL_ONE_MINUS_SRC_ALPHA;
-    case EBF_DST_ALPHA: return GL_DST_ALPHA;
-    case EBF_ONE_MINUS_DST_ALPHA: return GL_ONE_MINUS_DST_ALPHA;
-    case EBF_CONSTANT_COLOR: return GL_CONSTANT_COLOR;
-    case EBF_ONE_MINUS_CONSTANT_COLOR: return GL_ONE_MINUS_CONSTANT_COLOR;
-    case EBF_CONSTANT_ALPHA: return GL_CONSTANT_ALPHA;
-    case EBF_ONE_MINUS_CONSTANT_ALPHA: return GL_ONE_MINUS_CONSTANT_ALPHA;
-    case EBF_SRC_ALPHA_SATURATE: return GL_SRC_ALPHA_SATURATE;
-    case EBF_SRC1_COLOR: return GL_SRC1_COLOR;
-    case EBF_ONE_MINUS_SRC1_COLOR: return GL_ONE_MINUS_SRC1_COLOR;
-    case EBF_SRC1_ALPHA: return GL_SRC1_ALPHA;
-    case EBF_ONE_MINUS_SRC1_ALPHA: return GL_ONE_MINUS_SRC1_ALPHA;
-    }
+    static const GLenum glbf[]{ GL_ZERO , GL_ONE, GL_SRC_COLOR, GL_ONE_MINUS_SRC_COLOR, GL_DST_COLOR, GL_ONE_MINUS_DST_COLOR, GL_SRC_ALPHA,
+        GL_ONE_MINUS_SRC_ALPHA, GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_CONSTANT_COLOR, GL_ONE_MINUS_CONSTANT_COLOR, GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA,
+        GL_SRC_ALPHA_SATURATE, GL_SRC1_COLOR, GL_ONE_MINUS_SRC1_COLOR, GL_SRC1_ALPHA, GL_ONE_MINUS_SRC1_ALPHA
+    };
+    return glbf[bf];
 }
 static GLenum getGLblendEq(asset::E_BLEND_OP bo)
 {

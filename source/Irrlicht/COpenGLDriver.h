@@ -108,11 +108,6 @@ namespace video
             //GLboolean depthBoundsTestEnable;
             GLboolean stencilTestEnable = 0;
             GLboolean multisampleEnable = 1;
-            struct SClipCtrl {
-                GLenum origin = GL_LOWER_LEFT;
-                GLenum depth = GL_NEGATIVE_ONE_TO_ONE;
-                bool operator!=(const SClipCtrl& rhs) const { return origin!=rhs.origin || depth!=rhs.depth; }
-            } clipControl;
             GLboolean primitiveRestartEnable = 0;
 
             GLboolean logicOpEnable = 0;

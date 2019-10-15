@@ -34,17 +34,18 @@ enum E_VERTEX_INPUT_RATE : uint8_t
     EVIR_PER_INSTANCE = 1
 };
 
+#include "irr/irrpack.h"
 struct SVertexInputAttribParams
 {
     uint32_t binding;
     E_FORMAT format;
     uint32_t relativeOffset;
-};
+} PACK_STRUCT;
 struct SVertexInputBindingParams
 {
     uint32_t stride;
     E_VERTEX_INPUT_RATE inputRate;
-};
+} PACK_STRUCT;
 struct SVertexInputParams
 {
     _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = 16u;
@@ -59,14 +60,14 @@ struct SVertexInputParams
 
     static_assert(sizeof(enabledAttribFlags)*8 >= MAX_VERTEX_ATTRIB_COUNT, "Insufficient flag bits for number of supported attributes");
     static_assert(sizeof(enabledBindingFlags)*8 >= MAX_ATTR_BUF_BINDING_COUNT, "Insufficient flag bits for number of supported bindings");
-};
+} PACK_STRUCT;
 
 struct SPrimitiveAssemblyParams
 {
     E_PRIMITIVE_TOPOLOGY primitiveType;
-    bool primitiveRestartEnable;
+    uint8_t primitiveRestartEnable;
     uint32_t tessPatchVertCount;
-};
+} PACK_STRUCT;
 
 enum E_STENCIL_OP : uint8_t
 {
@@ -100,7 +101,7 @@ struct SStencilOpParams
     E_COMPARE_OP compareOp;
     uint32_t writeMask;
     uint32_t reference;
-};
+} PACK_STRUCT;
 
 enum E_POLYGON_MODE : uint8_t
 {
@@ -130,8 +131,6 @@ enum E_SAMPLE_COUNT : uint8_t
 
 struct SRasterizationParams
 {
-    SStencilOpParams frontStencilOps;
-    SStencilOpParams backStencilOps;
     uint32_t viewportCount;
     E_POLYGON_MODE polygonMode;
     E_FACE_CULL_MODE faceCullingMode;
@@ -141,18 +140,22 @@ struct SRasterizationParams
     float minSampleShading;
     float depthBiasSlopeFactor;
     float depthBiasConstantFactor;
-    uint16_t depthClampEnable : 1;
-    uint16_t rasterizerDiscard : 1;
-    uint16_t frontFaceIsCCW : 1;
-    uint16_t depthBiasEnable : 1;
-    uint16_t sampleShadingEnable : 1;
-    uint16_t alphaToCoverageEnable : 1;
-    uint16_t alphaToOneEnable : 1;
-    uint16_t depthTestEnable : 1;
-    uint16_t depthWriteEnable : 1;
-    uint16_t depthBoundsTestEnable : 1;
-    uint16_t stencilTestEnable : 1;
-};
+    SStencilOpParams frontStencilOps;
+    SStencilOpParams backStencilOps;
+    struct {
+        uint16_t depthClampEnable : 1;
+        uint16_t rasterizerDiscard : 1;
+        uint16_t frontFaceIsCCW : 1;
+        uint16_t depthBiasEnable : 1;
+        uint16_t sampleShadingEnable : 1;
+        uint16_t alphaToCoverageEnable : 1;
+        uint16_t alphaToOneEnable : 1;
+        uint16_t depthTestEnable : 1;
+        uint16_t depthWriteEnable : 1;
+        uint16_t depthBoundsTestEnable : 1;
+        uint16_t stencilTestEnable : 1;
+    } PACK_STRUCT;
+} PACK_STRUCT;
 
 enum E_LOGIC_OP : uint8_t
 {
@@ -264,7 +267,7 @@ struct SColorAttachmentBlendParams
     uint8_t alphaBlendOp : 2;
     //RGBA, LSB is R, MSB is A
     uint8_t colorWriteMask : 4;
-};
+} PACK_STRUCT;
 static_assert(sizeof(SColorAttachmentBlendParams)==6u, "Unexpected size of SColorAttachmentBlendParams (should be 6)");
 
 struct SBlendParams
@@ -273,7 +276,9 @@ struct SBlendParams
     uint32_t logicOpEnable : 1;
     uint32_t logicOp : 4;
     SColorAttachmentBlendParams blendParams[MAX_COLOR_ATTACHMENT_COUNT];
-};
+} PACK_STRUCT;
+
+#include "irr/irrunpack.h"
 
 //TODO put into legacy namespace later
 /*
