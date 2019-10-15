@@ -1,41 +1,15 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 
+#include "../../ext/ScreenShot/ScreenShot.h"
+
+#include "../common/QToQuitEventReceiver.h"
+
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
 #include "../../ext/MitsubaLoader/CMitsubaLoader.h"
 
 using namespace irr;
 using namespace core;
-
-bool quit = false;
-class MyEventReceiver : public IEventReceiver
-{
-public:
-
-	MyEventReceiver()
-	{
-	}
-
-	bool OnEvent(const SEvent& event)
-	{
-		if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
-		{
-			switch (event.KeyInput.Key)
-			{
-			case irr::KEY_ESCAPE:
-			case irr::KEY_KEY_Q:
-				quit = true;
-				return true;
-			default:
-				break;
-			}
-		}
-
-		return false;
-	}
-
-private:
-};
 
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
@@ -85,7 +59,7 @@ int main()
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_NULL;
 	params.Fullscreen = false;
-	params.Vsync = true; //! If supported by target platform
+	params.Vsync = false;
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
 
@@ -104,7 +78,7 @@ int main()
 		std::string filePath = "../../media/mitsuba/staircase2.zip";
 	#define MITSUBA_LOADER_TESTS
 	#ifndef MITSUBA_LOADER_TESTS
-		pfd::message("Choose file to load", "Choose mitsuba XML file to load or ZIP containing an XML. \nIf you cancel or choosen file fails to load bathroom will be loaded.", pfd::choice::ok);
+		pfd::message("Choose file to load", "Choose mitsuba XML file to load or ZIP containing an XML. \nIf you cancel or choosen file fails to load staircase will be loaded.", pfd::choice::ok);
 		pfd::open_file file("Choose XML or ZIP file", "../../media/mitsuba", { "XML files (.xml)", "*.xml", "ZIP files (.zip)", "*.zip" });
 		if (!file.result().empty())
 			filePath = file.result()[0];
@@ -112,9 +86,9 @@ int main()
 		if (core::hasFileExtension(io::path(filePath.c_str()), "zip", "ZIP"))
 		{
 			io::IFileArchive* arch = nullptr;
-			device->getFileSystem()->addFileArchive(filePath.c_str(),false,false,io::EFAT_ZIP,"",&arch);
+			device->getFileSystem()->addFileArchive(filePath.c_str(),io::EFAT_ZIP,"",&arch);
 			if (!arch)
-				device->getFileSystem()->addFileArchive("../../media/mitsuba/staircase2.zip", false, false, io::EFAT_ZIP, "", &arch);
+				device->getFileSystem()->addFileArchive("../../media/mitsuba/staircase2.zip", io::EFAT_ZIP, "", &arch);
 			if (!arch)
 				return 2;
 
@@ -146,7 +120,27 @@ int main()
 			filePath = files[chosen].FullName.c_str();
 		}
 
+		//! read cache results -- speeds up mesh generation
+		{
+			io::IReadFile* cacheFile = device->getFileSystem()->createAndOpenFile("./normalCache101010.sse");
+			if (cacheFile)
+			{
+				asset::normalCacheFor2_10_10_10Quant.resize(cacheFile->getSize() / sizeof(asset::QuantizationCacheEntry2_10_10_10));
+				cacheFile->read(asset::normalCacheFor2_10_10_10Quant.data(), cacheFile->getSize());
+				cacheFile->drop();
+
+				//make sure its still ok
+				std::sort(asset::normalCacheFor2_10_10_10Quant.begin(), asset::normalCacheFor2_10_10_10Quant.end());
+			}
+		}
+		//! load the mitsuba scene
 		meshes = am->getAsset(filePath, {});
+		//! cache results -- speeds up mesh generation on second run
+		{
+			io::IWriteFile* cacheFile = device->getFileSystem()->createAndWriteFile("./normalCache101010.sse");
+			cacheFile->write(asset::normalCacheFor2_10_10_10Quant.data(), asset::normalCacheFor2_10_10_10Quant.size() * sizeof(asset::QuantizationCacheEntry2_10_10_10));
+			cacheFile->drop();
+		}
 
 		device->drop();
 
@@ -170,7 +164,7 @@ int main()
 	{
 		const auto& film = globalMeta->sensors.front().film;
 		params.WindowSize.Width = film.width;
-		params.WindowSize.Width = film.height;
+		params.WindowSize.Height = film.height;
 	}
 	params.DriverType = video::EDT_OPENGL;
 	IrrlichtDevice* device = createDeviceEx(params);
@@ -180,7 +174,7 @@ int main()
 
 
 	scene::ISceneManager* smgr = device->getSceneManager();
-	MyEventReceiver receiver;
+	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
 
@@ -228,8 +222,23 @@ int main()
 		const auto& film = sensor.film;
 		viewport = core::recti(core::position2di(film.cropOffsetX,film.cropOffsetY), core::position2di(film.cropWidth,film.cropHeight));
 
-		camera = smgr->addCameraSceneNodeFPS();
-		camera->setRelativeTransformationMatrix(sensor.transform.matrix.extractSub3x4().getAsRetardedIrrlichtMatrix());
+		camera = smgr->addCameraSceneNodeFPS(nullptr,100.f,0.01f);
+		// need to extract individual components
+		{
+			auto relativeTransform = sensor.transform.matrix.extractSub3x4();
+			auto pos = relativeTransform.getTranslation();
+			camera->setPosition(pos.getAsVector3df());
+
+			core::vectorSIMDf up;
+			auto target = pos;
+			for (auto i=0; i<3; i++)
+			{
+				up[i] = relativeTransform.rows[i].y;
+				target[i] += relativeTransform.rows[i].z;
+			}
+			camera->setTarget(target.getAsVector3df());
+			camera->setUpVector(up.getAsVector3df());
+		}
 
 		const ext::MitsubaLoader::CElementSensor::PerspectivePinhole* persp = nullptr;
 		switch (sensor.type)
@@ -244,15 +253,60 @@ int main()
 				assert(false);
 				break;
 		}
-		assert(persp->fovAxis == ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::Y);
-		camera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(persp->fov,float(viewport.getHeight())/float(viewport.getWidth()),persp->nearClip,persp->farClip));
+		float realFoVDegrees;
+		auto width = viewport.getWidth();
+		auto height = viewport.getHeight();
+		float aspectRatio = float(width) / float(height);
+		auto convertFromXFoV = [=](float fov) -> float
+		{
+			float aspectX = tan(core::radians(fov)*0.5f);
+			return core::degrees(atan(aspectX/aspectRatio)*2.f);
+		};
+		switch (persp->fovAxis)
+		{
+			case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::X:
+				realFoVDegrees = convertFromXFoV(persp->fov);
+				break;
+			case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::Y:
+				realFoVDegrees = persp->fov;
+				break;
+			case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::DIAGONAL:
+				{
+					float aspectDiag = tan(core::radians(persp->fov)*0.5f);
+					float aspectY = aspectDiag/core::sqrt(1.f+aspectRatio*aspectRatio);
+					realFoVDegrees = core::degrees(atan(aspectY)*2.f);
+				}
+				break;
+			case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::SMALLER:
+				if (width < height)
+					realFoVDegrees = convertFromXFoV(persp->fov);
+				else
+					realFoVDegrees = persp->fov;
+				break;
+			case ext::MitsubaLoader::CElementSensor::PerspectivePinhole::FOVAxis::LARGER:
+				if (width < height)
+					realFoVDegrees = persp->fov;
+				else
+					realFoVDegrees = convertFromXFoV(persp->fov);
+				break;
+			default:
+				realFoVDegrees = NAN;
+				assert(false);
+				break;
+		}
+		auto projMat = core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(realFoVDegrees),aspectRatio,persp->nearClip,persp->farClip);
+		camera->setProjectionMatrix(projMat);
 	}
 	else
 		camera = smgr->addCameraSceneNodeFPS(0, 100.0f, 0.01f);
+	camera->setLeftHanded(false);
 	smgr->setActiveCamera(camera);
-
 	device->getCursorControl()->setVisible(false);
-	while (!quit && device->run())
+
+	uint64_t lastFPSTime = 0;
+	float lastFastestMeshFrameNr = -1.f;
+
+	while (device->run() && receiver.keepOpen())
 	{
 		driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
 		driver->setViewPort(viewport);
@@ -262,6 +316,23 @@ int main()
 		smgr->drawAll();
 
 		driver->endScene();
+
+		// display frames per second in window title
+		uint64_t time = device->getTimer()->getRealTime();
+		if (time - lastFPSTime > 1000)
+		{
+			std::wostringstream str;
+			str << L"Mitsuba Loader Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
+
+			device->setWindowCaption(str.str());
+			lastFPSTime = time;
+		}
+	}
+
+	// create a screenshot
+	{
+		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
 	}
 
 	device->drop();

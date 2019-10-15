@@ -200,31 +200,6 @@ core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createOBJ(asset::IAssetMa
 	if (!mesh)
 		return nullptr;
 
-	if (flipNormalsFlag)
-	{
-		for (int i = 0; i < mesh->getMeshBufferCount(); i++)
-			_assetManager->getMeshManipulator()->flipSurfaces(mesh->getMeshBuffer(i));
-	}
-
-	if (faceNormals)
-	{
-		auto newMesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
-
-		for (int i = 0; i < mesh->getMeshBufferCount(); i++)
-		{
-			auto upBuffer = _assetManager->getMeshManipulator()->createMeshBufferUniquePrimitives(mesh->getMeshBuffer(i));
-
-			_assetManager->getMeshManipulator()->calculateSmoothNormals(upBuffer.get(), false, 1.525e-5f, asset::EVAI_ATTR3,
-				[](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
-				{
-					return a.indexOffset == b.indexOffset;
-				});
-
-			newMesh->addMeshBuffer(std::move(upBuffer));
-		}
-
-		mesh = newMesh;
-	}
 	else if (smoothNormals)
 	{
 		auto newMesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
