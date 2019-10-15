@@ -29,12 +29,13 @@ class CElementTexture : public IElement
 				value.fvalue = _value;
 				texture = nullptr;
 			}
-			FloatOrTexture(SPropertyElementData&& _value) : FloatOrTexture(nullptr)
+			FloatOrTexture(SPropertyElementData&& _other) : FloatOrTexture(nullptr)
 			{
-				switch (_value.type)
+				switch (_other.type)
 				{
+					case SPropertyElementData::Type::INVALID:
 					case SPropertyElementData::Type::FLOAT:
-						value = std::move(_value);
+						value = std::move(_other);
 						break;
 					default:
 						_IRR_DEBUG_BREAK_IF(true);
@@ -49,16 +50,17 @@ class CElementTexture : public IElement
 		{
 			SpectrumOrTexture(CElementTexture* _tex) : FloatOrTexture(_tex) {}
 			SpectrumOrTexture(float _value) : FloatOrTexture(_value) {}
-			SpectrumOrTexture(SPropertyElementData&& _value) : SpectrumOrTexture(nullptr)
+			SpectrumOrTexture(SPropertyElementData&& _other) : SpectrumOrTexture(nullptr)
 			{
-				switch (_value.type)
+				switch (_other.type)
 				{
+					case SPropertyElementData::Type::INVALID:
 					case SPropertyElementData::Type::FLOAT:
 					case SPropertyElementData::Type::RGB:
 					case SPropertyElementData::Type::SRGB:
 					case SPropertyElementData::Type::SPECTRUM:
 					case SPropertyElementData::Type::BLACKBODY:
-						value = std::move(_value);
+						value = std::move(_other);
 						break;
 					default:
 						_IRR_DEBUG_BREAK_IF(true);
@@ -104,8 +106,8 @@ class CElementTexture : public IElement
 			//bool cache = false;
 			float uoffset = 0.f;
 			float voffset = 0.f;
-			float uscale = 0.f;
-			float vscale = 0.f;
+			float uscale = 1.f;
+			float vscale = 1.f;
 			//CHANNEL channel;
 		};
 	struct MetaTexture

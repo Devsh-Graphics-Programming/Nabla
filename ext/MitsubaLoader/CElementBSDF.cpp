@@ -712,7 +712,7 @@ bool CElementBSDF::processChildData(IElement* _child, const std::string& name)
 #undef SPECULAR_TYPES
 #undef SET_TEXTURE
 
-				static const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetChildMap =
+				const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetChildMap =
 				{
 					{"reflectance",				processReflectance},
 					{"alpha",					processAlpha},

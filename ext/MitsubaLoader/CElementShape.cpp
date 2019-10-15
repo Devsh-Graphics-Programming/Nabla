@@ -174,7 +174,7 @@ bool CElementShape::addProperty(SNamedPropertyElement&& _property)
 	auto setSRGB = SET_PROPERTY_TEMPLATE(srgb,SNamedPropertyElement::Type::BOOLEAN, Ply);
 	auto setShapeIndex = SET_PROPERTY_TEMPLATE(shapeIndex,SNamedPropertyElement::Type::INTEGER, Serialized);
 
-	static const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
+	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{
 		{"flipNormals",		setFlipNormals},
 		{"center",			setCenter},

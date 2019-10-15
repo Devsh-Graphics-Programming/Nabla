@@ -13,41 +13,47 @@ using namespace core;
 
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
-	int32_t mvpUniformLocation;
-	int32_t cameraDirUniformLocation;
-	int32_t texUniformLocation[4];
-	video::E_SHADER_CONSTANT_TYPE mvpUniformType;
-	video::E_SHADER_CONSTANT_TYPE cameraDirUniformType;
-	video::E_SHADER_CONSTANT_TYPE texUniformType[4];
-public:
-	SimpleCallBack() : cameraDirUniformLocation(-1), cameraDirUniformType(video::ESCT_FLOAT_VEC3) {}
-
-	virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
-	{
-		for (size_t i = 0; i < constants.size(); i++)
+		int32_t mvpUniformLocation;
+		int32_t colorUniformLocation;
+		int32_t nastyUniformLocation;
+		video::E_SHADER_CONSTANT_TYPE mvpUniformType;
+		video::E_SHADER_CONSTANT_TYPE colorUniformType;
+		video::E_SHADER_CONSTANT_TYPE nastyUniformType;
+	public:
+		virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
 		{
-			if (constants[i].name == "MVP")
+			for (size_t i=0; i<constants.size(); i++)
 			{
-				mvpUniformLocation = constants[i].location;
-				mvpUniformType = constants[i].type;
-			}
-			else if (constants[i].name == "cameraPos")
-			{
-				cameraDirUniformLocation = constants[i].location;
-				cameraDirUniformType = constants[i].type;
+				if (constants[i].name == "MVP")
+				{
+					mvpUniformLocation = constants[i].location;
+					mvpUniformType = constants[i].type;
+				}
+				else if (constants[i].name == "color")
+				{
+					colorUniformLocation = constants[i].location;
+					colorUniformType = constants[i].type;
+				}
+				else if (constants[i].name == "nasty")
+				{
+					nastyUniformLocation = constants[i].location;
+					nastyUniformType = constants[i].type;
+				}
 			}
 		}
-	}
 
-	virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
-	{
-		core::vectorSIMDf modelSpaceCamPos;
-		modelSpaceCamPos.set(services->getVideoDriver()->getTransform(video::E4X3TS_WORLD_VIEW_INVERSE).getTranslation());
-		services->setShaderConstant(&modelSpaceCamPos, cameraDirUniformLocation, cameraDirUniformType, 1);
-		services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(), mvpUniformLocation, mvpUniformType, 1);
-	}
+		virtual void OnSetMaterial(video::IMaterialRendererServices* services, const video::SGPUMaterial& material, const video::SGPUMaterial& lastMaterial)
+		{
+			services->setShaderConstant(&material.AmbientColor, colorUniformLocation, colorUniformType, 1);
+			services->setShaderConstant(&material.MaterialTypeParam, nastyUniformLocation, nastyUniformType, 1);
+		}
 
-	virtual void OnUnsetMaterial() {}
+		virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
+		{
+			services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(), mvpUniformLocation, mvpUniformType, 1);
+		}
+
+		virtual void OnUnsetMaterial() {}
 };
 
 int main()
@@ -75,7 +81,7 @@ int main()
 
 		am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(am));
 
-		std::string filePath = "../../media/mitsuba/staircase2.zip";
+		std::string filePath = "../../media/mitsuba/bedroom.zip";
 	#define MITSUBA_LOADER_TESTS
 	#ifndef MITSUBA_LOADER_TESTS
 		pfd::message("Choose file to load", "Choose mitsuba XML file to load or ZIP containing an XML. \nIf you cancel or choosen file fails to load staircase will be loaded.", pfd::choice::ok);

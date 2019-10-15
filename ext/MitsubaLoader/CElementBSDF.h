@@ -154,6 +154,9 @@ class CElementBSDF : public IElement
 			inline AllConductor& operator=(const AllConductor& other)
 			{
 				RoughSpecularBase::operator=(other);
+				eta = other.eta;
+				k = other.k;
+				extEta = other.extEta;
 				return *this;
 			}
 
@@ -170,6 +173,8 @@ class CElementBSDF : public IElement
 			{
 				RoughSpecularBase::operator=(other);
 				TransmissiveBase::operator=(other);
+				nonlinear = other.nonlinear;
+				diffuseReflectance = other.diffuseReflectance;
 				return *this;
 			}
 
@@ -218,6 +223,8 @@ class CElementBSDF : public IElement
 				RoughSpecularBase::operator=(other);
 				TransmissiveBase::operator=(other);
 				MetaBSDF::operator=(other);
+				thickness = other.thickness;
+				sigmaA = other.sigmaA;
 				return *this;
 			}
 

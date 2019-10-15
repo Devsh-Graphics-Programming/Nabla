@@ -226,7 +226,7 @@ bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 	};
 
 
-	static const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
+	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{
 		{"width",				setWidth},
 		{"height",				setHeight},

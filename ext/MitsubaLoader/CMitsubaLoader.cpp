@@ -104,6 +104,7 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 	//
 	auto* creator = manager->getGeometryCreator();
 	auto* manipulator = manager->getMeshManipulator();
+	const std::string relativeDir = (io::IFileSystem::getFileDir(_file->getFileName())+"/").c_str();
 	core::vector<core::smart_refctd_ptr<asset::ICPUMesh>> meshes;
 
 	for (auto& shapepair : parserManager.shapegroups)
@@ -126,11 +127,7 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		auto loadModel = [&](const ext::MitsubaLoader::SPropertyElementData& filename, uint32_t index=0) -> core::smart_refctd_ptr<asset::ICPUMesh>
 		{
 			assert(filename.type==ext::MitsubaLoader::SPropertyElementData::Type::STRING);
-			// TODO: hierarchy stuff
-			auto path = io::IFileSystem::getFileDir(_file->getFileName());
-			path += "/";
-			path += filename.svalue;
-			auto retval = manager->getAsset(path.c_str(), _params, _override);
+			auto retval = interm_getAssetInHierarchy(manager, relativeDir+filename.svalue, {}, _hierarchyLevel/*+ICPUSCene::MESH_HIERARCHY_LEVELS_BELOW*/, _override);
 			auto contentRange = retval.getContents();
 			if (contentRange.first + index < contentRange.second)
 			{
@@ -298,14 +295,15 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		}
 
 		// pipeline processing
-		for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
-			mesh->getMeshBuffer(i)->getMaterial() = processBSDF(shapedef->bsdf); // TODO: change this with shader pipeline
+		for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
+			mesh->getMeshBuffer(i)->getMaterial() = getBSDF(relativeDir,shapedef->bsdf,_hierarchyLevel+asset::ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW,_override); // TODO: change this with shader pipeline
 
 		auto metadata = core::make_smart_refctd_ptr<IMeshMetadata>(
 								core::smart_refctd_ptr(parserManager.m_globalMetadata),
 								std::move(shapepair.second));
 		metadata->instances.push_back(shapedef->transform.matrix.extractSub3x4());
 		manager->setAssetMetadata(mesh.get(), std::move(metadata));
+
 
 		meshes.push_back(std::move(mesh));
 	}
@@ -314,7 +312,7 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 }
 
 //! TODO: change to CPU graphics pipeline
-video::SCPUMaterial CMitsubaLoader::processBSDF(CElementBSDF* bsdf)
+CMitsubaLoader::bsdf_ass_type CMitsubaLoader::getBSDF(const std::string& relativeDir, CElementBSDF* bsdf, uint32_t _hierarchyLevel, asset::IAssetLoader::IAssetLoaderOverride* _override)
 {
 	if (!bsdf)
 		return video::SCPUMaterial(); 
@@ -325,23 +323,171 @@ video::SCPUMaterial CMitsubaLoader::processBSDF(CElementBSDF* bsdf)
 
 	// shader construction would take place here in the new pipeline
 	video::SCPUMaterial pipeline;
+	NastyTemporaryBitfield nasty = { 0u };
+	auto getColor = [](const SPropertyElementData& data) -> core::vectorSIMDf
+	{
+		switch (data.type)
+		{
+			case SPropertyElementData::Type::FLOAT:
+				return core::vectorSIMDf(data.fvalue);
+			case SPropertyElementData::Type::RGB:
+				_IRR_FALLTHROUGH;
+			case SPropertyElementData::Type::SRGB:
+				return data.vvalue;
+				break;
+			default:
+				assert(false);
+				break;
+		}
+		return core::vectorSIMDf();
+	};
+	auto setTextureOrColorFrom = [&](const CElementTexture::SpectrumOrTexture& spctex) -> void
+	{
+		if (spctex.value.type!=SPropertyElementData::INVALID)
+		{
+			_mm_storeu_ps((float*)&pipeline.AmbientColor, getColor(spctex.value).getAsRegister());
+		}
+		else
+		{
+			constexpr uint32_t IMAGEVIEW_HIERARCHYLEVEL_BELOW = 1u; // below ICPUMesh, will move it there eventually with shader pipeline and become 2
+			pipeline.TextureLayer[0] = getTexture(relativeDir,spctex.texture,_hierarchyLevel+IMAGEVIEW_HIERARCHYLEVEL_BELOW,_override);
+			nasty._bitfield |= MITS_USE_TEXTURE;
+		}
+	};
+	// @criss you know that I'm doing absolutely nothing worth keeping around (not caring about BSDF actually)
 	switch (bsdf->type)
 	{
 		case CElementBSDF::Type::DIFFUSE:
+		case CElementBSDF::Type::ROUGHDIFFUSE:
+			setTextureOrColorFrom(bsdf->diffuse.reflectance);
+			break;
+		case CElementBSDF::Type::DIELECTRIC:
+		case CElementBSDF::Type::THINDIELECTRIC: // basically glass with no refraction
+		case CElementBSDF::Type::ROUGHDIELECTRIC:
+			{
+				core::vectorSIMDf color(bsdf->dielectric.extIOR/bsdf->dielectric.intIOR);
+				_mm_storeu_ps((float*)& pipeline.AmbientColor, color.getAsRegister());
+			}
+			break;
+		case CElementBSDF::Type::CONDUCTOR:
+		case CElementBSDF::Type::ROUGHCONDUCTOR:
+			{
+				auto color = core::vectorSIMDf(1.f)-getColor(bsdf->conductor.k);
+				_mm_storeu_ps((float*)& pipeline.AmbientColor, color.getAsRegister());
+			}
+			break;
+		case CElementBSDF::Type::PLASTIC:
+		case CElementBSDF::Type::ROUGHPLASTIC:
+			setTextureOrColorFrom(bsdf->plastic.diffuseReflectance);
 			break;
 		case CElementBSDF::Type::TWO_SIDED:
 			{
-				pipeline = processBSDF(bsdf->twosided.bsdf[0]);
+				pipeline = getBSDF(relativeDir,bsdf->twosided.bsdf[0],_hierarchyLevel,_override);
+				nasty._bitfield |= MITS_TWO_SIDED|reinterpret_cast<uint32_t&>(pipeline.MaterialTypeParam);				
+			}
+			break;
+		case CElementBSDF::Type::MASK:
+			{
+				pipeline = getBSDF(relativeDir,bsdf->mask.bsdf[0],_hierarchyLevel,_override);
+				//bsdf->mask.opacity // ran out of space in SMaterial (can be texture or constant)
+				nasty._bitfield |= /*MITS_MASK|*/reinterpret_cast<uint32_t&>(pipeline.MaterialTypeParam);				
 			}
 			break;
 		default:
-			//_IRR_DEBUG_BREAK_IF(true);
+			_IRR_DEBUG_BREAK_IF(true); // TODO: more BSDF untangling!
 			break;
 	}
+	reinterpret_cast<uint32_t&>(pipeline.MaterialTypeParam) = nasty._bitfield;
 	pipeline.BackfaceCulling = false;
-	//pipeline.
+
+	pipelineCache.insert({bsdf,pipeline});
 	return pipeline;
 }
+
+CMitsubaLoader::tex_ass_type CMitsubaLoader::getTexture(const std::string& relativeDir, CElementTexture* tex, uint32_t _hierarchyLevel, asset::IAssetLoader::IAssetLoaderOverride* _override)
+{
+	if (!tex)
+		return {};
+
+	auto found = textureCache.find(tex);
+	if (found != textureCache.end())
+		return found->second;
+
+	video::SMaterialLayer<asset::ICPUTexture> layer;
+	switch (tex->type)
+	{
+		case CElementTexture::Type::BITMAP:
+			{
+				auto retval = interm_getAssetInHierarchy(manager,relativeDir+tex->bitmap.filename.svalue,{},_hierarchyLevel,_override);
+				auto contentRange = retval.getContents();
+				if (contentRange.first < contentRange.second)
+				{
+					auto asset = contentRange.first[0];
+					if (asset && asset->getAssetType() == asset::IAsset::ET_IMAGE)
+					{
+						layer.Texture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(asset);
+						//! TODO: this stuff (custom shader sampling code?)
+						_IRR_DEBUG_BREAK_IF(tex->bitmap.uoffset != 0.f);
+						_IRR_DEBUG_BREAK_IF(tex->bitmap.voffset != 0.f);
+						_IRR_DEBUG_BREAK_IF(tex->bitmap.uscale != 1.f);
+						_IRR_DEBUG_BREAK_IF(tex->bitmap.vscale != 1.f);
+					}
+				}
+				// adjust gamma on pixels (painful and long process)
+				if (!std::isnan(tex->bitmap.gamma))
+				{
+					_IRR_DEBUG_BREAK_IF(true); // TODO
+				}
+				switch (tex->bitmap.filterType)
+				{
+					case CElementTexture::Bitmap::FILTER_TYPE::EWA:
+						_IRR_FALLTHROUGH; // we dont support this fancy stuff
+					case CElementTexture::Bitmap::FILTER_TYPE::TRILINEAR:
+						layer.SamplingParams.MinFilter = video::ETFT_LINEAR_LINEARMIP;
+						layer.SamplingParams.MaxFilter = video::ETFT_LINEAR_NO_MIP;
+						break;
+					default:
+						layer.SamplingParams.MinFilter = video::ETFT_NEAREST_NEARESTMIP;
+						layer.SamplingParams.MaxFilter = video::ETFT_NEAREST_NO_MIP;
+						break;
+				}
+				layer.SamplingParams.AnisotropicFilter = core::max(core::findMSB(uint32_t(tex->bitmap.maxAnisotropy)),1);
+				auto getWrapMode = [](CElementTexture::Bitmap::WRAP_MODE mode) -> video::E_TEXTURE_CLAMP
+				{
+					switch (mode)
+					{
+						case CElementTexture::Bitmap::WRAP_MODE::CLAMP:
+							return video::ETC_CLAMP_TO_EDGE;
+							break;
+						case CElementTexture::Bitmap::WRAP_MODE::MIRROR:
+							return video::ETC_MIRROR;
+							break;
+						case CElementTexture::Bitmap::WRAP_MODE::ONE:
+							_IRR_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
+							break;
+						case CElementTexture::Bitmap::WRAP_MODE::ZERO:
+							_IRR_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
+							break;
+						default:
+							break;
+					}
+					return video::ETC_REPEAT;
+				};
+				layer.SamplingParams.TextureWrapU = getWrapMode(tex->bitmap.wrapModeU);
+				layer.SamplingParams.TextureWrapV = getWrapMode(tex->bitmap.wrapModeV);
+			}
+			break;
+		case CElementTexture::Type::SCALE:
+			_IRR_DEBUG_BREAK_IF(true); // TODO
+			break;
+		default:
+			_IRR_DEBUG_BREAK_IF(true);
+			break;
+	}
+	textureCache.insert({tex,layer});
+	return std::move(layer);
+}
+
 
 }
 }

@@ -16,6 +16,12 @@ namespace MitsubaLoader
 
 class CElementBSDF;
 
+struct NastyTemporaryBitfield
+{
+#define MITS_TWO_SIDED		0x80000000u
+#define MITS_USE_TEXTURE	0x40000000u
+	uint32_t _bitfield;
+};
 
 class CMitsubaLoader : public asset::IAssetLoader
 {
@@ -31,9 +37,14 @@ class CMitsubaLoader : public asset::IAssetLoader
 		virtual ~CMitsubaLoader() = default;
 
 		//! TODO: change to CPU graphics pipeline
-		video::SCPUMaterial processBSDF(CElementBSDF* bsdf);
-		core::unordered_map<CElementBSDF*,video::SCPUMaterial> pipelineCache;
-		//core::unordered_map<CElementBSDF*,core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline> > pipelineCache;
+		using bsdf_ass_type = video::SCPUMaterial; // = core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>;
+		bsdf_ass_type getBSDF(const std::string& relativeDir, CElementBSDF* bsdf, uint32_t _hierarchyLevel, asset::IAssetLoader::IAssetLoaderOverride* _override);
+		core::unordered_map<CElementBSDF*,bsdf_ass_type> pipelineCache;
+
+		//! TODO: even later when texture changes come
+		using tex_ass_type = video::SMaterialLayer<asset::ICPUTexture>; // = std::pair<core::smart_refctd_ptr<asset::ICPUTextureView>,core::smart_refctd_ptr<asset::ICPUSampler> >;
+		tex_ass_type getTexture(const std::string& relativeDir, CElementTexture* texture, uint32_t _hierarchyLevel, asset::IAssetLoader::IAssetLoaderOverride* _override);
+		core::unordered_map<CElementTexture*,tex_ass_type> textureCache;
 
 	public:
 		//! Check if the file might be loaded by this class

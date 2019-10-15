@@ -143,7 +143,7 @@ struct SPropertyElementData
 				bvalue = other.bvalue;
 				break;
 			case Type::STRING:
-				svalue = other.svalue;
+				std::swap(svalue,other.svalue);
 				break;
 			case Type::RGB:
 			case Type::SRGB:

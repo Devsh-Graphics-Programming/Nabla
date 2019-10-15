@@ -200,7 +200,7 @@ bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
 	//auto processChannel = ;
 
 
-	static const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
+	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{
 		{"filename",		processFilename},
 		{"wrapMode",		processWrapMode},

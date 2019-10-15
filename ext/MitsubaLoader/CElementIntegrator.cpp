@@ -335,7 +335,7 @@ bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property)
 	auto processIndirecOnly = SET_PROPERTY_TEMPLATE(indirectOnly,SNamedPropertyElement::Type::BOOLEAN,IrradianceCacheIntegrator);
 	auto processDebug = SET_PROPERTY_TEMPLATE(debug,SNamedPropertyElement::Type::BOOLEAN,IrradianceCacheIntegrator);
 
-	static const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
+	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{
 		{"shadingSamples",processShadingSamples},
 		{"rayLength",processRayLength},

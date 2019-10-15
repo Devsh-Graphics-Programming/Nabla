@@ -213,7 +213,7 @@ bool CElementEmitter::addProperty(SNamedPropertyElement&& _property)
 	//auto setCache = SET_PROPERTY_TEMPLATE(cache, SNamedPropertyElement::Type::BOOLEAN, EnvMap);
 #undef SET_SPECTRUM
 #undef SET_PROPERTY_TEMPLATE
-	static const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
+	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{
 		{"samplingWeight",	setSamplingWeight},
 		{"intensity",		setIntensity},
