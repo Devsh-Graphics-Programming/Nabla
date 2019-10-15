@@ -19,6 +19,13 @@ namespace irr
 namespace asset
 {
 
+//! One of CPU class-object representing an Asset
+/**
+	One of Assets used for storage of large arrays, so that storage can be decoupled
+	from other objects such as meshbuffers, images, animations and shader source/bytecode.
+
+	@see IAsset
+*/
 class ICPUBuffer : public core::IBuffer, public asset::IAsset, public IDescriptor
 {
     protected:

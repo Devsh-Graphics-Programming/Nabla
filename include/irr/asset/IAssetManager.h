@@ -36,6 +36,18 @@ namespace asset
     std::function<void(SAssetBundle&)> makeAssetGreetFunc(const IAssetManager* const _mgr);
     std::function<void(SAssetBundle&)> makeAssetDisposeFunc(const IAssetManager* const _mgr);
 
+	//! Class responsible for handling loading of assets from file system or other resources
+	/**
+		It provides a loading, writing and creation functionality that is almost thread-safe.
+		There is one issue with threading, starting loading the same asset at the exact same time 
+		may end up with two copies in the cache.
+
+		IAssetManager performs caching of CPU assets associated with resource handles such as names, 
+		filenames, UUIDs. However there are separate caches for each asset type.
+
+		@see IAsset
+
+	*/
 	class IAssetManager : public core::IReferenceCounted
 	{
         // the point of those functions is that lambdas returned by them "inherits" friendship
@@ -160,8 +172,18 @@ namespace asset
 			}
 		}
 
+		//TODO change name
         //! _supposedFilename is filename as it was, not touched by loader override with _override->getLoadFilename()
-        //TODO change name
+		/**
+			Attempts to fetch an Asset Bundle. Valid loaders for certain extension are searched. So if we were to handle .baw file extension, specified
+			loaders dealing with it would be fetched. If none of those loaders can't deal with the file, then one more tryout is performed, so a function
+			iterates through all available loaders regardless of supported file extensions they deal with counting on that one of them might work.
+
+			Furthermore if an Asset Bundle hasn't been loaded to cache before, it becomes loaded into cache memory and the function returns it. Otherwise
+			it is simply returned.
+
+			@see SAssetBundle
+		*/
         SAssetBundle getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
             IAssetLoader::SAssetLoadContext ctx{_params, _file};
@@ -216,15 +238,15 @@ namespace asset
             return asset;
         }
         //TODO change name
-        SAssetBundle getAssetInHierarchy(const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+        SAssetBundle getAssetInHierarchy(const std::string& _filePath, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
             IAssetLoader::SAssetLoadContext ctx{_params, nullptr};
 
-            std::string filename = _filename;
-            _override->getLoadFilename(filename, ctx, _hierarchyLevel);
-            io::IReadFile* file = m_fileSystem->createAndOpenFile(filename.c_str());
+            std::string filePath = _filePath;
+            _override->getLoadFilename(filePath, ctx, _hierarchyLevel);
+            io::IReadFile* file = m_fileSystem->createAndOpenFile(filePath.c_str());
 
-            SAssetBundle asset = getAssetInHierarchy(file, _filename, _params, _hierarchyLevel, _override);
+            SAssetBundle asset = getAssetInHierarchy(file, _filePath, _params, _hierarchyLevel, _override);
 
             if (file)
                 file->drop();
@@ -271,6 +293,26 @@ namespace asset
         }
 
         //TODO change name
+		//! Check whether Assets exist in cache using a key and optionally their types
+		/*
+			\param _inOutStorageSize holds beginning size of Assets. Note that it changes,
+			but if we expect 5 objects, it will hold finally (5 * sizeOfAsset) or \bless\b since 
+			operation may fail.
+			\param _out is a pointer that specifies an adress that new SAssetBundle will be copied to.
+			\param _key stores a key used for Assets searching.
+			\param _types stores null-terminated Asset types for better performance while searching.
+
+			If types of Assets are specified, task is easier and more performance is ensured, 
+			because Assets are being searched only in certain cache using a key (cache that matches
+			with Assets type). If there aren't any types specified, Assets are being search in whole cache.
+
+			Found Assets are being copied to _out.
+
+			If Assets exist, true is returned - otherwise false.
+
+			@see SAssetBundle
+			@see IAsset::E_TYPE
+		*/
         inline bool findAssets(size_t& _inOutStorageSize, SAssetBundle* _out, const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
         {
             size_t availableSize = _inOutStorageSize;
@@ -303,7 +345,8 @@ namespace asset
             }
             return res;
         }
-        //TODO change name (plural)
+        
+		//! It finds Assets and returnes all found. 
         inline core::vector<SAssetBundle> findAssets(const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
         {
             size_t reqSz = 0u;
@@ -328,6 +371,10 @@ namespace asset
             return res;
         }
 
+		//! It injects metadata into Asset structure
+		/**
+			@see IAssetMetadata
+		*/
         inline void setAssetMetadata(IAsset* _asset, core::smart_refctd_ptr<IAssetMetadata>&& _metadata)
         {
             _asset->setMetadata(std::move(_metadata));
@@ -367,7 +414,9 @@ namespace asset
         }
 
         //! This function frees most of the memory consumed by IAssets, but not destroying them.
-        /** Keeping assets around (by their pointers) helps a lot by letting the loaders retrieve them from the cache and not load cpu objects which have been loaded, converted to gpu resources and then would have been disposed of. However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
+        /** Keeping assets around (by their pointers) helps a lot by letting the loaders retrieve them from the cache 
+		and not load cpu objects which have been loaded, converted to gpu resources and then would have been disposed of.
+		However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
         void convertAssetToEmptyCacheHandle(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject)
         {
 			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
@@ -401,7 +450,8 @@ namespace asset
 		// we need a removeCachedGPUObjects(const IAsset* _asset) but CObjectCache.h needs a `removeAllAssociatedObjects(const Key& _key)`
 
         //! Writing an asset
-        /** Compression level is a number between 0 and 1 to signify how much storage we are trading for writing time or quality, this is a non-linear scale and has different meanings and results with different asset types and writers. */
+        /** Compression level is a number between 0 and 1 to signify how much storage we are trading for writing time or quality, this is a non-linear 
+		scale and has different meanings and results with different asset types and writers. */
         bool writeAsset(const std::string& _filename, const IAssetWriter::SAssetWriteParams& _params, IAssetWriter::IAssetWriterOverride* _override)
         {
             IAssetWriter::IAssetWriterOverride defOverride;
