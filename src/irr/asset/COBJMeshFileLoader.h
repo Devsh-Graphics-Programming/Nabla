@@ -147,7 +147,7 @@ public:
         char c;
         _file->read(&c, 1u);
         _file->seek(prevPos);
-        return c=='#';
+        return c=='#' || c=='v';
     }
 
     virtual const char** getAssociatedFileExtensions() const override
