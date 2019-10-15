@@ -324,7 +324,7 @@ protected:
     IRenderpassIndependentPipeline(
         core::smart_refctd_ptr<IRenderpassIndependentPipeline>&& _parent,
         core::smart_refctd_ptr<LayoutType>&& _layout,
-        SpecShaderType** _shaders,
+        SpecShaderType** _shadersBegin, SpecShaderType** _shadersEnd, 
         const SVertexInputParams& _vertexInputParams,
         const SBlendParams& _blendParams,
         const SPrimitiveAssemblyParams& _primAsmParams,
@@ -335,8 +335,15 @@ protected:
         m_rasterParams(_rasterParams),
         m_vertexInputParams(_vertexInputParams)
     {
-        for (size_t i = 0ull; i < SHADER_STAGE_COUNT; ++i)
-            m_shaders[i] = core::smart_refctd_ptr<SpecShaderType>(_shaders[i]);
+        auto shaders = core::SRange<SpecShaderType*>(_shadersBegin, _shadersEnd);
+        for (auto shdr : shaders)
+        {
+            const int32_t ix = core::findLSB<uint32_t>(shdr->getStage());
+            assert(ix > 0);
+            assert(ix < static_cast<int32_t>(SHADER_STAGE_COUNT));
+            assert(!m_shaders[ix]);//must maximum of 1 for each stage
+            m_shaders[ix] = core::smart_refctd_ptr<SpecShaderType>(shdr);
+        }
     }
     virtual ~IRenderpassIndependentPipeline() = default;
 

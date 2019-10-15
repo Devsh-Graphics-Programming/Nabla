@@ -39,7 +39,7 @@ public:
 
     void setUniformsImitatingPushConstants(const uint8_t* _pcData, GLuint _GLname);
 
-    inline GLenum getStage() const { return m_stage; }
+    inline GLenum getOpenGLStage() const { return m_GLstage; }
 
 protected:
     ~COpenGLSpecializedShader()
@@ -56,7 +56,7 @@ private:
 
 private:
     mutable core::smart_refctd_dynamic_array<GLuint> m_GLnames;
-    GLenum m_stage;
+    GLenum m_GLstage;
     //! Held until compilation of shader
     core::smart_refctd_ptr<const asset::ICPUBuffer> m_spirv;
     //! Held until compilation of shader

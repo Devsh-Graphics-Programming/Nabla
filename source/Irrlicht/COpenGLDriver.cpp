@@ -1379,37 +1379,23 @@ core::smart_refctd_ptr<IGPUPipelineLayout> COpenGLDriver::createGPUPipelineLayou
         );
 }
 
-core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createGPURenderpassIndependentPipeline(core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, IGPUSpecializedShader** _shaders, const asset::SVertexInputParams& _vertexInputParams, const asset::SBlendParams& _blendParams, const asset::SPrimitiveAssemblyParams& _primAsmParams, const asset::SRasterizationParams& _rasterParams)
+core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createGPURenderpassIndependentPipeline(core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd, const asset::SVertexInputParams& _vertexInputParams, const asset::SBlendParams& _blendParams, const asset::SPrimitiveAssemblyParams& _primAsmParams, const asset::SRasterizationParams& _rasterParams)
 {
-    //_parent param is ignored
+    //_parent parameter is ignored
 
     using GLPpln = COpenGLRenderpassIndependentPipeline;
 
-    auto vs = _shaders[GLPpln::ESSI_VERTEX_SHADER_IX];
-    auto tcs = _shaders[GLPpln::ESSI_TESS_CTRL_SHADER_IX];
-    auto tes = _shaders[GLPpln::ESSI_TESS_EVAL_SHADER_IX];
-    auto gs = _shaders[GLPpln::ESSI_GEOMETRY_SHADER_IX];
-    auto fs = _shaders[GLPpln::ESSI_FRAGMENT_SHADER_IX];
+    auto shaders = core::SRange<IGPUSpecializedShader*>(_shadersBegin, _shadersEnd);
+    auto vsIsPresent = [&shaders] {
+        return std::find_if(shaders.begin(), shaders.end(), [](IGPUSpecializedShader* shdr) {shdr->getStage()==asset::ESS_VERTEX;}) != shaders.end();
+    };
 
-    if (!_layout || !_shaders[GLPpln::ESSI_VERTEX_SHADER_IX])
+    if (!_layout || vsIsPresent())
         return nullptr;
-
-#define GET_SHADER_STAGE(shdr) (static_cast<COpenGLSpecializedShader*>(shdr)->getStage())
-    if (GET_SHADER_STAGE(vs) != GL_VERTEX_SHADER)
-        return nullptr;
-    if (tcs && (GET_SHADER_STAGE(tcs) != GL_TESS_CONTROL_SHADER))
-        return nullptr;
-    if (tes && (GET_SHADER_STAGE(tes) != GL_TESS_EVALUATION_SHADER))
-        return nullptr;
-    if (gs && (GET_SHADER_STAGE(gs) != GL_GEOMETRY_SHADER))
-        return nullptr;
-    if (fs && (GET_SHADER_STAGE(fs) != GL_FRAGMENT_SHADER))
-        return nullptr;
-#undef GET_SHADER_STAGE
 
     return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
         std::move(_layout),
-        _shaders,
+        _shadersBegin, _shadersEnd,
         _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
         );
 }

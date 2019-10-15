@@ -93,8 +93,9 @@ static GLenum ESS2GLenum(asset::E_SHADER_STAGE _stage)
 }//namesapce impl
 
 COpenGLSpecializedShader::COpenGLSpecializedShader(size_t _ctxCount, uint32_t _ctxID, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection) :
+    IGPUSpecializedShader(_specInfo->shaderStage),
     m_GLnames(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(_ctxCount, 0u)),
-    m_stage(impl::ESS2GLenum(_specInfo->shaderStage)),
+    m_GLstage(impl::ESS2GLenum(_specInfo->shaderStage)),
     m_spirv(core::smart_refctd_ptr<const asset::ICPUBuffer>(_spirv)),
     m_specInfo(core::smart_refctd_ptr<const asset::ISpecializationInfo>(_specInfo)),
     m_introspectionData(core::smart_refctd_ptr<asset::CIntrospectionData>(_introspection))
@@ -123,7 +124,7 @@ GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion)
     const char* glslCode_cstr = glslCode.c_str();
     //printf(glslCode.c_str());
 
-    GLuint GLname = COpenGLExtensionHandler::extGlCreateShaderProgramv(m_stage, 1u, &glslCode_cstr);
+    GLuint GLname = COpenGLExtensionHandler::extGlCreateShaderProgramv(m_GLstage, 1u, &glslCode_cstr);
 
     GLchar logbuf[1u<<12]; //4k
     COpenGLExtensionHandler::extGlGetProgramInfoLog(GLname, sizeof(logbuf), nullptr, logbuf);
