@@ -840,7 +840,6 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
         found->CurrentFBO = NULL;
     }
 
-    extGlUseProgram(0);
     removeAllFrameBuffers();
 
     extGlBindVertexArray(0);
@@ -849,6 +848,12 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
         extGlDeleteVertexArrays(1, &vao.second.GLname);
     }
     found->VAOMap.clear();
+
+    extGlUseProgram(0);
+    extGlBindProgramPipeline(0);
+    for (auto& ppln : found->GraphicsPipelineMap)
+        extGlDeleteProgramPipelines(1, &ppln.second);
+    found->GraphicsPipelineMap.clear();
 
     //force drop of all all grabbed (through smart_refctd_ptr) resources (descriptor sets, buffers, program pipeline)
     found->currentState = SOpenGLState();

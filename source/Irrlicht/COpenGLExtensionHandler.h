@@ -1110,6 +1110,7 @@ class COpenGLExtensionHandler
 
 	// shader programming
     static void extGlCreateProgramPipelines(GLsizei n, GLuint* pipelines);
+    static void extGlDeleteProgramPipelines(GLsizei n, const GLuint* pipelines);
     static void extGlUseProgramStages(GLuint pipeline, GLbitfield stages, GLuint program);
 	static GLuint extGlCreateShader(GLenum shaderType);
     static GLuint extGlCreateShaderProgramv(GLenum shaderType, GLsizei count, const char** strings);
@@ -1397,6 +1398,7 @@ class COpenGLExtensionHandler
 
     //shaders
     static PFNGLCREATEPROGRAMPIPELINESPROC pGlCreateProgramPipelines;
+    static PFNGLDELETEPROGRAMPIPELINESPROC pGlDeleteProgramPipelines;
     static PFNGLUSEPROGRAMSTAGESPROC pGlUseProgramStages;
     static PFNGLBINDATTRIBLOCATIONPROC pGlBindAttribLocation; //NULL
     static PFNGLCREATEPROGRAMPROC pGlCreateProgram;
@@ -2567,6 +2569,12 @@ inline void COpenGLExtensionHandler::extGlCreateProgramPipelines(GLsizei n, GLui
 {
     if (pGlCreateProgramPipelines)
         pGlCreateProgramPipelines(n, pipelines);
+}
+
+inline void COpenGLExtensionHandler::extGlDeleteProgramPipelines(GLsizei n, const GLuint * pipelines)
+{
+    if (pGlDeleteProgramPipelines)
+        pGlDeleteProgramPipelines(n, pipelines);
 }
 
 inline void COpenGLExtensionHandler::extGlUseProgramStages(GLuint pipeline, GLbitfield stages, GLuint program)

@@ -222,6 +222,7 @@ PFNGLGETATTACHEDSHADERSPROC COpenGLExtensionHandler::pGlGetAttachedShaders = nul
 PFNGLCREATESHADERPROC COpenGLExtensionHandler::pGlCreateShader = nullptr;
 PFNGLCREATESHADERPROGRAMVPROC COpenGLExtensionHandler::pGlCreateShaderProgramv = nullptr;
 PFNGLCREATEPROGRAMPIPELINESPROC COpenGLExtensionHandler::pGlCreateProgramPipelines = nullptr;
+PFNGLDELETEPROGRAMPIPELINESPROC COpenGLExtensionHandler::pGlDeleteProgramPipelines = nullptr;
 PFNGLUSEPROGRAMSTAGESPROC COpenGLExtensionHandler::pGlUseProgramStages = nullptr;
 PFNGLSHADERSOURCEPROC COpenGLExtensionHandler::pGlShaderSource = nullptr;
 PFNGLCOMPILESHADERPROC COpenGLExtensionHandler::pGlCompileShader = nullptr;
@@ -1127,6 +1128,7 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlCreateShader = (PFNGLCREATESHADERPROC) IRR_OGL_LOAD_EXTENSION("glCreateShader");
     pGlCreateShaderProgramv = (PFNGLCREATESHADERPROGRAMVPROC) IRR_OGL_LOAD_EXTENSION("glCreateShaderProgramv");
     pGlCreateProgramPipelines = (PFNGLCREATEPROGRAMPIPELINESPROC) IRR_OGL_LOAD_EXTENSION("glCreateProgramPipelines");
+    pGlDeleteProgramPipelines = (PFNGLDELETEPROGRAMPIPELINESPROC) IRR_OGL_LOAD_EXTENSION("glDeleteProgramPipelines");
     pGlUseProgramStages = (PFNGLUSEPROGRAMSTAGESPROC)IRR_OGL_LOAD_EXTENSION("glUseProgramStages");
 	pGlShaderSource = (PFNGLSHADERSOURCEPROC) IRR_OGL_LOAD_EXTENSION("glShaderSource");
 	pGlCompileShader = (PFNGLCOMPILESHADERPROC) IRR_OGL_LOAD_EXTENSION("glCompileShader");
