@@ -173,6 +173,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
                 {&gl::extGlProgramUniformMatrix3x2fv, &gl::extGlProgramUniformMatrix3fv, &gl::extGlProgramUniformMatrix3x4fv},//3xM
                 {&gl::extGlProgramUniformMatrix4x2fv, &gl::extGlProgramUniformMatrix4x3fv, &gl::extGlProgramUniformMatrix4fv} //4xM
             };
+            assert(core::is_aligned_to(matrix_data.data(), alignof(float)));//no idea why im doing this, theres no such requirement
             glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt-2u][m.mtxRowCnt-2u](_GLname, u.location, m.count, m.rowMajor?GL_TRUE:GL_FALSE, matrix_data.data());
         }
         else if (is_single_or_vec()) {
@@ -189,6 +190,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
                 PFNGLPROGRAMUNIFORM1FVPROC glProgramUniformNfv_fptr[4]{
                     &gl::extGlProgramUniform1fv, &gl::extGlProgramUniform2fv, &gl::extGlProgramUniform3fv, &gl::extGlProgramUniform4fv
                 };
+                assert(core::is_aligned_to(vector_data.data(), alignof(GLfloat)));//no idea why im doing this, theres no such requirement
                 glProgramUniformNfv_fptr[m.mtxRowCnt-1u](_GLname, u.location, m.count, reinterpret_cast<const GLfloat*>(vector_data.data()));
                 break;
             }
@@ -197,6 +199,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
                 PFNGLPROGRAMUNIFORM1IVPROC glProgramUniformNiv_fptr[4]{
                     &gl::extGlProgramUniform1iv, &gl::extGlProgramUniform2iv, &gl::extGlProgramUniform3iv, &gl::extGlProgramUniform4iv
                 };
+                assert(core::is_aligned_to(vector_data.data(), alignof(GLint)));//no idea why im doing this, theres no such requirement
                 glProgramUniformNiv_fptr[m.mtxRowCnt-1u](_GLname, u.location, m.count, reinterpret_cast<const GLint*>(vector_data.data()));
                 break;
             }
@@ -205,6 +208,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
                 PFNGLPROGRAMUNIFORM1UIVPROC glProgramUniformNuiv_fptr[4]{
                     &gl::extGlProgramUniform1uiv, &gl::extGlProgramUniform2uiv, &gl::extGlProgramUniform3uiv, &gl::extGlProgramUniform4uiv
                 };
+                assert(core::is_aligned_to(vector_data.data(), alignof(GLuint)));//no idea why im doing this, theres no such requirement
                 glProgramUniformNuiv_fptr[m.mtxRowCnt-1u](_GLname, u.location, m.count, vector_data.data());
                 break;
             }
