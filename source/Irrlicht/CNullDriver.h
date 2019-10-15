@@ -181,13 +181,7 @@ namespace video
 		//! driver, it would return "Direct3D8.1".
 		virtual const wchar_t* getName() const;
 
-		virtual void removeMultisampleTexture(IMultisampleTexture* tex);
-
 		virtual void removeFrameBuffer(IFrameBuffer* framebuf);
-
-		virtual void removeAllMultisampleTextures();
-
-		virtual void removeAllTextureBufferObjects();
 
 		virtual void removeAllFrameBuffers();
 
@@ -340,8 +334,6 @@ namespace video
         uint32_t getMaxImageBindings() const override { return 0u; }
 
 	protected:
-        void addMultisampleTexture(IMultisampleTexture* tex);
-
 		//! returns a device dependent texture from a software surface (IImage)
 		//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
 		virtual core::smart_refctd_ptr<video::ITexture> createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM);
@@ -403,10 +395,7 @@ namespace video
                 virtual size_t getBoundMemoryOffset() const {return 0u;}
 		};
 
-		core::vector<IMultisampleTexture*> MultisampleTextures;
-
-
-        IQueryObject* currentQuery[EQOT_COUNT][_IRR_XFORM_FEEDBACK_MAX_STREAMS_];
+        IQueryObject* currentQuery[EQOT_COUNT][/*_IRR_XFORM_FEEDBACK_MAX_STREAMS_*/4];
 
 		io::IFileSystem* FileSystem;
 

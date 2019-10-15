@@ -719,7 +719,7 @@ namespace video
         core::smart_refctd_ptr<ITexture> createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) override;
 
         //!
-        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false);
+        virtual IMultisampleTexture* createMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false) override;
 
         virtual IFrameBuffer* addFrameBuffer();
 

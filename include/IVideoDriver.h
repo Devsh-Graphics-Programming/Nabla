@@ -173,7 +173,7 @@ namespace video
 		virtual const core::matrix4SIMD& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state) =0;
 
         //! A.
-        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size,
+        virtual IMultisampleTexture* createMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size,
                                                            asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false) {return nullptr;}
 
 		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,

@@ -2589,7 +2589,7 @@ core::smart_refctd_ptr<ITexture> COpenGLDriver::createGPUTexture(const ITexture:
     return createDeviceDependentTexture(type, size, mipmapLevels, "", format);
 }
 
-IMultisampleTexture* COpenGLDriver::addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, asset::E_FORMAT format, const bool& fixedSampleLocations)
+IMultisampleTexture* COpenGLDriver::createMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, asset::E_FORMAT format, const bool& fixedSampleLocations)
 {
     //check to implement later on  attachment of textures to FBO
     //if (!isFormatRenderable(glTex->getOpenGLInternalFormat()))
@@ -2614,9 +2614,6 @@ IMultisampleTexture* COpenGLDriver::addMultisampleTexture(const IMultisampleText
         default:
             break;
 	}
-
-	if (tex)
-        CNullDriver::addMultisampleTexture(tex);
 
 	return tex;
 }

@@ -283,32 +283,8 @@ const core::matrix4SIMD& CNullDriver::getTransform(const E_PROJECTION_TRANSFORMA
     return ProjectionMatrices[state];
 }
 
-void CNullDriver::removeMultisampleTexture(IMultisampleTexture* tex)
-{
-    auto it = std::lower_bound(MultisampleTextures.begin(),MultisampleTextures.end(),tex);
-    if (it==MultisampleTextures.end() || tex<*it)
-        return;
-    MultisampleTextures.erase(it);
-
-    tex->drop();
-}
-
 void CNullDriver::removeFrameBuffer(IFrameBuffer* framebuf)
 {
-}
-
-void CNullDriver::removeAllMultisampleTextures()
-{
-	for (uint32_t i=0; i<MultisampleTextures.size(); ++i)
-		MultisampleTextures[i]->drop();
-    MultisampleTextures.clear();
-}
-
-void CNullDriver::removeAllTextureBufferObjects()
-{
-	for (uint32_t i=0; i<BufferViews.size(); ++i)
-        BufferViews[i]->drop();
-    BufferViews.clear();
 }
 
 void CNullDriver::removeAllFrameBuffers()
@@ -846,13 +822,6 @@ int32_t CNullDriver::addHighLevelShaderMaterialFromFiles(
 	return result;
 }
 */
-
-void CNullDriver::addMultisampleTexture(IMultisampleTexture* tex)
-{
-	MultisampleTextures.push_back(tex);
-	std::sort(MultisampleTextures.begin(),MultisampleTextures.end());
-}
-
 
 void CNullDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool copyDepth, bool copyStencil,
 									core::recti srcRect, core::recti dstRect,
