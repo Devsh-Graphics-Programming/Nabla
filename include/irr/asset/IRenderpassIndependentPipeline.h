@@ -305,7 +305,7 @@ enum E_VERTEX_ATTRIBUTE_ID
 */
 
 template<typename SpecShaderType, typename LayoutType>
-class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
+class IRenderpassIndependentPipeline : public IPipeline<IRenderpassIndependentPipeline, LayoutType>
 {
 public:
     _IRR_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 5u;
@@ -322,13 +322,14 @@ public:
 protected:
     //! @param _shaders Must be pointer to array of SHADER_STAGE_COUNT elements. Shaders must go in order VS, TCS, TES, GS, FS.
     IRenderpassIndependentPipeline(
+        core::smart_refctd_ptr<IRenderpassIndependentPipeline>&& _parent,
         core::smart_refctd_ptr<LayoutType>&& _layout,
         SpecShaderType** _shaders,
         const SVertexInputParams& _vertexInputParams,
         const SBlendParams& _blendParams,
         const SPrimitiveAssemblyParams& _primAsmParams,
         const SRasterizationParams& _rasterParams
-    ) : IPipeline<LayoutType>(std::move(_layout)),
+    ) : IPipeline<IRenderpassIndependentPipeline,LayoutType>(std::move(_parent), std::move(_layout)),
         m_blendParams(_blendParams),
         m_primAsmParams(_primAsmParams),
         m_rasterParams(_rasterParams),

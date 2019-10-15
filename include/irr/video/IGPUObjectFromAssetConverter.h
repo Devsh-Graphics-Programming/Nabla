@@ -559,6 +559,7 @@ inline created_gpu_object_array<asset::ICPURenderpassIndependentPipeline> IGPUOb
                 shaders[s] = (*gpuShaders)[shdrRedirs[shdrIter++]].get();
 
         (*res)[i] = m_driver->createGPURenderpassIndependentPipeline(
+            nullptr,
             core::smart_refctd_ptr<IGPUPipelineLayout>(layout),
             shaders,
             cpuppln->getVertexInputParams(),

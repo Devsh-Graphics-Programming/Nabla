@@ -603,6 +603,7 @@ namespace video
         ) override;
 
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
+            core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             IGPUSpecializedShader** _shaders,
             const asset::SVertexInputParams& _vertexInputParams,

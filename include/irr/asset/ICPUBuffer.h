@@ -26,7 +26,7 @@ namespace asset
 
 	@see IAsset
 */
-class ICPUBuffer : public asset::IBuffer, public asset::IAsset, public IDescriptor
+class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 {
     protected:
         virtual ~ICPUBuffer()
