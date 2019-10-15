@@ -236,7 +236,7 @@ bool CElementShape::processChildData(IElement* _child, const std::string& name)
 					case Type::SHAPEGROUP:
 						if (child->type==Type::INVALID || child->type==Type::SHAPEGROUP)
 							return false;
-						if (shapegroup.childCount == ShapeGroup::MaxChildCount-1u)
+						if (shapegroup.childCount == ShapeGroup::MaxChildCount)
 						{
 							ParserLog::invalidXMLFileStructure("Maximum shape-group children exceeded.");
 							return false;
@@ -247,7 +247,8 @@ bool CElementShape::processChildData(IElement* _child, const std::string& name)
 					case Type::INSTANCE:
 						if (child->type != Type::SHAPEGROUP)
 							return false;
-						instance.shapegroup = child->shapegroup;
+						instance.shapegroup = &child->shapegroup;
+						return true;
 						break;
 					default:
 						break;

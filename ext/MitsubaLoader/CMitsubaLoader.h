@@ -6,6 +6,7 @@
 #include "IFileSystem.h"
 
 #include "../../ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
+#include "../../ext/MitsubaLoader/CElementShape.h"
 
 namespace irr
 {
@@ -36,10 +37,20 @@ class CMitsubaLoader : public asset::IAssetLoader
 		//! Destructor
 		virtual ~CMitsubaLoader() = default;
 
+		//
+		using group_ass_type = core::smart_refctd_ptr<asset::ICPUMesh>;
+		group_ass_type instantiateShapeGroup(CElementShape::ShapeGroup* shapegroup, const core::matrix4SIMD& tform);
+		core::map<CElementShape::ShapeGroup*,group_ass_type> groupCache;
+
+		//
+		using shape_ass_type = core::smart_refctd_ptr<asset::ICPUMesh>;
+		shape_ass_type getMesh(CElementShape* shape);
+		core::map<CElementShape*,shape_ass_type> shapeCache;
+
 		//! TODO: change to CPU graphics pipeline
 		using bsdf_ass_type = video::SCPUMaterial; // = core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>;
 		bsdf_ass_type getBSDF(const std::string& relativeDir, CElementBSDF* bsdf, uint32_t _hierarchyLevel, asset::IAssetLoader::IAssetLoaderOverride* _override);
-		core::unordered_map<CElementBSDF*,bsdf_ass_type> pipelineCache;
+		core::map<CElementBSDF*,bsdf_ass_type> pipelineCache;
 
 		//! TODO: even later when texture changes come
 		using tex_ass_type = video::SMaterialLayer<asset::ICPUTexture>; // = std::pair<core::smart_refctd_ptr<asset::ICPUTextureView>,core::smart_refctd_ptr<asset::ICPUSampler> >;

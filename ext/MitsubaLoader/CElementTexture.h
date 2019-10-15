@@ -96,6 +96,17 @@ class CElementTexture : public IElement
 				TRILINEAR,
 				NEAREST
 			};
+			enum CHANNEL
+			{
+				INVALID=0,
+				R,
+				G,
+				B,
+				A/*, needs special conversions
+				X,
+				Y,
+				Z*/
+			};
 
 			SPropertyElementData filename;
 			WRAP_MODE wrapModeU = REPEAT;
@@ -108,7 +119,7 @@ class CElementTexture : public IElement
 			float voffset = 0.f;
 			float uscale = 1.f;
 			float vscale = 1.f;
-			//CHANNEL channel;
+			CHANNEL channel = INVALID;
 		};
 	struct MetaTexture
 	{

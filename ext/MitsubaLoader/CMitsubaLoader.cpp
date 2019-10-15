@@ -1,5 +1,7 @@
 #include "os.h"
 
+#include <cwchar>
+
 #include "../../ext/MitsubaLoader/CMitsubaLoader.h"
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 
@@ -26,11 +28,27 @@ bool CMitsubaLoader::isALoadableFileFormat(io::IReadFile* _file) const
 	tempBuff[stackSize] = 0;
 
 	static const char* stringsToFind[] = { "<?xml", "version", "scene"};
+	static const wchar_t* stringsToFindW[] = { L"<?xml", L"version", L"scene"};
 	constexpr uint32_t maxStringSize = 8u; // "version\0"
 	static_assert(stackSize > 2u*maxStringSize, "WTF?");
 
 	const size_t prevPos = _file->getPos();
 	const auto fileSize = _file->getSize();
+	if (fileSize < maxStringSize)
+		return false;
+
+	_file->seek(0);
+	_file->read(tempBuff, 3u);
+	bool utf16 = false;
+	if (tempBuff[0]==0xEFu && tempBuff[1]==0xBBu && tempBuff[2]==0xBFu)
+		utf16 = false;
+	else if (reinterpret_cast<uint16_t*>(tempBuff)[0]==0xFEFFu)
+	{
+		utf16 = true;
+		_file->seek(2);
+	}
+	else
+		_file->seek(0);
 	while (true)
 	{
 		auto pos = _file->getPos();
@@ -40,7 +58,7 @@ bool CMitsubaLoader::isALoadableFileFormat(io::IReadFile* _file) const
 			_file->seek(_file->getPos()-maxStringSize);
 		_file->read(tempBuff,stackSize);
 		for (auto i=0u; i<sizeof(stringsToFind)/sizeof(const char*); i++)
-		if (strstr(tempBuff, stringsToFind[i]))
+		if (utf16 ? (wcsstr(reinterpret_cast<wchar_t*>(tempBuff),stringsToFindW[i])!=nullptr):(strstr(tempBuff, stringsToFind[i])!=nullptr))
 		{
 			_file->seek(prevPos);
 			return true;
@@ -251,10 +269,10 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 				maxSmoothAngle = shapedef->serialized.maxSmoothAngle;
 				break;
 			case CElementShape::Type::SHAPEGROUP:
-				_IRR_DEBUG_BREAK_IF(true);
+				// do nothing, only instance can make it appear
 				break;
 			case CElementShape::Type::INSTANCE:
-				_IRR_DEBUG_BREAK_IF(true);
+				mesh = instantiateShapeGroup(shapedef->instance.shapegroup,shapedef->transform.matrix);
 				break;
 			default:
 				_IRR_DEBUG_BREAK_IF(true);
@@ -294,9 +312,17 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 			mesh = std::move(newMesh);
 		}
 
-		// pipeline processing
+		// meshbuffer processing
+		if (shapedef->type!=CElementShape::Type::INSTANCE)
 		for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
-			mesh->getMeshBuffer(i)->getMaterial() = getBSDF(relativeDir,shapedef->bsdf,_hierarchyLevel+asset::ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW,_override); // TODO: change this with shader pipeline
+		{
+			auto* meshbuffer = mesh->getMeshBuffer(i);
+			// add some metadata
+			///auto meshbuffermeta = core::make_smart_refctd_ptr<IMeshBufferMetadata>(shapedef->type,shapedef->emitter ? shapedef->emitter.area:CElementEmitter::Area());
+			///manager->setAssetMetadata(meshbuffer,std::move(meshbuffermeta));
+			// TODO: change this with shader pipeline
+			meshbuffer->getMaterial() = getBSDF(relativeDir,shapedef->bsdf,_hierarchyLevel+asset::ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW,_override);
+		}
 
 		auto metadata = core::make_smart_refctd_ptr<IMeshMetadata>(
 								core::smart_refctd_ptr(parserManager.m_globalMetadata),
@@ -304,12 +330,50 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		metadata->instances.push_back(shapedef->transform.matrix.extractSub3x4());
 		manager->setAssetMetadata(mesh.get(), std::move(metadata));
 
-
 		meshes.push_back(std::move(mesh));
 	}
 
 	return {meshes};
 }
+
+
+CMitsubaLoader::group_ass_type CMitsubaLoader::instantiateShapeGroup(CElementShape::ShapeGroup* shapegroup, const core::matrix4SIMD& tform)
+{
+	if (!shapegroup)
+		return nullptr;
+
+	// will only return the group mesh once so it is only added once
+	auto found = groupCache.find(shapegroup);
+	if (found != groupCache.end())
+	{
+		static_cast<IMeshMetadata*>(found->second->getMetadata())->instances.push_back(tform.extractSub3x4());
+		return nullptr;
+	}
+
+	auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
+	for (auto i=0u; shapegroup->children[i] && i<shapegroup->childCount; i++)
+	{
+		auto lowermesh = getMesh(shapegroup->children[i]);
+		if (lowermesh)
+		for (auto j=0u; j<lowermesh->getMeshBufferCount(); j++)
+			mesh->addMeshBuffer(core::smart_refctd_ptr<asset::ICPUMeshBuffer>(lowermesh->getMeshBuffer(j)));
+	}
+	mesh->recalculateBoundingBox();
+	return mesh;
+}
+
+CMitsubaLoader::shape_ass_type CMitsubaLoader::getMesh(CElementShape* shape)
+{
+	if (!shape)
+		return nullptr;
+
+	auto found = shapeCache.find(shape);
+	if (found != shapeCache.end())
+		return found->second;
+
+	return nullptr;
+}
+
 
 //! TODO: change to CPU graphics pipeline
 CMitsubaLoader::bsdf_ass_type CMitsubaLoader::getBSDF(const std::string& relativeDir, CElementBSDF* bsdf, uint32_t _hierarchyLevel, asset::IAssetLoader::IAssetLoaderOverride* _override)
@@ -424,8 +488,97 @@ CMitsubaLoader::tex_ass_type CMitsubaLoader::getTexture(const std::string& relat
 				{
 					auto asset = contentRange.first[0];
 					if (asset && asset->getAssetType() == asset::IAsset::ET_IMAGE)
-					{
-						layer.Texture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(asset);
+					{/*
+						auto 
+						{
+							const void* src_container[4] = { data, nullptr, nullptr, nullptr };
+							video::convertColor<EF_R8_UNORM, EF_R8_SRGB>(src_container, data, dim.X, dim); 
+						}*/
+						video::convertColor<asset::EF_R8G8B8A8_SRGB, asset::EF_B8G8R8A8_SRGB>(nullptr, nullptr, 0, core::vector3d<uint32_t>(0,0,0));
+						auto texture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(asset);
+						auto getSingleChannelFormat = [](asset::E_FORMAT format, uint32_t index) -> asset::E_FORMAT
+						{
+							auto ratio = asset::getBytesPerPixel(format);
+							ratio = decltype(ratio)(ratio.getNumerator(),ratio.getDenominator()*asset::getFormatChannelCount(format));
+							switch (ratio.getRoundedUpInteger())
+							{
+								case 1:
+									if (asset::isSRGBFormat(format))
+										return index!=3 ? format:asset::EF_R8_UNORM;
+									else
+									{
+										bool _signed = asset::isSignedFormat(format);
+										if (asset::isIntegerFormat(format))
+											return _signed ? asset::EF_R8_SINT : asset::EF_R8_UINT;
+										else
+											return _signed ? asset::EF_R8_SNORM:asset::EF_R8_UNORM;
+									}
+									break;
+								case 2:
+									if (asset::isFloatingPointFormat(format))
+										return asset::EF_R16_SFLOAT;
+									else
+									{
+										bool _signed = asset::isSignedFormat(format);
+										if (asset::isIntegerFormat(format))
+											return _signed ? asset::EF_R16_SINT : asset::EF_R16_UINT;
+										else
+											return _signed ? asset::EF_R16_SNORM:asset::EF_R16_UNORM;
+									}
+								case 3:
+									_IRR_FALLTHROUGH;
+								case 4:
+									if (asset::isFloatingPointFormat(format))
+										return asset::EF_R32_SFLOAT;
+									else if (asset::isSignedFormat(format))
+										return asset::EF_R32_SINT;
+									else
+										return asset::EF_R32_UINT;
+									break;
+								default:
+									break;
+							}
+							return format;
+						};
+						auto extractChannel = [&](uint32_t index) -> core::smart_refctd_ptr<asset::ICPUTexture>
+						{
+							core::vector<asset::CImageData*> subimages; // this will leak like crazy
+							for (uint32_t level=0u; level<=texture->getHighestMip(); level)
+							{
+								auto rng = texture->getMipMap(level);
+								for (auto it=rng.first; it!=rng.second; it++)
+								{
+									auto* olddata = *it;
+									auto format = getSingleChannelFormat(olddata->getColorFormat(), index);
+									auto* data = new asset::CImageData(nullptr,olddata->getSliceMin(),olddata->getSliceMax(),olddata->getSupposedMipLevel(),format);
+									_IRR_DEBUG_BREAK_IF(true);
+									subimages.push_back(data);
+								}
+							}
+							return core::smart_refctd_ptr<asset::ICPUTexture>(asset::ICPUTexture::create(std::move(subimages), texture->getSourceFilename(), texture->getType()), core::dont_grab);
+						};
+						switch (tex->bitmap.channel)
+						{
+							// no GL_R8_SRGB support yet
+							case CElementTexture::Bitmap::CHANNEL::R:
+								layer.Texture = extractChannel(0);
+								break;
+							case CElementTexture::Bitmap::CHANNEL::G:
+								layer.Texture = extractChannel(1);
+								break;
+							case CElementTexture::Bitmap::CHANNEL::B:
+								layer.Texture = extractChannel(2);
+								break;
+							case CElementTexture::Bitmap::CHANNEL::A:
+								layer.Texture = extractChannel(3);
+								break;/* special conversions needed to CIE space
+							case CElementTexture::Bitmap::CHANNEL::X:
+							case CElementTexture::Bitmap::CHANNEL::Y:
+							case CElementTexture::Bitmap::CHANNEL::Z:*/
+							default:
+								layer.Texture = std::move(texture);
+								break;
+						}
 						//! TODO: this stuff (custom shader sampling code?)
 						_IRR_DEBUG_BREAK_IF(tex->bitmap.uoffset != 0.f);
 						_IRR_DEBUG_BREAK_IF(tex->bitmap.voffset != 0.f);

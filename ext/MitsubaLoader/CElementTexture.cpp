@@ -192,12 +192,41 @@ bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
 		});
 	};
 	auto processMaxAnisotropy = SET_PROPERTY_TEMPLATE(maxAnisotropy,SPropertyElementData::Type::FLOAT,Bitmap);
-	//auto processCache = SET_PROPERTY_TEMPLATE(cache,SPropertyElementData::Type::BOOLEAN,Bitmap);
+	auto processCache = []() -> void {}; // silently drop
 	auto processUoffset = SET_PROPERTY_TEMPLATE(uoffset,SPropertyElementData::Type::FLOAT,Bitmap);
 	auto processVoffset = SET_PROPERTY_TEMPLATE(voffset,SPropertyElementData::Type::FLOAT,Bitmap);
 	auto processUscale = SET_PROPERTY_TEMPLATE(uscale,SPropertyElementData::Type::FLOAT,Bitmap);
 	auto processVscale = SET_PROPERTY_TEMPLATE(vscale,SPropertyElementData::Type::FLOAT,Bitmap);
-	//auto processChannel = ;
+	auto processChannel = [&]() -> void
+	{
+		dispatch([&](auto& state) -> void {
+			using state_type = std::remove_reference<decltype(state)>::type;
+
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type, Bitmap>::value)
+			{
+				static const core::unordered_map<std::string, Bitmap::CHANNEL, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
+				{
+					{"r",	Bitmap::CHANNEL::R},
+					{"g",	Bitmap::CHANNEL::G},
+					{"b",	Bitmap::CHANNEL::B},
+					{"a",	Bitmap::CHANNEL::A}/*,
+					{"x",	Bitmap::CHANNEL::X},
+					{"y",	Bitmap::CHANNEL::Y},
+					{"z",	Bitmap::CHANNEL::Z}*/
+				};
+				auto found = StringToType.end();
+				if (_property.type == SPropertyElementData::Type::STRING)
+					found = StringToType.find(_property.getProperty<SPropertyElementData::Type::STRING>());
+				if (found == StringToType.end())
+				{
+					error = true;
+					return;
+				}
+				state.channel = found->second;
+			}
+			IRR_PSEUDO_IF_CONSTEXPR_END
+		});
+	};
 
 
 	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
@@ -209,12 +238,12 @@ bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
 		{"gamma",			processGamma},
 		{"filterType",		processFilterType},
 		{"maxAnisotropy",	processMaxAnisotropy},
-		//{"cache",			processCache},
+		{"cache",			processCache},
 		{"uoffset",			processUoffset},
 		{"voffset",			processVoffset},
 		{"uscale",			processUscale},
-		{"vscale",			processVscale}//,
-		//{"channel",		processChannel)
+		{"vscale",			processVscale},
+		{"channel",			processChannel}
 	};
 	
 	auto found = SetPropertyMap.find(_property.name);

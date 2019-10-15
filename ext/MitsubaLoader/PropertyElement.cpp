@@ -285,7 +285,13 @@ core::vectorSIMDf CPropertyElementManager::retrieveVector(const std::string& _da
 
 		if (isnan(f))
 		{
-			if (i == 3)
+			if (i == 1)
+			{
+				vectorData[2] = vectorData[1] = vectorData[0];
+				vectorData[3] = 0.0f;
+				break;
+			}
+			else if (i == 3)
 			{
 				vectorData[3] = 0.0f;
 				break;

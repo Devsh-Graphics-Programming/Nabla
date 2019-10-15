@@ -79,7 +79,7 @@ class CElementShape : public IElement
 		};
 		struct Instance
 		{
-			ShapeGroup shapegroup;
+			ShapeGroup* shapegroup = nullptr;
 		};/*
 		struct Hair : Base
 		{
