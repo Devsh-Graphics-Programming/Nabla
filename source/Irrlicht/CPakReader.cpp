@@ -54,14 +54,14 @@ bool CArchiveLoaderPAK::isALoadableFileFormat(E_FILE_ARCHIVE_TYPE fileType) cons
 //! Creates an archive from the filename
 /** \param file File handle to check.
 \return Pointer to newly created archive, or 0 upon error. */
-IFileArchive* CArchiveLoaderPAK::createArchive(const io::path& filename, bool ignoreCase, bool ignorePaths) const
+IFileArchive* CArchiveLoaderPAK::createArchive(const io::path& filename) const
 {
 	IFileArchive *archive = 0;
 	io::IReadFile* file = FileSystem->createAndOpenFile(filename);
 
 	if (file)
 	{
-		archive = createArchive(file, ignoreCase, ignorePaths);
+		archive = createArchive(file);
 		file->drop ();
 	}
 
@@ -70,13 +70,13 @@ IFileArchive* CArchiveLoaderPAK::createArchive(const io::path& filename, bool ig
 
 //! creates/loads an archive from the file.
 //! \return Pointer to the created archive. Returns 0 if loading failed.
-IFileArchive* CArchiveLoaderPAK::createArchive(io::IReadFile* file, bool ignoreCase, bool ignorePaths) const
+IFileArchive* CArchiveLoaderPAK::createArchive(io::IReadFile* file) const
 {
 	IFileArchive *archive = 0;
 	if ( file )
 	{
 		file->seek ( 0 );
-		archive = new CPakReader(file, ignoreCase, ignorePaths);
+		archive = new CPakReader(file);
 	}
 	return archive;
 }
@@ -90,7 +90,10 @@ bool CArchiveLoaderPAK::isALoadableFileFormat(io::IReadFile* file) const
 {
 	SPAKFileHeader header;
 
+	const size_t prevPos = file->getPos();
+	file->seek(0u);
 	file->read(&header, sizeof(header));
+	file->seek(prevPos);
 
 	return isHeaderValid(header);
 }
@@ -99,8 +102,7 @@ bool CArchiveLoaderPAK::isALoadableFileFormat(io::IReadFile* file) const
 /*!
 	PAK Reader
 */
-CPakReader::CPakReader(IReadFile* file, bool ignoreCase, bool ignorePaths)
-: CFileList((file ? file->getFileName() : io::path("")), ignoreCase, ignorePaths), File(file)
+CPakReader::CPakReader(IReadFile* file) : CFileList(file ? file->getFileName() : io::path("")), File(file)
 {
 #ifdef _IRR_DEBUG
 	setDebugName("CPakReader");

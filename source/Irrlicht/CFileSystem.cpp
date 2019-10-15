@@ -10,9 +10,7 @@
 #include "CZipReader.h"
 #include "CMountPointReader.h"
 #include "CPakReader.h"
-#include "CNPKReader.h"
 #include "CTarReader.h"
-#include "CWADReader.h"
 #include "CFileList.h"
 #include "stdio.h"
 #include "os.h"
@@ -747,7 +745,7 @@ IFileList* CFileSystem::createFileList()
 		#ifdef _IRR_WINDOWS_API_
 		#if !defined ( _WIN32_WCE )
 
-		r = new CFileList(Path, true, false);
+		r = new CFileList(Path);
 
 		// TODO: Should be unified once mingw adapts the proper types
 #if defined(__GNUC__)
@@ -822,7 +820,7 @@ IFileList* CFileSystem::createFileList()
 	else
 	{
 		//! create file list for the virtual filesystem
-		r = new CFileList(Path, false, false);
+		r = new CFileList(Path);
 
 		//! add relative navigation
 		SFileListEntry e2;

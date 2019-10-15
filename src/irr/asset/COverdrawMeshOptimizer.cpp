@@ -205,6 +205,7 @@ void COverdrawMeshOptimizer::calcSortData(ClusterSortData* _dst, const IdxT* _in
 
 	for (size_t cluster = 0; cluster < _clusterCount; ++cluster)
 	{
+		// TODO: why are the fucking clusters only 1 triangle !?!?!?
 		const size_t begin = _clusters[cluster] * 3;
 		const size_t end = (_clusterCount > cluster + 1) ? _clusters[cluster+1] * 3 : _idxCount;
 		_IRR_DEBUG_BREAK_IF(begin > end);

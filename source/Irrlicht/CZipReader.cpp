@@ -122,9 +122,11 @@ IFileArchive* CArchiveLoaderZIP::createArchive(io::IReadFile* file) const
 \return True if file seems to be loadable. */
 bool CArchiveLoaderZIP::isALoadableFileFormat(io::IReadFile* file) const
 {
+	const size_t prevPos = file->getPos();
+	file->seek(0u);
 	SZIPFileHeader header;
-
 	file->read( &header.Sig, 4 );
+	file->seek(prevPos);
 
 	return header.Sig == 0x04034b50 || // ZIP
 		   (header.Sig&0xffff) == 0x8b1f; // gzip
@@ -134,7 +136,7 @@ bool CArchiveLoaderZIP::isALoadableFileFormat(io::IReadFile* file) const
 // zip archive
 // -----------------------------------------------------------------------------
 
-CZipReader::CZipReader(IReadFile* file, bool isGZip) : CFileList(file ? file->getFileName() : io::path(""),false,false), File(file), IsGZip(isGZip)
+CZipReader::CZipReader(IReadFile* file, bool isGZip) : CFileList(file ? file->getFileName() : io::path("")), File(file), IsGZip(isGZip)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("CZipReader");
@@ -184,12 +186,6 @@ bool CZipReader::scanGZipHeader()
 	SGZIPMemberHeader header;
 	if (File->read(&header, sizeof(SGZIPMemberHeader)) == sizeof(SGZIPMemberHeader))
 	{
-
-#ifdef __BIG_ENDIAN__
-		header.sig = os::Byteswap::byteswap(header.sig);
-		header.time = os::Byteswap::byteswap(header.time);
-#endif
-
 		// check header value
 		if (header.sig != 0x8b1f)
 			return false;
