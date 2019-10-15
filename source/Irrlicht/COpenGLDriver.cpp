@@ -2728,6 +2728,25 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
 	GLuint inFBOHandle = 0;
 	GLuint outFBOHandle = 0;
 
+    SAuxContext * found = getThreadContext_helper(false);
+    if (!found)
+        return;
+
+
+    GLboolean rasterDiscard = 0;
+    GLboolean colormask[4]{};
+    GLboolean depthWrite = found->nextState.rasterParams.depthWriteEnable;
+    GLuint smask_back = found->nextState.rasterParams.stencilFunc_back.mask;
+    GLuint smask_front = found->nextState.rasterParams.stencilFunc_front.mask;
+
+    if (copyDepth)
+        found->nextState.rasterParams.depthWriteEnable = 1;
+    if (copyStencil)
+    {
+        found->nextState.rasterParams.stencilFunc_back.mask = ~0u;
+        found->nextState.rasterParams.stencilFunc_front.mask = ~0u;
+    }
+    clearColor_gatherAndOverrideState(found, 0u, &rasterDiscard, colormask);
 
 	if (srcRect.getArea()==0)
 	{
@@ -2814,8 +2833,33 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
                         dstRect.UpperLeftCorner.X,dstRect.UpperLeftCorner.Y,dstRect.LowerRightCorner.X,dstRect.LowerRightCorner.Y,
 						GL_COLOR_BUFFER_BIT|(copyDepth ? GL_DEPTH_BUFFER_BIT:0)|(copyStencil ? GL_STENCIL_BUFFER_BIT:0),
 						bilinearFilter ? GL_LINEAR:GL_NEAREST);
+
+    if (copyDepth)
+        found->nextState.rasterParams.depthWriteEnable = depthWrite;
+    if (copyStencil)
+    {
+        found->nextState.rasterParams.stencilFunc_back.mask = smask_back;
+        found->nextState.rasterParams.stencilFunc_front.mask = smask_front;
+    }
+    clearColor_bringbackState(found, 0u, rasterDiscard, colormask);
 }
 
+void COpenGLDriver::clearColor_gatherAndOverrideState(SAuxContext * found, uint32_t _attIx, GLboolean* _rasterDiscard, GLboolean* _colorWmask)
+{
+    _rasterDiscard[0] = found->nextState.rasterParams.rasterizerDiscardEnable;
+    memcpy(_colorWmask, found->nextState.rasterParams.drawbufferBlend[_attIx].colorMask.colorWritemask, 4);
+
+    found->nextState.rasterParams.rasterizerDiscardEnable = 0;
+    const GLboolean newmask[4]{ 1,1,1,1 };
+    memcpy(found->nextState.rasterParams.drawbufferBlend[_attIx].colorMask.colorWritemask, newmask, sizeof(newmask));
+    found->flushState(GSB_PIPELINE_AND_RASTER_PARAMETERS);
+}
+
+void COpenGLDriver::clearColor_bringbackState(SAuxContext * found, uint32_t _attIx, GLboolean _rasterDiscard, const GLboolean * _colorWmask)
+{
+    found->nextState.rasterParams.rasterizerDiscardEnable = _rasterDiscard;
+    memcpy(found->nextState.rasterParams.drawbufferBlend[_attIx].colorMask.colorWritemask, _colorWmask, 4);
+}
 
 
 //! Returns the maximum amount of primitives (mostly vertices) which
@@ -2944,11 +2988,23 @@ void COpenGLDriver::clearStencilBuffer(const int32_t &stencil)
     if (!found)
         return;
 
+    GLuint smask_back = found->nextState.rasterParams.stencilFunc_back.mask;
+    GLuint smask_front = found->nextState.rasterParams.stencilFunc_front.mask;
+    GLboolean rasterizedDiscard = found->nextState.rasterParams.rasterizerDiscardEnable;
+
+    found->nextState.rasterParams.stencilFunc_back.mask = ~0u;
+    found->nextState.rasterParams.stencilFunc_front.mask = ~0u;
+    found->nextState.rasterParams.rasterizerDiscardEnable = 0;
+    found->flushState(GSB_PIPELINE_AND_RASTER_PARAMETERS);
 
     if (found->CurrentFBO)
         extGlClearNamedFramebufferiv(found->CurrentFBO->getOpenGLName(),GL_STENCIL,0,&stencil);
     else
         extGlClearNamedFramebufferiv(0,GL_STENCIL,0,&stencil);
+
+    found->nextState.rasterParams.stencilFunc_back.mask = smask_back;
+    found->nextState.rasterParams.stencilFunc_front.mask = smask_front;
+    found->nextState.rasterParams.rasterizerDiscardEnable = rasterizedDiscard;
 }
 
 void COpenGLDriver::clearZStencilBuffers(const float &depth, const int32_t &stencil)
@@ -2957,11 +3013,26 @@ void COpenGLDriver::clearZStencilBuffers(const float &depth, const int32_t &sten
     if (!found)
         return;
 
+    GLboolean depthWrite = found->nextState.rasterParams.depthWriteEnable;
+    GLuint smask_back = found->nextState.rasterParams.stencilFunc_back.mask;
+    GLuint smask_front = found->nextState.rasterParams.stencilFunc_front.mask;
+    GLboolean rasterizedDiscard = found->nextState.rasterParams.rasterizerDiscardEnable;
+
+    found->nextState.rasterParams.depthWriteEnable = 1;
+    found->nextState.rasterParams.stencilFunc_back.mask = ~0u;
+    found->nextState.rasterParams.stencilFunc_front.mask = ~0u;
+    found->nextState.rasterParams.rasterizerDiscardEnable = 0;
+    found->flushState(GSB_PIPELINE_AND_RASTER_PARAMETERS);
 
     if (found->CurrentFBO)
         extGlClearNamedFramebufferfi(found->CurrentFBO->getOpenGLName(),GL_DEPTH_STENCIL,0,depth,stencil);
     else
         extGlClearNamedFramebufferfi(0,GL_DEPTH_STENCIL,0,depth,stencil);
+
+    found->nextState.rasterParams.depthWriteEnable = depthWrite;
+    found->nextState.rasterParams.stencilFunc_back.mask = smask_back;
+    found->nextState.rasterParams.stencilFunc_front.mask = smask_front;
+    found->nextState.rasterParams.rasterizerDiscardEnable = rasterizedDiscard;
 }
 
 void COpenGLDriver::clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const int32_t* vals)
@@ -2970,14 +3041,20 @@ void COpenGLDriver::clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, c
     if (!found)
         return;
 
-
     if (attachment<EFAP_COLOR_ATTACHMENT0)
         return;
 
+    const uint32_t attIx = attachment - EFAP_COLOR_ATTACHMENT0;
+    GLboolean rasterizerDiscard = found->nextState.rasterParams.rasterizerDiscardEnable;
+    GLboolean colormask[4]{};
+    clearColor_gatherAndOverrideState(found, attIx, &rasterizerDiscard, colormask);
+
     if (found->CurrentFBO)
-        extGlClearNamedFramebufferiv(found->CurrentFBO->getOpenGLName(),GL_COLOR,attachment-EFAP_COLOR_ATTACHMENT0,vals);
+        extGlClearNamedFramebufferiv(found->CurrentFBO->getOpenGLName(),GL_COLOR,attIx,vals);
     else
-        extGlClearNamedFramebufferiv(0,GL_COLOR,attachment-EFAP_COLOR_ATTACHMENT0,vals);
+        extGlClearNamedFramebufferiv(0,GL_COLOR,attIx,vals);
+
+    clearColor_bringbackState(found, attIx, rasterizerDiscard, colormask);
 }
 void COpenGLDriver::clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const uint32_t* vals)
 {
@@ -2985,14 +3062,20 @@ void COpenGLDriver::clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, c
     if (!found)
         return;
 
-
     if (attachment<EFAP_COLOR_ATTACHMENT0)
         return;
 
+    const uint32_t attIx = attachment - EFAP_COLOR_ATTACHMENT0;
+    GLboolean rasterizerDiscard = found->nextState.rasterParams.rasterizerDiscardEnable;
+    GLboolean colormask[4]{};
+    clearColor_gatherAndOverrideState(found, attIx, &rasterizerDiscard, colormask);
+
     if (found->CurrentFBO)
-        extGlClearNamedFramebufferuiv(found->CurrentFBO->getOpenGLName(),GL_COLOR,attachment-EFAP_COLOR_ATTACHMENT0,vals);
+        extGlClearNamedFramebufferuiv(found->CurrentFBO->getOpenGLName(),GL_COLOR,attIx,vals);
     else
-        extGlClearNamedFramebufferuiv(0,GL_COLOR,attachment-EFAP_COLOR_ATTACHMENT0,vals);
+        extGlClearNamedFramebufferuiv(0,GL_COLOR,attIx,vals);
+
+    clearColor_bringbackState(found, attIx, rasterizerDiscard, colormask);
 }
 void COpenGLDriver::clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const float* vals)
 {
@@ -3000,18 +3083,25 @@ void COpenGLDriver::clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, c
     if (!found)
         return;
 
-
     if (attachment<EFAP_COLOR_ATTACHMENT0)
         return;
 
+    const uint32_t attIx = attachment - EFAP_COLOR_ATTACHMENT0;
+    GLboolean rasterizerDiscard = 0;
+    GLboolean colormask[4]{};
+    clearColor_gatherAndOverrideState(found, attIx, &rasterizerDiscard, colormask);
+
     if (found->CurrentFBO)
-        extGlClearNamedFramebufferfv(found->CurrentFBO->getOpenGLName(),GL_COLOR,attachment-EFAP_COLOR_ATTACHMENT0,vals);
+        extGlClearNamedFramebufferfv(found->CurrentFBO->getOpenGLName(),GL_COLOR,attIx,vals);
     else
-        extGlClearNamedFramebufferfv(0,GL_COLOR,attachment-EFAP_COLOR_ATTACHMENT0,vals);
+        extGlClearNamedFramebufferfv(0,GL_COLOR,attIx,vals);
+
+    clearColor_bringbackState(found, attIx, rasterizerDiscard, colormask);
 }
 
 void COpenGLDriver::clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals)
 {
+    //TODO what to do here??
     switch (buffer)
     {
         case ESB_BACK_LEFT:
@@ -3030,6 +3120,7 @@ void COpenGLDriver::clearScreen(const E_SCREEN_BUFFERS &buffer, const float* val
 }
 void COpenGLDriver::clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals)
 {
+    //TODO what to do here??
     switch (buffer)
     {
         case ESB_BACK_LEFT:

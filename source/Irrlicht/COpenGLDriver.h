@@ -738,6 +738,11 @@ namespace video
 										bool bilinearFilter=false);
 
 
+    private:
+        void clearColor_gatherAndOverrideState(SAuxContext* found, uint32_t _attIx, GLboolean* _rasterDiscard, GLboolean* _colorWmask);
+        void clearColor_bringbackState(SAuxContext* found, uint32_t _attIx, GLboolean _rasterDiscard, const GLboolean* _colorWmask);
+
+    public:
 		//! Clears the ZBuffer.
 		virtual void clearZBuffer(const float &depth=0.0);
 
