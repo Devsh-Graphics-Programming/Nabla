@@ -73,6 +73,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
             _params,
             _file
         },
+		_hierarchyLevel,
         _override
     );
 
@@ -575,13 +576,13 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
 	{
         if (FileSystem->existFile(texname))
 		{
-            auto bundle = interm_getAssetInHierarchy(AssetManager, texname.c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride).getContents();
+            auto bundle = interm_getAssetInHierarchy(AssetManager, texname.c_str(), _ctx.inner.params, _ctx.topHierarchyLevel+ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride).getContents();
             if (bundle.first!=bundle.second) texture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*bundle.first);
 		}
 		else
 		{
 			// try to read in the relative path, the .obj is loaded from
-            auto bundle = interm_getAssetInHierarchy(AssetManager, (relPath + texname).c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride).getContents();
+            auto bundle = interm_getAssetInHierarchy(AssetManager, (relPath + texname).c_str(), _ctx.inner.params, _ctx.topHierarchyLevel+ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride).getContents();
 			if (bundle.first != bundle.second) texture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*bundle.first);
 		}
 	}
