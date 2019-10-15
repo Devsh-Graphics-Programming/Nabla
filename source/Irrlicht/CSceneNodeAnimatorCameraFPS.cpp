@@ -148,8 +148,12 @@ void CSceneNodeAnimatorCameraFPS::animateNode(IDummyTransformationSceneNode* nod
 	{
 		if (CursorPos != CenterCursor)
 		{
-			relativeRotation.Y -= (0.5f - CursorPos.X) * RotateSpeed;
 			relativeRotation.X -= (0.5f - CursorPos.Y) * RotateSpeed * MouseYDirection;
+			float tmpYRot = (0.5f - CursorPos.X) * RotateSpeed;
+			if (camera->getLeftHanded())
+				relativeRotation.Y -= tmpYRot;
+			else
+				relativeRotation.Y += tmpYRot;
 
 			// X < MaxVerticalAngle or X > 360-MaxVerticalAngle
 
@@ -221,7 +225,10 @@ void CSceneNodeAnimatorCameraFPS::animateNode(IDummyTransformationSceneNode* nod
 	// strafing
 
 	core::vectorSIMDf strafevect; strafevect.set(target);
-	strafevect = core::cross(strafevect,camera->getUpVector());
+	if (camera->getLeftHanded())
+		strafevect = core::cross(strafevect,camera->getUpVector());
+	else
+		strafevect = core::cross(camera->getUpVector(),strafevect);
 
 	if (NoVerticalMovement)
 		strafevect.Y = 0.0f;

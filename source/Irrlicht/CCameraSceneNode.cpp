@@ -242,7 +242,10 @@ void CCameraSceneNode::render()
 		up.X += 0.5f;
 	}
 
-	viewMatrix.buildCameraLookAtMatrixLH(pos.getAsVector3df(), Target.getAsVector3df(), up.getAsVector3df()); // TODO: Change this to static
+	if (leftHanded)
+		viewMatrix.buildCameraLookAtMatrixLH(pos.getAsVector3df(), Target.getAsVector3df(), up.getAsVector3df());
+	else
+		viewMatrix.buildCameraLookAtMatrixRH(pos.getAsVector3df(), Target.getAsVector3df(), up.getAsVector3df());
 	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
 	recalculateViewArea();
 

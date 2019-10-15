@@ -30,7 +30,7 @@ namespace scene
 			const core::vector3df& position = core::vector3df(0,0,0),
 			const core::vector3df& rotation = core::vector3df(0,0,0),
 			const core::vector3df& scale = core::vector3df(1.0f,1.0f,1.0f))
-			: ISceneNode(parent, mgr, id, position, rotation, scale) {}
+			: ISceneNode(parent, mgr, id, position, rotation, scale), leftHanded(true) {}
 
 		//! Sets the projection matrix of the camera.
 		/** The matrix class has some methods to build a
@@ -84,6 +84,16 @@ namespace scene
 		//! Gets the current look at target of the camera
 		/** \return The current look at target of the camera, in world co-ordinates */
 		virtual const core::vectorSIMDf& getTarget() const =0;
+		
+		//! Sets the handedness convention for the camera. 
+		/** \param pos: New upvector of the camera,
+		`_leftHanded==true` means Z+ goes into the screen,
+		away from the viewer. */
+		inline void setLeftHanded(bool _leftHanded = true) { leftHanded = _leftHanded; }
+
+		//! Gets the handedness convention of the camera.
+		/** \return Whether the camera is left handed. */
+		inline bool getLeftHanded() const { return leftHanded; }
 
 		//! Sets the up vector of the camera.
 		/** \param pos: New upvector of the camera. */
@@ -152,6 +162,9 @@ namespace scene
 		//! Queries if the camera scene node's rotation and its target position are bound together.
 		/** @see bindTargetAndRotation() */
 		virtual bool getTargetAndRotationBinding(void) const =0;
+
+	protected:
+		bool leftHanded;
 	};
 
 } // end namespace scene
