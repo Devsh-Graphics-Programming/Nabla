@@ -40,9 +40,8 @@ CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::d
 	setDebugName("CNullDriver");
 	#endif
 
-	for (size_t i=0; i<EQOT_COUNT; i++)
-    for (size_t j=0; j<_IRR_XFORM_FEEDBACK_MAX_STREAMS_; j++)
-        currentQuery[i][j] = NULL;
+    for (size_t i = 0; i < EQOT_COUNT; i++)
+        currentQuery[i] = nullptr;
 
 	setTextureCreationFlag(ETCF_ALWAYS_32_BIT, true);
 	setTextureCreationFlag(ETCF_CREATE_MIP_MAPS, true);
@@ -467,7 +466,7 @@ void CNullDriver::beginQuery(IQueryObject* query)
     if (!query)
         return; //error
 
-    if (currentQuery[query->getQueryObjectType()][0])
+    if (currentQuery[query->getQueryObjectType()])
         return; //error
 
     query->grab();
@@ -477,41 +476,12 @@ void CNullDriver::endQuery(IQueryObject* query)
 {
     if (!query)
         return; //error
-    if (currentQuery[query->getQueryObjectType()][0]!=query)
+    if (currentQuery[query->getQueryObjectType()]!=query)
         return; //error
 
-    if (currentQuery[query->getQueryObjectType()][0])
-        currentQuery[query->getQueryObjectType()][0]->drop();
+    if (currentQuery[query->getQueryObjectType()])
+        currentQuery[query->getQueryObjectType()]->drop();
     currentQuery[query->getQueryObjectType()][0] = NULL;
-}
-
-void CNullDriver::beginQuery(IQueryObject* query, const size_t& index)
-{
-    if (index>=_IRR_XFORM_FEEDBACK_MAX_STREAMS_)
-        return; //error
-
-    if (!query||(query->getQueryObjectType()!=EQOT_PRIMITIVES_GENERATED&&query->getQueryObjectType()!=EQOT_XFORM_FEEDBACK_PRIMITIVES_WRITTEN))
-        return; //error
-
-    if (currentQuery[query->getQueryObjectType()][index])
-        return; //error
-
-    query->grab();
-    currentQuery[query->getQueryObjectType()][index] = query;
-}
-void CNullDriver::endQuery(IQueryObject* query, const size_t& index)
-{
-    if (index>=_IRR_XFORM_FEEDBACK_MAX_STREAMS_)
-        return; //error
-
-    if (!query||(query->getQueryObjectType()!=EQOT_PRIMITIVES_GENERATED&&query->getQueryObjectType()!=EQOT_XFORM_FEEDBACK_PRIMITIVES_WRITTEN))
-        return; //error
-    if (currentQuery[query->getQueryObjectType()][index]!=query)
-        return; //error
-
-    if (currentQuery[query->getQueryObjectType()][index])
-        currentQuery[query->getQueryObjectType()][index]->drop();
-    currentQuery[query->getQueryObjectType()][index] = NULL;
 }
 
 

@@ -643,8 +643,6 @@ namespace video
 
 		virtual void beginQuery(IQueryObject* query);
 		virtual void endQuery(IQueryObject* query);
-		virtual void beginQuery(IQueryObject* query, const size_t& index);
-		virtual void endQuery(IQueryObject* query, const size_t& index);
 
         virtual IQueryObject* createPrimitivesGeneratedQuery();
         virtual IQueryObject* createXFormFeedbackPrimitiveQuery();

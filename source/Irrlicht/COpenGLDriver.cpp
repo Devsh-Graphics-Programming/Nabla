@@ -1483,11 +1483,11 @@ void COpenGLDriver::beginQuery(IQueryObject* query)
     if (queryGL->getGLHandle()==0||queryGL->isActive())
         return;
 
-    if (currentQuery[query->getQueryObjectType()][0])
+    if (currentQuery[query->getQueryObjectType()])
         return; //error
 
     query->grab();
-    currentQuery[query->getQueryObjectType()][0] = query;
+    currentQuery[query->getQueryObjectType()] = query;
 
 
     extGlBeginQuery(queryGL->getType(),queryGL->getGLHandle());
@@ -1497,64 +1497,19 @@ void COpenGLDriver::endQuery(IQueryObject* query)
 {
     if (!query)
         return; //error
-    if (currentQuery[query->getQueryObjectType()][0]!=query)
+    if (currentQuery[query->getQueryObjectType()]!=query)
         return; //error
 
     COpenGLQuery* queryGL = static_cast<COpenGLQuery*>(query);
     if (queryGL->getGLHandle()==0||!queryGL->isActive())
         return;
 
-    if (currentQuery[query->getQueryObjectType()][0])
-        currentQuery[query->getQueryObjectType()][0]->drop();
-    currentQuery[query->getQueryObjectType()][0] = NULL;
+    if (currentQuery[query->getQueryObjectType()])
+        currentQuery[query->getQueryObjectType()]->drop();
+    currentQuery[query->getQueryObjectType()] = nullptr;
 
 
     extGlEndQuery(queryGL->getType());
-    queryGL->flagEnded();
-}
-
-void COpenGLDriver::beginQuery(IQueryObject* query, const size_t& index)
-{
-    if (index>=/*_IRR_XFORM_FEEDBACK_MAX_STREAMS_*/4u)
-        return; //error
-
-    if (!query||(query->getQueryObjectType()!=EQOT_PRIMITIVES_GENERATED&&query->getQueryObjectType()!=EQOT_XFORM_FEEDBACK_PRIMITIVES_WRITTEN))
-        return; //error
-
-    COpenGLQuery* queryGL = static_cast<COpenGLQuery*>(query);
-    if (queryGL->getGLHandle()==0||queryGL->isActive())
-        return;
-
-    if (currentQuery[query->getQueryObjectType()][index])
-        return; //error
-
-    query->grab();
-    currentQuery[query->getQueryObjectType()][index] = query;
-
-
-    extGlBeginQueryIndexed(queryGL->getType(),index,queryGL->getGLHandle());
-    queryGL->flagBegun();
-}
-void COpenGLDriver::endQuery(IQueryObject* query, const size_t& index)
-{
-    if (index>=/*_IRR_XFORM_FEEDBACK_MAX_STREAMS_*/4u)
-        return; //error
-
-    if (!query||(query->getQueryObjectType()!=EQOT_PRIMITIVES_GENERATED&&query->getQueryObjectType()!=EQOT_XFORM_FEEDBACK_PRIMITIVES_WRITTEN))
-        return; //error
-    if (currentQuery[query->getQueryObjectType()][index]!=query)
-        return; //error
-
-    COpenGLQuery* queryGL = static_cast<COpenGLQuery*>(query);
-    if (queryGL->getGLHandle()==0||!queryGL->isActive())
-        return;
-
-    if (currentQuery[query->getQueryObjectType()][index])
-        currentQuery[query->getQueryObjectType()][index]->drop();
-    currentQuery[query->getQueryObjectType()][index] = NULL;
-
-
-    extGlEndQueryIndexed(queryGL->getType(),index);
     queryGL->flagEnded();
 }
 

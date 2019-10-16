@@ -395,7 +395,7 @@ namespace video
                 virtual size_t getBoundMemoryOffset() const {return 0u;}
 		};
 
-        IQueryObject* currentQuery[EQOT_COUNT][/*_IRR_XFORM_FEEDBACK_MAX_STREAMS_*/4];
+        IQueryObject* currentQuery[EQOT_COUNT];
 
 		io::IFileSystem* FileSystem;
 
