@@ -66,7 +66,7 @@ struct SPrimitiveAssemblyParams
 {
     E_PRIMITIVE_TOPOLOGY primitiveType;
     uint8_t primitiveRestartEnable;
-    uint32_t tessPatchVertCount;
+    uint16_t tessPatchVertCount;
 } PACK_STRUCT;
 
 enum E_STENCIL_OP : uint8_t
