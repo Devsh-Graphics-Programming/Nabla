@@ -612,6 +612,8 @@ namespace video
             const asset::SRasterizationParams& _rasterParams
         ) override;
 
+        bool removeGPURenderpassIndependentPipeline(const IGPURenderpassIndependentPipeline* _pipeline) override;
+
         core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>&& _descriptors) override;
 
 		//! generic version which overloads the unimplemented versions

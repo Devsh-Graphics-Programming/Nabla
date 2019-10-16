@@ -1385,6 +1385,26 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
         );
 }
 
+bool COpenGLDriver::removeGPURenderpassIndependentPipeline(const IGPURenderpassIndependentPipeline* _pipeline)
+{
+    SAuxContext* ctx = getThreadContext_helper(false);
+    if (!ctx)
+        return false;
+
+    SAuxContext::SGraphicsPipelineHash hash;
+    for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
+    {
+        hash[i] = _pipeline->getShaderAtIndex(i) ?
+            static_cast<const COpenGLSpecializedShader*>(_pipeline->getShaderAtIndex(i))->getGLnameForCtx(ctx->ID) :
+            0u;
+    }
+
+    if (ctx->GraphicsPipelineMap.erase(hash) == 0ull)
+        return false;
+
+    return true;
+}
+
 core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>&& _descriptors)
 {
     if (!_layout || !_descriptors || !_descriptors->size())
