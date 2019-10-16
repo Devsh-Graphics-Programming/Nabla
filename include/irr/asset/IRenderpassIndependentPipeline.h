@@ -37,11 +37,11 @@ enum E_VERTEX_INPUT_RATE : uint8_t
 #include "irr/irrpack.h"
 struct SVertexInputAttribParams
 {
-    uint32_t binding;
-    E_FORMAT format;
-    uint32_t relativeOffset;
+    uint32_t binding : 4;
+    uint32_t format : 8;//asset::E_FORMAT
+    uint32_t relativeOffset : 13;//assuming max=2048
 } PACK_STRUCT;
-static_assert(sizeof(SVertexInputAttribParams)==(3u*4u), "Unexpected size!");
+static_assert(sizeof(SVertexInputAttribParams)==(4u), "Unexpected size!");
 struct SVertexInputBindingParams
 {
     uint32_t stride;
