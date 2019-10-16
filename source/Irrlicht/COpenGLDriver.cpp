@@ -1259,33 +1259,18 @@ bool COpenGLDriver::bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, cons
     if (!ctx)
         return false;
 
-    uint32_t compatibilityLimits[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{}; //actually more like "compatibility limit + 1" (i.e. 0 mean not comaptible at all)
+    const IGPUPipelineLayout* layouts[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{};
     for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
-    {
-        const uint32_t lim = ctx->nextState.descriptorsParams.descSets[i].pplnLayout ? //if no descriptor set bound at this index
-            ctx->nextState.descriptorsParams.descSets[i].pplnLayout->isCompatibleForSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u, _layout) : 0u;
-        
-        compatibilityLimits[i] = (lim == IGPUPipelineLayout::DESCRIPTOR_SET_COUNT) ? 0u : (lim + 1u);
-    }
+        layouts[i] = ctx->nextState.descriptorsParams.descSets[i].pplnLayout.get();
+    bindDescriptorSets_generic(_layout, _first, _count, _descSets, layouts);
 
-    /*
-    https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#descriptorsets-compatibility
-    When binding a descriptor set (see Descriptor Set Binding) to set number N, if the previously bound descriptor sets for sets zero through N-1 were all bound using compatible pipeline layouts, then performing this binding does not disturb any of the lower numbered sets.
-    */
-    for (uint32_t i = 0u; i < _first; i++)
-        if (compatibilityLimits[i] <= i)
-            ctx->nextState.descriptorsParams.descSets[i] = { nullptr,nullptr,nullptr };
-
-    /*
-    If, additionally, the previous bound descriptor set for set N was bound using a pipeline layout compatible for set N, then the bindings in sets numbered greater than N are also not disturbed.
-    */
-    if (compatibilityLimits[_first] <= _first)
-        for (uint32_t i = _first + _count; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
-            ctx->nextState.descriptorsParams.descSets[i] = { nullptr,nullptr,nullptr };
+    for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+        if (!layouts[i])
+            ctx->nextState.descriptorsParams.descSets[i] = { nullptr, nullptr, nullptr };
 
     for (uint32_t i = 0u; i < _count; i++)
     {
-        ctx->nextState.descriptorsParams.descSets[_first + i] = 
+        ctx->nextState.descriptorsParams.descSets[_first + i] =
         {
         core::smart_refctd_ptr<const COpenGLPipelineLayout>(static_cast<const COpenGLPipelineLayout*>(_layout)),
         core::smart_refctd_ptr<const COpenGLDescriptorSet>(static_cast<const COpenGLDescriptorSet*>(_descSets[i])),
