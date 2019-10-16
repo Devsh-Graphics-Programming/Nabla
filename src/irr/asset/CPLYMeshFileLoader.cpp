@@ -572,7 +572,8 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 
 	{
 		const static std::array<std::pair<uint16_t, E_FORMAT>, 4> perIndexDataThatChanges{std::make_pair(E_POS, asset::EF_R32G32B32_SFLOAT), std::make_pair(E_COL, asset::EF_R32G32B32A32_SFLOAT), std::make_pair(E_UV, asset::EF_R32G32_SFLOAT), std::make_pair(E_NORM, asset::EF_R32G32B32_SFLOAT)};
-		_mbuf->setVertexBufferBinding(std::move(bufferBinding), 0ull, stride);
+		_mbuf->setVertexBufferBinding(std::move(bufferBinding), 0ull);
+		_mbuf->setVertexBufferBindingParams(0ull, stride);
 
 		for (const auto& attributeIndexExtra : perIndexDataThatChanges)
 			[&](auto attribIndex, auto formatToSend, auto offsetIndex, auto bindingIndex)

@@ -83,14 +83,11 @@ public:
     inline SBufferBinding* getIndexBufferBinding() 
     {
         return &m_indexBufferBinding;
-    }	
-	[[nodiscard]] inline bool setVertexBufferBinding(SBufferBinding&& bufferBinding, uint32_t bindingIndex, uint32_t stride, E_VERTEX_INPUT_RATE inputRate = E_VERTEX_INPUT_RATE::EVIR_PER_VERTEX)
+    }
+	inline bool setVertexBufferBindingParams(uint32_t bindingIndex, uint32_t stride, E_VERTEX_INPUT_RATE inputRate = E_VERTEX_INPUT_RATE::EVIR_PER_VERTEX)
 	{
-		if (stride >= 2048ull || bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT)
+		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT || stride >= 2048ull)
 			return false;
-
-		m_vertexBufferBindings[bindingIndex].buffer = std::move(bufferBinding.buffer);
-		m_vertexBufferBindings[bindingIndex].offset = bufferBinding.offset;
 
 		auto& binding(m_pipeline->getVertexInputParams().bindings[bindingIndex]);
 		binding.stride = stride;
@@ -98,14 +95,24 @@ public:
 
 		return true;
 	}
+	inline bool setVertexBufferBinding(SBufferBinding&& bufferBinding, uint32_t bindingIndex)
+	{
+		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT)
+			return false;
+
+		m_vertexBufferBindings[bindingIndex].buffer = bufferBinding.buffer;
+		m_vertexBufferBindings[bindingIndex].offset = bufferBinding.offset;
+
+		return true;
+	}
 	inline void setIndexBufferBinding(SBufferBinding&& bufferBinding)
 	{
-		m_indexBufferBinding.buffer = std::move(bufferBinding.buffer);
+		m_indexBufferBinding.buffer = bufferBinding.buffer;
 		m_indexBufferBinding.offset = bufferBinding.offset;
 	}
-	[[nodiscard]] inline bool setVertexAttribFormat(uint32_t attribIndex, uint32_t bindingIndex, E_FORMAT format, uint32_t relativeOffset)
+	inline bool setVertexAttribFormat(uint32_t attribIndex, uint32_t bindingIndex, E_FORMAT format, uint32_t relativeOffset)
 	{
-		if (attribIndex >= MAX_VERTEX_ATTRIB_COUNT || bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT || relativeOffset >= 2048ull)
+		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT || attribIndex >= MAX_VERTEX_ATTRIB_COUNT || relativeOffset >= 2048ull)
 			return false;
 
 		auto& attribute(m_pipeline->getVertexInputParams().attributes[attribIndex]);
