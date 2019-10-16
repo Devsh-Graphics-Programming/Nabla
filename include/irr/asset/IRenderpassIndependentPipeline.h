@@ -41,11 +41,13 @@ struct SVertexInputAttribParams
     E_FORMAT format;
     uint32_t relativeOffset;
 } PACK_STRUCT;
+static_assert(sizeof(SVertexInputAttribParams)==(3u*4u), "Unexpected size!");
 struct SVertexInputBindingParams
 {
     uint32_t stride;
     E_VERTEX_INPUT_RATE inputRate;
 } PACK_STRUCT;
+static_assert(sizeof(SVertexInputBindingParams)==5u, "Unexpected size!");
 struct SVertexInputParams
 {
     _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = 16u;
@@ -61,6 +63,7 @@ struct SVertexInputParams
     static_assert(sizeof(enabledAttribFlags)*8 >= MAX_VERTEX_ATTRIB_COUNT, "Insufficient flag bits for number of supported attributes");
     static_assert(sizeof(enabledBindingFlags)*8 >= MAX_ATTR_BUF_BINDING_COUNT, "Insufficient flag bits for number of supported bindings");
 } PACK_STRUCT;
+static_assert(sizeof(SVertexInputParams) == (2u * 2u + SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT * sizeof(SVertexInputAttribParams) + SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT * sizeof(SVertexInputBindingParams)), "Unexpected size!");
 
 struct SPrimitiveAssemblyParams
 {
@@ -68,6 +71,7 @@ struct SPrimitiveAssemblyParams
     uint8_t primitiveRestartEnable;
     uint16_t tessPatchVertCount;
 } PACK_STRUCT;
+static_assert(sizeof(SPrimitiveAssemblyParams)==4u, "Unexpected size!");
 
 enum E_STENCIL_OP : uint8_t
 {
@@ -102,6 +106,7 @@ struct SStencilOpParams
     uint32_t writeMask;
     uint32_t reference;
 } PACK_STRUCT;
+static_assert(sizeof(SStencilOpParams)==(4u*1u + 2u*4u), "Unexpected size!");
 
 enum E_POLYGON_MODE : uint8_t
 {
@@ -156,6 +161,7 @@ struct SRasterizationParams
         uint16_t stencilTestEnable : 1;
     } PACK_STRUCT;
 } PACK_STRUCT;
+static_assert(sizeof(SRasterizationParams)==(4u + 3u*1u + 2u*4u + 1u + 3u*4u + 2u*sizeof(SStencilOpParams) + 2u), "Unexpected size!");
 
 enum E_LOGIC_OP : uint8_t
 {
@@ -273,10 +279,11 @@ static_assert(sizeof(SColorAttachmentBlendParams)==6u, "Unexpected size of SColo
 struct SBlendParams
 {
     _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_COLOR_ATTACHMENT_COUNT = 8u;
-    uint32_t logicOpEnable : 1;
-    uint32_t logicOp : 4;
+    uint8_t logicOpEnable : 1;
+    uint8_t logicOp : 4;
     SColorAttachmentBlendParams blendParams[MAX_COLOR_ATTACHMENT_COUNT];
 } PACK_STRUCT;
+static_assert(sizeof(SBlendParams)==(1u + sizeof(SColorAttachmentBlendParams)*SBlendParams::MAX_COLOR_ATTACHMENT_COUNT), "Unexpected size!");
 
 #include "irr/irrunpack.h"
 
@@ -339,16 +346,15 @@ protected:
         for (auto shdr : shaders)
         {
             const int32_t ix = core::findLSB<uint32_t>(shdr->getStage());
-            assert(ix > 0);
             assert(ix < static_cast<int32_t>(SHADER_STAGE_COUNT));
-            assert(!m_shaders[ix]);//must maximum of 1 for each stage
+            assert(!m_shaders[ix]);//must be maximum of 1 for each stage
             m_shaders[ix] = core::smart_refctd_ptr<SpecShaderType>(shdr);
         }
     }
     virtual ~IRenderpassIndependentPipeline() = default;
 
 public:
-    inline const LayoutType* getLayout() const { return IPipeline<LayoutType>::m_layout.get(); }
+    inline const LayoutType* getLayout() const { return IPipeline<LayoutType,IRenderpassIndependentPipeline>::m_layout.get(); }
 
     inline const SpecShaderType* getShaderAtStage(E_SHADER_STAGE _stage) const { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
     inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
