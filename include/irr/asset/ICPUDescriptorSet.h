@@ -15,7 +15,16 @@ namespace irr { namespace asset
 class ICPUDescriptorSet : public IDescriptorSet<ICPUDescriptorSetLayout, ICPUBuffer, ICPUTexture, ICPUBufferView, ICPUSampler>, public IAsset
 {
 public:
-    using IDescriptorSet<ICPUDescriptorSetLayout, ICPUBuffer, ICPUTexture, ICPUBufferView, ICPUSampler>::IDescriptorSet;
+    using base_t = IDescriptorSet<ICPUDescriptorSetLayout, ICPUBuffer, ICPUTexture, ICPUBufferView, ICPUSampler>;
+
+    using base_t::base_t;
+
+    //! Contructor preallocating memory for `_descriptorCount` of SWriteDescriptorSets which user can fill later (using non-const getDescriptors()).
+    //! @see getDescriptors()
+    ICPUDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout, size_t _descriptorCount) :
+        base_t(std::move(_layout), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SWriteDescriptorSet>>(_descriptorCount))
+    {}
+
 
     size_t conservativeSizeEstimate() const override { return m_descriptors->size()*sizeof(SWriteDescriptorSet); }
     void convertToDummyObject() override { m_descriptors = nullptr; }

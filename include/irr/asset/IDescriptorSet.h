@@ -54,8 +54,8 @@ public:
 
     struct SWriteDescriptorSet
     {
-        uint32_t binding;
-        E_DESCRIPTOR_TYPE descriptorType;
+        uint32_t binding = 0u;
+        E_DESCRIPTOR_TYPE descriptorType = EDT_COMBINED_IMAGE_SAMPLER;//whatever, default value
         core::smart_refctd_dynamic_array<SDescriptorInfo> info;
     };
 
