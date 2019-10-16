@@ -358,7 +358,6 @@ const core::rect<int32_t>& CNullDriver::getViewPort() const
 	return ViewPort;
 }
 
-
 //! returns color format
 asset::E_FORMAT CNullDriver::getColorFormat() const
 {

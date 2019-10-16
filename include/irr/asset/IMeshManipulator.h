@@ -89,7 +89,7 @@ namespace asset
 				VxCmpFunction vxcmp = [](const IMeshManipulator::SSNGVertexData& v0, const IMeshManipulator::SSNGVertexData& v1, ICPUMeshBuffer* buffer) 
 				{ 
 					static constexpr float cosOf45Deg = 0.70710678118f;
-					return v0.parentTriangleFaceNormal.dotProductAsFloat(v1.parentTriangleFaceNormal) > cosOf45Deg;
+					return dot(v0.parentTriangleFaceNormal,v1.parentTriangleFaceNormal)[0] > cosOf45Deg;
 				});
 
 		//! Creates a copy of a mesh with vertices welded

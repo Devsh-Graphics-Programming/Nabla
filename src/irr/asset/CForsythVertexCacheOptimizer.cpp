@@ -26,7 +26,7 @@
 
 #include "irr/macros.h"
 
-#define MAX_SIZE_VERTEX_CACHE 16
+#define maxSIZE_VERTEX_CACHE 16
 
 namespace irr { namespace asset
 {
@@ -170,7 +170,7 @@ namespace irr { namespace asset
 			// still in the cache. It will also update the score of the verts in the
 			// cache, and give back a list of triangle indicies that need updating.
 			core::vector<uint32_t> trisToUpdate;
-			lruCache.enforceSize(MAX_SIZE_VERTEX_CACHE, trisToUpdate);
+			lruCache.enforceSize(maxSIZE_VERTEX_CACHE, trisToUpdate);
 
 			// Now update scores for triangles that need updates, and find the new best
 			// triangle score/index
@@ -286,7 +286,7 @@ namespace irr { namespace asset
 		LRUCacheEntry *last = NULL;
 
 		// Run through list, up to the max size
-		while (next != NULL && length < MAX_SIZE_VERTEX_CACHE)
+		while (next != NULL && length < maxSIZE_VERTEX_CACHE)
 		{
 			VertData &vData = *next->vData;
 
@@ -382,10 +382,10 @@ namespace irr { namespace asset
 			}
 			else
 			{
-				_IRR_DEBUG_BREAK_IF(vertexData.cachePosition >= MAX_SIZE_VERTEX_CACHE); // Out of range cache position for vertex
+				_IRR_DEBUG_BREAK_IF(vertexData.cachePosition >= maxSIZE_VERTEX_CACHE); // Out of range cache position for vertex
 
 				// Points for being high in the cache.
-				const float Scaler = 1.0f / (MAX_SIZE_VERTEX_CACHE - 3);
+				const float Scaler = 1.0f / (maxSIZE_VERTEX_CACHE - 3);
 				Score = 1.0f - (vertexData.cachePosition - 3) * Scaler;
 				Score = pow(Score, CacheDecayPower);
 			}
@@ -399,6 +399,6 @@ namespace irr { namespace asset
 
 		return Score;
 	}
-#undef MAX_SIZE_VERTEX_CACHE
+#undef maxSIZE_VERTEX_CACHE
 
 }} // irr::scene

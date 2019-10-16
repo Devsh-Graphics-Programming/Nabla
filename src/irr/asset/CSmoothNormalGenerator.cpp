@@ -1,3 +1,5 @@
+#include "irr/core/core.h"
+
 #include "CSmoothNormalGenerator.h"
 
 #include <iostream>
@@ -30,12 +32,12 @@ namespace irr
 		{
 			// Calculate this triangle's weight for each of its three vertices
 			// start by calculating the lengths of its sides
-			const float a = v2.getDistanceFromSQAsFloat(v3);
-			const float asqrt = sqrtf(a);
-			const float b = v1.getDistanceFromSQAsFloat(v3);
-			const float bsqrt = sqrtf(b);
-			const float c = v1.getDistanceFromSQAsFloat(v2);
-			const float csqrt = sqrtf(c);
+			const float a = core::distancesquared(v2,v3)[0];
+			const float asqrt = core::sqrt(a);
+			const float b = core::distancesquared(v1,v3)[0];
+			const float bsqrt = core::sqrt(b);
+			const float c = core::distancesquared(v1,v2)[0];
+			const float csqrt = core::sqrt(c);
 
 			// use them to find the angle at each vertex
 			return core::vector3df_SIMD(

@@ -5,7 +5,6 @@
 #ifndef __IRR_AABBOX_3D_H_INCLUDED__
 #define __IRR_AABBOX_3D_H_INCLUDED__
 
-#include "irr/core/math/irrMath.h"
 #include "line3d.h"
 
 namespace irr

@@ -1651,48 +1651,6 @@ bool CIrrDeviceWin32::activateJoysticks(core::vector<SJoystickInfo> & joystickIn
 		return false;
 }
 
-/*
-//! Set the current Gamma Value for the Display
-bool CIrrDeviceWin32::setGammaRamp( float red, float green, float blue, float brightness, float contrast )
-{
-	bool r;
-	uint16_t ramp[3][256];
-
-	calculateGammaRamp( ramp[0], red, brightness, contrast );
-	calculateGammaRamp( ramp[1], green, brightness, contrast );
-	calculateGammaRamp( ramp[2], blue, brightness, contrast );
-
-	HDC dc = GetDC(0);
-	r = SetDeviceGammaRamp ( dc, ramp ) == TRUE;
-	ReleaseDC(HWnd, dc);
-	return r;
-}
-
-//! Get the current Gamma Value for the Display
-bool CIrrDeviceWin32::getGammaRamp( float &red, float &green, float &blue, float &brightness, float &contrast )
-{
-	bool r;
-	uint16_t ramp[3][256];
-
-	HDC dc = GetDC(0);
-	r = GetDeviceGammaRamp ( dc, ramp ) == TRUE;
-	ReleaseDC(HWnd, dc);
-
-	if ( r )
-	{
-		calculateGammaFromRamp(red, ramp[0]);
-		calculateGammaFromRamp(green, ramp[1]);
-		calculateGammaFromRamp(blue, ramp[2]);
-	}
-
-	brightness = 0.f;
-	contrast = 0.f;
-
-	return r;
-
-}
-*/
-
 //! Process system events
 void CIrrDeviceWin32::handleSystemMessages()
 {

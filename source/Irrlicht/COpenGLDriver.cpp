@@ -2717,8 +2717,8 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
                 }
                 else
                 {
-                    width = core::min_(rndrbl->getRenderableSize().Width,width);
-                    height = core::min_(rndrbl->getRenderableSize().Height,height);
+                    width = std::min(rndrbl->getRenderableSize().Width,width);
+                    height = std::min(rndrbl->getRenderableSize().Height,height);
                 }
             }
             if (firstAttached)
@@ -2752,8 +2752,8 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
                 }
                 else
                 {
-                    width = core::min_(rndrbl->getRenderableSize().Width,width);
-                    height = core::min_(rndrbl->getRenderableSize().Height,height);
+                    width = std::min(rndrbl->getRenderableSize().Width,width);
+                    height = std::min(rndrbl->getRenderableSize().Height,height);
                 }
             }
             if (firstAttached)
@@ -2863,8 +2863,8 @@ bool COpenGLDriver::setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewpo
         }
         else
         {
-            newRTTSize.Width = core::min_(newRTTSize.Width,attachment->getRenderableSize().Width);
-            newRTTSize.Height = core::min_(newRTTSize.Height,attachment->getRenderableSize().Height);
+            newRTTSize.Width = std::min(newRTTSize.Width,attachment->getRenderableSize().Width);
+            newRTTSize.Height = std::min(newRTTSize.Height,attachment->getRenderableSize().Height);
         }
     }
 

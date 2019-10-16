@@ -165,7 +165,8 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createArrowMesh(const 
 {
     assert(height > cylinderHeight);
 
-    auto cylinder = createCylinderMesh(width0, cylinderHeight, tesselationCylinder, vtxColor0, false);
+    auto cylinder = createCylinderMesh(width0, cylinderHeight, tesselationCylinder, vtxColor0);
+	// TODO: disk meshbuffer to close it
     auto cone = core::move_and_static_cast<asset::CCPUMesh>(createConeMesh(width1, height-cylinderHeight, tesselationCone, vtxColor1, vtxColor1));
 
     if (!cylinder || !cone)
@@ -176,7 +177,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createArrowMesh(const 
     asset::ICPUBuffer* coneVtxBuf = const_cast<asset::ICPUBuffer*>(coneMb->getMeshDataAndFormat()->getMappedBuffer(asset::EVAI_ATTR0));
     ConeVertex* coneVertices = reinterpret_cast<ConeVertex*>(coneVtxBuf->getPointer());
     for (uint32_t i = 0u; i < tesselationCone+2u; ++i)
-        coneVertices[i].pos[1] += cylinderHeight;
+        coneVertices[i].pos[2] += cylinderHeight;
     coneMb->recalculateBoundingBox();
 
     cone->addMeshBuffer(core::smart_refctd_ptr<asset::ICPUMeshBuffer>(cylinder->getMeshBuffer(0u)));
@@ -287,8 +288,8 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createSphereMesh(float
 				tmpMem[i*vertexSize+3*4+3] = 255;
 			}
 			// calculate the angle which separates all points in a circle
-			const double AngleX = 2 * core::PI / polyCountX;
-			const double AngleY = core::PI / polyCountY;
+			const float AngleX = 2 * core::PI<float>() / polyCountX;
+			const float AngleY = core::PI<float>() / polyCountY;
 
 			double axz;
 
@@ -324,7 +325,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createSphereMesh(float
 					//if (y==0)
 					//{
 						if (normal.Y != -1.0f && normal.Y != 1.0f)
-							tu = static_cast<float>(acos(core::clamp(normal.X/sinay, -1.0, 1.0)) * 0.5 *core::RECIPROCAL_PI64);
+							tu = static_cast<float>(acos(core::clamp(normal.X/sinay, -1.0, 1.0)) * 0.5 *core::RECIPROCAL_PI<double>());
 						if (normal.Z < 0.0f)
 							tu=1-tu;
 					//}
@@ -335,7 +336,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createSphereMesh(float
 					((float*)tmpMemPtr)[1] = pos.Y;
 					((float*)tmpMemPtr)[2] = pos.Z;
 					((float*)tmpMemPtr)[4] = tu;
-					((float*)tmpMemPtr)[5] = static_cast<float>(ay*core::RECIPROCAL_PI64);
+					((float*)tmpMemPtr)[5] = static_cast<float>(ay*core::RECIPROCAL_PI<double>());
 					((uint32_t*)tmpMemPtr)[6] = quantizedNormal;
 
 					tmpMemPtr += vertexSize;
@@ -392,26 +393,24 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createSphereMesh(float
 
 /* A cylinder with proper normals and texture coords */
 core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCylinderMesh(float radius, float length,
-			uint32_t tesselation, const video::SColor& color,
-			bool closeTop, float oblique) const
+			uint32_t tesselation, const video::SColor& color) const
 {
-    const size_t vtxCnt = 2u*tesselation + 2u;
+    const size_t vtxCnt = 2u*tesselation;
     auto vtxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxCnt*sizeof(CylinderVertex));
 
     CylinderVertex* vertices = reinterpret_cast<CylinderVertex*>(vtxBuf->getPointer());
     std::fill(vertices, vertices + vtxCnt, CylinderVertex());
 
-    const uint32_t bottomCenterIx = 0u;
-    const uint32_t topCenterIx = vtxCnt/2u;
+    const uint32_t halfIx = vtxCnt/2u;
 
     uint8_t glcolor[4];
     color.toOpenGLColor(glcolor);
 
-    const float tesselationRec = core::reciprocal((float)tesselation);
-    const float step = (2.f*core::PI)/tesselation;
-    for (uint32_t i = 1u; i < vtxCnt/2u; ++i)
+    const float tesselationRec = core::reciprocal_approxim<float>(tesselation);
+    const float step = (2.f*core::PI<float>())/tesselation;
+    for (uint32_t i = 0u; i < vtxCnt/2u; ++i)
     {
-        core::vectorSIMDf p(std::cos(i*step), 0.f, std::sin(i*step), 0.f);
+        core::vectorSIMDf p(std::cos(i*step), std::sin(i*step), 0.f);
         p *= radius;
         const uint32_t n = quantizeNormal2_10_10_10(core::normalize(p));
 
@@ -420,54 +419,23 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCylinderMesh(flo
         memcpy(vertices[i].color, glcolor, 4u);
         vertices[i].uv[0] = (i-1u) * tesselationRec;
 
-        p += core::vectorSIMDf(oblique, length, 0.f, 0.f);
-        memcpy(vertices[i+ topCenterIx].pos, p.pointer, 12u);
-        vertices[i + topCenterIx].normal = n;
-        memcpy(vertices[i+ topCenterIx].color, glcolor, 4u);
-        vertices[i + topCenterIx].uv[0] = (i-1u) * tesselationRec;
-        vertices[i + topCenterIx].uv[1] = 1.f;
+        vertices[i+halfIx] = vertices[i];
+        vertices[i+halfIx].pos[2] = length;
+        vertices[i+halfIx].uv[1] = 1.f;
     }
-    memset(vertices[bottomCenterIx].pos, 0, 12u);
-    vertices[bottomCenterIx].normal = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, -1.f, 0.f, 0.f));
-    memcpy(vertices[bottomCenterIx].color, glcolor, 4u);
-    core::vectorSIMDf p(oblique, length, 0.f, 0.f);
-    memcpy(vertices[topCenterIx].pos, p.pointer, 12u);
-    vertices[topCenterIx].normal = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, 1.f, 0.f, 0.f));
-    memcpy(vertices[topCenterIx].color, glcolor, 4u);
 
-    const uint32_t parts = closeTop ? 4u : 3u;
-    auto idxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(parts*3u*tesselation*sizeof(uint16_t));
+    constexpr uint32_t rows = 2u;
+    auto idxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(rows*3u*tesselation*sizeof(uint16_t));
     uint16_t* indices = (uint16_t*)idxBuf->getPointer();
 
-    for (uint32_t i = 1u, j = 0u; i < vtxCnt/2u; ++i)
+    for (uint32_t i = 0u, j = 0u; i < halfIx; ++i)
     {
-        indices[j++] = bottomCenterIx;
-        indices[j++] = i;
-        indices[j++] = i+1u == vtxCnt/2u ? 1u : i + 1u;
-    }
-
-    if (closeTop)
-    {
-        indices += idxBuf->getSize()/parts/sizeof(uint16_t);
-
-        for (uint32_t i = 1u, j = 0u; i < vtxCnt/2u; ++i)
-        {
-            indices[j++] = topCenterIx;
-            indices[j++] = (i+1u == vtxCnt/2u ? 1u : i + 1u) + topCenterIx;
-            indices[j++] = i + topCenterIx;
-        }
-    }
-
-    indices += idxBuf->getSize()/parts/sizeof(uint16_t);
-
-    for (uint32_t i = 1u, j = 0u; i < vtxCnt/2u; ++i)
-    {
-        indices[j++] = (i+1u == vtxCnt/2u ? 1u : i+1u) + topCenterIx;
-        indices[j++] = (i+1u == vtxCnt/2u ? 1u : i+1u);
+        indices[j++] = (i+1u == halfIx ? 0u : i) + halfIx;
+        indices[j++] = (i+1u == halfIx ? 0u : i);
         indices[j++] = i;
         indices[j++] = i;
-        indices[j++] = i + topCenterIx;
-        indices[j++] = (i+1u == vtxCnt/2u ? 1u : i+1u) + topCenterIx;
+        indices[j++] = i + halfIx;
+        indices[j++] = (i+1u == halfIx ? 0u : i) + halfIx;
     }
 
     auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
@@ -505,7 +473,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createConeMesh(float r
     ConeVertex* vertices = reinterpret_cast<ConeVertex*>(vtxBuf->getPointer());
     std::fill(vertices, vertices + vtxCnt, ConeVertex(core::vectorSIMDf(0.f), 0u, colorBottom));
 
-    const float step = (2.f*core::PI) / tesselation;
+    const float step = (2.f*core::PI<float>()) / tesselation;
     for (uint32_t i = 2u; i < vtxCnt; ++i)
     {
         const core::vectorSIMDf p(std::cos(i*step), 0.f, std::sin(i*step), 0.f);
@@ -651,7 +619,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createDiskMesh(float r
 	{
 		core::vectorSIMDf vn;
 		core::matrix3x4SIMD rotMatrix;
-		rotMatrix.setRotation(core::quaternion(0.0f, 0.0f, core::degToRad(angle * (i - 1))));
+		rotMatrix.setRotation(core::quaternion(0.0f, 0.0f, core::radians(angle * (i - 1))));
 		rotMatrix.transformVect(vn, v0);
 
 		ptr[i] = DiskVertex(vn, video::SColor(0xFFFFFFFFu),

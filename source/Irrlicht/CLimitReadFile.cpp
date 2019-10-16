@@ -43,7 +43,7 @@ int32_t CLimitReadFile::read(void* buffer, uint32_t sizeToRead)
 		return 0;
 
 	int32_t r = AreaStart + Pos;
-	int32_t toRead = core::s32_min(AreaEnd, r + sizeToRead) - core::s32_max(AreaStart, r);
+	int32_t toRead = core::min<int32_t>(AreaEnd, r + sizeToRead) - core::max<int32_t>(AreaStart, r);
 	if (toRead < 0)
 		return 0;
 	File->seek(r);
@@ -68,7 +68,7 @@ int32_t CLimitReadFile::read(void* buffer, uint32_t sizeToRead)
 bool CLimitReadFile::seek(const size_t& finalPos, bool relativeMovement)
 {
 #if 1
-	Pos = core::s32_clamp(finalPos + (relativeMovement ? Pos : 0 ), 0, AreaEnd - AreaStart);
+	Pos = core::clamp<int32_t,int32_t>(finalPos + (relativeMovement ? Pos : 0 ), 0, AreaEnd - AreaStart);
 	return true;
 #else
 	const size_t pos = File->getPos();

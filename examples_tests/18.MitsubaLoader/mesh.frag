@@ -1,12 +1,21 @@
-#version 330 core
+#version 430 core
+layout(location = 1) uniform vec3 color;
+layout(location = 2) uniform uint nasty;
 
-in vec4 Color; //per vertex output color, will be interpolated across the triangle
+layout(binding = 0) uniform sampler2D reflectance;
+
+in vec2 uv;
 in vec3 Normal;
-in vec3 lightDir;
 
 layout(location = 0) out vec4 pixelColor;
 
+#define MITS_TWO_SIDED		0x80000000u
+#define MITS_USE_TEXTURE	0x40000000u
+
 void main()
 {
-    pixelColor = Color*max(dot(normalize(Normal),normalize(lightDir)),0.0);
+	if ((nasty&MITS_USE_TEXTURE) == MITS_USE_TEXTURE)
+	    pixelColor = texture(reflectance,uv);
+	else
+		pixelColor = vec4(color,1.0);
 }

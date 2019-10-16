@@ -158,7 +158,7 @@ namespace irr
 			}
 
 			// Zoom the cam		
-			core::vector3df zoomTarget(0.0f, 0.0f, 0.0f);	// move target to allow further zooming
+			core::vectorSIMDf zoomTarget(0.0f, 0.0f, 0.0f);	// move target to allow further zooming
 			if (StepZooming || Zooming)
 			{
 				if (StepZooming)
@@ -169,23 +169,27 @@ namespace irr
 				const float minDistance = 1.0f;
 				if (CurrentZoom < minDistance)
 				{
-					zoomTarget = camera->getTarget() - camera->getPosition();
-					zoomTarget.setLength(-CurrentZoom + minDistance);
+					core::vectorSIMDf pos; pos.set(camera->getPosition());
+					zoomTarget = core::normalize(camera->getTarget() - pos);
+					zoomTarget *= (-CurrentZoom + minDistance);
 					CurrentZoom = 1.0f;
 				}
 				StepZooming = false;
 			}
 
 			// Translation ---------------------------------
-			core::vector3df translateTarget(OldTarget);
+			core::vectorSIMDf translateTarget(OldTarget);
 
-			core::vector3df tvectX = camera->getPosition() - camera->getTarget();
-			tvectX = tvectX.crossProduct(camera->getUpVector());
-			tvectX.normalize();
+			core::vectorSIMDf tvectX; tvectX.set(camera->getPosition());
+			tvectX -= camera->getTarget();
 
-			core::vector3df tvectY = (va->getFarLeftDown() - va->getFarRightDown()).getAsVector3df();
-			tvectY = tvectY.crossProduct(camera->getUpVector().Y > 0 ? camera->getPosition() - camera->getTarget() : camera->getTarget() - camera->getPosition());
-			tvectY.normalize();
+			core::vectorSIMDf other = tvectX;
+			tvectX = core::normalize(core::cross(tvectX,camera->getUpVector()));
+
+			core::vectorSIMDf tvectY = va->getFarLeftDown() - va->getFarRightDown();
+			if (camera->getUpVector().Y<0.f)
+				other *= -1.f;
+			tvectY = core::normalize(core::cross(tvectY,other));
 
 			
 			if ((isMouseKeyDown(1) || isMouseKeyDown(2)) && !(StepZooming || Zooming))
@@ -266,23 +270,23 @@ namespace irr
 
 			// Set Pos ------------------------------------
 
-			camera->setTarget(translateTarget + zoomTarget);
+			camera->setTarget((translateTarget + zoomTarget).getAsVector3df());
 
-			if (!zoomTarget.equals(core::vector3df(0, 0, 0)))
+			if (core::length(zoomTarget)[0]>0.00001f)
 				OldTarget = camera->getTarget();
 
 
-			core::vector3df position = camera->getPosition();
-			core::vector3df target = camera->getTarget();
+			core::vectorSIMDf position; position.set(camera->getPosition());
+			core::vectorSIMDf target = camera->getTarget();
 
 			position.X = CurrentZoom + target.X;
 			position.Y = target.Y;
 			position.Z = target.Z;
 
-			position.rotateXYBy(nRotY, target);
-			position.rotateXZBy(-nRotX, target);
+			position.rotateXYByRAD(core::radians(nRotY), target);
+			position.rotateXZByRAD(-core::radians(nRotX), target);
 
-			camera->setPosition(position);
+			camera->setPosition(position.getAsVector3df());
 
 			// Rotation Error ----------------------------
 

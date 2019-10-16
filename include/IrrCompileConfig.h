@@ -288,20 +288,10 @@ currently only supports zip archives, though. */
 #ifdef NO__IRR_COMPILE_WITH_PAK_ARCHIVE_LOADER_
 #undef __IRR_COMPILE_WITH_PAK_ARCHIVE_LOADER_
 #endif
-//! Define __IRR_COMPILE_WITH_NPK_ARCHIVE_LOADER_ if you want to open Nebula Device NPK archives
-#define __IRR_COMPILE_WITH_NPK_ARCHIVE_LOADER_
-#ifdef NO__IRR_COMPILE_WITH_NPK_ARCHIVE_LOADER_
-#undef __IRR_COMPILE_WITH_NPK_ARCHIVE_LOADER_
-#endif
 //! Define __IRR_COMPILE_WITH_TAR_ARCHIVE_LOADER_ if you want to open TAR archives
 #define __IRR_COMPILE_WITH_TAR_ARCHIVE_LOADER_
 #ifdef NO__IRR_COMPILE_WITH_TAR_ARCHIVE_LOADER_
 #undef __IRR_COMPILE_WITH_TAR_ARCHIVE_LOADER_
-#endif
-//! Define __IRR_COMPILE_WITH_WAD_ARCHIVE_LOADER_ if you want to open WAD archives
-#define __IRR_COMPILE_WITH_WAD_ARCHIVE_LOADER_
-#ifdef NO__IRR_COMPILE_WITH_WAD_ARCHIVE_LOADER_
-#undef __IRR_COMPILE_WITH_WAD_ARCHIVE_LOADER_
 #endif
 
 // Some cleanup and standard stuff

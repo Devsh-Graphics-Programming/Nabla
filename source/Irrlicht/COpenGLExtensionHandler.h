@@ -18,7 +18,9 @@
 #ifdef _IRR_WINDOWS_API_
 	// include windows headers for HWND
 	#define WIN32_LEAN_AND_MEAN
-	#define NOMINMAX
+	#ifndef NOMINMAX
+		#define NOMINMAX
+	#endif
 	#include <windows.h>
 	#include "../src/3rdparty/GL/wglext.h"
 #elif defined(_IRR_COMPILE_WITH_X11_)
@@ -2470,12 +2472,12 @@ inline void COpenGLExtensionHandler::setPixelUnpackAlignment(const uint32_t &pit
 {
 #if _MSC_VER && !__INTEL_COMPILER
     DWORD textureUploadAlignment,textureUploadAlignment2;
-    if (!_BitScanForward(&textureUploadAlignment,core::max_(pitchInBytes,minimumAlignment)))
+    if (!_BitScanForward(&textureUploadAlignment,core::max(pitchInBytes,minimumAlignment)))
         textureUploadAlignment = 3;
     if (!_BitScanForward64(&textureUploadAlignment2,*reinterpret_cast<size_t*>(&ptr)))
         textureUploadAlignment2 = 3;
 #else
-    int32_t textureUploadAlignment = __builtin_ffs(core::max_(pitchInBytes,minimumAlignment));
+    int32_t textureUploadAlignment = __builtin_ffs(core::max(pitchInBytes,minimumAlignment));
     if (textureUploadAlignment)
         textureUploadAlignment--;
     else
@@ -2486,7 +2488,7 @@ inline void COpenGLExtensionHandler::setPixelUnpackAlignment(const uint32_t &pit
     else
         textureUploadAlignment2 = 3;
 #endif
-    textureUploadAlignment = core::min_(core::min_((int32_t)textureUploadAlignment,(int32_t)textureUploadAlignment2),(int32_t)3);
+    textureUploadAlignment = core::min<int32_t,int32_t>(textureUploadAlignment,textureUploadAlignment2,3);
 
     if (textureUploadAlignment==pixelUnpackAlignment)
         return;

@@ -1,272 +1,275 @@
-#include "../../ext/MitsubaLoader/CElementEmitter.h"
-#include "../../ext/MitsubaLoader/CElementTransform.h"
 #include "../../ext/MitsubaLoader/ParserUtil.h"
-#include "../../ext/MitsubaLoader/PropertyElement.h"
-
+#include "../../ext/MitsubaLoader/CElementFactory.h"
 
 #include <functional>
 
-namespace irr { namespace ext { namespace MitsubaLoader {
-
-bool CElementEmitter::processAttributes(const char** _atts)
+namespace irr
 {
-	static const core::unordered_map<std::string, EEmitterType> acceptableTypes = {
-		std::make_pair("point", EEmitterType::POINT),
-		std::make_pair("area", EEmitterType::AREA),
-		std::make_pair("spot", EEmitterType::SPOT),
-		std::make_pair("directional", EEmitterType::DIRECTIONAL),
-		std::make_pair("collimated", EEmitterType::COLLIMATED),
-		std::make_pair("sky", EEmitterType::SKY),
-		std::make_pair("sunsky", EEmitterType::SUNSKY),
-		std::make_pair("envmap", EEmitterType::ENVMAP),
-		std::make_pair("constant", EEmitterType::CONSTANT)
+namespace ext
+{
+namespace MitsubaLoader
+{
+
+template<>
+CElementFactory::return_type CElementFactory::createElement<CElementEmitter>(const char** _atts, ParserManager* _util)
+{
+	const char* type;
+	const char* id;
+	std::string name;
+	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
+		return CElementFactory::return_type(nullptr,"");
+
+	static const core::unordered_map<std::string, CElementEmitter::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
+	{
+		{"point",		CElementEmitter::Type::POINT},
+		{"area",		CElementEmitter::Type::AREA},
+		{"spot",		CElementEmitter::Type::SPOT},
+		{"directional",	CElementEmitter::Type::DIRECTIONAL},
+		{"collimated",	CElementEmitter::Type::COLLIMATED},/*
+		{"sky",			CElementEmitter::Type::SKY},
+		{"sun",			CElementEmitter::Type::SUN},
+		{"sunsky",		CElementEmitter::Type::SUNSKY},*/
+		{"envmap",		CElementEmitter::Type::ENVMAP},
+		{"constant",	CElementEmitter::Type::CONSTANT}
 	};
 
-	//only type is an acceptable argument
-	for (int i = 0; _atts[i]; i += 2)
+	auto found = StringToType.find(type);
+	if (found==StringToType.end())
 	{
-		if (std::strcmp(_atts[i], "type"))
+		ParserLog::invalidXMLFileStructure("unknown type");
+		_IRR_DEBUG_BREAK_IF(false);
+		return CElementFactory::return_type(nullptr, "");
+	}
+
+	CElementEmitter* obj = _util->objects.construct<CElementEmitter>(id);
+	if (!obj)
+		return CElementFactory::return_type(nullptr, "");
+
+	obj->type = found->second;
+	// defaults
+	switch (obj->type)
+	{
+		case CElementEmitter::Type::POINT:
+			obj->point = CElementEmitter::Point();
+			break;
+		case CElementEmitter::Type::AREA:
+			obj->area = CElementEmitter::Area();
+			break;
+		case CElementEmitter::Type::SPOT:
+			obj->spot = CElementEmitter::Spot();
+			break;
+		case CElementEmitter::Type::DIRECTIONAL:
+			obj->directional = CElementEmitter::Directional();
+			break;
+		case CElementEmitter::Type::COLLIMATED:
+			obj->collimated = CElementEmitter::Collimated();
+			break;/*
+		case CElementEmitter::Type::SKY:
+			obj->sky = CElementEmitter::Sky();
+			break;
+		case CElementEmitter::Type::SUN:
+			obj->ply = CElementEmitter::Sun();
+			break;
+		case CElementEmitter::Type::SUNSKY:
+			obj->serialized = CElementEmitter::SunSky();
+			break;*/
+		case CElementEmitter::Type::ENVMAP:
+			obj->envmap = CElementEmitter::EnvMap();
+			break;
+		case CElementEmitter::Type::CONSTANT:
+			obj->constant = CElementEmitter::Constant();
+			break;
+		default:
+			break;
+	}
+	return CElementFactory::return_type(obj, std::move(name));
+}
+
+bool CElementEmitter::addProperty(SNamedPropertyElement&& _property)
+{
+	bool error = false;
+	auto dispatch = [&](auto func) -> void
+	{
+		switch (type)
 		{
-			ParserLog::invalidXMLFileStructure(std::string(_atts[i]) + " is not attribute of shape element.");
-			return false;
-		}
-		else
-		{
-			auto samplerType = acceptableTypes.find(_atts[i + 1]);
-			if (samplerType == acceptableTypes.end())
-			{
-				ParserLog::invalidXMLFileStructure("unknown type");
-				_IRR_DEBUG_BREAK_IF(false);
-				return false;
-			}
-
-			data.type = samplerType->second;
-
-			//set default values
-			switch (data.type)
-			{
-			case EEmitterType::POINT:
-			{
-				data.pointData.position = core::vector3df_SIMD(0.0f);
-				data.pointData.intensity = video::SColorf(1.0f);
-				data.pointData.samplingWeight = 1.0f;
-
-			}
-			break;
-			case EEmitterType::AREA:
-			{
-				data.areaData.radiance = video::SColorf(1.0f);
-				data.areaData.samplingWeight = 1.0f;
-			}
-			break;
-			case EEmitterType::SPOT:
-			{
-				data.spotData.intensity = video::SColorf(1.0f);
-				data.spotData.cutoffAngle = 20.0f;
-				data.spotData.beamWidth = 20.0f * (3.0f / 4.0f);
-				data.spotData.samplingWeight = 1.0f;
-			}
-			break;
-			case EEmitterType::DIRECTIONAL:
-			{
-				data.directionalData.direction = core::vector3df_SIMD(0.0f,-1.0f, 0.0f);
-				data.directionalData.irradiance = video::SColorf(1.0f);
-				data.directionalData.samplingWeight = 1.0f;
-			}
-			break;
-			case EEmitterType::COLLIMATED:
-			{
-				data.collimatedData.power = video::SColorf(1.0f);
-				data.collimatedData.samplingWeight = 1.0f;
-			}
-			break;
-			case EEmitterType::SKY:
-			case EEmitterType::SUN:
-			case EEmitterType::SUNSKY:
-			case EEmitterType::ENVMAP:
-			{
-				ParserLog::invalidXMLFileStructure("not supported yet.");
-				_IRR_DEBUG_BREAK_IF(true);
-				return false;
-			}
-			break;
-			case EEmitterType::CONSTANT:
-			{
-				data.constantData.radiance = video::SColorf(1.0f);
-				data.constantData.samplingWeight = 1.0f;
-			}
-			break;
+			case Type::POINT:
+				func(point);
+				break;
+			case Type::AREA:
+				func(area);
+				break;
+			case Type::SPOT:
+				func(spot);
+				break;
+			case Type::DIRECTIONAL:
+				func(directional);
+				break;
+			case Type::COLLIMATED:
+				func(collimated);
+				break;/*
+			case Type::SKY:
+				func(sky);
+				break;
+			case Type::SUN:
+				func(sun);
+				break;
+			case Type::SUNSKY:
+				func(sunsky);
+				break;*/
+			case Type::ENVMAP:
+				func(envmap);
+				break;
+			case Type::CONSTANT:
+				func(constant);
+				break;
 			default:
-				assert(false);
+				error = true;
+				break;
+		}
+	};
+
+#define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE, ... )		[&]() -> void { \
+		dispatch([&](auto& state) -> void { \
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+			{ \
+				if (_property.type!=PROPERTY_TYPE) { \
+					error = true; \
+					return; \
+				} \
+				state. ## MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
+			} \
+			IRR_PSEUDO_IF_CONSTEXPR_END \
+		}); \
+	}
+#define SET_SPECTRUM(MEMBER, ... )		[&]() -> void { \
+		dispatch([&](auto& state) -> void { \
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+			{ \
+				switch (_property.type) { \
+					case SPropertyElementData::Type::FLOAT: \
+						state. ## MEMBER.x = state. ## MEMBER.y = state. ## MEMBER.z = _property.getProperty<SPropertyElementData::Type::FLOAT>(); \
+						break; \
+					case SPropertyElementData::Type::RGB: \
+						state. ## MEMBER = _property.getProperty<SPropertyElementData::Type::RGB>(); \
+						break; \
+					case SPropertyElementData::Type::SRGB: \
+						state. ## MEMBER = _property.getProperty<SPropertyElementData::Type::SRGB>(); \
+						break; \
+					default: \
+						error = true; \
+						break; \
+				} \
+			} \
+			IRR_PSEUDO_IF_CONSTEXPR_END \
+		}); \
+	}
+
+	auto setSamplingWeight = SET_PROPERTY_TEMPLATE(samplingWeight, SNamedPropertyElement::Type::FLOAT, Point,Area,Spot,Directional,Collimated,/*Sky,Sun,SunSky,*/EnvMap,Constant);
+	auto setIntensity = SET_SPECTRUM(intensity, Point,Spot);
+	auto setPosition = [&]() -> void {
+		if (_property.type!=SNamedPropertyElement::Type::POINT || type!=Type::POINT)
+		{
+			error = true;
+			return;
+		}
+		transform.matrix.setTranslation(_property.vvalue);
+	};
+	auto setRadiance = SET_SPECTRUM(radiance, Area,Constant);
+	auto setCutoffAngle = SET_PROPERTY_TEMPLATE(cutoffAngle, SNamedPropertyElement::Type::FLOAT, Spot);
+	auto setBeamWidth = SET_PROPERTY_TEMPLATE(beamWidth, SNamedPropertyElement::Type::FLOAT, Spot);
+	auto setDirection = [&]() -> void {
+		if (_property.type != SNamedPropertyElement::Type::VECTOR || type != Type::DIRECTIONAL)
+		{
+			error = true;
+			return;
+		}
+		core::vectorSIMDf up(0.f);
+		float maxDot = _property.vvalue[0];
+		uint32_t index = 0u;
+		for (auto i=1u; i<3u; i++)
+		if (_property.vvalue[i] < maxDot)
+		{
+			maxDot = _property.vvalue[i];
+			index = i;
+		}
+		up[index] = 1.f;
+		transform.matrix = core::matrix4SIMD::buildCameraLookAtMatrixRH(core::vectorSIMDf(),_property.vvalue,up);
+	};
+	auto setPower = SET_SPECTRUM(power, Collimated);
+	auto setFilename = [&]() -> void
+	{ 
+		dispatch([&](auto& state) -> void {
+			using state_type = std::remove_reference<decltype(state)>::type;
+
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,EnvMap>::value)
+			{
+				envmap.filename = std::move(_property);
 			}
-		}
-	}
+			IRR_PSEUDO_IF_CONSTEXPR_END
+		});
+	};
+	auto setScale = SET_PROPERTY_TEMPLATE(scale, SNamedPropertyElement::Type::FLOAT, EnvMap);
+	auto setGamma = SET_PROPERTY_TEMPLATE(gamma, SNamedPropertyElement::Type::FLOAT, EnvMap);
+	//auto setCache = SET_PROPERTY_TEMPLATE(cache, SNamedPropertyElement::Type::BOOLEAN, EnvMap);
+#undef SET_SPECTRUM
+#undef SET_PROPERTY_TEMPLATE
+	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
+	{
+		{"samplingWeight",	setSamplingWeight},
+		{"intensity",		setIntensity},
+		{"position",		setPosition},
+		{"radiance",		setRadiance},
+		{"cutoffAngle",		setCutoffAngle},
+		{"beamWidth",		setBeamWidth},
+		{"direction",		setDirection},
+		{"power",			setPower},/*
+		{"turbidity",		setTurbidity},
+		{"",				set},
+		{"sunRadiusScale",	setSunRadiusScale},*/
+		{"filename",		setFilename},
+		{"scale",			setScale},
+		{"gamma",			setGamma}//,
+		//{"cache",			setCache},
+	};
 
-	return true;
-}
-
-bool CElementEmitter::processChildData(IElement* _child)
-{
-	switch (_child->getType())
+	auto found = SetPropertyMap.find(_property.name);
+	if (found==SetPropertyMap.end())
 	{
-	case IElement::Type::TRANSFORM:
-	{
-		transform = static_cast<CElementTransform*>(_child)->getMatrix();
-		return true;
-	}
-	default:
-	{
-		ParserLog::invalidXMLFileStructure(_child->getLogName() + "is not a child of sensor element");
 		_IRR_DEBUG_BREAK_IF(true);
+		ParserLog::invalidXMLFileStructure("No Emitter can have such property set with name: " + _property.name);
 		return false;
 	}
-	}
+
+	found->second();
+	return !error;
 }
 
-bool CElementEmitter::onEndTag(asset::IAssetManager* _assetManager)
+bool CElementEmitter::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata)
 {
-	switch (data.type)
+	// TODO: some more validation
+	switch (type)
 	{
-	case EEmitterType::POINT:
-		return processPointEmitterProperties();
-
-	case EEmitterType::AREA:
-		return processAreaEmitterProperties();
-
-	case EEmitterType::SPOT:
-		return processSpotEmitterProperties();
-
-	case EEmitterType::DIRECTIONAL:
-		return processDirectionalEmitterProperties();
-
-	case EEmitterType::COLLIMATED:
-		return processCollimatedEmitterProperties();
-
-	case EEmitterType::SKY:
-	case EEmitterType::SUN:
-	case EEmitterType::SUNSKY:
-	case EEmitterType::ENVMAP:
-		ParserLog::invalidXMLFileStructure("not supported yet.");
-		_IRR_DEBUG_BREAK_IF(true);
-		return false;
-
-	case EEmitterType::CONSTANT:
-		return processConstantEmitterProperties();
-
-	default:
-		_IRR_DEBUG_BREAK_IF(true);
-		return false;
-	}
-}
-
-bool CElementEmitter::processSharedDataProperty(const SPropertyElementData& _property)
-{
-	if (_property.type == SPropertyElementData::Type::FLOAT)
-	{
-		if (_property.name == "shutterOpen")
-		{
-			data.shutterOpen = CPropertyElementManager::retriveIntValue(_property.value);
-		}
-		else if (_property.name == "shutterClose")
-		{
-			data.shutterClose = CPropertyElementManager::retriveIntValue(_property.value);
-		}
-		else
-		{
-			ParserLog::invalidXMLFileStructure("unknown property");
+		case Type::INVALID:
+			ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
 			_IRR_DEBUG_BREAK_IF(true);
-			return false;
-		}
+			return true;
+			break;
+		case Type::SPOT:
+			if (std::isnan(spot.beamWidth))
+				spot.beamWidth = spot.cutoffAngle * 0.75f;
+		default:
+			break;
 	}
-	else
+
+	switch (type)
 	{
-		ParserLog::invalidXMLFileStructure("unkown property");
-		_IRR_DEBUG_BREAK_IF(true);
-		return false;
-	}
-	
-	return true;
-}
-
-bool CElementEmitter::processPointEmitterProperties()
-{
-	for (const SPropertyElementData& property : properties)
-	{
-		if (property.type == SPropertyElementData::Type::POINT &&
-			property.name == "position")
-		{
-			data.pointData.position = CPropertyElementManager::retriveVector(property.value);
-		}
-		else
-		if ((property.type == SPropertyElementData::Type::RGB ||
-			property.type == SPropertyElementData::Type::SRGB) &&
-			property.name == "intensity")
-		{
-			_IRR_DEBUG_BREAK_IF(true);
-			return false;	
-		}
-		else
-		if (property.type == SPropertyElementData::Type::FLOAT &&
-			property.name == "samplingWeight")
-		{
-			data.pointData.samplingWeight = CPropertyElementManager::retriveFloatValue(property.value);
-		}
-		else if(!processSharedDataProperty(property))
-		{
-			return false;
-		}
+		case Type::AREA:
+			break;
+		default:
+			globalMetadata->emitters.push_back(*this);
+			break;
 	}
 
-	return true;
-}
-
-bool CElementEmitter::processAreaEmitterProperties()
-{
-	_IRR_DEBUG_BREAK_IF(true);
-	return true;
-}
-
-bool CElementEmitter::processSpotEmitterProperties()
-{
-	_IRR_DEBUG_BREAK_IF(true);
-	return true;
-}
-
-bool CElementEmitter::processDirectionalEmitterProperties()
-{
-	_IRR_DEBUG_BREAK_IF(true);
-	return true;
-}
-
-
-bool CElementEmitter::processCollimatedEmitterProperties()
-{
-	_IRR_DEBUG_BREAK_IF(true);
-	return true;
-}
-
-bool CElementEmitter::processConstantEmitterProperties()
-{
-	for (const SPropertyElementData& property : properties)
-	{
-		if ((property.type == SPropertyElementData::Type::RGB ||
-			property.type == SPropertyElementData::Type::SRGB) &&
-			property.name == "radiance")
-		{
-			_IRR_DEBUG_BREAK_IF(true);
-			return false;	
-		}
-		else
-		if (property.type == SPropertyElementData::Type::FLOAT &&
-			property.name == "samplingWeight")
-		{
-			data.constantData.samplingWeight = CPropertyElementManager::retriveFloatValue(property.value);
-		}
-		else if(!processSharedDataProperty(property))
-		{
-			return false;
-		}
-	}
 
 	return true;
 }

@@ -163,7 +163,7 @@ namespace core
 			//! Make a rotation matrix from Euler angles. The 4th row and column are unmodified.
 			inline matrix4x3& setRotationDegrees( const vector3df& rotation )
             {
-                return setRotationRadians( rotation * core::DEGTORAD );
+                return setRotationRadians( radians<vector3df>(rotation) );
             }
 
 			//! Returns the rotation, as set by setRotation().
@@ -379,9 +379,9 @@ namespace core
 
         for (size_t i=0; i<4; i++)
         {
-            ret(0,i) = outColumn[i].X;
-            ret(1,i) = outColumn[i].Y;
-            ret(2,i) = outColumn[i].Z;
+            ret(0,i) = static_cast<float>(outColumn[i].X);
+            ret(1,i) = static_cast<float>(outColumn[i].Y);
+            ret(2,i) = static_cast<float>(outColumn[i].Z);
         }
 
         return ret;
@@ -426,7 +426,7 @@ namespace core
 		const matrix4x3 &mat = *this;
 		core::vector3df scale = getScale();
 
-		const core::vector3d<float> invScale(core::reciprocal(scale.X),core::reciprocal(scale.Y),core::reciprocal(scale.Z));
+		const core::vector3d<float> invScale = core::reciprocal(scale);
 
 		float nzd00 = mat(0,0)*invScale.X;
 		float nzd11 = mat(1,1)*invScale.Y;
@@ -435,25 +435,25 @@ namespace core
 
 		float Y = -asinf(core::clamp(mat(2,0)*invScale.X, -1.f, 1.f));
 		const float C = cosf(Y);
-		Y *= RADTODEG64;
+		Y = core::degrees(Y);
 
 		float rotx, roty, X, Z;
 
 		if (!core::iszero(C))
 		{
-			const float invC = core::reciprocal(C);
+			const float invC = core::reciprocal_approxim(C);
 			rotx = nzd22 * invC;
 			roty = mat(2,1) * invC * invScale.Y;
-			X = atan2f( roty, rotx ) * RADTODEG64;
+			X = core::degrees(atan2f( roty, rotx ));
 			rotx = nzd00 * invC;
 			roty = mat(1,0) * invC * invScale.X;
-			Z = atan2f( roty, rotx ) * RADTODEG64;
+			Z = core::degrees(atan2f( roty, rotx ));
 		}
 		else
 		{
 			X = 0.0;
 			roty = -mat(0,1) * invScale.Y;
-			Z = atan2f( roty, nzd11 ) * RADTODEG64;
+			Z = core::degrees(atan2f( roty, nzd11 ));
 		}
 
 		// fix values that get below zero
@@ -470,7 +470,7 @@ namespace core
 	{
  		const float c = cosf(angle);
 		const float s = sinf(angle);
-		const float t = 1.0 - c;
+		const float t = 1.f - c;
 
 		const float tx  = t * axis.X;
 		const float ty  = t * axis.Y;

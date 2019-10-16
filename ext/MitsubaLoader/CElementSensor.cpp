@@ -1,380 +1,215 @@
-#include "../../ext/MitsubaLoader/CElementSensor.h"
-#include "../../ext/MitsubaLoader/CElementTransform.h"
 #include "../../ext/MitsubaLoader/ParserUtil.h"
-#include "../../ext/MitsubaLoader/PropertyElement.h"
-
+#include "../../ext/MitsubaLoader/CElementFactory.h"
 
 #include <functional>
 
-namespace irr { namespace ext { namespace MitsubaLoader {
-
-bool CElementSensor::processAttributes(const char** _atts)
+namespace irr
 {
-	static const core::unordered_map<std::string, ESensorType> acceptableTypes = {
-		std::make_pair("perspective", ESensorType::PERSPECTIVE),
-		std::make_pair("thinlens", ESensorType::THINLENS),
-		std::make_pair("orthographic", ESensorType::ORTHOGRAPHIC),
-		std::make_pair("telecentric", ESensorType::TELECENTRIC),
-		std::make_pair("spherical", ESensorType::SPHERICAL),
-		std::make_pair("irradiancemeter", ESensorType::IRRADIANCEMETER),
-		std::make_pair("radiancemeter", ESensorType::RADIANCEMETER),
-		std::make_pair("fluencemeter", ESensorType::FLUENCEMETER)
+namespace ext
+{
+namespace MitsubaLoader
+{
+	
+template<>
+CElementFactory::return_type CElementFactory::createElement<CElementSensor>(const char** _atts, ParserManager* _util)
+{
+	const char* type;
+	const char* id;
+	std::string name;
+	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
+		return CElementFactory::return_type(nullptr,"");
+
+	static const core::unordered_map<std::string, CElementSensor::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
+	{
+		{"perspective",			CElementSensor::Type::PERSPECTIVE},
+		{"thinlens",			CElementSensor::Type::THINLENS},
+		{"orthographic",		CElementSensor::Type::ORTHOGRAPHIC},
+		{"telecentric",			CElementSensor::Type::TELECENTRIC},
+		{"spherical",			CElementSensor::Type::SPHERICAL},
+		{"irradiancemeter",		CElementSensor::Type::IRRADIANCEMETER},
+		{"radiancemeter",		CElementSensor::Type::RADIANCEMETER},
+		{"fluencemeter",		CElementSensor::Type::FLUENCEMETER}/*,
+		{"perspective_rdist",	CElementSensor::PERSPECTIVE_RDIST}*/
 	};
 
-	//only type is an acceptable argument
-	for (int i = 0; _atts[i]; i += 2)
+	auto found = StringToType.find(type);
+	if (found==StringToType.end())
 	{
-		if (std::strcmp(_atts[i], "type"))
+		ParserLog::invalidXMLFileStructure("unknown type");
+		_IRR_DEBUG_BREAK_IF(false);
+		return CElementFactory::return_type(nullptr, "");
+	}
+
+	CElementSensor* obj = _util->objects.construct<CElementSensor>(id);
+	if (!obj)
+		return CElementFactory::return_type(nullptr, "");
+
+	obj->type = found->second;
+	// defaults
+	switch (obj->type)
+	{
+		case CElementSensor::Type::PERSPECTIVE:
+			obj->perspective = CElementSensor::PerspectivePinhole();
+			break;
+		case CElementSensor::Type::THINLENS:
+			obj->thinlens = CElementSensor::PerspectiveThinLens();
+			break;
+		case CElementSensor::Type::ORTHOGRAPHIC:
+			obj->orthographic = CElementSensor::Orthographic();
+			break;
+		case CElementSensor::Type::TELECENTRIC:
+			obj->telecentric = CElementSensor::TelecentricLens();
+			break;
+		case CElementSensor::Type::SPHERICAL:
+			obj->spherical = CElementSensor::SphericalCamera();
+			break;
+		case CElementSensor::Type::IRRADIANCEMETER:
+			obj->irradiancemeter = CElementSensor::IrradianceMeter();
+			break;
+		case CElementSensor::Type::RADIANCEMETER:
+			obj->radiancemeter = CElementSensor::RadianceMeter();
+			break;
+		case CElementSensor::Type::FLUENCEMETER:
+			obj->fluencemeter = CElementSensor::FluenceMeter();
+			break;
+		default:
+			break;
+	}
+	return CElementFactory::return_type(obj, std::move(name));
+}
+
+bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
+{
+	bool error = false;
+	auto dispatch = [&](auto func) -> void
+	{
+		switch (type)
 		{
-			ParserLog::invalidXMLFileStructure(std::string(_atts[i]) + " is not attribute of shape element.");
-			return false;
-		}
-		else
-		{
-			auto samplerType = acceptableTypes.find(_atts[i + 1]);
-			if (samplerType == acceptableTypes.end())
-			{
-				ParserLog::invalidXMLFileStructure("unknown type");
-				_IRR_DEBUG_BREAK_IF(false);
-				return false;
-			}
-
-			data.type = samplerType->second;
-
-			//set default values
-			switch (data.type)
-			{
-			case ESensorType::PERSPECTIVE:
-			{
-				data.perspectiveData.focalLength = "50mm";
-				data.perspectiveData.fovAxis = EFOVAxis::X;
-				data.perspectiveData.fov = 0.0f;
-				data.perspectiveData.nearClip = 0.01f;
-				data.perspectiveData.nearClip = 10000.0f;
-
-			}
-			break;
-			case ESensorType::THINLENS:
-			{
-				data.thinlensData.focalLength = "50mm";
-				data.thinlensData.fovAxis = EFOVAxis::X;
-				data.thinlensData.fov = 0.0f;
-				data.thinlensData.nearClip = 0.01f;
-				data.thinlensData.nearClip = 10000.0f;
-				data.thinlensData.apertureRadius = 0.0f;
-				data.thinlensData.focusDistance = 0.0f;
-			}
-			break;
-			case ESensorType::ORTHOGRAPHIC:
-			{
-				data.thinlensData.nearClip = 0.01f;
-				data.thinlensData.nearClip = 10000.0f;
-			}
-			break;
-			case ESensorType::TELECENTRIC:
-			{
-				data.thinlensData.nearClip = 0.01f;
-				data.thinlensData.nearClip = 10000.0f;
-				data.thinlensData.apertureRadius = 0.0f;
-				data.thinlensData.focusDistance = 0.0f;
-			}
-			break;
+			case CElementSensor::Type::PERSPECTIVE:
+				func(perspective);
+				break;
+			case CElementSensor::Type::THINLENS:
+				func(thinlens);
+				break;
+			case CElementSensor::Type::ORTHOGRAPHIC:
+				func(orthographic);
+				break;
+			case CElementSensor::Type::TELECENTRIC:
+				func(telecentric);
+				break;
+			case CElementSensor::Type::SPHERICAL:
+				func(spherical);
+				break;
+			case CElementSensor::Type::IRRADIANCEMETER:
+				func(irradiancemeter);
+				break;
+			case CElementSensor::Type::RADIANCEMETER:
+				func(radiancemeter);
+				break;
+			case CElementSensor::Type::FLUENCEMETER:
+				func(fluencemeter);
+				break;
 			default:
-				assert(true);
+				error = true;
+				break;
+		}
+	};
+
+#define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE,BASE)		[&]() -> void { \
+		dispatch([&](auto& state) -> void { \
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_base_of<BASE,std::remove_reference<decltype(state)>::type >::value) \
+			{ \
+				if (_property.type!=PROPERTY_TYPE) { \
+					error = true; \
+					return; \
+				} \
+				state. ## MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
+			} \
+			IRR_PSEUDO_IF_CONSTEXPR_END \
+		}); \
+	}
+
+	auto setFov = SET_PROPERTY_TEMPLATE(fov,SNamedPropertyElement::Type::FLOAT,PerspectivePinhole);
+	auto setFovAxis = [&]() -> void
+	{
+		dispatch([&](auto& state) -> void
+		{
+			using state_type = std::remove_reference<decltype(state)>::type;
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_base_of<state_type,PerspectivePinhole>::value)
+			{
+				if (_property.type != SNamedPropertyElement::Type::STRING)
+				{
+					error = true;
+					return;
+				}
+				static const core::unordered_map<std::string,PerspectivePinhole::FOVAxis,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
+				{
+					{"x",		PerspectivePinhole::FOVAxis::X},
+					{"y",		PerspectivePinhole::FOVAxis::Y},
+					{"diagonal",PerspectivePinhole::FOVAxis::DIAGONAL},
+					{"smaller",	PerspectivePinhole::FOVAxis::SMALLER},
+					{"larger",	PerspectivePinhole::FOVAxis::LARGER}
+				};
+				auto found = StringToType.find(_property.svalue);
+				if (found!=StringToType.end())
+					state.fovAxis = found->second;
+				else
+					state.fovAxis = PerspectivePinhole::FOVAxis::INVALID;
 			}
-		}
-	}
+			IRR_PSEUDO_IF_CONSTEXPR_END
+		});
+	};
+	auto setShutterOpen		= SET_PROPERTY_TEMPLATE(shutterOpen,SNamedPropertyElement::Type::FLOAT,ShutterSensor);
+	auto setShutterClose	= SET_PROPERTY_TEMPLATE(shutterClose,SNamedPropertyElement::Type::FLOAT,ShutterSensor);
+	auto setNearClip		= SET_PROPERTY_TEMPLATE(nearClip,SNamedPropertyElement::Type::FLOAT,CameraBase);
+	auto setFarClip			= SET_PROPERTY_TEMPLATE(farClip,SNamedPropertyElement::Type::FLOAT,CameraBase);
+	auto setFocusDistance	= SET_PROPERTY_TEMPLATE(focusDistance,SNamedPropertyElement::Type::FLOAT,DepthOfFieldBase);
+	auto setApertureRadius	= SET_PROPERTY_TEMPLATE(apertureRadius,SNamedPropertyElement::Type::FLOAT,DepthOfFieldBase);
+	//auto setKc			= SET_PROPERTY_TEMPLATE(apertureRadius,SNamedPropertyElement::Type::STRING,PerspectivePinholeRadialDistortion);
 
-	return true;
-}
-
-bool CElementSensor::processChildData(IElement* _child)
-{
-	switch (_child->getType())
+	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{
-	case IElement::Type::FILM:	
-	{
-		data.filmData = static_cast<CElementFilm*>(_child)->getMetadata();
-		return true;
-	}
-
-	case IElement::Type::SAMPLER:
-	{
-		data.samperData = static_cast<CElementSampler*>(_child)->getMetadata();
-		return true;
-	}
-	case IElement::Type::TRANSFORM:
-	{
-		transform = static_cast<CElementTransform*>(_child)->getMatrix();
-		return true;
-	}
-	default:
-	{
-		ParserLog::invalidXMLFileStructure(_child->getLogName() + "is not a child of sensor element");
-		_IRR_DEBUG_BREAK_IF(true);
-		return false;
-	}
-	}
-}
-
-bool CElementSensor::onEndTag(asset::IAssetManager* _assetManager)
-{
-	switch (data.type)
-	{
-	case ESensorType::PERSPECTIVE:
-		data.perspectiveData.toWorld = transform;
-		return processPerspectiveSensorProperties();
-
-	case ESensorType::THINLENS:
-		data.thinlensData.toWorld = transform;
-		return processThinlensSensorProperties();
-
-	case ESensorType::ORTHOGRAPHIC:
-		data.orthographicData.toWorld = transform;
-		return processOrthographicSensorProperties();
-
-	case ESensorType::TELECENTRIC:
-		data.telecentricData.toWorld = transform;
-		return processTelecentricSensorProperties();
-
-	case ESensorType::SPHERICAL:
-		data.sphericalData.toWorld = transform;
-		return true;
-
-	case ESensorType::IRRADIANCEMETER:
-		return true;
-
-	case ESensorType::RADIANCEMETER:
-		data.telecentricData.toWorld = transform;
-		return true;
-
-	case ESensorType::FLUENCEMETER:
-		data.telecentricData.toWorld = transform;
-		return true;
-
-	default:
-		_IRR_DEBUG_BREAK_IF(true);
-		return false;
-	}
-}
-
-bool CElementSensor::processSharedDataProperty(const SPropertyElementData& _property)
-{
-	if (_property.type == SPropertyElementData::Type::FLOAT)
-	{
-		if (_property.name == "shutterOpen")
-		{
-			data.shutterOpen = CPropertyElementManager::retriveIntValue(_property.value);
-		}
-		else if (_property.name == "shutterClose")
-		{
-			data.shutterClose = CPropertyElementManager::retriveIntValue(_property.value);
-		}
-		else
-		{
-			ParserLog::invalidXMLFileStructure("unknown property");
-			_IRR_DEBUG_BREAK_IF(true);
-			return false;
-		}
-	}
-	else
-	{
-		ParserLog::invalidXMLFileStructure("unkown property");
-		_IRR_DEBUG_BREAK_IF(true);
-		return false;
-	}
+		//{"focalLength",	noIdeaHowToProcessValue},
+		{"fov",				setFov},
+		{"fovAxis",			setFovAxis},
+		{"shutterOpen",		setShutterOpen},
+		{"shuttterClose",	setShutterClose},
+		{"nearClip",		setNearClip},
+		{"farClip",			setFarClip},
+		{"focusDistance",	setFocusDistance},
+		{"apertureRadius",	setApertureRadius}/*,
+		{"kc",				setKc}*/
+	};
 	
-	return true;
-}
 
-bool CElementSensor::processPerspectiveSensorProperties()
-{
-	for (const SPropertyElementData& property : properties)
+	auto found = SetPropertyMap.find(_property.name);
+	if (found==SetPropertyMap.end())
 	{
-		if (property.type == SPropertyElementData::Type::STRING &&
-			property.name == "focalLength")
-		{
-			data.perspectiveData.focalLength = property.value;
-		}
-		else
-		if (property.type == SPropertyElementData::Type::STRING &&
-			property.name == "fovAxis")
-		{
-			if (property.value == "x")	      data.perspectiveData.fovAxis = EFOVAxis::X; else
-			if (property.value == "y")        data.perspectiveData.fovAxis = EFOVAxis::Y; else
-			if (property.value == "diagonal") data.perspectiveData.fovAxis = EFOVAxis::DIAGONAL; else
-			if (property.value == "smaller")  data.perspectiveData.fovAxis = EFOVAxis::SMALLER; else
-			if (property.value == "larger")   data.perspectiveData.fovAxis = EFOVAxis::LARGER; else
-			{
-				ParserLog::invalidXMLFileStructure("unknown property");
-				_IRR_DEBUG_BREAK_IF(true);
-				return false;
-			}
-		}
-		else
-		if (property.type == SPropertyElementData::Type::FLOAT)
-		{
-			if (property.name == "fov")
-			{
-				data.perspectiveData.fov = CPropertyElementManager::retriveFloatValue(property.value);
-			}
-			else if (property.name == "nearClip")
-			{
-				data.perspectiveData.nearClip = CPropertyElementManager::retriveFloatValue(property.value);
-			}
-			else if (property.name == "farClip")
-			{
-				data.perspectiveData.farClip = CPropertyElementManager::retriveFloatValue(property.value);
-			}
-			else
-			{
-				ParserLog::invalidXMLFileStructure("unknown property");
-				_IRR_DEBUG_BREAK_IF(true);
-				return false;
-			}
-		}
-		else if(!processSharedDataProperty(property))
-		{
-			return false;
-		}
+		_IRR_DEBUG_BREAK_IF(true);
+		ParserLog::invalidXMLFileStructure("No Integrator can have such property set with name: "+_property.name);
+		return false;
 	}
 
-	return true;
+	found->second();
+	return !error;
 }
 
-bool CElementSensor::processThinlensSensorProperties()
+bool CElementSensor::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata)
 {
-	for (const SPropertyElementData& property : properties)
+	if (type == Type::INVALID)
 	{
-		if (property.type == SPropertyElementData::Type::STRING &&
-			property.name == "focalLength")
-		{
-			data.perspectiveData.focalLength = property.value;
-		}
-		else
-		if (property.type == SPropertyElementData::Type::STRING &&
-			property.name == "fovAxis")
-		{
-			if (property.value == "x")	      data.thinlensData.fovAxis = EFOVAxis::X; else
-			if (property.value == "y")        data.thinlensData.fovAxis = EFOVAxis::Y; else
-			if (property.value == "diagonal") data.thinlensData.fovAxis = EFOVAxis::DIAGONAL; else
-			if (property.value == "smaller")  data.thinlensData.fovAxis = EFOVAxis::SMALLER; else
-			if (property.value == "larger")   data.thinlensData.fovAxis = EFOVAxis::LARGER; else
-			{
-				ParserLog::invalidXMLFileStructure("unknown property");
-				_IRR_DEBUG_BREAK_IF(true);
-				return false;
-			}
-		}
-		else
-		if (property.type == SPropertyElementData::Type::FLOAT)
-		{
-			if (property.name == "fov")
-			{
-				data.thinlensData.fov = CPropertyElementManager::retriveFloatValue(property.value);
-			}
-			else if (property.name == "nearClip")
-			{
-				data.thinlensData.nearClip = CPropertyElementManager::retriveFloatValue(property.value);
-			}
-			else if (property.name == "farClip")
-			{
-				data.thinlensData.farClip = CPropertyElementManager::retriveFloatValue(property.value);
-			}
-			else if (property.name == "apertureRadius")
-			{
-				data.thinlensData.apertureRadius = CPropertyElementManager::retriveFloatValue(property.value);
-			}
-			else if (property.name == "focusDistance")
-			{
-				data.thinlensData.focusDistance = CPropertyElementManager::retriveFloatValue(property.value);
-			}
-			else
-			{
-				ParserLog::invalidXMLFileStructure("unknown property");
-				_IRR_DEBUG_BREAK_IF(true);
-				return false;
-			}
-		}
-		else if(!processSharedDataProperty(property))
-		{
-			return false;
-		}
+		ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
+		_IRR_DEBUG_BREAK_IF(true);
+		return true;
 	}
 
-	return true;
-}
+	// TODO: some validation
 
-bool CElementSensor::processOrthographicSensorProperties()
-{
-	for (const SPropertyElementData& property : properties)
-	{
-		if (property.type == SPropertyElementData::Type::FLOAT)
-		{
-			
-			if (property.name == "nearClip")
-			{
-				data.perspectiveData.nearClip = CPropertyElementManager::retriveFloatValue(property.value);
-			}
-			else if (property.name == "farClip")
-			{
-				data.perspectiveData.farClip = CPropertyElementManager::retriveFloatValue(property.value);
-			}
-			else
-			{
-				ParserLog::invalidXMLFileStructure("unknown property");
-				_IRR_DEBUG_BREAK_IF(true);
-				return false;
-			}
-		}
-		else if(!processSharedDataProperty(property))
-		{
-			return false;
-		}
-	}
+	// add to global metadata
+	globalMetadata->sensors.push_back(*this);
 
 	return true;
 }
-
-bool CElementSensor::processTelecentricSensorProperties()
-{
-	for (const SPropertyElementData& property : properties)
-	{
-		if (property.type == SPropertyElementData::Type::FLOAT)
-		{
-			
-			if (property.name == "nearClip")
-			{
-				data.perspectiveData.nearClip = CPropertyElementManager::retriveFloatValue(property.value);
-			}
-			else if (property.name == "farClip")
-			{
-				data.perspectiveData.farClip = CPropertyElementManager::retriveFloatValue(property.value);
-			}
-			else if (property.name == "apertureRadius")
-			{
-				data.telecentricData.apertureRadius = CPropertyElementManager::retriveFloatValue(property.value);
-			}
-			else if (property.name == "focusDistance")
-			{
-				data.telecentricData.focusDistance = CPropertyElementManager::retriveFloatValue(property.value);
-			}
-			else
-			{
-				ParserLog::invalidXMLFileStructure("unknown property");
-				_IRR_DEBUG_BREAK_IF(true);
-				return false;
-			}
-		}
-		else if(!processSharedDataProperty(property))
-		{
-			return false;
-		}
-	}
-
-	return true;
-}
-
 
 }
 }

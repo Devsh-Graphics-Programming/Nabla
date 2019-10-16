@@ -2,7 +2,6 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#include "irr/core/core.h"
 
 #ifdef _IRR_COMPILE_WITH_STL_LOADER_
 

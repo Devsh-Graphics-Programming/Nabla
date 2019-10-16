@@ -152,10 +152,8 @@ set(IRRLICHT_SRCS_COMMON
 	CReadFile.cpp
 	CWriteFile.cpp
 	CMountPointReader.cpp
-	CNPKReader.cpp
 	CPakReader.cpp
 	CTarReader.cpp
-	CWADReader.cpp
 	CZipReader.cpp
 
 # Other

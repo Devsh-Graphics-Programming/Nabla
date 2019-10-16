@@ -399,7 +399,7 @@ int main()
 		if (time-lastFPSTime > 1000)
 		{
 			std::wostringstream str;
-			str << L"Builtin Nodes Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
+			str << L"MultiDrawIndirect Benchmark - Irrlicht Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
 
 			device->setWindowCaption(str.str());
 			lastFPSTime = time;
