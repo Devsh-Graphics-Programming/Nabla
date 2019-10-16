@@ -84,10 +84,36 @@ public:
     {
         return &m_indexBufferBinding;
     }	
+	[[nodiscard]] inline bool setVertexBufferBinding(SBufferBinding&& bufferBinding, uint32_t bindingIndex, uint32_t stride, E_VERTEX_INPUT_RATE inputRate = E_VERTEX_INPUT_RATE::EVIR_PER_VERTEX)
+	{
+		if (stride >= 2048ull || bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT)
+			return false;
+
+		m_vertexBufferBindings[bindingIndex].buffer = std::move(bufferBinding.buffer);
+		m_vertexBufferBindings[bindingIndex].offset = bufferBinding.offset;
+
+		auto& binding(m_pipeline->getVertexInputParams().bindings[bindingIndex]);
+		binding.stride = stride;
+		binding.inputRate = inputRate;
+
+		return true;
+	}
 	inline void setIndexBufferBinding(SBufferBinding&& bufferBinding)
 	{
 		m_indexBufferBinding.buffer = std::move(bufferBinding.buffer);
 		m_indexBufferBinding.offset = bufferBinding.offset;
+	}
+	[[nodiscard]] inline bool setVertexAttribFormat(uint32_t attribIndex, uint32_t bindingIndex, E_FORMAT format, uint32_t relativeOffset)
+	{
+		if (attribIndex >= MAX_VERTEX_ATTRIB_COUNT || bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT || relativeOffset >= 2048ull)
+			return false;
+
+		auto& attribute(m_pipeline->getVertexInputParams().attributes[attribIndex]);
+		attribute.binding = bindingIndex;
+		attribute.format = format;
+		attribute.relativeOffset = relativeOffset;
+
+		return true;
 	}
     inline ICPURenderpassIndependentPipeline* getPipeline()
     {
@@ -97,38 +123,6 @@ public:
     {
         return m_descriptorSet.get();
     }
-	inline void setVertexAttrBuffer(SBufferBinding&& bufferBinding, uint16_t attribIndex, E_FORMAT format, uint32_t stride, uint32_t offset)
-	{
-		auto areParamsInValidRange = [&]()
-		{
-			auto isParamValid = [](const uint32_t &value, const uint32_t &maxRange)
-			{
-				if (value <= maxRange)
-					return true;
-				else
-					return false;
-			};
-			
-			const static std::array<std::pair<uint32_t, uint32_t>, 3> valuesAndAssignedMaxRanges({ std::make_pair(attribIndex, SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT), std::make_pair(stride, 2047ull), std::make_pair(offset, 2047ull) });
-			for (auto& it : valuesAndAssignedMaxRanges)
-				if (!isParamValid(it.first, it.second))
-					return false;
-
-			return true;
-		};
-
-		if (areParamsInValidRange())
-		{
-			auto& params(getPipeline()->getVertexInputParams());
-
-			setIndexBufferBinding(std::move(bufferBinding));
-			params.attributes[attribIndex].binding = attribIndex;
-			params.attributes[attribIndex].format = format;
-			params.attributes[attribIndex].relativeOffset = offset;
-			params.bindings[attribIndex].stride = stride;
-		}
-	}
-
     inline size_t calcVertexSize() const
     {
         if (!m_pipeline)

@@ -151,11 +151,12 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
 		/// TODO attribute should be determined by enum that may be helpful eg. E_POS might be assigned to attrib 0 -> want to get rid of ugly literals
 		static std::array<std::tuple<uint16_t, E_FORMAT, uint32_t>, 3> perIndexDataThatChanges{std::make_tuple(0, asset::EF_R32G32B32_SFLOAT, 0), std::make_tuple(3, asset::EF_A2B10G10R10_SNORM_PACK32, 12), std::make_tuple(1, asset::EF_B8G8R8A8_UNORM, 16) };
+		meshbuffer->setVertexBufferBinding(std::move(bufferBinding), 0ull, vtxSize);
 		for(auto& attributeIndexExtra = perIndexDataThatChanges.begin(); attributeIndexExtra != perIndexDataThatChanges.end() - (hasColor ? 0 : 1); ++attributeIndexExtra)
-			[&](auto attribIndex, auto formatToSend, auto offsetToSend)
+			[&](auto attribIndex, auto formatToSend, auto offsetToSend, auto bindingIndex)
 			{
-				meshbuffer->setVertexAttrBuffer(std::move(bufferBinding), attribIndex, formatToSend, vtxSize, offsetToSend);
-			}(std::get<0>(*attributeIndexExtra), std::get<1>(*attributeIndexExtra), std::get<2>(*attributeIndexExtra));
+				meshbuffer->setVertexAttribFormat(attribIndex, bindingIndex, formatToSend, offsetToSend);
+			}(std::get<0>(*attributeIndexExtra), std::get<1>(*attributeIndexExtra), std::get<2>(*attributeIndexExtra), 0ull);
 	}
 
 	mesh->addMeshBuffer(std::move(meshbuffer));

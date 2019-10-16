@@ -384,7 +384,6 @@ bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, 
 	return result;
 }
 
-
 bool CPLYMeshFileLoader::readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices)
 {
 	if (!_ctx.IsBinaryFile)
@@ -573,17 +572,18 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 
 	{
 		const static std::array<std::pair<uint16_t, E_FORMAT>, 4> perIndexDataThatChanges{std::make_pair(E_POS, asset::EF_R32G32B32_SFLOAT), std::make_pair(E_COL, asset::EF_R32G32B32A32_SFLOAT), std::make_pair(E_UV, asset::EF_R32G32_SFLOAT), std::make_pair(E_NORM, asset::EF_R32G32B32_SFLOAT)};
+		_mbuf->setVertexBufferBinding(std::move(bufferBinding), 0ull, stride);
 
 		for (const auto& attributeIndexExtra : perIndexDataThatChanges)
-			[&](auto attribIndex, auto formatToSend, auto offsetIndex)
+			[&](auto attribIndex, auto formatToSend, auto offsetIndex, auto bindingIndex)
 			{
 				if (sizes[attribIndex])
 				{
-					_mbuf->setVertexAttrBuffer(std::move(bufferBinding), attribIndex, formatToSend, stride, offsets[offsetIndex]);
+					_mbuf->setVertexAttribFormat(attribIndex, bindingIndex, formatToSend, offsets[offsetIndex]);
 					putAttr(_mbuf, attribIndex);
 				}
 
-			}(attributeIndexExtra.first, attributeIndexExtra.second, attributeIndexExtra.first);
+			}(attributeIndexExtra.first, attributeIndexExtra.second, attributeIndexExtra.first, 0ull);
 	}
 
     return true;
