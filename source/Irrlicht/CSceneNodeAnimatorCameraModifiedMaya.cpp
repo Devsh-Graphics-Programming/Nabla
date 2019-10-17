@@ -251,16 +251,16 @@ namespace irr
 				}
 				else
 				{
-					nRotX += (RotateStart.X - MousePos.X) * RotateSpeed;
-					nRotY += (RotateStart.Y - MousePos.Y) * RotateSpeed;
+					nRotX += (MousePos.X - RotateStart.X) * RotateSpeed;
+					nRotY += (MousePos.Y - RotateStart.Y) * RotateSpeed;
 				}
 			}
 			else
 			{
 				if (Rotating)
 				{
-					RotX += (RotateStart.X - MousePos.X) * RotateSpeed;
-					RotY += (RotateStart.Y - MousePos.Y) * RotateSpeed;
+					RotX += (MousePos.X - RotateStart.X) * RotateSpeed;
+					RotY += (MousePos.Y - RotateStart.Y) * RotateSpeed;
 					nRotX = RotX;
 					nRotY = RotY;
 					
