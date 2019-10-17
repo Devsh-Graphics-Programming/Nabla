@@ -184,7 +184,10 @@ namespace irr
 			tvectX -= camera->getTarget();
 
 			core::vectorSIMDf other = tvectX;
-			tvectX = core::normalize(core::cross(tvectX,camera->getUpVector()));
+			if(camera->getLeftHanded())
+				tvectX = core::normalize(core::cross(tvectX,camera->getUpVector()));
+			else
+				tvectX = core::normalize(core::cross(camera->getUpVector(), tvectX));
 
 			core::vectorSIMDf tvectY = va->getFarLeftDown() - va->getFarRightDown();
 			if (camera->getUpVector().Y<0.f)
@@ -238,6 +241,15 @@ namespace irr
 			}
 
 			// Rotation ------------------------------------
+
+			auto getValueDependentOnHandOrientation = [&](const float& expression)
+			{
+				if (camera->getLeftHanded())
+					return expression;
+				else
+					return -expression;
+			};
+
 			if (isMouseKeyDown(0) && !(StepZooming || Zooming))
 			{
 				if (!Rotating)
@@ -246,21 +258,20 @@ namespace irr
 					
 					Rotating = true;
 					nRotX = RotX;
-					nRotY = RotY;
-					
+					nRotY = RotY;	
 				}
 				else
 				{
-					nRotX += (MousePos.X - RotateStart.X) * RotateSpeed;
-					nRotY += (MousePos.Y - RotateStart.Y) * RotateSpeed;
+					nRotX += getValueDependentOnHandOrientation((RotateStart.X - MousePos.X) * RotateSpeed);
+					nRotY += getValueDependentOnHandOrientation((RotateStart.Y - MousePos.Y) * RotateSpeed);
 				}
 			}
 			else
 			{
 				if (Rotating)
 				{
-					RotX += (MousePos.X - RotateStart.X) * RotateSpeed;
-					RotY += (MousePos.Y - RotateStart.Y) * RotateSpeed;
+					RotX += getValueDependentOnHandOrientation((RotateStart.X - MousePos.X) * RotateSpeed);
+					RotY += getValueDependentOnHandOrientation((RotateStart.Y - MousePos.Y) * RotateSpeed);
 					nRotX = RotX;
 					nRotY = RotY;
 					

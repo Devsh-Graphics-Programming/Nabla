@@ -162,7 +162,10 @@ void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *no
 	core::vector3df_SIMD pos,tvectX;
 	pos.getAsVector3df() = camera->getPosition();
 	tvectX = pos - target;
-	tvectX = normalize(cross(tvectX,upVector));
+	if (camera->getLeftHanded())
+		tvectX = normalize(cross(tvectX,upVector));
+	else
+		tvectX = normalize(cross(upVector, tvectX));
 
 	const SViewFrustum* const va = camera->getViewFrustum();
 	core::vector3df_SIMD tvectY = (va->getFarLeftDown() - va->getFarRightDown());
@@ -191,6 +194,14 @@ void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *no
 
 	// Rotation ------------------------------------
 
+	auto getValueDependentOnHandOrientation = [&](const float& expression)
+	{
+		if (camera->getLeftHanded())
+			return expression;
+		else
+			return -expression;
+	};
+
 	if (isMouseKeyDown(0) && !Zooming)
 	{
 		if (!Rotating)
@@ -202,14 +213,14 @@ void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *no
 		}
 		else
 		{
-			nRotX += (MousePos.X - RotateStart.X) * RotateSpeed;
-			nRotY += (MousePos.Y - RotateStart.Y) * RotateSpeed;
+			nRotX += getValueDependentOnHandOrientation((RotateStart.X - MousePos.X) * RotateSpeed);
+			nRotY += getValueDependentOnHandOrientation((RotateStart.Y - MousePos.Y) * RotateSpeed);
 		}
 	}
 	else if (Rotating)
 	{
-		RotX += (MousePos.X - RotateStart.X) * RotateSpeed;
-		RotY += (MousePos.Y - RotateStart.Y) * RotateSpeed;
+		RotX += getValueDependentOnHandOrientation((RotateStart.X - MousePos.X) * RotateSpeed);
+		RotY += getValueDependentOnHandOrientation((RotateStart.Y - MousePos.Y) * RotateSpeed);
 		nRotX = RotX;
 		nRotY = RotY;
 		Rotating = false;
