@@ -3047,7 +3047,13 @@ void COpenGLDriver::clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, c
 
 void COpenGLDriver::clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals)
 {
-    //TODO what to do here??
+    auto ctx = getThreadContext_helper(false);
+    if (!ctx)
+        return;
+
+    GLboolean rasterDiscard;
+    GLboolean colorWmask[4];
+    clearColor_gatherAndOverrideState(ctx, 0u, &rasterDiscard, colorWmask);
     switch (buffer)
     {
         case ESB_BACK_LEFT:
@@ -3063,10 +3069,17 @@ void COpenGLDriver::clearScreen(const E_SCREEN_BUFFERS &buffer, const float* val
             extGlClearNamedFramebufferfv(0,GL_COLOR,0,vals);
             break;
     }
+    clearColor_bringbackState(ctx, 0u, rasterDiscard, colorWmask);
 }
 void COpenGLDriver::clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals)
 {
-    //TODO what to do here??
+    auto ctx = getThreadContext_helper(false);
+    if (!ctx)
+        return;
+
+    GLboolean rasterDiscard;
+    GLboolean colorWmask[4];
+    clearColor_gatherAndOverrideState(ctx, 0u, &rasterDiscard, colorWmask);
     switch (buffer)
     {
         case ESB_BACK_LEFT:
@@ -3082,6 +3095,7 @@ void COpenGLDriver::clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* 
             extGlClearNamedFramebufferuiv(0,GL_COLOR,0,vals);
             break;
     }
+    clearColor_bringbackState(ctx, 0u, rasterDiscard, colorWmask);
 }
 
 //! Enable/disable a clipping plane.
