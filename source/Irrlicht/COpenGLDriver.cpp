@@ -1709,6 +1709,8 @@ bool COpenGLDriver::queryFeature(const E_DRIVER_FEATURE &feature) const
             return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_bindless_texture]||Version>=450;
         case EDF_DYNAMIC_SAMPLER_INDEXING:
             return queryFeature(EDF_BINDLESS_TEXTURE);
+        case EDF_INPUT_ATTACHMENTS:
+            return COpenGLExtensionHandler::FeatureAvailable[IRR_EXT_shader_pixel_local_storage];
         default:
             break;
 	};

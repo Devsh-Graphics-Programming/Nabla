@@ -67,6 +67,9 @@ namespace video
             //! Whether we can index samplers dynamically in a shader (automatically true if bindless is enabled)
             EDF_DYNAMIC_SAMPLER_INDEXING,
 
+            //! A way to pass information between fragment shader invocations covering the same pixel
+            EDF_INPUT_ATTACHMENTS,
+
             //other feature ideas are; bindless buffers, sparse texture, sparse texture 2
 
             //! Only used for counting the elements of this enum
