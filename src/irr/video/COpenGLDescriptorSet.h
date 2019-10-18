@@ -49,11 +49,20 @@ public:
     };
 
 public:
-    COpenGLDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<SWriteDescriptorSet>&& _descriptors)
-        : IGPUDescriptorSet(std::move(_layout), std::move(_descriptors))
-    {
-        assert(m_descriptors->size() == m_layout->getBindings().length());
+    using IGPUDescriptorSet::IGPUDescriptorSet;
 
+    void updateDescriptorSet(uint32_t _writeCount, const SWriteDescriptorSet* _descWrites, uint32_t _copyCount, const SCopyDescriptorSet* _descCopies) override
+    {
+        IGPUDescriptorSet::updateDescriptorSet(_writeCount, _descWrites, _copyCount, _descCopies);
+        m_multibindParams = SMultibindParams();
+        recalcMultibindParams();
+    }
+
+    const SMultibindParams& getMultibindParams() const { return m_multibindParams; }
+
+private:
+    void recalcMultibindParams()
+    {
         size_t uboCount = 0ull;//includes dynamics
         size_t ssboCount = 0ull;//includes dynamics
         size_t textureCount = 0ull;
@@ -196,9 +205,6 @@ public:
         }
     }
 
-    const SMultibindParams& getMultibindParams() const { return m_multibindParams; }
-
-private:
     SMultibindParams m_multibindParams;
     core::smart_refctd_dynamic_array<GLuint> m_names;
     core::smart_refctd_dynamic_array<GLintptr> m_offsets;

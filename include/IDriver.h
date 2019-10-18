@@ -154,6 +154,11 @@ namespace video
                 return nullptr;
             }
 
+            virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout)
+            {
+                return nullptr;
+            }
+
             //! Best for Mesh data, UBOs, SSBOs, etc.
             virtual IDriverMemoryAllocation* allocateDeviceLocalMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
 

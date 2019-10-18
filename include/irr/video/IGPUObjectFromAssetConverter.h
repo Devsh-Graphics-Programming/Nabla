@@ -554,14 +554,15 @@ inline created_gpu_object_array<asset::ICPURenderpassIndependentPipeline> IGPUOb
         IGPUPipelineLayout* layout = (*gpuLayouts)[layoutRedirs[i]].get();
 
         IGPUSpecializedShader* shaders[SHADER_STAGE_COUNT]{};
+        size_t local_shdr_count = 0ull;
         for (size_t s = 0ull; s < SHADER_STAGE_COUNT; ++s)
             if (cpuppln->getShaderAtIndex(static_cast<asset::ICPURenderpassIndependentPipeline::E_SHADER_STAGE_IX>(s)))
-                shaders[s] = (*gpuShaders)[shdrRedirs[shdrIter++]].get();
+                shaders[local_shdr_count++] = (*gpuShaders)[shdrRedirs[shdrIter++]].get();
 
         (*res)[i] = m_driver->createGPURenderpassIndependentPipeline(
             nullptr,
             core::smart_refctd_ptr<IGPUPipelineLayout>(layout),
-            shaders,
+            shaders, shaders+local_shdr_count,
             cpuppln->getVertexInputParams(),
             cpuppln->getBlendParams(),
             cpuppln->getPrimitiveAssemblyParams(),
@@ -698,8 +699,8 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     {
         asset::ICPUDescriptorSet* cpuds = _begin[i];
 
-        using SGPUWriteDescriptorSet = IGPUDescriptorSet::SWriteDescriptorSet;
-        using gpu_descriptors_array = core::smart_refctd_dynamic_array<SGPUWriteDescriptorSet>;
+        using SGPUDescriptorBinding = IGPUDescriptorSet::SDescriptorBinding;
+        using gpu_descriptors_array = core::smart_refctd_dynamic_array<SGPUDescriptorBinding>;
         auto gpudescriptors = core::make_refctd_dynamic_array<gpu_descriptors_array>(cpuds->getDescriptors().length());
 
         for (size_t d = 0ull; d < gpudescriptors->size(); ++d, ++di)
