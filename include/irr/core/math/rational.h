@@ -7,14 +7,14 @@
 
 #include <type_traits>
 
-#include "irr/core/math/irrMath.h"
+//#include "irr/core/math/irrMath.h"
 
 namespace irr
 {
 namespace core
 {
 
-template<typename NumeratorType=int32_t, typename DenominatorType=std::make_unsigned<NumeratorType>::type>
+template<typename NumeratorType=int32_t, typename DenominatorType=typename std::make_unsigned<NumeratorType>::type>
 class rational
 {
 		using this_type = rational<NumeratorType,DenominatorType>;
@@ -64,7 +64,7 @@ class rational
 		}
 };
 
-template<typename NumeratorType = int32_t, typename DenominatorType = std::make_unsigned<NumeratorType>::type>
+template<typename NumeratorType = int32_t, typename DenominatorType = typename std::make_unsigned<NumeratorType>::type>
 rational<NumeratorType,DenominatorType> operator*(const NumeratorType& val, rational<NumeratorType, DenominatorType> const& _this) { return _this * val; }
 
 } // end namespace core

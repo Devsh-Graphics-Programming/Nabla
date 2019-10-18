@@ -7,8 +7,6 @@
 
 #include "IrrCompileConfig.h"
 
-#include "irr/core/math/irrMath.h"
-
 #include "irr/core/alloc/AddressAllocatorBase.h"
 
 namespace irr

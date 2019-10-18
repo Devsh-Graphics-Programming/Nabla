@@ -11,6 +11,7 @@
 #include "dimension2d.h"
 #include "position2d.h"
 #include "IDriverFence.h"
+#include "ITransformFeedback.h"
 #include "SExposedVideoData.h"
 #include "IDriver.h"
 #include "irr/video/CDerivativeMapCreator.h"
@@ -121,8 +122,8 @@ namespace video
 
         virtual bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) = 0;
 
-        virtual bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType,uint32_t _first, uint32_t _count,
-            video::IGPUDescriptorSet** _descSets, uint32_t _dynOffsetCount, const uint32_t* _dynOffsets) = 0;
+        virtual bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
+            uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) = 0;
 
 		//! Applications must call this method before performing any rendering.
 		/** This method can clear the back- and the z-buffer.
@@ -172,7 +173,7 @@ namespace video
 		virtual const core::matrix4SIMD& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state) =0;
 
         //! A.
-        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size,
+        virtual IMultisampleTexture* createMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size,
                                                            asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false) {return nullptr;}
 
 		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
@@ -181,13 +182,7 @@ namespace video
 										core::recti dstRect=core::recti(0,0,0,0),
 										bool bilinearFilter=false) = 0;
 
-		virtual void removeMultisampleTexture(IMultisampleTexture* tex) =0;
-
         virtual void removeFrameBuffer(IFrameBuffer* framebuf) = 0;
-
-		virtual void removeAllMultisampleTextures() =0;
-
-		virtual void removeAllTextureBufferObjects() =0;
 
 		//! This only removes all IFrameBuffers created in the calling thread.
 		virtual void removeAllFrameBuffers() =0;
@@ -196,8 +191,6 @@ namespace video
 		//! Queries
 		virtual void beginQuery(IQueryObject* query) = 0;
 		virtual void endQuery(IQueryObject* query) = 0;
-		virtual void beginQuery(IQueryObject* query, const size_t& index) = 0;
-		virtual void endQuery(IQueryObject* query, const size_t& index) = 0;
 
 		//! Sets new multiple render targets.
 		virtual bool setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewport=true) = 0;

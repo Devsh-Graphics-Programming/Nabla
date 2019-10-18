@@ -53,8 +53,11 @@ namespace video
 
         bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override { return false; }
 
-        bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, uint32_t _first, uint32_t _count,
-            video::IGPUDescriptorSet** _descSets, uint32_t _dynOffsetCount, const uint32_t* _dynOffsets) override { return false; }
+        bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
+            uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override 
+        { 
+            return false; 
+        }
 
 		//!
         virtual bool initAuxContext() {return false;}
@@ -178,13 +181,7 @@ namespace video
 		//! driver, it would return "Direct3D8.1".
 		virtual const wchar_t* getName() const;
 
-		virtual void removeMultisampleTexture(IMultisampleTexture* tex);
-
 		virtual void removeFrameBuffer(IFrameBuffer* framebuf);
-
-		virtual void removeAllMultisampleTextures();
-
-		virtual void removeAllTextureBufferObjects();
 
 		virtual void removeAllFrameBuffers();
 
@@ -337,11 +334,12 @@ namespace video
         uint32_t getMaxImageBindings() const override { return 0u; }
 
 	protected:
-        void addMultisampleTexture(IMultisampleTexture* tex);
-
 		//! returns a device dependent texture from a software surface (IImage)
 		//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
 		virtual core::smart_refctd_ptr<video::ITexture> createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM);
+
+        void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets,
+            const IGPUPipelineLayout** _destPplnLayouts);
 
 		// prints renderer version
 		void printVersion();
@@ -400,10 +398,7 @@ namespace video
                 virtual size_t getBoundMemoryOffset() const {return 0u;}
 		};
 
-		core::vector<IMultisampleTexture*> MultisampleTextures;
-
-
-        IQueryObject* currentQuery[EQOT_COUNT][_IRR_XFORM_FEEDBACK_MAX_STREAMS_];
+        IQueryObject* currentQuery[EQOT_COUNT];
 
 		io::IFileSystem* FileSystem;
 

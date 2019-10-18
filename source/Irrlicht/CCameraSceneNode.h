@@ -19,9 +19,9 @@ namespace scene
 	public:
 
 		//! constructor
-		CCameraSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
-			const core::vector3df& position = core::vector3df(0,0,0),
-			const core::vector3df& lookat = core::vector3df(0,0,100));
+		CCameraSceneNode(	IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
+							const core::vector3df& position = core::vector3df(0,0,0),
+							const core::vectorSIMDf& lookat = core::vectorSIMDf(0,0,100));
 
 		//! Sets the projection matrix of the camera.
 		virtual void setProjectionMatrix(const core::matrix4SIMD& projection);
@@ -47,7 +47,7 @@ namespace scene
 		/** If the camera's target and rotation are bound ( @see bindTargetAndRotation() )
 		then calling this will also change the camera's scene node rotation to match the target.
 		\param pos: Look at target of the camera. */
-		virtual void setTarget(const core::vector3df& pos);
+		virtual void setTarget(const core::vector3df& pos) override;
 
 		//! Sets the rotation of the node.
 		/** This only modifies the relative rotation of the node.
@@ -58,7 +58,7 @@ namespace scene
 
 		//! Gets the current look at target of the camera
 		/** \return The current look at target of the camera */
-		virtual const core::vector3df& getTarget() const;
+		virtual const core::vectorSIMDf& getTarget() const override;
 
 		//! Sets the up vector of the camera.
 		//! \param pos: New upvector of the camera.
@@ -66,7 +66,7 @@ namespace scene
 
 		//! Gets the up vector of the camera.
 		//! \return Returns the up vector of the camera.
-		virtual const core::vector3df& getUpVector() const;
+		virtual const core::vectorSIMDf& getUpVector() const override;
 
 		//! Gets distance from the camera to the near plane.
 		//! \return Value of the near plane of the camera.
@@ -133,8 +133,8 @@ namespace scene
 		void recalculateProjectionMatrix();
 		void recalculateViewArea();
 
-		core::vector3df Target;
-		core::vector3df UpVector;
+		core::vectorSIMDf Target;
+		core::vectorSIMDf UpVector;
 
 		float Fovy;	// Field of view, in radians.
 		float Aspect;	// Aspect ratio.

@@ -27,6 +27,7 @@ class IDescriptorSetLayout
 public:
     struct SBinding
     {
+        uint32_t binding;
         E_DESCRIPTOR_TYPE type;
         uint32_t count;
         E_SHADER_STAGE stageFlags;
@@ -34,6 +35,8 @@ public:
 
         bool operator==(const SBinding& rhs) const
         {
+            if (binding != rhs.binding)
+                return false;
             if (type != rhs.type)
                 return false;
             if (count != rhs.type)

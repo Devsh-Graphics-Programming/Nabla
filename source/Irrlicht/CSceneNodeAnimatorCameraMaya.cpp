@@ -153,11 +153,11 @@ void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *no
 
 	// Translation ---------------------------------
 
-	core::vector3df translate(OldTarget);
+	core::vector3df_SIMD translate(OldTarget);
 
 	core::vector3df_SIMD target,upVector;
-	upVector.getAsVector3df() = camera->getUpVector();
-	target.getAsVector3df() = camera->getTarget();
+	upVector = camera->getUpVector();
+	target = camera->getTarget();
 
 	core::vector3df_SIMD pos,tvectX;
 	pos.getAsVector3df() = camera->getPosition();
@@ -177,14 +177,14 @@ void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *no
 		}
 		else
 		{
-			translate +=  tvectX.getAsVector3df() * (TranslateStart.X - MousePos.X)*TranslateSpeed +
-			              tvectY.getAsVector3df() * (TranslateStart.Y - MousePos.Y)*TranslateSpeed;
+			translate +=  tvectX * (TranslateStart.X - MousePos.X)*TranslateSpeed +
+			              tvectY * (TranslateStart.Y - MousePos.Y)*TranslateSpeed;
 		}
 	}
 	else if (Translating)
 	{
-		translate += tvectX.getAsVector3df() * (TranslateStart.X - MousePos.X)*TranslateSpeed +
-		             tvectY.getAsVector3df() * (TranslateStart.Y - MousePos.Y)*TranslateSpeed;
+		translate += tvectX * (TranslateStart.X - MousePos.X)*TranslateSpeed +
+		             tvectY * (TranslateStart.Y - MousePos.Y)*TranslateSpeed;
 		OldTarget = translate;
 		Translating = false;
 	}
@@ -217,14 +217,14 @@ void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *no
 
 	// Set pos ------------------------------------
 
-	pos.getAsVector3df() = translate;
+	pos = translate;
 	pos.X += nZoom;
 
-	pos.getAsVector3df().rotateXYBy(nRotY, translate);
-	pos.getAsVector3df().rotateXZBy(-nRotX, translate);
+	pos.rotateXYByRAD( core::radians(nRotY), translate);
+	pos.rotateXZByRAD(-core::radians(nRotX), translate);
 
 	camera->setPosition(pos.getAsVector3df());
-	camera->setTarget(translate);
+	camera->setTarget(translate.getAsVector3df());
 
 	// Rotation Error ----------------------------
 

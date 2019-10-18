@@ -28,11 +28,14 @@ There's also a skype support group, reach @devsh for a private invite.
 The authors of IrrlichtBAW are:
 - Mateusz Kielan [@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming) (Lead)
 - Krzysztof Szenk [@crisspl](https://github.com/Crisspl) (Core Engineer)
-- Przemysław Pachytel [@Przemog1](https://github.com/Przemog1) (Junior Programmer)
+- Arkadiusz Lechowicz [@AnastaZIuk](https://github.com/AnastaZIuk) (Junior Programmer)
+- [@khom-khun](https://github.com/khom-khun) for Bullet Physics Extension + Example and [the irrBaW-test repository of easy to understand demos](https://github.com/khom-khun/irrBAW-test)
+- Søren Gronbech 
+
+Past Authors and Contributors:
+- Przemysław Pachytel [@Przemog1](https://github.com/Przemog1) (Geometry Manipulation and Algorithms, Two Button Mouse Maya Camera, Initial Mitsuba Loader work)
 - [@manhnt9](https://github.com/manhnt9) Nguyễn Tiến Mạnh (CEGUI, Build System and Radeon Rays investigations)
 - [@florastamine](https://github.com/florastamine) Nguyễn Ngọc Huy (sRGB-Correct Image Loaders, CEGUI and BRDF Explorer GUI)
-- [@khom-khun](https://github.com/khom-khun) for the pending Bullet Physics Extension and [the irrBaW-test repository of easy to understand demos](https://github.com/khom-khun/irrBAW-test)
-- Søren Gronbech 
 
 Words of appreciation for developers developers whose software has been used in IrrlichtBAW, currently and in the past:
 - The initial Irrlicht 1.8.3 codebase

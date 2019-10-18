@@ -26,7 +26,7 @@ public:
 
     COpenGLSpecializedShader(size_t _ctxCount, uint32_t _ctxID, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection);
 
-    inline GLuint getGLnameForCtx(uint32_t _ctxID)
+    inline GLuint getGLnameForCtx(uint32_t _ctxID) const
     {
         if ((*m_GLnames)[_ctxID])
             return (*m_GLnames)[_ctxID];
@@ -39,7 +39,7 @@ public:
 
     void setUniformsImitatingPushConstants(const uint8_t* _pcData, GLuint _GLname);
 
-    inline GLenum getStage() const { return m_stage; }
+    inline GLenum getOpenGLStage() const { return m_GLstage; }
 
 protected:
     ~COpenGLSpecializedShader()
@@ -55,8 +55,8 @@ private:
     void buildUniformsList(GLuint _GLname);
 
 private:
-    core::smart_refctd_dynamic_array<GLuint> m_GLnames;
-    GLenum m_stage;
+    mutable core::smart_refctd_dynamic_array<GLuint> m_GLnames;
+    GLenum m_GLstage;
     //! Held until compilation of shader
     core::smart_refctd_ptr<const asset::ICPUBuffer> m_spirv;
     //! Held until compilation of shader

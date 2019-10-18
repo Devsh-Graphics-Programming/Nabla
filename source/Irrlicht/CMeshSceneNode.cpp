@@ -22,7 +22,7 @@ CMeshSceneNode::CMeshSceneNode(core::smart_refctd_ptr<video::IGPUMesh>&& mesh, I
 			const core::vector3df& position, const core::vector3df& rotation,
 			const core::vector3df& scale)
 : IMeshSceneNode(parent, mgr, id, position, rotation, scale), Mesh(),
-	PassCount(0), ReferencingMeshMaterials(true)
+	PassCount(0)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("CMeshSceneNode");
@@ -49,14 +49,14 @@ void CMeshSceneNode::OnRegisterSceneNode()
 		int solidCount = 0;
 
 		// count transparent and solid materials in this scene node
-		if (ReferencingMeshMaterials && Mesh)
+		if (Mesh)
 		{
 			// count mesh materials
 
 			for (uint32_t i=0; i<Mesh->getMeshBufferCount(); ++i)
 			{
-                video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
-				if (!mb || mb->getIndexCount()<1u)
+        video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
+				if (!mb || mb->getIndexCount()<1)
                     continue;
 
 				video::IMaterialRenderer* rnd = driver->getMaterialRenderer(0);
@@ -70,29 +70,6 @@ void CMeshSceneNode::OnRegisterSceneNode()
 					break;
 			}
 		}
-		else
-		{
-			// count copied materials
-
-			for (uint32_t i=0; i<Materials.size(); ++i)
-			{
-                video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
-				if (!mb || mb->getIndexCount()<1u)
-                    continue;
-
-				video::IMaterialRenderer* rnd =
-					driver->getMaterialRenderer(0);
-
-				if (rnd && rnd->isTransparent())
-					++transparentCount;
-				else
-					++solidCount;
-
-				if (solidCount && transparentCount)
-					break;
-			}
-		}
-
 		// register according to material types counted
 
 		if (solidCount)
@@ -128,7 +105,7 @@ void CMeshSceneNode::render()
             video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
             if (mb)
             {
-                const video::SGPUMaterial& material = ReferencingMeshMaterials ? mb->getMaterial() : Materials[i];
+                const video::SGPUMaterial& material = mb->getMaterial();
 
                 video::IMaterialRenderer* rnd = driver->getMaterialRenderer(0);
                 bool transparent = (rnd && rnd->isTransparent());
@@ -175,33 +152,6 @@ const core::aabbox3d<float>& CMeshSceneNode::getBoundingBox()
 }
 
 
-//! returns the material based on the zero based index i. To get the amount
-//! of materials used by this scene node, use getMaterialCount().
-//! This function is needed for inserting the node into the scene hierarchy on a
-//! optimal position for minimizing renderstate changes, but can also be used
-//! to directly modify the material of a scene node.
-video::SGPUMaterial& CMeshSceneNode::getMaterial(uint32_t i)
-{
-	if (Mesh && ReferencingMeshMaterials && i<Mesh->getMeshBufferCount())
-		return Mesh->getMeshBuffer(i)->getMaterial();
-
-	if (i >= Materials.size())
-		return ISceneNode::getMaterial(i);
-
-	return Materials[i];
-}
-
-
-//! returns amount of materials used by this scene node.
-uint32_t CMeshSceneNode::getMaterialCount() const
-{
-	if (Mesh && ReferencingMeshMaterials)
-		return Mesh->getMeshBufferCount();
-
-	return Materials.size();
-}
-
-
 //! Sets a new mesh
 void CMeshSceneNode::setMesh(core::smart_refctd_ptr<video::IGPUMesh>&& mesh)
 {
@@ -209,45 +159,6 @@ void CMeshSceneNode::setMesh(core::smart_refctd_ptr<video::IGPUMesh>&& mesh)
 		return;
 	
 	Mesh = mesh;
-	copyMaterials();
-}
-
-
-
-void CMeshSceneNode::copyMaterials()
-{
-	Materials.clear();
-
-	if (Mesh)
-	{
-		video::SGPUMaterial mat;
-
-		for (uint32_t i=0; i<Mesh->getMeshBufferCount(); ++i)
-		{
-            video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
-			if (mb)
-				mat = mb->getMaterial();
-
-			Materials.push_back(mat);
-		}
-	}
-}
-
-
-
-//! Sets if the scene node should not copy the materials of the mesh but use them in a read only style.
-/* In this way it is possible to change the materials a mesh causing all mesh scene nodes
-referencing this mesh to change too. */
-void CMeshSceneNode::setReferencingMeshMaterials(const bool &referencing)
-{
-	ReferencingMeshMaterials = referencing;
-}
-
-
-//! Returns if the scene node should not copy the materials of the mesh but use them in a read only style
-bool CMeshSceneNode::isReferencingeMeshMaterials() const
-{
-	return ReferencingMeshMaterials;
 }
 
 

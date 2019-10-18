@@ -278,7 +278,7 @@ namespace asset
 
                 core::quaternion tmpRotA(keyframeA.Rotation);
                 core::quaternion tmpRotB(keyframeB.Rotation);
-                const float angle = tmpRotA.dotProduct(tmpRotB).X;
+                const float angle = dot(core::vectorSIMDf(keyframeA.Rotation),core::vectorSIMDf(keyframeB.Rotation))[0];
                 outQuat = core::quaternion::normalize(core::quaternion::lerp(tmpRotA,tmpRotB,core::quaternion::flerp_adjustedinterpolant(fabsf(angle),interpolant,interpolantPrecalcTerm2,interpolantPrecalcTerm3),angle<0.f));
 
 
@@ -526,7 +526,7 @@ namespace asset
                                 core::vector3df rotationDegs = joint->LocalMatrix.getRotationDegrees();
                                 core::quaternion rotationQuat;
                                 if (!HasAnyKeys)
-                                    rotationQuat = core::quaternion::fromEuler(rotationDegs*core::DEGTORAD);
+                                    rotationQuat = core::quaternion::fromEuler(core::radians(rotationDegs));
                                 for (size_t m=0; m<keyframeCount; m++)
                                 {
                                     memcpy(tmpAnimationNonInterpol[m].Rotation,rotationQuat.getPointer(),16);

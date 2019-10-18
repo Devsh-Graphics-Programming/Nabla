@@ -38,7 +38,6 @@ irr_get_conf_dir(IRRLICHT_CONF_DIR_DEBUG Debug)
 irr_get_conf_dir(IRRLICHT_CONF_DIR_RELEASE Release)
 
 set(_IRR_COMPILE_WITH_OPENGL_ ${IRR_COMPILE_WITH_OPENGL})
-set(_IRR_COMPILE_WITH_BURNINGSVIDEO_ ${IRR_COMPILE_WITH_BURNINGSVIDEO})
 #set(_IRR_TARGET_ARCH_ARM_ ${IRR_TARGET_ARCH_ARM}) #uncomment in the future
 set(__IRR_FAST_MATH ${IRR_FAST_MATH})
 set(_IRR_DEBUG 0)
@@ -102,7 +101,6 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ROOT_PATH}/src/irr/asset/CCPUSkinnedMesh.cpp
 
 # Scene objects
-	CBillboardSceneNode.cpp
 	CCameraSceneNode.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CGeometryCreator.cpp
 	CSceneManager.cpp
@@ -152,10 +150,8 @@ set(IRRLICHT_SRCS_COMMON
 	CReadFile.cpp
 	CWriteFile.cpp
 	CMountPointReader.cpp
-	CNPKReader.cpp
 	CPakReader.cpp
 	CTarReader.cpp
-	CWADReader.cpp
 	CZipReader.cpp
 
 # Other

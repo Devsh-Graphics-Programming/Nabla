@@ -2,7 +2,6 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#include "irr/core/core.h"
 
 #ifdef _IRR_COMPILE_WITH_STL_LOADER_
 
@@ -167,7 +166,7 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     //mesh->getMeshBuffer(0)->setPrimitiveType(EPT_POINTS);
 	mesh->recalculateBoundingBox(true);
 
-    return SAssetBundle{std::move(mesh)};
+    return SAssetBundle({std::move(mesh)});
 }
 
 bool CSTLMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const

@@ -6,7 +6,7 @@
 #ifndef __I_GPU_BUFFER_H_INCLUDED__
 #define __I_GPU_BUFFER_H_INCLUDED__
 
-#include "irr/core/IBuffer.h"
+#include "irr/asset/IBuffer.h"
 #include "IDriverMemoryBacked.h"
 #include "irr/asset/IDescriptor.h"
 
@@ -19,7 +19,7 @@ namespace video
 /** For additional OpenGL DSA state-free operations such as flushing mapped ranges or
 buffer to buffer copies, one needs a command buffer in Vulkan as these operations are
 performed by the GPU and not wholly by the driver, so look for them in IDriver and IVideoDriver. */
-class IGPUBuffer : public core::IBuffer, public IDriverMemoryBacked, public asset::IDescriptor
+class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked
 {
     protected:
         IGPUBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& reqs) : IDriverMemoryBacked(reqs) {}

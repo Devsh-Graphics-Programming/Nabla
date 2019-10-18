@@ -63,11 +63,11 @@ namespace io
 		//! Creates an archive from the filename
 		/** \param file File handle to check.
 		\return Pointer to newly created archive, or 0 upon error. */
-		virtual IFileArchive* createArchive(const io::path& filename, bool ignoreCase, bool ignorePaths) const;
+		virtual IFileArchive* createArchive(const io::path& filename) const;
 
 		//! creates/loads an archive from the file.
 		//! \return Pointer to the created archive. Returns 0 if loading failed.
-		virtual io::IFileArchive* createArchive(io::IReadFile* file, bool ignoreCase, bool ignorePaths) const;
+		virtual io::IFileArchive* createArchive(io::IReadFile* file) const;
 
 		//! Returns the type of archive created by this loader
 		virtual E_FILE_ARCHIVE_TYPE getType() const { return EFAT_PAK; }
@@ -84,7 +84,7 @@ namespace io
 		virtual ~CPakReader();
 
 	public:
-		CPakReader(IReadFile* file, bool ignoreCase, bool ignorePaths);
+		CPakReader(IReadFile* file);
 
 		// file archive methods
 

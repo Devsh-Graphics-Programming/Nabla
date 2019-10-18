@@ -11,7 +11,6 @@
 #include "ECullingTypes.h"
 #include "EDebugSceneTypes.h"
 #include "ISceneNodeAnimator.h"
-#include "SMaterial.h"
 #include "ITexture.h"
 #include "aabbox3d.h"
 #include "matrix4x3.h"
@@ -222,7 +221,6 @@ namespace scene
 		{
 			ID = id;
 		}
-
 
 		//! Returns the material based on the zero based index i.
 		/** To get the amount of materials used by this scene node, use

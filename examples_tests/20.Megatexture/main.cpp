@@ -88,13 +88,21 @@ int main()
 	io::IFileSystem* fs = device->getFileSystem();
 	auto am = device->getAssetManager();
 
+	//! Material setting lambda
+	auto setMaterialTypeOnAllMeshBuffers = [](auto* node, auto type)
+	{
+		auto* mesh = node->getMesh();
+		for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
+			mesh->getMeshBuffer(i)->getMaterial().MaterialType = type;
+	};
+
 	//! Load big-ass sponza model
 	// really want to get it working with a "../../media/sponza.zip?sponza.obj" path handling
 	fs->addFileArchive("../../media/sponza.zip", false, false);
 	asset::IAssetLoader::SAssetLoadParams lparams;
 	auto cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*am->getAsset("sponza.obj", lparams).getContents().first);
 	if (cpumesh)
-		smgr->addMeshSceneNode(std::move(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get()) + 1)->operator[](0)))->setMaterialType(newMaterialType);
+		setMaterialTypeOnAllMeshBuffers(smgr->addMeshSceneNode(std::move(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get()) + 1)->operator[](0))),newMaterialType);
 
 
 	uint64_t lastFPSTime = 0;

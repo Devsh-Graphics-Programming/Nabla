@@ -9,24 +9,74 @@
 namespace irr { namespace asset
 {
 
+//! Writing flags
+/**
+	They have an impact on writing (saving) an Asset.
+	Take into account that a writer may not support all of those flags.
+	For instance, if there is a PNG or JPG writer, it won't write encrypted images.
+
+	@see IAssetWriter::getSupportedFlags()
+	@see IAssetWriter::getForcedFlags()
+
+	E_WRITER_FLAGS::EWF_NONE means that there aren't writer flags (default).
+	E_WRITER_FLAGS::EWF_COMPRESSED means that it has to write in a way that consumes less disk space if possible.
+	E_WRITER_FLAGS::EWF_ENCRYPTED means that it has to write in encrypted way if possible.
+	E_WRITER_FLAGS::EWF_BINARY means that it has to write in binary format rather than text if possible.
+*/
 enum E_WRITER_FLAGS : uint32_t
 {
-    //! no writer flags (default writer settings)
-    EWF_NONE = 0u,
-
-    //! write in a way that consumes less disk space if possible
-    EWF_COMPRESSED = 1u<<0u,
-
-    //! write encrypted if possible
-    EWF_ENCRYPTED = 1u<<1u,
-
-    //! write in binary format rather than text if possible
-    EWF_BINARY = 1u<<2u
+    EWF_NONE = 0u,						//!< No writer flags (default writer settings)
+    EWF_COMPRESSED = 1u<<0u,			//!< Write in a way that consumes less disk space if possible
+    EWF_ENCRYPTED = 1u<<1u,				//!< Write encrypted if possible
+    EWF_BINARY = 1u<<2u					//!< Write in binary format rather than text if possible
 };
 
+//! A class that defines rules during Asset-writing (saving) process
+/**
+	Some assets can be saved to file (or memory file) by classes derived from IAssetWriter.
+	These classes must be registered with IAssetManager::addAssetWriter() which will add it
+	to the list of writers (grab return 0-based index) or just not register the writer upon 
+	failure (don’t grab and return 0xdeadbeefu).
+
+	The writing is impacted by writing flags, defined as E_WRITER_FLAGS.
+
+	Remember that loaded Asset doesn't actually know how it was created in reference to certain file extension it was called from,
+	so if you loaded an Asset from .baw, you can save it to another file with different extension if a valid writer is provided.
+
+	When the class derived from IAssetWriter is added, its put once on a 
+	std::multimap<std::pair<IAsset::E_TYPE,std::string>,IAssetWriter*> for every 
+	asset type and file extension it supports, and once on a std::multimap<IAsset::E_TYPE,IAssetWriter*> 
+	for every asset type it supports.
+
+	The writers are tried in the order they were registered per-asset-type-and-file-extension, 
+	or in the per-asset-type order in the case of writing straight to file without a name.
+
+	An IAssetWriter can only be removed/deregistered by its original pointer or global loader index.
+
+	@see IReferenceCounted::grab()
+	@see IAsset
+	@see IAssetManager
+	@see IAssetLoader
+	@see E_WRITER_FLAGS
+*/
 class IAssetWriter : public virtual core::IReferenceCounted
 {
 public:
+
+	//! Struct storing important data used for Asset writing process
+	/**
+		Struct stores an Asset on which entire writing process is based. It also stores decryptionKey for file encryption. 
+		You can find an usage example in CBAWMeshFileLoader .cpp file. Since decryptionKey is a pointer, size must be specified 
+		for iterating through key properly and encryptionKeyLen stores it.
+		Current flags set by user that defines rules during writing process are stored in flags.
+		Compression level dependent on entire Asset size reserved for writing is stored in compressionLevel.
+		The more size it has, the more compression level is. Indeed user data is specified in userData and
+		it holds writer-dependets parameters. It is usually a struct provided by a writer author.
+
+		@see CBAWMeshFileLoader
+		@see E_WRITER_FLAGS
+	*/
+
     struct SAssetWriteParams
     {
         SAssetWriteParams(IAsset* _asset, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr) :
@@ -36,15 +86,23 @@ public:
         {
         }
 
-        const IAsset* rootAsset;
-        E_WRITER_FLAGS flags;
-        float compressionLevel;
-        size_t encryptionKeyLen;
-        const uint8_t* encryptionKey;
-        const void* userData;
+        const IAsset* rootAsset;			//!< An Asset on which entire writing process is based.
+        E_WRITER_FLAGS flags;				//!< Flags set by user that defines rules during writing process.
+        float compressionLevel;				//!< The more compression level, the more expensive (slower) compression algorithm is launched. @see IAsset::conservativeSizeEstimate().
+        size_t encryptionKeyLen;			//!< Stores a size of data in encryptionKey pointer for correct iteration.
+        const uint8_t* encryptionKey;		//!< Stores an encryption key used for encryption process.
+        const void* userData;				//!< Stores writer-dependets parameters. It is usually a struct provided by a writer author.
     };
 
     //! Struct for keeping the state of the current write operation for safe threading
+	/**
+		Important data used for Asset writing process is stored by params.
+		Also a path to Asset data file to write is specified, stored by outputFile.
+		You can store path to file as an absolute path or a relative path, flexibility is provided.
+
+		@see SAssetWriteParams
+	*/
+
     struct SAssetWriteContext
     {
         const SAssetWriteParams params;
@@ -52,12 +110,15 @@ public:
     };
 
 public:
+
     //! Returns an array of string literals terminated by nullptr
     virtual const char** getAssociatedFileExtensions() const = 0;
 
     //! Returns the assets which can be written out by the loader
-    /** Bits of the returned value correspond to each IAsset::E_TYPE
-    enumeration member, and the return value cannot be 0. */
+    /** 
+		Bits of the returned value correspond to each IAsset::E_TYPE
+		enumeration member, and the return value cannot be 0.
+	*/
     virtual uint64_t getSupportedAssetTypesBitfield() const { return 0; }
 
     //! Returns which flags are supported for writing modes
@@ -67,6 +128,11 @@ public:
     virtual uint32_t getForcedFlags() = 0;
 
     //! Override class to facilitate changing how assets are written, especially the sub-assets
+	/*
+		Each writer may override those functions to get more control on some process, but default implementations are provided.
+		It handles getter-functions (eg. getting writing flags, compression level, encryption key or extra file paths). It
+		also has a function for handling writing errors.
+	*/
     class IAssetWriterOverride
     {
         //! The only reason these functions are not declared static is to allow stateful overrides

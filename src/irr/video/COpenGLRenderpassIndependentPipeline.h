@@ -13,18 +13,16 @@ class COpenGLRenderpassIndependentPipeline : public IGPURenderpassIndependentPip
 {
 public:
     COpenGLRenderpassIndependentPipeline(
+        core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
         core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-        core::smart_refctd_ptr<IGPUSpecializedShader>&& _vs,
-        core::smart_refctd_ptr<IGPUSpecializedShader>&& _tcs,
-        core::smart_refctd_ptr<IGPUSpecializedShader>&& _tes,
-        core::smart_refctd_ptr<IGPUSpecializedShader>&& _gs,
-        core::smart_refctd_ptr<IGPUSpecializedShader>&& _fs,
+        IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd,
         const asset::SVertexInputParams& _vertexInputParams,
         const asset::SBlendParams& _blendParams,
         const asset::SPrimitiveAssemblyParams& _primAsmParams,
         const asset::SRasterizationParams& _rasterParams
     ) : IGPURenderpassIndependentPipeline(
-        std::move(_layout), std::move(_vs), std::move(_tcs), std::move(_tes), std::move(_gs), std::move(_fs),
+        std::move(_parent),
+        std::move(_layout), _shadersBegin, _shadersEnd,
         _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
     ) 
     {

@@ -8,7 +8,7 @@
 
 #include <type_traits>
 
-#include "irr/core/IBuffer.h"
+#include "irr/asset/IBuffer.h"
 #include "irr/core/alloc/null_allocator.h"
 #include "irr/asset/IAsset.h"
 #include "irr/asset/bawformat/blobs/RawBufferBlob.h"
@@ -19,7 +19,14 @@ namespace irr
 namespace asset
 {
 
-class ICPUBuffer : public core::IBuffer, public asset::IAsset, public IDescriptor
+//! One of CPU class-object representing an Asset
+/**
+	One of Assets used for storage of large arrays, so that storage can be decoupled
+	from other objects such as meshbuffers, images, animations and shader source/bytecode.
+
+	@see IAsset
+*/
+class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 {
     protected:
         virtual ~ICPUBuffer()

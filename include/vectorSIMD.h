@@ -17,7 +17,6 @@
 #include <stdint.h>
 
 
-#include "irr/core/memory/memory.h"
 #include "irr/core/alloc/AlignedBase.h"
 #include "vector2d.h"
 #include "vector3d.h"
@@ -258,7 +257,7 @@ namespace core
 #include "SIMDswizzle.h"
 
 #ifdef __GNUC__
-// warning: ignoring attributes on template argument ‘__m128i {aka __vector(2) long long int}’ [-Wignored-attributes] (etc...)
+// warning: ignoring attributes on template argument Â‘__m128i {aka __vector(2) long long int}Â’ [-Wignored-attributes] (etc...)
 #   pragma GCC diagnostic push
 #   pragma GCC diagnostic ignored "-Wignored-attributes"
 #endif
@@ -374,7 +373,7 @@ namespace core
 */
 		inline vector4db_SIMD operator==(const vectorSIMD_32<T>& other) const
 		{
-			return vector4db_SIMD(_mm_cmpeq_epi32(getAsRegister(),other.getAsRegister()));
+			return vector4db_SIMD(_mm_cmpeq_epi32(vectorSIMDIntBase::getAsRegister(),other.getAsRegister()));
 		}
 		inline vector4db_SIMD operator!=(const vectorSIMD_32<T>& other) const
 		{
@@ -468,27 +467,6 @@ namespace core
 
 	// do we need 8bit vectors?
 	*/
-
-
-    inline vectorSIMDf abs(const vectorSIMDf& a);
-    inline vectorSIMDf ceil(const vectorSIMDf& a);
-    inline vectorSIMDf clamp(const vectorSIMDf& value, const vectorSIMDf& low, const vectorSIMDf& high);
-	inline vectorSIMDf cross(const vectorSIMDf& a, const vectorSIMDf& b);
-    inline vectorSIMDf degToRad(const vectorSIMDf& degrees);
-	inline vectorSIMDf dot(const vectorSIMDf& a, const vectorSIMDf& b);
-    inline vector4db_SIMD equals(const vectorSIMDf& a,const vectorSIMDf& b, const float tolerance = ROUNDING_ERROR_f32);
-    inline vectorSIMDf floor(const vectorSIMDf& a);
-    inline vectorSIMDf fract(const vectorSIMDf& a);
-    inline vectorSIMDf inversesqrt(const vectorSIMDf& a);
-    inline vectorSIMDf length(const vectorSIMDf& v);
-    inline vectorSIMDf lerp(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& t);
-    inline vectorSIMDf mix(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& t);
-    inline vectorSIMDf lerp(const vectorSIMDf& a, const vectorSIMDf& b, const vector4db_SIMD& t);
-    inline vectorSIMDf mix(const vectorSIMDf& a, const vectorSIMDf& b, const vector4db_SIMD& t);
-    inline vectorSIMDf normalize(const vectorSIMDf& v);
-    inline vectorSIMDf radToDeg(const vectorSIMDf& radians);
-    inline vectorSIMDf reciprocal(const vectorSIMDf& a);
-    inline vectorSIMDf sqrt(const vectorSIMDf& a);
 
 
     class IRR_FORCE_EBO vectorSIMDf : public SIMD_32bitSwizzleAble<vectorSIMDf,__m128>, public AlignedBase<_IRR_VECTOR_ALIGNMENT>
@@ -663,102 +641,6 @@ namespace core
 		    _mm_store_ps(out,_mm_load_ps(pointer));
 		}
 
-
-		//! Get length of the vector.
-		inline float getLengthAsFloat() const
-		{
-		    float result;
-		    _mm_store_ss(&result,length(*this).getAsRegister());
-		    return result;
-        }
-        //! Useful when you have to divide a vector by another vector's length (so you dont convert/store to a scalar)
-        //! all components are filled with length
-        //! if you need something else, you can get the register and shuffle
-		inline vectorSIMDf getLength() const
-		{
-		    return length(*this);
-		}
-
-
-        inline vectorSIMDf getSquareRoot() const
-        {
-            return _mm_sqrt_ps(getAsRegister());
-        }
-
-        inline vectorSIMDf getReciprocalSQRT() const
-        {
-            return _mm_rsqrt_ps(getAsRegister());
-        }
-
-		//! Get the dot product with another vector.
-		inline float dotProductAsFloat(const vectorSIMDf& other) const
-		{
-		    float result;
-		    _mm_store_ss(&result,dot(*this,other).getAsRegister());
-		    return result;
-		}
-		inline vectorSIMDf dotProduct(const vectorSIMDf& other) const
-		{
-            return dot(*this,other);
-		}
-
-		//! Get squared length of the vector.
-		/** This is useful because it is much faster than getLength().
-		\return Squared length of the vector. */
-		inline float getLengthSQAsFloat() const
-		{
-		    float result;
-		    _mm_store_ss(&result,dotProduct(*this).getAsRegister());
-		    return result;
-		}
-        //! Useful when you have to divide a vector by another vector's length (so you dont convert/store to a scalar)
-		inline vectorSIMDf getLengthSQ() const
-		{
-		    return dot(*this,*this);
-        }
-
-
-		//! Get distance from another point.
-		/** Here, the vector is interpreted as point in 3 dimensional space. */
-		inline float getDistanceFromAsFloat(const vectorSIMDf& other) const
-		{
-		    float result;
-		    _mm_store_ss(&result,((*this)-other).getLength().getAsRegister());
-		    return result;
-		}
-        inline vectorSIMDf getDistanceFrom(const vectorSIMDf& other) const
-		{
-			return ((*this)-other).getLength();
-		}
-
-		//! Returns squared distance from another point.
-		/** Here, the vector is interpreted as point in 3 dimensional space. */
-		inline float getDistanceFromSQAsFloat(const vectorSIMDf& other) const
-		{
-		    float result;
-		    _mm_store_ss(&result,((*this)-other).getLengthSQ().getAsRegister());
-		    return result;
-		}
-        inline vectorSIMDf getDistanceFromSQ(const vectorSIMDf& other) const
-		{
-			return ((*this)-other).getLengthSQ();
-		}
-
-		//! Calculates the cross product with another vector.
-		/** \param p Vector to multiply with.
-		\return Crossproduct of this vector with p. */
-		inline vectorSIMDf crossProduct(const vectorSIMDf& p) const
-		{
-		    return cross(*this,p);
-		}
-
-		//! Sets the length of the vector to a new value
-		inline vectorSIMDf& setLengthAsFloat(float newlength)
-		{
-			(*this) = normalize(*this)*newlength;
-			return (*this);
-		}
-
 		//! Rotates the vector by a specified number of RADIANS around the Y axis and the specified center.
 		/** \param radians Number of RADIANS to rotate around the Y axis.
 		\param center The center of the rotation. */
@@ -849,119 +731,10 @@ namespace core
 
 	//!
 	template<class T>
-	vectorSIMD_32<T>::vectorSIMD_32<T>(const vectorSIMDf& other)
+	vectorSIMD_32<T>::vectorSIMD_32(const vectorSIMDf& other)
 	{
 		_mm_store_si128(reinterpret_cast<__m128i*>(pointer), _mm_cvtps_epi32(other.getAsRegister()));
 	}
-	template<class T>
-	inline vectorSIMD_32<T> mix(const vectorSIMD_32<T>& a, const vectorSIMD_32<T>& b, const vector4db_SIMD& t)
-	{
-		return ((~t) & a.getAsRegister()) | (t & b.getAsRegister());
-	}
-
-    //! Returns component-wise absolute value of a
-    inline vectorSIMDf abs(const vectorSIMDf& a)
-    {
-        return a&vectorSIMD_32<uint32_t>(0x7FFFFFFFu,0x7FFFFFFFu,0x7FFFFFFFu,0x7FFFFFFFu);
-    }
-	 inline vectorSIMDf radToDeg(const vectorSIMDf& radians)
-	{
-	    return radians*vectorSIMDf(RADTODEG);
-	}
-     inline vectorSIMDf degToRad(const vectorSIMDf& degrees)
-    {
-        return degrees*vectorSIMDf(DEGTORAD);
-    }
-     inline vectorSIMDf mix(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& t)
-    {
-        return a+(b-a)*t;
-    }
-     inline vectorSIMDf mix(const vectorSIMDf& a, const vectorSIMDf& b, const vector4db_SIMD& t)
-    {
-        return _mm_castsi128_ps(core::mix<uint32_t>(_mm_castps_si128(a.getAsRegister()),_mm_castps_si128(b.getAsRegister()),t).getAsRegister());
-    }
-     inline vectorSIMDf lerp(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& t)
-    {
-        return mix(a,b,t);
-	}
-     inline vectorSIMDf lerp(const vectorSIMDf& a, const vectorSIMDf& b, const vector4db_SIMD& t)
-    {
-        return mix(a,b,t);
-	}
-	template<>
-	inline vectorSIMDf max_(const vectorSIMDf& a, const vectorSIMDf& b)
-    {
-        return _mm_max_ps(a.getAsRegister(),b.getAsRegister());
-    }
-	template<>
-	inline vectorSIMDf min_(const vectorSIMDf& a, const vectorSIMDf& b)
-    {
-        return _mm_min_ps(a.getAsRegister(),b.getAsRegister());
-    }
-    inline vectorSIMDf clamp(const vectorSIMDf& value, const vectorSIMDf& low, const vectorSIMDf& high)
-    {
-        return min_(max_(value,low),high);
-    }
-    inline vector4db_SIMD equals(const vectorSIMDf& a,const vectorSIMDf& b, const float tolerance)
-    {
-        return (a + tolerance >= b) && (a - tolerance <= b);
-    }
-	inline vectorSIMDf floor(const vectorSIMDf& a)
-	{
-		return _mm_floor_ps(a.getAsRegister());
-	}
-    inline vectorSIMDf ceil(const vectorSIMDf& a)
-    {
-		return _mm_ceil_ps(a.getAsRegister());
-    }
-    inline vectorSIMDf fract(const vectorSIMDf& a)
-    {
-        return a-floor(a);
-    }
-    inline vectorSIMDf sqrt(const vectorSIMDf& a)
-    {
-        return _mm_sqrt_ps(a.getAsRegister());
-	}
-    inline vectorSIMDf inversesqrt(const vectorSIMDf& a)
-    {
-        return _mm_rsqrt_ps(a.getAsRegister());
-	}
-    inline vectorSIMDf reciprocal(const vectorSIMDf& a)
-    {
-        return _mm_rcp_ps(a.getAsRegister());
-	}
-	inline vectorSIMDf dot(const vectorSIMDf& a, const vectorSIMDf& b)
-    {
-        __m128 xmm0 = a.getAsRegister();
-        __m128 xmm1 = b.getAsRegister();
-#ifdef __IRR_COMPILE_WITH_SSE3
-        xmm0 = _mm_mul_ps(xmm0,xmm1);
-        xmm0 = _mm_hadd_ps(xmm0,xmm0);
-        return _mm_hadd_ps(xmm0,xmm0);
-#endif
-    }
-	inline vectorSIMDf cross(const vectorSIMDf& a, const vectorSIMDf& b)
-    {
-#ifdef __IRR_COMPILE_WITH_X86_SIMD_
-        __m128 xmm0 = a.getAsRegister();
-        __m128 xmm1 = b.getAsRegister();
-        __m128 backslash = _mm_mul_ps(FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(3,0,2,1)),FAST_FLOAT_SHUFFLE(xmm1,_MM_SHUFFLE(3,1,0,2)));
-        __m128 forwardslash = _mm_mul_ps(FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(3,1,0,2)),FAST_FLOAT_SHUFFLE(xmm1,_MM_SHUFFLE(3,0,2,1)));
-        return _mm_sub_ps(backslash,forwardslash); //returns 0 in the last component :D
-#endif
-    }
-    inline vectorSIMDf length(const vectorSIMDf& v)
-    {
-		return sqrt(dot(v, v));
-    }
-    inline vectorSIMDf normalize(const vectorSIMDf& v)
-    {
-#ifdef __IRR_FAST_MATH
-		return v * inversesqrt(dot(v, v));
-#else
-        return v/length(v);
-#endif
-    }
 
 	//! Typedef for a float n-dimensional vector.
 	typedef vectorSIMDf vector4df_SIMD;
@@ -1001,7 +774,7 @@ namespace core
 
 
 #ifdef __GNUC__
-	// warning: ignoring attributes on template argument ‘__m128i {aka __vector(2) long long int}’ [-Wignored-attributes] (etc...)
+	// warning: ignoring attributes on template argument Â‘__m128i {aka __vector(2) long long int}Â’ [-Wignored-attributes] (etc...)
 #   pragma GCC diagnostic push
 #   pragma GCC diagnostic ignored "-Wignored-attributes"
 #endif

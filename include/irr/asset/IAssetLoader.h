@@ -1,27 +1,87 @@
 #ifndef __IRR_I_ASSET_LOADER_H_INCLUDED__
 #define __IRR_I_ASSET_LOADER_H_INCLUDED__
 
+#include "irr/core/core.h"
+
 #include "IAsset.h"
 #include "IReadFile.h"
 
 namespace irr { namespace asset
 {
 
+//! A class automating process of loading Assets from resources, eg. files
+/**
+	Every Asset must be loaded by a particular class derived from IAssetLoader.
+	These classes must be registered with IAssetManager::addAssetLoader() which will 
+	add it to the list of loaders (grab return 0-based index) or just not register 
+	the loader upon failure (don’t grab and return 0xdeadbeefu).
+
+	The loading is impacted by caching and resource duplication flags, defined as IAssetLoader::E_CACHING_FLAGS.
+
+	There are defined rules of loading process, that can be overwritten, but basically
+	a mesh can reference a submesh, a submesh can reference a material, a material 
+	can reference a texture, etc. You can look at it as recursive function, the LEVEL (\bhierarchyLevel\b)
+	is actually how deep the stack you are. The flag is a bitfield with 2 bits per level,
+	and the enums provie are some useful constants. Different combinations are valid as well, so
+	
+	\code{.cpp}
+	static_cast<E_CACHING_FLAGS>(ECF_DONT_CACHE_TOP_LEVEL << 4ull) 
+	\endcode
+
+	Anything on level 2 will not get cached (top is 0, but we have shifted for 4 bits, where 2 bits represent one single level, so we've been on second level) 
+
+	When the class derived from IAssetLoader is added, its put once on an 
+	std::vector<IAssetLoader*> and once on an std::multimap<std::string,IAssetLoader*> 
+	inside the IAssetManager for every associated file extension it reports.
+
+	The loaders are tried in the order they were registered per file extensions, 
+	and later in the global order in case of needing to fallback to examining files.
+
+	An IAssetLoader can only be removed/deregistered by its original pointer or global loader index.
+
+	@see IReferenceCounted::grab()
+	@see IAsset
+	@see IAssetManager
+	@see IAssetWriter
+*/
+
 class IAssetLoader : public virtual core::IReferenceCounted
 {
 public:
+
+	//! Caching and resource duplication flags 
+	/**
+		They have an impact on loading an Asset.
+
+		E_CACHING_FLAGS::ECF_CACHE_EVERYTHING is default, means that asset you can find in previously cached asset will be just returned.
+		There may occour that you can't, so it will be loaded and added to the cache before returning
+		E_CACHING_FLAGS::ECF_DONT_CACHE_TOP_LEVEL means that master/parent is searched for in the caches, 
+		but not added to the cache if not found and loaded
+		E_CACHING_FLAGS::ECF_DUPLICATE_TOP_LEVEL means that master/parent object is loaded without searching
+		for it in the cache, nor adding it to the cache after the load
+		E_CACHING_FLAGS::ECF_DONT_CACHE_REFERENCES means that it concerns any asset that the top level asset refers to, such as a texture
+		E_CACHING_FLAGS::ECF_DUPLICATE_REFERENCES means almost the same as E_CACHING_FLAGS::ECF_DUPLICATE_TOP_LEVEL but for any asset in the chain
+	*/
+
     enum E_CACHING_FLAGS : uint64_t
     {
         ECF_CACHE_EVERYTHING = 0,
-        //! master/parent is searched for in the caches, but not added to the cache if not found and loaded
-        ECF_DONT_CACHE_TOP_LEVEL = 0x1ull,
-        //! master/parent object is loaded without searching for it in the cache, nor adding it to the cache after the load   
-        ECF_DUPLICATE_TOP_LEVEL = 0x3ull,
-        //! this concerns any asset that the top level asset refers to, such as a texture
-        ECF_DONT_CACHE_REFERENCES = 0x5555555555555555ull,
-        //! meaning identical as to ECF_DUPLICATE_TOP_LEVEL but for any asset in the chain
-        ECF_DUPLICATE_REFERENCES = 0xffffffffffffffffull
+        ECF_DONT_CACHE_TOP_LEVEL = 0x1ull,						//!< master/parent is searched for in the caches, but not added to the cache if not found and loaded   
+        ECF_DUPLICATE_TOP_LEVEL = 0x3ull,						//!< master/parent object is loaded without searching for it in the cache, nor adding it to the cache after the load
+        ECF_DONT_CACHE_REFERENCES = 0x5555555555555555ull,		//!< this concerns any asset that the top level asset refers to, such as a texture
+        ECF_DUPLICATE_REFERENCES = 0xffffffffffffffffull		//!< meaning identical as to ECF_DUPLICATE_TOP_LEVEL but for any asset in the chain
     };
+
+	//! Struct storing important data used for Asset loading process
+	/**
+		Struct stores a key decryptionKey for potentially encrypted files, it is used to decrypt them. You can find an usage
+		example in CBAWMeshFileLoader .cpp file. Since decryptionKey is a pointer, size must be specified 
+		for iterating through key properly and decryptionKeyLen stores it.
+		Current flags set by user that defines rules during loading process are stored in cacheFlags.
+
+		@see CBAWMeshFileLoader
+		@see E_CACHING_FLAGS
+	*/
 
     struct SAssetLoadParams
     {
@@ -29,16 +89,24 @@ public:
             : decryptionKeyLen(_decryptionKeyLen), decryptionKey(_decryptionKey), cacheFlags(_cacheFlags)
         {
         }
-        size_t decryptionKeyLen;
-        const uint8_t* decryptionKey;
-        const E_CACHING_FLAGS cacheFlags;
+        size_t decryptionKeyLen;			 //!< The size of decryptionKey
+        const uint8_t* decryptionKey;		 //!< The key it used to decrypt potentially encrypted files
+        const E_CACHING_FLAGS cacheFlags;	 //!< Flags defining rules during loading process
     };
 
     //! Struct for keeping the state of the current loadoperation for safe threading
+	/**
+		Important data used for Asset loading process is stored by params.
+		Also a path to Asset data file is specified, stored by mainFile. You can store path
+		to file as an absolute path or a relative path, flexibility is provided.
+
+		@see SAssetLoadParams
+	*/
+
     struct SAssetLoadContext
     {
-        const SAssetLoadParams params;
-        io::IReadFile* mainFile;
+        const SAssetLoadParams params;		//!< Data used for Asset loading process
+        io::IReadFile* mainFile;			//!< A path to Asset data file
     };
 
     // following could be inlined
@@ -75,7 +143,13 @@ public:
         return (E_CACHING_FLAGS)(ECF_DUPLICATE_REFERENCES >> N);
     }
 
-    //! Override class to facilitate changing how assets are loaded
+	//! Class for user to override functions to facilitate changing the way assets are loaded
+	/**
+		Each loader may override those functions to get more control on some process, but default implementations are provided.
+		It handles such operations like finding Assets cached so far, inserting them to cache, getting path to
+		file with Asset data, handling predefined opeartions if Assets searching fails or loading them, etc.
+	*/
+
     class IAssetLoaderOverride
     {
     protected:
@@ -103,11 +177,25 @@ public:
             return {};
         }
 
-        //! Called before loading a file
-        // (Criss) Whats does this one?
+        //! Called before loading a file 
+		/**
+			\param inOutFilename is a path to file Asset data needs to correspond with. A path changes over time for each dependent resource.
+			Actually, override decides how to resolve a local path or even a URL into a "proper" filename.
+			\param ctx provides data required for loading process.
+			\param hierarchyLevel specifies how deep are we being in some referenced-struct-data in a file,
+			but it is more like a stack counter.
+
+			Expected behaviour is that Asset loading will get called recursively. For instance mesh needs material, material needs texture, etc.
+			GetLoadFilename() could be called separately for each dependent resource from deeper recursions in the loading stack.
+			So inOutFilename is provided, and if path to a texture needed by a material is required - inOutFilename will store it after calling the function.
+
+			More information about hierarchy level you can find at IAssetLoader description.
+
+			@see IAssetLoader
+			@see SAssetLoadContext
+		*/
         inline virtual void getLoadFilename(std::string& inOutFilename, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel) {} //default do nothing
 
-        // (Criss) Also what does this one?
         inline virtual io::IReadFile* getLoadFile(io::IReadFile* inFile, const std::string& supposedFilename, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
         {
             return inFile;
@@ -131,7 +219,7 @@ public:
         inline virtual SAssetBundle handleLoadFail(bool& outAddToCache, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
         {
             outAddToCache = false; // if you want to return a “default error asset”
-            return {};
+            return SAssetBundle();
         }
 
         //! After a successful load of an asset or sub-asset

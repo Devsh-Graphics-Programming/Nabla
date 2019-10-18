@@ -86,14 +86,18 @@ void CSkinnedMeshSceneNode::OnRegisterSceneNode()
 		int solidCount = 0;
 
         // count copied materials
-        for (uint32_t i=0; i<Materials.size(); ++i)
+        for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
         {
             video::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
             if (!mb||mb->getIndexCount()<1)
                 continue;
 
             video::IMaterialRenderer* rnd =
+<<<<<<< HEAD
                 driver->getMaterialRenderer(0);
+=======
+                driver->getMaterialRenderer(mb->getMaterial().MaterialType);
+>>>>>>> 719de147941d958bf526dc2abc22c35a91e2cddf
 
             if (rnd && rnd->isTransparent())
                 ++transparentCount;
@@ -179,7 +183,7 @@ void CSkinnedMeshSceneNode::render()
             video::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
             if (mb)
             {
-                const video::SGPUMaterial& material = Materials[i];
+                const video::SGPUMaterial& material = mb->getMaterial();
 
                 video::IMaterialRenderer* rnd = driver->getMaterialRenderer(0);
                 bool transparent = (rnd && rnd->isTransparent());
@@ -203,22 +207,6 @@ void CSkinnedMeshSceneNode::render()
 		video::SGPUMaterial debug_mat;
         debug_mat.Thickness = 3.f;
 		driver->setMaterial(debug_mat);
-/**
-		// show mesh
-		if (DebugDataVisible & scene::EDS_MESH_WIRE_OVERLAY)
-		{
-			debug_mat.Wireframe = true;
-			debug_mat.ZBuffer = video::ECFN_NEVER;
-			driver->setMaterial(debug_mat);
-
-			for (uint32_t g=0; g<mesh->getMeshBufferCount(); ++g)
-			{
-				IGPUMeshBuffer* mb = mesh->getMeshBuffer(g);
-				driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
-				driver->drawMeshBuffer(mb,(AutomaticCullingState & scene::EAC_COND_RENDER) ? query:NULL);
-			}
-		}
-**/
 	}
 }
 
@@ -244,19 +232,6 @@ void CSkinnedMeshSceneNode::setMesh(core::smart_refctd_ptr<video::IGPUSkinnedMes
 
     setFrameLoop(mesh->getBoneReferenceHierarchy()->getKeys()[0], mesh->getBoneReferenceHierarchy()->getKeys()[mesh->getBoneReferenceHierarchy()->getKeyFrameCount()-1]);
     boneStateManager->performBoning();
-
-
-    Materials.clear();
-    Materials.resize(mesh->getMeshBufferCount());
-
-    for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
-    {
-        video::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
-        if (mb)
-            Materials[i] = mb->getMaterial();
-        else
-            Materials[i] = video::SGPUMaterial();
-    }
 }
 
 
@@ -267,13 +242,13 @@ bool CSkinnedMeshSceneNode::setFrameLoop(const float& begin, const float& end)
 	const float maxFrameCount = mesh->getLastFrame();
 	if (end < begin)
 	{
-		StartFrame = core::s32_clamp(end, mesh->getFirstFrame(), maxFrameCount);
-		EndFrame = core::s32_clamp(begin, StartFrame, maxFrameCount);
+		StartFrame = core::clamp(end, mesh->getFirstFrame(), maxFrameCount);
+		EndFrame = core::clamp(begin, StartFrame, maxFrameCount);
 	}
 	else
 	{
-		StartFrame = core::s32_clamp(begin, mesh->getFirstFrame(), maxFrameCount);
-		EndFrame = core::s32_clamp(end, StartFrame, maxFrameCount);
+		StartFrame = core::clamp(begin, mesh->getFirstFrame(), maxFrameCount);
+		EndFrame = core::clamp(end, StartFrame, maxFrameCount);
 	}
 	if (FramesPerSecond < 0)
 		setCurrentFrame((float)EndFrame);

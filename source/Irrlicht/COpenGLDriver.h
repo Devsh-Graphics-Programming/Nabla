@@ -108,11 +108,6 @@ namespace video
             //GLboolean depthBoundsTestEnable;
             GLboolean stencilTestEnable = 0;
             GLboolean multisampleEnable = 1;
-            struct SClipCtrl {
-                GLenum origin = GL_LOWER_LEFT;
-                GLenum depth = GL_NEGATIVE_ONE_TO_ONE;
-                bool operator!=(const SClipCtrl& rhs) const { return origin!=rhs.origin || depth!=rhs.depth; }
-            } clipControl;
             GLboolean primitiveRestartEnable = 0;
 
             GLboolean logicOpEnable = 0;
@@ -154,7 +149,12 @@ namespace video
         } vertexInputParams;
 
         struct {
-            core::smart_refctd_ptr<const COpenGLDescriptorSet> descSets[video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
+            struct SDescSetBnd {
+                core::smart_refctd_ptr<const COpenGLPipelineLayout> pplnLayout;
+                core::smart_refctd_ptr<const COpenGLDescriptorSet> set;
+                core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets;
+            };
+            SDescSetBnd descSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
         } descriptorsParams;
     };
 
@@ -584,8 +584,8 @@ namespace video
 
         bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override;
 
-        bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, uint32_t _first, uint32_t _count,
-            video::IGPUDescriptorSet** _descSets, uint32_t _dynOffsetCount, const uint32_t* _dynOffsets) override;
+        bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
+            uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override;
 
         core::smart_refctd_ptr<IGPUShader> createGPUShader(const asset::ICPUShader* _cpushader) override;
         core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) override;
@@ -603,19 +603,20 @@ namespace video
         ) override;
 
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
+            core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-            core::smart_refctd_ptr<IGPUSpecializedShader>&& _vs,
-            core::smart_refctd_ptr<IGPUSpecializedShader>&& _tcs,
-            core::smart_refctd_ptr<IGPUSpecializedShader>&& _tes,
-            core::smart_refctd_ptr<IGPUSpecializedShader>&& _gs,
-            core::smart_refctd_ptr<IGPUSpecializedShader>&& _fs,
+            IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd,
             const asset::SVertexInputParams& _vertexInputParams,
             const asset::SBlendParams& _blendParams,
             const asset::SPrimitiveAssemblyParams& _primAsmParams,
             const asset::SRasterizationParams& _rasterParams
         ) override;
 
+        bool removeGPURenderpassIndependentPipeline(const IGPURenderpassIndependentPipeline* _pipeline) override;
+
         core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>&& _descriptors) override;
+
+        core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout) override;
 
 		//! generic version which overloads the unimplemented versions
 		bool changeRenderContext(const SExposedVideoData& videoData, void* device) {return false;}
@@ -646,8 +647,6 @@ namespace video
 
 		virtual void beginQuery(IQueryObject* query);
 		virtual void endQuery(IQueryObject* query);
-		virtual void beginQuery(IQueryObject* query, const size_t& index);
-		virtual void endQuery(IQueryObject* query, const size_t& index);
 
         virtual IQueryObject* createPrimitivesGeneratedQuery();
         virtual IQueryObject* createXFormFeedbackPrimitiveQuery();
@@ -723,7 +722,7 @@ namespace video
         core::smart_refctd_ptr<ITexture> createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) override;
 
         //!
-        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false);
+        virtual IMultisampleTexture* createMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false) override;
 
         virtual IFrameBuffer* addFrameBuffer();
 
@@ -741,6 +740,11 @@ namespace video
 										bool bilinearFilter=false);
 
 
+    private:
+        void clearColor_gatherAndOverrideState(SAuxContext* found, uint32_t _attIx, GLboolean* _rasterDiscard, GLboolean* _colorWmask);
+        void clearColor_bringbackState(SAuxContext* found, uint32_t _attIx, GLboolean _rasterDiscard, const GLboolean* _colorWmask);
+
+    public:
 		//! Clears the ZBuffer.
 		virtual void clearZBuffer(const float &depth=0.0);
 
@@ -785,6 +789,8 @@ namespace video
         struct SAuxContext
         {
         //public:
+            using SGraphicsPipelineHash = std::array<GLuint, COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT>;
+
             _IRR_STATIC_INLINE_CONSTEXPR size_t maxVAOCacheSize = 0x1u<<14; //make this cache configurable
 
             SAuxContext() : threadId(std::thread::id()), ctx(NULL),
@@ -818,6 +824,9 @@ namespace video
 
             //!
             core::vector<SOpenGLState::HashVAOPair> VAOMap;
+            core::map<SGraphicsPipelineHash, GLuint> GraphicsPipelineMap;
+
+            GLuint createGraphicsPipelineInCache(const SGraphicsPipelineHash& _hash);
 
             void updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline);
             //! Must be called AFTER updateNextState_pipelineAndRaster() if pipeline and raster params have to be modified at all in this pass

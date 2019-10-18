@@ -23,7 +23,7 @@ class CFileList : public IFileList
     public:
         //! Constructor
         /** \param path The path of this file archive */
-        CFileList(const io::path& path, bool ignoreCase, bool ignorePaths);
+        CFileList(const io::path& path);
 
         //! Add as a file or folder to the list
         /** \param fullPath The file name including path, up to the root of the file list.
@@ -49,12 +49,6 @@ class CFileList : public IFileList
         virtual const io::path& getPath() const {return Path;}
 
     protected:
-        //! Ignore paths when adding or searching for files
-        bool IgnorePaths;
-
-        //! Ignore case when adding or searching for files
-        bool IgnoreCase;
-
         //! Path to the file list
         io::path Path;
 

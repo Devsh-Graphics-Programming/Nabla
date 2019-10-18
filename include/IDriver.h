@@ -21,7 +21,6 @@ namespace video
 }
 
 #include "IMultisampleTexture.h"
-#include "ITextureBufferObject.h"
 #include "IFrameBuffer.h"
 #include "IVideoCapabilityReporter.h"
 #include "IQueryObject.h"
@@ -132,21 +131,30 @@ namespace video
             }
 
             virtual core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
+                core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
                 core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-                core::smart_refctd_ptr<IGPUSpecializedShader>&& _vs,
-                core::smart_refctd_ptr<IGPUSpecializedShader>&& _tcs,
-                core::smart_refctd_ptr<IGPUSpecializedShader>&& _tes,
-                core::smart_refctd_ptr<IGPUSpecializedShader>&& _gs,
-                core::smart_refctd_ptr<IGPUSpecializedShader>&& _fs,
+                IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
                 const asset::SVertexInputParams& _vertexInputParams,
                 const asset::SBlendParams& _blendParams,
                 const asset::SPrimitiveAssemblyParams& _primAsmParams,
                 const asset::SRasterizationParams& _rasterParams
-            ) {
+            )
+            {
                 return nullptr;
             }
 
+            //! Must be called by thread before last reference of `_pipeline` object is dropped by the thread.
+            virtual bool removeGPURenderpassIndependentPipeline(const IGPURenderpassIndependentPipeline* _pipeline) 
+            {
+                return false;
+            }
+
             virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>&& _descriptors)
+            {
+                return nullptr;
+            }
+
+            virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout)
             {
                 return nullptr;
             }
@@ -249,7 +257,7 @@ namespace video
                     const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
                     uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
                     uint32_t alignment = 64u; // smallest mapping alignment capability
-                    uint32_t subSize = std::min(core::alignDown(defaultUploadBuffer.get()->max_size(),alignment),size-uploadedSize);
+                    uint32_t subSize = core::min(core::alignDown(defaultUploadBuffer.get()->max_size(),alignment),size-uploadedSize);
 
                     defaultUploadBuffer.get()->multi_place(std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&localOffset,&subSize,&alignment);
                     // keep trying again
@@ -312,6 +320,9 @@ namespace video
 
             template<typename AssetType>
             created_gpu_object_array<AssetType> getGPUObjectsFromAssets(AssetType* const* const _begin, AssetType* const* const _end, IGPUObjectFromAssetConverter* _converter = nullptr);
+
+			template<typename AssetType>
+			created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::smart_refctd_ptr<asset::IAsset>* _begin, const core::smart_refctd_ptr<asset::IAsset>* _end, IGPUObjectFromAssetConverter* _converter = nullptr);
 	};
 
 } // end namespace video

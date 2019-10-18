@@ -5,6 +5,7 @@
 #ifndef __C_OPEN_GL_FEATURE_MAP_H_INCLUDED__
 #define __C_OPEN_GL_FEATURE_MAP_H_INCLUDED__
 
+#include "IrrCompileConfig.h"
 #include "irr/core/core.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
@@ -13,6 +14,19 @@
 
 #include "COpenGLStateManager.h"
 #include "COpenGLCubemapTexture.h"
+
+#ifdef _IRR_WINDOWS_API_
+	// include windows headers for HWND
+	#define WIN32_LEAN_AND_MEAN
+	#ifndef NOMINMAX
+		#define NOMINMAX
+	#endif
+	#include <windows.h>
+	#include "../src/3rdparty/GL/wglext.h"
+#elif defined(_IRR_COMPILE_WITH_X11_)
+    #include "GL/glx.h"
+    #include "../src/3rdparty/GL/glxext.h"
+#endif
 
 namespace irr
 {
@@ -1110,6 +1124,7 @@ class COpenGLExtensionHandler
 
 	// shader programming
     static void extGlCreateProgramPipelines(GLsizei n, GLuint* pipelines);
+    static void extGlDeleteProgramPipelines(GLsizei n, const GLuint* pipelines);
     static void extGlUseProgramStages(GLuint pipeline, GLbitfield stages, GLuint program);
 	static GLuint extGlCreateShader(GLenum shaderType);
     static GLuint extGlCreateShaderProgramv(GLenum shaderType, GLsizei count, const char** strings);
@@ -1397,6 +1412,7 @@ class COpenGLExtensionHandler
 
     //shaders
     static PFNGLCREATEPROGRAMPIPELINESPROC pGlCreateProgramPipelines;
+    static PFNGLDELETEPROGRAMPIPELINESPROC pGlDeleteProgramPipelines;
     static PFNGLUSEPROGRAMSTAGESPROC pGlUseProgramStages;
     static PFNGLBINDATTRIBLOCATIONPROC pGlBindAttribLocation; //NULL
     static PFNGLCREATEPROGRAMPROC pGlCreateProgram;
@@ -2456,12 +2472,12 @@ inline void COpenGLExtensionHandler::setPixelUnpackAlignment(const uint32_t &pit
 {
 #if _MSC_VER && !__INTEL_COMPILER
     DWORD textureUploadAlignment,textureUploadAlignment2;
-    if (!_BitScanForward(&textureUploadAlignment,core::max_(pitchInBytes,minimumAlignment)))
+    if (!_BitScanForward(&textureUploadAlignment,core::max(pitchInBytes,minimumAlignment)))
         textureUploadAlignment = 3;
     if (!_BitScanForward64(&textureUploadAlignment2,*reinterpret_cast<size_t*>(&ptr)))
         textureUploadAlignment2 = 3;
 #else
-    int32_t textureUploadAlignment = __builtin_ffs(core::max_(pitchInBytes,minimumAlignment));
+    int32_t textureUploadAlignment = __builtin_ffs(core::max(pitchInBytes,minimumAlignment));
     if (textureUploadAlignment)
         textureUploadAlignment--;
     else
@@ -2472,7 +2488,7 @@ inline void COpenGLExtensionHandler::setPixelUnpackAlignment(const uint32_t &pit
     else
         textureUploadAlignment2 = 3;
 #endif
-    textureUploadAlignment = core::min_(core::min_((int32_t)textureUploadAlignment,(int32_t)textureUploadAlignment2),(int32_t)3);
+    textureUploadAlignment = core::min<int32_t,int32_t>(textureUploadAlignment,textureUploadAlignment2,3);
 
     if (textureUploadAlignment==pixelUnpackAlignment)
         return;
@@ -2567,6 +2583,12 @@ inline void COpenGLExtensionHandler::extGlCreateProgramPipelines(GLsizei n, GLui
 {
     if (pGlCreateProgramPipelines)
         pGlCreateProgramPipelines(n, pipelines);
+}
+
+inline void COpenGLExtensionHandler::extGlDeleteProgramPipelines(GLsizei n, const GLuint * pipelines)
+{
+    if (pGlDeleteProgramPipelines)
+        pGlDeleteProgramPipelines(n, pipelines);
 }
 
 inline void COpenGLExtensionHandler::extGlUseProgramStages(GLuint pipeline, GLbitfield stages, GLuint program)

@@ -18,7 +18,7 @@ namespace scene
 		//! constructor
 		CSceneNodeAnimatorFlyCircle(uint32_t time,
 				const core::vector3df& center, float radius,
-				float speed, const core::vector3df& direction,
+				float speed, const core::vectorSIMDf& direction,
 				float radiusEllipsoid);
 
 		//! animates a scene node
@@ -40,10 +40,10 @@ namespace scene
 		// circle center
 		core::vector3df Center;
 		// up-vector, normal to the circle's plane
-		core::vector3df Direction;
+		core::vectorSIMDf Direction;
 		// Two helper vectors
-		core::vector3df VecU;
-		core::vector3df VecV;
+		core::vectorSIMDf VecU;
+		core::vectorSIMDf VecV;
 		float Radius;
 		float RadiusEllipsoid;
 		float Speed;

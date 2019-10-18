@@ -9,14 +9,15 @@ namespace asset
 {
 
 template<typename SpecShaderType, typename LayoutType>
-class IComputePipeline : public IPipeline<LayoutType>
+class IComputePipeline : public IPipeline<IComputePipeline,LayoutType>
 {
 protected:
     IComputePipeline(
-        core::smart_refctd_ptr<LayoutType> _layout,
-        core::smart_refctd_ptr<SpecShaderType> _cs
-    ) : IPipeline<LayoutType>(std::move(_layout)),
-        m_shader(_cs)
+        core::smart_refctd_ptr<IComputePipeline>&& _parent,
+        core::smart_refctd_ptr<LayoutType>&& _layout,
+        core::smart_refctd_ptr<SpecShaderType>&& _cs
+    ) : IPipeline<IComputePipeline,LayoutType>(std::move(_parent),std::move(_layout)),
+        m_shader(std::move(_cs))
     {}
     virtual ~IComputePipeline() = default;
 

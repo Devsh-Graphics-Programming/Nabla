@@ -318,9 +318,9 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 			break;
 	}
 
-	asset::ICPUTexture* tex = asset::ICPUTexture::create({image}, _file->getFileName().c_str());
+	ICPUTexture* tex = ICPUTexture::create({image}, _file->getFileName().c_str());
 	image->drop();
-    return {core::smart_refctd_ptr<IAsset>(tex, core::dont_grab)};
+    return SAssetBundle({core::smart_refctd_ptr<IAsset>(tex, core::dont_grab)});
 #endif
 }
 

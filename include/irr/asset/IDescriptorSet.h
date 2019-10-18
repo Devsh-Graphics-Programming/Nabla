@@ -33,6 +33,8 @@ enum E_IMAGE_LAYOUT : uint32_t
 template<typename LayoutType, typename BufferType, typename TextureType, typename BufferViewType, typename SamplerType>
 class IDescriptorSet
 {
+    using this_type = IDescriptorSet<LayoutType, BufferType, TextureType, BufferViewType, SamplerType>;
+
 public:
     struct SDescriptorInfo
     {
@@ -52,20 +54,97 @@ public:
         };
     };
 
-    struct SWriteDescriptorSet
+    struct SDescriptorBinding
     {
-        uint32_t binding;
-        E_DESCRIPTOR_TYPE descriptorType;
+        uint32_t binding = 0u;
+        E_DESCRIPTOR_TYPE descriptorType = EDT_COMBINED_IMAGE_SAMPLER;//whatever, default value
         core::smart_refctd_dynamic_array<SDescriptorInfo> info;
     };
 
+    struct SWriteDescriptorSet
+    {
+        uint32_t binding;
+        uint32_t arrayElement;
+        uint32_t count;
+        E_DESCRIPTOR_TYPE descriptorType;
+        SDescriptorInfo* info;
+    };
+
+    struct SCopyDescriptorSet
+    {
+        core::smart_refctd_ptr<this_type> srcSet;
+        uint32_t srcBinding;
+        uint32_t srcArrayElement;
+        uint32_t dstBinding;
+        uint32_t dstArrayElement;
+        uint32_t count;
+    };
+
+    //CVulkanDescriptorSet might want to override this, hence `virtual`
+    virtual void updateDescriptorSet(uint32_t _writeCount, const SWriteDescriptorSet* _descWrites, uint32_t _copyCount, const SCopyDescriptorSet* _descCopies)
+    {
+        for (uint32_t i = 0u; i < _writeCount; ++i)
+        {
+            const SWriteDescriptorSet& wrt = _descWrites[i];
+            const uint32_t ix = (*m_bindingToIx)[wrt.binding];
+
+            for (uint32_t j = 0u; j < wrt.count; ++j)
+                (*m_descriptors)[ix].info->operator[](wrt.arrayElement + j) = wrt.info[j];//std::move ?
+        }
+        for (uint32_t i = 0u; i < _copyCount; ++i)
+        {
+            const SCopyDescriptorSet& cpy = _descCopies[i];
+            const uint32_t ix = (*m_bindingToIx)[cpy.dstBinding];
+
+            const SDescriptorBinding* src = cpy.srcSet->getDescriptorFromBindingNum(cpy.srcBinding);
+
+            for (uint32_t j = 0u; j < cpy.count; ++j)
+                (*m_descriptors)[ix].info->operator[](cpy.dstArrayElement + j) = src->info->operator[](cpy.srcArrayElement + j);
+        }
+    }
+
+    const LayoutType* getLayout() const { return m_layout.get(); }
+    core::SRange<const SDescriptorBinding> getDescriptors() const 
+    { 
+        return m_descriptors ? core::SRange<const SDescriptorBinding>{m_descriptors->begin(), m_descriptors->end()} : core::SRange<const SDescriptorBinding>{nullptr, nullptr};
+    }
+
 protected:
+    const SDescriptorBinding* getDescriptorFromBindingNum(uint32_t _binding) const
+    {
+        if (!m_bindingToIx)
+            return nullptr;
+        const uint32_t ix = (*m_bindingToIx)[_binding];
+        return getDescriptors().begin()+ix;
+    }
+
+
+    IDescriptorSet(core::smart_refctd_ptr<LayoutType>&& _layout) :
+        m_layout(std::move(_layout)),
+        m_descriptors(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SDescriptorBinding>>(m_layout->getBindings().length())),
+        m_bindingToIx(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>((m_layout->getBindings().end() - 1)->binding, ~0u))
+    {
+        uint32_t i = 0u;
+        for (typename LayoutType::SBinding& bnd : m_layout->getBindings())
+        {
+            auto& d = m_descriptors[i];
+            d.binding = bnd.binding;
+            d.descriptorType = bnd.type;
+            d.info = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SDescriptorInfo>>(bnd.count);
+            ++i;
+        }
+        for (i = 0u; i < m_descriptors->size(); ++i)
+            m_bindingToIx[(*m_descriptors)[i].binding] = i;
+    }
+
+    //leaving this ctor below for sake of faster cpu->gpu conversions
     /**
-    @param _layout Bindings in layout must go in the same order as corresponding descriptors (SWriteDescriptorSet) in `_descriptors` parameter (this requirement should be probably dropped in the future)
+    @param _layout Bindings in layout must go in the same order as corresponding descriptors (SDescriptorBinding) in `_descriptors` parameter (this requirement should be probably dropped in the future)
     @param _descriptors Entries must be sorted by binding number
     */
-    IDescriptorSet(core::smart_refctd_ptr<LayoutType>&& _layout, core::smart_refctd_dynamic_array<SWriteDescriptorSet>&& _descriptors) :
-        m_layout(std::move(_layout)), m_descriptors(std::move(_descriptors)) 
+    IDescriptorSet(core::smart_refctd_ptr<LayoutType>&& _layout, core::smart_refctd_dynamic_array<SDescriptorBinding>&& _descriptors) :
+        m_layout(std::move(_layout)), m_descriptors(std::move(_descriptors)),
+        m_bindingToIx(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>((m_layout->getBindings().end()-1)->binding, ~0u))
     {
         auto is_not_sorted = [this] {
             for (auto it = m_descriptors->cbegin()+1; it != m_descriptors->cend(); ++it)
@@ -74,14 +153,15 @@ protected:
             return true;
         };
         assert(!is_not_sorted);
+
+        for (uint32_t i = 0u; i < m_descriptors->size(); ++i)
+            m_bindingToIx[(*m_descriptors)[i].binding] = i;
     }
     virtual ~IDescriptorSet() = default;
 
-    const LayoutType* getLayout() const { return m_layout.get(); }
-    core::SRange<const SWriteDescriptorSet> getDescriptors() const { return {m_descriptors->begin(), m_descriptors->end()}; }
-
     core::smart_refctd_ptr<LayoutType> m_layout;
-    core::smart_refctd_dynamic_array<SWriteDescriptorSet> m_descriptors;
+    core::smart_refctd_dynamic_array<SDescriptorBinding> m_descriptors;
+    core::smart_refctd_dynamic_array<uint32_t> m_bindingToIx;
 };
 
 }}

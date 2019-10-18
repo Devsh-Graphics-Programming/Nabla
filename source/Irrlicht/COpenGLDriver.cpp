@@ -840,7 +840,6 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
         found->CurrentFBO = NULL;
     }
 
-    extGlUseProgram(0);
     removeAllFrameBuffers();
 
     extGlBindVertexArray(0);
@@ -849,6 +848,12 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
         extGlDeleteVertexArrays(1, &vao.second.GLname);
     }
     found->VAOMap.clear();
+
+    extGlUseProgram(0);
+    extGlBindProgramPipeline(0);
+    for (auto& ppln : found->GraphicsPipelineMap)
+        extGlDeleteProgramPipelines(1, &ppln.second);
+    found->GraphicsPipelineMap.clear();
 
     //force drop of all all grabbed (through smart_refctd_ptr) resources (descriptor sets, buffers, program pipeline)
     found->currentState = SOpenGLState();
@@ -983,8 +988,6 @@ bool COpenGLDriver::genericDriverInit()
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);//once set and should never change (engine doesnt track it)
     glDepthRange(1.0, 0.0);//once set and should never change (engine doesnt track it)
     found->nextState.rasterParams.multisampleEnable = 0;
-    found->nextState.rasterParams.clipControl.origin = GL_UPPER_LEFT;
-    found->nextState.rasterParams.clipControl.depth = GL_ZERO_TO_ONE;
     found->nextState.rasterParams.depthFunc = GL_GEQUAL;
     found->nextState.rasterParams.frontFace = GL_CCW;
 
@@ -1242,45 +1245,40 @@ bool COpenGLDriver::bindGraphicsPipeline(video::IGPURenderpassIndependentPipelin
 
     ctx->updateNextState_pipelineAndRaster(_gpipeline);
 
-    //all code below this line is descriptor set bindings invalidation according to pipeline layout compatibility rules (https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#descriptorsets-compatibility)
-    if (!ctx->currentState.pipeline || !_gpipeline)
-    {
-        std::fill(ctx->nextState.descriptorsParams.descSets, ctx->nextState.descriptorsParams.descSets + IGPUPipelineLayout::DESCRIPTOR_SET_COUNT, nullptr);
-        return true;
-    }
-    
-    uint32_t compatibilityLimit = IGPUPipelineLayout::DESCRIPTOR_SET_COUNT;
-    if (ctx->currentState.pipeline)
-    {
-        const IGPUPipelineLayout* nextLayout = _gpipeline->getLayout();
-        compatibilityLimit = ctx->currentState.pipeline->getLayout()->isCompatibleForSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u, nextLayout);
-    }
-
-    if (compatibilityLimit == IGPUPipelineLayout::DESCRIPTOR_SET_COUNT)
-        std::fill(ctx->nextState.descriptorsParams.descSets, ctx->nextState.descriptorsParams.descSets + IGPUPipelineLayout::DESCRIPTOR_SET_COUNT, nullptr);
-    else
-    {
-        for (uint32_t i = compatibilityLimit+1u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
-            ctx->nextState.descriptorsParams.descSets[i] = nullptr;
-    }
-
     return true;
 }
 
-bool COpenGLDriver::bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, uint32_t _first, uint32_t _count, video::IGPUDescriptorSet** _descSets, uint32_t _dynOffsetCount, const uint32_t* _dynOffsets)
+bool COpenGLDriver::bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
+    uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets)
 {
     //TODO take into account `_pipelineType` param and adjust this function when compute pipelines come in
+    if (_first + _count >= IGPUPipelineLayout::DESCRIPTOR_SET_COUNT)
+        return false;
+
     SAuxContext* ctx = getThreadContext_helper(false);
     if (!ctx)
         return false;
 
-    if (_first + _count >= IGPUPipelineLayout::DESCRIPTOR_SET_COUNT)
-        return false;
+    const IGPUPipelineLayout* layouts[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{};
+    for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+        layouts[i] = ctx->nextState.descriptorsParams.descSets[i].pplnLayout.get();
+    bindDescriptorSets_generic(_layout, _first, _count, _descSets, layouts);
 
-    for (uint32_t i = 0u; i < _count; ++i)
-        ctx->nextState.descriptorsParams.descSets[_first+i] = core::smart_refctd_ptr<IGPUDescriptorSet>(_descSets[i]);
+    for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+        if (!layouts[i])
+            ctx->nextState.descriptorsParams.descSets[i] = { nullptr, nullptr, nullptr };
 
-    //TODO dynamic offsets
+    for (uint32_t i = 0u; i < _count; i++)
+    {
+        ctx->nextState.descriptorsParams.descSets[_first + i] =
+        {
+        core::smart_refctd_ptr<const COpenGLPipelineLayout>(static_cast<const COpenGLPipelineLayout*>(_layout)),
+        core::smart_refctd_ptr<const COpenGLDescriptorSet>(static_cast<const COpenGLDescriptorSet*>(_descSets[i])),
+        _dynamicOffsets[i] //intentionally copy, not move
+        };
+    }
+
+    return true;
 }
 
 core::smart_refctd_ptr<IGPUShader> COpenGLDriver::createGPUShader(const asset::ICPUShader* _cpushader)
@@ -1366,29 +1364,45 @@ core::smart_refctd_ptr<IGPUPipelineLayout> COpenGLDriver::createGPUPipelineLayou
         );
 }
 
-core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createGPURenderpassIndependentPipeline(core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, core::smart_refctd_ptr<IGPUSpecializedShader>&& _vs, core::smart_refctd_ptr<IGPUSpecializedShader>&& _tcs, core::smart_refctd_ptr<IGPUSpecializedShader>&& _tes, core::smart_refctd_ptr<IGPUSpecializedShader>&& _gs, core::smart_refctd_ptr<IGPUSpecializedShader>&& _fs, const asset::SVertexInputParams& _vertexInputParams, const asset::SBlendParams& _blendParams, const asset::SPrimitiveAssemblyParams& _primAsmParams, const asset::SRasterizationParams& _rasterParams)
+core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createGPURenderpassIndependentPipeline(core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd, const asset::SVertexInputParams& _vertexInputParams, const asset::SBlendParams& _blendParams, const asset::SPrimitiveAssemblyParams& _primAsmParams, const asset::SRasterizationParams& _rasterParams)
 {
-    if (!_layout || !_vs)
-        return nullptr;
+    //_parent parameter is ignored
 
-#define GET_SHADER_STAGE(shdr) (static_cast<COpenGLSpecializedShader*>(shdr.get())->getStage())
-    if (GET_SHADER_STAGE(_vs) != GL_VERTEX_SHADER)
+    using GLPpln = COpenGLRenderpassIndependentPipeline;
+
+    auto shaders = core::SRange<IGPUSpecializedShader*>(_shadersBegin, _shadersEnd);
+    auto vsIsPresent = [&shaders] {
+        return std::find_if(shaders.begin(), shaders.end(), [](IGPUSpecializedShader* shdr) {shdr->getStage()==asset::ESS_VERTEX;}) != shaders.end();
+    };
+
+    if (!_layout || vsIsPresent())
         return nullptr;
-    if (_tcs && (GET_SHADER_STAGE(_tcs) != GL_TESS_CONTROL_SHADER))
-        return nullptr;
-    if (_tes && (GET_SHADER_STAGE(_tes) != GL_TESS_EVALUATION_SHADER))
-        return nullptr;
-    if (_gs && (GET_SHADER_STAGE(_gs) != GL_GEOMETRY_SHADER))
-        return nullptr;
-    if (_fs && (GET_SHADER_STAGE(_fs) != GL_FRAGMENT_SHADER))
-        return nullptr;
-#undef GET_SHADER_STAGE
 
     return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
         std::move(_layout),
-        std::move(_vs), std::move(_tcs), std::move(_tes), std::move(_gs), std::move(_fs),
+        _shadersBegin, _shadersEnd,
         _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
         );
+}
+
+bool COpenGLDriver::removeGPURenderpassIndependentPipeline(const IGPURenderpassIndependentPipeline* _pipeline)
+{
+    SAuxContext* ctx = getThreadContext_helper(false);
+    if (!ctx)
+        return false;
+
+    SAuxContext::SGraphicsPipelineHash hash;
+    for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
+    {
+        hash[i] = _pipeline->getShaderAtIndex(i) ?
+            static_cast<const COpenGLSpecializedShader*>(_pipeline->getShaderAtIndex(i))->getGLnameForCtx(ctx->ID) :
+            0u;
+    }
+
+    if (ctx->GraphicsPipelineMap.erase(hash) == 0ull)
+        return false;
+
+    return true;
 }
 
 core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>&& _descriptors)
@@ -1397,6 +1411,14 @@ core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(
         return nullptr;
 
     return core::make_smart_refctd_ptr<COpenGLDescriptorSet>(std::move(_layout), std::move(_descriptors));
+}
+
+core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout)
+{
+    if (!_layout)
+        return nullptr;
+
+    return core::make_smart_refctd_ptr<COpenGLDescriptorSet>(std::move(_layout));
 }
 
 IGPUBuffer* COpenGLDriver::createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData)
@@ -1474,11 +1496,11 @@ void COpenGLDriver::beginQuery(IQueryObject* query)
     if (queryGL->getGLHandle()==0||queryGL->isActive())
         return;
 
-    if (currentQuery[query->getQueryObjectType()][0])
+    if (currentQuery[query->getQueryObjectType()])
         return; //error
 
     query->grab();
-    currentQuery[query->getQueryObjectType()][0] = query;
+    currentQuery[query->getQueryObjectType()] = query;
 
 
     extGlBeginQuery(queryGL->getType(),queryGL->getGLHandle());
@@ -1488,64 +1510,19 @@ void COpenGLDriver::endQuery(IQueryObject* query)
 {
     if (!query)
         return; //error
-    if (currentQuery[query->getQueryObjectType()][0]!=query)
+    if (currentQuery[query->getQueryObjectType()]!=query)
         return; //error
 
     COpenGLQuery* queryGL = static_cast<COpenGLQuery*>(query);
     if (queryGL->getGLHandle()==0||!queryGL->isActive())
         return;
 
-    if (currentQuery[query->getQueryObjectType()][0])
-        currentQuery[query->getQueryObjectType()][0]->drop();
-    currentQuery[query->getQueryObjectType()][0] = NULL;
+    if (currentQuery[query->getQueryObjectType()])
+        currentQuery[query->getQueryObjectType()]->drop();
+    currentQuery[query->getQueryObjectType()] = nullptr;
 
 
     extGlEndQuery(queryGL->getType());
-    queryGL->flagEnded();
-}
-
-void COpenGLDriver::beginQuery(IQueryObject* query, const size_t& index)
-{
-    if (index>=_IRR_XFORM_FEEDBACK_MAX_STREAMS_)
-        return; //error
-
-    if (!query||(query->getQueryObjectType()!=EQOT_PRIMITIVES_GENERATED&&query->getQueryObjectType()!=EQOT_XFORM_FEEDBACK_PRIMITIVES_WRITTEN))
-        return; //error
-
-    COpenGLQuery* queryGL = static_cast<COpenGLQuery*>(query);
-    if (queryGL->getGLHandle()==0||queryGL->isActive())
-        return;
-
-    if (currentQuery[query->getQueryObjectType()][index])
-        return; //error
-
-    query->grab();
-    currentQuery[query->getQueryObjectType()][index] = query;
-
-
-    extGlBeginQueryIndexed(queryGL->getType(),index,queryGL->getGLHandle());
-    queryGL->flagBegun();
-}
-void COpenGLDriver::endQuery(IQueryObject* query, const size_t& index)
-{
-    if (index>=_IRR_XFORM_FEEDBACK_MAX_STREAMS_)
-        return; //error
-
-    if (!query||(query->getQueryObjectType()!=EQOT_PRIMITIVES_GENERATED&&query->getQueryObjectType()!=EQOT_XFORM_FEEDBACK_PRIMITIVES_WRITTEN))
-        return; //error
-    if (currentQuery[query->getQueryObjectType()][index]!=query)
-        return; //error
-
-    COpenGLQuery* queryGL = static_cast<COpenGLQuery*>(query);
-    if (queryGL->getGLHandle()==0||!queryGL->isActive())
-        return;
-
-    if (currentQuery[query->getQueryObjectType()][index])
-        currentQuery[query->getQueryObjectType()][index]->drop();
-    currentQuery[query->getQueryObjectType()][index] = NULL;
-
-
-    extGlEndQueryIndexed(queryGL->getType(),index);
     queryGL->flagEnded();
 }
 
@@ -1899,10 +1876,26 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
     if (stateBits & GSB_PIPELINE_AND_RASTER_PARAMETERS)
     {
         if (nextState.pipeline != currentState.pipeline) {
-            //TODO find pipeline GL name in cache and bind
-            //COpenGLExtensionHandler::extGlBindProgramPipeline(nextState.pipeline);
+            SGraphicsPipelineHash hash;
+            for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
+            {
+                hash[i] = currentState.pipeline->getShaderAtIndex(i) ?
+                    static_cast<const COpenGLSpecializedShader*>(currentState.pipeline->getShaderAtIndex(i))->getGLnameForCtx(this->ID) :
+                    0u;
+            }
+
+            GLuint GLname = 0u;
+            auto found = GraphicsPipelineMap.find(hash);
+            if (found != GraphicsPipelineMap.end())
+                GLname = found->second;
+            else
+                GLname = createGraphicsPipelineInCache(hash);
+
+            extGlUseProgram(0);//TODO hm??
+            extGlBindProgramPipeline(GLname);
+
+            currentState.pipeline = nextState.pipeline;
         }
-        currentState.pipeline = nextState.pipeline;
 
 
 #define STATE_NEQ(member) (nextState.member != currentState.member)
@@ -2002,10 +1995,6 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
         if (STATE_NEQ(rasterParams.multisampleEnable)) {
             disable_enable_fptr[nextState.rasterParams.multisampleEnable](GL_MULTISAMPLE);
             UPDATE_STATE(rasterParams.multisampleEnable);
-        }
-        if (STATE_NEQ(rasterParams.clipControl)) {
-            COpenGLExtensionHandler::extGlClipControl(nextState.rasterParams.clipControl.origin, nextState.rasterParams.clipControl.depth);
-            UPDATE_STATE(rasterParams.clipControl);
         }
         if (STATE_NEQ(rasterParams.primitiveRestartEnable)) {
             disable_enable_fptr[nextState.rasterParams.primitiveRestartEnable](GL_PRIMITIVE_RESTART);
@@ -2160,7 +2149,6 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
 
             const auto& first_count = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline->getLayout())->getMultibindParamsForDescSet(i);
 
-            if (i < compatibilityLimitPlusOne)
             {
                 GLsizei count{};
 
@@ -2176,24 +2164,52 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
                 CLAMP_COUNT(textureImages, COpenGLExtensionHandler::maxImageBindings, image);
                 newImgCount = first_count.textureImages.first + count;
 #undef CLAMP_COUNT
-
-                continue;
             }
 
-            const auto& multibind_params = nextState.descriptorsParams.descSets[i] ? 
-                nextState.descriptorsParams.descSets[i]->getMultibindParams() :
+            if (i < compatibilityLimitPlusOne)//if prev and curr pipeline layouts are compatible for set N and currState.set[N]==nextState.set[N] then binding set N would be redundant
+                continue;
+
+            const auto& multibind_params = nextState.descriptorsParams.descSets[i].set ? 
+                nextState.descriptorsParams.descSets[i].set->getMultibindParams() :
                 COpenGLDescriptorSet::SMultibindParams{};//all nullptr
 
-            extGlBindBuffersRange(GL_UNIFORM_BUFFER, first_count.ubos.first, (newUboCount - first_count.ubos.first), multibind_params.ubos.buffers, multibind_params.ubos.offsets, multibind_params.ubos.sizes);
-            extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, first_count.ssbos.first, (newSsboCount - first_count.ssbos.first), multibind_params.ubos.buffers, multibind_params.ubos.offsets, multibind_params.ubos.sizes);
+            const GLsizei localUboCount = (newUboCount - first_count.ubos.first);//"local" as in this DS
+            const GLsizei localSsboCount = (newSsboCount - first_count.ssbos.first);//"local" as in this DS
+            //not entirely sure those MAXes are right
+            constexpr size_t MAX_UBO_COUNT = 96ull;
+            constexpr size_t MAX_SSBO_COUNT = 91ull;
+            GLintptr uboOffsets_array[MAX_UBO_COUNT]{};
+            GLintptr* const uboOffsets = nextState.descriptorsParams.descSets[i].set ? uboOffsets_array : nullptr;
+            GLintptr ssboOffsets_array[MAX_SSBO_COUNT]{};
+            GLintptr* const ssboOffsets = nextState.descriptorsParams.descSets[i].set ? ssboOffsets_array : nullptr;
+
+            if (uboOffsets)
+                memcpy(uboOffsets, multibind_params.ubos.offsets, localUboCount*sizeof(GLintptr));
+            //if the loop below crashes, it means that there are dynamic UBOs in the DS, but the DS was bound with no (or not enough) dynamic offsets
+            //or for some weird reason (bug) descSets[i].set is nullptr, but descSets[i].dynamicOffsets is not
+            for (GLsizei u = 0u; ((u < localUboCount) && nextState.descriptorsParams.descSets[i].dynamicOffsets); ++u)
+                if (multibind_params.ubos.dynOffsetIxs[u] < nextState.descriptorsParams.descSets[i].dynamicOffsets->size())
+                    uboOffsets[u] += nextState.descriptorsParams.descSets[i].dynamicOffsets->operator[](multibind_params.ubos.dynOffsetIxs[u]);
+
+            if (ssboOffsets)
+                memcpy(ssboOffsets, multibind_params.ssbos.offsets, localSsboCount*sizeof(GLintptr));
+            //if the loop below crashes, it means that there are dynamic SSBOs in the DS, but the DS was bound with no (or not enough) dynamic offsets
+            //or for some weird reason (bug) descSets[i].set is nullptr, but descSets[i].dynamicOffsets is not
+            for (GLsizei s = 0u; ((s < localSsboCount) && nextState.descriptorsParams.descSets[i].dynamicOffsets); ++s)
+                if (multibind_params.ssbos.dynOffsetIxs[s] < nextState.descriptorsParams.descSets[i].dynamicOffsets->size())
+                    ssboOffsets[s] += nextState.descriptorsParams.descSets[i].dynamicOffsets->operator[](multibind_params.ssbos.dynOffsetIxs[s]);
+
+            extGlBindBuffersRange(GL_UNIFORM_BUFFER, first_count.ubos.first, localUboCount, multibind_params.ubos.buffers, uboOffsets, multibind_params.ubos.sizes);
+            extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, first_count.ssbos.first, localSsboCount, multibind_params.ssbos.buffers, ssboOffsets, multibind_params.ssbos.sizes);
             extGlBindTextures(first_count.textures.first, (newTexCount - first_count.textures.first), multibind_params.textures.textures, nullptr); //targets=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
             extGlBindSamplers(first_count.textures.first, (newTexCount - first_count.textures.first), multibind_params.textures.samplers);
             extGlBindImageTextures(first_count.textureImages.first, (newImgCount - first_count.textureImages.first), multibind_params.textureImages.textures, nullptr); //formats=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
         }
 
         //unbind previous descriptors if needed (if bindings not replaced by new multibind calls)
-        int64_t prevUboCount = 0u, prevSsboCount = 0u, prevTexCount = 0u, prevImgCount = 0u;
+        if (prevPipeline)//if previous pipeline was nullptr, then no descriptors were bound
         {
+            int64_t prevUboCount = 0u, prevSsboCount = 0u, prevTexCount = 0u, prevImgCount = 0u;
             const auto& first_count = static_cast<const COpenGLPipelineLayout*>(prevPipeline->getLayout())->getMultibindParamsForDescSet(video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u);
 
             prevUboCount = first_count.ubos.first + first_count.ubos.count;
@@ -2234,80 +2250,28 @@ static GLenum getGLcullFace(asset::E_FACE_CULL_MODE cf)
 }
 static GLenum getGLstencilOp(asset::E_STENCIL_OP so)
 {
-    using namespace asset;
-    switch (so) {
-    case ESO_KEEP: return GL_KEEP;
-    case ESO_ZERO: return GL_ZERO;
-    case ESO_REPLACE: return GL_REPLACE;
-    case ESO_INCREMENT_AND_CLAMP: return GL_INCR;
-    case ESO_DECREMENT_AND_CLAMP: return GL_DECR;
-    case ESO_INVERT: return GL_INVERT;
-    case ESO_INCREMENT_AND_WRAP: return GL_INCR_WRAP;
-    case ESO_DECREMENT_AND_WRAP: return GL_DECR_WRAP;
-    }
+    static const GLenum glso[]{ GL_KEEP, GL_ZERO, GL_REPLACE, GL_INCR, GL_DECR, GL_INVERT, GL_INCR_WRAP, GL_DECR_WRAP };
+    return glso[so];
 }
 static GLenum getGLcmpFunc(asset::E_COMPARE_OP sf)
 {
-    using namespace asset;
-    switch (sf) {
-    case ECO_NEVER: return GL_NEVER;
-    case ECO_LESS: return GL_LESS;
-    case ECO_EQUAL: return GL_EQUAL;
-    case ECO_LESS_OR_EQUAL: return GL_LEQUAL;
-    case ECO_GREATER: return GL_GREATER;
-    case ECO_NOT_EQUAL: return GL_NOTEQUAL;
-    case ECO_GREATER_OR_EQUAL: return GL_GEQUAL;
-    case ECO_ALWAYS: return GL_ALWAYS;
-    }
+    static const GLenum glsf[]{ GL_NEVER, GL_LESS, GL_EQUAL, GL_LEQUAL, GL_GREATER, GL_NOTEQUAL, GL_GEQUAL, GL_ALWAYS };
+    return glsf[sf];
 }
 static GLenum getGLlogicOp(asset::E_LOGIC_OP lo)
 {
-    using namespace asset;
-    switch (lo)
-    {
-    case ELO_CLEAR: return GL_CLEAR;
-    case ELO_AND: return GL_AND;
-    case ELO_AND_REVERSE: return GL_AND_REVERSE;
-    case ELO_COPY: return GL_COPY;
-    case ELO_AND_INVERTED: return GL_AND_INVERTED;
-    case ELO_NO_OP: return GL_NOOP;
-    case ELO_XOR: return GL_XOR;
-    case ELO_OR: return GL_OR;
-    case ELO_NOR: return GL_NOR;
-    case ELO_EQUIVALENT: return GL_EQUIV;
-    case ELO_INVERT: return GL_INVERT;
-    case ELO_OR_REVERSE: return GL_OR_REVERSE;
-    case ELO_COPY_INVERTED: return GL_COPY_INVERTED;
-    case ELO_OR_INVERTED: return GL_OR_INVERTED;
-    case ELO_NAND: return GL_NAND;
-    case ELO_SET: return GL_SET;
-    }
+    static const GLenum gllo[]{ GL_CLEAR, GL_AND, GL_AND_REVERSE, GL_COPY, GL_AND_INVERTED, GL_NOOP, GL_XOR, GL_OR, GL_NOR, GL_EQUIV, GL_INVERT, GL_OR_REVERSE,
+        GL_COPY_INVERTED, GL_OR_INVERTED, GL_NAND, GL_SET
+    };
+    return gllo[lo];
 }
 static GLenum getGLblendFunc(asset::E_BLEND_FACTOR bf)
 {
-    using namespace asset;
-    switch (bf)
-    {
-    case EBF_ZERO: return GL_ZERO;
-    case EBF_ONE: return GL_ONE;
-    case EBF_SRC_COLOR: return GL_SRC_COLOR;
-    case EBF_ONE_MINUS_SRC_COLOR: return GL_ONE_MINUS_SRC_COLOR;
-    case EBF_DST_COLOR: return GL_DST_COLOR;
-    case EBF_ONE_MINUS_DST_COLOR: return GL_ONE_MINUS_DST_COLOR;
-    case EBF_SRC_ALPHA: return GL_SRC_ALPHA;
-    case EBF_ONE_MINUS_SRC_ALPHA: return GL_ONE_MINUS_SRC_ALPHA;
-    case EBF_DST_ALPHA: return GL_DST_ALPHA;
-    case EBF_ONE_MINUS_DST_ALPHA: return GL_ONE_MINUS_DST_ALPHA;
-    case EBF_CONSTANT_COLOR: return GL_CONSTANT_COLOR;
-    case EBF_ONE_MINUS_CONSTANT_COLOR: return GL_ONE_MINUS_CONSTANT_COLOR;
-    case EBF_CONSTANT_ALPHA: return GL_CONSTANT_ALPHA;
-    case EBF_ONE_MINUS_CONSTANT_ALPHA: return GL_ONE_MINUS_CONSTANT_ALPHA;
-    case EBF_SRC_ALPHA_SATURATE: return GL_SRC_ALPHA_SATURATE;
-    case EBF_SRC1_COLOR: return GL_SRC1_COLOR;
-    case EBF_ONE_MINUS_SRC1_COLOR: return GL_ONE_MINUS_SRC1_COLOR;
-    case EBF_SRC1_ALPHA: return GL_SRC1_ALPHA;
-    case EBF_ONE_MINUS_SRC1_ALPHA: return GL_ONE_MINUS_SRC1_ALPHA;
-    }
+    static const GLenum glbf[]{ GL_ZERO , GL_ONE, GL_SRC_COLOR, GL_ONE_MINUS_SRC_COLOR, GL_DST_COLOR, GL_ONE_MINUS_DST_COLOR, GL_SRC_ALPHA,
+        GL_ONE_MINUS_SRC_ALPHA, GL_DST_ALPHA, GL_ONE_MINUS_DST_ALPHA, GL_CONSTANT_COLOR, GL_ONE_MINUS_CONSTANT_COLOR, GL_CONSTANT_ALPHA, GL_ONE_MINUS_CONSTANT_ALPHA,
+        GL_SRC_ALPHA_SATURATE, GL_SRC1_COLOR, GL_ONE_MINUS_SRC1_COLOR, GL_SRC1_ALPHA, GL_ONE_MINUS_SRC1_ALPHA
+    };
+    return glbf[bf];
 }
 static GLenum getGLblendEq(asset::E_BLEND_OP bo)
 {
@@ -2317,11 +2281,34 @@ static GLenum getGLblendEq(asset::E_BLEND_OP bo)
     return glbo[bo];
 }
 
+GLuint COpenGLDriver::SAuxContext::createGraphicsPipelineInCache(const SGraphicsPipelineHash& _hash)
+{
+    constexpr size_t STAGE_CNT = COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT;
+    static_assert(STAGE_CNT == 5u, "SHADER_STAGE_COUNT is expected to be 5");
+    const GLenum stages[5]{ GL_VERTEX_SHADER, GL_TESS_CONTROL_SHADER, GL_TESS_EVALUATION_SHADER, GL_GEOMETRY_SHADER, GL_FRAGMENT_SHADER };
+    const GLenum stageFlags[5]{ GL_VERTEX_SHADER_BIT, GL_TESS_CONTROL_SHADER_BIT, GL_TESS_EVALUATION_SHADER_BIT, GL_GEOMETRY_SHADER_BIT, GL_FRAGMENT_SHADER_BIT };
+
+    GLuint GLpipeline = 0u;
+    COpenGLExtensionHandler::extGlCreateProgramPipelines(1u, &GLpipeline);
+
+    for (uint32_t ix = 0u; ix < STAGE_CNT; ++ix) {
+        GLuint progName = _hash[ix];
+
+        if (progName)
+            COpenGLExtensionHandler::extGlUseProgramStages(GLpipeline, stageFlags[ix], progName);
+    }
+
+    return GLpipeline;
+}
+
 void COpenGLDriver::SAuxContext::updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline)
 {
     nextState.pipeline = core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline>(
         static_cast<const COpenGLRenderpassIndependentPipeline*>(_pipeline)
     );
+    if (_pipeline)
+        return;
+
     const auto& ppln = nextState.pipeline;
 
     const auto& raster_src = ppln->getRasterizationParams();
@@ -2558,7 +2545,7 @@ core::smart_refctd_ptr<ITexture> COpenGLDriver::createGPUTexture(const ITexture:
     return createDeviceDependentTexture(type, size, mipmapLevels, "", format);
 }
 
-IMultisampleTexture* COpenGLDriver::addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, asset::E_FORMAT format, const bool& fixedSampleLocations)
+IMultisampleTexture* COpenGLDriver::createMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, asset::E_FORMAT format, const bool& fixedSampleLocations)
 {
     //check to implement later on  attachment of textures to FBO
     //if (!isFormatRenderable(glTex->getOpenGLInternalFormat()))
@@ -2583,9 +2570,6 @@ IMultisampleTexture* COpenGLDriver::addMultisampleTexture(const IMultisampleText
         default:
             break;
 	}
-
-	if (tex)
-        CNullDriver::addMultisampleTexture(tex);
 
 	return tex;
 }
@@ -2698,6 +2682,25 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
 	GLuint inFBOHandle = 0;
 	GLuint outFBOHandle = 0;
 
+    SAuxContext * found = getThreadContext_helper(false);
+    if (!found)
+        return;
+
+
+    GLboolean rasterDiscard = 0;
+    GLboolean colormask[4]{};
+    GLboolean depthWrite = found->nextState.rasterParams.depthWriteEnable;
+    GLuint smask_back = found->nextState.rasterParams.stencilFunc_back.mask;
+    GLuint smask_front = found->nextState.rasterParams.stencilFunc_front.mask;
+
+    if (copyDepth)
+        found->nextState.rasterParams.depthWriteEnable = 1;
+    if (copyStencil)
+    {
+        found->nextState.rasterParams.stencilFunc_back.mask = ~0u;
+        found->nextState.rasterParams.stencilFunc_front.mask = ~0u;
+    }
+    clearColor_gatherAndOverrideState(found, 0u, &rasterDiscard, colormask);
 
 	if (srcRect.getArea()==0)
 	{
@@ -2722,8 +2725,8 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
                 }
                 else
                 {
-                    width = core::min_(rndrbl->getRenderableSize().Width,width);
-                    height = core::min_(rndrbl->getRenderableSize().Height,height);
+                    width = std::min(rndrbl->getRenderableSize().Width,width);
+                    height = std::min(rndrbl->getRenderableSize().Height,height);
                 }
             }
             if (firstAttached)
@@ -2757,8 +2760,8 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
                 }
                 else
                 {
-                    width = core::min_(rndrbl->getRenderableSize().Width,width);
-                    height = core::min_(rndrbl->getRenderableSize().Height,height);
+                    width = std::min(rndrbl->getRenderableSize().Width,width);
+                    height = std::min(rndrbl->getRenderableSize().Height,height);
                 }
             }
             if (firstAttached)
@@ -2784,8 +2787,33 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
                         dstRect.UpperLeftCorner.X,dstRect.UpperLeftCorner.Y,dstRect.LowerRightCorner.X,dstRect.LowerRightCorner.Y,
 						GL_COLOR_BUFFER_BIT|(copyDepth ? GL_DEPTH_BUFFER_BIT:0)|(copyStencil ? GL_STENCIL_BUFFER_BIT:0),
 						bilinearFilter ? GL_LINEAR:GL_NEAREST);
+
+    if (copyDepth)
+        found->nextState.rasterParams.depthWriteEnable = depthWrite;
+    if (copyStencil)
+    {
+        found->nextState.rasterParams.stencilFunc_back.mask = smask_back;
+        found->nextState.rasterParams.stencilFunc_front.mask = smask_front;
+    }
+    clearColor_bringbackState(found, 0u, rasterDiscard, colormask);
 }
 
+void COpenGLDriver::clearColor_gatherAndOverrideState(SAuxContext * found, uint32_t _attIx, GLboolean* _rasterDiscard, GLboolean* _colorWmask)
+{
+    _rasterDiscard[0] = found->nextState.rasterParams.rasterizerDiscardEnable;
+    memcpy(_colorWmask, found->nextState.rasterParams.drawbufferBlend[_attIx].colorMask.colorWritemask, 4);
+
+    found->nextState.rasterParams.rasterizerDiscardEnable = 0;
+    const GLboolean newmask[4]{ 1,1,1,1 };
+    memcpy(found->nextState.rasterParams.drawbufferBlend[_attIx].colorMask.colorWritemask, newmask, sizeof(newmask));
+    found->flushState(GSB_PIPELINE_AND_RASTER_PARAMETERS);
+}
+
+void COpenGLDriver::clearColor_bringbackState(SAuxContext * found, uint32_t _attIx, GLboolean _rasterDiscard, const GLboolean * _colorWmask)
+{
+    found->nextState.rasterParams.rasterizerDiscardEnable = _rasterDiscard;
+    memcpy(found->nextState.rasterParams.drawbufferBlend[_attIx].colorMask.colorWritemask, _colorWmask, 4);
+}
 
 
 //! Returns the maximum amount of primitives (mostly vertices) which
@@ -2843,8 +2871,8 @@ bool COpenGLDriver::setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewpo
         }
         else
         {
-            newRTTSize.Width = core::min_(newRTTSize.Width,attachment->getRenderableSize().Width);
-            newRTTSize.Height = core::min_(newRTTSize.Height,attachment->getRenderableSize().Height);
+            newRTTSize.Width = std::min(newRTTSize.Width,attachment->getRenderableSize().Width);
+            newRTTSize.Height = std::min(newRTTSize.Height,attachment->getRenderableSize().Height);
         }
     }
 
@@ -2914,11 +2942,23 @@ void COpenGLDriver::clearStencilBuffer(const int32_t &stencil)
     if (!found)
         return;
 
+    GLuint smask_back = found->nextState.rasterParams.stencilFunc_back.mask;
+    GLuint smask_front = found->nextState.rasterParams.stencilFunc_front.mask;
+    GLboolean rasterizedDiscard = found->nextState.rasterParams.rasterizerDiscardEnable;
+
+    found->nextState.rasterParams.stencilFunc_back.mask = ~0u;
+    found->nextState.rasterParams.stencilFunc_front.mask = ~0u;
+    found->nextState.rasterParams.rasterizerDiscardEnable = 0;
+    found->flushState(GSB_PIPELINE_AND_RASTER_PARAMETERS);
 
     if (found->CurrentFBO)
         extGlClearNamedFramebufferiv(found->CurrentFBO->getOpenGLName(),GL_STENCIL,0,&stencil);
     else
         extGlClearNamedFramebufferiv(0,GL_STENCIL,0,&stencil);
+
+    found->nextState.rasterParams.stencilFunc_back.mask = smask_back;
+    found->nextState.rasterParams.stencilFunc_front.mask = smask_front;
+    found->nextState.rasterParams.rasterizerDiscardEnable = rasterizedDiscard;
 }
 
 void COpenGLDriver::clearZStencilBuffers(const float &depth, const int32_t &stencil)
@@ -2927,11 +2967,26 @@ void COpenGLDriver::clearZStencilBuffers(const float &depth, const int32_t &sten
     if (!found)
         return;
 
+    GLboolean depthWrite = found->nextState.rasterParams.depthWriteEnable;
+    GLuint smask_back = found->nextState.rasterParams.stencilFunc_back.mask;
+    GLuint smask_front = found->nextState.rasterParams.stencilFunc_front.mask;
+    GLboolean rasterizedDiscard = found->nextState.rasterParams.rasterizerDiscardEnable;
+
+    found->nextState.rasterParams.depthWriteEnable = 1;
+    found->nextState.rasterParams.stencilFunc_back.mask = ~0u;
+    found->nextState.rasterParams.stencilFunc_front.mask = ~0u;
+    found->nextState.rasterParams.rasterizerDiscardEnable = 0;
+    found->flushState(GSB_PIPELINE_AND_RASTER_PARAMETERS);
 
     if (found->CurrentFBO)
         extGlClearNamedFramebufferfi(found->CurrentFBO->getOpenGLName(),GL_DEPTH_STENCIL,0,depth,stencil);
     else
         extGlClearNamedFramebufferfi(0,GL_DEPTH_STENCIL,0,depth,stencil);
+
+    found->nextState.rasterParams.depthWriteEnable = depthWrite;
+    found->nextState.rasterParams.stencilFunc_back.mask = smask_back;
+    found->nextState.rasterParams.stencilFunc_front.mask = smask_front;
+    found->nextState.rasterParams.rasterizerDiscardEnable = rasterizedDiscard;
 }
 
 void COpenGLDriver::clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const int32_t* vals)
@@ -2940,14 +2995,20 @@ void COpenGLDriver::clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, c
     if (!found)
         return;
 
-
     if (attachment<EFAP_COLOR_ATTACHMENT0)
         return;
 
+    const uint32_t attIx = attachment - EFAP_COLOR_ATTACHMENT0;
+    GLboolean rasterizerDiscard = found->nextState.rasterParams.rasterizerDiscardEnable;
+    GLboolean colormask[4]{};
+    clearColor_gatherAndOverrideState(found, attIx, &rasterizerDiscard, colormask);
+
     if (found->CurrentFBO)
-        extGlClearNamedFramebufferiv(found->CurrentFBO->getOpenGLName(),GL_COLOR,attachment-EFAP_COLOR_ATTACHMENT0,vals);
+        extGlClearNamedFramebufferiv(found->CurrentFBO->getOpenGLName(),GL_COLOR,attIx,vals);
     else
-        extGlClearNamedFramebufferiv(0,GL_COLOR,attachment-EFAP_COLOR_ATTACHMENT0,vals);
+        extGlClearNamedFramebufferiv(0,GL_COLOR,attIx,vals);
+
+    clearColor_bringbackState(found, attIx, rasterizerDiscard, colormask);
 }
 void COpenGLDriver::clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const uint32_t* vals)
 {
@@ -2955,14 +3016,20 @@ void COpenGLDriver::clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, c
     if (!found)
         return;
 
-
     if (attachment<EFAP_COLOR_ATTACHMENT0)
         return;
 
+    const uint32_t attIx = attachment - EFAP_COLOR_ATTACHMENT0;
+    GLboolean rasterizerDiscard = found->nextState.rasterParams.rasterizerDiscardEnable;
+    GLboolean colormask[4]{};
+    clearColor_gatherAndOverrideState(found, attIx, &rasterizerDiscard, colormask);
+
     if (found->CurrentFBO)
-        extGlClearNamedFramebufferuiv(found->CurrentFBO->getOpenGLName(),GL_COLOR,attachment-EFAP_COLOR_ATTACHMENT0,vals);
+        extGlClearNamedFramebufferuiv(found->CurrentFBO->getOpenGLName(),GL_COLOR,attIx,vals);
     else
-        extGlClearNamedFramebufferuiv(0,GL_COLOR,attachment-EFAP_COLOR_ATTACHMENT0,vals);
+        extGlClearNamedFramebufferuiv(0,GL_COLOR,attIx,vals);
+
+    clearColor_bringbackState(found, attIx, rasterizerDiscard, colormask);
 }
 void COpenGLDriver::clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const float* vals)
 {
@@ -2970,18 +3037,31 @@ void COpenGLDriver::clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, c
     if (!found)
         return;
 
-
     if (attachment<EFAP_COLOR_ATTACHMENT0)
         return;
 
+    const uint32_t attIx = attachment - EFAP_COLOR_ATTACHMENT0;
+    GLboolean rasterizerDiscard = 0;
+    GLboolean colormask[4]{};
+    clearColor_gatherAndOverrideState(found, attIx, &rasterizerDiscard, colormask);
+
     if (found->CurrentFBO)
-        extGlClearNamedFramebufferfv(found->CurrentFBO->getOpenGLName(),GL_COLOR,attachment-EFAP_COLOR_ATTACHMENT0,vals);
+        extGlClearNamedFramebufferfv(found->CurrentFBO->getOpenGLName(),GL_COLOR,attIx,vals);
     else
-        extGlClearNamedFramebufferfv(0,GL_COLOR,attachment-EFAP_COLOR_ATTACHMENT0,vals);
+        extGlClearNamedFramebufferfv(0,GL_COLOR,attIx,vals);
+
+    clearColor_bringbackState(found, attIx, rasterizerDiscard, colormask);
 }
 
 void COpenGLDriver::clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals)
 {
+    auto ctx = getThreadContext_helper(false);
+    if (!ctx)
+        return;
+
+    GLboolean rasterDiscard;
+    GLboolean colorWmask[4];
+    clearColor_gatherAndOverrideState(ctx, 0u, &rasterDiscard, colorWmask);
     switch (buffer)
     {
         case ESB_BACK_LEFT:
@@ -2997,9 +3077,17 @@ void COpenGLDriver::clearScreen(const E_SCREEN_BUFFERS &buffer, const float* val
             extGlClearNamedFramebufferfv(0,GL_COLOR,0,vals);
             break;
     }
+    clearColor_bringbackState(ctx, 0u, rasterDiscard, colorWmask);
 }
 void COpenGLDriver::clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals)
 {
+    auto ctx = getThreadContext_helper(false);
+    if (!ctx)
+        return;
+
+    GLboolean rasterDiscard;
+    GLboolean colorWmask[4];
+    clearColor_gatherAndOverrideState(ctx, 0u, &rasterDiscard, colorWmask);
     switch (buffer)
     {
         case ESB_BACK_LEFT:
@@ -3015,6 +3103,7 @@ void COpenGLDriver::clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* 
             extGlClearNamedFramebufferuiv(0,GL_COLOR,0,vals);
             break;
     }
+    clearColor_bringbackState(ctx, 0u, rasterDiscard, colorWmask);
 }
 
 //! Enable/disable a clipping plane.

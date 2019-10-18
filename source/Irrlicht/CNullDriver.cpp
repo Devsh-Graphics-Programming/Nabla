@@ -40,9 +40,8 @@ CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::d
 	setDebugName("CNullDriver");
 	#endif
 
-	for (size_t i=0; i<EQOT_COUNT; i++)
-    for (size_t j=0; j<_IRR_XFORM_FEEDBACK_MAX_STREAMS_; j++)
-        currentQuery[i][j] = NULL;
+    for (size_t i = 0; i < EQOT_COUNT; i++)
+        currentQuery[i] = nullptr;
 
 	setTextureCreationFlag(ETCF_ALWAYS_32_BIT, true);
 	setTextureCreationFlag(ETCF_CREATE_MIP_MAPS, true);
@@ -283,32 +282,8 @@ const core::matrix4SIMD& CNullDriver::getTransform(const E_PROJECTION_TRANSFORMA
     return ProjectionMatrices[state];
 }
 
-void CNullDriver::removeMultisampleTexture(IMultisampleTexture* tex)
-{
-    auto it = std::lower_bound(MultisampleTextures.begin(),MultisampleTextures.end(),tex);
-    if (it==MultisampleTextures.end() || tex<*it)
-        return;
-    MultisampleTextures.erase(it);
-
-    tex->drop();
-}
-
 void CNullDriver::removeFrameBuffer(IFrameBuffer* framebuf)
 {
-}
-
-void CNullDriver::removeAllMultisampleTextures()
-{
-	for (uint32_t i=0; i<MultisampleTextures.size(); ++i)
-		MultisampleTextures[i]->drop();
-    MultisampleTextures.clear();
-}
-
-void CNullDriver::removeAllTextureBufferObjects()
-{
-	for (uint32_t i=0; i<BufferViews.size(); ++i)
-        BufferViews[i]->drop();
-    BufferViews.clear();
 }
 
 void CNullDriver::removeAllFrameBuffers()
@@ -336,6 +311,33 @@ core::smart_refctd_ptr<ITexture> CNullDriver::createDeviceDependentTexture(const
 	return core::make_smart_refctd_ptr<SDummyTexture>(name);
 }
 
+void CNullDriver::bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, const IGPUPipelineLayout** _destPplnLayouts)
+{
+    uint32_t compatibilityLimits[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{}; //actually more like "compatibility limit + 1" (i.e. 0 mean not comaptible at all)
+    for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+    {
+        const uint32_t lim = _destPplnLayouts[i] ? //if no descriptor set bound at this index
+            _destPplnLayouts[i]->isCompatibleForSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT - 1u, _newLayout) : 0u;
+
+        compatibilityLimits[i] = (lim == IGPUPipelineLayout::DESCRIPTOR_SET_COUNT) ? 0u : (lim + 1u);
+    }
+
+    /*
+    https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#descriptorsets-compatibility
+    When binding a descriptor set (see Descriptor Set Binding) to set number N, if the previously bound descriptor sets for sets zero through N-1 were all bound using compatible pipeline layouts, then performing this binding does not disturb any of the lower numbered sets.
+    */
+    for (uint32_t i = 0u; i < _first; i++)
+        if (compatibilityLimits[i] <= i)
+            _destPplnLayouts[i] = nullptr;
+
+    /*
+    If, additionally, the previous bound descriptor set for set N was bound using a pipeline layout compatible for set N, then the bindings in sets numbered greater than N are also not disturbed.
+    */
+    if (compatibilityLimits[_first] <= _first)
+        for (uint32_t i = _first + _count; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
+            _destPplnLayouts = nullptr;
+}
+
 
 //! sets a render target
 bool CNullDriver::setRenderTarget(video::IFrameBuffer* texture, bool setNewViewport)
@@ -355,7 +357,6 @@ const core::rect<int32_t>& CNullDriver::getViewPort() const
 {
 	return ViewPort;
 }
-
 
 //! returns color format
 asset::E_FORMAT CNullDriver::getColorFormat() const
@@ -491,7 +492,7 @@ void CNullDriver::beginQuery(IQueryObject* query)
     if (!query)
         return; //error
 
-    if (currentQuery[query->getQueryObjectType()][0])
+    if (currentQuery[query->getQueryObjectType()])
         return; //error
 
     query->grab();
@@ -501,41 +502,12 @@ void CNullDriver::endQuery(IQueryObject* query)
 {
     if (!query)
         return; //error
-    if (currentQuery[query->getQueryObjectType()][0]!=query)
+    if (currentQuery[query->getQueryObjectType()]!=query)
         return; //error
 
-    if (currentQuery[query->getQueryObjectType()][0])
-        currentQuery[query->getQueryObjectType()][0]->drop();
+    if (currentQuery[query->getQueryObjectType()])
+        currentQuery[query->getQueryObjectType()]->drop();
     currentQuery[query->getQueryObjectType()][0] = NULL;
-}
-
-void CNullDriver::beginQuery(IQueryObject* query, const size_t& index)
-{
-    if (index>=_IRR_XFORM_FEEDBACK_MAX_STREAMS_)
-        return; //error
-
-    if (!query||(query->getQueryObjectType()!=EQOT_PRIMITIVES_GENERATED&&query->getQueryObjectType()!=EQOT_XFORM_FEEDBACK_PRIMITIVES_WRITTEN))
-        return; //error
-
-    if (currentQuery[query->getQueryObjectType()][index])
-        return; //error
-
-    query->grab();
-    currentQuery[query->getQueryObjectType()][index] = query;
-}
-void CNullDriver::endQuery(IQueryObject* query, const size_t& index)
-{
-    if (index>=_IRR_XFORM_FEEDBACK_MAX_STREAMS_)
-        return; //error
-
-    if (!query||(query->getQueryObjectType()!=EQOT_PRIMITIVES_GENERATED&&query->getQueryObjectType()!=EQOT_XFORM_FEEDBACK_PRIMITIVES_WRITTEN))
-        return; //error
-    if (currentQuery[query->getQueryObjectType()][index]!=query)
-        return; //error
-
-    if (currentQuery[query->getQueryObjectType()][index])
-        currentQuery[query->getQueryObjectType()][index]->drop();
-    currentQuery[query->getQueryObjectType()][index] = NULL;
 }
 
 
@@ -846,13 +818,6 @@ int32_t CNullDriver::addHighLevelShaderMaterialFromFiles(
 	return result;
 }
 */
-
-void CNullDriver::addMultisampleTexture(IMultisampleTexture* tex)
-{
-	MultisampleTextures.push_back(tex);
-	std::sort(MultisampleTextures.begin(),MultisampleTextures.end());
-}
-
 
 void CNullDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool copyDepth, bool copyStencil,
 									core::recti srcRect, core::recti dstRect,

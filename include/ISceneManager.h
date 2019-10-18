@@ -81,7 +81,6 @@ namespace scene
 	};
 
 	class IAnimatedMeshSceneNode;
-	class IBillboardSceneNode;
 	class ICameraSceneNode;
 	class IDummyTransformationSceneNode;
 	class ILightSceneNode;
@@ -101,8 +100,7 @@ namespace scene
 	//! The Scene Manager manages scene nodes, mesh recources, cameras and all the other stuff.
 	/** All Scene nodes can be created only here. There is a always growing
 	list of scene nodes for lots of purposes: Indoor rendering scene nodes,
-	different Camera scene nodes (addCameraSceneNode(), addCameraSceneNodeMaya()),
-	Billboards (addBillboardSceneNode()) and so on.
+	different Camera scene nodes (addCameraSceneNode(), addCameraSceneNodeMaya()), and so on.
 	A scene node is a node in the hierachical scene tree. Every scene node
 	may have children, which are other scene nodes. Children move relative
 	the their parents position. If the parent of a node is not visible, its
@@ -219,7 +217,7 @@ namespace scene
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
 		virtual ICameraSceneNode* addCameraSceneNode(IDummyTransformationSceneNode* parent = 0,
 			const core::vector3df& position = core::vector3df(0,0,0),
-			const core::vector3df& lookat = core::vector3df(0,0,100),
+			const core::vectorSIMDf & lookat = core::vectorSIMDf(0,0,100),
 			int32_t id=-1, bool makeActive=true) = 0;
 
 		//! Adds a maya style user controlled camera scene node to the scene tree.
@@ -319,31 +317,6 @@ namespace scene
 			SKeyMap* keyMapArray=0, int32_t keyMapSize=0, bool noVerticalMovement=false,
 			float jumpSpeed = 0.f, bool invertMouse=false,
 			bool makeActive=true) = 0;
-
-
-		//! Adds a billboard scene node to the scene tree.
-		/** A billboard is like a 3d sprite: A 2d element,
-		which always looks to the camera. It is usually used for things
-		like explosions, fire, lensflares and things like that.
-		\param parent Parent scene node of the billboard. Can be null.
-		If the parent moves, the billboard will move too.
-		\param size Size of the billboard. This size is 2 dimensional
-		because a billboard only has width and height.
-		\param position Position of the space relative to its parent
-		where the billboard will be placed.
-		\param id An id of the node. This id can be used to identify
-		the node.
-		\param colorTop The color of the vertices at the top of the
-		billboard (default: white).
-		\param colorBottom The color of the vertices at the bottom of
-		the billboard (default: white).
-		\return Pointer to the billboard if successful, otherwise NULL.
-		This pointer should not be dropped. See
-		IReferenceCounted::drop() for more information. */
-		virtual IBillboardSceneNode* addBillboardSceneNode(IDummyTransformationSceneNode* parent = 0,
-			const core::dimension2d<float>& size = core::dimension2d<float>(10.0f, 10.0f),
-			const core::vector3df& position = core::vector3df(0,0,0), int32_t id=-1,
-			video::SColor colorTop = 0xFFFFFFFF, video::SColor colorBottom = 0xFFFFFFFF) = 0;
 
 		//! Adds a skybox scene node to the scene tree.
 		/** A skybox is a big cube with 6 textures on it and
@@ -464,7 +437,7 @@ namespace scene
 		virtual ISceneNodeAnimator* createFlyCircleAnimator(
 				const core::vector3df& center=core::vector3df(0.f,0.f,0.f),
 				float radius=100.f, float speed=0.001f,
-				const core::vector3df& direction=core::vector3df(0.f, 1.f, 0.f),
+				const core::vectorSIMDf& direction=core::vectorSIMDf(0.f, 1.f, 0.f),
 				float startPosition = 0.f,
 				float radiusEllipsoid = 0.f) = 0;
 
@@ -481,8 +454,8 @@ namespace scene
 		and the animator will animate it.
 		If you no longer need the animator, you should call ISceneNodeAnimator::drop().
 		See IReferenceCounted::drop() for more information. */
-		virtual ISceneNodeAnimator* createFlyStraightAnimator(const core::vector3df& startPoint,
-			const core::vector3df& endPoint, uint32_t timeForWay, bool loop=false, bool pingpong = false) = 0;
+		virtual ISceneNodeAnimator* createFlyStraightAnimator(const core::vectorSIMDf& startPoint,
+			const core::vectorSIMDf& endPoint, uint32_t timeForWay, bool loop=false, bool pingpong = false) = 0;
 
 		//! Creates a scene node animator, which deletes the scene node after some time automatically.
 		/** \param timeMs: Time in milliseconds, after when the node will be deleted.

@@ -86,12 +86,12 @@ void CSkyDomeSceneNode::generateMesh()
 	uint32_t k;
 
 
-	const float azimuth_step = (core::PI * 2.f) / HorizontalResolution;
+	const float azimuth_step = (core::PI<float>() * 2.f) / float(HorizontalResolution);
 	if (SpherePercentage < 0.f)
 		SpherePercentage = -SpherePercentage;
 	if (SpherePercentage > 2.f)
 		SpherePercentage = 2.f;
-	const float elevation_step = SpherePercentage * core::HALF_PI / (float)VerticalResolution;
+	const float elevation_step = SpherePercentage * core::HALF_PI<float>() / float(VerticalResolution);
 
 
     size_t numOfIndices = 3 * (2*VerticalResolution - 1) * HorizontalResolution;
@@ -105,7 +105,7 @@ void CSkyDomeSceneNode::generateMesh()
 	size_t vxIx = 0;
 	for (k = 0, azimuth = 0; k <= HorizontalResolution; ++k)
 	{
-		float elevation = core::HALF_PI;
+		float elevation = core::HALF_PI<float>();
 		const float tcU = (float)k / (float)HorizontalResolution;
 		const float sinA = sinf(azimuth);
 		const float cosA = cosf(azimuth);
@@ -230,23 +230,6 @@ void CSkyDomeSceneNode::OnRegisterSceneNode()
 	ISceneNode::OnRegisterSceneNode();
 }
 
-
-//! returns the material based on the zero based index i. To get the amount
-//! of materials used by this scene node, use getMaterialCount().
-//! This function is needed for inserting the node into the scene hirachy on a
-//! optimal position for minimizing renderstate changes, but can also be used
-//! to directly modify the material of a scene node.
-video::SGPUMaterial& CSkyDomeSceneNode::getMaterial(uint32_t i)
-{
-	return Buffer->getMaterial();
-}
-
-
-//! returns amount of materials used by this scene node.
-uint32_t CSkyDomeSceneNode::getMaterialCount() const
-{
-	return 1;
-}
 
 } // namespace scene
 } // namespace irr

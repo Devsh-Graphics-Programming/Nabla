@@ -7,28 +7,18 @@
 #include <limits>       // std::numeric_limits
 #include <utility>
 
-#if defined(_IRR_WINDOWS_API_)
-	// include windows headers for HWND
-	#define WIN32_LEAN_AND_MEAN
-	#define NOMINMAX
-	#include <windows.h>
-    #define GL_GLEXT_LEGACY 1
-	#include "GL/gl.h"
-    #undef GL_GLEXT_LEGACY
-    #include "../src/3rdparty/GL/glext.h"
-    #include "../src/3rdparty/GL/wglext.h"
-#elif defined(_IRR_COMPILE_WITH_SDL_DEVICE_) && !defined(_IRR_COMPILE_WITH_X11_DEVICE_)
+#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_) && !(defined(_IRR_COMPILE_WITH_X11_DEVICE_)||defined(_IRR_WINDOWS_API_))
 	#include <SDL/SDL_video.h>
     #define GL_GLEXT_LEGACY 1
 	#include <SDL/SDL_opengl.h>
     #undef GL_GLEXT_LEGACY
-	#include "../src/3rdparty/GL/glext.h"
 #else
     #define GL_GLEXT_LEGACY 1
 	#include "GL/gl.h"
     #undef GL_GLEXT_LEGACY
-	#include "../src/3rdparty/GL/glext.h"
 #endif
+
+#include "../src/3rdparty/GL/glext.h"
 
 #ifndef GL_SRG8_EXT
 #define GL_SRG8_EXT 0x8FBE

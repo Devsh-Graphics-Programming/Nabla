@@ -2,8 +2,6 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#include "irr/core/core.h"
-
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
 #include "COpenGLExtensionHandler.h"
@@ -222,6 +220,7 @@ PFNGLGETATTACHEDSHADERSPROC COpenGLExtensionHandler::pGlGetAttachedShaders = nul
 PFNGLCREATESHADERPROC COpenGLExtensionHandler::pGlCreateShader = nullptr;
 PFNGLCREATESHADERPROGRAMVPROC COpenGLExtensionHandler::pGlCreateShaderProgramv = nullptr;
 PFNGLCREATEPROGRAMPIPELINESPROC COpenGLExtensionHandler::pGlCreateProgramPipelines = nullptr;
+PFNGLDELETEPROGRAMPIPELINESPROC COpenGLExtensionHandler::pGlDeleteProgramPipelines = nullptr;
 PFNGLUSEPROGRAMSTAGESPROC COpenGLExtensionHandler::pGlUseProgramStages = nullptr;
 PFNGLSHADERSOURCEPROC COpenGLExtensionHandler::pGlShaderSource = nullptr;
 PFNGLCOMPILESHADERPROC COpenGLExtensionHandler::pGlCompileShader = nullptr;
@@ -814,7 +813,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     const GLubyte* shaderVersion = glGetString(GL_SHADING_LANGUAGE_VERSION);
     float sl_ver;
     sscanf(reinterpret_cast<const char*>(shaderVersion),"%f",&sl_ver);
-    ShaderLanguageVersion = static_cast<uint16_t>(core::round32(sl_ver*100.0f));
+    ShaderLanguageVersion = static_cast<uint16_t>(core::round(sl_ver*100.0f));
 
 
 	//! For EXT-DSA testing
@@ -1003,7 +1002,7 @@ void COpenGLExtensionHandler::loadFunctions()
 
 	float ogl_ver;
 	sscanf(reinterpret_cast<const char*>(glGetString(GL_VERSION)),"%f",&ogl_ver);
-	Version = static_cast<uint16_t>(core::round32(ogl_ver*100.0f));
+	Version = static_cast<uint16_t>(core::round(ogl_ver*100.0f));
 
 	GLint num=0;
 	glGetIntegerv(GL_MAX_ELEMENTS_INDICES, &num);
@@ -1127,6 +1126,7 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlCreateShader = (PFNGLCREATESHADERPROC) IRR_OGL_LOAD_EXTENSION("glCreateShader");
     pGlCreateShaderProgramv = (PFNGLCREATESHADERPROGRAMVPROC) IRR_OGL_LOAD_EXTENSION("glCreateShaderProgramv");
     pGlCreateProgramPipelines = (PFNGLCREATEPROGRAMPIPELINESPROC) IRR_OGL_LOAD_EXTENSION("glCreateProgramPipelines");
+    pGlDeleteProgramPipelines = (PFNGLDELETEPROGRAMPIPELINESPROC) IRR_OGL_LOAD_EXTENSION("glDeleteProgramPipelines");
     pGlUseProgramStages = (PFNGLUSEPROGRAMSTAGESPROC)IRR_OGL_LOAD_EXTENSION("glUseProgramStages");
 	pGlShaderSource = (PFNGLSHADERSOURCEPROC) IRR_OGL_LOAD_EXTENSION("glShaderSource");
 	pGlCompileShader = (PFNGLCOMPILESHADERPROC) IRR_OGL_LOAD_EXTENSION("glCompileShader");

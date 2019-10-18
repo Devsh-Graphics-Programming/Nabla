@@ -1,6 +1,7 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 
+#include "../../ext/DebugDraw/CDraw3DLine.h"
 #include "../../ext/ScreenShot/ScreenShot.h"
 
 #include "../common/QToQuitEventReceiver.h"
@@ -13,7 +14,61 @@ vector3df camPos;
 vector<vectorSIMDf> controlPts;
 ISpline* spline = NULL;
 
-//!Same As Last Example
+
+template<typename IteratorType>
+vector<vectorSIMDf> preprocessBSplineControlPoints(const IteratorType& _begin, const IteratorType& _end, bool loop=false, float relativeLen=0.25f)
+{
+	//assert(curveRelativeLen < 0.5f);
+	auto ptCount = std::distance(_begin, _end);
+	if (ptCount < 2u)
+		return {};
+
+	ptCount *= 2u;
+	if (!loop)
+		ptCount -= 2;
+	core::vector<vectorSIMDf> retval(ptCount);
+	auto out = retval.begin();
+
+	auto it = _begin;
+	auto _back = _end - 1;
+	vectorSIMDf prev;
+	if (loop)
+		prev = *_back;
+	else
+	{
+		prev = *_begin;
+		*(out++) = *(it++);
+	}
+
+	auto addDoublePoint = [&](const vectorSIMDf& original, vectorSIMDf next)
+	{
+		auto deltaPrev = original - prev;
+		auto deltaNext = next - original;
+		float currentRelativeLen = core::min_(core::length(deltaPrev).x, core::length(deltaNext).x) * relativeLen;
+		auto tangent = core::normalize(next - prev) * currentRelativeLen;
+		*(out++) = original - tangent;
+		*(out++) = original + tangent;
+	};
+	while (it != _back)
+	{
+		const auto& orig = *(it++);
+		addDoublePoint(orig, *it);
+		prev = orig;
+	}
+
+	if (loop)
+	{
+		addDoublePoint(*_back, *_begin);
+	}
+	else
+		*(out++) = *_back;
+
+	return retval;
+}
+
+
+core::vector<std::pair<ext::DebugDraw::S3DLineVertex, ext::DebugDraw::S3DLineVertex>> lines;
+
 class MyEventReceiver : public QToQuitEventReceiver
 {
 public:
@@ -26,6 +81,56 @@ public:
 	{
         if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
         {
+			auto useNewSpline = [&](auto replacementCreateFunc) -> bool
+			{
+				if (spline)
+					delete spline;
+				spline = nullptr;
+
+				if (controlPts.size())
+				{
+					spline = replacementCreateFunc();
+
+					printf("Total Len %f\n", spline->getSplineLength());
+					for (size_t i = 0; i < spline->getSegmentCount(); i++)
+						printf("Seg: %d \t\t %f\n", i, spline->getSegmentLength(i));
+
+					lines.clear();
+					auto wholeLen = spline->getSplineLength();
+					constexpr auto limit = 1000u;
+					for (auto i = 0u; i < limit; ++i)
+					{
+						auto computeLinePt = [&](float percentage)
+						{
+							ext::DebugDraw::S3DLineVertex vx = { {0.f,0.f,0.f},{1.f,0.f,0.f,1.f} };
+
+							float segDist = percentage * wholeLen;
+							uint32_t segID = 0u;
+
+							core::vectorSIMDf pos;
+							spline->getPos(pos, segDist, segID);
+							memcpy(vx.Position, pos.pointer, sizeof(float) * 3u);
+							return vx;
+						};
+						lines.emplace_back(computeLinePt((float(i)+0.1) / limit), computeLinePt((float(i)+0.9) / limit));
+					}
+					return true;
+				}
+				return false;
+			};
+
+			auto createLinear = []() {return new CLinearSpline(controlPts.data(), controlPts.size()); };
+			auto createLinearLoop = []() {return new CLinearSpline(controlPts.data(), controlPts.size(), true); };
+			auto createBSpline = []()
+			{
+				auto prep = preprocessBSplineControlPoints(controlPts.cbegin(), controlPts.cend());
+				return new irr::core::CQuadraticBSpline(prep.data(), prep.size());
+			};
+			auto createBSplineLoop = []()
+			{
+				auto prep = preprocessBSplineControlPoints(controlPts.cbegin(), controlPts.cend(), true);
+				return new irr::core::CQuadraticBSpline(prep.data(), prep.size(), true); //make it a loop
+			};
             switch (event.KeyInput.Key)
             {
                 case irr::KEY_KEY_Q: // switch wire frame mode
@@ -33,62 +138,27 @@ public:
                     break;
                 case KEY_KEY_T:
                     {
-                        if (spline)
-                            delete spline;
-                        spline = NULL;
-                        if (controlPts.size())
-                            spline = new CLinearSpline(controlPts.data(),controlPts.size());
-
-                        return true;
+						if (useNewSpline(createLinear))
+	                        return true;
                     }
                     break;
                 case KEY_KEY_Y:
                     {
-                        if (spline)
-                            delete spline;
-                        spline = NULL;
-                        if (controlPts.size())
-                            spline = new CLinearSpline(controlPts.data(),controlPts.size(),true); //make it loop
-
-                        return true;
+						if (useNewSpline(createLinearLoop))
+						return true;
                     }
                     break;
                 case KEY_KEY_U:
                     {
-                        if (spline)
-                            delete spline;
-                        spline = NULL;
-                        if (controlPts.size())
-                        {
-                            spline = new irr::core::CQuadraticBSpline(controlPts.data(),controlPts.size(),false);
-                            printf("Total Len %f\n",spline->getSplineLength());
-                            for (size_t i=0; i<spline->getSegmentCount(); i++)
-                                printf("Seg: %d \t\t %f\n",i,spline->getSegmentLength(i));
-                        }
-
-                        return true;
+						if (useNewSpline(createBSpline))
+							return true;
                     }
                     break;
                 case KEY_KEY_I:
                     {
-                        if (spline)
-                            delete spline;
-                        spline = NULL;
-                        if (controlPts.size())
-                        {
-                            spline = new CQuadraticBSpline(controlPts.data(),controlPts.size(),true); //make it a loop
-                            printf("Total Len %f\n",spline->getSplineLength());
-                            for (size_t i=0; i<spline->getSegmentCount(); i++)
-                                printf("Seg: %d \t\t %f\n",i,spline->getSegmentLength(i));
-                        }
-
-                        return true;
+						if (useNewSpline(createBSplineLoop))
+							return true;
                     }
-                case KEY_KEY_O:
-                    {
-                        return true;
-                    }
-                    break;
                 case KEY_KEY_C:
                     {
                         controlPts.clear();
@@ -145,6 +215,8 @@ int main()
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 
+	auto draw3DLine = ext::DebugDraw::CDraw3DLine::create(driver);
+
 
 	scene::ISceneManager* smgr = device->getSceneManager();
 	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
@@ -167,23 +239,23 @@ int main()
 		};
 		auto gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures + 2);
 
-		cube->getMaterial(0).setTexture(0, std::move(gputextures->operator[](0u)));
+		cube->getMesh()->getMeshBuffer(0)->getMaterial().setTexture(0, std::move(gputextures->operator[](0u)));
 
 		auto* billboard = smgr->addCubeSceneNode(2.f, 0, -1, core::vector3df(0, 0, 0));
-		billboard->getMaterial(0).setTexture(0, std::move(gputextures->operator[](1u)));
+		billboard->getMesh()->getMeshBuffer(0)->getMaterial().setTexture(0, std::move(gputextures->operator[](1u)));
 	}
 
     float cubeDistance = 0.f;
     float cubeParameterHint = 0.f;
     uint32_t cubeSegment = 0;
-
-    #define kCircleControlPts 3
+    #define kCircleControlPts 4
     for (size_t i=0; i<kCircleControlPts; i++)
     {
         float x = float(i)*core::PI*2.f/float(kCircleControlPts);
-        controlPts.push_back(vectorSIMDf(sin(x),0,-cos(x))*4.f);
+        vectorSIMDf pos(sin(x),0,-cos(x)); pos *= 4.f;
+        controlPts.push_back(pos);
+		smgr->addCubeSceneNode(0.5f, 0, -1, pos.getAsVector3df());
     }
-
 
 	uint64_t lastFPSTime = 0;
 
@@ -233,6 +305,8 @@ int main()
         smgr->drawAll();
         camPos = camera->getAbsolutePosition();
 
+		draw3DLine->draw(lines);
+
 		driver->endScene();
 
 		// display frames per second in window title
@@ -251,7 +325,7 @@ int main()
     if (spline)
         delete spline;
 
-	device->drop();
+	//device->drop();
 
 	return 0;
 }

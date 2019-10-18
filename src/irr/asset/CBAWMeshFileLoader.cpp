@@ -44,7 +44,7 @@ CBAWMeshFileLoader::CBAWMeshFileLoader(IAssetManager* _manager) : m_manager(_man
 #endif
 }
 
-asset::SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 #ifdef _IRR_DEBUG
     auto time = std::chrono::high_resolution_clock::now();
@@ -202,7 +202,7 @@ asset::SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 #endif // _IRR_DEBUG
 
     asset::ICPUMesh* mesh = reinterpret_cast<asset::ICPUMesh*>(retval);
-    return {core::smart_refctd_ptr<asset::IAsset>(mesh,core::dont_grab)};
+    return SAssetBundle({core::smart_refctd_ptr<asset::IAsset>(mesh,core::dont_grab)});
 }
 
 bool CBAWMeshFileLoader::safeRead(io::IReadFile * _file, void * _buf, size_t _size) const
