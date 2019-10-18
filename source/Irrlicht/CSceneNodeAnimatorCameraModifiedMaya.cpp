@@ -241,13 +241,9 @@ namespace irr
 			}
 
 			// Rotation ------------------------------------
-
 			auto getValueDependentOnHandOrientation = [&](const float& expression)
 			{
-				if (camera->getLeftHanded())
-					return expression;
-				else
-					return -expression;
+				return core::mix<float, bool>(-expression, expression, camera->getLeftHanded());
 			};
 
 			if (isMouseKeyDown(0) && !(StepZooming || Zooming))
