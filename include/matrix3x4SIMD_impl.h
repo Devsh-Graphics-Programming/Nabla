@@ -288,13 +288,8 @@ inline matrix3x4SIMD& matrix3x4SIMD::setScaleRotationAndTranslation(const vector
 
 inline bool matrix3x4SIMD::getInverse(matrix3x4SIMD& _out) const //! SUBOPTIMAL - OPTIMIZE!
 {
-	vectorSIMDf c0 = rows[0], c1 = rows[1], c2 = rows[2], c3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
-	core::transpose4(c0, c1, c2, c3);
-
-	const vectorSIMDf c1crossc2 = core::cross(c1, c2);
-
-	const vectorSIMDf d = core::cross(c0, c1crossc2);
-
+	vectorSIMDf c0, c1, c2, c3, c1crossc2;
+	const vectorSIMDf d = determinant_helper(c0, c1, c2, c3, c1crossc2);
 	if (core::iszero(d.x, FLT_MIN))
 		return false;
 
@@ -313,13 +308,8 @@ inline bool matrix3x4SIMD::getInverse(matrix3x4SIMD& _out) const //! SUBOPTIMAL 
 
 inline bool matrix3x4SIMD::getSub3x3InverseTransposePaddedSIMDColumns(core::vectorSIMDf _out[3]) const
 {
-	vectorSIMDf c0 = rows[0], c1 = rows[1], c2 = rows[2], c3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
-	core::transpose4(c0, c1, c2, c3);
-
-	const vectorSIMDf c1crossc2 = core::cross(c1, c2);
-
-	const vectorSIMDf d = core::cross(c0, c1crossc2);
-
+	vectorSIMDf c0, c1, c2, c3, c1crossc2;
+	const vectorSIMDf d = determinant_helper(c0, c1, c2, c3, c1crossc2);
 	if (core::iszero(d.x, FLT_MIN))
 		return false;
 
