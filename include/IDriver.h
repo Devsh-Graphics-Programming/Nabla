@@ -143,12 +143,6 @@ namespace video
                 return nullptr;
             }
 
-            //! Must be called by thread before last reference of `_pipeline` object is dropped by the thread.
-            virtual bool removeGPURenderpassIndependentPipeline(const IGPURenderpassIndependentPipeline* _pipeline) 
-            {
-                return false;
-            }
-
             virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>&& _descriptors)
             {
                 return nullptr;

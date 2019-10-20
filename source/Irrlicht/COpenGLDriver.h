@@ -64,7 +64,10 @@ namespace video
         };
         typedef std::pair<COpenGLRenderpassIndependentPipeline::SVAOHash, SVAO> HashVAOPair;
 
+        using SGraphicsPipelineHash = std::array<GLuint, COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT>;
+
         core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> pipeline;
+        SGraphicsPipelineHash usedShadersHash = {0u, 0u, 0u, 0u, 0u};
 
         struct {
             //in GL it is possible to set polygon mode separately for back- and front-faces, but in VK it's one setting for both
@@ -614,8 +617,6 @@ namespace video
             const asset::SRasterizationParams& _rasterParams
         ) override;
 
-        bool removeGPURenderpassIndependentPipeline(const IGPURenderpassIndependentPipeline* _pipeline) override;
-
         core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>&& _descriptors) override;
 
         core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout) override;
@@ -791,9 +792,15 @@ namespace video
         struct SAuxContext
         {
         //public:
-            using SGraphicsPipelineHash = std::array<GLuint, COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT>;
+            struct SPipelineCacheVal
+            {
+                GLuint GLname;
+                core::smart_refctd_ptr<COpenGLRenderpassIndependentPipeline> object;//so that it holds shaders which concerns hash
+                uint64_t lastValidated;
+            };
 
             _IRR_STATIC_INLINE_CONSTEXPR size_t maxVAOCacheSize = 0x1u<<14; //make this cache configurable
+            _IRR_STATIC_INLINE_CONSTEXPR size_t maxPipelineCacheSize = 0x1u<<13;//8k
 
             SAuxContext() : threadId(std::thread::id()), ctx(NULL),
                             CurrentFBO(0), CurrentRendertargetSize(0,0)
@@ -826,9 +833,10 @@ namespace video
 
             //!
             core::vector<SOpenGLState::HashVAOPair> VAOMap;
-            core::map<SGraphicsPipelineHash, GLuint> GraphicsPipelineMap;
+            using HashPipelinePair = std::pair<SOpenGLState::SGraphicsPipelineHash, SPipelineCacheVal>;
+            core::vector<HashPipelinePair> GraphicsPipelineMap;
 
-            GLuint createGraphicsPipelineInCache(const SGraphicsPipelineHash& _hash);
+            GLuint createGraphicsPipeline(const SOpenGLState::SGraphicsPipelineHash& _hash);
 
             void updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline);
             //! Must be called AFTER updateNextState_pipelineAndRaster() if pipeline and raster params have to be modified at all in this pass
@@ -855,6 +863,25 @@ namespace video
                     {
                         COpenGLExtensionHandler::extGlDeleteVertexArrays(1, &it->second.GLname);
                         it = VAOMap.erase(it);
+                        if (exitOnFirstDelete)
+                            return;
+                    }
+                    else
+                        it++;
+                }
+            }
+            //TODO DRY
+            inline void freeUpGraphicsPipelineCache(bool exitOnFirstDelete)
+            {
+                for (auto it = GraphicsPipelineMap.begin(); GraphicsPipelineMap.size() > maxPipelineCacheSize&&it != GraphicsPipelineMap.end();)
+                {
+                    if (it->first == currentState.usedShadersHash)
+                        continue;
+
+                    if (CNullDriver::ReallocationCounter-it->second.lastValidated > 1000) //maybe make this configurable
+                    {
+                        COpenGLExtensionHandler::extGlDeleteProgramPipelines(1, &it->second.GLname);
+                        it = GraphicsPipelineMap.erase(it);
                         if (exitOnFirstDelete)
                             return;
                     }

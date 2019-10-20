@@ -852,7 +852,7 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
     extGlUseProgram(0);
     extGlBindProgramPipeline(0);
     for (auto& ppln : found->GraphicsPipelineMap)
-        extGlDeleteProgramPipelines(1, &ppln.second);
+        extGlDeleteProgramPipelines(1, &ppln.second.GLname);
     found->GraphicsPipelineMap.clear();
 
     //force drop of all all grabbed (through smart_refctd_ptr) resources (descriptor sets, buffers, program pipeline)
@@ -1206,7 +1206,9 @@ bool COpenGLDriver::endScene()
 
 	// todo: console device present
 
-	getThreadContext_helper(false)->freeUpVAOCache(false);
+    auto ctx = getThreadContext_helper(false);
+	ctx->freeUpVAOCache(false);
+    ctx->freeUpGraphicsPipelineCache(false);
 
 	return false;
 }
@@ -1405,26 +1407,6 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
         _shadersBegin, _shadersEnd,
         _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
         );
-}
-
-bool COpenGLDriver::removeGPURenderpassIndependentPipeline(const IGPURenderpassIndependentPipeline* _pipeline)
-{
-    SAuxContext* ctx = getThreadContext_helper(false);
-    if (!ctx)
-        return false;
-
-    SAuxContext::SGraphicsPipelineHash hash;
-    for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
-    {
-        hash[i] = _pipeline->getShaderAtIndex(i) ?
-            static_cast<const COpenGLSpecializedShader*>(_pipeline->getShaderAtIndex(i))->getGLnameForCtx(ctx->ID) :
-            0u;
-    }
-
-    if (ctx->GraphicsPipelineMap.erase(hash) == 0ull)
-        return false;
-
-    return true;
 }
 
 core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>&& _descriptors)
@@ -1902,24 +1884,40 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
     core::smart_refctd_ptr<COpenGLRenderpassIndependentPipeline> prevPipeline = currentState.pipeline;
     if (stateBits & GSB_PIPELINE_AND_RASTER_PARAMETERS)
     {
-        if (nextState.pipeline != currentState.pipeline) {
-            SGraphicsPipelineHash hash;
-            for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
+        if (nextState.pipeline != currentState.pipeline)
+        {
+            if (nextState.usedShadersHash != currentState.usedShadersHash)
             {
-                hash[i] = currentState.pipeline->getShaderAtIndex(i) ?
-                    static_cast<const COpenGLSpecializedShader*>(currentState.pipeline->getShaderAtIndex(i))->getGLnameForCtx(this->ID) :
-                    0u;
+                GLuint GLname = 0u;
+
+                constexpr SOpenGLState::SGraphicsPipelineHash NULL_HASH = {0u, 0u, 0u, 0u, 0u};
+
+                HashPipelinePair lookingFor{nextState.usedShadersHash, {}};
+                if (lookingFor.first != NULL_HASH)
+                {
+                    auto found = std::lower_bound(GraphicsPipelineMap.begin(), GraphicsPipelineMap.end(), lookingFor);
+                    if (found != GraphicsPipelineMap.end() && found->first==nextState.usedShadersHash)
+                    {
+                        GLname = found->second.GLname;
+                        found->second.lastValidated = CNullDriver::ReallocationCounter;
+                    }
+                    else
+                    {
+                        GLname = createGraphicsPipeline(nextState.usedShadersHash);
+                        lookingFor.second.GLname = GLname;
+                        lookingFor.second.lastValidated = CNullDriver::ReallocationCounter;
+                        lookingFor.second.object = nextState.pipeline;
+                        GraphicsPipelineMap.insert(found, lookingFor);
+                        freeUpGraphicsPipelineCache(true);
+                    }
+                }
+
+                if (GLname)
+                    extGlUseProgram(0);//TODO hm??
+                extGlBindProgramPipeline(GLname);
+
+                currentState.usedShadersHash = nextState.usedShadersHash;
             }
-
-            GLuint GLname = 0u;
-            auto found = GraphicsPipelineMap.find(hash);
-            if (found != GraphicsPipelineMap.end())
-                GLname = found->second;
-            else
-                GLname = createGraphicsPipelineInCache(hash);
-
-            extGlUseProgram(0);//TODO hm??
-            extGlBindProgramPipeline(GLname);
 
             currentState.pipeline = nextState.pipeline;
         }
@@ -2308,7 +2306,7 @@ static GLenum getGLblendEq(asset::E_BLEND_OP bo)
     return glbo[bo];
 }
 
-GLuint COpenGLDriver::SAuxContext::createGraphicsPipelineInCache(const SGraphicsPipelineHash& _hash)
+GLuint COpenGLDriver::SAuxContext::createGraphicsPipeline(const SOpenGLState::SGraphicsPipelineHash& _hash)
 {
     constexpr size_t STAGE_CNT = COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT;
     static_assert(STAGE_CNT == 5u, "SHADER_STAGE_COUNT is expected to be 5");
@@ -2334,7 +2332,20 @@ void COpenGLDriver::SAuxContext::updateNextState_pipelineAndRaster(const IGPURen
         static_cast<const COpenGLRenderpassIndependentPipeline*>(_pipeline)
     );
     if (_pipeline)
+    {
+        SOpenGLState::SGraphicsPipelineHash hash;
+        std::fill(hash.begin(), hash.end(), 0u);
+        nextState.usedShadersHash = hash;
         return;
+    }
+    SOpenGLState::SGraphicsPipelineHash hash;
+    for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
+    {
+        hash[i] = nextState.pipeline->getShaderAtIndex(i) ?
+            static_cast<const COpenGLSpecializedShader*>(nextState.pipeline->getShaderAtIndex(i))->getGLnameForCtx(this->ID) :
+            0u;
+    }
+    nextState.usedShadersHash = hash;
 
     const auto& ppln = nextState.pipeline;
 
