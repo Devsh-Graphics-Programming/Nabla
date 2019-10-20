@@ -1237,6 +1237,26 @@ bool COpenGLDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
 }
 
 
+const core::SRange<const std::string> COpenGLDriver::getSupportedGLSLExtensions() const
+{
+    constexpr size_t GLSLcnt = std::extent<decltype(m_GLSLExtensions)>::value;
+    const size_t cnt = GLSLcnt + SPIR_VextensionsCount;
+    auto init_extnames = [cnt,GLSLcnt] {
+        core::vector<std::string> extnames;
+        extnames.reserve(cnt);
+        for (size_t i = 0ull; i < GLSLcnt; ++i)
+            if (FeatureAvailable[m_GLSLExtensions[i]])
+                extnames.push_back(OpenGLFeatureStrings[m_GLSLExtensions[i]]);
+        for (size_t i = 0ull; i < (cnt-GLSLcnt); ++i)
+            extnames.push_back(reinterpret_cast<const char*>((*SPIR_Vextensions)[i]));
+        return extnames;
+    };
+
+    static core::vector<std::string> GLSLextensionsNames = init_extnames();
+
+    return {GLSLextensionsNames.data(), GLSLextensionsNames.data()+GLSLextensionsNames.size()};
+}
+
 bool COpenGLDriver::bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline)
 {
     SAuxContext* ctx = getThreadContext_helper(false);
@@ -1296,10 +1316,11 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
 
     core::smart_refctd_ptr<const asset::ICPUShader> spvCPUShader = nullptr;
     if (cpuUnspec->containsGLSL()) {
-        //TODO insert enabled extensions #defines into GLSL
+        std::string glsl = reinterpret_cast<const char*>(cpuUnspec->getSPVorGLSL()->getPointer());
+        asset::ICPUShader::insertGLSLExtensionsDefines(glsl, getSupportedGLSLExtensions());
         auto spvShader = core::smart_refctd_ptr<asset::ICPUShader>(
             GLSLCompiler->createSPIRVFromGLSL(
-                reinterpret_cast<const char*>(cpuUnspec->getSPVorGLSL()->getPointer()),
+                glsl.c_str(),
                 stage,
                 EP.c_str(),
                 "????"
@@ -1313,7 +1334,8 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
         spvCPUShader = core::smart_refctd_ptr<const asset::ICPUShader>(cpuUnspec);
     }
 
-    asset::CShaderIntrospector introspector(GLSLCompiler.get(), { _specInfo->entryPoint, _specInfo->shaderStage });
+    asset::CShaderIntrospector::SEntryPoint_Stage_Extensions introspectionParams{_specInfo->entryPoint, _specInfo->shaderStage, getSupportedGLSLExtensions()};
+    asset::CShaderIntrospector introspector(GLSLCompiler.get(), introspectionParams);
     const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get());
     if (introspection->pushConstant.present && introspection->pushConstant.info.name.empty())
     {
@@ -1710,7 +1732,10 @@ bool COpenGLDriver::queryFeature(const E_DRIVER_FEATURE &feature) const
         case EDF_DYNAMIC_SAMPLER_INDEXING:
             return queryFeature(EDF_BINDLESS_TEXTURE);
         case EDF_INPUT_ATTACHMENTS:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_EXT_shader_pixel_local_storage];
+            return 
+                COpenGLExtensionHandler::FeatureAvailable[IRR_EXT_shader_pixel_local_storage] || 
+                COpenGLExtensionHandler::FeatureAvailable[IRR_EXT_shader_framebuffer_fetch] ||
+                COpenGLExtensionHandler::FeatureAvailable[IRR_EXT_shader_framebuffer_fetch_non_coherent];
         default:
             break;
 	};

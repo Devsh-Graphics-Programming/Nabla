@@ -23,7 +23,9 @@ namespace core
 			SRange(T* _beg, T* _end) : m_begin(_beg), m_end(_end) {}
 
 			T* begin() { return m_begin; }
+            T* begin() const { return m_begin; }
 			T* end() { return m_end; }
+            T* end() const { return m_end; }
 
             size_t length() const { return m_end-m_begin; }
 

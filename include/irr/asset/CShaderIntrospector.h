@@ -67,20 +67,25 @@ public:
 class CShaderIntrospector : public core::Uncopyable
 {
 public:
-    using SEntryPointStagePair = std::pair<std::string, E_SHADER_STAGE>;
+    struct SEntryPoint_Stage_Extensions
+    {
+        std::string entryPoint;
+        E_SHADER_STAGE stage;
+        core::SRange<const std::string> GLSLextensions;
+    };
 
     //In the future there's also going list of enabled extensions
-    CShaderIntrospector(const IGLSLCompiler* _glslcomp, const SEntryPointStagePair& _ep) : m_glslCompiler(_glslcomp,core::dont_grab), m_entryPoint(_ep) {}
+    CShaderIntrospector(const IGLSLCompiler* _glslcomp, const SEntryPoint_Stage_Extensions& _params) : m_glslCompiler(_glslcomp,core::dont_grab), m_params(_params) {}
 
     const CIntrospectionData* introspect(const ICPUShader* _shader);
 private:
-    core::smart_refctd_ptr<CIntrospectionData> doIntrospection(spirv_cross::Compiler& _comp, const SEntryPointStagePair& _ep) const;
+    core::smart_refctd_ptr<CIntrospectionData> doIntrospection(spirv_cross::Compiler& _comp, const SEntryPoint_Stage_Extensions& _ep) const;
     void shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const core::unordered_map<uint32_t, const CIntrospectionData::SSpecConstant*>& _mapId2sconst) const;
     size_t calcBytesizeforType(spirv_cross::Compiler& _comp, const spirv_cross::SPIRType& _type) const;
 
 private:
     core::smart_refctd_ptr<const IGLSLCompiler> m_glslCompiler;
-    SEntryPointStagePair m_entryPoint;
+    SEntryPoint_Stage_Extensions m_params;
     core::unordered_map<core::smart_refctd_ptr<const ICPUShader>, core::smart_refctd_ptr<CIntrospectionData>> m_introspectionCache;
 };
 

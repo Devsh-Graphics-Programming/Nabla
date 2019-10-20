@@ -74,16 +74,18 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
     auto introspectSPV = [this](const ICPUShader* _spvshader) {
         const ICPUBuffer* spv = _spvshader->getSPVorGLSL();
         spirv_cross::Compiler comp(reinterpret_cast<const uint32_t*>(spv->getPointer()), spv->getSize()/4u);
-        return doIntrospection(comp, m_entryPoint);
+        return doIntrospection(comp, m_params);
     };
 
     if (_shader->containsGLSL()) {
         //TODO insert enabled extensions #defines into GLSL
+        std::string glsl = reinterpret_cast<const char*>(_shader->getSPVorGLSL()->getPointer());
+        ICPUShader::insertGLSLExtensionsDefines(glsl, m_params.GLSLextensions);
         auto spvShader = core::smart_refctd_ptr<ICPUShader>(
         m_glslCompiler->createSPIRVFromGLSL(
-            reinterpret_cast<const char*>(_shader->getSPVorGLSL()->getPointer()),
-            m_entryPoint.second,
-            m_entryPoint.first.c_str(),
+            glsl.c_str(),
+            m_params.stage,
+            m_params.entryPoint.c_str(),
             "????"
         ), core::dont_grab);
         if (!spvShader)
@@ -118,9 +120,9 @@ static E_GLSL_VAR_TYPE spvcrossType2E_TYPE(spirv_cross::SPIRType::BaseType _base
     }
 }
 
-core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(spirv_cross::Compiler& _comp, const SEntryPointStagePair& _ep) const
+core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(spirv_cross::Compiler& _comp, const SEntryPoint_Stage_Extensions& _ep) const
 {
-    spv::ExecutionModel stage = ESS2spvExecModel(_ep.second);
+    spv::ExecutionModel stage = ESS2spvExecModel(_ep.stage);
     if (stage == spv::ExecutionModelMax)
         return nullptr;
 
@@ -161,7 +163,7 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
         return info;
     };
 
-    _comp.set_entry_point(_ep.first, stage);
+    _comp.set_entry_point(_ep.entryPoint, stage);
 
     // spec constants
     spirv_cross::SmallVector<spirv_cross::SpecializationConstant> sconsts = _comp.get_specialization_constants();

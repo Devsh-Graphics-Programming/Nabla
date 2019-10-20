@@ -6,6 +6,7 @@
 #include "irr/asset/IAsset.h"
 #include "irr/asset/ICPUBuffer.h"
 #include "irr/asset/ShaderCommons.h"
+#include "irr/core/SRange.h"
 
 namespace spirv_cross
 {
@@ -39,6 +40,8 @@ public:
 
     const ICPUBuffer* getSPVorGLSL() const { return m_code; };
     bool containsGLSL() const { return m_containsGLSL; }
+
+    static void insertGLSLExtensionsDefines(std::string& _glsl, const core::SRange<const std::string>& _exts);
 
 protected:
     //! Might be GLSL null-terminated string or SPIR-V bytecode (denoted by m_containsGLSL)

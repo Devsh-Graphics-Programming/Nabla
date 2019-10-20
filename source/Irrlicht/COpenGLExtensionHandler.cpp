@@ -98,6 +98,8 @@ uint32_t COpenGLExtensionHandler::MaxVertexStreams = 1;
 uint32_t COpenGLExtensionHandler::MaxXFormFeedbackComponents = 64;
 uint32_t COpenGLExtensionHandler::MaxGPUWaitTimeout = 0;
 uint32_t COpenGLExtensionHandler::InvocationSubGroupSize[2] = {32,64};
+GLuint COpenGLExtensionHandler::SPIR_VextensionsCount = 0u;
+core::smart_refctd_dynamic_array<const GLubyte*> COpenGLExtensionHandler::SPIR_Vextensions;
 uint32_t COpenGLExtensionHandler::MaxGeometryVerticesOut = 65535;
 float COpenGLExtensionHandler::MaxTextureLODBias = 0.f;
 
@@ -1024,6 +1026,19 @@ void COpenGLExtensionHandler::loadFunctions()
     {
         InvocationSubGroupSize[0] = 4;
         InvocationSubGroupSize[1] = 32;
+    }
+
+    if (FeatureAvailable[IRR_ARB_spirv_extensions])
+    {
+        glGetIntegerv(GL_NUM_SPIR_V_EXTENSIONS, reinterpret_cast<GLint*>(&SPIR_VextensionsCount));
+        if (SPIR_VextensionsCount)
+            SPIR_Vextensions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<const GLubyte*>>(SPIR_VextensionsCount, nullptr);
+        for (GLuint i = 0u; i < SPIR_VextensionsCount; ++i)
+            (*SPIR_Vextensions)[i] = pGlGetStringi(GL_SPIR_V_EXTENSIONS, i);
+    }
+    else
+    {
+        SPIR_VextensionsCount = 0u;
     }
 
     /**
