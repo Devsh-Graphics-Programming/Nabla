@@ -2331,7 +2331,7 @@ void COpenGLDriver::SAuxContext::updateNextState_pipelineAndRaster(const IGPURen
     nextState.pipeline = core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline>(
         static_cast<const COpenGLRenderpassIndependentPipeline*>(_pipeline)
     );
-    if (_pipeline)
+    if (!_pipeline)
     {
         SOpenGLState::SGraphicsPipelineHash hash;
         std::fill(hash.begin(), hash.end(), 0u);
