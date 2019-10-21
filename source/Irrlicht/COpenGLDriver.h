@@ -585,7 +585,7 @@ namespace video
             return isColorRenderableFormat(_fmt) && (asset::isNormalizedFormat(_fmt) || asset::isFloatingPointFormat(_fmt));
         }
 
-        const core::SRange<const std::string> getSupportedGLSLExtensions() const override;
+        const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const override;
 
         bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override;
 
@@ -799,7 +799,7 @@ namespace video
                 uint64_t lastValidated;
             };
 
-            _IRR_STATIC_INLINE_CONSTEXPR size_t maxVAOCacheSize = 0x1u<<14; //make this cache configurable
+            _IRR_STATIC_INLINE_CONSTEXPR size_t maxVAOCacheSize = 0x1u<<10; //make this cache configurable
             _IRR_STATIC_INLINE_CONSTEXPR size_t maxPipelineCacheSize = 0x1u<<13;//8k
 
             SAuxContext() : threadId(std::thread::id()), ctx(NULL),
@@ -959,6 +959,8 @@ namespace video
 		asset::E_FORMAT ColorFormat; //FIXME
 
 		SIrrlichtCreationParameters Params;
+
+        mutable core::smart_refctd_dynamic_array<std::string> m_supportedGLSLExtsNames;
 
 		#ifdef _IRR_WINDOWS_API_
 			HDC HDc; // Private GDI Device Context

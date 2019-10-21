@@ -1141,8 +1141,6 @@ class COpenGLExtensionHandler
         IRR_NV_shader_texture_footprint
     };
 
-
-
 	static core::CLeakDebugger bufferLeaker;
 	static core::CLeakDebugger textureLeaker;
 

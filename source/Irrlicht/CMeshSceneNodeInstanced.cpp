@@ -454,8 +454,7 @@ void CMeshSceneNodeInstanced::RecullInstances()
             reinterpret_cast<uint32_t&>(lodCullingPointMesh->getMaterial().MaterialTypeParam) = i*gpuLoDsPerPass;
             reinterpret_cast<uint32_t&>(lodCullingPointMesh->getMaterial().MaterialTypeParam2) = i*gpuLoDsPerPass+gpuLoDsPerPass-1;
             driver->setMaterial(lodCullingPointMesh->getMaterial());
-            //TODO so i can remove it???
-            //driver->beginTransformFeedback(xfb[i].get(),lodCullingPointMesh->getMaterial().MaterialType,asset::EPT_POINTS);
+            driver->beginTransformFeedback(xfb[i].get(),lodCullingPointMesh->getMaterial().MaterialType,asset::EPT_POINTS);
             for (size_t j=0; j<gpuLoDsPerPass&&(i*gpuLoDsPerPass+j)<LoD.size(); j++)
                 driver->beginQuery(LoD[i*gpuLoDsPerPass+j].query.get(),j);
             driver->drawMeshBuffer(lodCullingPointMesh.get());

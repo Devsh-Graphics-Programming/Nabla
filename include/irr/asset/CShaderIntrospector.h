@@ -71,7 +71,7 @@ public:
     {
         std::string entryPoint;
         E_SHADER_STAGE stage;
-        core::SRange<const std::string> GLSLextensions;
+        core::smart_refctd_dynamic_array<std::string> GLSLextensions;
     };
 
     //In the future there's also going list of enabled extensions

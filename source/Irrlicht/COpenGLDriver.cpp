@@ -1239,24 +1239,21 @@ bool COpenGLDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
 }
 
 
-const core::SRange<const std::string> COpenGLDriver::getSupportedGLSLExtensions() const
+const core::smart_refctd_dynamic_array<std::string> COpenGLDriver::getSupportedGLSLExtensions() const
 {
     constexpr size_t GLSLcnt = std::extent<decltype(m_GLSLExtensions)>::value;
-    const size_t cnt = GLSLcnt + SPIR_VextensionsCount;
-    auto init_extnames = [cnt,GLSLcnt] {
-        core::vector<std::string> extnames;
-        extnames.reserve(cnt);
+    if (!m_supportedGLSLExtsNames)
+    {
+        size_t cnt = 0ull;
+        for (size_t i = 0ull; i < GLSLcnt; ++i)
+            cnt += (FeatureAvailable[m_GLSLExtensions[i]]);
+        m_supportedGLSLExtsNames = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<std::string>>(cnt);
         for (size_t i = 0ull; i < GLSLcnt; ++i)
             if (FeatureAvailable[m_GLSLExtensions[i]])
-                extnames.push_back(OpenGLFeatureStrings[m_GLSLExtensions[i]]);
-        for (size_t i = 0ull; i < (cnt-GLSLcnt); ++i)
-            extnames.push_back(reinterpret_cast<const char*>((*SPIR_Vextensions)[i]));
-        return extnames;
-    };
+                (*m_supportedGLSLExtsNames)[i] = (OpenGLFeatureStrings[m_GLSLExtensions[i]]);
+    }
 
-    static core::vector<std::string> GLSLextensionsNames = init_extnames();
-
-    return {GLSLextensionsNames.data(), GLSLextensionsNames.data()+GLSLextensionsNames.size()};
+    return m_supportedGLSLExtsNames;
 }
 
 bool COpenGLDriver::bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline)
@@ -1319,7 +1316,7 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     core::smart_refctd_ptr<const asset::ICPUShader> spvCPUShader = nullptr;
     if (cpuUnspec->containsGLSL()) {
         std::string glsl = reinterpret_cast<const char*>(cpuUnspec->getSPVorGLSL()->getPointer());
-        asset::ICPUShader::insertGLSLExtensionsDefines(glsl, getSupportedGLSLExtensions());
+        asset::ICPUShader::insertGLSLExtensionsDefines(glsl, getSupportedGLSLExtensions().get());
         auto spvShader = core::smart_refctd_ptr<asset::ICPUShader>(
             GLSLCompiler->createSPIRVFromGLSL(
                 glsl.c_str(),
@@ -1907,8 +1904,8 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
                         lookingFor.second.GLname = GLname;
                         lookingFor.second.lastValidated = CNullDriver::ReallocationCounter;
                         lookingFor.second.object = nextState.pipeline;
-                        GraphicsPipelineMap.insert(found, lookingFor);
                         freeUpGraphicsPipelineCache(true);
+                        GraphicsPipelineMap.insert(found, lookingFor);
                     }
                 }
 

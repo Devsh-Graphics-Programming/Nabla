@@ -41,7 +41,7 @@ public:
     const ICPUBuffer* getSPVorGLSL() const { return m_code; };
     bool containsGLSL() const { return m_containsGLSL; }
 
-    static void insertGLSLExtensionsDefines(std::string& _glsl, const core::SRange<const std::string>& _exts);
+    static void insertGLSLExtensionsDefines(std::string& _glsl, const core::refctd_dynamic_array<std::string>* _exts);
 
 protected:
     //! Might be GLSL null-terminated string or SPIR-V bytecode (denoted by m_containsGLSL)

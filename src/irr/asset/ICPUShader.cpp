@@ -20,7 +20,7 @@ ICPUShader::ICPUShader(const char* _glsl) :
     memcpy(m_code->getPointer(), _glsl, m_code->getSize());
 }
 
-void ICPUShader::insertGLSLExtensionsDefines(std::string& _glsl, const core::SRange<const std::string>& _exts)
+void ICPUShader::insertGLSLExtensionsDefines(std::string& _glsl, const core::refctd_dynamic_array<std::string>* _exts)
 {
     auto findLineJustAfterVersionOrPragmaShaderStageDirective = 
     [&_glsl] {
@@ -40,7 +40,7 @@ void ICPUShader::insertGLSLExtensionsDefines(std::string& _glsl, const core::SRa
     const size_t pos = findLineJustAfterVersionOrPragmaShaderStageDirective();
 
     std::string insertion = "\n";
-    for (const std::string& ext : _exts)
+    for (const std::string& ext : (*_exts))
     {
         std::string str = "#ifndef " + ext + "\n";
         str += "\t#define " + ext + "\n";

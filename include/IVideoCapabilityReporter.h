@@ -76,7 +76,7 @@ namespace video
             EDF_COUNT
         };
 
-        virtual const core::SRange<const std::string> getSupportedGLSLExtensions() const { return {nullptr, nullptr}; };
+        virtual const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const { return nullptr; };
 
 		//! Queries the features of the driver.
 		/** Returns true if a feature is available
