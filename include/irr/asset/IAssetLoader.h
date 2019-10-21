@@ -20,15 +20,25 @@ namespace irr { namespace asset
 
 	There are defined rules of loading process, that can be overwritten, but basically
 	a mesh can reference a submesh, a submesh can reference a material, a material 
-	can reference a texture, etc. You can look at it as recursive function, the LEVEL (\bhierarchyLevel\b)
-	is actually how deep the stack you are. The flag is a bitfield with 2 bits per level,
-	and the enums provie are some useful constants. Different combinations are valid as well, so
+	can reference a texture, etc. You can think about it as a \bMesh->Submesh->Material->Texture\b chain, 
+	where a binding between them takes place. Furthermore they are indexed, so it actaully looks like \b0->1->2->3\b.
+	
+	Suppose user called IAssetManager::getAsset() and got Submesh during loading process,
+	where currently loaded Asset is a Texture. In that case Submesh is treated as \broot\b of such a chain.
+	Also there is a next important binding term that has to be considered - \bhierarchyLevel\b, called commonly "LEVEL".
+	It specifies amount of shifts in a chain mentioned above between a root Asset got by user and currently loaded Asset.
+	In case above - Submesh Asset is a root, so it has technically 1 index, and Texture Asset has 3.
+	The difference between those values is 2, so \bhierarchyLevel\b becomes 2 too.
+
+	The flag having an impact on loading an Asset is a bitfield with 2 bits per level,
+	so the enums provie are some useful constants. Different combinations are valid as well, so
 	
 	\code{.cpp}
 	static_cast<E_CACHING_FLAGS>(ECF_DONT_CACHE_TOP_LEVEL << 4ull) 
 	\endcode
 
-	Anything on level 2 will not get cached (top is 0, but we have shifted for 4 bits, where 2 bits represent one single level, so we've been on second level) 
+	Means that anything on level 2 will not get cached (top is 0, but we have shifted for 4 bits,
+	where 2 bits represent one single level, so we've been on second level) 
 
 	When the class derived from IAssetLoader is added, its put once on an 
 	std::vector<IAssetLoader*> and once on an std::multimap<std::string,IAssetLoader*> 

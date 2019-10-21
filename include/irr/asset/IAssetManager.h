@@ -182,6 +182,19 @@ namespace asset
 			Furthermore if an Asset Bundle hasn't been loaded to cache before, it becomes loaded into cache memory and the function returns it. Otherwise
 			it is simply returned.
 
+			Take a look on @param _hierarchyLevel
+			Remember that even if you are looking for a Texture Asset, it doesn't mean it is on specified 
+			certain const level relatively! So you can't assume it is always const x level.
+			Sometimes you may be intresed only in texture Asset, so you can make it \broot\b.
+
+			For more details about hierarchy levels.
+			@see IAssetLoader
+
+			There is a term in reference to above - \bDowngrade\b. 
+			You can find Downgrades in Assets definitions. For instance ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW.
+			The syntax is simple - \b(Current level + Downgrade)\b. You ought to pass just like that a expression to _hierarchyLevel.
+			For instance you can pass (topHierarchyLevel + ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW).
+
 			@see SAssetBundle
 		*/
         SAssetBundle getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
