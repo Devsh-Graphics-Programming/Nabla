@@ -179,22 +179,24 @@ namespace asset
 			loaders dealing with it would be fetched. If none of those loaders can't deal with the file, then one more tryout is performed, so a function
 			iterates through all available loaders regardless of supported file extensions they deal with counting on that one of them might work.
 
-			Furthermore if an Asset Bundle hasn't been loaded to cache before, it becomes loaded into cache memory and the function returns it. Otherwise
-			it is simply returned.
+            If (_params.cacheFlags & ECF_DONT_CACHE_TOP_LEVEL)==ECF_DONT_CACHE_TOP_LEVEL, returned bundle is not being cached.
+            (_params.cacheFlags & ECF_DUPLICATE_TOP_LEVEL)==ECF_DUPLICATE_TOP_LEVEL implies behaviour with ECF_DONT_CACHE_TOP_LEVEL, but Asset is not searched for in the cache (loaders tryout always happen).
+			With no flags (for top hierarchy level) given, Asset is looked for in the cache (whether it is already loaded), or - if not found - added to the cache just after getting loaded.
+            Empty bundle is returned if no loader could load the Asset.
 
-			Take a look on @param _hierarchyLevel
-			Remember that even if you are looking for a Texture Asset, it doesn't mean it is on specified 
-			certain const level relatively! So you can't assume it is always const x level.
-			Sometimes you may be intresed only in texture Asset, so you can make it \broot\b.
+			Take a look on @param _hierarchyLevel.
+            Hierarchy level is distance in such chain/tree from Root Asset (the one you asked for by calling IAssetManager::getAsset()) and the currently loaded Asset (needed by Root Asset).
+            Calling getAssetInHierarchy()  with _hierarchyLevel=0 is synonymous to calling getAsset().
 
-			For more details about hierarchy levels.
-			@see IAssetLoader
+			For more details about hierarchy levels see IAssetLoader.
 
 			There is a term in reference to above - \bDowngrade\b. 
 			You can find Downgrades in Assets definitions. For instance ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW.
 			The syntax is simple - \b(Current level + Downgrade)\b. You ought to pass just like that a expression to _hierarchyLevel.
-			For instance you can pass (topHierarchyLevel + ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW).
+			For instance you can pass (topHierarchyLevel + ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW), when expecting to load a ICPUImageView from a file that is needed by the ICPUMesh currently being loaded by an IAssetLoader.
 
+            @see IAssetLoader::SAssetLoadParams
+			@see IAssetLoader
 			@see SAssetBundle
 		*/
         SAssetBundle getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)

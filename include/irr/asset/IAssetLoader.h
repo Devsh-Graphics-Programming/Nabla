@@ -18,30 +18,25 @@ namespace irr { namespace asset
 
 	The loading is impacted by caching and resource duplication flags, defined as IAssetLoader::E_CACHING_FLAGS.
 
-	There are defined rules of loading process, that can be overwritten, but basically
-	a mesh can reference a submesh, a submesh can reference a material, a material 
-	can reference a texture, etc. You can think about it as a \bMesh->Submesh->Material->Texture\b chain, 
-	where a binding between them takes place. Furthermore they are indexed, so it actaully looks like \b0->1->2->3\b.
-	
-	Suppose user called IAssetManager::getAsset() and got Submesh during loading process,
-	where currently loaded Asset is a Texture. In that case Submesh is treated as \broot\b of such a chain.
-	Also there is a next important binding term that has to be considered - \bhierarchyLevel\b, called commonly "LEVEL".
-	It specifies amount of shifts in a chain mentioned above between a root Asset got by user and currently loaded Asset.
-	In case above - Submesh Asset is a root, so it has technically 1 index, and Texture Asset has 3.
-	The difference between those values is 2, so \bhierarchyLevel\b becomes 2 too.
-
 	The flag having an impact on loading an Asset is a bitfield with 2 bits per level,
-	so the enums provie are some useful constants. Different combinations are valid as well, so
+	so the enums provide are some useful constants. Different combinations are valid as well, so
 	
 	\code{.cpp}
-	static_cast<E_CACHING_FLAGS>(ECF_DONT_CACHE_TOP_LEVEL << 4ull) 
+    IAssetLoader::SAssetLoadParams params;
+	params.cacheFlags = static_cast<E_CACHING_FLAGS>(ECF_DONT_CACHE_TOP_LEVEL << 4ull);
+    //synonymous to:
+    params.cacheFlags = ECF_DONT_CACHE_LEVEL(2);
+    //where ECF_DONT_CACHE_LEVEL() is a utility function.
 	\endcode
 
 	Means that anything on level 2 will not get cached (top is 0, but we have shifted for 4 bits,
-	where 2 bits represent one single level, so we've been on second level) 
-
+	where 2 bits represent one single level, so we've been on second level).
+    Notice that loading process can be seen as a chain. When you're loading a mesh, it can references a submesh.
+    Submesh can reference graphics pipeline and descriptor set. Descriptor set can reference, for example, textures.
+    Hierarchy level is distance in such chain/tree from Root Asset (the one you asked for by calling IAssetManager::getAsset()) and the currently loaded Asset (needed by Root Asset).
+    
 	When the class derived from IAssetLoader is added, its put once on an 
-	std::vector<IAssetLoader*> and once on an std::multimap<std::string,IAssetLoader*> 
+	vector<IAssetLoader*> and once on an multimap<std::string,IAssetLoader*> 
 	inside the IAssetManager for every associated file extension it reports.
 
 	The loaders are tried in the order they were registered per file extensions, 
@@ -49,6 +44,7 @@ namespace irr { namespace asset
 
 	An IAssetLoader can only be removed/deregistered by its original pointer or global loader index.
 
+    @see IAssetLoader::SAssetLoadParams
 	@see IReferenceCounted::grab()
 	@see IAsset
 	@see IAssetManager
@@ -132,7 +128,6 @@ public:
     }
     static E_CACHING_FLAGS ECF_DONT_CACHE_FROM_LEVEL(uint64_t N)
     {
-        // (Criss) Shouldn't be set all DONT_CACHE bits from hierarchy numbers N-1 to 32 (64==2*32) ? Same for ECF_DUPLICATE_FROM_LEVEL below
         N *= 2ull;
         return (E_CACHING_FLAGS)(ECF_DONT_CACHE_REFERENCES << N);
     }
@@ -143,7 +138,6 @@ public:
     }
     static E_CACHING_FLAGS ECF_DONT_CACHE_UNTIL_LEVEL(uint64_t N)
     {
-        // (Criss) is this ok? Shouldn't be set all DONT_CACHE bits from hierarchy numbers 0 to N-1? Same for ECF_DUPLICATE_UNTIL_LEVEL below
         N = 64ull - N * 2ull;
         return (E_CACHING_FLAGS)(ECF_DONT_CACHE_REFERENCES >> N);
     }
