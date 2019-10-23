@@ -2,7 +2,7 @@
 #define __IRR_I_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
 
 #include "irr/asset/format/EFormat.h"
-#include "irr/core/math/irrMath.h"
+#include "irr/core/math/glslFunctions.h"
 #include "irr/asset/ShaderCommons.h"
 #include "irr/asset/IPipeline.h"
 #include "irr/macros.h"
