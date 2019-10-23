@@ -59,7 +59,7 @@ void CMeshSceneNode::OnRegisterSceneNode()
 				if (!mb || mb->getIndexCount()<1)
                     continue;
 
-				video::IMaterialRenderer* rnd = driver->getMaterialRenderer(mb->getMaterial().MaterialType);
+				video::IMaterialRenderer* rnd = driver->getMaterialRenderer(0);
 
 				if (rnd && rnd->isTransparent())
 					++transparentCount;
@@ -107,7 +107,7 @@ void CMeshSceneNode::render()
             {
                 const video::SGPUMaterial& material = mb->getMaterial();
 
-                video::IMaterialRenderer* rnd = driver->getMaterialRenderer(material.MaterialType);
+                video::IMaterialRenderer* rnd = driver->getMaterialRenderer(0);
                 bool transparent = (rnd && rnd->isTransparent());
 
                 // only render transparent buffer if this is the transparent render pass

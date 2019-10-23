@@ -41,14 +41,14 @@ bool CArchiveLoaderTAR::isALoadableFileFormat(E_FILE_ARCHIVE_TYPE fileType) cons
 //! Creates an archive from the filename
 /** \param file File handle to check.
 \return Pointer to newly created archive, or 0 upon error. */
-IFileArchive* CArchiveLoaderTAR::createArchive(const io::path& filename, bool ignoreCase, bool ignorePaths) const
+IFileArchive* CArchiveLoaderTAR::createArchive(const io::path& filename) const
 {
 	IFileArchive *archive = 0;
 	io::IReadFile* file = FileSystem->createAndOpenFile(filename);
 
 	if (file)
 	{
-		archive = createArchive(file, ignoreCase, ignorePaths);
+		archive = createArchive(file);
 		file->drop();
 	}
 
@@ -58,13 +58,13 @@ IFileArchive* CArchiveLoaderTAR::createArchive(const io::path& filename, bool ig
 
 //! creates/loads an archive from the file.
 //! \return Pointer to the created archive. Returns 0 if loading failed.
-IFileArchive* CArchiveLoaderTAR::createArchive(io::IReadFile* file, bool ignoreCase, bool ignorePaths) const
+IFileArchive* CArchiveLoaderTAR::createArchive(io::IReadFile* file) const
 {
 	IFileArchive *archive = 0;
 	if (file)
 	{
 		file->seek(0);
-		archive = new CTarReader(file, ignoreCase, ignorePaths);
+		archive = new CTarReader(file);
 	}
 	return archive;
 }
@@ -80,11 +80,13 @@ bool CArchiveLoaderTAR::isALoadableFileFormat(io::IReadFile* file) const
 	if (file->getSize() % 512)
 		return false;
 
-	file->seek(0);
+	const size_t prevPos = file->getPos();
+	file->seek(0u);
 
 	// read header of first file
 	STarHeader fHead;
 	file->read(&fHead, sizeof(STarHeader));
+	file->seek(prevPos);
 
 	uint32_t checksum = 0;
 	sscanf(fHead.Checksum, "%o", &checksum);
@@ -121,8 +123,7 @@ bool CArchiveLoaderTAR::isALoadableFileFormat(io::IReadFile* file) const
 /*
 	TAR Archive
 */
-CTarReader::CTarReader(IReadFile* file, bool ignoreCase, bool ignorePaths)
- : CFileList((file ? file->getFileName() : io::path("")), ignoreCase, ignorePaths), File(file)
+CTarReader::CTarReader(IReadFile* file) : CFileList(file ? file->getFileName() : io::path("")), File(file)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("CTarReader");

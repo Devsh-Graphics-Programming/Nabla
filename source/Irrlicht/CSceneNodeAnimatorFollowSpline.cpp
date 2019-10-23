@@ -54,7 +54,7 @@ void CSceneNodeAnimatorFollowSpline::animateNode(IDummyTransformationSceneNode* 
 	}
 
 	const float dt = ( (timeMs-StartTime) * Speed * 0.001f );
-	const int32_t unwrappedIdx = core::floor32( dt );
+	const int32_t unwrappedIdx = core::floor( dt );
 	if ( !Loop && unwrappedIdx >= (int32_t)pSize-1 )
 	{
 		node->setPosition(Points[pSize-1]);
@@ -62,7 +62,7 @@ void CSceneNodeAnimatorFollowSpline::animateNode(IDummyTransformationSceneNode* 
 		return;
 	}
 	const bool pong = PingPong && (unwrappedIdx/(pSize-1))%2;
-	const float u =  pong ? 1.f-core::fract ( dt ) : core::fract ( dt );
+	const float u =  pong ? 1.f-core::fract<float>( dt ) : core::fract<float>( dt );
 	const int32_t idx = pong ?	(pSize-2) - (unwrappedIdx % (pSize-1))
 						: (PingPong ? unwrappedIdx % (pSize-1)
 									: unwrappedIdx % pSize);

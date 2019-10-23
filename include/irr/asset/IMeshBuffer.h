@@ -1,42 +1,13 @@
 #ifndef __IRR_I_MESH_BUFFER_H_INCLUDED__
 #define __IRR_I_MESH_BUFFER_H_INCLUDED__
 
-#include "irr/asset/ICPUMeshDataFormatDesc.h"
-#include "SMaterial.h"
+#include "irr/asset/IRenderpassIndependentPipeline.h"
+#include <algorithm>
 
 namespace irr
 {
 namespace asset
 {
-
-//! Enumeration for all primitive types there are.
-enum E_PRIMITIVE_TYPE
-{
-	//! All vertices are non-connected points.
-	EPT_POINTS=0,
-
-	//! All vertices form a single connected line.
-	EPT_LINE_STRIP,
-
-	//! Just as LINE_STRIP, but the last and the first vertex is also connected.
-	EPT_LINE_LOOP,
-
-	//! Every two vertices are connected creating n/2 lines.
-	EPT_LINES,
-
-	//! After the first two vertices each vertex defines a new triangle.
-	//! Always the two last and the new one form a new triangle.
-	EPT_TRIANGLE_STRIP,
-
-	//! After the first two vertices each vertex defines a new triangle.
-	//! All around the common first vertex.
-	EPT_TRIANGLE_FAN,
-
-	//! Explicitly set all vertices for each triangle.
-	EPT_TRIANGLES
-
-	// missing adjacency types and patches
-};
 
 //!
 enum E_INDEX_TYPE
@@ -54,10 +25,18 @@ enum E_MESH_BUFFER_TYPE
     EMBT_ANIMATED_SKINNED
 };
 
-template <class T>
+template <class BufferType, class DescSetType, class PipelineType>
 class IMeshBuffer : public virtual core::IReferenceCounted
 {
-    using MaterialType = typename std::conditional<std::is_same<T, ICPUBuffer>::value, video::SCPUMaterial, video::SGPUMaterial>::type;
+public:
+    struct SBufferBinding {
+        uint64_t offset = 0ull;
+        core::smart_refctd_ptr<BufferType> buffer = nullptr;
+    };
+    _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_PUSH_CONSTANT_BYTESIZE = 128u;
+
+    _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT;
+    _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_ATTR_BUF_BINDING_COUNT = SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT;
 
 protected:
 	virtual ~IMeshBuffer()
@@ -66,62 +45,107 @@ protected:
             leakDebugger->deregisterObj(this);
 	}
 
-    MaterialType Material;
     core::aabbox3df boundingBox;
-	core::smart_refctd_ptr<IMeshDataFormatDesc<T>> meshLayout;
+
+    SBufferBinding m_vertexBufferBindings[MAX_ATTR_BUF_BINDING_COUNT];
+    SBufferBinding m_indexBufferBinding;
+
+
+    //! Descriptor set which goes to set=3
+    core::smart_refctd_ptr<DescSetType> m_descriptorSet;
+    core::smart_refctd_ptr<PipelineType> m_pipeline;
+
 	//indices
 	E_INDEX_TYPE indexType;
 	int32_t baseVertex;
+    alignas(64) uint8_t m_pushConstantsData[MAX_PUSH_CONSTANT_BYTESIZE]{};//by putting m_pushConstantsData here, alignas(64) takes no extra place
     uint64_t indexCount;
-    size_t indexBufOffset;
     //
     size_t instanceCount;
     uint32_t baseInstance;
-    //primitives
-    E_PRIMITIVE_TYPE primitiveType;
 
-    //debug
-    core::CLeakDebugger* leakDebugger;
 public:
 	//! Constructor.
-	/**
-	@param layout Smart pointer to descriptor of mesh data object.
-	@param dbgr Pointer to leak debugger object.
-	*/
-	IMeshBuffer(IMeshDataFormatDesc<T>* layout=nullptr, core::CLeakDebugger* dbgr=nullptr) : Material(), boundingBox(),
-						meshLayout(layout), indexType(EIT_UNKNOWN), baseVertex(0), indexCount(0u), indexBufOffset(0ull),
-						instanceCount(1ull), baseInstance(0u), primitiveType(EPT_TRIANGLES), leakDebugger(dbgr)
+    /**
+    Note that ALL parameters are move-assigned to meshbuffer's members!
+    */
+	IMeshBuffer(core::smart_refctd_ptr<PipelineType>&& _pipeline, core::smart_refctd_ptr<DescSetType>&& _ds,
+        SBufferBinding _vtxBindings[MAX_ATTR_BUF_BINDING_COUNT],
+        SBufferBinding&& _indexBinding
+        ) : m_indexBufferBinding(std::move(_indexBinding)), m_descriptorSet(std::move(_ds)), m_pipeline(std::move(_pipeline)),
+            boundingBox(), indexType(EIT_UNKNOWN), baseVertex(0), indexCount(0u),
+            instanceCount(1ull), baseInstance(0u)
 	{
-		if (leakDebugger)
-			leakDebugger->registerObj(this);
+        std::move(_vtxBindings, _vtxBindings+MAX_ATTR_BUF_BINDING_COUNT, m_vertexBufferBindings);
 	}
 
-	//! Access data descriptor objects.
-	/** @returns data descriptor object. */
-	inline IMeshDataFormatDesc<T>* getMeshDataAndFormat() {return meshLayout.get();}
-	//! @copydoc getMeshDataAndFormat()
-	inline const IMeshDataFormatDesc<T>* getMeshDataAndFormat() const {return meshLayout.get();}
-
-	//! Sets data descriptor object.
-	/**
-	@param layout new descriptor object.
-	*/
-	inline void setMeshDataAndFormat(core::smart_refctd_ptr<IMeshDataFormatDesc<T>>&& layout)
-	{
-        meshLayout = std::move(layout);
-	}
+    inline bool isAttributeEnabled(uint32_t attrId) const
+    {
+        if (attrId >= MAX_VERTEX_ATTRIB_COUNT)
+            return false;
+        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
+        if (!(vtxInputParams.enabledAttribFlags & (1u<<attrId)))
+            return false;
+        return true;
+    }
+    inline bool isVertexAttribBufferBindingEnabled(uint32_t bndId) const
+    {
+        if (bndId >= MAX_ATTR_BUF_BINDING_COUNT)
+            return false;
+        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
+        if (!(vtxInputParams.enabledBindingFlags & (1u<<bndId)))
+            return false;
+        return true;
+    }
+    //! WARNING: does not check whether attribute and binding are enabled!
+    inline uint32_t getBindingNumForAttribute(uint32_t attrId) const
+    {
+        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
+        return vtxInputParams.attributes[attrId].binding;
+    }
+    inline E_FORMAT getAttribFormat(uint32_t attrId) const
+    {
+        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
+        return vtxInputParams.attributes[attrId].format;
+    }
+    inline uint32_t getAttribStride(uint32_t attrId) const
+    {
+        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
+        const uint32_t bnd = getBindingNumForAttribute(attrId);
+        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
+        return vtxInputParams.bindings[bnd].stride;
+    }
+    inline uint32_t getAttribOffset(uint32_t attrId) const
+    {
+        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
+        return vtxInputParams.attributes[attrId].relativeOffset;
+    }
+    inline const SBufferBinding* getAttribBoundBuffer(uint32_t attrId) const
+    {
+        const uint32_t bnd = getBindingNumForAttribute(attrId);
+        return &m_vertexBufferBindings[bnd];
+    }
+    inline const SBufferBinding* getVertexBufferBindings() const
+    {
+        return m_vertexBufferBindings;
+    }
+    inline const SBufferBinding* getIndexBufferBinding() const
+    {
+        return &m_indexBufferBinding;
+    }
+    inline const PipelineType* getPipeline() const
+    {
+        return m_pipeline.get();
+    }
+    inline const DescSetType* getAttachedDescriptorSet() const
+    {
+        return m_descriptorSet.get();
+    }
 
 	//! Get type of index data which is stored in this meshbuffer.
 	/** \return Index type of this buffer. */
 	inline const E_INDEX_TYPE& getIndexType() const {return indexType;}
 	inline void setIndexType(const E_INDEX_TYPE& type) {indexType = type;}
-
-	//! Sets offset in mapped index buffer.
-	/** @param byteOffset Offset in bytes. */
-	inline void setIndexBufferOffset(const size_t& byteOffset) {indexBufOffset = byteOffset;}
-	//! Accesses offset in mapped index buffer.
-	/** @returns Offset in bytes. */
-	inline const size_t& getIndexBufferOffset() const {return indexBufOffset;}
 
 	//! Get amount of indices in this meshbuffer.
 	/** \return Number of indices in this buffer. */
@@ -140,20 +164,16 @@ public:
 		#endif // _IRR_DEBUG
 		*/
         indexCount = newIndexCount;
-        if (meshLayout)
+        if (m_indexBuffer)
         {
-            const T* mappedIndexBuf = meshLayout->getIndexBuffer();
-            if (mappedIndexBuf)
+            switch (indexType)
             {
-                switch (indexType)
-                {
-                    case EIT_16BIT:
-                        return indexCount*2+indexBufOffset<mappedIndexBuf->getSize();
-                    case EIT_32BIT:
-                        return indexCount*4+indexBufOffset<mappedIndexBuf->getSize();
-                    default:
-                        return false;
-                }
+                case EIT_16BIT:
+                    return indexCount*2+m_indexBufferBinding.offset < m_indexBuffer->getSize();
+                case EIT_32BIT:
+                    return indexCount*4+m_indexBufferBinding.offset < m_indexBuffer->getSize();
+                default:
+                    return false;
             }
         }
 
@@ -168,13 +188,6 @@ public:
     {
         baseVertex = baseVx;
     }
-
-
-	inline const E_PRIMITIVE_TYPE& getPrimitiveType() const {return primitiveType;}
-	inline void setPrimitiveType(const E_PRIMITIVE_TYPE& type)
-	{
-		primitiveType = type;
-	}
 
 	inline const size_t& getInstanceCount() const {return instanceCount;}
 	inline void setInstanceCount(const size_t& count)
@@ -201,20 +214,8 @@ public:
 		boundingBox = box;
 	}
 
-	//! Get material of this meshbuffer
-	/** \return Material of this buffer */
-	inline const MaterialType& getMaterial() const
-	{
-		return Material;
-	}
-
-
-	//! Get material of this meshbuffer
-	/** \return Material of this buffer */
-	inline MaterialType& getMaterial()
-	{
-		return Material;
-	}
+    uint8_t* getPushConstantsDataPtr() { return m_pushConstantsData; }
+    const uint8_t* getPushConstantsDataPtr() const { return m_pushConstantsData; }
 };
 
 }}

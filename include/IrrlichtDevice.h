@@ -268,9 +268,6 @@ namespace irr
         virtual asset::IAssetManager* getAssetManager();
         virtual const asset::IAssetManager* getAssetManager() const;
 
-        virtual asset::IIncludeHandler* getIncludeHandler() { return nullptr; }
-        virtual const asset::IIncludeHandler* getIncludeHandler() const { return nullptr; }
-
     private:
         core::smart_refctd_ptr<asset::IAssetManager> m_assetMgr;
 	};

@@ -1,7 +1,6 @@
 #ifndef __IRR_I_CPU_MESH_H_INCLUDED__
 #define __IRR_I_CPU_MESH_H_INCLUDED__
 
-#include "irr/core/math/irrMath.h"
 #include "irr/asset/IMesh.h"
 #include "irr/asset/IAsset.h"
 #include "irr/asset/ICPUMeshBuffer.h"
@@ -15,6 +14,10 @@ namespace asset
 class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public IAsset
 {
 	public:
+		//! These are not absolute constants, just the most common situation, there may be setups of assets/resources with completely different relationships.
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MESHBUFFER_HIERARCHYLEVELS_BELOW = 1u; // mesh->meshbuffer->texture
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t IMAGEVIEW_HIERARCHYLEVELS_BELOW = 5u; // mesh->meshbuffer->texture
+
 		//! recalculates the bounding box
 		virtual void recalculateBoundingBox(const bool recomputeSubBoxes = false)
 		{

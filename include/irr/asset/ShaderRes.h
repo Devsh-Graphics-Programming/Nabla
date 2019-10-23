@@ -36,6 +36,16 @@ enum E_SHADER_INFO_TYPE : uint8_t
     //! e.g. `out vec4 Color;` in fragment shader
     ESIT_STAGE_OUTPUT
 };
+enum E_GLSL_VAR_TYPE
+{
+    EGVT_U64,
+    EGVT_I64,
+    EGVT_U32,
+    EGVT_I32,
+    EGVT_F64,
+    EGVT_F32,
+    EGVT_UNKNOWN_OR_STRUCT
+};
 
 template<E_SHADER_RESOURCE_TYPE restype>
 struct SShaderResource;
@@ -92,6 +102,7 @@ struct SShaderMemoryBlock
     {
         //! count==1 implies not array
         uint32_t count;
+        bool countIsSpecConstant;
         uint32_t offset;
         uint32_t size;
         uint32_t arrayStride;
@@ -100,11 +111,21 @@ struct SShaderMemoryBlock
         //! (mtxRowCnt>1 && mtxColCnt==1) implies vector
         //! (mtxRowCnt==1 && mtxColCnt==1) implies basic type (i.e. int/uint/float/...)
         uint32_t mtxRowCnt, mtxColCnt;
+        //! rowMajor=false implies col-major
+        bool rowMajor;
+        E_GLSL_VAR_TYPE type;
+        //TODO change to core::dynamic_array later
+        struct SMembers {
+            SMember* array;
+            size_t count;
+        } members;
+        std::string name;
     };
-    struct {
-        SMember* array;
-        size_t count;
-    } members;
+
+    SMember::SMembers members;
+
+    //! Note: for SSBOs and UBOs it's the block name, but for push_constant it's the instance name.
+    std::string name;
 
     //! size!=rtSizedArrayOneElementSize implies that last member is rutime-sized array (e.g. buffer SSBO { float buf[]; }).
     //! Use getRuntimeSize for size of the struct with assumption of passed number of elements.

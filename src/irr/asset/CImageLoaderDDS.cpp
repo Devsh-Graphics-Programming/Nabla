@@ -19,7 +19,7 @@
 #include "os.h"
 #include "irr/asset/CImageData.h"
 #include "irr/asset/ICPUTexture.h"
-
+#include "irr/asset/format/EFormat.h"
 
 namespace irr
 {

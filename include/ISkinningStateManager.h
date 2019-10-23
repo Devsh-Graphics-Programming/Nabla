@@ -10,10 +10,7 @@
 
 namespace irr
 {
-namespace video
-{
-    class ITextureBufferObject;
-}
+
 namespace scene
 {
     class ISkinnedMeshSceneNode;
@@ -227,7 +224,7 @@ namespace scene
 
             inline const E_BONE_UPDATE_MODE& getBoneUpdateMode() const {return boneControlMode;}
 
-            virtual video::ITextureBufferObject* getBoneDataTBO() const = 0;
+            virtual video::IGPUBufferView* getBoneDataTBO() const = 0;
 
             size_t getBoneCount() const { return referenceHierarchy->getBoneCount(); }
 

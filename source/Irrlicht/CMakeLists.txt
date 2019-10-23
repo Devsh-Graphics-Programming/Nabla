@@ -125,6 +125,7 @@ set(IRRLICHT_SRCS_COMMON
 	COpenGLFrameBuffer.cpp
 	COpenGLSLMaterialRenderer.cpp
 	COpenGLTexture.cpp
+	${IRR_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
 	STextureSamplingParams.cpp
 	FW_Mutex.cpp
 
@@ -151,10 +152,8 @@ set(IRRLICHT_SRCS_COMMON
 	CReadFile.cpp
 	CWriteFile.cpp
 	CMountPointReader.cpp
-	CNPKReader.cpp
 	CPakReader.cpp
 	CTarReader.cpp
-	CWADReader.cpp
 	CZipReader.cpp
 
 # Other

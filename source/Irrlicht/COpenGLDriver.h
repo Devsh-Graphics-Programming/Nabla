@@ -20,26 +20,148 @@ namespace irr
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
 #include "CNullDriver.h"
-#include "IMaterialRendererServices.h"
 // also includes the OpenGL stuff
 #include "COpenGLExtensionHandler.h"
 #include "COpenGLDriverFence.h"
 #include "COpenGLTransformFeedback.h"
-#include "COpenGLVAOSpec.h"
 #include "COpenCLHandler.h"
+#include "irr/video/COpenGLSpecializedShader.h"
+#include "irr/video/COpenGLRenderpassIndependentPipeline.h"
+#include "irr/video/COpenGLDescriptorSet.h"
+#include "irr/video/COpenGLPipelineLayout.h"
 
 #include <map>
 #include "FW_Mutex.h"
 
 namespace irr
 {
+namespace asset
+{
+    class IGLSLCompiler;
+}
 
 namespace video
 {
 	class COpenGLTexture;
 	class COpenGLFrameBuffer;
 
-	class COpenGLDriver : public CNullDriver, public IMaterialRendererServices, public COpenGLExtensionHandler
+    enum GL_STATE_BITS : uint32_t
+    {
+        // has to be flushed before constants are pushed (before `extGlProgramUniform*`)
+        GSB_PIPELINE_AND_RASTER_PARAMETERS = 0x1u,
+        // we want the two to happen together and just before a draw (set VAO first, then binding)
+        GSB_VAO_AND_VERTEX_INPUT = 0x2u,
+        // flush just before (indirect)dispatch or (multi)(indirect)draw, textures and samplers first, then storage image, then SSBO, finally UBO
+        GSB_DESCRIPTOR_SETS = 0x4u,
+        // flush everything
+        GSB_ALL = ~0x0u
+    };
+    struct SOpenGLState
+    {
+        struct SVAO {
+            GLuint GLname;
+            uint64_t lastValidated;
+        };
+        typedef std::pair<COpenGLRenderpassIndependentPipeline::SVAOHash, SVAO> HashVAOPair;
+
+        using SGraphicsPipelineHash = std::array<GLuint, COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT>;
+
+        core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> pipeline;
+        SGraphicsPipelineHash usedShadersHash = {0u, 0u, 0u, 0u, 0u};
+
+        struct {
+            //in GL it is possible to set polygon mode separately for back- and front-faces, but in VK it's one setting for both
+            GLenum polygonMode = GL_FILL;
+            GLenum faceCullingEnable = 0;
+            GLenum cullFace = GL_BACK;
+            //in VK stencil params (both: stencilOp and stencilFunc) are 2 distinct for back- and front-faces, but in GL it's one for both
+            struct SStencilOp {
+                GLenum sfail = GL_KEEP;
+                GLenum dpfail = GL_KEEP;
+                GLenum dppass = GL_KEEP;
+                bool operator!=(const SStencilOp& rhs) const { return sfail!=rhs.sfail || dpfail!=rhs.dpfail || dppass!=rhs.dppass; }
+            };
+            SStencilOp stencilOp_front, stencilOp_back;
+            struct SStencilFunc {
+                GLenum func = GL_ALWAYS;
+                GLint ref = 0;
+                GLuint mask = ~static_cast<GLuint>(0u);
+                bool operator!=(const SStencilFunc& rhs) const { return func!=rhs.func || ref!=rhs.ref || mask!=rhs.mask; }
+            };
+            SStencilFunc stencilFunc_front, stencilFunc_back;
+            GLenum depthFunc = GL_LESS;
+            GLenum frontFace = GL_CCW;
+            GLboolean depthClampEnable = 0;
+            GLboolean rasterizerDiscardEnable = 0;
+            GLboolean polygonOffsetEnable = 0;
+            struct SPolyOffset {
+                GLfloat factor = 0.f;//depthBiasSlopeFactor 
+                GLfloat units = 0.f;//depthBiasConstantFactor 
+                bool operator!=(const SPolyOffset& rhs) const { return factor!=rhs.factor || units!=rhs.units; }
+            } polygonOffset;
+            GLfloat lineWidth = 1.f;
+            GLboolean sampleShadingEnable = 0;
+            GLfloat minSampleShading = 0.f;
+            GLboolean sampleMaskEnable = 0;
+            GLbitfield sampleMask[2]{~static_cast<GLbitfield>(0), ~static_cast<GLbitfield>(0)};
+            GLboolean sampleAlphaToCoverageEnable = 0;
+            GLboolean sampleAlphaToOneEnable = 0;
+            GLboolean depthTestEnable = 0;
+            GLboolean depthWriteEnable = 1;
+            //GLboolean depthBoundsTestEnable;
+            GLboolean stencilTestEnable = 0;
+            GLboolean multisampleEnable = 1;
+            GLboolean primitiveRestartEnable = 0;
+
+            GLboolean logicOpEnable = 0;
+            GLenum logicOp = GL_COPY;
+            struct SDrawbufferBlending
+            {
+                GLboolean blendEnable = 0;
+                struct SBlendFunc {
+                    GLenum srcRGB = GL_ONE;
+                    GLenum dstRGB = GL_ZERO;
+                    GLenum srcAlpha = GL_ONE;
+                    GLenum dstAlpha = GL_ZERO;
+                    bool operator!=(const SBlendFunc& rhs) const { return srcRGB!=rhs.srcRGB || dstRGB!=rhs.dstRGB || srcAlpha!=rhs.srcAlpha || dstAlpha!=rhs.dstAlpha; }
+                } blendFunc;
+                struct SBlendEq {
+                    GLenum modeRGB = GL_FUNC_ADD;
+                    GLenum modeAlpha = GL_FUNC_ADD;
+                    bool operator!=(const SBlendEq& rhs) const { return modeRGB!=rhs.modeRGB || modeAlpha!=rhs.modeAlpha; }
+                } blendEquation;
+                struct SColorWritemask {
+                    GLboolean colorWritemask[4]{ 1,1,1,1 };
+                    bool operator!=(const SColorWritemask& rhs) const { return memcmp(colorWritemask, rhs.colorWritemask, 4); }
+                } colorMask;
+            } drawbufferBlend[asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT];
+        } rasterParams;
+
+        struct {
+            HashVAOPair vao;
+            struct SBnd {
+                core::smart_refctd_ptr<const COpenGLBuffer> buf;
+                GLintptr offset = 0;
+                bool operator!=(const SBnd& rhs) const { return buf!=rhs.buf || offset!=rhs.offset; }
+            } bindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
+            core::smart_refctd_ptr<const COpenGLBuffer> indexBuf;
+
+            //putting it here because idk where else
+            core::smart_refctd_ptr<const COpenGLBuffer> indirectDrawBuf;
+            core::smart_refctd_ptr<const COpenGLBuffer> parameterBuf;//GL>=4.6
+        } vertexInputParams;
+
+        struct {
+            struct SDescSetBnd {
+                core::smart_refctd_ptr<const COpenGLPipelineLayout> pplnLayout;
+                core::smart_refctd_ptr<const COpenGLDescriptorSet> set;
+                core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets;
+            };
+            SDescSetBnd descSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
+        } descriptorsParams;
+    };
+
+	class COpenGLDriver : public CNullDriver, public COpenGLExtensionHandler
 	{
     protected:
 		//! destructor
@@ -49,26 +171,72 @@ namespace video
         struct SAuxContext;
 
 		#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceWin32* device);
+		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp);
 		//! inits the windows specific parts of the open gl driver
 		bool initDriver(CIrrDeviceWin32* device);
 		bool changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceWin32* device);
 		#endif
 
 		#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceLinux* device);
+		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceLinux* device, asset::IGLSLCompiler* glslcomp);
 		//! inits the GLX specific parts of the open gl driver
 		bool initDriver(CIrrDeviceLinux* device, SAuxContext* auxCtxts);
 		bool changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceLinux* device);
 		#endif
 
 		#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceSDL* device);
+		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceSDL* device, asset::IGLSLCompiler* glslcomp);
 		#endif
 
 		#ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceMacOSX *device);
+		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceMacOSX *device, asset::IGLSLCompiler* glslcomp);
 		#endif
+
+        inline bool isAllowedBufferViewFormat(asset::E_FORMAT _fmt) const override
+        {
+            using namespace asset;
+            switch (_fmt)
+            {
+            case EF_R8_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R32_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R8_SINT: _IRR_FALLTHROUGH;
+            case EF_R16_SINT: _IRR_FALLTHROUGH;
+            case EF_R32_SINT: _IRR_FALLTHROUGH;
+            case EF_R8_UINT: _IRR_FALLTHROUGH;
+            case EF_R16_UINT: _IRR_FALLTHROUGH;
+            case EF_R32_UINT: _IRR_FALLTHROUGH;
+            case EF_R8G8_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R32G32_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R8G8_SINT: _IRR_FALLTHROUGH;
+            case EF_R16G16_SINT: _IRR_FALLTHROUGH;
+            case EF_R32G32_SINT: _IRR_FALLTHROUGH;
+            case EF_R8G8_UINT: _IRR_FALLTHROUGH;
+            case EF_R16G16_UINT: _IRR_FALLTHROUGH;
+            case EF_R32G32_UINT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32_SINT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32_UINT: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32A32_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_SINT: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_SINT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32A32_SINT: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_UINT: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_UINT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32A32_UINT:
+                return true;
+                break;
+            default:
+                return false;
+                break;
+            }
+        }
 
         inline virtual bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const override
         {
@@ -417,14 +585,48 @@ namespace video
             return isColorRenderableFormat(_fmt) && (asset::isNormalizedFormat(_fmt) || asset::isFloatingPointFormat(_fmt));
         }
 
+        const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const override;
+
+        bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override;
+
+        bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
+            uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override;
+
+        core::smart_refctd_ptr<IGPUShader> createGPUShader(const asset::ICPUShader* _cpushader) override;
+        core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) override;
+
+        core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset, size_t _size) override;
+
+        core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override;
+
+        core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override;
+
+        core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout(
+            const asset::SPushConstantRange* const _pcRangesBegin = nullptr, const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
+            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr,
+            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3 = nullptr
+        ) override;
+
+        core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
+            core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
+            core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+            IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd,
+            const asset::SVertexInputParams& _vertexInputParams,
+            const asset::SBlendParams& _blendParams,
+            const asset::SPrimitiveAssemblyParams& _primAsmParams,
+            const asset::SRasterizationParams& _rasterParams
+        ) override;
+
+        core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>&& _descriptors) override;
+
+        core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout) override;
+
 		//! generic version which overloads the unimplemented versions
 		bool changeRenderContext(const SExposedVideoData& videoData, void* device) {return false;}
 
         bool initAuxContext();
         const SAuxContext* getThreadContext(const std::thread::id& tid=std::this_thread::get_id()) const;
         bool deinitAuxContext();
-
-	    virtual core::smart_refctd_ptr<video::IGPUMeshDataFormatDesc> createGPUMeshDataFormatDesc(core::CLeakDebugger* dbgr=nullptr) override final;
 
         virtual uint16_t retrieveDisplayRefreshRate() const override final;
 
@@ -448,8 +650,6 @@ namespace video
 
 		virtual void beginQuery(IQueryObject* query);
 		virtual void endQuery(IQueryObject* query);
-		virtual void beginQuery(IQueryObject* query, const size_t& index);
-		virtual void endQuery(IQueryObject* query, const size_t& index);
 
         virtual IQueryObject* createPrimitivesGeneratedQuery();
         virtual IQueryObject* createXFormFeedbackPrimitiveQuery();
@@ -475,14 +675,6 @@ namespace video
 		//!
 		virtual void issueGPUTextureBarrier() {COpenGLExtensionHandler::extGlTextureBarrier();}
 
-
-		virtual const video::SGPUMaterial& getCurrentMaterial() const {return Material;}
-
-		//! Sets a material. All 3d drawing functions draw geometry now
-		//! using this material.
-		//! \param material: Material to be used from now on.
-		virtual void setMaterial(const SGPUMaterial& material);
-
         //! needs to be "deleted" since its not refcounted
         virtual core::smart_refctd_ptr<IDriverFence> placeFence(const bool& implicitFlushWaitSameThread=false) override final
         {
@@ -502,14 +694,7 @@ namespace video
 		//! get color format of the current color buffer
 		virtual asset::E_FORMAT getColorFormat() const;
 
-		//! Can be called by an IMaterialRenderer to make its work easier.
-		virtual void setBasicRenderStates(const SGPUMaterial& material, const SGPUMaterial& lastmaterial,
-			bool resetAllRenderstates);
-
-
-        virtual void setShaderConstant(const void* data, int32_t location, E_SHADER_CONSTANT_TYPE type, uint32_t number=1);
-
-
+        /*
         virtual int32_t addHighLevelShaderMaterial(
             const char* vertexShaderProgram,
             const char* controlShaderProgram,
@@ -527,7 +712,7 @@ namespace video
             const char* evaluationShaderEntryPointName="main",
             const char* geometryShaderEntryPointName="main",
             const char* pixelShaderEntryPointName="main");
-
+        */
 		//! Returns a pointer to the IVideoDriver interface. (Implementation for
 		//! IMaterialRendererServices)
 		virtual IVideoDriver* getVideoDriver();
@@ -540,10 +725,7 @@ namespace video
         core::smart_refctd_ptr<ITexture> createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) override;
 
         //!
-        virtual IMultisampleTexture* addMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false);
-
-		//! A.
-        virtual ITextureBufferObject* addTextureBufferObject(IGPUBuffer* buf, const ITextureBufferObject::E_TEXURE_BUFFER_OBJECT_FORMAT& format = ITextureBufferObject::ETBOF_RGBA8, const size_t& offset=0, const size_t& length=0);
+        virtual IMultisampleTexture* createMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false) override;
 
         virtual IFrameBuffer* addFrameBuffer();
 
@@ -551,7 +733,6 @@ namespace video
         virtual void removeFrameBuffer(IFrameBuffer* framebuf);
 
         virtual void removeAllFrameBuffers();
-
 
 		virtual bool setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewport=true);
 
@@ -562,6 +743,11 @@ namespace video
 										bool bilinearFilter=false);
 
 
+    private:
+        void clearColor_gatherAndOverrideState(SAuxContext* found, uint32_t _attIx, GLboolean* _rasterDiscard, GLboolean* _colorWmask);
+        void clearColor_bringbackState(SAuxContext* found, uint32_t _attIx, GLboolean _rasterDiscard, const GLboolean* _colorWmask);
+
+    public:
 		//! Clears the ZBuffer.
 		virtual void clearZBuffer(const float &depth=0.0);
 
@@ -576,27 +762,6 @@ namespace video
 		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals) override;
 		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals) override;
 
-
-		virtual ITransformFeedback* createTransformFeedback();
-
-		//!
-		virtual void bindTransformFeedback(ITransformFeedback* xformFeedback);
-
-		virtual ITransformFeedback* getBoundTransformFeedback() {return getThreadContext_helper(false,std::this_thread::get_id())->CurrentXFormFeedback;}
-
-        /** Only POINTS, LINES, and TRIANGLES are allowed as capture types.. no strips or fans!
-        This issues an implicit call to bindTransformFeedback()
-        **/
-		virtual void beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const asset::E_PRIMITIVE_TYPE& primType= asset::EPT_POINTS);
-
-		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
-		virtual void pauseTransformFeedback();
-
-		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
-		virtual void resumeTransformFeedback();
-
-		virtual void endTransformFeedback();
-
         const CDerivativeMapCreator* getDerivativeMapCreator() const override { return DerivativeMapCreator; };
 
 		//! Enable/disable a clipping plane.
@@ -605,14 +770,8 @@ namespace video
 		//! \param enable: If true, enable the clipping plane else disable it.
 		virtual void enableClipPlane(uint32_t index, bool enable);
 
-		//! Enable the 2d override material
-		virtual void enableMaterial2D(bool enable=true);
-
 		//! Returns the graphics card vendor name.
 		virtual std::string getVendorInfo() {return VendorName;}
-
-		//! sets the needed renderstates
-		void setRenderStates3DMode();
 
 		//!
 		const size_t& getMaxConcurrentShaderInvocations() const {return maxConcurrentShaderInvocations;}
@@ -633,45 +792,29 @@ namespace video
         struct SAuxContext
         {
         //public:
-            constexpr static size_t maxVAOCacheSize = 0x1u<<14; //make this cache configurable
+            struct SPipelineCacheVal
+            {
+                GLuint GLname;
+                core::smart_refctd_ptr<COpenGLRenderpassIndependentPipeline> object;//so that it holds shaders which concerns hash
+                uint64_t lastValidated;
+            };
 
-            SAuxContext() : threadId(std::thread::id()), ctx(NULL), XFormFeedbackRunning(false), CurrentXFormFeedback(NULL),
+            _IRR_STATIC_INLINE_CONSTEXPR size_t maxVAOCacheSize = 0x1u<<10; //make this cache configurable
+            _IRR_STATIC_INLINE_CONSTEXPR size_t maxPipelineCacheSize = 0x1u<<13;//8k
+
+            SAuxContext() : threadId(std::thread::id()), ctx(NULL),
                             CurrentFBO(0), CurrentRendertargetSize(0,0)
             {
                 VAOMap.reserve(maxVAOCacheSize);
-                CurrentVAO = HashVAOPair(COpenGLVAOSpec::HashAttribs(),NULL);
-
-                for (size_t i=0; i<MATERIAL_MAX_TEXTURES; i++)
-                {
-                    CurrentSamplerHash[i] = 0xffffffffffffffffuLL;
-                }
             }
 
-            inline void setActiveSSBO(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** const buffers, const ptrdiff_t* const offsets, const ptrdiff_t* const sizes)
-            {
-                shaderStorageBufferObjects.set(first,count,buffers,offsets,sizes);
-            }
+            void flushState(GL_STATE_BITS stateBits);
 
-            inline void setActiveUBO(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** const buffers, const ptrdiff_t* const offsets, const ptrdiff_t* const sizes)
-            {
-                uniformBufferObjects.set(first,count,buffers,offsets,sizes);
-            }
-
-            inline void setActiveIndirectDrawBuffer(const COpenGLBuffer* const buff)
-            {
-                indirectDraw.set(buff);
-            }
-
-            bool setActiveVAO(const COpenGLVAOSpec* const spec);
-
-            //! sets the current Texture
-            //! Returns whether setting was a success or not.
-            bool setActiveTexture(uint32_t stage, core::smart_refctd_ptr<IVirtualTexture>&& texture, const video::STextureSamplingParams &sampleParams);
-
-            const GLuint& constructSamplerInCache(const uint64_t &hashVal);
-
+            SOpenGLState currentState;
+            SOpenGLState nextState;
         //private:
             std::thread::id threadId;
+            uint8_t ID; //index in array of contexts, just to be easier in use
             #ifdef _IRR_WINDOWS_API_
                 HGLRC ctx;
             #endif
@@ -683,160 +826,26 @@ namespace video
                 AppleMakesAUselessOSWhichHoldsBackTheGamingIndustryAndSabotagesOpenStandards ctx;
             #endif
 
-            bool                                         XFormFeedbackRunning; // TODO: delete
-            COpenGLTransformFeedback* CurrentXFormFeedback; //TODO: delete
-
-
             //! FBOs
             core::vector<IFrameBuffer*>  FrameBuffers;
             COpenGLFrameBuffer*         CurrentFBO;
             core::dimension2d<uint32_t> CurrentRendertargetSize;
 
-
-            //! Buffers
-            template<GLenum BIND_POINT,size_t BIND_POINTS>
-            class BoundIndexedBuffer : public core::AllocationOverrideDefault
-            {
-                    const COpenGLBuffer* boundBuffer[BIND_POINTS];
-                    ptrdiff_t boundOffsets[BIND_POINTS];
-                    ptrdiff_t boundSizes[BIND_POINTS];
-                    uint64_t lastValidatedBuffer[BIND_POINTS];
-                public:
-                    BoundIndexedBuffer()
-                    {
-                        memset(boundBuffer,0,sizeof(boundBuffer));
-                        memset(boundOffsets,0,sizeof(boundOffsets));
-                        memset(boundSizes,0,sizeof(boundSizes));
-                        memset(lastValidatedBuffer,0,sizeof(boundBuffer));
-                    }
-
-                    ~BoundIndexedBuffer()
-                    {
-                        set(0,BIND_POINTS,nullptr,nullptr,nullptr);
-                    }
-
-                    void set(const uint32_t& first, const uint32_t& count, const COpenGLBuffer** const buffers, const ptrdiff_t* const offsets, const ptrdiff_t* const sizes);
-            };
-
-            //! SSBO
-            BoundIndexedBuffer<GL_SHADER_STORAGE_BUFFER,OGL_MAX_BUFFER_BINDINGS>    shaderStorageBufferObjects;
-            //! UBO
-            BoundIndexedBuffer<GL_UNIFORM_BUFFER,OGL_MAX_BUFFER_BINDINGS>           uniformBufferObjects;
-
             //!
-            template<GLenum BIND_POINT>
-            class BoundBuffer : public core::AllocationOverrideDefault
-            {
-                    const COpenGLBuffer* boundBuffer;
-                    uint64_t lastValidatedBuffer;
-                public:
-                    BoundBuffer() : lastValidatedBuffer(0)
-                    {
-                        boundBuffer = NULL;
-                    }
+            core::vector<SOpenGLState::HashVAOPair> VAOMap;
+            using HashPipelinePair = std::pair<SOpenGLState::SGraphicsPipelineHash, SPipelineCacheVal>;
+            core::vector<HashPipelinePair> GraphicsPipelineMap;
 
-                    ~BoundBuffer()
-                    {
-                        set(NULL);
-                    }
+            GLuint createGraphicsPipeline(const SOpenGLState::SGraphicsPipelineHash& _hash);
 
-                    void set(const COpenGLBuffer* buff);
-            };
-
-            //! Indirect
-            BoundBuffer<GL_DRAW_INDIRECT_BUFFER> indirectDraw;
-
-
-            /** We will operate on some assumptions here:
-
-            1) On all GPU's known to me  GPUs MAX_VERTEX_ATTRIB_BINDINGS <= MAX_VERTEX_ATTRIBS,
-            so it makes absolutely no sense to support buffer binding mix'n'match as it wouldn't
-            get us anything (however if MVAB>MVA then we could have more inputs into a vertex shader).
-            Also the VAO Attrib Binding is a VAO state so more VAOs would have to be created in the cache.
-
-            2) Relative byte offset on VAO Attribute spec is capped to 2047 across all GPUs, which makes it
-            useful only for specifying the offset from a single interleaved buffer, since we have to specify
-            absolute (unbounded) offset and stride when binding a buffer to a VAO bind-point, it makes absolutely
-            no sense to use this feature as its redundant.
-
-            So the only things worth tracking for the VAO are:
-            1) Element Buffer Binding
-            2) Per Attribute (x16)
-                A) Enabled (1 bit)
-                B) Format (5 bits)
-                C) Component Count (3 bits)
-                D) Divisors (32bits - no limit)
-
-            Total 16*4+16+16/8+4 = 11 uint64_t
-
-            If we limit divisors artificially to 1 bit
-
-            16/8+16/8+16+4 = 3 uint64_t
-            **/
-            class COpenGLVAO : public core::AllocationOverrideDefault
-            {
-                    size_t                      attrOffset[asset::EVAI_COUNT];
-                    uint32_t                    attrStride[asset::EVAI_COUNT];
-                    //vertices
-                    const COpenGLBuffer*        mappedAttrBuf[asset::EVAI_COUNT];
-                    //indices
-                    const COpenGLBuffer*        mappedIndexBuf;
-
-                    GLuint                      vao;
-                    uint64_t                    lastValidated;
-                #ifdef _IRR_DEBUG
-                    COpenGLVAOSpec::HashAttribs debugHash;
-                #endif // _IRR_DEBUG
-                public:
-                    _IRR_NO_DEFAULT_FINAL(COpenGLVAO);
-                    _IRR_NO_COPY_FINAL(COpenGLVAO);
-
-                    COpenGLVAO(const COpenGLVAOSpec* spec);
-                    inline COpenGLVAO(COpenGLVAO&& other)
-                    {
-                        memcpy(this,&other,sizeof(COpenGLVAO));
-                        memset(other.attrOffset,0,sizeof(mappedAttrBuf));
-                        memset(other.attrStride,0,sizeof(mappedAttrBuf));
-                        memset(other.mappedAttrBuf,0,sizeof(mappedAttrBuf));
-                        other.mappedIndexBuf = NULL;
-                        other.vao = 0;
-                        other.lastValidated = 0;
-                    }
-                    ~COpenGLVAO();
-
-                    inline const GLuint& getOpenGLName() const {return vao;}
-
-
-                    inline COpenGLVAO& operator=(COpenGLVAO&& other)
-                    {
-                        this->~COpenGLVAO();
-                        memcpy(this,&other,sizeof(COpenGLVAO));
-                        memset(other.mappedAttrBuf,0,sizeof(mappedAttrBuf));
-                        memset(other.attrStride,0,sizeof(mappedAttrBuf));
-                        memset(other.mappedAttrBuf,0,sizeof(mappedAttrBuf));
-                        other.mappedIndexBuf = NULL;
-                        other.vao = 0;
-                        other.lastValidated = 0;
-                        return *this;
-                    }
-
-
-                    void bindBuffers(   const COpenGLBuffer* indexBuf,
-                                        const COpenGLBuffer* const* attribBufs,
-                                        const size_t offsets[asset::EVAI_COUNT],
-                                        const uint32_t strides[asset::EVAI_COUNT]);
-
-                    inline const uint64_t& getLastBoundStamp() const {return lastValidated;}
-
-                #ifdef _IRR_DEBUG
-                    inline const COpenGLVAOSpec::HashAttribs& getDebugHash() const {return debugHash;}
-                #endif // _IRR_DEBUG
-            };
-
-            //!
-            typedef std::pair<COpenGLVAOSpec::HashAttribs,COpenGLVAO*> HashVAOPair;
-            HashVAOPair                 CurrentVAO;
-            core::vector<HashVAOPair>    VAOMap;
+            void updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline);
+            //! Must be called AFTER updateNextState_pipelineAndRaster() if pipeline and raster params have to be modified at all in this pass
+            void updateNextState_vertexInput(
+                const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                const IGPUBuffer* _indexBuffer,
+                const IGPUBuffer* _indirectDrawBuffer,
+                const IGPUBuffer* _paramBuffer
+            );
 
             inline size_t getVAOCacheSize() const
             {
@@ -847,12 +856,12 @@ namespace video
             {
                 for(auto it = VAOMap.begin(); VAOMap.size()>maxVAOCacheSize&&it!=VAOMap.end();)
                 {
-                    if (it->first==CurrentVAO.first)
+                    if (it->first==currentState.vertexInputParams.vao.first)
                         continue;
 
-                    if (CNullDriver::ReallocationCounter-it->second->getLastBoundStamp()>1000) //maybe make this configurable
+                    if (CNullDriver::ReallocationCounter-it->second.lastValidated>1000) //maybe make this configurable
                     {
-                        delete it->second;
+                        COpenGLExtensionHandler::extGlDeleteVertexArrays(1, &it->second.GLname);
                         it = VAOMap.erase(it);
                         if (exitOnFirstDelete)
                             return;
@@ -861,44 +870,25 @@ namespace video
                         it++;
                 }
             }
-
-            //! Textures and Samplers
-            class STextureStageCache : public core::AllocationOverrideDefault
+            //TODO DRY
+            inline void freeUpGraphicsPipelineCache(bool exitOnFirstDelete)
             {
-					core::smart_refctd_ptr<const IVirtualTexture> CurrentTexture[MATERIAL_MAX_TEXTURES];
-				public:
-					STextureStageCache() = default;
+                for (auto it = GraphicsPipelineMap.begin(); GraphicsPipelineMap.size() > maxPipelineCacheSize&&it != GraphicsPipelineMap.end();)
+                {
+                    if (it->first == currentState.usedShadersHash)
+                        continue;
 
-					~STextureStageCache()
-					{
-						clear();
-					}
-
-					void set(uint32_t stage, core::smart_refctd_ptr<const IVirtualTexture>&& tex)
-					{
-						if (stage<MATERIAL_MAX_TEXTURES)
-							CurrentTexture[stage] = std::move(tex);
-					}
-
-					const IVirtualTexture* operator[](int stage) const
-					{
-						if (static_cast<uint32_t>(stage)<MATERIAL_MAX_TEXTURES)
-							return CurrentTexture[stage].get();
-						else
-							return 0;
-					}
-
-					void remove(const IVirtualTexture* tex);
-
-					void clear();
-            };
-
-            //!
-            STextureStageCache                  CurrentTexture;
-
-            //! Samplers
-            uint64_t                            CurrentSamplerHash[MATERIAL_MAX_TEXTURES];
-            core::unordered_map<uint64_t,GLuint> SamplerMap;
+                    if (CNullDriver::ReallocationCounter-it->second.lastValidated > 1000) //maybe make this configurable
+                    {
+                        COpenGLExtensionHandler::extGlDeleteProgramPipelines(1, &it->second.GLname);
+                        it = GraphicsPipelineMap.erase(it);
+                        if (exitOnFirstDelete)
+                            return;
+                    }
+                    else
+                        it++;
+                }
+            }
         };
 
 
@@ -924,10 +914,16 @@ namespace video
         virtual uint64_t getMaxSSBOSize() const override { return COpenGLExtensionHandler::maxSSBOSize; }
 
         //!
-        virtual uint64_t getMaxTBOSize() const override { return COpenGLExtensionHandler::maxTBOSize; }
+        virtual uint64_t getMaxTBOSizeInTexels() const override { return COpenGLExtensionHandler::maxTBOSizeInTexels; }
 
         //!
         virtual uint64_t getMaxBufferSize() const override { return COpenGLExtensionHandler::maxBufferSize; }
+
+        uint32_t getMaxUBOBindings() const override { return COpenGLExtensionHandler::maxUBOBindings; }
+        uint32_t getMaxSSBOBindings() const override { return COpenGLExtensionHandler::maxSSBOBindings; }
+        uint32_t getMaxTextureBindings() const override { return COpenGLExtensionHandler::maxTextureBindings; }
+        uint32_t getMaxTextureBindingsCompute() const override { return COpenGLExtensionHandler::maxTextureBindingsCompute; }
+        uint32_t getMaxImageBindings() const override { return COpenGLExtensionHandler::maxImageBindings; }
 
     private:
         SAuxContext* getThreadContext_helper(const bool& alreadyLockedMutex, const std::thread::id& tid = std::this_thread::get_id());
@@ -935,31 +931,14 @@ namespace video
         void cleanUpContextBeforeDelete();
 
 
-        void bindTransformFeedback(ITransformFeedback* xformFeedback, SAuxContext* toContext);
-
-
         //COpenGLDriver::CGPUObjectFromAssetConverter
         class CGPUObjectFromAssetConverter;
         friend class CGPUObjectFromAssetConverter;
 
+        using PipelineMapKeyT = std::pair<std::array<core::smart_refctd_ptr<IGPUSpecializedShader>, 5u>, std::thread::id>;
+        core::map<PipelineMapKeyT, GLuint> Pipelines;
 
         bool runningInRenderDoc;
-
-		//! enumeration for rendering modes such as 2d and 3d for minizing the switching of renderStates.
-		enum E_RENDER_MODE
-		{
-			ERM_NONE = 0,	// no render state has been set yet.
-			ERM_2D,		// 2d drawing rendermode
-			ERM_3D		// 3d rendering mode
-		};
-
-		E_RENDER_MODE CurrentRenderMode;
-		//! bool to make all renderstates reset if set to true.
-		bool ResetRenderStates;
-
-		SGPUMaterial Material, LastMaterial;
-
-
 
 		//! inits the parts of the open gl driver used on all platforms
 		bool genericDriverInit();
@@ -980,6 +959,8 @@ namespace video
 		asset::E_FORMAT ColorFormat; //FIXME
 
 		SIrrlichtCreationParameters Params;
+
+        mutable core::smart_refctd_dynamic_array<std::string> m_supportedGLSLExtsNames;
 
 		#ifdef _IRR_WINDOWS_API_
 			HDC HDc; // Private GDI Device Context
@@ -1011,6 +992,7 @@ namespace video
         FW_Mutex* glContextMutex;
 		SAuxContext* AuxContexts;
         CDerivativeMapCreator* DerivativeMapCreator;
+        core::smart_refctd_ptr<const asset::IGLSLCompiler> GLSLCompiler;
 
 		E_DEVICE_TYPE DeviceType;
 	};

@@ -67,11 +67,16 @@ namespace video
             //! Whether we can index samplers dynamically in a shader (automatically true if bindless is enabled)
             EDF_DYNAMIC_SAMPLER_INDEXING,
 
+            //! A way to pass information between fragment shader invocations covering the same pixel
+            EDF_INPUT_ATTACHMENTS,
+
             //other feature ideas are; bindless buffers, sparse texture, sparse texture 2
 
             //! Only used for counting the elements of this enum
             EDF_COUNT
         };
+
+        virtual const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const { return nullptr; };
 
 		//! Queries the features of the driver.
 		/** Returns true if a feature is available
@@ -117,8 +122,14 @@ namespace video
 
         virtual uint64_t getMaxUBOSize() const = 0;
         virtual uint64_t getMaxSSBOSize() const = 0;
-        virtual uint64_t getMaxTBOSize() const = 0;
+        virtual uint64_t getMaxTBOSizeInTexels() const = 0;
         virtual uint64_t getMaxBufferSize() const = 0;
+
+        virtual uint32_t getMaxUBOBindings() const = 0;
+        virtual uint32_t getMaxSSBOBindings() const = 0;
+        virtual uint32_t getMaxTextureBindings() const = 0;
+        virtual uint32_t getMaxTextureBindingsCompute() const = 0;
+        virtual uint32_t getMaxImageBindings() const = 0;
 	};
 
 } // end namespace video

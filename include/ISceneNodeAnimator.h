@@ -5,7 +5,8 @@
 #ifndef __I_SCENE_NODE_ANIMATOR_H_INCLUDED__
 #define __I_SCENE_NODE_ANIMATOR_H_INCLUDED__
 
-#include "vector3d.h"
+#include "irr/core/core.h"
+
 #include "ESceneNodeAnimatorTypes.h"
 #include "IEventReceiver.h"
 

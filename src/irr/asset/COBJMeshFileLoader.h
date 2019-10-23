@@ -113,9 +113,11 @@ class COBJMeshFileLoader : public asset::IAssetLoader
     class SObjMtl; // forward decl.
     struct SContext
     {
-        SContext(const IAssetLoader::SAssetLoadContext& _innerCtx, IAssetLoader::IAssetLoaderOverride* _override) : inner(_innerCtx), loaderOverride(_override) {}
+        SContext(const IAssetLoader::SAssetLoadContext& _innerCtx, uint32_t _topHierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+														: inner(_innerCtx), topHierarchyLevel(_topHierarchyLevel), loaderOverride(_override) {}
 
         IAssetLoader::SAssetLoadContext inner;
+		uint32_t topHierarchyLevel;
         IAssetLoader::IAssetLoaderOverride* loaderOverride;
 
         const bool useGroups = false;
@@ -147,7 +149,7 @@ public:
         char c;
         _file->read(&c, 1u);
         _file->seek(prevPos);
-        return c=='#';
+        return c=='#' || c=='v';
     }
 
     virtual const char** getAssociatedFileExtensions() const override

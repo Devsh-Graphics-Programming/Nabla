@@ -2,7 +2,6 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#include "irr/core/core.h"
 
 #ifdef _IRR_COMPILE_WITH_STL_LOADER_
 
@@ -123,10 +122,12 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		if ((normals.back() == core::vectorSIMDf()).all())
         {
 			normals.back().set(
+                core::normalize(
                 core::plane3dSIMDf(
                     *(positions.rbegin()+2),
                     *(positions.rbegin()+1),
                     *(positions.rbegin()+0)).getNormal()
+                )
             );
         }
 	} // end while (_file->getPos() < filesize)

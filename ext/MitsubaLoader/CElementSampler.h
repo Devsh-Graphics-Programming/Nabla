@@ -2,50 +2,47 @@
 #define __C_ELEMENT_SAMPLER_H_INCLUDED__
 
 #include "../../ext/MitsubaLoader/IElement.h"
-#include "irrlicht.h"
 
-namespace irr { namespace ext { namespace MitsubaLoader {
-
-enum class ESamplerType
+namespace irr
 {
-	NONE,
-	INDEPENDENT,
-	STRATIFIED,
-	LDSAMPLER,
-	HALTON,
-	HAMMERSLEY,
-	SOBOL
-};
-
-struct SSamplerMetadata
+namespace ext
 {
-	ESamplerType type;
-	int sampleCount;
-	union
-	{
-		int dimension;
-		int scramble;
-	};
-};
+namespace MitsubaLoader
+{
+
+class CGlobalMitsubaMetadata;
 
 class CElementSampler : public IElement
 {
-public:
-	CElementSampler()
-		:data({ESamplerType::NONE, 4, 4}) {};
+	public:
+		enum Type
+		{
+			INVALID,
+			INDEPENDENT,
+			STRATIFIED,
+			LDSAMPLER,
+			HALTON,
+			HAMMERSLEY,
+			SOBOL
+		};
 
-	virtual bool processAttributes(const char** _atts) override;
-	virtual bool onEndTag(asset::IAssetManager* _assetManager) override;
-	virtual IElement::Type getType() const override { return IElement::Type::SAMPLER; }
-	virtual std::string getLogName() const override { return "sampler"; }
+		CElementSampler(const char* id) : IElement(id), type(INVALID), sampleCount(4) {}
+		virtual ~CElementSampler() {}
 
-	SSamplerMetadata getMetadata() const { return data; };
+		bool addProperty(SNamedPropertyElement&& _property) override;
+		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override;
+		IElement::Type getType() const override { return IElement::Type::SAMPLER; }
+		std::string getLogName() const override { return "sampler"; }
 
-private:
-	SSamplerMetadata data;
-
+		// make these public
+		Type type;
+		int32_t sampleCount;
+		union
+		{
+			int32_t dimension;
+			int32_t scramble;
+		};
 };
-
 
 
 }

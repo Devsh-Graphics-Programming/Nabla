@@ -47,7 +47,7 @@ namespace irr
 
 		#ifdef _IRR_COMPILE_WITH_OPENGL_
 		IVideoDriver* createOpenGLDriver(const irr::SIrrlichtCreationParameters& params,
-			io::IFileSystem* io, CIrrDeviceWin32* device);
+			io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp);
 		#endif
 	}
 } // end namespace irr
@@ -1103,7 +1103,7 @@ void CIrrDeviceWin32::createDriver()
 		#ifdef _IRR_COMPILE_WITH_OPENGL_
 		switchToFullScreen();
 
-		VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem, this);
+		VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem, this, getAssetManager()->getGLSLCompiler());
 		if (!VideoDriver)
 		{
 			os::Printer::log("Could not create OpenGL driver.", ELL_ERROR);
@@ -1650,48 +1650,6 @@ bool CIrrDeviceWin32::activateJoysticks(core::vector<SJoystickInfo> & joystickIn
 	else
 		return false;
 }
-
-/*
-//! Set the current Gamma Value for the Display
-bool CIrrDeviceWin32::setGammaRamp( float red, float green, float blue, float brightness, float contrast )
-{
-	bool r;
-	uint16_t ramp[3][256];
-
-	calculateGammaRamp( ramp[0], red, brightness, contrast );
-	calculateGammaRamp( ramp[1], green, brightness, contrast );
-	calculateGammaRamp( ramp[2], blue, brightness, contrast );
-
-	HDC dc = GetDC(0);
-	r = SetDeviceGammaRamp ( dc, ramp ) == TRUE;
-	ReleaseDC(HWnd, dc);
-	return r;
-}
-
-//! Get the current Gamma Value for the Display
-bool CIrrDeviceWin32::getGammaRamp( float &red, float &green, float &blue, float &brightness, float &contrast )
-{
-	bool r;
-	uint16_t ramp[3][256];
-
-	HDC dc = GetDC(0);
-	r = GetDeviceGammaRamp ( dc, ramp ) == TRUE;
-	ReleaseDC(HWnd, dc);
-
-	if ( r )
-	{
-		calculateGammaFromRamp(red, ramp[0]);
-		calculateGammaFromRamp(green, ramp[1]);
-		calculateGammaFromRamp(blue, ramp[2]);
-	}
-
-	brightness = 0.f;
-	contrast = 0.f;
-
-	return r;
-
-}
-*/
 
 //! Process system events
 void CIrrDeviceWin32::handleSystemMessages()

@@ -118,7 +118,7 @@ namespace core
                     inline size_type    min_size() const noexcept           {return AddressAlloc::min_size();}
                     inline size_type    max_alignment() const noexcept      {return AddressAlloc::max_alignment();}
                     inline size_type    get_align_offset() const noexcept   {return AddressAlloc::get_align_offset();}
-                    inline size_type    get_combined_offset() const noexcept   {return AddressAlloc::get_combined_offset();}
+                    inline size_type    get_combined_offset() const noexcept{return AddressAlloc::get_combined_offset();}
                     inline size_type    get_free_size() const noexcept      {return AddressAlloc::get_free_size();}
                     inline size_type    get_allocated_size() const noexcept {return AddressAlloc::get_allocated_size();}
                     inline size_type    get_total_size() const noexcept     {return AddressAlloc::get_total_size();}

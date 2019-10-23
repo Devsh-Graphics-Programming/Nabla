@@ -19,7 +19,7 @@ protected:
     }
 
 public:
-    ICPUSpecializedShader(const ICPUShader* _unspecialized, const ISpecializationInfo* _spc)
+    ICPUSpecializedShader(ICPUShader* _unspecialized, const ISpecializationInfo* _spc)
         : m_unspecialized{_unspecialized}, m_specInfo{_spc}
     {
         m_unspecialized->grab();
@@ -30,11 +30,13 @@ public:
     size_t conservativeSizeEstimate() const override { return 0u; /* TODO: ???? */ }
     void convertToDummyObject() override { }
 
+    inline E_SHADER_STAGE getStage() const { return m_specInfo->shaderStage; }
     inline const ISpecializationInfo* getSpecializationInfo() const { return m_specInfo; }
     inline const ICPUShader* getUnspecialized() const { return m_unspecialized; }
+    inline ICPUShader* getUnspecialized() { return m_unspecialized; }
 
 private:
-    const ICPUShader* m_unspecialized;
+    ICPUShader* m_unspecialized;
     const ISpecializationInfo* m_specInfo;
 };
 

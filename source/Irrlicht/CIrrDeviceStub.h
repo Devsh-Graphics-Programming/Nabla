@@ -105,9 +105,6 @@ namespace irr
             //! Remove all messages pending in the system message loop
             virtual void clearSystemMessages();
 
-            asset::IIncludeHandler* getIncludeHandler() override { return IncludeHandler.get(); }
-            const asset::IIncludeHandler* getIncludeHandler() const override { return IncludeHandler.get(); }
-
         protected:
 
             void createGUIAndScene();
@@ -119,9 +116,6 @@ namespace irr
             //! \return Returns only 1,2 or 3. A 4th click will start with 1 again.
             virtual uint32_t checkSuccessiveClicks(int32_t mouseX, int32_t mouseY, EMOUSE_INPUT_EVENT inputEvent );
 
-            void calculateGammaRamp ( uint16_t *ramp, float gamma, float relativebrightness, float relativecontrast );
-            void calculateGammaFromRamp ( float &gamma, const uint16_t *ramp );
-
             video::IVideoDriver* VideoDriver;
             scene::ISceneManager* SceneManager;
             irr::ITimer* Timer;
@@ -131,7 +125,6 @@ namespace irr
             IOSOperator* Operator;
             io::IFileSystem* FileSystem;
             scene::ISceneManager* InputReceivingSceneManager;
-            core::smart_refctd_ptr<asset::IIncludeHandler> IncludeHandler;
 
             struct SMouseMultiClicks
             {

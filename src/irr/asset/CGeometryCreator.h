@@ -89,8 +89,7 @@ class CGeometryCreator : public IGeometryCreator
 		core::smart_refctd_ptr<asset::ICPUMesh> createSphereMesh(float radius, uint32_t polyCountX, uint32_t polyCountY) const override;
 
 		core::smart_refctd_ptr<asset::ICPUMesh> createCylinderMesh(float radius, float length, uint32_t tesselation,
-					const video::SColor& color=0xffffffff,
-					bool closeTop=true, float oblique=0.f) const override;
+					const video::SColor& color=0xffffffff) const override;
 
 		core::smart_refctd_ptr<asset::ICPUMesh> createConeMesh(float radius, float length, uint32_t tesselation,
 					const video::SColor& colorTop=0xffffffff,

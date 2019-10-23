@@ -9,8 +9,9 @@
 #include "dimension2d.h"
 #include "irr/asset/CImageData.h"
 #include "IFrameBuffer.h"
-#include "IVirtualTexture.h"
+#include "IRenderableVirtualTexture.h"
 #include "IDriverMemoryBacked.h"
+#include "irr/asset/IDescriptor.h"
 
 namespace irr
 {
@@ -58,7 +59,7 @@ NULL device, their textures are compatible. If you try to use a texture
 created by one device with an other device, the device will refuse to do that
 and write a warning or an error message to the output buffer.
 */
-class ITexture : public core::impl::ResolveAlignment<IDriverMemoryBacked,IRenderableVirtualTexture>
+class ITexture : public core::impl::ResolveAlignment<IDriverMemoryBacked,IRenderableVirtualTexture>, public asset::IDescriptor
 {
     public:
         enum E_TEXTURE_TYPE

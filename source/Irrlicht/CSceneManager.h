@@ -104,8 +104,8 @@ namespace scene
 		//! \return Pointer to interface to camera
 		virtual ICameraSceneNode* addCameraSceneNode(IDummyTransformationSceneNode* parent = 0,
 			const core::vector3df& position = core::vector3df(0,0,0),
-			const core::vector3df& lookat = core::vector3df(0,0,100),
-			int32_t id=-1, bool makeActive=true);
+			const core::vectorSIMDf & lookat = core::vectorSIMDf(0,0,100),
+			int32_t id=-1, bool makeActive=true) override;
 
 		//! Adds a camera scene node which is able to be controlle with the mouse similar
 		//! like in the 3D Software Maya by Alias Wavefront.
@@ -141,7 +141,7 @@ namespace scene
 
 		//! Adds a skydome scene node. A skydome is a large (half-) sphere with a
 		//! panoramic texture on it and is drawn around the camera position.
-		virtual ISceneNode* addSkyDomeSceneNode(core::smart_refctd_ptr<video::IVirtualTexture>&& texture,
+		virtual ISceneNode* addSkyDomeSceneNode(core::smart_refctd_ptr<video::IRenderableVirtualTexture>&& texture,
 												uint32_t horiRes = 16, uint32_t vertRes = 8, float texturePercentage = 0.9,
 												float spherePercentage = 2.0, float radius = 1000.f,
 												IDummyTransformationSceneNode * parent = 0, int32_t id = -1) override;
@@ -184,14 +184,14 @@ namespace scene
 		virtual ISceneNodeAnimator* createFlyCircleAnimator(
 				const core::vector3df& center=core::vector3df(0.f, 0.f, 0.f),
 				float radius=100.f, float speed=0.001f,
-				const core::vector3df& direction=core::vector3df(0.f, 1.f, 0.f),
+				const core::vectorSIMDf& direction=core::vectorSIMDf(0.f, 1.f, 0.f),
 				float startPosition = 0.f,
 				float radiusEllipsoid = 0.f) override;
 
 		//! Creates a fly straight animator, which lets the attached scene node
 		//! fly or move along a line between two points.
-		virtual ISceneNodeAnimator* createFlyStraightAnimator(const core::vector3df& startPoint,
-			const core::vector3df& endPoint, uint32_t timeForWay, bool loop=false,bool pingpong = false) override;
+		virtual ISceneNodeAnimator* createFlyStraightAnimator(const core::vectorSIMDf& startPoint,
+			const core::vectorSIMDf& endPoint, uint32_t timeForWay, bool loop=false,bool pingpong = false) override;
 
 		//! Creates a scene node animator, which deletes the scene node after
 		//! some time automaticly.
@@ -205,19 +205,7 @@ namespace scene
 
 		//! Adds a scene node to the deletion queue.
 		virtual void addToDeletionQueue(IDummyTransformationSceneNode* node);
-/*
-		//! Returns the first scene node with the specified id.
-		virtual ISceneNode* getSceneNodeFromId(int32_t id, IDummyTransformationSceneNode* start=0);
 
-		//! Returns the first scene node with the specified name.
-		virtual ISceneNode* getSceneNodeFromName(const char* name, IDummyTransformationSceneNode* start=0);
-
-		//! Returns the first scene node with the specified type.
-		virtual ISceneNode* getSceneNodeFromType(scene::ESCENE_NODE_TYPE type, IDummyTransformationSceneNode* start=0);
-
-		//! returns scene nodes by type.
-		virtual void getSceneNodesFromType(ESCENE_NODE_TYPE type, core::vector<scene::ISceneNode*>& outNodes, IDummyTransformationSceneNode* start=0);
-*/
 		//! Posts an input event to the environment. Usually you do not have to
 		//! use this method, it is used by the internal engine.
 		virtual bool receiveIfEventReceiverDidNotAbsorb(const SEvent& event);
@@ -254,6 +242,13 @@ namespace scene
 		struct DefaultNodeEntry
 		{
 				DefaultNodeEntry(ISceneNode* n) :
+<<<<<<< HEAD
+					Node(n), renderPriority(0x80000000u)//, Material(video::EMT_SOLID)
+				{
+					renderPriority = n->getRenderPriorityScore();
+					//if (n->getMaterialCount())
+					//	Material = n->getMaterial(0).MaterialType;
+=======
 					Node(n), renderPriority(0x80000000u)
 				{
 					renderPriority = n->getRenderPriorityScore();
@@ -261,23 +256,33 @@ namespace scene
 					if (n->getMaterialCount())
 						Material = n->getMaterial(0).MaterialType;
 #endif
+>>>>>>> 719de147941d958bf526dc2abc22c35a91e2cddf
 				}
 
 				bool operator < (const DefaultNodeEntry& other) const
 				{
+<<<<<<< HEAD
+                    //TODO ??
+					return (renderPriority < other.renderPriority)/*||(renderPriority==other.renderPriority && Material<other.Material)*/;
+=======
 #ifdef REIMPLEMENT_THIS
 					return (renderPriority < other.renderPriority)||(renderPriority==other.renderPriority && Material<other.Material);
 #else
 					return renderPriority < other.renderPriority;
 #endif
+>>>>>>> 719de147941d958bf526dc2abc22c35a91e2cddf
 				}
 
 				ISceneNode* Node;
 			private:
 				uint32_t renderPriority;
+<<<<<<< HEAD
+				//video::E_MATERIAL_TYPE Material;
+=======
 #ifdef REIMPLEMENT_THIS
 				video::E_MATERIAL_TYPE Material;
 #endif
+>>>>>>> 719de147941d958bf526dc2abc22c35a91e2cddf
 		};
 
 		//! sort on distance (center) to camera

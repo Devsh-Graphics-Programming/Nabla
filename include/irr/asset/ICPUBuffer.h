@@ -8,17 +8,25 @@
 
 #include <type_traits>
 
-#include "irr/core/IBuffer.h"
+#include "irr/asset/IBuffer.h"
 #include "irr/core/alloc/null_allocator.h"
 #include "irr/asset/IAsset.h"
 #include "irr/asset/bawformat/blobs/RawBufferBlob.h"
+#include "irr/asset/IDescriptor.h"
 
 namespace irr
 {
 namespace asset
 {
 
-class ICPUBuffer : public core::IBuffer, public asset::IAsset
+//! One of CPU class-object representing an Asset
+/**
+	One of Assets used for storage of large arrays, so that storage can be decoupled
+	from other objects such as meshbuffers, images, animations and shader source/bytecode.
+
+	@see IAsset
+*/
+class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 {
     protected:
         virtual ~ICPUBuffer()
@@ -33,7 +41,6 @@ class ICPUBuffer : public core::IBuffer, public asset::IAsset
     public:
 		//! Constructor.
 		/** @param sizeInBytes Size in bytes. If `dat` argument is present, it denotes size of data pointed by `dat`, otherwise - size of data to be allocated.
-		@param dat Optional parameter. Pointer to data, must be allocated with `_IRR_ALIGNED_MALLOC`. Note that pointed data will not be copied to some internal buffer storage, but buffer will operate on original data pointed by `dat`.
 		*/
         ICPUBuffer(size_t sizeInBytes) : size(0)
         {

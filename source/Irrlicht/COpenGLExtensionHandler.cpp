@@ -2,13 +2,9 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
-
 #include "COpenGLExtensionHandler.h"
 
-
-#include "SMaterial.h" // for MATERIAL_MAX_TEXTURES
-
+#ifdef _IRR_COMPILE_WITH_OPENGL_
 namespace irr
 {
 namespace video
@@ -72,71 +68,6 @@ namespace video
 #include "COpenGLStateManagerImpl.h"
 
 
-
-
-E_SHADER_CONSTANT_TYPE getIrrUniformType(GLenum oglType)
-{
-    switch (oglType)
-    {
-    case GL_FLOAT:
-        return ESCT_FLOAT;
-    case GL_FLOAT_VEC2:
-        return ESCT_FLOAT_VEC2;
-    case GL_FLOAT_VEC3:
-        return ESCT_FLOAT_VEC3;
-    case GL_FLOAT_VEC4:
-        return ESCT_FLOAT_VEC4;
-    case GL_INT:
-        return ESCT_INT;
-    case GL_INT_VEC2:
-        return ESCT_INT_VEC2;
-    case GL_INT_VEC3:
-        return ESCT_INT_VEC3;
-    case GL_INT_VEC4:
-        return ESCT_INT_VEC4;
-    case GL_UNSIGNED_INT:
-        return ESCT_UINT;
-    case GL_UNSIGNED_INT_VEC2:
-        return ESCT_UINT_VEC2;
-    case GL_UNSIGNED_INT_VEC3:
-        return ESCT_UINT_VEC3;
-    case GL_UNSIGNED_INT_VEC4:
-        return ESCT_UINT_VEC4;
-    case GL_BOOL:
-        return ESCT_BOOL;
-    case GL_BOOL_VEC2:
-        return ESCT_BOOL_VEC2;
-    case GL_BOOL_VEC3:
-        return ESCT_BOOL_VEC3;
-    case GL_BOOL_VEC4:
-        return ESCT_BOOL_VEC4;
-    case GL_FLOAT_MAT2:
-        return ESCT_FLOAT_MAT2;
-    case GL_FLOAT_MAT3:
-        return ESCT_FLOAT_MAT3;
-    case GL_FLOAT_MAT4:
-        return ESCT_FLOAT_MAT4;
-    case GL_FLOAT_MAT2x3:
-        return ESCT_FLOAT_MAT2x3;
-    case GL_FLOAT_MAT2x4:
-        return ESCT_FLOAT_MAT2x4;
-    case GL_FLOAT_MAT3x2:
-        return ESCT_FLOAT_MAT3x2;
-    case GL_FLOAT_MAT3x4:
-        return ESCT_FLOAT_MAT3x4;
-    case GL_FLOAT_MAT4x2:
-        return ESCT_FLOAT_MAT4x2;
-    case GL_FLOAT_MAT4x3:
-        return ESCT_FLOAT_MAT4x3;
-    case GL_SAMPLER_1D:
-    default:
-        return ESCT_INVALID_COUNT;
-    }
-
-    return ESCT_INVALID_COUNT;
-}
-
-
 uint16_t COpenGLExtensionHandler::Version = 0;
 uint16_t COpenGLExtensionHandler::ShaderLanguageVersion = 0;
 bool COpenGLExtensionHandler::functionsAlreadyLoaded = false;
@@ -149,7 +80,7 @@ int32_t COpenGLExtensionHandler::reqTBOAlignment = 0;
 
 uint64_t COpenGLExtensionHandler::maxUBOSize = 0;
 uint64_t COpenGLExtensionHandler::maxSSBOSize = 0;
-uint64_t COpenGLExtensionHandler::maxTBOSize = 0;
+uint64_t COpenGLExtensionHandler::maxTBOSizeInTexels = 0;
 uint64_t COpenGLExtensionHandler::maxBufferSize = 0;
 
 int32_t COpenGLExtensionHandler::minMemoryMapAlignment = 0;
@@ -167,6 +98,8 @@ uint32_t COpenGLExtensionHandler::MaxVertexStreams = 1;
 uint32_t COpenGLExtensionHandler::MaxXFormFeedbackComponents = 64;
 uint32_t COpenGLExtensionHandler::MaxGPUWaitTimeout = 0;
 uint32_t COpenGLExtensionHandler::InvocationSubGroupSize[2] = {32,64};
+GLuint COpenGLExtensionHandler::SPIR_VextensionsCount = 0u;
+core::smart_refctd_dynamic_array<const GLubyte*> COpenGLExtensionHandler::SPIR_Vextensions;
 uint32_t COpenGLExtensionHandler::MaxGeometryVerticesOut = 65535;
 float COpenGLExtensionHandler::MaxTextureLODBias = 0.f;
 
@@ -265,9 +198,11 @@ PFNGLBINDSAMPLERPROC COpenGLExtensionHandler::pGlBindSampler = nullptr;
 PFNGLBINDSAMPLERSPROC COpenGLExtensionHandler::pGlBindSamplers = nullptr;
 PFNGLSAMPLERPARAMETERIPROC COpenGLExtensionHandler::pGlSamplerParameteri = nullptr;
 PFNGLSAMPLERPARAMETERFPROC COpenGLExtensionHandler::pGlSamplerParameterf = nullptr;
+PFNGLSAMPLERPARAMETERFVPROC COpenGLExtensionHandler::pGlSamplerParameterfv = nullptr;
 
 //
 PFNGLBINDIMAGETEXTUREPROC COpenGLExtensionHandler::pGlBindImageTexture = nullptr;
+PFNGLBINDIMAGETEXTURESPROC COpenGLExtensionHandler::pGlBindImageTextures = nullptr;
 
         //stuff
 PFNGLBINDBUFFERBASEPROC COpenGLExtensionHandler::pGlBindBufferBase = nullptr;
@@ -284,6 +219,10 @@ PFNGLDELETEPROGRAMPROC COpenGLExtensionHandler::pGlDeleteProgram = nullptr;
 PFNGLDELETESHADERPROC COpenGLExtensionHandler::pGlDeleteShader = nullptr;
 PFNGLGETATTACHEDSHADERSPROC COpenGLExtensionHandler::pGlGetAttachedShaders = nullptr;
 PFNGLCREATESHADERPROC COpenGLExtensionHandler::pGlCreateShader = nullptr;
+PFNGLCREATESHADERPROGRAMVPROC COpenGLExtensionHandler::pGlCreateShaderProgramv = nullptr;
+PFNGLCREATEPROGRAMPIPELINESPROC COpenGLExtensionHandler::pGlCreateProgramPipelines = nullptr;
+PFNGLDELETEPROGRAMPIPELINESPROC COpenGLExtensionHandler::pGlDeleteProgramPipelines = nullptr;
+PFNGLUSEPROGRAMSTAGESPROC COpenGLExtensionHandler::pGlUseProgramStages = nullptr;
 PFNGLSHADERSOURCEPROC COpenGLExtensionHandler::pGlShaderSource = nullptr;
 PFNGLCOMPILESHADERPROC COpenGLExtensionHandler::pGlCompileShader = nullptr;
 PFNGLATTACHSHADERPROC COpenGLExtensionHandler::pGlAttachShader = nullptr;
@@ -319,6 +258,8 @@ PFNGLPROGRAMUNIFORMMATRIX4X3FVPROC COpenGLExtensionHandler::pGlProgramUniformMat
 //
 PFNGLGETACTIVEUNIFORMPROC COpenGLExtensionHandler::pGlGetActiveUniform = nullptr;
 PFNGLBINDPROGRAMPIPELINEPROC COpenGLExtensionHandler::pGlBindProgramPipeline = nullptr;
+PFNGLGETPROGRAMBINARYPROC COpenGLExtensionHandler::pGlGetProgramBinary = nullptr;
+PFNGLPROGRAMBINARYPROC COpenGLExtensionHandler::pGlProgramBinary = nullptr;
 
 // Criss
 PFNGLMEMORYBARRIERPROC COpenGLExtensionHandler::pGlMemoryBarrier = nullptr;
@@ -816,13 +757,22 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	GLint num = 0;
 
 	glGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &reqUBOAlignment);
+    assert(core::is_alignment(reqUBOAlignment));
 	glGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &reqSSBOAlignment);
+    assert(core::is_alignment(reqSSBOAlignment));
 	glGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &reqTBOAlignment);
+    assert(core::is_alignment(reqTBOAlignment));
 
     extGlGetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, reinterpret_cast<GLint64*>(&maxUBOSize));
     extGlGetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, reinterpret_cast<GLint64*>(&maxSSBOSize));
-    extGlGetInteger64v(GL_MAX_TEXTURE_BUFFER_SIZE, reinterpret_cast<GLint64*>(&maxTBOSize));
-    maxBufferSize = std::max(maxUBOSize, std::max(maxSSBOSize, maxTBOSize));
+    extGlGetInteger64v(GL_MAX_TEXTURE_BUFFER_SIZE, reinterpret_cast<GLint64*>(&maxTBOSizeInTexels));
+    maxBufferSize = std::max(maxUBOSize, maxSSBOSize);
+
+    glGetIntegerv(GL_MAX_COMBINED_UNIFORM_BLOCKS, reinterpret_cast<GLint*>(&maxUBOBindings));
+    glGetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS, reinterpret_cast<GLint*>(&maxSSBOBindings));
+    glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&maxTextureBindings));
+    glGetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&maxTextureBindingsCompute));
+    glGetIntegerv(GL_MAX_COMBINED_IMAGE_UNIFORMS, reinterpret_cast<GLint*>(&maxImageBindings));
 
 	glGetIntegerv(GL_MIN_MAP_BUFFER_ALIGNMENT, &minMemoryMapAlignment);
 
@@ -864,7 +814,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     const GLubyte* shaderVersion = glGetString(GL_SHADING_LANGUAGE_VERSION);
     float sl_ver;
     sscanf(reinterpret_cast<const char*>(shaderVersion),"%f",&sl_ver);
-    ShaderLanguageVersion = static_cast<uint16_t>(core::round32(sl_ver*100.0f));
+    ShaderLanguageVersion = static_cast<uint16_t>(core::round(sl_ver*100.0f));
 
 
 	//! For EXT-DSA testing
@@ -976,8 +926,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 
     num=0;
     glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &num);
-    //can we get rid of that? I don't really see reason for this clamp at this level of abstraction
-	MaxTextureUnits = core::min_(static_cast<uint8_t>(num), static_cast<uint8_t>(MATERIAL_MAX_TEXTURES));
+	MaxTextureUnits = num;
 
     //num=100000000u;
 	//glGetIntegerv(GL_MAX_ELEMENTS_INDICES,&num);
@@ -1054,7 +1003,7 @@ void COpenGLExtensionHandler::loadFunctions()
 
 	float ogl_ver;
 	sscanf(reinterpret_cast<const char*>(glGetString(GL_VERSION)),"%f",&ogl_ver);
-	Version = static_cast<uint16_t>(core::round32(ogl_ver*100.0f));
+	Version = static_cast<uint16_t>(core::round(ogl_ver*100.0f));
 
 	GLint num=0;
 	glGetIntegerv(GL_MAX_ELEMENTS_INDICES, &num);
@@ -1077,6 +1026,19 @@ void COpenGLExtensionHandler::loadFunctions()
     {
         InvocationSubGroupSize[0] = 4;
         InvocationSubGroupSize[1] = 32;
+    }
+
+    if (FeatureAvailable[IRR_ARB_spirv_extensions])
+    {
+        glGetIntegerv(GL_NUM_SPIR_V_EXTENSIONS, reinterpret_cast<GLint*>(&SPIR_VextensionsCount));
+        if (SPIR_VextensionsCount)
+            SPIR_Vextensions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<const GLubyte*>>(SPIR_VextensionsCount, nullptr);
+        for (GLuint i = 0u; i < SPIR_VextensionsCount; ++i)
+            (*SPIR_Vextensions)[i] = pGlGetStringi(GL_SPIR_V_EXTENSIONS, i);
+    }
+    else
+    {
+        SPIR_VextensionsCount = 0u;
     }
 
     /**
@@ -1155,16 +1117,18 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlClampColor = (PFNGLCLAMPCOLORPROC) IRR_OGL_LOAD_EXTENSION( "glClampColor");
 
     //samplers
+    pGlCreateSamplers = (PFNGLCREATESAMPLERSPROC)IRR_OGL_LOAD_EXTENSION("glCreateSamplers");
     pGlGenSamplers = (PFNGLGENSAMPLERSPROC) IRR_OGL_LOAD_EXTENSION( "glGenSamplers");
     pGlDeleteSamplers = (PFNGLDELETESAMPLERSPROC) IRR_OGL_LOAD_EXTENSION( "glDeleteSamplers");
     pGlBindSampler = (PFNGLBINDSAMPLERPROC) IRR_OGL_LOAD_EXTENSION( "glBindSampler");
     pGlBindSamplers = (PFNGLBINDSAMPLERSPROC) IRR_OGL_LOAD_EXTENSION( "glBindSamplers");
     pGlSamplerParameteri = (PFNGLSAMPLERPARAMETERIPROC) IRR_OGL_LOAD_EXTENSION( "glSamplerParameteri");
     pGlSamplerParameterf = (PFNGLSAMPLERPARAMETERFPROC) IRR_OGL_LOAD_EXTENSION( "glSamplerParameterf");
+    pGlSamplerParameterfv = (PFNGLSAMPLERPARAMETERFVPROC)IRR_OGL_LOAD_EXTENSION("glSamplerParameterfv");
 
     //
     pGlBindImageTexture = (PFNGLBINDIMAGETEXTUREPROC) IRR_OGL_LOAD_EXTENSION( "glBindImageTexture");
-
+    pGlBindImageTextures = (PFNGLBINDIMAGETEXTURESPROC) IRR_OGL_LOAD_EXTENSION( "glBindImageTextures" );
 
     //
     pGlBindBufferBase = (PFNGLBINDBUFFERBASEPROC) IRR_OGL_LOAD_EXTENSION("glBindBufferBase");
@@ -1174,6 +1138,10 @@ void COpenGLExtensionHandler::loadFunctions()
 
 	// get fragment and vertex program function pointers
 	pGlCreateShader = (PFNGLCREATESHADERPROC) IRR_OGL_LOAD_EXTENSION("glCreateShader");
+    pGlCreateShaderProgramv = (PFNGLCREATESHADERPROGRAMVPROC) IRR_OGL_LOAD_EXTENSION("glCreateShaderProgramv");
+    pGlCreateProgramPipelines = (PFNGLCREATEPROGRAMPIPELINESPROC) IRR_OGL_LOAD_EXTENSION("glCreateProgramPipelines");
+    pGlDeleteProgramPipelines = (PFNGLDELETEPROGRAMPIPELINESPROC) IRR_OGL_LOAD_EXTENSION("glDeleteProgramPipelines");
+    pGlUseProgramStages = (PFNGLUSEPROGRAMSTAGESPROC)IRR_OGL_LOAD_EXTENSION("glUseProgramStages");
 	pGlShaderSource = (PFNGLSHADERSOURCEPROC) IRR_OGL_LOAD_EXTENSION("glShaderSource");
 	pGlCompileShader = (PFNGLCOMPILESHADERPROC) IRR_OGL_LOAD_EXTENSION("glCompileShader");
 	pGlCreateProgram = (PFNGLCREATEPROGRAMPROC) IRR_OGL_LOAD_EXTENSION("glCreateProgram");
@@ -1212,6 +1180,8 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlProgramUniformMatrix4x3fv = (PFNGLPROGRAMUNIFORMMATRIX4X3FVPROC) IRR_OGL_LOAD_EXTENSION("glProgramUniformMatrix4x3fv");
 	pGlGetActiveUniform = (PFNGLGETACTIVEUNIFORMPROC) IRR_OGL_LOAD_EXTENSION("glGetActiveUniform");
     pGlBindProgramPipeline = (PFNGLBINDPROGRAMPIPELINEPROC) IRR_OGL_LOAD_EXTENSION("glBindProgramPipeline");
+    pGlGetProgramBinary = (PFNGLGETPROGRAMBINARYPROC) IRR_OGL_LOAD_EXTENSION("glGetProgramBinary");
+    pGlProgramBinary = (PFNGLPROGRAMBINARYPROC) IRR_OGL_LOAD_EXTENSION("glProgramBinary");
 
 	//Criss
 	pGlMemoryBarrier = (PFNGLMEMORYBARRIERPROC) IRR_OGL_LOAD_EXTENSION("glMemoryBarrier");

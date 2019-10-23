@@ -93,7 +93,11 @@ void CSkinnedMeshSceneNode::OnRegisterSceneNode()
                 continue;
 
             video::IMaterialRenderer* rnd =
+<<<<<<< HEAD
+                driver->getMaterialRenderer(0);
+=======
                 driver->getMaterialRenderer(mb->getMaterial().MaterialType);
+>>>>>>> 719de147941d958bf526dc2abc22c35a91e2cddf
 
             if (rnd && rnd->isTransparent())
                 ++transparentCount;
@@ -181,7 +185,7 @@ void CSkinnedMeshSceneNode::render()
             {
                 const video::SGPUMaterial& material = mb->getMaterial();
 
-                video::IMaterialRenderer* rnd = driver->getMaterialRenderer(material.MaterialType);
+                video::IMaterialRenderer* rnd = driver->getMaterialRenderer(0);
                 bool transparent = (rnd && rnd->isTransparent());
 
                 // only render transparent buffer if this is the transparent render pass
@@ -238,13 +242,13 @@ bool CSkinnedMeshSceneNode::setFrameLoop(const float& begin, const float& end)
 	const float maxFrameCount = mesh->getLastFrame();
 	if (end < begin)
 	{
-		StartFrame = core::s32_clamp(end, mesh->getFirstFrame(), maxFrameCount);
-		EndFrame = core::s32_clamp(begin, StartFrame, maxFrameCount);
+		StartFrame = core::clamp(end, mesh->getFirstFrame(), maxFrameCount);
+		EndFrame = core::clamp(begin, StartFrame, maxFrameCount);
 	}
 	else
 	{
-		StartFrame = core::s32_clamp(begin, mesh->getFirstFrame(), maxFrameCount);
-		EndFrame = core::s32_clamp(end, StartFrame, maxFrameCount);
+		StartFrame = core::clamp(begin, mesh->getFirstFrame(), maxFrameCount);
+		EndFrame = core::clamp(end, StartFrame, maxFrameCount);
 	}
 	if (FramesPerSecond < 0)
 		setCurrentFrame((float)EndFrame);

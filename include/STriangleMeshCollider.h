@@ -137,7 +137,7 @@ class STriangleMeshCollider : public IReferenceCounted
 
         inline bool CollideWithRay(float& collisionDistance, const vectorSIMDf& origin, const vectorSIMDf& direction, const float& dirMaxMultiplier) const
         {
-            return CollideWithRay(collisionDistance,origin,direction,dirMaxMultiplier,reciprocal(direction));
+            return CollideWithRay(collisionDistance,origin,direction,dirMaxMultiplier,reciprocal_approxim(direction));
         }
 
         inline bool CollideWithRay(float& collisionDistance, const vectorSIMDf& origin, const vectorSIMDf& direction, const float& dirMaxMultiplier, const vectorSIMDf& direction_reciprocal) const

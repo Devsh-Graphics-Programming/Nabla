@@ -29,7 +29,7 @@ namespace scene
 	to use a value slightly bigger than 1 to avoid a gap between some ground place and the sky. This
 	parameters stretches the image to fit the chosen "sphere-size". */
 
-CSkyDomeSceneNode::CSkyDomeSceneNode(core::smart_refctd_ptr<video::IVirtualTexture>&& texture, uint32_t horiRes, uint32_t vertRes,
+CSkyDomeSceneNode::CSkyDomeSceneNode(core::smart_refctd_ptr<video::IRenderableVirtualTexture>&& texture, uint32_t horiRes, uint32_t vertRes,
 		float texturePercentage, float spherePercentage, float radius,
 		IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id)
 	: ISceneNode(parent, mgr, id), Buffer(nullptr),
@@ -86,12 +86,12 @@ void CSkyDomeSceneNode::generateMesh()
 	uint32_t k;
 
 
-	const float azimuth_step = (core::PI * 2.f) / HorizontalResolution;
+	const float azimuth_step = (core::PI<float>() * 2.f) / float(HorizontalResolution);
 	if (SpherePercentage < 0.f)
 		SpherePercentage = -SpherePercentage;
 	if (SpherePercentage > 2.f)
 		SpherePercentage = 2.f;
-	const float elevation_step = SpherePercentage * core::HALF_PI / (float)VerticalResolution;
+	const float elevation_step = SpherePercentage * core::HALF_PI<float>() / float(VerticalResolution);
 
 
     size_t numOfIndices = 3 * (2*VerticalResolution - 1) * HorizontalResolution;
@@ -105,7 +105,7 @@ void CSkyDomeSceneNode::generateMesh()
 	size_t vxIx = 0;
 	for (k = 0, azimuth = 0; k <= HorizontalResolution; ++k)
 	{
-		float elevation = core::HALF_PI;
+		float elevation = core::HALF_PI<float>();
 		const float tcU = (float)k / (float)HorizontalResolution;
 		const float sinA = sinf(azimuth);
 		const float cosA = cosf(azimuth);

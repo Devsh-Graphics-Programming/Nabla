@@ -73,6 +73,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
             _params,
             _file
         },
+		_hierarchyLevel,
         _override
     );
 
@@ -377,8 +378,11 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
             }
             alctr.deallocate(newNormals,ctx.Materials[m]->Vertices.size());
         }
-        if (ctx.Materials[m]->Material.MaterialType == -1)
-            os::Printer::log("Loading OBJ Models with normal maps and tangents not supported!\n",ELL_ERROR);/*
+        //if (ctx.Materials[m]->Material.MaterialType == -1)
+            //os::Printer::log("Loading OBJ Models with normal maps and tangents not supported!\n",ELL_ERROR);
+        //TODO ^^^^
+
+            /*
         {
             SMesh tmp;
             tmp.addMeshBuffer(ctx.Materials[m]->Meshbuffer);
@@ -575,13 +579,13 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
 	{
         if (FileSystem->existFile(texname))
 		{
-            auto bundle = interm_getAssetInHierarchy(AssetManager, texname.c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride).getContents();
+            auto bundle = interm_getAssetInHierarchy(AssetManager, texname.c_str(), _ctx.inner.params, _ctx.topHierarchyLevel+ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride).getContents();
             if (bundle.first!=bundle.second) texture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*bundle.first);
 		}
 		else
 		{
 			// try to read in the relative path, the .obj is loaded from
-            auto bundle = interm_getAssetInHierarchy(AssetManager, (relPath + texname).c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride).getContents();
+            auto bundle = interm_getAssetInHierarchy(AssetManager, (relPath + texname).c_str(), _ctx.inner.params, _ctx.topHierarchyLevel+ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride).getContents();
 			if (bundle.first != bundle.second) texture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*bundle.first);
 		}
 	}
@@ -597,16 +601,18 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
             os::Printer::log("Loading OBJ Models with normal maps not supported!\n",ELL_ERROR);
 #endif // _IRR_DEBUG
 			currMaterial->Material.setTexture(1, std::move(texture));
-			currMaterial->Material.MaterialType=(video::E_MATERIAL_TYPE)-1;
+            //TODO
+			//currMaterial->Material.MaterialType=(video::E_MATERIAL_TYPE)-1;
 			currMaterial->Material.MaterialTypeParam=0.035f;
 		}
 		else if (type==ETT_OPACITY_MAP)
 		{
 			currMaterial->Material.setTexture(3, std::move(texture));
-			currMaterial->Material.MaterialType=video::EMT_TRANSPARENT_ALPHA_CHANNEL;
+			//currMaterial->Material.MaterialType=video::EMT_TRANSPARENT_ADD_COLOR;
 		}
 		else if (type==ETT_REFLECTION_MAP)
 		{
+            //TODO
 //						currMaterial->Material.Textures[1] = texture;
 //						currMaterial->Material.MaterialType=video::EMT_REFLECTION_2_LAYER;
 		}
@@ -754,8 +760,9 @@ void COBJMeshFileLoader::readMTL(SContext& _ctx, const char* fileName, const io:
 				sscanf(dStr,"%f",&dValue);
 
 				currMaterial->Material.DiffuseColor.setAlpha( (int32_t)(dValue * 255) );
-				if (dValue<1.0f)
-					currMaterial->Material.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
+                //TODO
+				//if (dValue<1.0f)
+				//	currMaterial->Material.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
 			}
 			break;
 			case 'T':
@@ -780,8 +787,9 @@ void COBJMeshFileLoader::readMTL(SContext& _ctx, const char* fileName, const io:
 					float transparency = ( red+green+blue ) / 3;
 
 					currMaterial->Material.DiffuseColor.setAlpha( (int32_t)(transparency * 255) );
-					if (transparency < 1.0f)
-						currMaterial->Material.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
+                    //TODO
+					//if (transparency < 1.0f)
+					//	currMaterial->Material.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
 				}
 			}
 			break;
@@ -961,7 +969,7 @@ uint32_t COBJMeshFileLoader::copyWord(char* outBuf, const char* const inBuf, uin
 		++i;
 	}
 
-	uint32_t length = core::min_(i, outBufLength-1);
+	uint32_t length = core::min(i, outBufLength-1);
 	for (uint32_t j=0; j<length; ++j)
 		outBuf[j] = inBuf[j];
 

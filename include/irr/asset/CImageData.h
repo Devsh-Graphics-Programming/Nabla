@@ -9,6 +9,7 @@
 
 #include "irr/core/IReferenceCounted.h"
 #include "irr/asset/IAsset.h"
+#include "irr/asset/format/EFormat.h"
 
 namespace irr
 {

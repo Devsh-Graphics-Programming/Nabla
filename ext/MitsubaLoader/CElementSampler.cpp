@@ -1,132 +1,130 @@
-#include "../../ext/MitsubaLoader/CElementSampler.h"
 #include "../../ext/MitsubaLoader/ParserUtil.h"
-#include "../../ext/MitsubaLoader/PropertyElement.h"
+#include "../../ext/MitsubaLoader/CElementFactory.h"
 
-namespace irr { namespace ext { namespace MitsubaLoader {
-
-bool CElementSampler::processAttributes(const char** _atts)
+namespace irr
 {
-	static const core::unordered_map<std::string, ESamplerType> acceptableTypes = {
-		std::make_pair("independent", ESamplerType::INDEPENDENT),
-		std::make_pair("stratified", ESamplerType::STRATIFIED),
-		std::make_pair("ldsampler", ESamplerType::LDSAMPLER),
-		std::make_pair("halton", ESamplerType::HALTON),
-		std::make_pair("hammersley", ESamplerType::HAMMERSLEY),
-		std::make_pair("sobol", ESamplerType::SOBOL)
+namespace ext
+{
+namespace MitsubaLoader
+{
+
+
+template<>
+CElementFactory::return_type CElementFactory::createElement<CElementSampler>(const char** _atts, ParserManager* _util)
+{
+	const char* type;
+	const char* id;
+	std::string name;
+	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
+		return CElementFactory::return_type(nullptr, "");
+
+	static const core::unordered_map<std::string, CElementSampler::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
+	{
+		std::make_pair("independent", CElementSampler::Type::INDEPENDENT),
+		std::make_pair("stratified", CElementSampler::Type::STRATIFIED),
+		std::make_pair("ldsampler", CElementSampler::Type::LDSAMPLER),
+		std::make_pair("halton", CElementSampler::Type::HALTON),
+		std::make_pair("hammersley", CElementSampler::Type::HAMMERSLEY),
+		std::make_pair("sobol", CElementSampler::Type::SOBOL)
 	};
 
-	//only type is an acceptable argument
-	for (int i = 0; _atts[i]; i += 2)
+	auto found = StringToType.find(type);
+	if (found==StringToType.end())
 	{
-		if (std::strcmp(_atts[i], "type"))
+		ParserLog::invalidXMLFileStructure("unknown type");
+		_IRR_DEBUG_BREAK_IF(false);
+		return CElementFactory::return_type(nullptr, "");
+	}
+
+	CElementSampler* obj = _util->objects.construct<CElementSampler>(id);
+	if (!obj)
+		return CElementFactory::return_type(nullptr, "");
+
+	obj->type = found->second;
+	obj->sampleCount = 4;
+	//validation
+	switch (obj->type)
+	{
+		case CElementSampler::Type::STRATIFIED:
+			_IRR_FALLTHROUGH;
+		case CElementSampler::Type::LDSAMPLER:
+			obj->dimension = 4;
+			break;
+		case CElementSampler::Type::HALTON:
+			_IRR_FALLTHROUGH;
+		case CElementSampler::Type::HAMMERSLEY:
+			obj->scramble = -1;
+			break;
+		case CElementSampler::Type::SOBOL:
+			obj->scramble = 0;
+			break;
+		default:
+			break;
+	}
+	return CElementFactory::return_type(obj, std::move(name));
+}
+
+bool CElementSampler::addProperty(SNamedPropertyElement&& _property)
+{
+	if (_property.type == SNamedPropertyElement::Type::INTEGER &&
+		_property.name == "sampleCount")
+	{
+		sampleCount = _property.ivalue;
+		switch (type)
 		{
-			ParserLog::invalidXMLFileStructure(std::string(_atts[i]) + " is not attribute of shape element.");
+			case Type::STRATIFIED:
+				sampleCount = ceilf(sqrtf(sampleCount));
+				break;
+			case Type::LDSAMPLER:
+				//sampleCount = core::roundUpToPoT<int32_t>(sampleCount);
+				break;
+			default:
+				break;
+		}
+	}
+	else
+	if (_property.type == SNamedPropertyElement::Type::INTEGER &&
+		_property.name == "dimension")
+	{
+		dimension = _property.ivalue;
+		if (type == Type::INDEPENDENT || type == Type::HALTON || type == Type::HAMMERSLEY)
+		{
+			ParserLog::invalidXMLFileStructure("this sampler type does not take these parameters");
+			_IRR_DEBUG_BREAK_IF(true);
 			return false;
 		}
-		else
+	}
+	else
+	if (_property.type == SNamedPropertyElement::Type::INTEGER &&
+		_property.name == "scramble")
+	{
+		scramble = _property.ivalue;
+		if (type==Type::INDEPENDENT || type==Type::STRATIFIED || type == Type::LDSAMPLER)
 		{
-			auto samplerType = acceptableTypes.find(_atts[i + 1]);
-			if (samplerType == acceptableTypes.end())
-			{
-				ParserLog::invalidXMLFileStructure("unknown type");
-				_IRR_DEBUG_BREAK_IF(false);
-				return false;
-			}
-
-			data.type = samplerType->second;
+			ParserLog::invalidXMLFileStructure("this sampler type does not take these parameters");
+			_IRR_DEBUG_BREAK_IF(true);
+			return false;
 		}
+	}
+	else
+	{
+		_IRR_DEBUG_BREAK_IF(true);
+		return false;
 	}
 
 	return true;
 }
 
-bool CElementSampler::onEndTag(asset::IAssetManager* _assetManager)
+bool CElementSampler::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata)
 {
-	bool dimensionSet = false;
-	bool scrambleSet = false;
-
-	for (const auto& property : properties)
-	{
-		if (property.type == SPropertyElementData::Type::INTEGER &&
-			property.name == "sampleCount")
-		{
-			data.sampleCount = CPropertyElementManager::retriveIntValue(property.value);
-		}
-		else
-		if (property.type == SPropertyElementData::Type::INTEGER &&
-			property.name == "dimension")
-		{
-			data.dimension = CPropertyElementManager::retriveIntValue(property.value);
-			dimensionSet = true;
-		}
-		else
-		if (property.type == SPropertyElementData::Type::INTEGER &&
-			property.name == "scramble")
-		{
-			data.scramble = CPropertyElementManager::retriveIntValue(property.value);
-			scrambleSet = true;
-		}
-		else
-		{
-			_IRR_DEBUG_BREAK_IF(true);
-			return false;
-		}
-	}
-
-	//validation
-	switch (data.type)
-	{
-	case ESamplerType::NONE:
+	if (type == Type::INVALID)
 	{
 		ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
-
 		_IRR_DEBUG_BREAK_IF(true);
-		return false;
-	}
-	case ESamplerType::INDEPENDENT:
-	{
-		if (dimensionSet || scrambleSet)
-		{
-			ParserLog::invalidXMLFileStructure("eeeeee");
-			_IRR_DEBUG_BREAK_IF(true);
-			return false;
-		}
-
-		data.dimension = 0;
-
 		return true;
 	}
-	case ESamplerType::STRATIFIED:
-	case ESamplerType::LDSAMPLER:
-	{
-		if (scrambleSet)
-		{
-			ParserLog::invalidXMLFileStructure("eeeeee");
-			_IRR_DEBUG_BREAK_IF(true);
-			return false;
-		}
 
-		return true;
-	}
-	case ESamplerType::HALTON:
-	case ESamplerType::HAMMERSLEY:
-	case ESamplerType::SOBOL:
-	{
-		if (dimensionSet)
-		{
-			ParserLog::invalidXMLFileStructure("eeeeee");
-			_IRR_DEBUG_BREAK_IF(true);
-			return false;
-		}
-
-		//default value
-		if (!scrambleSet)
-			data.scramble = (data.type == ESamplerType::SOBOL) ? 0 : -1;
-
-		return true;
-	}
-	
-	}
+	// TODO: Validation
 
 	return true;
 }

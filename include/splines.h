@@ -8,7 +8,7 @@
 
 #include "IrrCompileConfig.h"
 #include <cmath>       /* sqrt */
-#include "vectorSIMD.h"
+#include "irr/core/math/glslFunctions.tcc"
 
 #include <vector>
 
@@ -227,7 +227,7 @@ class CLinearSpline : public ISpline
             Segment(const vectorSIMDf& startPt,const vectorSIMDf& endPt)
             {
                 weights[0] = endPt-startPt;
-                length = weights[0].getLengthAsFloat();
+                length = core::length(weights[0])[0];
                 weights[0] /= length;
 
                 weights[1] = startPt;
@@ -314,14 +314,14 @@ class CQuadraticSpline : public ISpline
             else
 				startGradient = controlPoints[1]-controlPoints[0];
          
-			float currentApproxLen = (controlPoints[1]-controlPoints[0]).getLengthAsFloat();
+			float currentApproxLen = core::length(controlPoints[1]-controlPoints[0])[0];
 			segments.push_back(Segment(controlPoints[0], controlPoints[1], startGradient, currentApproxLen, tightness));
 
             for (size_t i=2; i<count; i++)
             {
                 vectorSIMDf startPt = controlPoints[i-1ull];
                 vectorSIMDf endPt = controlPoints[i];
-                currentApproxLen = (endPt-startPt).getLengthAsFloat();
+                currentApproxLen = core::length(endPt-startPt)[0];
                 segments.push_back(Segment(segments.back(),startPt,endPt,currentApproxLen, tightness));
             }
 
@@ -329,7 +329,7 @@ class CQuadraticSpline : public ISpline
 			{
 				vectorSIMDf startPt = controlPoints[count-1ull];
 				vectorSIMDf endPt = controlPoints[0];
-				currentApproxLen = (endPt-startPt).getLengthAsFloat();
+				currentApproxLen = core::length(endPt-startPt)[0];
 				segments.push_back(Segment(segments.back(),startPt,endPt,currentApproxLen, tightness));
 			}
 
@@ -565,13 +565,13 @@ class CQuadraticSpline : public ISpline
 				{
 					parameterLength = currentApproxLen;
 
-					float a = 4.f * weights[0].dotProductAsFloat(weights[0]);
-					float b = 4.f * weights[0].dotProductAsFloat(weights[1]);
-					float c = weights[1].dotProductAsFloat(weights[1]);
+					float a = 4.f*core::lengthsquared(weights[0])[0];
+					float b = 4.f*core::dot(weights[0],weights[1])[0];
+					float c = core::lengthsquared(weights[1])[0];
 
 					integrationConstants[0] = 0.25f*b/a;
 					integrationConstants[1] = sqrtf(c) * integrationConstants[0];
-					integrationConstants[2] = 2.f * sqrtf(core::max_(a*c, 0.f)) + b;
+					integrationConstants[2] = 2.f * core::sqrt(core::max(a*c, 0.f)) + b;
 					integrationConstants[3] = 2.f * a;
 					integrationConstants[4] = 2.f * sqrtf(a);
 					integrationConstants[5] = b;
@@ -603,11 +603,11 @@ class CQuadraticSpline : public ISpline
 					if (integrationConstants[0] < 10000000.f && integrationConstants[2] > 1.0e-40)
 					{
 						auto differential = directionHelper(parameter);
-						float differentialLen = differential.getLengthAsFloat();
-
-						float a = 4.f*weights[0].dotProductAsFloat(weights[0]);
-						float b = 4.f*weights[0].dotProductAsFloat(weights[1]);
-						float c = weights[1].dotProductAsFloat(weights[1]);
+						float differentialLen = core::length(differential)[0];
+						
+						float a = 4.f*core::lengthsquared(weights[0])[0];
+						float b = 4.f*core::dot(weights[0],weights[1])[0];
+						float c = core::lengthsquared(weights[1])[0];
 
 						//float x = parameter;
 
@@ -651,7 +651,7 @@ class CQuadraticSpline : public ISpline
 						float arcLenDiffAtParamGuess = arcLen-getArcLenFromParameter(parameterHint);
 						for (size_t i=0; std::abs(arcLenDiffAtParamGuess)>accuracyThresh&&i<32; i++)
 						{
-							float differentialAtGuess = directionHelper(parameterHint).getLengthAsFloat();
+							float differentialAtGuess = core::length(directionHelper(parameterHint))[0];
 							parameterHint += arcLenDiffAtParamGuess/differentialAtGuess;
 							arcLenDiffAtParamGuess = arcLen-getArcLenFromParameter(parameterHint);
 						}

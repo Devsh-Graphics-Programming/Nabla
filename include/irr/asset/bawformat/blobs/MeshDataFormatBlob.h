@@ -13,7 +13,7 @@ namespace irr
 namespace asset
 {
 
-template<typename> class IMeshDataFormatDesc; // is this the type we should be using?
+//template<typename> class IMeshDataFormatDesc; // is this the type we should be using?
 
 namespace legacyv0
 {

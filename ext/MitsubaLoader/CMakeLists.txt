@@ -2,34 +2,39 @@ include(../../cmake/common.cmake)
 
 
 set(IRR_EXT_MITSUBA_LOADER_H
+	PropertyElement.h
+	IElement.h
+	CElementIntegrator.h
+	CElementSensor.h
+	CElementFilm.h
+	CElementRFilter.h
+	CElementSampler.h
+	CElementTransform.h
+	CElementShape.h
+	CElementBSDF.h
+	CElementTexture.h
 	CElementEmitter.h
 	CElementFactory.h
-	CElementFilm.h
-	CElementSampler.h
-	CElementSensor.h
-	CElementTransform.h
-	CMitsubaLoader.h
-	CMitsubaScene.h
-	CShapeCreator.h
-	IElement.h
+	CGlobalMitsubaMetadata.h
 	ParserUtil.h
-	PropertyElement.h
-	Shape.h
+	CMitsubaLoader.h
 )
 
 set(IRR_EXT_MITSUBA_LOADER_SRC
+	PropertyElement.cpp
+	CElementIntegrator.cpp
+	CElementSensor.cpp
+	CElementFilm.cpp
+	CElementRFilter.cpp
+	CElementSampler.cpp
+	CElementTransform.cpp
+	CElementShape.cpp
+	CElementBSDF.cpp
+	CElementTexture.cpp
 	CElementEmitter.cpp
 	CElementFactory.cpp
-	CElementFilm.cpp
-	CElementSampler.cpp
-	CElementSensor.cpp
-	CElementTransform.cpp
 	CMitsubaLoader.cpp
-	CMitsubaScene.cpp
-	CShapeCreator.cpp
 	ParserUtil.cpp
-	PropertyElement.cpp
-	Shape.cpp
 )
 
 set(IRR_EXT_MITSUBA_LOADER_EXTERNAL_INCLUDE

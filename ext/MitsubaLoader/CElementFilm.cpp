@@ -1,391 +1,378 @@
-#include "../../ext/MitsubaLoader/CElementFilm.h"
 #include "../../ext/MitsubaLoader/ParserUtil.h"
-#include "../../ext/MitsubaLoader/PropertyElement.h"
+
+#include "../../ext/MitsubaLoader/CElementFactory.h"
 
 #include <functional>
 
-namespace irr { namespace ext { namespace MitsubaLoader {
-
-bool CElementFilm::processAttributes(const char** _atts)
+namespace irr
 {
-	static const core::unordered_map<std::string, EFilmType> acceptableTypes = {
-		std::make_pair("hdrfilm", EFilmType::HDR_FILM),
-		std::make_pair("tiledhdrfilm", EFilmType::TILED_HDR_FILM),
-		std::make_pair("ldrfilm", EFilmType::LDR_FILM),
-		std::make_pair("mfilm", EFilmType::M_FILM)
+namespace ext
+{
+namespace MitsubaLoader
+{
+
+
+template<>
+CElementFactory::return_type CElementFactory::createElement<CElementFilm>(const char** _atts, ParserManager* _util)
+{
+	const char* type;
+	const char* id;
+	std::string name;
+	if (!IElement::getTypeIDAndNameStrings(type, id, name, _atts))
+		return CElementFactory::return_type(nullptr, "");
+
+	static const core::unordered_map<std::string, CElementFilm::Type, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
+	{
+		{"hdrfilm",		CElementFilm::Type::HDR_FILM},
+		{"tiledhdrfilm",CElementFilm::Type::TILED_HDR},
+		{"ldrfilm",		CElementFilm::Type::LDR_FILM},
+		{"mfilm",		CElementFilm::Type::MFILM}
 	};
 
-	//only type is an acceptable argument
-	for (int i = 0; _atts[i]; i += 2)
+	auto found = StringToType.find(type);
+	if (found==StringToType.end())
 	{
-		if (std::strcmp(_atts[i], "type"))
-		{
-			ParserLog::invalidXMLFileStructure(std::string(_atts[i]) + " is not attribute of shape element.");
-			return false;
-		}
-		else
-		{
-			auto samplerType = acceptableTypes.find(_atts[i + 1]);
-			if (samplerType == acceptableTypes.end())
-			{
-				ParserLog::invalidXMLFileStructure("unknown type");
-				_IRR_DEBUG_BREAK_IF(false);
-				return false;
-			}
-
-			data.type = samplerType->second;
-
-			//set default values
-			switch (data.type)
-			{
-			case EFilmType::HDR_FILM:
-			{
-				data.hdrFilmData.fileFormat = EHDRFileFormat::OPENEXR;
-				data.hdrFilmData.componentFormat = EComponentFormat::FLOAT16;
-				data.hdrFilmData.attachLog = true;
-				data.hdrFilmData.banner = true;
-				data.hdrFilmData.highQualityEdges = false;
-			}
-			break;
-			case EFilmType::TILED_HDR_FILM:
-			{
-				data.tiledHdrFilmData.componentFormat = EComponentFormat::FLOAT16;
-			}
-			break;
-			case EFilmType::LDR_FILM:
-			{
-				data.ldrFilmData.fileFormat = ELDRFileFormat::PNG;
-				data.ldrFilmData.tonemapMethod = ETonemapMethod::GAMMA;
-				data.ldrFilmData.gamma = -1.0f;
-				data.ldrFilmData.exposure = 0;
-				data.ldrFilmData.key = 0.18f;
-				data.ldrFilmData.burn = 0.0f;
-				data.ldrFilmData.banner = true;
-				data.ldrFilmData.highQualityEdges = false;
-			}
-			break;
-			case EFilmType::M_FILM:
-			{
-				data.width = 1;
-				data.height = 1;
-				data.pixelFormat = EPixelFormat::LUMINANCE;
-
-				data.mFilmData.fileFormat = EMFileFormat::MATLAB;
-				data.mFilmData.digits = 4;
-				data.mFilmData.variable = "data";
-				data.mFilmData.highQualityEdges = true;
-			}
-			break;
-			}
-		}
+		ParserLog::invalidXMLFileStructure("unknown type");
+		_IRR_DEBUG_BREAK_IF(false);
+		return CElementFactory::return_type(nullptr, "");
 	}
 
-	return true;
+	CElementFilm* obj = _util->objects.construct<CElementFilm>(id);
+	if (!obj)
+		return CElementFactory::return_type(nullptr, "");
+
+	obj->type = found->second;
+	// defaults
+	switch (obj->type)
+	{
+		case CElementFilm::Type::LDR_FILM:
+			obj->fileFormat = CElementFilm::FileFormat::PNG;
+			//obj->componentFormat = UINT8;
+			obj->ldrfilm = CElementFilm::LDR();
+			break;
+		case CElementFilm::Type::MFILM:
+			obj->width = 1;
+			obj->height = 1;
+			obj->fileFormat = CElementFilm::FileFormat::MATLAB;
+			obj->pixelFormat = CElementFilm::PixelFormat::LUMINANCE;
+			obj->mfilm = CElementFilm::M();
+			break;
+		default:
+			break;
+	}
+	return CElementFactory::return_type(obj, std::move(name));
 }
 
-bool CElementFilm::onEndTag(asset::IAssetManager* _assetManager)
+
+bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 {
-	switch (data.type)
-	{
-	case EFilmType::HDR_FILM:
-		return processHDRFilmProperties();
-
-	case EFilmType::TILED_HDR_FILM:
-		return processTiledHDRFilmProperties();
-
-	case EFilmType::LDR_FILM:
-		return processLDRFilmProperties();
-
-	case EFilmType::M_FILM:
-		return processMFilmProperties();
-
-	default:
-		_IRR_DEBUG_BREAK_IF(true);
-		return false;
+	bool error = type==Type::INVALID;
+#define SET_PROPERTY(MEMBER,PROPERTY_TYPE)		[&]() -> void { \
+		if (_property.type!=PROPERTY_TYPE) { \
+			error = true; \
+			return; \
+		} \
+		MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
 	}
-}
-
-bool CElementFilm::processSharedDataProperty(const SPropertyElementData& _property)
-{
-	if (_property.type == SPropertyElementData::Type::INTEGER)
+	auto setWidth			= SET_PROPERTY(width,SNamedPropertyElement::Type::INTEGER);
+	auto setHeight			= SET_PROPERTY(height,SNamedPropertyElement::Type::INTEGER);
+	auto setCropOffsetX		= SET_PROPERTY(cropOffsetX,SNamedPropertyElement::Type::INTEGER);
+	auto setCropOffsetY		= SET_PROPERTY(cropOffsetY,SNamedPropertyElement::Type::INTEGER);
+	auto setCropWidth		= SET_PROPERTY(cropWidth,SNamedPropertyElement::Type::INTEGER);
+	auto setCropHeight		= SET_PROPERTY(cropHeight,SNamedPropertyElement::Type::INTEGER);
+	auto setFileFormat = [&]() -> void
 	{
-		if (_property.name == "width")
+		if (_property.type!=SNamedPropertyElement::Type::STRING)
 		{
-			data.width = CPropertyElementManager::retriveIntValue(_property.value);
+			error = true;
+			return;
 		}
-		else if (_property.name == "height")
+		static const core::unordered_map<std::string, FileFormat, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
 		{
-			data.height = CPropertyElementManager::retriveIntValue(_property.value);
-		}
-		else if (_property.name == "cropOffsetX")
+			{"openexr",		OPENEXR},
+			{"rgbe",		RGBE},
+			{"pfm",			PFM},
+			{"matlab",		MATLAB},
+			{"mathematica",	MATHEMATICA},
+			{"numpy",		NUMPY}
+		};
+		auto found = StringToType.find(_property.svalue);
+		if (found==StringToType.end())
 		{
-			data.isCropUsed = true;
-			data.height = CPropertyElementManager::retriveIntValue(_property.value);
+			error = true;
+			return;
 		}
-		else if (_property.name == "cropOffsetY")
-		{
-			data.isCropUsed = true;
-			data.height = CPropertyElementManager::retriveIntValue(_property.value);
-		}
-		else if (_property.name == "cropWidth")
-		{
-			data.isCropUsed = true;
-			data.height = CPropertyElementManager::retriveIntValue(_property.value);
-		}
-		else if (_property.name == "cropHeight")
-		{
-			data.isCropUsed = true;
-			data.height = CPropertyElementManager::retriveIntValue(_property.value);
-		}
-		else
-		{
-			ParserLog::invalidXMLFileStructure("unknown property");
-			_IRR_DEBUG_BREAK_IF(true);
-			return false;
-		}
-	}
-	else
-	if (_property.type == SPropertyElementData::Type::STRING &&
-		_property.name == "pixelFormat")
+		fileFormat = found->second;
+	};
+	auto setPixelFormat = [&]() -> void
 	{
-		if (_property.value == "luminance")      data.pixelFormat = EPixelFormat::LUMINANCE; else
-		if (_property.value == "luminanceAlpha") data.pixelFormat = EPixelFormat::LUMINANCE_ALPHA; else
-		if (_property.value == "rgb")            data.pixelFormat = EPixelFormat::RGB; else
-		if (_property.value == "rgba")           data.pixelFormat = EPixelFormat::RGBA; else
-		if (_property.value == "xyz")            data.pixelFormat = EPixelFormat::XYZ; else
-		if (_property.value == "xyza")           data.pixelFormat = EPixelFormat::XYZA; else
-		if (_property.value == "spectrum")       data.pixelFormat = EPixelFormat::SPECTRUM; else
-		if (_property.value == "spectrumAlpha")  data.pixelFormat = EPixelFormat::SPECTRUM_ALPHA; else
+		if (_property.type!=SNamedPropertyElement::Type::STRING)
 		{
-			ParserLog::invalidXMLFileStructure("unknown property");
-			_IRR_DEBUG_BREAK_IF(true);
-			return false;
+			error = true;
+			return;
 		}
-	}
-	else
+		static const core::unordered_map<std::string, PixelFormat, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
+		{
+			{"luminance",		LUMINANCE},
+			{"luminanceAlpha",	LUMINANCE_ALPHA},
+			{"rgb",				RGB},
+			{"rgba",			RGBA},
+			{"xyz",				XYZ},
+			{"xyza",			XYZA},
+			{"spectrum",		SPECTRUM},
+			{"spectrumAlpha",	SPECTRUM_ALPHA}
+		};
+		auto found = StringToType.find(_property.svalue);
+		if (found==StringToType.end())
+		{
+			error = true;
+			return;
+		}
+		pixelFormat = found->second;
+	};
+	auto setComponentFormat = [&]() -> void
 	{
-		ParserLog::invalidXMLFileStructure("unkown property");
-		_IRR_DEBUG_BREAK_IF(true);
-		return false;
-	}
+		if (_property.type!=SNamedPropertyElement::Type::STRING || type==Type::LDR_FILM || type==Type::MFILM)
+		{
+			error = true;
+			return;
+		}
+		static const core::unordered_map<std::string, ComponentFormat, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
+		{
+			{"float16",	FLOAT16},
+			{"float32",	FLOAT32},
+			{"uint32",	UINT32}
+		};
+		auto found = StringToType.find(_property.svalue);
+		if (found==StringToType.end())
+		{
+			error = true;
+			return;
+		}
+		componentFormat = found->second;
+	};
+	auto setBanner			= SET_PROPERTY(banner,SNamedPropertyElement::Type::BOOLEAN);
+	auto setHighQualityEdges= SET_PROPERTY(highQualityEdges,SNamedPropertyElement::Type::BOOLEAN);
 	
-	return true;
-}
 
-bool CElementFilm::processHDRFilmProperties()
-{
-	for (const SPropertyElementData& property : properties)
+	auto dispatch = [&](auto func) -> void
 	{
-		if (property.type == SPropertyElementData::Type::STRING &&
-			property.name == "fileFormat")
+		switch (type)
 		{
-			if (property.value == "openexr") data.hdrFilmData.fileFormat = EHDRFileFormat::OPENEXR; else
-			if (property.value == "rgbe")    data.hdrFilmData.fileFormat = EHDRFileFormat::RGBE; else
-			if (property.value == "pfm")     data.hdrFilmData.fileFormat = EHDRFileFormat::PFM; else
-			{
-				ParserLog::invalidXMLFileStructure("unknown property");
-				_IRR_DEBUG_BREAK_IF(true);
-				return false;
-			}
+			case CElementFilm::Type::HDR_FILM:
+				func(hdrfilm);
+				break;
+			case CElementFilm::Type::LDR_FILM:
+				func(ldrfilm);
+				break;
+			case CElementFilm::Type::MFILM:
+				func(mfilm);
+				break;
+			default:
+				error = true;
+				break;
 		}
-		else
-		if (property.type == SPropertyElementData::Type::STRING &&
-			property.name == "componentFormat")
-		{
-			if (property.value == "float16")	data.hdrFilmData.componentFormat = EComponentFormat::FLOAT16; else
-			if (property.value == "float32")    data.hdrFilmData.componentFormat = EComponentFormat::FLOAT32; else
-			if (property.value == "uint32")     data.hdrFilmData.componentFormat = EComponentFormat::UINT32; else
-			{
-				ParserLog::invalidXMLFileStructure("unknown property");
-				_IRR_DEBUG_BREAK_IF(true);
-				return false;
-			}
-		}
-		else
-		if (property.type == SPropertyElementData::Type::BOOLEAN)
-		{
-			if (property.name == "attachLog")
-			{
-				data.hdrFilmData.attachLog = CPropertyElementManager::retriveBooleanValue(property.value);
-			}
-			else if (property.name == "banner")
-			{
-				data.hdrFilmData.banner = CPropertyElementManager::retriveBooleanValue(property.value);
-			}
-			else if (property.name == "hightQualityEdges")
-			{
-				data.hdrFilmData.highQualityEdges = CPropertyElementManager::retriveBooleanValue(property.value);
-			}
-			else
-			{
-				ParserLog::invalidXMLFileStructure("unknown property");
-				_IRR_DEBUG_BREAK_IF(true);
-				return false;
-			}
-		}
-		else if(!processSharedDataProperty(property))
-		{
-			return false;
-		}
+	};
+#define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE, ... )		[&]() -> void { \
+		dispatch([&](auto& state) -> void { \
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+			{ \
+				if (_property.type!=PROPERTY_TYPE) { \
+					error = true; \
+					return; \
+				} \
+				state. ## MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
+			} \
+			IRR_PSEUDO_IF_CONSTEXPR_END \
+		}); \
 	}
 
-	return true;
-}
-
-bool CElementFilm::processTiledHDRFilmProperties()
-{
-	for (const SPropertyElementData& property : properties)
+	auto setAttachLog = SET_PROPERTY_TEMPLATE(attachLog, SNamedPropertyElement::Type::BOOLEAN, HDR);
+	auto setTonemapMethod = [&]() -> void
 	{
-		if (property.type == SPropertyElementData::Type::STRING &&
-			property.name == "componentFormat")
+		if (_property.type != SNamedPropertyElement::Type::STRING || type == Type::LDR_FILM)
 		{
-			if (property.value == "float16")	data.tiledHdrFilmData.componentFormat = EComponentFormat::FLOAT16; else
-			if (property.value == "float32")    data.tiledHdrFilmData.componentFormat = EComponentFormat::FLOAT32; else
-			if (property.value == "uint32")     data.tiledHdrFilmData.componentFormat = EComponentFormat::UINT32; 
-			else
-			{
-				ParserLog::invalidXMLFileStructure("unknown property");
-				_IRR_DEBUG_BREAK_IF(true);
-				return false;
-			}
+			error = true;
+			return;
 		}
-		else if (!processSharedDataProperty(property))
+		static const core::unordered_map<std::string, LDR::TonemapMethod, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
 		{
-			return false;
+			{"gamma",	LDR::GAMMA},
+			{"reinhard",LDR::REINHARD}
+		};
+		auto found = StringToType.find(_property.svalue);
+		if (found != StringToType.end())
+		{
+			error = true;
+			return;
 		}
+		ldrfilm.tonemapMethod = found->second;
+	};
+	auto setGamma = SET_PROPERTY_TEMPLATE(gamma, SNamedPropertyElement::Type::FLOAT, LDR);
+	auto setExposure = SET_PROPERTY_TEMPLATE(exposure, SNamedPropertyElement::Type::FLOAT, LDR);
+	auto setKey = SET_PROPERTY_TEMPLATE(key, SNamedPropertyElement::Type::FLOAT, LDR);
+	auto setBurn = SET_PROPERTY_TEMPLATE(burn, SNamedPropertyElement::Type::FLOAT, LDR);
+	auto setDigits = SET_PROPERTY_TEMPLATE(digits, SNamedPropertyElement::Type::INTEGER, M);
+	auto setVariable = [&]() -> void
+	{
+		if (_property.type != SNamedPropertyElement::Type::STRING || type == Type::MFILM)
+		{
+			error = true;
+			return;
+		}
+		size_t len = std::min(strlen(_property.svalue),M::MaxVarNameLen);
+		memcpy(mfilm.variable,_property.svalue,len);
+		mfilm.variable[len] = 0;
+	};
+
+
+	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
+	{
+		{"width",				setWidth},
+		{"height",				setHeight},
+		{"cropOffsetX",			setCropOffsetX},
+		{"cropOffsetY",			setCropOffsetY},
+		{"cropWidth",			setCropWidth},
+		{"cropHeight",			setCropHeight},
+		{"fileFormat",			setFileFormat},
+		{"pixelFormat",			setPixelFormat},
+		{"componentFormat",		setComponentFormat},
+		{"banner",				setBanner},
+		{"highQualityEdges",	setHighQualityEdges},
+		{"attachLog",			setAttachLog},
+		{"tonemapMethod",		setTonemapMethod},
+		{"gamma",				setGamma},
+		{"exposure",			setExposure},
+		{"key",					setKey},
+		{"burn",				setBurn},
+		{"digits",				setDigits},
+		{"variable",			setVariable}
+	};
+
+	auto found = SetPropertyMap.find(_property.name);
+	if (found == SetPropertyMap.end())
+	{
+		_IRR_DEBUG_BREAK_IF(true);
+		ParserLog::invalidXMLFileStructure("No Film can have such property set with name: " + _property.name+"\nRemember we don't support \"render-time annotations\"");
+		return false;
 	}
 
-	return true;
+	found->second();
+	return !error;
 }
 
-bool CElementFilm::processLDRFilmProperties()
+bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata)
 {
-	for (const SPropertyElementData& property : properties)
-	{
-		if (property.type == SPropertyElementData::Type::STRING &&
-			property.name == "fileFormat")
-		{
-			if (property.value == "png")  data.ldrFilmData.fileFormat = ELDRFileFormat::PNG; else
-			if (property.value == "jpeg") data.ldrFilmData.fileFormat = ELDRFileFormat::JPEG; else
-			{
-				ParserLog::invalidXMLFileStructure("unknown property");
-				_IRR_DEBUG_BREAK_IF(true);
-				return false;
-			}
-		}
-		else
-		if (property.type == SPropertyElementData::Type::STRING &&
-			property.name == "tonemapMethod")
-		{
-			if (property.value == "gamma")    data.ldrFilmData.tonemapMethod = ETonemapMethod::GAMMA; else
-			if (property.value == "reinhard") data.ldrFilmData.tonemapMethod = ETonemapMethod::REINHARD; else
-			{
-				ParserLog::invalidXMLFileStructure("unknown property");
-				_IRR_DEBUG_BREAK_IF(true);
-				return false;
-			}
-		}
-		else
-		if (property.type == SPropertyElementData::Type::BOOLEAN)
-		{
-			if (property.name == "banner")
-			{
-				data.ldrFilmData.banner = CPropertyElementManager::retriveBooleanValue(property.value);
-			}
-			else if (property.name == "hightQualityEdges")
-			{
-				data.ldrFilmData.highQualityEdges = CPropertyElementManager::retriveBooleanValue(property.value);
-			}
-			else
-			{
-				ParserLog::invalidXMLFileStructure("unknown property");
-				_IRR_DEBUG_BREAK_IF(true);
-				return false;
-			}
-		}
-		else
-		if (property.type == SPropertyElementData::Type::FLOAT)
-		{
-			if (property.name == "gamma")
-			{
-				data.ldrFilmData.gamma = CPropertyElementManager::retriveFloatValue(property.value);
-			}
-			else if (property.name == "exposure")
-			{
-				data.ldrFilmData.exposure = CPropertyElementManager::retriveFloatValue(property.value);
-			}
-			else if (property.name == "key")
-			{
-				data.ldrFilmData.key = CPropertyElementManager::retriveFloatValue(property.value);
-			}
-			else if (property.name == "burn")
-			{
-				data.ldrFilmData.burn = CPropertyElementManager::retriveFloatValue(property.value);
-			}
-			else
-			{
-				ParserLog::invalidXMLFileStructure("unknown property");
-				_IRR_DEBUG_BREAK_IF(true);
-				return false;
-			}
-		}
-		else if(!processSharedDataProperty(property))
-		{
-			return false;
-		}
-	}
+	cropOffsetX = std::max(cropOffsetX,0);
+	cropOffsetY = std::max(cropOffsetY,0);
+	cropWidth = std::min(cropWidth,width-cropOffsetX);
+	cropHeight = std::min(cropHeight,height-cropOffsetY);
 
-	return true;
-}
-
-bool CElementFilm::processMFilmProperties()
-{
-	for (const SPropertyElementData& property : properties)
+	switch (type)
 	{
-		if (property.type == SPropertyElementData::Type::STRING)
-		{
-			if (property.name == "fileFormat")
+		case Type::HDR_FILM:
+			switch (fileFormat)
 			{
-				if (property.value == "matlab")      data.mFilmData.fileFormat = EMFileFormat::MATLAB; else
-				if (property.value == "mathematica") data.mFilmData.fileFormat = EMFileFormat::MATHEMATICA; else
-				if (property.value == "numpy")       data.mFilmData.fileFormat = EMFileFormat::NUMPY; else
-				{
-					ParserLog::invalidXMLFileStructure("unknown property");
+				case OPENEXR:
+					_IRR_FALLTHROUGH;
+				case RGBE:
+					_IRR_FALLTHROUGH;
+				case PFM:
+					break;
+				default:
+					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");
 					_IRR_DEBUG_BREAK_IF(true);
 					return false;
-				}
-			}
-			else if (property.name == "variable")
+			};
+			break;
+		case Type::TILED_HDR:
+			switch (fileFormat)
 			{
-				data.mFilmData.variable = property.value;
-			}
-			else if(property.name != "pixelFormat")
+				case OPENEXR:
+					break;
+				default:
+					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");
+					_IRR_DEBUG_BREAK_IF(true);
+					return false;
+			};
+			break;
+		case Type::LDR_FILM:
+			switch (fileFormat)
 			{
-				ParserLog::invalidXMLFileStructure("unknown property");
-				_IRR_DEBUG_BREAK_IF(true);
-				return false;
-			}
-		}
-		else
-		if (property.type == SPropertyElementData::Type::INTEGER &&
-			property.name == "digits")
-		{
-			data.mFilmData.digits = CPropertyElementManager::retriveIntValue(property.value);
-		}
-		else
-		if (property.type == SPropertyElementData::Type::BOOLEAN &&
-			property.name == "highQualityEdges")
-		{
-			data.mFilmData.highQualityEdges = CPropertyElementManager::retriveBooleanValue(property.value);
-		}
-		else if(!processSharedDataProperty(property))
-		{
+				case PNG:
+					_IRR_FALLTHROUGH;
+				case JPEG:
+					_IRR_FALLTHROUGH;
+					break;
+				default:
+					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");
+					_IRR_DEBUG_BREAK_IF(true);
+					return false;
+			};
+			switch (pixelFormat)
+			{
+				case LUMINANCE_ALPHA:
+					_IRR_FALLTHROUGH;
+				case RGBA:
+					if (type==PNG)
+						break;
+					_IRR_FALLTHROUGH;
+				case XYZ:
+					_IRR_FALLTHROUGH;
+				case XYZA:
+					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this pixel format");
+					_IRR_DEBUG_BREAK_IF(true);
+					return false;
+					break;
+				default:
+					break;
+			};
+			break;
+		case Type::MFILM:
+			switch (fileFormat)
+			{
+				case MATLAB:
+					_IRR_FALLTHROUGH;
+				case MATHEMATICA:
+					_IRR_FALLTHROUGH;
+				case NUMPY:
+					break;
+				default:
+					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");
+					_IRR_DEBUG_BREAK_IF(true);
+					return false;
+			};
+			switch (pixelFormat)
+			{
+				case XYZ:
+					_IRR_FALLTHROUGH;
+				case XYZA:
+					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this pixel format");
+					_IRR_DEBUG_BREAK_IF(true);
+					return false;
+					break;
+				default:
+					break;
+			};
+			switch (componentFormat)
+			{
+				case FLOAT32:
+					break;
+				default:
+					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this component format");
+					_IRR_DEBUG_BREAK_IF(true);
+					return false;
+			};
+			break;
+		default:
+			ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
+			_IRR_DEBUG_BREAK_IF(true);
 			return false;
-		}
 	}
 
 	return true;
 }
+
 
 }
 }
