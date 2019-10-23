@@ -151,15 +151,19 @@ namespace video
         virtual void drawMeshBuffer(const video::IGPUMeshBuffer* mb);
 
 		//! Indirect Draw
-		virtual void drawArraysIndirect( const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                         const asset::E_PRIMITIVE_TYPE& mode,
-                                         const IGPUBuffer* indirectDrawBuff,
-                                         const size_t& offset, const size_t& count, const size_t& stride);
-		virtual void drawIndexedIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                         const asset::E_PRIMITIVE_TYPE& mode,
-                                         const asset::E_INDEX_TYPE& type,
-                                         const IGPUBuffer* indirectDrawBuff,
-                                         const size_t& offset, const size_t& count, const size_t& stride);
+		virtual void drawArraysIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                                        asset::E_PRIMITIVE_TOPOLOGY mode,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        size_t offset, size_t count, size_t stride) override
+        {
+        }
+		virtual void drawIndexedIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                                        asset::E_PRIMITIVE_TOPOLOGY mode,
+                                        asset::E_INDEX_TYPE indexType, const IGPUBuffer* indexBuff,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        size_t offset, size_t count, size_t stride)
+        {
+        }
 
 		//! get color format of the current color buffer
 		virtual asset::E_FORMAT getColorFormat() const;

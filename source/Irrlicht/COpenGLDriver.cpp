@@ -1626,10 +1626,10 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
 
 
 //! Indirect Draw
-void COpenGLDriver::drawArraysIndirect(  const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                         const asset::E_PRIMITIVE_TYPE& mode,
-                                         const IGPUBuffer* indirectDrawBuff,
-                                         const size_t& offset, const size_t& count, const size_t& stride)
+void COpenGLDriver::drawArraysIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                                        asset::E_PRIMITIVE_TOPOLOGY mode,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        size_t offset, size_t count, size_t stride)
 {
     if (!indirectDrawBuff)
         return;
@@ -1637,41 +1637,14 @@ void COpenGLDriver::drawArraysIndirect(  const asset::IMeshDataFormatDesc<video:
     SAuxContext* found = getThreadContext_helper(false);
     if (!found)
         return;
-
-    const COpenGLVAOSpec* meshLayoutVAO = static_cast<const COpenGLVAOSpec*>(vao);
-    if (!found->setActiveVAO(meshLayoutVAO))
+    if (!found->nextState.pipeline)
         return;
 
-    found->setActiveIndirectDrawBuffer(static_cast<const COpenGLBuffer*>(indirectDrawBuff));
+    found->updateNextState_vertexInput(_vtxBindings, found->nextState.vertexInputParams.indexBuf.get(), indirectDrawBuff, nullptr);
 
-	// draw everything
-	setRenderStates3DMode();
-
-    GLenum primType = primitiveTypeToGL(mode);
-	switch (mode)
-	{
-		case asset::EPT_POINTS:
-		{
-			// prepare size and attenuation (where supported)
-			GLfloat particleSize=Material.Thickness;
-			extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
-			glPointSize(particleSize);
-		}
-			break;
-		case asset::EPT_TRIANGLES:
-        {
-            //if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
-            {
-                COpenGLSLMaterialRenderer* shaderRenderer = static_cast<COpenGLSLMaterialRenderer*>(MaterialRenderers[0].Renderer);
-                if (shaderRenderer&&Material.Pipeline[1])
-                    primType = GL_PATCHES;
-            }
-        }
-			break;
-        default:
-			break;
-	}
-
+    GLenum primType = getGLprimitiveType(found->currentState.pipeline->getPrimitiveAssemblyParams().primitiveType);
+    if (primType == GL_POINTS)
+        extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
 
     //actual drawing
     extGlMultiDrawArraysIndirect(primType,(void*)offset,count,stride);
@@ -1721,10 +1694,11 @@ bool COpenGLDriver::queryFeature(const E_DRIVER_FEATURE &feature) const
 	return false;
 }
 
-void COpenGLDriver::drawIndexedIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                        const asset::E_PRIMITIVE_TYPE& mode,
-                                        const asset::E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
-                                        const size_t& offset, const size_t& count, const size_t& stride)
+void COpenGLDriver::drawIndexedIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                                        asset::E_PRIMITIVE_TOPOLOGY mode,
+                                        asset::E_INDEX_TYPE indexType, const IGPUBuffer* indexBuff,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        size_t offset, size_t count, size_t stride)
 {
     if (!indirectDrawBuff)
         return;
@@ -1732,42 +1706,13 @@ void COpenGLDriver::drawIndexedIndirect(const asset::IMeshDataFormatDesc<video::
     SAuxContext* found = getThreadContext_helper(false);
     if (!found)
         return;
-
-    const COpenGLVAOSpec* meshLayoutVAO = static_cast<const COpenGLVAOSpec*>(vao);
-    if (!found->setActiveVAO(meshLayoutVAO))
+    if (!found->nextState.pipeline)
         return;
 
-    found->setActiveIndirectDrawBuffer(static_cast<const COpenGLBuffer*>(indirectDrawBuff));
-
-	// draw everything
-	setRenderStates3DMode();
-
-	GLenum indexSize = type!=asset::EIT_16BIT ? GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
-    GLenum primType = primitiveTypeToGL(mode);
-	switch (mode)
-	{
-		case asset::EPT_POINTS:
-		{
-			// prepare size and attenuation (where supported)
-			GLfloat particleSize=Material.Thickness;
-			extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
-			glPointSize(particleSize);
-		}
-			break;
-		case asset::EPT_TRIANGLES:
-        {
-            //if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
-            {
-                COpenGLSLMaterialRenderer* shaderRenderer = static_cast<COpenGLSLMaterialRenderer*>(MaterialRenderers[0].Renderer);
-                if (shaderRenderer&&Material.Pipeline[1])//tess control present
-                    primType = GL_PATCHES;
-            }
-        }
-			break;
-        default:
-			break;
-	}
-
+	GLenum indexSize = (indexType!=asset::EIT_16BIT) ? GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
+    GLenum primType = getGLprimitiveType(found->currentState.pipeline->getPrimitiveAssemblyParams().primitiveType);
+    if (primType == GL_POINTS)
+        extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
 
     //actual drawing
     extGlMultiDrawElementsIndirect(primType,indexSize,(void*)offset,count,stride);

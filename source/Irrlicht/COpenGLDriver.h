@@ -144,6 +144,7 @@ namespace video
                 GLintptr offset = 0;
                 bool operator!=(const SBnd& rhs) const { return buf!=rhs.buf || offset!=rhs.offset; }
             } bindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
+
             core::smart_refctd_ptr<const COpenGLBuffer> indexBuf;
 
             //putting it here because idk where else
@@ -659,14 +660,15 @@ namespace video
 
         virtual void drawMeshBuffer(const video::IGPUMeshBuffer* mb);
 
-		virtual void drawArraysIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                        const asset::E_PRIMITIVE_TYPE& mode,
+		virtual void drawArraysIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                                        asset::E_PRIMITIVE_TOPOLOGY mode,
                                         const IGPUBuffer* indirectDrawBuff,
-                                        const size_t& offset, const size_t& count, const size_t& stride);
-		virtual void drawIndexedIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                            const asset::E_PRIMITIVE_TYPE& mode,
-                                            const asset::E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
-                                            const size_t& offset, const size_t& count, const size_t& stride);
+                                        size_t offset, size_t count, size_t stride) override;
+		virtual void drawIndexedIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                                        asset::E_PRIMITIVE_TOPOLOGY mode,
+                                        asset::E_INDEX_TYPE indexType, const IGPUBuffer* indexBuff,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        size_t offset, size_t count, size_t stride) override;
 
 
 		//! queries the features of the driver, returns true if feature is available

@@ -231,15 +231,15 @@ namespace video
 		virtual void drawMeshBuffer(const video::IGPUMeshBuffer* mb) =0;
 
 		//! Indirect Draw
-		virtual void drawArraysIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                        const asset::E_PRIMITIVE_TYPE& mode,
+		virtual void drawArraysIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                                        asset::E_PRIMITIVE_TOPOLOGY mode,
                                         const IGPUBuffer* indirectDrawBuff,
-                                        const size_t& offset, const size_t& count, const size_t& stride) =0;
-		virtual void drawIndexedIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                        const asset::E_PRIMITIVE_TYPE& mode,
-                                        const asset::E_INDEX_TYPE& type,
+                                        size_t offset, size_t count, size_t stride) = 0;
+		virtual void drawIndexedIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                                        asset::E_PRIMITIVE_TOPOLOGY mode,
+                                        asset::E_INDEX_TYPE indexType, const IGPUBuffer* indexBuff,
                                         const IGPUBuffer* indirectDrawBuff,
-                                        const size_t& offset, const size_t& count, const size_t& stride) =0;
+                                        size_t offset, size_t count, size_t stride) = 0;
 
 		//! Get the size of the screen or render window.
 		/** \return Size of screen or render window. */
