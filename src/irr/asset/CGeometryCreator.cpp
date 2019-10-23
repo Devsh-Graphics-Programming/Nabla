@@ -8,6 +8,8 @@
 #include "irr/asset/normal_quantization.h"
 #include "irr/asset/CCPUMesh.h"
 
+#define NEW_SHADERS
+
 namespace irr
 {
 namespace asset
@@ -15,6 +17,7 @@ namespace asset
 
 core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCubeMesh(const core::vector3df& size) const
 {
+#ifndef NEW_SHADERS
 	auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
 	auto buffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
 
@@ -147,6 +150,9 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCubeMesh(const c
 
 	mesh->recalculateBoundingBox();
 	return mesh;
+#else
+    return nullptr;
+#endif
 }
 
 
@@ -163,6 +169,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createArrowMesh(const 
 						const video::SColor vtxColor0,
 						const video::SColor vtxColor1) const
 {
+#ifndef NEW_SHADERS
     assert(height > cylinderHeight);
 
     auto cylinder = createCylinderMesh(width0, cylinderHeight, tesselationCylinder, vtxColor0);
@@ -184,12 +191,16 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createArrowMesh(const 
     cone->recalculateBoundingBox();
 
     return cone;
+#else
+    return nullptr;
+#endif
 }
 
 
 /* A sphere with proper normals and texture coords */
 core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createSphereMesh(float radius, uint32_t polyCountX, uint32_t polyCountY) const
 {
+#ifndef NEW_SHADERS
 	// thanks to Alfaz93 who made his code available for Irrlicht on which
 	// this one is based!
 
@@ -388,6 +399,9 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createSphereMesh(float
 
 	mesh->recalculateBoundingBox();
 	return mesh;
+#else
+    return nullptr;
+#endif
 }
 
 
@@ -395,6 +409,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createSphereMesh(float
 core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCylinderMesh(float radius, float length,
 			uint32_t tesselation, const video::SColor& color) const
 {
+#ifndef NEW_SHADERS
     const size_t vtxCnt = 2u*tesselation;
     auto vtxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxCnt*sizeof(CylinderVertex));
 
@@ -460,6 +475,9 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCylinderMesh(flo
     mesh->recalculateBoundingBox(true);
 
     return mesh;
+#else
+    return nullptr;
+#endif
 }
 
 /* A cone with proper normals and texture coords */
@@ -468,6 +486,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createConeMesh(float r
 					const video::SColor& colorBottom,
 					float oblique) const
 {
+#ifndef NEW_SHADERS
     const size_t vtxCnt = tesselation+2u;
     auto vtxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxCnt * sizeof(ConeVertex));
     ConeVertex* vertices = reinterpret_cast<ConeVertex*>(vtxBuf->getPointer());
@@ -525,11 +544,15 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createConeMesh(float r
     mesh->recalculateBoundingBox(true);
 
     return mesh;
+#else
+    return nullptr;
+#endif
 }
 
 
 core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createRectangleMesh(const core::vector2df_SIMD& _size) const
 {
+#ifndef NEW_SHADERS
 	// Create indices
 	uint16_t u[6];
 
@@ -582,10 +605,14 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createRectangleMesh(co
 
 	mesh->recalculateBoundingBox();
 	return mesh;
+#else
+    return nullptr;
+#endif
 }
 
 core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createDiskMesh(float radius, uint32_t tesselation) const
 {
+#ifndef NEW_SHADERS
 	auto buffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
 	buffer->setPrimitiveType(asset::E_PRIMITIVE_TYPE::EPT_TRIANGLE_FAN); // change to indexed later
 
@@ -638,6 +665,9 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createDiskMesh(float r
 
 	mesh->recalculateBoundingBox();
 	return mesh;
+#else
+    return nullptr;
+#endif
 }
 
 
