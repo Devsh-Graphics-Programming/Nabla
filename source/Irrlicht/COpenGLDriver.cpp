@@ -1709,6 +1709,8 @@ void COpenGLDriver::drawIndexedIndirect(const IGPUMeshBuffer::SBufferBinding _vt
     if (!found->nextState.pipeline)
         return;
 
+    found->updateNextState_vertexInput(_vtxBindings, found->nextState.vertexInputParams.indexBuf.get(), indirectDrawBuff, nullptr);
+
 	GLenum indexSize = (indexType!=asset::EIT_16BIT) ? GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
     GLenum primType = getGLprimitiveType(found->currentState.pipeline->getPrimitiveAssemblyParams().primitiveType);
     if (primType == GL_POINTS)
