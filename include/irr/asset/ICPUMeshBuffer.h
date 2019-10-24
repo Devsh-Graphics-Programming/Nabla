@@ -5,6 +5,7 @@
 #include "irr/asset/ICPUDescriptorSet.h"
 #include "irr/asset/ICPURenderpassIndependentPipeline.h"
 #include "irr/asset/bawformat/blobs/MeshBufferBlob.h"
+#include "irr/asset/bawformat/BlobSerializable.h"
 
 namespace irr
 {
@@ -57,6 +58,8 @@ class ICPUMeshBuffer : public IMeshBuffer<ICPUBuffer, ICPUDescriptorSet, ICPURen
 protected:
     virtual ~ICPUMeshBuffer() = default;
 public:
+    //! Default constructor (initializes pipeline, desc set and buffer bindings to nullptr)
+    ICPUMeshBuffer() : base_t(nullptr, nullptr, nullptr, SBufferBinding{}) {}
     using base_t::base_t;
 
     virtual void* serializeToBlob(void* _stackPtr = nullptr, const size_t& _stackSize = 0) const override
@@ -86,6 +89,8 @@ public:
     }
 	inline bool setVertexBufferBindingParams(uint32_t bindingIndex, uint32_t stride, E_VERTEX_INPUT_RATE inputRate = E_VERTEX_INPUT_RATE::EVIR_PER_VERTEX)
 	{
+        if (!m_pipeline)
+            return false;
 		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT || stride >= 2048ull)
 			return false;
 
@@ -112,16 +117,29 @@ public:
 	}
 	inline bool setVertexAttribFormat(uint32_t attribIndex, uint32_t bindingIndex, E_FORMAT format, uint32_t relativeOffset)
 	{
+        if (!m_pipeline)
+            return false;
 		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT || attribIndex >= MAX_VERTEX_ATTRIB_COUNT || relativeOffset >= 2048ull)
 			return false;
 
-		auto& attribute(m_pipeline->getVertexInputParams().attributes[attribIndex]);
+        auto& attribute = m_pipeline->getVertexInputParams().attributes[attribIndex];
 		attribute.binding = bindingIndex;
 		attribute.format = format;
 		attribute.relativeOffset = relativeOffset;
 
 		return true;
 	}
+    //! Synonymous to `meshbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType = _primType;`
+    inline bool setPrimitiveTopology(E_PRIMITIVE_TOPOLOGY _primType)
+    {
+        if (!m_pipeline)
+            return false;
+
+        m_pipeline->getPrimitiveAssemblyParams().primitiveType = _primType;
+        return true;
+    }
+
+
     inline ICPURenderpassIndependentPipeline* getPipeline()
     {
         return m_pipeline.get();

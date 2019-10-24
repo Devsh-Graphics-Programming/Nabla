@@ -75,7 +75,8 @@ public:
             boundingBox(), indexType(EIT_UNKNOWN), baseVertex(0), indexCount(0u),
             instanceCount(1ull), baseInstance(0u)
 	{
-        std::move(_vtxBindings, _vtxBindings+MAX_ATTR_BUF_BINDING_COUNT, m_vertexBufferBindings);
+        if (_vtxBindings)
+            std::move(_vtxBindings, _vtxBindings+MAX_ATTR_BUF_BINDING_COUNT, m_vertexBufferBindings);
 	}
 
     inline bool isAttributeEnabled(uint32_t attrId) const

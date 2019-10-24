@@ -229,6 +229,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		{
 			// create a mesh buffer
             auto mb = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+            //TODO meshbuffer needs to have non-null pipeline (see comments in STL loader for more info)
             //auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
 	
             core::vector<core::vectorSIMDf> attribs[4];
@@ -279,6 +280,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 //mb->getMaterial().setFlag(video::EMF_POINTCLOUD, true);
             }
 
+            //TODO SVertexInputParams::enabledBindingFlags and SVertexInputParams::enabledAttribFlags needs setting
 			//mb->setMeshDataAndFormat(std::move(desc)); TODO - assign data to SVertexInputAttribParams and SVertexInputBindingParams
 			mb->recalculateBoundingBox();
 			//if (!hasNormals)

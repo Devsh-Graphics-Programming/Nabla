@@ -2,12 +2,14 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
+#include "IrrCompileConfig.h"
 
 #ifdef _IRR_COMPILE_WITH_STL_LOADER_
 
 #include "CSTLMeshFileLoader.h"
 #include "irr/asset/normal_quantization.h"
 #include "irr/asset/CCPUMesh.h"
+#include "irr/asset/format/convertColor.h"
 
 #include "IReadFile.h"
 #include "os.h"
@@ -28,7 +30,13 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     bool hasColor = false;
 
 	auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
+    //TODO meshbuffer must hold non-null pipeline, otherwise calls like setVertexAttribFormat(), setVertexBufferBindingParams() etc. will crash (or return false and do nothing -- after my fix)
+    //also:
+    //1) SVertexInputParams::enabledBindingFlags and SVertexInputParams::enabledAttribFlags needs setting (maybe add this functionality to existing meshbuffer's setters)
+    //2) could think about some default values to set in raster params and others
 	auto meshbuffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+
+    meshbuffer->setPrimitiveTopology(EPT_TRIANGLE_LIST);
 
 	bool binary = false;
 	core::stringc token;
@@ -108,9 +116,12 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			_file->read(&attrib, 2);
 		}
 
-        if (hasColor && (attrib & 0x8000)) // assuming VisCam/SolidView non-standard trick to store color in 2 bytes of extra attribute
+        if (hasColor && (attrib & 0x8000u)) // assuming VisCam/SolidView non-standard trick to store color in 2 bytes of extra attribute
         {
-            colors.push_back(video::A1R5G5B5toA8R8G8B8(attrib));
+            const void* srcColor[1]{ &attrib };
+            uint32_t color{};
+            video::convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_B8G8R8A8_UNORM>(srcColor, &color, 0u, 0u);
+            colors.push_back(color);
         }
         else
         {
@@ -135,6 +146,7 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	{
 		ICPUMeshBuffer::SBufferBinding bufferBinding;
 		bufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxSize * positions.size());
+        bufferBinding.offset = 0ull; //it's 0 by default, but let's make it more obvious
 
 		uint32_t normal{};
 		for (size_t i = 0u; i<positions.size(); ++i)
