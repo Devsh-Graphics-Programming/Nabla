@@ -8,8 +8,6 @@
 #include "irr/asset/normal_quantization.h"
 #include "irr/asset/CCPUMesh.h"
 
-#define NEW_SHADERS
-
 namespace irr
 {
 namespace asset

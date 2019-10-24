@@ -18,8 +18,6 @@
 #include "irr/asset/CForsythVertexCacheOptimizer.h"
 #include "irr/asset/COverdrawMeshOptimizer.h"
 
-#define NEW_SHADERS
-
 namespace irr
 {
 namespace asset

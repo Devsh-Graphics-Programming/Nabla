@@ -34,6 +34,7 @@
 // this actually includes file depending on build type (Debug/Release)
 #include "BuildConfigOptions.h"
 
+#define NEW_SHADERS 1
 
 #ifdef _IRR_TARGET_ARCH_ARM_
 #   define __IRR_COMPILE_WITH_ARM_SIMD_ // NEON
