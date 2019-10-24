@@ -404,7 +404,7 @@ bool CZipReader::scanCentralDirectoryHeader()
 //! opens a file by file name
 IReadFile* CZipReader::createAndOpenFile(const io::path& filename)
 {
-    auto found = findFile(Files.begin(),Files.end(),filename,false);
+    auto found = findFile(Files.begin(),Files.end(),io::IFileSystem::flattenFilename(filename),false);
 	if (found==Files.end())
         return nullptr;
 

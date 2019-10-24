@@ -77,47 +77,9 @@ const char** CMitsubaLoader::getAssociatedFileExtensions() const
 
 asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-	XML_Parser parser = XML_ParserCreate(nullptr);
-	if (!parser)
-	{
-		os::Printer::log("Could not create XML Parser!", ELL_ERROR);
+	ParserManager parserManager(manager->getFileSystem(),_override);
+	if (!parserManager.parse(_file))
 		return {};
-	}
-
-	XML_SetElementHandler(parser, elementHandlerStart, elementHandlerEnd);
-
-	ParserManager parserManager(_override, parser);
-	
-	//from now data (instance of ParserData struct) will be visible to expat handlers
-	XML_SetUserData(parser, &parserManager);
-
-	char* buff = (char*)_IRR_ALIGNED_MALLOC(_file->getSize(),4096u);
-	_file->read((void*)buff, _file->getSize());
-
-	XML_Status parseStatus = XML_Parse(parser, buff, _file->getSize(), 0);
-	_IRR_ALIGNED_FREE(buff);
-
-	switch (parseStatus)
-	{
-		case XML_STATUS_ERROR:
-			{
-				os::Printer::log("Parse status: XML_STATUS_ERROR", ELL_ERROR);
-				return {};
-			}
-			break;
-		case XML_STATUS_OK:
-			os::Printer::log("Parse status: XML_STATUS_OK", ELL_INFORMATION);
-			break;
-
-		case XML_STATUS_SUSPENDED:
-			{
-				os::Printer::log("Parse status: XML_STATUS_SUSPENDED", ELL_INFORMATION);
-				return {};
-			}
-			break;
-	}
-
-	XML_ParserFree(parser);	
 
 	//
 	SContext ctx = {
@@ -171,6 +133,7 @@ CMitsubaLoader::SContext::group_ass_type CMitsubaLoader::instantiateShapeGroup(S
 			mesh->addMeshBuffer(core::smart_refctd_ptr<asset::ICPUMeshBuffer>(lowermesh->getMeshBuffer(j)));
 	}
 	mesh->recalculateBoundingBox();
+	ctx.groupCache.insert({shapegroup,mesh});
 	return mesh;
 }
 
@@ -392,7 +355,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 		meshbuffer->getMaterial() = getBSDF(ctx,hierarchyLevel+asset::ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW,shape->bsdf);
 	}
 
-
+	ctx.shapeCache.insert({shape,mesh});
 	return mesh;
 }
 
@@ -572,6 +535,7 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 							}
 							return format;
 						};
+						// TODO: scrap this
 						auto extractChannel = [&](uint32_t index) -> core::smart_refctd_ptr<asset::ICPUTexture>
 						{
 							core::vector<asset::CImageData*> subimages; // this will leak like crazy
@@ -589,6 +553,7 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 							}
 							return core::smart_refctd_ptr<asset::ICPUTexture>(asset::ICPUTexture::create(std::move(subimages), texture->getSourceFilename(), texture->getType()), core::dont_grab);
 						};
+						//  TODO: instead of making new texure with extracted channel just create a buffer view with appropriate rrrr,gggg,bbbb,aaaa swizzle
 						switch (tex->bitmap.channel)
 						{
 							// no GL_R8_SRGB support yet

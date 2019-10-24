@@ -169,7 +169,7 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 			{
 				core::matrix3x4SIMD m;
 				m.setRotation(core::quaternion::fromAngleAxis(core::radians(atof(desiredAttributes[0])),result.vvalue));
-;				result.mvalue = core::matrix4SIMD(m);
+				result.mvalue = core::matrix4SIMD(m);
 			}
 			break;
 		case SPropertyElementData::Type::SCALE:
@@ -183,6 +183,11 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 			for (auto i=0u; i<3u; i++)
 			if (desiredAttributes[i+1u])
 				result.vvalue[i] = atof(desiredAttributes[i+1u]);
+			{
+				core::matrix3x4SIMD m;
+				m.setScale(result.vvalue);
+				result.mvalue = core::matrix4SIMD(m);
+			}
 			break;
 		case SPropertyElementData::Type::LOOKAT:
 			FAIL_IF_ATTRIBUTE_NULL(0u)
@@ -237,6 +242,7 @@ bool CPropertyElementManager::retrieveBooleanValue(const std::string& _data, boo
 		_IRR_DEBUG_BREAK_IF(true);
 		ParserLog::invalidXMLFileStructure("Invalid boolean specified.");
 		success = false;
+		return false; // so GCC doesn't moan
 	}
 }
 

@@ -553,7 +553,7 @@ bool CFileSystem::changeWorkingDirectoryTo(const io::path& newDirectory)
 	{
 		WorkingDirectory[FILESYSTEM_VIRTUAL] = newDirectory;
 		// is this empty string constant really intended?
-		flattenFilename(WorkingDirectory[FILESYSTEM_VIRTUAL], _IRR_TEXT(""));
+		WorkingDirectory[FILESYSTEM_VIRTUAL] = flattenFilename(WorkingDirectory[FILESYSTEM_VIRTUAL], _IRR_TEXT(""));
 		success = true;
 	}
 	else
@@ -602,10 +602,7 @@ io::path CFileSystem::getAbsolutePath(const io::path& filename) const
 	{
 		// content in fpath is unclear at this point
 		if (!fpath[0]) // seems like fpath wasn't altered, use our best guess
-		{
-			io::path tmp(filename);
-			return flattenFilename(tmp);
-		}
+			return flattenFilename(filename);
 		else
 			return io::path(fpath);
 	}

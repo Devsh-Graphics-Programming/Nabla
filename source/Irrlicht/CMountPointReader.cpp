@@ -65,8 +65,7 @@ IFileArchive* CArchiveLoaderMount::createArchive(const io::path& filename) const
 	EFileSystemType current = FileSystem->setFileListSystem(FILESYSTEM_NATIVE);
 
 	const io::path save = FileSystem->getWorkingDirectory();
-	io::path fullPath = FileSystem->getAbsolutePath(filename);
-	io::IFileSystem::flattenFilename(fullPath);
+	io::path fullPath = io::IFileSystem::flattenFilename(FileSystem->getAbsolutePath(filename));
 
 	if (FileSystem->changeWorkingDirectoryTo(fullPath))
 	{
