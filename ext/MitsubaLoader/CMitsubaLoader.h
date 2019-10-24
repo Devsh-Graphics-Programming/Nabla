@@ -37,9 +37,9 @@ class CMitsubaLoader : public asset::IAssetLoader
 
 		struct SContext
 		{
-			std::string relativeDir;
 			const asset::IGeometryCreator* creator;
 			const asset::IMeshManipulator* manipulator;
+			const asset::IAssetLoader::SAssetLoadParams params;
 			asset::IAssetLoader::IAssetLoaderOverride* override;
 
 			//

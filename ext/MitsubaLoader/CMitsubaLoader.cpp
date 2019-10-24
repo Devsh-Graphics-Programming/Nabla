@@ -82,10 +82,11 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		return {};
 
 	//
+	auto currentDir = io::IFileSystem::getFileDir(_file->getFileName()) + "/";
 	SContext ctx = {
-		(io::IFileSystem::getFileDir(_file->getFileName()) + "/").c_str(),
 		manager->getGeometryCreator(),
 		manager->getMeshManipulator(),
+		asset::IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen,_params.decryptionKey,_params.cacheFlags,currentDir.c_str()),
 		_override
 	};
 	core::vector<core::smart_refctd_ptr<asset::ICPUMesh>> meshes;
@@ -160,7 +161,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 	auto loadModel = [&](const ext::MitsubaLoader::SPropertyElementData& filename, uint32_t index=0) -> core::smart_refctd_ptr<asset::ICPUMesh>
 	{
 		assert(filename.type==ext::MitsubaLoader::SPropertyElementData::Type::STRING);
-		auto retval = interm_getAssetInHierarchy(manager, ctx.relativeDir+filename.svalue, {}, hierarchyLevel/*+ICPUSCene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override);
+		auto retval = interm_getAssetInHierarchy(manager, filename.svalue, ctx.params, hierarchyLevel/*+ICPUSCene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override);
 		auto contentRange = retval.getContents();
 		//
 		uint32_t actualIndex = 0;
@@ -477,7 +478,7 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 	{
 		case CElementTexture::Type::BITMAP:
 			{
-				auto retval = interm_getAssetInHierarchy(manager,ctx.relativeDir+tex->bitmap.filename.svalue,{},hierarchyLevel,ctx.override);
+				auto retval = interm_getAssetInHierarchy(manager,tex->bitmap.filename.svalue,ctx.params,hierarchyLevel,ctx.override);
 				auto contentRange = retval.getContents();
 				if (contentRange.first < contentRange.second)
 				{
