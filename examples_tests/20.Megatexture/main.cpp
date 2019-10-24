@@ -98,7 +98,7 @@ int main()
 
 	//! Load big-ass sponza model
 	// really want to get it working with a "../../media/sponza.zip?sponza.obj" path handling
-	fs->addFileArchive("../../media/sponza.zip", false, false);
+	fs->addFileArchive("../../media/sponza.zip");
 	asset::IAssetLoader::SAssetLoadParams lparams;
 	auto cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*am->getAsset("sponza.obj", lparams).getContents().first);
 	if (cpumesh)
