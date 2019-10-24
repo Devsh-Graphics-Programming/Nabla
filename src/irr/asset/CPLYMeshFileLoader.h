@@ -13,6 +13,9 @@ namespace irr
 namespace asset
 {
 
+// input buffer must be at least twice as long as the longest line in the file
+#define PLY_INPUT_BUFFER_SIZE 51200 // file is loaded in 50k chunks
+
 enum E_PLY_PROPERTY_TYPE
 {
 	EPLYPT_INT8  = 0,
@@ -47,7 +50,6 @@ public:
 
 	//! creates/loads an animated mesh from the file.
     virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
-
 private:
 
 	struct SPLYProperty
@@ -126,28 +128,25 @@ private:
 
     struct SContext
     {
-        core::vector<SPLYElement*> ElementList;
-
-        io::IReadFile *File = nullptr;
-        char *Buffer = nullptr;
+        core::vector<core::smart_refctd_ptr<SPLYElement>> ElementList;
+	
+		core::smart_refctd_ptr<io::IReadFile> File;
+		char* Buffer = nullptr;
         bool IsBinaryFile = false, IsWrongEndian = false, EndOfFile = false;
         int32_t LineLength = 0, WordLength = 0;
-        char *StartPointer = nullptr, *EndPointer = nullptr, *LineEndPointer = nullptr;
+		char* StartPointer = nullptr, *EndPointer = nullptr, *LineEndPointer = nullptr;
 
-        ~SContext()
-        {
-            if (File)
-                File->drop();
-            File = nullptr;
-            if (Buffer)
-            {
-                delete[] Buffer;
-                Buffer = nullptr;
-            }
-            for (auto& e : ElementList)
-                if (e) delete e;
-            ElementList.clear();
-        }
+		std::function<void()> deallocate = [&]()
+		{ 
+			if (Buffer)
+			{
+				_IRR_DELETE_ARRAY(Buffer, PLY_INPUT_BUFFER_SIZE);
+				Buffer = nullptr;
+			}
+			ElementList.clear();
+		};
+
+		core::SRAIIBasedExiter<decltype(deallocate)> exiter = core::makeRAIIExiter(deallocate);
     };
 
     enum { E_POS = 0, E_UV = 2, E_NORM = 3, E_COL = 1 };
@@ -166,7 +165,7 @@ private:
 	uint32_t getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t);
 	void moveForward(SContext& _ctx, uint32_t bytes);
 
-    bool genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const;
+    bool genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4], ICPUMeshBuffer::SBufferBinding& bufferBinding) const;
 };
 
 } // end namespace scene

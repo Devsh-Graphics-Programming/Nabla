@@ -19,10 +19,6 @@ namespace irr
 namespace asset
 {
 
-// input buffer must be at least twice as long as the longest line in the file
-#define PLY_INPUT_BUFFER_SIZE 51200 // file is loaded in 50k chunks
-
-
 // constructor
 CPLYMeshFileLoader::CPLYMeshFileLoader()
 {
@@ -70,9 +66,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         return {};
 
     SContext ctx;
-
-	ctx.File = _file;
-	ctx.File->grab();
+	ctx.File = std::move(core::make_smart_refctd_ptr<io::IReadFile>(_file));
 
 	// attempt to allocate the buffer and fill with data
 	if (!allocateBuffer(ctx))
@@ -150,8 +144,8 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				else
 				{
 					// get element
-					SPLYElement* el = ctx.ElementList[ctx.ElementList.size()-1];
-
+					core::smart_refctd_ptr<SPLYElement> el = std::move(ctx.ElementList[ctx.ElementList.size()-1]);
+				
 					// fill property struct
 					SPLYProperty prop;
 					prop.Type = getPropertyType(word);
@@ -199,7 +193,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				el->Count = atoi(getNextWord(ctx));
 				el->IsFixedWidth = true;
 				el->KnownSize = 0;
-                ctx.ElementList.push_back(el);
+                ctx.ElementList.emplace_back(std::move(el));
 
 				if (el->Name == "vertex")
 					vertCount = el->Count;
@@ -235,8 +229,8 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		{
 			// create a mesh buffer
             auto mb = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
-            auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
-
+            //auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
+	
             core::vector<core::vectorSIMDf> attribs[4];
             core::vector<uint32_t> indices;
 
@@ -265,25 +259,27 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				}
 			}
 
-            if (!genVertBuffersForMBuffer(mb.get(), attribs))
-                return {};
             if (indices.size())
             {
-                auto idxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(indices.size()*sizeof(uint32_t));
-                memcpy(idxBuf->getPointer(), indices.data(), idxBuf->getSize());
-                desc->setIndexBuffer(std::move(idxBuf));
+				ICPUMeshBuffer::SBufferBinding bufferBinding;
+				bufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(indices.size() * sizeof(uint32_t));
+                memcpy(bufferBinding.buffer->getPointer(), indices.data(), bufferBinding.buffer->getSize());
+
+				if (!genVertBuffersForMBuffer(mb.get(), attribs, bufferBinding))
+					return {};
+
                 mb->setIndexCount(indices.size());
                 mb->setIndexType(asset::EIT_32BIT);
-                mb->setPrimitiveType(asset::EPT_TRIANGLES);
+				mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST;
             }
             else
             {
-                mb->setPrimitiveType(asset::EPT_POINTS);
+				mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_POINT_LIST;
                 mb->setIndexCount(attribs[E_POS].size());
                 //mb->getMaterial().setFlag(video::EMF_POINTCLOUD, true);
             }
 
-			mb->setMeshDataAndFormat(std::move(desc));
+			//mb->setMeshDataAndFormat(std::move(desc)); TODO - assign data to SVertexInputAttribParams and SVertexInputBindingParams
 			mb->recalculateBoundingBox();
 			//if (!hasNormals)
 			//	SceneManager->getMeshManipulator()->recalculateNormals(mb);
@@ -388,7 +384,6 @@ bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, 
 	return result;
 }
 
-
 bool CPLYMeshFileLoader::readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices)
 {
 	if (!_ctx.IsBinaryFile)
@@ -467,13 +462,10 @@ void CPLYMeshFileLoader::skipProperty(SContext& _ctx, const SPLYProperty &Proper
 
 bool CPLYMeshFileLoader::allocateBuffer(SContext& _ctx)
 {
-	// Destroy the element list if it exists
-	for (uint32_t i=0; i<_ctx.ElementList.size(); ++i)
-		delete _ctx.ElementList[i];
-    _ctx.ElementList.clear();
+	_ctx.ElementList.clear();
 
 	if (!_ctx.Buffer)
-        _ctx.Buffer = new char[PLY_INPUT_BUFFER_SIZE];
+        _ctx.Buffer = _IRR_NEW_ARRAY(char, PLY_INPUT_BUFFER_SIZE);
 
 	// not enough memory?
 	if (!_ctx.Buffer)
@@ -484,7 +476,7 @@ bool CPLYMeshFileLoader::allocateBuffer(SContext& _ctx)
 
     _ctx.StartPointer = _ctx.Buffer;
     _ctx.EndPointer = _ctx.Buffer;
-    _ctx.LineEndPointer = _ctx.Buffer-1;
+    _ctx.LineEndPointer = _ctx.Buffer - 1;
     _ctx.WordLength = -1;
     _ctx.EndOfFile = false;
 
@@ -521,7 +513,7 @@ void CPLYMeshFileLoader::fillBuffer(SContext& _ctx)
 		uint32_t count = _ctx.File->read(_ctx.EndPointer, PLY_INPUT_BUFFER_SIZE - length);
 
 		// increment the end pointer by the number of bytes read
-		_ctx.EndPointer = _ctx.EndPointer + count;
+		_ctx.EndPointer+= count;
 
 		// if we didn't completely fill the buffer
 		if (count != PLY_INPUT_BUFFER_SIZE - length)
@@ -544,69 +536,59 @@ void CPLYMeshFileLoader::moveForward(SContext& _ctx, uint32_t bytes)
 	if (_ctx.StartPointer + bytes < _ctx.EndPointer)
 		_ctx.StartPointer += bytes;
 	else
-		_ctx.StartPointer = +_ctx.EndPointer;
+		_ctx.StartPointer = _ctx.EndPointer;
 }
 
-bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const
+bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4], ICPUMeshBuffer::SBufferBinding& bufferBinding) const
 {
-    {
-    size_t check = _attribs[0].size();
-    for (size_t i = 1u; i < 4u; ++i)
-    {
-        if (_attribs[i].size() != 0u && _attribs[i].size() != check)
-            return false;
-        else if (_attribs[i].size() != 0u)
-            check = _attribs[i].size();
-    }
-    }
-    auto putAttr = [&_attribs](asset::ICPUMeshBuffer* _buf, size_t _attr, asset::E_VERTEX_ATTRIBUTE_ID _vaid)
-    {
-        size_t i = 0u;
-        for (const core::vectorSIMDf& v : _attribs[_attr])
-            _buf->setAttribute(v, _vaid, i++);
-    };
+	{
+		size_t check = _attribs[0].size();
+		for (size_t i = 1u; i < 4u; ++i)
+		{
+			if (_attribs[i].size() != 0u && _attribs[i].size() != check)
+				return false;
+			else if (_attribs[i].size() != 0u)
+				check = _attribs[i].size();
+		}
+	}
+	auto putAttr = [&_attribs](asset::ICPUMeshBuffer* _buf, size_t _attr)
+	{
+		size_t i = 0u;
+		for (const core::vectorSIMDf& v : _attribs[_attr])
+			_buf->setAttribute(v, _attr, i++);
+	};
 
-    size_t sizes[4];
-    sizes[E_POS] = !_attribs[E_POS].empty() * 3 * sizeof(float);
-    sizes[E_COL] = !_attribs[E_COL].empty() * 4 * sizeof(float);
-    sizes[E_UV] = !_attribs[E_UV].empty() * 2 * sizeof(float);
-    sizes[E_NORM] = !_attribs[E_NORM].empty() * 3 * sizeof(float);
+	size_t sizes[4];
+	sizes[E_POS] = !_attribs[E_POS].empty() * 3 * sizeof(float);
+	sizes[E_COL] = !_attribs[E_COL].empty() * 4 * sizeof(float);
+	sizes[E_UV] = !_attribs[E_UV].empty() * 2 * sizeof(float);
+	sizes[E_NORM] = !_attribs[E_NORM].empty() * 3 * sizeof(float);
 
-    size_t offsets[4]{ 0u };
-    for (size_t i = 1u; i < 4u; ++i)
-        offsets[i] = offsets[i-1] + sizes[i-1];
+	size_t offsets[4]{ 0u };
+	for (size_t i = 1u; i < 4u; ++i)
+		offsets[i] = offsets[i - 1] + sizes[i - 1];
 
-    const size_t stride = std::accumulate(sizes, sizes+4, static_cast<size_t>(0));
+	const size_t stride = std::accumulate(sizes, sizes + 4, static_cast<size_t>(0));
 
 	{
-		auto desc = _mbuf->getMeshDataAndFormat();
+		const static std::array<std::pair<uint16_t, E_FORMAT>, 4> perIndexDataThatChanges{std::make_pair(E_POS, asset::EF_R32G32B32_SFLOAT), std::make_pair(E_COL, asset::EF_R32G32B32A32_SFLOAT), std::make_pair(E_UV, asset::EF_R32G32_SFLOAT), std::make_pair(E_NORM, asset::EF_R32G32B32_SFLOAT)};
+		_mbuf->setVertexBufferBinding(std::move(bufferBinding), 0ull);
+		_mbuf->setVertexBufferBindingParams(0ull, stride);
 
-		auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(_attribs[E_POS].size()*stride);
-		if (sizes[E_POS])
-			desc->setVertexAttrBuffer(core::smart_refctd_ptr(buf), asset::EVAI_ATTR0, asset::EF_R32G32B32_SFLOAT, stride, offsets[E_POS]);
-		if (sizes[E_COL])
-			desc->setVertexAttrBuffer(core::smart_refctd_ptr(buf), asset::EVAI_ATTR1, asset::EF_R32G32B32A32_SFLOAT, stride, offsets[E_COL]);
-		if (sizes[E_UV])
-			desc->setVertexAttrBuffer(core::smart_refctd_ptr(buf), asset::EVAI_ATTR2, asset::EF_R32G32_SFLOAT, stride, offsets[E_UV]);
-		if (sizes[E_NORM])
-			desc->setVertexAttrBuffer(core::smart_refctd_ptr(buf), asset::EVAI_ATTR3, asset::EF_R32G32B32_SFLOAT, stride, offsets[E_NORM]);
+		for (const auto& attributeIndexExtra : perIndexDataThatChanges)
+			[&](auto attribIndex, auto formatToSend, auto offsetIndex, auto bindingIndex)
+			{
+				if (sizes[attribIndex])
+				{
+					_mbuf->setVertexAttribFormat(attribIndex, bindingIndex, formatToSend, offsets[offsetIndex]);
+					putAttr(_mbuf, attribIndex);
+				}
+
+			}(attributeIndexExtra.first, attributeIndexExtra.second, attributeIndexExtra.first, 0ull);
 	}
-
-    asset::E_VERTEX_ATTRIBUTE_ID vaids[4];
-    vaids[E_POS] = asset::EVAI_ATTR0;
-    vaids[E_COL] = asset::EVAI_ATTR1;
-    vaids[E_UV] = asset::EVAI_ATTR2;
-    vaids[E_NORM] = asset::EVAI_ATTR3;
-
-    for (size_t i = 0u; i < 4u; ++i)
-    {
-        if (sizes[i])
-            putAttr(_mbuf, i, vaids[i]);
-    }
 
     return true;
 }
-
 
 E_PLY_PROPERTY_TYPE CPLYMeshFileLoader::getPropertyType(const char* typeString) const
 {
@@ -698,7 +680,7 @@ char* CPLYMeshFileLoader::getNextLine(SContext& _ctx)
 		else
 		{
 			// EOF
-            _ctx.StartPointer = _ctx.EndPointer-1;
+            _ctx.StartPointer = _ctx.EndPointer - 1;
 			*_ctx.StartPointer = '\0';
 			return _ctx.StartPointer;
 		}
@@ -741,7 +723,7 @@ char* CPLYMeshFileLoader::getNextWord(SContext& _ctx)
 		++pos;
 	}
 	--pos;
-    _ctx.WordLength = (int32_t)(pos- _ctx.StartPointer);
+    _ctx.WordLength = (int32_t)(pos - _ctx.StartPointer);
 	// return pointer to the start of the word
 	return _ctx.StartPointer;
 }
@@ -763,7 +745,7 @@ float CPLYMeshFileLoader::getFloat(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 			{
 			case EPLYPT_INT8:
 				retVal = *_ctx.StartPointer;
-                _ctx.StartPointer++;
+                ++_ctx.StartPointer;
 				break;
 			case EPLYPT_INT16:
 				if (_ctx.IsWrongEndian)
@@ -799,7 +781,7 @@ float CPLYMeshFileLoader::getFloat(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 			case EPLYPT_UNKNOWN:
 			default:
 				retVal = 0.0f;
-                _ctx.StartPointer++; // ouch!
+                ++_ctx.StartPointer; // ouch!
 			}
 		}
 		else
@@ -846,7 +828,7 @@ uint32_t CPLYMeshFileLoader::getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 			{
 			case EPLYPT_INT8:
 				retVal = *_ctx.StartPointer;
-                _ctx.StartPointer++;
+                ++_ctx.StartPointer;
 				break;
 			case EPLYPT_INT16:
 				if (_ctx.IsWrongEndian)
@@ -867,7 +849,7 @@ uint32_t CPLYMeshFileLoader::getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 					retVal = (uint32_t)os::Byteswap::byteswap(*(reinterpret_cast<float*>(_ctx.StartPointer)));
 				else
 					retVal = (uint32_t)(*(reinterpret_cast<float*>(_ctx.StartPointer)));
-                _ctx.StartPointer += 4;
+				_ctx.StartPointer += 4;
 				break;
 			case EPLYPT_FLOAT64:
 				// todo: byteswap 64-bit
@@ -878,7 +860,7 @@ uint32_t CPLYMeshFileLoader::getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 			case EPLYPT_UNKNOWN:
 			default:
 				retVal = 0;
-                _ctx.StartPointer++; // ouch!
+                ++_ctx.StartPointer; // ouch!
 			}
 		}
 		else

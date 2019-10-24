@@ -33,6 +33,11 @@ public:
     inline void setShaderAtStage(E_SHADER_STAGE _stage, ICPUSpecializedShader* _shdr) { m_shaders[core::findLSB<uint32_t>(_stage)] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr); }
     inline void setShaderAtIndex(uint32_t _ix, ICPUSpecializedShader* _shdr) { m_shaders[_ix] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr); }
 
+	inline SBlendParams& getBlendParams() { return m_blendParams; }
+	inline SPrimitiveAssemblyParams &getPrimitiveAssemblyParams() { return m_primAsmParams; }
+	inline SRasterizationParams& getRasterizationParams() { return m_rasterParams; }
+	inline SVertexInputParams& getVertexInputParams() { return m_vertexInputParams; }
+
 protected:
     virtual ~ICPURenderpassIndependentPipeline() = default;
 };

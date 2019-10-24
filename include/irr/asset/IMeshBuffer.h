@@ -50,7 +50,6 @@ protected:
     SBufferBinding m_vertexBufferBindings[MAX_ATTR_BUF_BINDING_COUNT];
     SBufferBinding m_indexBufferBinding;
 
-
     //! Descriptor set which goes to set=3
     core::smart_refctd_ptr<DescSetType> m_descriptorSet;
     core::smart_refctd_ptr<PipelineType> m_pipeline;

@@ -29,7 +29,6 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
 	auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
 	auto meshbuffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
-	auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
 
 	bool binary = false;
 	core::stringc token;
@@ -134,26 +133,33 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
     const size_t vtxSize = hasColor ? (3 * sizeof(float) + 4 + 4) : (3 * sizeof(float) + 4);
 	{
-		auto vertexBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxSize*positions.size());
+		ICPUMeshBuffer::SBufferBinding bufferBinding;
+		bufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxSize * positions.size());
 
 		uint32_t normal{};
 		for (size_t i = 0u; i<positions.size(); ++i)
 		{
 			if (i%3 == 0)
 				normal = asset::quantizeNormal2_10_10_10(normals[i/3]);
-			uint8_t* ptr = ((uint8_t*)(vertexBuf->getPointer())) + i*vtxSize;
+			uint8_t* ptr = ((uint8_t*)(bufferBinding.buffer->getPointer())) + i*vtxSize;
 			memcpy(ptr, positions[i].pointer, 3*4);
 			((uint32_t*)(ptr+12))[0] = normal;
 			if (hasColor)
 				memcpy(ptr+16, colors.data()+i/3, 4);
 		}
 
-		desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertexBuf), asset::EVAI_ATTR0, asset::EF_R32G32B32_SFLOAT, vtxSize, 0);
-		desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertexBuf), asset::EVAI_ATTR3, asset::EF_A2B10G10R10_SNORM_PACK32, vtxSize, 12);
-		if (hasColor)
-			desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertexBuf), asset::EVAI_ATTR1, asset::EF_B8G8R8A8_UNORM, vtxSize, 16);
+		/// TODO attribute should be determined by enum that may be helpful eg. E_POS might be assigned to attrib 0 -> want to get rid of ugly literals
+		static std::array<std::tuple<uint16_t, E_FORMAT, uint32_t>, 3> perIndexDataThatChanges{std::make_tuple(0, asset::EF_R32G32B32_SFLOAT, 0), std::make_tuple(3, asset::EF_A2B10G10R10_SNORM_PACK32, 12), std::make_tuple(1, asset::EF_B8G8R8A8_UNORM, 16) };
+		meshbuffer->setVertexBufferBinding(std::move(bufferBinding), 0ull);
+		meshbuffer->setVertexBufferBindingParams(0ull, vtxSize);
+
+		for(auto& attributeIndexExtra = perIndexDataThatChanges.begin(); attributeIndexExtra != perIndexDataThatChanges.end() - (hasColor ? 0 : 1); ++attributeIndexExtra)
+			[&](auto attribIndex, auto formatToSend, auto offsetToSend, auto bindingIndex)
+			{
+				meshbuffer->setVertexAttribFormat(attribIndex, bindingIndex, formatToSend, offsetToSend);
+			}(std::get<0>(*attributeIndexExtra), std::get<1>(*attributeIndexExtra), std::get<2>(*attributeIndexExtra), 0ull);
 	}
-	meshbuffer->setMeshDataAndFormat(std::move(desc));
+
 	mesh->addMeshBuffer(std::move(meshbuffer));
 
 	mesh->getMeshBuffer(0)->setIndexCount(positions.size());
