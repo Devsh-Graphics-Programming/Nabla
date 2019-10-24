@@ -696,7 +696,7 @@ void CSceneManager::drawAll()
 	{
 		CurrentRendertime = ESNRP_SOLID;
 
-		std::sort(SolidNodeList.begin(),SolidNodeList.end()); // sort by textures
+		std::stable_sort(SolidNodeList.begin(),SolidNodeList.end()); // sort by textures
 
         for (i=0; i<SolidNodeList.size(); ++i)
             SolidNodeList[i].Node->render();
@@ -708,7 +708,7 @@ void CSceneManager::drawAll()
 	{
 		CurrentRendertime = ESNRP_TRANSPARENT;
 
-		std::sort(TransparentNodeList.begin(),TransparentNodeList.end()); // sort by distance from camera
+		std::stable_sort(TransparentNodeList.begin(),TransparentNodeList.end()); // sort by distance from camera
         for (i=0; i<TransparentNodeList.size(); ++i)
             TransparentNodeList[i].Node->render();
 
@@ -719,7 +719,7 @@ void CSceneManager::drawAll()
 	{
 		CurrentRendertime = ESNRP_TRANSPARENT_EFFECT;
 
-		std::sort(TransparentEffectNodeList.begin(),TransparentEffectNodeList.end()); // sort by distance from camera
+		std::stable_sort(TransparentEffectNodeList.begin(),TransparentEffectNodeList.end()); // sort by distance from camera
         for (i=0; i<TransparentEffectNodeList.size(); ++i)
             TransparentEffectNodeList[i].Node->render();
 

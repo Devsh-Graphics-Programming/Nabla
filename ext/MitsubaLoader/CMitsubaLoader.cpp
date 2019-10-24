@@ -157,6 +157,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 			tform.transformVect(vpos);
 			meshbuffer->setAttribute(vpos, index, i);
 		}
+		meshbuffer->recalculateBoundingBox();
 	};
 	auto loadModel = [&](const ext::MitsubaLoader::SPropertyElementData& filename, uint32_t index=0) -> core::smart_refctd_ptr<asset::ICPUMesh>
 	{
@@ -241,11 +242,13 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 			flipNormals = !shape->obj.flipNormals;
 			faceNormals = shape->obj.faceNormals;
 			maxSmoothAngle = shape->obj.maxSmoothAngle;
+			if (mesh) // awaiting the LEFT vs RIGHT HAND flag
 			{
 				core::matrix3x4SIMD tform;
 				tform.rows[0].x = -1.f; // restore handedness
 				for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
 					applyTransformToMB(mesh->getMeshBuffer(i), tform);
+				mesh->recalculateBoundingBox();
 			}
 			if (mesh && shape->obj.flipTexCoords)
 			{
@@ -283,7 +286,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 						auto meshbuffer = mesh->getMeshBuffer(i);
 						uint32_t offset = reinterpret_cast<uint8_t*>(it)-reinterpret_cast<uint8_t*>(newRGB->getPointer());
 						core::vectorSIMDf rgb;
-						for (uint32_t i=0u; meshbuffer->getAttribute(rgb, asset::EVAI_ATTR1, i); i++,it++)
+						for (uint32_t i=0u; meshbuffer->getAttribute(rgb, asset::EVAI_ATTR1, i); i++,it++) // should be upstreamed into the PLY loader
 						{
 							for (auto i=0; i<3u; i++)
 								rgb[i] = video::impl::srgb2lin(rgb[i]);
@@ -341,6 +344,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 
 			newMesh->addMeshBuffer(std::move(newMeshBuffer));
 		}
+		newMesh->recalculateBoundingBox();
 		mesh = std::move(newMesh);
 	}
 
