@@ -121,7 +121,7 @@ public:
 				return;
 			// try compute absolute path
 			std::string relative = ctx.params.relativeDir+inOutFilename;
-			if (m_filesystem->existFile(inOutFilename.c_str()))
+			if (m_filesystem->existFile(relative.c_str()))
 			{
 				inOutFilename = relative;
 				return;

@@ -55,7 +55,7 @@ void CMeshSceneNode::OnRegisterSceneNode()
 
 			for (uint32_t i=0; i<Mesh->getMeshBufferCount(); ++i)
 			{
-        video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
+				video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(i);
 				if (!mb || mb->getIndexCount()<1)
                     continue;
 
