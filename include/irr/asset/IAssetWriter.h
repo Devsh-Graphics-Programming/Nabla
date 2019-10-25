@@ -180,7 +180,7 @@ private:
     static IAssetWriterOverride s_defaultOverride;
 
 protected:
-    static void getDefaultOverride(IAssetWriterOverride* _out) { _out = &s_defaultOverride; }
+    static void getDefaultOverride(IAssetWriterOverride*& _out) { _out = &s_defaultOverride; }
 };
 
 }} //irr::asset

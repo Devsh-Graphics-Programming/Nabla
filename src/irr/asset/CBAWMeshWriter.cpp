@@ -122,6 +122,7 @@ struct LzmaMemMngmnt
 		if ((uint8_t*)data != stackData)
 			_IRR_ALIGNED_FREE(data);
 	}
+#ifndef NEW_SHADERS
 	template<>
 	void CBAWMeshWriter::exportAsBlob<IMeshDataFormatDesc<ICPUBuffer> >(IMeshDataFormatDesc<ICPUBuffer>* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
@@ -129,6 +130,7 @@ struct LzmaMemMngmnt
 
 		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, EWF_NONE);
 	}
+#endif
 	template<>
 	void CBAWMeshWriter::exportAsBlob<ICPUBuffer>(ICPUBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
@@ -141,6 +143,7 @@ struct LzmaMemMngmnt
 
 	bool CBAWMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 	{
+#ifndef NEW_SHADERS
         if (!_file)
             return false;
 
@@ -224,10 +227,14 @@ struct LzmaMemMngmnt
 		_file->seek(prevPos);
 
 		return true;
+#else
+        return false;
+#endif
 	}
 
 	uint32_t CBAWMeshWriter::genHeaders(const ICPUMesh* _mesh, SContext& _ctx)
 	{
+#ifndef NEW_SHADERS
 		_ctx.headers.clear();
 
 		bool isMeshAnimated = true;
@@ -329,6 +336,9 @@ struct LzmaMemMngmnt
 			}
 		}
 		return _ctx.headers.size();
+#else
+    return 0u;
+#endif
 	}
 
 	void CBAWMeshWriter::calcAndPushNextOffset(uint32_t _blobSize, SContext& _ctx) const
