@@ -78,22 +78,13 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
 		auto performActionBasedOnOrientationSystem = [&](auto performOnRightHanded, auto performOnLeftHanded = [&](void) {})
 		{
-			switch (_params.loaderFlags)
-			{
-				case E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES:
-				{
-					performOnRightHanded();
-					break;
-				}
-				default:
-				{
-					performOnLeftHanded();
-					break;
-				}
-			}
+			if(_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
+				performOnRightHanded();
+			else
+				performOnLeftHanded();
 		};
 
-		performActionBasedOnOrientationSystem([&]() {n.z = -n.z;}, [&]() {});
+		performActionBasedOnOrientationSystem([&]() {n.x = -n.x;}, [&]() {});
 		normals.push_back(core::normalize(n));
 
 		if (!binary)

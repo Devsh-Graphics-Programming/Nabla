@@ -12,7 +12,7 @@ namespace irr
 			SContext ctx(_file->getSize());
 			ctx.file = _file;
 
-			ctx.file->read(ctx.sourceCodeBuffer.get(), ctx.file->getSize());
+			ctx.file->read(ctx.sourceCodeBuffer.get()->getPointer(), ctx.file->getSize());
 
 			return SAssetBundle({std::move(ctx.sourceCodeBuffer)});
 		}
