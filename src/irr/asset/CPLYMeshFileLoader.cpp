@@ -249,13 +249,13 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				{
 					// loop through vertex properties
 					for (uint32_t j=0; j < ctx.ElementList[i]->Count; ++j)
-						hasNormals &= readVertex(ctx, *ctx.ElementList[i], attribs);
+						hasNormals &= readVertex(ctx, *ctx.ElementList[i], attribs, _params);
 				}
 				else if (ctx.ElementList[i]->Name == "face")
 				{
 					// read faces
 					for (uint32_t j=0; j < ctx.ElementList[i]->Count; ++j)
-						readFace(ctx, *ctx.ElementList[i], indices);
+						readFace(ctx, *ctx.ElementList[i], indices, _params);
 				}
 				else
 				{
@@ -297,8 +297,16 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	return SAssetBundle({mesh});
 }
 
+static void performActionBasedOnOrientationSystem(const asset::IAssetLoader::SAssetLoadParams& _params, std::function<void()> performOnRightHanded, std::function<void()> performOnLeftHanded)
+{
+	if (_params.loaderFlags & IAssetLoader::ELPF_RIGHT_HANDED_MESHES)
+		performOnRightHanded();
+	else
+		performOnLeftHanded();
+}
 
-bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, core::vector<core::vectorSIMDf> _outAttribs[4])
+
+bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, core::vector<core::vectorSIMDf> _outAttribs[4], const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 	if (!_ctx.IsBinaryFile)
 		getNextLine(_ctx);
@@ -315,6 +323,7 @@ bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, 
         if (Element.Properties[i].Name == "x")
         {
             attribs[E_POS].second.X = getFloat(_ctx, t);
+			performActionBasedOnOrientationSystem(_params, [&]() {attribs[E_POS].second.X = -attribs[E_POS].second.X;}, [&]() {});
             attribs[E_POS].first = true;
         }
         else if (Element.Properties[i].Name == "y")
@@ -330,6 +339,7 @@ bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, 
 		else if (Element.Properties[i].Name == "nx")
 		{
 			attribs[E_NORM].second.X = getFloat(_ctx, t);
+			performActionBasedOnOrientationSystem(_params, [&]() {attribs[E_NORM].second.X = -attribs[E_NORM].second.X;}, [&]() {});
 			attribs[E_NORM].first = result=true;
 		}
 		else if (Element.Properties[i].Name == "ny")
@@ -389,7 +399,7 @@ bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, 
 }
 
 
-bool CPLYMeshFileLoader::readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices)
+bool CPLYMeshFileLoader::readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 	if (!_ctx.IsBinaryFile)
 		getNextLine(_ctx);
@@ -407,17 +417,41 @@ bool CPLYMeshFileLoader::readFace(SContext& _ctx, const SPLYElement &Element, co
 				c = getInt(_ctx, Element.Properties[i].Data.List.ItemType);
 			int32_t j = 3;
 
-			_outIndices.push_back(a);
-			_outIndices.push_back(b);
-			_outIndices.push_back(c);
+			performActionBasedOnOrientationSystem
+			(_params, 
+				[&]() 
+				{
+					_outIndices.push_back(c);
+					_outIndices.push_back(b);
+					_outIndices.push_back(a);
+				}, 
+				[&]() 
+				{
+					_outIndices.push_back(a);
+					_outIndices.push_back(b);
+					_outIndices.push_back(c);
+				}
+			);
 
 			for (; j < count; ++j)
 			{
 				b = c;
 				c = getInt(_ctx, Element.Properties[i].Data.List.ItemType);
-				_outIndices.push_back(a);
-				_outIndices.push_back(c);
-				_outIndices.push_back(b);
+				performActionBasedOnOrientationSystem
+				(_params,
+					[&]()
+					{
+						_outIndices.push_back(b);
+						_outIndices.push_back(c);
+						_outIndices.push_back(a);
+					},
+					[&]()
+					{
+						_outIndices.push_back(a);
+						_outIndices.push_back(c);
+						_outIndices.push_back(b);
+					}
+				);
 			}
 		}
 		else if (Element.Properties[i].Name == "intensity")
