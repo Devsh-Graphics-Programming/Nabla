@@ -75,8 +75,26 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         {
         core::vectorSIMDf n;
 		getNextVector(_file, n, binary);
-        normals.push_back(core::normalize(n));
-        }
+
+		auto performActionBasedOnOrientationSystem = [&](auto performOnRightHanded, auto performOnLeftHanded = [&](void) {})
+		{
+			switch (_params.loaderFlags)
+			{
+				case E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES:
+				{
+					performOnRightHanded();
+					break;
+				}
+				default:
+				{
+					performOnLeftHanded();
+					break;
+				}
+			}
+		};
+
+		performActionBasedOnOrientationSystem([&]() {n.z = -n.z;}, [&]() {});
+		normals.push_back(core::normalize(n));
 
 		if (!binary)
 		{
@@ -94,9 +112,10 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     return {};
 			}
 			getNextVector(_file, p[i], binary);
+			performActionBasedOnOrientationSystem([&]() {p[i].z = -p[i].z; }, [&]() {});
 		}
-        for (uint32_t i = 0u; i < 3u; ++i) // seems like in STL format vertices are ordered in clockwise manner...
-            positions.push_back(p[2u-i]);
+		for (uint32_t i = 0u; i < 3u; ++i) // seems like in STL format vertices are ordered in clockwise manner...
+			performActionBasedOnOrientationSystem([&]() {positions.push_back(p[i]); }, [&]() {positions.push_back(p[2u - i]); });
         }
 
 		if (!binary)
