@@ -103,7 +103,7 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     return {};
 			}
 			getNextVector(_file, p[i], binary);
-			performActionBasedOnOrientationSystem([&]() {p[i].z = -p[i].z; }, [&]() {});
+			performActionBasedOnOrientationSystem([&]() {p[i].x = -p[i].x; }, [&]() {});
 		}
 		for (uint32_t i = 0u; i < 3u; ++i) // seems like in STL format vertices are ordered in clockwise manner...
 			performActionBasedOnOrientationSystem([&]() {positions.push_back(p[i]); }, [&]() {positions.push_back(p[2u - i]); });
