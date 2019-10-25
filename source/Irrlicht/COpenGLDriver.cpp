@@ -1629,7 +1629,8 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
 void COpenGLDriver::drawArraysIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                                         asset::E_PRIMITIVE_TOPOLOGY mode,
                                         const IGPUBuffer* indirectDrawBuff,
-                                        size_t offset, size_t count, size_t stride)
+                                        size_t offset, size_t maxCount, size_t stride,
+                                        const IGPUBuffer* countBuffer, size_t countOffset)
 {
     if (!indirectDrawBuff)
         return;
@@ -1640,14 +1641,28 @@ void COpenGLDriver::drawArraysIndirect(const IGPUMeshBuffer::SBufferBinding _vtx
     if (!found->nextState.pipeline)
         return;
 
-    found->updateNextState_vertexInput(_vtxBindings, found->nextState.vertexInputParams.indexBuf.get(), indirectDrawBuff, nullptr);
+    if (countBuffer && !FeatureAvailable[IRR_ARB_indirect_parameters] && (Version < 460u))
+    {
+        os::Printer::log("OpenGL driver: glMultiDrawArraysIndirectCount() not supported!");
+        return;
+    }
+    if (!core::is_aligned_to(countOffset, 4ull))
+    {
+        os::Printer::log("COpenGLDriver::drawArraysIndirect: countOffset must be aligned to 4!");
+        return;
+    }
+
+    found->updateNextState_vertexInput(_vtxBindings, found->nextState.vertexInputParams.indexBuf.get(), indirectDrawBuff, countBuffer);
 
     GLenum primType = getGLprimitiveType(found->currentState.pipeline->getPrimitiveAssemblyParams().primitiveType);
     if (primType == GL_POINTS)
         extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
 
     //actual drawing
-    extGlMultiDrawArraysIndirect(primType,(void*)offset,count,stride);
+    if (countBuffer)
+        extGlMultiDrawArraysIndirectCount(primType, (void*)offset, countOffset, maxCount, stride);
+    else
+        extGlMultiDrawArraysIndirect(primType, (void*)offset, maxCount, stride);
 }
 
 
@@ -1698,7 +1713,8 @@ void COpenGLDriver::drawIndexedIndirect(const IGPUMeshBuffer::SBufferBinding _vt
                                         asset::E_PRIMITIVE_TOPOLOGY mode,
                                         asset::E_INDEX_TYPE indexType, const IGPUBuffer* indexBuff,
                                         const IGPUBuffer* indirectDrawBuff,
-                                        size_t offset, size_t count, size_t stride)
+                                        size_t offset, size_t maxCount, size_t stride,
+                                        const IGPUBuffer* countBuffer, size_t countOffset)
 {
     if (!indirectDrawBuff)
         return;
@@ -1709,7 +1725,18 @@ void COpenGLDriver::drawIndexedIndirect(const IGPUMeshBuffer::SBufferBinding _vt
     if (!found->nextState.pipeline)
         return;
 
-    found->updateNextState_vertexInput(_vtxBindings, found->nextState.vertexInputParams.indexBuf.get(), indirectDrawBuff, nullptr);
+    if (countBuffer && !FeatureAvailable[IRR_ARB_indirect_parameters] && (Version < 460u))
+    {
+        os::Printer::log("OpenGL driver: glMultiDrawElementsIndirectCount() not supported!");
+        return;
+    }
+    if (!core::is_aligned_to(countOffset, 4ull))
+    {
+        os::Printer::log("COpenGLDriver::drawIndexedIndirect: countOffset must be aligned to 4!");
+        return;
+    }
+
+    found->updateNextState_vertexInput(_vtxBindings, found->nextState.vertexInputParams.indexBuf.get(), indirectDrawBuff, countBuffer);
 
 	GLenum indexSize = (indexType!=asset::EIT_16BIT) ? GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
     GLenum primType = getGLprimitiveType(found->currentState.pipeline->getPrimitiveAssemblyParams().primitiveType);
@@ -1717,7 +1744,10 @@ void COpenGLDriver::drawIndexedIndirect(const IGPUMeshBuffer::SBufferBinding _vt
         extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
 
     //actual drawing
-    extGlMultiDrawElementsIndirect(primType,indexSize,(void*)offset,count,stride);
+    if (countBuffer)
+        extGlMultiDrawElementsIndirectCount(primType, indexSize, (void*)offset, countOffset, maxCount, stride);
+    else
+        extGlMultiDrawElementsIndirect(primType,indexSize,(void*)offset,maxCount,stride);
 }
 
 
@@ -2384,8 +2414,11 @@ void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const IGPUMeshBuffe
     buf = static_cast<const COpenGLBuffer*>(_indirectDrawBuffer);
     nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr<const COpenGLBuffer>(buf);
 
-    buf = static_cast<const COpenGLBuffer*>(_paramBuffer);
-    nextState.vertexInputParams.parameterBuf = core::smart_refctd_ptr<const COpenGLBuffer>(buf);
+    if (FeatureAvailable[IRR_ARB_indirect_parameters] || (Version >= 460u))
+    {
+        buf = static_cast<const COpenGLBuffer*>(_paramBuffer);
+        nextState.vertexInputParams.parameterBuf = core::smart_refctd_ptr<const COpenGLBuffer>(buf);
+    }
 
     //nextState.pipeline is the one set in updateNextState_pipelineAndRaster() or is the same object as currentState.pipeline
     nextState.vertexInputParams.vao.first = nextState.pipeline->getVAOHash();

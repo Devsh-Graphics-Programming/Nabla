@@ -1444,6 +1444,8 @@ class COpenGLExtensionHandler
     static void extGlDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect);
     static void extGlMultiDrawArraysIndirect(GLenum mode, const void* indirect, GLsizei drawcount, GLsizei stride);
     static void extGlMultiDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect, GLsizei drawcount, GLsizei stride);
+    static void extGlMultiDrawArraysIndirectCount(GLenum mode, const void *indirect, GLintptr drawcount, GLintptr maxdrawcount, GLsizei stride);
+    static void extGlMultiDrawElementsIndirectCount(GLenum mode, GLenum type, const void *indirect, GLintptr drawcount, GLintptr maxdrawcount, GLsizei stride);
 
 	// ROP
 	static void extGlBlendColor(float red, float green, float blue, float alpha);
@@ -1794,6 +1796,8 @@ class COpenGLExtensionHandler
 	static PFNGLDRAWELEMENTSINDIRECTPROC pGlDrawElementsIndirect;
 	static PFNGLMULTIDRAWARRAYSINDIRECTPROC pGlMultiDrawArraysIndirect;
 	static PFNGLMULTIDRAWELEMENTSINDIRECTPROC pGlMultiDrawElementsIndirect;
+    static PFNGLMULTIDRAWARRAYSINDIRECTCOUNTPROC pGlMultiDrawArrysIndirectCount;
+    static PFNGLMULTIDRAWELEMENTSINDIRECTCOUNTPROC pGlMultiDrawElementsIndirectCount;
 	//
 	static PFNGLCREATETRANSFORMFEEDBACKSPROC pGlCreateTransformFeedbacks;
 	static PFNGLGENTRANSFORMFEEDBACKSPROC pGlGenTransformFeedbacks;
@@ -4186,6 +4190,17 @@ inline void COpenGLExtensionHandler::extGlMultiDrawElementsIndirect(GLenum mode,
         pGlMultiDrawElementsIndirect(mode,type,indirect,drawcount,stride);
 }
 
+inline void COpenGLExtensionHandler::extGlMultiDrawArraysIndirectCount(GLenum mode, const void * indirect, GLintptr drawcount, GLintptr maxdrawcount, GLsizei stride)
+{
+    if (pGlMultiDrawArrysIndirectCount)
+        pGlMultiDrawArrysIndirectCount(mode, indirect, drawcount, maxdrawcount, stride);
+}
+
+inline void COpenGLExtensionHandler::extGlMultiDrawElementsIndirectCount(GLenum mode, GLenum type, const void * indirect, GLintptr drawcount, GLintptr maxdrawcount, GLsizei stride)
+{
+    if (pGlMultiDrawElementsIndirectCount)
+        pGlMultiDrawElementsIndirectCount(mode, type, indirect, drawcount, maxdrawcount, stride);
+}
 
 
 
