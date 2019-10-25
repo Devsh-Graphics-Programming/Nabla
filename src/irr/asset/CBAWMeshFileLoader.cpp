@@ -277,10 +277,12 @@ io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<1>(SContext& _ctx, 
 
             const uint32_t absOffset = baseOffsetv1 + newoffset;
             baw1mem->seek(absOffset);
+#ifndef NEW_SHADERS
             baw1mem->write(
                 asset::MeshDataFormatDescBlobV1(reinterpret_cast<asset::legacyv0::MeshDataFormatDescBlobV0*>(blob)[0]).getData(),
                 sizeof(asset::MeshDataFormatDescBlobV1)
             );
+#endif
 
             prevBlobSz = hdr.effectiveSize();
             hdr.compressionType = asset::Blob::EBCT_RAW;

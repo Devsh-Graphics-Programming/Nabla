@@ -4,7 +4,6 @@
 
 #include "CSkinnedMeshSceneNode.h"
 #include "irr/video/CGPUSkinnedMesh.h"
-#include "IMaterialRenderer.h"
 #include "irr/asset/IMesh.h"
 #include "ISceneManager.h"
 
@@ -93,11 +92,7 @@ void CSkinnedMeshSceneNode::OnRegisterSceneNode()
                 continue;
 
             video::IMaterialRenderer* rnd =
-<<<<<<< HEAD
-                driver->getMaterialRenderer(0);
-=======
                 driver->getMaterialRenderer(mb->getMaterial().MaterialType);
->>>>>>> 719de147941d958bf526dc2abc22c35a91e2cddf
 
             if (rnd && rnd->isTransparent())
                 ++transparentCount;
