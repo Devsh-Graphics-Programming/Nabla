@@ -6,6 +6,8 @@
 #include "irr/asset/ICPURenderpassIndependentPipeline.h"
 #include "irr/asset/bawformat/blobs/MeshBufferBlob.h"
 #include "irr/asset/bawformat/BlobSerializable.h"
+#include "irr/asset/format/decodePixels.h"
+#include "irr/asset/format/encodePixels.h"
 
 namespace irr
 {
@@ -105,15 +107,13 @@ public:
 		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT)
 			return false;
 
-		m_vertexBufferBindings[bindingIndex].buffer = bufferBinding.buffer;
-		m_vertexBufferBindings[bindingIndex].offset = bufferBinding.offset;
+        m_vertexBufferBindings[bindingIndex] = std::move(bufferBinding);
 
 		return true;
 	}
 	inline void setIndexBufferBinding(SBufferBinding&& bufferBinding)
 	{
-		m_indexBufferBinding.buffer = bufferBinding.buffer;
-		m_indexBufferBinding.offset = bufferBinding.offset;
+        m_indexBufferBinding = std::move(bufferBinding);
 	}
 	inline bool setVertexAttribFormat(uint32_t attribIndex, uint32_t bindingIndex, E_FORMAT format, uint32_t relativeOffset)
 	{
@@ -153,11 +153,12 @@ public:
         if (!m_pipeline)
             return 0u;
 
-        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
+        auto ppln = m_pipeline.get();
+        const auto& vtxInputParams = ppln->getVertexInputParams();
         size_t size = 0u;
         for (size_t i = 0; i < MAX_VERTEX_ATTRIB_COUNT; ++i)
             if (vtxInputParams.enabledAttribFlags & (1u<<i))
-                size += asset::getTexelOrBlockBytesize(vtxInputParams.attributes[i].format);
+                size += asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(vtxInputParams.attributes[i].format));
         return size;
     }
 

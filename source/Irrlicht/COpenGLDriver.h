@@ -62,7 +62,13 @@ namespace video
             GLuint GLname;
             uint64_t lastValidated;
         };
-        typedef std::pair<COpenGLRenderpassIndependentPipeline::SVAOHash, SVAO> HashVAOPair;
+        struct HashVAOPair
+        {
+            COpenGLRenderpassIndependentPipeline::SVAOHash first;
+            SVAO second;
+
+            inline bool operator<(const HashVAOPair& rhs) const { return first < rhs.first; }
+        };
 
         using SGraphicsPipelineHash = std::array<GLuint, COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT>;
 
@@ -618,9 +624,9 @@ namespace video
             const asset::SRasterizationParams& _rasterParams
         ) override;
 
-        core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>&& _descriptors) override;
+        core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorBinding>&& _descriptors) override;
 
-        core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout) override;
+        core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout) override;
 
 		//! generic version which overloads the unimplemented versions
 		bool changeRenderContext(const SExposedVideoData& videoData, void* device) {return false;}
@@ -799,7 +805,7 @@ namespace video
             struct SPipelineCacheVal
             {
                 GLuint GLname;
-                core::smart_refctd_ptr<COpenGLRenderpassIndependentPipeline> object;//so that it holds shaders which concerns hash
+                core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> object;//so that it holds shaders which concerns hash
                 uint64_t lastValidated;
             };
 
@@ -837,7 +843,13 @@ namespace video
 
             //!
             core::vector<SOpenGLState::HashVAOPair> VAOMap;
-            using HashPipelinePair = std::pair<SOpenGLState::SGraphicsPipelineHash, SPipelineCacheVal>;
+            struct HashPipelinePair
+            {
+                SOpenGLState::SGraphicsPipelineHash first;
+                SPipelineCacheVal second;
+
+                inline bool operator<(const HashPipelinePair& rhs) const { return first < rhs.first; }
+            };
             core::vector<HashPipelinePair> GraphicsPipelineMap;
 
             GLuint createGraphicsPipeline(const SOpenGLState::SGraphicsPipelineHash& _hash);

@@ -39,19 +39,36 @@ public:
     struct SDescriptorInfo
     {
         core::smart_refctd_ptr<IDescriptor> desc;
-        union {
-            struct SDescriptorBufferInfo
-            {
-                size_t offset;
-                size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
-            } buffer;
-            struct SDescriptorImageInfo
-            {
-                core::smart_refctd_ptr<SamplerType> sampler;
-                //! Irrelevant in OpenGL backend
-                E_IMAGE_LAYOUT imageLayout;
-            } image;
-        };
+        struct SDescriptorBufferInfo
+        {
+            size_t offset;
+            size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
+        } buffer;
+        struct SDescriptorImageInfo
+        {
+            core::smart_refctd_ptr<SamplerType> sampler;
+            //! Irrelevant in OpenGL backend
+            E_IMAGE_LAYOUT imageLayout;
+        } image;
+
+        void assign(const SDescriptorInfo& _other, E_DESCRIPTOR_TYPE _type)
+        {
+            desc = _other.desc;
+            if (_type == EDT_COMBINED_IMAGE_SAMPLER || _type == EDT_STORAGE_IMAGE)
+                assign_img(_other);
+            else
+                assign_buf(_other);
+        }
+
+    private:
+        void assign_buf(const SDescriptorInfo& other)
+        {
+            buffer = other.buffer;
+        }
+        void assign_img(const SDescriptorInfo& other)
+        {
+            image = other.image;
+        }
     };
 
     struct SDescriptorBinding
@@ -72,7 +89,7 @@ public:
 
     struct SCopyDescriptorSet
     {
-        core::smart_refctd_ptr<this_type> srcSet;
+        this_type* srcSet;//smart pointer not needed here
         uint32_t srcBinding;
         uint32_t srcArrayElement;
         uint32_t dstBinding;
@@ -89,7 +106,7 @@ public:
             const uint32_t ix = (*m_bindingToIx)[wrt.binding];
 
             for (uint32_t j = 0u; j < wrt.count; ++j)
-                (*m_descriptors)[ix].info->operator[](wrt.arrayElement + j) = wrt.info[j];//std::move ?
+                (*m_descriptors)[ix].info->operator[](wrt.arrayElement + j).assign(wrt.info[j], (*m_descriptors)[ix].descriptorType);
         }
         for (uint32_t i = 0u; i < _copyCount; ++i)
         {
@@ -99,7 +116,7 @@ public:
             const SDescriptorBinding* src = cpy.srcSet->getDescriptorFromBindingNum(cpy.srcBinding);
 
             for (uint32_t j = 0u; j < cpy.count; ++j)
-                (*m_descriptors)[ix].info->operator[](cpy.dstArrayElement + j) = src->info->operator[](cpy.srcArrayElement + j);
+                (*m_descriptors)[ix].info->operator[](cpy.dstArrayElement + j).assign(src->info->operator[](cpy.srcArrayElement + j), (*m_descriptors)[ix].descriptorType);
         }
     }
 
@@ -118,23 +135,25 @@ protected:
         return getDescriptors().begin()+ix;
     }
 
-
+public:
     IDescriptorSet(core::smart_refctd_ptr<LayoutType>&& _layout) :
         m_layout(std::move(_layout)),
         m_descriptors(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SDescriptorBinding>>(m_layout->getBindings().length())),
-        m_bindingToIx(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>((m_layout->getBindings().end() - 1)->binding, ~0u))
+        m_bindingToIx(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>((m_layout->getBindings().end() - 1)->binding))
     {
+        for (auto& item : (*m_bindingToIx))
+            item = (~0u);
         uint32_t i = 0u;
-        for (typename LayoutType::SBinding& bnd : m_layout->getBindings())
+        for (const typename LayoutType::SBinding& bnd : m_layout->getBindings())
         {
-            auto& d = m_descriptors[i];
+            auto& d = (*m_descriptors)[i];
             d.binding = bnd.binding;
             d.descriptorType = bnd.type;
             d.info = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SDescriptorInfo>>(bnd.count);
             ++i;
         }
         for (i = 0u; i < m_descriptors->size(); ++i)
-            m_bindingToIx[(*m_descriptors)[i].binding] = i;
+            (*m_bindingToIx)[(*m_descriptors)[i].binding] = i;
     }
 
     //leaving this ctor below for sake of faster cpu->gpu conversions
@@ -144,19 +163,24 @@ protected:
     */
     IDescriptorSet(core::smart_refctd_ptr<LayoutType>&& _layout, core::smart_refctd_dynamic_array<SDescriptorBinding>&& _descriptors) :
         m_layout(std::move(_layout)), m_descriptors(std::move(_descriptors)),
-        m_bindingToIx(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>((m_layout->getBindings().end()-1)->binding, ~0u))
+        m_bindingToIx(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>((m_layout->getBindings().end()-1)->binding))
     {
+        for (auto& item : (*m_bindingToIx))
+            item = (~0u);
+
         auto is_not_sorted = [this] {
             for (auto it = m_descriptors->cbegin()+1; it != m_descriptors->cend(); ++it)
                 if (it->binding <= (it-1)->binding)
                     return false;
             return true;
         };
-        assert(!is_not_sorted);
+        assert(!is_not_sorted());
 
         for (uint32_t i = 0u; i < m_descriptors->size(); ++i)
-            m_bindingToIx[(*m_descriptors)[i].binding] = i;
+            (*m_bindingToIx)[(*m_descriptors)[i].binding] = i;
     }
+
+protected:
     virtual ~IDescriptorSet() = default;
 
     core::smart_refctd_ptr<LayoutType> m_layout;

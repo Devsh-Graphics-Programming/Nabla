@@ -30,7 +30,7 @@ template<typename BuffT>
 class IOffsetBufferPair : public core::IReferenceCounted
 {
 protected:
-	virtual ~SOffsetBufferPair() {}
+	virtual ~IOffsetBufferPair() {}
 
 public:
     IOffsetBufferPair(uint64_t _offset = 0ull, core::smart_refctd_ptr<BuffT>&& _buffer = nullptr) : m_offset{_offset}, m_buffer(_buffer) {}

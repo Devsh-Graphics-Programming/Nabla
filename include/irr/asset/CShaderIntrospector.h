@@ -2,6 +2,7 @@
 #define __IRR_C_SHADER_INTROSPECTOR_H_INCLUDED__
 
 #include <cstdint>
+#include <memory>
 #include "irr/core/Types.h"
 #include "irr/asset/ShaderCommons.h"
 #include "irr/asset/ShaderRes.h"

@@ -5,6 +5,8 @@
 #ifndef __IRR_DIMENSION2D_H_INCLUDED__
 #define __IRR_DIMENSION2D_H_INCLUDED__
 
+#include "IrrCompileConfig.h"
+#include <cstdint>
 
 namespace irr
 {

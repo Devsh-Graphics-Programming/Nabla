@@ -22,7 +22,7 @@ public:
 	COpenGLCubemapTexture(GLenum internalFormat, const uint32_t* size, uint32_t mipmapLevels, const io::path& name="");
 
 
-	virtual IVirtualTexture::E_DIMENSION_COUNT getDimensionality() const {return IVirtualTexture::EDC_THREE;} //! or maybe two?
+	virtual IRenderableVirtualTexture::E_DIMENSION_COUNT getDimensionality() const {return IRenderableVirtualTexture::EDC_THREE;} //! or maybe two?
 
     virtual E_TEXTURE_TYPE getTextureType() const {return ETT_CUBE_MAP;}
 

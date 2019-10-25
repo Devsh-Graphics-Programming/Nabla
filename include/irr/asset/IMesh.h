@@ -7,7 +7,6 @@
 
 #include "irr/core/IReferenceCounted.h"
 #include "aabbox3d.h"
-#include "SMaterial.h"
 #include "irr/asset/bawformat/blobs/MeshBlob.h"
 
 namespace irr

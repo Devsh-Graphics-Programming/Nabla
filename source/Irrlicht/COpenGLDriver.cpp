@@ -1393,20 +1393,21 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
 
     auto shaders = core::SRange<IGPUSpecializedShader*>(_shadersBegin, _shadersEnd);
     auto vsIsPresent = [&shaders] {
-        return std::find_if(shaders.begin(), shaders.end(), [](IGPUSpecializedShader* shdr) {shdr->getStage()==asset::ESS_VERTEX;}) != shaders.end();
+        return std::find_if(shaders.begin(), shaders.end(), [](IGPUSpecializedShader* shdr) {return shdr->getStage()==asset::ESS_VERTEX;}) != shaders.end();
     };
 
     if (!_layout || vsIsPresent())
         return nullptr;
 
     return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
+        nullptr,
         std::move(_layout),
         _shadersBegin, _shadersEnd,
         _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
         );
 }
 
-core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>&& _descriptors)
+core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorBinding>&& _descriptors)
 {
     if (!_layout || !_descriptors || !_descriptors->size())
         return nullptr;
@@ -1414,7 +1415,7 @@ core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(
     return core::make_smart_refctd_ptr<COpenGLDescriptorSet>(std::move(_layout), std::move(_descriptors));
 }
 
-core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout)
+core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout)
 {
     if (!_layout)
         return nullptr;
@@ -1855,7 +1856,7 @@ static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
 
 void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
 {
-    core::smart_refctd_ptr<COpenGLRenderpassIndependentPipeline> prevPipeline = currentState.pipeline;
+    core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> prevPipeline = currentState.pipeline;
     if (stateBits & GSB_PIPELINE_AND_RASTER_PARAMETERS)
     {
         if (nextState.pipeline != currentState.pipeline)
@@ -2055,7 +2056,7 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
         {
             bool brandNewVAO = false;//if VAO is taken from cache we don't have to modify VAO state that is part of hashval (everything except index and vertex buf bindings)
             auto hashVal = nextState.vertexInputParams.vao.first;
-            auto it = std::lower_bound(VAOMap.begin(), VAOMap.end(), SOpenGLState::HashVAOPair(hashVal, {}));
+            auto it = std::lower_bound(VAOMap.begin(), VAOMap.end(), SOpenGLState::HashVAOPair{hashVal, SOpenGLState::SVAO{}});
             if (it != VAOMap.end() && it->first == hashVal) {
                 it->second.lastValidated = CNullDriver::ReallocationCounter;
                 currentState.vertexInputParams.vao = *it;
@@ -2405,7 +2406,7 @@ void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const IGPUMeshBuffe
         const IGPUMeshBuffer::SBufferBinding& bnd = _vtxBindings[i];
         if (bnd.buffer) {
             const COpenGLBuffer* buf = static_cast<COpenGLBuffer*>(bnd.buffer.get());
-            nextState.vertexInputParams.bindings[i] = {core::smart_refctd_ptr<const COpenGLBuffer>(buf), bnd.offset};
+            nextState.vertexInputParams.bindings[i] = {core::smart_refctd_ptr<const COpenGLBuffer>(buf), static_cast<GLintptr>(bnd.offset)};
         }
     }
     const COpenGLBuffer* buf = static_cast<const COpenGLBuffer*>(_indexBuffer);

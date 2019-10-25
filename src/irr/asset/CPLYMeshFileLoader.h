@@ -128,9 +128,9 @@ private:
 
     struct SContext
     {
-        core::vector<core::smart_refctd_ptr<SPLYElement>> ElementList;
+        core::vector<std::unique_ptr<SPLYElement>> ElementList;
 	
-		core::smart_refctd_ptr<io::IReadFile> File;
+		io::IReadFile* File;
 		char* Buffer = nullptr;
         bool IsBinaryFile = false, IsWrongEndian = false, EndOfFile = false;
         int32_t LineLength = 0, WordLength = 0;

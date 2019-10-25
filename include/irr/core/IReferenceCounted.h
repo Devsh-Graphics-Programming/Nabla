@@ -384,5 +384,18 @@ namespace core
 }
 } // end namespace irr
 
+namespace std {
+
+    template <typename T>
+    struct hash<irr::core::smart_refctd_ptr<T>>
+    {
+        std::size_t operator()(const irr::core::smart_refctd_ptr<T>& k) const
+        {
+            return reinterpret_cast<std::size_t>(k.get());
+        }
+    };
+
+}
+
 #endif
 

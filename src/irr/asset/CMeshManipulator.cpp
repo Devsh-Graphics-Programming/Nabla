@@ -957,7 +957,7 @@ void CMeshManipulator::_filterInvalidTriangles(ICPUMeshBuffer* _input)
     Triangle* const newEnd = std::remove_if(begin, end,
         [&_input](const Triangle& _t) {
             core::vectorSIMDf p0, p1, p2;
-            const E_VERTEX_ATTRIBUTE_ID pvaid = _input->getPositionAttributeIx();
+            const uint32_t pvaid = _input->getPositionAttributeIx();
             _input->getAttribute(p0, pvaid, _t.i[0]);
             _input->getAttribute(p1, pvaid, _t.i[1]);
             _input->getAttribute(p2, pvaid, _t.i[2]);
@@ -968,8 +968,11 @@ void CMeshManipulator::_filterInvalidTriangles(ICPUMeshBuffer* _input)
     auto newBuf = core::make_smart_refctd_ptr<ICPUBuffer>(newSize);
     memcpy(newBuf->getPointer(), copy, newSize);
     _IRR_ALIGNED_FREE(copy);
-    _input->getMeshDataAndFormat()->setIndexBuffer(std::move(newBuf));
-    _input->setIndexBufferOffset(0);
+
+    ICPUMeshBuffer::SBufferBinding idxBufBinding;
+    idxBufBinding.offset = 0ull;
+    idxBufBinding.buffer = std::move(newBuf);
+    _input->setIndexBufferBinding(std::move(idxBufBinding));
     _input->setIndexCount(newSize/sizeof(IdxT));
 }
 template void CMeshManipulator::_filterInvalidTriangles<uint16_t>(ICPUMeshBuffer* _input);
@@ -977,7 +980,7 @@ template void CMeshManipulator::_filterInvalidTriangles<uint32_t>(ICPUMeshBuffer
 
 core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric)
 {
-	if (!_meshbuffer->getPipeline())
+	if (!_meshbuffer->getPipeline_const())
         return {};
 
 	const E_FORMAT thisType = _meshbuffer->getAttribFormat(_attrId);
@@ -1034,7 +1037,7 @@ core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_FORMAT* _o
 
 core::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric)
 {
-	if (!_meshbuffer->getPipeline())
+	if (!_meshbuffer->getPipeline_const())
         return {};
 
     const E_FORMAT thisType = _meshbuffer->getAttribFormat(_attrId);

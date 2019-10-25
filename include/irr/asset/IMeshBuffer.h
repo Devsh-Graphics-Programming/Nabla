@@ -39,11 +39,7 @@ public:
     _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_ATTR_BUF_BINDING_COUNT = SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT;
 
 protected:
-	virtual ~IMeshBuffer()
-	{
-        if (leakDebugger)
-            leakDebugger->deregisterObj(this);
-	}
+    virtual ~IMeshBuffer() = default;
 
     core::aabbox3df boundingBox;
 
@@ -83,7 +79,11 @@ public:
     {
         if (attrId >= MAX_VERTEX_ATTRIB_COUNT)
             return false;
-        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
+        if (!m_pipeline)
+            return false;
+
+        auto ppln = m_pipeline.get();
+        const auto& vtxInputParams = ppln->getVertexInputParams();
         if (!(vtxInputParams.enabledAttribFlags & (1u<<attrId)))
             return false;
         return true;
@@ -92,7 +92,11 @@ public:
     {
         if (bndId >= MAX_ATTR_BUF_BINDING_COUNT)
             return false;
-        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
+        if (!m_pipeline)
+            return false;
+
+        auto ppln = m_pipeline.get();
+        const auto& vtxInputParams = ppln->getVertexInputParams();
         if (!(vtxInputParams.enabledBindingFlags & (1u<<bndId)))
             return false;
         return true;
@@ -100,24 +104,27 @@ public:
     //! WARNING: does not check whether attribute and binding are enabled!
     inline uint32_t getBindingNumForAttribute(uint32_t attrId) const
     {
-        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
+        auto ppln = m_pipeline.get();
+        const auto& vtxInputParams = ppln->getVertexInputParams();
         return vtxInputParams.attributes[attrId].binding;
     }
     inline E_FORMAT getAttribFormat(uint32_t attrId) const
     {
-        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
-        return vtxInputParams.attributes[attrId].format;
+        auto ppln = m_pipeline.get();
+        const auto& vtxInputParams = ppln->getVertexInputParams();
+        return static_cast<E_FORMAT>(vtxInputParams.attributes[attrId].format);
     }
     inline uint32_t getAttribStride(uint32_t attrId) const
     {
-        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
+        auto ppln = m_pipeline.get();
+        const auto& vtxInputParams = ppln->getVertexInputParams();
         const uint32_t bnd = getBindingNumForAttribute(attrId);
-        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
         return vtxInputParams.bindings[bnd].stride;
     }
     inline uint32_t getAttribOffset(uint32_t attrId) const
     {
-        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
+        auto ppln = m_pipeline.get();
+        const auto& vtxInputParams = ppln->getVertexInputParams();
         return vtxInputParams.attributes[attrId].relativeOffset;
     }
     inline const SBufferBinding* getAttribBoundBuffer(uint32_t attrId) const
@@ -134,6 +141,10 @@ public:
         return &m_indexBufferBinding;
     }
     inline const PipelineType* getPipeline() const
+    {
+        return m_pipeline.get();
+    }
+    inline const PipelineType* getPipeline_const() const
     {
         return m_pipeline.get();
     }
@@ -164,14 +175,14 @@ public:
 		#endif // _IRR_DEBUG
 		*/
         indexCount = newIndexCount;
-        if (m_indexBuffer)
+        if (m_indexBufferBinding.buffer)
         {
             switch (indexType)
             {
                 case EIT_16BIT:
-                    return indexCount*2+m_indexBufferBinding.offset < m_indexBuffer->getSize();
+                    return indexCount*2+m_indexBufferBinding.offset < m_indexBufferBinding.buffer->getSize();
                 case EIT_32BIT:
-                    return indexCount*4+m_indexBufferBinding.offset < m_indexBuffer->getSize();
+                    return indexCount*4+m_indexBufferBinding.offset < m_indexBufferBinding.buffer->getSize();
                 default:
                     return false;
             }

@@ -43,6 +43,7 @@ CSkyDomeSceneNode::CSkyDomeSceneNode(core::smart_refctd_ptr<video::IRenderableVi
 
 	setAutomaticCulling(scene::EAC_OFF);
 
+#ifndef NEW_SHADERS
 	Buffer = new video::IGPUMeshBuffer();
 	Buffer->getMaterial().ZBuffer = video::ECFN_NEVER;
 	Buffer->getMaterial().BackfaceCulling = false;
@@ -50,6 +51,7 @@ CSkyDomeSceneNode::CSkyDomeSceneNode(core::smart_refctd_ptr<video::IRenderableVi
 	Buffer->getMaterial().setTexture(0, std::move(texture));
 	BoundingBox.MaxEdge.set(0,0,0);
 	BoundingBox.MinEdge.set(0,0,0);
+#endif
 
 	// regenerate the mesh
 	generateMesh();
@@ -143,6 +145,7 @@ void CSkyDomeSceneNode::generateMesh()
 		}
 	}
 
+#ifndef NEW_SHADERS
     auto vao = SceneManager->getVideoDriver()->createGPUMeshDataFormatDesc();
 
 	video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
@@ -173,6 +176,7 @@ void CSkyDomeSceneNode::generateMesh()
 	}
 
 	Buffer->setMeshDataAndFormat(std::move(vao));
+#endif
 }
 
 
@@ -185,6 +189,7 @@ void CSkyDomeSceneNode::render()
 	if (!camera || !driver)
 		return;
 
+#ifndef NEW_SHADERS
 	if ( !camera->getProjectionMatrix().isOrthogonal() && canProceedPastFence() ) // check this actually works!
 	{
 		core::matrix4x3 mat(AbsoluteTransformation);
@@ -210,6 +215,7 @@ void CSkyDomeSceneNode::render()
 			driver->drawMeshBuffer(Buffer);
 		}
 	}
+#endif
 }
 
 

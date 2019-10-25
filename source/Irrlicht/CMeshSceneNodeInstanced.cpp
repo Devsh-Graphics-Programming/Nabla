@@ -35,8 +35,11 @@ CMeshSceneNodeInstanced::CMeshSceneNodeInstanced(IDummyTransformationSceneNode* 
 
     renderPriority = 0x80000000u;
 
+#ifndef NEW_SHADERS
     lodCullingPointMesh = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>();
+    //set it in meshbuffer's pipeline in primitive assembly params
     lodCullingPointMesh->setPrimitiveType(asset::EPT_POINTS);
+#endif
 }
 
 //! destructor
@@ -47,6 +50,7 @@ CMeshSceneNodeInstanced::~CMeshSceneNodeInstanced()
 }
 
 
+#ifndef NEW_SHADERS
 //! Sets a new meshbuffer
 bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SGPUMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride, const size_t shaderLoDsPerPass, void* overrideUserData, const size_t& extraDataSizePerInstanceInput)
 {
@@ -60,7 +64,9 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
     gpuCulledLodInstanceDataBuffer = nullptr;
     extraDataInstanceSize = 0;
 
+#ifndef NEW_SHADERS
     lodCullingPointMesh->setMeshDataAndFormat(nullptr);
+#endif
     lodCullingPointMesh->setIndexCount(0);
 
     if (levelsOfDetail.size()==0||!vaoSetupOverride)
@@ -195,6 +201,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
 
     return true;
 }
+#endif
 
 uint32_t CMeshSceneNodeInstanced::addInstance(const core::matrix4x3& relativeTransform, const void* extraData)
 {
@@ -449,6 +456,7 @@ void CMeshSceneNodeInstanced::RecullInstances()
         }
 
         driver->setTransform(video::E4X3TS_WORLD,AbsoluteTransformation);
+#ifndef NEW_SHADERS
         for (size_t i=0; i<xfb.size(); i++)
         {
             reinterpret_cast<uint32_t&>(lodCullingPointMesh->getMaterial().MaterialTypeParam) = i*gpuLoDsPerPass;
@@ -462,6 +470,7 @@ void CMeshSceneNodeInstanced::RecullInstances()
                 driver->endQuery(LoD[i*gpuLoDsPerPass+j].query.get(),j);
             driver->endTransformFeedback();
         }
+#endif
 
         renderPriority = 0x80000000u-(++recullOrder);
         flagQueryForRetrieval = true;
@@ -493,6 +502,7 @@ void CMeshSceneNodeInstanced::OnRegisterSceneNode()
             if (!mb || mb->getIndexCount()<1)
                 continue;
 
+#ifndef NEW_SHADERS
             video::IMaterialRenderer* rnd = driver->getMaterialRenderer(0);
 
             if (rnd && rnd->isTransparent())
@@ -502,6 +512,7 @@ void CMeshSceneNodeInstanced::OnRegisterSceneNode()
 
             if (solidCount && transparentCount)
                 break;
+#endif
         }
 
 		// register according to material types counted
@@ -553,6 +564,7 @@ void CMeshSceneNodeInstanced::render()
         flagQueryForRetrieval = false;
     }
 
+#ifndef NEW_SHADERS
     for (uint32_t i=0; i<LoD.size(); ++i)
     {
         for (size_t j=0; j<LoD[i].mesh->getMeshBufferCount(); j++)
@@ -571,6 +583,7 @@ void CMeshSceneNodeInstanced::render()
             }
         }
     }
+#endif
 }
 
 

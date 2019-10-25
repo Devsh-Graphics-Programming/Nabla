@@ -62,7 +62,25 @@ class CCPUSkinnedMesh : public ICPUSkinnedMesh
 		virtual void addMeshBuffer(core::smart_refctd_ptr<ICPUSkinnedMeshBuffer>&& buf) {return LocalBuffers.push_back(std::move(buf)); }
 
 		//! Adds a new joint to the mesh, access it as last one
-		virtual SJoint *addJoint(SJoint *parent = 0) override;
+		virtual SJoint *addJoint(SJoint *parent = 0) override
+        {
+            SJoint *joint = new SJoint;
+
+            AllJoints.push_back(joint);
+            if (!parent)
+            {
+                //Add root joints to array in finalize()
+                joint->Parent = nullptr;
+            }
+            else
+            {
+                //Set parent (Be careful of the mesh loader also setting the parent)
+                parent->Children.push_back(joint);
+                joint->Parent = parent;
+            }
+
+            return joint;
+        }
 
 	private:
 		void checkForAnimation();

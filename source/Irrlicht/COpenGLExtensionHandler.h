@@ -10,23 +10,20 @@
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
-#include "os.h"
-
 #include "COpenGLStateManager.h"
-#include "COpenGLCubemapTexture.h"
 
 #ifdef _IRR_WINDOWS_API_
 	// include windows headers for HWND
-	#define WIN32_LEAN_AND_MEAN
-	#ifndef NOMINMAX
-		#define NOMINMAX
-	#endif
-	#include <windows.h>
 	#include "../src/3rdparty/GL/wglext.h"
 #elif defined(_IRR_COMPILE_WITH_X11_)
     #include "GL/glx.h"
     #include "../src/3rdparty/GL/glxext.h"
 #endif
+
+#include "os.h"
+
+#include "COpenGLCubemapTexture.h"
+
 
 namespace irr
 {

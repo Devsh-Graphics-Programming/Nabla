@@ -65,7 +65,7 @@ namespace video
 
 #define glBindVertexArray_MACRO COpenGLExtensionHandler::extGlBindVertexArray
 
-#include "COpenGLStateManagerImpl.h"
+//#include "COpenGLStateManagerImpl.h"
 
 
 uint16_t COpenGLExtensionHandler::Version = 0;
@@ -1034,7 +1034,7 @@ void COpenGLExtensionHandler::loadFunctions()
     {
         glGetIntegerv(GL_NUM_SPIR_V_EXTENSIONS, reinterpret_cast<GLint*>(&SPIR_VextensionsCount));
         if (SPIR_VextensionsCount)
-            SPIR_Vextensions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<const GLubyte*>>(SPIR_VextensionsCount, nullptr);
+            SPIR_Vextensions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<const GLubyte*>>(SPIR_VextensionsCount);
         for (GLuint i = 0u; i < SPIR_VextensionsCount; ++i)
             (*SPIR_Vextensions)[i] = pGlGetStringi(GL_SPIR_V_EXTENSIONS, i);
     }

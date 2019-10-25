@@ -7,6 +7,7 @@ using namespace video;
 
 COpenGLTransformFeedback::COpenGLTransformFeedback() : xformFeedbackHandle(0), cachedPrimitiveType(GL_INVALID_ENUM), cachedXFormFeedbackShader(-1), lastValidated(0), started(false)
 {
+#ifndef NEW_SHADERS
     for (size_t i=0; i<_IRR_XFORM_FEEDBACK_MAX_BUFFERS_; i++)
     {
         xformFeedbackBuffers[i] = NULL;
@@ -15,10 +16,12 @@ COpenGLTransformFeedback::COpenGLTransformFeedback() : xformFeedbackHandle(0), c
     }
 
     COpenGLExtensionHandler::extGlCreateTransformFeedbacks(1,&xformFeedbackHandle);
+#endif
 }
 
 COpenGLTransformFeedback::~COpenGLTransformFeedback()
 {
+#ifndef NEW_SHADERS
     COpenGLExtensionHandler::extGlDeleteTransformFeedbacks(1,&xformFeedbackHandle);
 
     for (size_t i=0; i<_IRR_XFORM_FEEDBACK_MAX_BUFFERS_; i++)
@@ -26,10 +29,12 @@ COpenGLTransformFeedback::~COpenGLTransformFeedback()
         if (xformFeedbackBuffers[i])
             xformFeedbackBuffers[i]->drop();
     }
+#endif
 }
 
 bool COpenGLTransformFeedback::rebindRevalidate()
 {
+#ifndef NEW_SHADERS
     uint64_t highestRevalidateStamp = lastValidated;
 
     for (size_t i=0; i<_IRR_XFORM_FEEDBACK_MAX_BUFFERS_; i++)
@@ -55,10 +60,14 @@ bool COpenGLTransformFeedback::rebindRevalidate()
     lastValidated = highestRevalidateStamp;
 
 	return true;
+#else
+    return false;
+#endif
 }
 
 bool COpenGLTransformFeedback::bindOutputBuffer(const size_t& index, IGPUBuffer* buffer, const size_t& offset, const size_t& length)
 {
+#ifndef NEW_SHADERS
     if (index>=_IRR_XFORM_FEEDBACK_MAX_BUFFERS_)
         return false;
 
@@ -73,7 +82,6 @@ bool COpenGLTransformFeedback::bindOutputBuffer(const size_t& index, IGPUBuffer*
     size_t tmpSize;
     if (buffer)
         tmpSize = length>0 ? length:(buffer->getSize()-offset);
-
 
     //no chance needed if all parameters are equal, or buffers are equal and NULL
     if (xformFeedbackBuffers[index]==buffer)
@@ -109,6 +117,9 @@ bool COpenGLTransformFeedback::bindOutputBuffer(const size_t& index, IGPUBuffer*
         COpenGLExtensionHandler::extGlTransformFeedbackBufferBase(xformFeedbackHandle,index,xformFeedbackBuffers[index]->getOpenGLName());
 
     return true;
+#else
+    return false;
+#endif
 }
 
 

@@ -34,7 +34,7 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(	core::smart_refctd_ptr<video::ITexture>&& to
 
 
 	// create material
-
+#ifndef NEW_SHADERS
 	video::SGPUMaterial mat;
 	mat.ZBuffer = video::ECFN_NEVER;
 	mat.ZWriteEnable = false;
@@ -142,6 +142,7 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(	core::smart_refctd_ptr<video::ITexture>&& to
     sides[4]->getMeshDataAndFormat()->setVertexAttrBuffer(core::smart_refctd_ptr(texcoordBuf),asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT);
     sides[5]->getMeshDataAndFormat()->setVertexAttrBuffer(core::smart_refctd_ptr(vertPositions),asset::EVAI_ATTR0,asset::EF_R8G8B8_SSCALED,0,positionsOffsetInBuf+3*4*5);
     sides[5]->getMeshDataAndFormat()->setVertexAttrBuffer(core::smart_refctd_ptr(texcoordBuf),asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT,0,2*4*sizeof(float));
+#endif
 }
 
 CSkyBoxSceneNode::CSkyBoxSceneNode(CSkyBoxSceneNode* other,
@@ -157,12 +158,14 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(CSkyBoxSceneNode* other,
 	Box.MinEdge.set(0,0,0);
 
 
+#ifndef NEW_SHADERS
 	for (size_t i=0; i<6; i++)
     {
         other->sides[i]->grab();
         sides[i] = other->sides[i];
 		Material[i] = other->Material[i];
     }
+#endif
 }
 
 
@@ -189,11 +192,13 @@ void CSkyBoxSceneNode::render()
 
 		driver->setTransform(video::E4X3TS_WORLD, concatenateBFollowedByA(translate,scale));
 
+#ifndef NEW_SHADERS
 		for (int32_t i=0; i<6; ++i)
 		{
 			driver->setMaterial(Material[i]);
 			driver->drawMeshBuffer(sides[i]);
 		}
+#endif
 	}
 	else
 	{
@@ -224,6 +229,7 @@ void CSkyBoxSceneNode::render()
 			idx = lookVect.Z > 0 ? 1 : 3;
 		}
 
+#ifndef NEW_SHADERS
 		video::IRenderableVirtualTexture* vtex = Material[idx].getTexture(0);
 
 		if ( vtex && vtex->getVirtualTextureType()==video::IRenderableVirtualTexture::EVTT_OPAQUE_FILTERABLE )
@@ -237,6 +243,7 @@ void CSkyBoxSceneNode::render()
 
 			driver->draw2DImage(texture, rctDest, rctSrc);
 		}
+#endif
 	}
 }
 

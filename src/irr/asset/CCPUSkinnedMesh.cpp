@@ -81,6 +81,7 @@ void CCPUSkinnedMesh::checkForAnimation()
         }
 	}
 
+#ifndef NEW_SHADERS
 	//meshes with weights, are still counted as animated for ragdolls, etc
 	if (!HasAnimation && AllJoints.size())
 	{
@@ -100,6 +101,7 @@ void CCPUSkinnedMesh::checkForAnimation()
             }
 		}
 	}
+#endif
 }
 
 void PrintDebugBoneHierarchy(ICPUSkinnedMesh::SJoint* joint, std::string indent="", ICPUSkinnedMesh::SJoint* parentJoint=NULL)
@@ -151,6 +153,7 @@ void CCPUSkinnedMesh::finalize()
 
 	//
 	core::aabbox3df BoundingBox(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX);
+#ifndef NEW_SHADERS
 	for (auto buff : LocalBuffers)
 	{
         asset::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = buff->getMeshDataAndFormat();
@@ -207,6 +210,7 @@ void CCPUSkinnedMesh::finalize()
             buff->setMaxVertexBoneInfluences(maxVertexInfluences);
         }
 	}
+#endif
 	if (firstTouch)
         delete [] firstTouch;
 	setBoundingBox(BoundingBox);
@@ -262,6 +266,7 @@ void CCPUSkinnedMesh::finalize()
         AllJoints = jointsReorderedByLevel;
 
         // fix the weights
+#ifndef NEW_SHADERS
         for (auto buff : LocalBuffers)
         {
             asset::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = buff->getMeshDataAndFormat();
@@ -285,6 +290,7 @@ void CCPUSkinnedMesh::finalize()
             }
         }
 	}
+#endif
 
 
     //--- optimize and check keyframes ---
@@ -375,30 +381,8 @@ void CCPUSkinnedMesh::finalize()
 
         referenceHierarchy = core::make_smart_refctd_ptr<CFinalBoneHierarchy>(AllJoints,JointIxLevelEnd);
     }
+    }
 }
-
-
-CCPUSkinnedMesh::SJoint *CCPUSkinnedMesh::addJoint(SJoint *parent)
-{
-	SJoint *joint = new SJoint;
-
-	AllJoints.push_back(joint);
-	if (!parent)
-	{
-		//Add root joints to array in finalize()
-		joint->Parent = nullptr;
-	}
-	else
-	{
-		//Set parent (Be careful of the mesh loader also setting the parent)
-		parent->Children.push_back(joint);
-		joint->Parent = parent;
-	}
-
-	return joint;
-}
-
-
 
 } // end namespace scene
 } // end namespace irr

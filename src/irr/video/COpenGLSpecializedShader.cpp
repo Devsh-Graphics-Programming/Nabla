@@ -94,13 +94,15 @@ static GLenum ESS2GLenum(asset::E_SHADER_STAGE _stage)
 
 COpenGLSpecializedShader::COpenGLSpecializedShader(size_t _ctxCount, uint32_t _ctxID, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection) :
     IGPUSpecializedShader(_specInfo->shaderStage),
-    m_GLnames(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(_ctxCount, 0u)),
+    m_GLnames(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(_ctxCount)),
     m_GLstage(impl::ESS2GLenum(_specInfo->shaderStage)),
     m_spirv(core::smart_refctd_ptr<const asset::ICPUBuffer>(_spirv)),
     m_specInfo(core::smart_refctd_ptr<const asset::ISpecializationInfo>(_specInfo)),
-    m_introspectionData(core::smart_refctd_ptr<asset::CIntrospectionData>(_introspection))
+    m_introspectionData(core::smart_refctd_ptr<const asset::CIntrospectionData>(_introspection))
 {
     m_GLnames->operator[](_ctxID) = compile(_GLSLversion);
+    for (auto& nm : (*m_GLnames))
+        nm = 0u;
 }
 
 GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion)

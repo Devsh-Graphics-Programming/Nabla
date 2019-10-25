@@ -27,18 +27,26 @@ class COpenGLTransformFeedback : public ITransformFeedback
 
         virtual const IGPUBuffer* getOutputBuffer(const size_t &ix) const
         {
+#ifndef NEW_SHADERS
             if (ix>=_IRR_XFORM_FEEDBACK_MAX_BUFFERS_)
                 return NULL;
 
             return xformFeedbackBuffers[ix];
+#else
+            return nullptr;
+#endif
         }
 
         virtual size_t getOutputBufferOffset(const size_t &ix) const
         {
+#ifndef NEW_SHADERS
             if (ix>=_IRR_XFORM_FEEDBACK_MAX_BUFFERS_)
                 return 0;
 
             return xformFeedbackBuffersOffset[ix];
+#else
+            return 0ull;
+#endif
         }
 
         inline const GLuint& getOpenGLHandle() const {return xformFeedbackHandle;}
@@ -47,10 +55,12 @@ class COpenGLTransformFeedback : public ITransformFeedback
         {
             cachedPrimitiveType = primType;
         }
+#ifndef NEW_SHADERS
         inline void setMaterialType(const E_MATERIAL_TYPE& materialType)
         {
             cachedXFormFeedbackShader = materialType;
         }
+#endif
         inline const int32_t& getMaterialType() const {return cachedXFormFeedbackShader;}
 
         //! Begin, Pause, Resume, End
@@ -76,10 +86,11 @@ class COpenGLTransformFeedback : public ITransformFeedback
 
     protected:
         GLuint xformFeedbackHandle;
+#ifndef NEW_SHADERS
         size_t xformFeedbackBuffersOffset[_IRR_XFORM_FEEDBACK_MAX_BUFFERS_];
         size_t xformFeedbackBuffersSize[_IRR_XFORM_FEEDBACK_MAX_BUFFERS_];
         COpenGLBuffer* xformFeedbackBuffers[_IRR_XFORM_FEEDBACK_MAX_BUFFERS_];
-
+#endif
         GLenum cachedPrimitiveType;
         int32_t cachedXFormFeedbackShader;
 

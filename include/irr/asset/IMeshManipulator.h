@@ -213,7 +213,8 @@ namespace asset
 		/** \param meshbuffer Input mesh buffer
 		\param Outputted Number of polygons in mesh buffer, if successful.
 		\return If successfully can provide information */
-		static inline bool getPolyCount(uint32_t& outCount, ICPUMeshBuffer* meshbuffer)
+        template<typename ...MeshbufTemplParams>
+		static inline bool getPolyCount(uint32_t& outCount, IMeshBuffer<MeshbufTemplParams...>* meshbuffer)
 		{
 			outCount = 0;
 			if (meshbuffer)

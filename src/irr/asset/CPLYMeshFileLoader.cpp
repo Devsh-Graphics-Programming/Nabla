@@ -66,7 +66,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         return {};
 
     SContext ctx;
-	ctx.File = std::move(core::make_smart_refctd_ptr<io::IReadFile>(_file));
+	ctx.File = _file;
 
 	// attempt to allocate the buffer and fill with data
 	if (!allocateBuffer(ctx))
@@ -144,7 +144,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				else
 				{
 					// get element
-					core::smart_refctd_ptr<SPLYElement> el = std::move(ctx.ElementList[ctx.ElementList.size()-1]);
+					SPLYElement* el = ctx.ElementList.back().get();
 				
 					// fill property struct
 					SPLYProperty prop;
@@ -188,7 +188,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			}
 			else if (strcmp(word, "element") == 0)
 			{
-				SPLYElement* el = new SPLYElement;
+                auto el = std::make_unique<SPLYElement>();
 				el->Name = getNextWord(ctx);
 				el->Count = atoi(getNextWord(ctx));
 				el->IsFixedWidth = true;
@@ -244,19 +244,19 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				{
 					// loop through vertex properties
 					for (uint32_t j=0; j < ctx.ElementList[i]->Count; ++j)
-						hasNormals &= readVertex(ctx, *ctx.ElementList[i], attribs);
+						hasNormals &= readVertex(ctx, ctx.ElementList[i].get()[0], attribs);
 				}
 				else if (ctx.ElementList[i]->Name == "face")
 				{
 					// read faces
 					for (uint32_t j=0; j < ctx.ElementList[i]->Count; ++j)
-						readFace(ctx, *ctx.ElementList[i], indices);
+						readFace(ctx, ctx.ElementList[i].get()[0], indices);
 				}
 				else
 				{
 					// skip these elements
 					for (uint32_t j=0; j < ctx.ElementList[i]->Count; ++j)
-						skipElement(ctx, *ctx.ElementList[i]);
+						skipElement(ctx, ctx.ElementList[i].get()[0]);
 				}
 			}
 

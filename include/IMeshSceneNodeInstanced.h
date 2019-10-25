@@ -33,7 +33,9 @@ class IMeshSceneNodeInstanced : public ISceneNode
     public:
         constexpr static decltype(InstanceDataAddressAllocator::invalid_address) kInvalidInstanceID         = InstanceDataAddressAllocator::invalid_address;
 
+#ifndef NEW_SHADERS
         typedef core::smart_refctd_ptr<asset::IMeshDataFormatDesc<video::IGPUBuffer> > (*VaoSetupOverrideFunc)(ISceneManager*,video::IGPUBuffer*,const size_t&,const asset::IMeshDataFormatDesc<video::IGPUBuffer>*, void* userData);
+#endif
 
         struct MeshLoD
         {
@@ -54,6 +56,7 @@ class IMeshSceneNodeInstanced : public ISceneNode
             setAutomaticCulling(EAC_OFF);
         }
 
+#ifndef NEW_SHADERS
         //! Sets a new mesh to display
         /** Extra Per-Instance input data is passed along as floating point components filling attribute slot 5 yzw components, and all components slots in attribute 6 and up
         Any remaining data after attribute 15 W component will not be passed as vertex attribute but will be retained in the input array which can be accessed by
@@ -65,6 +68,7 @@ class IMeshSceneNodeInstanced : public ISceneNode
         \param mesh Mesh to display. */
         virtual bool setLoDMeshes(  const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput, const video::SGPUMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride,
                                     const size_t shaderLoDsPerPass=1, void* overrideUserData=NULL, const size_t& extraDataSizePerInstanceInput=0) = 0;
+#endif
 
         //! Get the currently defined mesh for display.
         /** \return Pointer to mesh which is displayed by this node. */
