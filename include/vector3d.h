@@ -59,38 +59,6 @@ namespace core
 		vector3d<T> operator/(const T v) const { T i=(T)1.0/v; return vector3d<T>(X * i, Y * i, Z * i); }
 		vector3d<T>& operator/=(const T v) { T i=(T)1.0/v; X*=i; Y*=i; Z*=i; return *this; }
 
-		//! sort in order X, Y, Z. Equality with rounding tolerance.
-		bool operator<=(const vector3d<T>&other) const
-		{
-			return 	X<=other.X ||
-					(X==other.X && Y<=other.Y) ||
-					(X==other.X && Y==other.Y && Z<=other.Z);
-		}
-
-		//! sort in order X, Y, Z. Equality with rounding tolerance.
-		bool operator>=(const vector3d<T>&other) const
-		{
-			return 	X>=other.X ||
-					(X==other.X && Y>=other.Y) ||
-					(X==other.X && Y==other.Y && Z>=other.Z);
-		}
-/*
-		//! sort in order X, Y, Z. Difference must be above rounding tolerance.
-		bool operator<(const vector3d<T>&other) const
-		{
-			return 	(X<other.X ||
-					(core::equals(X, other.X) && Y<other.Y && !core::equals(Y, other.Y)) ||
-					(core::equals(X, other.X) && core::equals(Y, other.Y) && Z<other.Z && !core::equals(Z, other.Z));
-		}
-
-		//! sort in order X, Y, Z. Difference must be above rounding tolerance.
-		bool operator>(const vector3d<T>&other) const
-		{
-			return 	(X>other.X && !core::equals(X, other.X)) ||
-					(core::equals(X, other.X) && Y>other.Y && !core::equals(Y, other.Y)) ||
-					(core::equals(X, other.X) && core::equals(Y, other.Y) && Z>other.Z && !core::equals(Z, other.Z));
-		}
-*/
 		//! use weak float compare
 		bool operator==(const vector3d<T>& other) const
 		{

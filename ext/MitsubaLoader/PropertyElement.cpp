@@ -153,13 +153,18 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 			for (auto i=0u; i<3u; i++)
 			if (desiredAttributes[i])
 				result.vvalue[i] = atof(desiredAttributes[i]);
+			{
+				core::matrix3x4SIMD m;
+				m.setTranslation(result.vvalue);
+				result.mvalue = core::matrix4SIMD(m);
+			}
 			break;
 		case SPropertyElementData::Type::ROTATE:
 			FAIL_IF_ATTRIBUTE_NULL(0u) // have to have an angle
 			result.vvalue.set(0.f, 0.f, 0.f);
 			for (auto i=0u; i<3u; i++)
-			if (desiredAttributes[i])
-				result.vvalue[i] = atof(desiredAttributes[i]);
+			if (desiredAttributes[i+1])
+				result.vvalue[i] = atof(desiredAttributes[i+1]);
 			if ((core::vectorSIMDf(0.f) == result.vvalue).all())
 			{
 				success = false;

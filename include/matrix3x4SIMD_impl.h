@@ -14,9 +14,9 @@ inline matrix3x4SIMD& matrix3x4SIMD::set(const matrix4x3& _retarded)
 	vectorSIMDf c3(0.f, 0.f, 0.f, 1.f);
 	for (size_t i = 0u; i < VectorCount; ++i)
 		rows[i] = vectorSIMDf(&_retarded.getColumn(i).X);
-	const float* rtdLastColPtr = &_retarded.getColumn(VectorCount).X;
-	std::copy(rtdLastColPtr, rtdLastColPtr + VectorCount, c3.pointer);
 	core::transpose4(rows[0], rows[1], rows[2], c3);
+	for (size_t i = 0u; i < VectorCount; ++i)
+		rows[i][3] = (&_retarded.getColumn(3).X)[i];
 
 	return *this;
 }
