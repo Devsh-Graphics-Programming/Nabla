@@ -26,15 +26,15 @@ class IRR_FORCE_EBO SFixedFuncLayout
         video::SDepthStencilState depthStencilState; //vkPipelineDepthStencilStateCreateInfo
         video::SMultisampleState multisampleState; //vkPipelineMultisampleStateCreateInfo
         video::SGlobalBlendState globalBlendState; //vkPipelineColorBlendStateCreateInfo
-        video::SSeparateBlendState separateBlendState[OGL_STATE_MAX_DRAW_BUFFERS]; //vkPipelineColorBlendAttachmentState
+        video::SSeparateBlendState separateBlendState[OGL_STATE_maxDRAW_BUFFERS]; //vkPipelineColorBlendAttachmentState
         video::SPipelineLayout pipelineLayout; //VkPipelineLayoutCreateInfo
 
         //! Descriptor Sets
         video::SCombinedImageSamplers combinedImageSampler[MATERIAL_MAX_TEXTURES];
-        video::SStorageImage storageImages[MATERIAL_MAX_IMAGES];
-        video::SInputAttachment inputAttachments[OGL_STATE_MAX_DRAW_BUFFERS];
-        video::SUniformBuffer uniformBuffers[MATERIAL_MAX_UNIFORM_BUFFER_OBJECTS];
-        video::SStorageBuffer storageBuffers[MATERIAL_MAX_SSBOs];
+        video::SStorageImage storageImages[MATERIAL_maxIMAGES];
+        video::SInputAttachment inputAttachments[OGL_STATE_maxDRAW_BUFFERS];
+        video::SUniformBuffer uniformBuffers[MATERIAL_maxUNIFORM_BUFFER_OBJECTS];
+        video::SStorageBuffer storageBuffers[MATERIAL_maxSSBOs];
         video::SUniformTexelBuffer uniformTexelBuffers[MATERIAL_MAX_TEXTURES];
 };
 */

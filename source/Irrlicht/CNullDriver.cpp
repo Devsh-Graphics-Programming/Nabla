@@ -442,7 +442,7 @@ void CNullDriver::draw2DImageBatch(const video::ITexture* texture,
 				SColor color,
 				bool useAlphaChannelOfTexture)
 {
-	const uint32_t drawCount = core::min_<uint32_t>(positions.size(), sourceRects.size());
+	const uint32_t drawCount = core::min<uint32_t>(positions.size(), sourceRects.size());
 
 	for (uint32_t i=0; i<drawCount; ++i)
 	{

@@ -5,9 +5,7 @@
 #ifndef __S_VIEW_FRUSTUM_H_INCLUDED__
 #define __S_VIEW_FRUSTUM_H_INCLUDED__
 
-#include "irr/core/math/plane3dSIMD.h"
-#include "aabbox3d.h"
-#include "matrix4SIMD.h"
+#include "irr/core/core.h"
 #include "IVideoDriver.h"
 
 namespace irr
@@ -181,7 +179,6 @@ namespace scene
 		for ( auto i=0; i != VF_PLANE_COUNT; ++i)
 		{
 		    auto normal(planes[i].getNormal());
-		    normal.makeSafe3D();
             *reinterpret_cast<core::vectorSIMDf*>(planes+i) *= core::inversesqrt(core::dot(normal,normal));
 		}
 

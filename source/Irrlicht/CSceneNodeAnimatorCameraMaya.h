@@ -93,8 +93,8 @@ namespace scene
 
 		gui::ICursorControl *CursorControl;
 		scene::ICameraSceneNode* OldCamera;
-		core::vector3df OldTarget;
-		core::vector3df LastCameraTarget;	// to find out if the camera target was moved outside this animator
+		core::vectorSIMDf OldTarget;
+		core::vectorSIMDf LastCameraTarget;	// to find out if the camera target was moved outside this animator
 		core::position2df RotateStart;
 		core::position2df ZoomStart;
 		core::position2df TranslateStart;

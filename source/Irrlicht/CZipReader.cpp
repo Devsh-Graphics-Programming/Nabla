@@ -24,21 +24,13 @@ extern "C" void bz_internal_error(int errorCode)
 
 #include "IrrCompileConfig.h"
 #ifdef _IRR_COMPILE_WITH_ZLIB_
-	#ifndef _IRR_USE_NON_SYSTEM_ZLIB_
-	#include <zlib.h> // use system lib
-	#else
 	#include "zlib/zlib.h"
-	#endif
 
 	#ifdef _IRR_COMPILE_WITH_ZIP_ENCRYPTION_
 	#include "aesGladman/fileenc.h"
 	#endif
 	#ifdef _IRR_COMPILE_WITH_BZIP2_
-	#ifndef _IRR_USE_NON_SYSTEM_BZLIB_
-	#include <bzlib.h>
-	#else
 	#include "bzip2/bzlib.h"
-	#endif
 	#endif
 	#ifdef _IRR_COMPILE_WITH_LZMA_
 	#include "lzma/LzmaDec.h"
@@ -81,14 +73,14 @@ bool CArchiveLoaderZIP::isALoadableFileFormat(E_FILE_ARCHIVE_TYPE fileType) cons
 //! Creates an archive from the filename
 /** \param file File handle to check.
 \return Pointer to newly created archive, or 0 upon error. */
-IFileArchive* CArchiveLoaderZIP::createArchive(const io::path& filename, bool ignoreCase, bool ignorePaths) const
+IFileArchive* CArchiveLoaderZIP::createArchive(const io::path& filename) const
 {
 	IFileArchive *archive = 0;
 	io::IReadFile* file = FileSystem->createAndOpenFile(filename);
 
 	if (file)
 	{
-		archive = createArchive(file, ignoreCase, ignorePaths);
+		archive = createArchive(file);
 		file->drop();
 	}
 
@@ -97,7 +89,7 @@ IFileArchive* CArchiveLoaderZIP::createArchive(const io::path& filename, bool ig
 
 //! creates/loads an archive from the file.
 //! \return Pointer to the created archive. Returns 0 if loading failed.
-IFileArchive* CArchiveLoaderZIP::createArchive(io::IReadFile* file, bool ignoreCase, bool ignorePaths) const
+IFileArchive* CArchiveLoaderZIP::createArchive(io::IReadFile* file) const
 {
 	IFileArchive *archive = 0;
 	if (file)
@@ -107,15 +99,11 @@ IFileArchive* CArchiveLoaderZIP::createArchive(io::IReadFile* file, bool ignoreC
 		uint16_t sig;
 		file->read(&sig, 2);
 
-#ifdef __BIG_ENDIAN__
-		sig = os::Byteswap::byteswap(sig);
-#endif
-
 		file->seek(0);
 
 		bool isGZip = (sig == 0x8b1f);
 
-		archive = new CZipReader(file, ignoreCase, ignorePaths, isGZip);
+		archive = new CZipReader(file, isGZip);
 	}
 	return archive;
 }
@@ -126,12 +114,11 @@ IFileArchive* CArchiveLoaderZIP::createArchive(io::IReadFile* file, bool ignoreC
 \return True if file seems to be loadable. */
 bool CArchiveLoaderZIP::isALoadableFileFormat(io::IReadFile* file) const
 {
+	const size_t prevPos = file->getPos();
+	file->seek(0u);
 	SZIPFileHeader header;
-
 	file->read( &header.Sig, 4 );
-#ifdef __BIG_ENDIAN__
-	header.Sig = os::Byteswap::byteswap(header.Sig);
-#endif
+	file->seek(prevPos);
 
 	return header.Sig == 0x04034b50 || // ZIP
 		   (header.Sig&0xffff) == 0x8b1f; // gzip
@@ -141,8 +128,7 @@ bool CArchiveLoaderZIP::isALoadableFileFormat(io::IReadFile* file) const
 // zip archive
 // -----------------------------------------------------------------------------
 
-CZipReader::CZipReader(IReadFile* file, bool ignoreCase, bool ignorePaths, bool isGZip)
- : CFileList((file ? file->getFileName() : io::path("")), ignoreCase, ignorePaths), File(file), IsGZip(isGZip)
+CZipReader::CZipReader(IReadFile* file, bool isGZip) : CFileList(file ? file->getFileName() : io::path("")), File(file), IsGZip(isGZip)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("CZipReader");
@@ -192,12 +178,6 @@ bool CZipReader::scanGZipHeader()
 	SGZIPMemberHeader header;
 	if (File->read(&header, sizeof(SGZIPMemberHeader)) == sizeof(SGZIPMemberHeader))
 	{
-
-#ifdef __BIG_ENDIAN__
-		header.sig = os::Byteswap::byteswap(header.sig);
-		header.time = os::Byteswap::byteswap(header.time);
-#endif
-
 		// check header value
 		if (header.sig != 0x8b1f)
 			return false;
@@ -209,10 +189,6 @@ bool CZipReader::scanGZipHeader()
 			uint16_t dataLen;
 
 			File->read(&dataLen, 2);
-
-#ifdef __BIG_ENDIAN__
-			dataLen = os::Byteswap::byteswap(dataLen);
-#endif
 
 			// skip it
 			File->seek(dataLen, true);
@@ -275,11 +251,6 @@ bool CZipReader::scanGZipHeader()
 		// read uncompressed size
 		File->read(&entry.header.DataDescriptor.UncompressedSize, 4);
 
-#ifdef __BIG_ENDIAN__
-		entry.header.DataDescriptor.CRC32 = os::Byteswap::byteswap(entry.header.DataDescriptor.CRC32);
-		entry.header.DataDescriptor.UncompressedSize = os::Byteswap::byteswap(entry.header.DataDescriptor.UncompressedSize);
-#endif
-
 		// now we've filled all the fields, this is just a standard deflate block
 		addItem(ZipFileName, entry.Offset, entry.header.DataDescriptor.UncompressedSize, false, 0);
 		FileInfo.push_back(entry);
@@ -299,19 +270,6 @@ bool CZipReader::scanZipHeader(bool ignoreGPBits)
 
 	File->read(&entry.header, sizeof(SZIPFileHeader));
 
-#ifdef __BIG_ENDIAN__
-		entry.header.Sig = os::Byteswap::byteswap(entry.header.Sig);
-		entry.header.VersionToExtract = os::Byteswap::byteswap(entry.header.VersionToExtract);
-		entry.header.GeneralBitFlag = os::Byteswap::byteswap(entry.header.GeneralBitFlag);
-		entry.header.CompressionMethod = os::Byteswap::byteswap(entry.header.CompressionMethod);
-		entry.header.LastModFileTime = os::Byteswap::byteswap(entry.header.LastModFileTime);
-		entry.header.LastModFileDate = os::Byteswap::byteswap(entry.header.LastModFileDate);
-		entry.header.DataDescriptor.CRC32 = os::Byteswap::byteswap(entry.header.DataDescriptor.CRC32);
-		entry.header.DataDescriptor.CompressedSize = os::Byteswap::byteswap(entry.header.DataDescriptor.CompressedSize);
-		entry.header.DataDescriptor.UncompressedSize = os::Byteswap::byteswap(entry.header.DataDescriptor.UncompressedSize);
-		entry.header.FilenameLength = os::Byteswap::byteswap(entry.header.FilenameLength);
-		entry.header.ExtraFieldLength = os::Byteswap::byteswap(entry.header.ExtraFieldLength);
-#endif
 
 	if (entry.header.Sig != 0x04034b50)
 		return false; // local file headers end here.
@@ -334,19 +292,12 @@ bool CZipReader::scanZipHeader(bool ignoreGPBits)
 		while (restSize)
 		{
 			File->read(&extraHeader, sizeof(extraHeader));
-#ifdef __BIG_ENDIAN__
-			extraHeader.ID = os::Byteswap::byteswap(extraHeader.ID);
-			extraHeader.Size = os::Byteswap::byteswap(extraHeader.Size);
-#endif
 			restSize -= sizeof(extraHeader);
 			if (extraHeader.ID==(int16_t)0x9901)
 			{
 				SZipFileAESExtraData data;
 				File->read(&data, sizeof(data));
-#ifdef __BIG_ENDIAN__
-				data.Version = os::Byteswap::byteswap(data.Version);
-				data.CompressionMode = os::Byteswap::byteswap(data.CompressionMode);
-#endif
+
 				restSize -= sizeof(data);
 				if (data.Vendor[0]=='A' && data.Vendor[1]=='E')
 				{
@@ -406,15 +357,6 @@ bool CZipReader::scanZipHeader(bool ignoreGPBits)
 			File->seek(-seek, true);
 		}
 		File->read(&dirEnd, sizeof(dirEnd));
-#ifdef __BIG_ENDIAN__
-		dirEnd.NumberDisk = os::Byteswap::byteswap(dirEnd.NumberDisk);
-		dirEnd.NumberStart = os::Byteswap::byteswap(dirEnd.NumberStart);
-		dirEnd.TotalDisk = os::Byteswap::byteswap(dirEnd.TotalDisk);
-		dirEnd.TotalEntries = os::Byteswap::byteswap(dirEnd.TotalEntries);
-		dirEnd.Size = os::Byteswap::byteswap(dirEnd.Size);
-		dirEnd.Offset = os::Byteswap::byteswap(dirEnd.Offset);
-		dirEnd.CommentLength = os::Byteswap::byteswap(dirEnd.CommentLength);
-#endif
 		FileInfo.reserve(dirEnd.TotalEntries);
 		File->seek(dirEnd.Offset);
 		while (scanCentralDirectoryHeader()) { }
@@ -444,26 +386,6 @@ bool CZipReader::scanCentralDirectoryHeader()
 	SZIPFileCentralDirFileHeader entry;
 	File->read(&entry, sizeof(SZIPFileCentralDirFileHeader));
 
-#ifdef __BIG_ENDIAN__
-	entry.Sig = os::Byteswap::byteswap(entry.Sig);
-	entry.VersionMadeBy = os::Byteswap::byteswap(entry.VersionMadeBy);
-	entry.VersionToExtract = os::Byteswap::byteswap(entry.VersionToExtract);
-	entry.GeneralBitFlag = os::Byteswap::byteswap(entry.GeneralBitFlag);
-	entry.CompressionMethod = os::Byteswap::byteswap(entry.CompressionMethod);
-	entry.LastModFileTime = os::Byteswap::byteswap(entry.LastModFileTime);
-	entry.LastModFileDate = os::Byteswap::byteswap(entry.LastModFileDate);
-	entry.CRC32 = os::Byteswap::byteswap(entry.CRC32);
-	entry.CompressedSize = os::Byteswap::byteswap(entry.CompressedSize);
-	entry.UncompressedSize = os::Byteswap::byteswap(entry.UncompressedSize);
-	entry.FilenameLength = os::Byteswap::byteswap(entry.FilenameLength);
-	entry.ExtraFieldLength = os::Byteswap::byteswap(entry.ExtraFieldLength);
-	entry.FileCommentLength = os::Byteswap::byteswap(entry.FileCommentLength);
-	entry.DiskNumberStart = os::Byteswap::byteswap(entry.DiskNumberStart);
-	entry.InternalFileAttributes = os::Byteswap::byteswap(entry.InternalFileAttributes);
-	entry.ExternalFileAttributes = os::Byteswap::byteswap(entry.ExternalFileAttributes);
-	entry.RelativeOffsetOfLocalHeader = os::Byteswap::byteswap(entry.RelativeOffsetOfLocalHeader);
-#endif
-
 	if (entry.Sig != 0x02014b50)
 		return false; // central dir headers end here.
 
@@ -482,7 +404,7 @@ bool CZipReader::scanCentralDirectoryHeader()
 //! opens a file by file name
 IReadFile* CZipReader::createAndOpenFile(const io::path& filename)
 {
-    auto found = findFile(Files.begin(),Files.end(),filename,false);
+    auto found = findFile(Files.begin(),Files.end(),io::IFileSystem::flattenFilename(filename),false);
 	if (found==Files.end())
         return nullptr;
 

@@ -16,8 +16,8 @@ namespace scene
 	public:
 
 		//! constructor
-		CSceneNodeAnimatorFlyStraight(const core::vector3df& startPoint,
-						const core::vector3df& endPoint,
+		CSceneNodeAnimatorFlyStraight(const core::vectorSIMDf& startPoint,
+						const core::vectorSIMDf& endPoint,
 						uint32_t timeForWay,
 						bool loop, uint32_t now, bool pingpong);
 
@@ -36,9 +36,9 @@ namespace scene
 
 		void recalculateIntermediateValues();
 
-		core::vector3df Start;
-		core::vector3df End;
-		core::vector3df Vector;
+		core::vectorSIMDf Start;
+		core::vectorSIMDf End;
+		core::vectorSIMDf Vector;
 		float TimeFactor;
 		uint32_t StartTime;
 		uint32_t TimeForWay;

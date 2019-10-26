@@ -1495,7 +1495,7 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
     if (indexSize)
         extGlDrawElementsInstancedBaseVertexBaseInstance(primType,mb->getIndexCount(),indexSize,(void*)mb->getIndexBufferOffset(),mb->getInstanceCount(),mb->getBaseVertex(),mb->getBaseInstance());
     else
-        extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
+		extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
 }
 
 
@@ -2072,7 +2072,7 @@ const GLuint& COpenGLDriver::SAuxContext::constructSamplerInCache(const uint64_t
     extGlSamplerParameteri(samplerHandle, GL_TEXTURE_MAG_FILTER, tmpTSP->MaxFilter ? GL_LINEAR : GL_NEAREST);
 
     if (tmpTSP->AnisotropicFilter)
-        extGlSamplerParameteri(samplerHandle, GL_TEXTURE_MAX_ANISOTROPY_EXT, core::min_(tmpTSP->AnisotropicFilter+1u,uint32_t(MaxAnisotropy)));
+        extGlSamplerParameteri(samplerHandle, GL_TEXTURE_MAX_ANISOTROPY_EXT, core::min(tmpTSP->AnisotropicFilter+1u,uint32_t(MaxAnisotropy)));
 
     extGlSamplerParameteri(samplerHandle, GL_TEXTURE_WRAP_S, getTextureWrapMode(tmpTSP->TextureWrapU));
     extGlSamplerParameteri(samplerHandle, GL_TEXTURE_WRAP_T, getTextureWrapMode(tmpTSP->TextureWrapV));
@@ -2726,8 +2726,8 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
                 }
                 else
                 {
-                    width = core::min_(rndrbl->getRenderableSize().Width,width);
-                    height = core::min_(rndrbl->getRenderableSize().Height,height);
+                    width = core::min(rndrbl->getRenderableSize().Width,width);
+                    height = core::min(rndrbl->getRenderableSize().Height,height);
                 }
             }
             if (firstAttached)
@@ -2761,8 +2761,8 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
                 }
                 else
                 {
-                    width = core::min_(rndrbl->getRenderableSize().Width,width);
-                    height = core::min_(rndrbl->getRenderableSize().Height,height);
+                    width = core::min(rndrbl->getRenderableSize().Width,width);
+                    height = core::min(rndrbl->getRenderableSize().Height,height);
                 }
             }
             if (firstAttached)
@@ -2849,8 +2849,8 @@ bool COpenGLDriver::setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewpo
         }
         else
         {
-            newRTTSize.Width = core::min_(newRTTSize.Width,attachment->getRenderableSize().Width);
-            newRTTSize.Height = core::min_(newRTTSize.Height,attachment->getRenderableSize().Height);
+            newRTTSize.Width = core::min(newRTTSize.Width,attachment->getRenderableSize().Width);
+            newRTTSize.Height = core::min(newRTTSize.Height,attachment->getRenderableSize().Height);
         }
     }
 

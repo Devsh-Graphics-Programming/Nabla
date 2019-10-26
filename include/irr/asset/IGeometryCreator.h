@@ -5,6 +5,7 @@
 #ifndef __I_GEOMETRY_CREATOR_H_INCLUDED__
 #define __I_GEOMETRY_CREATOR_H_INCLUDED__
 
+#include "irr/core/core.h"
 #include "irr/asset/ICPUMesh.h"
 
 namespace irr
@@ -24,7 +25,7 @@ public:
 	\param size Dimensions of the cube.
 	\return Generated mesh.
 	*/
-	virtual asset::ICPUMesh* createCubeMesh(const core::vector3df& size=core::vector3df(5.f,5.f,5.f)) const =0;
+	virtual core::smart_refctd_ptr<asset::ICPUMesh> createCubeMesh(const core::vector3df& size=core::vector3df(5.f,5.f,5.f)) const =0;
 
 
 	//! Create an arrow mesh, composed of a cylinder and a cone.
@@ -41,7 +42,7 @@ public:
 	\param colorCone color of the cone
 	\return Generated mesh.
 	*/
-	virtual asset::ICPUMesh* createArrowMesh(const uint32_t tesselationCylinder = 4,
+	virtual core::smart_refctd_ptr<asset::ICPUMesh> createArrowMesh(const uint32_t tesselationCylinder = 4,
 			const uint32_t tesselationCone = 8, const float height = 1.f,
 			const float cylinderHeight = 0.6f, const float widthCylinder = 0.05f,
 			const float widthCone = 0.3f, const video::SColor colorCylinder = 0xFFFFFFFF,
@@ -55,7 +56,7 @@ public:
 	\param polyCountY Number of quads used for the vertical tiling
 	\return Generated mesh.
 	*/
-	virtual asset::ICPUMesh* createSphereMesh(float radius = 5.f,
+	virtual core::smart_refctd_ptr<asset::ICPUMesh> createSphereMesh(float radius = 5.f,
 			uint32_t polyCountX = 16, uint32_t polyCountY = 16) const =0;
 
 	//! Create a cylinder mesh.
@@ -68,10 +69,9 @@ public:
 	\param oblique (to be documented)
 	\return Generated mesh.
 	*/
-	virtual asset::ICPUMesh* createCylinderMesh(float radius, float length,
+	virtual core::smart_refctd_ptr<asset::ICPUMesh> createCylinderMesh(float radius, float length,
 			uint32_t tesselation,
-			const video::SColor& color=video::SColor(0xffffffff),
-			bool closeTop=true, float oblique=0.f) const =0;
+			const video::SColor& color=video::SColor(0xffffffff)) const =0;
 
 	//! Create a cone mesh.
 	/**
@@ -83,10 +83,14 @@ public:
 	\param oblique (to be documented)
 	\return Generated mesh.
 	*/
-	virtual asset::ICPUMesh* createConeMesh(float radius, float length, uint32_t tesselation,
+	virtual core::smart_refctd_ptr<asset::ICPUMesh> createConeMesh(float radius, float length, uint32_t tesselation,
 			const video::SColor& colorTop=video::SColor(0xffffffff),
 			const video::SColor& colorBottom=video::SColor(0xffffffff),
 			float oblique=0.f) const =0;
+
+	virtual core::smart_refctd_ptr<asset::ICPUMesh> createRectangleMesh(const core::vector2df_SIMD& size = core::vector2df_SIMD(0.5f, 0.5f)) const = 0;
+
+	virtual core::smart_refctd_ptr<asset::ICPUMesh> createDiskMesh(float radius, uint32_t tesselation) const = 0;
 
 };
 

@@ -111,7 +111,7 @@ class IMeshDataFormatDesc : public virtual core::IReferenceCounted
         }
 
 
-        //! remember that the divisor needs to be <=0x1u<<_IRR_VAO_MAX_ATTRIB_DIVISOR_BITS
+        //! remember that the divisor needs to be <=0x1u<<_IRR_VAO_maxATTRIB_DIVISOR_BITS
         virtual void setVertexAttrBuffer(core::smart_refctd_ptr<T>&& attrBuf, E_VERTEX_ATTRIBUTE_ID attrId, E_FORMAT format, size_t stride=0, size_t offset=0, uint32_t divisor=0) = 0;
 
         inline const T* getMappedBuffer(E_VERTEX_ATTRIBUTE_ID attrId) const

@@ -864,7 +864,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     const GLubyte* shaderVersion = glGetString(GL_SHADING_LANGUAGE_VERSION);
     float sl_ver;
     sscanf(reinterpret_cast<const char*>(shaderVersion),"%f",&sl_ver);
-    ShaderLanguageVersion = static_cast<uint16_t>(core::round32(sl_ver*100.0f));
+    ShaderLanguageVersion = static_cast<uint16_t>(core::round(sl_ver*100.0f));
 
 
 	//! For EXT-DSA testing
@@ -977,7 +977,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     num=0;
     glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &num);
     //can we get rid of that? I don't really see reason for this clamp at this level of abstraction
-	MaxTextureUnits = core::min_(static_cast<uint8_t>(num), static_cast<uint8_t>(MATERIAL_MAX_TEXTURES));
+	MaxTextureUnits = core::min(static_cast<uint8_t>(num), static_cast<uint8_t>(MATERIAL_MAX_TEXTURES));
 
     //num=100000000u;
 	//glGetIntegerv(GL_MAX_ELEMENTS_INDICES,&num);
@@ -1054,7 +1054,7 @@ void COpenGLExtensionHandler::loadFunctions()
 
 	float ogl_ver;
 	sscanf(reinterpret_cast<const char*>(glGetString(GL_VERSION)),"%f",&ogl_ver);
-	Version = static_cast<uint16_t>(core::round32(ogl_ver*100.0f));
+	Version = static_cast<uint16_t>(core::round(ogl_ver*100.0f));
 
 	GLint num=0;
 	glGetIntegerv(GL_MAX_ELEMENTS_INDICES, &num);

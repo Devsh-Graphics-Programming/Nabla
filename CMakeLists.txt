@@ -177,6 +177,8 @@ option(IRR_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 
 option(IRR_BUILD_MITSUBA_LOADER "Enable irr::ext::MitsubaLoader?" ON)
 
+option(IRR_BUILD_RADEONRAYS "Enable irr::ext::RadeonRays?" OFF)
+
 option(IRR_BUILD_CEGUI "Enable CEGUI building and integration?" OFF)
 
 option(IRR_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)

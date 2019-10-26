@@ -20,6 +20,7 @@ set(IRR_EXT_CEGUI_EXTERNAL_INCLUDE
   "${CEGUI_INCLUDE_PATH}"
   "${IRR_ROOT_PATH}/3rdparty"
   "${CMAKE_BINARY_DIR}/3rdparty/CEGUI/dependencies/install/include"
+  "${IRR_ROOT_PATH}/src/3rdparty/"
 )
 
 add_compile_definitions(CEGUI_STATIC CEGUI_BUILD_STATIC_FACTORY_MODULE)

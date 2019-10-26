@@ -123,8 +123,9 @@ public:
 private:
     struct SContext
     {
-        SContext(const asset::IAssetLoader::SAssetLoadContext& _inner, asset::IAssetLoader::IAssetLoaderOverride* _ovrr) :
+        SContext(const asset::IAssetLoader::SAssetLoadContext& _inner, uint32_t _topHierarchyLevel, asset::IAssetLoader::IAssetLoaderOverride* _ovrr) :
             Inner(_inner),
+			topHierarchyLevel(_topHierarchyLevel),
             loaderOverride(_ovrr),
             AllJoints(0), AnimatedMesh(0),
             BinaryNumCount(0),
@@ -158,6 +159,7 @@ private:
         int8_t FloatSize;
 
         asset::IAssetLoader::SAssetLoadContext Inner;
+		uint32_t topHierarchyLevel;
         asset::IAssetLoader::IAssetLoaderOverride* loaderOverride;
     };
 

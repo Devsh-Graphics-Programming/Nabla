@@ -73,6 +73,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
             _params,
             _file
         },
+		_hierarchyLevel,
         _override
     );
 
@@ -573,17 +574,10 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
 	core::smart_refctd_ptr<asset::ICPUTexture> texture;
 	if (texname.size())
 	{
-        if (FileSystem->existFile(texname))
-		{
-            auto bundle = interm_getAssetInHierarchy(AssetManager, texname.c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride).getContents();
-            if (bundle.first!=bundle.second) texture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*bundle.first);
-		}
-		else
-		{
-			// try to read in the relative path, the .obj is loaded from
-            auto bundle = interm_getAssetInHierarchy(AssetManager, (relPath + texname).c_str(), _ctx.inner.params, 2u, _ctx.loaderOverride).getContents();
-			if (bundle.first != bundle.second) texture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*bundle.first);
-		}
+		auto params = _ctx.inner.params;
+		params.relativeDir = relPath.c_str();
+		auto bundle = interm_getAssetInHierarchy(AssetManager, texname.c_str(), params, _ctx.topHierarchyLevel+ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride).getContents();
+        if (bundle.first!=bundle.second) texture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*bundle.first);
 	}
 	if ( texture )
 	{
@@ -961,7 +955,7 @@ uint32_t COBJMeshFileLoader::copyWord(char* outBuf, const char* const inBuf, uin
 		++i;
 	}
 
-	uint32_t length = core::min_(i, outBufLength-1);
+	uint32_t length = core::min(i, outBufLength-1);
 	for (uint32_t j=0; j<length; ++j)
 		outBuf[j] = inBuf[j];
 

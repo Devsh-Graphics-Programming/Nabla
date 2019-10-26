@@ -170,7 +170,7 @@ class SCompoundCollider : public IReferenceCounted
                 }
             }
 
-            vectorSIMDf direction_reciprocal = reciprocal(direction);
+            vectorSIMDf direction_reciprocal = reciprocal_approxim(direction);
             float dummyPosition;
             if (!BBox.CollideWithRay(dummyPosition,origin,direction,dirMaxMultiplier,direction_reciprocal))
             {

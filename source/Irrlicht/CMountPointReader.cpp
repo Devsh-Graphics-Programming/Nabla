@@ -58,19 +58,18 @@ bool CArchiveLoaderMount::isALoadableFileFormat(io::IReadFile* file) const
 }
 
 //! Creates an archive from the filename
-IFileArchive* CArchiveLoaderMount::createArchive(const io::path& filename, bool ignoreCase, bool ignorePaths) const
+IFileArchive* CArchiveLoaderMount::createArchive(const io::path& filename) const
 {
 	IFileArchive *archive = 0;
 
 	EFileSystemType current = FileSystem->setFileListSystem(FILESYSTEM_NATIVE);
 
 	const io::path save = FileSystem->getWorkingDirectory();
-	io::path fullPath = FileSystem->getAbsolutePath(filename);
-	io::IFileSystem::flattenFilename(fullPath);
+	io::path fullPath = io::IFileSystem::flattenFilename(FileSystem->getAbsolutePath(filename));
 
 	if (FileSystem->changeWorkingDirectoryTo(fullPath))
 	{
-		archive = new CMountPointReader(FileSystem, fullPath, ignoreCase, ignorePaths);
+		archive = new CMountPointReader(FileSystem, fullPath);
 	}
 
 	FileSystem->changeWorkingDirectoryTo(save);
@@ -81,14 +80,14 @@ IFileArchive* CArchiveLoaderMount::createArchive(const io::path& filename, bool 
 
 //! creates/loads an archive from the file.
 //! \return Pointer to the created archive. Returns 0 if loading failed.
-IFileArchive* CArchiveLoaderMount::createArchive(io::IReadFile* file, bool ignoreCase, bool ignorePaths) const
+IFileArchive* CArchiveLoaderMount::createArchive(io::IReadFile* file) const
 {
 	return 0;
 }
 
 //! compatible Folder Architecture
-CMountPointReader::CMountPointReader(IFileSystem * parent, const io::path& basename, bool ignoreCase, bool ignorePaths)
-	: CFileList(basename, ignoreCase, ignorePaths), Parent(parent)
+CMountPointReader::CMountPointReader(IFileSystem * parent, const io::path& basename)
+	: CFileList(basename), Parent(parent)
 {
 	//! ensure CFileList path ends in a slash
 	if (Path.lastChar() != '/' )

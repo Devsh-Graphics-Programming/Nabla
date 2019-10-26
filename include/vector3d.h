@@ -5,7 +5,7 @@
 #ifndef __IRR_POINT_3D_H_INCLUDED__
 #define __IRR_POINT_3D_H_INCLUDED__
 
-#include "irr/core/math/irrMath.h"
+#include "irr/core/math/glslFunctions.h"
 
 namespace irr
 {
@@ -59,58 +59,18 @@ namespace core
 		vector3d<T> operator/(const T v) const { T i=(T)1.0/v; return vector3d<T>(X * i, Y * i, Z * i); }
 		vector3d<T>& operator/=(const T v) { T i=(T)1.0/v; X*=i; Y*=i; Z*=i; return *this; }
 
-		//! sort in order X, Y, Z. Equality with rounding tolerance.
-		bool operator<=(const vector3d<T>&other) const
-		{
-			return 	(X<other.X || core::equals(X, other.X)) ||
-					(core::equals(X, other.X) && (Y<other.Y || core::equals(Y, other.Y))) ||
-					(core::equals(X, other.X) && core::equals(Y, other.Y) && (Z<other.Z || core::equals(Z, other.Z)));
-		}
-
-		//! sort in order X, Y, Z. Equality with rounding tolerance.
-		bool operator>=(const vector3d<T>&other) const
-		{
-			return 	(X>other.X || core::equals(X, other.X)) ||
-					(core::equals(X, other.X) && (Y>other.Y || core::equals(Y, other.Y))) ||
-					(core::equals(X, other.X) && core::equals(Y, other.Y) && (Z>other.Z || core::equals(Z, other.Z)));
-		}
-
-		//! sort in order X, Y, Z. Difference must be above rounding tolerance.
-		bool operator<(const vector3d<T>&other) const
-		{
-			return 	(X<other.X && !core::equals(X, other.X)) ||
-					(core::equals(X, other.X) && Y<other.Y && !core::equals(Y, other.Y)) ||
-					(core::equals(X, other.X) && core::equals(Y, other.Y) && Z<other.Z && !core::equals(Z, other.Z));
-		}
-
-		//! sort in order X, Y, Z. Difference must be above rounding tolerance.
-		bool operator>(const vector3d<T>&other) const
-		{
-			return 	(X>other.X && !core::equals(X, other.X)) ||
-					(core::equals(X, other.X) && Y>other.Y && !core::equals(Y, other.Y)) ||
-					(core::equals(X, other.X) && core::equals(Y, other.Y) && Z>other.Z && !core::equals(Z, other.Z));
-		}
-
 		//! use weak float compare
 		bool operator==(const vector3d<T>& other) const
 		{
-			return this->equals(other);
+			return core::equals<vector3d<T> >(*this,other,vector3d<T>(core::ROUNDING_ERROR<T>()));
 		}
 
 		bool operator!=(const vector3d<T>& other) const
 		{
-			return !this->equals(other);
+			return !operator==(other);
 		}
 
 		// functions
-
-		//! returns if this vector equals the other one, taking floating point rounding errors into account
-		bool equals(const vector3d<T>& other, const T tolerance = (T)ROUNDING_ERROR_f32 ) const
-		{
-			return core::equals(X, other.X, tolerance) &&
-				core::equals(Y, other.Y, tolerance) &&
-				core::equals(Z, other.Z, tolerance);
-		}
 
 		vector3d<T>& set(const T nx, const T ny, const T nz) {X=nx; Y=ny; Z=nz; return *this;}
 		vector3d<T>& set(const vector3d<T>& p) {X=p.X; Y=p.Y; Z=p.Z;return *this;}
@@ -163,23 +123,6 @@ namespace core
 				getDistanceFromSQ(end) <= f;
 		}
 
-		//! Normalizes the vector.
-		/** In case of the 0 vector the result is still 0, otherwise
-		the length of the vector will be 1.
-		\return Reference to this vector after normalization. */
-		vector3d<T>& normalize()
-		{
-			double length = X*X + Y*Y + Z*Z;
-			if (length == 0 ) // this check isn't an optimization but prevents getting NAN in the sqrt.
-				return *this;
-			length = core::reciprocal_squareroot(length);
-
-			X = (T)(X * length);
-			Y = (T)(Y * length);
-			Z = (T)(Z * length);
-			return *this;
-		}
-
 		//! Sets the length of the vector to a new value
 		vector3d<T>& setLength(T newlength)
 		{
@@ -201,9 +144,8 @@ namespace core
 		\param center The center of the rotation. */
 		void rotateXZBy(double degrees, const vector3d<T>& center=vector3d<T>())
 		{
-			degrees *= DEGTORAD64;
-			double cs = cos(degrees);
-			double sn = sin(degrees);
+			double cs = cos(radians(degrees));
+			double sn = sin(radians(degrees));
 			X -= center.X;
 			Z -= center.Z;
 			set((T)(X*cs - Z*sn), Y, (T)(X*sn + Z*cs));
@@ -216,9 +158,8 @@ namespace core
 		\param center: The center of the rotation. */
 		void rotateXYBy(double degrees, const vector3d<T>& center=vector3d<T>())
 		{
-			degrees *= DEGTORAD64;
-			double cs = cos(degrees);
-			double sn = sin(degrees);
+			double cs = cos(radians(degrees));
+			double sn = sin(radians(degrees));
 			X -= center.X;
 			Y -= center.Y;
 			set((T)(X*cs - Y*sn), (T)(X*sn + Y*cs), Z);
@@ -274,7 +215,7 @@ namespace core
 		{
 			vector3d<T> angle;
 
-			const double tmp = (atan2((double)X, (double)Z) * RADTODEG64);
+			const double tmp = core::degrees(atan2((double)X, (double)Z));
 			angle.Y = (T)tmp;
 
 			if (angle.Y < 0)
@@ -282,39 +223,15 @@ namespace core
 			if (angle.Y >= 360)
 				angle.Y -= 360;
 
-			const double z1 = core::squareroot(X*X + Z*Z);
+			const double z1 = core::sqrt(X*X + Z*Z);
 
-			angle.X = (T)(atan2((double)z1, (double)Y) * RADTODEG64 - 90.0);
+			angle.X = (T)(core::degrees(atan2((double)z1, (double)Y)) - 90.0);
 
 			if (angle.X < 0)
 				angle.X += 360;
 			if (angle.X >= 360)
 				angle.X -= 360;
 
-			return angle;
-		}
-
-		//! Get the spherical coordinate angles
-		/** This returns Euler degrees for the point represented by
-		this vector.  The calculation assumes the pole at (0,1,0) and
-		returns the angles in X and Y.
-		*/
-		vector3d<T> getSphericalCoordinateAngles() const
-		{
-			vector3d<T> angle;
-			const double length = X*X + Y*Y + Z*Z;
-
-			if (length)
-			{
-				if (X!=0)
-				{
-					angle.Y = (T)(atan2((double)Z,(double)X) * RADTODEG64);
-				}
-				else if (Z<0)
-					angle.Y=180;
-
-				angle.X = (T)(acos(Y * core::reciprocal_squareroot(length)) * RADTODEG64);
-			}
 			return angle;
 		}
 
@@ -328,12 +245,12 @@ namespace core
 		(in degrees) represented by this vector. */
 		vector3d<T> rotationToDirection(const vector3d<T> & forwards = vector3d<T>(0, 0, 1)) const
 		{
-			const double cr = cos( core::DEGTORAD64 * X );
-			const double sr = sin( core::DEGTORAD64 * X );
-			const double cp = cos( core::DEGTORAD64 * Y );
-			const double sp = sin( core::DEGTORAD64 * Y );
-			const double cy = cos( core::DEGTORAD64 * Z );
-			const double sy = sin( core::DEGTORAD64 * Z );
+			const double cr = cos( core::radians(X) );
+			const double sr = sin( core::radians(X) );
+			const double cp = cos( core::radians(Y) );
+			const double sp = sin( core::radians(Y) );
+			const double cy = cos( core::radians(Z) );
+			const double sy = sin( core::radians(Z) );
 
 			const double srsp = sr*sp;
 			const double crsp = cr*sp;
@@ -393,25 +310,6 @@ namespace core
 	template <>
 	inline vector3d<int32_t>& vector3d<int32_t>::operator /=(int32_t val) {X/=val;Y/=val;Z/=val; return *this;}
 
-	template <>
-	inline vector3d<int32_t> vector3d<int32_t>::getSphericalCoordinateAngles() const
-	{
-		vector3d<int32_t> angle;
-		const double length = X*X + Y*Y + Z*Z;
-
-		if (length)
-		{
-			if (X!=0)
-			{
-				angle.Y = round32((float)(atan2((double)Z,(double)X) * RADTODEG64));
-			}
-			else if (Z<0)
-				angle.Y=180;
-
-			angle.X = round32((float)(acos(Y * core::reciprocal_squareroot(length)) * RADTODEG64));
-		}
-		return angle;
-	}
 
 	//! Typedef for a float 3d vector.
 	typedef vector3d<float> vector3df;

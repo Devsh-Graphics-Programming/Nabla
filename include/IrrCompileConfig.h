@@ -96,14 +96,14 @@
 #define _IRR_MATERIAL_MAX_IMAGES_ 8
 
 //! Maximum of other shader input (output) slots
-#define _IRR_MATERIAL_MAX_DYNAMIC_SHADER_STORAGE_OBJECTS_ 4
-#define _IRR_MATERIAL_MAX_SHADER_STORAGE_OBJECTS_ (16-_IRR_MATERIAL_MAX_DYNAMIC_SHADER_STORAGE_OBJECTS_) //opengl has one set of slots for both
-#define _IRR_MATERIAL_MAX_DYNAMIC_UNIFORM_BUFFER_OBJECTS_ 8
-#define _IRR_MATERIAL_MAX_UNIFORM_BUFFER_OBJECTS_ (24-_IRR_MATERIAL_MAX_DYNAMIC_UNIFORM_BUFFER_OBJECTS_) //opengl has one set of slots for both
+#define _IRR_MATERIAL_maxDYNAMIC_SHADER_STORAGE_OBJECTS_ 4
+#define _IRR_MATERIAL_maxSHADER_STORAGE_OBJECTS_ (16-_IRR_MATERIAL_maxDYNAMIC_SHADER_STORAGE_OBJECTS_) //opengl has one set of slots for both
+#define _IRR_MATERIAL_maxDYNAMIC_UNIFORM_BUFFER_OBJECTS_ 8
+#define _IRR_MATERIAL_maxUNIFORM_BUFFER_OBJECTS_ (24-_IRR_MATERIAL_maxDYNAMIC_UNIFORM_BUFFER_OBJECTS_) //opengl has one set of slots for both
 
 //! Maximum number of output buffers and streams a Transform Feedback Object can have
-#define _IRR_XFORM_FEEDBACK_MAX_BUFFERS_ 4
-#define _IRR_XFORM_FEEDBACK_MAX_STREAMS_ 4
+#define _IRR_XFORM_FEEDBACK_MAX_BUFFERS_ 4 //depr
+#define _IRR_XFORM_FEEDBACK_MAX_STREAMS_ 4 //depr
 
 //! Define _IRR_COMPILE_WITH_X11_ to compile the Irrlicht engine with X11 support.
 /** If you do not wish the engine to be compiled with X11, comment this
@@ -257,14 +257,6 @@ ones. */
 #ifdef NO_IRR_COMPILE_WITH_ZLIB_
 #undef _IRR_COMPILE_WITH_ZLIB_
 #endif
-//! Define _IRR_USE_NON_SYSTEM_ZLIB_ to let irrlicht use the zlib which comes with irrlicht.
-/** If this is commented out, Irrlicht will try to compile using the zlib
-installed on the system. This is only used when _IRR_COMPILE_WITH_ZLIB_ is
-defined. */
-#define _IRR_USE_NON_SYSTEM_ZLIB_
-#ifdef NO_IRR_USE_NON_SYSTEM_ZLIB_
-#undef _IRR_USE_NON_SYSTEM_ZLIB_
-#endif
 //! Define _IRR_COMPILE_WITH_ZIP_ENCRYPTION_ if you want to read AES-encrypted ZIP archives
 #define _IRR_COMPILE_WITH_ZIP_ENCRYPTION_
 #ifdef NO_IRR_COMPILE_WITH_ZIP_ENCRYPTION_
@@ -277,14 +269,6 @@ library. */
 #define _IRR_COMPILE_WITH_BZIP2_
 #ifdef NO_IRR_COMPILE_WITH_BZIP2_
 #undef _IRR_COMPILE_WITH_BZIP2_
-#endif
-//! Define _IRR_USE_NON_SYSTEM_BZLIB_ to let irrlicht use the bzlib which comes with irrlicht.
-/** If this is commented out, Irrlicht will try to compile using the bzlib
-installed on the system. This is only used when _IRR_COMPILE_WITH_BZLIB_ is
-defined. */
-#define _IRR_USE_NON_SYSTEM_BZLIB_
-#ifdef NO_IRR_USE_NON_SYSTEM_BZLIB_
-#undef _IRR_USE_NON_SYSTEM_BZLIB_
 #endif
 //! Define _IRR_COMPILE_WITH_LZMA_ if you want to use LZMA compressed zip files.
 /** LZMA is a very efficient compression code, known from 7zip. Irrlicht
@@ -305,20 +289,10 @@ currently only supports zip archives, though. */
 #ifdef NO__IRR_COMPILE_WITH_PAK_ARCHIVE_LOADER_
 #undef __IRR_COMPILE_WITH_PAK_ARCHIVE_LOADER_
 #endif
-//! Define __IRR_COMPILE_WITH_NPK_ARCHIVE_LOADER_ if you want to open Nebula Device NPK archives
-#define __IRR_COMPILE_WITH_NPK_ARCHIVE_LOADER_
-#ifdef NO__IRR_COMPILE_WITH_NPK_ARCHIVE_LOADER_
-#undef __IRR_COMPILE_WITH_NPK_ARCHIVE_LOADER_
-#endif
 //! Define __IRR_COMPILE_WITH_TAR_ARCHIVE_LOADER_ if you want to open TAR archives
 #define __IRR_COMPILE_WITH_TAR_ARCHIVE_LOADER_
 #ifdef NO__IRR_COMPILE_WITH_TAR_ARCHIVE_LOADER_
 #undef __IRR_COMPILE_WITH_TAR_ARCHIVE_LOADER_
-#endif
-//! Define __IRR_COMPILE_WITH_WAD_ARCHIVE_LOADER_ if you want to open WAD archives
-#define __IRR_COMPILE_WITH_WAD_ARCHIVE_LOADER_
-#ifdef NO__IRR_COMPILE_WITH_WAD_ARCHIVE_LOADER_
-#undef __IRR_COMPILE_WITH_WAD_ARCHIVE_LOADER_
 #endif
 
 // Some cleanup and standard stuff
@@ -361,20 +335,6 @@ currently only supports zip archives, though. */
 #   undef _IRR_WCHAR_FILESYSTEM
 #endif
 
-
-#ifdef _IRR_DEBUG
-	//! A few attributes are written in CSceneManager when _IRR_SCENEMANAGER_DEBUG is enabled
-	// NOTE: Those attributes were used always until 1.8.0 and became a global define for 1.8.1
-	// which is only enabled in debug because it had a large (sometimes >5%) impact on speed.
-	// A better solution in the long run is to break the interface and remove _all_ attribute
-	// access in functions like CSceneManager::drawAll and instead put that information in some
-	// own struct/class or in CSceneManager.
-	// See http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=48211 for the discussion.
-	//#define _IRR_SCENEMANAGER_DEBUG
-	#ifdef NO_IRR_SCENEMANAGER_DEBUG
-		#undef _IRR_SCENEMANAGER_DEBUG
-	#endif
-#endif
 
 #define _IRR_BAW_FORMAT_VERSION 1
 

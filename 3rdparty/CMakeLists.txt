@@ -171,6 +171,15 @@ if (IRR_BUILD_MITSUBA_LOADER)
    option(INSTALL "EXPAT: install expat files in cmake install target" OFF)
    set(MSVC_USE_STATIC_CRT ON CACHE BOOL "Use /MT flag (static CRT) when compiling in MSVC")
    add_subdirectory(libexpat/expat EXCLUDE_FROM_ALL)
+
+   set(MITSUBA_LOADER_DEPENDENTS
+      expat
+   )
+   set(MITSUBA_LOADER_DEPENDENTS ${MITSUBA_LOADER_DEPENDENTS} PARENT_SCOPE)
+   set(MITSUBA_LOADER_DEPENDENT_LIBS
+      expat
+   )
+   set(MITSUBA_LOADER_DEPENDENT_LIBS ${MITSUBA_LOADER_DEPENDENT_LIBS} PARENT_SCOPE)
 endif()
 
 if (IRR_BUILD_CEGUI)
@@ -209,7 +218,6 @@ if (IRR_BUILD_CEGUI)
 			debug ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/CEGUICommonDialogs-0_Static_d.lib
 			debug Dbghelp.lib
 		)
-		set(CEGUI_LIBS ${CEGUI_LIBS} PARENT_SCOPE)
 	else()
 		set(CEGUI_LIBS
 			${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/libCEGUIOpenGLRenderer-0_Static.a
@@ -225,8 +233,8 @@ if (IRR_BUILD_CEGUI)
 			${CEGUI_DEPS_INSTALL_PATH}/lib/libpcrecpp.a
 			${CEGUI_DEPS_INSTALL_PATH}/lib/libpcreposix.a
 		)
-		set(CEGUI_LIBS ${CEGUI_LIBS} PARENT_SCOPE)
 	endif()
+	set(CEGUI_LIBS ${CEGUI_LIBS} PARENT_SCOPE)
 
 	#[[ unsure if needed for now
 		install(

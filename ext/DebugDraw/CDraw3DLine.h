@@ -52,6 +52,34 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 
         void draw(const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData);
 
+		inline void enqueueBox(core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData, const core::aabbox3df& box, float r, float g, float b, float a, const core::matrix4x3& tform=core::matrix4x3())
+		{
+			auto addLine = [&](auto s, auto e) -> void
+			{
+				linesData.emplace_back(S3DLineVertex{{s.X,s.Y,s.Z},{r,g,b,a}},S3DLineVertex{{e.X,e.Y,e.Z},{r,g,b,a}});
+			};
+
+			core::vector3df verts[8];
+			box.getEdges(verts);
+			for (auto i=0; i<8; i++)
+				tform.transformVect(&verts[i].X);
+
+			addLine(verts[0], verts[1]);
+			addLine(verts[0], verts[2]);
+			addLine(verts[1], verts[3]);
+			addLine(verts[2], verts[3]);
+
+			addLine(verts[0], verts[4]);
+			addLine(verts[1], verts[5]);
+			addLine(verts[2], verts[6]);
+			addLine(verts[3], verts[7]);
+
+			addLine(verts[4], verts[5]);
+			addLine(verts[4], verts[6]);
+			addLine(verts[5], verts[7]);
+			addLine(verts[6], verts[7]);
+		}
+
     private:
         CDraw3DLine(video::IVideoDriver* _driver);
 		virtual ~CDraw3DLine() {}

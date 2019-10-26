@@ -243,8 +243,8 @@ IMeshSceneNode* CSceneManager::addCubeSceneNode(float size, IDummyTransformation
 		parent = this;
 
 	auto* geomCreator = Device->getAssetManager()->getGeometryCreator();
-	asset::ICPUMesh* cpumesh = geomCreator->createCubeMesh(core::vector3df(size));
-	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1);
+	auto cpumesh = geomCreator->createCubeMesh(core::vector3df(size));
+	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get()) + 1);
 	assert(res->size());
 
 	// its okay to std::move because this was the only copy of the refctd array 
@@ -261,8 +261,8 @@ IMeshSceneNode* CSceneManager::addSphereSceneNode(float radius, int32_t polyCoun
 		parent = this;
 
 	auto* geomCreator = Device->getAssetManager()->getGeometryCreator();
-	asset::ICPUMesh* cpumesh = geomCreator->createSphereMesh(radius, polyCount, polyCount);
-	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh, (&cpumesh) + 1);
+	auto cpumesh = geomCreator->createSphereMesh(radius, polyCount, polyCount);
+	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get()) + 1);
 	assert(res->size());
 
 	// its okay to std::move because ths was the only copy of the rectd array
@@ -323,7 +323,7 @@ ISkinnedMeshSceneNode* CSceneManager::addSkinnedMeshSceneNode(
 //! the camera will move too.
 //! \return Returns pointer to interface to camera
 ICameraSceneNode* CSceneManager::addCameraSceneNode(IDummyTransformationSceneNode* parent,
-	const core::vector3df& position, const core::vector3df& lookat, int32_t id,
+	const core::vector3df& position, const core::vectorSIMDf& lookat, int32_t id,
 	bool makeActive)
 {
 	if (!parent)
@@ -347,7 +347,7 @@ ICameraSceneNode* CSceneManager::addCameraSceneNodeMaya(IDummyTransformationScen
 	bool makeActive)
 {
 	ICameraSceneNode* node = addCameraSceneNode(parent, core::vector3df(),
-			core::vector3df(0,0,100), id, makeActive);
+			core::vectorSIMDf(0,0,100), id, makeActive);
 	if (node)
 	{
 		ISceneNodeAnimator* anm = new CSceneNodeAnimatorCameraMaya(CursorControl,
@@ -367,7 +367,7 @@ ICameraSceneNode* CSceneManager::addCameraSceneNodeModifiedMaya(IDummyTransforma
 	bool makeActive)
 {
 	ICameraSceneNode* node = addCameraSceneNode(parent, core::vector3df(),
-		core::vector3df(0, 0, 100), id, makeActive);
+		core::vectorSIMDf(0, 0, 100), id, makeActive);
 	if (node)
 	{
 		ISceneNodeAnimator* anm = new CSceneNodeAnimatorCameraModifiedMaya(CursorControl,
@@ -389,7 +389,7 @@ ICameraSceneNode* CSceneManager::addCameraSceneNodeFPS(IDummyTransformationScene
 	bool invertMouseY, bool makeActive)
 {
 	ICameraSceneNode* node = addCameraSceneNode(parent, core::vector3df(),
-			core::vector3df(0,0,100), id, makeActive);
+			core::vectorSIMDf(0,0,100), id, makeActive);
 	if (node)
 	{
 		ISceneNodeAnimator* anm = new CSceneNodeAnimatorCameraFPS(CursorControl,
@@ -543,92 +543,81 @@ uint32_t CSceneManager::registerNodeForRendering(ISceneNode* node, E_SCENE_NODE_
 	switch(pass)
 	{
 		// take camera if it is not already registered
-	case ESNRP_CAMERA:
-		{
-			taken = 1;
-			for (uint32_t i = 0; i != CameraList.size(); ++i)
+		case ESNRP_CAMERA:
 			{
-				if (CameraList[i] == node)
+				taken = 1;
+				for (uint32_t i = 0; i != CameraList.size(); ++i)
 				{
-					taken = 0;
-					break;
+					if (CameraList[i] == node)
+					{
+						taken = 0;
+						break;
+					}
+				}
+				if (taken)
+				{
+					CameraList.push_back(node);
 				}
 			}
-			if (taken)
-			{
-				CameraList.push_back(node);
-			}
-		}
-		break;
+			break;
 
-	case ESNRP_SKY_BOX:
-		SkyBoxList.push_back(node);
-		taken = 1;
-		break;
-	case ESNRP_SOLID:
-		if (!isCulled(node))
-		{
-			SolidNodeList.push_back(node);
+		case ESNRP_SKY_BOX:
+			SkyBoxList.push_back(node);
 			taken = 1;
-		}
-		break;
-	case ESNRP_TRANSPARENT:
-		if (!isCulled(node))
-		{
-			TransparentNodeList.push_back(TransparentNodeEntry(node, ActiveCamera->getAbsolutePosition()));
-			taken = 1;
-		}
-		break;
-	case ESNRP_TRANSPARENT_EFFECT:
-		if (!isCulled(node))
-		{
-			TransparentEffectNodeList.push_back(TransparentNodeEntry(node, ActiveCamera->getAbsolutePosition()));
-			taken = 1;
-		}
-		break;
-	case ESNRP_AUTOMATIC:
-		if (!isCulled(node))
-		{
-#ifdef REIMPLEMENT_THIS
-			taken = 0;
-			const uint32_t count = node->getMaterialCount();
-			for (uint32_t i=0; i<count; ++i)
-			{
-				video::IMaterialRenderer* rnd =
-					Driver->getMaterialRenderer(node->getMaterial(i).MaterialType);
-				if (rnd && rnd->isTransparent())
-				{
-					// register as transparent node
-					TransparentNodeEntry e(node, ActiveCamera->getAbsolutePosition());
-					TransparentNodeList.push_back(e);
-					taken = 1;
-					break;
-				}
-			}
-#endif
-			// not transparent, register as solid
-			if (!taken)
+			break;
+		case ESNRP_SOLID:
+			if (!isCulled(node))
 			{
 				SolidNodeList.push_back(node);
 				taken = 1;
 			}
-		}
-		break;
+			break;
+		case ESNRP_TRANSPARENT:
+			if (!isCulled(node))
+			{
+				TransparentNodeList.push_back(TransparentNodeEntry(node, ActiveCamera->getAbsolutePosition()));
+				taken = 1;
+			}
+			break;
+		case ESNRP_TRANSPARENT_EFFECT:
+			if (!isCulled(node))
+			{
+				TransparentEffectNodeList.push_back(TransparentNodeEntry(node, ActiveCamera->getAbsolutePosition()));
+				taken = 1;
+			}
+			break;
+		case ESNRP_AUTOMATIC:
+			if (!isCulled(node))
+			{
+	#ifdef REIMPLEMENT_THIS
+				taken = 0;
+				const uint32_t count = node->getMaterialCount();
+				for (uint32_t i=0; i<count; ++i)
+				{
+					video::IMaterialRenderer* rnd =
+						Driver->getMaterialRenderer(node->getMaterial(i).MaterialType);
+					if (rnd && rnd->isTransparent())
+					{
+						// register as transparent node
+						TransparentNodeEntry e(node, ActiveCamera->getAbsolutePosition());
+						TransparentNodeList.push_back(e);
+						taken = 1;
+						break;
+					}
+				}
+	#endif
+				// not transparent, register as solid
+				if (!taken)
+				{
+					SolidNodeList.push_back(node);
+					taken = 1;
+				}
+			}
+			break;
 
-	default: // ignore this one
-		break;
+		default: // ignore this one
+			break;
 	}
-
-#ifdef _IRR_SCENEMANAGER_DEBUG
-	int32_t index = Parameters.findAttribute ( "calls" );
-	Parameters.setAttribute ( index, Parameters.getAttributeAsInt ( index ) + 1 );
-
-	if (!taken)
-	{
-		index = Parameters.findAttribute ( "culled" );
-		Parameters.setAttribute ( index, Parameters.getAttributeAsInt ( index ) + 1 );
-	}
-#endif
 
 	return taken;
 }
@@ -658,15 +647,6 @@ void CSceneManager::drawAll()
 {
 	if (!Driver)
 		return;
-
-#ifdef _IRR_SCENEMANAGER_DEBUG
-	// reset attributes
-	Parameters.setAttribute ( "culled", 0 );
-	Parameters.setAttribute ( "calls", 0 );
-	Parameters.setAttribute ( "drawn_solid", 0 );
-	Parameters.setAttribute ( "drawn_transparent", 0 );
-	Parameters.setAttribute ( "drawn_transparent_effect", 0 );
-#endif
 
 	uint32_t i; // new ISO for scoping problem in some compilers
 
@@ -716,14 +696,11 @@ void CSceneManager::drawAll()
 	{
 		CurrentRendertime = ESNRP_SOLID;
 
-		std::sort(SolidNodeList.begin(),SolidNodeList.end()); // sort by textures
+		std::stable_sort(SolidNodeList.begin(),SolidNodeList.end()); // sort by textures
 
         for (i=0; i<SolidNodeList.size(); ++i)
             SolidNodeList[i].Node->render();
 
-#ifdef _IRR_SCENEMANAGER_DEBUG
-		Parameters.setAttribute("drawn_solid", (int32_t) SolidNodeList.size() );
-#endif
 		SolidNodeList.clear();
 	}
 
@@ -731,13 +708,10 @@ void CSceneManager::drawAll()
 	{
 		CurrentRendertime = ESNRP_TRANSPARENT;
 
-		std::sort(TransparentNodeList.begin(),TransparentNodeList.end()); // sort by distance from camera
+		std::stable_sort(TransparentNodeList.begin(),TransparentNodeList.end()); // sort by distance from camera
         for (i=0; i<TransparentNodeList.size(); ++i)
             TransparentNodeList[i].Node->render();
 
-#ifdef _IRR_SCENEMANAGER_DEBUG
-		Parameters.setAttribute ( "drawn_transparent", (int32_t) TransparentNodeList.size() );
-#endif
 		TransparentNodeList.clear();
 	}
 
@@ -745,12 +719,10 @@ void CSceneManager::drawAll()
 	{
 		CurrentRendertime = ESNRP_TRANSPARENT_EFFECT;
 
-		std::sort(TransparentEffectNodeList.begin(),TransparentEffectNodeList.end()); // sort by distance from camera
+		std::stable_sort(TransparentEffectNodeList.begin(),TransparentEffectNodeList.end()); // sort by distance from camera
         for (i=0; i<TransparentEffectNodeList.size(); ++i)
             TransparentEffectNodeList[i].Node->render();
-#ifdef _IRR_SCENEMANAGER_DEBUG
-		Parameters.setAttribute ( "drawn_transparent_effect", (int32_t) TransparentEffectNodeList.size() );
-#endif
+
 		TransparentEffectNodeList.clear();
 	}
 
@@ -773,11 +745,11 @@ ISceneNodeAnimator* CSceneManager::createRotationAnimator(const core::vector3df&
 //! creates a fly circle animator, which lets the attached scene node fly around a center.
 ISceneNodeAnimator* CSceneManager::createFlyCircleAnimator(
 		const core::vector3df& center, float radius, float speed,
-		const core::vector3df& direction,
+		const core::vectorSIMDf& direction,
 		float startPosition,
 		float radiusEllipsoid)
 {
-	const float orbitDurationMs = (core::DEGTORAD * 360.f) / speed;
+	const float orbitDurationMs = core::radians(360.f) / speed;
 	const uint32_t effectiveTime = std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count() + (uint32_t)(orbitDurationMs * startPosition);
 
 	ISceneNodeAnimator* anim = new CSceneNodeAnimatorFlyCircle(
@@ -789,8 +761,8 @@ ISceneNodeAnimator* CSceneManager::createFlyCircleAnimator(
 
 //! Creates a fly straight animator, which lets the attached scene node
 //! fly or move along a line between two points.
-ISceneNodeAnimator* CSceneManager::createFlyStraightAnimator(const core::vector3df& startPoint,
-					const core::vector3df& endPoint, uint32_t timeForWay, bool loop,bool pingpong)
+ISceneNodeAnimator* CSceneManager::createFlyStraightAnimator(const core::vectorSIMDf& startPoint,
+					const core::vectorSIMDf& endPoint, uint32_t timeForWay, bool loop,bool pingpong)
 {
 	ISceneNodeAnimator* anim = new CSceneNodeAnimatorFlyStraight(startPoint,
 		endPoint, timeForWay, loop, std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count(), pingpong);

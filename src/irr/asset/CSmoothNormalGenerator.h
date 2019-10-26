@@ -5,7 +5,7 @@
 #include <functional>
 #include "irr/asset/ICPUMeshBuffer.h"
 #include "irr/asset/IMeshManipulator.h"
-#include "irr/core/math/irrMath.h"
+#include "irr/core/math/glslFunctions.h"
 
 namespace irr 
 {	

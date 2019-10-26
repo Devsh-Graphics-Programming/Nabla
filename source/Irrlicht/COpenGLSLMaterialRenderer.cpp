@@ -75,7 +75,7 @@ COpenGLSLMaterialRenderer::~COpenGLSLMaterialRenderer()
 		GLint count;
 		COpenGLExtensionHandler::extGlGetAttachedShaders(Program2, 8, &count, shaders);
 		// avoid bugs in some drivers, which return larger numbers
-		count=core::min_(count,8);
+		count=core::min(count,8);
 		for (GLint i=0; i<count; ++i)
 			COpenGLExtensionHandler::extGlDeleteShader(shaders[i]);
 		COpenGLExtensionHandler::extGlDeleteProgram(Program2);
@@ -154,7 +154,7 @@ void COpenGLSLMaterialRenderer::init(int32_t& outMaterialTypeNr,
         os::Printer::log("GLSL: failed to retrieve uniform information", ELL_ERROR);
         return;
     }
-    maxlen = core::max_(maxlen,36); // gl_MVPInv for Intel drivers (irretards)
+    maxlen = core::max(maxlen,36); // gl_MVPInv for Intel drivers (irretards)
 
     // seems that some implementations use an extra null terminator
     ++maxlen;

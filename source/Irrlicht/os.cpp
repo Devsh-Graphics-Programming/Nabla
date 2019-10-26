@@ -5,7 +5,7 @@
 #include "os.h"
 
 #include "IrrCompileConfig.h"
-#include "irr/core/math/irrMath.h"
+//#include "irr/core/math/irrMath.h"
 
 
 #if defined(_IRR_WINDOWS_API_)

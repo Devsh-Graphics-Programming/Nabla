@@ -1,3 +1,5 @@
+#include "irr/core/core.h"
+
 #include "COverdrawMeshOptimizer.h"
 
 #include <vector>
@@ -61,7 +63,7 @@ core::smart_refctd_ptr<asset::ICPUMeshBuffer> COverdrawMeshOptimizer::createOpti
 	else
 		calcSortData(sortedData, (uint32_t*)indices, idxCount, vertexPositions, softClusters, softClusterCount);
 
-	std::sort(sortedData, sortedData + softClusterCount, std::greater<ClusterSortData>());
+	std::stable_sort(sortedData, sortedData + softClusterCount, std::greater<ClusterSortData>());
 
 	for (size_t it = 0, jt = 0; it < softClusterCount; ++it)
 	{
@@ -203,6 +205,7 @@ void COverdrawMeshOptimizer::calcSortData(ClusterSortData* _dst, const IdxT* _in
 
 	for (size_t cluster = 0; cluster < _clusterCount; ++cluster)
 	{
+		// TODO: why are the fucking clusters only 1 triangle !?!?!?
 		const size_t begin = _clusters[cluster] * 3;
 		const size_t end = (_clusterCount > cluster + 1) ? _clusters[cluster+1] * 3 : _idxCount;
 		_IRR_DEBUG_BREAK_IF(begin > end);
@@ -217,13 +220,13 @@ void COverdrawMeshOptimizer::calcSortData(ClusterSortData* _dst, const IdxT* _in
 			const core::vectorSIMDf& p1 = _positions[_indices[i+1]];
 			const core::vectorSIMDf& p2 = _positions[_indices[i+2]];
 
-			const core::vectorSIMDf normal = (p1 - p0).crossProduct(p2 - p0);
+			const core::vectorSIMDf normal = core::cross(p1 - p0,p2 - p0);
 
-			const float area = normal.getLengthAsFloat();
+			const auto area = core::length(normal);
 
 			clusterCentroid += (p0 + p1 + p2) * (area / 3.f);
 			clusterNormal += normal;
-			clusterArea += area;
+			clusterArea += area[0];
 		}
 
 		const float invClusterArea = !clusterArea ? 0.f : 1.f/clusterArea;
@@ -234,7 +237,7 @@ void COverdrawMeshOptimizer::calcSortData(ClusterSortData* _dst, const IdxT* _in
 		core::vectorSIMDf centroidVec = clusterCentroid - meshCentroid;
 
 		_dst[cluster].cluster = (uint32_t)cluster;
-		_dst[cluster].dot = centroidVec.dotProduct(clusterNormal).x;
+		_dst[cluster].dot = core::dot(centroidVec,clusterNormal)[0];
 	}
 }
 
