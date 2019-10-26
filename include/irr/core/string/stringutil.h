@@ -142,6 +142,25 @@ namespace core
 			>0 - the first character that does not match has a greater value in str1 than in str2
 	*/
 	template<typename T>
+	inline int32_t strcmpi(const T* str1, const T* str2)
+	{
+		const T* c1 = str1;
+		const T* c2 = str2;
+		for (; (*c1!=0)&&(*c2!=0); ++c1, ++c2)
+		{
+			int32_t val1 = tolower(*c1);
+			int32_t val2 = tolower(*c2);
+			if (val1 != val2)
+				return val1 - val2;
+		}
+		if (*c1) // first is longer
+			return 1; // future core::strlen(c1)
+		if (*c2)
+			return -1; // future core::strlen(c2)
+
+		return 0;
+	}
+	template<typename T>
 	inline int32_t strcmpi(const T& str1, const T& str2)
 	{
 		if (str1.size() != str2.size())
@@ -156,6 +175,27 @@ namespace core
 		}
 		return 0;
 	}
+
+	//! DOCUMENTATION TODO
+	struct CaseInsensitiveHash
+	{
+		inline std::size_t operator()(const std::string& val) const
+		{
+			std::size_t seed = 0;
+			for (auto it = val.begin(); it != val.end(); it++)
+			{
+				seed ^= ~std::size_t(std::tolower(*it)) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+			}
+			return seed;
+		}
+	};
+	struct CaseInsensitiveEquals
+	{
+		inline bool operator()(const std::string& A, const std::string& B) const
+		{
+			return core::strcmpi(A, B)==0;
+		}
+	};
 
 	//! Gets the the last character of given string.
 	/** @param str1 Given string.
@@ -183,41 +223,50 @@ namespace core
 	//! Search if a filename has a proper extension.
 	/** Compares file's extension to three given extensions ignoring case.
 	@param filename String being the file's name.
-	@param ext0 The first extension to compare with.
-	@param ext1 The second extension to compare with.
-	@param ext2 The third extension to compare with.
+	@param ext The extensions to compare with.
 	@returns 0 if `filename` does not contain '.' (dot) character or neither of given extensions match. Otherwise an integral value indicating which of given extension matched.
 	*/
-	inline int32_t isFileExtension(const io::path& filename,
-		const io::path& ext0,
-		const io::path& ext1,
-		const io::path& ext2)
+	namespace impl
+	{
+		template<typename string_type, typename ext_string_type>
+		inline bool compareStrings(int32_t& retval, const string_type& filename, const int32_t& extPos, const ext_string_type& ext)
+		{
+			retval++; 
+			return filename.equals_substring_ignore_case(ext, extPos);
+		}
+		template<typename string_type, typename ext_string_type, typename... rest_string_type>
+		inline bool compareStrings(int32_t& retval, const string_type& filename, const int32_t& extPos, const ext_string_type& ext, const rest_string_type&... exts)
+		{
+			if (compareStrings(retval, filename, extPos, ext))
+				return true;
+			return compareStrings(retval, filename, extPos, exts...);
+		}
+	}
+	template<typename string_type, typename... ext_string_type>
+	inline int32_t isFileExtension(const string_type& filename, const ext_string_type&... ext)
 	{
 		int32_t extPos = filename.findLast('.');
 		if (extPos < 0)
 			return 0;
-
 		extPos += 1;
-		if (filename.equals_substring_ignore_case(ext0, extPos)) return 1;
-		if (filename.equals_substring_ignore_case(ext1, extPos)) return 2;
-		if (filename.equals_substring_ignore_case(ext2, extPos)) return 3;
-		return 0;
+
+		int32_t retval = 0;
+		if (impl::compareStrings<string_type, ext_string_type...>(retval,filename, extPos, ext...))
+			return retval;
+		else
+			return 0;
 	}
 
 	//! Search if a filename has a proper extension.
 	/** Compares file's extension to three given extensions ignoring case.
 	@param filename String being the file's name.
-	@param ext0 The first extension to compare with.
-	@param ext1 The second extension to compare with. Defaulted to empty string.
-	@param ext2 The third extension to compare with. Defaulted to empty string.
+	@param ext Variadic list of extensions to compare with
 	@returns Boolean value indicating whether file is of one of given extensions.
 	*/
-	inline bool hasFileExtension(const io::path& filename, //! can we variadic template this?
-		const io::path& ext0,
-		const io::path& ext1 = "",
-		const io::path& ext2 = "")
+	template<typename string_type, typename... ext_string_type>
+	inline bool hasFileExtension(const string_type& filename, const ext_string_type&... ext)
 	{
-		return isFileExtension(filename, ext0, ext1, ext2) > 0;
+		return isFileExtension(filename, ext...) > 0;
 	}
 
 	//! Cuts the filename extension from a source file path and store it in a dest file path.

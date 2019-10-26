@@ -36,14 +36,8 @@ enum E_FILE_ARCHIVE_TYPE
 	//! An ID Software PAK archive
 	EFAT_PAK     = MAKE_IRR_ID('P','A','K', 0),
 
-	//! A Nebula Device archive
-	EFAT_NPK     = MAKE_IRR_ID('N','P','K', 0),
-
 	//! A Tape ARchive
 	EFAT_TAR     = MAKE_IRR_ID('T','A','R', 0),
-
-	//! A wad Archive, Quake2, Halflife
-	EFAT_WAD     = MAKE_IRR_ID('W','A','D', 0),
 
 	//! The type of this archive is unknown
 	EFAT_UNKNOWN = MAKE_IRR_ID('u','n','k','n')
@@ -108,14 +102,14 @@ public:
 	\param ignoreCase Searching is performed without regarding the case
 	\param ignorePaths Files are searched for without checking for the directories
 	\return Pointer to newly created archive, or 0 upon error. */
-	virtual IFileArchive* createArchive(const path& filename, bool ignoreCase, bool ignorePaths) const =0;
+	virtual IFileArchive* createArchive(const path& filename) const =0;
 
 	//! Creates an archive from the file
 	/** \param file File handle to use.
 	\param ignoreCase Searching is performed without regarding the case
 	\param ignorePaths Files are searched for without checking for the directories
 	\return Pointer to newly created archive, or 0 upon error. */
-	virtual IFileArchive* createArchive(io::IReadFile* file, bool ignoreCase, bool ignorePaths) const =0;
+	virtual IFileArchive* createArchive(io::IReadFile* file) const =0;
 };
 
 

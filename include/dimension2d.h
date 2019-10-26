@@ -5,7 +5,6 @@
 #ifndef __IRR_DIMENSION2D_H_INCLUDED__
 #define __IRR_DIMENSION2D_H_INCLUDED__
 
-#include "irr/core/math/irrMath.h" // for irr::core::equals()
 
 namespace irr
 {
@@ -44,8 +43,7 @@ namespace core
 			//! Equality operator
 			bool operator==(const dimension2d<T>& other) const
 			{
-				return core::equals(Width, other.Width) &&
-						core::equals(Height, other.Height);
+				return Width==other.Width && Height==other.Height;
 			}
 
 			//! Inequality operator

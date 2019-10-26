@@ -137,18 +137,23 @@ void CSceneNodeAnimatorCameraFPS::animateNode(IDummyTransformationSceneNode* nod
 	LastAnimationTime = timeMs;
 
 	// update position
-	core::vector3df pos = camera->getPosition();
+	core::vectorSIMDf pos; pos.set(camera->getPosition());
 
 	// Update rotation
-	core::vector3df target = (camera->getTarget() - camera->getAbsolutePosition());
-	core::vector3df relativeRotation = target.getHorizontalAngle();
+	core::vectorSIMDf abspos; abspos.set(camera->getAbsolutePosition());
+	core::vectorSIMDf target = camera->getTarget() - abspos;
+	core::vector3df relativeRotation = target.getAsVector3df().getHorizontalAngle();
 
 	if (CursorControl)
 	{
 		if (CursorPos != CenterCursor)
 		{
-			relativeRotation.Y -= (0.5f - CursorPos.X) * RotateSpeed;
 			relativeRotation.X -= (0.5f - CursorPos.Y) * RotateSpeed * MouseYDirection;
+			float tmpYRot = (0.5f - CursorPos.X) * RotateSpeed;
+			if (camera->getLeftHanded())
+				relativeRotation.Y -= tmpYRot;
+			else
+				relativeRotation.Y += tmpYRot;
 
 			// X < MaxVerticalAngle or X > 360-MaxVerticalAngle
 
@@ -192,8 +197,8 @@ void CSceneNodeAnimatorCameraFPS::animateNode(IDummyTransformationSceneNode* nod
 
 	// set target
 
-	target.set(0,0, core::max_(1.f, pos.getLength()));
-	core::vector3df movedir = target;
+	target.set(0,0, core::max(1.f, core::length(pos)[0]));
+	core::vectorSIMDf movedir = target;
 
 	core::matrix4x3 mat;
 	mat.setRotationDegrees(core::vector3df(relativeRotation.X, relativeRotation.Y, 0));
@@ -209,7 +214,7 @@ void CSceneNodeAnimatorCameraFPS::animateNode(IDummyTransformationSceneNode* nod
 		movedir = target;
 	}
 
-	movedir.normalize();
+	movedir = core::normalize(movedir);
 
 	if (CursorKeys[EKA_MOVE_FORWARD])
 		pos += movedir * timeDiff * MoveSpeed;
@@ -219,13 +224,16 @@ void CSceneNodeAnimatorCameraFPS::animateNode(IDummyTransformationSceneNode* nod
 
 	// strafing
 
-	core::vector3df strafevect = target;
-	strafevect = strafevect.crossProduct(camera->getUpVector());
+	core::vectorSIMDf strafevect; strafevect.set(target);
+	if (camera->getLeftHanded())
+		strafevect = core::cross(strafevect,camera->getUpVector());
+	else
+		strafevect = core::cross(camera->getUpVector(),strafevect);
 
 	if (NoVerticalMovement)
 		strafevect.Y = 0.0f;
 
-	strafevect.normalize();
+	strafevect = core::normalize(strafevect);
 
 	if (CursorKeys[EKA_STRAFE_LEFT])
 		pos += strafevect * timeDiff * MoveSpeed;
@@ -234,11 +242,11 @@ void CSceneNodeAnimatorCameraFPS::animateNode(IDummyTransformationSceneNode* nod
 		pos -= strafevect * timeDiff * MoveSpeed;
 
 	// write translation
-	camera->setPosition(pos);
+	camera->setPosition(pos.getAsVector3df());
 
 	// write right target
 	target += pos;
-	camera->setTarget(target);
+	camera->setTarget(target.getAsVector3df());
 }
 
 

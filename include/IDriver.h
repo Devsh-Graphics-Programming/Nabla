@@ -212,7 +212,7 @@ namespace video
                     const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
                     uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
                     uint32_t alignment = 64u; // smallest mapping alignment capability
-                    uint32_t subSize = std::min(core::alignDown(defaultUploadBuffer.get()->max_size(),alignment),size-uploadedSize);
+                    uint32_t subSize = core::min(core::alignDown(defaultUploadBuffer.get()->max_size(),alignment),size-uploadedSize);
 
                     defaultUploadBuffer.get()->multi_place(std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&localOffset,&subSize,&alignment);
                     // keep trying again
@@ -254,7 +254,7 @@ namespace video
 
             //these will have to be created by a query pool anyway
             virtual IQueryObject* createPrimitivesGeneratedQuery() {return nullptr;}
-            virtual IQueryObject* createXFormFeedbackPrimitiveQuery() {return nullptr;} //depr
+            virtual IQueryObject* createXFormFeedbackPrimitiveQuery() {return nullptr;} // depr
             virtual IQueryObject* createElapsedTimeQuery() {return nullptr;}
             virtual IGPUTimestampQuery* createTimestampQuery() {return nullptr;}
 
@@ -279,6 +279,9 @@ namespace video
 
             template<typename AssetType>
             created_gpu_object_array<AssetType> getGPUObjectsFromAssets(AssetType* const* const _begin, AssetType* const* const _end, IGPUObjectFromAssetConverter* _converter = nullptr);
+
+			template<typename AssetType>
+			created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::smart_refctd_ptr<asset::IAsset>* _begin, const core::smart_refctd_ptr<asset::IAsset>* _end, IGPUObjectFromAssetConverter* _converter = nullptr);
 	};
 
 } // end namespace video

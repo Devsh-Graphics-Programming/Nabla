@@ -15,13 +15,15 @@ void main()
 
     // can comment this clip-space culling in and out, but my guess is that the rasterizer pipeline in most GPUs does this already!
     mat4x3 cullingMatrix = transpose(clipPos);
-    for (int i=0; i<3; i++)
+    for (int i=0; i<2; i++)
     {
-        if (all(greaterThan(cullingMatrix[i],cullingMatrix[3])))
-            return;
-        if (all(lessThan(cullingMatrix[i],-cullingMatrix[3])))
+        if (all(greaterThan(cullingMatrix[i],cullingMatrix[3])) || all(lessThan(cullingMatrix[i],-cullingMatrix[3])))
             return;
     }
+	// realy optional stuff if you already have good CPU culling
+	// I'm working in [0,1] or [1,0] depth range
+    if (all(greaterThan(cullingMatrix[2],cullingMatrix[3])) || all(lessThan(cullingMatrix[2],vec3(0.0))))
+		return;
 
     // emit
     for (int i=0; i<3; i++)

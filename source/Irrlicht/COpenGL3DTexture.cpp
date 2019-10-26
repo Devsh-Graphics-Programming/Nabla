@@ -90,13 +90,13 @@ bool COpenGL3DTexture::resize(const uint32_t* size, const uint32_t& mipLevels)
 
     recreateName(getOpenGLTextureType());
 
-    uint32_t defaultMipMapCount = 1u+uint32_t(floorf(log2(float(core::max_(size[0],size[1],size[2])))));
+    uint32_t defaultMipMapCount = 1u+uint32_t(floorf(log2(float(core::max(size[0],size[1],size[2])))));
     if (MipLevelsStored>1)
     {
         if (mipLevels==0)
             MipLevelsStored = defaultMipMapCount;
         else
-            MipLevelsStored = core::min_(mipLevels,defaultMipMapCount);
+            MipLevelsStored = core::min(mipLevels,defaultMipMapCount);
     }
 
     memcpy(TextureSize,size,12);

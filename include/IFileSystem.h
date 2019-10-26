@@ -100,10 +100,6 @@ public:
 	Irrlicht supports AES-encrypted zip files, and the advanced compression
 	techniques lzma and bzip2.
 	\param filename: Filename of the archive to add to the file system.
-	\param ignoreCase: If set to true, files in the archive can be accessed without
-	writing all letters in the right case.
-	\param ignorePaths: If set to true, files in the added archive can be accessed
-	without its complete path.
 	\param archiveType: If no specific E_FILE_ARCHIVE_TYPE is selected then
 	the type of archive will depend on the extension of the file name. If
 	you use a different extension then you can use this parameter to force
@@ -111,8 +107,7 @@ public:
 	\param password An optional password, which is used in case of encrypted archives.
 	\param retArchive A pointer that will be set to the archive that is added.
 	\return True if the archive was added successfully, false if not. */
-	virtual bool addFileArchive(const path& filename, bool ignoreCase=true,
-			bool ignorePaths=true,
+	virtual bool addFileArchive(const path& filename,
 			E_FILE_ARCHIVE_TYPE archiveType=EFAT_UNKNOWN,
 			const core::stringc& password="",
 			IFileArchive** retArchive=0) =0;
@@ -132,10 +127,6 @@ public:
 	Using this technique one can build up a search order, because archives
 	are read first, and can be used more easily with relative filenames.
 	\param file: Archive to add to the file system.
-	\param ignoreCase: If set to true, files in the archive can be accessed without
-	writing all letters in the right case.
-	\param ignorePaths: If set to true, files in the added archive can be accessed
-	without its complete path.
 	\param archiveType: If no specific E_FILE_ARCHIVE_TYPE is selected then
 	the type of archive will depend on the extension of the file name. If
 	you use a different extension then you can use this parameter to force
@@ -143,8 +134,7 @@ public:
 	\param password An optional password, which is used in case of encrypted archives.
 	\param retArchive A pointer that will be set to the archive that is added.
 	\return True if the archive was added successfully, false if not. */
-	virtual bool addFileArchive(IReadFile* file, bool ignoreCase=true,
-			bool ignorePaths=true,
+	virtual bool addFileArchive(IReadFile* file,
 			E_FILE_ARCHIVE_TYPE archiveType=EFAT_UNKNOWN,
 			const core::stringc& password="",
 			IFileArchive** retArchive=0) =0;
@@ -239,7 +229,7 @@ public:
 	/** \return a Pointer to the created IFileList is returned. After the list has been used
 	it has to be deleted using its IFileList::drop() method.
 	See IReferenceCounted::drop() for more information. */
-	virtual IFileList* createEmptyFileList(const io::path& path, bool ignoreCase, bool ignorePaths) =0;
+	virtual IFileList* createEmptyFileList(const io::path& path) =0;
 
 	//! Set the active type of file system.
 	virtual EFileSystemType setFileListSystem(EFileSystemType listType) =0;
@@ -259,7 +249,7 @@ public:
         // find last forward or backslash
         int32_t lastSlash = filename.findLast('/');
         const int32_t lastBackSlash = filename.findLast('\\'); //! Just remove those '\' on Linux
-        lastSlash = core::max_(lastSlash, lastBackSlash);
+        lastSlash = core::max(lastSlash, lastBackSlash);
 
         if ((uint32_t)lastSlash < filename.size())
             return filename.subString(0, lastSlash);
@@ -268,11 +258,10 @@ public:
     }
 
 	//! flatten a path and file name for example: "/you/me/../." becomes "/you"
-	static inline path& flattenFilename(path& directory, const path& root="/")
+	static inline path flattenFilename(const path& _directory, const path& root="/")
     {
+		auto directory(_directory);
         handleBackslashes(&directory);
-        if (directory.lastChar() != '/')
-            directory.append('/');
 
         io::path dir;
         io::path subdir;
@@ -281,37 +270,45 @@ public:
         int32_t pos = 0;
         bool lastWasRealDir=false;
 
+		auto process = [&]() -> void
+		{
+			subdir = directory.subString(lastpos, pos - lastpos + 1);
+
+			if (subdir == _IRR_TEXT("../"))
+			{
+				if (lastWasRealDir)
+				{
+					deletePathFromPath(dir, 2);
+					lastWasRealDir = (dir.size() != 0);
+				}
+				else
+				{
+					dir.append(subdir);
+					lastWasRealDir = false;
+				}
+			}
+			else if (subdir == _IRR_TEXT("/"))
+			{
+				dir = root;
+			}
+			else if (subdir != _IRR_TEXT("./"))
+			{
+				dir.append(subdir);
+				lastWasRealDir = true;
+			}
+
+			lastpos = pos + 1;
+		};
         while ((pos = directory.findNext('/', lastpos)) >= 0)
         {
-            subdir = directory.subString(lastpos, pos - lastpos + 1);
-
-            if (subdir == _IRR_TEXT("../"))
-            {
-                if (lastWasRealDir)
-                {
-                    deletePathFromPath(dir, 2);
-                    lastWasRealDir=(dir.size()!=0);
-                }
-                else
-                {
-                    dir.append(subdir);
-                    lastWasRealDir=false;
-                }
-            }
-            else if (subdir == _IRR_TEXT("/"))
-            {
-                dir = root;
-            }
-            else if (subdir != _IRR_TEXT("./"))
-            {
-                dir.append(subdir);
-                lastWasRealDir=true;
-            }
-
-            lastpos = pos + 1;
+			process();
         }
-        directory = dir;
-        return directory;
+		if (directory.lastChar() != '/')
+		{
+			pos = directory.size();
+			process();
+		}
+        return dir;
     }
 
 	//! Get the base part of a filename, i.e. the name without the directory part.
@@ -324,7 +321,7 @@ public:
         // find last forward or backslash
         int32_t lastSlash = filename.findLast('/');
         const int32_t lastBackSlash = filename.findLast('\\'); //! Just remove those '\' on Linux
-        lastSlash = core::max_(lastSlash, lastBackSlash);
+        lastSlash = core::max(lastSlash, lastBackSlash);
 
         // get number of chars after last dot
         int32_t end = 0;

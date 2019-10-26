@@ -24,6 +24,23 @@ class IGPUObjectFromAssetConverter
 		asset::IAssetManager* m_assetManager;
 		video::IDriver* m_driver;
 
+		template<typename AssetType, typename iterator_type>
+		struct get_asset_raw_ptr
+		{
+			static inline AssetType* value(iterator_type it) { return static_cast<AssetType*>(it->get()); }
+		};
+
+		template<typename AssetType>
+		struct get_asset_raw_ptr<AssetType, AssetType**>
+		{
+			static inline AssetType* value(AssetType** it) { return *it; }
+		};
+		template<typename AssetType>
+		struct get_asset_raw_ptr<AssetType, AssetType*const*>
+		{
+			static inline AssetType* value(AssetType*const* it) { return *it; }
+		};
+
 	public:
 		IGPUObjectFromAssetConverter(asset::IAssetManager* _assetMgr, video::IDriver* _drv) : m_assetManager{_assetMgr}, m_driver{_drv} {}
 
@@ -35,8 +52,8 @@ class IGPUObjectFromAssetConverter
 		inline virtual created_gpu_object_array<asset::ICPUMesh>				create(asset::ICPUMesh** const _begin, asset::ICPUMesh** const _end);
 		inline virtual created_gpu_object_array<asset::ICPUTexture>				create(asset::ICPUTexture** const _begin, asset::ICPUTexture** const _end);
 
-		template<typename AssetType>
-		created_gpu_object_array<AssetType> getGPUObjectsFromAssets(AssetType* const* const _begin, AssetType* const* const _end)
+		template<typename AssetType, typename iterator_type>
+		created_gpu_object_array<AssetType> getGPUObjectsFromAssets(iterator_type _begin, iterator_type _end)
 		{
 			const auto assetCount = std::distance(_begin, _end);
 			auto res = core::make_refctd_dynamic_array<created_gpu_object_array<AssetType> >(assetCount);
@@ -44,14 +61,14 @@ class IGPUObjectFromAssetConverter
 			core::vector<AssetType*> notFound; notFound.reserve(assetCount);
 			core::vector<size_t> pos; pos.reserve(assetCount);
 
-			for (AssetType*const * it=_begin; it!=_end; it++)
+			for (iterator_type it=_begin; it!=_end; it++)
 			{
 				const auto index = std::distance(_begin,it);
 
-				auto gpu = m_assetManager->findGPUObject(*it);
+				auto gpu = m_assetManager->findGPUObject(get_asset_raw_ptr<AssetType, iterator_type>::value(it));
 				if (!gpu)
 				{
-					notFound.push_back(*it);
+					notFound.push_back(get_asset_raw_ptr<AssetType,iterator_type>::value(it));
 					pos.push_back(index);
 				}
 				else
@@ -231,8 +248,8 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
 
     const core::vector<uint32_t> bufRedir = eliminateDuplicatesAndGenRedirs(cpuBufDeps);
     const core::vector<uint32_t> texRedir = eliminateDuplicatesAndGenRedirs(cpuTexDeps);
-    auto gpuBufDeps = getGPUObjectsFromAssets(cpuBufDeps.data(), cpuBufDeps.data() + cpuBufDeps.size());
-    auto gpuTexDeps = getGPUObjectsFromAssets(cpuTexDeps.data(), cpuTexDeps.data() + cpuTexDeps.size());
+    auto gpuBufDeps = getGPUObjectsFromAssets<asset::ICPUBuffer>(cpuBufDeps.data(), cpuBufDeps.data() + cpuBufDeps.size());
+    auto gpuTexDeps = getGPUObjectsFromAssets<asset::ICPUTexture>(cpuTexDeps.data(), cpuTexDeps.data() + cpuTexDeps.size());
     for (size_t i = 0u; i <assetCount; ++i)
     {
 		auto& output = res->operator[](i);
@@ -328,7 +345,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset:
     }
 
     core::vector<uint32_t> redir = eliminateDuplicatesAndGenRedirs(cpuDeps);
-    auto gpuDeps = getGPUObjectsFromAssets(cpuDeps.data(), cpuDeps.data() + cpuDeps.size());
+    auto gpuDeps = getGPUObjectsFromAssets<asset::ICPUMeshBuffer>(cpuDeps.data(), cpuDeps.data() + cpuDeps.size());
     for (size_t i=0u, j=0u; i<assetCount; ++i)
     {
 		auto* _asset = _begin[i];

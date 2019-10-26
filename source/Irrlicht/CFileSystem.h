@@ -46,17 +46,15 @@ class CFileSystem : public IFileSystem
 
         //! Adds an archive to the file system.
         virtual bool addFileArchive(const io::path& filename,
-                bool ignoreCase = true, bool ignorePaths = true,
                 E_FILE_ARCHIVE_TYPE archiveType = EFAT_UNKNOWN,
                 const core::stringc& password="",
-                IFileArchive** retArchive = 0);
+                IFileArchive** retArchive = 0) override;
 
         //! Adds an archive to the file system.
-        virtual bool addFileArchive(IReadFile* file, bool ignoreCase=true,
-                bool ignorePaths=true,
+        virtual bool addFileArchive(IReadFile* file,
                 E_FILE_ARCHIVE_TYPE archiveType=EFAT_UNKNOWN,
                 const core::stringc& password="",
-                IFileArchive** retArchive = 0);
+                IFileArchive** retArchive = 0) override;
 
         //! Adds an archive to the file system.
         virtual bool addFileArchive(IFileArchive* archive);
@@ -109,7 +107,7 @@ class CFileSystem : public IFileSystem
         virtual IFileList* createFileList();
 
         //! Creates an empty filelist
-        virtual IFileList* createEmptyFileList(const io::path& path, bool ignoreCase, bool ignorePaths);
+        virtual IFileList* createEmptyFileList(const io::path& path) override;
 
         //! determines if a file exists and would be able to be opened.
         virtual bool existFile(const io::path& filename) const;

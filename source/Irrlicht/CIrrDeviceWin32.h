@@ -84,13 +84,7 @@ namespace irr
 
             //! Activate any joysticks, and generate events for them.
             virtual bool activateJoysticks(core::vector<SJoystickInfo> & joystickInfo);
-    /*
-            //! Set the current Gamma Value for the Display
-            virtual bool setGammaRamp( float red, float green, float blue, float brightness, float contrast );
 
-            //! Get the current Gamma Value for the Display
-            virtual bool getGammaRamp( float &red, float &green, float &blue, float &brightness, float &contrast );
-    */
             //! Remove all messages pending in the system message loop
             virtual void clearSystemMessages();
 
@@ -177,9 +171,9 @@ namespace irr
                 virtual void setPosition(float x, float y)
                 {
                     if (!UseReferenceRect)
-                        setPosition(core::round32(x*WindowSize.Width), core::round32(y*WindowSize.Height));
+                        setPosition(core::round<float,int32_t>(x*WindowSize.Width), core::round<float,int32_t>(y*WindowSize.Height));
                     else
-                        setPosition(core::round32(x*ReferenceRect.getWidth()), core::round32(y*ReferenceRect.getHeight()));
+                        setPosition(core::round<float,int32_t>(x*ReferenceRect.getWidth()), core::round<float,int32_t>(y*ReferenceRect.getHeight()));
                 }
 
                 //! Sets the new position of the cursor.

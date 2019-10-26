@@ -153,21 +153,24 @@ void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *no
 
 	// Translation ---------------------------------
 
-	core::vector3df translate(OldTarget);
+	core::vector3df_SIMD translate(OldTarget);
 
 	core::vector3df_SIMD target,upVector;
-	upVector.getAsVector3df() = camera->getUpVector();
-	target.getAsVector3df() = camera->getTarget();
+	upVector = camera->getUpVector();
+	target = camera->getTarget();
 
 	core::vector3df_SIMD pos,tvectX;
 	pos.getAsVector3df() = camera->getPosition();
 	tvectX = pos - target;
-	tvectX = normalize(cross(tvectX,upVector));
+	if (camera->getLeftHanded())
+		tvectX = normalize(cross(tvectX,upVector));
+	else
+		tvectX = normalize(cross(upVector, tvectX));
 
 	const SViewFrustum* const va = camera->getViewFrustum();
 	core::vector3df_SIMD tvectY = (va->getFarLeftDown() - va->getFarRightDown());
 	tvectY = normalize(cross(tvectY,upVector.Y > 0 ? pos - target : target - pos));
-
+	
 	if (isMouseKeyDown(2) && !Zooming)
 	{
 		if (!Translating)
@@ -177,19 +180,24 @@ void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *no
 		}
 		else
 		{
-			translate +=  tvectX.getAsVector3df() * (TranslateStart.X - MousePos.X)*TranslateSpeed +
-			              tvectY.getAsVector3df() * (TranslateStart.Y - MousePos.Y)*TranslateSpeed;
+			translate +=  tvectX * (TranslateStart.X - MousePos.X)*TranslateSpeed +
+			              tvectY * (TranslateStart.Y - MousePos.Y)*TranslateSpeed;
 		}
 	}
 	else if (Translating)
 	{
-		translate += tvectX.getAsVector3df() * (TranslateStart.X - MousePos.X)*TranslateSpeed +
-		             tvectY.getAsVector3df() * (TranslateStart.Y - MousePos.Y)*TranslateSpeed;
+		translate += tvectX * (TranslateStart.X - MousePos.X)*TranslateSpeed +
+		             tvectY * (TranslateStart.Y - MousePos.Y)*TranslateSpeed;
 		OldTarget = translate;
 		Translating = false;
 	}
 
 	// Rotation ------------------------------------
+
+	auto getValueDependentOnHandOrientation = [&](const float& expression)
+	{
+		return core::mix<float, bool>(-expression, expression, camera->getLeftHanded());
+	};
 
 	if (isMouseKeyDown(0) && !Zooming)
 	{
@@ -202,14 +210,14 @@ void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *no
 		}
 		else
 		{
-			nRotX += (RotateStart.X - MousePos.X) * RotateSpeed;
-			nRotY += (RotateStart.Y - MousePos.Y) * RotateSpeed;
+			nRotX += getValueDependentOnHandOrientation((RotateStart.X - MousePos.X) * RotateSpeed);
+			nRotY += getValueDependentOnHandOrientation((RotateStart.Y - MousePos.Y) * RotateSpeed);
 		}
 	}
 	else if (Rotating)
 	{
-		RotX += (RotateStart.X - MousePos.X) * RotateSpeed;
-		RotY += (RotateStart.Y - MousePos.Y) * RotateSpeed;
+		RotX += getValueDependentOnHandOrientation((RotateStart.X - MousePos.X) * RotateSpeed);
+		RotY += getValueDependentOnHandOrientation((RotateStart.Y - MousePos.Y) * RotateSpeed);
 		nRotX = RotX;
 		nRotY = RotY;
 		Rotating = false;
@@ -217,14 +225,14 @@ void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *no
 
 	// Set pos ------------------------------------
 
-	pos.getAsVector3df() = translate;
+	pos = translate;
 	pos.X += nZoom;
 
-	pos.getAsVector3df().rotateXYBy(nRotY, translate);
-	pos.getAsVector3df().rotateXZBy(-nRotX, translate);
+	pos.rotateXYByRAD( core::radians(nRotY), translate);
+	pos.rotateXZByRAD(-core::radians(nRotX), translate);
 
 	camera->setPosition(pos.getAsVector3df());
-	camera->setTarget(translate);
+	camera->setTarget(translate.getAsVector3df());
 
 	// Rotation Error ----------------------------
 

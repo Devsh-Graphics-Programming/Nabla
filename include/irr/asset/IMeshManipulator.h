@@ -89,7 +89,7 @@ namespace asset
 				VxCmpFunction vxcmp = [](const IMeshManipulator::SSNGVertexData& v0, const IMeshManipulator::SSNGVertexData& v1, ICPUMeshBuffer* buffer) 
 				{ 
 					static constexpr float cosOf45Deg = 0.70710678118f;
-					return v0.parentTriangleFaceNormal.dotProductAsFloat(v1.parentTriangleFaceNormal) > cosOf45Deg;
+					return dot(v0.parentTriangleFaceNormal,v1.parentTriangleFaceNormal)[0] > cosOf45Deg;
 				});
 
 		//! Creates a copy of a mesh with vertices welded
@@ -212,7 +212,7 @@ namespace asset
 		//! Get amount of polygons in mesh buffer.
 		/** \param meshbuffer Input mesh buffer
 		\param Outputted Number of polygons in mesh buffer, if successful.
-		\return If successfully can provide information, i.e. if XFormFeedback is providing PolyCount we dont know how many there are */
+		\return If successfully can provide information */
 		template<typename T>
 		static inline bool getPolyCount(uint32_t& outCount, IMeshBuffer<T>* meshbuffer)
 		{
@@ -254,7 +254,7 @@ namespace asset
 		//! Get amount of polygons in mesh.
 		/** \param meshbuffer Input mesh
 		\param Outputted Number of polygons in mesh, if successful.
-		\return If successfully can provide information, i.e. if XFormFeedback is providing PolyCount we dont know how many there are */
+		\return If successfully can provide information */
 		template<typename T>
 		static inline bool getPolyCount(uint32_t& outCount, IMesh<T>* mesh)
 		{

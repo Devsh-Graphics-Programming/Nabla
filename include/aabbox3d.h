@@ -5,7 +5,6 @@
 #ifndef __IRR_AABBOX_3D_H_INCLUDED__
 #define __IRR_AABBOX_3D_H_INCLUDED__
 
-#include "irr/core/math/irrMath.h"
 #include "line3d.h"
 
 namespace irr
@@ -34,11 +33,11 @@ class aabbox3d // : public AllocationOverrideDefault ?
 		//! Equality operator
 		/** \param other box to compare with.
 		\return True if both boxes are equal, else false. */
-		inline bool operator==(const aabbox3d<T>& other) const { return (MinEdge == other.MinEdge && other.MaxEdge == MaxEdge);}
+		inline bool operator==(const aabbox3d<T>& other) const { return !operator!=(other); }
 		//! Inequality operator
 		/** \param other box to compare with.
 		\return True if both boxes are different, else false. */
-		inline bool operator!=(const aabbox3d<T>& other) const { return !(MinEdge == other.MinEdge && other.MaxEdge == MaxEdge);}
+		inline bool operator!=(const aabbox3d<T>& other) const { return MinEdge!=other.MinEdge || other.MaxEdge!=MaxEdge; }
 
 		// functions
 

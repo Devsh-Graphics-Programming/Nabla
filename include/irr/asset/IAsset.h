@@ -4,7 +4,9 @@
 #include <string>
 #include "irr/core/core.h"
 
-namespace irr { namespace asset
+namespace irr
+{
+namespace asset
 {
 
 class IAssetManager;
@@ -16,7 +18,7 @@ protected:
 
 public:
     //! this could actually be reworked to something more usable
-    virtual const char* getLoaderName() = 0;
+    virtual const char* getLoaderName() const = 0;
 };
 
 class IAsset : virtual public core::IReferenceCounted
@@ -95,22 +97,34 @@ public:
 
 class SAssetBundle
 {
+	inline bool allSameTypeAndNotNull()
+	{
+		if (m_contents->size() == 0ull)
+			return true;
+		if (!*m_contents->begin())
+			return false;
+		IAsset::E_TYPE t = (*m_contents->begin())->getAssetType();
+		for (auto it=m_contents->cbegin(); it!=m_contents->cend(); it++)
+			if (!(*it) || (*it)->getAssetType()!=t)
+				return false;
+		return true;
+	}
 public:
     using contents_container_t = core::refctd_dynamic_array<core::smart_refctd_ptr<IAsset> >;
     
-    SAssetBundle(std::initializer_list<contents_container_t::value_type> _contents = {}) : m_contents(contents_container_t::create_dynamic_array(_contents),core::dont_grab)
+	SAssetBundle() : m_contents(contents_container_t::create_dynamic_array(0u), core::dont_grab) {}
+	SAssetBundle(std::initializer_list<core::smart_refctd_ptr<IAsset> > _contents) : m_contents(contents_container_t::create_dynamic_array(_contents),core::dont_grab)
+	{
+		assert(allSameTypeAndNotNull());
+	}
+	template<typename container_t, typename iterator_t = typename container_t::iterator>
+	SAssetBundle(const container_t& _contents) : m_contents(contents_container_t::create_dynamic_array(_contents), core::dont_grab)
+	{
+		assert(allSameTypeAndNotNull());
+	}
+	template<typename container_t, typename iterator_t = typename container_t::iterator>
+    SAssetBundle(container_t&& _contents) : m_contents(contents_container_t::create_dynamic_array(std::move(_contents)), core::dont_grab)
     {
-        auto allSameTypeAndNotNull = [&_contents] {
-            if (_contents.size()==0ull)
-                return true;
-            if (!*_contents.begin())
-                return false;
-            IAsset::E_TYPE t = (*_contents.begin())->getAssetType();
-            for (const auto& ast : _contents)
-                if (!ast || ast->getAssetType() != t)
-                    return false;
-            return true;
-        };
         assert(allSameTypeAndNotNull());
     }
 
@@ -147,9 +161,10 @@ private:
 
     std::string m_cacheKey;
     bool m_isCached = false;
-    core::smart_refctd_ptr<const contents_container_t> m_contents;
+    core::smart_refctd_ptr<contents_container_t> m_contents;
 };
 
-}}
+}
+}
 
 #endif // __IRR_I_ASSET_H_INCLUDED__

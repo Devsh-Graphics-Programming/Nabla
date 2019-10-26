@@ -14,21 +14,16 @@ namespace irr
 namespace scene
 {
 
-	class CCameraSceneNode : public ICameraSceneNode
-	{
+class CCameraSceneNode : public ICameraSceneNode
+{
 	public:
-
 		//! constructor
-		CCameraSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
-			const core::vector3df& position = core::vector3df(0,0,0),
-			const core::vector3df& lookat = core::vector3df(0,0,100));
+		CCameraSceneNode(	IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
+							const core::vector3df& position = core::vector3df(0,0,0),
+							const core::vectorSIMDf& lookat = core::vectorSIMDf(0,0,100));
 
 		//! Sets the projection matrix of the camera.
 		virtual void setProjectionMatrix(const core::matrix4SIMD& projection);
-
-		//! Gets the current projection matrix of the camera
-		//! \return Returns the current projection matrix of the camera.
-		virtual const core::matrix4SIMD& getProjectionMatrix() const;
 
 		//! Gets the current view matrix of the camera
 		//! \return Returns the current view matrix of the camera.
@@ -47,7 +42,7 @@ namespace scene
 		/** If the camera's target and rotation are bound ( @see bindTargetAndRotation() )
 		then calling this will also change the camera's scene node rotation to match the target.
 		\param pos: Look at target of the camera. */
-		virtual void setTarget(const core::vector3df& pos);
+		virtual void setTarget(const core::vector3df& pos) override;
 
 		//! Sets the rotation of the node.
 		/** This only modifies the relative rotation of the node.
@@ -58,7 +53,7 @@ namespace scene
 
 		//! Gets the current look at target of the camera
 		/** \return The current look at target of the camera */
-		virtual const core::vector3df& getTarget() const;
+		virtual const core::vectorSIMDf& getTarget() const override;
 
 		//! Sets the up vector of the camera.
 		//! \param pos: New upvector of the camera.
@@ -66,35 +61,7 @@ namespace scene
 
 		//! Gets the up vector of the camera.
 		//! \return Returns the up vector of the camera.
-		virtual const core::vector3df& getUpVector() const;
-
-		//! Gets distance from the camera to the near plane.
-		//! \return Value of the near plane of the camera.
-		virtual float getNearValue() const;
-
-		//! Gets the distance from the camera to the far plane.
-		//! \return Value of the far plane of the camera.
-		virtual float getFarValue() const;
-
-		//! Get the aspect ratio of the camera.
-		//! \return The aspect ratio of the camera.
-		virtual float getAspectRatio() const;
-
-		//! Gets the field of view of the camera.
-		//! \return Field of view of the camera
-		virtual float getFOV() const;
-
-		//! Sets the value of the near clipping plane. (default: 1.0f)
-		virtual void setNearValue(float zn);
-
-		//! Sets the value of the far clipping plane (default: 2000.0f)
-		virtual void setFarValue(float zf);
-
-		//! Sets the aspect ratio (default: 4.0f / 3.0f)
-		virtual void setAspectRatio(float aspect);
-
-		//! Sets the field of view (Default: PI / 3.5f)
-		virtual void setFOV(float fovy);
+		virtual const core::vectorSIMDf& getUpVector() const override;
 
 		//! PreRender event
 		virtual void OnRegisterSceneNode();
@@ -104,6 +71,9 @@ namespace scene
 
 		//! Returns the axis aligned bounding box of this node
 		virtual const core::aabbox3d<float>& getBoundingBox();
+
+		//!
+		virtual void recomputeProjectionMatrix();
 
 		//! Returns the view area. Sometimes needed by bsp or lod render nodes.
 		virtual const SViewFrustum* getViewFrustum() const;
@@ -129,20 +99,12 @@ namespace scene
 		virtual ISceneNode* clone(IDummyTransformationSceneNode* newParent=0, ISceneManager* newManager=0) { assert(false); return nullptr; }
 
 	protected:
-
-		void recalculateProjectionMatrix();
 		void recalculateViewArea();
 
-		core::vector3df Target;
-		core::vector3df UpVector;
-
-		float Fovy;	// Field of view, in radians.
-		float Aspect;	// Aspect ratio.
-		float ZNear;	// value of the near view-plane.
-		float ZFar;	// Z-value of the far view-plane.
+		core::vectorSIMDf Target;
+		core::vectorSIMDf UpVector;
 
         core::matrix4x3 viewMatrix;
-        core::matrix4SIMD projMatrix;
         core::matrix4SIMD concatMatrix;
 		SViewFrustum ViewArea;
 

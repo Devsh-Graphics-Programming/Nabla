@@ -8,7 +8,6 @@
 #include "irr/switch_constexpr.h"
 #include "irr/type_traits.h"
 #include "irr/void_t.h"
-
 // allocator
 #include "irr/core/alloc/AddressAllocatorBase.h"
 #include "irr/core/alloc/AddressAllocatorConcurrencyAdaptors.h"
@@ -28,9 +27,11 @@
 #include "irr/core/alloc/PoolAddressAllocator.h"
 #include "irr/core/alloc/ResizableHeterogenousMemoryAllocator.h"
 #include "irr/core/alloc/StackAddressAllocator.h"
+#include "irr/core/alloc/SimpleBlockBasedAllocator.h"
 // math
-#include "irr/core/math/floatutil.h"
-#include "irr/core/math/irrMath.h"
+#include "irr/core/math/intutil.h"
+#include "irr/core/math/floatutil.tcc"
+#include "irr/core/math/glslFunctions.tcc"
 #include "irr/core/math/rational.h"
 #include "irr/core/math/plane3dSIMD.h"
 // memory
@@ -51,5 +52,9 @@
 #include "irr/core/IReferenceCounted.h"
 #include "irr/core/SRAIIBasedExiter.h"
 #include "irr/core/Types.h"
+
+// implementations
+#include "matrix3x4SIMD_impl.h"
+#include "matrix4SIMD_impl.h"
 
 #endif

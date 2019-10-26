@@ -217,7 +217,7 @@ namespace scene
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
 		virtual ICameraSceneNode* addCameraSceneNode(IDummyTransformationSceneNode* parent = 0,
 			const core::vector3df& position = core::vector3df(0,0,0),
-			const core::vector3df& lookat = core::vector3df(0,0,100),
+			const core::vectorSIMDf & lookat = core::vectorSIMDf(0,0,100),
 			int32_t id=-1, bool makeActive=true) = 0;
 
 		//! Adds a maya style user controlled camera scene node to the scene tree.
@@ -437,7 +437,7 @@ namespace scene
 		virtual ISceneNodeAnimator* createFlyCircleAnimator(
 				const core::vector3df& center=core::vector3df(0.f,0.f,0.f),
 				float radius=100.f, float speed=0.001f,
-				const core::vector3df& direction=core::vector3df(0.f, 1.f, 0.f),
+				const core::vectorSIMDf& direction=core::vectorSIMDf(0.f, 1.f, 0.f),
 				float startPosition = 0.f,
 				float radiusEllipsoid = 0.f) = 0;
 
@@ -454,8 +454,8 @@ namespace scene
 		and the animator will animate it.
 		If you no longer need the animator, you should call ISceneNodeAnimator::drop().
 		See IReferenceCounted::drop() for more information. */
-		virtual ISceneNodeAnimator* createFlyStraightAnimator(const core::vector3df& startPoint,
-			const core::vector3df& endPoint, uint32_t timeForWay, bool loop=false, bool pingpong = false) = 0;
+		virtual ISceneNodeAnimator* createFlyStraightAnimator(const core::vectorSIMDf& startPoint,
+			const core::vectorSIMDf& endPoint, uint32_t timeForWay, bool loop=false, bool pingpong = false) = 0;
 
 		//! Creates a scene node animator, which deletes the scene node after some time automatically.
 		/** \param timeMs: Time in milliseconds, after when the node will be deleted.

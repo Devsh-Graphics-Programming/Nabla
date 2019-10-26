@@ -7,8 +7,6 @@
 
 #include "irr/asset/IAssetLoader.h"
 
-#include "vectorSIMD.h"
-
 namespace irr
 {
 namespace asset
