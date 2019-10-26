@@ -27,8 +27,7 @@ public:
         {
             io::path path = searchDir.c_str();
             path += _path.c_str();
-            io::IFileSystem::flattenFilename(path);
-            path[path.size()-1] = 0; // for some reason flattenFilename() adds to the end
+            path = io::IFileSystem::flattenFilename(path);
             std::string res = getInclude_internal(path.c_str());
             if (!res.empty())
                 return res;
@@ -39,8 +38,7 @@ public:
     {
         io::path path = _workingDir.c_str();
         path += _path.c_str();
-        io::IFileSystem::flattenFilename(path);
-        path[path.size()-1] = 0; // for some reason flattenFilename() adds to the end
+		path = io::IFileSystem::flattenFilename(path);
         return getInclude_internal(path.c_str());
     }
 

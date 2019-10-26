@@ -20,30 +20,65 @@ namespace core
 {
 
 //! Doesn't resize memory arenas, therefore once allocated pointers shall not move
-template<class AddressAllocator, template<class> class DataAllocator >
+template<class AddressAllocator, template<class> class DataAllocator, typename... Args>
 class SimpleBlockBasedAllocator
 {
-    public:
+	public:
 		using size_type = typename address_allocator_traits<AddressAllocator>::size_type;
 		_IRR_STATIC_INLINE_CONSTEXPR size_type meta_alignment = 64u;
 
+	private:
+		class Block
+		{
+				AddressAllocator addrAlloc;
+
+			public:
+				Block(size_type blockSize, const Args&... args) :
+					addrAlloc(AddressAllocator(data()+blockSize, 0u, 0u, meta_alignment, blockSize, args...))
+				{
+					assert(address_allocator_traits<AddressAllocator>::get_align_offset(addrAlloc) == 0ul);
+					assert(address_allocator_traits<AddressAllocator>::get_combined_offset(addrAlloc) == 0u);
+				}
+
+				static size_type size_of(size_type blockSize, const Args&... args)
+				{
+					return core::alignUp(sizeof(AddressAllocator),meta_alignment)+blockSize+address_allocator_traits<AddressAllocator>::reserved_size(meta_alignment,blockSize,args...);
+				}
+
+				uint8_t* data() { return reinterpret_cast<uint8_t*>(this)+core::alignUp(sizeof(AddressAllocator),meta_alignment); }
+				const uint8_t* data() const
+				{
+					return const_cast<Block*>(this)->data();
+				}
+				
+				const AddressAllocator& getAllocator() const { return addrAlloc; }
+
+				size_type alloc(size_type bytes, size_type alignment)
+				{
+					size_type addr = AddressAllocator::invalid_address;
+					address_allocator_traits<AddressAllocator>::multi_alloc_addr(addrAlloc, 1u, &addr, &bytes, &alignment);
+					return addr;
+				}
+
+				void free(size_type addr, size_type bytes)
+				{
+					address_allocator_traits<AddressAllocator>::multi_free_addr(addrAlloc, 1u, &addr, &bytes);
+				}
+		};
+
+    public:
         virtual ~SimpleBlockBasedAllocator()
 		{
 			reset();
-			metaAlloc.deallocate(reinterpret_cast<uint8_t*>(blocks),cachedLocalMemSize);
+			metaAlloc.deallocate(blocks,maxBlockCount);
 		}
 
-		template<typename... Args>
-		SimpleBlockBasedAllocator(size_type _blockSize=4096u*1024u, size_type _maxBlockCount=256u, const Args&... args) :
-			blockSize(_blockSize), maxBlockCount(_maxBlockCount), metaAlloc(),
-			cachedLocalMemSize(core::alignUp(maxBlockCount*sizeof(uint8_t*),meta_alignment)+address_allocator_traits<AddressAllocator>::reserved_size(meta_alignment,blockSize*maxBlockCount,args...)),
-			blocks(reinterpret_cast<uint8_t**>(metaAlloc.allocate(cachedLocalMemSize, meta_alignment))),
-			addrAlloc(reinterpret_cast<uint8_t*>(blocks)+core::alignUp(maxBlockCount*sizeof(uint8_t*),meta_alignment), 0u, 0u, meta_alignment, blockSize*maxBlockCount, args...),
-			blockAlloc()
+		SimpleBlockBasedAllocator(size_type _blockSize, size_type _maxBlockCount, Args&&... args) :
+			blockSize(Block::size_of(_blockSize,args...)), maxBlockCount(_maxBlockCount), metaAlloc(),
+			blocks(metaAlloc.allocate(maxBlockCount, meta_alignment)),
+			blockAlloc(), blockCreationArgs(args...)
 		{
-			assert(blockSize%meta_alignment==0u);
-			assert(address_allocator_traits<AddressAllocator>::get_align_offset(addrAlloc)==0ul);
-			assert(address_allocator_traits<AddressAllocator>::get_combined_offset(addrAlloc)==0u);
+			assert(maxBlockCount > 0u);
 			std::fill(blocks,blocks+maxBlockCount,nullptr);
 		}
 
@@ -52,16 +87,13 @@ class SimpleBlockBasedAllocator
 			std::swap(blockSize, other.blockSize);
 			std::swap(maxBlockCount, other.maxBlockCount);
 			std::swap(metaAlloc, other.metaAlloc);
-			std::swap(cachedLocalMemSize, other.cachedLocalMemSize);
 			std::swap(blocks, other.blocks);
-			std::swap(addrAlloc, other.addrAlloc);
             std::swap(blockAlloc,other.blockAlloc);
             return *this;
         }
 
         inline void		reset()
         {
-			addrAlloc.reset();
 			for (auto i=0u; i<maxBlockCount; i++)
 				deleteBlock(i);
         }
@@ -71,29 +103,41 @@ class SimpleBlockBasedAllocator
 		inline void*	allocate(size_type bytes, size_type alignment) noexcept
 		{
 			constexpr auto invalid_address = AddressAllocator::invalid_address;
+			for (size_type i=0u; i<maxBlockCount; i++)
+			{
+				auto& block = blocks[i];
 
-			size_type addr = invalid_address;
-			address_allocator_traits<AddressAllocator>::multi_alloc_addr(addrAlloc, 1u, &addr, &bytes, &alignment);
-			if (addr==invalid_address)
-				return nullptr;
+				bool die = i==(maxBlockCount-1u);
+				if (!block)
+				{
+					block = createBlock();
+					die = true;
+				}
 
-			auto blockID = addr/blockSize;
-			auto& block = blocks[blockID];
-			if (!block)
-				block = createBlock();
-			return block+(addr-blockID*blockSize);
+				size_type addr = block->alloc(bytes, alignment);
+				if (addr == invalid_address)
+				{
+					if (die)
+						break;
+					else
+						continue;
+				}
+
+				return block->data()+addr;
+			}
+			return nullptr;
 		}
 		inline void		deallocate(void* p, size_type bytes) noexcept
 		{
-			for (auto i=0u; i<maxBlockCount; i++)
+			for (size_type i=0u; i<maxBlockCount; i++)
 			{
-				if (blocks[i] || p<blocks[i])
+				if (blocks[i])
 					continue;
-				size_type addr = p-blocks[i];
+				size_type addr = p-blocks[i]->data();
 				if (addr<blockSize)
 				{
-					address_allocator_traits<AddressAllocator>::multi_free_addr(addrAlloc, 1u, &addr, &bytes);
-					if (address_allocator_traits<AddressAllocator>::get_allocated_size()==size_type(0u))
+					block->free(addr,bytes);
+					if (address_allocator_traits<AddressAllocator>::get_allocated_size(block->getAllocator())==size_type(0u))
 						deleteBlock(i);
 					return;
 				}
@@ -109,11 +153,7 @@ class SimpleBlockBasedAllocator
 				return true;
 			if (metaAlloc != other.metaAlloc)
 				return true;
-			if (cachedLocalMemSize != other.cachedLocalMemSize)
-				return true;
 			if (blocks != other.blocks)
-				return true;
-			if (addrAlloc != other.addrAlloc)
 				return true;
 			if (blockAlloc != other.blockAlloc)
 				return true;
@@ -126,30 +166,43 @@ class SimpleBlockBasedAllocator
     protected:
 		size_type blockSize;
 		size_type maxBlockCount;
-		DataAllocator<uint8_t> metaAlloc;
-		size_t cachedLocalMemSize;
-		uint8_t** blocks;
-		AddressAllocator addrAlloc;
+		DataAllocator<Block*> metaAlloc;
+		Block** blocks;
 		DataAllocator<uint8_t> blockAlloc;
 
-		uint8_t* createBlock()
+		std::tuple<Args...> blockCreationArgs;
+
+
+		template<int ...> struct seq {};
+		template<int N, int ...S> struct gens : gens<N - 1, N - 1, S...> { };
+		template<int ...S> struct gens<0, S...> { typedef seq<S...> type; };
+
+		template<int ...S>
+		void constructBlock(Block* mem,seq<S...>)
 		{
-			return blockAlloc.allocate(blockSize, meta_alignment);
+			new(mem) Block(blockSize,std::get<S>(blockCreationArgs)...);
 		}
+		Block* createBlock()
+		{
+			auto retval = reinterpret_cast<Block*>(blockAlloc.allocate(blockSize, meta_alignment));
+			constructBlock(retval,typename gens<sizeof...(Args)>::type());
+			return retval;
+		}
+
+
 		void deleteBlock(uint32_t index)
 		{
-			blockAlloc.deallocate(blocks[index], blockSize);
+			if (!blocks[index])
+				return;
+
+			blocks[index]->~Block();
+			blockAlloc.deallocate(reinterpret_cast<uint8_t*>(blocks[index]),blockSize); // ?
 			blocks[index] = nullptr;
 		}
 };
 
 
-// aliases
-template<class AddressAllocator, template<class> class DataAllocator=aligned_allocator>
-using SimpleBlockBasedAllocatorST = SimpleBlockBasedAllocator<AddressAllocator, DataAllocator>;
-
-template<class AddressAllocator, template<class> class DataAllocator=aligned_allocator, class RecursiveLockable=std::recursive_mutex>
-using SimpleBlockBasedAllocatorMT = AddressAllocatorBasicConcurrencyAdaptor<SimpleBlockBasedAllocator<AddressAllocator, DataAllocator>,RecursiveLockable>;
+// no aliases
 
 }
 }

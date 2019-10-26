@@ -1737,11 +1737,17 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 	{
 		core::stringc objectName = getNextToken(_ctx).c_str();
 
-		auto loadAndSetTexture = [&](uint32_t texSlot, auto path)
+		auto loadAndSetTexture = [&](uint32_t texSlot, auto path, const char* relativeDir) -> bool
 		{
-			auto bundle = interm_getAssetInHierarchy(AssetManager, path.c_str(), _ctx.Inner.params, _ctx.topHierarchyLevel+ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride).getContents();
+			auto params = _ctx.Inner.params;
+			params.relativeDir = relativeDir;
+			auto bundle = interm_getAssetInHierarchy(AssetManager, path.c_str(), params, _ctx.topHierarchyLevel+ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride).getContents();
 			if (bundle.first != bundle.second)
+			{
 				material.setTexture(texSlot, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*bundle.first));
+				return true;
+			}
+			return false;
 		};
 
 		if (objectName.size() == 0)
@@ -1764,19 +1770,9 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 				return false;
 			core::stringc TextureFileName = tmp.c_str();
 
-			// original name
-			if (FileSystem->existFile(TextureFileName))
-				loadAndSetTexture(textureLayer, TextureFileName);
-			// mesh path
-			else
-			{
-				TextureFileName= _ctx.FilePath + io::IFileSystem::getFileBasename(TextureFileName);
-				if (FileSystem->existFile(TextureFileName))
-					loadAndSetTexture(textureLayer, TextureFileName);
-				// working directory
-				else
-					loadAndSetTexture(textureLayer, io::IFileSystem::getFileBasename(TextureFileName));
-			}
+			// original name as absolute or mesh path, else try working directory
+			if (!loadAndSetTexture(textureLayer, TextureFileName, _ctx.FilePath.c_str()))
+				loadAndSetTexture(textureLayer, io::IFileSystem::getFileBasename(TextureFileName), nullptr);
 			++textureLayer;
 		}
 		else
@@ -1788,19 +1784,9 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 				return false;
 			core::stringc TextureFileName = tmp.c_str();
 
-			// original name
-            if (FileSystem->existFile(TextureFileName))
-				loadAndSetTexture(1u, TextureFileName);
-			// mesh path
-			else
-			{
-				TextureFileName= _ctx.FilePath + io::IFileSystem::getFileBasename(TextureFileName);
-                if (FileSystem->existFile(TextureFileName))
-					material.setTexture(1, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*interm_getAssetInHierarchy(AssetManager, TextureFileName.c_str(), _ctx.Inner.params, _ctx.topHierarchyLevel+ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride).getContents().first));
-				// working directory
-                else
-					loadAndSetTexture(1u, io::IFileSystem::getFileBasename(TextureFileName));
-			}
+			// original name as absolute or mesh path, else try working directory
+            if (!loadAndSetTexture(1u, TextureFileName, _ctx.FilePath.c_str()))
+				loadAndSetTexture(1u, io::IFileSystem::getFileBasename(TextureFileName), nullptr);
 			if (textureLayer==1)
 				++textureLayer;
 		}

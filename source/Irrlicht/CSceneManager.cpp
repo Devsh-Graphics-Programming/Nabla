@@ -543,92 +543,81 @@ uint32_t CSceneManager::registerNodeForRendering(ISceneNode* node, E_SCENE_NODE_
 	switch(pass)
 	{
 		// take camera if it is not already registered
-	case ESNRP_CAMERA:
-		{
-			taken = 1;
-			for (uint32_t i = 0; i != CameraList.size(); ++i)
+		case ESNRP_CAMERA:
 			{
-				if (CameraList[i] == node)
+				taken = 1;
+				for (uint32_t i = 0; i != CameraList.size(); ++i)
 				{
-					taken = 0;
-					break;
+					if (CameraList[i] == node)
+					{
+						taken = 0;
+						break;
+					}
+				}
+				if (taken)
+				{
+					CameraList.push_back(node);
 				}
 			}
-			if (taken)
-			{
-				CameraList.push_back(node);
-			}
-		}
-		break;
+			break;
 
-	case ESNRP_SKY_BOX:
-		SkyBoxList.push_back(node);
-		taken = 1;
-		break;
-	case ESNRP_SOLID:
-		if (!isCulled(node))
-		{
-			SolidNodeList.push_back(node);
+		case ESNRP_SKY_BOX:
+			SkyBoxList.push_back(node);
 			taken = 1;
-		}
-		break;
-	case ESNRP_TRANSPARENT:
-		if (!isCulled(node))
-		{
-			TransparentNodeList.push_back(TransparentNodeEntry(node, ActiveCamera->getAbsolutePosition()));
-			taken = 1;
-		}
-		break;
-	case ESNRP_TRANSPARENT_EFFECT:
-		if (!isCulled(node))
-		{
-			TransparentEffectNodeList.push_back(TransparentNodeEntry(node, ActiveCamera->getAbsolutePosition()));
-			taken = 1;
-		}
-		break;
-	case ESNRP_AUTOMATIC:
-		if (!isCulled(node))
-		{
-#ifdef REIMPLEMENT_THIS
-			taken = 0;
-			const uint32_t count = node->getMaterialCount();
-			for (uint32_t i=0; i<count; ++i)
-			{
-				video::IMaterialRenderer* rnd =
-					Driver->getMaterialRenderer(node->getMaterial(i).MaterialType);
-				if (rnd && rnd->isTransparent())
-				{
-					// register as transparent node
-					TransparentNodeEntry e(node, ActiveCamera->getAbsolutePosition());
-					TransparentNodeList.push_back(e);
-					taken = 1;
-					break;
-				}
-			}
-#endif
-			// not transparent, register as solid
-			if (!taken)
+			break;
+		case ESNRP_SOLID:
+			if (!isCulled(node))
 			{
 				SolidNodeList.push_back(node);
 				taken = 1;
 			}
-		}
-		break;
+			break;
+		case ESNRP_TRANSPARENT:
+			if (!isCulled(node))
+			{
+				TransparentNodeList.push_back(TransparentNodeEntry(node, ActiveCamera->getAbsolutePosition()));
+				taken = 1;
+			}
+			break;
+		case ESNRP_TRANSPARENT_EFFECT:
+			if (!isCulled(node))
+			{
+				TransparentEffectNodeList.push_back(TransparentNodeEntry(node, ActiveCamera->getAbsolutePosition()));
+				taken = 1;
+			}
+			break;
+		case ESNRP_AUTOMATIC:
+			if (!isCulled(node))
+			{
+	#ifdef REIMPLEMENT_THIS
+				taken = 0;
+				const uint32_t count = node->getMaterialCount();
+				for (uint32_t i=0; i<count; ++i)
+				{
+					video::IMaterialRenderer* rnd =
+						Driver->getMaterialRenderer(node->getMaterial(i).MaterialType);
+					if (rnd && rnd->isTransparent())
+					{
+						// register as transparent node
+						TransparentNodeEntry e(node, ActiveCamera->getAbsolutePosition());
+						TransparentNodeList.push_back(e);
+						taken = 1;
+						break;
+					}
+				}
+	#endif
+				// not transparent, register as solid
+				if (!taken)
+				{
+					SolidNodeList.push_back(node);
+					taken = 1;
+				}
+			}
+			break;
 
-	default: // ignore this one
-		break;
+		default: // ignore this one
+			break;
 	}
-
-#ifdef _IRR_SCENEMANAGER_DEBUG
-	int32_t index = Parameters.findAttribute ( "calls" );
-	Parameters.setAttribute ( index, Parameters.getAttributeAsInt ( index ) + 1 );
-
-	if (!taken)
-	{
-		index = Parameters.findAttribute ( "culled" );
-		Parameters.setAttribute ( index, Parameters.getAttributeAsInt ( index ) + 1 );
-	}
-#endif
 
 	return taken;
 }
@@ -658,15 +647,6 @@ void CSceneManager::drawAll()
 {
 	if (!Driver)
 		return;
-
-#ifdef _IRR_SCENEMANAGER_DEBUG
-	// reset attributes
-	Parameters.setAttribute ( "culled", 0 );
-	Parameters.setAttribute ( "calls", 0 );
-	Parameters.setAttribute ( "drawn_solid", 0 );
-	Parameters.setAttribute ( "drawn_transparent", 0 );
-	Parameters.setAttribute ( "drawn_transparent_effect", 0 );
-#endif
 
 	uint32_t i; // new ISO for scoping problem in some compilers
 
@@ -716,14 +696,11 @@ void CSceneManager::drawAll()
 	{
 		CurrentRendertime = ESNRP_SOLID;
 
-		std::sort(SolidNodeList.begin(),SolidNodeList.end()); // sort by textures
+		std::stable_sort(SolidNodeList.begin(),SolidNodeList.end()); // sort by textures
 
         for (i=0; i<SolidNodeList.size(); ++i)
             SolidNodeList[i].Node->render();
 
-#ifdef _IRR_SCENEMANAGER_DEBUG
-		Parameters.setAttribute("drawn_solid", (int32_t) SolidNodeList.size() );
-#endif
 		SolidNodeList.clear();
 	}
 
@@ -731,13 +708,10 @@ void CSceneManager::drawAll()
 	{
 		CurrentRendertime = ESNRP_TRANSPARENT;
 
-		std::sort(TransparentNodeList.begin(),TransparentNodeList.end()); // sort by distance from camera
+		std::stable_sort(TransparentNodeList.begin(),TransparentNodeList.end()); // sort by distance from camera
         for (i=0; i<TransparentNodeList.size(); ++i)
             TransparentNodeList[i].Node->render();
 
-#ifdef _IRR_SCENEMANAGER_DEBUG
-		Parameters.setAttribute ( "drawn_transparent", (int32_t) TransparentNodeList.size() );
-#endif
 		TransparentNodeList.clear();
 	}
 
@@ -745,12 +719,10 @@ void CSceneManager::drawAll()
 	{
 		CurrentRendertime = ESNRP_TRANSPARENT_EFFECT;
 
-		std::sort(TransparentEffectNodeList.begin(),TransparentEffectNodeList.end()); // sort by distance from camera
+		std::stable_sort(TransparentEffectNodeList.begin(),TransparentEffectNodeList.end()); // sort by distance from camera
         for (i=0; i<TransparentEffectNodeList.size(); ++i)
             TransparentEffectNodeList[i].Node->render();
-#ifdef _IRR_SCENEMANAGER_DEBUG
-		Parameters.setAttribute ( "drawn_transparent_effect", (int32_t) TransparentEffectNodeList.size() );
-#endif
+
 		TransparentEffectNodeList.clear();
 	}
 

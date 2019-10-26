@@ -2,6 +2,7 @@
 #define __I_PARSER_UTIL_H_INCLUDED__
 
 #include "irr/core/core.h"
+#include "IFileSystem.h"
 #include "irr/asset/IAssetLoader.h"
 #include "irr/asset/CCPUMesh.h"
 
@@ -36,7 +37,7 @@ public:
 template<typename... types>
 class ElementPool // : public std::tuple<core::vector<types>...>
 {
-		core::SimpleBlockBasedAllocatorST<core::LinearAddressAllocator<uint32_t> > poolAllocator;
+		core::SimpleBlockBasedAllocator<core::LinearAddressAllocator<uint32_t>,core::aligned_allocator> poolAllocator;
 	public:
 		ElementPool() : poolAllocator(4096u*1024u, 256u) {}
 
@@ -51,24 +52,38 @@ class ElementPool // : public std::tuple<core::vector<types>...>
 //struct, which will be passed to expat handlers as user data (first argument) see: XML_StartElementHandler or XML_EndElementHandler in expat.h
 class ParserManager
 {
+	protected:
+		struct Context
+		{
+			ParserManager* manager;
+			XML_Parser parser;
+			io::path currentXMLDir;
+		};
 	public:
 		//! Constructor 
-		ParserManager(asset::IAssetLoader::IAssetLoaderOverride* _override, XML_Parser _parser) :
-								m_override(_override), m_parser(_parser), m_sceneDeclCount(0),
+		ParserManager(io::IFileSystem* _filesystem, asset::IAssetLoader::IAssetLoaderOverride* _override) :
+								m_filesystem(_filesystem), m_override(_override), m_sceneDeclCount(0),
 								m_globalMetadata(core::make_smart_refctd_ptr<CGlobalMitsubaMetadata>())
 		{
 		}
 
-		inline void killParseWithError(const std::string& message)
+		//
+		static void elementHandlerStart(void* _data, const char* _el, const char** _atts);
+		static void elementHandlerEnd(void* _data, const char* _el);
+
+		//
+		inline void killParseWithError(const Context& ctx, const std::string& message)
 		{
 			_IRR_DEBUG_BREAK_IF(true);
 			ParserLog::invalidXMLFileStructure(message);
-			XML_StopParser(m_parser, false);
+			XML_StopParser(ctx.parser, false);
 		}
 
-		void parseElement(const char* _el, const char** _atts);
+		bool parse(io::IReadFile* _file);
 
-		void onEnd(const char* _el);
+		void parseElement(const Context& ctx, const char* _el, const char** _atts);
+
+		void onEnd(const Context& ctx, const char* _el);
 
 		//
 		core::vector<std::pair<CElementShape*,std::string> > shapegroups;
@@ -76,16 +91,14 @@ class ParserManager
 		core::smart_refctd_ptr<CGlobalMitsubaMetadata> m_globalMetadata;
 
 	private:
-		void processProperty(const char* _el, const char** _atts);
+		//
+		void processProperty(const Context& ctx, const char* _el, const char** _atts);
 
-	private:
+		//
+		io::IFileSystem* m_filesystem;
 		asset::IAssetLoader::IAssetLoaderOverride* m_override;
-		XML_Parser m_parser;
-
 		//
 		uint32_t m_sceneDeclCount;
-		//
-		void recordShape(const std::pair<CElementShape*,std::string>&& shape);
 		//
 		ElementPool<
 			CElementIntegrator,
@@ -108,9 +121,6 @@ class ParserManager
 
 		friend class CElementFactory;
 };
-
-void elementHandlerStart(void* _data, const char* _el, const char** _atts);
-void elementHandlerEnd(void* _data, const char* _el);
 
 }
 }

@@ -121,7 +121,7 @@ namespace video
 		: MaterialType(EMT_SOLID), AmbientColor(255,255,255,255), DiffuseColor(255,255,255,255),
 			EmissiveColor(0,0,0,0), SpecularColor(255,255,255,255),
 			Shininess(0.0f), MaterialTypeParam(0.0f), MaterialTypeParam2(0.0f), userData(NULL), Thickness(1.0f),
-			ZBuffer(ECFN_GREATEREQUAL),
+			ZBuffer(ECFN_GREATER),
 			PolygonOffsetConstantMultiplier(0.f), PolygonOffsetGradientMultiplier(0.f),
 			ColorMask(ECP_ALL), BlendOperation(EBO_NONE), Wireframe(false), PointCloud(false), ZWriteEnable(true), BackfaceCulling(true), FrontfaceCulling(false), RasterizerDiscard(false)
 		{ }
@@ -232,7 +232,7 @@ namespace video
 		//! Thickness of non-3dimensional elements such as lines and points.
 		float Thickness;
 
-		//! Is the ZBuffer enabled? Default: ECFN_GREATEREQUAL
+		//! Is the ZBuffer enabled? Default: ECFN_GREATER
 		/** Values are from E_COMPARISON_FUNC. */
 		uint8_t ZBuffer;
 
@@ -387,7 +387,7 @@ namespace video
         public:
             uint32_t EnableDepthClamp           : 1;
 
-            //! Is the ZBuffer enabled? Default: ECFN_GREATEREQUAL
+            //! Is the ZBuffer enabled? Default: ECFN_GREATER
             /** Values are from E_COMPARISON_FUNC. */
             uint32_t DepthComparisonFunc        : 3;
             //! Is the zbuffer writeable or is it read-only. Default: true.

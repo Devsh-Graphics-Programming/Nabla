@@ -258,11 +258,10 @@ public:
     }
 
 	//! flatten a path and file name for example: "/you/me/../." becomes "/you"
-	static inline path& flattenFilename(path& directory, const path& root="/")
+	static inline path flattenFilename(const path& _directory, const path& root="/")
     {
+		auto directory(_directory);
         handleBackslashes(&directory);
-        if (directory.lastChar() != '/')
-            directory.append('/');
 
         io::path dir;
         io::path subdir;
@@ -271,37 +270,45 @@ public:
         int32_t pos = 0;
         bool lastWasRealDir=false;
 
+		auto process = [&]() -> void
+		{
+			subdir = directory.subString(lastpos, pos - lastpos + 1);
+
+			if (subdir == _IRR_TEXT("../"))
+			{
+				if (lastWasRealDir)
+				{
+					deletePathFromPath(dir, 2);
+					lastWasRealDir = (dir.size() != 0);
+				}
+				else
+				{
+					dir.append(subdir);
+					lastWasRealDir = false;
+				}
+			}
+			else if (subdir == _IRR_TEXT("/"))
+			{
+				dir = root;
+			}
+			else if (subdir != _IRR_TEXT("./"))
+			{
+				dir.append(subdir);
+				lastWasRealDir = true;
+			}
+
+			lastpos = pos + 1;
+		};
         while ((pos = directory.findNext('/', lastpos)) >= 0)
         {
-            subdir = directory.subString(lastpos, pos - lastpos + 1);
-
-            if (subdir == _IRR_TEXT("../"))
-            {
-                if (lastWasRealDir)
-                {
-                    deletePathFromPath(dir, 2);
-                    lastWasRealDir=(dir.size()!=0);
-                }
-                else
-                {
-                    dir.append(subdir);
-                    lastWasRealDir=false;
-                }
-            }
-            else if (subdir == _IRR_TEXT("/"))
-            {
-                dir = root;
-            }
-            else if (subdir != _IRR_TEXT("./"))
-            {
-                dir.append(subdir);
-                lastWasRealDir=true;
-            }
-
-            lastpos = pos + 1;
+			process();
         }
-        directory = dir;
-        return directory;
+		if (directory.lastChar() != '/')
+		{
+			pos = directory.size();
+			process();
+		}
+        return dir;
     }
 
 	//! Get the base part of a filename, i.e. the name without the directory part.

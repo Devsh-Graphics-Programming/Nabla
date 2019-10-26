@@ -13,24 +13,28 @@ namespace irr
 {
 namespace scene
 {
-	struct SViewFrustum;
 
-	//! Scene Node which is a (controlable) camera.
-	/** The whole scene will be rendered from the cameras point of view.
-	Because the ICameraScenNode is a SceneNode, it can be attached to any
-	other scene node, and will follow its parents movement, rotation and so
-	on.
-	*/
-	class ICameraSceneNode : public ISceneNode, public IEventReceiver
-	{
+
+struct SViewFrustum;
+
+//! Scene Node which is a (controlable) camera.
+/** The whole scene will be rendered from the cameras point of view.
+Because the ICameraScenNode is a SceneNode, it can be attached to any
+other scene node, and will follow its parents movement, rotation and so
+on.
+*/
+class ICameraSceneNode : public ISceneNode, public IEventReceiver
+{
 	public:
 
 		//! Constructor
-		ICameraSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
-			const core::vector3df& position = core::vector3df(0,0,0),
-			const core::vector3df& rotation = core::vector3df(0,0,0),
-			const core::vector3df& scale = core::vector3df(1.0f,1.0f,1.0f))
-			: ISceneNode(parent, mgr, id, position, rotation, scale), leftHanded(true) {}
+		ICameraSceneNode(	IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
+							const core::vector3df& position = core::vector3df(0,0,0),
+							const core::vector3df& rotation = core::vector3df(0,0,0),
+							const core::vector3df& scale = core::vector3df(1.0f,1.0f,1.0f)) :
+										ISceneNode(parent, mgr, id, position, rotation, scale),
+										Fovy(core::PI<float>()/2.5f), Aspect(16.f/9.f),
+										ZNear(1.0f), ZFar(3000.0f), leftHanded(true) {}
 
 		//! Sets the projection matrix of the camera.
 		/** The matrix class has some methods to build a
@@ -46,7 +50,7 @@ namespace scene
 
 		//! Gets the current projection matrix of the camera.
 		/** \return The current projection matrix of the camera. */
-		virtual const core::matrix4SIMD& getProjectionMatrix() const =0;
+		inline const core::matrix4SIMD& getProjectionMatrix() const { return projMatrix; }
 
 		//! Gets the current view matrix of the camera.
 		/** \return The current view matrix of the camera. */
@@ -89,7 +93,11 @@ namespace scene
 		/** \param pos: New upvector of the camera,
 		`_leftHanded==true` means Z+ goes into the screen,
 		away from the viewer. */
-		inline void setLeftHanded(bool _leftHanded = true) { leftHanded = _leftHanded; }
+		inline void setLeftHanded(bool _leftHanded = true)
+		{
+			leftHanded = _leftHanded;
+			recomputeProjectionMatrix();
+		}
 
 		//! Gets the handedness convention of the camera.
 		/** \return Whether the camera is left handed. */
@@ -105,35 +113,54 @@ namespace scene
 
 		//! Gets the value of the near plane of the camera.
 		/** \return The value of the near plane of the camera. */
-		virtual float getNearValue() const =0;
+		virtual float getNearValue() const { return ZNear; }
 
 		//! Gets the value of the far plane of the camera.
 		/** \return The value of the far plane of the camera. */
-		virtual float getFarValue() const =0;
+		virtual float getFarValue() const { return ZFar; }
 
 		//! Gets the aspect ratio of the camera.
 		/** \return The aspect ratio of the camera. */
-		virtual float getAspectRatio() const =0;
+		virtual float getAspectRatio() const { return Aspect; }
 
 		//! Gets the field of view of the camera.
 		/** \return The field of view of the camera in radians. */
-		virtual float getFOV() const =0;
+		inline float getFOV() const { return Fovy; }
 
 		//! Sets the value of the near clipping plane. (default: 1.0f)
 		/** \param zn: New z near value. */
-		virtual void setNearValue(float zn) =0;
+		inline void setNearValue(float zn)
+		{
+			ZNear = zn;
+			recomputeProjectionMatrix();
+		}
 
 		//! Sets the value of the far clipping plane (default: 2000.0f)
 		/** \param zf: New z far value. */
-		virtual void setFarValue(float zf) =0;
+		inline void setFarValue(float zf)
+		{
+			ZFar = zf;
+			recomputeProjectionMatrix();
+		}
 
 		//! Sets the aspect ratio (default: 4.0f / 3.0f)
 		/** \param aspect: New aspect ratio. */
-		virtual void setAspectRatio(float aspect) =0;
+		inline void setAspectRatio(float aspect)
+		{
+			Aspect = aspect;
+			recomputeProjectionMatrix();
+		}
 
 		//! Sets the field of view (Default: PI / 2.5f)
 		/** \param fovy: New field of view in radians. */
-		virtual void setFOV(float fovy) =0;
+		inline void setFOV(float fovy)
+		{
+			Fovy = fovy;
+			recomputeProjectionMatrix();
+		}
+
+		//! Update the projection matrix from the set FOV, Aspect and Near/Far values
+		virtual void recomputeProjectionMatrix() =0;
 
 		//! Get the view frustum.
 		/** Needed sometimes by bspTree or LOD render nodes.
@@ -164,8 +191,17 @@ namespace scene
 		virtual bool getTargetAndRotationBinding(void) const =0;
 
 	protected:
+		// cached values
+		float Fovy;	// Field of view, in radians.
+		float Aspect;	// Aspect ratio.
+		float ZNear;	// value of the near view-plane.
+		float ZFar;	// Z-value of the far view-plane.
+
+		// actual projection matrix used
+		core::matrix4SIMD projMatrix;
+
 		bool leftHanded;
-	};
+};
 
 } // end namespace scene
 } // end namespace irr
