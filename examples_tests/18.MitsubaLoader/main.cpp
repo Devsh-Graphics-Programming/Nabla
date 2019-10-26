@@ -232,7 +232,7 @@ int main()
 
 		//! read cache results -- speeds up mesh generation
 		{
-			io::IReadFile* cacheFile = device->getFileSystem()->createAndOpenFile("./normalCache101010.sse");
+			io::IReadFile* cacheFile = device->getFileSystem()->createAndOpenFile("../../tmp/normalCache101010.sse");
 			if (cacheFile)
 			{
 				asset::normalCacheFor2_10_10_10Quant.resize(cacheFile->getSize() / sizeof(asset::QuantizationCacheEntry2_10_10_10));
@@ -247,7 +247,7 @@ int main()
 		meshes = am->getAsset(filePath, {});
 		//! cache results -- speeds up mesh generation on second run
 		{
-			io::IWriteFile* cacheFile = device->getFileSystem()->createAndWriteFile("./normalCache101010.sse");
+			io::IWriteFile* cacheFile = device->getFileSystem()->createAndWriteFile("../../tmp/normalCache101010.sse");
 			cacheFile->write(asset::normalCacheFor2_10_10_10Quant.data(), asset::normalCacheFor2_10_10_10Quant.size() * sizeof(asset::QuantizationCacheEntry2_10_10_10));
 			cacheFile->drop();
 		}
@@ -344,33 +344,33 @@ int main()
 			for (auto i=0u; i<gpumesh->getMeshBufferCount(); i++)
 				gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = instances.size()<INSTANCING_THRESHOLD ? nonInstanced:instanced;
 
-			scene::ISceneNode* node = nullptr;
 			if (instances.size()<INSTANCING_THRESHOLD)
 			for (auto instance : instances)
 			{
-				node = smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh));
+				auto node = smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh));
 				node->setRelativeTransformationMatrix(instance.getAsRetardedIrrlichtMatrix());
+				node->updateAbsolutePosition();
+				sceneBound.addInternalBox(node->getTransformedBoundingBox());
 			}
 			else
 			{
-				auto node2 = smgr->addMeshSceneNodeInstanced();
-				node2->setBBoxUpdateEnabled();
+				auto node = smgr->addMeshSceneNodeInstanced();
+				node->setBBoxUpdateEnabled();
 				{
 					core::vector<scene::IMeshSceneNodeInstanced::MeshLoD> LevelsOfDetail(1);
 					LevelsOfDetail[0].mesh = gpumesh.get();
 					LevelsOfDetail[0].lodDistance = FLT_MAX;
 
-					bool success = node2->setLoDMeshes(LevelsOfDetail, 25*sizeof(float), cullingXFormFeedbackShader, vaoSetupOverride);
+					bool success = node->setLoDMeshes(LevelsOfDetail, 25*sizeof(float), cullingXFormFeedbackShader, vaoSetupOverride);
 					assert(success);
-					cullback->instanceLoDInvariantBBox = node2->getLoDInvariantBBox();
+					cullback->instanceLoDInvariantBBox = node->getLoDInvariantBBox();
 				}
 				for (auto instance : instances)
-					node2->addInstance(instance.getAsRetardedIrrlichtMatrix());
-				node = node2;
+					node->addInstance(instance.getAsRetardedIrrlichtMatrix());
+				node->updateAbsolutePosition();
+				sceneBound.addInternalBox(node->getTransformedBoundingBox());
+				node->setAutomaticCulling(scene::EAC_FRUSTUM_BOX);
 			}
-			node->updateAbsolutePosition();
-			sceneBound.addInternalBox(node->getTransformedBoundingBox());
-			node->setAutomaticCulling(scene::EAC_FRUSTUM_BOX);
 		}
 	}
 
