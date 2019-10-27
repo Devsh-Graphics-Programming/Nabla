@@ -1494,8 +1494,11 @@ bool CXMeshFileLoader::parseDataObjectMeshNormals(SContext& _ctx, SXMesh &mesh, 
 	normals.resize(nNormals);
 
 	// read normals
-	for (uint32_t i=0; i<nNormals; ++i)
+	for (uint32_t i = 0; i < nNormals; ++i)
+	{
 		readVector3(_ctx, normals[i]);
+		performActionBasedOnOrientationSystem([&]() {normals[i].X = -normals[i].X;}, [&]() {});
+	}
 
 	if (!checkForTwoFollowingSemicolons(_ctx))
 	{
@@ -1529,21 +1532,7 @@ bool CXMeshFileLoader::parseDataObjectMeshNormals(SContext& _ctx, SXMesh &mesh, 
 			// default, only one triangle in this face
 			std::array<uint32_t, 3> tmpNormals;
 			for(auto& it : tmpNormals)
-				it = readInt(_ctx);
-
-			performActionBasedOnOrientationSystem
-			(
-				[&]() 
-				{
-					for(uint32_t it = 3; it > 0; --it)
-						mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[tmpNormals[it - 1]]);
-				}, 
-				[&]() 
-				{
-					for(auto& it : tmpNormals)
-						mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[it]);
-				}
-			);
+				mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[it = readInt(_ctx)]);
 		}
 		else
 		{
@@ -1554,21 +1543,9 @@ bool CXMeshFileLoader::parseDataObjectMeshNormals(SContext& _ctx, SXMesh &mesh, 
 
 			for (uint32_t jk=0; jk<triangles; ++jk)
 			{
-				performActionBasedOnOrientationSystem
-				(
-					[&]()
-					{
-						mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[polygonfaces[jk + 2]]);
-						mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[polygonfaces[jk + 1]]);
-						mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[polygonfaces[0]]);
-					},
-					[&]()
-					{
-						mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[polygonfaces[0]]);
-						mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[polygonfaces[jk + 1]]);
-						mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[polygonfaces[jk + 2]]);
-					}
-				);
+				mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[polygonfaces[0]]);
+				mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[polygonfaces[jk + 1]]);
+				mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[polygonfaces[jk + 2]]);
 			}
 		}
 	}
