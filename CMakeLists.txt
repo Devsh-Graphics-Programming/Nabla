@@ -16,6 +16,7 @@
 cmake_minimum_required(VERSION 3.14)
 #policies
 #cmake_policy(SET CMP0072 NEW) #not yet, would need to get pointers to all OpenGL functions
+#cmake_policy(SET CMP )
 
 project(Irrlicht LANGUAGES CXX C)
 
@@ -177,7 +178,7 @@ option(IRR_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 
 option(IRR_BUILD_MITSUBA_LOADER "Enable irr::ext::MitsubaLoader?" ON)
 
-option(IRR_BUILD_RADEONRAYS "Enable irr::ext::RadeonRays?" OFF)
+option(IRR_BUILD_RADEON_RAYS "Enable irr::ext::RadeonRays?" OFF)
 
 option(IRR_BUILD_CEGUI "Enable CEGUI building and integration?" OFF)
 

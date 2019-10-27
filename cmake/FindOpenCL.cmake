@@ -12,37 +12,32 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Look for the header file.
-find_path(OpenCL_INCLUDE_DIR NAMES cl.h)
+set(OpenCL_INCLUDE_DIR "${IRR_ROOT_PATH}/3rdparty")
 
-# Look for the library.
-find_library(OpenCL_LIBRARY NAMES OpenCL)
+find_library(OpenCL_LIBRARY
+	NAMES OpenCL
+	PATHS "${IRR_ROOT_PATH}/3rdparty/CL/lib"
+)
 
-# Handle the QUIETLY and REQUIRED arguments and set PCRE_FOUND to TRUE if all listed variables are TRUE.
+set(OpenCL_LIBRARIES ${OpenCL_LIBRARY})
+set(OpenCL_INCLUDE_DIRS ${OpenCL_INCLUDE_DIR})
+
 include(FindPackageHandleStandardArgs)
-FIND_PACKAGE_HANDLE_STANDARD_ARGS(OpenCL DEFAULT_MSG OpenCL_LIBRARY OpenCL_INCLUDE_DIR)
+find_package_handle_standard_args(
+	OpenCL
+	FOUND_VAR OpenCL_FOUND
+	REQUIRED_VARS OpenCL_LIBRARY OpenCL_INCLUDE_DIR
+)
 
-# Copy the results to the output variables.
-if(OpenCL_FOUND)
-	SET(OpenCL_LIBRARIES ${OpenCL_LIBRARY})
-	SET(OpenCL_INCLUDE_DIRS ${OpenCL_INCLUDE_DIR})
-else(OpenCL_FOUND)
-	SET(OpenCL_LIBRARIES)
-	SET(OpenCL_INCLUDE_DIRS)
-endif(OpenCL_FOUND)
-
-MARK_AS_ADVANCED(OpenCL_INCLUDE_DIR OpenCL_LIBRARY)
+mark_as_advanced(
+	OpenCL_INCLUDE_DIR
+	OpenCL_LIBRARY
+)
 
 if(OpenCL_FOUND AND NOT TARGET OpenCL::OpenCL)
-	if(OpenCL_LIBRARY MATCHES "/([^/]+)\\.framework$")
-		add_library(OpenCL::OpenCL INTERFACE IMPORTED)
-		set_target_properties(OpenCL::OpenCL PROPERTIES
-			INTERFACE_LINK_LIBRARIES "${OpenCL_LIBRARY}")
-	else()
-		add_library(OpenCL::OpenCL UNKNOWN IMPORTED)
-		set_target_properties(OpenCL::OpenCL PROPERTIES
-			IMPORTED_LOCATION "${OpenCL_LIBRARY}")
-	endif()
+	add_library(OpenCL::OpenCL UNKNOWN IMPORTED)
 	set_target_properties(OpenCL::OpenCL PROPERTIES
-		INTERFACE_INCLUDE_DIRECTORIES "${OpenCL_INCLUDE_DIRS}")
+		IMPORTED_LOCATION "${OpenCL_LIBRARY}")
+	set_target_properties(OpenCL::OpenCL PROPERTIES
+    		INTERFACE_INCLUDE_DIRECTORIES "${OpenCL_INCLUDE_DIRS}")
 endif()
