@@ -83,19 +83,11 @@ void* TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::instantiateEmpty(const v
 	TexturePathBlobV0* blob = (TexturePathBlobV0*)_blob;
 
     // set ECF_DONT_CACHE_TOP_LEVEL flag because it will get cached in BAW loader
-    asset::IAssetLoader::SAssetLoadParams params(_params.params.decryptionKeyLen, _params.params.decryptionKey, asset::IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL);
+    asset::IAssetLoader::SAssetLoadParams params(_params.params.decryptionKeyLen, _params.params.decryptionKey, asset::IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL, _params.filePath.c_str());
 	constexpr uint32_t hierarchyLevel = 0u; // due to the above comment, absolutely meaningless right now
 
-	asset::SAssetBundle bundle;
 	const char* const texname = (const char*)blob->getData();
-	if (_params.fs->existFile(texname))
-		bundle = static_cast<CBAWMeshFileLoader*>(_params.ldr)->interm_getAssetInHierarchy(_params.manager, texname, params, hierarchyLevel, _params.loaderOverride);
-	else
-	{
-		const io::path path = _params.filePath + texname;
-		// try to read from the path relative to where the .baw is loaded from
-		bundle = static_cast<CBAWMeshFileLoader*>(_params.ldr)->interm_getAssetInHierarchy(_params.manager, path.c_str(), params, hierarchyLevel, _params.loaderOverride);
-	}
+	auto bundle = static_cast<CBAWMeshFileLoader*>(_params.ldr)->interm_getAssetInHierarchy(_params.manager, std::string(texname), params, hierarchyLevel, _params.loaderOverride);
 
 	auto assetRange = bundle.getContents();
 	if (assetRange.first != assetRange.second)

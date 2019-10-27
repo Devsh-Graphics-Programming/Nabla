@@ -179,7 +179,6 @@ namespace scene
 		for ( auto i=0; i != VF_PLANE_COUNT; ++i)
 		{
 		    auto normal(planes[i].getNormal());
-		    normal.makeSafe3D();
             *reinterpret_cast<core::vectorSIMDf*>(planes+i) *= core::inversesqrt(core::dot(normal,normal));
 		}
 

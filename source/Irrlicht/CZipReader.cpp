@@ -24,21 +24,13 @@ extern "C" void bz_internal_error(int errorCode)
 
 #include "IrrCompileConfig.h"
 #ifdef _IRR_COMPILE_WITH_ZLIB_
-	#ifndef _IRR_USE_NON_SYSTEM_ZLIB_
-	#include <zlib.h> // use system lib
-	#else
 	#include "zlib/zlib.h"
-	#endif
 
 	#ifdef _IRR_COMPILE_WITH_ZIP_ENCRYPTION_
 	#include "aesGladman/fileenc.h"
 	#endif
 	#ifdef _IRR_COMPILE_WITH_BZIP2_
-	#ifndef _IRR_USE_NON_SYSTEM_BZLIB_
-	#include <bzlib.h>
-	#else
 	#include "bzip2/bzlib.h"
-	#endif
 	#endif
 	#ifdef _IRR_COMPILE_WITH_LZMA_
 	#include "lzma/LzmaDec.h"
@@ -412,7 +404,7 @@ bool CZipReader::scanCentralDirectoryHeader()
 //! opens a file by file name
 IReadFile* CZipReader::createAndOpenFile(const io::path& filename)
 {
-    auto found = findFile(Files.begin(),Files.end(),filename,false);
+    auto found = findFile(Files.begin(),Files.end(),io::IFileSystem::flattenFilename(filename),false);
 	if (found==Files.end())
         return nullptr;
 

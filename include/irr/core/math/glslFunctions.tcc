@@ -266,6 +266,13 @@ IRR_FORCE_INLINE bool equals<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMD
 	return ((a + tolerance >= b) && (a - tolerance <= b)).all();
 }
 template<>
+IRR_FORCE_INLINE bool equals(const core::vector3df& a, const core::vector3df& b, const core::vector3df& tolerance)
+{
+	auto ha = a+tolerance;
+	auto la = a-tolerance;
+	return ha.X>=b.X&&ha.Y>=b.Y&&ha.Z>=b.Z && la.X<=b.X&&la.Y<=b.Y&&la.Z<=b.Z;
+}
+template<>
 IRR_FORCE_INLINE bool equals<matrix4SIMD>(const matrix4SIMD& a, const matrix4SIMD& b, const matrix4SIMD& tolerance)
 {
 	for (size_t i = 0u; i<matrix4SIMD::VectorCount; ++i)

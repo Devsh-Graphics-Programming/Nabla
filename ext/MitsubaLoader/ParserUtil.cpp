@@ -24,20 +24,69 @@ void ParserLog::invalidXMLFileStructure(const std::string& errorMessage)
 	_IRR_DEBUG_BREAK_IF(true);
 }
 
-void elementHandlerStart(void* _data, const char* _el, const char** _atts)
+void ParserManager::elementHandlerStart(void* _data, const char* _el, const char** _atts)
 {
-	ParserManager* mgr = static_cast<ParserManager*>(_data);
+	auto ctx = *reinterpret_cast<Context*>(_data);
 
-	mgr->parseElement(_el, _atts);
+	ctx.manager->parseElement(ctx, _el, _atts);
 }
 
-void elementHandlerEnd(void* _data, const char* _el)
+void ParserManager::elementHandlerEnd(void* _data, const char* _el)
 {
-	ParserManager* mgr = static_cast<ParserManager*>(_data);
+	auto ctx = *reinterpret_cast<Context*>(_data);
 
-	mgr->onEnd(_el);
+	ctx.manager->onEnd(ctx,_el);
 }
 
+
+
+bool ParserManager::parse(io::IReadFile* _file)
+{
+	XML_Parser parser = XML_ParserCreate(nullptr);
+	if (!parser)
+	{
+		os::Printer::log("Could not create XML Parser!", ELL_ERROR);
+		return false;
+	}
+
+	XML_SetElementHandler(parser, elementHandlerStart, elementHandlerEnd);
+
+	//from now data (instance of ParserData struct) will be visible to expat handlers
+	Context ctx = {this,parser,io::IFileSystem::getFileDir(_file->getFileName())+"/"};
+	XML_SetUserData(parser, &ctx);
+
+
+	char* buff = (char*)_IRR_ALIGNED_MALLOC(_file->getSize(), 4096u);
+
+	_file->seek(0u);
+	_file->read((void*)buff, _file->getSize());
+
+	XML_Status parseStatus = XML_Parse(parser, buff, _file->getSize(), 0);
+	_IRR_ALIGNED_FREE(buff);
+	XML_ParserFree(parser);
+	switch (parseStatus)
+	{
+		case XML_STATUS_ERROR:
+			{
+				os::Printer::log("Parse status: XML_STATUS_ERROR", ELL_ERROR);
+				return false;
+			}
+			break;
+		case XML_STATUS_OK:
+			#ifdef _IRR_DEBUG
+				os::Printer::log("Parse status: XML_STATUS_OK", ELL_INFORMATION);
+			#endif
+			break;
+		case XML_STATUS_SUSPENDED:
+			{
+				os::Printer::log("Parse status: XML_STATUS_SUSPENDED", ELL_INFORMATION);
+				return false;
+			}
+			break;
+	}
+
+	return true;
+}
 
 static const core::unordered_set<std::string,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> propertyElements = {
 	"float", "string", "boolean", "integer",
@@ -46,7 +95,7 @@ static const core::unordered_set<std::string,core::CaseInsensitiveHash,core::Cas
 	"matrix", "rotate", "translate", "scale", "lookat"
 };
 
-void ParserManager::parseElement(const char* _el, const char** _atts)
+void ParserManager::parseElement(const Context& ctx, const char* _el, const char** _atts)
 {
 	if (core::strcmpi(_el, "scene") == 0)
 	{
@@ -54,7 +103,7 @@ void ParserManager::parseElement(const char* _el, const char** _atts)
 		while (_atts && _atts[count]) { count++; }
 		if (count != 2u)
 		{
-			killParseWithError("Wrong number of attributes for scene element");
+			killParseWithError(ctx,"Wrong number of attributes for scene element");
 			return;
 		}
 
@@ -74,19 +123,28 @@ void ParserManager::parseElement(const char* _el, const char** _atts)
 
 	if (m_sceneDeclCount==0u)
 	{
-		killParseWithError("there is no scene element");
+		killParseWithError(ctx,"there is no scene element");
 		return;
 	}
 	
 	if (core::strcmpi(_el, "include") == 0)
 	{
-		assert(false); // TODO
+		auto file = m_filesystem->createAndOpenFile(ctx.currentXMLDir+_atts[1]);
+		if (!file) // try global path
+			file = m_filesystem->createAndOpenFile(_atts[1]);
+		if (!file)
+		{
+			ParserLog::invalidXMLFileStructure(std::string("Could not open include file: ") + _atts[1]);
+			return;
+		}
+		parse(file);
+		file->drop();
 		return;
 	}
 
 	if (propertyElements.find(_el)!=propertyElements.end())
 	{
-		processProperty(_el, _atts);
+		processProperty(ctx, _el, _atts);
 		return;
 	}
 
@@ -109,11 +167,11 @@ void ParserManager::parseElement(const char* _el, const char** _atts)
 		handles[el.first->id] = el.first;
 }
 
-void ParserManager::processProperty(const char* _el, const char** _atts)
+void ParserManager::processProperty(const Context& ctx, const char* _el, const char** _atts)
 {
 	if (elements.empty())
 	{
-		killParseWithError("cannot set a property with no element on the stack.");
+		killParseWithError(ctx,"cannot set a property with no element on the stack.");
 		return;
 	}
 	if (!elements.top().first)
@@ -135,7 +193,7 @@ void ParserManager::processProperty(const char* _el, const char** _atts)
 	return;
 }
 
-void ParserManager::onEnd(const char* _el)
+void ParserManager::onEnd(const Context& ctx, const char* _el)
 {
 	if (propertyElements.find(_el) != propertyElements.end())
 		return;
@@ -155,7 +213,7 @@ void ParserManager::onEnd(const char* _el)
 
 	if (element.first && !element.first->onEndTag(m_override, m_globalMetadata.get()))
 	{
-		killParseWithError(element.first->getLogName() + " could not onEndTag");
+		killParseWithError(ctx,element.first->getLogName() + " could not onEndTag");
 		return;
 	}
 
@@ -165,22 +223,20 @@ void ParserManager::onEnd(const char* _el)
 		if (!parent->processChildData(element.first, element.second))
 		{
 			if (element.first)
-				killParseWithError(element.first->getLogName() + " could not processChildData with name: " + element.second);
+				killParseWithError(ctx,element.first->getLogName() + " could not processChildData with name: " + element.second);
 			else
-				killParseWithError("Failed to add a nullptr child with name: " + element.second);
+				killParseWithError(ctx,"Failed to add a nullptr child with name: " + element.second);
 		}
 
 		return;
 	}
 
 	if (element.first && element.first->getType()==IElement::Type::SHAPE)
-		recordShape({static_cast<CElementShape*>(element.first),std::move(element.second)});
-}
-
-void ParserManager::recordShape(const std::pair<CElementShape*,std::string>&& shape)
-{
-	if (shape.first)
-		shapegroups.emplace_back(shape);
+	{
+		auto shape = static_cast<CElementShape*>(element.first);
+		if (shape)
+			shapegroups.emplace_back(shape,std::move(element.second));
+	}
 }
 
 
