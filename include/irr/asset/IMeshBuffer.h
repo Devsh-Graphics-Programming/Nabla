@@ -144,10 +144,6 @@ public:
     {
         return m_pipeline.get();
     }
-    inline const PipelineType* getPipeline_const() const
-    {
-        return m_pipeline.get();
-    }
     inline const DescSetType* getAttachedDescriptorSet() const
     {
         return m_descriptorSet.get();

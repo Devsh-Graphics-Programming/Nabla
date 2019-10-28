@@ -140,6 +140,10 @@ public:
     }
 
 
+    inline const ICPURenderpassIndependentPipeline* getPipeline() const
+    {
+        return m_pipeline.get();
+    }
     inline ICPURenderpassIndependentPipeline* getPipeline()
     {
         return m_pipeline.get();

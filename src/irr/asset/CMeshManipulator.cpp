@@ -980,7 +980,7 @@ template void CMeshManipulator::_filterInvalidTriangles<uint32_t>(ICPUMeshBuffer
 
 core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric)
 {
-	if (!_meshbuffer->getPipeline_const())
+	if (!_meshbuffer->getPipeline())
         return {};
 
 	const E_FORMAT thisType = _meshbuffer->getAttribFormat(_attrId);
@@ -1037,7 +1037,7 @@ core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_FORMAT* _o
 
 core::vector<CMeshManipulator::SIntegerAttr> CMeshManipulator::findBetterFormatI(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric)
 {
-	if (!_meshbuffer->getPipeline_const())
+	if (!_meshbuffer->getPipeline())
         return {};
 
     const E_FORMAT thisType = _meshbuffer->getAttribFormat(_attrId);
