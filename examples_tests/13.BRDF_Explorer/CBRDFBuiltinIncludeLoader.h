@@ -26,7 +26,7 @@ float oren_nayar(in float _a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, 
     // should be equal to cos(phi)*sin(theta_i)*sin(theta_o)
     // where `phi` is the angle in the tangent plane to N, between L and V
     // and `theta_i` is the sine of the angle between L and N, similarily for `theta_o` but with V
-    float cos_phi_sin_theta = dot(V,L)-NdotL*NdotV;
+    float cos_phi_sin_theta = max(dot(V,L)-NdotL*NdotV,0.0);
     
     return (AB.x + AB.y * cos_phi_sin_theta * C) / 3.14159265359;
 }
