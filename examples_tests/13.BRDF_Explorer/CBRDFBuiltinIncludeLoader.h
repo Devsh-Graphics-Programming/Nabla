@@ -21,16 +21,14 @@ float oren_nayar(in float _a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, 
     // phi - azimuth angles
     float a2 = _a2*0.5; //todo read about this
     vec2 AB = vec2(1.0, 0.0) + vec2(-0.5, 0.45) * vec2(a2, a2)/vec2(a2+0.33, a2+0.09);
-    vec2 cos_theta = vec2(NdotL, NdotV);
-    vec2 cos_theta2 = cos_theta*cos_theta;
-    float sin_theta = sqrt((1.0 - cos_theta2.x) * (1.0 - cos_theta2.y)); //this is actually equal to (sin(theta_i) * sin(theta_r))
-    float C = sin_theta / max(cos_theta.x, cos_theta.y);
-    
-    vec3 light_plane = normalize(L - cos_theta.x*N);
-    vec3 view_plane = normalize(V - cos_theta.y*N);
-    float cos_phi = max(0.0, dot(light_plane, view_plane));//not sure about this
+    float C = 1.0 / max(NdotL, NdotV);
 
-    return (AB.x + AB.y * cos_phi * C) / 3.14159265359;
+    // should be equal to cos(phi)*sin(theta_i)*sin(theta_o)
+    // where `phi` is the angle in the tangent plane to N, between L and V
+    // and `theta_i` is the sine of the angle between L and N, similarily for `theta_o` but with V
+    float cos_phi_sin_theta = dot(V,L)-NdotL*NdotV;
+    
+    return (AB.x + AB.y * cos_phi_sin_theta * C) / 3.14159265359;
 }
 
 #endif
