@@ -39,17 +39,20 @@ public:
     struct SDescriptorInfo
     {
         core::smart_refctd_ptr<IDescriptor> desc;
-        struct SDescriptorBufferInfo
+        union
         {
-            size_t offset;
-            size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
-        } buffer;
-        struct SDescriptorImageInfo
-        {
-            core::smart_refctd_ptr<SamplerType> sampler;
-            //! Irrelevant in OpenGL backend
-            E_IMAGE_LAYOUT imageLayout;
-        } image;
+            struct SDescriptorBufferInfo
+            {
+                size_t offset;
+                size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
+            } buffer;
+            struct SDescriptorImageInfo
+            {
+                core::smart_refctd_ptr<SamplerType> sampler;
+                //! Irrelevant in OpenGL backend
+                E_IMAGE_LAYOUT imageLayout;
+            } image;
+        };
 
         void assign(const SDescriptorInfo& _other, E_DESCRIPTOR_TYPE _type)
         {
@@ -58,6 +61,16 @@ public:
                 assign_img(_other);
             else
                 assign_buf(_other);
+        }
+
+        SDescriptorInfo()
+        {
+            memset(&buffer, 0, std::max(sizeof(buffer), sizeof(image)));
+        }
+        ~SDescriptorInfo()
+        {
+            if (desc->getTypeCategory()==IDescriptor::EC_IMAGE)
+                image.sampler.~smart_refctd_ptr();
         }
 
     private:
