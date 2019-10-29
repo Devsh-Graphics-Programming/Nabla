@@ -2,6 +2,7 @@
 #define __IRR_I_ASSET_LOADER_H_INCLUDED__
 
 #include "irr/core/core.h"
+#include "IFileSystem.h"
 
 #include "IAsset.h"
 #include "IReadFile.h"
@@ -14,7 +15,7 @@ namespace irr { namespace asset
 	Every Asset must be loaded by a particular class derived from IAssetLoader.
 	These classes must be registered with IAssetManager::addAssetLoader() which will 
 	add it to the list of loaders (grab return 0-based index) or just not register 
-	the loader upon failure (donít grab and return 0xdeadbeefu).
+	the loader upon failure (don‚Äôt grab and return 0xdeadbeefu).
 
 	The loading is impacted by caching and resource duplication flags, defined as IAssetLoader::E_CACHING_FLAGS.
 
@@ -68,15 +69,30 @@ public:
 		E_CACHING_FLAGS::ECF_DONT_CACHE_REFERENCES means that it concerns any asset that the top level asset refers to, such as a texture
 		E_CACHING_FLAGS::ECF_DUPLICATE_REFERENCES means almost the same as E_CACHING_FLAGS::ECF_DUPLICATE_TOP_LEVEL but for any asset in the chain
 	*/
-
     enum E_CACHING_FLAGS : uint64_t
     {
         ECF_CACHE_EVERYTHING = 0,
-        ECF_DONT_CACHE_TOP_LEVEL = 0x1ull,						//!< master/parent is searched for in the caches, but not added to the cache if not found and loaded   
-        ECF_DUPLICATE_TOP_LEVEL = 0x3ull,						//!< master/parent object is loaded without searching for it in the cache, nor adding it to the cache after the load
-        ECF_DONT_CACHE_REFERENCES = 0x5555555555555555ull,		//!< this concerns any asset that the top level asset refers to, such as a texture
-        ECF_DUPLICATE_REFERENCES = 0xffffffffffffffffull		//!< meaning identical as to ECF_DUPLICATE_TOP_LEVEL but for any asset in the chain
+        ECF_DUPLICATE_REFERENCES = 0xffffffffffffffffull
     };
+
+
+	//! Parameter flags for a loader
+	/**
+		These are extra flags for an `IAssetLoader` to take into account when loading the asset.
+
+		E_LOADER_PARAMETER_FLAGS::ELPF_NONE is default and means that there is nothing to perform.
+		E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES specifies that a mesh will be flipped in such
+		a way that it'll look correctly in right-handed camera system. If it isn't set, compatibility with 
+		left-handed coordinate camera is assumed.
+		E_LOADER_PARAMETER_FLAGS::ELPF_DONT_COMPILE_GLSL means that GLSL won't be compiled to SPIR-V if it is loaded or generated.
+	*/
+
+	enum E_LOADER_PARAMETER_FLAGS : uint64_t
+	{
+		ELPF_NONE = 0,											//!< default value, it doesn't do anything
+		ELPF_RIGHT_HANDED_MESHES = 0x1,							//!< specifies that a mesh will be flipped in such a way that it'll look correctly in right-handed camera system
+		ELPF_DONT_COMPILE_GLSL = 0x2							//!< it states that GLSL won't be compiled to SPIR-V if it is loaded or generated						
+	};
 
 	//! Struct storing important data used for Asset loading process
 	/**
@@ -87,17 +103,23 @@ public:
 
 		@see CBAWMeshFileLoader
 		@see E_CACHING_FLAGS
+		@see E_LOADER_PARAMETER_FLAGS
 	*/
-
     struct SAssetLoadParams
     {
-        SAssetLoadParams(const size_t& _decryptionKeyLen = 0u, const uint8_t* _decryptionKey = nullptr, const E_CACHING_FLAGS& _cacheFlags = ECF_CACHE_EVERYTHING)
-            : decryptionKeyLen(_decryptionKeyLen), decryptionKey(_decryptionKey), cacheFlags(_cacheFlags)
+        SAssetLoadParams(	size_t _decryptionKeyLen = 0u, const uint8_t* _decryptionKey = nullptr,
+							E_CACHING_FLAGS _cacheFlags = ECF_CACHE_EVERYTHING,
+							const char* _relativeDir = nullptr, const E_LOADER_PARAMETER_FLAGS& _loaderFlags = ELPF_NONE) :
+				decryptionKeyLen(_decryptionKeyLen), decryptionKey(_decryptionKey),
+				cacheFlags(_cacheFlags), relativeDir(_relativeDir), loaderFlags(_loaderFlags)
         {
         }
-        size_t decryptionKeyLen;			 //!< The size of decryptionKey
-        const uint8_t* decryptionKey;		 //!< The key it used to decrypt potentially encrypted files
-        const E_CACHING_FLAGS cacheFlags;	 //!< Flags defining rules during loading process
+
+        	size_t decryptionKeyLen;			 		//!< The size of decryptionKey
+        	const uint8_t* decryptionKey;			 	//!< The key is used to decrypt potentially encrypted files
+        	const E_CACHING_FLAGS cacheFlags;	 		//!< Flags defining rules during loading process
+		    const char* relativeDir;
+		    const E_LOADER_PARAMETER_FLAGS loaderFlags;	//!< Flags having an impact on extraordinary tasks during loading process
     };
 
     //! Struct for keeping the state of the current loadoperation for safe threading
@@ -108,11 +130,12 @@ public:
 
 		@see SAssetLoadParams
 	*/
-
     struct SAssetLoadContext
     {
-        const SAssetLoadParams params;		//!< Data used for Asset loading process
-        io::IReadFile* mainFile;			//!< A path to Asset data file
+		SAssetLoadContext(const SAssetLoadParams& _params, io::IReadFile* _mainFile) : params(_params), mainFile(_mainFile) {}
+
+        const SAssetLoadParams params;
+        io::IReadFile* mainFile;
     };
 
     // following could be inlined
@@ -149,7 +172,8 @@ public:
 
 	//! Class for user to override functions to facilitate changing the way assets are loaded
 	/**
-		Each loader may override those functions to get more control on some process, but default implementations are provided.
+		User may override those functions to get more control on some process, but default implementations are provided.
+		All asset loaders must defer to the override, especially when loading dependant assets via other loaders.
 		It handles such operations like finding Assets cached so far, inserting them to cache, getting path to
 		file with Asset data, handling predefined opeartions if Assets searching fails or loading them, etc.
 	*/
@@ -158,8 +182,9 @@ public:
     {
     protected:
         IAssetManager* m_manager;
+		io::IFileSystem* m_filesystem;
     public:
-        IAssetLoaderOverride(IAssetManager* _manager) : m_manager(_manager) {}
+		IAssetLoaderOverride(IAssetManager* _manager);
 
         // The only reason these functions are not declared static is to allow stateful overrides
 
@@ -175,7 +200,7 @@ public:
 
         //! Only called when the asset was searched for, no correct asset was found
         /** Any non-nullptr asset returned here will not be added to cache,
-        since the overload operates ìas ifî the asset was found. */
+        since the overload operates ‚Äúas if‚Äù the asset was found. */
         inline virtual SAssetBundle handleSearchFail(const std::string& keyUsed, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
         {
             return {};
@@ -183,8 +208,10 @@ public:
 
         //! Called before loading a file 
 		/**
-			\param inOutFilename is a path to file Asset data needs to correspond with. A path changes over time for each dependent resource.
-			Actually, override decides how to resolve a local path or even a URL into a "proper" filename.
+			\param inOutFilename is a path to file Asset data needs to correspond with.
+			A path could be relative to a different folder than initially as we go down the hierarchy level when loading each dependent resource.
+			The override decides how to resolve a local path or even a URL into a "proper" filename.
+			It could even be used to return a fake path to i.e. trick the IAssetManager into thinking file has a specific extension (and tries the correct loader first). 
 			\param ctx provides data required for loading process.
 			\param hierarchyLevel specifies how deep are we being in some referenced-struct-data in a file,
 			but it is more like a stack counter.
@@ -198,13 +225,26 @@ public:
 			@see IAssetLoader
 			@see SAssetLoadContext
 		*/
-        inline virtual void getLoadFilename(std::string& inOutFilename, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel) {} //default do nothing
+        inline virtual void getLoadFilename(std::string& inOutFilename, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
+		{
+			if (!ctx.params.relativeDir)
+				return;
+			// try compute absolute path
+			std::string relative = ctx.params.relativeDir+inOutFilename;
+			if (m_filesystem->existFile(relative.c_str()))
+			{
+				inOutFilename = relative;
+				return;
+			}
+			// otherwise it was already absolute
+		}
 
+        //! This function can be used to swap out the actually opened (or unknown unopened file if `inFile` is nullptr) file for a different one.
+		/** Especially useful if you've used some sort of a fake path and the file won't load from that path just via `io::IFileSystem` . */
         inline virtual io::IReadFile* getLoadFile(io::IReadFile* inFile, const std::string& supposedFilename, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
         {
             return inFile;
         }
-        // I would really like to merge getLoadFilename and getLoadFile into one function!
 
         //! When you sometimes have different passwords for different assets
         /** \param inOutDecrKeyLen expects length of buffer `outDecrKey`, then function writes into it length of actual key.
@@ -222,7 +262,7 @@ public:
         //! Only called when the was unable to be loaded
         inline virtual SAssetBundle handleLoadFail(bool& outAddToCache, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
         {
-            outAddToCache = false; // if you want to return a ìdefault error assetî
+            outAddToCache = false; // if you want to return a ‚Äúdefault error asset‚Äù
             return SAssetBundle();
         }
 

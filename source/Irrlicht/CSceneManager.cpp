@@ -30,7 +30,6 @@
 #include "CSceneNodeAnimatorCameraFPS.h"
 #include "CSceneNodeAnimatorCameraMaya.h"
 #include "CSceneNodeAnimatorCameraModifiedMaya.h"
-#include "IrrlichtDevice.h"
 
 namespace irr
 {
@@ -538,101 +537,8 @@ bool CSceneManager::isCulled(ISceneNode* node) const
 //! registers a node for rendering it at a specific time.
 uint32_t CSceneManager::registerNodeForRendering(ISceneNode* node, E_SCENE_NODE_RENDER_PASS pass)
 {
-	uint32_t taken = 0;
-
-	switch(pass)
-	{
-		// take camera if it is not already registered
-	case ESNRP_CAMERA:
-		{
-			taken = 1;
-			for (uint32_t i = 0; i != CameraList.size(); ++i)
-			{
-				if (CameraList[i] == node)
-				{
-					taken = 0;
-					break;
-				}
-			}
-			if (taken)
-			{
-				CameraList.push_back(node);
-			}
-		}
-		break;
-
-	case ESNRP_SKY_BOX:
-		SkyBoxList.push_back(node);
-		taken = 1;
-		break;
-	case ESNRP_SOLID:
-		if (!isCulled(node))
-		{
-			SolidNodeList.push_back(node);
-			taken = 1;
-		}
-		break;
-	case ESNRP_TRANSPARENT:
-		if (!isCulled(node))
-		{
-			TransparentNodeList.push_back(TransparentNodeEntry(node, ActiveCamera->getAbsolutePosition()));
-			taken = 1;
-		}
-		break;
-	case ESNRP_TRANSPARENT_EFFECT:
-		if (!isCulled(node))
-		{
-			TransparentEffectNodeList.push_back(TransparentNodeEntry(node, ActiveCamera->getAbsolutePosition()));
-			taken = 1;
-		}
-		break;
-	case ESNRP_AUTOMATIC:
-		if (!isCulled(node))
-		{
-#ifndef NEW_SHADERS
-			taken = 0;
-			const uint32_t count = node->getMaterialCount();
-			for (uint32_t i=0; i<count; ++i)
-			{
-                //TODO Driver->getMaterialRenderer() always return nullptr now
-                //so transparent nodes just doesnt work
-				video::IMaterialRenderer* rnd =
-					Driver->getMaterialRenderer(0);
-				if (rnd && rnd->isTransparent())
-				{
-					// register as transparent node
-					TransparentNodeEntry e(node, ActiveCamera->getAbsolutePosition());
-					TransparentNodeList.push_back(e);
-					taken = 1;
-					break;
-				}
-			}
-#endif
-			// not transparent, register as solid
-			if (!taken)
-			{
-				SolidNodeList.push_back(node);
-				taken = 1;
-			}
-		}
-		break;
-
-	default: // ignore this one
-		break;
-	}
-
-#ifdef _IRR_SCENEMANAGER_DEBUG
-	int32_t index = Parameters.findAttribute ( "calls" );
-	Parameters.setAttribute ( index, Parameters.getAttributeAsInt ( index ) + 1 );
-
-	if (!taken)
-	{
-		index = Parameters.findAttribute ( "culled" );
-		Parameters.setAttribute ( index, Parameters.getAttributeAsInt ( index ) + 1 );
-	}
-#endif
-
-	return taken;
+	assert(false);
+	return 0;
 }
 
 //!
@@ -661,21 +567,9 @@ void CSceneManager::drawAll()
 	if (!Driver)
 		return;
 
-#ifdef _IRR_SCENEMANAGER_DEBUG
-	// reset attributes
-	Parameters.setAttribute ( "culled", 0 );
-	Parameters.setAttribute ( "calls", 0 );
-	Parameters.setAttribute ( "drawn_solid", 0 );
-	Parameters.setAttribute ( "drawn_transparent", 0 );
-	Parameters.setAttribute ( "drawn_transparent_effect", 0 );
-#endif
-
 	uint32_t i; // new ISO for scoping problem in some compilers
 
 	// reset all transforms
-#ifndef NEW_SHADERS
-	Driver->setMaterial(video::SGPUMaterial());
-#endif
 	Driver->setTransform(video::EPTS_PROJ,core::matrix4SIMD());
 	Driver->setTransform ( video::E4X3TS_VIEW, core::matrix4x3() );
 	Driver->setTransform ( video::E4X3TS_WORLD, core::matrix4x3() );
@@ -720,14 +614,11 @@ void CSceneManager::drawAll()
 	{
 		CurrentRendertime = ESNRP_SOLID;
 
-		std::sort(SolidNodeList.begin(),SolidNodeList.end()); // sort by textures
+		std::stable_sort(SolidNodeList.begin(),SolidNodeList.end()); // sort by textures
 
         for (i=0; i<SolidNodeList.size(); ++i)
             SolidNodeList[i].Node->render();
 
-#ifdef _IRR_SCENEMANAGER_DEBUG
-		Parameters.setAttribute("drawn_solid", (int32_t) SolidNodeList.size() );
-#endif
 		SolidNodeList.clear();
 	}
 
@@ -735,13 +626,10 @@ void CSceneManager::drawAll()
 	{
 		CurrentRendertime = ESNRP_TRANSPARENT;
 
-		std::sort(TransparentNodeList.begin(),TransparentNodeList.end()); // sort by distance from camera
+		std::stable_sort(TransparentNodeList.begin(),TransparentNodeList.end()); // sort by distance from camera
         for (i=0; i<TransparentNodeList.size(); ++i)
             TransparentNodeList[i].Node->render();
 
-#ifdef _IRR_SCENEMANAGER_DEBUG
-		Parameters.setAttribute ( "drawn_transparent", (int32_t) TransparentNodeList.size() );
-#endif
 		TransparentNodeList.clear();
 	}
 
@@ -749,12 +637,10 @@ void CSceneManager::drawAll()
 	{
 		CurrentRendertime = ESNRP_TRANSPARENT_EFFECT;
 
-		std::sort(TransparentEffectNodeList.begin(),TransparentEffectNodeList.end()); // sort by distance from camera
+		std::stable_sort(TransparentEffectNodeList.begin(),TransparentEffectNodeList.end()); // sort by distance from camera
         for (i=0; i<TransparentEffectNodeList.size(); ++i)
             TransparentEffectNodeList[i].Node->render();
-#ifdef _IRR_SCENEMANAGER_DEBUG
-		Parameters.setAttribute ( "drawn_transparent_effect", (int32_t) TransparentEffectNodeList.size() );
-#endif
+
 		TransparentEffectNodeList.clear();
 	}
 

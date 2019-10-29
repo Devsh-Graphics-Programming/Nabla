@@ -244,19 +244,19 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				{
 					// loop through vertex properties
 					for (uint32_t j=0; j < ctx.ElementList[i]->Count; ++j)
-						hasNormals &= readVertex(ctx, ctx.ElementList[i].get()[0], attribs);
+						hasNormals &= readVertex(ctx, ctx.ElementList[i].get(), attribs);
 				}
 				else if (ctx.ElementList[i]->Name == "face")
 				{
 					// read faces
 					for (uint32_t j=0; j < ctx.ElementList[i]->Count; ++j)
-						readFace(ctx, ctx.ElementList[i].get()[0], indices);
+						readFace(ctx, ctx.ElementList[i].get(), indices, _params);
 				}
 				else
 				{
 					// skip these elements
 					for (uint32_t j=0; j < ctx.ElementList[i]->Count; ++j)
-						skipElement(ctx, ctx.ElementList[i].get()[0]);
+						skipElement(ctx, ctx.ElementList[i].get());
 				}
 			}
 
@@ -278,6 +278,9 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_POINT_LIST;
                 mb->setIndexCount(attribs[E_POS].size());
                 //mb->getMaterial().setFlag(video::EMF_POINTCLOUD, true);
+
+				if (!genVertBuffersForMBuffer(mb.get(), attribs, bufferBinding))
+					return {};
             }
 
             //TODO SVertexInputParams::enabledBindingFlags and SVertexInputParams::enabledAttribFlags needs setting
@@ -295,8 +298,16 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	return SAssetBundle({mesh});
 }
 
+static void performActionBasedOnOrientationSystem(const asset::IAssetLoader::SAssetLoadParams& _params, std::function<void()> performOnRightHanded, std::function<void()> performOnLeftHanded)
+{
+	if (_params.loaderFlags & IAssetLoader::ELPF_RIGHT_HANDED_MESHES)
+		performOnRightHanded();
+	else
+		performOnLeftHanded();
+}
 
-bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, core::vector<core::vectorSIMDf> _outAttribs[4])
+
+bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, core::vector<core::vectorSIMDf> _outAttribs[4], const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 	if (!_ctx.IsBinaryFile)
 		getNextLine(_ctx);
@@ -313,6 +324,7 @@ bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, 
         if (Element.Properties[i].Name == "x")
         {
             attribs[E_POS].second.X = getFloat(_ctx, t);
+			performActionBasedOnOrientationSystem(_params, [&]() {attribs[E_POS].second.X = -attribs[E_POS].second.X;}, [&]() {});
             attribs[E_POS].first = true;
         }
         else if (Element.Properties[i].Name == "y")
@@ -328,6 +340,7 @@ bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, 
 		else if (Element.Properties[i].Name == "nx")
 		{
 			attribs[E_NORM].second.X = getFloat(_ctx, t);
+			performActionBasedOnOrientationSystem(_params, [&]() {attribs[E_NORM].second.X = -attribs[E_NORM].second.X;}, [&]() {});
 			attribs[E_NORM].first = result=true;
 		}
 		else if (Element.Properties[i].Name == "ny")
@@ -386,7 +399,8 @@ bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, 
 	return result;
 }
 
-bool CPLYMeshFileLoader::readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices)
+
+bool CPLYMeshFileLoader::readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 	if (!_ctx.IsBinaryFile)
 		getNextLine(_ctx);
@@ -404,17 +418,41 @@ bool CPLYMeshFileLoader::readFace(SContext& _ctx, const SPLYElement &Element, co
 				c = getInt(_ctx, Element.Properties[i].Data.List.ItemType);
 			int32_t j = 3;
 
-			_outIndices.push_back(a);
-			_outIndices.push_back(b);
-			_outIndices.push_back(c);
+			performActionBasedOnOrientationSystem
+			(_params, 
+				[&]() 
+				{
+					_outIndices.push_back(c);
+					_outIndices.push_back(b);
+					_outIndices.push_back(a);
+				}, 
+				[&]() 
+				{
+					_outIndices.push_back(a);
+					_outIndices.push_back(b);
+					_outIndices.push_back(c);
+				}
+			);
 
 			for (; j < count; ++j)
 			{
 				b = c;
 				c = getInt(_ctx, Element.Properties[i].Data.List.ItemType);
-				_outIndices.push_back(a);
-				_outIndices.push_back(c);
-				_outIndices.push_back(b);
+				performActionBasedOnOrientationSystem
+				(_params,
+					[&]()
+					{
+						_outIndices.push_back(b);
+						_outIndices.push_back(c);
+						_outIndices.push_back(a);
+					},
+					[&]()
+					{
+						_outIndices.push_back(a);
+						_outIndices.push_back(c);
+						_outIndices.push_back(b);
+					}
+				);
 			}
 		}
 		else if (Element.Properties[i].Name == "intensity")
@@ -464,6 +502,7 @@ void CPLYMeshFileLoader::skipProperty(SContext& _ctx, const SPLYProperty &Proper
 
 bool CPLYMeshFileLoader::allocateBuffer(SContext& _ctx)
 {
+	// Destroy the element list if it exists
 	_ctx.ElementList.clear();
 
 	if (!_ctx.Buffer)
@@ -478,7 +517,7 @@ bool CPLYMeshFileLoader::allocateBuffer(SContext& _ctx)
 
     _ctx.StartPointer = _ctx.Buffer;
     _ctx.EndPointer = _ctx.Buffer;
-    _ctx.LineEndPointer = _ctx.Buffer - 1;
+    _ctx.LineEndPointer = _ctx.Buffer-1;
     _ctx.WordLength = -1;
     _ctx.EndOfFile = false;
 
@@ -515,7 +554,7 @@ void CPLYMeshFileLoader::fillBuffer(SContext& _ctx)
 		uint32_t count = _ctx.File->read(_ctx.EndPointer, PLY_INPUT_BUFFER_SIZE - length);
 
 		// increment the end pointer by the number of bytes read
-		_ctx.EndPointer+= count;
+		_ctx.EndPointer += count;
 
 		// if we didn't completely fill the buffer
 		if (count != PLY_INPUT_BUFFER_SIZE - length)
@@ -566,11 +605,9 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 	sizes[E_UV] = !_attribs[E_UV].empty() * 2 * sizeof(float);
 	sizes[E_NORM] = !_attribs[E_NORM].empty() * 3 * sizeof(float);
 
-	size_t offsets[4]{ 0u };
-	for (size_t i = 1u; i < 4u; ++i)
-		offsets[i] = offsets[i - 1] + sizes[i - 1];
+        offsets[i] = offsets[i-1] + sizes[i-1];
 
-	const size_t stride = std::accumulate(sizes, sizes + 4, static_cast<size_t>(0));
+    const size_t stride = std::accumulate(sizes, sizes+4, static_cast<size_t>(0));
 
 	{
 		const static std::array<std::pair<uint16_t, E_FORMAT>, 4> perIndexDataThatChanges{std::make_pair(E_POS, asset::EF_R32G32B32_SFLOAT), std::make_pair(E_COL, asset::EF_R32G32B32A32_SFLOAT), std::make_pair(E_UV, asset::EF_R32G32_SFLOAT), std::make_pair(E_NORM, asset::EF_R32G32B32_SFLOAT)};
@@ -682,7 +719,7 @@ char* CPLYMeshFileLoader::getNextLine(SContext& _ctx)
 		else
 		{
 			// EOF
-            _ctx.StartPointer = _ctx.EndPointer - 1;
+            _ctx.StartPointer = _ctx.EndPointer-1;
 			*_ctx.StartPointer = '\0';
 			return _ctx.StartPointer;
 		}
@@ -725,7 +762,7 @@ char* CPLYMeshFileLoader::getNextWord(SContext& _ctx)
 		++pos;
 	}
 	--pos;
-    _ctx.WordLength = (int32_t)(pos - _ctx.StartPointer);
+    _ctx.WordLength = (int32_t)(pos-_ctx.StartPointer);
 	// return pointer to the start of the word
 	return _ctx.StartPointer;
 }
@@ -747,7 +784,7 @@ float CPLYMeshFileLoader::getFloat(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 			{
 			case EPLYPT_INT8:
 				retVal = *_ctx.StartPointer;
-                ++_ctx.StartPointer;
+                _ctx.StartPointer++;
 				break;
 			case EPLYPT_INT16:
 				if (_ctx.IsWrongEndian)
@@ -783,7 +820,7 @@ float CPLYMeshFileLoader::getFloat(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 			case EPLYPT_UNKNOWN:
 			default:
 				retVal = 0.0f;
-                ++_ctx.StartPointer; // ouch!
+                _ctx.StartPointer++; // ouch!
 			}
 		}
 		else
@@ -830,7 +867,7 @@ uint32_t CPLYMeshFileLoader::getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 			{
 			case EPLYPT_INT8:
 				retVal = *_ctx.StartPointer;
-                ++_ctx.StartPointer;
+                _ctx.StartPointer++;
 				break;
 			case EPLYPT_INT16:
 				if (_ctx.IsWrongEndian)
@@ -851,7 +888,7 @@ uint32_t CPLYMeshFileLoader::getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 					retVal = (uint32_t)os::Byteswap::byteswap(*(reinterpret_cast<float*>(_ctx.StartPointer)));
 				else
 					retVal = (uint32_t)(*(reinterpret_cast<float*>(_ctx.StartPointer)));
-				_ctx.StartPointer += 4;
+                _ctx.StartPointer += 4;
 				break;
 			case EPLYPT_FLOAT64:
 				// todo: byteswap 64-bit
@@ -862,7 +899,7 @@ uint32_t CPLYMeshFileLoader::getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 			case EPLYPT_UNKNOWN:
 			default:
 				retVal = 0;
-                ++_ctx.StartPointer; // ouch!
+                _ctx.StartPointer++; // ouch!
 			}
 		}
 		else

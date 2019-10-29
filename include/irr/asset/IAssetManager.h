@@ -130,7 +130,7 @@ namespace asset
         //! Constructor
         explicit IAssetManager(core::smart_refctd_ptr<io::IFileSystem>&& _fs) :
             m_fileSystem(std::move(_fs)),
-            m_defaultLoaderOverride{nullptr}
+            m_defaultLoaderOverride(this)
         {
             initializeMeshTools();
 
@@ -138,7 +138,6 @@ namespace asset
                 m_assetCache[i] = new AssetCacheType(asset::makeAssetGreetFunc(this), asset::makeAssetDisposeFunc(this));
             for (size_t i = 0u; i < m_cpuGpuCache.size(); ++i)
                 m_cpuGpuCache[i] = new CpuGpuCacheType();
-            m_defaultLoaderOverride = IAssetLoader::IAssetLoaderOverride{this};
 
 			addLoadersAndWriters();
         }
@@ -255,7 +254,7 @@ namespace asset
         //TODO change name
         SAssetBundle getAssetInHierarchy(const std::string& _filePath, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
-            IAssetLoader::SAssetLoadContext ctx{_params, nullptr};
+            IAssetLoader::SAssetLoadContext ctx(_params, nullptr);
 
             std::string filePath = _filePath;
             _override->getLoadFilename(filePath, ctx, _hierarchyLevel);

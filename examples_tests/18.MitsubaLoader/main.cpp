@@ -13,48 +13,151 @@ using namespace core;
 
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
-		int32_t mvpUniformLocation;
-		int32_t colorUniformLocation;
-		int32_t nastyUniformLocation;
-		video::E_SHADER_CONSTANT_TYPE mvpUniformType;
-		video::E_SHADER_CONSTANT_TYPE colorUniformType;
-		video::E_SHADER_CONSTANT_TYPE nastyUniformType;
+		video::E_MATERIAL_TYPE currentMat;
+
+		int32_t mvpUniformLocation[video::EMT_COUNT+2];
+		int32_t colorUniformLocation[video::EMT_COUNT+2];
+		int32_t nastyUniformLocation[video::EMT_COUNT+2];
+		video::E_SHADER_CONSTANT_TYPE mvpUniformType[video::EMT_COUNT+2];
+		video::E_SHADER_CONSTANT_TYPE colorUniformType[video::EMT_COUNT+2];
+		video::E_SHADER_CONSTANT_TYPE nastyUniformType[video::EMT_COUNT+2];
 	public:
+		SimpleCallBack() : currentMat(video::EMT_SOLID)
+		{
+			std::fill(mvpUniformLocation, reinterpret_cast<int32_t*>(mvpUniformType), -1);
+		}
+
 		virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
 		{
 			for (size_t i=0; i<constants.size(); i++)
 			{
 				if (constants[i].name == "MVP")
 				{
-					mvpUniformLocation = constants[i].location;
-					mvpUniformType = constants[i].type;
+					mvpUniformLocation[materialType] = constants[i].location;
+					mvpUniformType[materialType] = constants[i].type;
 				}
 				else if (constants[i].name == "color")
 				{
-					colorUniformLocation = constants[i].location;
-					colorUniformType = constants[i].type;
+					colorUniformLocation[materialType] = constants[i].location;
+					colorUniformType[materialType] = constants[i].type;
 				}
 				else if (constants[i].name == "nasty")
 				{
-					nastyUniformLocation = constants[i].location;
-					nastyUniformType = constants[i].type;
+					nastyUniformLocation[materialType] = constants[i].location;
+					nastyUniformType[materialType] = constants[i].type;
 				}
 			}
 		}
 
 		virtual void OnSetMaterial(video::IMaterialRendererServices* services, const video::SGPUMaterial& material, const video::SGPUMaterial& lastMaterial)
 		{
-			services->setShaderConstant(&material.AmbientColor, colorUniformLocation, colorUniformType, 1);
-			services->setShaderConstant(&material.MaterialTypeParam, nastyUniformLocation, nastyUniformType, 1);
+			currentMat = material.MaterialType;
+			services->setShaderConstant(&material.AmbientColor, colorUniformLocation[currentMat], colorUniformType[currentMat], 1);
+			services->setShaderConstant(&material.MaterialTypeParam, nastyUniformLocation[currentMat], nastyUniformType[currentMat], 1);
 		}
 
 		virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
 		{
-			services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(), mvpUniformLocation, mvpUniformType, 1);
+			if (mvpUniformLocation[currentMat]>=0)
+				services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(), mvpUniformLocation[currentMat], mvpUniformType[currentMat], 1);
 		}
 
 		virtual void OnUnsetMaterial() {}
 };
+
+
+class CullBack : public video::IShaderConstantSetCallBack
+{
+	inline static const char* uniformNames[] =
+	{
+		"ProjViewWorldMat",
+		"LoDInvariantMinEdge",
+		"LoDInvariantMaxEdge"
+	};
+
+	enum E_UNIFORM
+	{
+		EU_PROJ_VIEW_WORLD_MAT = 0,
+		EU_LOD_INVARIANT_MIN_EDGE,
+		EU_LOD_INVARIANT_MAX_EDGE,
+		EU_COUNT
+	};
+
+    int32_t uniformLocation[EU_COUNT];
+    video::E_SHADER_CONSTANT_TYPE uniformType[EU_COUNT];
+public:
+    core::aabbox3df instanceLoDInvariantBBox;
+
+    CullBack()
+    {
+        for (size_t i=0; i<EU_COUNT; i++)
+            uniformLocation[i] = -1;
+    }
+
+    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
+    {
+        for (size_t i=0; i<constants.size(); i++)
+        for (size_t j=0; j<EU_COUNT; j++)
+        {
+            if (constants[i].name==uniformNames[j])
+            {
+                uniformLocation[j] = constants[i].location;
+                uniformType[j] = constants[i].type;
+                break;
+            }
+        }
+    }
+
+    virtual void OnSetMaterial(video::IMaterialRendererServices* services, const video::SGPUMaterial& material, const video::SGPUMaterial& lastMaterial) {}
+
+    virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
+    {
+        if (uniformLocation[EU_PROJ_VIEW_WORLD_MAT]>=0)
+            services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),uniformLocation[EU_PROJ_VIEW_WORLD_MAT],uniformType[EU_PROJ_VIEW_WORLD_MAT],1);
+
+        if (uniformLocation[EU_LOD_INVARIANT_MIN_EDGE]>=0)
+        {
+            services->setShaderConstant(&instanceLoDInvariantBBox.MinEdge,uniformLocation[EU_LOD_INVARIANT_MIN_EDGE],uniformType[EU_LOD_INVARIANT_MIN_EDGE],1);
+            services->setShaderConstant(&instanceLoDInvariantBBox.MaxEdge,uniformLocation[EU_LOD_INVARIANT_MAX_EDGE],uniformType[EU_LOD_INVARIANT_MAX_EDGE],1);
+        }
+    }
+
+    virtual void OnUnsetMaterial() {}
+};
+
+core::smart_refctd_ptr<asset::IMeshDataFormatDesc<video::IGPUBuffer> > vaoSetupOverride(scene::ISceneManager* smgr, video::IGPUBuffer* instanceDataBuffer, const size_t& dataSizePerInstanceOutput, const asset::IMeshDataFormatDesc<video::IGPUBuffer>* oldVAO, void* userData)
+{
+	video::IVideoDriver* driver = smgr->getVideoDriver();
+	auto vao = driver->createGPUMeshDataFormatDesc();
+
+	//
+	for (size_t k=0; k<asset::EVAI_COUNT; k++)
+	{
+		asset::E_VERTEX_ATTRIBUTE_ID attrId = (asset::E_VERTEX_ATTRIBUTE_ID)k;
+		if (!oldVAO->getMappedBuffer(attrId))
+			continue;
+
+		vao->setVertexAttrBuffer(	core::smart_refctd_ptr<video::IGPUBuffer>(const_cast<video::IGPUBuffer*>(oldVAO->getMappedBuffer(attrId))),
+									attrId,oldVAO->getAttribFormat(attrId), oldVAO->getMappedBufferStride(attrId),oldVAO->getMappedBufferOffset(attrId),
+									oldVAO->getAttribDivisor(attrId));
+	}
+
+	// I know what attributes are unused in my mesh and I've set up the shader to use thse as instance data
+	constexpr auto stride = 25*sizeof(float);
+	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR4,asset::EF_R32G32B32A32_SFLOAT,stride,0,1);
+	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR5,asset::EF_R32G32B32A32_SFLOAT,stride,4*sizeof(float),1);
+	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR6,asset::EF_R32G32B32A32_SFLOAT,stride,8*sizeof(float),1);
+	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR7,asset::EF_R32G32B32A32_SFLOAT,stride,12*sizeof(float),1);
+	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR8,asset::EF_R32G32B32_SFLOAT,stride,16*sizeof(float),1);
+	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR9,asset::EF_R32G32B32_SFLOAT,stride,19*sizeof(float),1);
+	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR10,asset::EF_R32G32B32_SFLOAT,stride,22*sizeof(float),1);
+
+
+	if (oldVAO->getIndexBuffer())
+		vao->setIndexBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(const_cast<video::IGPUBuffer*>(oldVAO->getIndexBuffer())));
+
+	return vao;
+}
 
 int main()
 {
@@ -79,13 +182,14 @@ int main()
 		io::IFileSystem* fs = device->getFileSystem();
 		asset::IAssetManager* am = device->getAssetManager();
 
+		am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CSerializedLoader>(am));
 		am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(am));
 
 		std::string filePath = "../../media/mitsuba/staircase2.zip";
 	//#define MITSUBA_LOADER_TESTS
 	#ifndef MITSUBA_LOADER_TESTS
 		pfd::message("Choose file to load", "Choose mitsuba XML file to load or ZIP containing an XML. \nIf you cancel or choosen file fails to load staircase will be loaded.", pfd::choice::ok);
-		pfd::open_file file("Choose XML or ZIP file", "../../media/mitsuba", { "XML files (.xml)", "*.xml", "ZIP files (.zip)", "*.zip" });
+		pfd::open_file file("Choose XML or ZIP file", "../../media/mitsuba", { "ZIP files (.zip)", "*.zip", "XML files (.xml)", "*.xml"});
 		if (!file.result().empty())
 			filePath = file.result()[0];
 	#endif
@@ -128,7 +232,7 @@ int main()
 
 		//! read cache results -- speeds up mesh generation
 		{
-			io::IReadFile* cacheFile = device->getFileSystem()->createAndOpenFile("./normalCache101010.sse");
+			io::IReadFile* cacheFile = device->getFileSystem()->createAndOpenFile("../../tmp/normalCache101010.sse");
 			if (cacheFile)
 			{
 				asset::normalCacheFor2_10_10_10Quant.resize(cacheFile->getSize() / sizeof(asset::QuantizationCacheEntry2_10_10_10));
@@ -143,21 +247,24 @@ int main()
 		meshes = am->getAsset(filePath, {});
 		//! cache results -- speeds up mesh generation on second run
 		{
-			io::IWriteFile* cacheFile = device->getFileSystem()->createAndWriteFile("./normalCache101010.sse");
+			io::IWriteFile* cacheFile = device->getFileSystem()->createAndWriteFile("../../tmp/normalCache101010.sse");
 			cacheFile->write(asset::normalCacheFor2_10_10_10Quant.data(), asset::normalCacheFor2_10_10_10Quant.size() * sizeof(asset::QuantizationCacheEntry2_10_10_10));
 			cacheFile->drop();
 		}
 
 		device->drop();
 
-
-		auto firstmesh = *meshes.getContents().first;
-		if (!firstmesh)
+		auto contents = meshes.getContents();
+		if (contents.first>=contents.second)
 			return 2;
+
+		auto firstmesh = *contents.first;
+		if (!firstmesh)
+			return 3;
 
 		auto meta = firstmesh->getMetadata();
 		if (!meta)
-			return 3;
+			return 4;
 		assert(core::strcmpi(meta->getLoaderName(),ext::MitsubaLoader::IMitsubaMetadata::LoaderName) == 0);
 		globalMeta = static_cast<ext::MitsubaLoader::IMeshMetadata*>(meta)->globalMetadata;
 	}
@@ -188,7 +295,13 @@ int main()
 	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
 
 	SimpleCallBack* cb = new SimpleCallBack();
-	video::E_MATERIAL_TYPE newMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
+	video::E_MATERIAL_TYPE nonInstanced = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
+		"", "", "", //! No Geometry or Tessellation Shaders
+		"../mesh.frag",
+		3, video::EMT_SOLID, //! 3 vertices per primitive (this is tessellation shader relevant only
+		cb, //! Our Shader Callback
+		0); //! No custom user data
+	video::E_MATERIAL_TYPE instanced = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh_instanced.vert",
 		"", "", "", //! No Geometry or Tessellation Shaders
 		"../mesh.frag",
 		3, video::EMT_SOLID, //! 3 vertices per primitive (this is tessellation shader relevant only
@@ -196,6 +309,26 @@ int main()
 		0); //! No custom user data
 	cb->drop();
 
+	//instancing juice
+	video::SGPUMaterial cullingXFormFeedbackShader;
+	CullBack* cullback = new CullBack();
+	{
+		const char* xformFeedbackOutputs[] =
+		{
+			"worldViewProjMatCol0",
+			"worldViewProjMatCol1",
+			"worldViewProjMatCol2",
+			"worldViewProjMatCol3",
+			"tposeInverseWorldMatCol0",
+			"tposeInverseWorldMatCol1",
+			"tposeInverseWorldMatCol2"
+		};
+		cullingXFormFeedbackShader.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../culling.vert", "", "", "../culling.geom", "", 3, video::EMT_SOLID, cullback, xformFeedbackOutputs, 7u);
+		cullback->drop();
+		cullingXFormFeedbackShader.RasterizerDiscard = true; 
+	}
+
+	core::aabbox3df sceneBound;
 	{
 		auto gpumeshes = driver->getGPUObjectsFromAssets<asset::ICPUMesh>(meshes.getContents().first, meshes.getContents().second);
 		auto cpuit = meshes.getContents().first;
@@ -204,19 +337,45 @@ int main()
 			auto* meta = (*cpuit)->getMetadata();
 			assert(meta && core::strcmpi(meta->getLoaderName(),ext::MitsubaLoader::IMitsubaMetadata::LoaderName) == 0);
 			const auto* meshmeta = static_cast<const ext::MitsubaLoader::IMeshMetadata*>(meta);
+			const auto& instances = meshmeta->getInstances();
 
 			const auto& gpumesh = *gpuit;
+#define INSTANCING_THRESHOLD 256u // TODO: when shader pipeline API comes, you can reduce this back to 1 as we need a nicer single-pass GPU-driven rendering system
 			for (auto i=0u; i<gpumesh->getMeshBufferCount(); i++)
-				gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = newMaterialType;
+				gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = instances.size()<INSTANCING_THRESHOLD ? nonInstanced:instanced;
 
+			if (instances.size()<INSTANCING_THRESHOLD)
+			for (auto instance : instances)
+			{
+				auto node = smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh));
+				node->setRelativeTransformationMatrix(instance.getAsRetardedIrrlichtMatrix());
+				node->updateAbsolutePosition();
+				sceneBound.addInternalBox(node->getTransformedBoundingBox());
+			}
+			else
+			{
+				auto node = smgr->addMeshSceneNodeInstanced();
+				node->setBBoxUpdateEnabled();
+				{
+					core::vector<scene::IMeshSceneNodeInstanced::MeshLoD> LevelsOfDetail(1);
+					LevelsOfDetail[0].mesh = gpumesh.get();
+					LevelsOfDetail[0].lodDistance = FLT_MAX;
 
-			auto node = smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh));
-			node->setRelativeTransformationMatrix(meshmeta->getInstances()[0].getAsRetardedIrrlichtMatrix());
+					bool success = node->setLoDMeshes(LevelsOfDetail, 25*sizeof(float), cullingXFormFeedbackShader, vaoSetupOverride);
+					assert(success);
+					cullback->instanceLoDInvariantBBox = node->getLoDInvariantBBox();
+				}
+				for (auto instance : instances)
+					node->addInstance(instance.getAsRetardedIrrlichtMatrix());
+				node->updateAbsolutePosition();
+				sceneBound.addInternalBox(node->getTransformedBoundingBox());
+				node->setAutomaticCulling(scene::EAC_FRUSTUM_BOX);
+			}
 		}
-		//meshes = asset::SAssetBundle();
 	}
 
 	// camera and viewport
+	bool leftHandedCamera = false;
 	scene::ICameraSceneNode* camera = nullptr;
 	core::recti viewport(core::position2di(0,0), core::position2di(params.WindowSize.Width,params.WindowSize.Height));
 
@@ -229,7 +388,8 @@ int main()
 		const auto& film = sensor.film;
 		viewport = core::recti(core::position2di(film.cropOffsetX,film.cropOffsetY), core::position2di(film.cropWidth,film.cropHeight));
 
-		camera = smgr->addCameraSceneNodeFPS(nullptr,100.f,0.01f);
+		auto extent = sceneBound.getExtent();
+		camera = smgr->addCameraSceneNodeFPS(nullptr,100.f,core::min(extent.X,extent.Y,extent.Z)*0.0002f);
 		// need to extract individual components
 		{
 			auto relativeTransform = sensor.transform.matrix.extractSub3x4();
@@ -243,6 +403,10 @@ int main()
 				up[i] = relativeTransform.rows[i].y;
 				target[i] += relativeTransform.rows[i].z;
 			}
+
+			if (relativeTransform.getPseudoDeterminant().x < 0.f)
+				leftHandedCamera = true;
+
 			camera->setTarget(target.getAsVector3df());
 			camera->setUpVector(up.getAsVector3df());
 		}
@@ -301,12 +465,14 @@ int main()
 				assert(false);
 				break;
 		}
-		auto projMat = core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(realFoVDegrees),aspectRatio,persp->nearClip,persp->farClip);
-		camera->setProjectionMatrix(projMat);
+		if (leftHandedCamera)
+			camera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(realFoVDegrees), aspectRatio, persp->nearClip, persp->farClip));
+		else
+			camera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(realFoVDegrees), aspectRatio, persp->nearClip, persp->farClip));
 	}
 	else
 		camera = smgr->addCameraSceneNodeFPS(0, 100.0f, 0.01f);
-	camera->setLeftHanded(false);
+	camera->setLeftHanded(leftHandedCamera);
 	smgr->setActiveCamera(camera);
 	device->getCursorControl()->setVisible(false);
 

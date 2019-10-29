@@ -17,6 +17,7 @@ set(IRR_EXT_MITSUBA_LOADER_H
 	CElementFactory.h
 	CGlobalMitsubaMetadata.h
 	ParserUtil.h
+	CSerializedLoader.h
 	CMitsubaLoader.h
 )
 
@@ -33,11 +34,13 @@ set(IRR_EXT_MITSUBA_LOADER_SRC
 	CElementTexture.cpp
 	CElementEmitter.cpp
 	CElementFactory.cpp
-	CMitsubaLoader.cpp
 	ParserUtil.cpp
+	CSerializedLoader.cpp
+	CMitsubaLoader.cpp
 )
 
 set(IRR_EXT_MITSUBA_LOADER_EXTERNAL_INCLUDE
+	"${IRR_ROOT_PATH}/3rdparty"
 	"${IRR_ROOT_PATH}/3rdparty/libexpat"
 )
 

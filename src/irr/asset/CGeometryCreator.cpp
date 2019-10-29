@@ -142,6 +142,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCubeMesh(const c
     desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertices),asset::EVAI_ATTR3,asset::EF_R8G8B8_SSCALED,vertexSize,offsetof(CubeVertex, normal));
 
 	buffer->setMeshDataAndFormat(std::move(desc));
+	buffer->recalculateBoundingBox();
 
 	auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
 	mesh->addMeshBuffer(std::move(buffer));
@@ -467,6 +468,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCylinderMesh(flo
 		meshbuf->setPrimitiveType(asset::EPT_TRIANGLES);
 
 		meshbuf->setMeshDataAndFormat(std::move(desc));
+		meshbuf->recalculateBoundingBox();
 	}
     mesh->addMeshBuffer(std::move(meshbuf));
 
@@ -537,6 +539,8 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createConeMesh(float r
     meshbuf->setIndexType(asset::EIT_16BIT);
     meshbuf->setPrimitiveType(asset::EPT_TRIANGLES);
     meshbuf->setMeshDataAndFormat(std::move(desc));
+	meshbuf->recalculateBoundingBox();
+
     mesh->addMeshBuffer(std::move(meshbuf));
 
     mesh->recalculateBoundingBox(true);
@@ -597,6 +601,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createRectangleMesh(co
 	desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertices), asset::EVAI_ATTR3, asset::EF_R32G32B32_SFLOAT, vertexSize, offsetof(RectangleVertex, normal));
 
 	buffer->setMeshDataAndFormat(std::move(desc));
+	buffer->recalculateBoundingBox();
 
 	auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
 	mesh->addMeshBuffer(std::move(buffer));
@@ -657,6 +662,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createDiskMesh(float r
 	desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertices), asset::EVAI_ATTR2, asset::EF_R8G8_USCALED, vertexSize, offsetof(DiskVertex, uv));
 	desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertices), asset::EVAI_ATTR3, asset::EF_R32G32B32_SFLOAT, vertexSize, offsetof(DiskVertex, normal));
 	buffer->setMeshDataAndFormat(std::move(desc));
+	buffer->recalculateBoundingBox();
 
 	auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
 	mesh->addMeshBuffer(std::move(buffer));

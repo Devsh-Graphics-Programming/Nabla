@@ -341,12 +341,6 @@ namespace scene
 		//! current active camera
 		ICameraSceneNode* ActiveCamera;
 
-        struct ParamStorage
-        {
-            uint8_t data[16];
-        };
-		core::unordered_map<std::string,ParamStorage> Parameters;
-
 		core::smart_refctd_ptr<video::IGPUBuffer> redundantMeshDataBuf;
 
 		E_SCENE_NODE_RENDER_PASS CurrentRendertime;

@@ -89,7 +89,7 @@ asset::SAssetBundle CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asse
 	ctx.AnimatedMesh = new asset::CCPUSkinnedMesh();
     asset::ICPUMesh* retVal = nullptr;
 
-	if (load(ctx, _file))
+	if (load(ctx, _file, _params))
 	{
         ctx.AnimatedMesh->finalize();
 		if (ctx.AnimatedMesh->isStatic())
@@ -229,13 +229,13 @@ core::matrix4x3 getGlobalMatrix_evil(asset::ICPUSkinnedMesh::SJoint* joint)
 }
 
 
-bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
+bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 #ifndef NEW_SHADERS
 	if (!readFileIntoMemory(_ctx, file))
 		return false;
 
-	if (!parseFile(_ctx))
+	if (!parseFile(_ctx, _params))
 		return false;
 
 	for (uint32_t n=0; n<_ctx.Meshes.size(); ++n)
@@ -698,9 +698,9 @@ bool CXMeshFileLoader::readFileIntoMemory(SContext& _ctx, io::IReadFile* file)
 
 
 //! Parses the file
-bool CXMeshFileLoader::parseFile(SContext& _ctx)
+bool CXMeshFileLoader::parseFile(SContext& _ctx, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
-	while(parseDataObject(_ctx))
+	while(parseDataObject(_ctx, _params))
 	{
 		// loop
 	}
@@ -710,7 +710,7 @@ bool CXMeshFileLoader::parseFile(SContext& _ctx)
 
 
 //! Parses the next Data object in the file
-bool CXMeshFileLoader::parseDataObject(SContext& _ctx)
+bool CXMeshFileLoader::parseDataObject(SContext& _ctx, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 	std::string objectName = getNextToken(_ctx);
 
@@ -727,7 +727,7 @@ bool CXMeshFileLoader::parseDataObject(SContext& _ctx)
 	else
 	if (objectName == "Frame")
 	{
-		return parseDataObjectFrame( _ctx, 0 );
+		return parseDataObjectFrame( _ctx, 0, _params);
 	}
 	else
 	if (objectName == "Mesh")
@@ -740,7 +740,7 @@ bool CXMeshFileLoader::parseDataObject(SContext& _ctx)
 		//mesh->Buffer=AnimatedMesh->addMeshBuffer();
         _ctx.Meshes.push_back(mesh);
 
-		return parseDataObjectMesh(_ctx, *mesh);
+		return parseDataObjectMesh(_ctx, *mesh, _params);
 	}
 	else
 	if (objectName == "AnimationSet")
@@ -808,7 +808,7 @@ bool CXMeshFileLoader::parseDataObjectTemplate(SContext& _ctx)
 }
 
 
-bool CXMeshFileLoader::parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMesh::SJoint *Parent)
+bool CXMeshFileLoader::parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMesh::SJoint *Parent, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 #ifdef _XREADER_DEBUG
 	os::Printer::log("CXFileReader: Reading frame", ELL_DEBUG);
@@ -890,7 +890,7 @@ bool CXMeshFileLoader::parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMe
 		if (objectName == "Frame")
 		{
 
-			if (!parseDataObjectFrame(_ctx, joint))
+			if (!parseDataObjectFrame(_ctx, joint, _params))
 				return false;
 		}
 		else
@@ -917,7 +917,7 @@ bool CXMeshFileLoader::parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMe
 
             _ctx.Meshes.push_back(mesh);
 
-			if (!parseDataObjectMesh(_ctx, *mesh))
+			if (!parseDataObjectMesh(_ctx, *mesh, _params))
 				return false;
 		}
 		else
@@ -964,7 +964,7 @@ bool CXMeshFileLoader::parseDataObjectTransformationMatrix(SContext& _ctx, core:
 }
 
 
-bool CXMeshFileLoader::parseDataObjectMesh(SContext& _ctx, SXMesh &mesh)
+bool CXMeshFileLoader::parseDataObjectMesh(SContext& _ctx, SXMesh &mesh, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 	std::string name;
 
@@ -982,6 +982,14 @@ bool CXMeshFileLoader::parseDataObjectMesh(SContext& _ctx, SXMesh &mesh)
 	os::Printer::log("CXFileReader: Reading mesh", name, ELL_DEBUG);
 #endif
 
+	auto performActionBasedOnOrientationSystem = [&](auto performOnRightHanded, auto performOnLeftHanded = [&](void) {})
+	{
+		if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
+			performOnRightHanded();
+		else
+			performOnLeftHanded();
+	};
+
 	// read vertex count
 	const uint32_t nVertices = readInt(_ctx);
 
@@ -990,6 +998,7 @@ bool CXMeshFileLoader::parseDataObjectMesh(SContext& _ctx, SXMesh &mesh)
 	for (uint32_t n=0; n<nVertices; ++n)
 	{
 		readVector3(_ctx, mesh.Vertices[n].Pos);
+		performActionBasedOnOrientationSystem([&]() {mesh.Vertices[n].Pos.X = -mesh.Vertices[n].Pos.X; }, [&]() {});
 	}
 
 	if (!checkForTwoFollowingSemicolons(_ctx))
@@ -1031,18 +1040,47 @@ bool CXMeshFileLoader::parseDataObjectMesh(SContext& _ctx, SXMesh &mesh)
 
 			for (uint32_t jk=0; jk<triangles; ++jk)
 			{
-				mesh.Indices[currentIndex++] = polygonfaces[0];
-				mesh.Indices[currentIndex++] = polygonfaces[jk+1];
-				mesh.Indices[currentIndex++] = polygonfaces[jk+2];
+				performActionBasedOnOrientationSystem
+				(
+					[&]() 
+					{
+						mesh.Indices[currentIndex++] = polygonfaces[jk + 2];
+						mesh.Indices[currentIndex++] = polygonfaces[jk + 1];
+						mesh.Indices[currentIndex++] = polygonfaces[0];
+					}, 
+					[&]() 
+					{
+						mesh.Indices[currentIndex++] = polygonfaces[0];
+						mesh.Indices[currentIndex++] = polygonfaces[jk + 1];
+						mesh.Indices[currentIndex++] = polygonfaces[jk + 2];
+					}
+				);
 			}
 
 			// TODO: change face indices in material list
 		}
 		else
 		{
-			mesh.Indices[currentIndex++] = readInt(_ctx);
-			mesh.Indices[currentIndex++] = readInt(_ctx);
-			mesh.Indices[currentIndex++] = readInt(_ctx);
+			std::array<uint32_t, 3> indicies;
+			for (auto& it : indicies)
+				it = readInt(_ctx);
+
+			performActionBasedOnOrientationSystem
+			(
+				[&]()
+				{
+					mesh.Indices[currentIndex++] = indicies[2];
+					mesh.Indices[currentIndex++] = indicies[1];
+					mesh.Indices[currentIndex++] = indicies[0];
+				},
+				[&]()
+				{
+					mesh.Indices[currentIndex++] = indicies[0];
+					mesh.Indices[currentIndex++] = indicies[1];
+					mesh.Indices[currentIndex++] = indicies[2];
+				}
+				);
+
 			mesh.IndexCountPerFace[k] = 3;
 		}
 	}
@@ -1077,7 +1115,7 @@ bool CXMeshFileLoader::parseDataObjectMesh(SContext& _ctx, SXMesh &mesh)
 
 		if (objectName == "MeshNormals")
 		{
-			if (!parseDataObjectMeshNormals(_ctx, mesh))
+			if (!parseDataObjectMeshNormals(_ctx, mesh, performActionBasedOnOrientationSystem))
 				return false;
 		}
 		else
@@ -1449,7 +1487,7 @@ bool CXMeshFileLoader::parseDataObjectSkinMeshHeader(SContext& _ctx, SXMesh& mes
 }
 
 
-bool CXMeshFileLoader::parseDataObjectMeshNormals(SContext& _ctx, SXMesh &mesh)
+bool CXMeshFileLoader::parseDataObjectMeshNormals(SContext& _ctx, SXMesh &mesh, std::function<void(std::function<void()>, std::function<void()>)> performActionBasedOnOrientationSystem)
 {
 #ifdef _XREADER_DEBUG
 	os::Printer::log("CXFileReader: reading mesh normals", ELL_DEBUG);
@@ -1468,8 +1506,11 @@ bool CXMeshFileLoader::parseDataObjectMeshNormals(SContext& _ctx, SXMesh &mesh)
 	normals.resize(nNormals);
 
 	// read normals
-	for (uint32_t i=0; i<nNormals; ++i)
+	for (uint32_t i = 0; i < nNormals; ++i)
+	{
 		readVector3(_ctx, normals[i]);
+		performActionBasedOnOrientationSystem([&]() {normals[i].X = -normals[i].X;}, [&]() {});
+	}
 
 	if (!checkForTwoFollowingSemicolons(_ctx))
 	{
@@ -1501,11 +1542,9 @@ bool CXMeshFileLoader::parseDataObjectMeshNormals(SContext& _ctx, SXMesh &mesh)
 		if (indexcount == 3)
 		{
 			// default, only one triangle in this face
-			for (uint32_t h=0; h<3; ++h)
-			{
-				const uint32_t normalnum = readInt(_ctx);
-				mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[normalnum]);
-			}
+			std::array<uint32_t, 3> tmpNormals;
+			for(auto& it : tmpNormals)
+				mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[it = readInt(_ctx)]);
 		}
 		else
 		{
@@ -1517,8 +1556,8 @@ bool CXMeshFileLoader::parseDataObjectMeshNormals(SContext& _ctx, SXMesh &mesh)
 			for (uint32_t jk=0; jk<triangles; ++jk)
 			{
 				mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[polygonfaces[0]]);
-				mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[polygonfaces[jk+1]]);
-				mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[polygonfaces[jk+2]]);
+				mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[polygonfaces[jk + 1]]);
+				mesh.Vertices[mesh.Indices[normalidx++]].Normal.set(normals[polygonfaces[jk + 2]]);
 			}
 		}
 	}
@@ -1753,11 +1792,17 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 	{
 		core::stringc objectName = getNextToken(_ctx).c_str();
 
-		auto loadAndSetTexture = [&](uint32_t texSlot, auto path)
+		auto loadAndSetTexture = [&](uint32_t texSlot, auto path, const char* relativeDir) -> bool
 		{
-			auto bundle = interm_getAssetInHierarchy(AssetManager, path.c_str(), _ctx.Inner.params, _ctx.topHierarchyLevel+ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride).getContents();
+			auto params = _ctx.Inner.params;
+			params.relativeDir = relativeDir;
+			auto bundle = interm_getAssetInHierarchy(AssetManager, path.c_str(), params, _ctx.topHierarchyLevel+ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride).getContents();
 			if (bundle.first != bundle.second)
+			{
 				material.setTexture(texSlot, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*bundle.first));
+				return true;
+			}
+			return false;
 		};
 
 		if (objectName.size() == 0)
@@ -1780,19 +1825,9 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 				return false;
 			core::stringc TextureFileName = tmp.c_str();
 
-			// original name
-			if (FileSystem->existFile(TextureFileName))
-				loadAndSetTexture(textureLayer, TextureFileName);
-			// mesh path
-			else
-			{
-				TextureFileName= _ctx.FilePath + io::IFileSystem::getFileBasename(TextureFileName);
-				if (FileSystem->existFile(TextureFileName))
-					loadAndSetTexture(textureLayer, TextureFileName);
-				// working directory
-				else
-					loadAndSetTexture(textureLayer, io::IFileSystem::getFileBasename(TextureFileName));
-			}
+			// original name as absolute or mesh path, else try working directory
+			if (!loadAndSetTexture(textureLayer, TextureFileName, _ctx.FilePath.c_str()))
+				loadAndSetTexture(textureLayer, io::IFileSystem::getFileBasename(TextureFileName), nullptr);
 			++textureLayer;
 		}
 		else
@@ -1804,19 +1839,9 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 				return false;
 			core::stringc TextureFileName = tmp.c_str();
 
-			// original name
-            if (FileSystem->existFile(TextureFileName))
-				loadAndSetTexture(1u, TextureFileName);
-			// mesh path
-			else
-			{
-				TextureFileName= _ctx.FilePath + io::IFileSystem::getFileBasename(TextureFileName);
-                if (FileSystem->existFile(TextureFileName))
-					material.setTexture(1, core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*interm_getAssetInHierarchy(AssetManager, TextureFileName.c_str(), _ctx.Inner.params, _ctx.topHierarchyLevel+ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride).getContents().first));
-				// working directory
-                else
-					loadAndSetTexture(1u, io::IFileSystem::getFileBasename(TextureFileName));
-			}
+			// original name as absolute or mesh path, else try working directory
+            if (!loadAndSetTexture(1u, TextureFileName, _ctx.FilePath.c_str()))
+				loadAndSetTexture(1u, io::IFileSystem::getFileBasename(TextureFileName), nullptr);
 			if (textureLayer==1)
 				++textureLayer;
 		}

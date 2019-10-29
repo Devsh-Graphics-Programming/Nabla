@@ -157,8 +157,8 @@ private:
 	void fillBuffer(SContext& _ctx);
 	E_PLY_PROPERTY_TYPE getPropertyType(const char* typeString) const;
 
-	bool readVertex(SContext& _ctx, const SPLYElement &Element, core::vector<core::vectorSIMDf> _attribs[4]);
-	bool readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices);
+	bool readVertex(SContext& _ctx, const SPLYElement &Element, core::vector<core::vectorSIMDf> _attribs[4], const asset::IAssetLoader::SAssetLoadParams& _params);
+	bool readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices, const asset::IAssetLoader::SAssetLoadParams& _params);
 	void skipElement(SContext& _ctx, const SPLYElement &Element);
 	void skipProperty(SContext& _ctx, const SPLYProperty &Property);
 	float getFloat(SContext& _ctx, E_PLY_PROPERTY_TYPE t);
