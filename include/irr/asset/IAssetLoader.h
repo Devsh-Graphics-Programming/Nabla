@@ -75,7 +75,6 @@ public:
         ECF_DUPLICATE_REFERENCES = 0xffffffffffffffffull
     };
 
-
 	//! Parameter flags for a loader
 	/**
 		These are extra flags for an `IAssetLoader` to take into account when loading the asset.
@@ -114,7 +113,6 @@ public:
 				cacheFlags(_cacheFlags), relativeDir(_relativeDir), loaderFlags(_loaderFlags)
         {
         }
-
         	size_t decryptionKeyLen;			 		//!< The size of decryptionKey
         	const uint8_t* decryptionKey;			 	//!< The key is used to decrypt potentially encrypted files
         	const E_CACHING_FLAGS cacheFlags;	 		//!< Flags defining rules during loading process

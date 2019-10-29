@@ -305,8 +305,7 @@ static void performActionBasedOnOrientationSystem(const asset::IAssetLoader::SAs
 	else
 		performOnLeftHanded();
 }
-
-
+  
 bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, core::vector<core::vectorSIMDf> _outAttribs[4], const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 	if (!_ctx.IsBinaryFile)
