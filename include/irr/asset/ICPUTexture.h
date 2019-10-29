@@ -41,6 +41,8 @@ private:
     }
 
 public:
+    E_CATEGORY getTypeCategory() const override { return EC_IMAGE; }
+
     inline static ICPUTexture* create(const core::vector<asset::CImageData*>& _textureRanges, const std::string& _srcFileName, video::ITexture::E_TEXTURE_TYPE _Type = video::ITexture::ETT_COUNT)
     {
         return create_impl(_textureRanges, _srcFileName, _Type);

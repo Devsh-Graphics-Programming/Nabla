@@ -20,6 +20,7 @@ namespace legacyv0
 	struct MeshDataFormatDescBlobV0;
 }
 
+#ifndef NEW_SHADERS
 #include "irr/irrpack.h"
 struct IRR_FORCE_EBO MeshDataFormatDescBlobV1 : TypedBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >
 {
@@ -54,7 +55,7 @@ inline size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV1, IMeshDataFormat
 {
     return sizeof(MeshDataFormatDescBlobV1);
 }
-
+#endif
 
 }
 } // irr::asset

@@ -417,28 +417,6 @@ size_t CShaderIntrospector::calcBytesizeforType(spirv_cross::Compiler& _comp, co
 }
 
 
-
-
-static void deinitIntrospectionData(CIntrospectionData* _data)
-{
-    for (auto& descSet : _data->descriptorSetBindings)
-        for (auto& res : descSet)
-        {
-            switch (res.type)
-            {
-            case ESRT_STORAGE_BUFFER:
-                deinitShdrMemBlock(static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_STORAGE_BUFFER>()));
-                break;
-            case ESRT_UNIFORM_BUFFER:
-                deinitShdrMemBlock(static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_UNIFORM_BUFFER>()));
-                break;
-            default: break;
-            }
-        }
-    if (_data->pushConstant.present)
-        deinitShdrMemBlock(static_cast<impl::SShaderMemoryBlock&>(_data->pushConstant.info));
-}
-
 static void deinitShdrMemBlock(impl::SShaderMemoryBlock& _res)
 {
     using MembersT = impl::SShaderMemoryBlock::SMember::SMembers;
@@ -461,6 +439,26 @@ static void deinitShdrMemBlock(impl::SShaderMemoryBlock& _res)
         stack.pop();
         _IRR_DELETE_ARRAY(m.array, m.count);
     }
+}
+
+static void deinitIntrospectionData(CIntrospectionData* _data)
+{
+    for (auto& descSet : _data->descriptorSetBindings)
+        for (auto& res : descSet)
+        {
+            switch (res.type)
+            {
+            case ESRT_STORAGE_BUFFER:
+                deinitShdrMemBlock(static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_STORAGE_BUFFER>()));
+                break;
+            case ESRT_UNIFORM_BUFFER:
+                deinitShdrMemBlock(static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_UNIFORM_BUFFER>()));
+                break;
+            default: break;
+            }
+        }
+    if (_data->pushConstant.present)
+        deinitShdrMemBlock(static_cast<impl::SShaderMemoryBlock&>(_data->pushConstant.info));
 }
 
 CIntrospectionData::~CIntrospectionData()

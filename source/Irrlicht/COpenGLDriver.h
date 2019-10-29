@@ -62,7 +62,13 @@ namespace video
             GLuint GLname;
             uint64_t lastValidated;
         };
-        typedef std::pair<COpenGLRenderpassIndependentPipeline::SVAOHash, SVAO> HashVAOPair;
+        struct HashVAOPair
+        {
+            COpenGLRenderpassIndependentPipeline::SVAOHash first;
+            SVAO second;
+
+            inline bool operator<(const HashVAOPair& rhs) const { return first < rhs.first; }
+        };
 
         using SGraphicsPipelineHash = std::array<GLuint, COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT>;
 
@@ -144,6 +150,7 @@ namespace video
                 GLintptr offset = 0;
                 bool operator!=(const SBnd& rhs) const { return buf!=rhs.buf || offset!=rhs.offset; }
             } bindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
+
             core::smart_refctd_ptr<const COpenGLBuffer> indexBuf;
 
             //putting it here because idk where else
@@ -617,9 +624,9 @@ namespace video
             const asset::SRasterizationParams& _rasterParams
         ) override;
 
-        core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>&& _descriptors) override;
+        core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorBinding>&& _descriptors) override;
 
-        core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout) override;
+        core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout) override;
 
 		//! generic version which overloads the unimplemented versions
 		bool changeRenderContext(const SExposedVideoData& videoData, void* device) {return false;}
@@ -659,14 +666,17 @@ namespace video
 
         virtual void drawMeshBuffer(const video::IGPUMeshBuffer* mb);
 
-		virtual void drawArraysIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                        const asset::E_PRIMITIVE_TYPE& mode,
+		virtual void drawArraysIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                                        asset::E_PRIMITIVE_TOPOLOGY mode,
                                         const IGPUBuffer* indirectDrawBuff,
-                                        const size_t& offset, const size_t& count, const size_t& stride);
-		virtual void drawIndexedIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                            const asset::E_PRIMITIVE_TYPE& mode,
-                                            const asset::E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
-                                            const size_t& offset, const size_t& count, const size_t& stride);
+                                        size_t offset, size_t maxCount, size_t stride,
+                                        const IGPUBuffer* countBuffer = nullptr, size_t countOffset = 0u) override;
+		virtual void drawIndexedIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                                        asset::E_PRIMITIVE_TOPOLOGY mode,
+                                        asset::E_INDEX_TYPE indexType, const IGPUBuffer* indexBuff,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        size_t offset, size_t maxCount, size_t stride,
+                                        const IGPUBuffer* countBuffer = nullptr, size_t countOffset = 0u) override;
 
 
 		//! queries the features of the driver, returns true if feature is available
@@ -795,7 +805,7 @@ namespace video
             struct SPipelineCacheVal
             {
                 GLuint GLname;
-                core::smart_refctd_ptr<COpenGLRenderpassIndependentPipeline> object;//so that it holds shaders which concerns hash
+                core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> object;//so that it holds shaders which concerns hash
                 uint64_t lastValidated;
             };
 
@@ -833,7 +843,13 @@ namespace video
 
             //!
             core::vector<SOpenGLState::HashVAOPair> VAOMap;
-            using HashPipelinePair = std::pair<SOpenGLState::SGraphicsPipelineHash, SPipelineCacheVal>;
+            struct HashPipelinePair
+            {
+                SOpenGLState::SGraphicsPipelineHash first;
+                SPipelineCacheVal second;
+
+                inline bool operator<(const HashPipelinePair& rhs) const { return first < rhs.first; }
+            };
             core::vector<HashPipelinePair> GraphicsPipelineMap;
 
             GLuint createGraphicsPipeline(const SOpenGLState::SGraphicsPipelineHash& _hash);

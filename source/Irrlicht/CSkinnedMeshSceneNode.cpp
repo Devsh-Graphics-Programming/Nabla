@@ -4,7 +4,6 @@
 
 #include "CSkinnedMeshSceneNode.h"
 #include "irr/video/CGPUSkinnedMesh.h"
-#include "IMaterialRenderer.h"
 #include "irr/asset/IMesh.h"
 #include "ISceneManager.h"
 
@@ -92,17 +91,15 @@ void CSkinnedMeshSceneNode::OnRegisterSceneNode()
             if (!mb||mb->getIndexCount()<1)
                 continue;
 
+#ifndef NEW_SHADERS
             video::IMaterialRenderer* rnd =
-<<<<<<< HEAD
-                driver->getMaterialRenderer(0);
-=======
                 driver->getMaterialRenderer(mb->getMaterial().MaterialType);
->>>>>>> 719de147941d958bf526dc2abc22c35a91e2cddf
 
             if (rnd && rnd->isTransparent())
                 ++transparentCount;
             else
                 ++solidCount;
+#endif
 
             if (solidCount && transparentCount)
                 break;
@@ -160,6 +157,7 @@ void CSkinnedMeshSceneNode::OnAnimate(uint32_t timeMs)
 //! renders the node.
 void CSkinnedMeshSceneNode::render()
 {
+#ifndef NEW_SHADERS
 	video::IVideoDriver* driver = SceneManager->getVideoDriver();
 
 	if (!mesh || !driver)
@@ -208,6 +206,7 @@ void CSkinnedMeshSceneNode::render()
         debug_mat.Thickness = 3.f;
 		driver->setMaterial(debug_mat);
 	}
+#endif
 }
 
 

@@ -7,6 +7,7 @@
 
 #include "irr/core/core.h"
 #include "irr/asset/ICPUMesh.h"
+#include "SColor.h"
 
 namespace irr
 {

@@ -76,6 +76,7 @@ bool CXMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
 
 asset::SAssetBundle CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
+#ifndef NEW_SHADERS
 //#ifdef _XREADER_DEBUG
 	auto time = std::chrono::high_resolution_clock::now();
 //#endif
@@ -203,6 +204,9 @@ asset::SAssetBundle CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asse
 //#endif
 
 	return SAssetBundle({core::smart_refctd_ptr<IAsset>(retVal, core::dont_grab)});
+#else
+    return {};
+#endif
 }
 
 class SuperSkinningTMPStruct
@@ -227,6 +231,7 @@ core::matrix4x3 getGlobalMatrix_evil(asset::ICPUSkinnedMesh::SJoint* joint)
 
 bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 {
+#ifndef NEW_SHADERS
 	if (!readFileIntoMemory(_ctx, file))
 		return false;
 
@@ -613,6 +618,9 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
 	}
 
 	return true;
+#else
+    return false;
+#endif
 }
 
 
@@ -745,7 +753,11 @@ bool CXMeshFileLoader::parseDataObject(SContext& _ctx)
 		// template materials now available thanks to joeWright
         _ctx.TemplateMaterials.push_back(SXTemplateMaterial());
         _ctx.TemplateMaterials.back().Name = getNextToken(_ctx);
+#ifndef NEW_SHADERS
 		return parseDataObjectMaterial(_ctx, _ctx.TemplateMaterials.back().Material);
+#else
+        return false;
+#endif
 	}
 	else
 	if (objectName == "}")
@@ -1623,8 +1635,10 @@ bool CXMeshFileLoader::parseDataObjectMeshMaterialList(SContext& _ctx, SXMesh &m
 		return false;
 	}
 
+#ifndef NEW_SHADERS
 	// read material count
 	mesh.Materials.reserve(readInt(_ctx));
+#endif
 
 	// read non triangulated face material index count
 	const uint32_t nFaceIndices = readInt(_ctx);
@@ -1662,6 +1676,7 @@ bool CXMeshFileLoader::parseDataObjectMeshMaterialList(SContext& _ctx, SXMesh &m
 	{
 		std::string objectName = getNextToken(_ctx);
 
+#ifndef NEW_SHADERS
 		if (objectName.size() == 0)
 		{
 			os::Printer::log("Unexpected ending found in Mesh Material list in .x file.", ELL_WARNING);
@@ -1701,11 +1716,12 @@ bool CXMeshFileLoader::parseDataObjectMeshMaterialList(SContext& _ctx, SXMesh &m
 			if (!parseUnknownDataObject(_ctx))
 				return false;
 		}
+#endif
 	}
 	return true;
 }
 
-
+#ifndef NEW_SHADERS
 bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMaterial& material)
 {
 #ifdef _XREADER_DEBUG
@@ -1814,7 +1830,7 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 
 	return true;
 }
-
+#endif
 
 bool CXMeshFileLoader::parseDataObjectAnimationSet(SContext& _ctx)
 {

@@ -96,7 +96,7 @@ private:
 
         m_names = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(uboCount+ssboCount+(2ull*textureCount)+imageCount);
         m_offsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLintptr>>(uboCount+ssboCount);
-        m_sizes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(uboCount+ssboCount);
+        m_sizes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLsizeiptr>>(uboCount+ssboCount);
         m_dynOffsetIxs = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(m_offsets->size());
 
         const size_t uboNamesOffset = 0ull;
@@ -144,7 +144,7 @@ private:
         };
         size_t u=0ull, s=0ull, t=0ull, i=0ull;
         uint32_t dyn_offset_iter = 0u;
-        const IGPUDescriptorSetLayout::SBinding* layoutBindings = m_layout->getBindings().begin;
+        const IGPUDescriptorSetLayout::SBinding* layoutBindings = m_layout->getBindings().begin();
         size_t desc_iter = 0ull;
         for (const auto& desc : (*m_descriptors))
         {

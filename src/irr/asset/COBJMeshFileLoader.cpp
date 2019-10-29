@@ -39,6 +39,7 @@ namespace std
 }
 */
 
+#define NEW_SHADERS
 
 namespace irr
 {
@@ -395,10 +396,11 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         auto meshbuffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
         mesh->addMeshBuffer(core::smart_refctd_ptr(meshbuffer));
 
+#ifndef NEW_SHADERS
         meshbuffer->getMaterial() = ctx.Materials[m]->Material;
 
         auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
-
+#endif
         bool doesntNeedIndices = true;
         size_t baseVertex = ctx.Materials[m]->Indices[0];
         for (size_t i=1; i<ctx.Materials[m]->Indices.size(); i++)
@@ -420,17 +422,19 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         {
             baseVertex = 0;
             actualVertexCount = ctx.Materials[m]->Vertices.size();
-
+#ifndef NEW_SHADERS
 			{
 				auto indexbuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*ctx.Materials[m]->Indices.size());
 				memcpy(indexbuf->getPointer(),&ctx.Materials[m]->Indices[0],indexbuf->getSize());
 				desc->setIndexBuffer(std::move(indexbuf));
 			}
+#endif // !NEW_SHADERS
 
             meshbuffer->setIndexType(asset::EIT_32BIT);
             meshbuffer->setIndexCount(ctx.Materials[m]->Indices.size());
         }
 
+#ifndef NEW_SHADERS
 		{
 			auto vertexbuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(actualVertexCount*sizeof(SObjVertex));
 			desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertexbuf),asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,sizeof(SObjVertex),0);
@@ -439,7 +443,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			memcpy(vertexbuf->getPointer(),ctx.Materials[m]->Vertices.data()+baseVertex,vertexbuf->getSize());
 		}
 		meshbuffer->setMeshDataAndFormat(std::move(desc));
-
+#endif
         SAssetBundle bundle({std::move(meshbuffer)});
         _override->insertAssetIntoCache(bundle, genKeyForMeshBuf(ctx, _file->getFileName().c_str(), ctx.Materials[m]->Name, ctx.Materials[m]->Group), ctx.inner, 1u);
         //transfer ownership to smart_refctd_ptr, so instead of grab() in smart_refctd_ptr and drop() here, just do nothing (thus dont_grab goes as smart ptr ctor arg)
@@ -485,9 +489,11 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
 	{
 		if (!strncmp(bufPtr,"-bm",3))
 		{
+#ifndef NEW_SHADERS
 			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
 			sscanf(textureNameBuf,"%f",&currMaterial->Material.MaterialTypeParam);
 			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
+#endif
 			continue;
 		}
 		else
@@ -554,6 +560,7 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
 		bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
 	}
 
+#ifndef NEW_SHADERS
 	if ((type==ETT_BUMP_MAP) && (core::isdigit(textureNameBuf[0])))
 	{
 		sscanf(textureNameBuf,"%f",&currMaterial->Material.MaterialTypeParam);
@@ -570,6 +577,7 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
     }
 	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; i++)
 		currMaterial->Material.TextureLayer[i].SamplingParams.AnisotropicFilter = 16u;
+#endif
 
 	io::path texname(textureNameBuf);
 	handleBackslashes(&texname);
@@ -591,6 +599,7 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
 	}
 	if ( texture )
 	{
+#ifndef NEW_SHADERS
 		if (type==ETT_COLOR_MAP)
         {
 			currMaterial->Material.setTexture(0, std::move(texture));
@@ -616,6 +625,7 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
 //						currMaterial->Material.Textures[1] = texture;
 //						currMaterial->Material.MaterialType=video::EMT_REFLECTION_2_LAYER;
 		}
+#endif
 	}
 	return bufPtr;
 }
@@ -683,6 +693,7 @@ void COBJMeshFileLoader::readMTL(SContext& _ctx, const char* fileName, const io:
 				currMaterial->Illumination = (char)atol(illumStr);
 			}
 			break;
+#ifndef NEW_SHADERS
 			case 'N':
 			if ( currMaterial )
 			{
@@ -742,6 +753,7 @@ void COBJMeshFileLoader::readMTL(SContext& _ctx, const char* fileName, const io:
 				}	// end switch(bufPtr[1])
 			}	// end case 'K': if ( 0 != currMaterial )...
 			break;
+#endif
 			case 'b': // bump
 			case 'm': // texture maps
 			if (currMaterial)
@@ -749,6 +761,7 @@ void COBJMeshFileLoader::readMTL(SContext& _ctx, const char* fileName, const io:
 				bufPtr=readTextures(_ctx, bufPtr, bufEnd, currMaterial, relPath);
 			}
 			break;
+#ifndef NEW_SHADERS
 			case 'd': // d - transparency
 			if ( currMaterial )
 			{
@@ -793,6 +806,7 @@ void COBJMeshFileLoader::readMTL(SContext& _ctx, const char* fileName, const io:
 				}
 			}
 			break;
+#endif
 			default: // comments or not recognised
 			break;
 		} // end switch(bufPtr[0])

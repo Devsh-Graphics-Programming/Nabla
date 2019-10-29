@@ -242,7 +242,9 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
             idxBinding.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
         }
 
-        (*res)[i] = core::make_smart_refctd_ptr<IGPUMeshBuffer>(std::move(gpuppln), std::move(gpuds), vtxBindings, std::move(idxBinding));
+        core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> gpuppln_(gpuppln);
+        core::smart_refctd_ptr<IGPUDescriptorSet> gpuds_(gpuds);
+        (*res)[i] = core::make_smart_refctd_ptr<IGPUMeshBuffer>(std::move(gpuppln_), std::move(gpuds_), vtxBindings, std::move(idxBinding));
         const core::aabbox3df oldBBox = cpumb->getBoundingBox();
         if (cpumb->getMeshBufferType() != asset::EMBT_ANIMATED_SKINNED)
             cpumb->recalculateBoundingBox();
@@ -397,7 +399,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUBufferView** const _begin, 
 auto IGPUObjectFromAssetConverter::create(asset::ICPUDescriptorSetLayout** const _begin, asset::ICPUDescriptorSetLayout** const _end) -> created_gpu_object_array<asset::ICPUDescriptorSetLayout>
 {
     const auto assetCount = std::distance(_begin, _end);
-    auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUDescriptorSet> >(assetCount);
+    auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUDescriptorSetLayout> >(assetCount);
 
     core::vector<asset::ICPUSampler*> cpuSamplers;//immutable samplers
     size_t maxSamplers = 0ull;
@@ -577,7 +579,8 @@ inline created_gpu_object_array<asset::ICPUTextureView> IGPUObjectFromAssetConve
 {
     const auto assetCount = std::distance(_begin, _end);
     //TODO implement!
-    return core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUTextureView> >(assetCount, nullptr);
+    //return core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUTextureView> >(assetCount, nullptr);
+    return nullptr;
 }
 
 inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetConverter::create(asset::ICPUDescriptorSet** const _begin, asset::ICPUDescriptorSet** const _end)

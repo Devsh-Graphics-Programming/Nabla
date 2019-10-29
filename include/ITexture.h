@@ -84,6 +84,8 @@ class ITexture : public core::impl::ResolveAlignment<IDriverMemoryBacked,IRender
             ECMF_COUNT
         };
 
+        E_CATEGORY getTypeCategory() const override { return EC_IMAGE; }
+
         virtual E_TEXTURE_TYPE getTextureType() const = 0;
 
         //! Get dimension (=size) of the texture.

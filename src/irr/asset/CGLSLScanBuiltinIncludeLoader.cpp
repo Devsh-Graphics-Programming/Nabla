@@ -2,7 +2,6 @@
 
 #include <cctype>
 #include <regex>
-
 #include "COpenGLExtensionHandler.h"
 
 using namespace irr;

@@ -65,7 +65,7 @@ namespace video
 
 #define glBindVertexArray_MACRO COpenGLExtensionHandler::extGlBindVertexArray
 
-#include "COpenGLStateManagerImpl.h"
+//#include "COpenGLStateManagerImpl.h"
 
 
 uint16_t COpenGLExtensionHandler::Version = 0;
@@ -406,6 +406,8 @@ PFNGLDRAWARRAYSINDIRECTPROC COpenGLExtensionHandler::pGlDrawArraysIndirect = nul
 PFNGLDRAWELEMENTSINDIRECTPROC COpenGLExtensionHandler::pGlDrawElementsIndirect = nullptr;
 PFNGLMULTIDRAWARRAYSINDIRECTPROC COpenGLExtensionHandler::pGlMultiDrawArraysIndirect = nullptr;
 PFNGLMULTIDRAWELEMENTSINDIRECTPROC COpenGLExtensionHandler::pGlMultiDrawElementsIndirect = nullptr;
+PFNGLMULTIDRAWARRAYSINDIRECTCOUNTPROC COpenGLExtensionHandler::pGlMultiDrawArrysIndirectCount = nullptr;
+PFNGLMULTIDRAWELEMENTSINDIRECTCOUNTPROC COpenGLExtensionHandler::pGlMultiDrawElementsIndirectCount = nullptr;
 //
 PFNGLCREATETRANSFORMFEEDBACKSPROC COpenGLExtensionHandler::pGlCreateTransformFeedbacks = nullptr;
 PFNGLGENTRANSFORMFEEDBACKSPROC COpenGLExtensionHandler::pGlGenTransformFeedbacks = nullptr;
@@ -1032,7 +1034,7 @@ void COpenGLExtensionHandler::loadFunctions()
     {
         glGetIntegerv(GL_NUM_SPIR_V_EXTENSIONS, reinterpret_cast<GLint*>(&SPIR_VextensionsCount));
         if (SPIR_VextensionsCount)
-            SPIR_Vextensions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<const GLubyte*>>(SPIR_VextensionsCount, nullptr);
+            SPIR_Vextensions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<const GLubyte*>>(SPIR_VextensionsCount);
         for (GLuint i = 0u; i < SPIR_VextensionsCount; ++i)
             (*SPIR_Vextensions)[i] = pGlGetStringi(GL_SPIR_V_EXTENSIONS, i);
     }
@@ -1326,6 +1328,16 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlDrawElementsIndirect = (PFNGLDRAWELEMENTSINDIRECTPROC) IRR_OGL_LOAD_EXTENSION("glDrawElementsIndirect");
     pGlMultiDrawArraysIndirect = (PFNGLMULTIDRAWARRAYSINDIRECTPROC) IRR_OGL_LOAD_EXTENSION("glMultiDrawArraysIndirect");
     pGlMultiDrawElementsIndirect = (PFNGLMULTIDRAWELEMENTSINDIRECTPROC) IRR_OGL_LOAD_EXTENSION("glMultiDrawElementsIndirect");
+    if (Version >= 460)
+    {
+        pGlMultiDrawArrysIndirectCount = (PFNGLMULTIDRAWARRAYSINDIRECTCOUNTPROC) IRR_OGL_LOAD_EXTENSION("glMultiDrawArraysIndirectCount");
+        pGlMultiDrawElementsIndirectCount = (PFNGLMULTIDRAWELEMENTSINDIRECTCOUNTPROC) IRR_OGL_LOAD_EXTENSION("glMultiDrawElementsIndirectCount");
+    }
+    else if (FeatureAvailable[IRR_ARB_indirect_parameters])
+    {
+        pGlMultiDrawArrysIndirectCount = (PFNGLMULTIDRAWARRAYSINDIRECTCOUNTARBPROC) IRR_OGL_LOAD_EXTENSION("glMultiDrawArraysIndirectCountARB");
+        pGlMultiDrawElementsIndirectCount = (PFNGLMULTIDRAWELEMENTSINDIRECTCOUNTARBPROC) IRR_OGL_LOAD_EXTENSION("glMultiDrawElementsIndirectCountARB");
+    }
     //
 	pGlCreateTransformFeedbacks = (PFNGLCREATETRANSFORMFEEDBACKSPROC) IRR_OGL_LOAD_EXTENSION("glCreateTransformFeedbacks");
 	pGlGenTransformFeedbacks = (PFNGLGENTRANSFORMFEEDBACKSPROC) IRR_OGL_LOAD_EXTENSION("glGenTransformFeedbacks");

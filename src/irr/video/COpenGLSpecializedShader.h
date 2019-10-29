@@ -62,11 +62,12 @@ private:
     //! Held until compilation of shader
     core::smart_refctd_ptr<const asset::ISpecializationInfo> m_specInfo;
     //used for setting uniforms ("push constants")
-    core::smart_refctd_ptr<asset::CIntrospectionData> m_introspectionData = nullptr;
+    core::smart_refctd_ptr<const asset::CIntrospectionData> m_introspectionData = nullptr;
     SProgramBinary m_binary;
 
     using SMember = asset::impl::SShaderMemoryBlock::SMember;
     struct SUniform {
+        SUniform(const SMember& _m, GLint _loc) : m(_m), location(_loc) {}
         SMember m;
         GLint location;
     };

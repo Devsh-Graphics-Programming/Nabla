@@ -31,6 +31,8 @@ protected:
     size_t m_size;
 
 public:
+    E_CATEGORY getTypeCategory() const override { return EC_BUFFER_VIEW; }
+
     const BufferType* getUnderlyingBuffer() const { return m_buffer.get(); }
 
     E_FORMAT getFormat() const { return m_format; }

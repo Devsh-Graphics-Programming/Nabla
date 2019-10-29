@@ -7,7 +7,6 @@
 #include "ISceneManager.h"
 #include "ICameraSceneNode.h"
 #include "IAnimatedMesh.h"
-#include "IMaterialRenderer.h"
 #include "IFileSystem.h"
 
 namespace irr
@@ -59,11 +58,12 @@ void CMeshSceneNode::OnRegisterSceneNode()
 				if (!mb || mb->getIndexCount()<1)
                     continue;
 
+#ifndef NEW_SHADERS
 				video::IMaterialRenderer* rnd = driver->getMaterialRenderer(0);
-
 				if (rnd && rnd->isTransparent())
 					++transparentCount;
 				else
+#endif
 					++solidCount;
 
 				if (solidCount && transparentCount)
@@ -96,6 +96,7 @@ void CMeshSceneNode::render()
 
 	++PassCount;
 
+#ifndef NEW_SHADERS
 	if (canProceedPastFence())
     {
         driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
@@ -141,6 +142,7 @@ void CMeshSceneNode::render()
 			}
 		}
 	}
+#endif
 }
 
 

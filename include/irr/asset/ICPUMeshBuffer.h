@@ -5,6 +5,9 @@
 #include "irr/asset/ICPUDescriptorSet.h"
 #include "irr/asset/ICPURenderpassIndependentPipeline.h"
 #include "irr/asset/bawformat/blobs/MeshBufferBlob.h"
+#include "irr/asset/bawformat/BlobSerializable.h"
+#include "irr/asset/format/decodePixels.h"
+#include "irr/asset/format/encodePixels.h"
 
 namespace irr
 {
@@ -57,6 +60,8 @@ class ICPUMeshBuffer : public IMeshBuffer<ICPUBuffer, ICPUDescriptorSet, ICPURen
 protected:
     virtual ~ICPUMeshBuffer() = default;
 public:
+    //! Default constructor (initializes pipeline, desc set and buffer bindings to nullptr)
+    ICPUMeshBuffer() : base_t(nullptr, nullptr, nullptr, SBufferBinding{}) {}
     using base_t::base_t;
 
     virtual void* serializeToBlob(void* _stackPtr = nullptr, const size_t& _stackSize = 0) const override
@@ -84,6 +89,61 @@ public:
     {
         return &m_indexBufferBinding;
     }
+	inline bool setVertexBufferBindingParams(uint32_t bindingIndex, uint32_t stride, E_VERTEX_INPUT_RATE inputRate = E_VERTEX_INPUT_RATE::EVIR_PER_VERTEX)
+	{
+        if (!m_pipeline)
+            return false;
+		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT || stride >= 2048ull)
+			return false;
+
+		auto& binding(m_pipeline->getVertexInputParams().bindings[bindingIndex]);
+		binding.stride = stride;
+		binding.inputRate = inputRate;
+
+		return true;
+	}
+	inline bool setVertexBufferBinding(SBufferBinding&& bufferBinding, uint32_t bindingIndex)
+	{
+		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT)
+			return false;
+
+        m_vertexBufferBindings[bindingIndex] = std::move(bufferBinding);
+
+		return true;
+	}
+	inline void setIndexBufferBinding(SBufferBinding&& bufferBinding)
+	{
+        m_indexBufferBinding = std::move(bufferBinding);
+	}
+	inline bool setVertexAttribFormat(uint32_t attribIndex, uint32_t bindingIndex, E_FORMAT format, uint32_t relativeOffset)
+	{
+        if (!m_pipeline)
+            return false;
+		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT || attribIndex >= MAX_VERTEX_ATTRIB_COUNT || relativeOffset >= 2048ull)
+			return false;
+
+        auto& attribute = m_pipeline->getVertexInputParams().attributes[attribIndex];
+		attribute.binding = bindingIndex;
+		attribute.format = format;
+		attribute.relativeOffset = relativeOffset;
+
+		return true;
+	}
+    //! Synonymous to `meshbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType = _primType;`
+    inline bool setPrimitiveTopology(E_PRIMITIVE_TOPOLOGY _primType)
+    {
+        if (!m_pipeline)
+            return false;
+
+        m_pipeline->getPrimitiveAssemblyParams().primitiveType = _primType;
+        return true;
+    }
+
+
+    inline const ICPURenderpassIndependentPipeline* getPipeline() const
+    {
+        return m_pipeline.get();
+    }
     inline ICPURenderpassIndependentPipeline* getPipeline()
     {
         return m_pipeline.get();
@@ -92,17 +152,17 @@ public:
     {
         return m_descriptorSet.get();
     }
-
     inline size_t calcVertexSize() const
     {
         if (!m_pipeline)
             return 0u;
 
-        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
+        auto ppln = m_pipeline.get();
+        const auto& vtxInputParams = ppln->getVertexInputParams();
         size_t size = 0u;
         for (size_t i = 0; i < MAX_VERTEX_ATTRIB_COUNT; ++i)
             if (vtxInputParams.enabledAttribFlags & (1u<<i))
-                size += asset::getTexelOrBlockBytesize(vtxInputParams.attributes[i].format);
+                size += asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(vtxInputParams.attributes[i].format));
         return size;
     }
 

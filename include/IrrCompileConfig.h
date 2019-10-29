@@ -34,6 +34,7 @@
 // this actually includes file depending on build type (Debug/Release)
 #include "BuildConfigOptions.h"
 
+#define NEW_SHADERS 1
 
 #ifdef _IRR_TARGET_ARCH_ARM_
 #   define __IRR_COMPILE_WITH_ARM_SIMD_ // NEON
@@ -364,7 +365,6 @@ _IRR_ADD_BLOB_SUPPORT(MeshBlobV1, EBT_MESH, Function, __VA_ARGS__)\
 _IRR_ADD_BLOB_SUPPORT(SkinnedMeshBlobV1, EBT_SKINNED_MESH, Function, __VA_ARGS__)\
 _IRR_ADD_BLOB_SUPPORT(MeshBufferBlobV1, EBT_MESH_BUFFER, Function, __VA_ARGS__)\
 _IRR_ADD_BLOB_SUPPORT(SkinnedMeshBufferBlobV1, EBT_SKINNED_MESH_BUFFER, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(MeshDataFormatDescBlobV1, EBT_DATA_FORMAT_DESC, Function, __VA_ARGS__)\
 _IRR_ADD_BLOB_SUPPORT(FinalBoneHierarchyBlobV1, EBT_FINAL_BONE_HIERARCHY, Function, __VA_ARGS__)
 
 #endif // __IRR_COMPILE_CONFIG_H_INCLUDED__

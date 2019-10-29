@@ -2,11 +2,12 @@
 #define __IRR_I_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
 
 #include "irr/asset/format/EFormat.h"
-#include "irr/core/math/irrMath.h"
+#include "irr/core/core.h"
 #include "irr/asset/ShaderCommons.h"
 #include "irr/asset/IPipeline.h"
 #include "irr/macros.h"
 #include "irr/core/memory/refctd_dynamic_array.h"
+#include "irr/core/IReferenceCounted.h"
 #include <algorithm>
 
 namespace irr {
@@ -312,7 +313,7 @@ enum E_VERTEX_ATTRIBUTE_ID
 */
 
 template<typename SpecShaderType, typename LayoutType>
-class IRenderpassIndependentPipeline : public IPipeline<IRenderpassIndependentPipeline, LayoutType>
+class IRenderpassIndependentPipeline : public IPipeline<LayoutType>, public virtual core::IReferenceCounted
 {
 public:
     _IRR_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 5u;
@@ -336,7 +337,7 @@ protected:
         const SBlendParams& _blendParams,
         const SPrimitiveAssemblyParams& _primAsmParams,
         const SRasterizationParams& _rasterParams
-    ) : IPipeline<IRenderpassIndependentPipeline,LayoutType>(std::move(_parent), std::move(_layout)),
+    ) : IPipeline<LayoutType>(std::move(_parent), std::move(_layout)),
         m_blendParams(_blendParams),
         m_primAsmParams(_primAsmParams),
         m_rasterParams(_rasterParams),
@@ -354,7 +355,7 @@ protected:
     virtual ~IRenderpassIndependentPipeline() = default;
 
 public:
-    inline const LayoutType* getLayout() const { return IPipeline<LayoutType,IRenderpassIndependentPipeline>::m_layout.get(); }
+    inline const LayoutType* getLayout() const { return IPipeline<LayoutType>::m_layout.get(); }
 
     inline const SpecShaderType* getShaderAtStage(E_SHADER_STAGE _stage) const { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
     inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }

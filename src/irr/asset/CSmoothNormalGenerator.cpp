@@ -46,7 +46,7 @@ namespace irr
 				acosf((b - c + a) / (2.f * bsqrt * asqrt)));
 		}
 
-		core::smart_refctd_ptr<asset::ICPUMeshBuffer> irr::asset::CSmoothNormalGenerator::calculateNormals(asset::ICPUMeshBuffer * buffer, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, IMeshManipulator::VxCmpFunction vxcmp)
+		core::smart_refctd_ptr<asset::ICPUMeshBuffer> irr::asset::CSmoothNormalGenerator::calculateNormals(asset::ICPUMeshBuffer * buffer, float epsilon, uint32_t normalAttrID, IMeshManipulator::VxCmpFunction vxcmp)
 		{
 			VertexHashMap vertexArray = setupData(buffer, epsilon);
 			processConnectedVertices(buffer, vertexArray, epsilon, normalAttrID, vxcmp);
@@ -166,7 +166,7 @@ namespace irr
 			return vertices;
 		}
 
-		void CSmoothNormalGenerator::processConnectedVertices(asset::ICPUMeshBuffer * buffer, VertexHashMap & vertexHashMap, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, IMeshManipulator::VxCmpFunction vxcmp)
+		void CSmoothNormalGenerator::processConnectedVertices(asset::ICPUMeshBuffer * buffer, VertexHashMap & vertexHashMap, float epsilon, uint32_t normalAttrID, IMeshManipulator::VxCmpFunction vxcmp)
 		{
 			for (uint32_t cell = 0; cell < vertexHashMap.getBucketCount() - 1; cell++)
 			{

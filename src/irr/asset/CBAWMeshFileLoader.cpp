@@ -277,6 +277,7 @@ io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<1>(SContext& _ctx, 
 
             const uint32_t absOffset = baseOffsetv1 + newoffset;
             baw1mem->seek(absOffset);
+#ifndef NEW_SHADERS
             baw1mem->write(
                 asset::MeshDataFormatDescBlobV1(reinterpret_cast<asset::legacyv0::MeshDataFormatDescBlobV0*>(blob)[0]).getData(),
                 sizeof(asset::MeshDataFormatDescBlobV1)
@@ -286,11 +287,14 @@ io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<1>(SContext& _ctx, 
             hdr.compressionType = asset::Blob::EBCT_RAW;
             core::XXHash_256(reinterpret_cast<uint8_t*>(baw1mem->getPointer())+absOffset, sizeof(asset::MeshDataFormatDescBlobV1), hdr.blobHash);
             hdr.blobSizeDecompr = hdr.blobSize = sizeof(asset::MeshDataFormatDescBlobV1);
+#endif
 
             adjustDiff = true;
         }
+#ifndef NEW_SHADERS
         if (adjustDiff)
             offsetDiff += static_cast<int32_t>(sizeof(asset::MeshDataFormatDescBlobV1)) - static_cast<int32_t>(prevBlobSz);
+#endif
     }
     uint64_t fileHeader[4] {0u, 0u, 0u, 1u/*baw v1*/};
     memcpy(fileHeader, asset::BAWFileV1::HEADER_STRING, strlen(asset::BAWFileV1::HEADER_STRING));

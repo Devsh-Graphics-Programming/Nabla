@@ -8,6 +8,8 @@
 
 //! kill this whole file soon
 
+#include "irr/asset/ICPUTexture.h"
+
 namespace irr
 {
 namespace video

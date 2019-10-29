@@ -55,9 +55,13 @@ public:
 
             return true;
         }
+        bool operator!=(const SBinding& rhs) const
+        {
+            return !((*this == rhs));
+        }
     };
 
-protected:
+public:
     IDescriptorSetLayout(const SBinding* const _begin, const SBinding* const _end) : 
         m_bindings(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBinding>>(_end-_begin))
     {
@@ -82,7 +86,7 @@ protected:
             bnd_out.samplers = nullptr;
             if (bnd_in.type==EDT_COMBINED_IMAGE_SAMPLER && bnd_in.samplers)
             {
-                bnd_out.samplers = reinterpret_cast<const SSamplerParams*>(immSamplersOffset);
+                bnd_out.samplers = reinterpret_cast<const core::smart_refctd_ptr<SamplerType>*>(immSamplersOffset);
                 for (uint32_t s = 0ull; s < bnd_in.count; ++s)
                     m_samplers->operator[](immSamplersOffset+s) = bnd_in.samplers[s];
                 immSamplersOffset += bnd_in.count;

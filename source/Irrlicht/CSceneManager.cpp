@@ -6,7 +6,6 @@
 #include "CSceneManager.h"
 #include "IVideoDriver.h"
 #include "IFileSystem.h"
-#include "IMaterialRenderer.h"
 #include "IReadFile.h"
 #include "IWriteFile.h"
 
@@ -590,7 +589,7 @@ uint32_t CSceneManager::registerNodeForRendering(ISceneNode* node, E_SCENE_NODE_
 	case ESNRP_AUTOMATIC:
 		if (!isCulled(node))
 		{
-#ifdef REIMPLEMENT_THIS
+#ifndef NEW_SHADERS
 			taken = 0;
 			const uint32_t count = node->getMaterialCount();
 			for (uint32_t i=0; i<count; ++i)
@@ -674,7 +673,9 @@ void CSceneManager::drawAll()
 	uint32_t i; // new ISO for scoping problem in some compilers
 
 	// reset all transforms
+#ifndef NEW_SHADERS
 	Driver->setMaterial(video::SGPUMaterial());
+#endif
 	Driver->setTransform(video::EPTS_PROJ,core::matrix4SIMD());
 	Driver->setTransform ( video::E4X3TS_VIEW, core::matrix4x3() );
 	Driver->setTransform ( video::E4X3TS_WORLD, core::matrix4x3() );
@@ -957,8 +958,10 @@ void CSceneManager::removeAll()
 	ISceneNode::removeAll();
 	setActiveCamera(0);
 	// Make sure the driver is reset, might need a more complex method at some point
+#ifndef NEW_SHADERS
 	if (Driver)
 		Driver->setMaterial(video::SGPUMaterial());
+#endif
 }
 
 

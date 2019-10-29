@@ -242,47 +242,30 @@ namespace scene
 		struct DefaultNodeEntry
 		{
 				DefaultNodeEntry(ISceneNode* n) :
-<<<<<<< HEAD
-					Node(n), renderPriority(0x80000000u)//, Material(video::EMT_SOLID)
-				{
-					renderPriority = n->getRenderPriorityScore();
-					//if (n->getMaterialCount())
-					//	Material = n->getMaterial(0).MaterialType;
-=======
 					Node(n), renderPriority(0x80000000u)
 				{
 					renderPriority = n->getRenderPriorityScore();
-#ifdef REIMPLEMENT_THIS
+#ifndef NEW_SHADERS
 					if (n->getMaterialCount())
 						Material = n->getMaterial(0).MaterialType;
 #endif
->>>>>>> 719de147941d958bf526dc2abc22c35a91e2cddf
 				}
 
 				bool operator < (const DefaultNodeEntry& other) const
 				{
-<<<<<<< HEAD
-                    //TODO ??
-					return (renderPriority < other.renderPriority)/*||(renderPriority==other.renderPriority && Material<other.Material)*/;
-=======
-#ifdef REIMPLEMENT_THIS
+#ifndef NEW_SHADERS
 					return (renderPriority < other.renderPriority)||(renderPriority==other.renderPriority && Material<other.Material);
 #else
 					return renderPriority < other.renderPriority;
 #endif
->>>>>>> 719de147941d958bf526dc2abc22c35a91e2cddf
 				}
 
 				ISceneNode* Node;
 			private:
 				uint32_t renderPriority;
-<<<<<<< HEAD
-				//video::E_MATERIAL_TYPE Material;
-=======
-#ifdef REIMPLEMENT_THIS
+#ifndef NEW_SHADERS
 				video::E_MATERIAL_TYPE Material;
 #endif
->>>>>>> 719de147941d958bf526dc2abc22c35a91e2cddf
 		};
 
 		//! sort on distance (center) to camera

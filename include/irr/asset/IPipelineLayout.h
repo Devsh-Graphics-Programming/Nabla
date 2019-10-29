@@ -75,7 +75,7 @@ public:
         for (uint32_t i = 0u; i <= _setNum; ++i)
         {
             const DescLayoutType* lhs = m_descSetLayouts[i].get();
-            const DescLayoutType* rhs = _other->getDescriptorSetLayout();
+            const DescLayoutType* rhs = _other->getDescriptorSetLayout(i);
 
             const bool compatible = (lhs == rhs) || (lhs->isIdenticallyDefined(rhs));
             if (!compatible)

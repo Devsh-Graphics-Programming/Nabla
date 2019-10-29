@@ -469,24 +469,6 @@ void CNullDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
     PrimitivesDrawn += increment;
 }
 
-
-//! Indirect Draw
-void CNullDriver::drawArraysIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                     const asset::E_PRIMITIVE_TYPE& mode,
-                                     const IGPUBuffer* indirectDrawBuff,
-                                     const size_t& offset, const size_t& count, const size_t& stride)
-{
-}
-
-void CNullDriver::drawIndexedIndirect(  const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                        const asset::E_PRIMITIVE_TYPE& mode,
-                                        const asset::E_INDEX_TYPE& type,
-                                        const IGPUBuffer* indirectDrawBuff,
-                                        const size_t& offset, const size_t& count, const size_t& stride)
-{
-}
-
-
 void CNullDriver::beginQuery(IQueryObject* query)
 {
     if (!query)
@@ -496,7 +478,7 @@ void CNullDriver::beginQuery(IQueryObject* query)
         return; //error
 
     query->grab();
-    currentQuery[query->getQueryObjectType()][0] = query;
+    currentQuery[query->getQueryObjectType()] = query;
 }
 void CNullDriver::endQuery(IQueryObject* query)
 {
@@ -507,7 +489,7 @@ void CNullDriver::endQuery(IQueryObject* query)
 
     if (currentQuery[query->getQueryObjectType()])
         currentQuery[query->getQueryObjectType()]->drop();
-    currentQuery[query->getQueryObjectType()][0] = NULL;
+    currentQuery[query->getQueryObjectType()] = NULL;
 }
 
 

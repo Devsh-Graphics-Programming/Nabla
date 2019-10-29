@@ -177,6 +177,11 @@ struct SShaderResourceVariant
 
     union Variant
     {
+        Variant() {}
+        Variant(const Variant& other) { memcpy(this, &other, sizeof(Variant)); }
+        Variant& operator=(const Variant& other) { memcpy(this, &other, sizeof(Variant)); return *this; }
+        ~Variant() {}
+
         SShaderResource<ESRT_COMBINED_IMAGE_SAMPLER> combinedImageSampler;
         SShaderResource<ESRT_SAMPLED_IMAGE> sampledImage;
         SShaderResource<ESRT_STORAGE_IMAGE> storageImage;

@@ -9,6 +9,9 @@ namespace irr { namespace asset
 
 class IBuffer : public core::IBuffer, public IDescriptor
 {
+public:
+    E_CATEGORY getTypeCategory() const override { return EC_BUFFER; }
+
 protected:
     IBuffer() = default;
     virtual ~IBuffer() = default;

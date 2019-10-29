@@ -1393,20 +1393,21 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
 
     auto shaders = core::SRange<IGPUSpecializedShader*>(_shadersBegin, _shadersEnd);
     auto vsIsPresent = [&shaders] {
-        return std::find_if(shaders.begin(), shaders.end(), [](IGPUSpecializedShader* shdr) {shdr->getStage()==asset::ESS_VERTEX;}) != shaders.end();
+        return std::find_if(shaders.begin(), shaders.end(), [](IGPUSpecializedShader* shdr) {return shdr->getStage()==asset::ESS_VERTEX;}) != shaders.end();
     };
 
     if (!_layout || vsIsPresent())
         return nullptr;
 
     return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
+        nullptr,
         std::move(_layout),
         _shadersBegin, _shadersEnd,
         _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
         );
 }
 
-core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SWriteDescriptorSet>&& _descriptors)
+core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorBinding>&& _descriptors)
 {
     if (!_layout || !_descriptors || !_descriptors->size())
         return nullptr;
@@ -1414,7 +1415,7 @@ core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(
     return core::make_smart_refctd_ptr<COpenGLDescriptorSet>(std::move(_layout), std::move(_descriptors));
 }
 
-core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout>&& _layout)
+core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout)
 {
     if (!_layout)
         return nullptr;
@@ -1626,10 +1627,11 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
 
 
 //! Indirect Draw
-void COpenGLDriver::drawArraysIndirect(  const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                         const asset::E_PRIMITIVE_TYPE& mode,
-                                         const IGPUBuffer* indirectDrawBuff,
-                                         const size_t& offset, const size_t& count, const size_t& stride)
+void COpenGLDriver::drawArraysIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                                        asset::E_PRIMITIVE_TOPOLOGY mode,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        size_t offset, size_t maxCount, size_t stride,
+                                        const IGPUBuffer* countBuffer, size_t countOffset)
 {
     if (!indirectDrawBuff)
         return;
@@ -1637,44 +1639,31 @@ void COpenGLDriver::drawArraysIndirect(  const asset::IMeshDataFormatDesc<video:
     SAuxContext* found = getThreadContext_helper(false);
     if (!found)
         return;
-
-    const COpenGLVAOSpec* meshLayoutVAO = static_cast<const COpenGLVAOSpec*>(vao);
-    if (!found->setActiveVAO(meshLayoutVAO))
+    if (!found->nextState.pipeline)
         return;
 
-    found->setActiveIndirectDrawBuffer(static_cast<const COpenGLBuffer*>(indirectDrawBuff));
+    if (countBuffer && !FeatureAvailable[IRR_ARB_indirect_parameters] && (Version < 460u))
+    {
+        os::Printer::log("OpenGL driver: glMultiDrawArraysIndirectCount() not supported!");
+        return;
+    }
+    if (!core::is_aligned_to(countOffset, 4ull))
+    {
+        os::Printer::log("COpenGLDriver::drawArraysIndirect: countOffset must be aligned to 4!");
+        return;
+    }
 
-	// draw everything
-	setRenderStates3DMode();
+    found->updateNextState_vertexInput(_vtxBindings, found->nextState.vertexInputParams.indexBuf.get(), indirectDrawBuff, countBuffer);
 
-    GLenum primType = primitiveTypeToGL(mode);
-	switch (mode)
-	{
-		case asset::EPT_POINTS:
-		{
-			// prepare size and attenuation (where supported)
-			GLfloat particleSize=Material.Thickness;
-			extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
-			glPointSize(particleSize);
-		}
-			break;
-		case asset::EPT_TRIANGLES:
-        {
-            //if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
-            {
-                COpenGLSLMaterialRenderer* shaderRenderer = static_cast<COpenGLSLMaterialRenderer*>(MaterialRenderers[0].Renderer);
-                if (shaderRenderer&&Material.Pipeline[1])
-                    primType = GL_PATCHES;
-            }
-        }
-			break;
-        default:
-			break;
-	}
-
+    GLenum primType = getGLprimitiveType(found->currentState.pipeline->getPrimitiveAssemblyParams().primitiveType);
+    if (primType == GL_POINTS)
+        extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
 
     //actual drawing
-    extGlMultiDrawArraysIndirect(primType,(void*)offset,count,stride);
+    if (countBuffer)
+        extGlMultiDrawArraysIndirectCount(primType, (void*)offset, countOffset, maxCount, stride);
+    else
+        extGlMultiDrawArraysIndirect(primType, (void*)offset, maxCount, stride);
 }
 
 
@@ -1721,10 +1710,12 @@ bool COpenGLDriver::queryFeature(const E_DRIVER_FEATURE &feature) const
 	return false;
 }
 
-void COpenGLDriver::drawIndexedIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                        const asset::E_PRIMITIVE_TYPE& mode,
-                                        const asset::E_INDEX_TYPE& type, const IGPUBuffer* indirectDrawBuff,
-                                        const size_t& offset, const size_t& count, const size_t& stride)
+void COpenGLDriver::drawIndexedIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                                        asset::E_PRIMITIVE_TOPOLOGY mode,
+                                        asset::E_INDEX_TYPE indexType, const IGPUBuffer* indexBuff,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        size_t offset, size_t maxCount, size_t stride,
+                                        const IGPUBuffer* countBuffer, size_t countOffset)
 {
     if (!indirectDrawBuff)
         return;
@@ -1732,45 +1723,32 @@ void COpenGLDriver::drawIndexedIndirect(const asset::IMeshDataFormatDesc<video::
     SAuxContext* found = getThreadContext_helper(false);
     if (!found)
         return;
-
-    const COpenGLVAOSpec* meshLayoutVAO = static_cast<const COpenGLVAOSpec*>(vao);
-    if (!found->setActiveVAO(meshLayoutVAO))
+    if (!found->nextState.pipeline)
         return;
 
-    found->setActiveIndirectDrawBuffer(static_cast<const COpenGLBuffer*>(indirectDrawBuff));
+    if (countBuffer && !FeatureAvailable[IRR_ARB_indirect_parameters] && (Version < 460u))
+    {
+        os::Printer::log("OpenGL driver: glMultiDrawElementsIndirectCount() not supported!");
+        return;
+    }
+    if (!core::is_aligned_to(countOffset, 4ull))
+    {
+        os::Printer::log("COpenGLDriver::drawIndexedIndirect: countOffset must be aligned to 4!");
+        return;
+    }
 
-	// draw everything
-	setRenderStates3DMode();
+    found->updateNextState_vertexInput(_vtxBindings, found->nextState.vertexInputParams.indexBuf.get(), indirectDrawBuff, countBuffer);
 
-	GLenum indexSize = type!=asset::EIT_16BIT ? GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
-    GLenum primType = primitiveTypeToGL(mode);
-	switch (mode)
-	{
-		case asset::EPT_POINTS:
-		{
-			// prepare size and attenuation (where supported)
-			GLfloat particleSize=Material.Thickness;
-			extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
-			glPointSize(particleSize);
-		}
-			break;
-		case asset::EPT_TRIANGLES:
-        {
-            //if (static_cast<uint32_t>(Material.MaterialType) < MaterialRenderers.size())
-            {
-                COpenGLSLMaterialRenderer* shaderRenderer = static_cast<COpenGLSLMaterialRenderer*>(MaterialRenderers[0].Renderer);
-                if (shaderRenderer&&Material.Pipeline[1])//tess control present
-                    primType = GL_PATCHES;
-            }
-        }
-			break;
-        default:
-			break;
-	}
-
+	GLenum indexSize = (indexType!=asset::EIT_16BIT) ? GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
+    GLenum primType = getGLprimitiveType(found->currentState.pipeline->getPrimitiveAssemblyParams().primitiveType);
+    if (primType == GL_POINTS)
+        extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
 
     //actual drawing
-    extGlMultiDrawElementsIndirect(primType,indexSize,(void*)offset,count,stride);
+    if (countBuffer)
+        extGlMultiDrawElementsIndirectCount(primType, indexSize, (void*)offset, countOffset, maxCount, stride);
+    else
+        extGlMultiDrawElementsIndirect(primType,indexSize,(void*)offset,maxCount,stride);
 }
 
 
@@ -1878,7 +1856,7 @@ static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
 
 void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
 {
-    core::smart_refctd_ptr<COpenGLRenderpassIndependentPipeline> prevPipeline = currentState.pipeline;
+    core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> prevPipeline = currentState.pipeline;
     if (stateBits & GSB_PIPELINE_AND_RASTER_PARAMETERS)
     {
         if (nextState.pipeline != currentState.pipeline)
@@ -2078,7 +2056,7 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
         {
             bool brandNewVAO = false;//if VAO is taken from cache we don't have to modify VAO state that is part of hashval (everything except index and vertex buf bindings)
             auto hashVal = nextState.vertexInputParams.vao.first;
-            auto it = std::lower_bound(VAOMap.begin(), VAOMap.end(), SOpenGLState::HashVAOPair(hashVal, {}));
+            auto it = std::lower_bound(VAOMap.begin(), VAOMap.end(), SOpenGLState::HashVAOPair{hashVal, SOpenGLState::SVAO{}});
             if (it != VAOMap.end() && it->first == hashVal) {
                 it->second.lastValidated = CNullDriver::ReallocationCounter;
                 currentState.vertexInputParams.vao = *it;
@@ -2428,7 +2406,7 @@ void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const IGPUMeshBuffe
         const IGPUMeshBuffer::SBufferBinding& bnd = _vtxBindings[i];
         if (bnd.buffer) {
             const COpenGLBuffer* buf = static_cast<COpenGLBuffer*>(bnd.buffer.get());
-            nextState.vertexInputParams.bindings[i] = {core::smart_refctd_ptr<const COpenGLBuffer>(buf), bnd.offset};
+            nextState.vertexInputParams.bindings[i] = {core::smart_refctd_ptr<const COpenGLBuffer>(buf), static_cast<GLintptr>(bnd.offset)};
         }
     }
     const COpenGLBuffer* buf = static_cast<const COpenGLBuffer*>(_indexBuffer);
@@ -2437,8 +2415,11 @@ void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const IGPUMeshBuffe
     buf = static_cast<const COpenGLBuffer*>(_indirectDrawBuffer);
     nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr<const COpenGLBuffer>(buf);
 
-    buf = static_cast<const COpenGLBuffer*>(_paramBuffer);
-    nextState.vertexInputParams.parameterBuf = core::smart_refctd_ptr<const COpenGLBuffer>(buf);
+    if (FeatureAvailable[IRR_ARB_indirect_parameters] || (Version >= 460u))
+    {
+        buf = static_cast<const COpenGLBuffer*>(_paramBuffer);
+        nextState.vertexInputParams.parameterBuf = core::smart_refctd_ptr<const COpenGLBuffer>(buf);
+    }
 
     //nextState.pipeline is the one set in updateNextState_pipelineAndRaster() or is the same object as currentState.pipeline
     nextState.vertexInputParams.vao.first = nextState.pipeline->getVAOHash();

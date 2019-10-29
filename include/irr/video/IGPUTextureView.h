@@ -8,7 +8,7 @@ namespace irr {
 namespace video
 {
 
-class IGPUTextureView : public core::IReferenceCounted, public asset::ITextureView
+class IGPUTextureView : public asset::ITextureView
 {
 protected:
     virtual ~IGPUTextureView() = default;

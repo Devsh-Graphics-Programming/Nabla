@@ -24,10 +24,10 @@ class CMeshManipulator : public IMeshManipulator
 			E_FORMAT type;
 			E_FORMAT prevType;
 			size_t size;
-			E_VERTEX_ATTRIBUTE_ID vaid;
+			uint32_t vaid;
 			size_t offset;
 
-			SAttrib() : type(EF_UNKNOWN), size(0), vaid(EVAI_COUNT) {}
+			SAttrib() : type(EF_UNKNOWN), size(0), vaid(ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT) {}
 
 			friend bool operator>(const SAttrib& _a, const SAttrib& _b) { return _a.size > _b.size; }
 		};
@@ -65,13 +65,13 @@ class CMeshManipulator : public IMeshManipulator
 			return out;
 		}
 
-		static core::vector<core::vectorSIMDf> findBetterFormatF(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric);
+		static core::vector<core::vectorSIMDf> findBetterFormatF(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric);
 
 		struct SIntegerAttr
 		{
 			uint32_t pointer[4];
 		};
-		static core::vector<SIntegerAttr> findBetterFormatI(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, E_VERTEX_ATTRIBUTE_ID _attrId, const SErrorMetric& _errMetric);
+		static core::vector<SIntegerAttr> findBetterFormatI(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric);
 
 		//E_COMPONENT_TYPE getBestTypeF(bool _normalized, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const float* _min, const float* _max) const;
 		static E_FORMAT getBestTypeI(E_FORMAT _originalType, size_t* _outSize, const uint32_t* _min, const uint32_t* _max);

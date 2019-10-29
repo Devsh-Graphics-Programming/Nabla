@@ -111,7 +111,7 @@ CDerivativeMapCreator::CDerivativeMapCreator(video::IVideoDriver* _driver) : m_d
     m_deriv_map_gen_cs = this->createComputeShader(DERIV_MAP_FROM_BUMP_MAP_CS_SRC);
 
     video::COpenGLDriver* gldriver = static_cast<video::COpenGLDriver*>(m_driver);
-    gldriver->extGlGenSamplers(1, &m_bumpMapSampler);
+    gldriver->extGlCreateSamplers(1, &m_bumpMapSampler);
     gldriver->extGlSamplerParameteri(m_bumpMapSampler, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     gldriver->extGlSamplerParameteri(m_bumpMapSampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
