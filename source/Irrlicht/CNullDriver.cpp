@@ -4,7 +4,6 @@
 
 #include "CNullDriver.h"
 #include "os.h"
-#include "IMaterialRenderer.h"
 #include "IAnimatedMeshSceneNode.h"
 #include "irr/asset/CMeshManipulator.h"
 #include "CMeshSceneNodeInstanced.h"
@@ -32,7 +31,7 @@ int32_t CNullDriver::incrementAndFetchReallocCounter()
 
 //! constructor
 CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
-: IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), ScreenSize(screenSize), boxLineMesh(0),
+: IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), ScreenSize(screenSize), 
 	PrimitivesDrawn(0), TextureCreationFlags(0),
 	OverrideMaterial2DEnabled(false),
 	matrixModifiedBits(0)
@@ -41,9 +40,8 @@ CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::d
 	setDebugName("CNullDriver");
 	#endif
 
-	for (size_t i=0; i<EQOT_COUNT; i++)
-    for (size_t j=0; j<_IRR_XFORM_FEEDBACK_MAX_STREAMS_; j++)
-        currentQuery[i][j] = NULL;
+    for (size_t i = 0; i < EQOT_COUNT; i++)
+        currentQuery[i] = nullptr;
 
 	setTextureCreationFlag(ETCF_ALWAYS_32_BIT, true);
 	setTextureCreationFlag(ETCF_CREATE_MIP_MAPS, true);
@@ -85,32 +83,14 @@ CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::d
 
 	// set ExposedData to 0
 	memset(&ExposedData, 0, sizeof(ExposedData));
-
-	InitMaterial2D.ZWriteEnable=false;
-	InitMaterial2D.ZBuffer=video::ECFN_NEVER;
-	for (uint32_t i=0; i<video::MATERIAL_MAX_TEXTURES; ++i)
-	{
-		InitMaterial2D.TextureLayer[i].SamplingParams.MinFilter = video::ETFT_NEAREST_NEARESTMIP;
-		InitMaterial2D.TextureLayer[i].SamplingParams.MaxFilter = video::ETFT_NEAREST_NO_MIP;
-		InitMaterial2D.TextureLayer[i].SamplingParams.TextureWrapU = video::ETC_REPEAT;
-		InitMaterial2D.TextureLayer[i].SamplingParams.TextureWrapV = video::ETC_REPEAT;
-        InitMaterial2D.TextureLayer[i].SamplingParams.UseMipmaps = false;
-	}
-	OverrideMaterial2D=InitMaterial2D;
 }
 
 
 //! destructor
 CNullDriver::~CNullDriver()
 {
-    if (boxLineMesh)
-        boxLineMesh->drop();
-
 	if (FileSystem)
 		FileSystem->drop();
-
-	// delete material renderers
-	deleteMaterialRenders();
 }
 
 //! applications must call this method before performing any rendering. returns false if failed.
@@ -302,52 +282,8 @@ const core::matrix4SIMD& CNullDriver::getTransform(const E_PROJECTION_TRANSFORMA
     return ProjectionMatrices[state];
 }
 
-
-//! sets a material
-void CNullDriver::setMaterial(const SGPUMaterial& material)
-{
-}
-
-void CNullDriver::removeMultisampleTexture(IMultisampleTexture* tex)
-{
-    auto it = std::lower_bound(MultisampleTextures.begin(),MultisampleTextures.end(),tex);
-    if (it==MultisampleTextures.end() || tex<*it)
-        return;
-    MultisampleTextures.erase(it);
-
-    tex->drop();
-}
-
-void CNullDriver::removeTextureBufferObject(ITextureBufferObject* tbo)
-{
-    auto it = std::lower_bound(TextureBufferObjects.begin(),TextureBufferObjects.end(),tbo);
-    if (it==TextureBufferObjects.end() || tbo<*it)
-        return;
-    TextureBufferObjects.erase(it);
-
-    tbo->drop();
-}
-
 void CNullDriver::removeFrameBuffer(IFrameBuffer* framebuf)
 {
-}
-
-void CNullDriver::removeAllMultisampleTextures()
-{
-	setMaterial ( SGPUMaterial() );
-
-	for (uint32_t i=0; i<MultisampleTextures.size(); ++i)
-		MultisampleTextures[i]->drop();
-    MultisampleTextures.clear();
-}
-
-void CNullDriver::removeAllTextureBufferObjects()
-{
-	setMaterial ( SGPUMaterial() );
-
-	for (uint32_t i=0; i<TextureBufferObjects.size(); ++i)
-		TextureBufferObjects[i]->drop();
-    TextureBufferObjects.clear();
 }
 
 void CNullDriver::removeAllFrameBuffers()
@@ -375,6 +311,33 @@ core::smart_refctd_ptr<ITexture> CNullDriver::createDeviceDependentTexture(const
 	return core::make_smart_refctd_ptr<SDummyTexture>(name);
 }
 
+void CNullDriver::bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, const IGPUPipelineLayout** _destPplnLayouts)
+{
+    uint32_t compatibilityLimits[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{}; //actually more like "compatibility limit + 1" (i.e. 0 mean not comaptible at all)
+    for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+    {
+        const uint32_t lim = _destPplnLayouts[i] ? //if no descriptor set bound at this index
+            _destPplnLayouts[i]->isCompatibleForSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT - 1u, _newLayout) : 0u;
+
+        compatibilityLimits[i] = (lim == IGPUPipelineLayout::DESCRIPTOR_SET_COUNT) ? 0u : (lim + 1u);
+    }
+
+    /*
+    https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#descriptorsets-compatibility
+    When binding a descriptor set (see Descriptor Set Binding) to set number N, if the previously bound descriptor sets for sets zero through N-1 were all bound using compatible pipeline layouts, then performing this binding does not disturb any of the lower numbered sets.
+    */
+    for (uint32_t i = 0u; i < _first; i++)
+        if (compatibilityLimits[i] <= i)
+            _destPplnLayouts[i] = nullptr;
+
+    /*
+    If, additionally, the previous bound descriptor set for set N was bound using a pipeline layout compatible for set N, then the bindings in sets numbered greater than N are also not disturbed.
+    */
+    if (compatibilityLimits[_first] <= _first)
+        for (uint32_t i = _first + _count; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
+            _destPplnLayouts = nullptr;
+}
+
 
 //! sets a render target
 bool CNullDriver::setRenderTarget(video::IFrameBuffer* texture, bool setNewViewport)
@@ -394,118 +357,6 @@ const core::rect<int32_t>& CNullDriver::getViewPort() const
 {
 	return ViewPort;
 }
-
-
-
-//! draws an 2d image
-void CNullDriver::draw2DImage(const video::ITexture* texture, const core::position2d<int32_t>& destPos)
-{
-	if (!texture)
-		return;
-
-	draw2DImage(texture,destPos, core::rect<int32_t>(core::position2d<int32_t>(0,0),
-												core::dimension2di(*reinterpret_cast<const core::dimension2du*>(texture->getSize()))));
-}
-
-
-
-//! draws a set of 2d images, using a color and the alpha channel of the
-//! texture if desired. The images are drawn beginning at pos and concatenated
-//! in one line. All drawings are clipped against clipRect (if != 0).
-//! The subtextures are defined by the array of sourceRects and are chosen
-//! by the indices given.
-void CNullDriver::draw2DImageBatch(const video::ITexture* texture,
-				const core::position2d<int32_t>& pos,
-				const core::vector<core::rect<int32_t> >& sourceRects,
-				const core::vector<int32_t>& indices,
-				int32_t kerningWidth,
-				const core::rect<int32_t>* clipRect, SColor color,
-				bool useAlphaChannelOfTexture)
-{
-	core::position2d<int32_t> target(pos);
-
-	for (uint32_t i=0; i<indices.size(); ++i)
-	{
-		draw2DImage(texture, target, sourceRects[indices[i]],
-				clipRect, color, useAlphaChannelOfTexture);
-		target.X += sourceRects[indices[i]].getWidth();
-		target.X += kerningWidth;
-	}
-}
-
-//! draws a set of 2d images, using a color and the alpha channel of the
-//! texture if desired.
-void CNullDriver::draw2DImageBatch(const video::ITexture* texture,
-				const core::vector<core::position2d<int32_t> >& positions,
-				const core::vector<core::rect<int32_t> >& sourceRects,
-				const core::rect<int32_t>* clipRect,
-				SColor color,
-				bool useAlphaChannelOfTexture)
-{
-	const uint32_t drawCount = core::min<uint32_t>(positions.size(), sourceRects.size());
-
-	for (uint32_t i=0; i<drawCount; ++i)
-	{
-		draw2DImage(texture, positions[i], sourceRects[i],
-				clipRect, color, useAlphaChannelOfTexture);
-	}
-}
-
-
-//! Draws a part of the texture into the rectangle.
-void CNullDriver::draw2DImage(const video::ITexture* texture, const core::rect<int32_t>& destRect,
-	const core::rect<int32_t>& sourceRect, const core::rect<int32_t>* clipRect,
-	const video::SColor* const colors, bool useAlphaChannelOfTexture)
-{
-	if (destRect.isValid())
-		draw2DImage(texture, core::position2d<int32_t>(destRect.UpperLeftCorner),
-				sourceRect, clipRect, colors?colors[0]:video::SColor(0xffffffff),
-				useAlphaChannelOfTexture);
-}
-
-
-//! Draws a 2d image, using a color (if color is other then Color(255,255,255,255)) and the alpha channel of the texture if wanted.
-void CNullDriver::draw2DImage(const video::ITexture* texture, const core::position2d<int32_t>& destPos,
-				const core::rect<int32_t>& sourceRect,
-				const core::rect<int32_t>* clipRect, SColor color,
-				bool useAlphaChannelOfTexture)
-{
-}
-
-
-//! Draws the outline of a 2d rectangle
-void CNullDriver::draw2DRectangleOutline(const core::recti& pos, SColor color)
-{
-	draw2DLine(pos.UpperLeftCorner, core::position2di(pos.LowerRightCorner.X, pos.UpperLeftCorner.Y), color);
-	draw2DLine(core::position2di(pos.LowerRightCorner.X, pos.UpperLeftCorner.Y), pos.LowerRightCorner, color);
-	draw2DLine(pos.LowerRightCorner, core::position2di(pos.UpperLeftCorner.X, pos.LowerRightCorner.Y), color);
-	draw2DLine(core::position2di(pos.UpperLeftCorner.X, pos.LowerRightCorner.Y), pos.UpperLeftCorner, color);
-}
-
-
-//! Draw a 2d rectangle
-void CNullDriver::draw2DRectangle(SColor color, const core::rect<int32_t>& pos, const core::rect<int32_t>* clip)
-{
-	draw2DRectangle(pos, color, color, color, color, clip);
-}
-
-
-
-//! Draws a 2d rectangle with a gradient.
-void CNullDriver::draw2DRectangle(const core::rect<int32_t>& pos,
-	SColor colorLeftUp, SColor colorRightUp, SColor colorLeftDown, SColor colorRightDown,
-	const core::rect<int32_t>* clip)
-{
-}
-
-
-
-//! Draws a 2d line.
-void CNullDriver::draw2DLine(const core::position2d<int32_t>& start,
-				const core::position2d<int32_t>& end, SColor color)
-{
-}
-
 
 //! returns color format
 asset::E_FORMAT CNullDriver::getColorFormat() const
@@ -594,18 +445,15 @@ void CNullDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
 		return;
 
     uint32_t increment = mb->getInstanceCount();
-    switch (mb->getPrimitiveType())
+    switch (mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType)
     {
-        case asset::EPT_POINTS:
+        case asset::EPT_POINT_LIST:
             increment *= mb->getIndexCount();
             break;
         case asset::EPT_LINE_STRIP:
             increment *= mb->getIndexCount()-1;
             break;
-        case asset::EPT_LINE_LOOP:
-            increment *= mb->getIndexCount();
-            break;
-        case asset::EPT_LINES:
+        case asset::EPT_LINE_LIST:
             increment *= mb->getIndexCount()/2;
             break;
         case asset::EPT_TRIANGLE_STRIP:
@@ -614,81 +462,34 @@ void CNullDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
         case asset::EPT_TRIANGLE_FAN:
             increment *= mb->getIndexCount()-2;
             break;
-        case asset::EPT_TRIANGLES:
+        case asset::EPT_TRIANGLE_LIST:
             increment *= mb->getIndexCount()/3;
             break;
     }
     PrimitivesDrawn += increment;
 }
 
-
-//! Indirect Draw
-void CNullDriver::drawArraysIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                     const asset::E_PRIMITIVE_TYPE& mode,
-                                     const IGPUBuffer* indirectDrawBuff,
-                                     const size_t& offset, const size_t& count, const size_t& stride)
-{
-}
-
-void CNullDriver::drawIndexedIndirect(  const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                        const asset::E_PRIMITIVE_TYPE& mode,
-                                        const asset::E_INDEX_TYPE& type,
-                                        const IGPUBuffer* indirectDrawBuff,
-                                        const size_t& offset, const size_t& count, const size_t& stride)
-{
-}
-
-
 void CNullDriver::beginQuery(IQueryObject* query)
 {
     if (!query)
         return; //error
 
-    if (currentQuery[query->getQueryObjectType()][0])
+    if (currentQuery[query->getQueryObjectType()])
         return; //error
 
     query->grab();
-    currentQuery[query->getQueryObjectType()][0] = query;
+    currentQuery[query->getQueryObjectType()] = query;
 }
 void CNullDriver::endQuery(IQueryObject* query)
 {
     if (!query)
         return; //error
-    if (currentQuery[query->getQueryObjectType()][0]!=query)
+    if (currentQuery[query->getQueryObjectType()]!=query)
         return; //error
 
-    if (currentQuery[query->getQueryObjectType()][0])
-        currentQuery[query->getQueryObjectType()][0]->drop();
-    currentQuery[query->getQueryObjectType()][0] = NULL;
-}
-
-void CNullDriver::beginQuery(IQueryObject* query, const size_t& index)
-{
-    if (index>=_IRR_XFORM_FEEDBACK_MAX_STREAMS_)
-        return; //error
-
-    if (!query||(query->getQueryObjectType()!=EQOT_PRIMITIVES_GENERATED&&query->getQueryObjectType()!=EQOT_XFORM_FEEDBACK_PRIMITIVES_WRITTEN))
-        return; //error
-
-    if (currentQuery[query->getQueryObjectType()][index])
-        return; //error
-
-    query->grab();
-    currentQuery[query->getQueryObjectType()][index] = query;
-}
-void CNullDriver::endQuery(IQueryObject* query, const size_t& index)
-{
-    if (index>=_IRR_XFORM_FEEDBACK_MAX_STREAMS_)
-        return; //error
-
-    if (!query||(query->getQueryObjectType()!=EQOT_PRIMITIVES_GENERATED&&query->getQueryObjectType()!=EQOT_XFORM_FEEDBACK_PRIMITIVES_WRITTEN))
-        return; //error
-    if (currentQuery[query->getQueryObjectType()][index]!=query)
-        return; //error
-
-    if (currentQuery[query->getQueryObjectType()][index])
-        currentQuery[query->getQueryObjectType()][index]->drop();
-    currentQuery[query->getQueryObjectType()][index] = NULL;
+    if (currentQuery[query->getQueryObjectType()])
+        currentQuery[query->getQueryObjectType()]->drop();
+    currentQuery[query->getQueryObjectType()] = NULL;
 }
 
 
@@ -697,53 +498,6 @@ void CNullDriver::endQuery(IQueryObject* query, const size_t& index)
 void CNullDriver::OnResize(const core::dimension2d<uint32_t>& size)
 {
 	ScreenSize = size;
-}
-
-
-// adds a material renderer and drops it afterwards. To be used for internal creation
-int32_t CNullDriver::addAndDropMaterialRenderer(IMaterialRenderer* m)
-{
-	int32_t i = addMaterialRenderer(m);
-
-	if (m)
-		m->drop();
-
-	return i;
-}
-
-
-//! Adds a new material renderer to the video device.
-int32_t CNullDriver::addMaterialRenderer(IMaterialRenderer* renderer, const char* name)
-{
-	if (!renderer)
-		return -1;
-
-	SMaterialRenderer r;
-	r.Renderer = renderer;
-	r.Name = name;
-
-	if (name == 0 && (MaterialRenderers.size() < (sizeof(sBuiltInMaterialTypeNames) / sizeof(char*))-1 ))
-	{
-		// set name of built in renderer so that we don't have to implement name
-		// setting in all available renderers.
-		r.Name = sBuiltInMaterialTypeNames[MaterialRenderers.size()];
-	}
-
-	MaterialRenderers.push_back(r);
-	renderer->grab();
-
-	return MaterialRenderers.size()-1;
-}
-
-
-//! Sets the name of a material renderer.
-void CNullDriver::setMaterialRendererName(int32_t idx, const char* name)
-{
-	if (idx < int32_t(sizeof(sBuiltInMaterialTypeNames) / sizeof(char*))-1 ||
-		idx >= (int32_t)MaterialRenderers.size())
-		return;
-
-	MaterialRenderers[idx].Name = name;
 }
 
 
@@ -760,48 +514,7 @@ E_DRIVER_TYPE CNullDriver::getDriverType() const
 	return EDT_NULL;
 }
 
-
-//! deletes all material renderers
-void CNullDriver::deleteMaterialRenders()
-{
-	// delete material renderers
-	for (uint32_t i=0; i<MaterialRenderers.size(); ++i)
-    {
-		if (MaterialRenderers[i].Renderer)
-			MaterialRenderers[i].Renderer->drop();
-    }
-
-	MaterialRenderers.clear();
-}
-
-
-//! Returns pointer to material renderer or null
-IMaterialRenderer* CNullDriver::getMaterialRenderer(uint32_t idx)
-{
-	if ( idx < MaterialRenderers.size() )
-		return MaterialRenderers[idx].Renderer;
-	else
-		return 0;
-}
-
-
-//! Returns amount of currently available material renderers.
-uint32_t CNullDriver::getMaterialRendererCount() const
-{
-	return MaterialRenderers.size();
-}
-
-
-//! Returns name of the material renderer
-const char* CNullDriver::getMaterialRendererName(uint32_t idx) const
-{
-	if ( idx < MaterialRenderers.size() )
-		return MaterialRenderers[idx].Name.c_str();
-
-	return 0;
-}
-
-
+/*
 //! Returns pointer to the IGPUProgrammingServices interface.
 IGPUProgrammingServices* CNullDriver::getGPUProgrammingServices()
 {
@@ -1086,19 +799,7 @@ int32_t CNullDriver::addHighLevelShaderMaterialFromFiles(
 
 	return result;
 }
-
-void CNullDriver::addMultisampleTexture(IMultisampleTexture* tex)
-{
-	MultisampleTextures.push_back(tex);
-	std::sort(MultisampleTextures.begin(),MultisampleTextures.end());
-}
-
-void CNullDriver::addTextureBufferObject(ITextureBufferObject* tbo)
-{
-	TextureBufferObjects.push_back(tbo);
-	std::sort(TextureBufferObjects.begin(),TextureBufferObjects.end());
-}
-
+*/
 
 void CNullDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool copyDepth, bool copyStencil,
 									core::recti srcRect, core::recti dstRect,
@@ -1133,31 +834,6 @@ void CNullDriver::clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* va
 {
 }
 
-void CNullDriver::bindTransformFeedback(ITransformFeedback* xformFeedback)
-{
-    os::Printer::log("Transform Feedback Not supported by this Driver!\n",ELL_ERROR);
-}
-
-void CNullDriver::beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const asset::E_PRIMITIVE_TYPE& primType)
-{
-    os::Printer::log("Transform Feedback Not supported by this Driver!\n",ELL_ERROR);
-}
-
-void CNullDriver::pauseTransformFeedback()
-{
-    os::Printer::log("Transform Feedback Not supported by this Driver!\n",ELL_ERROR);
-}
-
-void CNullDriver::resumeTransformFeedback()
-{
-    os::Printer::log("Transform Feedback Not supported by this Driver!\n",ELL_ERROR);
-}
-
-void CNullDriver::endTransformFeedback()
-{
-    os::Printer::log("Transform Feedback Not supported by this Driver!\n",ELL_ERROR);
-}
-
 
 // prints renderer version
 void CNullDriver::printVersion()
@@ -1173,14 +849,6 @@ IVideoDriver* createNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const c
 {
 	CNullDriver* nullDriver = new CNullDriver(dev, io, screenSize);
 
-	// create empty material renderers
-	for(uint32_t i=0; sBuiltInMaterialTypeNames[i]; ++i)
-	{
-		IMaterialRenderer* imr = new IMaterialRenderer();
-		nullDriver->addMaterialRenderer(imr);
-		imr->drop();
-	}
-
 	return nullDriver;
 }
 
@@ -1190,19 +858,6 @@ IVideoDriver* createNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const c
 void CNullDriver::enableClipPlane(uint32_t index, bool enable)
 {
 	// not necessary
-}
-
-//! Get the 2d override material for altering its values
-SGPUMaterial& CNullDriver::getMaterial2D()
-{
-	return OverrideMaterial2D;
-}
-
-
-//! Enable the 2d override material
-void CNullDriver::enableMaterial2D(bool enable)
-{
-	OverrideMaterial2DEnabled=enable;
 }
 
 

@@ -8,6 +8,7 @@
 #include <string>
 #include <sstream>
 #include <cwchar>
+#include <cctype>
 #include "stddef.h"
 #include "string.h"
 #include "irrString.h" // file&class to kill

@@ -26,7 +26,6 @@
 #include "irr/asset/IIncluder.h"
 #include "irr/asset/IIncludeHandler.h"
 #include "irr/asset/IBuiltinIncludeLoader.h"
-#include "irr/asset/IParsedShaderSource.h"
 #include "irr/asset/IGLSLCompiler.h"
 #include "irr/asset/ISPIR_VProgram.h"
 #include "irr/asset/ICPUShader.h"

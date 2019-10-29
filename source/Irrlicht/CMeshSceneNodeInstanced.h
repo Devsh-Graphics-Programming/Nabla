@@ -45,12 +45,14 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
         //!
         virtual bool supportsDriverFence() const {return true;}
 
+#ifndef NEW_SHADERS
         //! Sets a new mesh to display
         /** \param mesh Mesh to display. */
         virtual bool setLoDMeshes(	const core::vector<MeshLoD>& levelsOfDetail, const size_t& dataSizePerInstanceOutput,
 									const video::SGPUMaterial& lodSelectionShader, VaoSetupOverrideFunc vaoSetupOverride,
 									const size_t shaderLoDsPerPass=1, void* overrideUserData=nullptr,
 									const size_t& extraDataSizePerInstanceInput=0) override;
+#endif
 
         //! Get the currently defined mesh for display.
         /** \return Pointer to mesh which is displayed by this node. */

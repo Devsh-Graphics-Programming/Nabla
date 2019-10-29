@@ -6,6 +6,8 @@
 #ifndef __IRR_BLOB_H_INCLUDED__
 #define __IRR_BLOB_H_INCLUDED__
 
+#include "IrrCompileConfig.h"
+#include "irr/core/Types.h"
 
 namespace irr
 {

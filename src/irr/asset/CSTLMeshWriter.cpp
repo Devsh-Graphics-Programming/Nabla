@@ -63,8 +63,9 @@ bool CSTLMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 namespace
 {
 template <class I>
-inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndices, io::IWriteFile* file, asset::E_VERTEX_ATTRIBUTE_ID _colorVaid)
+inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndices, io::IWriteFile* file, uint32_t _colorVaid)
 {
+#ifndef NEW_SHADERS
     bool hasColor = buffer->getMeshDataAndFormat()->getMappedBuffer(_colorVaid);
     const asset::E_FORMAT colorType = buffer->getMeshDataAndFormat()->getAttribFormat(_colorVaid);
 
@@ -120,11 +121,13 @@ inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndice
         file->write(v+2, 12);
         file->write(&color, 2); // saving color using non-standard VisCAM/SolidView trick
     }
+#endif
 }
 }
 
 bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh* mesh)
 {
+#ifndef NEW_SHADERS
 	// write STL MESH header
     const char headerTxt[] = "Irrlicht-baw Engine";
     constexpr size_t HEADER_SIZE = 80u;
@@ -170,11 +173,15 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh
 		}
 	}
 	return true;
+#else
+    return false;
+#endif
 }
 
 
 bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh* mesh)
 {
+#ifndef NEW_SHADERS
 	// write STL MESH header
     const char headerTxt[] = "Irrlicht-baw Engine ";
 
@@ -240,6 +247,9 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh*
 	file->write(name.c_str(),name.size());
 
 	return true;
+#else
+    return false;
+#endif
 }
 
 

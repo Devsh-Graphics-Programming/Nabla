@@ -66,7 +66,7 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
                 dataOffset = 0u;
                 dataSize = getFrontBuffer()->getSize();
             }
-            else if (MultiBase::pushRange.first<MultiBase::pushRange.second)
+            else if (MultiBase::pushRange.first < MultiBase::pushRange.second)
             {
                 dataOffset = MultiBase::pushRange.first;
                 dataSize = MultiBase::pushRange.second-MultiBase::pushRange.first;

@@ -54,7 +54,9 @@ namespace scene
 
             core::aabbox3d<float> Box;
             video::IGPUMeshBuffer* sides[6];
+#ifndef NEW_SHADERS
             video::SGPUMaterial Material[6];
+#endif
 	};
 
 } // end namespace scene

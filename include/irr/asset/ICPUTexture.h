@@ -8,11 +8,12 @@
 #include "irr/asset/IAsset.h"
 #include "irr/asset/CImageData.h"
 #include "ITexture.h" // for ITexture::E_TEXTURE_COUNT ... this enum should be in global scope
+#include "irr/asset/IDescriptor.h"
 
 namespace irr { namespace asset
 {
 
-class ICPUTexture : public IAsset
+class ICPUTexture : public IAsset, public IDescriptor
 {
 protected:
     uint32_t m_size[3];
@@ -40,6 +41,8 @@ private:
     }
 
 public:
+    E_CATEGORY getTypeCategory() const override { return EC_IMAGE; }
+
     inline static ICPUTexture* create(const core::vector<asset::CImageData*>& _textureRanges, const std::string& _srcFileName, video::ITexture::E_TEXTURE_TYPE _Type = video::ITexture::ETT_COUNT)
     {
         return create_impl(_textureRanges, _srcFileName, _Type);

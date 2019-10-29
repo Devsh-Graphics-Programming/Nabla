@@ -34,6 +34,7 @@
 // this actually includes file depending on build type (Debug/Release)
 #include "BuildConfigOptions.h"
 
+#define NEW_SHADERS 1
 
 #ifdef _IRR_TARGET_ARCH_ARM_
 #   define __IRR_COMPILE_WITH_ARM_SIMD_ // NEON
@@ -87,23 +88,6 @@
 #       undef _IRR_LINUX_X11_RANDR_
 #   endif
 #endif
-
-
-//! Maximum number of textures and input images we can feed to a shader
-/** These limits will most likely be below your GPU hardware limits
-**/
-#define _IRR_MATERIAL_MAX_TEXTURES_ 8
-#define _IRR_MATERIAL_MAX_IMAGES_ 8
-
-//! Maximum of other shader input (output) slots
-#define _IRR_MATERIAL_maxDYNAMIC_SHADER_STORAGE_OBJECTS_ 4
-#define _IRR_MATERIAL_maxSHADER_STORAGE_OBJECTS_ (16-_IRR_MATERIAL_maxDYNAMIC_SHADER_STORAGE_OBJECTS_) //opengl has one set of slots for both
-#define _IRR_MATERIAL_maxDYNAMIC_UNIFORM_BUFFER_OBJECTS_ 8
-#define _IRR_MATERIAL_maxUNIFORM_BUFFER_OBJECTS_ (24-_IRR_MATERIAL_maxDYNAMIC_UNIFORM_BUFFER_OBJECTS_) //opengl has one set of slots for both
-
-//! Maximum number of output buffers and streams a Transform Feedback Object can have
-#define _IRR_XFORM_FEEDBACK_MAX_BUFFERS_ 4 //depr
-#define _IRR_XFORM_FEEDBACK_MAX_STREAMS_ 4 //depr
 
 //! Define _IRR_COMPILE_WITH_X11_ to compile the Irrlicht engine with X11 support.
 /** If you do not wish the engine to be compiled with X11, comment this
@@ -351,7 +335,6 @@ _IRR_ADD_BLOB_SUPPORT(MeshBlobV1, EBT_MESH, Function, __VA_ARGS__)\
 _IRR_ADD_BLOB_SUPPORT(SkinnedMeshBlobV1, EBT_SKINNED_MESH, Function, __VA_ARGS__)\
 _IRR_ADD_BLOB_SUPPORT(MeshBufferBlobV1, EBT_MESH_BUFFER, Function, __VA_ARGS__)\
 _IRR_ADD_BLOB_SUPPORT(SkinnedMeshBufferBlobV1, EBT_SKINNED_MESH_BUFFER, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(MeshDataFormatDescBlobV1, EBT_DATA_FORMAT_DESC, Function, __VA_ARGS__)\
 _IRR_ADD_BLOB_SUPPORT(FinalBoneHierarchyBlobV1, EBT_FINAL_BONE_HIERARCHY, Function, __VA_ARGS__)
 
 #endif // __IRR_COMPILE_CONFIG_H_INCLUDED__

@@ -15,7 +15,7 @@ namespace asset
 class CSmoothNormalGenerator
 {
 public:
-	static core::smart_refctd_ptr<asset::ICPUMeshBuffer> calculateNormals(asset::ICPUMeshBuffer* buffer, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, IMeshManipulator::VxCmpFunction function);
+	static core::smart_refctd_ptr<asset::ICPUMeshBuffer> calculateNormals(asset::ICPUMeshBuffer* buffer, float epsilon, uint32_t normalAttrID, IMeshManipulator::VxCmpFunction function);
 
 	CSmoothNormalGenerator() = delete;
 	~CSmoothNormalGenerator() = delete;
@@ -64,7 +64,7 @@ private:
 
 private:
 	static VertexHashMap setupData(asset::ICPUMeshBuffer* buffer, float epsilon);
-	static void processConnectedVertices(asset::ICPUMeshBuffer* buffer, VertexHashMap& vertices, float epsilon, asset::E_VERTEX_ATTRIBUTE_ID normalAttrID, IMeshManipulator::VxCmpFunction vxcmp);
+	static void processConnectedVertices(asset::ICPUMeshBuffer* buffer, VertexHashMap& vertices, float epsilon, uint32_t normalAttrID, IMeshManipulator::VxCmpFunction vxcmp);
 
 };
 

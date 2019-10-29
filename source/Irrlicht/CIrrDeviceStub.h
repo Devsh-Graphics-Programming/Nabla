@@ -105,9 +105,6 @@ namespace irr
             //! Remove all messages pending in the system message loop
             virtual void clearSystemMessages();
 
-            asset::IIncludeHandler* getIncludeHandler() override { return IncludeHandler.get(); }
-            const asset::IIncludeHandler* getIncludeHandler() const override { return IncludeHandler.get(); }
-
         protected:
 
             void createGUIAndScene();
@@ -128,7 +125,6 @@ namespace irr
             IOSOperator* Operator;
             io::IFileSystem* FileSystem;
             scene::ISceneManager* InputReceivingSceneManager;
-            core::smart_refctd_ptr<asset::IIncludeHandler> IncludeHandler;
 
             struct SMouseMultiClicks
             {

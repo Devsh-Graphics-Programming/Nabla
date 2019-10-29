@@ -3,6 +3,7 @@
 
 #include "irr/asset/bawformat/CBAWFile.h"
 #include "irr/asset/format/EFormat.h"
+#include "irr/asset/bawformat/Blob.h"
 
 namespace irr { namespace asset { namespace legacyv0
 {
@@ -57,6 +58,7 @@ enum E_COMPONENT_TYPE
     ECT_COUNT
 };
 
+#ifndef NEW_SHADERS
 #include "irr/irrpack.h"
 //! Simple struct of essential data of ICPUMeshDataFormatDesc that has to be exported
 //! Irrelevant in version 1.
@@ -82,6 +84,7 @@ static_assert(
     sizeof(MeshDataFormatDescBlobV0::cpa) + sizeof(MeshDataFormatDescBlobV0::attrType) + sizeof(MeshDataFormatDescBlobV0::attrStride) + sizeof(MeshDataFormatDescBlobV0::attrOffset) + sizeof(MeshDataFormatDescBlobV0::attrDivisor) + sizeof(MeshDataFormatDescBlobV0::attrBufPtrs) + sizeof(MeshDataFormatDescBlobV0::idxBufPtr),
     "MeshDataFormatDescBlobV0: Size of blob is not sum of its contents!"
 );
+#endif// !NEW_SHADERS
 
 asset::E_FORMAT mapECT_plus_ECPA_onto_E_FORMAT(E_COMPONENT_TYPE _ct, E_COMPONENTS_PER_ATTRIBUTE _cpa);
 

@@ -170,10 +170,12 @@ private:
             SObjMtl() : Bumpiness (1.0f), Illumination(0),
                 RecalculateNormals(false)
             {
+#ifndef NEW_SHADERS
                 Material.Shininess = 0.0f;
                 Material.AmbientColor = video::SColorf(0.2f, 0.2f, 0.2f, 1.0f).toSColor();
                 Material.DiffuseColor = video::SColorf(0.8f, 0.8f, 0.8f, 1.0f).toSColor();
                 Material.SpecularColor = video::SColorf(1.0f, 1.0f, 1.0f, 1.0f).toSColor();
+#endif
             }
 
             SObjMtl(const SObjMtl& o)
@@ -181,13 +183,17 @@ private:
                 Bumpiness(o.Bumpiness), Illumination(o.Illumination),
                 RecalculateNormals(false)
             {
+#ifndef NEW_SHADERS
                 Material = o.Material;
+#endif
             }
 
             core::map<SObjVertex, int> VertMap;
             core::vector<SObjVertex> Vertices;
             core::vector<uint32_t> Indices;
+#ifndef NEW_SHADERS
             video::SCPUMaterial Material;
+#endif
             std::string Name;
             std::string Group;
             float Bumpiness;

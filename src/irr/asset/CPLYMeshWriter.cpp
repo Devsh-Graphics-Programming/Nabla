@@ -61,6 +61,7 @@ CPLYMeshWriter::CPLYMeshWriter()
 //! writes a mesh
 bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
+#ifndef NEW_SHADERS
     if (!_override)
         getDefaultOverride(_override);
 
@@ -216,10 +217,14 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
         _IRR_ALIGNED_FREE(indices);
 
 	return true;
+#else
+    return false;
+#endif
 }
 
 void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const
 {
+#ifndef NEW_SHADERS
     const size_t colCpa = asset::getFormatChannelCount(_mbuf->getMeshDataAndFormat()->getAttribFormat(asset::EVAI_ATTR1));
 
     asset::ICPUMeshBuffer* mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
@@ -288,10 +293,12 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _
 
     if (_forceFaces)
         _IRR_ALIGNED_FREE(indices);
+#endif
 }
 
 void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const
 {
+#ifndef NEW_SHADERS
     asset::ICPUMeshBuffer* mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
 
     auto writefunc = [&_file,&mbCopy,this](asset::E_VERTEX_ATTRIBUTE_ID _vaid, size_t _ix, size_t _cpa)
@@ -386,10 +393,12 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mb
 
     if (_forceFaces)
         _IRR_ALIGNED_FREE(indices);
+#endif
 }
 
-void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, asset::E_VERTEX_ATTRIBUTE_ID _vaid, size_t _ix, size_t _cpa) const
+void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, uint32_t _vaid, size_t _ix, size_t _cpa) const
 {
+#ifndef NEW_SHADERS
     uint32_t ui[4];
     core::vectorSIMDf f;
     asset::E_FORMAT t = _mbuf->getMeshDataAndFormat()->getAttribFormat(_vaid);
@@ -422,10 +431,12 @@ void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuf
         _mbuf->getAttribute(f, _vaid, _ix);
         _file->write(f.pointer, 4*_cpa);
     }
+#endif
 }
 
 asset::ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrueInt(const asset::ICPUMeshBuffer* _mbuf)
 {
+#ifndef NEW_SHADERS
     asset::ICPUMeshBuffer* mbCopy = new asset::ICPUMeshBuffer();
     auto origDesc = _mbuf->getMeshDataAndFormat();
     auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
@@ -457,6 +468,9 @@ asset::ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrue
     mbCopy->setPositionAttributeIx(_mbuf->getPositionAttributeIx());
 
     return mbCopy;
+#else
+    return nullptr;
+#endif
 }
 
 std::string CPLYMeshWriter::getTypeString(asset::E_FORMAT _t)

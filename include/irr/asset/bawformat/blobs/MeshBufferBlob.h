@@ -21,7 +21,9 @@ struct IRR_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuff
 	//! Constructor filling all members
 	explicit MeshBufferBlobV0(const ICPUMeshBuffer*);
 
+#ifndef NEW_SHADERS
 	video::SCPUMaterial mat;
+#endif
 	core::aabbox3df box;
 	uint64_t descPtr;
 	uint32_t indexType;
@@ -34,7 +36,10 @@ struct IRR_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuff
 	uint32_t posAttrId;
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
-static_assert(sizeof(MeshBufferBlobV0::mat)==197, "sizeof(MeshBufferBlobV0::mat) must be 197");
+//TODO bring it back
+//static_assert(sizeof(MeshBufferBlobV0::mat)==197, "sizeof(MeshBufferBlobV0::mat) must be 197");
+
+#ifndef NEW_SHADERS
 static_assert(
     sizeof(MeshBufferBlobV0) ==
     sizeof(MeshBufferBlobV0::mat) + sizeof(MeshBufferBlobV0::box) + sizeof(MeshBufferBlobV0::descPtr) + sizeof(MeshBufferBlobV0::indexType) + sizeof(MeshBufferBlobV0::baseVertex)
@@ -42,6 +47,7 @@ static_assert(
     + sizeof(MeshBufferBlobV0::primitiveType) + sizeof(MeshBufferBlobV0::posAttrId),
     "MeshBufferBlobV0: Size of blob is not sum of its contents!"
 );
+#endif
 
 using MeshBufferBlobV1 = MeshBufferBlobV0;
 

@@ -21,6 +21,8 @@ template created_gpu_object_array<asset::ICPUBuffer> IDriver::getGPUObjectsFromA
 template created_gpu_object_array<asset::ICPUMeshBuffer> IDriver::getGPUObjectsFromAssets<asset::ICPUMeshBuffer>(asset::ICPUMeshBuffer* const* const, asset::ICPUMeshBuffer* const* const, IGPUObjectFromAssetConverter* _converter);
 template created_gpu_object_array<asset::ICPUMesh> IDriver::getGPUObjectsFromAssets<asset::ICPUMesh>(asset::ICPUMesh* const* const, asset::ICPUMesh* const* const, IGPUObjectFromAssetConverter* _converter);
 template created_gpu_object_array<asset::ICPUTexture> IDriver::getGPUObjectsFromAssets<asset::ICPUTexture>(asset::ICPUTexture* const* const, asset::ICPUTexture* const* const, IGPUObjectFromAssetConverter* _converter);
+template created_gpu_object_array<asset::ICPUShader> IDriver::getGPUObjectsFromAssets<asset::ICPUShader>(asset::ICPUShader* const* const, asset::ICPUShader* const* const, IGPUObjectFromAssetConverter* _converter);
+template created_gpu_object_array<asset::ICPUSpecializedShader> IDriver::getGPUObjectsFromAssets<asset::ICPUSpecializedShader>(asset::ICPUSpecializedShader* const* const, asset::ICPUSpecializedShader* const* const, IGPUObjectFromAssetConverter* _converter);
 
 template<typename AssetType>
 created_gpu_object_array<AssetType> IDriver::getGPUObjectsFromAssets(const core::smart_refctd_ptr<asset::IAsset>* _begin, const core::smart_refctd_ptr<asset::IAsset>* _end, IGPUObjectFromAssetConverter* _converter)

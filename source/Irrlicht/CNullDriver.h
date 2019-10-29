@@ -7,7 +7,6 @@
 
 #include "IVideoDriver.h"
 #include "IFileSystem.h"
-#include "IGPUProgrammingServices.h"
 #include "irr/asset/IMesh.h"
 #include "irr/video/IGPUMeshBuffer.h"
 #include "IMeshSceneNode.h"
@@ -32,7 +31,7 @@ namespace video
 	class IImageLoader;
 	class IImageWriter;
 
-	class CNullDriver : public IVideoDriver, public IGPUProgrammingServices
+	class CNullDriver : public IVideoDriver
 	{
     protected:
 		//! destructor
@@ -45,11 +44,20 @@ namespace video
 		//! constructor
 		CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
 
-        inline virtual bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const override { return false; }
-        inline virtual bool isColorRenderableFormat(asset::E_FORMAT _fmt) const override { return false; }
-        inline virtual bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const override { return false; }
-        inline virtual bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const override { return false; }
-        inline virtual bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline bool isAllowedBufferViewFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline bool isColorRenderableFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const override { return false; }
+        inline bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const override { return false; }
+
+        bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override { return false; }
+
+        bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
+            uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override 
+        { 
+            return false; 
+        }
 
 		//!
         virtual bool initAuxContext() {return false;}
@@ -68,9 +76,6 @@ namespace video
 		//! sets transformation
 		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat);
 		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4SIMD& mat);
-
-		//! sets a material
-		virtual void setMaterial(const SGPUMaterial& material);
 
         //! GPU fence, is signalled when preceeding GPU work is completed
         virtual core::smart_refctd_ptr<IDriverFence> placeFence(const bool& implicitFlushWaitSameThread=false) {return nullptr;}
@@ -137,27 +142,6 @@ namespace video
 		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals);
 
 
-		virtual ITransformFeedback* createTransformFeedback() {return NULL;}
-
-		//!
-		virtual void bindTransformFeedback(ITransformFeedback* xformFeedback);
-
-		virtual ITransformFeedback* getBoundTransformFeedback() {return NULL;}
-
-        /** Only POINTS, LINES, and TRIANGLES are allowed as capture types.. no strips or fans!
-        This issues an implicit call to bindTransformFeedback()
-        **/
-		virtual void beginTransformFeedback(ITransformFeedback* xformFeedback, const E_MATERIAL_TYPE& xformFeedbackShader, const asset::E_PRIMITIVE_TYPE& primType=asset::EPT_POINTS);
-
-		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
-		virtual void pauseTransformFeedback();
-
-		//! A redundant wrapper call to ITransformFeedback::pauseTransformFeedback(), made just for clarity
-		virtual void resumeTransformFeedback();
-
-		virtual void endTransformFeedback();
-
-
 		//! sets a viewport
 		virtual void setViewPort(const core::rect<int32_t>& area);
 
@@ -167,93 +151,21 @@ namespace video
         virtual void drawMeshBuffer(const video::IGPUMeshBuffer* mb);
 
 		//! Indirect Draw
-		virtual void drawArraysIndirect( const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                         const asset::E_PRIMITIVE_TYPE& mode,
-                                         const IGPUBuffer* indirectDrawBuff,
-                                         const size_t& offset, const size_t& count, const size_t& stride);
-		virtual void drawIndexedIndirect(const asset::IMeshDataFormatDesc<video::IGPUBuffer>* vao,
-                                         const asset::E_PRIMITIVE_TYPE& mode,
-                                         const asset::E_INDEX_TYPE& type,
-                                         const IGPUBuffer* indirectDrawBuff,
-                                         const size_t& offset, const size_t& count, const size_t& stride);
-
-		//! draws an 2d image
-		virtual void draw2DImage(const video::ITexture* texture, const core::position2d<int32_t>& destPos);
-
-		//! draws a set of 2d images, using a color and the alpha
-		/** channel of the texture if desired. The images are drawn
-		beginning at pos and concatenated in one line. All drawings
-		are clipped against clipRect (if != 0).
-		The subtextures are defined by the array of sourceRects
-		and are chosen by the indices given.
-		\param texture: Texture to be drawn.
-		\param pos: Upper left 2d destination position where the image will be drawn.
-		\param sourceRects: Source rectangles of the image.
-		\param indices: List of indices which choose the actual rectangle used each time.
-		\param kerningWidth: offset on position
-		\param clipRect: Pointer to rectangle on the screen where the image is clipped to.
-		This pointer can be 0. Then the image is not clipped.
-		\param color: Color with which the image is colored.
-		Note that the alpha component is used: If alpha is other than 255, the image will be transparent.
-		\param useAlphaChannelOfTexture: If true, the alpha channel of the texture is
-		used to draw the image. */
-		virtual void draw2DImageBatch(const video::ITexture* texture,
-				const core::position2d<int32_t>& pos,
-				const core::vector<core::rect<int32_t> >& sourceRects,
-				const core::vector<int32_t>& indices,
-				int32_t kerningWidth = 0,
-				const core::rect<int32_t>* clipRect = 0,
-				SColor color=SColor(255,255,255,255),
-				bool useAlphaChannelOfTexture=false);
-
-		//! Draws a set of 2d images, using a color and the alpha channel of the texture.
-		/** All drawings are clipped against clipRect (if != 0).
-		The subtextures are defined by the array of sourceRects and are
-		positioned using the array of positions.
-		\param texture Texture to be drawn.
-		\param pos Array of upper left 2d destinations where the images
-		will be drawn.
-		\param sourceRects Source rectangles of the image.
-		\param clipRect Pointer to rectangle on the screen where the
-		images are clipped to.
-		If this pointer is 0 then the image is not clipped.
-		\param color Color with which the image is drawn.
-		Note that the alpha component is used. If alpha is other than
-		255, the image will be transparent.
-		\param useAlphaChannelOfTexture: If true, the alpha channel of
-		the texture is used to draw the image. */
-		virtual void draw2DImageBatch(const video::ITexture* texture,
-				const core::vector<core::position2d<int32_t> >& positions,
-				const core::vector<core::rect<int32_t> >& sourceRects,
-				const core::rect<int32_t>* clipRect=0,
-				SColor color=SColor(255,255,255,255),
-				bool useAlphaChannelOfTexture=false);
-
-		//! Draws a 2d image, using a color (if color is other then Color(255,255,255,255)) and the alpha channel of the texture if wanted.
-		virtual void draw2DImage(const video::ITexture* texture, const core::position2d<int32_t>& destPos,
-			const core::rect<int32_t>& sourceRect, const core::rect<int32_t>* clipRect = 0,
-			SColor color=SColor(255,255,255,255), bool useAlphaChannelOfTexture=false);
-
-		//! Draws a part of the texture into the rectangle.
-		virtual void draw2DImage(const video::ITexture* texture, const core::rect<int32_t>& destRect,
-			const core::rect<int32_t>& sourceRect, const core::rect<int32_t>* clipRect = 0,
-			const video::SColor* const colors=0, bool useAlphaChannelOfTexture=false);
-
-		//! Draws a 2d rectangle
-		virtual void draw2DRectangle(SColor color, const core::rect<int32_t>& pos, const core::rect<int32_t>* clip = 0);
-
-		//! Draws a 2d rectangle with a gradient.
-		virtual void draw2DRectangle(const core::rect<int32_t>& pos,
-			SColor colorLeftUp, SColor colorRightUp, SColor colorLeftDown, SColor colorRightDown,
-			const core::rect<int32_t>* clip = 0);
-
-		//! Draws the outline of a 2d rectangle
-		virtual void draw2DRectangleOutline(const core::recti& pos, SColor color=SColor(255,255,255,255));
-
-		//! Draws a 2d line.
-		virtual void draw2DLine(const core::position2d<int32_t>& start,
-					const core::position2d<int32_t>& end,
-					SColor color=SColor(255,255,255,255));
+		virtual void drawArraysIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                                        asset::E_PRIMITIVE_TOPOLOGY mode,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        size_t offset, size_t maxCount, size_t stride,
+                                        const IGPUBuffer* countBuffer = nullptr, size_t countOffset = 0u) override
+        {
+        }
+		virtual void drawIndexedIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                                        asset::E_PRIMITIVE_TOPOLOGY mode,
+                                        asset::E_INDEX_TYPE indexType, const IGPUBuffer* indexBuff,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        size_t offset, size_t maxCount, size_t stride,
+                                        const IGPUBuffer* countBuffer = nullptr, size_t countOffset = 0u)
+        {
+        }
 
 		//! get color format of the current color buffer
 		virtual asset::E_FORMAT getColorFormat() const;
@@ -275,15 +187,7 @@ namespace video
 		//! driver, it would return "Direct3D8.1".
 		virtual const wchar_t* getName() const;
 
-		virtual void removeMultisampleTexture(IMultisampleTexture* tex);
-
-		virtual void removeTextureBufferObject(ITextureBufferObject* tbo);
-
 		virtual void removeFrameBuffer(IFrameBuffer* framebuf);
-
-		virtual void removeAllMultisampleTextures();
-
-		virtual void removeAllTextureBufferObjects();
 
 		virtual void removeAllFrameBuffers();
 
@@ -315,10 +219,6 @@ namespace video
 		/** Used to notify the driver that the window was resized. */
 		virtual void OnResize(const core::dimension2d<uint32_t>& size);
 
-		//! Adds a new material renderer to the video device.
-		virtual int32_t addMaterialRenderer(IMaterialRenderer* renderer,
-				const char* name = 0);
-
 		//! Returns driver and operating system specific data about the IVideoDriver.
 		virtual const SExposedVideoData& getExposedVideoData();
 
@@ -330,92 +230,77 @@ namespace video
 
 		virtual const core::matrix4SIMD& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state);
 
-		//! Returns pointer to the IGPUProgrammingServices interface.
-		virtual IGPUProgrammingServices* getGPUProgrammingServices();
+        //virtual int32_t addHighLevelShaderMaterial(
+        //    const char* vertexShaderProgram,
+        //    const char* controlShaderProgram,
+        //    const char* evaluationShaderProgram,
+        //    const char* geometryShaderProgram,
+        //    const char* pixelShaderProgram,
+        //    uint32_t patchVertices=3,
+        //    E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
+        //    IShaderConstantSetCallBack* callback = 0,
+        //    const char** xformFeedbackOutputs = NULL,
+        //    const uint32_t& xformFeedbackOutputCount = 0,
+        //    int32_t userData = 0,
+        //    const char* vertexShaderEntryPointName="main",
+        //    const char* controlShaderEntryPointName = "main",
+        //    const char* evaluationShaderEntryPointName = "main",
+        //    const char* geometryShaderEntryPointName = "main",
+        //    const char* pixelShaderEntryPointName="main" );
 
-		//! Returns pointer to material renderer or null
-		virtual IMaterialRenderer* getMaterialRenderer(uint32_t idx);
+        //virtual int32_t addHighLevelShaderMaterialFromFiles(
+        //    const io::path& vertexShaderProgramFileName,
+        //    const io::path& controlShaderProgramFileName,
+        //    const io::path& evaluationShaderProgramFileName,
+        //    const io::path& geometryShaderProgramFileName,
+        //    const io::path& pixelShaderProgramFileName,
+        //    uint32_t patchVertices=3,
+        //    E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
+        //    IShaderConstantSetCallBack* callback = 0,
+        //    const char** xformFeedbackOutputs = NULL,
+        //    const uint32_t& xformFeedbackOutputCount = 0,
+        //    int32_t userData = 0,
+        //    const char* vertexShaderEntryPointName="main",
+        //    const char* controlShaderEntryPointName = "main",
+        //    const char* evaluationShaderEntryPointName = "main",
+        //    const char* geometryShaderEntryPointName = "main",
+        //    const char* pixelShaderEntryPointName="main");
 
-		//! Returns amount of currently available material renderers.
-		virtual uint32_t getMaterialRendererCount() const;
+        //virtual int32_t addHighLevelShaderMaterialFromFiles(
+        //    io::IReadFile* vertexShaderProgram,
+        //    io::IReadFile* controlShaderProgram,
+        //    io::IReadFile* evaluationShaderProgram,
+        //    io::IReadFile* geometryShaderProgram,
+        //    io::IReadFile* pixelShaderProgram,
+        //    uint32_t patchVertices=3,
+        //    E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
+        //    IShaderConstantSetCallBack* callback = 0,
+        //    const char** xformFeedbackOutputs = NULL,
+        //    const uint32_t& xformFeedbackOutputCount = 0,
+        //    int32_t userData = 0,
+        //    const char* vertexShaderEntryPointName="main",
+        //    const char* controlShaderEntryPointName = "main",
+        //    const char* evaluationShaderEntryPointName = "main",
+        //    const char* geometryShaderEntryPointName = "main",
+        //    const char* pixelShaderEntryPointName="main");
 
-		//! Returns name of the material renderer
-		virtual const char* getMaterialRendererName(uint32_t idx) const;
-
-        virtual int32_t addHighLevelShaderMaterial(
-            const char* vertexShaderProgram,
-            const char* controlShaderProgram,
-            const char* evaluationShaderProgram,
-            const char* geometryShaderProgram,
-            const char* pixelShaderProgram,
-            uint32_t patchVertices=3,
-            E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-            IShaderConstantSetCallBack* callback = 0,
-            const char** xformFeedbackOutputs = NULL,
-            const uint32_t& xformFeedbackOutputCount = 0,
-            int32_t userData = 0,
-            const char* vertexShaderEntryPointName="main",
-            const char* controlShaderEntryPointName = "main",
-            const char* evaluationShaderEntryPointName = "main",
-            const char* geometryShaderEntryPointName = "main",
-            const char* pixelShaderEntryPointName="main" );
-
-        virtual int32_t addHighLevelShaderMaterialFromFiles(
-            const io::path& vertexShaderProgramFileName,
-            const io::path& controlShaderProgramFileName,
-            const io::path& evaluationShaderProgramFileName,
-            const io::path& geometryShaderProgramFileName,
-            const io::path& pixelShaderProgramFileName,
-            uint32_t patchVertices=3,
-            E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-            IShaderConstantSetCallBack* callback = 0,
-            const char** xformFeedbackOutputs = NULL,
-            const uint32_t& xformFeedbackOutputCount = 0,
-            int32_t userData = 0,
-            const char* vertexShaderEntryPointName="main",
-            const char* controlShaderEntryPointName = "main",
-            const char* evaluationShaderEntryPointName = "main",
-            const char* geometryShaderEntryPointName = "main",
-            const char* pixelShaderEntryPointName="main");
-
-        virtual int32_t addHighLevelShaderMaterialFromFiles(
-            io::IReadFile* vertexShaderProgram,
-            io::IReadFile* controlShaderProgram,
-            io::IReadFile* evaluationShaderProgram,
-            io::IReadFile* geometryShaderProgram,
-            io::IReadFile* pixelShaderProgram,
-            uint32_t patchVertices=3,
-            E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-            IShaderConstantSetCallBack* callback = 0,
-            const char** xformFeedbackOutputs = NULL,
-            const uint32_t& xformFeedbackOutputCount = 0,
-            int32_t userData = 0,
-            const char* vertexShaderEntryPointName="main",
-            const char* controlShaderEntryPointName = "main",
-            const char* evaluationShaderEntryPointName = "main",
-            const char* geometryShaderEntryPointName = "main",
-            const char* pixelShaderEntryPointName="main");
-
-        virtual bool replaceHighLevelShaderMaterial(const int32_t &materialIDToReplace,
-            const char* vertexShaderProgram,
-            const char* controlShaderProgram,
-            const char* evaluationShaderProgram,
-            const char* geometryShaderProgram,
-            const char* pixelShaderProgram,
-            uint32_t patchVertices=3,
-            E_MATERIAL_TYPE baseMaterial=video::EMT_SOLID,
-            IShaderConstantSetCallBack* callback=0,
-            const char** xformFeedbackOutputs = NULL,
-            const uint32_t& xformFeedbackOutputCount = 0,
-            int32_t userData=0,
-            const char* vertexShaderEntryPointName="main",
-            const char* controlShaderEntryPointName="main",
-            const char* evaluationShaderEntryPointName="main",
-            const char* geometryShaderEntryPointName="main",
-            const char* pixelShaderEntryPointName="main");
-
-		//! Sets the name of a material renderer.
-		virtual void setMaterialRendererName(int32_t idx, const char* name);
+        //virtual bool replaceHighLevelShaderMaterial(const int32_t &materialIDToReplace,
+        //    const char* vertexShaderProgram,
+        //    const char* controlShaderProgram,
+        //    const char* evaluationShaderProgram,
+        //    const char* geometryShaderProgram,
+        //    const char* pixelShaderProgram,
+        //    uint32_t patchVertices=3,
+        //    E_MATERIAL_TYPE baseMaterial=video::EMT_SOLID,
+        //    IShaderConstantSetCallBack* callback=0,
+        //    const char** xformFeedbackOutputs = NULL,
+        //    const uint32_t& xformFeedbackOutputCount = 0,
+        //    int32_t userData=0,
+        //    const char* vertexShaderEntryPointName="main",
+        //    const char* controlShaderEntryPointName="main",
+        //    const char* evaluationShaderEntryPointName="main",
+        //    const char* geometryShaderEntryPointName="main",
+        //    const char* pixelShaderEntryPointName="main");
 
 		//! Enable/disable a clipping plane.
 		//! There are at least 6 clipping planes available for the user to set at will.
@@ -425,12 +310,6 @@ namespace video
 
 		//! Returns the graphics card vendor name.
 		virtual std::string getVendorInfo() {return "Not available on this driver.";}
-
-		//! Get the 2d override material for altering its values
-		virtual SGPUMaterial& getMaterial2D();
-
-		//! Enable the 2d override material
-		virtual void enableMaterial2D(bool enable=true);
 
 		//! Returns the maximum texture size supported.
 		virtual const uint32_t* getMaxTextureSize(const ITexture::E_TEXTURE_TYPE& type) const;
@@ -450,25 +329,23 @@ namespace video
 
         virtual uint64_t getMaxSSBOSize() const override { return 0ull; }
 
-        virtual uint64_t getMaxTBOSize() const override { return 0ull; }
+        virtual uint64_t getMaxTBOSizeInTexels() const override { return 0ull; }
 
         virtual uint64_t getMaxBufferSize() const override { return 0ull; }
 
+        uint32_t getMaxUBOBindings() const override { return 0u; }
+        uint32_t getMaxSSBOBindings() const override { return 0u; }
+        uint32_t getMaxTextureBindings() const override { return 0u; }
+        uint32_t getMaxTextureBindingsCompute() const override { return 0u; }
+        uint32_t getMaxImageBindings() const override { return 0u; }
+
 	protected:
-        void addMultisampleTexture(IMultisampleTexture* tex);
-
-        void addTextureBufferObject(ITextureBufferObject* tbo);
-
 		//! returns a device dependent texture from a software surface (IImage)
 		//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
 		virtual core::smart_refctd_ptr<video::ITexture> createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM);
 
-
-		// adds a material renderer and drops it afterwards. To be used for internal creation
-		int32_t addAndDropMaterialRenderer(IMaterialRenderer* m);
-
-		//! deletes all material renderers
-		void deleteMaterialRenders();
+        void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets,
+            const IGPUPipelineLayout** _destPplnLayouts);
 
 		// prints renderer version
 		void printVersion();
@@ -491,12 +368,6 @@ namespace video
                     return Surface < other.Surface;
                 */
 			}
-		};
-
-		struct SMaterialRenderer
-		{
-			core::stringc Name;
-			IMaterialRenderer* Renderer;
 		};
 
 		class SDummyTexture : public ITexture
@@ -533,13 +404,7 @@ namespace video
                 virtual size_t getBoundMemoryOffset() const {return 0u;}
 		};
 
-		core::vector<IMultisampleTexture*> MultisampleTextures;
-		core::vector<ITextureBufferObject*> TextureBufferObjects;
-
-		core::vector<SMaterialRenderer> MaterialRenderers;
-
-
-        IQueryObject* currentQuery[EQOT_COUNT][_IRR_XFORM_FEEDBACK_MAX_STREAMS_];
+        IQueryObject* currentQuery[EQOT_COUNT];
 
 		io::IFileSystem* FileSystem;
 
@@ -552,16 +417,12 @@ namespace video
 
 		CFPSCounter FPSCounter;
 
-        video::IGPUMeshBuffer* boxLineMesh;
-
 		uint32_t PrimitivesDrawn;
 
 		uint32_t TextureCreationFlags;
 
 		SExposedVideoData ExposedData;
 
-		SGPUMaterial OverrideMaterial2D;
-		SGPUMaterial InitMaterial2D;
 		bool OverrideMaterial2DEnabled;
 
 		uint32_t MaxTextureSizes[ITexture::ETT_COUNT][3];

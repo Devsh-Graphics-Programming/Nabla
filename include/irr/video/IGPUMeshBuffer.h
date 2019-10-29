@@ -9,18 +9,19 @@
 
 #include "irr/asset/asset.h"
 #include "IGPUBuffer.h"
+#include "IGPUDescriptorSet.h"
+#include "IGPURenderpassIndependentPipeline.h"
 
 namespace irr
 {
 namespace video
 {
-	// will be replaced by graphics pipeline layout object
-	class IGPUMeshDataFormatDesc : public asset::IMeshDataFormatDesc<video::IGPUBuffer>
+	class IGPUMeshBuffer final : public asset::IMeshBuffer<IGPUBuffer,IGPUDescriptorSet,IGPURenderpassIndependentPipeline>
 	{
-	};
+        using base_t = asset::IMeshBuffer<IGPUBuffer, IGPUDescriptorSet, IGPURenderpassIndependentPipeline>;
 
-	class IGPUMeshBuffer final : public asset::IMeshBuffer<video::IGPUBuffer>
-	{
+    public:
+        using base_t::base_t;
 	};
 
 } // end namespace video

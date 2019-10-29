@@ -21,7 +21,6 @@ namespace video
 }
 
 #include "IMultisampleTexture.h"
-#include "ITextureBufferObject.h"
 #include "IFrameBuffer.h"
 #include "IVideoCapabilityReporter.h"
 #include "IQueryObject.h"
@@ -112,6 +111,46 @@ namespace video
                 reqs.prefersDedicatedAllocation = true;
                 reqs.requiresDedicatedAllocation = true;
                 return reqs;
+            }
+
+            virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(const asset::ICPUShader* _cpushader) { return nullptr; }
+            virtual core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) { return nullptr; }
+
+            virtual core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) { return nullptr; }
+
+            virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) { return nullptr; }
+
+            virtual core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) { return nullptr; }
+
+            virtual core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout(
+                const asset::SPushConstantRange* const _pcRangesBegin = nullptr, const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
+                core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr,
+                core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3 = nullptr
+            ) {
+                return nullptr;
+            }
+
+            virtual core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
+                core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
+                core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+                IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
+                const asset::SVertexInputParams& _vertexInputParams,
+                const asset::SBlendParams& _blendParams,
+                const asset::SPrimitiveAssemblyParams& _primAsmParams,
+                const asset::SRasterizationParams& _rasterParams
+            )
+            {
+                return nullptr;
+            }
+
+            virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorBinding>&& _descriptors)
+            {
+                return nullptr;
+            }
+
+            virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout)
+            {
+                return nullptr;
             }
 
             //! Best for Mesh data, UBOs, SSBOs, etc.
@@ -242,10 +281,6 @@ namespace video
 
             //! TODO: make with VkBufferCopy and take a list of multiple copies to carry out (maybe rename to copyBufferRanges)
             virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length) {}
-
-
-            //! Creates a VAO or InputAssembly for OpenGL and Vulkan respectively
-            virtual core::smart_refctd_ptr<video::IGPUMeshDataFormatDesc> createGPUMeshDataFormatDesc(core::CLeakDebugger* dbgr=NULL) {return nullptr;}
 
 
             //! Creates a framebuffer object with no attachments

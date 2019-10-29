@@ -2,7 +2,12 @@
 #define __IRR_I_CPU_MESH_BUFFER_H_INCLUDED__
 
 #include "irr/asset/IMeshBuffer.h"
+#include "irr/asset/ICPUDescriptorSet.h"
+#include "irr/asset/ICPURenderpassIndependentPipeline.h"
 #include "irr/asset/bawformat/blobs/MeshBufferBlob.h"
+#include "irr/asset/bawformat/BlobSerializable.h"
+#include "irr/asset/format/decodePixels.h"
+#include "irr/asset/format/encodePixels.h"
 
 namespace irr
 {
@@ -47,14 +52,17 @@ namespace impl
     }
 }
 
-class ICPUMeshBuffer : public IMeshBuffer<ICPUBuffer>, public BlobSerializable, public IAsset
+class ICPUMeshBuffer : public IMeshBuffer<ICPUBuffer, ICPUDescriptorSet, ICPURenderpassIndependentPipeline>, public BlobSerializable, public IAsset
 {
+    using base_t = IMeshBuffer<ICPUBuffer, ICPUDescriptorSet, ICPURenderpassIndependentPipeline>;
     //vertices
-    E_VERTEX_ATTRIBUTE_ID posAttrId;
+    uint32_t posAttrId;
 protected:
-	virtual ~ICPUMeshBuffer() {}
+    virtual ~ICPUMeshBuffer() = default;
 public:
-    ICPUMeshBuffer(core::CLeakDebugger* dbgr = nullptr) : IMeshBuffer<ICPUBuffer>(nullptr, dbgr), posAttrId(EVAI_ATTR0) {}
+    //! Default constructor (initializes pipeline, desc set and buffer bindings to nullptr)
+    ICPUMeshBuffer() : base_t(nullptr, nullptr, nullptr, SBufferBinding{}) {}
+    using base_t::base_t;
 
     virtual void* serializeToBlob(void* _stackPtr = nullptr, const size_t& _stackSize = 0) const override
     {
@@ -64,26 +72,104 @@ public:
     virtual void convertToDummyObject() override {}
     virtual IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SUB_MESH; }
 
-    virtual size_t conservativeSizeEstimate() const override { return sizeof(IMeshBuffer<ICPUBuffer>) + sizeof(posAttrId); }
+    virtual size_t conservativeSizeEstimate() const override { return sizeof(base_t) + sizeof(posAttrId); }
 
     virtual E_MESH_BUFFER_TYPE getMeshBufferType() const { return EMBT_NOT_ANIMATED; }
 
+    inline SBufferBinding* getAttribBoundBuffer(uint32_t attrId)
+    {
+        const uint32_t bnd = getBindingNumForAttribute(attrId);
+        return &m_vertexBufferBindings[bnd];
+    }
+    inline SBufferBinding* getVertexBufferBindings()
+    {
+        return m_vertexBufferBindings;
+    }
+    inline SBufferBinding* getIndexBufferBinding() 
+    {
+        return &m_indexBufferBinding;
+    }
+	inline bool setVertexBufferBindingParams(uint32_t bindingIndex, uint32_t stride, E_VERTEX_INPUT_RATE inputRate = E_VERTEX_INPUT_RATE::EVIR_PER_VERTEX)
+	{
+        if (!m_pipeline)
+            return false;
+		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT || stride >= 2048ull)
+			return false;
+
+		auto& binding(m_pipeline->getVertexInputParams().bindings[bindingIndex]);
+		binding.stride = stride;
+		binding.inputRate = inputRate;
+
+		return true;
+	}
+	inline bool setVertexBufferBinding(SBufferBinding&& bufferBinding, uint32_t bindingIndex)
+	{
+		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT)
+			return false;
+
+        m_vertexBufferBindings[bindingIndex] = std::move(bufferBinding);
+
+		return true;
+	}
+	inline void setIndexBufferBinding(SBufferBinding&& bufferBinding)
+	{
+        m_indexBufferBinding = std::move(bufferBinding);
+	}
+	inline bool setVertexAttribFormat(uint32_t attribIndex, uint32_t bindingIndex, E_FORMAT format, uint32_t relativeOffset)
+	{
+        if (!m_pipeline)
+            return false;
+		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT || attribIndex >= MAX_VERTEX_ATTRIB_COUNT || relativeOffset >= 2048ull)
+			return false;
+
+        auto& attribute = m_pipeline->getVertexInputParams().attributes[attribIndex];
+		attribute.binding = bindingIndex;
+		attribute.format = format;
+		attribute.relativeOffset = relativeOffset;
+
+		return true;
+	}
+    //! Synonymous to `meshbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType = _primType;`
+    inline bool setPrimitiveTopology(E_PRIMITIVE_TOPOLOGY _primType)
+    {
+        if (!m_pipeline)
+            return false;
+
+        m_pipeline->getPrimitiveAssemblyParams().primitiveType = _primType;
+        return true;
+    }
+
+
+    inline const ICPURenderpassIndependentPipeline* getPipeline() const
+    {
+        return m_pipeline.get();
+    }
+    inline ICPURenderpassIndependentPipeline* getPipeline()
+    {
+        return m_pipeline.get();
+    }
+    inline ICPUDescriptorSet* getAttachedDescriptorSet()
+    {
+        return m_descriptorSet.get();
+    }
     inline size_t calcVertexSize() const
     {
-        if (!meshLayout)
+        if (!m_pipeline)
             return 0u;
 
+        auto ppln = m_pipeline.get();
+        const auto& vtxInputParams = ppln->getVertexInputParams();
         size_t size = 0u;
-        for (size_t i = 0; i < EVAI_COUNT; ++i)
-            if (meshLayout->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i))
-                size += asset::getTexelOrBlockBytesize(meshLayout->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i));
+        for (size_t i = 0; i < MAX_VERTEX_ATTRIB_COUNT; ++i)
+            if (vtxInputParams.enabledAttribFlags & (1u<<i))
+                size += asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(vtxInputParams.attributes[i].format));
         return size;
     }
 
     inline size_t calcVertexCount() const
     {
         size_t vertexCount = 0u;
-        if (meshLayout && meshLayout->getIndexBuffer())
+        if (m_indexBufferBinding.buffer)
         {
             if (getIndexType() == EIT_16BIT)
             {
@@ -117,11 +203,11 @@ public:
     }
 
     //! Returns id of position attribute.
-    inline const E_VERTEX_ATTRIBUTE_ID& getPositionAttributeIx() const { return posAttrId; }
+    inline uint32_t getPositionAttributeIx() const { return posAttrId; }
     //! Sets id of position atrribute.
-    inline void setPositionAttributeIx(const E_VERTEX_ATTRIBUTE_ID& attrId)
+    inline void setPositionAttributeIx(const uint32_t attrId)
     {
-        if (attrId >= EVAI_COUNT)
+        if (attrId >= MAX_VERTEX_ATTRIB_COUNT)
         {
 #ifdef _IRR_DEBUG
             //os::Printer::log("MeshBuffer setPositionAttributeIx attribute ID out of range!\n",ELL_ERROR);
@@ -136,12 +222,10 @@ public:
     /** \return Pointer to indices array. */
     inline void* getIndices()
     {
-        if (!meshLayout)
-            return nullptr;
-        if (!meshLayout->getIndexBuffer())
+        if (!m_indexBufferBinding.buffer)
             return nullptr;
 
-        return reinterpret_cast<uint8_t*>(static_cast<ICPUMeshDataFormatDesc*>(meshLayout.get())->getIndexBuffer()->getPointer()) + indexBufOffset;
+        return reinterpret_cast<uint8_t*>(m_indexBufferBinding.buffer->getPointer()) + m_indexBufferBinding.offset;
     }
 
     //! Get access to Indices.
@@ -150,12 +234,10 @@ public:
     \return Pointer to index array. */
     inline const void* getIndices() const
     {
-        if (!meshLayout)
-            return nullptr;
-        if (!meshLayout->getIndexBuffer())
+        if (!m_indexBufferBinding.buffer)
             return nullptr;
 
-        return reinterpret_cast<const uint8_t*>(meshLayout->getIndexBuffer()->getPointer()) + indexBufOffset;
+        return reinterpret_cast<const uint8_t*>(m_indexBufferBinding.buffer->getPointer()) + m_indexBufferBinding.offset;
     }
 
     //! Accesses given index of mapped position attribute buffer.
@@ -182,24 +264,32 @@ public:
     @returns Pointer to corresponding buffer's data incremented by `baseVertex` and by `bufferOffset`
     @see @ref getBaseVertex() setBaseVertex() getAttribute()
     */
-    virtual uint8_t* getAttribPointer(const E_VERTEX_ATTRIBUTE_ID& attrId)
+    virtual uint8_t* getAttribPointer(uint32_t attrId)
     {
-        if (!meshLayout)
+        if (!m_pipeline)
             return nullptr;
 
-        ICPUBuffer* mappedAttrBuf = static_cast<ICPUMeshDataFormatDesc*>(meshLayout.get())->getMappedBuffer(attrId);
-        if (attrId >= EVAI_COUNT || !mappedAttrBuf)
+        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
+        if (!isAttributeEnabled(attrId))
+            return nullptr;
+
+        const uint32_t bindingNum = vtxInputParams.attributes[attrId].binding;
+        if (!isVertexAttribBufferBindingEnabled(bindingNum))
+            return nullptr;
+
+        ICPUBuffer* mappedAttrBuf = m_vertexBufferBindings[bindingNum].buffer.get();
+        if (!mappedAttrBuf)
             return nullptr;
 
         int64_t ix = baseVertex;
-        ix *= meshLayout->getMappedBufferStride(attrId);
-        ix += meshLayout->getMappedBufferOffset(attrId);
+        ix *= vtxInputParams.bindings[bindingNum].stride;
+        ix += (m_vertexBufferBindings[bindingNum].offset + vtxInputParams.attributes[attrId].relativeOffset);
         if (ix < 0 || static_cast<uint64_t>(ix) >= mappedAttrBuf->getSize())
             return nullptr;
 
         return reinterpret_cast<uint8_t*>(mappedAttrBuf->getPointer()) + ix;
     }
-	inline const uint8_t* getAttribPointer(const E_VERTEX_ATTRIBUTE_ID& attrId) const
+	inline const uint8_t* getAttribPointer(uint32_t attrId) const
 	{
 		return const_cast<typename std::decay<decltype(*this)>::type&>(*this).getAttribPointer(attrId);
 	}
@@ -246,20 +336,19 @@ public:
     @returns true if successful or false if an error occured (e.g. `ix` out of range, no attribute specified/bound or given attribute's format conversion to vectorSIMDf unsupported).
     @see @ref getBaseVertex() setBaseVertex() getAttribute()
     */
-    virtual bool getAttribute(core::vectorSIMDf& output, const E_VERTEX_ATTRIBUTE_ID& attrId, size_t ix) const
+    virtual bool getAttribute(core::vectorSIMDf& output, uint32_t attrId, size_t ix) const
     {
-        if (!meshLayout)
+        if (!isAttributeEnabled(attrId))
             return false;
-        const ICPUBuffer* mappedAttrBuf = meshLayout->getMappedBuffer(attrId);
-        if (!mappedAttrBuf)
-            return false;
+
+        const uint32_t bindingId = getBindingNumForAttribute(attrId);
 
         const uint8_t* src = getAttribPointer(attrId);
-        src += ix * meshLayout->getMappedBufferStride(attrId);
-        if (src >= reinterpret_cast<const uint8_t*>(mappedAttrBuf->getPointer()) + mappedAttrBuf->getSize())
+        src += ix * getAttribStride(attrId);
+        if (src >= reinterpret_cast<const uint8_t*>(m_vertexBufferBindings[bindingId].buffer->getPointer()) + m_vertexBufferBindings[bindingId].buffer->getSize())
             return false;
 
-        return getAttribute(output, src, meshLayout->getAttribFormat(attrId));
+        return getAttribute(output, src, getAttribFormat(attrId));
     }
 
     static inline bool getAttribute(uint32_t* output, const void* src, E_FORMAT format)
@@ -299,20 +388,20 @@ public:
     @returns true if successful or false if an error occured (e.g. `ix` out of range, no attribute specified/bound or given attribute's format conversion to vectorSIMDf unsupported).
     @see @ref getBaseVertex() setBaseVertex() getAttribute()
     */
-    virtual bool getAttribute(uint32_t* output, const E_VERTEX_ATTRIBUTE_ID& attrId, size_t ix) const
+    virtual bool getAttribute(uint32_t* output, uint32_t attrId, size_t ix) const
     {
-        if (!meshLayout)
+        if (!m_pipeline)
             return false;
-        const ICPUBuffer* mappedAttrBuf = meshLayout->getMappedBuffer(attrId);
-        if (!mappedAttrBuf)
+        if (!isAttributeEnabled(attrId))
             return false;
 
         const uint8_t* src = getAttribPointer(attrId);
-        src += ix * meshLayout->getMappedBufferStride(attrId);
-        if (src >= reinterpret_cast<const uint8_t*>(mappedAttrBuf->getPointer()) + mappedAttrBuf->getSize())
+        src += ix * getAttribStride(attrId);
+        const ICPUBuffer* buf = base_t::getAttribBoundBuffer(attrId)->buffer.get();
+        if (!buf || src >= reinterpret_cast<const uint8_t*>(buf->getPointer()) + buf->getSize())
             return false;
 
-        return getAttribute(output, src, meshLayout->getAttribFormat(attrId));
+        return getAttribute(output, src, getAttribFormat(attrId));
     }
 
     static inline bool setAttribute(core::vectorSIMDf input, void* dst, E_FORMAT format)
@@ -351,20 +440,20 @@ public:
     @returns true if successful or false if an error occured (e.g. no such index).
     @see @ref getBaseVertex() setBaseVertex() getAttribute()
     */
-    virtual bool setAttribute(core::vectorSIMDf input, const E_VERTEX_ATTRIBUTE_ID& attrId, size_t ix)
+    virtual bool setAttribute(core::vectorSIMDf input, uint32_t attrId, size_t ix)
     {
-        if (!meshLayout)
+        if (!m_pipeline)
             return false;
-        const ICPUBuffer* mappedBuffer = meshLayout->getMappedBuffer(attrId);
-        if (!mappedBuffer)
+        if (!isAttributeEnabled(attrId))
             return false;
 
         uint8_t* dst = getAttribPointer(attrId);
-        dst += ix * meshLayout->getMappedBufferStride(attrId);
-        if (dst >= ((const uint8_t*)(mappedBuffer->getPointer())) + mappedBuffer->getSize())
+        dst += ix * getAttribStride(attrId);
+        ICPUBuffer* buf = getAttribBoundBuffer(attrId)->buffer.get();
+        if (!buf || dst >= ((const uint8_t*)(buf->getPointer())) + buf->getSize())
             return false;
 
-        return setAttribute(input, dst, meshLayout->getAttribFormat(attrId));
+        return setAttribute(input, dst, getAttribFormat(attrId));
     }
 
     static inline bool setAttribute(const uint32_t* _input, void* dst, E_FORMAT format)
@@ -392,34 +481,34 @@ public:
     }
 
     //! @copydoc setAttribute(core::vectorSIMDf, const E_VERTEX_ATTRIBUTE_ID&, size_t)
-    virtual bool setAttribute(const uint32_t* _input, const E_VERTEX_ATTRIBUTE_ID& attrId, size_t ix)
+    virtual bool setAttribute(const uint32_t* _input, uint32_t attrId, size_t ix)
     {
-        if (!meshLayout)
+        if (!m_pipeline)
             return false;
-        const ICPUBuffer* mappedBuffer = meshLayout->getMappedBuffer(attrId);
-        if (!mappedBuffer)
+        if (!isAttributeEnabled(attrId))
             return false;
 
         uint8_t* dst = getAttribPointer(attrId);
-        dst += ix * meshLayout->getMappedBufferStride(attrId);
-        if (dst >= ((const uint8_t*)(mappedBuffer->getPointer())) + mappedBuffer->getSize())
+        dst += ix * getAttribStride(attrId);
+        ICPUBuffer* buf = getAttribBoundBuffer(attrId)->buffer.get();
+        if (dst >= ((const uint8_t*)(buf->getPointer())) + buf->getSize())
             return false;
 
-        return setAttribute(_input, dst, meshLayout->getAttribFormat(attrId));
+        return setAttribute(_input, dst, getAttribFormat(attrId));
     }
 
 
     //! Recalculates the bounding box. Should be called if the mesh changed.
     virtual void recalculateBoundingBox()
     {
-        if (!meshLayout)
+        if (!m_pipeline)
         {
             boundingBox.reset(core::vector3df(0.f));
             return;
         }
 
-        const ICPUBuffer* mappedAttrBuf = meshLayout->getMappedBuffer(posAttrId);
-        if (posAttrId >= EVAI_COUNT || !mappedAttrBuf)
+        const ICPUBuffer* mappedAttrBuf = getAttribBoundBuffer(posAttrId)->buffer.get();
+        if (posAttrId >= MAX_VERTEX_ATTRIB_COUNT || !mappedAttrBuf)
         {
             boundingBox.reset(core::vector3df(0.f));
             return;

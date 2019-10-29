@@ -2,6 +2,24 @@
 #define __IRR_ASSET_TRAITS_H_INCLUDED__
 
 #include "irr/video/IGPUMesh.h"
+#include "irr/asset/ICPUShader.h"
+#include "irr/video/IGPUShader.h"
+#include "irr/asset/ICPUSpecializedShader.h"
+#include "irr/video/IGPUSpecializedShader.h"
+#include "irr/asset/ICPUBufferView.h"
+#include "irr/video/IGPUBufferView.h"
+#include "irr/asset/ICPUDescriptorSet.h"
+#include "irr/video/IGPUDescriptorSet.h"
+#include "irr/asset/ICPUDescriptorSetLayout.h"
+#include "irr/video/IGPUDescriptorSetLayout.h"
+#include "irr/asset/ICPUPipelineLayout.h"
+#include "irr/video/IGPUPipelineLayout.h"
+#include "irr/asset/ICPURenderpassIndependentPipeline.h"
+#include "irr/video/IGPURenderpassIndependentPipeline.h"
+#include "irr/asset/ICPUSampler.h"
+#include "irr/video/IGPUSampler.h"
+#include "irr/asset/ICPUTextureView.h"
+#include "irr/video/IGPUTextureView.h"
 
 namespace irr
 {
@@ -9,13 +27,13 @@ namespace video
 {
 
 template<typename BuffT>
-class SOffsetBufferPair : public core::IReferenceCounted
+class IOffsetBufferPair : public core::IReferenceCounted
 {
 protected:
-	virtual ~SOffsetBufferPair() {}
+	virtual ~IOffsetBufferPair() {}
 
 public:
-    SOffsetBufferPair(uint64_t _offset = 0ull, core::smart_refctd_ptr<BuffT>&& _buffer = nullptr) : m_offset{_offset}, m_buffer(_buffer) {}
+    IOffsetBufferPair(uint64_t _offset = 0ull, core::smart_refctd_ptr<BuffT>&& _buffer = nullptr) : m_offset{_offset}, m_buffer(_buffer) {}
 
     inline void setOffset(uint64_t _offset) { m_offset = _offset; }
     inline void setBuffer(core::smart_refctd_ptr<BuffT>&& _buffer) { m_buffer = _buffer; }
@@ -27,18 +45,37 @@ private:
     uint64_t m_offset;
     core::smart_refctd_ptr<BuffT> m_buffer;
 };
+using IGPUOffsetBufferPair = IOffsetBufferPair<video::IGPUBuffer>;
 
 template<typename AssetType>
 struct asset_traits;
 
 template<>
-struct asset_traits<asset::ICPUBuffer> { using GPUObjectType = SOffsetBufferPair<video::IGPUBuffer>; };
+struct asset_traits<asset::ICPUBuffer> { using GPUObjectType = IGPUOffsetBufferPair; };
 template<>
 struct asset_traits<asset::ICPUMeshBuffer> { using GPUObjectType = video::IGPUMeshBuffer; };
 template<>
 struct asset_traits<asset::ICPUMesh> { using GPUObjectType = video::IGPUMesh; };
 template<>
 struct asset_traits<asset::ICPUTexture> { using GPUObjectType = video::ITexture; };
+template<>
+struct asset_traits<asset::ICPUShader> { using GPUObjectType = video::IGPUShader; };
+template<>
+struct asset_traits<asset::ICPUSpecializedShader> { using GPUObjectType = video::IGPUSpecializedShader; };
+template<>
+struct asset_traits<asset::ICPUBufferView> { using GPUObjectType = video::IGPUBufferView; };
+template<>
+struct asset_traits<asset::ICPUDescriptorSet> { using GPUObjectType = video::IGPUDescriptorSet; };
+template<>
+struct asset_traits<asset::ICPUDescriptorSetLayout> { using GPUObjectType = video::IGPUDescriptorSetLayout; };
+template<>
+struct asset_traits<asset::ICPUPipelineLayout> { using GPUObjectType = video::IGPUPipelineLayout; };
+template<>
+struct asset_traits<asset::ICPURenderpassIndependentPipeline> { using GPUObjectType = video::IGPURenderpassIndependentPipeline; };
+template<>
+struct asset_traits<asset::ICPUSampler> { using GPUObjectType = video::IGPUSampler; };
+template<>
+struct asset_traits<asset::ICPUTextureView> { using GPUObjectType = video::IGPUTextureView; };
 
 
 template<typename AssetType>

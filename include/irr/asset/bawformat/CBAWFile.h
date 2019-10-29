@@ -8,7 +8,6 @@
 
 
 #include "aabbox3d.h"
-#include "SMaterial.h"
 #include "irr/core/xxHash256.h"
 #include "irr/asset/bawformat/Blob.h"
 #include "irr/asset/bawformat/BlobSerializable.h"

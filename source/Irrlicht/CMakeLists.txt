@@ -124,9 +124,8 @@ set(IRRLICHT_SRCS_COMMON
 	COpenGLDriver.cpp
 	COpenGLExtensionHandler.cpp
 	COpenGLFrameBuffer.cpp
-	COpenGLSLMaterialRenderer.cpp
 	COpenGLTexture.cpp
-	STextureSamplingParams.cpp
+	${IRR_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
 	FW_Mutex.cpp
 
 # Image processing
@@ -186,7 +185,6 @@ set(IRRLICHT_SRCS_NORMAL
 	COpenGLMultisampleTexture.cpp
 	COpenGLQuery.cpp
 	COpenGLTransformFeedback.cpp
-	COpenGLVAOSpec.cpp
 	COpenGL1DTexture.cpp
 	COpenGL1DTextureArray.cpp
 	COpenGLCubemapArrayTexture.cpp

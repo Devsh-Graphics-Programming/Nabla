@@ -9,6 +9,7 @@
 #include "IWriteFile.h"
 #include "irr/asset/format/convertColor.h"
 #include "irr/asset/ICPUTexture.h"
+#include "os.h"
 
 #include "os.h"
 

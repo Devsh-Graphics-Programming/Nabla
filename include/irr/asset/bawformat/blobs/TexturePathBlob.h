@@ -8,11 +8,13 @@
 
 //! kill this whole file soon
 
+#include "irr/asset/ICPUTexture.h"
+
 namespace irr
 {
 namespace video
 {
-	class IVirtualTexture;
+	class IRenderableVirtualTexture;
 }
 namespace asset
 {
@@ -25,7 +27,7 @@ struct IRR_FORCE_EBO TexturePathBlobV0 : TypedBlob<TexturePathBlobV0, asset::ICP
 using TexturePathBlobV1 = TexturePathBlobV0;
 
 template<>
-struct CorrespondingBlobTypeFor<video::IVirtualTexture> { typedef TexturePathBlobV1 type; };
+struct CorrespondingBlobTypeFor<video::IRenderableVirtualTexture> { typedef TexturePathBlobV1 type; };
 
 }
 } // irr::asset

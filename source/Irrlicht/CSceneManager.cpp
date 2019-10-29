@@ -6,7 +6,6 @@
 #include "CSceneManager.h"
 #include "IVideoDriver.h"
 #include "IFileSystem.h"
-#include "IMaterialRenderer.h"
 #include "IReadFile.h"
 #include "IWriteFile.h"
 
@@ -430,7 +429,7 @@ ISceneNode* CSceneManager::addSkyBoxSceneNode(	core::smart_refctd_ptr<video::ITe
 
 //! Adds a skydome scene node. A skydome is a large (half-) sphere with a
 //! panoramic texture on it and is drawn around the camera position.
-ISceneNode* CSceneManager::addSkyDomeSceneNode(	core::smart_refctd_ptr<video::IVirtualTexture>&& texture, uint32_t horiRes,
+ISceneNode* CSceneManager::addSkyDomeSceneNode(	core::smart_refctd_ptr<video::IRenderableVirtualTexture>&& texture, uint32_t horiRes,
 	uint32_t vertRes, float texturePercentage, float spherePercentage, float radius, IDummyTransformationSceneNode* parent,
 	int32_t id)
 {
@@ -538,88 +537,8 @@ bool CSceneManager::isCulled(ISceneNode* node) const
 //! registers a node for rendering it at a specific time.
 uint32_t CSceneManager::registerNodeForRendering(ISceneNode* node, E_SCENE_NODE_RENDER_PASS pass)
 {
-	uint32_t taken = 0;
-
-	switch(pass)
-	{
-		// take camera if it is not already registered
-		case ESNRP_CAMERA:
-			{
-				taken = 1;
-				for (uint32_t i = 0; i != CameraList.size(); ++i)
-				{
-					if (CameraList[i] == node)
-					{
-						taken = 0;
-						break;
-					}
-				}
-				if (taken)
-				{
-					CameraList.push_back(node);
-				}
-			}
-			break;
-
-		case ESNRP_SKY_BOX:
-			SkyBoxList.push_back(node);
-			taken = 1;
-			break;
-		case ESNRP_SOLID:
-			if (!isCulled(node))
-			{
-				SolidNodeList.push_back(node);
-				taken = 1;
-			}
-			break;
-		case ESNRP_TRANSPARENT:
-			if (!isCulled(node))
-			{
-				TransparentNodeList.push_back(TransparentNodeEntry(node, ActiveCamera->getAbsolutePosition()));
-				taken = 1;
-			}
-			break;
-		case ESNRP_TRANSPARENT_EFFECT:
-			if (!isCulled(node))
-			{
-				TransparentEffectNodeList.push_back(TransparentNodeEntry(node, ActiveCamera->getAbsolutePosition()));
-				taken = 1;
-			}
-			break;
-		case ESNRP_AUTOMATIC:
-			if (!isCulled(node))
-			{
-	#ifdef REIMPLEMENT_THIS
-				taken = 0;
-				const uint32_t count = node->getMaterialCount();
-				for (uint32_t i=0; i<count; ++i)
-				{
-					video::IMaterialRenderer* rnd =
-						Driver->getMaterialRenderer(node->getMaterial(i).MaterialType);
-					if (rnd && rnd->isTransparent())
-					{
-						// register as transparent node
-						TransparentNodeEntry e(node, ActiveCamera->getAbsolutePosition());
-						TransparentNodeList.push_back(e);
-						taken = 1;
-						break;
-					}
-				}
-	#endif
-				// not transparent, register as solid
-				if (!taken)
-				{
-					SolidNodeList.push_back(node);
-					taken = 1;
-				}
-			}
-			break;
-
-		default: // ignore this one
-			break;
-	}
-
-	return taken;
+	assert(false);
+	return 0;
 }
 
 //!
@@ -651,7 +570,6 @@ void CSceneManager::drawAll()
 	uint32_t i; // new ISO for scoping problem in some compilers
 
 	// reset all transforms
-	Driver->setMaterial(video::SGPUMaterial());
 	Driver->setTransform(video::EPTS_PROJ,core::matrix4SIMD());
 	Driver->setTransform ( video::E4X3TS_VIEW, core::matrix4x3() );
 	Driver->setTransform ( video::E4X3TS_WORLD, core::matrix4x3() );
@@ -926,8 +844,10 @@ void CSceneManager::removeAll()
 	ISceneNode::removeAll();
 	setActiveCamera(0);
 	// Make sure the driver is reset, might need a more complex method at some point
+#ifndef NEW_SHADERS
 	if (Driver)
 		Driver->setMaterial(video::SGPUMaterial());
+#endif
 }
 
 

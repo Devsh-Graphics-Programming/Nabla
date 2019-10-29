@@ -35,7 +35,7 @@ namespace video
 		ECFN_LESS,
 		//! Succeeds almost always, except for exact equality
 		ECFN_NOTEQUAL,
-		//! >= test, default for e.g. depth test
+		//! >= test
 		ECFN_GREATEREQUAL,
 		//! inverse of <=
 		ECFN_GREATER,

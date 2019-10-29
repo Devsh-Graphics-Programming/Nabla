@@ -65,7 +65,7 @@ private:
 class COpenGLFilterableTexture : public ITexture, public COpenGLTexture, public IDriverMemoryAllocation
 {
 public:
-    virtual IVirtualTexture::E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return IVirtualTexture::EVTT_OPAQUE_FILTERABLE;}
+    virtual IRenderableVirtualTexture::E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return IRenderableVirtualTexture::EVTT_OPAQUE_FILTERABLE;}
 
 	//! Get size
 	virtual const uint32_t* getSize() const {return TextureSize;}

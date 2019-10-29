@@ -10,24 +10,20 @@
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
-#include "IMaterialRendererServices.h"
-#include "os.h"
-
 #include "COpenGLStateManager.h"
-#include "COpenGLCubemapTexture.h"
 
 #ifdef _IRR_WINDOWS_API_
 	// include windows headers for HWND
-	#define WIN32_LEAN_AND_MEAN
-	#ifndef NOMINMAX
-		#define NOMINMAX
-	#endif
-	#include <windows.h>
 	#include "../src/3rdparty/GL/wglext.h"
 #elif defined(_IRR_COMPILE_WITH_X11_)
     #include "GL/glx.h"
     #include "../src/3rdparty/GL/glxext.h"
 #endif
+
+#include "os.h"
+
+#include "COpenGLCubemapTexture.h"
+
 
 namespace irr
 {
@@ -54,9 +50,6 @@ struct DrawElementsIndirectCommand
 };
 
 
-E_SHADER_CONSTANT_TYPE getIrrUniformType(GLenum oglType);
-
-
 static const char* const OpenGLFeatureStrings[] = {
 	"GL_3DFX_multisample",
 	"GL_3DFX_tbuffer",
@@ -75,6 +68,19 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_AMD_texture_texture4",
 	"GL_AMD_transform_feedback3_lines_triangles",
 	"GL_AMD_vertex_shader_tesselator",
+    "GL_AMD_gcn_shader",
+    "GL_AMD_gpu_shader_half_float_fetch",
+    "GL_AMD_shader_explicit_vertex_parameter",
+    "GL_AMD_shader_fragment_mask",
+    "GL_AMD_shader_image_load_store_lod",
+    "GL_AMD_shader_trinary_minmax",
+    "GL_AMD_texture_gather_bias_lod",
+    "GL_AMD_vertex_shader_viewport_index",
+    "GL_AMD_vertex_shader_layer",
+    "GL_AMD_sparse_texture",
+    "GL_AMD_shader_stencil_value_export",
+    "GL_AMD_gpu_shader_int64",
+    "GL_AMD_shader_ballot",
 	"GL_APPLE_aux_depth_stencil",
 	"GL_APPLE_client_storage",
 	"GL_APPLE_element_array",
@@ -219,6 +225,18 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_ARB_vertex_type_2_10_10_10_rev",
 	"GL_ARB_viewport_array",
 	"GL_ARB_window_pos",
+    "GL_ARB_enhanced_layouts",
+    "GL_ARB_cull_distance",
+    "GL_ARB_derivative_control",
+    "GL_ARB_shader_texture_image_samples",
+    "GL_ARB_gpu_shader_int64",
+    "GL_ARB_post_depth_coverage",
+    "GL_ARB_shader_clock",
+    "GL_ARB_shader_viewport_layer_array",
+    "GL_ARB_sparse_texture2",
+    "GL_ARB_sparse_texture_clamp",
+    "GL_ARB_gl_spirv",
+    "GL_ARB_spirv_extensions",
 	"GL_ATI_draw_buffers",
 	"GL_ATI_element_array",
 	"GL_ATI_envmap_bumpmap",
@@ -330,6 +348,14 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_EXT_vertex_shader",
 	"GL_EXT_vertex_weighting",
 	"GL_EXT_x11_sync_object",
+    "GL_EXT_shader_pixel_local_storage",
+    "GL_EXT_shader_pixel_local_storage2",
+    "GL_EXT_shader_integer_mix",
+    "GL_EXT_shader_image_load_formatted",
+    "GL_EXT_post_depth_coverage",
+    "GL_EXT_sparse_texture2",
+    "GL_EXT_shader_framebuffer_fetch",
+    "GL_EXT_shader_framebuffer_fetch_non_coherent",
 	"GL_FfdMaskSGIX",
 	"GL_GREMEDY_frame_terminator",
 	"GL_GREMEDY_string_marker",
@@ -349,6 +375,8 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_INTEL_fragment_shader_interlock",
 	"GL_INTEL_parallel_arrays",
 	"GL_INTEL_texture_scissor",
+    "GL_INTEL_conservative_rasterization",
+    "GL_INTEL_blackhole_render",
 	"GL_KHR_debug",
 	"GL_MESA_pack_invert",
 	"GL_MESA_resize_buffers",
@@ -421,10 +449,31 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_NV_vertex_program3",
 	"GL_NV_vertex_program4",
 	"GL_NV_video_capture",
+    "GL_NV_viewport_array2",
+    "GL_NV_stereo_view_rendering",
+    "GL_NV_sample_mask_override_coverage",
+    "GL_NV_geometry_shader_passthrough",
+    "GL_NV_shader_subgroup_partitioned",
+    "GL_NV_compute_shader_derivatives",
+    "GL_NV_fragment_shader_barycentric",
+    "GL_NV_mesh_shader",
+    "GL_NV_shader_image_footprint",
+    "GL_NV_shading_rate_image",
+    "GL_NV_bindless_texture",
+    "GL_NV_shader_atomic_float",
+    "GL_NV_shader_atomic_int64",
+    "GL_NV_sample_locations",
+    "GL_NV_shader_atomic_fp16_vector",
+    "GL_NV_command_list",
+    "GL_NV_shader_atomic_float64",
+    "GL_NV_conservative_raster_pre_snap",
+    "GL_NV_shader_texture_footprint",
 	"GL_OES_read_format",
 	"GL_OML_interlace",
 	"GL_OML_resample",
 	"GL_OML_subsample",
+    "GL_OVR_multiview",
+    "GL_OVR_multiview2",
 	"GL_PGI_misc_hints",
 	"GL_PGI_vertex_hints",
 	"GL_REND_screen_coordinates",
@@ -500,8 +549,11 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_WIN_specular_fog",
     "GL_KHR_texture_compression_astc_hdr",
     "GL_KHR_texture_compression_astc_ldr",
+    "GL_KHR_blend_equation_advanced",
+    "GL_KHR_blend_equation_advanced_coherent",
 	//"GLX_EXT_swap_control_tear",
-	"GL_NVX_gpu_memory_info"
+	"GL_NVX_gpu_memory_info",
+    "GL_NVX_multiview_per_view_attributes"
 };
 
 
@@ -526,6 +578,19 @@ class COpenGLExtensionHandler
 		IRR_AMD_texture_texture4,
 		IRR_AMD_transform_feedback3_lines_triangles,
 		IRR_AMD_vertex_shader_tesselator,
+        IRR_AMD_gcn_shader,
+        IRR_AMD_gpu_shader_half_float_fetch,
+        IRR_AMD_shader_explicit_vertex_parameter,
+        IRR_AMD_shader_fragment_mask,
+        IRR_AMD_shader_image_load_store_lod,
+        IRR_AMD_shader_trinary_minmax,
+        IRR_AMD_texture_gather_bias_lod,
+        IRR_AMD_vertex_shader_viewport_index,
+        IRR_AMD_vertex_shader_layer,
+        IRR_AMD_sparse_texture,
+        IRR_AMD_shader_stencil_value_export,
+        IRR_AMD_gpu_shader_int64,
+        IRR_AMD_shader_ballot,
 		IRR_APPLE_aux_depth_stencil,
 		IRR_APPLE_client_storage,
 		IRR_APPLE_element_array,
@@ -670,6 +735,18 @@ class COpenGLExtensionHandler
 		IRR_ARB_vertex_type_2_10_10_10_rev,
 		IRR_ARB_viewport_array,
 		IRR_ARB_window_pos,
+        IRR_ARB_enhanced_layouts,
+        IRR_ARB_cull_distance,
+        IRR_ARB_derivative_control,
+        IRR_ARB_shader_texture_image_samples,
+        IRR_ARB_gpu_shader_int64,
+        IRR_ARB_post_depth_coverage,
+        IRR_ARB_shader_clock,
+        IRR_ARB_shader_viewport_layer_array,
+        IRR_ARB_sparse_texture2,
+        IRR_ARB_sparse_texture_clamp,
+        IRR_ARB_gl_spirv,
+        IRR_ARB_spirv_extensions,
 		IRR_ATI_draw_buffers,
 		IRR_ATI_element_array,
 		IRR_ATI_envmap_bumpmap,
@@ -781,6 +858,14 @@ class COpenGLExtensionHandler
 		IRR_EXT_vertex_shader,
 		IRR_EXT_vertex_weighting,
 		IRR_EXT_x11_sync_object,
+        IRR_EXT_shader_pixel_local_storage,
+        IRR_EXT_shader_pixel_local_storage2,
+        IRR_EXT_shader_integer_mix,
+        IRR_EXT_shader_image_load_formatted,
+        IRR_EXT_post_depth_coverage,
+        IRR_EXT_sparse_texture2,
+        IRR_EXT_shader_framebuffer_fetch,
+        IRR_EXT_shader_framebuffer_fetch_non_coherent,
 		IRR_FfdMaskSGIX,
 		IRR_GREMEDY_frame_terminator,
 		IRR_GREMEDY_string_marker,
@@ -800,6 +885,8 @@ class COpenGLExtensionHandler
 		IRR_INTEL_fragment_shader_ordering,
 		IRR_INTEL_parallel_arrays,
 		IRR_INTEL_texture_scissor,
+        IRR_INTEL_conservative_rasterization,
+        IRR_INTEL_blackhole_render,
 		IRR_KHR_debug,
 		IRR_MESA_pack_invert,
 		IRR_MESA_resize_buffers,
@@ -872,10 +959,31 @@ class COpenGLExtensionHandler
 		IRR_NV_vertex_program3,
 		IRR_NV_vertex_program4,
 		IRR_NV_video_capture,
+        IRR_NV_viewport_array2,
+        IRR_NV_stereo_view_rendering,
+        IRR_NV_sample_mask_override_coverage,
+        IRR_NV_geometry_shader_passthrough,
+        IRR_NV_shader_subgroup_partitioned,
+        IRR_NV_compute_shader_derivatives,
+        IRR_NV_fragment_shader_barycentric,
+        IRR_NV_mesh_shader,
+        IRR_NV_shader_image_footprint,
+        IRR_NV_shading_rate_image,
+        IRR_NV_bindless_texture,
+        IRR_NV_shader_atomic_float,
+        IRR_NV_shader_atomic_int64,
+        IRR_NV_sample_locations,
+        IRR_NV_shader_atomic_fp16_vector,
+        IRR_NV_command_list,
+        IRR_NV_shader_atomic_float64,
+        IRR_NV_conservative_raster_pre_snap,
+        IRR_NV_shader_texture_footprint,
 		IRR_OES_read_format,
 		IRR_OML_interlace,
 		IRR_OML_resample,
 		IRR_OML_subsample,
+        IRR_OVR_multiview,
+        IRR_OVR_multiview2,
 		IRR_PGI_misc_hints,
 		IRR_PGI_vertex_hints,
 		IRR_REND_screen_coordinates,
@@ -951,12 +1059,84 @@ class COpenGLExtensionHandler
 		IRR_WIN_specular_fog,
         IRR_KHR_texture_compression_astc_hdr,
         IRR_KHR_texture_compression_astc_ldr,
+        IRR_KHR_blend_equation_advanced,
+        IRR_KHR_blend_equation_advanced_coherent,
 		//IRR_GLX_EXT_swap_control_tear,
 		IRR_NVX_gpu_memory_info,
+        IRR_NVX_multiview_per_view_attributes,
 		IRR_OpenGL_Feature_Count
 	};
-
-
+    _IRR_STATIC_INLINE_CONSTEXPR EOpenGLFeatures m_GLSLExtensions[]{
+        IRR_AMD_gcn_shader,
+        IRR_AMD_gpu_shader_half_float_fetch,
+        IRR_AMD_shader_ballot,
+        IRR_AMD_shader_explicit_vertex_parameter,
+        IRR_AMD_shader_fragment_mask,
+        IRR_AMD_shader_image_load_store_lod,
+        IRR_AMD_shader_trinary_minmax,
+        IRR_AMD_texture_gather_bias_lod,
+        IRR_NVX_multiview_per_view_attributes,
+        IRR_NV_viewport_array2,
+        IRR_NV_stereo_view_rendering,
+        IRR_NV_sample_mask_override_coverage,
+        IRR_NV_geometry_shader_passthrough,
+        IRR_NV_shader_subgroup_partitioned,
+        IRR_NV_compute_shader_derivatives,
+        IRR_NV_fragment_shader_barycentric,
+        IRR_NV_mesh_shader,
+        IRR_NV_shader_image_footprint,
+        IRR_NV_shading_rate_image,
+        IRR_ARB_shading_language_include,
+        IRR_ARB_shader_stencil_export,
+        IRR_ARB_enhanced_layouts,
+        IRR_ARB_bindless_texture,
+        IRR_ARB_shader_draw_parameters,
+        IRR_ARB_shader_group_vote,
+        IRR_ARB_cull_distance,
+        IRR_ARB_derivative_control,
+        IRR_ARB_shader_texture_image_samples,
+        IRR_KHR_blend_equation_advanced,
+        IRR_KHR_blend_equation_advanced_coherent,
+        IRR_ARB_fragment_shader_interlock,
+        IRR_ARB_gpu_shader_int64,
+        IRR_ARB_post_depth_coverage,
+        IRR_ARB_shader_ballot,
+        IRR_ARB_shader_clock,
+        IRR_ARB_shader_viewport_layer_array,
+        IRR_ARB_sparse_texture2,
+        IRR_ARB_sparse_texture_clamp,
+        IRR_ARB_gl_spirv,
+        IRR_ARB_spirv_extensions,
+        IRR_AMD_shader_stencil_export,
+        IRR_AMD_vertex_shader_viewport_index,
+        IRR_AMD_vertex_shader_layer,
+        IRR_NV_bindless_texture,
+        IRR_NV_shader_atomic_float,
+        IRR_AMD_sparse_texture,
+        IRR_EXT_shader_integer_mix,
+        IRR_INTEL_fragment_shader_ordering,
+        IRR_AMD_shader_stencil_value_export,
+        IRR_NV_shader_thread_group,
+        IRR_NV_shader_thread_shuffle,
+        IRR_EXT_shader_image_load_formatted,
+        IRR_AMD_gpu_shader_int64,
+        IRR_NV_shader_atomic_int64,
+        IRR_EXT_post_depth_coverage,
+        IRR_EXT_sparse_texture2,
+        IRR_NV_fragment_shader_interlock,
+        IRR_NV_sample_locations,
+        IRR_NV_shader_atomic_fp16_vector,
+        IRR_NV_command_list,
+        IRR_OVR_multiview,
+        IRR_OVR_multiview2,
+        IRR_NV_shader_atomic_float64,
+        IRR_INTEL_conservative_rasterization,
+        IRR_NV_conservative_raster_pre_snap,
+        IRR_EXT_shader_framebuffer_fetch,
+        IRR_EXT_shader_framebuffer_fetch_non_coherent,
+        IRR_INTEL_blackhole_render,
+        IRR_NV_shader_texture_footprint
+    };
 
 	static core::CLeakDebugger bufferLeaker;
 	static core::CLeakDebugger textureLeaker;
@@ -995,9 +1175,20 @@ class COpenGLExtensionHandler
     //!
     static uint64_t maxSSBOSize;
     //!
-    static uint64_t maxTBOSize;
+    static uint64_t maxTBOSizeInTexels;
     //!
     static uint64_t maxBufferSize;
+    //!
+    static uint32_t maxUBOBindings;
+    //!
+    static uint32_t maxSSBOBindings;
+    //! For vertex and fragment shaders
+    //! If both the vertex shader and the fragment processing stage access the same texture image unit, then that counts as using two texture image units against this limit.
+    static uint32_t maxTextureBindings;
+    //! For compute shader
+    static uint32_t maxTextureBindingsCompute;
+    //!
+    static uint32_t maxImageBindings;
 	//!
 	static int32_t minMemoryMapAlignment;
     //!
@@ -1028,6 +1219,11 @@ class COpenGLExtensionHandler
 	static uint32_t MaxGPUWaitTimeout;
 	//! Gives the upper and lower bound on warp/wavefront/SIMD-lane size
 	static uint32_t InvocationSubGroupSize[2];
+
+    //TODO should be later changed to SPIR-V extensions enum like it is with OpenGL extensions
+    //(however it does not have any implications on API)
+    static GLuint SPIR_VextensionsCount;
+    static core::smart_refctd_dynamic_array<const GLubyte*> SPIR_Vextensions;
 
 	//! Minimal and maximal supported thickness for lines without smoothing
 	GLfloat DimAliasedLine[2];
@@ -1096,14 +1292,16 @@ class COpenGLExtensionHandler
     static void extGlClampColor(GLenum target, GLenum clamp);
     static void setPixelUnpackAlignment(const uint32_t &pitchInBytes, void* ptr, const uint32_t& minimumAlignment=1);
 
-    static void extGlGenSamplers(GLsizei n, GLuint* samplers);
+    static void extGlCreateSamplers(GLsizei n, GLuint* samplers);
     static void extGlDeleteSamplers(GLsizei n, GLuint* samplers);
     static void extGlBindSamplers(const GLuint& first, const GLsizei& count, const GLuint* samplers);
     static void extGlSamplerParameteri(GLuint sampler, GLenum pname, GLint param);
     static void extGlSamplerParameterf(GLuint sampler, GLenum pname, GLfloat param);
+    static void extGlSamplerParameterfv(GLuint sampler, GLenum pname, const GLfloat* params);
 
     //
     static void extGlBindImageTexture(GLuint index, GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format);
+    static void extGlBindImageTextures(GLuint first, GLsizei count, const GLuint* textures, const GLenum* formats);
 
 
 	static void extGlPointParameterf(GLint loc, GLfloat f);
@@ -1114,7 +1312,11 @@ class COpenGLExtensionHandler
 
 
 	// shader programming
+    static void extGlCreateProgramPipelines(GLsizei n, GLuint* pipelines);
+    static void extGlDeleteProgramPipelines(GLsizei n, const GLuint* pipelines);
+    static void extGlUseProgramStages(GLuint pipeline, GLbitfield stages, GLuint program);
 	static GLuint extGlCreateShader(GLenum shaderType);
+    static GLuint extGlCreateShaderProgramv(GLenum shaderType, GLsizei count, const char** strings);
 	static void extGlShaderSource(GLuint shader, GLsizei numOfStrings, const char **strings, const GLint *lenOfStrings);
 	static void extGlCompileShader(GLuint shader);
 	static GLuint extGlCreateProgram(void);
@@ -1153,6 +1355,8 @@ class COpenGLExtensionHandler
 	static void extGlProgramUniformMatrix4x3fv(GLuint program, GLint loc, GLsizei count, GLboolean transpose, const GLfloat *v);
 	static void extGlGetActiveUniform(GLuint program, GLuint index, GLsizei maxlength, GLsizei *length, GLint *size, GLenum *type, GLchar *name);
 	static void extGlBindProgramPipeline(GLuint pipeline);
+    static void extGlGetProgramBinary(GLuint program, GLsizei bufSize, GLsizei* length, GLenum* binaryFormat, void* binary);
+    static void extGlProgramBinary(GLuint program, GLenum binaryFormat, const void* binary, GLsizei length);
 
 	//compute
     static void extGlMemoryBarrier(GLbitfield barriers);
@@ -1237,6 +1441,8 @@ class COpenGLExtensionHandler
     static void extGlDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect);
     static void extGlMultiDrawArraysIndirect(GLenum mode, const void* indirect, GLsizei drawcount, GLsizei stride);
     static void extGlMultiDrawElementsIndirect(GLenum mode, GLenum type, const void *indirect, GLsizei drawcount, GLsizei stride);
+    static void extGlMultiDrawArraysIndirectCount(GLenum mode, const void *indirect, GLintptr drawcount, GLintptr maxdrawcount, GLsizei stride);
+    static void extGlMultiDrawElementsIndirectCount(GLenum mode, GLenum type, const void *indirect, GLintptr drawcount, GLintptr maxdrawcount, GLsizei stride);
 
 	// ROP
 	static void extGlBlendColor(float red, float green, float blue, float alpha);
@@ -1377,15 +1583,17 @@ class COpenGLExtensionHandler
 
     //samplers
     static PFNGLGENSAMPLERSPROC pGlGenSamplers;
-    static PFNGLCREATESAMPLERSPROC pGlCreateSamplers; //NULL
+    static PFNGLCREATESAMPLERSPROC pGlCreateSamplers;
     static PFNGLDELETESAMPLERSPROC pGlDeleteSamplers;
     static PFNGLBINDSAMPLERPROC pGlBindSampler;
     static PFNGLBINDSAMPLERSPROC pGlBindSamplers;
     static PFNGLSAMPLERPARAMETERIPROC pGlSamplerParameteri;
     static PFNGLSAMPLERPARAMETERFPROC pGlSamplerParameterf;
+    static PFNGLSAMPLERPARAMETERFVPROC pGlSamplerParameterfv;
 
     //
     static PFNGLBINDIMAGETEXTUREPROC pGlBindImageTexture;
+    static PFNGLBINDIMAGETEXTURESPROC pGlBindImageTextures;
 
     // stuff
     static PFNGLBINDBUFFERBASEPROC pGlBindBufferBase;
@@ -1394,6 +1602,9 @@ class COpenGLExtensionHandler
     static PFNGLBINDBUFFERSRANGEPROC pGlBindBuffersRange;
 
     //shaders
+    static PFNGLCREATEPROGRAMPIPELINESPROC pGlCreateProgramPipelines;
+    static PFNGLDELETEPROGRAMPIPELINESPROC pGlDeleteProgramPipelines;
+    static PFNGLUSEPROGRAMSTAGESPROC pGlUseProgramStages;
     static PFNGLBINDATTRIBLOCATIONPROC pGlBindAttribLocation; //NULL
     static PFNGLCREATEPROGRAMPROC pGlCreateProgram;
     static PFNGLUSEPROGRAMPROC pGlUseProgram;
@@ -1401,6 +1612,7 @@ class COpenGLExtensionHandler
     static PFNGLDELETESHADERPROC pGlDeleteShader;
     static PFNGLGETATTACHEDSHADERSPROC pGlGetAttachedShaders;
     static PFNGLCREATESHADERPROC pGlCreateShader;
+    static PFNGLCREATESHADERPROGRAMVPROC pGlCreateShaderProgramv;
     static PFNGLSHADERSOURCEPROC pGlShaderSource;
     static PFNGLCOMPILESHADERPROC pGlCompileShader;
     static PFNGLATTACHSHADERPROC pGlAttachShader;
@@ -1436,6 +1648,8 @@ class COpenGLExtensionHandler
     static PFNGLPOINTPARAMETERFPROC  pGlPointParameterf;
     static PFNGLPOINTPARAMETERFVPROC pGlPointParameterfv;
     static PFNGLBINDPROGRAMPIPELINEPROC pGlBindProgramPipeline;
+    static PFNGLGETPROGRAMBINARYPROC pGlGetProgramBinary;
+    static PFNGLPROGRAMBINARYPROC pGlProgramBinary;
 
 	// Compute
 	static PFNGLMEMORYBARRIERPROC pGlMemoryBarrier;
@@ -1579,6 +1793,8 @@ class COpenGLExtensionHandler
 	static PFNGLDRAWELEMENTSINDIRECTPROC pGlDrawElementsIndirect;
 	static PFNGLMULTIDRAWARRAYSINDIRECTPROC pGlMultiDrawArraysIndirect;
 	static PFNGLMULTIDRAWELEMENTSINDIRECTPROC pGlMultiDrawElementsIndirect;
+    static PFNGLMULTIDRAWARRAYSINDIRECTCOUNTPROC pGlMultiDrawArrysIndirectCount;
+    static PFNGLMULTIDRAWELEMENTSINDIRECTCOUNTPROC pGlMultiDrawElementsIndirectCount;
 	//
 	static PFNGLCREATETRANSFORMFEEDBACKSPROC pGlCreateTransformFeedbacks;
 	static PFNGLGENTRANSFORMFEEDBACKSPROC pGlGenTransformFeedbacks;
@@ -2474,10 +2690,13 @@ inline void COpenGLExtensionHandler::setPixelUnpackAlignment(const uint32_t &pit
     pixelUnpackAlignment = textureUploadAlignment;
 }
 
-inline void COpenGLExtensionHandler::extGlGenSamplers(GLsizei n, GLuint* samplers)
+inline void COpenGLExtensionHandler::extGlCreateSamplers(GLsizei n, GLuint* samplers)
 {
-    if (pGlGenSamplers)
-        pGlGenSamplers(n,samplers);
+    if (pGlCreateSamplers)
+        pGlCreateSamplers(n, samplers);
+    else if (pGlGenSamplers)
+        pGlGenSamplers(n, samplers);
+    else memset(samplers, 0, 4*n);
 }
 
 inline void COpenGLExtensionHandler::extGlDeleteSamplers(GLsizei n, GLuint* samplers)
@@ -2524,6 +2743,12 @@ inline void COpenGLExtensionHandler::extGlSamplerParameterf(GLuint sampler, GLen
         pGlSamplerParameterf(sampler,pname,param);
 }
 
+inline void COpenGLExtensionHandler::extGlSamplerParameterfv(GLuint sampler, GLenum pname, const GLfloat* params)
+{
+    if (pGlSamplerParameterfv)
+        pGlSamplerParameterfv(sampler, pname, params);
+}
+
 
 inline void COpenGLExtensionHandler::extGlBindImageTexture(GLuint index, GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format)
 {
@@ -2532,12 +2757,51 @@ inline void COpenGLExtensionHandler::extGlBindImageTexture(GLuint index, GLuint 
 }
 
 
+inline void COpenGLExtensionHandler::extGlBindImageTextures(GLuint first, GLsizei count, const GLuint* textures, const GLenum* formats)
+{
+    if (pGlBindImageTextures)
+        pGlBindImageTextures(first, count, textures);
+    else {
+        for (GLuint i = 0u; i < count; ++i) {
+            if (!textures || textures[i] == 0u)
+                extGlBindImageTexture(first+i, 0u, 0u, GL_FALSE, 0, GL_READ_WRITE, GL_R8);
+            else
+                extGlBindImageTexture(first+i, textures[i], 0, GL_TRUE, 0, GL_READ_WRITE, formats[i]);
+        }
+    }
+}
+
+
+inline void COpenGLExtensionHandler::extGlCreateProgramPipelines(GLsizei n, GLuint * pipelines)
+{
+    if (pGlCreateProgramPipelines)
+        pGlCreateProgramPipelines(n, pipelines);
+}
+
+inline void COpenGLExtensionHandler::extGlDeleteProgramPipelines(GLsizei n, const GLuint * pipelines)
+{
+    if (pGlDeleteProgramPipelines)
+        pGlDeleteProgramPipelines(n, pipelines);
+}
+
+inline void COpenGLExtensionHandler::extGlUseProgramStages(GLuint pipeline, GLbitfield stages, GLuint program)
+{
+    if (pGlUseProgramStages)
+        pGlUseProgramStages(pipeline, stages, program);
+}
 
 inline GLuint COpenGLExtensionHandler::extGlCreateShader(GLenum shaderType)
 {
 	if (pGlCreateShader)
 		return pGlCreateShader(shaderType);
 	return 0;
+}
+
+inline GLuint COpenGLExtensionHandler::extGlCreateShaderProgramv(GLenum shaderType, GLsizei count, const char** strings)
+{
+    if (pGlCreateShaderProgramv)
+        return pGlCreateShaderProgramv(shaderType, count, strings);
+    return 0;
 }
 
 inline void COpenGLExtensionHandler::extGlShaderSource(GLuint shader, GLsizei numOfStrings, const char **strings, const GLint *lenOfStrings)
@@ -2777,6 +3041,18 @@ inline void COpenGLExtensionHandler::extGlBindProgramPipeline(GLuint pipeline)
 {
 	if (pGlBindProgramPipeline)
 		pGlBindProgramPipeline(pipeline);
+}
+
+inline void COpenGLExtensionHandler::extGlGetProgramBinary(GLuint program, GLsizei bufSize, GLsizei* length, GLenum* binaryFormat, void* binary)
+{
+    if (pGlGetProgramBinary)
+        pGlGetProgramBinary(program, bufSize, length, binaryFormat, binary);
+}
+
+inline void COpenGLExtensionHandler::extGlProgramBinary(GLuint program, GLenum binaryFormat, const void* binary, GLsizei length)
+{
+    if (pGlProgramBinary)
+        pGlProgramBinary(program, binaryFormat, binary, length);
 }
 
 
@@ -3911,6 +4187,17 @@ inline void COpenGLExtensionHandler::extGlMultiDrawElementsIndirect(GLenum mode,
         pGlMultiDrawElementsIndirect(mode,type,indirect,drawcount,stride);
 }
 
+inline void COpenGLExtensionHandler::extGlMultiDrawArraysIndirectCount(GLenum mode, const void * indirect, GLintptr drawcount, GLintptr maxdrawcount, GLsizei stride)
+{
+    if (pGlMultiDrawArrysIndirectCount)
+        pGlMultiDrawArrysIndirectCount(mode, indirect, drawcount, maxdrawcount, stride);
+}
+
+inline void COpenGLExtensionHandler::extGlMultiDrawElementsIndirectCount(GLenum mode, GLenum type, const void * indirect, GLintptr drawcount, GLintptr maxdrawcount, GLsizei stride)
+{
+    if (pGlMultiDrawElementsIndirectCount)
+        pGlMultiDrawElementsIndirectCount(mode, type, indirect, drawcount, maxdrawcount, stride);
+}
 
 
 
