@@ -118,20 +118,20 @@ public:
         {
             if (_ix == 5u)
             {
-                uint32_t val = (_bits[0] & (0xfu << 60)) >> 60;
-                val |= (_bits[1] & 0xffu) << 4;
+                uint32_t val = (_bits[0] & (0xfull << 60)) >> 60;
+                val |= (_bits[1] & 0xffull) << 4;
                 return val;
             }
             if (_ix == 11u)
             {
-                uint32_t val = (_bits[1] & (0xffu << 56)) >> 56;
-                val |= (_bits[2] & 0xfu) << 8;
+                uint32_t val = (_bits[1] & (0xffull << 56)) >> 56;
+                val |= (_bits[2] & 0xfull) << 8;
                 return val;
             }
             const uint32_t ix = (_ix > 5u) + (_ix > 11u);
             const uint32_t shift = (_ix * 12u) - (ix * 64u);
 
-            return (_bits[ix] >> shift) & 0xfffu;
+            return (_bits[ix] >> shift) & 0xfffull;
         }
         inline static void set12bits(uint32_t _ix, uint64_t _bits[3], uint64_t _val)
         {
@@ -155,7 +155,7 @@ public:
 
             const uint32_t ix = (_ix > 5u) + (_ix > 11u);
             const uint32_t shift = (_ix * 12u) - (ix * 64u);
-            _bits[ix] &= (~(0xfffu << shift));
+            _bits[ix] &= (~(0xfffull << shift));
             _bits[ix] |= (_val << shift);
         }
     };

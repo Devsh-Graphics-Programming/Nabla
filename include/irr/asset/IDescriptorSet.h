@@ -62,6 +62,27 @@ public:
             else
                 assign_buf(_other);
         }
+        SDescriptorInfo& operator=(const SDescriptorInfo& _other)
+        {
+            desc = _other.desc;
+            if (desc)
+            {
+                switch (desc->getTypeCategory())
+                {
+                case IDescriptor::EC_IMAGE:
+                    image = _other.image;
+                    break;
+                case IDescriptor::EC_BUFFER:
+                    buffer = _other.buffer;
+                    break;
+                case IDescriptor::EC_BUFFER_VIEW:
+                    //nothing, just descriptor, no extra info
+                    break;
+                }
+            }
+
+            return (*this);
+        }
 
         SDescriptorInfo()
         {
@@ -71,16 +92,6 @@ public:
         {
             if (desc->getTypeCategory()==IDescriptor::EC_IMAGE)
                 image.sampler.~smart_refctd_ptr();
-        }
-
-    private:
-        void assign_buf(const SDescriptorInfo& other)
-        {
-            buffer = other.buffer;
-        }
-        void assign_img(const SDescriptorInfo& other)
-        {
-            image = other.image;
         }
     };
 
@@ -119,7 +130,7 @@ public:
             const uint32_t ix = (*m_bindingToIx)[wrt.binding];
 
             for (uint32_t j = 0u; j < wrt.count; ++j)
-                (*m_descriptors)[ix].info->operator[](wrt.arrayElement + j).assign(wrt.info[j], (*m_descriptors)[ix].descriptorType);
+                (*m_descriptors)[ix].info->operator[](wrt.arrayElement + j) = wrt.info[j];
         }
         for (uint32_t i = 0u; i < _copyCount; ++i)
         {
@@ -129,7 +140,7 @@ public:
             const SDescriptorBinding* src = cpy.srcSet->getDescriptorFromBindingNum(cpy.srcBinding);
 
             for (uint32_t j = 0u; j < cpy.count; ++j)
-                (*m_descriptors)[ix].info->operator[](cpy.dstArrayElement + j).assign(src->info->operator[](cpy.srcArrayElement + j), (*m_descriptors)[ix].descriptorType);
+                (*m_descriptors)[ix].info->operator[](cpy.dstArrayElement + j) = src->info->operator[](cpy.srcArrayElement + j);
         }
     }
 
