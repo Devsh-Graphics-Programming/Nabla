@@ -257,6 +257,7 @@ IRR_FORCE_INLINE T lerp(const T& a, const T& b, const U& t)
 
 
 // TODO : step,smoothstep,isnan,isinf,floatBitsToInt,floatBitsToUint,intBitsToFloat,uintBitsToFloat,frexp,ldexp
+// extra note, GCC breaks isfinite, isinf, isnan, isnormal, signbit in -ffast-math so need to implement ourselves
 // TODO : packUnorm2x16, packSnorm2x16, packUnorm4x8, packSnorm4x8, unpackUnorm2x16, unpackSnorm2x16, unpackUnorm4x8, unpackSnorm4x8, packHalf2x16, unpackHalf2x16, packDouble2x32, unpackDouble2x32
 // MOVE : faceforward, reflect, refract, any, all, not
 template<typename T>

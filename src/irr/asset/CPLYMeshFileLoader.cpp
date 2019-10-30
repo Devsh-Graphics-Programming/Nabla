@@ -77,7 +77,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	// start with empty mesh
     core::smart_refctd_ptr<asset::CCPUMesh> mesh;
 	uint32_t vertCount=0;
-
+#ifndef NEW_SHADERS
 	// Currently only supports ASCII meshes
 	if (strcmp(getNextLine(ctx), "ply"))
 	{
@@ -294,7 +294,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			mesh->recalculateBoundingBox();
 		}
 	}
-
+#endif
 	return SAssetBundle({mesh});
 }
 
@@ -581,6 +581,7 @@ void CPLYMeshFileLoader::moveForward(SContext& _ctx, uint32_t bytes)
 
 bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4], ICPUMeshBuffer::SBufferBinding& bufferBinding) const
 {
+#ifndef NEW_SHADERS
 	{
 		size_t check = _attribs[0].size();
 		for (size_t i = 1u; i < 4u; ++i)
@@ -624,7 +625,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 
 			}(attributeIndexExtra.first, attributeIndexExtra.second, attributeIndexExtra.first, 0ull);
 	}
-
+#endif
     return true;
 }
 

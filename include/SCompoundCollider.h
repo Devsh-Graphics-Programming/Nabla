@@ -152,6 +152,7 @@ class SCompoundCollider : public IReferenceCounted
 
                 switch (colliderData.attachedNode->getType())
                 {
+#ifndef NEW_SHADERS
                     case scene::ESNT_MESH_INSTANCED:
                         {
                             core::matrix4x3 instanceTform = static_cast<scene::IMeshSceneNodeInstanced*>(colliderData.attachedNode)->getInstanceTransform(colliderData.instanceID);
@@ -165,6 +166,7 @@ class SCompoundCollider : public IReferenceCounted
                         }
                         break;
                     ///case ESNT_INSTANCED_ANIMATED_MESH:
+#endif // !NEW_SHADERS
                     default:
                         break;
                 }

@@ -28,28 +28,30 @@
 
 namespace irr
 {
-    class IrrlichtDevice;
 namespace asset
 {
-    class IAssetManager;
 
-    std::function<void(SAssetBundle&)> makeAssetGreetFunc(const IAssetManager* const _mgr);
-    std::function<void(SAssetBundle&)> makeAssetDisposeFunc(const IAssetManager* const _mgr);
+class IAssetManager;
 
-	//! Class responsible for handling loading of assets from file system or other resources
-	/**
-		It provides a loading, writing and creation functionality that is almost thread-safe.
-		There is one issue with threading, starting loading the same asset at the exact same time 
-		may end up with two copies in the cache.
 
-		IAssetManager performs caching of CPU assets associated with resource handles such as names, 
-		filenames, UUIDs. However there are separate caches for each asset type.
+std::function<void(SAssetBundle&)> makeAssetGreetFunc(const IAssetManager* const _mgr);
+std::function<void(SAssetBundle&)> makeAssetDisposeFunc(const IAssetManager* const _mgr);
 
-		@see IAsset
 
-	*/
-	class IAssetManager : public core::IReferenceCounted
-	{
+//! Class responsible for handling loading of assets from file system or other resources
+/**
+	It provides a loading, writing and creation functionality that is almost thread-safe.
+	There is one issue with threading, starting loading the same asset at the exact same time 
+	may end up with two copies in the cache.
+
+	IAssetManager performs caching of CPU assets associated with resource handles such as names, 
+	filenames, UUIDs. However there are separate caches for each asset type.
+
+	@see IAsset
+
+*/
+class IAssetManager : public core::IReferenceCounted
+{
         // the point of those functions is that lambdas returned by them "inherits" friendship
         friend std::function<void(SAssetBundle&)> makeAssetGreetFunc(const IAssetManager* const _mgr);
         friend std::function<void(SAssetBundle&)> makeAssetDisposeFunc(const IAssetManager* const _mgr);
@@ -613,7 +615,9 @@ namespace asset
 
 		//
 		void addLoadersAndWriters();
-	};
+};
+
+
 }
 }
 

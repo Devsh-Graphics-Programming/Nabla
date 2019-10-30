@@ -18,7 +18,6 @@
 
 #include "CCameraSceneNode.h"
 #include "CMeshSceneNode.h"
-#include "CMeshSceneNodeInstanced.h"
 #include "CSkyBoxSceneNode.h"
 #include "CSkyDomeSceneNode.h"
 
@@ -291,11 +290,14 @@ IMeshSceneNodeInstanced* CSceneManager::addMeshSceneNodeInstanced(IDummyTransfor
 {
 	if (!parent)
 		parent = this;
-
+#ifdef NEW_SHADERS
+	return nullptr;
+#else
 	CMeshSceneNodeInstanced* node = new CMeshSceneNodeInstanced(parent, this, id, position, rotation, scale);
 	node->drop();
 
 	return node;
+#endif
 }
 
 //! adds a scene node for rendering an animated mesh model
@@ -518,15 +520,11 @@ bool CSceneManager::isCulled(ISceneNode* node) const
     if (tbox.MinEdge==tbox.MaxEdge)
         return true;
 
-    auto cullMode = node->getAutomaticCulling();
-    if (cullMode & (scene::EAC_BOX|scene::EAC_FRUSTUM_BOX))
+    if (node->getAutomaticCulling())
     {
 		node->getAbsoluteTransformation().transformBoxEx(tbox);
-        // can be seen by a bounding box ?
-        if ((cullMode & scene::EAC_BOX) && !tbox.intersectsWithBox(cam->getViewFrustum()->getBoundingBox()))
-            return true;
         // can be seen by cam pyramid planes ?
-        if ((cullMode & scene::EAC_FRUSTUM_BOX) && !cam->getViewFrustum()->intersectsAABB(tbox))
+        if (cam->getViewFrustum()->intersectsAABB(tbox))
             return true;
 	}
 

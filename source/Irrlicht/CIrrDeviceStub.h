@@ -7,7 +7,6 @@
 
 #include "IrrlichtDevice.h"
 #include "SIrrCreationParameters.h"
-#include "CVideoModeList.h"
 #include "COpenCLHandler.h"
 #include "irr/asset/IIncludeHandler.h"
 
@@ -57,9 +56,6 @@ namespace irr
 
             //! \return Returns a pointer to the mouse cursor control interface.
             virtual gui::ICursorControl* getCursorControl();
-
-            //! Returns a pointer to a list with all video modes supported by the gfx adapter.
-            virtual video::IVideoModeList* getVideoModeList();
 
             //! Returns a pointer to the ITimer object. With it the current Time can be received.
             virtual ITimer* getTimer();
@@ -139,7 +135,6 @@ namespace irr
                 EMOUSE_INPUT_EVENT LastMouseInputEvent;
             };
             SMouseMultiClicks MouseMultiClicks;
-            video::CVideoModeList* VideoModeList;
             SIrrlichtCreationParameters CreationParams;
             bool Close;
 	};

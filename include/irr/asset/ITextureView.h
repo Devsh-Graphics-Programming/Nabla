@@ -3,20 +3,22 @@
 
 #include "irr/asset/IDescriptor.h"
 
-namespace irr {
+namespace irr
+{
 namespace asset
 {
 
 class ITextureView : public IDescriptor
 {
-public:
-    E_CATEGORY getTypeCategory() const override { return EC_IMAGE; }
+	public:
+		E_CATEGORY getTypeCategory() const override { return EC_IMAGE; }
 
-protected:
-    ITextureView() = default;
-    virtual ~ITextureView() = default;
+	protected:
+		ITextureView() = default;
+		virtual ~ITextureView() = default;
 };
 
-}}
+}
+}
 
 #endif

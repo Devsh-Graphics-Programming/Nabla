@@ -95,7 +95,6 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ROOT_PATH}/src/irr/asset/CSmoothNormalGenerator.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CMeshManipulator.cpp
 	CMeshSceneNode.cpp
-	CMeshSceneNodeInstanced.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/COverdrawMeshOptimizer.cpp
 	CSkinnedMeshSceneNode.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/bawformat/TypedBlob.cpp
@@ -139,7 +138,6 @@ set(IRRLICHT_SRCS_COMMON
 
 # Video
 	CFPSCounter.cpp
-	CVideoModeList.cpp
 	${IRR_ROOT_PATH}/src/irr/video/alloc/GPUMemoryAllocatorBase.cpp
 	${IRR_ROOT_PATH}/src/irr/video/alloc/SimpleGPUBufferAllocator.cpp
 
@@ -184,7 +182,6 @@ set(IRRLICHT_SRCS_NORMAL
 	COpenGLMultisampleTextureArray.cpp
 	COpenGLMultisampleTexture.cpp
 	COpenGLQuery.cpp
-	COpenGLTransformFeedback.cpp
 	COpenGL1DTexture.cpp
 	COpenGL1DTextureArray.cpp
 	COpenGLCubemapArrayTexture.cpp

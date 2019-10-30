@@ -11,7 +11,6 @@
 #include "dimension2d.h"
 #include "position2d.h"
 #include "IDriverFence.h"
-#include "ITransformFeedback.h"
 #include "SExposedVideoData.h"
 #include "IDriver.h"
 #include "irr/video/CDerivativeMapCreator.h"

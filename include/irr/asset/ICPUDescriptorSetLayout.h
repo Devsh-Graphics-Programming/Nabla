@@ -5,25 +5,28 @@
 #include "irr/asset/IAsset.h"
 #include "irr/asset/ICPUSampler.h"
 
-namespace irr { namespace asset
+namespace irr
+{
+namespace asset
 {
 
 class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public IAsset
 {
-public:
-    using IDescriptorSetLayout<ICPUSampler>::IDescriptorSetLayout;
+	public:
+		using IDescriptorSetLayout<ICPUSampler>::IDescriptorSetLayout;
 
-    size_t conservativeSizeEstimate() const override { return m_bindings->size()*sizeof(SBinding) + m_samplers->size()*sizeof(void*); }
-    void convertToDummyObject() override
-    {
-        m_bindings = nullptr;
-    }
-    E_TYPE getAssetType() const override { return ET_DESCRIPTOR_SET_LAYOUT; }
+		size_t conservativeSizeEstimate() const override { return m_bindings->size()*sizeof(SBinding) + m_samplers->size()*sizeof(void*); }
+		void convertToDummyObject() override
+		{
+			m_bindings = nullptr;
+		}
+		E_TYPE getAssetType() const override { return ET_DESCRIPTOR_SET_LAYOUT; }
 
-protected:
-    virtual ~ICPUDescriptorSetLayout() = default;
+	protected:
+		virtual ~ICPUDescriptorSetLayout() = default;
 };
 
-}}
+}
+}
 
 #endif

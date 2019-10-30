@@ -23,7 +23,6 @@ namespace irr
 // also includes the OpenGL stuff
 #include "COpenGLExtensionHandler.h"
 #include "COpenGLDriverFence.h"
-#include "COpenGLTransformFeedback.h"
 #include "COpenCLHandler.h"
 #include "irr/video/COpenGLSpecializedShader.h"
 #include "irr/video/COpenGLRenderpassIndependentPipeline.h"

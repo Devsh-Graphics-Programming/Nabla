@@ -41,7 +41,7 @@ CSkyDomeSceneNode::CSkyDomeSceneNode(core::smart_refctd_ptr<video::IRenderableVi
 	setDebugName("CSkyDomeSceneNode");
 	#endif
 
-	setAutomaticCulling(scene::EAC_OFF);
+	setAutomaticCulling(false);
 
 #ifndef NEW_SHADERS
 	Buffer = new video::IGPUMeshBuffer();
@@ -68,7 +68,7 @@ CSkyDomeSceneNode::CSkyDomeSceneNode(CSkyDomeSceneNode* other,
 	setDebugName("CSkyDomeSceneNode");
 	#endif
 
-	setAutomaticCulling(scene::EAC_OFF);
+	setAutomaticCulling(false);
 
 	Buffer = other->Buffer;
 	Buffer->grab();

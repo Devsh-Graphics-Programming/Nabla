@@ -1,11 +1,15 @@
 #ifndef __IRR_I_GPU_BUFFER_VIEW_H_INCLUDED__
 #define __IRR_I_GPU_BUFFER_VIEW_H_INCLUDED__
 
-#include "irr/asset/IBufferView.h"
-#include "IGPUBuffer.h"
 #include <utility>
 
-namespace irr {
+
+#include "irr/asset/IBufferView.h"
+
+#include "IGPUBuffer.h"
+
+namespace irr
+{
 namespace video
 {
 
@@ -20,6 +24,7 @@ protected:
     virtual ~IGPUBufferView() = default;
 };
 
-}}
+}
+}
 
 #endif

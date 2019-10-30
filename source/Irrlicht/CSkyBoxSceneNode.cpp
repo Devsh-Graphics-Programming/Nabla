@@ -28,7 +28,7 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(	core::smart_refctd_ptr<video::ITexture>&& to
 	setDebugName("CSkyBoxSceneNode");
 	#endif
 
-	setAutomaticCulling(scene::EAC_OFF);
+	setAutomaticCulling(false);
 	Box.MaxEdge.set(0,0,0);
 	Box.MinEdge.set(0,0,0);
 
@@ -153,7 +153,7 @@ CSkyBoxSceneNode::CSkyBoxSceneNode(CSkyBoxSceneNode* other,
 	setDebugName("CSkyBoxSceneNode");
 	#endif
 
-	setAutomaticCulling(scene::EAC_OFF);
+	setAutomaticCulling(false);
 	Box.MaxEdge.set(0,0,0);
 	Box.MinEdge.set(0,0,0);
 

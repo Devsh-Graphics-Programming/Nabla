@@ -2,10 +2,14 @@
 #define __IRR_SHADER_COMMONS_H_INCLUDED__
 
 #include <cstdint>
+
+
 #include "irr/core/Types.h"
 #include "irr/asset/ICPUBuffer.h"
 
-namespace irr { namespace asset
+namespace irr
+{
+namespace asset
 {
 
 enum E_SHADER_STAGE : uint32_t
@@ -52,43 +56,44 @@ inline bool operator<(const SSpecializationMapEntry& _a, const SSpecializationMa
 
 class ISpecializationInfo : public core::IReferenceCounted
 {
-protected:
-    ~ISpecializationInfo()
-    {
-        if (m_backingBuffer)
-            m_backingBuffer->drop();
-    }
+	protected:
+		~ISpecializationInfo()
+		{
+			if (m_backingBuffer)
+				m_backingBuffer->drop();
+		}
 
-public:
-    //! _entries must be sorted!
-    ISpecializationInfo(core::vector<SSpecializationMapEntry>&& _entries, ICPUBuffer* _backingBuff, const std::string& _entryPoint, E_SHADER_STAGE _ss) : 
-        m_entries{std::move(_entries)}, m_backingBuffer{_backingBuff}, entryPoint{_entryPoint}, shaderStage{_ss}
-    {
-        if (m_backingBuffer)
-            m_backingBuffer->grab();
-    }
+	public:
+		//! _entries must be sorted!
+		ISpecializationInfo(core::vector<SSpecializationMapEntry>&& _entries, ICPUBuffer* _backingBuff, const std::string& _entryPoint, E_SHADER_STAGE _ss) : 
+			m_entries{std::move(_entries)}, m_backingBuffer{_backingBuff}, entryPoint{_entryPoint}, shaderStage{_ss}
+		{
+			if (m_backingBuffer)
+				m_backingBuffer->grab();
+		}
 
-    inline std::pair<const void*, size_t> getSpecializationByteValue(uint32_t _specConstID) const
-    {
-        if (!m_backingBuffer)
-            return {nullptr, 0u};
+		inline std::pair<const void*, size_t> getSpecializationByteValue(uint32_t _specConstID) const
+		{
+			if (!m_backingBuffer)
+				return {nullptr, 0u};
 
-        auto entry = std::lower_bound(m_entries.begin(), m_entries.end(), SSpecializationMapEntry{_specConstID,0xdeadbeefu,0xdeadbeefu/*To make GCC warnings shut up*/});
-        if (entry != m_entries.end() && entry->specConstID == _specConstID && (entry->offset + entry->size) <= m_backingBuffer->getSize())
-            return {reinterpret_cast<const uint8_t*>(m_backingBuffer->getPointer()) + entry->offset, entry->size};
-        else
-            return {nullptr, 0u};
-    }
+			auto entry = std::lower_bound(m_entries.begin(), m_entries.end(), SSpecializationMapEntry{_specConstID,0xdeadbeefu,0xdeadbeefu/*To make GCC warnings shut up*/});
+			if (entry != m_entries.end() && entry->specConstID == _specConstID && (entry->offset + entry->size) <= m_backingBuffer->getSize())
+				return {reinterpret_cast<const uint8_t*>(m_backingBuffer->getPointer()) + entry->offset, entry->size};
+			else
+				return {nullptr, 0u};
+		}
 
-public:
-    std::string entryPoint;
-    E_SHADER_STAGE shaderStage;
+	public:
+		std::string entryPoint;
+		E_SHADER_STAGE shaderStage;
 
-private:
-    core::vector<SSpecializationMapEntry> m_entries;
-    ICPUBuffer* m_backingBuffer = nullptr;
+	private:
+		core::vector<SSpecializationMapEntry> m_entries;
+		ICPUBuffer* m_backingBuffer = nullptr;
 };
 
-}}
+}
+}
 
 #endif//__IRR_SHADER_COMMONS_H_INCLUDED__

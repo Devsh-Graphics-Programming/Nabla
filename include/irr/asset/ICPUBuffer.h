@@ -8,11 +8,12 @@
 
 #include <type_traits>
 
-#include "irr/asset/IBuffer.h"
 #include "irr/core/alloc/null_allocator.h"
+
+#include "irr/asset/IBuffer.h"
 #include "irr/asset/IAsset.h"
-#include "irr/asset/bawformat/blobs/RawBufferBlob.h"
 #include "irr/asset/IDescriptor.h"
+#include "irr/asset/bawformat/blobs/RawBufferBlob.h"
 
 namespace irr
 {

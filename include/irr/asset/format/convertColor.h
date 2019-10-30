@@ -141,7 +141,7 @@ namespace irr { namespace video
 			SWIZZLE(decbuf)
             encT encbuf[4];
             for (uint32_t i = 0u; i < 4u; ++i)
-                encbuf[i] = decbuf[i];
+                encbuf[i] = static_cast<encT>(decbuf[i]);
             impl::SCallEncode<dF, encT>{}(dstPix, encbuf);
         }
         else if (isIntegerFormat<sF>() && (isNormalizedFormat<dF>() || isScaledFormat<dF>() || isFloatingPointFormat<dF>()))
@@ -179,8 +179,8 @@ namespace irr { namespace video
         for (size_t i = 0u; i < _pixOrBlockCnt; ++i)
         {
             // assuming _imgSize is always represented in texels
-            const uint32_t px = i % (_imgSize.X / sdims.X);
-            const uint32_t py = i / (_imgSize.X / sdims.X);
+            const auto px = static_cast<uint32_t>(i % size_t(_imgSize.X / sdims.X));
+            const auto py = static_cast<uint32_t>(i / size_t(_imgSize.X / sdims.X));
             //px, py are block or texel position
             //x, y are position within block
             for (uint32_t x = 0u; x < sdims.X; ++x)
@@ -197,8 +197,8 @@ namespace irr { namespace video
             }
             else
             {
-                const uint32_t px = i % _imgSize.X;
-                const uint32_t py = i / _imgSize.X;
+                const uint32_t px = static_cast<uint32_t>(i % size_t(_imgSize.X));
+                const uint32_t py = static_cast<uint32_t>(i / size_t(_imgSize.X));
                 for (uint32_t j = 0u; j < 4u; ++j)
                     src[j] = reinterpret_cast<const uint8_t*>(srcPix[j]) + chCntInPlane[j]*((_imgSize.X/hPlaneReduction[j]) * (py/vPlaneReduction[j]) + px/hPlaneReduction[j]);
             }

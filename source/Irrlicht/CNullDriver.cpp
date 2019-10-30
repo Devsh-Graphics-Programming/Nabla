@@ -6,7 +6,6 @@
 #include "os.h"
 #include "IAnimatedMeshSceneNode.h"
 #include "irr/asset/CMeshManipulator.h"
-#include "CMeshSceneNodeInstanced.h"
 
 #include <new>
 #include "IrrlichtDevice.h"
@@ -97,8 +96,6 @@ CNullDriver::~CNullDriver()
 bool CNullDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
 		const SExposedVideoData& videoData, core::rect<int32_t>* sourceRect)
 {
-	scene::CMeshSceneNodeInstanced::recullOrder = 0;
-
 	PrimitivesDrawn = 0;
 	return true;
 }

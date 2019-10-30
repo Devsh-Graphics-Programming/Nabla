@@ -2,11 +2,15 @@
 #define __IRR_I_ASSET_WRITER_H_INCLUDED__
 
 #include "IrrCompileConfig.h"
+
 #include "irr/core/IReferenceCounted.h"
+
 #include "IWriteFile.h"
 #include "IAsset.h"
 
-namespace irr { namespace asset
+namespace irr
+{
+namespace asset
 {
 
 //! Writing flags

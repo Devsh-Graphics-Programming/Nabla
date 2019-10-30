@@ -12,7 +12,6 @@
 #include "EDeviceTypes.h"
 #include "IEventReceiver.h"
 #include "ICursorControl.h"
-#include "IVideoModeList.h"
 #include "ITimer.h"
 #include "IOSOperator.h"
 
@@ -31,7 +30,6 @@ namespace irr
 
     namespace asset {
         class IAssetManager;
-        class IIncludeHandler;
     }
 
 	//! The Irrlicht device. You can create it with createDevice() or createDeviceEx().
@@ -104,17 +102,6 @@ namespace irr
 		//! Provides access to the message logger.
 		/** \return Pointer to the logger. */
 		virtual ILogger* getLogger() = 0;
-
-		//! Gets a list with all video modes available.
-		/** If you are confused now, because you think you have to
-		create an Irrlicht Device with a video mode before being able
-		to get the video mode list, let me tell you that there is no
-		need to start up an Irrlicht Device with EDT_DIRECT3D8,
-		EDT_OPENGL or EDT_SOFTWARE: For this (and for lots of other
-		reasons) the null driver, EDT_NULL exists.
-		\return Pointer to a list with all video modes supported
-		by the gfx adapter. */
-		virtual video::IVideoModeList* getVideoModeList() = 0; // kill
 
 		//! Provides access to the operation system operator object.
 		/** The OS operator provides methods for

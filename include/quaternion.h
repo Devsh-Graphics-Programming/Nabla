@@ -535,16 +535,16 @@ inline quaternion& quaternion::set(const float& roll, const float& pitch, const 
 	double angle;
 
 	angle = roll * 0.5;
-	const float sr = sin(angle);
-	const float cr = cos(angle);
+	const float sr = sinf(angle);
+	const float cr = cosf(angle);
 
 	angle = pitch * 0.5;
-	const float sp = sin(angle);
+	const float sp = sinf(angle);
 	const float cp = cos(angle);
 
 	angle = yaw * 0.5;
-	const float sy = sin(angle);
-	const float cy = cos(angle);
+	const float sy = sinf(angle);
+	const float cy = cosf(angle);
 
 	const float cpcy = cp * cy;
 	const float spcy = sp * cy;
