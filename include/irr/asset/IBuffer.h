@@ -19,6 +19,13 @@ class IBuffer : public core::IBuffer, public IDescriptor
 		virtual ~IBuffer() = default;
 };
 
+template<class BufferType>
+struct SBufferBinding
+{
+	uint64_t offset = 0ull;
+	core::smart_refctd_ptr<BufferType> buffer = nullptr;
+};
+
 }
 }
 

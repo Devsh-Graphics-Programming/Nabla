@@ -61,19 +61,19 @@ class IImageView : public IDescriptor
 
 
 		//!
-		E_IMAGE_VIEW_CREATE_FLAGS	getFlags() const { return flags; }
+		const E_IMAGE_VIEW_CREATE_FLAGS&	getFlags() const { return flags; }
 
 		//!
-		const ImageType*			getImage() const { return image.get(); }
+		const ImageType*					getImage() const { return image.get(); }
 
 		//!
-		E_IMAGE_VIEW_TYPE			getViewType() const { return viewType; }
+		const E_IMAGE_VIEW_TYPE&			getViewType() const { return viewType; }
 
 		//!
-		E_FORMAT					getFormat() const { return format; }
+		const E_FORMAT&						getFormat() const { return format; }
 
 		//!
-		const SComponentMapping&	getComponents() const { return components; }
+		const SComponentMapping&			getComponents() const { return components; }
 
 	protected:
 		IImageView() = default;
