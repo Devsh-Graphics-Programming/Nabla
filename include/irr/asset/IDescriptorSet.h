@@ -54,14 +54,6 @@ public:
             } image;
         };
 
-        void assign(const SDescriptorInfo& _other, E_DESCRIPTOR_TYPE _type)
-        {
-            desc = _other.desc;
-            if (_type == EDT_COMBINED_IMAGE_SAMPLER || _type == EDT_STORAGE_IMAGE)
-                assign_img(_other);
-            else
-                assign_buf(_other);
-        }
         SDescriptorInfo& operator=(const SDescriptorInfo& _other)
         {
             desc = _other.desc;
@@ -127,10 +119,29 @@ public:
         for (uint32_t i = 0u; i < _writeCount; ++i)
         {
             const SWriteDescriptorSet& wrt = _descWrites[i];
-            const uint32_t ix = (*m_bindingToIx)[wrt.binding];
+            uint32_t ix = (*m_bindingToIx)[wrt.binding];
+            uint32_t startIx = wrt.arrayElement;
+            uint32_t remaining = wrt.count;
 
-            for (uint32_t j = 0u; j < wrt.count; ++j)
-                (*m_descriptors)[ix].info->operator[](wrt.arrayElement + j) = wrt.info[j];
+            while ((remaining > 0u) && (ix < m_descriptors->size()))
+            {
+                SDescriptorBinding& descBinding = (*m_descriptors)[ix];
+
+                assert(wrt.descriptorType == descBinding.descriptorType);
+
+                const uint32_t cnt = std::min<uint32_t>(descBinding.info->size()-startIx, remaining);
+
+                const uint32_t updatedSoFar = (wrt.count - remaining);
+                for (uint32_t j = 0u; j < cnt; ++j)
+                {
+                    descBinding.info->operator[](startIx + j) = wrt.info[updatedSoFar + j];
+                }
+
+                remaining -= cnt;
+                startIx = 0u;
+                ++ix;
+            }
+            assert(remaining==0u);
         }
         for (uint32_t i = 0u; i < _copyCount; ++i)
         {
@@ -163,7 +174,7 @@ public:
     IDescriptorSet(core::smart_refctd_ptr<LayoutType>&& _layout) :
         m_layout(std::move(_layout)),
         m_descriptors(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SDescriptorBinding>>(m_layout->getBindings().length())),
-        m_bindingToIx(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>((m_layout->getBindings().end() - 1)->binding))
+        m_bindingToIx(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>((m_layout->getBindings().end() - 1)->binding + 1u))
     {
         for (auto& item : (*m_bindingToIx))
             item = (~0u);
@@ -187,7 +198,7 @@ public:
     */
     IDescriptorSet(core::smart_refctd_ptr<LayoutType>&& _layout, core::smart_refctd_dynamic_array<SDescriptorBinding>&& _descriptors) :
         m_layout(std::move(_layout)), m_descriptors(std::move(_descriptors)),
-        m_bindingToIx(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>((m_layout->getBindings().end()-1)->binding))
+        m_bindingToIx(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>((m_layout->getBindings().end()-1)->binding + 1u))
     {
         for (auto& item : (*m_bindingToIx))
             item = (~0u);
