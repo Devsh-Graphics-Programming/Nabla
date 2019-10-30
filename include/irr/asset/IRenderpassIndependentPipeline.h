@@ -128,25 +128,14 @@ enum E_FACE_CULL_MODE : uint8_t
     EFCM_FRONT_AND_BACK = 3
 };
 
-enum E_SAMPLE_COUNT : uint8_t
-{
-    ESC_1_BIT = 0x00000001,
-    ESC_2_BIT = 0x00000002,
-    ESC_4_BIT = 0x00000004,
-    ESC_8_BIT = 0x00000008,
-    ESC_16_BIT = 0x00000010,
-    ESC_32_BIT = 0x00000020,
-    ESC_64_BIT = 0x00000040
-};
-
 struct SRasterizationParams
 {
-    uint32_t viewportCount;
+    uint8_t viewportCount;
     E_POLYGON_MODE polygonMode;
     E_FACE_CULL_MODE faceCullingMode;
-    E_SAMPLE_COUNT rasterizationSamplesHint;
+	E_COMPARE_OP depthCompareOp;
+    IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint;
     uint32_t sampleMask[2];
-    E_COMPARE_OP depthCompareOp;
     float minSampleShading;
     float depthBiasSlopeFactor;
     float depthBiasConstantFactor;
@@ -166,7 +155,7 @@ struct SRasterizationParams
         uint16_t stencilTestEnable : 1;
     } PACK_STRUCT;
 } PACK_STRUCT;
-static_assert(sizeof(SRasterizationParams)==(4u + 3u*1u + 2u*4u + 1u + 3u*4u + 2u*sizeof(SStencilOpParams) + 2u), "Unexpected size!");
+static_assert(sizeof(SRasterizationParams)==4u*sizeof(uint8_t) + 3u*sizeof(uint32_t) + 3u*sizeof(float) + 2u*sizeof(SStencilOpParams) + sizeof(uint16_t), "Unexpected size!");
 
 enum E_LOGIC_OP : uint8_t
 {

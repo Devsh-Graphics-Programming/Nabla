@@ -111,25 +111,24 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_BUFFER = 1ull<<0,								//!< asset::ICPUBuffer
 			ET_BUFFER_VIEW = 1ull<<1,                           //!< asset::ICPUBufferView
 			ET_SAMPLER = 1ull<<2,                               //!< asset::ICPUSampler
-			ET_SUB_IMAGE = 1ull<<3,						        //!< asset::CImageData - maybe rename to asset::CSubImageData
-			ET_IMAGE = 1ull<<4,								    //!< asset::ICPUTexture
-			ET_TEXTURE_VIEW = 1ull<<5,                          //!< asset::ICPUTextureView
-			ET_DESCRIPTOR_SET = 1ull<<6,                        //!< asset::ICPUDescriptorSet
-			ET_DESCRIPTOR_SET_LAYOUT = 1ull<<7,                 //!< asset::ICPUDescriptorSetLayout
-			ET_SKELETON = 1ull<<8,							    //!< asset::ICPUSkeleton - to be done by splitting CFinalBoneHierarchy
-			ET_KEYFRAME_ANIMATION = 1ull<<9,					//!< asset::ICPUKeyframeAnimation - from CFinalBoneHierarchy
-			ET_PIPELINE_LAYOUT = 1ull<<10,                      //!< asset::ICPUPipelineLayout
-			ET_SHADER = 1ull<<11,								//!< asset::ICPUShader
-			ET_SPECIALIZED_SHADER = 1ull<<12,					//!< asset::ICPUSpecializedShader
-			ET_GRAPHICS_PIPELINE = 1ull<<13,					//!< asset::ICPURenderpassIndependentPipeline
-			ET_SUB_MESH = 1ull<<14,							    //!< asset::ICPUMeshBuffer
-			ET_MESH = 1ull<<15,								    //!< asset::ICPUMesh
-			ET_COMPUTE_PIPELINE = 1ull<<16,                     //!< asset::ICPUComputePipeline
-			ET_SCENE = 1ull<<17,								//!< reserved, to implement later
+			ET_IMAGE = 1ull<<3,									//!< asset::ICPUImage
+			ET_IMAGE_VIEW = 1ull<<4,			                //!< asset::ICPUImageView
+			ET_DESCRIPTOR_SET = 1ull<<5,                        //!< asset::ICPUDescriptorSet
+			ET_DESCRIPTOR_SET_LAYOUT = 1ull<<6,                 //!< asset::ICPUDescriptorSetLayout
+			ET_SKELETON = 1ull<<7,							    //!< asset::ICPUSkeleton - to be done by splitting CFinalBoneHierarchy
+			ET_KEYFRAME_ANIMATION = 1ull<<8,					//!< asset::ICPUKeyframeAnimation - from CFinalBoneHierarchy
+			ET_PIPELINE_LAYOUT = 1ull<<9,						//!< asset::ICPUPipelineLayout
+			ET_SHADER = 1ull<<10,								//!< asset::ICPUShader
+			ET_SPECIALIZED_SHADER = 1ull<<11,					//!< asset::ICPUSpecializedShader
+			ET_RENDERPASS_INDEPENDENT_PIPELINE = 1ull<<12,		//!< asset::ICPURenderpassIndependentPipeline
+			ET_SUB_MESH = 1ull<<13,							    //!< asset::ICPUMeshBuffer
+			ET_MESH = 1ull<<14,								    //!< asset::ICPUMesh
+			ET_COMPUTE_PIPELINE = 1ull<<15,                     //!< asset::ICPUComputePipeline
+			ET_SCENE = 1ull<<16,								//!< reserved, to implement later
 			ET_IMPLEMENTATION_SPECIFIC_METADATA = 1ull<<31u     //!< lights, etc.
 			//! Reserved special value used for things like terminating lists of this enum
 		};
-		constexpr static size_t ET_STANDARD_TYPES_COUNT = 18u;
+		constexpr static size_t ET_STANDARD_TYPES_COUNT = 16u;
 
 		//! Returns a representaion of an Asset type in decimal system
 		/**

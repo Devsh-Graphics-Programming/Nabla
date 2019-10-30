@@ -25,6 +25,25 @@ typedef struct VkExtent3D {
 	uint32_t	depth;
 } VkExtent3D; //depr
 
+// common
+#ifdef _IRR_DEBUG // TODO: When Vulkan comes
+	// check buffer contains all regions
+	// check regions don't overlap
+#endif
+// any command
+#ifdef _IRR_DEBUG // TODO: When Vulkan comes
+	// dst image only has one MSAA sample
+	// check regions contained in dstImage
+#endif
+// GPU command
+#ifdef _IRR_DEBUG // TODO: When Vulkan comes
+	// image offset and extent must respect granularity requirements
+	// buffer has memory bound (with sparse exceptions)
+	// check buffer has transfer usage flag
+	// format features of dstImage contain transfer dst bit
+	// check regions contained in dstImage
+	// dst image not created subsampled
+#endif
 class IImage : public IDescriptor
 {
 	public:
@@ -76,6 +95,16 @@ class IImage : public IDescriptor
 			EIT_2D,
 			EIT_3D
 		};
+		enum E_SAMPLE_COUNT_FLAGS : uint32_t
+		{
+			ESCF_1_BIT = 0x00000001,
+			ESCF_2_BIT = 0x00000002,
+			ESCF_4_BIT = 0x00000004,
+			ESCF_8_BIT = 0x00000008,
+			ESCF_16_BIT = 0x00000010,
+			ESCF_32_BIT = 0x00000020,
+			ESCF_64_BIT = 0x00000040
+		};
 		enum E_IMAGE_TILING : uint32_t
 		{
 			EIT_OPTIMAL,
@@ -125,20 +154,25 @@ class IImage : public IDescriptor
 		};
 
 		//!
-		static bool validateMipchain(const core::vector<CImageData*>& _textureRanges, video::ITexture::E_TEXTURE_TYPE _Type)
+		template<typename CopyStructIt>
+		static bool validateMipchain(CopyStructIt pRegionsStart, CopyStructIt pRegionsEnd)
 		{
-			if (_textureRanges.empty())
+			if (pRegionsStart==pRegionsEnd)
 				return false;
 
-			bool allUnknownFmt = true;
-			E_FORMAT commonFmt = _textureRanges.front()->getColorFormat();
-			for (auto _range : _textureRanges)
+			for (auto it = pRegionsStart; it != pRegionsEnd; it++)
 			{
-				if (_range->getSupposedMipLevel() > 16u)
+				constexpr uint32_t kMaxMipLevel = 16u;
+				// check max size and array count
+				VkOffset3D maxPt = {it->imageOffset.x+it->imageExtent.width,it->imageOffset.y+it->imageExtent.height,it->imageOffset.z+it->imageExtent.depth};
+				if (*std::max_element(&maxPt.x, &maxPt.x + 3) > ((0x1u<<kMaxMipLevel) >> it->imageSubresource.mipLevel))
 					return false;
-				if (std::max_element(_range->getSliceMax(), _range->getSliceMax() + 3)[0] > (0x10000u >> _range->getSupposedMipLevel()))
+				if (it->imageSubresource.mipLevel > kMaxMipLevel)
+					return false;
+				if (it->imageSubresource.baseArrayLayer+it->imageSubresource.layerCount > 4096u)
 					return false;
 
+				// check regions don't overlap
 				switch (_Type)
 				{
 				case video::ITexture::ETT_1D:
@@ -257,7 +291,7 @@ class IImage : public IDescriptor
 				auto memsize = size_t(levelSize[0] * levelSize[1])*size_t(levelSize[2] * arrayLayers)*getBytesPerPixel();
 				assert(memsize.getNumerator() % memsize.getDenominator() == 0u);
 				memreq += memsize.getIntegerApprox();
-				_size = _size >> 1u;
+				_size = _size / 2u;
 			}
 			return memreq;
 		}
@@ -284,7 +318,7 @@ class IImage : public IDescriptor
 				E_SHARING_MODE _sharingMode,
 				core::smart_refctd_dynamic_aray<uint32_t>&& _queueFamilyIndices,
 				E_IMAGE_LAYOUT _initialLayout*/)
-					: flags(_flags), type(_type), format(_format), extent(_extent)
+					: flags(_flags), type(_type), format(_format), extent(_extent),
 					mipLevels(_mipLevels), arrayLayers(_arrayLayers), samples(_samples)/*,
 					tiling(_tiling), usage(_usage), sharingMode(_sharingMode),
 					queueFamilyIndices(_queueFamilyIndices), initialLayout(_initialLayout)*/
