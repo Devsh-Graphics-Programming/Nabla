@@ -152,10 +152,10 @@ class IImage : public IDescriptor
 			VkOffset3D			dstOffset = {0u,0u,0u};
 			VkExtent3D			extent = {0u,0u,0u};
 		};
-
+/*
 		//!
 		template<typename CopyStructIt>
-		static bool validateMipchain(CopyStructIt pRegionsStart, CopyStructIt pRegionsEnd)
+		static bool validateMipchain(CopyStructIt pRegionsStart, CopyStructIt pRegionsEnd, E_IMAGE_TYPE type)
 		{
 			if (pRegionsStart==pRegionsEnd)
 				return false;
@@ -169,46 +169,30 @@ class IImage : public IDescriptor
 					return false;
 				if (it->imageSubresource.mipLevel > kMaxMipLevel)
 					return false;
-				if (it->imageSubresource.baseArrayLayer+it->imageSubresource.layerCount > 4096u)
+				if (it->imageSubresource.baseArrayLayer+it->imageSubresource.layerCount > 8192u)
 					return false;
 
+				// dimension consistent with type
+				switch (type)
+				{
+					case EIT_1D:
+						if (maxPt.y > 1u)
+							return false;
+						_IRR_FALLTHROUGH;
+					case EIT_2D:
+						if (maxPt.z > 1u)
+							return false;
+						break;
+					default: //	type unknown, or 3D format
+						break;
+				}
+
 				// check regions don't overlap
-				switch (_Type)
-				{
-				case video::ITexture::ETT_1D:
-					if (_range->getSliceMax()[1] > 1u)
-						return false;
-					_IRR_FALLTHROUGH;
-				case video::ITexture::ETT_1D_ARRAY:
-					_IRR_FALLTHROUGH;
-				case video::ITexture::ETT_2D:
-					if (_range->getSliceMax()[2] > 1u)
-						return false;
-					break;
-				case video::ITexture::ETT_CUBE_MAP_ARRAY:
-					if (_range->getSliceMax()[2] % 6u != 0u)
-						return false;
-					_IRR_FALLTHROUGH;
-				case video::ITexture::ETT_CUBE_MAP:
-					if (_range->getSliceMax()[2] > 6u)
-						return false;
-					break;
-				default: //	type unknown, or 3D format
-					break;
-				}
-
-				if (commonFmt != EF_UNKNOWN)
-				{
-					if (_range->getColorFormat() != commonFmt && _range->getColorFormat() != EF_UNKNOWN)
-						return false;
-				}
-				else commonFmt = _range->getColorFormat();
-
-				allUnknownFmt &= (_range->getColorFormat() == EF_UNKNOWN);
 			}
 
 			return !allUnknownFmt;
 		}
+*/
 		//!
 		template<typename CopyStructIt>
 		inline static auto calculateDstSizeArrayCountAndMipLevels(CopyStructIt pRegionsStart, CopyStructIt pRegionsEnd)

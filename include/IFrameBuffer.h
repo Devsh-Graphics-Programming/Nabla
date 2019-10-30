@@ -7,9 +7,9 @@
 
 #include "irr/core/IReferenceCounted.h"
 #include "irr/core/parallel/IThreadBound.h"
-
-#include "EDriverTypes.h"
 #include "dimension2d.h"
+
+#include "irr/video/IGPUImageView.h"
 
 namespace irr
 {
@@ -32,18 +32,14 @@ enum E_FBO_ATTACHMENT_POINT
     EFAP_MAX_ATTACHMENTS
 };
 
-class ITexture;
-class IMultisampleTexture;
-class IRenderableVirtualTexture;
-
 class IFrameBuffer : public virtual core::IReferenceCounted, public core::IThreadBound
 {
     public:
 		//! Attaches given texture to given attachment point.
 		/** @param attachmentPoint Identifies attachment point.
 		@param tex Texture being attached.
-		@param mipMapLayer Mipmap level of the texture image to be attached.
-		@param layer
+		@param mipMapLayer Mipmap level of the texture image to be attached. Must be 0 if `tex` has a sample count not equal to 1.
+		@param layer 
 		@parblock
 		Layer of the framebuffer to attach to.
 
@@ -55,18 +51,7 @@ class IFrameBuffer : public virtual core::IReferenceCounted, public core::IThrea
 			Only after rebindRevalidate() is called by the driver internally or by the user manually do the attachments drawn into by the FrameBuffer change.
 		@see @ref rebindRevalidate()
 		*/
-        virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, ITexture* tex, const uint32_t &mipMapLayer=0, const int32_t &layer=-1) = 0;
-
-		//! Attaches given multisample texture to given attachment point.
-		/**
-		@param attachmentPoint Identifies attachment point.
-		@param tex Multisample texture being attached.
-		@param layer Layer of the framebuffer to attach to.
-		@returns Whether attachment has been attached.
-			Only after rebindRevalidate() is called by the driver internally or by the user manually do the attachments drawn into by the FrameBuffer change.
-		@see @ref rebindRevalidate()
-		*/
-        virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IMultisampleTexture* tex, const int32_t &layer=-1) = 0;
+        virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IGPUImageView* tex, const uint32_t &mipMapLayer=0, const int32_t &layer=-1) = 0;
 
 		//! Binds possibly respecified attachments.
 		/** @returns true when everything is right or when no work was necessary to do;
@@ -78,7 +63,7 @@ class IFrameBuffer : public virtual core::IReferenceCounted, public core::IThrea
 		/** @param ix Given index.
 		@returns Attached at given index object or NULL if nothing is bound there.
 		*/
-        virtual const IRenderableVirtualTexture* getAttachment(const size_t &ix) const = 0;
+        virtual const IGPUImageView* getAttachment(const size_t &ix) const = 0;
 
     protected:
         _IRR_INTERFACE_CHILD(IFrameBuffer) {}
