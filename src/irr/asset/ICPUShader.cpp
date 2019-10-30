@@ -4,21 +4,9 @@
 #include "irr/asset/spvUtils.h"
 #include "irr/asset/format/EFormat.h"
 
-namespace irr { namespace asset
-{
 
+using namespace irr::asset;
 
-ICPUShader::ICPUShader(ICPUBuffer* _spirv) : m_code(_spirv), m_containsGLSL(false)
-{
-    if (m_code)
-        m_code->grab();
-}
-
-ICPUShader::ICPUShader(const char* _glsl) : 
-    m_code(new ICPUBuffer(strlen(_glsl)+1u)), m_containsGLSL(true)
-{
-    memcpy(m_code->getPointer(), _glsl, m_code->getSize());
-}
 
 void ICPUShader::insertGLSLExtensionsDefines(std::string& _glsl, const core::refctd_dynamic_array<std::string>* _exts)
 {
@@ -51,5 +39,3 @@ void ICPUShader::insertGLSLExtensionsDefines(std::string& _glsl, const core::ref
 
     _glsl.insert(pos, insertion);
 }
-
-}}

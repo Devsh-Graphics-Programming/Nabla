@@ -260,6 +260,7 @@ class IImage : public IDescriptor
 			const auto blockAlignment = asset::getBlockDimensions(getColorFormat());
 			const bool hasAnAlignment = (blockAlignment != unit).any();
 
+			core::rational<size_t> bytesPerPixel = getBytesPerPixel();
 			auto _size = core::vector3du32_SIMD(extent.width, extent.height, extent.depth);
 			size_t memreq = 0ul;
 			for (uint32_t i=0u; i<mipLevels; i++)
@@ -272,7 +273,7 @@ class IImage : public IDescriptor
 					levelSize /= blockAlignment;
 					levelSize *= blockAlignment;
 				}
-				auto memsize = size_t(levelSize[0] * levelSize[1])*size_t(levelSize[2] * arrayLayers)*getBytesPerPixel();
+				auto memsize = size_t(levelSize[0] * levelSize[1])*size_t(levelSize[2] * arrayLayers)*bytesPerPixel;
 				assert(memsize.getNumerator() % memsize.getDenominator() == 0u);
 				memreq += memsize.getIntegerApprox();
 				_size = _size / 2u;
@@ -287,9 +288,12 @@ class IImage : public IDescriptor
 		}
 
     protected:
-		virtual ~IImage()
-		{}
-
+		IImage() : flags(static_cast<E_IMAGE_CREATE_FLAGS>(0u)), type(EIT_2D), format(EF_R8G8B8A8_SRGB),
+			extent({0u,0u,0u}), mipLevels(0u), arrayLayers(0u), samples(static_cast<E_SAMPLE_COUNT_FLAGS>(0u))/*,
+			tiling(_tiling), usage(_usage), sharingMode(_sharingMode),
+			queueFamilyIndices(_queueFamilyIndices), initialLayout(_initialLayout)*/
+		{
+		}
 		IImage(	E_IMAGE_CREATE_FLAGS _flags,
 				E_IMAGE_TYPE _type,
 				E_FORMAT _format,
@@ -308,6 +312,9 @@ class IImage : public IDescriptor
 					queueFamilyIndices(_queueFamilyIndices), initialLayout(_initialLayout)*/
         {
         }
+
+		virtual ~IImage()
+		{}
 
 		E_IMAGE_CREATE_FLAGS						flags;
 		E_IMAGE_TYPE								type;

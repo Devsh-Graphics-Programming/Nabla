@@ -5,10 +5,11 @@
 #ifndef __I_CPU_IMAGE_H_INCLUDED__
 #define __I_CPU_IMAGE_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
+#include "irr/core/core.h"
 
-#include "irr/asset/IImage.h"
 #include "irr/asset/IAsset.h"
+#include "irr/asset/ICPUBuffer.h"
+#include "irr/asset/IImage.h"
 
 namespace irr
 {
@@ -18,7 +19,7 @@ namespace asset
 class ICPUImage final : public IImage, public IAsset
 {
 	public:
-		inline static core::smart_refctd_ptr<ICPUTexture> create()
+		inline static core::smart_refctd_ptr<ICPUImage> create()
 		{
 			return nullptr;
 		}
@@ -39,7 +40,13 @@ class ICPUImage final : public IImage, public IAsset
 		inline auto* getBuffer() { return buffer.get(); }
 		inline const auto* getBuffer() const { return buffer.get(); }
 
-		inline void setBuffer(core::smart_refctd_ptr<core::ICPUBuffer>&& _buffer) { buffer = _buffer; }
+		inline void setBuffer(core::smart_refctd_ptr<ICPUBuffer>&& _buffer) { buffer = _buffer; }
+
+
+		inline auto* getRegions() { return regions->data(); }
+		inline const auto* getRegions() const { return regions->data(); }
+
+		inline void setRegions(core::smart_refctd_dynamic_array<IImage::SBufferCopy>&& _regions) { regions = _regions; }
 
 		/*
         inline const void* getSliceRowPointer_helper(const SBufferCopy& ) const
@@ -90,7 +97,7 @@ class ICPUImage final : public IImage, public IAsset
 					const VkExtent3D& _extent,
 					uint32_t _mipLevels=0u,
 					uint32_t _arrayLayers=1u,
-					E_SAMPLE_COUNT_FLAGS _samples=ESMF_1_BIT) :
+					E_SAMPLE_COUNT_FLAGS _samples=ESCF_1_BIT) :
 						IImage(_flags,_type,_format,_extent,_mipLevels,_arrayLayers,_samples),
 						buffer(_buffer), regions(_regions)
 		{
@@ -105,8 +112,8 @@ class ICPUImage final : public IImage, public IAsset
 	private:
 		inline void sortRegionsByMipMapLevel()
 		{
-			std::sort(std::begin(m_textureRanges), std::end(m_textureRanges),
-				[](const asset::CImageData* _a, const asset::CImageData* _b) { return _a->getSupposedMipLevel() < _b->getSupposedMipLevel(); }
+			std::sort(regions->begin(), regions->end(),
+				[](const IImage::SBufferCopy& _a, const IImage::SBufferCopy& _b) { return _a.imageSubresource.mipLevel < _b.imageSubresource.mipLevel; }
 			);
 		}
 };

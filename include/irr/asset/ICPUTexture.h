@@ -4,28 +4,12 @@
 #include <utility>
 #include <algorithm>
 #include <cassert>
-#include "irr/core/Types.h"
-#include "irr/asset/IAsset.h"
-#include "irr/asset/CImageData.h"
-#include "ITexture.h" // for ITexture::E_TEXTURE_COUNT ... this enum should be in global scope
-#include "irr/asset/IDescriptor.h"
 
 namespace irr { namespace asset
 {
 
 class ICPUTexture : public IAsset, public IDescriptor
 {
-protected:
-    uint32_t m_size[3];
-    uint32_t m_minReqBaseLvlSz[3];
-    core::vector<asset::CImageData*> m_textureRanges;
-    asset::E_FORMAT m_colorFormat;
-    video::ITexture::E_TEXTURE_TYPE m_type;
-    std::string m_name;
-
-    using IteratorType = typename decltype(m_textureRanges)::iterator;
-    using ConstIteratorType = typename decltype(m_textureRanges)::const_iterator;
-
 public:
     using RangeType = std::pair<IteratorType, IteratorType>;
     using ConstRangeType = std::pair<ConstIteratorType, ConstIteratorType>;
@@ -41,8 +25,6 @@ private:
     }
 
 public:
-    E_CATEGORY getTypeCategory() const override { return EC_IMAGE; }
-
     inline static ICPUTexture* create(const core::vector<asset::CImageData*>& _textureRanges, const std::string& _srcFileName, video::ITexture::E_TEXTURE_TYPE _Type = video::ITexture::ETT_COUNT)
     {
         return create_impl(_textureRanges, _srcFileName, _Type);
@@ -57,56 +39,6 @@ public:
         return create(core::vector<asset::CImageData*>(_first, _last), _srcFileName, _Type);
     }
 
-    static bool validateMipchain(const core::vector<CImageData*>& _textureRanges, video::ITexture::E_TEXTURE_TYPE _Type)
-    {
-        if (_textureRanges.empty())
-            return false;
-
-        bool allUnknownFmt = true;
-        E_FORMAT commonFmt = _textureRanges.front()->getColorFormat();
-        for (auto _range : _textureRanges)
-        {
-            if (_range->getSupposedMipLevel() > 16u)
-                return false;
-            if (std::max_element(_range->getSliceMax(), _range->getSliceMax()+3)[0] > (0x10000u>> _range->getSupposedMipLevel()))
-                return false;
-
-			switch (_Type)
-			{
-				case video::ITexture::ETT_1D:
-					if (_range->getSliceMax()[1] > 1u)
-						return false;
-					_IRR_FALLTHROUGH;
-				case video::ITexture::ETT_1D_ARRAY:
-					_IRR_FALLTHROUGH;
-				case video::ITexture::ETT_2D:
-					if (_range->getSliceMax()[2] > 1u)
-						return false;
-					break;
-				case video::ITexture::ETT_CUBE_MAP_ARRAY:
-					if (_range->getSliceMax()[2]%6u != 0u)
-						return false;
-					_IRR_FALLTHROUGH;
-				case video::ITexture::ETT_CUBE_MAP:
-					if (_range->getSliceMax()[2] > 6u)
-						return false;
-					break;
-				default: //	type unknown, or 3D format
-					break;
-			}
-
-            if (commonFmt != EF_UNKNOWN)
-            {
-                if (_range->getColorFormat() != commonFmt && _range->getColorFormat() != EF_UNKNOWN)
-                    return false;
-            }
-            else commonFmt = _range->getColorFormat();
-
-            allUnknownFmt &= (_range->getColorFormat()==EF_UNKNOWN);
-        }
-
-        return !allUnknownFmt;
-    }
 
 protected:
     explicit ICPUTexture(const core::vector<asset::CImageData*>& _textureRanges, const std::string& _srcFileName, video::ITexture::E_TEXTURE_TYPE _Type) : m_textureRanges{ _textureRanges }, m_colorFormat{EF_UNKNOWN}, m_type{_Type}, m_name{_srcFileName}
@@ -135,24 +67,6 @@ protected:
             establishMinBaseLevelSize();
         }
     }
-
-    virtual ~ICPUTexture()
-    {
-        for (const auto& mm : m_textureRanges)
-            mm->drop();
-    }
-
-public:
-    virtual void convertToDummyObject() override {}
-
-    virtual E_TYPE getAssetType() const override { return IAsset::ET_IMAGE; }
-
-    virtual size_t conservativeSizeEstimate() const override
-    {
-        return 500u;
-    }
-
-    const core::vector<asset::CImageData*>& getRanges() const { return m_textureRanges; }
 
     //! Finds range of images making up _mipLvl miplevel or higher if _mipLvl miplevel is not present. 
     //! @returns {end(), end()} if _mipLvl > highest present mip level.
@@ -192,40 +106,7 @@ public:
 
     inline uint32_t getHighestMip() const { return m_textureRanges.back()->getSupposedMipLevel(); }
 
-    inline asset::E_FORMAT getColorFormat() const { return m_colorFormat; }
 
-    inline video::ITexture::E_TEXTURE_TYPE getType() const { return m_type; }
-
-    inline const uint32_t* getSize() const { return m_size; }
-
-    inline const uint32_t* getBaseLevelSizeHint() const { return m_minReqBaseLvlSz; }
-
-    inline const std::string& getSourceFilename() const { return m_name; }
-
-private:
-    inline void sortRangesByMipMapLevel()
-    {
-        std::sort(std::begin(m_textureRanges), std::end(m_textureRanges),
-            [](const asset::CImageData* _a, const asset::CImageData* _b) { return _a->getSupposedMipLevel() < _b->getSupposedMipLevel(); }
-        );
-    }
-    inline void establishFmt()
-    {
-        m_colorFormat = (*std::find_if(m_textureRanges.begin(), m_textureRanges.end(), [](CImageData* mip) { return mip->getColorFormat() != EF_UNKNOWN; }))->getColorFormat();
-    }
-    inline void recalcSize()
-    {
-        m_size[0] = m_size[1] = m_size[2] = 1u;
-        for (const asset::CImageData* img : m_textureRanges)
-        {
-            for (uint32_t i = 0u; i < 3u; ++i)
-            {
-                const uint32_t dimSz = img->getSliceMax()[i];
-                if (m_size[i] < dimSz)
-                    m_size[i] = dimSz;
-            }
-        }
-    }
     //! Assumes that m_mipmaps is already sorted by mip-lvl and size calculated
     // needs to be reworked for sparse textures
     inline void establishType()

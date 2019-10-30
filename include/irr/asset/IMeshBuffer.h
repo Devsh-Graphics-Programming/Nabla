@@ -29,10 +29,6 @@ template <class BufferType, class DescSetType, class PipelineType>
 class IMeshBuffer : public virtual core::IReferenceCounted
 {
 public:
-    struct SBufferBinding {
-        uint64_t offset = 0ull;
-        core::smart_refctd_ptr<BufferType> buffer = nullptr;
-    };
     _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_PUSH_CONSTANT_BYTESIZE = 128u;
 
     _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT;

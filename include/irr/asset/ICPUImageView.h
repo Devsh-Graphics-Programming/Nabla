@@ -10,7 +10,7 @@ namespace irr
 namespace asset
 {
 
-class ICPUTextureView final : public IImageView<ICPUImage>, public IAsset
+class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 {
 	public:
 		//!
@@ -35,7 +35,7 @@ class ICPUTextureView final : public IImageView<ICPUImage>, public IAsset
 		SComponentMapping&			getComponents() { return components; }
 
 	protected:
-		virtual ~ICPUTextureView() = default;
+		virtual ~ICPUImageView() = default;
 };
 
 }
