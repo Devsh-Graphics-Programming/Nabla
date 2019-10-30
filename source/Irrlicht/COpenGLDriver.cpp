@@ -1407,6 +1407,16 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
         );
 }
 
+core::smart_refctd_ptr<IGPUComputePipeline> COpenGLDriver::createGPUComputePipeline(core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader)
+{
+    if (!_layout || !_shader)
+        return nullptr;
+    if (_shader->getStage() != asset::ESS_COMPUTE)
+        return nullptr;
+
+    return core::make_smart_refctd_ptr<COpenGLComputePipeline>(std::move(_parent), std::move(_layout), std::move(_shader));
+}
+
 core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorBinding>&& _descriptors)
 {
     if (!_layout || !_descriptors || !_descriptors->size())

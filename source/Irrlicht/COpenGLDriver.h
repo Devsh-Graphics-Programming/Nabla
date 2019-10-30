@@ -29,6 +29,7 @@ namespace irr
 #include "irr/video/COpenGLRenderpassIndependentPipeline.h"
 #include "irr/video/COpenGLDescriptorSet.h"
 #include "irr/video/COpenGLPipelineLayout.h"
+#include "irr/video/COpenGLComputePipeline.h"
 
 #include <map>
 #include "FW_Mutex.h"
@@ -622,6 +623,12 @@ namespace video
             const asset::SBlendParams& _blendParams,
             const asset::SPrimitiveAssemblyParams& _primAsmParams,
             const asset::SRasterizationParams& _rasterParams
+        ) override;
+
+        virtual core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline(
+            core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
+            core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+            core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
         ) override;
 
         core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorBinding>&& _descriptors) override;

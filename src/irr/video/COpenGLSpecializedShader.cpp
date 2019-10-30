@@ -114,7 +114,7 @@ GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion)
     comp.set_entry_point(m_specInfo->entryPoint.c_str(), asset::ESS2spvExecModel(m_specInfo->shaderStage));
     spirv_cross::CompilerGLSL::Options options;
     options.version = _GLSLversion;
-    //vulkan_semantics=false cases spirv_cross to translate push_constants into non-UBO uniform of struct type! Exactly like we wanted!
+    //vulkan_semantics=false causes spirv_cross to translate push_constants into non-UBO uniform of struct type! Exactly like we wanted!
     options.vulkan_semantics = false; // with this it's likely that SPIRV-Cross will take care of built-in variables renaming, but need testing
     options.separate_shader_objects = true;
     comp.set_common_options(options);
@@ -156,7 +156,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
     {
         const SMember& m = u.m;
         auto is_mtx = [&m] { return (m.mtxRowCnt>1u && m.mtxColCnt>1u); };
-        auto is_single_or_vec = [&m] { return (m.mtxRowCnt>=1u && m.mtxColCnt==1u); };
+        auto is_scalar_or_vec = [&m] { return (m.mtxRowCnt>=1u && m.mtxColCnt==1u); };
 
         if (is_mtx() && m.type==asset::EGVT_F32) {
             std::array<GLfloat, IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE/sizeof(GLfloat)> matrix_data;
@@ -179,7 +179,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
             assert(core::is_aligned_to(matrix_data.data(), alignof(float)));//no idea why im doing this, theres no such requirement
             glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt-2u][m.mtxRowCnt-2u](_GLname, u.location, m.count, m.rowMajor?GL_TRUE:GL_FALSE, matrix_data.data());
         }
-        else if (is_single_or_vec()) {
+        else if (is_scalar_or_vec()) {
             std::array<GLuint, IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE/sizeof(GLuint)> vector_data;
             const uint32_t count = vector_data.size()/(m.count*m.mtxRowCnt);
             for (uint32_t i = 0u; i < count; ++i) {

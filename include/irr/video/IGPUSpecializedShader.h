@@ -17,7 +17,7 @@ public:
 protected:
     virtual ~IGPUSpecializedShader() = default;
 
-    asset::E_SHADER_STAGE m_stage;
+    const asset::E_SHADER_STAGE m_stage;
 };
 
 }}

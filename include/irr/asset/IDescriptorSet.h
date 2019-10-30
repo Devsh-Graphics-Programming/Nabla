@@ -149,9 +149,12 @@ public:
             const uint32_t ix = (*m_bindingToIx)[cpy.dstBinding];
 
             const SDescriptorBinding* src = cpy.srcSet->getDescriptorFromBindingNum(cpy.srcBinding);
+            SDescriptorBinding& dst = (*m_descriptors)[ix];
+
+            assert(dst.descriptorType == src.descriptorType);
 
             for (uint32_t j = 0u; j < cpy.count; ++j)
-                (*m_descriptors)[ix].info->operator[](cpy.dstArrayElement + j) = src->info->operator[](cpy.srcArrayElement + j);
+                dst.info->operator[](cpy.dstArrayElement + j) = src->info->operator[](cpy.srcArrayElement + j);
         }
     }
 

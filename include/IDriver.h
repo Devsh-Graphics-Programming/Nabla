@@ -143,6 +143,15 @@ namespace video
                 return nullptr;
             }
 
+            virtual core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline(
+                core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
+                core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+                core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
+            )
+            {
+                return nullptr;
+            }
+
             virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorBinding>&& _descriptors)
             {
                 return nullptr;

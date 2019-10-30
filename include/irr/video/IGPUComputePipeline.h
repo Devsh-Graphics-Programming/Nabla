@@ -19,7 +19,7 @@ public:
 protected:
     virtual ~IGPUComputePipeline() = default;
 
-    bool m_allowDispatchBase;
+    bool m_allowDispatchBase = false;
 };
 
 }}
