@@ -4,8 +4,8 @@
 #include "irr/asset/IDescriptorSet.h"
 
 #include "IGPUBuffer.h"
-#include "ITexture.h"
 #include "irr/video/IGPUBufferView.h"
+#include "irr/video/IGPUImageView.h"
 #include "irr/video/IGPUSampler.h"
 #include "irr/video/IGPUDescriptorSetLayout.h"
 

@@ -70,8 +70,6 @@
 #include "ISceneNodeAnimatorCameraFPS.h"
 #include "ISceneNodeAnimatorCameraMaya.h"
 #include "ISkinnedMeshSceneNode.h"
-#include "ITexture.h"
-#include "IMultisampleTexture.h"
 #include "ITimer.h"
 #include "IVideoDriver.h"
 #include "IWriteFile.h"

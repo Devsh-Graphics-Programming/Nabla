@@ -20,8 +20,8 @@ class ICPUImage final : public IImage, public IAsset
 {
 	public:
 		inline static core::smart_refctd_ptr<ICPUImage> create(
-							E_IMAGE_CREATE_FLAGS _flags,
-							E_IMAGE_TYPE _type,
+							E_CREATE_FLAGS _flags,
+							IImage::E_TYPE _type,
 							E_FORMAT _format,
 							const VkExtent3D& _extent,
 							uint32_t _mipLevels = 1u,
@@ -41,7 +41,7 @@ class ICPUImage final : public IImage, public IAsset
             regions = nullptr;
         }
 
-        inline E_TYPE getAssetType() const override { return IAsset::ET_IMAGE; }
+        inline IAsset::E_TYPE getAssetType() const override { return IAsset::ET_IMAGE; }
 
         virtual size_t conservativeSizeEstimate() const override
 		{
@@ -50,15 +50,6 @@ class ICPUImage final : public IImage, public IAsset
 
 		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const ICPUImage* src)
 		{
-			// GPU command
-#ifdef _IRR_DEBUG // TODO: When Vulkan comes
-	// image offset and extent must respect granularity requirements
-	// buffer has memory bound (with sparse exceptions)
-	// check buffer has transfer usage flag
-	// format features of dstImage contain transfer dst bit
-	// dst image not created subsampled
-	// etc.
-#endif
 			return validateCopies_template(pRegionsBegin, pRegionsEnd, src);
 		}
 
@@ -115,8 +106,8 @@ class ICPUImage final : public IImage, public IAsset
 */
 
     protected:
-		ICPUImage(	E_IMAGE_CREATE_FLAGS _flags,
-					E_IMAGE_TYPE _type,
+		ICPUImage(	E_CREATE_FLAGS _flags,
+					IImage::E_TYPE _type,
 					E_FORMAT _format,
 					const VkExtent3D& _extent,
 					uint32_t _mipLevels,
@@ -141,15 +132,15 @@ class ICPUImage final : public IImage, public IAsset
 					{
 						if (_a.imageSubresource.baseArrayLayer==_b.imageSubresource.baseArrayLayer)
 						{
-							if (_a.imageOffset.x==_b.imageOffset.x)
+							if (_a.imageOffset.z==_b.imageOffset.z)
 							{
 								if (_a.imageOffset.y==_b.imageOffset.y)
-									return _a.imageOffset.z<_b.imageOffset.z;
+									return _a.imageOffset.x<_b.imageOffset.x;
 								else
 									return _a.imageOffset.y<_b.imageOffset.y;
 							}
 							else
-								return _a.imageOffset.x<_b.imageOffset.x;
+								return _a.imageOffset.z<_b.imageOffset.z;
 						}
 						else
 							return _a.imageSubresource.baseArrayLayer<_b.imageSubresource.baseArrayLayer;

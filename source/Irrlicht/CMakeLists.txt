@@ -120,10 +120,6 @@ set(IRRLICHT_SRCS_COMMON
 # Driver-specific objects
 	IDriver.cpp
 	CNullDriver.cpp
-	COpenGLDriver.cpp
-	COpenGLExtensionHandler.cpp
-	COpenGLFrameBuffer.cpp
-	COpenGLTexture.cpp
 	${IRR_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
 	FW_Mutex.cpp
 
@@ -175,17 +171,12 @@ set(IRRLICHT_SRCS_NORMAL
 
 	#opengl
 	COpenCLHandler.cpp
-	COpenGL2DTextureArray.cpp
-	COpenGL2DTexture.cpp
-	COpenGL3DTexture.cpp
-	COpenGLCubemapTexture.cpp
-	COpenGLMultisampleTextureArray.cpp
-	COpenGLMultisampleTexture.cpp
+	COpenGLDriver.cpp
+	COpenGLExtensionHandler.cpp
+	COpenGLFrameBuffer.cpp
+	COpenGLTexture.cpp
+	#COpenGLTextureView.cpp
 	COpenGLQuery.cpp
-	COpenGL1DTexture.cpp
-	COpenGL1DTextureArray.cpp
-	COpenGLCubemapArrayTexture.cpp
-	COpenGLCubemapTexture.cpp
 
 	# abstract (move this out eventually)
 	${IRR_ROOT_PATH}/src/irr/video/CDerivativeMapCreator.cpp

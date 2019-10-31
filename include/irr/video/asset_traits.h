@@ -18,8 +18,8 @@
 #include "irr/video/IGPURenderpassIndependentPipeline.h"
 #include "irr/asset/ICPUSampler.h"
 #include "irr/video/IGPUSampler.h"
-#include "irr/asset/ICPUTextureView.h"
-#include "irr/video/IGPUTextureView.h"
+#include "irr/asset/ICPUImageView.h"
+#include "irr/video/IGPUImageView.h"
 
 namespace irr
 {

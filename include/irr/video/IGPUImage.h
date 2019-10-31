@@ -19,13 +19,29 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
 {
     public:
         _IRR_RESOLVE_NEW_DELETE_AMBIGUITY(IRenderableVirtualTexture,IDriverMemoryBacked)
+			
+		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const IGPUImage* src)
+		{
+			if (validateCopies_template(pRegionsBegin, pRegionsEnd, src))
+				return false;
+
+			#ifdef _IRR_DEBUG // TODO: When Vulkan comes
+				// image offset and extent must respect granularity requirements
+				// buffer has memory bound (with sparse exceptions)
+				// check buffer has transfer usage flag
+				// format features of dstImage contain transfer dst bit
+				// dst image not created subsampled
+				// etc.
+			#endif
+			return true;
+		}
     protected:
         _IRR_INTERFACE_CHILD(IGPUImage) {}
 
         //! constructor
 		IGPUImage(	const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
-					E_IMAGE_CREATE_FLAGS _flags,
-					E_IMAGE_TYPE _type,
+					E_CREATE_FLAGS _flags,
+					E_TYPE _type,
 					asset::E_FORMAT _format,
 					const asset::VkExtent3D& _extent,
 					uint32_t _mipLevels,

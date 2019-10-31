@@ -21,18 +21,18 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 		//!
 		void convertToDummyObject() override { }
 		//!
-		E_TYPE getAssetType() const override { return ET_IMAGE_VIEW; }
+		IAsset::E_TYPE getAssetType() const override { return ET_IMAGE_VIEW; }
 
 		//!
-		E_IMAGE_VIEW_CREATE_FLAGS&	getFlags() { return flags; }
+		E_CREATE_FLAGS		getFlags() { return flags; }
 		//!
-		ICPUImage*					getImage() { return image.get(); }
+		ICPUImage*			getImage() { return image.get(); }
 		//!
-		E_IMAGE_VIEW_TYPE&			getViewType() { return viewType; }
+		IImageView::E_TYPE	getViewType() { return viewType; }
 		//!
-		E_FORMAT&					getFormat() { return format; }
+		E_FORMAT			getFormat() { return format; }
 		//!
-		SComponentMapping&			getComponents() { return components; }
+		SComponentMapping&	getComponents() { return components; }
 
 	protected:
 		virtual ~ICPUImageView() = default;

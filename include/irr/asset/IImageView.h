@@ -13,19 +13,19 @@ class IImageView : public IDescriptor
 {
 	public:
 		// no flags for now, yet
-		enum E_IMAGE_VIEW_CREATE_FLAGS
+		enum E_CREATE_FLAGS
 		{
 		};
-		enum E_IMAGE_VIEW_TYPE
+		enum E_TYPE
 		{
-			EIVT_1D = 0,
-			EIVT_2D,
-			EIVT_3D,
-			EIVT_CUBE_MAP,
-			EIVT_1D_ARRAY,
-			EIVT_2D_ARRAY,
-			EIVT_CUBE_MAP_ARRAY,
-			EIVT_COUNT
+			ET_1D = 0,
+			ET_2D,
+			ET_3D,
+			ET_CUBE_MAP,
+			ET_1D_ARRAY,
+			ET_2D_ARRAY,
+			ET_CUBE_MAP_ARRAY,
+			ET_COUNT
 		};
 		enum E_CUBE_MAP_FACE
 		{
@@ -61,19 +61,19 @@ class IImageView : public IDescriptor
 
 
 		//!
-		const E_IMAGE_VIEW_CREATE_FLAGS&	getFlags() const { return flags; }
+		E_CREATE_FLAGS				getFlags() const { return flags; }
 
 		//!
-		const ImageType*					getImage() const { return image.get(); }
+		const ImageType*			getImage() const { return image.get(); }
 
 		//!
-		const E_IMAGE_VIEW_TYPE&			getViewType() const { return viewType; }
+		E_TYPE						getViewType() const { return viewType; }
 
 		//!
-		const E_FORMAT&						getFormat() const { return format; }
+		E_FORMAT					getFormat() const { return format; }
 
 		//!
-		const SComponentMapping&			getComponents() const { return components; }
+		const SComponentMapping&	getComponents() const { return components; }
 
 	protected:
 		IImageView() = default;

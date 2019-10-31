@@ -5,15 +5,9 @@
 #include "irr/macros.h"
 #include "COpenGLExtensionHandler.h"
 #include "COpenGLBuffer.h"
-#include "COpenGL1DTexture.h"
-#include "COpenGL1DTextureArray.h"
-#include "COpenGL2DTexture.h"
-#include "COpenGL2DTextureArray.h"
-#include "COpenGLCubemapTexture.h"
-#include "COpenGLCubemapArrayTexture.h"
-#include "COpenGL3DTexture.h"
 #include "COpenGLBufferView.h"
-#include "COpenGLTextureView.h"
+#include "COpenGLImage.h"
+#include "COpenGLImageView.h"
 #include "irr/video/COpenGLSampler.h"
 
 namespace irr {

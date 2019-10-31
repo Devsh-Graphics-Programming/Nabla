@@ -6,8 +6,8 @@
 #ifndef __IRR_TEXTURE_PATH_BLOB_H_INCLUDED__
 #define __IRR_TEXTURE_PATH_BLOB_H_INCLUDED__
 
-//! kill this whole file soon
-
+//! kill this whole file soon (upgrade BaW format to V3)
+#ifndef NEW_SHADERS
 #include "irr/asset/ICPUTexture.h"
 
 namespace irr
@@ -31,5 +31,6 @@ struct CorrespondingBlobTypeFor<video::IRenderableVirtualTexture> { typedef Text
 
 }
 } // irr::asset
+#endif
 
 #endif

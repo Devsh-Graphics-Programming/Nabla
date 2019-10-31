@@ -5,11 +5,10 @@
 #ifndef __I_SCENE_NODE_H_INCLUDED__
 #define __I_SCENE_NODE_H_INCLUDED__
 
-#include "irr/core/core.h"
+#include "irr/video/video.h"
 
 #include "ESceneNodeTypes.h"
 #include "ISceneNodeAnimator.h"
-#include "ITexture.h"
 #include "aabbox3d.h"
 #include "matrix4x3.h"
 #include "IDummyTransformationSceneNode.h"

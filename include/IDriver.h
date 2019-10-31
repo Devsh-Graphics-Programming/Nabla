@@ -20,7 +20,7 @@ namespace video
 }
 }
 
-#include "IMultisampleTexture.h"
+#include "irr/video/IGPUImageView.h"
 #include "IFrameBuffer.h"
 #include "IVideoCapabilityReporter.h"
 #include "IQueryObject.h"
@@ -32,292 +32,348 @@ namespace irr
 namespace video
 {
 
-	//! Interface to the functionality of the graphics API device which does not require the submission of GPU commands onto a queue.
-	/** This interface only deals with OpenGL and Vulkan concepts which do not require a command to be recorded in a command buffer
-	and then submitted to a command queue, i.e. functions which only require VkDevice or VkPhysicalDevice.
-	Examples of such functionality are the creation of buffers, textures, etc.*/
-	class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityReporter
-	{
-        protected:
-			core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultDownloadBuffer;
-			core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultUploadBuffer;
-            IrrlichtDevice* m_device;
+//! Interface to the functionality of the graphics API device which does not require the submission of GPU commands onto a queue.
+/** This interface only deals with OpenGL and Vulkan concepts which do not require a command to be recorded in a command buffer
+and then submitted to a command queue, i.e. functions which only require VkDevice or VkPhysicalDevice.
+Examples of such functionality are the creation of buffers, textures, etc.*/
+class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityReporter
+{
+    protected:
+		core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultDownloadBuffer;
+		core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultUploadBuffer;
+        IrrlichtDevice* m_device;
 
-            inline IDriver(IrrlichtDevice* _dev) : IVideoCapabilityReporter(), defaultDownloadBuffer(nullptr), defaultUploadBuffer(nullptr), m_device{_dev} {}
+        inline IDriver(IrrlichtDevice* _dev) : IVideoCapabilityReporter(), defaultDownloadBuffer(nullptr), defaultUploadBuffer(nullptr), m_device{_dev} {}
 
-            virtual ~IDriver()
+        virtual ~IDriver()
+        {
+        }
+    public:
+        //! needs to be dropped (smart_refctd_ptr will do automatically) since its not refcounted by GPU driver internally
+        /** Since not owned by any openGL context and hence not owned by driver.
+        You normally need to call glFlush() after placing a fence
+        \param whether to perform an implicit flush the first time CPU waiting,
+        this only works if the first wait is from the same thread as the one which
+        placed the fence. **/
+		virtual core::smart_refctd_ptr<IDriverFence> placeFence(const bool& implicitFlushWaitSameThread = false) = 0;
+
+        static inline IDriverMemoryBacked::SDriverMemoryRequirements getDeviceLocalGPUMemoryReqs()
+        {
+            IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+            reqs.vulkanReqs.alignment = 0;
+            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+            reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+            reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+            reqs.prefersDedicatedAllocation = true;
+            reqs.requiresDedicatedAllocation = true;
+            return reqs;
+        }
+        static inline IDriverMemoryBacked::SDriverMemoryRequirements getSpilloverGPUMemoryReqs()
+        {
+            IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+            reqs.vulkanReqs.alignment = 0;
+            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+            reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
+            reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
+            reqs.prefersDedicatedAllocation = true;
+            reqs.requiresDedicatedAllocation = true;
+            return reqs;
+        }
+        static inline IDriverMemoryBacked::SDriverMemoryRequirements getUpStreamingMemoryReqs()
+        {
+            IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+            reqs.vulkanReqs.alignment = 0;
+            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+            reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+            reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE;
+            reqs.prefersDedicatedAllocation = true;
+            reqs.requiresDedicatedAllocation = true;
+            return reqs;
+        }
+        static inline IDriverMemoryBacked::SDriverMemoryRequirements getDownStreamingMemoryReqs()
+        {
+            IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+            reqs.vulkanReqs.alignment = 0;
+            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+            reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
+            reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|IDriverMemoryAllocation::EMCF_CACHED;
+            reqs.prefersDedicatedAllocation = true;
+            reqs.requiresDedicatedAllocation = true;
+            return reqs;
+        }
+        static inline IDriverMemoryBacked::SDriverMemoryRequirements getCPUSideGPUVisibleGPUMemoryReqs()
+        {
+            IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+            reqs.vulkanReqs.alignment = 0;
+            reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+            reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
+            reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE|IDriverMemoryAllocation::EMCF_COHERENT|IDriverMemoryAllocation::EMCF_CACHED;
+            reqs.prefersDedicatedAllocation = true;
+            reqs.requiresDedicatedAllocation = true;
+            return reqs;
+        }
+
+        //! Best for Mesh data, UBOs, SSBOs, etc.
+        virtual IDriverMemoryAllocation* allocateDeviceLocalMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
+
+        //! If cannot or don't want to use device local memory, then this memory can be used
+        /** If the above fails (only possible on vulkan) or we have perfomance hitches due to video memory oversubscription.*/
+        virtual IDriverMemoryAllocation* allocateSpilloverMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
+
+        //! Best for staging uploads to the GPU, such as resource streaming, and data to update the above memory with
+        virtual IDriverMemoryAllocation* allocateUpStreamingMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
+
+        //! Best for staging downloads from the GPU, such as query results, Z-Buffer, video frames for recording, etc.
+        virtual IDriverMemoryAllocation* allocateDownStreamingMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
+
+        //! Should be just as fast to play around with on the CPU as regular malloc'ed memory, but slowest to access with GPU
+        virtual IDriverMemoryAllocation* allocateCPUSideGPUVisibleMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
+
+
+        //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the CPU writes to become GPU visible
+        virtual void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) {}
+
+        //! Utility wrapper for the pointer based func
+        inline void flushMappedMemoryRanges(const core::vector<video::IDriverMemoryAllocation::MappedMemoryRange>& ranges)
+        {
+            this->flushMappedMemoryRanges(ranges.size(),ranges.data());
+        }
+
+        //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the GPU writes to become CPU visible (slow on OpenGL)
+        virtual void invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) {}
+
+        //! Utility wrapper for the pointer based func
+        inline void invalidateMappedMemoryRanges(const core::vector<video::IDriverMemoryAllocation::MappedMemoryRange>& ranges)
+        {
+            this->invalidateMappedMemoryRanges(ranges.size(),ranges.data());
+        }
+
+
+        //! Low level function used to implement the above, use with caution
+        virtual IGPUBuffer* createGPUBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
+
+        //! Creates the buffer, allocates memory dedicated memory and binds it at once.
+        inline IGPUBuffer* createDeviceLocalGPUBufferOnDedMem(size_t size)
+        {
+            auto reqs = getDeviceLocalGPUMemoryReqs();
+            reqs.vulkanReqs.size = size;
+            return this->createGPUBufferOnDedMem(reqs,false);
+        }
+
+        //! Creates the buffer, allocates memory dedicated memory and binds it at once.
+        inline IGPUBuffer* createSpilloverGPUBufferOnDedMem(size_t size)
+        {
+            auto reqs = getSpilloverGPUMemoryReqs();
+            reqs.vulkanReqs.size = size;
+            return this->createGPUBufferOnDedMem(reqs,false);
+        }
+
+        //! Creates the buffer, allocates memory dedicated memory and binds it at once.
+        inline IGPUBuffer* createUpStreamingGPUBufferOnDedMem(size_t size)
+        {
+            auto reqs = getUpStreamingMemoryReqs();
+            reqs.vulkanReqs.size = size;
+            return this->createGPUBufferOnDedMem(reqs,false);
+        }
+
+        //! Creates the buffer, allocates memory dedicated memory and binds it at once.
+        inline IGPUBuffer* createDownStreamingGPUBufferOnDedMem(size_t size)
+        {
+            auto reqs = getDownStreamingMemoryReqs();
+            reqs.vulkanReqs.size = size;
+            return this->createGPUBufferOnDedMem(reqs,false);
+        }
+
+        //! Creates the buffer, allocates memory dedicated memory and binds it at once.
+        inline IGPUBuffer* createCPUSideGPUVisibleGPUBufferOnDedMem(size_t size)
+        {
+            auto reqs = getCPUSideGPUVisibleGPUMemoryReqs();
+            reqs.vulkanReqs.size = size;
+            return this->createGPUBufferOnDedMem(reqs,false);
+        }
+
+        //! Low level function used to implement the above, use with caution
+        virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
+
+		//!
+		inline IGPUBuffer* createFilledDeviceLocalGPUBufferOnDedMem(size_t size, const void* data)
+		{
+			IGPUBuffer* retval = createDeviceLocalGPUBufferOnDedMem(size);
+
+			updateBufferRangeViaStagingBuffer(retval, 0u, size, data);
+
+			return retval;
+		}
+
+
+		//! Create a BufferView, to a shader; a fake 1D texture with no interpolation (@see ICPUBufferView)
+        virtual core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) { return nullptr; }
+
+
+        //! Creates an Image (@see ICPUImage)
+        virtual core::smart_refctd_ptr<IGPUImage> createGPUImage(	IGPUImage::E_CREATE_FLAGS _flags,
+																	IGPUImage::E_TYPE _type,
+																	asset::E_FORMAT _format,
+																	const asset::VkExtent3D& _extent,
+																	uint32_t _mipLevels,
+																	uint32_t _arrayLayers,
+																	IGPUImage::E_SAMPLE_COUNT_FLAGS _samples)
+		{ return nullptr; }
+
+		//!
+		virtual core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem() { return nullptr;}
+
+		//!
+		inline core::smart_refctd_ptr<IGPUImage> createFilledGPUImageOnDedMem()
+		{
+			auto retval = createGPUImageOnDedMem;
+			this->copyBufferToImage(srcBuffer,retval.get(),regionCount,pRegions);
+			return retval;
+		}
+		inline core::smart_refctd_ptr<IGPUImage> createFilledGPUImageOnDedMem()
+		{
+			auto retval = createGPUImageOnDedMem;
+			this->copyBufferToImage(srcImage, retval.get(), regionCount, pRegions);
+			return retval;
+		}
+
+
+		//! Create an ImageView that can actually be used by shaders (@see ICPUImageView)
+		virtual core::smart_refctd_ptr<IGPUImageView> createGPUImageView(	IGPUImageView::E_CREATE_FLAGS flags,
+																			IGPUImage* image,
+																			IGPUImageView::E_TYPE viewType,
+																			asset::E_FORMAT format,
+																			IGPUImageView::E_CREATE_FLAGS components,
+																			const IGPUImage::SSubresourceRange& subresourceRange)
+		{ return nullptr; }
+
+
+		//! Create a sampler object to use with images
+		virtual core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) { return nullptr; }
+			
+
+		//! Create a shader from SPIR-V or GLSL source stored in a ICPUShader (@see ICPUShader)
+        virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(const asset::ICPUShader* _cpushader) { return nullptr; }
+
+		//! Specialize the plain shader (@see ICPUSpecializedShader)
+        virtual core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) { return nullptr; }
+
+		//! Create a descriptor set layout (@see ICPUDescriptorSetLayout)
+        virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) { return nullptr; }
+
+		//! Create a pipeline layout (@see ICPUPipelineLayout)
+        virtual core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout(
+            const asset::SPushConstantRange* const _pcRangesBegin = nullptr, const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
+            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr,
+            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3 = nullptr
+        ) {
+            return nullptr;
+        }
+
+		//! Create a renderpass independent graphics pipeline (@see ICPURenderpassIndependentPipeline)
+        virtual core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
+            core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
+            core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+            IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
+            const asset::SVertexInputParams& _vertexInputParams,
+            const asset::SBlendParams& _blendParams,
+            const asset::SPrimitiveAssemblyParams& _primAsmParams,
+            const asset::SRasterizationParams& _rasterParams
+        )
+        {
+            return nullptr;
+        }
+
+		//! Create a descriptor set already filled with descriptors
+        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorBinding>&& _descriptors)
+        {
+            return nullptr;
+        }
+
+		//! Create a descriptor set with missing descriptors
+        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout)
+        {
+            return nullptr;
+        }
+
+
+        //!
+        virtual StreamingTransientDataBufferMT<>* getDefaultDownStreamingBuffer() {return defaultDownloadBuffer.get();}
+
+        //!
+        virtual StreamingTransientDataBufferMT<>* getDefaultUpStreamingBuffer() {return defaultUploadBuffer.get();}
+
+        //! WARNING, THIS FUNCTION MAY STALL AND BLOCK
+        inline void updateBufferRangeViaStagingBuffer(IGPUBuffer* buffer, size_t offset, size_t size, const void* data)
+        {
+            for (uint32_t uploadedSize=0; uploadedSize<size;)
             {
+                const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
+                uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
+                uint32_t alignment = 64u; // smallest mapping alignment capability
+                uint32_t subSize = core::min(core::alignDown(defaultUploadBuffer.get()->max_size(),alignment),size-uploadedSize);
+
+                defaultUploadBuffer.get()->multi_place(std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&localOffset,&subSize,&alignment);
+                // keep trying again
+                if (localOffset==video::StreamingTransientDataBufferMT<>::invalid_address)
+                    continue;
+
+                // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
+                if (defaultUploadBuffer.get()->needsManualFlushOrInvalidate())
+                    this->flushMappedMemoryRanges({{defaultUploadBuffer.get()->getBuffer()->getBoundMemory(),localOffset,subSize}});
+                // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
+                this->copyBuffer(defaultUploadBuffer.get()->getBuffer(),buffer,localOffset,offset+uploadedSize,subSize);
+                // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
+                // no glFlush needed because waitCPU is not done to block execution until GPU is done on the allocations
+                defaultUploadBuffer.get()->multi_free(1u,&localOffset,&subSize,this->placeFence());
+                uploadedSize += subSize;
             }
-        public:
-            //! needs to be "deleted" since its not refcounted by GPU driver internally
-            /** Since not owned by any openGL context and hence not owned by driver.
-            You normally need to call glFlush() after placing a fence
-            \param whether to perform an implicit flush the first time CPU waiting,
-            this only works if the first wait is from the same thread as the one which
-            placed the fence. **/
-			virtual core::smart_refctd_ptr<IDriverFence> placeFence(const bool& implicitFlushWaitSameThread = false) = 0;
+        }
 
-            static inline IDriverMemoryBacked::SDriverMemoryRequirements getDeviceLocalGPUMemoryReqs()
-            {
-                IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-                reqs.vulkanReqs.alignment = 0;
-                reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-                reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-                reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
-                reqs.prefersDedicatedAllocation = true;
-                reqs.requiresDedicatedAllocation = true;
-                return reqs;
-            }
-            static inline IDriverMemoryBacked::SDriverMemoryRequirements getSpilloverGPUMemoryReqs()
-            {
-                IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-                reqs.vulkanReqs.alignment = 0;
-                reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-                reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-                reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CANNOT_MAP;
-                reqs.prefersDedicatedAllocation = true;
-                reqs.requiresDedicatedAllocation = true;
-                return reqs;
-            }
-            static inline IDriverMemoryBacked::SDriverMemoryRequirements getUpStreamingMemoryReqs()
-            {
-                IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-                reqs.vulkanReqs.alignment = 0;
-                reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-                reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-                reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE;
-                reqs.prefersDedicatedAllocation = true;
-                reqs.requiresDedicatedAllocation = true;
-                return reqs;
-            }
-            static inline IDriverMemoryBacked::SDriverMemoryRequirements getDownStreamingMemoryReqs()
-            {
-                IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-                reqs.vulkanReqs.alignment = 0;
-                reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-                reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-                reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|IDriverMemoryAllocation::EMCF_CACHED;
-                reqs.prefersDedicatedAllocation = true;
-                reqs.requiresDedicatedAllocation = true;
-                return reqs;
-            }
-            static inline IDriverMemoryBacked::SDriverMemoryRequirements getCPUSideGPUVisibleGPUMemoryReqs()
-            {
-                IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-                reqs.vulkanReqs.alignment = 0;
-                reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-                reqs.memoryHeapLocation = IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-                reqs.mappingCapability = IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE|IDriverMemoryAllocation::EMCF_COHERENT|IDriverMemoryAllocation::EMCF_CACHED;
-                reqs.prefersDedicatedAllocation = true;
-                reqs.requiresDedicatedAllocation = true;
-                return reqs;
-            }
-
-            virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(const asset::ICPUShader* _cpushader) { return nullptr; }
-            virtual core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) { return nullptr; }
-
-            virtual core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset = 0ull, size_t _size = IGPUBufferView::whole_buffer) { return nullptr; }
-
-            virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) { return nullptr; }
-
-            virtual core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) { return nullptr; }
-
-            virtual core::smart_refctd_ptr<IGPUPipelineLayout> createGPUPipelineLayout(
-                const asset::SPushConstantRange* const _pcRangesBegin = nullptr, const asset::SPushConstantRange* const _pcRangesEnd = nullptr,
-                core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1 = nullptr,
-                core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2 = nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3 = nullptr
-            ) {
-                return nullptr;
-            }
-
-            virtual core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
-                core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
-                core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
-                IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
-                const asset::SVertexInputParams& _vertexInputParams,
-                const asset::SBlendParams& _blendParams,
-                const asset::SPrimitiveAssemblyParams& _primAsmParams,
-                const asset::SRasterizationParams& _rasterParams
-            )
-            {
-                return nullptr;
-            }
-
-            virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorBinding>&& _descriptors)
-            {
-                return nullptr;
-            }
-
-            virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout)
-            {
-                return nullptr;
-            }
-
-            //! Best for Mesh data, UBOs, SSBOs, etc.
-            virtual IDriverMemoryAllocation* allocateDeviceLocalMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
-
-            //! If cannot or don't want to use device local memory, then this memory can be used
-            /** If the above fails (only possible on vulkan) or we have perfomance hitches due to video memory oversubscription.*/
-            virtual IDriverMemoryAllocation* allocateSpilloverMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
-
-            //! Best for staging uploads to the GPU, such as resource streaming, and data to update the above memory with
-            virtual IDriverMemoryAllocation* allocateUpStreamingMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
-
-            //! Best for staging downloads from the GPU, such as query results, Z-Buffer, video frames for recording, etc.
-            virtual IDriverMemoryAllocation* allocateDownStreamingMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
-
-            //! Should be just as fast to play around with on the CPU as regular malloc'ed memory, but slowest to access with GPU
-            virtual IDriverMemoryAllocation* allocateCPUSideGPUVisibleMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
-
-            //! Low level function used to implement the above, use with caution
-            virtual IGPUBuffer* createGPUBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
-
-            //! Creates a texture
-            virtual core::smart_refctd_ptr<ITexture> createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) { return nullptr; }
-
-            //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the CPU writes to become GPU visible
-            virtual void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) {}
-
-            //! Utility wrapper for the pointer based func
-            inline void flushMappedMemoryRanges(const core::vector<video::IDriverMemoryAllocation::MappedMemoryRange>& ranges)
-            {
-                this->flushMappedMemoryRanges(ranges.size(),ranges.data());
-            }
-
-            //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the GPU writes to become CPU visible (slow on OpenGL)
-            virtual void invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) {}
-
-            //! Utility wrapper for the pointer based func
-            inline void invalidateMappedMemoryRanges(const core::vector<video::IDriverMemoryAllocation::MappedMemoryRange>& ranges)
-            {
-                this->invalidateMappedMemoryRanges(ranges.size(),ranges.data());
-            }
+        //! Creates a framebuffer object with no attachments
+        virtual IFrameBuffer* addFrameBuffer() {return nullptr;}
 
 
-            //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-            inline IGPUBuffer* createDeviceLocalGPUBufferOnDedMem(size_t size)
-            {
-                auto reqs = getDeviceLocalGPUMemoryReqs();
-                reqs.vulkanReqs.size = size;
-                return this->createGPUBufferOnDedMem(reqs,false);
-            }
-
-            //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-            inline IGPUBuffer* createSpilloverGPUBufferOnDedMem(size_t size)
-            {
-                auto reqs = getSpilloverGPUMemoryReqs();
-                reqs.vulkanReqs.size = size;
-                return this->createGPUBufferOnDedMem(reqs,false);
-            }
-
-            //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-            inline IGPUBuffer* createUpStreamingGPUBufferOnDedMem(size_t size)
-            {
-                auto reqs = getUpStreamingMemoryReqs();
-                reqs.vulkanReqs.size = size;
-                return this->createGPUBufferOnDedMem(reqs,false);
-            }
-
-            //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-            inline IGPUBuffer* createDownStreamingGPUBufferOnDedMem(size_t size)
-            {
-                auto reqs = getDownStreamingMemoryReqs();
-                reqs.vulkanReqs.size = size;
-                return this->createGPUBufferOnDedMem(reqs,false);
-            }
-
-            //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-            inline IGPUBuffer* createCPUSideGPUVisibleGPUBufferOnDedMem(size_t size)
-            {
-                auto reqs = getCPUSideGPUVisibleGPUMemoryReqs();
-                reqs.vulkanReqs.size = size;
-                return this->createGPUBufferOnDedMem(reqs,false);
-            }
-
-            //! Low level function used to implement the above, use with caution
-            virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
-
-            //!
-            virtual StreamingTransientDataBufferMT<>* getDefaultDownStreamingBuffer() {return defaultDownloadBuffer.get();}
-
-            //!
-            virtual StreamingTransientDataBufferMT<>* getDefaultUpStreamingBuffer() {return defaultUploadBuffer.get();}
-
-            //! WARNING, THIS FUNCTION MAY STALL AND BLOCK
-            inline void updateBufferRangeViaStagingBuffer(IGPUBuffer* buffer, size_t offset, size_t size, const void* data)
-            {
-                for (uint32_t uploadedSize=0; uploadedSize<size;)
-                {
-                    const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
-                    uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
-                    uint32_t alignment = 64u; // smallest mapping alignment capability
-                    uint32_t subSize = core::min(core::alignDown(defaultUploadBuffer.get()->max_size(),alignment),size-uploadedSize);
-
-                    defaultUploadBuffer.get()->multi_place(std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&localOffset,&subSize,&alignment);
-                    // keep trying again
-                    if (localOffset==video::StreamingTransientDataBufferMT<>::invalid_address)
-                        continue;
-
-                    // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
-                    if (defaultUploadBuffer.get()->needsManualFlushOrInvalidate())
-                        this->flushMappedMemoryRanges({{defaultUploadBuffer.get()->getBuffer()->getBoundMemory(),localOffset,subSize}});
-                    // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
-                    this->copyBuffer(defaultUploadBuffer.get()->getBuffer(),buffer,localOffset,offset+uploadedSize,subSize);
-                    // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-                    // no glFlush needed because waitCPU is not done to block execution until GPU is done on the allocations
-                    defaultUploadBuffer.get()->multi_free(1u,&localOffset,&subSize,this->placeFence());
-                    uploadedSize += subSize;
-                }
-            }
-
-            inline IGPUBuffer* createFilledDeviceLocalGPUBufferOnDedMem(size_t size, const void* data)
-            {
-                IGPUBuffer*  retval = createDeviceLocalGPUBufferOnDedMem(size);
-
-                updateBufferRangeViaStagingBuffer(retval,0u,size,data);
-
-                return retval;
-            }
-
-            //! TODO: make with VkBufferCopy and take a list of multiple copies to carry out (maybe rename to copyBufferRanges)
-            virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length) {}
+        //these will have to be created by a query pool anyway
+        virtual IQueryObject* createPrimitivesGeneratedQuery() {return nullptr;}
+        virtual IQueryObject* createXFormFeedbackPrimitiveQuery() {return nullptr;} // depr
+        virtual IQueryObject* createElapsedTimeQuery() {return nullptr;}
+        virtual IGPUTimestampQuery* createTimestampQuery() {return nullptr;}
 
 
-            //! Creates a framebuffer object with no attachments
-            virtual IFrameBuffer* addFrameBuffer() {return nullptr;}
+		//! Utility function to convert all your CPU asset data into GPU objects ready for use
+        template<typename AssetType>
+        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(AssetType* const* const _begin, AssetType* const* const _end, IGPUObjectFromAssetConverter* _converter = nullptr);
+		//! With a custom converter, you can override it to for example; pack all buffers into one, pack all images into one atlas, etc.
+		template<typename AssetType>
+		created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::smart_refctd_ptr<asset::IAsset>* _begin, const core::smart_refctd_ptr<asset::IAsset>* _end, IGPUObjectFromAssetConverter* _converter = nullptr);
 
 
-            //these will have to be created by a query pool anyway
-            virtual IQueryObject* createPrimitivesGeneratedQuery() {return nullptr;}
-            virtual IQueryObject* createXFormFeedbackPrimitiveQuery() {return nullptr;} // depr
-            virtual IQueryObject* createElapsedTimeQuery() {return nullptr;}
-            virtual IGPUTimestampQuery* createTimestampQuery() {return nullptr;}
+	//====================== THIS STUFF SHOULD BE IN A video::ICommandBuffer =====================
+		//! TODO: make with VkBufferCopy and take a list of multiple copies to carry out (maybe rename to copyBufferRanges)
+		virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length) {}
 
+		//!
+		virtual void copyImage(IGPUImage* srcImage, IGPUImage* dstImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions) {}
 
-            //! Convenience function for releasing all images in a mip chain.
-            /**
-            \param List of .
-            \return .
-            Bla bla. */
-            static inline void dropWholeMipChain(const core::vector<asset::CImageData*>& mipImages)
-            {
-                for (core::vector<asset::CImageData*>::const_iterator it=mipImages.begin(); it!=mipImages.end(); it++)
-                    (*it)->drop();
-            }
-            //!
-            template< class Iter >
-            static inline void dropWholeMipChain(Iter it, Iter limit)
-            {
-                for (; it!=limit; it++)
-                    (*it)->drop();
-            }
+		//!
+		virtual void copyBufferToImage(IGPUBuffer* srcBuffer, IGPUImage* dstImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions) {}
 
-            template<typename AssetType>
-            created_gpu_object_array<AssetType> getGPUObjectsFromAssets(AssetType* const* const _begin, AssetType* const* const _end, IGPUObjectFromAssetConverter* _converter = nullptr);
+		//!
+		virtual void copyImageToBuffer(IGPUImage* srcImage, IGPUBuffer* dstBuffer, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions) {}
 
-			template<typename AssetType>
-			created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::smart_refctd_ptr<asset::IAsset>* _begin, const core::smart_refctd_ptr<asset::IAsset>* _end, IGPUObjectFromAssetConverter* _converter = nullptr);
-	};
+	/** https://github.com/buildaworldnet/IrrlichtBAW/issues/339 would need an implicit (cached) FBO under OpenGL to work
+		//!
+		virtual void blitImage(	IGPUImage* srcImage, IGPUImage::E_IMAGE_LAYOUT srcLayout,
+								IGPUImage* dstImage, IGPUImage::E_IMAGE_LAYOUT dstLayout,
+								uint32_t regionCount, const IGPUImage::SImageBlit* pRegions, VkFilter filter) {}
+
+		//!
+		virtual void resolveImage(	IGPUImage* srcImage, IGPUImage::E_IMAGE_LAYOUT srcLayout,
+									IGPUImage* dstImage, IGPUImage::E_IMAGE_LAYOUT dstLayout,
+									uint32_t regionCount, const IGPUImage::SImageResolve* pRegions) {}
+	*/
+};
 
 } // end namespace video
 } // end namespace irr

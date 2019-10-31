@@ -7,7 +7,8 @@
 
 #include "IFrameBuffer.h"
 #include "IrrCompileConfig.h"
-#include "COpenGLTexture.h"
+
+#include "COpenGLImageView.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 

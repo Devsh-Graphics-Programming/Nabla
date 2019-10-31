@@ -856,7 +856,7 @@ namespace video
             void updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline);
             //! Must be called AFTER updateNextState_pipelineAndRaster() if pipeline and raster params have to be modified at all in this pass
             void updateNextState_vertexInput(
-                const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                const asset::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                 const IGPUBuffer* _indexBuffer,
                 const IGPUBuffer* _indirectDrawBuffer,
                 const IGPUBuffer* _paramBuffer

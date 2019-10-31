@@ -6,7 +6,7 @@
 #define __IRR_I_VIDEO_CAPABILITY_REPORTER_H_INCLUDED__
 
 #include <string>
-#include "ITexture.h"
+#include "irr/video/IGPUImageView.h"
 
 #include "IrrCompileConfig.h"
 
@@ -104,7 +104,7 @@ namespace video
         virtual uint32_t getMaxComputeWorkGroupSize(uint32_t _dimension) const = 0;
 
 		//! Get the maximum texture size supported.
-		virtual const uint32_t* getMaxTextureSize(const ITexture::E_TEXTURE_TYPE& type) const =0;
+		virtual const uint32_t* getMaxTextureSize(const IGPUImageView::E_IMAGE_VIEW_TYPE& type) const =0;
 
 		//!
 		virtual uint32_t getRequiredUBOAlignment() const = 0;

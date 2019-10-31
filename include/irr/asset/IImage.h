@@ -6,6 +6,7 @@
 #define __I_IMAGE_H_INCLUDED__
 
 #include "irr/asset/format/EFormat.h"
+#include "irr/asset/IBuffer.h"
 #include "irr/asset/IDescriptor.h"
 
 namespace irr
@@ -28,53 +29,53 @@ typedef struct VkExtent3D {
 class IImage : public IDescriptor
 {
 	public:
-		enum E_IMAGE_ASPECT_FLAGS
+		enum E_ASPECT_FLAGS
 		{
-			EIAF_COLOR_BIT			= 0x1u << 0u,
-			EIAF_DEPTH_BIT			= 0x1u << 1u,
-			EIAF_STENCIL_BIT		= 0x1u << 2u,
-			EIAF_METADATA_BIT		= 0x1u << 3u,
-			EIAF_PLANE_0_BIT		= 0x1u << 4u,
-			EIAF_PLANE_1_BIT		= 0x1u << 5u,
-			EIAF_PLANE_2_BIT		= 0x1u << 6u,
-			EIAF_MEMORY_PLANE_0_BIT	= 0x1u << 7u,
-			EIAF_MEMORY_PLANE_1_BIT	= 0x1u << 8u,
-			EIAF_MEMORY_PLANE_2_BIT	= 0x1u << 9u,
-			EIAF_MEMORY_PLANE_3_BIT	= 0x1u << 10u
+			EAF_COLOR_BIT			= 0x1u << 0u,
+			EAF_DEPTH_BIT			= 0x1u << 1u,
+			EAF_STENCIL_BIT			= 0x1u << 2u,
+			EAF_METADATA_BIT		= 0x1u << 3u,
+			EAF_PLANE_0_BIT			= 0x1u << 4u,
+			EAF_PLANE_1_BIT			= 0x1u << 5u,
+			EAF_PLANE_2_BIT			= 0x1u << 6u,
+			EAF_MEMORY_PLANE_0_BIT	= 0x1u << 7u,
+			EAF_MEMORY_PLANE_1_BIT	= 0x1u << 8u,
+			EAF_MEMORY_PLANE_2_BIT	= 0x1u << 9u,
+			EAF_MEMORY_PLANE_3_BIT	= 0x1u << 10u
 		};
-		enum E_IMAGE_CREATE_FLAGS : uint32_t
+		enum E_CREATE_FLAGS : uint32_t
 		{
 			//! irrelevant now - no support for sparse or aliased resources
-			EICF_SPARSE_BINDING_BIT						= 0x1u << 0u,
-			EICF_SPARSE_RESIDENCY_BIT					= 0x1u << 1u,
-			EICF_SPARSE_ALIASED_BIT						= 0x1u << 2u,
+			ECF_SPARSE_BINDING_BIT						= 0x1u << 0u,
+			ECF_SPARSE_RESIDENCY_BIT					= 0x1u << 1u,
+			ECF_SPARSE_ALIASED_BIT						= 0x1u << 2u,
 			//! irrelevant now - no support for planar images
-			EICF_MUTABLE_FORMAT_BIT						= 0x1u << 3u,
+			ECF_MUTABLE_FORMAT_BIT						= 0x1u << 3u,
 			//! whether can fashion a cubemap out of the image
-			EICF_CUBE_COMPATIBLE_BIT					= 0x1u << 4u,
+			ECF_CUBE_COMPATIBLE_BIT					= 0x1u << 4u,
 			//! whether can fashion a 2d array texture out of the image
-			EICF_2D_ARRAY_COMPATIBLE_BIT				= 0x1u << 5u,
+			ECF_2D_ARRAY_COMPATIBLE_BIT				= 0x1u << 5u,
 			//! irrelevant now - we don't support device groups
-			EICF_SPLIT_INSTANCE_BIND_REGIONS_BIT		= 0x1u << 6u,
+			ECF_SPLIT_INSTANCE_BIND_REGIONS_BIT		= 0x1u << 6u,
 			//! whether can view a block compressed texture as uncompressed
 			// (1 block size must equal 1 uncompressed pixel size)
-			EICF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT		= 0x1u << 7u,
+			ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT		= 0x1u << 7u,
 			//! can create with flags not supported by primary image but by a potential compatible view
-			EICF_EXTENDED_USAGE_BIT						= 0x1u << 8u,
+			ECF_EXTENDED_USAGE_BIT						= 0x1u << 8u,
 			//! irrelevant now - no support for planar images
-			EICF_DISJOINT_BIT							= 0x1u << 9u,
+			ECF_DISJOINT_BIT							= 0x1u << 9u,
 			//! irrelevant now - two `IGPUImage`s backing memory can overlap
-			EICF_ALIAS_BIT								= 0x1u << 10u,
+			ECF_ALIAS_BIT								= 0x1u << 10u,
 			//! irrelevant now - we don't support protected DRM paths
-			EICF_PROTECTED_BIT							= 0x1u << 11u,
+			ECF_PROTECTED_BIT							= 0x1u << 11u,
 			//! whether image can be used as  depth/stencil attachment with custom MSAA sample locations
-			EICF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT	= 0x1u << 12u
+			ECF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT	= 0x1u << 12u
 		};
-		enum E_IMAGE_TYPE : uint32_t
+		enum E_TYPE : uint32_t
 		{
-			EIT_1D,
-			EIT_2D,
-			EIT_3D
+			ET_1D,
+			ET_2D,
+			ET_3D
 		};
 		enum E_SAMPLE_COUNT_FLAGS : uint32_t
 		{
@@ -86,25 +87,25 @@ class IImage : public IDescriptor
 			ESCF_32_BIT = 0x00000020,
 			ESCF_64_BIT = 0x00000040
 		};
-		enum E_IMAGE_TILING : uint32_t
+		enum E_TILING : uint32_t
 		{
-			EIT_OPTIMAL,
-			EIT_LINEAR
+			ET_OPTIMAL,
+			ET_LINEAR
 		};
 		struct SSubresourceRange
 		{
-			E_IMAGE_ASPECT_FLAGS	aspectMask = static_cast<E_IMAGE_ASPECT_FLAGS>(0u); // waits for vulkan
-			uint32_t				baseMipLevel = 0u;
-			uint32_t				levelCount = 0u;
-			uint32_t				baseArrayLayer = 0u;
-			uint32_t				layerCount = 0u;
+			E_ASPECT_FLAGS	aspectMask = static_cast<E_ASPECT_FLAGS>(0u); // waits for vulkan
+			uint32_t		baseMipLevel = 0u;
+			uint32_t		levelCount = 0u;
+			uint32_t		baseArrayLayer = 0u;
+			uint32_t		layerCount = 0u;
 		};
 		struct SSubresourceLayers
 		{
-			E_IMAGE_ASPECT_FLAGS	aspectMask = static_cast<E_IMAGE_ASPECT_FLAGS>(0u); // waits for vulkan
-			uint32_t				mipLevel = 0u;
-			uint32_t				baseArrayLayer = 0u;
-			uint32_t				layerCount = 0u;
+			E_ASPECT_FLAGS	aspectMask = static_cast<E_ASPECT_FLAGS>(0u); // waits for vulkan
+			uint32_t		mipLevel = 0u;
+			uint32_t		baseArrayLayer = 0u;
+			uint32_t		layerCount = 0u;
 		};
 		struct SBufferCopy
 		{
@@ -156,15 +157,15 @@ class IImage : public IDescriptor
 		};
 
 		//!
-		inline static uint32_t calculateMaxMipLevel(const VkExtent3D& extent, E_IMAGE_TYPE type)
+		inline static uint32_t calculateMaxMipLevel(const VkExtent3D& extent, E_TYPE type)
 		{
 			uint32_t maxSideLen = extent.width;
 			switch (type)
 			{
-				case EIT_2D:
+				case ET_2D:
 					maxSideLen = core::max(extent.height,maxSideLen);
 					break;
-				case EIT_3D:
+				case ET_3D:
 					maxSideLen = core::max(extent.depth,maxSideLen);
 					break;
 				default:
@@ -211,9 +212,9 @@ class IImage : public IDescriptor
 			if (_mipLevels == 0u || _arrayLayers == 0u)
 				return false;
 
-			if (_flags & EICF_CUBE_COMPATIBLE_BIT)
+			if (_flags & ECF_CUBE_COMPATIBLE_BIT)
 			{
-				if (_type != EIT_2D)
+				if (_type != ET_2D)
 					return false;
 				if (_extent.width != _extent.height)
 					return false;
@@ -222,40 +223,40 @@ class IImage : public IDescriptor
 				if (_samples != ESCF_1_BIT)
 					return false;
 			}
-			if ((_flags & EICF_2D_ARRAY_COMPATIBLE_BIT) && _type != EIT_3D)
+			if ((_flags & ECF_2D_ARRAY_COMPATIBLE_BIT) && _type != ET_3D)
 				return false;
-			if ((_flags & EICF_SPARSE_RESIDENCY_BIT) || (_flags & EICF_SPARSE_ALIASED_BIT))
+			if ((_flags & ECF_SPARSE_RESIDENCY_BIT) || (_flags & ECF_SPARSE_ALIASED_BIT))
 			{
-				if (!(_flags & EICF_SPARSE_BINDING_BIT))
+				if (!(_flags & ECF_SPARSE_BINDING_BIT))
 					return false;
-				if (_flags & EICF_PROTECTED_BIT)
+				if (_flags & ECF_PROTECTED_BIT)
 					return false;
 			}
-			if ((_flags & EICF_SPARSE_BINDING_BIT) && (_flags & EICF_PROTECTED_BIT))
+			if ((_flags & ECF_SPARSE_BINDING_BIT) && (_flags & ECF_PROTECTED_BIT))
 				return false;
-			if (_flags & EICF_SPLIT_INSTANCE_BIND_REGIONS_BIT)
+			if (_flags & ECF_SPLIT_INSTANCE_BIND_REGIONS_BIT)
 			{
-				if (_mipLevels > 1u || _arrayLayers > 1u || _type != EIT_2D)
+				if (_mipLevels > 1u || _arrayLayers > 1u || _type != ET_2D)
 					return false;
 			}
-			if (_flags & EICF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT)
+			if (_flags & ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT)
 			{
-				if (!isBlockCompressionFormat(_format) || !(_flags & EICF_MUTABLE_FORMAT_BIT))
+				if (!isBlockCompressionFormat(_format) || !(_flags & ECF_MUTABLE_FORMAT_BIT))
 					return false;
 			}
-			if ((_flags & EICF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT) && (!isDepthOrStencilFormat(_format) || _format == EF_S8_UINT))
+			if ((_flags & ECF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT) && (!isDepthOrStencilFormat(_format) || _format == EF_S8_UINT))
 				return false;
 
-			if (_samples != ESCF_1_BIT && _type != EIT_2D)
+			if (_samples != ESCF_1_BIT && _type != ET_2D)
 				return false;
 
 			switch (_type)
 			{
-				case EIT_1D:
+				case ET_1D:
 					if (_extent.height > 1u)
 						return false;
 					_IRR_FALLTHROUGH;
-				case EIT_2D:
+				case ET_2D:
 					if (_extent.depth > 1u)
 						return false;
 					break;
@@ -272,7 +273,7 @@ class IImage : public IDescriptor
 			}
 			else
 			{
-				if (!(_flags & EICF_ALIAS_BIT) && (_flags & EICF_DISJOINT_BIT))
+				if (!(_flags & ECF_ALIAS_BIT) && (_flags & ECF_DISJOINT_BIT))
 					return false;
 			}
 
@@ -416,10 +417,10 @@ class IImage : public IDescriptor
 
 
 		//!
-		inline E_IMAGE_CREATE_FLAGS getFlags() const { return flags; }
+		inline E_CREATE_FLAGS getFlags() const { return flags; }
 
 		//!
-		inline E_IMAGE_TYPE getType() const { return type; }
+		inline E_TYPE getType() const { return type; }
 
 		//! Returns the color format
 		inline E_FORMAT getColorFormat() const { return format; }
@@ -517,7 +518,7 @@ class IImage : public IDescriptor
 		template<typename CopyStructIt, class SourceType>
 		inline bool validateCopies_template(CopyStructIt pRegionsBegin, CopyStructIt pRegionsEnd, const SourceType* src)
 		{
-			//if (flags&EICF_SUBSAMPLED)
+			//if (flags&ECF_SUBSAMPLED)
 				//return false;
 
 			if (validatePotentialCopies(pRegionsBegin, pRegionsEnd, src))
@@ -581,18 +582,18 @@ class IImage : public IDescriptor
 			return;
 		}
 
-		E_IMAGE_CREATE_FLAGS						flags;
-		E_IMAGE_TYPE								type;
+		E_CREATE_FLAGS								flags;
+		E_TYPE										type;
 		E_FORMAT									format;
 		VkExtent3D									extent;
 		uint32_t									mipLevels;
 		uint32_t									arrayLayers;
 		E_SAMPLE_COUNT_FLAGS						samples;
-		//E_IMAGE_TILING							tiling;
-		//E_IMAGE_USAGE_FLAGS						usage;
+		//E_TILING									tiling;
+		//E_USAGE_FLAGS								usage;
 		//E_SHARING_MODE							sharingMode;
 		//core::smart_refctd_dynamic_aray<uint32_t>	queueFamilyIndices;
-		//E_IMAGE_LAYOUT							initialLayout;
+		//E_LAYOUT									initialLayout;
 
 	private:
 		template<typename CopyStructIt>
