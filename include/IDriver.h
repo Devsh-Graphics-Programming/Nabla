@@ -144,7 +144,7 @@ namespace video
             }
 
             virtual core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline(
-                core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
+                core::smart_refctd_ptr<IGPUComputePipeline>&& _parent,
                 core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
                 core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
             )

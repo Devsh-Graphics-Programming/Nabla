@@ -89,7 +89,6 @@ namespace video
             GLenum polygonMode = GL_FILL;
             GLenum faceCullingEnable = 0;
             GLenum cullFace = GL_BACK;
-            //in VK stencil params (both: stencilOp and stencilFunc) are 2 distinct for back- and front-faces, but in GL it's one for both
             struct SStencilOp {
                 GLenum sfail = GL_KEEP;
                 GLenum dpfail = GL_KEEP;
@@ -174,7 +173,7 @@ namespace video
                 core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets;
             };
             SDescSetBnd descSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
-        } descriptorsParams;
+        } descriptorsParams[E_PIPELINE_BIND_POINT::EPBP_COUNT];
     };
 
 	class COpenGLDriver : public CNullDriver, public COpenGLExtensionHandler
@@ -605,6 +604,8 @@ namespace video
 
         bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override;
 
+        bool bindComputePipeline(video::IGPUComputePipeline* _cpipeline) override;
+
         bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
             uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override;
 
@@ -634,7 +635,7 @@ namespace video
         ) override;
 
         virtual core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline(
-            core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
+            core::smart_refctd_ptr<IGPUComputePipeline>&& _parent,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
         ) override;
@@ -833,7 +834,18 @@ namespace video
                 VAOMap.reserve(maxVAOCacheSize);
             }
 
-            void flushState(GL_STATE_BITS stateBits);
+            template<E_PIPELINE_BIND_POINT>
+            struct pipeline_for_bindpoint;
+            template<> struct pipeline_for_bindpoint<EPBP_GRAPHICS> { using type = COpenGLRenderpassIndependentPipeline; };
+            template<> struct pipeline_for_bindpoint<EPBP_COMPUTE > { using type = COpenGLComputePipeline; };
+
+            template<E_PIPELINE_BIND_POINT PBP>
+            using pipeline_for_bindpoint_t = typename pipeline_for_bindpoint<PBP>::type;
+
+            template<E_PIPELINE_BIND_POINT PBP>
+            void flushState_descriptors(const pipeline_for_bindpoint_t<PBP>* _prevPipeline);
+            void flushStateGraphics(GL_STATE_BITS stateBits);
+            void flushStateCompute(GL_STATE_BITS stateBits);
 
             SOpenGLState currentState;
             SOpenGLState nextState;

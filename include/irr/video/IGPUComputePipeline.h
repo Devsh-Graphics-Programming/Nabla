@@ -9,7 +9,7 @@ namespace irr {
 namespace video
 {
 
-class IGPUComputePipeline : public asset::IComputePipeline<IGPUSpecializedShader, IGPUPipelineLayout>, public core::IReferenceCounted
+class IGPUComputePipeline : public asset::IComputePipeline<IGPUSpecializedShader, IGPUPipelineLayout>
 {
     using base_t = asset::IComputePipeline<IGPUSpecializedShader, IGPUPipelineLayout>;
 

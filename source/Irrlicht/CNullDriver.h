@@ -53,6 +53,8 @@ namespace video
 
         bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override { return false; }
 
+        bool bindComputePipeline(video::IGPUComputePipeline* _cpipeline) override { return false; }
+
         bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
             uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override 
         { 

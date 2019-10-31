@@ -12,7 +12,7 @@ namespace asset
 template<typename SpecShaderType, typename LayoutType>
 class IComputePipeline : public IPipeline<LayoutType>
 {
-protected:
+public:
     IComputePipeline(
         core::smart_refctd_ptr<IComputePipeline>&& _parent,
         core::smart_refctd_ptr<LayoutType>&& _layout,
@@ -22,6 +22,8 @@ protected:
     {
         assert(m_shader->getStage() == ESS_COMPUTE);
     }
+
+protected:
     virtual ~IComputePipeline() = default;
 
     core::smart_refctd_ptr<SpecShaderType> m_shader;

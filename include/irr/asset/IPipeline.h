@@ -9,7 +9,7 @@ namespace asset
 {
 
 template<typename LayoutType>
-class IPipeline
+class IPipeline : public virtual core::IReferenceCounted
 {
 public:
     inline const LayoutType* getLayout() const { return m_layout.get(); }

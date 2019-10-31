@@ -151,7 +151,7 @@ public:
             const SDescriptorBinding* src = cpy.srcSet->getDescriptorFromBindingNum(cpy.srcBinding);
             SDescriptorBinding& dst = (*m_descriptors)[ix];
 
-            assert(dst.descriptorType == src.descriptorType);
+            assert(dst.descriptorType == src->descriptorType);
 
             for (uint32_t j = 0u; j < cpy.count; ++j)
                 dst.info->operator[](cpy.dstArrayElement + j) = src->info->operator[](cpy.srcArrayElement + j);

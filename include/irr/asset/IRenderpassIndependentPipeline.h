@@ -313,7 +313,7 @@ enum E_VERTEX_ATTRIBUTE_ID
 */
 
 template<typename SpecShaderType, typename LayoutType>
-class IRenderpassIndependentPipeline : public IPipeline<LayoutType>, public virtual core::IReferenceCounted
+class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 {
 public:
     _IRR_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 5u;
