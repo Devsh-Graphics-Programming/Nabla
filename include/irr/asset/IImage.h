@@ -25,25 +25,6 @@ typedef struct VkExtent3D {
 	uint32_t	depth;
 } VkExtent3D; //depr
 
-// common
-#ifdef _IRR_DEBUG // TODO: When Vulkan comes
-	// check buffer contains all regions
-	// check regions don't overlap
-#endif
-// any command
-#ifdef _IRR_DEBUG // TODO: When Vulkan comes
-	// dst image only has one MSAA sample
-	// check regions contained in dstImage
-#endif
-// GPU command
-#ifdef _IRR_DEBUG // TODO: When Vulkan comes
-	// image offset and extent must respect granularity requirements
-	// buffer has memory bound (with sparse exceptions)
-	// check buffer has transfer usage flag
-	// format features of dstImage contain transfer dst bit
-	// check regions contained in dstImage
-	// dst image not created subsampled
-#endif
 class IImage : public IDescriptor
 {
 	public:
@@ -127,6 +108,15 @@ class IImage : public IDescriptor
 		};
 		struct SBufferCopy
 		{
+			inline bool					isValid() const
+			{
+				// TODO: more complex check of compatible aspects
+				if (false)
+					return false;
+
+				return true;
+			}
+
 			inline const auto&			getDstSubresource() const {return imageSubresource;}
 			inline const VkOffset3D&	getDstOffset() const { return imageOffset; }
 			inline const VkExtent3D&	getExtent() const { return imageExtent; }
@@ -142,6 +132,18 @@ class IImage : public IDescriptor
 		};
 		struct SImageCopy
 		{
+			inline bool					isValid() const
+			{
+				// TODO: more complex check of compatible aspects when planar format support arrives
+				if (srcSubresource.aspectMask^dstSubresource.aspectMask)
+					return false;
+
+				if (srcSubresource.layerCount!=dstSubresource.layerCount)
+					return false;
+
+				return true;
+			}
+
 			inline const auto&			getDstSubresource() const {return dstSubresource;}
 			inline const VkOffset3D&	getDstOffset() const { return dstOffset; }
 			inline const VkExtent3D&	getExtent() const { return extent; }
@@ -152,67 +154,260 @@ class IImage : public IDescriptor
 			VkOffset3D			dstOffset = {0u,0u,0u};
 			VkExtent3D			extent = {0u,0u,0u};
 		};
-/*
+
 		//!
-		template<typename CopyStructIt>
-		static bool validateMipchain(CopyStructIt pRegionsStart, CopyStructIt pRegionsEnd, E_IMAGE_TYPE type)
+		inline static uint32_t calculateMaxMipLevel(const VkExtent3D& extent, E_IMAGE_TYPE type)
 		{
-			if (pRegionsStart==pRegionsEnd)
-				return false;
-
-			for (auto it = pRegionsStart; it != pRegionsEnd; it++)
+			uint32_t maxSideLen = extent.width;
+			switch (type)
 			{
-				constexpr uint32_t kMaxMipLevel = 16u;
-				// check max size and array count
-				VkOffset3D maxPt = {it->imageOffset.x+it->imageExtent.width,it->imageOffset.y+it->imageExtent.height,it->imageOffset.z+it->imageExtent.depth};
-				if (*std::max_element(&maxPt.x, &maxPt.x + 3) > ((0x1u<<kMaxMipLevel) >> it->imageSubresource.mipLevel))
-					return false;
-				if (it->imageSubresource.mipLevel > kMaxMipLevel)
-					return false;
-				if (it->imageSubresource.baseArrayLayer+it->imageSubresource.layerCount > 8192u)
-					return false;
-
-				// dimension consistent with type
-				switch (type)
-				{
-					case EIT_1D:
-						if (maxPt.y > 1u)
-							return false;
-						_IRR_FALLTHROUGH;
-					case EIT_2D:
-						if (maxPt.z > 1u)
-							return false;
-						break;
-					default: //	type unknown, or 3D format
-						break;
-				}
-
-				// check regions don't overlap
+				case EIT_2D:
+					maxSideLen = core::max(extent.height,maxSideLen);
+					break;
+				case EIT_3D:
+					maxSideLen = core::max(extent.depth,maxSideLen);
+					break;
+				default:
+					break;
 			}
-
-			return !allUnknownFmt;
+			return 1u + uint32_t(floorf(log2(float(maxSideLen))));
 		}
-*/
+
 		//!
 		template<typename CopyStructIt>
 		inline static auto calculateDstSizeArrayCountAndMipLevels(CopyStructIt pRegionsStart, CopyStructIt pRegionsEnd)
 		{
-			std::tuple<VkExtent3D,uint32_t,uint32_t> size_arraycnt_mips = {{0u,0u,0u},0u,0u};
-			for (auto it=pRegionsStart; it!=pRegionsEnd; it++)
+			std::tuple<VkExtent3D, uint32_t, uint32_t> size_arraycnt_mips = { {0u,0u,0u},0u,0u };
+			for (auto it = pRegionsStart; it != pRegionsEnd; it++)
 			{
 				const auto& o = it->getDstOffset();
 				const auto& e = it->getExtent();
-				for (auto i=0; i<3; i++)
+				for (auto i = 0; i < 3; i++)
 				{
 					auto& inout = (&std::get<VkExtent3D>(size_arraycnt_mips).width)[i];
-					inout = core::max(inout,(&e.width)[i]+(&o.width)[i]);
+					inout = core::max(inout, (&e.width)[i] + (&o.width)[i]);
 				}
 				const auto& sub = it->getDstSubresource();
-				std::get<1u>(size_arraycnt_mips) = core::max(std::get<1u>(size_arraycnt_mips),sub.baseArrayLayer+sub.layerCount);
-				std::get<2u>(size_arraycnt_mips) = core::max(std::get<2u>(size_arraycnt_mips),sub.mipLevel);
+				std::get<1u>(size_arraycnt_mips) = core::max(std::get<1u>(size_arraycnt_mips), sub.baseArrayLayer + sub.layerCount);
+				std::get<2u>(size_arraycnt_mips) = core::max(std::get<2u>(size_arraycnt_mips), sub.mipLevel);
 			}
 			std::get<2u>(size_arraycnt_mips)++;
 			return size_arraycnt_mips;
+		}
+
+		//!
+		inline static bool validateCreationParameters(
+			E_IMAGE_CREATE_FLAGS _flags,
+			E_IMAGE_TYPE _type,
+			E_FORMAT _format,
+			const VkExtent3D& _extent,
+			uint32_t _mipLevels,
+			uint32_t _arrayLayers,
+			E_SAMPLE_COUNT_FLAGS _samples)
+		{
+
+			if (_extent.width == 0u || _extent.height == 0u || _extent.depth == 0u)
+				return false;
+			if (_mipLevels == 0u || _arrayLayers == 0u)
+				return false;
+
+			if (_flags & EICF_CUBE_COMPATIBLE_BIT)
+			{
+				if (_type != EIT_2D)
+					return false;
+				if (_extent.width != _extent.height)
+					return false;
+				if (_arrayLayers < 6u)
+					return false;
+				if (_samples != ESCF_1_BIT)
+					return false;
+			}
+			if ((_flags & EICF_2D_ARRAY_COMPATIBLE_BIT) && _type != EIT_3D)
+				return false;
+			if ((_flags & EICF_SPARSE_RESIDENCY_BIT) || (_flags & EICF_SPARSE_ALIASED_BIT))
+			{
+				if (!(_flags & EICF_SPARSE_BINDING_BIT))
+					return false;
+				if (_flags & EICF_PROTECTED_BIT)
+					return false;
+			}
+			if ((_flags & EICF_SPARSE_BINDING_BIT) && (_flags & EICF_PROTECTED_BIT))
+				return false;
+			if (_flags & EICF_SPLIT_INSTANCE_BIND_REGIONS_BIT)
+			{
+				if (_mipLevels > 1u || _arrayLayers > 1u || _type != EIT_2D)
+					return false;
+			}
+			if (_flags & EICF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT)
+			{
+				if (!isBlockCompressionFormat(_format) || !(_flags & EICF_MUTABLE_FORMAT_BIT))
+					return false;
+			}
+			if ((_flags & EICF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT) && (!isDepthOrStencilFormat(_format) || _format == EF_S8_UINT))
+				return false;
+
+			if (_samples != ESCF_1_BIT && _type != EIT_2D)
+				return false;
+
+			switch (_type)
+			{
+				case EIT_1D:
+					if (_extent.height > 1u)
+						return false;
+					_IRR_FALLTHROUGH;
+				case EIT_2D:
+					if (_extent.depth > 1u)
+						return false;
+					break;
+				default: //	3D format
+					if (_arrayLayers > 1u)
+						return false;
+					break;
+			}
+
+			if (asset::isPlanarFormat(_format))
+			{
+				if (_mipLevels > 1u || _samples != ESCF_1_BIT || _type != EIT_2D)
+					return false;
+			}
+			else
+			{
+				if (!(_flags & EICF_ALIAS_BIT) && (_flags & EICF_DISJOINT_BIT))
+					return false;
+			}
+
+			if (_mipLevels > calculateMaxMipLevel(_extent, _type))
+				return false;
+
+			return true;
+		}
+
+		//!
+		template<typename CopyStructIt>
+		static bool validatePotentialCopies(CopyStructIt pRegionsBegin, CopyStructIt pRegionsEnd, const asset::IBuffer* srcBuff)
+		{
+			if (pRegionsBegin==pRegionsEnd)
+				return false;
+
+			auto blockSize = getBlockDimensions(format);
+			for (auto it=pRegionsBegin; it!=pRegionsEnd; it++)
+			{
+				if (!validatePotentialCopies_shared(pRegionsEnd,it))
+					return false;
+
+				// count on the user not being an idiot
+				#ifdef _IRR_DEBUG
+					size_t imageHeight = it->bufferImageHeight ? it->bufferImageHeight:it->imageExtent.height;
+					imageHeight += blockSize.y-1u;
+					imageHeight /= blockSize.y;
+					size_t rowLength = it->bufferRowLength ? it->bufferRowLength:it->imageExtent.width;
+					rowLength += blockSize.x-1u;
+					rowLength /= blockSize.x;
+
+					size_t maxBufferOffset = (it->imageExtent.depth+blockSize.z-1u)/blockSize.z-1u;
+					maxBufferOffset *= imageHeight;
+					maxBufferOffset += (it->imageExtent.height+blockSize.y-1u)/blockSize.y-1u;
+					maxBufferOffset *= rowLength;
+					maxBufferOffset += (it->imageExtent.width+blockSize.x-1u)/blockSize.z-1u;
+					maxBufferOffset = (maxBufferOffset+1u)*asset::getBlockByteSize(format);
+					maxBufferOffset += it->bufferOffset;
+					if (maxBufferOffset>srcBuff->getSize())
+					{
+						assert(false);
+						return false;
+					}
+				#endif
+			}
+
+			return true;
+		}
+
+		//!
+		template<typename CopyStructIt>
+		static bool validatePotentialCopies(CopyStructIt pRegionsBegin, CopyStructIt pRegionsEnd, const asset::IImage* srcImage)
+		{
+			if (pRegionsBegin==pRegionsEnd)
+				return false;
+
+			// tackle when we handle aspects
+			//if (!asset::areFormatsCompatible(format,srcImage->format))
+				//return false;
+			
+			auto getRealDepth = [](auto _type, auto _extent, auto subresource) -> uint32_t
+			{
+				if (_type!=EIT_3D)
+					return subresource.arrayLayers;
+				if (subresource.baseArrayLevel!=0u||subresource.arrayLayers!=1u)
+					return 0u;
+				return _extent.depth;
+			};
+
+			for (auto it=pRegionsBegin; it!=pRegionsEnd; it++)
+			{
+				if (!validatePotentialCopies_shared(pRegionsEnd,it))
+					return false;
+
+				if (it->srcSubresource.aspectMask&(~src->getAspectMask()))
+					return false;
+				
+				auto tmp = getRealDepth(type, it->extent, it->dstSubresource);
+				if (tmp!=0u || tmp!=getRealDepth(src->getType(),it->extent,it->srcSubresource))
+					return false;
+
+				// count on the user not being an idiot
+				#ifdef _IRR_DEBUG
+					if (it->srcSubresource.mipLayer>=src->getMipLevels())
+					{
+						assert(false);
+						return false;
+					}
+					if (it->srcSubresource.baseArrayLayer+it->srcSubresource.layerCount >= src->getArrayLayerCount())
+					{
+						assert(false);
+						return false;
+					}
+
+					const auto& off = it->srcOffset();
+					const auto& ext = it->extent;
+					switch (src->getType())
+					{
+						case EIT_1D:
+							if (off.y>0u || ext.height>1u)
+								return false;
+							_IRR_FALLTHROUGH;
+						case EIT_2D:
+							if (off.z>0u || ext.depth>1u)
+								return false;
+							break;
+						default:
+							break;
+					}
+
+					auto minPt = core::vector3du32_SIMD(off.x,off.y,off.z);
+					auto srcBlockDims = asset::getBlockDimensions(src->getFormat());
+					if (((minPt%srcBlockDims)!=zero).any())
+					{
+						assert(false);
+						return false;
+					}
+
+					auto maxPt = core::vector3du32_SIMD(ext.width,ext.height,ext.depth)+minPt;
+					auto srcMipSize = srcImage->getMipSize(it->srcSubresource.mipLayer);
+					if ((maxPt>srcMipSize || maxPt!=srcMipSize && ((maxPt%sourceBlockDims)!=zero)).any())
+					{
+						assert(false);
+						return false;
+					}
+				#endif
+			}
+
+			return true;
+		}
+
+		//!
+		virtual bool validateCopies(const SBufferCopy* pRegionsBegin, const SBufferCopy* pRegionsEnd, const asset::ICPUBuffer* src)
+		{
+			return validateCopies_template(pRegionsBegin, pRegionsEnd, src);
 		}
 
 
@@ -236,19 +431,24 @@ class IImage : public IDescriptor
 		}
 
 		//!
-		inline auto getSize() const
+		inline const auto& getSize() const
 		{
 			return extent;
 		}
+		//!
+		inline core::vector3du32_SIMD getMipSize(uint32_t level=0u) const
+		{
+			return core::max(core::vector3du32_SIMD(extent.width, extent.height, extent.depth) / (0x1u<<level), core::vector3du32_SIMD(1u));
+		}
 
 		//!
-		inline uint32_t getMipLevels() const
+		inline uint32_t getMipLevelCount() const
 		{
 			return mipLevels;
 		}
 
 		//!
-		inline auto getArrayLayers() const
+		inline auto getArrayLayerCount() const
 		{
 			return arrayLayers;
 		}
@@ -261,11 +461,10 @@ class IImage : public IDescriptor
 			const bool hasAnAlignment = (blockAlignment != unit).any();
 
 			core::rational<size_t> bytesPerPixel = getBytesPerPixel();
-			auto _size = core::vector3du32_SIMD(extent.width, extent.height, extent.depth);
 			size_t memreq = 0ul;
 			for (uint32_t i=0u; i<mipLevels; i++)
 			{
-				auto levelSize = _size;
+				auto levelSize = getMipSize(i);
 				// alignup (but with NPoT alignment)
 				if (hasAnAlignment)
 				{
@@ -276,7 +475,6 @@ class IImage : public IDescriptor
 				auto memsize = size_t(levelSize[0] * levelSize[1])*size_t(levelSize[2] * arrayLayers)*bytesPerPixel;
 				assert(memsize.getNumerator() % memsize.getDenominator() == 0u);
 				memreq += memsize.getIntegerApprox();
-				_size = _size / 2u;
 			}
 			return memreq;
 		}
@@ -315,6 +513,73 @@ class IImage : public IDescriptor
 
 		virtual ~IImage()
 		{}
+		
+		template<typename CopyStructIt, class SourceType>
+		inline bool validateCopies_template(CopyStructIt pRegionsBegin, CopyStructIt pRegionsEnd, const SourceType* src)
+		{
+			//if (flags&EICF_SUBSAMPLED)
+				//return false;
+
+			if (validatePotentialCopies(pRegionsBegin, pRegionsEnd, src))
+				return false;
+
+			const core::vector3du32_SIMD zero(0);
+			auto extentSIMD = core::vector3du32_SIMD(extent.width,extent.height,extent.depth);
+			for (auto it=pRegionsBegin; it!=pRegionsEnd; it++)
+			{
+				// check rectangles countained in destination
+				const auto& subresource = it->getDstSubresource();
+				if ((subresource.aspectMask&(~aspectMask))/* || !formatHasAspects(format,subresource.aspectMask)*/)
+					return false;
+				if (subresource.mipLevel >= mipLevels)
+					return false;
+				if (subresource.baseArrayLayer+subresource.layerCount >= arrayLayers)
+					return false;
+
+				const auto& off2 = it->getDstOffset();
+				const auto& ext2 = it->getExtent();
+				switch (src->getType())
+				{
+					case EIT_1D:
+						if (off2.y>0u||ext2.height>1u)
+							return false;
+						_IRR_FALLTHROUGH;
+					case EIT_2D:
+						if (off2.z>0u||ext2.depth>1u)
+							return false;
+						break;
+					default:
+						break;
+				}
+
+				auto minPt2 = core::vector3du32_SIMD(off2.x,off2.y,off2.z);
+				auto dstBlockDims = asset::getBlockDimensions(format);
+				if ((minPt2%dstBlockDims!=zero).any())
+					return false;
+
+				auto maxPt2 = core::vector3du32_SIMD(ext2.width,ext2.height,ext2.depth);
+				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_base_of<IImage,SourceType>::value)
+				{
+					auto srcBlockDims = asset::getBlockDimensions(src->getFormat());
+
+					/** Vulkan 1.1 Spec: When copying between compressed and uncompressed formats the extent members
+					represent the texel dimensions of the source image and not the destination. */
+					maxPt2 *= dstBlockDims/sourceBlockDims;
+
+					// TODO: The union of all source regions, and the union of all destination regions, specified by the elements of pRegions, must not overlap in memory
+				}
+				IRR_PSEUDO_IF_CONSTEXPR_ELSE
+				{
+					// TODO: The union of all source regions, and the union of all destination regions, specified by the elements of pRegions, must not overlap in memory
+				}
+				IRR_PSEUDO_IF_CONSTEXPR_END
+				maxPt2 += minPt2;
+				if ((maxPt2>extentSIMD).any())
+					return false;
+			}
+
+			return;
+		}
 
 		E_IMAGE_CREATE_FLAGS						flags;
 		E_IMAGE_TYPE								type;
@@ -328,6 +593,66 @@ class IImage : public IDescriptor
 		//E_SHARING_MODE							sharingMode;
 		//core::smart_refctd_dynamic_aray<uint32_t>	queueFamilyIndices;
 		//E_IMAGE_LAYOUT							initialLayout;
+
+	private:
+		template<typename CopyStructIt>
+		inline static bool validatePotentialCopies_shared(CopyStructIt pRegionsEnd, CopyStructIt it)
+		{
+			if (!it->isValid())
+				return false;
+
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_base_of<IImage,SourceType>::value)
+			{
+				if (samples!=src->getSamples())
+					return false;
+			}
+			IRR_PSEUDO_ELSE_CONSTEXPR
+			{
+				if (samples!=ESCF_1_BIT)
+					return false;
+			}
+			IRR_PSEUDO_IF_CONSTEXPR_END
+
+			constexpr uint32_t kMaxArrayCount = 8192u;
+			constexpr uint32_t kMaxMipLevel = 16u;
+			// check max size and array count
+			const auto& off = it->getDstOffset();
+			const auto& ext = it->getExtent();
+			const auto& subresource = it->getDstSubresource();
+			core::vector3du32_SIMD minPt(off.x,off.y,off.z);
+			auto maxPt = core::vector3du32_SIMD(ext.width,ext.height,ext.depth)+minPt;
+			if (*std::max_element(&maxPt.pointer, &maxPt.pointer+3) > ((0x1u<<kMaxMipLevel) >> subresource.mipLevel))
+				return false;
+			if (subresource.baseArrayLayer+subresource.layerCount > kMaxArrayCount)
+				return false;
+			if (subresource.mipLevel > kMaxMipLevel)
+				return false;
+
+			// check regions don't overlap (function is complete)
+			#ifdef _IRR_DEBUG
+			for (auto it2=it+1u; it2!=pRegionsEnd; it2++)
+			{
+				const auto& subresource2 = it2->getDstSubresource();
+				if (!(subresource2.aspectMask&subresource.aspectMask))
+					continue;
+				if (subresource2.mipLevel!=subresource.mipLevel)
+					continue;
+				if (subresource2.baseArrayLayer >= subresource.baseArrayLayer+subresource.layerCount)
+					continue;
+				if (subresource2.baseArrayLayer+subresource2.layerCount <= subresource.baseArrayLayer)
+					continue;
+
+				const auto& off2 = it2->getDstOffset();
+				const auto& ext2 = it2->getExtent();
+				core::vector3du32_SIMD minPt2(off2.x,off2.y,off2.z);
+				auto maxPt2 = core::vector3du32_SIMD(ext2.width,ext2.height,ext2.depth)+minPt2;
+				if ((minPt<maxPt2&&maxPt>minPt2).all())
+					return false;
+			}
+			#endif
+
+			return true;
+		}
 };
 static_assert(sizeof(IImage)-sizeof(IDescriptor)!=3u*sizeof(uint32_t)+sizeof(VkExtent3D)+sizeof(uint32_t)*3u,"BaW File Format won't work");
 

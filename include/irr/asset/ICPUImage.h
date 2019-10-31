@@ -19,9 +19,21 @@ namespace asset
 class ICPUImage final : public IImage, public IAsset
 {
 	public:
-		inline static core::smart_refctd_ptr<ICPUImage> create()
+		inline static core::smart_refctd_ptr<ICPUImage> create(
+							E_IMAGE_CREATE_FLAGS _flags,
+							E_IMAGE_TYPE _type,
+							E_FORMAT _format,
+							const VkExtent3D& _extent,
+							uint32_t _mipLevels = 1u,
+							uint32_t _arrayLayers = 1u,
+							E_SAMPLE_COUNT_FLAGS _samples = ESCF_1_BIT)
 		{
-			return nullptr;
+			if (validateCreationParameters(_flags,_type,_format,_extent,_mipLevels,_arrayLayers,_samples))
+				return nullptr;
+
+			// initialLayout must be VK_IMAGE_LAYOUT_UNDEFINED or VK_IMAGE_LAYOUT_PREINITIALIZED.
+
+			return core::make_smart_refctd_ptr<ICPUImage>(_flags,_type,_format,_extent,_mipLevels,_arrayLayers,_samples);
 		}
 
         inline void convertToDummyObject() override
@@ -33,23 +45,47 @@ class ICPUImage final : public IImage, public IAsset
 
         virtual size_t conservativeSizeEstimate() const override
 		{
-			return sizeof(IImage)-sizeof(IDescriptor)+;
+			return sizeof(IImage)-sizeof(IDescriptor)+sizeof(void*)*2u;
 		}
 
+		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const ICPUImage* src)
+		{
+			// GPU command
+#ifdef _IRR_DEBUG // TODO: When Vulkan comes
+	// image offset and extent must respect granularity requirements
+	// buffer has memory bound (with sparse exceptions)
+	// check buffer has transfer usage flag
+	// format features of dstImage contain transfer dst bit
+	// dst image not created subsampled
+	// etc.
+#endif
+			return validateCopies_template(pRegionsBegin, pRegionsEnd, src);
+		}
 
 		inline auto* getBuffer() { return buffer.get(); }
 		inline const auto* getBuffer() const { return buffer.get(); }
 
-		inline void setBuffer(core::smart_refctd_ptr<ICPUBuffer>&& _buffer) { buffer = _buffer; }
-
-
 		inline auto* getRegions() { return regions->data(); }
 		inline const auto* getRegions() const { return regions->data(); }
 
-		inline void setRegions(core::smart_refctd_dynamic_array<IImage::SBufferCopy>&& _regions) { regions = _regions; }
+		//! regions will be copied and sorted
+		inline bool setBufferAndRegions(core::smart_refctd_ptr<ICPUBuffer>&& _buffer, const core::smart_refctd_dynamic_array<const IImage::SBufferCopy>& _regions)
+		{
+			if (!IImage::validateCopies(_regions->begin(),_regions->end(),_buffer.get()))
+				return false;
+		
+			buffer = _buffer;
+			regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<const IImage::SBufferCopy> >(_regions);
+			sortRegionsByMipMapLevel();
+			return true;
+		}
 
 		/*
-        inline const void* getSliceRowPointer_helper(const SBufferCopy& ) const
+        inline void* getRowPointer(const SBufferCopy& region, uint32_t relMip, uint32_t relZ, uint32_t relY)
+		{
+            return const_cast<void*>(getRowPointer(region,relMip,relZ,relY));
+		}
+        inline const void* getRowPointer(const SBufferCopy& region, uint32_t relMip, uint32_t relZ, uint32_t relY) const
         {
             if (asset::isBlockCompressionFormat(getColorFormat()))
                 return nullptr;
@@ -76,30 +112,17 @@ class ICPUImage final : public IImage, public IAsset
 			assert(lineBytes.getNumerator()%lineBytes.getDenominator() == 0u);
             return (lineBytes.getNumerator()/lineBytes.getDenominator()+unpackAlignment-1)&(~(unpackAlignment-1u));
         }
-
-        //!
-        inline void* getSliceRowPointer(const uint32_t& slice, const uint32_t& row)
-        {
-            return const_cast<void*>(getSliceRowPointer_helper(slice,row)); // I know what I'm doing
-        }
-        inline const void* getSliceRowPointer(const uint32_t& slice, const uint32_t& row) const
-        {
-            return getSliceRowPointer_helper(slice,row);
-        }
 */
 
     protected:
-		ICPUImage(	core::smart_refctd_ptr<asset::ICPUBuffer>&& _buffer,
-					core::smart_refctd_dynamic_array<IImage::SBufferCopy>&& _regions,
-					E_IMAGE_CREATE_FLAGS _flags,
+		ICPUImage(	E_IMAGE_CREATE_FLAGS _flags,
 					E_IMAGE_TYPE _type,
 					E_FORMAT _format,
 					const VkExtent3D& _extent,
-					uint32_t _mipLevels=0u,
-					uint32_t _arrayLayers=1u,
-					E_SAMPLE_COUNT_FLAGS _samples=ESCF_1_BIT) :
-						IImage(_flags,_type,_format,_extent,_mipLevels,_arrayLayers,_samples),
-						buffer(_buffer), regions(_regions)
+					uint32_t _mipLevels,
+					uint32_t _arrayLayers,
+					E_SAMPLE_COUNT_FLAGS _samples) :
+						IImage(_flags,_type,_format,_extent,_mipLevels,_arrayLayers,_samples)
 		{
 		}
 
@@ -112,8 +135,28 @@ class ICPUImage final : public IImage, public IAsset
 	private:
 		inline void sortRegionsByMipMapLevel()
 		{
-			std::sort(regions->begin(), regions->end(),
-				[](const IImage::SBufferCopy& _a, const IImage::SBufferCopy& _b) { return _a.imageSubresource.mipLevel < _b.imageSubresource.mipLevel; }
+			std::sort(regions->begin(), regions->end(), [](const IImage::SBufferCopy& _a, const IImage::SBufferCopy& _b)
+				{
+					if (_a.imageSubresource.mipLevel==_b.imageSubresource.mipLevel)
+					{
+						if (_a.imageSubresource.baseArrayLayer==_b.imageSubresource.baseArrayLayer)
+						{
+							if (_a.imageOffset.x==_b.imageOffset.x)
+							{
+								if (_a.imageOffset.y==_b.imageOffset.y)
+									return _a.imageOffset.z<_b.imageOffset.z;
+								else
+									return _a.imageOffset.y<_b.imageOffset.y;
+							}
+							else
+								return _a.imageOffset.x<_b.imageOffset.x;
+						}
+						else
+							return _a.imageSubresource.baseArrayLayer<_b.imageSubresource.baseArrayLayer;
+					}
+					else
+						return _a.imageSubresource.mipLevel<_b.imageSubresource.mipLevel;
+				}
 			);
 		}
 };
