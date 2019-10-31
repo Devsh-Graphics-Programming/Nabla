@@ -73,8 +73,16 @@ namespace video
 
         using SGraphicsPipelineHash = std::array<GLuint, COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT>;
 
-        core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> pipeline;
-        SGraphicsPipelineHash usedShadersHash = {0u, 0u, 0u, 0u, 0u};
+        struct {
+            struct {
+                core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> pipeline;
+                SGraphicsPipelineHash usedShadersHash = { 0u, 0u, 0u, 0u, 0u };
+            } graphics;
+            struct {
+                core::smart_refctd_ptr<const COpenGLComputePipeline> pipeline;
+                GLuint usedShader = 0u;
+            } compute;
+        } pipeline;
 
         struct {
             //in GL it is possible to set polygon mode separately for back- and front-faces, but in VK it's one setting for both
@@ -898,7 +906,7 @@ namespace video
             {
                 for (auto it = GraphicsPipelineMap.begin(); GraphicsPipelineMap.size() > maxPipelineCacheSize&&it != GraphicsPipelineMap.end();)
                 {
-                    if (it->first == currentState.usedShadersHash)
+                    if (it->first == currentState.pipeline.graphics.usedShadersHash)
                         continue;
 
                     if (CNullDriver::ReallocationCounter-it->second.lastValidated > 1000) //maybe make this configurable

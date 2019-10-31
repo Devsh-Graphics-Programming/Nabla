@@ -1583,7 +1583,7 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
     SAuxContext* found = getThreadContext_helper(false);
     if (!found)
         return;
-    if (!found->nextState.pipeline)
+    if (!found->nextState.pipeline.graphics.pipeline)
         return;
 
     found->updateNextState_vertexInput(mb->getVertexBufferBindings(), mb->getIndexBufferBinding()->buffer.get(), nullptr, nullptr);
@@ -1622,7 +1622,7 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
 
     found->flushState(GSB_ALL);
 
-    GLenum primType = getGLprimitiveType(found->currentState.pipeline->getPrimitiveAssemblyParams().primitiveType);
+    GLenum primType = getGLprimitiveType(found->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType);
     if (primType==GL_POINTS)
         extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
 
@@ -1649,7 +1649,7 @@ void COpenGLDriver::drawArraysIndirect(const IGPUMeshBuffer::SBufferBinding _vtx
     SAuxContext* found = getThreadContext_helper(false);
     if (!found)
         return;
-    if (!found->nextState.pipeline)
+    if (!found->nextState.pipeline.graphics.pipeline)
         return;
 
     if (countBuffer && !FeatureAvailable[IRR_ARB_indirect_parameters] && (Version < 460u))
@@ -1665,7 +1665,7 @@ void COpenGLDriver::drawArraysIndirect(const IGPUMeshBuffer::SBufferBinding _vtx
 
     found->updateNextState_vertexInput(_vtxBindings, found->nextState.vertexInputParams.indexBuf.get(), indirectDrawBuff, countBuffer);
 
-    GLenum primType = getGLprimitiveType(found->currentState.pipeline->getPrimitiveAssemblyParams().primitiveType);
+    GLenum primType = getGLprimitiveType(found->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType);
     if (primType == GL_POINTS)
         extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
 
@@ -1733,7 +1733,7 @@ void COpenGLDriver::drawIndexedIndirect(const IGPUMeshBuffer::SBufferBinding _vt
     SAuxContext* found = getThreadContext_helper(false);
     if (!found)
         return;
-    if (!found->nextState.pipeline)
+    if (!found->nextState.pipeline.graphics.pipeline)
         return;
 
     if (countBuffer && !FeatureAvailable[IRR_ARB_indirect_parameters] && (Version < 460u))
@@ -1750,7 +1750,7 @@ void COpenGLDriver::drawIndexedIndirect(const IGPUMeshBuffer::SBufferBinding _vt
     found->updateNextState_vertexInput(_vtxBindings, found->nextState.vertexInputParams.indexBuf.get(), indirectDrawBuff, countBuffer);
 
 	GLenum indexSize = (indexType!=asset::EIT_16BIT) ? GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
-    GLenum primType = getGLprimitiveType(found->currentState.pipeline->getPrimitiveAssemblyParams().primitiveType);
+    GLenum primType = getGLprimitiveType(found->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType);
     if (primType == GL_POINTS)
         extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
 
@@ -1866,32 +1866,32 @@ static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
 
 void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
 {
-    core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> prevPipeline = currentState.pipeline;
+    core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> prevPipeline = currentState.pipeline.graphics.pipeline;
     if (stateBits & GSB_PIPELINE_AND_RASTER_PARAMETERS)
     {
-        if (nextState.pipeline != currentState.pipeline)
+        if (nextState.pipeline.graphics.pipeline != currentState.pipeline.graphics.pipeline)
         {
-            if (nextState.usedShadersHash != currentState.usedShadersHash)
+            if (nextState.pipeline.graphics.usedShadersHash != currentState.pipeline.graphics.usedShadersHash)
             {
                 GLuint GLname = 0u;
 
                 constexpr SOpenGLState::SGraphicsPipelineHash NULL_HASH = {0u, 0u, 0u, 0u, 0u};
 
-                HashPipelinePair lookingFor{nextState.usedShadersHash, {}};
+                HashPipelinePair lookingFor{nextState.pipeline.graphics.usedShadersHash, {}};
                 if (lookingFor.first != NULL_HASH)
                 {
                     auto found = std::lower_bound(GraphicsPipelineMap.begin(), GraphicsPipelineMap.end(), lookingFor);
-                    if (found != GraphicsPipelineMap.end() && found->first==nextState.usedShadersHash)
+                    if (found != GraphicsPipelineMap.end() && found->first==nextState.pipeline.graphics.usedShadersHash)
                     {
                         GLname = found->second.GLname;
                         found->second.lastValidated = CNullDriver::ReallocationCounter;
                     }
                     else
                     {
-                        GLname = createGraphicsPipeline(nextState.usedShadersHash);
+                        GLname = createGraphicsPipeline(nextState.pipeline.graphics.usedShadersHash);
                         lookingFor.second.GLname = GLname;
                         lookingFor.second.lastValidated = CNullDriver::ReallocationCounter;
-                        lookingFor.second.object = nextState.pipeline;
+                        lookingFor.second.object = nextState.pipeline.graphics.pipeline;
                         freeUpGraphicsPipelineCache(true);
                         GraphicsPipelineMap.insert(found, lookingFor);
                     }
@@ -1901,7 +1901,7 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
                     extGlUseProgram(0);//TODO hm??
                 extGlBindProgramPipeline(GLname);
 
-                currentState.usedShadersHash = nextState.usedShadersHash;
+                currentState.pipeline.graphics.usedShadersHash = nextState.pipeline.graphics.usedShadersHash;
             }
 
             currentState.pipeline = nextState.pipeline;
@@ -2054,7 +2054,7 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
             }
         }
     }
-    if ((stateBits & GSB_VAO_AND_VERTEX_INPUT) && currentState.pipeline)
+    if ((stateBits & GSB_VAO_AND_VERTEX_INPUT) && currentState.pipeline.graphics.pipeline)
     {
         if (nextState.vertexInputParams.vao.second.GLname == 0u)
         {
@@ -2146,18 +2146,18 @@ void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
     {
         //bind new descriptor sets
         uint32_t compatibilityLimitPlusOne = 0u;
-        if (prevPipeline && currentState.pipeline)
-            compatibilityLimitPlusOne = prevPipeline->getLayout()->isCompatibleForSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u, currentState.pipeline->getLayout()) + 1u;
+        if (prevPipeline && currentState.pipeline.graphics.pipeline)
+            compatibilityLimitPlusOne = prevPipeline->getLayout()->isCompatibleForSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u, currentState.pipeline.graphics.pipeline->getLayout()) + 1u;
         if (compatibilityLimitPlusOne >= IGPUPipelineLayout::DESCRIPTOR_SET_COUNT)
             compatibilityLimitPlusOne = 0u;
 
         int64_t newUboCount = 0u, newSsboCount = 0u, newTexCount = 0u, newImgCount = 0u;
         for (uint32_t i = 0u; i < video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
         {
-            if (!currentState.pipeline)
+            if (!currentState.pipeline.graphics.pipeline)
                 break;
 
-            const auto& first_count = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline->getLayout())->getMultibindParamsForDescSet(i);
+            const auto& first_count = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.graphics.pipeline->getLayout())->getMultibindParamsForDescSet(i);
 
             {
                 GLsizei count{};
@@ -2313,26 +2313,26 @@ GLuint COpenGLDriver::SAuxContext::createGraphicsPipeline(const SOpenGLState::SG
 
 void COpenGLDriver::SAuxContext::updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline)
 {
-    nextState.pipeline = core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline>(
+    nextState.pipeline.graphics.pipeline = core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline>(
         static_cast<const COpenGLRenderpassIndependentPipeline*>(_pipeline)
     );
     if (!_pipeline)
     {
         SOpenGLState::SGraphicsPipelineHash hash;
         std::fill(hash.begin(), hash.end(), 0u);
-        nextState.usedShadersHash = hash;
+        nextState.pipeline.graphics.usedShadersHash = hash;
         return;
     }
     SOpenGLState::SGraphicsPipelineHash hash;
     for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
     {
-        hash[i] = nextState.pipeline->getShaderAtIndex(i) ?
-            static_cast<const COpenGLSpecializedShader*>(nextState.pipeline->getShaderAtIndex(i))->getGLnameForCtx(this->ID) :
+        hash[i] = nextState.pipeline.graphics.pipeline->getShaderAtIndex(i) ?
+            static_cast<const COpenGLSpecializedShader*>(nextState.pipeline.graphics.pipeline->getShaderAtIndex(i))->getGLnameForCtx(this->ID) :
             0u;
     }
-    nextState.usedShadersHash = hash;
+    nextState.pipeline.graphics.usedShadersHash = hash;
 
-    const auto& ppln = nextState.pipeline;
+    const auto& ppln = nextState.pipeline.graphics.pipeline;
 
     const auto& raster_src = ppln->getRasterizationParams();
     auto& raster_dst = nextState.rasterParams;
@@ -2432,7 +2432,7 @@ void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const IGPUMeshBuffe
     }
 
     //nextState.pipeline is the one set in updateNextState_pipelineAndRaster() or is the same object as currentState.pipeline
-    nextState.vertexInputParams.vao.first = nextState.pipeline->getVAOHash();
+    nextState.vertexInputParams.vao.first = nextState.pipeline.graphics.pipeline->getVAOHash();
 }
 
 

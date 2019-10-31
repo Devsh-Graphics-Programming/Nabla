@@ -90,7 +90,8 @@ namespace video
     enum E_PIPELINE_BIND_POINT
     {
         EPBP_GRAPHICS = 0,
-        EPBP_COMPUTE = 1
+        EPBP_COMPUTE = 1,
+        EPBP_COUNT
     };
 
 	//! Interface to driver which is able to perform 2d and 3d graphics functions.
