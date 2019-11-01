@@ -18,7 +18,7 @@ namespace video
 class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset::IImage>
 {
     public:
-        _IRR_RESOLVE_NEW_DELETE_AMBIGUITY(IRenderableVirtualTexture,IDriverMemoryBacked)
+        _IRR_RESOLVE_NEW_DELETE_AMBIGUITY(IDriverMemoryBacked,asset::IImage)
 			
 		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const IGPUImage* src)
 		{
@@ -39,29 +39,9 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
         _IRR_INTERFACE_CHILD(IGPUImage) {}
 
         //! constructor
-		IGPUImage(	const IDriverMemoryBacked::SDriverMemoryRequirements& reqs,
-					E_CREATE_FLAGS _flags,
-					E_TYPE _type,
-					asset::E_FORMAT _format,
-					const asset::VkExtent3D& _extent,
-					uint32_t _mipLevels,
-					uint32_t _arrayLayers,
-					E_SAMPLE_COUNT_FLAGS _samples/*,
-					E_IMAGE_TILING _tiling,
-					E_IMAGE_USAGE_FLAGS _usage,
-					E_SHARING_MODE _sharingMode,
-					core::smart_refctd_dynamic_aray<uint32_t>&& _queueFamilyIndices,
-					E_IMAGE_LAYOUT _initialLayout*/)
+		IGPUImage(const SCreationParams& _params)
         {
-            cachedMemoryReqs = reqs;
-
-			flags = _flags;
-			type = _type;
-			format = _format;
-			extent = _extent;
-			mipLevels = _mipLevels;
-			arrayLayers = _arrayLayers;
-			samples = _samples;
+			params = _params;
         }
 };
 

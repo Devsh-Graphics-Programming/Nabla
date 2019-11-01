@@ -54,36 +54,36 @@ class IImageView : public IDescriptor
 			E_SWIZZLE b = ES_B;
 			E_SWIZZLE a = ES_A;
 		};
+		struct SCreationParams
+		{
+			E_CREATE_FLAGS						flags;
+			core::smart_refctd_ptr<ImageType>	image;
+			E_TYPE								viewType;
+			E_FORMAT							format;
+			SComponentMapping					components;
+		};
+		//!
+		inline static bool validateCreationParameters(const SCreationParams& _params)
+		{
+			if ()
+				return false;
 
+			return true;
+		}
 
 		//!
 		E_CATEGORY	getTypeCategory() const override { return EC_IMAGE; }
 
 
 		//!
-		E_CREATE_FLAGS				getFlags() const { return flags; }
-
-		//!
-		const ImageType*			getImage() const { return image.get(); }
-
-		//!
-		E_TYPE						getViewType() const { return viewType; }
-
-		//!
-		E_FORMAT					getFormat() const { return format; }
-
-		//!
-		const SComponentMapping&	getComponents() const { return components; }
+		const SCreationParams&	getCreationParameters() const { return params; }
 
 	protected:
-		IImageView() = default;
+		IImageView() : params{static_cast<E_CREATE_FLAGS>(0u),nullptr,ET_COUNT,EF_UNKNOWN,{}} {}
+		IImageView(SCreationParams&& _params) : params(_params) {}
 		virtual ~IImageView() = default;
 
-		E_IMAGE_VIEW_CREATE_FLAGS			flags;
-		core::smart_refctd_ptr<ImageType>	image;
-		E_IMAGE_VIEW_TYPE					viewType;
-		E_FORMAT							format;
-		SComponentMapping					components;
+		SCreationParams params;
 };
 
 }

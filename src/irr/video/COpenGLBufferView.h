@@ -2,8 +2,9 @@
 #define __IRR_C_OPENGL_BUFFER_VIEW_H_INCLUDED__
 
 #include "irr/video/IGPUBufferView.h"
+
+#include "COpenGLCommon.h"
 #include "COpenGLBuffer.h"
-#include "COpenGLExtensionHandler.h"
 
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
@@ -19,7 +20,7 @@ class COpenGLBufferView : public IGPUBufferView
 			IGPUBufferView(std::move(_buffer), _format, _offset, _size), m_textureName(0u), m_GLformat(GL_INVALID_ENUM), m_textureSize(0u)
 		{
 			COpenGLExtensionHandler::extGlCreateTextures(GL_TEXTURE_BUFFER, 1, &m_textureName);
-			m_GLformat = COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(m_format);
+			m_GLformat = getSizedOpenGLFormatFromOurFormat(m_format);
 
 			if (m_offset==0u && m_size==m_buffer->getSize())
 				COpenGLExtensionHandler::extGlTextureBuffer(m_textureName, m_GLformat, _buffer->getOpenGLName());
@@ -31,6 +32,13 @@ class COpenGLBufferView : public IGPUBufferView
 
 		GLuint getOpenGLName() const { return m_textureName; }
 		GLenum getInternalFormat() const { return m_GLformat; }
+
+	protected:
+		virtual ~COpenGLBufferView()
+		{
+			if (m_textureName)
+				glDeleteTextures(1u,&m_textureName);
+		}
 
 	private:
 		GLuint m_textureName;

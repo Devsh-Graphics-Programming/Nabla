@@ -155,6 +155,21 @@ class IImage : public IDescriptor
 			VkOffset3D			dstOffset = {0u,0u,0u};
 			VkExtent3D			extent = {0u,0u,0u};
 		};
+		struct SCreationParams
+		{
+			E_CREATE_FLAGS								flags;
+			E_TYPE										type;
+			E_FORMAT									format;
+			VkExtent3D									extent;
+			uint32_t									mipLevels;
+			uint32_t									arrayLayers;
+			E_SAMPLE_COUNT_FLAGS						samples;
+			//E_TILING									tiling;
+			//E_USAGE_FLAGS								usage;
+			//E_SHARING_MODE							sharingMode;
+			//core::smart_refctd_dynamic_aray<uint32_t>	queueFamilyIndices;
+			//E_LAYOUT									initialLayout;
+		};
 
 		//!
 		inline static uint32_t calculateMaxMipLevel(const VkExtent3D& extent, E_TYPE type)
@@ -197,88 +212,82 @@ class IImage : public IDescriptor
 		}
 
 		//!
-		inline static bool validateCreationParameters(
-			E_IMAGE_CREATE_FLAGS _flags,
-			E_IMAGE_TYPE _type,
-			E_FORMAT _format,
-			const VkExtent3D& _extent,
-			uint32_t _mipLevels,
-			uint32_t _arrayLayers,
-			E_SAMPLE_COUNT_FLAGS _samples)
+		inline static bool validateCreationParameters(const SCreationParams& _params)
 		{
-
-			if (_extent.width == 0u || _extent.height == 0u || _extent.depth == 0u)
+			if (_params.extent.width == 0u || _params.extent.height == 0u || _params.extent.depth == 0u)
 				return false;
-			if (_mipLevels == 0u || _arrayLayers == 0u)
-				return false;
-
-			if (_flags & ECF_CUBE_COMPATIBLE_BIT)
-			{
-				if (_type != ET_2D)
-					return false;
-				if (_extent.width != _extent.height)
-					return false;
-				if (_arrayLayers < 6u)
-					return false;
-				if (_samples != ESCF_1_BIT)
-					return false;
-			}
-			if ((_flags & ECF_2D_ARRAY_COMPATIBLE_BIT) && _type != ET_3D)
-				return false;
-			if ((_flags & ECF_SPARSE_RESIDENCY_BIT) || (_flags & ECF_SPARSE_ALIASED_BIT))
-			{
-				if (!(_flags & ECF_SPARSE_BINDING_BIT))
-					return false;
-				if (_flags & ECF_PROTECTED_BIT)
-					return false;
-			}
-			if ((_flags & ECF_SPARSE_BINDING_BIT) && (_flags & ECF_PROTECTED_BIT))
-				return false;
-			if (_flags & ECF_SPLIT_INSTANCE_BIND_REGIONS_BIT)
-			{
-				if (_mipLevels > 1u || _arrayLayers > 1u || _type != ET_2D)
-					return false;
-			}
-			if (_flags & ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT)
-			{
-				if (!isBlockCompressionFormat(_format) || !(_flags & ECF_MUTABLE_FORMAT_BIT))
-					return false;
-			}
-			if ((_flags & ECF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT) && (!isDepthOrStencilFormat(_format) || _format == EF_S8_UINT))
+			if (_params.mipLevels == 0u || _params.arrayLayers == 0u)
 				return false;
 
-			if (_samples != ESCF_1_BIT && _type != ET_2D)
+			if (_params.flags & ECF_CUBE_COMPATIBLE_BIT)
+			{
+				if (_params.type != ET_2D)
+					return false;
+				if (_params.extent.width != _params.extent.height)
+					return false;
+				if (_params.arrayLayers < 6u)
+					return false;
+				if (_params.samples != ESCF_1_BIT)
+					return false;
+			}
+			if ((_params.flags & ECF_2D_ARRAY_COMPATIBLE_BIT) && _params.type != ET_3D)
+				return false;
+			if ((_params.flags & ECF_SPARSE_RESIDENCY_BIT) || (_params.flags & ECF_SPARSE_ALIASED_BIT))
+			{
+				if (!(_params.flags & ECF_SPARSE_BINDING_BIT))
+					return false;
+				if (_params.flags & ECF_PROTECTED_BIT)
+					return false;
+			}
+			if ((_params.flags & ECF_SPARSE_BINDING_BIT) && (_params.flags & ECF_PROTECTED_BIT))
+				return false;
+			if (_params.flags & ECF_SPLIT_INSTANCE_BIND_REGIONS_BIT)
+			{
+				if (_params.mipLevels > 1u || _params.arrayLayers > 1u || _params.type != ET_2D)
+					return false;
+			}
+			if (_params.flags & ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT)
+			{
+				if (!isBlockCompressionFormat(_params.format) || !(_params.flags & ECF_MUTABLE_FORMAT_BIT))
+					return false;
+			}
+			if ((_params.flags & ECF_SAMPLE_LOCATIONS_COMPATIBLE_DEPTH_BIT) && (!isDepthOrStencilFormat(_params.format) || _params.format == EF_S8_UINT))
 				return false;
 
-			switch (_type)
+			if (_params.samples != ESCF_1_BIT && _params.type != ET_2D)
+				return false;
+
+			switch (_params.type)
 			{
 				case ET_1D:
-					if (_extent.height > 1u)
+					if (_params.extent.height > 1u)
 						return false;
 					_IRR_FALLTHROUGH;
 				case ET_2D:
-					if (_extent.depth > 1u)
+					if (_params.extent.depth > 1u)
 						return false;
 					break;
 				default: //	3D format
-					if (_arrayLayers > 1u)
+					if (_params.arrayLayers > 1u)
 						return false;
 					break;
 			}
 
-			if (asset::isPlanarFormat(_format))
+			if (asset::isPlanarFormat(_params.format))
 			{
-				if (_mipLevels > 1u || _samples != ESCF_1_BIT || _type != EIT_2D)
+				if (_params.mipLevels > 1u || _params.samples != ESCF_1_BIT || _params.type != ET_2D)
 					return false;
 			}
 			else
 			{
-				if (!(_flags & ECF_ALIAS_BIT) && (_flags & ECF_DISJOINT_BIT))
+				if (!(_params.flags & ECF_ALIAS_BIT) && (_params.flags & ECF_DISJOINT_BIT))
 					return false;
 			}
 
-			if (_mipLevels > calculateMaxMipLevel(_extent, _type))
+			if (_params.mipLevels > calculateMaxMipLevel(_params.extent, _params.type))
 				return false;
+
+			// TODO: initialLayout must be VK_IMAGE_LAYOUT_UNDEFINED or VK_IMAGE_LAYOUT_PREINITIALIZED.
 
 			return true;
 		}
@@ -417,53 +426,37 @@ class IImage : public IDescriptor
 
 
 		//!
-		inline E_CREATE_FLAGS getFlags() const { return flags; }
-
-		//!
-		inline E_TYPE getType() const { return type; }
-
-		//! Returns the color format
-		inline E_FORMAT getColorFormat() const { return format; }
+		inline const auto& getCreationParameters() const
+		{
+			return params;
+		}
 
 		//! Returns bits per pixel.
 		inline core::rational<uint32_t> getBytesPerPixel() const
 		{
-			return asset::getBytesPerPixel(getColorFormat());
+			return asset::getBytesPerPixel(params.format);
 		}
 
-		//!
-		inline const auto& getSize() const
-		{
-			return extent;
-		}
 		//!
 		inline core::vector3du32_SIMD getMipSize(uint32_t level=0u) const
 		{
-			return core::max(core::vector3du32_SIMD(extent.width, extent.height, extent.depth) / (0x1u<<level), core::vector3du32_SIMD(1u));
-		}
-
-		//!
-		inline uint32_t getMipLevelCount() const
-		{
-			return mipLevels;
-		}
-
-		//!
-		inline auto getArrayLayerCount() const
-		{
-			return arrayLayers;
+			return core::max(	core::vector3du32_SIMD(	params.extent.width,
+														params.extent.height,
+														params.extent.depth)
+										/ (0x1u<<level),
+								core::vector3du32_SIMD(1u));
 		}
 
 		//! Returns image data size in bytes
 		inline size_t getImageDataSizeInBytes() const
 		{
 			const core::vector3du32_SIMD unit(1u);
-			const auto blockAlignment = asset::getBlockDimensions(getColorFormat());
+			const auto blockAlignment = asset::getBlockDimensions(params.format);
 			const bool hasAnAlignment = (blockAlignment != unit).any();
 
 			core::rational<size_t> bytesPerPixel = getBytesPerPixel();
 			size_t memreq = 0ul;
-			for (uint32_t i=0u; i<mipLevels; i++)
+			for (uint32_t i=0u; i<params.mipLevels; i++)
 			{
 				auto levelSize = getMipSize(i);
 				// alignup (but with NPoT alignment)
@@ -473,44 +466,23 @@ class IImage : public IDescriptor
 					levelSize /= blockAlignment;
 					levelSize *= blockAlignment;
 				}
-				auto memsize = size_t(levelSize[0] * levelSize[1])*size_t(levelSize[2] * arrayLayers)*bytesPerPixel;
+				auto memsize = size_t(levelSize[0] * levelSize[1])*size_t(levelSize[2] * params.arrayLayers)*bytesPerPixel;
 				assert(memsize.getNumerator() % memsize.getDenominator() == 0u);
 				memreq += memsize.getIntegerApprox();
 			}
 			return memreq;
 		}
 
-		//!
-		inline auto getSampleCount() const
-		{
-			return samples;
-		}
-
     protected:
-		IImage() : flags(static_cast<E_IMAGE_CREATE_FLAGS>(0u)), type(EIT_2D), format(EF_R8G8B8A8_SRGB),
-			extent({0u,0u,0u}), mipLevels(0u), arrayLayers(0u), samples(static_cast<E_SAMPLE_COUNT_FLAGS>(0u))/*,
-			tiling(_tiling), usage(_usage), sharingMode(_sharingMode),
-			queueFamilyIndices(_queueFamilyIndices), initialLayout(_initialLayout)*/
+		IImage() : params{	static_cast<E_CREATE_FLAGS>(0u),ET_2D,EF_R8G8B8A8_SRGB,
+							{0u,0u,0u},0u,0u,static_cast<E_SAMPLE_COUNT_FLAGS>(0u) }
+			
 		{
+
+			//tiling(_tiling), usage(_usage), sharingMode(_sharingMode),
+			//queueFamilyIndices(_queueFamilyIndices), initialLayout(_initialLayout)
 		}
-		IImage(	E_IMAGE_CREATE_FLAGS _flags,
-				E_IMAGE_TYPE _type,
-				E_FORMAT _format,
-				const VkExtent3D& _extent,
-				uint32_t _mipLevels,
-				uint32_t _arrayLayers,
-				E_SAMPLE_COUNT_FLAGS _samples/*,
-				E_IMAGE_TILING _tiling,
-				E_IMAGE_USAGE_FLAGS _usage,
-				E_SHARING_MODE _sharingMode,
-				core::smart_refctd_dynamic_aray<uint32_t>&& _queueFamilyIndices,
-				E_IMAGE_LAYOUT _initialLayout*/)
-					: flags(_flags), type(_type), format(_format), extent(_extent),
-					mipLevels(_mipLevels), arrayLayers(_arrayLayers), samples(_samples)/*,
-					tiling(_tiling), usage(_usage), sharingMode(_sharingMode),
-					queueFamilyIndices(_queueFamilyIndices), initialLayout(_initialLayout)*/
-        {
-        }
+		IImage(SCreationParams&& _params) : params(_params) {}
 
 		virtual ~IImage()
 		{}
@@ -582,18 +554,8 @@ class IImage : public IDescriptor
 			return;
 		}
 
-		E_CREATE_FLAGS								flags;
-		E_TYPE										type;
-		E_FORMAT									format;
-		VkExtent3D									extent;
-		uint32_t									mipLevels;
-		uint32_t									arrayLayers;
-		E_SAMPLE_COUNT_FLAGS						samples;
-		//E_TILING									tiling;
-		//E_USAGE_FLAGS								usage;
-		//E_SHARING_MODE							sharingMode;
-		//core::smart_refctd_dynamic_aray<uint32_t>	queueFamilyIndices;
-		//E_LAYOUT									initialLayout;
+
+		SCreationParams params;
 
 	private:
 		template<typename CopyStructIt>

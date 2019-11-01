@@ -14,10 +14,10 @@ namespace irr
 namespace video
 {
 
-class IGPUDescriptorSet : public asset::IDescriptorSet<IGPUDescriptorSetLayout, IGPUBuffer, ITexture, IGPUBufferView, IGPUSampler>
+class IGPUDescriptorSet : public asset::IDescriptorSet<IGPUDescriptorSetLayout, IGPUBuffer, IGPUImageView, IGPUBufferView, IGPUSampler>
 {
 	public:
-		using asset::IDescriptorSet<IGPUDescriptorSetLayout, IGPUBuffer, ITexture, IGPUBufferView, IGPUSampler>::IDescriptorSet;
+		using asset::IDescriptorSet<IGPUDescriptorSetLayout, IGPUBuffer, IGPUImageView, IGPUBufferView, IGPUSampler>::IDescriptorSet;
 
 	protected:
 		virtual ~IGPUDescriptorSet() = default;

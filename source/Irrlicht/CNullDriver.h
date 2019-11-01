@@ -21,18 +21,11 @@
 
 namespace irr
 {
-namespace io
-{
-	class IWriteFile;
-	class IReadFile;
-} // end namespace io
 namespace video
 {
-	class IImageLoader;
-	class IImageWriter;
 
-	class CNullDriver : public IVideoDriver
-	{
+class CNullDriver : public IVideoDriver
+{
     protected:
 		//! destructor
 		virtual ~CNullDriver();
@@ -66,60 +59,22 @@ namespace video
 		virtual bool beginScene(bool backBuffer=true, bool zBuffer=true,
 				SColor color=SColor(255,0,0,0),
 				const SExposedVideoData& videoData=SExposedVideoData(),
-				core::rect<int32_t>* sourceRect=0);
+				core::rect<int32_t>* sourceRect=0) override;
 
-		virtual bool endScene();
+		virtual bool endScene() override;
 
 		//!
-		virtual void issueGPUTextureBarrier() {}
+		virtual void issueGPUTextureBarrier() override {}
 
 		//! sets transformation
-		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat);
-		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4SIMD& mat);
+		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat) override;
+		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4SIMD& mat) override;
 
         //! GPU fence, is signalled when preceeding GPU work is completed
-        virtual core::smart_refctd_ptr<IDriverFence> placeFence(const bool& implicitFlushWaitSameThread=false) {return nullptr;}
-
-        core::smart_refctd_ptr<ITexture> createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) override;
-
-		//! A.
-        virtual E_MIP_CHAIN_ERROR validateMipChain(const ITexture* tex, const core::vector<asset::CImageData*>& mipChain)
-        {
-            if (!tex)
-                return EMCE_OTHER_ERR;
-
-            if (mipChain.size()==0)
-                return EMCE_NO_ERR;
-
-            for (core::vector<asset::CImageData*>::const_iterator it = mipChain.begin(); it!=mipChain.end(); it++)
-            {
-                asset::CImageData* img = *it;
-                if (!img)
-                    return EMCE_INVALID_IMAGE;
-
-                const uint32_t mipLevel = img->getSupposedMipLevel();
-                if (mipLevel>=tex->getMipMapLevelCount())
-                    return EMCE_MIP_LEVEL_OUT_OF_BOUND;
-
-                core::vector3d<uint32_t> textureSizeAtThisMipLevel = *reinterpret_cast< const core::vector3d<uint32_t>* >(tex->getSize());
-                textureSizeAtThisMipLevel /= core::vector3d<uint32_t>(0x1u<<mipLevel);
-                if (textureSizeAtThisMipLevel.X==0)
-                    textureSizeAtThisMipLevel.X = 1;
-                if (textureSizeAtThisMipLevel.Y==0)
-                    textureSizeAtThisMipLevel.Y = 1;
-                if (textureSizeAtThisMipLevel.Z==0)
-                    textureSizeAtThisMipLevel.Z = 1;
-
-                core::aabbox3d<uint32_t> imgCube(core::vector3d<uint32_t>(img->getSliceMin()),core::vector3d<uint32_t>(img->getSliceMax()));
-                if (!imgCube.isFullInside(core::aabbox3d<uint32_t>(core::vector3d<uint32_t>(0,0,0),textureSizeAtThisMipLevel)))
-                    return EMCE_SUB_IMAGE_OUT_OF_BOUNDS;
-            }
-
-            return EMCE_NO_ERR;
-        }
+        virtual core::smart_refctd_ptr<IDriverFence> placeFence(const bool& implicitFlushWaitSameThread=false) override {return nullptr;}
 
 		//! Sets new multiple render targets.
-		virtual bool setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewport=true);
+		virtual bool setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewport=true) override;
 
 		//! Clears the ZBuffer.
 		/** Note that you usually need not to call this method, as it
@@ -128,42 +83,42 @@ namespace video
 		you have to render some special things, you can clear the
 		zbuffer during the rendering process with this method any time.
 		*/
-		virtual void clearZBuffer(const float &depth=0.0);
+		virtual void clearZBuffer(const float &depth=0.0) override;
 
-		virtual void clearStencilBuffer(const int32_t &stencil);
+		virtual void clearStencilBuffer(const int32_t &stencil) override;
 
-		virtual void clearZStencilBuffers(const float &depth, const int32_t &stencil);
+		virtual void clearZStencilBuffers(const float &depth, const int32_t &stencil) override;
 
-		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const int32_t* vals);
-		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const uint32_t* vals);
-		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const float* vals);
+		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const int32_t* vals) override;
+		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const uint32_t* vals) override;
+		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const float* vals) override;
 
-		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals);
-		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals);
+		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals) override;
+		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals) override;
 
 
 		//! sets a viewport
-		virtual void setViewPort(const core::rect<int32_t>& area);
+		virtual void setViewPort(const core::rect<int32_t>& area) override;
 
 		//! gets the area of the current viewport
-		virtual const core::rect<int32_t>& getViewPort() const;
+		virtual const core::rect<int32_t>& getViewPort() const override;
 
-        virtual void drawMeshBuffer(const video::IGPUMeshBuffer* mb);
+        virtual void drawMeshBuffer(const video::IGPUMeshBuffer* mb) override;
 
 		//! Indirect Draw
-		virtual void drawArraysIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+		virtual void drawArraysIndirect(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                                         asset::E_PRIMITIVE_TOPOLOGY mode,
                                         const IGPUBuffer* indirectDrawBuff,
                                         size_t offset, size_t maxCount, size_t stride,
                                         const IGPUBuffer* countBuffer = nullptr, size_t countOffset = 0u) override
         {
         }
-		virtual void drawIndexedIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+		virtual void drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                                         asset::E_PRIMITIVE_TOPOLOGY mode,
                                         asset::E_INDEX_TYPE indexType, const IGPUBuffer* indexBuff,
                                         const IGPUBuffer* indirectDrawBuff,
                                         size_t offset, size_t maxCount, size_t stride,
-                                        const IGPUBuffer* countBuffer = nullptr, size_t countOffset = 0u)
+                                        const IGPUBuffer* countBuffer = nullptr, size_t countOffset = 0u) override
         {
         }
 
@@ -202,18 +157,10 @@ namespace video
 		//! call.
 		virtual uint32_t getMaximalIndicesCount() const;
 
-		//! Enables or disables a texture creation flag.
-		virtual void setTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag, bool enabled);
-
-		//! Returns if a texture creation flag is enabled or disabled.
-		virtual bool getTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag) const;
-
 
 	public:
 		virtual void beginQuery(IQueryObject* query);
 		virtual void endQuery(IQueryObject* query);
-		virtual void beginQuery(IQueryObject* query, const size_t& index);
-		virtual void endQuery(IQueryObject* query, const size_t& index);
 
 		//! Only used by the engine internally.
 		/** Used to notify the driver that the window was resized. */
@@ -223,84 +170,7 @@ namespace video
 		virtual const SExposedVideoData& getExposedVideoData();
 
 		//! Returns type of video driver
-		virtual E_DRIVER_TYPE getDriverType() const;
-
-		//! Returns the transformation set by setTransform
-		virtual const core::matrix4x3& getTransform(const E_4X3_TRANSFORMATION_STATE& state);
-
-		virtual const core::matrix4SIMD& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state);
-
-        //virtual int32_t addHighLevelShaderMaterial(
-        //    const char* vertexShaderProgram,
-        //    const char* controlShaderProgram,
-        //    const char* evaluationShaderProgram,
-        //    const char* geometryShaderProgram,
-        //    const char* pixelShaderProgram,
-        //    uint32_t patchVertices=3,
-        //    E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-        //    IShaderConstantSetCallBack* callback = 0,
-        //    const char** xformFeedbackOutputs = NULL,
-        //    const uint32_t& xformFeedbackOutputCount = 0,
-        //    int32_t userData = 0,
-        //    const char* vertexShaderEntryPointName="main",
-        //    const char* controlShaderEntryPointName = "main",
-        //    const char* evaluationShaderEntryPointName = "main",
-        //    const char* geometryShaderEntryPointName = "main",
-        //    const char* pixelShaderEntryPointName="main" );
-
-        //virtual int32_t addHighLevelShaderMaterialFromFiles(
-        //    const io::path& vertexShaderProgramFileName,
-        //    const io::path& controlShaderProgramFileName,
-        //    const io::path& evaluationShaderProgramFileName,
-        //    const io::path& geometryShaderProgramFileName,
-        //    const io::path& pixelShaderProgramFileName,
-        //    uint32_t patchVertices=3,
-        //    E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-        //    IShaderConstantSetCallBack* callback = 0,
-        //    const char** xformFeedbackOutputs = NULL,
-        //    const uint32_t& xformFeedbackOutputCount = 0,
-        //    int32_t userData = 0,
-        //    const char* vertexShaderEntryPointName="main",
-        //    const char* controlShaderEntryPointName = "main",
-        //    const char* evaluationShaderEntryPointName = "main",
-        //    const char* geometryShaderEntryPointName = "main",
-        //    const char* pixelShaderEntryPointName="main");
-
-        //virtual int32_t addHighLevelShaderMaterialFromFiles(
-        //    io::IReadFile* vertexShaderProgram,
-        //    io::IReadFile* controlShaderProgram,
-        //    io::IReadFile* evaluationShaderProgram,
-        //    io::IReadFile* geometryShaderProgram,
-        //    io::IReadFile* pixelShaderProgram,
-        //    uint32_t patchVertices=3,
-        //    E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-        //    IShaderConstantSetCallBack* callback = 0,
-        //    const char** xformFeedbackOutputs = NULL,
-        //    const uint32_t& xformFeedbackOutputCount = 0,
-        //    int32_t userData = 0,
-        //    const char* vertexShaderEntryPointName="main",
-        //    const char* controlShaderEntryPointName = "main",
-        //    const char* evaluationShaderEntryPointName = "main",
-        //    const char* geometryShaderEntryPointName = "main",
-        //    const char* pixelShaderEntryPointName="main");
-
-        //virtual bool replaceHighLevelShaderMaterial(const int32_t &materialIDToReplace,
-        //    const char* vertexShaderProgram,
-        //    const char* controlShaderProgram,
-        //    const char* evaluationShaderProgram,
-        //    const char* geometryShaderProgram,
-        //    const char* pixelShaderProgram,
-        //    uint32_t patchVertices=3,
-        //    E_MATERIAL_TYPE baseMaterial=video::EMT_SOLID,
-        //    IShaderConstantSetCallBack* callback=0,
-        //    const char** xformFeedbackOutputs = NULL,
-        //    const uint32_t& xformFeedbackOutputCount = 0,
-        //    int32_t userData=0,
-        //    const char* vertexShaderEntryPointName="main",
-        //    const char* controlShaderEntryPointName="main",
-        //    const char* evaluationShaderEntryPointName="main",
-        //    const char* geometryShaderEntryPointName="main",
-        //    const char* pixelShaderEntryPointName="main");
+		virtual E_DRIVER_TYPE getDriverType() const override;
 
 		//! Enable/disable a clipping plane.
 		//! There are at least 6 clipping planes available for the user to set at will.
@@ -312,7 +182,7 @@ namespace video
 		virtual std::string getVendorInfo() {return "Not available on this driver.";}
 
 		//! Returns the maximum texture size supported.
-		virtual const uint32_t* getMaxTextureSize(const ITexture::E_TEXTURE_TYPE& type) const;
+		virtual const uint32_t* getMaxTextureSize(const IGPUImageView::E_TYPE& type) const override;
 
 		//!
 		virtual uint32_t getRequiredUBOAlignment() const override {return 0u;}
@@ -340,10 +210,6 @@ namespace video
         uint32_t getMaxImageBindings() const override { return 0u; }
 
 	protected:
-		//! returns a device dependent texture from a software surface (IImage)
-		//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
-		virtual core::smart_refctd_ptr<video::ITexture> createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM);
-
         void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets,
             const IGPUPipelineLayout** _destPplnLayouts);
 
@@ -351,59 +217,6 @@ namespace video
 		void printVersion();
 
     protected:
-		struct SSurface
-		{
-			video::ITexture* Surface;
-
-			bool operator < (const SSurface& other) const
-			{
-			    return Surface->getName()<other.Surface->getName();
-			    /*
-			    int res = strcmp(Surface->getName().getInternalName().c_str(),other.Surface->getName().getInternalName().c_str());
-			    if (res<0)
-                    return true;
-                else if (res>0)
-                    return false;
-                else
-                    return Surface < other.Surface;
-                */
-			}
-		};
-
-		class SDummyTexture : public ITexture
-		{
-                _IRR_INTERFACE_CHILD(SDummyTexture) {}
-
-                core::dimension2d<uint32_t> size;
-		    public:
-                SDummyTexture(const io::path& name) : ITexture(IDriverMemoryBacked::SDriverMemoryRequirements{{0,0,0},0,0,0,0},name), size(0,0)
-                {
-                }
-
-                //special override as this object is always placement new'ed
-                static inline void operator delete(void* ptr) noexcept
-                {
-                    return;
-                }
-
-                virtual E_DIMENSION_COUNT getDimensionality() const {return EDC_TWO;}
-                virtual E_TEXTURE_TYPE getTextureType() const {return ETT_2D;}
-                virtual E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const {return EVTT_OPAQUE_FILTERABLE;}
-                virtual const uint32_t* getSize() const { return &size.Width; }
-                virtual uint32_t getMipMapLevelCount() const {return 1;}
-                virtual core::dimension2du getRenderableSize() const { return size; }
-                virtual E_DRIVER_TYPE getDriverType() const { return video::EDT_NULL; }
-                virtual asset::E_FORMAT getColorFormat() const { return asset::EF_A1R5G5B5_UNORM_PACK16; }
-                virtual core::rational<uint32_t> getPitch() const { return {0u,1u}; }
-                virtual void regenerateMipMapLevels() {}
-                virtual bool updateSubRegion(const asset::E_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap=0, const uint32_t& unpackRowByteAlignment=0) {return false;}
-                virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0) {return false;}
-
-                virtual IDriverMemoryAllocation* getBoundMemory() {return nullptr;}
-                virtual const IDriverMemoryAllocation* getBoundMemory() const {return nullptr;}
-                virtual size_t getBoundMemoryOffset() const {return 0u;}
-		};
-
         IQueryObject* currentQuery[EQOT_COUNT];
 
 		io::IFileSystem* FileSystem;
@@ -411,21 +224,13 @@ namespace video
 		core::rect<int32_t> ViewPort;
 		core::dimension2d<uint32_t> ScreenSize;
 
-		uint32_t matrixModifiedBits;
-		core::matrix4SIMD ProjectionMatrices[EPTS_COUNT];
-		core::matrix4x3 TransformationMatrices[E4X3TS_COUNT];
-
 		CFPSCounter FPSCounter;
 
 		uint32_t PrimitivesDrawn;
 
-		uint32_t TextureCreationFlags;
-
 		SExposedVideoData ExposedData;
 
-		bool OverrideMaterial2DEnabled;
-
-		uint32_t MaxTextureSizes[ITexture::ETT_COUNT][3];
+		uint32_t MaxTextureSizes[IGPUImageView::ET_COUNT][3];
 	};
 
 } // end namespace video

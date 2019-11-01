@@ -19,21 +19,12 @@ namespace asset
 class ICPUImage final : public IImage, public IAsset
 {
 	public:
-		inline static core::smart_refctd_ptr<ICPUImage> create(
-							E_CREATE_FLAGS _flags,
-							IImage::E_TYPE _type,
-							E_FORMAT _format,
-							const VkExtent3D& _extent,
-							uint32_t _mipLevels = 1u,
-							uint32_t _arrayLayers = 1u,
-							E_SAMPLE_COUNT_FLAGS _samples = ESCF_1_BIT)
+		inline static core::smart_refctd_ptr<ICPUImage> create(SCreationParams&& _params)
 		{
-			if (validateCreationParameters(_flags,_type,_format,_extent,_mipLevels,_arrayLayers,_samples))
+			if (validateCreationParameters(_params))
 				return nullptr;
 
-			// initialLayout must be VK_IMAGE_LAYOUT_UNDEFINED or VK_IMAGE_LAYOUT_PREINITIALIZED.
-
-			return core::make_smart_refctd_ptr<ICPUImage>(_flags,_type,_format,_extent,_mipLevels,_arrayLayers,_samples);
+			return core::make_smart_refctd_ptr<ICPUImage>(std::move(_params));
 		}
 
         inline void convertToDummyObject() override
@@ -45,7 +36,7 @@ class ICPUImage final : public IImage, public IAsset
 
         virtual size_t conservativeSizeEstimate() const override
 		{
-			return sizeof(IImage)-sizeof(IDescriptor)+sizeof(void*)*2u;
+			return sizeof(SCreationParams)+sizeof(void*)*2u;
 		}
 
 		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const ICPUImage* src)
@@ -106,14 +97,7 @@ class ICPUImage final : public IImage, public IAsset
 */
 
     protected:
-		ICPUImage(	E_CREATE_FLAGS _flags,
-					IImage::E_TYPE _type,
-					E_FORMAT _format,
-					const VkExtent3D& _extent,
-					uint32_t _mipLevels,
-					uint32_t _arrayLayers,
-					E_SAMPLE_COUNT_FLAGS _samples) :
-						IImage(_flags,_type,_format,_extent,_mipLevels,_arrayLayers,_samples)
+		ICPUImage(SCreationParams&& _params) : IImage(std::move(_params))
 		{
 		}
 

@@ -96,7 +96,6 @@
 #include "COpenGLExtensionHandler.h"
 #include "COpenGLFrameBuffer.h"
 #include "COpenGLQuery.h"
-#include "COpenGLTexture.h"
 #include "COpenGLTimestampQuery.h"
 #include "COSOperator.h"
 #include "CPakReader.h"

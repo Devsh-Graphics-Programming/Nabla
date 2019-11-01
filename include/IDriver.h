@@ -49,6 +49,19 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         {
         }
     public:
+		struct SBindBufferMemoryInfo
+		{
+			IGPUBuffer* buffer;
+			IDriverMemoryAllocation* memory;
+			size_t offset;
+		};
+		struct SBindImageMemoryInfo
+		{
+			IGPUImage* image;
+			IDriverMemoryAllocation* memory;
+			size_t offset;
+		};
+
         //! needs to be dropped (smart_refctd_ptr will do automatically) since its not refcounted by GPU driver internally
         /** Since not owned by any openGL context and hence not owned by driver.
         You normally need to call glFlush() after placing a fence
@@ -114,20 +127,20 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         }
 
         //! Best for Mesh data, UBOs, SSBOs, etc.
-        virtual IDriverMemoryAllocation* allocateDeviceLocalMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
+        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateDeviceLocalMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
 
         //! If cannot or don't want to use device local memory, then this memory can be used
         /** If the above fails (only possible on vulkan) or we have perfomance hitches due to video memory oversubscription.*/
-        virtual IDriverMemoryAllocation* allocateSpilloverMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
+        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateSpilloverMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
 
         //! Best for staging uploads to the GPU, such as resource streaming, and data to update the above memory with
-        virtual IDriverMemoryAllocation* allocateUpStreamingMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
+        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateUpStreamingMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
 
         //! Best for staging downloads from the GPU, such as query results, Z-Buffer, video frames for recording, etc.
-        virtual IDriverMemoryAllocation* allocateDownStreamingMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
+        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateDownStreamingMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
 
         //! Should be just as fast to play around with on the CPU as regular malloc'ed memory, but slowest to access with GPU
-        virtual IDriverMemoryAllocation* allocateCPUSideGPUVisibleMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
+        virtual core::smart_refctd_ptr<IDriverMemoryAllocation> allocateCPUSideGPUVisibleMemory(const IDriverMemoryBacked::SDriverMemoryRequirements& additionalReqs) {return nullptr;}
 
 
         //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the CPU writes to become GPU visible
@@ -150,7 +163,16 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 
 
         //! Low level function used to implement the above, use with caution
-        virtual IGPUBuffer* createGPUBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
+        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBuffer(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
+
+		//! Binds memory allocation to provide the backing for the resource.
+		/** Available only on Vulkan, in OpenGL all resources create their own memory implicitly,
+		so pooling or aliasing memory for different resources is not possible.
+		There is no unbind, so once memory is bound it remains bound until you destroy the resource object.
+		Actually all resource classes in OpenGL implement both IDriverMemoryBacked and IDriverMemoryAllocation,
+		so effectively the memory is pre-bound at the time of creation.
+		\return true on success, always false under OpenGL.*/
+		virtual bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) { return false; }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
         inline IGPUBuffer* createDeviceLocalGPUBufferOnDedMem(size_t size)
@@ -211,40 +233,39 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 
 
         //! Creates an Image (@see ICPUImage)
-        virtual core::smart_refctd_ptr<IGPUImage> createGPUImage(	IGPUImage::E_CREATE_FLAGS _flags,
-																	IGPUImage::E_TYPE _type,
-																	asset::E_FORMAT _format,
-																	const asset::VkExtent3D& _extent,
-																	uint32_t _mipLevels,
-																	uint32_t _arrayLayers,
-																	IGPUImage::E_SAMPLE_COUNT_FLAGS _samples)
+        virtual core::smart_refctd_ptr<IGPUImage> createGPUImage(IGPUImage::SCreationParams&& params)
 		{ return nullptr; }
 
-		//!
-		virtual core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem() { return nullptr;}
+		//! The counterpart of @see bindBufferMemory for images
+		virtual bool bindImageMemory(uint32_t bindInfoCount, const SBindImageMemoryInfo* pBindInfos) { return false; }
+
+		//! Creates the Image, allocates dedicated memory and binds it at once.
+		inline core::smart_refctd_ptr<IGPUImage> createDeviceLocalGPUImageOnDedMem(IGPUImage::SCreationParams&& params)
+		{
+			auto reqs = getDeviceLocalGPUMemoryReqs();
+			return this->createGPUImageOnDedMem(std::move(params),reqs);
+		}
 
 		//!
-		inline core::smart_refctd_ptr<IGPUImage> createFilledGPUImageOnDedMem()
+		virtual core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) { return nullptr;}
+
+		//!
+		inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUImage::SCreationParams&& params, IGPUBuffer* srcBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
 		{
-			auto retval = createGPUImageOnDedMem;
+			auto retval = createDeviceLocalGPUImageOnDedMem(std::move(params));
 			this->copyBufferToImage(srcBuffer,retval.get(),regionCount,pRegions);
 			return retval;
 		}
-		inline core::smart_refctd_ptr<IGPUImage> createFilledGPUImageOnDedMem()
+		inline core::smart_refctd_ptr<IGPUImage> createFilledDeviceLocalGPUImageOnDedMem(IGPUImage::SCreationParams&& params, IGPUImage* srcImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions)
 		{
-			auto retval = createGPUImageOnDedMem;
-			this->copyBufferToImage(srcImage, retval.get(), regionCount, pRegions);
+			auto retval = createDeviceLocalGPUImageOnDedMem(std::move(params));
+			this->copyImage(srcImage,retval.get(),regionCount,pRegions);
 			return retval;
 		}
 
 
 		//! Create an ImageView that can actually be used by shaders (@see ICPUImageView)
-		virtual core::smart_refctd_ptr<IGPUImageView> createGPUImageView(	IGPUImageView::E_CREATE_FLAGS flags,
-																			IGPUImage* image,
-																			IGPUImageView::E_TYPE viewType,
-																			asset::E_FORMAT format,
-																			IGPUImageView::E_CREATE_FLAGS components,
-																			const IGPUImage::SSubresourceRange& subresourceRange)
+		virtual core::smart_refctd_ptr<IGPUImageView> createGPUImageView(IGPUImageView::SCreationParams&& params)
 		{ return nullptr; }
 
 
@@ -336,7 +357,6 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 
         //these will have to be created by a query pool anyway
         virtual IQueryObject* createPrimitivesGeneratedQuery() {return nullptr;}
-        virtual IQueryObject* createXFormFeedbackPrimitiveQuery() {return nullptr;} // depr
         virtual IQueryObject* createElapsedTimeQuery() {return nullptr;}
         virtual IGPUTimestampQuery* createTimestampQuery() {return nullptr;}
 
@@ -357,10 +377,10 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 		virtual void copyImage(IGPUImage* srcImage, IGPUImage* dstImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions) {}
 
 		//!
-		virtual void copyBufferToImage(IGPUBuffer* srcBuffer, IGPUImage* dstImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions) {}
+		virtual void copyBufferToImage(IGPUBuffer* srcBuffer, IGPUImage* dstImage, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions) {}
 
 		//!
-		virtual void copyImageToBuffer(IGPUImage* srcImage, IGPUBuffer* dstBuffer, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions) {}
+		virtual void copyImageToBuffer(IGPUImage* srcImage, IGPUBuffer* dstBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions) {}
 
 	/** https://github.com/buildaworldnet/IrrlichtBAW/issues/339 would need an implicit (cached) FBO under OpenGL to work
 		//!

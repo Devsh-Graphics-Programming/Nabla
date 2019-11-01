@@ -13,6 +13,8 @@ namespace asset
 class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 {
 	public:
+		ICPUImageView(SCreationParams&& _params) : IImageView<ICPUImage>(std::move(_params)) {}
+
 		//!
 		size_t conservativeSizeEstimate() const override
 		{
@@ -23,16 +25,9 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 		//!
 		IAsset::E_TYPE getAssetType() const override { return ET_IMAGE_VIEW; }
 
+
 		//!
-		E_CREATE_FLAGS		getFlags() { return flags; }
-		//!
-		ICPUImage*			getImage() { return image.get(); }
-		//!
-		IImageView::E_TYPE	getViewType() { return viewType; }
-		//!
-		E_FORMAT			getFormat() { return format; }
-		//!
-		SComponentMapping&	getComponents() { return components; }
+		SComponentMapping&	getComponents() { return params.components; }
 
 	protected:
 		virtual ~ICPUImageView() = default;

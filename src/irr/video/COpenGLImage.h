@@ -5,6 +5,8 @@
 
 #include "irr/video/IGPUImage.h"
 
+#include "irr/video/COpenGLCommon.h"
+
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
 
@@ -13,23 +15,72 @@ namespace irr
 namespace video
 {
 
-class COpenGLImage : public IGPUImage
+class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 {
+	protected:
+		virtual ~COpenGLImage()
+		{
+			if (name)
+				glDeleteTextures(1,&name);
+			#ifdef OPENGL_LEAK_DEBUG
+				COpenGLExtensionHandler::textureLeaker.deregisterObj(this);
+			#endif // OPENGL_LEAK_DEBUG
+		}
+
+		GLenum internalFormat;
+		GLenum target;
+		GLuint name;
+
 	public:
 		//! constructor
-		COpenGLImage(GLenum internalFormat, const uint32_t* size, uint32_t mipmapLevels);
-
-		//! Returns the allocation which is bound to the resource
-		virtual IDriverMemoryAllocation* getBoundMemory() override;
-		//! Constant version
-		virtual const IDriverMemoryAllocation* getBoundMemory() const override;
-		//! Returns the offset in the allocation at which it is bound to the resource
-		virtual size_t getBoundMemoryOffset() const override;
+		COpenGLImage(IGPUImage::SCreationParams&& _params) : IGPUImage(std::move(_params)),
+			internalFormat(GL_INVALID_ENUM), target(GL_INVALID_ENUM), name(0u)
+		{
+			#ifdef OPENGL_LEAK_DEBUG
+				COpenGLExtensionHandler::textureLeaker.registerObj(this);
+			#endif // OPENGL_LEAK_DEBUG
+			internalFormat = getSizedOpenGLFormatFromOurFormat(params.format);
+			switch (params.type)
+			{
+				case IGPUImage::ET_1D:
+					target = GL_TEXTURE_1D_ARRAY;
+					COpenGLExtensionHandler::extGlCreateTextures(target, 1, &name);
+					COpenGLExtensionHandler::extGlTextureStorage1D(	name, target, params.mipLevels, internalFormat,
+																	params.extent.width);
+					break;
+				case IGPUImage::ET_2D:
+					target = GL_TEXTURE_2D_ARRAY;
+					COpenGLExtensionHandler::extGlCreateTextures(target, 1, &name);
+					COpenGLExtensionHandler::extGlTextureStorage2D(	name, target, params.mipLevels, internalFormat,
+																	params.extent.width, params.extent.height);
+					break;
+				case IGPUImage::ET_3D:
+					target = GL_TEXTURE_3D;
+					COpenGLExtensionHandler::extGlCreateTextures(target, 1, &name);
+					COpenGLExtensionHandler::extGlTextureStorage3D(	name, target, params.mipLevels, internalFormat,
+																	params.extent.width, params.extent.height, params.extent.depth);
+					break;
+				default:
+					assert(false);
+					break;
+			}
+		}
 
 		//! returns the opengl texture type
-		virtual GLenum getOpenGLTextureType() const {return GL_TEXTURE_;}
+		inline GLuint getOpenGLName() const { return name; }
+		//inline GLenum getOpenGLTextureType() const {return target;}
 
 		virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0);
+
+
+		inline size_t getAllocationSize() const override { return this->getSize(); }
+		inline IDriverMemoryAllocation* getBoundMemory() override { return this; }
+		inline const IDriverMemoryAllocation* getBoundMemory() const override { return this; }
+		inline size_t getBoundMemoryOffset() const override { return 0ll; }
+
+		inline E_SOURCE_MEMORY_TYPE getType() const override { return ESMT_DEVICE_LOCAL; }
+		inline void unmapMemory() override {}
+		inline bool isDedicated() const override { return true; }
 };
 
 
@@ -41,33 +92,6 @@ class COpenGLImage : public IGPUImage
 #endif
 
 #if 0
-  // Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
-
-#ifndef __C_OPEN_GL_TEXTURE_H_INCLUDED__
-#define __C_OPEN_GL_TEXTURE_H_INCLUDED__
-
-#include "IrrCompileConfig.h"
-#include "irr/video/IGPUImage.h"
-#include "COpenGLStateManager.h"
-
-#ifdef _IRR_COMPILE_WITH_OPENGL_
-
-
-
-namespace irr
-{
-	namespace video
-	{
-
-		//! OpenGL texture.
-		class COpenGLTexture : public IGPUImage
-		{
-		public:
-			//! return open gl texture name
-			const GLuint& getOpenGLName() const { return TextureName; }
-			GLuint* getOpenGLNamePtr() { return &TextureName; }
 
 			//!
 			const uint64_t& hasOpenGLNameChanged() const { return TextureNameHasChanged; }
@@ -83,26 +107,17 @@ namespace irr
 			//! Get the OpenGL color format parameters based on the given Irrlicht color format
 			static void getOpenGLFormatAndParametersFromColorFormat(const asset::E_FORMAT& format, GLenum& colorformat, GLenum& type); //kill this
 
-			static GLint getOpenGLFormatAndParametersFromColorFormat(const asset::E_FORMAT& format);
-
-			//!
-			static asset::E_FORMAT getColorFormatFromSizedOpenGLFormat(const GLenum& sizedFormat);
 
 		protected:
-			//! protected constructor with basic setup, no GL texture name created, for derived classes
-			COpenGLTexture(const GLenum& textureType_Target);
-
-			//! destructor
-			virtual ~COpenGLTexture();
-
+			
 			//! for resizes
 			void recreateName(const GLenum& textureType_Target);
 
-			GLuint TextureName;
 			uint64_t TextureNameHasChanged;
-		private:
-			COpenGLTexture() {}
-		};
+
+
+
+
 
 		//! .
 		class COpenGLFilterableTexture : public ITexture, public COpenGLTexture, public IDriverMemoryAllocation
@@ -111,7 +126,6 @@ namespace irr
 			virtual IRenderableVirtualTexture::E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const { return IRenderableVirtualTexture::EVTT_OPAQUE_FILTERABLE; }
 
 			//! Get size
-			virtual const uint32_t* getSize() const { return TextureSize; }
 			virtual core::dimension2du getRenderableSize() const { return *reinterpret_cast<const core::dimension2du*>(TextureSize); }
 
 			//! returns driver type of texture (=the driver, that created it)
@@ -131,34 +145,7 @@ namespace irr
 			//! return whether this texture has mipmaps
 			virtual bool hasMipMaps() const { return MipLevelsStored > 1; }
 
-			//! Regenerates the mip map levels of the texture.
-			virtual void regenerateMipMapLevels();
 
-
-			virtual size_t getAllocationSize() const { return (TextureSize[2] * TextureSize[1] * getPitch() * core::rational<uint32_t>(3u, 2u)).getIntegerApprox(); } // MipLevelsStored rough estimate
-			virtual IDriverMemoryAllocation* getBoundMemory() { return this; }
-			virtual const IDriverMemoryAllocation* getBoundMemory() const { return this; }
-			virtual size_t getBoundMemoryOffset() const { return 0ll; }
-
-			virtual E_SOURCE_MEMORY_TYPE getType() const { return ESMT_DEVICE_LOCAL; }
-			virtual void unmapMemory() {}
-			virtual bool isDedicated() const { return true; }
-
-		protected:
-			//! protected constructor with basic setup, no GL texture name created, for derived classes
-			COpenGLFilterableTexture(const io::path& name, const GLenum& textureType_Target);
-
-
-			uint32_t TextureSize[3];
-			uint32_t MipLevelsStored;
-
-			GLint InternalFormat;
-			asset::E_FORMAT ColorFormat;
-		};
-
-
-	} // end namespace video
-} // end namespace irr
 
 #endif
 #endif // _IRR_COMPILE_WITH_OPENGL_

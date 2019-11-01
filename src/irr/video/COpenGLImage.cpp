@@ -39,21 +39,6 @@ namespace video
         }
     }
 **/
-COpenGL2DTexture::COpenGL2DTexture(GLenum internalFormat, const uint32_t* size, uint32_t mipmapLevels, const io::path& name) : COpenGLFilterableTexture(name,getOpenGLTextureType())
-{
-#ifdef _IRR_DEBUG
-	setDebugName("COpenGL2DTexture");
-#endif
-    TextureSize[0] = size[0];
-    TextureSize[1] = size[1];
-    TextureSize[2] = 1;
-    MipLevelsStored = mipmapLevels;
-
-    InternalFormat = internalFormat;
-    COpenGLExtensionHandler::extGlTextureStorage2D(TextureName,GL_TEXTURE_2D,MipLevelsStored,InternalFormat,TextureSize[0],TextureSize[1]);
-
-    ColorFormat = getColorFormatFromSizedOpenGLFormat(InternalFormat);
-}
 
 bool COpenGL2DTexture::updateSubRegion(const asset::E_FORMAT &inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap, const uint32_t& unpackRowByteAlignment)
 {
@@ -133,49 +118,18 @@ bool COpenGL2DTexture::resize(const uint32_t* size, const uint32_t &mipLevels)
 
 #if 0
 
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
-
-#include "IrrCompileConfig.h"
-
-#ifdef _IRR_COMPILE_WITH_OPENGL_
 
 #include "irr/core/Types.h"
-#include "COpenGLTexture.h"
-#include "COpenGLDriver.h"
 #include "os.h"
-
-
-
-namespace irr
-{
-	namespace video
-	{
 
 
 		//! constructor for basic setup (only for derived classes)
 		COpenGLTexture::COpenGLTexture(const GLenum& textureType_Target)
 			: TextureName(0), TextureNameHasChanged(0)
 		{
-			COpenGLExtensionHandler::extGlCreateTextures(textureType_Target, 1, &TextureName);
-
-#ifdef OPENGL_LEAK_DEBUG
-			COpenGLExtensionHandler::textureLeaker.registerObj(this);
-#endif // OPENGL_LEAK_DEBUG
 		}
 
 
-		//! destructor
-		COpenGLTexture::~COpenGLTexture()
-		{
-			if (TextureName)
-				glDeleteTextures(1, &TextureName);
-
-#ifdef OPENGL_LEAK_DEBUG
-			COpenGLExtensionHandler::textureLeaker.deregisterObj(this);
-#endif // OPENGL_LEAK_DEBUG
-		}
 
 		void COpenGLTexture::recreateName(const GLenum& textureType_Target)
 		{
@@ -186,29 +140,10 @@ namespace irr
 		}
 
 
-
-		//! constructor for basic setup (only for derived classes)
-		COpenGLFilterableTexture::COpenGLFilterableTexture(const io::path& name, const GLenum& textureType_Target)
-			: ITexture(IDriverMemoryBacked::SDriverMemoryRequirements{ {0,0,0},0,0,1,1 }, name), COpenGLTexture(textureType_Target), ColorFormat(asset::EF_UNKNOWN),
-			InternalFormat(GL_RGBA), MipLevelsStored(0)
-		{
-			TextureSize[0] = 1;
-			TextureSize[1] = 1;
-			TextureSize[2] = 1;
-#ifdef _IRR_DEBUG
-			setDebugName("COpenGLFilterableTexture");
-#endif
-		}
-
-
 		//! Regenerates the mip map levels of the texture. Useful after locking and
 		//! modifying the texture
 		void COpenGLFilterableTexture::regenerateMipMapLevels()
 		{
-			if (MipLevelsStored <= 1)
-				return;
-
-			COpenGLExtensionHandler::extGlGenerateTextureMipmap(TextureName, this->getOpenGLTextureType());
 		}
 
 

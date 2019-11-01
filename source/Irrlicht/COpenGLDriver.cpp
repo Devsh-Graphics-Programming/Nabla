@@ -11,15 +11,7 @@
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
-#include "COpenGL1DTexture.h"
-#include "COpenGL1DTextureArray.h"
-#include "COpenGL2DTexture.h"
-#include "COpenGL3DTexture.h"
-#include "COpenGL2DTextureArray.h"
-#include "COpenGLCubemapTexture.h"
-#include "COpenGLCubemapArrayTexture.h"
-#include "COpenGLMultisampleTexture.h"
-#include "COpenGLMultisampleTextureArray.h"
+#include "irr/video/COpenGLImageView.h"
 #include "irr/video/COpenGLBufferView.h"
 
 #include "irr/video/COpenGLShader.h"
@@ -928,34 +920,34 @@ bool COpenGLDriver::genericDriverInit()
 
 	GLint num = 0;
 	glGetIntegerv(GL_MAX_TEXTURE_SIZE, &num);
-	MaxTextureSizes[ITexture::ETT_1D][0] = static_cast<uint32_t>(num);
-	MaxTextureSizes[ITexture::ETT_2D][0] = static_cast<uint32_t>(num);
-	MaxTextureSizes[ITexture::ETT_2D][1] = static_cast<uint32_t>(num);
+	MaxTextureSizes[IGPUImageView::ET_1D][0] = static_cast<uint32_t>(num);
+	MaxTextureSizes[IGPUImageView::ET_2D][0] = static_cast<uint32_t>(num);
+	MaxTextureSizes[IGPUImageView::ET_2D][1] = static_cast<uint32_t>(num);
 
-	MaxTextureSizes[ITexture::ETT_1D_ARRAY][0] = static_cast<uint32_t>(num);
-	MaxTextureSizes[ITexture::ETT_2D_ARRAY][0] = static_cast<uint32_t>(num);
-	MaxTextureSizes[ITexture::ETT_2D_ARRAY][1] = static_cast<uint32_t>(num);
+	MaxTextureSizes[IGPUImageView::ET_1D_ARRAY][0] = static_cast<uint32_t>(num);
+	MaxTextureSizes[IGPUImageView::ET_2D_ARRAY][0] = static_cast<uint32_t>(num);
+	MaxTextureSizes[IGPUImageView::ET_2D_ARRAY][1] = static_cast<uint32_t>(num);
 
 	glGetIntegerv(GL_MAX_CUBE_MAP_TEXTURE_SIZE , &num);
-	MaxTextureSizes[ITexture::ETT_CUBE_MAP][0] = static_cast<uint32_t>(num);
-	MaxTextureSizes[ITexture::ETT_CUBE_MAP][1] = static_cast<uint32_t>(num);
+	MaxTextureSizes[IGPUImageView::ET_CUBE_MAP][0] = static_cast<uint32_t>(num);
+	MaxTextureSizes[IGPUImageView::ET_CUBE_MAP][1] = static_cast<uint32_t>(num);
 
-	MaxTextureSizes[ITexture::ETT_CUBE_MAP_ARRAY][0] = static_cast<uint32_t>(num);
-	MaxTextureSizes[ITexture::ETT_CUBE_MAP_ARRAY][1] = static_cast<uint32_t>(num);
+	MaxTextureSizes[IGPUImageView::ET_CUBE_MAP_ARRAY][0] = static_cast<uint32_t>(num);
+	MaxTextureSizes[IGPUImageView::ET_CUBE_MAP_ARRAY][1] = static_cast<uint32_t>(num);
 
 	glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &num);
-	MaxTextureSizes[ITexture::ETT_1D_ARRAY][2] = static_cast<uint32_t>(num);
-	MaxTextureSizes[ITexture::ETT_2D_ARRAY][2] = static_cast<uint32_t>(num);
-	MaxTextureSizes[ITexture::ETT_CUBE_MAP_ARRAY][2] = static_cast<uint32_t>(num);
+	MaxTextureSizes[IGPUImageView::ET_1D_ARRAY][2] = static_cast<uint32_t>(num);
+	MaxTextureSizes[IGPUImageView::ET_2D_ARRAY][2] = static_cast<uint32_t>(num);
+	MaxTextureSizes[IGPUImageView::ET_CUBE_MAP_ARRAY][2] = static_cast<uint32_t>(num);
 
 	glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &num);
-	MaxTextureSizes[ITexture::ETT_3D][0] = static_cast<uint32_t>(num);
-	MaxTextureSizes[ITexture::ETT_3D][1] = static_cast<uint32_t>(num);
-	MaxTextureSizes[ITexture::ETT_3D][2] = static_cast<uint32_t>(num);
+	MaxTextureSizes[IGPUImageView::ET_3D][0] = static_cast<uint32_t>(num);
+	MaxTextureSizes[IGPUImageView::ET_3D][1] = static_cast<uint32_t>(num);
+	MaxTextureSizes[IGPUImageView::ET_3D][2] = static_cast<uint32_t>(num);
 
 
 	glGetIntegerv(GL_MAX_TEXTURE_BUFFER_SIZE , &num);
-	///MaxTextureSizes[ITexture::ETT_TEXTURE_BUFFER][0] = static_cast<uint32_t>(num);
+	///MaxBufferViewSize = static_cast<uint32_t>(num);
 
 
 	uint32_t i;
@@ -1009,164 +1001,6 @@ bool COpenGLDriver::genericDriverInit()
     DerivativeMapCreator = new CDerivativeMapCreator(this);
 
 	return true;
-}
-/*
-class SimpleDummyCallBack : public video::IShaderConstantSetCallBack
-{
-protected:
-    video::SConstantLocationNamePair mvpUniform[EMT_COUNT];
-    video::E_MATERIAL_TYPE currentMatType;
-public:
-    SimpleDummyCallBack()
-    {
-        currentMatType = EMT_COUNT;
-        for (size_t i=0; i<EMT_COUNT; i++)
-            mvpUniform[i].location = -1;
-    }
-    virtual void OnUnsetMaterial()
-    {
-        currentMatType = EMT_COUNT;
-    }
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE &materialType, const core::vector<video::SConstantLocationNamePair> &constants)
-    {
-        for (size_t i=0; i<constants.size(); i++)
-        {
-            if (constants[i].name=="MVPMat")
-            {
-                mvpUniform[materialType] = constants[i];
-                break;
-            }
-        }
-    }
-    virtual void OnSetMaterial(video::IMaterialRendererServices* services, const video::SGPUMaterial &material, const video::SGPUMaterial &lastMaterial)
-    {
-        currentMatType = material.MaterialType;
-	}
-	virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
-	{
-	    if (currentMatType>=EMT_COUNT)
-            return;
-
-	    if (mvpUniform[currentMatType].location>=0)
-            services->setShaderConstant(services->getVideoDriver()->getTransform(EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniform[currentMatType].location,mvpUniform[currentMatType].type);
-	}
-};
-*/
-void COpenGLDriver::createMaterialRenderers()
-{
-    /*
-	// create OpenGL material renderers
-    const char* std_vert =
-    "#version 430 core\n"
-    "uniform mat4 MVPMat;\n"
-    "layout(location = 0) in vec4 vPosAttr;\n"
-    "layout(location = 2) in vec2 vTCAttr;\n"
-    "layout(location = 1) in vec4 vColAttr;\n"
-    "\n"
-    "out vec4 vxCol;\n"
-    "out vec2 tcCoord;\n"
-    "\n"
-    "void main()\n"
-    "{\n"
-    "   gl_Position = MVPMat*vPosAttr;"
-    "   vxCol = vColAttr;"
-    "   tcCoord = vTCAttr;"
-    "}";
-    const char* std_solid_frag =
-    "#version 430 core\n"
-    "in vec4 vxCol;\n"
-    "in vec2 tcCoord;\n"
-    "\n"
-    "layout(location = 0) out vec4 outColor;\n"
-    "\n"
-    "layout(location = 0) uniform sampler2D tex0;"
-    "\n"
-    "void main()\n"
-    "{\n"
-    "   outColor = texture(tex0,tcCoord);"
-    "}";
-    const char* std_trans_add_frag =
-    "#version 430 core\n"
-    "in vec4 vxCol;\n"
-    "in vec2 tcCoord;\n"
-    "\n"
-    "layout(location = 0) out vec4 outColor;\n"
-    "\n"
-    "layout(location = 0) uniform sampler2D tex0;"
-    "\n"
-    "void main()\n"
-    "{\n"
-    "   outColor = texture(tex0,tcCoord);"
-    "}";
-    const char* std_trans_alpha_frag =
-    "#version 430 core\n"
-    "in vec4 vxCol;\n"
-    "in vec2 tcCoord;\n"
-    "\n"
-    "layout(location = 0) out vec4 outColor;\n"
-    "\n"
-    "layout(location = 0) uniform sampler2D tex0;"
-    "\n"
-    "void main()\n"
-    "{\n"
-    "   vec4 tmp = texture(tex0,tcCoord)*vxCol;\n"
-    "   if (tmp.a<0.00000000000000000000000000000000001)\n"
-    "       discard;\n"
-    "   outColor = tmp;"
-    "}";
-    const char* std_trans_vertex_frag =
-    "#version 430 core\n"
-    "in vec4 vxCol;\n"
-    "in vec2 tcCoord;\n"
-    "\n"
-    "layout(location = 0) out vec4 outColor;\n"
-    "\n"
-    "layout(location = 0) uniform sampler2D tex0;"
-    "\n"
-    "void main()\n"
-    "{\n"
-    "   if (vxCol.a<0.00000000000000000000000000000000001)\n"
-    "       discard;\n"
-    "   outColor = vec4(texture(tex0,tcCoord).rgb,1.0)*vxCol;"
-    "}";
-    int32_t nr;
-
-    //SimpleDummyCallBack* sdCB = new SimpleDummyCallBack();
-
-    COpenGLSLMaterialRenderer* rdr = new COpenGLSLMaterialRenderer(
-		this, nr,
-		std_vert, "main",
-		std_solid_frag, "main",
-		NULL, NULL, NULL, NULL, NULL, NULL,3,nullptr,EMT_SOLID);
-    if (rdr)
-        rdr->drop();
-
-	rdr = new COpenGLSLMaterialRenderer(
-		this, nr,
-		std_vert, "main",
-		std_trans_add_frag, "main",
-		NULL, NULL, NULL, NULL, NULL, NULL,3, nullptr,EMT_TRANSPARENT_ADD_COLOR);
-    if (rdr)
-        rdr->drop();
-
-	rdr = new COpenGLSLMaterialRenderer(
-		this, nr,
-		std_vert, "main",
-		std_trans_alpha_frag, "main",
-		NULL, NULL, NULL, NULL, NULL, NULL,3, nullptr,EMT_TRANSPARENT_ALPHA_CHANNEL);
-    if (rdr)
-        rdr->drop();
-
-	rdr = new COpenGLSLMaterialRenderer(
-		this, nr,
-		std_vert, "main",
-		std_trans_vertex_frag, "main",
-		NULL, NULL, NULL, NULL, NULL, NULL,3, nullptr,EMT_TRANSPARENT_VERTEX_ALPHA);
-    if (rdr)
-        rdr->drop();
-
-    //sdCB->drop();
-    */
 }
 
 
@@ -1474,11 +1308,6 @@ IQueryObject* COpenGLDriver::createPrimitivesGeneratedQuery()
     return new COpenGLQuery(GL_PRIMITIVES_GENERATED);
 }
 
-IQueryObject* COpenGLDriver::createXFormFeedbackPrimitiveQuery()
-{
-    return new COpenGLQuery(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN);
-}
-
 IQueryObject* COpenGLDriver::createElapsedTimeQuery()
 {
     return new COpenGLQuery(GL_TIME_ELAPSED);
@@ -1627,7 +1456,7 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
 
 
 //! Indirect Draw
-void COpenGLDriver::drawArraysIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+void COpenGLDriver::drawArraysIndirect(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                                         asset::E_PRIMITIVE_TOPOLOGY mode,
                                         const IGPUBuffer* indirectDrawBuff,
                                         size_t offset, size_t maxCount, size_t stride,
@@ -1710,7 +1539,7 @@ bool COpenGLDriver::queryFeature(const E_DRIVER_FEATURE &feature) const
 	return false;
 }
 
-void COpenGLDriver::drawIndexedIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+void COpenGLDriver::drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                                         asset::E_PRIMITIVE_TOPOLOGY mode,
                                         asset::E_INDEX_TYPE indexType, const IGPUBuffer* indexBuff,
                                         const IGPUBuffer* indirectDrawBuff,
@@ -1752,107 +1581,6 @@ void COpenGLDriver::drawIndexedIndirect(const IGPUMeshBuffer::SBufferBinding _vt
 }
 
 
-
-
-static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
-{
-    using namespace asset;
-    switch (fmt)
-    {
-    case EF_R16_SFLOAT:
-    case EF_R16G16_SFLOAT:
-    case EF_R16G16B16_SFLOAT:
-    case EF_R16G16B16A16_SFLOAT:
-        return GL_HALF_FLOAT;
-    case EF_R32_SFLOAT:
-    case EF_R32G32_SFLOAT:
-    case EF_R32G32B32_SFLOAT:
-    case EF_R32G32B32A32_SFLOAT:
-        return GL_FLOAT;
-    case EF_B10G11R11_UFLOAT_PACK32:
-        return GL_UNSIGNED_INT_10F_11F_11F_REV;
-    case EF_R8_UNORM:
-    case EF_R8_UINT:
-    case EF_R8G8_UNORM:
-    case EF_R8G8_UINT:
-    case EF_R8G8B8_UNORM:
-    case EF_R8G8B8_UINT:
-    case EF_R8G8B8A8_UNORM:
-    case EF_R8G8B8A8_UINT:
-    case EF_R8_USCALED:
-    case EF_R8G8_USCALED:
-    case EF_R8G8B8_USCALED:
-    case EF_R8G8B8A8_USCALED:
-    case EF_B8G8R8A8_UNORM:
-        return GL_UNSIGNED_BYTE;
-    case EF_R8_SNORM:
-    case EF_R8_SINT:
-    case EF_R8G8_SNORM:
-    case EF_R8G8_SINT:
-    case EF_R8G8B8_SNORM:
-    case EF_R8G8B8_SINT:
-    case EF_R8G8B8A8_SNORM:
-    case EF_R8G8B8A8_SINT:
-    case EF_R8_SSCALED:
-    case EF_R8G8_SSCALED:
-    case EF_R8G8B8_SSCALED:
-    case EF_R8G8B8A8_SSCALED:
-        return GL_BYTE;
-    case EF_R16_UNORM:
-    case EF_R16_UINT:
-    case EF_R16G16_UNORM:
-    case EF_R16G16_UINT:
-    case EF_R16G16B16_UNORM:
-    case EF_R16G16B16_UINT:
-    case EF_R16G16B16A16_UNORM:
-    case EF_R16G16B16A16_UINT:
-    case EF_R16_USCALED:
-    case EF_R16G16_USCALED:
-    case EF_R16G16B16_USCALED:
-    case EF_R16G16B16A16_USCALED:
-        return GL_UNSIGNED_SHORT;
-    case EF_R16_SNORM:
-    case EF_R16_SINT:
-    case EF_R16G16_SNORM:
-    case EF_R16G16_SINT:
-    case EF_R16G16B16_SNORM:
-    case EF_R16G16B16_SINT:
-    case EF_R16G16B16A16_SNORM:
-    case EF_R16G16B16A16_SINT:
-    case EF_R16_SSCALED:
-    case EF_R16G16_SSCALED:
-    case EF_R16G16B16_SSCALED:
-    case EF_R16G16B16A16_SSCALED:
-        return GL_SHORT;
-    case EF_R32_UINT:
-    case EF_R32G32_UINT:
-    case EF_R32G32B32_UINT:
-    case EF_R32G32B32A32_UINT:
-        return GL_UNSIGNED_INT;
-    case EF_R32_SINT:
-    case EF_R32G32_SINT:
-    case EF_R32G32B32_SINT:
-    case EF_R32G32B32A32_SINT:
-        return GL_INT;
-    case EF_A2R10G10B10_UNORM_PACK32:
-    case EF_A2B10G10R10_UNORM_PACK32:
-    case EF_A2B10G10R10_USCALED_PACK32:
-    case EF_A2B10G10R10_UINT_PACK32:
-        return GL_UNSIGNED_INT_2_10_10_10_REV;
-    case EF_A2R10G10B10_SNORM_PACK32:
-    case EF_A2B10G10R10_SNORM_PACK32:
-    case EF_A2B10G10R10_SSCALED_PACK32:
-    case EF_A2B10G10R10_SINT_PACK32:
-        return GL_INT_2_10_10_10_REV;
-    case EF_R64_SFLOAT:
-    case EF_R64G64_SFLOAT:
-    case EF_R64G64B64_SFLOAT:
-    case EF_R64G64B64A64_SFLOAT:
-        return GL_DOUBLE;
-
-    default: return (GLenum)0;
-    }
-}
 
 void COpenGLDriver::SAuxContext::flushState(GL_STATE_BITS stateBits)
 {
@@ -2373,7 +2101,7 @@ void COpenGLDriver::SAuxContext::updateNextState_pipelineAndRaster(const IGPURen
     raster_dst.depthWriteEnable = raster_src.depthWriteEnable;
     raster_dst.stencilTestEnable = raster_src.stencilTestEnable;
 
-    raster_dst.multisampleEnable = (raster_src.rasterizationSamplesHint > asset::ESC_1_BIT);
+    raster_dst.multisampleEnable = (raster_src.rasterizationSamplesHint > asset::IImage::ESCF_1_BIT);
 
     const auto& blend_src = ppln->getBlendParams();
     raster_dst.logicOpEnable = blend_src.logicOpEnable;
@@ -2399,11 +2127,11 @@ void COpenGLDriver::SAuxContext::updateNextState_pipelineAndRaster(const IGPURen
     }
 }
 
-void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT], const IGPUBuffer* _indexBuffer, const IGPUBuffer* _indirectDrawBuffer, const IGPUBuffer* _paramBuffer)
+void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT], const IGPUBuffer* _indexBuffer, const IGPUBuffer* _indirectDrawBuffer, const IGPUBuffer* _paramBuffer)
 {
     for (size_t i = 0ull; i < IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; ++i)
     {
-        const IGPUMeshBuffer::SBufferBinding& bnd = _vtxBindings[i];
+        const asset::SBufferBinding<IGPUBuffer>& bnd = _vtxBindings[i];
         if (bnd.buffer) {
             const COpenGLBuffer* buf = static_cast<COpenGLBuffer*>(bnd.buffer.get());
             nextState.vertexInputParams.bindings[i] = {core::smart_refctd_ptr<const COpenGLBuffer>(buf), static_cast<GLintptr>(bnd.offset)};
@@ -2426,106 +2154,6 @@ void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const IGPUMeshBuffe
 }
 
 
-
-bool orderByMip(asset::CImageData* a, asset::CImageData* b)
-{
-    return a->getSupposedMipLevel() < b->getSupposedMipLevel();
-}
-
-
-//! returns a device dependent texture
-core::smart_refctd_ptr<video::ITexture> COpenGLDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size,
-																					uint32_t mipmapLevels, const io::path& name, asset::E_FORMAT format)
-{
-#ifdef _IRR_DEBUG
-    //if the max coords are not 0, then there is something seriously wrong
-    switch (type)
-    {
-        case ITexture::ETT_1D:
-            assert(size[0]>0);
-            break;
-        case ITexture::ETT_2D:
-        case ITexture::ETT_1D_ARRAY:
-            assert(size[0]>0&&size[1]>0);
-            break;
-        case ITexture::ETT_CUBE_MAP:
-            assert(size[0]>0&&size[1]>0&&size[2]==6);
-            break;
-        case ITexture::ETT_CUBE_MAP_ARRAY:
-            assert(size[0]>0&&size[1]>0&&size[2]&&(size[2]%6==0));
-            break;
-        default:
-            assert(size[0]>0&&size[1]>0&&size[2]>0);
-            break;
-    }
-#endif // _IRR_DEBUG
-    //do the texture creation flag mumbo jumbo of death.
-    if (mipmapLevels==0)
-    {
-        if (getTextureCreationFlag(ETCF_CREATE_MIP_MAPS))
-        {
-            uint32_t maxSideLen = size[0];
-            switch (type)
-            {
-                case ITexture::ETT_1D:
-                case ITexture::ETT_1D_ARRAY:
-                case ITexture::ETT_CUBE_MAP:
-                case ITexture::ETT_CUBE_MAP_ARRAY:
-                    break;
-                case ITexture::ETT_2D:
-                case ITexture::ETT_2D_ARRAY:
-                    if (maxSideLen < size[1])
-                        maxSideLen = size[1];
-                    break;
-                case ITexture::ETT_3D:
-                    if (maxSideLen < size[1])
-                        maxSideLen = size[1];
-                    if (maxSideLen < size[2])
-                        maxSideLen = size[2];
-                    break;
-                default:
-                    maxSideLen = 1;
-                    break;
-            }
-            mipmapLevels = 1u+uint32_t(floorf(log2(float(maxSideLen))));
-        }
-        else
-            mipmapLevels = 1;
-    }
-
-	auto internalFormat = COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format);
-	if (internalFormat==GL_INVALID_ENUM)
-		return nullptr;
-
-    switch (type)
-    {
-        case ITexture::ETT_1D:
-            return core::make_smart_refctd_ptr<COpenGL1DTexture>(internalFormat, size, mipmapLevels, name);
-            break;
-        case ITexture::ETT_2D:
-            return core::make_smart_refctd_ptr<COpenGL2DTexture>(internalFormat, size, mipmapLevels, name);
-            break;
-        case ITexture::ETT_3D:
-            return core::make_smart_refctd_ptr<COpenGL3DTexture>(internalFormat,size,mipmapLevels,name);
-            break;
-        case ITexture::ETT_1D_ARRAY:
-            return core::make_smart_refctd_ptr<COpenGL1DTextureArray>(internalFormat,size,mipmapLevels,name);
-            break;
-        case ITexture::ETT_2D_ARRAY:
-            return core::make_smart_refctd_ptr<COpenGL2DTextureArray>(internalFormat,size,mipmapLevels,name);
-            break;
-        case ITexture::ETT_CUBE_MAP:
-            return core::make_smart_refctd_ptr<COpenGLCubemapTexture>(internalFormat,size,mipmapLevels,name);
-            break;
-        case ITexture::ETT_CUBE_MAP_ARRAY:
-            return core::make_smart_refctd_ptr<COpenGLCubemapArrayTexture>(internalFormat,size,mipmapLevels,name);
-            break;
-        default:// ETT_CUBE_MAP, ETT_CUBE_MAP_ARRAY, ETT_TEXTURE_BUFFER
-            break;
-    }
-
-    return nullptr;
-}
 
 
 //! \return Returns the name of the video driver.
@@ -2556,39 +2184,6 @@ void COpenGLDriver::setViewPort(const core::rect<int32_t>& area)
 	}
 }
 
-core::smart_refctd_ptr<ITexture> COpenGLDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format)
-{
-    return createDeviceDependentTexture(type, size, mipmapLevels, "", format);
-}
-
-IMultisampleTexture* COpenGLDriver::createMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, asset::E_FORMAT format, const bool& fixedSampleLocations)
-{
-    //check to implement later on  attachment of textures to FBO
-    //if (!isFormatRenderable(glTex->getOpenGLInternalFormat()))
-        //return nullptr;
-    //! Vulkan and D3D only allow PoT sample counts
-    if (core::isNPoT(samples))
-        return nullptr;
-
-	auto internalFormat = COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(format);
-	if (internalFormat == GL_INVALID_ENUM)
-		return nullptr;
-
-	IMultisampleTexture* tex = nullptr;
-	switch (type)
-	{
-        case IMultisampleTexture::EMTT_2D:
-            tex = new COpenGLMultisampleTexture(internalFormat,samples,size,fixedSampleLocations);
-            break;
-        case IMultisampleTexture::EMTT_2D_ARRAY:
-            tex = new COpenGLMultisampleTextureArray(internalFormat,samples,size,fixedSampleLocations);
-            break;
-        default:
-            break;
-	}
-
-	return tex;
-}
 
 IFrameBuffer* COpenGLDriver::addFrameBuffer()
 {

@@ -19,7 +19,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 
 		size_t conservativeSizeEstimate() const override { return sizeof(base_t); }
 		void convertToDummyObject() override { }
-		E_TYPE getAssetType() const override { return ET_GRAPHICS_PIPELINE; }
+		E_TYPE getAssetType() const override { return ET_RENDERPASS_INDEPENDENT_PIPELINE; }
 
 		inline ICPUPipelineLayout* getLayout() { return m_layout.get(); }
 

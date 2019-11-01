@@ -19,6 +19,7 @@ class IGPUImageView : public asset::IImageView<IGPUImage>
 		virtual void regenerateMipMapLevels() = 0; // deprecated
 
 	protected:
+		IGPUImageView(SCreationParams&& _params) : IImageView<IGPUImage>(std::move(_params)) {}
 		virtual ~IGPUImageView() = default;
 };
 
