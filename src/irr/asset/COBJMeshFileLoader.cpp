@@ -325,22 +325,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			for ( uint32_t i = 1; i < faceCorners.size() - 1; ++i )
 			{
 				// Add a triangle
-				performActionBasedOnOrientationSystem
-				(
-					[&]()
-					{
-						currMtl->Indices.push_back(faceCorners[0]);
-						currMtl->Indices.push_back(faceCorners[i]);
-						currMtl->Indices.push_back(faceCorners[i + 1]);
-					}, 
-				
-					[&]() 
-					{
-						currMtl->Indices.push_back(faceCorners[i + 1]);
-						currMtl->Indices.push_back(faceCorners[i]);
-						currMtl->Indices.push_back(faceCorners[0]);
-					}
-				);
+				currMtl->Indices.push_back(faceCorners[i + 1]);
+				currMtl->Indices.push_back(faceCorners[i]);
+				currMtl->Indices.push_back(faceCorners[0]);
 			}
 			faceCorners.resize(0); // fast clear
 			faceCorners.reserve(32);
