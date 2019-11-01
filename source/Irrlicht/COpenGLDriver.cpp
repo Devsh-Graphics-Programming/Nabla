@@ -858,6 +858,8 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
     //force drop of all all grabbed (through smart_refctd_ptr) resources (descriptor sets, buffers, program pipeline)
     found->currentState = SOpenGLState();
     found->nextState = SOpenGLState();
+    for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+        found->effectivelyBoundDescriptors.descSets[i] = SOpenGLState::SDescSetBnd();
 
     glFinish();
 }
@@ -1309,6 +1311,19 @@ bool COpenGLDriver::bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, cons
         _dynamicOffsets[i] //intentionally copy, not move
         };
     }
+
+    return true;
+}
+
+bool COpenGLDriver::dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint32_t _groupCountZ)
+{
+    SAuxContext* ctx = getThreadContext_helper(false);
+    if (!ctx)
+        return false;
+
+    ctx->flushStateCompute(GSB_ALL);
+
+    extGlDispatchCompute(_groupCountX, _groupCountY, _groupCountZ);
 
     return true;
 }
@@ -1877,32 +1892,22 @@ static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
     }
 }
 
-template<E_PIPELINE_BIND_POINT PBP>
-void COpenGLDriver::SAuxContext::flushState_descriptors(const pipeline_for_bindpoint_t<PBP>* _prevPipeline)
+void COpenGLDriver::SAuxContext::flushState_descriptors(E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, const COpenGLPipelineLayout* _prevLayout)
 {
-    const pipeline_for_bindpoint_t<PBP>* currentPipeline = nullptr;
-    IRR_PSEUDO_IF_CONSTEXPR_BEGIN(PBP == EPBP_GRAPHICS) {
-        currentPipeline = currentState.pipeline.graphics.pipeline.get();
-    }
-    IRR_PSEUDO_ELSE_CONSTEXPR {
-        currentPipeline = currentState.pipeline.compute.pipeline.get();
-    }
-    IRR_PSEUDO_IF_CONSTEXPR_END
-
     //bind new descriptor sets
     uint32_t compatibilityLimitPlusOne = 0u;
-    if (_prevPipeline && currentPipeline)
-        compatibilityLimitPlusOne = _prevPipeline->getLayout()->isCompatibleForSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT - 1u, currentPipeline->getLayout()) + 1u;
+    if (_prevLayout && _currentLayout)
+        compatibilityLimitPlusOne = _prevLayout->isCompatibleForSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT - 1u, _currentLayout) + 1u;
     if (compatibilityLimitPlusOne >= IGPUPipelineLayout::DESCRIPTOR_SET_COUNT)
         compatibilityLimitPlusOne = 0u;
 
     int64_t newUboCount = 0u, newSsboCount = 0u, newTexCount = 0u, newImgCount = 0u;
     for (uint32_t i = 0u; i < video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
     {
-        if (!currentPipeline)
+        if (!_currentLayout)
             break;
 
-        const auto& first_count = static_cast<const COpenGLPipelineLayout*>(currentPipeline->getLayout())->getMultibindParamsForDescSet(i);
+        const auto& first_count = _currentLayout->getMultibindParamsForDescSet(i);
 
         {
             GLsizei count{};
@@ -1921,11 +1926,17 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
 #undef CLAMP_COUNT
         }
 
-        if (i < compatibilityLimitPlusOne)//if prev and curr pipeline layouts are compatible for set N and currState.set[N]==nextState.set[N] then binding set N would be redundant
+        //if prev and curr pipeline layouts are compatible for set N, currState.set[N]==nextState.set[N] and the sets were bound with same dynamic offsets, then binding set N would be redundant
+        if ((i < compatibilityLimitPlusOne) &&
+            (effectivelyBoundDescriptors.descSets[i].set == nextState.descriptorsParams[_pbp].descSets[i].set) &&
+            (effectivelyBoundDescriptors.descSets[i].dynamicOffsets == nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets)
+        ) 
+        {
             continue;
+        }
 
-        const auto& multibind_params = nextState.descriptorsParams[PBP].descSets[i].set ?
-            nextState.descriptorsParams[PBP].descSets[i].set->getMultibindParams() :
+        const auto& multibind_params = nextState.descriptorsParams[_pbp].descSets[i].set ?
+            nextState.descriptorsParams[_pbp].descSets[i].set->getMultibindParams() :
             COpenGLDescriptorSet::SMultibindParams{};//all nullptr
 
         const GLsizei localUboCount = (newUboCount - first_count.ubos.first);//"local" as in this DS
@@ -1934,25 +1945,25 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
         constexpr size_t MAX_UBO_COUNT = 96ull;
         constexpr size_t MAX_SSBO_COUNT = 91ull;
         GLintptr uboOffsets_array[MAX_UBO_COUNT]{};
-        GLintptr* const uboOffsets = nextState.descriptorsParams[PBP].descSets[i].set ? uboOffsets_array : nullptr;
+        GLintptr* const uboOffsets = nextState.descriptorsParams[_pbp].descSets[i].set ? uboOffsets_array : nullptr;
         GLintptr ssboOffsets_array[MAX_SSBO_COUNT]{};
-        GLintptr* const ssboOffsets = nextState.descriptorsParams[PBP].descSets[i].set ? ssboOffsets_array : nullptr;
+        GLintptr* const ssboOffsets = nextState.descriptorsParams[_pbp].descSets[i].set ? ssboOffsets_array : nullptr;
 
         if (uboOffsets)
             memcpy(uboOffsets, multibind_params.ubos.offsets, localUboCount * sizeof(GLintptr));
         //if the loop below crashes, it means that there are dynamic UBOs in the DS, but the DS was bound with no (or not enough) dynamic offsets
         //or for some weird reason (bug) descSets[i].set is nullptr, but descSets[i].dynamicOffsets is not
-        for (GLsizei u = 0u; ((u < localUboCount) && nextState.descriptorsParams[PBP].descSets[i].dynamicOffsets); ++u)
-            if (multibind_params.ubos.dynOffsetIxs[u] < nextState.descriptorsParams[PBP].descSets[i].dynamicOffsets->size())
-                uboOffsets[u] += nextState.descriptorsParams[PBP].descSets[i].dynamicOffsets->operator[](multibind_params.ubos.dynOffsetIxs[u]);
+        for (GLsizei u = 0u; ((u < localUboCount) && nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets); ++u)
+            if (multibind_params.ubos.dynOffsetIxs[u] < nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets->size())
+                uboOffsets[u] += nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets->operator[](multibind_params.ubos.dynOffsetIxs[u]);
 
         if (ssboOffsets)
             memcpy(ssboOffsets, multibind_params.ssbos.offsets, localSsboCount * sizeof(GLintptr));
         //if the loop below crashes, it means that there are dynamic SSBOs in the DS, but the DS was bound with no (or not enough) dynamic offsets
         //or for some weird reason (bug) descSets[i].set is nullptr, but descSets[i].dynamicOffsets is not
-        for (GLsizei s = 0u; ((s < localSsboCount) && nextState.descriptorsParams[PBP].descSets[i].dynamicOffsets); ++s)
-            if (multibind_params.ssbos.dynOffsetIxs[s] < nextState.descriptorsParams[PBP].descSets[i].dynamicOffsets->size())
-                ssboOffsets[s] += nextState.descriptorsParams[PBP].descSets[i].dynamicOffsets->operator[](multibind_params.ssbos.dynOffsetIxs[s]);
+        for (GLsizei s = 0u; ((s < localSsboCount) && nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets); ++s)
+            if (multibind_params.ssbos.dynOffsetIxs[s] < nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets->size())
+                ssboOffsets[s] += nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets->operator[](multibind_params.ssbos.dynOffsetIxs[s]);
 
         extGlBindBuffersRange(GL_UNIFORM_BUFFER, first_count.ubos.first, localUboCount, multibind_params.ubos.buffers, uboOffsets, multibind_params.ubos.sizes);
         extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, first_count.ssbos.first, localSsboCount, multibind_params.ssbos.buffers, ssboOffsets, multibind_params.ssbos.sizes);
@@ -1962,10 +1973,10 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
     }
 
     //unbind previous descriptors if needed (if bindings not replaced by new multibind calls)
-    if (_prevPipeline)//if previous pipeline was nullptr, then no descriptors were bound
+    if (_prevLayout)//if previous pipeline was nullptr, then no descriptors were bound
     {
         int64_t prevUboCount = 0u, prevSsboCount = 0u, prevTexCount = 0u, prevImgCount = 0u;
-        const auto& first_count = static_cast<const COpenGLPipelineLayout*>(_prevPipeline->getLayout())->getMultibindParamsForDescSet(video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT - 1u);
+        const auto& first_count = _prevLayout->getMultibindParamsForDescSet(video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT - 1u);
 
         prevUboCount = first_count.ubos.first + first_count.ubos.count;
         prevSsboCount = first_count.ssbos.first + first_count.ssbos.count;
@@ -1987,7 +1998,10 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
 
     //update state in state tracker
     for (uint32_t i = 0u; i < video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
-        currentState.descriptorsParams[PBP].descSets[i] = nextState.descriptorsParams[PBP].descSets[i];
+    {
+        currentState.descriptorsParams[_pbp].descSets[i] = nextState.descriptorsParams[_pbp].descSets[i];
+        effectivelyBoundDescriptors.descSets[i] = nextState.descriptorsParams[_pbp].descSets[i];
+    }
 }
 
 void COpenGLDriver::SAuxContext::flushStateGraphics(GL_STATE_BITS stateBits)
@@ -2274,7 +2288,9 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(GL_STATE_BITS stateBits)
 #undef UPDATE_STATE
     if (stateBits & GSB_DESCRIPTOR_SETS)
     {
-        flushState_descriptors<EPBP_GRAPHICS>(prevPipeline.get());
+        const COpenGLPipelineLayout* currLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.graphics.pipeline->getLayout());
+        const COpenGLPipelineLayout* prevLayout = static_cast<const COpenGLPipelineLayout*>(prevPipeline->getLayout());
+        flushState_descriptors(EPBP_GRAPHICS, currLayout, prevLayout);
     }
 }
 
@@ -2297,7 +2313,9 @@ void COpenGLDriver::SAuxContext::flushStateCompute(GL_STATE_BITS stateBits)
     }
     else if (stateBits & GSB_DESCRIPTOR_SETS)
     {
-        flushState_descriptors<EPBP_COMPUTE>(prevPipeline.get());
+        const COpenGLPipelineLayout* currLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.compute.pipeline->getLayout());
+        const COpenGLPipelineLayout* prevLayout = static_cast<const COpenGLPipelineLayout*>(prevPipeline->getLayout());
+        flushState_descriptors(EPBP_COMPUTE, currLayout, prevLayout);
     }
 }
 

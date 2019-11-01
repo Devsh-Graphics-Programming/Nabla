@@ -61,6 +61,8 @@ namespace video
             return false; 
         }
 
+        bool dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint32_t _groupCountZ) override { return false; }
+
 		//!
         virtual bool initAuxContext() {return false;}
         virtual bool deinitAuxContext() {return false;}

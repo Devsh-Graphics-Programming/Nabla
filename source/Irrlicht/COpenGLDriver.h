@@ -166,12 +166,12 @@ namespace video
             core::smart_refctd_ptr<const COpenGLBuffer> parameterBuf;//GL>=4.6
         } vertexInputParams;
 
+        struct SDescSetBnd {
+            core::smart_refctd_ptr<const COpenGLPipelineLayout> pplnLayout;
+            core::smart_refctd_ptr<const COpenGLDescriptorSet> set;
+            core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets;
+        };
         struct {
-            struct SDescSetBnd {
-                core::smart_refctd_ptr<const COpenGLPipelineLayout> pplnLayout;
-                core::smart_refctd_ptr<const COpenGLDescriptorSet> set;
-                core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets;
-            };
             SDescSetBnd descSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
         } descriptorsParams[E_PIPELINE_BIND_POINT::EPBP_COUNT];
     };
@@ -609,6 +609,9 @@ namespace video
         bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
             uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override;
 
+        bool dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint32_t _groupCountZ) override;
+
+
         core::smart_refctd_ptr<IGPUShader> createGPUShader(const asset::ICPUShader* _cpushader) override;
         core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) override;
 
@@ -842,13 +845,15 @@ namespace video
             template<E_PIPELINE_BIND_POINT PBP>
             using pipeline_for_bindpoint_t = typename pipeline_for_bindpoint<PBP>::type;
 
-            template<E_PIPELINE_BIND_POINT PBP>
-            void flushState_descriptors(const pipeline_for_bindpoint_t<PBP>* _prevPipeline);
+            void flushState_descriptors(E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, const COpenGLPipelineLayout* _prevLayout);
             void flushStateGraphics(GL_STATE_BITS stateBits);
             void flushStateCompute(GL_STATE_BITS stateBits);
 
             SOpenGLState currentState;
             SOpenGLState nextState;
+            struct {
+                SOpenGLState::SDescSetBnd descSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
+            } effectivelyBoundDescriptors;
         //private:
             std::thread::id threadId;
             uint8_t ID; //index in array of contexts, just to be easier in use
