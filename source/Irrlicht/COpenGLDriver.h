@@ -700,33 +700,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 		//! get color format of the current color buffer
 		inline asset::E_FORMAT getColorFormat() const override { return ColorFormat; }
 
-        /*
-        virtual int32_t addHighLevelShaderMaterial(
-            const char* vertexShaderProgram,
-            const char* controlShaderProgram,
-            const char* evaluationShaderProgram,
-            const char* geometryShaderProgram,
-            const char* pixelShaderProgram,
-            uint32_t patchVertices=3,
-            E_MATERIAL_TYPE baseMaterial=video::EMT_SOLID,
-            IShaderConstantSetCallBack* callback=0,
-            const char** xformFeedbackOutputs = NULL,
-            const uint32_t& xformFeedbackOutputCount = 0,
-            int32_t userData=0,
-            const char* vertexShaderEntryPointName="main",
-            const char* controlShaderEntryPointName="main",
-            const char* evaluationShaderEntryPointName="main",
-            const char* geometryShaderEntryPointName="main",
-            const char* pixelShaderEntryPointName="main");
-        */
-		//! Returns a pointer to the IVideoDriver interface. (Implementation for
-		//! IMaterialRendererServices)
-		virtual IVideoDriver* getVideoDriver();
-
-		//! Returns the maximum amount of primitives (mostly vertices) which
-		//! the device is able to render with one drawIndexedTriangleList
-		//! call.
-		virtual uint32_t getMaximalIndicesCount() const;
 
         core::smart_refctd_ptr<ITexture> createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) override;
 

@@ -61,6 +61,7 @@ class IImageView : public IDescriptor
 			E_TYPE								viewType;
 			E_FORMAT							format;
 			SComponentMapping					components;
+			IImage::SSubresourceRange			subresourceRange;
 		};
 		//!
 		inline static bool validateCreationParameters(const SCreationParams& _params)

@@ -1407,15 +1407,6 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
 
     found->updateNextState_vertexInput(mb->getVertexBufferBindings(), mb->getIndexBufferBinding()->buffer.get(), nullptr, nullptr);
 
-#ifdef _IRR_DEBUG
-	if (mb->getIndexCount() > getMaximalIndicesCount())
-	{
-		char tmp[1024];
-		sprintf(tmp,"Could not draw, too many indices(%u), maxium is %u.", mb->getIndexCount(), getMaximalIndicesCount());
-		os::Printer::log(tmp, ELL_ERROR);
-	}
-#endif // _IRR_DEBUG
-
 	CNullDriver::drawMeshBuffer(mb);
 
 	GLenum indexSize=0;
@@ -2228,19 +2219,6 @@ void COpenGLDriver::removeAllFrameBuffers()
     found->FrameBuffers.clear();
 }
 
-//! Returns type of video driver
-E_DRIVER_TYPE COpenGLDriver::getDriverType() const
-{
-	return EDT_OPENGL;
-}
-
-
-//! returns color format
-asset::E_FORMAT COpenGLDriver::getColorFormat() const
-{
-	return ColorFormat;
-}
-
 /*
 int32_t COpenGLDriver::addHighLevelShaderMaterial(
     const char* vertexShaderProgram,
@@ -2424,15 +2402,6 @@ void COpenGLDriver::clearColor_bringbackState(SAuxContext * found, uint32_t _att
 {
     found->nextState.rasterParams.rasterizerDiscardEnable = _rasterDiscard;
     memcpy(found->nextState.rasterParams.drawbufferBlend[_attIx].colorMask.colorWritemask, _colorWmask, 4);
-}
-
-
-//! Returns the maximum amount of primitives (mostly vertices) which
-//! the device is able to render with one drawIndexedTriangleList
-//! call.
-uint32_t COpenGLDriver::getMaximalIndicesCount() const
-{
-	return MaxIndices;
 }
 
 //! Sets multiple render targets

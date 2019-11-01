@@ -28,18 +28,31 @@ class COpenGLImageView final : public IGPUImageView
 		_IRR_STATIC_INLINE_CONSTEXPR GLenum ViewTypeToGLenumTarget[IGPUImageView::ET_COUNT] = {
 			GL_TEXTURE_1D,GL_TEXTURE_2D,GL_TEXTURE_3D,GL_TEXTURE_CUBE_MAP,GL_TEXTURE_1D_ARRAY,GL_TEXTURE_2D_ARRAY,GL_TEXTURE_CUBE_MAP_ARRAY
 		};
+		_IRR_STATIC_INLINE_CONSTEXPR GLenum ComponentMappingToGLenumSwizzle[IGPUImageView::SComponentMapping::E_SWIZZLE] = {GL_INVALID_ENUM,GL_ZERO,GL_ONE,GL_RED,GL_GREEN,GL_BLUE,GL_ALPHA};
 
 		COpenGLImageView(SCreationParams&& _params) : IGPUImageView(std::move(_params)), name(0u), target(GL_INVALID_ENUM), internalFormat(GL_INVALID_ENUM)
 		{
 			target = ViewTypeToGLenumTarget[params.viewType];
 			COpenGLExtensionHandler::extGlCreateTextures(target, 1, &name);
 			internalFormat = getSizedOpenGLFormatFromOurFormat(params.format);
-			COpenGLExtensionHandler::extGlTextureView(name, target, static_cast<COpenGLImage*>(params.image.get())->getOpenGLName(), internalFormat, );
+			COpenGLExtensionHandler::extGlTextureView(	name, target, static_cast<COpenGLImage*>(params.image.get())->getOpenGLName(), internalFormat, 
+														params.subresourceRange.baseMipLevel, params.subresourceRange.levelCount,
+														params.subresourceRange.baseArrayLayer, params.subresourceRange.layerCount);
+
+			GLint swizzle[4u] = {GL_RED,GL_GREEN,GL_BLUE,GL_ALPHA};
+			for (auto i=0u; i<4u; i++)
+			{
+				auto currentMapping = (&params.components.r)[i];
+				if (currentMapping==IGPUImageView::SComponentMapping::ES_IDENTITY)
+					continue;
+				swizzle[i] = ComponentMappingToGLenumSwizzle[currentMapping];
+			}
+			COpenGLExtensionHandler::extGlTextureParamteriv(name,GL_TEXTURE_SWIZZLE_RGBA,swizzle);
 		}
 
 		void regenerateMipMapLevels() override
 		{
-			if (params. <= 1u)
+			if (params.subresourceRange.levelCount <= 1u)
 				return;
 
 			COpenGLExtensionHandler::extGlGenerateTextureMipmap(name,target);
