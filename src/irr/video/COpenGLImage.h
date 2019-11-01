@@ -70,8 +70,6 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 		inline GLuint getOpenGLName() const { return name; }
 		//inline GLenum getOpenGLTextureType() const {return target;}
 
-		virtual bool resize(const uint32_t* size, const uint32_t& mipLevels=0);
-
 
 		inline size_t getAllocationSize() const override { return this->getSize(); }
 		inline IDriverMemoryAllocation* getBoundMemory() override { return this; }
@@ -88,68 +86,6 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 } // end namespace irr
 
 #endif // _IRR_COMPILE_WITH_OPENGL_
-
-#endif
-
-#if 0
-
-			//!
-			const uint64_t& hasOpenGLNameChanged() const { return TextureNameHasChanged; }
-
-			//! returns the opengl texture type
-			virtual GLenum getOpenGLTextureType() const = 0;
-
-
-
-			//!
-			static bool isInternalFormatCompressed(GLenum format);
-
-			//! Get the OpenGL color format parameters based on the given Irrlicht color format
-			static void getOpenGLFormatAndParametersFromColorFormat(const asset::E_FORMAT& format, GLenum& colorformat, GLenum& type); //kill this
-
-
-		protected:
-			
-			//! for resizes
-			void recreateName(const GLenum& textureType_Target);
-
-			uint64_t TextureNameHasChanged;
-
-
-
-
-
-		//! .
-		class COpenGLFilterableTexture : public ITexture, public COpenGLTexture, public IDriverMemoryAllocation
-		{
-		public:
-			virtual IRenderableVirtualTexture::E_VIRTUAL_TEXTURE_TYPE getVirtualTextureType() const { return IRenderableVirtualTexture::EVTT_OPAQUE_FILTERABLE; }
-
-			//! Get size
-			virtual core::dimension2du getRenderableSize() const { return *reinterpret_cast<const core::dimension2du*>(TextureSize); }
-
-			//! returns driver type of texture (=the driver, that created it)
-			virtual E_DRIVER_TYPE getDriverType() const { return EDT_OPENGL; }
-
-			//! returns color format of texture
-			virtual asset::E_FORMAT getColorFormat() const { return ColorFormat; }
-
-			//! returns pitch of texture (in bytes)
-			virtual core::rational<uint32_t> getPitch() const { return asset::getTexelOrBlockBytesize(ColorFormat) * TextureSize[0]; }
-
-			//!
-			GLint getOpenGLInternalFormat() const { return InternalFormat; }
-
-			virtual uint32_t getMipMapLevelCount() const { return MipLevelsStored; }
-
-			//! return whether this texture has mipmaps
-			virtual bool hasMipMaps() const { return MipLevelsStored > 1; }
-
-
-
-#endif
-#endif // _IRR_COMPILE_WITH_OPENGL_
-
 
 #endif
 

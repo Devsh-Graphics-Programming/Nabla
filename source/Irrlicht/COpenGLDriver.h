@@ -407,7 +407,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 				default:
 				{
 					GLint res = GL_FALSE;
-					extGlGetInternalformativ(GL_TEXTURE_2D, COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(_fmt), GL_COLOR_RENDERABLE, sizeof(res), &res);
+					extGlGetInternalformativ(GL_TEXTURE_2D, COpenGLTexture::getSizedOpenGLFormatFromOurFormat(_fmt), GL_COLOR_RENDERABLE, sizeof(res), &res);
 					return res==GL_TRUE;
 				}
             }
@@ -695,10 +695,10 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 		virtual void setViewPort(const core::rect<int32_t>& area);
 
 		//! Returns type of video driver
-		virtual E_DRIVER_TYPE getDriverType() const;
+		inline E_DRIVER_TYPE getDriverType() const override { return EDT_OPENGL; }
 
 		//! get color format of the current color buffer
-		virtual asset::E_FORMAT getColorFormat() const;
+		inline asset::E_FORMAT getColorFormat() const override { return ColorFormat; }
 
         /*
         virtual int32_t addHighLevelShaderMaterial(

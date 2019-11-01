@@ -30,10 +30,7 @@ int32_t CNullDriver::incrementAndFetchReallocCounter()
 
 //! constructor
 CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
-: IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), ScreenSize(screenSize), 
-	PrimitivesDrawn(0), TextureCreationFlags(0),
-	OverrideMaterial2DEnabled(false),
-	matrixModifiedBits(0)
+			: IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), ScreenSize(screenSize), PrimitivesDrawn(0)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("CNullDriver");
@@ -41,9 +38,6 @@ CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::d
 
     for (size_t i = 0; i < EQOT_COUNT; i++)
         currentQuery[i] = nullptr;
-
-	setTextureCreationFlag(ETCF_ALWAYS_32_BIT, true);
-	setTextureCreationFlag(ETCF_CREATE_MIP_MAPS, true);
 
 	ViewPort = core::rect<int32_t>(core::position2d<int32_t>(0,0), core::dimension2di(screenSize));
 
@@ -107,176 +101,6 @@ bool CNullDriver::endScene()
 	FPSCounter.registerFrame(std::chrono::high_resolution_clock::now(), PrimitivesDrawn);
 
 	return true;
-}
-
-
-//! sets transformation
-void CNullDriver::setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat)
-{
-    if (state>E4X3TS_WORLD)
-        return;
-
-
-	const uint32_t commonBits = (0x1u<<E4X3TS_WORLD_VIEW)|(0x1u<<E4X3TS_WORLD_VIEW_INVERSE)|(0x1u<<E4X3TS_NORMAL_MATRIX)|(0x1u<<(E4X3TS_COUNT+EPTS_PROJ_VIEW_WORLD))|(0x1u<<(E4X3TS_COUNT+EPTS_PROJ_VIEW_WORLD_INVERSE));
-    uint32_t modifiedBit;
-    switch (state)
-    {
-        case E4X3TS_VIEW:
-            modifiedBit = (0x1u<<E4X3TS_VIEW)|(0x1u<<E4X3TS_VIEW_INVERSE)|(0x1u<<(E4X3TS_COUNT+EPTS_PROJ_VIEW))|(0x1u<<(E4X3TS_COUNT+EPTS_PROJ_VIEW_INVERSE))|commonBits;
-            break;
-        case E4X3TS_WORLD:
-            modifiedBit = (0x1u<<E4X3TS_WORLD)|(0x1u<<E4X3TS_WORLD_INVERSE)|commonBits;
-            break;
-    }
-
-    //if all bits marked as modified and matrices dont change
-    if ((matrixModifiedBits&modifiedBit)==modifiedBit)
-        TransformationMatrices[state] = mat;
-    else
-    {
-        if (TransformationMatrices[state]==mat)
-            return;
-        matrixModifiedBits |= modifiedBit;
-        TransformationMatrices[state] = mat;
-    }
-}
-
-//! sets transformation
-void CNullDriver::setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4SIMD& mat)
-{
-    if (state>EPTS_PROJ)
-        return;
-
-
-	const uint32_t modifiedBit = ((0x1u<<EPTS_PROJ)|(0x1u<<EPTS_PROJ_VIEW)|(0x1u<<EPTS_PROJ_VIEW_WORLD)|(0x1u<<EPTS_PROJ_INVERSE)|(0x1u<<EPTS_PROJ_VIEW_INVERSE)|(0x1u<<EPTS_PROJ_VIEW_WORLD_INVERSE))<<E4X3TS_COUNT;
-
-    //if all bits marked as modified and matrices dont change
-    if ((matrixModifiedBits&modifiedBit)==modifiedBit)
-        ProjectionMatrices[state] = mat;
-    else
-    {
-        if (ProjectionMatrices[state]==mat)
-            return;
-        matrixModifiedBits |= modifiedBit;
-        ProjectionMatrices[state] = mat;
-    }
-}
-
-
-//! Returns the transformation set by setTransform
-const core::matrix4x3& CNullDriver::getTransform(const E_4X3_TRANSFORMATION_STATE& state)
-{
-    const uint32_t stateBit = 0x1u<<state;
-
-	if (matrixModifiedBits&stateBit)
-    {
-        switch (state)
-        {
-            case E4X3TS_WORLD:
-            case E4X3TS_VIEW:
-                break;
-            case E4X3TS_WORLD_VIEW:
-                TransformationMatrices[E4X3TS_WORLD_VIEW] = concatenateBFollowedByA(TransformationMatrices[E4X3TS_VIEW],TransformationMatrices[E4X3TS_WORLD]);
-                break;
-            case E4X3TS_VIEW_INVERSE:
-                TransformationMatrices[E4X3TS_VIEW].getInverse(TransformationMatrices[E4X3TS_VIEW_INVERSE]);
-                break;
-            case E4X3TS_WORLD_INVERSE:
-                TransformationMatrices[E4X3TS_WORLD].getInverse(TransformationMatrices[E4X3TS_WORLD_INVERSE]);
-                break;
-            case E4X3TS_WORLD_VIEW_INVERSE:
-                if (matrixModifiedBits&(0x1u<<E4X3TS_WORLD_VIEW))
-                {
-                    TransformationMatrices[E4X3TS_WORLD_VIEW] = concatenateBFollowedByA(TransformationMatrices[E4X3TS_VIEW],TransformationMatrices[E4X3TS_WORLD]);
-                    matrixModifiedBits &= ~(0x1u<<E4X3TS_WORLD_VIEW);
-                }
-
-                TransformationMatrices[E4X3TS_WORLD_VIEW].getInverse(TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE]);
-                break;
-            case E4X3TS_NORMAL_MATRIX:
-                if (matrixModifiedBits&(0x1u<<E4X3TS_WORLD_VIEW_INVERSE))
-                {
-                    if (matrixModifiedBits&(0x1u<<E4X3TS_WORLD_VIEW))
-                    {
-                        TransformationMatrices[E4X3TS_WORLD_VIEW] = concatenateBFollowedByA(TransformationMatrices[E4X3TS_VIEW],TransformationMatrices[E4X3TS_WORLD]);
-                        matrixModifiedBits &= ~(0x1u<<E4X3TS_WORLD_VIEW);
-                    }
-
-                    TransformationMatrices[E4X3TS_WORLD_VIEW].getInverse(TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE]);
-                    matrixModifiedBits &= ~(0x1u<<E4X3TS_WORLD_VIEW_INVERSE);
-                }
-
-                TransformationMatrices[E4X3TS_NORMAL_MATRIX](0,0) = TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE](0,0);
-                TransformationMatrices[E4X3TS_NORMAL_MATRIX](0,1) = TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE](1,0);
-                TransformationMatrices[E4X3TS_NORMAL_MATRIX](0,2) = TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE](2,0);
-                TransformationMatrices[E4X3TS_NORMAL_MATRIX](1,0) = TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE](0,1);
-                TransformationMatrices[E4X3TS_NORMAL_MATRIX](1,1) = TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE](1,1);
-                TransformationMatrices[E4X3TS_NORMAL_MATRIX](1,2) = TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE](2,1);
-                TransformationMatrices[E4X3TS_NORMAL_MATRIX](2,0) = TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE](0,2);
-                TransformationMatrices[E4X3TS_NORMAL_MATRIX](2,1) = TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE](1,2);
-                TransformationMatrices[E4X3TS_NORMAL_MATRIX](2,2) = TransformationMatrices[E4X3TS_WORLD_VIEW_INVERSE](2,2);
-                break;
-        }
-
-        matrixModifiedBits &= ~stateBit;
-    }
-
-    return TransformationMatrices[state];
-}
-
-//! Returns the transformation set by setTransform
-const core::matrix4SIMD& CNullDriver::getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state)
-{
-    const uint32_t stateBit = 0x1u<<(state+E4X3TS_COUNT);
-
-	if (matrixModifiedBits&stateBit)
-    {
-        switch (state)
-        {
-            case EPTS_PROJ:
-                break;
-            case EPTS_PROJ_VIEW:
-                ProjectionMatrices[EPTS_PROJ_VIEW] = core::concatenateBFollowedByA(ProjectionMatrices[EPTS_PROJ],TransformationMatrices[E4X3TS_VIEW]);
-                break;
-            case EPTS_PROJ_VIEW_WORLD:
-                if (matrixModifiedBits&(0x1u<<E4X3TS_WORLD_VIEW))
-                {
-                    TransformationMatrices[E4X3TS_WORLD_VIEW] = concatenateBFollowedByA(TransformationMatrices[E4X3TS_VIEW],TransformationMatrices[E4X3TS_WORLD]);
-                    ///TransformationMatrices[E4X3TS_WORLD_VIEW] = concatenatePreciselyBFollowedByA(TransformationMatrices[E4X3TS_VIEW],TransformationMatrices[E4X3TS_WORLD]);
-                    matrixModifiedBits &= ~(0x1u<<E4X3TS_WORLD_VIEW);
-                }
-                ProjectionMatrices[EPTS_PROJ_VIEW_WORLD] = concatenateBFollowedByA(ProjectionMatrices[EPTS_PROJ],TransformationMatrices[E4X3TS_WORLD_VIEW]);
-                break;
-            case EPTS_PROJ_INVERSE:
-                ProjectionMatrices[EPTS_PROJ].getInverseTransform(ProjectionMatrices[EPTS_PROJ]);
-                break;
-            case EPTS_PROJ_VIEW_INVERSE:
-                if (matrixModifiedBits&(0x1u<<(EPTS_PROJ_VIEW+E4X3TS_COUNT)))
-                {
-                    ProjectionMatrices[EPTS_PROJ_VIEW] = concatenateBFollowedByA(ProjectionMatrices[EPTS_PROJ],TransformationMatrices[E4X3TS_VIEW]);
-                    matrixModifiedBits &= ~(0x1u<<(EPTS_PROJ_VIEW+E4X3TS_COUNT));
-                }
-                ProjectionMatrices[EPTS_PROJ_VIEW].getInverseTransform(ProjectionMatrices[EPTS_PROJ_VIEW_INVERSE]);
-                break;
-            case EPTS_PROJ_VIEW_WORLD_INVERSE:
-                if (matrixModifiedBits&(0x1u<<(EPTS_PROJ_VIEW_WORLD+E4X3TS_COUNT)))
-                {
-                    if (matrixModifiedBits&(0x1u<<E4X3TS_WORLD_VIEW))
-                    {
-                        TransformationMatrices[E4X3TS_WORLD_VIEW] = concatenateBFollowedByA(TransformationMatrices[E4X3TS_VIEW],TransformationMatrices[E4X3TS_WORLD]);
-                        ///TransformationMatrices[E4X3TS_WORLD_VIEW] = concatenatePreciselyBFollowedByA(TransformationMatrices[E4X3TS_VIEW],TransformationMatrices[E4X3TS_WORLD]);
-                        matrixModifiedBits &= ~(0x1u<<E4X3TS_WORLD_VIEW);
-                    }
-                    ProjectionMatrices[EPTS_PROJ_VIEW_WORLD] = concatenateBFollowedByA(ProjectionMatrices[EPTS_PROJ],TransformationMatrices[E4X3TS_WORLD_VIEW]);
-                    matrixModifiedBits &= ~(0x1u<<(EPTS_PROJ_VIEW_WORLD+E4X3TS_COUNT));
-                }
-                ProjectionMatrices[EPTS_PROJ_VIEW_WORLD].getInverseTransform(ProjectionMatrices[EPTS_PROJ_VIEW_WORLD_INVERSE]);
-                break;
-        }
-
-        matrixModifiedBits &= ~stateBit;
-    }
-    return ProjectionMatrices[state];
 }
 
 void CNullDriver::removeFrameBuffer(IFrameBuffer* framebuf)
@@ -400,39 +224,6 @@ uint32_t CNullDriver::getPrimitiveCountDrawn( uint32_t param ) const
 const wchar_t* CNullDriver::getName() const
 {
 	return L"Irrlicht NullDevice";
-}
-
-
-
-//! Returns the maximum amount of primitives (mostly vertices) which
-//! the device is able to render with one drawIndexedTriangleList
-//! call.
-uint32_t CNullDriver::getMaximalIndicesCount() const
-{
-	return 0xFFFFFFFF;
-}
-
-
-//! Enables or disables a texture creation flag.
-void CNullDriver::setTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag, bool enabled)
-{
-	if (enabled && ((flag == ETCF_ALWAYS_16_BIT) || (flag == ETCF_ALWAYS_32_BIT)))
-	{
-		// disable other formats
-		setTextureCreationFlag(ETCF_ALWAYS_16_BIT, false);
-		setTextureCreationFlag(ETCF_ALWAYS_32_BIT, false);
-	}
-
-	// set flag
-	TextureCreationFlags = (TextureCreationFlags & (~flag)) |
-		((((uint32_t)!enabled)-1) & flag);
-}
-
-
-//! Returns if a texture creation flag is enabled or disabled.
-bool CNullDriver::getTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag) const
-{
-	return (TextureCreationFlags & flag)!=0;
 }
 
 //!
@@ -858,7 +649,7 @@ void CNullDriver::enableClipPlane(uint32_t index, bool enable)
 }
 
 
-const uint32_t* CNullDriver::getMaxTextureSize(const ITexture::E_TEXTURE_TYPE& type) const
+const uint32_t* CNullDriver::getMaxTextureSize(IGPUImageView::E_TYPE type) const
 {
     return MaxTextureSizes[type];
 }

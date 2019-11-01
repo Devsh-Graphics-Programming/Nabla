@@ -22,8 +22,6 @@
 
 #include "os.h"
 
-#include "COpenGLCubemapTexture.h"
-
 
 namespace irr
 {

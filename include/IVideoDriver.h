@@ -186,11 +186,6 @@ namespace video
 		\return Amount of primitives drawn in the last frame. */
 		virtual uint32_t getPrimitiveCountDrawn( uint32_t mode =0 ) const =0;
 
-		//! Returns the maximum amount of primitives
-		/** (mostly vertices) which the device is able to render.
-		\return Maximum amount of primitives. */
-		virtual uint32_t getMaximalIndicesCount() const =0;
-
 		//! Event handler for resize events. Only used by the engine internally.
 		/** Used to notify the driver that the window was resized.
 		Usually, there is no need to call this method. */

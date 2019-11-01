@@ -97,9 +97,9 @@ bool COpenGLFrameBuffer::attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IT
 	if (!frameBuffer||attachmenPoint>=EFAP_MAX_ATTACHMENTS)
 		return false;
 
-    COpenGLFilterableTexture* glTex = static_cast<COpenGLFilterableTexture*>(tex);
-    if (tex&&COpenGLTexture::isInternalFormatCompressed(glTex->getOpenGLInternalFormat()))
+    if (tex && asset::isBlockCompressionFormat(tex->getCreationParams().format))
         return false;
+	COpenGLFilterableTexture* glTex = static_cast<COpenGLFilterableTexture*>(tex);
 
     GLenum attachment = GL_INVALID_ENUM;
     //! Need additional validation here for matching texture formats
