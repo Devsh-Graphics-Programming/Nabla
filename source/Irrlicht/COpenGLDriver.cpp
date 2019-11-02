@@ -1321,9 +1321,24 @@ bool COpenGLDriver::dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint3
     if (!ctx)
         return false;
 
-    ctx->flushStateCompute(GSB_ALL);
+    ctx->flushStateCompute(GSB_PIPELINE_AND_RASTER_PARAMETERS | GSB_DESCRIPTOR_SETS);
 
     extGlDispatchCompute(_groupCountX, _groupCountY, _groupCountZ);
+
+    return true;
+}
+
+bool COpenGLDriver::dispatchIndirect(const IGPUBuffer* _indirectBuf, size_t _offset)
+{
+    SAuxContext* ctx = getThreadContext_helper(false);
+    if (!ctx)
+        return false;
+
+    ctx->nextState.dispatchIndirect.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<const COpenGLBuffer*>(_indirectBuf));
+
+    ctx->flushStateCompute(GSB_PIPELINE_AND_RASTER_PARAMETERS | GSB_DISPATCH_INDIRECT | GSB_DESCRIPTOR_SETS);
+
+    extGlDispatchComputeIndirect(static_cast<GLintptr>(_offset));
 
     return true;
 }
@@ -2004,7 +2019,7 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
     }
 }
 
-void COpenGLDriver::SAuxContext::flushStateGraphics(GL_STATE_BITS stateBits)
+void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
 {
     core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> prevPipeline = currentState.pipeline.graphics.pipeline;
     if (stateBits & GSB_PIPELINE_AND_RASTER_PARAMETERS)
@@ -2294,7 +2309,7 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(GL_STATE_BITS stateBits)
     }
 }
 
-void COpenGLDriver::SAuxContext::flushStateCompute(GL_STATE_BITS stateBits)
+void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
 {
     core::smart_refctd_ptr<const COpenGLComputePipeline> prevPipeline = currentState.pipeline.compute.pipeline;
 
@@ -2311,7 +2326,16 @@ void COpenGLDriver::SAuxContext::flushStateCompute(GL_STATE_BITS stateBits)
             currentState.pipeline.compute.pipeline = nextState.pipeline.compute.pipeline;
         }
     }
-    else if (stateBits & GSB_DESCRIPTOR_SETS)
+    if (stateBits & GSB_DISPATCH_INDIRECT)
+    {
+        if (currentState.dispatchIndirect.buffer != nextState.dispatchIndirect.buffer)
+        {
+            const GLuint GLname = nextState.dispatchIndirect.buffer ? nextState.dispatchIndirect.buffer->getOpenGLName() : 0u;
+            extGlBindBuffer(GL_DISPATCH_INDIRECT_BUFFER, GLname);
+            currentState.dispatchIndirect.buffer = nextState.dispatchIndirect.buffer;
+        }
+    }
+    if (stateBits & GSB_DESCRIPTOR_SETS)
     {
         const COpenGLPipelineLayout* currLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.compute.pipeline->getLayout());
         const COpenGLPipelineLayout* prevLayout = static_cast<const COpenGLPipelineLayout*>(prevPipeline->getLayout());

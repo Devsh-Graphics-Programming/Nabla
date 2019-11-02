@@ -62,6 +62,7 @@ namespace video
         }
 
         bool dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint32_t _groupCountZ) override { return false; }
+        bool dispatchIndirect(const IGPUBuffer* _indirectBuf, size_t _offset) override { return false; }
 
 		//!
         virtual bool initAuxContext() {return false;}

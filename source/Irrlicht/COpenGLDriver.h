@@ -54,6 +54,8 @@ namespace video
         GSB_VAO_AND_VERTEX_INPUT = 0x2u,
         // flush just before (indirect)dispatch or (multi)(indirect)draw, textures and samplers first, then storage image, then SSBO, finally UBO
         GSB_DESCRIPTOR_SETS = 0x4u,
+        // GL_DISPATCH_INDIRECT_BUFFER 
+        GSB_DISPATCH_INDIRECT = 0x8u,
         // flush everything
         GSB_ALL = ~0x0u
     };
@@ -83,6 +85,10 @@ namespace video
                 GLuint usedShader = 0u;
             } compute;
         } pipeline;
+
+        struct {
+            core::smart_refctd_ptr<const COpenGLBuffer> buffer;
+        } dispatchIndirect;
 
         struct {
             //in GL it is possible to set polygon mode separately for back- and front-faces, but in VK it's one setting for both
@@ -610,6 +616,7 @@ namespace video
             uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override;
 
         bool dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint32_t _groupCountZ) override;
+        bool dispatchIndirect(const IGPUBuffer* _indirectBuf, size_t _offset) override;
 
 
         core::smart_refctd_ptr<IGPUShader> createGPUShader(const asset::ICPUShader* _cpushader) override;
@@ -846,8 +853,8 @@ namespace video
             using pipeline_for_bindpoint_t = typename pipeline_for_bindpoint<PBP>::type;
 
             void flushState_descriptors(E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, const COpenGLPipelineLayout* _prevLayout);
-            void flushStateGraphics(GL_STATE_BITS stateBits);
-            void flushStateCompute(GL_STATE_BITS stateBits);
+            void flushStateGraphics(uint32_t stateBits);
+            void flushStateCompute(uint32_t stateBits);
 
             SOpenGLState currentState;
             SOpenGLState nextState;
