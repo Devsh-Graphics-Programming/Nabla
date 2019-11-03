@@ -34,10 +34,10 @@ struct SPushConstantRange
 
     inline bool overlap(const SPushConstantRange& _other) const
     {
-        const uint32_t end1 = offset + size;
-        const uint32_t end2 = _other.offset + _other.size;
+        const int32_t end1 = offset + size;
+        const int32_t end2 = _other.offset + _other.size;
 
-        return (std::min(end1, end2) - std::max(offset, _other.offset)) > 0u;
+        return (std::min(end1, end2) - std::max<int32_t>(offset, _other.offset)) > 0;
     }
 };
 
