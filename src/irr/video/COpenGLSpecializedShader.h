@@ -37,7 +37,7 @@ public:
         return GLname;
     }
 
-    void setUniformsImitatingPushConstants(const uint8_t* _pcData, GLuint _GLname);
+    void setUniformsImitatingPushConstants(const uint8_t* _pcData, uint32_t _ctxID) const;
 
     inline GLenum getOpenGLStage() const { return m_GLstage; }
 
@@ -52,7 +52,7 @@ protected:
 private:
     //! @returns GL name or zero if already compiled once or there were compilation errors.
     GLuint compile(uint32_t _GLSLversion);
-    void buildUniformsList(GLuint _GLname);
+    void buildUniformsList(GLuint _GLname) const;
 
 private:
     mutable core::smart_refctd_dynamic_array<GLuint> m_GLnames;
@@ -71,7 +71,7 @@ private:
         SMember m;
         GLint location;
     };
-    core::vector<SUniform> m_uniformsList;
+    mutable core::vector<SUniform> m_uniformsList;
 };
 
 }

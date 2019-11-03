@@ -64,6 +64,20 @@ namespace video
         bool dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint32_t _groupCountZ) override { return false; }
         bool dispatchIndirect(const IGPUBuffer* _indirectBuf, size_t _offset) override { return false; }
 
+        bool pushConstants(const IGPUPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values) override
+        {
+            if (!core::is_aligned_to(_offset, 4u))
+                return false;
+            if (!core::is_aligned_to(_size, 4u))
+                return false;
+            if (_offset >= IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE)
+                return false;
+            if (_size > (IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE-_offset))
+                return false;
+
+            return true;
+        }
+
 		//!
         virtual bool initAuxContext() {return false;}
         virtual bool deinitAuxContext() {return false;}

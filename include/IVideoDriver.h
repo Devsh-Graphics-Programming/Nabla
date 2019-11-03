@@ -131,6 +131,8 @@ namespace video
         virtual bool dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint32_t _groupCountZ) = 0;
         virtual bool dispatchIndirect(const IGPUBuffer* _indirectBuf, size_t _offset) = 0;
 
+        virtual bool pushConstants(const IGPUPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values) = 0;
+
 		//! Applications must call this method before performing any rendering.
 		/** This method can clear the back- and the z-buffer.
 		\param backBuffer Specifies if the back buffer should be

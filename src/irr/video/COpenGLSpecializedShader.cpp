@@ -145,10 +145,12 @@ GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion)
     return GLname;
 }
 
-void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* _pcData, GLuint _GLname)
+void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* _pcData, uint32_t _ctxID) const
 {
+    const GLuint GLname = getGLnameForCtx(_ctxID);
+
     if (m_uniformsList.empty())
-        buildUniformsList(_GLname);
+        buildUniformsList(GLname);
 
     //TODO alignment check, assert that uniform ptr is aligned to alignof(uniformType)
     using gl = COpenGLExtensionHandler;
@@ -177,7 +179,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
                 {&gl::extGlProgramUniformMatrix4x2fv, &gl::extGlProgramUniformMatrix4x3fv, &gl::extGlProgramUniformMatrix4fv} //4xM
             };
             assert(core::is_aligned_to(matrix_data.data(), alignof(float)));//no idea why im doing this, theres no such requirement
-            glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt-2u][m.mtxRowCnt-2u](_GLname, u.location, m.count, m.rowMajor?GL_TRUE:GL_FALSE, matrix_data.data());
+            glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt-2u][m.mtxRowCnt-2u](GLname, u.location, m.count, m.rowMajor?GL_TRUE:GL_FALSE, matrix_data.data());
         }
         else if (is_scalar_or_vec()) {
             std::array<GLuint, IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE/sizeof(GLuint)> vector_data;
@@ -194,7 +196,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
                     &gl::extGlProgramUniform1fv, &gl::extGlProgramUniform2fv, &gl::extGlProgramUniform3fv, &gl::extGlProgramUniform4fv
                 };
                 assert(core::is_aligned_to(vector_data.data(), alignof(GLfloat)));//no idea why im doing this, theres no such requirement
-                glProgramUniformNfv_fptr[m.mtxRowCnt-1u](_GLname, u.location, m.count, reinterpret_cast<const GLfloat*>(vector_data.data()));
+                glProgramUniformNfv_fptr[m.mtxRowCnt-1u](GLname, u.location, m.count, reinterpret_cast<const GLfloat*>(vector_data.data()));
                 break;
             }
             case asset::EGVT_I32:
@@ -203,7 +205,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
                     &gl::extGlProgramUniform1iv, &gl::extGlProgramUniform2iv, &gl::extGlProgramUniform3iv, &gl::extGlProgramUniform4iv
                 };
                 assert(core::is_aligned_to(vector_data.data(), alignof(GLint)));//no idea why im doing this, theres no such requirement
-                glProgramUniformNiv_fptr[m.mtxRowCnt-1u](_GLname, u.location, m.count, reinterpret_cast<const GLint*>(vector_data.data()));
+                glProgramUniformNiv_fptr[m.mtxRowCnt-1u](GLname, u.location, m.count, reinterpret_cast<const GLint*>(vector_data.data()));
                 break;
             }
             case asset::EGVT_U32:
@@ -212,7 +214,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
                     &gl::extGlProgramUniform1uiv, &gl::extGlProgramUniform2uiv, &gl::extGlProgramUniform3uiv, &gl::extGlProgramUniform4uiv
                 };
                 assert(core::is_aligned_to(vector_data.data(), alignof(GLuint)));//no idea why im doing this, theres no such requirement
-                glProgramUniformNuiv_fptr[m.mtxRowCnt-1u](_GLname, u.location, m.count, vector_data.data());
+                glProgramUniformNuiv_fptr[m.mtxRowCnt-1u](GLname, u.location, m.count, vector_data.data());
                 break;
             }
             }
@@ -220,7 +222,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
     }
 }
 
-void COpenGLSpecializedShader::buildUniformsList(GLuint _GLname)
+void COpenGLSpecializedShader::buildUniformsList(GLuint _GLname) const
 {
     assert(m_introspectionData);
     const auto& pc = m_introspectionData->pushConstant;
@@ -254,7 +256,7 @@ void COpenGLSpecializedShader::buildUniformsList(GLuint _GLname)
     }
     std::sort(m_uniformsList.begin(), m_uniformsList.end(), [](const SUniform& a, const SUniform& b) { return a.location < b.location; });
     //not needed any more
-    m_introspectionData = nullptr;
+    //m_introspectionData = nullptr;
 }
 
 }}//irr::video

@@ -1343,6 +1343,49 @@ bool COpenGLDriver::dispatchIndirect(const IGPUBuffer* _indirectBuf, size_t _off
     return true;
 }
 
+bool COpenGLDriver::pushConstants(const IGPUPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values)
+{
+    if (!CNullDriver::pushConstants(_layout, _stages, _offset, _size, _values))
+        return false;
+
+    SAuxContext* ctx = getThreadContext_helper(false);
+    if (!ctx)
+        return false;
+
+    memcpy(ctx->pushConstants+_offset, _values, _size);
+
+    asset::SPushConstantRange updateRange;
+    updateRange.offset = _offset;
+    updateRange.size = _size;
+
+    for (const auto& rng : _layout->getPushConstantRanges())
+    {
+        if (!updateRange.overlap(rng))
+            continue;
+
+        const uint32_t stagesToUpdate = (_stages & rng.stageFlags);
+        if (!stagesToUpdate)
+            continue;
+
+        for (uint32_t i = 0u; i < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
+        {
+            if (!((1u<<i) & stagesToUpdate))
+                continue;
+
+            //taking pipeline from nextState because it's the one that will be used in next drawcall (unless there is another driver->bindGraphicsPipeline() between driver->pushConstants() and drawcall)
+            //can't really find a better solution before we have command buffers
+            const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(ctx->nextState.pipeline.graphics.pipeline->getShaderAtIndex(i));
+            assert(shdr); //this would be weird
+            if (!shdr)
+                return false;
+
+            shdr->setUniformsImitatingPushConstants(ctx->pushConstants + rng.offset, ctx->ID);
+        }
+    }
+
+    return true;
+}
+
 core::smart_refctd_ptr<IGPUShader> COpenGLDriver::createGPUShader(const asset::ICPUShader* _cpushader)
 {
     return core::make_smart_refctd_ptr<COpenGLShader>(_cpushader);

@@ -618,6 +618,8 @@ namespace video
         bool dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint32_t _groupCountZ) override;
         bool dispatchIndirect(const IGPUBuffer* _indirectBuf, size_t _offset) override;
 
+        bool pushConstants(const IGPUPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values) override;
+
 
         core::smart_refctd_ptr<IGPUShader> createGPUShader(const asset::ICPUShader* _cpushader) override;
         core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) override;
@@ -861,6 +863,8 @@ namespace video
             struct {
                 SOpenGLState::SDescSetBnd descSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
             } effectivelyBoundDescriptors;
+
+            uint8_t pushConstants[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE]{};
         //private:
             std::thread::id threadId;
             uint8_t ID; //index in array of contexts, just to be easier in use
