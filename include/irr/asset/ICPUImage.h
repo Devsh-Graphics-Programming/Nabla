@@ -47,7 +47,6 @@ class ICPUImage final : public IImage, public IAsset
 		inline auto* getBuffer() { return buffer.get(); }
 		inline const auto* getBuffer() const { return buffer.get(); }
 
-		inline auto* getRegions() { return regions->data(); }
 		inline const auto* getRegions() const { return regions->data(); }
 
 		//! regions will be copied and sorted
@@ -57,7 +56,7 @@ class ICPUImage final : public IImage, public IAsset
 				return false;
 		
 			buffer = _buffer;
-			regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<const IImage::SBufferCopy> >(_regions);
+			regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy> >(*_regions.get());
 			sortRegionsByMipMapLevel();
 			return true;
 		}
@@ -104,8 +103,8 @@ class ICPUImage final : public IImage, public IAsset
 		virtual ~ICPUImage() = default;
 		
 		
-		core::smart_refctd_ptr<asset::ICPUBuffer>					buffer;
-		core::smart_refctd_dynamic_array<const IImage::SBufferCopy>	regions;
+		core::smart_refctd_ptr<asset::ICPUBuffer>				buffer;
+		core::smart_refctd_dynamic_array<IImage::SBufferCopy>	regions;
 
 	private:
 		inline void sortRegionsByMipMapLevel()

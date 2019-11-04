@@ -299,35 +299,10 @@ class IImage : public IDescriptor
 			if (pRegionsBegin==pRegionsEnd)
 				return false;
 
-			auto blockSize = getBlockDimensions(format);
-			auto blockByteSize = getBlockByteSize(format);
 			for (auto it=pRegionsBegin; it!=pRegionsEnd; it++)
 			{
 				if (!validatePotentialCopies_shared(pRegionsEnd,it))
 					return false;
-
-				// count on the user not being an idiot
-				#ifdef _IRR_DEBUG
-					size_t imageHeight = it->bufferImageHeight ? it->bufferImageHeight:it->imageExtent.height;
-					imageHeight += blockSize.y-1u;
-					imageHeight /= blockSize.y;
-					size_t rowLength = it->bufferRowLength ? it->bufferRowLength:it->imageExtent.width;
-					rowLength += blockSize.x-1u;
-					rowLength /= blockSize.x;
-
-					size_t maxBufferOffset = (it->imageExtent.depth+blockSize.z-1u)/blockSize.z-1u;
-					maxBufferOffset *= imageHeight;
-					maxBufferOffset += (it->imageExtent.height+blockSize.y-1u)/blockSize.y-1u;
-					maxBufferOffset *= rowLength;
-					maxBufferOffset += (it->imageExtent.width+blockSize.x-1u)/blockSize.z-1u;
-					maxBufferOffset = (maxBufferOffset+1u)*blockByteSize;
-					maxBufferOffset += it->bufferOffset;
-					if (maxBufferOffset>srcBuff->getSize())
-					{
-						assert(false);
-						return false;
-					}
-				#endif
 			}
 
 			return true;
@@ -339,7 +314,8 @@ class IImage : public IDescriptor
 		{
 			if (pRegionsBegin==pRegionsEnd)
 				return false;
-
+			
+			const core::vector3du32_SIMD zero(0u,0u,0u,0u);
 			for (auto it=pRegionsBegin; it!=pRegionsEnd; it++)
 			{
 				if (!validatePotentialCopies_shared(pRegionsEnd,it))
@@ -347,26 +323,26 @@ class IImage : public IDescriptor
 
 				// count on the user not being an idiot
 				#ifdef _IRR_DEBUG
-					if (it->srcSubresource.mipLayer>=src->getMipLevels())
+					if (it->srcSubresource.mipLevel>=srcImage->getCreationParameters().mipLevels)
 					{
 						assert(false);
 						return false;
 					}
-					if (it->srcSubresource.baseArrayLayer+it->srcSubresource.layerCount >= src->getArrayLayerCount())
+					if (it->srcSubresource.baseArrayLayer+it->srcSubresource.layerCount >= srcImage->getCreationParameters().arrayLayers)
 					{
 						assert(false);
 						return false;
 					}
 
-					const auto& off = it->srcOffset();
+					const auto& off = it->srcOffset;
 					const auto& ext = it->extent;
-					switch (src->getType())
+					switch (srcImage->getCreationParameters().type)
 					{
-						case EIT_1D:
+						case ET_1D:
 							if (off.y>0u || ext.height>1u)
 								return false;
 							_IRR_FALLTHROUGH;
-						case EIT_2D:
+						case ET_2D:
 							if (off.z>0u || ext.depth>1u)
 								return false;
 							break;
@@ -375,7 +351,7 @@ class IImage : public IDescriptor
 					}
 
 					auto minPt = core::vector3du32_SIMD(off.x,off.y,off.z);
-					auto srcBlockDims = asset::getBlockDimensions(src->getFormat());
+					auto srcBlockDims = asset::getBlockDimensions(srcImage->getCreationParameters().format);
 					if (((minPt%srcBlockDims)!=zero).any())
 					{
 						assert(false);
@@ -383,8 +359,8 @@ class IImage : public IDescriptor
 					}
 
 					auto maxPt = core::vector3du32_SIMD(ext.width,ext.height,ext.depth)+minPt;
-					auto srcMipSize = srcImage->getMipSize(it->srcSubresource.mipLayer);
-					if ((maxPt>srcMipSize || maxPt!=srcMipSize && ((maxPt%sourceBlockDims)!=zero)).any())
+					auto srcMipSize = srcImage->getMipSize(it->srcSubresource.mipLevel);
+					if ((maxPt>srcMipSize || maxPt!=srcMipSize && ((maxPt%srcBlockDims)!=zero)).any())
 					{
 						assert(false);
 						return false;
@@ -476,17 +452,30 @@ class IImage : public IDescriptor
 			if (validatePotentialCopies(pRegionsBegin, pRegionsEnd, src))
 				return false;
 			
+			bool die = false;
 			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_base_of<IImage, SourceType>::value)
 			{
+				if (params.samples!=src->getCreationParameters().samples)
+					die = true;
+
 				// tackle when we handle aspects
 				//if (!asset::areFormatsCompatible(params.format,src->format))
-					//return false;
+					//die = true;
+			}
+			IRR_PSEUDO_ELSE_CONSTEXPR
+			{
+				if (params.samples!=ESCF_1_BIT)
+					die = true;
 			}
 			IRR_PSEUDO_IF_CONSTEXPR_END
+			if (die)
+				return false;
 
 
 			const core::vector3du32_SIMD zero(0u,0u,0u,0u);
 			auto extentSIMD = core::vector3du32_SIMD(params.extent.width,params.extent.height,params.extent.depth);
+			auto blockByteSize = asset::getTexelOrBlockBytesize(params.format);
+			auto dstBlockDims = asset::getBlockDimensions(params.format);
 			for (auto it=pRegionsBegin; it!=pRegionsEnd; it++)
 			{
 				// check rectangles countained in destination
@@ -520,7 +509,6 @@ class IImage : public IDescriptor
 				}
 
 				auto minPt2 = core::vector3du32_SIMD(off2.x,off2.y,off2.z);
-				auto dstBlockDims = asset::getBlockDimensions(params.format);
 				if ((minPt2%dstBlockDims!=zero).any())
 					return false;
 
@@ -533,9 +521,9 @@ class IImage : public IDescriptor
 
 					auto getRealDepth = [](auto _type, auto _extent, auto subresource) -> uint32_t
 					{
-						if (_type != EIT_3D)
-							return subresource.arrayLayers;
-						if (subresource.baseArrayLevel != 0u || subresource.arrayLayers != 1u)
+						if (_type != ET_3D)
+							return subresource.layerCount;
+						if (subresource.baseArrayLayer != 0u || subresource.layerCount != 1u)
 							return 0u;
 						return _extent.depth;
 					};
@@ -552,6 +540,29 @@ class IImage : public IDescriptor
 				}
 				IRR_PSEUDO_ELSE_CONSTEXPR
 				{
+					// count on the user not being an idiot
+					#ifdef _IRR_DEBUG
+						size_t imageHeight = it->bufferImageHeight ? it->bufferImageHeight:it->imageExtent.height;
+						imageHeight += dstBlockDims.y-1u;
+						imageHeight /= dstBlockDims.y;
+						size_t rowLength = it->bufferRowLength ? it->bufferRowLength:it->imageExtent.width;
+						rowLength += dstBlockDims.x-1u;
+						rowLength /= dstBlockDims.x;
+
+						size_t maxBufferOffset = (it->imageExtent.depth+dstBlockDims.z-1u)/dstBlockDims.z-1u;
+						maxBufferOffset *= imageHeight;
+						maxBufferOffset += (it->imageExtent.height+dstBlockDims.y-1u)/dstBlockDims.y-1u;
+						maxBufferOffset *= rowLength;
+						maxBufferOffset += (it->imageExtent.width+dstBlockDims.x-1u)/dstBlockDims.z-1u;
+						maxBufferOffset = (maxBufferOffset+1u)*blockByteSize;
+						maxBufferOffset += it->bufferOffset;
+						if (maxBufferOffset>src->getSize())
+						{
+							assert(false);
+							die = true;
+						}
+					#endif
+
 					// TODO: The union of all source regions, and the union of all destination regions, specified by the elements of pRegions, must not overlap in memory
 				}
 				IRR_PSEUDO_IF_CONSTEXPR_END
@@ -577,18 +588,6 @@ class IImage : public IDescriptor
 			if (!it->isValid())
 				return false;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_base_of<IImage,SourceType>::value)
-			{
-				if (samples!=src->getSamples())
-					return false;
-			}
-			IRR_PSEUDO_ELSE_CONSTEXPR
-			{
-				if (samples!=ESCF_1_BIT)
-					return false;
-			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
-
 			constexpr uint32_t kMaxArrayCount = 8192u;
 			constexpr uint32_t kMaxMipLevel = 16u;
 			// check max size and array count
@@ -597,7 +596,7 @@ class IImage : public IDescriptor
 			const auto& subresource = it->getDstSubresource();
 			core::vector3du32_SIMD minPt(off.x,off.y,off.z);
 			auto maxPt = core::vector3du32_SIMD(ext.width,ext.height,ext.depth)+minPt;
-			if (*std::max_element(&maxPt.pointer, &maxPt.pointer+3) > ((0x1u<<kMaxMipLevel) >> subresource.mipLevel))
+			if (*std::max_element(maxPt.pointer, maxPt.pointer+3) > ((0x1u<<kMaxMipLevel) >> subresource.mipLevel))
 				return false;
 			if (subresource.baseArrayLayer+subresource.layerCount > kMaxArrayCount)
 				return false;
