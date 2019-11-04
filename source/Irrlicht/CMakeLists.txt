@@ -104,8 +104,6 @@ set(IRRLICHT_SRCS_COMMON
 	CCameraSceneNode.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CGeometryCreator.cpp
 	CSceneManager.cpp
-	CSkyBoxSceneNode.cpp
-	CSkyDomeSceneNode.cpp
 
 # Animators
 	CSceneNodeAnimatorCameraFPS.cpp
