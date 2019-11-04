@@ -28,7 +28,7 @@ enum E_PLY_PROPERTY_TYPE
 };
 
 //! Meshloader capable of loading obj meshes.
-class CPLYMeshFileLoader : public asset::IAssetLoader
+class CPLYMeshFileLoader : public IAssetLoader
 {
 protected:
 	//! Destructor
@@ -46,10 +46,10 @@ public:
         return ext;
     }
 
-    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return IAsset::ET_MESH; }
 
 	//! creates/loads an animated mesh from the file.
-    virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+    virtual SAssetBundle loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 private:
 
 	struct SPLYProperty
@@ -157,18 +157,18 @@ private:
 	void fillBuffer(SContext& _ctx);
 	E_PLY_PROPERTY_TYPE getPropertyType(const char* typeString) const;
 
-	bool readVertex(SContext& _ctx, const SPLYElement &Element, core::vector<core::vectorSIMDf> _attribs[4], const asset::IAssetLoader::SAssetLoadParams& _params);
-	bool readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices, const asset::IAssetLoader::SAssetLoadParams& _params);
+	bool readVertex(SContext& _ctx, const SPLYElement &Element, core::vector<core::vectorSIMDf> _attribs[4], const IAssetLoader::SAssetLoadParams& _params);
+	bool readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices, const IAssetLoader::SAssetLoadParams& _params);
 	void skipElement(SContext& _ctx, const SPLYElement &Element);
 	void skipProperty(SContext& _ctx, const SPLYProperty &Property);
 	float getFloat(SContext& _ctx, E_PLY_PROPERTY_TYPE t);
 	uint32_t getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t);
 	void moveForward(SContext& _ctx, uint32_t bytes);
 
-    bool genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4], ICPUMeshBuffer::SBufferBinding& bufferBinding) const;
+    bool genVertBuffersForMBuffer(ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4], SBufferBinding<ICPUBuffer>& bufferBinding) const;
 };
 
-} // end namespace scene
+} // end namespace asset
 } // end namespace irr
 
 #endif

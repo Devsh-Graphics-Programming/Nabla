@@ -28,7 +28,7 @@ public:
         return ext;
     }
 
-    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_SUB_IMAGE; }
+    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE_VIEW; }
 
     virtual uint32_t getSupportedFlags() override { return asset::EWF_COMPRESSED; }
 
