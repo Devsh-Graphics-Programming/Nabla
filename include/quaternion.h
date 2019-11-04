@@ -532,17 +532,17 @@ inline quaternion quaternion::rotationFromTo(const vector3df_SIMD& from, const v
 // sets new quaternion based on euler angles
 inline quaternion& quaternion::set(const float& roll, const float& pitch, const float& yaw)
 {
-	double angle;
+	float angle;
 
-	angle = roll * 0.5;
+	angle = roll * 0.5f;
 	const float sr = sinf(angle);
 	const float cr = cosf(angle);
 
-	angle = pitch * 0.5;
+	angle = pitch * 0.5f;
 	const float sp = sinf(angle);
 	const float cp = cos(angle);
 
-	angle = yaw * 0.5;
+	angle = yaw * 0.5f;
 	const float sy = sinf(angle);
 	const float cy = cosf(angle);
 
