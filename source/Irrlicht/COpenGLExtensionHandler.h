@@ -1290,7 +1290,7 @@ class COpenGLExtensionHandler
     static void extGlCopyTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height);
     static void extGlGenerateTextureMipmap(GLuint texture, GLenum target);
 	// texture "parameter" functions
-	static void extGlTextureParameteriuiv(GLuint texture, GLenum pname, const GLuint* params);
+	static void extGlTextureParameteriuiv(GLuint texture, Glenum target, GLenum pname, const GLuint* params);
 	static void extGlClampColor(GLenum target, GLenum clamp);
 	static void setPixelUnpackAlignment(const uint32_t& pitchInBytes, void* ptr, const uint32_t& minimumAlignment = 1);
 
@@ -1536,7 +1536,7 @@ class COpenGLExtensionHandler
     static PFNGLTEXTURESTORAGE3DPROC pGlTextureStorage3D; //NULL
     static PFNGLTEXTURESTORAGE2DMULTISAMPLEPROC pGlTextureStorage2DMultisample;
     static PFNGLTEXTURESTORAGE3DMULTISAMPLEPROC pGlTextureStorage3DMultisample;
-	static PFNGLTEXTUREVIEWPROC pGlTextureViewProc;
+	static PFNGLTEXTUREVIEWPROC pGlTextureView;
     static PFNGLTEXTUREBUFFERPROC pGlTextureBuffer; //NULL
     static PFNGLTEXTUREBUFFERRANGEPROC pGlTextureBufferRange; //NULL
     static PFNGLTEXTURESTORAGE1DEXTPROC pGlTextureStorage1DEXT;
@@ -2169,7 +2169,7 @@ inline void COpenGLExtensionHandler::extGlTextureStorage3DMultisample(GLuint tex
 
 inline void COpenGLExtensionHandler::extGlTextureView(GLuint texture, GLenum target, GLuint origtexture, GLenum internalformat, GLuint minlevel, GLuint numlevels, GLuint minlayer, GLuint numlayers)
 {
-#error "FU"
+	pGlTextureView(texture,target,origtexture,internalformat,minlevel,numlevels,minlayer,nulayers);
 }
 
 inline void COpenGLExtensionHandler::extGlGetTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLsizei bufSize, void* pixels)
@@ -2618,7 +2618,7 @@ inline void COpenGLExtensionHandler::extGlGenerateTextureMipmap(GLuint texture, 
         if (pGlGenerateTextureMipmapEXT)
             pGlGenerateTextureMipmapEXT(texture,target);
     }
-    else if (pGlGenerateMipmap)
+    else
     {
         GLint bound;
         switch (target)
@@ -2666,9 +2666,58 @@ inline void COpenGLExtensionHandler::extGlGenerateTextureMipmap(GLuint texture, 
     }
 }
 
-inline void COpenGLExtensionHandler::extGlTextureParameteriuiv(GLuint texture, GLenum pname, const GLuint* params)
+inline void COpenGLExtensionHandler::extGlTextureParameteriuiv(GLuint texture, Glenum target, GLenum pname, const GLuint* params)
 {
-#error "FU"
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+        pGlTextureParameteriuiv(texture,pname,params);
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+		pGlTextureParameteriuivEXT(texture,pname,params);
+	else
+	{
+        GLint bound;
+        switch (target)
+        {
+            case GL_TEXTURE_1D:
+                glGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
+                break;
+            case GL_TEXTURE_1D_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_1D_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_2D:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+                break;
+            case GL_TEXTURE_2D_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_2D_MULTISAMPLE:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &bound);
+                break;
+            case GL_TEXTURE_2D_MULTISAMPLE_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_3D:
+                glGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+                break;
+            case GL_TEXTURE_BUFFER:
+                glGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &bound);
+                break;
+            case GL_TEXTURE_CUBE_MAP:
+                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+                break;
+            case GL_TEXTURE_CUBE_MAP_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_RECTANGLE:
+                glGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &bound);
+                break;
+            default:
+                os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
+                return;
+        }
+        glBindTexture(target, texture);
+		pGlTexParameteriuiv(target,pname,params);
+        glBindTexture(target, bound);
+	}
 }
 
 inline void COpenGLExtensionHandler::extGlClampColor(GLenum target, GLenum clamp)

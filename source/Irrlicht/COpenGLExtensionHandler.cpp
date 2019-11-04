@@ -144,6 +144,7 @@ PFNGLTEXTURESTORAGE3DPROC COpenGLExtensionHandler::pGlTextureStorage3D = nullptr
 PFNGLTEXTURESTORAGE2DMULTISAMPLEPROC COpenGLExtensionHandler::pGlTextureStorage2DMultisample = nullptr;
 PFNGLTEXTURESTORAGE3DMULTISAMPLEPROC COpenGLExtensionHandler::pGlTextureStorage3DMultisample = nullptr;
 PFNGLTEXTUREBUFFERPROC COpenGLExtensionHandler::pGlTextureBuffer = nullptr;
+PFNGLTEXTUREVIEWPROC COpenGLExtensionHandler::pGlTextureView = nullptr;
 PFNGLTEXTUREBUFFERRANGEPROC COpenGLExtensionHandler::pGlTextureBufferRange = nullptr;
 PFNGLTEXTURESTORAGE1DEXTPROC COpenGLExtensionHandler::pGlTextureStorage1DEXT = nullptr;
 PFNGLTEXTURESTORAGE2DEXTPROC COpenGLExtensionHandler::pGlTextureStorage2DEXT = nullptr;
@@ -188,6 +189,9 @@ PFNGLCOPYTEXTURESUBIMAGE3DEXTPROC COpenGLExtensionHandler::pGlCopyTextureSubImag
 PFNGLGENERATEMIPMAPPROC COpenGLExtensionHandler::pGlGenerateMipmap = nullptr;
 PFNGLGENERATETEXTUREMIPMAPPROC COpenGLExtensionHandler::pGlGenerateTextureMipmap = nullptr;
 PFNGLGENERATETEXTUREMIPMAPEXTPROC COpenGLExtensionHandler::pGlGenerateTextureMipmapEXT = nullptr;
+PFNGLTEXTUREPARAMETERIUIVPROC COpenGLExtensionHandler::pGlTextureParameteriuiv = nullptr;
+PFNGLTEXTUREPARAMETERIUIVEXTPROC COpenGLExtensionHandler::pGlTextureParamteriuivEXT = nullptr;
+PFNGLTEXPARAMETERIUIVPROC COpenGLExtensionHandler::pGlTexParamteriuiv = nullptr;
 PFNGLCLAMPCOLORPROC COpenGLExtensionHandler::pGlClampColor = nullptr;
 
         //samplers
