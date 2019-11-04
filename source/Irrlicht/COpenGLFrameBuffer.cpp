@@ -7,7 +7,6 @@
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 #include "COpenGLFrameBuffer.h"
 #include "COpenGLDriver.h"
-#include "COpenGLMultisampleTexture.h"
 
 #include "os.h"
 

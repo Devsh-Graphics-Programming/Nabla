@@ -66,10 +66,6 @@ class CNullDriver : public IVideoDriver
 		//!
 		virtual void issueGPUTextureBarrier() override {}
 
-		//! sets transformation
-		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat) override;
-		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4SIMD& mat) override;
-
         //! GPU fence, is signalled when preceeding GPU work is completed
         virtual core::smart_refctd_ptr<IDriverFence> placeFence(const bool& implicitFlushWaitSameThread=false) override {return nullptr;}
 

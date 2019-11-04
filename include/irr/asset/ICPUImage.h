@@ -24,7 +24,8 @@ class ICPUImage final : public IImage, public IAsset
 			if (validateCreationParameters(_params))
 				return nullptr;
 
-			return core::make_smart_refctd_ptr<ICPUImage>(std::move(_params));
+			auto* tmp = new ICPUImage(std::move(_params));
+			return core::smart_refctd_ptr<ICPUImage>(tmp, core::dont_grab);
 		}
 
         inline void convertToDummyObject() override
@@ -104,8 +105,8 @@ class ICPUImage final : public IImage, public IAsset
 		virtual ~ICPUImage() = default;
 		
 		
-		core::smart_refctd_ptr<asset::ICPUBuffer>				buffer;
-		core::smart_refctd_dynamic_array<IImage::SBufferCopy>	regions;
+		core::smart_refctd_ptr<asset::ICPUBuffer>					buffer;
+		core::smart_refctd_dynamic_array<const IImage::SBufferCopy>	regions;
 
 	private:
 		inline void sortRegionsByMipMapLevel()
