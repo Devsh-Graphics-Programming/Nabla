@@ -328,9 +328,9 @@ case asset::Blob::EnumValue:\
 	return asset::BlobClassName::Function(__VA_ARGS__);
 
 //! Used inside CBlobsLoadingManager. Adds support of given blob types.
+// @crisspl / @Anastazluk fix this shit for new pipeline !!!
 #define _IRR_SUPPORTED_BLOBS(Function, ...) \
 _IRR_ADD_BLOB_SUPPORT(RawBufferBlobV1, EBT_RAW_DATA_BUFFER, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(TexturePathBlobV1, EBT_TEXTURE_PATH, Function, __VA_ARGS__)\
 _IRR_ADD_BLOB_SUPPORT(MeshBlobV1, EBT_MESH, Function, __VA_ARGS__)\
 _IRR_ADD_BLOB_SUPPORT(SkinnedMeshBlobV1, EBT_SKINNED_MESH, Function, __VA_ARGS__)\
 _IRR_ADD_BLOB_SUPPORT(MeshBufferBlobV1, EBT_MESH_BUFFER, Function, __VA_ARGS__)\

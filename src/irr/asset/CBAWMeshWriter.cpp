@@ -6,15 +6,11 @@
 #include "CBAWMeshWriter.h"
 
 #include "irr/core/core.h"
+#include "irr/asset/asset.h"
 #include "os.h"
 
 #include "IFileSystem.h"
 #include "IWriteFile.h"
-
-#include "irr/asset/ICPUTexture.h"
-#include "irr/asset/ICPUSkinnedMesh.h"
-#include "irr/asset/ICPUSkinnedMeshBuffer.h"
-#include "CFinalBoneHierarchy.h"
 
 
 #include "lz4/lib/lz4.h"
