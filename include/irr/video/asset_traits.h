@@ -26,6 +26,7 @@ namespace irr
 namespace video
 {
 
+// TODO: don't we already have a class for this in asset::IBuffer?
 template<typename BuffT>
 class IOffsetBufferPair : public core::IReferenceCounted
 {
