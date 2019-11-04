@@ -673,8 +673,8 @@ namespace irr { namespace video // why is this in the video namespace!?
     inline void decodePixels<asset::EF_R16G16_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
+        _output[0] = static_cast<double>((pix >> 0) & 0xffffULL);
+        _output[1] = static_cast<double>((pix >> 16) & 0xffffULL);
     }
 
     template<>
@@ -723,9 +723,9 @@ namespace irr { namespace video // why is this in the video namespace!?
     inline void decodePixels<asset::EF_R16G16B16_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix[0])[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-        _output[2] = ((pix >> 32) & 0xffffULL);
+        _output[0] = static_cast<double>((pix >> 0) & 0xffffULL);
+        _output[1] = static_cast<double>((pix >> 16) & 0xffffULL);
+        _output[2] = static_cast<double>((pix >> 32) & 0xffffULL);
     }
 
     template<>
@@ -779,10 +779,10 @@ namespace irr { namespace video // why is this in the video namespace!?
     inline void decodePixels<asset::EF_R16G16B16A16_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix[0])[0];
-        _output[0] = ((pix >> 0) & 0xffffULL);
-        _output[1] = ((pix >> 16) & 0xffffULL);
-        _output[2] = ((pix >> 32) & 0xffffULL);
-        _output[3] = ((pix >> 48) & 0xffffULL);
+        _output[0] = static_cast<double>((pix >> 0) & 0xffffULL);
+        _output[1] = static_cast<double>((pix >> 16) & 0xffffULL);
+        _output[2] = static_cast<double>((pix >> 32) & 0xffffULL);
+        _output[3] = static_cast<double>((pix >> 48) & 0xffffULL);
     }
 
     template<>
