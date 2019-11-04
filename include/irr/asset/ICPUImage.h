@@ -24,8 +24,7 @@ class ICPUImage final : public IImage, public IAsset
 			if (validateCreationParameters(_params))
 				return nullptr;
 
-			auto* tmp = new ICPUImage(std::move(_params));
-			return core::smart_refctd_ptr<ICPUImage>(tmp, core::dont_grab);
+			return core::smart_refctd_ptr<ICPUImage>(new ICPUImage(std::move(_params)), core::dont_grab);
 		}
 
         inline void convertToDummyObject() override

@@ -52,14 +52,14 @@ class IImage : public IDescriptor
 			//! irrelevant now - no support for planar images
 			ECF_MUTABLE_FORMAT_BIT						= 0x1u << 3u,
 			//! whether can fashion a cubemap out of the image
-			ECF_CUBE_COMPATIBLE_BIT					= 0x1u << 4u,
+			ECF_CUBE_COMPATIBLE_BIT						= 0x1u << 4u,
 			//! whether can fashion a 2d array texture out of the image
-			ECF_2D_ARRAY_COMPATIBLE_BIT				= 0x1u << 5u,
+			ECF_2D_ARRAY_COMPATIBLE_BIT					= 0x1u << 5u,
 			//! irrelevant now - we don't support device groups
-			ECF_SPLIT_INSTANCE_BIND_REGIONS_BIT		= 0x1u << 6u,
+			ECF_SPLIT_INSTANCE_BIND_REGIONS_BIT			= 0x1u << 6u,
 			//! whether can view a block compressed texture as uncompressed
 			// (1 block size must equal 1 uncompressed pixel size)
-			ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT		= 0x1u << 7u,
+			ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT			= 0x1u << 7u,
 			//! can create with flags not supported by primary image but by a potential compatible view
 			ECF_EXTENDED_USAGE_BIT						= 0x1u << 8u,
 			//! irrelevant now - no support for planar images
@@ -177,11 +177,11 @@ class IImage : public IDescriptor
 			uint32_t maxSideLen = extent.width;
 			switch (type)
 			{
-				case ET_2D:
-					maxSideLen = core::max(extent.height,maxSideLen);
-					break;
 				case ET_3D:
 					maxSideLen = core::max(extent.depth,maxSideLen);
+					_IRR_FALLTHROUGH;
+				case ET_2D:
+					maxSideLen = core::max(extent.height,maxSideLen);
 					break;
 				default:
 					break;
@@ -300,6 +300,7 @@ class IImage : public IDescriptor
 				return false;
 
 			auto blockSize = getBlockDimensions(format);
+			auto blockByteSize = getBlockByteSize(format);
 			for (auto it=pRegionsBegin; it!=pRegionsEnd; it++)
 			{
 				if (!validatePotentialCopies_shared(pRegionsEnd,it))
@@ -319,7 +320,7 @@ class IImage : public IDescriptor
 					maxBufferOffset += (it->imageExtent.height+blockSize.y-1u)/blockSize.y-1u;
 					maxBufferOffset *= rowLength;
 					maxBufferOffset += (it->imageExtent.width+blockSize.x-1u)/blockSize.z-1u;
-					maxBufferOffset = (maxBufferOffset+1u)*asset::getBlockByteSize(format);
+					maxBufferOffset = (maxBufferOffset+1u)*blockByteSize;
 					maxBufferOffset += it->bufferOffset;
 					if (maxBufferOffset>srcBuff->getSize())
 					{
@@ -339,29 +340,9 @@ class IImage : public IDescriptor
 			if (pRegionsBegin==pRegionsEnd)
 				return false;
 
-			// tackle when we handle aspects
-			//if (!asset::areFormatsCompatible(format,srcImage->format))
-				//return false;
-			
-			auto getRealDepth = [](auto _type, auto _extent, auto subresource) -> uint32_t
-			{
-				if (_type!=EIT_3D)
-					return subresource.arrayLayers;
-				if (subresource.baseArrayLevel!=0u||subresource.arrayLayers!=1u)
-					return 0u;
-				return _extent.depth;
-			};
-
 			for (auto it=pRegionsBegin; it!=pRegionsEnd; it++)
 			{
 				if (!validatePotentialCopies_shared(pRegionsEnd,it))
-					return false;
-
-				if (it->srcSubresource.aspectMask&(~src->getAspectMask()))
-					return false;
-				
-				auto tmp = getRealDepth(type, it->extent, it->dstSubresource);
-				if (tmp!=0u || tmp!=getRealDepth(src->getType(),it->extent,it->srcSubresource))
 					return false;
 
 				// count on the user not being an idiot
@@ -478,11 +459,10 @@ class IImage : public IDescriptor
 							{0u,0u,0u},0u,0u,static_cast<E_SAMPLE_COUNT_FLAGS>(0u) }
 			
 		{
-
 			//tiling(_tiling), usage(_usage), sharingMode(_sharingMode),
 			//queueFamilyIndices(_queueFamilyIndices), initialLayout(_initialLayout)
 		}
-		IImage(SCreationParams&& _params) : params(_params) {}
+		IImage(SCreationParams&& _params) : params(std::move(_params)) {}
 
 		virtual ~IImage()
 		{}
@@ -495,63 +475,96 @@ class IImage : public IDescriptor
 
 			if (validatePotentialCopies(pRegionsBegin, pRegionsEnd, src))
 				return false;
+			
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_base_of<IImage, SourceType>::value)
+			{
+				// tackle when we handle aspects
+				//if (!asset::areFormatsCompatible(params.format,src->format))
+					//return false;
+			}
+			IRR_PSEUDO_IF_CONSTEXPR_END
 
-			const core::vector3du32_SIMD zero(0);
-			auto extentSIMD = core::vector3du32_SIMD(extent.width,extent.height,extent.depth);
+
+			const core::vector3du32_SIMD zero(0u,0u,0u,0u);
+			auto extentSIMD = core::vector3du32_SIMD(params.extent.width,params.extent.height,params.extent.depth);
 			for (auto it=pRegionsBegin; it!=pRegionsEnd; it++)
 			{
 				// check rectangles countained in destination
 				const auto& subresource = it->getDstSubresource();
-				if ((subresource.aspectMask&(~aspectMask))/* || !formatHasAspects(format,subresource.aspectMask)*/)
+				//if (!formatHasAspects(params.format,subresource.aspectMask))
+					//return false;
+				if (subresource.mipLevel >= params.mipLevels)
 					return false;
-				if (subresource.mipLevel >= mipLevels)
-					return false;
-				if (subresource.baseArrayLayer+subresource.layerCount >= arrayLayers)
+				if (subresource.baseArrayLayer+subresource.layerCount >= params.arrayLayers)
 					return false;
 
 				const auto& off2 = it->getDstOffset();
 				const auto& ext2 = it->getExtent();
-				switch (src->getType())
+				switch (params.type)
 				{
-					case EIT_1D:
+					case ET_1D:
 						if (off2.y>0u||ext2.height>1u)
 							return false;
 						_IRR_FALLTHROUGH;
-					case EIT_2D:
+					case ET_2D:
 						if (off2.z>0u||ext2.depth>1u)
 							return false;
 						break;
+					case ET_3D:
+						if (subresource.baseArrayLayer!=0u||subresource.layerCount!=1u)
+							return false;
+						break;
 					default:
+						assert(false);
 						break;
 				}
 
 				auto minPt2 = core::vector3du32_SIMD(off2.x,off2.y,off2.z);
-				auto dstBlockDims = asset::getBlockDimensions(format);
+				auto dstBlockDims = asset::getBlockDimensions(params.format);
 				if ((minPt2%dstBlockDims!=zero).any())
 					return false;
 
 				auto maxPt2 = core::vector3du32_SIMD(ext2.width,ext2.height,ext2.depth);
+				bool die = false;
 				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_base_of<IImage,SourceType>::value)
 				{
-					auto srcBlockDims = asset::getBlockDimensions(src->getFormat());
+					//if (!formatHasAspects(src->params.format,it->srcSubresource.aspectMask))
+						//die = true;
+
+					auto getRealDepth = [](auto _type, auto _extent, auto subresource) -> uint32_t
+					{
+						if (_type != EIT_3D)
+							return subresource.arrayLayers;
+						if (subresource.baseArrayLevel != 0u || subresource.arrayLayers != 1u)
+							return 0u;
+						return _extent.depth;
+					};
+					if (getRealDepth(params.type, it->extent, subresource) != getRealDepth(src->params.type, it->extent, it->srcSubresource))
+						die = true;
+
+					auto srcBlockDims = asset::getBlockDimensions(src->params.format);
 
 					/** Vulkan 1.1 Spec: When copying between compressed and uncompressed formats the extent members
 					represent the texel dimensions of the source image and not the destination. */
-					maxPt2 *= dstBlockDims/sourceBlockDims;
+					maxPt2 *= dstBlockDims/srcBlockDims;
 
 					// TODO: The union of all source regions, and the union of all destination regions, specified by the elements of pRegions, must not overlap in memory
 				}
-				IRR_PSEUDO_IF_CONSTEXPR_ELSE
+				IRR_PSEUDO_ELSE_CONSTEXPR
 				{
 					// TODO: The union of all source regions, and the union of all destination regions, specified by the elements of pRegions, must not overlap in memory
 				}
 				IRR_PSEUDO_IF_CONSTEXPR_END
+
+				if (die)
+					return false;
+
 				maxPt2 += minPt2;
 				if ((maxPt2>extentSIMD).any())
 					return false;
 			}
 
-			return;
+			return true;
 		}
 
 

@@ -13,12 +13,19 @@ namespace asset
 class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 {
 	public:
+		core::smart_refctd_ptr<ICPUImageView> create(SCreationParams&& params)
+		{
+			if (!validateCreationParameters(params))
+				return nullptr;
+
+			return core::smart_refctd_ptr<ICPUImageView>(new ICPUImageView(std::move(params)), core::dont_grab);
+		}
 		ICPUImageView(SCreationParams&& _params) : IImageView<ICPUImage>(std::move(_params)) {}
 
 		//!
 		size_t conservativeSizeEstimate() const override
 		{
-			return sizeof(uint32_t)*3u+sizeof(void*)+sizeof(SComponentMapping);
+			return sizeof(SCreationParams);
 		}
 		//!
 		void convertToDummyObject() override { }
