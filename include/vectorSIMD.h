@@ -338,19 +338,32 @@ namespace core
 			return operator=(operator/(other));
 		}
 
-		//operators against scalars
-		inline vectorSIMD_32<T>  operator+(T val) const { return (*this)+vectorSIMD_32<T>(val); }
-		inline vectorSIMD_32<T>& operator+=(T val) { return ( (*this) += vectorSIMD_32<T>(val) ); }
+		inline vectorSIMD_32<T> operator%(const vectorSIMD_32<T>& other) const
+		{
+			// TODO: if /= can't be done then %= can't either
+			return vectorSIMD_32<T>(x % other.x, y % other.y, z % other.z, w % other.w);
+		}
+		inline vectorSIMD_32<T>& operator%=(const vectorSIMD_32<T>& other)
+		{
+			return operator=(operator%(other));
+		}
 
-		inline vectorSIMD_32<T> operator-(T val) const { return (*this)-vectorSIMD_32<T>(val); }
-		inline vectorSIMD_32<T>& operator-=(T val) { return ( (*this) -= vectorSIMD_32<T>(val) ); }
+		//operators against scalars
+		inline vectorSIMD_32<T>  operator+(T val) const { return operator+(vectorSIMD_32<T>(val)); }
+		inline vectorSIMD_32<T>& operator+=(T val) { return operator+=(vectorSIMD_32<T>(val)); }
+
+		inline vectorSIMD_32<T> operator-(T val) const { return operator-(vectorSIMD_32<T>(val)); }
+		inline vectorSIMD_32<T>& operator-=(T val) { return operator-=(vectorSIMD_32<T>(val)); }
 
 		// TODO: these are messed up (they care about past the vector)
-		inline vectorSIMD_32<T>  operator*(T val) const { return (*this)*vectorSIMD_32<T>(val); }
-		inline vectorSIMD_32<T>& operator*=(T val) { return ( (*this) *= vectorSIMD_32<T>(val) ); }
+		inline vectorSIMD_32<T>  operator*(T val) const { return operator*(vectorSIMD_32<T>(val)); }
+		inline vectorSIMD_32<T>& operator*=(T val) { return operator*=(vectorSIMD_32<T>(val)); }
 
 		inline vectorSIMD_32<T> operator/(T val) const { return operator/(vectorSIMD_32<T>(val)); }
 		inline vectorSIMD_32<T>& operator/=(T val) { return operator/=(vectorSIMD_32<T>(val)); }
+
+		inline vectorSIMD_32<T> operator%(T val) const { return operator%(vectorSIMD_32<T>(val)); }
+		inline vectorSIMD_32<T>& operator%=(T val) const { return operator%=(vectorSIMD_32<T>(val)); }
 
 /*
 		//! I AM BREAKING IRRLICHT'S COMPARISON OPERATORS

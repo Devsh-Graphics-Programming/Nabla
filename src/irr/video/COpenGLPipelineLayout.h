@@ -4,7 +4,9 @@
 #include "irr/video/IGPUPipelineLayout.h"
 #include "COpenGLExtensionHandler.h"
 
-namespace irr {
+#ifdef _IRR_COMPILE_WITH_OPENGL_
+namespace irr
+{
 namespace video
 {
 
@@ -70,6 +72,8 @@ private:
     SMultibindParams m_multibindParams[4];
 };
 
-}}
+}
+}
+#endif
 
 #endif

@@ -5,7 +5,9 @@
 #include "COpenGLExtensionHandler.h"
 #include "COpenGLSpecializedShader.h"
 
-namespace irr {
+#ifdef _IRR_COMPILE_WITH_OPENGL_
+namespace irr
+{
 namespace video
 {
 
@@ -191,6 +193,8 @@ private:
     SVAOHash m_vaoHashval;
 };
 
-}}
+}
+}
+#endif
 
 #endif

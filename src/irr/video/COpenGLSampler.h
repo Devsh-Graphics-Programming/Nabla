@@ -5,7 +5,9 @@
 #include "COpenGLExtensionHandler.h"
 #include <algorithm>
 
-namespace irr {
+#ifdef _IRR_COMPILE_WITH_OPENGL_
+namespace irr
+{
 namespace video
 {
 
@@ -109,6 +111,8 @@ private:
     GLuint m_GLname;
 };
 
-}}
+}
+}
+#endif
 
 #endif
