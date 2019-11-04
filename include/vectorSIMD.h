@@ -266,6 +266,58 @@ namespace core
     class IRR_FORCE_EBO vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>, public impl::vectorSIMDIntBase<vectorSIMD_32<T> >
 	{
         typedef impl::vectorSIMDIntBase<vectorSIMD_32<T> > Base;
+
+		template<typename func_epi32, typename func_epi16, typename func_epi8>
+		inline vector4db_SIMD comparison_dispatch(__m128i a, __m128i b) const
+		{
+			__m128i result;
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_signed<T>::value)
+			{
+				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T,int32_t>::value)
+				{
+					result = func_epi32(a,b);
+				}
+				IRR_PSEUDO_ELSE_CONSTEXPR
+				{
+					IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T,int16_t>::value)
+					{
+						result = func_epi16(a,b);
+					}
+					IRR_PSEUDO_ELSE_CONSTEXPR
+					{
+						static_assert(!std::is_same<T,int8_t>::value,"unimplemented for types other than {u/i}int{8,16,32}_t");
+						result = func_epi8(a,b);
+					}
+					IRR_PSEUDO_IF_CONSTEXPR_END
+				}
+				IRR_PSEUDO_IF_CONSTEXPR_END
+			}
+			IRR_PSEUDO_ELSE_CONSTEXPR
+			{
+				__m128i mask;
+				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T,uint32_t>::value)
+				{
+					mask = _mm_set1_epi32(-0x80000000);
+				}
+				IRR_PSEUDO_ELSE_CONSTEXPR
+				{
+					IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T,uint16_t>::value)
+					{
+						mask = _mm_set1_epi16(-0x8000);
+					}
+					IRR_PSEUDO_ELSE_CONSTEXPR
+					{
+						static_assert(!std::is_same<T,uint8_t>::value,"unimplemented for types other than {u/i}int{8,16,32}_t");
+						mask = _mm_set1_epi8(-0x80);
+					}
+					IRR_PSEUDO_IF_CONSTEXPR_END
+				}
+				IRR_PSEUDO_IF_CONSTEXPR_END
+				result = comparison_dispatch(_mm_xor_si128(mask,a),_mm_xor_si128(mask,b));
+			}
+			IRR_PSEUDO_IF_CONSTEXPR_END
+			return result;
+		}
 	public:
 	    using Base::Base;
 #ifdef _MSC_VER
@@ -365,25 +417,24 @@ namespace core
 		inline vectorSIMD_32<T> operator%(T val) const { return operator%(vectorSIMD_32<T>(val)); }
 		inline vectorSIMD_32<T>& operator%=(T val) const { return operator%=(vectorSIMD_32<T>(val)); }
 
-/*
-		//! I AM BREAKING IRRLICHT'S COMPARISON OPERATORS
-		inline vector4db_SIMD operator<=(const vectorSIMDf& other) const
+		//!
+		inline vector4db_SIMD operator<=(const vectorSIMD_32<T>& other) const
 		{
-		    return _mm_cmple_ps(getAsRegister(),other.getAsRegister());
+			return comparison_dispatch<_mm_cmplte_epi32,_mm_cmplte_epi16,_mm_cmplte_epi8>(vectorSIMDIntBase::getAsRegister(),other.getAsRegister());
 		}
-		inline vector4db_SIMD operator>=(const vectorSIMDf& other) const
+		inline vector4db_SIMD operator>=(const vectorSIMD_32<T>& other) const
 		{
-		    return _mm_cmpge_ps(getAsRegister(),other.getAsRegister());
+			return comparison_dispatch<_mm_cmpgte_epi32,_mm_cmpgte_epi16,_mm_cmpgte_epi8>(vectorSIMDIntBase::getAsRegister(), other.getAsRegister());
 		}
-		inline vector4db_SIMD operator<(const vectorSIMDf& other) const
+		inline vector4db_SIMD operator<(const vectorSIMD_32<T>& other) const
 		{
-		    return _mm_cmplt_ps(getAsRegister(),other.getAsRegister());
+			return comparison_dispatch<_mm_cmplt_epi32,_mm_cmplt_epi16,_mm_cmplt_epi8>(vectorSIMDIntBase::getAsRegister(),other.getAsRegister());
 		}
-		inline vector4db_SIMD operator>(const vectorSIMDf& other) const
+		inline vector4db_SIMD operator>(const vectorSIMD_32<T>& other) const
 		{
-		    return _mm_cmpgt_ps(getAsRegister(),other.getAsRegister());
+			return comparison_dispatch<_mm_cmpgt_epi32, _mm_cmpgt_epi16, _mm_cmpgt_epi8>(vectorSIMDIntBase::getAsRegister(), other.getAsRegister());
 		}
-*/
+
 		inline vector4db_SIMD operator==(const vectorSIMD_32<T>& other) const
 		{
 			return vector4db_SIMD(_mm_cmpeq_epi32(vectorSIMDIntBase::getAsRegister(),other.getAsRegister()));

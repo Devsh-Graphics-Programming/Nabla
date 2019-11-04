@@ -141,7 +141,7 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<T,allocator>
 
         static inline void operator delete(void* ptr) noexcept
         {
-			return allocator().deallocate(reinterpret_cast<pointer>(ptr));
+			allocator().deallocate(reinterpret_cast<pointer>(ptr));
         }
 		// size hint is ill-formed
 		static void operator delete(void* ptr, std::size_t sz) = delete;
