@@ -267,8 +267,7 @@ namespace core
 	{
         typedef impl::vectorSIMDIntBase<vectorSIMD_32<T> > Base;
 
-		template<typename func_epi32, typename func_epi16, typename func_epi8>
-		inline vector4db_SIMD comparison_dispatch(__m128i a, __m128i b) const
+		static inline vector4db_SIMD comparison_dispatch(__m128i (*func_epi32)(__m128i,__m128i), __m128i (*func_epi16)(__m128i,__m128i), __m128i (*func_epi8)(__m128i,__m128i), __m128i a, __m128i b)
 		{
 			__m128i result;
 			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_signed<T>::value)
@@ -313,7 +312,7 @@ namespace core
 					IRR_PSEUDO_IF_CONSTEXPR_END
 				}
 				IRR_PSEUDO_IF_CONSTEXPR_END
-				result = comparison_dispatch(_mm_xor_si128(mask,a),_mm_xor_si128(mask,b));
+				result = comparison_dispatch(func_epi32,func_epi16,func_epi8,_mm_xor_si128(mask,a),_mm_xor_si128(mask,b)).getAsRegister();
 			}
 			IRR_PSEUDO_IF_CONSTEXPR_END
 			return result;
@@ -420,19 +419,19 @@ namespace core
 		//!
 		inline vector4db_SIMD operator<=(const vectorSIMD_32<T>& other) const
 		{
-			return comparison_dispatch<_mm_cmplte_epi32,_mm_cmplte_epi16,_mm_cmplte_epi8>(vectorSIMDIntBase::getAsRegister(),other.getAsRegister());
+			return comparison_dispatch(_mm_cmplte_epi32,_mm_cmplte_epi16,_mm_cmplte_epi8,vectorSIMDIntBase::getAsRegister(),other.getAsRegister());
 		}
 		inline vector4db_SIMD operator>=(const vectorSIMD_32<T>& other) const
 		{
-			return comparison_dispatch<_mm_cmpgte_epi32,_mm_cmpgte_epi16,_mm_cmpgte_epi8>(vectorSIMDIntBase::getAsRegister(), other.getAsRegister());
+			return comparison_dispatch(_mm_cmpgte_epi32,_mm_cmpgte_epi16,_mm_cmpgte_epi8,vectorSIMDIntBase::getAsRegister(), other.getAsRegister());
 		}
 		inline vector4db_SIMD operator<(const vectorSIMD_32<T>& other) const
 		{
-			return comparison_dispatch<_mm_cmplt_epi32,_mm_cmplt_epi16,_mm_cmplt_epi8>(vectorSIMDIntBase::getAsRegister(),other.getAsRegister());
+			return comparison_dispatch(_mm_cmplt_epi32,_mm_cmplt_epi16,_mm_cmplt_epi8,vectorSIMDIntBase::getAsRegister(),other.getAsRegister());
 		}
 		inline vector4db_SIMD operator>(const vectorSIMD_32<T>& other) const
 		{
-			return comparison_dispatch<_mm_cmpgt_epi32, _mm_cmpgt_epi16, _mm_cmpgt_epi8>(vectorSIMDIntBase::getAsRegister(), other.getAsRegister());
+			return comparison_dispatch(_mm_cmpgt_epi32,_mm_cmpgt_epi16,_mm_cmpgt_epi8,vectorSIMDIntBase::getAsRegister(), other.getAsRegister());
 		}
 
 		inline vector4db_SIMD operator==(const vectorSIMD_32<T>& other) const
