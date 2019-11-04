@@ -91,12 +91,10 @@ struct LzmaMemMngmnt
         const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 1u);
 		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, flags, encrPwd, comprLvl);
 	}
+#ifndef NEW_SHADERS
 	template<>
 	void CBAWMeshWriter::exportAsBlob<ICPUTexture>(ICPUTexture* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
-#ifdef NEW_SHADERS
-		assert(false);
-#else
         ICPUTexture* tex = _obj;
 
         const WriteProperties* props = reinterpret_cast<const WriteProperties*>(_ctx.inner.params.userData);
@@ -109,8 +107,8 @@ struct LzmaMemMngmnt
         _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 2u);
         const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 2u);
 		tryWrite(&path[0], _file, _ctx, len, _headerIdx, flags, encrPwd, comprLvl);
-#endif
 	}
+#endif
 	template<>
 	void CBAWMeshWriter::exportAsBlob<CFinalBoneHierarchy>(CFinalBoneHierarchy* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{

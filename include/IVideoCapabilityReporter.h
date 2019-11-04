@@ -103,7 +103,7 @@ namespace video
         virtual uint32_t getMaxComputeWorkGroupSize(uint32_t _dimension) const = 0;
 
 		//! Get the maximum texture size supported.
-		virtual const uint32_t* getMaxTextureSize(const IGPUImageView::E_TYPE& type) const =0;
+		virtual const uint32_t* getMaxTextureSize(IGPUImageView::E_TYPE type) const =0;
 
 		//!
 		virtual uint32_t getRequiredUBOAlignment() const = 0;

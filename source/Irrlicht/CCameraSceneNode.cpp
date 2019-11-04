@@ -186,13 +186,14 @@ void CCameraSceneNode::render()
 		viewMatrix.buildCameraLookAtMatrixRH(pos.getAsVector3df(), Target.getAsVector3df(), up.getAsVector3df());
 	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
 	recalculateViewArea();
-
+#ifndef  NEW_SHADERS
 	video::IVideoDriver* driver = SceneManager->getVideoDriver();
 	if ( driver)
 	{
 		driver->setTransform(video::EPTS_PROJ,projMatrix);
 		driver->setTransform(video::E4X3TS_VIEW, viewMatrix );
 	}
+#endif
 }
 
 

@@ -6,15 +6,7 @@
 #include "irr/asset/bawformat/CBAWFile.h"
 
 #include "IFileSystem.h"
-#include "irr/video/CGPUMesh.h"
-#include "irr/asset/CCPUMesh.h"
-#include "irr/video/CGPUSkinnedMesh.h"
-#include "irr/asset/CCPUSkinnedMesh.h"
-#include "irr/asset/bawformat/CBlobsLoadingManager.h"
-#include "irr/asset/ICPUTexture.h"
-#include "irr/asset/IAssetManager.h"
-#include "irr/asset/ICPUSkinnedMeshBuffer.h"
-#include "irr/asset/CBAWMeshFileLoader.h"
+#include "irr/asset/asset.h"
 
 
 namespace irr
@@ -68,6 +60,7 @@ void TypedBlob<RawBufferBlobV0, asset::ICPUBuffer>::releaseObj(const void* _obj)
 		reinterpret_cast<const asset::ICPUBuffer*>(_obj)->drop();
 }
 
+#ifndef NEW_SHADERS
 template<>
 core::unordered_set<uint64_t> TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::getNeededDeps(const void* _blob)
 {
@@ -112,7 +105,7 @@ void TypedBlob<TexturePathBlobV0, asset::ICPUTexture>::releaseObj(const void* _o
 	if (_obj)
 		reinterpret_cast<const asset::ICPUTexture*>(_obj)->drop();
 }
-
+#endif
 template<>
 core::unordered_set<uint64_t> TypedBlob<MeshBlobV0, asset::ICPUMesh>::getNeededDeps(const void* _blob)
 {

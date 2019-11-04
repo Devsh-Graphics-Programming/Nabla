@@ -71,7 +71,7 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 		//inline GLenum getOpenGLTextureType() const {return target;}
 
 
-		inline size_t getAllocationSize() const override { return this->getSize(); }
+		inline size_t getAllocationSize() const override { return this->get(); }
 		inline IDriverMemoryAllocation* getBoundMemory() override { return this; }
 		inline const IDriverMemoryAllocation* getBoundMemory() const override { return this; }
 		inline size_t getBoundMemoryOffset() const override { return 0ll; }

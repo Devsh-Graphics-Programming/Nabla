@@ -45,33 +45,33 @@ CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::d
 	if (FileSystem)
 		FileSystem->grab();
 
-    MaxTextureSizes[ITexture::ETT_1D][0] = 0x80u;
-    MaxTextureSizes[ITexture::ETT_1D][1] = 0x1u;
-    MaxTextureSizes[ITexture::ETT_1D][2] = 0x1u;
+    MaxTextureSizes[IGPUImageView::ET_1D][0] = 0x80u;
+    MaxTextureSizes[IGPUImageView::ET_1D][1] = 0x1u;
+    MaxTextureSizes[IGPUImageView::ET_1D][2] = 0x1u;
 
-    MaxTextureSizes[ITexture::ETT_2D][0] = 0x80u;
-    MaxTextureSizes[ITexture::ETT_2D][1] = 0x80u;
-    MaxTextureSizes[ITexture::ETT_2D][2] = 0x1u;
+    MaxTextureSizes[IGPUImageView::ET_2D][0] = 0x80u;
+    MaxTextureSizes[IGPUImageView::ET_2D][1] = 0x80u;
+    MaxTextureSizes[IGPUImageView::ET_2D][2] = 0x1u;
 
-    MaxTextureSizes[ITexture::ETT_3D][0] = 0x80u;
-    MaxTextureSizes[ITexture::ETT_3D][1] = 0x80u;
-    MaxTextureSizes[ITexture::ETT_3D][2] = 0x80u;
+    MaxTextureSizes[IGPUImageView::ET_3D][0] = 0x80u;
+    MaxTextureSizes[IGPUImageView::ET_3D][1] = 0x80u;
+    MaxTextureSizes[IGPUImageView::ET_3D][2] = 0x80u;
 
-    MaxTextureSizes[ITexture::ETT_1D_ARRAY][0] = 0x80u;
-    MaxTextureSizes[ITexture::ETT_1D_ARRAY][1] = 0x1u;
-    MaxTextureSizes[ITexture::ETT_1D_ARRAY][2] = 0x800u;
+    MaxTextureSizes[IGPUImageView::ET_1D_ARRAY][0] = 0x80u;
+    MaxTextureSizes[IGPUImageView::ET_1D_ARRAY][1] = 0x1u;
+    MaxTextureSizes[IGPUImageView::ET_1D_ARRAY][2] = 0x800u;
 
-    MaxTextureSizes[ITexture::ETT_2D_ARRAY][0] = 0x80u;
-    MaxTextureSizes[ITexture::ETT_2D_ARRAY][1] = 0x80u;
-    MaxTextureSizes[ITexture::ETT_2D_ARRAY][2] = 0x800u;
+    MaxTextureSizes[IGPUImageView::ET_2D_ARRAY][0] = 0x80u;
+    MaxTextureSizes[IGPUImageView::ET_2D_ARRAY][1] = 0x80u;
+    MaxTextureSizes[IGPUImageView::ET_2D_ARRAY][2] = 0x800u;
 
-    MaxTextureSizes[ITexture::ETT_CUBE_MAP][0] = 0x80u;
-    MaxTextureSizes[ITexture::ETT_CUBE_MAP][1] = 0x80u;
-    MaxTextureSizes[ITexture::ETT_CUBE_MAP][2] = 0x6u;
+    MaxTextureSizes[IGPUImageView::ET_CUBE_MAP][0] = 0x80u;
+    MaxTextureSizes[IGPUImageView::ET_CUBE_MAP][1] = 0x80u;
+    MaxTextureSizes[IGPUImageView::ET_CUBE_MAP][2] = 0x6u;
 
-    MaxTextureSizes[ITexture::ETT_CUBE_MAP_ARRAY][0] = 0x80u;
-    MaxTextureSizes[ITexture::ETT_CUBE_MAP_ARRAY][1] = 0x80u;
-    MaxTextureSizes[ITexture::ETT_CUBE_MAP_ARRAY][2] = 0x800u*6;
+    MaxTextureSizes[IGPUImageView::ET_CUBE_MAP_ARRAY][0] = 0x80u;
+    MaxTextureSizes[IGPUImageView::ET_CUBE_MAP_ARRAY][1] = 0x80u;
+    MaxTextureSizes[IGPUImageView::ET_CUBE_MAP_ARRAY][2] = 0x800u*6;
 
 
 	// set ExposedData to 0
@@ -109,27 +109,6 @@ void CNullDriver::removeFrameBuffer(IFrameBuffer* framebuf)
 
 void CNullDriver::removeAllFrameBuffers()
 {
-}
-
-core::smart_refctd_ptr<ITexture> CNullDriver::createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format)
-{
-    if (type != ITexture::ETT_2D)
-        return nullptr;
-
-    return core::make_smart_refctd_ptr<SDummyTexture>("");
-}
-
-
-//! returns a device dependent texture from parameters
-//! THIS METHOD HAS TO BE OVERRIDDEN BY DERIVED DRIVERS WITH OWN TEXTURES
-core::smart_refctd_ptr<ITexture> CNullDriver::createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels,
-			const io::path& name, asset::E_FORMAT format)
-{
-    //better safe than sorry
-    if (type!=ITexture::ETT_2D)
-        return nullptr;
-
-	return core::make_smart_refctd_ptr<SDummyTexture>(name);
 }
 
 void CNullDriver::bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, const IGPUPipelineLayout** _destPplnLayouts)
@@ -301,293 +280,6 @@ E_DRIVER_TYPE CNullDriver::getDriverType() const
 {
 	return EDT_NULL;
 }
-
-/*
-//! Returns pointer to the IGPUProgrammingServices interface.
-IGPUProgrammingServices* CNullDriver::getGPUProgrammingServices()
-{
-	return this;
-}
-
-int32_t CNullDriver::addHighLevelShaderMaterial(
-    const char* vertexShaderProgram,
-    const char* controlShaderProgram,
-    const char* evaluationShaderProgram,
-    const char* geometryShaderProgram,
-    const char* pixelShaderProgram,
-    uint32_t patchVertices,
-    E_MATERIAL_TYPE baseMaterial,
-    IShaderConstantSetCallBack* callback,
-    const char** xformFeedbackOutputs,
-    const uint32_t& xformFeedbackOutputCount,
-    int32_t userData,
-    const char* vertexShaderEntryPointName,
-    const char* controlShaderEntryPointName,
-    const char* evaluationShaderEntryPointName,
-    const char* geometryShaderEntryPointName,
-    const char* pixelShaderEntryPointName)
-{
-	os::Printer::log("High level shader materials not available (yet) in this driver, sorry");
-	return -1;
-}
-
-bool CNullDriver::replaceHighLevelShaderMaterial(const int32_t &materialIDToReplace,
-    const char* vertexShaderProgram,
-    const char* controlShaderProgram,
-    const char* evaluationShaderProgram,
-    const char* geometryShaderProgram,
-    const char* pixelShaderProgram,
-    uint32_t patchVertices,
-    E_MATERIAL_TYPE baseMaterial,
-    IShaderConstantSetCallBack* callback,
-    const char** xformFeedbackOutputs,
-    const uint32_t& xformFeedbackOutputCount,
-    int32_t userData,
-    const char* vertexShaderEntryPointName,
-    const char* controlShaderEntryPointName,
-    const char* evaluationShaderEntryPointName,
-    const char* geometryShaderEntryPointName,
-    const char* pixelShaderEntryPointName)
-{
-    if (materialIDToReplace<0 || MaterialRenderers.size()<static_cast<uint32_t>(materialIDToReplace))
-        return false;
-
-    int32_t nr = addHighLevelShaderMaterial(vertexShaderProgram,controlShaderProgram,evaluationShaderProgram,geometryShaderProgram,pixelShaderProgram,
-                                        3,baseMaterial,callback,xformFeedbackOutputs,xformFeedbackOutputCount,userData,
-                                        vertexShaderEntryPointName,controlShaderEntryPointName,evaluationShaderEntryPointName,geometryShaderEntryPointName,pixelShaderEntryPointName);
-    if (nr==-1)
-        return false;
-
-	MaterialRenderers[materialIDToReplace].Renderer->drop();
-	MaterialRenderers[materialIDToReplace] = MaterialRenderers[MaterialRenderers.size()-1];
-
-	MaterialRenderers.resize(MaterialRenderers.size()-1);
-
-    return true;
-}
-
-int32_t CNullDriver::addHighLevelShaderMaterialFromFiles(
-    const io::path& vertexShaderProgramFileName,
-    const io::path& controlShaderProgramFileName,
-    const io::path& evaluationShaderProgramFileName,
-    const io::path& geometryShaderProgramFileName,
-    const io::path& pixelShaderProgramFileName,
-    uint32_t patchVertices,
-    E_MATERIAL_TYPE baseMaterial,
-    IShaderConstantSetCallBack* callback,
-    const char** xformFeedbackOutputs,
-    const uint32_t& xformFeedbackOutputCount,
-    int32_t userData,
-    const char* vertexShaderEntryPointName,
-    const char* controlShaderEntryPointName,
-    const char* evaluationShaderEntryPointName,
-    const char* geometryShaderEntryPointName,
-    const char* pixelShaderEntryPointName)
-{
-	io::IReadFile* vsfile = 0;
-	io::IReadFile* gsfile = 0;
-	io::IReadFile* ctsfile = 0;
-	io::IReadFile* etsfile = 0;
-	io::IReadFile* psfile = 0;
-
-	if (vertexShaderProgramFileName.size() )
-	{
-		vsfile = FileSystem->createAndOpenFile(vertexShaderProgramFileName);
-		if (!vsfile)
-		{
-			os::Printer::log("Could not open vertex shader program file",
-				vertexShaderProgramFileName.c_str(), ELL_WARNING);
-		}
-	}
-
-	if (controlShaderProgramFileName.size() )
-	{
-		ctsfile = FileSystem->createAndOpenFile(controlShaderProgramFileName);
-		if (!ctsfile)
-		{
-			os::Printer::log("Could not open control shader program file",
-				controlShaderProgramFileName.c_str(), ELL_WARNING);
-		}
-	}
-
-	if (evaluationShaderProgramFileName.size() )
-	{
-		etsfile = FileSystem->createAndOpenFile(evaluationShaderProgramFileName);
-		if (!etsfile)
-		{
-			os::Printer::log("Could not open evaluation shader program file",
-				evaluationShaderProgramFileName.c_str(), ELL_WARNING);
-		}
-	}
-
-	if (geometryShaderProgramFileName.size() )
-	{
-		gsfile = FileSystem->createAndOpenFile(geometryShaderProgramFileName);
-		if (!gsfile)
-		{
-			os::Printer::log("Could not open geometry shader program file",
-				geometryShaderProgramFileName.c_str(), ELL_WARNING);
-		}
-	}
-
-	if (pixelShaderProgramFileName.size() )
-	{
-		psfile = FileSystem->createAndOpenFile(pixelShaderProgramFileName);
-		if (!psfile)
-		{
-			os::Printer::log("Could not open pixel shader program file",
-				pixelShaderProgramFileName.c_str(), ELL_WARNING);
-		}
-	}
-
-	int32_t result = addHighLevelShaderMaterialFromFiles(
-		vsfile, ctsfile, etsfile, gsfile, psfile,
-		patchVertices, baseMaterial, callback,
-		xformFeedbackOutputs,xformFeedbackOutputCount, userData,
-		vertexShaderEntryPointName, controlShaderEntryPointName,
-		evaluationShaderEntryPointName, geometryShaderEntryPointName,
-		pixelShaderEntryPointName);
-
-	if (psfile)
-		psfile->drop();
-
-	if (ctsfile)
-		ctsfile->drop();
-
-	if (etsfile)
-		etsfile->drop();
-
-	if (gsfile)
-		gsfile->drop();
-
-	if (vsfile)
-		vsfile->drop();
-
-	return result;
-}
-
-int32_t CNullDriver::addHighLevelShaderMaterialFromFiles(
-    io::IReadFile* vertexShaderProgram,
-    io::IReadFile* controlShaderProgram,
-    io::IReadFile* evaluationShaderProgram,
-    io::IReadFile* geometryShaderProgram,
-    io::IReadFile* pixelShaderProgram,
-    uint32_t patchVertices,
-    E_MATERIAL_TYPE baseMaterial,
-    IShaderConstantSetCallBack* callback,
-    const char** xformFeedbackOutputs,
-    const uint32_t& xformFeedbackOutputCount,
-    int32_t userData,
-    const char* vertexShaderEntryPointName,
-    const char* controlShaderEntryPointName,
-    const char* evaluationShaderEntryPointName,
-    const char* geometryShaderEntryPointName,
-    const char* pixelShaderEntryPointName)
-{
-	char* vs = 0;
-	char* cts = 0;
-	char* ets = 0;
-	char* gs = 0;
-	char* ps = 0;
-
-	if (vertexShaderProgram)
-	{
-		const long size = vertexShaderProgram->getSize();
-		if (size)
-		{
-			vs = new char[size+1];
-			vertexShaderProgram->read(vs, size);
-			vs[size] = 0;
-		}
-	}
-
-	if (pixelShaderProgram)
-	{
-		const long size = pixelShaderProgram->getSize();
-		if (size)
-		{
-			// if both handles are the same we must reset the file
-			if (pixelShaderProgram==vertexShaderProgram)
-				pixelShaderProgram->seek(0);
-			ps = new char[size+1];
-			pixelShaderProgram->read(ps, size);
-			ps[size] = 0;
-		}
-	}
-
-	if (geometryShaderProgram)
-	{
-		const long size = geometryShaderProgram->getSize();
-		if (size)
-		{
-			// if both handles are the same we must reset the file
-			if ((geometryShaderProgram==vertexShaderProgram) ||
-					(geometryShaderProgram==pixelShaderProgram))
-				geometryShaderProgram->seek(0);
-			gs = new char[size+1];
-			geometryShaderProgram->read(gs, size);
-			gs[size] = 0;
-		}
-	}
-
-	if (controlShaderProgram)
-	{
-		const long size = controlShaderProgram->getSize();
-		if (size)
-		{
-			// if both handles are the same we must reset the file
-			if ((controlShaderProgram==vertexShaderProgram) ||
-					(controlShaderProgram==pixelShaderProgram) ||
-                        (controlShaderProgram==geometryShaderProgram))
-				controlShaderProgram->seek(0);
-			cts = new char[size+1];
-			controlShaderProgram->read(cts, size);
-			cts[size] = 0;
-		}
-	}
-
-	if (evaluationShaderProgram)
-	{
-		const long size = evaluationShaderProgram->getSize();
-		if (size)
-		{
-			// if both handles are the same we must reset the file
-			if ((evaluationShaderProgram==vertexShaderProgram) ||
-					(evaluationShaderProgram==pixelShaderProgram) ||
-                        (evaluationShaderProgram==geometryShaderProgram) ||
-                            (evaluationShaderProgram==controlShaderProgram))
-				evaluationShaderProgram->seek(0);
-			ets = new char[size+1];
-			evaluationShaderProgram->read(ets, size);
-			ets[size] = 0;
-		}
-	}
-
-
-	int32_t result = this->addHighLevelShaderMaterial(
-		vs, cts, ets, gs, ps,patchVertices,
-		baseMaterial, callback,
-		xformFeedbackOutputs,xformFeedbackOutputCount, userData,
-		vertexShaderEntryPointName,
-		controlShaderEntryPointName,
-		evaluationShaderEntryPointName,
-		geometryShaderEntryPointName,
-		pixelShaderEntryPointName);
-
-    if (vs)
-        delete [] vs;
-    if (ps)
-        delete [] ps;
-    if (gs)
-        delete [] gs;
-    if (cts)
-        delete [] cts;
-    if (ets)
-        delete [] ets;
-
-	return result;
-}
-*/
 
 void CNullDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool copyDepth, bool copyStencil,
 									core::recti srcRect, core::recti dstRect,

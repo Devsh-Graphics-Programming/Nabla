@@ -50,7 +50,8 @@ class IImageView : public IDescriptor
 				ES_R		= 3u,
 				ES_G		= 4u,
 				ES_B		= 5u,
-				ES_A		= 6u
+				ES_A		= 6u,
+				ES_COUNT
 			};
 			E_SWIZZLE r = ES_R;
 			E_SWIZZLE g = ES_G;

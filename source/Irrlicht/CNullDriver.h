@@ -178,7 +178,7 @@ class CNullDriver : public IVideoDriver
 		virtual std::string getVendorInfo() {return "Not available on this driver.";}
 
 		//! Returns the maximum texture size supported.
-		virtual const uint32_t* getMaxTextureSize(const IGPUImageView::E_TYPE& type) const override;
+		virtual const uint32_t* getMaxTextureSize(IGPUImageView::E_TYPE type) const override;
 
 		//!
 		virtual uint32_t getRequiredUBOAlignment() const override {return 0u;}

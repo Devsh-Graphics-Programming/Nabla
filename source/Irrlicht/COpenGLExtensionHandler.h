@@ -1290,7 +1290,7 @@ class COpenGLExtensionHandler
     static void extGlCopyTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height);
     static void extGlGenerateTextureMipmap(GLuint texture, GLenum target);
 	// texture "parameter" functions
-	static void extGlTextureParameteriuiv(GLuint texture, Glenum target, GLenum pname, const GLuint* params);
+	static void extGlTextureParameteriuiv(GLuint texture, GLenum target, GLenum pname, const GLuint* params);
 	static void extGlClampColor(GLenum target, GLenum clamp);
 	static void setPixelUnpackAlignment(const uint32_t& pitchInBytes, void* ptr, const uint32_t& minimumAlignment = 1);
 
@@ -1580,8 +1580,8 @@ class COpenGLExtensionHandler
     static PFNGLCOPYTEXTURESUBIMAGE2DEXTPROC pGlCopyTextureSubImage2DEXT;
     static PFNGLCOPYTEXTURESUBIMAGE3DEXTPROC pGlCopyTextureSubImage3DEXT;
 	static PFNGLTEXTUREPARAMETERIUIVPROC pGlTextureParameteriuiv;
-	static PFNGLTEXTUREPARAMETERIUIVEXTPROC pGlTextureParamteriuivEXT;
-	static PFNGLTEXPARAMETERIUIVPROC pGlTexParamteriuiv;
+	static PFNGLTEXTUREPARAMETERIUIVEXTPROC pGlTextureParameteriuivEXT;
+	static PFNGLTEXPARAMETERIUIVPROC pGlTexParameteriuiv;
     static PFNGLGENERATEMIPMAPPROC pGlGenerateMipmap;
     static PFNGLGENERATETEXTUREMIPMAPPROC pGlGenerateTextureMipmap; //NULL
     static PFNGLGENERATETEXTUREMIPMAPEXTPROC pGlGenerateTextureMipmapEXT;
@@ -2169,7 +2169,7 @@ inline void COpenGLExtensionHandler::extGlTextureStorage3DMultisample(GLuint tex
 
 inline void COpenGLExtensionHandler::extGlTextureView(GLuint texture, GLenum target, GLuint origtexture, GLenum internalformat, GLuint minlevel, GLuint numlevels, GLuint minlayer, GLuint numlayers)
 {
-	pGlTextureView(texture,target,origtexture,internalformat,minlevel,numlevels,minlayer,nulayers);
+	pGlTextureView(texture,target,origtexture,internalformat,minlevel,numlevels,minlayer,numlayers);
 }
 
 inline void COpenGLExtensionHandler::extGlGetTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLsizei bufSize, void* pixels)
@@ -2666,12 +2666,12 @@ inline void COpenGLExtensionHandler::extGlGenerateTextureMipmap(GLuint texture, 
     }
 }
 
-inline void COpenGLExtensionHandler::extGlTextureParameteriuiv(GLuint texture, Glenum target, GLenum pname, const GLuint* params)
+inline void COpenGLExtensionHandler::extGlTextureParameteriuiv(GLuint texture, GLenum target, GLenum pname, const GLuint* params)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
         pGlTextureParameteriuiv(texture,pname,params);
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
-		pGlTextureParameteriuivEXT(texture,pname,params);
+		pGlTextureParameteriuivEXT(texture,target,pname,params);
 	else
 	{
         GLint bound;

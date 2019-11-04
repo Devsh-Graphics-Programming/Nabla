@@ -606,6 +606,7 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
 	io::path texname(textureNameBuf);
 	handleBackslashes(&texname);
 
+#ifndef NEW_SHADERS
 	core::smart_refctd_ptr<asset::ICPUTexture> texture;
 	if (texname.size())
 	{
@@ -616,7 +617,6 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
 	}
 	if ( texture )
 	{
-#ifndef NEW_SHADERS
 		if (type==ETT_COLOR_MAP)
         {
 			currMaterial->Material.setTexture(0, std::move(texture));
@@ -642,8 +642,8 @@ const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* b
 //						currMaterial->Material.Textures[1] = texture;
 //						currMaterial->Material.MaterialType=video::EMT_REFLECTION_2_LAYER;
 		}
-#endif
 	}
+#endif
 	return bufPtr;
 }
 
