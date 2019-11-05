@@ -969,7 +969,7 @@ void CMeshManipulator::_filterInvalidTriangles(ICPUMeshBuffer* _input)
     memcpy(newBuf->getPointer(), copy, newSize);
     _IRR_ALIGNED_FREE(copy);
 
-    ICPUMeshBuffer::SBufferBinding idxBufBinding;
+    SBufferBinding<ICPUBuffer> idxBufBinding;
     idxBufBinding.offset = 0ull;
     idxBufBinding.buffer = std::move(newBuf);
     _input->setIndexBufferBinding(std::move(idxBufBinding));

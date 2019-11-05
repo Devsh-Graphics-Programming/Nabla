@@ -579,7 +579,7 @@ void CPLYMeshFileLoader::moveForward(SContext& _ctx, uint32_t bytes)
 		_ctx.StartPointer = _ctx.EndPointer;
 }
 
-bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4], ICPUMeshBuffer::SBufferBinding& bufferBinding) const
+bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4], SBufferBinding<ICPUBuffer>& bufferBinding) const
 {
 #ifndef NEW_SHADERS
 	{
