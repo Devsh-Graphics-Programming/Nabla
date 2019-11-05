@@ -9,7 +9,7 @@
 #include "CImageLoaderTGA.h"
 #include "IWriteFile.h"
 #include "irr/asset/format/convertColor.h"
-#include "irr/asset/ICPUTexture.h"
+#include "irr/asset/ICPUImageView.h"
 #include "os.h"
 
 #include "os.h"

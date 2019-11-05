@@ -116,7 +116,7 @@ CDerivativeMapCreator::CDerivativeMapCreator(video::IVideoDriver* _driver) : m_d
     gldriver->extGlSamplerParameteri(m_bumpMapSampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
 
-core::smart_refctd_ptr<video::IRenderableVirtualTexture> CDerivativeMapCreator::createDerivMapFromBumpMap(video::IRenderableVirtualTexture* _bumpMap, float _heightFactor, bool _texWrapRepeat) const
+core::smart_refctd_ptr<video::IGPUImageView> CDerivativeMapCreator::createDerivMapFromBumpMap(video::IGPUImageView* _bumpMap, float _heightFactor, bool _texWrapRepeat) const
 {
 #ifdef NEW_MESHES
 	return nullptr;
