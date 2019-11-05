@@ -408,39 +408,39 @@ ICameraSceneNode* CSceneManager::addCameraSceneNodeFPS(IDummyTransformationScene
 
 //! Adds a skybox scene node. A skybox is a big cube with 6 textures on it and
 //! is drawn around the camera position.
-ISceneNode* CSceneManager::addSkyBoxSceneNode(	core::smart_refctd_ptr<video::ITexture>&& top,
-												core::smart_refctd_ptr<video::ITexture>&& bottom,
-												core::smart_refctd_ptr<video::ITexture>&& left,
-												core::smart_refctd_ptr<video::ITexture>&& right,
-												core::smart_refctd_ptr<video::ITexture>&& front,
-												core::smart_refctd_ptr<video::ITexture>&& back,
-												IDummyTransformationSceneNode* parent, int32_t id)
+IMeshSceneNode* CSceneManager::addSkyBoxSceneNode(core::smart_refctd_ptr<video::IGPUImageView>&& cubemap, IDummyTransformationSceneNode* parent, int32_t id)
 {
 	if (!parent)
 		parent = this;
-
+#ifdef NEW_SHADERS
+	return nullptr;
+#else
 	ISceneNode* node = new CSkyBoxSceneNode(std::move(top), std::move(bottom), std::move(left), std::move(right),
 											std::move(front), std::move(back), core::smart_refctd_ptr(redundantMeshDataBuf), 0, parent, this, id);
 
 	node->drop();
 	return node;
+#endif
 }
 
 
 //! Adds a skydome scene node. A skydome is a large (half-) sphere with a
 //! panoramic texture on it and is drawn around the camera position.
-ISceneNode* CSceneManager::addSkyDomeSceneNode(	core::smart_refctd_ptr<video::IRenderableVirtualTexture>&& texture, uint32_t horiRes,
-	uint32_t vertRes, float texturePercentage, float spherePercentage, float radius, IDummyTransformationSceneNode* parent,
-	int32_t id)
+IMeshSceneNode* CSceneManager::addSkyDomeSceneNode(	core::smart_refctd_ptr<video::IGPUImageView>&& texture, uint32_t horiRes,
+													uint32_t vertRes, float texturePercentage, float spherePercentage, float radius,
+													IDummyTransformationSceneNode* parent, int32_t id)
 {
 	if (!parent)
 		parent = this;
-
+#ifdef NEW_SHADERS
+	return nullptr;
+#else
 	ISceneNode* node = new CSkyDomeSceneNode(std::move(texture), horiRes, vertRes,
 		texturePercentage, spherePercentage, radius, parent, this, id);
 
 	node->drop();
 	return node;
+#endif
 }
 
 //! Adds a dummy transformation scene node to the scene tree.

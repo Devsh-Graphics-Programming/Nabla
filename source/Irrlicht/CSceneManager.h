@@ -36,8 +36,8 @@ namespace scene
 
 	public:
 		//! constructor
-		CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver, irr::ITimer* timer, io::IFileSystem* fs,
-			gui::ICursorControl* cursorControl);
+		CSceneManager(	IrrlichtDevice* device, video::IVideoDriver* driver,
+						irr::ITimer* timer, io::IFileSystem* fs, gui::ICursorControl* cursorControl);
 
 		//! returns the video driver
 		virtual video::IVideoDriver* getVideoDriver();
@@ -131,17 +131,12 @@ namespace scene
 
 		//! Adds a skybox scene node. A skybox is a big cube with 6 textures on it and
 		//! is drawn around the camera position.
-		virtual ISceneNode* addSkyBoxSceneNode(	core::smart_refctd_ptr<video::ITexture>&& top,
-												core::smart_refctd_ptr<video::ITexture>&& bottom,
-												core::smart_refctd_ptr<video::ITexture>&& left,
-												core::smart_refctd_ptr<video::ITexture>&& right,
-												core::smart_refctd_ptr<video::ITexture>&& front,
-												core::smart_refctd_ptr<video::ITexture>&& back,
+		virtual IMeshSceneNode* addSkyBoxSceneNode(	core::smart_refctd_ptr<video::IGPUImageView>&& cubemap,
 												IDummyTransformationSceneNode* parent = 0, int32_t id = -1) override;
 
 		//! Adds a skydome scene node. A skydome is a large (half-) sphere with a
 		//! panoramic texture on it and is drawn around the camera position.
-		virtual ISceneNode* addSkyDomeSceneNode(core::smart_refctd_ptr<video::IRenderableVirtualTexture>&& texture,
+		virtual IMeshSceneNode* addSkyDomeSceneNode(core::smart_refctd_ptr<video::IGPUImageView>&& texture,
 												uint32_t horiRes = 16, uint32_t vertRes = 8, float texturePercentage = 0.9,
 												float spherePercentage = 2.0, float radius = 1000.f,
 												IDummyTransformationSceneNode * parent = 0, int32_t id = -1) override;
