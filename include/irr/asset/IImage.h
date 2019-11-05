@@ -219,6 +219,9 @@ class IImage : public IDescriptor
 			if (_params.mipLevels == 0u || _params.arrayLayers == 0u)
 				return false;
 
+			if (core::bitCount(_params.samples)!=1u)
+				return false;
+
 			if (_params.flags & ECF_CUBE_COMPATIBLE_BIT)
 			{
 				if (_params.type != ET_2D)

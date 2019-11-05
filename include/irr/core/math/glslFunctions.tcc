@@ -259,6 +259,25 @@ IRR_FORCE_INLINE int32_t findMSB<uint64_t>(uint64_t x)
 #endif
 }
 
+template<>
+IRR_FORCE_INLINE uint32_t bitCount(uint32_t x)
+{
+#ifdef __GNUC__
+	return __builtin_popcount(x);
+#elif defined(_MSC_VER)
+	return __popcnt(x);
+#endif
+}
+template<>
+IRR_FORCE_INLINE uint32_t bitCount(uint64_t x)
+{
+#ifdef __GNUC__
+	return __builtin_popcountl(x);
+#elif defined(_MSC_VER)
+	return __popcnt64(x);
+#endif
+}
+
 
 template<>
 IRR_FORCE_INLINE bool equals<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& tolerance)

@@ -321,7 +321,16 @@ IRR_FORCE_INLINE int32_t findMSB<uint32_t>(uint32_t x);
 template<>
 IRR_FORCE_INLINE int32_t findMSB<uint64_t>(uint64_t x);
 
-
+template<typename INT_TYPE>
+IRR_FORCE_INLINE uint32_t bitCount(INT_TYPE x);
+template<>
+IRR_FORCE_INLINE uint32_t bitCount(uint32_t x);
+template<>
+IRR_FORCE_INLINE uint32_t bitCount(uint64_t x);
+template<>
+IRR_FORCE_INLINE uint32_t bitCount(int32_t x) {return core::bitCount(static_cast<const uint32_t&>(x));}
+template<>
+IRR_FORCE_INLINE uint32_t bitCount(int64_t x) {return core::bitCount(static_cast<const uint64_t&>(x));}
 
 // Extras
 
