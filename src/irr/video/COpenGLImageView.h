@@ -39,7 +39,7 @@ class COpenGLImageView final : public IGPUImageView
 														params.subresourceRange.baseMipLevel, params.subresourceRange.levelCount,
 														params.subresourceRange.baseArrayLayer, params.subresourceRange.layerCount);
 
-			GLint swizzle[4u] = {GL_RED,GL_GREEN,GL_BLUE,GL_ALPHA};
+			GLuint swizzle[4u] = {GL_RED,GL_GREEN,GL_BLUE,GL_ALPHA};
 			for (auto i=0u; i<4u; i++)
 			{
 				auto currentMapping = (&params.components.r)[i];
@@ -47,7 +47,7 @@ class COpenGLImageView final : public IGPUImageView
 					continue;
 				swizzle[i] = ComponentMappingToGLenumSwizzle[currentMapping];
 			}
-			COpenGLExtensionHandler::extGlTextureParamteriv(name,GL_TEXTURE_SWIZZLE_RGBA,swizzle);
+			COpenGLExtensionHandler::extGlTextureParameteriuiv(name,target,GL_TEXTURE_SWIZZLE_RGBA,swizzle);
 		}
 
 		void regenerateMipMapLevels() override
@@ -60,7 +60,7 @@ class COpenGLImageView final : public IGPUImageView
 
 		inline GLuint getOpenGLName() const { return name; }
 		inline GLenum getOpenGLTextureType() const {return target;}
-		//inline GLenum getInternalFormat() const { return internalFormat; }
+		inline GLenum getInternalFormat() const { return internalFormat; }
 };
 
 }

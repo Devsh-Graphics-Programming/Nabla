@@ -3275,9 +3275,13 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferTextureLayer(GLuint fr
 	}
 	else
 	{
+		constexpr GLenum CubeMapFaceToCubeMapFaceGLenum[IGPUImageView::ECMF_COUNT] = {
+			GL_TEXTURE_CUBE_MAP_POSITIVE_X,GL_TEXTURE_CUBE_MAP_NEGATIVE_X,GL_TEXTURE_CUBE_MAP_POSITIVE_Y,GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,GL_TEXTURE_CUBE_MAP_POSITIVE_Z,GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
+		};
+
 		if (!needsDSAFramebufferHack && FeatureAvailable[IRR_EXT_direct_state_access])
 		{
-            pGlNamedFramebufferTexture2DEXT(framebuffer, attachment, COpenGLCubemapTexture::faceEnumToGLenum((ITexture::E_CUBE_MAP_FACE)layer), texture, level);
+            pGlNamedFramebufferTexture2DEXT(framebuffer, attachment, CubeMapFaceToCubeMapFaceGLenum[layer], texture, level);
 		}
 		else
 		{
@@ -3286,7 +3290,7 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferTextureLayer(GLuint fr
 
 			if (bound != framebuffer)
 				pGlBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-			pGlFramebufferTexture2D(GL_FRAMEBUFFER, attachment, COpenGLCubemapTexture::faceEnumToGLenum((ITexture::E_CUBE_MAP_FACE)layer), texture, level);
+			pGlFramebufferTexture2D(GL_FRAMEBUFFER, attachment, CubeMapFaceToCubeMapFaceGLenum[layer], texture, level);
 			if (bound != framebuffer)
 				pGlBindFramebuffer(GL_FRAMEBUFFER, bound);
 		}

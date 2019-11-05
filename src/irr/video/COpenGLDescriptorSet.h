@@ -150,7 +150,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet
 				{
 					size_t local_iter = 0u;
 					for (const auto& info : (*desc.info)) {
-						(*m_names)[texNamesOffset + t] = static_cast<COpenGLImage*>(info.desc.get())->getOpenGLName();
+						(*m_names)[texNamesOffset + t] = static_cast<COpenGLImageView*>(info.desc.get())->getOpenGLName();
 						(*m_names)[samplerNamesOffset + t] =
 							layoutBindings[desc_iter].samplers ? //take immutable sampler if present
 							static_cast<COpenGLSampler*>(layoutBindings[desc_iter].samplers[local_iter].get())->getOpenGLName() :
@@ -167,7 +167,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet
 					}
 				else if (desc.descriptorType==asset::EDT_STORAGE_IMAGE)
 					for (const auto& info : (*desc.info)) {
-						(*m_names)[imagNamesOffset + i] = static_cast<COpenGLTextureView*>(info.desc.get())->getOpenGLName();
+						(*m_names)[imagNamesOffset + i] = static_cast<COpenGLImageView*>(info.desc.get())->getOpenGLName();
 						++i;
 					}
 				else if (desc.descriptorType==asset::EDT_STORAGE_TEXEL_BUFFER)

@@ -190,8 +190,8 @@ PFNGLGENERATEMIPMAPPROC COpenGLExtensionHandler::pGlGenerateMipmap = nullptr;
 PFNGLGENERATETEXTUREMIPMAPPROC COpenGLExtensionHandler::pGlGenerateTextureMipmap = nullptr;
 PFNGLGENERATETEXTUREMIPMAPEXTPROC COpenGLExtensionHandler::pGlGenerateTextureMipmapEXT = nullptr;
 PFNGLTEXTUREPARAMETERIUIVPROC COpenGLExtensionHandler::pGlTextureParameteriuiv = nullptr;
-PFNGLTEXTUREPARAMETERIUIVEXTPROC COpenGLExtensionHandler::pGlTextureParamteriuivEXT = nullptr;
-PFNGLTEXPARAMETERIUIVPROC COpenGLExtensionHandler::pGlTexParamteriuiv = nullptr;
+PFNGLTEXTUREPARAMETERIUIVEXTPROC COpenGLExtensionHandler::pGlTextureParameteriuivEXT = nullptr;
+PFNGLTEXPARAMETERIUIVPROC COpenGLExtensionHandler::pGlTexParameteriuiv = nullptr;
 PFNGLCLAMPCOLORPROC COpenGLExtensionHandler::pGlClampColor = nullptr;
 
         //samplers
