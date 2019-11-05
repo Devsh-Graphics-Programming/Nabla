@@ -18,8 +18,6 @@
 
 #include "CCameraSceneNode.h"
 #include "CMeshSceneNode.h"
-#include "CSkyBoxSceneNode.h"
-#include "CSkyDomeSceneNode.h"
 
 #include "CSceneNodeAnimatorRotation.h"
 #include "CSceneNodeAnimatorFlyCircle.h"
@@ -566,11 +564,6 @@ void CSceneManager::drawAll()
 		return;
 
 	uint32_t i; // new ISO for scoping problem in some compilers
-
-	// reset all transforms
-	Driver->setTransform(video::EPTS_PROJ,core::matrix4SIMD());
-	Driver->setTransform ( video::E4X3TS_VIEW, core::matrix4x3() );
-	Driver->setTransform ( video::E4X3TS_WORLD, core::matrix4x3() );
 
 	// do animations and other stuff.
 	OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count());

@@ -110,8 +110,6 @@
 #include "CSceneNodeAnimatorRotation.h"
 #include "CSkinnedMeshSceneNode.h"
 #include "CSkinningStateManager.h"
-#include "CSkyBoxSceneNode.h"
-#include "CSkyDomeSceneNode.h"
 #include "CTarReader.h"
 #include "CWriteFile.h"
 #include "CZipReader.h"

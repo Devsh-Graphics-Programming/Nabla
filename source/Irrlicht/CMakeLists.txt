@@ -172,8 +172,6 @@ set(IRRLICHT_SRCS_NORMAL
 	COpenGLDriver.cpp
 	COpenGLExtensionHandler.cpp
 	COpenGLFrameBuffer.cpp
-	COpenGLTexture.cpp
-	#COpenGLTextureView.cpp
 	COpenGLQuery.cpp
 
 	# abstract (move this out eventually)
