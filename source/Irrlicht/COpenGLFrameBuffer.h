@@ -5,8 +5,8 @@
 #ifndef __C_OPEN_GL_FRAMEBUFFER_H_INCLUDED__
 #define __C_OPEN_GL_FRAMEBUFFER_H_INCLUDED__
 
-#include "IFrameBuffer.h"
 #include "IrrCompileConfig.h"
+#include "IFrameBuffer.h"
 
 #include "irr/video/COpenGLImageView.h"
 
@@ -31,25 +31,21 @@ class COpenGLFrameBuffer : public IFrameBuffer
         //! constructor
         COpenGLFrameBuffer(COpenGLDriver* driver);
 
-        virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, ITexture* tex, const uint32_t &mipMapLayer=0, const int32_t &layer=-1);
+        virtual bool attach(E_FBO_ATTACHMENT_POINT attachmenPoint, core::smart_refctd_ptr<IGPUImageView>&& tex, uint32_t mipMapLayer, int32_t layer) override;
 
-        virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IMultisampleTexture* tex, const int32_t &layer=-1);
-
-        virtual bool rebindRevalidate();
+		virtual const core::dimension2du& getSize() const override { return fboSize; }
 
         const GLuint& getOpenGLName() const {return frameBuffer;}
 
-        virtual const IRenderableVirtualTexture* getAttachment(const size_t &ix) const {return ix<EFAP_MAX_ATTACHMENTS ? attachments[ix]:NULL;}
+        virtual const IGPUImageView* getAttachment(uint32_t ix) const override {return ix<EFAP_MAX_ATTACHMENTS ? attachments[ix].get():nullptr;}
 
     protected:
-        COpenGLDriver* Driver;
+        COpenGLDriver*								Driver;
 
-        GLuint      frameBuffer;
-        bool        forceRevalidate;
-        uint64_t    lastValidated;
-        IRenderableVirtualTexture* attachments[EFAP_MAX_ATTACHMENTS];
-        GLint cachedLevel[EFAP_MAX_ATTACHMENTS];
-        GLint cachedLayer[EFAP_MAX_ATTACHMENTS];
+		core::dimension2du							fboSize;
+        GLuint										frameBuffer;
+        uint16_t									cachedMipLayer[EFAP_MAX_ATTACHMENTS];
+        core::smart_refctd_ptr<COpenGLImageView>	attachments[EFAP_MAX_ATTACHMENTS];
 };
 
 

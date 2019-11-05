@@ -47,23 +47,18 @@ class IFrameBuffer : public virtual core::IReferenceCounted, public core::IThrea
 
 		value <0 means the entire 3D texture or, 2D texture or cubemap array is bound making the FrameBuffer layered, and enabling you to use gl_Layer for layered rendering.
 		@endparblock
-		@returns Whether attachment has been attached.
-			Only after rebindRevalidate() is called by the driver internally or by the user manually do the attachments drawn into by the FrameBuffer change.
-		@see @ref rebindRevalidate()
+		@returns Whether attachment has been attached, can return false when you detach.
 		*/
-        virtual bool attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IGPUImageView* tex, const uint32_t &mipMapLayer=0, const int32_t &layer=-1) = 0;
-
-		//! Binds possibly respecified attachments.
-		/** @returns true when everything is right or when no work was necessary to do;
-				false when color formats you are trying to render to are invalid or if current combination of attachments is invalid.
-		*/
-        virtual bool rebindRevalidate() = 0;
+        virtual bool attach(E_FBO_ATTACHMENT_POINT attachmenPoint, core::smart_refctd_ptr<IGPUImageView>&& tex, uint32_t mipMapLayer=0, int32_t layer=-1) = 0;
 
 		//! Gets attachment accessible at the given index.
 		/** @param ix Given index.
 		@returns Attached at given index object or NULL if nothing is bound there.
 		*/
-        virtual const IGPUImageView* getAttachment(const size_t &ix) const = 0;
+        virtual const IGPUImageView* getAttachment(uint32_t ix) const = 0;
+
+		//!
+		virtual const core::dimension2du& getSize() const = 0;
 
     protected:
         _IRR_INTERFACE_CHILD(IFrameBuffer) {}
