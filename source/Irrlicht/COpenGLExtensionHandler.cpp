@@ -1038,7 +1038,7 @@ void COpenGLExtensionHandler::loadFunctions()
     {
         glGetIntegerv(GL_NUM_SPIR_V_EXTENSIONS, reinterpret_cast<GLint*>(&SPIR_VextensionsCount));
         if (SPIR_VextensionsCount)
-            SPIR_Vextensions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<const GLubyte*>>(SPIR_VextensionsCount);
+            SPIR_Vextensions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<const GLubyte*> >(SPIR_VextensionsCount);
         for (GLuint i = 0u; i < SPIR_VextensionsCount; ++i)
             (*SPIR_Vextensions)[i] = pGlGetStringi(GL_SPIR_V_EXTENSIONS, i);
     }
