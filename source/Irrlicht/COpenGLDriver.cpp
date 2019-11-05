@@ -2219,49 +2219,6 @@ void COpenGLDriver::removeAllFrameBuffers()
     found->FrameBuffers.clear();
 }
 
-/*
-int32_t COpenGLDriver::addHighLevelShaderMaterial(
-    const char* vertexShaderProgram,
-    const char* controlShaderProgram,
-    const char* evaluationShaderProgram,
-    const char* geometryShaderProgram,
-    const char* pixelShaderProgram,
-    uint32_t patchVertices,
-    E_MATERIAL_TYPE baseMaterial,
-    IShaderConstantSetCallBack* callback,
-    const char** xformFeedbackOutputs,
-    const uint32_t& xformFeedbackOutputCount,
-    int32_t userData,
-    const char* vertexShaderEntryPointName,
-    const char* controlShaderEntryPointName,
-    const char* evaluationShaderEntryPointName,
-    const char* geometryShaderEntryPointName,
-    const char* pixelShaderEntryPointName)
-{
-    int32_t nr = -1;
-
-	COpenGLSLMaterialRenderer* r = new COpenGLSLMaterialRenderer(
-		this, nr,
-		vertexShaderProgram, vertexShaderEntryPointName,
-		pixelShaderProgram, pixelShaderEntryPointName,
-		geometryShaderProgram, geometryShaderEntryPointName,
-		controlShaderProgram,controlShaderEntryPointName,
-		evaluationShaderProgram,evaluationShaderEntryPointName,
-		patchVertices,callback,baseMaterial,
-		xformFeedbackOutputs, xformFeedbackOutputCount, userData);
-	r->drop();
-	return nr;
-}
-*/
-
-//! Returns a pointer to the IVideoDriver interface. (Implementation for
-//! IMaterialRendererServices)
-IVideoDriver* COpenGLDriver::getVideoDriver()
-{
-	return this;
-}
-
-
 
 void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
                                         bool copyDepth, bool copyStencil,
@@ -2295,33 +2252,8 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
 	{
 	    if (in)
         {
-            if (!static_cast<COpenGLFrameBuffer*>(in)->rebindRevalidate())
-                return;
-
-            bool firstAttached = true;
-            uint32_t width,height;
-            for (size_t i=0; i<EFAP_MAX_ATTACHMENTS; i++)
-            {
-                const IRenderableVirtualTexture* rndrbl = in->getAttachment(i);
-                if (!rndrbl)
-                    continue;
-
-                if (firstAttached)
-                {
-                    firstAttached = false;
-                    width = rndrbl->getRenderableSize().Width;
-                    height = rndrbl->getRenderableSize().Height;
-                }
-                else
-                {
-                    width = std::min(rndrbl->getRenderableSize().Width,width);
-                    height = std::min(rndrbl->getRenderableSize().Height,height);
-                }
-            }
-            if (firstAttached)
-                return;
-
-            srcRect = core::recti(0,0,width,height);
+			auto rttsize = in->getSize();
+            srcRect = core::recti(0,0,rttsize.Width,rttsize.Height);
         }
         else
             srcRect = core::recti(0,0,ScreenSize.Width,ScreenSize.Height);
@@ -2330,33 +2262,8 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
 	{
 	    if (out)
         {
-            if (!static_cast<COpenGLFrameBuffer*>(out)->rebindRevalidate())
-                return;
-
-            bool firstAttached = true;
-            uint32_t width,height;
-            for (size_t i=0; i<EFAP_MAX_ATTACHMENTS; i++)
-            {
-                const IRenderableVirtualTexture* rndrbl = out->getAttachment(i);
-                if (!rndrbl)
-                    continue;
-
-                if (firstAttached)
-                {
-                    firstAttached = false;
-                    width = rndrbl->getRenderableSize().Width;
-                    height = rndrbl->getRenderableSize().Height;
-                }
-                else
-                {
-                    width = std::min(rndrbl->getRenderableSize().Width,width);
-                    height = std::min(rndrbl->getRenderableSize().Height,height);
-                }
-            }
-            if (firstAttached)
-                return;
-
-            dstRect = core::recti(0,0,width,height);
+			auto rttsize = out->getSize();
+            dstRect = core::recti(0,0,rttsize.Width,rttsize.Height);
         }
         else
             dstRect = core::recti(0,0,ScreenSize.Width,ScreenSize.Height);
@@ -2430,38 +2337,7 @@ bool COpenGLDriver::setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewpo
 
     _IRR_CHECK_OWNING_THREAD(frameBuffer,return false;);
 
-    if (!frameBuffer->rebindRevalidate())
-    {
-        os::Printer::log("FBO revalidation failed!", ELL_ERROR);
-        return false;
-    }
-
-    bool firstAttached = true;
-    core::dimension2du newRTTSize;
-    for (size_t i=0; i<EFAP_MAX_ATTACHMENTS; i++)
-    {
-        const IRenderableVirtualTexture* attachment = frameBuffer->getAttachment(i);
-        if (!attachment)
-            continue;
-
-        if (firstAttached)
-        {
-            newRTTSize = attachment->getRenderableSize();
-            firstAttached = false;
-        }
-        else
-        {
-            newRTTSize.Width = std::min(newRTTSize.Width,attachment->getRenderableSize().Width);
-            newRTTSize.Height = std::min(newRTTSize.Height,attachment->getRenderableSize().Height);
-        }
-    }
-
-    //! Get rid of this! OpenGL 4.3 is here!
-    if (firstAttached)
-    {
-        os::Printer::log("FBO has no attachments! (We don't support that OpenGL 4.3 feature yet!).", ELL_ERROR);
-        return false;
-    }
+    core::dimension2du newRTTSize = frameBuffer->getSize();
     found->CurrentRendertargetSize = newRTTSize;
 
 

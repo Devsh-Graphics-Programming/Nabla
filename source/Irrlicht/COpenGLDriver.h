@@ -21,7 +21,7 @@ namespace irr
 
 #include "CNullDriver.h"
 // also includes the OpenGL stuff
-#include "COpenGLExtensionHandler.h"
+#include "COpenGLFrameBuffer.h"
 #include "COpenGLDriverFence.h"
 #include "COpenCLHandler.h"
 #include "irr/video/COpenGLSpecializedShader.h"
@@ -407,7 +407,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 				default:
 				{
 					GLint res = GL_FALSE;
-					extGlGetInternalformativ(GL_TEXTURE_2D, COpenGLTexture::getSizedOpenGLFormatFromOurFormat(_fmt), GL_COLOR_RENDERABLE, sizeof(res), &res);
+					extGlGetInternalformativ(GL_TEXTURE_2D, getSizedOpenGLFormatFromOurFormat(_fmt), GL_COLOR_RENDERABLE, sizeof(res), &res);
 					return res==GL_TRUE;
 				}
             }
@@ -701,11 +701,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 		inline asset::E_FORMAT getColorFormat() const override { return ColorFormat; }
 
 
-        core::smart_refctd_ptr<ITexture> createGPUTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM) override;
-
-        //!
-        virtual IMultisampleTexture* createMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false) override;
-
         virtual IFrameBuffer* addFrameBuffer();
 
         //! Remove
@@ -826,7 +821,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             void updateNextState_pipelineAndRaster(const IGPURenderpassIndependentPipeline* _pipeline);
             //! Must be called AFTER updateNextState_pipelineAndRaster() if pipeline and raster params have to be modified at all in this pass
             void updateNextState_vertexInput(
-                const asset::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                 const IGPUBuffer* _indexBuffer,
                 const IGPUBuffer* _indirectDrawBuffer,
                 const IGPUBuffer* _paramBuffer
@@ -927,9 +922,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
 		//! inits the parts of the open gl driver used on all platforms
 		bool genericDriverInit();
-
-		//! returns a device dependent texture from a software surface (IImage)
-		virtual core::smart_refctd_ptr<video::ITexture> createDeviceDependentTexture(const ITexture::E_TEXTURE_TYPE& type, const uint32_t* size, uint32_t mipmapLevels, const io::path& name, asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM);
 
 		// returns the current size of the screen or rendertarget
 		virtual const core::dimension2d<uint32_t>& getCurrentRenderTargetSize() const;
