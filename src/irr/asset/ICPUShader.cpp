@@ -5,6 +5,7 @@
 #include "irr/asset/format/EFormat.h"
 
 
+using namespace irr;
 using namespace irr::asset;
 
 

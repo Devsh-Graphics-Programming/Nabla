@@ -56,11 +56,11 @@ ICPUShader* IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, E_SHADER_S
         os::Printer::log(bin_res.GetErrorMessage(), ELL_ERROR);
         return nullptr;
     }
-    asset::ICPUBuffer* spirv = new ICPUBuffer(std::distance(bin_res.cbegin(), bin_res.cend())*sizeof(uint32_t));
+
+    auto spirv = core::make_smart_refctd_ptr<ICPUBuffer>(std::distance(bin_res.cbegin(), bin_res.cend())*sizeof(uint32_t));
     memcpy(spirv->getPointer(), bin_res.cbegin(), spirv->getSize());
     
-    asset::ICPUShader* shader = new ICPUShader(spirv);
-    spirv->drop();
+    asset::ICPUShader* shader = new ICPUShader(std::move(spirv));
 
     return shader;
 }
