@@ -91,16 +91,6 @@ namespace Bullet3
         return transform;
     }
 
-
-    /*
-        NOTICE: REMOVE WHEN MESHSCENENODEINSTANCE IMPLEMENTS core::matrix3x4SIMD OVER core::matrix4x3
-    */
-    inline btTransform convertRetardedMatrix(const core::matrix4x3 &mat) {
-        core::matrix3x4SIMD irrMat;
-        irrMat.set(mat);
-        return convertMatrixSIMD(irrMat);
-    }
-
 }
 }
 }

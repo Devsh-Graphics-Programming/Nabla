@@ -22,18 +22,6 @@ using namespace scene;
 
 
 
-
-#define kNumHardwareInstancesX 10
-#define kNumHardwareInstancesY 20
-#define kNumHardwareInstancesZ 30
-
-#define kHardwareInstancesTOTAL (kNumHardwareInstancesX*kNumHardwareInstancesY*kNumHardwareInstancesZ)
-
-
-const float instanceLoDDistances[] = {8.f,50.f};
-
-bool quit = false;
-
 void handleRaycast(scene::ICameraSceneNode *cam, ext::Bullet3::CPhysicsWorld *physicsWorld) {
     //TODO - find way to extract rigidybody from closeRay (?)
 
@@ -119,7 +107,6 @@ enum E_UNIFORM
     EU_LOD_INVARIANT_MIN_EDGE,
     EU_LOD_INVARIANT_BBOX_CENTER,
     EU_LOD_INVARIANT_MAX_EDGE,
-    EU_INSTANCE_LOD_DISTANCE_SQ,
     EU_COUNT
 };
 
@@ -164,9 +151,9 @@ public:
         if (uniformLocation[currentMat][EU_PROJ_VIEW_WORLD_MAT]>=0)
             services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),uniformLocation[currentMat][EU_PROJ_VIEW_WORLD_MAT],uniformType[currentMat][EU_PROJ_VIEW_WORLD_MAT],1);
         if (uniformLocation[currentMat][EU_VIEW_WORLD_MAT]>=0)
-            services->setShaderConstant(services->getVideoDriver()->getTransform(video::E4X3TS_WORLD_VIEW).pointer(),uniformLocation[currentMat][EU_VIEW_WORLD_MAT],uniformType[currentMat][EU_VIEW_WORLD_MAT],1);
+            services->setShaderConstant(services->getVideoDriver()->getTransform(video::E4X3TS_WORLD_VIEW).rows[0].pointer,uniformLocation[currentMat][EU_VIEW_WORLD_MAT],uniformType[currentMat][EU_VIEW_WORLD_MAT],1);
         if (uniformLocation[currentMat][EU_WORLD_MAT]>=0)
-            services->setShaderConstant(services->getVideoDriver()->getTransform(video::E4X3TS_WORLD).pointer(),uniformLocation[currentMat][EU_WORLD_MAT],uniformType[currentMat][EU_WORLD_MAT],1);
+            services->setShaderConstant(services->getVideoDriver()->getTransform(video::E4X3TS_WORLD).rows[0].pointer,uniformLocation[currentMat][EU_WORLD_MAT],uniformType[currentMat][EU_WORLD_MAT],1);
 
         if (uniformLocation[currentMat][EU_EYE_POS]>=0)
         {
@@ -214,7 +201,7 @@ core::smart_refctd_ptr<asset::IMeshDataFormatDesc<video::IGPUBuffer> > vaoSetupO
 	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR7,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),16*sizeof(float),1);
 	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR8,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),19*sizeof(float),1);
 	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR9,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),22*sizeof(float),1);
-	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR10,asset::EF_R32G32B32_SFLOAT,29*sizeof(float),25*sizeof(float),1);
+	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR10,asset::EF_R32G32B32A32_SFLOAT,29*sizeof(float),25*sizeof(float),1);
 
 
 
@@ -301,8 +288,8 @@ int main()
    
 
 	//!
-    asset::ICPUMesh* cpumesh = device->getAssetManager()->getGeometryCreator()->createCubeMesh(core::vector3df(1.f, 1.f, 1.f));
-    auto gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1)->front();
+    auto cpumesh = device->getAssetManager()->getGeometryCreator()->createCubeMesh(core::vector3df(1.f, 1.f, 1.f));
+    auto gpumesh = driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)->front();
     for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
         gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
 
@@ -345,8 +332,8 @@ int main()
     srand(6945);
 
 
-    const uint32_t towerHeight = 100;
-    const uint32_t towerWidth = 2;
+    constexpr uint32_t towerHeight = 100;
+	constexpr uint32_t towerWidth = 2;
 
 
 
@@ -378,8 +365,8 @@ int main()
     for (size_t y=0; y<towerHeight; y++)
     for (size_t z=0; z<towerWidth; z++)
     {
-        core::matrix4x3 mat;
-        mat.setTranslation(core::vector3df(z, y, 1));
+        core::matrix3x4SIMD mat;
+        mat.setTranslation(core::vectorSIMDf(z, y, 1));
 
         uint8_t color[4];
         color[0] = rand() % 256;
