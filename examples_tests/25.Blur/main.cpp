@@ -115,7 +115,7 @@ int main()
     device->setEventReceiver(&receiver);
 
 
-    asset::ICPUMesh* cpumesh = device->getAssetManager()->getGeometryCreator()->createCubeMesh();
+    auto cpumesh = device->getAssetManager()->getGeometryCreator()->createCubeMesh();
     asset::IAssetLoader::SAssetLoadParams lparams;
     auto cputexture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*device->getAssetManager()->getAsset("../tex.jpg", lparams).getContents().first);
     auto texture = driver->getGPUObjectsFromAssets(&cputexture.get(), (&cputexture.get())+1)->front();
@@ -129,17 +129,16 @@ int main()
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
 
-    auto gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1)->front();
+    auto gpumesh = driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)->front();
     video::SGPUMaterial& mutableMaterial = smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh))->getMesh()->getMeshBuffer(0)->getMaterial();
     mutableMaterial.MaterialType = static_cast<video::E_MATERIAL_TYPE>(newMaterialType);
     mutableMaterial.TextureLayer[0].Texture = outputTex;
 
-    cpumesh->drop();
     cpumesh = device->getAssetManager()->getGeometryCreator()->createCubeMesh();
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
     cpumesh->getMeshBuffer(0)->getMaterial().TextureLayer[0].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
 
-    gpumesh = driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1)->front();
+    gpumesh = driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)->front();
     video::SGPUMaterial& mat2 = smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh), nullptr, -1, vector3df(10.f, 0.f, 0.f))->getMesh()->getMeshBuffer(0)->getMaterial();
     mat2.MaterialType = static_cast<video::E_MATERIAL_TYPE>(newMaterialType);
     mat2.TextureLayer[0].Texture = texture;
