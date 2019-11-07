@@ -499,7 +499,7 @@ namespace irr { namespace video
     {
         int8_t* pix = reinterpret_cast<int8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i] * 127.;
+            pix[i] = static_cast<int8_t>(_input[i] * 127.);
     }
 	
     template<>
@@ -507,7 +507,7 @@ namespace irr { namespace video
     {
         uint8_t* pix = reinterpret_cast<uint8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i];
+            pix[i] = static_cast<int8_t>(_input[i]);
     }
 	
     template<>
@@ -515,7 +515,7 @@ namespace irr { namespace video
     {
         int8_t* pix = reinterpret_cast<int8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i];
+            pix[i] = static_cast<int8_t>(_input[i]);
     }
 	
     template<>
@@ -523,7 +523,7 @@ namespace irr { namespace video
     {
         uint8_t* pix = reinterpret_cast<uint8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i];
+            pix[i] = static_cast<int8_t>(_input[i]);
     }
 	
     template<>
@@ -531,7 +531,7 @@ namespace irr { namespace video
     {
         int8_t* pix = reinterpret_cast<int8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i];
+            pix[i] = static_cast<int8_t>(_input[i]);
     }
 	
     template<>
@@ -539,7 +539,7 @@ namespace irr { namespace video
     {
         uint8_t* pix = reinterpret_cast<uint8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[2u-i] = _input[i] * 255.;
+            pix[2u-i] = static_cast<int8_t>(_input[i] * 255.);
     }
 	
     template<>
@@ -547,7 +547,7 @@ namespace irr { namespace video
     {
         int8_t* pix = reinterpret_cast<int8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[2u-i] = _input[i] * 127;
+            pix[2u-i] = static_cast<int8_t>(_input[i] * 127);
     }
 	
     template<>
@@ -555,7 +555,7 @@ namespace irr { namespace video
     {
         uint8_t* pix = reinterpret_cast<uint8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[2u-i] = _input[i];
+            pix[2u-i] = static_cast<uint8_t>(_input[i]);
     }
 	
     template<>
@@ -563,7 +563,7 @@ namespace irr { namespace video
     {
         int8_t* pix = reinterpret_cast<int8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[2u-i] = _input[i];
+            pix[2u-i] = static_cast<int8_t>(_input[i]);
     }
 	
     template<>
@@ -571,7 +571,7 @@ namespace irr { namespace video
     {
         uint8_t* pix = reinterpret_cast<uint8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[2u-i] = _input[i];
+            pix[2u-i] = static_cast<uint8_t>(_input[i]);
     }
 	
     template<>
@@ -579,7 +579,7 @@ namespace irr { namespace video
     {
         int8_t* pix = reinterpret_cast<int8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[2u-i] = _input[i];
+            pix[2u-i] = static_cast<int8_t>(_input[i]);
     }
 	
     template<>
@@ -1755,7 +1755,7 @@ namespace irr { namespace video
     {
         uint16_t* pix = reinterpret_cast<uint16_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i] * 65535.;
+            pix[i] = static_cast<uint16_t>(_input[i] * 65535.);
     }
 	
     template<>
@@ -1763,7 +1763,7 @@ namespace irr { namespace video
     {
         int16_t* pix = reinterpret_cast<int16_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i] * 32767;
+            pix[i] = static_cast<int16_t>(_input[i] * 32767);
     }
 	
     template<>
@@ -1771,7 +1771,7 @@ namespace irr { namespace video
     {
         uint16_t* pix = reinterpret_cast<uint16_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i];
+            pix[i] = static_cast<uint16_t>(_input[i]);
     }
 	
     template<>
@@ -1779,7 +1779,7 @@ namespace irr { namespace video
     {
         int16_t* pix = reinterpret_cast<int16_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i];
+            pix[i] = static_cast<int16_t>(_input[i]);
     }
 	
     template<>
@@ -1787,7 +1787,7 @@ namespace irr { namespace video
     {
         uint16_t* pix = reinterpret_cast<uint16_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i];
+            pix[i] = static_cast<uint16_t>(_input[i]);
     }
 	
     template<>
@@ -1795,7 +1795,7 @@ namespace irr { namespace video
     {
         int16_t* pix = reinterpret_cast<int16_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i] * 65535.;
+            pix[i] = static_cast<int16_t>(_input[i] * 65535.);
     }
 	
     template<>
@@ -2061,7 +2061,7 @@ namespace irr { namespace video
     {
         uint32_t* pix = reinterpret_cast<uint32_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i];
+            pix[i] = static_cast<uint32_t>(_input[i]);
     }
 	
     template<>
@@ -2069,7 +2069,7 @@ namespace irr { namespace video
     {
         int32_t* pix = reinterpret_cast<int32_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i];
+            pix[i] = static_cast<int32_t>(_input[i]);
     }
 	
     template<>
@@ -2077,7 +2077,7 @@ namespace irr { namespace video
     {
         uint32_t* pix = reinterpret_cast<uint32_t*>(_pix);
         for (uint32_t i = 0u; i < 4u; ++i)
-            pix[i] = _input[i];
+            pix[i] = static_cast<uint32_t>(_input[i]);
     }
 	
     template<>
@@ -2085,7 +2085,7 @@ namespace irr { namespace video
     {
         int32_t* pix = reinterpret_cast<int32_t*>(_pix);
         for (uint32_t i = 0u; i < 4u; ++i)
-            pix[i] = _input[i];
+            pix[i] = static_cast<int32_t>(_input[i]);
     }
 	
     template<>
@@ -2352,7 +2352,7 @@ namespace irr { namespace video
             uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
             pix = 0u;
             for (uint32_t i = 0u; i < 3u; ++i)
-                pix |= (f[i](_input[i]) << (11*i));
+                pix |= (f[i](static_cast<float>(_input[i])) << (11*i));
         }
     }
 	
@@ -2370,7 +2370,7 @@ namespace irr { namespace video
             uint16_t* pix = reinterpret_cast<uint16_t*>(_pix);
             for (uint32_t i = 0u; i < chCnt; ++i)
             {
-                pix[i] = core::Float16Compressor::compress(_input[i]);
+                pix[i] = core::Float16Compressor::compress(static_cast<int16_t>(_input[i]));
             }
         }
     }
@@ -2402,7 +2402,7 @@ namespace irr { namespace video
         {
             float* pix = reinterpret_cast<float*>(_pix);
             for (uint32_t i = 0u; i < chCnt; ++i)
-                pix[i] = _input[i];
+                pix[i] = static_cast<float>(_input[i]);
         }
     }
     template<>
