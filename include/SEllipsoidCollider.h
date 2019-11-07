@@ -34,8 +34,9 @@ class SEllipsoidCollider// : public AllocationOverrideDefault EBO inheritance pr
         {
             origin += negativeCenter;
             origin *= reciprocalAxes;
-
-            float originLen2 = dot(origin,origin).x;
+			origin.makeSafe3D();
+            
+			float originLen2 = dot(origin,origin).x;
             if (originLen2<=1.f) //point is inside
             {
                 collisionDistance = 0.f;

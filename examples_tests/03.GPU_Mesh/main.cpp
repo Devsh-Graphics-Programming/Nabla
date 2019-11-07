@@ -218,7 +218,7 @@ int main()
 			}
 
 
-            driver->setTransform(video::E4X3TS_WORLD,core::matrix4x3());
+            driver->setTransform(video::E4X3TS_WORLD,core::matrix3x4SIMD());
             driver->setMaterial(material);
             driver->drawMeshBuffer(mb.get());
 
