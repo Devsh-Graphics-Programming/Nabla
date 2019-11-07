@@ -605,7 +605,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createDiskMesh(float r
 	auto vertices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vertexCount * vertexSize);
 	DiskVertex* ptr = (DiskVertex*)vertices->getPointer();
 
-	const core::vectorSIMDf v0(0.0f, radius, 0.0f, 0.0f);
+	const core::vectorSIMDf v0(0.0f, radius, 0.0f, 1.0f);
 	core::matrix3x4SIMD rotation;
 
 	//center
