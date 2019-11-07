@@ -226,7 +226,7 @@ IRR_FORCE_INLINE float determinant(const matrix4SIMD& m)
 {
 	auto mat2adjmul = [](vectorSIMDf _A, vectorSIMDf _B)
 	{
-		return _A.wwxx()*_B+_A.yyzz()*_B.zwxy();
+		return _A.wwxx()*_B-_A.yyzz()*_B.zwxy();
 	};
 
 	vectorSIMDf A = _mm_movelh_ps(m.rows[0].getAsRegister(), m.rows[1].getAsRegister());
