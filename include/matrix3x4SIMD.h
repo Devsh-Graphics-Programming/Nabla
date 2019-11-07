@@ -9,6 +9,8 @@ namespace irr
 namespace core
 {
 
+class matrix4x3;
+
 #define _IRR_MATRIX_ALIGNMENT _IRR_SIMD_ALIGNMENT
 static_assert(_IRR_MATRIX_ALIGNMENT>=_IRR_VECTOR_ALIGNMENT,"Matrix must be equally or more aligned than vector!");
 
@@ -153,8 +155,8 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 
 	inline vectorSIMDf getPseudoDeterminant() const
 	{
-		vectorSIMDf c0,c1,c2,c3,c1crossc2;
-		return determinant_helper(c0,c1,c2,c3,c1crossc2);
+		vectorSIMDf tmp;
+		return determinant_helper(tmp);
 	}
 
 	inline bool getInverse(matrix3x4SIMD& _out) const;
@@ -171,7 +173,25 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 	}
 
 	//
-	inline bool getSub3x3InverseTransposePaddedSIMDColumns(vectorSIMDf _out[3]) const;
+	inline bool getSub3x3InverseTranspose(matrix3x4SIMD& _out) const;
+
+	//
+	inline bool getSub3x3InverseTransposePacked(float outRows[9]) const
+	{
+		matrix3x4SIMD tmp;
+		if (!getSub3x3InverseTranspose(tmp))
+			return false;
+
+		float* _out = outRows;
+		for (auto i=0; i<3; i++)
+		{
+			const auto& row = tmp.rows[i];
+			for (auto j=0; j<3; j++)
+				*(_out++) = row[j];
+		}
+
+		return true;
+	}
 
 	//
 	inline void setTransformationCenter(const vectorSIMDf& _center, const vectorSIMDf& _translation);
@@ -200,13 +220,10 @@ private:
 	inline __m128d halfRowAsDouble(size_t _n, bool _0) const;
 	static inline __m128d doJob_d(const __m128d& _a0, const __m128d& _a1, const matrix3x4SIMD& _mtx, bool _xyHalf);
 
-	vectorSIMDf determinant_helper(vectorSIMDf& c0, vectorSIMDf& c1, vectorSIMDf& c2, vectorSIMDf& c3, vectorSIMDf& c1crossc2) const
+	vectorSIMDf determinant_helper(vectorSIMDf& r1crossr2) const
 	{
-		c0 = rows[0]; c1 = rows[1]; c2 = rows[2]; c3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
-		core::transpose4(c0, c1, c2, c3);
-
-		c1crossc2 = core::cross(c1, c2);
-		return core::dot(c0, c1crossc2);
+		r1crossr2 = core::cross(rows[1], rows[2]);
+		return core::dot(rows[0], r1crossr2);
 	}
 };
 
@@ -221,26 +238,7 @@ inline matrix3x4SIMD concatenateBFollowedByAPrecisely(const matrix3x4SIMD& _a, c
 }
 */
 
-inline aabbox3df transformBoxEx(const aabbox3df& box, const matrix3x4SIMD& _mat)
-{
-    vectorSIMDf inMinPt(&box.MinEdge.X);
-    vectorSIMDf inMaxPt(box.MaxEdge.X,box.MaxEdge.Y,box.MaxEdge.Z); // TODO: after change to SSE aabbox3df
-    inMinPt.makeSafe3D();
-    inMaxPt.makeSafe3D();
-
-    vectorSIMDf c0 = _mat.rows[0], c1 = _mat.rows[1], c2 = _mat.rows[2], c3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
-    transpose4(c0, c1, c2, c3);
-
-    const vectorSIMDf zero;
-    vectorSIMDf minPt = c0*mix(inMinPt.xxxw(),inMaxPt.xxxw(),c0<zero)+c1*mix(inMinPt.yyyw(),inMaxPt.yyyw(),c1<zero)+c2*mix(inMinPt.zzzw(),inMaxPt.zzzw(),c2<zero);
-    vectorSIMDf maxPt = c0*mix(inMaxPt.xxxw(),inMinPt.xxxw(),c0<zero)+c1*mix(inMaxPt.yyyw(),inMinPt.yyyw(),c1<zero)+c2*mix(inMaxPt.zzzw(),inMinPt.zzzw(),c2<zero);
-
-	minPt += c3;
-	maxPt += c3;
-
-	return aabbox3df(minPt.getAsVector3df(),maxPt.getAsVector3df());
 }
-
-}}
+}
 
 #endif
