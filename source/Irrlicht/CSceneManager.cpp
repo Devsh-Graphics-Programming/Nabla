@@ -653,8 +653,8 @@ void CSceneManager::drawAll()
 	// reset all transforms
 	Driver->setMaterial(video::SGPUMaterial());
 	Driver->setTransform(video::EPTS_PROJ,core::matrix4SIMD());
-	Driver->setTransform ( video::E4X3TS_VIEW, core::matrix4x3() );
-	Driver->setTransform ( video::E4X3TS_WORLD, core::matrix4x3() );
+	Driver->setTransform(video::E4X3TS_VIEW,core::matrix3x4SIMD());
+	Driver->setTransform(video::E4X3TS_WORLD,core::matrix3x4SIMD());
 
 	// do animations and other stuff.
 	OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count());

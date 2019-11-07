@@ -197,23 +197,31 @@ void CSceneNodeAnimatorCameraFPS::animateNode(IDummyTransformationSceneNode* nod
 
 	// set target
 
-	target.set(0,0, core::max(1.f, core::length(pos)[0]));
+	target.set(0,0, core::max(1.f, core::length(pos)[0]), 1.f);
 	core::vectorSIMDf movedir = target;
 
-	core::matrix4x3 mat;
-	mat.setRotationDegrees(core::vector3df(relativeRotation.X, relativeRotation.Y, 0));
-	mat.transformVect(&target.X);
+	core::matrix3x4SIMD mat;
+	{
+		core::matrix4x3 tmp;
+		tmp.setRotationDegrees(core::vector3df(relativeRotation.X, relativeRotation.Y, 0));
+		mat.set(tmp);
+	}
+	mat.transformVect(target);
+	target.makeSafe3D();
 
 	if (NoVerticalMovement)
 	{
-		mat.setRotationDegrees(core::vector3df(0, relativeRotation.Y, 0));
-		mat.transformVect(&movedir.X);
+		core::matrix4x3 tmp;
+		tmp.setRotationDegrees(core::vector3df(0, relativeRotation.Y, 0));
+		mat.set(tmp);
+		mat.transformVect(movedir);
 	}
 	else
 	{
 		movedir = target;
 	}
 
+	movedir.makeSafe3D();
 	movedir = core::normalize(movedir);
 
 	if (CursorKeys[EKA_MOVE_FORWARD])

@@ -27,9 +27,9 @@ class CCameraSceneNode : public ICameraSceneNode
 
 		//! Gets the current view matrix of the camera
 		//! \return Returns the current view matrix of the camera.
-		virtual const core::matrix4x3& getViewMatrix() const;
+		virtual const core::matrix3x4SIMD& getViewMatrix() const override;
 
-		virtual const core::matrix4SIMD& getConcatenatedMatrix() const {return concatMatrix;}
+		virtual const core::matrix4SIMD& getConcatenatedMatrix() const override {return concatMatrix;}
 
 		//! It is possible to send mouse and key events to the camera. Most cameras
 		//! may ignore this input, but camera scene nodes which are created for
@@ -57,7 +57,7 @@ class CCameraSceneNode : public ICameraSceneNode
 
 		//! Sets the up vector of the camera.
 		//! \param pos: New upvector of the camera.
-		virtual void setUpVector(const core::vector3df& pos);
+		virtual void setUpVector(const core::vector3df& pos) override;
 
 		//! Gets the up vector of the camera.
 		//! \return Returns the up vector of the camera.
@@ -104,7 +104,7 @@ class CCameraSceneNode : public ICameraSceneNode
 		core::vectorSIMDf Target;
 		core::vectorSIMDf UpVector;
 
-        core::matrix4x3 viewMatrix;
+        core::matrix3x4SIMD viewMatrix;
         core::matrix4SIMD concatMatrix;
 		SViewFrustum ViewArea;
 

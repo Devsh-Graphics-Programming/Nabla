@@ -54,13 +54,14 @@ bool CCameraSceneNode::isInputReceiverEnabled() const
 void CCameraSceneNode::setProjectionMatrix(const core::matrix4SIMD& projection)
 {
 	projMatrix = projection;
+	leftHanded = core::determinant(projMatrix) < 0.f;
 	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
 }
 
 
 //! Gets the current view matrix of the camera
 //! \return Returns the current view matrix of the camera.
-const core::matrix4x3& CCameraSceneNode::getViewMatrix() const
+const core::matrix3x4SIMD& CCameraSceneNode::getViewMatrix() const
 {
 	return viewMatrix;
 }
@@ -181,9 +182,9 @@ void CCameraSceneNode::render()
 	}
 
 	if (leftHanded)
-		viewMatrix.buildCameraLookAtMatrixLH(pos.getAsVector3df(), Target.getAsVector3df(), up.getAsVector3df());
+		viewMatrix = core::matrix3x4SIMD::buildCameraLookAtMatrixLH(pos, Target, up);
 	else
-		viewMatrix.buildCameraLookAtMatrixRH(pos.getAsVector3df(), Target.getAsVector3df(), up.getAsVector3df());
+		viewMatrix = core::matrix3x4SIMD::buildCameraLookAtMatrixRH(pos, Target, up);
 	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
 	recalculateViewArea();
 

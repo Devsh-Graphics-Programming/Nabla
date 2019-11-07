@@ -179,13 +179,14 @@ void CSkyBoxSceneNode::render()
 	{
 		// draw perspective skybox
 
-		core::matrix4x3 translate(AbsoluteTransformation);
-		translate.setTranslation(camera->getAbsolutePosition());
+		core::matrix3x4SIMD translate;
+		translate.set(AbsoluteTransformation);
+		translate.setTranslation(core::vectorSIMDf().set(camera->getAbsolutePosition()));
 
 		// Draw the sky box between the near and far clip plane
 		const float viewDistance = (camera->getNearValue() + camera->getFarValue()) * 0.5f;
-		core::matrix4x3 scale;
-		scale.setScale(core::vector3df(viewDistance, viewDistance, viewDistance));
+		core::matrix3x4SIMD scale;
+		scale.setScale(core::vectorSIMDf(viewDistance, viewDistance, viewDistance));
 
 		driver->setTransform(video::E4X3TS_WORLD, concatenateBFollowedByA(translate,scale));
 

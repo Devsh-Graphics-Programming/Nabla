@@ -66,7 +66,7 @@ namespace video
 		virtual void issueGPUTextureBarrier() {}
 
 		//! sets transformation
-		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat);
+		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix3x4SIMD& mat);
 		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4SIMD& mat);
 
 		//! sets a material
@@ -326,9 +326,9 @@ namespace video
 		virtual E_DRIVER_TYPE getDriverType() const;
 
 		//! Returns the transformation set by setTransform
-		virtual const core::matrix4x3& getTransform(const E_4X3_TRANSFORMATION_STATE& state);
+		virtual const core::matrix3x4SIMD& getTransform(const E_4X3_TRANSFORMATION_STATE& state) override;
 
-		virtual const core::matrix4SIMD& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state);
+		virtual const core::matrix4SIMD& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state) override;
 
 		//! Returns pointer to the IGPUProgrammingServices interface.
 		virtual IGPUProgrammingServices* getGPUProgrammingServices();
@@ -548,7 +548,7 @@ namespace video
 
 		uint32_t matrixModifiedBits;
 		core::matrix4SIMD ProjectionMatrices[EPTS_COUNT];
-		core::matrix4x3 TransformationMatrices[E4X3TS_COUNT];
+		core::matrix3x4SIMD TransformationMatrices[E4X3TS_COUNT];
 
 		CFPSCounter FPSCounter;
 

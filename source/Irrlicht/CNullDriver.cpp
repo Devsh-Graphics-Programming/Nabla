@@ -134,7 +134,7 @@ bool CNullDriver::endScene()
 
 
 //! sets transformation
-void CNullDriver::setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat)
+void CNullDriver::setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix3x4SIMD& mat)
 {
     if (state>E4X3TS_WORLD)
         return;
@@ -187,7 +187,7 @@ void CNullDriver::setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, c
 
 
 //! Returns the transformation set by setTransform
-const core::matrix4x3& CNullDriver::getTransform(const E_4X3_TRANSFORMATION_STATE& state)
+const core::matrix3x4SIMD& CNullDriver::getTransform(const E_4X3_TRANSFORMATION_STATE& state)
 {
     const uint32_t stateBit = 0x1u<<state;
 
