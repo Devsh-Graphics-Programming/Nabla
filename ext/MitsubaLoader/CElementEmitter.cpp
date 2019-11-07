@@ -193,7 +193,11 @@ bool CElementEmitter::addProperty(SNamedPropertyElement&& _property)
 			index = i;
 		}
 		up[index] = 1.f;
-		transform.matrix = core::matrix4SIMD::buildCameraLookAtMatrixRH(core::vectorSIMDf(),_property.vvalue,up);
+		// hope it works
+		core::matrix3x4SIMD tmp;
+		core::matrix3x4SIMD::buildCameraLookAtMatrixRH(core::vectorSIMDf(),-_property.vvalue,up).getInverse(tmp);
+		transform.matrix = core::matrix4SIMD(tmp);
+		_IRR_DEBUG_BREAK_IF(true); // no idea if matrix is correct
 	};
 	auto setPower = SET_SPECTRUM(power, Collimated);
 	auto setFilename = [&]() -> void

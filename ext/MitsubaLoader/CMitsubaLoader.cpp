@@ -224,7 +224,9 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 						index = i;
 					}
 				up[index] = 1.f;
-				auto tform = core::matrix3x4SIMD::buildCameraLookAtMatrixRH(shape->cylinder.p0,shape->cylinder.p1,up);
+				core::matrix3x4SIMD tform;
+				// mesh is left haded so transforming by LH matrix is fine (I hope but lets check later on)
+				core::matrix3x4SIMD::buildCameraLookAtMatrixLH(shape->cylinder.p0,shape->cylinder.p1,up).getInverse(tform);
 				applyTransformToMB(mesh->getMeshBuffer(0), tform);
 			}
 			flipNormals = shape->cylinder.flipNormals;

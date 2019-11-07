@@ -216,7 +216,8 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 					}
 					up[index] = 1.f;
 				}
-				result.mvalue = core::matrix4SIMD::buildCameraLookAtMatrixRH(origin,target,up);
+				// mitsuba understands look-at and right-handed camera little bit differently than I do
+				core::matrix4SIMD(core::matrix3x4SIMD::buildCameraLookAtMatrixLH(origin,target,up)).getInverseTransform(result.mvalue);
 			}
 			break;
 		default:
