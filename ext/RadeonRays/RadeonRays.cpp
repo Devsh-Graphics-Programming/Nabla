@@ -260,9 +260,10 @@ void Manager::makeRRShapes(MeshBufferRRShapeCache& shapeCache, const asset::ICPU
 	delete[] mem;
 }
 
-void Manager::makeRRInstances(MeshNodeRRInstanceCache& instanceCache, const MeshBufferRRShapeCache& shapeCache, asset::IAssetManager* _assetManager, scene::IMeshSceneNode** _begin, scene::IMeshSceneNode** _end)
+void Manager::makeRRInstances(	MeshNodeRRInstanceCache& instanceCache, const MeshBufferRRShapeCache& shapeCache, asset::IAssetManager* _assetManager,
+								scene::IMeshSceneNode** _begin, scene::IMeshSceneNode** _end, const int32_t* _id_begin)
 {
-	core::unordered_map<video::IGPUMeshBuffer*,MeshBufferRRShapeCache::value_type> GPU2CPUTable;
+	core::unordered_map<const video::IGPUMeshBuffer*,MeshBufferRRShapeCache::value_type> GPU2CPUTable;
 	GPU2CPUTable.reserve(shapeCache.size());
 	for (auto record : shapeCache)
 	{
@@ -273,13 +274,14 @@ void Manager::makeRRInstances(MeshNodeRRInstanceCache& instanceCache, const Mesh
 		GPU2CPUTable.insert({gpumesh,record});
 	}
 
-	for (auto it=_begin; it!=_end; it++)
+	auto* id_it = _id_begin;
+	for (auto it=_begin; it!=_end; it++,id_it++)
 	{
-		scene::IMeshSceneNode* node = *it;
+		auto* node = *it;
 		if (instanceCache.find(node)!=instanceCache.end())
 			continue; // already cached
 
-		auto* mesh = node->getMesh();
+		const auto* mesh = node->getMesh();
 		auto mbCount = mesh->getMeshBufferCount();
 		if (mbCount==0u)
 			continue;
@@ -287,12 +289,15 @@ void Manager::makeRRInstances(MeshNodeRRInstanceCache& instanceCache, const Mesh
 		auto output = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<::RadeonRays::Shape*>>(mbCount);
 		for (auto i=0; i<mbCount; i++)
 		{
-			auto* mb = mesh->getMeshBuffer(i);
+			const auto* mb = mesh->getMeshBuffer(i);
 			auto found = GPU2CPUTable.find(mb);
 			if (found==GPU2CPUTable.end())
 				continue;
 
-			output->operator[](i) = rr->CreateInstance(found->second.second);
+			auto* instance = rr->CreateInstance(found->second.second);
+			if (_id_begin)
+				instance->SetId(*id_it);
+			output->operator[](i) = instance;
 		}
 		instanceCache.insert({node,output});
 	}

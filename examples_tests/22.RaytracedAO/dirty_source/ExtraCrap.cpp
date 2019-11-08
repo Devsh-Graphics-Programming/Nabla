@@ -6,97 +6,166 @@
 using namespace irr;
 
 
-const char shaderHeaderDefines[] = R"======(
+const std::string raygenShaderExtensions = R"======(
 #version 430 core
+#extension GL_ARB_gpu_shader_int64 : require
+#extension ARB_ballot : require
+)======";
 
-layout(local_size_x = 16, local_size_y = 16) in;
+const std::string raygenShader = R"======(
+#define WORK_GROUP_DIM 16u
+layout(local_size_x = WORK_GROUP_DIM, local_size_y = WORK_GROUP_DIM) in;
+#define WORK_GROUP_SIZE (WORK_GROUP_DIM*WORK_GROUP_DIM)
 
-layout(binding = 0) uniform sampler2D depth;
-layout(binding = 1) uniform sampler2D normals;
+// image views
+layout(binding = 0) uniform usampler2D depth;
+layout(binding = 1) uniform usampler2D normals;
 
+// temporary debug
 layout(binding = 0, rgba32f) uniform writeonly image2D out_img;
 
-shared float interleavedData[3u*4u*64u];
 
-vec3 decode(in float theta, float phi)
+#define MAX_RAY_BUFFER_SZ 1024u
+shared uint sharedData[MAX_RAY_BUFFER_SZ];
+
+#define IMAGE_DATA_SZ (WORK_GROUP_SIZE*2u)
+
+const uint SUBGROUP_COUNT = WORK_GROUP_SIZE/gl_SubGroupSizeARB;
+#define RAY_SIZE 6u
+const uint MAX_RAYS = ((MAX_RAY_BUFFER_SZ-SUBGROUP_COUNT)/RAY_SIZE);
+
+#if MAX_RAY_BUFFER_SZ<(WORK_GROUP_SIZE*8u)
+#error "Shared Memory too small for texture data"
+#endif
+
+
+vec3 decode(in vec2 enc)
 {
-	float ang = phi*kPI;
-    return vec3(vec2(cos(ang),sin(ang))*sqrt(1.0-theta*theta), theta);
+	float ang = enc.x*kPI;
+    return vec3(vec2(cos(ang),sin(ang))*sqrt(1.0-enc.y*enc.y), enc.y);
 }
+
 
 uvec2 morton2xy_4bit(in uint id)
 {
-	return id;
+	return XXX;
 }
 uint xy2morton_4bit(in uvec2 coord)
 {
-//1111
-	return id;
+	return XXX;
 }
+
+// TODO: do this properly
+uint getGlobalOffset(in bool cond)
+{
+	if (gl_LocalInvocationIndex<=gl_SubGroupSizeARB)
+		sharedData[gl_LocalInvocationIndex] = 0u;
+	barrier();
+	memoryBarrierShared();
+	
+	uint raysBefore = countBits(ballotARB(cond)&gl_SubGroupLtMaskARB);
+
+	uint macroInvocation = gl_LocalInvocationIndex/gl_SubGroupSizeARB;
+	uint addr = IMAGE_DATA_SZ+macroInvocation;
+	if (gl_SubGroupInvocationARB==gl_SubGroupSizeARB-1u)
+		sharedData[addr] = atomicAdd(sharedData[gl_SubGroupSizeARB],raysBefore+1);
+	barrier();
+	memoryBarrierShared();
+
+	if (gl_LocalInvocationIndex==0u)
+		sharedData[gl_SubGroupSizeARB] = atomicAdd(rayCount,sharedData[gl_SubGroupSizeARB]);
+	barrier();
+	memoryBarrierShared();
+
+	return sharedData[gl_SubGroupSizeARB]+sharedData[addr]+raysBefore;
+}
+
 
 void main()
 {
+	uint mortonIndex = xy2morton_4bit();
 	uint subgroupInvocationIndex = gl_LocalInvocationIndex&63u;
 	uint wideSubgroupID = gl_LocalInvocationIndex>>6u;
 
 	uvec2 workGroupCoord = gl_WorkGroupID.uv*gl_WorkGroupSize.uv;
 	vec2 sharedUV = (vec2(workGroupCoord+uvec2(8,8))+vec2(0.5))/textureSize();
 	ivec2 offset = (ivec2(subgroupInvocationIndex&7u,subgroupInvocationIndex>>3u)<<1)-ivec2(8,8);
-	vec4 data;
+
+	uvec4 data;
 	switch (wideSubgroupID)
 	{
 		case 0u:
 			data = textureGatherOffset(depth,sharedUV,offset);
 			break;
 		case 1u:
-			data = textureGatherOffset(normals,sharedUV,offset,0);
-			break;
-		case 2u:
-			data = textureGatherOffset(normals,sharedUV,offset,1);
+			data = textureGatherOffset(normals,sharedUV,offset);
 			break;
 		default:
 			break;
 	}
-	if (wideSubgroupID!=3u)
+	if (wideSubgroupID<2u)
 	for (uint i=0; i<4u; i++)
-		interleavedData[wideSubgroupID*256u+i*64u+subgroupInvocationIndex] = data[i];
+		sharedData[wideSubgroupID*WORK_GROUP_SIZE+i*(WORK_GROUP_SIZE/4u)+subgroupInvocationIndex] = data[i];
 	barrier();
 	memoryBarrierShared();
 
 
-	float depth = interleavedData[gl_LocalInvocationIndex];
-	float phi = interleavedData[gl_LocalInvocationIndex+256u];
-	float theta = interleavedData[gl_LocalInvocationIndex+512u];
-
+	// get depth to check if alive
+	float depth = uintBitsToFloat(sharedData[gl_LocalInvocationIndex]);
 	ivec2 outputLocation = ivec2(workGroupCoord)+gl_LocationInvocationID.xy;
 	//outputLocation =
-	vec3 normal = decode(theta,phi);
 
-	imageStore(out_img,outputLocation,vec4(normal,1.0));
+	bool createRay = all(lessThan(outputLocation,textureSize(depth,0))) && depth>0.0;
+	uint storageOffset = getGlobalOffset(createRay);
+
+//	if (createRay)
+//	{
+		// reconstruct
+		vec2 encnorm = unpackSnorm2x16(sharedData[gl_LocalInvocationIndex+WORK_GROUP_SIZE]);
+//		vec3 position = reconstructFromNonLinearZ(depth);
+		vec3 normal = decode(theta,phi);
+		// debug
+		imageStore(out_img,outputLocation,vec4(normal,1.0));
+	/*
+		// compute rays
+		float fresnel = 0.5;
+		RadeonRays_ray newray;
+		newray.origin = position;
+		newray.maxT = uMaxLen;
+		newray.direction = reflect(position-uCameraPos);
+		newray.time = 0.0;
+		newray.mask = -1;
+		newray.active = 1;
+		newray.backfaceCulling = floatBitsToInt(fresnel);
+		newray.useless_padding = outputLocation.x|(outputLocation.y<<13));
+
+		// store rays
+		rays[getGlobalOffset()] = newray;
+	*/
+//	}
+
+	// future ray compaction system
+	{
+		// compute per-pixel data and store in smem (24 bytes)
+		// decide how many rays to spawn
+		// cumulative histogram of ray counts (4 bytes)
+		// increment global atomic counter
+		// binary search for pixel in histogram
+		// fetch pixel-data
+		// compute rays for pixel-data
+		// store rays in buffer
+	}
 }
 
 )======";
 
 
-inline GLuint createComputeShader(const io::path& filename, const std::string& header)
+inline GLuint createComputeShader(const std::string& source)
 {
-    FILE* fp = fopen(filename.c_str(),"r");
-    fseek(fp, 0, SEEK_END); // seek to end of file
-    int32_t size = ftell(fp); // get current file pointer
-    std::string modifiedSrc;
-    modifiedSrc.resize(size);
-    fseek(fp, 0, SEEK_SET); // seek back to beginning of file
-
-    fread(const_cast<char*>(modifiedSrc.data()),size,1,fp);
-    fclose(fp);
-
-    modifiedSrc = header+modifiedSrc;
-
-
     GLuint program = video::COpenGLExtensionHandler::extGlCreateProgram();
 	GLuint cs = video::COpenGLExtensionHandler::extGlCreateShader(GL_COMPUTE_SHADER);
 
-	const char* tmp = modifiedSrc.c_str();
+	const char* tmp = source.c_str();
 	video::COpenGLExtensionHandler::extGlShaderSource(cs, 1, const_cast<const char**>(&tmp), NULL);
 	video::COpenGLExtensionHandler::extGlCompileShader(cs);
 
@@ -134,6 +203,9 @@ inline GLuint createComputeShader(const io::path& filename, const std::string& h
 
 Renderer::Renderer(video::IVideoDriver* _driver)
 {
+	m_raygenProgram = createComputeShader(
+		raygenShaderExtensions+
+	);
 }
 #if 0
 CToneMapper* CToneMapper::instantiateTonemapper(video::IVideoDriver* _driver,

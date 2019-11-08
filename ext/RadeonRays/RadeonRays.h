@@ -43,7 +43,8 @@ class Manager final : public core::IReferenceCounted
 		}
 
 		using MeshNodeRRInstanceCache = core::unordered_map<scene::IMeshSceneNode*,core::smart_refctd_dynamic_array<::RadeonRays::Shape*> >;
-		void makeRRInstances(MeshNodeRRInstanceCache& instanceCache, const MeshBufferRRShapeCache& shapeCache, asset::IAssetManager* _assetManager, scene::IMeshSceneNode** _begin, scene::IMeshSceneNode** _end);
+		void makeRRInstances(	MeshNodeRRInstanceCache& instanceCache, const MeshBufferRRShapeCache& shapeCache, asset::IAssetManager* _assetManager,
+								scene::IMeshSceneNode** _begin, scene::IMeshSceneNode** _end, const int32_t* _id_begin=nullptr);
 
 		template<typename Iterator>
 		inline void attachInstances(Iterator _begin, Iterator _end)
