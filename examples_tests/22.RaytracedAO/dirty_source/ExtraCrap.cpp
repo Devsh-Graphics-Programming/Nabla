@@ -449,15 +449,15 @@ void Renderer::render()
 
 		auto campos = core::vectorSIMDf().set(m_smgr->getActiveCamera()->getAbsolutePosition());
 		auto projViewInv = m_driver->getTransform(video::EPTS_PROJ_VIEW_INVERSE);
-		for (int32_t x=0u; x<rSize[0]; x+=subsample)
 		for (int32_t y=0u; y<rSize[1]; y+=subsample)
+		for (int32_t x=0u; x<rSize[0]; x+=subsample)
 		{
 			core::vectorSIMDf farPos(x,-y,1.f,1.f);
 			farPos /= core::vectorSIMDf(rSize[0]>>1,rSize[1]>>1,1.f,1.f);
 			farPos += core::vectorSIMDf(-1.f,1.f,0.f,0.f);
 
 			projViewInv.transformVect(farPos);
-			auto direction = core::normalize(farPos - campos);
+			auto direction = farPos - campos;
 
 			auto& ray = *(rays++);
 			ray = ::RadeonRays::ray(reinterpret_cast<::RadeonRays::float3&>(campos), reinterpret_cast<::RadeonRays::float3&>(direction));
@@ -503,11 +503,11 @@ void Renderer::render()
 		IDriverMemoryAllocation::MappedMemoryRange range(memory,0,rSize[0]*rSize[1]/256*sizeof(::RadeonRays::Intersection));
 		auto intersections = reinterpret_cast<::RadeonRays::Intersection*>(memory->mapMemoryRange(IDriverMemoryAllocation::EMCAF_READ, range.range));
 		core::vector<uint32_t> data;
-		for (int32_t x=0u; x<rSize[0]; x+=subsample)
 		for (int32_t y=0u; y<rSize[1]; y+=subsample)
+		for (int32_t x=0u; x<rSize[0]; x+=subsample)
 		{
 			auto& intersection = *(intersections++);
-			data.push_back(intersection.primid);
+			data.push_back(intersection.shapeid<<5);
 		}
 		uint32_t mini[3] = { 0,0,0 };
 		uint32_t maxi[3] = { rSize[0]/subsample,rSize[1]/subsample,1 };
