@@ -349,7 +349,7 @@ int main()
 
 		auto framebuffer = driver->addFrameBuffer();
 		framebuffer->attach(video::EFAP_DEPTH_ATTACHMENT, driver->createGPUTexture(video::ITexture::ETT_2D,&FBO_dimensions.Width,1,asset::EF_D32_SFLOAT).get());
-		framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0, driver->createGPUTexture(video::ITexture::ETT_2D,&FBO_dimensions.Width,1,asset::EF_R16G16B16A16_SFLOAT).get());
+		framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0, driver->createGPUTexture(video::ITexture::ETT_2D,&FBO_dimensions.Width,1,asset::EF_A2B10G10R10_UNORM_PACK32).get());
 		framebuffer->attach(video::EFAP_COLOR_ATTACHMENT1, driver->createGPUTexture(video::ITexture::ETT_2D,&FBO_dimensions.Width,1,asset::EF_R16G16_SNORM).get());
 
 		uint64_t lastFPSTime = 0;

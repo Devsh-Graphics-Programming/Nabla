@@ -19,11 +19,6 @@ vec2 encode(in vec3 n)
 {
     return vec2(atan(n.y,n.x)/kPI, n.z);
 }
-vec3 decode(in vec2 enc)
-{
-	float ang = enc.x*kPI;
-    return vec3(vec2(cos(ang),sin(ang))*sqrt(1.0-enc.y*enc.y), enc.y);
-}
 
 void main()
 {

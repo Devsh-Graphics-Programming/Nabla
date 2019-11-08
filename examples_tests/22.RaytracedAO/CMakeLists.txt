@@ -16,8 +16,13 @@ set(RAY_TRACED_AO_EXAMPLE_INCLUDE_DIRS
 	${IRR_EXT_RADEON_RAYS_INCLUDE_DIRS}
 )
 
-irr_create_executable_project(
+set(EXTRA_SOURCES
 	../../ext/DebugDraw/CDraw3DLine.cpp
+	./dirty_source/ExtraCrap.cpp
+)
+
+irr_create_executable_project(
+	"${EXTRA_SOURCES}"
 	""
 	"${RAY_TRACED_AO_EXAMPLE_INCLUDE_DIRS}"
 	"${RAY_TRACED_AO_EXAMPLE_LIBS}"
