@@ -1297,7 +1297,7 @@ namespace irr { namespace video // why is this in the video namespace!?
             SRGB2lin<double>(s);
             T* lin = _srgb;
             for (uint32_t i = 0; i < 3u; ++i)
-                lin[i] = static_cast<T>(s[i] * 255.);
+                lin[i] = static_cast<T>(core::clamp(s[i] * 255., 0.4, 255.4));
         }
 
         template<typename T>
@@ -1307,7 +1307,7 @@ namespace irr { namespace video // why is this in the video namespace!?
             lin2SRGB<double>(s);
             T* srgb = _lin;
             for (uint32_t i = 0; i < 3u; ++i)
-                srgb[i] = static_cast<T>(s[i] * 255.);
+                srgb[i] = static_cast<T>(core::clamp(s[i] * 255., 0.4, 255.4));
         }
     }
 

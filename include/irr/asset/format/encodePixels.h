@@ -499,7 +499,7 @@ namespace irr { namespace video
     {
         int8_t* pix = reinterpret_cast<int8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = static_cast<int8_t>(_input[i] * 127.);
+            pix[i] = static_cast<int8_t>(core::clamp(_input[i] * 127., -127 + 0.4, 127.4));
     }
 	
     template<>
@@ -507,7 +507,7 @@ namespace irr { namespace video
     {
         uint8_t* pix = reinterpret_cast<uint8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = static_cast<int8_t>(_input[i]);
+            pix[i] = static_cast<int8_t>(core::clamp(_input[i], 0.4, 255.4));
     }
 	
     template<>
@@ -515,7 +515,7 @@ namespace irr { namespace video
     {
         int8_t* pix = reinterpret_cast<int8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = static_cast<int8_t>(_input[i]);
+            pix[i] = static_cast<int8_t>(core::clamp(_input[i], 0.4, 255.4));
     }
 	
     template<>
@@ -539,7 +539,7 @@ namespace irr { namespace video
     {
         uint8_t* pix = reinterpret_cast<uint8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[2u-i] = static_cast<int8_t>(_input[i] * 255.);
+            pix[2u-i] = static_cast<int8_t>(core::clamp(_input[i] * 255., 0.4, 255.4));
     }
 	
     template<>
@@ -547,7 +547,7 @@ namespace irr { namespace video
     {
         int8_t* pix = reinterpret_cast<int8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[2u-i] = static_cast<int8_t>(_input[i] * 127);
+            pix[2u-i] = static_cast<int8_t>(core::clamp(_input[i] * 127, -127 + 0.4, 127.4));
     }
 	
     template<>
@@ -555,7 +555,7 @@ namespace irr { namespace video
     {
         uint8_t* pix = reinterpret_cast<uint8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[2u-i] = static_cast<uint8_t>(_input[i]);
+            pix[2u-i] = static_cast<uint8_t>(core::clamp(_input[i], 0.4, 255.4));
     }
 	
     template<>
@@ -563,7 +563,7 @@ namespace irr { namespace video
     {
         int8_t* pix = reinterpret_cast<int8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[2u-i] = static_cast<int8_t>(_input[i]);
+            pix[2u-i] = static_cast<int8_t>(core::clamp(_input[i], -127 + 0.4, 127.4));
     }
 	
     template<>
@@ -1755,7 +1755,7 @@ namespace irr { namespace video
     {
         uint16_t* pix = reinterpret_cast<uint16_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = static_cast<uint16_t>(_input[i] * 65535.);
+            pix[i] = static_cast<uint16_t>(core::clamp(_input[i] * 65535., 0.4, 65535.4));
     }
 	
     template<>
@@ -1763,7 +1763,7 @@ namespace irr { namespace video
     {
         int16_t* pix = reinterpret_cast<int16_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = static_cast<int16_t>(_input[i] * 32767);
+            pix[i] = static_cast<int16_t>(core::clamp(_input[i] * 32767, -32767 + 0.4, 32767.4));
     }
 	
     template<>
@@ -1771,7 +1771,7 @@ namespace irr { namespace video
     {
         uint16_t* pix = reinterpret_cast<uint16_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = static_cast<uint16_t>(_input[i]);
+            pix[i] = static_cast<uint16_t>(core::clamp(_input[i], 0.4, 65535.4));
     }
 	
     template<>
@@ -1779,7 +1779,7 @@ namespace irr { namespace video
     {
         int16_t* pix = reinterpret_cast<int16_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = static_cast<int16_t>(_input[i]);
+            pix[i] = static_cast<int16_t>(core::clamp(_input[i], -32767 + 0.4, 32767.4));
     }
 	
     template<>
@@ -2370,7 +2370,7 @@ namespace irr { namespace video
             uint16_t* pix = reinterpret_cast<uint16_t*>(_pix);
             for (uint32_t i = 0u; i < chCnt; ++i)
             {
-                pix[i] = core::Float16Compressor::compress(static_cast<int16_t>(_input[i]));
+                pix[i] = core::Float16Compressor::compress(static_cast<uint16_t>(core::clamp(_input[i], 0.4, 65535.4)));
             }
         }
     }
