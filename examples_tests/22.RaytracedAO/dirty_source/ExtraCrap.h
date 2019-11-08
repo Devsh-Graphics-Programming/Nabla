@@ -3,28 +3,45 @@
 
 #include "irrlicht.h"
 
-#inlude "../../ext/RadeonRays/RadeonRays.h"
+#include "../../ext/RadeonRays/RadeonRays.h"
 
 
 class Renderer : public irr::core::IReferenceCounted, public irr::core::InterfaceUnmovable
 {
     public:
-		Renderer(irr::video::IVideoDriver* _driver, uint32_t samplesPerPixel);
+		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr);
 
-		//void setData();
+		void init(const irr::asset::SAssetBundle& meshes, uint32_t rayBufferSize=512u*1024u*1024u);
 
-		//void drawLoop();
-    private:
+		void deinit();
+
+		void render();
+
+		auto* getColorBuffer() { return m_colorBuffer; }
+
+		const auto& getSceneBound() const { return sceneBound; }
+    protected:
         ~Renderer();
 
-		using irr;
+        irr::video::IVideoDriver* m_driver;
+		irr::video::E_MATERIAL_TYPE nonInstanced;
+		uint32_t m_raygenProgram;
+		irr::asset::IAssetManager* m_assetManager;
+		irr::scene::ISceneManager* m_smgr;
+		irr::core::smart_refctd_ptr<irr::ext::RadeonRays::Manager> m_rrManager;
 
-        video::IVideoDriver* m_driver;
-		core::smart_refctd_ptr<ext::RadeonRays::Manager> m_rrManager;
+		irr::core::smart_refctd_ptr<irr::video::ITexture> m_depth,m_albedo,m_normals;
+		irr::video::IFrameBuffer* m_colorBuffer,* m_gbuffer;
 
-        core::smart_refctd_ptr<video::IGPUBuffer> m_rayBuffer;
-		void* m_rayBufferAsCL;
-        uint32_t m_raygenProgram;
+		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_rayBuffer;
+		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_intersectionBuffer;
+		std::pair<::RadeonRays::Buffer*,cl_mem> m_rayBufferAsRR;
+		std::pair<::RadeonRays::Buffer*,cl_mem> m_intersectionBufferAsRR;
+
+		irr::core::vector<irr::core::smart_refctd_ptr<irr::scene::IMeshSceneNode> > nodes;
+		irr::core::aabbox3df sceneBound;
+		irr::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
+		irr::ext::RadeonRays::Manager::MeshNodeRRInstanceCache rrInstances;
 };
 
 #endif
