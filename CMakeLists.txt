@@ -167,6 +167,7 @@ endif()
 #option(IRR_TARGET_ARCH_ARM "Build for ARM?" OFF)
 
 option(IRR_COMPILE_WITH_OPENGL "Compile with OpenGL backend?" ON)
+option(IRR_COMPILE_WITH_OPENCL "Compile with OpenCL interop?" ON)
 
 option(IRR_PCH "Enable pre-compiled header" ON)
 

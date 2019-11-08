@@ -454,7 +454,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 	}
 
 #ifdef _IRR_COMPILE_WITH_OPENCL_
-	ocl::COpenCLHandler::getCLDeviceFromGLContext(clDevice,hrc,HDc);
+	ocl::COpenCLHandler::getCLDeviceFromGLContext(clDevice,clProperties,hrc,HDc);
 #endif // _IRR_COMPILE_WITH_OPENCL_
 	genericDriverInit();
 
@@ -600,7 +600,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceLinux* device, SAuxContext* auxCtxts)
     AuxContexts = auxCtxts;
 
 #ifdef _IRR_COMPILE_WITH_OPENCL_
-	if (!ocl::COpenCLHandler::getCLDeviceFromGLContext(clDevice,reinterpret_cast<GLXContext&>(ExposedData.OpenGLLinux.X11Context),(Display*)ExposedData.OpenGLLinux.X11Display))
+	if (!ocl::COpenCLHandler::getCLDeviceFromGLContext(clDevice,clProperties,reinterpret_cast<GLXContext&>(ExposedData.OpenGLLinux.X11Context),(Display*)ExposedData.OpenGLLinux.X11Display))
         os::Printer::log("Couldn't find matching OpenCL device.\n");
 #endif // _IRR_COMPILE_WITH_OPENCL_
 
