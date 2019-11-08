@@ -25,7 +25,7 @@ class Manager final : public core::IReferenceCounted
 		static core::smart_refctd_ptr<Manager> create(video::IVideoDriver* _driver);
 
 		
-		::RadeonRays::Buffer* linkBuffer(const video::IGPUBuffer* buffer, cl_mem_flags access);
+		std::pair<::RadeonRays::Buffer*,cl_mem> linkBuffer(const video::IGPUBuffer* buffer, cl_mem_flags access);
 		inline void deleteRRBuffer(::RadeonRays::Buffer* buffer)
 		{
 			rr->DeleteBuffer(buffer);
@@ -33,25 +33,97 @@ class Manager final : public core::IReferenceCounted
 
 
 		using MeshBufferRRShapeCache = core::unordered_map<const asset::ICPUMeshBuffer*,::RadeonRays::Shape*>;
-		void makeRRShapes(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMeshBuffer** _begin, const asset::ICPUMeshBuffer** _end);
+		using MeshNodeRRInstanceCache = core::unordered_map<scene::IMeshSceneNode*, core::smart_refctd_dynamic_array<::RadeonRays::Shape*> >;
+
+
+		template<typename Iterator>
+		inline void makeRRShapes(MeshBufferRRShapeCache& shapeCache, Iterator _begin, Iterator _end)
+		{
+			shapeCache.reserve(std::distance(_begin,_end));
+
+			uint32_t maxIndexCount = 0u;
+			for (auto it=_begin; it!=_end; it++)
+			{
+				auto* mb = static_cast<irr::asset::ICPUMeshBuffer*>(*it);
+				auto found = shapeCache.find(mb);
+				if (found!=shapeCache.end())
+					continue;
+				shapeCache.insert({mb,nullptr});
+
+
+				auto posAttrID = mb->getPositionAttributeIx();
+				auto format = mb->getMeshDataAndFormat()->getAttribFormat(posAttrID);
+				assert(format==asset::EF_R32G32B32A32_SFLOAT||format==asset::EF_R32G32B32_SFLOAT);
+
+				auto pType = mb->getPrimitiveType();
+				switch (pType)
+				{
+					case asset::EPT_TRIANGLE_STRIP:
+						maxIndexCount = core::max((mb->getIndexCount()-2u)/3u, maxIndexCount);
+						break;
+					case asset::EPT_TRIANGLE_FAN:
+						maxIndexCount = core::max(((mb->getIndexCount()-1u)/2u)*3u, maxIndexCount);
+						break;
+					case asset::EPT_TRIANGLES:
+						maxIndexCount = core::max(mb->getIndexCount(), maxIndexCount);
+						break;
+					default:
+						assert(false);
+				}
+			}
+
+			if (maxIndexCount ==0u)
+				return;
+
+
+			constexpr int32_t VerticesInTriangle = 3;
+			auto* mem = new int32_t[maxIndexCount*(VerticesInTriangle+1)/VerticesInTriangle];
+
+			auto* const indices = mem;
+			auto* const vertsPerFace = mem+maxIndexCount;
+			std::fill(vertsPerFace, vertsPerFace+maxIndexCount/VerticesInTriangle, VerticesInTriangle);
+			for (auto it=_begin; it!=_end; it++)
+				makeShape(shapeCache,static_cast<irr::asset::ICPUMeshBuffer*>(*it),indices,vertsPerFace);
+			
+			delete[] mem;
+		}
 
 		template<typename Iterator>
 		inline void deleteShapes(Iterator _begin, Iterator _end)
 		{
 			for (auto it = _begin; it != _end; it++)
-				rr->DeleteShape(std::get<0>(*it));
+				rr->DeleteShape(std::get<::RadeonRays::Shape*>(*it));
 		}
 
-		using MeshNodeRRInstanceCache = core::unordered_map<scene::IMeshSceneNode*,core::smart_refctd_dynamic_array<::RadeonRays::Shape*> >;
-		void makeRRInstances(	MeshNodeRRInstanceCache& instanceCache, const MeshBufferRRShapeCache& shapeCache, asset::IAssetManager* _assetManager,
-								scene::IMeshSceneNode** _begin, scene::IMeshSceneNode** _end, const int32_t* _id_begin=nullptr);
+		template<typename Iterator>
+		inline void makeRRInstances(MeshNodeRRInstanceCache& instanceCache, const MeshBufferRRShapeCache& shapeCache,
+									asset::IAssetManager* _assetManager, Iterator _begin, Iterator _end, const int32_t* _id_begin=nullptr)
+		{
+			core::unordered_map<const video::IGPUMeshBuffer*,MeshBufferRRShapeCache::value_type> GPU2CPUTable;
+			GPU2CPUTable.reserve(shapeCache.size());
+			for (auto record : shapeCache)
+			{
+				auto gpumesh = dynamic_cast<video::IGPUMeshBuffer*>(_assetManager->findGPUObject(record.first).get());
+				if (!gpumesh)
+					continue;
+
+				GPU2CPUTable.insert({gpumesh,record});
+			}
+
+			auto* id_it = _id_begin;
+			for (auto it=_begin; it!=_end; it++,id_it++)
+			{
+				irr::scene::IMeshSceneNode* node = *it;
+				makeInstance(instanceCache,GPU2CPUTable,node,_id_begin ? id_it:nullptr);
+			}
+		}
 
 		template<typename Iterator>
 		inline void attachInstances(Iterator _begin, Iterator _end)
 		{
 			for (auto it = _begin; it != _end; it++)
 			{
-				auto* arr = std::get<0>(*it).get();
+				auto* arr = std::get<core::smart_refctd_dynamic_array<::RadeonRays::Shape*> >(*it).get();
 				for (auto it2 = arr->begin(); it2 != arr->end(); it2++)
 					rr->AttachShape(*it2);
 			}
@@ -62,7 +134,7 @@ class Manager final : public core::IReferenceCounted
 		{
 			for (auto it = _begin; it != _end; it++)
 			{
-				auto* arr = std::get<0>(*it).get();
+				auto* arr = std::get<core::smart_refctd_dynamic_array<::RadeonRays::Shape*> >(*it).get();
 				for (auto it2 = arr->begin(); it2 != arr->end(); it2++)
 					rr->DetachShape(*it2);
 			}
@@ -73,7 +145,7 @@ class Manager final : public core::IReferenceCounted
 		{
 			for (auto it = _begin; it != _end; it++)
 			{
-				auto* arr = std::get<0>(*it).get();
+				auto* arr = std::get<core::smart_refctd_dynamic_array<::RadeonRays::Shape*> >(*it).get();
 				for (auto it2=arr->begin(); it2!=arr->end(); it2++)
 					rr->DeleteShape(*it2);
 			}
@@ -116,16 +188,26 @@ class Manager final : public core::IReferenceCounted
 			return radeonRaysIncludes.get();
 		}
 
+		inline bool hasImplicitCL2GLSync() const { return automaticOpenCLSync; }
+
 
 		inline auto* getRadeonRaysAPI() {return rr;}
+
+		inline cl_command_queue getCLCommandQueue() { return commandQueue; }
 
 	protected:
 		Manager(video::IVideoDriver* _driver);
 		~Manager();
 
+		void makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMeshBuffer* mb, int32_t* indices, int32_t* vertsPerFace);
+		void makeInstance(	MeshNodeRRInstanceCache& instanceCache,
+							const core::unordered_map<const video::IGPUMeshBuffer*,MeshBufferRRShapeCache::value_type>& GPU2CPUTable,
+							scene::IMeshSceneNode* node, const int32_t* id_it);
+
 		
 		static core::smart_refctd_ptr<RadeonRaysIncludeLoader> radeonRaysIncludes;
 		static cl_context context;
+		static bool automaticOpenCLSync;
 
 		video::IVideoDriver* driver;
 		cl_command_queue commandQueue;

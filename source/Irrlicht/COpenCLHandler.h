@@ -21,6 +21,7 @@ namespace ocl
 
 static const char* const OpenCLFeatureStrings[] = {
     "cl_khr_gl_sharing",
+	"cl_khr_gl_event"
 };
 
 
@@ -37,6 +38,7 @@ class COpenCLHandler
                 enum EOpenCLFeatures
                 {
                     IRR_KHR_GL_SHARING=0,
+					IRR_KHR_GL_EVENT,
                     IRR_OpenCL_Feature_Count
                 };
                 class SOpenCLDeviceInfo : public core::AllocationOverrideDefault
