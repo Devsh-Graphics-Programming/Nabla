@@ -441,7 +441,7 @@ void Renderer::render()
 	m_smgr->drawAll();
 
 	auto* rSize = m_depth->getSize();
-	constexpr uint32_t subsample = 4;
+	constexpr uint32_t subsample = 1;
 	{
 		auto memory = m_rayBuffer->getBoundMemory();
 		IDriverMemoryAllocation::MappedMemoryRange range(memory,0,rSize[0]*rSize[1]/(subsample*subsample)*sizeof(::RadeonRays::ray));
@@ -452,12 +452,23 @@ void Renderer::render()
 		for (int32_t y=0u; y<rSize[1]; y+=subsample)
 		for (int32_t x=0u; x<rSize[0]; x+=subsample)
 		{
-			core::vectorSIMDf farPos(x,-y,1.f,1.f);
+#if 0
+			core::vectorSIMDf farPos(x, -y, 1.f, 1.f);
 			farPos /= core::vectorSIMDf(rSize[0]>>1,rSize[1]>>1,1.f,1.f);
 			farPos += core::vectorSIMDf(-1.f,1.f,0.f,0.f);
 
 			projViewInv.transformVect(farPos);
-			auto direction = farPos - campos;
+#else
+			core::vectorSIMDf farPos(x, y, 1.f, 1.f);
+			farPos /= core::vectorSIMDf(rSize[0], rSize[1], 1.f, 1.f);
+
+			auto frustum = m_smgr->getActiveCamera()->getViewFrustum();
+			farPos = core::mix(	core::mix(frustum->getFarLeftDown(),frustum->getFarRightDown(),farPos.xxxx()),
+								core::mix(frustum->getFarLeftUp(),frustum->getFarRightUp(),farPos.xxxx()),
+								farPos.yyyy());
+#endif
+
+			auto direction = core::normalize(farPos - campos);
 
 			auto& ray = *(rays++);
 			ray = ::RadeonRays::ray(reinterpret_cast<::RadeonRays::float3&>(campos), reinterpret_cast<::RadeonRays::float3&>(direction));

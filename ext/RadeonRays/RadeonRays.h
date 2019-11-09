@@ -75,17 +75,10 @@ class Manager final : public core::IReferenceCounted
 			if (maxIndexCount ==0u)
 				return;
 
-
-			constexpr int32_t VerticesInTriangle = 3;
-			auto* mem = new int32_t[maxIndexCount*(VerticesInTriangle+1)/VerticesInTriangle];
-
-			auto* const indices = mem;
-			auto* const vertsPerFace = mem+maxIndexCount;
-			std::fill(vertsPerFace, vertsPerFace+maxIndexCount/VerticesInTriangle, VerticesInTriangle);
+			auto* indices = new int32_t[maxIndexCount];
 			for (auto it=_begin; it!=_end; it++)
-				makeShape(shapeCache,static_cast<irr::asset::ICPUMeshBuffer*>(*it),indices,vertsPerFace);
-			
-			delete[] mem;
+				makeShape(shapeCache,static_cast<irr::asset::ICPUMeshBuffer*>(*it),indices);
+			delete[] indices;
 		}
 
 		template<typename Iterator>
@@ -199,7 +192,7 @@ class Manager final : public core::IReferenceCounted
 		Manager(video::IVideoDriver* _driver);
 		~Manager();
 
-		void makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMeshBuffer* mb, int32_t* indices, int32_t* vertsPerFace);
+		void makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMeshBuffer* mb, int32_t* indices);
 		void makeInstance(	MeshNodeRRInstanceCache& instanceCache,
 							const core::unordered_map<const video::IGPUMeshBuffer*,MeshBufferRRShapeCache::value_type>& GPU2CPUTable,
 							scene::IMeshSceneNode* node, const int32_t* id_it);

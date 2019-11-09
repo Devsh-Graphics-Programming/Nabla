@@ -78,7 +78,7 @@ std::pair<::RadeonRays::Buffer*,cl_mem> Manager::linkBuffer(const video::IGPUBuf
 }
 
 
-void Manager::makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMeshBuffer* mb, int32_t* indices, int32_t* vertsPerFace)
+void Manager::makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMeshBuffer* mb, int32_t* indices)
 {
 	auto found = shapeCache.find(mb);
 	if (found==shapeCache.end())
@@ -207,10 +207,11 @@ void Manager::makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMes
 	}
 		
 	auto posAttrID = mb->getPositionAttributeIx();
+	constexpr int32_t IndicesPerTriangle = 3;
 	found->second = rr->CreateMesh(	reinterpret_cast<const float*>(	mb->getAttribPointer(posAttrID)),vertexCount,
 																	mb->getMeshDataAndFormat()->getMappedBufferStride(posAttrID),
-																	theseIndices,sizeof(int32_t),
-																	vertsPerFace,indexCount/3);
+																	theseIndices,sizeof(int32_t)*IndicesPerTriangle, // radeon rays understands index stride differently to me
+																	nullptr,indexCount/IndicesPerTriangle);
 }
 
 void Manager::makeInstance(	MeshNodeRRInstanceCache& instanceCache,
