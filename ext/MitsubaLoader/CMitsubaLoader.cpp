@@ -159,21 +159,21 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 		}
 		meshbuffer->recalculateBoundingBox();
 	};
-	auto loadModel = [&](const ext::MitsubaLoader::SPropertyElementData& filename, uint32_t index=0) -> core::smart_refctd_ptr<asset::ICPUMesh>
+	auto loadModel = [&](const ext::MitsubaLoader::SPropertyElementData& filename, int64_t index=-1) -> core::smart_refctd_ptr<asset::ICPUMesh>
 	{
 		assert(filename.type==ext::MitsubaLoader::SPropertyElementData::Type::STRING);
 		auto retval = interm_getAssetInHierarchy(manager, filename.svalue, ctx.params, hierarchyLevel/*+ICPUSCene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override);
 		auto contentRange = retval.getContents();
 		//
 		uint32_t actualIndex = 0;
-		if (index)
+		if (index>=0ll)
 		for (auto it=contentRange.first; it!=contentRange.second; it++)
 		{
 			auto meta = it->get()->getMetadata();
 			if (!meta || core::strcmpi(meta->getLoaderName(),ext::MitsubaLoader::CSerializedMetadata::LoaderName))
 				continue;
 			auto serializedMeta = static_cast<CSerializedMetadata*>(meta);
-			if (serializedMeta->id!=index)
+			if (serializedMeta->id!=static_cast<uint32_t>(index))
 				continue;
 			actualIndex = it-contentRange.first;
 			break;
