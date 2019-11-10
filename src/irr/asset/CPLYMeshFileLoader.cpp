@@ -240,6 +240,15 @@ namespace irr
 					core::vector<uint32_t> indices;
 
 					bool hasNormals = true;
+
+					auto performActionBasedOnOrientationSystem = [&](auto performOnRightHanded, auto performOnLeftHanded = [&](void) {})
+					{
+						if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
+							performOnRightHanded();
+						else
+							performOnLeftHanded();
+					};
+
 					// loop through each of the elements
 					for (uint32_t i = 0; i < ctx.ElementList.size(); ++i)
 					{
@@ -248,7 +257,7 @@ namespace irr
 						{
 							// loop through vertex properties
 							for (uint32_t j = 0; j < ctx.ElementList[i]->Count; ++j)
-								hasNormals &= readVertex(ctx, *ctx.ElementList[i], attribs);
+								hasNormals &= readVertex(ctx, *ctx.ElementList[i], attribs, performActionBasedOnOrientationSystem);
 						}
 						else if (ctx.ElementList[i]->Name == "face")
 						{
@@ -299,7 +308,7 @@ namespace irr
 		}
 
 
-		bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, core::vector<core::vectorSIMDf> _outAttribs[4])
+		bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, core::vector<core::vectorSIMDf> _outAttribs[4], std::function<void(std::function<void()>, std::function<void()>)> performActionBasedOnOrientationSystem)
 		{
 			if (!_ctx.IsBinaryFile)
 				getNextLine(_ctx);
@@ -384,7 +393,14 @@ namespace irr
 
 			for (size_t i = 0u; i < 4u; ++i)
 				if (attribs[i].first)
+				{
+					if (i == E_POS)
+						performActionBasedOnOrientationSystem([&]() { attribs[E_POS].second.X = -attribs[E_POS].second.X; }, [&]() {});
+					else if(i == E_NORM)
+						performActionBasedOnOrientationSystem([&]() { attribs[E_NORM].second.X = -attribs[E_NORM].second.X; }, [&]() {});
+
 					_outAttribs[i].push_back(attribs[i].second);
+				}
 
 			return result;
 		}

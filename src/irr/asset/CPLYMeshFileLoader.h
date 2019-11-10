@@ -158,7 +158,7 @@ namespace irr
 			void fillBuffer(SContext& _ctx);
 			E_PLY_PROPERTY_TYPE getPropertyType(const char* typeString) const;
 
-			bool readVertex(SContext& _ctx, const SPLYElement& Element, core::vector<core::vectorSIMDf> _attribs[4]);
+			bool readVertex(SContext& _ctx, const SPLYElement& Element, core::vector<core::vectorSIMDf> _attribs[4], std::function<void(std::function<void()>, std::function<void()>)> performActionBasedOnOrientationSystem);
 			bool readFace(SContext& _ctx, const SPLYElement& Element, core::vector<uint32_t>& _outIndices);
 			void skipElement(SContext& _ctx, const SPLYElement& Element);
 			void skipProperty(SContext& _ctx, const SPLYProperty& Property);
