@@ -34,33 +34,33 @@ CPLYMeshFileLoader::~CPLYMeshFileLoader()
 
 bool CPLYMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
 {
-	const char* headers[3]{
-		"format ascii 1.0",
-		"format binary_little_endian 1.0",
-		"format binary_big_endian 1.0"
-	};
+    const char* headers[3]{
+        "format ascii 1.0",
+        "format binary_little_endian 1.0",
+        "format binary_big_endian 1.0"
+    };
 
-	const size_t prevPos = _file->getPos();
+    const size_t prevPos = _file->getPos();
 
-	char buf[40];
-	_file->seek(0u);
-	_file->read(buf, sizeof(buf));
-	_file->seek(prevPos);
+    char buf[40];
+    _file->seek(0u);
+    _file->read(buf, sizeof(buf));
+    _file->seek(prevPos);
 
-	char* header = buf;
-	if (strncmp(header, "ply", 3u) != 0)
-		return false;
+    char* header = buf;
+    if (strncmp(header, "ply", 3u) != 0)
+        return false;
+    
+    header += 4;
+    char* lf = strstr(header, "\n");
+    if (!lf)
+        return false;
+    *lf = 0;
 
-	header += 4;
-	char* lf = strstr(header, "\n");
-	if (!lf)
-		return false;
-	*lf = 0;
-
-	for (uint32_t i = 0u; i < 3u; ++i)
-		if (strcmp(header, headers[i]) == 0)
-			return true;
-	return false;
+    for (uint32_t i = 0u; i < 3u; ++i)
+        if (strcmp(header, headers[i]) == 0)
+            return true;
+    return false;
 }
 
 //! creates/loads an animated mesh from the file.
@@ -80,7 +80,6 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		return {};
 	}
 
-	// start with empty mesh
 	core::smart_refctd_ptr<asset::CCPUMesh> mesh;
 	uint32_t vertCount = 0;
 
@@ -106,7 +105,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		bool readingHeader = true;
 		bool continueReading = true;
 		ctx.IsBinaryFile = false;
-		ctx.IsWrongEndian = false;
+		ctx.IsWrongEndian= false;
 
 		do
 		{
@@ -150,7 +149,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				else
 				{
 					// get element
-					SPLYElement* el = ctx.ElementList[ctx.ElementList.size() - 1];
+					SPLYElement* el = ctx.ElementList[ctx.ElementList.size()-1];
 
 					// fill property struct
 					SPLYProperty prop;
@@ -227,7 +226,8 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				getNextLine(ctx);
 				word = getNextWord(ctx);
 			}
-		} while (readingHeader && continueReading);
+		}
+		while (readingHeader && continueReading);
 
 		// now to read the actual data from the file
 		if (continueReading)
@@ -250,19 +250,19 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			};
 
 			// loop through each of the elements
-			for (uint32_t i = 0; i < ctx.ElementList.size(); ++i)
+			for (uint32_t i=0; i<ctx.ElementList.size(); ++i)
 			{
 				// do we want this element type?
 				if (ctx.ElementList[i]->Name == "vertex")
 				{
 					// loop through vertex properties
-					for (uint32_t j = 0; j < ctx.ElementList[i]->Count; ++j)
+					for (uint32_t j=0; j<ctx.ElementList[i]->Count; ++j)
 						hasNormals &= readVertex(ctx, *ctx.ElementList[i], attribs, performActionBasedOnOrientationSystem);
 				}
 				else if (ctx.ElementList[i]->Name == "face")
 				{
 					// read faces
-					for (uint32_t j = 0; j < ctx.ElementList[i]->Count; ++j)
+					for (uint32_t j=0; j < ctx.ElementList[i]->Count; ++j)
 						readFace(ctx, *ctx.ElementList[i], indices);
 				}
 				else
@@ -463,13 +463,13 @@ void CPLYMeshFileLoader::skipElement(SContext& _ctx, const SPLYElement& Element)
 }
 
 
-void CPLYMeshFileLoader::skipProperty(SContext& _ctx, const SPLYProperty& Property)
+void CPLYMeshFileLoader::skipProperty(SContext& _ctx, const SPLYProperty &Property)
 {
 	if (Property.Type == EPLYPT_LIST)
 	{
 		int32_t count = getInt(_ctx, Property.Data.List.CountType);
 
-		for (int32_t i = 0; i < count; ++i)
+		for (int32_t i=0; i < count; ++i)
 			getInt(_ctx, Property.Data.List.CountType);
 	}
 	else
@@ -485,7 +485,7 @@ void CPLYMeshFileLoader::skipProperty(SContext& _ctx, const SPLYProperty& Proper
 bool CPLYMeshFileLoader::allocateBuffer(SContext& _ctx)
 {
 	// Destroy the element list if it exists
-	for (uint32_t i = 0; i < _ctx.ElementList.size(); ++i)
+	for (uint32_t i=0; i<_ctx.ElementList.size(); ++i)
 		delete _ctx.ElementList[i];
 	_ctx.ElementList.clear();
 
