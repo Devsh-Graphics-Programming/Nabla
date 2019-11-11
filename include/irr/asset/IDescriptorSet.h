@@ -9,6 +9,7 @@
 #include "irr/asset/format/EFormat.h"
 #include "irr/asset/IDescriptor.h"
 #include "irr/asset/IDescriptorSetLayout.h" //for E_DESCRIPTOR_TYPE
+#include "irr/core/SRange.h"
 
 namespace irr
 {

@@ -852,8 +852,8 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
     found->nextState = SOpenGLState();
     for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
         found->effectivelyBoundDescriptors.descSets[i] = SOpenGLState::SDescSetBnd();
-    found->pushConstants[EPBP_GRAPHICS].layout = nullptr;
-    found->pushConstants[EPBP_COMPUTE].layout = nullptr;
+    found->pushConstantsState[EPBP_GRAPHICS].layout = nullptr;
+    found->pushConstantsState[EPBP_COMPUTE].layout = nullptr;
 
     glFinish();
 }
@@ -2312,7 +2312,7 @@ void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const asset::SBuffe
 void COpenGLDriver::SAuxContext::pushConstants(E_PIPELINE_BIND_POINT _bindPoint, const COpenGLPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values)
 {
     //validation is done in CNullDriver::pushConstants()
-    //if arguments were invalid (dont comply Valid Usage section of vkCmdPushConstants docs), execution should even get to this point
+    //if arguments were invalid (dont comply Valid Usage section of vkCmdPushConstants docs), execution should not even get to this point
 
     if (pushConstantsState[_bindPoint].layout && !pushConstantsState[_bindPoint].layout->isCompatibleForPushConstants(_layout))
     {

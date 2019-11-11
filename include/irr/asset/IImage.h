@@ -8,6 +8,7 @@
 #include "irr/asset/format/EFormat.h"
 #include "irr/asset/IBuffer.h"
 #include "irr/asset/IDescriptor.h"
+#include "irr/asset/ICPUBuffer.h"
 
 namespace irr
 {

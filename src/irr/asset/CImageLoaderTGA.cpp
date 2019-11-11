@@ -109,6 +109,7 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 	return true;
 }
 
+#ifndef NEW_SHADERS
 // convertColorFlip() does color conversion as well as taking care of properly flipping the given image.
 template <typename T, E_FORMAT srcFormat, E_FORMAT destFormat>
 static void convertColorFlip(asset::CImageData **image, const T *src, bool flip)
@@ -135,6 +136,7 @@ static void convertColorFlip(asset::CImageData **image, const T *src, bool flip)
 			out += stride;
 	}
 }
+#endif //NEW_SHADERS
 
 //! creates a surface from the file
 asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
@@ -174,6 +176,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 		delete [] colorMap;
 	}
 
+#ifndef NEW_SHADERS
 	core::vector<asset::CImageData*> images;
 	// read image
 	uint8_t* data = 0;
@@ -293,6 +296,9 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
     for (auto& img : images)
         img->drop();
     return SAssetBundle({core::smart_refctd_ptr<IAsset>(tex, core::dont_grab)});
+#else
+    return {};
+#endif
 }
 
 } // end namespace video

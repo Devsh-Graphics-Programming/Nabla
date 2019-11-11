@@ -11,6 +11,7 @@
 #include "irr/asset/format/EFormat.h"
 #include "irr/asset/ShaderCommons.h"
 #include "irr/asset/IPipeline.h"
+#include "irr/asset/IImage.h"
 
 
 namespace irr

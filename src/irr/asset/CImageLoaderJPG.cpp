@@ -297,6 +297,7 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	// Finish decompression
 	jpeg_finish_decompress(&cinfo);
 	
+#ifndef NEW_SHADERS
 	asset::CImageData* image = nullptr;
 	uint32_t nullOffset[3] = {0,0,0};
 	switch (cinfo.jpeg_color_space)
@@ -321,6 +322,9 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	ICPUTexture* tex = ICPUTexture::create({image}, _file->getFileName().c_str());
 	image->drop();
     return SAssetBundle({core::smart_refctd_ptr<IAsset>(tex, core::dont_grab)});
+#else//NEW_SHADERS
+    return {};
+#endif//NEW_SHADERS
 #endif
 }
 

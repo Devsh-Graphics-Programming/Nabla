@@ -605,6 +605,8 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
         const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const override;
 
+        bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override;
+
         bool bindComputePipeline(video::IGPUComputePipeline* _cpipeline) override;
 
         bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
@@ -652,12 +654,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorBinding>&& _descriptors) override;
 
         core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout) override;
-
-
-		bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override;
-
-		bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
-			uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override;
 
 
 		//! generic version which overloads the unimplemented versions
@@ -840,7 +836,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             {
                 uint8_t data[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE];
                 uint32_t stagesToUpdateFlags = 0u;
-                core::smart_refctd_ptr<COpenGLPipelineLayout> layout;
+                core::smart_refctd_ptr<const COpenGLPipelineLayout> layout;
             } pushConstantsState[EPBP_COUNT];
 
         //private:
