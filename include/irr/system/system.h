@@ -4,4 +4,7 @@
 // dependencies
 #include "irr/core/core.h"
 
+// bad files to refactor
+#include "IFileSystem.h"
+
 #endif

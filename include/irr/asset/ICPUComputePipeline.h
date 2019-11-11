@@ -6,7 +6,8 @@
 #include "irr/asset/ICPUSpecializedShader.h"
 #include "irr/asset/IAsset.h"
 
-namespace irr {
+namespace irr
+{
 namespace asset
 {
 
@@ -28,6 +29,7 @@ protected:
     virtual ~ICPUComputePipeline() = default;
 };
 
-}}
+}
+}
 
 #endif

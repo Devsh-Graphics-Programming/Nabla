@@ -63,7 +63,7 @@ core::smart_refctd_ptr<asset::ICPUMeshBuffer> COverdrawMeshOptimizer::createOpti
 	else
 		calcSortData(sortedData, (uint32_t*)indices, idxCount, vertexPositions, softClusters, softClusterCount);
 
-	std::sort(sortedData, sortedData + softClusterCount, std::greater<ClusterSortData>());
+	std::stable_sort(sortedData, sortedData + softClusterCount, std::greater<ClusterSortData>());
 
 	for (size_t it = 0, jt = 0; it < softClusterCount; ++it)
 	{

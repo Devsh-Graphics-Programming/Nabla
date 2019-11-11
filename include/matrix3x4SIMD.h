@@ -13,10 +13,11 @@ namespace core
 static_assert(_IRR_MATRIX_ALIGNMENT>=_IRR_VECTOR_ALIGNMENT,"Matrix must be equally or more aligned than vector!");
 
 //! Equivalent of GLSL's mat4x3
-struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> EBO inheritance problem w.r.t `rows[3]`
+class matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> EBO inheritance problem w.r.t `rows[3]`
 {
+public:
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t VectorCount = 3u;
-	core::vectorSIMDf rows[VectorCount];
+	vectorSIMDf rows[VectorCount];
 
 	explicit matrix3x4SIMD(	const vectorSIMDf& _r0 = vectorSIMDf(1.f, 0.f, 0.f, 0.f),
 							const vectorSIMDf& _r1 = vectorSIMDf(0.f, 1.f, 0.f, 0.f),
@@ -103,7 +104,7 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 		return retval *= _scalar;
 	}
 
-	inline matrix3x4SIMD& setTranslation(const core::vectorSIMDf& _translation)
+	inline matrix3x4SIMD& setTranslation(const vectorSIMDf& _translation)
 	{
 	    // no faster way of doing it?
 		rows[0].w = _translation.x;
@@ -114,9 +115,9 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 	inline vectorSIMDf getTranslation() const;
 	inline vectorSIMDf getTranslation3D() const;
 
-	inline matrix3x4SIMD& setScale(const core::vectorSIMDf& _scale);
+	inline matrix3x4SIMD& setScale(const vectorSIMDf& _scale);
 
-	inline core::vectorSIMDf getScale() const;
+	inline vectorSIMDf getScale() const;
 
 	inline void transformVect(vectorSIMDf& _out, const vectorSIMDf& _in) const;
 	inline void transformVect(vectorSIMDf& _in_out) const
@@ -137,19 +138,25 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 	}
 
 	inline static matrix3x4SIMD buildCameraLookAtMatrixLH(
-		const core::vectorSIMDf& position,
-		const core::vectorSIMDf& target,
-		const core::vectorSIMDf& upVector);
+		const vectorSIMDf& position,
+		const vectorSIMDf& target,
+		const vectorSIMDf& upVector);
 	inline static matrix3x4SIMD buildCameraLookAtMatrixRH(
-		const core::vectorSIMDf& position,
-		const core::vectorSIMDf& target,
-		const core::vectorSIMDf& upVector);
+		const vectorSIMDf& position,
+		const vectorSIMDf& target,
+		const vectorSIMDf& upVector);
 
-	inline matrix3x4SIMD& setRotation(const core::quaternion& _quat);
+	inline matrix3x4SIMD& setRotation(const quaternion& _quat);
 
 	inline matrix3x4SIMD& setScaleRotationAndTranslation(	const vectorSIMDf& _scale,
-															const core::quaternion& _quat,
+															const quaternion& _quat,
 															const vectorSIMDf& _translation);
+
+	inline vectorSIMDf getPseudoDeterminant() const
+	{
+		vectorSIMDf c0,c1,c2,c3,c1crossc2;
+		return determinant_helper(c0,c1,c2,c3,c1crossc2);
+	}
 
 	inline bool getInverse(matrix3x4SIMD& _out) const;
 	bool makeInverse()
@@ -165,18 +172,18 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 	}
 
 	//
-	inline bool getSub3x3InverseTransposePaddedSIMDColumns(core::vectorSIMDf _out[3]) const;
+	inline bool getSub3x3InverseTransposePaddedSIMDColumns(vectorSIMDf _out[3]) const;
 
 	//
-	inline void setTransformationCenter(const core::vectorSIMDf& _center, const core::vectorSIMDf& _translation);
+	inline void setTransformationCenter(const vectorSIMDf& _center, const vectorSIMDf& _translation);
 
 	//
 	static inline matrix3x4SIMD buildAxisAlignedBillboard(
-		const core::vectorSIMDf& camPos,
-		const core::vectorSIMDf& center,
-		const core::vectorSIMDf& translation,
-		const core::vectorSIMDf& axis,
-		const core::vectorSIMDf& from);
+		const vectorSIMDf& camPos,
+		const vectorSIMDf& center,
+		const vectorSIMDf& translation,
+		const vectorSIMDf& axis,
+		const vectorSIMDf& from);
 
 
 	//
@@ -193,6 +200,15 @@ private:
 	// really need that dvec<2> or wider
 	inline __m128d halfRowAsDouble(size_t _n, bool _0) const;
 	static inline __m128d doJob_d(const __m128d& _a0, const __m128d& _a1, const matrix3x4SIMD& _mtx, bool _xyHalf);
+
+	vectorSIMDf determinant_helper(vectorSIMDf& c0, vectorSIMDf& c1, vectorSIMDf& c2, vectorSIMDf& c3, vectorSIMDf& c1crossc2) const
+	{
+		c0 = rows[0]; c1 = rows[1]; c2 = rows[2]; c3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
+		core::transpose4(c0, c1, c2, c3);
+
+		c1crossc2 = core::cross(c1, c2);
+		return core::dot(c0, c1crossc2);
+	}
 };
 
 inline matrix3x4SIMD concatenateBFollowedByA(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b)

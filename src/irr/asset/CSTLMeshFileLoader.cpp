@@ -14,14 +14,12 @@
 #include "IReadFile.h"
 #include "os.h"
 
-#include <vector>
 
-namespace irr
-{
-namespace asset
-{
+using namespace irr;
+using namespace irr::asset;
+using namespace irr::io;
 
-asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	const long filesize = _file->getSize();
 	if (filesize < 6) // we need a header
@@ -29,12 +27,13 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
     bool hasColor = false;
 
-	auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
+	auto mesh = core::make_smart_refctd_ptr<CCPUMesh>();
+#ifndef NEW_SHADERS
     //TODO meshbuffer must hold non-null pipeline, otherwise calls like setVertexAttribFormat(), setVertexBufferBindingParams() etc. will crash (or return false and do nothing -- after my fix)
     //also:
     //1) SVertexInputParams::enabledBindingFlags and SVertexInputParams::enabledAttribFlags needs setting (maybe add this functionality to existing meshbuffer's setters)
     //2) could think about some default values to set in raster params and others
-	auto meshbuffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+	auto meshbuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
 
     meshbuffer->setPrimitiveTopology(EPT_TRIANGLE_LIST);
 
@@ -82,8 +81,17 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         {
         core::vectorSIMDf n;
 		getNextVector(_file, n, binary);
-        normals.push_back(core::normalize(n));
-        }
+
+		auto performActionBasedOnOrientationSystem = [&](auto performOnRightHanded, auto performOnLeftHanded = [&](void) {})
+		{
+			if(_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
+				performOnRightHanded();
+			else
+				performOnLeftHanded();
+		};
+
+		performActionBasedOnOrientationSystem([&]() {n.x = -n.x;}, [&]() {});
+		normals.push_back(core::normalize(n));
 
 		if (!binary)
 		{
@@ -101,9 +109,10 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     return {};
 			}
 			getNextVector(_file, p[i], binary);
+			performActionBasedOnOrientationSystem([&]() {p[i].x = -p[i].x; }, [&]() {});
 		}
-        for (uint32_t i = 0u; i < 3u; ++i) // seems like in STL format vertices are ordered in clockwise manner...
-            positions.push_back(p[2u-i]);
+		for (uint32_t i = 0u; i < 3u; ++i) // seems like in STL format vertices are ordered in clockwise manner...
+			performActionBasedOnOrientationSystem([&]() {positions.push_back(p[i]); }, [&]() {positions.push_back(p[2u - i]); });
         }
 
 		if (!binary)
@@ -145,14 +154,14 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     const size_t vtxSize = hasColor ? (3 * sizeof(float) + 4 + 4) : (3 * sizeof(float) + 4);
 	{
 		ICPUMeshBuffer::SBufferBinding bufferBinding;
-		bufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxSize * positions.size());
+		bufferBinding.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(vtxSize * positions.size());
         bufferBinding.offset = 0ull; //it's 0 by default, but let's make it more obvious
 
 		uint32_t normal{};
 		for (size_t i = 0u; i<positions.size(); ++i)
 		{
 			if (i%3 == 0)
-				normal = asset::quantizeNormal2_10_10_10(normals[i/3]);
+				normal = quantizeNormal2_10_10_10(normals[i/3]);
 			uint8_t* ptr = ((uint8_t*)(bufferBinding.buffer->getPointer())) + i*vtxSize;
 			memcpy(ptr, positions[i].pointer, 3*4);
 			((uint32_t*)(ptr+12))[0] = normal;
@@ -161,7 +170,7 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		}
 
 		/// TODO attribute should be determined by enum that may be helpful eg. E_POS might be assigned to attrib 0 -> want to get rid of ugly literals
-		static std::array<std::tuple<uint16_t, E_FORMAT, uint32_t>, 3> perIndexDataThatChanges{std::make_tuple(0, asset::EF_R32G32B32_SFLOAT, 0), std::make_tuple(3, asset::EF_A2B10G10R10_SNORM_PACK32, 12), std::make_tuple(1, asset::EF_B8G8R8A8_UNORM, 16) };
+		static std::array<std::tuple<uint16_t, E_FORMAT, uint32_t>, 3> perIndexDataThatChanges{std::make_tuple(0, EF_R32G32B32_SFLOAT, 0), std::make_tuple(3, EF_A2B10G10R10_SNORM_PACK32, 12), std::make_tuple(1, EF_B8G8R8A8_UNORM, 16) };
 		meshbuffer->setVertexBufferBinding(std::move(bufferBinding), 0ull);
 		meshbuffer->setVertexBufferBindingParams(0ull, vtxSize);
 
@@ -177,11 +186,12 @@ asset::SAssetBundle CSTLMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	mesh->getMeshBuffer(0)->setIndexCount(positions.size());
     //mesh->getMeshBuffer(0)->setPrimitiveType(EPT_POINTS);
 	mesh->recalculateBoundingBox(true);
-
+#endif
     return SAssetBundle({std::move(mesh)});
 }
 
-bool CSTLMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
+#ifndef NEW_SHADERS
+bool CSTLMeshFileLoader::isALoadableFileFormat(IReadFile* _file)
 {
     if (!_file || _file->getSize() <= 6u)
         return false;
@@ -211,7 +221,7 @@ bool CSTLMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
 }
 
 //! Read 3d vector of floats
-void CSTLMeshFileLoader::getNextVector(io::IReadFile* file, core::vectorSIMDf& vec, bool binary) const
+void CSTLMeshFileLoader::getNextVector(IReadFile* file, core::vectorSIMDf& vec, bool binary) const
 {
 	if (binary)
 	{
@@ -233,10 +243,10 @@ void CSTLMeshFileLoader::getNextVector(io::IReadFile* file, core::vectorSIMDf& v
 	}
 	vec.X=-vec.X;
 }
-
+#endif
 
 //! Read next word
-const core::stringc& CSTLMeshFileLoader::getNextToken(io::IReadFile* file, core::stringc& token) const
+const core::stringc& CSTLMeshFileLoader::getNextToken(IReadFile* file, core::stringc& token) const
 {
 	goNextWord(file);
 	uint8_t c;
@@ -254,7 +264,7 @@ const core::stringc& CSTLMeshFileLoader::getNextToken(io::IReadFile* file, core:
 
 
 //! skip to next word
-void CSTLMeshFileLoader::goNextWord(io::IReadFile* file) const
+void CSTLMeshFileLoader::goNextWord(IReadFile* file) const
 {
 	uint8_t c;
 	while(file->getPos() != file->getSize())
@@ -271,7 +281,7 @@ void CSTLMeshFileLoader::goNextWord(io::IReadFile* file) const
 
 
 //! Read until line break is reached and stop at the next non-space character
-void CSTLMeshFileLoader::goNextLine(io::IReadFile* file) const
+void CSTLMeshFileLoader::goNextLine(IReadFile* file) const
 {
 	uint8_t c;
 	// look for newline characters
@@ -283,9 +293,6 @@ void CSTLMeshFileLoader::goNextLine(io::IReadFile* file) const
 			break;
 	}
 }
-
-} // end namespace scene
-} // end namespace irr
 
 
 #endif // _IRR_COMPILE_WITH_STL_LOADER_

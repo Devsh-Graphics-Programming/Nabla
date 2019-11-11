@@ -20,14 +20,15 @@
 #include "irr/video/IGPUComputePipeline.h"
 #include "irr/asset/ICPUSampler.h"
 #include "irr/video/IGPUSampler.h"
-#include "irr/asset/ICPUTextureView.h"
-#include "irr/video/IGPUTextureView.h"
+#include "irr/asset/ICPUImageView.h"
+#include "irr/video/IGPUImageView.h"
 
 namespace irr
 {
 namespace video
 {
 
+// TODO: don't we already have a class for this in asset::IBuffer?
 template<typename BuffT>
 class IOffsetBufferPair : public core::IReferenceCounted
 {
@@ -55,17 +56,17 @@ struct asset_traits;
 template<>
 struct asset_traits<asset::ICPUBuffer> { using GPUObjectType = IGPUOffsetBufferPair; };
 template<>
-struct asset_traits<asset::ICPUMeshBuffer> { using GPUObjectType = video::IGPUMeshBuffer; };
+struct asset_traits<asset::ICPUBufferView> { using GPUObjectType = video::IGPUBufferView; };
 template<>
-struct asset_traits<asset::ICPUMesh> { using GPUObjectType = video::IGPUMesh; };
+struct asset_traits<asset::ICPUImage> { using GPUObjectType = video::IGPUImage; };
 template<>
-struct asset_traits<asset::ICPUTexture> { using GPUObjectType = video::ITexture; };
+struct asset_traits<asset::ICPUImageView> { using GPUObjectType = video::IGPUImageView; };
+template<>
+struct asset_traits<asset::ICPUSampler> { using GPUObjectType = video::IGPUSampler; };
 template<>
 struct asset_traits<asset::ICPUShader> { using GPUObjectType = video::IGPUShader; };
 template<>
 struct asset_traits<asset::ICPUSpecializedShader> { using GPUObjectType = video::IGPUSpecializedShader; };
-template<>
-struct asset_traits<asset::ICPUBufferView> { using GPUObjectType = video::IGPUBufferView; };
 template<>
 struct asset_traits<asset::ICPUDescriptorSet> { using GPUObjectType = video::IGPUDescriptorSet; };
 template<>
@@ -75,11 +76,11 @@ struct asset_traits<asset::ICPUPipelineLayout> { using GPUObjectType = video::IG
 template<>
 struct asset_traits<asset::ICPURenderpassIndependentPipeline> { using GPUObjectType = video::IGPURenderpassIndependentPipeline; };
 template<>
-struct asset_traits<asset::ICPUSampler> { using GPUObjectType = video::IGPUSampler; };
-template<>
-struct asset_traits<asset::ICPUTextureView> { using GPUObjectType = video::IGPUTextureView; };
+struct asset_traits<asset::ICPUMeshBuffer> { using GPUObjectType = video::IGPUMeshBuffer; };
 template<>
 struct asset_traits<asset::ICPUComputePipeline> { using GPUObjectType = video::IGPUComputePipeline; };
+template<>
+struct asset_traits<asset::ICPUMesh> { using GPUObjectType = video::IGPUMesh; };
 
 
 template<typename AssetType>

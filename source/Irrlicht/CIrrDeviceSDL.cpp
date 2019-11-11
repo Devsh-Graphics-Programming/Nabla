@@ -652,31 +652,6 @@ void CIrrDeviceSDL::closeDevice()
 	Close = true;
 }
 
-
-//! \return Pointer to a list with all video modes supported
-video::IVideoModeList* CIrrDeviceSDL::getVideoModeList()
-{
-	if (!VideoModeList->getVideoModeCount())
-	{
-		// enumerate video modes.
-		const SDL_VideoInfo *vi = SDL_GetVideoInfo();
-		SDL_Rect **modes = SDL_ListModes(vi->vfmt, SDL_Flags);
-		if (modes != 0)
-		{
-			if (modes == (SDL_Rect **)-1)
-				os::Printer::log("All modes available.\n");
-			else
-			{
-				for (uint32_t i=0; modes[i]; ++i)
-					VideoModeList->addMode(core::dimension2d<uint32_t>(modes[i]->w, modes[i]->h), vi->vfmt->BitsPerPixel);
-			}
-		}
-	}
-
-	return VideoModeList;
-}
-
-
 //! Sets if the window should be resizable in windowed mode.
 void CIrrDeviceSDL::setResizable(bool resize)
 {

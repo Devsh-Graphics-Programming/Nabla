@@ -11,7 +11,6 @@
 #include "dimension2d.h"
 #include "position2d.h"
 #include "IDriverFence.h"
-#include "ITransformFeedback.h"
 #include "SExposedVideoData.h"
 #include "IDriver.h"
 #include "irr/video/CDerivativeMapCreator.h"
@@ -20,56 +19,8 @@
 
 namespace irr
 {
-namespace io
-{
-	class IReadFile;
-	class IWriteFile;
-} // end namespace io
-
 namespace video
 {
-	class CImageData;
-    class IGPUShader;
-    class IGPUSpecializedShader;
-
-	//! enumeration for geometry transformation states
-	enum E_4X3_TRANSFORMATION_STATE
-	{
-		//! View transformation
-		E4X3TS_VIEW = 0,
-		//! World transformation
-		E4X3TS_WORLD,
-		//!
-		E4X3TS_WORLD_VIEW,
-		//!
-		E4X3TS_VIEW_INVERSE,
-		//!
-		E4X3TS_WORLD_INVERSE,
-		//!
-		E4X3TS_WORLD_VIEW_INVERSE,
-		//!
-		E4X3TS_NORMAL_MATRIX,
-		//! Not used
-		E4X3TS_COUNT
-	};
-	enum E_PROJECTION_TRANSFORMATION_STATE
-	{
-		//! Projection transformation
-		EPTS_PROJ,
-		//!
-		EPTS_PROJ_VIEW,
-		//!
-		EPTS_PROJ_VIEW_WORLD,
-		//!
-		EPTS_PROJ_INVERSE,
-		//!
-		EPTS_PROJ_VIEW_INVERSE,
-		//!
-		EPTS_PROJ_VIEW_WORLD_INVERSE,
-		//! Not used
-		EPTS_COUNT
-	};
-
 	enum E_SCREEN_BUFFERS
 	{
 		ESB_FRONT_LEFT=0,
@@ -77,16 +28,6 @@ namespace video
 		ESB_BACK_LEFT,
 		ESB_BACK_RIGHT
 	};
-
-	enum E_MIP_CHAIN_ERROR
-	{
-	    EMCE_NO_ERR=0,
-	    EMCE_SUB_IMAGE_OUT_OF_BOUNDS,
-	    EMCE_MIP_LEVEL_OUT_OF_BOUND,
-	    EMCE_INVALID_IMAGE,
-	    EMCE_OTHER_ERR
-	};
-
     enum E_PIPELINE_BIND_POINT
     {
         EPBP_GRAPHICS = 0,
@@ -94,14 +35,7 @@ namespace video
         EPBP_COUNT
     };
 
-	//! Interface to driver which is able to perform 2d and 3d graphics functions.
-	/** This interface is one of the most important interfaces of
-	the Irrlicht Engine: All rendering and texture manipulation is done with
-	this interface. You are able to use the Irrlicht Engine by only
-	invoking methods of this interface if you like to, although the
-	irr::scene::ISceneManager interface provides a lot of powerful classes
-	and methods to make the programmer's life easier.
-	*/
+	//! Legacy and deprecated system
 	class IVideoDriver : public IDriver
 	{
 	public:
@@ -165,31 +99,14 @@ namespace video
 		//!
 		virtual void issueGPUTextureBarrier() =0;
 
-		//! Sets transformation matrices.
-		/** \param state Transformation type to be set, e.g. view,
-		world, or projection.
-		\param mat Matrix describing the transformation. */
-		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat) =0;
-
-		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4SIMD& mat) =0;
-
-		//! Returns the transformation set by setTransform
-		/** \param state Transformation type to query
-		\return Matrix describing the transformation. */
-		virtual const core::matrix4x3& getTransform(const E_4X3_TRANSFORMATION_STATE& state) =0;
-
-		virtual const core::matrix4SIMD& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state) =0;
-
-        //! A.
-        virtual IMultisampleTexture* createMultisampleTexture(const IMultisampleTexture::E_MULTISAMPLE_TEXTURE_TYPE& type, const uint32_t& samples, const uint32_t* size,
-                                                           asset::E_FORMAT format = asset::EF_B8G8R8A8_UNORM, const bool& fixedSampleLocations = false) {return nullptr;}
-
+		//!
 		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
                                         bool copyDepth=true, bool copyStencil=true,
 										core::recti srcRect=core::recti(0,0,0,0),
 										core::recti dstRect=core::recti(0,0,0,0),
 										bool bilinearFilter=false) = 0;
 
+		//!
         virtual void removeFrameBuffer(IFrameBuffer* framebuf) = 0;
 
 		//! This only removes all IFrameBuffers created in the calling thread.
@@ -239,12 +156,12 @@ namespace video
 		virtual void drawMeshBuffer(const video::IGPUMeshBuffer* mb) =0;
 
 		//! Indirect Draw
-		virtual void drawArraysIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+		virtual void drawArraysIndirect(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                                         asset::E_PRIMITIVE_TOPOLOGY mode,
                                         const IGPUBuffer* indirectDrawBuff,
                                         size_t offset, size_t maxCount, size_t stride,
                                         const IGPUBuffer* countBuffer = nullptr, size_t countOffset = 0u) = 0;
-		virtual void drawIndexedIndirect(const IGPUMeshBuffer::SBufferBinding _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+		virtual void drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                                         asset::E_PRIMITIVE_TOPOLOGY mode,
                                         asset::E_INDEX_TYPE indexType, const IGPUBuffer* indexBuff,
                                         const IGPUBuffer* indirectDrawBuff,
@@ -277,29 +194,6 @@ namespace video
 		\return Amount of primitives drawn in the last frame. */
 		virtual uint32_t getPrimitiveCountDrawn( uint32_t mode =0 ) const =0;
 
-		//! Returns the maximum amount of primitives
-		/** (mostly vertices) which the device is able to render.
-		\return Maximum amount of primitives. */
-		virtual uint32_t getMaximalIndicesCount() const =0;
-
-		//! Enables or disables a texture creation flag.
-		/** These flags define how textures should be created. By
-		changing this value, you can influence for example the speed of
-		rendering a lot. But please note that the video drivers take
-		this value only as recommendation. It could happen that you
-		enable the ETCF_ALWAYS_16_BIT mode, but the driver still creates
-		32 bit textures.
-		\param flag Texture creation flag.
-		\param enabled Specifies if the given flag should be enabled or
-		disabled. */
-		virtual void setTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag, bool enabled=true) =0;
-
-		//! Returns if a texture creation flag is enabled or disabled.
-		/** You can change this value using setTextureCreationFlag().
-		\param flag Texture creation flag.
-		\return The current texture creation flag enabled mode. */
-		virtual bool getTextureCreationFlag(E_TEXTURE_CREATION_FLAG flag) const =0;
-
 		//! Event handler for resize events. Only used by the engine internally.
 		/** Used to notify the driver that the window was resized.
 		Usually, there is no need to call this method. */
@@ -310,12 +204,6 @@ namespace video
 		extended without having to modify the source of the engine.
 		\return Collection of device dependent pointers. */
 		virtual const SExposedVideoData& getExposedVideoData() =0;
-
-		//! Gets the IGPUProgrammingServices interface.
-		/** \return Pointer to the IGPUProgrammingServices. Returns 0
-		if the video driver does not support this. For example the
-		Software driver and the Null driver will always return 0. */
-		//virtual IGPUProgrammingServices* getGPUProgrammingServices() =0;
 
 		//! Enable or disable a clipping plane.
 		/** There are at least 6 clipping planes available for the user

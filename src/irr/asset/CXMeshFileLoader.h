@@ -167,27 +167,27 @@ private:
         asset::IAssetLoader::IAssetLoaderOverride* loaderOverride;
     };
 
-	bool load(SContext& _ctx, io::IReadFile* file);
+	bool load(SContext& _ctx, io::IReadFile* file, const asset::IAssetLoader::SAssetLoadParams& _params);
 
 	bool readFileIntoMemory(SContext& _ctx, io::IReadFile* file);
 
-	bool parseFile(SContext& _ctx);
+	bool parseFile(SContext& _ctx, const asset::IAssetLoader::SAssetLoadParams& _params);
 
-	bool parseDataObject(SContext& _ctx);
+	bool parseDataObject(SContext& _ctx, const asset::IAssetLoader::SAssetLoadParams& _params);
 
 	bool parseDataObjectTemplate(SContext& _ctx);
 
-	bool parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMesh::SJoint *parent);
+	bool parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMesh::SJoint *parent, const asset::IAssetLoader::SAssetLoadParams& _params);
 
 	bool parseDataObjectTransformationMatrix(SContext& _ctx, core::matrix4x3 &mat);
 
-	bool parseDataObjectMesh(SContext& _ctx, SXMesh &mesh);
+	bool parseDataObjectMesh(SContext& _ctx, SXMesh &mesh, const asset::IAssetLoader::SAssetLoadParams& _params);
 
 	bool parseDataObjectSkinWeights(SContext& _ctx, SXMesh &mesh);
 
 	bool parseDataObjectSkinMeshHeader(SContext& _ctx, SXMesh &mesh);
 
-	bool parseDataObjectMeshNormals(SContext& _ctx, SXMesh &mesh);
+	bool parseDataObjectMeshNormals(SContext& _ctx, SXMesh &mesh, std::function<void(std::function<void()>, std::function<void()>)> performActionBasedOnOrientationSystem);
 
 	bool parseDataObjectMeshTextureCoords(SContext& _ctx, SXMesh &mesh);
 

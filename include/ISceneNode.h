@@ -5,13 +5,10 @@
 #ifndef __I_SCENE_NODE_H_INCLUDED__
 #define __I_SCENE_NODE_H_INCLUDED__
 
-#include "irr/core/core.h"
+#include "irr/video/video.h"
 
 #include "ESceneNodeTypes.h"
-#include "ECullingTypes.h"
-#include "EDebugSceneTypes.h"
 #include "ISceneNodeAnimator.h"
-#include "ITexture.h"
 #include "aabbox3d.h"
 #include "matrix4x3.h"
 #include "IDummyTransformationSceneNode.h"
@@ -45,8 +42,7 @@ namespace scene
 				const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f))
 			:   IDummyTransformationSceneNode(parent,position,rotation,scale),
                 SceneManager(mgr), renderFence(0), fenceBehaviour(EFRB_SKIP_DRAW),
-                ID(id), AutomaticCullingState(EAC_FRUSTUM_BOX),
-                DebugDataVisible(EDS_OFF), mobid(0), mobtype(0), IsVisible(true),
+                ID(id), AutomaticCullingState(true), mobid(0), mobtype(0), IsVisible(true),
                 IsDebugObject(false), staticmeshid(0),blockposX(0),blockposY(0),blockposZ(0), renderPriority(0x80000000u)
 		{
 		}
@@ -453,7 +449,7 @@ namespace scene
 		int32_t ID; // could be pushed up to IDummyTransformationSceneNode
 
 		//! Automatic culling state
-		uint32_t AutomaticCullingState;
+		bool AutomaticCullingState;
 
 		//! Flag if debug data should be drawn, such as Bounding Boxes.
 		uint32_t DebugDataVisible;

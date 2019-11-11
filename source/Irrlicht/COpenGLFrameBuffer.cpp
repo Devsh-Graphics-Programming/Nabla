@@ -7,7 +7,6 @@
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 #include "COpenGLFrameBuffer.h"
 #include "COpenGLDriver.h"
-#include "COpenGLMultisampleTexture.h"
 
 #include "os.h"
 
@@ -66,17 +65,13 @@ bool checkFBOStatus(const GLuint &fbo, COpenGLDriver* Driver)
 }
 
 //! constructor
-COpenGLFrameBuffer::COpenGLFrameBuffer(COpenGLDriver* driver)
-  : frameBuffer(0), Driver(driver), forceRevalidate(true), lastValidated(0)
+COpenGLFrameBuffer::COpenGLFrameBuffer(COpenGLDriver* driver) : Driver(driver), fboSize(), frameBuffer(0)
 {
 #ifdef _IRR_DEBUG
 	setDebugName("COpenGLFrameBuffer");
 #endif
     Driver->extGlCreateFramebuffers(1,&frameBuffer);
-
-    memset(attachments,0,sizeof(void*)*EFAP_MAX_ATTACHMENTS);
-    memset(cachedLevel,-1,sizeof(GLint)*EFAP_MAX_ATTACHMENTS);
-    memset(cachedLayer,-1,sizeof(GLint)*EFAP_MAX_ATTACHMENTS);
+	std::fill(cachedMipLayer,cachedMipLayer+EFAP_MAX_ATTACHMENTS,-1);
 }
 
 //! destructor
@@ -84,25 +79,20 @@ COpenGLFrameBuffer::~COpenGLFrameBuffer()
 {
     if (frameBuffer)
         Driver->extGlDeleteFramebuffers(1,&frameBuffer);
-
-    for (size_t i=0; i<EFAP_MAX_ATTACHMENTS; i++)
-    {
-        if (attachments[i])
-            attachments[i]->drop();
-    }
 }
 
-bool COpenGLFrameBuffer::attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, ITexture* tex, const uint32_t &mipMapLayer, const int32_t &layer)
+// TODO : merge two below and redo with smart pointers
+bool COpenGLFrameBuffer::attach(E_FBO_ATTACHMENT_POINT attachmenPoint, core::smart_refctd_ptr<IGPUImageView>&& tex, uint32_t mipMapLayer, int32_t layer)
 {
 	if (!frameBuffer||attachmenPoint>=EFAP_MAX_ATTACHMENTS)
 		return false;
 
-    COpenGLFilterableTexture* glTex = static_cast<COpenGLFilterableTexture*>(tex);
-    if (tex&&COpenGLTexture::isInternalFormatCompressed(glTex->getOpenGLInternalFormat()))
+    if (tex && asset::isBlockCompressionFormat(tex->getCreationParameters().format))
         return false;
+	auto* glTex = static_cast<COpenGLImageView*>(tex.get());
 
     GLenum attachment = GL_INVALID_ENUM;
-    //! Need additional validation here for matching texture formats
+    //! TODO: Need additional validation here for matching texture formats
     switch (attachmenPoint)
     {
         case EFAP_DEPTH_ATTACHMENT:
@@ -127,109 +117,26 @@ bool COpenGLFrameBuffer::attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IT
     */
     if (glTex)
     {
+		if (glTex->getCreationParameters().image->getCreationParameters().samples!=IGPUImage::ESCF_1_BIT)
+			mipMapLayer = 0;
+
         if (layer>=0)
-        {
             Driver->extGlNamedFramebufferTextureLayer(frameBuffer,attachment,glTex->getOpenGLName(),glTex->getOpenGLTextureType(),mipMapLayer,layer);
-            cachedLayer[attachmenPoint] = layer;
-        }
         else
-        {
             Driver->extGlNamedFramebufferTexture(frameBuffer,attachment,glTex->getOpenGLName(),mipMapLayer);
-            cachedLayer[attachmenPoint] = -1;
-        }
-        cachedLevel[attachmenPoint] = mipMapLayer;
+
+		cachedMipLayer[attachmenPoint] = mipMapLayer;
     }
     else
-    {
+	{
         Driver->extGlNamedFramebufferTexture(frameBuffer,attachment,0,0);
-        cachedLevel[attachmenPoint] = -1;
-        cachedLayer[attachmenPoint] = -1;
-    }
+		cachedMipLayer[attachmenPoint] = ~0u;
+	}
+
+    attachments[attachmenPoint] = glTex;
 
 
-
-    if (attachments[attachmenPoint])
-        attachments[attachmenPoint]->drop();
-    attachments[attachmenPoint] = tex;
-	if (tex)
-        tex->grab(); // grab the depth buffer, not the RTT
-
-    forceRevalidate = true;
-
-	return true;
-}
-
-bool COpenGLFrameBuffer::attach(const E_FBO_ATTACHMENT_POINT &attachmenPoint, IMultisampleTexture* tex, const int32_t &layer)
-{
-	if (!frameBuffer||attachmenPoint>=EFAP_MAX_ATTACHMENTS)
-		return false;
-
-    COpenGLMultisampleTexture* glTex = static_cast<COpenGLMultisampleTexture*>(tex);
-    if (!tex)
-        return false;
-
-    GLenum attachment = GL_INVALID_ENUM;
-    //! Need additional validation here for matching texture formats
-    switch (attachmenPoint)
-    {
-        case EFAP_DEPTH_ATTACHMENT:
-            attachment = GL_DEPTH_ATTACHMENT;
-            break;
-        case EFAP_STENCIL_ATTACHMENT:
-            attachment = GL_STENCIL_ATTACHMENT;
-            break;
-        case EFAP_DEPTH_STENCIL_ATTACHMENT:
-            attachment = GL_DEPTH_STENCIL_ATTACHMENT;
-            break;
-        default:
-            attachment = GL_COLOR_ATTACHMENT0+(attachmenPoint-EFAP_COLOR_ATTACHMENT0);
-            break;
-    }
-    /*
-    If <texture> is the name of a three-dimensional texture, cube map texture,
-    one- or two-dimensional array texture, cube map array texture, or two-
-    dimensional multisample array texture, the texture level attached to the
-    framebuffer attachment point is an array of images, and the framebuffer
-    attachment is considered layered.
-    */
-    cachedLevel[attachmenPoint] = -1;
-    if (glTex)
-    {
-        if (layer>=0)
-        {
-            Driver->extGlNamedFramebufferTextureLayer(frameBuffer,attachment,glTex->getOpenGLName(), glTex->getOpenGLTextureType(),0,layer);
-            cachedLayer[attachmenPoint] = layer;
-        }
-        else
-        {
-            Driver->extGlNamedFramebufferTexture(frameBuffer,attachment,glTex->getOpenGLName(),0);
-            cachedLayer[attachmenPoint] = -1;
-        }
-    }
-    else
-    {
-        Driver->extGlNamedFramebufferTexture(frameBuffer,attachment,0,0);
-        cachedLayer[attachmenPoint] = -1;
-    }
-
-
-
-    if (attachments[attachmenPoint])
-        attachments[attachmenPoint]->drop();
-    attachments[attachmenPoint] = tex;
-	if (tex)
-        tex->grab(); // grab the depth buffer, not the RTT
-
-    forceRevalidate = true;
-
-	return true;
-}
-
-bool COpenGLFrameBuffer::rebindRevalidate()
-{
     bool noAttachments = true;
-    bool revalidate = forceRevalidate;
-    uint64_t highestRevalidationStamp = lastValidated;
     //
     size_t enabledBufferCnt = 0;
     GLenum drawBuffers[EFAP_MAX_ATTACHMENTS-EFAP_COLOR_ATTACHMENT0] = {0}; //GL_NONE
@@ -237,6 +144,18 @@ bool COpenGLFrameBuffer::rebindRevalidate()
     {
         if (!attachments[i])
             continue;
+
+		auto tmp = attachments[i]->getCreationParameters().image->getMipSize(cachedMipLayer[i]);
+		if (noAttachments)
+		{
+			fboSize.Width = tmp.x;
+			fboSize.Height = tmp.y;
+		}
+		else
+		{
+			fboSize.Width = std::min(fboSize.Width, tmp.x);
+			fboSize.Height = std::min(fboSize.Height, tmp.y);
+		}
         noAttachments = false;
 
         if (i>=EFAP_COLOR_ATTACHMENT0)
@@ -244,61 +163,27 @@ bool COpenGLFrameBuffer::rebindRevalidate()
             drawBuffers[i-EFAP_COLOR_ATTACHMENT0] = GL_COLOR_ATTACHMENT0+i-EFAP_COLOR_ATTACHMENT0;
             enabledBufferCnt = i;
         }
-
-        uint64_t revalidationStamp = 0;
-        switch (attachments[i]->getVirtualTextureType())
-        {
-            case IRenderableVirtualTexture::EVTT_OPAQUE_FILTERABLE:
-                {
-                    ITexture* typeTex = static_cast<ITexture*>(attachments[i]);
-                    revalidationStamp = dynamic_cast<COpenGLTexture*>(typeTex)->hasOpenGLNameChanged();
-                    if (revalidationStamp>lastValidated)
-                        attach((E_FBO_ATTACHMENT_POINT)i,typeTex,cachedLevel[i],cachedLayer[i]);
-                }
-                break;
-            case IRenderableVirtualTexture::EVTT_2D_MULTISAMPLE:
-                {
-                    IMultisampleTexture* typeTex = static_cast<IMultisampleTexture*>(attachments[i]);
-                    revalidationStamp = dynamic_cast<COpenGLTexture*>(typeTex)->hasOpenGLNameChanged();
-                    if (revalidationStamp>lastValidated)
-                        attach((E_FBO_ATTACHMENT_POINT)i,typeTex,cachedLayer[i]);
-                }
-                break;
-            default:
-                os::Printer::log("WTF are you trying to render into!?");
-                break;
-        }
-        if (revalidationStamp>lastValidated)
-        {
-            if (revalidationStamp>highestRevalidationStamp)
-                highestRevalidationStamp = revalidationStamp;
-            revalidate = true;
-        }
     }
 
+
+	// TODO: empty framebuffers
     if (noAttachments)
     {
 		os::Printer::log("FBO has no attachments!");
         return false;
     }
 
-    if (revalidate)
+    if (!checkFBOStatus(frameBuffer,Driver))
     {
-        if (!checkFBOStatus(frameBuffer,Driver))
-        {
-            os::Printer::log("FBO incomplete");
-            return false;
-        }
-        forceRevalidate = false;
-        lastValidated = highestRevalidationStamp;
-        if (enabledBufferCnt)
-            enabledBufferCnt += 1-EFAP_COLOR_ATTACHMENT0;
-        COpenGLExtensionHandler::extGlNamedFramebufferDrawBuffers(frameBuffer, enabledBufferCnt, drawBuffers);
+        os::Printer::log("FBO incomplete");
+        return false;
     }
+    if (enabledBufferCnt)
+        enabledBufferCnt += 1-EFAP_COLOR_ATTACHMENT0;
+    COpenGLExtensionHandler::extGlNamedFramebufferDrawBuffers(frameBuffer, enabledBufferCnt, drawBuffers);
 
 	return true;
 }
-
 
 
 }

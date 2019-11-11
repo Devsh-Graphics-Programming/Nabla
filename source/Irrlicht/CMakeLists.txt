@@ -66,6 +66,7 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshFileLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CSTLMeshFileLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CXMeshFileLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CBufferLoaderBIN.cpp
 
 # Mesh writers
 	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshWriter.cpp
@@ -94,7 +95,6 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ROOT_PATH}/src/irr/asset/CSmoothNormalGenerator.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CMeshManipulator.cpp
 	CMeshSceneNode.cpp
-	CMeshSceneNodeInstanced.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/COverdrawMeshOptimizer.cpp
 	CSkinnedMeshSceneNode.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/bawformat/TypedBlob.cpp
@@ -104,8 +104,6 @@ set(IRRLICHT_SRCS_COMMON
 	CCameraSceneNode.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CGeometryCreator.cpp
 	CSceneManager.cpp
-	CSkyBoxSceneNode.cpp
-	CSkyDomeSceneNode.cpp
 
 # Animators
 	CSceneNodeAnimatorCameraFPS.cpp
@@ -120,10 +118,6 @@ set(IRRLICHT_SRCS_COMMON
 # Driver-specific objects
 	IDriver.cpp
 	CNullDriver.cpp
-	COpenGLDriver.cpp
-	COpenGLExtensionHandler.cpp
-	COpenGLFrameBuffer.cpp
-	COpenGLTexture.cpp
 	${IRR_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
 	FW_Mutex.cpp
 
@@ -138,7 +132,6 @@ set(IRRLICHT_SRCS_COMMON
 
 # Video
 	CFPSCounter.cpp
-	CVideoModeList.cpp
 	${IRR_ROOT_PATH}/src/irr/video/alloc/GPUMemoryAllocatorBase.cpp
 	${IRR_ROOT_PATH}/src/irr/video/alloc/SimpleGPUBufferAllocator.cpp
 
@@ -176,18 +169,10 @@ set(IRRLICHT_SRCS_NORMAL
 
 	#opengl
 	COpenCLHandler.cpp
-	COpenGL2DTextureArray.cpp
-	COpenGL2DTexture.cpp
-	COpenGL3DTexture.cpp
-	COpenGLCubemapTexture.cpp
-	COpenGLMultisampleTextureArray.cpp
-	COpenGLMultisampleTexture.cpp
+	COpenGLDriver.cpp
+	COpenGLExtensionHandler.cpp
+	COpenGLFrameBuffer.cpp
 	COpenGLQuery.cpp
-	COpenGLTransformFeedback.cpp
-	COpenGL1DTexture.cpp
-	COpenGL1DTextureArray.cpp
-	COpenGLCubemapArrayTexture.cpp
-	COpenGLCubemapTexture.cpp
 
 	# abstract (move this out eventually)
 	${IRR_ROOT_PATH}/src/irr/video/CDerivativeMapCreator.cpp

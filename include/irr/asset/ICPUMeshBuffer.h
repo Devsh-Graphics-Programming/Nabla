@@ -61,7 +61,7 @@ protected:
     virtual ~ICPUMeshBuffer() = default;
 public:
     //! Default constructor (initializes pipeline, desc set and buffer bindings to nullptr)
-    ICPUMeshBuffer() : base_t(nullptr, nullptr, nullptr, SBufferBinding{}) {}
+    ICPUMeshBuffer() : base_t(nullptr, nullptr, nullptr, SBufferBinding<ICPUBuffer>{}) {}
     using base_t::base_t;
 
     virtual void* serializeToBlob(void* _stackPtr = nullptr, const size_t& _stackSize = 0) const override
@@ -76,16 +76,16 @@ public:
 
     virtual E_MESH_BUFFER_TYPE getMeshBufferType() const { return EMBT_NOT_ANIMATED; }
 
-    inline SBufferBinding* getAttribBoundBuffer(uint32_t attrId)
+    inline SBufferBinding<ICPUBuffer>* getAttribBoundBuffer(uint32_t attrId)
     {
         const uint32_t bnd = getBindingNumForAttribute(attrId);
         return &m_vertexBufferBindings[bnd];
     }
-    inline SBufferBinding* getVertexBufferBindings()
+    inline SBufferBinding<ICPUBuffer>* getVertexBufferBindings()
     {
         return m_vertexBufferBindings;
     }
-    inline SBufferBinding* getIndexBufferBinding() 
+    inline SBufferBinding<ICPUBuffer>* getIndexBufferBinding()
     {
         return &m_indexBufferBinding;
     }
@@ -102,7 +102,7 @@ public:
 
 		return true;
 	}
-	inline bool setVertexBufferBinding(SBufferBinding&& bufferBinding, uint32_t bindingIndex)
+	inline bool setVertexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding, uint32_t bindingIndex)
 	{
 		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT)
 			return false;
@@ -111,7 +111,7 @@ public:
 
 		return true;
 	}
-	inline void setIndexBufferBinding(SBufferBinding&& bufferBinding)
+	inline void setIndexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding)
 	{
         m_indexBufferBinding = std::move(bufferBinding);
 	}

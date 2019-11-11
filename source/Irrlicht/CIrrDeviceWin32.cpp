@@ -1321,33 +1321,6 @@ CIrrDeviceWin32::CCursorControl* CIrrDeviceWin32::getWin32CursorControl()
 }
 
 
-//! \return Returns a pointer to a list with all video modes supported
-//! by the gfx adapter.
-video::IVideoModeList* CIrrDeviceWin32::getVideoModeList()
-{
-	if (!VideoModeList->getVideoModeCount())
-	{
-		// enumerate video modes.
-		DWORD i=0;
-		DEVMODE mode;
-		memset(&mode, 0, sizeof(mode));
-		mode.dmSize = sizeof(mode);
-
-		while (EnumDisplaySettings(NULL, i, &mode))
-		{
-			VideoModeList->addMode(core::dimension2d<uint32_t>(mode.dmPelsWidth, mode.dmPelsHeight),
-				mode.dmBitsPerPel);
-
-			++i;
-		}
-
-		if (EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &mode))
-			VideoModeList->setDesktop(mode.dmBitsPerPel, core::dimension2d<uint32_t>(mode.dmPelsWidth, mode.dmPelsHeight));
-	}
-
-	return VideoModeList;
-}
-
 typedef BOOL (WINAPI *PGPI)(DWORD, DWORD, DWORD, DWORD, PDWORD);
 // Needed for old windows apis
 // depending on the SDK version and compilers some defines might be available

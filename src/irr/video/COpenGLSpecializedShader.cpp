@@ -4,7 +4,12 @@
 #include "irr/asset/spvUtils.h"
 #include <algorithm>
 
-namespace irr { namespace video
+
+#ifdef _IRR_COMPILE_WITH_OPENGL_
+
+namespace irr
+{
+namespace video
 {
 
 namespace impl
@@ -91,6 +96,12 @@ static GLenum ESS2GLenum(asset::E_SHADER_STAGE _stage)
 }
 
 }//namesapce impl
+
+}
+}//irr::video
+
+using namespace irr;
+using namespace irr::video;
 
 COpenGLSpecializedShader::COpenGLSpecializedShader(size_t _ctxCount, uint32_t _ctxID, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection) :
     IGPUSpecializedShader(_specInfo->shaderStage),
@@ -272,5 +283,4 @@ void COpenGLSpecializedShader::buildUniformsList(GLuint _GLname)
     //not needed any more
     //m_introspectionData = nullptr;
 }
-
-}}//irr::video
+#endif

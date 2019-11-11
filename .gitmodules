@@ -70,7 +70,6 @@
 [submodule "3rdparty/CEGUI/pcre"]
 	path = 3rdparty/CEGUI/pcre
 	url = https://github.com/svn2github/pcre.git
-[submodule "3rdparty/CEGUI/glew"]
+[submodule "3rdparty/CEGUI/glew-cmake"]
 	path = 3rdparty/CEGUI/glew
-	url = https://github.com/Perlmint/glew-cmake.git
-	branch = master
+	url = https://github.com/achalpandeyy/glew-cmake.git

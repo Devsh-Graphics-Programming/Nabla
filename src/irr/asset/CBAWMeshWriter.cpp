@@ -6,15 +6,11 @@
 #include "CBAWMeshWriter.h"
 
 #include "irr/core/core.h"
+#include "irr/asset/asset.h"
 #include "os.h"
 
 #include "IFileSystem.h"
 #include "IWriteFile.h"
-
-#include "irr/asset/ICPUTexture.h"
-#include "irr/asset/ICPUSkinnedMesh.h"
-#include "irr/asset/ICPUSkinnedMeshBuffer.h"
-#include "CFinalBoneHierarchy.h"
 
 
 #include "lz4/lib/lz4.h"
@@ -95,6 +91,7 @@ struct LzmaMemMngmnt
         const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 1u);
 		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, flags, encrPwd, comprLvl);
 	}
+#ifndef NEW_SHADERS
 	template<>
 	void CBAWMeshWriter::exportAsBlob<ICPUTexture>(ICPUTexture* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
@@ -111,6 +108,7 @@ struct LzmaMemMngmnt
         const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 2u);
 		tryWrite(&path[0], _file, _ctx, len, _headerIdx, flags, encrPwd, comprLvl);
 	}
+#endif
 	template<>
 	void CBAWMeshWriter::exportAsBlob<CFinalBoneHierarchy>(CFinalBoneHierarchy* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{

@@ -22,8 +22,6 @@
 
 #include "os.h"
 
-#include "COpenGLCubemapTexture.h"
-
 
 namespace irr
 {
@@ -1274,7 +1272,9 @@ class COpenGLExtensionHandler
     //multisample textures
     static void extGlTextureStorage2DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations);
     static void extGlTextureStorage3DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLboolean fixedsamplelocations);
-    //texture update functions
+	// views
+	static void extGlTextureView(GLuint texture, GLenum target, GLuint origtexture, GLenum internalformat, GLuint minlevel, GLuint numlevels, GLuint minlayer, GLuint numlayers);
+    // texture update functions
 	static void extGlGetTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLsizei bufSize, void* pixels);
 	static void extGlGetCompressedTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLsizei bufSize, void* pixels);
 	static void extGlGetTextureImage(GLuint texture, GLenum target, GLint level, GLenum format, GLenum type, GLsizei bufSizeHint, void* pixels);
@@ -1289,8 +1289,10 @@ class COpenGLExtensionHandler
     static void extGlCopyTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint x, GLint y, GLsizei width, GLsizei height);
     static void extGlCopyTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height);
     static void extGlGenerateTextureMipmap(GLuint texture, GLenum target);
-    static void extGlClampColor(GLenum target, GLenum clamp);
-    static void setPixelUnpackAlignment(const uint32_t &pitchInBytes, void* ptr, const uint32_t& minimumAlignment=1);
+	// texture "parameter" functions
+	static void extGlTextureParameteriuiv(GLuint texture, GLenum target, GLenum pname, const GLuint* params);
+	static void extGlClampColor(GLenum target, GLenum clamp);
+	static void setPixelUnpackAlignment(const uint32_t& pitchInBytes, void* ptr, const uint32_t& minimumAlignment = 1);
 
     static void extGlCreateSamplers(GLsizei n, GLuint* samplers);
     static void extGlDeleteSamplers(GLsizei n, GLuint* samplers);
@@ -1534,6 +1536,7 @@ class COpenGLExtensionHandler
     static PFNGLTEXTURESTORAGE3DPROC pGlTextureStorage3D; //NULL
     static PFNGLTEXTURESTORAGE2DMULTISAMPLEPROC pGlTextureStorage2DMultisample;
     static PFNGLTEXTURESTORAGE3DMULTISAMPLEPROC pGlTextureStorage3DMultisample;
+	static PFNGLTEXTUREVIEWPROC pGlTextureView;
     static PFNGLTEXTUREBUFFERPROC pGlTextureBuffer; //NULL
     static PFNGLTEXTUREBUFFERRANGEPROC pGlTextureBufferRange; //NULL
     static PFNGLTEXTURESTORAGE1DEXTPROC pGlTextureStorage1DEXT;
@@ -1576,6 +1579,9 @@ class COpenGLExtensionHandler
     static PFNGLCOPYTEXTURESUBIMAGE1DEXTPROC pGlCopyTextureSubImage1DEXT;
     static PFNGLCOPYTEXTURESUBIMAGE2DEXTPROC pGlCopyTextureSubImage2DEXT;
     static PFNGLCOPYTEXTURESUBIMAGE3DEXTPROC pGlCopyTextureSubImage3DEXT;
+	static PFNGLTEXTUREPARAMETERIUIVPROC pGlTextureParameteriuiv;
+	static PFNGLTEXTUREPARAMETERIUIVEXTPROC pGlTextureParameteriuivEXT;
+	static PFNGLTEXPARAMETERIUIVPROC pGlTexParameteriuiv;
     static PFNGLGENERATEMIPMAPPROC pGlGenerateMipmap;
     static PFNGLGENERATETEXTUREMIPMAPPROC pGlGenerateTextureMipmap; //NULL
     static PFNGLGENERATETEXTUREMIPMAPEXTPROC pGlGenerateTextureMipmapEXT;
@@ -2161,6 +2167,11 @@ inline void COpenGLExtensionHandler::extGlTextureStorage3DMultisample(GLuint tex
     }
 }
 
+inline void COpenGLExtensionHandler::extGlTextureView(GLuint texture, GLenum target, GLuint origtexture, GLenum internalformat, GLuint minlevel, GLuint numlevels, GLuint minlayer, GLuint numlayers)
+{
+	pGlTextureView(texture,target,origtexture,internalformat,minlevel,numlevels,minlayer,numlayers);
+}
+
 inline void COpenGLExtensionHandler::extGlGetTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLsizei bufSize, void* pixels)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_get_texture_sub_image])
@@ -2607,7 +2618,7 @@ inline void COpenGLExtensionHandler::extGlGenerateTextureMipmap(GLuint texture, 
         if (pGlGenerateTextureMipmapEXT)
             pGlGenerateTextureMipmapEXT(texture,target);
     }
-    else if (pGlGenerateMipmap)
+    else
     {
         GLint bound;
         switch (target)
@@ -2653,6 +2664,60 @@ inline void COpenGLExtensionHandler::extGlGenerateTextureMipmap(GLuint texture, 
         pGlGenerateMipmap(target);
         glBindTexture(target, bound);
     }
+}
+
+inline void COpenGLExtensionHandler::extGlTextureParameteriuiv(GLuint texture, GLenum target, GLenum pname, const GLuint* params)
+{
+    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+        pGlTextureParameteriuiv(texture,pname,params);
+    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+		pGlTextureParameteriuivEXT(texture,target,pname,params);
+	else
+	{
+        GLint bound;
+        switch (target)
+        {
+            case GL_TEXTURE_1D:
+                glGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
+                break;
+            case GL_TEXTURE_1D_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_1D_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_2D:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+                break;
+            case GL_TEXTURE_2D_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_2D_MULTISAMPLE:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &bound);
+                break;
+            case GL_TEXTURE_2D_MULTISAMPLE_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_3D:
+                glGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+                break;
+            case GL_TEXTURE_BUFFER:
+                glGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &bound);
+                break;
+            case GL_TEXTURE_CUBE_MAP:
+                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+                break;
+            case GL_TEXTURE_CUBE_MAP_ARRAY:
+                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
+                break;
+            case GL_TEXTURE_RECTANGLE:
+                glGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &bound);
+                break;
+            default:
+                os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
+                return;
+        }
+        glBindTexture(target, texture);
+		pGlTexParameteriuiv(target,pname,params);
+        glBindTexture(target, bound);
+	}
 }
 
 inline void COpenGLExtensionHandler::extGlClampColor(GLenum target, GLenum clamp)
@@ -3210,9 +3275,13 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferTextureLayer(GLuint fr
 	}
 	else
 	{
+		constexpr GLenum CubeMapFaceToCubeMapFaceGLenum[IGPUImageView::ECMF_COUNT] = {
+			GL_TEXTURE_CUBE_MAP_POSITIVE_X,GL_TEXTURE_CUBE_MAP_NEGATIVE_X,GL_TEXTURE_CUBE_MAP_POSITIVE_Y,GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,GL_TEXTURE_CUBE_MAP_POSITIVE_Z,GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
+		};
+
 		if (!needsDSAFramebufferHack && FeatureAvailable[IRR_EXT_direct_state_access])
 		{
-            pGlNamedFramebufferTexture2DEXT(framebuffer, attachment, COpenGLCubemapTexture::faceEnumToGLenum((ITexture::E_CUBE_MAP_FACE)layer), texture, level);
+            pGlNamedFramebufferTexture2DEXT(framebuffer, attachment, CubeMapFaceToCubeMapFaceGLenum[layer], texture, level);
 		}
 		else
 		{
@@ -3221,7 +3290,7 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferTextureLayer(GLuint fr
 
 			if (bound != framebuffer)
 				pGlBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-			pGlFramebufferTexture2D(GL_FRAMEBUFFER, attachment, COpenGLCubemapTexture::faceEnumToGLenum((ITexture::E_CUBE_MAP_FACE)layer), texture, level);
+			pGlFramebufferTexture2D(GL_FRAMEBUFFER, attachment, CubeMapFaceToCubeMapFaceGLenum[layer], texture, level);
 			if (bound != framebuffer)
 				pGlBindFramebuffer(GL_FRAMEBUFFER, bound);
 		}

@@ -49,7 +49,7 @@ class IGPUObjectFromAssetConverter
 		inline virtual created_gpu_object_array<asset::ICPUBuffer>				            create(asset::ICPUBuffer** const _begin, asset::ICPUBuffer** const _end);
 		inline virtual created_gpu_object_array<asset::ICPUMeshBuffer>			            create(asset::ICPUMeshBuffer** const _begin, asset::ICPUMeshBuffer** const _end);
 		inline virtual created_gpu_object_array<asset::ICPUMesh>				            create(asset::ICPUMesh** const _begin, asset::ICPUMesh** const _end);
-		inline virtual created_gpu_object_array<asset::ICPUTexture>				            create(asset::ICPUTexture** const _begin, asset::ICPUTexture** const _end);
+		inline virtual created_gpu_object_array<asset::ICPUImage>				            create(asset::ICPUImage** const _begin, asset::ICPUImage** const _end);
         inline virtual created_gpu_object_array<asset::ICPUShader>				            create(asset::ICPUShader** const _begin, asset::ICPUShader** const _end);
         inline virtual created_gpu_object_array<asset::ICPUSpecializedShader>	            create(asset::ICPUSpecializedShader** const _begin, asset::ICPUSpecializedShader** const _end);
         inline virtual created_gpu_object_array<asset::ICPUBufferView>		                create(asset::ICPUBufferView** const _begin, asset::ICPUBufferView** const _end);
@@ -57,7 +57,7 @@ class IGPUObjectFromAssetConverter
         inline virtual created_gpu_object_array<asset::ICPUSampler>		                    create(asset::ICPUSampler** const _begin, asset::ICPUSampler** const _end);
         inline virtual created_gpu_object_array<asset::ICPUPipelineLayout>		            create(asset::ICPUPipelineLayout** const _begin, asset::ICPUPipelineLayout** const _end);
         inline virtual created_gpu_object_array<asset::ICPURenderpassIndependentPipeline>	create(asset::ICPURenderpassIndependentPipeline** const _begin, asset::ICPURenderpassIndependentPipeline** const _end);
-        inline virtual created_gpu_object_array<asset::ICPUTextureView>				        create(asset::ICPUTextureView** const _begin, asset::ICPUTextureView** const _end);
+        inline virtual created_gpu_object_array<asset::ICPUImageView>				        create(asset::ICPUImageView** const _begin, asset::ICPUImageView** const _end);
         inline virtual created_gpu_object_array<asset::ICPUDescriptorSet>				    create(asset::ICPUDescriptorSet** const _begin, asset::ICPUDescriptorSet** const _end);
 
 
@@ -221,10 +221,10 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
         if (cpumb->getAttachedDescriptorSet())
             gpuds = (*gpuDescSets)[dsRedirs[dsIter++]].get();
 
-        IGPUMeshBuffer::SBufferBinding vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
+        asset::SBufferBinding<IGPUBuffer> vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
         for (size_t b = 0ull; b < IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; ++b)
         {
-            const asset::ICPUMeshBuffer::SBufferBinding& cpubnd = cpumb->getVertexBufferBindings()[b];
+            const auto& cpubnd = cpumb->getVertexBufferBindings()[b];
             if (cpubnd.buffer) {
                 vtxBindings[b].offset = cpubnd.offset;
                 auto& gpubuf = (*gpuBuffers)[bufRedirs[bufIter++]];
@@ -233,7 +233,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
             }
         }
 
-        IGPUMeshBuffer::SBufferBinding idxBinding;
+		asset::SBufferBinding<IGPUBuffer> idxBinding;
         if (cpumb->getIndexBufferBinding()->buffer)
         {
             idxBinding.offset = cpumb->getIndexBufferBinding()->offset;
@@ -308,8 +308,8 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset:
 
     return res;
 }
-
-auto IGPUObjectFromAssetConverter::create(asset::ICPUTexture** _begin, asset::ICPUTexture**_end) -> created_gpu_object_array<asset::ICPUTexture>
+#ifndef NEW_MESHES
+auto IGPUObjectFromAssetConverter::create(asset::ICPUImage** _begin, asset::ICPUImage**_end) -> created_gpu_object_array<asset::ICPUImage>
 {
 	const auto assetCount = std::distance(_begin, _end);
 	auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUTexture> >(assetCount);
@@ -333,7 +333,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUTexture** _begin, asset::IC
 
     return res;
 }
-
+#endif
 auto IGPUObjectFromAssetConverter::create(asset::ICPUShader** const _begin, asset::ICPUShader** const _end) -> created_gpu_object_array<asset::ICPUShader>
 {
     const auto assetCount = std::distance(_begin, _end);
@@ -575,7 +575,7 @@ inline created_gpu_object_array<asset::ICPURenderpassIndependentPipeline> IGPUOb
     return res;
 }
 
-inline created_gpu_object_array<asset::ICPUTextureView> IGPUObjectFromAssetConverter::create(asset::ICPUTextureView ** const _begin, asset::ICPUTextureView ** const _end)
+inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConverter::create(asset::ICPUImageView** const _begin, asset::ICPUImageView** const _end)
 {
     const auto assetCount = std::distance(_begin, _end);
     //TODO implement!
@@ -611,19 +611,19 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
         using namespace asset;
         return t==EDT_STORAGE_TEXEL_BUFFER || t==EDT_STORAGE_TEXEL_BUFFER;
     };
-    auto isTextureDesc = [](asset::E_DESCRIPTOR_TYPE t) {
+    auto isSampledImgViewDesc = [](asset::E_DESCRIPTOR_TYPE t) {
         return t==asset::EDT_COMBINED_IMAGE_SAMPLER;
     };
-    auto isTexviewDesc = [](asset::E_DESCRIPTOR_TYPE t) {
+    auto isImgViewDesc = [](asset::E_DESCRIPTOR_TYPE t) {
         return t==asset::EDT_STORAGE_IMAGE;
     };
 
     size_t descCount = 0ull;
     size_t bufCount = 0ull;
     size_t bufviewCount = 0ull;
-    size_t texCount = 0ull;
-    size_t texviewCount = 0ull;
-    for (ptrdiff_t i = 0u; i < assetCount; ++i)
+    size_t sampledImgViewCount = 0ull;
+    size_t imgViewCount = 0ull;
+    for (ptrdiff_t i=0u; i<assetCount; i++)
     {
         asset::ICPUDescriptorSet* cpuds = _begin[i];
                 
@@ -633,8 +633,8 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
             const size_t cnt = desc.info->size();
             bufCount += (isBufferDesc(desc.descriptorType) * cnt);
             bufviewCount += (isBufviewDesc(desc.descriptorType) * cnt);
-            texCount += (isTextureDesc(desc.descriptorType) * cnt);
-            texviewCount += (isTexviewDesc(desc.descriptorType) * cnt);
+			sampledImgViewCount += (isSampledImgViewDesc(desc.descriptorType) * cnt);
+			imgViewCount += (isImgViewDesc(desc.descriptorType) * cnt);
         }
     }
 
@@ -644,16 +644,14 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     cpuBuffers.reserve(bufCount);
     core::vector<asset::ICPUBufferView*> cpuBufviews;
     cpuBufviews.reserve(bufviewCount);
-    core::vector<asset::ICPUTexture*> cpuTextures;
-    cpuTextures.reserve(texCount);
-    core::vector<asset::ICPUTextureView*> cpuTexviews;
-    cpuTexviews.reserve(texviewCount);
+    core::vector<asset::ICPUImageView*> cpuImgViews;
+    cpuImgViews.reserve(imgViewCount+sampledImgViewCount);
     core::vector<asset::ICPUSampler*> cpuSamplers;
-    cpuSamplers.reserve(texCount);
+    cpuSamplers.reserve(sampledImgViewCount);
     core::vector<asset::ICPUDescriptorSetLayout*> cpuLayouts;
     cpuLayouts.reserve(assetCount);
-
-    for (ptrdiff_t i = 0u; i < assetCount; ++i)
+	
+    for (ptrdiff_t i=0u; i<assetCount; i++)
     {
         asset::ICPUDescriptorSet* cpuds = _begin[i];
 
@@ -667,15 +665,15 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                 PUSH_DESCRIPTORS(asset::ICPUBuffer, cpuBuffers)
             else if (isBufviewDesc(t))
                 PUSH_DESCRIPTORS(asset::ICPUBufferView, cpuBufviews)
-            else if (isTextureDesc(t)) {
-                PUSH_DESCRIPTORS(asset::ICPUTexture, cpuTextures)
+            else if (isSampledImgViewDesc(t)) {
+                PUSH_DESCRIPTORS(asset::ICPUImageView, cpuImgViews)
                 for (auto& info : (*desc.info)) {
                     if (asset::ICPUSampler* smplr = info.image.sampler.get())
                         cpuSamplers.push_back(smplr);
                 }
             }
-            else if (isTexviewDesc(t))
-                PUSH_DESCRIPTORS(asset::ICPUTextureView, cpuTexviews)
+            else if (isImgViewDesc(t))
+                PUSH_DESCRIPTORS(asset::ICPUImageView, cpuImgViews)
 #undef PUSH_DESCRIPTORS
         }
     }
@@ -683,22 +681,20 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     using redirs_t = core::vector<size_t>;
     redirs_t bufRedirs = eliminateDuplicatesAndGenRedirs(cpuBuffers);
     redirs_t bufviewRedirs = eliminateDuplicatesAndGenRedirs(cpuBufviews);
-    redirs_t texRedirs = eliminateDuplicatesAndGenRedirs(cpuTextures);
-    redirs_t texviewRedirs = eliminateDuplicatesAndGenRedirs(cpuTexviews);
+    redirs_t imgViewRedirs = eliminateDuplicatesAndGenRedirs(cpuImgViews);
     redirs_t smplrRedirs = eliminateDuplicatesAndGenRedirs(cpuSamplers);
     redirs_t layoutRedirs = eliminateDuplicatesAndGenRedirs(cpuLayouts);
 
     auto gpuBuffers = getGPUObjectsFromAssets<asset::ICPUBuffer>(cpuBuffers.data(), cpuBuffers.data()+cpuBuffers.size());
     auto gpuBufviews = getGPUObjectsFromAssets<asset::ICPUBufferView>(cpuBufviews.data(), cpuBufviews.data()+cpuBufviews.size());
-    auto gpuTextures = getGPUObjectsFromAssets<asset::ICPUTexture>(cpuTextures.data(), cpuTextures.data()+cpuTextures.size());
-    auto gpuTexviews = getGPUObjectsFromAssets<asset::ICPUTextureView>(cpuTexviews.data(), cpuTexviews.data()+cpuTexviews.size());
+    auto gpuImgViews = getGPUObjectsFromAssets<asset::ICPUImageView>(cpuImgViews.data(), cpuImgViews.data()+cpuImgViews.size());
     auto gpuSamplers = getGPUObjectsFromAssets<asset::ICPUSampler>(cpuSamplers.data(), cpuSamplers.data()+cpuSamplers.size());
     auto gpuLayouts = getGPUObjectsFromAssets<asset::ICPUDescriptorSetLayout>(cpuLayouts.data(), cpuLayouts.data()+cpuLayouts.size());
 
     //iterators
     size_t di = 0ull;
-    size_t bi=0ull, bvi=0ull, ti=0ull, tvi=0ull, si=0ull;
-    for (ptrdiff_t i = 0u; i < assetCount; ++i)
+    size_t bi=0ull, bvi=0ull, ivi=0ull, si=0ull;
+    for (ptrdiff_t i=0u; i<assetCount; i++)
     {
         asset::ICPUDescriptorSet* cpuds = _begin[i];
 
@@ -737,21 +733,17 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                     out.desc = (*gpuBufviews)[bufviewRedirs[bvi++]];
                 }
             }
-            else if (isTextureDesc(wrt.descType) || isTexviewDesc(wrt.descType))
+            else if (isSampledImgViewDesc(wrt.descType) || isImgViewDesc(wrt.descType))
             {
                 for (size_t infoIter = 0ull; infoIter < gpuwrt.info->size(); ++infoIter)
                 {
                     auto& out = (*gpuwrt.info)[infoIter];
                     const auto& in = cpuds->getDescriptors().begin()[d].info->operator[](infoIter).image;
 
+					out.desc = (*gpuImgViews)[imgViewRedirs[ivi++]];
                     out.image.imageLayout = in.imageLayout;
-                    if (isTextureDesc(wrt.descType)) {
+                    if (isSampledImgViewDesc(wrt.descType))
                         out.image.sampler = (*gpuSamplers)[smplrRedirs[si++]];
-                        out.desc = (*gpuTextures)[texRedirs[ti++]];
-                    }
-                    else {
-                        out.desc = (*gpuTexviews)[texviewRedirs[tvi++]];
-                    }
                 }
             }
         }

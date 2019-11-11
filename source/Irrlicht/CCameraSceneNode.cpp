@@ -19,24 +19,19 @@ namespace scene
 CCameraSceneNode::CCameraSceneNode(IDummyTransformationSceneNode* parent, ISceneManager* mgr, int32_t id,
 	const core::vector3df& position, const core::vectorSIMDf& lookat)
 	: ICameraSceneNode(parent, mgr, id, position),
-	Target(lookat), UpVector(0.0f, 1.0f, 0.0f), ZNear(1.0f), ZFar(3000.0f),
+	Target(lookat), UpVector(0.0f, 1.0f, 0.0f),
 	InputReceiverEnabled(true), TargetAndRotationAreBound(false)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("CCameraSceneNode");
 	#endif
 
-	// set default projection
-	Fovy = core::PI<float>() / 2.5f;	// Field of view, in radians.
-
 	const video::IVideoDriver* const d = mgr?mgr->getVideoDriver():0;
 	if (d)
 		Aspect = (float)d->getCurrentRenderTargetSize().Width /
 			(float)d->getCurrentRenderTargetSize().Height;
-	else
-		Aspect = 4.0f / 3.0f;	// Aspect ratio.
 
-	recalculateProjectionMatrix();
+	recomputeProjectionMatrix();
 	recalculateViewArea();
 }
 
@@ -60,14 +55,6 @@ void CCameraSceneNode::setProjectionMatrix(const core::matrix4SIMD& projection)
 {
 	projMatrix = projection;
 	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
-}
-
-
-//! Gets the current projection matrix of the camera
-//! \return Returns the current projection matrix of the camera.
-const core::matrix4SIMD& CCameraSceneNode::getProjectionMatrix() const
-{
-	return projMatrix;
 }
 
 
@@ -155,59 +142,7 @@ const core::vectorSIMDf& CCameraSceneNode::getUpVector() const
 }
 
 
-float CCameraSceneNode::getNearValue() const
-{
-	return ZNear;
-}
-
-
-float CCameraSceneNode::getFarValue() const
-{
-	return ZFar;
-}
-
-
-float CCameraSceneNode::getAspectRatio() const
-{
-	return Aspect;
-}
-
-
-float CCameraSceneNode::getFOV() const
-{
-	return Fovy;
-}
-
-
-void CCameraSceneNode::setNearValue(float f)
-{
-	ZNear = f;
-	recalculateProjectionMatrix();
-}
-
-
-void CCameraSceneNode::setFarValue(float f)
-{
-	ZFar = f;
-	recalculateProjectionMatrix();
-}
-
-
-void CCameraSceneNode::setAspectRatio(float f)
-{
-	Aspect = f;
-	recalculateProjectionMatrix();
-}
-
-
-void CCameraSceneNode::setFOV(float f)
-{
-	Fovy = f;
-	recalculateProjectionMatrix();
-}
-
-
-void CCameraSceneNode::recalculateProjectionMatrix()
+void CCameraSceneNode::recomputeProjectionMatrix()
 {
 	if (leftHanded)
 		projMatrix = core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(Fovy, Aspect, ZNear, ZFar);
@@ -251,13 +186,14 @@ void CCameraSceneNode::render()
 		viewMatrix.buildCameraLookAtMatrixRH(pos.getAsVector3df(), Target.getAsVector3df(), up.getAsVector3df());
 	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
 	recalculateViewArea();
-
+#ifndef  NEW_SHADERS
 	video::IVideoDriver* driver = SceneManager->getVideoDriver();
 	if ( driver)
 	{
 		driver->setTransform(video::EPTS_PROJ,projMatrix);
 		driver->setTransform(video::E4X3TS_VIEW, viewMatrix );
 	}
+#endif
 }
 
 

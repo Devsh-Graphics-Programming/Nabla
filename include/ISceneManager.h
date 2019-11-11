@@ -321,25 +321,14 @@ namespace scene
 		//! Adds a skybox scene node to the scene tree.
 		/** A skybox is a big cube with 6 textures on it and
 		is drawn around the camera position.
-		\param top: Texture for the top plane of the box.
-		\param bottom: Texture for the bottom plane of the box.
-		\param left: Texture for the left plane of the box.
-		\param right: Texture for the right plane of the box.
-		\param front: Texture for the front plane of the box.
-		\param back: Texture for the back plane of the box.
+		\param cubemap: Texture for the skybox, has to be a cubemap
 		\param parent: Parent scene node of the skybox. A skybox usually has no parent,
 		so this should be null. Note: If a parent is set to the skybox, the box will not
 		change how it is drawn.
 		\param id: An id of the node. This id can be used to identify the node.
 		\return Pointer to the sky box if successful, otherwise NULL.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNode* addSkyBoxSceneNode(	core::smart_refctd_ptr<video::ITexture>&& top,
-												core::smart_refctd_ptr<video::ITexture>&& bottom,
-												core::smart_refctd_ptr<video::ITexture>&& left,
-												core::smart_refctd_ptr<video::ITexture>&& right,
-												core::smart_refctd_ptr<video::ITexture>&& front,
-												core::smart_refctd_ptr<video::ITexture>&& back,
-												IDummyTransformationSceneNode* parent = 0, int32_t id=-1) = 0;
+		virtual IMeshSceneNode* addSkyBoxSceneNode(core::smart_refctd_ptr<video::IGPUImageView>&& cubemap, IDummyTransformationSceneNode* parent = 0, int32_t id=-1) = 0;
 
 		//! Adds a skydome scene node to the scene tree.
 		/** A skydome is a large (half-) sphere with a panoramic texture
@@ -359,10 +348,10 @@ namespace scene
 		\param id: An id of the node. This id can be used to identify the node.
 		\return Pointer to the sky dome if successful, otherwise NULL.
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual ISceneNode* addSkyDomeSceneNode(core::smart_refctd_ptr<video::IRenderableVirtualTexture>&& texture,
-												uint32_t horiRes=16, uint32_t vertRes=8, float texturePercentage=0.9,
-												float spherePercentage=2.0,float radius = 1000.f,
-												IDummyTransformationSceneNode* parent=0, int32_t id=-1) = 0;
+		virtual IMeshSceneNode* addSkyDomeSceneNode(core::smart_refctd_ptr<video::IGPUImageView>&& texture,
+													uint32_t horiRes=16, uint32_t vertRes=8, float texturePercentage=0.9,
+													float spherePercentage=2.0,float radius = 1000.f,
+													IDummyTransformationSceneNode* parent=0, int32_t id=-1) = 0;
 
 		//! Adds a dummy transformation scene node to the scene tree.
 		/** This scene node does not render itself, have a bounding box, a render method,

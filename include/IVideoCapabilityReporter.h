@@ -6,9 +6,13 @@
 #define __IRR_I_VIDEO_CAPABILITY_REPORTER_H_INCLUDED__
 
 #include <string>
-#include "ITexture.h"
+
 
 #include "IrrCompileConfig.h"
+
+#include "irr/video/IGPUImageView.h"
+#include "EDriverTypes.h"
+
 
 namespace irr
 {
@@ -89,11 +93,6 @@ namespace video
 		of the Direct3D8 driver, it would return "Direct3D 8.1". */
 		virtual const wchar_t* getName() const =0;
 
-		//! Returns the maximum amount of primitives
-		/** (mostly vertices) which the device is able to render.
-		\return Maximum amount of primitives. */
-		virtual uint32_t getMaximalIndicesCount() const =0;
-
 		//! Get the current color format of the color buffer
 		/** \return Color format of the color buffer. */
 		virtual asset::E_FORMAT getColorFormat() const =0;
@@ -104,7 +103,7 @@ namespace video
         virtual uint32_t getMaxComputeWorkGroupSize(uint32_t _dimension) const = 0;
 
 		//! Get the maximum texture size supported.
-		virtual const uint32_t* getMaxTextureSize(const ITexture::E_TEXTURE_TYPE& type) const =0;
+		virtual const uint32_t* getMaxTextureSize(IGPUImageView::E_TYPE type) const =0;
 
 		//!
 		virtual uint32_t getRequiredUBOAlignment() const = 0;

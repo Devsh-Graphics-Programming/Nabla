@@ -150,6 +150,7 @@ PFNGLTEXTURESTORAGE3DPROC COpenGLExtensionHandler::pGlTextureStorage3D = nullptr
 PFNGLTEXTURESTORAGE2DMULTISAMPLEPROC COpenGLExtensionHandler::pGlTextureStorage2DMultisample = nullptr;
 PFNGLTEXTURESTORAGE3DMULTISAMPLEPROC COpenGLExtensionHandler::pGlTextureStorage3DMultisample = nullptr;
 PFNGLTEXTUREBUFFERPROC COpenGLExtensionHandler::pGlTextureBuffer = nullptr;
+PFNGLTEXTUREVIEWPROC COpenGLExtensionHandler::pGlTextureView = nullptr;
 PFNGLTEXTUREBUFFERRANGEPROC COpenGLExtensionHandler::pGlTextureBufferRange = nullptr;
 PFNGLTEXTURESTORAGE1DEXTPROC COpenGLExtensionHandler::pGlTextureStorage1DEXT = nullptr;
 PFNGLTEXTURESTORAGE2DEXTPROC COpenGLExtensionHandler::pGlTextureStorage2DEXT = nullptr;
@@ -194,6 +195,9 @@ PFNGLCOPYTEXTURESUBIMAGE3DEXTPROC COpenGLExtensionHandler::pGlCopyTextureSubImag
 PFNGLGENERATEMIPMAPPROC COpenGLExtensionHandler::pGlGenerateMipmap = nullptr;
 PFNGLGENERATETEXTUREMIPMAPPROC COpenGLExtensionHandler::pGlGenerateTextureMipmap = nullptr;
 PFNGLGENERATETEXTUREMIPMAPEXTPROC COpenGLExtensionHandler::pGlGenerateTextureMipmapEXT = nullptr;
+PFNGLTEXTUREPARAMETERIUIVPROC COpenGLExtensionHandler::pGlTextureParameteriuiv = nullptr;
+PFNGLTEXTUREPARAMETERIUIVEXTPROC COpenGLExtensionHandler::pGlTextureParameteriuivEXT = nullptr;
+PFNGLTEXPARAMETERIUIVPROC COpenGLExtensionHandler::pGlTexParameteriuiv = nullptr;
 PFNGLCLAMPCOLORPROC COpenGLExtensionHandler::pGlClampColor = nullptr;
 
         //samplers
@@ -1040,7 +1044,7 @@ void COpenGLExtensionHandler::loadFunctions()
     {
         glGetIntegerv(GL_NUM_SPIR_V_EXTENSIONS, reinterpret_cast<GLint*>(&SPIR_VextensionsCount));
         if (SPIR_VextensionsCount)
-            SPIR_Vextensions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<const GLubyte*>>(SPIR_VextensionsCount);
+            SPIR_Vextensions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<const GLubyte*> >(SPIR_VextensionsCount);
         for (GLuint i = 0u; i < SPIR_VextensionsCount; ++i)
             (*SPIR_Vextensions)[i] = pGlGetStringi(GL_SPIR_V_EXTENSIONS, i);
     }

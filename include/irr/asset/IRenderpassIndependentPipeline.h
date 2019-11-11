@@ -1,16 +1,20 @@
 #ifndef __IRR_I_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
 #define __IRR_I_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
 
-#include "irr/asset/format/EFormat.h"
-#include "irr/core/core.h"
-#include "irr/asset/ShaderCommons.h"
-#include "irr/asset/IPipeline.h"
-#include "irr/macros.h"
-#include "irr/core/memory/refctd_dynamic_array.h"
-#include "irr/core/IReferenceCounted.h"
 #include <algorithm>
 
-namespace irr {
+
+#include "irr/macros.h"
+
+#include "irr/core/core.h"
+
+#include "irr/asset/format/EFormat.h"
+#include "irr/asset/ShaderCommons.h"
+#include "irr/asset/IPipeline.h"
+
+
+namespace irr
+{
 namespace asset
 {
 
@@ -124,25 +128,14 @@ enum E_FACE_CULL_MODE : uint8_t
     EFCM_FRONT_AND_BACK = 3
 };
 
-enum E_SAMPLE_COUNT : uint8_t
-{
-    ESC_1_BIT = 0x00000001,
-    ESC_2_BIT = 0x00000002,
-    ESC_4_BIT = 0x00000004,
-    ESC_8_BIT = 0x00000008,
-    ESC_16_BIT = 0x00000010,
-    ESC_32_BIT = 0x00000020,
-    ESC_64_BIT = 0x00000040
-};
-
 struct SRasterizationParams
 {
-    uint32_t viewportCount;
+    uint8_t viewportCount;
     E_POLYGON_MODE polygonMode;
     E_FACE_CULL_MODE faceCullingMode;
-    E_SAMPLE_COUNT rasterizationSamplesHint;
+	E_COMPARE_OP depthCompareOp;
+    IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint;
     uint32_t sampleMask[2];
-    E_COMPARE_OP depthCompareOp;
     float minSampleShading;
     float depthBiasSlopeFactor;
     float depthBiasConstantFactor;
@@ -162,7 +155,7 @@ struct SRasterizationParams
         uint16_t stencilTestEnable : 1;
     } PACK_STRUCT;
 } PACK_STRUCT;
-static_assert(sizeof(SRasterizationParams)==(4u + 3u*1u + 2u*4u + 1u + 3u*4u + 2u*sizeof(SStencilOpParams) + 2u), "Unexpected size!");
+static_assert(sizeof(SRasterizationParams)==4u*sizeof(uint8_t) + 3u*sizeof(uint32_t) + 3u*sizeof(float) + 2u*sizeof(SStencilOpParams) + sizeof(uint16_t), "Unexpected size!");
 
 enum E_LOGIC_OP : uint8_t
 {
@@ -315,63 +308,63 @@ enum E_VERTEX_ATTRIBUTE_ID
 template<typename SpecShaderType, typename LayoutType>
 class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 {
-public:
-    _IRR_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 5u;
+	public:
+		_IRR_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 5u;
 
-    enum E_SHADER_STAGE_IX : uint32_t
-    {
-        ESSI_VERTEX_SHADER_IX = 0,
-        ESSI_TESS_CTRL_SHADER_IX = 1,
-        ESSI_TESS_EVAL_SHADER_IX = 2,
-        ESSI_GEOMETRY_SHADER_IX = 3,
-        ESSI_FRAGMENT_SHADER_IX = 4
-    };
+		enum E_SHADER_STAGE_IX : uint32_t
+		{
+			ESSI_VERTEX_SHADER_IX = 0,
+			ESSI_TESS_CTRL_SHADER_IX = 1,
+			ESSI_TESS_EVAL_SHADER_IX = 2,
+			ESSI_GEOMETRY_SHADER_IX = 3,
+			ESSI_FRAGMENT_SHADER_IX = 4
+		};
 
-protected:
-    //! @param _shaders Must be pointer to array of SHADER_STAGE_COUNT elements. Shaders must go in order VS, TCS, TES, GS, FS.
-    IRenderpassIndependentPipeline(
-        core::smart_refctd_ptr<IRenderpassIndependentPipeline>&& _parent,
-        core::smart_refctd_ptr<LayoutType>&& _layout,
-        SpecShaderType** _shadersBegin, SpecShaderType** _shadersEnd, 
-        const SVertexInputParams& _vertexInputParams,
-        const SBlendParams& _blendParams,
-        const SPrimitiveAssemblyParams& _primAsmParams,
-        const SRasterizationParams& _rasterParams
-    ) : IPipeline<LayoutType>(std::move(_parent), std::move(_layout)),
-        m_blendParams(_blendParams),
-        m_primAsmParams(_primAsmParams),
-        m_rasterParams(_rasterParams),
-        m_vertexInputParams(_vertexInputParams)
-    {
-        auto shaders = core::SRange<SpecShaderType*>(_shadersBegin, _shadersEnd);
-        for (auto shdr : shaders)
-        {
-            const int32_t ix = core::findLSB<uint32_t>(shdr->getStage());
-            assert(ix < static_cast<int32_t>(SHADER_STAGE_COUNT));
-            assert(!m_shaders[ix]);//must be maximum of 1 for each stage
-            m_shaders[ix] = core::smart_refctd_ptr<SpecShaderType>(shdr);
-        }
-    }
-    virtual ~IRenderpassIndependentPipeline() = default;
+	protected:
+		//! @param _shaders Must be pointer to array of SHADER_STAGE_COUNT elements. Shaders must go in order VS, TCS, TES, GS, FS.
+		IRenderpassIndependentPipeline(
+			core::smart_refctd_ptr<IRenderpassIndependentPipeline>&& _parent,
+			core::smart_refctd_ptr<LayoutType>&& _layout,
+			SpecShaderType** _shadersBegin, SpecShaderType** _shadersEnd, 
+			const SVertexInputParams& _vertexInputParams,
+			const SBlendParams& _blendParams,
+			const SPrimitiveAssemblyParams& _primAsmParams,
+			const SRasterizationParams& _rasterParams
+		) : IPipeline<LayoutType>(std::move(_parent), std::move(_layout)),
+			m_blendParams(_blendParams),
+			m_primAsmParams(_primAsmParams),
+			m_rasterParams(_rasterParams),
+			m_vertexInputParams(_vertexInputParams)
+		{
+			auto shaders = core::SRange<SpecShaderType*>(_shadersBegin, _shadersEnd);
+			for (auto shdr : shaders)
+			{
+				const int32_t ix = core::findLSB<uint32_t>(shdr->getStage());
+				assert(ix < static_cast<int32_t>(SHADER_STAGE_COUNT));
+				assert(!m_shaders[ix]);//must be maximum of 1 for each stage
+				m_shaders[ix] = core::smart_refctd_ptr<SpecShaderType>(shdr);
+			}
+		}
+		virtual ~IRenderpassIndependentPipeline() = default;
 
-public:
-    inline const LayoutType* getLayout() const { return IPipeline<LayoutType>::m_layout.get(); }
+	public:
+		inline const LayoutType* getLayout() const { return IPipeline<LayoutType>::m_layout.get(); }
 
-    inline const SpecShaderType* getShaderAtStage(E_SHADER_STAGE _stage) const { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
-    inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
+		inline const SpecShaderType* getShaderAtStage(E_SHADER_STAGE _stage) const { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
+		inline const SpecShaderType* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
 
-    inline const SBlendParams& getBlendParams() const { return m_blendParams; }
-    inline const SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() const { return m_primAsmParams; }
-    inline const SRasterizationParams& getRasterizationParams() const { return m_rasterParams; }
-    inline const SVertexInputParams& getVertexInputParams() const { return m_vertexInputParams; }
+		inline const SBlendParams& getBlendParams() const { return m_blendParams; }
+		inline const SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() const { return m_primAsmParams; }
+		inline const SRasterizationParams& getRasterizationParams() const { return m_rasterParams; }
+		inline const SVertexInputParams& getVertexInputParams() const { return m_vertexInputParams; }
 
-protected:
-    core::smart_refctd_ptr<SpecShaderType> m_shaders[SHADER_STAGE_COUNT];
+	protected:
+		core::smart_refctd_ptr<SpecShaderType> m_shaders[SHADER_STAGE_COUNT];
 
-    SBlendParams m_blendParams;
-    SPrimitiveAssemblyParams m_primAsmParams;
-    SRasterizationParams m_rasterParams;
-    SVertexInputParams m_vertexInputParams;
+		SBlendParams m_blendParams;
+		SPrimitiveAssemblyParams m_primAsmParams;
+		SRasterizationParams m_rasterParams;
+		SVertexInputParams m_vertexInputParams;
 };
 
 }

@@ -13,32 +13,36 @@ namespace asset
 {
 
 //! Meshloader capable of loading STL meshes.
-class CSTLMeshFileLoader : public asset::IAssetLoader
+class CSTLMeshFileLoader final : public IAssetLoader
 {
-public:
-    virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+	public:
+		asset::SAssetBundle loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
-    virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
+#ifdef NEW_SHADERS
+		bool isALoadableFileFormat(io::IReadFile* _file) const override { return false; }
+#else
+		bool isALoadableFileFormat(io::IReadFile* _file) const override;
+#endif
 
-    virtual const char** getAssociatedFileExtensions() const override
-    {
-        static const char* ext[]{ "stl", nullptr };
-        return ext;
-    }
+		const char** getAssociatedFileExtensions() const override
+		{
+			static const char* ext[]{ "stl", nullptr };
+			return ext;
+		}
 
-    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
+		uint64_t getSupportedAssetTypesBitfield() const override { return IAsset::ET_MESH; }
 
-private:
+	private:
 
-	// skips to the first non-space character available
-	void goNextWord(io::IReadFile* file) const;
-	// returns the next word
-	const core::stringc& getNextToken(io::IReadFile* file, core::stringc& token) const;
-	// skip to next printable character after the first line break
-	void goNextLine(io::IReadFile* file) const;
+		// skips to the first non-space character available
+		void goNextWord(io::IReadFile* file) const;
+		// returns the next word
+		const core::stringc& getNextToken(io::IReadFile* file, core::stringc& token) const;
+		// skip to next printable character after the first line break
+		void goNextLine(io::IReadFile* file) const;
 
-	//! Read 3d vector of floats
-	void getNextVector(io::IReadFile* file, core::vectorSIMDf& vec, bool binary) const;
+		//! Read 3d vector of floats
+		void getNextVector(io::IReadFile* file, core::vectorSIMDf& vec, bool binary) const;
 };
 
 } // end namespace scene

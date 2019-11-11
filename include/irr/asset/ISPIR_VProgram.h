@@ -3,30 +3,28 @@
 
 #include "irr/asset/ICPUBuffer.h"
 
-namespace irr { namespace asset
+namespace irr
+{
+namespace asset
 {
 
 class ISPIR_VProgram : public core::IReferenceCounted
 {
-protected:
-    virtual ~ISPIR_VProgram()
-    {
-        if (m_bytecode)
-            m_bytecode->drop();
-    }
+	protected:
+		virtual ~ISPIR_VProgram() = default;
 
-public:
-    ISPIR_VProgram(ICPUBuffer* _bytecode) : m_bytecode{_bytecode}
-    {
-        if (m_bytecode)
-            m_bytecode->grab();
-    }
+	public:
+		ISPIR_VProgram(core::smart_refctd_ptr<ICPUBuffer>&& _bytecode) : m_bytecode{_bytecode}
+		{
+		}
 
-    const ICPUBuffer* getBytecode() const { return m_bytecode; }
+		const ICPUBuffer* getBytecode() const { return m_bytecode.get(); }
 
-protected:
-    ICPUBuffer* m_bytecode;
+	protected:
+		core::smart_refctd_ptr<ICPUBuffer> m_bytecode;
 };
-}}
+
+}
+}
 
 #endif//__IRR_I_SPIR_V_PROGRAM_H_INCLUDED__

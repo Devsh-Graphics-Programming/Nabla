@@ -76,12 +76,11 @@ IRR_FORCE_INLINE T mix(const T & a, const T & b, const U & t)
 	T retval;
 	IRR_PSEUDO_IF_CONSTEXPR_BEGIN(irr::is_any_of<U,vectorSIMDBool<2>,vectorSIMDBool<4>,vectorSIMDBool<8>,vectorSIMDBool<16> >::value)
 	{
-		/*
 		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T,vectorSIMDf>::value)
 			retval = _mm_castsi128_ps(_mm_or_si128(_mm_castps_si128((a&(~t)).getAsRegister()),_mm_castps_si128((b&t).getAsRegister())));
 		IRR_PSEUDO_ELSE_CONSTEXPR
 			retval = (a&(~t))|(b&t);
-		IRR_PSEUDO_IF_CONSTEXPR_END;*/
+		IRR_PSEUDO_IF_CONSTEXPR_END;
 	}
 	IRR_PSEUDO_ELSE_CONSTEXPR
 	{
@@ -258,6 +257,7 @@ IRR_FORCE_INLINE T lerp(const T& a, const T& b, const U& t)
 
 
 // TODO : step,smoothstep,isnan,isinf,floatBitsToInt,floatBitsToUint,intBitsToFloat,uintBitsToFloat,frexp,ldexp
+// extra note, GCC breaks isfinite, isinf, isnan, isnormal, signbit in -ffast-math so need to implement ourselves
 // TODO : packUnorm2x16, packSnorm2x16, packUnorm4x8, packSnorm4x8, unpackUnorm2x16, unpackSnorm2x16, unpackUnorm4x8, unpackSnorm4x8, packHalf2x16, unpackHalf2x16, packDouble2x32, unpackDouble2x32
 // MOVE : faceforward, reflect, refract, any, all, not
 template<typename T>
@@ -321,7 +321,16 @@ IRR_FORCE_INLINE int32_t findMSB<uint32_t>(uint32_t x);
 template<>
 IRR_FORCE_INLINE int32_t findMSB<uint64_t>(uint64_t x);
 
-
+template<typename INT_TYPE>
+IRR_FORCE_INLINE uint32_t bitCount(INT_TYPE x);
+template<>
+IRR_FORCE_INLINE uint32_t bitCount(uint32_t x);
+template<>
+IRR_FORCE_INLINE uint32_t bitCount(uint64_t x);
+template<>
+IRR_FORCE_INLINE uint32_t bitCount(int32_t x) {return core::bitCount(static_cast<const uint32_t&>(x));}
+template<>
+IRR_FORCE_INLINE uint32_t bitCount(int64_t x) {return core::bitCount(static_cast<const uint64_t&>(x));}
 
 // Extras
 

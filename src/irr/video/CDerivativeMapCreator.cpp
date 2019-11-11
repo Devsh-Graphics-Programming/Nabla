@@ -1,5 +1,5 @@
 #include <irrlicht.h>
-#include "../source/Irrlicht/COpenGL2DTexture.h"
+#include "irr/video/COpenGLImageView.h"
 #include "../source/Irrlicht/COpenGLDriver.h"
 #include "irr/video/CDerivativeMapCreator.h"
 
@@ -116,10 +116,13 @@ CDerivativeMapCreator::CDerivativeMapCreator(video::IVideoDriver* _driver) : m_d
     gldriver->extGlSamplerParameteri(m_bumpMapSampler, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
 
-core::smart_refctd_ptr<video::IRenderableVirtualTexture> CDerivativeMapCreator::createDerivMapFromBumpMap(video::IRenderableVirtualTexture* _bumpMap, float _heightFactor, bool _texWrapRepeat) const
+core::smart_refctd_ptr<video::IGPUImageView> CDerivativeMapCreator::createDerivMapFromBumpMap(video::IGPUImageView* _bumpMap, float _heightFactor, bool _texWrapRepeat) const
 {
+#ifdef NEW_MESHES
+	return nullptr;
+#else
     const uint32_t* derivMap_sz = _bumpMap->getSize();
-	auto derivMap = m_driver->createGPUTexture(video::ITexture::ETT_2D, derivMap_sz, 1u+uint32_t(std::floor(std::log2(float(core::max(derivMap_sz[0], derivMap_sz[1]))))), asset::EF_R8G8_SNORM);
+	auto derivMap = m_driver->createGPUTexture(video::IGPUImageView::ETT_2D, derivMap_sz, 1u+uint32_t(std::floor(std::log2(float(core::max(derivMap_sz[0], derivMap_sz[1]))))), asset::EF_R8G8_SNORM);
 
     video::COpenGLDriver* gldriver = static_cast<video::COpenGLDriver*>(m_driver);
 
@@ -164,4 +167,5 @@ core::smart_refctd_ptr<video::IRenderableVirtualTexture> CDerivativeMapCreator::
     derivMap->regenerateMipMapLevels();
 
     return derivMap;
+#endif
 }

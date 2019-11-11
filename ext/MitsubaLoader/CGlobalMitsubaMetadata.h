@@ -27,7 +27,7 @@ class CGlobalMitsubaMetadata : public core::IReferenceCounted
 
 
 
-
+//! TODO: move these to separate files
 
 
 class IMitsubaMetadata : public asset::IAssetMetadata
@@ -35,7 +35,7 @@ class IMitsubaMetadata : public asset::IAssetMetadata
 	public:
 		IMitsubaMetadata(core::smart_refctd_ptr<CGlobalMitsubaMetadata>&& _gmeta, std::string&& _id="") : globalMetadata(_gmeta), id(_id) {}
 
-		_IRR_STATIC_INLINE_CONSTEXPR const char* LoaderName = "Mistuba";
+		_IRR_STATIC_INLINE_CONSTEXPR const char* LoaderName = "Mistuba XML";
 		const char* getLoaderName() const override {return LoaderName;}
 
 

@@ -259,11 +259,37 @@ IRR_FORCE_INLINE int32_t findMSB<uint64_t>(uint64_t x)
 #endif
 }
 
+template<>
+IRR_FORCE_INLINE uint32_t bitCount(uint32_t x)
+{
+#ifdef __GNUC__
+	return __builtin_popcount(x);
+#elif defined(_MSC_VER)
+	return __popcnt(x);
+#endif
+}
+template<>
+IRR_FORCE_INLINE uint32_t bitCount(uint64_t x)
+{
+#ifdef __GNUC__
+	return __builtin_popcountl(x);
+#elif defined(_MSC_VER)
+	return __popcnt64(x);
+#endif
+}
+
 
 template<>
 IRR_FORCE_INLINE bool equals<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& tolerance)
 {
 	return ((a + tolerance >= b) && (a - tolerance <= b)).all();
+}
+template<>
+IRR_FORCE_INLINE bool equals(const core::vector3df& a, const core::vector3df& b, const core::vector3df& tolerance)
+{
+	auto ha = a+tolerance;
+	auto la = a-tolerance;
+	return ha.X>=b.X&&ha.Y>=b.Y&&ha.Z>=b.Z && la.X<=b.X&&la.Y<=b.Y&&la.Z<=b.Z;
 }
 template<>
 IRR_FORCE_INLINE bool equals<matrix4SIMD>(const matrix4SIMD& a, const matrix4SIMD& b, const matrix4SIMD& tolerance)

@@ -33,7 +33,7 @@ namespace core
 	@see IReferenceCounted
 	@see core::dynamic_array
 */
-template<typename T, class allocator = allocator<T>>
+template<typename T, class allocator = allocator<typename std::remove_const<T>::type> >
 class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dynamic_array<T,allocator,refctd_dynamic_array<T,allocator> >
 {
 		friend class dynamic_array<T, allocator, refctd_dynamic_array<T, allocator> >;
@@ -54,6 +54,8 @@ class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dyna
 
 		inline refctd_dynamic_array(size_t _length, const allocator& _alctr = allocator()) : base_t(_length, _alctr) {}
 		inline refctd_dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator()) : base_t(_length, _val, _alctr) {}
+		inline refctd_dynamic_array(const refctd_dynamic_array<T,allocator>& _containter) : base_t(_containter, _containter.alctr) {}
+		inline refctd_dynamic_array(const refctd_dynamic_array<T,allocator>& _containter, const allocator& _alctr) : base_t(_containter, _alctr) {}
 		template<typename container_t, typename iterator_t = typename container_t::iterator>
 		inline refctd_dynamic_array(const container_t& _containter, const allocator& _alctr = allocator()) : base_t(_containter, _alctr) {}
 		template<typename container_t, typename iterator_t = typename container_t::iterator>
@@ -61,7 +63,7 @@ class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dyna
 };
 
 
-template<typename T, class allocator = allocator<T> >
+template<typename T, class allocator = allocator<typename std::remove_const<T>::type> >
 using smart_refctd_dynamic_array = smart_refctd_ptr<refctd_dynamic_array<T, allocator> >;
 
 template<class smart_refctd_dynamic_array_type, typename... Args>

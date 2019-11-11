@@ -5,24 +5,27 @@
 #include "irr/asset/ICPUDescriptorSetLayout.h"
 #include "irr/asset/IPipelineLayout.h"
 
-namespace irr { namespace asset
+namespace irr
+{
+namespace asset
 {
 
 class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorSetLayout>
 {
-public:
-    using IPipelineLayout<ICPUDescriptorSetLayout>::IPipelineLayout;
+	public:
+		using IPipelineLayout<ICPUDescriptorSetLayout>::IPipelineLayout;
 
-    ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) { return m_descSetLayouts[_set].get(); }
+		ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) { return m_descSetLayouts[_set].get(); }
 
-    size_t conservativeSizeEstimate() const override { return m_descSetLayouts.size()*sizeof(void*) + m_pushConstantRanges->size()*sizeof(SPushConstantRange); }
-    void convertToDummyObject() override { m_pushConstantRanges = nullptr; }
-    E_TYPE getAssetType() const override { return ET_PIPELINE_LAYOUT; }
+		size_t conservativeSizeEstimate() const override { return m_descSetLayouts.size()*sizeof(void*) + m_pushConstantRanges->size()*sizeof(SPushConstantRange); }
+		void convertToDummyObject() override { m_pushConstantRanges = nullptr; }
+		E_TYPE getAssetType() const override { return ET_PIPELINE_LAYOUT; }
 
-protected:
-    virtual ~ICPUPipelineLayout() = default;
+	protected:
+		virtual ~ICPUPipelineLayout() = default;
 };
 
-}}
+}
+}
 
 #endif

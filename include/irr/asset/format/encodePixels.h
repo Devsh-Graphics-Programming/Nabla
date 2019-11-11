@@ -491,7 +491,7 @@ namespace irr { namespace video
     {
         uint8_t* pix = reinterpret_cast<uint8_t*>(_pix);
         for (uint32_t i = 0u; i < 3u; ++i)
-            pix[i] = _input[i]*255.;
+            pix[i] = static_cast<uint8_t>(core::clamp(_input[i]*255.,0.4,255.4));
     }
 	
     template<>

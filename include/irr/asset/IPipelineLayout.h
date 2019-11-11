@@ -1,15 +1,17 @@
 #ifndef __IRR_I_PIPELINE_LAYOUT_H_INCLUDED__
 #define __IRR_I_PIPELINE_LAYOUT_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
-#include "irr/macros.h"
-#include "irr/asset/ShaderCommons.h"
-#include "irr/core/memory/refctd_dynamic_array.h"
-#include "irr/core/SRange.h"
 #include <algorithm>
 #include <array>
 
-namespace irr {
+
+#include "irr/macros.h"
+#include "irr/core/core.h"
+
+#include "irr/asset/ShaderCommons.h"
+
+namespace irr
+{
 namespace asset
 {
 

@@ -4,7 +4,9 @@
 #include "irr/core/IReferenceCounted.h"
 #include "irr/asset/ShaderCommons.h"
 
-namespace irr { namespace video
+namespace irr
+{
+namespace video
 {
 
 class IGPUSpecializedShader : public core::IReferenceCounted
@@ -20,7 +22,8 @@ protected:
     const asset::E_SHADER_STAGE m_stage;
 };
 
-}}
+}
+}
 
 #endif//__IRR_I_GPU_SPECIALIZED_SHADER_H_INCLUDED__
 

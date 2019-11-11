@@ -1,21 +1,22 @@
 #ifndef __IRR_I_CPU_DESCRIPTOR_SET_H_INCLUDED__
 #define __IRR_I_CPU_DESCRIPTOR_SET_H_INCLUDED__
 
-#include "irr/asset/IDescriptorSet.h"
 #include "irr/asset/IAsset.h"
-#include "irr/asset/ICPUTexture.h"
-#include "irr/asset/ICPUBuffer.h"
 #include "irr/asset/ICPUBufferView.h"
+#include "irr/asset/ICPUImageView.h"
 #include "irr/asset/ICPUSampler.h"
 #include "irr/asset/ICPUDescriptorSetLayout.h"
+#include "irr/asset/IDescriptorSet.h"
 
-namespace irr { namespace asset
+namespace irr
+{
+namespace asset
 {
 
-class ICPUDescriptorSet : public IDescriptorSet<ICPUDescriptorSetLayout, ICPUBuffer, ICPUTexture, ICPUBufferView, ICPUSampler>, public IAsset
+class ICPUDescriptorSet : public IDescriptorSet<ICPUDescriptorSetLayout, ICPUBuffer, ICPUImageView, ICPUBufferView, ICPUSampler>, public IAsset
 {
 public:
-    using base_t = IDescriptorSet<ICPUDescriptorSetLayout, ICPUBuffer, ICPUTexture, ICPUBufferView, ICPUSampler>;
+    using base_t = IDescriptorSet<ICPUDescriptorSetLayout, ICPUBuffer, ICPUImageView, ICPUBufferView, ICPUSampler>;
 
     using base_t::base_t;
 

@@ -41,8 +41,12 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
             switch (a.memoryHeapLocation)
             {
                 case IDriverMemoryAllocation::ESMT_DEVICE_LOCAL:
+					if (b.memoryHeapLocation==IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL)
+						return false;
+					out.memoryHeapLocation = a.memoryHeapLocation;
+					break;
                 case IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL:
-                    if (b.memoryHeapLocation!=IDriverMemoryAllocation::ESMT_DONT_KNOW)
+                    if (b.memoryHeapLocation==IDriverMemoryAllocation::ESMT_DEVICE_LOCAL)
                         return false;
                     out.memoryHeapLocation = a.memoryHeapLocation;
                     break;
@@ -86,15 +90,6 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
 
         //! Returns the offset in the allocation at which it is bound to the resource
         virtual size_t getBoundMemoryOffset() const = 0;
-
-        //! Binds memory allocation to provide the backing for the resource.
-        /** Available only on Vulkan, in OpenGL all resources create their own memory implicitly,
-        so pooling or aliasing memory for different resources is not possible.
-        There is no unbind, so once memory is bound it remains bound until you destroy the resource object.
-        Actually all resource classes in OpenGL implement both IDriverMemoryBacked and IDriverMemoryAllocation,
-        so effectively the memory is pre-bound at the time of creation.
-        \return true on success, always false under OpenGL.*/
-        virtual bool bindMemory(IDriverMemoryAllocation* allocation, const size_t& offset) {return false;}
 
     protected:
         IDriverMemoryBacked() {}
