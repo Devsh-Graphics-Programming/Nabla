@@ -49,13 +49,14 @@ namespace video
     enum GL_STATE_BITS : uint32_t
     {
         // has to be flushed before constants are pushed (before `extGlProgramUniform*`)
-        GSB_PIPELINE_AND_RASTER_PARAMETERS = 0x1u,
+        GSB_PIPELINE_AND_RASTER_PARAMETERS = 1u<<0,
         // we want the two to happen together and just before a draw (set VAO first, then binding)
-        GSB_VAO_AND_VERTEX_INPUT = 0x2u,
+        GSB_VAO_AND_VERTEX_INPUT = 1u<<1,
         // flush just before (indirect)dispatch or (multi)(indirect)draw, textures and samplers first, then storage image, then SSBO, finally UBO
-        GSB_DESCRIPTOR_SETS = 0x4u,
+        GSB_DESCRIPTOR_SETS = 1u<<2,
         // GL_DISPATCH_INDIRECT_BUFFER 
-        GSB_DISPATCH_INDIRECT = 0x8u,
+        GSB_DISPATCH_INDIRECT = 1u<<3,
+        GSB_PUSH_CONSTANTS = 1u<<4,
         // flush everything
         GSB_ALL = ~0x0u
     };
@@ -854,6 +855,8 @@ namespace video
             template<E_PIPELINE_BIND_POINT PBP>
             using pipeline_for_bindpoint_t = typename pipeline_for_bindpoint<PBP>::type;
 
+            void flushStateGraphics_pushConstants();
+            void flushStateCompute_pushConstants();
             void flushState_descriptors(E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, const COpenGLPipelineLayout* _prevLayout);
             void flushStateGraphics(uint32_t stateBits);
             void flushStateCompute(uint32_t stateBits);
@@ -863,8 +866,14 @@ namespace video
             struct {
                 SOpenGLState::SDescSetBnd descSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
             } effectivelyBoundDescriptors;
+            //push constants are tracked outside of next/currentState because there can be multiple pushConstants() calls and each of them kinda depends on the pervious one (layout compatibility)
+            struct
+            {
+                uint8_t data[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE];
+                uint32_t stagesToUpdateFlags = 0u;
+                core::smart_refctd_ptr<COpenGLPipelineLayout> layout;
+            } pushConstantsState[EPBP_COUNT];
 
-            uint8_t pushConstants[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE]{};
         //private:
             std::thread::id threadId;
             uint8_t ID; //index in array of contexts, just to be easier in use
@@ -904,6 +913,10 @@ namespace video
                 const IGPUBuffer* _indexBuffer,
                 const IGPUBuffer* _indirectDrawBuffer,
                 const IGPUBuffer* _paramBuffer
+            );
+            void pushConstants(
+                E_PIPELINE_BIND_POINT _bindPoint,
+                const COpenGLPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values
             );
 
             inline size_t getVAOCacheSize() const

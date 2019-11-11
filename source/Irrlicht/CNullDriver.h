@@ -66,14 +66,38 @@ namespace video
 
         bool pushConstants(const IGPUPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values) override
         {
+            if (!_layout || !_values)
+                return false;
+            if (!_size)
+                return false;
+            if (!_stages)
+                return false;
             if (!core::is_aligned_to(_offset, 4u))
                 return false;
             if (!core::is_aligned_to(_size, 4u))
                 return false;
             if (_offset >= IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE)
                 return false;
-            if (_size > (IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE-_offset))
+            if ((_offset+_size) > IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE)
                 return false;
+
+            asset::SPushConstantRange updateRange;
+            updateRange.offset = _offset;
+            updateRange.size = _size;
+            //TODO validation:
+            /*
+            For each byte in the range specified by offset and size and for each shader stage in stageFlags,
+            there must be a push constant range in layout that includes that byte and that stage
+            */
+            for (const auto& rng : _layout->getPushConstantRanges())
+            {
+                /*
+                For each byte in the range specified by offset and size and for each push constant range that overlaps that byte,
+                stageFlags must include all stages in that push constant range’s VkPushConstantRange::stageFlags
+                */
+                if (updateRange.overlap(rng) && ((_stages & rng.stageFlags) != rng.stageFlags))
+                    return false;
+            }
 
             return true;
         }
@@ -231,8 +255,6 @@ namespace video
 	public:
 		virtual void beginQuery(IQueryObject* query);
 		virtual void endQuery(IQueryObject* query);
-		virtual void beginQuery(IQueryObject* query, const size_t& index);
-		virtual void endQuery(IQueryObject* query, const size_t& index);
 
 		//! Only used by the engine internally.
 		/** Used to notify the driver that the window was resized. */

@@ -103,6 +103,12 @@ core::smart_refctd_dynamic_array<const GLubyte*> COpenGLExtensionHandler::SPIR_V
 uint32_t COpenGLExtensionHandler::MaxGeometryVerticesOut = 65535;
 float COpenGLExtensionHandler::MaxTextureLODBias = 0.f;
 
+uint32_t COpenGLExtensionHandler::maxUBOBindings = 0u;
+uint32_t COpenGLExtensionHandler::maxSSBOBindings = 0u;
+uint32_t COpenGLExtensionHandler::maxTextureBindings = 0u;
+uint32_t COpenGLExtensionHandler::maxTextureBindingsCompute = 0u;
+uint32_t COpenGLExtensionHandler::maxImageBindings = 0u;
+
 //uint32_t COpenGLExtensionHandler::MaxXFormFeedbackInterleavedAttributes = GL_MAX_TRANSFORM_FEEDBACK_INTERLEAVED_COMPONENTS;
 //uint32_t COpenGLExtensionHandler::MaxXFormFeedbackSeparateAttributes = GL_MAX_TRANSFORM_FEEDBACK_SEPARATE_COMPONENTS;
 

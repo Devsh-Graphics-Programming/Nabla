@@ -860,6 +860,8 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
     found->nextState = SOpenGLState();
     for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
         found->effectivelyBoundDescriptors.descSets[i] = SOpenGLState::SDescSetBnd();
+    found->pushConstants[EPBP_GRAPHICS].layout = nullptr;
+    found->pushConstants[EPBP_COMPUTE].layout = nullptr;
 
     glFinish();
 }
@@ -1250,9 +1252,14 @@ const core::smart_refctd_dynamic_array<std::string> COpenGLDriver::getSupportedG
         for (size_t i = 0ull; i < GLSLcnt; ++i)
             cnt += (FeatureAvailable[m_GLSLExtensions[i]]);
         m_supportedGLSLExtsNames = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<std::string>>(cnt);
-        for (size_t i = 0ull; i < GLSLcnt; ++i)
-            if (FeatureAvailable[m_GLSLExtensions[i]])
-                (*m_supportedGLSLExtsNames)[i] = (OpenGLFeatureStrings[m_GLSLExtensions[i]]);
+        for (size_t x = 0ull; x < cnt; ++x)
+            (*m_supportedGLSLExtsNames)[x] = "wtfff"; //fix this, crashes while assigning OpenGLFeatureStrings[m_GLSLExtensions[j]] for some reason....
+        /*
+        size_t i = 0ull;
+        for (size_t j = 0ull; j < GLSLcnt; ++j)
+            if (FeatureAvailable[m_GLSLExtensions[j]])
+                (*m_supportedGLSLExtsNames)[i++] = OpenGLFeatureStrings[m_GLSLExtensions[j]];
+        */
     }
 
     return m_supportedGLSLExtsNames;
@@ -1352,36 +1359,10 @@ bool COpenGLDriver::pushConstants(const IGPUPipelineLayout* _layout, uint32_t _s
     if (!ctx)
         return false;
 
-    memcpy(ctx->pushConstants+_offset, _values, _size);
-
-    asset::SPushConstantRange updateRange;
-    updateRange.offset = _offset;
-    updateRange.size = _size;
-
-    for (const auto& rng : _layout->getPushConstantRanges())
-    {
-        if (!updateRange.overlap(rng))
-            continue;
-
-        const uint32_t stagesToUpdate = (_stages & rng.stageFlags);
-        if (!stagesToUpdate)
-            continue;
-
-        for (uint32_t i = 0u; i < IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
-        {
-            if (!((1u<<i) & stagesToUpdate))
-                continue;
-
-            //taking pipeline from nextState because it's the one that will be used in next drawcall (unless there is another driver->bindGraphicsPipeline() between driver->pushConstants() and drawcall)
-            //can't really find a better solution before we have command buffers
-            const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(ctx->nextState.pipeline.graphics.pipeline->getShaderAtIndex(i));
-            assert(shdr); //this would be weird
-            if (!shdr)
-                return false;
-
-            shdr->setUniformsImitatingPushConstants(ctx->pushConstants + rng.offset, ctx->ID);
-        }
-    }
+    if (_stages & asset::ESS_ALL_GRAPHICS)
+        ctx->pushConstants(EPBP_GRAPHICS, static_cast<const COpenGLPipelineLayout*>(_layout), _stages, _offset, _size, _values);
+    if (_stages & asset::ESS_COMPUTE)
+        ctx->pushConstants(EPBP_COMPUTE, static_cast<const COpenGLPipelineLayout*>(_layout), _stages, _offset, _size, _values);
 
     return true;
 }
@@ -1950,6 +1931,35 @@ static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
     }
 }
 
+void COpenGLDriver::SAuxContext::flushStateGraphics_pushConstants()
+{
+    for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
+    {
+        if (!((1u << i) & pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags))
+            continue;
+
+        //pipeline must be flushed before push constants so taking pipeline from currentState
+        const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.graphics.pipeline->getShaderAtIndex(i));
+        assert(shdr); //this would be weird
+
+        shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_GRAPHICS].data, this->ID);
+    }
+    pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags = 0u;
+}
+
+void COpenGLDriver::SAuxContext::flushStateCompute_pushConstants()
+{
+    if (pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags & asset::ESS_COMPUTE)
+    {
+        const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.compute.pipeline->getShader());
+        assert(shdr);
+
+        shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_COMPUTE].data, this->ID);
+
+        pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags = 0u;
+    }
+}
+
 void COpenGLDriver::SAuxContext::flushState_descriptors(E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, const COpenGLPipelineLayout* _prevLayout)
 {
     //bind new descriptor sets
@@ -2256,6 +2266,10 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
             }
         }
     }
+    if ((stateBits & GSB_PUSH_CONSTANTS) && currentState.pipeline.graphics.pipeline)
+    {
+        flushStateGraphics_pushConstants();
+    }
     if ((stateBits & GSB_VAO_AND_VERTEX_INPUT) && currentState.pipeline.graphics.pipeline)
     {
         if (nextState.vertexInputParams.vao.second.GLname == 0u)
@@ -2368,6 +2382,10 @@ void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
         {
             currentState.pipeline.compute.pipeline = nextState.pipeline.compute.pipeline;
         }
+    }
+    if ((stateBits & GSB_PUSH_CONSTANTS) && currentState.pipeline.compute.pipeline)
+    {
+        flushStateCompute_pushConstants();
     }
     if (stateBits & GSB_DISPATCH_INDIRECT)
     {
@@ -2573,6 +2591,21 @@ void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const IGPUMeshBuffe
     nextState.vertexInputParams.vao.first = nextState.pipeline.graphics.pipeline->getVAOHash();
 }
 
+void COpenGLDriver::SAuxContext::pushConstants(E_PIPELINE_BIND_POINT _bindPoint, const COpenGLPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values)
+{
+    //validation is done in CNullDriver::pushConstants()
+    //if arguments were invalid (dont comply Valid Usage section of vkCmdPushConstants docs), execution should even get to this point
+
+    if (pushConstantsState[_bindPoint].layout && !pushConstantsState[_bindPoint].layout->isCompatibleForPushConstants(_layout))
+    {
+        memset(pushConstantsState[_bindPoint].data, 0, IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE); //invalidate previous push constants
+    }
+
+    pushConstantsState[_bindPoint].stagesToUpdateFlags |= _stages;
+
+    pushConstantsState[_bindPoint].layout = core::smart_refctd_ptr<const COpenGLPipelineLayout>(_layout);
+    memcpy(pushConstantsState[_bindPoint].data + _offset, _values, _size);
+}
 
 
 bool orderByMip(asset::CImageData* a, asset::CImageData* b)

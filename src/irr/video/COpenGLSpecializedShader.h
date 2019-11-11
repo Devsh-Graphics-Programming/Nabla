@@ -7,6 +7,7 @@
 #include "irr/video/COpenGLShader.h"
 #include "irr/asset/CShaderIntrospector.h"
 #include "irr/core/memory/refctd_dynamic_array.h"
+#include "irr/video/IGPUMeshBuffer.h"
 #include <algorithm>
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
@@ -18,12 +19,12 @@ namespace video
 
 class COpenGLSpecializedShader : public IGPUSpecializedShader
 {
-public:
     struct SProgramBinary {
         GLenum format;
         core::smart_refctd_dynamic_array<uint8_t> binary;
     };
 
+public:
     COpenGLSpecializedShader(size_t _ctxCount, uint32_t _ctxID, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection);
 
     inline GLuint getGLnameForCtx(uint32_t _ctxID) const
@@ -52,7 +53,7 @@ protected:
 private:
     //! @returns GL name or zero if already compiled once or there were compilation errors.
     GLuint compile(uint32_t _GLSLversion);
-    void buildUniformsList(GLuint _GLname) const;
+    void buildUniformsList(GLuint _GLname);
 
 private:
     mutable core::smart_refctd_dynamic_array<GLuint> m_GLnames;
@@ -67,11 +68,14 @@ private:
 
     using SMember = asset::impl::SShaderMemoryBlock::SMember;
     struct SUniform {
-        SUniform(const SMember& _m, GLint _loc) : m(_m), location(_loc) {}
+        SUniform(const SMember& _m, GLint _loc, uint8_t* _valptr) : m(_m), location(_loc), value(_valptr) {}
         SMember m;
         GLint location;
+        uint8_t* value;
     };
-    mutable core::vector<SUniform> m_uniformsList;
+    mutable bool m_uniformsSetForTheVeryFirstTime = true;
+    uint8_t m_uniformValues[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE];
+    core::vector<SUniform> m_uniformsList;
 };
 
 }
