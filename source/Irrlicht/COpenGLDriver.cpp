@@ -2331,10 +2331,31 @@ void COpenGLDriver::SAuxContext::pushConstants(E_PIPELINE_BIND_POINT _bindPoint,
 
     if (pushConstantsState[_bindPoint].layout && !pushConstantsState[_bindPoint].layout->isCompatibleForPushConstants(_layout))
     {
-        memset(pushConstantsState[_bindPoint].data, 0, IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE); //invalidate previous push constants
+        constexpr size_t toFill = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE / sizeof(uint64_t);
+        constexpr size_t bytesLeft = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE - (toFill * sizeof(uint64_t));
+        constexpr uint64_t pattern = 0xdeafbeefDEADBEEFull;
+        std::fill(reinterpret_cast<uint64_t*>(pushConstantsState[_bindPoint].data), reinterpret_cast<uint64_t*>(pushConstantsState[_bindPoint].data)+toFill, pattern);
+        IRR_PSEUDO_IF_CONSTEXPR_BEGIN(bytesLeft > 0ull) {
+            memcpy(reinterpret_cast<uint64_t*>(pushConstantsState[_bindPoint].data) + toFill, &pattern, bytesLeft);
+        } IRR_PSEUDO_IF_CONSTEXPR_END
+
+        pushConstantsState[_bindPoint].stagesToUpdateFlags = 0u;
     }
 
-    pushConstantsState[_bindPoint].stagesToUpdateFlags |= _stages;
+    asset::SPushConstantRange updtRng;
+    updtRng.offset = _offset;
+    updtRng.size = _size;
+
+    uint32_t stagesToUpdate = 0u;
+    for (const auto& rng : _layout->getPushConstantRanges())
+    {
+        //mask for making this loop branchless
+        const uint32_t m = -static_cast<uint32_t>(updtRng.overlap(rng));//false->all 0s, true->all 1s
+        //have to mask _stages in case it includes more stages than pipeline layout PC range
+        stagesToUpdate |= (m & (rng.stageFlags & _stages));
+    }
+
+    pushConstantsState[_bindPoint].stagesToUpdateFlags |= stagesToUpdate;
 
     pushConstantsState[_bindPoint].layout = core::smart_refctd_ptr<const COpenGLPipelineLayout>(_layout);
     memcpy(pushConstantsState[_bindPoint].data + _offset, _values, _size);
