@@ -249,10 +249,6 @@ class CNullDriver : public IVideoDriver
 		// prints renderer version
 		void printVersion();
 
-        bool validateImageCreationParams(const asset::IImage::SCreationParams& _params) const;
-
-        bool validateImageViewCreationParams(const IGPUImageView::SCreationParams& _params) const;
-
     protected:
         IQueryObject* currentQuery[EQOT_COUNT];
 

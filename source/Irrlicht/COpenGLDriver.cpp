@@ -1278,7 +1278,7 @@ core::smart_refctd_ptr<IGPUSampler> COpenGLDriver::createGPUSampler(const IGPUSa
 
 core::smart_refctd_ptr<IGPUImage> COpenGLDriver::createGPUImage(asset::IImage::SCreationParams&& _params)
 {
-    if (!CNullDriver::validateImageCreationParams(_params))
+    if (!asset::IImage::validateCreationParameters(_params))
         return nullptr;
 
     return core::make_smart_refctd_ptr<COpenGLImage>(std::move(_params));
@@ -1286,7 +1286,7 @@ core::smart_refctd_ptr<IGPUImage> COpenGLDriver::createGPUImage(asset::IImage::S
 
 core::smart_refctd_ptr<IGPUImageView> COpenGLDriver::createGPUImageView(IGPUImageView::SCreationParams&& _params)
 {
-    if (!CNullDriver::validateImageViewCreationParams(_params))
+    if (!IGPUImageView::validateCreationParameters(_params))
         return nullptr;
 
     return core::make_smart_refctd_ptr<COpenGLImageView>(std::move(_params));
