@@ -154,6 +154,8 @@ GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion, const asset::ICP
 
 void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* _pcData, uint32_t _ctxID) const
 {
+    IRR_ASSUME_ALIGNED(_pcData, 128);
+
     const GLuint GLname = getGLnameForCtx(_ctxID);
 
     using gl = COpenGLExtensionHandler;

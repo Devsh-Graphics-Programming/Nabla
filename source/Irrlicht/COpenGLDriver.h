@@ -838,7 +838,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             //push constants are tracked outside of next/currentState because there can be multiple pushConstants() calls and each of them kinda depends on the pervious one (layout compatibility)
             struct
             {
-                uint8_t data[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE];
+                alignas(128) uint8_t data[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE];
                 uint32_t stagesToUpdateFlags = 0u;
                 core::smart_refctd_ptr<const COpenGLPipelineLayout> layout;
             } pushConstantsState[EPBP_COUNT];
