@@ -1193,10 +1193,23 @@ bool COpenGLDriver::pushConstants(const IGPUPipelineLayout* _layout, uint32_t _s
     if (!ctx)
         return false;
 
+    asset::SPushConstantRange updtRng;
+    updtRng.offset = _offset;
+    updtRng.size = _size;
+
+    uint32_t stagesToUpdate = 0u;
+    for (const auto& rng : _layout->getPushConstantRanges())
+    {
+        //mask for making this loop branchless
+        const uint32_t m = -static_cast<uint32_t>(updtRng.overlap(rng));//false->all 0s, true->all 1s
+        //have to mask _stages in case it includes more stages than pipeline layout PC range
+        stagesToUpdate |= (m & (rng.stageFlags & _stages));
+    }
+
     if (_stages & asset::ESS_ALL_GRAPHICS)
-        ctx->pushConstants(EPBP_GRAPHICS, static_cast<const COpenGLPipelineLayout*>(_layout), _stages, _offset, _size, _values);
+        ctx->pushConstants(EPBP_GRAPHICS, static_cast<const COpenGLPipelineLayout*>(_layout), stagesToUpdate, _offset, _size, _values);
     if (_stages & asset::ESS_COMPUTE)
-        ctx->pushConstants(EPBP_COMPUTE, static_cast<const COpenGLPipelineLayout*>(_layout), _stages, _offset, _size, _values);
+        ctx->pushConstants(EPBP_COMPUTE, static_cast<const COpenGLPipelineLayout*>(_layout), stagesToUpdate, _offset, _size, _values);
 
     return true;
 }
@@ -2342,20 +2355,7 @@ void COpenGLDriver::SAuxContext::pushConstants(E_PIPELINE_BIND_POINT _bindPoint,
         pushConstantsState[_bindPoint].stagesToUpdateFlags = 0u;
     }
 
-    asset::SPushConstantRange updtRng;
-    updtRng.offset = _offset;
-    updtRng.size = _size;
-
-    uint32_t stagesToUpdate = 0u;
-    for (const auto& rng : _layout->getPushConstantRanges())
-    {
-        //mask for making this loop branchless
-        const uint32_t m = -static_cast<uint32_t>(updtRng.overlap(rng));//false->all 0s, true->all 1s
-        //have to mask _stages in case it includes more stages than pipeline layout PC range
-        stagesToUpdate |= (m & (rng.stageFlags & _stages));
-    }
-
-    pushConstantsState[_bindPoint].stagesToUpdateFlags |= stagesToUpdate;
+    pushConstantsState[_bindPoint].stagesToUpdateFlags |= _stages;
 
     pushConstantsState[_bindPoint].layout = core::smart_refctd_ptr<const COpenGLPipelineLayout>(_layout);
     memcpy(pushConstantsState[_bindPoint].data + _offset, _values, _size);
