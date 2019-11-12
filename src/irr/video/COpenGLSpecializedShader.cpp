@@ -107,22 +107,20 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(size_t _ctxCount, uint32_t _c
     IGPUSpecializedShader(_specInfo->shaderStage),
     m_GLnames(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(_ctxCount)),
     m_GLstage(impl::ESS2GLenum(_specInfo->shaderStage)),
-    m_spirv(core::smart_refctd_ptr<const asset::ICPUBuffer>(_spirv)),
-    m_specInfo(core::smart_refctd_ptr<const asset::ISpecializationInfo>(_specInfo)),
     m_introspectionData(core::smart_refctd_ptr<const asset::CIntrospectionData>(_introspection))
 {
-    m_GLnames->operator[](_ctxID) = compile(_GLSLversion);
+    m_GLnames->operator[](_ctxID) = compile(_GLSLversion, _spirv, _specInfo);
     for (auto& nm : (*m_GLnames))
         nm = 0u;
 }
 
-GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion)
+GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo)
 {
-    if (!m_spirv || !m_specInfo)
+    if (!_spirv || !_specInfo)
         return 0u;
 
-    spirv_cross::CompilerGLSL comp(reinterpret_cast<const uint32_t*>(m_spirv->getPointer()), m_spirv->getSize()/4u);
-    comp.set_entry_point(m_specInfo->entryPoint.c_str(), asset::ESS2spvExecModel(m_specInfo->shaderStage));
+    spirv_cross::CompilerGLSL comp(reinterpret_cast<const uint32_t*>(_spirv->getPointer()), _spirv->getSize()/4u);
+    comp.set_entry_point(_specInfo->entryPoint.c_str(), asset::ESS2spvExecModel(_specInfo->shaderStage));
     spirv_cross::CompilerGLSL::Options options;
     options.version = _GLSLversion;
     //vulkan_semantics=false causes spirv_cross to translate push_constants into non-UBO uniform of struct type! Exactly like we wanted!
@@ -130,7 +128,7 @@ GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion)
     options.separate_shader_objects = true;
     comp.set_common_options(options);
 
-    impl::specialize(comp, m_specInfo.get());
+    impl::specialize(comp, _specInfo);
     impl::reorderBindings(comp);
 
     std::string glslCode = comp.compile();
@@ -150,10 +148,6 @@ GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion)
 
     if (m_uniformsList.empty())
         buildUniformsList(GLname);
-
-    //not needed any more
-    m_spirv = nullptr;
-    m_specInfo = nullptr;
 
     return GLname;
 }

@@ -52,16 +52,12 @@ protected:
 
 private:
     //! @returns GL name or zero if already compiled once or there were compilation errors.
-    GLuint compile(uint32_t _GLSLversion);
+    GLuint compile(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo);
     void buildUniformsList(GLuint _GLname);
 
 private:
     mutable core::smart_refctd_dynamic_array<GLuint> m_GLnames;
     GLenum m_GLstage;
-    //! Held until compilation of shader
-    core::smart_refctd_ptr<const asset::ICPUBuffer> m_spirv;
-    //! Held until compilation of shader
-    core::smart_refctd_ptr<const asset::ISpecializationInfo> m_specInfo;
     //used for setting uniforms ("push constants")
     core::smart_refctd_ptr<const asset::CIntrospectionData> m_introspectionData = nullptr;
     SProgramBinary m_binary;

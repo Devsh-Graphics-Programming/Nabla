@@ -77,6 +77,8 @@ class CNullDriver : public IVideoDriver
             asset::SPushConstantRange updateRange;
             updateRange.offset = _offset;
             updateRange.size = _size;
+
+#ifdef _IRR_DEBUG
             //TODO validation:
             /*
             For each byte in the range specified by offset and size and for each shader stage in stageFlags,
@@ -91,6 +93,7 @@ class CNullDriver : public IVideoDriver
                 if (updateRange.overlap(rng) && ((_stages & rng.stageFlags) != rng.stageFlags))
                     return false;
             }
+#endif//_IRR_DEBUG
 
             return true;
         }
