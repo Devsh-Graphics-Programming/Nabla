@@ -1162,7 +1162,7 @@ bool COpenGLDriver::dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint3
     if (!ctx)
         return false;
 
-    ctx->flushStateCompute(GSB_PIPELINE_AND_RASTER_PARAMETERS | GSB_DESCRIPTOR_SETS);
+    ctx->flushStateCompute(GSB_PIPELINE | GSB_DESCRIPTOR_SETS);
 
     extGlDispatchCompute(_groupCountX, _groupCountY, _groupCountZ);
 
@@ -1177,7 +1177,7 @@ bool COpenGLDriver::dispatchIndirect(const IGPUBuffer* _indirectBuf, size_t _off
 
     ctx->nextState.dispatchIndirect.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<const COpenGLBuffer*>(_indirectBuf));
 
-    ctx->flushStateCompute(GSB_PIPELINE_AND_RASTER_PARAMETERS | GSB_DISPATCH_INDIRECT | GSB_DESCRIPTOR_SETS);
+    ctx->flushStateCompute(GSB_PIPELINE | GSB_DISPATCH_INDIRECT | GSB_DESCRIPTOR_SETS);
 
     extGlDispatchComputeIndirect(static_cast<GLintptr>(_offset));
 
@@ -1821,7 +1821,7 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
 void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
 {
     core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> prevPipeline = currentState.pipeline.graphics.pipeline;
-    if (stateBits & GSB_PIPELINE_AND_RASTER_PARAMETERS)
+    if (stateBits & GSB_PIPELINE)
     {
         if (nextState.pipeline.graphics.pipeline != currentState.pipeline.graphics.pipeline)
         {
@@ -1829,13 +1829,13 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
             {
                 GLuint GLname = 0u;
 
-                constexpr SOpenGLState::SGraphicsPipelineHash NULL_HASH = {0u, 0u, 0u, 0u, 0u};
+                constexpr SOpenGLState::SGraphicsPipelineHash NULL_HASH = { 0u, 0u, 0u, 0u, 0u };
 
-                HashPipelinePair lookingFor{nextState.pipeline.graphics.usedShadersHash, {}};
+                HashPipelinePair lookingFor{ nextState.pipeline.graphics.usedShadersHash, {} };
                 if (lookingFor.first != NULL_HASH)
                 {
                     auto found = std::lower_bound(GraphicsPipelineMap.begin(), GraphicsPipelineMap.end(), lookingFor);
-                    if (found != GraphicsPipelineMap.end() && found->first==nextState.pipeline.graphics.usedShadersHash)
+                    if (found != GraphicsPipelineMap.end() && found->first == nextState.pipeline.graphics.usedShadersHash)
                     {
                         GLname = found->second.GLname;
                         found->second.lastValidated = CNullDriver::ReallocationCounter;
@@ -1864,8 +1864,9 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
 
             currentState.pipeline.graphics.pipeline = nextState.pipeline.graphics.pipeline;
         }
-
-
+    }
+    if (stateBits & GSB_RASTER_PARAMETERS)
+    {
 #define STATE_NEQ(member) (nextState.member != currentState.member)
 #define UPDATE_STATE(member) (currentState.member = nextState.member)
         decltype(glEnable)* disable_enable_fptr[2]{ &glDisable, &glEnable };
@@ -2116,7 +2117,7 @@ void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
 {
     core::smart_refctd_ptr<const COpenGLComputePipeline> prevPipeline = currentState.pipeline.compute.pipeline;
 
-    if (stateBits & GSB_PIPELINE_AND_RASTER_PARAMETERS) //obviously "_AND_RASTER_PARAMETERS" is ignored while flushing compute state. Or shouldnt it?
+    if (stateBits & GSB_PIPELINE)
     {
         if (nextState.pipeline.compute.usedShader != currentState.pipeline.compute.usedShader)
         {
@@ -2518,7 +2519,7 @@ void COpenGLDriver::clearColor_gatherAndOverrideState(SAuxContext * found, uint3
     found->nextState.rasterParams.rasterizerDiscardEnable = 0;
     const GLboolean newmask[4]{ 1,1,1,1 };
     memcpy(found->nextState.rasterParams.drawbufferBlend[_attIx].colorMask.colorWritemask, newmask, sizeof(newmask));
-    found->flushStateGraphics(GSB_PIPELINE_AND_RASTER_PARAMETERS);
+    found->flushStateGraphics(GSB_RASTER_PARAMETERS);
 }
 
 void COpenGLDriver::clearColor_bringbackState(SAuxContext * found, uint32_t _attIx, GLboolean _rasterDiscard, const GLboolean * _colorWmask)
@@ -2597,7 +2598,7 @@ void COpenGLDriver::clearZBuffer(const float &depth)
 
     found->nextState.rasterParams.depthWriteEnable = 1;
     found->nextState.rasterParams.rasterizerDiscardEnable = 0;
-    found->flushStateGraphics(GSB_PIPELINE_AND_RASTER_PARAMETERS);
+    found->flushStateGraphics(GSB_RASTER_PARAMETERS);
 
     if (found->CurrentFBO)
         extGlClearNamedFramebufferfv(found->CurrentFBO->getOpenGLName(),GL_DEPTH,0,&depth);
@@ -2621,7 +2622,7 @@ void COpenGLDriver::clearStencilBuffer(const int32_t &stencil)
     found->nextState.rasterParams.stencilFunc_back.mask = ~0u;
     found->nextState.rasterParams.stencilFunc_front.mask = ~0u;
     found->nextState.rasterParams.rasterizerDiscardEnable = 0;
-    found->flushStateGraphics(GSB_PIPELINE_AND_RASTER_PARAMETERS);
+    found->flushStateGraphics(GSB_RASTER_PARAMETERS);
 
     if (found->CurrentFBO)
         extGlClearNamedFramebufferiv(found->CurrentFBO->getOpenGLName(),GL_STENCIL,0,&stencil);
@@ -2648,7 +2649,7 @@ void COpenGLDriver::clearZStencilBuffers(const float &depth, const int32_t &sten
     found->nextState.rasterParams.stencilFunc_back.mask = ~0u;
     found->nextState.rasterParams.stencilFunc_front.mask = ~0u;
     found->nextState.rasterParams.rasterizerDiscardEnable = 0;
-    found->flushStateGraphics(GSB_PIPELINE_AND_RASTER_PARAMETERS);
+    found->flushStateGraphics(GSB_RASTER_PARAMETERS);
 
     if (found->CurrentFBO)
         extGlClearNamedFramebufferfi(found->CurrentFBO->getOpenGLName(),GL_DEPTH_STENCIL,0,depth,stencil);

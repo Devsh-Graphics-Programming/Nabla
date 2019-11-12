@@ -41,14 +41,15 @@ namespace video
     enum GL_STATE_BITS : uint32_t
     {
         // has to be flushed before constants are pushed (before `extGlProgramUniform*`)
-        GSB_PIPELINE_AND_RASTER_PARAMETERS = 1u << 0,
+        GSB_PIPELINE = 1u << 0,
+        GSB_RASTER_PARAMETERS = 1u << 1,
         // we want the two to happen together and just before a draw (set VAO first, then binding)
-        GSB_VAO_AND_VERTEX_INPUT = 1u << 1,
+        GSB_VAO_AND_VERTEX_INPUT = 1u << 2,
         // flush just before (indirect)dispatch or (multi)(indirect)draw, textures and samplers first, then storage image, then SSBO, finally UBO
-        GSB_DESCRIPTOR_SETS = 1u << 2,
+        GSB_DESCRIPTOR_SETS = 1u << 3,
         // GL_DISPATCH_INDIRECT_BUFFER 
-        GSB_DISPATCH_INDIRECT = 1u << 3,
-        GSB_PUSH_CONSTANTS = 1u << 4,
+        GSB_DISPATCH_INDIRECT = 1u << 4,
+        GSB_PUSH_CONSTANTS = 1u << 5,
         // flush everything
         GSB_ALL = ~0x0u
     };
