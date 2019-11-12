@@ -72,18 +72,11 @@ namespace irr
 					}
 				}
 
-				auto performActionBasedOnOrientationSystem = [&](auto performOnRightHanded, auto performOnLeftHanded = [&](void) {})
-				{
-					if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
-						performOnRightHanded();
-					else
-						performOnLeftHanded();
-				};
-
 				{
 					core::vectorSIMDf n;
 					getNextVector(_file, n, binary);
-					performActionBasedOnOrientationSystem([&]() {n.x = -n.x; }, [&]() {});
+					if(_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
+						performActionBasedOnOrientationSystem<float>(n.x, [](float& varToFlip) {varToFlip = -varToFlip;});
 					normals.push_back(core::normalize(n));
 				}
 
@@ -103,7 +96,8 @@ namespace irr
 								return {};
 						}
 						getNextVector(_file, p[i], binary);
-						performActionBasedOnOrientationSystem([&]() {p[i].x = -p[i].x; }, [&]() {});
+						if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
+							performActionBasedOnOrientationSystem<float>(p[i].x, [](float& varToFlip){varToFlip = -varToFlip; });
 					}
 					for (uint32_t i = 0u; i < 3u; ++i) // seems like in STL format vertices are ordered in clockwise manner...
 						positions.push_back(p[2u - i]);

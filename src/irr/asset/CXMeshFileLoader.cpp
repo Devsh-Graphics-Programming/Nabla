@@ -88,15 +88,7 @@ asset::SAssetBundle CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asse
 	ctx.AnimatedMesh = new asset::CCPUSkinnedMesh();
     asset::ICPUMesh* retVal = nullptr;
 
-	auto performActionBasedOnOrientationSystem = [&](auto performOnRightHanded, auto performOnLeftHanded = [&](void) {})
-	{
-		if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
-			performOnRightHanded();
-		else
-			performOnLeftHanded();
-	};
-
-	if (load(ctx, _file, performActionBasedOnOrientationSystem))
+	if (load(ctx, _file, _params))
 	{
         ctx.AnimatedMesh->finalize();
 		if (ctx.AnimatedMesh->isStatic())
@@ -233,12 +225,12 @@ core::matrix4x3 getGlobalMatrix_evil(asset::ICPUSkinnedMesh::SJoint* joint)
 }
 
 
-bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file, orientationFunction performActionBasedOnOrientationSystem)
+bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 	if (!readFileIntoMemory(_ctx, file))
 		return false;
 
-	if (!parseFile(_ctx, performActionBasedOnOrientationSystem))
+	if (!parseFile(_ctx, _params))
 		return false;
 
 	for (uint32_t n=0; n<_ctx.Meshes.size(); ++n)
@@ -702,9 +694,9 @@ bool CXMeshFileLoader::readFileIntoMemory(SContext& _ctx, io::IReadFile* file)
 
 
 //! Parses the file
-bool CXMeshFileLoader::parseFile(SContext& _ctx, orientationFunction performActionBasedOnOrientationSystem)
+bool CXMeshFileLoader::parseFile(SContext& _ctx, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
-	while(parseDataObject(_ctx, performActionBasedOnOrientationSystem))
+	while(parseDataObject(_ctx, _params))
 	{
 		// loop
 	}
@@ -714,7 +706,7 @@ bool CXMeshFileLoader::parseFile(SContext& _ctx, orientationFunction performActi
 
 
 //! Parses the next Data object in the file
-bool CXMeshFileLoader::parseDataObject(SContext& _ctx, orientationFunction performActionBasedOnOrientationSystem)
+bool CXMeshFileLoader::parseDataObject(SContext& _ctx, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 	std::string objectName = getNextToken(_ctx);
 
@@ -731,7 +723,7 @@ bool CXMeshFileLoader::parseDataObject(SContext& _ctx, orientationFunction perfo
 	else
 	if (objectName == "Frame")
 	{
-		return parseDataObjectFrame( _ctx, 0 , performActionBasedOnOrientationSystem);
+		return parseDataObjectFrame( _ctx, 0 , _params);
 	}
 	else
 	if (objectName == "Mesh")
@@ -744,12 +736,12 @@ bool CXMeshFileLoader::parseDataObject(SContext& _ctx, orientationFunction perfo
 		//mesh->Buffer=AnimatedMesh->addMeshBuffer();
         _ctx.Meshes.push_back(mesh);
 
-		return parseDataObjectMesh(_ctx, *mesh, performActionBasedOnOrientationSystem);
+		return parseDataObjectMesh(_ctx, *mesh, _params);
 	}
 	else
 	if (objectName == "AnimationSet")
 	{
-		return parseDataObjectAnimationSet(_ctx, performActionBasedOnOrientationSystem);
+		return parseDataObjectAnimationSet(_ctx, _params);
 	}
 	else
 	if (objectName == "Material")
@@ -808,7 +800,7 @@ bool CXMeshFileLoader::parseDataObjectTemplate(SContext& _ctx)
 }
 
 
-bool CXMeshFileLoader::parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMesh::SJoint *Parent, orientationFunction performActionBasedOnOrientationSystem)
+bool CXMeshFileLoader::parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMesh::SJoint *Parent, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 #ifdef _XREADER_DEBUG
 	os::Printer::log("CXFileReader: Reading frame", ELL_DEBUG);
@@ -890,13 +882,13 @@ bool CXMeshFileLoader::parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMe
 		if (objectName == "Frame")
 		{
 
-			if (!parseDataObjectFrame(_ctx, joint, performActionBasedOnOrientationSystem))
+			if (!parseDataObjectFrame(_ctx, joint, _params))
 				return false;
 		}
 		else
 		if (objectName == "FrameTransformMatrix")
 		{
-			if (!parseDataObjectTransformationMatrix(_ctx, joint->LocalMatrix, performActionBasedOnOrientationSystem))
+			if (!parseDataObjectTransformationMatrix(_ctx, joint->LocalMatrix, _params))
 				return false;
 
 			//joint->LocalAnimatedMatrix
@@ -917,7 +909,7 @@ bool CXMeshFileLoader::parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMe
 
             _ctx.Meshes.push_back(mesh);
 
-			if (!parseDataObjectMesh(_ctx, *mesh, performActionBasedOnOrientationSystem))
+			if (!parseDataObjectMesh(_ctx, *mesh, _params))
 				return false;
 		}
 		else
@@ -932,7 +924,7 @@ bool CXMeshFileLoader::parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMe
 }
 
 
-bool CXMeshFileLoader::parseDataObjectTransformationMatrix(SContext& _ctx, core::matrix4x3 &mat, orientationFunction performActionBasedOnOrientationSystem)
+bool CXMeshFileLoader::parseDataObjectTransformationMatrix(SContext& _ctx, core::matrix4x3 &mat, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 #ifdef _XREADER_DEBUG
 	os::Printer::log("CXFileReader: Reading Transformation Matrix", ELL_DEBUG);
@@ -945,7 +937,7 @@ bool CXMeshFileLoader::parseDataObjectTransformationMatrix(SContext& _ctx, core:
 		return false;
 	}
 
-	readMatrix(_ctx, mat, performActionBasedOnOrientationSystem);
+	readMatrix(_ctx, mat, _params);
 
 	if (!checkForOneFollowingSemicolons(_ctx))
 	{
@@ -964,7 +956,7 @@ bool CXMeshFileLoader::parseDataObjectTransformationMatrix(SContext& _ctx, core:
 }
 
 
-bool CXMeshFileLoader::parseDataObjectMesh(SContext& _ctx, SXMesh &mesh, orientationFunction performActionBasedOnOrientationSystem)
+bool CXMeshFileLoader::parseDataObjectMesh(SContext& _ctx, SXMesh &mesh, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 	std::string name;
 
@@ -990,7 +982,8 @@ bool CXMeshFileLoader::parseDataObjectMesh(SContext& _ctx, SXMesh &mesh, orienta
 	for (uint32_t n=0; n<nVertices; ++n)
 	{
 		readVector3(_ctx, mesh.Vertices[n].Pos);
-		performActionBasedOnOrientationSystem([&]() {mesh.Vertices[n].Pos.X = -mesh.Vertices[n].Pos.X; }, [&]() {});
+		if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
+			performActionBasedOnOrientationSystem<float>(mesh.Vertices[n].Pos.X, [](float& varToFlip) {varToFlip = -varToFlip;});
 	}
 
 	if (!checkForTwoFollowingSemicolons(_ctx))
@@ -1078,7 +1071,7 @@ bool CXMeshFileLoader::parseDataObjectMesh(SContext& _ctx, SXMesh &mesh, orienta
 
 		if (objectName == "MeshNormals")
 		{
-			if (!parseDataObjectMeshNormals(_ctx, mesh, performActionBasedOnOrientationSystem))
+			if (!parseDataObjectMeshNormals(_ctx, mesh, _params))
 				return false;
 		}
 		else
@@ -1299,7 +1292,7 @@ bool CXMeshFileLoader::parseDataObjectMesh(SContext& _ctx, SXMesh &mesh, orienta
 		{
 			//mesh.SkinWeights.push_back(SXSkinWeight());
 			//if (!parseDataObjectSkinWeights(mesh.SkinWeights.back()))
-			if (!parseDataObjectSkinWeights(_ctx, mesh, performActionBasedOnOrientationSystem))
+			if (!parseDataObjectSkinWeights(_ctx, mesh, _params))
 				return false;
 		}
 		else
@@ -1314,7 +1307,7 @@ bool CXMeshFileLoader::parseDataObjectMesh(SContext& _ctx, SXMesh &mesh, orienta
 }
 
 
-bool CXMeshFileLoader::parseDataObjectSkinWeights(SContext& _ctx, SXMesh &mesh, orientationFunction performActionBasedOnOrientationSystem)
+bool CXMeshFileLoader::parseDataObjectSkinWeights(SContext& _ctx, SXMesh &mesh, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 #ifdef _XREADER_DEBUG
 	os::Printer::log("CXFileReader: Reading mesh skin weights", ELL_DEBUG);
@@ -1398,7 +1391,7 @@ bool CXMeshFileLoader::parseDataObjectSkinWeights(SContext& _ctx, SXMesh &mesh, 
 	// transforms the mesh vertices to the space of the bone
 	// When concatenated to the bone's transform, this provides the
 	// world space coordinates of the mesh as affected by the bone
-	readMatrix(_ctx, joint->GlobalInversedMatrix, performActionBasedOnOrientationSystem);
+	readMatrix(_ctx, joint->GlobalInversedMatrix, _params);
 
 	if (!checkForOneFollowingSemicolons(_ctx))
 	{
@@ -1450,7 +1443,7 @@ bool CXMeshFileLoader::parseDataObjectSkinMeshHeader(SContext& _ctx, SXMesh& mes
 }
 
 
-bool CXMeshFileLoader::parseDataObjectMeshNormals(SContext& _ctx, SXMesh &mesh, std::function<void(std::function<void()>, std::function<void()>)> performActionBasedOnOrientationSystem)
+bool CXMeshFileLoader::parseDataObjectMeshNormals(SContext& _ctx, SXMesh &mesh, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 #ifdef _XREADER_DEBUG
 	os::Printer::log("CXFileReader: reading mesh normals", ELL_DEBUG);
@@ -1472,7 +1465,9 @@ bool CXMeshFileLoader::parseDataObjectMeshNormals(SContext& _ctx, SXMesh &mesh, 
 	for (uint32_t i=0; i<nNormals; ++i)
 	{
 		readVector3(_ctx, normals[i]);
-		performActionBasedOnOrientationSystem([&]() {normals[i].X = -normals[i].X; }, [&]() {});
+
+		if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
+			performActionBasedOnOrientationSystem<float>(normals[i].X, [](float& varToFlip) {varToFlip = -varToFlip; });
 	}
 
 	if (!checkForTwoFollowingSemicolons(_ctx))
@@ -1818,7 +1813,7 @@ bool CXMeshFileLoader::parseDataObjectMaterial(SContext& _ctx, video::SCPUMateri
 }
 
 
-bool CXMeshFileLoader::parseDataObjectAnimationSet(SContext& _ctx, orientationFunction performActionBasedOnOrientationSystem)
+bool CXMeshFileLoader::parseDataObjectAnimationSet(SContext& _ctx, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 #ifdef _XREADER_DEBUG
 	os::Printer::log("CXFileReader: Reading animation set", ELL_DEBUG);
@@ -1852,7 +1847,7 @@ bool CXMeshFileLoader::parseDataObjectAnimationSet(SContext& _ctx, orientationFu
 		else
 		if (objectName == "Animation")
 		{
-			if (!parseDataObjectAnimation(_ctx, performActionBasedOnOrientationSystem))
+			if (!parseDataObjectAnimation(_ctx, _params))
 				return false;
 		}
 		else
@@ -1866,7 +1861,7 @@ bool CXMeshFileLoader::parseDataObjectAnimationSet(SContext& _ctx, orientationFu
 }
 
 
-bool CXMeshFileLoader::parseDataObjectAnimation(SContext& _ctx, std::function<void(std::function<void()>, std::function<void()>)> performActionBasedOnOrientationSystem)
+bool CXMeshFileLoader::parseDataObjectAnimation(SContext& _ctx, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 #ifdef _XREADER_DEBUG
 	os::Printer::log("CXFileReader: reading animation", ELL_DEBUG);
@@ -1903,7 +1898,7 @@ bool CXMeshFileLoader::parseDataObjectAnimation(SContext& _ctx, std::function<vo
 		else
 		if (objectName == "AnimationKey")
 		{
-			if (!parseDataObjectAnimationKey(_ctx, &animationDump, performActionBasedOnOrientationSystem))
+			if (!parseDataObjectAnimationKey(_ctx, &animationDump, _params))
 				return false;
 		}
 		else
@@ -1985,7 +1980,7 @@ bool CXMeshFileLoader::parseDataObjectAnimation(SContext& _ctx, std::function<vo
 }
 
 
-bool CXMeshFileLoader::parseDataObjectAnimationKey(SContext& _ctx, asset::ICPUSkinnedMesh::SJoint *joint, std::function<void(std::function<void()>, std::function<void()>)> performActionBasedOnOrientationSystem)
+bool CXMeshFileLoader::parseDataObjectAnimationKey(SContext& _ctx, asset::ICPUSkinnedMesh::SJoint *joint, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 #ifdef _XREADER_DEBUG
 	os::Printer::log("CXFileReader: reading animation key", ELL_DEBUG);
@@ -2107,7 +2102,7 @@ bool CXMeshFileLoader::parseDataObjectAnimationKey(SContext& _ctx, asset::ICPUSk
 
 				// read matrix
 				core::matrix4x3 mat4x3;
-				readMatrix(_ctx, mat4x3, performActionBasedOnOrientationSystem);
+				readMatrix(_ctx, mat4x3, _params);
 				//mat=joint->LocalMatrix*mat;
 
 				if (!checkForOneFollowingSemicolons(_ctx))
@@ -2628,23 +2623,12 @@ bool CXMeshFileLoader::readRGBA(SContext& _ctx, video::SColor& color)
 
 
 // read matrix from list of floats
-bool CXMeshFileLoader::readMatrix(SContext& _ctx, core::matrix4x3& mat, std::function<void(std::function<void()>, std::function<void()>)> performActionBasedOnOrientationSystem)
+bool CXMeshFileLoader::readMatrix(SContext& _ctx, core::matrix4x3& mat, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
     for (uint32_t j=0u; j<4u; j++)
     {
 		for (uint32_t i = 0u; i < 3u; i++)
-			performActionBasedOnOrientationSystem
-			(
-				[&]() 
-				{
-					constexpr uint32_t xPosID = 0;
-					mat(i, j) = (i == xPosID ? readFloat(_ctx) : -readFloat(_ctx));
-				},
-				[&]() 
-				{
-					mat(i, j) = readFloat(_ctx);
-				}
-			);
+			mat(i, j) = readFloat(_ctx);
         readFloat(_ctx);
     }
 	return checkForOneFollowingSemicolons(_ctx);

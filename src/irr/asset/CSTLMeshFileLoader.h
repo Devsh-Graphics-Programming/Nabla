@@ -38,6 +38,12 @@ private:
 
 	//! Read 3d vector of floats
 	void getNextVector(io::IReadFile* file, core::vectorSIMDf& vec, bool binary) const;
+
+	template<typename aType>
+	static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
+	{
+		performOnCertainOrientation(varToHandle);
+	}
 };
 
 } // end namespace scene

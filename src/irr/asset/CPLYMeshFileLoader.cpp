@@ -241,14 +241,6 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
 			bool hasNormals = true;
 
-			auto performActionBasedOnOrientationSystem = [&](auto performOnRightHanded, auto performOnLeftHanded = [&](void) {})
-			{
-				if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
-					performOnRightHanded();
-				else
-					performOnLeftHanded();
-			};
-
 			// loop through each of the elements
 			for (uint32_t i=0; i<ctx.ElementList.size(); ++i)
 			{
@@ -257,7 +249,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				{
 					// loop through vertex properties
 					for (uint32_t j=0; j<ctx.ElementList[i]->Count; ++j)
-						hasNormals &= readVertex(ctx, *ctx.ElementList[i], attribs, performActionBasedOnOrientationSystem);
+						hasNormals &= readVertex(ctx, *ctx.ElementList[i], attribs, _params);
 				}
 				else if (ctx.ElementList[i]->Name == "face")
 				{
@@ -308,7 +300,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 }
 
 
-bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, core::vector<core::vectorSIMDf> _outAttribs[4], std::function<void(std::function<void()>, std::function<void()>)> performActionBasedOnOrientationSystem)
+bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, core::vector<core::vectorSIMDf> _outAttribs[4], const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 	if (!_ctx.IsBinaryFile)
 		getNextLine(_ctx);
@@ -394,10 +386,13 @@ bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, 
 	for (size_t i = 0u; i < 4u; ++i)
 		if (attribs[i].first)
 		{
-			if (i == E_POS)
-				performActionBasedOnOrientationSystem([&]() { attribs[E_POS].second.X = -attribs[E_POS].second.X; }, [&]() {});
-			else if(i == E_NORM)
-				performActionBasedOnOrientationSystem([&]() { attribs[E_NORM].second.X = -attribs[E_NORM].second.X; }, [&]() {});
+			if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
+			{
+				if (i == E_POS)
+					performActionBasedOnOrientationSystem<float>(attribs[E_POS].second.X, [](float& varToFlip) { varToFlip = -varToFlip; });
+				else if (i == E_NORM)
+					performActionBasedOnOrientationSystem<float>(attribs[E_NORM].second.X, [](float& varToFlip) { varToFlip = -varToFlip; });
+			}
 
 			_outAttribs[i].push_back(attribs[i].second);
 		}

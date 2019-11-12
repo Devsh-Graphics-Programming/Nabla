@@ -163,29 +163,27 @@ private:
         asset::IAssetLoader::IAssetLoaderOverride* loaderOverride;
     };
 
-	using orientationFunction = std::function<void(std::function<void()>, std::function<void()>)>;
-
-	bool load(SContext& _ctx, io::IReadFile* file, orientationFunction performActionBasedOnOrientationSystem);
+	bool load(SContext& _ctx, io::IReadFile* file, const asset::IAssetLoader::SAssetLoadParams& _params);
 
 	bool readFileIntoMemory(SContext& _ctx, io::IReadFile* file);
 
-	bool parseFile(SContext& _ctx, orientationFunction performActionBasedOnOrientationSystem);
+	bool parseFile(SContext& _ctx, const asset::IAssetLoader::SAssetLoadParams& _params);
 
-	bool parseDataObject(SContext& _ctx, orientationFunction performActionBasedOnOrientationSystem);
+	bool parseDataObject(SContext& _ctx, const asset::IAssetLoader::SAssetLoadParams& _params);
 
 	bool parseDataObjectTemplate(SContext& _ctx);
 
-	bool parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMesh::SJoint *parent, orientationFunction performActionBasedOnOrientationSystem);
+	bool parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMesh::SJoint *parent, const asset::IAssetLoader::SAssetLoadParams& _params);
 
-	bool parseDataObjectTransformationMatrix(SContext& _ctx, core::matrix4x3 &mat, orientationFunction performActionBasedOnOrientationSystem);
+	bool parseDataObjectTransformationMatrix(SContext& _ctx, core::matrix4x3 &mat, const asset::IAssetLoader::SAssetLoadParams& _params);
 
-	bool parseDataObjectMesh(SContext& _ctx, SXMesh &mesh, orientationFunction performActionBasedOnOrientationSystem);
+	bool parseDataObjectMesh(SContext& _ctx, SXMesh &mesh, const asset::IAssetLoader::SAssetLoadParams& _params);
 
-	bool parseDataObjectSkinWeights(SContext& _ctx, SXMesh &mesh, orientationFunction performActionBasedOnOrientationSystem);
+	bool parseDataObjectSkinWeights(SContext& _ctx, SXMesh &mesh, const asset::IAssetLoader::SAssetLoadParams& _params);
 
 	bool parseDataObjectSkinMeshHeader(SContext& _ctx, SXMesh &mesh);
 
-	bool parseDataObjectMeshNormals(SContext& _ctx, SXMesh &mesh, orientationFunction performActionBasedOnOrientationSystem);
+	bool parseDataObjectMeshNormals(SContext& _ctx, SXMesh &mesh, const asset::IAssetLoader::SAssetLoadParams& _params);
 
 	bool parseDataObjectMeshTextureCoords(SContext& _ctx, SXMesh &mesh);
 
@@ -195,11 +193,11 @@ private:
 
 	bool parseDataObjectMaterial(SContext& _ctx, video::SCPUMaterial& material);
 
-	bool parseDataObjectAnimationSet(SContext& _ctx, orientationFunction performActionBasedOnOrientationSystem);
+	bool parseDataObjectAnimationSet(SContext& _ctx, const asset::IAssetLoader::SAssetLoadParams& _params);
 
-	bool parseDataObjectAnimation(SContext& _ctx, orientationFunction performActionBasedOnOrientationSystem);
+	bool parseDataObjectAnimation(SContext& _ctx, const asset::IAssetLoader::SAssetLoadParams& _params);
 
-	bool parseDataObjectAnimationKey(SContext& _ctx, asset::ICPUSkinnedMesh::SJoint *joint, orientationFunction performActionBasedOnOrientationSystem);
+	bool parseDataObjectAnimationKey(SContext& _ctx, asset::ICPUSkinnedMesh::SJoint *joint, const asset::IAssetLoader::SAssetLoadParams& _params);
 
 	bool parseDataObjectTextureFilename(SContext& _ctx, std::string& texturename);
 
@@ -238,12 +236,18 @@ private:
 	float readFloat(SContext& _ctx);
 	bool readVector2(SContext& _ctx, core::vector2df& vec);
 	bool readVector3(SContext& _ctx, core::vector3df& vec);
-	bool readMatrix(SContext& _ctx, core::matrix4x3& mat, orientationFunction performActionBasedOnOrientationSystem);
+	bool readMatrix(SContext& _ctx, core::matrix4x3& mat, const asset::IAssetLoader::SAssetLoadParams& _params);
 	bool readRGB(SContext& _ctx, video::SColor& color);
 	bool readRGBA(SContext& _ctx, video::SColor& color);
 
 	IAssetManager* AssetManager;
 	io::IFileSystem* FileSystem;
+
+	template<typename aType>
+	static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
+	{
+		performOnCertainOrientation(varToHandle);
+	}
 };
 
 } // end namespace asset
