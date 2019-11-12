@@ -618,6 +618,10 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
 		core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override;
 
+        core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& _params) override;
+
+        core::smart_refctd_ptr<IGPUImageView> createGPUImageView(IGPUImageView::SCreationParams&& params) override;
+
         bool dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint32_t _groupCountZ) override;
         bool dispatchIndirect(const IGPUBuffer* _indirectBuf, size_t _offset) override;
 

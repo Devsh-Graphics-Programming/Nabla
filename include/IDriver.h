@@ -233,7 +233,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 
 
         //! Creates an Image (@see ICPUImage)
-        virtual core::smart_refctd_ptr<IGPUImage> createGPUImage(IGPUImage::SCreationParams&& params)
+        virtual core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& params)
 		{ return nullptr; }
 
 		//! The counterpart of @see bindBufferMemory for images

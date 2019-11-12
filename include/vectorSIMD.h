@@ -16,7 +16,6 @@
 
 #include <stdint.h>
 
-
 #include "irr/core/alloc/AlignedBase.h"
 #include "vector2d.h"
 #include "vector3d.h"
@@ -425,13 +424,24 @@ namespace core
 		{
 			return comparison_dispatch(_mm_cmpgte_epi32,_mm_cmpgte_epi16,_mm_cmpgte_epi8,vectorSIMDIntBase::getAsRegister(), other.getAsRegister());
 		}
+#define FIX_THIS_SOMEHOW //getting unresolved external symbol for _mm_cmp[lt|gt]_epi8, 16, 32
 		inline vector4db_SIMD operator<(const vectorSIMD_32<T>& other) const
 		{
+#ifndef FIX_THIS_SOMEHOW
 			return comparison_dispatch(_mm_cmplt_epi32,_mm_cmplt_epi16,_mm_cmplt_epi8,vectorSIMDIntBase::getAsRegister(),other.getAsRegister());
+#else
+            assert(0);
+            return vector4db_SIMD();
+#endif
 		}
 		inline vector4db_SIMD operator>(const vectorSIMD_32<T>& other) const
 		{
+#ifndef FIX_THIS_SOMEHOW
 			return comparison_dispatch(_mm_cmpgt_epi32,_mm_cmpgt_epi16,_mm_cmpgt_epi8,vectorSIMDIntBase::getAsRegister(), other.getAsRegister());
+#else
+            assert(0);
+            return vector4db_SIMD();
+#endif
 		}
 
 		inline vector4db_SIMD operator==(const vectorSIMD_32<T>& other) const

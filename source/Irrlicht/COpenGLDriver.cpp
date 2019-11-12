@@ -1218,13 +1218,12 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     if (cpuUnspec->containsGLSL()) {
         std::string glsl = reinterpret_cast<const char*>(cpuUnspec->getSPVorGLSL()->getPointer());
         asset::ICPUShader::insertGLSLExtensionsDefines(glsl, getSupportedGLSLExtensions().get());
-        auto spvShader = core::smart_refctd_ptr<asset::ICPUShader>(
-            GLSLCompiler->createSPIRVFromGLSL(
+        auto spvShader = GLSLCompiler->createSPIRVFromGLSL(
                 glsl.c_str(),
                 stage,
                 EP.c_str(),
                 "????"
-            ), core::dont_grab);
+            );
         if (!spvShader)
             return nullptr;
 
@@ -1275,6 +1274,22 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> COpenGLDriver::createGPUDescript
 core::smart_refctd_ptr<IGPUSampler> COpenGLDriver::createGPUSampler(const IGPUSampler::SParams& _params)
 {
     return core::make_smart_refctd_ptr<COpenGLSampler>(_params);
+}
+
+core::smart_refctd_ptr<IGPUImage> COpenGLDriver::createGPUImage(asset::IImage::SCreationParams&& _params)
+{
+    if (!CNullDriver::validateImageCreationParams(_params))
+        return nullptr;
+
+    return core::make_smart_refctd_ptr<COpenGLImage>(std::move(_params));
+}
+
+core::smart_refctd_ptr<IGPUImageView> COpenGLDriver::createGPUImageView(IGPUImageView::SCreationParams&& _params)
+{
+    if (!CNullDriver::validateImageViewCreationParams(_params))
+        return nullptr;
+
+    return core::make_smart_refctd_ptr<COpenGLImageView>(std::move(_params));
 }
 
 core::smart_refctd_ptr<IGPUPipelineLayout> COpenGLDriver::createGPUPipelineLayout(const asset::SPushConstantRange* const _pcRangesBegin, const asset::SPushConstantRange* const _pcRangesEnd, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3)

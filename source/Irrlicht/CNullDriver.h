@@ -191,12 +191,6 @@ class CNullDriver : public IVideoDriver
 										core::recti dstRect=core::recti(0,0,0,0),
 										bool bilinearFilter=false);
 
-		//! Returns the maximum amount of primitives (mostly vertices) which
-		//! the device is able to render with one drawIndexedTriangleList
-		//! call.
-		virtual uint32_t getMaximalIndicesCount() const;
-
-
 	public:
 		virtual void beginQuery(IQueryObject* query);
 		virtual void endQuery(IQueryObject* query);
@@ -254,6 +248,10 @@ class CNullDriver : public IVideoDriver
 
 		// prints renderer version
 		void printVersion();
+
+        bool validateImageCreationParams(const asset::IImage::SCreationParams& _params) const;
+
+        bool validateImageViewCreationParams(const IGPUImageView::SCreationParams& _params) const;
 
     protected:
         IQueryObject* currentQuery[EQOT_COUNT];

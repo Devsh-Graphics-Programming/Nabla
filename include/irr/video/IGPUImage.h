@@ -39,9 +39,9 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
         _IRR_INTERFACE_CHILD(IGPUImage) {}
 
         //! constructor
-		IGPUImage(const SCreationParams& _params)
+		IGPUImage(SCreationParams&& _params)
         {
-			params = _params;
+			params = std::move(_params);
         }
 };
 

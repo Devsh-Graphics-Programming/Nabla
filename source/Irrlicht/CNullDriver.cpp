@@ -323,6 +323,122 @@ void CNullDriver::printVersion()
 	os::Printer::log(namePrint.c_str(), ELL_INFORMATION);
 }
 
+bool CNullDriver::validateImageCreationParams(const asset::IImage::SCreationParams& _params) const
+{
+    // some most common validation done
+    if (!_params.extent.width || !_params.extent.height || !_params.extent.depth)
+        return false;
+    if (!_params.mipLevels)
+        return false;
+    if (!_params.arrayLayers)
+        return false;
+    if (_params.type == asset::IImage::ET_3D && _params.arrayLayers != 1u)
+        return false;
+    if ((_params.samples == asset::IImage::ESCF_1_BIT) &&
+        ((_params.type != asset::IImage::ET_2D) || (_params.flags & asset::IImage::ECF_CUBE_COMPATIBLE_BIT) || (_params.mipLevels != 1u))
+    ) {
+        return false;
+    }
+    if ((_params.flags & asset::IImage::ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT) && !asset::isBlockCompressionFormat(_params.format))
+        return false;
+
+    return true;
+}
+
+bool CNullDriver::validateImageViewCreationParams(const IGPUImageView::SCreationParams & _params) const
+{
+    auto ci = _params.image;
+    if (!ci)
+        return false;
+
+    const auto& img_params = ci->getCreationParameters();
+    if (img_params.extent.width == 0u)
+        return false;
+    if (img_params.arrayLayers == 0u)
+        return false;
+    if (img_params.type == asset::IImage::ET_3D && _params.viewType == asset::ICPUImageView::ET_3D && _params.subresourceRange.baseArrayLayer != 0u)
+        return false;
+    if (_params.viewType == IGPUImageView::ET_1D || _params.viewType == IGPUImageView::ET_1D_ARRAY)
+    {
+        if (img_params.type != asset::IImage::ET_1D)
+            return false;
+        if (img_params.extent.height != 1u)
+            return false;
+        if (img_params.extent.depth != 1u)
+            return false;
+        if (img_params.samples != asset::IImage::ESCF_1_BIT)
+            return false;
+    }
+    else if (_params.viewType == IGPUImageView::ET_2D || _params.viewType == IGPUImageView::ET_2D_ARRAY)
+    {
+        if (img_params.type != asset::IImage::ET_2D && img_params.type != asset::IImage::ET_3D)
+            return false;
+        if (img_params.extent.height == 0u)
+            return false;
+        if (img_params.type == asset::IImage::ET_2D)
+        {
+            if (img_params.extent.depth != 1u)
+                return false;
+        }
+        else //asset::IImage::ET_3D
+        {
+            if (_params.subresourceRange.levelCount != 1u)
+                return false;
+            if (img_params.extent.depth == 0u)
+                return false;
+            if (img_params.arrayLayers != 1u)
+                return false;
+            if (img_params.samples != asset::IImage::ESCF_1_BIT)
+                return false;
+            if (!(img_params.flags & asset::IImage::ECF_2D_ARRAY_COMPATIBLE_BIT))
+                return false;
+            if (img_params.flags & (asset::IImage::ECF_SPARSE_BINDING_BIT | asset::IImage::ECF_SPARSE_RESIDENCY_BIT | asset::IImage::ECF_SPARSE_ALIASED_BIT))
+                return false;
+
+            if (_params.viewType == IGPUImageView::ET_2D)
+            {
+                if (_params.subresourceRange.layerCount != 1u)
+                    return false;
+            }
+            else //ET_2D_ARRAY
+            {
+                if (_params.subresourceRange.layerCount == 0u)
+                    return false;
+            }
+        }
+    }
+    else if (_params.viewType == IGPUImageView::ET_CUBE_MAP || _params.viewType == IGPUImageView::ET_CUBE_MAP_ARRAY)
+    {
+        if (img_params.type != asset::IImage::ET_2D)
+            return false;
+        if (img_params.extent.height != img_params.extent.width)
+            return false;
+        if (img_params.extent.depth != 1u)
+            return false;
+        if (img_params.samples != asset::IImage::ESCF_1_BIT)
+            return false;
+        if (img_params.arrayLayers < 6u)
+            return false;
+        if (!(img_params.flags & asset::IImage::ECF_CUBE_COMPATIBLE_BIT))
+            return false;
+    }
+    else if (_params.viewType == IGPUImageView::ET_3D)
+    {
+        if (img_params.type != asset::IImage::ET_3D)
+            return false;
+        if (img_params.extent.height == 0u)
+            return false;
+        if (img_params.extent.depth == 0u)
+            return false;
+        if (img_params.arrayLayers != 1u)
+            return false;
+        if (img_params.samples != asset::IImage::ESCF_1_BIT)
+            return false;
+    }
+
+    return true;
+}
+
 
 //! creates a video driver
 IVideoDriver* createNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
