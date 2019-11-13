@@ -441,7 +441,7 @@ void Renderer::render()
 	m_smgr->drawAll();
 
 	auto* rSize = m_depth->getSize();
-	constexpr uint32_t subsample = 1;
+	constexpr uint32_t subsample = 4;
 	{
 		auto memory = m_rayBuffer->getBoundMemory();
 		IDriverMemoryAllocation::MappedMemoryRange range(memory,0,rSize[0]*rSize[1]/(subsample*subsample)*sizeof(::RadeonRays::ray));
@@ -449,26 +449,18 @@ void Renderer::render()
 
 		auto campos = core::vectorSIMDf().set(m_smgr->getActiveCamera()->getAbsolutePosition());
 		auto projViewInv = m_driver->getTransform(video::EPTS_PROJ_VIEW_INVERSE);
+		auto check = core::concatenateBFollowedByA(m_driver->getTransform(video::EPTS_PROJ_VIEW),projViewInv);
 		for (int32_t y=0u; y<rSize[1]; y+=subsample)
 		for (int32_t x=0u; x<rSize[0]; x+=subsample)
 		{
-#if 0
 			core::vectorSIMDf farPos(x, -y, 1.f, 1.f);
 			farPos /= core::vectorSIMDf(rSize[0]>>1,rSize[1]>>1,1.f,1.f);
 			farPos += core::vectorSIMDf(-1.f,1.f,0.f,0.f);
 
 			projViewInv.transformVect(farPos);
-#else
-			core::vectorSIMDf farPos(x, y, 1.f, 1.f);
-			farPos /= core::vectorSIMDf(rSize[0], rSize[1], 1.f, 1.f);
+			farPos /= farPos.wwww();
 
-			auto frustum = m_smgr->getActiveCamera()->getViewFrustum();
-			farPos = core::mix(	core::mix(frustum->getFarLeftDown(),frustum->getFarRightDown(),farPos.xxxx()),
-								core::mix(frustum->getFarLeftUp(),frustum->getFarRightUp(),farPos.xxxx()),
-								farPos.yyyy());
-#endif
-
-			auto direction = core::normalize(farPos - campos);
+			auto direction = farPos - campos;
 
 			auto& ray = *(rays++);
 			ray = ::RadeonRays::ray(reinterpret_cast<::RadeonRays::float3&>(campos), reinterpret_cast<::RadeonRays::float3&>(direction));
@@ -511,7 +503,7 @@ void Renderer::render()
 		}
 
 		auto memory = m_intersectionBuffer->getBoundMemory();
-		IDriverMemoryAllocation::MappedMemoryRange range(memory,0,rSize[0]*rSize[1]/256*sizeof(::RadeonRays::Intersection));
+		IDriverMemoryAllocation::MappedMemoryRange range(memory,0,rSize[0]*rSize[1]/(subsample*subsample*sizeof(::RadeonRays::Intersection)));
 		auto intersections = reinterpret_cast<::RadeonRays::Intersection*>(memory->mapMemoryRange(IDriverMemoryAllocation::EMCAF_READ, range.range));
 		core::vector<uint32_t> data;
 		for (int32_t y=0u; y<rSize[1]; y+=subsample)
