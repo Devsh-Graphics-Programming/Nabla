@@ -19,6 +19,8 @@ public:
         return static_cast<const COpenGLSpecializedShader*>(m_shader.get())->getGLnameForCtx(_ctxID);
     }
 
+    bool containsShader() const { return static_cast<bool>(m_shader); }
+
 protected:
     virtual ~COpenGLComputePipeline() = default;
 };

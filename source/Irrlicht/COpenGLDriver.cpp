@@ -1197,6 +1197,7 @@ bool COpenGLDriver::pushConstants(const IGPUPipelineLayout* _layout, uint32_t _s
     updtRng.offset = _offset;
     updtRng.size = _size;
 
+    /*
     uint32_t stagesToUpdate = 0u;
     for (const auto& rng : _layout->getPushConstantRanges())
     {
@@ -1205,11 +1206,12 @@ bool COpenGLDriver::pushConstants(const IGPUPipelineLayout* _layout, uint32_t _s
         //have to mask _stages in case it includes more stages than pipeline layout PC range
         stagesToUpdate |= (m & (rng.stageFlags & _stages));
     }
+    */
 
     if (_stages & asset::ESS_ALL_GRAPHICS)
-        ctx->pushConstants(EPBP_GRAPHICS, static_cast<const COpenGLPipelineLayout*>(_layout), stagesToUpdate, _offset, _size, _values);
+        ctx->pushConstants(EPBP_GRAPHICS, static_cast<const COpenGLPipelineLayout*>(_layout), _stages, _offset, _size, _values);
     if (_stages & asset::ESS_COMPUTE)
-        ctx->pushConstants(EPBP_COMPUTE, static_cast<const COpenGLPipelineLayout*>(_layout), stagesToUpdate, _offset, _size, _values);
+        ctx->pushConstants(EPBP_COMPUTE, static_cast<const COpenGLPipelineLayout*>(_layout), _stages, _offset, _size, _values);
 
     return true;
 }
@@ -1684,9 +1686,13 @@ void COpenGLDriver::SAuxContext::flushStateGraphics_pushConstants()
         if (!((1u << i) & pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags))
             continue;
 
+        const uint32_t presenceMask = currentState.pipeline.graphics.pipeline->getStagePresenceMask();
+        if (!(presenceMask & (1u<<i)))
+            continue;
+
         //pipeline must be flushed before push constants so taking pipeline from currentState
         const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.graphics.pipeline->getShaderAtIndex(i));
-        assert(shdr); //this would be weird
+        //assert(shdr); //this would be weird
 
         shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_GRAPHICS].data, this->ID);
     }
@@ -1695,10 +1701,10 @@ void COpenGLDriver::SAuxContext::flushStateGraphics_pushConstants()
 
 void COpenGLDriver::SAuxContext::flushStateCompute_pushConstants()
 {
-    if (pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags & asset::ESS_COMPUTE)
+    if (currentState.pipeline.compute.pipeline->containsShader() && pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags & asset::ESS_COMPUTE)
     {
         const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.compute.pipeline->getShader());
-        assert(shdr);
+        //assert(shdr);
 
         shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_COMPUTE].data, this->ID);
 

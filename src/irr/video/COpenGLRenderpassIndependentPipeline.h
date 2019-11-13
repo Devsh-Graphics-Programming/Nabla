@@ -26,7 +26,8 @@ public:
         std::move(_parent),
         std::move(_layout), _shadersBegin, _shadersEnd,
         _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
-    ) 
+        ),
+        m_stagePresenceMask(0u)
     {
         static_assert(asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT == asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT, "This code below has to be divided into 2 loops");
         static_assert(asset::EF_UNKNOWN <= 0xffu, "All E_FORMAT values must fit in 1 byte or hash falls apart");
@@ -46,7 +47,14 @@ public:
             m_vaoHashval.setStrideForBinding(bnd, m_vertexInputParams.bindings[bnd].stride);
             m_vaoHashval.divisors |= ((m_vertexInputParams.bindings[bnd].inputRate==asset::EVIR_PER_VERTEX ? 0u : 1u) << bnd);
         }
+        for (uint32_t i = 0u; i < SHADER_STAGE_COUNT; ++i)
+        {
+            const bool present = static_cast<bool>(m_shaders[i]);
+            m_stagePresenceMask |= (static_cast<uint32_t>(present) << i);
+        }
     }
+
+    uint32_t getStagePresenceMask() const { return m_stagePresenceMask; }
 
     struct SVAOHash
     {
@@ -192,6 +200,7 @@ private:
     }
 
     SVAOHash m_vaoHashval;
+    uint32_t m_stagePresenceMask;
 };
 
 }
