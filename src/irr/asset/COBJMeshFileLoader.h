@@ -236,6 +236,12 @@ private:
 
 	IAssetManager* AssetManager;
 	io::IFileSystem* FileSystem;
+
+	template<typename aType>
+	static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
+	{
+		performOnCertainOrientation(varToHandle);
+	}
 };
 
 } // end namespace asset

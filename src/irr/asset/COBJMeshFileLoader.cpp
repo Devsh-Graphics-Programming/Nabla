@@ -105,14 +105,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	bool mtlChanged=false;
     bool submeshLoadedFromCache = false;
 
-	auto performActionBasedOnOrientationSystem = [&](auto performOnRightHanded, auto performOnLeftHanded = [&](void) {})
-	{
-		if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
-			performOnRightHanded();
-		else
-			performOnLeftHanded();
-	};
-
 	while(bufPtr != bufEnd)
 	{
 		switch(bufPtr[0])
@@ -140,7 +132,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				{
 					core::vector3df vec;
 					bufPtr = readVec3(bufPtr, vec, bufEnd);
-					performActionBasedOnOrientationSystem([&]() {vec.X = -vec.X;}, [&]() {});
+					if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
+						performActionBasedOnOrientationSystem<float>(vec.X, [](float& varToFlip) {varToFlip = -varToFlip;});
 					vertexBuffer.push_back(vec);
 				}
 				break;
@@ -149,7 +142,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				{
 					core::vector3df vec;
 					bufPtr = readVec3(bufPtr, vec, bufEnd);
-					performActionBasedOnOrientationSystem([&]() {vec.X = -vec.X; }, [&]() {});
+					if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
+						performActionBasedOnOrientationSystem<float>(vec.X, [](float& varToFlip) {varToFlip = -varToFlip;});
 					normalsBuffer.push_back(vec);
 				}
 				break;
@@ -325,22 +319,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			for ( uint32_t i = 1; i < faceCorners.size() - 1; ++i )
 			{
 				// Add a triangle
-				performActionBasedOnOrientationSystem
-				(
-					[&]()
-					{
-						currMtl->Indices.push_back(faceCorners[0]);
-						currMtl->Indices.push_back(faceCorners[i]);
-						currMtl->Indices.push_back(faceCorners[i + 1]);
-					}, 
-				
-					[&]() 
-					{
-						currMtl->Indices.push_back(faceCorners[i + 1]);
-						currMtl->Indices.push_back(faceCorners[i]);
-						currMtl->Indices.push_back(faceCorners[0]);
-					}
-				);
+				currMtl->Indices.push_back(faceCorners[i + 1]);
+				currMtl->Indices.push_back(faceCorners[i]);
+				currMtl->Indices.push_back(faceCorners[0]);
 			}
 			faceCorners.resize(0); // fast clear
 			faceCorners.reserve(32);
