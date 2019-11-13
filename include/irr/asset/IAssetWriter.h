@@ -35,8 +35,8 @@ enum E_WRITER_FLAGS : uint32_t
 
 enum E_WRITER_PARAMETER_FLAGS : uint64_t
 {
-	ELPF_NONE = 0,											//!< default value, it doesn't do anything
-	ELPF_RIGHT_HANDED_MESHES = 0x1,							//!< specifies that a mesh will be flipped in such a way that it'll look correctly in right-handed camera system						
+	EWPF_NONE = 0,											//!< default value, it doesn't do anything
+	EWPF_RIGHT_HANDED_MESHES = 0x1,							//!< specifies that a mesh will be flipped in such a way that it'll look correctly in right-handed camera system						
 };
 
 class IAssetWriter : public virtual core::IReferenceCounted
@@ -44,7 +44,7 @@ class IAssetWriter : public virtual core::IReferenceCounted
 public:
     struct SAssetWriteParams
     {
-        SAssetWriteParams(IAsset* _asset, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr, const E_WRITER_PARAMETER_FLAGS& _writerFlags = ELPF_NONE, const irr::asset::IAssetLoader::E_LOADER_PARAMETER_FLAGS& _loaderFlagsUsedForWriting = irr::asset::IAssetLoader::E_LOADER_PARAMETER_FLAGS::ELPF_NONE) :
+        SAssetWriteParams(IAsset* _asset, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr, const E_WRITER_PARAMETER_FLAGS& _writerFlags = EWPF_NONE, const irr::asset::IAssetLoader::E_LOADER_PARAMETER_FLAGS& _loaderFlagsUsedForWriting = irr::asset::IAssetLoader::E_LOADER_PARAMETER_FLAGS::ELPF_NONE) :
             rootAsset(_asset), flags(_flags), compressionLevel(_compressionLevel),
             encryptionKeyLen(_encryptionKeyLen), encryptionKey(_encryptionKey),
             userData(_userData), writerFlags(_writerFlags), loaderFlagsUsedForWriting(_loaderFlagsUsedForWriting)
