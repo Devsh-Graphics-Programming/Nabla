@@ -24,15 +24,30 @@ enum E_WRITER_FLAGS : uint32_t
     EWF_BINARY = 1u<<2u
 };
 
+//! Parameter flags for a loader
+/**
+	These are extra flags that have an impact on extraordinary tasks while writing to file.
+	E_LOADER_PARAMETER_FLAGS::ELPF_NONE is default and means that there is nothing to perform.
+	E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES specifies that a mesh will be flipped, 
+	if current flag responsible for orientation is signed as left handed. If it isn't,
+	no flipping will be performed, because there will be no need for that.
+*/
+
+enum E_WRITER_PARAMETER_FLAGS : uint64_t
+{
+	ELPF_NONE = 0,											//!< default value, it doesn't do anything
+	ELPF_RIGHT_HANDED_MESHES = 0x1,							//!< specifies that a mesh will be flipped in such a way that it'll look correctly in right-handed camera system						
+};
+
 class IAssetWriter : public virtual core::IReferenceCounted
 {
 public:
     struct SAssetWriteParams
     {
-        SAssetWriteParams(IAsset* _asset, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr) :
+        SAssetWriteParams(IAsset* _asset, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr, const E_WRITER_PARAMETER_FLAGS& _writerFlags = ELPF_NONE, const irr::asset::IAssetLoader::E_LOADER_PARAMETER_FLAGS& _loaderFlagsUsedForWriting = irr::asset::IAssetLoader::E_LOADER_PARAMETER_FLAGS::ELPF_NONE) :
             rootAsset(_asset), flags(_flags), compressionLevel(_compressionLevel),
             encryptionKeyLen(_encryptionKeyLen), encryptionKey(_encryptionKey),
-            userData(_userData)
+            userData(_userData), writerFlags(_writerFlags), loaderFlagsUsedForWriting(_loaderFlagsUsedForWriting)
         {
         }
 
@@ -42,6 +57,8 @@ public:
         size_t encryptionKeyLen;
         const uint8_t* encryptionKey;
         const void* userData;
+		const E_WRITER_PARAMETER_FLAGS writerFlags;
+		const irr::asset::IAssetLoader::E_LOADER_PARAMETER_FLAGS loaderFlagsUsedForWriting;
     };
 
     //! Struct for keeping the state of the current write operation for safe threading

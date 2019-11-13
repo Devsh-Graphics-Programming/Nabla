@@ -150,6 +150,42 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh
 	for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
 	{
 		asset::ICPUMeshBuffer* buffer = mesh->getMeshBuffer(i);
+
+		/*
+			pseudo code that has to be applied in binary and ASCII writing
+
+			if(WRITER_RIGHTHANDED)
+			{
+				if(LOADER_RIGHTANDED)
+				{
+					// do nothing
+				}
+				else
+				{
+					if(buffer == bufferPos || buffer == bufferNorm)
+					for(auto& it : buffer)
+					{
+						buffer.something.X = -buffer.something.X;
+					}
+				}
+			}
+			else
+			{
+				if(LOADER_LEFTHANDED)
+				{
+					// do nothing
+				}
+				else
+				{
+					if(buffer == bufferPos || buffer == bufferNorm)
+					for(auto& it : buffer)
+					{
+						buffer.something.X = -buffer.something.X;
+					}
+				}
+			}
+		*/
+
 		if (buffer&&buffer->getMeshDataAndFormat())
 		{
             asset::E_INDEX_TYPE type = buffer->getIndexType();
