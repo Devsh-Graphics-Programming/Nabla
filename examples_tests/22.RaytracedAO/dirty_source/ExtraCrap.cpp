@@ -19,6 +19,7 @@ const std::string raygenShaderExtensions = R"======(
 #extension GL_ARB_shader_ballot : require
 )======";
 
+/*
 const std::string raygenShader = R"======(
 #define WORK_GROUP_DIM 16u
 layout(local_size_x = WORK_GROUP_DIM, local_size_y = WORK_GROUP_DIM) in;
@@ -134,7 +135,7 @@ void main()
 		vec3 normal = decode(theta,phi);
 		// debug
 		imageStore(out_img,outputLocation,vec4(normal,1.0));
-	/*
+	
 		// compute rays
 		float fresnel = 0.5;
 		RadeonRays_ray newray;
@@ -149,7 +150,7 @@ void main()
 
 		// store rays
 		rays[getGlobalOffset()] = newray;
-	*/
+	
 //	}
 
 	// future ray compaction system
@@ -166,7 +167,81 @@ void main()
 }
 
 )======";
+*/
+const std::string raygenShader = R"======(
+#define WORK_GROUP_DIM 16u
+layout(local_size_x = WORK_GROUP_DIM, local_size_y = WORK_GROUP_DIM) in;
+#define WORK_GROUP_SIZE (WORK_GROUP_DIM*WORK_GROUP_DIM)
 
+// uniforms
+layout(location = 0) uniform vec3 uCameraPos;
+layout(location = 1) uniform mat4 uViewProjInverse;
+layout(location = 2) uniform uvec2 uImageSize;
+layout(location = 3) uniform uvec2 uSamples_ImageWidthSamples;
+layout(location = 4) uniform vec4 uImageSize2Rcp;
+
+// image views
+layout(binding = 0) uniform sampler2D depthbuf;
+layout(binding = 1) uniform usampler2D normalbuf;
+
+// SSBOs
+layout(binding = 0, std430) restrict writeonly buffer Rays
+{
+	RadeonRays_ray rays[];
+};
+
+
+vec3 decode(in vec2 enc)
+{
+	const float kPI = 3.14159265358979323846;
+	float ang = enc.x*kPI;
+    return vec3(vec2(cos(ang),sin(ang))*sqrt(1.0-enc.y*enc.y), enc.y);
+}
+
+
+#define FLT_MAX 3.402823466e+38
+
+void main()
+{
+	uvec2 outputLocation = gl_GlobalInvocationID.xy;
+	bool alive = all(lessThan(outputLocation,uImageSize));
+	if (alive)
+	{
+		float revdepth = texelFetch(depthbuf,ivec2(outputLocation),0).r;
+
+		uint outputID = uSamples_ImageWidthSamples.x*outputLocation.x+uSamples_ImageWidthSamples.y*outputLocation.y;
+
+		// unproject
+		vec3 position;
+		{
+			vec2 NDC = vec2(outputLocation)*uImageSize2Rcp.xy+uImageSize2Rcp.zw;
+			// reorder for precision
+			vec4 tmp = uViewProjInverse[0]*NDC.x+uViewProjInverse[1]*NDC.y-uViewProjInverse[2]*revdepth;
+			tmp += uViewProjInverse[2]+uViewProjInverse[3];
+
+			position = tmp.xyz/tmp.www;
+		}
+
+		vec4 bsdf = vec4(0.5,0.5,0.5,-1.0);
+
+		RadeonRays_ray newray;
+		//newray.origin = position;
+		newray.origin = uCameraPos;
+		newray.maxT = alive ? FLT_MAX:0.0;
+		//newray.direction = reflect(position-uCameraPos,normal);
+		newray.direction = position-uCameraPos;
+		newray.time = 0.0;
+		newray.mask = -1;
+		newray._active = alive ? 1:0;
+		newray.backfaceCulling = int(packHalf2x16(bsdf.ab));
+		newray.useless_padding = int(packHalf2x16(bsdf.gr));
+
+		// store rays
+		rays[outputID] = newray;
+	}
+}
+
+)======";
 
 inline GLuint createComputeShader(const std::string& source)
 {
@@ -282,7 +357,9 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneMa
 		m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager),
 		nonInstanced(static_cast<E_MATERIAL_TYPE>(-1)), m_raygenProgram(0u), m_rrManager(ext::RadeonRays::Manager::create(m_driver)),
 		m_depth(), m_albedo(), m_normals(), m_colorBuffer(nullptr), m_gbuffer(nullptr),
-		m_rayBuffer(), m_intersectionBuffer(), m_rayBufferAsRR(nullptr,nullptr), m_intersectionBufferAsRR(nullptr,nullptr),
+		m_workGroupCount{0u,0u}, m_samplesPerDispatch(0u), m_rayCount(0u),
+		m_rayBuffer(), m_intersectionBuffer(), m_rayCountBuffer(),
+		m_rayBufferAsRR(nullptr,nullptr), m_intersectionBufferAsRR(nullptr,nullptr), m_rayCountBufferAsRR(nullptr,nullptr),
 		nodes(), sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), rrInstances()
 {
 	SimpleCallBack* cb = new SimpleCallBack();
@@ -380,15 +457,52 @@ void Renderer::init(const SAssetBundle& meshes, uint32_t rayBufferSize)
 	m_gbuffer->attach(EFAP_COLOR_ATTACHMENT1, m_normals.get());
 
 	//
-	m_rayBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createUpStreamingGPUBufferOnDedMem(rayBufferSize),core::dont_grab);
-	m_intersectionBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createDownStreamingGPUBufferOnDedMem(rayBufferSize),core::dont_grab);
+#define WORK_GROUP_DIM 16u
+	m_workGroupCount[0] = (renderSize.Width+WORK_GROUP_DIM-1)/WORK_GROUP_DIM;
+	m_workGroupCount[1] = (renderSize.Height+WORK_GROUP_DIM-1)/WORK_GROUP_DIM;
+	uint32_t pixelCount = renderSize.Width*renderSize.Height;
+
+	auto raygenBufferSize = static_cast<size_t>(pixelCount)*sizeof(::RadeonRays::ray);
+	assert(raygenBufferSize<=rayBufferSize);
+	auto shadowBufferSize = static_cast<size_t>(pixelCount)*sizeof(int32_t);
+	assert(shadowBufferSize<=rayBufferSize);
+	m_samplesPerDispatch = rayBufferSize/(raygenBufferSize+shadowBufferSize);
+	assert(m_samplesPerDispatch >= 2u);
+
+	raygenBufferSize *= m_samplesPerDispatch;
+	m_rayBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createDownStreamingGPUBufferOnDedMem(raygenBufferSize), core::dont_grab);
+
+	shadowBufferSize *= m_samplesPerDispatch;
+	m_intersectionBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createDownStreamingGPUBufferOnDedMem(shadowBufferSize),core::dont_grab);
+
+	m_rayCount = m_samplesPerDispatch*pixelCount;
+	m_rayCountBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t),&m_rayCount), core::dont_grab);
+
 	m_rayBufferAsRR = m_rrManager->linkBuffer(m_rayBuffer.get(), CL_MEM_READ_WRITE);
-	m_intersectionBufferAsRR = m_rrManager->linkBuffer(m_intersectionBuffer.get(), CL_MEM_READ_WRITE);
+	m_intersectionBufferAsRR = m_rrManager->linkBuffer(m_intersectionBuffer.get(), CL_MEM_READ_WRITE); // should it be write only?
+	m_rayCountBufferAsRR = m_rrManager->linkBuffer(m_rayCountBuffer.get(), CL_MEM_READ_ONLY);
+
+	const cl_mem clObjects[] = { m_rayCountBufferAsRR.second };
+	auto objCount = sizeof(clObjects)/sizeof(cl_mem);
+	clEnqueueAcquireGLObjects(m_rrManager->getCLCommandQueue(), objCount, clObjects, 0u, nullptr, nullptr);
 }
 
 
 void Renderer::deinit()
 {
+	auto commandQueue = m_rrManager->getCLCommandQueue();
+	clFinish(commandQueue);
+
+	glFinish();
+
+	// release OpenCL objects and wait for OpenCL to finish
+	const cl_mem clObjects[] = { m_rayCountBufferAsRR.second };
+	auto objCount = sizeof(clObjects) / sizeof(cl_mem);
+	clEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, nullptr, nullptr);
+	clFlush(commandQueue);
+	clFinish(commandQueue);
+
+	// start deleting objects
 	if (m_colorBuffer)
 	{
 		m_driver->removeFrameBuffer(m_colorBuffer);
@@ -412,7 +526,15 @@ void Renderer::deinit()
 		m_rrManager->deleteRRBuffer(m_intersectionBufferAsRR.first);
 		m_intersectionBufferAsRR = {nullptr,nullptr};
 	}
-	m_rayBuffer = m_intersectionBuffer = nullptr;
+	if (m_rayCountBufferAsRR.first)
+	{
+		m_rrManager->deleteRRBuffer(m_rayCountBufferAsRR.first);
+		m_rayCountBufferAsRR = {nullptr,nullptr};
+	}
+	m_rayBuffer = m_intersectionBuffer = m_rayCountBuffer = nullptr;
+	m_samplesPerDispatch = 0u;
+	m_rayCount = 0u;
+	m_workGroupCount[0] = m_workGroupCount[1] = 0u;
 
 	for (auto& node : nodes)
 		node->remove();
@@ -440,34 +562,52 @@ void Renderer::render()
 	//! Also draws the meshbuffer
 	m_smgr->drawAll();
 
-	auto* rSize = m_depth->getSize();
-	constexpr uint32_t subsample = 4;
+	auto rSize = m_depth->getSize();
 	{
-		auto memory = m_rayBuffer->getBoundMemory();
-		IDriverMemoryAllocation::MappedMemoryRange range(memory,0,rSize[0]*rSize[1]/(subsample*subsample)*sizeof(::RadeonRays::ray));
-		auto rays = reinterpret_cast<::RadeonRays::ray*>(memory->mapMemoryRange(IDriverMemoryAllocation::EMCAF_WRITE,range.range));
+		GLint prevProgram;
+		glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
 
-		auto campos = core::vectorSIMDf().set(m_smgr->getActiveCamera()->getAbsolutePosition());
-		auto projViewInv = m_driver->getTransform(video::EPTS_PROJ_VIEW_INVERSE);
-		auto check = core::concatenateBFollowedByA(m_driver->getTransform(video::EPTS_PROJ_VIEW),projViewInv);
-		for (int32_t y=0u; y<rSize[1]; y+=subsample)
-		for (int32_t x=0u; x<rSize[0]; x+=subsample)
+		STextureSamplingParams params;
+		params.MaxFilter = ETFT_NEAREST_NEARESTMIP;
+		params.MinFilter = ETFT_NEAREST_NEARESTMIP;
+		params.UseMipmaps = 0;
+
+		const COpenGLDriver::SAuxContext* foundConst = static_cast<COpenGLDriver*>(m_driver)->getThreadContext();
+		COpenGLDriver::SAuxContext* found = const_cast<COpenGLDriver::SAuxContext*>(foundConst);
+		found->setActiveTexture(0, core::smart_refctd_ptr(m_depth), params);
+		found->setActiveTexture(1, core::smart_refctd_ptr(m_normals), params);
+
+
+		COpenGLExtensionHandler::extGlUseProgram(m_raygenProgram);
+
+		const COpenGLBuffer* buffers[] = { static_cast<const COpenGLBuffer*>(m_rayBuffer.get()) };
+		ptrdiff_t offsets[] = { 0 };
+		ptrdiff_t sizes[] = { m_rayBuffer->getSize() };
+		found->setActiveSSBO(0, 1, buffers, offsets, sizes);
+
 		{
-			core::vectorSIMDf farPos(x, -y, 1.f, 1.f);
-			farPos /= core::vectorSIMDf(rSize[0]>>1,rSize[1]>>1,1.f,1.f);
-			farPos += core::vectorSIMDf(-1.f,1.f,0.f,0.f);
+			auto camera = m_smgr->getActiveCamera();
+			auto camPos = camera->getAbsolutePosition();
+			COpenGLExtensionHandler::pGlProgramUniform3fv(m_raygenProgram, 0, 1, &camPos.X);
 
-			projViewInv.transformVect(farPos);
-			farPos /= farPos.wwww();
+			auto invViewProj = m_driver->getTransform(video::EPTS_PROJ_VIEW_INVERSE);
+			COpenGLExtensionHandler::pGlProgramUniformMatrix4fv(m_raygenProgram, 1, 1, true, invViewProj.pointer());
 
-			auto direction = farPos - campos;
+			COpenGLExtensionHandler::pGlProgramUniform2uiv(m_raygenProgram, 2, 1, rSize);
 
-			auto& ray = *(rays++);
-			ray = ::RadeonRays::ray(reinterpret_cast<::RadeonRays::float3&>(campos), reinterpret_cast<::RadeonRays::float3&>(direction));
+			uint32_t uSamples_ImageWidthSamples[2] = {m_samplesPerDispatch,rSize[0]*m_samplesPerDispatch};
+			COpenGLExtensionHandler::pGlProgramUniform2uiv(m_raygenProgram, 3, 1, uSamples_ImageWidthSamples);
+
+			float uImageSize2Rcp[4] = {2.f/static_cast<float>(rSize[0]),-2.f/static_cast<float>(rSize[1]),0.5f/static_cast<float>(rSize[0])-1.f,1.f-0.5f/static_cast<float>(rSize[1])};
+			COpenGLExtensionHandler::pGlProgramUniform4fv(m_raygenProgram, 4, 1, uImageSize2Rcp);
 		}
 
-		m_driver->flushMappedMemoryRanges(1, &range);
-		memory->unmapMemory();
+		COpenGLExtensionHandler::pGlDispatchCompute(m_workGroupCount[0], m_workGroupCount[1], 1);
+
+		COpenGLExtensionHandler::extGlUseProgram(prevProgram);
+		
+		// probably wise to flush all caches
+		COpenGLExtensionHandler::pGlMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
 
 	m_rrManager->update(rrInstances);
@@ -485,7 +625,7 @@ void Renderer::render()
 		clEnqueueAcquireGLObjects(commandQueue,objCount,clObjects,0u,nullptr,&acquired);
 
 		clEnqueueWaitForEvents(commandQueue,1u,&acquired);
-		m_rrManager->getRadeonRaysAPI()->QueryIntersection(m_rayBufferAsRR.first,rSize[0]*rSize[1]/(subsample*subsample),m_intersectionBufferAsRR.first,nullptr,nullptr);
+		m_rrManager->getRadeonRaysAPI()->QueryOcclusion(m_rayBufferAsRR.first,m_rayCountBufferAsRR.first,m_rayCount,m_intersectionBufferAsRR.first,nullptr,nullptr);
 		cl_event raycastDone = nullptr;
 		clEnqueueMarker(commandQueue,&raycastDone);
 
@@ -502,15 +642,20 @@ void Renderer::render()
 			clWaitForEvents(1u, &released);
 		}
 
+
 		auto memory = m_intersectionBuffer->getBoundMemory();
-		IDriverMemoryAllocation::MappedMemoryRange range(memory,0,rSize[0]*rSize[1]/(subsample*subsample*sizeof(::RadeonRays::Intersection)));
-		auto intersections = reinterpret_cast<::RadeonRays::Intersection*>(memory->mapMemoryRange(IDriverMemoryAllocation::EMCAF_READ, range.range));
+
+		IDriverMemoryAllocation::MappedMemoryRange range(memory,0,rSize[0]*rSize[1]*sizeof(int32_t));
+		auto intersections = reinterpret_cast<int32_t*>(memory->mapMemoryRange(IDriverMemoryAllocation::EMCAF_READ, range.range));
+
+		constexpr uint32_t subsample = 2u;
 		core::vector<uint32_t> data;
 		for (int32_t y=0u; y<rSize[1]; y+=subsample)
 		for (int32_t x=0u; x<rSize[0]; x+=subsample)
 		{
-			auto& intersection = *(intersections++);
-			data.push_back(intersection.shapeid<<5);
+			auto& intersection = *intersections;
+			data.push_back(intersection<0 ? 0xffffffffu:0u);
+			intersections += m_samplesPerDispatch*subsample*subsample;
 		}
 		uint32_t mini[3] = { 0,0,0 };
 		uint32_t maxi[3] = { rSize[0]/subsample,rSize[1]/subsample,1 };

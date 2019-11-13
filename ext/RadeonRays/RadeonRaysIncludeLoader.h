@@ -22,7 +22,7 @@ struct RadeonRays_ray
 	vec3 direction;
 	float time;
 	int mask; // want to have it to -1
-	int active; // want to have it to 1
+	int _active; // want to have it to 1
 	int backfaceCulling; // want to have it to 0
 	int useless_padding; // can be used to forward data
 }; 
@@ -35,7 +35,7 @@ RadeonRays_ray ext_RadeonRays_constructDefaultRay(in vec3 origin, in vec3 direct
 	retval.direction = direction;
 	retval.time = 0.0;
 	retval.mask = -1;
-	retval.active = 1;
+	retval._active = 1;
 	retval.backfaceCulling = 0;
 	retval.useless_padding = userData;
 	return retval;

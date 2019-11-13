@@ -33,10 +33,15 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::core::smart_refctd_ptr<irr::video::ITexture> m_depth,m_albedo,m_normals;
 		irr::video::IFrameBuffer* m_colorBuffer,* m_gbuffer;
 
+		uint32_t m_workGroupCount[2];
+		uint32_t m_samplesPerDispatch;
+		uint32_t m_rayCount;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_rayBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_intersectionBuffer;
+		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_rayCountBuffer;
 		std::pair<::RadeonRays::Buffer*,cl_mem> m_rayBufferAsRR;
 		std::pair<::RadeonRays::Buffer*,cl_mem> m_intersectionBufferAsRR;
+		std::pair<::RadeonRays::Buffer*,cl_mem> m_rayCountBufferAsRR;
 
 		irr::core::vector<irr::core::smart_refctd_ptr<irr::scene::IMeshSceneNode> > nodes;
 		irr::core::aabbox3df sceneBound;
