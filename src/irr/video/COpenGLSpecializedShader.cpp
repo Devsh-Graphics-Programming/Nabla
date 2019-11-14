@@ -109,9 +109,9 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(size_t _ctxCount, uint32_t _c
     m_GLstage(impl::ESS2GLenum(_specInfo->shaderStage)),
     m_introspectionData(core::smart_refctd_ptr<const asset::CIntrospectionData>(_introspection))
 {
-    m_GLnames->operator[](_ctxID) = compile(_GLSLversion, _spirv, _specInfo);
     for (auto& nm : (*m_GLnames))
         nm = 0u;
+    m_GLnames->operator[](_ctxID) = compile(_GLSLversion, _spirv, _specInfo);
 }
 
 GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo)
