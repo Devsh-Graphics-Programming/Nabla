@@ -1,8 +1,6 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 
-#include "../../ext/ScreenShot/ScreenShot.h"
-
 #include "../common/QToQuitEventReceiver.h"
 
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
@@ -129,7 +127,7 @@ int main()
 	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
 	auto smgr = device->getSceneManager();
 	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver,device->getAssetManager(),smgr);
-	renderer->init(meshes);
+	renderer->init(meshes,1024u*1024u*1024u);
 	meshes = {}; // free memory
 
 
@@ -264,12 +262,6 @@ int main()
 	}
 	renderer->deinit();
 	renderer = nullptr;
-
-	// create a screenshot
-	{
-		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
-		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
-	}
 
 	device->drop();
 	return 0;

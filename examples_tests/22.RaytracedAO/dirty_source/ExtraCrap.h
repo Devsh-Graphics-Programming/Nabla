@@ -30,8 +30,8 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::scene::ISceneManager* m_smgr;
 		irr::core::smart_refctd_ptr<irr::ext::RadeonRays::Manager> m_rrManager;
 
-		irr::core::smart_refctd_ptr<irr::video::ITexture> m_depth,m_albedo,m_normals;
-		irr::video::IFrameBuffer* m_colorBuffer,* m_gbuffer;
+		irr::core::smart_refctd_ptr<irr::video::ITexture> m_depth,m_albedo,m_normals,m_accumulation,m_tonemapOutput;
+		irr::video::IFrameBuffer* m_colorBuffer,* m_gbuffer,* tmpTonemapBuffer;
 
 		uint32_t m_workGroupCount[2];
 		uint32_t m_samplesPerDispatch;
