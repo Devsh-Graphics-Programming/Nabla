@@ -25,7 +25,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
         irr::video::IVideoDriver* m_driver;
 		irr::video::E_MATERIAL_TYPE nonInstanced;
-		uint32_t m_raygenProgram;
+		uint32_t m_raygenProgram, m_compostProgram;
 		irr::asset::IAssetManager* m_assetManager;
 		irr::scene::ISceneManager* m_smgr;
 		irr::core::smart_refctd_ptr<irr::ext::RadeonRays::Manager> m_rrManager;
