@@ -205,16 +205,18 @@ vec3 decode(in vec2 enc)
 
 float linearizeZBufferVal(in float nonLinearZBufferVal)
 {
-	// get back original Z: `row[2][3]/(y*row[3][2]-row[2][2]) = x`
-	// max Z: `row[2][3]/(row[3][2]-row[2][2])`
-	// min Z: `-row[2][3]/row[2][2]`
-	// positive [0,1]: `row[2][3]*(1/(y*row[3][2]-row[2][2])+1/row[2][2])*(row[3][2]-row[2][2])/row[2][3]`
-	// positive [0,1]: `(row[3][2]-row[2][2])/(y*row[3][2]-row[2][2])+(row[3][2]-row[2][2])/row[2][2]`
-	// positive [0,1]: `(row[3][2]-row[2][2])*row[3][2]*y/(y*row[2][2]*row[3][2]-row[2][2]*row[2][2])`
-	// revZ positive [0,1]: `((row[3][2]-row[2][2])*row[3][2]-(row[3][2]-row[2][2])*row[3][2]*y)/(row[2][2]*row[3][2]-y*row[2][2]*row[3][2]-row[2][2]*row[2][2])`
-	// revZ positive [0,1]: `((row[3][2]-row[2][2])*row[3][2]-(row[3][2]-row[2][2])*row[3][2]*y)/(row[2][2]*(row[3][2]-row[2][2])-y*row[2][2]*row[3][2])`
-	// positive [0,1]: `(Ay-A)/(Cy+D) == A/C-(A+DA/C)/(Cy+D)` ?
-    return (uDepthLinearizationConstants[0]*nonLinearZBufferVal+uDepthLinearizationConstants[1])/(uDepthLinearizationConstants[2]*nonLinearZBufferVal+uDepthLinearizationConstants[3]);
+	// 1-(Ax+B)/(Cx) = y
+	// (Ax+B)/(Cx) = 1-y
+	// x = B/(C(1-y)-A)
+	// x = B/(C-A-Cy)
+	// get back original Z: `row[2][3]/(row[3][2]-row[2][2]-y*row[3][2]) = x`
+	// max Z: `B/(C-A)`
+	// min Z: `-B/A`
+	// positive [0,1] Z: `(B/(C-A-Cy)+B/A)/(B/(C-A)+B/A)`
+	// positive [0,1] Z: `((C-A)*A/(C-A-Cy)+(C-A))/(A+(C-A))`
+	// positive [0,1] Z: `(C-A)*A/C/(C-A-Cy)+(C-A)/C`
+	// positive [0,1] Z: `D*A/C/(D-Cy)+D/C`
+    return uDepthLinearizationConstants[0]/(uDepthLinearizationConstants[1]*nonLinearZBufferVal+uDepthLinearizationConstants[2])+uDepthLinearizationConstants[3];
 }
 
 float ULP(in float x)
@@ -693,10 +695,10 @@ void Renderer::render()
 				auto projMat = camera->getProjectionMatrix();
 				auto* row = projMat.rows;
 				float colDiff = row[3][2] - row[2][2];
-				uDepthLinearizationConstants[0] = -colDiff*row[3][2];
-				uDepthLinearizationConstants[1] = colDiff*row[3][2];
-				uDepthLinearizationConstants[2] = -row[2][2]*row[3][2];
-				uDepthLinearizationConstants[3] = row[2][2]*colDiff;
+				uDepthLinearizationConstants[0] = colDiff*row[2][2]/row[3][2];
+				uDepthLinearizationConstants[1] = -row[3][2];
+				uDepthLinearizationConstants[2] = colDiff;
+				uDepthLinearizationConstants[3] = colDiff/row[3][2];
 			}
 			COpenGLExtensionHandler::pGlProgramUniform4fv(m_raygenProgram, 5, 1, uDepthLinearizationConstants);
 		}
