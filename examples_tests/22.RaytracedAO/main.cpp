@@ -220,10 +220,11 @@ int main()
 		}
 		// TODO: apply the crop offset
 		assert(film.cropOffsetX==0 && film.cropOffsetY==0);
+		float nearClip = core::max(persp->nearClip, persp->farClip * 0.0001);
 		if (leftHandedCamera)
-			camera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(realFoVDegrees), aspectRatio, persp->nearClip, persp->farClip));
+			camera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(realFoVDegrees), aspectRatio, nearClip, persp->farClip));
 		else
-			camera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(realFoVDegrees), aspectRatio, persp->nearClip, persp->farClip));
+			camera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(realFoVDegrees), aspectRatio, nearClip, persp->farClip));
 	}
 	else
 	{
@@ -244,7 +245,9 @@ int main()
 
 		renderer->render();
 
+		auto oldVP = driver->getViewPort();
 		driver->blitRenderTargets(renderer->getColorBuffer(),nullptr,false,false,{},{},true);
+		driver->setViewPort(oldVP);
 
 		driver->endScene();
 
