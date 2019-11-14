@@ -55,7 +55,7 @@ void CCameraSceneNode::setProjectionMatrix(const core::matrix4SIMD& projection)
 {
 	projMatrix = projection;
 	leftHanded = core::determinant(projMatrix) < 0.f;
-	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
+	concatMatrix = core::matrix4SIMD::concatenateBFollowedByAPrecisely(projMatrix,core::matrix4SIMD(viewMatrix));
 }
 
 
@@ -149,7 +149,7 @@ void CCameraSceneNode::recomputeProjectionMatrix()
 		projMatrix = core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(Fovy, Aspect, ZNear, ZFar);
 	else
 		projMatrix = core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(Fovy, Aspect, ZNear, ZFar);
-	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
+	concatMatrix = core::matrix4SIMD::concatenateBFollowedByAPrecisely(projMatrix,core::matrix4SIMD(viewMatrix));
 }
 
 
@@ -185,7 +185,7 @@ void CCameraSceneNode::render()
 		viewMatrix = core::matrix3x4SIMD::buildCameraLookAtMatrixLH(pos, Target, up);
 	else
 		viewMatrix = core::matrix3x4SIMD::buildCameraLookAtMatrixRH(pos, Target, up);
-	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
+	concatMatrix = core::matrix4SIMD::concatenateBFollowedByAPrecisely(projMatrix, core::matrix4SIMD(viewMatrix));
 	recalculateViewArea();
 
 	video::IVideoDriver* driver = SceneManager->getVideoDriver();

@@ -252,6 +252,19 @@ const core::matrix4SIMD& CNullDriver::getTransform(const E_PROJECTION_TRANSFORMA
 {
     const uint32_t stateBit = 0x1u<<(state+E4X3TS_COUNT);
 
+	auto updateProjView = [&]()
+	{
+        ProjectionMatrices[EPTS_PROJ_VIEW] = core::matrix4SIMD::concatenateBFollowedByAPrecisely(ProjectionMatrices[EPTS_PROJ],core::matrix4SIMD(TransformationMatrices[E4X3TS_VIEW]));
+	};
+	auto updateProjViewWorld = [&]()
+	{
+        if (matrixModifiedBits&(0x1u<<(EPTS_PROJ_VIEW+E4X3TS_COUNT)))
+        {
+			updateProjView();
+            matrixModifiedBits &= ~(0x1u<<(EPTS_PROJ_VIEW+E4X3TS_COUNT));
+		}
+        ProjectionMatrices[EPTS_PROJ_VIEW_WORLD] = core::matrix4SIMD::concatenateBFollowedByA(ProjectionMatrices[EPTS_PROJ_VIEW],core::matrix4SIMD(TransformationMatrices[E4X3TS_WORLD]));
+	};
 	if (matrixModifiedBits&stateBit)
     {
         switch (state)
@@ -259,24 +272,18 @@ const core::matrix4SIMD& CNullDriver::getTransform(const E_PROJECTION_TRANSFORMA
             case EPTS_PROJ:
                 break;
             case EPTS_PROJ_VIEW:
-                ProjectionMatrices[EPTS_PROJ_VIEW] = core::concatenateBFollowedByA(ProjectionMatrices[EPTS_PROJ],TransformationMatrices[E4X3TS_VIEW]);
+				updateProjView();
                 break;
             case EPTS_PROJ_VIEW_WORLD:
-                if (matrixModifiedBits&(0x1u<<E4X3TS_WORLD_VIEW))
-                {
-                    TransformationMatrices[E4X3TS_WORLD_VIEW] = concatenateBFollowedByA(TransformationMatrices[E4X3TS_VIEW],TransformationMatrices[E4X3TS_WORLD]);
-                    ///TransformationMatrices[E4X3TS_WORLD_VIEW] = concatenatePreciselyBFollowedByA(TransformationMatrices[E4X3TS_VIEW],TransformationMatrices[E4X3TS_WORLD]);
-                    matrixModifiedBits &= ~(0x1u<<E4X3TS_WORLD_VIEW);
-                }
-                ProjectionMatrices[EPTS_PROJ_VIEW_WORLD] = concatenateBFollowedByA(ProjectionMatrices[EPTS_PROJ],TransformationMatrices[E4X3TS_WORLD_VIEW]);
+				updateProjViewWorld();
                 break;
             case EPTS_PROJ_INVERSE:
-                ProjectionMatrices[EPTS_PROJ].getInverseTransform(ProjectionMatrices[EPTS_PROJ]);
+                ProjectionMatrices[EPTS_PROJ].getInverseTransform(ProjectionMatrices[EPTS_PROJ_INVERSE]);
                 break;
             case EPTS_PROJ_VIEW_INVERSE:
                 if (matrixModifiedBits&(0x1u<<(EPTS_PROJ_VIEW+E4X3TS_COUNT)))
                 {
-                    ProjectionMatrices[EPTS_PROJ_VIEW] = concatenateBFollowedByA(ProjectionMatrices[EPTS_PROJ],TransformationMatrices[E4X3TS_VIEW]);
+					updateProjView();
                     matrixModifiedBits &= ~(0x1u<<(EPTS_PROJ_VIEW+E4X3TS_COUNT));
                 }
                 ProjectionMatrices[EPTS_PROJ_VIEW].getInverseTransform(ProjectionMatrices[EPTS_PROJ_VIEW_INVERSE]);
@@ -284,13 +291,7 @@ const core::matrix4SIMD& CNullDriver::getTransform(const E_PROJECTION_TRANSFORMA
             case EPTS_PROJ_VIEW_WORLD_INVERSE:
                 if (matrixModifiedBits&(0x1u<<(EPTS_PROJ_VIEW_WORLD+E4X3TS_COUNT)))
                 {
-                    if (matrixModifiedBits&(0x1u<<E4X3TS_WORLD_VIEW))
-                    {
-                        TransformationMatrices[E4X3TS_WORLD_VIEW] = concatenateBFollowedByA(TransformationMatrices[E4X3TS_VIEW],TransformationMatrices[E4X3TS_WORLD]);
-                        ///TransformationMatrices[E4X3TS_WORLD_VIEW] = concatenatePreciselyBFollowedByA(TransformationMatrices[E4X3TS_VIEW],TransformationMatrices[E4X3TS_WORLD]);
-                        matrixModifiedBits &= ~(0x1u<<E4X3TS_WORLD_VIEW);
-                    }
-                    ProjectionMatrices[EPTS_PROJ_VIEW_WORLD] = concatenateBFollowedByA(ProjectionMatrices[EPTS_PROJ],TransformationMatrices[E4X3TS_WORLD_VIEW]);
+					updateProjViewWorld();
                     matrixModifiedBits &= ~(0x1u<<(EPTS_PROJ_VIEW_WORLD+E4X3TS_COUNT));
                 }
                 ProjectionMatrices[EPTS_PROJ_VIEW_WORLD].getInverseTransform(ProjectionMatrices[EPTS_PROJ_VIEW_WORLD_INVERSE]);
