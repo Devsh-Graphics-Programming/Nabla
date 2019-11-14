@@ -180,7 +180,7 @@ layout(location = 1) uniform mat4 uFrustumCorners;
 layout(location = 2) uniform uvec2 uImageSize;
 layout(location = 3) uniform uvec2 uSamples_ImageWidthSamples;
 layout(location = 4) uniform vec4 uImageSize2Rcp;
-layout(location = 5) uniform vec4 uDepthLinearizationConstants;
+layout(location = 5) uniform vec3 uDepthLinearizationConstants;
 
 // image views
 layout(binding = 0) uniform sampler2D depthbuf;
@@ -211,17 +211,27 @@ float linearizeZBufferVal(in float nonLinearZBufferVal)
 	// x = B/(C-A-Cy)
 	// get back original Z: `row[2][3]/(row[3][2]-row[2][2]-y*row[3][2]) = x`
 	// max Z: `B/(C-A)`
-	// min Z: `-B/A`
-	// positive [0,1] Z: `(B/(C-A-Cy)+B/A)/(B/(C-A)+B/A)`
-	// positive [0,1] Z: `((C-A)*A/(C-A-Cy)+(C-A))/(A+(C-A))`
-	// positive [0,1] Z: `(C-A)*A/C/(C-A-Cy)+(C-A)/C`
-	// positive [0,1] Z: `D*A/C/(D-Cy)+D/C`
-    return uDepthLinearizationConstants[0]/(uDepthLinearizationConstants[1]*nonLinearZBufferVal+uDepthLinearizationConstants[2])+uDepthLinearizationConstants[3];
+	// positive [0,1] Z: `B/(C-A-Cy)/(B/(C-A))`
+	// positive [0,1] Z: `(C-A)/(C-A-Cy)`
+	// positive [0,1] Z: `D/(D-Cy)`
+    return uDepthLinearizationConstants[0]/(uDepthLinearizationConstants[1]*nonLinearZBufferVal+uDepthLinearizationConstants[2]);
 }
 
-float ULP(in float x)
+float ULP1(in float val, in uint accuracy)
 {
-	return uintBitsToFloat(floatBitsToUint(x)&0x7f800000u | 1u);
+	return uintBitsToFloat(floatBitsToUint(abs(val)) + accuracy)-val;
+}
+float ULP2(in vec2 val, in uint accuracy)
+{
+	vec2 v = abs(val);
+	float x = max(v.x,v.y);
+	return uintBitsToFloat(floatBitsToUint(x) + accuracy)-x;
+}
+float ULP3(in vec3 val, in uint accuracy)
+{
+	vec3 v = abs(val);
+	float x = max(max(v.x,v.y),v.z);
+	return uintBitsToFloat(floatBitsToUint(x) + accuracy)-x;
 }
 
 void main()
@@ -236,10 +246,12 @@ void main()
 		uint outputID = uSamples_ImageWidthSamples.x*outputLocation.x+uSamples_ImageWidthSamples.y*outputLocation.y;
 
 		// unproject
+		vec3 viewDir;
 		vec3 position;
 		{
 			vec2 NDC = vec2(outputLocation)*uImageSize2Rcp.xy+uImageSize2Rcp.zw;
-			position = mix(uCameraPos,mix(uFrustumCorners[0]*NDC.x+uFrustumCorners[1],uFrustumCorners[2]*NDC.x+uFrustumCorners[3],NDC.y).xyz,linearizeZBufferVal(revdepth));
+			viewDir = mix(uFrustumCorners[0]*NDC.x+uFrustumCorners[1],uFrustumCorners[2]*NDC.x+uFrustumCorners[3],NDC.y).xyz;
+			position = viewDir*linearizeZBufferVal(revdepth)+uCameraPos;
 		}
 
 		alive = revdepth>0.0;
@@ -257,15 +269,21 @@ void main()
 		for (uint i=0u; i<uSamples_ImageWidthSamples.x; i++)
 		{
 			// TODO: generate random rays
+			float error = ULP3(position,100u);
 			{
+				vec3 normal = decode(encNormal);
+
 				// shadows
-				newray.direction = normalize(vec3(1.0,1.0,1.0));
+				//newray.direction = normalize(vec3(1.0,1.0,1.0));
+				//error += ULP1(1.0,2u);
 				// ao
 				//newray.direction = decode(encNormal);
+				//error += ULP3(normal,4u);
 				// reflections
-				//newray.direction = reflect(normalize(position-uCameraPos),decode(encNormal));
+				newray.direction = viewDir-2.0*dot(viewDir,normal)*normal;
+				error += 2.0*ULP3(normal,2u);
 			}
-			newray.origin = position;//+newray.direction*0.01;//ULP(max(max(position.x,position.y),position.z));
+			newray.origin = position+newray.direction*error;
 			newray.backfaceCulling = int(packHalf2x16(bsdf.ab));
 			newray.useless_padding = int(packHalf2x16(bsdf.gr));
 
@@ -292,7 +310,7 @@ layout(location = 1) uniform uvec2 uSamples_ImageWidthSamples;
 layout(binding = 0, rgba16f) restrict uniform image2D framebuffer;
 
 // SSBOs
-layout(binding = 0, std430) restrict readonly buffer Queries
+layout(binding = 0, std430) restrict buffer Queries
 {
 	int hit[];
 };
@@ -311,10 +329,11 @@ void main()
 		for (uint i=0u; i<uSamples_ImageWidthSamples.x; i++)
 		{
 			color += hit[rayID+i]<0 ? vec4(1.0,1.0,1.0,1.0):vec4(0.0,0.0,0.0,1.0);
+hit[rayID+i] = -1; // hit buffer needs clearing
 		}
 		color /= color.wwww;
 
-		imageStore(framebuffer,uv,prev*color);
+		imageStore(framebuffer,uv,color*prev);
 	}
 }
 
@@ -671,36 +690,37 @@ void Renderer::render()
 
 		{
 			auto camera = m_smgr->getActiveCamera();
-			auto camPos = camera->getAbsolutePosition();
-			COpenGLExtensionHandler::pGlProgramUniform3fv(m_raygenProgram, 0, 1, &camPos.X);
+			auto camPos = core::vectorSIMDf().set(camera->getAbsolutePosition());
+			COpenGLExtensionHandler::pGlProgramUniform3fv(m_raygenProgram, 0, 1, camPos.pointer);
 
 			auto frustum = camera->getViewFrustum();
 			core::matrix4SIMD uFrustumCorners;
 			uFrustumCorners.rows[1] = frustum->getFarLeftDown();
 			uFrustumCorners.rows[0] = frustum->getFarRightDown()-uFrustumCorners.rows[1];
+			uFrustumCorners.rows[1] -= camPos;
 			uFrustumCorners.rows[3] = frustum->getFarLeftUp();
 			uFrustumCorners.rows[2] = frustum->getFarRightUp()-uFrustumCorners.rows[3];
-			COpenGLExtensionHandler::pGlProgramUniformMatrix4fv(m_raygenProgram, 1, 1, true, uFrustumCorners.pointer());
+			uFrustumCorners.rows[3] -= camPos;
+			COpenGLExtensionHandler::pGlProgramUniformMatrix4fv(m_raygenProgram, 1, 1, false, uFrustumCorners.pointer()); // important to say no to transpose
 
 			COpenGLExtensionHandler::pGlProgramUniform2uiv(m_raygenProgram, 2, 1, rSize);
 
 			uint32_t uSamples_ImageWidthSamples[2] = {m_samplesPerDispatch,rSize[0]*m_samplesPerDispatch};
 			COpenGLExtensionHandler::pGlProgramUniform2uiv(m_raygenProgram, 3, 1, uSamples_ImageWidthSamples);
 
-			float uImageSize2Rcp[4] = {1.f/static_cast<float>(rSize[0]),-1.f/static_cast<float>(rSize[1]),0.5f/static_cast<float>(rSize[0]),1.f-0.5f/static_cast<float>(rSize[1])};
+			float uImageSize2Rcp[4] = {1.f/static_cast<float>(rSize[0]),1.f/static_cast<float>(rSize[1]),0.5f/static_cast<float>(rSize[0]),0.5f/static_cast<float>(rSize[1])};
 			COpenGLExtensionHandler::pGlProgramUniform4fv(m_raygenProgram, 4, 1, uImageSize2Rcp);
 
-			float uDepthLinearizationConstants[4];
+			float uDepthLinearizationConstants[3];
 			{
 				auto projMat = camera->getProjectionMatrix();
 				auto* row = projMat.rows;
 				float colDiff = row[3][2] - row[2][2];
-				uDepthLinearizationConstants[0] = colDiff*row[2][2]/row[3][2];
+				uDepthLinearizationConstants[0] = colDiff;
 				uDepthLinearizationConstants[1] = -row[3][2];
 				uDepthLinearizationConstants[2] = colDiff;
-				uDepthLinearizationConstants[3] = colDiff/row[3][2];
 			}
-			COpenGLExtensionHandler::pGlProgramUniform4fv(m_raygenProgram, 5, 1, uDepthLinearizationConstants);
+			COpenGLExtensionHandler::pGlProgramUniform3fv(m_raygenProgram, 5, 1, uDepthLinearizationConstants);
 		}
 
 		COpenGLExtensionHandler::pGlDispatchCompute(m_workGroupCount[0], m_workGroupCount[1], 1);
