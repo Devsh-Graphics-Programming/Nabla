@@ -175,7 +175,7 @@ private:
 
 	bool parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMesh::SJoint *parent);
 
-	bool parseDataObjectTransformationMatrix(SContext& _ctx, core::matrix4x3 &mat);
+	bool parseDataObjectTransformationMatrix(SContext& _ctx, core::matrix3x4SIMD &mat);
 
 	bool parseDataObjectMesh(SContext& _ctx, SXMesh &mesh);
 
@@ -236,7 +236,7 @@ private:
 	float readFloat(SContext& _ctx);
 	bool readVector2(SContext& _ctx, core::vector2df& vec);
 	bool readVector3(SContext& _ctx, core::vector3df& vec);
-	bool readMatrix(SContext& _ctx, core::matrix4x3& mat);
+	bool readMatrix(SContext& _ctx, core::matrix3x4SIMD& mat);
 	bool readRGB(SContext& _ctx, video::SColor& color);
 	bool readRGBA(SContext& _ctx, video::SColor& color);
 
