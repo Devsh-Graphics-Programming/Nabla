@@ -20,6 +20,8 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		auto* getColorBuffer() { return m_colorBuffer; }
 
 		const auto& getSceneBound() const { return sceneBound; }
+
+		auto getTotalSamplesComputed() const { return m_totalSamplesComputed; }
     protected:
         ~Renderer();
 
@@ -35,7 +37,9 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		uint32_t m_workGroupCount[2];
 		uint32_t m_samplesPerDispatch;
+		uint32_t m_totalSamplesComputed;
 		uint32_t m_rayCount;
+		uint32_t m_framesDone;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_rayBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_intersectionBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_rayCountBuffer;

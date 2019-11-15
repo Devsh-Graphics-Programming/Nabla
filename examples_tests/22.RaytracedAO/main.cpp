@@ -1,6 +1,8 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 
+#include <chrono>
+
 #include "../common/QToQuitEventReceiver.h"
 
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
@@ -127,13 +129,13 @@ int main()
 	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
 	auto smgr = device->getSceneManager();
 	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver,device->getAssetManager(),smgr);
-	renderer->init(meshes,1024u*1024u*1024u);
+	renderer->init(meshes,512u*1024u*1024u);
 	meshes = {}; // free memory
 
 
 	auto extent = renderer->getSceneBound().getExtent();
-	auto camera = smgr->addCameraSceneNodeFPS(nullptr, 100.f, core::min(extent.X, extent.Y, extent.Z) * 0.0002f);
-	//auto camera = smgr->addCameraSceneNode(nullptr);
+	//auto camera = smgr->addCameraSceneNodeFPS(nullptr, 100.f, core::min(extent.X, extent.Y, extent.Z) * 0.0002f);
+	auto camera = smgr->addCameraSceneNode(nullptr);
 	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
 		return sensor.type == ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type == ext::MitsubaLoader::CElementSensor::Type::THINLENS;
 	};
@@ -237,6 +239,7 @@ int main()
 	device->setEventReceiver(&receiver);
 
 	uint64_t lastFPSTime = 0;
+	auto start = std::chrono::steady_clock::now();
 	while (device->run() && receiver.keepOpen())
 	{
 		driver->beginScene(false, false);
@@ -254,7 +257,9 @@ int main()
 		if (time - lastFPSTime > 1000)
 		{
 			std::wostringstream str;
-			str << L"Mitsuba Loader Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
+			auto samples = renderer->getTotalSamplesComputed();
+			str << L"Raytraced Shadows Demo - IrrlichtBAW Engine   MegaSamples: " << samples/1000000u << "   MRay/s: "
+				<< double(samples)/double(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count());
 
 			device->setWindowCaption(str.str());
 			lastFPSTime = time;

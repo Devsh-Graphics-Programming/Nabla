@@ -18,8 +18,6 @@ using namespace irr::scene;
 
 const std::string raygenShaderExtensions = R"======(
 #version 430 core
-#extension GL_ARB_gpu_shader_int64 : require
-#extension GL_ARB_shader_ballot : require
 )======";
 
 const std::string raygenShader = R"======(
@@ -33,7 +31,8 @@ layout(location = 1) uniform float uDepthLinearizationConstant;
 layout(location = 2) uniform mat4 uFrustumCorners;
 layout(location = 3) uniform uvec2 uImageSize;
 layout(location = 4) uniform uvec2 uSamples_ImageWidthSamples;
-layout(location = 5) uniform vec4 uImageSize2Rcp;
+layout(location = 5) uniform uint uTotalSamplesComputed;
+layout(location = 6) uniform vec4 uImageSize2Rcp;
 
 // image views
 layout(binding = 0) uniform sampler2D depthbuf;
@@ -46,10 +45,10 @@ layout(binding = 0, std430) restrict writeonly buffer Rays
 	RadeonRays_ray rays[];
 };
 
+#define kPI 3.14159265358979323846
 
 vec3 decode(in vec2 enc)
 {
-	const float kPI = 3.14159265358979323846;
 	float ang = enc.x*kPI;
     return vec3(vec2(cos(ang),sin(ang))*sqrt(1.0-enc.y*enc.y), enc.y);
 }
@@ -102,6 +101,48 @@ float ULP3(in vec3 val, in uint accuracy)
 	return uintBitsToFloat(floatBitsToUint(x) + accuracy)-x;
 }
 
+uint wang_hash(uint seed)
+{
+    seed = (seed ^ 61u) ^ (seed >> 16u);
+    seed *= 9u;
+    seed = seed ^ (seed >> 4u);
+    seed *= 0x27d4eb2du;
+    seed = seed ^ (seed >> 15u);
+    return seed;
+}
+
+uint rand_xorshift(inout uint rng_state)
+{
+    // Xorshift algorithm from George Marsaglia's paper
+    rng_state ^= (rng_state << 13);
+    rng_state ^= (rng_state >> 17);
+    rng_state ^= (rng_state << 5);
+    return rng_state;
+}
+
+vec2 gen_uniform_sample2(inout uint state)
+{
+	return vec2(rand_xorshift(state),rand_xorshift(state))/vec2(~0u);
+}
+
+// https://orbit.dtu.dk/files/126824972/onb_frisvad_jgt2012_v2.pdf
+mat2x3 frisvad(in vec3 n)
+{
+	const float a = 1.0/(1.0 + n.z);
+	const float b = -n.x*n.y*a;
+	return (n.z<-0.9999999) ? mat2x3(vec3(0.0,-1.0,0.0),vec3(-1.0,0.0,0.0)):mat2x3(vec3(1.0-n.x*n.x*a, b, -n.x),vec3(b, 1.0-n.y*n.y*a, -n.y));
+}
+
+vec3 light_sample(out vec3 incoming, in vec3 normal, in vec2 rand)
+{
+	float equator = rand.y*2.0*kPI;
+	mat2x3 tangents = frisvad(normal);
+	incoming = normal*rand.x+(tangents[0]*cos(equator)+tangents[1]*sin(equator))*sqrt(1.0-rand.x*rand.x);
+
+	vec3 watts_per_steradian = vec3(10.5);
+	return watts_per_steradian*2.0*kPI;
+}
+
 void main()
 {
 	uvec2 outputLocation = gl_GlobalInvocationID.xy;
@@ -119,7 +160,7 @@ void main()
 		vec3 position;
 		{
 			vec2 NDC = vec2(outputLocation)*uImageSize2Rcp.xy+uImageSize2Rcp.zw;
-			viewDir = mix(uFrustumCorners[0]*NDC.x+uFrustumCorners[1],uFrustumCorners[2]*NDC.x+uFrustumCorners[3],NDC.y).xyz;
+			viewDir = mix(uFrustumCorners[0]*NDC.x+uFrustumCorners[1],uFrustumCorners[2]*NDC.x+uFrustumCorners[3],NDC.yyyy).xyz;
 			position = viewDir*linearizeZBufferVal(revdepth)+uCameraPos;
 		}
 
@@ -128,32 +169,28 @@ void main()
 		if (alive)
 			encNormal = texelFetch(normalbuf,uv,0).rg;
 
-		vec4 bsdf = vec4(0.0,0.0,0.0,-1.0);
-		if (alive)
-			bsdf.rgb = texelFetch(albedobuf,uv,0).rgb/float(uSamples_ImageWidthSamples.x);
+		uint randomState = wang_hash(uTotalSamplesComputed+outputID);
 
 		RadeonRays_ray newray;
-		newray.maxT = alive ? FLT_MAX:0.0;
 		newray.time = 0.0;
 		newray.mask = -1;
-		newray._active = alive ? 1:0;
+		vec3 normal;
+		if (alive)
+			normal = decode(encNormal);
 		for (uint i=0u; i<uSamples_ImageWidthSamples.x; i++)
 		{
-			// TODO: generate random rays
+			vec4 bsdf = vec4(0.0,0.0,0.0,-1.0);
 			float error = ULP1(uDepthLinearizationConstant,100u);
+			bool shootRay = alive;
+			if (shootRay)
 			{
-				vec3 normal = decode(encNormal);
+				bsdf.rgb = light_sample(newray.direction,normal,gen_uniform_sample2(randomState));
+				bsdf.rgb *= texelFetch(albedobuf,uv,0).rgb*dot(normal,newray.direction)/kPI;
 
-				// shadows
-				//newray.direction = normalize(vec3(1.0,1.0,1.0));
-				// ao
-				//newray.direction = decode(encNormal);
-				// reflections
-				newray.direction = viewDir-2.0*dot(viewDir,normal)*normal;
-				if (i>0)
-					newray.maxT = FLT_MIN;
+				newray.origin = position+newray.direction*error/maxAbs3(newray.direction);
+				newray.maxT = FLT_MAX;
 			}
-			newray.origin = position+newray.direction*error/maxAbs3(newray.direction);
+			newray._active = shootRay ? 1:0;
 			newray.backfaceCulling = int(packHalf2x16(bsdf.ab));
 			newray.useless_padding = int(packHalf2x16(bsdf.gr));
 
@@ -177,9 +214,10 @@ layout(local_size_x = WORK_GROUP_DIM, local_size_y = WORK_GROUP_DIM) in;
 // uniforms
 layout(location = 0) uniform uvec2 uImageSize;
 layout(location = 1) uniform uvec2 uSamples_ImageWidthSamples;
+layout(location = 2) uniform float uRcpFramesDone;
 
 // image views
-layout(binding = 0, rgba16f) restrict writeonly uniform image2D framebuffer;
+layout(binding = 0, rgba16f) restrict uniform image2D framebuffer;
 
 // SSBOs
 layout(binding = 0, std430) restrict readonly buffer Rays
@@ -198,6 +236,9 @@ void main()
 	if (alive)
 	{
 		ivec2 uv = ivec2(outputLocation);
+		vec4 acc = vec4(0.0);
+		if (uRcpFramesDone<1.0)
+			acc = imageLoad(framebuffer,uv);
 
 		uint baseID = uSamples_ImageWidthSamples.x*outputLocation.x+uSamples_ImageWidthSamples.y*outputLocation.y;
 		vec3 color = vec3(0.0);
@@ -209,8 +250,12 @@ void main()
 			// hit buffer needs clearing
 			hit[rayID] = -1;
 		}
+		// TODO: move the `div` to tonemapping shader
+		color /= float(uSamples_ImageWidthSamples.x);
 
-		imageStore(framebuffer,uv,vec4(color,1.0));
+		// TODO: optimize the color storage (RGB9E5/RGB19E7 anyone?)
+		acc.rgb += (color-acc.rgb)*uRcpFramesDone;
+		imageStore(framebuffer,uv,acc);
 	}
 }
 
@@ -332,7 +377,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneMa
 		m_rrManager(ext::RadeonRays::Manager::create(m_driver)),
 		m_depth(), m_albedo(), m_normals(), m_accumulation(), m_tonemapOutput(),
 		m_colorBuffer(nullptr), m_gbuffer(nullptr), tmpTonemapBuffer(nullptr),
-		m_workGroupCount{0u,0u}, m_samplesPerDispatch(0u), m_rayCount(0u),
+		m_workGroupCount{0u,0u}, m_samplesPerDispatch(0u), m_totalSamplesComputed(0u), m_rayCount(0u), m_framesDone(0u),
 		m_rayBuffer(), m_intersectionBuffer(), m_rayCountBuffer(),
 		m_rayBufferAsRR(nullptr,nullptr), m_intersectionBufferAsRR(nullptr,nullptr), m_rayCountBufferAsRR(nullptr,nullptr),
 		nodes(), sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), rrInstances()
@@ -455,7 +500,7 @@ void Renderer::init(const SAssetBundle& meshes, uint32_t rayBufferSize)
 	auto shadowBufferSize = static_cast<size_t>(pixelCount)*sizeof(int32_t);
 	assert(shadowBufferSize<=rayBufferSize);
 	m_samplesPerDispatch = rayBufferSize/(raygenBufferSize+shadowBufferSize);
-	assert(m_samplesPerDispatch >= 2u);
+	assert(m_samplesPerDispatch >= 1u);
 	printf("Using %d samples\n", m_samplesPerDispatch);
 
 	raygenBufferSize *= m_samplesPerDispatch;
@@ -532,7 +577,9 @@ void Renderer::deinit()
 	}
 	m_rayBuffer = m_intersectionBuffer = m_rayCountBuffer = nullptr;
 	m_samplesPerDispatch = 0u;
+	m_totalSamplesComputed = 0u;
 	m_rayCount = 0u;
+	m_framesDone = 0u;
 	m_workGroupCount[0] = m_workGroupCount[1] = 0u;
 
 	for (auto& node : nodes)
@@ -555,13 +602,21 @@ void Renderer::render()
 		float zero[4] = { 0.f,0.f,0.f,0.f };
 		m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0, zero);
 		m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT1, zero);
-
-		// TODO: clear accumulation buffer
 	}
+
+	auto camera = m_smgr->getActiveCamera();
+	auto prevViewProj = camera->getConcatenatedMatrix();
 
 	//! This animates (moves) the camera and sets the transforms
 	//! Also draws the meshbuffer
 	m_smgr->drawAll();
+
+	auto currentViewProj = camera->getConcatenatedMatrix();
+	if (!core::equals(prevViewProj,currentViewProj,core::ROUNDING_ERROR<core::matrix4SIMD>()*5.0))
+	{
+		m_totalSamplesComputed = 0u;
+		m_framesDone = 0u;
+	}
 
 	auto rSize = m_depth->getSize();
 
@@ -590,7 +645,6 @@ void Renderer::render()
 		found->setActiveSSBO(0, 1, buffers, offsets, sizes);
 
 		{
-			auto camera = m_smgr->getActiveCamera();
 			auto camPos = core::vectorSIMDf().set(camera->getAbsolutePosition());
 			COpenGLExtensionHandler::pGlProgramUniform3fv(m_raygenProgram, 0, 1, camPos.pointer);
 
@@ -617,8 +671,11 @@ void Renderer::render()
 			uint32_t uSamples_ImageWidthSamples[2] = {m_samplesPerDispatch,rSize[0]*m_samplesPerDispatch};
 			COpenGLExtensionHandler::pGlProgramUniform2uiv(m_raygenProgram, 4, 1, uSamples_ImageWidthSamples);
 
+			COpenGLExtensionHandler::pGlProgramUniform1uiv(m_raygenProgram, 5, 1, &m_totalSamplesComputed);
+			m_totalSamplesComputed += m_rayCount;
+
 			float uImageSize2Rcp[4] = {1.f/static_cast<float>(rSize[0]),1.f/static_cast<float>(rSize[1]),0.5f/static_cast<float>(rSize[0]),0.5f/static_cast<float>(rSize[1])};
-			COpenGLExtensionHandler::pGlProgramUniform4fv(m_raygenProgram, 5, 1, uImageSize2Rcp);
+			COpenGLExtensionHandler::pGlProgramUniform4fv(m_raygenProgram, 6, 1, uImageSize2Rcp);
 		}
 
 		COpenGLExtensionHandler::pGlDispatchCompute(m_workGroupCount[0], m_workGroupCount[1], 1);
@@ -685,6 +742,10 @@ void Renderer::render()
 			
 			uint32_t uSamples_ImageWidthSamples[2] = {m_samplesPerDispatch,rSize[0]*m_samplesPerDispatch};
 			COpenGLExtensionHandler::pGlProgramUniform2uiv(m_compostProgram, 1, 1, uSamples_ImageWidthSamples);
+
+			m_framesDone++;
+			float uRcpFramesDone = 1.0/double(m_framesDone);
+			COpenGLExtensionHandler::pGlProgramUniform1fv(m_compostProgram, 2, 1, &uRcpFramesDone);
 		}
 
 		COpenGLExtensionHandler::pGlDispatchCompute(m_workGroupCount[0], m_workGroupCount[1], 1);
