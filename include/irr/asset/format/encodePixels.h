@@ -30,18 +30,18 @@ namespace irr { namespace video
 			return -1; // handle an error
 	}
 
-	template<typename T, typename U>
-	inline void clampVariableProperly(T& variableToAssignClampingTo, const U& variableToClamp, bool isItNormalizedVariable = true)
+	template<typename T>
+	inline void clampVariableProperly(T& variableToAssignClampingTo, const double& variableToClamp, const asset::E_FORMAT &format)
 	{
 		const auto& max = getRangeValueOfVariable<T>(true);
 		const auto& min = getRangeValueOfVariable<T>(false);
 		constexpr float epsilon = 0.4f;
 		const auto& epsilonToAddToMin = (min < 0 ? -epsilon : epsilon);
 
-		if (isItNormalizedVariable)                                              // should NORM has epsilon?
-			variableToAssignClampingTo = static_cast<T>(core::clamp(variableToClamp, min + epsilonToAddToMin, max + epsilon));
+		if (irr::asset::isNormalizedFormat(format))                                             
+			variableToAssignClampingTo = static_cast<T>(core::clamp(variableToClamp * static_cast<double>(max), min + epsilonToAddToMin, max + epsilon));
 		else
-			variableToAssignClampingTo = static_cast<T>(core::clamp(variableToClamp * static_cast<U>(max), min + epsilonToAddToMin, max + epsilon));
+			variableToAssignClampingTo = static_cast<T>(core::clamp(variableToClamp, min + epsilonToAddToMin, max + epsilon));
 	}
 
     template<asset::E_FORMAT fmt, typename T>
@@ -525,7 +525,7 @@ namespace irr { namespace video
     {
         uint8_t* pix = reinterpret_cast<uint8_t*>(_pix);
 		for (uint32_t i = 0u; i < 3u; ++i)
-			clampVariableProperly(pix[i], _input[i], false);
+			clampVariableProperly(pix[i], _input[i], asset::EF_R8G8B8_UNORM);
     }
 	
     template<>
@@ -533,7 +533,7 @@ namespace irr { namespace video
     {
         int8_t* pix = reinterpret_cast<int8_t*>(_pix);
 		for (uint32_t i = 0u; i < 3u; ++i)
-			clampVariableProperly(pix[i], _input[i], false);
+			clampVariableProperly(pix[i], _input[i], asset::EF_R8G8B8_SNORM);
     }
 	
     template<>
@@ -541,7 +541,7 @@ namespace irr { namespace video
     {
         uint8_t* pix = reinterpret_cast<uint8_t*>(_pix);
 		for (uint32_t i = 0u; i < 3u; ++i)
-			clampVariableProperly(pix[i], _input[i]);
+			clampVariableProperly(pix[i], _input[i], asset::EF_R8G8B8_USCALED);
     }
 	
     template<>
@@ -549,7 +549,7 @@ namespace irr { namespace video
     {
         int8_t* pix = reinterpret_cast<int8_t*>(_pix);
 		for (uint32_t i = 0u; i < 3u; ++i)
-			clampVariableProperly(pix[i], _input[i]);
+			clampVariableProperly(pix[i], _input[i], asset::EF_R8G8B8_SSCALED);
     }
 	
     template<>
@@ -573,7 +573,7 @@ namespace irr { namespace video
     {
         uint8_t* pix = reinterpret_cast<uint8_t*>(_pix);
 		for (uint32_t i = 0u; i < 3u; ++i)
-			clampVariableProperly(pix[2u - i], _input[i], false);
+			clampVariableProperly(pix[2u - i], _input[i], asset::EF_B8G8R8_UNORM);
     }
 	
     template<>
@@ -581,7 +581,7 @@ namespace irr { namespace video
     {
         int8_t* pix = reinterpret_cast<int8_t*>(_pix);
 		for (uint32_t i = 0u; i < 3u; ++i)
-			clampVariableProperly(pix[2u - i], _input[i], false);
+			clampVariableProperly(pix[2u - i], _input[i], asset::EF_B8G8R8_SNORM);
     }
 	
     template<>
@@ -589,7 +589,7 @@ namespace irr { namespace video
     {
         uint8_t* pix = reinterpret_cast<uint8_t*>(_pix);
 		for (uint32_t i = 0u; i < 3u; ++i)
-			clampVariableProperly(pix[2u - i], _input[i]);
+			clampVariableProperly(pix[2u - i], _input[i], asset::EF_B8G8R8_USCALED);
     }
 	
     template<>
@@ -597,7 +597,7 @@ namespace irr { namespace video
     {
         int8_t* pix = reinterpret_cast<int8_t*>(_pix);
 		for (uint32_t i = 0u; i < 3u; ++i)
-			clampVariableProperly(pix[2u - i], _input[i]);
+			clampVariableProperly(pix[2u - i], _input[i], asset::EF_B8G8R8_SSCALED);
     }
 	
     template<>
@@ -1789,7 +1789,7 @@ namespace irr { namespace video
     {
         uint16_t* pix = reinterpret_cast<uint16_t*>(_pix);
 		for (uint32_t i = 0u; i < 3u; ++i)
-			clampVariableProperly(pix[i], _input[i], false);
+			clampVariableProperly(pix[i], _input[i], asset::EF_R16G16B16_UNORM);
     }
 	
     template<>
@@ -1797,7 +1797,7 @@ namespace irr { namespace video
     {
         int16_t* pix = reinterpret_cast<int16_t*>(_pix);
 		for (uint32_t i = 0u; i < 3u; ++i)
-			clampVariableProperly(pix[i], _input[i], false);
+			clampVariableProperly(pix[i], _input[i], asset::EF_R16G16B16_SNORM);
     }
 	
     template<>
@@ -1805,7 +1805,7 @@ namespace irr { namespace video
     {
         uint16_t* pix = reinterpret_cast<uint16_t*>(_pix);
 		for (uint32_t i = 0u; i < 3u; ++i)
-			clampVariableProperly(pix[i], _input[i]);
+			clampVariableProperly(pix[i], _input[i], asset::EF_R16G16B16_USCALED);
     }
 	
     template<>
@@ -1813,7 +1813,7 @@ namespace irr { namespace video
     {
         int16_t* pix = reinterpret_cast<int16_t*>(_pix);
 		for (uint32_t i = 0u; i < 3u; ++i)
-			clampVariableProperly(pix[i], _input[i]);
+			clampVariableProperly(pix[i], _input[i], asset::EF_R16G16B16_SSCALED);
     }
 	
     template<>
@@ -2405,7 +2405,7 @@ namespace irr { namespace video
             for (uint32_t i = 0u; i < chCnt; ++i)
             {
 				uint16_t clampedVar;
-				irr::video::clampVariableProperly(clampedVar, _input[i]);
+				irr::video::clampVariableProperly(clampedVar, _input[i], asset::EF_R16_SFLOAT);
                 pix[i] = core::Float16Compressor::compress(clampedVar);
             }
         }
