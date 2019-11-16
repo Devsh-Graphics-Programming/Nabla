@@ -55,15 +55,15 @@ bool CSTLMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 
     const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, mesh, 0u);
 	if (flags & asset::EWF_BINARY)
-		return writeMeshBinary(file, mesh);
+		return writeMeshBinary(file, mesh, _params);
 	else
-		return writeMeshASCII(file, mesh);
+		return writeMeshASCII(file, mesh, _params);
 }
 
 namespace
 {
 template <class I>
-inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndices, io::IWriteFile* file, asset::E_VERTEX_ATTRIBUTE_ID _colorVaid)
+inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndices, io::IWriteFile* file, asset::E_VERTEX_ATTRIBUTE_ID _colorVaid, const irr::asset::IAssetWriter::SAssetWriteParams& _params)
 {
     bool hasColor = buffer->getMeshDataAndFormat()->getMappedBuffer(_colorVaid);
     const asset::E_FORMAT colorType = buffer->getMeshDataAndFormat()->getAttribFormat(_colorVaid);
@@ -112,6 +112,30 @@ inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndice
             }
         }
 
+		auto flipVectors = [&]()
+		{
+			for(uint8_t i = 0; i < 3; ++i)
+				v[i].X = -v[i].X;
+		};
+
+		if (_params.writerFlags & IAssetWriter::EWPF_WRITE_RIGHT_HANDED)
+		{
+			if (_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED)
+			{
+				// do nothing
+			}
+			else
+				flipVectors();
+		}
+		else
+		{
+			if (!(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED))
+			{
+				// do nothing
+			}
+			else
+				flipVectors();
+		}
 
         const core::plane3dSIMDf plane(v[0], v[1], v[2]);
         file->write(&plane, 12);
@@ -123,7 +147,7 @@ inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndice
 }
 }
 
-bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh* mesh)
+bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh* mesh, const SAssetWriteParams& _params)
 {
 	// write STL MESH header
     const char headerTxt[] = "Irrlicht-baw Engine";
@@ -150,42 +174,6 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh
 	for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
 	{
 		asset::ICPUMeshBuffer* buffer = mesh->getMeshBuffer(i);
-
-		/*
-			pseudo code that has to be applied in binary and ASCII writing
-
-			if(WRITER_RIGHTHANDED)
-			{
-				if(LOADER_RIGHTANDED)
-				{
-					// do nothing
-				}
-				else
-				{
-					if(buffer == bufferPos || buffer == bufferNorm)
-					for(auto& it : buffer)
-					{
-						buffer.something.X = -buffer.something.X;
-					}
-				}
-			}
-			else
-			{
-				if(LOADER_LEFTHANDED)
-				{
-					// do nothing
-				}
-				else
-				{
-					if(buffer == bufferPos || buffer == bufferNorm)
-					for(auto& it : buffer)
-					{
-						buffer.something.X = -buffer.something.X;
-					}
-				}
-			}
-		*/
-
 		if (buffer&&buffer->getMeshDataAndFormat())
 		{
             asset::E_INDEX_TYPE type = buffer->getIndexType();
@@ -193,15 +181,15 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh
                 type = asset::EIT_UNKNOWN;
 			if (type== asset::EIT_16BIT)
             {
-                writeFacesBinary<uint16_t>(buffer, false, file, asset::EVAI_ATTR1);
+                writeFacesBinary<uint16_t>(buffer, false, file, asset::EVAI_ATTR1, _params);
             }
 			else if (type== asset::EIT_32BIT)
             {
-                writeFacesBinary<uint32_t>(buffer, false, file, asset::EVAI_ATTR1);
+                writeFacesBinary<uint32_t>(buffer, false, file, asset::EVAI_ATTR1, _params);
             }
 			else
             {
-                writeFacesBinary<uint16_t>(buffer, true, file, asset::EVAI_ATTR1); //template param doesn't matter if there's no indices
+                writeFacesBinary<uint16_t>(buffer, true, file, asset::EVAI_ATTR1, _params); //template param doesn't matter if there's no indices
             }
 		}
 	}
@@ -209,7 +197,7 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh
 }
 
 
-bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh* mesh)
+bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh* mesh, const SAssetWriteParams& _params)
 {
 	// write STL MESH header
     const char headerTxt[] = "Irrlicht-baw Engine ";
@@ -239,7 +227,8 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh*
                     writeFaceText(file,
                         buffer->getPosition(((uint16_t*)buffer->getIndices())[j]),
                         buffer->getPosition(((uint16_t*)buffer->getIndices())[j+1]),
-                        buffer->getPosition(((uint16_t*)buffer->getIndices())[j+2])
+                        buffer->getPosition(((uint16_t*)buffer->getIndices())[j+2]),
+						_params
                     );
                 }
 			}
@@ -251,7 +240,8 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh*
                     writeFaceText(file,
                         buffer->getPosition(((uint32_t*)buffer->getIndices())[j]),
                         buffer->getPosition(((uint32_t*)buffer->getIndices())[j+1]),
-                        buffer->getPosition(((uint32_t*)buffer->getIndices())[j+2])
+                        buffer->getPosition(((uint32_t*)buffer->getIndices())[j+2]),
+						_params
                     );
                 }
 			}
@@ -262,8 +252,9 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh*
                 {
                     writeFaceText(file,
                         buffer->getPosition(j),
-                        buffer->getPosition(j+1),
-                        buffer->getPosition(j+2)
+                        buffer->getPosition(j+1ul),
+                        buffer->getPosition(j+2ul),
+						_params
                     );
                 }
             }
@@ -290,21 +281,54 @@ void CSTLMeshWriter::getVectorAsStringLine(const core::vectorSIMDf& v, core::str
 void CSTLMeshWriter::writeFaceText(io::IWriteFile* file,
 		const core::vectorSIMDf& v1,
 		const core::vectorSIMDf& v2,
-		const core::vectorSIMDf& v3)
+		const core::vectorSIMDf& v3,
+	    const SAssetWriteParams& _params)
 {
+	auto normal = core::plane3dSIMDf(v1, v2, v3).getNormal();
+	core::vectorSIMDf vertex1 = v1;
+	core::vectorSIMDf vertex2 = v2;
+	core::vectorSIMDf vertex3 = v3;
 	core::stringc tmp;
+
+	auto flipVectors = [&]()
+	{
+		vertex1.X = -vertex1.X;
+		vertex2.X = -vertex2.X;
+		vertex3.X = -vertex3.X;
+		normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
+	};
+
+	if(_params.writerFlags & IAssetWriter::EWPF_WRITE_RIGHT_HANDED)
+	{
+		if(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED)
+		{
+			// do nothing
+		}
+		else
+			flipVectors();
+	}
+	else
+	{
+		if (!(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED))
+		{
+			// do nothing
+		}
+		else
+			flipVectors();
+	}
+
 	file->write("facet normal ",13);
-	getVectorAsStringLine(core::plane3dSIMDf(v1, v2, v3).getNormal(), tmp);
+	getVectorAsStringLine(normal, tmp);
 	file->write(tmp.c_str(),tmp.size());
 	file->write("  outer loop\n",13);
 	file->write("    vertex ",11);
-	getVectorAsStringLine(v1, tmp);
+	getVectorAsStringLine(vertex1, tmp);
 	file->write(tmp.c_str(),tmp.size());
 	file->write("    vertex ",11);
-	getVectorAsStringLine(v2, tmp);
+	getVectorAsStringLine(vertex2, tmp);
 	file->write(tmp.c_str(),tmp.size());
 	file->write("    vertex ",11);
-	getVectorAsStringLine(v3, tmp);
+	getVectorAsStringLine(vertex3, tmp);
 	file->write(tmp.c_str(),tmp.size());
 	file->write("  endloop\n",10);
 	file->write("endfacet\n",9);
