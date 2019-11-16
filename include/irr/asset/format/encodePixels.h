@@ -14,18 +14,18 @@ namespace irr { namespace video
 	inline uint64_t getRangeValueOfVariable(bool maxValue = true)
 	{
 		if (std::is_same<T, uint8_t>::value)
-			return 255 * (maxValue ? 1 : 0);
+			return 255ull * (maxValue ? 1 : 0);
 		else if (std::is_same<T, uint16_t>::value)
-			return 	65535 * (maxValue ? 1 : 0);
+			return 	65535ull * (maxValue ? 1 : 0);
 		else if (std::is_same<T, uint32_t>::value)
-			return 	4294967295 * (maxValue ? 1 : 0);
+			return 	4294967295ull * (maxValue ? 1 : 0);
 
 		else if (std::is_same<T, int8_t>::value)
-			return 127 * (maxValue ? 1 : -1);
+			return 127ull * (maxValue ? 1 : -1);
 		else if (std::is_same<T, int16_t>::value)
-			return 32767 * (maxValue ? 1 : -1);
+			return 32767ull * (maxValue ? 1 : -1);
 		else if (std::is_same<T, int32_t>::value)
-			return 2147483647 * (maxValue ? 1 : -1);
+			return 2147483647ull * (maxValue ? 1 : -1);
 		else
 			return -1; // handle an error
 	}
@@ -36,7 +36,7 @@ namespace irr { namespace video
 		const auto& max = getRangeValueOfVariable<T>(true);
 		const auto& min = getRangeValueOfVariable<T>(false);
 		constexpr float epsilon = 0.4f;
-		const auto& epsilonToAddToMin = (min < 0 ? -epsilon, epsilon);
+		const auto& epsilonToAddToMin = (min < 0 ? -epsilon : epsilon);
 
 		if (isItNormalizedVariable)                                              // should NORM has epsilon?
 			variableToAssignClampingTo = static_cast<T>(core::clamp(variableToClamp, min + epsilonToAddToMin, max + epsilon));
