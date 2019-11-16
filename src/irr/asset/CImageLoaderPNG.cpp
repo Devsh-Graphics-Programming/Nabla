@@ -205,6 +205,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
     imgInfo.mipLevels = 1u;
     imgInfo.arrayLayers = 1u;
     imgInfo.samples = ICPUImage::ESCF_1_BIT;
+    imgInfo.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
     core::smart_refctd_ptr<ICPUImage> image = nullptr;
 
 	bool lumaAlphaType = false;
@@ -260,16 +261,16 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
     region.imageOffset = { 0u, 0u, 0u };
     region.imageExtent = image->getCreationParameters().extent;
 
-    image->setBufferAndRegions(std::move(texelBuffer), regions);
-
 	// Fill array of pointers to rows in image data
-	const uint32_t pitch = texelBuffer->getSize()/Height;
+	const uint32_t pitch = (region.bufferRowLength*getTexelOrBlockBytesize(image->getCreationParameters().format));
 	uint8_t* data = reinterpret_cast<uint8_t*>(texelBuffer->getPointer());
 	for (uint32_t i=0; i<Height; ++i)
 	{
 		RowPointers[i] = (png_bytep)data;
 		data += pitch;
 	}
+
+    image->setBufferAndRegions(std::move(texelBuffer), regions);
 
 	// for proper error handling
 	if (setjmp(png_jmpbuf(png_ptr)))

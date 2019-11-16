@@ -79,7 +79,7 @@ namespace asset
         //! Returns an array of string literals terminated by nullptr
         virtual const char** getAssociatedFileExtensions() const override
         {
-            static const char* ext[]{ "baw" };
+            static const char* ext[]{ "baw", nullptr };
             return ext;
         }
 

@@ -97,6 +97,7 @@ public:
 protected:
     virtual ~IPipelineLayout() = default;
 
+public:
     IPipelineLayout(
         const SPushConstantRange* const _pcRangesBegin = nullptr, const SPushConstantRange* const _pcRangesEnd = nullptr,
         core::smart_refctd_ptr<DescLayoutType>&& _layout0 = nullptr, core::smart_refctd_ptr<DescLayoutType>&& _layout1 = nullptr,

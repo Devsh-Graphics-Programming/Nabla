@@ -13,7 +13,7 @@ namespace asset
 class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 {
 	public:
-		core::smart_refctd_ptr<ICPUImageView> create(SCreationParams&& params)
+		static core::smart_refctd_ptr<ICPUImageView> create(SCreationParams&& params)
 		{
 			if (!validateCreationParameters(params))
 				return nullptr;

@@ -70,6 +70,11 @@ namespace core
 			return !operator==(other);
 		}
 
+        bool operator<(const vector3d<T>& other) const
+        {
+            return X<other.X && Y<other.Y && Z<other.Z;
+        }
+
 		// functions
 
 		vector3d<T>& set(const T nx, const T ny, const T nz) {X=nx; Y=ny; Z=nz; return *this;}

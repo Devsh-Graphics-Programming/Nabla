@@ -23,7 +23,7 @@ public:
     //! Contructor preallocating memory for SDescriptorBindings which user can fill later (using non-const getDescriptors()).
     //! @see getDescriptors()
     ICPUDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout) :
-        base_t(std::move(_layout), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SDescriptorBinding>>(m_layout->getBindings().length()))
+        base_t(std::move(_layout))
     {}
 
 

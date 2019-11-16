@@ -59,7 +59,7 @@ class IGPUObjectFromAssetConverter
         inline virtual created_gpu_object_array<asset::ICPURenderpassIndependentPipeline>	create(asset::ICPURenderpassIndependentPipeline** const _begin, asset::ICPURenderpassIndependentPipeline** const _end);
         inline virtual created_gpu_object_array<asset::ICPUImageView>				        create(asset::ICPUImageView** const _begin, asset::ICPUImageView** const _end);
         inline virtual created_gpu_object_array<asset::ICPUDescriptorSet>				    create(asset::ICPUDescriptorSet** const _begin, asset::ICPUDescriptorSet** const _end);
-
+        inline virtual created_gpu_object_array<asset::ICPUComputePipeline>				    create(asset::ICPUComputePipeline** const _begin, asset::ICPUComputePipeline** const _end);
 
 		template<typename AssetType, typename iterator_type>
 		created_gpu_object_array<AssetType> getGPUObjectsFromAssets(iterator_type _begin, iterator_type _end)
@@ -767,6 +767,39 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
         IGPUDescriptorSetLayout* gpulayout = (*gpuLayouts)[layoutRedirs[i]].get();
 
         (*res)[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>(gpulayout), std::move(gpudescriptors));
+    }
+
+    return res;
+}
+
+inline created_gpu_object_array<asset::ICPUComputePipeline> IGPUObjectFromAssetConverter::create(asset::ICPUComputePipeline ** const _begin, asset::ICPUComputePipeline ** const _end)
+{
+    const auto assetCount = std::distance(_begin, _end);
+    auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUComputePipeline> >(assetCount);
+
+    core::vector<asset::ICPUPipelineLayout*> cpuLayouts;
+    core::vector<asset::ICPUSpecializedShader*> cpuShaders;
+    cpuLayouts.reserve(res->size());
+    cpuShaders.reserve(res->size());
+
+    asset::ICPUComputePipeline** it = _begin;
+    while (it != _end)
+    {
+        cpuShaders.push_back((*it)->getShader());
+        cpuLayouts.push_back((*it)->getLayout());
+        ++it;
+    }
+
+    core::vector<size_t> shdrRedirs = eliminateDuplicatesAndGenRedirs(cpuShaders);
+    core::vector<size_t> layoutRedirs = eliminateDuplicatesAndGenRedirs(cpuLayouts);
+    auto gpuShaders = getGPUObjectsFromAssets<asset::ICPUSpecializedShader>(cpuShaders.data(), cpuShaders.data()+cpuShaders.size());
+    auto gpuLayouts = getGPUObjectsFromAssets<asset::ICPUPipelineLayout>(cpuLayouts.data(), cpuLayouts.data()+cpuLayouts.size());
+
+    for (ptrdiff_t i = 0; i < assetCount; ++i)
+    {
+        auto layout = (*gpuLayouts)[layoutRedirs[i]];
+        auto shdr = (*gpuShaders)[shdrRedirs[i]];
+        (*res)[i] = m_driver->createGPUComputePipeline(nullptr, std::move(layout), std::move(shdr));
     }
 
     return res;

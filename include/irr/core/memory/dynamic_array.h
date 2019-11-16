@@ -89,7 +89,7 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<T,allocator>
 		}
 
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR size_t dummy_item_count = sizeof(base_t)/sizeof(T);
+		_IRR_STATIC_INLINE_CONSTEXPR size_t dummy_item_count = (sizeof(base_t)+sizeof(T)-1ull)/sizeof(T);
 
 		virtual ~dynamic_array()
 		{
