@@ -284,10 +284,10 @@ void CSTLMeshWriter::writeFaceText(io::IWriteFile* file,
 		const core::vectorSIMDf& v3,
 	    const SAssetWriteParams& _params)
 {
-	auto normal = core::plane3dSIMDf(v1, v2, v3).getNormal();
-	core::vectorSIMDf vertex1 = v1;
+	core::vectorSIMDf vertex1 = v3;
 	core::vectorSIMDf vertex2 = v2;
-	core::vectorSIMDf vertex3 = v3;
+	core::vectorSIMDf vertex3 = v1;
+	core::vector3df_SIMD normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
 	core::stringc tmp;
 
 	auto flipVectors = [&]()
