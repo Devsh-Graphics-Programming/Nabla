@@ -248,6 +248,21 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
         return {};
 	}
 
+    static const uint32_t PITCH_ALIGNMENT = 8u;
+    //next "lowest common multiple of PITCH_ALIGNMENT and texel block byte size" after "texel block byte size times image width"
+    auto calcPitch = [](uint32_t width, uint32_t blockByteSize) -> uint32_t
+    {
+        for (uint32_t addr=width*blockByteSize, n=width; addr<(~0u)-blockByteSize+1u; width+=blockByteSize,n++)
+        {
+            if (addr&(PITCH_ALIGNMENT - 1u))
+                continue;
+            return n;
+        }
+        return 0u;
+    };
+
+    const uint32_t texelFormatBytesize = getTexelOrBlockBytesize(image->getCreationParameters().format);
+
     auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(image->getImageDataSizeInBytes());
     auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
     ICPUImage::SBufferCopy& region = regions->front();
@@ -256,8 +271,8 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
     region.imageSubresource.baseArrayLayer = 0u;
     region.imageSubresource.layerCount = 1u;
     region.bufferOffset = 0u;
-    region.bufferRowLength = 0u;//??
-    region.bufferImageHeight = 0u; //??
+    region.bufferRowLength = calcPitch(Width, texelFormatBytesize);
+    region.bufferImageHeight = 0u; //tightly packed?
     region.imageOffset = { 0u, 0u, 0u };
     region.imageExtent = image->getCreationParameters().extent;
 
