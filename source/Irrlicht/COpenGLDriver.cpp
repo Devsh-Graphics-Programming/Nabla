@@ -1844,7 +1844,7 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
     {
 #define STATE_NEQ(member) (nextState.member != currentState.member)
 #define UPDATE_STATE(member) (currentState.member = nextState.member)
-        decltype(glEnable)* disable_enable_fptr[2]{ &glDisable, &glEnable };
+        decltype(glEnable)* disable_enable_fptr[2]{ &glDisable, &glEnable }; // TODO: I'd rather macro this, compiler might get confused and start using actual function pointers 2ce
 
         if (STATE_NEQ(rasterParams.polygonMode)) {
             glPolygonMode(GL_FRONT_AND_BACK, nextState.rasterParams.polygonMode);
@@ -1955,7 +1955,7 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
             UPDATE_STATE(rasterParams.logicOp);
         }
         decltype(COpenGLExtensionHandler::extGlEnablei)* disable_enable_indexed_fptr[2]{ &COpenGLExtensionHandler::extGlDisablei, &COpenGLExtensionHandler::extGlEnablei };
-        for (GLuint i = 0u; asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; ++i)
+        for (GLuint i=0u; i<asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
         {
             if (STATE_NEQ(rasterParams.drawbufferBlend[i].blendEnable)) {
                 disable_enable_indexed_fptr[nextState.rasterParams.drawbufferBlend[i].blendEnable](GL_BLEND, i);
