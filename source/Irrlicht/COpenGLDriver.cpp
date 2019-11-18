@@ -1678,40 +1678,6 @@ void COpenGLDriver::drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> 
         extGlMultiDrawElementsIndirect(primType,indexSize,(void*)offset,maxCount,stride);
 }
 
-
-void COpenGLDriver::SAuxContext::flushStateGraphics_pushConstants()
-{
-    for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
-    {
-        if (!((1u << i) & pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags))
-            continue;
-
-        const uint32_t presenceMask = currentState.pipeline.graphics.pipeline->getStagePresenceMask();
-        if (!(presenceMask & (1u<<i)))
-            continue;
-
-        //pipeline must be flushed before push constants so taking pipeline from currentState
-        const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.graphics.pipeline->getShaderAtIndex(i));
-        //assert(shdr); //this would be weird
-
-        shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_GRAPHICS].data, this->ID);
-    }
-    pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags = 0u;
-}
-
-void COpenGLDriver::SAuxContext::flushStateCompute_pushConstants()
-{
-    if (currentState.pipeline.compute.pipeline->containsShader() && pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags & asset::ESS_COMPUTE)
-    {
-        const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.compute.pipeline->getShader());
-        //assert(shdr);
-
-        shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_COMPUTE].data, this->ID);
-
-        pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags = 0u;
-    }
-}
-
 void COpenGLDriver::SAuxContext::flushState_descriptors(E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, const COpenGLPipelineLayout* _prevLayout)
 {
     //bind new descriptor sets
@@ -1826,8 +1792,11 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
 
 void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
 {
-    auto prevPipeline = currentState.pipeline.graphics.pipeline.get();
-    if (stateBits & GSB_PIPELINE)
+	const COpenGLPipelineLayout* prevLayout = nullptr;
+	if ((stateBits & GSB_DESCRIPTOR_SETS) && currentState.pipeline.graphics.pipeline)
+		prevLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.graphics.pipeline->getLayout());
+    
+	if (stateBits & GSB_PIPELINE)
     {
         if (nextState.pipeline.graphics.pipeline != currentState.pipeline.graphics.pipeline)
         {
@@ -2019,9 +1988,10 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
             }
         }
     }
-    if ((stateBits & GSB_PUSH_CONSTANTS) && currentState.pipeline.graphics.pipeline)
+    if (stateBits & GSB_DESCRIPTOR_SETS)
     {
-        flushStateGraphics_pushConstants();
+        const COpenGLPipelineLayout* currLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.graphics.pipeline->getLayout());
+        flushState_descriptors(EPBP_GRAPHICS, currLayout, prevLayout);
     }
     if ((stateBits & GSB_VAO_AND_VERTEX_INPUT) && currentState.pipeline.graphics.pipeline)
     {
@@ -2111,11 +2081,24 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
     }
 #undef STATE_NEQ
 #undef UPDATE_STATE
-    if (stateBits & GSB_DESCRIPTOR_SETS)
+    if ((stateBits & GSB_PUSH_CONSTANTS) && currentState.pipeline.graphics.pipeline)
     {
-        const COpenGLPipelineLayout* currLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.graphics.pipeline->getLayout());
-        const COpenGLPipelineLayout* prevLayout = static_cast<const COpenGLPipelineLayout*>(prevPipeline->getLayout());
-        flushState_descriptors(EPBP_GRAPHICS, currLayout, prevLayout);
+		for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
+		{
+			if (!((1u << i) & pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags))
+				continue;
+
+			const uint32_t presenceMask = currentState.pipeline.graphics.pipeline->getStagePresenceMask();
+			if (!(presenceMask & (1u<<i)))
+				continue;
+
+			//pipeline must be flushed before push constants so taking pipeline from currentState
+			const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.graphics.pipeline->getShaderAtIndex(i));
+			//assert(shdr); //this would be weird
+
+			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_GRAPHICS].data, this->ID);
+		}
+		pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags = 0u;
     }
 }
 
@@ -2138,7 +2121,15 @@ void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
     }
     if ((stateBits & GSB_PUSH_CONSTANTS) && currentState.pipeline.compute.pipeline)
     {
-        flushStateCompute_pushConstants();
+		assert(currentState.pipeline.compute.pipeline->containsShader());
+		if (pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags & asset::ESS_COMPUTE)
+		{
+			const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.compute.pipeline->getShader());
+
+			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_COMPUTE].data, this->ID);
+
+			pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags = 0u;
+		}
     }
     if (stateBits & GSB_DISPATCH_INDIRECT)
     {

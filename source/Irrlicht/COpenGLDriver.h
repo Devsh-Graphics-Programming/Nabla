@@ -825,8 +825,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             template<E_PIPELINE_BIND_POINT PBP>
             using pipeline_for_bindpoint_t = typename pipeline_for_bindpoint<PBP>::type;
 
-            void flushStateGraphics_pushConstants();
-            void flushStateCompute_pushConstants();
             void flushState_descriptors(E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, const COpenGLPipelineLayout* _prevLayout);
             void flushStateGraphics(uint32_t stateBits);
             void flushStateCompute(uint32_t stateBits);
@@ -840,7 +838,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             struct
             {
                 alignas(128) uint8_t data[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE];
-                uint32_t stagesToUpdateFlags = 0u;
+                uint32_t stagesToUpdateFlags = 0u; // need a slight redo of this
                 core::smart_refctd_ptr<const COpenGLPipelineLayout> layout;
             } pushConstantsState[EPBP_COUNT];
 
@@ -861,7 +859,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             //! FBOs
             core::vector<IFrameBuffer*>  FrameBuffers;
             COpenGLFrameBuffer*         CurrentFBO;
-            core::dimension2d<uint32_t> CurrentRendertargetSize;
+            core::dimension2d<uint32_t> CurrentRendertargetSize; // @Crisspl TODO: Fold this into SOpenGLState, as well as the Vulkan dynamic state (scissor rect, viewport, etc.)
 
             //!
             core::vector<SOpenGLState::HashVAOPair> VAOMap;
