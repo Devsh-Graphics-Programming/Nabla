@@ -305,12 +305,6 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
             return nullptr;
         }
 
-		//! Create a descriptor set already filled with descriptors
-        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorBinding>&& _descriptors)
-        {
-            return nullptr;
-        }
-
 		//! Create a descriptor set with missing descriptors
         virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout)
         {
@@ -370,13 +364,16 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         virtual IGPUTimestampQuery* createTimestampQuery() {return nullptr;}
 
 
+		//! Fill out the descriptor sets with descriptors
+		virtual void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) {}
+
+
 		//! Utility function to convert all your CPU asset data into GPU objects ready for use
         template<typename AssetType>
         created_gpu_object_array<AssetType> getGPUObjectsFromAssets(AssetType* const* const _begin, AssetType* const* const _end, IGPUObjectFromAssetConverter* _converter = nullptr);
 		//! With a custom converter, you can override it to for example; pack all buffers into one, pack all images into one atlas, etc.
 		template<typename AssetType>
 		created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::smart_refctd_ptr<asset::IAsset>* _begin, const core::smart_refctd_ptr<asset::IAsset>* _end, IGPUObjectFromAssetConverter* _converter = nullptr);
-
 
 	//====================== THIS STUFF SHOULD BE IN A video::ICommandBuffer =====================
 		//! TODO: make with VkBufferCopy and take a list of multiple copies to carry out (maybe rename to copyBufferRanges)

@@ -10,7 +10,8 @@ namespace irr
 namespace asset
 {
 
-enum E_DESCRIPTOR_TYPE
+// TODO: move this to appropriate class
+enum E_DESCRIPTOR_TYPE : uint32_t
 {
     EDT_COMBINED_IMAGE_SAMPLER = 1,
     EDT_STORAGE_IMAGE = 3,
@@ -20,7 +21,8 @@ enum E_DESCRIPTOR_TYPE
     EDT_STORAGE_BUFFER = 7,
     EDT_UNIFORM_BUFFER_DYNAMIC = 8,
     EDT_STORAGE_BUFFER_DYNAMIC = 9,
-    EDT_INPUT_ATTACHMENT = 10
+    EDT_INPUT_ATTACHMENT = 10,
+	EDT_INVALID = ~0u
 };
 
 template<typename SamplerType>

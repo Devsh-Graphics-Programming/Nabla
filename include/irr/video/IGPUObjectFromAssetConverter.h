@@ -630,7 +630,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     auto isSampledImgViewDesc = [](asset::E_DESCRIPTOR_TYPE t) {
         return t==asset::EDT_COMBINED_IMAGE_SAMPLER;
     };
-    auto isImgViewDesc = [](asset::E_DESCRIPTOR_TYPE t) {
+    auto isStorageImgDesc = [](asset::E_DESCRIPTOR_TYPE t) {
         return t==asset::EDT_STORAGE_IMAGE;
     };
 
@@ -642,18 +642,28 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     for (ptrdiff_t i=0u; i<assetCount; i++)
     {
         asset::ICPUDescriptorSet* cpuds = _begin[i];
-                
-        descCount += cpuds->getDescriptors().length();
-        for (const auto& desc : cpuds->getDescriptors())
-        {
-            const size_t cnt = desc.info->size();
-            bufCount += (isBufferDesc(desc.descriptorType) * cnt);
-            bufviewCount += (isBufviewDesc(desc.descriptorType) * cnt);
-			sampledImgViewCount += (isSampledImgViewDesc(desc.descriptorType) * cnt);
-			imgViewCount += (isImgViewDesc(desc.descriptorType) * cnt);
-        }
+              
+		for (auto j=0; j<cpuds->getMaxDescriptorBindingIndex(); j++)
+		{
+			const auto cnt = cpuds->getDescriptors(j).length();
+			descCount += cnt;
+
+			const auto type = cpuds->getDescriptorsType(j);
+			if (isBufferDesc(type))
+				bufCount += cnt;
+			else if (isBufviewDesc(type))
+				bufviewCount += cnt;
+			else if (isSampledImgViewDesc(type))
+				sampledImgViewCount += cnt;
+			else if (isStorageImgDesc(type))
+				imgViewCount += cnt;
+			}
+		}
     }
 
+	core::vector<asset::ICPUDescriptorSetLayout*> cpuLayouts;
+	cpuLayouts.reserve(assetCount);
+#ifndef NEW_SHADERS // Let's stop and look at what we're doing,
     core::vector<BindingDescTypePair_t> descInfos;
     descInfos.reserve(descCount);
     core::vector<asset::ICPUBuffer*> cpuBuffers;
@@ -664,8 +674,6 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     cpuImgViews.reserve(imgViewCount+sampledImgViewCount);
     core::vector<asset::ICPUSampler*> cpuSamplers;
     cpuSamplers.reserve(sampledImgViewCount);
-    core::vector<asset::ICPUDescriptorSetLayout*> cpuLayouts;
-    cpuLayouts.reserve(assetCount);
 	
     for (ptrdiff_t i=0u; i<assetCount; i++)
     {
@@ -768,7 +776,9 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 
         (*res)[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>(gpulayout), std::move(gpudescriptors));
     }
-
+#else
+	assert(false);
+#endif
     return res;
 }
 
