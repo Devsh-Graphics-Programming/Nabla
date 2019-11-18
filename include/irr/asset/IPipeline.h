@@ -17,7 +17,7 @@ namespace impl
 	{
 		protected:
 			IPipelineBase() = default;
-			virtual ~IPipelineBase() = 0;
+			virtual ~IPipelineBase() = default;
 	};
 }
 

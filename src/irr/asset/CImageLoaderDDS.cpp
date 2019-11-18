@@ -122,6 +122,7 @@ bool CImageLoaderDDS::isALoadableFileFormat(io::IReadFile* _file) const
 //! creates a surface from the file
 asset::SAssetBundle CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
+#ifndef NEW_SHADERS
 	core::vector<asset::CImageData*> images;
 
     CImageLoaderDDS::eDDSPixelFormat pixelFormat;
@@ -256,6 +257,9 @@ asset::SAssetBundle CImageLoaderDDS::loadAsset(io::IReadFile* _file, const asset
     for (auto& img : images)
         img->drop();
     return SAssetBundle({core::smart_refctd_ptr<IAsset>(tex, core::dont_grab)});
+#else//NEW_SHADERS
+    return {};
+#endif//NEW_SHADERS
 }
 
 

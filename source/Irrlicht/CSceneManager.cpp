@@ -8,6 +8,7 @@
 #include "IFileSystem.h"
 #include "IReadFile.h"
 #include "IWriteFile.h"
+#include "IrrlichtDevice.h"
 
 #include "os.h"
 

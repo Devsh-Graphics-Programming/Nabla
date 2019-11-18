@@ -323,7 +323,6 @@ void CNullDriver::printVersion()
 	os::Printer::log(namePrint.c_str(), ELL_INFORMATION);
 }
 
-
 //! creates a video driver
 IVideoDriver* createNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
 {

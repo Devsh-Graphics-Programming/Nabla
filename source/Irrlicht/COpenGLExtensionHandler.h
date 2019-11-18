@@ -21,6 +21,7 @@
 #endif
 
 #include "os.h"
+#include "irr/video/IGPUImageView.h"
 
 
 namespace irr

@@ -28,6 +28,7 @@ namespace irr
 #include "irr/video/COpenGLRenderpassIndependentPipeline.h"
 #include "irr/video/COpenGLDescriptorSet.h"
 #include "irr/video/COpenGLPipelineLayout.h"
+#include "irr/video/COpenGLComputePipeline.h"
 
 #include <map>
 #include "FW_Mutex.h"
@@ -37,18 +38,23 @@ namespace irr
 namespace video
 {
 
+    enum GL_STATE_BITS : uint32_t
+    {
+        // has to be flushed before constants are pushed (before `extGlProgramUniform*`)
+        GSB_PIPELINE = 1u << 0,
+        GSB_RASTER_PARAMETERS = 1u << 1,
+        // we want the two to happen together and just before a draw (set VAO first, then binding)
+        GSB_VAO_AND_VERTEX_INPUT = 1u << 2,
+        // flush just before (indirect)dispatch or (multi)(indirect)draw, textures and samplers first, then storage image, then SSBO, finally UBO
+        GSB_DESCRIPTOR_SETS = 1u << 3,
+        // GL_DISPATCH_INDIRECT_BUFFER 
+        GSB_DISPATCH_INDIRECT = 1u << 4,
+        GSB_PUSH_CONSTANTS = 1u << 5,
+        // flush everything
+        GSB_ALL = ~0x0u
+    };
 
-enum GL_STATE_BITS : uint32_t
-{
-    // has to be flushed before constants are pushed (before `extGlProgramUniform*`)
-    GSB_PIPELINE_AND_RASTER_PARAMETERS = 0x1u,
-    // we want the two to happen together and just before a draw (set VAO first, then binding)
-    GSB_VAO_AND_VERTEX_INPUT = 0x2u,
-    // flush just before (indirect)dispatch or (multi)(indirect)draw, textures and samplers first, then storage image, then SSBO, finally UBO
-    GSB_DESCRIPTOR_SETS = 0x4u,
-    // flush everything
-    GSB_ALL = ~0x0u
-};
+
 struct SOpenGLState
 {
     struct SVAO {
@@ -62,11 +68,28 @@ struct SOpenGLState
 
         inline bool operator<(const HashVAOPair& rhs) const { return first < rhs.first; }
     };
+    struct SDescSetBnd {
+        core::smart_refctd_ptr<const COpenGLPipelineLayout> pplnLayout;
+        core::smart_refctd_ptr<const COpenGLDescriptorSet> set;
+        core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets;
+    };
 
     using SGraphicsPipelineHash = std::array<GLuint, COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT>;
 
-    core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> pipeline;
-    SGraphicsPipelineHash usedShadersHash = {0u, 0u, 0u, 0u, 0u};
+    struct {
+        struct {
+            core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> pipeline;
+            SGraphicsPipelineHash usedShadersHash = { 0u, 0u, 0u, 0u, 0u };
+        } graphics;
+        struct {
+            core::smart_refctd_ptr<const COpenGLComputePipeline> pipeline;
+            GLuint usedShader = 0u;
+        } compute;
+    } pipeline;
+
+    struct {
+        core::smart_refctd_ptr<const COpenGLBuffer> buffer;
+    } dispatchIndirect;
 
     struct {
         //in GL it is possible to set polygon mode separately for back- and front-faces, but in VK it's one setting for both
@@ -152,14 +175,10 @@ struct SOpenGLState
     } vertexInputParams;
 
     struct {
-        struct SDescSetBnd {
-            core::smart_refctd_ptr<const COpenGLPipelineLayout> pplnLayout;
-            core::smart_refctd_ptr<const COpenGLDescriptorSet> set;
-            core::smart_refctd_dynamic_array<uint32_t> dynamicOffsets;
-        };
         SDescSetBnd descSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
-    } descriptorsParams;
+    } descriptorsParams[E_PIPELINE_BIND_POINT::EPBP_COUNT];
 };
+
 
 class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 {
@@ -587,12 +606,28 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
         const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const override;
 
+        bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override;
+
+        bool bindComputePipeline(video::IGPUComputePipeline* _cpipeline) override;
+
+        bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
+            uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override;
 
 		IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override;
 
 		core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset, size_t _size) override;
 
 		core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override;
+
+        core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& _params) override;
+
+        core::smart_refctd_ptr<IGPUImageView> createGPUImageView(IGPUImageView::SCreationParams&& params) override;
+
+        bool dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint32_t _groupCountZ) override;
+        bool dispatchIndirect(const IGPUBuffer* _indirectBuf, size_t _offset) override;
+
+        bool pushConstants(const IGPUPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values) override;
+
 
         core::smart_refctd_ptr<IGPUShader> createGPUShader(const asset::ICPUShader* _cpushader) override;
         core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) override;
@@ -615,15 +650,15 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             const asset::SRasterizationParams& _rasterParams
         ) override;
 
+        virtual core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline(
+            core::smart_refctd_ptr<IGPUComputePipeline>&& _parent,
+            core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+            core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
+        ) override;
+
         core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorBinding>&& _descriptors) override;
 
         core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout) override;
-
-
-		bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override;
-
-		bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
-			uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override;
 
 
 		//! generic version which overloads the unimplemented versions
@@ -782,10 +817,33 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
                 VAOMap.reserve(maxVAOCacheSize);
             }
 
-            void flushState(GL_STATE_BITS stateBits);
+            template<E_PIPELINE_BIND_POINT>
+            struct pipeline_for_bindpoint;
+            template<> struct pipeline_for_bindpoint<EPBP_GRAPHICS> { using type = COpenGLRenderpassIndependentPipeline; };
+            template<> struct pipeline_for_bindpoint<EPBP_COMPUTE > { using type = COpenGLComputePipeline; };
+
+            template<E_PIPELINE_BIND_POINT PBP>
+            using pipeline_for_bindpoint_t = typename pipeline_for_bindpoint<PBP>::type;
+
+            void flushStateGraphics_pushConstants();
+            void flushStateCompute_pushConstants();
+            void flushState_descriptors(E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, const COpenGLPipelineLayout* _prevLayout);
+            void flushStateGraphics(uint32_t stateBits);
+            void flushStateCompute(uint32_t stateBits);
 
             SOpenGLState currentState;
             SOpenGLState nextState;
+            struct {
+                SOpenGLState::SDescSetBnd descSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
+            } effectivelyBoundDescriptors;
+            //push constants are tracked outside of next/currentState because there can be multiple pushConstants() calls and each of them kinda depends on the pervious one (layout compatibility)
+            struct
+            {
+                alignas(128) uint8_t data[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE];
+                uint32_t stagesToUpdateFlags = 0u;
+                core::smart_refctd_ptr<const COpenGLPipelineLayout> layout;
+            } pushConstantsState[EPBP_COUNT];
+
         //private:
             std::thread::id threadId;
             uint8_t ID; //index in array of contexts, just to be easier in use
@@ -826,6 +884,10 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
                 const IGPUBuffer* _indirectDrawBuffer,
                 const IGPUBuffer* _paramBuffer
             );
+            void pushConstants(
+                E_PIPELINE_BIND_POINT _bindPoint,
+                const COpenGLPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values
+            );
 
             inline size_t getVAOCacheSize() const
             {
@@ -855,7 +917,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             {
                 for (auto it = GraphicsPipelineMap.begin(); GraphicsPipelineMap.size() > maxPipelineCacheSize&&it != GraphicsPipelineMap.end();)
                 {
-                    if (it->first == currentState.usedShadersHash)
+                    if (it->first == currentState.pipeline.graphics.usedShadersHash)
                         continue;
 
                     if (CNullDriver::ReallocationCounter-it->second.lastValidated > 1000) //maybe make this configurable

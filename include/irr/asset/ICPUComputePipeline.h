@@ -22,6 +22,11 @@ public:
     void convertToDummyObject() override { }
     E_TYPE getAssetType() const override { return ET_COMPUTE_PIPELINE; }
 
+    ICPUPipelineLayout* getLayout() { return m_layout.get(); }
+
+    ICPUSpecializedShader* getShader() { return m_shader.get(); }
+    void setShader(ICPUSpecializedShader* _cs) { m_shader = core::smart_refctd_ptr<ICPUSpecializedShader>(_cs); }
+
 protected:
     virtual ~ICPUComputePipeline() = default;
 };

@@ -99,6 +99,7 @@ static void jpeg_file_dest(j_compress_ptr cinfo, io::IWriteFile* file)
 }
 
 
+#ifndef NEW_SHADERS
 /* write_JPEG_memory: store JPEG compressed image into memory.
 */
 static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, uint32_t quality)
@@ -187,7 +188,7 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 
 	return (dest != 0);
 }
-
+#endif //NEW_SHADERS
 #endif // _IRR_COMPILE_WITH_LIBJPEG_
 
 CImageWriterJPG::CImageWriterJPG()
@@ -199,7 +200,7 @@ CImageWriterJPG::CImageWriterJPG()
 
 bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
-#ifndef _IRR_COMPILE_WITH_LIBJPEG_
+#if !defined(_IRR_COMPILE_WITH_LIBJPEG_ ) || defined(NEW_SHADERS)
 	return false;
 #else
     if (!_override)
@@ -219,7 +220,7 @@ bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
     const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, image, 0u);
     const float comprLvl = _override->getAssetCompressionLevel(ctx, image, 0u);
 	return writeJPEGFile(file, image, (!!(flags & asset::EWF_COMPRESSED)) * static_cast<uint32_t>((1.f-comprLvl)*100.f)); // if quality==0, then it defaults to 75
-#endif
+#endif//!defined(_IRR_COMPILE_WITH_LIBJPEG_ ) || defined(NEW_SHADERS)
 }
 
 #undef OUTPUT_BUF_SIZE

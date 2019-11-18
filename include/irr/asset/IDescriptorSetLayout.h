@@ -3,6 +3,7 @@
 
 #include "irr/core/core.h"
 #include "irr/asset/ShaderCommons.h"
+#include "irr/core/SRange.h"
 
 namespace irr
 {

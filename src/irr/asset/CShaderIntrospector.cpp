@@ -78,16 +78,14 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
     };
 
     if (_shader->containsGLSL()) {
-        //TODO insert enabled extensions #defines into GLSL
         std::string glsl = reinterpret_cast<const char*>(_shader->getSPVorGLSL()->getPointer());
         ICPUShader::insertGLSLExtensionsDefines(glsl, m_params.GLSLextensions.get());
-        auto spvShader = core::smart_refctd_ptr<ICPUShader>(
-        m_glslCompiler->createSPIRVFromGLSL(
+        auto spvShader = m_glslCompiler->createSPIRVFromGLSL(
             glsl.c_str(),
             m_params.stage,
             m_params.entryPoint.c_str(),
             "????"
-        ), core::dont_grab);
+        );
         if (!spvShader)
             return nullptr;
 

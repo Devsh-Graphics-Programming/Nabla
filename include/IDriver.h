@@ -233,7 +233,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 
 
         //! Creates an Image (@see ICPUImage)
-        virtual core::smart_refctd_ptr<IGPUImage> createGPUImage(IGPUImage::SCreationParams&& params)
+        virtual core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& params)
 		{ return nullptr; }
 
 		//! The counterpart of @see bindBufferMemory for images
@@ -313,6 +313,15 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 
 		//! Create a descriptor set with missing descriptors
         virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout)
+        {
+            return nullptr;
+        }
+
+        virtual core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline(
+            core::smart_refctd_ptr<IGPUComputePipeline>&& _parent,
+            core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
+            core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
+        )
         {
             return nullptr;
         }

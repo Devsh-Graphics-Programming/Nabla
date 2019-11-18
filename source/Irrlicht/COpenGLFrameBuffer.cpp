@@ -133,7 +133,7 @@ bool COpenGLFrameBuffer::attach(E_FBO_ATTACHMENT_POINT attachmenPoint, core::sma
 		cachedMipLayer[attachmenPoint] = ~0u;
 	}
 
-    attachments[attachmenPoint] = glTex;
+    attachments[attachmenPoint] = core::smart_refctd_ptr<video::COpenGLImageView>(glTex);
 
 
     bool noAttachments = true;

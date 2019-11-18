@@ -107,35 +107,32 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(size_t _ctxCount, uint32_t _c
     IGPUSpecializedShader(_specInfo->shaderStage),
     m_GLnames(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(_ctxCount)),
     m_GLstage(impl::ESS2GLenum(_specInfo->shaderStage)),
-    m_spirv(core::smart_refctd_ptr<const asset::ICPUBuffer>(_spirv)),
-    m_specInfo(core::smart_refctd_ptr<const asset::ISpecializationInfo>(_specInfo)),
     m_introspectionData(core::smart_refctd_ptr<const asset::CIntrospectionData>(_introspection))
 {
-    m_GLnames->operator[](_ctxID) = compile(_GLSLversion);
     for (auto& nm : (*m_GLnames))
         nm = 0u;
+    m_GLnames->operator[](_ctxID) = compile(_GLSLversion, _spirv, _specInfo);
 }
 
-GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion)
+GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo)
 {
-    if (!m_spirv || !m_specInfo)
+    if (!_spirv || !_specInfo)
         return 0u;
 
-    spirv_cross::CompilerGLSL comp(reinterpret_cast<const uint32_t*>(m_spirv->getPointer()), m_spirv->getSize()/4u);
-    comp.set_entry_point(m_specInfo->entryPoint.c_str(), asset::ESS2spvExecModel(m_specInfo->shaderStage));
+    spirv_cross::CompilerGLSL comp(reinterpret_cast<const uint32_t*>(_spirv->getPointer()), _spirv->getSize()/4u);
+    comp.set_entry_point(_specInfo->entryPoint.c_str(), asset::ESS2spvExecModel(_specInfo->shaderStage));
     spirv_cross::CompilerGLSL::Options options;
     options.version = _GLSLversion;
-    //vulkan_semantics=false cases spirv_cross to translate push_constants into non-UBO uniform of struct type! Exactly like we wanted!
+    //vulkan_semantics=false causes spirv_cross to translate push_constants into non-UBO uniform of struct type! Exactly like we wanted!
     options.vulkan_semantics = false; // with this it's likely that SPIRV-Cross will take care of built-in variables renaming, but need testing
     options.separate_shader_objects = true;
     comp.set_common_options(options);
 
-    impl::specialize(comp, m_specInfo.get());
+    impl::specialize(comp, _specInfo);
     impl::reorderBindings(comp);
 
     std::string glslCode = comp.compile();
     const char* glslCode_cstr = glslCode.c_str();
-    //printf(glslCode.c_str());
 
     GLuint GLname = COpenGLExtensionHandler::extGlCreateShaderProgramv(m_GLstage, 1u, &glslCode_cstr);
 
@@ -149,25 +146,24 @@ GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion)
     m_binary.binary = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint8_t>>(binaryLength);
     COpenGLExtensionHandler::extGlGetProgramBinary(GLname, binaryLength, nullptr, &m_binary.format, m_binary.binary->data());
 
-    //not needed any more
-    m_spirv = nullptr;
-    m_specInfo = nullptr;
+    if (m_uniformsList.empty())
+        buildUniformsList(GLname);
 
     return GLname;
 }
 
-void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* _pcData, GLuint _GLname)
+void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* _pcData, uint32_t _ctxID) const
 {
-    if (m_uniformsList.empty())
-        buildUniformsList(_GLname);
+    IRR_ASSUME_ALIGNED(_pcData, 128);
 
-    //TODO alignment check, assert that uniform ptr is aligned to alignof(uniformType)
+    const GLuint GLname = getGLnameForCtx(_ctxID);
+
     using gl = COpenGLExtensionHandler;
     for (const SUniform& u : m_uniformsList)
     {
         const SMember& m = u.m;
         auto is_mtx = [&m] { return (m.mtxRowCnt>1u && m.mtxColCnt>1u); };
-        auto is_single_or_vec = [&m] { return (m.mtxRowCnt>=1u && m.mtxColCnt==1u); };
+        auto is_scalar_or_vec = [&m] { return (m.mtxRowCnt>=1u && m.mtxColCnt==1u); };
 
         if (is_mtx() && m.type==asset::EGVT_F32) {
             std::array<GLfloat, IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE/sizeof(GLfloat)> matrix_data;
@@ -187,10 +183,16 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
                 {&gl::extGlProgramUniformMatrix3x2fv, &gl::extGlProgramUniformMatrix3fv, &gl::extGlProgramUniformMatrix3x4fv},//3xM
                 {&gl::extGlProgramUniformMatrix4x2fv, &gl::extGlProgramUniformMatrix4x3fv, &gl::extGlProgramUniformMatrix4fv} //4xM
             };
-            assert(core::is_aligned_to(matrix_data.data(), alignof(float)));//no idea why im doing this, theres no such requirement
-            glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt-2u][m.mtxRowCnt-2u](_GLname, u.location, m.count, m.rowMajor?GL_TRUE:GL_FALSE, matrix_data.data());
+
+            const size_t bytesize = 4u*m.mtxColCnt*m.mtxRowCnt*count;
+            if (m_uniformsSetForTheVeryFirstTime || memcmp(u.value, matrix_data.data(), bytesize) != 0)
+            {
+                memcpy(u.value, matrix_data.data(), bytesize);
+                assert(core::is_aligned_to(matrix_data.data(), alignof(float)));//no idea why im doing this, theres no such requirement
+                glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt - 2u][m.mtxRowCnt - 2u](GLname, u.location, m.count, m.rowMajor ? GL_TRUE : GL_FALSE, matrix_data.data());
+            }
         }
-        else if (is_single_or_vec()) {
+        else if (is_scalar_or_vec()) {
             std::array<GLuint, IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE/sizeof(GLuint)> vector_data;
             const uint32_t count = vector_data.size()/(m.count*m.mtxRowCnt);
             for (uint32_t i = 0u; i < count; ++i) {
@@ -198,37 +200,46 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
                 GLuint* ptr = vector_data.data() + i*m.mtxRowCnt;
                 memcpy(ptr, vec, sizeof(GLuint)*m.mtxRowCnt);
             }
-            switch (m.type) {
-            case asset::EGVT_F32:
+
+            const size_t bytesize = 4u*m.mtxRowCnt*count;
+            if (m_uniformsSetForTheVeryFirstTime || memcmp(u.value, vector_data.data(), bytesize) != 0)
             {
-                PFNGLPROGRAMUNIFORM1FVPROC glProgramUniformNfv_fptr[4]{
-                    &gl::extGlProgramUniform1fv, &gl::extGlProgramUniform2fv, &gl::extGlProgramUniform3fv, &gl::extGlProgramUniform4fv
-                };
-                assert(core::is_aligned_to(vector_data.data(), alignof(GLfloat)));//no idea why im doing this, theres no such requirement
-                glProgramUniformNfv_fptr[m.mtxRowCnt-1u](_GLname, u.location, m.count, reinterpret_cast<const GLfloat*>(vector_data.data()));
-                break;
-            }
-            case asset::EGVT_I32:
-            {
-                PFNGLPROGRAMUNIFORM1IVPROC glProgramUniformNiv_fptr[4]{
-                    &gl::extGlProgramUniform1iv, &gl::extGlProgramUniform2iv, &gl::extGlProgramUniform3iv, &gl::extGlProgramUniform4iv
-                };
-                assert(core::is_aligned_to(vector_data.data(), alignof(GLint)));//no idea why im doing this, theres no such requirement
-                glProgramUniformNiv_fptr[m.mtxRowCnt-1u](_GLname, u.location, m.count, reinterpret_cast<const GLint*>(vector_data.data()));
-                break;
-            }
-            case asset::EGVT_U32:
-            {
-                PFNGLPROGRAMUNIFORM1UIVPROC glProgramUniformNuiv_fptr[4]{
-                    &gl::extGlProgramUniform1uiv, &gl::extGlProgramUniform2uiv, &gl::extGlProgramUniform3uiv, &gl::extGlProgramUniform4uiv
-                };
-                assert(core::is_aligned_to(vector_data.data(), alignof(GLuint)));//no idea why im doing this, theres no such requirement
-                glProgramUniformNuiv_fptr[m.mtxRowCnt-1u](_GLname, u.location, m.count, vector_data.data());
-                break;
-            }
+                memcpy(u.value, vector_data.data(), bytesize);
+                switch (m.type) 
+                {
+                case asset::EGVT_F32:
+                {
+                    PFNGLPROGRAMUNIFORM1FVPROC glProgramUniformNfv_fptr[4]{
+                        &gl::extGlProgramUniform1fv, &gl::extGlProgramUniform2fv, &gl::extGlProgramUniform3fv, &gl::extGlProgramUniform4fv
+                    };
+                    assert(core::is_aligned_to(vector_data.data(), alignof(GLfloat)));//no idea why im doing this, theres no such requirement
+                    glProgramUniformNfv_fptr[m.mtxRowCnt-1u](GLname, u.location, m.count, reinterpret_cast<const GLfloat*>(vector_data.data()));
+                    break;
+                }
+                case asset::EGVT_I32:
+                {
+                    PFNGLPROGRAMUNIFORM1IVPROC glProgramUniformNiv_fptr[4]{
+                        &gl::extGlProgramUniform1iv, &gl::extGlProgramUniform2iv, &gl::extGlProgramUniform3iv, &gl::extGlProgramUniform4iv
+                    };
+                    assert(core::is_aligned_to(vector_data.data(), alignof(GLint)));//no idea why im doing this, theres no such requirement
+                    glProgramUniformNiv_fptr[m.mtxRowCnt-1u](GLname, u.location, m.count, reinterpret_cast<const GLint*>(vector_data.data()));
+                    break;
+                }
+                case asset::EGVT_U32:
+                {
+                    PFNGLPROGRAMUNIFORM1UIVPROC glProgramUniformNuiv_fptr[4]{
+                        &gl::extGlProgramUniform1uiv, &gl::extGlProgramUniform2uiv, &gl::extGlProgramUniform3uiv, &gl::extGlProgramUniform4uiv
+                    };
+                    assert(core::is_aligned_to(vector_data.data(), alignof(GLuint)));//no idea why im doing this, theres no such requirement
+                    glProgramUniformNuiv_fptr[m.mtxRowCnt-1u](GLname, u.location, m.count, vector_data.data());
+                    break;
+                }
+                }
             }
         }
     }
+
+    m_uniformsSetForTheVeryFirstTime = false;
 }
 
 void COpenGLSpecializedShader::buildUniformsList(GLuint _GLname)
@@ -243,6 +254,7 @@ void COpenGLSpecializedShader::buildUniformsList(GLuint _GLname)
     SMember initial;
     initial.type = asset::EGVT_UNKNOWN_OR_STRUCT;
     initial.members = pc_layout.members;
+    initial.name = pc.info.name;
     q.push(initial);
     while (!q.empty())
     {
@@ -261,10 +273,10 @@ void COpenGLSpecializedShader::buildUniformsList(GLuint _GLname)
         using gl = COpenGLExtensionHandler;
         const GLint location = gl::extGlGetUniformLocation(_GLname, top.name.c_str());
         assert(location != -1);
-        m_uniformsList.emplace_back(top, location);
+        m_uniformsList.emplace_back(top, location, m_uniformValues+top.offset);
     }
     std::sort(m_uniformsList.begin(), m_uniformsList.end(), [](const SUniform& a, const SUniform& b) { return a.location < b.location; });
     //not needed any more
-    m_introspectionData = nullptr;
+    //m_introspectionData = nullptr;
 }
 #endif

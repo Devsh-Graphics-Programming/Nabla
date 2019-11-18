@@ -33,8 +33,9 @@ class COpenGLImageView final : public IGPUImageView
 		COpenGLImageView(SCreationParams&& _params) : IGPUImageView(std::move(_params)), name(0u), target(GL_INVALID_ENUM), internalFormat(GL_INVALID_ENUM)
 		{
 			target = ViewTypeToGLenumTarget[params.viewType];
-			COpenGLExtensionHandler::extGlCreateTextures(target, 1, &name);
 			internalFormat = getSizedOpenGLFormatFromOurFormat(params.format);
+            assert(internalFormat != GL_INVALID_ENUM);
+			COpenGLExtensionHandler::extGlCreateTextures(target, 1, &name);
 			COpenGLExtensionHandler::extGlTextureView(	name, target, static_cast<COpenGLImage*>(params.image.get())->getOpenGLName(), internalFormat, 
 														params.subresourceRange.baseMipLevel, params.subresourceRange.levelCount,
 														params.subresourceRange.baseArrayLayer, params.subresourceRange.layerCount);

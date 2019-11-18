@@ -31,7 +31,8 @@ namespace video
     enum E_PIPELINE_BIND_POINT
     {
         EPBP_GRAPHICS = 0,
-        EPBP_COMPUTE = 1
+        EPBP_COMPUTE = 1,
+        EPBP_COUNT
     };
 
 	//! Legacy and deprecated system
@@ -56,8 +57,15 @@ namespace video
 
         virtual bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) = 0;
 
+        virtual bool bindComputePipeline(video::IGPUComputePipeline* _cpipeline) = 0;
+
         virtual bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
             uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) = 0;
+
+        virtual bool dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint32_t _groupCountZ) = 0;
+        virtual bool dispatchIndirect(const IGPUBuffer* _indirectBuf, size_t _offset) = 0;
+
+        virtual bool pushConstants(const IGPUPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values) = 0;
 
 		//! Applications must call this method before performing any rendering.
 		/** This method can clear the back- and the z-buffer.

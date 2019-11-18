@@ -26,10 +26,12 @@ public:
         std::move(_parent),
         std::move(_layout), _shadersBegin, _shadersEnd,
         _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
-    ) 
+        ),
+        m_stagePresenceMask(0u)
     {
         static_assert(asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT == asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT, "This code below has to be divided into 2 loops");
-        static_assert(asset::EF_UNKNOWN <= 0xffu, "All E_FORMAT values must fit in 1 byte");
+        static_assert(asset::EF_UNKNOWN <= 0xffu, "All E_FORMAT values must fit in 1 byte or hash falls apart");
+        static_assert(asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT == 16u && asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT == 16u, "m_vaoHashval.mapAttrToBinding needs adjustments");
         for (size_t i = 0ull; i < asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
         {
             if (!((m_vertexInputParams.enabledAttribFlags >> i) & 1u)) {
@@ -45,7 +47,14 @@ public:
             m_vaoHashval.setStrideForBinding(bnd, m_vertexInputParams.bindings[bnd].stride);
             m_vaoHashval.divisors |= ((m_vertexInputParams.bindings[bnd].inputRate==asset::EVIR_PER_VERTEX ? 0u : 1u) << bnd);
         }
+        for (uint32_t i = 0u; i < SHADER_STAGE_COUNT; ++i)
+        {
+            const bool present = static_cast<bool>(m_shaders[i]);
+            m_stagePresenceMask |= (static_cast<uint32_t>(present) << i);
+        }
     }
+
+    uint32_t getStagePresenceMask() const { return m_stagePresenceMask; }
 
     struct SVAOHash
     {
@@ -120,20 +129,20 @@ public:
         {
             if (_ix == 5u)
             {
-                uint32_t val = (_bits[0] & (0xfu << 60)) >> 60;
-                val |= (_bits[1] & 0xffu) << 4;
+                uint32_t val = (_bits[0] & (0xfull << 60)) >> 60;
+                val |= (_bits[1] & 0xffull) << 4;
                 return val;
             }
             if (_ix == 11u)
             {
-                uint32_t val = (_bits[1] & (0xffu << 56)) >> 56;
-                val |= (_bits[2] & 0xfu) << 8;
+                uint32_t val = (_bits[1] & (0xffull << 56)) >> 56;
+                val |= (_bits[2] & 0xfull) << 8;
                 return val;
             }
             const uint32_t ix = (_ix > 5u) + (_ix > 11u);
             const uint32_t shift = (_ix * 12u) - (ix * 64u);
 
-            return (_bits[ix] >> shift) & 0xfffu;
+            return (_bits[ix] >> shift) & 0xfffull;
         }
         inline static void set12bits(uint32_t _ix, uint64_t _bits[3], uint64_t _val)
         {
@@ -157,7 +166,7 @@ public:
 
             const uint32_t ix = (_ix > 5u) + (_ix > 11u);
             const uint32_t shift = (_ix * 12u) - (ix * 64u);
-            _bits[ix] &= (~(0xfffu << shift));
+            _bits[ix] &= (~(0xfffull << shift));
             _bits[ix] |= (_val << shift);
         }
     };
@@ -191,6 +200,7 @@ private:
     }
 
     SVAOHash m_vaoHashval;
+    uint32_t m_stagePresenceMask;
 };
 
 }

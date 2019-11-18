@@ -45,14 +45,14 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 				case IGPUImage::ET_1D:
 					target = GL_TEXTURE_1D_ARRAY;
 					COpenGLExtensionHandler::extGlCreateTextures(target, 1, &name);
-					COpenGLExtensionHandler::extGlTextureStorage1D(	name, target, params.mipLevels, internalFormat,
-																	params.extent.width);
+					COpenGLExtensionHandler::extGlTextureStorage2D(	name, target, params.mipLevels, internalFormat,
+																	params.extent.width, params.arrayLayers);
 					break;
 				case IGPUImage::ET_2D:
 					target = GL_TEXTURE_2D_ARRAY;
 					COpenGLExtensionHandler::extGlCreateTextures(target, 1, &name);
-					COpenGLExtensionHandler::extGlTextureStorage2D(	name, target, params.mipLevels, internalFormat,
-																	params.extent.width, params.extent.height);
+					COpenGLExtensionHandler::extGlTextureStorage3D(	name, target, params.mipLevels, internalFormat,
+																	params.extent.width, params.extent.height, params.arrayLayers);
 					break;
 				case IGPUImage::ET_3D:
 					target = GL_TEXTURE_3D;

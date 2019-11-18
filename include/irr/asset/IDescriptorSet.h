@@ -9,6 +9,7 @@
 #include "irr/asset/format/EFormat.h"
 #include "irr/asset/IDescriptor.h"
 #include "irr/asset/IDescriptorSetLayout.h" //for E_DESCRIPTOR_TYPE
+#include "irr/core/SRange.h"
 
 namespace irr
 {
@@ -73,7 +74,7 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 			}
 			~SDescriptorInfo()
 			{
-				if (desc->getTypeCategory()==IDescriptor::EC_IMAGE)
+				if (desc && desc->getTypeCategory()==IDescriptor::EC_IMAGE)
 					image.sampler.~smart_refctd_ptr();
 			}
 

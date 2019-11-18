@@ -13,6 +13,7 @@
 # limitations under the License.
 
 add_subdirectory(01.HelloWorld EXCLUDE_FROM_ALL)
+add_subdirectory(02.ComputeShader EXCLUDE_FROM_ALL)
 add_subdirectory(03.GPU_Mesh EXCLUDE_FROM_ALL)
 add_subdirectory(04.BuiltinNodes EXCLUDE_FROM_ALL)
 add_subdirectory(05.SpherePoints EXCLUDE_FROM_ALL)

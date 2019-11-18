@@ -86,6 +86,7 @@ set(IRRLICHT_SRCS_COMMON
 # Shaders
 	${IRR_ROOT_PATH}/src/irr/asset/IGLSLCompiler.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/ICPUShader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CShaderIntrospector.cpp
 
 # Other mesh-related stuff
 	${IRR_ROOT_PATH}/src/irr/asset/bawformat/CBAWFile.cpp

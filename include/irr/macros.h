@@ -91,6 +91,15 @@
     #define _IRR_STATIC_INLINE_CONSTEXPR static inline constexpr
 #endif
 
+// `arg` arg must be of pointer type, must be mutable and must be lvalue
+#ifdef _MSC_VER
+    #define IRR_ASSUME_ALIGNED(arg, align) __assume((reinterpret_cast<const char*>(arg) - reinterpret_cast<const char*>(0)) % (align) == 0)
+#elif (__GNUC__ >= 4) && (__GNUC_MINOR__ >= 7)
+    #define IRR_ASSUME_ALIGNED(arg, align) arg = reinterpret_cast<decltype(arg)>(__builtin_assume_aligned(arg, align))
+#else
+    #define IRR_ASSUME_ALIGNED(arg, align)
+#endif
+
 // For dumb MSVC which now has to keep a spec bug to avoid breaking existing source code
 #if defined(_MSC_VER)
     #define IRR_FORCE_EBO __declspec(empty_bases)

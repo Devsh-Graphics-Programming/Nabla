@@ -46,10 +46,56 @@ class CNullDriver : public IVideoDriver
 
         bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override { return false; }
 
+        bool bindComputePipeline(video::IGPUComputePipeline* _cpipeline) override { return false; }
+
         bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
             uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override 
         { 
             return false; 
+        }
+
+        bool dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint32_t _groupCountZ) override { return false; }
+        bool dispatchIndirect(const IGPUBuffer* _indirectBuf, size_t _offset) override { return false; }
+
+        bool pushConstants(const IGPUPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values) override
+        {
+            if (!_layout || !_values)
+                return false;
+            if (!_size)
+                return false;
+            if (!_stages)
+                return false;
+            if (!core::is_aligned_to(_offset, 4u))
+                return false;
+            if (!core::is_aligned_to(_size, 4u))
+                return false;
+            if (_offset >= IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE)
+                return false;
+            if ((_offset+_size) > IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE)
+                return false;
+
+            asset::SPushConstantRange updateRange;
+            updateRange.offset = _offset;
+            updateRange.size = _size;
+
+#ifdef _IRR_DEBUG
+            //TODO validation:
+            /*
+            For each byte in the range specified by offset and size and for each shader stage in stageFlags,
+            there must be a push constant range in layout that includes that byte and that stage
+            */
+            for (const auto& rng : _layout->getPushConstantRanges())
+            {
+                /*
+                For each byte in the range specified by offset and size and for each push constant range that overlaps that byte,
+                stageFlags must include all stages in that push constant range’s VkPushConstantRange::stageFlags
+                */
+                if (updateRange.overlap(rng) && ((_stages & rng.stageFlags) != rng.stageFlags))
+                    return false;
+            }
+#endif//_IRR_DEBUG
+
+            return true;
         }
 
 		//!
@@ -147,12 +193,6 @@ class CNullDriver : public IVideoDriver
 										core::recti srcRect=core::recti(0,0,0,0),
 										core::recti dstRect=core::recti(0,0,0,0),
 										bool bilinearFilter=false);
-
-		//! Returns the maximum amount of primitives (mostly vertices) which
-		//! the device is able to render with one drawIndexedTriangleList
-		//! call.
-		virtual uint32_t getMaximalIndicesCount() const;
-
 
 	public:
 		virtual void beginQuery(IQueryObject* query);

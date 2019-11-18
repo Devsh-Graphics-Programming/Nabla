@@ -21,7 +21,7 @@ class ICPUImage final : public IImage, public IAsset
 	public:
 		inline static core::smart_refctd_ptr<ICPUImage> create(SCreationParams&& _params)
 		{
-			if (validateCreationParameters(_params))
+			if (!validateCreationParameters(_params))
 				return nullptr;
 
 			return core::smart_refctd_ptr<ICPUImage>(new ICPUImage(std::move(_params)), core::dont_grab);
@@ -50,13 +50,13 @@ class ICPUImage final : public IImage, public IAsset
 		inline const auto* getRegions() const { return regions->data(); }
 
 		//! regions will be copied and sorted
-		inline bool setBufferAndRegions(core::smart_refctd_ptr<ICPUBuffer>&& _buffer, const core::smart_refctd_dynamic_array<const IImage::SBufferCopy>& _regions)
+		inline bool setBufferAndRegions(core::smart_refctd_ptr<ICPUBuffer>&& _buffer, const core::smart_refctd_dynamic_array<IImage::SBufferCopy>& _regions)
 		{
 			if (!IImage::validateCopies(_regions->begin(),_regions->end(),_buffer.get()))
 				return false;
 		
 			buffer = _buffer;
-			regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy> >(*_regions.get());
+			regions = _regions;
 			sortRegionsByMipMapLevel();
 			return true;
 		}

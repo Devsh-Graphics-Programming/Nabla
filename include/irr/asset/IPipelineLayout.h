@@ -33,6 +33,14 @@ struct SPushConstantRange
     {
         return !((*this)==_rhs);
     }
+
+    inline bool overlap(const SPushConstantRange& _other) const
+    {
+        const int32_t end1 = offset + size;
+        const int32_t end2 = _other.offset + _other.size;
+
+        return (std::min(end1, end2) - std::max<int32_t>(offset, _other.offset)) > 0;
+    }
 };
 
 template<typename DescLayoutType>
@@ -89,6 +97,7 @@ public:
 protected:
     virtual ~IPipelineLayout() = default;
 
+public:
     IPipelineLayout(
         const SPushConstantRange* const _pcRangesBegin = nullptr, const SPushConstantRange* const _pcRangesEnd = nullptr,
         core::smart_refctd_ptr<DescLayoutType>&& _layout0 = nullptr, core::smart_refctd_ptr<DescLayoutType>&& _layout1 = nullptr,

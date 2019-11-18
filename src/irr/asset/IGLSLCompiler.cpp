@@ -27,7 +27,7 @@ IGLSLCompiler::IGLSLCompiler(io::IFileSystem* _fs) :
     builtinLdr->drop();
 }
 
-ICPUShader* IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo, std::string* _outAssembly) const
+core::smart_refctd_ptr<ICPUShader>IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo, std::string* _outAssembly) const
 {
     //shaderc requires entry point to be "main" in GLSL
     if (strcmp(_entryPoint, "main") != 0)
@@ -60,12 +60,10 @@ ICPUShader* IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, E_SHADER_S
     auto spirv = core::make_smart_refctd_ptr<ICPUBuffer>(std::distance(bin_res.cbegin(), bin_res.cend())*sizeof(uint32_t));
     memcpy(spirv->getPointer(), bin_res.cbegin(), spirv->getSize());
     
-    asset::ICPUShader* shader = new ICPUShader(std::move(spirv));
-
-    return shader;
+    return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirv));
 }
 
-ICPUShader* IGLSLCompiler::createSPIRVFromGLSL(io::IReadFile* _sourcefile, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo, std::string* _outAssembly) const
+core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(io::IReadFile* _sourcefile, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo, std::string* _outAssembly) const
 {
     std::string glsl(_sourcefile->getSize(), '\0');
     _sourcefile->read(glsl.data(), glsl.size());
@@ -205,7 +203,7 @@ namespace impl
     };
 }
 
-ICPUShader* IGLSLCompiler::resolveIncludeDirectives(const char* _glslCode, E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt) const
+core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(const char* _glslCode, E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt) const
 {
     std::string glslCode = impl::disableAllDirectivesExceptIncludes(_glslCode);//all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
     shaderc::Compiler comp;
@@ -220,10 +218,10 @@ ICPUShader* IGLSLCompiler::resolveIncludeDirectives(const char* _glslCode, E_SHA
     }
 
     std::string res_str(res.cbegin(), std::distance(res.cbegin(),res.cend()));
-    return new ICPUShader(impl::reenableDirectives(res_str.c_str()).c_str());
+    return core::make_smart_refctd_ptr<ICPUShader>(impl::reenableDirectives(res_str.c_str()).c_str());
 }
 
-ICPUShader* IGLSLCompiler::resolveIncludeDirectives(io::IReadFile* _sourcefile, E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt) const
+core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(io::IReadFile* _sourcefile, E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt) const
 {
     std::string glsl(_sourcefile->getSize(), '\0');
     _sourcefile->read(glsl.data(), glsl.size());

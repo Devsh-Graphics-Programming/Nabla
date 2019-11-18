@@ -16,6 +16,8 @@
 #include "irr/video/IGPUPipelineLayout.h"
 #include "irr/asset/ICPURenderpassIndependentPipeline.h"
 #include "irr/video/IGPURenderpassIndependentPipeline.h"
+#include "irr/asset/ICPUComputePipeline.h"
+#include "irr/video/IGPUComputePipeline.h"
 #include "irr/asset/ICPUSampler.h"
 #include "irr/video/IGPUSampler.h"
 #include "irr/asset/ICPUImageView.h"
@@ -75,6 +77,8 @@ template<>
 struct asset_traits<asset::ICPURenderpassIndependentPipeline> { using GPUObjectType = video::IGPURenderpassIndependentPipeline; };
 template<>
 struct asset_traits<asset::ICPUMeshBuffer> { using GPUObjectType = video::IGPUMeshBuffer; };
+template<>
+struct asset_traits<asset::ICPUComputePipeline> { using GPUObjectType = video::IGPUComputePipeline; };
 template<>
 struct asset_traits<asset::ICPUMesh> { using GPUObjectType = video::IGPUMesh; };
 

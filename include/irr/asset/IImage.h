@@ -8,6 +8,8 @@
 #include "irr/asset/format/EFormat.h"
 #include "irr/asset/IBuffer.h"
 #include "irr/asset/IDescriptor.h"
+#include "irr/asset/ICPUBuffer.h"
+#include "irr/core/math/glslFunctions.tcc"
 
 namespace irr
 {
@@ -219,7 +221,7 @@ class IImage : public IDescriptor
 			if (_params.mipLevels == 0u || _params.arrayLayers == 0u)
 				return false;
 
-			if (core::bitCount(_params.samples)!=1u)
+			if (core::bitCount(static_cast<uint32_t>(_params.samples))!=1u)
 				return false;
 
 			if (_params.flags & ECF_CUBE_COMPATIBLE_BIT)
@@ -400,11 +402,19 @@ class IImage : public IDescriptor
 		//!
 		inline core::vector3du32_SIMD getMipSize(uint32_t level=0u) const
 		{
+            core::vector3d<uint32_t> sz(params.extent.width,
+                params.extent.height,
+                params.extent.depth);
+            core::vector3d<uint32_t> one(1u, 1u, 1u);
+            auto r = core::max(sz, one);
+            return core::vector3du32_SIMD(r.X, r.Y, r.Z);
+            /*
 			return core::max(	core::vector3du32_SIMD(	params.extent.width,
 														params.extent.height,
 														params.extent.depth)
 										/ (0x1u<<level),
 								core::vector3du32_SIMD(1u));
+              */                  
 		}
 
 		//! Returns image data size in bytes
