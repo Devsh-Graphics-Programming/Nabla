@@ -284,7 +284,7 @@ namespace core
 					} \
 					IRR_PSEUDO_ELSE_CONSTEXPR \
 					{ \
-						static_assert(!std::is_same<T,uint8_t>::value,"unimplemented for types other than {u/i}int{8,16,32}_t"); \
+						static_assert(!std::is_same<T,uint8_t>::value,"unimplemented for types other than uint{8,16,32}_t"); \
 						mask = _mm_set1_epi8(-0x80); \
 					} \
 					IRR_PSEUDO_IF_CONSTEXPR_END \
@@ -294,19 +294,19 @@ namespace core
 				b = _mm_xor_si128(mask,RIGHT); \
 			} \
 			__m128i result; \
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T,int32_t>::value) \
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(sizeof(T)==4u) \
 			{ \
 				result = func_epi32(a,b); \
 			} \
 			IRR_PSEUDO_ELSE_CONSTEXPR \
 			{ \
-				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T,int16_t>::value) \
+				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(sizeof(T)==2u) \
 				{ \
 					result = func_epi16(a,b); \
 				} \
 				IRR_PSEUDO_ELSE_CONSTEXPR \
 				{ \
-					static_assert(!std::is_same<T,int8_t>::value,"unimplemented for types other than {u/i}int{8,16,32}_t"); \
+					static_assert(sizeof(T)!=1u,"unimplemented for types other than {u}int{8,16,32}_t"); \
 					result = func_epi8(a,b); \
 				} \
 				IRR_PSEUDO_IF_CONSTEXPR_END \
