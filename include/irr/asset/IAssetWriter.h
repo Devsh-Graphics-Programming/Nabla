@@ -32,16 +32,15 @@ public:
 	/**
 		These are extra flags that have an impact on extraordinary tasks while writing to file.
 		E_LOADER_PARAMETER_FLAGS::ELPF_NONE is default and means that there is nothing to perform.
-		E_LOADER_PARAMETER_FLAGS::EWPF_MESH_IS_RIGHT_HANDED specifies that a mesh will be flipped,
-		if current E_LOADER_PARAMETER_FLAGS::EWPF_WRITE_RIGHT_HANDED responsible for orientation is signed as left handed.
-		If it isn't, no flipping will be performed, because there will be no need for that.
+		E_LOADER_PARAMETER_FLAGS::EWPF_MESH_IS_RIGHT_HANDED specifies the incoming orientation of 
+		loaded mesh we want to write to file with certain extension. Flipping will be performed if
+		format orientation doesn't match current loaded mesh orientation.
 	*/
 
 	enum E_WRITER_PARAMETER_FLAGS : uint64_t
 	{
 		EWPF_NONE = 0,											//!< default value, it doesn't do anything
-		EWPF_MESH_IS_RIGHT_HANDED = 0x1,						//!< specifies the incoming orientation of loaded mesh we want to write						
-		EWPF_WRITE_RIGHT_HANDED = 0x2							//!< specifies the output handness orientation. There will be no flipping applied if incoming orientation matches output orientation - in case where EWPF_MESH_IS_RIGHT_HANDED and EWPF_WRITE_RIGHT_HANDED are both attached
+		EWPF_MESH_IS_RIGHT_HANDED = 0x1,						//!< specifies the incoming orientation of loaded mesh we want to write. Flipping will be performed if needed in dependency of format extension orientation					
 	};
 
     struct SAssetWriteParams
