@@ -274,7 +274,7 @@ IRR_FORCE_INLINE uint32_t bitCount(uint64_t x)
 #ifdef __GNUC__
 	return __builtin_popcountl(x);
 #elif defined(_MSC_VER)
-	return __popcnt64(x);
+	return static_cast<uint32_t>(__popcnt64(x));
 #endif
 }
 

@@ -138,10 +138,11 @@ class IAsset : virtual public core::IReferenceCounted
 		*/
 		static uint32_t typeFlagToIndex(E_TYPE _type)
 		{
+			// TODO: can't we use popcount or something here?
 			uint64_t type = static_cast<uint64_t>(_type);
 			uint64_t r = 0u;
 			while (type >>= 1u) ++r;
-			return r;
+			return static_cast<uint32_t>(r);
 		}
 
 		IAsset() : isDummyObjectForCacheAliasing{false}, m_metadata{nullptr} {}
