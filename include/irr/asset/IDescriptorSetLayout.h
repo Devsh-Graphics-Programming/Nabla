@@ -29,13 +29,15 @@ template<typename SamplerType>
 class IDescriptorSetLayout : public virtual core::IReferenceCounted
 {
 	public:
+		using sampler_type = SamplerType;
+
 		struct SBinding
 		{
 			uint32_t binding;
 			E_DESCRIPTOR_TYPE type;
 			uint32_t count;
 			E_SHADER_STAGE stageFlags;
-			const core::smart_refctd_ptr<SamplerType>* samplers;
+			const core::smart_refctd_ptr<sampler_type>* samplers;
 
 			bool operator<(const SBinding& rhs) const
 			{
@@ -52,7 +54,7 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 								{
 									if (samplers[i]==rhs.samplers[i])
 										continue;
-									return samples[i]<rhs.samplers[i];
+									return samplers[i]<rhs.samplers[i];
 								}
 								return false;
 							}
@@ -103,7 +105,7 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 				if (bnd.type==EDT_COMBINED_IMAGE_SAMPLER && bnd.samplers)
 					immSamplerCount += bnd.count;
 			}
-			m_samplers = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<SamplerType>>>(immSamplerCount);
+			m_samplers = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type> > >(immSamplerCount);
 
 			size_t immSamplersOffset = 0u;
 			for (size_t i = 0ull; i < bndCount; ++i)
@@ -111,13 +113,14 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 				auto& bnd_out = m_bindings->operator[](i);
 				const auto& bnd_in = _begin[i];
 
+				bnd_out.binding = bnd_in.binding;
 				bnd_out.type = bnd_in.type;
 				bnd_out.count = bnd_in.count;
 				bnd_out.stageFlags = bnd_in.stageFlags;
 				bnd_out.samplers = nullptr;
 				if (bnd_in.type==EDT_COMBINED_IMAGE_SAMPLER && bnd_in.samplers)
 				{
-					bnd_out.samplers = reinterpret_cast<const core::smart_refctd_ptr<SamplerType>*>(immSamplersOffset);
+					bnd_out.samplers = reinterpret_cast<const core::smart_refctd_ptr<sampler_type>*>(immSamplersOffset);
 					for (uint32_t s = 0ull; s < bnd_in.count; ++s)
 						m_samplers->operator[](immSamplersOffset+s) = bnd_in.samplers[s];
 					immSamplersOffset += bnd_in.count;
@@ -134,15 +137,15 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 			}
 
 			// TODO: check for overlapping bindings (bad `SBinding` definitions)
-			std::sort(m_descriptors->begin(), m_descriptors->end());
+			std::sort(m_bindings->begin(), m_bindings->end());
 		}
 		virtual ~IDescriptorSetLayout() = default;
 
 		core::smart_refctd_dynamic_array<SBinding> m_bindings;
-		core::smart_refctd_dynamic_array<core::smart_refctd_ptr<SamplerType>> m_samplers;
+		core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type> > m_samplers;
 
 	public:
-		bool isIdenticallyDefined(const IDescriptorSetLayout<SamplerType>* _other) const
+		bool isIdenticallyDefined(const IDescriptorSetLayout<sampler_type>* _other) const
 		{
 			if (getBindings().length() != _other->getBindings().length())
 				return false;
