@@ -112,10 +112,17 @@ inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndice
             }
         }
 
+		core::vectorSIMDf normal = core::plane3dSIMDf(v[0], v[1], v[2]).getNormal();
+		core::vectorSIMDf vertex1 = v[2];
+		core::vectorSIMDf vertex2 = v[1];
+		core::vectorSIMDf vertex3 = v[0];
+
 		auto flipVectors = [&]()
 		{
-			for(uint8_t i = 0; i < 3; ++i)
-				v[i].X = -v[i].X;
+			vertex1.X = -vertex1.X;
+			vertex2.X = -vertex2.X;
+			vertex3.X = -vertex3.X;
+			normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
 		};
 
 		if (_params.writerFlags & IAssetWriter::EWPF_WRITE_RIGHT_HANDED)
@@ -137,11 +144,10 @@ inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndice
 				flipVectors();
 		}
 
-        const core::plane3dSIMDf plane(v[0], v[1], v[2]);
-        file->write(&plane, 12);
-        file->write(v+0, 12);
-        file->write(v+1, 12);
-        file->write(v+2, 12);
+        file->write(&normal, 12);
+        file->write(&vertex1, 12);
+        file->write(&vertex2, 12);
+        file->write(&vertex3, 12);
         file->write(&color, 2); // saving color using non-standard VisCAM/SolidView trick
     }
 }
