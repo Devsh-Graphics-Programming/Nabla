@@ -36,10 +36,10 @@ enum E_IMAGE_LAYOUT : uint32_t
     EIL_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT = 1000218000
 };
 
-template<typename LayoutType, typename BufferType, typename TextureType, typename BufferViewType, typename SamplerType>
+template<typename LayoutType>
 class IDescriptorSet : public virtual core::IReferenceCounted
 {
-		using this_type = IDescriptorSet<LayoutType, BufferType, TextureType, BufferViewType, SamplerType>;
+		using this_type = IDescriptorSet<LayoutType>;
 
 	public:
 		struct SDescriptorInfo
@@ -54,7 +54,7 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 					} buffer;
 					struct SDescriptorImageInfo
 					{
-						core::smart_refctd_ptr<SamplerType> sampler;
+						core::smart_refctd_ptr<typename LayoutType::sampler_type> sampler;
 						//! Irrelevant in OpenGL backend
 						E_IMAGE_LAYOUT imageLayout;
 					} image;
@@ -142,7 +142,9 @@ class IEmulatedDescriptorSet
 
 			const auto& bindings = _layout->getBindings();
 
-			m_bindingInfo = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBindingInfo> >(std::distance(bindings.begin(),bindings.end()),{~0u,EDT_INVALID});
+			m_bindingInfo = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBindingInfo> >(std::distance(bindings.begin(),bindings.end()));
+			for (auto it=m_bindingInfo->begin(); it!=m_bindingInfo->end(); it++)
+				*it = {~0u,EDT_INVALID};
 			
 			auto outInfo = m_bindingInfo->begin();
 			uint32_t descriptorCount = 0u;
@@ -151,7 +153,7 @@ class IEmulatedDescriptorSet
 			for (auto it=bindings.begin(); it!=bindings.end(); it++)
 			{
 				// if bindings are sorted, offsets shall be sorted too
-				assert(it!=bindings.begin() && it->binding>prevBinding);
+				assert(it==bindings.begin() || it->binding>prevBinding);
 
 				m_bindingInfo->operator[](it->binding) = { descriptorCount,it->type};
 				descriptorCount += it->count;
@@ -159,7 +161,7 @@ class IEmulatedDescriptorSet
 				prevBinding = it->binding;
 			}
 			
-			m_descriptors = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SDescriptorInfo> >(descriptorCount);
+			m_descriptors = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<typename IDescriptorSet<LayoutType>::SDescriptorInfo> >(descriptorCount);
 			// set up all offsets
 			prevBinding = 0u;
 			for (auto it=m_bindingInfo->begin(); it!=m_bindingInfo->end(); it++)
@@ -181,7 +183,7 @@ class IEmulatedDescriptorSet
 		};
 		static_assert(sizeof(SBindingInfo)==8ull, "Why is the enum not uint32_t sized!?");
 		core::smart_refctd_dynamic_array<SBindingInfo> m_bindingInfo;
-		core::smart_refctd_dynamic_array<SDescriptorInfo> m_descriptors;
+		core::smart_refctd_dynamic_array<typename IDescriptorSet<LayoutType>::SDescriptorInfo> m_descriptors;
 };
 
 }

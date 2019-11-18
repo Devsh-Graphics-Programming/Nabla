@@ -86,10 +86,14 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				}
 			}
 
-			m_names = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(uboCount+ssboCount+(2ull*textureCount)+imageCount,0u);
-			m_offsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLintptr>>(uboCount+ssboCount,0u);
-			m_sizes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLsizeiptr>>(uboCount+ssboCount,~0u);
-			m_dynOffsetIxs = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(m_offsets->size(),0u);
+			m_names = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint> >(uboCount+ssboCount+(2ull*textureCount)+imageCount);
+			std::fill(m_names->begin(),m_names->end(), 0u);
+			m_offsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLintptr> >(uboCount+ssboCount);
+			std::fill(m_offsets->begin(), m_offsets->end(), 0u);
+			m_sizes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLsizeiptr> >(uboCount+ssboCount);
+			std::fill(m_sizes->begin(), m_sizes->end(), ~0u);
+			m_dynOffsetIxs = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t> >(m_offsets->size());
+			std::fill(m_dynOffsetIxs->begin(), m_dynOffsetIxs->end(), 0u);
 			
 			const size_t uboNamesOffset = 0ull;
 			const size_t ssboNamesOffset = uboCount;

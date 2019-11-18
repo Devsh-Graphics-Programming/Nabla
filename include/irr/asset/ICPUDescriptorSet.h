@@ -14,11 +14,11 @@ namespace asset
 {
 
 
-class ICPUDescriptorSet : public IDescriptorSet<ICPUDescriptorSetLayout, ICPUBuffer, ICPUImageView, ICPUBufferView, ICPUSampler>, public IAsset, public impl::IEmulatedDescriptorSet<ICPUDescriptorSetLayout>
+class ICPUDescriptorSet : public IDescriptorSet<ICPUDescriptorSetLayout>, public IAsset, public impl::IEmulatedDescriptorSet<ICPUDescriptorSetLayout>
 {
 		using impl_t = impl::IEmulatedDescriptorSet<ICPUDescriptorSetLayout>;
 	public:
-		using base_t = IDescriptorSet<ICPUDescriptorSetLayout, ICPUBuffer, ICPUImageView, ICPUBufferView, ICPUSampler>;
+		using base_t = IDescriptorSet<ICPUDescriptorSetLayout>;
 
 		//! Contructor preallocating memory for SDescriptorBindings which user can fill later (using non-const getDescriptors()).
 		//! @see getDescriptors()
@@ -43,7 +43,7 @@ class ICPUDescriptorSet : public IDescriptorSet<ICPUDescriptorSetLayout, ICPUBuf
 		//!
 		uint32_t getMaxDescriptorBindingIndex() const
 		{
-			return m_bindingInfo ? m_bindingInfo->size():0u;
+			return m_bindingInfo ? static_cast<uint32_t>(m_bindingInfo->size()):0u;
 		}
 
 		//!

@@ -643,7 +643,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     {
         asset::ICPUDescriptorSet* cpuds = _begin[i];
               
-		for (auto j=0; j<cpuds->getMaxDescriptorBindingIndex(); j++)
+		for (auto j=0u; j<cpuds->getMaxDescriptorBindingIndex(); j++)
 		{
 			const auto cnt = cpuds->getDescriptors(j).length();
 			descCount += cnt;
@@ -657,7 +657,6 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 				sampledImgViewCount += cnt;
 			else if (isStorageImgDesc(type))
 				imgViewCount += cnt;
-			}
 		}
     }
 
