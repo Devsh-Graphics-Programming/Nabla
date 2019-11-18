@@ -125,24 +125,8 @@ inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndice
 			normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
 		};
 
-		if (_params.writerFlags & IAssetWriter::EWPF_WRITE_RIGHT_HANDED)
-		{
-			if (_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED)
-			{
-				// do nothing
-			}
-			else
-				flipVectors();
-		}
-		else
-		{
-			if (!(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED))
-			{
-				// do nothing
-			}
-			else
-				flipVectors();
-		}
+		if (!(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED))
+			flipVectors();
 
         file->write(&normal, 12);
         file->write(&vertex1, 12);
@@ -293,7 +277,7 @@ void CSTLMeshWriter::writeFaceText(io::IWriteFile* file,
 	core::vectorSIMDf vertex1 = v3;
 	core::vectorSIMDf vertex2 = v2;
 	core::vectorSIMDf vertex3 = v1;
-	core::vector3df_SIMD normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
+	core::vectorSIMDf normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
 	core::stringc tmp;
 
 	auto flipVectors = [&]()
@@ -304,24 +288,8 @@ void CSTLMeshWriter::writeFaceText(io::IWriteFile* file,
 		normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
 	};
 
-	if(_params.writerFlags & IAssetWriter::EWPF_WRITE_RIGHT_HANDED)
-	{
-		if(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED)
-		{
-			// do nothing
-		}
-		else
-			flipVectors();
-	}
-	else
-	{
-		if (!(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED))
-		{
-			// do nothing
-		}
-		else
-			flipVectors();
-	}
+	if (!(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED))
+		flipVectors();
 
 	file->write("facet normal ",13);
 	getVectorAsStringLine(normal, tmp);
