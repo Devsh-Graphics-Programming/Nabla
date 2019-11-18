@@ -11,7 +11,7 @@ namespace irr { namespace video
 {	
 
 	template<typename T>
-	inline uint64_t getRangeValueOfVariable(bool maxValue = true)
+	inline constexpr uint64_t getRangeValueOfVariable(bool maxValue = true)
 	{
 		if (std::is_same<T, uint8_t>::value)
 			return 255ull * (maxValue ? 1 : 0);
@@ -33,10 +33,10 @@ namespace irr { namespace video
 	template<asset::E_FORMAT format, typename T>
 	inline void clampVariableProperly(T& variableToAssignClampingTo, const double& variableToClamp)
 	{
-		constexpr uint64_t& max = getRangeValueOfVariable<T>(true);
-		constexpr uint64_t& min = getRangeValueOfVariable<T>(false);
+		constexpr uint64_t max = getRangeValueOfVariable<T>(true);
+		constexpr uint64_t min = getRangeValueOfVariable<T>(false);
 		constexpr float epsilon = 0.4f;
-		constexpr float& epsilonToAddToMin = (min < 0 ? -epsilon : epsilon);
+		constexpr float epsilonToAddToMin = (min < 0 ? -epsilon : epsilon);
 
 		if (irr::asset::isNormalizedFormat(format))                                             
 			variableToAssignClampingTo = static_cast<T>(core::clamp(variableToClamp * static_cast<double>(max), min + epsilonToAddToMin, max + epsilon));
