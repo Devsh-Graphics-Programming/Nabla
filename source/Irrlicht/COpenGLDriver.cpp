@@ -1826,7 +1826,7 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
 
 void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
 {
-    core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> prevPipeline = currentState.pipeline.graphics.pipeline;
+    auto prevPipeline = currentState.pipeline.graphics.pipeline.get();
     if (stateBits & GSB_PIPELINE)
     {
         if (nextState.pipeline.graphics.pipeline != currentState.pipeline.graphics.pipeline)
