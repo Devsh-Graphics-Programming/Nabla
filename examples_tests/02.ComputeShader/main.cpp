@@ -5,17 +5,13 @@
 //#include "../ext/ScreenShot/ScreenShot.h"
 #include "../common/QToQuitEventReceiver.h"
 
-// TODO: remove dependency
-//#include "../src/irr/asset/CBAWMeshWriter.h"
 
 using namespace irr;
 using namespace core;
 
 
-
 int main()
 {
-    srand(time(0));
 	// create device with full flexibility over creation parameters
 	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
 	irr::SIrrlichtCreationParameters params;
@@ -58,8 +54,8 @@ int main()
     {
         core::smart_refctd_ptr<asset::ICPUPipelineLayout> layout;
         {
-            auto ds0layout_cp = ds0layout; //do not move `ds0layout` into pipeline layout, will be needed for creation of desc set
-            layout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, std::move(ds0layout_cp), nullptr, nullptr, nullptr);
+			//do not move `ds0layout` into pipeline layout, will be needed for creation of desc set
+            layout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, core::smart_refctd_ptr(ds0layout), nullptr, nullptr, nullptr);
         }
 
         core::smart_refctd_ptr<asset::ICPUSpecializedShader> cs;
@@ -76,18 +72,12 @@ int main()
     }
 
     asset::IAssetLoader::SAssetLoadParams lparams;
-    auto loaded = am->getAsset("../img.png", lparams);
+    auto loaded = am->getAsset("../../media/color_space_test/R8G8B8A8_2.png", lparams);
     auto inImg = core::smart_refctd_ptr<asset::ICPUImage>(static_cast<asset::ICPUImage*>(loaded.getContents().first->get()));
     core::smart_refctd_ptr<asset::ICPUImage> outImg;
     {
-        asset::ICPUImage::SCreationParams imgInfo;
-        imgInfo.arrayLayers = 1u;
-        imgInfo.extent = inImg->getCreationParameters().extent;
+        asset::ICPUImage::SCreationParams imgInfo = inImg->getCreationParameters();
         imgInfo.flags = static_cast<asset::ICPUImage::E_CREATE_FLAGS>(0u);
-        imgInfo.format = inImg->getCreationParameters().format;
-        imgInfo.mipLevels = 1u;
-        imgInfo.samples = asset::ICPUImage::ESCF_1_BIT;
-        imgInfo.type = asset::ICPUImage::ET_2D;
 
         outImg = asset::ICPUImage::create(std::move(imgInfo));
     }
@@ -97,15 +87,16 @@ int main()
     {
         asset::ICPUImageView::SCreationParams info1;
         info1.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
-        info1.format = inImg->getCreationParameters().format;
+		// storage images do not support SRGB views
+		assert(inImg->getCreationParameters().format==asset::EF_R8G8B8A8_SRGB);
+        info1.format = asset::EF_R8G8B8A8_UNORM;
         info1.image = inImg;
         info1.viewType = asset::ICPUImageView::ET_2D;
-        asset::IImage::SSubresourceRange subresRange;
+        asset::IImage::SSubresourceRange& subresRange = info1.subresourceRange;
         subresRange.baseArrayLayer = 0u;
         subresRange.layerCount = 1u;
         subresRange.baseMipLevel = 0u;
         subresRange.levelCount = 1u;
-        info1.subresourceRange = subresRange;
 
         asset::ICPUImageView::SCreationParams info2 = info1;
         info2.image = outImg;
@@ -145,5 +136,6 @@ int main()
         compPipeline_gpu = driver->getGPUObjectsFromAssets(&cp_rawptr, (&cp_rawptr)+1)->front();
     }
 
+	device->drop();
 	return 0;
 }

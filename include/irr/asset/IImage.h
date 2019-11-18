@@ -454,7 +454,7 @@ class IImage : public IDescriptor
 			//if (flags&ECF_SUBSAMPLED)
 				//return false;
 
-			if (validatePotentialCopies(pRegionsBegin, pRegionsEnd, src))
+			if (!validatePotentialCopies(pRegionsBegin, pRegionsEnd, src))
 				return false;
 			
 			bool die = false;
@@ -489,7 +489,7 @@ class IImage : public IDescriptor
 					//return false;
 				if (subresource.mipLevel >= params.mipLevels)
 					return false;
-				if (subresource.baseArrayLayer+subresource.layerCount >= params.arrayLayers)
+				if (subresource.baseArrayLayer+subresource.layerCount > params.arrayLayers)
 					return false;
 
 				const auto& off2 = it->getDstOffset();
