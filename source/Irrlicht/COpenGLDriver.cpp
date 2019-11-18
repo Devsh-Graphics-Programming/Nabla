@@ -2104,7 +2104,9 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
 
 void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
 {
-    core::smart_refctd_ptr<const COpenGLComputePipeline> prevPipeline = currentState.pipeline.compute.pipeline;
+	const COpenGLPipelineLayout* prevLayout = nullptr;
+	if ((stateBits & GSB_DESCRIPTOR_SETS) && currentState.pipeline.compute.pipeline)
+		prevLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.compute.pipeline->getLayout());
 
     if (stateBits & GSB_PIPELINE)
     {
@@ -2143,7 +2145,6 @@ void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
     if (stateBits & GSB_DESCRIPTOR_SETS)
     {
         const COpenGLPipelineLayout* currLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.compute.pipeline->getLayout());
-        const COpenGLPipelineLayout* prevLayout = static_cast<const COpenGLPipelineLayout*>(prevPipeline->getLayout());
         flushState_descriptors(EPBP_COMPUTE, currLayout, prevLayout);
     }
 }
