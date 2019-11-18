@@ -35,6 +35,33 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 			E_SHADER_STAGE stageFlags;
 			const core::smart_refctd_ptr<SamplerType>* samplers;
 
+			bool operator<(const SBinding& rhs) const
+			{
+				if (binding==rhs.binding)
+				{
+					// should really assert here
+					if (type==rhs.type)
+					{
+						if (count==rhs.type)
+						{
+							if (stageFlags==rhs.stageFlags)
+							{
+								for (uint32_t i=0u; i<count; i++)
+								{
+									if (samplers[i]==rhs.samplers[i])
+										continue;
+									return samples[i]<rhs.samplers[i];
+								}
+								return false;
+							}
+							return stageFlags<rhs.stageFlags;
+						}
+						return count<rhs.count;
+					}
+					return type<rhs.type;
+				}
+				return binding<rhs.binding;
+			}
 			bool operator==(const SBinding& rhs) const
 			{
 				if (binding != rhs.binding)
@@ -103,6 +130,9 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 				if (bnd.type==EDT_COMBINED_IMAGE_SAMPLER && bnd.samplers)
 					bnd.samplers = m_samplers->data() + reinterpret_cast<size_t>(bnd.samplers);
 			}
+
+			// TODO: check for overlapping bindings (bad `SBinding` definitions)
+			std::sort(m_descriptors->begin(), m_descriptors->end());
 		}
 		virtual ~IDescriptorSetLayout() = default;
 
