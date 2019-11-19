@@ -56,8 +56,8 @@ public:
         size_t decryptionKeyLen;
         const uint8_t* decryptionKey;
         const E_CACHING_FLAGS cacheFlags;
-		    const char* relativeDir;
-		    const E_LOADER_PARAMETER_FLAGS loaderFlags;				//!< Flags having an impact on extraordinary tasks during loading process
+        const char* relativeDir;
+        const E_LOADER_PARAMETER_FLAGS loaderFlags;				//!< Flags having an impact on extraordinary tasks during loading process
     };
 
     //! Struct for keeping the state of the current loadoperation for safe threading
