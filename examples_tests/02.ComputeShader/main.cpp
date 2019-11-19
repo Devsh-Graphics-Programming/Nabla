@@ -117,7 +117,7 @@ int main()
 			range.offset = 0u;
 			range.size = sizeof(uint32_t)*2u;
 			range.stageFlags = asset::ESS_COMPUTE;
-            layout = driver->createGPUPipelineLayout(&range,&range+1,core::smart_refctd_ptr_dynamic_cast<video::IGPUPipelineLayout>(am->findGPUObject(ds0layoutHandle)),nullptr,nullptr,nullptr);
+            layout = driver->createGPUPipelineLayout(&range,&range+1,core::smart_refctd_ptr_dynamic_cast<video::IGPUDescriptorSetLayout>(am->findGPUObject(ds0layoutHandle)),nullptr,nullptr,nullptr);
         }
 		core::smart_refctd_ptr<video::IGPUSpecializedShader> shader;
         {
