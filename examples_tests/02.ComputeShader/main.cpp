@@ -50,12 +50,16 @@ int main()
         ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bnd, bnd+2);
     }
 
-    core::smart_refctd_ptr<asset::ICPUComputePipeline> compPipeline;
+	core::smart_refctd_ptr<video::IGPUComputePipeline> compPipeline_gpu;
     {
         core::smart_refctd_ptr<asset::ICPUPipelineLayout> layout;
         {
+			asset::SPushConstantRange range;
+			range.offset = 0u;
+			range.size = sizeof(uint32_t)*2u;
+			range.stageFlags = asset::ESS_COMPUTE;
 			//do not move `ds0layout` into pipeline layout, will be needed for creation of desc set
-            layout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, core::smart_refctd_ptr(ds0layout), nullptr, nullptr, nullptr);
+            layout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&range, &range+1, core::smart_refctd_ptr(ds0layout), nullptr, nullptr, nullptr);
         }
 
         core::smart_refctd_ptr<asset::ICPUSpecializedShader> cs;
@@ -68,73 +72,86 @@ int main()
             cs = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(cs_unspec), std::move(specInfo));
         }
 
-        compPipeline = core::make_smart_refctd_ptr<asset::ICPUComputePipeline>(nullptr, std::move(layout), std::move(cs));
-    }
-
-    asset::IAssetLoader::SAssetLoadParams lparams;
-    auto loaded = am->getAsset("../../media/color_space_test/R8G8B8A8_2.png", lparams);
-    auto inImg = core::smart_refctd_ptr<asset::ICPUImage>(static_cast<asset::ICPUImage*>(loaded.getContents().first->get()));
-    core::smart_refctd_ptr<asset::ICPUImage> outImg;
-    {
-        asset::ICPUImage::SCreationParams imgInfo = inImg->getCreationParameters();
-        imgInfo.flags = static_cast<asset::ICPUImage::E_CREATE_FLAGS>(0u);
-
-        outImg = asset::ICPUImage::create(std::move(imgInfo));
-    }
-
-    core::smart_refctd_ptr<asset::ICPUImageView> inImgView;
-    core::smart_refctd_ptr<asset::ICPUImageView> outImgView;
-    {
-        asset::ICPUImageView::SCreationParams info1;
-        info1.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
-		// storage images do not support SRGB views
-		assert(inImg->getCreationParameters().format==asset::EF_R8G8B8A8_SRGB);
-        info1.format = asset::EF_R8G8B8A8_UNORM;
-        info1.image = inImg;
-        info1.viewType = asset::ICPUImageView::ET_2D;
-        asset::IImage::SSubresourceRange& subresRange = info1.subresourceRange;
-        subresRange.baseArrayLayer = 0u;
-        subresRange.layerCount = 1u;
-        subresRange.baseMipLevel = 0u;
-        subresRange.levelCount = 1u;
-
-        asset::ICPUImageView::SCreationParams info2 = info1;
-        info2.image = outImg;
-
-        inImgView = asset::ICPUImageView::create(std::move(info1));
-        outImgView = asset::ICPUImageView::create(std::move(info2));
-    }
-
-    auto ds0 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(std::move(ds0layout));
-    {
-        asset::ICPUDescriptorSet::SDescriptorInfo info[2];
-        info[0].image.imageLayout = asset::EIL_UNDEFINED;
-        info[0].image.sampler = nullptr;
-        info[1].assign(info[0], asset::EDT_STORAGE_IMAGE);
-        info[1].desc = std::move(outImgView);
-        info[0].desc = info[1].desc; //std::move(inImgView); //TODO
-        asset::ICPUDescriptorSet::SWriteDescriptorSet writes[2];
-        writes[0].arrayElement = 0u;
-        writes[0].binding = 0u;
-        writes[0].count = 1u;
-        writes[0].descriptorType = asset::EDT_STORAGE_IMAGE;
-        writes[0].info = info;
-        writes[1] = writes[0];
-        writes[1].binding = 1u;
-        writes[1].info = info+1;
-        ds0->updateDescriptorSet(2u, writes, 0u, nullptr);
+		core::smart_refctd_ptr<asset::ICPUComputePipeline> compPipelineCPU = core::make_smart_refctd_ptr<asset::ICPUComputePipeline>(nullptr, std::move(layout), std::move(cs));
+		asset::ICPUComputePipeline* cp_rawptr = compPipelineCPU.get();
+		compPipeline_gpu = driver->getGPUObjectsFromAssets(&cp_rawptr, (&cp_rawptr) + 1)->front();
     }
 
     core::smart_refctd_ptr<video::IGPUDescriptorSet> ds0_gpu;
+	asset::ICPUImageView* outImgViewRawPtr;
+	uint32_t imgSize[2];
     {
+		asset::IAssetLoader::SAssetLoadParams lparams;
+		auto loaded = am->getAsset("../../media/color_space_test/R8G8B8A8_2.png", lparams);
+		auto inImg = core::smart_refctd_ptr<asset::ICPUImage>(static_cast<asset::ICPUImage*>(loaded.getContents().first->get()));
+		core::smart_refctd_ptr<asset::ICPUImage> outImg;
+		{
+			asset::ICPUImage::SCreationParams imgInfo = inImg->getCreationParameters();
+			imgInfo.flags = static_cast<asset::ICPUImage::E_CREATE_FLAGS>(0u);
+			imgSize[0] = imgInfo.extent.width;
+			imgSize[1] = imgInfo.extent.height;
+
+			outImg = asset::ICPUImage::create(std::move(imgInfo));
+		}
+
+		core::smart_refctd_ptr<asset::ICPUImageView> inImgView;
+		core::smart_refctd_ptr<asset::ICPUImageView> outImgView;
+		{
+			asset::ICPUImageView::SCreationParams info1;
+			info1.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
+			// storage images do not support SRGB views
+			assert(inImg->getCreationParameters().format==asset::EF_R8G8B8A8_SRGB);
+			info1.format = asset::EF_R8G8B8A8_UNORM;
+			info1.image = inImg;
+			info1.viewType = asset::ICPUImageView::ET_2D;
+			asset::IImage::SSubresourceRange& subresRange = info1.subresourceRange;
+			subresRange.baseArrayLayer = 0u;
+			subresRange.layerCount = 1u;
+			subresRange.baseMipLevel = 0u;
+			subresRange.levelCount = 1u;
+
+			asset::ICPUImageView::SCreationParams info2 = info1;
+			info2.image = outImg;
+
+			inImgView = asset::ICPUImageView::create(std::move(info1));
+			outImgView = asset::ICPUImageView::create(std::move(info2));
+			outImgViewRawPtr = outImgView.get();
+		}
+
+		auto ds0 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(std::move(ds0layout));
+		{
+			auto descriptor = ds0->getDescriptors(0).begin();
+			descriptor->desc = std::move(inImgView);
+			descriptor->image.imageLayout = asset::EIL_UNDEFINED;
+			descriptor->image.sampler = nullptr;
+			descriptor = ds0->getDescriptors(1).begin();
+			descriptor->desc = std::move(outImgView);
+			descriptor->image.imageLayout = asset::EIL_UNDEFINED;
+			descriptor->image.sampler = nullptr;
+		}
+
         asset::ICPUDescriptorSet* ds0_rawptr = ds0.get();
         ds0_gpu = driver->getGPUObjectsFromAssets(&ds0_rawptr, (&ds0_rawptr)+1)->front();
     }
-    core::smart_refctd_ptr<video::IGPUComputePipeline> compPipeline_gpu;
-    {
-        asset::ICPUComputePipeline* cp_rawptr = compPipeline.get();
-        compPipeline_gpu = driver->getGPUObjectsFromAssets(&cp_rawptr, (&cp_rawptr)+1)->front();
-    }
+
+	auto blitFBO = driver->addFrameBuffer();
+	blitFBO->attach(video::EFAP_COLOR_ATTACHMENT0,core::smart_refctd_ptr_dynamic_cast<video::IGPUImageView>(am->findGPUObject(outImgViewRawPtr)));
+
+	while (device->run())
+	{
+		driver->beginScene(true);
+
+		driver->bindComputePipeline(compPipeline_gpu.get());
+		const video::IGPUDescriptorSet* descriptorSet = ds0_gpu.get();
+		driver->bindDescriptorSets(video::EPBP_COMPUTE,compPipeline_gpu->getLayout(),0u,1u,&descriptorSet,nullptr);
+		driver->pushConstants(compPipeline_gpu->getLayout(),asset::ESS_COMPUTE,0u,sizeof(imgSize),imgSize);
+		driver->dispatch((imgSize[0]+15u)/16u,(imgSize[1]+15u)/16u,1u);
+
+		video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_FETCH_BARRIER_BIT);
+		driver->blitRenderTargets(blitFBO,nullptr,false,false);
+
+		driver->endScene();
+	}
 
 	device->drop();
 	return 0;
