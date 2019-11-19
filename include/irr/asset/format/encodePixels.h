@@ -2404,9 +2404,7 @@ namespace irr { namespace video
             uint16_t* pix = reinterpret_cast<uint16_t*>(_pix);
             for (uint32_t i = 0u; i < chCnt; ++i)
             {
-				uint16_t clampedVar;
-				irr::video::clampVariableProperly(clampedVar, _input[i], asset::EF_R16_SFLOAT);
-                pix[i] = core::Float16Compressor::compress(clampedVar);
+                pix[i] = core::Float16Compressor::compress(_input[i]);
             }
         }
     }

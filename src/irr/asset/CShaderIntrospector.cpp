@@ -226,7 +226,7 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
     }
     for (const spirv_cross::Resource& r : resources.storage_images)
     {
-        const spirv_cross::SPIRType& type = _comp.get_type(r.id);
+		const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
         const bool buffer = type.image.dim == spv::DimBuffer;
         SShaderResourceVariant& res = addResource_common(r, buffer ? ESRT_STORAGE_TEXEL_BUFFER : ESRT_STORAGE_IMAGE, mapId2SpecConst);
         if (!buffer)
@@ -237,13 +237,13 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
     for (const spirv_cross::Resource& r : resources.sampled_images)
     {
         SShaderResourceVariant& res = addResource_common(r, ESRT_COMBINED_IMAGE_SAMPLER, mapId2SpecConst);
-        const spirv_cross::SPIRType& type = _comp.get_type(r.id);
+		const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
         res.get<ESRT_COMBINED_IMAGE_SAMPLER>().arrayed = type.image.arrayed;
         res.get<ESRT_COMBINED_IMAGE_SAMPLER>().multisample = type.image.ms;
     }
     for (const spirv_cross::Resource& r : resources.separate_images)
     {
-        const spirv_cross::SPIRType& type = _comp.get_type(r.id);
+		const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
         const bool buffer = type.image.dim == spv::DimBuffer;
         SShaderResourceVariant& res = addResource_common(r, buffer ? ESRT_UNIFORM_TEXEL_BUFFER : ESRT_SAMPLED_IMAGE, mapId2SpecConst);
     }
