@@ -332,6 +332,10 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
                 member.count = sc->id;
             }
         }
+		else
+		{
+			member.arrayStride = _comp.type_struct_member_array_stride(_parentType, m);
+		}
 
         if (mtype.basetype == spirv_cross::SPIRType::Struct) { //recursive introspection done in DFS manner (and without recursive calls)
             _pushStack.push({member.members, mtype, member.offset});
