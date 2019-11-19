@@ -142,16 +142,39 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			}
 		}
 
+		/* The following is supported:
+		"If the dstBinding has fewer than descriptorCount array elements remaining starting from dstArrayElement,
+		then the remainder will be used to update the subsequent binding - dstBinding+1 starting at array element zero.
+		If a binding has a descriptorCount of zero, it is skipped.
+		This behavior applies recursively, with the update affecting consecutive bindings as needed to update all descriptorCount descriptors.
+		*/
 		inline void writeDescriptorSet(const SWriteDescriptorSet& _write)
 		{
 			assert(_write.dstSet==static_cast<decltype(_write.dstSet)>(this));
 			assert(m_bindingInfo);
+
 			assert(_write.binding<m_bindingInfo->size());
+			assert(getDescriptorCountAtIndex(_write.binding)>0u);
+			assert(_write.count>0);
 			const auto type = _write.descriptorType;
-			assert(type==m_bindingInfo->operator[](_write.binding).descriptorType);
+			#ifdef _IRR_DEBUG
+				auto info = m_bindingInfo->operator[](_write.binding);
+				assert(type==info.descriptorType);
+				auto layoutBinding = getLayoutBinding(_write.binding);
+				auto stageFlags = layoutBinding->stageFlags;
+				bool usesImmutableSamplers = layoutBinding->samplers;
+			#endif
+			assert(_write.arrayElement+_write.count<m_descriptors->size());
 			auto* output = getDescriptors(_write.binding)+_write.arrayElement;
 			for (uint32_t i=0u; i<_write.count; i++,output++)
 			{
+				#ifdef _IRR_DEBUG
+					auto found = getBindingInfo(output-m_descriptors->begin());
+					assert(found->descriptorType == type);
+					layoutBinding = getLayoutBinding(found-m_bindingInfo->begin());
+					assert(layoutBinding->stageFlags==stageFlags);
+					assert((!!layoutBinding->samplers)==usesImmutableSamplers);
+				#endif
 				output->assign(_write.info[i], type);
 				uint32_t localIx = _write.arrayElement+i;
 				updateMultibindParams(type,*output,m_flatOffsets->operator[](_write.binding)+localIx,_write.binding,localIx);
@@ -163,14 +186,32 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			assert(_copy.srcSet);
 			const auto* srcGLSet = static_cast<const COpenGLDescriptorSet*>(_copy.srcSet);
 			assert(m_bindingInfo && srcGLSet->m_bindingInfo);
+
 			assert(_copy.srcBinding<srcGLSet->m_bindingInfo->size());
 			assert(_copy.dstBinding<m_bindingInfo->size());
+			assert(_copy.srcArrayElement+_copy.count<srcGLSet->m_descriptors->size());
+			assert(_copy.dstArrayElement+_copy.count<m_descriptors->size());
+			// The type of dstBinding within dstSet must be equal to the type of srcBinding within srcSet
 			const auto type = srcGLSet->m_bindingInfo->operator[](_copy.srcBinding).descriptorType;
 			assert(type==m_bindingInfo->operator[](_copy.dstBinding).descriptorType);
+			
 			const auto* input = srcGLSet->getDescriptors(_copy.srcBinding)+_copy.srcArrayElement;
 			auto* output = getDescriptors(_copy.dstBinding)+_copy.dstArrayElement;
+			// If srcSet is equal to dstSet, then the source and destination ranges of descriptors must not overlap
+			if (this==srcGLSet)
+				assert(input+_copy.count<=output||output+_copy.count<=input);
 			for (uint32_t i=0u; i<_copy.count; i++,input++,output++)
 			{
+				#ifdef _IRR_DEBUG
+					auto foundIn = getBindingInfo(input-srcGLSet->m_descriptors->begin());
+					auto foundOut = getBindingInfo(output-m_descriptors->begin());
+					assert(foundOut->descriptorType==foundOut->descriptorType);
+
+					auto inLayoutBinding = getLayoutBinding(foundIn-srcGLSet->m_bindingInfo->begin());
+					auto outLayoutBinding = getLayoutBinding(foundOut-m_bindingInfo->begin());
+					assert(outLayoutBinding->stageFlags==inLayoutBinding->stageFlags);
+					assert((!outLayoutBinding->samplers)==(!inLayoutBinding->samplers));
+				#endif
 				output->assign(*input, type);
 				uint32_t localIx = _copy.dstArrayElement+i;
 				updateMultibindParams(type,*output,m_flatOffsets->operator[](_copy.dstBinding)+localIx,_copy.dstBinding,localIx);
@@ -200,6 +241,24 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				return m_descriptors->size()-info.offset;
 		}
 
+		inline const SBindingInfo* getBindingInfo(uint32_t offset) const
+		{
+			auto found = std::upper_bound(	m_bindingInfo->begin(),m_bindingInfo->end(),SBindingInfo{offset,asset::EDT_INVALID},
+											[](const auto& a, const auto& b) -> bool {return a.offset<b.offset;});
+			assert(found!=m_bindingInfo->begin());
+			return found-1;
+		}
+
+		inline const video::IGPUDescriptorSetLayout::SBinding* getLayoutBinding(uint32_t binding) const
+		{
+			auto layoutBindings = m_layout->getBindings();
+			auto layoutBinding = std::lower_bound(layoutBindings.begin(), layoutBindings.end(),
+					video::IGPUDescriptorSetLayout::SBinding{binding,asset::EDT_INVALID,0u,asset::ESS_ALL,nullptr},
+					[](const auto& a, const auto& b) -> bool {return a.binding<b.binding;});
+			assert(layoutBinding!=layoutBindings.end());
+			return layoutBinding;
+		}
+
 	private:
 		inline void updateMultibindParams(asset::E_DESCRIPTOR_TYPE descriptorType, const SDescriptorInfo& info, uint32_t offset, uint32_t binding, uint32_t local_iter)
 		{
@@ -218,9 +277,13 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			else if (descriptorType==asset::EDT_COMBINED_IMAGE_SAMPLER)
 			{
 				m_multibindParams.textures.textures[offset] = static_cast<COpenGLImageView*>(info.desc.get())->getOpenGLName();
-				auto layoutBinding = *(m_layout->getBindings().begin()+binding);
-				m_multibindParams.textures.samplers[offset] = layoutBinding.samplers ? //take immutable sampler if present
-						static_cast<COpenGLSampler*>(layoutBinding.samplers[local_iter].get())->getOpenGLName() :
+
+				auto layoutBindings = m_layout->getBindings();
+				auto layoutBinding = std::lower_bound(layoutBindings.begin(), layoutBindings.end(),
+					video::IGPUDescriptorSetLayout::SBinding{binding,asset::EDT_INVALID,0u,asset::ESS_ALL,nullptr},
+					[](const auto& a, const auto& b) -> bool {return a.binding<b.binding;});
+				m_multibindParams.textures.samplers[offset] = layoutBinding->samplers ? //take immutable sampler if present
+						static_cast<COpenGLSampler*>(layoutBinding->samplers[local_iter].get())->getOpenGLName() :
 						static_cast<COpenGLSampler*>(info.image.sampler.get())->getOpenGLName();
 			}
 			else if (descriptorType==asset::EDT_UNIFORM_TEXEL_BUFFER)
