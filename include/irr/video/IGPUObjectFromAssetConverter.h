@@ -475,6 +475,8 @@ inline created_gpu_object_array<asset::ICPUPipelineLayout> IGPUObjectFromAssetCo
     const auto assetCount = std::distance(_begin, _end);
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUPipelineLayout> >(assetCount);
 
+	// TODO: Deal with duplication of layouts and any other resource that can be present at different resource tree levels
+	// SOLUTION: a `creationCache` object as the last parameter to the `create` function
     core::vector<asset::ICPUDescriptorSetLayout*> cpuDSLayouts;
     cpuDSLayouts.reserve(assetCount*asset::ICPUPipelineLayout::DESCRIPTOR_SET_COUNT);
 
@@ -634,18 +636,25 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
         return t==asset::EDT_STORAGE_IMAGE;
     };
 
-    size_t descCount = 0ull;
-    size_t bufCount = 0ull;
-    size_t bufviewCount = 0ull;
-    size_t sampledImgViewCount = 0ull;
-    size_t imgViewCount = 0ull;
+	// TODO: Deal with duplication of layouts and any other resource that can be present at different resource tree levels
+	core::vector<asset::ICPUDescriptorSetLayout*> cpuLayouts;
+	cpuLayouts.reserve(assetCount);
+	uint32_t writeCount = 0ull;
+	uint32_t descCount = 0ull;
+	uint32_t bufCount = 0ull;
+	uint32_t bufviewCount = 0ull;
+	uint32_t sampledImgViewCount = 0ull;
+	uint32_t storageImgViewCount = 0ull;
     for (ptrdiff_t i=0u; i<assetCount; i++)
     {
         asset::ICPUDescriptorSet* cpuds = _begin[i];
+		cpuLayouts.push_back(cpuds->getLayout());
               
 		for (auto j=0u; j<cpuds->getMaxDescriptorBindingIndex(); j++)
 		{
-			const auto cnt = cpuds->getDescriptors(j).length();
+			const uint32_t cnt = cpuds->getDescriptors(j).length();
+			if (cnt)
+				writeCount++;
 			descCount += cnt;
 
 			const auto type = cpuds->getDescriptorsType(j);
@@ -656,128 +665,108 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 			else if (isSampledImgViewDesc(type))
 				sampledImgViewCount += cnt;
 			else if (isStorageImgDesc(type))
-				imgViewCount += cnt;
+				storageImgViewCount += cnt;
 		}
     }
-
-	core::vector<asset::ICPUDescriptorSetLayout*> cpuLayouts;
-	cpuLayouts.reserve(assetCount);
-#ifndef NEW_SHADERS // Let's stop and look at what we're doing,
-    core::vector<BindingDescTypePair_t> descInfos;
-    descInfos.reserve(descCount);
+	
     core::vector<asset::ICPUBuffer*> cpuBuffers;
     cpuBuffers.reserve(bufCount);
     core::vector<asset::ICPUBufferView*> cpuBufviews;
     cpuBufviews.reserve(bufviewCount);
     core::vector<asset::ICPUImageView*> cpuImgViews;
-    cpuImgViews.reserve(imgViewCount+sampledImgViewCount);
+    cpuImgViews.reserve(storageImgViewCount+sampledImgViewCount);
     core::vector<asset::ICPUSampler*> cpuSamplers;
     cpuSamplers.reserve(sampledImgViewCount);
-	
     for (ptrdiff_t i=0u; i<assetCount; i++)
     {
-        asset::ICPUDescriptorSet* cpuds = _begin[i];
-
-        for (const auto& desc : cpuds->getDescriptors())
-        {
-            const auto t = desc.descriptorType;
-            descInfos.push_back({desc.binding, t, desc.info->size()});
-
-#define PUSH_DESCRIPTORS(casttype, container) for (auto& info : (*desc.info)) { container.push_back(static_cast<casttype*>(info.desc.get())); }
-            if (isBufferDesc(t))
-                PUSH_DESCRIPTORS(asset::ICPUBuffer, cpuBuffers)
-            else if (isBufviewDesc(t))
-                PUSH_DESCRIPTORS(asset::ICPUBufferView, cpuBufviews)
-            else if (isSampledImgViewDesc(t)) {
-                PUSH_DESCRIPTORS(asset::ICPUImageView, cpuImgViews)
-                for (auto& info : (*desc.info)) {
-                    if (asset::ICPUSampler* smplr = info.image.sampler.get())
-                        cpuSamplers.push_back(smplr);
-                }
-            }
-            else if (isImgViewDesc(t))
-                PUSH_DESCRIPTORS(asset::ICPUImageView, cpuImgViews)
-#undef PUSH_DESCRIPTORS
-        }
+        asset::ICPUDescriptorSet* cpuds = _begin[i];              
+		for (auto j=0u; j<cpuds->getMaxDescriptorBindingIndex(); j++)
+		{
+			const auto type = cpuds->getDescriptorsType(j);
+			for (const auto& info : cpuds->getDescriptors(j))
+			{
+				if (isBufferDesc(type))
+					cpuBuffers.push_back(static_cast<asset::ICPUBuffer*>(info.desc.get()));
+				else if (isBufviewDesc(type))
+					cpuBufviews.push_back(static_cast<asset::ICPUBufferView*>(info.desc.get()));
+				else if (isSampledImgViewDesc(type))
+				{
+					cpuImgViews.push_back(static_cast<asset::ICPUImageView*>(info.desc.get()));
+					cpuSamplers.push_back(info.image.sampler.get());
+				}
+				else if (isStorageImgDesc(type))
+					cpuImgViews.push_back(static_cast<asset::ICPUImageView*>(info.desc.get()));
+			}
+		}
     }
 
-    using redirs_t = core::vector<size_t>;
-    redirs_t bufRedirs = eliminateDuplicatesAndGenRedirs(cpuBuffers);
-    redirs_t bufviewRedirs = eliminateDuplicatesAndGenRedirs(cpuBufviews);
-    redirs_t imgViewRedirs = eliminateDuplicatesAndGenRedirs(cpuImgViews);
-    redirs_t smplrRedirs = eliminateDuplicatesAndGenRedirs(cpuSamplers);
-    redirs_t layoutRedirs = eliminateDuplicatesAndGenRedirs(cpuLayouts);
+	using redirs_t = core::vector<size_t>;
+	redirs_t layoutRedirs = eliminateDuplicatesAndGenRedirs(cpuLayouts);
+	redirs_t bufRedirs = eliminateDuplicatesAndGenRedirs(cpuBuffers);
+	redirs_t bufviewRedirs = eliminateDuplicatesAndGenRedirs(cpuBufviews);
+	redirs_t imgViewRedirs = eliminateDuplicatesAndGenRedirs(cpuImgViews);
+	redirs_t smplrRedirs = eliminateDuplicatesAndGenRedirs(cpuSamplers);
 
+	auto gpuLayouts = getGPUObjectsFromAssets<asset::ICPUDescriptorSetLayout>(cpuLayouts.data(), cpuLayouts.data()+cpuLayouts.size());
     auto gpuBuffers = getGPUObjectsFromAssets<asset::ICPUBuffer>(cpuBuffers.data(), cpuBuffers.data()+cpuBuffers.size());
     auto gpuBufviews = getGPUObjectsFromAssets<asset::ICPUBufferView>(cpuBufviews.data(), cpuBufviews.data()+cpuBufviews.size());
     auto gpuImgViews = getGPUObjectsFromAssets<asset::ICPUImageView>(cpuImgViews.data(), cpuImgViews.data()+cpuImgViews.size());
     auto gpuSamplers = getGPUObjectsFromAssets<asset::ICPUSampler>(cpuSamplers.data(), cpuSamplers.data()+cpuSamplers.size());
-    auto gpuLayouts = getGPUObjectsFromAssets<asset::ICPUDescriptorSetLayout>(cpuLayouts.data(), cpuLayouts.data()+cpuLayouts.size());
 
-    //iterators
-    size_t di = 0ull;
-    size_t bi=0ull, bvi=0ull, ivi=0ull, si=0ull;
-    for (ptrdiff_t i=0u; i<assetCount; i++)
-    {
-        asset::ICPUDescriptorSet* cpuds = _begin[i];
+	core::vector<IGPUDescriptorSet::SWriteDescriptorSet> writes(writeCount);
+	core::vector<IGPUDescriptorSet::SDescriptorInfo> descInfos(descCount);
+	{
+		auto write = writes.begin();
+		auto info = descInfos.begin();
+		//iterators
+		uint32_t bi = 0u, bvi = 0u, ivi = 0u, si = 0u;
+		for (ptrdiff_t i = 0u; i < assetCount; i++)
+		{
+			IGPUDescriptorSetLayout* gpulayout = gpuLayouts->operator[](layoutRedirs[i]).get();
+			res->operator[](i) = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>(gpulayout));
+			auto gpuds = res->operator[](i).get();
 
-        using SGPUDescriptorBinding = IGPUDescriptorSet::SDescriptorBinding;
-        using gpu_descriptors_array = core::smart_refctd_dynamic_array<SGPUDescriptorBinding>;
-        auto gpudescriptors = core::make_refctd_dynamic_array<gpu_descriptors_array>(cpuds->getDescriptors().length());
+			asset::ICPUDescriptorSet* cpuds = _begin[i];
+			for (uint32_t j=0u; j<cpuds->getMaxDescriptorBindingIndex(); j++)
+			{
+				auto descriptors = cpuds->getDescriptors(j);
+				if (descriptors.length())
+					continue;
 
-        for (size_t d = 0ull; d < gpudescriptors->size(); ++d, ++di)
-        {
-            const auto& wrt = descInfos[d];
-            auto& gpuwrt = (*gpudescriptors)[di];
-            gpuwrt.binding = wrt.binding;
-            gpuwrt.descriptorType = wrt.descType;
-            using gpu_desc_info_array = core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorInfo>;
-            gpuwrt.info = core::make_refctd_dynamic_array<gpu_desc_info_array>(wrt.count);
+				const auto type = cpuds->getDescriptorsType(j);
+				write->dstSet = gpuds;
+				write->binding = j;
+				write->arrayElement = 0;
+				write->count = descriptors.length();
+				write->descriptorType = type;
+				write->info = &(*info);
+				write++;
+				for (const auto& desc : descriptors)
+				{
+					if (isBufferDesc(type))
+					{
+						auto buffer = gpuBuffers->operator[](bufRedirs[bi++]);
+						info->desc = core::smart_refctd_ptr<video::IGPUBuffer>(buffer->getBuffer());
+						info->buffer.offset = buffer->getOffset();
+						info->buffer.size = desc.buffer.size;
+					}
+					else if (isBufviewDesc(type))
+						info->desc = gpuBufviews->operator[](bufviewRedirs[bvi++]);
+					else if (isSampledImgViewDesc(type) || isStorageImgDesc(type))
+					{
+						info->desc = gpuImgViews->operator[](imgViewRedirs[ivi++]);
+						info->image.imageLayout = desc.image.imageLayout;
+						if (isSampledImgViewDesc(type))
+							info->image.sampler = gpuSamplers->operator[](smplrRedirs[si++]);
+					}
+					info++;
+				}
+			}
+		}
+	}
 
-            if (isBufferDesc(wrt.descType))
-            {
-                for (size_t infoIter = 0ull; infoIter < gpuwrt.info->size(); ++infoIter)
-                {
-                    auto& out = (*gpuwrt.info)[infoIter];
-                    const auto& in = cpuds->getDescriptors().begin()[d].info->operator[](infoIter).buffer;
+	m_driver->updateDescriptorSets(writes.size(), writes.data(), 0u, nullptr);
 
-                    out.buffer.offset = in.offset + (*gpuBuffers)[bufRedirs[bi]]->getOffset();
-                    out.buffer.size = in.size;
-                    out.desc = core::smart_refctd_ptr<IGPUBuffer>((*gpuBuffers)[bufRedirs[bi]]->getBuffer());
-
-                    ++bi;
-                }
-            }
-            else if (isBufviewDesc(wrt.descType))
-            {
-                for (size_t infoIter = 0ull; infoIter < gpuwrt.info->size(); ++infoIter)
-                {
-                    auto& out = (*gpuwrt.info)[infoIter];
-                    out.desc = (*gpuBufviews)[bufviewRedirs[bvi++]];
-                }
-            }
-            else if (isSampledImgViewDesc(wrt.descType) || isImgViewDesc(wrt.descType))
-            {
-                for (size_t infoIter = 0ull; infoIter < gpuwrt.info->size(); ++infoIter)
-                {
-                    auto& out = (*gpuwrt.info)[infoIter];
-                    const auto& in = cpuds->getDescriptors().begin()[d].info->operator[](infoIter).image;
-
-					out.desc = (*gpuImgViews)[imgViewRedirs[ivi++]];
-                    out.image.imageLayout = in.imageLayout;
-                    if (isSampledImgViewDesc(wrt.descType))
-                        out.image.sampler = (*gpuSamplers)[smplrRedirs[si++]];
-                }
-            }
-        }
-
-        IGPUDescriptorSetLayout* gpulayout = (*gpuLayouts)[layoutRedirs[i]].get();
-
-        (*res)[i] = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>(gpulayout), std::move(gpudescriptors));
-    }
-#else
-	assert(false);
-#endif
     return res;
 }
 

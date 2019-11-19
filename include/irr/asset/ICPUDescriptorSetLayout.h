@@ -15,10 +15,11 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 	public:
 		using IDescriptorSetLayout<ICPUSampler>::IDescriptorSetLayout;
 
-		size_t conservativeSizeEstimate() const override { return m_bindings->size()*sizeof(SBinding) + m_samplers->size()*sizeof(void*); }
+		size_t conservativeSizeEstimate() const override { return m_bindings->size()*sizeof(SBinding)+m_samplers->size()*sizeof(void*); }
 		void convertToDummyObject() override
 		{
 			m_bindings = nullptr;
+			m_samplers = nullptr;
 		}
 		E_TYPE getAssetType() const override { return ET_DESCRIPTOR_SET_LAYOUT; }
 

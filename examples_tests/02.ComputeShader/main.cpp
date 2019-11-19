@@ -38,6 +38,7 @@ int main()
 	io::IFileSystem* filesystem = device->getFileSystem();
     asset::IAssetManager* am = device->getAssetManager();
 
+	asset::IAsset* ds0layoutHandle = nullptr;
     core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds0layout;
     {
         asset::ICPUDescriptorSetLayout::SBinding bnd[2];
@@ -48,33 +49,7 @@ int main()
         bnd[1] = bnd[0];
         bnd[1].binding = 1u;
         ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bnd, bnd+2);
-    }
-
-	core::smart_refctd_ptr<video::IGPUComputePipeline> compPipeline_gpu;
-    {
-        core::smart_refctd_ptr<asset::ICPUPipelineLayout> layout;
-        {
-			asset::SPushConstantRange range;
-			range.offset = 0u;
-			range.size = sizeof(uint32_t)*2u;
-			range.stageFlags = asset::ESS_COMPUTE;
-			//do not move `ds0layout` into pipeline layout, will be needed for creation of desc set
-            layout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&range, &range+1, core::smart_refctd_ptr(ds0layout), nullptr, nullptr, nullptr);
-        }
-
-        core::smart_refctd_ptr<asset::ICPUSpecializedShader> cs;
-        {
-            auto f = core::smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../compute.comp"));
-
-            auto cs_unspec = am->getGLSLCompiler()->createSPIRVFromGLSL(f.get(), asset::ESS_COMPUTE, "main", "comp");
-            auto specInfo = core::make_smart_refctd_ptr<asset::ISpecializationInfo>(core::vector<asset::SSpecializationMapEntry>{}, nullptr, "main", asset::ESS_COMPUTE);
-
-            cs = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(cs_unspec), std::move(specInfo));
-        }
-
-		core::smart_refctd_ptr<asset::ICPUComputePipeline> compPipelineCPU = core::make_smart_refctd_ptr<asset::ICPUComputePipeline>(nullptr, std::move(layout), std::move(cs));
-		asset::ICPUComputePipeline* cp_rawptr = compPipelineCPU.get();
-		compPipeline_gpu = driver->getGPUObjectsFromAssets(&cp_rawptr, (&cp_rawptr) + 1)->front();
+		ds0layoutHandle = ds0layout.get();
     }
 
     core::smart_refctd_ptr<video::IGPUDescriptorSet> ds0_gpu;
@@ -133,6 +108,31 @@ int main()
         asset::ICPUDescriptorSet* ds0_rawptr = ds0.get();
         ds0_gpu = driver->getGPUObjectsFromAssets(&ds0_rawptr, (&ds0_rawptr)+1)->front();
     }
+	
+	core::smart_refctd_ptr<video::IGPUComputePipeline> compPipeline;
+    {
+        core::smart_refctd_ptr<video::IGPUPipelineLayout> layout;
+        {
+			asset::SPushConstantRange range;
+			range.offset = 0u;
+			range.size = sizeof(uint32_t)*2u;
+			range.stageFlags = asset::ESS_COMPUTE;
+            layout = driver->createGPUPipelineLayout(&range,&range+1,core::smart_refctd_ptr_dynamic_cast<video::IGPUPipelineLayout>(am->findGPUObject(ds0layoutHandle)),nullptr,nullptr,nullptr);
+        }
+		core::smart_refctd_ptr<video::IGPUSpecializedShader> shader;
+        {
+            auto f = core::smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../compute.comp"));
+
+            auto cs_unspec = am->getGLSLCompiler()->createSPIRVFromGLSL(f.get(), asset::ESS_COMPUTE, "main", "comp");
+            auto specInfo = core::make_smart_refctd_ptr<asset::ISpecializationInfo>(core::vector<asset::SSpecializationMapEntry>{}, nullptr, "main", asset::ESS_COMPUTE);
+
+            auto cs = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(cs_unspec), std::move(specInfo));
+			auto cs_rawptr = cs.get();
+			shader = driver->getGPUObjectsFromAssets(&cs_rawptr,&cs_rawptr+1)->front();
+        }
+
+		compPipeline = driver->createGPUComputePipeline(nullptr, std::move(layout), std::move(shader));
+    }
 
 	auto blitFBO = driver->addFrameBuffer();
 	blitFBO->attach(video::EFAP_COLOR_ATTACHMENT0,core::smart_refctd_ptr_dynamic_cast<video::IGPUImageView>(am->findGPUObject(outImgViewRawPtr)));
@@ -141,10 +141,10 @@ int main()
 	{
 		driver->beginScene(true);
 
-		driver->bindComputePipeline(compPipeline_gpu.get());
+		driver->bindComputePipeline(compPipeline.get());
 		const video::IGPUDescriptorSet* descriptorSet = ds0_gpu.get();
-		driver->bindDescriptorSets(video::EPBP_COMPUTE,compPipeline_gpu->getLayout(),0u,1u,&descriptorSet,nullptr);
-		driver->pushConstants(compPipeline_gpu->getLayout(),asset::ESS_COMPUTE,0u,sizeof(imgSize),imgSize);
+		driver->bindDescriptorSets(video::EPBP_COMPUTE, compPipeline->getLayout(),0u,1u,&descriptorSet,nullptr);
+		driver->pushConstants(compPipeline->getLayout(),asset::ESS_COMPUTE,0u,sizeof(imgSize),imgSize);
 		driver->dispatch((imgSize[0]+15u)/16u,(imgSize[1]+15u)/16u,1u);
 
 		video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_FETCH_BARRIER_BIT);

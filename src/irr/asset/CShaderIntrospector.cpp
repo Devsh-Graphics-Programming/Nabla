@@ -310,7 +310,8 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
     _dstMembers.array = _IRR_NEW_ARRAY(MembT, memberCnt);
     _dstMembers.count = memberCnt;
     std::fill(_dstMembers.array, _dstMembers.array+memberCnt, MemberDefault());
-    for (uint32_t m = 0u; m < memberCnt; ++m) {
+    for (uint32_t m = 0u; m < memberCnt; ++m)
+	{
         MembT& member = _dstMembers.array[m];
         const spirv_cross::SPIRType& mtype = _comp.get_type(_allMembersTypes[m]);
 
@@ -325,22 +326,21 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
             member.count = mtype.array[0];
             member.arrayStride = _comp.type_struct_member_array_stride(_parentType, m);
             member.countIsSpecConstant = !mtype.array_size_literal[0];
-            if (member.countIsSpecConstant) {
+            if (member.countIsSpecConstant)
+			{
                 const auto sc_itr = _mapId2sconst.find(member.count);
                 assert(sc_itr != _mapId2sconst.cend());
                 auto sc = sc_itr->second;
                 member.count = sc->id;
             }
         }
-		else
-		{
-			member.arrayStride = _comp.type_struct_member_array_stride(_parentType, m);
-		}
+		else if (mtype.basetype != spirv_cross::SPIRType::Struct) // might have to ignore a few more types than structs
+			member.arrayStride = core::max(0x1u<<core::findMSB(member.size),16u);
 
-        if (mtype.basetype == spirv_cross::SPIRType::Struct) { //recursive introspection done in DFS manner (and without recursive calls)
+        if (mtype.basetype == spirv_cross::SPIRType::Struct) //recursive introspection done in DFS manner (and without recursive calls)
             _pushStack.push({member.members, mtype, member.offset});
-        }
-        else {
+        else
+		{
             member.mtxRowCnt = mtype.vecsize;
             member.mtxColCnt = mtype.columns;
             if (member.mtxColCnt > 1u)

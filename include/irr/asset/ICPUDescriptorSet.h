@@ -14,7 +14,7 @@ namespace asset
 {
 
 
-class ICPUDescriptorSet : public IDescriptorSet<ICPUDescriptorSetLayout>, public IAsset, public impl::IEmulatedDescriptorSet<ICPUDescriptorSetLayout>
+class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, public IAsset, public impl::IEmulatedDescriptorSet<ICPUDescriptorSetLayout>
 {
 		using impl_t = impl::IEmulatedDescriptorSet<ICPUDescriptorSetLayout>;
 	public:
@@ -27,27 +27,27 @@ class ICPUDescriptorSet : public IDescriptorSet<ICPUDescriptorSetLayout>, public
 		}
 
 
-		size_t conservativeSizeEstimate() const override
+		inline size_t conservativeSizeEstimate() const override
 		{
 			return m_descriptors->size()*sizeof(SDescriptorInfo)+m_bindingInfo->size()*sizeof(impl::IEmulatedDescriptorSet<ICPUDescriptorSetLayout>::SBindingInfo);
 		}
-		void convertToDummyObject() override 
+		inline void convertToDummyObject() override
 		{
 			m_descriptors = nullptr;
 			m_bindingInfo = nullptr;
 		}
-		E_TYPE getAssetType() const override { return ET_DESCRIPTOR_SET; }
+		inline E_TYPE getAssetType() const override { return ET_DESCRIPTOR_SET; }
 
-		ICPUDescriptorSetLayout* getLayout() { return m_layout.get(); }
+		inline ICPUDescriptorSetLayout* getLayout() { return m_layout.get(); }
 
 		//!
-		uint32_t getMaxDescriptorBindingIndex() const
+		inline uint32_t getMaxDescriptorBindingIndex() const
 		{
 			return m_bindingInfo ? static_cast<uint32_t>(m_bindingInfo->size()):0u;
 		}
 
 		//!
-		E_DESCRIPTOR_TYPE getDescriptorsType(uint32_t index) const
+		inline E_DESCRIPTOR_TYPE getDescriptorsType(uint32_t index) const
 		{
 			if (m_bindingInfo && index<m_bindingInfo->size())
 				return m_bindingInfo->operator[](index).descriptorType;
@@ -55,7 +55,7 @@ class ICPUDescriptorSet : public IDescriptorSet<ICPUDescriptorSetLayout>, public
 		}
 
 		//! Can modify the array of descriptors bound to a particular bindings
-		core::SRange<SDescriptorInfo> getDescriptors(uint32_t index) 
+		inline core::SRange<SDescriptorInfo> getDescriptors(uint32_t index) 
 		{ 
 			if (m_bindingInfo && index<m_bindingInfo->size())
 			{
@@ -68,6 +68,11 @@ class ICPUDescriptorSet : public IDescriptorSet<ICPUDescriptorSetLayout>, public
 			}
 			else
 				core::SRange<SDescriptorInfo>{nullptr, nullptr};
+		}
+
+		inline auto getTotalDescriptorCount() const
+		{
+			return m_descriptors->size();
 		}
 
 	protected:
