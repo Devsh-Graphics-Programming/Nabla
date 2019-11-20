@@ -53,12 +53,18 @@ static void reorderBindings(spirv_cross::CompilerGLSL& _comp)
             const spirv_cross::Resource& r = res[i];
             const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
             _comp.set_decoration(r.id, spv::DecorationBinding, availableBinding);
-            availableBinding += type.array[0];
+			uint32_t elements = 1u;
+			for (auto dim : type.array)
+				elements *= dim;
+            availableBinding += elements;
             _comp.unset_decoration(r.id, spv::DecorationDescriptorSet);
         }
     };
 
     spirv_cross::ShaderResources resources = _comp.get_shader_resources(_comp.get_active_interface_variables());
+	assert(resources.push_constant_buffers.size()<=1u);
+	for (const auto& pushConstants : resources.push_constant_buffers)
+		_comp.set_decoration(pushConstants.id, spv::DecorationLocation, 0);
 
     auto samplers = std::move(resources.sampled_images);
     for (const auto& samplerBuffer : resources.separate_images)
