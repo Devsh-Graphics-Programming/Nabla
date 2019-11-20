@@ -318,7 +318,18 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUImage** const _begin, asset
     {
         const asset::ICPUImage* cpuimg = _begin[i];
         asset::IImage::SCreationParams params = cpuimg->getCreationParameters();
-        res->operator[](i) = m_driver->createGPUImage(std::move(params));
+        auto gpuimg = m_driver->createGPUImage(std::move(params));
+
+		auto regions = cpuimg->getRegions();
+		auto count = regions.length();
+		if (count)
+		{
+			auto tmpBuff = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuimg->getBuffer()->getSize(),cpuimg->getBuffer()->getPointer());
+			m_driver->copyBufferToImage(tmpBuff,gpuimg.get(),count,cpuimg->getRegions().begin());
+			tmpBuff->drop();
+		}
+
+		res->operator[](i) = std::move(gpuimg);
     }
 
     return res;
@@ -436,6 +447,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUDescriptorSetLayout** const
         for (const auto& bnd : cpudsl->getBindings())
         {
             IGPUDescriptorSetLayout::SBinding gpubnd;
+            gpubnd.binding = bnd.binding;
             gpubnd.type = bnd.type;
             gpubnd.count = bnd.count;
             gpubnd.stageFlags = bnd.stageFlags;
