@@ -1147,9 +1147,9 @@ bool COpenGLDriver::bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, cons
     {
         ctx->nextState.descriptorsParams[_pipelineType].descSets[_first + i] =
         {
-        core::smart_refctd_ptr<const COpenGLPipelineLayout>(static_cast<const COpenGLPipelineLayout*>(_layout)),
-        core::smart_refctd_ptr<const COpenGLDescriptorSet>(static_cast<const COpenGLDescriptorSet*>(_descSets[i])),
-        _dynamicOffsets[i] //intentionally copy, not move
+			core::smart_refctd_ptr<const COpenGLPipelineLayout>(static_cast<const COpenGLPipelineLayout*>(_layout)),
+			core::smart_refctd_ptr<const COpenGLDescriptorSet>(static_cast<const COpenGLDescriptorSet*>(_descSets[i])),
+			_dynamicOffsets ? _dynamicOffsets[i]:nullptr //intentionally copy, not move
         };
     }
 
@@ -1162,7 +1162,7 @@ bool COpenGLDriver::dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint3
     if (!ctx)
         return false;
 
-    ctx->flushStateCompute(GSB_PIPELINE | GSB_DESCRIPTOR_SETS);
+    ctx->flushStateCompute(GSB_PIPELINE | GSB_DESCRIPTOR_SETS | GSB_PUSH_CONSTANTS);
 
     extGlDispatchCompute(_groupCountX, _groupCountY, _groupCountZ);
 
@@ -1177,7 +1177,7 @@ bool COpenGLDriver::dispatchIndirect(const IGPUBuffer* _indirectBuf, size_t _off
 
     ctx->nextState.dispatchIndirect.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<const COpenGLBuffer*>(_indirectBuf));
 
-    ctx->flushStateCompute(GSB_PIPELINE | GSB_DISPATCH_INDIRECT | GSB_DESCRIPTOR_SETS);
+    ctx->flushStateCompute(GSB_PIPELINE | GSB_DISPATCH_INDIRECT | GSB_DESCRIPTOR_SETS | GSB_PUSH_CONSTANTS);
 
     extGlDispatchComputeIndirect(static_cast<GLintptr>(_offset));
 
@@ -1855,16 +1855,14 @@ void COpenGLDriver::SAuxContext::flushState_descriptors(E_PIPELINE_BIND_POINT _p
     //bind new descriptor sets
     uint32_t compatibilityLimitPlusOne = 0u;
     if (_prevLayout && _currentLayout)
-        compatibilityLimitPlusOne = _prevLayout->isCompatibleForSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT - 1u, _currentLayout) + 1u;
-    if (compatibilityLimitPlusOne >= IGPUPipelineLayout::DESCRIPTOR_SET_COUNT)
-        compatibilityLimitPlusOne = 0u;
+        compatibilityLimitPlusOne = _prevLayout->isCompatibleUpToSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u, _currentLayout);
+	if (!_prevLayout && !_currentLayout)
+        compatibilityLimitPlusOne = IGPUPipelineLayout::DESCRIPTOR_SET_COUNT;
 
     int64_t newUboCount = 0u, newSsboCount = 0u, newTexCount = 0u, newImgCount = 0u;
-    for (uint32_t i = 0u; i < video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+	if (_currentLayout)
+    for (uint32_t i=0u; i<video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
     {
-        if (!_currentLayout)
-            break;
-
         const auto& first_count = _currentLayout->getMultibindParamsForDescSet(i);
 
         {

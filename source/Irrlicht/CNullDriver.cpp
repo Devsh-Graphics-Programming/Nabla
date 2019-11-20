@@ -114,12 +114,12 @@ void CNullDriver::removeAllFrameBuffers()
 void CNullDriver::bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, const IGPUPipelineLayout** _destPplnLayouts)
 {
     uint32_t compatibilityLimits[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{}; //actually more like "compatibility limit + 1" (i.e. 0 mean not comaptible at all)
-    for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+    for (uint32_t i=0u; i<IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
     {
         const uint32_t lim = _destPplnLayouts[i] ? //if no descriptor set bound at this index
-            _destPplnLayouts[i]->isCompatibleForSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT - 1u, _newLayout) : 0u;
+            _destPplnLayouts[i]->isCompatibleUpToSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u, _newLayout) : 0u;
 
-        compatibilityLimits[i] = (lim == IGPUPipelineLayout::DESCRIPTOR_SET_COUNT) ? 0u : (lim + 1u);
+        compatibilityLimits[i] = lim;
     }
 
     /*
@@ -134,7 +134,7 @@ void CNullDriver::bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayou
     If, additionally, the previous bound descriptor set for set N was bound using a pipeline layout compatible for set N, then the bindings in sets numbered greater than N are also not disturbed.
     */
     if (compatibilityLimits[_first] <= _first)
-        for (uint32_t i = _first + _count; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
+        for (uint32_t i = _first+_count; i<IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
             _destPplnLayouts = nullptr;
 }
 

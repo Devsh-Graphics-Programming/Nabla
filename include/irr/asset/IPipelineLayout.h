@@ -77,21 +77,22 @@ public:
     /**
     @returns Max value of `_setNum` for which the two pipeline layouts are compatible or DESCRIPTOR_SET_COUNT if they're not compatible at all.
     */
-    uint32_t isCompatibleForSet(const uint32_t _setNum, const IPipelineLayout<DescLayoutType>* _other) const
+    uint32_t isCompatibleUpToSet(const uint32_t _setNum, const IPipelineLayout<DescLayoutType>* _other) const
     {
         if ((_setNum >= DESCRIPTOR_SET_COUNT)) //vulkan would also care about push constant ranges compatibility here
             return DESCRIPTOR_SET_COUNT;
 
-        for (uint32_t i = 0u; i <= _setNum; ++i)
+		uint32_t i = 0u;
+        for (; i <=_setNum; i++)
         {
             const DescLayoutType* lhs = m_descSetLayouts[i].get();
             const DescLayoutType* rhs = _other->getDescriptorSetLayout(i);
 
-            const bool compatible = (lhs == rhs) || (lhs->isIdenticallyDefined(rhs));
-            if (!compatible)
-                return (i == 0u) ? DESCRIPTOR_SET_COUNT : (i - 1u);
+            const bool compatible = (lhs == rhs) || (lhs && lhs->isIdenticallyDefined(rhs));
+			if (!compatible)
+				break;
         }
-        return _setNum;
+        return i;
     }
 
 protected:
