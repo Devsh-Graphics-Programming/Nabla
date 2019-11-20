@@ -72,7 +72,7 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 					return false;
 				if (type != rhs.type)
 					return false;
-				if (count != rhs.type)
+				if (count != rhs.count)
 					return false;
 				if (stageFlags != rhs.stageFlags)
 					return false;
@@ -147,7 +147,7 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 	public:
 		bool isIdenticallyDefined(const IDescriptorSetLayout<sampler_type>* _other) const
 		{
-			if (getBindings().length() != _other->getBindings().length())
+			if (!_other || getBindings().length()!=_other->getBindings().length())
 				return false;
 
 			const size_t cnt = getBindings().length();
