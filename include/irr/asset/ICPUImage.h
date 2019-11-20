@@ -29,6 +29,7 @@ class ICPUImage final : public IImage, public IAsset
 
         inline void convertToDummyObject() override
         {
+			buffer = nullptr;
             regions = nullptr;
         }
 
@@ -47,7 +48,12 @@ class ICPUImage final : public IImage, public IAsset
 		inline auto* getBuffer() { return buffer.get(); }
 		inline const auto* getBuffer() const { return buffer.get(); }
 
-		inline const auto* getRegions() const { return regions->data(); }
+		inline core::SRange<const IImage::SBufferCopy> getRegions() const
+		{
+			if (regions)
+				return {regions->begin(),regions->end()};
+			return {nullptr,nullptr};
+		}
 
 		//! regions will be copied and sorted
 		inline bool setBufferAndRegions(core::smart_refctd_ptr<ICPUBuffer>&& _buffer, const core::smart_refctd_dynamic_array<IImage::SBufferCopy>& _regions)
