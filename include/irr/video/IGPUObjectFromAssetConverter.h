@@ -605,7 +605,7 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
         params.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(cpuparams.flags);
         params.format = cpuparams.format;
         params.subresourceRange = cpuparams.subresourceRange;
-        params.viewType = static_cast<IGPUImageView::E_TYPE>(cpuparams.flags);
+        params.viewType = static_cast<IGPUImageView::E_TYPE>(cpuparams.viewType);
         params.image = (*gpuDeps)[redirs[i]];
         (*res)[i] = m_driver->createGPUImageView(std::move(params));
     }
@@ -742,7 +742,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 			for (uint32_t j=0u; j<cpuds->getMaxDescriptorBindingIndex(); j++)
 			{
 				auto descriptors = cpuds->getDescriptors(j);
-				if (descriptors.length())
+				if (descriptors.length()==0u)
 					continue;
 
 				const auto type = cpuds->getDescriptorsType(j);
