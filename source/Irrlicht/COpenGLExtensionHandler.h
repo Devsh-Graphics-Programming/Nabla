@@ -1289,7 +1289,7 @@ class COpenGLExtensionHandler
 	static void extGlCopyImageSubData(GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ, GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ, GLsizei srcWidth, GLsizei srcHeight, GLsizei srcDepth);
     static void extGlGenerateTextureMipmap(GLuint texture, GLenum target);
 	// texture "parameter" functions
-	static void extGlTextureParameteriuiv(GLuint texture, GLenum target, GLenum pname, const GLuint* params);
+	static void extGlTextureParameterIuiv(GLuint texture, GLenum target, GLenum pname, const GLuint* params);
 	static void extGlClampColor(GLenum target, GLenum clamp);
 
     static void extGlCreateSamplers(GLsizei n, GLuint* samplers);
@@ -1571,9 +1571,9 @@ class COpenGLExtensionHandler
     static PFNGLCOMPRESSEDTEXTURESUBIMAGE2DEXTPROC pGlCompressedTextureSubImage2DEXT;
     static PFNGLCOMPRESSEDTEXTURESUBIMAGE3DEXTPROC pGlCompressedTextureSubImage3DEXT;
     static PFNGLCOPYIMAGESUBDATAPROC pGlCopyImageSubData;
-	static PFNGLTEXTUREPARAMETERIUIVPROC pGlTextureParameteriuiv;
-	static PFNGLTEXTUREPARAMETERIUIVEXTPROC pGlTextureParameteriuivEXT;
-	static PFNGLTEXPARAMETERIUIVPROC pGlTexParameteriuiv;
+	static PFNGLTEXTUREPARAMETERIUIVPROC pGlTextureParameterIuiv;
+	static PFNGLTEXTUREPARAMETERIUIVEXTPROC pGlTextureParameterIuivEXT;
+	static PFNGLTEXPARAMETERIUIVPROC pGlTexParameterIuiv;
     static PFNGLGENERATEMIPMAPPROC pGlGenerateMipmap;
     static PFNGLGENERATETEXTUREMIPMAPPROC pGlGenerateTextureMipmap; //NULL
     static PFNGLGENERATETEXTUREMIPMAPEXTPROC pGlGenerateTextureMipmapEXT;
@@ -2555,12 +2555,12 @@ inline void COpenGLExtensionHandler::extGlGenerateTextureMipmap(GLuint texture, 
     }
 }
 
-inline void COpenGLExtensionHandler::extGlTextureParameteriuiv(GLuint texture, GLenum target, GLenum pname, const GLuint* params)
+inline void COpenGLExtensionHandler::extGlTextureParameterIuiv(GLuint texture, GLenum target, GLenum pname, const GLuint* params)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-        pGlTextureParameteriuiv(texture,pname,params);
+        pGlTextureParameterIuiv(texture,pname,params);
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
-		pGlTextureParameteriuivEXT(texture,target,pname,params);
+		pGlTextureParameterIuivEXT(texture,target,pname,params);
 	else
 	{
         GLint bound;
@@ -2604,7 +2604,7 @@ inline void COpenGLExtensionHandler::extGlTextureParameteriuiv(GLuint texture, G
                 return;
         }
         glBindTexture(target, texture);
-		pGlTexParameteriuiv(target,pname,params);
+		pGlTexParameterIuiv(target,pname,params);
         glBindTexture(target, bound);
 	}
 }

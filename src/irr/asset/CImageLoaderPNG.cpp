@@ -82,6 +82,12 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	if (!_file)
         return {};
 
+	uint32_t imageSize[3] = { 1,1,1 };
+	uint32_t& Width = imageSize[0];
+	uint32_t& Height = imageSize[1];
+	//Used to point to image rows
+	uint8_t** RowPointers = 0;
+
 	png_byte buffer[8];
 	// Read the first few bytes of the PNG _file
 	if( _file->read(buffer, 8) != 8 )
@@ -119,6 +125,8 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	if (setjmp(png_jmpbuf(png_ptr)))
 	{
 		png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+		if (RowPointers)
+			_IRR_DELETE_ARRAY(RowPointers, Height);
         return {};
 	}
 
@@ -129,9 +137,6 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 
 	png_read_info(png_ptr, info_ptr); // Read the info section of the png _file
 
-	uint32_t imageSize[3] = {1,1,1};
-	uint32_t& Width = imageSize[0];
-	uint32_t& Height = imageSize[1];
 	int32_t BitDepth;
 	int32_t ColorType;
 	{
@@ -240,7 +245,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	}
 
 	// Create array of pointers to rows in image data
-    uint8_t** RowPointers = _IRR_NEW_ARRAY(png_bytep, Height);;
+    RowPointers = _IRR_NEW_ARRAY(png_bytep, Height);
 	if (!RowPointers)
 	{
 		os::Printer::log("LOAD PNG: Internal PNG create row pointers failure\n", _file->getFileName().c_str(), ELL_ERROR);

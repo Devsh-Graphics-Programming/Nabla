@@ -48,7 +48,7 @@ class COpenGLImageView final : public IGPUImageView
 					continue;
 				swizzle[i] = ComponentMappingToGLenumSwizzle[currentMapping];
 			}
-			COpenGLExtensionHandler::extGlTextureParameteriuiv(name,target,GL_TEXTURE_SWIZZLE_RGBA,swizzle);
+			COpenGLExtensionHandler::extGlTextureParameterIuiv(name,target,GL_TEXTURE_SWIZZLE_RGBA,swizzle);
 		}
 
 		void regenerateMipMapLevels() override

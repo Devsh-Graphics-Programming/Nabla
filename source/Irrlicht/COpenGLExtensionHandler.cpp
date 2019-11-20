@@ -186,12 +186,12 @@ PFNGLCOMPRESSEDTEXTURESUBIMAGE1DEXTPROC COpenGLExtensionHandler::pGlCompressedTe
 PFNGLCOMPRESSEDTEXTURESUBIMAGE2DEXTPROC COpenGLExtensionHandler::pGlCompressedTextureSubImage2DEXT = nullptr;
 PFNGLCOMPRESSEDTEXTURESUBIMAGE3DEXTPROC COpenGLExtensionHandler::pGlCompressedTextureSubImage3DEXT = nullptr;
 PFNGLCOPYIMAGESUBDATAPROC COpenGLExtensionHandler::pGlCopyImageSubData = nullptr;
+PFNGLTEXTUREPARAMETERIUIVPROC COpenGLExtensionHandler::pGlTextureParameterIuiv = nullptr;
+PFNGLTEXTUREPARAMETERIUIVEXTPROC COpenGLExtensionHandler::pGlTextureParameterIuivEXT = nullptr;
+PFNGLTEXPARAMETERIUIVPROC COpenGLExtensionHandler::pGlTexParameterIuiv = nullptr;
 PFNGLGENERATEMIPMAPPROC COpenGLExtensionHandler::pGlGenerateMipmap = nullptr;
 PFNGLGENERATETEXTUREMIPMAPPROC COpenGLExtensionHandler::pGlGenerateTextureMipmap = nullptr;
 PFNGLGENERATETEXTUREMIPMAPEXTPROC COpenGLExtensionHandler::pGlGenerateTextureMipmapEXT = nullptr;
-PFNGLTEXTUREPARAMETERIUIVPROC COpenGLExtensionHandler::pGlTextureParameteriuiv = nullptr;
-PFNGLTEXTUREPARAMETERIUIVEXTPROC COpenGLExtensionHandler::pGlTextureParameteriuivEXT = nullptr;
-PFNGLTEXPARAMETERIUIVPROC COpenGLExtensionHandler::pGlTexParameteriuiv = nullptr;
 PFNGLCLAMPCOLORPROC COpenGLExtensionHandler::pGlClampColor = nullptr;
 
         //samplers
@@ -1071,6 +1071,7 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlTextureStorage3DMultisample = (PFNGLTEXTURESTORAGE3DMULTISAMPLEPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage3DMultisample");
     pGlTextureBuffer = (PFNGLTEXTUREBUFFERPROC) IRR_OGL_LOAD_EXTENSION( "glTextureBuffer");
     pGlTextureBufferRange = (PFNGLTEXTUREBUFFERRANGEPROC) IRR_OGL_LOAD_EXTENSION( "glTextureBufferRange");
+	pGlTextureView = (PFNGLTEXTUREVIEWPROC) IRR_OGL_LOAD_EXTENSION( "glTextureView");
     pGlTextureStorage1DEXT = (PFNGLTEXTURESTORAGE1DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage1DEXT");
     pGlTextureStorage2DEXT = (PFNGLTEXTURESTORAGE2DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage2DEXT");
     pGlTextureStorage3DEXT = (PFNGLTEXTURESTORAGE3DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glTextureStorage3DEXT");
@@ -1105,6 +1106,9 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlCompressedTextureSubImage2DEXT = (PFNGLCOMPRESSEDTEXTURESUBIMAGE2DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glCompressedTextureSubImage2DEXT");
     pGlCompressedTextureSubImage3DEXT = (PFNGLCOMPRESSEDTEXTURESUBIMAGE3DEXTPROC) IRR_OGL_LOAD_EXTENSION( "glCompressedTextureSubImage3DEXT");
 	pGlCopyImageSubData = (PFNGLCOPYIMAGESUBDATAPROC) IRR_OGL_LOAD_EXTENSION( "glCopyImageSubData");
+	pGlTextureParameterIuiv = (PFNGLTEXTUREPARAMETERIUIVPROC) IRR_OGL_LOAD_EXTENSION( "glTextureParameterIuiv");
+	pGlTextureParameterIuivEXT = (PFNGLTEXTUREPARAMETERIUIVEXTPROC) IRR_OGL_LOAD_EXTENSION( "glTextureParameterIuivEXT");
+	pGlTexParameterIuiv = (PFNGLTEXPARAMETERIUIVPROC) IRR_OGL_LOAD_EXTENSION( "glTexParameterIuiv");
     pGlGenerateMipmap = (PFNGLGENERATEMIPMAPPROC) IRR_OGL_LOAD_EXTENSION( "glGenerateMipmap");
     pGlGenerateTextureMipmap = (PFNGLGENERATETEXTUREMIPMAPPROC) IRR_OGL_LOAD_EXTENSION( "glGenerateTextureMipmap");
     pGlGenerateTextureMipmapEXT = (PFNGLGENERATETEXTUREMIPMAPEXTPROC) IRR_OGL_LOAD_EXTENSION( "glGenerateTextureMipmapEXT");
