@@ -1406,12 +1406,175 @@ void COpenGLDriver::invalidateMappedMemoryRanges(uint32_t memoryRangeCount, cons
     }
 }
 
+
 void COpenGLDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length)
 {
     COpenGLBuffer* readbuffer = static_cast<COpenGLBuffer*>(readBuffer);
     COpenGLBuffer* writebuffer = static_cast<COpenGLBuffer*>(writeBuffer);
     extGlCopyNamedBufferSubData(readbuffer->getOpenGLName(),writebuffer->getOpenGLName(),readOffset,writeOffset,length);
 }
+
+void COpenGLDriver::copyImage(IGPUImage* srcImage, IGPUImage* dstImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions)
+{
+	if (!dstImage->validateCopies(pRegions,pRegions+regionCount,srcImage))
+		return;
+
+	auto src = static_cast<COpenGLImage*>(srcImage);
+	auto dst = static_cast<COpenGLImage*>(dstImage);
+	IGPUImage::E_TYPE srcType = srcImage->getCreationParameters().type;
+	IGPUImage::E_TYPE dstType = dstImage->getCreationParameters().type;
+	GLenum type2Target[3u] = {GL_TEXTURE_1D_ARRAY,GL_TEXTURE_2D_ARRAY,GL_TEXTURE_3D};
+	for (auto it=pRegions; it!=pRegions+regionCount; it++)
+	{
+		extGlCopyImageSubData(	src->getOpenGLName(),type2Target[srcType],it->srcSubresource.mipLevel,
+								it->srcOffset.x,srcType==IGPUImage::ET_1D ? it->srcSubresource.baseArrayLayer:it->srcOffset.y,srcType==IGPUImage::ET_2D ? it->srcSubresource.baseArrayLayer:it->srcOffset.z,
+								dst->getOpenGLName(),type2Target[dstType],it->dstSubresource.mipLevel,
+								it->dstOffset.x,dstType==IGPUImage::ET_1D ? it->dstSubresource.baseArrayLayer:it->dstOffset.y,dstType==IGPUImage::ET_2D ? it->dstSubresource.baseArrayLayer:it->dstOffset.z,
+								it->extent.width,dstType==IGPUImage::ET_1D ? it->dstSubresource.layerCount:it->extent.height,dstType==IGPUImage::ET_2D ? it->dstSubresource.layerCount:it->extent.depth);
+	}
+}
+
+void COpenGLDriver::copyBufferToImage(IGPUBuffer* srcBuffer, IGPUImage* dstImage, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
+{
+	if (!dstImage->validateCopies(pRegions,pRegions+regionCount,srcBuffer))
+		return;
+
+	const auto params = dstImage->getCreationParameters();
+	const auto type = params.type;
+	const auto format = params.format;
+	const bool compressed = asset::isBlockCompressionFormat(format);
+	auto dstImageGL = static_cast<COpenGLImage*>(dstImage);
+	GLuint dst = dstImageGL->getOpenGLName();
+	GLenum glfmt,gltype;
+	getOpenGLFormatAndParametersFromColorFormat(format,glfmt,gltype);
+
+	const auto bpp = asset::getBytesPerPixel(format);
+	const auto blockDims = asset::getBlockDimensions(format);
+
+	// TODO: @Crisspl add this to your state tracking
+	extGlBindBuffer(GL_PIXEL_UNPACK_BUFFER,static_cast<COpenGLBuffer*>(srcBuffer)->getOpenGLName());
+	for (auto it=pRegions; it!=pRegions+regionCount; it++)
+	{
+		// TODO: check it->bufferOffset is aligned to data type of E_FORMAT
+		//assert(?);
+
+		// TODO: track this as well
+		uint32_t pitch = ((it->bufferRowLength ? it->bufferRowLength:it->imageExtent.width)*bpp).getIntegerApprox();
+		int32_t alignment = 0x1<<core::min(core::max(core::findLSB(it->bufferOffset),core::findLSB(pitch)),3u);
+		glPixelStorei(GL_UNPACK_ALIGNMENT, alignment);
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, it->bufferRowLength);
+		glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, it->bufferImageHeight);
+
+		if (compressed)
+		{
+			// TODO: track this as well
+			glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_WIDTH, blockDims[0]);
+			glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_HEIGHT,blockDims[1]);
+			glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_DEPTH, blockDims[2]);
+			switch (type)
+			{
+				case IGPUImage::ET_1D:
+					extGlCompressedTextureSubImage2D(	dst,GL_TEXTURE_1D_ARRAY,it->imageSubresource.mipLevel,
+														it->imageOffset.x,it->imageSubresource.baseArrayLayer,
+														it->imageExtent.width,it->imageSubresource.layerCount,
+														dstImageGL->getOpenGLSizedFormat(),,reinterpret_cast<const void*>(it->bufferOffset));
+					break;
+				case IGPUImage::ET_2D:
+					extGlCompressedTextureSubImage3D(	dst,GL_TEXTURE_2D_ARRAY,it->imageSubresource.mipLevel,
+														it->imageOffset.x,it->imageOffset.y,it->imageSubresource.baseArrayLayer,
+														it->imageExtent.width,it->imageExtent.height,it->imageSubresource.layerCount,
+														glfmt,gltype,reinterpret_cast<const void*>(it->bufferOffset));
+					break;
+				case IGPUImage::ET_3D:
+					extGlCompressedTextureSubImage3D(	dst,GL_TEXTURE_3D,it->imageSubresource.mipLevel,
+														it->imageOffset.x,it->imageOffset.y,it->imageOffset.z,
+														it->imageExtent.width,it->imageExtent.height,it->imageExtent.depth,
+														glfmt,gltype,reinterpret_cast<const void*>(it->bufferOffset));
+					break;
+			}
+		}
+		else
+		{
+			switch (type)
+			{
+				case IGPUImage::ET_1D:
+					extGlTextureSubImage2D(	dst,GL_TEXTURE_1D_ARRAY,it->imageSubresource.mipLevel,
+											it->imageOffset.x,it->imageSubresource.baseArrayLayer,
+											it->imageExtent.width,it->imageSubresource.layerCount,
+											glfmt,gltype,reinterpret_cast<const void*>(it->bufferOffset));
+					break;
+				case IGPUImage::ET_2D:
+					extGlTextureSubImage3D(dst,GL_TEXTURE_2D_ARRAY,it->imageSubresource.mipLevel,
+											it->imageOffset.x,it->imageOffset.y,it->imageSubresource.baseArrayLayer,
+											it->imageExtent.width,it->imageExtent.height,it->imageSubresource.layerCount,
+											glfmt,gltype,reinterpret_cast<const void*>(it->bufferOffset));
+					break;
+				case IGPUImage::ET_3D:
+					extGlTextureSubImage3D(dst,GL_TEXTURE_3D,it->imageSubresource.mipLevel,
+											it->imageOffset.x,it->imageOffset.y,it->imageOffset.z,
+											it->imageExtent.width,it->imageExtent.height,it->imageExtent.depth,
+											glfmt,gltype,reinterpret_cast<const void*>(it->bufferOffset));
+					break;
+			}
+		}
+	}
+	// TODO: @Crisspl remove this after you add PIXEL_PACK buffer to your state tracking
+	extGlBindBuffer(GL_PIXEL_UNPACK_BUFFER,0u);
+}
+
+void COpenGLDriver::copyImageToBuffer(IGPUImage* srcImage, IGPUBuffer* dstBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
+{
+	if (!srcImage->validateCopies(pRegions,pRegions+regionCount,dstBuffer))
+		return;
+
+	const auto params = srcImage->getCreationParameters();
+	const auto type = params.type;
+	const auto format = params.format;
+	const bool compressed = asset::isBlockCompressionFormat(format);
+	GLuint src = static_cast<COpenGLImage*>(srcImage)->getOpenGLName();
+	GLenum glfmt,gltype;
+	getOpenGLFormatAndParametersFromColorFormat(format,glfmt,gltype);
+
+	const auto bpp = asset::getBytesPerPixel(format);
+	const auto blockDims = asset::getBlockDimensions(format);
+
+	// TODO: @Crisspl add this to your state tracking
+	extGlBindBuffer(GL_PIXEL_PACK_BUFFER,static_cast<COpenGLBuffer*>(dstBuffer)->getOpenGLName());
+	for (auto it=pRegions; it!=pRegions+regionCount; it++)
+	{
+		// TODO: check it->bufferOffset is aligned to data type of E_FORMAT
+		//assert(?);
+
+		// TODO: track this as well
+		uint32_t pitch = ((it->bufferRowLength ? it->bufferRowLength:it->imageExtent.width)*bpp).getIntegerApprox();
+		int32_t alignment = 0x1<<core::min(core::max(core::findLSB(it->bufferOffset),core::findLSB(pitch)),3u);
+		glPixelStorei(GL_PACK_ALIGNMENT, alignment);
+		glPixelStorei(GL_PACK_ROW_LENGTH, it->bufferRowLength);
+		glPixelStorei(GL_PACK_IMAGE_HEIGHT, it->bufferImageHeight);
+
+		auto yStart = type==IGPUImage::ET_1D ? it->imageSubresource.baseArrayLayer:it->imageOffset.y;
+		auto yRange = type==IGPUImage::ET_1D ? it->imageSubresource.layerCount:it->imageExtent.height;
+		auto zStart = type==IGPUImage::ET_2D ? it->imageSubresource.baseArrayLayer:it->imageOffset.z;
+		auto zRange = type==IGPUImage::ET_2D ? it->imageSubresource.layerCount:it->imageExtent.depth;
+		if (compressed)
+		{
+			// TODO: track this as well
+			glPixelStorei(GL_PACK_COMPRESSED_BLOCK_WIDTH, blockDims[0]);
+			glPixelStorei(GL_PACK_COMPRESSED_BLOCK_HEIGHT,blockDims[1]);
+			glPixelStorei(GL_PACK_COMPRESSED_BLOCK_DEPTH, blockDims[2]);
+			extGlGetCompressedTextureSubImage(	src,it->imageSubresource.mipLevel,it->imageOffset.x,yStart,zStart,it->imageExtent.width,yRange,zRange,
+												dstBuffer->getSize()-it->bufferOffset,reinterpret_cast<void*>(it->bufferOffset));
+		}
+		else
+		{
+			extGlGetTextureSubImage(src,it->imageSubresource.mipLevel,it->imageOffset.x,yStart,zStart,it->imageExtent.width,yRange,zRange,
+									glfmt,gltype,dstBuffer->getSize()-it->bufferOffset,reinterpret_cast<void*>(it->bufferOffset));
+		}
+	}
+	// TODO: @Crisspl remove this after you add PIXEL_PACK buffer to your state tracking
+	extGlBindBuffer(GL_PIXEL_PACK_BUFFER,0u);
+}
+
 
 IQueryObject* COpenGLDriver::createPrimitivesGeneratedQuery()
 {

@@ -791,13 +791,6 @@ static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
     }
 }
 
-}
-}
-#endif
-
-
-#endif
-
 #if 0/**
     if (mipmapData)
     {
@@ -873,13 +866,12 @@ bool COpenGL2DTexture::updateSubRegion(const asset::E_FORMAT& inDataColorFormat,
 	}
 	return true;
 }
+#endif
 
 
 
 //! Get opengl values for the GPU texture storage
-void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E_FORMAT& format,
-	GLenum& colorformat,
-	GLenum& type)
+void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, GLenum& colorformat, GLenum& type)
 {
 	using namespace asset;
 	// default
@@ -1561,4 +1553,10 @@ void COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(const asset::E_
 	if (colorformat == GL_INVALID_ENUM || type == GL_INVALID_ENUM)
 		os::Printer::log("Unsupported upload format", ELL_ERROR);
 }
+
+}
+}
+#endif
+
+
 #endif
