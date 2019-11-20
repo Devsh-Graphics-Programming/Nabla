@@ -1291,7 +1291,6 @@ class COpenGLExtensionHandler
 	// texture "parameter" functions
 	static void extGlTextureParameteriuiv(GLuint texture, GLenum target, GLenum pname, const GLuint* params);
 	static void extGlClampColor(GLenum target, GLenum clamp);
-	static void setPixelUnpackAlignment(const uint32_t& pitchInBytes, void* ptr, const uint32_t& minimumAlignment = 1);
 
     static void extGlCreateSamplers(GLsizei n, GLuint* samplers);
     static void extGlDeleteSamplers(GLsizei n, GLuint* samplers);
@@ -2614,35 +2613,6 @@ inline void COpenGLExtensionHandler::extGlClampColor(GLenum target, GLenum clamp
 {
     if (pGlClampColor)
         pGlClampColor(GL_CLAMP_READ_COLOR,clamp);
-}
-
-inline void COpenGLExtensionHandler::setPixelUnpackAlignment(const uint32_t &pitchInBytes, void* ptr, const uint32_t& minimumAlignment)
-{
-#if _MSC_VER && !__INTEL_COMPILER
-    DWORD textureUploadAlignment,textureUploadAlignment2;
-    if (!_BitScanForward(&textureUploadAlignment,core::max(pitchInBytes,minimumAlignment)))
-        textureUploadAlignment = 3;
-    if (!_BitScanForward64(&textureUploadAlignment2,*reinterpret_cast<size_t*>(&ptr)))
-        textureUploadAlignment2 = 3;
-#else
-    int32_t textureUploadAlignment = __builtin_ffs(core::max(pitchInBytes,minimumAlignment));
-    if (textureUploadAlignment)
-        textureUploadAlignment--;
-    else
-        textureUploadAlignment = 3;
-    int32_t textureUploadAlignment2 = __builtin_ffs(*reinterpret_cast<size_t*>(&ptr));
-    if (textureUploadAlignment2)
-        textureUploadAlignment2--;
-    else
-        textureUploadAlignment2 = 3;
-#endif
-    textureUploadAlignment = core::min<int32_t,int32_t>(textureUploadAlignment,textureUploadAlignment2,3);
-
-    if (textureUploadAlignment==pixelUnpackAlignment)
-        return;
-
-    glPixelStorei(GL_UNPACK_ALIGNMENT,0x1u<<textureUploadAlignment);
-    pixelUnpackAlignment = textureUploadAlignment;
 }
 
 inline void COpenGLExtensionHandler::extGlCreateSamplers(GLsizei n, GLuint* samplers)

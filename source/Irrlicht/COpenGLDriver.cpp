@@ -1471,25 +1471,31 @@ void COpenGLDriver::copyBufferToImage(IGPUBuffer* srcBuffer, IGPUImage* dstImage
 			glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_WIDTH, blockDims[0]);
 			glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_HEIGHT,blockDims[1]);
 			glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_DEPTH, blockDims[2]);
+			uint32_t imageSize = pitch;
 			switch (type)
 			{
 				case IGPUImage::ET_1D:
+					imageSize *= it->imageSubresource.layerCount;
 					extGlCompressedTextureSubImage2D(	dst,GL_TEXTURE_1D_ARRAY,it->imageSubresource.mipLevel,
 														it->imageOffset.x,it->imageSubresource.baseArrayLayer,
 														it->imageExtent.width,it->imageSubresource.layerCount,
-														dstImageGL->getOpenGLSizedFormat(),,reinterpret_cast<const void*>(it->bufferOffset));
+														dstImageGL->getOpenGLSizedFormat(),imageSize,reinterpret_cast<const void*>(it->bufferOffset));
 					break;
 				case IGPUImage::ET_2D:
+					imageSize *= (it->bufferImageHeight ? it->bufferImageHeight:it->imageExtent.height)/blockDims[1];
+					imageSize *= it->imageSubresource.layerCount;
 					extGlCompressedTextureSubImage3D(	dst,GL_TEXTURE_2D_ARRAY,it->imageSubresource.mipLevel,
 														it->imageOffset.x,it->imageOffset.y,it->imageSubresource.baseArrayLayer,
 														it->imageExtent.width,it->imageExtent.height,it->imageSubresource.layerCount,
-														glfmt,gltype,reinterpret_cast<const void*>(it->bufferOffset));
+														dstImageGL->getOpenGLSizedFormat(),imageSize,reinterpret_cast<const void*>(it->bufferOffset));
 					break;
 				case IGPUImage::ET_3D:
+					imageSize *= (it->bufferImageHeight ? it->bufferImageHeight:it->imageExtent.height)/blockDims[1];
+					imageSize *= it->imageExtent.depth/blockDims[2];
 					extGlCompressedTextureSubImage3D(	dst,GL_TEXTURE_3D,it->imageSubresource.mipLevel,
 														it->imageOffset.x,it->imageOffset.y,it->imageOffset.z,
 														it->imageExtent.width,it->imageExtent.height,it->imageExtent.depth,
-														glfmt,gltype,reinterpret_cast<const void*>(it->bufferOffset));
+														dstImageGL->getOpenGLSizedFormat(),imageSize,reinterpret_cast<const void*>(it->bufferOffset));
 					break;
 			}
 		}

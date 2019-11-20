@@ -791,87 +791,10 @@ static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
     }
 }
 
-#if 0/**
-    if (mipmapData)
-    {
-        uint8_t* tmpMipmapDataPTr = (uint8_t*)mipmapData;
-        for (uint32_t i=1; i<MipLevelsStored; i++)
-        {
-            core::dimension2d<uint32_t> tmpSize = size;
-            tmpSize.Width = core::max(tmpSize.Width/(0x1u<<i),0x1u);
-            tmpSize.Height = core::max(tmpSize.Height/(0x1u<<i),0x1u);
-            size_t levelByteSize;
-            if (compressed)
-            {
-                levelByteSize = (((tmpSize.Width+3)&0xfffffc)*((tmpSize.Height+3)&0xfffffc)*bpp)/8;
-                COpenGLExtensionHandler::extGlCompressedTextureSubImage2D(TextureName,GL_TEXTURE_2D,i,0,0, tmpSize.Width,tmpSize.Height, InternalFormat,levelByteSize,tmpMipmapDataPTr);
-            }
-            else
-            {
-                levelByteSize = (tmpSize.Width*tmpSize.Height*bpp)/8;
-                COpenGLExtensionHandler::setPixelUnpackAlignment((tmpSize.Width*bpp)/8,tmpMipmapDataPTr);
-                COpenGLExtensionHandler::extGlTextureSubImage2D(TextureName,GL_TEXTURE_2D,i,0,0, tmpSize.Width,tmpSize.Height, inDataFmt, inDataTpe, (void*)tmpMipmapDataPTr);
-            }
-            tmpMipmapDataPTr += levelByteSize;
-        }
-    }
-**/
-
-bool COpenGL2DTexture::updateSubRegion(const asset::E_FORMAT& inDataColorFormat, const void* data, const uint32_t* minimum, const uint32_t* maximum, int32_t mipmap, const uint32_t& unpackRowByteAlignment)
-{
-	bool sourceCompressed = isBlockCompressionFormat(inDataColorFormat);
-
-	bool destinationCompressed = COpenGLTexture::isInternalFormatCompressed(InternalFormat);
-	if ((!destinationCompressed) && sourceCompressed)
-		return false;
-
-	if (destinationCompressed)
-	{
-		if (minimum[0] || minimum[1])
-			return false;
-
-		uint32_t adjustedTexSize[2] = { TextureSize[0],TextureSize[1] };
-		adjustedTexSize[0] /= 0x1u << mipmap;
-		adjustedTexSize[1] /= 0x1u << mipmap;
-		/*
-		adjustedTexSize[0] += 3u;
-		adjustedTexSize[1] += 3u;
-		adjustedTexSize[0] &= 0xfffffc;
-		adjustedTexSize[1] &= 0xfffffc;
-		*/
-		if (maximum[0] != adjustedTexSize[0] || maximum[1] != adjustedTexSize[1])
-			return false;
-	}
-
-	if (sourceCompressed)
-	{
-		// should really use blockk size querying functions to round up properly and not assume 4x4
-		size_t levelByteSize = (((maximum[0] - minimum[0] + 3) & 0xfffffc) * ((maximum[1] - minimum[1] + 3) & 0xfffffc) * asset::getBytesPerPixel(ColorFormat)).getIntegerApprox();
-
-		COpenGLExtensionHandler::extGlCompressedTextureSubImage2D(TextureName, GL_TEXTURE_2D, mipmap, minimum[0], minimum[1], maximum[0] - minimum[0], maximum[1] - minimum[1], InternalFormat, levelByteSize, data);
-	}
-	else
-	{
-		GLenum pixFmt, pixType;
-		getOpenGLFormatAndParametersFromColorFormat(inDataColorFormat, pixFmt, pixType);
-		//! replace with
-		///COpenGLExtensionHandler::extGlGetInternalFormativ(GL_TEXTURE_2D,InternalFormat,GL_TEXTURE_IMAGE_FORMAT,1,&pixFmt);
-		///COpenGLExtensionHandler::extGlGetInternalFormativ(GL_TEXTURE_2D,InternalFormat,GL_TEXTURE_IMAGE_FORMAT,1,&pixType);
-
-		//! we're going to have problems with uploading lower mip levels ?
-		uint32_t pitchInBits = ((maximum[0] - minimum[0]) * asset::getBytesPerPixel(inDataColorFormat)).getIntegerApprox();
-
-		COpenGLExtensionHandler::setPixelUnpackAlignment(pitchInBits, const_cast<void*>(data), unpackRowByteAlignment);
-		COpenGLExtensionHandler::extGlTextureSubImage2D(TextureName, GL_TEXTURE_2D, mipmap, minimum[0], minimum[1], maximum[0] - minimum[0], maximum[1] - minimum[1], pixFmt, pixType, data);
-	}
-	return true;
-}
-#endif
-
 
 
 //! Get opengl values for the GPU texture storage
-void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, GLenum& colorformat, GLenum& type)
+inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, GLenum& colorformat, GLenum& type)
 {
 	using namespace asset;
 	// default
@@ -880,674 +803,674 @@ void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, GLenum&
 
 	switch (format)
 	{
-	case asset::EF_A1R5G5B5_UNORM_PACK16:
-		colorformat = GL_BGRA_EXT;
-		type = GL_UNSIGNED_SHORT_1_5_5_5_REV;
-		break;
-	case asset::EF_R5G6B5_UNORM_PACK16:
-		colorformat = GL_RGB;
-		type = GL_UNSIGNED_SHORT_5_6_5;
-		break;
-		// Floating Point texture formats. Thanks to Patryk "Nadro" Nadrowski.
-	case asset::EF_B10G11R11_UFLOAT_PACK32:
-	{
-		colorformat = GL_RGB;
-		type = GL_R11F_G11F_B10F;
-	}
-	break;
-	case asset::EF_R16_SFLOAT:
-	{
-		colorformat = GL_RED;
-		type = GL_HALF_FLOAT;
-	}
-	break;
-	case asset::EF_R16G16_SFLOAT:
-	{
-		colorformat = GL_RG;
-		type = GL_HALF_FLOAT;
-	}
-	break;
-	case asset::EF_R16G16B16A16_SFLOAT:
-	{
-		colorformat = GL_RGBA;
-		type = GL_HALF_FLOAT;
-	}
-	break;
-	case asset::EF_R32_SFLOAT:
-	{
-		colorformat = GL_RED;
-		type = GL_FLOAT;
-	}
-	break;
-	case asset::EF_R32G32_SFLOAT:
-	{
-		colorformat = GL_RG;
-		type = GL_FLOAT;
-	}
-	break;
-	case asset::EF_R32G32B32A32_SFLOAT:
-	{
-		colorformat = GL_RGBA;
-		type = GL_FLOAT;
-	}
-	break;
-	case asset::EF_R8_SNORM:
-	{
-		colorformat = GL_RED;
-		type = GL_BYTE;
-	}
-	break;
-	case asset::EF_R8_UNORM:
-	{
-		colorformat = GL_RED;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_R8_SRGB:
-	{
-		if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_sRGB_R8])
+		case asset::EF_A1R5G5B5_UNORM_PACK16:
+			colorformat = GL_BGRA_EXT;
+			type = GL_UNSIGNED_SHORT_1_5_5_5_REV;
 			break;
-		colorformat = GL_RED;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_R8G8_SNORM:
-	{
-		colorformat = GL_RG;
-		type = GL_BYTE;
-	}
-	break;
-	case asset::EF_R8G8_UNORM:
-	{
-		colorformat = GL_RG;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_R8G8_SRGB:
-	{
-		if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_sRGB_RG8])
+		case asset::EF_R5G6B5_UNORM_PACK16:
+			colorformat = GL_RGB;
+			type = GL_UNSIGNED_SHORT_5_6_5;
 			break;
-		colorformat = GL_RG;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_R8G8B8_SNORM:
-		colorformat = GL_RGB;
-		type = GL_BYTE;
+			// Floating Point texture formats. Thanks to Patryk "Nadro" Nadrowski.
+		case asset::EF_B10G11R11_UFLOAT_PACK32:
+		{
+			colorformat = GL_RGB;
+			type = GL_R11F_G11F_B10F;
+		}
 		break;
-	case asset::EF_R8G8B8_UNORM:
-		colorformat = GL_RGB;
-		type = GL_UNSIGNED_BYTE;
+		case asset::EF_R16_SFLOAT:
+		{
+			colorformat = GL_RED;
+			type = GL_HALF_FLOAT;
+		}
 		break;
-	case asset::EF_B8G8R8A8_SNORM:
-		colorformat = GL_BGRA_EXT;
-		type = GL_BYTE;
+		case asset::EF_R16G16_SFLOAT:
+		{
+			colorformat = GL_RG;
+			type = GL_HALF_FLOAT;
+		}
 		break;
-	case asset::EF_B8G8R8A8_UNORM:
-		colorformat = GL_BGRA_EXT;
-		type = GL_UNSIGNED_INT_8_8_8_8_REV;
+		case asset::EF_R16G16B16A16_SFLOAT:
+		{
+			colorformat = GL_RGBA;
+			type = GL_HALF_FLOAT;
+		}
 		break;
-	case asset::EF_B8G8R8A8_SRGB:
-		colorformat = GL_BGRA_EXT;
-		type = GL_UNSIGNED_INT_8_8_8_8_REV;
+		case asset::EF_R32_SFLOAT:
+		{
+			colorformat = GL_RED;
+			type = GL_FLOAT;
+		}
 		break;
-	case asset::EF_R8G8B8A8_SNORM:
-		colorformat = GL_RGBA;
-		type = GL_BYTE;
+		case asset::EF_R32G32_SFLOAT:
+		{
+			colorformat = GL_RG;
+			type = GL_FLOAT;
+		}
 		break;
-	case asset::EF_R8G8B8A8_UNORM:
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
+		case asset::EF_R32G32B32A32_SFLOAT:
+		{
+			colorformat = GL_RGBA;
+			type = GL_FLOAT;
+		}
 		break;
-	case asset::EF_R8_UINT:
-	{
-		colorformat = GL_RED_INTEGER;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_R8G8_UINT:
-	{
-		colorformat = GL_RG_INTEGER;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_R8G8B8_UINT:
-	{
-		colorformat = GL_RGB_INTEGER;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_R8G8B8A8_UINT:
-	{
-		colorformat = GL_RGBA_INTEGER;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_R8_SINT:
-	{
-		colorformat = GL_RED_INTEGER;
-		type = GL_BYTE;
-	}
-	break;
-	case asset::EF_R8G8_SINT:
-	{
-		colorformat = GL_RG_INTEGER;
-		type = GL_BYTE;
-	}
-	break;
-	case asset::EF_R8G8B8_SINT:
-	{
-		colorformat = GL_RGB_INTEGER;
-		type = GL_BYTE;
-	}
-	break;
-	case asset::EF_R8G8B8_SRGB:
-	{
-		colorformat = GL_RGB;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_R8G8B8A8_SRGB:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_R8G8B8A8_SINT:
-	{
-		colorformat = GL_RGBA_INTEGER;
-		type = GL_BYTE;
-	}
-	break;
-	case asset::EF_R16_SNORM:
-	{
-		colorformat = GL_RED;
-		type = GL_SHORT;
-	}
-	break;
-	case asset::EF_R16_UNORM:
-	{
-		colorformat = GL_RED;
-		type = GL_UNSIGNED_SHORT;
-	}
-	break;
-	case asset::EF_R16G16_SNORM:
-	{
-		colorformat = GL_RG;
-		type = GL_SHORT;
-	}
-	break;
-	case asset::EF_R16G16_UNORM:
-	{
-		colorformat = GL_RG;
-		type = GL_UNSIGNED_SHORT;
-	}
-	break;
-	case asset::EF_R16G16B16_SNORM:
-	{
-		colorformat = GL_RGB;
-		type = GL_SHORT;
-	}
-	break;
-	case asset::EF_R16G16B16_UNORM:
-	{
-		colorformat = GL_RGB;
-		type = GL_UNSIGNED_SHORT;
-	}
-	break;
-	case asset::EF_R16G16B16A16_SNORM:
-	{
-		colorformat = GL_RGBA;
-		type = GL_SHORT;
-	}
-	break;
-	case asset::EF_R16G16B16A16_UNORM:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_SHORT;
-	}
-	break;
-	case asset::EF_R16_UINT:
-	{
-		colorformat = GL_RED_INTEGER;
-		type = GL_UNSIGNED_SHORT;
-	}
-	break;
-	case asset::EF_R16G16_UINT:
-	{
-		colorformat = GL_RG_INTEGER;
-		type = GL_UNSIGNED_SHORT;
-	}
-	break;
-	case asset::EF_R16G16B16_UINT:
-	{
-		colorformat = GL_RGB_INTEGER;
-		type = GL_UNSIGNED_SHORT;
-	}
-	break;
-	case asset::EF_R16G16B16A16_UINT:
-	{
-		colorformat = GL_RGBA_INTEGER;
-		type = GL_UNSIGNED_SHORT;
-	}
-	break;
-	case asset::EF_R16_SINT:
-	{
-		colorformat = GL_RED_INTEGER;
-		type = GL_SHORT;
-	}
-	break;
-	case asset::EF_R16G16_SINT:
-	{
-		colorformat = GL_RG_INTEGER;
-		type = GL_SHORT;
-	}
-	break;
-	case asset::EF_R16G16B16_SINT:
-	{
-		colorformat = GL_RGB_INTEGER;
-		type = GL_SHORT;
-	}
-	break;
-	case asset::EF_R16G16B16A16_SINT:
-	{
-		colorformat = GL_RGBA_INTEGER;
-		type = GL_SHORT;
-	}
-	break;
-	case asset::EF_R32_UINT:
-	{
-		colorformat = GL_RED_INTEGER;
-		type = GL_UNSIGNED_INT;
-	}
-	break;
-	case asset::EF_R32G32_UINT:
-	{
-		colorformat = GL_RG_INTEGER;
-		type = GL_UNSIGNED_INT;
-	}
-	break;
-	case asset::EF_R32G32B32_UINT:
-	{
-		colorformat = GL_RGB_INTEGER;
-		type = GL_UNSIGNED_INT;
-	}
-	break;
-	case asset::EF_R32G32B32A32_UINT:
-	{
-		colorformat = GL_RGBA_INTEGER;
-		type = GL_UNSIGNED_INT;
-	}
-	break;
-	case asset::EF_R32_SINT:
-	{
-		colorformat = GL_RED_INTEGER;
-		type = GL_INT;
-	}
-	break;
-	case asset::EF_R32G32_SINT:
-	{
-		colorformat = GL_RG_INTEGER;
-		type = GL_INT;
-	}
-	break;
-	case asset::EF_R32G32B32_SINT:
-	{
-		colorformat = GL_RGB_INTEGER;
-		type = GL_INT;
-	}
-	break;
-	case asset::EF_R32G32B32A32_SINT:
-	{
-		colorformat = GL_RGBA_INTEGER;
-		type = GL_INT;
-	}
-	break;
-	case asset::EF_BC1_RGB_UNORM_BLOCK:
-	{
-		colorformat = GL_RGB;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_BC1_RGBA_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_BC2_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_BC3_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_BC1_RGB_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_BC1_RGBA_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_BC2_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_BC3_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_BC7_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_BC7_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_BC6H_SFLOAT_BLOCK:
-	{
-		colorformat = GL_RGB;
-		type = GL_HALF_FLOAT;
-	}
-	break;
-	case asset::EF_BC6H_UFLOAT_BLOCK:
-	{
-		colorformat = GL_RGB;
-		type = GL_HALF_FLOAT;
-	}
-	break;
-	case asset::EF_ETC2_R8G8B8_UNORM_BLOCK:
-	{
-		colorformat = GL_RGB;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_ETC2_R8G8B8_SRGB_BLOCK:
-	{
-		colorformat = GL_RGB;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_ETC2_R8G8B8A1_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_ETC2_R8G8B8A1_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_ETC2_R8G8B8A8_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_ETC2_R8G8B8A8_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_EAC_R11G11_UNORM_BLOCK:
-	{
-		colorformat = GL_RG;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_EAC_R11G11_SNORM_BLOCK:
-	{
-		colorformat = GL_RG;
-		type = GL_BYTE;
-	}
-	break;
-	case asset::EF_EAC_R11_UNORM_BLOCK:
-	{
-		colorformat = GL_RED;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_EAC_R11_SNORM_BLOCK:
-	{
-		colorformat = GL_RED;
-		type = GL_BYTE;
-	}
-	break;
-	case EF_ASTC_4x4_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_5x4_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_5x5_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_6x5_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_6x6_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_8x5_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_8x6_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_8x8_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_10x5_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_10x6_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_10x8_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_10x10_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_12x10_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_12x12_UNORM_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_4x4_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_5x4_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_5x5_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_6x5_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_6x6_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_8x5_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_8x6_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_8x8_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_10x5_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_10x6_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_10x8_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_10x10_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_12x10_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case EF_ASTC_12x12_SRGB_BLOCK:
-	{
-		colorformat = GL_RGBA;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	case asset::EF_E5B9G9R9_UFLOAT_PACK32:
-	{
-		colorformat = GL_RGB;
-		type = GL_UNSIGNED_INT_5_9_9_9_REV;
-	}
-	break;
-	/// this is totally wrong but safe - most probs have to reupload
-	case asset::EF_D16_UNORM:
-	{
-		colorformat = GL_DEPTH;
-		type = GL_UNSIGNED_SHORT;
-	}
-	break;
-	case asset::EF_X8_D24_UNORM_PACK32:
-	{
-		colorformat = GL_DEPTH;
-		type = GL_UNSIGNED_SHORT;
-	}
-	break;
-	case asset::EF_D24_UNORM_S8_UINT:
-	{
-		colorformat = GL_DEPTH_STENCIL;
-		type = GL_UNSIGNED_INT_24_8;
-	}
-	break;
-	case asset::EF_D32_SFLOAT:
-	{
-		colorformat = GL_DEPTH;
-		type = GL_FLOAT;
-	}
-	break;
-	case asset::EF_D32_SFLOAT_S8_UINT:
-	{
-		colorformat = GL_DEPTH_STENCIL;
-		type = GL_FLOAT_32_UNSIGNED_INT_24_8_REV;
-	}
-	break;
-	case asset::EF_S8_UINT:
-	{
-		colorformat = GL_STENCIL;
-		type = GL_UNSIGNED_BYTE;
-	}
-	break;
-	default:
+		case asset::EF_R8_SNORM:
+		{
+			colorformat = GL_RED;
+			type = GL_BYTE;
+		}
 		break;
+		case asset::EF_R8_UNORM:
+		{
+			colorformat = GL_RED;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_R8_SRGB:
+		{
+			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_sRGB_R8])
+				break;
+			colorformat = GL_RED;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_R8G8_SNORM:
+		{
+			colorformat = GL_RG;
+			type = GL_BYTE;
+		}
+		break;
+		case asset::EF_R8G8_UNORM:
+		{
+			colorformat = GL_RG;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_R8G8_SRGB:
+		{
+			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_sRGB_RG8])
+				break;
+			colorformat = GL_RG;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_R8G8B8_SNORM:
+			colorformat = GL_RGB;
+			type = GL_BYTE;
+			break;
+		case asset::EF_R8G8B8_UNORM:
+			colorformat = GL_RGB;
+			type = GL_UNSIGNED_BYTE;
+			break;
+		case asset::EF_B8G8R8A8_SNORM:
+			colorformat = GL_BGRA_EXT;
+			type = GL_BYTE;
+			break;
+		case asset::EF_B8G8R8A8_UNORM:
+			colorformat = GL_BGRA_EXT;
+			type = GL_UNSIGNED_INT_8_8_8_8_REV;
+			break;
+		case asset::EF_B8G8R8A8_SRGB:
+			colorformat = GL_BGRA_EXT;
+			type = GL_UNSIGNED_INT_8_8_8_8_REV;
+			break;
+		case asset::EF_R8G8B8A8_SNORM:
+			colorformat = GL_RGBA;
+			type = GL_BYTE;
+			break;
+		case asset::EF_R8G8B8A8_UNORM:
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+			break;
+		case asset::EF_R8_UINT:
+		{
+			colorformat = GL_RED_INTEGER;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_R8G8_UINT:
+		{
+			colorformat = GL_RG_INTEGER;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_R8G8B8_UINT:
+		{
+			colorformat = GL_RGB_INTEGER;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_R8G8B8A8_UINT:
+		{
+			colorformat = GL_RGBA_INTEGER;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_R8_SINT:
+		{
+			colorformat = GL_RED_INTEGER;
+			type = GL_BYTE;
+		}
+		break;
+		case asset::EF_R8G8_SINT:
+		{
+			colorformat = GL_RG_INTEGER;
+			type = GL_BYTE;
+		}
+		break;
+		case asset::EF_R8G8B8_SINT:
+		{
+			colorformat = GL_RGB_INTEGER;
+			type = GL_BYTE;
+		}
+		break;
+		case asset::EF_R8G8B8_SRGB:
+		{
+			colorformat = GL_RGB;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_R8G8B8A8_SRGB:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_R8G8B8A8_SINT:
+		{
+			colorformat = GL_RGBA_INTEGER;
+			type = GL_BYTE;
+		}
+		break;
+		case asset::EF_R16_SNORM:
+		{
+			colorformat = GL_RED;
+			type = GL_SHORT;
+		}
+		break;
+		case asset::EF_R16_UNORM:
+		{
+			colorformat = GL_RED;
+			type = GL_UNSIGNED_SHORT;
+		}
+		break;
+		case asset::EF_R16G16_SNORM:
+		{
+			colorformat = GL_RG;
+			type = GL_SHORT;
+		}
+		break;
+		case asset::EF_R16G16_UNORM:
+		{
+			colorformat = GL_RG;
+			type = GL_UNSIGNED_SHORT;
+		}
+		break;
+		case asset::EF_R16G16B16_SNORM:
+		{
+			colorformat = GL_RGB;
+			type = GL_SHORT;
+		}
+		break;
+		case asset::EF_R16G16B16_UNORM:
+		{
+			colorformat = GL_RGB;
+			type = GL_UNSIGNED_SHORT;
+		}
+		break;
+		case asset::EF_R16G16B16A16_SNORM:
+		{
+			colorformat = GL_RGBA;
+			type = GL_SHORT;
+		}
+		break;
+		case asset::EF_R16G16B16A16_UNORM:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_SHORT;
+		}
+		break;
+		case asset::EF_R16_UINT:
+		{
+			colorformat = GL_RED_INTEGER;
+			type = GL_UNSIGNED_SHORT;
+		}
+		break;
+		case asset::EF_R16G16_UINT:
+		{
+			colorformat = GL_RG_INTEGER;
+			type = GL_UNSIGNED_SHORT;
+		}
+		break;
+		case asset::EF_R16G16B16_UINT:
+		{
+			colorformat = GL_RGB_INTEGER;
+			type = GL_UNSIGNED_SHORT;
+		}
+		break;
+		case asset::EF_R16G16B16A16_UINT:
+		{
+			colorformat = GL_RGBA_INTEGER;
+			type = GL_UNSIGNED_SHORT;
+		}
+		break;
+		case asset::EF_R16_SINT:
+		{
+			colorformat = GL_RED_INTEGER;
+			type = GL_SHORT;
+		}
+		break;
+		case asset::EF_R16G16_SINT:
+		{
+			colorformat = GL_RG_INTEGER;
+			type = GL_SHORT;
+		}
+		break;
+		case asset::EF_R16G16B16_SINT:
+		{
+			colorformat = GL_RGB_INTEGER;
+			type = GL_SHORT;
+		}
+		break;
+		case asset::EF_R16G16B16A16_SINT:
+		{
+			colorformat = GL_RGBA_INTEGER;
+			type = GL_SHORT;
+		}
+		break;
+		case asset::EF_R32_UINT:
+		{
+			colorformat = GL_RED_INTEGER;
+			type = GL_UNSIGNED_INT;
+		}
+		break;
+		case asset::EF_R32G32_UINT:
+		{
+			colorformat = GL_RG_INTEGER;
+			type = GL_UNSIGNED_INT;
+		}
+		break;
+		case asset::EF_R32G32B32_UINT:
+		{
+			colorformat = GL_RGB_INTEGER;
+			type = GL_UNSIGNED_INT;
+		}
+		break;
+		case asset::EF_R32G32B32A32_UINT:
+		{
+			colorformat = GL_RGBA_INTEGER;
+			type = GL_UNSIGNED_INT;
+		}
+		break;
+		case asset::EF_R32_SINT:
+		{
+			colorformat = GL_RED_INTEGER;
+			type = GL_INT;
+		}
+		break;
+		case asset::EF_R32G32_SINT:
+		{
+			colorformat = GL_RG_INTEGER;
+			type = GL_INT;
+		}
+		break;
+		case asset::EF_R32G32B32_SINT:
+		{
+			colorformat = GL_RGB_INTEGER;
+			type = GL_INT;
+		}
+		break;
+		case asset::EF_R32G32B32A32_SINT:
+		{
+			colorformat = GL_RGBA_INTEGER;
+			type = GL_INT;
+		}
+		break;
+		case asset::EF_BC1_RGB_UNORM_BLOCK:
+		{
+			colorformat = GL_RGB;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_BC1_RGBA_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_BC2_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_BC3_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_BC1_RGB_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_BC1_RGBA_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_BC2_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_BC3_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_BC7_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_BC7_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_BC6H_SFLOAT_BLOCK:
+		{
+			colorformat = GL_RGB;
+			type = GL_HALF_FLOAT;
+		}
+		break;
+		case asset::EF_BC6H_UFLOAT_BLOCK:
+		{
+			colorformat = GL_RGB;
+			type = GL_HALF_FLOAT;
+		}
+		break;
+		case asset::EF_ETC2_R8G8B8_UNORM_BLOCK:
+		{
+			colorformat = GL_RGB;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_ETC2_R8G8B8_SRGB_BLOCK:
+		{
+			colorformat = GL_RGB;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_ETC2_R8G8B8A1_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_ETC2_R8G8B8A1_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_ETC2_R8G8B8A8_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_ETC2_R8G8B8A8_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_EAC_R11G11_UNORM_BLOCK:
+		{
+			colorformat = GL_RG;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_EAC_R11G11_SNORM_BLOCK:
+		{
+			colorformat = GL_RG;
+			type = GL_BYTE;
+		}
+		break;
+		case asset::EF_EAC_R11_UNORM_BLOCK:
+		{
+			colorformat = GL_RED;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_EAC_R11_SNORM_BLOCK:
+		{
+			colorformat = GL_RED;
+			type = GL_BYTE;
+		}
+		break;
+		case EF_ASTC_4x4_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_5x4_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_5x5_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_6x5_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_6x6_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_8x5_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_8x6_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_8x8_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_10x5_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_10x6_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_10x8_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_10x10_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_12x10_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_12x12_UNORM_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_4x4_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_5x4_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_5x5_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_6x5_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_6x6_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_8x5_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_8x6_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_8x8_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_10x5_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_10x6_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_10x8_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_10x10_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_12x10_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case EF_ASTC_12x12_SRGB_BLOCK:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_E5B9G9R9_UFLOAT_PACK32:
+		{
+			colorformat = GL_RGB;
+			type = GL_UNSIGNED_INT_5_9_9_9_REV;
+		}
+		break;
+		/// this is totally wrong but safe - most probs have to reupload
+		case asset::EF_D16_UNORM:
+		{
+			colorformat = GL_DEPTH;
+			type = GL_UNSIGNED_SHORT;
+		}
+		break;
+		case asset::EF_X8_D24_UNORM_PACK32:
+		{
+			colorformat = GL_DEPTH;
+			type = GL_UNSIGNED_SHORT;
+		}
+		break;
+		case asset::EF_D24_UNORM_S8_UINT:
+		{
+			colorformat = GL_DEPTH_STENCIL;
+			type = GL_UNSIGNED_INT_24_8;
+		}
+		break;
+		case asset::EF_D32_SFLOAT:
+		{
+			colorformat = GL_DEPTH;
+			type = GL_FLOAT;
+		}
+		break;
+		case asset::EF_D32_SFLOAT_S8_UINT:
+		{
+			colorformat = GL_DEPTH_STENCIL;
+			type = GL_FLOAT_32_UNSIGNED_INT_24_8_REV;
+		}
+		break;
+		case asset::EF_S8_UINT:
+		{
+			colorformat = GL_STENCIL;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		default:
+			break;
 	}
 
 	if (colorformat == GL_INVALID_ENUM || type == GL_INVALID_ENUM)
