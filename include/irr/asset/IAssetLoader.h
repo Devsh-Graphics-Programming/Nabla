@@ -48,7 +48,6 @@ namespace asset
 	An IAssetLoader can only be removed/deregistered by its original pointer or global loader index.
 
     @see IAssetLoader::SAssetLoadParams
-	@see IReferenceCounted::grab()
 	@see IAsset
 	@see IAssetManager
 	@see IAssetWriter

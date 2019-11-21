@@ -59,17 +59,13 @@ class ISpecializationInfo : public core::IReferenceCounted
 	protected:
 		~ISpecializationInfo()
 		{
-			if (m_backingBuffer)
-				m_backingBuffer->drop();
 		}
 
 	public:
 		//! _entries must be sorted!
-		ISpecializationInfo(core::vector<SSpecializationMapEntry>&& _entries, ICPUBuffer* _backingBuff, const std::string& _entryPoint, E_SHADER_STAGE _ss) : 
-			m_entries{std::move(_entries)}, m_backingBuffer{_backingBuff}, entryPoint{_entryPoint}, shaderStage{_ss}
+		ISpecializationInfo(core::vector<SSpecializationMapEntry>&& _entries, core::smart_refctd_ptr<ICPUBuffer>&& _backingBuff, const std::string& _entryPoint, E_SHADER_STAGE _ss) : 
+			m_entries{std::move(_entries)}, m_backingBuffer(std::move(_backingBuff)), entryPoint{_entryPoint}, shaderStage{_ss}
 		{
-			if (m_backingBuffer)
-				m_backingBuffer->grab();
 		}
 
 		inline std::pair<const void*, size_t> getSpecializationByteValue(uint32_t _specConstID) const
@@ -90,7 +86,7 @@ class ISpecializationInfo : public core::IReferenceCounted
 
 	private:
 		core::vector<SSpecializationMapEntry> m_entries;
-		ICPUBuffer* m_backingBuffer = nullptr;
+		core::smart_refctd_ptr<ICPUBuffer> m_backingBuffer;
 };
 
 }

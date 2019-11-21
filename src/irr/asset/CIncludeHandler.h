@@ -25,8 +25,8 @@ public:
     CIncludeHandler(io::IFileSystem* _filesystem)
     {
         // TODO It has to be reworked in the future
-        m_includers.emplace_back(new CFilesystemIncluder(_filesystem), core::dont_grab);
-        m_includers.emplace_back(new CBuiltinIncluder, core::dont_grab);
+        m_includers.emplace_back(core::make_smart_refctd_ptr<CFilesystemIncluder>(_filesystem));
+        m_includers.emplace_back(core::make_smart_refctd_ptr<CBuiltinIncluder>());
     }
 
     std::string getIncludeStandard(const std::string& _path) const override

@@ -157,7 +157,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asse
     reqs.vulkanReqs.size = addrAllctr.get_allocated_size();
     reqs.vulkanReqs.alignment = alignment;
 
-    auto gpubuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createGPUBufferOnDedMem(reqs, true), core::dont_grab); // TODO: full smart pointer + streaming staging buffer
+	auto gpubuffer = m_driver->createGPUBufferOnDedMem(reqs);
 
     for (size_t i = 0u; i < res->size(); ++i)
     {
@@ -165,8 +165,8 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asse
 		if (!output)
 			continue;
 
+		m_driver->updateBufferRangeViaStagingBuffer(gpubuffer.get(), output->getOffset(), _begin[i]->getSize(), _begin[i]->getPointer());
         output->setBuffer(core::smart_refctd_ptr(gpubuffer));
-        gpubuffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(output->getOffset(), _begin[i]->getSize()), _begin[i]->getPointer());
     }
 
     return res;
@@ -325,8 +325,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUImage** const _begin, asset
 		if (count)
 		{
 			auto tmpBuff = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuimg->getBuffer()->getSize(),cpuimg->getBuffer()->getPointer());
-			m_driver->copyBufferToImage(tmpBuff,gpuimg.get(),count,cpuimg->getRegions().begin());
-			tmpBuff->drop();
+			m_driver->copyBufferToImage(tmpBuff.get(),gpuimg.get(),count,cpuimg->getRegions().begin());
 		}
 
 		res->operator[](i) = std::move(gpuimg);

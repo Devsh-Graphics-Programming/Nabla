@@ -18,7 +18,7 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 			if (!validateCreationParameters(params))
 				return nullptr;
 
-			return core::smart_refctd_ptr<ICPUImageView>(new ICPUImageView(std::move(params)), core::dont_grab);
+			return core::make_smart_refctd_ptr<ICPUImageView>(std::move(params));
 		}
 		ICPUImageView(SCreationParams&& _params) : IImageView<ICPUImage>(std::move(_params)) {}
 

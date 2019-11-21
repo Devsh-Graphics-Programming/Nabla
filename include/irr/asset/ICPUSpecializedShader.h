@@ -18,8 +18,6 @@ class ICPUSpecializedShader : public IAsset
 		ICPUSpecializedShader(core::smart_refctd_ptr<ICPUShader>&& _unspecialized, core::smart_refctd_ptr<const ISpecializationInfo>&& _spc)
 			: m_unspecialized(std::move(_unspecialized)), m_specInfo(std::move(_spc))
 		{
-			m_unspecialized->grab();
-			m_specInfo->grab();
 		}
 
 		IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SPECIALIZED_SHADER; }

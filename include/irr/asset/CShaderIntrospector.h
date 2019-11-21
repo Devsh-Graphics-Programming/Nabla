@@ -76,7 +76,7 @@ class CShaderIntrospector : public core::Uncopyable
 		};
 
 		//In the future there's also going list of enabled extensions
-		CShaderIntrospector(const IGLSLCompiler* _glslcomp, const SEntryPoint_Stage_Extensions& _params) : m_glslCompiler(_glslcomp,core::dont_grab), m_params(_params) {}
+		CShaderIntrospector(const IGLSLCompiler* _glslcomp, const SEntryPoint_Stage_Extensions& _params) : m_glslCompiler(_glslcomp), m_params(_params) {}
 
 		const CIntrospectionData* introspect(const ICPUShader* _shader);
 	private:
@@ -85,7 +85,7 @@ class CShaderIntrospector : public core::Uncopyable
 		size_t calcBytesizeforType(spirv_cross::Compiler& _comp, const spirv_cross::SPIRType& _type) const;
 
 	private:
-		core::smart_refctd_ptr<const IGLSLCompiler> m_glslCompiler;
+		const IGLSLCompiler* m_glslCompiler;
 		SEntryPoint_Stage_Extensions m_params;
 		core::unordered_map<core::smart_refctd_ptr<const ICPUShader>, core::smart_refctd_ptr<CIntrospectionData>> m_introspectionCache;
 };

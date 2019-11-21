@@ -1259,8 +1259,7 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     }
 
     auto ctx = getThreadContext_helper(false);
-    COpenGLSpecializedShader* gpuSpecialized = new COpenGLSpecializedShader(Params.AuxGLContexts + 1u, ctx->ID, this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, introspection);
-    return core::smart_refctd_ptr<COpenGLSpecializedShader>(gpuSpecialized, core::dont_grab);
+    return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(Params.AuxGLContexts + 1u, ctx->ID, this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, introspection);
 }
 
 core::smart_refctd_ptr<IGPUBufferView> COpenGLDriver::createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset, size_t _size)
@@ -1356,7 +1355,7 @@ core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(
     return core::make_smart_refctd_ptr<COpenGLDescriptorSet>(std::move(_layout));
 }
 
-IGPUBuffer* COpenGLDriver::createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData)
+core::smart_refctd_ptr<IGPUBuffer> COpenGLDriver::createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData)
 {
     auto extraMreqs = initialMreqs;
 
@@ -1366,7 +1365,7 @@ IGPUBuffer* COpenGLDriver::createGPUBufferOnDedMem(const IDriverMemoryBacked::SD
     if ((extraMreqs.mappingCapability&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ) && !runningInRenderDoc)
         extraMreqs.mappingCapability |= IDriverMemoryAllocation::EMCF_COHERENT;
 
-    return new COpenGLBuffer(extraMreqs, canModifySubData);
+    return core::make_smart_refctd_ptr<COpenGLBuffer>(extraMreqs, canModifySubData);
 }
 
 

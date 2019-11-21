@@ -41,7 +41,7 @@ namespace scene
 				const core::vector3df& rotation = core::vector3df(0,0,0),
 				const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f))
 			:   IDummyTransformationSceneNode(parent,position,rotation,scale),
-                SceneManager(mgr), renderFence(0), fenceBehaviour(EFRB_SKIP_DRAW),
+                SceneManager(mgr), renderFence(), fenceBehaviour(EFRB_SKIP_DRAW),
                 ID(id), AutomaticCullingState(true), mobid(0), mobtype(0), IsVisible(true),
                 IsDebugObject(false), staticmeshid(0),blockposX(0),blockposY(0),blockposZ(0), renderPriority(0x80000000u)
 		{
@@ -59,14 +59,8 @@ namespace scene
             EFRB_GPU_WAIT,
             EFRB_COUNT
         };
-        void useFenceForRender(video::IDriverFence* fence, const E_FENCE_RENDER_BEHAVIOUR& behaviour=EFRB_SKIP_DRAW)
+        void useFenceForRender(core::smart_refctd_ptr<video::IDriverFence>&& fence, const E_FENCE_RENDER_BEHAVIOUR& behaviour=EFRB_SKIP_DRAW)
         {
-            if (fence)
-                fence->grab();
-
-            if (renderFence)
-                renderFence->drop();
-
             renderFence = fence;
             fenceBehaviour = behaviour;
         }
@@ -351,8 +345,6 @@ namespace scene
 		//! Destructor
 		virtual ~ISceneNode()
 		{
-            if (renderFence)
-                renderFence->drop();
 		}
 
 		//! A clone function for the ISceneNode members.
@@ -390,7 +382,7 @@ namespace scene
 		ISceneManager* SceneManager;
 
 		//!
-		video::IDriverFence* renderFence;
+		core::smart_refctd_ptr<video::IDriverFence> renderFence;
 		E_FENCE_RENDER_BEHAVIOUR fenceBehaviour;
 
 		inline bool canProceedPastFence()
@@ -410,7 +402,7 @@ namespace scene
                         case video::EDFR_CONDITION_SATISFIED:
                         case video::EDFR_ALREADY_SIGNALED:
                             renderFence->drop();
-                            renderFence = NULL;
+                            renderFence = nullptr;
                             return true;
                             break;
                     }
@@ -425,8 +417,7 @@ namespace scene
 
                         if (rv!=video::EDFR_FAIL)
                         {
-                            renderFence->drop();
-                            renderFence = NULL;
+                            renderFence = nullptr;
                             return true;
                         }
                         else
@@ -435,8 +426,7 @@ namespace scene
                     break;
                 case EFRB_GPU_WAIT:
                     renderFence->waitGPU();
-                    renderFence->drop();
-                    renderFence = NULL;
+                    renderFence = nullptr;
                     return true;
                     break;
                 default:

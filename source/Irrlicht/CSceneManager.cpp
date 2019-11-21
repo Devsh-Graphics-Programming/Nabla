@@ -174,7 +174,7 @@ CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver
         reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
         reqs.prefersDedicatedAllocation = true;
         reqs.requiresDedicatedAllocation = true;
-        redundantMeshDataBuf = core::smart_refctd_ptr<video::IGPUBuffer>(SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true),core::dont_grab);
+        redundantMeshDataBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
         if (redundantMeshDataBuf)
             redundantMeshDataBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),tmpMem);
         _IRR_ALIGNED_FREE(tmpMem);

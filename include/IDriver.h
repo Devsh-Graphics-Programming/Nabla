@@ -175,7 +175,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 		virtual bool bindBufferMemory(uint32_t bindInfoCount, const SBindBufferMemoryInfo* pBindInfos) { return false; }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline IGPUBuffer* createDeviceLocalGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createDeviceLocalGPUBufferOnDedMem(size_t size)
         {
             auto reqs = getDeviceLocalGPUMemoryReqs();
             reqs.vulkanReqs.size = size;
@@ -183,7 +183,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline IGPUBuffer* createSpilloverGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createSpilloverGPUBufferOnDedMem(size_t size)
         {
             auto reqs = getSpilloverGPUMemoryReqs();
             reqs.vulkanReqs.size = size;
@@ -191,7 +191,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline IGPUBuffer* createUpStreamingGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createUpStreamingGPUBufferOnDedMem(size_t size)
         {
             auto reqs = getUpStreamingMemoryReqs();
             reqs.vulkanReqs.size = size;
@@ -199,7 +199,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline IGPUBuffer* createDownStreamingGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createDownStreamingGPUBufferOnDedMem(size_t size)
         {
             auto reqs = getDownStreamingMemoryReqs();
             reqs.vulkanReqs.size = size;
@@ -207,7 +207,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         }
 
         //! Creates the buffer, allocates memory dedicated memory and binds it at once.
-        inline IGPUBuffer* createCPUSideGPUVisibleGPUBufferOnDedMem(size_t size)
+        inline core::smart_refctd_ptr<IGPUBuffer> createCPUSideGPUVisibleGPUBufferOnDedMem(size_t size)
         {
             auto reqs = getCPUSideGPUVisibleGPUMemoryReqs();
             reqs.vulkanReqs.size = size;
@@ -215,14 +215,14 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         }
 
         //! Low level function used to implement the above, use with caution
-        virtual IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
+        virtual core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData=false) {return nullptr;}
 
 		//!
-		inline IGPUBuffer* createFilledDeviceLocalGPUBufferOnDedMem(size_t size, const void* data)
+		inline core::smart_refctd_ptr<IGPUBuffer> createFilledDeviceLocalGPUBufferOnDedMem(size_t size, const void* data)
 		{
-			IGPUBuffer* retval = createDeviceLocalGPUBufferOnDedMem(size);
+			auto retval = createDeviceLocalGPUBufferOnDedMem(size);
 
-			updateBufferRangeViaStagingBuffer(retval, 0u, size, data);
+			updateBufferRangeViaStagingBuffer(retval.get(), 0u, size, data);
 
 			return retval;
 		}
@@ -354,6 +354,12 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
             }
         }
 
+
+		//! Fill out the descriptor sets with descriptors
+		virtual void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) {}
+
+
+	//====================== THIS STUFF NEEDS A REWRITE =====================
         //! Creates a framebuffer object with no attachments
         virtual IFrameBuffer* addFrameBuffer() {return nullptr;}
 
@@ -362,10 +368,6 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         virtual IQueryObject* createPrimitivesGeneratedQuery() {return nullptr;}
         virtual IQueryObject* createElapsedTimeQuery() {return nullptr;}
         virtual IGPUTimestampQuery* createTimestampQuery() {return nullptr;}
-
-
-		//! Fill out the descriptor sets with descriptors
-		virtual void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) {}
 
 
 		//! Utility function to convert all your CPU asset data into GPU objects ready for use
