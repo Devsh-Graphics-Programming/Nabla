@@ -274,7 +274,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 			
 
 		//! Create a shader from SPIR-V or GLSL source stored in a ICPUShader (@see ICPUShader)
-        virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(const asset::ICPUShader* _cpushader) { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>&& _cpushader) { return nullptr; }
 
 		//! Specialize the plain shader (@see ICPUSpecializedShader)
         virtual core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) { return nullptr; }

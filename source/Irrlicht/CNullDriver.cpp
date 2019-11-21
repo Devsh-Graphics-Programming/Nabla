@@ -111,7 +111,7 @@ void CNullDriver::removeAllFrameBuffers()
 {
 }
 
-void CNullDriver::bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, const IGPUPipelineLayout** _destPplnLayouts)
+void CNullDriver::bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** _destPplnLayouts)
 {
     uint32_t compatibilityLimits[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{}; //actually more like "compatibility limit + 1" (i.e. 0 mean not comaptible at all)
     for (uint32_t i=0u; i<IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)

@@ -60,7 +60,7 @@ namespace video
         virtual bool bindComputePipeline(video::IGPUComputePipeline* _cpipeline) = 0;
 
         virtual bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
-            uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) = 0;
+            uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) = 0;
 
         virtual bool dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint32_t _groupCountZ) = 0;
         virtual bool dispatchIndirect(const IGPUBuffer* _indirectBuf, size_t _offset) = 0;

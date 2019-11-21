@@ -318,7 +318,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUImage** const _begin, asset
     {
         const asset::ICPUImage* cpuimg = _begin[i];
         asset::IImage::SCreationParams params = cpuimg->getCreationParameters();
-        auto gpuimg = m_driver->createGPUImage(std::move(params));
+        auto gpuimg = m_driver->createDeviceLocalGPUImageOnDedMem(std::move(params));
 
 		auto regions = cpuimg->getRegions();
 		auto count = regions.length();
@@ -341,10 +341,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUShader** const _begin, asse
     auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUShader> >(assetCount);
 
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
-    {
-        asset::ICPUShader* cpushader = _begin[i];
-        res->operator[](i) = m_driver->createGPUShader(cpushader);
-    }
+        res->operator[](i) = m_driver->createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>(_begin[i]));
 
     return res;
 }

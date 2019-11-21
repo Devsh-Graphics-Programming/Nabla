@@ -611,7 +611,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         bool bindComputePipeline(video::IGPUComputePipeline* _cpipeline) override;
 
         bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
-            uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override;
+            uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override;
 
 		IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override;
 
@@ -619,7 +619,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
 		core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override;
 
-        core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& _params) override;
+		core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override;
 
         core::smart_refctd_ptr<IGPUImageView> createGPUImageView(IGPUImageView::SCreationParams&& params) override;
 
@@ -629,7 +629,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         bool pushConstants(const IGPUPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values) override;
 
 
-        core::smart_refctd_ptr<IGPUShader> createGPUShader(const asset::ICPUShader* _cpushader) override;
+        core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>&& _cpushader) override;
         core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) override;
 
         core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override;

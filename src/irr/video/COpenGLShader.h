@@ -12,7 +12,7 @@ namespace video
 class COpenGLShader : public IGPUShader
 {
 public:
-    COpenGLShader(const asset::ICPUShader* _cpushader) : m_cpuShader(_cpushader) {}
+    COpenGLShader(core::smart_refctd_ptr<const asset::ICPUShader>&& _cpushader) : m_cpuShader(std::move(_cpushader)) {}
 
     const asset::ICPUShader* getCPUCounterpart() const { return m_cpuShader.get(); }
 

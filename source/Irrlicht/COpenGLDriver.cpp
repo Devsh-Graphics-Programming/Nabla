@@ -1124,7 +1124,7 @@ bool COpenGLDriver::bindComputePipeline(video::IGPUComputePipeline* _cpipeline)
 }
 
 bool COpenGLDriver::bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
-    uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets)
+    uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets)
 {
     //TODO take into account `_pipelineType` param and adjust this function when compute pipelines come in
     if (_first + _count >= IGPUPipelineLayout::DESCRIPTOR_SET_COUNT)
@@ -1216,9 +1216,9 @@ bool COpenGLDriver::pushConstants(const IGPUPipelineLayout* _layout, uint32_t _s
     return true;
 }
 
-core::smart_refctd_ptr<IGPUShader> COpenGLDriver::createGPUShader(const asset::ICPUShader* _cpushader)
+core::smart_refctd_ptr<IGPUShader> COpenGLDriver::createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>&& _cpushader)
 {
-    return core::make_smart_refctd_ptr<COpenGLShader>(_cpushader);
+    return core::make_smart_refctd_ptr<COpenGLShader>(std::move(_cpushader));
 }
 
 core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo)
@@ -1291,7 +1291,7 @@ core::smart_refctd_ptr<IGPUSampler> COpenGLDriver::createGPUSampler(const IGPUSa
     return core::make_smart_refctd_ptr<COpenGLSampler>(_params);
 }
 
-core::smart_refctd_ptr<IGPUImage> COpenGLDriver::createGPUImage(asset::IImage::SCreationParams&& _params)
+core::smart_refctd_ptr<IGPUImage> COpenGLDriver::createGPUImageOnDedMem(IGPUImage::SCreationParams&& _params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs)
 {
     if (!asset::IImage::validateCreationParameters(_params))
         return nullptr;
@@ -3014,7 +3014,7 @@ namespace video
 // -----------------------------------
 #ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
-	io::IFileSystem* io, CIrrDeviceWin32* device, const const asset::IGLSLCompiler* glslcomp)
+	io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp)
 {
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device, glslcomp);

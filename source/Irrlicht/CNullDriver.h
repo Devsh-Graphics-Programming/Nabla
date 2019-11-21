@@ -49,7 +49,7 @@ class CNullDriver : public IVideoDriver
         bool bindComputePipeline(video::IGPUComputePipeline* _cpipeline) override { return false; }
 
         bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
-            uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override 
+            uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override 
         { 
             return false; 
         }
@@ -246,8 +246,8 @@ class CNullDriver : public IVideoDriver
         uint32_t getMaxImageBindings() const override { return 0u; }
 
 	protected:
-        void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets,
-            const IGPUPipelineLayout** _destPplnLayouts);
+        void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count,
+										const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** _destPplnLayouts);
 
 		// prints renderer version
 		void printVersion();
