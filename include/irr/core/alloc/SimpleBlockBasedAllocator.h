@@ -131,9 +131,11 @@ class SimpleBlockBasedAllocator
 		{
 			for (size_type i=0u; i<maxBlockCount; i++)
 			{
-				if (blocks[i])
+				auto& block = blocks[i];
+				if (!block)
 					continue;
-				size_type addr = p-blocks[i]->data();
+                    
+				size_type addr = p-block->data();
 				if (addr<blockSize)
 				{
 					block->free(addr,bytes);
