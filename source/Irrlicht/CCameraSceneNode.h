@@ -57,7 +57,7 @@ class CCameraSceneNode : public ICameraSceneNode
 
 		//! Sets the up vector of the camera.
 		//! \param pos: New upvector of the camera.
-		virtual void setUpVector(const core::vector3df& pos);
+		virtual void setUpVector(const core::vectorSIMDf& pos);
 
 		//! Gets the up vector of the camera.
 		//! \return Returns the up vector of the camera.

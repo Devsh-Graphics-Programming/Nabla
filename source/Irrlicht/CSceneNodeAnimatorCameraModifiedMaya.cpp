@@ -299,9 +299,9 @@ namespace irr
 
 			// jox: fixed bug: jitter when rotating to the top and bottom of y
 
-			core::vector3df UpVector(0.0f, 1.0f, 0.0f);
-			UpVector.rotateXYBy(-nRotY, core::vector3df(0.0f, 0.0f, 0.0f));
-			UpVector.rotateXZBy(-nRotX + 180.0f, core::vector3df(0.0f, 0.0f, 0.0f));
+			core::vectorSIMDf UpVector(0.0f, 1.0f, 0.0f);
+            UpVector.rotateXYByRAD(-core::radians(nRotY));
+            UpVector.rotateXZByRAD(core::PI<float>()-core::radians(nRotX));
 
 			camera->setUpVector(UpVector);
 		}

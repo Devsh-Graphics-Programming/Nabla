@@ -119,7 +119,7 @@ class line3d// : public AllocationOverrideDefault
 			if (d < 0.0)
 				return false;
 
-			outdistance = v - core::squareroot ( d );
+			outdistance = v - core::sqrt(d);
 			return true;
 		}
 

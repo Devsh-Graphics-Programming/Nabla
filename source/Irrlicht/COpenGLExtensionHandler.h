@@ -2686,8 +2686,10 @@ inline void COpenGLExtensionHandler::extGlBindImageTextures(GLuint first, GLsize
 {
     if (pGlBindImageTextures)
         pGlBindImageTextures(first, count, textures);
-    else {
-        for (GLuint i = 0u; i < count; ++i) {
+    else
+    {
+        for (GLsizei i=0; i<count; i++)
+        {
             if (!textures || textures[i] == 0u)
                 extGlBindImageTexture(first+i, 0u, 0u, GL_FALSE, 0, GL_READ_WRITE, GL_R8);
             else

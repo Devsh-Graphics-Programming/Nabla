@@ -97,14 +97,14 @@ namespace irr { namespace video
     inline void convertColor(const void* srcPix[4], void* dstPix, uint32_t _blockX, uint32_t _blockY, PolymorphicSwizzle* swizzle = nullptr)
     {
 	#define SWIZZLE(X) \
-		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(/*std::is_void<Swizzle>::value*/false) \
+		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_void<Swizzle>::value) \
 		{ \
 			if (swizzle) \
 				swizzle->operator()(X); \
 		} \
 		IRR_PSEUDO_ELSE_CONSTEXPR \
 		{ \
-			Swizzle()(X); \
+			Swizzle().operator()(X); \
 		} \
 		IRR_PSEUDO_IF_CONSTEXPR_END 
 

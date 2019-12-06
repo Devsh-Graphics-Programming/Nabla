@@ -197,18 +197,14 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 		#endif
 
 		#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceLinux* device, asset::IGLSLCompiler* glslcomp);
+		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp);
 		//! inits the GLX specific parts of the open gl driver
 		bool initDriver(CIrrDeviceLinux* device, SAuxContext* auxCtxts);
 		bool changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceLinux* device);
 		#endif
 
 		#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceSDL* device, asset::IGLSLCompiler* glslcomp);
-		#endif
-
-		#ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceMacOSX *device, asset::IGLSLCompiler* glslcomp);
+		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceSDL* device, const asset::IGLSLCompiler* glslcomp);
 		#endif
 
         inline bool isAllowedBufferViewFormat(asset::E_FORMAT _fmt) const override
@@ -824,8 +820,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
             template<E_PIPELINE_BIND_POINT>
             struct pipeline_for_bindpoint;
-            template<> struct pipeline_for_bindpoint<EPBP_GRAPHICS> { using type = COpenGLRenderpassIndependentPipeline; };
-            template<> struct pipeline_for_bindpoint<EPBP_COMPUTE > { using type = COpenGLComputePipeline; };
 
             template<E_PIPELINE_BIND_POINT PBP>
             using pipeline_for_bindpoint_t = typename pipeline_for_bindpoint<PBP>::type;
@@ -1038,6 +1032,10 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
 		E_DEVICE_TYPE DeviceType;
 	};
+    
+    
+    template<> struct COpenGLDriver::SAuxContext::pipeline_for_bindpoint<EPBP_GRAPHICS> { using type = COpenGLRenderpassIndependentPipeline; };
+    template<> struct COpenGLDriver::SAuxContext::pipeline_for_bindpoint<EPBP_COMPUTE > { using type = COpenGLComputePipeline; };
 
 } // end namespace video
 } // end namespace irr

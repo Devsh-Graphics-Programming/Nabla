@@ -105,7 +105,7 @@ class ICameraSceneNode : public ISceneNode, public IEventReceiver
 
 		//! Sets the up vector of the camera.
 		/** \param pos: New upvector of the camera. */
-		virtual void setUpVector(const core::vector3df& pos) =0;
+		virtual void setUpVector(const core::vectorSIMDf& up) =0;
 
 		//! Gets the up vector of the camera.
 		/** \return The up vector of the camera, in world space. */

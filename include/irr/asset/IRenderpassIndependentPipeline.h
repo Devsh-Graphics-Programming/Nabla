@@ -256,19 +256,26 @@ enum E_BLEND_OP : uint8_t
     EBO_BLUE_EXT
 };
 
+#include "irr/irrunpack.h"
+
 struct SColorAttachmentBlendParams
 {
     uint8_t attachmentEnabled : 1;
     uint8_t blendEnable : 1;
     uint8_t srcColorFactor : 5;
+    
     uint8_t dstColorFactor : 5;
+    
     uint8_t colorBlendOp : 6;
+    
     uint8_t srcAlphaFactor : 5;
+    
     uint8_t dstAlphaFactor : 5;
+    
     uint8_t alphaBlendOp : 2;
     //RGBA, LSB is R, MSB is A
     uint8_t colorWriteMask : 4;
-} PACK_STRUCT;
+};
 static_assert(sizeof(SColorAttachmentBlendParams)==6u, "Unexpected size of SColorAttachmentBlendParams (should be 6)");
 
 struct SBlendParams
@@ -277,10 +284,9 @@ struct SBlendParams
     uint8_t logicOpEnable : 1;
     uint8_t logicOp : 4;
     SColorAttachmentBlendParams blendParams[MAX_COLOR_ATTACHMENT_COUNT];
-} PACK_STRUCT;
+};
 static_assert(sizeof(SBlendParams)==(1u + sizeof(SColorAttachmentBlendParams)*SBlendParams::MAX_COLOR_ATTACHMENT_COUNT), "Unexpected size!");
 
-#include "irr/irrunpack.h"
 
 //TODO put into legacy namespace later
 /*
