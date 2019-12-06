@@ -44,20 +44,23 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 	public:
 		struct SDescriptorInfo
 		{
+                struct SBufferInfo
+                {
+                    size_t offset;
+                    size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
+                };
+                struct SImageInfo
+                {
+                    core::smart_refctd_ptr<typename LayoutType::sampler_type> sampler;
+                    //! Irrelevant in OpenGL backend
+                    E_IMAGE_LAYOUT imageLayout;
+                };
+                    
 				core::smart_refctd_ptr<IDescriptor> desc;
 				union
 				{
-					struct SDescriptorBufferInfo
-					{
-						size_t offset;
-						size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
-					} buffer;
-					struct SDescriptorImageInfo
-					{
-						core::smart_refctd_ptr<typename LayoutType::sampler_type> sampler;
-						//! Irrelevant in OpenGL backend
-						E_IMAGE_LAYOUT imageLayout;
-					} image;
+					SBufferInfo buffer;
+					SImageInfo image;
 				};
 
 				void assign(const SDescriptorInfo& _other, E_DESCRIPTOR_TYPE _type)

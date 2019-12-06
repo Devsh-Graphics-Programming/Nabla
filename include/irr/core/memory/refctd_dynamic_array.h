@@ -38,7 +38,8 @@ class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dyna
 {
 		friend class dynamic_array<T, allocator, refctd_dynamic_array<T, allocator> >;
 		using base_t = dynamic_array<T, allocator, refctd_dynamic_array<T, allocator> >;
-		friend class base_t;
+		//friend class base_t;
+		friend class dynamic_array<T, allocator, refctd_dynamic_array<T, allocator> >;
 
 		static_assert(sizeof(base_t) == sizeof(impl::dynamic_array_base<T, allocator>), "memory has been added to dynamic_array");
 		static_assert(sizeof(base_t) == sizeof(dynamic_array<T, allocator>),"non-CRTP and CRTP base class definitions differ in size");

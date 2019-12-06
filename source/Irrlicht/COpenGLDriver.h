@@ -824,8 +824,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
             template<E_PIPELINE_BIND_POINT>
             struct pipeline_for_bindpoint;
-            template<> struct pipeline_for_bindpoint<EPBP_GRAPHICS> { using type = COpenGLRenderpassIndependentPipeline; };
-            template<> struct pipeline_for_bindpoint<EPBP_COMPUTE > { using type = COpenGLComputePipeline; };
 
             template<E_PIPELINE_BIND_POINT PBP>
             using pipeline_for_bindpoint_t = typename pipeline_for_bindpoint<PBP>::type;
@@ -1038,6 +1036,10 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
 		E_DEVICE_TYPE DeviceType;
 	};
+    
+    
+    template<> struct COpenGLDriver::SAuxContext::pipeline_for_bindpoint<EPBP_GRAPHICS> { using type = COpenGLRenderpassIndependentPipeline; };
+    template<> struct COpenGLDriver::SAuxContext::pipeline_for_bindpoint<EPBP_COMPUTE > { using type = COpenGLComputePipeline; };
 
 } // end namespace video
 } // end namespace irr
