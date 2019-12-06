@@ -11,7 +11,7 @@ namespace AutoExposure
 {
 
 // TODO: move this to common header along with tonemapping technique enums
-struct ReinhardParams
+struct alignas(16) ReinhardParams
 {
 	float keyAndLinearExposure; // 0.18*exp2(exposure)
 	float rcpWhite2; // reciprocal(MaxLuminance*keyAndLinearExposure*burn*burn)^2
@@ -24,8 +24,10 @@ struct ReinhardParams
 		retval.rcpWhite2 *= retval.rcpWhite2;
 		return retval;
 	}
+private:
+	uint32_t uselessPadding[2];
 };
-struct ACESParams
+struct alignas(16) ACESParams
 {
 	float exposure;
 	float preGammaMinus1;
@@ -38,6 +40,8 @@ struct ACESParams
 		retval.preGammaMinus1 = Contrast-1.f;
 		retval.exposure -= log2f(AvgLuma)*retval.preGammaMinus1;
 	}
+private:
+	uint32_t uselessPadding[2];
 };
 
 class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmovable
@@ -72,10 +76,15 @@ struct irr_ext_Autoexposure_ReinhardParams
 {
 	float keyAndLinearExposure; // 0.18*exp2(exposure)
 	float rcpWhite2; // 1.0/(maxWhite*maxWhite)
+
+	// for std140 compatibility
+	uint uselessPadding0;
+	uint uselessPadding1;
 };
 
-vec3 irr_ext_Autoexposure_ToneMapReinhard(in irr_ext_Autoexposure_ReinhardParams params, in vec3 color)
+vec3 irr_ext_Autoexposure_ToneMapReinhard(in irr_ext_Autoexposure_ReinhardParams params, vec3 color)
 {
+	color *= params.keyAndLinearExposure;
 	float luma = irr_ext_Autoexposure_luminance_R709(color);
 	return color*(1.0+luma*params.rcpWhite2)/(1.0+luma);
 }
@@ -85,6 +94,10 @@ struct irr_ext_Autoexposure_ACESParams
 {
 	float exposure; // actualExposure-midGrayLog2*(gamma-1)
 	float preGammaMinus1; // 0.0
+
+	// for std140 compatibility
+	uint uselessPadding0;
+	uint uselessPadding1;
 };
 
 //! This function has to be wrong, sRGB is apparently included but its a non-linear function!
