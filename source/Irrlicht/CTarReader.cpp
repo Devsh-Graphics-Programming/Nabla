@@ -157,7 +157,7 @@ uint32_t CTarReader::populateFileList()
 	Files.clear();
 
 	uint32_t pos = 0;
-	while ( int32_t(pos + sizeof(STarHeader)) < File->getSize())
+	while (pos+sizeof(STarHeader) < File->getSize())
 	{
 		// seek to next file header
 		File->seek(pos);

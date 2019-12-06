@@ -775,7 +775,7 @@ IFileList* CFileSystem::createFileList()
 		#if (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
 
 
-		r = new CFileList(Path, false, false);
+		r = new CFileList(Path);
 
 		r->addItem(Path + _IRR_TEXT(".."), 0, 0, true, 0);
 

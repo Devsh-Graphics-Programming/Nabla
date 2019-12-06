@@ -56,7 +56,7 @@ namespace irr
 	namespace video
 	{
 		IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
-				io::IFileSystem* io, CIrrDeviceLinux* device
+				io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp
 #ifdef _IRR_COMPILE_WITH_OPENGL_
                 ,COpenGLDriver::SAuxContext* auxCtxts
 #endif // _IRR_COMPILE_WITH_OPENGL_
@@ -386,7 +386,6 @@ bool CIrrDeviceLinux::switchToFullscreen(bool reset)
 		return true;
 	}
 
-	getVideoModeList();
 	#if defined(_IRR_LINUX_X11_VIDMODE_) || defined(_IRR_LINUX_X11_RANDR_)
 	int32_t eventbase, errorbase;
 	int32_t bestMode = -1;
@@ -988,7 +987,7 @@ void CIrrDeviceLinux::createDriver()
 	case video::EDT_OPENGL:
 		#ifdef _IRR_COMPILE_WITH_OPENGL_
 		if (Context)
-			VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem, this, reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts));
+			VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem, this, getAssetManager()->getGLSLCompiler(), reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts));
 		#else
 		os::Printer::log("No OpenGL support compiled in.", ELL_ERROR);
 		#endif

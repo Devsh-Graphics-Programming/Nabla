@@ -238,9 +238,9 @@ void CSceneNodeAnimatorCameraMaya::animateNode(IDummyTransformationSceneNode *no
 
 	// jox: fixed bug: jitter when rotating to the top and bottom of y
 	pos.set(0,1,0);
-	pos.getAsVector3df().rotateXYBy(-nRotY);
-	pos.getAsVector3df().rotateXZBy(-nRotX+180.f);
-	camera->setUpVector(pos.getAsVector3df());
+	pos.rotateXYByRAD(-core::radians(nRotY));
+	pos.rotateXZByRAD(core::PI<float>()-core::radians(nRotX));
+	camera->setUpVector(pos);
 	LastCameraTarget = camera->getTarget();
 }
 
