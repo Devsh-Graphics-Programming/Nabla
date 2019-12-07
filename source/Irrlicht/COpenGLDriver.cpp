@@ -25,10 +25,6 @@
 #include "COpenGLTimestampQuery.h"
 #include "os.h"
 
-#ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
-#include "MacOSX/CIrrDeviceMacOSX.h"
-#endif
-
 #ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
 #include "CIrrDeviceSDL.h"
 #include <SDL/SDL.h>
@@ -1004,14 +1000,6 @@ bool COpenGLDriver::endScene()
 	}
 #endif
 
-#ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
-	if (DeviceType == EIDT_OSX)
-	{
-		OSXDevice->flush();
-		return true;
-	}
-#endif
-
 #ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
 	if (DeviceType == EIDT_SDL)
 	{
@@ -1035,10 +1023,6 @@ bool COpenGLDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
 		const SExposedVideoData& videoData, core::rect<int32_t>* sourceRect)
 {
 	CNullDriver::beginScene(backBuffer, zBuffer, color, videoData, sourceRect);
-#ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
-	if (DeviceType==EIDT_OSX)
-		changeRenderContext(videoData, (void*)0);
-#endif // _IRR_COMPILE_WITH_OSX_DEVICE_
 
     if (zBuffer)
     {
@@ -1660,12 +1644,12 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
     if (!found->nextState.pipeline.graphics.pipeline)
         return;
 
-    found->updateNextState_vertexInput(mb->getVertexBufferBindings(), mb->getIndexBufferBinding()->buffer.get(), nullptr, nullptr);
+    found->updateNextState_vertexInput(mb->getVertexBufferBindings(), mb->getIndexBufferBinding().buffer.get(), nullptr, nullptr);
 
 	CNullDriver::drawMeshBuffer(mb);
 
 	GLenum indexSize=0;
-    if (mb->getIndexBufferBinding()->buffer)
+    if (mb->getIndexBufferBinding().buffer)
     {
         switch (mb->getIndexType())
         {
@@ -1692,8 +1676,8 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
         extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
 
     if (indexSize) {
-        static_assert(sizeof(mb->getIndexBufferBinding()->offset) == sizeof(void*), "Might break without this requirement");
-        const void* const idxBufOffset = reinterpret_cast<void*>(mb->getIndexBufferBinding()->offset);
+        static_assert(sizeof(mb->getIndexBufferBinding().offset) == sizeof(void*), "Might break without this requirement");
+        const void* const idxBufOffset = reinterpret_cast<void*>(mb->getIndexBufferBinding().offset);
         extGlDrawElementsInstancedBaseVertexBaseInstance(primType, mb->getIndexCount(), indexSize, idxBufOffset, mb->getInstanceCount(), mb->getBaseVertex(), mb->getBaseInstance());
     }
     else

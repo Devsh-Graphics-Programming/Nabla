@@ -16,6 +16,7 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 		using IPipelineLayout<ICPUDescriptorSetLayout>::IPipelineLayout;
 
 		ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) { return m_descSetLayouts[_set].get(); }
+		const ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) const { return m_descSetLayouts[_set].get(); }
 
 		size_t conservativeSizeEstimate() const override { return m_descSetLayouts.size()*sizeof(void*) + m_pushConstantRanges->size()*sizeof(SPushConstantRange); }
 		void convertToDummyObject() override { m_pushConstantRanges = nullptr; }

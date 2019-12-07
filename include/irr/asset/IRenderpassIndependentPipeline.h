@@ -105,12 +105,12 @@ enum E_COMPARE_OP : uint8_t
 
 struct SStencilOpParams
 {
-    E_STENCIL_OP failOp;
-    E_STENCIL_OP passOp;
-    E_STENCIL_OP depthFailOp;
-    E_COMPARE_OP compareOp;
-    uint32_t writeMask;
-    uint32_t reference;
+    E_STENCIL_OP failOp = ESO_KEEP;
+    E_STENCIL_OP passOp = ESO_KEEP;
+    E_STENCIL_OP depthFailOp = ESO_KEEP;
+    E_COMPARE_OP compareOp = ECO_ALWAYS;
+    uint32_t writeMask = ~0u;
+    uint32_t reference = 0u;
 } PACK_STRUCT;
 static_assert(sizeof(SStencilOpParams)==(4u*1u + 2u*4u), "Unexpected size!");
 

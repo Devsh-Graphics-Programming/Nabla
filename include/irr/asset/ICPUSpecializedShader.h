@@ -21,13 +21,19 @@ class ICPUSpecializedShader : public IAsset
 		}
 
 		IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SPECIALIZED_SHADER; }
-		size_t conservativeSizeEstimate() const override { return 0u; /* TODO: ???? */ }
-		void convertToDummyObject() override { }
+		size_t conservativeSizeEstimate() const override { return sizeof(void*)/*+TODO*/; }
+		void convertToDummyObject() override
+		{
+			m_specInfo = nullptr;
+		}
 
 		inline E_SHADER_STAGE getStage() const { return m_specInfo->shaderStage; }
+
+		inline void setSpecializationInfo(core::smart_refctd_ptr<ISpecializationInfo>&& specInfo) {m_specInfo = std::move(specInfo);}
 		inline const ISpecializationInfo* getSpecializationInfo() const { return m_specInfo.get(); }
-		inline const ICPUShader* getUnspecialized() const { return m_unspecialized.get(); }
+
 		inline ICPUShader* getUnspecialized() { return m_unspecialized.get(); }
+		inline const ICPUShader* getUnspecialized() const { return m_unspecialized.get(); }
 
 	private:
 		core::smart_refctd_ptr<ICPUShader>					m_unspecialized;

@@ -76,19 +76,35 @@ public:
 
     virtual E_MESH_BUFFER_TYPE getMeshBufferType() const { return EMBT_NOT_ANIMATED; }
 
+	inline const SBufferBinding<ICPUBuffer>& getAttribBoundBuffer(uint32_t attrId) const
+	{
+		return base_t::getAttribBoundBuffer(attrId);
+	}
     inline SBufferBinding<ICPUBuffer>* getAttribBoundBuffer(uint32_t attrId)
     {
         const uint32_t bnd = getBindingNumForAttribute(attrId);
         return &m_vertexBufferBindings[bnd];
     }
+	inline const SBufferBinding<ICPUBuffer>* getVertexBufferBindings() const
+	{
+		return m_vertexBufferBindings;
+	}
     inline SBufferBinding<ICPUBuffer>* getVertexBufferBindings()
     {
         return m_vertexBufferBindings;
     }
+	inline void setIndexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding)
+	{
+		m_indexBufferBinding = std::move(bufferBinding);
+	}
+	inline const SBufferBinding<ICPUBuffer>& getIndexBufferBinding() const
+	{
+		return m_indexBufferBinding;
+	}
     inline SBufferBinding<ICPUBuffer>* getIndexBufferBinding()
     {
         return &m_indexBufferBinding;
-    }
+    }/*
 	inline bool setVertexBufferBindingParams(uint32_t bindingIndex, uint32_t stride, E_VERTEX_INPUT_RATE inputRate = E_VERTEX_INPUT_RATE::EVIR_PER_VERTEX)
 	{
         if (!m_pipeline)
@@ -101,7 +117,7 @@ public:
 		binding.inputRate = inputRate;
 
 		return true;
-	}
+	}*/
 	inline bool setVertexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding, uint32_t bindingIndex)
 	{
 		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT)
@@ -110,11 +126,7 @@ public:
         m_vertexBufferBindings[bindingIndex] = std::move(bufferBinding);
 
 		return true;
-	}
-	inline void setIndexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding)
-	{
-        m_indexBufferBinding = std::move(bufferBinding);
-	}
+	}/*
 	inline bool setVertexAttribFormat(uint32_t attribIndex, uint32_t bindingIndex, E_FORMAT format, uint32_t relativeOffset)
 	{
         if (!m_pipeline)
@@ -128,30 +140,35 @@ public:
 		attribute.relativeOffset = relativeOffset;
 
 		return true;
+	}*/
+
+
+	inline void setAttachedDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSet>&& descriptorSet)
+	{
+		m_descriptorSet = std::move(descriptorSet);
 	}
-    //! Synonymous to `meshbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType = _primType;`
-    inline bool setPrimitiveTopology(E_PRIMITIVE_TOPOLOGY _primType)
-    {
-        if (!m_pipeline)
-            return false;
+	inline ICPUDescriptorSet* getAttachedDescriptorSet()
+	{
+		return m_descriptorSet.get();
+	}
+	inline const ICPUDescriptorSet* getAttachedDescriptorSet() const
+	{
+		return m_descriptorSet.get();
+	}
 
-        m_pipeline->getPrimitiveAssemblyParams().primitiveType = _primType;
-        return true;
-    }
-
-
+	inline void setPipeline(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>&& pipeline)
+	{
+		m_pipeline = std::move(pipeline);
+	}
+	inline ICPURenderpassIndependentPipeline* getPipeline()
+	{
+		return m_pipeline.get();
+	}
     inline const ICPURenderpassIndependentPipeline* getPipeline() const
     {
         return m_pipeline.get();
     }
-    inline ICPURenderpassIndependentPipeline* getPipeline()
-    {
-        return m_pipeline.get();
-    }
-    inline ICPUDescriptorSet* getAttachedDescriptorSet()
-    {
-        return m_descriptorSet.get();
-    }
+
     inline size_t calcVertexSize() const
     {
         if (!m_pipeline)
@@ -397,7 +414,7 @@ public:
 
         const uint8_t* src = getAttribPointer(attrId);
         src += ix * getAttribStride(attrId);
-        const ICPUBuffer* buf = base_t::getAttribBoundBuffer(attrId)->buffer.get();
+        const ICPUBuffer* buf = base_t::getAttribBoundBuffer(attrId).buffer.get();
         if (!buf || src >= reinterpret_cast<const uint8_t*>(buf->getPointer()) + buf->getSize())
             return false;
 
@@ -501,35 +518,38 @@ public:
     //! Recalculates the bounding box. Should be called if the mesh changed.
     virtual void recalculateBoundingBox()
     {
-        if (!m_pipeline)
-        {
-            boundingBox.reset(core::vector3df(0.f));
-            return;
-        }
+		setBoundingBox(calculateBoundingBox(this));
+    }
 
-        const ICPUBuffer* mappedAttrBuf = getAttribBoundBuffer(posAttrId)->buffer.get();
+	//! Utility function
+    static core::aabbox3df calculateBoundingBox(const ICPUMeshBuffer* mb)
+    {
+		core::aabbox3df retval;
+		retval.reset(core::vector3df(0.f));
+        if (!mb->getPipeline())
+            return retval;
+
+		auto posAttrId = mb->getPositionAttributeIx();
+        const ICPUBuffer* mappedAttrBuf = mb->getAttribBoundBuffer(posAttrId).buffer.get();
         if (posAttrId >= MAX_VERTEX_ATTRIB_COUNT || !mappedAttrBuf)
-        {
-            boundingBox.reset(core::vector3df(0.f));
-            return;
-        }
+            return retval;
 
-        for (size_t j = 0; j < indexCount; j++)
+		const void* indices = mb->getIndices();
+        for (size_t j=0ull; j<mb->getIndexCount(); j++)
         {
             size_t ix;
-            void* indices = getIndices();
             if (indices)
             {
-                switch (indexType)
+                switch (mb->getIndexType())
                 {
-                case EIT_32BIT:
-                    ix = ((uint32_t*)indices)[j];
-                    break;
-                case EIT_16BIT:
-                    ix = ((uint16_t*)indices)[j];
-                    break;
-                default:
-                    return;
+					case EIT_32BIT:
+						ix = reinterpret_cast<const uint32_t*>(indices)[j];
+						break;
+					case EIT_16BIT:
+						ix = reinterpret_cast<const uint16_t*>(indices)[j];
+						break;
+					default:
+						return retval;
                 }
             }
             else
@@ -537,10 +557,11 @@ public:
 
 
             if (j)
-                boundingBox.addInternalPoint(getPosition(ix).getAsVector3df());
+				retval.addInternalPoint(mb->getPosition(ix).getAsVector3df());
             else
-                boundingBox.reset(getPosition(ix).getAsVector3df());
+				retval.reset(mb->getPosition(ix).getAsVector3df());
         }
+		return retval;
     }
 };
 

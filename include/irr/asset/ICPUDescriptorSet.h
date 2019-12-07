@@ -39,6 +39,7 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 		inline E_TYPE getAssetType() const override { return ET_DESCRIPTOR_SET; }
 
 		inline ICPUDescriptorSetLayout* getLayout() { return m_layout.get(); }
+		inline const ICPUDescriptorSetLayout* getLayout() const { return m_layout.get(); }
 
 		//!
 		inline uint32_t getMaxDescriptorBindingIndex() const
@@ -67,7 +68,21 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 					return core::SRange<SDescriptorInfo>{_begin, m_descriptors->end()};
 			}
 			else
-				core::SRange<SDescriptorInfo>{nullptr, nullptr};
+				return core::SRange<SDescriptorInfo>{nullptr, nullptr};
+		}
+		inline core::SRange<const SDescriptorInfo> getDescriptors(uint32_t index) const
+		{
+			if (m_bindingInfo && index<m_bindingInfo->size())
+			{
+				const auto& info = m_bindingInfo->operator[](index);
+				auto _begin = m_descriptors->begin()+info.offset;
+				if (index+1u!=m_bindingInfo->size())
+					return core::SRange<const SDescriptorInfo>{_begin, m_descriptors->begin()+m_bindingInfo->operator[](index+1u).offset};
+				else
+					return core::SRange<const SDescriptorInfo>{_begin, m_descriptors->end()};
+			}
+			else
+				return core::SRange<const SDescriptorInfo>{nullptr, nullptr};
 		}
 
 		inline auto getTotalDescriptorCount() const
