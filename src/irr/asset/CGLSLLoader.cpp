@@ -14,9 +14,13 @@ SAssetBundle CGLSLLoader::loadAsset(IReadFile* _file, const IAssetLoader::SAsset
 	const size_t prevPos = _file->getPos();
 	_file->seek(0u);
 
-	void* source = _IRR_ALIGNED_MALLOC(_file->getSize(),_IRR_SIMD_ALIGNMENT);
-	_file->read(source,_file->getSize());
+	auto len = _file->getSize();
+	void* source = _IRR_ALIGNED_MALLOC(len+1u,_IRR_SIMD_ALIGNMENT);
+	_file->read(source,len);
+	reinterpret_cast<char*>(source)[len] = 0;
+
 	_file->seek(prevPos);
+
 
 	auto shader = core::make_smart_refctd_ptr<ICPUShader>(reinterpret_cast<char*>(source));
 	_IRR_ALIGNED_FREE(source);

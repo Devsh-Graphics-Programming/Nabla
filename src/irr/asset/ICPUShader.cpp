@@ -38,7 +38,7 @@ void ICPUShader::insertGLSLExtensionsDefines(std::string& _glsl, const core::ref
     for (const std::string& ext : (*_exts))
     {
         std::string str = "#ifndef " + ext + "\n";
-        str += "\t#define " + ext + "\n";
+        str += "\t#define IRR_" + ext + "\n";
         str += "#endif //" + ext + "\n";
 
         insertion += str;

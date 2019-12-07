@@ -1048,14 +1048,10 @@ const core::smart_refctd_dynamic_array<std::string> COpenGLDriver::getSupportedG
         for (size_t i = 0ull; i < GLSLcnt; ++i)
             cnt += (FeatureAvailable[m_GLSLExtensions[i]]);
         m_supportedGLSLExtsNames = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<std::string>>(cnt);
-        for (size_t x = 0ull; x < cnt; ++x)
-            (*m_supportedGLSLExtsNames)[x] = "wtfff"; //fix this, crashes while assigning OpenGLFeatureStrings[m_GLSLExtensions[j]] for some reason....
-        /*
         size_t i = 0ull;
         for (size_t j = 0ull; j < GLSLcnt; ++j)
             if (FeatureAvailable[m_GLSLExtensions[j]])
                 (*m_supportedGLSLExtsNames)[i++] = OpenGLFeatureStrings[m_GLSLExtensions[j]];
-        */
     }
 
     return m_supportedGLSLExtsNames;
