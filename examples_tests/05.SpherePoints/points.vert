@@ -1,12 +1,14 @@
-#version 330 core
-layout(location = 0) in vec4 vPos; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
+#version 430 core
+layout(location = 0) in vec3 vPos;
 
-uniform mat4 MVP;
+layout( push_constant ) uniform Block {
+	mat4 modelViewProj;
+} PushConstants;
 
-out vec4 Color; //per vertex output color, will be interpolated across the triangle
+layout(location = 0) out vec4 Color; //per vertex output color, will be interpolated across the triangle
 
 void main()
 {
-    gl_Position = MVP*vec4(normalize(vPos.xyz),1.0); //only thing preventing the shader from being core-compliant
+    gl_Position = PushConstants.modelViewProj*vec4(vPos,1.0);
     Color = vec4(1.0);
 }

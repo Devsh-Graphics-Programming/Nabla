@@ -1057,7 +1057,7 @@ const core::smart_refctd_dynamic_array<std::string> COpenGLDriver::getSupportedG
     return m_supportedGLSLExtsNames;
 }
 
-bool COpenGLDriver::bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline)
+bool COpenGLDriver::bindGraphicsPipeline(const video::IGPURenderpassIndependentPipeline* _gpipeline)
 {
     SAuxContext* ctx = getThreadContext_helper(false);
     if (!ctx)
@@ -1068,13 +1068,13 @@ bool COpenGLDriver::bindGraphicsPipeline(video::IGPURenderpassIndependentPipelin
     return true;
 }
 
-bool COpenGLDriver::bindComputePipeline(video::IGPUComputePipeline* _cpipeline)
+bool COpenGLDriver::bindComputePipeline(const video::IGPUComputePipeline* _cpipeline)
 {
     SAuxContext* ctx = getThreadContext_helper(false);
     if (!ctx)
         return false;
 
-    const COpenGLComputePipeline* glppln = static_cast<COpenGLComputePipeline*>(_cpipeline);
+    const COpenGLComputePipeline* glppln = static_cast<const COpenGLComputePipeline*>(_cpipeline);
     ctx->nextState.pipeline.compute.usedShader = glppln ? glppln->getGLnameForCtx(ctx->ID) : 0u;
     ctx->nextState.pipeline.compute.pipeline = core::smart_refctd_ptr<const COpenGLComputePipeline>(glppln);
 
@@ -1283,7 +1283,7 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
         return std::find_if(shaders.begin(), shaders.end(), [](IGPUSpecializedShader* shdr) {return shdr->getStage()==asset::ESS_VERTEX;}) != shaders.end();
     };
 
-    if (!_layout || vsIsPresent())
+    if (!_layout || !vsIsPresent())
         return nullptr;
 
     return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(

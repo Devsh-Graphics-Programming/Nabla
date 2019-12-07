@@ -10,39 +10,169 @@
 
 using namespace irr;
 using namespace core;
+using namespace asset;
+using namespace video;
 
-video::SGPUMaterial presentMaterial;
-
-void presentImageOnScreen(IrrlichtDevice* device, video::IGPUMeshBuffer* fullScreenTriangle, core::smart_refctd_ptr<video::ITexture>&& inTex, core::smart_refctd_ptr<video::ITexture>&& outTex=nullptr)
+class App
 {
-	video::IVideoDriver* driver = device->getVideoDriver();
+		void presentImageOnScreen(core::smart_refctd_ptr<video::ITexture>&& inTex, core::smart_refctd_ptr<video::ITexture>&& outTex=nullptr)
+		{
+			IFrameBuffer* framebuffer = nullptr;
+			if (outTex)
+			{
+				framebuffer = driver->addFrameBuffer();
+				framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0, std::move(outTex), 0u);
+			}
 
-	auto framebuffer = driver->addFrameBuffer();
-	if (outTex)
-		framebuffer->attach(video::EFAP_COLOR_ATTACHMENT0,outTex.get(),0u);
+			auto ds = driver->createGPUDescriptorSet(core::smart_refctd_ptr(dsLayout));
+			IGPUDescriptorSet::SDescriptorInfo info;
+			{
+				info.desc = std::move(inTex);
+				ISampler::SParams samplerParams = {ISampler::ETC_CLAMP_TO_EDGE,ISampler::ETC_CLAMP_TO_EDGE,ISampler::ETC_CLAMP_TO_EDGE,ISampler::ETBC_FLOAT_OPAQUE_BLACK,ISampler::ETF_LINEAR,ISampler::ETF_LINEAR,ISampler::ESMM_LINEAR,0u,false,ECO_ALWAYS};
+				info.image = {driver->createGPUSampler(samplerParams),EIL_SHADER_READ_ONLY_OPTIMAL};
+			}
+			IGPUDescriptorSet::SWriteDescriptorSet write = {ds.get(),0u,0u,1u,EDT_COMBINED_IMAGE_SAMPLER,&info};
+			driver->updateDescriptorSets(1u,&write,0u,nullptr);
 
-	presentMaterial.setTexture(0u,std::move(inTex));
+			device->run();
+			driver->beginScene(true,true);
+			// so we have something to download
+			driver->bindGraphicsPipeline(presentPipeline.get());
+			driver->bindDescriptorSets(EPBP_GRAPHICS,presentPipeline->getLayout(),0u,1u,&ds.get(),nullptr);
+			if (outTex)
+			{
+				driver->setRenderTarget(framebuffer);
+				driver->drawMeshBuffer(presentMB.get()); 
+				driver->setRenderTarget(nullptr,false);
+			}
+			//
+			driver->drawMeshBuffer(presentMB.get());
+			//
+			driver->endScene();
 
-	device->run();
-	driver->beginScene(true,true);
-	// so we have something to download
-	if (outTex)
-	{
-		driver->setRenderTarget(framebuffer);
-		driver->setMaterial(presentMaterial);
-		driver->drawMeshBuffer(fullScreenTriangle);
-		driver->setRenderTarget(nullptr,false);
-	}
-	//
-	driver->setMaterial(presentMaterial);
-	driver->drawMeshBuffer(fullScreenTriangle);
-	//
-	driver->endScene();
+			driver->removeFrameBuffer(framebuffer);
+		}
 
-	driver->removeFrameBuffer(framebuffer);
-}
+		core::smart_refctd_ptr<IrrlichtDevice> device;
+		IVideoDriver* driver;
 
-void dumpTextureToFile(IrrlichtDevice* device, video::ITexture* tex, const std::string& outname)
+		core::smart_refctd_ptr<IGPUDescriptorSetLayout> dsLayout;
+		core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> presentPipeline;
+		core::smart_refctd_ptr<IGPUMeshBuffer> presentMB;
+	public:
+		App() = default;
+
+		bool init()
+		{
+			irr::SIrrlichtCreationParameters params;
+			params.Bits = 24; //may have to set to 32bit for some platforms
+			params.ZBufferBits = 24; //we'd like 32bit here
+			params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
+			params.WindowSize = dimension2d<uint32_t>(1600, 900);
+			params.Fullscreen = false;
+
+			device = createDeviceEx(params);
+			if (!device)
+				return false;
+
+			driver = device->getVideoDriver();
+
+			auto fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(driver);
+
+			IGPUDescriptorSetLayout::SBinding binding{0u,EDT_COMBINED_IMAGE_SAMPLER,1u,ESS_FRAGMENT,nullptr};
+			dsLayout = driver->createGPUDescriptorSetLayout(&binding,&binding+1u);
+
+			{
+				auto pLayout = driver->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(dsLayout),nullptr,nullptr,nullptr);
+
+				auto shaderSource = device->getAssetManager()->getAsset("../present.frag", {});
+				auto contents = shaderSource.getContents();
+				if (contents.first==contents.second)
+					return false;
+
+				auto unspecShader = driver->createGPUShader(core::smart_refctd_ptr_static_cast<ICPUShader>(*contents.first));
+				if (!unspecShader)
+					return false;
+				auto fragShader = driver->createGPUSpecializedShader(unspecShader.get(),nullptr);
+
+				IGPUSpecializedShader* shaders[2] = {std::get<0>(fullScreenTriangle).get(),fragShader.get()};
+				SBlendParams blendParams;
+				blendParams.logicOpEnable = false;
+				blendParams.logicOp = ELO_NO_OP;
+				for (size_t i=0ull; i<SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
+					blendParams.blendParams[i] = {i==0ull,false,EBF_ONE,EBF_ZERO,EBO_ADD,EBF_ONE,EBF_ZERO,EBO_ADD,0xfu};
+				SStencilOpParams defaultStencil;
+				SRasterizationParams rasterParams = {1u,EPM_FILL,EFCM_NONE,ECO_ALWAYS,IImage::ESCF_1_BIT,{~0u,~0u},1.f,0.f,0.f,defaultStencil,defaultStencil,
+														{false,false,true,false,false,false,false,false,false,false,false}};
+
+				presentPipeline = driver->createGPURenderpassIndependentPipeline(	nullptr,std::move(pLayout),shaders,shaders+sizeof(shaders)/sizeof(IGPUSpecializedShader*),
+																					std::get<SVertexInputParams>(fullScreenTriangle),blendParams,
+																					std::get<SPrimitiveAssemblyParams>(fullScreenTriangle),rasterParams);
+			}
+
+			{
+				presentMB = core::make_smart_refctd_ptr<IGPUMeshBuffer>();
+				presentMB->setIndexCount(3u);
+				presentMB->setInstanceCount(1u);
+			}
+
+			return true;
+		}
+		
+		void testImage(const std::string& path)
+		{
+			os::Printer::log("Reading", path);
+	
+			auto* assetMgr = device->getAssetManager();
+
+			auto cputex = assetMgr->getAsset(path, {});
+			auto contents = cputex.getContents();
+			if (contents.first!=contents.second)
+			{
+				io::path filename, extension;
+				core::splitFilename(path.c_str(), nullptr, &filename, &extension);
+				filename += "."; filename += extension;
+		
+				bool writeable = (extension != "dds");
+		
+				auto asset = *contents.first;
+				switch (asset->getAssetType())
+				{
+					case IAsset::ET_IMAGE:
+						break;
+					case IAsset::ET_IMAGE_VIEW:
+						break;
+					default:
+						assert(false);
+						break;
+				}
+				auto actualcputex = core::smart_refctd_ptr_static_cast<ICPUTexture>(asset);
+				auto tex = driver->getGPUObjectsFromAssets(&actualcputex.get(),&actualcputex.get()+1u)->front();
+				if (tex)
+				{
+					auto tmpTex = driver->createGPUTexture(video::ITexture::ETT_2D,tex->getSize(),1u,tex->getColorFormat());
+					presentImageOnScreen(device, fullScreenTriangle, core::smart_refctd_ptr(tex), std::move(tmpTex));
+			
+					if (writeable)
+						dumpTextureToFile(device, tex.get(), (io::path("screen_")+filename).c_str());
+				}
+		
+				if (writeable)
+				{
+					asset::CImageData* img = actualcputex->getMipMap(0u).first[0];
+					asset::IAssetWriter::SAssetWriteParams wparams(img);
+
+					assetMgr->writeAsset((io::path("write_")+filename).c_str(), wparams);
+				}
+				assetMgr->removeAssetFromCache(cputex);
+				assetMgr->removeCachedGPUObject(actualcputex.get(),tex);
+			}
+			else
+				std::cout << "ERROR: CANNOT LOAD FILE!" << std::endl;
+		}
+};
+
+void dumpTextureToFile(video::ITexture* tex, const std::string& outname)
 {
 	video::IVideoDriver* driver = device->getVideoDriver();
 
@@ -68,83 +198,22 @@ void dumpTextureToFile(IrrlichtDevice* device, video::ITexture* tex, const std::
 	device->getAssetManager()->writeAsset(outname, wparams);
 }
 
-void testImage(const std::string& path, IrrlichtDevice* device, video::IGPUMeshBuffer* fullScreenTriangle)
-{
-	os::Printer::log("Reading", path);
-	
-	auto* assetMgr = device->getAssetManager();
-	auto* driver = device->getVideoDriver();
-
-	auto cputex = assetMgr->getAsset(path, {});
-	
-	if (cputex.getContents().first!=cputex.getContents().second)
-	{
-		io::path filename, extension;
-		core::splitFilename(path.c_str(), nullptr, &filename, &extension);
-		filename += "."; filename += extension;
-		
-		bool writeable = (extension != "dds");
-		
-		auto actualcputex = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*cputex.getContents().first);
-		auto tex = driver->getGPUObjectsFromAssets(&actualcputex.get(),&actualcputex.get()+1u)->front();
-		if (tex)
-		{
-			auto tmpTex = driver->createGPUTexture(video::ITexture::ETT_2D,tex->getSize(),1u,tex->getColorFormat());
-			presentImageOnScreen(device, fullScreenTriangle, core::smart_refctd_ptr(tex), std::move(tmpTex));
-			
-			if (writeable)
-				dumpTextureToFile(device, tex.get(), (io::path("screen_")+filename).c_str());
-		}
-		
-		if (writeable)
-		{
-			asset::CImageData* img = actualcputex->getMipMap(0u).first[0];
-			asset::IAssetWriter::SAssetWriteParams wparams(img);
-
-			assetMgr->writeAsset((io::path("write_")+filename).c_str(), wparams);
-		}
-		assetMgr->removeAssetFromCache(cputex);
-		assetMgr->removeCachedGPUObject(actualcputex.get(),tex);
-	}
-	else
-		std::cout << "ERROR: CANNOT LOAD FILE!" << std::endl;
-}
-
 int main()
-{
-	irr::SIrrlichtCreationParameters params;
-	params.Bits = 24; //may have to set to 32bit for some platforms
-	params.ZBufferBits = 24; //we'd like 32bit here
-	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-	params.WindowSize = dimension2d<uint32_t>(1600, 900);
-	params.Fullscreen = false;
+{	
+	App app;
+	if (!app.init())
+		return 1;
 
-	IrrlichtDevice* device = createDeviceEx(params);
-	if (device == 0)
-		return 1; // could not create selected driver.
-
-	video::IVideoDriver* driver = device->getVideoDriver();
-
-	auto fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(driver);
-	
-	//! First need to make a material other than default to be able to draw with custom shader
-	presentMaterial.BackfaceCulling = false; //! Triangles will be visible from both sides
-	presentMaterial.ZBuffer = video::ECFN_ALWAYS; //! Ignore Depth Test
-	presentMaterial.ZWriteEnable = false; //! Why even write depth?
-	presentMaterial.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles(
-																"../fullscreentri.vert","","","","../present.frag",3,video::EMT_SOLID);
-	
 	std::ifstream list("../testlist.txt");
 	if (list.is_open())
 	{
-                std::string line;
-                for (; std::getline(list, line); )
-                {
-                        if(line != "" && line[0] != ';')
-                                testImage(line, device, fullScreenTriangle.get());
-                }
+        std::string line;
+        for (; std::getline(list, line); )
+        {
+			if(line != "" && line[0] != ';')
+				app.testImage(line);
+        }
 	}
-	device->drop();
 
 	return 0;
 }

@@ -602,9 +602,9 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
         const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const override;
 
-        bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override;
+        bool bindGraphicsPipeline(const video::IGPURenderpassIndependentPipeline* _gpipeline) override;
 
-        bool bindComputePipeline(video::IGPUComputePipeline* _cpipeline) override;
+        bool bindComputePipeline(const video::IGPUComputePipeline* _cpipeline) override;
 
         bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
             uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override;

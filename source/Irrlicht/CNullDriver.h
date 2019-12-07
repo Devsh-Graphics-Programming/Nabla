@@ -44,9 +44,9 @@ class CNullDriver : public IVideoDriver
         inline bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const override { return false; }
         inline bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const override { return false; }
 
-        bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override { return false; }
+        bool bindGraphicsPipeline(const video::IGPURenderpassIndependentPipeline* _gpipeline) override { return false; }
 
-        bool bindComputePipeline(video::IGPUComputePipeline* _cpipeline) override { return false; }
+        bool bindComputePipeline(const video::IGPUComputePipeline* _cpipeline) override { return false; }
 
         bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
             uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override 

@@ -55,9 +55,9 @@ namespace video
         virtual bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const = 0;
 
 
-        virtual bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) = 0;
+        virtual bool bindGraphicsPipeline(const video::IGPURenderpassIndependentPipeline* _gpipeline) = 0;
 
-        virtual bool bindComputePipeline(video::IGPUComputePipeline* _cpipeline) = 0;
+        virtual bool bindComputePipeline(const video::IGPUComputePipeline* _cpipeline) = 0;
 
         virtual bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
             uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) = 0;

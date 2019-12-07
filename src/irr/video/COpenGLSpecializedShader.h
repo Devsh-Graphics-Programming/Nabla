@@ -17,7 +17,7 @@ namespace irr
 namespace video
 {
 
-class COpenGLSpecializedShader : public IGPUSpecializedShader
+class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecializedShader,core::AllocationOverrideBase<128> >
 {
 		struct SProgramBinary {
 			GLenum format;

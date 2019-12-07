@@ -1,34 +1,12 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
-#include "../../ext/ScreenShot/ScreenShot.h"
+//#include "../../ext/ScreenShot/ScreenShot.h"
 #include "../common/QToQuitEventReceiver.h"
 
 using namespace irr;
 using namespace core;
-
-
-
-class SimpleCallBack : public video::IShaderConstantSetCallBack
-{
-    int32_t mvpUniformLocation;
-    video::E_SHADER_CONSTANT_TYPE mvpUniformType;
-public:
-    SimpleCallBack() : mvpUniformLocation(-1), mvpUniformType(video::ESCT_FLOAT_VEC3) {}
-
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
-    {
-        //! Normally we'd iterate through the array and check our actual constant names before mapping them to locations but oh well
-        mvpUniformLocation = constants[0].location;
-        mvpUniformType = constants[0].type;
-    }
-
-    virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
-    {
-        services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniformLocation,mvpUniformType,1);
-    }
-
-    virtual void OnUnsetMaterial() {}
-};
+using namespace asset;
+using namespace video;
 
 
 /*
@@ -48,41 +26,65 @@ int main()
 	params.Vsync = false;
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
-	IrrlichtDevice* device = createDeviceEx(params);
+	auto device = createDeviceEx(params);
 
-	if (device == 0)
+	if (!device)
 		return 1; // could not create selected driver.
 
 	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
-	video::IVideoDriver* driver = device->getVideoDriver();
-	SimpleCallBack* callBack = new SimpleCallBack();
+	auto assetMgr = device->getAssetManager();
+	auto driver = device->getVideoDriver();
 
-    //! First need to make a material other than default to be able to draw with custom shader
-    video::SGPUMaterial material;
-    //material.BackfaceCulling = false; //! Triangles will be visible from both sides
-    material.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../points.vert",
-                                                        "","","", //! No Geometry or Tessellation Shaders
-                                                        "../points.frag",
-                                                        3,video::EMT_SOLID, //! 3 vertices per primitive (this is tessellation shader relevant only
-                                                        callBack, //! No Shader Callback (we dont have any constants/uniforms to pass to the shader)
-                                                        0); //! No custom user data
-    callBack->drop();
+	auto loadShader = [&](const char* path) -> core::smart_refctd_ptr<IGPUSpecializedShader>
+	{
+		auto shaderSource = device->getAssetManager()->getAsset(path, {});
+		auto contents = shaderSource.getContents();
+		if (contents.first==contents.second)
+			return nullptr;
+		if (contents.first[0]->getAssetType()!=IAsset::ET_SPECIALIZED_SHADER)
+			return nullptr;
 
+		auto cpuSS = static_cast<ICPUSpecializedShader*>(contents.first->get());
+		return driver->getGPUObjectsFromAssets(&cpuSS,&cpuSS+1u)->operator[](0);
+	};
 
+	SPushConstantRange range[1] = {ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
+	auto pLayout = driver->createGPUPipelineLayout(range,range+1u,nullptr,nullptr,nullptr,nullptr);
+		
+	core::smart_refctd_ptr<IGPUSpecializedShader> shaders[2] = {loadShader("../points.vert"),loadShader("../points.frag")};
+	auto shadersPtr = reinterpret_cast<IGPUSpecializedShader**>(shaders);
 
-	scene::ISceneManager* smgr = device->getSceneManager();
+	SVertexInputParams inputParams;
+	inputParams.enabledAttribFlags = 0x1u;
+	inputParams.enabledBindingFlags = 0x1u;
+	inputParams.attributes[0].binding = 0u;
+	inputParams.attributes[0].format = EF_A2B10G10R10_SSCALED_PACK32;
+	inputParams.attributes[0].relativeOffset = 0u;
+	inputParams.bindings[0].stride = 0u;
+	inputParams.bindings[0].inputRate = EVIR_PER_VERTEX;
 
+	SBlendParams blendParams;
+	blendParams.logicOpEnable = false;
+	blendParams.logicOp = ELO_NO_OP;
+	for (size_t i=0ull; i<SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
+		blendParams.blendParams[i] = {i==0ull,false,EBF_ONE,EBF_ZERO,EBO_ADD,EBF_ONE,EBF_ZERO,EBO_ADD,0xfu};
 
-    video::IGPUMeshBuffer* mb = new video::IGPUMeshBuffer();
-    auto desc = driver->createGPUMeshDataFormatDesc();
+	SPrimitiveAssemblyParams assemblyParams = {EPT_POINT_LIST,false,1u};
+
+	SStencilOpParams defaultStencil;
+	SRasterizationParams rasterParams = {1u,EPM_FILL,EFCM_NONE,ECO_ALWAYS,IImage::ESCF_1_BIT,{~0u,~0u},1.f,0.f,0.f,defaultStencil,defaultStencil,
+											{false,false,true,false,false,false,false,false,false,false,false}};
+
+	auto pipeline = driver->createGPURenderpassIndependentPipeline(	nullptr,std::move(pLayout),shadersPtr,shadersPtr+sizeof(shaders)/sizeof(core::smart_refctd_ptr<IGPUSpecializedShader>),
+																			inputParams,blendParams,assemblyParams,rasterParams);
 
     size_t xComps = 0x1u<<9;
     size_t yComps = 0x1u<<9;
     size_t zComps = 0x1u<<9;
     size_t verts = xComps*yComps*zComps;
-    uint32_t bufSize = verts*sizeof(uint32_t);
+    uint32_t bufSize = verts*static_cast<uint32_t>(sizeof(uint32_t));
     uint32_t* mem = (uint32_t*)malloc(bufSize);
     for (size_t i=0; i<xComps; i++)
     for (size_t j=0; j<yComps; j++)
@@ -90,19 +92,16 @@ int main()
     {
         mem[i+xComps*(j+yComps*k)] = (i<<20)|(j<<10)|(k);
     }
-
-
-
-    //! By mapping we increase/grab() ref counter of positionBuf, any previously mapped buffer will have it's reference dropped
-    desc->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(driver->createFilledDeviceLocalGPUBufferOnDedMem(bufSize,mem),core::dont_grab), // TODO: fix with std::move soon
-        asset::EVAI_ATTR0, //! we use first attribute slot (out of a minimum of 16)
-        asset::EF_A2B10G10R10_SSCALED_PACK32); //! there are 3 components per vertex and they are floats
+	
+	SBufferBinding<IGPUBuffer> bindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
+	bindings[0u] = {0u,driver->createFilledDeviceLocalGPUBufferOnDedMem(bufSize,mem)};
+	auto mb = core::make_smart_refctd_ptr<IGPUMeshBuffer>(core::smart_refctd_ptr(pipeline),nullptr,bindings,SBufferBinding<IGPUBuffer>{0u,nullptr});
 	free(mem);
-	mb->setMeshDataAndFormat(std::move(desc));
-
 
     mb->setIndexCount(verts);
-    mb->setPrimitiveType(asset::EPT_POINTS);
+
+
+	auto smgr = device->getSceneManager();
 
     scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,80.f,0.001f);
     smgr->setActiveCamera(camera);
@@ -110,19 +109,20 @@ int main()
     camera->setFarValue(10.f);
     device->getCursorControl()->setVisible(false);
 
-	uint64_t lastFPSTime = 0;
 
+	uint64_t lastFPSTime = 0;
 	while (device->run() && receiver.keepOpen())
 	if (device->isWindowActive())
 	{
 		driver->beginScene(true, true, video::SColor(255,0,0,255) );
 
-        smgr->drawAll();
+		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
+		camera->render();
+		core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
 
-        driver->setTransform(video::E4X3TS_WORLD,core::matrix4x3());
-        driver->setMaterial(material);
-        //! draw back to front
-        driver->drawMeshBuffer(mb);
+		driver->bindGraphicsPipeline(pipeline.get());
+		driver->pushConstants(pipeline->getLayout(),ESS_VERTEX,0u,sizeof(core::matrix4SIMD),mvp.pointer());
+        driver->drawMeshBuffer(mb.get());
 
 		driver->endScene();
 
@@ -137,15 +137,12 @@ int main()
 			lastFPSTime = time;
 		}
 	}
-	mb->drop();
 
 	//create a screenshot
 	{
 		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
-		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+		//ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
 	}
-
-	device->drop();
 
 	return 0;
 }

@@ -110,7 +110,7 @@ using namespace irr;
 using namespace irr::video;
 
 COpenGLSpecializedShader::COpenGLSpecializedShader(size_t _ctxCount, uint32_t _ctxID, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection) :
-    IGPUSpecializedShader(_specInfo->shaderStage),
+	core::impl::ResolveAlignment<IGPUSpecializedShader, core::AllocationOverrideBase<128>>(_specInfo->shaderStage),
     m_GLnames(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(_ctxCount)),
     m_GLstage(impl::ESS2GLenum(_specInfo->shaderStage))
 {
