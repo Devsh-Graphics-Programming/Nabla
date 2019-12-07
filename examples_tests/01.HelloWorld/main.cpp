@@ -26,9 +26,9 @@ int main()
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
 	params.AuxGLContexts = 16;
-	IrrlichtDevice* device = createDeviceEx(params);
+	auto device = createDeviceEx(params);
 
-	if (device == 0)
+	if (!device)
 		return 1; // could not create selected driver.
 
 
@@ -58,7 +58,6 @@ int main()
 			lastFPSTime = time;
 		}
 	}
-	device->drop();
 
 	return 0;
 }

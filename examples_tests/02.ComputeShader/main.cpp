@@ -21,7 +21,7 @@ int main()
 	params.Vsync = true; //! If supported by target platform
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
-	IrrlichtDevice* device = createDeviceEx(params);
+	auto device = createDeviceEx(params);
 
 	if (!device)
 		return 1; // could not create selected driver.
@@ -145,6 +145,5 @@ int main()
 		driver->endScene();
 	}
 
-	device->drop();
 	return 0;
 }

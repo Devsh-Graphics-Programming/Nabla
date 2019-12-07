@@ -136,22 +136,24 @@ class App
 				bool writeable = (extension != "dds");
 		
 				auto asset = *contents.first;
+				core::smart_refctd_ptr<video::IGPUImageView> imgView;
 				switch (asset->getAssetType())
 				{
 					case IAsset::ET_IMAGE:
 						break;
 					case IAsset::ET_IMAGE_VIEW:
+						{
+							auto actualcputex = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(asset);
+							imgView = driver->getGPUObjectsFromAssets(&actualcputex.get(),&actualcputex.get()+1u)->front();
+						}
 						break;
 					default:
 						assert(false);
 						break;
 				}
-				auto actualcputex = core::smart_refctd_ptr_static_cast<ICPUTexture>(asset);
-				auto tex = driver->getGPUObjectsFromAssets(&actualcputex.get(),&actualcputex.get()+1u)->front();
-				if (tex)
+				if (imgView)
 				{
-					auto tmpTex = driver->createGPUTexture(video::ITexture::ETT_2D,tex->getSize(),1u,tex->getColorFormat());
-					presentImageOnScreen(device, fullScreenTriangle, core::smart_refctd_ptr(tex), std::move(tmpTex));
+					presentImageOnScreen(core::smart_refctd_ptr(imgView),driver->createGPUTexture());
 			
 					if (writeable)
 						dumpTextureToFile(device, tex.get(), (io::path("screen_")+filename).c_str());

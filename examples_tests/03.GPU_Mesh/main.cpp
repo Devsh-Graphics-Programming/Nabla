@@ -28,13 +28,15 @@ const char* vertexSource = R"===(
 layout(location = 0) in vec4 vPos; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
 layout(location = 1) in vec4 vCol;
 
-uniform mat4 MVP;
+layout( push_constant, row_major ) uniform Block {
+	mat4 modelViewProj;
+} PushConstants;
 
 layout(location = 0) out vec4 Color; //per vertex output color, will be interpolated across the triangle
 
 void main()
 {
-    gl_Position = MVP*vPos; //only thing preventing the shader from being core-compliant
+    gl_Position = PushConstants.modelViewProj*vPos; //only thing preventing the shader from being core-compliant
     Color = vCol;
 }
 )===";
@@ -158,15 +160,15 @@ int main()
 			auto shadersPtr = reinterpret_cast<video::IGPUSpecializedShader**>(shaders);
 			
 			asset::SVertexInputParams inputParams;
-			inputParams.enabledAttribFlags = 0x1u;
-			inputParams.enabledBindingFlags = 0x1u;
+			inputParams.enabledAttribFlags = 0b11u;
+			inputParams.enabledBindingFlags = 0b1u;
 			inputParams.attributes[0].binding = 0u;
 			inputParams.attributes[0].format = asset::EF_R32G32B32_SFLOAT;
 			inputParams.attributes[0].relativeOffset = offsetof(VertexStruct,Pos[0]);
-			inputParams.attributes[0].binding = 0u;
-			inputParams.attributes[0].format = asset::EF_R8G8_UNORM;
-			inputParams.attributes[0].relativeOffset = offsetof(VertexStruct,Col[0]);
-			inputParams.bindings[0].stride = 0u;
+			inputParams.attributes[1].binding = 0u;
+			inputParams.attributes[1].format = asset::EF_R8G8_UNORM;
+			inputParams.attributes[1].relativeOffset = offsetof(VertexStruct,Col[0]);
+			inputParams.bindings[0].stride = sizeof(VertexStruct);
 			inputParams.bindings[0].inputRate = asset::EVIR_PER_VERTEX;
 
 			asset::SBlendParams blendParams;
@@ -218,8 +220,6 @@ int main()
 		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
 		//ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
 	}
-
-	device->drop();
 
 	return 0;
 }

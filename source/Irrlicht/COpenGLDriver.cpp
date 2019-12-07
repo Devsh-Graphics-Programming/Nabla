@@ -954,6 +954,7 @@ bool COpenGLDriver::genericDriverInit()
 	// We need to reset once more at the beginning of the first rendering.
 	// This fixes problems with intermediate changes to the material during texture load.
     SAuxContext* found = getThreadContext_helper(false);
+	extGlClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE); //once set and should never change (engine doesnt track it)
     glEnable(GL_FRAMEBUFFER_SRGB);//once set and should never change (engine doesnt track it)
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);//once set and should never change (engine doesnt track it)
     glDepthRange(1.0, 0.0);//once set and should never change (engine doesnt track it)

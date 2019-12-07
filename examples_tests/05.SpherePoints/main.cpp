@@ -62,7 +62,7 @@ int main()
 	inputParams.attributes[0].binding = 0u;
 	inputParams.attributes[0].format = EF_A2B10G10R10_SSCALED_PACK32;
 	inputParams.attributes[0].relativeOffset = 0u;
-	inputParams.bindings[0].stride = 0u;
+	inputParams.bindings[0].stride = sizeof(uint32_t);
 	inputParams.bindings[0].inputRate = EVIR_PER_VERTEX;
 
 	SBlendParams blendParams;
