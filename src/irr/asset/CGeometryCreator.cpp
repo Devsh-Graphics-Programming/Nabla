@@ -13,35 +13,37 @@ namespace irr
 namespace asset
 {
 
-core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCubeMesh(const core::vector3df& size) const
+CGeometryCreator::return_type CGeometryCreator::createCubeMesh(const core::vector3df& size) const
 {
-#ifndef NEW_SHADERS
-	auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
-	auto buffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+	return_type retval;
+
+	constexpr size_t vertexSize = sizeof(CGeometryCreator::CubeVertex);
+	retval.inputParams = {0b1111u,0b1u,{
+											{0u,EF_R32G32B32_SFLOAT,offsetof(CubeVertex,pos)},
+											{0u,EF_R8G8B8A8_UNORM,offsetof(CubeVertex,color)},
+											{0u,EF_R8G8_USCALED,offsetof(CubeVertex,uv)},
+											{0u,EF_R8G8B8_SSCALED,offsetof(CubeVertex,normal)}
+										},{vertexSize,EVIR_PER_VERTEX}};
 
 	// Create indices
-	uint16_t u[36];
-	for (int i = 0; i < 6; ++i)
 	{
-		u[i*6+0] = 4*i+0;
-		u[i*6+1] = 4*i+1;
-		u[i*6+2] = 4*i+3;
-		u[i*6+3] = 4*i+1;
-		u[i*6+4] = 4*i+2;
-		u[i*6+5] = 4*i+3;
+		retval.indexCount = 36u;
+		auto indices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint16_t)*retval.indexCount);
+		auto u = reinterpret_cast<uint16_t*>(indices->getPointer());
+		for (uint32_t i=0u; i<6u; ++i)
+		{
+			u[i*6+0] = 4*i+0;
+			u[i*6+1] = 4*i+1;
+			u[i*6+2] = 4*i+3;
+			u[i*6+3] = 4*i+1;
+			u[i*6+4] = 4*i+2;
+			u[i*6+5] = 4*i+3;
+		}
+		retval.indexBuffer = {0ull,std::move(indices)};
 	}
-
-	{
-		auto indices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(u));
-		memcpy(indices->getPointer(),u,sizeof(u));
-		desc->setIndexBuffer(std::move(indices));
-	}
-    buffer->setIndexType(asset::EIT_16BIT);
-    buffer->setIndexCount(sizeof(u)/sizeof(*u));
 
 	// Create vertices
-	const size_t vertexSize = sizeof(CGeometryCreator::CubeVertex);
-	auto vertices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(24*vertexSize);
+	auto vertices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(24u*vertexSize);
 	CubeVertex* ptr = (CubeVertex*)vertices->getPointer();
 
 	const core::vector3d<int8_t> normals[6] =
@@ -55,14 +57,14 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCubeMesh(const c
 	};
 	const core::vector3df pos[8] =
 	{
-		core::vector3df(0, 0, 0),
-		core::vector3df(1, 0, 0),
-		core::vector3df(1, 1, 0),
-		core::vector3df(0, 1, 0),
-		core::vector3df(1, 0, -1),
-		core::vector3df(0, 1, -1),
-		core::vector3df(0, 0, -1),
-		core::vector3df(1, 1, -1)
+		core::vector3df(-0.5f,-0.5f, 0.5f)*size,
+		core::vector3df( 0.5f,-0.5f, 0.5f)*size,
+		core::vector3df( 0.5f, 0.5f, 0.5f)*size,
+		core::vector3df(-0.5f, 0.5f, 0.5f)*size,
+		core::vector3df( 0.5f,-0.5f,-0.5f)*size,
+		core::vector3df(-0.5f, 0.5f,-0.5f)*size,
+		core::vector3df(-0.5f,-0.5f,-0.5f)*size,
+		core::vector3df( 0.5f, 0.5f,-0.5f)*size
 	};
 	const core::vector2d<uint8_t> uvs[4] =
 	{
@@ -72,11 +74,11 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCubeMesh(const c
 		core::vector2d<uint8_t>(0, 0)
 	};
 
-	for (size_t f = 0; f < 6; ++f)
+	for (size_t f=0ull; f<6ull; ++f)
 	{
-		const size_t v = f * 4;
+		const size_t v = f*4ull;
 
-		for (size_t i = 0; i < 4; ++i)
+		for (size_t i=0ull; i<4ull; ++i)
 		{
 			const core::vector3d<int8_t>& n = normals[f];
 			const core::vector2d<uint8_t>& uv = uvs[i];
@@ -87,71 +89,51 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCubeMesh(const c
 
 		switch (f)
 		{
-		case 0:
-			ptr[v+0].setPos(pos[0].X, pos[0].Y, pos[0].Z);
-			ptr[v+1].setPos(pos[1].X, pos[1].Y, pos[1].Z);
-			ptr[v+2].setPos(pos[2].X, pos[2].Y, pos[2].Z);
-			ptr[v+3].setPos(pos[3].X, pos[3].Y, pos[3].Z);
-			break;
-		case 1:
-			ptr[v+0].setPos(pos[1].X, pos[1].Y, pos[1].Z);
-			ptr[v+1].setPos(pos[4].X, pos[4].Y, pos[4].Z);
-			ptr[v+2].setPos(pos[7].X, pos[7].Y, pos[7].Z);
-			ptr[v+3].setPos(pos[2].X, pos[2].Y, pos[2].Z);
-			break;
-		case 2:
-			ptr[v+0].setPos(pos[4].X, pos[4].Y, pos[4].Z);
-			ptr[v+1].setPos(pos[6].X, pos[6].Y, pos[6].Z);
-			ptr[v+2].setPos(pos[5].X, pos[5].Y, pos[5].Z);
-			ptr[v+3].setPos(pos[7].X, pos[7].Y, pos[7].Z);
-			break;
-		case 3:
-			ptr[v+0].setPos(pos[6].X, pos[6].Y, pos[6].Z);
-			ptr[v+2].setPos(pos[3].X, pos[3].Y, pos[3].Z);
-			ptr[v+1].setPos(pos[0].X, pos[0].Y, pos[0].Z);
-			ptr[v+3].setPos(pos[5].X, pos[5].Y, pos[5].Z);
-			break;
-		case 4:
-			ptr[v+0].setPos(pos[3].X, pos[3].Y, pos[3].Z);
-			ptr[v+1].setPos(pos[2].X, pos[2].Y, pos[2].Z);
-			ptr[v+2].setPos(pos[7].X, pos[7].Y, pos[7].Z);
-			ptr[v+3].setPos(pos[5].X, pos[5].Y, pos[5].Z);
-			break;
-		case 5:
-			ptr[v+0].setPos(pos[0].X, pos[0].Y, pos[0].Z);
-			ptr[v+1].setPos(pos[6].X, pos[6].Y, pos[6].Z);
-			ptr[v+2].setPos(pos[4].X, pos[4].Y, pos[4].Z);
-			ptr[v+3].setPos(pos[1].X, pos[1].Y, pos[1].Z);
-			break;
+			case 0:
+				ptr[v+0].setPos(pos[0].X, pos[0].Y, pos[0].Z);
+				ptr[v+1].setPos(pos[1].X, pos[1].Y, pos[1].Z);
+				ptr[v+2].setPos(pos[2].X, pos[2].Y, pos[2].Z);
+				ptr[v+3].setPos(pos[3].X, pos[3].Y, pos[3].Z);
+				break;
+			case 1:
+				ptr[v+0].setPos(pos[1].X, pos[1].Y, pos[1].Z);
+				ptr[v+1].setPos(pos[4].X, pos[4].Y, pos[4].Z);
+				ptr[v+2].setPos(pos[7].X, pos[7].Y, pos[7].Z);
+				ptr[v+3].setPos(pos[2].X, pos[2].Y, pos[2].Z);
+				break;
+			case 2:
+				ptr[v+0].setPos(pos[4].X, pos[4].Y, pos[4].Z);
+				ptr[v+1].setPos(pos[6].X, pos[6].Y, pos[6].Z);
+				ptr[v+2].setPos(pos[5].X, pos[5].Y, pos[5].Z);
+				ptr[v+3].setPos(pos[7].X, pos[7].Y, pos[7].Z);
+				break;
+			case 3:
+				ptr[v+0].setPos(pos[6].X, pos[6].Y, pos[6].Z);
+				ptr[v+2].setPos(pos[3].X, pos[3].Y, pos[3].Z);
+				ptr[v+1].setPos(pos[0].X, pos[0].Y, pos[0].Z);
+				ptr[v+3].setPos(pos[5].X, pos[5].Y, pos[5].Z);
+				break;
+			case 4:
+				ptr[v+0].setPos(pos[3].X, pos[3].Y, pos[3].Z);
+				ptr[v+1].setPos(pos[2].X, pos[2].Y, pos[2].Z);
+				ptr[v+2].setPos(pos[7].X, pos[7].Y, pos[7].Z);
+				ptr[v+3].setPos(pos[5].X, pos[5].Y, pos[5].Z);
+				break;
+			case 5:
+				ptr[v+0].setPos(pos[0].X, pos[0].Y, pos[0].Z);
+				ptr[v+1].setPos(pos[6].X, pos[6].Y, pos[6].Z);
+				ptr[v+2].setPos(pos[4].X, pos[4].Y, pos[4].Z);
+				ptr[v+3].setPos(pos[1].X, pos[1].Y, pos[1].Z);
+				break;
 		}
 	}
+	retval.bindings[0] = {0ull,std::move(vertices)};
 
 	// Recalculate bounding box
-	buffer->setBoundingBox(core::aabbox3df(-size*0.5f,size*0.5f));
+	retval.indexType = asset::EIT_16BIT;
+	retval.bbox = core::aabbox3df(-size*0.5f,size*0.5f);
 
-	for (uint32_t i = 0; i < 24; ++i)
-	{
-		ptr[i].translate(-0.5f, -0.5f, 0.5f);
-		core::vector3df& pos = *((core::vector3df*)(ptr[i].pos));
-		pos *= size;
-	}
-    //setVertexAttrBuffer(asset::ICPUBuffer* attrBuf, const E_VERTEX_ATTRIBUTE_ID& attrId, E_COMPONENTS_PER_ATTRIBUTE components, E_COMPONENT_TYPE type, const size_t &stride=0, size_t offset=0)
-    desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertices),asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,vertexSize, offsetof(CubeVertex, pos));
-    desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertices),asset::EVAI_ATTR1,asset::EF_R8G8B8A8_UNORM,vertexSize,offsetof(CubeVertex, color));
-    desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertices),asset::EVAI_ATTR2,asset::EF_R8G8_USCALED,vertexSize,offsetof(CubeVertex, uv));
-    desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertices),asset::EVAI_ATTR3,asset::EF_R8G8B8_SSCALED,vertexSize,offsetof(CubeVertex, normal));
-
-	buffer->setMeshDataAndFormat(std::move(desc));
-	buffer->recalculateBoundingBox();
-
-	auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
-	mesh->addMeshBuffer(std::move(buffer));
-
-	mesh->recalculateBoundingBox();
-	return mesh;
-#else
-    return nullptr;
-#endif
+	return retval;
 }
 
 
@@ -159,14 +141,14 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCubeMesh(const c
 	a cylinder, a cone and a cross
 	point up on (0,1.f, 0.f )
 */
-core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createArrowMesh(const uint32_t tesselationCylinder,
-						const uint32_t tesselationCone,
-						const float height,
-						const float cylinderHeight,
-						const float width0,
-						const float width1,
-						const video::SColor vtxColor0,
-						const video::SColor vtxColor1) const
+CGeometryCreator::return_type CGeometryCreator::createArrowMesh(const uint32_t tesselationCylinder,
+																const uint32_t tesselationCone,
+																const float height,
+																const float cylinderHeight,
+																const float width0,
+																const float width1,
+																const video::SColor vtxColor0,
+																const video::SColor vtxColor1) const
 {
 #ifndef NEW_SHADERS
     assert(height > cylinderHeight);
@@ -191,13 +173,13 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createArrowMesh(const 
 
     return cone;
 #else
-    return nullptr;
+	return {};
 #endif
 }
 
 
 /* A sphere with proper normals and texture coords */
-core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createSphereMesh(float radius, uint32_t polyCountX, uint32_t polyCountY) const
+CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, uint32_t polyCountX, uint32_t polyCountY) const
 {
 #ifndef NEW_SHADERS
 	// thanks to Alfaz93 who made his code available for Irrlicht on which
@@ -399,13 +381,13 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createSphereMesh(float
 	mesh->recalculateBoundingBox();
 	return mesh;
 #else
-    return nullptr;
+	return {};
 #endif
 }
 
 
 /* A cylinder with proper normals and texture coords */
-core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCylinderMesh(float radius, float length,
+CGeometryCreator::return_type CGeometryCreator::createCylinderMesh(float radius, float length,
 			uint32_t tesselation, const video::SColor& color) const
 {
 #ifndef NEW_SHADERS
@@ -476,15 +458,15 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCylinderMesh(flo
 
     return mesh;
 #else
-    return nullptr;
+	return {};
 #endif
 }
 
 /* A cone with proper normals and texture coords */
-core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createConeMesh(float radius, float length, uint32_t tesselation,
-					const video::SColor& colorTop,
-					const video::SColor& colorBottom,
-					float oblique) const
+CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, float length, uint32_t tesselation,
+																const video::SColor& colorTop,
+																const video::SColor& colorBottom,
+																float oblique) const
 {
 #ifndef NEW_SHADERS
     const size_t vtxCnt = tesselation+2u;
@@ -547,12 +529,12 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createConeMesh(float r
 
     return mesh;
 #else
-    return nullptr;
+	return {};
 #endif
 }
 
 
-core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createRectangleMesh(const core::vector2df_SIMD& _size) const
+CGeometryCreator::return_type CGeometryCreator::createRectangleMesh(const core::vector2df_SIMD& _size) const
 {
 #ifndef NEW_SHADERS
 	// Create indices
@@ -609,7 +591,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createRectangleMesh(co
 	mesh->recalculateBoundingBox();
 	return mesh;
 #else
-    return nullptr;
+	return {};
 #endif
 }
 
@@ -670,7 +652,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createDiskMesh(float r
 	mesh->recalculateBoundingBox();
 	return mesh;
 #else
-    return nullptr;
+	return {};
 #endif
 }
 
