@@ -52,6 +52,52 @@ class App
 
 			driver->removeFrameBuffer(framebuffer);
 		}
+		template<class ViewOrImage>
+		void dumpTextureToFile(ViewOrImage* tex, const std::string& outname)
+		{
+			video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<ViewOrImage,IGPUImageView>::value)
+			{
+				reqs.vulkanReqs.size = tex->getCreationParams().image->getImageDataSizeInBytes();
+			}
+			IRR_PSEUDO_ELSE_CONSTEXPR
+			{
+				reqs.vulkanReqs.size = tex->getImageDataSizeInBytes();
+			}
+			IRR_PSEUDO_IF_CONSTEXPR_END
+			reqs.vulkanReqs.alignment = 64u;
+			reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+			reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
+			reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|video::IDriverMemoryAllocation::EMCF_COHERENT|video::IDriverMemoryAllocation::EMCF_CACHED;
+			auto buffer = driver->createGPUBufferOnDedMem(reqs);
+
+			auto fence = ext::ScreenShot::createScreenShot(driver,tex,buffer);
+			while (fence->waitCPU(1000ull,fence->canDeferredFlush())==video::EDFR_TIMEOUT_EXPIRED) {}
+
+			auto alloc = buffer->getBoundMemory();
+			alloc->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_READ,{0u,reqs.vulkanReqs.size});
+			auto cpubuffer = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<typename Allocator::value_type> > >(reqs.vulkanReqs.size,alloc->getMappedPointer(),core::adopt_memory);
+			
+			auto assMgr = device->getAssetManager();
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<ViewOrImage,IGPUImageView>::value)
+			{
+				const auto& origViewParams = tex->getCreationParams();
+
+				asset::ICPUImage::SCreationParams params = origViewParams.image->getCreationParams();
+				auto img = asset::ICPUImage::create(std::move(params));
+
+				asset::IImageView::SCreationParams viewParams = {origViewParams.flags,std::move(img),origViewParams.viewType,origViewParams.format,origViewParams.components,origViewParams.subresourceRange};
+				auto imgView = core::make_smart_refctd_ptr<asset::ICPUImageView>(std::move(viewParams));
+				assMgr->writeAsset(outname,asset::IAssetWriter::SAssetWriteParams(imgView.get()));
+			}
+			IRR_PSEUDO_ELSE_CONSTEXPR
+			{
+				asset::ICPUImage::SCreationParams params = tex->getCreationParams();
+				auto img = asset::ICPUImage::create(std::move(params));
+				assMgr->writeAsset(outname,asset::IAssetWriter::SAssetWriteParams(img.get()));
+			}
+			IRR_PSEUDO_IF_CONSTEXPR_END
+		}
 
 		core::smart_refctd_ptr<IrrlichtDevice> device;
 		IVideoDriver* driver;
@@ -153,10 +199,13 @@ class App
 				}
 				if (imgView)
 				{
-					presentImageOnScreen(core::smart_refctd_ptr(imgView),driver->createGPUTexture());
-			
+					auto viewParams = imgView->getCreationParameters();
+					viewParams.image = driver->createGPUImage(video::IGPUImage::SCreationParams(viewParams.image->getCreationParameters()));
+					viewParams.viewType = IGPUImageView::ET_2D;
+					auto outView = driver->createGPUImageView(std::move(viewParams));
+					presentImageOnScreen(core::smart_refctd_ptr(imgView),core::smart_refctd_ptr(outView));
 					if (writeable)
-						dumpTextureToFile(device, tex.get(), (io::path("screen_")+filename).c_str());
+						dumpTextureToFile(outView.get(), (io::path("screen_") + filename).c_str());
 				}
 		
 				if (writeable)
@@ -167,38 +216,12 @@ class App
 					assetMgr->writeAsset((io::path("write_")+filename).c_str(), wparams);
 				}
 				assetMgr->removeAssetFromCache(cputex);
-				assetMgr->removeCachedGPUObject(actualcputex.get(),tex);
+				//assetMgr->removeCachedGPUObject(,tex); // TODO: provide a variant of `removeCachedGPUObject` that does not leak (as in, removes all children too)
 			}
 			else
 				std::cout << "ERROR: CANNOT LOAD FILE!" << std::endl;
 		}
 };
-
-void dumpTextureToFile(video::ITexture* tex, const std::string& outname)
-{
-	video::IVideoDriver* driver = device->getVideoDriver();
-
-	video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-	reqs.vulkanReqs.size = (tex->getSize()[1]*tex->getPitch()).getIntegerApprox();
-	reqs.vulkanReqs.alignment = 64u;
-	reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-	reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_NOT_DEVICE_LOCAL;
-	reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|video::IDriverMemoryAllocation::EMCF_COHERENT|video::IDriverMemoryAllocation::EMCF_CACHED;
-	auto buffer = driver->createGPUBufferOnDedMem(reqs);
-
-	auto fence = ext::ScreenShot::createScreenShot(driver,tex,buffer);
-	while (fence->waitCPU(1000ull,fence->canDeferredFlush())==video::EDFR_TIMEOUT_EXPIRED) {}
-
-	auto alloc = buffer->getBoundMemory();
-	alloc->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_READ,{0u,reqs.vulkanReqs.size});
-	uint32_t minCoord[3] = {0u,0u,0u};
-	uint32_t maxCoord[3] = {tex->getSize()[0],tex->getSize()[1],1u};
-	auto img = core::make_smart_refctd_ptr<asset::CImageData>(alloc->getMappedPointer(),minCoord,maxCoord,0u,tex->getColorFormat(),1u);
-	buffer->drop();
-
-	asset::IAssetWriter::SAssetWriteParams wparams(img.get());
-	device->getAssetManager()->writeAsset(outname, wparams);
-}
 
 int main()
 {	
