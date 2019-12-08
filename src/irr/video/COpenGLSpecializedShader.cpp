@@ -14,7 +14,7 @@ namespace video
 
 namespace impl
 {
-static void specialize(spirv_cross::CompilerGLSL& _comp, const asset::ISpecializationInfo* _specData)
+static void specialize(spirv_cross::CompilerGLSL& _comp, const asset::ISpecializedShader::SInfo& _specData)
 {
     spirv_cross::SmallVector<spirv_cross::SpecializationConstant> sconsts = _comp.get_specialization_constants();
     for (const auto& sc : sconsts)
@@ -22,7 +22,7 @@ static void specialize(spirv_cross::CompilerGLSL& _comp, const asset::ISpecializ
         spirv_cross::SPIRConstant& val = _comp.get_constant(sc.id);
         val.specialization = false; // despecializing. If spec-data is not provided, the spec constant is left with its default value. Default value can be queried through introspection mechanism.
 
-        auto specVal = _specData->getSpecializationByteValue(sc.constant_id);
+        auto specVal = _specData.getSpecializationByteValue(sc.constant_id);
         if (!specVal.first)
             continue;
         memcpy(&val.m.c[0].r[0].u64, specVal.first, specVal.second); // this will do for spec constants of scalar types (uint, int, float,...) regardless of size
@@ -86,18 +86,18 @@ static void reorderBindings(spirv_cross::CompilerGLSL& _comp)
     reorder_(ssbos);
 }
 
-static GLenum ESS2GLenum(asset::E_SHADER_STAGE _stage)
+static GLenum ESS2GLenum(asset::ISpecializedShader::E_SHADER_STAGE _stage)
 {
     using namespace asset;
     switch (_stage)
     {
-    case ESS_VERTEX: return GL_VERTEX_SHADER;
-    case ESS_TESSELATION_CONTROL: return GL_TESS_CONTROL_SHADER;
-    case ESS_TESSELATION_EVALUATION: return GL_TESS_EVALUATION_SHADER;
-    case ESS_GEOMETRY: return GL_GEOMETRY_SHADER;
-    case ESS_FRAGMENT: return GL_FRAGMENT_SHADER;
-    case ESS_COMPUTE: return GL_COMPUTE_SHADER;
-    default: return GL_INVALID_ENUM;
+		case asset::ISpecializedShader::ESS_VERTEX: return GL_VERTEX_SHADER;
+		case asset::ISpecializedShader::ESS_TESSELATION_CONTROL: return GL_TESS_CONTROL_SHADER;
+		case asset::ISpecializedShader::ESS_TESSELATION_EVALUATION: return GL_TESS_EVALUATION_SHADER;
+		case asset::ISpecializedShader::ESS_GEOMETRY: return GL_GEOMETRY_SHADER;
+		case asset::ISpecializedShader::ESS_FRAGMENT: return GL_FRAGMENT_SHADER;
+		case asset::ISpecializedShader::ESS_COMPUTE: return GL_COMPUTE_SHADER;
+		default: return GL_INVALID_ENUM;
     }
 }
 
@@ -109,23 +109,23 @@ static GLenum ESS2GLenum(asset::E_SHADER_STAGE _stage)
 using namespace irr;
 using namespace irr::video;
 
-COpenGLSpecializedShader::COpenGLSpecializedShader(size_t _ctxCount, uint32_t _ctxID, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection) :
-	core::impl::ResolveAlignment<IGPUSpecializedShader, core::AllocationOverrideBase<128>>(_specInfo->shaderStage),
+COpenGLSpecializedShader::COpenGLSpecializedShader(size_t _ctxCount, uint32_t _ctxID, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, const asset::CIntrospectionData* _introspection) :
+	core::impl::ResolveAlignment<IGPUSpecializedShader, core::AllocationOverrideBase<128>>(_specInfo.shaderStage),
     m_GLnames(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(_ctxCount)),
-    m_GLstage(impl::ESS2GLenum(_specInfo->shaderStage))
+    m_GLstage(impl::ESS2GLenum(_specInfo.shaderStage))
 {
     for (auto& nm : (*m_GLnames))
         nm = 0u;
     m_GLnames->operator[](_ctxID) = compile(_GLSLversion, _spirv, _specInfo, _introspection);
 }
 
-GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection)
+GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, const asset::CIntrospectionData* _introspection)
 {
-    if (!_spirv || !_specInfo)
+    if (!_spirv)
         return 0u;
 
     spirv_cross::CompilerGLSL comp(reinterpret_cast<const uint32_t*>(_spirv->getPointer()), _spirv->getSize()/4u);
-    comp.set_entry_point(_specInfo->entryPoint.c_str(), asset::ESS2spvExecModel(_specInfo->shaderStage));
+    comp.set_entry_point(_specInfo.entryPoint.c_str(), asset::ESS2spvExecModel(_specInfo.shaderStage));
     spirv_cross::CompilerGLSL::Options options;
     options.version = _GLSLversion;
     //vulkan_semantics=false causes spirv_cross to translate push_constants into non-UBO uniform of struct type! Exactly like we wanted!

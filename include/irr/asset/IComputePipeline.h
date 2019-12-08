@@ -3,7 +3,7 @@
 
 #include <utility>
 #include "irr/asset/IPipeline.h"
-#include "irr/asset/ShaderCommons.h"
+#include "irr/asset/ISpecializedShader.h"
 
 namespace irr
 {

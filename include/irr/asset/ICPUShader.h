@@ -7,7 +7,6 @@
 
 #include "irr/asset/IAsset.h"
 #include "irr/asset/ICPUBuffer.h"
-#include "irr/asset/ShaderCommons.h"
 #include "irr/core/SRange.h"
 
 namespace spirv_cross

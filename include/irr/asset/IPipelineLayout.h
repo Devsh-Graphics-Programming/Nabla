@@ -8,7 +8,7 @@
 #include "irr/macros.h"
 #include "irr/core/core.h"
 
-#include "irr/asset/ShaderCommons.h"
+#include "irr/asset/ISpecializedShader.h"
 
 namespace irr
 {
@@ -17,7 +17,7 @@ namespace asset
 
 struct SPushConstantRange
 {
-    E_SHADER_STAGE stageFlags;
+	ISpecializedShader::E_SHADER_STAGE stageFlags;
     uint32_t offset;
     uint32_t size;
 

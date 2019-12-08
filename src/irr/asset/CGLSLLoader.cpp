@@ -29,17 +29,17 @@ SAssetBundle CGLSLLoader::loadAsset(IReadFile* _file, const IAssetLoader::SAsset
 	io::path extension;
 	core::getFileNameExtension(extension,_file->getFileName());
 
-	core::unordered_map<std::string,E_SHADER_STAGE> typeFromExt =	{	
-																		{".vert",ESS_VERTEX},
-																		{".tesc",ESS_TESSELATION_CONTROL},
-																		{".tese",ESS_TESSELATION_EVALUATION},
-																		{".geom",ESS_GEOMETRY},
-																		{".frag",ESS_FRAGMENT},
-																		{".comp",ESS_COMPUTE}
-																	};
+	core::unordered_map<std::string,ISpecializedShader::E_SHADER_STAGE> typeFromExt =	{	
+																							{".vert",ISpecializedShader::ESS_VERTEX},
+																							{".tesc",ISpecializedShader::ESS_TESSELATION_CONTROL},
+																							{".tese",ISpecializedShader::ESS_TESSELATION_EVALUATION},
+																							{".geom",ISpecializedShader::ESS_GEOMETRY},
+																							{".frag",ISpecializedShader::ESS_FRAGMENT},
+																							{".comp",ISpecializedShader::ESS_COMPUTE}
+																						};
 	auto found = typeFromExt.find(extension.c_str());
 	if (found==typeFromExt.end())
 		return {};
 
-	return SAssetBundle{core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(shader),core::make_smart_refctd_ptr<ISpecializationInfo>(core::vector<SSpecializationMapEntry>(),nullptr,"main",found->second))};
+	return SAssetBundle{ core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(shader),ISpecializedShader::SInfo({},nullptr,"main",found->second)) };
 } 

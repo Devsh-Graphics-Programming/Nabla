@@ -3,11 +3,13 @@
 
 #include <cstdint>
 #include "irr/macros.h"
-#include "irr/asset/ShaderCommons.h"
 #include "irr/asset/format/EFormat.h"
 
-namespace irr { namespace asset
+namespace irr
 {
+namespace asset
+{
+
 enum E_SHADER_RESOURCE_TYPE : uint8_t
 {
     //! GLSL declaration: e.g. `sampler2D`

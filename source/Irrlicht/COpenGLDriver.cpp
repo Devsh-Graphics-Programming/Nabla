@@ -1166,9 +1166,9 @@ bool COpenGLDriver::pushConstants(const IGPUPipelineLayout* _layout, uint32_t _s
     }
     */
 
-    if (_stages & asset::ESS_ALL_GRAPHICS)
+    if (_stages & asset::ISpecializedShader::ESS_ALL_GRAPHICS)
         ctx->pushConstants(EPBP_GRAPHICS, static_cast<const COpenGLPipelineLayout*>(_layout), _stages, _offset, _size, _values);
-    if (_stages & asset::ESS_COMPUTE)
+    if (_stages & asset::ISpecializedShader::ESS_COMPUTE)
         ctx->pushConstants(EPBP_COMPUTE, static_cast<const COpenGLPipelineLayout*>(_layout), _stages, _offset, _size, _values);
 
     return true;
@@ -1179,13 +1179,13 @@ core::smart_refctd_ptr<IGPUShader> COpenGLDriver::createGPUShader(core::smart_re
     return core::make_smart_refctd_ptr<COpenGLShader>(std::move(_cpushader));
 }
 
-core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo)
+core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo)
 {
     const COpenGLShader* glUnspec = static_cast<const COpenGLShader*>(_unspecialized);
     const asset::ICPUShader* cpuUnspec = glUnspec->getCPUCounterpart();
 
-    const std::string& EP = _specInfo->entryPoint;
-    const asset::E_SHADER_STAGE stage = _specInfo->shaderStage;
+    const std::string& EP = _specInfo.entryPoint;
+    const asset::ISpecializedShader::E_SHADER_STAGE stage = _specInfo.shaderStage;
 
     core::smart_refctd_ptr<const asset::ICPUShader> spvCPUShader = nullptr;
     if (cpuUnspec->containsGLSL()) {
@@ -1206,7 +1206,7 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
         spvCPUShader = core::smart_refctd_ptr<const asset::ICPUShader>(cpuUnspec);
     }
 
-    asset::CShaderIntrospector::SEntryPoint_Stage_Extensions introspectionParams{_specInfo->entryPoint, _specInfo->shaderStage, getSupportedGLSLExtensions()};
+    asset::CShaderIntrospector::SEntryPoint_Stage_Extensions introspectionParams{_specInfo.entryPoint, _specInfo.shaderStage, getSupportedGLSLExtensions()};
     asset::CShaderIntrospector introspector(GLSLCompiler.get(), introspectionParams);
     const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get());
     if (introspection->pushConstant.present && introspection->pushConstant.info.name.empty())
@@ -1281,7 +1281,7 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
 
     auto shaders = core::SRange<IGPUSpecializedShader*>(_shadersBegin, _shadersEnd);
     auto vsIsPresent = [&shaders] {
-        return std::find_if(shaders.begin(), shaders.end(), [](IGPUSpecializedShader* shdr) {return shdr->getStage()==asset::ESS_VERTEX;}) != shaders.end();
+        return std::find_if(shaders.begin(), shaders.end(), [](IGPUSpecializedShader* shdr) {return shdr->getStage()==asset::ISpecializedShader::ESS_VERTEX;}) != shaders.end();
     };
 
     if (!_layout || !vsIsPresent())
@@ -1299,7 +1299,7 @@ core::smart_refctd_ptr<IGPUComputePipeline> COpenGLDriver::createGPUComputePipel
 {
     if (!_layout || !_shader)
         return nullptr;
-    if (_shader->getStage() != asset::ESS_COMPUTE)
+    if (_shader->getStage() != asset::ISpecializedShader::ESS_COMPUTE)
         return nullptr;
 
     return core::make_smart_refctd_ptr<COpenGLComputePipeline>(std::move(_parent), std::move(_layout), std::move(_shader));
@@ -2275,7 +2275,7 @@ void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
     if ((stateBits & GSB_PUSH_CONSTANTS) && currentState.pipeline.compute.pipeline)
     {
 		assert(currentState.pipeline.compute.pipeline->containsShader());
-		if (pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags & asset::ESS_COMPUTE)
+		if (pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags & asset::ISpecializedShader::ESS_COMPUTE)
 		{
 			const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.compute.pipeline->getShader());
 

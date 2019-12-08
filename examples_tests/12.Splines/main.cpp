@@ -2,7 +2,6 @@
 #include <irrlicht.h>
 
 #include "../../ext/DebugDraw/CDraw3DLine.h"
-#include "../../ext/ScreenShot/ScreenShot.h"
 
 #include "../common/QToQuitEventReceiver.h"
 
@@ -201,9 +200,9 @@ int main()
 	params.Vsync = true; //! If supported by target platform
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
-	IrrlichtDevice* device = createDeviceEx(params);
+	auto device = createDeviceEx(params);
 
-	if (device == 0)
+	if (!device)
 		return 1; // could not create selected driver.
 
 
@@ -212,13 +211,13 @@ int main()
 	MyEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
-
-	video::IVideoDriver* driver = device->getVideoDriver();
+	auto assMgr = device->getAssetManager();
+	auto driver = device->getVideoDriver();
 
 	auto draw3DLine = ext::DebugDraw::CDraw3DLine::create(driver);
 
 
-	scene::ISceneManager* smgr = device->getSceneManager();
+	auto smgr = device->getSceneManager();
 	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
 	camera->setPosition(core::vector3df(-4,0,0));
 	camera->setTarget(core::vector3df(0,0,0));
@@ -227,6 +226,9 @@ int main()
     smgr->setActiveCamera(camera);
 
 	//! Test Creation Of Builtin
+	auto cubeMesh = assMgr->getGeometryCreator()->createCubeMesh(core::vector3df(size));
+	auto res = driver->getGPUObjectsFromAssets(&cubeMesh.get(),(&cubeMesh.get())+1);
+
 	auto* cube = smgr->addCubeSceneNode(1.f, 0, -1);
 	cube->setRotation(core::vector3df(45, 20, 15));
 
@@ -324,8 +326,6 @@ int main()
 
     if (spline)
         delete spline;
-
-	//device->drop();
 
 	return 0;
 }

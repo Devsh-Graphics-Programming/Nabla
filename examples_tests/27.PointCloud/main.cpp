@@ -1,115 +1,70 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 
-#include "../../ext/ScreenShot/ScreenShot.h"
-
 #include "../common/QToQuitEventReceiver.h"
 
-#include "../source/Irrlicht/COpenGLBuffer.h"
-#include "../source/Irrlicht/COpenGLDriver.h"
-
-#include "createComputeShader.h"
 
 using namespace irr;
 using namespace core;
 
-
-class SimpleCallBack : public video::IShaderConstantSetCallBack
-{
-    int32_t mvpUniformLocation;
-    int32_t cameraDirUniformLocation;
-    video::E_SHADER_CONSTANT_TYPE mvpUniformType;
-    video::E_SHADER_CONSTANT_TYPE cameraDirUniformType;
-
-public:
-    SimpleCallBack() : cameraDirUniformLocation(-1), cameraDirUniformType(video::ESCT_FLOAT_VEC3) {}
-
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
-    {
-        for (size_t i = 0; i<constants.size(); i++)
-        {
-            if (constants[i].name == "MVP")
-            {
-                mvpUniformLocation = constants[i].location;
-                mvpUniformType = constants[i].type;
-            }
-            else if (constants[i].name == "cameraPos")
-            {
-                cameraDirUniformLocation = constants[i].location;
-                cameraDirUniformType = constants[i].type;
-            }
-        }
-    }
-
-    virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
-    {
-        core::vectorSIMDf modelSpaceCamPos;
-        modelSpaceCamPos.set(services->getVideoDriver()->getTransform(video::E4X3TS_WORLD_VIEW_INVERSE).getTranslation());
-        services->setShaderConstant(&modelSpaceCamPos, cameraDirUniformLocation, cameraDirUniformType, 1);
-        services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(), mvpUniformLocation, mvpUniformType, 1);
-    }
-
-    virtual void OnUnsetMaterial() {}
-};
-
 class ISorter : public IReferenceCounted
 {
-protected:
-    explicit ISorter(video::IVideoDriver* _vd) : m_driver{_vd}, m_idxBuf(), m_16to32Cs{0u} {}
-    virtual ~ISorter() = default;
+	protected:
+		explicit ISorter(video::IVideoDriver* _vd) : m_driver{_vd}, m_idxBuf(), m_16to32Cs{0u} {}
+		virtual ~ISorter() = default;
 
-public:
-    virtual void init(asset::ICPUMeshBuffer* _mb) = 0;
-    virtual void run(const core::vector3df& _camPos) = 0;
+	public:
+		virtual void init(asset::ICPUMeshBuffer* _mb) = 0;
+		virtual void run(const core::vector3df& _camPos) = 0;
 
-    //! Takes index buffer from passed meshbuffer and converts it (creates new buffer and overrides old one in meshbuffer) to 32bit indices if they're 16bit.
-    //! Assumues that index count is always power of two.
-    virtual void setIndexBuffer(video::IGPUMeshBuffer* _mb)
-    {
-        if (_mb)
-        {
-            video::IGPUBuffer* idxBuf = nullptr;
-            if (_mb->getIndexType() == asset::EIT_16BIT)
-            {
-                if (!m_16to32Cs)
-                    m_16to32Cs = createComputeShaderFromFile("../shaders/16to32.comp");
-                auto idxBuf16 = _mb->getMeshDataAndFormat()->getIndexBuffer();
-                idxBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(4*_mb->getIndexCount());
+		//! Takes index buffer from passed meshbuffer and converts it (creates new buffer and overrides old one in meshbuffer) to 32bit indices if they're 16bit.
+		//! Assumues that index count is always power of two.
+		virtual void setIndexBuffer(video::IGPUMeshBuffer* _mb)
+		{
+			if (_mb)
+			{
+				video::IGPUBuffer* idxBuf = nullptr;
+				if (_mb->getIndexType() == asset::EIT_16BIT)
+				{
+					if (!m_16to32Cs)
+						m_16to32Cs = createComputeShaderFromFile("../shaders/16to32.comp");
+					auto idxBuf16 = _mb->getMeshDataAndFormat()->getIndexBuffer();
+					idxBuf = m_driver->createDeviceLocalGPUBufferOnDedMem(4*_mb->getIndexCount());
 
-                auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
-                const video::COpenGLBuffer* bufs[2]{ static_cast<const video::COpenGLBuffer*>(idxBuf16), static_cast<const video::COpenGLBuffer*>(idxBuf) };
-                const ptrdiff_t off[2]{ _mb->getIndexBufferOffset(), 0 }, sz[2]{ 2*_mb->getIndexCount(), 4*_mb->getIndexCount()};
-                auxCtx->setActiveSSBO(0, 2, bufs, off, sz);
+					auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(m_driver)->getThreadContext());
+					const video::COpenGLBuffer* bufs[2]{ static_cast<const video::COpenGLBuffer*>(idxBuf16), static_cast<const video::COpenGLBuffer*>(idxBuf) };
+					const ptrdiff_t off[2]{ _mb->getIndexBufferOffset(), 0 }, sz[2]{ 2*_mb->getIndexCount(), 4*_mb->getIndexCount()};
+					auxCtx->setActiveSSBO(0, 2, bufs, off, sz);
 
-                GLint prevProgram = 0;
-                glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
+					GLint prevProgram = 0;
+					glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
                 
-                using gl = video::COpenGLExtensionHandler;
-                gl::extGlUseProgram(m_16to32Cs);
-                gl::extGlDispatchCompute(_mb->getIndexCount()/2/256, 1, 1);
-                gl::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+					using gl = video::COpenGLExtensionHandler;
+					gl::extGlUseProgram(m_16to32Cs);
+					gl::extGlDispatchCompute(_mb->getIndexCount()/2/256, 1, 1);
+					gl::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
-                gl::extGlUseProgram(prevProgram);
+					gl::extGlUseProgram(prevProgram);
 
-                _mb->getMeshDataAndFormat()->setIndexBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(idxBuf));
-                _mb->setIndexBufferOffset(0u);
-                _mb->setIndexType(asset::EIT_32BIT);
-            }
-            else
-				idxBuf = const_cast<video::IGPUBuffer*>(_mb->getMeshDataAndFormat()->getIndexBuffer());
+					_mb->getMeshDataAndFormat()->setIndexBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(idxBuf));
+					_mb->setIndexBufferOffset(0u);
+					_mb->setIndexType(asset::EIT_32BIT);
+				}
+				else
+					idxBuf = const_cast<video::IGPUBuffer*>(_mb->getMeshDataAndFormat()->getIndexBuffer());
 
-            m_idxBuf = core::smart_refctd_ptr<video::IGPUBuffer>(idxBuf);
-            printf("IDXISZE: %u\n", m_idxBuf->getSize());
-        }
-        else printf("NO IDX BUF!!!\n");
-    }
+				m_idxBuf = core::smart_refctd_ptr<video::IGPUBuffer>(idxBuf);
+				printf("IDXISZE: %u\n", m_idxBuf->getSize());
+			}
+			else printf("NO IDX BUF!!!\n");
+		}
 
-protected:
-    video::IVideoDriver* m_driver;
-    core::smart_refctd_ptr<video::IGPUBuffer> m_idxBuf;
+	protected:
+		video::IVideoDriver* m_driver;
+		core::smart_refctd_ptr<video::IGPUBuffer> m_idxBuf;
 
-private:
-    GLuint m_16to32Cs;
+	private:
+		GLuint m_16to32Cs;
 };
 
 class RadixSorter : public ISorter
@@ -125,7 +80,7 @@ layout(std430, binding = 7) buffer Pos { vec4 pos[]; };
 layout(std430, binding = 0) buffer Key { float key[]; };
 layout(std430, binding = 1) buffer Indices { uint indices[]; };
 
-layout(std140, binding = 0) uniform Control
+layout(push_constant) uniform Control
 {
 	vec4 camPos;
 } ctrl;
@@ -717,9 +672,9 @@ int main()
     params.Vsync = true; //! If supported by target platform
     params.Doublebuffer = true;
     params.Stencilbuffer = false; //! This will not even be a choice soon
-    IrrlichtDevice* device = createDeviceEx(params);
+    auto device = createDeviceEx(params);
 
-    if (device == 0)
+    if (!device)
         return 1; // could not create selected driver.
 
     video::IVideoDriver* driver = device->getVideoDriver();
@@ -793,9 +748,6 @@ int main()
 		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
 		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
 	}
-
-    sorter->drop();
-    device->drop();
 
     return 0;
 }
