@@ -690,7 +690,6 @@ int main()
 
 
     scene::ISceneManager* smgr = device->getSceneManager();
-    driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
     scene::ICameraSceneNode* camera =
         smgr->addCameraSceneNodeFPS(0, 100.0f, 0.01f);
     camera->setPosition(core::vector3df(-4, 0, 0));

@@ -24,7 +24,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		inline ICPUPipelineLayout* getLayout() { return m_layout.get(); }
 		const inline ICPUPipelineLayout* getLayout() const { return m_layout.get(); }
 
-		inline ICPUSpecializedShader* getShaderAtStage(E_SHADER_STAGE _stage) { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
+		inline ICPUSpecializedShader* getShaderAtStage(ISpecializedShader::E_SHADER_STAGE _stage) { return m_shaders[core::findLSB<uint32_t>(_stage)].get(); }
 		inline ICPUSpecializedShader* getShaderAtIndex(uint32_t _ix) { return m_shaders[_ix].get(); }
 		inline const ICPUSpecializedShader* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
 
@@ -37,7 +37,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		inline SVertexInputParams& getVertexInputParams() { return m_vertexInputParams; }
 		inline const SVertexInputParams& getVertexInputParams() const { return m_vertexInputParams; }
 
-		inline void setShaderAtStage(E_SHADER_STAGE _stage, ICPUSpecializedShader* _shdr) { m_shaders[core::findLSB<uint32_t>(_stage)] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr); }
+		inline void setShaderAtStage(ISpecializedShader::E_SHADER_STAGE _stage, ICPUSpecializedShader* _shdr) { m_shaders[core::findLSB<uint32_t>(_stage)] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr); }
 		inline void setShaderAtIndex(uint32_t _ix, ICPUSpecializedShader* _shdr) { m_shaders[_ix] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr); }
 
 	protected:
