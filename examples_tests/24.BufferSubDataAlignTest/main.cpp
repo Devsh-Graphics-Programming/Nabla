@@ -1,8 +1,10 @@
-#define _IRR_STATIC_LIB_
-#include <irrlicht.h>
 #include <iostream>
 #include <cstdio>
 
+#define _IRR_STATIC_LIB_
+#include <irrlicht.h>
+
+#include "../source/Irrlicht/COpenGLExtensionHandler.h"
 #include "../source/Irrlicht/COpenGLDriver.h"
 
 using namespace irr;
@@ -108,9 +110,8 @@ int main()
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
 
-
-	IrrlichtDevice* device = createDeviceEx(params);
-	if (device == 0)
+	auto device = createDeviceEx(params);
+	if (!device)
 		return 1; // could not create selected driver.
 
 
@@ -130,6 +131,14 @@ int main()
 
         video::COpenGLExtensionHandler::pGlDebugMessageCallbackARB(openGLCBFunc,NULL);
     }
+
+	constexpr uint32_t DescCount = 2u;
+	video::IGPUDescriptorSetLayout::SBinding bindings[DescCount];
+	bindings[0] = {0u,asset::EDT_UNIFORM_BUFFER,1u,asset::ISpecializedShader::ESS_ALL,nullptr};
+	bindings[1] = {1u,asset::EDT_STORAGE_BUFFER,1u,asset::ISpecializedShader::ESS_ALL,nullptr};
+	auto layout = driver->createGPUDescriptorSetLayout(bindings,bindings+DescCount);
+
+	auto pLayout = driver->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(layout),nullptr,nullptr,nullptr);
 
 
 	const size_t pageSize = 4096;
@@ -158,29 +167,32 @@ int main()
         reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
         reqs.prefersDedicatedAllocation = true;
         reqs.requiresDedicatedAllocation = true;
-        video::IGPUBuffer* testBuffer = driver->createGPUBufferOnDedMem(reqs,true);
+        auto testBuffer = driver->createGPUBufferOnDedMem(reqs,true);
         testBuffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),clearInitBuffer);
 
         //little extra test : bind to UBO+SSBO
         {
-            const video::COpenGLDriver::SAuxContext* foundConst = static_cast<video::COpenGLDriver*>(driver)->getThreadContext();
-            video::COpenGLDriver::SAuxContext* found = const_cast<video::COpenGLDriver::SAuxContext*>(foundConst);
+			auto desc = driver->createGPUDescriptorSet(core::smart_refctd_ptr(layout));
 
-            const video::COpenGLBuffer* buffers[1] = {static_cast<const video::COpenGLBuffer*>(testBuffer)};
-            ptrdiff_t offsets[1] = {0};
-            ptrdiff_t sizes[1] = {testBuffer->getSize()};
-            found->setActiveUBO(0,1,buffers,offsets,sizes);
-            found->setActiveSSBO(0,1,buffers,offsets,sizes);
-            //comment out to test subUpdate while bound to various UBO+SSBO targets
-            //found->setActiveSSBO(0,1,nullptr,nullptr,nullptr);
-            //found->setActiveUBO(0,1,nullptr,nullptr,nullptr);
+			video::IGPUDescriptorSet::SDescriptorInfo pInfo[DescCount];
+			pInfo[0].desc = testBuffer;
+			pInfo[0].buffer = {0,testBuffer->getSize()};
+			pInfo[1].desc = testBuffer;
+			pInfo[1].buffer = {0,testBuffer->getSize()};
+			video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[DescCount];
+			pWrites[0] = {desc.get(),0u,0u,1u,asset::EDT_UNIFORM_BUFFER,pInfo+0};
+			pWrites[1] = {desc.get(),1u,0u,1u,asset::EDT_STORAGE_BUFFER,pInfo+1};
+			driver->updateDescriptorSets(DescCount,pWrites,0u,nullptr);
+
+			bool success = driver->bindDescriptorSets(video::EPBP_COMPUTE,pLayout.get(),0u,1u,&desc.get(),nullptr);
+			assert(success);
         }
 
         //upload
         testBuffer->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(startOffset,pageSize-(startOffset+endOffset)),setBuffer);
         //get back
         uint8_t resultBuffer[pageSize];
-        video::COpenGLExtensionHandler::extGlGetNamedBufferSubData(reinterpret_cast<video::COpenGLBuffer*>(testBuffer)->getOpenGLName(),0,pageSize,resultBuffer);
+        video::COpenGLExtensionHandler::extGlGetNamedBufferSubData(reinterpret_cast<video::COpenGLBuffer*>(testBuffer.get())->getOpenGLName(),0,pageSize,resultBuffer);
         //test
         bool fail=false;
         for (size_t j=0; j<pageSize; j++)
@@ -208,8 +220,6 @@ int main()
             }
         }
 
-        testBuffer->drop();
-
         if (fail)
         {
             globalFail = true;
@@ -222,9 +232,6 @@ int main()
     else
         printf("Test OK!\n");
 
-
-
-	device->drop();
 
 	return 0;
 }
