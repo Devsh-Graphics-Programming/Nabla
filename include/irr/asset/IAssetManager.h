@@ -213,9 +213,9 @@ class IAssetManager : public core::IReferenceCounted
             SAssetBundle asset;
             if ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL)
             {
-                core::vector<SAssetBundle> found = findAssets(filename);
-                if (found.size())
-                    return _override->chooseRelevantFromFound(found, ctx, _hierarchyLevel);
+                auto found = findAssets(filename);
+                if (found->size())
+                    return _override->chooseRelevantFromFound(found->begin(), found->end(), ctx, _hierarchyLevel);
                 else if (!(asset = _override->handleSearchFail(filename, ctx, _hierarchyLevel)).isEmpty())
                     return asset;
             }
@@ -363,7 +363,7 @@ class IAssetManager : public core::IReferenceCounted
         }
         
 		//! It finds Assets and returnes all found. 
-        inline core::vector<SAssetBundle> findAssets(const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
+        inline core::smart_refctd_dynamic_array<SAssetBundle> findAssets(const std::string& _key, const IAsset::E_TYPE* _types = nullptr) const
         {
             size_t reqSz = 0u;
             if (_types)
@@ -381,9 +381,8 @@ class IAssetManager : public core::IReferenceCounted
                 for (const auto& cache : m_assetCache)
                     reqSz += cache->getSize();
             }
-            core::vector<SAssetBundle> res(reqSz);
-            findAssets(reqSz, res.data(), _key, _types);
-            res.resize(reqSz);
+			auto res = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SAssetBundle> >(reqSz);
+            findAssets(reqSz, res->data(), _key, _types);
             return res;
         }
 
@@ -452,6 +451,39 @@ class IAssetManager : public core::IReferenceCounted
                 return std::move(storage[0]);
             return nullptr;
         }
+
+		//! utility function to find from path instead of asset
+		inline core::smart_refctd_dynamic_array<core::smart_refctd_ptr<core::IReferenceCounted> > findGPUObject(const std::string& _key, IAsset::E_TYPE _type)
+		{
+			auto assets = findAssets(_key,&_type);
+			if (!assets->size())
+				return nullptr;
+
+			size_t outputSize = 0u;
+			for (auto it=assets->begin(); it!=assets->end(); it++)
+			{
+				assert(it->getAssetType() == _type);
+				outputSize += it->getSize();
+			}
+			if (!outputSize)
+				return nullptr;
+
+			const uint32_t ix = IAsset::typeFlagToIndex(_type);
+
+			auto retval = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<core::IReferenceCounted> > >(outputSize);
+			auto outIt = retval->data();
+			for (auto it=assets->begin(); it!=assets->end(); it++)
+			{
+				const auto& contents = it->getContents();
+				for (auto it2=contents.first; it2!=contents.second; it2++)
+				{
+					size_t storageSz = 1u;
+					m_cpuGpuCache[ix]->findAndStoreRange(it2->get(), storageSz, outIt++);
+					assert(storageSz);
+				}
+			}
+			return nullptr;
+		}
 
 		//! Removes one GPU object matched to an IAsset.
         bool removeCachedGPUObject(const IAsset* _asset, const core::smart_refctd_ptr<core::IReferenceCounted>& _gpuObject)

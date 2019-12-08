@@ -6,7 +6,9 @@
 #include "CFilesystemIncluder.h"
 #include "CBuiltinIncluder.h"
 
-namespace irr { namespace asset
+namespace irr
+{
+namespace asset
 {
 
 class CIncludeHandler : public IIncludeHandler
@@ -39,9 +41,9 @@ public:
         return getIncluderDependentOnPath(_path)->getIncludeRelative(_path, _workingDirectory);
     }
 
-    void addBuiltinIncludeLoader(IBuiltinIncludeLoader* _inclLoader) override
+    void addBuiltinIncludeLoader(core::smart_refctd_ptr<IBuiltinIncludeLoader>&& _inclLoader) override
     {
-        static_cast<CBuiltinIncluder*>(m_includers[EII_BUILTIN].get())->addBuiltinLoader(_inclLoader);
+        static_cast<CBuiltinIncluder*>(m_includers[EII_BUILTIN].get())->addBuiltinLoader(std::move(_inclLoader));
     }
 
 private:
@@ -51,6 +53,7 @@ private:
     }
 };
 
-}}
+}
+}
 
 #endif//__IRR_C_INCLUDE_HANDLER_H_INCLUDED__

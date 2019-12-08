@@ -18,15 +18,11 @@ namespace irr
 namespace asset
 {
 
-IGLSLCompiler::IGLSLCompiler(io::IFileSystem* _fs) : 
-    m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_fs)), m_fs(_fs)
+IGLSLCompiler::IGLSLCompiler(io::IFileSystem* _fs) : m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_fs)), m_fs(_fs)
 {
-    asset::IBuiltinIncludeLoader* builtinLdr = new asset::CGLSLScanBuiltinIncludeLoader();
-    m_inclHandler->addBuiltinIncludeLoader(builtinLdr);
-    builtinLdr->drop();
-    builtinLdr = new asset::CGLSLSkinningBuiltinIncludeLoader();
-    m_inclHandler->addBuiltinIncludeLoader(builtinLdr);
-    builtinLdr->drop();
+    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLScanBuiltinIncludeLoader>());
+    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLSkinningBuiltinIncludeLoader>());
+	// TODO: Add BSDF includes here!
 }
 
 core::smart_refctd_ptr<ICPUShader>IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo, std::string* _outAssembly) const
