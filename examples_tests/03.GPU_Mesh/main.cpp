@@ -143,19 +143,18 @@ int main()
                 driver->flushMappedMemoryRanges({video::IDriverMemoryAllocation::MappedMemoryRange(upStreamMem,offsets[0],sizes[0]),video::IDriverMemoryAllocation::MappedMemoryRange(upStreamMem,offsets[1],sizes[1])});
             }
 			
-			asset::SPushConstantRange range[1] = {asset::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
+			asset::SPushConstantRange range[1] = {asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
 			
-			auto createGPUSpecializedShaderFromSource = [=](const char* source, asset::E_SHADER_STAGE stage)
+			auto createGPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage)
 			{
 				auto spirv = device->getAssetManager()->getGLSLCompiler()->createSPIRVFromGLSL(source,stage,"main","runtimeID");
 				auto unspec = driver->createGPUShader(std::move(spirv));
-				auto specInfo = core::make_smart_refctd_ptr<asset::ISpecializationInfo>(core::vector<asset::SSpecializationMapEntry>(),nullptr,"main",stage);
-				return driver->createGPUSpecializedShader(unspec.get(),specInfo.get());
+				return driver->createGPUSpecializedShader(unspec.get(),{core::vector<asset::ISpecializedShader::SInfo::SMapEntry>(),nullptr,"main",stage});
 			};
 			core::smart_refctd_ptr<video::IGPUSpecializedShader> shaders[2] =
 			{
-				createGPUSpecializedShaderFromSource(vertexSource,asset::ESS_VERTEX),
-				createGPUSpecializedShaderFromSource(fragmentSource,asset::ESS_FRAGMENT)
+				createGPUSpecializedShaderFromSource(vertexSource,asset::ISpecializedShader::ESS_VERTEX),
+				createGPUSpecializedShaderFromSource(fragmentSource,asset::ISpecializedShader::ESS_FRAGMENT)
 			};
 			auto shadersPtr = reinterpret_cast<video::IGPUSpecializedShader**>(shaders);
 			
@@ -171,17 +170,13 @@ int main()
 			inputParams.bindings[0].stride = sizeof(VertexStruct);
 			inputParams.bindings[0].inputRate = asset::EVIR_PER_VERTEX;
 
-			asset::SBlendParams blendParams;
-			blendParams.logicOpEnable = false;
-			blendParams.logicOp = asset::ELO_NO_OP;
-			for (size_t i=0ull; i< asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
-				blendParams.blendParams[i] = {i==0ull,false,asset::EBF_ONE,asset::EBF_ZERO,asset::EBO_ADD,asset::EBF_ONE,asset::EBF_ZERO,asset::EBO_ADD,0xfu};
+			asset::SBlendParams blendParams; // defaults are sane
 
 			asset::SPrimitiveAssemblyParams assemblyParams = {asset::EPT_TRIANGLE_LIST,false,1u};
 
 			asset::SStencilOpParams defaultStencil;
-			asset::SRasterizationParams rasterParams = {1u,asset::EPM_FILL,asset::EFCM_NONE,asset::ECO_GREATER,asset::IImage::ESCF_1_BIT,{~0u,~0u},1.f,0.f,0.f,defaultStencil,defaultStencil,
-														{false,false,true,false,false,false,false,true,true,false,false}};
+			asset::SRasterizationParams rasterParams;
+			rasterParams.faceCullingMode = asset::EFCM_NONE;
 			auto pipeline = driver->createGPURenderpassIndependentPipeline(	nullptr,driver->createGPUPipelineLayout(range,range+1u,nullptr,nullptr,nullptr,nullptr),
 																			shadersPtr,shadersPtr+sizeof(shaders)/sizeof(core::smart_refctd_ptr<video::IGPUSpecializedShader>),
 																			inputParams,blendParams,assemblyParams,rasterParams);
@@ -195,7 +190,7 @@ int main()
 			}
 
 			driver->bindGraphicsPipeline(mb->getPipeline());
-			driver->pushConstants(mb->getPipeline()->getLayout(), asset::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), mvp.pointer());
+			driver->pushConstants(mb->getPipeline()->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), mvp.pointer());
 			driver->drawMeshBuffer(mb.get());
 
             upStreamBuff->multi_free(2u,(uint32_t*)&offsets,(uint32_t*)&sizes,driver->placeFence());

@@ -21,17 +21,17 @@ core::smart_refctd_ptr<CToneMapper> CToneMapper::create(IVideoDriver* _driver, a
 	bnd[0].binding = 0u;
 	bnd[0].type = asset::EDT_UNIFORM_BUFFER_DYNAMIC;
 	bnd[0].count = 1u;
-	bnd[0].stageFlags = asset::ESS_COMPUTE;
+	bnd[0].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
 	bnd[0].samplers = nullptr;
 	bnd[1].binding = 1u;
 	bnd[1].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
 	bnd[1].count = 1u;
-	bnd[1].stageFlags = asset::ESS_COMPUTE;
+	bnd[1].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
 	bnd[1].samplers = nullptr;
 	bnd[2].binding = 2u;
 	bnd[2].type = asset::EDT_STORAGE_IMAGE;
 	bnd[2].count = 1u;
-	bnd[2].stageFlags = asset::ESS_COMPUTE;
+	bnd[2].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
 	bnd[2].samplers = nullptr;
 	auto dsLayout = _driver->createGPUDescriptorSetLayout(bnd, bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding));
 
@@ -63,12 +63,12 @@ void main()
 	imageStore(outImage,uv,uvec4(packUnorm4x8(ldr),0u,0u,0u));
 }
 	)===";
-	auto spirv = compiler->createSPIRVFromGLSL(glsl.str().c_str(),asset::ESS_COMPUTE,"main","CToneMapper");
+	auto spirv = compiler->createSPIRVFromGLSL(glsl.str().c_str(),asset::ISpecializedShader::ESS_COMPUTE,"main","CToneMapper");
 	auto shader = _driver->createGPUShader(std::move(spirv));
 	
-	auto specInfo = core::make_smart_refctd_ptr<asset::ISpecializationInfo>(core::vector<asset::SSpecializationMapEntry>{}, nullptr, "main", asset::ESS_COMPUTE);
+	asset::ISpecializedShader::SInfo specInfo(core::vector<asset::ISpecializedShader::SInfo::SMapEntry>{}, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE);
 
-	auto computePipeline = _driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout), _driver->createGPUSpecializedShader(shader.get(),specInfo.get()));
+	auto computePipeline = _driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout), _driver->createGPUSpecializedShader(shader.get(),std::move(specInfo)));
 
 	auto tmp = new CToneMapper(_driver,inputFormat,std::move(dsLayout),std::move(pipelineLayout),std::move(computePipeline));
 	return core::smart_refctd_ptr<CToneMapper>(tmp,core::dont_grab);

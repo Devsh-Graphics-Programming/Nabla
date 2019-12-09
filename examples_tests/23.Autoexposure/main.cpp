@@ -28,8 +28,8 @@ int main()
 	deviceParams.Doublebuffer = true;
 	deviceParams.Stencilbuffer = false; //! This will not even be a choice soon
 
-	IrrlichtDevice* device = createDeviceEx(deviceParams);
-	if (device == 0)
+	auto device = createDeviceEx(deviceParams);
+	if (!device)
 		return 1; // could not create selected driver.
 
 	QToQuitEventReceiver receiver;
@@ -142,7 +142,6 @@ int main()
 		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
 	}
 #endif
-	device->drop();
 
 	return 0;
 }
@@ -167,7 +166,7 @@ core::smart_refctd_ptr<video::IGPUImage> createImageForLackOfEXRLoader(asset::IA
 		bnd.binding = 0u;
 		bnd.type = asset::EDT_STORAGE_IMAGE;
 		bnd.count = 1u;
-		bnd.stageFlags = asset::ESS_COMPUTE;
+		bnd.stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
 		auto dsLayout = driver->createGPUDescriptorSetLayout(&bnd, &bnd+1);
 
 		auto layout = driver->createGPUPipelineLayout(nullptr, nullptr, nullptr, nullptr, nullptr, core::smart_refctd_ptr(dsLayout));
@@ -227,12 +226,12 @@ void main()
 }
 )===";
 
-			auto spirv = am->getGLSLCompiler()->createSPIRVFromGLSL(glsl, asset::ESS_COMPUTE, "main", "gradient");
+			auto spirv = am->getGLSLCompiler()->createSPIRVFromGLSL(glsl, asset::ISpecializedShader::ESS_COMPUTE, "main", "gradient");
 			auto cs_unspec = driver->createGPUShader(std::move(spirv));
 
-			auto specInfo = core::make_smart_refctd_ptr<asset::ISpecializationInfo>(core::vector<asset::SSpecializationMapEntry>{}, nullptr, "main", asset::ESS_COMPUTE);
+			asset::ISpecializedShader::SInfo specInfo(core::vector<asset::ISpecializedShader::SInfo::SMapEntry>{}, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE);
 
-			shader = driver->createGPUSpecializedShader(cs_unspec.get(),specInfo.get());
+			shader = driver->createGPUSpecializedShader(cs_unspec.get(),std::move(specInfo));
 		}
 
 		auto pipeline = driver->createGPUComputePipeline(nullptr, std::move(layout), std::move(shader));

@@ -37,7 +37,7 @@ int main()
 		bnd[0].binding = 0u;
 		bnd[0].type = asset::EDT_STORAGE_IMAGE;
 		bnd[0].count = 1u;
-		bnd[0].stageFlags = asset::ESS_COMPUTE;
+		bnd[0].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
 		bnd[1] = bnd[0];
 		bnd[1].binding = 1u;
 		ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bnd, bnd + 2);
@@ -108,19 +108,19 @@ int main()
 			asset::SPushConstantRange range;
 			range.offset = 0u;
 			range.size = sizeof(uint32_t) * 2u;
-			range.stageFlags = asset::ESS_COMPUTE;
+			range.stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
 			layout = driver->createGPUPipelineLayout(&range, &range + 1, core::smart_refctd_ptr_dynamic_cast<video::IGPUDescriptorSetLayout>(am->findGPUObject(ds0layout.get())), nullptr, nullptr, nullptr);
 		}
 		core::smart_refctd_ptr<video::IGPUSpecializedShader> shader;
 		{
 			auto f = core::smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../compute.comp"));
 
-			auto cs_unspec = am->getGLSLCompiler()->createSPIRVFromGLSL(f.get(), asset::ESS_COMPUTE, "main", "comp");
-			auto specInfo = core::make_smart_refctd_ptr<asset::ISpecializationInfo>(core::vector<asset::SSpecializationMapEntry>{}, nullptr, "main", asset::ESS_COMPUTE);
+			auto cs_unspec = am->getGLSLCompiler()->createSPIRVFromGLSL(f.get(), asset::ISpecializedShader::ESS_COMPUTE, "main", "comp");
+			asset::ISpecializedShader::SInfo specInfo(core::vector<asset::ISpecializedShader::SInfo::SMapEntry>{}, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE);
 
 			auto cs = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(cs_unspec), std::move(specInfo));
 			auto cs_rawptr = cs.get();
-			shader = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
+			shader = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr+1)->front();
 		}
 
 		compPipeline = driver->createGPUComputePipeline(nullptr, std::move(layout), std::move(shader));
@@ -136,7 +136,7 @@ int main()
 		driver->bindComputePipeline(compPipeline.get());
 		const video::IGPUDescriptorSet* descriptorSet = ds0_gpu.get();
 		driver->bindDescriptorSets(video::EPBP_COMPUTE, compPipeline->getLayout(), 0u, 1u, &descriptorSet, nullptr);
-		driver->pushConstants(compPipeline->getLayout(), asset::ESS_COMPUTE, 0u, sizeof(imgSize), imgSize);
+		driver->pushConstants(compPipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(imgSize), imgSize);
 		driver->dispatch((imgSize[0] + 15u) / 16u, (imgSize[1] + 15u) / 16u, 1u);
 
 		video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
