@@ -50,7 +50,7 @@ int main()
 		return driver->getGPUObjectsFromAssets(&cpuSS,&cpuSS+1u)->operator[](0);
 	};
 
-	SPushConstantRange range[1] = {ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
+	SPushConstantRange range[1] = {asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
 	auto pLayout = driver->createGPUPipelineLayout(range,range+1u,nullptr,nullptr,nullptr,nullptr);
 		
 	core::smart_refctd_ptr<IGPUSpecializedShader> shaders[2] = {loadShader("../points.vert"),loadShader("../points.frag")};
@@ -65,17 +65,15 @@ int main()
 	inputParams.bindings[0].stride = sizeof(uint32_t);
 	inputParams.bindings[0].inputRate = EVIR_PER_VERTEX;
 
-	SBlendParams blendParams;
-	blendParams.logicOpEnable = false;
-	blendParams.logicOp = ELO_NO_OP;
-	for (size_t i=0ull; i<SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
-		blendParams.blendParams[i] = {i==0ull,false,EBF_ONE,EBF_ZERO,EBO_ADD,EBF_ONE,EBF_ZERO,EBO_ADD,0xfu};
+	SBlendParams blendParams; // default
 
 	SPrimitiveAssemblyParams assemblyParams = {EPT_POINT_LIST,false,1u};
 
-	SStencilOpParams defaultStencil;
-	SRasterizationParams rasterParams = {1u,EPM_FILL,EFCM_NONE,ECO_ALWAYS,IImage::ESCF_1_BIT,{~0u,~0u},1.f,0.f,0.f,defaultStencil,defaultStencil,
-											{false,false,true,false,false,false,false,false,false,false,false}};
+	SRasterizationParams rasterParams;
+	rasterParams.faceCullingMode = EFCM_NONE;
+	rasterParams.depthCompareOp = ECO_ALWAYS;
+	rasterParams.depthTestEnable = false;
+	rasterParams.depthWriteEnable = false;
 
 	auto pipeline = driver->createGPURenderpassIndependentPipeline(	nullptr,std::move(pLayout),shadersPtr,shadersPtr+sizeof(shaders)/sizeof(core::smart_refctd_ptr<IGPUSpecializedShader>),
 																			inputParams,blendParams,assemblyParams,rasterParams);
@@ -121,7 +119,7 @@ int main()
 		core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
 
 		driver->bindGraphicsPipeline(pipeline.get());
-		driver->pushConstants(pipeline->getLayout(),ESS_VERTEX,0u,sizeof(core::matrix4SIMD),mvp.pointer());
+		driver->pushConstants(pipeline->getLayout(),asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD),mvp.pointer());
         driver->drawMeshBuffer(mb.get());
 
 		driver->endScene();

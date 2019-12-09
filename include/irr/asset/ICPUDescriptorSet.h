@@ -48,7 +48,7 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 							break;
 						case IDescriptor::EC_IMAGE:
 							static_cast<asset::ICPUImageView*>(descriptor)->convertToDummyObject(referenceLevelsBelowToConvert);
-							if (descriptor->getTypeCategory()==IDescriptor::EC_IMAGE)
+							if (descriptor->getTypeCategory()==IDescriptor::EC_IMAGE && it->image.sampler)
 								it->image.sampler->convertToDummyObject(referenceLevelsBelowToConvert);
 							break;
 						case IDescriptor::EC_BUFFER_VIEW:

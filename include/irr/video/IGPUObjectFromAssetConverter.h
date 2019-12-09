@@ -77,7 +77,10 @@ class IGPUObjectFromAssetConverter
 				auto gpu = m_assetManager->findGPUObject(get_asset_raw_ptr<AssetType, iterator_type>::value(it));
 				if (!gpu)
 				{
-					notFound.push_back(get_asset_raw_ptr<AssetType,iterator_type>::value(it));
+					if ((*it)->isADummyObjectForCache())
+						notFound.push_back(nullptr);
+					else
+						notFound.push_back(get_asset_raw_ptr<AssetType,iterator_type>::value(it));
 					pos.push_back(index);
 				}
 				else
@@ -90,7 +93,8 @@ class IGPUObjectFromAssetConverter
 				for (size_t i=0u; i<created->size(); ++i)
 				{
 					auto& input = created->operator[](i);
-					m_assetManager->convertAssetToEmptyCacheHandle(notFound[i], core::smart_refctd_ptr(input));
+					if (notFound[i])
+						m_assetManager->convertAssetToEmptyCacheHandle(notFound[i], core::smart_refctd_ptr(input));
 					res->operator[](pos[i]) = std::move(input); // ok to move because the `created` array will die after the next scope
 				}
 			}

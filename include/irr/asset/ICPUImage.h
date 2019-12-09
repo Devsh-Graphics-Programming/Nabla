@@ -30,6 +30,7 @@ class ICPUImage final : public IImage, public IAsset
         inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
         {
 			if (referenceLevelsBelowToConvert--)
+			if (buffer)
 				buffer->convertToDummyObject(referenceLevelsBelowToConvert);
             regions = nullptr;
         }
