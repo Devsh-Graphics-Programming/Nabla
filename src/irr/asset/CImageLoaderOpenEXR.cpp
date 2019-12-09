@@ -29,11 +29,64 @@ namespace irr
 			if (!_file)
 				return {};
 
+			SContext ctx;
+			const auto& fileName = _file->getFileName().c_str();
+
+			if (!readMagicNumber())
+				return {};
+
+			readVersionField();
+			readHeader(fileName, ctx);
+
+			Array2D<Rgba> pixels;
+			int width;
+			int height;
+
+			readRgba(fileName, pixels, width, height);
+
+			// TODO put data into buffer, consider OpenEXR 2.0 supported saving layouts 
 			return SAssetBundle{};
 		}
 
 		bool CImageLoaderOpenEXR::isALoadableFileFormat(io::IReadFile* _file) const
 		{
+			return true;
+		}
+
+		void CImageLoaderOpenEXR::readRgba(const char fileName[], Array2D<Rgba>& pixels, int& width, int& height)
+		{
+			RgbaInputFile file(fileName);
+			Box2i dw = file.dataWindow();
+			width = dw.max.x - dw.min.x + 1;
+			height = dw.max.y - dw.min.y + 1;
+			pixels.resizeErase(height, width);
+			file.setFrameBuffer(&pixels[0][0] - dw.min.x - dw.min.y * width, 1, width);
+			file.readPixels(dw.min.y, dw.max.y);
+		}
+
+		bool CImageLoaderOpenEXR::readHeader(const char fileName[], SContext& ctx)
+		{
+			RgbaInputFile file(fileName);
+			auto& attribs = ctx.attributes;
+
+			attribs.channels = file.header().findTypedAttribute <ChannelsAttribute>("channels");
+			attribs.compression = file.header().findTypedAttribute <CompressionAttribute>("compression");
+			attribs.dataWindow = file.header().findTypedAttribute <Box2i>("dataWindow");
+			attribs.displayWindow = file.header().findTypedAttribute <Box2i>("displayWindow");
+			attribs.lineOrder = file.header().findTypedAttribute <LineOrderAttribute>("lineOrder");
+			attribs.pixelAspectRatio = file.header().findTypedAttribute <float>("pixelAspectRatio");
+			attribs.screenWindowCenter = file.header().findTypedAttribute <V2fAttribute>("screenWindowCenter");
+			attribs.screenWindowWidth = file.header().findTypedAttribute <float>("screenWindowWidth");
+
+			attribs.name = file.header().findTypedAttribute <string>("name");
+			attribs.type = file.header().findTypedAttribute <string>("type");
+			attribs.version = file.header().findTypedAttribute <int>("version");
+			attribs.chunkCount = file.header().findTypedAttribute <int>("chunkCount");
+			attribs.maxSamplesPerPixel = file.header().findTypedAttribute <int>("maxSamplesPerPixel");
+			attribs.tiles = file.header().findTypedAttribute <TiledescAttribute>("tiles");
+			attribs.view = file.header().findTypedAttribute <TextAttribute>("view");
+
+			// TODO - perform validation if needed
 			return true;
 		}
 	}

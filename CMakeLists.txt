@@ -187,6 +187,10 @@ option(IRR_BUILD_DOCS "Enable building documentation?" ON)
 
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 
+unset(OPENEXR_BUILD_UTILS [OPENEXR]) #disable openexr examples
+unset(BUILD_TESTING [BUILD]) #disable openexr bulding tests
+unset(PYILMBASE_ENABLE [PYILMBASE]) #disable PYILMBASE in openexr
+
 execute_process(COMMAND git submodule init
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 execute_process(COMMAND git submodule sync --recursive

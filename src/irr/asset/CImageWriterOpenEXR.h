@@ -27,9 +27,9 @@ namespace irr
 
 			uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE; }
 
-			uint32_t getSupportedFlags() override { return asset::EWF_NONE; }
+			uint32_t getSupportedFlags() override { return asset::EWF_BINARY; }
 
-			uint32_t getForcedFlags() { return 0u; }
+			uint32_t getForcedFlags() { return asset::EWF_BINARY; }
 
 			bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 

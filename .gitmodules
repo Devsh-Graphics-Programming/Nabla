@@ -73,3 +73,6 @@
 [submodule "3rdparty/CEGUI/glew-cmake"]
 	path = 3rdparty/CEGUI/glew
 	url = https://github.com/achalpandeyy/glew-cmake.git
+[submodule "3rdparty/openexr"]
+	path = 3rdparty/openexr
+	url = https://github.com/AcademySoftwareFoundation/openexr
