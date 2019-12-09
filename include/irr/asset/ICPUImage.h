@@ -27,9 +27,10 @@ class ICPUImage final : public IImage, public IAsset
 			return core::smart_refctd_ptr<ICPUImage>(new ICPUImage(std::move(_params)), core::dont_grab);
 		}
 
-        inline void convertToDummyObject() override
+        inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
         {
-			buffer = nullptr;
+			if (referenceLevelsBelowToConvert--)
+				buffer->convertToDummyObject(referenceLevelsBelowToConvert);
             regions = nullptr;
         }
 
@@ -37,7 +38,8 @@ class ICPUImage final : public IImage, public IAsset
 
         virtual size_t conservativeSizeEstimate() const override
 		{
-			return sizeof(SCreationParams)+sizeof(void*)*2u;
+			assert(regions);
+			return sizeof(SCreationParams)+sizeof(void*)+sizeof(SBufferCopy)*regions->size();
 		}
 
 		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const ICPUImage* src)

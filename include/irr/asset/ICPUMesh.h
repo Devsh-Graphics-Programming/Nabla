@@ -55,7 +55,12 @@ class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public I
 			return CorrespondingBlobTypeFor<ICPUMesh>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
 		}
 
-		virtual void convertToDummyObject() override {}
+		virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
+		{
+			if (referenceLevelsBelowToConvert--)
+			for (auto i=0u; i<getMeshBufferCount(); i++)
+				getMeshBuffer(i)->convertToDummyObject(referenceLevelsBelowToConvert);
+		}
 		virtual IAsset::E_TYPE getAssetType() const override { return IAsset::ET_MESH; }
 
 		virtual size_t conservativeSizeEstimate() const override { return getMeshBufferCount()*sizeof(void*); }

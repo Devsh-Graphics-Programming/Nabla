@@ -28,7 +28,11 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 			return sizeof(SCreationParams);
 		}
 		//!
-		void convertToDummyObject() override { }
+		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
+		{
+			if (referenceLevelsBelowToConvert--)
+				params.image->convertToDummyObject(referenceLevelsBelowToConvert);
+		}
 		//!
 		IAsset::E_TYPE getAssetType() const override { return ET_IMAGE_VIEW; }
 

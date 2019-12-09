@@ -29,10 +29,34 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 
 		inline size_t conservativeSizeEstimate() const override
 		{
-			return m_descriptors->size()*sizeof(SDescriptorInfo)+m_bindingInfo->size()*sizeof(impl::IEmulatedDescriptorSet<ICPUDescriptorSetLayout>::SBindingInfo);
+			return sizeof(void*)+m_descriptors->size()*sizeof(SDescriptorInfo)+m_bindingInfo->size()*sizeof(impl::IEmulatedDescriptorSet<ICPUDescriptorSetLayout>::SBindingInfo);
 		}
-		inline void convertToDummyObject() override
+		inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
+			if (referenceLevelsBelowToConvert--)
+			{
+				m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
+				for (auto it=m_descriptors->begin(); it!=m_descriptors->end(); it++)
+				{
+					auto descriptor = it->desc.get();
+					if (!descriptor)
+						continue;
+					switch (descriptor->getTypeCategory())
+					{
+						case IDescriptor::EC_BUFFER:
+							static_cast<asset::ICPUBuffer*>(descriptor)->convertToDummyObject(referenceLevelsBelowToConvert);
+							break;
+						case IDescriptor::EC_IMAGE:
+							static_cast<asset::ICPUImageView*>(descriptor)->convertToDummyObject(referenceLevelsBelowToConvert);
+							if (descriptor->getTypeCategory()==IDescriptor::EC_IMAGE)
+								it->image.sampler->convertToDummyObject(referenceLevelsBelowToConvert);
+							break;
+						case IDescriptor::EC_BUFFER_VIEW:
+							static_cast<asset::ICPUBufferView*>(descriptor)->convertToDummyObject(referenceLevelsBelowToConvert);
+							break;
+					}
+				}
+			}
 			m_descriptors = nullptr;
 			m_bindingInfo = nullptr;
 		}

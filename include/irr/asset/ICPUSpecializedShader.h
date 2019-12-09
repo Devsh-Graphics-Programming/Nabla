@@ -22,11 +22,18 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 
 
 		IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SPECIALIZED_SHADER; }
-		size_t conservativeSizeEstimate() const override { return sizeof(void*)/*+TODO*/; }
-		void convertToDummyObject() override
+		size_t conservativeSizeEstimate() const override
 		{
-			m_specInfo.m_entries.clear();
-			m_specInfo.m_backingBuffer = nullptr;
+			return m_specInfo.entryPoint.size()+sizeof(uint16_t)+sizeof(SInfo::SMapEntry)*m_specInfo.m_entries.size()+2u*sizeof(void*);
+		}
+		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
+		{
+			m_specInfo.m_entries = {};
+			if (referenceLevelsBelowToConvert--)
+			{
+				m_specInfo.m_backingBuffer->convertToDummyObject(referenceLevelsBelowToConvert);
+				m_unspecialized->convertToDummyObject(referenceLevelsBelowToConvert);
+			}
 		}
 
 		inline E_SHADER_STAGE getStage() const { return m_specInfo.shaderStage; }

@@ -20,8 +20,12 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 			IBufferView<ICPUBuffer>(std::move(_buffer), _format, _offset, _size)
 		{}
 
-		size_t conservativeSizeEstimate() const override { return m_size; }
-		void convertToDummyObject() override { }
+		size_t conservativeSizeEstimate() const override { return sizeof(IBufferView<ICPUBuffer>); }
+		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
+		{
+			if (referenceLevelsBelowToConvert--)
+				m_buffer->convertToDummyObject(referenceLevelsBelowToConvert);
+		}
 		E_TYPE getAssetType() const override { return ET_BUFFER_VIEW; }
 
 		ICPUBuffer* getUnderlyingBuffer() { return m_buffer.get(); }

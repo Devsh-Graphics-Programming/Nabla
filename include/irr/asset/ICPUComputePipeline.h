@@ -18,8 +18,16 @@ class ICPUComputePipeline : public IComputePipeline<ICPUSpecializedShader, ICPUP
 public:
     using base_t::base_t;
 
-    size_t conservativeSizeEstimate() const override { return sizeof(base_t); }
-    void convertToDummyObject() override { }
+    size_t conservativeSizeEstimate() const override { return sizeof(void*)*3u+sizeof(uint8_t); }
+    void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
+	{
+		if (referenceLevelsBelowToConvert--)
+		{
+			m_shader->convertToDummyObject(referenceLevelsBelowToConvert);
+			static_cast<ICPUComputePipeline*>(m_parent.get())->convertToDummyObject(referenceLevelsBelowToConvert);
+			m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
+		}
+	}
     E_TYPE getAssetType() const override { return ET_COMPUTE_PIPELINE; }
 
     ICPUPipelineLayout* getLayout() { return m_layout.get(); }

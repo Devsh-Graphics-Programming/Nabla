@@ -69,7 +69,17 @@ public:
         return CorrespondingBlobTypeFor<ICPUMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
     }
 
-    virtual void convertToDummyObject() override {}
+    virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
+	{
+		if (referenceLevelsBelowToConvert--)
+		{
+			for (auto i=0u; i<MAX_ATTR_BUF_BINDING_COUNT; i++)
+				m_vertexBufferBindings[i].buffer->convertToDummyObject(referenceLevelsBelowToConvert);
+			m_indexBufferBinding.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
+			m_descriptorSet->convertToDummyObject(referenceLevelsBelowToConvert);
+			m_pipeline->convertToDummyObject(referenceLevelsBelowToConvert);
+		}
+	}
     virtual IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SUB_MESH; }
 
     virtual size_t conservativeSizeEstimate() const override { return sizeof(base_t) + sizeof(posAttrId); }

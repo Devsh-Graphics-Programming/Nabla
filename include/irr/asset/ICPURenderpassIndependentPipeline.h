@@ -18,7 +18,16 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		using base_t::base_t;
 
 		size_t conservativeSizeEstimate() const override { return sizeof(base_t); }
-		void convertToDummyObject() override { }
+		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
+		{
+			if (referenceLevelsBelowToConvert--)
+			{
+				static_cast<ICPURenderpassIndependentPipeline*>(m_parent.get())->convertToDummyObject(referenceLevelsBelowToConvert);
+				m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
+				for (auto i=0u; i<SHADER_STAGE_COUNT; i++)
+					m_shaders[i]->convertToDummyObject(referenceLevelsBelowToConvert);
+			}
+		}
 		E_TYPE getAssetType() const override { return ET_RENDERPASS_INDEPENDENT_PIPELINE; }
 
 		inline ICPUPipelineLayout* getLayout() { return m_layout.get(); }

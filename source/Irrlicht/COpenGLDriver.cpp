@@ -56,10 +56,10 @@ namespace video
 //! Windows constructor and init code
 COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp)
-: CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
-	runningInRenderDoc(false),  ColorFormat(asset::EF_R8G8B8_UNORM), Params(params),
+: CNullDriver(device, io, params), COpenGLExtensionHandler(),
+	runningInRenderDoc(false),  ColorFormat(asset::EF_R8G8B8_UNORM),
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
-	AuxContexts(0), DerivativeMapCreator(nullptr), GLSLCompiler(glslcomp), DeviceType(EIDT_WIN32)
+	AuxContexts(0), GLSLCompiler(glslcomp), DeviceType(EIDT_WIN32)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("COpenGLDriver");
@@ -448,7 +448,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 #ifdef _IRR_COMPILE_WITH_OPENCL_
 	ocl::COpenCLHandler::getCLDeviceFromGLContext(clDevice,hrc,HDc);
 #endif // _IRR_COMPILE_WITH_OPENCL_
-	genericDriverInit();
+	genericDriverInit(device->getAssetManager());
 
 	extGlSwapInterval(Params.Vsync ? 1 : 0);
 	return true;
@@ -500,9 +500,9 @@ bool COpenGLDriver::deinitAuxContext()
 //! Linux constructor and init code
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp)
-: CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
-	runningInRenderDoc(false), ColorFormat(asset::EF_R8G8B8_UNORM),
-	Params(params), X11Device(device), DeviceType(EIDT_X11), AuxContexts(0), GLSLCompiler(glslcomp)
+		: CNullDriver(device, io, Params), COpenGLExtensionHandler(),
+			runningInRenderDoc(false), ColorFormat(asset::EF_R8G8B8_UNORM),
+			X11Device(device), DeviceType(EIDT_X11), AuxContexts(0), GLSLCompiler(glslcomp)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("COpenGLDriver");
@@ -576,7 +576,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceLinux* device, SAuxContext* auxCtxts)
         os::Printer::log("Couldn't find matching OpenCL device.\n");
 #endif // _IRR_COMPILE_WITH_OPENCL_
 
-	genericDriverInit();
+	genericDriverInit(device->getAssetManager());
 
 	// set vsync
 	//if (queryOpenGLFeature(IRR_))
@@ -633,16 +633,16 @@ bool COpenGLDriver::deinitAuxContext()
 //! SDL constructor and init code
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceSDL* device, const asset::IGLSLCompiler* glslcomp)
-: CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
-    runningInRenderDoc(false), ColorFormat(EF_R8G8B8_UNORM),
-	CurrentTarget(ERT_FRAME_BUFFER), Params(params),
-	SDLDevice(device), DeviceType(EIDT_SDL), AuxContexts(0), GLSLCompiler(glslcomp)
+		: CNullDriver(device, io, Params), COpenGLExtensionHandler(),
+			runningInRenderDoc(false), ColorFormat(EF_R8G8B8_UNORM),
+			CurrentTarget(ERT_FRAME_BUFFER),
+			SDLDevice(device), DeviceType(EIDT_SDL), AuxContexts(0), GLSLCompiler(glslcomp)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("COpenGLDriver");
 	#endif
 
-	genericDriverInit();
+	genericDriverInit(device->getAssetManager());
 }
 
 #endif // _IRR_COMPILE_WITH_SDL_DEVICE_
@@ -651,9 +651,6 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 //! destructor
 COpenGLDriver::~COpenGLDriver()
 {
-    if (DerivativeMapCreator)
-        DerivativeMapCreator->drop();
-
 	if (!AuxContexts) //opengl dead and never initialized in the first place
 		return;
 
@@ -798,7 +795,7 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
     if (!found)
         return;
 
-    found->CurrentRendertargetSize = ScreenSize;
+    found->CurrentRendertargetSize = Params.WindowSize;
     extGlBindFramebuffer(GL_FRAMEBUFFER, 0);
     if (found->CurrentFBO)
     {
@@ -833,7 +830,7 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
 }
 
 
-bool COpenGLDriver::genericDriverInit()
+bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
 {
 	if (!AuxContexts) // opengl dead and never inited
 		return false;
@@ -856,7 +853,6 @@ bool COpenGLDriver::genericDriverInit()
 	int32_t pos=Name.findNext(L' ', 7);
 	if (pos != -1)
 		Name=Name.subString(0, pos);
-	printVersion();
 
 	// print renderer information
 	const GLubyte* renderer = glGetString(GL_RENDERER);
@@ -962,24 +958,7 @@ bool COpenGLDriver::genericDriverInit()
     found->nextState.rasterParams.depthFunc = GL_GEQUAL;
     found->nextState.rasterParams.frontFace = GL_CCW;
 
-	// down
-	{
-        auto reqs = getDownStreamingMemoryReqs();
-        reqs.vulkanReqs.size = Params.StreamingDownloadBufferSize;
-        reqs.vulkanReqs.alignment = 64u*1024u; // if you need larger alignments then you're not right in the head
-        defaultDownloadBuffer = core::make_smart_refctd_ptr<video::StreamingTransientDataBufferMT<> >(this,reqs);
-	}
-	// up
-	{
-        auto reqs = getUpStreamingMemoryReqs();
-        reqs.vulkanReqs.size = Params.StreamingUploadBufferSize;
-        reqs.vulkanReqs.alignment = 64u*1024u; // if you need larger alignments then you're not right in the head
-        defaultUploadBuffer = core::make_smart_refctd_ptr < video::StreamingTransientDataBufferMT<> >(this,reqs);
-	}
-
-    DerivativeMapCreator = new CDerivativeMapCreator(this);
-
-	return true;
+	return CNullDriver::genericDriverInit(assMgr);
 }
 
 
@@ -1176,19 +1155,25 @@ bool COpenGLDriver::pushConstants(const IGPUPipelineLayout* _layout, uint32_t _s
 
 core::smart_refctd_ptr<IGPUShader> COpenGLDriver::createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>&& _cpushader)
 {
-    return core::make_smart_refctd_ptr<COpenGLShader>(std::move(_cpushader));
+	auto source = _cpushader->getSPVorGLSL();
+	if (_cpushader->containsGLSL())
+	    return core::make_smart_refctd_ptr<COpenGLShader>(reinterpret_cast<const char*>(source->getPointer()));
+	
+	// need to do this so its a copy (and doesn't get wiped when cpu resources are released)
+	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(source->getSize());
+	memcpy(buffer->getPointer(),source->getPointer(),source->getSize());
+	return core::make_smart_refctd_ptr<COpenGLShader>(std::move(buffer));
 }
 
 core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo)
 {
     const COpenGLShader* glUnspec = static_cast<const COpenGLShader*>(_unspecialized);
-    const asset::ICPUShader* cpuUnspec = glUnspec->getCPUCounterpart();
 
     const std::string& EP = _specInfo.entryPoint;
     const asset::ISpecializedShader::E_SHADER_STAGE stage = _specInfo.shaderStage;
 
-    core::smart_refctd_ptr<const asset::ICPUShader> spvCPUShader = nullptr;
-    if (cpuUnspec->containsGLSL()) {
+    core::smart_refctd_ptr<asset::ICPUShader> spvCPUShader = nullptr;
+    if (glUnspec->containsGLSL()) {
         std::string glsl = reinterpret_cast<const char*>(cpuUnspec->getSPVorGLSL()->getPointer());
         asset::ICPUShader::insertGLSLExtensionsDefines(glsl, getSupportedGLSLExtensions().get());
         auto spvShader = GLSLCompiler->createSPIRVFromGLSL(
@@ -1200,10 +1185,10 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
         if (!spvShader)
             return nullptr;
 
-        spvCPUShader = core::smart_refctd_ptr<const asset::ICPUShader>(spvShader.get());
+        spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr<asset::ICPUBuffer>(spvShader->getSPVorGLSL()));
     }
     else {
-        spvCPUShader = core::smart_refctd_ptr<const asset::ICPUShader>(cpuUnspec);
+        spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr<asset::ICPUBuffer>(glUnspec->getSPVorGLSL()));
     }
 
     asset::CShaderIntrospector::SEntryPoint_Stage_Extensions introspectionParams{_specInfo.entryPoint, _specInfo.shaderStage, getSupportedGLSLExtensions()};
@@ -2622,7 +2607,7 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
             srcRect = core::recti(0,0,rttsize.Width,rttsize.Height);
         }
         else
-            srcRect = core::recti(0,0,ScreenSize.Width,ScreenSize.Height);
+            srcRect = core::recti(0,0,Params.WindowSize.Width,Params.WindowSize.Height);
 	}
 	if (dstRect.getArea()==0)
 	{
@@ -2632,7 +2617,7 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
             dstRect = core::recti(0,0,rttsize.Width,rttsize.Height);
         }
         else
-            dstRect = core::recti(0,0,ScreenSize.Width,ScreenSize.Height);
+            dstRect = core::recti(0,0,Params.WindowSize.Width,Params.WindowSize.Height);
 	}
 	if (srcRect==dstRect||copyDepth||copyStencil) //and some checks for multisample
 		bilinearFilter = false;
@@ -2689,14 +2674,14 @@ bool COpenGLDriver::setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewpo
 
     if (!frameBuffer)
     {
-        found->CurrentRendertargetSize = ScreenSize;
+        found->CurrentRendertargetSize = Params.WindowSize;
         extGlBindFramebuffer(GL_FRAMEBUFFER, 0);
         if (found->CurrentFBO)
             found->CurrentFBO->drop();
         found->CurrentFBO = NULL;
 
         if (setNewViewport)
-            setViewPort(core::recti(0,0,ScreenSize.Width,ScreenSize.Height));
+            setViewPort(core::recti(0,0,Params.WindowSize.Width,Params.WindowSize.Height));
 
         return true;
     }
@@ -2728,7 +2713,7 @@ const core::dimension2d<uint32_t>& COpenGLDriver::getCurrentRenderTargetSize() c
 {
     const SAuxContext* found = getThreadContext();
 	if (!found || found->CurrentRendertargetSize.Width == 0)
-		return ScreenSize;
+		return Params.WindowSize;
 	else
 		return found->CurrentRendertargetSize;
 }
@@ -2938,27 +2923,6 @@ void COpenGLDriver::enableClipPlane(uint32_t index, bool enable)
 	else
 		glDisable(GL_CLIP_DISTANCE0 + index);
 }
-
-/*
-GLenum COpenGLDriver::getGLBlend(E_BLEND_FACTOR factor) const
-{
-	GLenum r = 0;
-	switch (factor)
-	{
-		case EBF_ZERO:			r = GL_ZERO; break;
-		case EBF_ONE:			r = GL_ONE; break;
-		case EBF_DST_COLOR:		r = GL_DST_COLOR; break;
-		case EBF_ONE_MINUS_DST_COLOR:	r = GL_ONE_MINUS_DST_COLOR; break;
-		case EBF_SRC_COLOR:		r = GL_SRC_COLOR; break;
-		case EBF_ONE_MINUS_SRC_COLOR:	r = GL_ONE_MINUS_SRC_COLOR; break;
-		case EBF_SRC_ALPHA:		r = GL_SRC_ALPHA; break;
-		case EBF_ONE_MINUS_SRC_ALPHA:	r = GL_ONE_MINUS_SRC_ALPHA; break;
-		case EBF_DST_ALPHA:		r = GL_DST_ALPHA; break;
-		case EBF_ONE_MINUS_DST_ALPHA:	r = GL_ONE_MINUS_DST_ALPHA; break;
-		case EBF_SRC_ALPHA_SATURATE:	r = GL_SRC_ALPHA_SATURATE; break;
-	}
-	return r;
-}*/
 
 
 } // end namespace

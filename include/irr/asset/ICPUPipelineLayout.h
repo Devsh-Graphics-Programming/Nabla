@@ -18,8 +18,14 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 		ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) { return m_descSetLayouts[_set].get(); }
 		const ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) const { return m_descSetLayouts[_set].get(); }
 
-		size_t conservativeSizeEstimate() const override { return m_descSetLayouts.size()*sizeof(void*) + m_pushConstantRanges->size()*sizeof(SPushConstantRange); }
-		void convertToDummyObject() override { m_pushConstantRanges = nullptr; }
+		size_t conservativeSizeEstimate() const override { return m_descSetLayouts.size()*sizeof(void*)+m_pushConstantRanges->size()*sizeof(SPushConstantRange); }
+		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
+		{
+			if (referenceLevelsBelowToConvert--)
+			for (auto it=m_descSetLayouts.begin(); it!=m_descSetLayouts.end(); it++)
+				it->get()->convertToDummyObject(referenceLevelsBelowToConvert);
+			m_pushConstantRanges = nullptr;
+		}
 		E_TYPE getAssetType() const override { return ET_PIPELINE_LAYOUT; }
 
 	protected:
