@@ -138,11 +138,7 @@ class IAsset : virtual public core::IReferenceCounted
 		*/
 		static uint32_t typeFlagToIndex(E_TYPE _type)
 		{
-			// TODO: can't we use popcount or something here?
-			uint64_t type = static_cast<uint64_t>(_type);
-			uint64_t r = 0u;
-			while (type >>= 1u) ++r;
-			return static_cast<uint32_t>(r);
+			return core::findLSB(static_cast<uint64_t>(_type));
 		}
 
 		IAsset() : isDummyObjectForCacheAliasing{false}, m_metadata{nullptr} {}
@@ -172,13 +168,13 @@ class IAsset : virtual public core::IReferenceCounted
 		void setMetadata(core::smart_refctd_ptr<IAssetMetadata>&& _metadata) { m_metadata = std::move(_metadata); }
 
 	protected:
-		bool isDummyObjectForCacheAliasing; //!< A bool for setting whether Asset is in dummy state. @see convertToDummyObject()
+		bool isDummyObjectForCacheAliasing; //!< A bool for setting whether Asset is in dummy state. @see convertToDummyObject(uint32_t referenceLevelsBelowToConvert)
 
 		//! To be implemented by base classes, dummies must retain references to other assets
 		//! but cleans up all other resources which are not assets.
 		/**
 			Dummy object is an object which is converted to GPU object or which is about to be converted to GPU object.
-			Take into account that\b convertToDummyObject() itself doesn't perform exactly converting to GPU object\b. 
+			Take into account that\b convertToDummyObject(uint32_t referenceLevelsBelowToConvert) itself doesn't perform exactly converting to GPU object\b. 
 
 			@see IAssetManager::convertAssetToEmptyCacheHandle(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject)
 
@@ -188,8 +184,10 @@ class IAsset : virtual public core::IReferenceCounted
 			functions that find GPU objects. It involves all CPU objects (Assets).
 
 			So an Asset signed as dummy becomes GPU object and deletes some resources in RAM memory.
+
+			@param referenceLevelsBelowToConvert says how many times to recursively call `convertToDummyObject` on its references.
 		*/
-		virtual void convertToDummyObject() = 0;
+		virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) = 0;
 
 		//! Checks if the object is either not dummy or dummy but in some cache for a purpose
 		inline bool isInValidState() { return !isDummyObjectForCacheAliasing /* || !isCached TODO*/; }

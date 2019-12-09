@@ -32,8 +32,7 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
     protected:
         virtual ~ICPUBuffer()
         {
-            if (data)
-                _IRR_ALIGNED_FREE(data);
+            this->convertToDummyObject();
         }
 
         //! Non-allocating constructor for CCustormAllocatorCPUBuffer derivative
@@ -52,7 +51,7 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             size = sizeInBytes;
         }
 
-        virtual void convertToDummyObject() override
+        virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
         {
             _IRR_ALIGNED_FREE(data);
             data = nullptr;
@@ -65,35 +64,7 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 
         //! Returns size in bytes.
         virtual const uint64_t& getSize() const {return size;}
-		//! Reallocates internal data. Invalidate any sizes, pointers etc. returned before!
-		/** @param newSize New size of memory.
-		@param forceRetentionOfData Doesn't matter.
-		@param reallocateIfShrink Whether to perform reallocation even if it means to shrink the buffer (lose some data).
-		@returns True on success or false otherwise.
-		*/
-/*
-        virtual bool reallocate(const size_t &newSize, const bool& forceRetentionOfData=false, const bool &reallocateIfShrink=false)
-        {
-            if (size==newSize)
-                return true;
 
-            if ((!reallocateIfShrink)&&size>newSize)
-            {
-                size = newSize;
-                return true;
-            }
-
-            data = realloc(data,newSize);
-            if (!data)
-            {
-                size = 0;
-                return false;
-            }
-
-            size = newSize;
-            return true;
-        }
-*/
 		//! Returns pointer to data.
         /** WARNING: RESIZE will invalidate pointer.
 		*/
@@ -117,37 +88,39 @@ class CCustomAllocatorCPUBuffer;
 template<typename Allocator>
 class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
 {
-    static_assert(sizeof(Allocator::value_type) == 1u, "Allocator::value_type must be of size 1");
-protected:
-    Allocator m_allocator;
+		static_assert(sizeof(Allocator::value_type) == 1u, "Allocator::value_type must be of size 1");
+	protected:
+		Allocator m_allocator;
 
-    virtual ~CCustomAllocatorCPUBuffer()
-    {
-        if (ICPUBuffer::data)
-            m_allocator.deallocate(reinterpret_cast<typename Allocator::pointer>(ICPUBuffer::data), ICPUBuffer::size);
-        ICPUBuffer::data = nullptr; // so that ICPUBuffer won't try deallocating
-    }
+		virtual ~CCustomAllocatorCPUBuffer() = default;
 
-public:
-    CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, core::adopt_memory_t, Allocator&& alctr = Allocator()) : ICPUBuffer(sizeInBytes, dat), m_allocator(std::move(alctr))
-    {
-    }
+	public:
+		CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, core::adopt_memory_t, Allocator&& alctr = Allocator()) : ICPUBuffer(sizeInBytes, dat), m_allocator(std::move(alctr))
+		{
+		}
+
+		virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
+		{
+			if (ICPUBuffer::data)
+				m_allocator.deallocate(reinterpret_cast<typename Allocator::pointer>(ICPUBuffer::data), ICPUBuffer::size);
+			ICPUBuffer::data = nullptr; // so that ICPUBuffer won't try deallocating
+		}
 };
 
 template<typename Allocator>
 class CCustomAllocatorCPUBuffer<Allocator, false> : public CCustomAllocatorCPUBuffer<Allocator, true>
 {
-    using Base = CCustomAllocatorCPUBuffer<Allocator, true>;
-protected:
-    virtual ~CCustomAllocatorCPUBuffer() = default;
+		using Base = CCustomAllocatorCPUBuffer<Allocator, true>;
+	protected:
+		virtual ~CCustomAllocatorCPUBuffer() = default;
 
-public:
-    using Base::Base;
+	public:
+		using Base::Base;
 
-    CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, Allocator&& alctr = Allocator()) : Base(sizeInBytes, alctr.allocate(sizeInBytes), core::adopt_memory, std::move(alctr))
-    {
-        memcpy(Base::data, dat, sizeInBytes);
-    }
+		CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, Allocator&& alctr = Allocator()) : Base(sizeInBytes, alctr.allocate(sizeInBytes), core::adopt_memory, std::move(alctr))
+		{
+			memcpy(Base::data, dat, sizeInBytes);
+		}
 };
 
 } // end namespace asset
