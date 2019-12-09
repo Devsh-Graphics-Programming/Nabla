@@ -994,7 +994,7 @@ void CIrrDeviceLinux::createDriver()
 		break;
 
 	case video::EDT_NULL:
-		VideoDriver = video::createNullDriver(this, FileSystem, CreationParams.WindowSize);
+		VideoDriver = video::createNullDriver(this, FileSystem, CreationParams);
 		break;
 
 	default:
@@ -1002,7 +1002,7 @@ void CIrrDeviceLinux::createDriver()
 		break;
 #else
 	case video::EDT_NULL:
-		VideoDriver = video::createNullDriver(FileSystem, CreationParams.WindowSize);
+		VideoDriver = video::createNullDriver(FileSystem, CreationParams);
 		break;
 	default:
 		os::Printer::log("No X11 support compiled in. Only Null driver available.", ELL_ERROR);

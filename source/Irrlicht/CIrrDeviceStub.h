@@ -27,12 +27,6 @@ namespace irr
 		IFileSystem* createFileSystem();
 	}
 
-	namespace video
-	{
-		IVideoDriver* createNullDriver(IrrlichtDevice* device, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
-	}
-
-
 
 	//! Stub for an Irrlicht Device implementation
 	class CIrrDeviceStub : public IrrlichtDevice
