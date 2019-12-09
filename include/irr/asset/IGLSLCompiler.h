@@ -10,14 +10,24 @@
 
 namespace irr
 {
+
+namespace video
+{
+class COpenGLDriver;
+}
+
 namespace asset
 {
 
 //! Will be derivative of IShaderGenerator, but we have to establish interface first
-class IGLSLCompiler : public core::IReferenceCounted
+class IGLSLCompiler final : public core::IReferenceCounted
 {
 		core::smart_refctd_ptr<IIncludeHandler> m_inclHandler;
 		const io::IFileSystem* m_fs;
+
+	protected:
+		friend class video::COpenGLDriver;
+		core::smart_refctd_ptr<ICPUBuffer> compileSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
 
 	public:
 		IGLSLCompiler(io::IFileSystem* _fs);

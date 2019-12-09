@@ -22,6 +22,7 @@ class COpenGLShader : public IGPUShader
 		bool containsGLSL() const { return m_containsGLSL; }
 
 	private:
+		friend class COpenGLDriver;
 		//! Might be GLSL null-terminated string or SPIR-V bytecode (denoted by m_containsGLSL)
 		core::smart_refctd_ptr<asset::ICPUBuffer>	m_code;
 		const bool									m_containsGLSL;

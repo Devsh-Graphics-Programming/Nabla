@@ -432,11 +432,11 @@ class IAssetManager : public core::IReferenceCounted
         /** Keeping assets around (by their pointers) helps a lot by letting the loaders retrieve them from the cache 
 		and not load cpu objects which have been loaded, converted to gpu resources and then would have been disposed of.
 		However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
-        void convertAssetToEmptyCacheHandle(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject)
+        void convertAssetToEmptyCacheHandle(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject, uint32_t referenceLevelsBelowToConvert=~0u)
         {
 			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
             _asset->grab();
-            _asset->convertToDummyObject();
+            _asset->convertToDummyObject(referenceLevelsBelowToConvert);
             m_cpuGpuCache[ix]->insert(_asset, std::move(_gpuObject));
         }
 
@@ -455,15 +455,17 @@ class IAssetManager : public core::IReferenceCounted
 		//! utility function to find from path instead of asset
 		inline core::smart_refctd_dynamic_array<core::smart_refctd_ptr<core::IReferenceCounted> > findGPUObject(const std::string& _key, IAsset::E_TYPE _type)
 		{
-			auto assets = findAssets(_key,&_type);
+			IAsset::E_TYPE type[] = {_type,static_cast<IAsset::E_TYPE>(0u)};
+			auto assets = findAssets(_key,type);
 			if (!assets->size())
 				return nullptr;
 
 			size_t outputSize = 0u;
 			for (auto it=assets->begin(); it!=assets->end(); it++)
 			{
-				assert(it->getAssetType() == _type);
 				outputSize += it->getSize();
+				if (it->getSize())
+					assert(it->getAssetType() == _type);
 			}
 			if (!outputSize)
 				return nullptr;
@@ -482,7 +484,7 @@ class IAssetManager : public core::IReferenceCounted
 					assert(storageSz);
 				}
 			}
-			return nullptr;
+			return retval;
 		}
 
 		//! Removes one GPU object matched to an IAsset.

@@ -31,7 +31,8 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 			m_specInfo.m_entries = {};
 			if (referenceLevelsBelowToConvert--)
 			{
-				m_specInfo.m_backingBuffer->convertToDummyObject(referenceLevelsBelowToConvert);
+				if (m_specInfo.m_backingBuffer)
+					m_specInfo.m_backingBuffer->convertToDummyObject(referenceLevelsBelowToConvert);
 				m_unspecialized->convertToDummyObject(referenceLevelsBelowToConvert);
 			}
 		}

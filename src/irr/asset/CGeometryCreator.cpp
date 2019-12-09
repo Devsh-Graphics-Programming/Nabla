@@ -595,7 +595,7 @@ CGeometryCreator::return_type CGeometryCreator::createRectangleMesh(const core::
 #endif
 }
 
-core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createDiskMesh(float radius, uint32_t tesselation) const
+CGeometryCreator::return_type CGeometryCreator::createDiskMesh(float radius, uint32_t tesselation) const
 {
 #ifndef NEW_SHADERS
 	auto buffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();

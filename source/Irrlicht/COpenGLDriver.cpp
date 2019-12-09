@@ -1174,21 +1174,21 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
 
     core::smart_refctd_ptr<asset::ICPUShader> spvCPUShader = nullptr;
     if (glUnspec->containsGLSL()) {
-        std::string glsl = reinterpret_cast<const char*>(cpuUnspec->getSPVorGLSL()->getPointer());
+        std::string glsl = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
         asset::ICPUShader::insertGLSLExtensionsDefines(glsl, getSupportedGLSLExtensions().get());
-        auto spvShader = GLSLCompiler->createSPIRVFromGLSL(
+        core::smart_refctd_ptr<asset::ICPUBuffer> spvCode = GLSLCompiler->compileSPIRVFromGLSL(
                 glsl.c_str(),
                 stage,
                 EP.c_str(),
                 "????"
             );
-        if (!spvShader)
+        if (!spvCode)
             return nullptr;
 
-        spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr<asset::ICPUBuffer>(spvShader->getSPVorGLSL()));
+        spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spvCode));
     }
     else {
-        spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr<asset::ICPUBuffer>(glUnspec->getSPVorGLSL()));
+        spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr<asset::ICPUBuffer>(glUnspec->m_code));
     }
 
     asset::CShaderIntrospector::SEntryPoint_Stage_Extensions introspectionParams{_specInfo.entryPoint, _specInfo.shaderStage, getSupportedGLSLExtensions()};

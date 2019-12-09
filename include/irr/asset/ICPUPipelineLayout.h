@@ -23,6 +23,7 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 		{
 			if (referenceLevelsBelowToConvert--)
 			for (auto it=m_descSetLayouts.begin(); it!=m_descSetLayouts.end(); it++)
+			if (it->get())
 				it->get()->convertToDummyObject(referenceLevelsBelowToConvert);
 			m_pushConstantRanges = nullptr;
 		}

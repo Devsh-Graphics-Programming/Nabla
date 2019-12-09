@@ -21,6 +21,7 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 			m_bindings = nullptr;
 			if (referenceLevelsBelowToConvert--)
 			{
+				if (m_samplers)
 				for (auto it=m_samplers->begin(); it!=m_samplers->end(); it++)
 					it->get()->convertToDummyObject(referenceLevelsBelowToConvert);
 			}

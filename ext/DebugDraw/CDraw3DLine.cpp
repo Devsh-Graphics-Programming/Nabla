@@ -42,14 +42,14 @@ CDraw3DLine::CDraw3DLine(IVideoDriver* _driver) : m_driver(_driver), m_meshBuffe
 	SBlendParams blendParams;
 	blendParams.logicOpEnable = false;
 	blendParams.logicOp = ELO_NO_OP;
-	for (size_t i=0ull; i<SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
-		blendParams.blendParams[i] = {i==0ull,false,EBF_ONE,EBF_ZERO,EBO_ADD,EBF_ONE,EBF_ZERO,EBO_ADD,0xfu};
+	for (size_t i=1ull; i<SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
+		blendParams.blendParams[i].attachmentEnabled = false;
 
 	SPrimitiveAssemblyParams assemblyParams = {EPT_LINE_LIST,false,2u};
 
 	SStencilOpParams defaultStencil;
-	SRasterizationParams rasterParams = {1u,EPM_LINE,EFCM_NONE,ECO_GREATER,IImage::ESCF_1_BIT,{~0u,~0u},1.f,0.f,0.f,defaultStencil,defaultStencil,
-											{false,false,true,false,false,false,false,true,true,false,false}};
+	SRasterizationParams rasterParams;
+	rasterParams.polygonMode = EPM_LINE;
 	auto pipeline = m_driver->createGPURenderpassIndependentPipeline(	nullptr,std::move(pLayout),shaders,shaders+sizeof(shaders)/sizeof(void*),
 																		inputParams,blendParams,assemblyParams,rasterParams);
 

@@ -43,6 +43,10 @@ enum E_VERTEX_INPUT_RATE : uint8_t
 #include "irr/irrpack.h"
 struct SVertexInputAttribParams
 {
+	SVertexInputAttribParams() : binding(0u), format(EF_UNKNOWN), relativeOffset(0u) {}
+	SVertexInputAttribParams(uint32_t _binding, uint32_t _format, uint32_t _relativeOffset) :
+						binding(_binding), format(_format), relativeOffset(_relativeOffset) {}
+
     uint32_t binding : 4;
     uint32_t format : 8;//asset::E_FORMAT
     uint32_t relativeOffset : 13;//assuming max=2048
@@ -50,8 +54,8 @@ struct SVertexInputAttribParams
 static_assert(sizeof(SVertexInputAttribParams)==(4u), "Unexpected size!");
 struct SVertexInputBindingParams
 {
-    uint32_t stride;
-    E_VERTEX_INPUT_RATE inputRate;
+    uint32_t stride = 0u;
+    E_VERTEX_INPUT_RATE inputRate = EVIR_PER_VERTEX;
 } PACK_STRUCT;
 static_assert(sizeof(SVertexInputBindingParams)==5u, "Unexpected size!");
 struct SVertexInputParams
@@ -59,12 +63,12 @@ struct SVertexInputParams
     _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = 16u;
     _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_ATTR_BUF_BINDING_COUNT = 16u;
 
-    uint16_t enabledAttribFlags;
-    uint16_t enabledBindingFlags;
+    uint16_t enabledAttribFlags = 0u;
+    uint16_t enabledBindingFlags = 0u;
     //! index in array denotes location (attribute ID)
-    SVertexInputAttribParams attributes[MAX_VERTEX_ATTRIB_COUNT];
+	SVertexInputAttribParams attributes[MAX_VERTEX_ATTRIB_COUNT] = {};
     //! index in array denotes binding number
-    SVertexInputBindingParams bindings[MAX_ATTR_BUF_BINDING_COUNT];
+	SVertexInputBindingParams bindings[MAX_ATTR_BUF_BINDING_COUNT] = {};
 
     static_assert(sizeof(enabledAttribFlags)*8 >= MAX_VERTEX_ATTRIB_COUNT, "Insufficient flag bits for number of supported attributes");
     static_assert(sizeof(enabledBindingFlags)*8 >= MAX_ATTR_BUF_BINDING_COUNT, "Insufficient flag bits for number of supported bindings");
@@ -73,9 +77,9 @@ static_assert(sizeof(SVertexInputParams) == (2u * 2u + SVertexInputParams::MAX_V
 
 struct SPrimitiveAssemblyParams
 {
-    E_PRIMITIVE_TOPOLOGY primitiveType;
-    uint8_t primitiveRestartEnable;
-    uint16_t tessPatchVertCount;
+    E_PRIMITIVE_TOPOLOGY primitiveType = EPT_TRIANGLE_LIST;
+    uint8_t primitiveRestartEnable = false;
+    uint16_t tessPatchVertCount = 3u;
 } PACK_STRUCT;
 static_assert(sizeof(SPrimitiveAssemblyParams)==4u, "Unexpected size!");
 
@@ -131,15 +135,30 @@ enum E_FACE_CULL_MODE : uint8_t
 
 struct SRasterizationParams
 {
-    uint8_t viewportCount;
-    E_POLYGON_MODE polygonMode;
-    E_FACE_CULL_MODE faceCullingMode;
-	E_COMPARE_OP depthCompareOp;
-    IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint;
-    uint32_t sampleMask[2];
-    float minSampleShading;
-    float depthBiasSlopeFactor;
-    float depthBiasConstantFactor;
+	SRasterizationParams()
+	{
+		depthClampEnable = false;
+		rasterizerDiscard = false;
+		frontFaceIsCCW = true;
+		depthBiasEnable = false;
+		sampleShadingEnable = false;
+		alphaToCoverageEnable = false;
+		alphaToOneEnable = false;
+		depthTestEnable = true;
+		depthWriteEnable = true;
+		depthBoundsTestEnable = false;
+		stencilTestEnable = false;
+	}
+
+    uint8_t viewportCount = 1u;
+    E_POLYGON_MODE polygonMode = EPM_FILL;
+    E_FACE_CULL_MODE faceCullingMode = EFCM_BACK_BIT;
+	E_COMPARE_OP depthCompareOp = ECO_GREATER;
+    IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint = IImage::ESCF_1_BIT;
+	uint32_t sampleMask[2] = {~0u,~0u};
+    float minSampleShading = 0.f;
+    float depthBiasSlopeFactor = 0.f;
+    float depthBiasConstantFactor = 0.f;
     SStencilOpParams frontStencilOps;
     SStencilOpParams backStencilOps;
     struct {
@@ -260,6 +279,18 @@ enum E_BLEND_OP : uint8_t
 
 struct SColorAttachmentBlendParams
 {
+	SColorAttachmentBlendParams() : 
+		attachmentEnabled(true),
+		blendEnable(false),
+		srcColorFactor(EBF_ONE),
+		dstColorFactor(EBF_ZERO),
+		colorBlendOp(EBO_ADD),
+		srcAlphaFactor(EBF_ONE),
+		dstAlphaFactor(EBF_ZERO),
+		alphaBlendOp(EBO_ADD),
+		colorWriteMask(0xfu)
+	{}
+
     uint8_t attachmentEnabled : 1;
     uint8_t blendEnable : 1;
     uint8_t srcColorFactor : 5;
@@ -280,6 +311,8 @@ static_assert(sizeof(SColorAttachmentBlendParams)==6u, "Unexpected size of SColo
 
 struct SBlendParams
 {
+	SBlendParams() : logicOpEnable(false), logicOp(ELO_NO_OP), blendParams{} {}
+
     _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_COLOR_ATTACHMENT_COUNT = 8u;
     uint8_t logicOpEnable : 1;
     uint8_t logicOp : 4;
