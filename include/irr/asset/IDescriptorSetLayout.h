@@ -2,7 +2,6 @@
 #define __IRR_I_DESCRIPTOR_SET_LAYOUT_H_INCLUDED__
 
 #include "irr/core/core.h"
-#include "irr/asset/ShaderCommons.h"
 #include "irr/core/SRange.h"
 
 namespace irr
@@ -10,7 +9,8 @@ namespace irr
 namespace asset
 {
 
-enum E_DESCRIPTOR_TYPE
+// TODO: move this to appropriate class
+enum E_DESCRIPTOR_TYPE : uint32_t
 {
     EDT_COMBINED_IMAGE_SAMPLER = 1,
     EDT_STORAGE_IMAGE = 3,
@@ -20,28 +20,58 @@ enum E_DESCRIPTOR_TYPE
     EDT_STORAGE_BUFFER = 7,
     EDT_UNIFORM_BUFFER_DYNAMIC = 8,
     EDT_STORAGE_BUFFER_DYNAMIC = 9,
-    EDT_INPUT_ATTACHMENT = 10
+    EDT_INPUT_ATTACHMENT = 10,
+	EDT_INVALID = ~0u
 };
 
 template<typename SamplerType>
 class IDescriptorSetLayout : public virtual core::IReferenceCounted
 {
 	public:
+		using sampler_type = SamplerType;
+
 		struct SBinding
 		{
 			uint32_t binding;
 			E_DESCRIPTOR_TYPE type;
 			uint32_t count;
-			E_SHADER_STAGE stageFlags;
-			const core::smart_refctd_ptr<SamplerType>* samplers;
+			ISpecializedShader::E_SHADER_STAGE stageFlags;
+			const core::smart_refctd_ptr<sampler_type>* samplers;
 
+			bool operator<(const SBinding& rhs) const
+			{
+				if (binding==rhs.binding)
+				{
+					// should really assert here
+					if (type==rhs.type)
+					{
+						if (count==rhs.type)
+						{
+							if (stageFlags==rhs.stageFlags)
+							{
+								for (uint32_t i=0u; i<count; i++)
+								{
+									if (samplers[i]==rhs.samplers[i])
+										continue;
+									return samplers[i]<rhs.samplers[i];
+								}
+								return false;
+							}
+							return stageFlags<rhs.stageFlags;
+						}
+						return count<rhs.count;
+					}
+					return type<rhs.type;
+				}
+				return binding<rhs.binding;
+			}
 			bool operator==(const SBinding& rhs) const
 			{
 				if (binding != rhs.binding)
 					return false;
 				if (type != rhs.type)
 					return false;
-				if (count != rhs.type)
+				if (count != rhs.count)
 					return false;
 				if (stageFlags != rhs.stageFlags)
 					return false;
@@ -74,7 +104,7 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 				if (bnd.type==EDT_COMBINED_IMAGE_SAMPLER && bnd.samplers)
 					immSamplerCount += bnd.count;
 			}
-			m_samplers = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<SamplerType>>>(immSamplerCount);
+			m_samplers = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type> > >(immSamplerCount);
 
 			size_t immSamplersOffset = 0u;
 			for (size_t i = 0ull; i < bndCount; ++i)
@@ -82,13 +112,14 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 				auto& bnd_out = m_bindings->operator[](i);
 				const auto& bnd_in = _begin[i];
 
+				bnd_out.binding = bnd_in.binding;
 				bnd_out.type = bnd_in.type;
 				bnd_out.count = bnd_in.count;
 				bnd_out.stageFlags = bnd_in.stageFlags;
 				bnd_out.samplers = nullptr;
 				if (bnd_in.type==EDT_COMBINED_IMAGE_SAMPLER && bnd_in.samplers)
 				{
-					bnd_out.samplers = reinterpret_cast<const core::smart_refctd_ptr<SamplerType>*>(immSamplersOffset);
+					bnd_out.samplers = reinterpret_cast<const core::smart_refctd_ptr<sampler_type>*>(immSamplersOffset);
 					for (uint32_t s = 0ull; s < bnd_in.count; ++s)
 						m_samplers->operator[](immSamplersOffset+s) = bnd_in.samplers[s];
 					immSamplersOffset += bnd_in.count;
@@ -103,16 +134,19 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 				if (bnd.type==EDT_COMBINED_IMAGE_SAMPLER && bnd.samplers)
 					bnd.samplers = m_samplers->data() + reinterpret_cast<size_t>(bnd.samplers);
 			}
+
+			// TODO: check for overlapping bindings (bad `SBinding` definitions)
+			std::sort(m_bindings->begin(), m_bindings->end());
 		}
 		virtual ~IDescriptorSetLayout() = default;
 
 		core::smart_refctd_dynamic_array<SBinding> m_bindings;
-		core::smart_refctd_dynamic_array<core::smart_refctd_ptr<SamplerType>> m_samplers;
+		core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type> > m_samplers;
 
 	public:
-		bool isIdenticallyDefined(const IDescriptorSetLayout<SamplerType>* _other) const
+		bool isIdenticallyDefined(const IDescriptorSetLayout<sampler_type>* _other) const
 		{
-			if (getBindings().length() != _other->getBindings().length())
+			if (!_other || getBindings().length()!=_other->getBindings().length())
 				return false;
 
 			const size_t cnt = getBindings().length();

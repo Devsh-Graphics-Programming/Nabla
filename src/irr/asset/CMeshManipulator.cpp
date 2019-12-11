@@ -812,40 +812,41 @@ void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const S
 template<>
 void CMeshManipulator::copyMeshBufferMemberVars<ICPUMeshBuffer>(ICPUMeshBuffer* _dst, const ICPUMeshBuffer* _src)
 {
-    _dst->setBaseInstance(
-        _src->getBaseInstance()
-    );
-    _dst->setBaseVertex(
-        _src->getBaseVertex()
-    );
-#ifndef NEW_SHADERS
-    _dst->setIndexBufferOffset(
-        _src->getIndexBufferOffset()
-    );
-#endif
-    _dst->setBoundingBox(
-        _src->getBoundingBox()
-    );
-    _dst->setIndexCount(
-        _src->getIndexCount()
-    );
-    _dst->setIndexType(
-        _src->getIndexType()
-    );
+	_dst->setBoundingBox(
+		_src->getBoundingBox()
+	);
+	for (uint32_t i = 0u; i < ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
+		_dst->setVertexBufferBinding(
+			SBufferBinding(_src->getVertexBufferBindings()[i]), i
+		);
+	_dst->setIndexBufferBinding(
+		SBufferBinding(_src->getIndexBufferBinding())
+	);/*
+	_dst->setAttachedDescriptorSet(
+		core::smart_refctd_ptr<ICPUDescriptorSet>(_src->getAttachedDescriptorSet())
+	);
+	_dst->setPipeline(
+		core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>(_src->getPipeline())
+	);*/
+	_dst->setIndexType(
+		_src->getIndexType()
+	);
+	_dst->setBaseVertex(
+		_src->getBaseVertex()
+	);
+	memcpy(_dst->getPushConstantsDataPtr(),_src->getPushConstantsDataPtr(),ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
+	_dst->setIndexCount(
+		_src->getIndexCount()
+	);
     _dst->setInstanceCount(
         _src->getInstanceCount()
     );
-#ifndef NEW_SHADERS
-    _dst->setPrimitiveType(
-        _src->getPrimitiveType()
-    );
-#endif
+	_dst->setBaseInstance(
+		_src->getBaseInstance()
+	);
     _dst->setPositionAttributeIx(
         _src->getPositionAttributeIx()
     );
-#ifndef NEW_SHADERS
-    _dst->getMaterial() = _src->getMaterial();
-#endif
 }
 template<>
 void CMeshManipulator::copyMeshBufferMemberVars<ICPUSkinnedMeshBuffer>(ICPUSkinnedMeshBuffer* _dst, const ICPUSkinnedMeshBuffer* _src)

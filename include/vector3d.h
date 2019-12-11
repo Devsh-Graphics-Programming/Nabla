@@ -70,18 +70,13 @@ namespace core
 			return !operator==(other);
 		}
 
-        bool operator<(const vector3d<T>& other) const
-        {
-            return X<other.X && Y<other.Y && Z<other.Z;
-        }
-
 		// functions
 
 		vector3d<T>& set(const T nx, const T ny, const T nz) {X=nx; Y=ny; Z=nz; return *this;}
 		vector3d<T>& set(const vector3d<T>& p) {X=p.X; Y=p.Y; Z=p.Z;return *this;}
 
 		//! Get length of the vector.
-		T getLength() const { return core::squareroot( X*X + Y*Y + Z*Z ); }
+		T getLength() const { return core::sqrt( X*X + Y*Y + Z*Z ); }
 
 		//! Get squared length of the vector.
 		/** This is useful because it is much faster than getLength().
@@ -128,13 +123,6 @@ namespace core
 				getDistanceFromSQ(end) <= f;
 		}
 
-		//! Sets the length of the vector to a new value
-		vector3d<T>& setLength(T newlength)
-		{
-			normalize();
-			return (*this *= newlength);
-		}
-
 		//! Inverts the vector.
 		vector3d<T>& invert()
 		{
@@ -142,49 +130,6 @@ namespace core
 			Y *= -1;
 			Z *= -1;
 			return *this;
-		}
-
-		//! Rotates the vector by a specified number of degrees around the Y axis and the specified center.
-		/** \param degrees Number of degrees to rotate around the Y axis.
-		\param center The center of the rotation. */
-		void rotateXZBy(double degrees, const vector3d<T>& center=vector3d<T>())
-		{
-			double cs = cos(radians(degrees));
-			double sn = sin(radians(degrees));
-			X -= center.X;
-			Z -= center.Z;
-			set((T)(X*cs - Z*sn), Y, (T)(X*sn + Z*cs));
-			X += center.X;
-			Z += center.Z;
-		}
-
-		//! Rotates the vector by a specified number of degrees around the Z axis and the specified center.
-		/** \param degrees: Number of degrees to rotate around the Z axis.
-		\param center: The center of the rotation. */
-		void rotateXYBy(double degrees, const vector3d<T>& center=vector3d<T>())
-		{
-			double cs = cos(radians(degrees));
-			double sn = sin(radians(degrees));
-			X -= center.X;
-			Y -= center.Y;
-			set((T)(X*cs - Y*sn), (T)(X*sn + Y*cs), Z);
-			X += center.X;
-			Y += center.Y;
-		}
-
-		//! Rotates the vector by a specified number of degrees around the X axis and the specified center.
-		/** \param degrees: Number of degrees to rotate around the X axis.
-		\param center: The center of the rotation. */
-		void rotateYZBy(double degrees, const vector3d<T>& center=vector3d<T>())
-		{
-			degrees *= DEGTORAD64;
-			double cs = cos(degrees);
-			double sn = sin(degrees);
-			Z -= center.Z;
-			Y -= center.Y;
-			set(X, (T)(Y*cs - Z*sn), (T)(Y*sn + Z*cs));
-			Z += center.Z;
-			Y += center.Y;
 		}
 
 		//! Sets this vector to the linearly interpolated vector between a and b.

@@ -3,7 +3,7 @@
 
 #include <utility>
 #include "irr/asset/IPipeline.h"
-#include "irr/asset/ShaderCommons.h"
+#include "irr/asset/ISpecializedShader.h"
 
 namespace irr
 {
@@ -24,7 +24,7 @@ class IComputePipeline : public IPipeline<LayoutType>
 		) : IPipeline<LayoutType>(std::move(_parent),std::move(_layout)),
 			m_shader(std::move(_cs))
 		{
-            assert(m_shader->getStage() == ESS_COMPUTE);
+            assert(m_shader->getStage() == ISpecializedShader::ESS_COMPUTE);
         }
 
     protected:

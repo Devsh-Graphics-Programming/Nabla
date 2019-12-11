@@ -10,11 +10,14 @@
 
 #ifdef __IRR_COMPILE_WITH_X86_SIMD_
 
-#ifndef __IRR_COMPILE_WITH_X86_SIMD_
-#error "Check your compiler or project settings for the -m*sse* flag, or upgrade your CPU"
+#ifdef __IRR_COMPILE_WITH_X86_SIMD_
+    #include <nmmintrin.h>
+#else
+    #error "Check your compiler or project settings for the -m*sse* flag, or upgrade your CPU"
 #endif // __IRR_COMPILE_WITH_X86_SIMD_
 
 #include <stdint.h>
+#include <math.h>
 
 #include "irr/core/alloc/AlignedBase.h"
 #include "vector2d.h"
@@ -266,56 +269,54 @@ namespace core
 	{
         typedef impl::vectorSIMDIntBase<vectorSIMD_32<T> > Base;
 
-		static inline vector4db_SIMD comparison_dispatch(__m128i (*func_epi32)(__m128i,__m128i), __m128i (*func_epi16)(__m128i,__m128i), __m128i (*func_epi8)(__m128i,__m128i), __m128i a, __m128i b)
-		{
-			__m128i result;
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_signed<T>::value)
-			{
-				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T,int32_t>::value)
-				{
-					result = func_epi32(a,b);
-				}
-				IRR_PSEUDO_ELSE_CONSTEXPR
-				{
-					IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T,int16_t>::value)
-					{
-						result = func_epi16(a,b);
-					}
-					IRR_PSEUDO_ELSE_CONSTEXPR
-					{
-						static_assert(!std::is_same<T,int8_t>::value,"unimplemented for types other than {u/i}int{8,16,32}_t");
-						result = func_epi8(a,b);
-					}
-					IRR_PSEUDO_IF_CONSTEXPR_END
-				}
-				IRR_PSEUDO_IF_CONSTEXPR_END
-			}
-			IRR_PSEUDO_ELSE_CONSTEXPR
-			{
-				__m128i mask;
-				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T,uint32_t>::value)
-				{
-					mask = _mm_set1_epi32(-0x80000000);
-				}
-				IRR_PSEUDO_ELSE_CONSTEXPR
-				{
-					IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T,uint16_t>::value)
-					{
-						mask = _mm_set1_epi16(-0x8000);
-					}
-					IRR_PSEUDO_ELSE_CONSTEXPR
-					{
-						static_assert(!std::is_same<T,uint8_t>::value,"unimplemented for types other than {u/i}int{8,16,32}_t");
-						mask = _mm_set1_epi8(-0x80);
-					}
-					IRR_PSEUDO_IF_CONSTEXPR_END
-				}
-				IRR_PSEUDO_IF_CONSTEXPR_END
-				result = comparison_dispatch(func_epi32,func_epi16,func_epi8,_mm_xor_si128(mask,a),_mm_xor_si128(mask,b)).getAsRegister();
-			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
-			return result;
-		}
+		#define COMPARISON_DISPATCH(func_epi32,func_epi16,func_epi8,LEFT,RIGHT) \
+			__m128i a = LEFT; \
+			__m128i b = RIGHT; \
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(!std::is_signed<T>::value) \
+			{ \
+				__m128i mask; \
+				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T,uint32_t>::value) \
+				{ \
+					mask = _mm_set1_epi32(-0x80000000); \
+				} \
+				IRR_PSEUDO_ELSE_CONSTEXPR \
+				{ \
+					IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T,uint16_t>::value) \
+					{ \
+						mask = _mm_set1_epi16(-0x8000); \
+					} \
+					IRR_PSEUDO_ELSE_CONSTEXPR \
+					{ \
+						static_assert(!std::is_same<T,uint8_t>::value,"unimplemented for types other than uint{8,16,32}_t"); \
+						mask = _mm_set1_epi8(-0x80); \
+					} \
+					IRR_PSEUDO_IF_CONSTEXPR_END \
+				} \
+				IRR_PSEUDO_IF_CONSTEXPR_END \
+				a = _mm_xor_si128(mask,LEFT); \
+				b = _mm_xor_si128(mask,RIGHT); \
+			} \
+			__m128i result; \
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(sizeof(T)==4u) \
+			{ \
+				result = func_epi32(a,b); \
+			} \
+			IRR_PSEUDO_ELSE_CONSTEXPR \
+			{ \
+				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(sizeof(T)==2u) \
+				{ \
+					result = func_epi16(a,b); \
+				} \
+				IRR_PSEUDO_ELSE_CONSTEXPR \
+				{ \
+					static_assert(sizeof(T)!=1u,"unimplemented for types other than {u}int{8,16,32}_t"); \
+					result = func_epi8(a,b); \
+				} \
+				IRR_PSEUDO_IF_CONSTEXPR_END \
+			} \
+			IRR_PSEUDO_IF_CONSTEXPR_END \
+			return result
+
 	public:
 	    using Base::Base;
 #ifdef _MSC_VER
@@ -418,31 +419,21 @@ namespace core
 		//!
 		inline vector4db_SIMD operator<=(const vectorSIMD_32<T>& other) const
 		{
-			return comparison_dispatch(_mm_cmplte_epi32,_mm_cmplte_epi16,_mm_cmplte_epi8,vectorSIMDIntBase::getAsRegister(),other.getAsRegister());
+			return !operator>(other);
 		}
 		inline vector4db_SIMD operator>=(const vectorSIMD_32<T>& other) const
 		{
-			return comparison_dispatch(_mm_cmpgte_epi32,_mm_cmpgte_epi16,_mm_cmpgte_epi8,vectorSIMDIntBase::getAsRegister(), other.getAsRegister());
+			return !operator<(other);
 		}
-#define FIX_THIS_SOMEHOW //getting unresolved external symbol for _mm_cmp[lt|gt]_epi8, 16, 32
 		inline vector4db_SIMD operator<(const vectorSIMD_32<T>& other) const
 		{
-#ifndef FIX_THIS_SOMEHOW
-			return comparison_dispatch(_mm_cmplt_epi32,_mm_cmplt_epi16,_mm_cmplt_epi8,vectorSIMDIntBase::getAsRegister(),other.getAsRegister());
-#else
-            assert(0);
-            return vector4db_SIMD();
-#endif
+			COMPARISON_DISPATCH(_mm_cmplt_epi32,_mm_cmplt_epi16,_mm_cmplt_epi8,vectorSIMDIntBase::getAsRegister(),other.getAsRegister());
 		}
 		inline vector4db_SIMD operator>(const vectorSIMD_32<T>& other) const
 		{
-#ifndef FIX_THIS_SOMEHOW
-			return comparison_dispatch(_mm_cmpgt_epi32,_mm_cmpgt_epi16,_mm_cmpgt_epi8,vectorSIMDIntBase::getAsRegister(), other.getAsRegister());
-#else
-            assert(0);
-            return vector4db_SIMD();
-#endif
+			COMPARISON_DISPATCH(_mm_cmpgt_epi32,_mm_cmpgt_epi16,_mm_cmpgt_epi8,vectorSIMDIntBase::getAsRegister(), other.getAsRegister());
 		}
+	#undef COMPARISON_DISPATCH
 
 		inline vector4db_SIMD operator==(const vectorSIMD_32<T>& other) const
 		{

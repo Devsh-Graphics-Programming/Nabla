@@ -5,20 +5,29 @@
 
 #include "irr/system/system.h"
 
-#include "irr/asset/ShaderCommons.h"
-#include "irr/asset/ICPUShader.h"
+#include "irr/asset/ICPUSpecializedShader.h"
 #include "irr/asset/IIncludeHandler.h"
 
 namespace irr
 {
+
+namespace video
+{
+class COpenGLDriver;
+}
+
 namespace asset
 {
 
 //! Will be derivative of IShaderGenerator, but we have to establish interface first
-class IGLSLCompiler : public core::IReferenceCounted
+class IGLSLCompiler final : public core::IReferenceCounted
 {
 		core::smart_refctd_ptr<IIncludeHandler> m_inclHandler;
 		const io::IFileSystem* m_fs;
+
+	protected:
+		friend class video::COpenGLDriver;
+		core::smart_refctd_ptr<ICPUBuffer> compileSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
 
 	public:
 		IGLSLCompiler(io::IFileSystem* _fs);
@@ -47,9 +56,9 @@ class IGLSLCompiler : public core::IReferenceCounted
 
 		@returns Shader containing SPIR-V bytecode.
 		*/
-		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(const char* _glslCode, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
+		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
 
-		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(io::IReadFile* _sourcefile, E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
+		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(io::IReadFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
 
 		/**
 		Resolves ALL #include directives regardless of any other preprocessor directive.
@@ -65,9 +74,9 @@ class IGLSLCompiler : public core::IReferenceCounted
 
 		@returns Shader containing logically same GLSL code as input but with #include directives resolved.
 		*/
-        core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(const char* _glslCode, E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
+        core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
 
-        core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(io::IReadFile* _sourcefile, E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
+        core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(io::IReadFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
 };
 
 }

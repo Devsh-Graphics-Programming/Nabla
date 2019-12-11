@@ -21,7 +21,7 @@ namespace video
 
 class COpenGLDriver;
 //! OpenGL texture.
-class COpenGLFrameBuffer : public IFrameBuffer
+class COpenGLFrameBuffer final : public IFrameBuffer
 {
     protected:
         //! destructor

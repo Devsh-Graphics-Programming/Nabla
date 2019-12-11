@@ -16,26 +16,26 @@ namespace irr
 namespace video
 {
 
-class COpenGLDescriptorSet : public IGPUDescriptorSet
+class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IEmulatedDescriptorSet<IGPUDescriptorSetLayout>
 {
 	public:
 		struct SMultibindParams
 		{
 			struct SMultibindBuffers
 			{
-				const GLuint* buffers = nullptr;
-				const GLintptr* offsets = nullptr;
-				const GLsizeiptr* sizes = nullptr;
-				const uint32_t* dynOffsetIxs = nullptr;
+				GLuint* buffers = nullptr;
+				GLintptr* offsets = nullptr;
+				GLsizeiptr* sizes = nullptr;
+				uint32_t* dynOffsetIxs = nullptr;
 			};
 			struct SMultibindTextures
 			{
-				const GLuint* textures = nullptr;
-				const GLuint* samplers = nullptr;
+				GLuint* textures = nullptr;
+				GLuint* samplers = nullptr;
 			};
 			struct SMultibindTextureImages
 			{
-				const GLuint* textures = nullptr;
+				GLuint* textures = nullptr;
 			};
         
 			SMultibindBuffers ubos;
@@ -45,56 +45,59 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet
 		};
 
 	public:
-		using IGPUDescriptorSet::IGPUDescriptorSet;
-
-		void updateDescriptorSet(uint32_t _writeCount, const SWriteDescriptorSet* _descWrites, uint32_t _copyCount, const SCopyDescriptorSet* _descCopies) override
+		COpenGLDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout) : IGPUDescriptorSet(std::move(_layout)), asset::impl::IEmulatedDescriptorSet<IGPUDescriptorSetLayout>(m_layout.get())
 		{
-			IGPUDescriptorSet::updateDescriptorSet(_writeCount, _descWrites, _copyCount, _descCopies);
-			m_multibindParams = SMultibindParams();
-			recalcMultibindParams();
-		}
-
-		const SMultibindParams& getMultibindParams() const { return m_multibindParams; }
-
-	private:
-		void recalcMultibindParams()
-		{
-			size_t uboCount = 0ull;//includes dynamics
-			size_t ssboCount = 0ull;//includes dynamics
-			size_t textureCount = 0ull;
-			size_t imageCount = 0ull;
-			for (const auto& desc : (*m_descriptors))
+			m_flatOffsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(m_bindingInfo->size());
+			uint32_t uboCount = 0u;//includes dynamics
+			uint32_t ssboCount = 0u;//includes dynamics
+			uint32_t textureCount = 0u;
+			uint32_t imageCount = 0u;
+			for (uint32_t i=0u; i<m_bindingInfo->size(); i++)
 			{
-				switch (desc.descriptorType)
+				auto count = getDescriptorCountAtIndex(i);
+				switch (m_bindingInfo->operator[](i).descriptorType)
 				{
-				case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
-					_IRR_FALLTHROUGH;
-				case asset::EDT_UNIFORM_BUFFER:
-					uboCount += desc.info->size();
-					break;
-				case asset::EDT_STORAGE_BUFFER_DYNAMIC:
-					_IRR_FALLTHROUGH;
-				case asset::EDT_STORAGE_BUFFER:
-					ssboCount += desc.info->size();
-					break;
-				case asset::EDT_UNIFORM_TEXEL_BUFFER: //GL_TEXTURE_BUFFER
-					_IRR_FALLTHROUGH;
-				case asset::EDT_COMBINED_IMAGE_SAMPLER:
-					textureCount += desc.info->size();
-					break;
-				case asset::EDT_STORAGE_IMAGE:
-					_IRR_FALLTHROUGH;
-				case asset::EDT_STORAGE_TEXEL_BUFFER:
-					imageCount += desc.info->size();
-				default: break;
+					case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
+						_IRR_FALLTHROUGH;
+					case asset::EDT_UNIFORM_BUFFER:
+						m_flatOffsets->operator[](i) = uboCount;
+						uboCount += count;
+						break;
+					case asset::EDT_STORAGE_BUFFER_DYNAMIC:
+						_IRR_FALLTHROUGH;
+					case asset::EDT_STORAGE_BUFFER:
+						m_flatOffsets->operator[](i) = ssboCount;
+						ssboCount += count;
+						break;
+					case asset::EDT_UNIFORM_TEXEL_BUFFER: //GL_TEXTURE_BUFFER
+						_IRR_FALLTHROUGH;
+					case asset::EDT_COMBINED_IMAGE_SAMPLER:
+						m_flatOffsets->operator[](i) = textureCount;
+						textureCount += count;
+						break;
+					case asset::EDT_STORAGE_IMAGE:
+						_IRR_FALLTHROUGH;
+					case asset::EDT_STORAGE_TEXEL_BUFFER:
+						m_flatOffsets->operator[](i) = imageCount;
+						imageCount += count;
+						break;
+					default:
+						break;
 				}
 			}
+			
+			m_buffer2descIx = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint> >(uboCount+ssboCount);
+			std::fill(m_buffer2descIx->begin(), m_buffer2descIx->end(), ~0u);
 
-			m_names = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(uboCount+ssboCount+(2ull*textureCount)+imageCount);
-			m_offsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLintptr>>(uboCount+ssboCount);
-			m_sizes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLsizeiptr>>(uboCount+ssboCount);
-			m_dynOffsetIxs = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t>>(m_offsets->size());
-
+			m_names = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint> >(uboCount+ssboCount+(2ull*textureCount)+imageCount);
+			std::fill(m_names->begin(),m_names->end(), 0u);
+			m_offsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLintptr> >(uboCount+ssboCount);
+			std::fill(m_offsets->begin(), m_offsets->end(), 0u);
+			m_sizes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLsizeiptr> >(uboCount+ssboCount);
+			std::fill(m_sizes->begin(), m_sizes->end(), ~0u);
+			m_dynOffsetIxs = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t> >(m_offsets->size());
+			std::fill(m_dynOffsetIxs->begin(), m_dynOffsetIxs->end(), 0u);
+			
 			const size_t uboNamesOffset = 0ull;
 			const size_t ssboNamesOffset = uboCount;
 			const size_t texNamesOffset = uboCount+ssboCount;
@@ -116,70 +119,210 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet
 			m_multibindParams.textures.samplers = (*m_names).data() + samplerNamesOffset;
 			m_multibindParams.textureImages.textures = (*m_names).data() + imagNamesOffset;
 
-			size_t u=0ull, s=0ull, t=0ull, i=0ull;
+			// set up dynamic offset redirects
 			uint32_t dyn_offset_iter = 0u;
-			const IGPUDescriptorSetLayout::SBinding* layoutBindings = m_layout->getBindings().begin();
-			size_t desc_iter = 0ull;
-			for (const auto& desc : (*m_descriptors))
+			auto uboDescIxIter = m_buffer2descIx->begin();
+			auto ssboDescIxIter = m_buffer2descIx->begin()+uboCount;
+			for (size_t i=0u; i<m_bindingInfo->size(); i++)
 			{
-				if (desc.descriptorType==asset::EDT_UNIFORM_BUFFER || desc.descriptorType==asset::EDT_UNIFORM_BUFFER_DYNAMIC)
-					for (const auto& info : (*desc.info)) {
-						(*m_names)[uboNamesOffset + u] = static_cast<COpenGLBuffer*>(info.desc.get())->getOpenGLName();
-						(*m_offsets)[uboBufOffset + u] = info.buffer.offset;
-						(*m_sizes)[uboBufOffset + u] = info.buffer.size;
-						if (desc.descriptorType == asset::EDT_UNIFORM_BUFFER_DYNAMIC)
-							(*m_dynOffsetIxs)[uboBufOffset + u] = dyn_offset_iter++;
-						else
-							(*m_dynOffsetIxs)[uboBufOffset + u] = ~static_cast<uint32_t>(0u);
-
-						++u;
-					}
-				else if (desc.descriptorType==asset::EDT_STORAGE_BUFFER || desc.descriptorType==asset::EDT_STORAGE_BUFFER_DYNAMIC)
-					for (const auto& info : (*desc.info)) {
-						(*m_names)[ssboNamesOffset + s] = static_cast<COpenGLBuffer*>(info.desc.get())->getOpenGLName();
-						(*m_offsets)[ssboBufOffset + s] = info.buffer.offset;
-						(*m_sizes)[ssboBufOffset + s] = info.buffer.size;
-						if (desc.descriptorType == asset::EDT_STORAGE_BUFFER_DYNAMIC)
-							(*m_dynOffsetIxs)[ssboBufOffset + s] = dyn_offset_iter++;
-						else
-							(*m_dynOffsetIxs)[ssboBufOffset + s] = ~static_cast<uint32_t>(0u);
-
-						++s;
-					}
-				else if (desc.descriptorType==asset::EDT_COMBINED_IMAGE_SAMPLER)
+				const auto& info = m_bindingInfo->operator[](i);
+				auto offset = m_flatOffsets->operator[](i);
+				for (uint32_t j=0u; j<getDescriptorCountAtIndex(i); j++)
+				switch (info.descriptorType)
 				{
-					size_t local_iter = 0u;
-					for (const auto& info : (*desc.info)) {
-						(*m_names)[texNamesOffset + t] = static_cast<COpenGLImageView*>(info.desc.get())->getOpenGLName();
-						(*m_names)[samplerNamesOffset + t] =
-							layoutBindings[desc_iter].samplers ? //take immutable sampler if present
-							static_cast<COpenGLSampler*>(layoutBindings[desc_iter].samplers[local_iter].get())->getOpenGLName() :
-							static_cast<COpenGLSampler*>(info.image.sampler.get())->getOpenGLName();
-						++local_iter;
-						++t;
-					}
+					case asset::EDT_UNIFORM_BUFFER:
+						*(uboDescIxIter++) = offset+j;
+						m_multibindParams.ubos.dynOffsetIxs[offset+j] = ~static_cast<uint32_t>(0u);
+						break;
+					case asset::EDT_STORAGE_BUFFER:
+						*(ssboDescIxIter++) = offset+j;
+						m_multibindParams.ssbos.dynOffsetIxs[offset+j] = ~static_cast<uint32_t>(0u);
+						break;
+					case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
+						*(uboDescIxIter++) = offset+j;
+						m_multibindParams.ubos.dynOffsetIxs[offset+j] = dyn_offset_iter++;
+						break;
+					case asset::EDT_STORAGE_BUFFER_DYNAMIC:
+						*(ssboDescIxIter++) = offset+j;
+						m_multibindParams.ssbos.dynOffsetIxs[offset+j] = dyn_offset_iter++;
+						break;
+					default:
+						break;
 				}
-				else if (desc.descriptorType==asset::EDT_UNIFORM_TEXEL_BUFFER)
-					for (const auto& info : (*desc.info)) {
-						(*m_names)[texNamesOffset + t] = static_cast<COpenGLBufferView*>(info.desc.get())->getOpenGLName();
-						(*m_names)[samplerNamesOffset + t] = 0u;//no sampler for samplerBuffer descriptor
-						++t;
-					}
-				else if (desc.descriptorType==asset::EDT_STORAGE_IMAGE)
-					for (const auto& info : (*desc.info)) {
-						(*m_names)[imagNamesOffset + i] = static_cast<COpenGLImageView*>(info.desc.get())->getOpenGLName();
-						++i;
-					}
-				else if (desc.descriptorType==asset::EDT_STORAGE_TEXEL_BUFFER)
-					for (const auto& info : (*desc.info)) {
-						(*m_names)[imagNamesOffset + i] = static_cast<COpenGLBufferView*>(info.desc.get())->getOpenGLName();
-						++i;
-					}
-				++desc_iter;
 			}
 		}
 
+		/* The following is supported:
+		"If the dstBinding has fewer than descriptorCount array elements remaining starting from dstArrayElement,
+		then the remainder will be used to update the subsequent binding - dstBinding+1 starting at array element zero.
+		If a binding has a descriptorCount of zero, it is skipped.
+		This behavior applies recursively, with the update affecting consecutive bindings as needed to update all descriptorCount descriptors.
+		*/
+		inline void writeDescriptorSet(const SWriteDescriptorSet& _write)
+		{
+			assert(_write.dstSet==static_cast<decltype(_write.dstSet)>(this));
+			assert(m_bindingInfo);
+
+			assert(_write.binding<m_bindingInfo->size());
+			assert(getDescriptorCountAtIndex(_write.binding)>0u);
+			assert(_write.count>0);
+			const auto type = _write.descriptorType;
+			#ifdef _IRR_DEBUG
+				auto info = m_bindingInfo->operator[](_write.binding);
+				assert(type==info.descriptorType);
+				auto layoutBinding = getLayoutBinding(_write.binding);
+				auto stageFlags = layoutBinding->stageFlags;
+				bool usesImmutableSamplers = layoutBinding->samplers;
+			#endif
+			assert(_write.arrayElement+_write.count<=m_descriptors->size());
+			auto* output = getDescriptors(_write.binding)+_write.arrayElement;
+			for (uint32_t i=0u; i<_write.count; i++,output++)
+			{
+				#ifdef _IRR_DEBUG
+					auto found = getBindingInfo(output-m_descriptors->begin());
+					assert(found->descriptorType == type);
+					layoutBinding = getLayoutBinding(found-m_bindingInfo->begin());
+					assert(layoutBinding->stageFlags==stageFlags);
+					assert((!!layoutBinding->samplers)==usesImmutableSamplers);
+				#endif
+				output->assign(_write.info[i], type);
+				uint32_t localIx = _write.arrayElement+i;
+				updateMultibindParams(type,*output,m_flatOffsets->operator[](_write.binding)+localIx,_write.binding,localIx);
+			}
+		}
+		inline void copyDescriptorSet(const SCopyDescriptorSet& _copy)
+		{
+			assert(_copy.dstSet==static_cast<decltype(_copy.dstSet)>(this));
+			assert(_copy.srcSet);
+			const auto* srcGLSet = static_cast<const COpenGLDescriptorSet*>(_copy.srcSet);
+			assert(m_bindingInfo && srcGLSet->m_bindingInfo);
+
+			assert(_copy.srcBinding<srcGLSet->m_bindingInfo->size());
+			assert(_copy.dstBinding<m_bindingInfo->size());
+			assert(_copy.srcArrayElement+_copy.count<srcGLSet->m_descriptors->size());
+			assert(_copy.dstArrayElement+_copy.count<m_descriptors->size());
+			// The type of dstBinding within dstSet must be equal to the type of srcBinding within srcSet
+			const auto type = srcGLSet->m_bindingInfo->operator[](_copy.srcBinding).descriptorType;
+			assert(type==m_bindingInfo->operator[](_copy.dstBinding).descriptorType);
+			
+			const auto* input = srcGLSet->getDescriptors(_copy.srcBinding)+_copy.srcArrayElement;
+			auto* output = getDescriptors(_copy.dstBinding)+_copy.dstArrayElement;
+			// If srcSet is equal to dstSet, then the source and destination ranges of descriptors must not overlap
+			if (this==srcGLSet)
+				assert(input+_copy.count<=output||output+_copy.count<=input);
+			for (uint32_t i=0u; i<_copy.count; i++,input++,output++)
+			{
+				#ifdef _IRR_DEBUG
+					auto foundIn = getBindingInfo(input-srcGLSet->m_descriptors->begin());
+					auto foundOut = getBindingInfo(output-m_descriptors->begin());
+					assert(foundOut->descriptorType==foundOut->descriptorType);
+
+					auto inLayoutBinding = getLayoutBinding(foundIn-srcGLSet->m_bindingInfo->begin());
+					auto outLayoutBinding = getLayoutBinding(foundOut-m_bindingInfo->begin());
+					assert(outLayoutBinding->stageFlags==inLayoutBinding->stageFlags);
+					assert((!outLayoutBinding->samplers)==(!inLayoutBinding->samplers));
+				#endif
+				output->assign(*input, type);
+				uint32_t localIx = _copy.dstArrayElement+i;
+				updateMultibindParams(type,*output,m_flatOffsets->operator[](_copy.dstBinding)+localIx,_copy.dstBinding,localIx);
+			}
+		}
+
+		inline const COpenGLBuffer* getUBO(uint32_t localIndex) const
+		{
+			auto ix = m_buffer2descIx->operator[](localIndex);
+			return static_cast<COpenGLBuffer*>(m_descriptors->operator[](ix).desc.get());
+		}
+
+		inline const COpenGLBuffer* getSSBO(uint32_t localIndex) const
+		{
+			return getUBO((m_multibindParams.ssbos.offsets-m_offsets->begin())+localIndex);
+		}
+
+		inline const SMultibindParams& getMultibindParams() const { return m_multibindParams; }
+
+	protected:
+		inline SDescriptorInfo* getDescriptors(uint32_t index) 
+		{ 
+			const auto& info = m_bindingInfo->operator[](index);
+			return m_descriptors->begin()+info.offset;
+		}
+		inline const SDescriptorInfo* getDescriptors(uint32_t index) const
+		{
+			const auto& info = m_bindingInfo->operator[](index);
+			return m_descriptors->begin() + info.offset;
+		}
+
+		inline uint32_t getDescriptorCountAtIndex(uint32_t index) const
+		{
+			const auto& info = m_bindingInfo->operator[](index);
+			if (index+1u!=m_bindingInfo->size())
+				return m_bindingInfo->operator[](index+1u).offset-info.offset;
+			else
+				return m_descriptors->size()+1u-info.offset;
+		}
+
+		inline const SBindingInfo* getBindingInfo(uint32_t offset) const
+		{
+			auto found = std::upper_bound(	m_bindingInfo->begin(),m_bindingInfo->end(),SBindingInfo{offset,asset::EDT_INVALID},
+											[](const auto& a, const auto& b) -> bool {return a.offset<b.offset;});
+			assert(found!=m_bindingInfo->begin());
+			return found-1;
+		}
+
+		inline const video::IGPUDescriptorSetLayout::SBinding* getLayoutBinding(uint32_t binding) const
+		{
+			auto layoutBindings = m_layout->getBindings();
+			auto layoutBinding = std::lower_bound(layoutBindings.begin(), layoutBindings.end(),
+					video::IGPUDescriptorSetLayout::SBinding{binding,asset::EDT_INVALID,0u,asset::ISpecializedShader::ESS_ALL,nullptr},
+					[](const auto& a, const auto& b) -> bool {return a.binding<b.binding;});
+			assert(layoutBinding!=layoutBindings.end());
+			return layoutBinding;
+		}
+
+	private:
+		inline void updateMultibindParams(asset::E_DESCRIPTOR_TYPE descriptorType, const SDescriptorInfo& info, uint32_t offset, uint32_t binding, uint32_t local_iter)
+		{
+			if (descriptorType==asset::EDT_UNIFORM_BUFFER || descriptorType==asset::EDT_UNIFORM_BUFFER_DYNAMIC)
+			{
+				m_multibindParams.ubos.buffers[offset] = static_cast<COpenGLBuffer*>(info.desc.get())->getOpenGLName();
+				m_multibindParams.ubos.offsets[offset] = info.buffer.offset;
+				m_multibindParams.ubos.sizes[offset] = info.buffer.size;
+			}
+			else if (descriptorType==asset::EDT_STORAGE_BUFFER || descriptorType==asset::EDT_STORAGE_BUFFER_DYNAMIC)
+			{
+				m_multibindParams.ssbos.buffers[offset] = static_cast<COpenGLBuffer*>(info.desc.get())->getOpenGLName();
+				m_multibindParams.ssbos.offsets[offset] = info.buffer.offset;
+				m_multibindParams.ssbos.sizes[offset] = info.buffer.size;
+			}
+			else if (descriptorType==asset::EDT_COMBINED_IMAGE_SAMPLER)
+			{
+				m_multibindParams.textures.textures[offset] = static_cast<COpenGLImageView*>(info.desc.get())->getOpenGLName();
+
+				auto layoutBindings = m_layout->getBindings();
+				auto layoutBinding = std::lower_bound(layoutBindings.begin(), layoutBindings.end(),
+					video::IGPUDescriptorSetLayout::SBinding{binding,asset::EDT_INVALID,0u,asset::ISpecializedShader::ESS_ALL,nullptr},
+					[](const auto& a, const auto& b) -> bool {return a.binding<b.binding;});
+				m_multibindParams.textures.samplers[offset] = layoutBinding->samplers ? //take immutable sampler if present
+						static_cast<COpenGLSampler*>(layoutBinding->samplers[local_iter].get())->getOpenGLName() :
+						static_cast<COpenGLSampler*>(info.image.sampler.get())->getOpenGLName();
+			}
+			else if (descriptorType==asset::EDT_UNIFORM_TEXEL_BUFFER)
+			{
+				m_multibindParams.textures.textures[offset] = static_cast<COpenGLBufferView*>(info.desc.get())->getOpenGLName();
+				m_multibindParams.textures.samplers[offset] = 0u;//no sampler for samplerBuffer descriptor
+			}
+			else if (descriptorType==asset::EDT_STORAGE_IMAGE)
+				m_multibindParams.textureImages.textures[offset] = static_cast<COpenGLImageView*>(info.desc.get())->getOpenGLName();
+			else if (descriptorType==asset::EDT_STORAGE_TEXEL_BUFFER)
+				m_multibindParams.textureImages.textures[offset] = static_cast<COpenGLBufferView*>(info.desc.get())->getOpenGLName();
+		}
+
 		SMultibindParams m_multibindParams;
+		core::smart_refctd_dynamic_array<uint32_t> m_flatOffsets;
+
+		core::smart_refctd_dynamic_array<uint32_t> m_buffer2descIx;
+
 		core::smart_refctd_dynamic_array<GLuint> m_names;
 		core::smart_refctd_dynamic_array<GLintptr> m_offsets;
 		core::smart_refctd_dynamic_array<GLsizeiptr> m_sizes;

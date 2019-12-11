@@ -100,35 +100,43 @@ namespace video
 		//! Get the graphics card vendor name.
 		virtual std::string getVendorInfo() =0;
 
-        virtual uint32_t getMaxComputeWorkGroupSize(uint32_t _dimension) const = 0;
+        virtual uint32_t getMaxComputeWorkGroupSize(uint32_t _dimension) const { return 0u; }
 
 		//! Get the maximum texture size supported.
 		virtual const uint32_t* getMaxTextureSize(IGPUImageView::E_TYPE type) const =0;
+		
+		//!
+		virtual uint32_t getRequiredUBOAlignment() const { return 0u; }
 
 		//!
-		virtual uint32_t getRequiredUBOAlignment() const = 0;
+		virtual uint32_t getRequiredSSBOAlignment() const { return 0u; }
 
 		//!
-		virtual uint32_t getRequiredSSBOAlignment() const = 0;
-
-		//!
-		virtual uint32_t getRequiredTBOAlignment() const = 0;
+		virtual uint32_t getRequiredTBOAlignment() const { return 0u; }
 
 		//!
 		virtual uint32_t getMinimumMemoryMapAlignment() const { return _IRR_MIN_MAP_BUFFER_ALIGNMENT; }
 
         virtual uint16_t retrieveDisplayRefreshRate() const { return 0u; }
 
-        virtual uint64_t getMaxUBOSize() const = 0;
-        virtual uint64_t getMaxSSBOSize() const = 0;
-        virtual uint64_t getMaxTBOSizeInTexels() const = 0;
-        virtual uint64_t getMaxBufferSize() const = 0;
 
-        virtual uint32_t getMaxUBOBindings() const = 0;
-        virtual uint32_t getMaxSSBOBindings() const = 0;
-        virtual uint32_t getMaxTextureBindings() const = 0;
-        virtual uint32_t getMaxTextureBindingsCompute() const = 0;
-        virtual uint32_t getMaxImageBindings() const = 0;
+		virtual uint64_t getMaxUBOSize() const { return 0ull; }
+		virtual uint64_t getMaxSSBOSize() const { return 0ull; }
+		virtual uint64_t getMaxTBOSizeInTexels() const { return 0ull; }
+		virtual uint64_t getMaxBufferSize() const { return 0ull; }
+
+		virtual uint32_t getMaxUBOBindings() const { return 0u; }
+		virtual uint32_t getMaxSSBOBindings() const { return 0u; }
+		virtual uint32_t getMaxTextureBindings() const { return 0u; }
+		virtual uint32_t getMaxTextureBindingsCompute() const { return 0u; }
+		virtual uint32_t getMaxImageBindings() const { return 0u; }
+
+		virtual bool isAllowedBufferViewFormat(asset::E_FORMAT _fmt) const { return false; }
+		virtual bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const { return false; }
+		virtual bool isColorRenderableFormat(asset::E_FORMAT _fmt) const { return false; }
+		virtual bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const { return false; }
+		virtual bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const { return false; }
+		virtual bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const { return false; }
 	};
 
 } // end namespace video

@@ -48,7 +48,6 @@ namespace asset
 	An IAssetLoader can only be removed/deregistered by its original pointer or global loader index.
 
     @see IAssetLoader::SAssetLoadParams
-	@see IReferenceCounted::grab()
 	@see IAsset
 	@see IAssetManager
 	@see IAssetWriter
@@ -196,9 +195,9 @@ class IAssetLoader : public virtual core::IReferenceCounted
 
 			//! Since more then one asset of the same key of the same type can exist, this function is called right after search for cached assets (if anything was found) and decides which of them is relevant.
 			//! Note: this function can assume that `found` is never empty.
-			inline virtual SAssetBundle chooseRelevantFromFound(const core::vector<SAssetBundle>& found, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
+			inline virtual SAssetBundle chooseRelevantFromFound(const SAssetBundle* foundBegin, const SAssetBundle* foundEnd, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
 			{
-				return found.front();
+				return *foundBegin;
 			}
 
 			//! Only called when the asset was searched for, no correct asset was found

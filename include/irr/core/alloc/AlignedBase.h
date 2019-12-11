@@ -56,6 +56,8 @@ namespace impl
             //! Bool telling is whether our current type, `T`, is larger than the max type of the recursion.
             constexpr static bool isTLargestType = std::alignment_of<T>::value>std::alignment_of<otherType>::value;
         public:
+			using T::T;
+
             //! The maximally aligned type for this recursion of N template parameters
             typedef typename std::conditional<isTLargestType,T,otherType>::type most_aligned_type;
         private:

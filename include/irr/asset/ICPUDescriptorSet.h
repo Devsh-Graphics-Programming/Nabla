@@ -13,38 +13,112 @@ namespace irr
 namespace asset
 {
 
-class ICPUDescriptorSet : public IDescriptorSet<ICPUDescriptorSetLayout, ICPUBuffer, ICPUImageView, ICPUBufferView, ICPUSampler>, public IAsset
+
+class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, public IAsset, public impl::IEmulatedDescriptorSet<ICPUDescriptorSetLayout>
 {
-public:
-    using base_t = IDescriptorSet<ICPUDescriptorSetLayout, ICPUBuffer, ICPUImageView, ICPUBufferView, ICPUSampler>;
+		using impl_t = impl::IEmulatedDescriptorSet<ICPUDescriptorSetLayout>;
+	public:
+		using base_t = IDescriptorSet<ICPUDescriptorSetLayout>;
 
-    using base_t::base_t;
-
-    //! Contructor preallocating memory for SDescriptorBindings which user can fill later (using non-const getDescriptors()).
-    //! @see getDescriptors()
-    ICPUDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout) :
-        base_t(std::move(_layout))
-    {}
+		//! Contructor preallocating memory for SDescriptorBindings which user can fill later (using non-const getDescriptors()).
+		//! @see getDescriptors()
+		ICPUDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout) : base_t(std::move(_layout)), IAsset(), impl_t(m_layout.get())
+		{
+		}
 
 
-    size_t conservativeSizeEstimate() const override { return m_descriptors->size()*sizeof(SDescriptorBinding); }
-    void convertToDummyObject() override 
-    {
-        m_descriptors = nullptr;
-        m_bindingToIx = nullptr;
-    }
-    E_TYPE getAssetType() const override { return ET_DESCRIPTOR_SET; }
+		inline size_t conservativeSizeEstimate() const override
+		{
+			return sizeof(void*)+m_descriptors->size()*sizeof(SDescriptorInfo)+m_bindingInfo->size()*sizeof(impl::IEmulatedDescriptorSet<ICPUDescriptorSetLayout>::SBindingInfo);
+		}
+		inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
+		{
+			if (referenceLevelsBelowToConvert--)
+			{
+				m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
+				for (auto it=m_descriptors->begin(); it!=m_descriptors->end(); it++)
+				{
+					auto descriptor = it->desc.get();
+					if (!descriptor)
+						continue;
+					switch (descriptor->getTypeCategory())
+					{
+						case IDescriptor::EC_BUFFER:
+							static_cast<asset::ICPUBuffer*>(descriptor)->convertToDummyObject(referenceLevelsBelowToConvert);
+							break;
+						case IDescriptor::EC_IMAGE:
+							static_cast<asset::ICPUImageView*>(descriptor)->convertToDummyObject(referenceLevelsBelowToConvert);
+							if (descriptor->getTypeCategory()==IDescriptor::EC_IMAGE && it->image.sampler)
+								it->image.sampler->convertToDummyObject(referenceLevelsBelowToConvert);
+							break;
+						case IDescriptor::EC_BUFFER_VIEW:
+							static_cast<asset::ICPUBufferView*>(descriptor)->convertToDummyObject(referenceLevelsBelowToConvert);
+							break;
+					}
+				}
+			}
+			m_descriptors = nullptr;
+			m_bindingInfo = nullptr;
+		}
+		inline E_TYPE getAssetType() const override { return ET_DESCRIPTOR_SET; }
 
-    ICPUDescriptorSetLayout* getLayout() { return m_layout.get(); }
-    core::SRange<SDescriptorBinding> getDescriptors() 
-    { 
-        return m_descriptors ? core::SRange<SDescriptorBinding>{m_descriptors->begin(), m_descriptors->end()} : core::SRange<SDescriptorBinding>{nullptr, nullptr};
-    }
+		inline ICPUDescriptorSetLayout* getLayout() { return m_layout.get(); }
+		inline const ICPUDescriptorSetLayout* getLayout() const { return m_layout.get(); }
 
-protected:
-    virtual ~ICPUDescriptorSet() = default;
+		//!
+		inline uint32_t getMaxDescriptorBindingIndex() const
+		{
+			return m_bindingInfo ? static_cast<uint32_t>(m_bindingInfo->size()):0u;
+		}
+
+		//!
+		inline E_DESCRIPTOR_TYPE getDescriptorsType(uint32_t index) const
+		{
+			if (m_bindingInfo && index<m_bindingInfo->size())
+				return m_bindingInfo->operator[](index).descriptorType;
+			return EDT_INVALID;
+		}
+
+		//! Can modify the array of descriptors bound to a particular bindings
+		inline core::SRange<SDescriptorInfo> getDescriptors(uint32_t index) 
+		{ 
+			if (m_bindingInfo && index<m_bindingInfo->size())
+			{
+				const auto& info = m_bindingInfo->operator[](index);
+				auto _begin = m_descriptors->begin()+info.offset;
+				if (index+1u!=m_bindingInfo->size())
+					return core::SRange<SDescriptorInfo>{_begin, m_descriptors->begin()+m_bindingInfo->operator[](index+1u).offset};
+				else
+					return core::SRange<SDescriptorInfo>{_begin, m_descriptors->end()};
+			}
+			else
+				return core::SRange<SDescriptorInfo>{nullptr, nullptr};
+		}
+		inline core::SRange<const SDescriptorInfo> getDescriptors(uint32_t index) const
+		{
+			if (m_bindingInfo && index<m_bindingInfo->size())
+			{
+				const auto& info = m_bindingInfo->operator[](index);
+				auto _begin = m_descriptors->begin()+info.offset;
+				if (index+1u!=m_bindingInfo->size())
+					return core::SRange<const SDescriptorInfo>{_begin, m_descriptors->begin()+m_bindingInfo->operator[](index+1u).offset};
+				else
+					return core::SRange<const SDescriptorInfo>{_begin, m_descriptors->end()};
+			}
+			else
+				return core::SRange<const SDescriptorInfo>{nullptr, nullptr};
+		}
+
+		inline auto getTotalDescriptorCount() const
+		{
+			return m_descriptors->size();
+		}
+
+	protected:
+		virtual ~ICPUDescriptorSet() = default;
 };
 
-}}
+}
+}
 
 #endif

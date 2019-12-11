@@ -1286,14 +1286,11 @@ class COpenGLExtensionHandler
     static void extGlCompressedTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLsizei imageSize, const void *data);
     static void extGlCompressedTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, const void *data);
     static void extGlCompressedTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const void *data);
-    static void extGlCopyTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint x, GLint y, GLsizei width);
-    static void extGlCopyTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint x, GLint y, GLsizei width, GLsizei height);
-    static void extGlCopyTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height);
+	static void extGlCopyImageSubData(GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ, GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ, GLsizei srcWidth, GLsizei srcHeight, GLsizei srcDepth);
     static void extGlGenerateTextureMipmap(GLuint texture, GLenum target);
 	// texture "parameter" functions
-	static void extGlTextureParameteriuiv(GLuint texture, GLenum target, GLenum pname, const GLuint* params);
+	static void extGlTextureParameterIuiv(GLuint texture, GLenum target, GLenum pname, const GLuint* params);
 	static void extGlClampColor(GLenum target, GLenum clamp);
-	static void setPixelUnpackAlignment(const uint32_t& pitchInBytes, void* ptr, const uint32_t& minimumAlignment = 1);
 
     static void extGlCreateSamplers(GLsizei n, GLuint* samplers);
     static void extGlDeleteSamplers(GLsizei n, GLuint* samplers);
@@ -1573,16 +1570,10 @@ class COpenGLExtensionHandler
     static PFNGLCOMPRESSEDTEXTURESUBIMAGE1DEXTPROC pGlCompressedTextureSubImage1DEXT;
     static PFNGLCOMPRESSEDTEXTURESUBIMAGE2DEXTPROC pGlCompressedTextureSubImage2DEXT;
     static PFNGLCOMPRESSEDTEXTURESUBIMAGE3DEXTPROC pGlCompressedTextureSubImage3DEXT;
-    static PFNGLCOPYTEXSUBIMAGE3DPROC pGlCopyTexSubImage3D;
-    static PFNGLCOPYTEXTURESUBIMAGE1DPROC pGlCopyTextureSubImage1D;
-    static PFNGLCOPYTEXTURESUBIMAGE2DPROC pGlCopyTextureSubImage2D;
-    static PFNGLCOPYTEXTURESUBIMAGE3DPROC pGlCopyTextureSubImage3D;
-    static PFNGLCOPYTEXTURESUBIMAGE1DEXTPROC pGlCopyTextureSubImage1DEXT;
-    static PFNGLCOPYTEXTURESUBIMAGE2DEXTPROC pGlCopyTextureSubImage2DEXT;
-    static PFNGLCOPYTEXTURESUBIMAGE3DEXTPROC pGlCopyTextureSubImage3DEXT;
-	static PFNGLTEXTUREPARAMETERIUIVPROC pGlTextureParameteriuiv;
-	static PFNGLTEXTUREPARAMETERIUIVEXTPROC pGlTextureParameteriuivEXT;
-	static PFNGLTEXPARAMETERIUIVPROC pGlTexParameteriuiv;
+    static PFNGLCOPYIMAGESUBDATAPROC pGlCopyImageSubData;
+	static PFNGLTEXTUREPARAMETERIUIVPROC pGlTextureParameterIuiv;
+	static PFNGLTEXTUREPARAMETERIUIVEXTPROC pGlTextureParameterIuivEXT;
+	static PFNGLTEXPARAMETERIUIVPROC pGlTexParameterIuiv;
     static PFNGLGENERATEMIPMAPPROC pGlGenerateMipmap;
     static PFNGLGENERATETEXTUREMIPMAPPROC pGlGenerateTextureMipmap; //NULL
     static PFNGLGENERATETEXTUREMIPMAPEXTPROC pGlGenerateTextureMipmapEXT;
@@ -2179,7 +2170,7 @@ inline void COpenGLExtensionHandler::extGlGetTextureSubImage(GLuint texture, GLi
 		pGlGetTextureSubImage(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, bufSize, pixels);
 #ifdef _IRR_DEBUG
 	else
-		os::Printer::log("EDF_GET_TEXTURE_SUB_IMAGE Not Available!\n", ELL_ERROR);
+		os::Printer::log("EDF_GET_TEXTURE_SUB_IMAGE Not Available! Tell DevSH to implement!\n", ELL_ERROR);
 #endif // _IRR_DEBUG
 }
 
@@ -2189,7 +2180,7 @@ inline void COpenGLExtensionHandler::extGlGetCompressedTextureSubImage(GLuint te
 		extGlGetCompressedTextureSubImage(texture, level, xoffset, yoffset, zoffset, width, height, depth, bufSize, pixels);
 #ifdef _IRR_DEBUG
 	else
-		os::Printer::log("EDF_GET_TEXTURE_SUB_IMAGE Not Available!\n", ELL_ERROR);
+		os::Printer::log("EDF_GET_TEXTURE_SUB_IMAGE Not Available! Tell DevSH to implement!\n", ELL_ERROR);
 #endif // _IRR_DEBUG
 }
 
@@ -2499,112 +2490,9 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage3D(GLuint tex
     }
 }
 
-inline void COpenGLExtensionHandler::extGlCopyTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint x, GLint y, GLsizei width)
+inline void COpenGLExtensionHandler::extGlCopyImageSubData(GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ, GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ, GLsizei srcWidth, GLsizei srcHeight, GLsizei srcDepth)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-    {
-        if (pGlCopyTextureSubImage1D)
-            pGlCopyTextureSubImage1D(texture, level, xoffset, x, y, width);
-    }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-        if (pGlCopyTextureSubImage1DEXT)
-            pGlCopyTextureSubImage1DEXT(texture, target, level, xoffset, x, y, width);
-    }
-    else if (pGlCopyTexSubImage3D)
-    {
-        GLint bound;
-        switch (target)
-        {
-            case GL_TEXTURE_1D:
-                glGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
-                break;
-            default:
-                os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
-                return;
-        }
-        glBindTexture(target, texture);
-        glCopyTexSubImage1D(target, level, xoffset, x, y, width);
-        glBindTexture(target, bound);
-    }
-}
-inline void COpenGLExtensionHandler::extGlCopyTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint x, GLint y, GLsizei width, GLsizei height)
-{
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-    {
-        if (pGlCopyTextureSubImage2D)
-            pGlCopyTextureSubImage2D(texture, level, xoffset, yoffset, x, y, width, height);
-    }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-        if (pGlCopyTextureSubImage2DEXT)
-            pGlCopyTextureSubImage2DEXT(texture, target, level, xoffset, yoffset, x, y, width, height);
-    }
-    else if (pGlCopyTexSubImage3D)
-    {
-        GLint bound;
-        switch (target)
-        {
-            case GL_TEXTURE_1D_ARRAY:
-                glGetIntegerv(GL_TEXTURE_BINDING_1D_ARRAY, &bound);
-                break;
-            case GL_TEXTURE_2D:
-                glGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
-                break;
-            case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
-            case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
-            case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
-            case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
-            case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
-            case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
-                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
-                break;
-            default:
-                os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
-                return;
-        }
-        glBindTexture(target, texture);
-        glCopyTexSubImage2D(target, level, xoffset, yoffset, x, y, width, height);
-        glBindTexture(target, bound);
-    }
-}
-inline void COpenGLExtensionHandler::extGlCopyTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLint x, GLint y, GLsizei width, GLsizei height)
-{
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-    {
-        if (pGlCopyTextureSubImage3D)
-            pGlCopyTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, x, y, width, height);
-    }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
-    {
-        if (pGlCopyTextureSubImage3DEXT)
-            pGlCopyTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, x, y, width, height);
-    }
-    else if (pGlCopyTexSubImage3D)
-    {
-        GLint bound;
-        switch (target)
-        {
-            case GL_TEXTURE_2D_ARRAY:
-                glGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
-                break;
-            case GL_TEXTURE_3D:
-                glGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
-                break;
-            case GL_TEXTURE_CUBE_MAP:
-                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
-                break;
-            case GL_TEXTURE_CUBE_MAP_ARRAY:
-                glGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
-                break;
-            default:
-                os::Printer::log("DevSH would like to ask you what are you doing!!??\n",ELL_ERROR);
-                return;
-        }
-        glBindTexture(target, texture);
-        pGlCopyTexSubImage3D(target, level, xoffset, yoffset, zoffset, x, y, width, height);
-        glBindTexture(target, bound);
-    }
+	pGlCopyImageSubData(srcName,srcTarget,srcLevel,srcX,srcY,srcZ,dstName,dstTarget,dstLevel,dstX,dstY,dstZ,srcWidth,srcHeight,srcDepth);
 }
 
 inline void COpenGLExtensionHandler::extGlGenerateTextureMipmap(GLuint texture, GLenum target)
@@ -2667,12 +2555,12 @@ inline void COpenGLExtensionHandler::extGlGenerateTextureMipmap(GLuint texture, 
     }
 }
 
-inline void COpenGLExtensionHandler::extGlTextureParameteriuiv(GLuint texture, GLenum target, GLenum pname, const GLuint* params)
+inline void COpenGLExtensionHandler::extGlTextureParameterIuiv(GLuint texture, GLenum target, GLenum pname, const GLuint* params)
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
-        pGlTextureParameteriuiv(texture,pname,params);
+        pGlTextureParameterIuiv(texture,pname,params);
     else if (FeatureAvailable[IRR_EXT_direct_state_access])
-		pGlTextureParameteriuivEXT(texture,target,pname,params);
+		pGlTextureParameterIuivEXT(texture,target,pname,params);
 	else
 	{
         GLint bound;
@@ -2716,7 +2604,7 @@ inline void COpenGLExtensionHandler::extGlTextureParameteriuiv(GLuint texture, G
                 return;
         }
         glBindTexture(target, texture);
-		pGlTexParameteriuiv(target,pname,params);
+		pGlTexParameterIuiv(target,pname,params);
         glBindTexture(target, bound);
 	}
 }
@@ -2725,35 +2613,6 @@ inline void COpenGLExtensionHandler::extGlClampColor(GLenum target, GLenum clamp
 {
     if (pGlClampColor)
         pGlClampColor(GL_CLAMP_READ_COLOR,clamp);
-}
-
-inline void COpenGLExtensionHandler::setPixelUnpackAlignment(const uint32_t &pitchInBytes, void* ptr, const uint32_t& minimumAlignment)
-{
-#if _MSC_VER && !__INTEL_COMPILER
-    DWORD textureUploadAlignment,textureUploadAlignment2;
-    if (!_BitScanForward(&textureUploadAlignment,core::max(pitchInBytes,minimumAlignment)))
-        textureUploadAlignment = 3;
-    if (!_BitScanForward64(&textureUploadAlignment2,*reinterpret_cast<size_t*>(&ptr)))
-        textureUploadAlignment2 = 3;
-#else
-    int32_t textureUploadAlignment = __builtin_ffs(core::max(pitchInBytes,minimumAlignment));
-    if (textureUploadAlignment)
-        textureUploadAlignment--;
-    else
-        textureUploadAlignment = 3;
-    int32_t textureUploadAlignment2 = __builtin_ffs(*reinterpret_cast<size_t*>(&ptr));
-    if (textureUploadAlignment2)
-        textureUploadAlignment2--;
-    else
-        textureUploadAlignment2 = 3;
-#endif
-    textureUploadAlignment = core::min<int32_t,int32_t>(textureUploadAlignment,textureUploadAlignment2,3);
-
-    if (textureUploadAlignment==pixelUnpackAlignment)
-        return;
-
-    glPixelStorei(GL_UNPACK_ALIGNMENT,0x1u<<textureUploadAlignment);
-    pixelUnpackAlignment = textureUploadAlignment;
 }
 
 inline void COpenGLExtensionHandler::extGlCreateSamplers(GLsizei n, GLuint* samplers)
@@ -2827,8 +2686,10 @@ inline void COpenGLExtensionHandler::extGlBindImageTextures(GLuint first, GLsize
 {
     if (pGlBindImageTextures)
         pGlBindImageTextures(first, count, textures);
-    else {
-        for (GLuint i = 0u; i < count; ++i) {
+    else
+    {
+        for (GLsizei i=0; i<count; i++)
+        {
             if (!textures || textures[i] == 0u)
                 extGlBindImageTexture(first+i, 0u, 0u, GL_FALSE, 0, GL_READ_WRITE, GL_R8);
             else

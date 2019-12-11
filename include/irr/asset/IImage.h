@@ -402,19 +402,11 @@ class IImage : public IDescriptor
 		//!
 		inline core::vector3du32_SIMD getMipSize(uint32_t level=0u) const
 		{
-            core::vector3d<uint32_t> sz(params.extent.width,
-                params.extent.height,
-                params.extent.depth);
-            core::vector3d<uint32_t> one(1u, 1u, 1u);
-            auto r = core::max(sz, one);
-            return core::vector3du32_SIMD(r.X, r.Y, r.Z);
-            /*
 			return core::max(	core::vector3du32_SIMD(	params.extent.width,
 														params.extent.height,
 														params.extent.depth)
 										/ (0x1u<<level),
-								core::vector3du32_SIMD(1u));
-              */                  
+								core::vector3du32_SIMD(1u,1u,1u));      
 		}
 
 		//! Returns image data size in bytes
@@ -462,7 +454,7 @@ class IImage : public IDescriptor
 			//if (flags&ECF_SUBSAMPLED)
 				//return false;
 
-			if (validatePotentialCopies(pRegionsBegin, pRegionsEnd, src))
+			if (!validatePotentialCopies(pRegionsBegin, pRegionsEnd, src))
 				return false;
 			
 			bool die = false;
@@ -497,7 +489,7 @@ class IImage : public IDescriptor
 					//return false;
 				if (subresource.mipLevel >= params.mipLevels)
 					return false;
-				if (subresource.baseArrayLayer+subresource.layerCount >= params.arrayLayers)
+				if (subresource.baseArrayLayer+subresource.layerCount > params.arrayLayers)
 					return false;
 
 				const auto& off2 = it->getDstOffset();

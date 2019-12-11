@@ -186,6 +186,9 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 		//! destructor
 		virtual ~COpenGLDriver();
 
+		//! inits the parts of the open gl driver used on all platforms
+		bool genericDriverInit(asset::IAssetManager* assMgr) override;
+
 	public:
         struct SAuxContext;
 
@@ -197,19 +200,16 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 		#endif
 
 		#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceLinux* device, asset::IGLSLCompiler* glslcomp);
+		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp);
 		//! inits the GLX specific parts of the open gl driver
 		bool initDriver(CIrrDeviceLinux* device, SAuxContext* auxCtxts);
 		bool changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceLinux* device);
 		#endif
 
 		#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceSDL* device, asset::IGLSLCompiler* glslcomp);
+		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceSDL* device, const asset::IGLSLCompiler* glslcomp);
 		#endif
 
-		#ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceMacOSX *device, asset::IGLSLCompiler* glslcomp);
-		#endif
 
         inline bool isAllowedBufferViewFormat(asset::E_FORMAT _fmt) const override
         {
@@ -604,33 +604,30 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             return isColorRenderableFormat(_fmt) && (asset::isNormalizedFormat(_fmt) || asset::isFloatingPointFormat(_fmt));
         }
 
+
         const core::smart_refctd_dynamic_array<std::string> getSupportedGLSLExtensions() const override;
 
-        bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override;
 
-        bool bindComputePipeline(video::IGPUComputePipeline* _cpipeline) override;
+        bool bindGraphicsPipeline(const video::IGPURenderpassIndependentPipeline* _gpipeline) override;
+
+        bool bindComputePipeline(const video::IGPUComputePipeline* _cpipeline) override;
 
         bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
-            uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override;
+            uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override;
 
-		IGPUBuffer* createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override;
+
+		core::smart_refctd_ptr<IGPUBuffer> createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData = false) override;
 
 		core::smart_refctd_ptr<IGPUBufferView> createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset, size_t _size) override;
 
 		core::smart_refctd_ptr<IGPUSampler> createGPUSampler(const IGPUSampler::SParams& _params) override;
 
-        core::smart_refctd_ptr<IGPUImage> createGPUImage(asset::IImage::SCreationParams&& _params) override;
+		core::smart_refctd_ptr<IGPUImage> createGPUImageOnDedMem(IGPUImage::SCreationParams&& params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs) override;
 
         core::smart_refctd_ptr<IGPUImageView> createGPUImageView(IGPUImageView::SCreationParams&& params) override;
 
-        bool dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint32_t _groupCountZ) override;
-        bool dispatchIndirect(const IGPUBuffer* _indirectBuf, size_t _offset) override;
-
-        bool pushConstants(const IGPUPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values) override;
-
-
-        core::smart_refctd_ptr<IGPUShader> createGPUShader(const asset::ICPUShader* _cpushader) override;
-        core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) override;
+        core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>&& _cpushader) override;
+        core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo) override;
 
         core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) override;
 
@@ -656,9 +653,15 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
         ) override;
 
-        core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorBinding>&& _descriptors) override;
-
         core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout) override;
+
+		void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) override;
+
+
+		bool pushConstants(const IGPUPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values) override;
+
+		bool dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint32_t _groupCountZ) override;
+		bool dispatchIndirect(const IGPUBuffer* _indirectBuf, size_t _offset) override;
 
 
 		//! generic version which overloads the unimplemented versions
@@ -676,6 +679,12 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         void invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) override;
 
         void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length) override;
+
+		void copyImage(IGPUImage* srcImage, IGPUImage* dstImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions) override;
+
+		void copyBufferToImage(IGPUBuffer* srcBuffer, IGPUImage* dstImage, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions) override;
+
+		void copyImageToBuffer(IGPUImage* srcImage, IGPUBuffer* dstBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions) override;
 
 		//! clears the zbuffer
 		bool beginScene(bool backBuffer=true, bool zBuffer=true,
@@ -771,8 +780,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals) override;
 		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals) override;
 
-        const CDerivativeMapCreator* getDerivativeMapCreator() const override { return DerivativeMapCreator; };
-
 		//! Enable/disable a clipping plane.
 		//! There are at least 6 clipping planes available for the user to set at will.
 		//! \param index: The plane index. Must be between 0 and MaxUserClipPlanes.
@@ -819,14 +826,10 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
             template<E_PIPELINE_BIND_POINT>
             struct pipeline_for_bindpoint;
-            template<> struct pipeline_for_bindpoint<EPBP_GRAPHICS> { using type = COpenGLRenderpassIndependentPipeline; };
-            template<> struct pipeline_for_bindpoint<EPBP_COMPUTE > { using type = COpenGLComputePipeline; };
 
             template<E_PIPELINE_BIND_POINT PBP>
             using pipeline_for_bindpoint_t = typename pipeline_for_bindpoint<PBP>::type;
 
-            void flushStateGraphics_pushConstants();
-            void flushStateCompute_pushConstants();
             void flushState_descriptors(E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, const COpenGLPipelineLayout* _prevLayout);
             void flushStateGraphics(uint32_t stateBits);
             void flushStateCompute(uint32_t stateBits);
@@ -840,7 +843,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             struct
             {
                 alignas(128) uint8_t data[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE];
-                uint32_t stagesToUpdateFlags = 0u;
+                uint32_t stagesToUpdateFlags = 0u; // need a slight redo of this
                 core::smart_refctd_ptr<const COpenGLPipelineLayout> layout;
             } pushConstantsState[EPBP_COUNT];
 
@@ -861,7 +864,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             //! FBOs
             core::vector<IFrameBuffer*>  FrameBuffers;
             COpenGLFrameBuffer*         CurrentFBO;
-            core::dimension2d<uint32_t> CurrentRendertargetSize;
+            core::dimension2d<uint32_t> CurrentRendertargetSize; // @Crisspl TODO: Fold this into SOpenGLState, as well as the Vulkan dynamic state (scissor rect, viewport, etc.)
 
             //!
             core::vector<SOpenGLState::HashVAOPair> VAOMap;
@@ -982,9 +985,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
         bool runningInRenderDoc;
 
-		//! inits the parts of the open gl driver used on all platforms
-		bool genericDriverInit();
-
 		// returns the current size of the screen or rendertarget
 		virtual const core::dimension2d<uint32_t>& getCurrentRenderTargetSize() const;
 
@@ -996,8 +996,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
 		//! Color buffer format
 		asset::E_FORMAT ColorFormat; //FIXME
-
-		SIrrlichtCreationParameters Params;
 
         mutable core::smart_refctd_dynamic_array<std::string> m_supportedGLSLExtsNames;
 
@@ -1030,11 +1028,14 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
         FW_Mutex* glContextMutex;
 		SAuxContext* AuxContexts;
-        CDerivativeMapCreator* DerivativeMapCreator;
         core::smart_refctd_ptr<const asset::IGLSLCompiler> GLSLCompiler;
 
 		E_DEVICE_TYPE DeviceType;
 	};
+    
+    
+    template<> struct COpenGLDriver::SAuxContext::pipeline_for_bindpoint<EPBP_GRAPHICS> { using type = COpenGLRenderpassIndependentPipeline; };
+    template<> struct COpenGLDriver::SAuxContext::pipeline_for_bindpoint<EPBP_COMPUTE > { using type = COpenGLComputePipeline; };
 
 } // end namespace video
 } // end namespace irr

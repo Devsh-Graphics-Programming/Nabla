@@ -14,38 +14,15 @@ namespace ScreenShot
 {
 	
 //! TODO: HANDLE UNPACK ALIGNMENT
-
-// change this to produce a CImageData backed by a mapped GPU buffer
-core::smart_refctd_ptr<video::IDriverFence> createScreenShot(video::IDriver* driver, core::rect<uint32_t> sourceRect, asset::E_FORMAT _outFormat, video::IGPUBuffer* destination, size_t destOffset=0ull, bool implicitflush=true)
+core::smart_refctd_ptr<video::IDriverFence> createScreenShot(video::IDriver* driver, video::IGPUImage* source, video::IGPUBuffer* destination, uint32_t sourceMipLevel=0u, size_t destOffset=0ull, bool implicitflush=true)
 {
 	// will change this, https://github.com/buildaworldnet/IrrlichtBAW/issues/148
-	if (isBlockCompressionFormat(_outFormat))
+	if (isBlockCompressionFormat(source->getCreationParameters().format))
 		return nullptr;
 
-	GLenum colorformat=GL_INVALID_ENUM, type=GL_INVALID_ENUM;
-	video::COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(_outFormat,colorformat,type);
-
-	video::COpenGLExtensionHandler::extGlBindBuffer(GL_PIXEL_PACK_BUFFER, static_cast<video::COpenGLBuffer*>(destination)->getOpenGLName());
-	glReadPixels(sourceRect.UpperLeftCorner.X, sourceRect.UpperLeftCorner.Y, sourceRect.getWidth(), sourceRect.getHeight(), colorformat, type, reinterpret_cast<void*>(destOffset));
-	video::COpenGLExtensionHandler::extGlBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-
-	return driver->placeFence(implicitflush);
-}
-
-core::smart_refctd_ptr<video::IDriverFence> createScreenShot(video::IDriver* driver, video::ITexture* source, video::IGPUBuffer* destination, uint32_t sourceMipLevel=0u, size_t destOffset=0ull, bool implicitflush=true)
-{
-	// will change this, https://github.com/buildaworldnet/IrrlichtBAW/issues/148
-	if (isBlockCompressionFormat(source->getColorFormat()))
-		return nullptr;
-
-	auto gltex = dynamic_cast<video::COpenGLTexture*>(source);
-	GLenum colorformat=GL_INVALID_ENUM, type=GL_INVALID_ENUM;
-	video::COpenGLTexture::getOpenGLFormatAndParametersFromColorFormat(source->getColorFormat(),colorformat,type);
-
-	video::COpenGLExtensionHandler::extGlBindBuffer(GL_PIXEL_PACK_BUFFER, static_cast<video::COpenGLBuffer*>(destination)->getOpenGLName());
-	video::COpenGLExtensionHandler::extGlGetTextureImage(	gltex->getOpenGLName(),gltex->getOpenGLTextureType(),sourceMipLevel,
-															colorformat,type,destination->getSize()-destOffset,reinterpret_cast<void*>(destOffset));
-	video::COpenGLExtensionHandler::extGlBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+	auto extent = source->getMipSize(sourceMipLevel);
+	video::IGPUImage::SBufferCopy pRegions[1u] = { {destOffset,extent.x,extent.y,{static_cast<asset::IImage::E_ASPECT_FLAGS>(0u),sourceMipLevel,0u,1u},{0u,0u,0u},{extent.x,extent.y,extent.z}} };
+	driver->copyImageToBuffer(source,destination,1u,pRegions);
 
 	return driver->placeFence(implicitflush);
 }
@@ -76,23 +53,8 @@ void writeBufferAsImageToFile(asset::IAssetManager* mgr, const PathOrFile& _outF
 	mgr->writeAsset(_outFile, wparams);
 }
 
-
 template<typename PathOrFile>
-void dirtyCPUStallingScreenshot(IrrlichtDevice* device, const PathOrFile& _outFile, core::rect<uint32_t> sourceRect, asset::E_FORMAT _format, bool flipY=true)
-{
-	auto assetManager = device->getAssetManager();
-	auto driver = device->getVideoDriver();
-
-	auto buff = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createDownStreamingGPUBufferOnDedMem((asset::getBytesPerPixel(_format) * sourceRect.getArea()).getIntegerApprox()), core::dont_grab); // TODO
-	buff->getBoundMemory()->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_READ,{0u,buff->getSize()});
-
-	auto fence = ext::ScreenShot::createScreenShot(driver, sourceRect, _format, buff.get());
-	while (fence->waitCPU(1000ull, fence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED) {}
-	ext::ScreenShot::writeBufferAsImageToFile(assetManager, _outFile, {sourceRect.getWidth(),sourceRect.getHeight()}, _format, buff.get(), 0ull, flipY);
-}
-
-template<typename PathOrFile>
-void dirtyCPUStallingScreenshot(IrrlichtDevice* device, const PathOrFile& _outFile, video::ITexture* source, uint32_t sourceMipLevel = 0u, bool flipY=true)
+void dirtyCPUStallingScreenshot(IrrlichtDevice* device, const PathOrFile& _outFile, video::IGPUImage* source, uint32_t sourceMipLevel = 0u, bool flipY=true)
 {
 	auto assetManager = device->getAssetManager();
 	auto driver = device->getVideoDriver();

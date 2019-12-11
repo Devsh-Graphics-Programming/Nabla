@@ -82,6 +82,12 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	if (!_file)
         return {};
 
+	uint32_t imageSize[3] = { 1,1,1 };
+	uint32_t& Width = imageSize[0];
+	uint32_t& Height = imageSize[1];
+	//Used to point to image rows
+	uint8_t** RowPointers = 0;
+
 	png_byte buffer[8];
 	// Read the first few bytes of the PNG _file
 	if( _file->read(buffer, 8) != 8 )
@@ -119,6 +125,8 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	if (setjmp(png_jmpbuf(png_ptr)))
 	{
 		png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
+		if (RowPointers)
+			_IRR_DELETE_ARRAY(RowPointers, Height);
         return {};
 	}
 
@@ -129,9 +137,6 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 
 	png_read_info(png_ptr, info_ptr); // Read the info section of the png _file
 
-	uint32_t imageSize[3] = {1,1,1};
-	uint32_t& Width = imageSize[0];
-	uint32_t& Height = imageSize[1];
 	int32_t BitDepth;
 	int32_t ColorType;
 	{
@@ -240,7 +245,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	}
 
 	// Create array of pointers to rows in image data
-    uint8_t** RowPointers = _IRR_NEW_ARRAY(png_bytep, Height);;
+    RowPointers = _IRR_NEW_ARRAY(png_bytep, Height);
 	if (!RowPointers)
 	{
 		os::Printer::log("LOAD PNG: Internal PNG create row pointers failure\n", _file->getFileName().c_str(), ELL_ERROR);
@@ -248,17 +253,20 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
         return {};
 	}
 
-    static const uint32_t PITCH_ALIGNMENT = 8u;
-    //next "lowest common multiple of PITCH_ALIGNMENT and texel block byte size" after "texel block byte size times image width"
-    auto calcPitch = [](uint32_t width, uint32_t blockByteSize) -> uint32_t
+	// OpenGL cannot transfer rows with arbitrary padding
+    static const uint32_t MAX_PITCH_ALIGNMENT = 8u;
+    // try with largest alignment first
+    auto calcPitchInBlocks = [](uint32_t width, uint32_t blockByteSize) -> uint32_t
     {
-        for (uint32_t addr=width*blockByteSize, n=width; addr<(~0u)-blockByteSize+1u; width+=blockByteSize,n++)
-        {
-            if (addr&(PITCH_ALIGNMENT - 1u))
-                continue;
-            return n;
-        }
-        return 0u;
+		auto rowByteSize = width*blockByteSize;
+		for (uint32_t _alignment=MAX_PITCH_ALIGNMENT; _alignment>1u; _alignment>>=1u)
+		{
+			auto paddedSize = core::alignUp(rowByteSize, _alignment);
+			if (paddedSize % blockByteSize)
+				continue;
+			return paddedSize/blockByteSize;
+		}
+        return width;
     };
 
     const uint32_t texelFormatBytesize = getTexelOrBlockBytesize(image->getCreationParameters().format);
@@ -271,13 +279,13 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
     region.imageSubresource.baseArrayLayer = 0u;
     region.imageSubresource.layerCount = 1u;
     region.bufferOffset = 0u;
-    region.bufferRowLength = calcPitch(Width, texelFormatBytesize);
-    region.bufferImageHeight = 0u; //tightly packed?
+    region.bufferRowLength = calcPitchInBlocks(Width, texelFormatBytesize);
+    region.bufferImageHeight = 0u; //tightly packed
     region.imageOffset = { 0u, 0u, 0u };
     region.imageExtent = image->getCreationParameters().extent;
 
 	// Fill array of pointers to rows in image data
-	const uint32_t pitch = (region.bufferRowLength*getTexelOrBlockBytesize(image->getCreationParameters().format));
+	const uint32_t pitch = region.bufferRowLength*texelFormatBytesize;
 	uint8_t* data = reinterpret_cast<uint8_t*>(texelBuffer->getPointer());
 	for (uint32_t i=0; i<Height; ++i)
 	{

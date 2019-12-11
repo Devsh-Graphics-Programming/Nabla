@@ -6,7 +6,9 @@
 #include "CFilesystemIncluder.h"
 #include "CBuiltinIncluder.h"
 
-namespace irr { namespace asset
+namespace irr
+{
+namespace asset
 {
 
 class CIncludeHandler : public IIncludeHandler
@@ -25,8 +27,8 @@ public:
     CIncludeHandler(io::IFileSystem* _filesystem)
     {
         // TODO It has to be reworked in the future
-        m_includers.emplace_back(new CFilesystemIncluder(_filesystem), core::dont_grab);
-        m_includers.emplace_back(new CBuiltinIncluder, core::dont_grab);
+        m_includers.emplace_back(core::make_smart_refctd_ptr<CFilesystemIncluder>(_filesystem));
+        m_includers.emplace_back(core::make_smart_refctd_ptr<CBuiltinIncluder>());
     }
 
     std::string getIncludeStandard(const std::string& _path) const override
@@ -39,9 +41,9 @@ public:
         return getIncluderDependentOnPath(_path)->getIncludeRelative(_path, _workingDirectory);
     }
 
-    void addBuiltinIncludeLoader(IBuiltinIncludeLoader* _inclLoader) override
+    void addBuiltinIncludeLoader(core::smart_refctd_ptr<IBuiltinIncludeLoader>&& _inclLoader) override
     {
-        static_cast<CBuiltinIncluder*>(m_includers[EII_BUILTIN].get())->addBuiltinLoader(_inclLoader);
+        static_cast<CBuiltinIncluder*>(m_includers[EII_BUILTIN].get())->addBuiltinLoader(std::move(_inclLoader));
     }
 
 private:
@@ -51,6 +53,7 @@ private:
     }
 };
 
-}}
+}
+}
 
 #endif//__IRR_C_INCLUDE_HANDLER_H_INCLUDED__

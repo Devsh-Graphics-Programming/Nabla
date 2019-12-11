@@ -126,46 +126,8 @@ namespace scene
 		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
 		virtual io::IFileSystem* getFileSystem() = 0;
 
-
+		//!
         virtual IrrlichtDevice* getDevice() = 0;
-
-
-		//! Adds a cube scene node
-		/** \param size: Size of the cube, uniformly in each dimension.
-		\param parent: Parent of the scene node. Can be 0 if no parent.
-		\param id: Id of the node. This id can be used to identify the scene node.
-		\param position: Position of the space relative to its parent
-		where the scene node will be placed.
-		\param rotation: Initital rotation of the scene node.
-		\param scale: Initial scale of the scene node.
-		\return Pointer to the created test scene node. This
-		pointer should not be dropped. See IReferenceCounted::drop()
-		for more information. */
-		virtual IMeshSceneNode* addCubeSceneNode(float size=10.0f, IDummyTransformationSceneNode* parent=0, int32_t id=-1,
-			const core::vector3df& position = core::vector3df(0,0,0),
-			const core::vector3df& rotation = core::vector3df(0,0,0),
-			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f)) = 0;
-
-		//! Adds a sphere scene node of the given radius and detail
-		/** \param radius: Radius of the sphere.
-		\param polyCount: The number of vertices in horizontal and
-		vertical direction. The total polyCount of the sphere is
-		polyCount*polyCount. This parameter must be less than 256 to
-		stay within the 16-bit limit of the indices of a meshbuffer.
-		\param parent: Parent of the scene node. Can be 0 if no parent.
-		\param id: Id of the node. This id can be used to identify the scene node.
-		\param position: Position of the space relative to its parent
-		where the scene node will be placed.
-		\param rotation: Initital rotation of the scene node.
-		\param scale: Initial scale of the scene node.
-		\return Pointer to the created test scene node. This
-		pointer should not be dropped. See IReferenceCounted::drop()
-		for more information. */
-		virtual IMeshSceneNode* addSphereSceneNode(float radius=5.0f, int32_t polyCount=16,
-				IDummyTransformationSceneNode* parent=0, int32_t id=-1,
-				const core::vector3df& position = core::vector3df(0,0,0),
-				const core::vector3df& rotation = core::vector3df(0,0,0),
-				const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f)) = 0;
 
 		//! Adds a scene node for rendering an skinned mesh model.
 		virtual ISkinnedMeshSceneNode* addSkinnedMeshSceneNode(

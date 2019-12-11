@@ -15,10 +15,10 @@ class ICPUSampler : public ISampler, public IAsset
 		virtual ~ICPUSampler() = default;
 
 	public:
-		using ISampler::ISampler;
+		ICPUSampler(const SParams& _params) : ISampler(_params), IAsset() {}
 
 		size_t conservativeSizeEstimate() const override { return sizeof(m_params); }
-		void convertToDummyObject() override { }
+		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override { }
 		E_TYPE getAssetType() const override { return ET_SAMPLER; }
 };
 

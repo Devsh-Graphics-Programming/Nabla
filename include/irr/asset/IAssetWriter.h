@@ -57,7 +57,6 @@ enum E_WRITER_FLAGS : uint32_t
 
 	An IAssetWriter can only be removed/deregistered by its original pointer or global loader index.
 
-	@see IReferenceCounted::grab()
 	@see IAsset
 	@see IAssetManager
 	@see IAssetLoader

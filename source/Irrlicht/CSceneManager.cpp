@@ -174,7 +174,7 @@ CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver
         reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
         reqs.prefersDedicatedAllocation = true;
         reqs.requiresDedicatedAllocation = true;
-        redundantMeshDataBuf = core::smart_refctd_ptr<video::IGPUBuffer>(SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true),core::dont_grab);
+        redundantMeshDataBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
         if (redundantMeshDataBuf)
             redundantMeshDataBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),tmpMem);
         _IRR_ALIGNED_FREE(tmpMem);
@@ -228,42 +228,6 @@ io::IFileSystem* CSceneManager::getFileSystem()
 IrrlichtDevice * CSceneManager::getDevice()
 {
     return Device;
-}
-
-//! adds a test scene node for test purposes to the scene. It is a simple cube of (1,1,1) size.
-//! the returned pointer must not be dropped.
-IMeshSceneNode* CSceneManager::addCubeSceneNode(float size, IDummyTransformationSceneNode* parent,
-		int32_t id, const core::vector3df& position,
-		const core::vector3df& rotation, const core::vector3df& scale)
-{
-	if (!parent)
-		parent = this;
-
-	auto* geomCreator = Device->getAssetManager()->getGeometryCreator();
-	auto cpumesh = geomCreator->createCubeMesh(core::vector3df(size));
-	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get()) + 1);
-	assert(res->size());
-
-	// its okay to std::move because this was the only copy of the refctd array 
-	return addMeshSceneNode(std::move(res->front()),parent,id,position,rotation,scale);
-}
-
-
-//! Adds a sphere scene node for test purposes to the scene.
-IMeshSceneNode* CSceneManager::addSphereSceneNode(float radius, int32_t polyCount,
-		IDummyTransformationSceneNode* parent, int32_t id, const core::vector3df& position,
-		const core::vector3df& rotation, const core::vector3df& scale)
-{
-	if (!parent)
-		parent = this;
-
-	auto* geomCreator = Device->getAssetManager()->getGeometryCreator();
-	auto cpumesh = geomCreator->createSphereMesh(radius, polyCount, polyCount);
-	auto res = SceneManager->getVideoDriver()->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get()) + 1);
-	assert(res->size());
-
-	// its okay to std::move because ths was the only copy of the rectd array
-	return addMeshSceneNode(std::move(res->front()), parent, id, position, rotation, scale);
 }
 
 //! adds a scene node for rendering a static mesh

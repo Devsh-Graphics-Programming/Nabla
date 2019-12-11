@@ -17,61 +17,58 @@ namespace irr
 namespace video
 {
 
-class COpenGLSpecializedShader : public IGPUSpecializedShader
+class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecializedShader,core::AllocationOverrideBase<128> >
 {
-    struct SProgramBinary {
-        GLenum format;
-        core::smart_refctd_dynamic_array<uint8_t> binary;
-    };
+		struct SProgramBinary {
+			GLenum format;
+			core::smart_refctd_dynamic_array<uint8_t> binary;
+		};
 
-public:
-    COpenGLSpecializedShader(size_t _ctxCount, uint32_t _ctxID, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection);
+	public:
+		COpenGLSpecializedShader(size_t _ctxCount, uint32_t _ctxID, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, const asset::CIntrospectionData* _introspection);
 
-    inline GLuint getGLnameForCtx(uint32_t _ctxID) const
-    {
-        if ((*m_GLnames)[_ctxID])
-            return (*m_GLnames)[_ctxID];
+		inline GLuint getGLnameForCtx(uint32_t _ctxID) const
+		{
+			if ((*m_GLnames)[_ctxID])
+				return (*m_GLnames)[_ctxID];
 
-        const GLuint GLname = COpenGLExtensionHandler::extGlCreateProgram();
-        COpenGLExtensionHandler::extGlProgramBinary(GLname, m_binary.format, m_binary.binary->data(), m_binary.binary->size());
-        (*m_GLnames)[_ctxID] = GLname;
-        return GLname;
-    }
+			const GLuint GLname = COpenGLExtensionHandler::extGlCreateProgram();
+			COpenGLExtensionHandler::extGlProgramBinary(GLname, m_binary.format, m_binary.binary->data(), m_binary.binary->size());
+			(*m_GLnames)[_ctxID] = GLname;
+			return GLname;
+		}
 
-    void setUniformsImitatingPushConstants(const uint8_t* _pcData, uint32_t _ctxID) const;
+		void setUniformsImitatingPushConstants(const uint8_t* _pcData, uint32_t _ctxID) const;
 
-    inline GLenum getOpenGLStage() const { return m_GLstage; }
+		inline GLenum getOpenGLStage() const { return m_GLstage; }
 
-protected:
-    ~COpenGLSpecializedShader()
-    {
-        //shader programs can be shared so all names can be freed by any thread
-        for (auto& n : *m_GLnames)
-            COpenGLExtensionHandler::extGlDeleteProgram(n);
-    }
+	protected:
+		~COpenGLSpecializedShader()
+		{
+			//shader programs can be shared so all names can be freed by any thread
+			for (auto& n : *m_GLnames)
+				COpenGLExtensionHandler::extGlDeleteProgram(n);
+		}
 
-private:
-    //! @returns GL name or zero if already compiled once or there were compilation errors.
-    GLuint compile(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo);
-    void buildUniformsList(GLuint _GLname);
+	private:
+		//! @returns GL name or zero if already compiled once or there were compilation errors.
+		GLuint compile(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, const asset::CIntrospectionData* _introspection);
 
-private:
-    mutable core::smart_refctd_dynamic_array<GLuint> m_GLnames;
-    GLenum m_GLstage;
-    //used for setting uniforms ("push constants")
-    core::smart_refctd_ptr<const asset::CIntrospectionData> m_introspectionData = nullptr;
-    SProgramBinary m_binary;
+	private:
+		mutable core::smart_refctd_dynamic_array<GLuint> m_GLnames;
+		GLenum m_GLstage;
+		SProgramBinary m_binary;
 
-    using SMember = asset::impl::SShaderMemoryBlock::SMember;
-    struct SUniform {
-        SUniform(const SMember& _m, GLint _loc, uint8_t* _valptr) : m(_m), location(_loc), value(_valptr) {}
-        SMember m;
-        GLint location;
-        uint8_t* value;
-    };
-    mutable bool m_uniformsSetForTheVeryFirstTime = true;
-    uint8_t m_uniformValues[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE];
-    core::vector<SUniform> m_uniformsList;
+		using SMember = asset::impl::SShaderMemoryBlock::SMember;
+		struct SUniform {
+			SUniform(const SMember& _m, GLint _loc, uint8_t* _valptr) : m(_m), location(_loc), value(_valptr) {}
+			SMember m;
+			GLint location;
+			uint8_t* value;
+		};
+		mutable bool m_uniformsSetForTheVeryFirstTime = true;
+		alignas(128) uint8_t m_uniformValues[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE];
+		core::vector<SUniform> m_uniformsList;
 };
 
 }

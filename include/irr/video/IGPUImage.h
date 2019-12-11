@@ -20,9 +20,20 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
     public:
         _IRR_RESOLVE_NEW_DELETE_AMBIGUITY(IDriverMemoryBacked,asset::IImage)
 			
+		//!
+		virtual bool validateCopies(const SBufferCopy* pRegionsBegin, const SBufferCopy* pRegionsEnd, const IGPUBuffer* src)
+		{
+			if (!validateCopies_template(pRegionsBegin, pRegionsEnd, src))
+				return false;
+			
+			#ifdef _IRR_DEBUG // TODO: When Vulkan comes
+			#endif
+			return true;
+		}
+			
 		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const IGPUImage* src)
 		{
-			if (validateCopies_template(pRegionsBegin, pRegionsEnd, src))
+			if (!validateCopies_template(pRegionsBegin, pRegionsEnd, src))
 				return false;
 
 			#ifdef _IRR_DEBUG // TODO: When Vulkan comes

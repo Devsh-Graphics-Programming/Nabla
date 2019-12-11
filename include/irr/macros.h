@@ -93,12 +93,15 @@
 
 // `arg` arg must be of pointer type, must be mutable and must be lvalue
 #ifdef _MSC_VER
-    #define IRR_ASSUME_ALIGNED(arg, align) __assume((reinterpret_cast<const char*>(arg) - reinterpret_cast<const char*>(0)) % (align) == 0)
+    #define IRR_ASSUME_ALIGNED_NDEBUG(arg, align) __assume((reinterpret_cast<const char*>(arg) - reinterpret_cast<const char*>(0)) % (align) == 0)
 #elif (__GNUC__ >= 4) && (__GNUC_MINOR__ >= 7)
-    #define IRR_ASSUME_ALIGNED(arg, align) arg = reinterpret_cast<decltype(arg)>(__builtin_assume_aligned(arg, align))
+    #define IRR_ASSUME_ALIGNED_NDEBUG(arg, align) arg = reinterpret_cast<decltype(arg)>(__builtin_assume_aligned(arg, align))
 #else
-    #define IRR_ASSUME_ALIGNED(arg, align)
+    #define IRR_ASSUME_ALIGNED_NDEBUG(arg, align)
 #endif
+#define IRR_ASSUME_ALIGNED(arg,align)	IRR_ASSUME_ALIGNED_NDEBUG(arg,align); \
+										assert(core::isPoT(align)); \
+										assert((reinterpret_cast<const char*>(arg) - reinterpret_cast<const char*>(0)) % (align) == 0)
 
 // For dumb MSVC which now has to keep a spec bug to avoid breaking existing source code
 #if defined(_MSC_VER)

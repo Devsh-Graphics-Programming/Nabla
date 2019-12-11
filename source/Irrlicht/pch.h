@@ -92,7 +92,7 @@
 #include "COpenCLHandler.h"
 #include "COpenGLBuffer.h"
 #include "COpenGLDriver.h"
-#include "COpenGLDriverFence.h"
+#include "COpenGLDriverFence.h" 
 #include "COpenGLExtensionHandler.h"
 #include "COpenGLFrameBuffer.h"
 #include "COpenGLQuery.h"

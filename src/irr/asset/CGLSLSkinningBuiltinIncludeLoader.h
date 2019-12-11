@@ -15,7 +15,7 @@ namespace irr { namespace asset
 class CGLSLSkinningBuiltinIncludeLoader : public asset::IBuiltinIncludeLoader
 {
 public:
-    const char* getVirtualDirectoryName() const override { return "glsl/skinning/"; }
+    const char* getVirtualDirectoryName() const override { return "skinning/"; }
 
 protected:
     core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override;

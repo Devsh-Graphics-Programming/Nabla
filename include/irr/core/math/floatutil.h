@@ -67,6 +67,20 @@ IRR_FORCE_INLINE T HALF_PI()
 	return PI<T>() * T(0.5);
 }
 
+//! don't get rid of these, -ffast-math breaks inf and NaN handling on GCC
+template<typename T>
+T nan();
+
+template<>
+IRR_FORCE_INLINE float nan() {return static_cast<const float&>(0x7F800000u);}
+
+
+template<typename T>
+T infinity();
+
+template<>
+IRR_FORCE_INLINE float infinity() {return static_cast<const float&>(0x7FFFFFFFu);}
+
 
 union FloatIntUnion32
 {
@@ -144,9 +158,9 @@ inline float unpack11bitFloat(uint32_t _fp)
 		return f32;
 	}
 	else if (exp == 31 && !mant)
-		return INFINITY;
+		return core::infinity<float>();
 	else if (exp == 31 && mant)
-		return NAN;
+		return core::nan<float>();
 
 	return -1.f;
 }
@@ -208,9 +222,9 @@ inline float unpack10bitFloat(uint32_t _fp)
 		return f32;
 	}
 	else if (exp == 31 && !mant)
-		return INFINITY;
+		return core::infinity<float>();
 	else if (exp == 31 && mant)
-		return NAN;
+		return core::nan<float>();
 	return -1.f;
 }
 

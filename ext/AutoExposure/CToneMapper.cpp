@@ -1,168 +1,111 @@
 #include "../ext/AutoExposure/CToneMapper.h"
 
-#include "../source/Irrlicht/COpenGLBuffer.h"
-#include "../source/Irrlicht/COpenGLDriver.h"
 
 using namespace irr;
-using namespace ext;
-using namespace AutoExposure;
+using namespace irr::asset;
+using namespace irr::video;
+using namespace ext::AutoExposure;
 
 
-#define MIN_HISTOGRAM_RAW16F_AS_UINT    13312 // Float16Compressor::compress(MIN_HISTOGRAM_VAL)
-#define MAX_HISTOGRAM_RAW16F_AS_UINT    21503 // Float16Compressor::compress(MAX_HISTOGRAM_VAL)-1
-
-//don't touch this, tis optimized
-constexpr uint32_t _BIN_COUNT_ = 256;
-constexpr uint32_t GLOBAL_REPLICATION = 4;
-
-//! related constants
-constexpr uint32_t HISTOGRAM_POT2_RAW16F_BIN_SIZE = 5; //would be cool to have a constexpr function to calculate this
-// the ix of the bin for a value is calculated by ix = (float16BitsAsUint(value)-MIN_HISTOGRAM_RAW16F_AS_UINT)>>HISTOGRAM_POT2_RAW16F_BIN_SIZE
-
-//checks
-static_assert(_BIN_COUNT_==SUBCELL_SIZE*SUBCELL_SIZE, "Super Optimizations required BIN_COUNT==LOCAL_THREADS code broken otherwise");
-static_assert((MAX_HISTOGRAM_RAW16F_AS_UINT-MIN_HISTOGRAM_RAW16F_AS_UINT+1)==(_BIN_COUNT_<<HISTOGRAM_POT2_RAW16F_BIN_SIZE), "Mismatched Histogram Parameters");
+constexpr uint32_t DISPATCH_SIZE = 16u;
 
 
-const char shaderHeaderDefines[] = R"======(
-#version 430 core
-
-//don't touch this
-//histogram algo optimized for bin-count = 256
-//unless you want to shift both by an integer constant
-#define MIN_HISTOGRAM_RAW16F_AS_UINT    %d // Float16Compressor::compress(MIN_HISTOGRAM_VAL)
-#define MAX_HISTOGRAM_RAW16F_AS_UINT    %d // Float16Compressor::compress(MAX_HISTOGRAM_VAL)-1
-// the ix of the bin for a value is calculated by ix = (float16BitsAsUint(value)-MIN_HISTOGRAM_RAW16F_AS_UINT)>>HISTOGRAM_POT2_RAW16F_BIN_SIZE
-#define HISTOGRAM_POT2_RAW16F_BIN_SIZE  %du
-
-#define BIN_COUNT %d
-#define BIN_COUNTu %du
-#define SUBCELL_SIZE %du
-#define GLOBAL_REPLICATION %du
-
-#define TEXSCALE_UBO_OFFSET %du
-#define PERCENTILE_UBO_OFFSET %du
-#define OUTPUT_UBO_OFFSET %du
-
-
-#define kLumaConvertCoeff vec3(0.299, 0.587, 0.114)
-
-#define BURNOUT_THRESH_EXP 3.75
-#define MIDDLE_GREY_EXP 0.25
-#define P_EXP (-MIDDLE_GREY_EXP/0.5)
-
-
-
-)======";
-
-inline GLuint createComputeShader(const io::path& filename, const std::string& header)
+core::smart_refctd_ptr<CToneMapper> CToneMapper::create(IVideoDriver* _driver, asset::E_FORMAT inputFormat, const asset::IGLSLCompiler* compiler)
 {
-    FILE* fp = fopen(filename.c_str(),"r");
-    fseek(fp, 0, SEEK_END); // seek to end of file
-    int32_t size = ftell(fp); // get current file pointer
-    std::string modifiedSrc;
-    modifiedSrc.resize(size);
-    fseek(fp, 0, SEEK_SET); // seek back to beginning of file
+	if (!_driver)
+		return nullptr;
+	if (inputFormat!=asset::EF_R16G16B16A16_SFLOAT)
+		return nullptr;
 
-    fread(const_cast<char*>(modifiedSrc.data()),size,1,fp);
-    fclose(fp);
+	IGPUDescriptorSetLayout::SBinding bnd[3];
+	bnd[0].binding = 0u;
+	bnd[0].type = asset::EDT_UNIFORM_BUFFER_DYNAMIC;
+	bnd[0].count = 1u;
+	bnd[0].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+	bnd[0].samplers = nullptr;
+	bnd[1].binding = 1u;
+	bnd[1].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+	bnd[1].count = 1u;
+	bnd[1].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+	bnd[1].samplers = nullptr;
+	bnd[2].binding = 2u;
+	bnd[2].type = asset::EDT_STORAGE_IMAGE;
+	bnd[2].count = 1u;
+	bnd[2].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+	bnd[2].samplers = nullptr;
+	auto dsLayout = _driver->createGPUDescriptorSetLayout(bnd, bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding));
 
-    modifiedSrc = header+modifiedSrc;
+	auto pipelineLayout = _driver->createGPUPipelineLayout(nullptr, nullptr, nullptr, nullptr, nullptr, core::smart_refctd_ptr(dsLayout));
 
+	std::ostringstream glsl;
+	glsl << "#version 430 core\n";
+	glsl << "layout (local_size_x = "<<DISPATCH_SIZE<<", local_size_y = "<<DISPATCH_SIZE<<") in;\n";
+	glsl << "layout(set=3, binding=1) uniform usampler2D inImage;\n";
+	glsl << "layout(set=3, binding=2, r32ui) uniform writeonly uimage2D outImage;\n";
+	glsl << getInclude();
+	glsl << R"===(layout(set=3, binding=0) uniform TonemappingParameters
+{
+	irr_ext_Autoexposure_ReinhardParams params;
+};
 
-    GLuint program = video::COpenGLExtensionHandler::extGlCreateProgram();
-	GLuint cs = video::COpenGLExtensionHandler::extGlCreateShader(GL_COMPUTE_SHADER);
+void main()
+{
+	//uint data = textureGatherOffset(); // later optimization
 
-	const char* tmp = modifiedSrc.c_str();
-	video::COpenGLExtensionHandler::extGlShaderSource(cs, 1, const_cast<const char**>(&tmp), NULL);
-	video::COpenGLExtensionHandler::extGlCompileShader(cs);
+	ivec2 uv = ivec2(gl_GlobalInvocationID.xy);
+	if (any(greaterThanEqual(uv,textureSize(inImage,0))))
+		return;
 
-	// check for compilation errors
-    GLint success;
-    GLchar infoLog[0x200];
-    video::COpenGLExtensionHandler::extGlGetShaderiv(cs, GL_COMPILE_STATUS, &success);
-    if (!success)
-    {
-        video::COpenGLExtensionHandler::extGlGetShaderInfoLog(cs, sizeof(infoLog), nullptr, infoLog);
-        os::Printer::log("CS COMPILATION ERROR:\n", infoLog,ELL_ERROR);
-        video::COpenGLExtensionHandler::extGlDeleteShader(cs);
-        video::COpenGLExtensionHandler::extGlDeleteProgram(program);
-        return 0;
-	}
+	uvec2 data = texelFetch(inImage,uv,0).rg;
+	vec3 hdr = vec3(unpackHalf2x16(data[0]).rg,unpackHalf2x16(data[1])[0]);
+	vec4 ldr = vec4(irr_ext_Autoexposure_ToneMapReinhard(params,hdr),1.0);
+	// TODO: Add dithering
+	imageStore(outImage,uv,uvec4(packUnorm4x8(ldr),0u,0u,0u));
+}
+	)===";
+	auto spirv = compiler->createSPIRVFromGLSL(glsl.str().c_str(),asset::ISpecializedShader::ESS_COMPUTE,"main","CToneMapper");
+	auto shader = _driver->createGPUShader(std::move(spirv));
+	
+	asset::ISpecializedShader::SInfo specInfo(core::vector<asset::ISpecializedShader::SInfo::SMapEntry>{}, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE);
 
-	video::COpenGLExtensionHandler::extGlAttachShader(program, cs);
-	video::COpenGLExtensionHandler::extGlLinkProgram(program);
+	auto computePipeline = _driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout), _driver->createGPUSpecializedShader(shader.get(),std::move(specInfo)));
 
-	//check linking errors
-	success = 0;
-    video::COpenGLExtensionHandler::extGlGetProgramiv(program, GL_LINK_STATUS, &success);
-    if (success == GL_FALSE)
-    {
-        video::COpenGLExtensionHandler::extGlGetProgramInfoLog(program, sizeof(infoLog), nullptr, infoLog);
-        os::Printer::log("CS LINK ERROR:\n", infoLog,ELL_ERROR);
-        video::COpenGLExtensionHandler::extGlDeleteShader(cs);
-        video::COpenGLExtensionHandler::extGlDeleteProgram(program);
-        return 0;
-    }
-
-	return program;
+	auto tmp = new CToneMapper(_driver,inputFormat,std::move(dsLayout),std::move(pipelineLayout),std::move(computePipeline));
+	return core::smart_refctd_ptr<CToneMapper>(tmp,core::dont_grab);
 }
 
-CToneMapper* CToneMapper::instantiateTonemapper(video::IVideoDriver* _driver,
-                                                const io::path& firstPassShaderFileName,
-                                                const io::path& secondPassShaderFileName,
-                                                const size_t& inputTexScaleOff, const size_t& percentilesOff, const size_t& outputOff)
+CToneMapper::CToneMapper(	IVideoDriver* _driver, asset::E_FORMAT inputFormat,
+							core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>&& _dsLayout,
+							core::smart_refctd_ptr<video::IGPUPipelineLayout>&& _pipelineLayout,
+							core::smart_refctd_ptr<video::IGPUComputePipeline>&& _computePipeline) :
+									m_driver(_driver), format(inputFormat), dsLayout(std::move(_dsLayout)),
+									pipelineLayout(std::move(_pipelineLayout)), computePipeline(std::move(_computePipeline))
 {
-    //! For Vulkan http://vulkan-spec-chunked.ahcox.com/ch09s07.html
-    char* header = new char[sizeof(shaderHeaderDefines)+9*10+1];
-    sprintf(header,shaderHeaderDefines,MIN_HISTOGRAM_RAW16F_AS_UINT,MAX_HISTOGRAM_RAW16F_AS_UINT,
-            HISTOGRAM_POT2_RAW16F_BIN_SIZE,_BIN_COUNT_,_BIN_COUNT_,SUBCELL_SIZE,GLOBAL_REPLICATION,
-            inputTexScaleOff/sizeof(core::vectorSIMDf),percentilesOff/sizeof(float),outputOff/sizeof(float));
-
-
-    GLuint histoProgram = createComputeShader(firstPassShaderFileName,header);
-    if (!histoProgram)
-    {
-        return NULL;
-    }
-    GLuint aexpPProgram = createComputeShader(secondPassShaderFileName,header);
-    if (!aexpPProgram)
-    {
-        return NULL;
-    }
-    delete [] header;
-
-    return new CToneMapper(_driver,histoProgram,aexpPProgram);
+	if (format==asset::EF_R16G16B16A16_SFLOAT)
+		viewFormat = asset::EF_R32G32_UINT;
 }
 
-
-CToneMapper::CToneMapper(video::IVideoDriver* _driver, const uint32_t& _histoProgram, const uint32_t& _autoExpProgram)
-                        : m_driver(_driver), m_histogramProgram(_histoProgram), m_autoExpParamProgram(_autoExpProgram)
+bool CToneMapper::tonemap(video::IGPUImageView* inputThatsInTheSet, video::IGPUDescriptorSet* set, uint32_t parameterUBOOffset)
 {
-    m_totalThreadCount[0] = 512;
-    m_totalThreadCount[1] = 512;
-    m_workGroupCount[0] = m_totalThreadCount[0]/SUBCELL_SIZE;
-    m_workGroupCount[1] = m_totalThreadCount[1]/SUBCELL_SIZE;
+	const auto& params = inputThatsInTheSet->getCreationParameters();
+	if (params.format!=viewFormat)
+		return false;
+	if (params.image->getCreationParameters().format!=format)
+		return false;
 
-    video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-    reqs.vulkanReqs.size = GLOBAL_REPLICATION*_BIN_COUNT_*sizeof(uint32_t);
-    reqs.vulkanReqs.alignment = 4;
-    reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-    reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-    reqs.mappingCapability = video::IDriverMemoryAllocation::EMCAF_NO_MAPPING_ACCESS;
-    reqs.prefersDedicatedAllocation = true;
-    reqs.requiresDedicatedAllocation = true;
-    m_histogramBuffer = m_driver->createGPUBufferOnDedMem(reqs);
+	auto offsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t> >(1u);
+	offsets->operator[](0u) = parameterUBOOffset;
+
+	m_driver->bindComputePipeline(computePipeline.get());
+	m_driver->bindDescriptorSets(video::EPBP_COMPUTE,pipelineLayout.get(),3,1,const_cast<const video::IGPUDescriptorSet**>(&set),&offsets);
+
+	auto imgViewSize = params.image->getMipSize(params.subresourceRange.baseMipLevel);
+	imgViewSize /= DISPATCH_SIZE;
+	m_driver->dispatch(imgViewSize.x,imgViewSize.y,1u);
+	return true;
 }
 
-CToneMapper::~CToneMapper()
-{
-    video::COpenGLExtensionHandler::extGlDeleteProgram(m_histogramProgram);
-    video::COpenGLExtensionHandler::extGlDeleteProgram(m_autoExpParamProgram);
-
-    m_histogramBuffer->drop();
-}
-
+#if 0
 //#define PROFILE_TONEMAPPER
 
 bool CToneMapper::CalculateFrameExposureFactors(video::IGPUBuffer* outBuffer, video::IGPUBuffer* uniformBuffer, core::smart_refctd_ptr<video::ITexture>&& inputTexture)
@@ -225,3 +168,4 @@ bool CToneMapper::CalculateFrameExposureFactors(video::IGPUBuffer* outBuffer, vi
 
     return true;
 }
+#endif

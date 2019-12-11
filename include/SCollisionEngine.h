@@ -12,15 +12,12 @@ namespace core
 
 class SCollisionEngine : public AllocationOverrideDefault
 {
-        vector<SCompoundCollider*> colliders;
+        core::vector<core::smart_refctd_ptr<SCompoundCollider> > colliders;
 
     public:
 		//! Destructor.
-        ~SCollisionEngine()
-        {
-			for (size_t i=0; i<colliders.size(); i++)
-				colliders[i]->drop();
-        }
+		~SCollisionEngine() = default;
+
 #if 0
 		//! Returns a 3d ray which would go through the 2d screen coodinates.
 		/**
@@ -103,7 +100,7 @@ class SCollisionEngine : public AllocationOverrideDefault
 
 		//! Adds a collider
 		/** @param collider A pointer to collider. */
-        inline void addCompoundCollider(SCompoundCollider* collider)
+        inline void addCompoundCollider(core::smart_refctd_ptr<SCompoundCollider>&& collider)
         {
             if (!collider)
                 return;
@@ -112,25 +109,23 @@ class SCollisionEngine : public AllocationOverrideDefault
             if (found!=colliders.end() && *found==collider)
                 return;
 
-            collider->grab();
-            colliders.insert(found,collider);
+            colliders.insert(found,std::move(collider));
         }
 
 		//! Removes collider pointed by `collider`
 		/** @param collider Pointer to collider. s*/
-        inline void removeCompoundCollider(SCompoundCollider* collider)
+        inline void removeCompoundCollider(const SCompoundCollider* collider)
         {
             if (!collider)
                 return;
 
-            auto found = std::lower_bound(colliders.begin(),colliders.end(),collider);
-            if (found==colliders.end() || *found!=collider)
+            auto found = std::lower_bound(colliders.begin(),colliders.end(),reinterpret_cast<const core::smart_refctd_ptr<SCompoundCollider>&>(collider));
+            if (found==colliders.end() || found->get()!=collider)
 			{
 //				FW_WriteToLog(kLogError,"removeCompoundCollider collider not found!\n");
                 return;
 			}
 
-			(*found)->drop();
             colliders.erase(found);
         }
 

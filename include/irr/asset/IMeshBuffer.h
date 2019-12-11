@@ -123,18 +123,18 @@ public:
         const auto& vtxInputParams = ppln->getVertexInputParams();
         return vtxInputParams.attributes[attrId].relativeOffset;
     }
-    inline const SBufferBinding<BufferType>* getAttribBoundBuffer(uint32_t attrId) const
+    inline const SBufferBinding<BufferType>& getAttribBoundBuffer(uint32_t attrId) const
     {
         const uint32_t bnd = getBindingNumForAttribute(attrId);
-        return &m_vertexBufferBindings[bnd];
+        return m_vertexBufferBindings[bnd];
     }
     inline const SBufferBinding<BufferType>* getVertexBufferBindings() const
     {
         return m_vertexBufferBindings;
     }
-    inline const SBufferBinding<BufferType>* getIndexBufferBinding() const
+    inline const SBufferBinding<BufferType>& getIndexBufferBinding() const
     {
-        return &m_indexBufferBinding;
+        return m_indexBufferBinding;
     }
     inline const PipelineType* getPipeline() const
     {

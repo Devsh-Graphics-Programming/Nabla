@@ -89,7 +89,6 @@ bool COpenGLFrameBuffer::attach(E_FBO_ATTACHMENT_POINT attachmenPoint, core::sma
 
     if (tex && asset::isBlockCompressionFormat(tex->getCreationParameters().format))
         return false;
-	auto* glTex = static_cast<COpenGLImageView*>(tex.get());
 
     GLenum attachment = GL_INVALID_ENUM;
     //! TODO: Need additional validation here for matching texture formats
@@ -115,6 +114,7 @@ bool COpenGLFrameBuffer::attach(E_FBO_ATTACHMENT_POINT attachmenPoint, core::sma
     framebuffer attachment point is an array of images, and the framebuffer
     attachment is considered layered.
     */
+	auto* glTex = static_cast<COpenGLImageView*>(tex.get());
     if (glTex)
     {
 		if (glTex->getCreationParameters().image->getCreationParameters().samples!=IGPUImage::ESCF_1_BIT)

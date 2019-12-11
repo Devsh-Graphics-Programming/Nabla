@@ -9,6 +9,8 @@
 #include "irr/core/math/floatutil.tcc"
 #include "matrix4SIMD.h"
 
+#include <cmath>
+
 namespace irr
 {
 namespace core
@@ -23,7 +25,7 @@ template<typename T>
 IRR_FORCE_INLINE T abs(const T& a)
 {
 	auto isneg = a < T(0);
-	using bool_type = std::remove_reference<decltype(isneg)>::type;
+	using bool_type = typename std::remove_reference<decltype(isneg)>::type;
 	return core::mix<T,bool_type>(a,-a,isneg);
 }
 
@@ -31,7 +33,7 @@ IRR_FORCE_INLINE T abs(const T& a)
 template<>
 IRR_FORCE_INLINE float sqrt<float>(const float& x)
 {
-	return std::sqrtf(x);
+	return std::sqrt(x); // can't use sqrtf on sqrt
 }
 template<>
 IRR_FORCE_INLINE double sqrt<double>(const double& x)
@@ -95,7 +97,7 @@ IRR_FORCE_INLINE T reciprocal_approxim(const T& x)
 template<>
 IRR_FORCE_INLINE float floor<float>(const float& x)
 {
-	return std::floorf(x);
+	return std::floor(x); // can't use the f-suffix on GCC, doesn't compile
 }
 template<>
 IRR_FORCE_INLINE double floor<double>(const double& x)
@@ -103,7 +105,7 @@ IRR_FORCE_INLINE double floor<double>(const double& x)
 	return std::floor(x);
 }
 template<>
-IRR_FORCE_INLINE vectorSIMDf core::floor<vectorSIMDf>(const vectorSIMDf& x)
+IRR_FORCE_INLINE vectorSIMDf floor<vectorSIMDf>(const vectorSIMDf& x)
 {
 #ifdef __IRR_COMPILE_WITH_SSE3
 	return _mm_floor_ps(x.getAsRegister());
@@ -124,17 +126,17 @@ IRR_FORCE_INLINE T roundEven(const T& x);
 */
 
 template<>
-IRR_FORCE_INLINE float core::ceil<float>(const float& x)
+IRR_FORCE_INLINE float ceil<float>(const float& x)
 {
-	return std::ceilf(x);
+	return std::ceil(x); // can't use the f-suffix on GCC, doesn't compile
 }
 template<>
-IRR_FORCE_INLINE double core::ceil<double>(const double& x)
+IRR_FORCE_INLINE double ceil<double>(const double& x)
 {
 	return std::ceil(x);
 }
 template<>
-IRR_FORCE_INLINE vectorSIMDf core::ceil<vectorSIMDf>(const vectorSIMDf& x)
+IRR_FORCE_INLINE vectorSIMDf ceil<vectorSIMDf>(const vectorSIMDf& x)
 {
 #ifdef __IRR_COMPILE_WITH_SSE3
 	return _mm_ceil_ps(x.getAsRegister());
@@ -157,7 +159,7 @@ IRR_FORCE_INLINE T min(const T& a, const T& b)
 {
 	T vb = T(b);
 	auto asmaller = a<vb;
-	using bool_type = std::remove_reference<decltype(asmaller)>::type;
+	using bool_type = typename std::remove_reference<decltype(asmaller)>::type;
 	return core::mix<T,bool_type>(vb,a,asmaller);
 }
 
@@ -175,7 +177,7 @@ IRR_FORCE_INLINE T max(const T& a, const T& b)
 {
 	T vb = T(b);
 	auto asmaller = a < vb;
-	using bool_type = std::remove_reference<decltype(asmaller)>::type;
+	using bool_type = typename std::remove_reference<decltype(asmaller)>::type;
 	return core::mix<T,bool_type>(a,vb,asmaller);
 }
 
@@ -274,7 +276,7 @@ IRR_FORCE_INLINE uint32_t bitCount(uint64_t x)
 #ifdef __GNUC__
 	return __builtin_popcountl(x);
 #elif defined(_MSC_VER)
-	return __popcnt64(x);
+	return static_cast<uint32_t>(__popcnt64(x));
 #endif
 }
 

@@ -8,34 +8,36 @@ namespace ext
 namespace DebugDraw
 {
 
-static const char* Draw3DLineVertexShader =
-"#version 330 core\n"
+static const char* Draw3DLineVertexShader = R"===(
+#version 430 core
 
-"layout(location = 0) in vec4 vPos;\n"
-"layout(location = 1) in vec4 vCol;\n"
+layout(location = 0) in vec4 vPos;
+layout(location = 1) in vec4 vCol;
 
-"uniform mat4 MVP;\n"
-"out vec4 Color;\n"
+layout( push_constant, row_major ) uniform Block {
+	mat4 modelViewProj;
+} PushConstants;
+layout(location = 0) out vec4 Color;
 
-"void main()\n"
-"{\n"
-"    gl_Position = MVP * vPos;\n"
-"    Color = vCol;\n"
-"}\n"
-;
+void main()
+{
+    gl_Position = PushConstants.modelViewProj * vPos;
+    Color = vCol;
+}
+)===";
 
-static const char* Draw3DLineFragmentShader =
-"#version 330 core\n"
+static const char* Draw3DLineFragmentShader = R"===(
+#version 430 core
 
-"in vec4 Color;\n"
+layout(location = 0) in vec4 Color;
 
-"layout(location = 0) out vec4 pixelColor;\n"
+layout(location = 0) out vec4 pixelColor;
 
-"void main()\n"
-"{\n"
-"    pixelColor = Color;\n"
-"}\n"
-;
+void main()
+{
+    pixelColor = Color;
+}
+)===";
 
 } // namespace DebugDraw
 } // namespace ext

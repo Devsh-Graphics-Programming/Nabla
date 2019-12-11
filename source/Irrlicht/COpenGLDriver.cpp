@@ -25,10 +25,6 @@
 #include "COpenGLTimestampQuery.h"
 #include "os.h"
 
-#ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
-#include "MacOSX/CIrrDeviceMacOSX.h"
-#endif
-
 #ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
 #include "CIrrDeviceSDL.h"
 #include <SDL/SDL.h>
@@ -53,8 +49,6 @@ namespace irr
 namespace video
 {
 
-//: CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
-//	CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(asset::EF_R8G8B8_UNORM), Params(params),
 // -----------------------------------------------------------------------
 // WINDOWS CONSTRUCTOR
 // -----------------------------------------------------------------------
@@ -62,10 +56,10 @@ namespace video
 //! Windows constructor and init code
 COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp)
-: CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
-	runningInRenderDoc(false),  /*ResetRenderStates(true),*/ ColorFormat(asset::EF_R8G8B8_UNORM), Params(params),
+: CNullDriver(device, io, params), COpenGLExtensionHandler(),
+	runningInRenderDoc(false),  ColorFormat(asset::EF_R8G8B8_UNORM),
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
-	AuxContexts(0), DerivativeMapCreator(nullptr), GLSLCompiler(glslcomp), DeviceType(EIDT_WIN32)
+	AuxContexts(0), GLSLCompiler(glslcomp), DeviceType(EIDT_WIN32)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("COpenGLDriver");
@@ -454,7 +448,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 #ifdef _IRR_COMPILE_WITH_OPENCL_
 	ocl::COpenCLHandler::getCLDeviceFromGLContext(clDevice,hrc,HDc);
 #endif // _IRR_COMPILE_WITH_OPENCL_
-	genericDriverInit();
+	genericDriverInit(device->getAssetManager());
 
 	extGlSwapInterval(Params.Vsync ? 1 : 0);
 	return true;
@@ -498,26 +492,6 @@ bool COpenGLDriver::deinitAuxContext()
 
 #endif // _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 
-// -----------------------------------------------------------------------
-// MacOSX CONSTRUCTOR
-// -----------------------------------------------------------------------
-#ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
-//! Windows constructor and init code
-COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceMacOSX *device, const asset::IGLSLCompiler* glslcomp)
-: CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
-    runningInRenderDoc(false), CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(asset::EF_R8G8B8_UNORM),
-	Params(params),
-	OSXDevice(device), DeviceType(EIDT_OSX), AuxContexts(0), GLSLCompiler(glslcomp)
-{
-	#ifdef _IRR_DEBUG
-	setDebugName("COpenGLDriver");
-	#endif
-
-	genericDriverInit();
-}
-
-#endif
 
 // -----------------------------------------------------------------------
 // LINUX CONSTRUCTOR
@@ -526,9 +500,9 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 //! Linux constructor and init code
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp)
-: CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
-	runningInRenderDoc(false),  CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(asset::EF_R8G8B8_UNORM),
-	Params(params), X11Device(device), DeviceType(EIDT_X11), AuxContexts(0), GLSLCompiler(glslcomp)
+		: CNullDriver(device, io, Params), COpenGLExtensionHandler(),
+			runningInRenderDoc(false), ColorFormat(asset::EF_R8G8B8_UNORM),
+			X11Device(device), DeviceType(EIDT_X11), AuxContexts(0), GLSLCompiler(glslcomp)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("COpenGLDriver");
@@ -602,7 +576,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceLinux* device, SAuxContext* auxCtxts)
         os::Printer::log("Couldn't find matching OpenCL device.\n");
 #endif // _IRR_COMPILE_WITH_OPENCL_
 
-	genericDriverInit();
+	genericDriverInit(device->getAssetManager());
 
 	// set vsync
 	//if (queryOpenGLFeature(IRR_))
@@ -659,16 +633,16 @@ bool COpenGLDriver::deinitAuxContext()
 //! SDL constructor and init code
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceSDL* device, const asset::IGLSLCompiler* glslcomp)
-: CNullDriver(device, io, params.WindowSize), COpenGLExtensionHandler(),
-    runningInRenderDoc(false), CurrentRenderMode(ERM_NONE), ResetRenderStates(true), ColorFormat(EF_R8G8B8_UNORM),
-	CurrentTarget(ERT_FRAME_BUFFER), Params(params),
-	SDLDevice(device), DeviceType(EIDT_SDL), AuxContexts(0), GLSLCompiler(glslcomp)
+		: CNullDriver(device, io, Params), COpenGLExtensionHandler(),
+			runningInRenderDoc(false), ColorFormat(EF_R8G8B8_UNORM),
+			CurrentTarget(ERT_FRAME_BUFFER),
+			SDLDevice(device), DeviceType(EIDT_SDL), AuxContexts(0), GLSLCompiler(glslcomp)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("COpenGLDriver");
 	#endif
 
-	genericDriverInit();
+	genericDriverInit(device->getAssetManager());
 }
 
 #endif // _IRR_COMPILE_WITH_SDL_DEVICE_
@@ -677,9 +651,6 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 //! destructor
 COpenGLDriver::~COpenGLDriver()
 {
-    if (DerivativeMapCreator)
-        DerivativeMapCreator->drop();
-
 	if (!AuxContexts) //opengl dead and never initialized in the first place
 		return;
 
@@ -824,7 +795,7 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
     if (!found)
         return;
 
-    found->CurrentRendertargetSize = ScreenSize;
+    found->CurrentRendertargetSize = Params.WindowSize;
     extGlBindFramebuffer(GL_FRAMEBUFFER, 0);
     if (found->CurrentFBO)
     {
@@ -859,7 +830,7 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
 }
 
 
-bool COpenGLDriver::genericDriverInit()
+bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
 {
 	if (!AuxContexts) // opengl dead and never inited
 		return false;
@@ -882,7 +853,6 @@ bool COpenGLDriver::genericDriverInit()
 	int32_t pos=Name.findNext(L' ', 7);
 	if (pos != -1)
 		Name=Name.subString(0, pos);
-	printVersion();
 
 	// print renderer information
 	const GLubyte* renderer = glGetString(GL_RENDERER);
@@ -980,6 +950,7 @@ bool COpenGLDriver::genericDriverInit()
 	// We need to reset once more at the beginning of the first rendering.
 	// This fixes problems with intermediate changes to the material during texture load.
     SAuxContext* found = getThreadContext_helper(false);
+	extGlClipControl(GL_UPPER_LEFT, GL_ZERO_TO_ONE); //once set and should never change (engine doesnt track it)
     glEnable(GL_FRAMEBUFFER_SRGB);//once set and should never change (engine doesnt track it)
     glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);//once set and should never change (engine doesnt track it)
     glDepthRange(1.0, 0.0);//once set and should never change (engine doesnt track it)
@@ -987,24 +958,7 @@ bool COpenGLDriver::genericDriverInit()
     found->nextState.rasterParams.depthFunc = GL_GEQUAL;
     found->nextState.rasterParams.frontFace = GL_CCW;
 
-	// down
-	{
-        auto reqs = getDownStreamingMemoryReqs();
-        reqs.vulkanReqs.size = Params.StreamingDownloadBufferSize;
-        reqs.vulkanReqs.alignment = 64u*1024u; // if you need larger alignments then you're not right in the head
-        defaultDownloadBuffer = core::make_smart_refctd_ptr<video::StreamingTransientDataBufferMT<> >(this,reqs);
-	}
-	// up
-	{
-        auto reqs = getUpStreamingMemoryReqs();
-        reqs.vulkanReqs.size = Params.StreamingUploadBufferSize;
-        reqs.vulkanReqs.alignment = 64u*1024u; // if you need larger alignments then you're not right in the head
-        defaultUploadBuffer = core::make_smart_refctd_ptr < video::StreamingTransientDataBufferMT<> >(this,reqs);
-	}
-
-    DerivativeMapCreator = new CDerivativeMapCreator(this);
-
-	return true;
+	return CNullDriver::genericDriverInit(assMgr);
 }
 
 
@@ -1022,14 +976,6 @@ bool COpenGLDriver::endScene()
 	if (DeviceType == EIDT_X11)
 	{
 		glXSwapBuffers(X11Display, Drawable);
-		return true;
-	}
-#endif
-
-#ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
-	if (DeviceType == EIDT_OSX)
-	{
-		OSXDevice->flush();
 		return true;
 	}
 #endif
@@ -1057,10 +1003,6 @@ bool COpenGLDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
 		const SExposedVideoData& videoData, core::rect<int32_t>* sourceRect)
 {
 	CNullDriver::beginScene(backBuffer, zBuffer, color, videoData, sourceRect);
-#ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
-	if (DeviceType==EIDT_OSX)
-		changeRenderContext(videoData, (void*)0);
-#endif // _IRR_COMPILE_WITH_OSX_DEVICE_
 
     if (zBuffer)
     {
@@ -1086,20 +1028,16 @@ const core::smart_refctd_dynamic_array<std::string> COpenGLDriver::getSupportedG
         for (size_t i = 0ull; i < GLSLcnt; ++i)
             cnt += (FeatureAvailable[m_GLSLExtensions[i]]);
         m_supportedGLSLExtsNames = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<std::string>>(cnt);
-        for (size_t x = 0ull; x < cnt; ++x)
-            (*m_supportedGLSLExtsNames)[x] = "wtfff"; //fix this, crashes while assigning OpenGLFeatureStrings[m_GLSLExtensions[j]] for some reason....
-        /*
         size_t i = 0ull;
         for (size_t j = 0ull; j < GLSLcnt; ++j)
             if (FeatureAvailable[m_GLSLExtensions[j]])
                 (*m_supportedGLSLExtsNames)[i++] = OpenGLFeatureStrings[m_GLSLExtensions[j]];
-        */
     }
 
     return m_supportedGLSLExtsNames;
 }
 
-bool COpenGLDriver::bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline)
+bool COpenGLDriver::bindGraphicsPipeline(const video::IGPURenderpassIndependentPipeline* _gpipeline)
 {
     SAuxContext* ctx = getThreadContext_helper(false);
     if (!ctx)
@@ -1110,13 +1048,13 @@ bool COpenGLDriver::bindGraphicsPipeline(video::IGPURenderpassIndependentPipelin
     return true;
 }
 
-bool COpenGLDriver::bindComputePipeline(video::IGPUComputePipeline* _cpipeline)
+bool COpenGLDriver::bindComputePipeline(const video::IGPUComputePipeline* _cpipeline)
 {
     SAuxContext* ctx = getThreadContext_helper(false);
     if (!ctx)
         return false;
 
-    const COpenGLComputePipeline* glppln = static_cast<COpenGLComputePipeline*>(_cpipeline);
+    const COpenGLComputePipeline* glppln = static_cast<const COpenGLComputePipeline*>(_cpipeline);
     ctx->nextState.pipeline.compute.usedShader = glppln ? glppln->getGLnameForCtx(ctx->ID) : 0u;
     ctx->nextState.pipeline.compute.pipeline = core::smart_refctd_ptr<const COpenGLComputePipeline>(glppln);
 
@@ -1124,10 +1062,9 @@ bool COpenGLDriver::bindComputePipeline(video::IGPUComputePipeline* _cpipeline)
 }
 
 bool COpenGLDriver::bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
-    uint32_t _first, uint32_t _count, const IGPUDescriptorSet** _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets)
+    uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets)
 {
-    //TODO take into account `_pipelineType` param and adjust this function when compute pipelines come in
-    if (_first + _count >= IGPUPipelineLayout::DESCRIPTOR_SET_COUNT)
+    if (_first + _count > IGPUPipelineLayout::DESCRIPTOR_SET_COUNT)
         return false;
 
     SAuxContext* ctx = getThreadContext_helper(false);
@@ -1147,9 +1084,9 @@ bool COpenGLDriver::bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, cons
     {
         ctx->nextState.descriptorsParams[_pipelineType].descSets[_first + i] =
         {
-        core::smart_refctd_ptr<const COpenGLPipelineLayout>(static_cast<const COpenGLPipelineLayout*>(_layout)),
-        core::smart_refctd_ptr<const COpenGLDescriptorSet>(static_cast<const COpenGLDescriptorSet*>(_descSets[i])),
-        _dynamicOffsets[i] //intentionally copy, not move
+			core::smart_refctd_ptr<const COpenGLPipelineLayout>(static_cast<const COpenGLPipelineLayout*>(_layout)),
+			core::smart_refctd_ptr<const COpenGLDescriptorSet>(static_cast<const COpenGLDescriptorSet*>(_descSets[i])),
+			_dynamicOffsets ? _dynamicOffsets[i]:nullptr //intentionally copy, not move
         };
     }
 
@@ -1162,7 +1099,7 @@ bool COpenGLDriver::dispatch(uint32_t _groupCountX, uint32_t _groupCountY, uint3
     if (!ctx)
         return false;
 
-    ctx->flushStateCompute(GSB_PIPELINE | GSB_DESCRIPTOR_SETS);
+    ctx->flushStateCompute(GSB_PIPELINE | GSB_DESCRIPTOR_SETS | GSB_PUSH_CONSTANTS);
 
     extGlDispatchCompute(_groupCountX, _groupCountY, _groupCountZ);
 
@@ -1177,7 +1114,7 @@ bool COpenGLDriver::dispatchIndirect(const IGPUBuffer* _indirectBuf, size_t _off
 
     ctx->nextState.dispatchIndirect.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<const COpenGLBuffer*>(_indirectBuf));
 
-    ctx->flushStateCompute(GSB_PIPELINE | GSB_DISPATCH_INDIRECT | GSB_DESCRIPTOR_SETS);
+    ctx->flushStateCompute(GSB_PIPELINE | GSB_DISPATCH_INDIRECT | GSB_DESCRIPTOR_SETS | GSB_PUSH_CONSTANTS);
 
     extGlDispatchComputeIndirect(static_cast<GLintptr>(_offset));
 
@@ -1208,47 +1145,53 @@ bool COpenGLDriver::pushConstants(const IGPUPipelineLayout* _layout, uint32_t _s
     }
     */
 
-    if (_stages & asset::ESS_ALL_GRAPHICS)
+    if (_stages & asset::ISpecializedShader::ESS_ALL_GRAPHICS)
         ctx->pushConstants(EPBP_GRAPHICS, static_cast<const COpenGLPipelineLayout*>(_layout), _stages, _offset, _size, _values);
-    if (_stages & asset::ESS_COMPUTE)
+    if (_stages & asset::ISpecializedShader::ESS_COMPUTE)
         ctx->pushConstants(EPBP_COMPUTE, static_cast<const COpenGLPipelineLayout*>(_layout), _stages, _offset, _size, _values);
 
     return true;
 }
 
-core::smart_refctd_ptr<IGPUShader> COpenGLDriver::createGPUShader(const asset::ICPUShader* _cpushader)
+core::smart_refctd_ptr<IGPUShader> COpenGLDriver::createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>&& _cpushader)
 {
-    return core::make_smart_refctd_ptr<COpenGLShader>(_cpushader);
+	auto source = _cpushader->getSPVorGLSL();
+	if (_cpushader->containsGLSL())
+	    return core::make_smart_refctd_ptr<COpenGLShader>(reinterpret_cast<const char*>(source->getPointer()));
+	
+	// need to do this so its a copy (and doesn't get wiped when cpu resources are released)
+	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(source->getSize());
+	memcpy(buffer->getPointer(),source->getPointer(),source->getSize());
+	return core::make_smart_refctd_ptr<COpenGLShader>(std::move(buffer));
 }
 
-core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo)
+core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo)
 {
     const COpenGLShader* glUnspec = static_cast<const COpenGLShader*>(_unspecialized);
-    const asset::ICPUShader* cpuUnspec = glUnspec->getCPUCounterpart();
 
-    const std::string& EP = _specInfo->entryPoint;
-    const asset::E_SHADER_STAGE stage = _specInfo->shaderStage;
+    const std::string& EP = _specInfo.entryPoint;
+    const asset::ISpecializedShader::E_SHADER_STAGE stage = _specInfo.shaderStage;
 
-    core::smart_refctd_ptr<const asset::ICPUShader> spvCPUShader = nullptr;
-    if (cpuUnspec->containsGLSL()) {
-        std::string glsl = reinterpret_cast<const char*>(cpuUnspec->getSPVorGLSL()->getPointer());
+    core::smart_refctd_ptr<asset::ICPUShader> spvCPUShader = nullptr;
+    if (glUnspec->containsGLSL()) {
+        std::string glsl = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
         asset::ICPUShader::insertGLSLExtensionsDefines(glsl, getSupportedGLSLExtensions().get());
-        auto spvShader = GLSLCompiler->createSPIRVFromGLSL(
+        core::smart_refctd_ptr<asset::ICPUBuffer> spvCode = GLSLCompiler->compileSPIRVFromGLSL(
                 glsl.c_str(),
                 stage,
                 EP.c_str(),
                 "????"
             );
-        if (!spvShader)
+        if (!spvCode)
             return nullptr;
 
-        spvCPUShader = core::smart_refctd_ptr<const asset::ICPUShader>(spvShader.get());
+        spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spvCode));
     }
     else {
-        spvCPUShader = core::smart_refctd_ptr<const asset::ICPUShader>(cpuUnspec);
+        spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr<asset::ICPUBuffer>(glUnspec->m_code));
     }
 
-    asset::CShaderIntrospector::SEntryPoint_Stage_Extensions introspectionParams{_specInfo->entryPoint, _specInfo->shaderStage, getSupportedGLSLExtensions()};
+    asset::CShaderIntrospector::SEntryPoint_Stage_Extensions introspectionParams{_specInfo.entryPoint, _specInfo.shaderStage, getSupportedGLSLExtensions()};
     asset::CShaderIntrospector introspector(GLSLCompiler.get(), introspectionParams);
     const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get());
     if (introspection->pushConstant.present && introspection->pushConstant.info.name.empty())
@@ -1259,8 +1202,7 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     }
 
     auto ctx = getThreadContext_helper(false);
-    COpenGLSpecializedShader* gpuSpecialized = new COpenGLSpecializedShader(Params.AuxGLContexts + 1u, ctx->ID, this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, introspection);
-    return core::smart_refctd_ptr<COpenGLSpecializedShader>(gpuSpecialized, core::dont_grab);
+    return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(Params.AuxGLContexts + 1u, ctx->ID, this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, introspection);
 }
 
 core::smart_refctd_ptr<IGPUBufferView> COpenGLDriver::createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset, size_t _size)
@@ -1291,7 +1233,7 @@ core::smart_refctd_ptr<IGPUSampler> COpenGLDriver::createGPUSampler(const IGPUSa
     return core::make_smart_refctd_ptr<COpenGLSampler>(_params);
 }
 
-core::smart_refctd_ptr<IGPUImage> COpenGLDriver::createGPUImage(asset::IImage::SCreationParams&& _params)
+core::smart_refctd_ptr<IGPUImage> COpenGLDriver::createGPUImageOnDedMem(IGPUImage::SCreationParams&& _params, const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs)
 {
     if (!asset::IImage::validateCreationParameters(_params))
         return nullptr;
@@ -1324,10 +1266,10 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
 
     auto shaders = core::SRange<IGPUSpecializedShader*>(_shadersBegin, _shadersEnd);
     auto vsIsPresent = [&shaders] {
-        return std::find_if(shaders.begin(), shaders.end(), [](IGPUSpecializedShader* shdr) {return shdr->getStage()==asset::ESS_VERTEX;}) != shaders.end();
+        return std::find_if(shaders.begin(), shaders.end(), [](IGPUSpecializedShader* shdr) {return shdr->getStage()==asset::ISpecializedShader::ESS_VERTEX;}) != shaders.end();
     };
 
-    if (!_layout || vsIsPresent())
+    if (!_layout || !vsIsPresent())
         return nullptr;
 
     return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
@@ -1342,18 +1284,10 @@ core::smart_refctd_ptr<IGPUComputePipeline> COpenGLDriver::createGPUComputePipel
 {
     if (!_layout || !_shader)
         return nullptr;
-    if (_shader->getStage() != asset::ESS_COMPUTE)
+    if (_shader->getStage() != asset::ISpecializedShader::ESS_COMPUTE)
         return nullptr;
 
     return core::make_smart_refctd_ptr<COpenGLComputePipeline>(std::move(_parent), std::move(_layout), std::move(_shader));
-}
-
-core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout, core::smart_refctd_dynamic_array<IGPUDescriptorSet::SDescriptorBinding>&& _descriptors)
-{
-    if (!_layout || !_descriptors || !_descriptors->size())
-        return nullptr;
-
-    return core::make_smart_refctd_ptr<COpenGLDescriptorSet>(std::move(_layout), std::move(_descriptors));
 }
 
 core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout)
@@ -1364,7 +1298,7 @@ core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(
     return core::make_smart_refctd_ptr<COpenGLDescriptorSet>(std::move(_layout));
 }
 
-IGPUBuffer* COpenGLDriver::createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData)
+core::smart_refctd_ptr<IGPUBuffer> COpenGLDriver::createGPUBufferOnDedMem(const IDriverMemoryBacked::SDriverMemoryRequirements& initialMreqs, const bool canModifySubData)
 {
     auto extraMreqs = initialMreqs;
 
@@ -1374,8 +1308,19 @@ IGPUBuffer* COpenGLDriver::createGPUBufferOnDedMem(const IDriverMemoryBacked::SD
     if ((extraMreqs.mappingCapability&IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ) && !runningInRenderDoc)
         extraMreqs.mappingCapability |= IDriverMemoryAllocation::EMCF_COHERENT;
 
-    return new COpenGLBuffer(extraMreqs, canModifySubData);
+    return core::make_smart_refctd_ptr<COpenGLBuffer>(extraMreqs, canModifySubData);
 }
+
+
+void COpenGLDriver::updateDescriptorSets(	uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites,
+											uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies)
+{
+	for (uint32_t i=0u; i<descriptorWriteCount; i++)
+		static_cast<COpenGLDescriptorSet*>(pDescriptorWrites[i].dstSet)->writeDescriptorSet(pDescriptorWrites[i]);
+	for (uint32_t i=0u; i< descriptorCopyCount; i++)
+		static_cast<COpenGLDescriptorSet*>(pDescriptorCopies[i].dstSet)->copyDescriptorSet(pDescriptorCopies[i]);
+}
+
 
 void COpenGLDriver::flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges)
 {
@@ -1403,12 +1348,181 @@ void COpenGLDriver::invalidateMappedMemoryRanges(uint32_t memoryRangeCount, cons
     }
 }
 
+
 void COpenGLDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length)
 {
     COpenGLBuffer* readbuffer = static_cast<COpenGLBuffer*>(readBuffer);
     COpenGLBuffer* writebuffer = static_cast<COpenGLBuffer*>(writeBuffer);
     extGlCopyNamedBufferSubData(readbuffer->getOpenGLName(),writebuffer->getOpenGLName(),readOffset,writeOffset,length);
 }
+
+void COpenGLDriver::copyImage(IGPUImage* srcImage, IGPUImage* dstImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions)
+{
+	if (!dstImage->validateCopies(pRegions,pRegions+regionCount,srcImage))
+		return;
+
+	auto src = static_cast<COpenGLImage*>(srcImage);
+	auto dst = static_cast<COpenGLImage*>(dstImage);
+	IGPUImage::E_TYPE srcType = srcImage->getCreationParameters().type;
+	IGPUImage::E_TYPE dstType = dstImage->getCreationParameters().type;
+	GLenum type2Target[3u] = {GL_TEXTURE_1D_ARRAY,GL_TEXTURE_2D_ARRAY,GL_TEXTURE_3D};
+	for (auto it=pRegions; it!=pRegions+regionCount; it++)
+	{
+		extGlCopyImageSubData(	src->getOpenGLName(),type2Target[srcType],it->srcSubresource.mipLevel,
+								it->srcOffset.x,srcType==IGPUImage::ET_1D ? it->srcSubresource.baseArrayLayer:it->srcOffset.y,srcType==IGPUImage::ET_2D ? it->srcSubresource.baseArrayLayer:it->srcOffset.z,
+								dst->getOpenGLName(),type2Target[dstType],it->dstSubresource.mipLevel,
+								it->dstOffset.x,dstType==IGPUImage::ET_1D ? it->dstSubresource.baseArrayLayer:it->dstOffset.y,dstType==IGPUImage::ET_2D ? it->dstSubresource.baseArrayLayer:it->dstOffset.z,
+								it->extent.width,dstType==IGPUImage::ET_1D ? it->dstSubresource.layerCount:it->extent.height,dstType==IGPUImage::ET_2D ? it->dstSubresource.layerCount:it->extent.depth);
+	}
+}
+
+void COpenGLDriver::copyBufferToImage(IGPUBuffer* srcBuffer, IGPUImage* dstImage, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
+{
+	if (!dstImage->validateCopies(pRegions,pRegions+regionCount,srcBuffer))
+		return;
+
+	const auto params = dstImage->getCreationParameters();
+	const auto type = params.type;
+	const auto format = params.format;
+	const bool compressed = asset::isBlockCompressionFormat(format);
+	auto dstImageGL = static_cast<COpenGLImage*>(dstImage);
+	GLuint dst = dstImageGL->getOpenGLName();
+	GLenum glfmt,gltype;
+	getOpenGLFormatAndParametersFromColorFormat(format,glfmt,gltype);
+
+	const auto bpp = asset::getBytesPerPixel(format);
+	const auto blockDims = asset::getBlockDimensions(format);
+
+	// TODO: @Crisspl add this to your state tracking
+	extGlBindBuffer(GL_PIXEL_UNPACK_BUFFER,static_cast<COpenGLBuffer*>(srcBuffer)->getOpenGLName());
+	for (auto it=pRegions; it!=pRegions+regionCount; it++)
+	{
+		// TODO: check it->bufferOffset is aligned to data type of E_FORMAT
+		//assert(?);
+
+		// TODO: track this as well
+		uint32_t pitch = ((it->bufferRowLength ? it->bufferRowLength:it->imageExtent.width)*bpp).getIntegerApprox();
+		int32_t alignment = 0x1<<core::min(core::max(core::findLSB(it->bufferOffset),core::findLSB(pitch)),3u);
+		glPixelStorei(GL_UNPACK_ALIGNMENT, alignment);
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, it->bufferRowLength);
+		glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, it->bufferImageHeight);
+
+		if (compressed)
+		{
+			// TODO: track this as well
+			glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_WIDTH, blockDims[0]);
+			glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_HEIGHT,blockDims[1]);
+			glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_DEPTH, blockDims[2]);
+			uint32_t imageSize = pitch;
+			switch (type)
+			{
+				case IGPUImage::ET_1D:
+					imageSize *= it->imageSubresource.layerCount;
+					extGlCompressedTextureSubImage2D(	dst,GL_TEXTURE_1D_ARRAY,it->imageSubresource.mipLevel,
+														it->imageOffset.x,it->imageSubresource.baseArrayLayer,
+														it->imageExtent.width,it->imageSubresource.layerCount,
+														dstImageGL->getOpenGLSizedFormat(),imageSize,reinterpret_cast<const void*>(it->bufferOffset));
+					break;
+				case IGPUImage::ET_2D:
+					imageSize *= (it->bufferImageHeight ? it->bufferImageHeight:it->imageExtent.height)/blockDims[1];
+					imageSize *= it->imageSubresource.layerCount;
+					extGlCompressedTextureSubImage3D(	dst,GL_TEXTURE_2D_ARRAY,it->imageSubresource.mipLevel,
+														it->imageOffset.x,it->imageOffset.y,it->imageSubresource.baseArrayLayer,
+														it->imageExtent.width,it->imageExtent.height,it->imageSubresource.layerCount,
+														dstImageGL->getOpenGLSizedFormat(),imageSize,reinterpret_cast<const void*>(it->bufferOffset));
+					break;
+				case IGPUImage::ET_3D:
+					imageSize *= (it->bufferImageHeight ? it->bufferImageHeight:it->imageExtent.height)/blockDims[1];
+					imageSize *= it->imageExtent.depth/blockDims[2];
+					extGlCompressedTextureSubImage3D(	dst,GL_TEXTURE_3D,it->imageSubresource.mipLevel,
+														it->imageOffset.x,it->imageOffset.y,it->imageOffset.z,
+														it->imageExtent.width,it->imageExtent.height,it->imageExtent.depth,
+														dstImageGL->getOpenGLSizedFormat(),imageSize,reinterpret_cast<const void*>(it->bufferOffset));
+					break;
+			}
+		}
+		else
+		{
+			switch (type)
+			{
+				case IGPUImage::ET_1D:
+					extGlTextureSubImage2D(	dst,GL_TEXTURE_1D_ARRAY,it->imageSubresource.mipLevel,
+											it->imageOffset.x,it->imageSubresource.baseArrayLayer,
+											it->imageExtent.width,it->imageSubresource.layerCount,
+											glfmt,gltype,reinterpret_cast<const void*>(it->bufferOffset));
+					break;
+				case IGPUImage::ET_2D:
+					extGlTextureSubImage3D(dst,GL_TEXTURE_2D_ARRAY,it->imageSubresource.mipLevel,
+											it->imageOffset.x,it->imageOffset.y,it->imageSubresource.baseArrayLayer,
+											it->imageExtent.width,it->imageExtent.height,it->imageSubresource.layerCount,
+											glfmt,gltype,reinterpret_cast<const void*>(it->bufferOffset));
+					break;
+				case IGPUImage::ET_3D:
+					extGlTextureSubImage3D(dst,GL_TEXTURE_3D,it->imageSubresource.mipLevel,
+											it->imageOffset.x,it->imageOffset.y,it->imageOffset.z,
+											it->imageExtent.width,it->imageExtent.height,it->imageExtent.depth,
+											glfmt,gltype,reinterpret_cast<const void*>(it->bufferOffset));
+					break;
+			}
+		}
+	}
+	// TODO: @Crisspl remove this after you add PIXEL_PACK buffer to your state tracking
+	extGlBindBuffer(GL_PIXEL_UNPACK_BUFFER,0u);
+}
+
+void COpenGLDriver::copyImageToBuffer(IGPUImage* srcImage, IGPUBuffer* dstBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
+{
+	if (!srcImage->validateCopies(pRegions,pRegions+regionCount,dstBuffer))
+		return;
+
+	const auto params = srcImage->getCreationParameters();
+	const auto type = params.type;
+	const auto format = params.format;
+	const bool compressed = asset::isBlockCompressionFormat(format);
+	GLuint src = static_cast<COpenGLImage*>(srcImage)->getOpenGLName();
+	GLenum glfmt,gltype;
+	getOpenGLFormatAndParametersFromColorFormat(format,glfmt,gltype);
+
+	const auto bpp = asset::getBytesPerPixel(format);
+	const auto blockDims = asset::getBlockDimensions(format);
+
+	// TODO: @Crisspl add this to your state tracking
+	extGlBindBuffer(GL_PIXEL_PACK_BUFFER,static_cast<COpenGLBuffer*>(dstBuffer)->getOpenGLName());
+	for (auto it=pRegions; it!=pRegions+regionCount; it++)
+	{
+		// TODO: check it->bufferOffset is aligned to data type of E_FORMAT
+		//assert(?);
+
+		// TODO: track this as well
+		uint32_t pitch = ((it->bufferRowLength ? it->bufferRowLength:it->imageExtent.width)*bpp).getIntegerApprox();
+		int32_t alignment = 0x1<<core::min(core::max(core::findLSB(it->bufferOffset),core::findLSB(pitch)),3u);
+		glPixelStorei(GL_PACK_ALIGNMENT, alignment);
+		glPixelStorei(GL_PACK_ROW_LENGTH, it->bufferRowLength);
+		glPixelStorei(GL_PACK_IMAGE_HEIGHT, it->bufferImageHeight);
+
+		auto yStart = type==IGPUImage::ET_1D ? it->imageSubresource.baseArrayLayer:it->imageOffset.y;
+		auto yRange = type==IGPUImage::ET_1D ? it->imageSubresource.layerCount:it->imageExtent.height;
+		auto zStart = type==IGPUImage::ET_2D ? it->imageSubresource.baseArrayLayer:it->imageOffset.z;
+		auto zRange = type==IGPUImage::ET_2D ? it->imageSubresource.layerCount:it->imageExtent.depth;
+		if (compressed)
+		{
+			// TODO: track this as well
+			glPixelStorei(GL_PACK_COMPRESSED_BLOCK_WIDTH, blockDims[0]);
+			glPixelStorei(GL_PACK_COMPRESSED_BLOCK_HEIGHT,blockDims[1]);
+			glPixelStorei(GL_PACK_COMPRESSED_BLOCK_DEPTH, blockDims[2]);
+			extGlGetCompressedTextureSubImage(	src,it->imageSubresource.mipLevel,it->imageOffset.x,yStart,zStart,it->imageExtent.width,yRange,zRange,
+												dstBuffer->getSize()-it->bufferOffset,reinterpret_cast<void*>(it->bufferOffset));
+		}
+		else
+		{
+			extGlGetTextureSubImage(src,it->imageSubresource.mipLevel,it->imageOffset.x,yStart,zStart,it->imageExtent.width,yRange,zRange,
+									glfmt,gltype,dstBuffer->getSize()-it->bufferOffset,reinterpret_cast<void*>(it->bufferOffset));
+		}
+	}
+	// TODO: @Crisspl remove this after you add PIXEL_PACK buffer to your state tracking
+	extGlBindBuffer(GL_PIXEL_PACK_BUFFER,0u);
+}
+
 
 IQueryObject* COpenGLDriver::createPrimitivesGeneratedQuery()
 {
@@ -1512,12 +1626,12 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
     if (!found->nextState.pipeline.graphics.pipeline)
         return;
 
-    found->updateNextState_vertexInput(mb->getVertexBufferBindings(), mb->getIndexBufferBinding()->buffer.get(), nullptr, nullptr);
+    found->updateNextState_vertexInput(mb->getVertexBufferBindings(), mb->getIndexBufferBinding().buffer.get(), nullptr, nullptr);
 
 	CNullDriver::drawMeshBuffer(mb);
 
 	GLenum indexSize=0;
-    if (mb->getIndexBufferBinding()->buffer)
+    if (mb->getIndexBufferBinding().buffer)
     {
         switch (mb->getIndexType())
         {
@@ -1544,8 +1658,8 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
         extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
 
     if (indexSize) {
-        static_assert(sizeof(mb->getIndexBufferBinding()->offset) == sizeof(void*), "Might break without this requirement");
-        const void* const idxBufOffset = reinterpret_cast<void*>(mb->getIndexBufferBinding()->offset);
+        static_assert(sizeof(mb->getIndexBufferBinding().offset) == sizeof(void*), "Might break without this requirement");
+        const void* const idxBufOffset = reinterpret_cast<void*>(mb->getIndexBufferBinding().offset);
         extGlDrawElementsInstancedBaseVertexBaseInstance(primType, mb->getIndexCount(), indexSize, idxBufOffset, mb->getInstanceCount(), mb->getBaseVertex(), mb->getBaseInstance());
     }
     else
@@ -1678,55 +1792,19 @@ void COpenGLDriver::drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> 
         extGlMultiDrawElementsIndirect(primType,indexSize,(void*)offset,maxCount,stride);
 }
 
-
-void COpenGLDriver::SAuxContext::flushStateGraphics_pushConstants()
-{
-    for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
-    {
-        if (!((1u << i) & pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags))
-            continue;
-
-        const uint32_t presenceMask = currentState.pipeline.graphics.pipeline->getStagePresenceMask();
-        if (!(presenceMask & (1u<<i)))
-            continue;
-
-        //pipeline must be flushed before push constants so taking pipeline from currentState
-        const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.graphics.pipeline->getShaderAtIndex(i));
-        //assert(shdr); //this would be weird
-
-        shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_GRAPHICS].data, this->ID);
-    }
-    pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags = 0u;
-}
-
-void COpenGLDriver::SAuxContext::flushStateCompute_pushConstants()
-{
-    if (currentState.pipeline.compute.pipeline->containsShader() && pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags & asset::ESS_COMPUTE)
-    {
-        const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.compute.pipeline->getShader());
-        //assert(shdr);
-
-        shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_COMPUTE].data, this->ID);
-
-        pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags = 0u;
-    }
-}
-
 void COpenGLDriver::SAuxContext::flushState_descriptors(E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, const COpenGLPipelineLayout* _prevLayout)
 {
     //bind new descriptor sets
     uint32_t compatibilityLimitPlusOne = 0u;
     if (_prevLayout && _currentLayout)
-        compatibilityLimitPlusOne = _prevLayout->isCompatibleForSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT - 1u, _currentLayout) + 1u;
-    if (compatibilityLimitPlusOne >= IGPUPipelineLayout::DESCRIPTOR_SET_COUNT)
-        compatibilityLimitPlusOne = 0u;
+        compatibilityLimitPlusOne = _prevLayout->isCompatibleUpToSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u, _currentLayout);
+	if (!_prevLayout && !_currentLayout)
+        compatibilityLimitPlusOne = IGPUPipelineLayout::DESCRIPTOR_SET_COUNT;
 
     int64_t newUboCount = 0u, newSsboCount = 0u, newTexCount = 0u, newImgCount = 0u;
-    for (uint32_t i = 0u; i < video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+	if (_currentLayout)
+    for (uint32_t i=0u; i<video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
     {
-        if (!_currentLayout)
-            break;
-
         const auto& first_count = _currentLayout->getMultibindParamsForDescSet(i);
 
         {
@@ -1759,37 +1837,61 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
             nextState.descriptorsParams[_pbp].descSets[i].set->getMultibindParams() :
             COpenGLDescriptorSet::SMultibindParams{};//all nullptr
 
-        const GLsizei localUboCount = (newUboCount - first_count.ubos.first);//"local" as in this DS
-        const GLsizei localSsboCount = (newSsboCount - first_count.ssbos.first);//"local" as in this DS
-        //not entirely sure those MAXes are right
-        constexpr size_t MAX_UBO_COUNT = 96ull;
-        constexpr size_t MAX_SSBO_COUNT = 91ull;
-        GLintptr uboOffsets_array[MAX_UBO_COUNT]{};
-        GLintptr* const uboOffsets = nextState.descriptorsParams[_pbp].descSets[i].set ? uboOffsets_array : nullptr;
-        GLintptr ssboOffsets_array[MAX_SSBO_COUNT]{};
-        GLintptr* const ssboOffsets = nextState.descriptorsParams[_pbp].descSets[i].set ? ssboOffsets_array : nullptr;
+		const GLsizei localStorageImageCount = newImgCount-first_count.textureImages.first;
+		if (localStorageImageCount)
+			extGlBindImageTextures(first_count.textureImages.first, localStorageImageCount, multibind_params.textureImages.textures, nullptr); //formats=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
+		
+		const GLsizei localTextureCount = newTexCount-first_count.textures.first;
+		if (localTextureCount)
+		{
+			extGlBindTextures(first_count.textures.first, localTextureCount, multibind_params.textures.textures, nullptr); //targets=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
+			extGlBindSamplers(first_count.textures.first, localTextureCount, multibind_params.textures.samplers);
+		}
 
-        if (uboOffsets)
-            memcpy(uboOffsets, multibind_params.ubos.offsets, localUboCount * sizeof(GLintptr));
-        //if the loop below crashes, it means that there are dynamic UBOs in the DS, but the DS was bound with no (or not enough) dynamic offsets
-        //or for some weird reason (bug) descSets[i].set is nullptr, but descSets[i].dynamicOffsets is not
-        for (GLsizei u = 0u; ((u < localUboCount) && nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets); ++u)
-            if (multibind_params.ubos.dynOffsetIxs[u] < nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets->size())
-                uboOffsets[u] += nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets->operator[](multibind_params.ubos.dynOffsetIxs[u]);
+		bool nonNullSet = !!nextState.descriptorsParams[_pbp].descSets[i].set;
+		const bool useDynamicOffsets = !!nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets;
+		//not entirely sure those MAXes are right
+		constexpr size_t MAX_UBO_COUNT = 96ull;
+		constexpr size_t MAX_SSBO_COUNT = 91ull;
+		constexpr size_t MAX_OFFSETS = MAX_UBO_COUNT>MAX_SSBO_COUNT ? MAX_UBO_COUNT:MAX_SSBO_COUNT;
+		GLintptr offsetsArray[MAX_OFFSETS]{};
+		GLintptr sizesArray[MAX_OFFSETS]{};
 
-        if (ssboOffsets)
-            memcpy(ssboOffsets, multibind_params.ssbos.offsets, localSsboCount * sizeof(GLintptr));
-        //if the loop below crashes, it means that there are dynamic SSBOs in the DS, but the DS was bound with no (or not enough) dynamic offsets
-        //or for some weird reason (bug) descSets[i].set is nullptr, but descSets[i].dynamicOffsets is not
-        for (GLsizei s = 0u; ((s < localSsboCount) && nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets); ++s)
-            if (multibind_params.ssbos.dynOffsetIxs[s] < nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets->size())
-                ssboOffsets[s] += nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets->operator[](multibind_params.ssbos.dynOffsetIxs[s]);
+        const GLsizei localSsboCount = newSsboCount-first_count.ssbos.first;//"local" as in this DS
+		if (localSsboCount)
+		{
+			if (nonNullSet)
+			for (GLsizei s=0u;s<localSsboCount; ++s)
+			{
+				offsetsArray[s] = multibind_params.ssbos.offsets[s];
+				sizesArray[s] = multibind_params.ssbos.sizes[s];
+				//if it crashes below, it means that there are dynamic Buffer Objects in the DS, but the DS was bound with no (or not enough) dynamic offsets
+				//or for some weird reason (bug) descSets[i].set is nullptr, but descSets[i].dynamicOffsets is not
+				if (useDynamicOffsets && multibind_params.ssbos.dynOffsetIxs[s] < nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets->size())
+					offsetsArray[s] += nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets->operator[](multibind_params.ssbos.dynOffsetIxs[s]);
+				if (sizesArray[s]==IGPUBufferView::whole_buffer)
+					sizesArray[s] = nextState.descriptorsParams[_pbp].descSets[i].set->getSSBO(s)->getSize()-offsetsArray[s];
+			}
+			extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, first_count.ssbos.first, localSsboCount, multibind_params.ssbos.buffers, nonNullSet ? offsetsArray:nullptr, nonNullSet ? sizesArray:nullptr);
+		}
 
-        extGlBindBuffersRange(GL_UNIFORM_BUFFER, first_count.ubos.first, localUboCount, multibind_params.ubos.buffers, uboOffsets, multibind_params.ubos.sizes);
-        extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, first_count.ssbos.first, localSsboCount, multibind_params.ssbos.buffers, ssboOffsets, multibind_params.ssbos.sizes);
-        extGlBindTextures(first_count.textures.first, (newTexCount - first_count.textures.first), multibind_params.textures.textures, nullptr); //targets=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
-        extGlBindSamplers(first_count.textures.first, (newTexCount - first_count.textures.first), multibind_params.textures.samplers);
-        extGlBindImageTextures(first_count.textureImages.first, (newImgCount - first_count.textureImages.first), multibind_params.textureImages.textures, nullptr); //formats=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
+		const GLsizei localUboCount = (newUboCount - first_count.ubos.first);//"local" as in this DS
+		if (localUboCount)
+		{
+			if (nonNullSet)
+			for (GLsizei s=0u;s<localUboCount; ++s)
+			{
+				offsetsArray[s] = multibind_params.ubos.offsets[s];
+				sizesArray[s] = multibind_params.ubos.sizes[s];
+				//if it crashes below, it means that there are dynamic Buffer Objects in the DS, but the DS was bound with no (or not enough) dynamic offsets
+				//or for some weird reason (bug) descSets[i].set is nullptr, but descSets[i].dynamicOffsets is not
+				if (useDynamicOffsets && multibind_params.ubos.dynOffsetIxs[s] < nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets->size())
+					offsetsArray[s] += nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets->operator[](multibind_params.ubos.dynOffsetIxs[s]);
+				if (sizesArray[s]==IGPUBufferView::whole_buffer)
+					sizesArray[s] = nextState.descriptorsParams[_pbp].descSets[i].set->getUBO(s)->getSize()-offsetsArray[s];
+			}
+			extGlBindBuffersRange(GL_UNIFORM_BUFFER, first_count.ubos.first, localUboCount, multibind_params.ubos.buffers, nonNullSet ? offsetsArray:nullptr, nonNullSet ? sizesArray:nullptr);
+		}
     }
 
     //unbind previous descriptors if needed (if bindings not replaced by new multibind calls)
@@ -1826,8 +1928,11 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
 
 void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
 {
-    core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> prevPipeline = currentState.pipeline.graphics.pipeline;
-    if (stateBits & GSB_PIPELINE)
+	const COpenGLPipelineLayout* prevLayout = nullptr;
+	if ((stateBits & GSB_DESCRIPTOR_SETS) && currentState.pipeline.graphics.pipeline)
+		prevLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.graphics.pipeline->getLayout());
+    
+	if (stateBits & GSB_PIPELINE)
     {
         if (nextState.pipeline.graphics.pipeline != currentState.pipeline.graphics.pipeline)
         {
@@ -1875,7 +1980,7 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
     {
 #define STATE_NEQ(member) (nextState.member != currentState.member)
 #define UPDATE_STATE(member) (currentState.member = nextState.member)
-        decltype(glEnable)* disable_enable_fptr[2]{ &glDisable, &glEnable };
+        decltype(glEnable)* disable_enable_fptr[2]{ &glDisable, &glEnable }; // TODO: I'd rather macro this, compiler might get confused and start using actual function pointers 2ce
 
         if (STATE_NEQ(rasterParams.polygonMode)) {
             glPolygonMode(GL_FRONT_AND_BACK, nextState.rasterParams.polygonMode);
@@ -1986,7 +2091,7 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
             UPDATE_STATE(rasterParams.logicOp);
         }
         decltype(COpenGLExtensionHandler::extGlEnablei)* disable_enable_indexed_fptr[2]{ &COpenGLExtensionHandler::extGlDisablei, &COpenGLExtensionHandler::extGlEnablei };
-        for (GLuint i = 0u; asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; ++i)
+        for (GLuint i=0u; i<asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
         {
             if (STATE_NEQ(rasterParams.drawbufferBlend[i].blendEnable)) {
                 disable_enable_indexed_fptr[nextState.rasterParams.drawbufferBlend[i].blendEnable](GL_BLEND, i);
@@ -2019,9 +2124,10 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
             }
         }
     }
-    if ((stateBits & GSB_PUSH_CONSTANTS) && currentState.pipeline.graphics.pipeline)
+    if (stateBits & GSB_DESCRIPTOR_SETS)
     {
-        flushStateGraphics_pushConstants();
+        const COpenGLPipelineLayout* currLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.graphics.pipeline->getLayout());
+        flushState_descriptors(EPBP_GRAPHICS, currLayout, prevLayout);
     }
     if ((stateBits & GSB_VAO_AND_VERTEX_INPUT) && currentState.pipeline.graphics.pipeline)
     {
@@ -2111,17 +2217,32 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
     }
 #undef STATE_NEQ
 #undef UPDATE_STATE
-    if (stateBits & GSB_DESCRIPTOR_SETS)
+    if ((stateBits & GSB_PUSH_CONSTANTS) && currentState.pipeline.graphics.pipeline)
     {
-        const COpenGLPipelineLayout* currLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.graphics.pipeline->getLayout());
-        const COpenGLPipelineLayout* prevLayout = static_cast<const COpenGLPipelineLayout*>(prevPipeline->getLayout());
-        flushState_descriptors(EPBP_GRAPHICS, currLayout, prevLayout);
+		for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
+		{
+			if (!((1u << i) & pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags))
+				continue;
+
+			const uint32_t presenceMask = currentState.pipeline.graphics.pipeline->getStagePresenceMask();
+			if (!(presenceMask & (1u<<i)))
+				continue;
+
+			//pipeline must be flushed before push constants so taking pipeline from currentState
+			const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.graphics.pipeline->getShaderAtIndex(i));
+			//assert(shdr); //this would be weird
+
+			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_GRAPHICS].data, this->ID);
+		}
+		pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags = 0u;
     }
 }
 
 void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
 {
-    core::smart_refctd_ptr<const COpenGLComputePipeline> prevPipeline = currentState.pipeline.compute.pipeline;
+	const COpenGLPipelineLayout* prevLayout = nullptr;
+	if ((stateBits & GSB_DESCRIPTOR_SETS) && currentState.pipeline.compute.pipeline)
+		prevLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.compute.pipeline->getLayout());
 
     if (stateBits & GSB_PIPELINE)
     {
@@ -2138,7 +2259,15 @@ void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
     }
     if ((stateBits & GSB_PUSH_CONSTANTS) && currentState.pipeline.compute.pipeline)
     {
-        flushStateCompute_pushConstants();
+		assert(currentState.pipeline.compute.pipeline->containsShader());
+		if (pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags & asset::ISpecializedShader::ESS_COMPUTE)
+		{
+			const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.compute.pipeline->getShader());
+
+			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_COMPUTE].data, this->ID);
+
+			pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags = 0u;
+		}
     }
     if (stateBits & GSB_DISPATCH_INDIRECT)
     {
@@ -2152,7 +2281,6 @@ void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
     if (stateBits & GSB_DESCRIPTOR_SETS)
     {
         const COpenGLPipelineLayout* currLayout = static_cast<const COpenGLPipelineLayout*>(currentState.pipeline.compute.pipeline->getLayout());
-        const COpenGLPipelineLayout* prevLayout = static_cast<const COpenGLPipelineLayout*>(prevPipeline->getLayout());
         flushState_descriptors(EPBP_COMPUTE, currLayout, prevLayout);
     }
 }
@@ -2479,7 +2607,7 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
             srcRect = core::recti(0,0,rttsize.Width,rttsize.Height);
         }
         else
-            srcRect = core::recti(0,0,ScreenSize.Width,ScreenSize.Height);
+            srcRect = core::recti(0,0,Params.WindowSize.Width,Params.WindowSize.Height);
 	}
 	if (dstRect.getArea()==0)
 	{
@@ -2489,7 +2617,7 @@ void COpenGLDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
             dstRect = core::recti(0,0,rttsize.Width,rttsize.Height);
         }
         else
-            dstRect = core::recti(0,0,ScreenSize.Width,ScreenSize.Height);
+            dstRect = core::recti(0,0,Params.WindowSize.Width,Params.WindowSize.Height);
 	}
 	if (srcRect==dstRect||copyDepth||copyStencil) //and some checks for multisample
 		bilinearFilter = false;
@@ -2546,14 +2674,14 @@ bool COpenGLDriver::setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewpo
 
     if (!frameBuffer)
     {
-        found->CurrentRendertargetSize = ScreenSize;
+        found->CurrentRendertargetSize = Params.WindowSize;
         extGlBindFramebuffer(GL_FRAMEBUFFER, 0);
         if (found->CurrentFBO)
             found->CurrentFBO->drop();
         found->CurrentFBO = NULL;
 
         if (setNewViewport)
-            setViewPort(core::recti(0,0,ScreenSize.Width,ScreenSize.Height));
+            setViewPort(core::recti(0,0,Params.WindowSize.Width,Params.WindowSize.Height));
 
         return true;
     }
@@ -2585,7 +2713,7 @@ const core::dimension2d<uint32_t>& COpenGLDriver::getCurrentRenderTargetSize() c
 {
     const SAuxContext* found = getThreadContext();
 	if (!found || found->CurrentRendertargetSize.Width == 0)
-		return ScreenSize;
+		return Params.WindowSize;
 	else
 		return found->CurrentRendertargetSize;
 }
@@ -2796,27 +2924,6 @@ void COpenGLDriver::enableClipPlane(uint32_t index, bool enable)
 		glDisable(GL_CLIP_DISTANCE0 + index);
 }
 
-/*
-GLenum COpenGLDriver::getGLBlend(E_BLEND_FACTOR factor) const
-{
-	GLenum r = 0;
-	switch (factor)
-	{
-		case EBF_ZERO:			r = GL_ZERO; break;
-		case EBF_ONE:			r = GL_ONE; break;
-		case EBF_DST_COLOR:		r = GL_DST_COLOR; break;
-		case EBF_ONE_MINUS_DST_COLOR:	r = GL_ONE_MINUS_DST_COLOR; break;
-		case EBF_SRC_COLOR:		r = GL_SRC_COLOR; break;
-		case EBF_ONE_MINUS_SRC_COLOR:	r = GL_ONE_MINUS_SRC_COLOR; break;
-		case EBF_SRC_ALPHA:		r = GL_SRC_ALPHA; break;
-		case EBF_ONE_MINUS_SRC_ALPHA:	r = GL_ONE_MINUS_SRC_ALPHA; break;
-		case EBF_DST_ALPHA:		r = GL_DST_ALPHA; break;
-		case EBF_ONE_MINUS_DST_ALPHA:	r = GL_ONE_MINUS_DST_ALPHA; break;
-		case EBF_SRC_ALPHA_SATURATE:	r = GL_SRC_ALPHA_SATURATE; break;
-	}
-	return r;
-}*/
-
 
 } // end namespace
 } // end namespace
@@ -2834,7 +2941,7 @@ namespace video
 // -----------------------------------
 #ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
-	io::IFileSystem* io, CIrrDeviceWin32* device, const const asset::IGLSLCompiler* glslcomp)
+	io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp)
 {
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device, glslcomp);
@@ -2851,33 +2958,18 @@ IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
 #endif // _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 
 // -----------------------------------
-// MACOSX VERSION
-// -----------------------------------
-#if defined(_IRR_COMPILE_WITH_OSX_DEVICE_)
-IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceMacOSX *device)
-{
-#ifdef _IRR_COMPILE_WITH_OPENGL_
-	return new COpenGLDriver(params, io, device);
-#else
-	return 0;
-#endif //  _IRR_COMPILE_WITH_OPENGL_
-}
-#endif // _IRR_COMPILE_WITH_OSX_DEVICE_
-
-// -----------------------------------
 // X11 VERSION
 // -----------------------------------
 #ifdef _IRR_COMPILE_WITH_X11_DEVICE_
 IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceLinux* device
+		io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 		, COpenGLDriver::SAuxContext* auxCtxts
 #endif // _IRR_COMPILE_WITH_OPENGL_
         )
 {
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device);
+	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device, glslcomp);
 	if (!ogl->initDriver(device,auxCtxts))
 	{
 		ogl->drop();

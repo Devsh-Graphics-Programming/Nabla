@@ -47,17 +47,6 @@ namespace scene
 
         virtual IrrlichtDevice* getDevice() override;
 
-		//! adds a cube scene node to the scene. It is a simple cube of (1,1,1) size.
-		//! the returned pointer must not be dropped.
-		virtual IMeshSceneNode* addCubeSceneNode(float size=10.0f, IDummyTransformationSceneNode* parent=0, int32_t id=-1,
-			const core::vector3df& position = core::vector3df(0,0,0),	const core::vector3df& rotation = core::vector3df(0,0,0),	const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f));
-
-		//! Adds a sphere scene node to the scene.
-		virtual IMeshSceneNode* addSphereSceneNode(float radius=5.0f, int32_t polyCount=16, IDummyTransformationSceneNode* parent=0, int32_t id=-1,
-			const core::vector3df& position = core::vector3df(0,0,0),
-			const core::vector3df& rotation = core::vector3df(0,0,0),
-			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f));
-
         //!
         virtual ISkinnedMeshSceneNode* addSkinnedMeshSceneNode(
 			core::smart_refctd_ptr<video::IGPUSkinnedMesh>&& mesh,
