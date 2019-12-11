@@ -24,16 +24,20 @@ namespace irr
 {
 	namespace asset
 	{
+		using namespace IMF;
+		using namespace IMATH;
+
 		asset::SAssetBundle CImageLoaderOpenEXR::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
 			if (!_file)
 				return {};
 
-			SContext ctx;
 			const auto& fileName = _file->getFileName().c_str();
 
-			if (!readMagicNumber())
+			if (isALoadableFileFormat(_file))
 				return {};
+
+			SContext ctx;
 
 			readVersionField();
 			readHeader(fileName, ctx);
@@ -50,7 +54,24 @@ namespace irr
 
 		bool CImageLoaderOpenEXR::isALoadableFileFormat(io::IReadFile* _file) const
 		{
-			return true;
+			const size_t begginingOfFile = _file->getPos();
+
+			unsigned char magicNumberBuffer[sizeof(SContext::magicNumber)];
+			_file->read(magicNumberBuffer, sizeof(SContext::magicNumber));
+			_file->seek(begginingOfFile);
+
+			auto deserializeToReadMagicValue = [&](unsigned char* buffer)
+			{
+				uint32_t value = 0ul;
+				value |= buffer[0] << 24 | buffer[1] << 16 | buffer[2] << 8 | buffer[3];
+				return value;
+			};
+
+			auto magicNumberToCompare = deserializeToReadMagicValue(magicNumberBuffer);
+			if (magicNumberToCompare == SContext::magicNumber)
+				return true;
+			else
+				return false;
 		}
 
 		void CImageLoaderOpenEXR::readRgba(const char fileName[], Array2D<Rgba>& pixels, int& width, int& height)
@@ -69,22 +90,22 @@ namespace irr
 			RgbaInputFile file(fileName);
 			auto& attribs = ctx.attributes;
 
-			attribs.channels = file.header().findTypedAttribute <ChannelsAttribute>("channels");
-			attribs.compression = file.header().findTypedAttribute <CompressionAttribute>("compression");
-			attribs.dataWindow = file.header().findTypedAttribute <Box2i>("dataWindow");
-			attribs.displayWindow = file.header().findTypedAttribute <Box2i>("displayWindow");
-			attribs.lineOrder = file.header().findTypedAttribute <LineOrderAttribute>("lineOrder");
-			attribs.pixelAspectRatio = file.header().findTypedAttribute <float>("pixelAspectRatio");
-			attribs.screenWindowCenter = file.header().findTypedAttribute <V2fAttribute>("screenWindowCenter");
-			attribs.screenWindowWidth = file.header().findTypedAttribute <float>("screenWindowWidth");
+			attribs.channels = file.header().findTypedAttribute<Channel>("channels");
+			attribs.compression = file.header().findTypedAttribute<Compression>("compression");
+			attribs.dataWindow = file.header().findTypedAttribute<Box2i>("dataWindow");
+			attribs.displayWindow = file.header().findTypedAttribute<Box2i>("displayWindow");
+			attribs.lineOrder = file.header().findTypedAttribute<LineOrder>("lineOrder");
+			attribs.pixelAspectRatio = file.header().findTypedAttribute<float>("pixelAspectRatio");
+			attribs.screenWindowCenter = file.header().findTypedAttribute<V2f>("screenWindowCenter");
+			attribs.screenWindowWidth = file.header().findTypedAttribute<float>("screenWindowWidth");
 
-			attribs.name = file.header().findTypedAttribute <string>("name");
-			attribs.type = file.header().findTypedAttribute <string>("type");
-			attribs.version = file.header().findTypedAttribute <int>("version");
-			attribs.chunkCount = file.header().findTypedAttribute <int>("chunkCount");
-			attribs.maxSamplesPerPixel = file.header().findTypedAttribute <int>("maxSamplesPerPixel");
-			attribs.tiles = file.header().findTypedAttribute <TiledescAttribute>("tiles");
-			attribs.view = file.header().findTypedAttribute <TextAttribute>("view");
+			attribs.name = file.header().findTypedAttribute<std::string>("name");
+			attribs.type = file.header().findTypedAttribute<std::string>("type");
+			attribs.version = file.header().findTypedAttribute<int>("version");
+			attribs.chunkCount = file.header().findTypedAttribute<int>("chunkCount");
+			attribs.maxSamplesPerPixel = file.header().findTypedAttribute<int>("maxSamplesPerPixel");
+			attribs.tiles = file.header().findTypedAttribute<TileDescription>("tiles");
+			attribs.view = file.header().findTypedAttribute<std::string>("view");
 
 			// TODO - perform validation if needed
 			return true;
