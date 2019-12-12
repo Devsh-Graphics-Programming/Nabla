@@ -229,19 +229,36 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	// read _file parameters with jpeg_read_header()
 	jpeg_read_header(&cinfo, TRUE);
 
+    uint32_t imageSize[3] = { cinfo.image_width,cinfo.image_height,1 };
+    const uint32_t& width = imageSize[0];
+    const uint32_t& height = imageSize[1];
+
+    ICPUImage::SCreationParams imgInfo;
+    imgInfo.type = ICPUImage::ET_2D;
+    imgInfo.extent.width = width;
+    imgInfo.extent.height = height;
+    imgInfo.extent.depth = 1u;
+    imgInfo.mipLevels = 1u;
+    imgInfo.arrayLayers = 1u;
+    imgInfo.samples = ICPUImage::ESCF_1_BIT;
+    imgInfo.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
+
 	switch (cinfo.jpeg_color_space)
 	{
 		case JCS_GRAYSCALE:
 			cinfo.out_color_components = 1;
 			cinfo.output_gamma = 1.0; // output_gamma is a dead variable in libjpegturbo and jpeglib
+            imgInfo.format = EF_R8_SRGB;
 			break;
 		case JCS_RGB:
 			cinfo.out_color_components = 3;
-			cinfo.output_gamma = 2.2333333f; // output_gamma is a dead variable in libjpegturbo and jpeglib
+			cinfo.output_gamma = 2.2333333; // output_gamma is a dead variable in libjpegturbo and jpeglib
+            imgInfo.format = EF_R8G8B8_SRGB;
 			break;
 		case JCS_YCbCr:
 			cinfo.out_color_components = 3;
-			cinfo.output_gamma = 2.2333333f; // output_gamma is a dead variable in libjpegturbo and jpeglib
+			cinfo.output_gamma = 2.2333333; // output_gamma is a dead variable in libjpegturbo and jpeglib
+            imgInfo.format = EF_R8G8B8_SRGB;
 			// it seems that libjpeg does Y'UV to R'G'B'conversion automagically
 			// however be prepared that the colors might be a bit "off"
 			// https://en.wikipedia.org/wiki/YCbCr#JPEG_conversion
@@ -274,12 +291,38 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	
 	// Get image data
 	uint32_t rowspan = cinfo.image_width * cinfo.out_color_components;
-	uint32_t imageSize[3] = {cinfo.image_width,cinfo.image_height,1};
-	uint32_t& width = imageSize[0];
-	uint32_t& height = imageSize[1];
+
+    // OpenGL cannot transfer rows with arbitrary padding
+    static const uint32_t MAX_PITCH_ALIGNMENT = 8u;
+    // try with largest alignment first
+    auto calcPitchInBlocks = [](uint32_t width, uint32_t blockByteSize) -> uint32_t
+    {
+        auto rowByteSize = width * blockByteSize;
+        for (uint32_t _alignment = MAX_PITCH_ALIGNMENT; _alignment > 1u; _alignment >>= 1u)
+        {
+            auto paddedSize = core::alignUp(rowByteSize, _alignment);
+            if (paddedSize % blockByteSize)
+                continue;
+            return paddedSize / blockByteSize;
+        }
+        return width;
+    };
+
+    core::smart_refctd_ptr<ICPUImage> image = ICPUImage::create(std::move(imgInfo));
 
 	// Allocate memory for buffer
-	auto output = core::make_smart_refctd_ptr<asset::ICPUBuffer>(rowspan*height);
+	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(rowspan*height);
+    auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
+    ICPUImage::SBufferCopy& region = regions->front();
+    //region.imageSubresource.aspectMask = ...; //waits for Vulkan
+    region.imageSubresource.mipLevel = 0u;
+    region.imageSubresource.baseArrayLayer = 0u;
+    region.imageSubresource.layerCount = 1u;
+    region.bufferOffset = 0u;
+    region.bufferRowLength = calcPitchInBlocks(width, getTexelOrBlockBytesize(image->getCreationParameters().format));
+    region.bufferImageHeight = 0u; //tightly packed
+    region.imageOffset = { 0u, 0u, 0u };
+    region.imageExtent = image->getCreationParameters().extent;
 
 	// Here we use the library's state variable cinfo.output_scanline as the
 	// loop counter, so that we don't have to keep track ourselves.
@@ -287,7 +330,9 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	constexpr uint32_t MaxJPEGResolution = 65535u;
 	uint8_t* rowPtr[MaxJPEGResolution];
 	for (uint32_t i = 0; i < height; ++i)
-		rowPtr[i] = &reinterpret_cast<uint8_t*>(output->getPointer())[i*rowspan];
+		rowPtr[i] = &reinterpret_cast<uint8_t*>(buffer->getPointer())[i*rowspan];
+
+    image->setBufferAndRegions(std::move(buffer), regions);
 
 	// Read rows from bottom order to match OpenGL coords
 	uint32_t rowsRead = 0;
@@ -297,34 +342,8 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	// Finish decompression
 	jpeg_finish_decompress(&cinfo);
 	
-#ifndef NEW_SHADERS
-	asset::CImageData* image = nullptr;
-	uint32_t nullOffset[3] = {0,0,0};
-	switch (cinfo.jpeg_color_space)
-	{
-		case JCS_GRAYSCALE:
-			// https://github.com/buildaworldnet/IrrlichtBAW/pull/273#issuecomment-491492010
-			image = new asset::CImageData(output->getPointer(),nullOffset,imageSize,0u,asset::EF_R8_SRGB,1);
-			break;
-		case JCS_RGB:
-			image = new asset::CImageData(output->getPointer(),nullOffset,imageSize,0u,asset::EF_R8G8B8_SRGB,1);
-			break;
-		case JCS_YCbCr:
-			// libjpeg does implicit conversion to R'G'B'
-			image = new asset::CImageData(output->getPointer(),nullOffset,imageSize,0u,asset::EF_R8G8B8_SRGB,1);
-			break;
-		default: // should never get here
-			os::Printer::log("Unsupported color space, operation aborted.", ELL_ERROR);
-            return {};
-			break;
-	}
+    return SAssetBundle({image});
 
-	ICPUTexture* tex = ICPUTexture::create({image}, _file->getFileName().c_str());
-	image->drop();
-    return SAssetBundle({core::smart_refctd_ptr<IAsset>(tex, core::dont_grab)});
-#else//NEW_SHADERS
-    return {};
-#endif//NEW_SHADERS
 #endif
 }
 

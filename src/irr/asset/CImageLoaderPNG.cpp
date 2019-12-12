@@ -201,7 +201,6 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	}
 
 	// Create the image structure to be filled by png data
-	uint32_t nullOffset[3] = {0,0,0};
     ICPUImage::SCreationParams imgInfo;
     imgInfo.type = ICPUImage::ET_2D;
     imgInfo.extent.width = Width;
