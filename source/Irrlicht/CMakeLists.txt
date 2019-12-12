@@ -34,6 +34,11 @@ endif()
 # include utility macros/functions
 include(common)
 
+#[[ Loaders and writers compile options available to edit by user
+	All revelant _IRR_COMPILE_WITH will be there]]
+option(_IRR_COMPILE_WITH_OPENEXR_LOADER_ "Compile with OpenEXR Loader" ON)
+option(_IRR_COMPILE_WITH_OPENEXR_WRITER_ "Compile with OpenEXR Writer" ON)
+
 irr_get_conf_dir(IRRLICHT_CONF_DIR_DEBUG Debug)
 irr_get_conf_dir(IRRLICHT_CONF_DIR_RELEASE Release)
 
@@ -187,6 +192,7 @@ set(IRRLICHT_SRCS_SERVER
 set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/convertutf
 	${THIRD_PARTY_SOURCE_DIR}/utfcpp/source
+	${CMAKE_BINARY_DIR}/3rdparty/zlib #for dynamically generated zconf.h
 	${CMAKE_BINARY_DIR}/3rdparty/openexr/IlmBase/config #for dynamically generated IlmBaseConfig.h
 	${CMAKE_BINARY_DIR}/3rdparty/openexr/OpenEXR/config #for dynamically generated OpenEXRConfig.h
 	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h

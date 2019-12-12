@@ -20,6 +20,8 @@ SOFTWARE.
 
 #include "CImageLoaderOpenEXR.h"
 
+#ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
+
 namespace irr
 {
 	namespace asset
@@ -112,3 +114,5 @@ namespace irr
 		}
 	}
 }
+
+#endif // #ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_

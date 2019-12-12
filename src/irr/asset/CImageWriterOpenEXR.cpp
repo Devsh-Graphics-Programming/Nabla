@@ -20,6 +20,8 @@ SOFTWARE.
 
 #include "CImageWriterOpenEXR.h"
 
+#ifdef _IRR_COMPILE_WITH_OPENEXR_WRITER_
+
 namespace irr
 {
 	namespace asset
@@ -33,3 +35,5 @@ namespace irr
 		}
 	}
 }
+
+#endif // _IRR_COMPILE_WITH_OPENEXR_WRITER_

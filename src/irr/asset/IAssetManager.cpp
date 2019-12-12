@@ -39,9 +39,9 @@
 #include "irr/asset/CImageLoaderTGA.h"
 #endif
 
-//#ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
+#ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
 #include "irr/asset/CImageLoaderOpenEXR.h"
-//#endif
+#endif
 
 #ifdef _IRR_COMPILE_WITH_STL_WRITER_
 #include "irr/asset/CSTLMeshWriter.h"
@@ -67,9 +67,9 @@
 #include "irr/asset/CImageWriterPNG.h"
 #endif
 
-//#ifdef _IRR_COMPILE_WITH_OPENEXR_WRITER_
+#ifdef _IRR_COMPILE_WITH_OPENEXR_WRITER_
 #include "irr/asset/CImageWriterOpenEXR.h"
-//#endif
+#endif
 
 using namespace irr;
 using namespace asset;
@@ -127,9 +127,9 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _IRR_COMPILE_WITH_PNG_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderPng>());
 #endif
-//#ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
+#ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderOpenEXR>());
-//#endif
+#endif
 #ifdef _IRR_COMPILE_WITH_TGA_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>());
 #endif
@@ -151,7 +151,7 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _IRR_COMPILE_WITH_PNG_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterPNG>());
 #endif
-//#ifdef _IRR_COMPILE_WITH_OPENEXR_WRITER_
+#ifdef _IRR_COMPILE_WITH_OPENEXR_WRITER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageWriterOpenEXR>());
-//#endif
+#endif
 }

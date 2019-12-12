@@ -4,6 +4,10 @@
 
 #pragma once
 
+#include "IrrCompileConfig.h"
+
+#ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
+
 #include "irr/asset/IAssetLoader.h"
 
 #include "openexr/IlmBase/Imath/ImathBox.h"
@@ -102,3 +106,5 @@ namespace irr
 		};
 	}
 }
+
+#endif // _IRR_COMPILE_WITH_OPENEXR_LOADER_
