@@ -398,7 +398,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file)
                     else
                         buffer->setIndexType(asset::EIT_16BIT);
 
-                    buffer->setMeshDataAndFormat(std::move(desc));
+                    buffer->setMeshDataAndFormat(core::smart_refctd_ptr(desc));
 
                     if (i>0)
                     {

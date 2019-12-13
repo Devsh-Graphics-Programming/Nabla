@@ -1,7 +1,6 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 
-#include "../ext/ScreenShot/ScreenShot.h"
 #include "../common/QToQuitEventReceiver.h"
 
 // TODO: remove dependency
@@ -173,13 +172,6 @@ int main()
 			device->setWindowCaption(sstr.str().c_str());
 			lastFPSTime = time;
 		}
-	}
-
-
-	//create a screenshot
-	{
-		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
-		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
 	}
 
     

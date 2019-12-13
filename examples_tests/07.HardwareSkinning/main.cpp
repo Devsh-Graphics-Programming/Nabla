@@ -124,7 +124,7 @@ int main()
 			instancesToRemove[x + kInstanceSquareSize*z] = anode = smgr->addSkinnedMeshSceneNode(core::smart_refctd_ptr_static_cast<video::IGPUSkinnedMesh>(gpumesh));
 			anode->setScale(core::vector3df(0.05f));
 			anode->setPosition(core::vector3df(x, 0.f, z)*4.f);
-			anode->setAnimationSpeed(18.f*float(x + 1 + (z + 1)*kInstanceSquareSize) / float(kInstanceSquareSize*kInstanceSquareSize));
+			anode->setAnimationSpeed(18.f * float(x + 1 + (z + 1) * kInstanceSquareSize) / float(kInstanceSquareSize * kInstanceSquareSize));
 			setMaterialTypeAndBufferViewOnAllMaterials(anode->getMesh(),newMaterialType,anode->getBonePoseTBO());
 		}
 	}
@@ -162,7 +162,7 @@ int main()
 	//create a screenshot
 	{
 		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
-		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(driver, device->getAssetManager(), "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
 	}
 
 	device->drop();
