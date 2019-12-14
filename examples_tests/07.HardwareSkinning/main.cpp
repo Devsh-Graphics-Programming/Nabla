@@ -106,26 +106,25 @@ int main()
 	if (cpumesh&&cpumesh->getMeshType() == asset::EMT_ANIMATED_SKINNED)
 	{
 		scene::ISkinnedMeshSceneNode* anode = 0;
-		auto gpumesh = std::move(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)->operator[](0u));
 
-		auto setMaterialTypeAndBufferViewOnAllMaterials = [](auto* mesh, auto newMaterialType, auto* tbo)
-		{
-			for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
-			{
-				auto& material = mesh->getMeshBuffer(i)->getMaterial();
-				material.MaterialType = newMaterialType;
-				material.setTexture(3u, core::smart_refctd_ptr<video::ITextureBufferObject>(tbo));
-			}
-		};
-
+		auto manipulator = device->getAssetManager()->getMeshManipulator();
 		for (size_t x = 0; x<kInstanceSquareSize; x++)
 		for (size_t z = 0; z<kInstanceSquareSize; z++)
 		{
+			auto duplicate = manipulator->createMeshDuplicate(cpumesh.get());
+
+			auto gpumesh = std::move(driver->getGPUObjectsFromAssets(&duplicate.get(), &duplicate.get()+1)->operator[](0u));
+			
 			instancesToRemove[x + kInstanceSquareSize*z] = anode = smgr->addSkinnedMeshSceneNode(core::smart_refctd_ptr_static_cast<video::IGPUSkinnedMesh>(gpumesh));
 			anode->setScale(core::vector3df(0.05f));
 			anode->setPosition(core::vector3df(x, 0.f, z)*4.f);
-			anode->setAnimationSpeed(18.f * float(x + 1 + (z + 1) * kInstanceSquareSize) / float(kInstanceSquareSize * kInstanceSquareSize));
-			setMaterialTypeAndBufferViewOnAllMaterials(anode->getMesh(),newMaterialType,anode->getBonePoseTBO());
+			anode->setAnimationSpeed(18.f*float(x + 1 + (z + 1)*kInstanceSquareSize) / float(kInstanceSquareSize*kInstanceSquareSize));
+			for (auto i = 0u; i < gpumesh->getMeshBufferCount(); i++)
+			{
+				auto& material = gpumesh->getMeshBuffer(i)->getMaterial();
+				material.MaterialType = newMaterialType;
+				material.setTexture(3u, core::smart_refctd_ptr<video::ITextureBufferObject>(anode->getBonePoseTBO()));
+			}
 		}
 	}
 

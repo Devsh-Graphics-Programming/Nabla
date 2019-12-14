@@ -114,6 +114,32 @@ namespace asset
 
 		static core::smart_refctd_ptr<ICPUMeshBuffer> createMeshBufferDuplicate(const ICPUMeshBuffer* _src);
 
+		static inline core::smart_refctd_ptr<ICPUMesh> createMeshDuplicate(const ICPUMesh* _src)
+		{
+			if (!_src)
+				return nullptr;
+	
+			core::smart_refctd_ptr<ICPUMesh> dst;
+			if (_src->getMeshType() == EMT_ANIMATED_SKINNED)
+			{
+				auto tmp = core::make_smart_refctd_ptr<CCPUSkinnedMesh>();
+				//! TODO: do deep armature and keyframe copy
+				tmp->setBoneReferenceHierarchy(core::smart_refctd_ptr<CFinalBoneHierarchy>(static_cast<const ICPUSkinnedMesh*>(_src)->getBoneReferenceHierarchy()));
+				for (auto i=0u; i<_src->getMeshBufferCount(); i++)
+					tmp->addMeshBuffer(core::smart_refctd_ptr_static_cast<ICPUSkinnedMeshBuffer>(createMeshBufferDuplicate(_src->getMeshBuffer(i))));
+				dst = std::move(tmp);
+			}
+			else
+			{
+				auto tmp = core::make_smart_refctd_ptr<CCPUMesh>();
+				for (auto i = 0u; i < _src->getMeshBufferCount(); i++)
+					tmp->addMeshBuffer(createMeshBufferDuplicate(_src->getMeshBuffer(i)));
+				dst = std::move(tmp);
+			}
+
+			return dst;
+		}
+
         //! Creates new index buffer with invalid triangles removed.
         /**
         Invalid triangle is such consisting of two or more same indices.
