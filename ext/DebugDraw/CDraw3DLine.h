@@ -10,26 +10,6 @@ namespace ext
 namespace DebugDraw
 {
 
-class Draw3DLineCallBack : public video::IShaderConstantSetCallBack
-{
-    int32_t mvpUniformLocation;
-    video::E_SHADER_CONSTANT_TYPE mvpUniformType;
-public:
-    Draw3DLineCallBack() : mvpUniformLocation(-1), mvpUniformType(video::ESCT_FLOAT_VEC3) {}
-
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
-    {
-        mvpUniformLocation = constants[0].location;
-        mvpUniformType = constants[0].type;
-    }
-
-    virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
-    {
-        services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),mvpUniformLocation,mvpUniformType,1);
-    }
-
-    virtual void OnUnsetMaterial() {}
-};
 
 #include "irr/irrpack.h"
 struct S3DLineVertex
@@ -44,13 +24,13 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
     public:
         static core::smart_refctd_ptr<CDraw3DLine> create(video::IVideoDriver* _driver);
 
-        void draw(
+        void draw(const core::matrix4SIMD& viewProjMat,
             float fromX, float fromY, float fromZ,
             float toX, float toY, float toZ,
             float r, float g, float b, float a
         );
 
-        void draw(const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData);
+        void draw(const core::matrix4SIMD& viewProjMat, const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData);
 
 		inline void enqueueBox(core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData, const core::aabbox3df& box, float r, float g, float b, float a, const core::matrix4x3& tform=core::matrix4x3())
 		{
@@ -85,7 +65,6 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 		virtual ~CDraw3DLine() {}
 
         core::smart_refctd_ptr<video::IVideoDriver> m_driver;
-        video::SGPUMaterial m_material;
         core::smart_refctd_ptr<video::IGPUMeshBuffer> m_meshBuffer;
         const uint32_t alignments[1] = { sizeof(S3DLineVertex) };
 };

@@ -21,7 +21,6 @@
 #include "irr/asset/ICPUImage.h"
 #include "irr/asset/ICPUImageView.h"
 // shaders
-#include "irr/asset/ShaderCommons.h"
 #include "irr/asset/ShaderRes.h"
 #include "irr/asset/IIncluder.h"
 #include "irr/asset/IIncludeHandler.h"

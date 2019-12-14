@@ -277,7 +277,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         virtual core::smart_refctd_ptr<IGPUShader> createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>&& _cpushader) { return nullptr; }
 
 		//! Specialize the plain shader (@see ICPUSpecializedShader)
-        virtual core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializationInfo* _specInfo) { return nullptr; }
+        virtual core::smart_refctd_ptr<IGPUSpecializedShader> createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo) { return nullptr; }
 
 		//! Create a descriptor set layout (@see ICPUDescriptorSetLayout)
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createGPUDescriptorSetLayout(const IGPUDescriptorSetLayout::SBinding* _begin, const IGPUDescriptorSetLayout::SBinding* _end) { return nullptr; }

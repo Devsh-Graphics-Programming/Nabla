@@ -5,7 +5,9 @@
 #include "CObjectCache.h"
 #include "irr/asset/IBuiltinIncludeLoader.h"
 
-namespace irr { namespace asset
+namespace irr
+{
+namespace asset
 {
 
 class CBuiltinIncluder : public IIncluder
@@ -25,26 +27,25 @@ public:
     //! No-op, cannot add search dirs to includer of builtins
     void addSearchDirectory(const std::string& _searchDir) override {}
 
-    void addBuiltinLoader(IBuiltinIncludeLoader* _loader)
+    void addBuiltinLoader(core::smart_refctd_ptr<IBuiltinIncludeLoader>&& _loader)
     {
         using namespace std::string_literals;
         if (!_loader)
             return;
 
-        m_loaders.insert("/irr/builtin/"s + _loader->getVirtualDirectoryName(), _loader);
+        m_loaders.insert(std::string(IIncludeHandler::BUILTIN_PREFIX) + _loader->getVirtualDirectoryName(), _loader.get());
     }
 
 protected:
     std::string getInclude_internal(const std::string& _path) const override
     {
-        const char* PREFIX = "/irr/builtin/";
-        if (_path.compare(0, strlen(PREFIX), PREFIX) != 0)
+        if (_path.compare(0, strlen(IIncludeHandler::BUILTIN_PREFIX), IIncludeHandler::BUILTIN_PREFIX) != 0)
             return {};
 
         std::string path = _path.substr(0, _path.find_last_of('/')+1);
 
         std::string res;
-        while (path != PREFIX) // going up the directory tree
+        while (path != IIncludeHandler::BUILTIN_PREFIX) // going up the directory tree
         {
             auto capableLoadersRng = m_loaders.findRange(path);
             for (auto loaderItr = capableLoadersRng.first; loaderItr != capableLoadersRng.second; ++loaderItr)

@@ -29,8 +29,8 @@ int32_t CNullDriver::incrementAndFetchReallocCounter()
 }
 
 //! constructor
-CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
-			: IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), ScreenSize(screenSize), PrimitivesDrawn(0)
+CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const SIrrlichtCreationParameters& _params)
+			: IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), Params(_params), PrimitivesDrawn(0), DerivativeMapCreator()
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("CNullDriver");
@@ -39,7 +39,7 @@ CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::d
     for (size_t i = 0; i < EQOT_COUNT; i++)
         currentQuery[i] = nullptr;
 
-	ViewPort = core::rect<int32_t>(core::position2d<int32_t>(0,0), core::dimension2di(screenSize));
+	ViewPort = core::rect<int32_t>(core::position2d<int32_t>(0,0), Params.WindowSize);
 
 
 	if (FileSystem)
@@ -86,6 +86,112 @@ CNullDriver::~CNullDriver()
 		FileSystem->drop();
 }
 
+//!
+bool CNullDriver::genericDriverInit(asset::IAssetManager* assMgr)
+{
+	core::stringw namePrint = L"Using renderer: ";
+	namePrint += getName();
+	os::Printer::log(namePrint.c_str(), ELL_INFORMATION);
+
+	// down
+	{
+		auto reqs = getDownStreamingMemoryReqs();
+		reqs.vulkanReqs.size = Params.StreamingDownloadBufferSize;
+		reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
+		defaultDownloadBuffer = core::make_smart_refctd_ptr<video::StreamingTransientDataBufferMT<> >(this, reqs);
+	}
+	// up
+	{
+		auto reqs = getUpStreamingMemoryReqs();
+		reqs.vulkanReqs.size = Params.StreamingUploadBufferSize;
+		reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
+		defaultUploadBuffer = core::make_smart_refctd_ptr < video::StreamingTransientDataBufferMT<> >(this, reqs);
+	}
+
+
+	auto addBuiltInToCaches = [&](auto asset, const char* path) -> void
+	{
+		asset::SAssetBundle bundle({asset});
+		assMgr->changeAssetKey(bundle,path);
+		assMgr->insertAssetIntoCache(bundle);
+		auto objects = getGPUObjectsFromAssets(&asset.get(),&asset.get()+1);
+		assMgr->convertAssetToEmptyCacheHandle(asset.get(),std::move(objects->front()));
+	};
+	// materials
+	{
+		//
+		auto buildInShader = [&](const char* source, asset::ISpecializedShader::E_SHADER_STAGE type, const char* path) -> void
+		{
+			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(core::make_smart_refctd_ptr<asset::ICPUShader>(source),
+																					asset::ISpecializedShader::SInfo({},nullptr,"main",type));
+			addBuiltInToCaches(shader,path);
+		};
+		buildInShader(R"===(
+#version 430 core
+layout(location = 0) in vec3 vPos;
+layout(location = 2) in vec2 vTexCoord;
+
+layout(push_constant, row_major) uniform Block {
+	mat4 modelViewProj;
+} PushConstants;
+
+layout(location = 0) out vec2 uv;
+
+void main()
+{
+    gl_Position = PushConstants.modelViewProj*vec4(vPos,1.0);
+	uv = vTexCoord;
+}
+		)===",asset::ISpecializedShader::ESS_VERTEX,"irr/builtin/materials/lambertian/singletexture/specializedshader");
+		buildInShader(R"===(
+#version 430 core
+
+layout(set = 0, binding = 0) uniform sampler2D albedo;
+
+layout(location = 0) in vec2 uv;
+
+layout(location = 0) out vec4 pixelColor;
+
+void main()
+{
+    pixelColor = texture(albedo,uv);
+}
+		)===",asset::ISpecializedShader::ESS_VERTEX,"irr/builtin/materials/lambertian/singletexture/specializedshader");
+
+		constexpr uint32_t bindingCount = 1u;
+		asset::ICPUDescriptorSetLayout::SBinding pBindings[bindingCount] = {0u,asset::EDT_COMBINED_IMAGE_SAMPLER,1u,asset::ISpecializedShader::ESS_FRAGMENT,nullptr};
+		auto dsLayout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(pBindings,pBindings+bindingCount);
+		addBuiltInToCaches(dsLayout,"irr/builtin/materials/lambertian/singletexture/descriptorsetlayout/2");
+		//
+		constexpr uint32_t pcCount = 1u;
+		asset::SPushConstantRange pcRanges[pcCount] = {asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
+		auto pLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(pcRanges,pcRanges+pcCount,nullptr,nullptr,core::smart_refctd_ptr(dsLayout),nullptr);
+		addBuiltInToCaches(pLayout,"irr/builtin/materials/lambertian/singletexture/pipelinelayout");
+	}
+
+	// samplers
+	{
+		asset::ISampler::SParams params;
+		params.TextureWrapU = asset::ISampler::ETC_REPEAT;
+		params.TextureWrapV = asset::ISampler::ETC_REPEAT;
+		params.TextureWrapW = asset::ISampler::ETC_REPEAT;
+		params.BorderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+		params.MinFilter = asset::ISampler::ETF_LINEAR;
+		params.MaxFilter = asset::ISampler::ETF_LINEAR;
+		params.MipmapMode = asset::ISampler::ESMM_LINEAR;
+		params.CompareEnable = false;
+		params.CompareFunc = asset::ISampler::ECO_ALWAYS;
+		params.AnisotropicFilter = 4u;
+		auto sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
+		addBuiltInToCaches(sampler,"irr/builtin/samplers/default");
+	}
+
+	DerivativeMapCreator = core::make_smart_refctd_ptr<CDerivativeMapCreator>(this);
+
+	return true;
+}
+
+
 //! applications must call this method before performing any rendering. returns false if failed.
 bool CNullDriver::beginScene(bool backBuffer, bool zBuffer, SColor color,
 		const SExposedVideoData& videoData, core::rect<int32_t>* sourceRect)
@@ -101,14 +207,6 @@ bool CNullDriver::endScene()
 	FPSCounter.registerFrame(std::chrono::high_resolution_clock::now(), PrimitivesDrawn);
 
 	return true;
-}
-
-void CNullDriver::removeFrameBuffer(IFrameBuffer* framebuf)
-{
-}
-
-void CNullDriver::removeAllFrameBuffers()
-{
 }
 
 void CNullDriver::bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** _destPplnLayouts)
@@ -138,20 +236,6 @@ void CNullDriver::bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayou
             _destPplnLayouts = nullptr;
 }
 
-
-//! sets a render target
-bool CNullDriver::setRenderTarget(video::IFrameBuffer* texture, bool setNewViewport)
-{
-	return false;
-}
-
-
-//! sets a viewport
-void CNullDriver::setViewPort(const core::rect<int32_t>& area)
-{
-}
-
-
 //! gets the area of the current viewport
 const core::rect<int32_t>& CNullDriver::getViewPort() const
 {
@@ -168,7 +252,7 @@ asset::E_FORMAT CNullDriver::getColorFormat() const
 //! returns screen size
 const core::dimension2d<uint32_t>& CNullDriver::getScreenSize() const
 {
-	return ScreenSize;
+	return Params.WindowSize;
 }
 
 
@@ -176,7 +260,7 @@ const core::dimension2d<uint32_t>& CNullDriver::getScreenSize() const
 //! or the screen size if render targets are not implemented
 const core::dimension2d<uint32_t>& CNullDriver::getCurrentRenderTargetSize() const
 {
-	return ScreenSize;
+	return Params.WindowSize;
 }
 
 
@@ -264,7 +348,7 @@ void CNullDriver::endQuery(IQueryObject* query)
 //! the window was resized.
 void CNullDriver::OnResize(const core::dimension2d<uint32_t>& size)
 {
-	ScreenSize = size;
+	Params.WindowSize = size;
 }
 
 
@@ -281,64 +365,14 @@ E_DRIVER_TYPE CNullDriver::getDriverType() const
 	return EDT_NULL;
 }
 
-void CNullDriver::blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out, bool copyDepth, bool copyStencil,
-									core::recti srcRect, core::recti dstRect,
-									bool bilinearFilter)
-{
-}
-
-
-//! Clears the ZBuffer.
-void CNullDriver::clearZBuffer(const float &depth)
-{
-}
-void CNullDriver::clearStencilBuffer(const int32_t &stencil)
-{
-}
-void CNullDriver::clearZStencilBuffers(const float &depth, const int32_t &stencil)
-{
-}
-void CNullDriver::clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const int32_t* vals)
-{
-}
-void CNullDriver::clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const uint32_t* vals)
-{
-}
-void CNullDriver::clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const float* vals)
-{
-}
-void CNullDriver::clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals)
-{
-}
-void CNullDriver::clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals)
-{
-}
-
-
-// prints renderer version
-void CNullDriver::printVersion()
-{
-	core::stringw namePrint = L"Using renderer: ";
-	namePrint += getName();
-	os::Printer::log(namePrint.c_str(), ELL_INFORMATION);
-}
 
 //! creates a video driver
-IVideoDriver* createNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize)
+IVideoDriver* createNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const SIrrlichtCreationParameters& params)
 {
-	CNullDriver* nullDriver = new CNullDriver(dev, io, screenSize);
+	CNullDriver* nullDriver = new CNullDriver(dev, io, params);
 
 	return nullDriver;
 }
-
-
-
-//! Enable/disable a clipping plane.
-void CNullDriver::enableClipPlane(uint32_t index, bool enable)
-{
-	// not necessary
-}
-
 
 const uint32_t* CNullDriver::getMaxTextureSize(IGPUImageView::E_TYPE type) const
 {

@@ -2,7 +2,6 @@
 #define __IRR_I_DESCRIPTOR_SET_LAYOUT_H_INCLUDED__
 
 #include "irr/core/core.h"
-#include "irr/asset/ShaderCommons.h"
 #include "irr/core/SRange.h"
 
 namespace irr
@@ -36,7 +35,7 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 			uint32_t binding;
 			E_DESCRIPTOR_TYPE type;
 			uint32_t count;
-			E_SHADER_STAGE stageFlags;
+			ISpecializedShader::E_SHADER_STAGE stageFlags;
 			const core::smart_refctd_ptr<sampler_type>* samplers;
 
 			bool operator<(const SBinding& rhs) const

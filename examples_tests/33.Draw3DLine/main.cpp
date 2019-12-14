@@ -1,7 +1,6 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 
-#include "../../ext/ScreenShot/ScreenShot.h"
 #include "../../ext/DebugDraw/CDraw3DLine.h"
 
 #include "../common/QToQuitEventReceiver.h"
@@ -22,9 +21,9 @@ int main()
     params.Doublebuffer = true;
     params.Stencilbuffer = false;
     params.AuxGLContexts = 16;
-    IrrlichtDevice* device = createDeviceEx(params);
+    auto device = createDeviceEx(params);
 
-    if (device == 0)
+    if (!device)
         return 1;
 
     video::IVideoDriver* driver = device->getVideoDriver();
@@ -64,15 +63,17 @@ int main()
     {
         driver->beginScene(true, true, video::SColor(255,255,255,255));
 
-        smgr->drawAll();
+		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
+		camera->render();
+		core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
 
-        draw3DLine->draw(
+        draw3DLine->draw(mvp,
             0.f, 0.f, 0.f,   // start
             0.f, 100.f, 0.f, // end
             1.f, 0, 0, 1.f   // color
         );
 
-        draw3DLine->draw(lines); // multiple lines
+        draw3DLine->draw(mvp,lines); // multiple lines
 
         driver->endScene();
 
@@ -88,14 +89,6 @@ int main()
             lastFPSTime = time;
         }
     }
-
-    //create a screenshot
-	{
-		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
-		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
-	}
-
-    device->drop();
 
     return 0;
 }

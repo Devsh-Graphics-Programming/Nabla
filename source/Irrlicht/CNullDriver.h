@@ -30,23 +30,19 @@ class CNullDriver : public IVideoDriver
 		//! destructor
 		virtual ~CNullDriver();
 
+		//! inits the parts of the driver used on all platforms
+		virtual bool genericDriverInit(asset::IAssetManager* assMgr);
+
 	public:
         static FW_AtomicCounter ReallocationCounter;
         static int32_t incrementAndFetchReallocCounter();
 
 		//! constructor
-		CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const core::dimension2d<uint32_t>& screenSize);
+		CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const SIrrlichtCreationParameters& _params);
 
-        inline bool isAllowedBufferViewFormat(asset::E_FORMAT _fmt) const override { return false; }
-        inline bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const override { return false; }
-        inline bool isColorRenderableFormat(asset::E_FORMAT _fmt) const override { return false; }
-        inline bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const override { return false; }
-        inline bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const override { return false; }
-        inline bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const override { return false; }
+        bool bindGraphicsPipeline(const video::IGPURenderpassIndependentPipeline* _gpipeline) override { return false; }
 
-        bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) override { return false; }
-
-        bool bindComputePipeline(video::IGPUComputePipeline* _cpipeline) override { return false; }
+        bool bindComputePipeline(const video::IGPUComputePipeline* _cpipeline) override { return false; }
 
         bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
             uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) override 
@@ -115,33 +111,6 @@ class CNullDriver : public IVideoDriver
         //! GPU fence, is signalled when preceeding GPU work is completed
         virtual core::smart_refctd_ptr<IDriverFence> placeFence(const bool& implicitFlushWaitSameThread=false) override {return nullptr;}
 
-		//! Sets new multiple render targets.
-		virtual bool setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewport=true) override;
-
-		//! Clears the ZBuffer.
-		/** Note that you usually need not to call this method, as it
-		is automatically done in IVideoDriver::beginScene() or
-		IVideoDriver::setRenderTarget() if you enable zBuffer. But if
-		you have to render some special things, you can clear the
-		zbuffer during the rendering process with this method any time.
-		*/
-		virtual void clearZBuffer(const float &depth=0.0) override;
-
-		virtual void clearStencilBuffer(const int32_t &stencil) override;
-
-		virtual void clearZStencilBuffers(const float &depth, const int32_t &stencil) override;
-
-		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const int32_t* vals) override;
-		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const uint32_t* vals) override;
-		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const float* vals) override;
-
-		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals) override;
-		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals) override;
-
-
-		//! sets a viewport
-		virtual void setViewPort(const core::rect<int32_t>& area) override;
-
 		//! gets the area of the current viewport
 		virtual const core::rect<int32_t>& getViewPort() const override;
 
@@ -184,17 +153,7 @@ class CNullDriver : public IVideoDriver
 		//! driver, it would return "Direct3D8.1".
 		virtual const wchar_t* getName() const;
 
-		virtual void removeFrameBuffer(IFrameBuffer* framebuf);
-
-		virtual void removeAllFrameBuffers();
-
-		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
-                                        bool copyDepth=true, bool copyStencil=true,
-										core::recti srcRect=core::recti(0,0,0,0),
-										core::recti dstRect=core::recti(0,0,0,0),
-										bool bilinearFilter=false);
-
-	public:
+		//!
 		virtual void beginQuery(IQueryObject* query);
 		virtual void endQuery(IQueryObject* query);
 
@@ -208,12 +167,6 @@ class CNullDriver : public IVideoDriver
 		//! Returns type of video driver
 		virtual E_DRIVER_TYPE getDriverType() const override;
 
-		//! Enable/disable a clipping plane.
-		//! There are at least 6 clipping planes available for the user to set at will.
-		//! \param index: The plane index. Must be between 0 and MaxUserClipPlanes.
-		//! \param enable: If true, enable the clipping plane else disable it.
-		virtual void enableClipPlane(uint32_t index, bool enable);
-
 		//! Returns the graphics card vendor name.
 		virtual std::string getVendorInfo() {return "Not available on this driver.";}
 
@@ -221,53 +174,32 @@ class CNullDriver : public IVideoDriver
 		virtual const uint32_t* getMaxTextureSize(IGPUImageView::E_TYPE type) const override;
 
 		//!
-		virtual uint32_t getRequiredUBOAlignment() const override {return 0u;}
-
-		//!
-		virtual uint32_t getRequiredSSBOAlignment() const override {return 0u;}
-
-		//!
-		virtual uint32_t getRequiredTBOAlignment() const override {return 0u;}
-
-        virtual uint32_t getMaxComputeWorkGroupSize(uint32_t) const override { return 0u; }
-
-        virtual uint64_t getMaxUBOSize() const override { return 0ull; }
-
-        virtual uint64_t getMaxSSBOSize() const override { return 0ull; }
-
-        virtual uint64_t getMaxTBOSizeInTexels() const override { return 0ull; }
-
-        virtual uint64_t getMaxBufferSize() const override { return 0ull; }
-
-        uint32_t getMaxUBOBindings() const override { return 0u; }
-        uint32_t getMaxSSBOBindings() const override { return 0u; }
-        uint32_t getMaxTextureBindings() const override { return 0u; }
-        uint32_t getMaxTextureBindingsCompute() const override { return 0u; }
-        uint32_t getMaxImageBindings() const override { return 0u; }
+		const CDerivativeMapCreator* getDerivativeMapCreator() const override { return DerivativeMapCreator.get(); };
 
 	protected:
         void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count,
 										const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** _destPplnLayouts);
 
-		// prints renderer version
-		void printVersion();
+		SIrrlichtCreationParameters Params;
 
-    protected:
         IQueryObject* currentQuery[EQOT_COUNT];
 
 		io::IFileSystem* FileSystem;
 
 		core::rect<int32_t> ViewPort;
-		core::dimension2d<uint32_t> ScreenSize;
 
 		CFPSCounter FPSCounter;
 
 		uint32_t PrimitivesDrawn;
 
+		core::smart_refctd_ptr<CDerivativeMapCreator> DerivativeMapCreator;
+
 		SExposedVideoData ExposedData;
 
 		uint32_t MaxTextureSizes[IGPUImageView::ET_COUNT][3];
 	};
+
+	IVideoDriver* createNullDriver(IrrlichtDevice* device, io::IFileSystem* io, const SIrrlichtCreationParameters& screenSize);
 
 } // end namespace video
 } // end namespace irr

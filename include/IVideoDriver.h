@@ -42,22 +42,13 @@ namespace video
         IVideoDriver(IrrlichtDevice* _dev) : IDriver(_dev) {}
 
 
-
         virtual bool initAuxContext() = 0;
         virtual bool deinitAuxContext() = 0;
 
 
-        virtual bool isAllowedBufferViewFormat(asset::E_FORMAT _fmt) const = 0;
-        virtual bool isAllowedVertexAttribFormat(asset::E_FORMAT _fmt) const = 0;
-        virtual bool isColorRenderableFormat(asset::E_FORMAT _fmt) const = 0;
-        virtual bool isAllowedImageStoreFormat(asset::E_FORMAT _fmt) const = 0;
-        virtual bool isAllowedTextureFormat(asset::E_FORMAT _fmt) const = 0;
-        virtual bool isHardwareBlendableFormat(asset::E_FORMAT _fmt) const = 0;
+        virtual bool bindGraphicsPipeline(const video::IGPURenderpassIndependentPipeline* _gpipeline) = 0;
 
-
-        virtual bool bindGraphicsPipeline(video::IGPURenderpassIndependentPipeline* _gpipeline) = 0;
-
-        virtual bool bindComputePipeline(video::IGPUComputePipeline* _cpipeline) = 0;
+        virtual bool bindComputePipeline(const video::IGPUComputePipeline* _cpipeline) = 0;
 
         virtual bool bindDescriptorSets(E_PIPELINE_BIND_POINT _pipelineType, const IGPUPipelineLayout* _layout,
             uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, core::smart_refctd_dynamic_array<uint32_t>* _dynamicOffsets) = 0;
@@ -104,13 +95,13 @@ namespace video
                                         bool copyDepth=true, bool copyStencil=true,
 										core::recti srcRect=core::recti(0,0,0,0),
 										core::recti dstRect=core::recti(0,0,0,0),
-										bool bilinearFilter=false) = 0;
+										bool bilinearFilter=false) {}
 
 		//!
-        virtual void removeFrameBuffer(IFrameBuffer* framebuf) = 0;
+		virtual void removeFrameBuffer(IFrameBuffer* framebuf) {}
 
 		//! This only removes all IFrameBuffers created in the calling thread.
-		virtual void removeAllFrameBuffers() =0;
+		virtual void removeAllFrameBuffers() {}
 
 
 		//! Queries
@@ -118,7 +109,7 @@ namespace video
 		virtual void endQuery(IQueryObject* query) = 0;
 
 		//! Sets new multiple render targets.
-		virtual bool setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewport=true) = 0;
+		virtual bool setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewport=true) {return false;}
 
 		//! Clears the ZBuffer.
 		/** Note that you usually need not to call this method, as it
@@ -127,25 +118,25 @@ namespace video
 		you have to render some special things, you can clear the
 		zbuffer during the rendering process with this method any time.
 		*/
-		virtual void clearZBuffer(const float &depth=0.0) =0;
+		virtual void clearZBuffer(const float &depth=0.0) {}
 
-		virtual void clearStencilBuffer(const int32_t &stencil) =0;
+		virtual void clearStencilBuffer(const int32_t &stencil) {}
 
-		virtual void clearZStencilBuffers(const float &depth, const int32_t &stencil) =0;
+		virtual void clearZStencilBuffers(const float &depth, const int32_t &stencil) {}
 
-		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const int32_t* vals) =0;
-		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const uint32_t* vals) =0;
-		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const float* vals) =0;
+		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const int32_t* vals) {}
+		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const uint32_t* vals) {}
+		virtual void clearColorBuffer(const E_FBO_ATTACHMENT_POINT &attachment, const float* vals) {}
 
-		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals) =0;
-		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const uint32_t* vals) =0;
+		virtual void clearScreen(const E_SCREEN_BUFFERS &buffer, const float* vals) {}
+		virtual void clearScreen(const E_SCREEN_BUFFERS& buffer, const uint32_t* vals) {}
 
 
 		//! Sets a new viewport.
 		/** Every rendering operation is done into this new area.
 		\param area: Rectangle defining the new area of rendering
 		operations. */
-		virtual void setViewPort(const core::rect<int32_t>& area) =0;
+		virtual void setViewPort(const core::rect<int32_t>& area) {}
 
 		//! Gets the area of the current viewport.
 		/** \return Rectangle of the current viewport. */
@@ -212,7 +203,7 @@ namespace video
 		MaxUserClipPlanes.
 		\param enable If true, enable the clipping plane else disable
 		it. */
-		virtual void enableClipPlane(uint32_t index, bool enable) =0;
+		virtual void enableClipPlane(uint32_t index, bool enable) {}
 
         virtual const CDerivativeMapCreator* getDerivativeMapCreator() const { return nullptr; }
 	};

@@ -221,7 +221,7 @@ void CIrrDeviceSDL::createDriver()
 		break;
 
 	case video::EDT_NULL:
-		VideoDriver = video::createNullDriver(FileSystem, CreationParams.WindowSize);
+		VideoDriver = video::createNullDriver(FileSystem, CreationParams);
 		break;
 
 	default:

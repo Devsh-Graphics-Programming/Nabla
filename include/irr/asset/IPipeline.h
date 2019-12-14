@@ -25,6 +25,16 @@ template<typename LayoutType>
 class IPipeline : public impl::IPipelineBase
 {
 	public:
+		enum E_PIPELINE_CREATION : uint32_t
+		{
+			EPC_DISABLE_OPTIMIZATIONS = 1<<0,
+			EPC_ALLOW_DERIVATIVES = 1<<1,
+			EPC_DERIVATIVE = 1<<2,
+			EPC_VIEW_INDEX_FROM_DEVICE_INDEX = 1<<3,
+			EPC_DISPATCH_BASE = 1<<4,
+			EPC_DEFER_COMPILE_NV = 1<<5
+		};
+
 		inline const LayoutType* getLayout() const { return m_layout.get(); }
 
 	protected:

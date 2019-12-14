@@ -17,7 +17,7 @@ namespace irr
 namespace video
 {
 
-class COpenGLSpecializedShader : public IGPUSpecializedShader
+class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecializedShader,core::AllocationOverrideBase<128> >
 {
 		struct SProgramBinary {
 			GLenum format;
@@ -25,7 +25,7 @@ class COpenGLSpecializedShader : public IGPUSpecializedShader
 		};
 
 	public:
-		COpenGLSpecializedShader(size_t _ctxCount, uint32_t _ctxID, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection);
+		COpenGLSpecializedShader(size_t _ctxCount, uint32_t _ctxID, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, const asset::CIntrospectionData* _introspection);
 
 		inline GLuint getGLnameForCtx(uint32_t _ctxID) const
 		{
@@ -52,7 +52,7 @@ class COpenGLSpecializedShader : public IGPUSpecializedShader
 
 	private:
 		//! @returns GL name or zero if already compiled once or there were compilation errors.
-		GLuint compile(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializationInfo* _specInfo, const asset::CIntrospectionData* _introspection);
+		GLuint compile(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, const asset::CIntrospectionData* _introspection);
 
 	private:
 		mutable core::smart_refctd_dynamic_array<GLuint> m_GLnames;

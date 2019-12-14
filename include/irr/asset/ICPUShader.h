@@ -7,22 +7,14 @@
 
 #include "irr/asset/IAsset.h"
 #include "irr/asset/ICPUBuffer.h"
-#include "irr/asset/ShaderCommons.h"
-#include "irr/core/SRange.h"
-
-namespace spirv_cross
-{
-    class ParsedIR;
-    class Compiler;
-    struct SPIRType;
-}
+#include "irr/asset/IShader.h"
 
 namespace irr
 {
 namespace asset
 {
 
-class ICPUShader : public IAsset
+class ICPUShader : public IAsset, public IShader<ICPUBuffer>
 {
 	protected:
 		virtual ~ICPUShader() = default;
@@ -39,12 +31,14 @@ class ICPUShader : public IAsset
 		{ 
 			return m_code->getSize();
 		}
-		void convertToDummyObject() override { }
+		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
+		{
+			if (referenceLevelsBelowToConvert--)
+				m_code->convertToDummyObject(referenceLevelsBelowToConvert);
+		}
 
 		const ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };
 		bool containsGLSL() const { return m_containsGLSL; }
-
-		static void insertGLSLExtensionsDefines(std::string& _glsl, const core::refctd_dynamic_array<std::string>* _exts);
 
 	protected:
 		//! Might be GLSL null-terminated string or SPIR-V bytecode (denoted by m_containsGLSL)

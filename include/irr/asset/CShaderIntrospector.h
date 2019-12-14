@@ -4,9 +4,8 @@
 #include <cstdint>
 #include <memory>
 #include "irr/core/Types.h"
-#include "irr/asset/ShaderCommons.h"
 #include "irr/asset/ShaderRes.h"
-#include "irr/asset/ICPUShader.h"
+#include "irr/asset/ICPUSpecializedShader.h"
 #include "irr/asset/IGLSLCompiler.h"
 
 namespace spirv_cross
@@ -71,7 +70,7 @@ class CShaderIntrospector : public core::Uncopyable
 		struct SEntryPoint_Stage_Extensions
 		{
 			std::string entryPoint;
-			E_SHADER_STAGE stage;
+			ISpecializedShader::E_SHADER_STAGE stage;
 			core::smart_refctd_dynamic_array<std::string> GLSLextensions;
 		};
 

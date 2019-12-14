@@ -10,11 +10,14 @@
 
 #ifdef __IRR_COMPILE_WITH_X86_SIMD_
 
-#ifndef __IRR_COMPILE_WITH_X86_SIMD_
-#error "Check your compiler or project settings for the -m*sse* flag, or upgrade your CPU"
+#ifdef __IRR_COMPILE_WITH_X86_SIMD_
+    #include <nmmintrin.h>
+#else
+    #error "Check your compiler or project settings for the -m*sse* flag, or upgrade your CPU"
 #endif // __IRR_COMPILE_WITH_X86_SIMD_
 
 #include <stdint.h>
+#include <math.h>
 
 #include "irr/core/alloc/AlignedBase.h"
 #include "vector2d.h"
@@ -416,11 +419,11 @@ namespace core
 		//!
 		inline vector4db_SIMD operator<=(const vectorSIMD_32<T>& other) const
 		{
-			COMPARISON_DISPATCH(_mm_cmplte_epi32,_mm_cmplte_epi16,_mm_cmplte_epi8,vectorSIMDIntBase::getAsRegister(),other.getAsRegister());
+			return !operator>(other);
 		}
 		inline vector4db_SIMD operator>=(const vectorSIMD_32<T>& other) const
 		{
-			COMPARISON_DISPATCH(_mm_cmpgte_epi32,_mm_cmpgte_epi16,_mm_cmpgte_epi8,vectorSIMDIntBase::getAsRegister(), other.getAsRegister());
+			return !operator<(other);
 		}
 		inline vector4db_SIMD operator<(const vectorSIMD_32<T>& other) const
 		{

@@ -21,9 +21,6 @@
 #include "CIrrDeviceLinux.h"
 #include <fstream>
 #endif
-#ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
-#include "MacOSX/OSXClipboard.h"
-#endif
 
 namespace irr
 {
@@ -78,11 +75,6 @@ void COSOperator::copyToClipboard(const char* text) const
 	SetClipboardData(CF_TEXT, clipbuffer);
 	CloseClipboard();
 
-// MacOSX version
-#elif defined(_IRR_COMPILE_WITH_OSX_DEVICE_)
-
-	OSXCopyToClipboard(text);
-
 #elif defined(_IRR_COMPILE_WITH_X11_DEVICE_)
     if ( IrrDeviceLinux )
         IrrDeviceLinux->copyToClipboard(text);
@@ -109,9 +101,6 @@ const char* COSOperator::getTextFromClipboard() const
 	GlobalUnlock( hData );
 	CloseClipboard();
 	return buffer;
-
-#elif defined(_IRR_COMPILE_WITH_OSX_DEVICE_)
-	return (OSXCopyFromClipboard());
 
 #elif defined(_IRR_COMPILE_WITH_X11_DEVICE_)
     if ( IrrDeviceLinux )

@@ -128,9 +128,9 @@ const core::vectorSIMDf& CCameraSceneNode::getTarget() const
 
 //! sets the up vector of the camera
 //! \param pos: New upvector of the camera.
-void CCameraSceneNode::setUpVector(const core::vector3df& pos)
+void CCameraSceneNode::setUpVector(const core::vectorSIMDf& up)
 {
-	UpVector.set(pos);
+	UpVector = up;
 }
 
 

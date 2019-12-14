@@ -1,6 +1,5 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
-#include "driverChoice.h"
 
 #include <random>
 #include "irr/video/alloc/StreamingTransientDataBuffer.h"
@@ -17,37 +16,34 @@ using namespace core;
 #define kHardwareInstancesTOTAL (kNumHardwareInstancesX*kNumHardwareInstancesY*kNumHardwareInstancesZ)
 
 
-
-
 //!Same As Last Example
 class MyEventReceiver : public IEventReceiver
 {
-public:
+	public:
 
-	MyEventReceiver()
-	{
-	}
+		MyEventReceiver()
+		{
+		}
 
-	bool OnEvent(const SEvent& event)
-	{
-        if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
-        {
-            switch (event.KeyInput.Key)
-            {
-            case irr::KEY_KEY_Q: // switch wire frame mode
-                exit(0);
-                return true;
-            default:
-                break;
-            }
-        }
+		bool OnEvent(const SEvent& event)
+		{
+			if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+			{
+				switch (event.KeyInput.Key)
+				{
+				case irr::KEY_KEY_Q: // switch wire frame mode
+					exit(0);
+					return true;
+				default:
+					break;
+				}
+			}
 
-		return false;
-	}
+			return false;
+		}
 
-private:
+	private:
 };
-
 
 
 int main()
@@ -63,9 +59,9 @@ int main()
 	params.Vsync = false;
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
-	IrrlichtDevice* device = createDeviceEx(params);
+	auto device = createDeviceEx(params);
 
-	if (device == 0)
+	if (!device)
 		return 1; // could not create selected driver.
 
 
@@ -90,7 +86,7 @@ int main()
     reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE|video::IDriverMemoryAllocation::EMCF_COHERENT;
     reqs.prefersDedicatedAllocation = true;
     reqs.requiresDedicatedAllocation = true;
-    video::StreamingTransientDataBufferST<>* buffer = new video::StreamingTransientDataBufferST<>(driver,reqs);
+    auto buffer = core::make_smart_refctd_ptr<video::StreamingTransientDataBufferST<> >(driver,reqs);
 
     std::mt19937 mt(0xdeadu);
     std::uniform_int_distribution<uint32_t> allocsPerFrame(kMinAllocs,kMaxAllocs);
@@ -130,9 +126,6 @@ int main()
 			lastFPSTime = time;
 		}
 	}
-	buffer->drop();
-
-	device->drop();
 
 	return 0;
 }

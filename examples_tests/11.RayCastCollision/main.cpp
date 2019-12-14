@@ -23,18 +23,16 @@ int main()
 	params.Vsync = true; //! If supported by target platform
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
-	IrrlichtDevice* device = createDeviceEx(params);
+	auto device = createDeviceEx(params);
 
-	if (device == 0)
+	if (!device)
 		return 1; // could not create selected driver.
 
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 
 
-
 	scene::ISceneManager* smgr = device->getSceneManager();
-	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
 	scene::ICameraSceneNode* camera =
 		smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
 	camera->setPosition(core::vector3df(-4,0,0));
@@ -47,16 +45,16 @@ int main()
 	device->setEventReceiver(&receiver);
 
 
-    core::SCollisionEngine* gCollEng = new core::SCollisionEngine();
+    auto gCollEng = core::make_refctd_dynamic_array<core::SCollisionEngine>();
 
 	asset::IAssetManager* assetMgr = device->getAssetManager();
 
     asset::IAssetLoader::SAssetLoadParams lparams;
-    asset::ICPUTexture* cputextures[]{
-        static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/irrlicht2_dn.jpg", lparams).getContents().first->get()),
-        static_cast<asset::ICPUTexture*>(assetMgr->getAsset("../../media/skydome.jpg", lparams).getContents().first->get())
+    asset::ICPUImage* cpuimages[]{
+        static_cast<asset::ICPUImage*>(assetMgr->getAsset("../../media/irrlicht2_dn.jpg", lparams).getContents().first->get()),
+        static_cast<asset::ICPUImage*>(assetMgr->getAsset("../../media/skydome.jpg", lparams).getContents().first->get())
     };
-    auto gputextures = driver->getGPUObjectsFromAssets(cputextures, cputextures+2);
+    auto gpuimages = driver->getGPUObjectsFromAssets(cpuimages,cpuimages+2);
 
 	//!
 	auto setTextureAndDisableBackfaceCullOnAllMaterials = [](auto* mesh, core::smart_refctd_ptr<video::ITexture>&& texture)

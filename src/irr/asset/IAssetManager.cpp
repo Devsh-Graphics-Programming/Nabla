@@ -1,6 +1,4 @@
-#include "irr/asset/IAssetManager.h"
-#include "irr/asset/CGeometryCreator.h"
-#include "irr/asset/CMeshManipulator.h"
+#include "irr/asset/asset.h"
 
 
 #ifdef _IRR_COMPILE_WITH_X_LOADER_
@@ -71,6 +69,10 @@
 #include "irr/asset/CImageWriterOpenEXR.h"
 #endif
 
+#include "irr/asset/CGLSLLoader.h"
+#include "irr/asset/CSPVLoader.h"
+
+
 using namespace irr;
 using namespace asset;
 
@@ -133,6 +135,9 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _IRR_COMPILE_WITH_TGA_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>());
 #endif
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLSLLoader>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>());
+
 #ifdef _IRR_COMPILE_WITH_BAW_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CBAWMeshWriter>(getFileSystem()));
 #endif
