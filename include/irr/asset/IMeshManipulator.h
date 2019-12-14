@@ -5,6 +5,7 @@
 #ifndef __I_MESH_MANIPULATOR_H_INCLUDED__
 #define __I_MESH_MANIPULATOR_H_INCLUDED__
 
+#include <array>
 #include <functional>
 
 #include "irr/core/core.h"
@@ -76,6 +77,69 @@ namespace asset
 		triangles and vice versa.
 		\param mesh Mesh on which the operation is performed. */
 		static void flipSurfaces(ICPUMeshBuffer* inbuffer);
+
+		//!
+		static inline std::array<uint32_t,3u> getTriangleIndices(const ICPUMeshBuffer* mb, uint32_t triangleIx)
+		{
+			auto XXXXX = [&](auto idx) -> std::array<uint32_t,3u>
+			{
+				uint32_t offset;
+				switch (mb->getPrimitiveType())
+				{
+					case EPT_TRIANGLES:
+						offset = triangleIx*3u;
+						if (idx)
+						{
+							idx += offset;
+							return {idx[0],idx[1],idx[2]};
+						}
+						else
+							return {offset,offset+1u,offset+2u};
+						break;
+					case EPT_TRIANGLE_STRIP:
+						offset = triangleIx; // 012 213
+						{
+							bool odd = triangleIx & 0x1u;
+							auto first = odd ? 2u:1u;
+							auto second = odd ? 1u:2u;
+							if (idx)
+							{
+								idx += offset;
+								return {idx[0],idx[first],idx[second]};
+							}
+							else
+								return {offset,offset+first,offset+second};
+						}
+						break;
+					case EPT_TRIANGLE_FAN:
+						offset = triangleIx+1u;
+						if (idx)
+						{
+							idx += offset;
+							return {0u,idx[0],idx[1]};
+						}
+						else
+							return {0u,offset,offset+1u};
+						break;
+					default:
+						break;
+				}
+				assert(false);
+				return {};
+			};
+
+
+			auto* indices = mb->getIndices();
+			switch (mb->getIndexType())
+			{
+				case EIT_16BIT:
+					return XXXXX(reinterpret_cast<const uint16_t*>(indices));
+				case EIT_32BIT:
+					return XXXXX(reinterpret_cast<const uint32_t*>(indices));
+				default:
+					return XXXXX(static_cast<const uint32_t*>(nullptr));
+			}
+		}
 
 		//! Creates a copy of a mesh with all vertices unwelded
 		/** \param mesh Input mesh
@@ -243,34 +307,34 @@ namespace asset
 		static inline bool getPolyCount(uint32_t& outCount, IMeshBuffer<T>* meshbuffer)
 		{
 			outCount = 0;
-			if (meshbuffer)
+			if (!meshbuffer)
 				return false;
 
 			uint32_t trianglecount;
 
 			switch (meshbuffer->getPrimitiveType())
 			{
-			case EPT_POINTS:
-				trianglecount = meshbuffer->getIndexCount();
-				break;
-			case EPT_LINE_STRIP:
-				trianglecount = meshbuffer->getIndexCount() - 1;
-				break;
-			case EPT_LINE_LOOP:
-				trianglecount = meshbuffer->getIndexCount();
-				break;
-			case EPT_LINES:
-				trianglecount = meshbuffer->getIndexCount() / 2;
-				break;
-			case EPT_TRIANGLE_STRIP:
-				trianglecount = meshbuffer->getIndexCount() - 2;
-				break;
-			case EPT_TRIANGLE_FAN:
-				trianglecount = meshbuffer->getIndexCount() - 2;
-				break;
-			case EPT_TRIANGLES:
-				trianglecount = meshbuffer->getIndexCount() / 3;
-				break;
+				case EPT_POINTS:
+					trianglecount = meshbuffer->getIndexCount();
+					break;
+				case EPT_LINE_STRIP:
+					trianglecount = meshbuffer->getIndexCount() - 1;
+					break;
+				case EPT_LINE_LOOP:
+					trianglecount = meshbuffer->getIndexCount();
+					break;
+				case EPT_LINES:
+					trianglecount = meshbuffer->getIndexCount() / 2;
+					break;
+				case EPT_TRIANGLE_STRIP:
+					trianglecount = meshbuffer->getIndexCount() - 2;
+					break;
+				case EPT_TRIANGLE_FAN:
+					trianglecount = meshbuffer->getIndexCount() - 2;
+					break;
+				case EPT_TRIANGLES:
+					trianglecount = meshbuffer->getIndexCount() / 3;
+					break;
 			}
 
 			outCount = trianglecount;
@@ -292,7 +356,10 @@ namespace asset
 			for (uint32_t g = 0; g < mesh->getMeshBufferCount(); ++g)
 			{
 				uint32_t trianglecount;
-				retval = retval && getPolyCount(trianglecount, mesh->getMeshBuffer(g));
+				if (getPolyCount(trianglecount, mesh->getMeshBuffer(g)))
+					outCount += trianglecount;
+				else
+					retval = false;
 			}
 
 			return retval;
