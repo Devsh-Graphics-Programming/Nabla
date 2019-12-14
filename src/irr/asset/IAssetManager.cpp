@@ -1,10 +1,6 @@
 #include "irr/asset/asset.h"
 
 
-#ifdef _IRR_COMPILE_WITH_X_LOADER_
-#include "irr/asset/CXMeshFileLoader.h"
-#endif
-
 #ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
 #include "irr/asset/COBJMeshFileLoader.h"
 #endif
@@ -110,9 +106,6 @@ void IAssetManager::addLoadersAndWriters()
 #endif
 #ifdef _IRR_COMPILE_WITH_PLY_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>());
-#endif
-#ifdef _IRR_COMPILE_WITH_X_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CXMeshFileLoader>(this));
 #endif
 #ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::COBJMeshFileLoader>(this));
