@@ -4,11 +4,114 @@
 #include "irrlicht.h"
 
 #include "../../ext/RadeonRays/RadeonRays.h"
+// pesky leaking defines
+#undef PI
 
 
 class Renderer : public irr::core::IReferenceCounted, public irr::core::InterfaceUnmovable
 {
     public:
+		struct alignas(16) SLight
+		{
+			enum E_TYPE : uint32_t
+			{
+				ET_CONSTANT,
+				ET_CUBE,
+				ET_ELLIPSOID,
+				ET_CYLINDER,
+				ET_RECTANGLE,
+				ET_DISK,
+				ET_TRIANGLE,
+				ET_COUNT
+			};
+
+			SLight() : type(ET_COUNT) {}
+			SLight(const SLight& other) : type(other.type)
+			{
+				std::copy(other.strengthFactor,other.strengthFactor+3u,strengthFactor);
+				if (type == ET_TRIANGLE)
+					std::copy(other.triangle.vertices, other.triangle.vertices + 3u, triangle.vertices);
+				else
+					transform = other.transform;
+			}
+			~SLight() {}
+
+			void setFactor(const irr::core::vectorSIMDf& factor)
+			{
+				for (auto i=0u; i<3u; i++)
+					strengthFactor[i] = factor[i];
+			}
+
+			//! This is according to Rec.709 colorspace
+			inline float getFactorLuminosity()
+			{
+				float rec709LumaCoeffs[] = {0.2126f, 0.7152, 0.0722};
+
+				//! TODO: More color spaces!
+				float* colorSpaceLumaCoeffs = rec709LumaCoeffs;
+
+				float luma = strengthFactor[0] * colorSpaceLumaCoeffs[0];
+				luma += strengthFactor[1] * colorSpaceLumaCoeffs[1];
+				luma += strengthFactor[2] * colorSpaceLumaCoeffs[2];
+				return luma;
+			}
+
+			inline float computeFlux(float triangulizationArea) // also known as lumens
+			{
+				const auto unitHemisphereArea = 2.f*irr::core::PI<float>();
+				const auto unitSphereArea = 2.f*unitHemisphereArea;
+
+				float lightFlux = unitHemisphereArea*getFactorLuminosity();
+				switch (type)
+				{
+					case ET_CONSTANT: // no-op because factor is in Watts / Wavelength / steradian
+						break;
+					case ET_CUBE:
+						assert(false);
+						break;
+					case ET_RECTANGLE:
+						assert(false);
+						break;
+					case ET_ELLIPSOID:
+						_IRR_FALLTHROUGH;
+					//! TODO: check if can analytically compute arbitrary 3x3 transform cylinder area 
+					case ET_CYLINDER:
+						_IRR_FALLTHROUGH;
+					//! TODO: check if can analytically compute arbitrary unit disk transformed by 3x3 matrix area
+					case ET_DISK:
+						_IRR_FALLTHROUGH;
+					case ET_TRIANGLE:
+						lightFlux *= triangulizationArea;
+						break;
+					default:
+						assert(false);
+						break;
+				}
+				return lightFlux;
+			}
+
+			//! different lights use different measures of their strength (this already has the reciprocal of the light PDF factored in)
+			alignas(16) float strengthFactor[3];
+			//! type is second member due to alignment issues
+			E_TYPE type;
+			//! useful for analytical shapes
+			union
+			{
+				irr::core::matrix3x4SIMD transform;
+				struct Triangle
+				{
+					irr::core::vectorSIMDf vertices[3];
+				} triangle;
+			};
+			/*
+			union
+			{
+				AreaSphere sphere;
+			};
+			*/
+		};
+		static_assert(sizeof(SLight)==64u,"Can't keep alignment straight!");
+
 		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr);
 
 		void init(const irr::asset::SAssetBundle& meshes, uint32_t rayBufferSize=512u*1024u*1024u);
@@ -51,6 +154,9 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::core::aabbox3df sceneBound;
 		irr::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
 		irr::ext::RadeonRays::Manager::MeshNodeRRInstanceCache rrInstances;
+
+		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightCDFBuffer;
+		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightBuffer;
 };
 
 #endif

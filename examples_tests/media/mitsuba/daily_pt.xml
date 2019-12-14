@@ -102,5 +102,17 @@
 		<rgb name="reflectance" value="0.8, 0.6, 0.2"/>
 	</bsdf>
 </shape>
+  
+  
+<shape type="cylinder">
+	<transform name="toWorld"><translate x="-1.5" y="1.5" z="0"/></transform>
+	<float name="radius" value="0.3"/>
+	<emitter type="area">
+		<rgb name="radiance" value="0,25,0"/>
+	</emitter>
+	<bsdf type="diffuse">
+		<rgb name="reflectance" value="0.8, 0.6, 0.2"/>
+	</bsdf>
+</shape>
 
 </scene>
