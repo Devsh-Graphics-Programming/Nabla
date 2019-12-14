@@ -41,7 +41,7 @@ namespace irr
 
 			SContext ctx;
 
-			readVersionField();
+			readVersionField(_file, ctx);
 			readHeader(fileName, ctx);
 
 			Array2D<Rgba> pixels;
@@ -85,6 +85,46 @@ namespace irr
 			pixels.resizeErase(height, width);
 			file.setFrameBuffer(&pixels[0][0] - dw.min.x - dw.min.y * width, 1, width);
 			file.readPixels(dw.min.y, dw.max.y);
+		}
+
+		bool CImageLoaderOpenEXR::readVersionField(io::IReadFile* _file, SContext& ctx)
+		{
+			RgbaInputFile file(_file->getFileName().c_str());
+			auto& versionField = ctx.versionField;
+			
+			versionField.mainDataRegisterField = file.version();
+
+			auto isTheBitActive = [&](uint16_t bitToCheck)
+			{
+				return (versionField.mainDataRegisterField & (1 << bitToCheck - 1));
+			};
+
+			versionField.fileFormatVersionNumber |= isTheBitActive(1) | isTheBitActive(2) | isTheBitActive(3) | isTheBitActive(4) | isTheBitActive(5) | isTheBitActive(6) | isTheBitActive(7) | isTheBitActive(8);
+
+			if (!isTheBitActive(11) && !isTheBitActive(12))
+			{
+				versionField.Compoment.type = SContext::VersionField::Compoment::SINGLE_PART_FILE;
+
+				if (isTheBitActive(9))
+					versionField.Compoment.singlePartFileCompomentSubTypes = SContext::VersionField::Compoment::TILES;
+				else
+					versionField.Compoment.singlePartFileCompomentSubTypes = SContext::VersionField::Compoment::SCAN_LINES;
+			}
+			else if (!isTheBitActive(9) && !isTheBitActive(11) && isTheBitActive(12))
+			{
+				versionField.Compoment.type = SContext::VersionField::Compoment::MULTI_PART_FILE;
+				versionField.Compoment.singlePartFileCompomentSubTypes = SContext::VersionField::Compoment::SCAN_LINES_OR_TILES;
+			}
+
+			if (!isTheBitActive(9) && isTheBitActive(11) && isTheBitActive(12))
+				versionField.doesItSupportDeepData = true;
+			else
+				versionField.doesItSupportDeepData = false;
+
+			if (isTheBitActive(10))
+				versionField.doesFileContainLongNames = true;
+			else
+				versionField.doesFileContainLongNames = false;
 		}
 
 		bool CImageLoaderOpenEXR::readHeader(const char fileName[], SContext& ctx)

@@ -56,8 +56,32 @@ namespace irr
 
 				struct VersionField
 				{
-					int registerBitField = {};
-					// TODO - pull out the bits and take them into account
+					uint32_t mainDataRegisterField = 0ul;      // treated as 2 seperate bit fields, contains some usefull data
+					uint8_t fileFormatVersionNumber = 0;	   // contains current OpenEXR version. It has to be 0 upon initialization!
+					bool doesFileContainLongNames;			   // if set, the maximum length of attribute names, attribute type names and channel names is 255 bytes. Otherwise 31 bytes
+					bool doesItSupportDeepData;		           // if set, there is at least one part which is not a regular scan line image or regular tiled image, so it is a deep format
+
+					struct Compoment
+					{
+						enum CompomentType
+						{
+							SINGLE_PART_FILE,
+							MULTI_PART_FILE
+						};
+
+						enum SinglePartFileCompoments
+						{
+							NONE,
+							SCAN_LINES,
+							TILES,
+							SCAN_LINES_OR_TILES
+						};
+
+						CompomentType type;
+						SinglePartFileCompoments singlePartFileCompomentSubTypes;
+
+					} Compoment;
+
 				} versionField;
 
 				struct Attributes
@@ -99,7 +123,7 @@ namespace irr
 				// scan line blocks TODO
 			};
 
-			bool readVersionField() { return true; } // TODO
+			bool readVersionField(io::IReadFile* _file, SContext& ctx);
 			bool readHeader(const char fileName[], SContext& ctx);
 
 			void readRgba(const char fileName[], IMF::Array2D<IMF::Rgba>& pixels, int& width, int& height);
