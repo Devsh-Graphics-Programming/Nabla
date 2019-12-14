@@ -36,7 +36,6 @@
 		#include "irr/asset/COBJMeshFileLoader.h"
 		#include "irr/asset/CPLYMeshFileLoader.h"
 		#include "irr/asset/CSTLMeshFileLoader.h"
-		#include "irr/asset/CXMeshFileLoader.h"
 		// writers
 		#include "irr/asset/CPLYMeshWriter.h"
 		#include "irr/asset/CSTLMeshWriter.h"
