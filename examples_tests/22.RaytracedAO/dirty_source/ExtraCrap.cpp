@@ -45,6 +45,38 @@ layout(binding = 0, std430) restrict writeonly buffer Rays
 	RadeonRays_ray rays[];
 };
 
+layout(binding = 1, std430) restrict readonly buffer CumulativeLightPDF
+{
+	uint lightCDF[];
+};
+
+#define SLight_ET_CONSTANT		0u
+#define SLight_ET_AREA_SPHERE	1u
+#define SLight_ET_AREA_TRIANGLE	2u
+#define SLight_ET_COUNT			3u
+struct SLight
+{
+	uint data[5];
+};
+uint SLight_extractType(in SLight light)
+{
+	return bitfieldExtract(light.data[0],0,findMSB(SLight_ET_COUNT));
+}
+vec3 SLight_extractFactor(in SLight light)
+{
+	return vec3(unpackHalf2x16(light.data[0]).y,unpackHalf2x16(light.data[1]).xy);
+}
+vec3 SLight_AreaSphere_extractPosition(in SLight light)
+{
+	return uintBitsToFloat(uvec3(light.data[2],light.data[3],light.data[4]));
+}
+
+layout(binding = 2, std430) restrict readonly buffer Lights
+{
+	SLight light[];
+};
+
+
 #define kPI 3.14159265358979323846
 
 vec3 decode(in vec2 enc)
@@ -120,6 +152,15 @@ uint rand_xorshift(inout uint rng_state)
     return rng_state;
 }
 
+uint ugen_uniform_sample1(inout uint state)
+{
+	return rand_xorshift(state);
+}
+uvec2 ugen_uniform_sample2(inout uint state)
+{
+	return uvec2(rand_xorshift(state),rand_xorshift(state));
+}
+
 vec2 gen_uniform_sample2(inout uint state)
 {
 	return vec2(rand_xorshift(state),rand_xorshift(state))/vec2(~0u);
@@ -133,14 +174,51 @@ mat2x3 frisvad(in vec3 n)
 	return (n.z<-0.9999999) ? mat2x3(vec3(0.0,-1.0,0.0),vec3(-1.0,0.0,0.0)):mat2x3(vec3(1.0-n.x*n.x*a, b, -n.x),vec3(b, 1.0-n.y*n.y*a, -n.y));
 }
 
-vec3 light_sample(out vec3 incoming, in vec3 normal, in vec2 rand)
-{
-	float equator = rand.y*2.0*kPI;
-	mat2x3 tangents = frisvad(normal);
-	incoming = normal*rand.x+(tangents[0]*cos(equator)+tangents[1]*sin(equator))*sqrt(1.0-rand.x*rand.x);
 
-	vec3 watts_per_steradian = vec3(10.5);
-	return watts_per_steradian*2.0*kPI;
+uint upper_bound(in uint key)
+{
+	// lightCDF.length()
+	return 1u;
+}
+
+
+vec3 light_sample(out vec3 incoming, inout uint randomState, in vec3 position, in vec3 normal)
+{
+	uint lightIDSample = ugen_uniform_sample1(randomState);
+	vec2 lightSample = gen_uniform_sample2(randomState);
+
+	uint nextLightID = upper_bound(lightIDSample);
+	uint lightID = nextLightID-1u;
+
+	uint lightProbability = (nextLightID!=lightCDF.length() ? lightCDF[nextLightID]:(~0u))-lightCDF[lightID];
+	SLight light = light[lightID];
+
+	vec3 retval;
+	switch (SLight_extractType(light))
+	{
+		case SLight_ET_CONSTANT:
+			{
+				float equator = lightSample.y*2.0*kPI;
+				mat2x3 tangents = frisvad(normal);
+				incoming = normal*lightSample.x+(tangents[0]*cos(equator)+tangents[1]*sin(equator))*sqrt(1.0-lightSample.x*lightSample.x);
+
+				retval = vec3(0.5);
+			}
+			break;
+		case SLight_ET_AREA_SPHERE:
+			{
+				vec3 center = SLight_AreaSphere_extractPosition(light);
+				incoming = center-position;
+
+				retval = vec3(3.0)/dot(incoming,incoming);
+			}
+			break;
+		default:
+			retval = vec3(0.0);
+			break;
+	}
+
+	return retval*2.0*kPI;//*float(~0u)/float(lightProbability);
 }
 
 void main()
@@ -184,7 +262,7 @@ void main()
 			bool shootRay = alive;
 			if (shootRay)
 			{
-				bsdf.rgb = light_sample(newray.direction,normal,gen_uniform_sample2(randomState));
+				bsdf.rgb = light_sample(newray.direction,randomState,position,normal);
 				bsdf.rgb *= texelFetch(albedobuf,uv,0).rgb*dot(normal,newray.direction)/kPI;
 
 				newray.origin = position+newray.direction*error/maxAbs3(newray.direction);
