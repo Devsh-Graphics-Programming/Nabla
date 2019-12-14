@@ -81,7 +81,19 @@ add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
 add_dependencies(png_static zlib) #CMake doesn't get it itself
 
 #openexr
+set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
+set(_OLD_BUILD_TESTING ${BUILD_TESTING})
+set(BUILD_SHARED_LIBS OFF)
+set(BUILD_STATIC_LIBS OFF)
+set(BUILD_TESTING OFF)
+set(PYILMBASE_ENABLE OFF)
+set(OPENEXR_BUILD_UTILS OFF)
+set(OPENEXR_VIEWERS_ENABLE OFF)
 add_subdirectory(openexr openexr EXCLUDE_FROM_ALL)
+set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
+set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
+set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 
 irr_adjust_flags()
 

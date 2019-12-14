@@ -91,7 +91,7 @@ namespace irr
 		{
 			RgbaInputFile file(fileName);
 			auto& attribs = ctx.attributes;
-
+			/*
 			attribs.channels = file.header().findTypedAttribute<Channel>("channels");
 			attribs.compression = file.header().findTypedAttribute<Compression>("compression");
 			attribs.dataWindow = file.header().findTypedAttribute<Box2i>("dataWindow");
@@ -108,7 +108,7 @@ namespace irr
 			attribs.maxSamplesPerPixel = file.header().findTypedAttribute<int>("maxSamplesPerPixel");
 			attribs.tiles = file.header().findTypedAttribute<TileDescription>("tiles");
 			attribs.view = file.header().findTypedAttribute<std::string>("view");
-
+			*/
 			// TODO - perform validation if needed
 			return true;
 		}

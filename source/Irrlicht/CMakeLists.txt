@@ -240,9 +240,9 @@ macro(irr_target_link_libpng _trgt)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libpng)
 endmacro()
 macro(irr_target_link_openexr _trgt)
-	#add_dependencies(${_trgt} openexr)
+	add_dependencies(${_trgt} OpenEXR::IlmImf)
 	target_link_libraries(${_trgt} INTERFACE 
-		openexr
+		OpenEXR::IlmImf
 	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/OpenEXR/IlmImf
 							   ${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Half

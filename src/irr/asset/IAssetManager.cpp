@@ -157,6 +157,6 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterPNG>());
 #endif
 #ifdef _IRR_COMPILE_WITH_OPENEXR_WRITER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageWriterOpenEXR>());
+	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterOpenEXR>());
 #endif
 }
