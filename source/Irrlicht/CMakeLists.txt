@@ -34,6 +34,11 @@ endif()
 # include utility macros/functions
 include(common)
 
+#[[ Loaders and writers compile options available to edit by user
+	All revelant _IRR_COMPILE_WITH will be there]]
+option(_IRR_COMPILE_WITH_OPENEXR_LOADER_ "Compile with OpenEXR Loader" ON)
+option(_IRR_COMPILE_WITH_OPENEXR_WRITER_ "Compile with OpenEXR Writer" ON)
+
 irr_get_conf_dir(IRRLICHT_CONF_DIR_DEBUG Debug)
 irr_get_conf_dir(IRRLICHT_CONF_DIR_RELEASE Release)
 
@@ -128,9 +133,11 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderJPG.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderPNG.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderTGA.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderOpenEXR.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterJPG.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterPNG.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterTGA.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterOpenEXR.cpp
 
 # Video
 	CFPSCounter.cpp
@@ -186,6 +193,9 @@ set(IRRLICHT_SRCS_SERVER
 set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/convertutf
 	${THIRD_PARTY_SOURCE_DIR}/utfcpp/source
+	${CMAKE_BINARY_DIR}/3rdparty/zlib #for dynamically generated zconf.h
+	${CMAKE_BINARY_DIR}/3rdparty/openexr/IlmBase/config #for dynamically generated IlmBaseConfig.h
+	${CMAKE_BINARY_DIR}/3rdparty/openexr/OpenEXR/config #for dynamically generated OpenEXRConfig.h
 	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
 	$<TARGET_PROPERTY:jpeg,BINARY_DIR> #for dynamically generated jconfig.h
 )
@@ -213,21 +223,34 @@ macro(irr_target_link_shaderc _trgt)
 	target_link_libraries(${_trgt} INTERFACE
 		shaderc
 	)
-	target_include_directories(${_trgt} PUBLIC ${IRR_ROOT_PATH}/3rdparty/shaderc/libshaderc/include)
+	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/include)
 endmacro()
 macro(irr_target_link_libjpeg _trgt)
 	add_dependencies(${_trgt} jpeg)
 	target_link_libraries(${_trgt} INTERFACE
 		jpeg
 	)
-	target_include_directories(${_trgt} PUBLIC ${IRR_ROOT_PATH}/3rdparty/libjpeg)
+	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libjpeg)
 endmacro()
 macro(irr_target_link_libpng _trgt)
 	add_dependencies(${_trgt} png_static)
 	target_link_libraries(${_trgt} INTERFACE
 		png_static
 	)
-	target_include_directories(${_trgt} PUBLIC ${IRR_ROOT_PATH}/3rdparty/libpng)
+	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libpng)
+endmacro()
+macro(irr_target_link_openexr _trgt)
+	#add_dependencies(${_trgt} openexr)
+	target_link_libraries(${_trgt} INTERFACE 
+		openexr
+	)
+	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/OpenEXR/IlmImf
+							   ${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Half
+							   ${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Iex
+							   ${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/IexMath
+							   ${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/Imath
+							   ${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/IlmThread						   
+	)
 endmacro()
 
 # get function for cross-compiler PCH configuration
@@ -250,6 +273,7 @@ irr_target_link_openssl(Irrlicht)
 irr_target_link_shaderc(Irrlicht)
 irr_target_link_libjpeg(Irrlicht)
 irr_target_link_libpng(Irrlicht)
+irr_target_link_openexr(Irrlicht)
 
 target_link_libraries(Irrlicht INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)

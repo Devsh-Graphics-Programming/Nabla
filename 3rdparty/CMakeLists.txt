@@ -24,6 +24,7 @@ update_git_submodule(./bzip2)
 update_git_submodule(./lz4)
 update_git_submodule(./spirv_cross)
 update_git_submodule(./zlib)
+update_git_submodule(./openexr)
 update_git_submodule(./utfcpp)
 update_git_submodule(./convertutf)
 update_git_submodule(./libpng)
@@ -78,6 +79,9 @@ option(PNG_SHARED "Build shared lib" OFF)
 option(PNG_TESTS  "Build libpng tests" OFF)
 add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
 add_dependencies(png_static zlib) #CMake doesn't get it itself
+
+#openexr
+add_subdirectory(openexr openexr EXCLUDE_FROM_ALL)
 
 irr_adjust_flags()
 

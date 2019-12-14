@@ -15,6 +15,12 @@
 #cmakedefine _IRR_COMPILE_WITH_OPENGL_
 #cmakedefine _IRR_COMPILE_WITH_VULKAN_
 
+// loaders
+#cmakedefine _IRR_COMPILE_WITH_OPENEXR_LOADER_
+
+// writers
+#cmakedefine _IRR_COMPILE_WITH_OPENEXR_WRITER_
+
 // extra config
 #cmakedefine __IRR_FAST_MATH
 
