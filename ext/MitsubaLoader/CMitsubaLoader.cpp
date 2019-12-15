@@ -241,7 +241,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 				core::matrix3x4SIMD::buildCameraLookAtMatrixLH(shape->cylinder.p0,shape->cylinder.p1,up).getInverse(tform);
 				core::matrix3x4SIMD scale;
 				scale.setScale(core::vectorSIMDf(shape->cylinder.radius,shape->cylinder.radius,core::length(diff).x));
-				shape->transform.matrix = core::concatenateBFollowedByA(shape->transform.matrix,core::matrix4SIMD(tform));
+				shape->transform.matrix = core::concatenateBFollowedByA(shape->transform.matrix,core::matrix4SIMD(core::concatenateBFollowedByA(tform,scale)));
 			}
 			flipNormals = shape->cylinder.flipNormals;
 			break;

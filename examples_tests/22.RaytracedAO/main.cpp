@@ -134,8 +134,8 @@ int main()
 
 
 	auto extent = renderer->getSceneBound().getExtent();
-	//auto camera = smgr->addCameraSceneNodeFPS(nullptr, 100.f, core::min(extent.X, extent.Y, extent.Z) * 0.0002f);
-	auto camera = smgr->addCameraSceneNode(nullptr);
+	auto camera = smgr->addCameraSceneNodeFPS(nullptr, 100.f, core::min(extent.X, extent.Y, extent.Z) * 0.0002f);
+	//auto camera = smgr->addCameraSceneNode(nullptr);
 	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
 		return sensor.type == ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type == ext::MitsubaLoader::CElementSensor::Type::THINLENS;
 	};

@@ -70,7 +70,13 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 						assert(false);
 						break;
 					case ET_RECTANGLE:
-						assert(false);
+						{
+							irr::core::vectorSIMDf v[3];
+							transform.transformVect(v[0],irr::core::vectorSIMDf(-1.f,-1.f,0.f));
+							transform.transformVect(v[1],irr::core::vectorSIMDf( 1.f,-1.f,0.f));
+							transform.transformVect(v[2],irr::core::vectorSIMDf(-1.f, 1.f,0.f));
+							lightFlux *= irr::core::length(irr::core::cross(v[1]-v[0],v[2]-v[0])).x;
+						}
 						break;
 					case ET_ELLIPSOID:
 						_IRR_FALLTHROUGH;

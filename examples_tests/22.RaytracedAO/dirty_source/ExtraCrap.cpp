@@ -50,14 +50,14 @@ layout(binding = 1, std430) restrict readonly buffer CumulativeLightPDF
 	uint lightCDF[];
 };
 
-#define SLight_ET_CONSTANT		0u
-#define SLight_ET_CUBE			1u
-#define SLight_ET_ELLIPSOID		2u
-#define SLight_ET_CYLINDER		3u
-#define SLight_ET_RECTANGLE		4u
-#define SLight_ET_DISK			5u
-#define SLight_ET_TRIANGLE_MESH	6u
-#define SLight_ET_COUNT			7u
+#define SLight_ET_CONSTANT	0u
+#define SLight_ET_CUBE		1u
+#define SLight_ET_ELLIPSOID	2u
+#define SLight_ET_CYLINDER	3u
+#define SLight_ET_RECTANGLE	4u
+#define SLight_ET_DISK		5u
+#define SLight_ET_TRIANGLE	6u
+#define SLight_ET_COUNT		7u
 struct SLight
 {
 	vec3 factor;
@@ -66,7 +66,7 @@ struct SLight
 };
 uint SLight_extractType(in SLight light)
 {
-	return bitfieldExtract(light.data0,0,findMSB(SLight_ET_COUNT));
+	return bitfieldExtract(light.data0,0,findMSB(SLight_ET_COUNT)+1);
 }
 
 layout(binding = 2, std430, row_major) restrict readonly buffer Lights
@@ -205,7 +205,7 @@ uint lower_bound(in uint key)
 }
 
 
-vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, in vec3 position, in vec3 normal)
+vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, inout bool alive, in vec3 position, in vec3 normal)
 {
 	uint lightIDSample = ugen_uniform_sample1(randomState);
 	vec2 lightSurfaceSample = gen_uniform_sample2(randomState);
@@ -221,17 +221,67 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 			lightSurfaceSample.x = lightSurfaceSample.x*2.0-1.0;
 			{
 				float equator = lightSurfaceSample.y*2.0*kPI;
-				vec3 pointOnSphere = vec3(vec2(cos(equator),sin(equator))*sqrt(1.0-lightSurfaceSample.x*lightSurfaceSample.x),lightSurfaceSample.x);
+				vec3 pointOnSurface = vec3(vec2(cos(equator),sin(equator))*sqrt(1.0-lightSurfaceSample.x*lightSurfaceSample.x),lightSurfaceSample.x);
 	
 				mat4x3 tform = light.transform;
-				incoming = mat3(tform)*pointOnSphere+(tform[3]-position);
+				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
 				float incomingInvLen = inversesqrt(dot(incoming,incoming));
 				incoming *= incomingInvLen;
 
 				maxT = 0.999/incomingInvLen;
 
 				factor = 4.0*kPI; // inverse probability pick point on the light surface
-				vec3 lightNormal = inverse(transpose(mat3(tform)))*pointOnSphere;
+				vec3 lightNormal = inverse(transpose(mat3(tform)))*pointOnSurface;
+				factor *= max(dot(normalize(lightNormal),incoming),0.0)*incomingInvLen*incomingInvLen;
+			}
+			break;
+		case SLight_ET_CYLINDER:
+			{
+				float equator = lightSurfaceSample.y*2.0*kPI;
+				vec3 pointOnSurface = vec3(cos(equator),sin(equator),lightSurfaceSample.x);
+	
+				mat4x3 tform = light.transform;
+				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
+				float incomingInvLen = inversesqrt(dot(incoming,incoming));
+				incoming *= incomingInvLen;
+
+				maxT = 0.999/incomingInvLen;
+
+				factor = 2.0*kPI; // inverse probability pick point on the light surface
+				vec3 lightNormal = inverse(transpose(mat3(tform)))*vec3(pointOnSurface.xy,0.0);
+				factor *= max(dot(normalize(lightNormal),incoming),0.0)*incomingInvLen*incomingInvLen;
+			}
+			break;
+		case SLight_ET_RECTANGLE:
+			{
+				vec3 pointOnSurface = vec3(lightSurfaceSample*2.0-vec2(1.0),0.00000001);
+	
+				mat4x3 tform = light.transform;
+				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
+				float incomingInvLen = inversesqrt(dot(incoming,incoming));
+				incoming *= incomingInvLen;
+
+				maxT = 0.999/incomingInvLen;
+
+				factor = 4.0; // inverse probability pick point on the light surface
+				vec3 lightNormal = inverse(transpose(mat3(tform)))[2];
+				factor *= max(dot(normalize(lightNormal),incoming),0.0)*incomingInvLen*incomingInvLen;
+			}
+			break;
+		case SLight_ET_DISK:
+			{
+				float equator = lightSurfaceSample.y*2.0*kPI;
+				vec3 pointOnSurface = vec3(vec2(cos(equator),sin(equator))*sqrt(lightSurfaceSample.x),0.00000001);
+	
+				mat4x3 tform = light.transform;
+				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
+				float incomingInvLen = inversesqrt(dot(incoming,incoming));
+				incoming *= incomingInvLen;
+
+				maxT = 0.999/incomingInvLen;
+
+				factor = kPI; // inverse probability pick point on the light surface
+				vec3 lightNormal = inverse(transpose(mat3(tform)))[2];
 				factor *= max(dot(normalize(lightNormal),incoming),0.0)*incomingInvLen*incomingInvLen;
 			}
 			break;
@@ -251,6 +301,8 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 			break;
 	}
 
+	if (factor<0.00000000000000000000001) //! TODO: FLT_MIN
+		alive = false;
 
 	return light.factor*factor;
 }
@@ -293,16 +345,16 @@ void main()
 		{
 			vec4 bsdf = vec4(0.0,0.0,0.0,-1.0);
 			float error = ULP1(uDepthLinearizationConstant,100u);
-			bool shootRay = alive;// && lightCDF.length()!=0;
-			if (shootRay)
-			{
-				newray.maxT = FLT_MAX;
-				bsdf.rgb = light_sample(newray.direction,randomState,newray.maxT,position,normal);
+
+			newray.maxT = FLT_MAX;
+			alive = alive && lightCDF.length()!=0;
+			if (alive)
+				bsdf.rgb = light_sample(newray.direction,randomState,newray.maxT,alive,position,normal);
+			if (alive)
 				bsdf.rgb *= texelFetch(albedobuf,uv,0).rgb*dot(normal,newray.direction)/kPI;
 
-				newray.origin = position+newray.direction*error/maxAbs3(newray.direction);
-			}
-			newray._active = shootRay ? 1:0;
+			newray.origin = position+newray.direction*error/maxAbs3(newray.direction);
+			newray._active = alive ? 1:0;
 			newray.backfaceCulling = int(packHalf2x16(bsdf.ab));
 			newray.useless_padding = int(packHalf2x16(bsdf.gr));
 
@@ -576,9 +628,33 @@ void Renderer::init(const SAssetBundle& meshes, uint32_t rayBufferSize)
 				bool bail = false;
 				switch (shapeType)
 				{
+					case ext::MitsubaLoader::CElementShape::Type::CUBE:
+						{
+							light.type = SLight::ET_CUBE;
+							light.transform = instance.tform;
+						}
+						break;
 					case ext::MitsubaLoader::CElementShape::Type::SPHERE:
 						{
 							light.type = SLight::ET_ELLIPSOID;
+							light.transform = instance.tform;
+						}
+						break;
+					case ext::MitsubaLoader::CElementShape::Type::CYLINDER:
+						{
+							light.type = SLight::ET_CYLINDER;
+							light.transform = instance.tform;
+						}
+						break;
+					case ext::MitsubaLoader::CElementShape::Type::RECTANGLE:
+						{
+							light.type = SLight::ET_RECTANGLE;
+							light.transform = instance.tform;
+						}
+						break;
+					case ext::MitsubaLoader::CElementShape::Type::DISK:
+						{
+							light.type = SLight::ET_DISK;
 							light.transform = instance.tform;
 						}
 						break;
