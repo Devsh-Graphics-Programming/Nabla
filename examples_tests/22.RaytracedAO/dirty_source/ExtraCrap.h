@@ -62,12 +62,26 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				const auto unitSphereArea = 2.f*unitHemisphereArea;
 
 				float lightFlux = unitHemisphereArea*getFactorLuminosity();
+				auto sideArea = [&](const irr::core::vectorSIMDf& a, const irr::core::vectorSIMDf& b, const irr::core::vectorSIMDf& c) -> float
+				{
+					irr::core::vectorSIMDf v[3];
+					transform.transformVect(v[0], a);
+					transform.transformVect(v[1], b);
+					transform.transformVect(v[2], c);
+					return irr::core::length(irr::core::cross(v[1] - v[0], v[2] - v[0])).x;
+				};
 				switch (type)
 				{
 					case ET_CONSTANT: // no-op because factor is in Watts / Wavelength / steradian
 						break;
 					case ET_CUBE:
-						assert(false);
+						{
+							float cubeArea = sideArea(irr::core::vectorSIMDf(-1.f,-1.f,0.f),irr::core::vectorSIMDf(1.f,-1.f,0.f),irr::core::vectorSIMDf(-1.f,1.f,0.f));
+							cubeArea += sideArea(irr::core::vectorSIMDf(-1.f,0.f,-1.f),irr::core::vectorSIMDf(1.f,0.f,-1.f),irr::core::vectorSIMDf(-1.f,0.f,1.f));
+							cubeArea += sideArea(irr::core::vectorSIMDf(0.f,-1.f,-1.f),irr::core::vectorSIMDf(0.f,1.f,-1.f),irr::core::vectorSIMDf(0.f,-1.f,1.f));
+							lightFlux *= cubeArea*2.f;
+							assert(false);
+						}
 						break;
 					case ET_RECTANGLE:
 						{

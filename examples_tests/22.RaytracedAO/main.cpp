@@ -42,7 +42,7 @@ int main()
 		am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(am));
 
 		std::string filePath = "../../media/mitsuba/daily_pt.xml";
-	#define MITSUBA_LOADER_TESTS
+	//#define MITSUBA_LOADER_TESTS
 	#ifndef MITSUBA_LOADER_TESTS
 		pfd::message("Choose file to load", "Choose mitsuba XML file to load or ZIP containing an XML. \nIf you cancel or choosen file fails to load, simple scene will be loaded.", pfd::choice::ok);
 		pfd::open_file file("Choose XML or ZIP file", "../../media/mitsuba", { "ZIP files (.zip)", "*.zip", "XML files (.xml)", "*.xml"});

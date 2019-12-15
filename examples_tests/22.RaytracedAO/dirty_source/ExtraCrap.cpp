@@ -214,9 +214,21 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 
 	SLight light = light[lightID];
 
+#define SHADOW_RAY_LEN 0.99
 	float factor; // 1.0/light_probability already baked into the light factor
 	switch (SLight_extractType(light))
 	{
+		case SLight_ET_CONSTANT:
+			{
+				float equator = lightSurfaceSample.y*2.0*kPI;
+				vec3 pointOnSphere = vec3(vec2(cos(equator),sin(equator))*sqrt(1.0-lightSurfaceSample.x*lightSurfaceSample.x),lightSurfaceSample.x);
+	
+				mat2x3 tangents = frisvad(normal);
+				incoming = mat3(tangents[0],tangents[1],normal)*pointOnSphere;
+
+				factor = 1.0; // the area factor is already in the radiance of the constant source
+			}
+			break;
 		case SLight_ET_ELLIPSOID:
 			lightSurfaceSample.x = lightSurfaceSample.x*2.0-1.0;
 			{
@@ -228,7 +240,7 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 				float incomingInvLen = inversesqrt(dot(incoming,incoming));
 				incoming *= incomingInvLen;
 
-				maxT = 0.999/incomingInvLen;
+				maxT = SHADOW_RAY_LEN/incomingInvLen;
 
 				factor = 4.0*kPI; // inverse probability pick point on the light surface
 				vec3 lightNormal = inverse(transpose(mat3(tform)))*pointOnSurface;
@@ -245,7 +257,7 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 				float incomingInvLen = inversesqrt(dot(incoming,incoming));
 				incoming *= incomingInvLen;
 
-				maxT = 0.999/incomingInvLen;
+				maxT = SHADOW_RAY_LEN/incomingInvLen;
 
 				factor = 2.0*kPI; // inverse probability pick point on the light surface
 				vec3 lightNormal = inverse(transpose(mat3(tform)))*vec3(pointOnSurface.xy,0.0);
@@ -254,46 +266,51 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 			break;
 		case SLight_ET_RECTANGLE:
 			{
-				vec3 pointOnSurface = vec3(lightSurfaceSample*2.0-vec2(1.0),0.00000001);
+				vec3 pointOnSurface = vec3(lightSurfaceSample*2.0-vec2(1.0),0.0000001);
 	
 				mat4x3 tform = light.transform;
 				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
 				float incomingInvLen = inversesqrt(dot(incoming,incoming));
 				incoming *= incomingInvLen;
 
-				maxT = 0.999/incomingInvLen;
+				maxT = SHADOW_RAY_LEN/incomingInvLen;
 
 				factor = 4.0; // inverse probability pick point on the light surface
-				vec3 lightNormal = inverse(transpose(mat3(tform)))[2];
+				vec3 lightNormal = -inverse(transpose(mat3(tform)))[2];
 				factor *= max(dot(normalize(lightNormal),incoming),0.0)*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_DISK:
 			{
 				float equator = lightSurfaceSample.y*2.0*kPI;
-				vec3 pointOnSurface = vec3(vec2(cos(equator),sin(equator))*sqrt(lightSurfaceSample.x),0.00000001);
+				vec3 pointOnSurface = vec3(vec2(cos(equator),sin(equator))*sqrt(lightSurfaceSample.x),0.0000001);
 	
 				mat4x3 tform = light.transform;
 				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
 				float incomingInvLen = inversesqrt(dot(incoming,incoming));
 				incoming *= incomingInvLen;
 
-				maxT = 0.999/incomingInvLen;
+				maxT = SHADOW_RAY_LEN/incomingInvLen;
 
 				factor = kPI; // inverse probability pick point on the light surface
-				vec3 lightNormal = inverse(transpose(mat3(tform)))[2];
+				vec3 lightNormal = -inverse(transpose(mat3(tform)))[2];
 				factor *= max(dot(normalize(lightNormal),incoming),0.0)*incomingInvLen*incomingInvLen;
 			}
 			break;
-		case SLight_ET_CONSTANT:
+		case SLight_ET_TRIANGLE:
 			{
-				float equator = lightSurfaceSample.y*2.0*kPI;
-				vec3 pointOnSphere = vec3(vec2(cos(equator),sin(equator))*sqrt(1.0-lightSurfaceSample.x*lightSurfaceSample.x),lightSurfaceSample.x);
-	
-				mat2x3 tangents = frisvad(normal);
-				incoming = mat3(tangents[0],tangents[1],normal)*pointOnSphere;
+				mat3 vertices = transpose(mat3(light.transform));
+				vec3 pointOnSurface = vertices[0];
 
-				factor = 1.0; // the area factor is already in the radiance of the constant source
+				incoming = pointOnSurface-position;
+				float incomingInvLen = inversesqrt(dot(incoming,incoming));
+				incoming *= incomingInvLen;
+
+				maxT = SHADOW_RAY_LEN/incomingInvLen;
+
+				vec3 lightNormal = cross(vertices[1]-vertices[0],vertices[2]-vertices[0]);
+				factor = 0.5*max(dot(lightNormal,incoming),0.0)*incomingInvLen*incomingInvLen;
+				factor *= 4.0;
 			}
 			break;
 		default:
