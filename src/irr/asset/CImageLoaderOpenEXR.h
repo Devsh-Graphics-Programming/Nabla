@@ -26,7 +26,7 @@ namespace IMATH = IMATH_NAMESPACE;
 namespace irr
 {
 	namespace asset
-	{
+	{	
 		//! OpenEXR loader capable of loading .exr files
 		class CImageLoaderOpenEXR final : public asset::IAssetLoader
 		{
@@ -88,7 +88,6 @@ namespace irr
 				{
 					// The header of every OpenEXR file must contain at least the following attributes
 					//according to https://www.openexr.com/documentation/openexrfilelayout.pdf (page 8)
-
 					const IMF::Channel* channels = nullptr;
 					const IMF::Compression* compression = nullptr;
 					const IMATH::Box2i* dataWindow = nullptr;
@@ -97,6 +96,7 @@ namespace irr
 					const float* pixelAspectRatio = nullptr;
 					const IMATH::V2f* screenWindowCenter = nullptr;
 					const float* screenWindowWidth = nullptr;
+
 					// These attributes are required in the header for all multi - part and /or deep data OpenEXR files
 					const std::string* name = nullptr;
 					const std::string* type = nullptr;
@@ -104,7 +104,6 @@ namespace irr
 					const int* chunkCount = nullptr;
 
 					// This attribute is required in the header for all files which contain deep data (deepscanline or deeptile)
-
 					const int* maxSamplesPerPixel = nullptr;
 
 					// This attribute is required in the header for all files which contain one or more tiles
@@ -118,7 +117,7 @@ namespace irr
 
 				} attributes;
 
-				// line offset table TODO
+				// core::smart_refctd_dynamic_array<uint32_t> offsetTable; 
 
 				// scan line blocks TODO
 			};
