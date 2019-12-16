@@ -54,14 +54,14 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCubeMesh(const c
 	};
 	const core::vector3df pos[8] =
 	{
-		core::vector3df(0, 0, 0),
-		core::vector3df(1, 0, 0),
-		core::vector3df(1, 1, 0),
-		core::vector3df(0, 1, 0),
-		core::vector3df(1, 0, -1),
-		core::vector3df(0, 1, -1),
-		core::vector3df(0, 0, -1),
-		core::vector3df(1, 1, -1)
+		core::vector3df(-0.5,-0.5, 0.5),
+		core::vector3df( 0.5,-0.5, 0.5),
+		core::vector3df( 0.5, 0.5, 0.5),
+		core::vector3df(-0.5, 0.5, 0.5),
+		core::vector3df( 0.5,-0.5,-0.5),
+		core::vector3df(-0.5, 0.5,-0.5),
+		core::vector3df(-0.5,-0.5,-0.5),
+		core::vector3df( 0.5, 0.5,-0.5)
 	};
 	const core::vector2d<uint8_t> uvs[4] =
 	{
@@ -130,7 +130,6 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCubeMesh(const c
 
 	for (uint32_t i = 0; i < 24; ++i)
 	{
-		ptr[i].translate(-0.5f, -0.5f, 0.5f);
 		core::vector3df& pos = *((core::vector3df*)(ptr[i].pos));
 		pos *= size;
 	}

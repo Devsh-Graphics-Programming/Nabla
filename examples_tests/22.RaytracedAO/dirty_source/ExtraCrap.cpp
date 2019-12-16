@@ -222,26 +222,28 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 		case SLight_ET_CUBE:
 			{
 				mat4x3 tform = light.transform;
-				vec3 toCube = tform[3]-position;
-				vec3 histogram = toCube.xxx+vec3(0.0,toCube.yy)+vec3(0.0,0.0,toCube.z);
-				uint subFaceID = lightSurfaceSample.y>histogram.x ? (lightSurfaceSample.y>histogram.y ? 2u:1u):0u;
 
-				float faceDP = toCube[subFaceID];
-				toCube[subFaceID] -= sign(faceDP);
-				float v = (lightSurfaceSample.y-histogram[subFaceID])*2.0/toCube[subFaceID]-1.0;
+				float importantTmp = lightSurfaceSample.y*5.9999995;
+				uint faceID = uint(importantTmp);
+				float v = fract(importantTmp)*2.0-1.0;
 
-				uvec2 tanID[] = uvec2[](uvec2(1,2),uvec2(0,2),uvec2(0,1));
-				toCube[tanID[subFaceID][0]] += lightSurfaceSample.x*2.0-1.0;
-				toCube[tanID[subFaceID][1]] += v;
- 
-				incoming = toCube;
+				vec3 pointOnSurface;
+				uvec3 tanID[] = uvec3[](uvec3(0,1,2),uvec3(1,2,0),uvec3(2,0,1));
+				uint subFaceID = faceID>>1u;
+				float signFactor = (faceID&0x1u)!=0x1u ? 1.0:(-1.0);
+				pointOnSurface[tanID[subFaceID][0]] = signFactor;
+				pointOnSurface[tanID[subFaceID][1]] = lightSurfaceSample.x*2.0-1.0;
+				pointOnSurface[tanID[subFaceID][2]] = v;
+	
+				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
 				float incomingInvLen = inversesqrt(dot(incoming,incoming));
 				incoming *= incomingInvLen;
 
 				maxT = SHADOW_RAY_LEN/incomingInvLen;
 
-				factor = 12.0; // compensate for the domain of integration
-				factor *= abs(faceDP)*incomingInvLen*incomingInvLen;
+				factor = 24.0; // compensate for the domain of integration
+				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
+				factor *= max(dot(light.transformCofactors[subFaceID]*signFactor,incoming),0.0)*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_ELLIPSOID:

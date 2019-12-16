@@ -209,7 +209,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 	switch (shape->type)
 	{
 		case CElementShape::Type::CUBE:
-			mesh = ctx.creator->createCubeMesh(core::vector3df(1.f));
+			mesh = ctx.creator->createCubeMesh(core::vector3df(2.f));
 			flipNormals = shape->cube.flipNormals;
 			break;
 		case CElementShape::Type::SPHERE:
