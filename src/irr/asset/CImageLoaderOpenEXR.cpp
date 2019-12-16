@@ -51,12 +51,12 @@ namespace irr
 			readRgba(fileName, pixels, width, height);
 
 			constexpr uint32_t MAX_PITCH_ALIGNMENT = 8u;									   // OpenGL cannot transfer rows with arbitrary padding
-			auto calcPitchInBlocks = [](uint32_t width, uint32_t blockByteSize) -> uint32_t	   // try with largest alignment first
+			auto calcPitchInBlocks = [&](uint32_t width, uint32_t blockByteSize) -> uint32_t	   // try with largest alignment first
 			{
 				auto rowByteSize = width * blockByteSize;
-				for (uint32_t _alignment = MAX_PITCH_ALIGNMENT; _alignment > 1u; _alignment >>= 1u)
+				for (uint32_t alignment = MAX_PITCH_ALIGNMENT; alignment > 1u; alignment >>= 1u)
 				{
-					auto paddedSize = core::alignUp(rowByteSize, _alignment);
+					auto paddedSize = core::alignUp(rowByteSize, alignment);
 					if (paddedSize % blockByteSize)
 						continue;
 					return paddedSize / blockByteSize;
