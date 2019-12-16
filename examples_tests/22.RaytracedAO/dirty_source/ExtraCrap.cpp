@@ -320,8 +320,13 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 			break;
 		case SLight_ET_TRIANGLE:
 			{
-				mat3 vertices = transpose(mat3(light.transform));
-				vec3 pointOnSurface = vertices[0];
+				vec3 pointOnSurface = transpose(light.transformCofactors)[0];
+				vec3 shortEdge = transpose(light.transformCofactors)[1];
+				vec3 longEdge = transpose(light.transformCofactors)[2];
+
+				lightSurfaceSample.x = sqrt(lightSurfaceSample.x);
+
+				pointOnSurface += (shortEdge*(1.0-lightSurfaceSample.y)+longEdge*lightSurfaceSample.y)*lightSurfaceSample.x;
 
 				incoming = pointOnSurface-position;
 				float incomingInvLen = inversesqrt(dot(incoming,incoming));
@@ -329,7 +334,7 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 
 				maxT = SHADOW_RAY_LEN/incomingInvLen;
 
-				vec3 lightNormal = cross(vertices[1]-vertices[0],vertices[2]-vertices[0]);
+				vec3 lightNormal = cross(shortEdge,longEdge);
 				factor = 0.5*max(dot(lightNormal,incoming),0.0)*incomingInvLen*incomingInvLen;
 			}
 			break;
@@ -710,14 +715,14 @@ void Renderer::init(const SAssetBundle& meshes, uint32_t rayBufferSize)
 				if (bail)
 					continue;
 
-				auto addLight = [&](float approxArea) -> void
+				auto addLight = [&instance,&lightPDF,&lights](auto& newLight,float approxArea) -> void
 				{
-					float weight = light.computeFlux(approxArea) * instance.emitter.area.samplingWeight;
+					float weight = newLight.computeFlux(approxArea) * instance.emitter.area.samplingWeight;
 					if (weight <= FLT_MIN)
 						return;
 
 					lightPDF.push_back(weight);
-					lights.push_back(light);
+					lights.push_back(newLight);
 				};
 				auto areaFromTriangulationAndMakeMeshLight = [&]() -> float
 				{
@@ -733,6 +738,7 @@ void Renderer::init(const SAssetBundle& meshes, uint32_t rayBufferSize)
 						for (auto triID=0u; triID<triangleCount; triID++)
 						{
 							auto triangle = asset::IMeshManipulator::getTriangleIndices(cpumb,triID);
+							std::swap(triangle[1],triangle[2]);
 
 							core::vectorSIMDf v[3];
 							for (auto k=0u; k<3u; k++)
@@ -742,15 +748,13 @@ void Renderer::init(const SAssetBundle& meshes, uint32_t rayBufferSize)
 
 							if (light.type==SLight::ET_TRIANGLE)
 							{
+								SLight triLight = light;
 								for (auto k=0u; k<3u; k++)
-									instance.tform.transformVect(v[k]);
-								std::copy(v,v+3u,light.triangle.vertices);
+									instance.tform.transformVect(triLight.triangle.vertices[k],v[k]);
+								triLight.triangle.vertices[1] -= triLight.triangle.vertices[0];
+								triLight.triangle.vertices[2] -= triLight.triangle.vertices[0];
 
-								bool notLastTriangle = (++runningTriangleCount)!=totalTriangleCount;
-								if (notLastTriangle) // so we don't double add
-									addLight(triangleArea);
-								else
-									totalSurfaceArea = triangleArea;
+								addLight(triLight,triangleArea);
 							}
 							else
 								totalSurfaceArea += triangleArea;
@@ -759,7 +763,9 @@ void Renderer::init(const SAssetBundle& meshes, uint32_t rayBufferSize)
 					return totalSurfaceArea;
 				};
 
-				addLight(areaFromTriangulationAndMakeMeshLight());
+				auto totalArea = areaFromTriangulationAndMakeMeshLight();
+				if (light.type!=SLight::ET_TRIANGLE)
+					addLight(light,totalArea);
 			}
 		}
 

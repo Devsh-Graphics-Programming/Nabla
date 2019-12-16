@@ -120,6 +120,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				} analytical;
 				struct Triangle
 				{
+					irr::core::vectorSIMDf padding[3];
 					irr::core::vectorSIMDf vertices[3];
 				} triangle;
 			};
