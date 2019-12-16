@@ -265,6 +265,7 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:spirv_cross>
+	$<TARGET_OBJECTS:zlib>
 )
 
 add_dependencies(Irrlicht openssl_build)
