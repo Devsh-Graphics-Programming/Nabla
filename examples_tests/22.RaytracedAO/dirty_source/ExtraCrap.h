@@ -80,7 +80,6 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 							cubeArea += sideArea(irr::core::vectorSIMDf(-1.f,0.f,-1.f),irr::core::vectorSIMDf(1.f,0.f,-1.f),irr::core::vectorSIMDf(-1.f,0.f,1.f));
 							cubeArea += sideArea(irr::core::vectorSIMDf(0.f,-1.f,-1.f),irr::core::vectorSIMDf(0.f,1.f,-1.f),irr::core::vectorSIMDf(0.f,-1.f,1.f));
 							lightFlux *= cubeArea*2.f;
-							assert(false);
 						}
 						break;
 					case ET_RECTANGLE:

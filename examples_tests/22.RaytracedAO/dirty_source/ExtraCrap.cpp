@@ -218,15 +218,29 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 	float factor; // 1.0/light_probability already baked into the light factor
 	switch (SLight_extractType(light))
 	{
-		case SLight_ET_CONSTANT:
+		case SLight_ET_CUBE:
 			{
-				float equator = lightSurfaceSample.y*2.0*kPI;
-				vec3 pointOnSphere = vec3(vec2(cos(equator),sin(equator))*sqrt(1.0-lightSurfaceSample.x*lightSurfaceSample.x),lightSurfaceSample.x);
-	
-				mat2x3 tangents = frisvad(normal);
-				incoming = mat3(tangents[0],tangents[1],normal)*pointOnSphere;
+				mat4x3 tform = light.transform;
+				vec3 toCube = tform[3]-position;
+				vec3 histogram = toCube.xxx+vec3(0.0,toCube.yy)+vec3(0.0,0.0,toCube.z);
+				uint subFaceID = lightSurfaceSample.y>histogram.x ? (lightSurfaceSample.y>histogram.y ? 2u:1u):0u;
 
-				factor = 1.0; // the area factor is already in the radiance of the constant source
+				float faceDP = toCube[subFaceID];
+				toCube[subFaceID] -= sign(faceDP);
+				float v = (lightSurfaceSample.y-histogram[subFaceID])*2.0/toCube[subFaceID]-1.0;
+
+				uvec2 tanID[] = uvec2[](uvec2(1,2),uvec2(0,2),uvec2(0,1));
+				toCube[tanID[subFaceID][0]] += lightSurfaceSample.x*2.0-1.0;
+				toCube[tanID[subFaceID][1]] += v;
+ 
+				incoming = toCube;
+				float incomingInvLen = inversesqrt(dot(incoming,incoming));
+				incoming *= incomingInvLen;
+
+				maxT = SHADOW_RAY_LEN/incomingInvLen;
+
+				factor = 24.0; // inverse probability pick point on the light surface
+				factor *= abs(faceDP)*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_ELLIPSOID:
@@ -310,11 +324,18 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 
 				vec3 lightNormal = cross(vertices[1]-vertices[0],vertices[2]-vertices[0]);
 				factor = 0.5*max(dot(lightNormal,incoming),0.0)*incomingInvLen*incomingInvLen;
-				factor *= 4.0;
 			}
 			break;
-		default:
-			factor = 0.0;
+		default: // SLight_ET_CONSTANT:
+			{
+				float equator = lightSurfaceSample.y*2.0*kPI;
+				vec3 pointOnSphere = vec3(vec2(cos(equator),sin(equator))*sqrt(1.0-lightSurfaceSample.x*lightSurfaceSample.x),lightSurfaceSample.x);
+	
+				mat2x3 tangents = frisvad(normal);
+				incoming = mat3(tangents[0],tangents[1],normal)*pointOnSphere;
+
+				factor = 1.0; // the area factor is already in the radiance of the constant source
+			}
 			break;
 	}
 
@@ -617,8 +638,8 @@ void Renderer::init(const SAssetBundle& meshes, uint32_t rayBufferSize)
 			const auto* meshmeta = static_cast<const ext::MitsubaLoader::IMeshMetadata*>(meta);
 			globalMeta = meshmeta->globalMetadata.get();
 
-			const auto shapeType = meshmeta->getShapeType();
-			assert(shapeType != ext::MitsubaLoader::CElementShape::Type::INSTANCE);
+			//! TODO: fix
+			const auto shapeType = meshmeta->getShapeType()==ext::MitsubaLoader::CElementShape::Type::INSTANCE ? ext::MitsubaLoader::CElementShape::Type::SERIALIZED:meshmeta->getShapeType();
 
 			const auto& instances = meshmeta->getInstances();
 
@@ -728,8 +749,8 @@ void Renderer::init(const SAssetBundle& meshes, uint32_t rayBufferSize)
 							{
 								std::copy(v,v+3u,light.triangle.vertices);
 
-								bool lastTriangle = (++runningTriangleCount)==totalTriangleCount;
-								if (lastTriangle) // so we don't double add
+								bool notLastTriangle = (++runningTriangleCount)!=totalTriangleCount;
+								if (notLastTriangle) // so we don't double add
 									addLight(triangleArea);
 								else
 									totalSurfaceArea = triangleArea;
