@@ -391,12 +391,22 @@ inline bool matrix3x4SIMD::getSub3x3InverseTranspose(core::matrix3x4SIMD& _out) 
 		return false;
 	auto rcp = core::reciprocal(d);
 
-	// matrix of minors ^ matrix of cofactors * 1/det
-	_out.rows[0] = r1crossr2*rcp;
-	_out.rows[1] = core::cross(rows[2], rows[0])*rcp;
-	_out.rows[2] = core::cross(rows[0], rows[1])*rcp;
+	// matrix of cofactors * 1/det
+	_out = getSub3x3TransposeCofactors();
+	_out.rows[0] *= rcp;
+	_out.rows[1] *= rcp;
+	_out.rows[2] *= rcp;
 
 	return true;
+}
+
+inline core::matrix3x4SIMD matrix3x4SIMD::getSub3x3TransposeCofactors() const
+{
+	core::matrix3x4SIMD _out;
+	_out.rows[0] = core::cross(rows[1], rows[2]);
+	_out.rows[1] = core::cross(rows[2], rows[0]);
+	_out.rows[2] = core::cross(rows[0], rows[1]);
+	return _out;
 }
 
 // TODO: Double check this!-

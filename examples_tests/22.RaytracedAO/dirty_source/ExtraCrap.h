@@ -30,9 +30,12 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 			{
 				std::copy(other.strengthFactor,other.strengthFactor+3u,strengthFactor);
 				if (type == ET_TRIANGLE)
-					std::copy(other.triangle.vertices, other.triangle.vertices + 3u, triangle.vertices);
+					std::copy(other.triangle.vertices, other.triangle.vertices+3u, triangle.vertices);
 				else
-					transform = other.transform;
+				{
+					analytical.transform = other.analytical.transform;
+					analytical.transformCofactors = other.analytical.transformCofactors;
+				}
 			}
 			~SLight() {}
 
@@ -56,39 +59,33 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				return luma;
 			}
 
+			inline float computeAreaUnderTransform(irr::core::vectorSIMDf differentialElementCrossProduct)
+			{
+				analytical.transformCofactors.mulSub3x3WithNx1(differentialElementCrossProduct);
+				return irr::core::length(differentialElementCrossProduct).x;
+			}
+
 			inline float computeFlux(float triangulizationArea) // also known as lumens
 			{
 				const auto unitHemisphereArea = 2.f*irr::core::PI<float>();
 				const auto unitSphereArea = 2.f*unitHemisphereArea;
 
 				float lightFlux = unitHemisphereArea*getFactorLuminosity();
-				auto sideArea = [&](const irr::core::vectorSIMDf& a, const irr::core::vectorSIMDf& b, const irr::core::vectorSIMDf& c) -> float
-				{
-					irr::core::vectorSIMDf v[3];
-					transform.transformVect(v[0], a);
-					transform.transformVect(v[1], b);
-					transform.transformVect(v[2], c);
-					return irr::core::length(irr::core::cross(v[1] - v[0], v[2] - v[0])).x;
-				};
 				switch (type)
 				{
 					case ET_CONSTANT: // no-op because factor is in Watts / Wavelength / steradian
 						break;
 					case ET_CUBE:
 						{
-							float cubeArea = sideArea(irr::core::vectorSIMDf(-1.f,-1.f,0.f),irr::core::vectorSIMDf(1.f,-1.f,0.f),irr::core::vectorSIMDf(-1.f,1.f,0.f));
-							cubeArea += sideArea(irr::core::vectorSIMDf(-1.f,0.f,-1.f),irr::core::vectorSIMDf(1.f,0.f,-1.f),irr::core::vectorSIMDf(-1.f,0.f,1.f));
-							cubeArea += sideArea(irr::core::vectorSIMDf(0.f,-1.f,-1.f),irr::core::vectorSIMDf(0.f,1.f,-1.f),irr::core::vectorSIMDf(0.f,-1.f,1.f));
+							float cubeArea = computeAreaUnderTransform(irr::core::vectorSIMDf(4.f,0.f,0.f));
+							cubeArea += computeAreaUnderTransform(irr::core::vectorSIMDf(0.f,4.f,0.f));
+							cubeArea += computeAreaUnderTransform(irr::core::vectorSIMDf(0.f,0.f,4.f));
 							lightFlux *= cubeArea*2.f;
 						}
 						break;
 					case ET_RECTANGLE:
 						{
-							irr::core::vectorSIMDf v[3];
-							transform.transformVect(v[0],irr::core::vectorSIMDf(-1.f,-1.f,0.f));
-							transform.transformVect(v[1],irr::core::vectorSIMDf( 1.f,-1.f,0.f));
-							transform.transformVect(v[2],irr::core::vectorSIMDf(-1.f, 1.f,0.f));
-							lightFlux *= irr::core::length(irr::core::cross(v[1]-v[0],v[2]-v[0])).x;
+							lightFlux *= computeAreaUnderTransform(irr::core::vectorSIMDf(0.f,0.f,4.f));
 						}
 						break;
 					case ET_ELLIPSOID:
@@ -116,7 +113,11 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 			//! useful for analytical shapes
 			union
 			{
-				irr::core::matrix3x4SIMD transform;
+				struct Analytical
+				{
+					irr::core::matrix3x4SIMD transform;
+					irr::core::matrix3x4SIMD transformCofactors;
+				} analytical;
 				struct Triangle
 				{
 					irr::core::vectorSIMDf vertices[3];
@@ -129,7 +130,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 			};
 			*/
 		};
-		static_assert(sizeof(SLight)==64u,"Can't keep alignment straight!");
+		static_assert(sizeof(SLight)==112u,"Can't keep alignment straight!");
 
 		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr);
 
@@ -174,6 +175,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
 		irr::ext::RadeonRays::Manager::MeshNodeRRInstanceCache rrInstances;
 
+		irr::core::vectorSIMDf constantClearColor;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightCDFBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightBuffer;
 };

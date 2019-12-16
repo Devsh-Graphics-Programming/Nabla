@@ -213,7 +213,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 			flipNormals = shape->cube.flipNormals;
 			break;
 		case CElementShape::Type::SPHERE:
-			mesh = ctx.creator->createSphereMesh(1.f);
+			mesh = ctx.creator->createSphereMesh(1.f,64u,64u);
 			flipNormals = shape->sphere.flipNormals;
 			{
 				core::matrix3x4SIMD tform;
@@ -250,7 +250,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 			flipNormals = shape->rectangle.flipNormals;
 			break;
 		case CElementShape::Type::DISK:
-			mesh = ctx.creator->createDiskMesh(1.f,64);
+			mesh = ctx.creator->createDiskMesh(1.f,64u);
 			flipNormals = shape->disk.flipNormals;
 			break;
 		case CElementShape::Type::OBJ:

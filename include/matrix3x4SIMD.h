@@ -194,6 +194,9 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 	}
 
 	//
+	inline core::matrix3x4SIMD getSub3x3TransposeCofactors() const;
+
+	//
 	inline void setTransformationCenter(const vectorSIMDf& _center, const vectorSIMDf& _translation);
 
 	//

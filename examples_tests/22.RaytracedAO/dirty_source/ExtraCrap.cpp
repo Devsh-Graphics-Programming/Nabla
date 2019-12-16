@@ -63,6 +63,7 @@ struct SLight
 	vec3 factor;
 	uint data0;
 	mat4x3 transform; // needs row_major qualifier
+	mat3 transformCofactors;
 };
 uint SLight_extractType(in SLight light)
 {
@@ -214,7 +215,7 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 
 	SLight light = light[lightID];
 
-#define SHADOW_RAY_LEN 0.99
+#define SHADOW_RAY_LEN 0.5
 	float factor; // 1.0/light_probability already baked into the light factor
 	switch (SLight_extractType(light))
 	{
@@ -239,26 +240,28 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 
 				maxT = SHADOW_RAY_LEN/incomingInvLen;
 
-				factor = 24.0; // inverse probability pick point on the light surface
+				factor = 12.0; // compensate for the domain of integration
 				factor *= abs(faceDP)*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_ELLIPSOID:
 			lightSurfaceSample.x = lightSurfaceSample.x*2.0-1.0;
 			{
+				mat4x3 tform = light.transform;
 				float equator = lightSurfaceSample.y*2.0*kPI;
 				vec3 pointOnSurface = vec3(vec2(cos(equator),sin(equator))*sqrt(1.0-lightSurfaceSample.x*lightSurfaceSample.x),lightSurfaceSample.x);
 	
-				mat4x3 tform = light.transform;
 				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
 				float incomingInvLen = inversesqrt(dot(incoming,incoming));
 				incoming *= incomingInvLen;
 
 				maxT = SHADOW_RAY_LEN/incomingInvLen;
 
-				factor = 4.0*kPI; // inverse probability pick point on the light surface
-				vec3 lightNormal = inverse(transpose(mat3(tform)))*pointOnSurface;
-				factor *= max(dot(normalize(lightNormal),incoming),0.0)*incomingInvLen*incomingInvLen;
+				factor = 4.0*kPI; // compensate for the domain of integration
+				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
+				vec3 lightNormal = light.transformCofactors*pointOnSurface;
+
+				factor *= max(dot(lightNormal,incoming),0.0)*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_CYLINDER:
@@ -273,14 +276,16 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 
 				maxT = SHADOW_RAY_LEN/incomingInvLen;
 
-				factor = 2.0*kPI; // inverse probability pick point on the light surface
-				vec3 lightNormal = inverse(transpose(mat3(tform)))*vec3(pointOnSurface.xy,0.0);
-				factor *= max(dot(normalize(lightNormal),incoming),0.0)*incomingInvLen*incomingInvLen;
+				factor = 2.0*kPI; // compensate for the domain of integration
+				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
+				vec3 lightNormal = light.transformCofactors[0]*pointOnSurface.x+light.transformCofactors[1]*pointOnSurface.y;
+
+				factor *= max(dot(lightNormal,incoming),0.0)*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_RECTANGLE:
 			{
-				vec3 pointOnSurface = vec3(lightSurfaceSample*2.0-vec2(1.0),0.0000001);
+				vec3 pointOnSurface = vec3(lightSurfaceSample*2.0-vec2(1.0),0.0000001); // TODO: FLT_MIN
 	
 				mat4x3 tform = light.transform;
 				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
@@ -289,15 +294,15 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 
 				maxT = SHADOW_RAY_LEN/incomingInvLen;
 
-				factor = 4.0; // inverse probability pick point on the light surface
-				vec3 lightNormal = -inverse(transpose(mat3(tform)))[2];
-				factor *= max(dot(normalize(lightNormal),incoming),0.0)*incomingInvLen*incomingInvLen;
+				factor = 4.0; // compensate for the domain of integration
+				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
+				factor *= max(dot(-light.transformCofactors[2],incoming),0.0)*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_DISK:
 			{
 				float equator = lightSurfaceSample.y*2.0*kPI;
-				vec3 pointOnSurface = vec3(vec2(cos(equator),sin(equator))*sqrt(lightSurfaceSample.x),0.0000001);
+				vec3 pointOnSurface = vec3(vec2(cos(equator),sin(equator))*sqrt(lightSurfaceSample.x),0.0000001); // TODO: FLT_MIN
 	
 				mat4x3 tform = light.transform;
 				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
@@ -306,9 +311,9 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 
 				maxT = SHADOW_RAY_LEN/incomingInvLen;
 
-				factor = kPI; // inverse probability pick point on the light surface
-				vec3 lightNormal = -inverse(transpose(mat3(tform)))[2];
-				factor *= max(dot(normalize(lightNormal),incoming),0.0)*incomingInvLen*incomingInvLen;
+				factor = kPI; // compensate for the domain of integration
+				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
+				factor *= max(dot(-light.transformCofactors[2],incoming),0.0)*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_TRIANGLE:
@@ -334,12 +339,12 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 				mat2x3 tangents = frisvad(normal);
 				incoming = mat3(tangents[0],tangents[1],normal)*pointOnSphere;
 
-				factor = 1.0; // the area factor is already in the radiance of the constant source
+				factor = kPI*2.0; // compensate for the domain of integration
 			}
 			break;
 	}
 
-	if (factor<0.00000000000000000000001) //! TODO: FLT_MIN
+	if (factor<0.0) // TODO: FLT_MIN
 		alive = false;
 
 	return light.factor*factor;
@@ -375,21 +380,21 @@ void main()
 
 		RadeonRays_ray newray;
 		newray.time = 0.0;
-		newray.mask = -1;
+		newray.mask = alive ? -1:0;
 		vec3 normal;
 		if (alive)
 			normal = decode(encNormal);
 		for (uint i=0u; i<uSamples_ImageWidthSamples.x; i++)
 		{
 			vec4 bsdf = vec4(0.0,0.0,0.0,-1.0);
-			float error = ULP1(uDepthLinearizationConstant,100u);
+			float error = ULP1(uDepthLinearizationConstant,8u);
 
 			newray.maxT = FLT_MAX;
 			alive = alive && lightCDF.length()!=0;
 			if (alive)
 				bsdf.rgb = light_sample(newray.direction,randomState,newray.maxT,alive,position,normal);
 			if (alive)
-				bsdf.rgb *= texelFetch(albedobuf,uv,0).rgb*dot(normal,newray.direction)/kPI;
+				bsdf.rgb *= texelFetch(albedobuf,uv,0).rgb*max(dot(normal,newray.direction),0.0)/kPI;
 
 			newray.origin = position+newray.direction*error/maxAbs3(newray.direction);
 			newray._active = alive ? 1:0;
@@ -419,7 +424,7 @@ layout(location = 1) uniform uvec2 uSamples_ImageWidthSamples;
 layout(location = 2) uniform float uRcpFramesDone;
 
 // image views
-layout(binding = 0, rgba16f) restrict uniform image2D framebuffer;
+layout(binding = 0, rgba32f) restrict uniform image2D framebuffer;
 
 // SSBOs
 layout(binding = 0, std430) restrict readonly buffer Rays
@@ -662,39 +667,27 @@ void Renderer::init(const SAssetBundle& meshes, uint32_t rayBufferSize)
 
 				SLight light;
 				light.setFactor(instance.emitter.area.radiance);
+				light.analytical.transform = instance.tform;
+				auto tmp =	core::transpose(core::matrix4SIMD(instance.tform.getSub3x3TransposeCofactors()));
+				light.analytical.transformCofactors = tmp.extractSub3x4();
 
 				bool bail = false;
 				switch (shapeType)
 				{
 					case ext::MitsubaLoader::CElementShape::Type::CUBE:
-						{
-							light.type = SLight::ET_CUBE;
-							light.transform = instance.tform;
-						}
+						light.type = SLight::ET_CUBE;
 						break;
 					case ext::MitsubaLoader::CElementShape::Type::SPHERE:
-						{
-							light.type = SLight::ET_ELLIPSOID;
-							light.transform = instance.tform;
-						}
+						light.type = SLight::ET_ELLIPSOID;
 						break;
 					case ext::MitsubaLoader::CElementShape::Type::CYLINDER:
-						{
-							light.type = SLight::ET_CYLINDER;
-							light.transform = instance.tform;
-						}
+						light.type = SLight::ET_CYLINDER;
 						break;
 					case ext::MitsubaLoader::CElementShape::Type::RECTANGLE:
-						{
-							light.type = SLight::ET_RECTANGLE;
-							light.transform = instance.tform;
-						}
+						light.type = SLight::ET_RECTANGLE;
 						break;
 					case ext::MitsubaLoader::CElementShape::Type::DISK:
-						{
-							light.type = SLight::ET_DISK;
-							light.transform = instance.tform;
-						}
+						light.type = SLight::ET_DISK;
 						break;
 					case ext::MitsubaLoader::CElementShape::Type::OBJ:
 						_IRR_FALLTHROUGH;
@@ -741,12 +734,14 @@ void Renderer::init(const SAssetBundle& meshes, uint32_t rayBufferSize)
 
 							core::vectorSIMDf v[3];
 							for (auto k=0u; k<3u; k++)
-								instance.tform.transformVect(v[k],cpumb->getPosition(triangle[k]));
-
-							float triangleArea = 0.5f*core::length(core::cross(v[1]-v[0],v[2]-v[0]))[0];
+								v[k] = cpumb->getPosition(triangle[k]);
+						
+							float triangleArea = 0.5f*light.computeAreaUnderTransform(core::cross(v[1]-v[0],v[2]-v[0]));
 
 							if (light.type==SLight::ET_TRIANGLE)
 							{
+								for (auto k=0u; k<3u; k++)
+									instance.tform.transformVect(v[k]);
 								std::copy(v,v+3u,light.triangle.vertices);
 
 								bool notLastTriangle = (++runningTriangleCount)!=totalTriangleCount;
@@ -809,6 +804,7 @@ void Renderer::init(const SAssetBundle& meshes, uint32_t rayBufferSize)
 			switch (emitter.type)
 			{
 				case ext::MitsubaLoader::CElementEmitter::Type::CONSTANT:
+					constantClearColor += emitter.constant.radiance;
 					light.type = SLight::ET_CONSTANT;
 					light.setFactor(emitter.constant.radiance);
 					weight = emitter.constant.samplingWeight;
@@ -868,7 +864,7 @@ void Renderer::init(const SAssetBundle& meshes, uint32_t rayBufferSize)
 	m_albedo = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize.Width, 1, EF_R8G8B8_SRGB);
 	m_normals = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize.Width, 1, EF_R16G16_SNORM);
 
-	m_accumulation = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize.Width, 1, EF_R16G16B16A16_SFLOAT);
+	m_accumulation = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize.Width, 1, EF_R32G32B32A32_SFLOAT);
 	m_tonemapOutput = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize.Width, 1, EF_R8G8B8_SRGB);
 
 	m_colorBuffer = m_driver->addFrameBuffer();
@@ -985,6 +981,7 @@ void Renderer::deinit()
 	m_rrManager->deleteInstances(rrInstances.begin(),rrInstances.end());
 	rrInstances.clear();
 
+	constantClearColor.set(0.f,0.f,0.f,1.f);
 	m_lightCDFBuffer = m_lightBuffer = nullptr;
 }
 
@@ -1007,7 +1004,7 @@ void Renderer::render()
 	m_smgr->drawAll();
 
 	auto currentViewProj = camera->getConcatenatedMatrix();
-	if (!core::equals(prevViewProj,currentViewProj,core::ROUNDING_ERROR<core::matrix4SIMD>()*5.0))
+	if (!core::equals(prevViewProj,currentViewProj,core::ROUNDING_ERROR<core::matrix4SIMD>()*100.0))
 	{
 		m_totalSamplesComputed = 0u;
 		m_framesDone = 0u;
@@ -1123,7 +1120,7 @@ void Renderer::render()
 		const COpenGLDriver::SAuxContext* foundConst = static_cast<COpenGLDriver*>(m_driver)->getThreadContext();
 		COpenGLDriver::SAuxContext* found = const_cast<COpenGLDriver::SAuxContext*>(foundConst);
 		
-		COpenGLExtensionHandler::extGlBindImageTexture(0u,static_cast<COpenGLFilterableTexture*>(m_accumulation.get())->getOpenGLName(),0,false,0,GL_READ_WRITE,GL_RGBA16F);
+		COpenGLExtensionHandler::extGlBindImageTexture(0u,static_cast<COpenGLFilterableTexture*>(m_accumulation.get())->getOpenGLName(),0,false,0,GL_READ_WRITE,GL_RGBA32F);
 
 		COpenGLExtensionHandler::extGlUseProgram(m_compostProgram);
 
