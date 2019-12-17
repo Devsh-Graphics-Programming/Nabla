@@ -42,7 +42,7 @@ int main()
 		am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(am));
 
 		std::string filePath = "../../media/mitsuba/daily_pt.xml";
-	#define MITSUBA_LOADER_TESTS
+	//#define MITSUBA_LOADER_TESTS
 	#ifndef MITSUBA_LOADER_TESTS
 		pfd::message("Choose file to load", "Choose mitsuba XML file to load or ZIP containing an XML. \nIf you cancel or choosen file fails to load, simple scene will be loaded.", pfd::choice::ok);
 		pfd::open_file file("Choose XML or ZIP file", "../../media/mitsuba", { "ZIP files (.zip)", "*.zip", "XML files (.xml)", "*.xml"});
@@ -125,17 +125,10 @@ int main()
 	}
 
 
-	auto driver = device->getVideoDriver();
-	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
 	auto smgr = device->getSceneManager();
-	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver,device->getAssetManager(),smgr);
-	renderer->init(meshes,512u*1024u*1024u);
-	meshes = {}; // free memory
 
-
-	auto extent = renderer->getSceneBound().getExtent();
-	auto camera = smgr->addCameraSceneNodeFPS(nullptr, 100.f, core::min(extent.X, extent.Y, extent.Z) * 0.0002f);
-	//auto camera = smgr->addCameraSceneNode(nullptr);
+	bool rightHandedCamera = true;
+	auto camera = smgr->addCameraSceneNode(nullptr);
 	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
 		return sensor.type == ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type == ext::MitsubaLoader::CElementSensor::Type::THINLENS;
 	};
@@ -145,11 +138,10 @@ int main()
 		const auto& film = sensor.film;
 
 		// need to extract individual components
-		bool leftHandedCamera = false;
 		{
 			auto relativeTransform = sensor.transform.matrix.extractSub3x4();
 			if (relativeTransform.getPseudoDeterminant().x < 0.f)
-				leftHandedCamera = true;
+				rightHandedCamera = false;
 
 			auto pos = relativeTransform.getTranslation();
 			camera->setPosition(pos.getAsVector3df());
@@ -221,18 +213,41 @@ int main()
 		// TODO: apply the crop offset
 		assert(film.cropOffsetX==0 && film.cropOffsetY==0);
 		float nearClip = core::max(persp->nearClip, persp->farClip * 0.0001);
-		if (leftHandedCamera)
-			camera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(realFoVDegrees), aspectRatio, nearClip, persp->farClip));
-		else
+		if (rightHandedCamera)
 			camera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(core::radians(realFoVDegrees), aspectRatio, nearClip, persp->farClip));
+		else
+			camera->setProjectionMatrix(core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(core::radians(realFoVDegrees), aspectRatio, nearClip, persp->farClip));
 	}
 	else
 	{
 		camera->setNearValue(20.f);
 		camera->setFarValue(5000.f);
 	}
+
+
+	auto driver = device->getVideoDriver();
+	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
+
+	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver, device->getAssetManager(), smgr);
+	renderer->init(meshes, rightHandedCamera, 512u * 1024u * 1024u);
+	meshes = {}; // free memory
+	auto extent = renderer->getSceneBound().getExtent();
+
+	if (false)
+	{
+		core::vector3df_SIMD ptu[] = {core::vectorSIMDf().set(camera->getPosition()),camera->getTarget(),camera->getUpVector()};
+		auto proj = camera->getProjectionMatrix();
+
+		camera = smgr->addCameraSceneNodeFPS(nullptr, 100.f, core::min(extent.X, extent.Y, extent.Z) * 0.0002f);
+		camera->setPosition(ptu[0].getAsVector3df());
+		camera->setTarget(ptu[1].getAsVector3df());
+		camera->setUpVector(ptu[2].getAsVector3df());
+		camera->setProjectionMatrix(proj);
+
+		device->getCursorControl()->setVisible(false);
+	}
+
 	smgr->setActiveCamera(camera);
-	device->getCursorControl()->setVisible(false);
 
 
 	QToQuitEventReceiver receiver;

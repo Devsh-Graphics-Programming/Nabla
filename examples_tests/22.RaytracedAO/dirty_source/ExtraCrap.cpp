@@ -298,7 +298,7 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 
 				factor = 4.0; // compensate for the domain of integration
 				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
-				factor *= max(dot(-light.transformCofactors[2],incoming),0.0)*incomingInvLen*incomingInvLen;
+				factor *= max(dot(light.transformCofactors[2],incoming),0.0)*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_DISK:
@@ -315,7 +315,7 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 
 				factor = kPI; // compensate for the domain of integration
 				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
-				factor *= max(dot(-light.transformCofactors[2],incoming),0.0)*incomingInvLen*incomingInvLen;
+				factor *= max(dot(light.transformCofactors[2],incoming),0.0)*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_TRIANGLE:
@@ -629,7 +629,7 @@ Renderer::~Renderer()
 }
 
 
-void Renderer::init(const SAssetBundle& meshes, uint32_t rayBufferSize)
+void Renderer::init(const SAssetBundle& meshes, bool isCameraRightHanded, uint32_t rayBufferSize)
 {
 	deinit();
 
@@ -692,9 +692,13 @@ void Renderer::init(const SAssetBundle& meshes, uint32_t rayBufferSize)
 						break;
 					case ext::MitsubaLoader::CElementShape::Type::RECTANGLE:
 						light.type = SLight::ET_RECTANGLE;
+						if (isCameraRightHanded)
+							light.analytical.transformCofactors = -light.analytical.transformCofactors;
 						break;
 					case ext::MitsubaLoader::CElementShape::Type::DISK:
 						light.type = SLight::ET_DISK;
+						if (isCameraRightHanded)
+							light.analytical.transformCofactors = -light.analytical.transformCofactors;
 						break;
 					case ext::MitsubaLoader::CElementShape::Type::OBJ:
 						_IRR_FALLTHROUGH;
@@ -738,7 +742,8 @@ void Renderer::init(const SAssetBundle& meshes, uint32_t rayBufferSize)
 						for (auto triID=0u; triID<triangleCount; triID++)
 						{
 							auto triangle = asset::IMeshManipulator::getTriangleIndices(cpumb,triID);
-							std::swap(triangle[1],triangle[2]);
+							if (isCameraRightHanded)
+								std::swap(triangle[1],triangle[2]);
 
 							core::vectorSIMDf v[3];
 							for (auto k=0u; k<3u; k++)

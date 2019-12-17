@@ -135,7 +135,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr);
 
-		void init(const irr::asset::SAssetBundle& meshes, uint32_t rayBufferSize=512u*1024u*1024u);
+		void init(const irr::asset::SAssetBundle& meshes, bool isCameraRightHanded, uint32_t rayBufferSize=512u*1024u*1024u);
 
 		void deinit();
 
