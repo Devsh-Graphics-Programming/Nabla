@@ -62,38 +62,38 @@ E_FORMAT spvImageFormat2E_FORMAT(spv::ImageFormat _imgfmt)
 }
 }//anonymous ns
 
-const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _shader)
+const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _shader, const SEntryPoint_Stage_Extensions& _params)
 {
     if (!_shader)
         return nullptr;
 
-    auto found = m_introspectionCache.find(core::smart_refctd_ptr<const ICPUShader>(_shader));
-    if (found != m_introspectionCache.end())
-        return found->second.get();
+    auto found = findIntrospection(_shader, _params);
+    if (found)
+        return found.get();
 
-    auto introspectSPV = [this](const ICPUShader* _spvshader) {
+    auto introspectSPV = [this,&_params](const ICPUShader* _spvshader) {
         const ICPUBuffer* spv = _spvshader->getSPVorGLSL();
         spirv_cross::Compiler comp(reinterpret_cast<const uint32_t*>(spv->getPointer()), spv->getSize()/4u);
-        return doIntrospection(comp, m_params);
+        return doIntrospection(comp, _params);
     };
 
     if (_shader->containsGLSL()) {
         std::string glsl = reinterpret_cast<const char*>(_shader->getSPVorGLSL()->getPointer());
-        ICPUShader::insertGLSLExtensionsDefines(glsl, m_params.GLSLextensions.get());
+        ICPUShader::insertGLSLExtensionsDefines(glsl, _params.GLSLextensions.get());
         auto spvShader = m_glslCompiler->createSPIRVFromGLSL(
             glsl.c_str(),
-            m_params.stage,
-            m_params.entryPoint.c_str(),
+            _params.stage,
+            _params.entryPoint.c_str(),
             "????"
         );
         if (!spvShader)
             return nullptr;
 
-        return m_introspectionCache.insert({core::smart_refctd_ptr<const ICPUShader>(_shader), introspectSPV(spvShader.get())}).first->second.get();
+        return cacheIntrospection(introspectSPV(spvShader.get()), _shader, _params);
     }
     else {
         // TODO (?) when we have enabled_extensions_list it may validate whether all extensions in list are also present in spv
-        return m_introspectionCache.insert({core::smart_refctd_ptr<const ICPUShader>(_shader), introspectSPV(_shader)}).first->second.get();
+        return cacheIntrospection(introspectSPV(_shader), _shader, _params);
     }
 }
 
