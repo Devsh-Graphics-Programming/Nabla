@@ -405,6 +405,9 @@ CMitsubaLoader::SContext::bsdf_ass_type CMitsubaLoader::getBSDF(SContext& ctx, u
 			case SPropertyElementData::Type::SRGB:
 				return data.vvalue;
 				break;
+			case SPropertyElementData::Type::SPECTRUM:
+				return data.vvalue;
+				break;
 			default:
 				assert(false);
 				break;

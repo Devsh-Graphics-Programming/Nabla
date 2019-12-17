@@ -112,6 +112,8 @@ struct SPropertyElementData
 				vvalue = other.vvalue;
 				break;
 			case Type::SPECTRUM:
+				vvalue = other.vvalue;
+				break;
 			case Type::BLACKBODY:
 				assert(false);
 				break;
@@ -152,6 +154,8 @@ struct SPropertyElementData
 				vvalue = other.vvalue;
 				break;
 			case Type::SPECTRUM:
+				vvalue = other.vvalue;
+				break;
 			case Type::BLACKBODY:
 				assert(false);
 				break;
@@ -276,7 +280,7 @@ template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type:
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::POINT>
 { using type = core::vectorSIMDf; };
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::SPECTRUM>
-{ using type = void; };
+{ using type = core::vectorSIMDf; };
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::BLACKBODY>
 { using type = void; };
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::MATRIX>

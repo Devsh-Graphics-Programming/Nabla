@@ -155,6 +155,9 @@ bool CElementEmitter::addProperty(SNamedPropertyElement&& _property)
 					case SPropertyElementData::Type::SRGB: \
 						state. ## MEMBER = _property.getProperty<SPropertyElementData::Type::SRGB>(); \
 						break; \
+					case SPropertyElementData::Type::SPECTRUM: \
+						state. ## MEMBER = _property.getProperty<SPropertyElementData::Type::SPECTRUM>(); \
+						break; \
 					default: \
 						error = true; \
 						break; \
