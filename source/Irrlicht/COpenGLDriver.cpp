@@ -1191,9 +1191,9 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
         spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr<asset::ICPUBuffer>(glUnspec->m_code));
     }
 
-    asset::CShaderIntrospector::SEntryPoint_Stage_Extensions introspectionParams{_specInfo.entryPoint, _specInfo.shaderStage, getSupportedGLSLExtensions()};
-    asset::CShaderIntrospector introspector(GLSLCompiler.get(), introspectionParams);
-    const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get());
+    asset::CShaderIntrospector::SEntryPoint_Stage_Extensions introspectionParams{ _specInfo.shaderStage, _specInfo.entryPoint, getSupportedGLSLExtensions()};
+    asset::CShaderIntrospector introspector(GLSLCompiler.get());
+    const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
     if (introspection->pushConstant.present && introspection->pushConstant.info.name.empty())
     {
         assert(false);//abort on debug build

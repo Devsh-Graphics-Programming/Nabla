@@ -113,6 +113,60 @@ static E_DESCRIPTOR_TYPE resType2descType(E_SHADER_RESOURCE_TYPE _t)
     return descType[_t];
 }
 
+core::smart_refctd_dynamic_array<SPushConstantRange> CShaderIntrospector::createApproximateFromIntrospection(ICPUSpecializedShader* const* const _begin, const ICPUSpecializedShader* const* const _end, const std::string& _entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions)
+{
+    constexpr size_t MAX_STAGE_COUNT = 14ull;
+
+    ICPUSpecializedShader* shaders[MAX_STAGE_COUNT]{};
+    for (auto shdr = _begin; shdr != _end; ++shdr)
+    {
+        shaders[core::findLSB<uint32_t>((*shdr)->getStage())] = (*shdr);
+    }
+
+    core::vector<uint32_t> presentStagesIxs;
+    presentStagesIxs.reserve(MAX_STAGE_COUNT);
+    const CIntrospectionData* introspection[MAX_STAGE_COUNT]{};
+    for (uint32_t i = 0u; i < MAX_STAGE_COUNT; ++i)
+        if (shaders[i])
+        {
+            introspection[i] = introspect(shaders[i]->getUnspecialized(), { shaders[i]->getStage(), _entryPoint, _extensions });
+            presentStagesIxs.push_back(i);
+        }
+
+    core::vector<SPushConstantRange> ranges[MAX_STAGE_COUNT];
+    for (auto& r : ranges)
+        r.reserve(100u);
+
+    for (uint32_t stg : presentStagesIxs)
+    {
+        auto& pc = introspection[stg]->pushConstant;
+        if (!pc.present)
+            continue;
+
+        auto& members = pc.info.members;
+        auto& rngs = ranges[stg];
+        rngs.push_back({static_cast<ISpecializedShader::E_SHADER_STAGE>(1u<<stg), members.array[0].offset, members.array[0].size});
+        for (uint32_t i = 1u; i < members.count; ++i)
+        {
+            auto& last = rngs.back();
+            if (members.array[i].offset == (last.offset + last.size))
+                last.size += members.array[i].size;
+            else
+                rngs.push_back({static_cast<ISpecializedShader::E_SHADER_STAGE>(1u<<stg), members.array[i].offset, members.array[i].size});
+        }
+    }
+
+    //TODO overlapping parts of ranges need to be merged! but it's harder than one could think..
+    core::vector<SPushConstantRange> all;
+    for (const auto& rngs : ranges)
+        all.insert(all.end(), rngs.begin(), rngs.end());
+
+    auto rngsArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SPushConstantRange>>(all.size());
+    memcpy(rngsArray->data(), all.data(), rngsArray->size()*sizeof(SPushConstantRange));
+
+    return rngsArray;
+}
+
 core::smart_refctd_ptr<ICPUDescriptorSetLayout> CShaderIntrospector::createApproximateFromIntrospection(uint32_t _set, ICPUSpecializedShader* const* const _begin, const ICPUSpecializedShader* const* const _end, const std::string& _entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions)
 {
     constexpr size_t MAX_STAGE_COUNT = 14ull;

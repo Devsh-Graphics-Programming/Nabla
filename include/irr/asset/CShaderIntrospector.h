@@ -104,6 +104,7 @@ class CShaderIntrospector : public core::Uncopyable
 
 		const CIntrospectionData* introspect(const ICPUShader* _shader, const SEntryPoint_Stage_Extensions& _params);
 
+        core::smart_refctd_dynamic_array<SPushConstantRange> createApproximateFromIntrospection(ICPUSpecializedShader* const* const begin, const ICPUSpecializedShader* const* const end, const std::string& entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions);
         core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateFromIntrospection(uint32_t set, ICPUSpecializedShader* const* const begin, const ICPUSpecializedShader* const* const end, const std::string& entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions);
 	private:
 		core::smart_refctd_ptr<CIntrospectionData> doIntrospection(spirv_cross::Compiler& _comp, const SEntryPoint_Stage_Extensions& _ep) const;
