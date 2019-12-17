@@ -90,7 +90,10 @@ set(BUILD_TESTING OFF)
 set(PYILMBASE_ENABLE OFF)
 set(OPENEXR_BUILD_UTILS OFF)
 set(OPENEXR_VIEWERS_ENABLE OFF)
+set(ZLIB_INCLUDE_DIR ${THIRD_PARTY_SOURCE_DIR}/zlib) #for openexr
+set(ZLIB_LIBRARY "$<TARGET_OBJECTS:zlib>") #for openexr
 add_subdirectory(openexr openexr EXCLUDE_FROM_ALL)
+#add_dependencies(OpenEXR::IlmImf zlib) #CMake doesn't get it itself - CMake Error at 3rdparty/CMakeLists.txt:96 (add_dependencies): Cannot add target-level dependencies to alias target "OpenEXR::IlmImf".
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 set(BUILD_TESTING ${_OLD_BUILD_TESTING})

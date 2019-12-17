@@ -265,6 +265,7 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:spirv_cross>
+	$<TARGET_OBJECTS:zlib>
 )
 
 add_dependencies(Irrlicht openssl_build)
@@ -349,6 +350,7 @@ irr_target_link_openssl(IrrlichtServer)
 irr_target_link_shaderc(IrrlichtServer)
 irr_target_link_libjpeg(IrrlichtServer)
 irr_target_link_libpng(IrrlichtServer)
+irr_target_link_openexr(IrrlichtServer)
 
 target_include_directories(IrrlichtServer PUBLIC 
 	${IRR_ROOT_PATH}/include
