@@ -84,6 +84,18 @@ struct matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> E
 
 	inline bool operator!=(const matrix3x4SIMD& _other);
 
+
+	inline matrix3x4SIMD operator-() const
+	{
+		matrix3x4SIMD retval;
+		retval.rows[0] = -rows[0];
+		retval.rows[1] = -rows[1];
+		retval.rows[2] = -rows[2];
+		retval.rows[3] = -rows[3];
+		return retval;
+	}
+
+
 	inline matrix3x4SIMD& operator+=(const matrix3x4SIMD& _other);
 	inline matrix3x4SIMD operator+(const matrix3x4SIMD& _other) const
 	{
