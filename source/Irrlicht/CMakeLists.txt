@@ -202,6 +202,13 @@ set(COMMON_INCLUDE_DIRS
 irr_adjust_flags() # macro defined in root CMakeLists
 irr_adjust_definitions() # macro defined in root CMakeLists
 
+macro(irr_target_link_zlib _trgt)
+	add_dependencies(${_trgt} zlibstatic)
+	target_link_libraries(${_trgt} INTERFACE
+		zlibstatic
+	)
+	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/zlib)
+endmacro()
 macro(irr_target_link_openssl _trgt)
 	if(WIN32)
 		target_link_libraries(${_trgt} INTERFACE
@@ -265,10 +272,10 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:spirv_cross>
-	$<TARGET_OBJECTS:zlib>
 )
 
 add_dependencies(Irrlicht openssl_build)
+irr_target_link_zlib(Irrlicht)
 irr_target_link_openssl(Irrlicht)
 irr_target_link_shaderc(Irrlicht)
 irr_target_link_libjpeg(Irrlicht)
@@ -342,10 +349,10 @@ add_library(IrrlichtServer STATIC
 	$<TARGET_OBJECTS:convert_utf>
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
-	$<TARGET_OBJECTS:zlib>
 )
 
 add_dependencies(IrrlichtServer openssl_build)
+irr_target_link_zlib(IrrlichtServer)
 irr_target_link_openssl(IrrlichtServer)
 irr_target_link_shaderc(IrrlichtServer)
 irr_target_link_libjpeg(IrrlichtServer)
