@@ -97,6 +97,99 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
     }
 }
 
+static E_DESCRIPTOR_TYPE resType2descType(E_SHADER_RESOURCE_TYPE _t)
+{
+    static const E_DESCRIPTOR_TYPE descType[9]{
+        EDT_COMBINED_IMAGE_SAMPLER,
+        EDT_STORAGE_IMAGE,
+        EDT_UNIFORM_TEXEL_BUFFER,
+        EDT_STORAGE_TEXEL_BUFFER,
+        EDT_UNIFORM_BUFFER,
+        EDT_STORAGE_BUFFER,
+        EDT_UNIFORM_BUFFER_DYNAMIC,
+        EDT_STORAGE_BUFFER_DYNAMIC,
+        EDT_INPUT_ATTACHMENT
+    };
+    return descType[_t];
+}
+
+core::smart_refctd_ptr<ICPUDescriptorSetLayout> CShaderIntrospector::createApproximateFromIntrospection(uint32_t _set, ICPUSpecializedShader* const* const _begin, const ICPUSpecializedShader* const* const _end, const std::string& _entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions)
+{
+    constexpr size_t MAX_STAGE_COUNT = 14ull;
+
+    ICPUSpecializedShader* shaders[MAX_STAGE_COUNT]{};
+    for (auto shdr = _begin; shdr != _end; ++shdr)
+    {
+        shaders[core::findLSB<uint32_t>((*shdr)->getStage())] = (*shdr);
+    }
+
+    core::vector<uint32_t> presentStagesIxs;
+    presentStagesIxs.reserve(MAX_STAGE_COUNT);
+    const CIntrospectionData* introspection[MAX_STAGE_COUNT]{};
+    for (uint32_t i = 0u; i < MAX_STAGE_COUNT; ++i)
+        if (shaders[i])
+        {
+            introspection[i] = introspect(shaders[i]->getUnspecialized(), {shaders[i]->getStage(), _entryPoint, _extensions});
+            presentStagesIxs.push_back(i);
+        }
+    uint32_t checkedDescsCnt[MAX_STAGE_COUNT]{};
+
+    core::vector<ICPUDescriptorSetLayout::SBinding> bindings;
+    bindings.reserve(100u); //preallocating mem for 100 bindings almost ensures no reallocs
+    while (1)
+    {
+        uint32_t stageFlags = 0u;
+        ICPUDescriptorSetLayout::SBinding binding;
+        binding.binding = ~0u;
+        binding.samplers = nullptr;
+
+        bool anyStageNotFinished = false;
+        for (uint32_t stg : presentStagesIxs)
+        {
+            auto& introBindings = introspection[stg]->descriptorSetBindings[_set];
+            if (checkedDescsCnt[stg] == introBindings.size())
+                continue;
+            anyStageNotFinished = true;
+
+            if (introBindings[checkedDescsCnt[stg]].binding < binding.binding)
+                binding.binding = introBindings[checkedDescsCnt[stg]].binding;
+        }
+        if (!anyStageNotFinished) //all shader stages finished
+            break;
+
+        uint32_t refStg = ~0u;
+        for (uint32_t stg : presentStagesIxs)
+        {
+            auto& introBnd = introspection[stg]->descriptorSetBindings[_set][checkedDescsCnt[stg]];
+            if (introBnd.binding != binding.binding)
+                continue;
+
+            stageFlags |= (1u<<stg);
+
+            ++checkedDescsCnt[stg];
+            refStg = stg;
+        }
+
+        auto& introBnd = introspection[refStg]->descriptorSetBindings[_set][checkedDescsCnt[refStg]-1u];
+        binding.type = resType2descType(introBnd.type);
+        binding.stageFlags = static_cast<ICPUSpecializedShader::E_SHADER_STAGE>(stageFlags);
+        binding.count = introBnd.descriptorCount;
+        if (introBnd.descCountIsSpecConstant)
+        {
+            auto& specInfo = shaders[refStg]->getSpecializationInfo();
+            auto val = specInfo.getSpecializationByteValue(binding.count);
+            assert(val.second == 4ull);
+            memcpy(&binding.count, val.first, 4ull);
+        }
+
+        bindings.push_back(binding);
+    }
+
+    if (bindings.size())
+        return core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings.data(), bindings.data()+bindings.size());
+    return nullptr; //returns nullptr if no descriptors are bound in set number `_set`
+}
+
 static E_GLSL_VAR_TYPE spvcrossType2E_TYPE(spirv_cross::SPIRType::BaseType _basetype)
 {
     switch (_basetype)
