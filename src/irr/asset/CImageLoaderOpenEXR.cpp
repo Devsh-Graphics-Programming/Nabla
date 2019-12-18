@@ -24,6 +24,7 @@ SOFTWARE.
 
 #include "openexr/IlmBase/Imath/ImathBox.h"
 #include "openexr/OpenEXR/IlmImf/ImfRgbaFile.h"
+#include "openexr/OpenEXR/IlmImf/ImfInputFile.h"
 #include "openexr/OpenEXR/IlmImf/ImfChannelList.h"
 #include "openexr/OpenEXR/IlmImf/ImfChannelListAttribute.h"
 #include "openexr/OpenEXR/IlmImf/ImfStringAttribute.h"
@@ -49,8 +50,8 @@ namespace irr
 		bool readVersionField(io::IReadFile* _file, SContext& ctx);
 		bool readHeader(const char fileName[], SContext& ctx);
 		template<typename rgbaFormat>
-		void readRgba(RgbaInputFile& file, std::array<Array2D<rgbaFormat>, 4>& pixelRgbaMapArray, int& width, int& height, E_FORMAT& format);
-		void specifyIrrlichtEndFormat(E_FORMAT& format, const RgbaInputFile& file);
+		void readRgba(InputFile& file, std::array<Array2D<rgbaFormat>, 4>& pixelRgbaMapArray, int& width, int& height, E_FORMAT& format);
+		void specifyIrrlichtEndFormat(E_FORMAT& format, const InputFile& file);
 
 		//! A helpful struct for handling OpenEXR layout
 		/*
@@ -140,17 +141,17 @@ namespace irr
 			{
 				case EF_R16G16B16A16_SFLOAT:
 				{
-					*reinterpret_cast<half>(begginingOfImageDataBuffer + endShiftToSpecifyADataPos) = ilmPixelValueToAssignTo;
+					*(reinterpret_cast<half*>(begginingOfImageDataBuffer) + endShiftToSpecifyADataPos) = ilmPixelValueToAssignTo;
 					break;
 				}
 				case EF_R32G32B32A32_SFLOAT:
 				{
-					*reinterpret_cast<float>(begginingOfImageDataBuffer + endShiftToSpecifyADataPos) = ilmPixelValueToAssignTo;
+					*(reinterpret_cast<float*>(begginingOfImageDataBuffer) + endShiftToSpecifyADataPos) = ilmPixelValueToAssignTo;
 					break;
 				}
 				case EF_R32G32B32A32_UINT:
 				{
-					*reinterpret_cast<uint32_t>(begginingOfImageDataBuffer + endShiftToSpecifyADataPos) = ilmPixelValueToAssignTo;
+					*(reinterpret_cast<uint32_t*>(begginingOfImageDataBuffer) + endShiftToSpecifyADataPos) = ilmPixelValueToAssignTo;
 					break;
 				}
 			}
@@ -167,7 +168,7 @@ namespace irr
 				return {};
 
 			SContext ctx;
-			RgbaInputFile file = fileName;
+			InputFile file = fileName;
 
 			// readVersionField(_file, ctx);
 			// readHeader(fileName, ctx);
@@ -296,35 +297,43 @@ namespace irr
 		}
 
 		template<typename rgbaFormat>
-		void readRgba(RgbaInputFile& file, std::array<Array2D<rgbaFormat>, 4>& pixelRgbaMapArray, int& width, int& height, E_FORMAT& format)
+		void readRgba(InputFile& file, std::array<Array2D<rgbaFormat>, 4>& pixelRgbaMapArray, int& width, int& height, E_FORMAT& format)
 		{
 			Box2i dw = file.header().dataWindow();
 			width = dw.max.x - dw.min.x + 1;
 			height = dw.max.y - dw.min.y + 1;
 
-			constexpr std::array<unsigned char, 4> rgbaSignatureAsText = { "R", "G", "B", "A" };
+			const std::string rgbaSignatureAsText = "RGBA";
 			for (auto& pixelChannelBuffer : pixelRgbaMapArray)
 				pixelChannelBuffer.resizeErase(height, width);
 
 			FrameBuffer frameBuffer;
+			PixelType pixelType;
 
-			for(uint8_t rgbaChannelIndex = 0; rgbaChannelIndex < 4; ++rgbaChannelIndex)
+			if (format == EF_R16G16B16A16_SFLOAT)
+				pixelType = PixelType::HALF;
+			else if (format == EF_R32G32B32A32_SFLOAT)
+				pixelType = PixelType::FLOAT;
+			else if (EF_R32G32B32A32_UINT)
+				pixelType = PixelType::UINT;
+
+			for (uint8_t rgbaChannelIndex = 0; rgbaChannelIndex < 4; ++rgbaChannelIndex)
 				frameBuffer.insert
 				(
-					rgbaSignatureAsText[rgbaChannelIndex],														// name
-					Slice(rgbaFormat,																			// type
-					(char*)(&(pixelRgbaMapArray[rgbaChannelIndex])[0][0] - dw.min.x - dw.min.y * width),		// base
-					sizeof(zPixels[0][0]) * 1,																	// xStride
-					sizeof(zPixels[0][0]) * width,																// yStride
-					1, 1,																						// x/y sampling
-					0																							// fillValue
+					reinterpret_cast<const char*>(rgbaSignatureAsText[rgbaChannelIndex]),                       // name
+					Slice(pixelType,                                                                            // type
+					(char*)(&(pixelRgbaMapArray[rgbaChannelIndex])[0][0] - dw.min.x - dw.min.y * width),        // base
+					sizeof((pixelRgbaMapArray[rgbaChannelIndex])[0][0]) * 1,                                    // xStride
+					sizeof((pixelRgbaMapArray[rgbaChannelIndex])[0][0]) * width,                                // yStride
+					1, 1,                                                                                       // x/y sampling
+					0                                                                                           // fillValue
 				));	
 
 			file.setFrameBuffer(frameBuffer);
 			file.readPixels(dw.min.y, dw.max.y);
 		}
 
-		void specifyIrrlichtEndFormat(E_FORMAT& format, const RgbaInputFile& file)
+		void specifyIrrlichtEndFormat(E_FORMAT& format, const InputFile& file)
 		{
 			const IMF::Channel* RChannel = file.header().channels().findChannel("R");
 			const IMF::Channel* GChannel = file.header().channels().findChannel("G");
