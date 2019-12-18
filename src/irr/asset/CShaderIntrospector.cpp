@@ -113,7 +113,7 @@ static E_DESCRIPTOR_TYPE resType2descType(E_SHADER_RESOURCE_TYPE _t)
     return descType[_t];
 }
 
-core::smart_refctd_dynamic_array<SPushConstantRange> CShaderIntrospector::createApproximateFromIntrospection(ICPUSpecializedShader* const* const _begin, const ICPUSpecializedShader* const* const _end, const std::string& _entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions)
+core::smart_refctd_dynamic_array<SPushConstantRange> CShaderIntrospector::createPushConstantRangesFromIntrospection(ICPUSpecializedShader* const* const _begin, const ICPUSpecializedShader* const* const _end, const std::string& _entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions)
 {
     constexpr size_t MAX_STAGE_COUNT = 14ull;
 
@@ -161,13 +161,17 @@ core::smart_refctd_dynamic_array<SPushConstantRange> CShaderIntrospector::create
     for (const auto& rngs : ranges)
         all.insert(all.end(), rngs.begin(), rngs.end());
 
-    auto rngsArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SPushConstantRange>>(all.size());
-    memcpy(rngsArray->data(), all.data(), rngsArray->size()*sizeof(SPushConstantRange));
+    core::smart_refctd_dynamic_array<SPushConstantRange> rngsArray;
+    if (all.size())
+    {
+        core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SPushConstantRange>>(all.size());
+        memcpy(rngsArray->data(), all.data(), rngsArray->size() * sizeof(SPushConstantRange));
+    }
 
     return rngsArray;
 }
 
-core::smart_refctd_ptr<ICPUDescriptorSetLayout> CShaderIntrospector::createApproximateFromIntrospection(uint32_t _set, ICPUSpecializedShader* const* const _begin, const ICPUSpecializedShader* const* const _end, const std::string& _entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions)
+core::smart_refctd_ptr<ICPUDescriptorSetLayout> CShaderIntrospector::createApproximateDescriptorSetLayoutFromIntrospection(uint32_t _set, ICPUSpecializedShader* const* const _begin, const ICPUSpecializedShader* const* const _end, const std::string& _entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions)
 {
     constexpr size_t MAX_STAGE_COUNT = 14ull;
 
@@ -242,6 +246,20 @@ core::smart_refctd_ptr<ICPUDescriptorSetLayout> CShaderIntrospector::createAppro
     if (bindings.size())
         return core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings.data(), bindings.data()+bindings.size());
     return nullptr; //returns nullptr if no descriptors are bound in set number `_set`
+}
+
+core::smart_refctd_ptr<ICPUPipelineLayout> CShaderIntrospector::createApproximatePipelineLayoutFromIntrospection(ICPUSpecializedShader* const* const _begin, const ICPUSpecializedShader* const* const _end, const std::string& _entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions)
+{
+    core::smart_refctd_ptr<ICPUDescriptorSetLayout> dsLayout[ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
+    for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+        dsLayout[i] = createApproximateDescriptorSetLayoutFromIntrospection(i, _begin, _end, _entryPoint, _extensions);
+
+    auto pcRanges = createPushConstantRangesFromIntrospection(_begin, _end, _entryPoint, _extensions);
+
+    return core::make_smart_refctd_ptr<ICPUPipelineLayout>(
+        (pcRanges ? pcRanges->begin() : nullptr), (pcRanges ? pcRanges->end() : nullptr),
+        std::move(dsLayout[0]), std::move(dsLayout[1]), std::move(dsLayout[2]), std::move(dsLayout[3])
+    );
 }
 
 static E_GLSL_VAR_TYPE spvcrossType2E_TYPE(spirv_cross::SPIRType::BaseType _basetype)
