@@ -113,7 +113,7 @@ static E_DESCRIPTOR_TYPE resType2descType(E_SHADER_RESOURCE_TYPE _t)
     return descType[_t];
 }
 
-core::smart_refctd_dynamic_array<SPushConstantRange> CShaderIntrospector::createPushConstantRangesFromIntrospection(ICPUSpecializedShader* const* const _begin, const ICPUSpecializedShader* const* const _end, const std::string& _entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions)
+core::smart_refctd_dynamic_array<SPushConstantRange> CShaderIntrospector::createPushConstantRangesFromIntrospection(ICPUSpecializedShader** const _begin, ICPUSpecializedShader** const _end, const std::string& _entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions)
 {
     constexpr size_t MAX_STAGE_COUNT = 14ull;
 
@@ -171,7 +171,7 @@ core::smart_refctd_dynamic_array<SPushConstantRange> CShaderIntrospector::create
     return rngsArray;
 }
 
-core::smart_refctd_ptr<ICPUDescriptorSetLayout> CShaderIntrospector::createApproximateDescriptorSetLayoutFromIntrospection(uint32_t _set, ICPUSpecializedShader* const* const _begin, const ICPUSpecializedShader* const* const _end, const std::string& _entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions)
+core::smart_refctd_ptr<ICPUDescriptorSetLayout> CShaderIntrospector::createApproximateDescriptorSetLayoutFromIntrospection(uint32_t _set, ICPUSpecializedShader** const _begin, ICPUSpecializedShader** const _end, const std::string& _entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions)
 {
     constexpr size_t MAX_STAGE_COUNT = 14ull;
 
@@ -248,7 +248,7 @@ core::smart_refctd_ptr<ICPUDescriptorSetLayout> CShaderIntrospector::createAppro
     return nullptr; //returns nullptr if no descriptors are bound in set number `_set`
 }
 
-core::smart_refctd_ptr<ICPUPipelineLayout> CShaderIntrospector::createApproximatePipelineLayoutFromIntrospection(ICPUSpecializedShader* const* const _begin, const ICPUSpecializedShader* const* const _end, const std::string& _entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions)
+core::smart_refctd_ptr<ICPUPipelineLayout> CShaderIntrospector::createApproximatePipelineLayoutFromIntrospection(ICPUSpecializedShader** const _begin, ICPUSpecializedShader** const _end, const std::string& _entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions)
 {
     core::smart_refctd_ptr<ICPUDescriptorSetLayout> dsLayout[ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
     for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
@@ -259,6 +259,62 @@ core::smart_refctd_ptr<ICPUPipelineLayout> CShaderIntrospector::createApproximat
     return core::make_smart_refctd_ptr<ICPUPipelineLayout>(
         (pcRanges ? pcRanges->begin() : nullptr), (pcRanges ? pcRanges->end() : nullptr),
         std::move(dsLayout[0]), std::move(dsLayout[1]), std::move(dsLayout[2]), std::move(dsLayout[3])
+    );
+}
+
+core::smart_refctd_ptr<ICPUComputePipeline> CShaderIntrospector::createApproximateComputePipelineFromIntrospection(ICPUSpecializedShader* _shader, const std::string& _entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions, ICPUComputePipeline* _parent)
+{
+    if (_shader->getStage() != ICPUSpecializedShader::ESS_COMPUTE)
+        return nullptr;
+
+    auto layout = createApproximatePipelineLayoutFromIntrospection(&_shader, &_shader + 1, _entryPoint, _extensions);
+
+    return core::make_smart_refctd_ptr<ICPUComputePipeline>(
+        core::smart_refctd_ptr<ICPUComputePipeline>(_parent),
+        std::move(layout),
+        core::smart_refctd_ptr<ICPUSpecializedShader>(_shader)
+    );
+}
+
+core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CShaderIntrospector::createApproximateRenderpassIndependentPipelineFromIntrospection(ICPUSpecializedShader** const _begin, ICPUSpecializedShader** const _end, const std::string& _entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions, ICPURenderpassIndependentPipeline* _parent)
+{
+    ICPUSpecializedShader* vs = nullptr;
+    {
+        auto vs_it = std::find_if(_begin, _end, [](ICPUSpecializedShader* shdr) { return shdr->getStage()==ICPUSpecializedShader::ESS_VERTEX; });
+        if (vs_it == _end)
+            return nullptr; //no vertex shader
+        vs = vs_it[0];
+    }
+
+    auto vs_introspection = introspect(vs->getUnspecialized(), {ICPUSpecializedShader::ESS_VERTEX, _entryPoint, _extensions});
+
+    SVertexInputParams vtxInput;
+    for (const auto& io : vs_introspection->inputOutput)
+    {
+        if (io.type == ESIT_STAGE_INPUT)
+        {
+            auto& attr = vtxInput.attributes[io.location];
+            attr.binding = io.location; //assume attrib number = binding number
+            attr.format = EF_R32G32B32A32_SFLOAT; //TODO: introspection doesnt give GLSL type of input/output
+            attr.relativeOffset = 0u; //TODO: IMO would be better to assume all attribs data are interleaved in one buffer
+
+            vtxInput.enabledAttribFlags |= (1u << io.location);
+        }
+    }
+    vtxInput.enabledBindingFlags = vtxInput.enabledAttribFlags;
+
+    //all except vertex input are defaulted
+    SBlendParams blending;
+    SPrimitiveAssemblyParams primAssembly;
+    SRasterizationParams raster;
+
+    auto layout = createApproximatePipelineLayoutFromIntrospection(_begin, _end, _entryPoint, _extensions);
+
+    return core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
+        core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>(_parent),
+        std::move(layout),
+        _begin, _end,
+        vtxInput, blending, primAssembly, raster
     );
 }
 
