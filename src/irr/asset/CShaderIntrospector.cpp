@@ -113,6 +113,30 @@ static E_DESCRIPTOR_TYPE resType2descType(E_SHADER_RESOURCE_TYPE _t)
     return descType[_t];
 }
 
+template<E_SHADER_RESOURCE_TYPE restype>
+static std::pair<bool, IImageView<ICPUImage>::E_TYPE> imageInfoFromResource(const SShaderResource<restype>& _res)
+{
+    return {_res.shadow, _res.viewType};
+}
+
+std::pair<bool, IImageView<ICPUImage>::E_TYPE> CShaderIntrospector::getImageInfoFromIntrospection(uint32_t _set, uint32_t _binding, ICPUSpecializedShader** const _begin, ICPUSpecializedShader** const _end, const core::smart_refctd_dynamic_array<std::string>& _extensions)
+{
+    std::pair<bool, IImageView<ICPUImage>::E_TYPE> retval;
+
+    for (auto shdr = _begin; shdr != _end; ++shdr)
+    {
+        const CIntrospectionData* introspection = introspect((*shdr)->getUnspecialized(), {(*shdr)->getStage(), (*shdr)->getSpecializationInfo().entryPoint, _extensions});
+
+        for (const auto& bnd : introspection->descriptorSetBindings[_set])
+        {
+            if (bnd.type==ESRT_COMBINED_IMAGE_SAMPLER || bnd.type==ESRT_STORAGE_IMAGE)
+                return (bnd.type==ESRT_COMBINED_IMAGE_SAMPLER) ? imageInfoFromResource(bnd.get<ESRT_COMBINED_IMAGE_SAMPLER>()) : imageInfoFromResource(bnd.get<ESRT_STORAGE_IMAGE>());
+        }
+    }
+
+    return {false, IImageView<ICPUImage>::ET_COUNT};
+}
+
 core::smart_refctd_dynamic_array<SPushConstantRange> CShaderIntrospector::createPushConstantRangesFromIntrospection(ICPUSpecializedShader** const _begin, ICPUSpecializedShader** const _end, const core::smart_refctd_dynamic_array<std::string>& _extensions)
 {
     constexpr size_t MAX_STAGE_COUNT = 14ull;
@@ -308,6 +332,21 @@ core::smart_refctd_ptr<ICPUComputePipeline> CShaderIntrospector::createApproxima
     );
 }
 
+static E_FORMAT glslType2E_FORMAT(E_GLSL_VAR_TYPE _t, uint32_t _e)
+{
+    static const E_FORMAT retval[6][4]
+    {
+        {EF_R64_UINT, EF_R64G64_UINT, EF_R64G64B64_UINT, EF_R64G64B64A64_UINT},
+        {EF_R64_SINT, EF_R64G64_SINT, EF_R64G64B64_SINT, EF_R64G64B64A64_SINT},
+        {EF_R32_UINT, EF_R32G32_UINT, EF_R32G32B32_UINT, EF_R32G32B32A32_UINT},
+        {EF_R32_SINT, EF_R32G32_SINT, EF_R32G32B32_SINT, EF_R32G32B32A32_SINT},
+        {EF_R64_SFLOAT, EF_R64G64_SFLOAT, EF_R64G64B64_SFLOAT, EF_R64G64B64A64_SFLOAT},
+        {EF_R32_SFLOAT, EF_R32G32_SFLOAT, EF_R32G32B32_SFLOAT, EF_R32G32B32A32_SFLOAT}
+    };
+
+    return retval[_t][_e];
+}
+
 core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CShaderIntrospector::createApproximateRenderpassIndependentPipelineFromIntrospection(ICPUSpecializedShader** const _begin, ICPUSpecializedShader** const _end, const core::smart_refctd_dynamic_array<std::string>& _extensions, ICPURenderpassIndependentPipeline* _parent)
 {
     ICPUSpecializedShader* vs = nullptr;
@@ -321,19 +360,29 @@ core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CShaderIntrospector::c
     auto vs_introspection = introspect(vs->getUnspecialized(), {ICPUSpecializedShader::ESS_VERTEX, vs->getSpecializationInfo().entryPoint, _extensions});
 
     SVertexInputParams vtxInput;
+    uint32_t reloffset = 0u;
     for (const auto& io : vs_introspection->inputOutput)
     {
         if (io.type == ESIT_STAGE_INPUT)
         {
             auto& attr = vtxInput.attributes[io.location];
             attr.binding = io.location; //assume attrib number = binding number
-            attr.format = EF_R32G32B32A32_SFLOAT; //TODO: introspection doesnt give GLSL type of input/output
-            attr.relativeOffset = 0u; //TODO: IMO would be better to assume all attribs data are interleaved in one buffer
+            attr.format = glslType2E_FORMAT(io.glslType.basetype, io.glslType.elements);
+            attr.relativeOffset = reloffset;
+
+            //all formats returned by glslType2E_FORMAT() already are multiple-of-4 bytes so no need to pad
+            reloffset += getTexelOrBlockBytesize(static_cast<E_FORMAT>(attr.format));
 
             vtxInput.enabledAttribFlags |= (1u << io.location);
         }
     }
     vtxInput.enabledBindingFlags = vtxInput.enabledAttribFlags;
+
+    for (uint32_t i = 0u; i < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+    {
+        if (vtxInput.enabledBindingFlags & (1u<<i))
+            vtxInput.bindings[i].stride = reloffset;
+    }
 
     //all except vertex input are defaulted
     SBlendParams blending;
@@ -369,6 +418,21 @@ static E_GLSL_VAR_TYPE spvcrossType2E_TYPE(spirv_cross::SPIRType::BaseType _base
     default:
         return EGVT_UNKNOWN_OR_STRUCT;
     }
+}
+static IImageView<ICPUImage>::E_TYPE spvcrossImageType2ImageView(const spirv_cross::SPIRType::ImageType& _type)
+{
+    IImageView<ICPUImage>::E_TYPE viewType[8]{
+        IImageView<ICPUImage>::ET_1D,
+        IImageView<ICPUImage>::ET_1D_ARRAY,
+        IImageView<ICPUImage>::ET_2D,
+        IImageView<ICPUImage>::ET_2D_ARRAY,
+        IImageView<ICPUImage>::ET_3D,
+        IImageView<ICPUImage>::ET_3D,
+        IImageView<ICPUImage>::ET_CUBE_MAP,
+        IImageView<ICPUImage>::ET_CUBE_MAP_ARRAY
+    };
+
+    return viewType[_type.dim*2u + _type.arrayed];
 }
 
 core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(spirv_cross::Compiler& _comp, const SEntryPoint_Stage_Extensions& _ep) const
@@ -484,14 +548,17 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
         SShaderResourceVariant& res = addResource_common(r, buffer ? ESRT_STORAGE_TEXEL_BUFFER : ESRT_STORAGE_IMAGE, mapId2SpecConst);
         if (!buffer)
         {
-            res.get<ESRT_STORAGE_IMAGE>().approxFormat = spvImageFormat2E_FORMAT(type.image.format);
+            res.get<ESRT_STORAGE_IMAGE>().format = spvImageFormat2E_FORMAT(type.image.format);
+            res.get<ESRT_STORAGE_IMAGE>().viewType = spvcrossImageType2ImageView(type.image);
+            res.get<ESRT_STORAGE_IMAGE>().shadow = type.image.depth;
         }
     }
     for (const spirv_cross::Resource& r : resources.sampled_images)
     {
         SShaderResourceVariant& res = addResource_common(r, ESRT_COMBINED_IMAGE_SAMPLER, mapId2SpecConst);
 		const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
-        res.get<ESRT_COMBINED_IMAGE_SAMPLER>().arrayed = type.image.arrayed;
+        res.get<ESRT_COMBINED_IMAGE_SAMPLER>().viewType = spvcrossImageType2ImageView(type.image);
+        res.get<ESRT_COMBINED_IMAGE_SAMPLER>().shadow = type.image.depth;
         res.get<ESRT_COMBINED_IMAGE_SAMPLER>().multisample = type.image.ms;
     }
     for (const spirv_cross::Resource& r : resources.separate_images)
@@ -508,14 +575,27 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
         std::sort(descSet.begin(), descSet.end(), [](const SShaderResourceVariant& _lhs, const SShaderResourceVariant& _rhs) { return _lhs.binding < _rhs.binding; });
 
 
+    auto getStageIOtype = [&_comp](uint32_t _base_type_id)
+    {
+        const auto& type = _comp.get_type(_base_type_id);
+        decltype(SShaderInfoVariant::glslType) glslType;
+        glslType.basetype = spvcrossType2E_TYPE(type.basetype);
+        glslType.elements = type.vecsize;
+
+        return glslType;
+    };
+
     // in/out
     for (const spirv_cross::Resource& r : resources.stage_inputs)
     {
         SShaderInfoVariant& res = addInfo_common(r, ESIT_STAGE_INPUT);
+        res.glslType = getStageIOtype(r.base_type_id);
     }
     for (const spirv_cross::Resource& r : resources.stage_outputs)
     {
         SShaderInfoVariant& res = addInfo_common(r, ESIT_STAGE_OUTPUT);
+        res.glslType = getStageIOtype(r.base_type_id);
+
         res.get<ESIT_STAGE_OUTPUT>().colorIndex = _comp.get_decoration(r.id, spv::DecorationIndex);
     }
     std::sort(introData->inputOutput.begin(), introData->inputOutput.end(), [](const SShaderInfoVariant& _lhs, const SShaderInfoVariant& _rhs) { return _lhs.location < _rhs.location; });
