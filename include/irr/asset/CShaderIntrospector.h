@@ -104,11 +104,11 @@ class CShaderIntrospector : public core::Uncopyable
 
 		const CIntrospectionData* introspect(const ICPUShader* _shader, const SEntryPoint_Stage_Extensions& _params);
 
-        core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection(ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const std::string& entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions);
-        core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateDescriptorSetLayoutFromIntrospection(uint32_t set, ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const std::string& entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions);
-        core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection(ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const std::string& entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions);
-        core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(ICPUSpecializedShader* shader, const std::string& entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions, ICPUComputePipeline* parent = nullptr);
-        core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> createApproximateRenderpassIndependentPipelineFromIntrospection(ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const std::string& entryPoint, const core::smart_refctd_dynamic_array<std::string>& _extensions, ICPURenderpassIndependentPipeline* parent = nullptr);
+        core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection(ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const core::smart_refctd_dynamic_array<std::string>& _extensions);
+        core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateDescriptorSetLayoutFromIntrospection(uint32_t set, ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const core::smart_refctd_dynamic_array<std::string>& _extensions);
+        core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection(ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const core::smart_refctd_dynamic_array<std::string>& _extensions);
+        core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(ICPUSpecializedShader* shader, const core::smart_refctd_dynamic_array<std::string>& _extensions, ICPUComputePipeline* parent = nullptr);
+        core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> createApproximateRenderpassIndependentPipelineFromIntrospection(ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const core::smart_refctd_dynamic_array<std::string>& _extensions, ICPURenderpassIndependentPipeline* parent = nullptr);
 	private:
 		core::smart_refctd_ptr<CIntrospectionData> doIntrospection(spirv_cross::Compiler& _comp, const SEntryPoint_Stage_Extensions& _ep) const;
 		void shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const core::unordered_map<uint32_t, const CIntrospectionData::SSpecConstant*>& _mapId2sconst) const;
