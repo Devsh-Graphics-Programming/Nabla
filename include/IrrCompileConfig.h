@@ -128,30 +128,10 @@ the engine will no longer read .png images. */
 //#define IGNORE_DEPRECATED_WARNING
 
 
-//! Define _IRR_COMPILE_WITH_X_LOADER_ if you want to use Microsoft X files
-#define _IRR_COMPILE_WITH_X_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_X_LOADER_
-#undef _IRR_COMPILE_WITH_X_LOADER_
-#endif
-//! Define _IRR_COMPILE_WITH_LMTS_LOADER_ if you want to load LMTools files
-//#define _IRR_COMPILE_WITH_LMTS_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_LMTS_LOADER_
-#undef _IRR_COMPILE_WITH_LMTS_LOADER_
-#endif
 //! Define _IRR_COMPILE_WITH_OBJ_LOADER_ if you want to load Wavefront OBJ files
 #define _IRR_COMPILE_WITH_OBJ_LOADER_
 #ifdef NO_IRR_COMPILE_WITH_OBJ_LOADER_
 #undef _IRR_COMPILE_WITH_OBJ_LOADER_
-#endif
-//! Define _IRR_COMPILE_WITH_OCT_LOADER_ if you want to load FSRad OCT files
-//#define _IRR_COMPILE_WITH_OCT_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_OCT_LOADER_
-#undef _IRR_COMPILE_WITH_OCT_LOADER_
-#endif
-//! Define _IRR_COMPILE_WITH_LWO_LOADER_ if you want to load Lightwave3D files
-//#define _IRR_COMPILE_WITH_LWO_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_LWO_LOADER_
-#undef _IRR_COMPILE_WITH_LWO_LOADER_
 #endif
 //! Define _IRR_COMPILE_WITH_STL_LOADER_ if you want to load stereolithography files
 #define _IRR_COMPILE_WITH_STL_LOADER_
@@ -193,16 +173,6 @@ the engine will no longer read .png images. */
 #define _IRR_COMPILE_WITH_PNG_LOADER_
 #ifdef NO_IRR_COMPILE_WITH_PNG_LOADER_
 #undef _IRR_COMPILE_WITH_PNG_LOADER_
-#endif
-//! Define _IRR_COMPILE_WITH_DDS_LOADER_ if you want to load .dds files
-// Outcommented because
-// a) it doesn't compile on 64-bit currently
-// b) anyone enabling it should be aware that S3TC compression algorithm which might be used in that loader
-// is patented in the US by S3 and they do collect license fees when it's used in applications.
-// So if you are unfortunate enough to develop applications for US market and their broken patent system be careful.
-#define _IRR_COMPILE_WITH_DDS_LOADER_
-#ifdef NO_IRR_COMPILE_WITH_DDS_LOADER_
-#undef _IRR_COMPILE_WITH_DDS_LOADER_
 #endif
 //! Define _IRR_COMPILE_WITH_TGA_LOADER_ if you want to load .tga files
 #define _IRR_COMPILE_WITH_TGA_LOADER_

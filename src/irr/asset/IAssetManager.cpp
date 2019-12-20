@@ -1,10 +1,6 @@
 #include "irr/asset/asset.h"
 
 
-#ifdef _IRR_COMPILE_WITH_X_LOADER_
-#include "irr/asset/CXMeshFileLoader.h"
-#endif
-
 #ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
 #include "irr/asset/COBJMeshFileLoader.h"
 #endif
@@ -37,6 +33,10 @@
 #include "irr/asset/CImageLoaderTGA.h"
 #endif
 
+#ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
+#include "irr/asset/CImageLoaderOpenEXR.h"
+#endif
+
 #ifdef _IRR_COMPILE_WITH_STL_WRITER_
 #include "irr/asset/CSTLMeshWriter.h"
 #endif
@@ -59,6 +59,10 @@
 
 #ifdef _IRR_COMPILE_WITH_PNG_WRITER_
 #include "irr/asset/CImageWriterPNG.h"
+#endif
+
+#ifdef _IRR_COMPILE_WITH_OPENEXR_WRITER_
+#include "irr/asset/CImageWriterOpenEXR.h"
 #endif
 
 #include "irr/asset/CGLSLLoader.h"
@@ -103,9 +107,6 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _IRR_COMPILE_WITH_PLY_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>());
 #endif
-#ifdef _IRR_COMPILE_WITH_X_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CXMeshFileLoader>(this));
-#endif
 #ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::COBJMeshFileLoader>(this));
 #endif
@@ -120,6 +121,9 @@ void IAssetManager::addLoadersAndWriters()
 #endif
 #ifdef _IRR_COMPILE_WITH_PNG_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderPng>());
+#endif
+#ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderOpenEXR>());
 #endif
 #ifdef _IRR_COMPILE_WITH_TGA_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>());
@@ -144,5 +148,8 @@ void IAssetManager::addLoadersAndWriters()
 #endif
 #ifdef _IRR_COMPILE_WITH_PNG_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterPNG>());
+#endif
+#ifdef _IRR_COMPILE_WITH_OPENEXR_WRITER_
+	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterOpenEXR>());
 #endif
 }
