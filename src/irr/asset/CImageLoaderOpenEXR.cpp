@@ -191,6 +191,7 @@ namespace irr
 			params.arrayLayers = 1u;
 
 			specifyIrrlichtEndFormat(params.format, file, doesItSupportAlphaChannel);
+			const uint8_t availableChannels = doesItSupportAlphaChannel ? 4 : 3;
 
 			if (params.format == EF_R16G16B16A16_SFLOAT || params.format == EF_R16G16B16_SFLOAT)
 				readRgba(file, halfPixelMapArray, width, height, params.format, doesItSupportAlphaChannel);
@@ -232,20 +233,26 @@ namespace irr
 			region.imageExtent = image->getCreationParameters().extent;
 
 			void* fetchedData = texelBuffer->getPointer();
+			// TESTS std::cout << "\nbuffer size: "<< texelBuffer->getSize() / 4 << "\n\n";
 
-			for (uint64_t xPos = 0; xPos < width; ++xPos)
-				for (uint64_t yPos = 0; yPos < height; ++yPos)
-					for (uint8_t channelIndex = 0; channelIndex < (doesItSupportAlphaChannel ? 4 : 3); ++channelIndex)
-					{ 
-						const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * width) + xPos;
+			for (uint64_t yPos = 0; yPos < height; ++yPos)
+				for (uint64_t xPos = 0; xPos < width; ++xPos)
+				{
+					const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * width) + (xPos * availableChannels);
 
-						if(params.format == EF_R16G16B16A16_SFLOAT || params.format == EF_R16G16B16_SFLOAT)
-							assignToReinterpretedValue(params.format, fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, (halfPixelMapArray[channelIndex])[xPos][yPos]);
-						else if(params.format == EF_R32G32B32A32_SFLOAT || params.format == EF_R32G32B32_SFLOAT)
-							assignToReinterpretedValue(params.format, fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, (fullFloatPixelMapArray[channelIndex])[xPos][yPos]);
-						else if(params.format == EF_R32G32B32A32_UINT || params.format == EF_R32G32B32_UINT)
-							assignToReinterpretedValue(params.format, fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, (uint32_tPixelMapArray[channelIndex])[xPos][yPos]);
+					for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)
+					{
+						if (params.format == EF_R16G16B16A16_SFLOAT || params.format == EF_R16G16B16_SFLOAT)
+							assignToReinterpretedValue(params.format, fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, (halfPixelMapArray[channelIndex])[yPos][xPos]);
+						else if (params.format == EF_R32G32B32A32_SFLOAT || params.format == EF_R32G32B32_SFLOAT)
+							assignToReinterpretedValue(params.format, fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, (fullFloatPixelMapArray[channelIndex])[yPos][xPos]);
+						else if (params.format == EF_R32G32B32A32_UINT || params.format == EF_R32G32B32_UINT)
+							assignToReinterpretedValue(params.format, fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, (uint32_tPixelMapArray[channelIndex])[yPos][xPos]);
+
+						// TESTS std::cout << *(reinterpret_cast<float*>(fetchedData) + ptrStyleEndShiftToImageDataPixel + channelIndex) << " ";
 					}
+					// TESTS std::cout << "\n";
+				}
 
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
 
@@ -288,7 +295,7 @@ namespace irr
 			width = dw.max.x - dw.min.x + 1;
 			height = dw.max.y - dw.min.y + 1;
 
-			const std::string rgbaSignatureAsText = "RGBA";
+			constexpr char* rgbaSignatureAsText[] = {"R", "G", "B", "A"};
 			for (auto& pixelChannelBuffer : pixelRgbaMapArray)
 				pixelChannelBuffer.resizeErase(height, width);
 
@@ -305,7 +312,7 @@ namespace irr
 			for (uint8_t rgbaChannelIndex = 0; rgbaChannelIndex < (doesItSupportAlphaChannel ? 4 : 3); ++rgbaChannelIndex)
 				frameBuffer.insert
 				(
-					reinterpret_cast<const char*>(rgbaSignatureAsText[rgbaChannelIndex]),                       // name
+					rgbaSignatureAsText[rgbaChannelIndex],                                                      // name
 					Slice(pixelType,                                                                            // type
 					(char*)(&(pixelRgbaMapArray[rgbaChannelIndex])[0][0] - dw.min.x - dw.min.y * width),        // base
 					sizeof((pixelRgbaMapArray[rgbaChannelIndex])[0][0]) * 1,                                    // xStride
@@ -316,6 +323,17 @@ namespace irr
 
 			file.setFrameBuffer(frameBuffer);
 			file.readPixels(dw.min.y, dw.max.y);
+
+			/* TESTS
+			for (uint16_t y = 0; y < height; ++y)
+				for (uint16_t x = 0; x < width; ++x)
+				{
+					for (uint16_t channel = 0; channel < 4; ++channel)
+						std::cout << (pixelRgbaMapArray[channel])[y][x] << " ";
+					std::cout << "\n";
+				}
+			std::cout << "\n\n\n\n TEST \n\n\n\n";*/
+
 		}
 
 		void specifyIrrlichtEndFormat(E_FORMAT& format, const InputFile& file, bool& doesItSupportAlphaChannel)
