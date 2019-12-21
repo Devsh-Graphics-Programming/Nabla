@@ -160,9 +160,6 @@ namespace irr
 
 			const auto& fileName = _file->getFileName().c_str();
 
-			//if (!isALoadableFileFormat(_file))
-				//return {};
-
 			SContext ctx;
 			InputFile file = fileName;
 
@@ -261,32 +258,14 @@ namespace irr
 		}
 
 		bool CImageLoaderOpenEXR::isALoadableFileFormat(io::IReadFile* _file) const
-		{
-			/*
-
-			TODO!
-			because of old versions don't have a file layout with magic number as
-			first 4 bytes, I have to improve it
-			
+		{	
 			const size_t begginingOfFile = _file->getPos();
 
-			unsigned char magicNumberBuffer[sizeof(SContext::magicNumber)];
+			char magicNumberBuffer[sizeof(SContext::magicNumber)];
 			_file->read(magicNumberBuffer, sizeof(SContext::magicNumber));
 			_file->seek(begginingOfFile);
 
-			auto deserializeToReadMagicValue = [&](unsigned char* buffer)
-			{
-				uint32_t value = 0ul;
-				value |= buffer[0] << 24 | buffer[1] << 16 | buffer[2] << 8 | buffer[3];
-				return value;
-			};
-
-			auto magicNumberToCompare = deserializeToReadMagicValue(magicNumberBuffer);
-			if (magicNumberToCompare == SContext::magicNumber)
-				return true;
-			else
-				return false; */
-			return true;
+			return isImfMagic(magicNumberBuffer);
 		}
 
 		template<typename rgbaFormat>
