@@ -31,6 +31,19 @@ class ICPUShader : public IAsset, public IShader<ICPUBuffer>
 		{ 
 			return m_code->getSize();
 		}
+
+        core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+        {
+            auto buf = (_depth > 0u && m_code) ? m_code->clone(_depth-1u) : m_code;
+            auto cp = core::make_smart_refctd_ptr<ICPUShader>(std::move(buf));
+
+            cp->m_containsGLSL = m_containsGLSL;
+
+            cp->m_mutable = true;
+
+            return cp;
+        }
+
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
 			if (referenceLevelsBelowToConvert--)
@@ -43,7 +56,7 @@ class ICPUShader : public IAsset, public IShader<ICPUBuffer>
 	protected:
 		//! Might be GLSL null-terminated string or SPIR-V bytecode (denoted by m_containsGLSL)
 		core::smart_refctd_ptr<ICPUBuffer>	m_code;
-		const bool							m_containsGLSL;
+		/*const */bool							m_containsGLSL;
 };
 
 }

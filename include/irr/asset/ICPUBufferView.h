@@ -21,6 +21,17 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 		{}
 
 		size_t conservativeSizeEstimate() const override { return sizeof(IBufferView<ICPUBuffer>); }
+
+        core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+        {
+            auto buf = (_depth > 0u && m_buffer) ? m_buffer->clone(_depth-1u) : m_buffer;
+            auto cp = core::make_smart_refctd_ptr<ICPUBufferView>(std::move(buf), m_format, m_offset, m_size);
+
+            cp->m_mutable = true;
+
+            return cp;
+        }
+
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
 			if (referenceLevelsBelowToConvert--)

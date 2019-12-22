@@ -360,8 +360,6 @@ class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 			ESSI_FRAGMENT_SHADER_IX = 4
 		};
 
-	protected:
-		//! @param _shaders Must be pointer to array of SHADER_STAGE_COUNT elements. Shaders must go in order VS, TCS, TES, GS, FS.
 		IRenderpassIndependentPipeline(
 			core::smart_refctd_ptr<IRenderpassIndependentPipeline>&& _parent,
 			core::smart_refctd_ptr<LayoutType>&& _layout,

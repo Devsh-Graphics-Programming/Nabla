@@ -156,7 +156,7 @@ void main()
 {
     pixelColor = texture(albedo,uv);
 }
-		)===",asset::ISpecializedShader::ESS_VERTEX,"irr/builtin/materials/lambertian/singletexture/specializedshader");
+		)===",asset::ISpecializedShader::ESS_FRAGMENT,"irr/builtin/materials/lambertian/singletexture/specializedshader");
 
 		constexpr uint32_t bindingCount = 1u;
 		asset::ICPUDescriptorSetLayout::SBinding pBindings[bindingCount] = {0u,asset::EDT_COMBINED_IMAGE_SAMPLER,1u,asset::ISpecializedShader::ESS_FRAGMENT,nullptr};

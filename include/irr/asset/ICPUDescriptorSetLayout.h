@@ -15,6 +15,35 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 	public:
 		using IDescriptorSetLayout<ICPUSampler>::IDescriptorSetLayout;
 
+        core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+        {
+            auto cp = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(nullptr, nullptr);
+
+            if (_depth > 0u && m_bindings)
+            {
+                cp->m_bindings = core::make_refctd_dynamic_array<decltype(m_bindings)>(m_bindings->size());
+                cp->m_samplers = m_samplers ? core::make_refctd_dynamic_array<decltype(m_samplers)>(m_samplers->size()) : nullptr;
+
+                for (size_t i = 0ull; i < m_bindings->size(); ++i)
+                {
+                    (*cp->m_bindings)[i] = (*m_bindings)[i];
+                    if ((*cp->m_bindings)[i].samplers)
+                        (*cp->m_bindings)[i].samplers = cp->m_samplers->begin() + ((*cp->m_bindings)[i].samplers - m_samplers->begin());
+                }
+                for (size_t i = 0ull; i < m_samplers->size(); ++i)
+                    (*cp->m_samplers)[i] = (*m_samplers)[i]->clone(_depth-1u);
+            }
+            else
+            {
+                cp->m_bindings = m_bindings;
+                cp->m_samplers = m_samplers;
+            }
+
+            cp->m_mutable = true;
+
+            return cp;
+        }
+
 		size_t conservativeSizeEstimate() const override { return m_bindings->size()*sizeof(SBinding)+m_samplers->size()*sizeof(void*); }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{

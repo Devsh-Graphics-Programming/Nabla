@@ -73,7 +73,7 @@ class CShaderIntrospector : public core::Uncopyable
 			std::string entryPoint;
 			core::smart_refctd_dynamic_array<std::string> GLSLextensions;
 
-            inline bool operator<(const SEntryPoint_Stage_Extensions& rhs)
+            inline bool operator<(const SEntryPoint_Stage_Extensions& rhs) const
             {
                 if (stage == rhs.stage)
                 {
@@ -123,7 +123,7 @@ class CShaderIntrospector : public core::Uncopyable
             if (introspectionMap == m_introspectionCache.end())
                 return nullptr;
 
-            auto introspection = introspectionMap->second.find(core::smart_refctd_ptr<ICPUShader>(_shader));
+            auto introspection = introspectionMap->second.find(core::smart_refctd_ptr<const ICPUShader>(_shader));
             if (introspection == introspectionMap->second.end())
                 return nullptr;
 
@@ -131,7 +131,7 @@ class CShaderIntrospector : public core::Uncopyable
         }
         CIntrospectionData* cacheIntrospection(core::smart_refctd_ptr<CIntrospectionData>&& _introspection, const ICPUShader* _shader, const SEntryPoint_Stage_Extensions& _params)
         {
-            m_introspectionCache[_params].insert({core::smart_refctd_ptr<const ICPUShader>(_shader), std::move(_introspection)}).first->second.get();
+            return m_introspectionCache[_params].insert({core::smart_refctd_ptr<const ICPUShader>(_shader), std::move(_introspection)}).first->second.get();
         }
 
 	private:

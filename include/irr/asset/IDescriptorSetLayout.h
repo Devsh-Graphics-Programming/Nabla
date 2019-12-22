@@ -95,7 +95,7 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 
 	public:
 		IDescriptorSetLayout(const SBinding* const _begin, const SBinding* const _end) : 
-			m_bindings(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBinding>>(_end-_begin))
+			m_bindings((_end-_begin) ? core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBinding>>(_end-_begin) : nullptr)
 		{
 			size_t bndCount = _end-_begin;
 			size_t immSamplerCount = 0ull;
@@ -104,7 +104,7 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 				if (bnd.type==EDT_COMBINED_IMAGE_SAMPLER && bnd.samplers)
 					immSamplerCount += bnd.count;
 			}
-			m_samplers = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type> > >(immSamplerCount);
+			m_samplers = immSamplerCount ? core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_type> > >(immSamplerCount) : nullptr;
 
 			size_t immSamplersOffset = 0u;
 			for (size_t i = 0ull; i < bndCount; ++i)
@@ -126,17 +126,20 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 				}
 			}
 
-			for (size_t i = 0ull; i < m_bindings->size(); ++i)
-			{
-				auto& bnd = m_bindings->operator[](i);
+            if (m_bindings)
+            {
+                for (size_t i = 0ull; i < m_bindings->size(); ++i)
+                {
+                    auto& bnd = m_bindings->operator[](i);
 
-				static_assert(sizeof(size_t)==sizeof(bnd.samplers), "Bad reinterpret_cast!");
-				if (bnd.type==EDT_COMBINED_IMAGE_SAMPLER && bnd.samplers)
-					bnd.samplers = m_samplers->data() + reinterpret_cast<size_t>(bnd.samplers);
-			}
+                    static_assert(sizeof(size_t) == sizeof(bnd.samplers), "Bad reinterpret_cast!");
+                    if (bnd.type == EDT_COMBINED_IMAGE_SAMPLER && bnd.samplers)
+                        bnd.samplers = m_samplers->data() + reinterpret_cast<size_t>(bnd.samplers);
+                }
 
-			// TODO: check for overlapping bindings (bad `SBinding` definitions)
-			std::sort(m_bindings->begin(), m_bindings->end());
+                // TODO: check for overlapping bindings (bad `SBinding` definitions)
+                std::sort(m_bindings->begin(), m_bindings->end());
+            }
 		}
 		virtual ~IDescriptorSetLayout() = default;
 

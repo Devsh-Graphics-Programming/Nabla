@@ -18,6 +18,23 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 		ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) { return m_descSetLayouts[_set].get(); }
 		const ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) const { return m_descSetLayouts[_set].get(); }
 
+        core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+        {
+            std::array<core::smart_refctd_ptr<ICPUDescriptorSetLayout>, DESCRIPTOR_SET_COUNT> dsLayouts;
+            for (size_t i = 0ull; i < dsLayouts.size(); ++i)
+                dsLayouts[i] = (m_descSetLayouts[i] && _depth > 0u) ? m_descSetLayouts[i]->clone(_depth-1u) : m_descSetLayouts[i];
+
+            auto cp = core::make_smart_refctd_ptr<ICPUPipelineLayout>(
+                nullptr, nullptr, 
+                std::move(dsLayouts[0]), std::move(dsLayouts[1]), std::move(dsLayouts[2]), std::move(dsLayouts[3])
+            );
+            cp->m_pushConstantRanges = m_pushConstantRanges;
+
+            cp->m_mutable = true;
+
+            return cp;
+        }
+
 		size_t conservativeSizeEstimate() const override { return m_descSetLayouts.size()*sizeof(void*)+m_pushConstantRanges->size()*sizeof(SPushConstantRange); }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
