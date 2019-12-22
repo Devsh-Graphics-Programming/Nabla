@@ -249,10 +249,28 @@ namespace irr
 							assignToReinterpretedValue(params.format, fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, fullFloatChannelElement);
 						else if (params.format == EF_R32G32B32A32_UINT)
 							assignToReinterpretedValue(params.format, fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, uint32_tChannelElement);
+						
+						std::cout << *(reinterpret_cast<float*>(fetchedData) + ptrStyleEndShiftToImageDataPixel + channelIndex) << " ";
 					}
+					std::cout << "\n";
 				}
 
+			std::cout << "\n\n\n\n\n\n\n\n\nREAD IMAGE LIKE YOU DO IN WRITER\n";
+
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
+
+			// TESTS
+			for (uint64_t yPos = 0; yPos < height; ++yPos)
+				for (uint64_t xPos = 0; xPos < width; ++xPos)
+				{
+					const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * pitch) + (xPos * availableChannels);
+
+					for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)
+					{
+						std::cout << *(reinterpret_cast<float*>(image->getBuffer()->getPointer()) + ptrStyleEndShiftToImageDataPixel + channelIndex) << " ";
+					}
+					std::cout << "\n";
+				}
 
 			return SAssetBundle{image};
 		}

@@ -45,6 +45,86 @@ namespace irr
 		using namespace IMF;
 		using namespace IMATH;
 
+		constexpr uint8_t availableChannels = 4;
+
+		template<typename ilmType>
+		void createAndWriteImage(std::array<ilmType*, availableChannels>& pixelsArrayIlm, const asset::ICPUImage* image, const char* fileName)
+		{
+			auto getIlmType = [&]()
+			{
+				if (image->getCreationParameters().format == EF_R16G16B16A16_SFLOAT)
+					return PixelType::HALF;
+				else if (image->getCreationParameters().format == EF_R32G32B32A32_SFLOAT)
+					return PixelType::FLOAT;
+				else if (image->getCreationParameters().format == EF_R32G32B32A32_UINT)
+					return PixelType::UINT;
+			};
+
+			static const uint32_t MAX_PITCH_ALIGNMENT = 8u;											// OpenGL cannot transfer rows with arbitrary padding
+			auto calcPitchInBlocks = [](uint32_t width, uint32_t blockByteSize) -> uint32_t			// try with largest alignment first
+			{
+				auto rowByteSize = width * blockByteSize;
+				for (uint32_t _alignment = MAX_PITCH_ALIGNMENT; _alignment > 1u; _alignment >>= 1u)
+				{
+					auto paddedSize = core::alignUp(rowByteSize, _alignment);
+					if (paddedSize % blockByteSize)
+						continue;
+					return paddedSize / blockByteSize;
+				}
+				return width;
+			};
+
+			Header header(image->getCreationParameters().extent.width, image->getCreationParameters().extent.height);
+			OutputFile file(fileName, header);
+			const PixelType pixelType = getIlmType();
+			FrameBuffer frameBuffer;
+
+			auto byteSizeOfSingleChannelPixel = image->getCreationParameters().format == EF_R16G16B16A16_SFLOAT ? 2 : 4;
+			const uint32_t texelFormatByteSize = getTexelOrBlockBytesize(image->getCreationParameters().format);
+			const auto& width = image->getCreationParameters().extent.width;
+			const auto& height = image->getCreationParameters().extent.height;
+			const auto pitch = calcPitchInBlocks(width, texelFormatByteSize) * texelFormatByteSize / availableChannels / (image->getCreationParameters().format == EF_R16G16B16A16_SFLOAT ? 2 : 4);
+
+			for (uint8_t channel = 0; channel < availableChannels; ++channel)
+				pixelsArrayIlm[channel] = _IRR_NEW_ARRAY(ilmType, width * height);
+
+			for (uint64_t yPos = 0; yPos < height; ++yPos)
+				for (uint64_t xPos = 0; xPos < width; ++xPos)
+				{
+					const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * pitch) + (xPos * availableChannels);
+					const uint64_t ptrStyleIlmShiftToDataChannelPixel = (yPos * width) + xPos;
+
+					for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)
+					{
+						ilmType channelPixel = *(reinterpret_cast<const ilmType*>(image->getBuffer()->getPointer()) + ptrStyleEndShiftToImageDataPixel + channelIndex);
+						std::cout << channelPixel << " "; // wtf
+
+						*(pixelsArrayIlm[channelIndex] + ptrStyleIlmShiftToDataChannelPixel) = channelPixel;
+						//std::cout << *(pixelsArrayIlm[channelIndex] + ptrStyleIlmShiftToDataChannelPixel) << " ";
+					}
+					std::cout << "\n";
+				}
+
+			constexpr std::array<char*, availableChannels> rgbaSignatureAsText = { "R", "G", "B", "A" };
+			for (uint8_t channel = 0; channel < rgbaSignatureAsText.size(); ++channel)
+			{
+				header.channels().insert(rgbaSignatureAsText[channel], Channel(pixelType));
+				frameBuffer.insert
+				(
+					rgbaSignatureAsText[channel],                                                                // name
+					Slice(pixelType,                                                                             // type
+					(char*) pixelsArrayIlm[channel],                                                             // base
+					sizeof(*pixelsArrayIlm[channel]) * 1,                                                            // xStride
+					sizeof(*pixelsArrayIlm[channel]) * image->getCreationParameters().extent.width)                  // yStride
+				);
+			}
+
+			file.setFrameBuffer(frameBuffer);
+			file.writePixels(image->getCreationParameters().extent.height);
+
+			// deallocate
+		}
+
 		bool CImageWriterOpenEXR::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 		{
 			if (!_override)
@@ -75,38 +155,17 @@ namespace irr
 		bool CImageWriterOpenEXR::writeImageBinary(io::IWriteFile* file, const asset::ICPUImage* image)
 		{
 			const auto& params = image->getCreationParameters();
+			
+			std::array<half*, availableChannels> halfPixelMapArray = {nullptr, nullptr, nullptr, nullptr};
+			std::array<float*, availableChannels> fullFloatPixelMapArray = { nullptr, nullptr, nullptr, nullptr };
+			std::array<uint32_t*, availableChannels> uint32_tPixelMapArray = { nullptr, nullptr, nullptr, nullptr };
 
-			Header header(params.extent.width, params.extent.height);
-			PixelType pixelType;
-			FrameBuffer frameBuffer;
-
-			OutputFile ilmFile(file->getFileName().c_str(), header);
-
-			if (params.type == EF_R16G16B16A16_SFLOAT)
-				pixelType = PixelType::HALF;
-			else if (params.type == EF_R32G32B32A32_SFLOAT)
-				pixelType = PixelType::FLOAT;
-			else if (params.type == EF_R32G32B32A32_UINT)
-				pixelType = PixelType::UINT;
-
-			constexpr std::array<char*, 4> rgbaSignatureAsText = { "R", "G", "B", "A" };
-			for (const auto& channelAsText : rgbaSignatureAsText)
-				header.channels().insert(channelAsText, Channel(pixelType));
-
-			auto byteSizeOfSingleChannelPixel = params.format == EF_R16G16B16A16_SFLOAT ? 2 : 4;
-
-			for (uint8_t rgbaChannelIndex = 0; rgbaChannelIndex < rgbaSignatureAsText.size(); ++rgbaChannelIndex)
-				frameBuffer.insert
-				(
-					rgbaSignatureAsText[rgbaChannelIndex],                                                       // name
-					Slice(pixelType,                                                                             // type
-					(char*) image->getBuffer()->getPointer(),                                                    // base
-					byteSizeOfSingleChannelPixel * 1,                                                            // xStride
-					byteSizeOfSingleChannelPixel * params.extent.width                                           // yStride
-				));
-
-			ilmFile.setFrameBuffer(frameBuffer);
-			ilmFile.writePixels(params.extent.height);
+			if (params.format == EF_R16G16B16A16_SFLOAT)
+				createAndWriteImage(halfPixelMapArray, image, file->getFileName().c_str());
+			else if (params.format == EF_R32G32B32A32_SFLOAT)
+				createAndWriteImage(fullFloatPixelMapArray, image, file->getFileName().c_str());
+			else if (params.format == EF_R32G32B32A32_UINT)
+				createAndWriteImage(uint32_tPixelMapArray, image, file->getFileName().c_str());
 
 			return true;
 		}
