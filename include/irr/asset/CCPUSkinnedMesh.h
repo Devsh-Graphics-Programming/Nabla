@@ -42,7 +42,6 @@ class CCPUSkinnedMesh : public ICPUSkinnedMesh
 
             for (size_t i = 0u; i < AllJoints.size(); ++i)
             {
-                cp->AllJoints.push_back(new SJoint(AllJoints[i][0]));
                 {
                     const size_t ix = std::find(AllJoints.begin(), AllJoints.end(), cp->AllJoints.back()->Parent) - AllJoints.begin();
                     cp->AllJoints.back()->Parent = cp->AllJoints[ix];
