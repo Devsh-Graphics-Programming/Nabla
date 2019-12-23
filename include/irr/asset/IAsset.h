@@ -127,6 +127,8 @@ class IAsset : virtual public core::IReferenceCounted
 		//! Returns Asset's metadata. @see IAssetMetadata
 		const IAssetMetadata* getMetadata() const { return m_metadata.get(); }
 
+        virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
+
 		friend IAssetManager;
 
 	private:
@@ -136,6 +138,8 @@ class IAsset : virtual public core::IReferenceCounted
 
 	protected:
 		bool isDummyObjectForCacheAliasing; //!< A bool for setting whether Asset is in dummy state. @see convertToDummyObject(uint32_t referenceLevelsBelowToConvert)
+
+        bool m_mutable = false;
 
 		//! To be implemented by base classes, dummies must retain references to other assets
 		//! but cleans up all other resources which are not assets.

@@ -27,6 +27,20 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 		{
 			return sizeof(SCreationParams);
 		}
+
+        core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+        {
+            auto par = params;
+            if (_depth > 0u && par.image)
+                par.image = core::smart_refctd_ptr_static_cast<ICPUImage>(par.image->clone(_depth-1u));
+
+            auto cp = core::make_smart_refctd_ptr<ICPUImageView>(std::move(par));
+
+            cp->m_mutable = true;
+
+            return cp;
+        }
+
 		//!
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{

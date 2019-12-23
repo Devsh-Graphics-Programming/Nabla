@@ -31,6 +31,65 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 		{
 			return sizeof(void*)+m_descriptors->size()*sizeof(SDescriptorInfo)+m_bindingInfo->size()*sizeof(impl::IEmulatedDescriptorSet<ICPUDescriptorSetLayout>::SBindingInfo);
 		}
+
+        core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+        {
+            auto layout = (_depth > 0u && m_layout) ? core::smart_refctd_ptr_static_cast<ICPUDescriptorSetLayout>(m_layout->clone(_depth - 1u)) : m_layout;
+            auto cp = core::make_smart_refctd_ptr<ICPUDescriptorSet>(std::move(layout));
+
+            const uint32_t max_ix = getMaxDescriptorBindingIndex();
+            for (uint32_t i = 0u; i <= max_ix; ++i)
+            {
+                auto cloneDescriptor = [](const core::smart_refctd_ptr<IDescriptor>& _desc, uint32_t _depth) -> core::smart_refctd_ptr<IDescriptor> {
+                    if (!_desc)
+                        return nullptr;
+
+                    IAsset* asset = nullptr;
+                    switch (_desc->getTypeCategory())
+                    {
+                    case IDescriptor::EC_BUFFER:
+                        asset = static_cast<ICPUBuffer*>(_desc.get()); break;
+                    case IDescriptor::EC_BUFFER_VIEW:
+                        asset = static_cast<ICPUBufferView*>(_desc.get()); break;
+                    case IDescriptor::EC_IMAGE:
+                        asset = static_cast<ICPUImageView*>(_desc.get()); break;
+                    }
+
+                    auto cp = asset->clone(_depth);
+
+                    switch (_desc->getTypeCategory())
+                    {
+                    case IDescriptor::EC_BUFFER:
+                        return core::smart_refctd_ptr_static_cast<ICPUBuffer>(std::move(cp));
+                    case IDescriptor::EC_BUFFER_VIEW:
+                        return core::smart_refctd_ptr_static_cast<ICPUBufferView>(std::move(cp));
+                    case IDescriptor::EC_IMAGE:
+                        return core::smart_refctd_ptr_static_cast<ICPUImageView>(std::move(cp));
+                    }
+                    return nullptr;
+                };
+
+                auto desc = getDescriptors(i);
+                auto cp_desc = cp->getDescriptors(i);
+
+                const E_DESCRIPTOR_TYPE type = getDescriptorsType(i);
+                for (uint32_t d = 0u; d < desc.length(); ++d)
+                {
+                    cp_desc.begin()[d].assign(desc.begin()[d], type);
+                    if (_depth > 0u)
+                    {
+                        cp_desc.begin()[d].desc = cloneDescriptor(cp_desc.begin()[d].desc, _depth-1u);
+                        if (cp_desc.begin()[d].image.sampler && type==EDT_COMBINED_IMAGE_SAMPLER)
+                            cp_desc.begin()[d].image.sampler = core::smart_refctd_ptr_static_cast<ICPUSampler>(cp_desc.begin()[d].image.sampler->clone(_depth-1u));
+                    }
+                }
+            }
+
+            cp->m_mutable = true;
+
+            return cp;
+        }
+
 		inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
 			if (referenceLevelsBelowToConvert--)
@@ -68,7 +127,7 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 		//!
 		inline uint32_t getMaxDescriptorBindingIndex() const
 		{
-			return m_bindingInfo ? static_cast<uint32_t>(m_bindingInfo->size()):0u;
+			return m_bindingInfo ? static_cast<uint32_t>(m_bindingInfo->size()-1u):0u;
 		}
 
 		//!

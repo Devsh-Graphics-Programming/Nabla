@@ -59,6 +59,41 @@ class ICPUMeshBuffer : public IMeshBuffer<ICPUBuffer, ICPUDescriptorSet, ICPURen
     uint32_t posAttrId;
 protected:
     virtual ~ICPUMeshBuffer() = default;
+
+    template<typename T>
+    core::smart_refctd_ptr<IAsset> clone_template(uint32_t _depth = ~0u) const
+    {
+        auto cp = core::make_smart_refctd_ptr<T>();
+        cp->m_descriptorSet = (_depth > 0u && m_descriptorSet) ? core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(m_descriptorSet->clone(_depth - 1u)) : m_descriptorSet;
+        cp->m_pipeline = (_depth > 0u && m_pipeline) ? core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(m_pipeline->clone(_depth - 1u)) : m_pipeline;
+
+        cp->boundingBox = boundingBox;
+        cp->indexType = indexType;
+        cp->indexCount = indexCount;
+        cp->baseVertex = baseVertex;
+        cp->indexCount = indexCount;
+        cp->instanceCount = instanceCount;
+        cp->baseInstance = baseInstance;
+        memcpy(cp->m_pushConstantsData, m_pushConstantsData, sizeof(m_pushConstantsData));
+        cp->posAttrId = posAttrId;
+
+        cp->m_indexBufferBinding.offset = m_indexBufferBinding.offset;
+        cp->m_indexBufferBinding.buffer = (_depth > 0u && m_indexBufferBinding.buffer) ? 
+            core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_indexBufferBinding.buffer->clone(_depth - 1u)) :
+            m_indexBufferBinding.buffer;
+        for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
+        {
+            cp->m_vertexBufferBindings[i].offset = m_vertexBufferBindings[i].offset;
+            cp->m_vertexBufferBindings[i].buffer = (_depth > 0u && m_vertexBufferBindings[i].buffer) ?
+                core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_vertexBufferBindings[i].buffer->clone(_depth - 1u)) :
+                m_vertexBufferBindings[i].buffer;
+        }
+
+        cp->m_mutable = true;
+
+        return cp;
+    }
+
 public:
     //! Default constructor (initializes pipeline, desc set and buffer bindings to nullptr)
     ICPUMeshBuffer() : base_t(nullptr, nullptr, nullptr, SBufferBinding<ICPUBuffer>{}) {}
@@ -67,6 +102,11 @@ public:
     virtual void* serializeToBlob(void* _stackPtr = nullptr, const size_t& _stackSize = 0) const override
     {
         return CorrespondingBlobTypeFor<ICPUMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
+    }
+
+    core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+    {
+        return clone_template<ICPUMeshBuffer>(_depth);
     }
 
     virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override

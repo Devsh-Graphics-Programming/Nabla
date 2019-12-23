@@ -17,6 +17,15 @@ class ICPUSampler : public ISampler, public IAsset
 	public:
 		ICPUSampler(const SParams& _params) : ISampler(_params), IAsset() {}
 
+        core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override
+        {
+            auto cp = core::make_smart_refctd_ptr<ICPUSampler>(m_params);
+
+            cp->m_mutable = true;
+
+            return cp;
+        }
+
 		size_t conservativeSizeEstimate() const override { return sizeof(m_params); }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override { }
 		E_TYPE getAssetType() const override { return ET_SAMPLER; }

@@ -31,6 +31,18 @@ class CCPUMesh final : public ICPUMesh
 	#endif
 		}
 
+        core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+        {
+            auto cp = core::make_smart_refctd_ptr<CCPUMesh>();
+            cp->MeshBuffers = core::vector<core::smart_refctd_ptr<ICPUMeshBuffer>>(MeshBuffers.size());
+            for (size_t i = 0u; i < MeshBuffers.size(); ++i)
+                cp->MeshBuffers[i] = (_depth > 0u && MeshBuffers[i]) ? core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(MeshBuffers[i]->clone(_depth-1u)) : MeshBuffers[i];
+
+            cp->m_mutable = true;
+
+            return cp;
+        }
+
 		//! clean mesh
 		virtual void clear()
 		{
