@@ -34,7 +34,7 @@ class CCPUSkinnedMesh : public ICPUSkinnedMesh
 
             cp->LocalBuffers = core::vector<core::smart_refctd_ptr<ICPUSkinnedMeshBuffer>>(LocalBuffers.size());
             for (size_t i = 0u; i < LocalBuffers.size(); ++i)
-                cp->LocalBuffers[i] = (_depth > 0u && LocalBuffers[i]) ? LocalBuffers[i]->clone(_depth-1u) : LocalBuffers[i];
+                cp->LocalBuffers[i] = (_depth > 0u && LocalBuffers[i]) ? core::smart_refctd_ptr_static_cast<ICPUSkinnedMeshBuffer>(LocalBuffers[i]->clone(_depth-1u)) : LocalBuffers[i];
             cp->HasAnimation = HasAnimation;
 
             for (size_t i = 0u; i < AllJoints.size(); ++i)

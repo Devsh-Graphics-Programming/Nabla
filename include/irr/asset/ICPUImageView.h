@@ -32,7 +32,7 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
         {
             auto par = params;
             if (_depth > 0u && par.image)
-                par.image = par.image->clone(_depth-1u);
+                par.image = core::smart_refctd_ptr_static_cast<ICPUImage>(par.image->clone(_depth-1u));
 
             auto cp = core::make_smart_refctd_ptr<ICPUImageView>(std::move(par));
 

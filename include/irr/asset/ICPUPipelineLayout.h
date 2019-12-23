@@ -22,7 +22,7 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
         {
             std::array<core::smart_refctd_ptr<ICPUDescriptorSetLayout>, DESCRIPTOR_SET_COUNT> dsLayouts;
             for (size_t i = 0ull; i < dsLayouts.size(); ++i)
-                dsLayouts[i] = (m_descSetLayouts[i] && _depth > 0u) ? m_descSetLayouts[i]->clone(_depth-1u) : m_descSetLayouts[i];
+                dsLayouts[i] = (m_descSetLayouts[i] && _depth > 0u) ? core::smart_refctd_ptr_static_cast<ICPUDescriptorSetLayout>(m_descSetLayouts[i]->clone(_depth-1u)) : m_descSetLayouts[i];
 
             auto cp = core::make_smart_refctd_ptr<ICPUPipelineLayout>(
                 nullptr, nullptr, 

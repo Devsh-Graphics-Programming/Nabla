@@ -30,10 +30,10 @@ class ICPUImage final : public IImage, public IAsset
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
             auto par = params;
-            auto cp = core::make_smart_refctd_ptr<ICPUImage>(std::move(par));
+            auto cp = core::smart_refctd_ptr<ICPUImage>(new ICPUImage(std::move(par)), core::dont_grab);
 
             cp->regions = regions;
-            cp->buffer = (_depth > 0u && buffer) ? buffer->clone(_depth-1u) : buffer;
+            cp->buffer = (_depth > 0u && buffer) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(buffer->clone(_depth-1u)) : buffer;
 
             cp->m_mutable = true;
 

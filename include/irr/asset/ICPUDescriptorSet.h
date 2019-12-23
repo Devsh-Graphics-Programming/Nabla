@@ -34,7 +34,7 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
-            auto layout = (_depth > 0u && m_layout) ? m_layout->clone(_depth - 1u) : m_layout;
+            auto layout = (_depth > 0u && m_layout) ? core::smart_refctd_ptr_static_cast<ICPUDescriptorSetLayout>(m_layout->clone(_depth - 1u)) : m_layout;
             auto cp = core::make_smart_refctd_ptr<ICPUDescriptorSet>(std::move(layout));
 
             const uint32_t max_ix = getMaxDescriptorBindingIndex();
@@ -80,7 +80,7 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
                     {
                         cp_desc.begin()[d].desc = cloneDescriptor(cp_desc.begin()[d].desc, _depth-1u);
                         if (cp_desc.begin()[d].image.sampler && type==EDT_COMBINED_IMAGE_SAMPLER)
-                            cp_desc.begin()[d].image.sampler = cp_desc.begin()[d].image.sampler->clone(_depth-1u);
+                            cp_desc.begin()[d].image.sampler = core::smart_refctd_ptr_static_cast<ICPUSampler>(cp_desc.begin()[d].image.sampler->clone(_depth-1u));
                     }
                 }
             }

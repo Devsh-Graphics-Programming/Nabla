@@ -64,8 +64,8 @@ protected:
     core::smart_refctd_ptr<IAsset> clone_template(uint32_t _depth = ~0u) const
     {
         auto cp = core::make_smart_refctd_ptr<T>();
-        cp->m_descriptorSet = (_depth > 0u && m_descriptorSet) ? m_descriptorSet->clone(_depth - 1u) : m_descriptorSet;
-        cp->m_pipeline = (_depth > 0u && m_pipeline) ? m_pipeline->clone(_depth - 1u) : m_pipeline;
+        cp->m_descriptorSet = (_depth > 0u && m_descriptorSet) ? core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(m_descriptorSet->clone(_depth - 1u)) : m_descriptorSet;
+        cp->m_pipeline = (_depth > 0u && m_pipeline) ? core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(m_pipeline->clone(_depth - 1u)) : m_pipeline;
 
         cp->boundingBox = boundingBox;
         cp->indexType = indexType;
@@ -78,11 +78,15 @@ protected:
         cp->posAttrId = posAttrId;
 
         cp->m_indexBufferBinding.offset = m_indexBufferBinding.offset;
-        cp->m_indexBufferBinding.buffer = (_depth > 0u && m_indexBufferBinding.buffer) ? m_indexBufferBinding.buffer->clone(_depth - 1u) : m_indexBufferBinding.buffer;
+        cp->m_indexBufferBinding.buffer = (_depth > 0u && m_indexBufferBinding.buffer) ? 
+            core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_indexBufferBinding.buffer->clone(_depth - 1u)) :
+            m_indexBufferBinding.buffer;
         for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
         {
             cp->m_vertexBufferBindings[i].offset = m_vertexBufferBindings[i].offset;
-            cp->m_vertexBufferBindings[i].buffer = (_depth > 0u && m_vertexBufferBindings[i].buffer) ? m_vertexBufferBindings[i].buffer->clone(_depth - 1u) : m_vertexBufferBindings[i].buffer;
+            cp->m_vertexBufferBindings[i].buffer = (_depth > 0u && m_vertexBufferBindings[i].buffer) ?
+                core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_vertexBufferBindings[i].buffer->clone(_depth - 1u)) :
+                m_vertexBufferBindings[i].buffer;
         }
 
         cp->m_mutable = true;

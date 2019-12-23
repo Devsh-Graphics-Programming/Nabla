@@ -33,10 +33,10 @@ public:
     {
         core::smart_refctd_ptr<ICPUComputePipeline> parent = 
             (_depth > 0u && m_parent) ? 
-            static_cast<ICPUComputePipeline*>(m_parent.get())->clone(_depth - 1u) : 
+            core::smart_refctd_ptr_static_cast<ICPUComputePipeline>(static_cast<ICPUComputePipeline*>(m_parent.get())->clone(_depth - 1u)) :
             core::smart_refctd_ptr_static_cast<ICPUComputePipeline>(m_parent);
-        core::smart_refctd_ptr<ICPUPipelineLayout> layout = (_depth > 0u && m_layout) ? m_layout->clone(_depth-1u) : m_layout;
-        core::smart_refctd_ptr<ICPUSpecializedShader> shader = (_depth > 0u && m_shader) ? m_shader->clone(_depth-1u) : m_shader;
+        core::smart_refctd_ptr<ICPUPipelineLayout> layout = (_depth > 0u && m_layout) ? core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(m_layout->clone(_depth-1u)) : m_layout;
+        core::smart_refctd_ptr<ICPUSpecializedShader> shader = (_depth > 0u && m_shader) ? core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(m_shader->clone(_depth-1u)) : m_shader;
 
         auto cp = core::make_smart_refctd_ptr<ICPUComputePipeline>(std::move(parent), std::move(layout), std::move(shader));
 

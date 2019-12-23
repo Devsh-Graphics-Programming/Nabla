@@ -34,7 +34,7 @@ class ICPUShader : public IAsset, public IShader<ICPUBuffer>
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
-            auto buf = (_depth > 0u && m_code) ? m_code->clone(_depth-1u) : m_code;
+            auto buf = (_depth > 0u && m_code) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_code->clone(_depth-1u)) : m_code;
             auto cp = core::make_smart_refctd_ptr<ICPUShader>(std::move(buf));
 
             cp->m_containsGLSL = m_containsGLSL;

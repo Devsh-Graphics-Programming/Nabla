@@ -32,11 +32,11 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
-            core::smart_refctd_ptr<ICPUComputePipeline> parent =
+            core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> parent =
                 (_depth > 0u && m_parent) ?
-                static_cast<ICPUComputePipeline*>(m_parent.get())->clone(_depth-1u) :
-                core::smart_refctd_ptr_static_cast<ICPUComputePipeline>(m_parent);
-            core::smart_refctd_ptr<ICPUPipelineLayout> layout = (_depth > 0u && m_layout) ? m_layout->clone(_depth-1u) : m_layout;
+                core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>( static_cast<ICPURenderpassIndependentPipeline*>(m_parent.get())->clone(_depth-1u) ) :
+                core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(m_parent);
+            core::smart_refctd_ptr<ICPUPipelineLayout> layout = (_depth > 0u && m_layout) ? core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(m_layout->clone(_depth-1u)) : m_layout;
 
             std::array<core::smart_refctd_ptr<ICPUSpecializedShader>, SHADER_STAGE_COUNT> shaders;
             for (uint32_t i = 0u; i < shaders.size(); ++i)
@@ -48,7 +48,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 
             auto cp = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
                 std::move(parent), std::move(layout),
-                shaders_raw.begin(), std::find(shaders_raw.begin(), shaders_raw.end(), nullptr),
+                shaders_raw.data(), &*std::find(shaders_raw.begin(), shaders_raw.end(), nullptr),
                 m_vertexInputParams, m_blendParams, m_primAsmParams, m_rasterParams
             );
 

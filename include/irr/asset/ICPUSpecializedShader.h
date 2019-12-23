@@ -31,11 +31,11 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
         {
             auto info = m_specInfo;
             if (_depth > 0u && info.m_backingBuffer)
-                info.m_backingBuffer = info.m_backingBuffer->clone(_depth-1u);
+                info.m_backingBuffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(info.m_backingBuffer->clone(_depth-1u));
             auto unspec = m_unspecialized;
 
             auto cp = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
-                (_depth > 0u && unspec) ? unspec->clone(_depth-1u) : std::move(unspec),
+                (_depth > 0u && unspec) ? core::smart_refctd_ptr_static_cast<ICPUShader>(unspec->clone(_depth-1u)) : std::move(unspec),
                 std::move(info)
             );
 

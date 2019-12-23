@@ -31,7 +31,7 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
                         (*cp->m_bindings)[i].samplers = cp->m_samplers->begin() + ((*cp->m_bindings)[i].samplers - m_samplers->begin());
                 }
                 for (size_t i = 0ull; i < m_samplers->size(); ++i)
-                    (*cp->m_samplers)[i] = (*m_samplers)[i]->clone(_depth-1u);
+                    (*cp->m_samplers)[i] = core::smart_refctd_ptr_static_cast<ICPUSampler>((*m_samplers)[i]->clone(_depth-1u));
             }
             else
             {
