@@ -24,6 +24,7 @@ update_git_submodule(./bzip2)
 update_git_submodule(./lz4)
 update_git_submodule(./spirv_cross)
 update_git_submodule(./zlib)
+update_git_submodule(./openexr)
 update_git_submodule(./utfcpp)
 update_git_submodule(./convertutf)
 update_git_submodule(./libpng)
@@ -34,6 +35,27 @@ update_git_submodule(./libjpeg) # soon to be killed
 update_git_submodule(./glm)
 update_git_submodule(./freetype2)
 update_git_submodule(./portable-file-dialogs)
+
+
+
+add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
+
+# zlib (target is zlibstatic)
+set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+set(_OLD_SKIP_INSTALL_ALL ${SKIP_INSTALL_ALL})
+set(BUILD_SHARED_LIBS OFF)
+set(SKIP_INSTALL_ALL ON)
+add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
+set(SKIP_INSTALL_ALL ${_OLD_SKIP_INSTALL_ALL})
+set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
+get_target_property(ZLIB_BINARY_DIR zlibstatic "BINARY_DIR")
+get_target_property(ZLIB_NAME zlibstatic "NAME")
+get_target_property(ZLIB_DEBUG_POSTFIX zlibstatic "DEBUG_POSTFIX")
+#message(FATAL_ERROR ${THIRD_PARTY_SOURCE_DIR})
+set(ZLIB_INCLUDE_DIR "${THIRD_PARTY_SOURCE_DIR}/zlib;${THIRD_PARTY_BINARY_DIR}/zlib" CACHE STRING "" FORCE)
+# This probably breaks the non-MSVC build in like 50 different ways
+set(ZLIB_LIBRARY_DEBUG "${ZLIB_BINARY_DIR}/Debug/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${ZLIB_DEBUG_POSTFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE STRING "" FORCE)
+set(ZLIB_LIBRARY_RELEASE "${ZLIB_BINARY_DIR}/Release/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE STRING "" FORCE)
 
 
 
@@ -59,8 +81,6 @@ if (UNIX)
 endif()
 add_subdirectory(shaderc shaderc EXCLUDE_FROM_ALL)
 
-add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
-
 #manipulating libjpeg cmake options from within cmake script
 #option(ENABLE_SHARED "jpeg-turbo" OFF)
 #set(CMAKE_INSTALL_DOCDIR "${CMAKE_CURRENT_BINARY_DIR}/doc" CACHE PATH "For libjpeg-turbo" FORCE)
@@ -71,29 +91,29 @@ add_subdirectory(libjpeg libjpeg EXCLUDE_FROM_ALL)
 
 #manipulating libpng cmake options from within cmake script
 option(PNG_BUILD_ZLIB "Custom zlib Location, else find_package is used" OFF)
-set(PNG_BUILD_ZLIB ON)
-set(ZLIB_INCLUDE_DIR ${THIRD_PARTY_SOURCE_DIR}/zlib) #for pnglib
-set(ZLIB_LIBRARY "$<TARGET_OBJECTS:zlib>") #for pnglib
+set(PNG_BUILD_ZLIB OFF)
 option(PNG_SHARED "Build shared lib" OFF)
 option(PNG_TESTS  "Build libpng tests" OFF)
 add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
-add_dependencies(png_static zlib) #CMake doesn't get it itself
+add_dependencies(png_static zlibstatic) #CMake doesn't get it itself
+
+#openexr
+set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
+set(_OLD_BUILD_TESTING ${BUILD_TESTING})
+set(BUILD_SHARED_LIBS OFF)
+set(BUILD_STATIC_LIBS OFF)
+set(BUILD_TESTING OFF)
+set(PYILMBASE_ENABLE OFF CACHE STRING "" FORCE)
+set(OPENEXR_BUILD_UTILS OFF CACHE STRING "" FORCE)
+set(OPENEXR_VIEWERS_ENABLE OFF CACHE STRING "" FORCE)
+add_subdirectory(openexr openexr EXCLUDE_FROM_ALL)
+set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
+set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
+set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 
 irr_adjust_flags()
 
-add_library(zlib OBJECT
-	zlib/adler32.c
-	zlib/crc32.c
-	zlib/deflate.c
-	zlib/infback.c
-	zlib/inffast.c
-	zlib/inflate.c
-	zlib/inftrees.c
-	zlib/trees.c
-	zlib/uncompr.c
-	#zlib/zcompress.c
-	zlib/zutil.c
-)
 add_library(lzma OBJECT
 	lzma/C/Alloc.c
 	lzma/C/LzFind.c
@@ -145,19 +165,21 @@ add_library(aesGladman OBJECT
 	aesGladman/sha1.c
 )
 
-set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
-set(BUILD_SHARED_LIBS OFF)
-set(BUILD_STATIC_LIBS OFF)
-option(GLM_TEST_ENABLE_CXX_14 "Enable C++ 14" ON)
-if (IRR_FAST_MATH)
-   option(GLM_TEST_ENABLE_FAST_MATH "Enable fast math optimizations" ON)
+if (IRR_BUILD_CEGUI) # I absolutely hate and despise GLM
+	set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+	set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
+	set(BUILD_SHARED_LIBS OFF)
+	set(BUILD_STATIC_LIBS OFF)
+	option(GLM_TEST_ENABLE_CXX_14 "Enable C++ 14" ON)
+	if (IRR_FAST_MATH)
+	   option(GLM_TEST_ENABLE_FAST_MATH "Enable fast math optimizations" ON)
+	endif()
+	option(GLM_TEST_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" ON)
+	option(GLM_TEST_ENABLE "Build unit tests" OFF)
+	add_subdirectory(glm EXCLUDE_FROM_ALL)
+	set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
+	set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 endif()
-option(GLM_TEST_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" ON)
-option(GLM_TEST_ENABLE "Build unit tests" OFF)
-add_subdirectory(glm EXCLUDE_FROM_ALL)
-set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
-set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 
 if (IRR_BUILD_MITSUBA_LOADER)
    update_git_submodule(./libexpat)

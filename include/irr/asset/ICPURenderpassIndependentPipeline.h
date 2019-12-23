@@ -4,6 +4,7 @@
 #include "irr/asset/IRenderpassIndependentPipeline.h"
 #include "irr/asset/ICPUSpecializedShader.h"
 #include "irr/asset/ICPUPipelineLayout.h"
+#include "irr/asset/IPipelineMetadata.h"
 
 namespace irr
 {

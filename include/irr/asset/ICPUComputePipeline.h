@@ -4,7 +4,7 @@
 #include "irr/asset/IComputePipeline.h"
 #include "irr/asset/ICPUPipelineLayout.h"
 #include "irr/asset/ICPUSpecializedShader.h"
-#include "irr/asset/IAsset.h"
+#include "irr/asset/IPipelineMetadata.h"
 
 namespace irr
 {
