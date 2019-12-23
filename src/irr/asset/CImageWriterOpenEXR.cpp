@@ -71,21 +71,17 @@ namespace irr
 			for (uint8_t channel = 0; channel < availableChannels; ++channel)
 				pixelsArrayIlm[channel] = _IRR_NEW_ARRAY(ilmType, width * height);
 
-			std::cout << image->getBuffer()->getSize() << "\n";
-
 			for (uint64_t yPos = 0; yPos < height; ++yPos)
 				for (uint64_t xPos = 0; xPos < width; ++xPos)
 				{
-					const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * pitch) + (xPos * availableChannels);
+					const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * pitch * availableChannels) + (xPos * availableChannels);
 					const uint64_t ptrStyleIlmShiftToDataChannelPixel = (yPos * width) + xPos;
 
 					for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)
 					{
 						ilmType channelPixel = *(reinterpret_cast<const ilmType*>(image->getBuffer()->getPointer()) + ptrStyleEndShiftToImageDataPixel + channelIndex);
-						std::cout << channelPixel << " ";
 						*(pixelsArrayIlm[channelIndex] + ptrStyleIlmShiftToDataChannelPixel) = channelPixel;
 					}
-					std::cout << "\n";
 				}
 
 			constexpr std::array<char*, availableChannels> rgbaSignatureAsText = { "R", "G", "B", "A" };
@@ -106,7 +102,8 @@ namespace irr
 			file.setFrameBuffer(frameBuffer);
 			file.writePixels(image->getCreationParameters().extent.height);
 
-			// deallocate
+			//for (uint8_t channel = 0; channel < availableChannels; ++channel)
+				// _IRR_DELETE_ARRAY(pixelsArrayIlm[channel], width * height); doesn't work (?)
 		}
 
 		bool CImageWriterOpenEXR::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)

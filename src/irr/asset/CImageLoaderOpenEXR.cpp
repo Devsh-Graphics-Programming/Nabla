@@ -135,23 +135,10 @@ namespace irr
 		};
 
 		template<typename IlmF>
-		bool trackIrrFormatAndPerformDataAssignment(const E_FORMAT& currentIrrlichtImageFormat, const E_FORMAT& formatToCompareWith, void* begginingOfImageDataBuffer, const uint64_t& endShiftToSpecifyADataPos, const IlmF& ilmPixelValueToAssignTo)
+		void trackIrrFormatAndPerformDataAssignment(void* begginingOfImageDataBuffer, const uint64_t& endShiftToSpecifyADataPos, const IlmF& ilmPixelValueToAssignTo)
 		{
-			if (currentIrrlichtImageFormat == formatToCompareWith)
-			{
-				*(reinterpret_cast<IlmF*>(begginingOfImageDataBuffer) + endShiftToSpecifyADataPos) = ilmPixelValueToAssignTo;
-				return true;
-			}
-			return false;
+			*(reinterpret_cast<IlmF*>(begginingOfImageDataBuffer) + endShiftToSpecifyADataPos) = ilmPixelValueToAssignTo;
 		}
-
-		template<typename IlmF>
-		void assignToReinterpretedValue(E_FORMAT currentIrrlichtBaseFormatToCompareWith, void* begginingOfImageDataBuffer, const uint64_t& endShiftToSpecifyADataPos, const IlmF& ilmPixelValueToAssignTo)
-		{
-			trackIrrFormatAndPerformDataAssignment<half>(currentIrrlichtBaseFormatToCompareWith, EF_R16G16B16A16_SFLOAT, begginingOfImageDataBuffer, endShiftToSpecifyADataPos, ilmPixelValueToAssignTo);
-			trackIrrFormatAndPerformDataAssignment<float>(currentIrrlichtBaseFormatToCompareWith, EF_R32G32B32A32_SFLOAT, begginingOfImageDataBuffer, endShiftToSpecifyADataPos, ilmPixelValueToAssignTo);
-			trackIrrFormatAndPerformDataAssignment<uint32_t>(currentIrrlichtBaseFormatToCompareWith, EF_R32G32B32A32_UINT, begginingOfImageDataBuffer, endShiftToSpecifyADataPos, ilmPixelValueToAssignTo);
-		};
 
 		asset::SAssetBundle CImageLoaderOpenEXR::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
@@ -235,7 +222,7 @@ namespace irr
 			for (uint64_t yPos = 0; yPos < height; ++yPos)
 				for (uint64_t xPos = 0; xPos < width; ++xPos)
 				{
-					const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * pitch) + (xPos * availableChannels);
+					const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * pitch * availableChannels) + (xPos * availableChannels);
 
 					for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)
 					{
@@ -244,32 +231,15 @@ namespace irr
 						const auto& uint32_tChannelElement =  (uint32_tPixelMapArray[channelIndex])[yPos][xPos];
 
 						if (params.format == EF_R16G16B16A16_SFLOAT)
-							assignToReinterpretedValue(params.format, fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, halfChannelElement);
+							trackIrrFormatAndPerformDataAssignment<half>(fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, halfChannelElement);
 						else if (params.format == EF_R32G32B32A32_SFLOAT)
-							assignToReinterpretedValue(params.format, fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, fullFloatChannelElement);
+							trackIrrFormatAndPerformDataAssignment<float>(fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, fullFloatChannelElement);
 						else if (params.format == EF_R32G32B32A32_UINT)
-							assignToReinterpretedValue(params.format, fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, uint32_tChannelElement);
-						
-						std::cout << *(reinterpret_cast<float*>(fetchedData) + ptrStyleEndShiftToImageDataPixel + channelIndex) << " ";
+							trackIrrFormatAndPerformDataAssignment<uint32_t>(fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, uint32_tChannelElement);
 					}
-					std::cout << "\n";
 				}
 
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
-			std::cout << "\n\n\n\n\n\n\n\n\n\n";
-			// TESTS
-			for (uint64_t yPos = 0; yPos < height; ++yPos)
-				for (uint64_t xPos = 0; xPos < width; ++xPos)
-				{
-					const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * pitch) + (xPos * availableChannels);
-
-					for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)
-					{
-						std::cout << *(reinterpret_cast<float*>(image->getBuffer()->getPointer()) + ptrStyleEndShiftToImageDataPixel + channelIndex) << " ";
-					}
-					std::cout << "\n";
-				}
-			std::cout << "\n\n\n\n\n\n\n\n\n\n";
 
 			return SAssetBundle{image};
 		}
