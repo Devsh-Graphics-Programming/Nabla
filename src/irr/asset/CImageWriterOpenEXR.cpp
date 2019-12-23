@@ -60,33 +60,18 @@ namespace irr
 					return PixelType::UINT;
 			};
 
-			static const uint32_t MAX_PITCH_ALIGNMENT = 8u;											// OpenGL cannot transfer rows with arbitrary padding
-			auto calcPitchInBlocks = [](uint32_t width, uint32_t blockByteSize) -> uint32_t			// try with largest alignment first
-			{
-				auto rowByteSize = width * blockByteSize;
-				for (uint32_t _alignment = MAX_PITCH_ALIGNMENT; _alignment > 1u; _alignment >>= 1u)
-				{
-					auto paddedSize = core::alignUp(rowByteSize, _alignment);
-					if (paddedSize % blockByteSize)
-						continue;
-					return paddedSize / blockByteSize;
-				}
-				return width;
-			};
-
 			Header header(image->getCreationParameters().extent.width, image->getCreationParameters().extent.height);
-			OutputFile file(fileName, header);
 			const PixelType pixelType = getIlmType();
 			FrameBuffer frameBuffer;
 
-			auto byteSizeOfSingleChannelPixel = image->getCreationParameters().format == EF_R16G16B16A16_SFLOAT ? 2 : 4;
-			const uint32_t texelFormatByteSize = getTexelOrBlockBytesize(image->getCreationParameters().format);
 			const auto& width = image->getCreationParameters().extent.width;
 			const auto& height = image->getCreationParameters().extent.height;
-			const auto pitch = calcPitchInBlocks(width, texelFormatByteSize) * texelFormatByteSize / availableChannels / (image->getCreationParameters().format == EF_R16G16B16A16_SFLOAT ? 2 : 4);
+			const auto pitch = image->getRegions().begin()->bufferRowLength;
 
 			for (uint8_t channel = 0; channel < availableChannels; ++channel)
 				pixelsArrayIlm[channel] = _IRR_NEW_ARRAY(ilmType, width * height);
+
+			std::cout << image->getBuffer()->getSize() << "\n";
 
 			for (uint64_t yPos = 0; yPos < height; ++yPos)
 				for (uint64_t xPos = 0; xPos < width; ++xPos)
@@ -97,10 +82,8 @@ namespace irr
 					for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)
 					{
 						ilmType channelPixel = *(reinterpret_cast<const ilmType*>(image->getBuffer()->getPointer()) + ptrStyleEndShiftToImageDataPixel + channelIndex);
-						std::cout << channelPixel << " "; // wtf
-
+						std::cout << channelPixel << " ";
 						*(pixelsArrayIlm[channelIndex] + ptrStyleIlmShiftToDataChannelPixel) = channelPixel;
-						//std::cout << *(pixelsArrayIlm[channelIndex] + ptrStyleIlmShiftToDataChannelPixel) << " ";
 					}
 					std::cout << "\n";
 				}
@@ -114,11 +97,12 @@ namespace irr
 					rgbaSignatureAsText[channel],                                                                // name
 					Slice(pixelType,                                                                             // type
 					(char*) pixelsArrayIlm[channel],                                                             // base
-					sizeof(*pixelsArrayIlm[channel]) * 1,                                                            // xStride
-					sizeof(*pixelsArrayIlm[channel]) * image->getCreationParameters().extent.width)                  // yStride
+					sizeof(*pixelsArrayIlm[channel]) * 1,                                                        // xStride
+					sizeof(*pixelsArrayIlm[channel]) * image->getCreationParameters().extent.width)              // yStride
 				);
 			}
 
+			OutputFile file(fileName, header);
 			file.setFrameBuffer(frameBuffer);
 			file.writePixels(image->getCreationParameters().extent.height);
 
@@ -139,6 +123,9 @@ namespace irr
 				dynamic_cast<const asset::ICPUImage*>(_params.rootAsset);
 			#endif
 			assert(image);
+
+			if (image->getBuffer()->isADummyObjectForCache())
+				return false;
 
 			io::IWriteFile* file = _override->getOutputFile(_file, ctx, { image, 0u });
 

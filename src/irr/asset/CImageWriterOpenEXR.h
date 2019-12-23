@@ -2,7 +2,8 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#pragma once
+#ifndef __C_IMAGE_WRITER_OPENEXR__
+#define __C_IMAGE_WRITER_OPENEXR__
 
 #include "IrrCompileConfig.h"
 
@@ -45,3 +46,4 @@ namespace irr
 }
 
 #endif // _IRR_COMPILE_WITH_OPENEXR_WRITER_
+#endif // __C_IMAGE_WRITER_OPENEXR__

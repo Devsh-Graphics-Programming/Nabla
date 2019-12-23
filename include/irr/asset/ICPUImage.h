@@ -77,7 +77,7 @@ class ICPUImage final : public IImage, public IAsset
 			if (!IImage::validateCopies(_regions->begin(),_regions->end(),_buffer.get()))
 				return false;
 		
-			buffer = _buffer;
+			buffer = std::move(_buffer);
 			regions = _regions;
 			sortRegionsByMipMapLevel();
 			return true;

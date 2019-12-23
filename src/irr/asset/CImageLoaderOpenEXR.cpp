@@ -228,9 +228,9 @@ namespace irr
 			region.bufferImageHeight = 0u;
 			region.imageOffset = { 0u, 0u, 0u };
 			region.imageExtent = image->getCreationParameters().extent;
-
+		
 			void* fetchedData = texelBuffer->getPointer();
-			const auto pitch = region.bufferRowLength * texelFormatByteSize / availableChannels / (params.format == EF_R16G16B16A16_SFLOAT ? 2 : 4);
+			const auto pitch = region.bufferRowLength;
 
 			for (uint64_t yPos = 0; yPos < height; ++yPos)
 				for (uint64_t xPos = 0; xPos < width; ++xPos)
@@ -255,10 +255,8 @@ namespace irr
 					std::cout << "\n";
 				}
 
-			std::cout << "\n\n\n\n\n\n\n\n\nREAD IMAGE LIKE YOU DO IN WRITER\n";
-
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
-
+			std::cout << "\n\n\n\n\n\n\n\n\n\n";
 			// TESTS
 			for (uint64_t yPos = 0; yPos < height; ++yPos)
 				for (uint64_t xPos = 0; xPos < width; ++xPos)
@@ -271,6 +269,7 @@ namespace irr
 					}
 					std::cout << "\n";
 				}
+			std::cout << "\n\n\n\n\n\n\n\n\n\n";
 
 			return SAssetBundle{image};
 		}
@@ -492,4 +491,4 @@ namespace irr
 	}
 }
 
-#endif // #ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
+#endif // _IRR_COMPILE_WITH_OPENEXR_LOADER_
