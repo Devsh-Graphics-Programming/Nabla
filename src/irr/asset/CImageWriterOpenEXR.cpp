@@ -48,7 +48,7 @@ namespace irr
 		constexpr uint8_t availableChannels = 4;
 
 		template<typename ilmType>
-		void createAndWriteImage(std::array<ilmType*, availableChannels>& pixelsArrayIlm, const asset::ICPUImage* image, const char* fileName)
+		bool createAndWriteImage(std::array<ilmType*, availableChannels>& pixelsArrayIlm, const asset::ICPUImage* image, const char* fileName)
 		{
 			auto getIlmType = [&]()
 			{
@@ -58,11 +58,16 @@ namespace irr
 					return PixelType::FLOAT;
 				else if (image->getCreationParameters().format == EF_R32G32B32A32_UINT)
 					return PixelType::UINT;
+				else
+					return PixelType::NUM_PIXELTYPES;
 			};
 
 			Header header(image->getCreationParameters().extent.width, image->getCreationParameters().extent.height);
 			const PixelType pixelType = getIlmType();
 			FrameBuffer frameBuffer;
+
+			if (pixelType == PixelType::NUM_PIXELTYPES)
+				return false;
 
 			const auto& width = image->getCreationParameters().extent.width;
 			const auto& height = image->getCreationParameters().extent.height;
@@ -102,8 +107,8 @@ namespace irr
 			file.setFrameBuffer(frameBuffer);
 			file.writePixels(image->getCreationParameters().extent.height);
 
-			//for (uint8_t channel = 0; channel < availableChannels; ++channel)
-				// _IRR_DELETE_ARRAY(pixelsArrayIlm[channel], width * height); doesn't work (?)
+			for (uint8_t channel = 0; channel < availableChannels; ++channel)
+				_IRR_DELETE_ARRAY(&pixelsArrayIlm[channel], width * height); // after the fix it doesn't work, but works with & (?)
 		}
 
 		bool CImageWriterOpenEXR::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
@@ -113,13 +118,7 @@ namespace irr
 
 			SAssetWriteContext ctx{ _params, _file };
 
-			const asset::ICPUImage* image =
-			#ifndef _IRR_DEBUG
-				static_cast<const asset::ICPUImage*>(_params.rootAsset);
-			#else
-				dynamic_cast<const asset::ICPUImage*>(_params.rootAsset);
-			#endif
-			assert(image);
+			const asset::ICPUImage* image = IAsset::castDown<ICPUImage>(_params.rootAsset);
 
 			if (image->getBuffer()->isADummyObjectForCache())
 				return false;
