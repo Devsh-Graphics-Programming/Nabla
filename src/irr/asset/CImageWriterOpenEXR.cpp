@@ -66,28 +66,54 @@ namespace irr
 			const PixelType pixelType = getIlmType();
 			FrameBuffer frameBuffer;
 
-			if (pixelType == PixelType::NUM_PIXELTYPES)
+			if (pixelType == PixelType::NUM_PIXELTYPES || image->getCreationParameters().type != IImage::E_TYPE::ET_2D)
 				return false;
 
-			const auto& width = image->getCreationParameters().extent.width;
-			const auto& height = image->getCreationParameters().extent.height;
-			const auto pitch = image->getRegions().begin()->bufferRowLength;
+			uint64_t width = {};
+			uint64_t height = {};
+			std::vector<const IImage::SBufferCopy*> regionsToHandle;
 
-			for (uint8_t channel = 0; channel < availableChannels; ++channel)
-				pixelsArrayIlm[channel] = _IRR_NEW_ARRAY(ilmType, width * height);
-
-			for (uint64_t yPos = 0; yPos < height; ++yPos)
-				for (uint64_t xPos = 0; xPos < width; ++xPos)
+			for (auto region = image->getRegions().begin(); region != image->getRegions().end(); ++region)
+				if (region->imageSubresource.mipLevel == 0)
 				{
-					const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * pitch * availableChannels) + (xPos * availableChannels);
-					const uint64_t ptrStyleIlmShiftToDataChannelPixel = (yPos * width) + xPos;
-
-					for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)
-					{
-						ilmType channelPixel = *(reinterpret_cast<const ilmType*>(image->getBuffer()->getPointer()) + ptrStyleEndShiftToImageDataPixel + channelIndex);
-						*(pixelsArrayIlm[channelIndex] + ptrStyleIlmShiftToDataChannelPixel) = channelPixel;
-					}
+					regionsToHandle.push_back(region);
+					width += region->bufferRowLength;
+					height += region->bufferImageHeight;
 				}
+
+			// whole end image that will consists of all pixels gathered in certain regions
+			for (auto channelPixelsPtr : pixelsArrayIlm)
+				channelPixelsPtr = _IRR_NEW_ARRAY(ilmType, width * height);
+
+			/// array of single region pixels that will be copied in appropriate way to pixelsArrayIlm to create final image
+			std::vector<std::array<ilmType*, availableChannels>> regionsPixelArray(regionsToHandle.size());
+			for(auto region : regionsToHandle)
+				for (auto regionPixelArray : regionsPixelArray)
+					for (auto channelPixelArray : regionPixelArray)
+						channelPixelArray = _IRR_NEW_ARRAY(ilmType, region->bufferRowLength * region->bufferImageHeight);
+
+			////// TO CHANGE - PUT PIXELS FROM REGIONS TO pixelsArrayIlm
+
+			for (auto region : regionsToHandle)
+			{
+				for (uint64_t yPos = 0; yPos < region->bufferImageHeight; ++yPos)
+					for (uint64_t xPos = 0; xPos < region->bufferRowLength; ++xPos)
+					{
+						/*
+							TODO - compute positions
+						
+						const uint64_t ptrStyleEndShiftToImageDataPixel = region->bufferOffset + (yPos * region->bufferRowLength * availableChannels) + (xPos * availableChannels);
+						const uint64_t ptrStyleIlmShiftToDataChannelPixel = (yPos * width) + xPos;
+
+						for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)
+						{
+							ilmType channelPixel = *(reinterpret_cast<const ilmType*>(image->getBuffer()->getPointer()) + ptrStyleEndShiftToImageDataPixel + channelIndex);
+							*(pixelsArrayIlm[channelIndex] + ptrStyleIlmShiftToDataChannelPixel) = channelPixel;
+						}*/
+					}
+			}
+
+			//////////////////////
 
 			constexpr std::array<char*, availableChannels> rgbaSignatureAsText = { "R", "G", "B", "A" };
 			for (uint8_t channel = 0; channel < rgbaSignatureAsText.size(); ++channel)
@@ -107,8 +133,13 @@ namespace irr
 			file.setFrameBuffer(frameBuffer);
 			file.writePixels(image->getCreationParameters().extent.height);
 
-			for (uint8_t channel = 0; channel < availableChannels; ++channel)
-				_IRR_DELETE_ARRAY(&pixelsArrayIlm[channel], width * height); // after the fix it doesn't work, but works with & (?)
+			for (auto channelPixelsPtr : pixelsArrayIlm)
+				_IRR_DELETE_ARRAY(channelPixelsPtr, width * height);
+
+			for (auto region : regionsToHandle)
+				for (auto regionPixelPtr : regionsPixelArray)
+					for (auto channelPixelPtr : regionPixelPtr)
+						_IRR_DELETE_ARRAY(channelPixelPtr, region->bufferRowLength * region->bufferImageHeight);
 		}
 
 		bool CImageWriterOpenEXR::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
