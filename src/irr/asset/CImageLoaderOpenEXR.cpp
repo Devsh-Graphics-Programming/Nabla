@@ -235,7 +235,7 @@ namespace irr
 			for (uint64_t yPos = 0; yPos < height; ++yPos)
 				for (uint64_t xPos = 0; xPos < width; ++xPos)
 				{
-					const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * pitch) + (xPos * availableChannels);
+					const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * pitch * availableChannels) + (xPos * availableChannels);
 
 					for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)
 					{
@@ -278,6 +278,7 @@ namespace irr
 		bool CImageLoaderOpenEXR::isALoadableFileFormat(io::IReadFile* _file) const
 		{	
 			const size_t begginingOfFile = _file->getPos();
+            _file->seek(0ull);
 
 			char magicNumberBuffer[sizeof(SContext::magicNumber)];
 			_file->read(magicNumberBuffer, sizeof(SContext::magicNumber));
@@ -293,7 +294,7 @@ namespace irr
 			width = dw.max.x - dw.min.x + 1;
 			height = dw.max.y - dw.min.y + 1;
 
-			constexpr char* rgbaSignatureAsText[] = {"R", "G", "B", "A"};
+			constexpr const char* rgbaSignatureAsText[] = {"R", "G", "B", "A"};
 			for (auto& pixelChannelBuffer : pixelRgbaMapArray)
 				pixelChannelBuffer.resizeErase(height, width);
 

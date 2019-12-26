@@ -127,6 +127,10 @@ the engine will no longer read .png images. */
 //! Uncomment the following line if you want to ignore the deprecated warnings
 //#define IGNORE_DEPRECATED_WARNING
 
+#define _IRR_COMPILE_WITH_MTL_LOADER_
+#ifdef NO_IRR_COMPILE_WITH_MTL_LOADER_
+#undef _IRR_COMPILE_WITH_MTL_LOADER_
+#endif
 
 //! Define _IRR_COMPILE_WITH_OBJ_LOADER_ if you want to load Wavefront OBJ files
 #define _IRR_COMPILE_WITH_OBJ_LOADER_
