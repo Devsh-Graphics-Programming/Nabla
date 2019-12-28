@@ -111,7 +111,7 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>());
 #endif
 #ifdef _IRR_COMPILE_WITH_MTL_LOADER_
-    addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>());
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this));
 #endif
 #ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::COBJMeshFileLoader>(this));
