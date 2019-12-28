@@ -69,17 +69,13 @@ namespace irr
 			if (pixelType == PixelType::NUM_PIXELTYPES || image->getCreationParameters().type != IImage::E_TYPE::ET_2D)
 				return false;
 
-			uint64_t width = {};
-			uint64_t height = {};
+			uint64_t width = image->getCreationParameters().extent.width;
+			uint64_t height = image->getCreationParameters().extent.height;
 			std::vector<const IImage::SBufferCopy*> regionsToHandle;
 
 			for (auto region = image->getRegions().begin(); region != image->getRegions().end(); ++region)
 				if (region->imageSubresource.mipLevel == 0)
-				{
 					regionsToHandle.push_back(region);
-					width += region->imageExtent.width;
-					height += region->imageExtent.height;
-				}
 
 			for (auto& channelPixelsPtr : pixelsArrayIlm)
 				channelPixelsPtr = _IRR_NEW_ARRAY(ilmType, width * height);
@@ -90,7 +86,7 @@ namespace irr
 				for (uint64_t yPos = region->imageOffset.y; yPos < region->imageOffset.y + region->imageExtent.height; ++yPos)
 					for (uint64_t xPos = region->imageOffset.x; xPos < region->imageOffset.x + region->imageExtent.width; ++xPos)
 					{
-						const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * width * availableChannels) + (xPos * availableChannels);
+						const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * width * availableChannels) + (xPos * availableChannels) + region->bufferOffset;
 						const uint64_t ptrStyleIlmShiftToDataChannelPixel = (yPos * width) + xPos;
 
 						for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)

@@ -30,7 +30,7 @@ namespace irr
 						for (uint64_t yPos = region->imageOffset.y; yPos < region->imageOffset.y + region->imageExtent.height; ++yPos)
 							for (uint64_t xPos = region->imageOffset.x; xPos < region->imageOffset.x + region->imageExtent.width; ++xPos)
 							{
-								const uint64_t offsetToPixelBeggining = (yPos * rowStride * pixelStride) + (xPos * pixelStride);
+								const uint64_t offsetToPixelBeggining = (yPos * rowStride * pixelStride) + (xPos * pixelStride) + region->bufferOffset;
 
 								for (uint8_t channelIndex = 0; channelIndex < pixelStride; ++channelIndex)
 									ConvertImageTexelToOutputFunctional().operator()(frameBuffer, offsetToPixelBeggining, channelIndex, doesItHandleSeperateChannelBuffers);
