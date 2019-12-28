@@ -20,11 +20,73 @@ bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) con
     return mtl.find("newmtl") != std::string::npos;
 }
 
+namespace
+{
+    core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromMtl(const CMTLPipelineMetadata::SMtl& _mtl)
+    {
+        const size_t textureCnt = std::count_if(_mtl.maps, _mtl.maps + CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 1u, [](const std::string& _path) { return !_path.empty(); });
+        auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(textureCnt);
+
+        ICPUDescriptorSetLayout::SBinding bnd;
+        bnd.count = 1u;
+        bnd.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+        bnd.type = EDT_COMBINED_IMAGE_SAMPLER;
+        std::fill(bindings->begin(), bindings->end(), bnd);
+
+        ICPUSampler::SParams smplParams;
+        smplParams.TextureWrapU = smplParams.TextureWrapV = smplParams.TextureWrapW = ICPUSampler::ETC_REPEAT;
+        smplParams.BorderColor = ICPUSampler::ETBC_FLOAT_TRANSPARENT_BLACK;
+        smplParams.MinFilter = smplParams.MaxFilter = ICPUSampler::ETF_LINEAR;
+        smplParams.MipmapMode = ICPUSampler::ESMM_LINEAR;
+        smplParams.AnisotropicFilter = 0u;
+        smplParams.CompareEnable = 0u;
+        smplParams.LodBias = 0.f;
+        smplParams.MinLod = -1000.f;
+        smplParams.MaxLod = 1000.f;
+
+        core::smart_refctd_ptr<ICPUSampler> samplers[2];
+        samplers[0] = core::make_smart_refctd_ptr<ICPUSampler>(smplParams);
+        smplParams.TextureWrapU = smplParams.TextureWrapV = smplParams.TextureWrapW = ICPUSampler::ETC_CLAMP_TO_BORDER;
+        samplers[1] = core::make_smart_refctd_ptr<ICPUSampler>(smplParams);
+        for (uint32_t i = 0u, j = 0u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
+        {
+            if (!_mtl.maps[i].empty())
+            {
+                (*bindings)[j].binding = j;
+
+                const uint32_t clamp = (_mtl.clamp >> i) & 1u;
+                (*bindings)[j].samplers = samplers + clamp;
+
+                ++j;
+            }
+        }
+
+        auto dsLayout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end());
+        //ds with textures for material goes to set=3
+        auto layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr, nullptr, nullptr, nullptr, nullptr, std::move(dsLayout));
+
+        return layout;
+    }
+}
+
 SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
     auto materials = readMaterials(_file);
 
-    return asset::SAssetBundle();
+    core::vector<core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>> pipelines(materials.size());
+    SVertexInputParams vtxParams;
+    SBlendParams blendParams;
+    SPrimitiveAssemblyParams primParams;
+    SRasterizationParams rasterParams;
+    for (size_t i = 0ull; i < pipelines.size(); ++i)
+    {
+        auto layout = makePipelineLayoutFromMtl(materials[i]);
+        pipelines[i] = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(nullptr, std::move(layout), nullptr, nullptr, vtxParams, blendParams, primParams, rasterParams);
+        m_assetMgr->setAssetMetadata(pipelines[i].get(), core::make_smart_refctd_ptr<CMTLPipelineMetadata>(std::move(materials[i])));
+    }
+    materials.clear();
+
+    return asset::SAssetBundle(std::move(pipelines));
 }
 
 namespace
@@ -282,7 +344,6 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(io::IReadFile* _file) const -> co
         if (currMaterial && strncmp("map_", tmpbuf, 4u)==0 || strcmp("refl", tmpbuf)==0 || strcmp("norm", tmpbuf)==0 || strcmp("bump", tmpbuf)==0 || strcmp("disp", tmpbuf)==0)
         {
             readTexture(bufPtr, bufEnd, currMaterial, tmpbuf);
-            //bufPtr = goNextLine(bufPtr, bufEnd);
         }
 
         switch (*bufPtr)

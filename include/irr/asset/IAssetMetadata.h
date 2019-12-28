@@ -38,7 +38,7 @@ class IAssetMetadata : public core::IReferenceCounted
 			Due to external and custom Asset Loaders static_cast cannot be protected with a type enum comparision, 
 			so a string is provided.
 		*/
-		virtual const char* getLoaderName() = 0;
+		virtual const char* getLoaderName() const = 0;
 };
 
 
