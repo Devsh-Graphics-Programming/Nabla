@@ -15,6 +15,7 @@
 #include "IReadFile.h"
 #include "os.h"
 #include "irr/asset/IAssetManager.h"
+#include "irr/asset/CMTLPipelineMetadata.h"
 
 /*
 namespace std
@@ -82,31 +83,28 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	if (!filesize)
         return {};
 
-	const uint32_t WORD_BUFFER_LENGTH = 512;
+	const uint32_t WORD_BUFFER_LENGTH = 512u;
+    char tmpbuf[WORD_BUFFER_LENGTH]{};
 
-	core::vector<core::vector3df> vertexBuffer;
-	core::vector<core::vector3df> normalsBuffer;
-	core::vector<core::vector2df> textureCoordBuffer;
-
-	SObjMtl * currMtl = new SObjMtl();
-	ctx.Materials.push_back(currMtl);
 	uint32_t smoothingGroup=0;
 
 	const io::path fullName = _file->getFileName();
-	const io::path relPath = io::IFileSystem::getFileDir(fullName)+"/";
+	const std::string relPath = (io::IFileSystem::getFileDir(fullName)+"/").c_str();
 
-	char* buf = new char[filesize];
-	memset(buf, 0, filesize);
-	_file->read((void*)buf, filesize);
+    core::unordered_map<std::string, core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>> pipelines;
+
+    std::string fileContents;
+    fileContents.resize(filesize);
+	char* buf = fileContents.data();
+	_file->read(buf, filesize);
 	const char* const bufEnd = buf+filesize;
 
 	// Process obj information
 	const char* bufPtr = buf;
 	std::string grpName, mtlName;
-	bool mtlChanged=false;
     bool submeshLoadedFromCache = false;
 
-	auto performActionBasedOnOrientationSystem = [&](auto performOnRightHanded, auto performOnLeftHanded = [&](void) {})
+	auto performActionBasedOnOrientationSystem = [&](auto performOnRightHanded, auto performOnLeftHanded)
 	{
 		if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
 			performOnRightHanded();
@@ -114,6 +112,16 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			performOnLeftHanded();
 	};
 
+
+    core::vector<core::vector3df> vertexBuffer;
+    core::vector<core::vector3df> normalsBuffer;
+    core::vector<core::vector2df> textureCoordBuffer;
+
+    core::vector<core::smart_refctd_ptr<ICPUMeshBuffer>> submeshes;
+    core::vector<core::vector<uint32_t>> indices;
+    core::vector<SObjVertex> vertices;
+    core::map<SObjVertex, uint32_t> map_vtx2ix;
+    core::vector<bool> recalcNormals;
 	while(bufPtr != bufEnd)
 	{
 		switch(bufPtr[0])
@@ -122,12 +130,19 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		{
 			if (ctx.useMaterials)
 			{
-				char name[WORD_BUFFER_LENGTH];
-				bufPtr = goAndCopyNextWord(name, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
+				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
 #ifdef _IRR_DEBUG_OBJ_LOADER_
-				os::Printer::log("Reading material _file",name);
+				os::Printer::log("Reading material _file",tmpbuf);
 #endif
-				readMTL(ctx, name, relPath);
+
+                SAssetLoadParams loadParams;
+                auto bundle = AssetManager->getAsset(tmpbuf, loadParams);
+                for (auto it = bundle.getContents().first; it != bundle.getContents().second; ++it)
+                {
+                    auto pipeln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(*it);
+                    auto metadata = static_cast<CMTLPipelineMetadata*>(pipeln->getMetadata());
+                    pipelines.insert({metadata->getMaterial().name, pipeln});
+                }
 			}
 		}
 			break;
@@ -166,58 +181,29 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			break;
 
 		case 'g': // group name
-			{
-				char grp[WORD_BUFFER_LENGTH];
-				bufPtr = goAndCopyNextWord(grp, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-#ifdef _IRR_DEBUG_OBJ_LOADER_
-	os::Printer::log("Loaded group start",grp, ELL_DEBUG);
-#endif
-				if (ctx.useGroups)
-				{
-					if (0 != grp[0])
-						grpName = grp;
-					else
-						grpName = "default";
-
-                    asset::IAsset::E_TYPE types[] {asset::IAsset::ET_SUB_MESH, (asset::IAsset::E_TYPE)0u };
-                    auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, 1u).getContents();
-                    if (mb_bundle.first!=mb_bundle.second)
-                    {
-                        auto mb = static_cast<asset::ICPUMeshBuffer*>(mb_bundle.first->get());
-                        mb->grab();
-                        SObjMtl* mtl = findMtl(ctx, mtlName, grpName);
-                        ctx.preloadedSubmeshes.insert(std::make_pair(mtl, mb));
-                    }
-                    else mtlChanged=true;
-
-                    submeshLoadedFromCache = (mb_bundle.first!=mb_bundle.second);
-				}
-			}
+            bufPtr = goNextWord(bufPtr, bufEnd);
 			break;
-
 		case 's': // smoothing can be a group or off (equiv. to 0)
 			{
-				char smooth[WORD_BUFFER_LENGTH];
-				bufPtr = goAndCopyNextWord(smooth, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
+				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
 #ifdef _IRR_DEBUG_OBJ_LOADER_
-	os::Printer::log("Loaded smoothing group start",smooth, ELL_DEBUG);
+	os::Printer::log("Loaded smoothing group start",tmpbuf, ELL_DEBUG);
 #endif
-				if (core::stringc("off")==smooth)
-					smoothingGroup=0;
+				if (core::stringc("off")==tmpbuf)
+					smoothingGroup=0u;
 				else
-                    sscanf(smooth,"%u",&smoothingGroup);
+                    sscanf(tmpbuf,"%u",&smoothingGroup);
 			}
 			break;
 
 		case 'u': // usemtl
 			// get name of material
 			{
-				char matName[WORD_BUFFER_LENGTH];
-				bufPtr = goAndCopyNextWord(matName, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
+				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
 #ifdef _IRR_DEBUG_OBJ_LOADER_
-	os::Printer::log("Loaded material start",matName, ELL_DEBUG);
+	os::Printer::log("Loaded material start",tmpbuf, ELL_DEBUG);
 #endif
-				mtlName=matName;
+				mtlName=tmpbuf;
 
                 if (ctx.useMaterials && !ctx.useGroups)
                 {
@@ -225,12 +211,27 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, 1u).getContents();
                     if (mb_bundle.first!=mb_bundle.second)
                     {
-                        auto mb = static_cast<asset::ICPUMeshBuffer*>(mb_bundle.first->get());
-                        mb->grab();
-                        SObjMtl* mtl = findMtl(ctx, mtlName, grpName);
-                        ctx.preloadedSubmeshes.insert(std::make_pair(mtl, mb));
+                        submeshes.push_back(*mb_bundle.first);
                     }
-                    else mtlChanged=true;
+                    else
+                    {
+                        submeshes.push_back(core::make_smart_refctd_ptr<ICPUMeshBuffer>());
+                        auto found = pipelines.find(mtlName);
+                        assert(found != pipelines.end());
+#ifndef _IRR_DEBUG
+                        if (found != pipelines.end())
+                        {
+#endif
+                            auto pipeln = found->second;
+                            //cloning pipeline because it will be edited (vertex input params)
+                            //note shallow copy (depth=0), i.e. only pipeline is cloned, but all its sub-assets are taken from original object
+                            submeshes.back()->setPipeline(pipeln->clone(0u));
+#ifndef _IRR_DEBUG
+                        }
+#endif
+                    }
+                    indices.emplace_back();
+                    recalcNormals.push_back(false);
 
                     submeshLoadedFromCache = (mb_bundle.first!=mb_bundle.second);
                 }
@@ -241,18 +242,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		{
             if (submeshLoadedFromCache)
                 break;
-			char vertexWord[WORD_BUFFER_LENGTH]; // for retrieving vertex data
+
 			SObjVertex v;
-			// Assign vertex color from currently active material's diffuse color
-			if (mtlChanged)
-			{
-				// retrieve the material
-				SObjMtl *useMtl = findMtl(ctx, mtlName, grpName);
-				// only change material if we found it
-				if (useMtl)
-					currMtl = useMtl;
-				mtlChanged=false;
-			}
 
 			// get all vertices data in this face (current line of obj _file)
 			const core::stringc wordBuffer = copyLine(bufPtr, bufEnd);
@@ -260,7 +251,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			const char* const endPtr = linePtr+wordBuffer.size();
 
 			core::vector<uint32_t> faceCorners;
-			faceCorners.reserve(32); // should be large enough
+			faceCorners.reserve(3ull);
 
 			// read in all vertices
 			linePtr = goNextWord(linePtr, endPtr);
@@ -273,9 +264,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				Idx[1] = Idx[2] = -1;
 
 				// read in next vertex's data
-				uint32_t wlength = copyWord(vertexWord, linePtr, WORD_BUFFER_LENGTH, endPtr);
+				uint32_t wlength = copyWord(tmpbuf, linePtr, WORD_BUFFER_LENGTH, endPtr);
 				// this function will also convert obj's 1-based index to c++'s 0-based index
-				retrieveVertexIndices(vertexWord, Idx, vertexWord+wlength+1, vertexBuffer.size(), textureCoordBuffer.size(), normalsBuffer.size());
+				retrieveVertexIndices(tmpbuf, Idx, tmpbuf+wlength+1, vertexBuffer.size(), textureCoordBuffer.size(), normalsBuffer.size());
 				v.pos[0] = vertexBuffer[Idx[0]].X;
 				v.pos[1] = vertexBuffer[Idx[0]].Y;
 				v.pos[2] = vertexBuffer[Idx[0]].Z;
@@ -287,8 +278,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 }
 				else
                 {
-					v.uv[0] = 0.f;
-					v.uv[1] = 0.f;
+					v.uv[0] = std::numeric_limits<float>::quiet_NaN();
+					v.uv[1] = std::numeric_limits<float>::quiet_NaN();
                 }
                 //set normal
 				if ( -1 != Idx[2] )
@@ -300,51 +291,36 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				else
 				{
 					v.normal32bit = 0;
-					currMtl->RecalculateNormals=true;
+                    recalcNormals.back() = true;
 				}
 
-				int vertLocation;
-				core::map<SObjVertex, int>::iterator n = currMtl->VertMap.find(v);
-				if (n!=currMtl->VertMap.end())
-				{
-					vertLocation = n->second;
-				}
+				uint32_t ix;
+				auto vtx_ix = map_vtx2ix.find(v);
+				if (vtx_ix != map_vtx2ix.end())
+					ix = vtx_ix->second;
 				else
 				{
-					currMtl->Vertices.push_back(v);
-					vertLocation = currMtl->Vertices.size() -1;
-					currMtl->VertMap.insert(std::pair<SObjVertex, int>(v, vertLocation));
+					ix = vertices.size();
+					vertices.push_back(v);
+					map_vtx2ix.insert({v, ix});
 				}
 
-				faceCorners.push_back(vertLocation);
+				faceCorners.push_back(ix);
 
 				// go to next vertex
 				linePtr = goNextWord(linePtr, endPtr);
 			}
 
-			// triangulate the face
-			for ( uint32_t i = 1; i < faceCorners.size() - 1; ++i )
-			{
-				// Add a triangle
-				performActionBasedOnOrientationSystem
-				(
-					[&]()
-					{
-						currMtl->Indices.push_back(faceCorners[0]);
-						currMtl->Indices.push_back(faceCorners[i]);
-						currMtl->Indices.push_back(faceCorners[i + 1]);
-					}, 
-				
-					[&]() 
-					{
-						currMtl->Indices.push_back(faceCorners[i + 1]);
-						currMtl->Indices.push_back(faceCorners[i]);
-						currMtl->Indices.push_back(faceCorners[0]);
-					}
-				);
-			}
-			faceCorners.resize(0); // fast clear
-			faceCorners.reserve(32);
+            assert(faceCorners.size()==3ull);
+			performActionBasedOnOrientationSystem
+			(
+				[](){},
+				[&]() 
+				{
+                    std::swap(faceCorners.front(), faceCorners.back());
+				}
+			);
+            indices.back().insert(indices.back().end(), faceCorners.begin(), faceCorners.end());
 		}
 		break;
 
@@ -355,9 +331,88 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		// eat up rest of line
 		bufPtr = goNextLine(bufPtr, bufEnd);
 	}	// end while(bufPtr && (bufPtr-buf<filesize))
-	// Clean up the allocate obj _file contents
-	delete [] buf;
 
+    core::vector<core::vectorSIMDf> newNormals;
+    auto doRecalcNormals = [&vertices,&newNormals](const core::vector<uint32_t>& _ixs) {
+        memset(newNormals.data(), 0, sizeof(core::vectorSIMDf)*newNormals.size());
+
+        auto minmax = std::minmax_element(_ixs.begin(), _ixs.end());
+        const uint32_t maxsz = *minmax.second - *minmax.first;
+        const uint32_t min = *minmax.first;
+        
+        newNormals.resize(maxsz, core::vectorSIMDf(0.f));
+        for (size_t i = 0ull; i < _ixs.size(); i += 3ull)
+        {
+            core::vectorSIMDf v1, v2, v3;
+            v1.set(vertices[_ixs[i-min+0u]].pos);
+            v2.set(vertices[_ixs[i-min+1u]].pos);
+            v3.set(vertices[_ixs[i-min+2u]].pos);
+            v1.makeSafe3D();
+            v2.makeSafe3D();
+            v3.makeSafe3D();
+            core::vectorSIMDf normal(core::plane3dSIMDf(v1, v2, v3).getNormal());
+            newNormals[_ixs[i-min+0u]] += normal;
+            newNormals[_ixs[i-min+1u]] += normal;
+            newNormals[_ixs[i-min+2u]] += normal;
+        }
+        for (uint32_t ix : _ixs)
+            vertices[ix].normal32bit = asset::quantizeNormal2_10_10_10(newNormals[ix-min]);
+    };
+
+    {
+        uint64_t ixBufOffset = 0ull;
+        for (size_t i = 0ull; i < submeshes.size(); ++i)
+        {
+            if (recalcNormals[i])
+                doRecalcNormals(indices[i]);
+
+            submeshes[i]->setIndexCount(indices[i].size());
+            submeshes[i]->setIndexType(EIT_32BIT);
+            submeshes[i]->getIndexBufferBinding()->offset = ixBufOffset;
+            ixBufOffset += indices[i].size()*4ull;
+
+            const bool hasUV = !std::isnan(vertices[indices[i][0]]);
+            SVertexInputParams vtxParams;
+            vtxParams.enabledAttribFlags = 0b1001u | (hasUV*0b0100u);
+            vtxParams.enabledBindingFlags = vtxParams.enabledAttribFlags;
+            //position
+            vtxParams.attributes[0].binding = 0u;
+            vtxParams.attributes[0].format = EF_R32G32B32_SFLOAT;
+            vtxParams.attributes[0].relativeOffset = 0u;
+            //normal
+            vtxParams.attributes[3].binding = 3u;
+            vtxParams.attributes[3].format = EF_A2B10G10R10_SNORM_PACK32;
+            vtxParams.attributes[3].relativeOffset = 20u;
+            //uv
+            if (hasUV)
+            {
+                vtxParams.attributes[2].binding = 2u;
+                vtxParams.attributes[2].format = EF_R32G32_SFLOAT;
+                vtxParams.attributes[2].relativeOffset = 12u;
+            }
+            submeshes[i]->getPipeline()->getVertexInputParams() = vtxParams;
+        }
+
+        core::smart_refctd_ptr<ICPUBuffer> vtxBuf = core::make_smart_refctd_ptr<ICPUBuffer>(vertices.size() * sizeof(SObjVertex));
+        memcpy(vtxBuf->getPointer(), vertices.data(), vtxBuf->getSize());
+
+        auto ixBuf = core::make_smart_refctd_ptr<ICPUBuffer>(ixBufOffset);
+        for (size_t i = 0ull; i < submeshes.size(); ++i)
+        {
+            submeshes[i]->getIndexBufferBinding()->buffer = ixBuf;
+            uint64_t offset = submeshes[i]->getIndexBufferBinding()->offset;
+            memcpy(reinterpret_cast<uint8_t*>(ixBuf->getPointer())+offset, indices[i].data(), indices[i].size()*4ull);
+
+            SBufferBinding<ICPUBuffer> vtxBufBnd;
+            vtxBufBnd.offset = 0ull;
+            vtxBufBnd.buffer = vtxBuf;
+
+            submeshes[i]->getVertexBufferBindings()[0] = vtxBufBnd;
+            submeshes[i]->getVertexBufferBindings()[3] = vtxBufBnd;
+            if (submeshes[i]->getPipeline()->getVertexInputParams().enabledAttribFlags & 0b0100)
+                submeshes[i]->getVertexBufferBindings()[2] = vtxBufBnd;
+        }
+    }
 	asset::CCPUMesh* mesh = new asset::CCPUMesh();
 
 	// Combine all the groups (meshbuffers) into the mesh
@@ -487,359 +542,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	return SAssetBundle({core::smart_refctd_ptr<IAsset>(mesh,core::dont_grab)});
 }
 
-
-const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* bufPtr, const char* const bufEnd, SObjMtl* currMaterial, const io::path& relPath)
-{
-	E_TEXTURE_TYPE type = ETT_COLOR_MAP;
-	// TODO: Redo this shit!!!! (Especially for sponza)
-	// map_Kd - diffuse color texture map
-	// map_Ks - specular color texture map
-	// map_Ka - ambient color texture map
-	// map_Ns - shininess texture map
-	if ((!strncmp(bufPtr,"map_bump",8)) || (!strncmp(bufPtr,"bump",4)))
-		type = ETT_BUMP_MAP;
-	else if ((!strncmp(bufPtr,"map_d",5)) || (!strncmp(bufPtr,"map_opacity",11)))
-		type = ETT_OPACITY_MAP;
-	else if (!strncmp(bufPtr,"map_refl",8))
-		type = ETT_REFLECTION_MAP;
-	// extract new material's name
-	char textureNameBuf[WORD_BUFFER_LENGTH];
-	bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-
-	float bumpiness = 6.0f;
-	bool clamp = false;
-	// handle options
-	while (textureNameBuf[0]=='-')
-	{
-		if (!strncmp(bufPtr,"-bm",3))
-		{
-#ifndef NEW_SHADERS
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			sscanf(textureNameBuf,"%f",&currMaterial->Material.MaterialTypeParam);
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-#endif
-			continue;
-		}
-		else
-		if (!strncmp(bufPtr,"-blendu",7))
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-		else
-		if (!strncmp(bufPtr,"-blendv",7))
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-		else
-		if (!strncmp(bufPtr,"-cc",3))
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-		else
-		if (!strncmp(bufPtr,"-clamp",6))
-			bufPtr = readBool(bufPtr, clamp, bufEnd);
-		else
-		if (!strncmp(bufPtr,"-texres",7))
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-		else
-		if (!strncmp(bufPtr,"-type",5))
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-		else
-		if (!strncmp(bufPtr,"-mm",3))
-		{
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-		}
-		else
-		if (!strncmp(bufPtr,"-o",2)) // texture coord translation
-		{
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			// next parameters are optional, so skip rest of loop if no number is found
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			if (!core::isdigit(textureNameBuf[0]))
-				continue;
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			if (!core::isdigit(textureNameBuf[0]))
-				continue;
-		}
-		else
-		if (!strncmp(bufPtr,"-s",2)) // texture coord scale
-		{
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			// next parameters are optional, so skip rest of loop if no number is found
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			if (!core::isdigit(textureNameBuf[0]))
-				continue;
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			if (!core::isdigit(textureNameBuf[0]))
-				continue;
-		}
-		else
-		if (!strncmp(bufPtr,"-t",2))
-		{
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			// next parameters are optional, so skip rest of loop if no number is found
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			if (!core::isdigit(textureNameBuf[0]))
-				continue;
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			if (!core::isdigit(textureNameBuf[0]))
-				continue;
-		}
-		// get next word
-		bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-	}
-
-#ifndef NEW_SHADERS
-	if ((type==ETT_BUMP_MAP) && (core::isdigit(textureNameBuf[0])))
-	{
-		sscanf(textureNameBuf,"%f",&currMaterial->Material.MaterialTypeParam);
-		bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-	}
-	if (clamp)
-    {
-        for (size_t i=0; i<_IRR_MATERIAL_MAX_TEXTURES_; i++)
-        {
-            currMaterial->Material.TextureLayer[i].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
-            currMaterial->Material.TextureLayer[i].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
-            currMaterial->Material.TextureLayer[i].SamplingParams.TextureWrapW = video::ETC_CLAMP_TO_EDGE;
-        }
-    }
-	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; i++)
-		currMaterial->Material.TextureLayer[i].SamplingParams.AnisotropicFilter = 16u;
-#endif
-
-	io::path texname(textureNameBuf);
-	handleBackslashes(&texname);
-
-#ifndef NEW_SHADERS
-	core::smart_refctd_ptr<asset::ICPUTexture> texture;
-	if (texname.size())
-	{
-		auto params = _ctx.inner.params;
-		params.relativeDir = relPath.c_str();
-		auto bundle = interm_getAssetInHierarchy(AssetManager, texname.c_str(), params, _ctx.topHierarchyLevel+ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride).getContents();
-        if (bundle.first!=bundle.second) texture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*bundle.first);
-	}
-	if ( texture )
-	{
-		if (type==ETT_COLOR_MAP)
-        {
-			currMaterial->Material.setTexture(0, std::move(texture));
-        }
-		else if (type==ETT_BUMP_MAP)
-		{
-#ifdef _IRR_DEBUG
-            os::Printer::log("Loading OBJ Models with normal maps not supported!\n",ELL_ERROR);
-#endif // _IRR_DEBUG
-			currMaterial->Material.setTexture(1, std::move(texture));
-            //TODO
-			//currMaterial->Material.MaterialType=(video::E_MATERIAL_TYPE)-1;
-			currMaterial->Material.MaterialTypeParam=0.035f;
-		}
-		else if (type==ETT_OPACITY_MAP)
-		{
-			currMaterial->Material.setTexture(3, std::move(texture));
-			//currMaterial->Material.MaterialType=video::EMT_TRANSPARENT_ADD_COLOR;
-		}
-		else if (type==ETT_REFLECTION_MAP)
-		{
-            //TODO
-//						currMaterial->Material.Textures[1] = texture;
-//						currMaterial->Material.MaterialType=video::EMT_REFLECTION_2_LAYER;
-		}
-	}
-#endif
-	return bufPtr;
-}
-
-
-void COBJMeshFileLoader::readMTL(SContext& _ctx, const char* fileName, const io::path& relPath)
-{
-	const io::path realFile(fileName);
-	io::IReadFile * mtlReader;
-
-	if (FileSystem->existFile(realFile))
-		mtlReader = FileSystem->createAndOpenFile(realFile);
-	else if (FileSystem->existFile(relPath + realFile))
-		mtlReader = FileSystem->createAndOpenFile(relPath + realFile);
-	else if (FileSystem->existFile(io::IFileSystem::getFileBasename(realFile)))
-		mtlReader = FileSystem->createAndOpenFile(io::IFileSystem::getFileBasename(realFile));
-	else
-		mtlReader = FileSystem->createAndOpenFile(relPath + io::IFileSystem::getFileBasename(realFile));
-	if (!mtlReader)	// fail to open and read file
-	{
-		os::Printer::log("Could not open material file", realFile.c_str(), ELL_WARNING);
-		return;
-	}
-
-	const long filesize = mtlReader->getSize();
-	if (!filesize)
-	{
-		os::Printer::log("Skipping empty material file", realFile.c_str(), ELL_WARNING);
-		mtlReader->drop();
-		return;
-	}
-
-	char* buf = new char[filesize];
-	mtlReader->read((void*)buf, filesize);
-	const char* bufEnd = buf+filesize;
-
-	SObjMtl* currMaterial = 0;
-
-	const char* bufPtr = buf;
-	while(bufPtr != bufEnd)
-	{
-		switch(*bufPtr)
-		{
-			case 'n': // newmtl
-			{
-				// if there's an existing material, store it first
-				if ( currMaterial )
-					_ctx.Materials.push_back( currMaterial );
-
-				// extract new material's name
-				char mtlNameBuf[WORD_BUFFER_LENGTH];
-				bufPtr = goAndCopyNextWord(mtlNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-
-				currMaterial = new SObjMtl;
-				currMaterial->Name = mtlNameBuf;
-			}
-			break;
-			case 'i': // illum - illumination
-			if ( currMaterial )
-			{
-				const uint32_t COLOR_BUFFER_LENGTH = 16;
-				char illumStr[COLOR_BUFFER_LENGTH];
-
-				bufPtr = goAndCopyNextWord(illumStr, bufPtr, COLOR_BUFFER_LENGTH, bufEnd);
-				currMaterial->Illumination = (char)atol(illumStr);
-			}
-			break;
-#ifndef NEW_SHADERS
-			case 'N':
-			if ( currMaterial )
-			{
-				switch(bufPtr[1])
-				{
-				case 's': // Ns - shininess
-					{
-						const uint32_t COLOR_BUFFER_LENGTH = 16;
-						char nsStr[COLOR_BUFFER_LENGTH];
-
-						bufPtr = goAndCopyNextWord(nsStr, bufPtr, COLOR_BUFFER_LENGTH, bufEnd);
-						float shininessValue;
-						sscanf(nsStr,"%f",&shininessValue);
-
-						// wavefront shininess is from [0, 1000], so scale for OpenGL
-						shininessValue *= 0.128f;
-						currMaterial->Material.Shininess = shininessValue;
-					}
-				break;
-				case 'i': // Ni - refraction index
-					{
-						char tmpbuf[WORD_BUFFER_LENGTH];
-						bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-					}
-				break;
-				}
-			}
-			break;
-			case 'K':
-			if ( currMaterial )
-			{
-				switch(bufPtr[1])
-				{
-				case 'd':		// Kd = diffuse
-					{
-						bufPtr = readColor(bufPtr, currMaterial->Material.DiffuseColor, bufEnd);
-
-					}
-					break;
-
-				case 's':		// Ks = specular
-					{
-						bufPtr = readColor(bufPtr, currMaterial->Material.SpecularColor, bufEnd);
-					}
-					break;
-
-				case 'a':		// Ka = ambience
-					{
-						bufPtr=readColor(bufPtr, currMaterial->Material.AmbientColor, bufEnd);
-					}
-					break;
-				case 'e':		// Ke = emissive
-					{
-						bufPtr=readColor(bufPtr, currMaterial->Material.EmissiveColor, bufEnd);
-					}
-					break;
-				}	// end switch(bufPtr[1])
-			}	// end case 'K': if ( 0 != currMaterial )...
-			break;
-#endif
-			case 'b': // bump
-			case 'm': // texture maps
-			if (currMaterial)
-			{
-				bufPtr=readTextures(_ctx, bufPtr, bufEnd, currMaterial, relPath);
-			}
-			break;
-#ifndef NEW_SHADERS
-			case 'd': // d - transparency
-			if ( currMaterial )
-			{
-				const uint32_t COLOR_BUFFER_LENGTH = 16;
-				char dStr[COLOR_BUFFER_LENGTH];
-
-				bufPtr = goAndCopyNextWord(dStr, bufPtr, COLOR_BUFFER_LENGTH, bufEnd);
-				float dValue;
-				sscanf(dStr,"%f",&dValue);
-
-				currMaterial->Material.DiffuseColor.setAlpha( (int32_t)(dValue * 255) );
-                //TODO
-				//if (dValue<1.0f)
-				//	currMaterial->Material.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
-			}
-			break;
-			case 'T':
-			if ( currMaterial )
-			{
-				switch ( bufPtr[1] )
-				{
-				case 'f':		// Tf - Transmitivity
-					const uint32_t COLOR_BUFFER_LENGTH = 16;
-					char redStr[COLOR_BUFFER_LENGTH];
-					char greenStr[COLOR_BUFFER_LENGTH];
-					char blueStr[COLOR_BUFFER_LENGTH];
-
-					bufPtr = goAndCopyNextWord(redStr,   bufPtr, COLOR_BUFFER_LENGTH, bufEnd);
-					bufPtr = goAndCopyNextWord(greenStr, bufPtr, COLOR_BUFFER_LENGTH, bufEnd);
-					bufPtr = goAndCopyNextWord(blueStr,  bufPtr, COLOR_BUFFER_LENGTH, bufEnd);
-
-					float red,green,blue;
-					sscanf(redStr,"%f",&red);
-					sscanf(greenStr,"%f",&green);
-					sscanf(blueStr,"%f",&blue);
-					float transparency = ( red+green+blue ) / 3;
-
-					currMaterial->Material.DiffuseColor.setAlpha( (int32_t)(transparency * 255) );
-                    //TODO
-					//if (transparency < 1.0f)
-					//	currMaterial->Material.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
-				}
-			}
-			break;
-#endif
-			default: // comments or not recognised
-			break;
-		} // end switch(bufPtr[0])
-		// go to next line
-		bufPtr = goNextLine(bufPtr, bufEnd);
-	}	// end while (bufPtr)
-
-	// end of file. if there's an existing material, store it
-	if ( currMaterial )
-		_ctx.Materials.push_back( currMaterial );
-
-	delete [] buf;
-	mtlReader->drop();
-}
-
-
 //! Read RGB color
 const char* COBJMeshFileLoader::readColor(const char* bufPtr, video::SColor& color, const char* const bufEnd)
 {
@@ -906,40 +608,6 @@ const char* COBJMeshFileLoader::readBool(const char* bufPtr, bool& tf, const cha
 	tf = strcmp(tfStr, "off") != 0;
 	return bufPtr;
 }
-
-
-COBJMeshFileLoader::SObjMtl* COBJMeshFileLoader::findMtl(SContext& _ctx, const std::string& mtlName, const std::string& grpName)
-{
-	COBJMeshFileLoader::SObjMtl* defMaterial = 0;
-	// search existing Materials for best match
-	// exact match does return immediately, only name match means a new group
-	for (uint32_t i = 0; i < _ctx.Materials.size(); ++i)
-	{
-		if (_ctx.Materials[i]->Name == mtlName )
-		{
-			if (_ctx.Materials[i]->Group == grpName )
-				return _ctx.Materials[i];
-			else
-				defMaterial = _ctx.Materials[i];
-		}
-	}
-	// we found a partial match
-	if (defMaterial)
-	{
-        _ctx.Materials.push_back(new SObjMtl(*defMaterial));
-        _ctx.Materials.back()->Group = grpName;
-		return _ctx.Materials.back();
-	}
-	// we found a new group for a non-existant material
-	else if (grpName.length())
-	{
-        _ctx.Materials.push_back(new SObjMtl(*_ctx.Materials[0]));
-        _ctx.Materials.back()->Group = grpName;
-		return _ctx.Materials.back();
-	}
-	return 0;
-}
-
 
 //! skip space characters and stop on first non-space
 const char* COBJMeshFileLoader::goFirstWord(const char* buf, const char* const bufEnd, bool acrossNewlines)
@@ -1053,7 +721,7 @@ bool COBJMeshFileLoader::retrieveVertexIndices(char* vertexData, int32_t* idx, c
 			// number is completed. Convert and store it
 			word[i] = '\0';
 			// if no number was found index will become 0 and later on -1 by decrement
-			sscanf(word,"%u",idx+idxType);
+			sscanf(word,"%d",idx+idxType);
 			if (idx[idxType]<0)
 			{
 				switch (idxType)

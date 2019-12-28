@@ -110,7 +110,6 @@ class COBJMeshFileLoader : public asset::IAssetLoader
         ETT_REFLECTION_MAP
     };
 
-    class SObjMtl; // forward decl.
     struct SContext
     {
         SContext(const IAssetLoader::SAssetLoadContext& _innerCtx, uint32_t _topHierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
@@ -122,15 +121,6 @@ class COBJMeshFileLoader : public asset::IAssetLoader
 
         const bool useGroups = false;
         const bool useMaterials = true;
-
-        core::vector<SObjMtl*> Materials;
-        core::unordered_map<SObjMtl*, asset::ICPUMeshBuffer*> preloadedSubmeshes;
-
-        ~SContext()
-        {
-            for (auto& m : Materials)
-                if (m) delete m;
-        }
     };
 
 protected:
@@ -163,47 +153,6 @@ public:
     virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 private:
-
-	class SObjMtl : public core::AllocationOverrideDefault
-	{
-        public:
-            SObjMtl() : Bumpiness (1.0f), Illumination(0),
-                RecalculateNormals(false)
-            {
-#ifndef NEW_SHADERS
-                Material.Shininess = 0.0f;
-                Material.AmbientColor = video::SColorf(0.2f, 0.2f, 0.2f, 1.0f).toSColor();
-                Material.DiffuseColor = video::SColorf(0.8f, 0.8f, 0.8f, 1.0f).toSColor();
-                Material.SpecularColor = video::SColorf(1.0f, 1.0f, 1.0f, 1.0f).toSColor();
-#endif
-            }
-
-            SObjMtl(const SObjMtl& o)
-                : Name(o.Name), Group(o.Group),
-                Bumpiness(o.Bumpiness), Illumination(o.Illumination),
-                RecalculateNormals(false)
-            {
-#ifndef NEW_SHADERS
-                Material = o.Material;
-#endif
-            }
-
-            core::map<SObjVertex, int> VertMap;
-            core::vector<SObjVertex> Vertices;
-            core::vector<uint32_t> Indices;
-#ifndef NEW_SHADERS
-            video::SCPUMaterial Material;
-#endif
-            std::string Name;
-            std::string Group;
-            float Bumpiness;
-            char Illumination;
-            bool RecalculateNormals;
-	};
-
-	// helper method for material reading
-	const char* readTextures(const SContext& _ctx, const char* bufPtr, const char* const bufEnd, SObjMtl* currMaterial, const io::path& relPath);
-
 	// returns a pointer to the first printable character available in the buffer
 	const char* goFirstWord(const char* buf, const char* const bufEnd, bool acrossNewlines=true);
 	// returns a pointer to the first printable character after the first non-printable
@@ -217,12 +166,6 @@ private:
 
 	// combination of goNextWord followed by copyWord
 	const char* goAndCopyNextWord(char* outBuf, const char* inBuf, uint32_t outBufLength, const char* const pBufEnd);
-
-	//! Read the material from the given file
-	void readMTL(SContext& _ctx, const char* fileName, const io::path& relPath);
-
-	//! Find and return the material with the given name
-	SObjMtl* findMtl(SContext& _ctx, const std::string& mtlName, const std::string& grpName);
 
 	//! Read RGB color
 	const char* readColor(const char* bufPtr, video::SColor& color, const char* const pBufEnd);
