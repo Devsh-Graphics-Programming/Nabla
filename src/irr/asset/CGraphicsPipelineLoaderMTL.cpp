@@ -341,7 +341,7 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(io::IReadFile* _file) const -> co
     while (bufPtr != bufEnd)
     {
         copyWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-        if (currMaterial && strncmp("map_", tmpbuf, 4u)==0 || strcmp("refl", tmpbuf)==0 || strcmp("norm", tmpbuf)==0 || strcmp("bump", tmpbuf)==0 || strcmp("disp", tmpbuf)==0)
+        if (currMaterial && (strncmp("map_", tmpbuf, 4u)==0 || strcmp("refl", tmpbuf)==0 || strcmp("norm", tmpbuf)==0 || strcmp("bump", tmpbuf)==0 || strcmp("disp", tmpbuf)==0))
         {
             readTexture(bufPtr, bufEnd, currMaterial, tmpbuf);
         }
