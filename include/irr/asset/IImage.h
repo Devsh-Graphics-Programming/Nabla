@@ -417,7 +417,7 @@ class IImage : public IDescriptor
 			const bool hasAnAlignment = (blockAlignment != unit).any();
 
 			core::rational<size_t> bytesPerPixel = getBytesPerPixel();
-			size_t memreq = 0ul;
+			size_t memreq = 0ull;
 			for (uint32_t i=0u; i<params.mipLevels; i++)
 			{
 				auto levelSize = getMipSize(i);

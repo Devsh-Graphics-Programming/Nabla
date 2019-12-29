@@ -8,6 +8,7 @@
 #include "irr/core/core.h"
 #include "irr/asset/ICPUMeshBuffer.h"
 #include "irr/asset/IAssetLoader.h"
+#include "irr/asset/CMTLPipelineMetadata.h"
 
 namespace irr
 {
@@ -153,6 +154,10 @@ public:
     virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 private:
+    using images_set_t = std::array<core::smart_refctd_ptr<ICPUImage>, CMTLPipelineMetadata::SMtl::EMP_COUNT>;
+    images_set_t loadImages(const char* _relDir, const CMTLPipelineMetadata::SMtl& _mtl);
+    core::smart_refctd_ptr<ICPUDescriptorSet> makeDescSet(const images_set_t& _images, ICPUDescriptorSetLayout* _dsLayout);
+
 	// returns a pointer to the first printable character available in the buffer
 	const char* goFirstWord(const char* buf, const char* const bufEnd, bool acrossNewlines=true);
 	// returns a pointer to the first printable character after the first non-printable

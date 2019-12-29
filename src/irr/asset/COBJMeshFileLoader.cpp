@@ -15,7 +15,6 @@
 #include "IReadFile.h"
 #include "os.h"
 #include "irr/asset/IAssetManager.h"
-#include "irr/asset/CMTLPipelineMetadata.h"
 
 /*
 namespace std
@@ -91,7 +90,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	const io::path fullName = _file->getFileName();
 	const std::string relPath = (io::IFileSystem::getFileDir(fullName)+"/").c_str();
 
-    core::unordered_map<std::string, core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>> pipelines;
+    //value_type: directory from which .mtl (pipeline) was loaded and the pipeline
+    core::unordered_map<std::string, std::pair<std::string, core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>>> pipelines;
 
     std::string fileContents;
     fileContents.resize(filesize);
@@ -102,7 +102,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	// Process obj information
 	const char* bufPtr = buf;
 	std::string grpName, mtlName;
-    bool submeshLoadedFromCache = false;
 
 	auto performActionBasedOnOrientationSystem = [&](auto performOnRightHanded, auto performOnLeftHanded)
 	{
@@ -122,6 +121,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     core::vector<SObjVertex> vertices;
     core::map<SObjVertex, uint32_t> map_vtx2ix;
     core::vector<bool> recalcNormals;
+    core::vector<bool> submeshWasLoadedFromCache;
 	while(bufPtr != bufEnd)
 	{
 		switch(bufPtr[0])
@@ -140,16 +140,17 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 for (auto it = bundle.getContents().first; it != bundle.getContents().second; ++it)
                 {
                     auto pipeln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(*it);
-                    auto metadata = static_cast<CMTLPipelineMetadata*>(pipeln->getMetadata());
-                    pipelines.insert({metadata->getMaterial().name, pipeln});
+                    auto metadata = static_cast<const CMTLPipelineMetadata*>(pipeln->getMetadata());
+                    std::string mtldir = (io::IFileSystem::getFileDir(tmpbuf) + "/").c_str();
+
+                    decltype(pipelines)::value_type::second_type val{std::move(mtldir), std::move(pipeln)};
+                    pipelines.insert({metadata->getMaterial().name, std::move(val)});
                 }
 			}
 		}
 			break;
 
 		case 'v':               // v, vn, vt
-            if (submeshLoadedFromCache)
-                break;
 			switch(bufPtr[1])
 			{
 			case ' ':          // vertex
@@ -222,27 +223,30 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                         if (found != pipelines.end())
                         {
 #endif
-                            auto pipeln = found->second;
+                            auto& pipeln = found->second;
                             //cloning pipeline because it will be edited (vertex input params)
                             //note shallow copy (depth=0), i.e. only pipeline is cloned, but all its sub-assets are taken from original object
-                            submeshes.back()->setPipeline(pipeln->clone(0u));
+                            submeshes.back()->setPipeline(pipeln.second->clone(0u));
+                            //also make descriptor set
+                            auto metadata = static_cast<const CMTLPipelineMetadata*>(pipeln.second->getMetadata());
+                            images_set_t images = loadImages(pipeln.first.c_str(), metadata->getMaterial());
+                            //intentionally always creating new DS (even if there already is another submesh holding DS with the same descriptors)
+                            //TODO decision to make: try to reuse DSs or leave as it is now? User might want to each submesh's DS in different way, so i'd say leave as is now
+                            auto ds3 = makeDescSet(images, pipeln.second->getLayout()->getDescriptorSetLayout(3u));
+                            submeshes.back()->setAttachedDescriptorSet(std::move(ds3));
 #ifndef _IRR_DEBUG
                         }
 #endif
                     }
                     indices.emplace_back();
                     recalcNormals.push_back(false);
-
-                    submeshLoadedFromCache = (mb_bundle.first!=mb_bundle.second);
+                    submeshWasLoadedFromCache.push_back(mb_bundle.first!=mb_bundle.second);
                 }
 			}
 			break;
 
 		case 'f':               // face
 		{
-            if (submeshLoadedFromCache)
-                break;
-
 			SObjVertex v;
 
 			// get all vertices data in this face (current line of obj _file)
@@ -363,6 +367,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         uint64_t ixBufOffset = 0ull;
         for (size_t i = 0ull; i < submeshes.size(); ++i)
         {
+            if (submeshWasLoadedFromCache[i])
+                continue;
             if (recalcNormals[i])
                 doRecalcNormals(indices[i]);
 
@@ -399,6 +405,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         auto ixBuf = core::make_smart_refctd_ptr<ICPUBuffer>(ixBufOffset);
         for (size_t i = 0ull; i < submeshes.size(); ++i)
         {
+            if (submeshWasLoadedFromCache[i])
+                continue;
+
             submeshes[i]->getIndexBufferBinding()->buffer = ixBuf;
             uint64_t offset = submeshes[i]->getIndexBufferBinding()->offset;
             memcpy(reinterpret_cast<uint8_t*>(ixBuf->getPointer())+offset, indices[i].data(), indices[i].size()*4ull);
@@ -540,6 +549,121 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     }
 
 	return SAssetBundle({core::smart_refctd_ptr<IAsset>(mesh,core::dont_grab)});
+}
+
+auto COBJMeshFileLoader::loadImages(const char* _relDir, const CMTLPipelineMetadata::SMtl& _mtl) -> images_set_t
+{
+    std::array<core::smart_refctd_ptr<ICPUImage>, CMTLPipelineMetadata::SMtl::EMP_COUNT> images;
+
+    std::string relDir = _relDir;
+    relDir += '/';
+    for (uint32_t i = 0u; i < images.size(); ++i)
+    {
+        SAssetLoadParams lp;
+        if (_mtl.maps[i].size())
+        {
+            auto bundle = AssetManager->getAsset(relDir + _mtl.maps[i], lp);
+            if (!bundle.isEmpty())
+                images[i] = bundle.getContents().first[0];
+        }
+    }
+    //make reflection cubemap
+    if (images[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX])
+    {
+        size_t bufSz = 0ull;
+        //assuming all cubemap layer images are same size and same format
+        const size_t alignment = core::findLSB(images[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX]->getRegions().begin()->bufferRowLength);
+        core::vector<ICPUImage::SBufferCopy> regions_;
+        regions_.reserve(6ull);
+        for (uint32_t i = CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; i < CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 6u; ++i)
+        {
+            assert(images[i]);
+#ifndef _IRR_DEBUG
+            if (images[i])
+            {
+#endif
+                //assuming each image has just 1 region
+                assert(images[i]->getRegions().length()==1ull);
+
+                regions_.push_back(images[i]->getRegions().begin()[0]);
+                regions_.back().bufferOffset = core::roundUp(regions_.back().bufferOffset, alignment);
+                regions_.back().imageSubresource.baseArrayLayer = (i - CMTLPipelineMetadata::SMtl::EMP_REFL_POSX);
+
+                bufSz += images[i]->getImageDataSizeInBytes();
+#ifndef _IRR_DEBUG
+            }
+#endif
+        }
+        auto imgDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(bufSz);
+        for (uint32_t i = CMTLPipelineMetadata::SMtl::EMP_REFL_POSX, j = 0u; i < CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 6u; ++i)
+        {
+#ifndef _IRR_DEBUG
+            if (images[i])
+            {
+#endif
+                void* dst = reinterpret_cast<uint8_t*>(imgDataBuf->getPointer()) + regions_[j].bufferOffset;
+                const void* src = reinterpret_cast<const uint8_t*>(images[i]->getBuffer()->getPointer()) + images[i]->getRegions().begin()[0].bufferOffset;
+                const size_t sz = images[i]->getImageDataSizeInBytes();
+                memcpy(dst, src, sz);
+
+                ++j;
+#ifndef _IRR_DEBUG
+            }
+#endif
+        }
+
+        //assuming all cubemap layer images are same size and same format
+        ICPUImage::SCreationParams cubemapParams = images[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX]->getCreationParameters();
+        cubemapParams.arrayLayers = 6u;
+        cubemapParams.type = IImage::ET_3D;
+
+        auto cubemap = core::make_smart_refctd_ptr<ICPUImage>(std::move(cubemapParams));
+        auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(regions_);
+        cubemap->setBufferAndRegions(std::move(imgDataBuf), regions);
+        //new image goes to EMP_REFL_POSX index and other ones get nulled-out
+        images[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX] = std::move(cubemap);
+        for (uint32_t i = CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 1u; i < CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 6u; ++i)
+        {
+            images[i] = nullptr;
+        }
+    }
+
+    return images;
+}
+
+core::smart_refctd_ptr<ICPUDescriptorSet> COBJMeshFileLoader::makeDescSet(const images_set_t& _images, ICPUDescriptorSetLayout* _dsLayout)
+{
+    auto ds = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(
+        core::smart_refctd_ptr<ICPUDescriptorSetLayout>(_dsLayout)
+    );
+    for (uint32_t i = 0u, d = 0u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
+    {
+        if (!_images[i])
+            continue;
+
+        constexpr IImageView<ICPUImage>::E_TYPE viewType[2]{ IImageView<ICPUImage>::ET_2D, IImageView<ICPUImage>::ET_CUBE_MAP };
+        constexpr uint32_t layerCount[2]{ 1u, 6u };
+
+        const bool isCubemap = (i == CMTLPipelineMetadata::SMtl::EMP_REFL_POSX);
+
+        ICPUImageView::SCreationParams viewParams;
+        viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+        viewParams.format = _images[i]->getCreationParameters().format;
+        viewParams.image = _images[i];
+        viewParams.viewType = viewType[isCubemap];
+        viewParams.subresourceRange.baseArrayLayer = 0u;
+        viewParams.subresourceRange.layerCount = layerCount[isCubemap];
+        viewParams.subresourceRange.baseMipLevel = 0u;
+        viewParams.subresourceRange.levelCount = 1u;
+
+        auto desc = ds->getDescriptors(d).begin();
+        desc->desc = core::make_smart_refctd_ptr<ICPUImageView>(std::move(viewParams));
+        desc->image.imageLayout = EIL_UNDEFINED;
+        desc->image.sampler = nullptr; //not needed, MTL loader puts immutable samplers into layout
+        ++d;
+    }
+
+    return ds;
 }
 
 //! Read RGB color
