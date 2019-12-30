@@ -13,7 +13,7 @@ namespace irr
 			public:
 
 				IImageAssetHandlerBase() = default;
-				virtual ~IImageAssetHandlerBase() {}
+				virtual ~IImageAssetHandlerBase() = 0;
 
 			protected:
 
@@ -33,6 +33,7 @@ namespace irr
 
 			private:
 		};
+
 	}
 }
 

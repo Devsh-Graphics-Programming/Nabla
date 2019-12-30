@@ -15,7 +15,7 @@ namespace irr
 			public:
 
 				IImageLoader() = default;
-				virtual ~IImageLoader() {}
+				virtual ~IImageLoader() = 0;
 
 			protected:
 

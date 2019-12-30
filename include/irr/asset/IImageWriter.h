@@ -16,7 +16,7 @@ namespace irr
 			public:
 
 				IImageWriter() = default;
-				virtual ~IImageWriter() {}
+				virtual ~IImageWriter() = 0;
 
 			protected:
 		
