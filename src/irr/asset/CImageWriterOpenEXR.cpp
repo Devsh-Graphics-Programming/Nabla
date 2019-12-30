@@ -69,8 +69,9 @@ namespace irr
 			if (pixelType == PixelType::NUM_PIXELTYPES || image->getCreationParameters().type != IImage::E_TYPE::ET_2D)
 				return false;
 
-			uint64_t width = image->getCreationParameters().extent.width;
-			uint64_t height = image->getCreationParameters().extent.height;
+			const uint64_t width = image->getCreationParameters().extent.width;
+			const uint64_t height = image->getCreationParameters().extent.height;
+			const auto blockByteSize = asset::getTexelOrBlockBytesize(image->getCreationParameters().format);
 			std::vector<const IImage::SBufferCopy*> regionsToHandle;
 
 			for (auto region = image->getRegions().begin(); region != image->getRegions().end(); ++region)
@@ -83,10 +84,13 @@ namespace irr
 			auto data = image->getBuffer()->getPointer();
 			for (auto region : regionsToHandle)
 			{
-				for (uint64_t yPos = region->imageOffset.y; yPos < region->imageOffset.y + region->imageExtent.height; ++yPos)
-					for (uint64_t xPos = region->imageOffset.x; xPos < region->imageOffset.x + region->imageExtent.width; ++xPos)
+				auto regionWidth = region->bufferRowLength == 0 ? region->imageExtent.width : region->bufferRowLength;
+				auto regionHeight = region->bufferImageHeight == 0 ? region->imageExtent.height : region->bufferImageHeight;
+
+				for (uint64_t yPos = region->imageOffset.y; yPos < region->imageOffset.y + regionHeight; ++yPos)
+					for (uint64_t xPos = region->imageOffset.x; xPos < region->imageOffset.x + regionWidth; ++xPos)
 					{
-						const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * region->imageExtent.width * availableChannels) + (xPos * availableChannels) + region->bufferOffset;
+						const uint64_t ptrStyleEndShiftToImageDataPixel = ((regionHeight + yPos) * regionWidth + xPos) * blockByteSize + region->bufferOffset;
 						const uint64_t ptrStyleIlmShiftToDataChannelPixel = (yPos * width) + xPos;
 
 						for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)

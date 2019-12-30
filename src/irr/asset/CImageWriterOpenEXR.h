@@ -9,14 +9,14 @@
 
 #ifdef _IRR_COMPILE_WITH_OPENEXR_WRITER_
 
-#include "irr/asset/IAssetWriter.h"
+#include "irr/asset/IImageWriter.h"
 
 namespace irr
 {
 	namespace asset
 	{
 		//! OpenEXR writer capable of saving .exr files
-		class CImageWriterOpenEXR final : public asset::IAssetWriter
+		class CImageWriterOpenEXR final : public IImageWriter
 		{
 		protected:
 			~CImageWriterOpenEXR(){}

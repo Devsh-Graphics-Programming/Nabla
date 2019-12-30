@@ -186,20 +186,6 @@ namespace irr
 			params.extent.width = width;
 			params.extent.height = height;
 
-			static const uint32_t MAX_PITCH_ALIGNMENT = 8u;											// OpenGL cannot transfer rows with arbitrary padding
-			auto calcPitchInBlocks = [](uint32_t width, uint32_t blockByteSize) -> uint32_t			// try with largest alignment first
-			{
-				auto rowByteSize = width * blockByteSize;
-				for (uint32_t _alignment = MAX_PITCH_ALIGNMENT; _alignment > 1u; _alignment >>= 1u)
-				{
-					auto paddedSize = core::alignUp(rowByteSize, _alignment);
-					if (paddedSize % blockByteSize)
-						continue;
-					return paddedSize / blockByteSize;
-				}
-				return width;
-			};
-
 			auto& image = ICPUImage::create(std::move(params));
 
 			const uint32_t texelFormatByteSize = getTexelOrBlockBytesize(image->getCreationParameters().format);
@@ -285,7 +271,7 @@ namespace irr
 					sizeof((pixelRgbaMapArray[rgbaChannelIndex])[0][0]) * 1,                                    // xStride
 					sizeof((pixelRgbaMapArray[rgbaChannelIndex])[0][0]) * width,                                // yStride
 					1, 1,                                                                                       // x/y sampling
-					1                                                                                           // fillValue - default alpha if there is no alpha channel
+					rgbaChannelIndex == 3 ? 1 : 0                                                               // default fillValue for channels that aren't present in file - 1 for alpha, otherwise 0
 				));	
 
 			file.setFrameBuffer(frameBuffer);
@@ -305,14 +291,18 @@ namespace irr
 
 			if (XChannel && YChannel && ZChannel)
 			{
-				os::Printer::log("LOAD EXR: the file consist of not supported CEI XYZ channels", file.fileName(), ELL_ERROR);
+				os::Printer::log("LOAD EXR: the file consist of not supported CIE XYZ channels", file.fileName(), ELL_ERROR);
 				return false;
 			}
-			else if (!RChannel || !GChannel || !BChannel)
-			{
-				os::Printer::log("LOAD EXR: the file doesn't consist of RGB channels", file.fileName(), ELL_ERROR);
-				return false;
-			}
+
+			if (RChannel && GChannel && BChannel)
+				os::Printer::log("LOAD EXR: loading RGB file", file.fileName(), ELL_INFORMATION);
+			else if(RChannel && GChannel)
+				os::Printer::log("LOAD EXR: loading RG file", file.fileName(), ELL_INFORMATION);
+			else if(RChannel)
+				os::Printer::log("LOAD EXR: loading R file", file.fileName(), ELL_INFORMATION);
+			else 
+				os::Printer::log("LOAD EXR: the file's channels are invalid to load", file.fileName(), ELL_ERROR);
 
 			if (AChannel)
 				doesItSupportAlphaChannel = true;

@@ -9,14 +9,14 @@
 
 #ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
 
-#include "irr/asset/IAssetLoader.h"
+#include "irr/asset/IImageLoader.h"
 
 namespace irr
 {
 	namespace asset
 	{	
 		//! OpenEXR loader capable of loading .exr files
-		class CImageLoaderOpenEXR final : public asset::IAssetLoader
+		class CImageLoaderOpenEXR final : public IImageLoader
 		{
 		protected:
 			~CImageLoaderOpenEXR(){}
