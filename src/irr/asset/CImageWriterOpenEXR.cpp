@@ -81,6 +81,7 @@ namespace irr
 			for (auto& channelPixelsPtr : pixelsArrayIlm)
 				channelPixelsPtr = _IRR_NEW_ARRAY(ilmType, width * height);
 
+			const auto texelBlockSize = asset::getTexelOrBlockBytesize(image->getCreationParameters().format);
 			auto data = image->getBuffer()->getPointer();
 			for (auto region : regionsToHandle)
 			{
@@ -90,7 +91,7 @@ namespace irr
 				for (uint64_t yPos = region->imageOffset.y; yPos < region->imageOffset.y + regionHeight; ++yPos)
 					for (uint64_t xPos = region->imageOffset.x; xPos < region->imageOffset.x + regionWidth; ++xPos)
 					{
-						const uint8_t* texelPtr = reinterpret_cast<const uint8_t*>(data) + region->bufferOffset + (yPos * regionWidth + xPos) * asset::getTexelOrBlockBytesize(image->getCreationParameters().format);
+						const uint8_t* texelPtr = reinterpret_cast<const uint8_t*>(data) + region->bufferOffset + (yPos * regionWidth + xPos) * texelBlockSize;
 						const uint64_t ptrStyleIlmShiftToDataChannelPixel = (yPos * width) + xPos;
 
 						for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)
