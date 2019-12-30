@@ -86,7 +86,7 @@ namespace irr
 				for (uint64_t yPos = region->imageOffset.y; yPos < region->imageOffset.y + region->imageExtent.height; ++yPos)
 					for (uint64_t xPos = region->imageOffset.x; xPos < region->imageOffset.x + region->imageExtent.width; ++xPos)
 					{
-						const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * width * availableChannels) + (xPos * availableChannels) + region->bufferOffset;
+						const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * region->imageExtent.width * availableChannels) + (xPos * availableChannels) + region->bufferOffset;
 						const uint64_t ptrStyleIlmShiftToDataChannelPixel = (yPos * width) + xPos;
 
 						for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)
