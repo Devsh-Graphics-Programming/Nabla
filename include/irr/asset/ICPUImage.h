@@ -27,6 +27,19 @@ class ICPUImage final : public IImage, public IAsset
 			return core::smart_refctd_ptr<ICPUImage>(new ICPUImage(std::move(_params)), core::dont_grab);
 		}
 
+        core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+        {
+            auto par = params;
+            auto cp = core::smart_refctd_ptr<ICPUImage>(new ICPUImage(std::move(par)), core::dont_grab);
+
+            cp->regions = regions;
+            cp->buffer = (_depth > 0u && buffer) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(buffer->clone(_depth-1u)) : buffer;
+
+            cp->m_mutable = true;
+
+            return cp;
+        }
+
         inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
         {
 			if (referenceLevelsBelowToConvert--)
@@ -64,7 +77,7 @@ class ICPUImage final : public IImage, public IAsset
 			if (!IImage::validateCopies(_regions->begin(),_regions->end(),_buffer.get()))
 				return false;
 		
-			buffer = _buffer;
+			buffer = std::move(_buffer);
 			regions = _regions;
 			sortRegionsByMipMapLevel();
 			return true;

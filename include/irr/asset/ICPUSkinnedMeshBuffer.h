@@ -29,6 +29,18 @@ class ICPUSkinnedMeshBuffer final : public ICPUMeshBuffer
             #endif
         }
 
+        core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+        {
+            auto cp = clone_template<ICPUSkinnedMeshBuffer>();
+            auto cp_mb = static_cast<ICPUSkinnedMeshBuffer*>(cp.get());
+            
+            cp_mb->indexValMin = indexValMin;
+            cp_mb->indexValMax = indexValMax;
+            cp_mb->maxVertexBoneInfluences = maxVertexBoneInfluences;
+
+            return cp;
+        }
+
 		inline void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const override
 		{
 			return asset::CorrespondingBlobTypeFor<ICPUSkinnedMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);

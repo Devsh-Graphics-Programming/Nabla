@@ -108,6 +108,29 @@ class IAsset : virtual public core::IReferenceCounted
 			return core::findLSB(static_cast<uint64_t>(_type));
 		}
 
+		//! Returns reinterpreted Asset for an Asset expecting full pointer type Asset
+		/**
+			assetType is an Asset the rootAsset will be assigned to after
+			interpretation process. So if your full pointer Asset is an 
+			ICPUImage you can attempt to interpate passing rootAsset
+			as it. 
+
+			It will perform assert if the attempt fails.
+		*/
+		template<typename assetType>
+		static const assetType* castDown(const IAsset* rootAsset)
+		{
+			const assetType* image =
+				#ifdef _IRR_DEBUG
+					static_cast<const assetType*>(rootAsset);
+				#else
+					dynamic_cast<const assetType*>(rootAsset);
+				#endif
+
+				assert(image);
+			return image;
+		}
+
 		IAsset() : isDummyObjectForCacheAliasing{false}, m_metadata{nullptr} {}
 
 		//! Returns correct size reserved associated with an Asset and its data
@@ -127,6 +150,8 @@ class IAsset : virtual public core::IReferenceCounted
 		//! Returns Asset's metadata. @see IAssetMetadata
 		const IAssetMetadata* getMetadata() const { return m_metadata.get(); }
 
+        virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
+
 		friend IAssetManager;
 
 	private:
@@ -136,6 +161,8 @@ class IAsset : virtual public core::IReferenceCounted
 
 	protected:
 		bool isDummyObjectForCacheAliasing; //!< A bool for setting whether Asset is in dummy state. @see convertToDummyObject(uint32_t referenceLevelsBelowToConvert)
+
+        bool m_mutable = false;
 
 		//! To be implemented by base classes, dummies must retain references to other assets
 		//! but cleans up all other resources which are not assets.

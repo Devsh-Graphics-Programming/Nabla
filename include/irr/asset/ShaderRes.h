@@ -55,8 +55,9 @@ struct SShaderResource;
 template<>
 struct SShaderResource<ESRT_COMBINED_IMAGE_SAMPLER>
 {
-    bool arrayed;
     bool multisample;
+    IImageView<ICPUImage>::E_TYPE viewType;
+    bool shadow;
 };
 template<>
 struct SShaderResource<ESRT_SAMPLED_IMAGE>
@@ -66,8 +67,9 @@ struct SShaderResource<ESRT_SAMPLED_IMAGE>
 template<>
 struct SShaderResource<ESRT_STORAGE_IMAGE>
 {
-    E_FORMAT approxFormat;
-
+    E_FORMAT format;
+    IImageView<ICPUImage>::E_TYPE viewType;
+    bool shadow;
 };
 template<>
 struct SShaderResource<ESRT_UNIFORM_TEXEL_BUFFER>
@@ -218,6 +220,10 @@ struct SShaderInfo<ESIT_STAGE_OUTPUT>
 struct SShaderInfoVariant
 {
     uint32_t location;
+    struct {
+        E_GLSL_VAR_TYPE basetype;
+        uint32_t elements;
+    } glslType;
     E_SHADER_INFO_TYPE type;
 
     template<E_SHADER_INFO_TYPE type>

@@ -51,6 +51,16 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             size = sizeInBytes;
         }
 
+        core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override
+        {
+            auto cp = core::make_smart_refctd_ptr<ICPUBuffer>(size);
+            memcpy(cp->getPointer(), data, size);
+
+            cp->m_mutable = true;
+
+            return cp;
+        }
+
         virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
         {
             _IRR_ALIGNED_FREE(data);

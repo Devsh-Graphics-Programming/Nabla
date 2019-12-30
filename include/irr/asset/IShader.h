@@ -26,6 +26,9 @@ class IShader
 	public:
 		static inline void insertGLSLExtensionsDefines(std::string& _glsl, const core::refctd_dynamic_array<std::string>* _exts)
 		{
+            if (!_exts)
+                return;
+
 			auto findLineJustAfterVersionOrPragmaShaderStageDirective = [&_glsl]
 			{
 				size_t hashPos = _glsl.find_first_of('#');

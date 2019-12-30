@@ -62,39 +62,369 @@ E_FORMAT spvImageFormat2E_FORMAT(spv::ImageFormat _imgfmt)
 }
 }//anonymous ns
 
-const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _shader)
+const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _shader, const SEntryPoint_Stage_Extensions& _params)
 {
     if (!_shader)
         return nullptr;
 
-    auto found = m_introspectionCache.find(core::smart_refctd_ptr<const ICPUShader>(_shader));
-    if (found != m_introspectionCache.end())
-        return found->second.get();
+    auto found = findIntrospection(_shader, _params);
+    if (found)
+        return found.get();
 
-    auto introspectSPV = [this](const ICPUShader* _spvshader) {
+    auto introspectSPV = [this,&_params](const ICPUShader* _spvshader) {
         const ICPUBuffer* spv = _spvshader->getSPVorGLSL();
         spirv_cross::Compiler comp(reinterpret_cast<const uint32_t*>(spv->getPointer()), spv->getSize()/4u);
-        return doIntrospection(comp, m_params);
+        return doIntrospection(comp, _params);
     };
 
     if (_shader->containsGLSL()) {
         std::string glsl = reinterpret_cast<const char*>(_shader->getSPVorGLSL()->getPointer());
-        ICPUShader::insertGLSLExtensionsDefines(glsl, m_params.GLSLextensions.get());
+        ICPUShader::insertGLSLExtensionsDefines(glsl, _params.GLSLextensions.get());
         auto spvShader = m_glslCompiler->createSPIRVFromGLSL(
             glsl.c_str(),
-            m_params.stage,
-            m_params.entryPoint.c_str(),
+            _params.stage,
+            _params.entryPoint.c_str(),
             "????"
         );
         if (!spvShader)
             return nullptr;
 
-        return m_introspectionCache.insert({core::smart_refctd_ptr<const ICPUShader>(_shader), introspectSPV(spvShader.get())}).first->second.get();
+        return cacheIntrospection(introspectSPV(spvShader.get()), _shader, _params);
     }
     else {
         // TODO (?) when we have enabled_extensions_list it may validate whether all extensions in list are also present in spv
-        return m_introspectionCache.insert({core::smart_refctd_ptr<const ICPUShader>(_shader), introspectSPV(_shader)}).first->second.get();
+        return cacheIntrospection(introspectSPV(_shader), _shader, _params);
     }
+}
+
+static E_DESCRIPTOR_TYPE resType2descType(E_SHADER_RESOURCE_TYPE _t)
+{
+    static const E_DESCRIPTOR_TYPE descType[9]{
+        EDT_COMBINED_IMAGE_SAMPLER,
+        EDT_STORAGE_IMAGE,
+        EDT_UNIFORM_TEXEL_BUFFER,
+        EDT_STORAGE_TEXEL_BUFFER,
+        EDT_UNIFORM_BUFFER,
+        EDT_STORAGE_BUFFER,
+        EDT_UNIFORM_BUFFER_DYNAMIC,
+        EDT_STORAGE_BUFFER_DYNAMIC,
+        EDT_INPUT_ATTACHMENT
+    };
+    return descType[_t];
+}
+
+template<E_SHADER_RESOURCE_TYPE restype>
+static std::pair<bool, IImageView<ICPUImage>::E_TYPE> imageInfoFromResource(const SShaderResource<restype>& _res)
+{
+    return {_res.shadow, _res.viewType};
+}
+
+std::pair<bool, IImageView<ICPUImage>::E_TYPE> CShaderIntrospector::getImageInfoFromIntrospection(uint32_t _set, uint32_t _binding, ICPUSpecializedShader** const _begin, ICPUSpecializedShader** const _end, const std::string* _extensionsBegin, const std::string* _extensionsEnd)
+{
+    std::pair<bool, IImageView<ICPUImage>::E_TYPE> retval;
+
+    core::smart_refctd_dynamic_array<std::string> extensions;
+    if (_extensionsBegin)
+    {
+        core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<std::string>>(_extensionsEnd - _extensionsBegin);
+        std::copy(_extensionsBegin, _extensionsEnd, extensions->begin());
+    }
+
+    for (auto shdr = _begin; shdr != _end; ++shdr)
+    {
+        const CIntrospectionData* introspection = introspect((*shdr)->getUnspecialized(), {(*shdr)->getStage(), (*shdr)->getSpecializationInfo().entryPoint, extensions});
+
+        for (const auto& bnd : introspection->descriptorSetBindings[_set])
+        {
+            if (bnd.type==ESRT_COMBINED_IMAGE_SAMPLER || bnd.type==ESRT_STORAGE_IMAGE)
+                return (bnd.type==ESRT_COMBINED_IMAGE_SAMPLER) ? imageInfoFromResource(bnd.get<ESRT_COMBINED_IMAGE_SAMPLER>()) : imageInfoFromResource(bnd.get<ESRT_STORAGE_IMAGE>());
+        }
+    }
+
+    return {false, IImageView<ICPUImage>::ET_COUNT};
+}
+
+core::smart_refctd_dynamic_array<SPushConstantRange> CShaderIntrospector::createPushConstantRangesFromIntrospection(ICPUSpecializedShader** const _begin, ICPUSpecializedShader** const _end, const std::string* _extensionsBegin, const std::string* _extensionsEnd)
+{
+    constexpr size_t MAX_STAGE_COUNT = 14ull;
+
+    ICPUSpecializedShader* shaders[MAX_STAGE_COUNT]{};
+    for (auto shdr = _begin; shdr != _end; ++shdr)
+    {
+        shaders[core::findLSB<uint32_t>((*shdr)->getStage())] = (*shdr);
+    }
+
+    core::smart_refctd_dynamic_array<std::string> extensions;
+    if (_extensionsBegin)
+    {
+        core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<std::string>>(_extensionsEnd - _extensionsBegin);
+        std::copy(_extensionsBegin, _extensionsEnd, extensions->begin());
+    }
+
+    core::vector<uint32_t> presentStagesIxs;
+    presentStagesIxs.reserve(MAX_STAGE_COUNT);
+    const CIntrospectionData* introspection[MAX_STAGE_COUNT]{};
+    for (uint32_t i = 0u; i < MAX_STAGE_COUNT; ++i)
+        if (shaders[i])
+        {
+            introspection[i] = introspect(shaders[i]->getUnspecialized(), { shaders[i]->getStage(), shaders[i]->getSpecializationInfo().entryPoint, extensions });
+            presentStagesIxs.push_back(i);
+        }
+
+    core::vector<SPushConstantRange> ranges[MAX_STAGE_COUNT];
+    for (auto& r : ranges)
+        r.reserve(100u);
+
+    for (uint32_t stg : presentStagesIxs)
+    {
+        auto& pc = introspection[stg]->pushConstant;
+        if (!pc.present)
+            continue;
+
+        auto& members = pc.info.members;
+        auto& rngs = ranges[stg];
+        rngs.push_back({static_cast<ISpecializedShader::E_SHADER_STAGE>(1u<<stg), members.array[0].offset, members.array[0].size});
+        for (uint32_t i = 1u; i < members.count; ++i)
+        {
+            auto& last = rngs.back();
+            if (members.array[i].offset == (last.offset + last.size))
+                last.size += members.array[i].size;
+            else
+                rngs.push_back({static_cast<ISpecializedShader::E_SHADER_STAGE>(1u<<stg), members.array[i].offset, members.array[i].size});
+        }
+    }
+
+    core::vector<SPushConstantRange> merged;
+
+    SPushConstantRange rngToPush; rngToPush.offset = 0u; rngToPush.size = 0u;
+    uint32_t stageFlags = 0u;
+    for (uint32_t i = 0u; i < ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE/sizeof(uint32_t); i += sizeof(uint32_t))
+    {
+        SPushConstantRange curr; curr.offset = i; curr.size = sizeof(uint32_t);
+
+        uint32_t tmpFlags = 0u;
+        for (uint32_t stg : presentStagesIxs)
+            for (const SPushConstantRange& rng : ranges[stg])
+                if (curr.overlap(rng))
+                    tmpFlags |= rng.stageFlags;
+
+        if (!i)
+            stageFlags = tmpFlags;
+
+        if (!tmpFlags)
+            continue;
+        if (tmpFlags == stageFlags)
+            rngToPush.size += sizeof(uint32_t);
+        else
+        {
+            rngToPush.stageFlags = static_cast<ICPUSpecializedShader::E_SHADER_STAGE>(stageFlags);
+            merged.push_back(rngToPush);
+            stageFlags = 0u;
+
+            rngToPush.offset = i;
+            rngToPush.size = sizeof(uint32_t);
+        }
+    }
+    if (stageFlags)
+    {
+        rngToPush.stageFlags = static_cast<ICPUSpecializedShader::E_SHADER_STAGE>(stageFlags);
+        merged.push_back(rngToPush);
+    }
+
+    core::smart_refctd_dynamic_array<SPushConstantRange> rngsArray;
+    if (merged.size())
+    {
+        rngsArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SPushConstantRange>>(merged.size());
+        memcpy(rngsArray->data(), merged.data(), rngsArray->size() * sizeof(SPushConstantRange));
+    }
+
+    return rngsArray;
+}
+
+core::smart_refctd_ptr<ICPUDescriptorSetLayout> CShaderIntrospector::createApproximateDescriptorSetLayoutFromIntrospection(uint32_t _set, ICPUSpecializedShader** const _begin, ICPUSpecializedShader** const _end, const std::string* _extensionsBegin, const std::string* _extensionsEnd)
+{
+    constexpr size_t MAX_STAGE_COUNT = 14ull;
+
+    ICPUSpecializedShader* shaders[MAX_STAGE_COUNT]{};
+    for (auto shdr = _begin; shdr != _end; ++shdr)
+    {
+        shaders[core::findLSB<uint32_t>((*shdr)->getStage())] = (*shdr);
+    }
+
+    core::smart_refctd_dynamic_array<std::string> extensions;
+    if (_extensionsBegin)
+    {
+        core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<std::string>>(_extensionsEnd - _extensionsBegin);
+        std::copy(_extensionsBegin, _extensionsEnd, extensions->begin());
+    }
+
+    core::vector<uint32_t> presentStagesIxs;
+    presentStagesIxs.reserve(MAX_STAGE_COUNT);
+    const CIntrospectionData* introspection[MAX_STAGE_COUNT]{};
+    for (uint32_t i = 0u; i < MAX_STAGE_COUNT; ++i)
+        if (shaders[i])
+        {
+            introspection[i] = introspect(shaders[i]->getUnspecialized(), {shaders[i]->getStage(), shaders[i]->getSpecializationInfo().entryPoint, extensions});
+            presentStagesIxs.push_back(i);
+        }
+    uint32_t checkedDescsCnt[MAX_STAGE_COUNT]{};
+
+    core::vector<ICPUDescriptorSetLayout::SBinding> bindings;
+    bindings.reserve(100u); //preallocating mem for 100 bindings almost ensures no reallocs
+    while (1)
+    {
+        uint32_t stageFlags = 0u;
+        ICPUDescriptorSetLayout::SBinding binding;
+        binding.binding = ~0u;
+        binding.samplers = nullptr;
+
+        bool anyStageNotFinished = false;
+        for (uint32_t stg : presentStagesIxs)
+        {
+            auto& introBindings = introspection[stg]->descriptorSetBindings[_set];
+            if (checkedDescsCnt[stg] == introBindings.size())
+                continue;
+            anyStageNotFinished = true;
+
+            if (introBindings[checkedDescsCnt[stg]].binding < binding.binding)
+                binding.binding = introBindings[checkedDescsCnt[stg]].binding;
+        }
+        if (!anyStageNotFinished) //all shader stages finished
+            break;
+
+        uint32_t refStg = ~0u;
+        for (uint32_t stg : presentStagesIxs)
+        {
+            auto& introBnd = introspection[stg]->descriptorSetBindings[_set][checkedDescsCnt[stg]];
+            if (introBnd.binding != binding.binding)
+                continue;
+
+            stageFlags |= (1u<<stg);
+
+            ++checkedDescsCnt[stg];
+            refStg = stg;
+        }
+
+        auto& introBnd = introspection[refStg]->descriptorSetBindings[_set][checkedDescsCnt[refStg]-1u];
+        binding.type = resType2descType(introBnd.type);
+        binding.stageFlags = static_cast<ICPUSpecializedShader::E_SHADER_STAGE>(stageFlags);
+        binding.count = introBnd.descriptorCount;
+        if (introBnd.descCountIsSpecConstant)
+        {
+            auto& specInfo = shaders[refStg]->getSpecializationInfo();
+            auto val = specInfo.getSpecializationByteValue(binding.count);
+            assert(val.second == 4ull);
+            memcpy(&binding.count, val.first, 4ull);
+        }
+
+        bindings.push_back(binding);
+    }
+
+    if (bindings.size())
+        return core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings.data(), bindings.data()+bindings.size());
+    return nullptr; //returns nullptr if no descriptors are bound in set number `_set`
+}
+
+core::smart_refctd_ptr<ICPUPipelineLayout> CShaderIntrospector::createApproximatePipelineLayoutFromIntrospection(ICPUSpecializedShader** const _begin, ICPUSpecializedShader** const _end, const std::string* _extensionsBegin, const std::string* _extensionsEnd)
+{
+    core::smart_refctd_ptr<ICPUDescriptorSetLayout> dsLayout[ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
+    for (uint32_t i = 0u; i < ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+        dsLayout[i] = createApproximateDescriptorSetLayoutFromIntrospection(i, _begin, _end, _extensionsBegin, _extensionsEnd);
+
+    auto pcRanges = createPushConstantRangesFromIntrospection(_begin, _end, _extensionsBegin, _extensionsEnd);
+
+    return core::make_smart_refctd_ptr<ICPUPipelineLayout>(
+        (pcRanges ? pcRanges->begin() : nullptr), (pcRanges ? pcRanges->end() : nullptr),
+        std::move(dsLayout[0]), std::move(dsLayout[1]), std::move(dsLayout[2]), std::move(dsLayout[3])
+    );
+}
+
+core::smart_refctd_ptr<ICPUComputePipeline> CShaderIntrospector::createApproximateComputePipelineFromIntrospection(ICPUSpecializedShader* _shader, const std::string* _extensionsBegin, const std::string* _extensionsEnd, ICPUComputePipeline* _parent)
+{
+    if (_shader->getStage() != ICPUSpecializedShader::ESS_COMPUTE)
+        return nullptr;
+
+    auto layout = createApproximatePipelineLayoutFromIntrospection(&_shader, &_shader + 1, _extensionsBegin, _extensionsEnd);
+
+    return core::make_smart_refctd_ptr<ICPUComputePipeline>(
+        core::smart_refctd_ptr<ICPUComputePipeline>(_parent),
+        std::move(layout),
+        core::smart_refctd_ptr<ICPUSpecializedShader>(_shader)
+    );
+}
+
+static E_FORMAT glslType2E_FORMAT(E_GLSL_VAR_TYPE _t, uint32_t _e)
+{
+    static const E_FORMAT retval[6][4]
+    {
+        {EF_R64_UINT, EF_R64G64_UINT, EF_R64G64B64_UINT, EF_R64G64B64A64_UINT},
+        {EF_R64_SINT, EF_R64G64_SINT, EF_R64G64B64_SINT, EF_R64G64B64A64_SINT},
+        {EF_R32_UINT, EF_R32G32_UINT, EF_R32G32B32_UINT, EF_R32G32B32A32_UINT},
+        {EF_R32_SINT, EF_R32G32_SINT, EF_R32G32B32_SINT, EF_R32G32B32A32_SINT},
+        {EF_R64_SFLOAT, EF_R64G64_SFLOAT, EF_R64G64B64_SFLOAT, EF_R64G64B64A64_SFLOAT},
+        {EF_R32_SFLOAT, EF_R32G32_SFLOAT, EF_R32G32B32_SFLOAT, EF_R32G32B32A32_SFLOAT}
+    };
+
+    return retval[_t][_e];
+}
+
+core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CShaderIntrospector::createApproximateRenderpassIndependentPipelineFromIntrospection(ICPUSpecializedShader** const _begin, ICPUSpecializedShader** const _end, const std::string* _extensionsBegin, const std::string* _extensionsEnd, ICPURenderpassIndependentPipeline* _parent)
+{
+    ICPUSpecializedShader* vs = nullptr;
+    {
+        auto vs_it = std::find_if(_begin, _end, [](ICPUSpecializedShader* shdr) { return shdr->getStage()==ICPUSpecializedShader::ESS_VERTEX; });
+        if (vs_it == _end)
+            return nullptr; //no vertex shader
+        vs = vs_it[0];
+    }
+
+    core::smart_refctd_dynamic_array<std::string> extensions;
+    if (_extensionsBegin)
+    {
+        core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<std::string>>(_extensionsEnd - _extensionsBegin);
+        std::copy(_extensionsBegin, _extensionsEnd, extensions->begin());
+    }
+
+    auto vs_introspection = introspect(vs->getUnspecialized(), {ICPUSpecializedShader::ESS_VERTEX, vs->getSpecializationInfo().entryPoint, extensions});
+
+    SVertexInputParams vtxInput;
+    uint32_t reloffset = 0u;
+    for (const auto& io : vs_introspection->inputOutput)
+    {
+        if (io.type == ESIT_STAGE_INPUT)
+        {
+            auto& attr = vtxInput.attributes[io.location];
+            attr.binding = io.location; //assume attrib number = binding number
+            attr.format = glslType2E_FORMAT(io.glslType.basetype, io.glslType.elements);
+            attr.relativeOffset = reloffset;
+
+            //all formats returned by glslType2E_FORMAT() already are multiple-of-4 bytes so no need to pad
+            reloffset += getTexelOrBlockBytesize(static_cast<E_FORMAT>(attr.format));
+
+            vtxInput.enabledAttribFlags |= (1u << io.location);
+        }
+    }
+    vtxInput.enabledBindingFlags = vtxInput.enabledAttribFlags;
+
+    for (uint32_t i = 0u; i < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; ++i)
+    {
+        if (vtxInput.enabledBindingFlags & (1u<<i))
+            vtxInput.bindings[i].stride = reloffset;
+    }
+
+    //all except vertex input are defaulted
+    SBlendParams blending;
+    SPrimitiveAssemblyParams primAssembly;
+    SRasterizationParams raster;
+
+    auto layout = createApproximatePipelineLayoutFromIntrospection(_begin, _end, _extensionsBegin, _extensionsEnd);
+
+    return core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
+        core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>(_parent),
+        std::move(layout),
+        _begin, _end,
+        vtxInput, blending, primAssembly, raster
+    );
 }
 
 static E_GLSL_VAR_TYPE spvcrossType2E_TYPE(spirv_cross::SPIRType::BaseType _basetype)
@@ -116,6 +446,21 @@ static E_GLSL_VAR_TYPE spvcrossType2E_TYPE(spirv_cross::SPIRType::BaseType _base
     default:
         return EGVT_UNKNOWN_OR_STRUCT;
     }
+}
+static IImageView<ICPUImage>::E_TYPE spvcrossImageType2ImageView(const spirv_cross::SPIRType::ImageType& _type)
+{
+    IImageView<ICPUImage>::E_TYPE viewType[8]{
+        IImageView<ICPUImage>::ET_1D,
+        IImageView<ICPUImage>::ET_1D_ARRAY,
+        IImageView<ICPUImage>::ET_2D,
+        IImageView<ICPUImage>::ET_2D_ARRAY,
+        IImageView<ICPUImage>::ET_3D,
+        IImageView<ICPUImage>::ET_3D,
+        IImageView<ICPUImage>::ET_CUBE_MAP,
+        IImageView<ICPUImage>::ET_CUBE_MAP_ARRAY
+    };
+
+    return viewType[_type.dim*2u + _type.arrayed];
 }
 
 core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(spirv_cross::Compiler& _comp, const SEntryPoint_Stage_Extensions& _ep) const
@@ -231,14 +576,17 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
         SShaderResourceVariant& res = addResource_common(r, buffer ? ESRT_STORAGE_TEXEL_BUFFER : ESRT_STORAGE_IMAGE, mapId2SpecConst);
         if (!buffer)
         {
-            res.get<ESRT_STORAGE_IMAGE>().approxFormat = spvImageFormat2E_FORMAT(type.image.format);
+            res.get<ESRT_STORAGE_IMAGE>().format = spvImageFormat2E_FORMAT(type.image.format);
+            res.get<ESRT_STORAGE_IMAGE>().viewType = spvcrossImageType2ImageView(type.image);
+            res.get<ESRT_STORAGE_IMAGE>().shadow = type.image.depth;
         }
     }
     for (const spirv_cross::Resource& r : resources.sampled_images)
     {
         SShaderResourceVariant& res = addResource_common(r, ESRT_COMBINED_IMAGE_SAMPLER, mapId2SpecConst);
 		const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
-        res.get<ESRT_COMBINED_IMAGE_SAMPLER>().arrayed = type.image.arrayed;
+        res.get<ESRT_COMBINED_IMAGE_SAMPLER>().viewType = spvcrossImageType2ImageView(type.image);
+        res.get<ESRT_COMBINED_IMAGE_SAMPLER>().shadow = type.image.depth;
         res.get<ESRT_COMBINED_IMAGE_SAMPLER>().multisample = type.image.ms;
     }
     for (const spirv_cross::Resource& r : resources.separate_images)
@@ -255,14 +603,27 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
         std::sort(descSet.begin(), descSet.end(), [](const SShaderResourceVariant& _lhs, const SShaderResourceVariant& _rhs) { return _lhs.binding < _rhs.binding; });
 
 
+    auto getStageIOtype = [&_comp](uint32_t _base_type_id)
+    {
+        const auto& type = _comp.get_type(_base_type_id);
+        decltype(SShaderInfoVariant::glslType) glslType;
+        glslType.basetype = spvcrossType2E_TYPE(type.basetype);
+        glslType.elements = type.vecsize;
+
+        return glslType;
+    };
+
     // in/out
     for (const spirv_cross::Resource& r : resources.stage_inputs)
     {
         SShaderInfoVariant& res = addInfo_common(r, ESIT_STAGE_INPUT);
+        res.glslType = getStageIOtype(r.base_type_id);
     }
     for (const spirv_cross::Resource& r : resources.stage_outputs)
     {
         SShaderInfoVariant& res = addInfo_common(r, ESIT_STAGE_OUTPUT);
+        res.glslType = getStageIOtype(r.base_type_id);
+
         res.get<ESIT_STAGE_OUTPUT>().colorIndex = _comp.get_decoration(r.id, spv::DecorationIndex);
     }
     std::sort(introData->inputOutput.begin(), introData->inputOutput.end(), [](const SShaderInfoVariant& _lhs, const SShaderInfoVariant& _rhs) { return _lhs.location < _rhs.location; });

@@ -26,6 +26,24 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 		{
 			return m_specInfo.entryPoint.size()+sizeof(uint16_t)+sizeof(SInfo::SMapEntry)*m_specInfo.m_entries.size()+2u*sizeof(void*);
 		}
+
+        core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+        {
+            auto info = m_specInfo;
+            if (_depth > 0u && info.m_backingBuffer)
+                info.m_backingBuffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(info.m_backingBuffer->clone(_depth-1u));
+            auto unspec = m_unspecialized;
+
+            auto cp = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
+                (_depth > 0u && unspec) ? core::smart_refctd_ptr_static_cast<ICPUShader>(unspec->clone(_depth-1u)) : std::move(unspec),
+                std::move(info)
+            );
+
+            cp->m_mutable = true;
+
+            return cp;
+        }
+
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
 			m_specInfo.m_entries = {};

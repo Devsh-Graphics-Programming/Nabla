@@ -28,6 +28,36 @@ class CCPUSkinnedMesh : public ICPUSkinnedMesh
 			#endif
 		}
 
+        core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+        {
+            auto cp = core::make_smart_refctd_ptr<CCPUSkinnedMesh>();
+
+            cp->LocalBuffers = core::vector<core::smart_refctd_ptr<ICPUSkinnedMeshBuffer>>(LocalBuffers.size());
+            for (size_t i = 0u; i < LocalBuffers.size(); ++i)
+                cp->LocalBuffers[i] = (_depth > 0u && LocalBuffers[i]) ? core::smart_refctd_ptr_static_cast<ICPUSkinnedMeshBuffer>(LocalBuffers[i]->clone(_depth-1u)) : LocalBuffers[i];
+            cp->HasAnimation = HasAnimation;
+
+            for (size_t i = 0u; i < AllJoints.size(); ++i)
+                cp->AllJoints.push_back(new SJoint(AllJoints[i][0]));
+
+            for (size_t i = 0u; i < AllJoints.size(); ++i)
+            {
+                {
+                    const size_t ix = std::find(AllJoints.begin(), AllJoints.end(), cp->AllJoints.back()->Parent) - AllJoints.begin();
+                    cp->AllJoints.back()->Parent = cp->AllJoints[ix];
+                }
+                for (auto& child : cp->AllJoints[i]->Children)
+                {
+                    const size_t ix = std::find(AllJoints.begin(), AllJoints.end(), child) - AllJoints.begin();
+                    child = cp->AllJoints[ix];
+                }
+            }
+
+            cp->m_mutable = true;
+
+            return cp;
+        }
+
 		//!
 		virtual CFinalBoneHierarchy* getBoneReferenceHierarchy() const override { return referenceHierarchy.get(); }
 

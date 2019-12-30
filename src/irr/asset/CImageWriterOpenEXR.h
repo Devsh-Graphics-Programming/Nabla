@@ -2,20 +2,21 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#pragma once
+#ifndef __C_IMAGE_WRITER_OPENEXR__
+#define __C_IMAGE_WRITER_OPENEXR__
 
 #include "IrrCompileConfig.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENEXR_WRITER_
 
-#include "irr/asset/IAssetWriter.h"
+#include "irr/asset/IImageWriter.h"
 
 namespace irr
 {
 	namespace asset
 	{
 		//! OpenEXR writer capable of saving .exr files
-		class CImageWriterOpenEXR final : public asset::IAssetWriter
+		class CImageWriterOpenEXR final : public IImageWriter
 		{
 		protected:
 			~CImageWriterOpenEXR(){}
@@ -38,8 +39,11 @@ namespace irr
 			bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 
 		private:
+
+			bool writeImageBinary(io::IWriteFile* file, const asset::ICPUImage* image);
 		};
 	}
 }
 
 #endif // _IRR_COMPILE_WITH_OPENEXR_WRITER_
+#endif // __C_IMAGE_WRITER_OPENEXR__

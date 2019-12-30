@@ -2,20 +2,21 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#pragma once
+#ifndef __C_IMAGE_LOADER_OPENEXR__
+#define __C_IMAGE_LOADER_OPENEXR__
 
 #include "IrrCompileConfig.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
 
-#include "irr/asset/IAssetLoader.h"
+#include "irr/asset/IImageLoader.h"
 
 namespace irr
 {
 	namespace asset
 	{	
 		//! OpenEXR loader capable of loading .exr files
-		class CImageLoaderOpenEXR final : public asset::IAssetLoader
+		class CImageLoaderOpenEXR final : public IImageLoader
 		{
 		protected:
 			~CImageLoaderOpenEXR(){}
@@ -42,3 +43,4 @@ namespace irr
 }
 
 #endif // _IRR_COMPILE_WITH_OPENEXR_LOADER_
+#endif // __C_IMAGE_LOADER_OPENEXR__
