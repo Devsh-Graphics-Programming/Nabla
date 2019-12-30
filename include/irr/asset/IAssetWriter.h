@@ -3,6 +3,8 @@
 
 #include "IrrCompileConfig.h"
 
+#include "IWriteFile.h"
+#include "IAsset.h"
 #include "irr/asset/IImageLoader.h"
 
 namespace irr
@@ -59,7 +61,7 @@ enum E_WRITER_FLAGS : uint32_t
 	@see IAssetLoader
 	@see E_WRITER_FLAGS
 */
-class IAssetWriter : public virtual IImageLoader
+class IAssetWriter : public virtual core::IReferenceCounted, public virtual IImageLoader
 {
 public:
 

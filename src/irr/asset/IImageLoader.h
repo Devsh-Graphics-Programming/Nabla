@@ -7,15 +7,12 @@
 
 #include "irr/core/core.h"
 
-#include "IWriteFile.h"
-#include "irr/asset/IAsset.h"
-
 namespace irr
 {
 	namespace asset
 	{
 
-		class IImageLoader : public virtual core::IReferenceCounted
+		class IImageLoader 
 		{
 			public:
 
