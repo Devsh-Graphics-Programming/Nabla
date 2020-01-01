@@ -32,13 +32,13 @@ namespace irr
 {
 	namespace asset
 	{
+		inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion);
+		inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t& layer, const uint16_t& face, const uint16_t& pixelStride);
+
 		asset::SAssetBundle CGLILoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
 			if (!_file)
 				return {};
-
-			SContext ctx(_file->getSize());
-			ctx.file = _file;
 
 			const char* filename = _file->getFileName().c_str();
 			gli::texture texture = gli::load(filename);
@@ -51,51 +51,56 @@ namespace irr
 		    const gli::gl glVersion(gli::gl::PROFILE_GL33);
 			const GLenum target = glVersion.translate(texture.target());
 			const auto format = getTranslatedGLIFormat(texture, glVersion);
-			const uint32_t texelFormatByteSize = getTexelOrBlockBytesize(format.first);
-			IImage::E_TYPE baseImageType;
+			IImage::E_TYPE imageType;
 			IImageView<ICPUImage>::E_TYPE imageViewType;
+
+			if (format.first == EF_UNKNOWN)
+			{
+				os::Printer::log("LOAD GLI: the file consist of not supported format", _file->getFileName().c_str(), ELL_ERROR);
+				return {};
+			}
 
 			switch (target)
 			{
 				case gli::TARGET_1D:
 				{
-					baseImageType = IImage::ET_1D;
+					imageType = IImage::ET_1D;
 					imageViewType = ICPUImageView::ET_1D;
 					break;
 				}
 				case gli::TARGET_1D_ARRAY:
 				{
-					baseImageType = IImage::ET_1D;
+					imageType = IImage::ET_1D;
 					imageViewType = ICPUImageView::ET_1D_ARRAY;
 					break;
 				}
 				case gli::TARGET_2D:
 				{
-					baseImageType = IImage::ET_2D;
+					imageType = IImage::ET_2D;
 					imageViewType = ICPUImageView::ET_2D;
 					break;
 				}
 				case gli::TARGET_2D_ARRAY:
 				{
-					baseImageType = IImage::ET_2D;
+					imageType = IImage::ET_2D;
 					imageViewType = ICPUImageView::ET_2D_ARRAY;
 					break;
 				}
 				case gli::TARGET_3D:
 				{
-					baseImageType = IImage::ET_3D;
+					imageType = IImage::ET_3D;
 					imageViewType = ICPUImageView::ET_3D;
 					break;
 				}
 				case gli::TARGET_CUBE:
 				{
-					baseImageType = IImage::ET_2D;
+					imageType = IImage::ET_2D;
 					imageViewType = ICPUImageView::ET_CUBE_MAP;
 					break;
 				}
 				case gli::TARGET_CUBE_ARRAY:
 				{
-					baseImageType = IImage::ET_2D;
+					imageType = IImage::ET_2D;
 					imageViewType = ICPUImageView::ET_CUBE_MAP_ARRAY;
 					break;
 				}
@@ -107,76 +112,52 @@ namespace irr
 				}
 			}
 
-			std::pair<core::smart_refctd_dynamic_array<ICPUImage>, core::smart_refctd_dynamic_array<ICPUImageView>> bundle
-			= std::make_pair																							
-			(
-				core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage>>(texture.levels()),
-				core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImageView>>(texture.levels())
-			);
+			ICPUImage::SCreationParams imageInfo;
+			imageInfo.format = format.first;
+			imageInfo.type = imageType;
+			imageInfo.flags = static_cast<ICPUImage::E_CREATE_FLAGS>(0u);
+			imageInfo.samples = ICPUImage::ESCF_1_BIT;
+			imageInfo.extent.width = texture.extent().x;
+			imageInfo.extent.height = texture.extent().y;
+			imageInfo.extent.width = texture.extent().z;
+			imageInfo.mipLevels = 1;
+			imageInfo.arrayLayers = texture.faces() * texture.layers();
 
-			for (uint16_t mipmapLevel = 0; mipmapLevel < bundle.first->size(); ++mipmapLevel)
+			auto image = ICPUImage::create(std::move(imageInfo));
+
+			const auto texelBlockByteSize = asset::getTexelOrBlockBytesize(image->getCreationParameters().format);
+			auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(texture.size());
+			auto data = texelBuffer->getPointer();
+
+			auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(image->getCreationParameters().arrayLayers);
+			uint16_t arrayLayerIndex = {};
+			for (auto region = regions->begin(); region != regions->end(); ++region)
 			{
-				const auto totalFaces = texture.layers() * texture.faces();
-				glm::tvec3<GLsizei> extent(texture.extent(mipmapLevel));
+				const uint16_t layer = arrayLayerIndex / 6;
+				const uint16_t face = arrayLayerIndex % 6;
 
-				ICPUImage::SCreationParams baseImageInfo;
-				baseImageInfo.format = format.first;
-				baseImageInfo.type = baseImageType;
-				baseImageInfo.flags = static_cast<ICPUImage::E_CREATE_FLAGS>(0u);
-				baseImageInfo.samples = ICPUImage::ESCF_1_BIT;
-				baseImageInfo.extent.width = extent[0];
-				baseImageInfo.extent.height = extent[1];
-				baseImageInfo.extent.width = extent[2];
-				baseImageInfo.mipLevels = texture.levels();
-				baseImageInfo.arrayLayers = totalFaces;
+				region->imageExtent = image->getCreationParameters().extent;
+				assignGLIDataToRegion((reinterpret_cast<uint8_t*>(data) + region->bufferOffset), texture, layer, face, texelBlockByteSize);
 
-				auto& baseImage = core::make_smart_refctd_ptr<ICPUImage>(*(bundle.first->begin() + mipmapLevel));
-				baseImage = ICPUImage::create(std::move(baseImageInfo));
-
-				ICPUImageView::SCreationParams imageViewInfo;
-				imageViewInfo.image = baseImage;
-				imageViewInfo.format = format.first;
-				imageViewInfo.viewType = imageViewType;
-				imageViewInfo.components = format.second;
-				imageViewInfo.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
-				imageViewInfo.subresourceRange.baseArrayLayer = 0u;
-				imageViewInfo.subresourceRange.baseMipLevel = 0u;
-				imageViewInfo.subresourceRange.layerCount = totalFaces;
-				imageViewInfo.subresourceRange.levelCount = 1u;
-
-				core::vector<core::smart_refctd_ptr<ICPUBuffer>> texelBuffers;
-				auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(totalFaces);
-
-				// do stuff
-
-				for (std::size_t layer = 0; layer < texture.layers(); ++layer)					// if it is an array of textures of certain type 
-					for (std::size_t face = 0; face < texture.faces(); ++face)					// if it is a cube, otherwise there is only single face
-					{
-						auto index = (layer * texture.layers()) + face;
-						texelBuffers.emplace_back(core::make_smart_refctd_ptr<ICPUBuffer>(baseImage->getImageDataSizeInBytes())); // I need to put data here, but
-						// core::smart_refctd_ptr<CCustomAllocatorCPUBuffer<>> buffer = CCustomAllocatorCPUBuffer<>(XSIZEX, XDATAX);	is inaccessable!
-
-						ICPUImage::SBufferCopy& region = *(regions->begin() + index);
-						region.imageSubresource.mipLevel = 0u;
-						region.imageSubresource.baseArrayLayer = 0u;
-						region.imageSubresource.layerCount = 1u;
-						region.bufferOffset = 0u;
-						region.bufferRowLength = extent[0] * texelFormatByteSize;
-						region.bufferImageHeight = 0u; //tightly packed
-						region.imageOffset = { 0u, 0u, 0u };
-						region.imageExtent.width = extent[0];
-						region.imageExtent.height = extent[1];
-						region.imageExtent.depth = extent[2];
-					}
-
-				auto& viewImage = core::make_smart_refctd_ptr<ICPUImageView>(*(bundle.second->begin() + mipmapLevel));
-				// TODO need to set regions on viewImage as subresource of certain mipmap
-				viewImage = ICPUImageView::create(std::move(imageViewInfo));
+				++arrayLayerIndex;
 			}
 
-			ctx.file = nullptr;
+			image->setBufferAndRegions(std::move(texelBuffer), regions);
 
-			//return SAssetBundle( ? );
+			ICPUImageView::SCreationParams imageViewInfo;
+			imageViewInfo.image = image;
+			imageViewInfo.format = format.first;
+			imageViewInfo.viewType = imageViewType;
+			imageViewInfo.components = format.second;
+			imageViewInfo.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+			imageViewInfo.subresourceRange.baseArrayLayer = 0u;
+			imageViewInfo.subresourceRange.baseMipLevel = 0u;
+			imageViewInfo.subresourceRange.layerCount = texture.faces() * texture.layers();
+			imageViewInfo.subresourceRange.levelCount = 1u;
+
+			auto viewImage = ICPUImageView::create(std::move(imageViewInfo));
+
+			return SAssetBundle{viewImage};
 		}
 
 		bool CGLILoader::isALoadableFileFormat(io::IReadFile* _file) const
@@ -184,7 +165,7 @@ namespace irr
 			return true; // gli provides a function to load files, but we can check files' signature actually if needed
 		}
 
-		inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> CGLILoader::getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion)
+		inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion)
 		{
 			using namespace gli;
 			gli::gl::format formatToTranslate = glVersion.translate(texture.format(), texture.swizzles());
@@ -221,92 +202,92 @@ namespace irr
 			switch (formatToTranslate.Internal)
 			{
 				case gl::INTERNAL_RGB_UNORM: return getTranslatedFinalFormat(EF_R8G8B8_UNORM);			//GL_RGB
-				case gl::INTERNAL_BGR_UNORM: return getTranslatedFinalFormat();			//GL_BGR
-				case gl::INTERNAL_RGBA_UNORM: return getTranslatedFinalFormat();		//GL_RGBA
-				case gl::INTERNAL_BGRA_UNORM: return getTranslatedFinalFormat();		//GL_BGRA
-				case gl::INTERNAL_BGRA8_UNORM: return getTranslatedFinalFormat();		//GL_BGRA8_EXT
+				case gl::INTERNAL_BGR_UNORM: return getTranslatedFinalFormat(EF_B8G8R8_UNORM);			//GL_BGR
+				case gl::INTERNAL_RGBA_UNORM: return getTranslatedFinalFormat(EF_R8G8B8A8_UNORM);		//GL_RGBA
+				case gl::INTERNAL_BGRA_UNORM: return getTranslatedFinalFormat(EF_B8G8R8A8_UNORM);		//GL_BGRA
+				case gl::INTERNAL_BGRA8_UNORM: return getTranslatedFinalFormat(EF_B8G8R8A8_UNORM);		//GL_BGRA8_EXT
 
 				// unorm formats
-				case gl::INTERNAL_R8_UNORM: return getTranslatedFinalFormat();			//GL_R8
-				case gl::INTERNAL_RG8_UNORM: return getTranslatedFinalFormat();		//GL_RG8
-				case gl::INTERNAL_RGB8_UNORM: return getTranslatedFinalFormat();		//GL_RGB8
-				case gl::INTERNAL_RGBA8_UNORM: return getTranslatedFinalFormat();		//GL_RGBA8
+				case gl::INTERNAL_R8_UNORM: return getTranslatedFinalFormat(EF_R8_UNORM);			//GL_R8
+				case gl::INTERNAL_RG8_UNORM: return getTranslatedFinalFormat(EF_R8G8_UNORM);		//GL_RG8
+				case gl::INTERNAL_RGB8_UNORM: return getTranslatedFinalFormat(EF_R8G8B8_UNORM);		//GL_RGB8
+				case gl::INTERNAL_RGBA8_UNORM: return getTranslatedFinalFormat(EF_R8G8B8A8_UNORM);		//GL_RGBA8
 
-				case gl::INTERNAL_R16_UNORM: return getTranslatedFinalFormat();		//GL_R16
-				case gl::INTERNAL_RG16_UNORM: return getTranslatedFinalFormat();		//GL_RG16
-				case gl::INTERNAL_RGB16_UNORM: return getTranslatedFinalFormat();		//GL_RGB16
-				case gl::INTERNAL_RGBA16_UNORM: return getTranslatedFinalFormat();		//GL_RGBA16
+				case gl::INTERNAL_R16_UNORM: return getTranslatedFinalFormat(EF_R16_UNORM);		//GL_R16
+				case gl::INTERNAL_RG16_UNORM: return getTranslatedFinalFormat(EF_R16G16_UNORM);		//GL_RG16
+				case gl::INTERNAL_RGB16_UNORM: return getTranslatedFinalFormat(EF_R16G16B16_UNORM);		//GL_RGB16
+				case gl::INTERNAL_RGBA16_UNORM: return getTranslatedFinalFormat(EF_R16G16B16A16_UNORM);		//GL_RGBA16
 
-				case gl::INTERNAL_RGB10A2_UNORM: return getTranslatedFinalFormat();	//GL_RGB10_A2
-				case gl::INTERNAL_RGB10A2_SNORM_EXT: return getTranslatedFinalFormat();
+				case gl::INTERNAL_RGB10A2_UNORM: return getTranslatedFinalFormat(EF_A2R10G10B10_UNORM_PACK32);	//GL_RGB10_A2
+				case gl::INTERNAL_RGB10A2_SNORM_EXT: return getTranslatedFinalFormat(EF_A2R10G10B10_SNORM_PACK32);
 
 				// snorm formats
-				case gl::INTERNAL_R8_SNORM: return getTranslatedFinalFormat();			//GL_R8_SNORM
-				case gl::INTERNAL_RG8_SNORM: return getTranslatedFinalFormat();		//GL_RG8_SNORM
-				case gl::INTERNAL_RGB8_SNORM: return getTranslatedFinalFormat();		//GL_RGB8_SNORM
-				case gl::INTERNAL_RGBA8_SNORM: return getTranslatedFinalFormat();		//GL_RGBA8_SNORM
+				case gl::INTERNAL_R8_SNORM: return getTranslatedFinalFormat(EF_R8_SNORM);			//GL_R8_SNORM
+				case gl::INTERNAL_RG8_SNORM: return getTranslatedFinalFormat(EF_R8G8_SNORM);		//GL_RG8_SNORM
+				case gl::INTERNAL_RGB8_SNORM: return getTranslatedFinalFormat(EF_R8G8B8_SNORM);		//GL_RGB8_SNORM
+				case gl::INTERNAL_RGBA8_SNORM: return getTranslatedFinalFormat(EF_R8G8B8A8_SNORM);		//GL_RGBA8_SNORM
 
-				case gl::INTERNAL_R16_SNORM: return getTranslatedFinalFormat();		//GL_R16_SNORM
-				case gl::INTERNAL_RG16_SNORM: return getTranslatedFinalFormat();		//GL_RG16_SNORM
-				case gl::INTERNAL_RGB16_SNORM: return getTranslatedFinalFormat();		//GL_RGB16_SNORM
-				case gl::INTERNAL_RGBA16_SNORM: return getTranslatedFinalFormat();		//GL_RGBA16_SNORM
+				case gl::INTERNAL_R16_SNORM: return getTranslatedFinalFormat(EF_R16_SNORM);		//GL_R16_SNORM
+				case gl::INTERNAL_RG16_SNORM: return getTranslatedFinalFormat(EF_R16G16_SNORM);		//GL_RG16_SNORM
+				case gl::INTERNAL_RGB16_SNORM: return getTranslatedFinalFormat(EF_R16G16B16_SNORM);		//GL_RGB16_SNORM
+				case gl::INTERNAL_RGBA16_SNORM: return getTranslatedFinalFormat(EF_R16G16B16A16_SNORM);		//GL_RGBA16_SNORM
 
 				// unsigned integer formats
-				case gl::INTERNAL_R8U: return getTranslatedFinalFormat();				//GL_R8UI
-				case gl::INTERNAL_RG8U: return getTranslatedFinalFormat();				//GL_RG8UI
-				case gl::INTERNAL_RGB8U: return getTranslatedFinalFormat();			//GL_RGB8UI
-				case gl::INTERNAL_RGBA8U: return getTranslatedFinalFormat();			//GL_RGBA8UI
+				case gl::INTERNAL_R8U: return getTranslatedFinalFormat(EF_R8_UINT);				//GL_R8UI
+				case gl::INTERNAL_RG8U: return getTranslatedFinalFormat(EF_R8G8_UINT);				//GL_RG8UI
+				case gl::INTERNAL_RGB8U: return getTranslatedFinalFormat(EF_R8G8B8_UINT);			//GL_RGB8UI
+				case gl::INTERNAL_RGBA8U: return getTranslatedFinalFormat(EF_R8G8B8A8_UINT);			//GL_RGBA8UI
 
-				case gl::INTERNAL_R16U: return getTranslatedFinalFormat();				//GL_R16UI
-				case gl::INTERNAL_RG16U: return getTranslatedFinalFormat();			//GL_RG16UI
-				case gl::INTERNAL_RGB16U: return getTranslatedFinalFormat();			//GL_RGB16UI
-				case gl::INTERNAL_RGBA16U: return getTranslatedFinalFormat();			//GL_RGBA16UI
+				case gl::INTERNAL_R16U: return getTranslatedFinalFormat(EF_R16_UINT);				//GL_R16UI
+				case gl::INTERNAL_RG16U: return getTranslatedFinalFormat(EF_R16G16_UINT);			//GL_RG16UI
+				case gl::INTERNAL_RGB16U: return getTranslatedFinalFormat(EF_R16G16B16_UINT);			//GL_RGB16UI
+				case gl::INTERNAL_RGBA16U: return getTranslatedFinalFormat(EF_R16G16B16A16_UINT);			//GL_RGBA16UI
 
-				case gl::INTERNAL_R32U: return getTranslatedFinalFormat();				//GL_R32UI
-				case gl::INTERNAL_RG32U: return getTranslatedFinalFormat();			//GL_RG32UI
-				case gl::INTERNAL_RGB32U: return getTranslatedFinalFormat();			//GL_RGB32UI
-				case gl::INTERNAL_RGBA32U: return getTranslatedFinalFormat();			//GL_RGBA32UI
+				case gl::INTERNAL_R32U: return getTranslatedFinalFormat(EF_R32_UINT);				//GL_R32UI
+				case gl::INTERNAL_RG32U: return getTranslatedFinalFormat(EF_R32G32_UINT);			//GL_RG32UI
+				case gl::INTERNAL_RGB32U: return getTranslatedFinalFormat(EF_R32G32B32_UINT);			//GL_RGB32UI
+				case gl::INTERNAL_RGBA32U: return getTranslatedFinalFormat(EF_R32G32B32A32_UINT);			//GL_RGBA32UI
 
-				case gl::INTERNAL_RGB10A2U: return getTranslatedFinalFormat();			//GL_RGB10_A2UI
-				case gl::INTERNAL_RGB10A2I_EXT: return getTranslatedFinalFormat();
+				case gl::INTERNAL_RGB10A2U: return getTranslatedFinalFormat(EF_A2R10G10B10_UINT_PACK32);			//GL_RGB10_A2UI
+				case gl::INTERNAL_RGB10A2I_EXT: return getTranslatedFinalFormat(EF_A2R10G10B10_SINT_PACK32);	//GL_RGB10_A2I
 
 				// signed integer formats
-				case gl::INTERNAL_R8I: return getTranslatedFinalFormat();				//GL_R8I
-				case gl::INTERNAL_RG8I: return getTranslatedFinalFormat();				//GL_RG8I
-				case gl::INTERNAL_RGB8I: return getTranslatedFinalFormat();			//GL_RGB8I
-				case gl::INTERNAL_RGBA8I: return getTranslatedFinalFormat();			//GL_RGBA8I
+				case gl::INTERNAL_R8I: return getTranslatedFinalFormat(EF_R8_SINT);				//GL_R8I
+				case gl::INTERNAL_RG8I: return getTranslatedFinalFormat(EF_R8G8_SINT);				//GL_RG8I
+				case gl::INTERNAL_RGB8I: return getTranslatedFinalFormat(EF_R8G8B8_SINT);			//GL_RGB8I
+				case gl::INTERNAL_RGBA8I: return getTranslatedFinalFormat(EF_R8G8B8A8_SINT);			//GL_RGBA8I
 
-				case gl::INTERNAL_R16I: return getTranslatedFinalFormat();				//GL_R16I
-				case gl::INTERNAL_RG16I: return getTranslatedFinalFormat();			//GL_RG16I
-				case gl::INTERNAL_RGB16I: return getTranslatedFinalFormat();			//GL_RGB16I
-				case gl::INTERNAL_RGBA16I: return getTranslatedFinalFormat();			//GL_RGBA16I
+				case gl::INTERNAL_R16I: return getTranslatedFinalFormat(EF_R16_SINT);				//GL_R16I
+				case gl::INTERNAL_RG16I: return getTranslatedFinalFormat(EF_R16G16_SINT);			//GL_RG16I
+				case gl::INTERNAL_RGB16I: return getTranslatedFinalFormat(EF_R16G16B16_SINT);			//GL_RGB16I
+				case gl::INTERNAL_RGBA16I: return getTranslatedFinalFormat(EF_R16G16B16A16_SINT);			//GL_RGBA16I
 
-				case gl::INTERNAL_R32I: return getTranslatedFinalFormat();				//GL_R32I
-				case gl::INTERNAL_RG32I: return getTranslatedFinalFormat();			//GL_RG32I
-				case gl::INTERNAL_RGB32I: return getTranslatedFinalFormat();			//GL_RGB32I
-				case gl::INTERNAL_RGBA32I: return getTranslatedFinalFormat();			//GL_RGBA32I
+				case gl::INTERNAL_R32I: return getTranslatedFinalFormat(EF_R32_SINT);				//GL_R32I
+				case gl::INTERNAL_RG32I: return getTranslatedFinalFormat(EF_R32G32_SINT);			//GL_RG32I
+				case gl::INTERNAL_RGB32I: return getTranslatedFinalFormat(EF_R32G32B32_SINT);			//GL_RGB32I
+				case gl::INTERNAL_RGBA32I: return getTranslatedFinalFormat(EF_R32G32B32A32_SINT);			//GL_RGBA32I
 
 				// Floating formats
-				case gl::INTERNAL_R16F: return getTranslatedFinalFormat();				//GL_R16F
-				case gl::INTERNAL_RG16F: return getTranslatedFinalFormat();			//GL_RG16F
-				case gl::INTERNAL_RGB16F: return getTranslatedFinalFormat();			//GL_RGB16F
-				case gl::INTERNAL_RGBA16F: return getTranslatedFinalFormat();			//GL_RGBA16F
+				case gl::INTERNAL_R16F: return getTranslatedFinalFormat(EF_R16_SFLOAT);				//GL_R16F
+				case gl::INTERNAL_RG16F: return getTranslatedFinalFormat(EF_R16G16_SFLOAT);			//GL_RG16F
+				case gl::INTERNAL_RGB16F: return getTranslatedFinalFormat(EF_R16G16B16_SFLOAT);			//GL_RGB16F
+				case gl::INTERNAL_RGBA16F: return getTranslatedFinalFormat(EF_R16G16B16A16_SFLOAT);			//GL_RGBA16F
 
-				case gl::INTERNAL_R32F: return getTranslatedFinalFormat();				//GL_R32F
-				case gl::INTERNAL_RG32F: return getTranslatedFinalFormat();			//GL_RG32F
-				case gl::INTERNAL_RGB32F: return getTranslatedFinalFormat();			//GL_RGB32F
-				case gl::INTERNAL_RGBA32F: return getTranslatedFinalFormat();			//GL_RGBA32F
+				case gl::INTERNAL_R32F: return getTranslatedFinalFormat(EF_R32_SFLOAT);				//GL_R32F
+				case gl::INTERNAL_RG32F: return getTranslatedFinalFormat(EF_R32G32_SFLOAT);			//GL_RG32F
+				case gl::INTERNAL_RGB32F: return getTranslatedFinalFormat(EF_R32G32B32_SFLOAT);			//GL_RGB32F
+				case gl::INTERNAL_RGBA32F: return getTranslatedFinalFormat(EF_R32G32B32A32_SFLOAT);			//GL_RGBA32F
 
-				case gl::INTERNAL_R64F_EXT: return getTranslatedFinalFormat();			//GL_R64F
-				case gl::INTERNAL_RG64F_EXT: return getTranslatedFinalFormat();		//GL_RG64F
-				case gl::INTERNAL_RGB64F_EXT: return getTranslatedFinalFormat();		//GL_RGB64F
-				case gl::INTERNAL_RGBA64F_EXT: return getTranslatedFinalFormat();		//GL_RGBA64F
+				case gl::INTERNAL_R64F_EXT: return getTranslatedFinalFormat(EF_R64_SFLOAT);			//GL_R64F
+				case gl::INTERNAL_RG64F_EXT: return getTranslatedFinalFormat(EF_R64G64_SFLOAT);		//GL_RG64F
+				case gl::INTERNAL_RGB64F_EXT: return getTranslatedFinalFormat(EF_R64G64B64_SFLOAT);		//GL_RGB64F
+				case gl::INTERNAL_RGBA64F_EXT: return getTranslatedFinalFormat(EF_R64G64B64A64_SFLOAT);		//GL_RGBA64F
 
 				// sRGB formats
-				case gl::INTERNAL_SR8: return getTranslatedFinalFormat();				//GL_SR8_EXT
-				case gl::INTERNAL_SRG8: return getTranslatedFinalFormat();				//GL_SRG8_EXT
-				case gl::INTERNAL_SRGB8: return getTranslatedFinalFormat();			//GL_SRGB8
-				case gl::INTERNAL_SRGB8_ALPHA8: return getTranslatedFinalFormat();		//GL_SRGB8_ALPHA8
+				case gl::INTERNAL_SR8: return getTranslatedFinalFormat(EF_R8_SRGB);				//GL_SR8_EXT
+				case gl::INTERNAL_SRG8: return getTranslatedFinalFormat(EF_R8G8_SRGB);				//GL_SRG8_EXT
+				case gl::INTERNAL_SRGB8: return getTranslatedFinalFormat(EF_R8G8B8_SRGB);			//GL_SRGB8
+				case gl::INTERNAL_SRGB8_ALPHA8: return getTranslatedFinalFormat(EF_R8G8B8A8_SRGB);		//GL_SRGB8_ALPHA8
 
 				// Packed formats
 				case gl::INTERNAL_RGB9E5: return getTranslatedFinalFormat();			//GL_RGB9_E5
@@ -368,20 +349,20 @@ namespace irr
 				case gl::INTERNAL_RG11_EAC: return getTranslatedFinalFormat();						//GL_COMPRESSED_RG11_EAC
 				case gl::INTERNAL_SIGNED_RG11_EAC: return getTranslatedFinalFormat();				//GL_COMPRESSED_SIGNED_RG11_EAC
 
-				case gl::INTERNAL_RGBA_ASTC_4x4: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_4x4_KHR
-				case gl::INTERNAL_RGBA_ASTC_5x4: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_5x4_KHR
-				case gl::INTERNAL_RGBA_ASTC_5x5: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_5x5_KHR
-				case gl::INTERNAL_RGBA_ASTC_6x5: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_6x5_KHR
-				case gl::INTERNAL_RGBA_ASTC_6x6: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_6x6_KHR
-				case gl::INTERNAL_RGBA_ASTC_8x5: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_8x5_KHR
-				case gl::INTERNAL_RGBA_ASTC_8x6: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_8x6_KHR
-				case gl::INTERNAL_RGBA_ASTC_8x8: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_8x8_KHR
-				case gl::INTERNAL_RGBA_ASTC_10x5: return getTranslatedFinalFormat(); 				//GL_COMPRESSED_RGBA_ASTC_10x5_KHR
-				case gl::INTERNAL_RGBA_ASTC_10x6: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_10x6_KHR
-				case gl::INTERNAL_RGBA_ASTC_10x8: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_10x8_KHR
-				case gl::INTERNAL_RGBA_ASTC_10x10: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_10x10_KHR
-				case gl::INTERNAL_RGBA_ASTC_12x10: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_12x10_KHR
-				case gl::INTERNAL_RGBA_ASTC_12x12: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_12x12_KHR
+				case gl::INTERNAL_RGBA_ASTC_4x4: return getTranslatedFinalFormat(EF_ASTC_4x4_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_4x4_KHR
+				case gl::INTERNAL_RGBA_ASTC_5x4: return getTranslatedFinalFormat(EF_ASTC_5x4_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_5x4_KHR
+				case gl::INTERNAL_RGBA_ASTC_5x5: return getTranslatedFinalFormat(EF_ASTC_5x5_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_5x5_KHR
+				case gl::INTERNAL_RGBA_ASTC_6x5: return getTranslatedFinalFormat(EF_ASTC_6x5_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_6x5_KHR
+				case gl::INTERNAL_RGBA_ASTC_6x6: return getTranslatedFinalFormat(EF_ASTC_6x6_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_6x6_KHR
+				case gl::INTERNAL_RGBA_ASTC_8x5: return getTranslatedFinalFormat(EF_ASTC_8x5_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_8x5_KHR
+				case gl::INTERNAL_RGBA_ASTC_8x6: return getTranslatedFinalFormat(EF_ASTC_8x6_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_8x6_KHR
+				case gl::INTERNAL_RGBA_ASTC_8x8: return getTranslatedFinalFormat(EF_ASTC_8x8_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_8x8_KHR
+				case gl::INTERNAL_RGBA_ASTC_10x5: return getTranslatedFinalFormat(EF_ASTC_10x5_UNORM_BLOCK); 				//GL_COMPRESSED_RGBA_ASTC_10x5_KHR
+				case gl::INTERNAL_RGBA_ASTC_10x6: return getTranslatedFinalFormat(EF_ASTC_10x6_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_10x6_KHR
+				case gl::INTERNAL_RGBA_ASTC_10x8: return getTranslatedFinalFormat(EF_ASTC_10x8_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_10x8_KHR
+				case gl::INTERNAL_RGBA_ASTC_10x10: return getTranslatedFinalFormat(EF_ASTC_10x10_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_10x10_KHR
+				case gl::INTERNAL_RGBA_ASTC_12x10: return getTranslatedFinalFormat(EF_ASTC_12x10_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_12x10_KHR
+				case gl::INTERNAL_RGBA_ASTC_12x12: return getTranslatedFinalFormat(EF_ASTC_12x12_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_12x12_KHR
 
 				// sRGB formats
 				case gl::INTERNAL_SRGB_DXT1: return getTranslatedFinalFormat();					//GL_COMPRESSED_SRGB_S3TC_DXT1_EXT
@@ -433,6 +414,12 @@ namespace irr
 				case gl::INTERNAL_RGBA16_SSCALED_GTC: return getTranslatedFinalFormat();
 				default: assert(0);
 			}
+		}
+
+		inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t& layer, const uint16_t& face, const uint16_t& texelBlockByteSize)
+		{
+			const void* ptrToBegginingOfData = texture.data(layer, face, 0);
+			memcpy(regionData, ptrToBegginingOfData, texelBlockByteSize * texture.extent().x * texture.extent().y);
 		}
 	}
 }

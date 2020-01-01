@@ -2,14 +2,14 @@
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#pragma once
+#ifndef __C_IMAGE_WRITER_GLI__
+#define __C_IMAGE_WRITER_GLI__
 
 #include "IrrCompileConfig.h"
 
 #ifdef _IRR_COMPILE_WITH_GLI_WRITER_
 
 #include "irr/asset/IAssetLoader.h"
-#include "gli/gli.hpp"
 
 namespace irr
 {
@@ -42,9 +42,10 @@ namespace irr
 			bool writeGLIFile(io::IWriteFile* file, const asset::ICPUImage* image);
 
 		private:
-
+			
 		};
 	}
 }
 
 #endif // _IRR_COMPILE_WITH_GLI_WRITER_
+#endif // #ifndef __C_IMAGE_WRITER_GLI__

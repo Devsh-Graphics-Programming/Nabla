@@ -39,13 +39,7 @@ namespace irr
 
 			SAssetWriteContext ctx{ _params, _file };
 
-			const asset::ICPUImage* image =
-			#ifndef _IRR_DEBUG
-				static_cast<const asset::ICPUImage*>(_params.rootAsset);
-			#else
-				dynamic_cast<const asset::ICPUImage*>(_params.rootAsset);
-			#endif
-			assert(image);
+			const asset::ICPUImage* image = IAsset::castDown<ICPUImage>(_params.rootAsset);
 
 			io::IWriteFile* file = _override->getOutputFile(_file, ctx, { image, 0u });
 

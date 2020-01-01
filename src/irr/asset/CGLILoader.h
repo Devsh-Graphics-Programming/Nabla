@@ -1,16 +1,15 @@
-
 // Copyright (C) 2009-2012 Gaz Davidson
 // This file is part of the "Irrlicht Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#pragma once
+#ifndef __C_IMAGE_LOADER_GLI__
+#define __C_IMAGE_LOADER_GLI__
 
 #include "IrrCompileConfig.h"
 
 #ifdef _IRR_COMPILE_WITH_GLI_LOADER_
 
 #include "irr/asset/IAssetLoader.h"
-#include "gli/gli.hpp"
 
 namespace irr
 {
@@ -38,16 +37,10 @@ namespace irr
 			asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 		private:
-			struct SContext
-			{
-				SContext(const size_t& sizeInBytes) : sourceCodeBuffer(core::make_smart_refctd_ptr<ICPUBuffer>(sizeInBytes)) {}
-				io::IReadFile* file;
-				core::smart_refctd_ptr<ICPUBuffer> sourceCodeBuffer;
-			};
-
-			inline static std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion);
+			
 		};
 	}
 }
 
 #endif // _IRR_COMPILE_WITH_GLI_LOADER_
+#endif // __C_IMAGE_LOADER_GLI__
