@@ -76,3 +76,6 @@
 [submodule "3rdparty/openexr"]
 	path = 3rdparty/openexr
 	url = https://github.com/AcademySoftwareFoundation/openexr.git
+[submodule "3rdparty/gli"]
+	path = 3rdparty/gli
+	url = https://github.com/g-truc/gli.git

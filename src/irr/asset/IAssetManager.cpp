@@ -17,10 +17,6 @@
 #include "irr/asset/CBAWMeshFileLoader.h"
 #endif
 
-#ifdef _IRR_COMPILE_WITH_DDS_LOADER_
-#include "irr/asset/CImageLoaderDDS.h"
-#endif
-
 #ifdef _IRR_COMPILE_WITH_JPG_LOADER_
 #include "irr/asset/CImageLoaderJPG.h"
 #endif
@@ -35,6 +31,10 @@
 
 #ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
 #include "irr/asset/CImageLoaderOpenEXR.h"
+#endif
+
+#ifdef _IRR_COMPILE_WITH_GLI_LOADER_
+#include "irr/asset/CGLILoader.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_STL_WRITER_
@@ -63,6 +63,10 @@
 
 #ifdef _IRR_COMPILE_WITH_OPENEXR_WRITER_
 #include "irr/asset/CImageWriterOpenEXR.h"
+#endif
+
+#ifdef _IRR_COMPILE_WITH_GLI_WRITER_
+#include "irr/asset/CGLIWriter.h"
 #endif
 
 #include "irr/asset/CGLSLLoader.h"
@@ -113,9 +117,6 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _IRR_COMPILE_WITH_BAW_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
 #endif
-#ifdef _IRR_COMPILE_WITH_DDS_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderDDS>());
-#endif
 #ifdef _IRR_COMPILE_WITH_JPG_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderJPG>());
 #endif
@@ -125,6 +126,9 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderOpenEXR>());
 #endif
+#ifdef  _IRR_COMPILE_WITH_GLI_LOADER_
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLILoader>());
+#endif 
 #ifdef _IRR_COMPILE_WITH_TGA_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>());
 #endif
@@ -151,5 +155,8 @@ void IAssetManager::addLoadersAndWriters()
 #endif
 #ifdef _IRR_COMPILE_WITH_OPENEXR_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterOpenEXR>());
+#endif
+#ifdef _IRR_COMPILE_WITH_GLI_WRITER_
+	addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>());
 #endif
 }
