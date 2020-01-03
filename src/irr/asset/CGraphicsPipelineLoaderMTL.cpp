@@ -20,53 +20,51 @@ bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) con
     return mtl.find("newmtl") != std::string::npos;
 }
 
-namespace
+
+core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipelineLayoutFromMtl(const CMTLPipelineMetadata::SMtl& _mtl)
 {
-    core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromMtl(const CMTLPipelineMetadata::SMtl& _mtl)
+    const size_t textureCnt = std::count_if(_mtl.maps, _mtl.maps + CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 1u, [](const std::string& _path) { return !_path.empty(); });
+    auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(textureCnt);
+
+    ICPUDescriptorSetLayout::SBinding bnd;
+    bnd.count = 1u;
+    bnd.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+    bnd.type = EDT_COMBINED_IMAGE_SAMPLER;
+    std::fill(bindings->begin(), bindings->end(), bnd);
+
+    auto getDefaultSampler = [this](const char* _key) {
+        size_t storageSz = 1ull;
+        asset::SAssetBundle bundle;
+        const IAsset::E_TYPE types[]{ IAsset::ET_SAMPLER, static_cast<IAsset::E_TYPE>(0u) };
+
+        m_assetMgr->findAssets(storageSz, &bundle, _key, types);
+        auto assets = bundle.getContents();
+        assert(assets.first != assets.second);
+
+        return assets.first[0];
+    };
+
+    core::smart_refctd_ptr<ICPUSampler> samplers[2];
+    samplers[0] = getDefaultSampler("irr/builtin/samplers/default");
+    samplers[1] = getDefaultSampler("irr/builtin/samplers/default_clamp_to_border");
+    for (uint32_t i = 0u, j = 0u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
     {
-        const size_t textureCnt = std::count_if(_mtl.maps, _mtl.maps + CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 1u, [](const std::string& _path) { return !_path.empty(); });
-        auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(textureCnt);
-
-        ICPUDescriptorSetLayout::SBinding bnd;
-        bnd.count = 1u;
-        bnd.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
-        bnd.type = EDT_COMBINED_IMAGE_SAMPLER;
-        std::fill(bindings->begin(), bindings->end(), bnd);
-
-        ICPUSampler::SParams smplParams;
-        smplParams.TextureWrapU = smplParams.TextureWrapV = smplParams.TextureWrapW = ICPUSampler::ETC_REPEAT;
-        smplParams.BorderColor = ICPUSampler::ETBC_FLOAT_TRANSPARENT_BLACK;
-        smplParams.MinFilter = smplParams.MaxFilter = ICPUSampler::ETF_LINEAR;
-        smplParams.MipmapMode = ICPUSampler::ESMM_LINEAR;
-        smplParams.AnisotropicFilter = 0u;
-        smplParams.CompareEnable = 0u;
-        smplParams.LodBias = 0.f;
-        smplParams.MinLod = -1000.f;
-        smplParams.MaxLod = 1000.f;
-
-        core::smart_refctd_ptr<ICPUSampler> samplers[2];
-        samplers[0] = core::make_smart_refctd_ptr<ICPUSampler>(smplParams);
-        smplParams.TextureWrapU = smplParams.TextureWrapV = smplParams.TextureWrapW = ICPUSampler::ETC_CLAMP_TO_BORDER;
-        samplers[1] = core::make_smart_refctd_ptr<ICPUSampler>(smplParams);
-        for (uint32_t i = 0u, j = 0u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
+        if (!_mtl.maps[i].empty())
         {
-            if (!_mtl.maps[i].empty())
-            {
-                (*bindings)[j].binding = j;
+            (*bindings)[j].binding = j;
 
-                const uint32_t clamp = (_mtl.clamp >> i) & 1u;
-                (*bindings)[j].samplers = samplers + clamp;
+            const uint32_t clamp = (_mtl.clamp >> i) & 1u;
+            (*bindings)[j].samplers = samplers + clamp;
 
-                ++j;
-            }
+            ++j;
         }
-
-        auto dsLayout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end());
-        //ds with textures for material goes to set=3
-        auto layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr, nullptr, nullptr, nullptr, nullptr, std::move(dsLayout));
-
-        return layout;
     }
+
+    auto dsLayout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end());
+    //ds with textures for material goes to set=3
+    auto layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr, nullptr, nullptr, nullptr, nullptr, std::move(dsLayout));
+
+    return layout;
 }
 
 SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)

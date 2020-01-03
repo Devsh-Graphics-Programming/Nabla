@@ -14,42 +14,49 @@ public:
     {
         std::string name;
 
-        //Ka
-        core::vector3df_SIMD ambient = core::vector3df_SIMD(1.f);
-        //Kd
-        core::vector3df_SIMD diffuse = core::vector3df_SIMD(1.f);
-        //Ks
-        core::vector3df_SIMD specular = core::vector3df_SIMD(1.f);
-        //Ke
-        core::vector3df_SIMD emissive = core::vector3df_SIMD(1.f);
-        //Tf
-        core::vector3df_SIMD transmissionFilter = core::vector3df_SIMD(1.f);
-        //Ns, specular exponent in phong model
-        float shininess = 32.f;
-        //d
-        float opacity = 1.f;
-        //illum
-        uint32_t illumModel = 0u;
-        //-bm
-        float bumpFactor = 1.f;
+#include "irr/irrpack.h"
+        struct
+        {
+            //Ka
+            core::vector3df_SIMD ambient = core::vector3df_SIMD(1.f);
+            //Kd
+            core::vector3df_SIMD diffuse = core::vector3df_SIMD(1.f);
+            //Ks
+            core::vector3df_SIMD specular = core::vector3df_SIMD(1.f);
+            //Ke
+            core::vector3df_SIMD emissive = core::vector3df_SIMD(1.f);
+            //Tf
+            core::vector3df_SIMD transmissionFilter = core::vector3df_SIMD(1.f);
+            //Ns, specular exponent in phong model
+            float shininess = 32.f;
+            //d
+            float opacity = 1.f;
+            //illum
+            uint32_t illumModel = 0u;
+            //-bm
+            float bumpFactor = 1.f;
 
-        //PBR
-        //Ni, index of refraction
-        float IoR = 1.6f;
-        //Pr
-        float roughness = 0.f;
-        //Pm
-        float metallic = 0.f;
-        //Ps
-        float sheen;
-        //Pc
-        float clearcoatThickness;
-        //Pcr
-        float clearcoatRoughness;
-        //aniso
-        float anisotropy = 0.f;
-        //anisor
-        float anisoRotation = 0.f;
+            //PBR
+            //Ni, index of refraction
+            float IoR = 1.6f;
+            //Pr
+            float roughness = 0.f;
+            //Pm
+            float metallic = 0.f;
+            //Ps
+            float sheen = 0.f;
+            //Pc
+            float clearcoatThickness = 0.f;
+            //Pcr
+            float clearcoatRoughness = 0.f;
+            //aniso
+            float anisotropy = 0.f;
+            //anisor
+            float anisoRotation = 0.f;
+        } PACK_STRUCT std140PackedData;
+#include "irr/irrunpack.h"
+        //VS Intellisense shows error here because it think vectorSIMDf is 32 bytes, but it just Intellisense - it'll build anyway
+        static_assert(sizeof(std140PackedData)==128ull, "Something went wrong");
 
         enum E_MAP_TYPE : uint32_t
         {

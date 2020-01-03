@@ -9,7 +9,6 @@ namespace irr
 {
 namespace asset
 {	
-	//! OpenEXR loader capable of loading .exr files
 	class CGraphicsPipelineLoaderMTL final : public asset::IAssetLoader
 	{
         using SMtl = CMTLPipelineMetadata::SMtl;
@@ -30,6 +29,7 @@ namespace asset
 		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
     private:
+        core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromMtl(const CMTLPipelineMetadata::SMtl& _mtl);
         core::vector<SMtl> readMaterials(io::IReadFile* _file) const;
         const char* readTexture(const char* _bufPtr, const char* const _bufEnd, SMtl* _currMaterial, const char* _mapType) const;
 

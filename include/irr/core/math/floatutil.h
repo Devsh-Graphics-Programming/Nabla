@@ -48,21 +48,21 @@ IRR_FORCE_INLINE matrix4SIMD ROUNDING_ERROR<matrix4SIMD>();
 #endif
 //! Constant for PI.
 template<typename T>
-IRR_FORCE_INLINE T PI()
+IRR_FORCE_INLINE constexpr T PI()
 {
 	return T(3.14159265358979323846);
 }
 
 //! Constant for reciprocal of PI.
 template<typename T>
-IRR_FORCE_INLINE T RECIPROCAL_PI()
+IRR_FORCE_INLINE constexpr T RECIPROCAL_PI()
 {
 	return T(1.0) / PI<T>();
 }
 
 //! Constant for half of PI.
 template<typename T>
-IRR_FORCE_INLINE T HALF_PI()
+IRR_FORCE_INLINE constexpr T HALF_PI()
 {
 	return PI<T>() * T(0.5);
 }
@@ -72,15 +72,25 @@ template<typename T>
 T nan();
 
 template<>
-IRR_FORCE_INLINE float nan() {return static_cast<const float&>(0x7F800000u);}
+IRR_FORCE_INLINE constexpr float nan<float>() {return static_cast<const float&>(0x7F800000u);}
 
 
 template<typename T>
 T infinity();
 
 template<>
-IRR_FORCE_INLINE float infinity() {return static_cast<const float&>(0x7FFFFFFFu);}
+IRR_FORCE_INLINE constexpr float infinity<float>() {return static_cast<const float&>(0x7FFFFFFFu);}
 
+
+template<typename T>
+bool isnan(T val);
+
+template<>
+IRR_FORCE_INLINE constexpr bool isnan<float>(float val) 
+{ 
+    constexpr float nan_ = core::nan<float>();
+    return reinterpret_cast<uint32_t&>(val)==reinterpret_cast<const uint32_t&>(nan_); 
+}
 
 union FloatIntUnion32
 {

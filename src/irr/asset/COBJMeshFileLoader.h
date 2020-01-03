@@ -155,7 +155,7 @@ public:
 
 private:
     using images_set_t = std::array<core::smart_refctd_ptr<ICPUImage>, CMTLPipelineMetadata::SMtl::EMP_COUNT>;
-    images_set_t loadImages(const char* _relDir, const CMTLPipelineMetadata::SMtl& _mtl);
+    images_set_t loadImages(const char* _relDir, const CMTLPipelineMetadata::SMtl& _mtl, uint32_t _hierarchyLvl);
     core::smart_refctd_ptr<ICPUDescriptorSet> makeDescSet(const images_set_t& _images, ICPUDescriptorSetLayout* _dsLayout);
 
 	// returns a pointer to the first printable character available in the buffer
@@ -175,9 +175,9 @@ private:
 	//! Read RGB color
 	const char* readColor(const char* bufPtr, video::SColor& color, const char* const pBufEnd);
 	//! Read 3d vector of floats
-	const char* readVec3(const char* bufPtr, core::vector3df& vec, const char* const pBufEnd);
+	const char* readVec3(const char* bufPtr, float vec[3], const char* const pBufEnd);
 	//! Read 2d vector of floats
-	const char* readUV(const char* bufPtr, core::vector2df& vec, const char* const pBufEnd);
+	const char* readUV(const char* bufPtr, float vec[2], const char* const pBufEnd);
 	//! Read boolean value represented as 'on' or 'off'
 	const char* readBool(const char* bufPtr, bool& tf, const char* const bufEnd);
 
