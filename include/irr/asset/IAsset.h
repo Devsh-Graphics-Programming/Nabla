@@ -108,6 +108,29 @@ class IAsset : virtual public core::IReferenceCounted
 			return core::findLSB(static_cast<uint64_t>(_type));
 		}
 
+		//! Returns reinterpreted Asset for an Asset expecting full pointer type Asset
+		/**
+			assetType is an Asset the rootAsset will be assigned to after
+			interpretation process. So if your full pointer Asset is an 
+			ICPUImage you can attempt to interpate passing rootAsset
+			as it. 
+
+			It will perform assert if the attempt fails.
+		*/
+		template<typename assetType>
+		static const assetType* castDown(const IAsset* rootAsset)
+		{
+			const assetType* image =
+				#ifdef _IRR_DEBUG
+					static_cast<const assetType*>(rootAsset);
+				#else
+					dynamic_cast<const assetType*>(rootAsset);
+				#endif
+
+				assert(image);
+			return image;
+		}
+
 		IAsset() : isDummyObjectForCacheAliasing{false}, m_metadata{nullptr} {}
 
 		//! Returns correct size reserved associated with an Asset and its data

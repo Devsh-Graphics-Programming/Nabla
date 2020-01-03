@@ -3,8 +3,6 @@
 
 #include "IrrCompileConfig.h"
 
-#include "irr/core/IReferenceCounted.h"
-
 #include "IWriteFile.h"
 #include "IAsset.h"
 

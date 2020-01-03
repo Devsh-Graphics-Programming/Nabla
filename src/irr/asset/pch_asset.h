@@ -11,14 +11,17 @@
 
 	// image
 		// loaders
-		#include "irr/asset/CImageLoaderDDS.h"
 		#include "irr/asset/CImageLoaderJPG.h"
 		#include "irr/asset/CImageLoaderPNG.h"
 		#include "irr/asset/CImageLoaderTGA.h"
+		#include "irr/asset/CImageLoaderOpenEXR.h"
+		#include "irr/asset/CGLILoader.h"
 		// writers
 		#include "irr/asset/CImageWriterJPG.h"
 		#include "irr/asset/CImageWriterPNG.h"
 		#include "irr/asset/CImageWriterTGA.h"
+		#include "irr/asset/CImageWriterOpenEXR.h"
+		#include "irr/asset/CGLIWriter.h"
 
 	// shaders
 	#include "irr/asset/CShaderIntrospector.h"

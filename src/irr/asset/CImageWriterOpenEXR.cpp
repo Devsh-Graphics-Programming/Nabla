@@ -48,7 +48,7 @@ namespace irr
 		constexpr uint8_t availableChannels = 4;
 
 		template<typename ilmType>
-		void createAndWriteImage(std::array<ilmType*, availableChannels>& pixelsArrayIlm, const asset::ICPUImage* image, const char* fileName)
+		bool createAndWriteImage(std::array<ilmType*, availableChannels>& pixelsArrayIlm, const asset::ICPUImage* image, const char* fileName)
 		{
 			auto getIlmType = [&]()
 			{
@@ -58,52 +58,49 @@ namespace irr
 					return PixelType::FLOAT;
 				else if (image->getCreationParameters().format == EF_R32G32B32A32_UINT)
 					return PixelType::UINT;
-			};
-
-			static const uint32_t MAX_PITCH_ALIGNMENT = 8u;											// OpenGL cannot transfer rows with arbitrary padding
-			auto calcPitchInBlocks = [](uint32_t width, uint32_t blockByteSize) -> uint32_t			// try with largest alignment first
-			{
-				auto rowByteSize = width * blockByteSize;
-				for (uint32_t _alignment = MAX_PITCH_ALIGNMENT; _alignment > 1u; _alignment >>= 1u)
-				{
-					auto paddedSize = core::alignUp(rowByteSize, _alignment);
-					if (paddedSize % blockByteSize)
-						continue;
-					return paddedSize / blockByteSize;
-				}
-				return width;
+				else
+					return PixelType::NUM_PIXELTYPES;
 			};
 
 			Header header(image->getCreationParameters().extent.width, image->getCreationParameters().extent.height);
-			OutputFile file(fileName, header);
 			const PixelType pixelType = getIlmType();
 			FrameBuffer frameBuffer;
 
-			auto byteSizeOfSingleChannelPixel = image->getCreationParameters().format == EF_R16G16B16A16_SFLOAT ? 2 : 4;
-			const uint32_t texelFormatByteSize = getTexelOrBlockBytesize(image->getCreationParameters().format);
-			const auto& width = image->getCreationParameters().extent.width;
-			const auto& height = image->getCreationParameters().extent.height;
-			const auto pitch = calcPitchInBlocks(width, texelFormatByteSize) * texelFormatByteSize / availableChannels / (image->getCreationParameters().format == EF_R16G16B16A16_SFLOAT ? 2 : 4);
+			if (pixelType == PixelType::NUM_PIXELTYPES || image->getCreationParameters().type != IImage::E_TYPE::ET_2D)
+				return false;
 
-			for (uint8_t channel = 0; channel < availableChannels; ++channel)
-				pixelsArrayIlm[channel] = _IRR_NEW_ARRAY(ilmType, width * height);
+			const uint64_t width = image->getCreationParameters().extent.width;
+			const uint64_t height = image->getCreationParameters().extent.height;
+			const auto blockByteSize = asset::getTexelOrBlockBytesize(image->getCreationParameters().format);
+			std::vector<const IImage::SBufferCopy*> regionsToHandle;
 
-			for (uint64_t yPos = 0; yPos < height; ++yPos)
-				for (uint64_t xPos = 0; xPos < width; ++xPos)
-				{
-					const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * pitch) + (xPos * availableChannels);
-					const uint64_t ptrStyleIlmShiftToDataChannelPixel = (yPos * width) + xPos;
+			for (auto region = image->getRegions().begin(); region != image->getRegions().end(); ++region)
+				if (region->imageSubresource.mipLevel == 0)
+					regionsToHandle.push_back(region);
 
-					for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)
+			for (auto& channelPixelsPtr : pixelsArrayIlm)
+				channelPixelsPtr = _IRR_NEW_ARRAY(ilmType, width * height);
+
+			const auto texelBlockSize = asset::getTexelOrBlockBytesize(image->getCreationParameters().format);
+			auto data = image->getBuffer()->getPointer();
+			for (auto region : regionsToHandle)
+			{
+				auto regionWidth = region->bufferRowLength == 0 ? region->imageExtent.width : region->bufferRowLength;
+				auto regionHeight = region->bufferImageHeight == 0 ? region->imageExtent.height : region->bufferImageHeight;
+
+				for (uint64_t yPos = region->imageOffset.y; yPos < region->imageOffset.y + regionHeight; ++yPos)
+					for (uint64_t xPos = region->imageOffset.x; xPos < region->imageOffset.x + regionWidth; ++xPos)
 					{
-						ilmType channelPixel = *(reinterpret_cast<const ilmType*>(image->getBuffer()->getPointer()) + ptrStyleEndShiftToImageDataPixel + channelIndex);
-						std::cout << channelPixel << " "; // wtf
+						const uint8_t* texelPtr = reinterpret_cast<const uint8_t*>(data) + region->bufferOffset + (yPos * regionWidth + xPos) * texelBlockSize;
+						const uint64_t ptrStyleIlmShiftToDataChannelPixel = (yPos * width) + xPos;
 
-						*(pixelsArrayIlm[channelIndex] + ptrStyleIlmShiftToDataChannelPixel) = channelPixel;
-						//std::cout << *(pixelsArrayIlm[channelIndex] + ptrStyleIlmShiftToDataChannelPixel) << " ";
+						for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)
+						{
+							ilmType channelPixel = *(reinterpret_cast<const ilmType*>(texelPtr) + channelIndex);
+							*(pixelsArrayIlm[channelIndex] + ptrStyleIlmShiftToDataChannelPixel) = channelPixel;
+						}
 					}
-					std::cout << "\n";
-				}
+			}
 
 			constexpr std::array<char*, availableChannels> rgbaSignatureAsText = { "R", "G", "B", "A" };
 			for (uint8_t channel = 0; channel < rgbaSignatureAsText.size(); ++channel)
@@ -114,15 +111,17 @@ namespace irr
 					rgbaSignatureAsText[channel],                                                                // name
 					Slice(pixelType,                                                                             // type
 					(char*) pixelsArrayIlm[channel],                                                             // base
-					sizeof(*pixelsArrayIlm[channel]) * 1,                                                            // xStride
-					sizeof(*pixelsArrayIlm[channel]) * image->getCreationParameters().extent.width)                  // yStride
+					sizeof(*pixelsArrayIlm[channel]) * 1,                                                        // xStride
+					sizeof(*pixelsArrayIlm[channel]) * width)                                                    // yStride
 				);
 			}
 
+			OutputFile file(fileName, header);
 			file.setFrameBuffer(frameBuffer);
-			file.writePixels(image->getCreationParameters().extent.height);
+			file.writePixels(height);
 
-			// deallocate
+			for (auto channelPixelsPtr : pixelsArrayIlm)
+				_IRR_DELETE_ARRAY(channelPixelsPtr, width * height);
 		}
 
 		bool CImageWriterOpenEXR::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
@@ -132,13 +131,10 @@ namespace irr
 
 			SAssetWriteContext ctx{ _params, _file };
 
-			const asset::ICPUImage* image =
-			#ifndef _IRR_DEBUG
-				static_cast<const asset::ICPUImage*>(_params.rootAsset);
-			#else
-				dynamic_cast<const asset::ICPUImage*>(_params.rootAsset);
-			#endif
-			assert(image);
+			const asset::ICPUImage* image = IAsset::castDown<ICPUImage>(_params.rootAsset);
+
+			if (image->getBuffer()->isADummyObjectForCache())
+				return false;
 
 			io::IWriteFile* file = _override->getOutputFile(_file, ctx, { image, 0u });
 

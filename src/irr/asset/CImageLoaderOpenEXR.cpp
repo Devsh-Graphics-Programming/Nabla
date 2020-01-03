@@ -135,23 +135,10 @@ namespace irr
 		};
 
 		template<typename IlmF>
-		bool trackIrrFormatAndPerformDataAssignment(const E_FORMAT& currentIrrlichtImageFormat, const E_FORMAT& formatToCompareWith, void* begginingOfImageDataBuffer, const uint64_t& endShiftToSpecifyADataPos, const IlmF& ilmPixelValueToAssignTo)
+		void trackIrrFormatAndPerformDataAssignment(void* begginingOfImageDataBuffer, const uint64_t& endShiftToSpecifyADataPos, const IlmF& ilmPixelValueToAssignTo)
 		{
-			if (currentIrrlichtImageFormat == formatToCompareWith)
-			{
-				*(reinterpret_cast<IlmF*>(begginingOfImageDataBuffer) + endShiftToSpecifyADataPos) = ilmPixelValueToAssignTo;
-				return true;
-			}
-			return false;
+			*(reinterpret_cast<IlmF*>(begginingOfImageDataBuffer) + endShiftToSpecifyADataPos) = ilmPixelValueToAssignTo;
 		}
-
-		template<typename IlmF>
-		void assignToReinterpretedValue(E_FORMAT currentIrrlichtBaseFormatToCompareWith, void* begginingOfImageDataBuffer, const uint64_t& endShiftToSpecifyADataPos, const IlmF& ilmPixelValueToAssignTo)
-		{
-			trackIrrFormatAndPerformDataAssignment<half>(currentIrrlichtBaseFormatToCompareWith, EF_R16G16B16A16_SFLOAT, begginingOfImageDataBuffer, endShiftToSpecifyADataPos, ilmPixelValueToAssignTo);
-			trackIrrFormatAndPerformDataAssignment<float>(currentIrrlichtBaseFormatToCompareWith, EF_R32G32B32A32_SFLOAT, begginingOfImageDataBuffer, endShiftToSpecifyADataPos, ilmPixelValueToAssignTo);
-			trackIrrFormatAndPerformDataAssignment<uint32_t>(currentIrrlichtBaseFormatToCompareWith, EF_R32G32B32A32_UINT, begginingOfImageDataBuffer, endShiftToSpecifyADataPos, ilmPixelValueToAssignTo);
-		};
 
 		asset::SAssetBundle CImageLoaderOpenEXR::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
@@ -199,21 +186,7 @@ namespace irr
 			params.extent.width = width;
 			params.extent.height = height;
 
-			static const uint32_t MAX_PITCH_ALIGNMENT = 8u;											// OpenGL cannot transfer rows with arbitrary padding
-			auto calcPitchInBlocks = [](uint32_t width, uint32_t blockByteSize) -> uint32_t			// try with largest alignment first
-			{
-				auto rowByteSize = width * blockByteSize;
-				for (uint32_t _alignment = MAX_PITCH_ALIGNMENT; _alignment > 1u; _alignment >>= 1u)
-				{
-					auto paddedSize = core::alignUp(rowByteSize, _alignment);
-					if (paddedSize % blockByteSize)
-						continue;
-					return paddedSize / blockByteSize;
-				}
-				return width;
-			};
-
-			auto& image = ICPUImage::create(std::move(params));
+			auto image = ICPUImage::create(std::move(params));
 
 			const uint32_t texelFormatByteSize = getTexelOrBlockBytesize(image->getCreationParameters().format);
 			auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(image->getImageDataSizeInBytes());
@@ -228,9 +201,9 @@ namespace irr
 			region.bufferImageHeight = 0u;
 			region.imageOffset = { 0u, 0u, 0u };
 			region.imageExtent = image->getCreationParameters().extent;
-
+		
 			void* fetchedData = texelBuffer->getPointer();
-			const auto pitch = region.bufferRowLength * texelFormatByteSize / availableChannels / (params.format == EF_R16G16B16A16_SFLOAT ? 2 : 4);
+			const auto pitch = region.bufferRowLength;
 
 			for (uint64_t yPos = 0; yPos < height; ++yPos)
 				for (uint64_t xPos = 0; xPos < width; ++xPos)
@@ -244,35 +217,17 @@ namespace irr
 						const auto& uint32_tChannelElement =  (uint32_tPixelMapArray[channelIndex])[yPos][xPos];
 
 						if (params.format == EF_R16G16B16A16_SFLOAT)
-							assignToReinterpretedValue(params.format, fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, halfChannelElement);
+							trackIrrFormatAndPerformDataAssignment<half>(fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, halfChannelElement);
 						else if (params.format == EF_R32G32B32A32_SFLOAT)
-							assignToReinterpretedValue(params.format, fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, fullFloatChannelElement);
+							trackIrrFormatAndPerformDataAssignment<float>(fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, fullFloatChannelElement);
 						else if (params.format == EF_R32G32B32A32_UINT)
-							assignToReinterpretedValue(params.format, fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, uint32_tChannelElement);
-						
-						std::cout << *(reinterpret_cast<float*>(fetchedData) + ptrStyleEndShiftToImageDataPixel + channelIndex) << " ";
+							trackIrrFormatAndPerformDataAssignment<uint32_t>(fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, uint32_tChannelElement);
 					}
-					std::cout << "\n";
 				}
-
-			std::cout << "\n\n\n\n\n\n\n\n\nREAD IMAGE LIKE YOU DO IN WRITER\n";
 
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
 
-			// TESTS
-			for (uint64_t yPos = 0; yPos < height; ++yPos)
-				for (uint64_t xPos = 0; xPos < width; ++xPos)
-				{
-					const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * pitch) + (xPos * availableChannels);
-
-					for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)
-					{
-						std::cout << *(reinterpret_cast<float*>(image->getBuffer()->getPointer()) + ptrStyleEndShiftToImageDataPixel + channelIndex) << " ";
-					}
-					std::cout << "\n";
-				}
-
-			return SAssetBundle{image};
+			return SAssetBundle({image});
 		}
 
 		bool CImageLoaderOpenEXR::isALoadableFileFormat(io::IReadFile* _file) const
@@ -317,7 +272,7 @@ namespace irr
 					sizeof((pixelRgbaMapArray[rgbaChannelIndex])[0][0]) * 1,                                    // xStride
 					sizeof((pixelRgbaMapArray[rgbaChannelIndex])[0][0]) * width,                                // yStride
 					1, 1,                                                                                       // x/y sampling
-					1                                                                                           // fillValue - default alpha if there is no alpha channel
+					rgbaChannelIndex == 3 ? 1 : 0                                                               // default fillValue for channels that aren't present in file - 1 for alpha, otherwise 0
 				));	
 
 			file.setFrameBuffer(frameBuffer);
@@ -337,14 +292,18 @@ namespace irr
 
 			if (XChannel && YChannel && ZChannel)
 			{
-				os::Printer::log("LOAD EXR: the file consist of not supported CEI XYZ channels", file.fileName(), ELL_ERROR);
+				os::Printer::log("LOAD EXR: the file consist of not supported CIE XYZ channels", file.fileName(), ELL_ERROR);
 				return false;
 			}
-			else if (!RChannel || !GChannel || !BChannel)
-			{
-				os::Printer::log("LOAD EXR: the file doesn't consist of RGB channels", file.fileName(), ELL_ERROR);
-				return false;
-			}
+
+			if (RChannel && GChannel && BChannel)
+				os::Printer::log("LOAD EXR: loading RGB file", file.fileName(), ELL_INFORMATION);
+			else if(RChannel && GChannel)
+				os::Printer::log("LOAD EXR: loading RG file", file.fileName(), ELL_INFORMATION);
+			else if(RChannel)
+				os::Printer::log("LOAD EXR: loading R file", file.fileName(), ELL_INFORMATION);
+			else 
+				os::Printer::log("LOAD EXR: the file's channels are invalid to load", file.fileName(), ELL_ERROR);
 
 			if (AChannel)
 				doesItSupportAlphaChannel = true;
@@ -493,4 +452,4 @@ namespace irr
 	}
 }
 
-#endif // #ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
+#endif // _IRR_COMPILE_WITH_OPENEXR_LOADER_
