@@ -50,6 +50,7 @@ namespace video
         // GL_DISPATCH_INDIRECT_BUFFER 
         GSB_DISPATCH_INDIRECT = 1u << 4,
         GSB_PUSH_CONSTANTS = 1u << 5,
+        GSB_PIXEL_PACK_UNPACK = 1u << 6,
         // flush everything
         GSB_ALL = ~0x0u
     };
@@ -177,6 +178,18 @@ struct SOpenGLState
     struct {
         SDescSetBnd descSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
     } descriptorsParams[E_PIPELINE_BIND_POINT::EPBP_COUNT];
+
+    struct SPixelPackUnpack {
+        core::smart_refctd_ptr<const COpenGLBuffer> buffer;
+        GLint alignment = 4;
+        GLint rowLength = 0;
+        GLint imgHeight = 0;
+        GLint BCwidth = 0;
+        GLint BCheight = 0;
+        GLint BCdepth = 0;
+    };
+    SPixelPackUnpack pixelPack;
+    SPixelPackUnpack pixelUnpack;
 };
 
 
