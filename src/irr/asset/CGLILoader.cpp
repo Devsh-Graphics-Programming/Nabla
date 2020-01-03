@@ -33,7 +33,7 @@ namespace irr
 	namespace asset
 	{
 		inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion);
-		inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t& layer, const uint16_t& face, const uint16_t& pixelStride);
+		inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t& layer, const uint16_t& face, const uint16_t& level, const uint64_t& sizeOfData);
 
 		asset::SAssetBundle CGLILoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
@@ -60,7 +60,7 @@ namespace irr
 				return {};
 			}
 
-			switch (target)
+			switch (texture.target())
 			{
 				case gli::TARGET_1D:
 				{
@@ -119,27 +119,55 @@ namespace irr
 			imageInfo.samples = ICPUImage::ESCF_1_BIT;
 			imageInfo.extent.width = texture.extent().x;
 			imageInfo.extent.height = texture.extent().y;
-			imageInfo.extent.width = texture.extent().z;
-			imageInfo.mipLevels = 1;
+			imageInfo.extent.depth = texture.extent().z;
+			imageInfo.mipLevels = texture.levels();
 			imageInfo.arrayLayers = texture.faces() * texture.layers();
 
-			auto image = ICPUImage::create(std::move(imageInfo));
+			auto& image = ICPUImage::create(std::move(imageInfo));
 
-			const auto texelBlockByteSize = asset::getTexelOrBlockBytesize(image->getCreationParameters().format);
+			const auto texelBlockByteSize = asset::getTexelOrBlockBytesize(imageInfo.format);
 			auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(texture.size());
-			auto data = texelBuffer->getPointer();
+			auto data = reinterpret_cast<uint8_t*>(texelBuffer->getPointer());
 
-			auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(image->getCreationParameters().arrayLayers);
-			uint16_t arrayLayerIndex = {};
-			for (auto region = regions->begin(); region != regions->end(); ++region)
+			auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(imageInfo.mipLevels);
+
+			auto getFullSizeOfRegion = [&]() -> uint64_t
 			{
-				const uint16_t layer = arrayLayerIndex / 6;
-				const uint16_t face = arrayLayerIndex % 6;
+				uint64_t sz = {};
+				for (uint16_t index = 0; index < texture.levels(); ++index)
+					sz += texture.size(index);
+				return sz;
+			};
 
-				region->imageExtent = image->getCreationParameters().extent;
-				assignGLIDataToRegion((reinterpret_cast<uint8_t*>(data) + region->bufferOffset), texture, layer, face, texelBlockByteSize);
+			const uint64_t sizeOfRegion = getFullSizeOfRegion();
 
-				++arrayLayerIndex;
+			{
+				uint16_t regionIndex = {};
+				for (auto region = regions->begin(); region != regions->end(); ++region)
+				{
+					region->imageExtent.width = texture.extent(regionIndex).x;
+					region->imageExtent.height = texture.extent(regionIndex).y;
+					region->imageExtent.depth = texture.extent(regionIndex).z;
+					region->imageSubresource.mipLevel = regionIndex;
+					region->imageSubresource.layerCount = imageInfo.arrayLayers;
+					region->imageSubresource.baseArrayLayer = 0;
+					++regionIndex;
+				}
+			}
+
+			for (uint16_t layer = 0; layer < imageInfo.arrayLayers; ++layer)
+			{
+				const uint16_t gliLayer = texture.layers() > 1 ? layer % 6 : 0;
+				const uint16_t gliFace = texture.faces() > 1 ? layer / 6 : 0;
+
+				uint64_t tmpDataSizePerRegionSum = {};
+				for (uint16_t mipLevel = 0; mipLevel < imageInfo.mipLevels; ++mipLevel)
+				{
+					const uint64_t sizeOfData = texture.size(mipLevel);
+
+					assignGLIDataToRegion((reinterpret_cast<uint8_t*>(data) + (layer * sizeOfRegion) + tmpDataSizePerRegionSum), texture, gliLayer, gliFace, mipLevel, sizeOfData);
+					tmpDataSizePerRegionSum += sizeOfData;
+				}
 			}
 
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
@@ -155,9 +183,9 @@ namespace irr
 			imageViewInfo.subresourceRange.layerCount = texture.faces() * texture.layers();
 			imageViewInfo.subresourceRange.levelCount = 1u;
 
-			auto viewImage = ICPUImageView::create(std::move(imageViewInfo));
+			auto& imageView = ICPUImageView::create(std::move(imageViewInfo));
 
-			return SAssetBundle{viewImage};
+			return SAssetBundle{imageView};
 		}
 
 		bool CGLILoader::isALoadableFileFormat(io::IReadFile* _file) const
@@ -416,10 +444,10 @@ namespace irr
 			}
 		}
 
-		inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t& layer, const uint16_t& face, const uint16_t& texelBlockByteSize)
+		inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t& layer, const uint16_t& face, const uint16_t& level, const uint64_t& sizeOfData)
 		{
-			const void* ptrToBegginingOfData = texture.data(layer, face, 0);
-			memcpy(regionData, ptrToBegginingOfData, texelBlockByteSize * texture.extent().x * texture.extent().y);
+			const void* ptrToBegginingOfData = texture.data(layer, face, level);
+			memcpy(regionData, ptrToBegginingOfData, sizeOfData);
 		}
 	}
 }

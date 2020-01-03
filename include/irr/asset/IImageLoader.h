@@ -14,10 +14,10 @@ namespace irr
 		{
 			public:
 
+			protected:
+
 				IImageLoader() = default;
 				virtual ~IImageLoader() = 0;
-
-			protected:
 
 			private:
 		};

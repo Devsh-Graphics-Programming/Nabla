@@ -12,10 +12,10 @@ namespace irr
 		{
 			public:
 
+			protected:
+
 				IImageAssetHandlerBase() = default;
 				virtual ~IImageAssetHandlerBase() = 0;
-
-			protected:
 
 				static const uint32_t MAX_PITCH_ALIGNMENT = 8u;										             // OpenGL cannot transfer rows with arbitrary padding
 				static inline uint32_t calcPitchInBlocks(uint32_t width, uint32_t blockByteSize)                 // try with largest alignment first

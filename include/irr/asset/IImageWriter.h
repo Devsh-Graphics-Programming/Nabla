@@ -15,10 +15,10 @@ namespace irr
 		{
 			public:
 
+			protected:
+
 				IImageWriter() = default;
 				virtual ~IImageWriter() = 0;
-
-			protected:
 		
 				template<class ConvertImageTexelToOutputFunctional> inline void flattenRegions(void* frameBuffer, uint32_t pixelStride, uint32_t rowStride, uint32_t heightStride, IImage::SBufferCopy* _begin, IImage::SBufferCopy* _end, bool doesItHandleSeperateChannelBuffers = false)
 				{
