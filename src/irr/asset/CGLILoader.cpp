@@ -180,8 +180,8 @@ namespace irr
 			imageViewInfo.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
 			imageViewInfo.subresourceRange.baseArrayLayer = 0u;
 			imageViewInfo.subresourceRange.baseMipLevel = 0u;
-			imageViewInfo.subresourceRange.layerCount = texture.faces() * texture.layers();
-			imageViewInfo.subresourceRange.levelCount = 1u;
+			imageViewInfo.subresourceRange.layerCount = imageInfo.arrayLayers;
+			imageViewInfo.subresourceRange.levelCount = imageInfo.mipLevels;
 
 			auto& imageView = ICPUImageView::create(std::move(imageViewInfo));
 
