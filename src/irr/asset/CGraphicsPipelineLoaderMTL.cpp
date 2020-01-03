@@ -220,7 +220,7 @@ const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const c
         else if (strncmp(_bufPtr,"-bm",3)==0)
 		{
 			_bufPtr = goAndCopyNextWord(tmpbuf, _bufPtr, WORD_BUFFER_LENGTH, _bufEnd);
-			sscanf(tmpbuf, "%f", &_currMaterial->bumpFactor);
+			sscanf(tmpbuf, "%f", &_currMaterial->std140PackedData.bumpFactor);
 		}
 		else
 		if (strncmp(_bufPtr,"-blendu",7)==0)
@@ -362,16 +362,16 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(io::IReadFile* _file) const -> co
             {
                 const float a = readFloat();
                 if (bufPtr[5] == 'r')
-                    currMaterial->anisoRotation = a;
+                    currMaterial->std140PackedData.anisoRotation = a;
                 else
-                    currMaterial->anisotropy = a;
+                    currMaterial->std140PackedData.anisotropy = a;
             }
         break;
         case 'i': // illum - illumination
             if (currMaterial)
             {
                 bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-                currMaterial->illumModel = atol(tmpbuf);
+                currMaterial->std140PackedData.illumModel = atol(tmpbuf);
             }
             break;
         case 'N':
@@ -380,10 +380,10 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(io::IReadFile* _file) const -> co
                 switch (bufPtr[1])
                 {
                 case 's': // Ns - shininess
-                    currMaterial->shininess = readFloat();
+                    currMaterial->std140PackedData.shininess = readFloat();
                     break;
                 case 'i': // Ni - refraction index
-                    currMaterial->IoR = readFloat();
+                    currMaterial->std140PackedData.IoR = readFloat();
                     break;
                 }
             }
@@ -394,16 +394,16 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(io::IReadFile* _file) const -> co
                 switch (bufPtr[1])
                 {
                 case 'd':		// Kd = diffuse
-                    currMaterial->diffuse = readRGB();
+                    currMaterial->std140PackedData.diffuse = readRGB();
                     break;
                 case 's':		// Ks = specular
-                    currMaterial->specular = readRGB();
+                    currMaterial->std140PackedData.specular = readRGB();
                     break;
                 case 'a':		// Ka = ambience
-                    currMaterial->ambient = readRGB();
+                    currMaterial->std140PackedData.ambient = readRGB();
                     break;
                 case 'e':		// Ke = emissive
-                    currMaterial->emissive = readRGB();
+                    currMaterial->std140PackedData.emissive = readRGB();
                     break;
                 }	// end switch(bufPtr[1])
             }	// end case 'K': if (currMaterial)...
@@ -414,22 +414,22 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(io::IReadFile* _file) const -> co
                 switch (bufPtr[1])
                 {
                 case 'r':
-                    currMaterial->roughness = readFloat();
+                    currMaterial->std140PackedData.roughness = readFloat();
                     break;
                 case 'm':
-                    currMaterial->metallic = readFloat();
+                    currMaterial->std140PackedData.metallic = readFloat();
                     break;
                 case 's':
-                    currMaterial->sheen = readFloat();
+                    currMaterial->std140PackedData.sheen = readFloat();
                     break;
                 case 'c':
                     switch (bufPtr[2])
                     {
                     case 'r':
-                        currMaterial->clearcoatRoughness = readFloat();
+                        currMaterial->std140PackedData.clearcoatRoughness = readFloat();
                         break;
                     case 0:
-                        currMaterial->clearcoatThickness = readFloat();
+                        currMaterial->std140PackedData.clearcoatThickness = readFloat();
                         break;
                     }
                     break;
@@ -438,7 +438,7 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(io::IReadFile* _file) const -> co
             break;
         case 'd': // d - transparency
             if (currMaterial)
-                currMaterial->opacity = readFloat();
+                currMaterial->std140PackedData.opacity = readFloat();
             break;
         case 'T':
             if (currMaterial)
@@ -446,10 +446,10 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(io::IReadFile* _file) const -> co
                 switch (bufPtr[1])
                 {
                 case 'f':		// Tf - Transmitivity
-                    currMaterial->transmissionFilter = readRGB();
+                    currMaterial->std140PackedData.transmissionFilter = readRGB();
                     break;
                 case 'r':       // Tr, transparency = 1.0-d
-                    currMaterial->opacity = (1.f - readFloat());
+                    currMaterial->std140PackedData.opacity = (1.f - readFloat());
                     break;
                 }
             }
