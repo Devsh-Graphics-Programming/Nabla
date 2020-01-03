@@ -186,7 +186,7 @@ namespace irr
 			params.extent.width = width;
 			params.extent.height = height;
 
-			auto& image = ICPUImage::create(std::move(params));
+			auto image = ICPUImage::create(std::move(params));
 
 			const uint32_t texelFormatByteSize = getTexelOrBlockBytesize(image->getCreationParameters().format);
 			auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(image->getImageDataSizeInBytes());
@@ -227,7 +227,7 @@ namespace irr
 
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
 
-			return SAssetBundle{image};
+			return SAssetBundle({image});
 		}
 
 		bool CImageLoaderOpenEXR::isALoadableFileFormat(io::IReadFile* _file) const

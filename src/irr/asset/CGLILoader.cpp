@@ -123,7 +123,7 @@ namespace irr
 			imageInfo.mipLevels = texture.levels();
 			imageInfo.arrayLayers = texture.faces() * texture.layers();
 
-			auto& image = ICPUImage::create(std::move(imageInfo));
+			auto image = ICPUImage::create(std::move(imageInfo));
 
 			const auto texelBlockByteSize = asset::getTexelOrBlockBytesize(imageInfo.format);
 			auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(texture.size());
@@ -183,9 +183,9 @@ namespace irr
 			imageViewInfo.subresourceRange.layerCount = imageInfo.arrayLayers;
 			imageViewInfo.subresourceRange.levelCount = imageInfo.mipLevels;
 
-			auto& imageView = ICPUImageView::create(std::move(imageViewInfo));
+			auto imageView = ICPUImageView::create(std::move(imageViewInfo));
 
-			return SAssetBundle{imageView};
+			return SAssetBundle({imageView});
 		}
 
 		bool CGLILoader::isALoadableFileFormat(io::IReadFile* _file) const
