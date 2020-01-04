@@ -147,9 +147,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 {
                     auto pipeln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(*it);
                     auto metadata = static_cast<const CMTLPipelineMetadata*>(pipeln->getMetadata());
-                    std::string mtldir = (io::IFileSystem::getFileDir(tmpbuf) + "/").c_str();
+                    std::string mtlfilepath = tmpbuf;
 
-                    decltype(pipelines)::value_type::second_type val{std::move(mtldir), std::move(pipeln)};
+                    decltype(pipelines)::value_type::second_type val{std::move(mtlfilepath), std::move(pipeln)};
                     pipelines.insert({metadata->getMaterial().name, std::move(val)});
                 }
 			}
@@ -215,10 +215,11 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 if (ctx.useMaterials && !ctx.useGroups)
                 {
                     asset::IAsset::E_TYPE types[] {asset::IAsset::ET_SUB_MESH, (asset::IAsset::E_TYPE)0u };
-                    auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW).getContents();
-                    if (mb_bundle.first!=mb_bundle.second)
+                    auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
+                    auto mbs = mb_bundle.getContents();
+                    if (mbs.first!= mbs.second)
                     {
-                        submeshes.push_back(core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(*mb_bundle.first));
+                        submeshes.push_back(core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(*mbs.first));
                     }
                     else
                     {
@@ -233,20 +234,36 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                             //cloning pipeline because it will be edited (vertex input params)
                             //note shallow copy (depth=0), i.e. only pipeline is cloned, but all its sub-assets are taken from original object
                             submeshes.back()->setPipeline(core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(pipeln.second->clone(0u)));
-                            //also make descriptor set
-                            auto metadata = static_cast<const CMTLPipelineMetadata*>(pipeln.second->getMetadata());
-                            images_set_t images = loadImages(pipeln.first.c_str(), metadata->getMaterial(), _hierarchyLevel+ICPUMesh::IMAGE_HIERARCHYLEVELS_BELOW);
-                            //intentionally always creating new DS (even if there already is another submesh holding DS with the same descriptors)
-                            //TODO decision to make: try to reuse DSs or leave as it is now? User might want to each submesh's DS in different way, so i'd say leave as is now
-                            auto ds3 = makeDescSet(images, pipeln.second->getLayout()->getDescriptorSetLayout(3u));
+                            //also make/find descriptor set
+                            std::string dsCacheKey = pipeln.first + "?" + mtlName + "?_ds";
+                            auto ds_bundle = _override->findCachedAsset(dsCacheKey, types, ctx.inner, _hierarchyLevel+ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
+                            auto ds_bundle_contents = ds_bundle.getContents();
+                            core::smart_refctd_ptr<ICPUDescriptorSet> ds3;
+                            if (ds_bundle_contents.first != ds_bundle_contents.second)
+                            {
+                                ds3 = ds_bundle_contents.first[0];
+                            }
+                            else
+                            {
+                                auto metadata = static_cast<const CMTLPipelineMetadata*>(pipeln.second->getMetadata());
+                                auto relDir = (io::IFileSystem::getFileDir(pipeln.first.c_str()) + "/");
+                                images_set_t images = loadImages(relDir.c_str(), metadata->getMaterial(), _hierarchyLevel + ICPUMesh::IMAGE_HIERARCHYLEVELS_BELOW);
+                                ds3 = makeDescSet(images, pipeln.second->getLayout()->getDescriptorSetLayout(3u));
+
+                                SAssetBundle bundle{ds3};
+                                _override->insertAssetIntoCache(bundle, dsCacheKey, ctx.inner, _hierarchyLevel+ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
+                            }
                             submeshes.back()->setAttachedDescriptorSet(std::move(ds3));
 #ifndef _IRR_DEBUG
                         }
 #endif
+                        SAssetBundle bundle{submeshes.back()};
+                        _override->insertAssetIntoCache(bundle, genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
+                        interm_setAssetMutable(AssetManager, submeshes.back().get(), true); //insertion into cache makes asset immutable, so temporarily make it mutable because it has to be adjusted more
                     }
                     indices.emplace_back();
                     recalcNormals.push_back(false);
-                    submeshWasLoadedFromCache.push_back(mb_bundle.first!=mb_bundle.second);
+                    submeshWasLoadedFromCache.push_back(mbs.first!=mbs.second);
                 }
 			}
 			break;
@@ -447,6 +464,10 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		mesh->recalculateBoundingBox(true);
 	else
         return {};
+    
+    //at the very end, when meshbuffers are finished, set them back as immutable
+    for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
+        interm_setAssetMutable(AssetManager, mesh->getMeshBuffer(i), false);
 
 	return SAssetBundle({std::move(mesh)});
 }
@@ -535,7 +556,7 @@ auto COBJMeshFileLoader::loadImages(const char* _relDir, const CMTLPipelineMetad
         //assuming all cubemap layer images are same size and same format
         ICPUImage::SCreationParams cubemapParams = images[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX]->getCreationParameters();
         cubemapParams.arrayLayers = 6u;
-        cubemapParams.type = IImage::ET_3D;
+        cubemapParams.type = IImage::ET_2D;
 
         auto cubemap = ICPUImage::create(std::move(cubemapParams));
         auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(regions_);
@@ -556,7 +577,8 @@ core::smart_refctd_ptr<ICPUDescriptorSet> COBJMeshFileLoader::makeDescSet(const 
     auto ds = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(
         core::smart_refctd_ptr<ICPUDescriptorSetLayout>(_dsLayout)
     );
-    for (uint32_t i = 0u, d = 0u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
+    //d starts from 1u because binding 0 is UBO
+    for (uint32_t i = 0u, d = 1u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
     {
         if (!_images[i])
             continue;
@@ -582,6 +604,10 @@ core::smart_refctd_ptr<ICPUDescriptorSet> COBJMeshFileLoader::makeDescSet(const 
         desc->image.sampler = nullptr; //not needed, MTL loader puts immutable samplers into layout
         ++d;
     }
+    auto desc = ds->getDescriptors(0u).begin();
+    desc->desc = core::make_smart_refctd_ptr<ICPUBuffer>(16u*4u);//size of 4x4 matrix (MVP)
+    desc->buffer.offset = 0ull;
+    desc->buffer.size = 16u*4u;
 
     return ds;
 }

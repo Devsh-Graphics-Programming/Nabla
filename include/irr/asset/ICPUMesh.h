@@ -17,6 +17,7 @@ class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public I
 		//! These are not absolute constants, just the most common situation, there may be setups of assets/resources with completely different relationships.
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MESHBUFFER_HIERARCHYLEVELS_BELOW = 1u;
         _IRR_STATIC_INLINE_CONSTEXPR uint32_t PIPELINE_HIERARCHYLEVELS_BELOW = 2u;//mesh->meshbuffer->pipeline
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t DESC_SET_HIERARCHYLEVELS_BELOW = 2u;//mesh->meshbuffer->ds
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t IMAGEVIEW_HIERARCHYLEVELS_BELOW = 3u;//mesh->meshbuffer->ds->imageview
         _IRR_STATIC_INLINE_CONSTEXPR uint32_t IMAGE_HIERARCHYLEVELS_BELOW = 4u;//mesh->meshbuffer->ds->imageview->image
 

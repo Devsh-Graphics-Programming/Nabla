@@ -162,7 +162,7 @@ class IAsset : virtual public core::IReferenceCounted
 	protected:
 		bool isDummyObjectForCacheAliasing; //!< A bool for setting whether Asset is in dummy state. @see convertToDummyObject(uint32_t referenceLevelsBelowToConvert)
 
-        bool m_mutable = false;
+        bool m_mutable = true;
 
 		//! To be implemented by base classes, dummies must retain references to other assets
 		//! but cleans up all other resources which are not assets.
