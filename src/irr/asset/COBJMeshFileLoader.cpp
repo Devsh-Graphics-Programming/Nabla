@@ -82,31 +82,28 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	if (!filesize)
         return {};
 
-	const uint32_t WORD_BUFFER_LENGTH = 512;
+	const uint32_t WORD_BUFFER_LENGTH = 512u;
+    char tmpbuf[WORD_BUFFER_LENGTH]{};
 
-	core::vector<core::vector3df> vertexBuffer;
-	core::vector<core::vector3df> normalsBuffer;
-	core::vector<core::vector2df> textureCoordBuffer;
-
-	SObjMtl * currMtl = new SObjMtl();
-	ctx.Materials.push_back(currMtl);
 	uint32_t smoothingGroup=0;
 
 	const io::path fullName = _file->getFileName();
-	const io::path relPath = io::IFileSystem::getFileDir(fullName)+"/";
+	const std::string relPath = (io::IFileSystem::getFileDir(fullName)+"/").c_str();
 
-	char* buf = new char[filesize];
-	memset(buf, 0, filesize);
-	_file->read((void*)buf, filesize);
+    //value_type: directory from which .mtl (pipeline) was loaded and the pipeline
+    core::unordered_map<std::string, std::pair<std::string, core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>>> pipelines;
+
+    std::string fileContents;
+    fileContents.resize(filesize);
+	char* const buf = fileContents.data();
+	_file->read(buf, filesize);
 	const char* const bufEnd = buf+filesize;
 
 	// Process obj information
 	const char* bufPtr = buf;
 	std::string grpName, mtlName;
-	bool mtlChanged=false;
-    bool submeshLoadedFromCache = false;
 
-	auto performActionBasedOnOrientationSystem = [&](auto performOnRightHanded, auto performOnLeftHanded = [&](void) {})
+	auto performActionBasedOnOrientationSystem = [&](auto performOnRightHanded, auto performOnLeftHanded)
 	{
 		if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
 			performOnRightHanded();
@@ -114,6 +111,23 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			performOnLeftHanded();
 	};
 
+
+    struct vec3 {
+        float data[3];
+    };
+    struct vec2 {
+        float data[2];
+    };
+    core::vector<vec3> vertexBuffer;
+    core::vector<vec3> normalsBuffer;
+    core::vector<vec2> textureCoordBuffer;
+
+    core::vector<core::smart_refctd_ptr<ICPUMeshBuffer>> submeshes;
+    core::vector<core::vector<uint32_t>> indices;
+    core::vector<SObjVertex> vertices;
+    core::map<SObjVertex, uint32_t> map_vtx2ix;
+    core::vector<bool> recalcNormals;
+    core::vector<bool> submeshWasLoadedFromCache;
 	while(bufPtr != bufEnd)
 	{
 		switch(bufPtr[0])
@@ -122,43 +136,51 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		{
 			if (ctx.useMaterials)
 			{
-				char name[WORD_BUFFER_LENGTH];
-				bufPtr = goAndCopyNextWord(name, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
+				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
 #ifdef _IRR_DEBUG_OBJ_LOADER_
-				os::Printer::log("Reading material _file",name);
+				os::Printer::log("Reading material _file",tmpbuf);
 #endif
-				readMTL(ctx, name, relPath);
+
+                SAssetLoadParams loadParams;
+                auto bundle = interm_getAssetInHierarchy(AssetManager, tmpbuf, loadParams, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
+                for (auto it = bundle.getContents().first; it != bundle.getContents().second; ++it)
+                {
+                    auto pipeln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(*it);
+                    auto metadata = static_cast<const CMTLPipelineMetadata*>(pipeln->getMetadata());
+                    std::string mtldir = (io::IFileSystem::getFileDir(tmpbuf) + "/").c_str();
+
+                    decltype(pipelines)::value_type::second_type val{std::move(mtldir), std::move(pipeln)};
+                    pipelines.insert({metadata->getMaterial().name, std::move(val)});
+                }
 			}
 		}
 			break;
 
 		case 'v':               // v, vn, vt
-            if (submeshLoadedFromCache)
-                break;
 			switch(bufPtr[1])
 			{
 			case ' ':          // vertex
 				{
-					core::vector3df vec;
-					bufPtr = readVec3(bufPtr, vec, bufEnd);
-					performActionBasedOnOrientationSystem([&]() {vec.X = -vec.X;}, [&]() {});
+					vec3 vec;
+					bufPtr = readVec3(bufPtr, vec.data, bufEnd);
+					performActionBasedOnOrientationSystem([&]() {vec.data[0] = -vec.data[0];}, [&]() {});
 					vertexBuffer.push_back(vec);
 				}
 				break;
 
 			case 'n':       // normal
 				{
-					core::vector3df vec;
-					bufPtr = readVec3(bufPtr, vec, bufEnd);
-					performActionBasedOnOrientationSystem([&]() {vec.X = -vec.X; }, [&]() {});
+					vec3 vec;
+					bufPtr = readVec3(bufPtr, vec.data, bufEnd);
+					performActionBasedOnOrientationSystem([&]() {vec.data[0] = -vec.data[0]; }, [&]() {});
 					normalsBuffer.push_back(vec);
 				}
 				break;
 
 			case 't':       // texcoord
 				{
-					core::vector2df vec;
-					bufPtr = readUV(bufPtr, vec, bufEnd);
+					vec2 vec;
+					bufPtr = readUV(bufPtr, vec.data, bufEnd);
 					textureCoordBuffer.push_back(vec);
 				}
 				break;
@@ -166,93 +188,72 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			break;
 
 		case 'g': // group name
-			{
-				char grp[WORD_BUFFER_LENGTH];
-				bufPtr = goAndCopyNextWord(grp, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-#ifdef _IRR_DEBUG_OBJ_LOADER_
-	os::Printer::log("Loaded group start",grp, ELL_DEBUG);
-#endif
-				if (ctx.useGroups)
-				{
-					if (0 != grp[0])
-						grpName = grp;
-					else
-						grpName = "default";
-
-                    asset::IAsset::E_TYPE types[] {asset::IAsset::ET_SUB_MESH, (asset::IAsset::E_TYPE)0u };
-                    auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, 1u).getContents();
-                    if (mb_bundle.first!=mb_bundle.second)
-                    {
-                        auto mb = static_cast<asset::ICPUMeshBuffer*>(mb_bundle.first->get());
-                        mb->grab();
-                        SObjMtl* mtl = findMtl(ctx, mtlName, grpName);
-                        ctx.preloadedSubmeshes.insert(std::make_pair(mtl, mb));
-                    }
-                    else mtlChanged=true;
-
-                    submeshLoadedFromCache = (mb_bundle.first!=mb_bundle.second);
-				}
-			}
+            bufPtr = goNextWord(bufPtr, bufEnd);
 			break;
-
 		case 's': // smoothing can be a group or off (equiv. to 0)
 			{
-				char smooth[WORD_BUFFER_LENGTH];
-				bufPtr = goAndCopyNextWord(smooth, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
+				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
 #ifdef _IRR_DEBUG_OBJ_LOADER_
-	os::Printer::log("Loaded smoothing group start",smooth, ELL_DEBUG);
+	os::Printer::log("Loaded smoothing group start",tmpbuf, ELL_DEBUG);
 #endif
-				if (core::stringc("off")==smooth)
-					smoothingGroup=0;
+				if (core::stringc("off")==tmpbuf)
+					smoothingGroup=0u;
 				else
-                    sscanf(smooth,"%u",&smoothingGroup);
+                    sscanf(tmpbuf,"%u",&smoothingGroup);
 			}
 			break;
 
 		case 'u': // usemtl
 			// get name of material
 			{
-				char matName[WORD_BUFFER_LENGTH];
-				bufPtr = goAndCopyNextWord(matName, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
+				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
 #ifdef _IRR_DEBUG_OBJ_LOADER_
-	os::Printer::log("Loaded material start",matName, ELL_DEBUG);
+	os::Printer::log("Loaded material start",tmpbuf, ELL_DEBUG);
 #endif
-				mtlName=matName;
+				mtlName=tmpbuf;
 
                 if (ctx.useMaterials && !ctx.useGroups)
                 {
                     asset::IAsset::E_TYPE types[] {asset::IAsset::ET_SUB_MESH, (asset::IAsset::E_TYPE)0u };
-                    auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, 1u).getContents();
+                    auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW).getContents();
                     if (mb_bundle.first!=mb_bundle.second)
                     {
-                        auto mb = static_cast<asset::ICPUMeshBuffer*>(mb_bundle.first->get());
-                        mb->grab();
-                        SObjMtl* mtl = findMtl(ctx, mtlName, grpName);
-                        ctx.preloadedSubmeshes.insert(std::make_pair(mtl, mb));
+                        submeshes.push_back(core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(*mb_bundle.first));
                     }
-                    else mtlChanged=true;
-
-                    submeshLoadedFromCache = (mb_bundle.first!=mb_bundle.second);
+                    else
+                    {
+                        submeshes.push_back(core::make_smart_refctd_ptr<ICPUMeshBuffer>());
+                        auto found = pipelines.find(mtlName);
+                        assert(found != pipelines.end());
+#ifndef _IRR_DEBUG
+                        if (found != pipelines.end())
+                        {
+#endif
+                            auto& pipeln = found->second;
+                            //cloning pipeline because it will be edited (vertex input params)
+                            //note shallow copy (depth=0), i.e. only pipeline is cloned, but all its sub-assets are taken from original object
+                            submeshes.back()->setPipeline(core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(pipeln.second->clone(0u)));
+                            //also make descriptor set
+                            auto metadata = static_cast<const CMTLPipelineMetadata*>(pipeln.second->getMetadata());
+                            images_set_t images = loadImages(pipeln.first.c_str(), metadata->getMaterial(), _hierarchyLevel+ICPUMesh::IMAGE_HIERARCHYLEVELS_BELOW);
+                            //intentionally always creating new DS (even if there already is another submesh holding DS with the same descriptors)
+                            //TODO decision to make: try to reuse DSs or leave as it is now? User might want to each submesh's DS in different way, so i'd say leave as is now
+                            auto ds3 = makeDescSet(images, pipeln.second->getLayout()->getDescriptorSetLayout(3u));
+                            submeshes.back()->setAttachedDescriptorSet(std::move(ds3));
+#ifndef _IRR_DEBUG
+                        }
+#endif
+                    }
+                    indices.emplace_back();
+                    recalcNormals.push_back(false);
+                    submeshWasLoadedFromCache.push_back(mb_bundle.first!=mb_bundle.second);
                 }
 			}
 			break;
 
 		case 'f':               // face
 		{
-            if (submeshLoadedFromCache)
-                break;
-			char vertexWord[WORD_BUFFER_LENGTH]; // for retrieving vertex data
 			SObjVertex v;
-			// Assign vertex color from currently active material's diffuse color
-			if (mtlChanged)
-			{
-				// retrieve the material
-				SObjMtl *useMtl = findMtl(ctx, mtlName, grpName);
-				// only change material if we found it
-				if (useMtl)
-					currMtl = useMtl;
-				mtlChanged=false;
-			}
 
 			// get all vertices data in this face (current line of obj _file)
 			const core::stringc wordBuffer = copyLine(bufPtr, bufEnd);
@@ -260,7 +261,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			const char* const endPtr = linePtr+wordBuffer.size();
 
 			core::vector<uint32_t> faceCorners;
-			faceCorners.reserve(32); // should be large enough
+			faceCorners.reserve(3ull);
 
 			// read in all vertices
 			linePtr = goNextWord(linePtr, endPtr);
@@ -273,78 +274,64 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				Idx[1] = Idx[2] = -1;
 
 				// read in next vertex's data
-				uint32_t wlength = copyWord(vertexWord, linePtr, WORD_BUFFER_LENGTH, endPtr);
+				uint32_t wlength = copyWord(tmpbuf, linePtr, WORD_BUFFER_LENGTH, endPtr);
 				// this function will also convert obj's 1-based index to c++'s 0-based index
-				retrieveVertexIndices(vertexWord, Idx, vertexWord+wlength+1, vertexBuffer.size(), textureCoordBuffer.size(), normalsBuffer.size());
-				v.pos[0] = vertexBuffer[Idx[0]].X;
-				v.pos[1] = vertexBuffer[Idx[0]].Y;
-				v.pos[2] = vertexBuffer[Idx[0]].Z;
+				retrieveVertexIndices(tmpbuf, Idx, tmpbuf+wlength+1, vertexBuffer.size(), textureCoordBuffer.size(), normalsBuffer.size());
+				v.pos[0] = vertexBuffer[Idx[0]].data[0];
+				v.pos[1] = vertexBuffer[Idx[0]].data[1];
+				v.pos[2] = vertexBuffer[Idx[0]].data[2];
 				//set texcoord
 				if ( -1 != Idx[1] )
                 {
-					v.uv[0] = textureCoordBuffer[Idx[1]].X;
-					v.uv[1] = textureCoordBuffer[Idx[1]].Y;
+					v.uv[0] = textureCoordBuffer[Idx[1]].data[0];
+					v.uv[1] = textureCoordBuffer[Idx[1]].data[1];
                 }
 				else
                 {
-					v.uv[0] = 0.f;
-					v.uv[1] = 0.f;
+					v.uv[0] = std::numeric_limits<float>::quiet_NaN();
+					v.uv[1] = std::numeric_limits<float>::quiet_NaN();
                 }
                 //set normal
 				if ( -1 != Idx[2] )
                 {
 					core::vectorSIMDf simdNormal;
-					simdNormal.set(normalsBuffer[Idx[2]]);
+					simdNormal.set(normalsBuffer[Idx[2]].data);
+                    simdNormal.makeSafe3D();
 					v.normal32bit = asset::quantizeNormal2_10_10_10(simdNormal);
                 }
 				else
 				{
 					v.normal32bit = 0;
-					currMtl->RecalculateNormals=true;
+                    recalcNormals.back() = true;
 				}
 
-				int vertLocation;
-				core::map<SObjVertex, int>::iterator n = currMtl->VertMap.find(v);
-				if (n!=currMtl->VertMap.end())
-				{
-					vertLocation = n->second;
-				}
+				uint32_t ix;
+				auto vtx_ix = map_vtx2ix.find(v);
+				if (vtx_ix != map_vtx2ix.end())
+					ix = vtx_ix->second;
 				else
 				{
-					currMtl->Vertices.push_back(v);
-					vertLocation = currMtl->Vertices.size() -1;
-					currMtl->VertMap.insert(std::pair<SObjVertex, int>(v, vertLocation));
+					ix = vertices.size();
+					vertices.push_back(v);
+					map_vtx2ix.insert({v, ix});
 				}
 
-				faceCorners.push_back(vertLocation);
+				faceCorners.push_back(ix);
 
 				// go to next vertex
 				linePtr = goNextWord(linePtr, endPtr);
 			}
 
-			// triangulate the face
-			for ( uint32_t i = 1; i < faceCorners.size() - 1; ++i )
-			{
-				// Add a triangle
-				performActionBasedOnOrientationSystem
-				(
-					[&]()
-					{
-						currMtl->Indices.push_back(faceCorners[0]);
-						currMtl->Indices.push_back(faceCorners[i]);
-						currMtl->Indices.push_back(faceCorners[i + 1]);
-					}, 
-				
-					[&]() 
-					{
-						currMtl->Indices.push_back(faceCorners[i + 1]);
-						currMtl->Indices.push_back(faceCorners[i]);
-						currMtl->Indices.push_back(faceCorners[0]);
-					}
-				);
-			}
-			faceCorners.resize(0); // fast clear
-			faceCorners.reserve(32);
+            assert(faceCorners.size()==3ull);
+			performActionBasedOnOrientationSystem
+			(
+				[](){},
+				[&]() 
+				{
+                    std::swap(faceCorners.front(), faceCorners.back());
+				}
+			);
+            indices.back().insert(indices.back().end(), faceCorners.begin(), faceCorners.end());
 		}
 		break;
 
@@ -355,490 +342,249 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		// eat up rest of line
 		bufPtr = goNextLine(bufPtr, bufEnd);
 	}	// end while(bufPtr && (bufPtr-buf<filesize))
-	// Clean up the allocate obj _file contents
-	delete [] buf;
 
-	asset::CCPUMesh* mesh = new asset::CCPUMesh();
+    core::vector<core::vectorSIMDf> newNormals;
+    auto doRecalcNormals = [&vertices,&newNormals](const core::vector<uint32_t>& _ixs) {
+        memset(newNormals.data(), 0, sizeof(core::vectorSIMDf)*newNormals.size());
 
-	// Combine all the groups (meshbuffers) into the mesh
-	for ( uint32_t m = 0; m < ctx.Materials.size(); ++m )
-	{
-        {//arbitrary scope
-            auto preloadedMbItr = ctx.preloadedSubmeshes.find(ctx.Materials[m]);
-            if (preloadedMbItr != ctx.preloadedSubmeshes.end())
-            {
-                mesh->addMeshBuffer(core::smart_refctd_ptr<ICPUMeshBuffer>(preloadedMbItr->second,core::dont_grab));
-                preloadedMbItr->second->drop(); // after grab when we got it from cache
+        auto minmax = std::minmax_element(_ixs.begin(), _ixs.end());
+        const uint32_t maxsz = *minmax.second - *minmax.first;
+        const uint32_t min = *minmax.first;
+        
+        newNormals.resize(maxsz, core::vectorSIMDf(0.f));
+        for (size_t i = 0ull; i < _ixs.size(); i += 3ull)
+        {
+            core::vectorSIMDf v1, v2, v3;
+            v1.set(vertices[_ixs[i-min+0u]].pos);
+            v2.set(vertices[_ixs[i-min+1u]].pos);
+            v3.set(vertices[_ixs[i-min+2u]].pos);
+            v1.makeSafe3D();
+            v2.makeSafe3D();
+            v3.makeSafe3D();
+            core::vectorSIMDf normal(core::plane3dSIMDf(v1, v2, v3).getNormal());
+            newNormals[_ixs[i-min+0u]] += normal;
+            newNormals[_ixs[i-min+1u]] += normal;
+            newNormals[_ixs[i-min+2u]] += normal;
+        }
+        for (uint32_t ix : _ixs)
+            vertices[ix].normal32bit = asset::quantizeNormal2_10_10_10(newNormals[ix-min]);
+    };
+
+    constexpr uint32_t POSITION = 0u;
+    constexpr uint32_t UV       = 2u;
+    constexpr uint32_t NORMAL   = 3u;
+    {
+        uint64_t ixBufOffset = 0ull;
+        for (size_t i = 0ull; i < submeshes.size(); ++i)
+        {
+            if (submeshWasLoadedFromCache[i])
                 continue;
-            }
-        }
+            if (recalcNormals[i])
+                doRecalcNormals(indices[i]);
 
-		if ( ctx.Materials[m]->Indices.size() == 0 )
-        {
-            continue;
-        }
+            submeshes[i]->setIndexCount(indices[i].size());
+            submeshes[i]->setIndexType(EIT_32BIT);
+            submeshes[i]->getIndexBufferBinding()->offset = ixBufOffset;
+            ixBufOffset += indices[i].size()*4ull;
 
-        if (ctx.Materials[m]->RecalculateNormals)
-        {
-            core::allocator<core::vectorSIMDf> alctr;
-            core::vectorSIMDf* newNormals = alctr.allocate(ctx.Materials[m]->Vertices.size());
-            memset(newNormals,0,sizeof(core::vectorSIMDf)*ctx.Materials[m]->Vertices.size());
-            for (size_t i=0; i<ctx.Materials[m]->Indices.size(); i+=3)
+            const bool hasUV = !core::isnan(vertices[indices[i][0]].uv[0]);
+            SVertexInputParams vtxParams;
+            vtxParams.enabledAttribFlags = (1u<<POSITION) | (1u<<NORMAL) | (hasUV ? (1u<<UV) : 0u);
+            vtxParams.enabledBindingFlags = vtxParams.enabledAttribFlags;
+            //position
+            vtxParams.attributes[POSITION].binding = 0u;
+            vtxParams.attributes[POSITION].format = EF_R32G32B32_SFLOAT;
+            vtxParams.attributes[POSITION].relativeOffset = offsetof(SObjVertex, pos);
+            vtxParams.bindings[POSITION].stride = sizeof(SObjVertex);
+            vtxParams.bindings[POSITION].inputRate = EVIR_PER_VERTEX;
+            //normal
+            vtxParams.attributes[NORMAL].binding = 3u;
+            vtxParams.attributes[NORMAL].format = EF_A2B10G10R10_SNORM_PACK32;
+            vtxParams.attributes[NORMAL].relativeOffset = offsetof(SObjVertex, normal32bit);
+            vtxParams.bindings[NORMAL].stride = sizeof(SObjVertex);
+            vtxParams.bindings[NORMAL].inputRate = EVIR_PER_VERTEX;
+            //uv
+            if (hasUV)
             {
-                core::vectorSIMDf v1,v2,v3;
-                v1.set(ctx.Materials[m]->Vertices[ctx.Materials[m]->Indices[i+0]].pos);
-                v2.set(ctx.Materials[m]->Vertices[ctx.Materials[m]->Indices[i+1]].pos);
-                v3.set(ctx.Materials[m]->Vertices[ctx.Materials[m]->Indices[i+2]].pos);
-                v1.makeSafe3D();
-                v2.makeSafe3D();
-                v3.makeSafe3D();
-                core::vectorSIMDf normal(core::plane3dSIMDf(v1, v2, v3).getNormal());
-                newNormals[ctx.Materials[m]->Indices[i+0]] += normal;
-                newNormals[ctx.Materials[m]->Indices[i+1]] += normal;
-                newNormals[ctx.Materials[m]->Indices[i+2]] += normal;
+                vtxParams.attributes[UV].binding = 2u;
+                vtxParams.attributes[UV].format = EF_R32G32_SFLOAT;
+                vtxParams.attributes[UV].relativeOffset = offsetof(SObjVertex, uv);
+                vtxParams.bindings[UV].stride = sizeof(SObjVertex);
+                vtxParams.bindings[UV].inputRate = EVIR_PER_VERTEX;
             }
-            for (size_t i=0; i<ctx.Materials[m]->Vertices.size(); i++)
-            {
-                ctx.Materials[m]->Vertices[i].normal32bit = asset::quantizeNormal2_10_10_10(newNormals[i]);
-            }
-            alctr.deallocate(newNormals,ctx.Materials[m]->Vertices.size());
+            submeshes[i]->getPipeline()->getVertexInputParams() = vtxParams;
         }
-        //if (ctx.Materials[m]->Material.MaterialType == -1)
-            //os::Printer::log("Loading OBJ Models with normal maps and tangents not supported!\n",ELL_ERROR);
-        //TODO ^^^^
 
-            /*
+        core::smart_refctd_ptr<ICPUBuffer> vtxBuf = core::make_smart_refctd_ptr<ICPUBuffer>(vertices.size() * sizeof(SObjVertex));
+        memcpy(vtxBuf->getPointer(), vertices.data(), vtxBuf->getSize());
+
+        auto ixBuf = core::make_smart_refctd_ptr<ICPUBuffer>(ixBufOffset);
+        for (size_t i = 0ull; i < submeshes.size(); ++i)
         {
-            SMesh tmp;
-            tmp.addMeshBuffer(ctx.Materials[m]->Meshbuffer);
-            IMesh* tangentMesh = SceneManager->getMeshManipulator()->createMeshWithTangents(&tmp);
-            mesh->addMeshBuffer(tangentMesh->getMeshBuffer(0));
-            tangentMesh->drop();
+            if (submeshWasLoadedFromCache[i])
+                continue;
+
+            submeshes[i]->getIndexBufferBinding()->buffer = ixBuf;
+            uint64_t offset = submeshes[i]->getIndexBufferBinding()->offset;
+            memcpy(reinterpret_cast<uint8_t*>(ixBuf->getPointer())+offset, indices[i].data(), indices[i].size()*4ull);
+
+            SBufferBinding<ICPUBuffer> vtxBufBnd;
+            vtxBufBnd.offset = 0ull;
+            vtxBufBnd.buffer = vtxBuf;
+
+            submeshes[i]->getVertexBufferBindings()[POSITION] = vtxBufBnd;
+            submeshes[i]->getVertexBufferBindings()[NORMAL] = vtxBufBnd;
+            if (submeshes[i]->getPipeline()->getVertexInputParams().enabledAttribFlags & (1u<<UV))
+                submeshes[i]->getVertexBufferBindings()[UV] = vtxBufBnd;
         }
-        else*/
+    }
 
-        auto meshbuffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
-        mesh->addMeshBuffer(core::smart_refctd_ptr(meshbuffer));
+    auto mesh = core::make_smart_refctd_ptr<CCPUMesh>();
+    for (auto& submesh : submeshes)
+        mesh->addMeshBuffer(std::move(submesh));
 
-#ifndef NEW_SHADERS
-        meshbuffer->getMaterial() = ctx.Materials[m]->Material;
-
-        auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
-#endif
-        bool doesntNeedIndices = true;
-        size_t baseVertex = ctx.Materials[m]->Indices[0];
-        for (size_t i=1; i<ctx.Materials[m]->Indices.size(); i++)
-        {
-            if (baseVertex+i!=ctx.Materials[m]->Indices[i])
-            {
-                doesntNeedIndices = false;
-                break;
-            }
-        }
-
-        size_t actualVertexCount;
-        if (doesntNeedIndices)
-        {
-            meshbuffer->setIndexCount(ctx.Materials[m]->Indices.size()-baseVertex);
-            actualVertexCount = meshbuffer->getIndexCount();
-        }
-        else
-        {
-            baseVertex = 0;
-            actualVertexCount = ctx.Materials[m]->Vertices.size();
-#ifndef NEW_SHADERS
-			{
-				auto indexbuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*ctx.Materials[m]->Indices.size());
-				memcpy(indexbuf->getPointer(),&ctx.Materials[m]->Indices[0],indexbuf->getSize());
-				desc->setIndexBuffer(std::move(indexbuf));
-			}
-#endif // !NEW_SHADERS
-
-            meshbuffer->setIndexType(asset::EIT_32BIT);
-            meshbuffer->setIndexCount(ctx.Materials[m]->Indices.size());
-        }
-
-#ifndef NEW_SHADERS
-		{
-			auto vertexbuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(actualVertexCount*sizeof(SObjVertex));
-			desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertexbuf),asset::EVAI_ATTR0,asset::EF_R32G32B32_SFLOAT,sizeof(SObjVertex),0);
-			desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertexbuf),asset::EVAI_ATTR2,asset::EF_R32G32_SFLOAT,sizeof(SObjVertex),12);
-			desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertexbuf),asset::EVAI_ATTR3,asset::EF_A2B10G10R10_SNORM_PACK32,sizeof(SObjVertex),20); //normal
-			memcpy(vertexbuf->getPointer(),ctx.Materials[m]->Vertices.data()+baseVertex,vertexbuf->getSize());
-		}
-		meshbuffer->setMeshDataAndFormat(std::move(desc));
-#endif
-        SAssetBundle bundle({std::move(meshbuffer)});
-        _override->insertAssetIntoCache(bundle, genKeyForMeshBuf(ctx, _file->getFileName().c_str(), ctx.Materials[m]->Name, ctx.Materials[m]->Group), ctx.inner, 1u);
-        //transfer ownership to smart_refctd_ptr, so instead of grab() in smart_refctd_ptr and drop() here, just do nothing (thus dont_grab goes as smart ptr ctor arg)
-	}
-
-	// more cleaning up
-	ctx.Materials.clear();
-
-	if ( 0 != mesh->getMeshBufferCount() )
+	if (mesh->getMeshBufferCount())
 		mesh->recalculateBoundingBox(true);
 	else
-    {
-		mesh->drop();
         return {};
-    }
 
-	return SAssetBundle({core::smart_refctd_ptr<IAsset>(mesh,core::dont_grab)});
+	return SAssetBundle({std::move(mesh)});
 }
 
-
-const char* COBJMeshFileLoader::readTextures(const SContext& _ctx, const char* bufPtr, const char* const bufEnd, SObjMtl* currMaterial, const io::path& relPath)
+auto COBJMeshFileLoader::loadImages(const char* _relDir, const CMTLPipelineMetadata::SMtl& _mtl, uint32_t _hierarchyLvl) -> images_set_t
 {
-	E_TEXTURE_TYPE type = ETT_COLOR_MAP;
-	// TODO: Redo this shit!!!! (Especially for sponza)
-	// map_Kd - diffuse color texture map
-	// map_Ks - specular color texture map
-	// map_Ka - ambient color texture map
-	// map_Ns - shininess texture map
-	if ((!strncmp(bufPtr,"map_bump",8)) || (!strncmp(bufPtr,"bump",4)))
-		type = ETT_BUMP_MAP;
-	else if ((!strncmp(bufPtr,"map_d",5)) || (!strncmp(bufPtr,"map_opacity",11)))
-		type = ETT_OPACITY_MAP;
-	else if (!strncmp(bufPtr,"map_refl",8))
-		type = ETT_REFLECTION_MAP;
-	// extract new material's name
-	char textureNameBuf[WORD_BUFFER_LENGTH];
-	bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
+    std::array<core::smart_refctd_ptr<ICPUImage>, CMTLPipelineMetadata::SMtl::EMP_COUNT> images;
 
-	float bumpiness = 6.0f;
-	bool clamp = false;
-	// handle options
-	while (textureNameBuf[0]=='-')
-	{
-		if (!strncmp(bufPtr,"-bm",3))
-		{
-#ifndef NEW_SHADERS
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			sscanf(textureNameBuf,"%f",&currMaterial->Material.MaterialTypeParam);
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-#endif
-			continue;
-		}
-		else
-		if (!strncmp(bufPtr,"-blendu",7))
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-		else
-		if (!strncmp(bufPtr,"-blendv",7))
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-		else
-		if (!strncmp(bufPtr,"-cc",3))
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-		else
-		if (!strncmp(bufPtr,"-clamp",6))
-			bufPtr = readBool(bufPtr, clamp, bufEnd);
-		else
-		if (!strncmp(bufPtr,"-texres",7))
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-		else
-		if (!strncmp(bufPtr,"-type",5))
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-		else
-		if (!strncmp(bufPtr,"-mm",3))
-		{
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-		}
-		else
-		if (!strncmp(bufPtr,"-o",2)) // texture coord translation
-		{
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			// next parameters are optional, so skip rest of loop if no number is found
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			if (!core::isdigit(textureNameBuf[0]))
-				continue;
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			if (!core::isdigit(textureNameBuf[0]))
-				continue;
-		}
-		else
-		if (!strncmp(bufPtr,"-s",2)) // texture coord scale
-		{
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			// next parameters are optional, so skip rest of loop if no number is found
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			if (!core::isdigit(textureNameBuf[0]))
-				continue;
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			if (!core::isdigit(textureNameBuf[0]))
-				continue;
-		}
-		else
-		if (!strncmp(bufPtr,"-t",2))
-		{
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			// next parameters are optional, so skip rest of loop if no number is found
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			if (!core::isdigit(textureNameBuf[0]))
-				continue;
-			bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-			if (!core::isdigit(textureNameBuf[0]))
-				continue;
-		}
-		// get next word
-		bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-	}
-
-#ifndef NEW_SHADERS
-	if ((type==ETT_BUMP_MAP) && (core::isdigit(textureNameBuf[0])))
-	{
-		sscanf(textureNameBuf,"%f",&currMaterial->Material.MaterialTypeParam);
-		bufPtr = goAndCopyNextWord(textureNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-	}
-	if (clamp)
+    std::string relDir = _relDir;
+    relDir += '/';
+    for (uint32_t i = 0u; i < images.size(); ++i)
     {
-        for (size_t i=0; i<_IRR_MATERIAL_MAX_TEXTURES_; i++)
+        SAssetLoadParams lp;
+        if (_mtl.maps[i].size())
         {
-            currMaterial->Material.TextureLayer[i].SamplingParams.TextureWrapU = video::ETC_CLAMP_TO_EDGE;
-            currMaterial->Material.TextureLayer[i].SamplingParams.TextureWrapV = video::ETC_CLAMP_TO_EDGE;
-            currMaterial->Material.TextureLayer[i].SamplingParams.TextureWrapW = video::ETC_CLAMP_TO_EDGE;
+            auto bundle = interm_getAssetInHierarchy(AssetManager, relDir + _mtl.maps[i], lp, _hierarchyLvl);
+            if (!bundle.isEmpty())
+                images[i] = core::smart_refctd_ptr_static_cast<ICPUImage>(bundle.getContents().first[0]);
         }
     }
-	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; i++)
-		currMaterial->Material.TextureLayer[i].SamplingParams.AnisotropicFilter = 16u;
-#endif
 
-	io::path texname(textureNameBuf);
-	handleBackslashes(&texname);
-
-#ifndef NEW_SHADERS
-	core::smart_refctd_ptr<asset::ICPUTexture> texture;
-	if (texname.size())
-	{
-		auto params = _ctx.inner.params;
-		params.relativeDir = relPath.c_str();
-		auto bundle = interm_getAssetInHierarchy(AssetManager, texname.c_str(), params, _ctx.topHierarchyLevel+ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride).getContents();
-        if (bundle.first!=bundle.second) texture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(*bundle.first);
-	}
-	if ( texture )
-	{
-		if (type==ETT_COLOR_MAP)
+    auto allCubemapFacesAreSameSizeAndFormat = [](const core::smart_refctd_ptr<ICPUImage>* _faces) {
+        const VkExtent3D sz = (*_faces)->getCreationParameters().extent;
+        const E_FORMAT fmt = (*_faces)->getCreationParameters().format;
+        for (uint32_t i = 1u; i < 6u; ++i)
         {
-			currMaterial->Material.setTexture(0, std::move(texture));
+            const auto& img = _faces[i];
+            if (!img)
+                continue;
+
+            if (img->getCreationParameters().format != fmt)
+                return false;
+            const VkExtent3D sz_ = img->getCreationParameters().extent;
+            if (sz.width != sz_.width || sz.height != sz_.height || sz.depth != sz_.depth)
+                return false;
         }
-		else if (type==ETT_BUMP_MAP)
-		{
-#ifdef _IRR_DEBUG
-            os::Printer::log("Loading OBJ Models with normal maps not supported!\n",ELL_ERROR);
-#endif // _IRR_DEBUG
-			currMaterial->Material.setTexture(1, std::move(texture));
-            //TODO
-			//currMaterial->Material.MaterialType=(video::E_MATERIAL_TYPE)-1;
-			currMaterial->Material.MaterialTypeParam=0.035f;
-		}
-		else if (type==ETT_OPACITY_MAP)
-		{
-			currMaterial->Material.setTexture(3, std::move(texture));
-			//currMaterial->Material.MaterialType=video::EMT_TRANSPARENT_ADD_COLOR;
-		}
-		else if (type==ETT_REFLECTION_MAP)
-		{
-            //TODO
-//						currMaterial->Material.Textures[1] = texture;
-//						currMaterial->Material.MaterialType=video::EMT_REFLECTION_2_LAYER;
-		}
-	}
+        return true;
+    };
+    //make reflection cubemap
+    if (images[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX])
+    {
+        assert(allCubemapFacesAreSameSizeAndFormat(images.data() + CMTLPipelineMetadata::SMtl::EMP_REFL_POSX));
+
+        size_t bufSz = 0ull;
+        //assuming all cubemap layer images are same size and same format
+        const size_t alignment = core::findLSB(images[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX]->getRegions().begin()->bufferRowLength);
+        core::vector<ICPUImage::SBufferCopy> regions_;
+        regions_.reserve(6ull);
+        for (uint32_t i = CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; i < CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 6u; ++i)
+        {
+            assert(images[i]);
+#ifndef _IRR_DEBUG
+            if (images[i])
+            {
 #endif
-	return bufPtr;
+                //assuming each image has just 1 region
+                assert(images[i]->getRegions().length()==1ull);
+
+                regions_.push_back(images[i]->getRegions().begin()[0]);
+                regions_.back().bufferOffset = core::roundUp(regions_.back().bufferOffset, alignment);
+                regions_.back().imageSubresource.baseArrayLayer = (i - CMTLPipelineMetadata::SMtl::EMP_REFL_POSX);
+
+                bufSz += images[i]->getImageDataSizeInBytes();
+#ifndef _IRR_DEBUG
+            }
+#endif
+        }
+        auto imgDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(bufSz);
+        for (uint32_t i = CMTLPipelineMetadata::SMtl::EMP_REFL_POSX, j = 0u; i < CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 6u; ++i)
+        {
+#ifndef _IRR_DEBUG
+            if (images[i])
+            {
+#endif
+                void* dst = reinterpret_cast<uint8_t*>(imgDataBuf->getPointer()) + regions_[j].bufferOffset;
+                const void* src = reinterpret_cast<const uint8_t*>(images[i]->getBuffer()->getPointer()) + images[i]->getRegions().begin()[0].bufferOffset;
+                const size_t sz = images[i]->getImageDataSizeInBytes();
+                memcpy(dst, src, sz);
+
+                ++j;
+#ifndef _IRR_DEBUG
+            }
+#endif
+        }
+
+        //assuming all cubemap layer images are same size and same format
+        ICPUImage::SCreationParams cubemapParams = images[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX]->getCreationParameters();
+        cubemapParams.arrayLayers = 6u;
+        cubemapParams.type = IImage::ET_3D;
+
+        auto cubemap = ICPUImage::create(std::move(cubemapParams));
+        auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(regions_);
+        cubemap->setBufferAndRegions(std::move(imgDataBuf), regions);
+        //new image goes to EMP_REFL_POSX index and other ones get nulled-out
+        images[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX] = std::move(cubemap);
+        for (uint32_t i = CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 1u; i < CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 6u; ++i)
+        {
+            images[i] = nullptr;
+        }
+    }
+
+    return images;
 }
 
-
-void COBJMeshFileLoader::readMTL(SContext& _ctx, const char* fileName, const io::path& relPath)
+core::smart_refctd_ptr<ICPUDescriptorSet> COBJMeshFileLoader::makeDescSet(const images_set_t& _images, ICPUDescriptorSetLayout* _dsLayout)
 {
-	const io::path realFile(fileName);
-	io::IReadFile * mtlReader;
+    auto ds = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(
+        core::smart_refctd_ptr<ICPUDescriptorSetLayout>(_dsLayout)
+    );
+    for (uint32_t i = 0u, d = 0u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
+    {
+        if (!_images[i])
+            continue;
 
-	if (FileSystem->existFile(realFile))
-		mtlReader = FileSystem->createAndOpenFile(realFile);
-	else if (FileSystem->existFile(relPath + realFile))
-		mtlReader = FileSystem->createAndOpenFile(relPath + realFile);
-	else if (FileSystem->existFile(io::IFileSystem::getFileBasename(realFile)))
-		mtlReader = FileSystem->createAndOpenFile(io::IFileSystem::getFileBasename(realFile));
-	else
-		mtlReader = FileSystem->createAndOpenFile(relPath + io::IFileSystem::getFileBasename(realFile));
-	if (!mtlReader)	// fail to open and read file
-	{
-		os::Printer::log("Could not open material file", realFile.c_str(), ELL_WARNING);
-		return;
-	}
+        constexpr IImageView<ICPUImage>::E_TYPE viewType[2]{ IImageView<ICPUImage>::ET_2D, IImageView<ICPUImage>::ET_CUBE_MAP };
+        constexpr uint32_t layerCount[2]{ 1u, 6u };
 
-	const long filesize = mtlReader->getSize();
-	if (!filesize)
-	{
-		os::Printer::log("Skipping empty material file", realFile.c_str(), ELL_WARNING);
-		mtlReader->drop();
-		return;
-	}
+        const bool isCubemap = (i == CMTLPipelineMetadata::SMtl::EMP_REFL_POSX);
 
-	char* buf = new char[filesize];
-	mtlReader->read((void*)buf, filesize);
-	const char* bufEnd = buf+filesize;
+        ICPUImageView::SCreationParams viewParams;
+        viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+        viewParams.format = _images[i]->getCreationParameters().format;
+        viewParams.image = _images[i];
+        viewParams.viewType = viewType[isCubemap];
+        viewParams.subresourceRange.baseArrayLayer = 0u;
+        viewParams.subresourceRange.layerCount = layerCount[isCubemap];
+        viewParams.subresourceRange.baseMipLevel = 0u;
+        viewParams.subresourceRange.levelCount = 1u;
 
-	SObjMtl* currMaterial = 0;
+        auto desc = ds->getDescriptors(d).begin();
+        desc->desc = core::make_smart_refctd_ptr<ICPUImageView>(std::move(viewParams));
+        desc->image.imageLayout = EIL_UNDEFINED;
+        desc->image.sampler = nullptr; //not needed, MTL loader puts immutable samplers into layout
+        ++d;
+    }
 
-	const char* bufPtr = buf;
-	while(bufPtr != bufEnd)
-	{
-		switch(*bufPtr)
-		{
-			case 'n': // newmtl
-			{
-				// if there's an existing material, store it first
-				if ( currMaterial )
-					_ctx.Materials.push_back( currMaterial );
-
-				// extract new material's name
-				char mtlNameBuf[WORD_BUFFER_LENGTH];
-				bufPtr = goAndCopyNextWord(mtlNameBuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-
-				currMaterial = new SObjMtl;
-				currMaterial->Name = mtlNameBuf;
-			}
-			break;
-			case 'i': // illum - illumination
-			if ( currMaterial )
-			{
-				const uint32_t COLOR_BUFFER_LENGTH = 16;
-				char illumStr[COLOR_BUFFER_LENGTH];
-
-				bufPtr = goAndCopyNextWord(illumStr, bufPtr, COLOR_BUFFER_LENGTH, bufEnd);
-				currMaterial->Illumination = (char)atol(illumStr);
-			}
-			break;
-#ifndef NEW_SHADERS
-			case 'N':
-			if ( currMaterial )
-			{
-				switch(bufPtr[1])
-				{
-				case 's': // Ns - shininess
-					{
-						const uint32_t COLOR_BUFFER_LENGTH = 16;
-						char nsStr[COLOR_BUFFER_LENGTH];
-
-						bufPtr = goAndCopyNextWord(nsStr, bufPtr, COLOR_BUFFER_LENGTH, bufEnd);
-						float shininessValue;
-						sscanf(nsStr,"%f",&shininessValue);
-
-						// wavefront shininess is from [0, 1000], so scale for OpenGL
-						shininessValue *= 0.128f;
-						currMaterial->Material.Shininess = shininessValue;
-					}
-				break;
-				case 'i': // Ni - refraction index
-					{
-						char tmpbuf[WORD_BUFFER_LENGTH];
-						bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-					}
-				break;
-				}
-			}
-			break;
-			case 'K':
-			if ( currMaterial )
-			{
-				switch(bufPtr[1])
-				{
-				case 'd':		// Kd = diffuse
-					{
-						bufPtr = readColor(bufPtr, currMaterial->Material.DiffuseColor, bufEnd);
-
-					}
-					break;
-
-				case 's':		// Ks = specular
-					{
-						bufPtr = readColor(bufPtr, currMaterial->Material.SpecularColor, bufEnd);
-					}
-					break;
-
-				case 'a':		// Ka = ambience
-					{
-						bufPtr=readColor(bufPtr, currMaterial->Material.AmbientColor, bufEnd);
-					}
-					break;
-				case 'e':		// Ke = emissive
-					{
-						bufPtr=readColor(bufPtr, currMaterial->Material.EmissiveColor, bufEnd);
-					}
-					break;
-				}	// end switch(bufPtr[1])
-			}	// end case 'K': if ( 0 != currMaterial )...
-			break;
-#endif
-			case 'b': // bump
-			case 'm': // texture maps
-			if (currMaterial)
-			{
-				bufPtr=readTextures(_ctx, bufPtr, bufEnd, currMaterial, relPath);
-			}
-			break;
-#ifndef NEW_SHADERS
-			case 'd': // d - transparency
-			if ( currMaterial )
-			{
-				const uint32_t COLOR_BUFFER_LENGTH = 16;
-				char dStr[COLOR_BUFFER_LENGTH];
-
-				bufPtr = goAndCopyNextWord(dStr, bufPtr, COLOR_BUFFER_LENGTH, bufEnd);
-				float dValue;
-				sscanf(dStr,"%f",&dValue);
-
-				currMaterial->Material.DiffuseColor.setAlpha( (int32_t)(dValue * 255) );
-                //TODO
-				//if (dValue<1.0f)
-				//	currMaterial->Material.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
-			}
-			break;
-			case 'T':
-			if ( currMaterial )
-			{
-				switch ( bufPtr[1] )
-				{
-				case 'f':		// Tf - Transmitivity
-					const uint32_t COLOR_BUFFER_LENGTH = 16;
-					char redStr[COLOR_BUFFER_LENGTH];
-					char greenStr[COLOR_BUFFER_LENGTH];
-					char blueStr[COLOR_BUFFER_LENGTH];
-
-					bufPtr = goAndCopyNextWord(redStr,   bufPtr, COLOR_BUFFER_LENGTH, bufEnd);
-					bufPtr = goAndCopyNextWord(greenStr, bufPtr, COLOR_BUFFER_LENGTH, bufEnd);
-					bufPtr = goAndCopyNextWord(blueStr,  bufPtr, COLOR_BUFFER_LENGTH, bufEnd);
-
-					float red,green,blue;
-					sscanf(redStr,"%f",&red);
-					sscanf(greenStr,"%f",&green);
-					sscanf(blueStr,"%f",&blue);
-					float transparency = ( red+green+blue ) / 3;
-
-					currMaterial->Material.DiffuseColor.setAlpha( (int32_t)(transparency * 255) );
-                    //TODO
-					//if (transparency < 1.0f)
-					//	currMaterial->Material.MaterialType = video::EMT_TRANSPARENT_VERTEX_ALPHA;
-				}
-			}
-			break;
-#endif
-			default: // comments or not recognised
-			break;
-		} // end switch(bufPtr[0])
-		// go to next line
-		bufPtr = goNextLine(bufPtr, bufEnd);
-	}	// end while (bufPtr)
-
-	// end of file. if there's an existing material, store it
-	if ( currMaterial )
-		_ctx.Materials.push_back( currMaterial );
-
-	delete [] buf;
-	mtlReader->drop();
+    return ds;
 }
-
 
 //! Read RGB color
 const char* COBJMeshFileLoader::readColor(const char* bufPtr, video::SColor& color, const char* const bufEnd)
@@ -863,35 +609,35 @@ const char* COBJMeshFileLoader::readColor(const char* bufPtr, video::SColor& col
 
 
 //! Read 3d vector of floats
-const char* COBJMeshFileLoader::readVec3(const char* bufPtr, core::vector3df& vec, const char* const bufEnd)
+const char* COBJMeshFileLoader::readVec3(const char* bufPtr, float vec[3], const char* const bufEnd)
 {
 	const uint32_t WORD_BUFFER_LENGTH = 256;
 	char wordBuffer[WORD_BUFFER_LENGTH];
 
 	bufPtr = goAndCopyNextWord(wordBuffer, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-	sscanf(wordBuffer,"%f",&vec.X);
+	sscanf(wordBuffer,"%f",vec);
 	bufPtr = goAndCopyNextWord(wordBuffer, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-	sscanf(wordBuffer,"%f",&vec.Y);
+	sscanf(wordBuffer,"%f",vec+1);
 	bufPtr = goAndCopyNextWord(wordBuffer, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-	sscanf(wordBuffer,"%f",&vec.Z);
+	sscanf(wordBuffer,"%f",vec+2);
 
-	vec.X = -vec.X; // change handedness
+    vec[0] = -vec[0]; // change handedness
 	return bufPtr;
 }
 
 
 //! Read 2d vector of floats
-const char* COBJMeshFileLoader::readUV(const char* bufPtr, core::vector2df& vec, const char* const bufEnd)
+const char* COBJMeshFileLoader::readUV(const char* bufPtr, float vec[2], const char* const bufEnd)
 {
 	const uint32_t WORD_BUFFER_LENGTH = 256;
 	char wordBuffer[WORD_BUFFER_LENGTH];
 
 	bufPtr = goAndCopyNextWord(wordBuffer, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-	sscanf(wordBuffer,"%f",&vec.X);
+	sscanf(wordBuffer,"%f",vec);
 	bufPtr = goAndCopyNextWord(wordBuffer, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-	sscanf(wordBuffer,"%f",&vec.Y);
+	sscanf(wordBuffer,"%f",vec+1);
 
-	vec.Y = 1-vec.Y; // change handedness
+	vec[1] = 1.f-vec[1]; // change handedness
 	return bufPtr;
 }
 
@@ -906,40 +652,6 @@ const char* COBJMeshFileLoader::readBool(const char* bufPtr, bool& tf, const cha
 	tf = strcmp(tfStr, "off") != 0;
 	return bufPtr;
 }
-
-
-COBJMeshFileLoader::SObjMtl* COBJMeshFileLoader::findMtl(SContext& _ctx, const std::string& mtlName, const std::string& grpName)
-{
-	COBJMeshFileLoader::SObjMtl* defMaterial = 0;
-	// search existing Materials for best match
-	// exact match does return immediately, only name match means a new group
-	for (uint32_t i = 0; i < _ctx.Materials.size(); ++i)
-	{
-		if (_ctx.Materials[i]->Name == mtlName )
-		{
-			if (_ctx.Materials[i]->Group == grpName )
-				return _ctx.Materials[i];
-			else
-				defMaterial = _ctx.Materials[i];
-		}
-	}
-	// we found a partial match
-	if (defMaterial)
-	{
-        _ctx.Materials.push_back(new SObjMtl(*defMaterial));
-        _ctx.Materials.back()->Group = grpName;
-		return _ctx.Materials.back();
-	}
-	// we found a new group for a non-existant material
-	else if (grpName.length())
-	{
-        _ctx.Materials.push_back(new SObjMtl(*_ctx.Materials[0]));
-        _ctx.Materials.back()->Group = grpName;
-		return _ctx.Materials.back();
-	}
-	return 0;
-}
-
 
 //! skip space characters and stop on first non-space
 const char* COBJMeshFileLoader::goFirstWord(const char* buf, const char* const bufEnd, bool acrossNewlines)
@@ -1053,7 +765,7 @@ bool COBJMeshFileLoader::retrieveVertexIndices(char* vertexData, int32_t* idx, c
 			// number is completed. Convert and store it
 			word[i] = '\0';
 			// if no number was found index will become 0 and later on -1 by decrement
-			sscanf(word,"%u",idx+idxType);
+			sscanf(word,"%d",idx+idxType);
 			if (idx[idxType]<0)
 			{
 				switch (idxType)

@@ -384,7 +384,7 @@ class IAssetManager : public core::IReferenceCounted
 			auto res = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SAssetBundle> >(reqSz);
             findAssets(reqSz, res->data(), _key, _types);
             auto retval = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SAssetBundle> >(reqSz);
-			memcpy(retval->data(),res->data(),reqSz);
+            std::move(res->begin(), res->begin()+reqSz, retval->begin());
 			return retval;
         }
 

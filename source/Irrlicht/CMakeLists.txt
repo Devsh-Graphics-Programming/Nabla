@@ -36,6 +36,7 @@ include(common)
 
 #[[ Loaders and writers compile options available to edit by user
 	All revelant _IRR_COMPILE_WITH will be there]]
+option(_IRR_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" ON)
 option(_IRR_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" ON)
 #option(_IRR_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON) uncomment when writer exists
 option(_IRR_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" ON)
@@ -87,6 +88,8 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshFileLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CSTLMeshFileLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CBufferLoaderBIN.cpp
+	
+	${IRR_ROOT_PATH}/src/irr/asset/CGraphicsPipelineLoaderMTL.cpp
 
 # Mesh writers
 	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshWriter.cpp

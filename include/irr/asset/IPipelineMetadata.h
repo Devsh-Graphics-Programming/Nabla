@@ -18,6 +18,9 @@ namespace asset
 */
 class IPipelineMetadata : public IAssetMetadata
 {
+    protected:
+        virtual ~IPipelineMetadata() = default;
+
 	public:
 		//! A common struct to unify the metadata declarations.
 		/**

@@ -322,6 +322,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUImage** const _begin, asset
     {
         const asset::ICPUImage* cpuimg = _begin[i];
         asset::IImage::SCreationParams params = cpuimg->getCreationParameters();
+        params.mipLevels = 1u + static_cast<uint32_t>(std::log2(static_cast<float>(core::max(core::max(params.extent.width, params.extent.height), params.extent.depth))));
         auto gpuimg = m_driver->createDeviceLocalGPUImageOnDedMem(std::move(params));
 
 		auto regions = cpuimg->getRegions();
@@ -330,6 +331,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUImage** const _begin, asset
 		{
 			auto tmpBuff = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuimg->getBuffer()->getSize(),cpuimg->getBuffer()->getPointer());
 			m_driver->copyBufferToImage(tmpBuff.get(),gpuimg.get(),count,cpuimg->getRegions().begin());
+            //TODO mipmap generation
 		}
 
 		res->operator[](i) = std::move(gpuimg);

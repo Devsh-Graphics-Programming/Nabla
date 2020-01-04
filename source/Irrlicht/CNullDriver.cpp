@@ -182,8 +182,15 @@ void main()
 		params.CompareEnable = false;
 		params.CompareFunc = asset::ISampler::ECO_ALWAYS;
 		params.AnisotropicFilter = 4u;
+        params.LodBias = 0.f;
+        params.MinLod = -1000.f;
+        params.MaxLod = 1000.f;
 		auto sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
 		addBuiltInToCaches(sampler,"irr/builtin/samplers/default");
+
+        params.TextureWrapU = params.TextureWrapV = params.TextureWrapW = asset::ISampler::ETC_CLAMP_TO_BORDER;
+        sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
+        addBuiltInToCaches(sampler, "irr/builtin/samplers/default_clamp_to_border");
 	}
 
 	DerivativeMapCreator = core::make_smart_refctd_ptr<CDerivativeMapCreator>(this);

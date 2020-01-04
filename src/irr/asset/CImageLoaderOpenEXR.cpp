@@ -233,6 +233,7 @@ namespace irr
 		bool CImageLoaderOpenEXR::isALoadableFileFormat(io::IReadFile* _file) const
 		{	
 			const size_t begginingOfFile = _file->getPos();
+            _file->seek(0ull);
 
 			char magicNumberBuffer[sizeof(SContext::magicNumber)];
 			_file->read(magicNumberBuffer, sizeof(SContext::magicNumber));
@@ -248,7 +249,7 @@ namespace irr
 			width = dw.max.x - dw.min.x + 1;
 			height = dw.max.y - dw.min.y + 1;
 
-			constexpr char* rgbaSignatureAsText[] = {"R", "G", "B", "A"};
+			constexpr const char* rgbaSignatureAsText[] = {"R", "G", "B", "A"};
 			for (auto& pixelChannelBuffer : pixelRgbaMapArray)
 				pixelChannelBuffer.resizeErase(height, width);
 
