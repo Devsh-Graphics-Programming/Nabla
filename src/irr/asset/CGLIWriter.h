@@ -32,16 +32,19 @@ namespace irr
 
 			uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE_VIEW; }
 
-			uint32_t getSupportedFlags() override { return asset::EWF_NONE | asset::EWF_BINARY | asset::EWF_COMPRESSED; }
+			uint32_t getSupportedFlags() override { return asset::EWF_NONE | asset::EWF_BINARY; }
 
-			uint32_t getForcedFlags() override { return asset::EWF_NONE | asset::EWF_BINARY | asset::EWF_COMPRESSED; }
+			uint32_t getForcedFlags() override { return asset::EWF_NONE | asset::EWF_BINARY; }
 
 			bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 
 		protected:
-			bool writeGLIFile(io::IWriteFile* file, const asset::ICPUImage* image);
 
 		private:
+			bool writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* imageView);
+
+			bool doesItHaveFaces(const IImageView<ICPUImage>::E_TYPE& type);
+			bool doesItHaveLayers(const IImageView<ICPUImage>::E_TYPE& type);
 			
 		};
 	}

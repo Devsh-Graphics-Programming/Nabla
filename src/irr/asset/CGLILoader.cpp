@@ -44,7 +44,7 @@ namespace irr
 			gli::texture texture = gli::load(filename);
 			if (texture.empty())
 			{
-				os::Printer::log("Failed to load texture at path ", filename, ELL_ERROR);
+				os::Printer::log("LOAD GLI: failed to load texture at path ", filename, ELL_ERROR);
 				return {};
 			}
 			
