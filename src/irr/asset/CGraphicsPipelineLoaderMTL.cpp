@@ -41,7 +41,7 @@ core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipel
         auto assets = bundle.getContents();
         assert(assets.first != assets.second);
 
-        return assets.first[0];
+        return core::smart_refctd_ptr_static_cast<ICPUSampler>(assets.first[0]);
     };
 
     core::smart_refctd_ptr<ICPUSampler> samplers[2];

@@ -19,6 +19,7 @@
 #cmakedefine _IRR_COMPILE_WITH_VULKAN_
 
 // loaders
+#cmakedefine _IRR_COMPILE_WITH_MTL_LOADER_
 #cmakedefine _IRR_COMPILE_WITH_OBJ_LOADER_
 #cmakedefine _IRR_COMPILE_WITH_STL_LOADER_
 #cmakedefine _IRR_COMPILE_WITH_PLY_LOADER_

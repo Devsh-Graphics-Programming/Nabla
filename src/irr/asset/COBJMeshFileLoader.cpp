@@ -218,7 +218,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW).getContents();
                     if (mb_bundle.first!=mb_bundle.second)
                     {
-                        submeshes.push_back(*mb_bundle.first);
+                        submeshes.push_back(core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(*mb_bundle.first));
                     }
                     else
                     {
@@ -232,7 +232,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                             auto& pipeln = found->second;
                             //cloning pipeline because it will be edited (vertex input params)
                             //note shallow copy (depth=0), i.e. only pipeline is cloned, but all its sub-assets are taken from original object
-                            submeshes.back()->setPipeline(pipeln.second->clone(0u));
+                            submeshes.back()->setPipeline(core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(pipeln.second->clone(0u)));
                             //also make descriptor set
                             auto metadata = static_cast<const CMTLPipelineMetadata*>(pipeln.second->getMetadata());
                             images_set_t images = loadImages(pipeln.first.c_str(), metadata->getMaterial(), _hierarchyLevel+ICPUMesh::IMAGE_HIERARCHYLEVELS_BELOW);
@@ -464,7 +464,7 @@ auto COBJMeshFileLoader::loadImages(const char* _relDir, const CMTLPipelineMetad
         {
             auto bundle = interm_getAssetInHierarchy(AssetManager, relDir + _mtl.maps[i], lp, _hierarchyLvl);
             if (!bundle.isEmpty())
-                images[i] = bundle.getContents().first[0];
+                images[i] = core::smart_refctd_ptr_static_cast<ICPUImage>(bundle.getContents().first[0]);
         }
     }
 
@@ -537,7 +537,7 @@ auto COBJMeshFileLoader::loadImages(const char* _relDir, const CMTLPipelineMetad
         cubemapParams.arrayLayers = 6u;
         cubemapParams.type = IImage::ET_3D;
 
-        auto cubemap = core::make_smart_refctd_ptr<ICPUImage>(std::move(cubemapParams));
+        auto cubemap = ICPUImage::create(std::move(cubemapParams));
         auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(regions_);
         cubemap->setBufferAndRegions(std::move(imgDataBuf), regions);
         //new image goes to EMP_REFL_POSX index and other ones get nulled-out

@@ -173,7 +173,7 @@ namespace irr
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
 
 			ICPUImageView::SCreationParams imageViewInfo;
-			imageViewInfo.image = image;
+			imageViewInfo.image = std::move(image);
 			imageViewInfo.format = format.first;
 			imageViewInfo.viewType = imageViewType;
 			imageViewInfo.components = format.second;
@@ -185,7 +185,7 @@ namespace irr
 
 			auto imageView = ICPUImageView::create(std::move(imageViewInfo));
 
-			return SAssetBundle({imageView});
+			return SAssetBundle({std::move(imageView)});
 		}
 
 		bool CGLILoader::isALoadableFileFormat(io::IReadFile* _file) const
