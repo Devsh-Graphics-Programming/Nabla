@@ -44,7 +44,7 @@ namespace irr
 			gli::texture texture = gli::load(filename);
 			if (texture.empty())
 			{
-				os::Printer::log("Failed to load texture at path ", filename, ELL_ERROR);
+				os::Printer::log("LOAD GLI: failed to load texture at path ", filename, ELL_ERROR);
 				return {};
 			}
 			
@@ -131,18 +131,19 @@ namespace irr
 
 			auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(imageInfo.mipLevels);
 
-			auto getFullSizeOfRegion = [&]() -> uint64_t
+			auto getFullSizeOfRegion = [&](const uint16_t &mipLevel) -> uint64_t
 			{
-				uint64_t sz = {};
-				for (uint16_t index = 0; index < texture.levels(); ++index)
-					sz += texture.size(index);
-				return sz;
+				return texture.size(mipLevel) * imageInfo.arrayLayers;
 			};
 
-			const uint64_t sizeOfRegion = getFullSizeOfRegion();
+			auto getFullSizeOfLayer = [&](const uint16_t& mipLevel) -> uint64_t
+			{
+				return texture.size(mipLevel);
+			};
 
 			{
 				uint16_t regionIndex = {};
+				uint64_t offset = {};
 				for (auto region = regions->begin(); region != regions->end(); ++region)
 				{
 					region->imageExtent.width = texture.extent(regionIndex).x;
@@ -151,23 +152,25 @@ namespace irr
 					region->imageSubresource.mipLevel = regionIndex;
 					region->imageSubresource.layerCount = imageInfo.arrayLayers;
 					region->imageSubresource.baseArrayLayer = 0;
+					region->bufferOffset = offset;
+
+					offset += getFullSizeOfRegion(regionIndex);
 					++regionIndex;
 				}
 			}
 
-			for (uint16_t layer = 0; layer < imageInfo.arrayLayers; ++layer)
+			uint64_t tmpDataSizePerRegionSum = {};
+			for (uint16_t mipLevel = 0; mipLevel < imageInfo.mipLevels; ++mipLevel)
 			{
-				const uint16_t gliLayer = texture.layers() > 1 ? layer % 6 : 0;
-				const uint16_t gliFace = texture.faces() > 1 ? layer / 6 : 0;
-
-				uint64_t tmpDataSizePerRegionSum = {};
-				for (uint16_t mipLevel = 0; mipLevel < imageInfo.mipLevels; ++mipLevel)
+				const auto layerSize = getFullSizeOfLayer(mipLevel);
+				for (uint16_t layer = 0; layer < imageInfo.arrayLayers; ++layer)
 				{
-					const uint64_t sizeOfData = texture.size(mipLevel);
+					const uint16_t gliLayer = texture.layers() > 1 ? layer % 6 : 0;
+					const uint16_t gliFace = texture.faces() > 1 ? layer / 6 : 0;
 
-					assignGLIDataToRegion((reinterpret_cast<uint8_t*>(data) + (layer * sizeOfRegion) + tmpDataSizePerRegionSum), texture, gliLayer, gliFace, mipLevel, sizeOfData);
-					tmpDataSizePerRegionSum += sizeOfData;
+					assignGLIDataToRegion((reinterpret_cast<uint8_t*>(data) + tmpDataSizePerRegionSum + (layer * layerSize)), texture, gliLayer, gliFace, mipLevel, layerSize);
 				}
+				tmpDataSizePerRegionSum += getFullSizeOfRegion(mipLevel);
 			}
 
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
