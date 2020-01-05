@@ -86,7 +86,7 @@ template<typename T>
 bool isnan(T val);
 
 template<>
-IRR_FORCE_INLINE constexpr bool isnan<float>(float val) 
+IRR_FORCE_INLINE bool isnan<float>(float val) 
 { 
     constexpr float nan_ = core::nan<float>();
     return reinterpret_cast<uint32_t&>(val)==reinterpret_cast<const uint32_t&>(nan_); 
