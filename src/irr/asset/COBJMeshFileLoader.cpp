@@ -370,23 +370,23 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         memset(newNormals.data(), 0, sizeof(core::vectorSIMDf)*newNormals.size());
 
         auto minmax = std::minmax_element(_ixs.begin(), _ixs.end());
-        const uint32_t maxsz = *minmax.second - *minmax.first;
+        const uint32_t maxsz = (*minmax.second - *minmax.first) + 1u;
         const uint32_t min = *minmax.first;
         
         newNormals.resize(maxsz, core::vectorSIMDf(0.f));
         for (size_t i = 0ull; i < _ixs.size(); i += 3ull)
         {
             core::vectorSIMDf v1, v2, v3;
-            v1.set(vertices[_ixs[i-min+0u]].pos);
-            v2.set(vertices[_ixs[i-min+1u]].pos);
-            v3.set(vertices[_ixs[i-min+2u]].pos);
+            v1.set(vertices[_ixs[i+0u]-min].pos);
+            v2.set(vertices[_ixs[i+1u]-min].pos);
+            v3.set(vertices[_ixs[i+2u]-min].pos);
             v1.makeSafe3D();
             v2.makeSafe3D();
             v3.makeSafe3D();
             core::vectorSIMDf normal(core::plane3dSIMDf(v1, v2, v3).getNormal());
-            newNormals[_ixs[i-min+0u]] += normal;
-            newNormals[_ixs[i-min+1u]] += normal;
-            newNormals[_ixs[i-min+2u]] += normal;
+            newNormals[_ixs[i+0u]-min] += normal;
+            newNormals[_ixs[i+1u]-min] += normal;
+            newNormals[_ixs[i+2u]-min] += normal;
         }
         for (uint32_t ix : _ixs)
             vertices[ix].normal32bit = asset::quantizeNormal2_10_10_10(newNormals[ix-min]);
@@ -444,14 +444,13 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 continue;
 
             submeshes[i]->getIndexBufferBinding()->buffer = ixBuf;
-            uint64_t offset = submeshes[i]->getIndexBufferBinding()->offset;
+            const uint64_t offset = submeshes[i]->getIndexBufferBinding()->offset;
             memcpy(reinterpret_cast<uint8_t*>(ixBuf->getPointer())+offset, indices[i].data(), indices[i].size()*4ull);
 
             SBufferBinding<ICPUBuffer> vtxBufBnd;
             vtxBufBnd.offset = 0ull;
             vtxBufBnd.buffer = vtxBuf;
-
-            submeshes[i]->getVertexBufferBindings()[BND_NUM] = vtxBufBnd;
+            submeshes[i]->setVertexBufferBinding(std::move(vtxBufBnd), BND_NUM);
         }
     }
 

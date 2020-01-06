@@ -138,7 +138,6 @@ GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion, const asset::ICP
 
     std::string glslCode = comp.compile();
     const char* glslCode_cstr = glslCode.c_str();
-    printf(glslCode_cstr);
 
     GLuint GLname = COpenGLExtensionHandler::extGlCreateShaderProgramv(m_GLstage, 1u, &glslCode_cstr);
 
