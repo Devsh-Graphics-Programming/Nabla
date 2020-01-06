@@ -115,7 +115,7 @@ namespace irr
 			ICPUImage::SCreationParams imageInfo;
 			imageInfo.format = format.first;
 			imageInfo.type = imageType;
-			imageInfo.flags = static_cast<ICPUImage::E_CREATE_FLAGS>(0u);
+			imageInfo.flags = imageViewType == ICPUImageView::ET_CUBE_MAP_ARRAY ? ICPUImage::E_CREATE_FLAGS::ECF_CUBE_COMPATIBLE_BIT : static_cast<ICPUImage::E_CREATE_FLAGS>(0u);
 			imageInfo.samples = ICPUImage::ESCF_1_BIT;
 			imageInfo.extent.width = texture.extent().x;
 			imageInfo.extent.height = texture.extent().y;
@@ -165,8 +165,8 @@ namespace irr
 				const auto layerSize = getFullSizeOfLayer(mipLevel);
 				for (uint16_t layer = 0; layer < imageInfo.arrayLayers; ++layer)
 				{
-					const uint16_t gliLayer = texture.layers() > 1 ? layer % 6 : 0;
-					const uint16_t gliFace = texture.faces() > 1 ? layer / 6 : 0;
+					const uint16_t gliLayer = texture.layers() > 1 ? layer / 6 : 0;
+					const uint16_t gliFace = texture.faces() > 1 ? layer % 6 : 0;
 
 					assignGLIDataToRegion((reinterpret_cast<uint8_t*>(data) + tmpDataSizePerRegionSum + (layer * layerSize)), texture, gliLayer, gliFace, mipLevel, layerSize);
 				}

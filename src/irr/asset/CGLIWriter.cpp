@@ -101,11 +101,11 @@ namespace irr
 				const auto arrayLayers = imageInfo.arrayLayers;
 
 				if (layersFlag)
-					layers = ((arrayLayers - 1) % 6) + 1;
+					layers = ((arrayLayers - 1) / 6) + 1;
 				else
 					layers = 1;
 				if (facesFlag)
-					faces = ((arrayLayers - 1) / 6) + 1;
+					faces = ((arrayLayers - 1) % 6) + 1;
 				else
 					faces = 1;
 
@@ -136,8 +136,8 @@ namespace irr
 
 				for (uint16_t layer = 0; layer < imageInfo.arrayLayers; ++layer)
 				{
-					const uint16_t gliLayer = layersFlag ? layer % 6 : 0;
-					const uint16_t gliFace = facesFlag ? layer / 6 : 0;
+					const uint16_t gliLayer = layersFlag ? layer / 6 : 0;
+					const uint16_t gliFace = facesFlag ? layer % 6 : 0;
 					memcpy(texture.data(gliLayer, gliFace, region->imageSubresource.mipLevel), ptrBeginningOfRegion + (layer * layerSize), layerSize);
 				}	
 			}
