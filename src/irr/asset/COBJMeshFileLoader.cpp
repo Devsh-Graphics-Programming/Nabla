@@ -234,6 +234,12 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                             //cloning pipeline because it will be edited (vertex input params)
                             //note shallow copy (depth=0), i.e. only pipeline is cloned, but all its sub-assets are taken from original object
                             submeshes.back()->setPipeline(core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(pipeln.second->clone(0u)));
+                            auto metadata = static_cast<const CMTLPipelineMetadata*>(pipeln.second->getMetadata());
+                            memcpy(
+                                submeshes.back()->getPushConstantsDataPtr()+pipeln.second->getLayout()->getPushConstantRanges().begin()[0].offset,
+                                &metadata->getMaterial().std140PackedData,
+                                sizeof(CMTLPipelineMetadata::SMtl::std140PackedData)
+                            );
                             //also make/find descriptor set
                             std::string dsCacheKey = pipeln.first + "?" + mtlName + "?_ds";
                             auto ds_bundle = _override->findCachedAsset(dsCacheKey, types, ctx.inner, _hierarchyLevel+ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
@@ -241,11 +247,10 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                             core::smart_refctd_ptr<ICPUDescriptorSet> ds3;
                             if (ds_bundle_contents.first != ds_bundle_contents.second)
                             {
-                                ds3 = ds_bundle_contents.first[0];
+                                ds3 = core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(ds_bundle_contents.first[0]);
                             }
                             else
                             {
-                                auto metadata = static_cast<const CMTLPipelineMetadata*>(pipeln.second->getMetadata());
                                 auto relDir = (io::IFileSystem::getFileDir(pipeln.first.c_str()) + "/");
                                 images_set_t images = loadImages(relDir.c_str(), metadata->getMaterial(), _hierarchyLevel + ICPUMesh::IMAGE_HIERARCHYLEVELS_BELOW);
                                 ds3 = makeDescSet(images, pipeln.second->getLayout()->getDescriptorSetLayout(3u));
@@ -390,6 +395,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     constexpr uint32_t POSITION = 0u;
     constexpr uint32_t UV       = 2u;
     constexpr uint32_t NORMAL   = 3u;
+    constexpr uint32_t BND_NUM  = 0u;
     {
         uint64_t ixBufOffset = 0ull;
         for (size_t i = 0ull; i < submeshes.size(); ++i)
@@ -407,27 +413,23 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
             const bool hasUV = !core::isnan(vertices[indices[i][0]].uv[0]);
             SVertexInputParams vtxParams;
             vtxParams.enabledAttribFlags = (1u<<POSITION) | (1u<<NORMAL) | (hasUV ? (1u<<UV) : 0u);
-            vtxParams.enabledBindingFlags = vtxParams.enabledAttribFlags;
+            vtxParams.enabledBindingFlags = 1u<<BND_NUM;
+            vtxParams.bindings[BND_NUM].stride = sizeof(SObjVertex);
+            vtxParams.bindings[BND_NUM].inputRate = EVIR_PER_VERTEX;
             //position
-            vtxParams.attributes[POSITION].binding = 0u;
+            vtxParams.attributes[POSITION].binding = BND_NUM;
             vtxParams.attributes[POSITION].format = EF_R32G32B32_SFLOAT;
             vtxParams.attributes[POSITION].relativeOffset = offsetof(SObjVertex, pos);
-            vtxParams.bindings[POSITION].stride = sizeof(SObjVertex);
-            vtxParams.bindings[POSITION].inputRate = EVIR_PER_VERTEX;
             //normal
-            vtxParams.attributes[NORMAL].binding = 3u;
+            vtxParams.attributes[NORMAL].binding = BND_NUM;
             vtxParams.attributes[NORMAL].format = EF_A2B10G10R10_SNORM_PACK32;
             vtxParams.attributes[NORMAL].relativeOffset = offsetof(SObjVertex, normal32bit);
-            vtxParams.bindings[NORMAL].stride = sizeof(SObjVertex);
-            vtxParams.bindings[NORMAL].inputRate = EVIR_PER_VERTEX;
             //uv
             if (hasUV)
             {
-                vtxParams.attributes[UV].binding = 2u;
+                vtxParams.attributes[UV].binding = BND_NUM;
                 vtxParams.attributes[UV].format = EF_R32G32_SFLOAT;
                 vtxParams.attributes[UV].relativeOffset = offsetof(SObjVertex, uv);
-                vtxParams.bindings[UV].stride = sizeof(SObjVertex);
-                vtxParams.bindings[UV].inputRate = EVIR_PER_VERTEX;
             }
             submeshes[i]->getPipeline()->getVertexInputParams() = vtxParams;
         }
@@ -449,10 +451,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
             vtxBufBnd.offset = 0ull;
             vtxBufBnd.buffer = vtxBuf;
 
-            submeshes[i]->getVertexBufferBindings()[POSITION] = vtxBufBnd;
-            submeshes[i]->getVertexBufferBindings()[NORMAL] = vtxBufBnd;
-            if (submeshes[i]->getPipeline()->getVertexInputParams().enabledAttribFlags & (1u<<UV))
-                submeshes[i]->getVertexBufferBindings()[UV] = vtxBufBnd;
+            submeshes[i]->getVertexBufferBindings()[BND_NUM] = vtxBufBnd;
         }
     }
 

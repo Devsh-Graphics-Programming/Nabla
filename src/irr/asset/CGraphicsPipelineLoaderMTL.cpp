@@ -65,8 +65,14 @@ core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipel
     }
 
     auto dsLayout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end());
+    SPushConstantRange pcRng;
+    pcRng.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+    pcRng.offset = 0u;
+    pcRng.size = sizeof(CMTLPipelineMetadata::SMtl::std140PackedData);
+    //if intellisense shows error here, it's most likely intellisense's fault and it'll build fine anyway
+    static_assert(sizeof(CMTLPipelineMetadata::SMtl::std140PackedData)<=ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "It must fit in push constants!");
     //ds with textures for material goes to set=3
-    auto layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr, nullptr, nullptr, nullptr, nullptr, std::move(dsLayout));
+    auto layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pcRng, &pcRng+1, nullptr, nullptr, nullptr, std::move(dsLayout));
 
     return layout;
 }
