@@ -129,7 +129,7 @@ namespace irr
 
 			gli::texture texture(gliTarget, gliFormatAndSwizzles.first, gliExtent3d, layersAndFacesAmount.first, layersAndFacesAmount.second, gliLevels, gli::texture::swizzles_type{ gliFormatAndSwizzles.second[0], gliFormatAndSwizzles.second[1], gliFormatAndSwizzles.second[2], gliFormatAndSwizzles.second[3] });
 
-			auto getFullSizeOfLayer = [&](const uint16_t& mipLevel) -> uint64_t
+			auto getFullSizeOfLayer = [&](const uint16_t mipLevel) -> uint64_t
 			{
 				auto region = image->getRegions().begin() + mipLevel;
 				const auto width = region->bufferRowLength == 0 ? region->imageExtent.width : region->bufferRowLength;

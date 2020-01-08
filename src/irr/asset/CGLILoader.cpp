@@ -33,7 +33,7 @@ namespace irr
 	namespace asset
 	{
 		inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion);
-		inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t& layer, const uint16_t& face, const uint16_t& level, const uint64_t& sizeOfData);
+		inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t layer, const uint16_t face, const uint16_t level, const uint64_t sizeOfData);
 
 		asset::SAssetBundle CGLILoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
@@ -131,12 +131,12 @@ namespace irr
 
 			auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(imageInfo.mipLevels);
 
-			auto getFullSizeOfRegion = [&](const uint16_t &mipLevel) -> uint64_t
+			auto getFullSizeOfRegion = [&](const uint16_t mipLevel) -> uint64_t
 			{
 				return texture.size(mipLevel) * imageInfo.arrayLayers;
 			};
 
-			auto getFullSizeOfLayer = [&](const uint16_t& mipLevel) -> uint64_t
+			auto getFullSizeOfLayer = [&](const uint16_t mipLevel) -> uint64_t
 			{
 				return texture.size(mipLevel);
 			};
@@ -446,7 +446,7 @@ namespace irr
 			}
 		}
 
-		inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t& layer, const uint16_t& face, const uint16_t& level, const uint64_t& sizeOfData)
+		inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t layer, const uint16_t face, const uint16_t level, const uint64_t sizeOfData)
 		{
 			const void* ptrToBegginingOfData = texture.data(layer, face, level);
 			memcpy(regionData, ptrToBegginingOfData, sizeOfData);
