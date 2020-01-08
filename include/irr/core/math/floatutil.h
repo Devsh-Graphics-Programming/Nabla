@@ -72,14 +72,14 @@ template<typename T>
 T nan();
 
 template<>
-IRR_FORCE_INLINE constexpr float nan<float>() {return *reinterpret_cast<const float*>(0x7F800000u);}
+IRR_FORCE_INLINE constexpr float nan<float>() {return static_cast<const float&>(0x7F800000u);}
 
 
 template<typename T>
 T infinity();
 
 template<>
-IRR_FORCE_INLINE constexpr float infinity<float>() {return *reinterpret_cast<const float*>(0x7FFFFFFFu);}
+IRR_FORCE_INLINE constexpr float infinity<float>() {return static_cast<const float&>(0x7FFFFFFFu);}
 
 
 template<typename T>

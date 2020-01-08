@@ -66,7 +66,16 @@ namespace irr
 			const auto& image = imageViewInfo.image;
 
 			if (image->getRegions().length() == 0)
+			{
+				os::Printer::log("WRITING GLI: there is a lack of regions!", file->getFileName().c_str(), ELL_INFORMATION);
 				return false;
+			}
+			if (isBlockCompressionFormat(imageInfo.format))
+			{
+				os::Printer::log("WRITING GLI: the writer doesn't support any compression format!", file->getFileName().c_str(), ELL_INFORMATION);
+				return false;
+			}
+				
 
 			const bool facesFlag = doesItHaveFaces(imageViewInfo.viewType);
 			const bool layersFlag = doesItHaveLayers(imageViewInfo.viewType);
@@ -175,13 +184,35 @@ namespace irr
 		inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params)
 		{
 			using namespace gli;
+			std::array<gli::gl::swizzle, 4> compomentMapping;
+
+			static const core::unordered_map<ICPUImageView::SComponentMapping::E_SWIZZLE, gli::gl::swizzle> swizzlesMappingAPI =
+			{
+				std::make_pair(ICPUImageView::SComponentMapping::ES_R, gl::SWIZZLE_RED),
+				std::make_pair(ICPUImageView::SComponentMapping::ES_G, gl::SWIZZLE_GREEN),
+				std::make_pair(ICPUImageView::SComponentMapping::ES_B, gl::SWIZZLE_BLUE),
+				std::make_pair(ICPUImageView::SComponentMapping::ES_A, gl::SWIZZLE_ALPHA),
+				std::make_pair(ICPUImageView::SComponentMapping::ES_ONE, gl::SWIZZLE_ONE),
+				std::make_pair(ICPUImageView::SComponentMapping::ES_ZERO, gl::SWIZZLE_ZERO)
+			};
+
+			auto getMappedSwizzle = [&](const ICPUImageView::SComponentMapping::E_SWIZZLE& currentSwizzleToCheck)
+			{
+				for (auto& mappedSwizzle : swizzlesMappingAPI)
+					if (currentSwizzleToCheck == mappedSwizzle.first)
+						return mappedSwizzle.second;
+			};
+
+			compomentMapping[0] = getMappedSwizzle(params.components.r);
+			compomentMapping[1] = getMappedSwizzle(params.components.g);
+			compomentMapping[2] = getMappedSwizzle(params.components.b);
+			compomentMapping[3] = getMappedSwizzle(params.components.a);
 
 			auto getTranslatedFinalFormat = [&](const gli::texture::format_type& format = FORMAT_UNDEFINED)
 			{
-				return std::make_pair(format, std::array<gli::gl::swizzle, 4>{gl::SWIZZLE_RED, gl::SWIZZLE_GREEN, gl::SWIZZLE_BLUE, gl::SWIZZLE_ALPHA}); // TODO swizzles
+				return std::make_pair(format, compomentMapping);
 			};
 
-			// TODO - fill formats
 			switch (params.format)
 			{
 			
