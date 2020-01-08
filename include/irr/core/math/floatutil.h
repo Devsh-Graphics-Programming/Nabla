@@ -67,19 +67,25 @@ IRR_FORCE_INLINE constexpr T HALF_PI()
 	return PI<T>() * T(0.5);
 }
 
+namespace impl
+{
+    constexpr uint32_t NAN_U32      = 0x7F800000u;
+    constexpr uint32_t INFINITY_U32 = 0x7FFFFFFFu;
+}
+
 //! don't get rid of these, -ffast-math breaks inf and NaN handling on GCC
 template<typename T>
 T nan();
 
 template<>
-IRR_FORCE_INLINE constexpr float nan<float>() {return static_cast<const float&>(0x7F800000u);}
+IRR_FORCE_INLINE float nan<float>() {return reinterpret_cast<const float&>(impl::NAN_U32);}
 
 
 template<typename T>
 T infinity();
 
 template<>
-IRR_FORCE_INLINE constexpr float infinity<float>() {return static_cast<const float&>(0x7FFFFFFFu);}
+IRR_FORCE_INLINE float infinity<float>() {return reinterpret_cast<const float&>(impl::INFINITY_U32);}
 
 
 template<typename T>
@@ -88,7 +94,7 @@ bool isnan(T val);
 template<>
 IRR_FORCE_INLINE bool isnan<float>(float val) 
 { 
-    constexpr float nan_ = core::nan<float>();
+    const float nan_ = core::nan<float>();
     return reinterpret_cast<uint32_t&>(val)==reinterpret_cast<const uint32_t&>(nan_); 
 }
 

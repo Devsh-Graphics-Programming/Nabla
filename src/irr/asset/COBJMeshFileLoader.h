@@ -103,14 +103,6 @@ public:
 //! Meshloader capable of loading obj meshes.
 class COBJMeshFileLoader : public asset::IAssetLoader
 {
-    enum E_TEXTURE_TYPE : uint8_t
-    {
-        ETT_COLOR_MAP,
-        ETT_BUMP_MAP,
-        ETT_OPACITY_MAP,
-        ETT_REFLECTION_MAP
-    };
-
     struct SContext
     {
         SContext(const IAssetLoader::SAssetLoadContext& _innerCtx, uint32_t _topHierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)

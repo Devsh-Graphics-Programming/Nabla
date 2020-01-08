@@ -118,7 +118,7 @@ public:
                 uint64_t mapAttrToBinding;//16*4 bits
                 uint16_t divisors;
                 //E_FORMAT values
-                uint8_t attribFormatAndComponentCount[16];//attribute X is enabled if attribFormatAndComponentCount[X]==EF_UNKNOWN
+                uint8_t attribFormatAndComponentCount[16];//attribute X is enabled if attribFormatAndComponentCount[X]!=EF_UNKNOWN
             } PACK_STRUCT;
 #include "irr/irrunpack.h"
             uint32_t hashVal[19]{};

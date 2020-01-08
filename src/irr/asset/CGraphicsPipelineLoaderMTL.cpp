@@ -24,13 +24,17 @@ bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) con
 core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipelineLayoutFromMtl(const CMTLPipelineMetadata::SMtl& _mtl)
 {
     const size_t textureCnt = std::count_if(_mtl.maps, _mtl.maps + CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 1u, [](const std::string& _path) { return !_path.empty(); });
-    auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(textureCnt);
+    auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(textureCnt+1ull);//+1 because of UBO
 
     ICPUDescriptorSetLayout::SBinding bnd;
     bnd.count = 1u;
     bnd.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
     bnd.type = EDT_COMBINED_IMAGE_SAMPLER;
-    std::fill(bindings->begin(), bindings->end(), bnd);
+    bnd.binding = 0u;
+    std::fill(bindings->begin()+1, bindings->end(), bnd);
+    bnd.stageFlags = ICPUSpecializedShader::ESS_VERTEX;
+    bnd.type = EDT_UNIFORM_BUFFER;
+    (*bindings)[0] = bnd;
 
     auto getDefaultSampler = [this](const char* _key) {
         size_t storageSz = 1ull;
@@ -47,7 +51,7 @@ core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipel
     core::smart_refctd_ptr<ICPUSampler> samplers[2];
     samplers[0] = getDefaultSampler("irr/builtin/samplers/default");
     samplers[1] = getDefaultSampler("irr/builtin/samplers/default_clamp_to_border");
-    for (uint32_t i = 0u, j = 0u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
+    for (uint32_t i = 0u, j = 1u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
     {
         if (!_mtl.maps[i].empty())
         {
@@ -61,8 +65,14 @@ core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipel
     }
 
     auto dsLayout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end());
+    SPushConstantRange pcRng;
+    pcRng.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+    pcRng.offset = 0u;
+    pcRng.size = sizeof(CMTLPipelineMetadata::SMtl::std140PackedData);
+    //if intellisense shows error here, it's most likely intellisense's fault and it'll build fine anyway
+    static_assert(sizeof(CMTLPipelineMetadata::SMtl::std140PackedData)<=ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "It must fit in push constants!");
     //ds with textures for material goes to set=3
-    auto layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr, nullptr, nullptr, nullptr, nullptr, std::move(dsLayout));
+    auto layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pcRng, &pcRng+1, nullptr, nullptr, nullptr, std::move(dsLayout));
 
     return layout;
 }
