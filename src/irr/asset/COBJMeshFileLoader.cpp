@@ -96,13 +96,6 @@ layout (push_constant) uniform Block {
     uint extra;
 } PC;
 
-layout (set = 1, binding = 0, row_major, std140) uniform UBO {
-    mat4 MVP;
-    mat4 MV;
-    mat3 NormalMat;
-    vec3 EyePos;
-} CamData;
-
 #include <irr/builtin/glsl/brdf/specular/fresnel/fresnel.glsl>
 
 #define Ia 0.1
@@ -170,13 +163,6 @@ layout (push_constant) uniform Block {
     //extra info
     uint extra;
 } PC;
-
-layout (set = 1, binding = 0, row_major, std140) uniform UBO {
-    mat4 MVP;
-    mat4 MV;
-    mat3 NormalMat;
-    vec3 EyePos;
-} CamData;
 
 #define PI 3.14159265359
 #define FLT_MIN 1.175494351e-38
@@ -281,8 +267,8 @@ layout (location = 3) in vec2 UV;
 layout (location = 0) out vec4 OutColor;
 
 #define ILLUM_MODEL_MASK 0x0fu
+#define map_Ka_MASK (1u<<4u)
 #define map_Kd_MASK (1u<<5u)
-#define map_Ka_MASK 1u
 #define map_Ks_MASK (1u<<6u)
 #define map_Ns_MASK (1u<<8u)
 #define map_bump_MASK (1u<<10u)
@@ -309,12 +295,6 @@ layout (push_constant) uniform Block {
     uint extra;
 } PC;
 
-layout (set = 1, binding = 0, row_major, std140) uniform UBO {
-    mat4 MVP;
-    mat4 MV;
-    mat3 NormalMat;
-    vec3 EyePos;
-} CamData;
 //here texture bindings will be inserted with sprintf()
 %s
 
@@ -1024,7 +1004,6 @@ core::smart_refctd_ptr<ICPUDescriptorSet> COBJMeshFileLoader::makeDescSet(const 
     auto ds = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(
         core::smart_refctd_ptr<ICPUDescriptorSetLayout>(_dsLayout)
     );
-    //d starts from 1u because binding 0 is UBO
     for (uint32_t i = 0u, d = 0u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
     {
         if (!_images[i])
