@@ -31,8 +31,6 @@ public:
             float shininess = 32.f;
             //d
             float opacity = 1.f;
-            //illum
-            uint32_t illumModel = 0u;
             //-bm
             float bumpFactor = 1.f;
 
@@ -53,6 +51,9 @@ public:
             float anisotropy = 0.f;
             //anisor
             float anisoRotation = 0.f;
+            //illum - bits [0;3]
+            //map presence: bits [4;16], order in accordance with E_MAP_TYPE
+            uint32_t extra = 0u;
         } PACK_STRUCT std140PackedData;
 #include "irr/irrunpack.h"
         //VS Intellisense shows error here because it think vectorSIMDf is 32 bytes, but it just Intellisense - it'll build anyway

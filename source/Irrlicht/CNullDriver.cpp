@@ -193,6 +193,37 @@ void main()
         addBuiltInToCaches(sampler, "irr/builtin/samplers/default_clamp_to_border");
 	}
 
+    //ds layouts
+    core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> defaultDs1Layout;
+    {
+        asset::ICPUDescriptorSetLayout::SBinding bnd;
+        bnd.count = 1u;
+        bnd.binding = 0u;
+        //maybe even ESS_ALL_GRAPHICS?
+        bnd.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
+        bnd.type = asset::EDT_UNIFORM_BUFFER;
+        defaultDs1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd+1);
+        //it's intentionally added to cache later, see comments below, dont touch this order of insertions
+    }
+
+    //desc sets
+    {
+        auto ds1 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(defaultDs1Layout.get()));
+        {
+            auto desc = ds1->getDescriptors(0u).begin();
+            //size of 4x4 matrix (MVP), another 4x4 (MV or M, whatever space u prefer for lighting calculation), 3x3 matrix (normal matrix) and vec3 (cam pos) including std140 padding, in this order
+            constexpr size_t UBO_SZ = (16u+16u+12u+4u) * sizeof(float);
+            auto ubo = core::make_smart_refctd_ptr<asset::ICPUBuffer>(UBO_SZ);
+            std::fill(reinterpret_cast<uint32_t*>(ubo->getPointer()), reinterpret_cast<uint32_t*>(ubo->getPointer())+ubo->getSize()/4ull, 0xdeadbeefu);
+            desc->desc = std::move(ubo);
+            desc->buffer.offset = 0ull;
+            desc->buffer.size = UBO_SZ;
+        }
+        addBuiltInToCaches(ds1, "irr/builtin/ds/default_ds1");
+        //layout added to cache after ds because of conversion to "empty cache handle"
+        addBuiltInToCaches(defaultDs1Layout, "irr/builtin/ds_layout/default_ds1_layout");
+    }
+
 	DerivativeMapCreator = core::make_smart_refctd_ptr<CDerivativeMapCreator>(this);
 
 	return true;

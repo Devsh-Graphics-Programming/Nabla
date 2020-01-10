@@ -259,7 +259,12 @@ class SAssetBundle
 		//! Overloaded operator checking if both collections of Assets\b are\b the same arrays in memory
 		bool operator==(const SAssetBundle& _other) const
 		{
-			return _other.m_contents == m_contents;
+            if (m_contents->size() != _other.m_contents->size())
+                return false;
+            for (size_t i = 0ull; i < m_contents->size(); ++i)
+                if ((*m_contents)[i] != (*_other.m_contents)[i])
+                    return false;
+            return true;
 		}
 
 		//! Overloaded operator checking if both collections of Assets\b aren't\b the same arrays in memory

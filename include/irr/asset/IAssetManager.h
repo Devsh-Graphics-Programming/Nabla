@@ -439,6 +439,7 @@ class IAssetManager : public core::IReferenceCounted
 			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
             _asset->grab();
             _asset->convertToDummyObject(referenceLevelsBelowToConvert);
+            _asset->isDummyObjectForCacheAliasing = true;
             m_cpuGpuCache[ix]->insert(_asset, std::move(_gpuObject));
         }
 

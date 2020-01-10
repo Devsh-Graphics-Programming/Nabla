@@ -56,48 +56,6 @@ public:
     float uv[2];
     uint32_t normal32bit;
 } PACK_STRUCT;
-
-class SObjVertex16
-{
-public:
-    SObjVertex16(const SObjVertex& other)
-    {
-        pos[0] = other.pos[0];
-        pos[1] = other.pos[1];
-        pos[2] = other.pos[2];
-        for (size_t i=0; i<2; i++)
-        {
-            double x = other.uv[i];
-            x *= 0xffffu;
-            uv[i] = x;
-        }
-        normal32bit = other.normal32bit;
-    }
-    float pos[3];
-    uint16_t uv[2];
-    uint32_t normal32bit;
-} PACK_STRUCT;
-
-class SObjVertex8
-{
-public:
-    SObjVertex8(const SObjVertex& other)
-    {
-        pos[0] = other.pos[0];
-        pos[1] = other.pos[1];
-        pos[2] = other.pos[2];
-        for (size_t i=0; i<2; i++)
-        {
-            double x = other.uv[i];
-            x *= 0xffu;
-            uv[i] = x;
-        }
-        normal32bit = other.normal32bit;
-    }
-    float pos[3];
-    uint8_t uv[2];
-    uint32_t normal32bit;
-} PACK_STRUCT;
 #include "irr/irrunpack.h"
 
 //! Meshloader capable of loading obj meshes.
@@ -149,6 +107,8 @@ private:
     using images_set_t = std::array<core::smart_refctd_ptr<ICPUImage>, CMTLPipelineMetadata::SMtl::EMP_COUNT>;
     images_set_t loadImages(const char* _relDir, const CMTLPipelineMetadata::SMtl& _mtl, uint32_t _hierarchyLvl);
     core::smart_refctd_ptr<ICPUDescriptorSet> makeDescSet(const images_set_t& _images, ICPUDescriptorSetLayout* _dsLayout);
+
+    std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>,core::smart_refctd_ptr<ICPUSpecializedShader>> getShaders(bool _hasUV, const CMTLPipelineMetadata::SMtl& _mtl);
 
 	// returns a pointer to the first printable character available in the buffer
 	const char* goFirstWord(const char* buf, const char* const bufEnd, bool acrossNewlines=true);
