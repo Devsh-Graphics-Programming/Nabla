@@ -39,16 +39,15 @@ class ICPUShader : public IAsset, public IShader<ICPUBuffer>
         {
             auto buf = (_depth > 0u && m_code) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_code->clone(_depth-1u)) : m_code;
             auto cp = core::smart_refctd_ptr<ICPUShader>(new ICPUShader(std::move(buf), m_containsGLSL), core::dont_grab);
-
-            cp->m_mutable = true;
+            clone_common(cp.get());
 
             return cp;
         }
 
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-			if (referenceLevelsBelowToConvert--)
-				m_code->convertToDummyObject(referenceLevelsBelowToConvert);
+			if (referenceLevelsBelowToConvert)
+				m_code->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}
 
 		const ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };

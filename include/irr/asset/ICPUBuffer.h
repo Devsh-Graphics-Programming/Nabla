@@ -54,9 +54,8 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
         core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override
         {
             auto cp = core::make_smart_refctd_ptr<ICPUBuffer>(size);
+            clone_common(cp.get());
             memcpy(cp->getPointer(), data, size);
-
-            cp->m_mutable = true;
 
             return cp;
         }

@@ -10,7 +10,7 @@ namespace asset
 class CGLSLBRDFBuiltinIncludeLoader : public irr::asset::IBuiltinIncludeLoader
 {
 public:
-    const char* getVirtualDirectoryName() const override { return "glsl/brdf/"; }
+    const char* getVirtualDirectoryName() const override { return "brdf/"; }
 
 private:
     static std::string getOrenNayar(const std::string&)

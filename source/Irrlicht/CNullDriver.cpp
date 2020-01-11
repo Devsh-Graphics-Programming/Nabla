@@ -115,7 +115,6 @@ bool CNullDriver::genericDriverInit(asset::IAssetManager* assMgr)
 		assMgr->changeAssetKey(bundle,path);
 		assMgr->insertAssetIntoCache(bundle);
 		auto objects = getGPUObjectsFromAssets(&asset.get(),&asset.get()+1);
-		assMgr->convertAssetToEmptyCacheHandle(asset.get(),std::move(objects->front()));
 	};
 	// materials
 	{

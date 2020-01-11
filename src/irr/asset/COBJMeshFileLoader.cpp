@@ -62,7 +62,7 @@ void main()
 {
     LocalPos = vPos;
     gl_Position = CamData.MVP*vec4(vPos, 1.0);
-    ViewPos = CamData.MV*vec4(vPos, 1.0);
+    ViewPos = (CamData.MV*vec4(vPos, 1.0)).xyz;
     Normal = normalize(CamData.NormalMat*vNormal);
 }
 )";
@@ -82,7 +82,7 @@ layout (push_constant) uniform Block {
     vec3 Ke;
     vec3 Tf;
     float Ns;
-    float n;
+    float d;
     float bm;
     float Ni;
     float roughness;
@@ -252,7 +252,7 @@ void main()
 {
     LocalPos = vPos;
     gl_Position = CamData.MVP*vec4(vPos, 1.0);
-    ViewPos = CamData.MV*vec4(vPos, 1.0);
+    ViewPos = (CamData.MV*vec4(vPos, 1.0)).xyz;
     Normal = normalize(CamData.NormalMat*vNormal);
     UV = vUV;
 }
@@ -267,12 +267,13 @@ layout (location = 3) in vec2 UV;
 layout (location = 0) out vec4 OutColor;
 
 #define ILLUM_MODEL_MASK 0x0fu
-#define map_Ka_MASK (1u<<4u)
-#define map_Kd_MASK (1u<<5u)
-#define map_Ks_MASK (1u<<6u)
-#define map_Ns_MASK (1u<<8u)
-#define map_bump_MASK (1u<<10u)
-#define map_normal_MASK (1u<<11u)
+#define map_Ka_MASK 1u<<4u
+#define map_Kd_MASK 1u<<5u
+#define map_Ks_MASK 1u<<6u
+#define map_Ns_MASK 1u<<8u
+#define map_d_MASK 1u<<9u
+#define map_bump_MASK 1u<<10u
+#define map_normal_MASK 1u<<11u
 
 layout (push_constant) uniform Block {
     vec3 Ka;
@@ -281,7 +282,7 @@ layout (push_constant) uniform Block {
     vec3 Ke;
     vec3 Tf;
     float Ns;
-    float n;
+    float d;
     float bm;
     float Ni;
     float roughness;
@@ -294,6 +295,12 @@ layout (push_constant) uniform Block {
     //extra info
     uint extra;
 } PC;
+
+layout (set = 3, binding = 0) uniform sampler2D map_Kd;
+layout (set = 3, binding = 1) uniform sampler2D map_d;
+layout (set = 3, binding = 2) uniform sampler2D map_Ks;
+layout (set = 3, binding = 3) uniform sampler2D map_Ns;
+layout (set = 3, binding = 4) uniform sampler2D map_Ka;
 
 //here texture bindings will be inserted with sprintf()
 %s
@@ -310,26 +317,29 @@ void main()
     float VdotR = max(dot(L,R), 0.0);
 
     vec3 Kd;
-    if (PC.extra&map_Kd_MASK == map_Kd_MASK)
+    if ((PC.extra&(map_Kd_MASK)) == (map_Kd_MASK))
         Kd = texture(map_Kd, UV).rgb;
     else
         Kd = PC.Kd;
+    float d = 1.0;
+    if ((PC.extra&(map_d_MASK)) == (map_d_MASK))
+        d = texture(map_d, UV).r;
 
     vec3 color;
-    if (PC.extra&ILLUM_MODEL_MASK > 0)
+    if ((PC.extra&ILLUM_MODEL_MASK) > 0)
     {
         vec3 Ka;
         vec3 Ks;
         float Ns;
-        if (PC.extra&map_Ka_MASK == map_Ka_MASK)
+        if ((PC.extra&(map_Ka_MASK)) == (map_Ka_MASK))
             Ka = texture(map_Ka, UV).rgb;
         else
             Ka = PC.Ka;
-        if (PC.extra&map_Ks_MASK == map_Ks_MASK)
+        if ((PC.extra&(map_Ks_MASK)) == (map_Ks_MASK))
             Ks = texture(map_Ks, UV).rgb;
         else
             Ks = PC.Ks;
-        if (PC.extra&map_Ns_MASK == map_Ns_MASK)
+        if ((PC.extra&(map_Ns_MASK)) == (map_Ns_MASK))
             Ns = texture(map_Ns, UV).x;
         else
             Ns = PC.Ns;
@@ -355,12 +365,10 @@ void main()
     }
     else color = Kd;
 
-    OutColor = vec4(color, 1.0);
+    OutColor = vec4(color, d);
 }
 )";
 }
-
-#define NEW_SHADERS
 
 namespace irr
 {
@@ -483,8 +491,10 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				os::Printer::log("Reading material _file",tmpbuf);
 #endif
 
+                std::string mtllib = relPath+tmpbuf;
+                std::replace(mtllib.begin(), mtllib.end(), '\\', '/');
                 SAssetLoadParams loadParams;
-                auto bundle = interm_getAssetInHierarchy(AssetManager, tmpbuf, loadParams, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
+                auto bundle = interm_getAssetInHierarchy(AssetManager, mtllib, loadParams, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
                 for (auto it = bundle.getContents().first; it != bundle.getContents().second; ++it)
                 {
                     auto pipeln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(*it);
@@ -624,7 +634,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			const char* const endPtr = linePtr+wordBuffer.size();
 
 			core::vector<uint32_t> faceCorners;
-			faceCorners.reserve(3ull);
+			faceCorners.reserve(32ull);
 
 			// read in all vertices
 			linePtr = goNextWord(linePtr, endPtr);
@@ -651,8 +661,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 }
 				else
                 {
-					v.uv[0] = std::numeric_limits<float>::quiet_NaN();
-					v.uv[1] = std::numeric_limits<float>::quiet_NaN();
+					v.uv[0] = core::nan<float>();
+					v.uv[1] = core::nan<float>();
                 }
                 //set normal
 				if ( -1 != Idx[2] )
@@ -685,16 +695,26 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				linePtr = goNextWord(linePtr, endPtr);
 			}
 
-            assert(faceCorners.size()==3ull);
-			performActionBasedOnOrientationSystem
-			(
-				[](){},
-				[&]() 
-				{
-                    std::swap(faceCorners.front(), faceCorners.back());
-				}
-			);
-            indices.back().insert(indices.back().end(), faceCorners.begin(), faceCorners.end());
+            // triangulate the face
+            for (uint32_t i = 1u; i < faceCorners.size()-1u; ++i)
+            {
+                // Add a triangle
+                performActionBasedOnOrientationSystem
+                (
+                [&]()
+                {
+                    indices.back().push_back(faceCorners[0]);
+                    indices.back().push_back(faceCorners[i]);
+                    indices.back().push_back(faceCorners[i + 1]);
+                },
+                [&]()
+                {
+                    indices.back().push_back(faceCorners[i + 1]);
+                    indices.back().push_back(faceCorners[i]);
+                    indices.back().push_back(faceCorners[0]);
+                }
+                );
+            }
 		}
 		break;
 
@@ -772,7 +792,28 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 vtxParams.attributes[UV].format = EF_R32G32_SFLOAT;
                 vtxParams.attributes[UV].relativeOffset = offsetof(SObjVertex, uv);
             }
-            submeshes[i]->getPipeline()->getVertexInputParams() = vtxParams;
+
+            ICPURenderpassIndependentPipeline* pipeline = submeshes[i]->getPipeline();
+            if (!pipeline)
+                continue;
+            const auto& mtl = static_cast<const CMTLPipelineMetadata*>(pipeline->getMetadata())->getMaterial();
+            auto shaders = getShaders(hasUV, mtl);
+
+            pipeline->getVertexInputParams() = vtxParams;
+            pipeline->setShaderAtIndex(0u, shaders.first.get());
+            pipeline->setShaderAtIndex(4u, shaders.second.get());
+            if (hasUV && mtl.maps[CMTLPipelineMetadata::SMtl::EMP_OPACITY].size())
+            {
+                auto& blendParams = pipeline->getBlendParams();
+                for (uint32_t i = 0u; i < SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; ++i)
+                {
+                    blendParams.blendParams[i].blendEnable = true;
+                    blendParams.blendParams[i].srcColorFactor = EBF_SRC_ALPHA;
+                    blendParams.blendParams[i].srcAlphaFactor = EBF_SRC_ALPHA;
+                    blendParams.blendParams[i].dstColorFactor = EBF_ONE_MINUS_SRC_ALPHA;
+                    blendParams.blendParams[i].dstAlphaFactor = EBF_ONE_MINUS_SRC_ALPHA;
+                }
+            }
         }
 
         core::smart_refctd_ptr<ICPUBuffer> vtxBuf = core::make_smart_refctd_ptr<ICPUBuffer>(vertices.size() * sizeof(SObjVertex));
@@ -783,6 +824,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         {
             if (submeshWasLoadedFromCache[i])
                 continue;
+
+            submeshes[i]->setPositionAttributeIx(POSITION);
 
             submeshes[i]->getIndexBufferBinding()->buffer = ixBuf;
             const uint64_t offset = submeshes[i]->getIndexBufferBinding()->offset;
@@ -798,13 +841,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     auto mesh = core::make_smart_refctd_ptr<CCPUMesh>();
     for (auto& submesh : submeshes)
     {
-        ICPURenderpassIndependentPipeline* pipeline = submesh->getPipeline();
-        const auto& mtl = static_cast<const CMTLPipelineMetadata*>(pipeline->getMetadata())->getMaterial();
-        auto shaders = getShaders(pipeline->getVertexInputParams().enabledAttribFlags&(1u<<UV), mtl);
-
-        pipeline->setShaderAtIndex(0u, shaders.first.get());
-        pipeline->setShaderAtIndex(4u, shaders.second.get());
-
         mesh->addMeshBuffer(std::move(submesh));
     }
 
@@ -851,7 +887,7 @@ std::string genGLSLtextureBindingsStr(const CMTLPipelineMetadata::SMtl& _mtl)
         "map_sheen"
     };
 
-    uint32_t reflBinding = 0u;
+    uint32_t j = 0u;
     std::string res;
 
     char tmpbuf[512]{};
@@ -860,13 +896,13 @@ std::string genGLSLtextureBindingsStr(const CMTLPipelineMetadata::SMtl& _mtl)
         if (_mtl.maps[i].empty())
             continue;
 
-        sprintf(tmpbuf, "layout (set = 3, binding = %u) uniform sampler2D %s;\n", i, mapNames[i]);
+        sprintf(tmpbuf, "layout (set = 3, binding = %u) uniform sampler2D %s;\n", j, mapNames[i]);
         res += tmpbuf;
-        ++reflBinding;
+        ++j;
     }
     if (_mtl.maps[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX].size())
     {
-        sprintf(tmpbuf, "layout (set = 3, binding = %u) uniform samplerCube map_refl;\n", reflBinding);
+        sprintf(tmpbuf, "layout (set = 3, binding = %u) uniform samplerCube map_refl;\n", j);
         res += tmpbuf;
     }
 

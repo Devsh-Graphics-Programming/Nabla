@@ -48,7 +48,7 @@ core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipel
     bnd.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
     bnd.type = EDT_COMBINED_IMAGE_SAMPLER;
     bnd.binding = 0u;
-    std::fill(bindings->begin()+1, bindings->end(), bnd);
+    std::fill(bindings->begin(), bindings->end(), bnd);
 
     core::smart_refctd_ptr<ICPUSampler> samplers[2];
     samplers[0] = getDefaultAsset<ICPUSampler,IAsset::ET_SAMPLER>("irr/builtin/samplers/default", m_assetMgr);

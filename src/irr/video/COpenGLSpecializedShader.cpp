@@ -180,8 +180,8 @@ GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion, const asset::ICP
 				}
 				using gl = COpenGLExtensionHandler;
 				const GLint location = gl::extGlGetUniformLocation(GLname, top.name.c_str());
-				assert(location != -1);
-				m_uniformsList.emplace_back(top, location, m_uniformValues+top.offset);
+				if (location != -1)
+				    m_uniformsList.emplace_back(top, location, m_uniformValues+top.offset);
 			}
 			std::sort(m_uniformsList.begin(), m_uniformsList.end(), [](const SUniform& a, const SUniform& b) { return a.location < b.location; });
 		}

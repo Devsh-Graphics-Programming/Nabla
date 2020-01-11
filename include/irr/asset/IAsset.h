@@ -152,9 +152,16 @@ class IAsset : virtual public core::IReferenceCounted
 
         virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
 
-		friend IAssetManager;
+    protected:
+        void clone_common(IAsset* _clone) const
+        {
+            _clone->m_metadata = m_metadata;
+            _clone->isDummyObjectForCacheAliasing = false;
+            _clone->m_mutable = true;
+        }
 
 	private:
+		friend IAssetManager;
 		core::smart_refctd_ptr<IAssetMetadata> m_metadata;
 
 		void setMetadata(core::smart_refctd_ptr<IAssetMetadata>&& _metadata) { m_metadata = std::move(_metadata); }
