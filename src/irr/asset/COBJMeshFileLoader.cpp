@@ -80,7 +80,7 @@ layout (push_constant) uniform Block {
     vec3 Kd;
     vec3 Ks;
     vec3 Ke;
-    vec3 Tf;
+    vec4 Tf;//w component doesnt matter
     float Ns;
     float d;
     float bm;
@@ -93,7 +93,7 @@ layout (push_constant) uniform Block {
     float anisotropy;
     float anisoRotation;
     //extra info
-    layout (offset = 124) uint extra;
+    uint extra;
 } PC;
 
 #include <irr/builtin/glsl/brdf/specular/fresnel/fresnel.glsl>
@@ -147,7 +147,7 @@ layout (push_constant) uniform Block {
     vec3 albedo;//MTL's diffuse
     vec3 specular;
     vec3 emissive;
-    vec3 transmissionFilter;
+    vec4 Tf;//w component doesnt matter
     float shininess;
     float opacity;
     float bumpFactor;
@@ -161,7 +161,7 @@ layout (push_constant) uniform Block {
     float anisotropy;
     float anisoRotation;
     //extra info
-    layout (offset = 124) uint extra;
+    uint extra;
 } PC;
 
 #define PI 3.14159265359
@@ -280,7 +280,7 @@ layout (push_constant) uniform Block {
     vec3 Kd;
     vec3 Ks;
     vec3 Ke;
-    vec3 Tf;
+    vec4 Tf;//w component doesnt matter
     float Ns;
     float d;
     float bm;
@@ -293,7 +293,7 @@ layout (push_constant) uniform Block {
     float anisotropy;
     float anisoRotation;
     //extra info
-    layout (offset = 124) uint extra;
+    uint extra;
 } PC;
 
 //here texture bindings will be inserted with sprintf()
