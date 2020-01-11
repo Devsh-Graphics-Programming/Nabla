@@ -1,21 +1,61 @@
 #define _IRR_STATIC_LIB_
+#include <iostream>
+#include <cstdio>
 #include <irrlicht.h>
 
-#include "../../source/Irrlicht/COpenGLDriver.h"
-#include "../ext/ScreenShot/ScreenShot.h"
+//! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
 
-// TODO: remove dependency
-//#include "../src/irr/asset/CBAWMeshWriter.h"
+//#include "../../ext/ScreenShot/ScreenShot.h"
+
 
 using namespace irr;
 using namespace core;
 
 
+#include "irr/irrpack.h"
+struct VertexStruct
+{
+    /// every member needs to be at location aligned to its type size for GLSL
+    float Pos[3]; /// uses float hence need 4 byte alignment
+    uint8_t Col[2]; /// same logic needs 1 byte alignment
+    uint8_t uselessPadding[2]; /// so if there is a member with 4 byte alignment then whole struct needs 4 byte align, so pad it
+} PACK_STRUCT;
+#include "irr/irrunpack.h"
+
+const char* vertexSource = R"===(
+#version 430 core
+layout(location = 0) in vec4 vPos; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
+layout(location = 1) in vec4 vCol;
+
+layout( push_constant, row_major ) uniform Block {
+	mat4 modelViewProj;
+} PushConstants;
+
+layout(location = 0) out vec4 Color; //per vertex output color, will be interpolated across the triangle
+
+void main()
+{
+    gl_Position = PushConstants.modelViewProj*vPos; //only thing preventing the shader from being core-compliant
+    Color = vCol;
+}
+)===";
+
+const char* fragmentSource = R"===(
+#version 430 core
+
+layout(location = 0) in vec4 Color; //per vertex output color, will be interpolated across the triangle
+
+layout(location = 0) out vec4 pixelColor;
+
+void main()
+{
+    pixelColor = Color;
+}
+)===";
 
 int main()
 {
-    srand(time(0));
 	// create device with full flexibility over creation parameters
 	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
 	irr::SIrrlichtCreationParameters params;
@@ -33,175 +73,89 @@ int main()
 		return 1; // could not create selected driver.
 
 
+	//! disable mouse cursor, since camera will force it to the middle
+	//! and we don't want a jittery cursor in the middle distracting us
 	device->getCursorControl()->setVisible(false);
 
+	//! Since our cursor will be enslaved, there will be no way to close the window
+	//! So we listen for the "Q" key being pressed and exit the application
 	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
 
-	video::IVideoDriver* driver = device->getVideoDriver();
+	auto* driver = device->getVideoDriver();
+	auto* smgr = device->getSceneManager();
+    auto* am = device->getAssetManager();
 
+    asset::IAssetLoader::SAssetLoadParams lp;
+    auto meshes_bundle = am->getAsset("../../media/mori_knob/testObj.obj", lp);
+    assert(!meshes_bundle.isEmpty());
+    auto mesh = meshes_bundle.getContents().first[0];
+    auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
 
-	scene::ISceneManager* smgr = device->getSceneManager();
-	scene::ICameraSceneNode* camera =
-		smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
+    asset::ICPUDescriptorSetLayout* ds1layout = mesh_raw->getMeshBuffer(0u)->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
+    //pipelines attached to meshbuffers from OBJ loader has DS1 layout being "irr/builtin/ds_layout/default_ds1_layout"
+    //that is designed for use with "irr/builtin/ds/default_ds1", so let's use it!
+    auto ds1_bundle = am->getAsset("irr/builtin/ds/default_ds1", lp);
+    //you might want to IAsset::clone() this DS in order to have exact copy but not the same object. However in this case won't be doing it.
+    //(same CPU object -> same GPU object returned from driver->getGPUObjectsFromAssets())
+    //use IAsset::clone()'s optional parameter to clone the buffer (being the only descriptor in default DS1) as well
+    auto ds1 = ds1_bundle.getContents().first[0];
+    auto ds1_raw = static_cast<asset::ICPUDescriptorSet*>(ds1.get());
+    asset::ICPUBuffer* ubo = static_cast<asset::ICPUBuffer*>(ds1_raw->getDescriptors(0u).begin()->desc.get());
+    const size_t ubo_sz = ds1_raw->getDescriptors(0u).begin()->buffer.size;
+
+    auto gpuds1 = driver->getGPUObjectsFromAssets(&ds1_raw,&ds1_raw+1)->front();
+    //video::IGPUBuffer* gpuubo = gpuds1->getDescriptors()...//TODO GPU DS needs some (constant?) getter to get its descriptors
+    auto gpuubo = driver->getGPUObjectsFromAssets(&ubo,&ubo+1)->front();
+
+    auto gpumesh = driver->getGPUObjectsFromAssets(&mesh_raw,&mesh_raw+1)->front();
+
+	//! we want to move around the scene and view it from different angles
+	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.04f);
+
 	camera->setPosition(core::vector3df(-4,0,0));
 	camera->setTarget(core::vector3df(0,0,0));
 	camera->setNearValue(0.01f);
 	camera->setFarValue(100.0f);
+
     smgr->setActiveCamera(camera);
 
-	io::IFileSystem* filesystem = device->getFileSystem();
-    asset::IAssetManager* am = device->getAssetManager();
-/*
-    const char* shader_source = R"(#version 430 core
-layout (location = 0) in vec4 vPosition;
-layout (location = 1) in vec4 vColor;
-
-
-//aaa
-//#include "hejka.glh"
-//bbb
-
-struct Hej {
-    vec4 col;
-    int arr[30];
-    uint arr2[8];
-};
-layout(push_constant) uniform pushConstants {
-    float test2;
-    Hej hej[2];
-} u_pushConstants;
-
-
-layout (location = 3) out vec4 fColor;
-layout (constant_id = 8)  const int SSBO_CNT = 3;
-layout (constant_id = 13) const int BUF_SZ = 64;
-
-struct S1
-{
-    int i1;
-    uint i2;
-    float f3;
-};
-struct S2
-{
-    float f[3];
-    S1 h;
-};
-struct S3
-{
-    uint i;
-    uvec2 u2;
-    S2 struct_memb[4];
-};
-layout(std430, binding = 0, set = 2) restrict buffer Samples {
-    vec3 samples[45];
-    S3 smembs[2];
-}ssbo[SSBO_CNT];
-layout(std140, binding = 4) uniform Controls
-{
-    mat4 MVP;
-};
-
-void main() {
-    gl_Position = MVP*vPosition*ssbo[1].samples[44].xxyy*u_pushConstants.test2;
-    fColor = vColor;
-})";
-*/
-    const asset::IGLSLCompiler* glslcomp = am->getGLSLCompiler();
-    asset::ISpecializationInfo* vs_specInfo = new asset::ISpecializationInfo({}, nullptr, "main", asset::ESS_VERTEX);
-    asset::ISpecializationInfo* fs_specInfo = new asset::ISpecializationInfo({}, nullptr, "main", asset::ESS_FRAGMENT);
-    asset::ICPUShader* vs_unspec = glslcomp->createSPIRVFromGLSL(filesystem->createAndOpenFile("../mesh.vert"), asset::ESS_VERTEX, "main", "../mesh.vert");
-    asset::ICPUSpecializedShader* vs = new asset::ICPUSpecializedShader(vs_unspec, vs_specInfo);
-    vs_specInfo->drop();
-    asset::ICPUShader* fs_unspec = glslcomp->createSPIRVFromGLSL(filesystem->createAndOpenFile("../mesh.frag"), asset::ESS_FRAGMENT, "main", "../mesh.frag");
-    asset::ICPUSpecializedShader* fs = new asset::ICPUSpecializedShader(fs_unspec, fs_specInfo);
-    fs_specInfo->drop();
-
-    struct UBO {
-        float f[20];
-    } ubo;
-    video::IGPUBuffer* gpubuf_ubo = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(ubo));
-
-    asset::ICPUSpecializedShader* cpushaders[]{ vs, fs };
-    video::created_gpu_object_array<asset::ICPUSpecializedShader> gpushaders = driver->getGPUObjectsFromAssets(cpushaders, cpushaders+2);
-
-    std::array<core::smart_refctd_ptr<video::IGPUSpecializedShader>, 5u> pipeline{ {gpushaders->operator[](0),nullptr,nullptr,nullptr,gpushaders->operator[](1)} };
-
-	// from Criss:
-	// here i'm testing baw mesh writer and loader
-	// (import from .stl/.obj, then export to .baw, then import from .baw :D)
-	// Seems to work for those two simple meshes, but need more testing!
-
-    //! Test Loading of Obj
-    asset::IAssetLoader::SAssetLoadParams lparams;
-    auto cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*am->getAsset("../../media/extrusionLogo_TEST_fixed.stl", lparams).getContents().first);
-    /*
-	// export mesh
-    asset::CBAWMeshWriter::WriteProperties bawprops;
-    asset::IAssetWriter::SAssetWriteParams wparams(cpumesh.get(), asset::EWF_COMPRESSED, 0.f, 0, nullptr, &bawprops);
-	am->writeAsset("extrusionLogo_TEST_fixed.baw", wparams);
-	// end export
-
-	// import .baw mesh (test)
-    cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*am->getAsset("extrusionLogo_TEST_fixed.baw", lparams).getContents().first);
-	// end import
-    */
-	//!
-	auto setMaterialTypeOnAllMaterials = [](auto* node, auto newMaterialType)
-	{
-		auto* mesh = node->getMesh();
-		for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
-		{
-			auto& material = mesh->getMeshBuffer(i)->getMaterial();
-			material.MaterialType = newMaterialType;
-		}
-	};
-
-    if (cpumesh)
-		setMaterialTypeOnAllMaterials(smgr->addMeshSceneNode(std::move(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)->operator[](0))),newMaterialType);
-
-    cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*am->getAsset("../../media/cow.obj", lparams).getContents().first);
-	// export mesh
-    /*
-    wparams.rootAsset = cpumesh.get();
-	am->writeAsset("cow.baw", wparams);
-	// end export
-
-	// import .baw mesh (test)
-	cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*am->getAsset("cow.baw", lparams).getContents().first);
-	// end import
-    */
-    if (cpumesh)
-		setMaterialTypeOnAllMaterials(smgr->addMeshSceneNode(std::move(driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)->operator[](0)),0,-1,core::vector3df(3.f,1.f,0.f)),newMaterialType);
+    core::vector<uint8_t> uboData(ubo_sz, 0u);
 
 	uint64_t lastFPSTime = 0;
-
-	while(device->run() && receiver.keepOpen() )
-	//if (device->isWindowActive())
+	while(device->run() && receiver.keepOpen())
 	{
-		driver->beginScene(true, true, video::SColor(255,0,0,255) );
-
-        core::matrix4SIMD MVP = driver->getTransform(video::EPTS_PROJ_VIEW_WORLD);
-        MVP = MVP.getTransposed();
-        core::vectorSIMDf cameraPos;
-        cameraPos.set(driver->getTransform(video::E4X3TS_WORLD_VIEW_INVERSE).getTranslation());
-        memcpy(ubo.f, cameraPos.pointer, 4*4);
-        memcpy(ubo.f+4, MVP.pointer(), 4*16);
-        driver->updateBufferRangeViaStagingBuffer(gpubuf_ubo, 0, sizeof(ubo), ubo.f);
-
-        auto auxCtx = const_cast<video::COpenGLDriver::SAuxContext*>(static_cast<video::COpenGLDriver*>(driver)->getThreadContext());
-
-        const video::COpenGLBuffer* buf{ static_cast<const video::COpenGLBuffer*>(gpubuf_ubo) };
-        ptrdiff_t offset = 0;
-        ptrdiff_t size = gpubuf_ubo->getSize();
-
-        auxCtx->setActiveUBO(0u, 1u, &buf, &offset, &size);
+		driver->beginScene(true, true, video::SColor(255,255,255,255) );
 
         //! This animates (moves) the camera and sets the transforms
-        //! Also draws the meshbuffer
-        smgr->drawAll();
+		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
+		camera->render();
+
+		core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
+        memcpy(uboData.data(), mvp.pointer(), sizeof(core::matrix4SIMD));//MVP
+        core::matrix3x4SIMD MV3x4;
+        MV3x4.set(camera->getViewMatrix());
+        core::matrix4SIMD MV(MV3x4);
+        memcpy(uboData.data()+sizeof(core::matrix4SIMD), MV.pointer(), sizeof(core::matrix4SIMD));//MV
+        memcpy(uboData.data()+2ull*sizeof(core::matrix4SIMD), MV.pointer(), 12u*sizeof(float));//normal matrix
+        driver->updateBufferRangeViaStagingBuffer(gpuubo->getBuffer(), gpuubo->getOffset(), uboData.size(), uboData.data());
+
+        for (uint32_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)
+        {
+            video::IGPUMeshBuffer* gpumb = gpumesh->getMeshBuffer(i);
+            const video::IGPURenderpassIndependentPipeline* pipeline = gpumb->getPipeline();
+            const video::IGPUDescriptorSet* ds3 = gpumb->getAttachedDescriptorSet();
+
+            driver->bindGraphicsPipeline(pipeline);
+            const video::IGPUDescriptorSet* gpuds1_ptr = gpuds1.get();
+            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 1u, 1u, &gpuds1_ptr, nullptr);
+            const video::IGPUDescriptorSet* gpuds3_ptr = gpumb->getAttachedDescriptorSet();
+            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
+            driver->pushConstants(pipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, 128u, gpumb->getPushConstantsDataPtr());
+
+            driver->drawMeshBuffer(gpumb);
+        }
 
 		driver->endScene();
 
@@ -209,23 +163,19 @@ void main() {
 		uint64_t time = device->getTimer()->getRealTime();
 		if (time-lastFPSTime > 1000)
 		{
-			std::wostringstream sstr;
-			sstr << L"Builtin Nodes Demo - Irrlicht Engine FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
+			std::wostringstream str;
+			str << L"GPU Mesh Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
 
-			device->setWindowCaption(sstr.str().c_str());
+			device->setWindowCaption(str.str().c_str());
 			lastFPSTime = time;
 		}
 	}
 
-
 	//create a screenshot
 	{
 		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
-		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+		//ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
 	}
-
-    
-	device->drop();
 
 	return 0;
 }
