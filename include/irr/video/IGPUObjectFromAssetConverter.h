@@ -249,7 +249,12 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> gpuppln_(gpuppln);
         core::smart_refctd_ptr<IGPUDescriptorSet> gpuds_(gpuds);
         (*res)[i] = core::make_smart_refctd_ptr<IGPUMeshBuffer>(std::move(gpuppln_), std::move(gpuds_), vtxBindings, std::move(idxBinding));
-        const core::aabbox3df oldBBox = cpumb->getBoundingBox();
+        (*res)[i]->setBaseInstance(_begin[i]->getBaseInstance());
+        (*res)[i]->setBaseVertex(_begin[i]->getBaseVertex());
+        (*res)[i]->setIndexCount(_begin[i]->getIndexCount());
+        (*res)[i]->setIndexType(_begin[i]->getIndexType());
+        (*res)[i]->setInstanceCount(_begin[i]->getInstanceCount());
+        //const core::aabbox3df oldBBox = cpumb->getBoundingBox();
         //if (cpumb->getMeshBufferType() != asset::EMBT_ANIMATED_SKINNED)
         //    cpumb->recalculateBoundingBox();
         (*res)[i]->setBoundingBox(cpumb->getBoundingBox());
@@ -664,7 +669,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
         asset::ICPUDescriptorSet* cpuds = _begin[i];
 		cpuLayouts.push_back(cpuds->getLayout());
               
-		for (auto j=0u; j<cpuds->getMaxDescriptorBindingIndex(); j++)
+		for (auto j=0u; j<=cpuds->getMaxDescriptorBindingIndex(); j++)
 		{
 			const uint32_t cnt = cpuds->getDescriptors(j).length();
 			if (cnt)
@@ -694,7 +699,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     for (ptrdiff_t i=0u; i<assetCount; i++)
     {
         asset::ICPUDescriptorSet* cpuds = _begin[i];              
-		for (auto j=0u; j<cpuds->getMaxDescriptorBindingIndex(); j++)
+		for (auto j=0u; j<=cpuds->getMaxDescriptorBindingIndex(); j++)
 		{
 			const auto type = cpuds->getDescriptorsType(j);
 			for (const auto& info : cpuds->getDescriptors(j))
@@ -741,7 +746,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 			auto gpuds = res->operator[](i).get();
 
 			asset::ICPUDescriptorSet* cpuds = _begin[i];
-			for (uint32_t j=0u; j<cpuds->getMaxDescriptorBindingIndex(); j++)
+			for (uint32_t j=0u; j<=cpuds->getMaxDescriptorBindingIndex(); j++)
 			{
 				auto descriptors = cpuds->getDescriptors(j);
 				if (descriptors.length()==0u)
@@ -761,7 +766,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 					{
 						auto buffer = gpuBuffers->operator[](bufRedirs[bi++]);
 						info->desc = core::smart_refctd_ptr<video::IGPUBuffer>(buffer->getBuffer());
-						info->buffer.offset = buffer->getOffset();
+						info->buffer.offset = desc.buffer.offset + buffer->getOffset();
 						info->buffer.size = desc.buffer.size;
 					}
 					else if (isBufviewDesc(type))

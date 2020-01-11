@@ -116,8 +116,9 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 					}
 				}
 			}
-			m_descriptors = nullptr;
-			m_bindingInfo = nullptr;
+            //dont drop descriptors so that we can access GPU descriptors through driver->getGPUObjectsFromAssets()
+			//m_descriptors = nullptr;
+			//m_bindingInfo = nullptr;
 		}
 		inline E_TYPE getAssetType() const override { return ET_DESCRIPTOR_SET; }
 

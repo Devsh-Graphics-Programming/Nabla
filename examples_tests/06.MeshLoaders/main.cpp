@@ -12,48 +12,6 @@
 using namespace irr;
 using namespace core;
 
-
-#include "irr/irrpack.h"
-struct VertexStruct
-{
-    /// every member needs to be at location aligned to its type size for GLSL
-    float Pos[3]; /// uses float hence need 4 byte alignment
-    uint8_t Col[2]; /// same logic needs 1 byte alignment
-    uint8_t uselessPadding[2]; /// so if there is a member with 4 byte alignment then whole struct needs 4 byte align, so pad it
-} PACK_STRUCT;
-#include "irr/irrunpack.h"
-
-const char* vertexSource = R"===(
-#version 430 core
-layout(location = 0) in vec4 vPos; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
-layout(location = 1) in vec4 vCol;
-
-layout( push_constant, row_major ) uniform Block {
-	mat4 modelViewProj;
-} PushConstants;
-
-layout(location = 0) out vec4 Color; //per vertex output color, will be interpolated across the triangle
-
-void main()
-{
-    gl_Position = PushConstants.modelViewProj*vPos; //only thing preventing the shader from being core-compliant
-    Color = vCol;
-}
-)===";
-
-const char* fragmentSource = R"===(
-#version 430 core
-
-layout(location = 0) in vec4 Color; //per vertex output color, will be interpolated across the triangle
-
-layout(location = 0) out vec4 pixelColor;
-
-void main()
-{
-    pixelColor = Color;
-}
-)===";
-
 int main()
 {
 	// create device with full flexibility over creation parameters
@@ -109,10 +67,10 @@ int main()
     //video::IGPUBuffer* gpuubo = gpuds1->getDescriptors()...//TODO GPU DS needs some (constant?) getter to get its descriptors
     auto gpuubo = driver->getGPUObjectsFromAssets(&ubo,&ubo+1)->front();
 
-    auto gpumesh = driver->getGPUObjectsFromAssets(&mesh_raw,&mesh_raw+1)->front();
+    auto gpumesh = driver->getGPUObjectsFromAssets(&mesh_raw, &mesh_raw + 1)->front();
 
 	//! we want to move around the scene and view it from different angles
-	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.04f);
+	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
 
 	camera->setPosition(core::vector3df(-4,0,0));
 	camera->setTarget(core::vector3df(0,0,0));
@@ -151,8 +109,9 @@ int main()
             const video::IGPUDescriptorSet* gpuds1_ptr = gpuds1.get();
             driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 1u, 1u, &gpuds1_ptr, nullptr);
             const video::IGPUDescriptorSet* gpuds3_ptr = gpumb->getAttachedDescriptorSet();
-            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
-            driver->pushConstants(pipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, 128u, gpumb->getPushConstantsDataPtr());
+            if (gpuds3_ptr)
+                driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
+            driver->pushConstants(pipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, 128u, mesh_raw->getMeshBuffer(i)->getPushConstantsDataPtr());
 
             driver->drawMeshBuffer(gpumb);
         }

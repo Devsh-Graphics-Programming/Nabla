@@ -200,21 +200,33 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
     for (const SUniform& u : m_uniformsList)
     {
         const SMember& m = u.m;
-		assert(m.mtxStride==0u || m.arrayStride%m.mtxStride==0u);
+        auto is_scalar_or_vec = [&m] { return (m.mtxRowCnt >= 1u && m.mtxColCnt == 1u); };
+        auto is_mtx = [&m] { return (m.mtxRowCnt > 1u && m.mtxColCnt > 1u); };
+
+        uint32_t arrayStride = 0u;
+        {
+            uint32_t arrayStride1 = 0u;
+            if (is_scalar_or_vec())
+                arrayStride1 = (m.mtxRowCnt==1u) ? m.size : core::roundUpToPoT(m.mtxRowCnt)*4u;
+            else if (is_mtx())
+                arrayStride1 = m.arrayStride;
+            assert(arrayStride1);
+            arrayStride = (m.count <= 1u) ? arrayStride1 : m.arrayStride;
+        }
+		assert(m.mtxStride==0u || arrayStride%m.mtxStride==0u);
 		IRR_ASSUME_ALIGNED(u.value, sizeof(float));
-		IRR_ASSUME_ALIGNED(u.value, m.arrayStride);
+		IRR_ASSUME_ALIGNED(u.value, arrayStride);
 		
 		auto* baseOffset = _pcData+m.offset;
 		IRR_ASSUME_ALIGNED(baseOffset, sizeof(float));
-		IRR_ASSUME_ALIGNED(baseOffset, m.arrayStride);
+		IRR_ASSUME_ALIGNED(baseOffset, arrayStride);
 
 		constexpr uint32_t MAX_DWORD_SIZE = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE/sizeof(GLfloat);
 		alignas(128u) std::array<GLfloat,MAX_DWORD_SIZE> packed_data;
 
         const uint32_t count = std::min<uint32_t>(m.count, MAX_DWORD_SIZE/(m.count*m.mtxRowCnt*m.mtxColCnt));
-		if (!std::equal(baseOffset, baseOffset+m.arrayStride*count, u.value) || m_uniformsSetForTheVeryFirstTime)
+		if (!std::equal(baseOffset, baseOffset+arrayStride*count, u.value) || m_uniformsSetForTheVeryFirstTime)
 		{
-			auto is_scalar_or_vec = [&m] { return (m.mtxRowCnt>=1u && m.mtxColCnt==1u); };
 			// pack the constant data as OpenGL uniform update functions expect packed arrays
 			{
 				const bool isRowMajor = is_scalar_or_vec() || m.rowMajor;
@@ -223,13 +235,12 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
 				for (uint32_t i = 0u; i < count; ++i)
 				for (uint32_t c = 0u; c < rowOrColCnt; ++c)
 				{
-					const GLfloat* in = reinterpret_cast<const GLfloat*>(baseOffset + i*m.arrayStride + c*m.mtxStride);
+					const GLfloat* in = reinterpret_cast<const GLfloat*>(baseOffset + i*arrayStride + c*m.mtxStride);
 					GLfloat* out = packed_data.data() + (i*m.mtxRowCnt*m.mtxColCnt) + (c*len);
 					std::copy(in, in+len, out);
 				}
 			}
 
-			auto is_mtx = [&m] { return (m.mtxRowCnt>1u && m.mtxColCnt>1u); };
 			if (is_mtx() && m.type==asset::EGVT_F32)
 			{
 					PFNGLPROGRAMUNIFORMMATRIX4FVPROC glProgramUniformMatrixNxMfv_fptr[3][3]{ //N - num of columns, M - num of rows because of weird OpenGL naming convention
@@ -270,7 +281,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
 					}
 				}
 			}
-			std::copy(baseOffset, baseOffset+m.arrayStride*count, u.value);
+			std::copy(baseOffset, baseOffset+arrayStride*count, u.value);
         }
     }
 

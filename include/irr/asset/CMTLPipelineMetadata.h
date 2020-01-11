@@ -95,7 +95,7 @@ public:
 
     const SMtl& getMaterial() const { return m_material; }
 
-    core::SRange<ShaderInputSemantic> getCommonRequiredInputs() override { return {nullptr, nullptr}; }
+    core::SRange<ShaderInputSemantic> getCommonRequiredInputs() override { return { nullptr, nullptr }; }
     const char* getLoaderName() const override { return "CGraphicsPipelineLoaderMTL"; } //?? i dont really understand the docs specifying what this function should return
 
 private:

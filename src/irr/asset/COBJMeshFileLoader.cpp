@@ -93,7 +93,7 @@ layout (push_constant) uniform Block {
     float anisotropy;
     float anisoRotation;
     //extra info
-    uint extra;
+    layout (offset = 124) uint extra;
 } PC;
 
 #include <irr/builtin/glsl/brdf/specular/fresnel/fresnel.glsl>
@@ -161,7 +161,7 @@ layout (push_constant) uniform Block {
     float anisotropy;
     float anisoRotation;
     //extra info
-    uint extra;
+    layout (offset = 124) uint extra;
 } PC;
 
 #define PI 3.14159265359
@@ -267,13 +267,13 @@ layout (location = 3) in vec2 UV;
 layout (location = 0) out vec4 OutColor;
 
 #define ILLUM_MODEL_MASK 0x0fu
-#define map_Ka_MASK 1u<<4u
-#define map_Kd_MASK 1u<<5u
-#define map_Ks_MASK 1u<<6u
-#define map_Ns_MASK 1u<<8u
-#define map_d_MASK 1u<<9u
-#define map_bump_MASK 1u<<10u
-#define map_normal_MASK 1u<<11u
+#define map_Ka_MASK uint(1u<<4u)
+#define map_Kd_MASK uint(1u<<5u)
+#define map_Ks_MASK uint(1u<<6u)
+#define map_Ns_MASK uint(1u<<8u)
+#define map_d_MASK uint(1u<<9u)
+#define map_bump_MASK uint(1u<<10u)
+#define map_normal_MASK uint(1u<<11u)
 
 layout (push_constant) uniform Block {
     vec3 Ka;
@@ -293,14 +293,8 @@ layout (push_constant) uniform Block {
     float anisotropy;
     float anisoRotation;
     //extra info
-    uint extra;
+    layout (offset = 124) uint extra;
 } PC;
-
-layout (set = 3, binding = 0) uniform sampler2D map_Kd;
-layout (set = 3, binding = 1) uniform sampler2D map_d;
-layout (set = 3, binding = 2) uniform sampler2D map_Ks;
-layout (set = 3, binding = 3) uniform sampler2D map_Ns;
-layout (set = 3, binding = 4) uniform sampler2D map_Ka;
 
 //here texture bindings will be inserted with sprintf()
 %s
@@ -799,6 +793,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
             const auto& mtl = static_cast<const CMTLPipelineMetadata*>(pipeline->getMetadata())->getMaterial();
             auto shaders = getShaders(hasUV, mtl);
 
+            pipeline->getRasterizationParams().faceCullingMode = EFCM_BACK_BIT;
             pipeline->getVertexInputParams() = vtxParams;
             pipeline->setShaderAtIndex(0u, shaders.first.get());
             pipeline->setShaderAtIndex(4u, shaders.second.get());
@@ -870,7 +865,7 @@ static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAsse
 
     return core::smart_refctd_ptr_static_cast<AssetType>(assets.first[0]);
 }
-std::string genGLSLtextureBindingsStr(const CMTLPipelineMetadata::SMtl& _mtl)
+static std::string genGLSLtextureBindingsStr(const CMTLPipelineMetadata::SMtl& _mtl, bool _shaderWithUV)
 {
     const char* mapNames[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX]{
         "map_Ka",
@@ -904,6 +899,31 @@ std::string genGLSLtextureBindingsStr(const CMTLPipelineMetadata::SMtl& _mtl)
     {
         sprintf(tmpbuf, "layout (set = 3, binding = %u) uniform samplerCube map_refl;\n", j);
         res += tmpbuf;
+        ++j;
+    }
+
+    constexpr CMTLPipelineMetadata::SMtl::E_MAP_TYPE mandatoryMaps[5]
+    {
+        CMTLPipelineMetadata::SMtl::EMP_DIFFUSE,
+        CMTLPipelineMetadata::SMtl::EMP_OPACITY,
+        CMTLPipelineMetadata::SMtl::EMP_SPECULAR,
+        CMTLPipelineMetadata::SMtl::EMP_SHININESS,
+        CMTLPipelineMetadata::SMtl::EMP_AMBIENT
+    };
+    //there are a few maps that must be declared in default frag shader (the one with UV) regardless of whetehr they exist or not
+    //in order for it to compile
+    if (_shaderWithUV)
+    {
+        for (uint32_t i = 0u; i < 5u; ++i)
+        {
+            const uint32_t mapNum = mandatoryMaps[i];
+            if (!_mtl.maps[mapNum].empty())//really exist, so declaration string was already generated
+                continue;
+
+            sprintf(tmpbuf, "layout (set = 3, binding = %u) uniform sampler2D %s;\n", j, mapNames[mapNum]);
+            res += tmpbuf;
+            ++j;
+        }
     }
 
     return res;
@@ -922,7 +942,7 @@ std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>,core::smart_refctd_ptr<I
         const char* src = (_hasUV ? FRAG_SHADER_UV : FRAG_SHADER_NO_UV);
         std::string fs_source;
         fs_source.resize(strlen(src)+1000ull);
-        sprintf(fs_source.data(), src, genGLSLtextureBindingsStr(_mtl).c_str());
+        sprintf(fs_source.data(), src, genGLSLtextureBindingsStr(_mtl, _hasUV).c_str());
         auto fs_unspec = core::make_smart_refctd_ptr<ICPUShader>(fs_source.c_str());
         ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_FRAGMENT);
         fs = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(fs_unspec), std::move(specinfo));
