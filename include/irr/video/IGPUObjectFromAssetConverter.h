@@ -254,6 +254,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
         (*res)[i]->setIndexCount(_begin[i]->getIndexCount());
         (*res)[i]->setIndexType(_begin[i]->getIndexType());
         (*res)[i]->setInstanceCount(_begin[i]->getInstanceCount());
+        memcpy((*res)[i]->getPushConstantsDataPtr(), _begin[i]->getPushConstantsDataPtr(), IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE);
         //const core::aabbox3df oldBBox = cpumb->getBoundingBox();
         //if (cpumb->getMeshBufferType() != asset::EMBT_ANIMATED_SKINNED)
         //    cpumb->recalculateBoundingBox();
