@@ -993,7 +993,7 @@ auto COBJMeshFileLoader::loadImages(const char* _relDir, const CMTLPipelineMetad
 
         size_t bufSz = 0ull;
         //assuming all cubemap layer images are same size and same format
-        const size_t alignment = core::findLSB(images[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX]->getRegions().begin()->bufferRowLength);
+        const size_t alignment = 1u<<core::findLSB(images[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX]->getRegions().begin()->bufferRowLength);
         core::vector<ICPUImage::SBufferCopy> regions_;
         regions_.reserve(6ull);
         for (uint32_t i = CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; i < CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 6u; ++i)
