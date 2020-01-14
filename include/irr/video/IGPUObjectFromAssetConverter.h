@@ -193,6 +193,8 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMeshBuffer** _begin, asset:
 
         if (cpumb->getPipeline())
             cpuPipelines.push_back(cpumb->getPipeline());
+        if (cpumb->getAttachedDescriptorSet())
+            cpuDescSets.push_back(cpumb->getAttachedDescriptorSet());
 
         for (size_t b = 0ull; b < asset::ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; ++b)
         {
@@ -337,7 +339,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUImage** const _begin, asset
 		{
 			auto tmpBuff = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuimg->getBuffer()->getSize(),cpuimg->getBuffer()->getPointer());
 			m_driver->copyBufferToImage(tmpBuff.get(),gpuimg.get(),count,cpuimg->getRegions().begin());
-            //TODO mipmap generation
+            gpuimg->generateMipmaps();
 		}
 
 		res->operator[](i) = std::move(gpuimg);
@@ -446,7 +448,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUDescriptorSetLayout** const
     using gpu_bindings_array_t = core::smart_refctd_dynamic_array<IGPUDescriptorSetLayout::SBinding>;
     auto tmpBindings = core::make_refctd_dynamic_array<gpu_bindings_array_t>(maxBindingsPerDescSet);
     using samplers_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUSampler>>;
-    auto tmpSamplers = core::make_refctd_dynamic_array<samplers_array_t>(maxSamplersPerDescSet);
+    auto tmpSamplers = core::make_refctd_dynamic_array<samplers_array_t>(maxSamplersPerDescSet*maxBindingsPerDescSet);
     for (ptrdiff_t i = 0u; i < assetCount; ++i)
     {
         core::smart_refctd_ptr<IGPUSampler>* smplr_ptr = tmpSamplers->data();
@@ -712,7 +714,8 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 				else if (isSampledImgViewDesc(type))
 				{
 					cpuImgViews.push_back(static_cast<asset::ICPUImageView*>(info.desc.get()));
-					cpuSamplers.push_back(info.image.sampler.get());
+                    if (info.image.sampler)
+					    cpuSamplers.push_back(info.image.sampler.get());
 				}
 				else if (isStorageImgDesc(type))
 					cpuImgViews.push_back(static_cast<asset::ICPUImageView*>(info.desc.get()));
@@ -776,7 +779,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 					{
 						info->desc = gpuImgViews->operator[](imgViewRedirs[ivi++]);
 						info->image.imageLayout = desc.image.imageLayout;
-						if (isSampledImgViewDesc(type))
+						if (isSampledImgViewDesc(type) && desc.image.sampler)
 							info->image.sampler = gpuSamplers->operator[](smplrRedirs[si++]);
 					}
 					info++;

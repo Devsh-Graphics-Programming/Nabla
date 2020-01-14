@@ -119,7 +119,10 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 				bnd_out.samplers = nullptr;
 				if (bnd_in.type==EDT_COMBINED_IMAGE_SAMPLER && bnd_in.samplers)
 				{
+                    ++immSamplersOffset;//add 1 so that bnd_out.samplers is never 0/nullptr when the binding SHOULD have imm samplers
+                    //otherwise if (bnd.samplers) won't work
 					bnd_out.samplers = reinterpret_cast<const core::smart_refctd_ptr<sampler_type>*>(immSamplersOffset);
+                    --immSamplersOffset;//going back to prev state
 					for (uint32_t s = 0ull; s < bnd_in.count; ++s)
 						m_samplers->operator[](immSamplersOffset+s) = bnd_in.samplers[s];
 					immSamplersOffset += bnd_in.count;
@@ -134,7 +137,7 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 
                     static_assert(sizeof(size_t) == sizeof(bnd.samplers), "Bad reinterpret_cast!");
                     if (bnd.type == EDT_COMBINED_IMAGE_SAMPLER && bnd.samplers)
-                        bnd.samplers = m_samplers->data() + reinterpret_cast<size_t>(bnd.samplers);
+                        bnd.samplers = m_samplers->data() + reinterpret_cast<size_t>(bnd.samplers) - 1ull;
                 }
 
                 // TODO: check for overlapping bindings (bad `SBinding` definitions)

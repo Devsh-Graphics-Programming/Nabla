@@ -46,7 +46,7 @@ int main()
     auto* am = device->getAssetManager();
 
     asset::IAssetLoader::SAssetLoadParams lp;
-    auto meshes_bundle = am->getAsset("../../media/mori_knob/testObj.obj", lp);
+    auto meshes_bundle = am->getAsset("../../media/sponza/sponza.obj", lp);
     assert(!meshes_bundle.isEmpty());
     auto mesh = meshes_bundle.getContents().first[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
@@ -70,12 +70,12 @@ int main()
     auto gpumesh = driver->getGPUObjectsFromAssets(&mesh_raw, &mesh_raw + 1)->front();
 
 	//! we want to move around the scene and view it from different angles
-	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
+	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.5f);
 
 	camera->setPosition(core::vector3df(-4,0,0));
 	camera->setTarget(core::vector3df(0,0,0));
 	camera->setNearValue(0.01f);
-	camera->setFarValue(100.0f);
+	camera->setFarValue(10000.0f);
 
     smgr->setActiveCamera(camera);
 

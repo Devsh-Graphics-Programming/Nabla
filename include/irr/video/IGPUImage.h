@@ -46,6 +46,9 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
 			#endif
 			return true;
 		}
+
+        //depr
+        virtual void generateMipmaps() = 0;
     protected:
         _IRR_INTERFACE_CHILD(IGPUImage) {}
 

@@ -305,6 +305,19 @@ layout (push_constant) uniform Block {
 void main()
 {
     vec3 N = normalize(Normal);
+    if ((PC.extra&map_bump_MASK) == map_bump_MASK)
+    {
+        float height = texture(map_bump, UV).x;
+        vec3 dpdx = dFdx(ViewPos);
+        vec3 dpdy = dFdy(ViewPos);
+        float dhdx = dFdx(height);
+        float dhdy = dFdy(height);
+        
+        vec3 r1 = cross(dpdy, N);
+        vec3 r2 = cross(N, dpdx);
+        vec3 surfGrad = (r1*dhdx + r2*dhdy) / dot(dpdx,r1);
+        N = normalize(N - surfGrad);
+    }
     vec3 L = normalize(-ViewPos);
     vec3 R = normalize(-reflect(L,N));
     float NdotL = max(dot(N,L), 0.0);
@@ -493,7 +506,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 {
                     auto pipeln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(*it);
                     auto metadata = static_cast<const CMTLPipelineMetadata*>(pipeln->getMetadata());
-                    std::string mtlfilepath = tmpbuf;
+                    std::string mtlfilepath = relPath+tmpbuf;
 
                     decltype(pipelines)::value_type::second_type val{std::move(mtlfilepath), std::move(pipeln)};
                     pipelines.insert({metadata->getMaterial().name, std::move(val)});
@@ -534,7 +547,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			break;
 
 		case 'g': // group name
-            bufPtr = goNextWord(bufPtr, bufEnd);
+            bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
+            grpName = tmpbuf;
 			break;
 		case 's': // smoothing can be a group or off (equiv. to 0)
 			{
@@ -902,19 +916,21 @@ static std::string genGLSLtextureBindingsStr(const CMTLPipelineMetadata::SMtl& _
         ++j;
     }
 
-    constexpr CMTLPipelineMetadata::SMtl::E_MAP_TYPE mandatoryMaps[5]
+    constexpr CMTLPipelineMetadata::SMtl::E_MAP_TYPE mandatoryMaps[]
     {
         CMTLPipelineMetadata::SMtl::EMP_DIFFUSE,
         CMTLPipelineMetadata::SMtl::EMP_OPACITY,
         CMTLPipelineMetadata::SMtl::EMP_SPECULAR,
         CMTLPipelineMetadata::SMtl::EMP_SHININESS,
-        CMTLPipelineMetadata::SMtl::EMP_AMBIENT
+        CMTLPipelineMetadata::SMtl::EMP_AMBIENT,
+        CMTLPipelineMetadata::SMtl::EMP_BUMP
     };
+    constexpr uint32_t mandatoryMapsSz = sizeof(mandatoryMaps)/sizeof(*mandatoryMaps);
     //there are a few maps that must be declared in default frag shader (the one with UV) regardless of whetehr they exist or not
     //in order for it to compile
     if (_shaderWithUV)
     {
-        for (uint32_t i = 0u; i < 5u; ++i)
+        for (uint32_t i = 0u; i < mandatoryMapsSz; ++i)
         {
             const uint32_t mapNum = mandatoryMaps[i];
             if (!_mtl.maps[mapNum].empty())//really exist, so declaration string was already generated
@@ -957,7 +973,6 @@ auto COBJMeshFileLoader::loadImages(const char* _relDir, const CMTLPipelineMetad
     std::array<core::smart_refctd_ptr<ICPUImage>, CMTLPipelineMetadata::SMtl::EMP_COUNT> images;
 
     std::string relDir = _relDir;
-    relDir += '/';
     for (uint32_t i = 0u; i < images.size(); ++i)
     {
         SAssetLoadParams lp;
@@ -1318,15 +1333,9 @@ bool COBJMeshFileLoader::retrieveVertexIndices(char* vertexData, int32_t* idx, c
 	return true;
 }
 
-std::string COBJMeshFileLoader::genKeyForMeshBuf(const SContext & _ctx, const std::string & _baseKey, const std::string & _mtlName, const std::string & _grpName) const
+std::string COBJMeshFileLoader::genKeyForMeshBuf(const SContext& _ctx, const std::string& _baseKey, const std::string& _mtlName, const std::string& _grpName) const
 {
-    if (_ctx.useMaterials)
-    {   
-        if (_ctx.useGroups)
-            return _baseKey + "?" + _grpName + "?" + _mtlName;
-        return _baseKey + "?" +  _mtlName;
-    }
-    return ""; // if nothing's broken this will never happen
+    return _baseKey + "?" + _grpName + "?" + _mtlName;
 }
 
 
