@@ -24,7 +24,7 @@ uint8_t *CImageLoaderTGA::loadCompressedImage(io::IReadFile *file, const STGAHea
 	// I only changed the formatting a little bit.
 	int32_t bytesPerPixel = header.PixelDepth/8;
 	int32_t imageSize =  header.ImageHeight * header.ImageWidth * bytesPerPixel;
-	uint8_t* data = new uint8_t[imageSize];
+	uint8_t* data = _IRR_NEW_ARRAY(uint8_t, imageSize);
 	int32_t currentByte = 0;
 
 	while(currentByte < imageSize)
@@ -71,7 +71,7 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 {
 	if (!_file)
 		return false;
-
+	
     const size_t prevPos = _file->getPos();
 
 	STGAFooter footer;
@@ -109,40 +109,38 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 	return true;
 }
 
-#ifndef NEW_SHADERS
 // convertColorFlip() does color conversion as well as taking care of properly flipping the given image.
 template <typename T, E_FORMAT srcFormat, E_FORMAT destFormat>
-static void convertColorFlip(asset::CImageData **image, const T *src, bool flip)
+static void convertColorFlip(const core::smart_refctd_ptr<ICPUImage> &image, const T *src, bool flip)
 {
 	const T *in = (const T *) src;
-	T *out = (T *) (*image)->getData();
+	T *out = (T *) image->getBuffer()->getPointer();
 	
-	auto size     = (*image)->getSize();
-	auto stride   = (*image)->getPitchIncludingAlignment();
-	auto channels = (*image)->getBytesPerPixel().getIntegerApprox();
+	auto size = image->getCreationParameters().extent;
+	auto stride = image->getCreationParameters().extent.width;     //(*image)->getPitchIncludingAlignment();    TODO -> pitch with alignment, not alone width!
+	auto channels = getFormatChannelCount(image->getCreationParameters().format);
 	
 	if (flip)
-		out += size.X * size.Y * channels;
+		out += size.width * size.height * channels;
 	
-	for (int y = 0; y < size.Y; ++y) {
+	for (int y = 0; y < size.height; ++y) {
 		if (flip)
 			out -= stride;
 		
 		const void *src_container[4] = {in, nullptr, nullptr, nullptr};
-		video::convertColor<srcFormat, destFormat>(src_container, out, size.X, size);
+		video::convertColor<srcFormat, destFormat>(src_container, out, size.width, size);
 		in += stride;
 		
 		if (!flip)
 			out += stride;
 	}
 }
-#endif //NEW_SHADERS
 
 //! creates a surface from the file
 asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	STGAHeader header;
-	uint32_t *palette = 0;
+	uint32_t *palette = nullptr;
 
 	_file->read(&header, sizeof(STGAHeader));
 
@@ -153,10 +151,10 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 	if (header.ColorMapType)
 	{
 		// create 32 bit palette
-		palette = new uint32_t[header.ColorMapLength];
+		palette = _IRR_NEW_ARRAY(uint32_t, header.ColorMapLength);
 
 		// read color map
-		uint8_t * colorMap = new uint8_t[header.ColorMapEntrySize/8 * header.ColorMapLength];
+		uint8_t* colorMap = _IRR_NEW_ARRAY(uint8_t, header.ColorMapEntrySize / 8 * header.ColorMapLength);
 		_file->read(colorMap,header.ColorMapEntrySize/8 * header.ColorMapLength);
 		
 		// convert to 32-bit palette
@@ -176,10 +174,38 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 		delete [] colorMap;
 	}
 
-#ifndef NEW_SHADERS
-	core::vector<asset::CImageData*> images;
+	ICPUImage::SCreationParams imgInfo;
+	imgInfo.type = ICPUImage::ET_2D;
+	imgInfo.extent.width = header.ImageWidth;
+	imgInfo.extent.height = header.ImageHeight;
+	imgInfo.extent.depth = 1u;
+	imgInfo.mipLevels = 1u;
+	imgInfo.arrayLayers = 1u;
+	imgInfo.samples = ICPUImage::ESCF_1_BIT;
+	imgInfo.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
+
+	core::smart_refctd_ptr<ICPUImage> image = ICPUImage::create(std::move(imgInfo));
+
+	if (!image)
+		return {};
+
+	auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
+	core::smart_refctd_ptr<ICPUBuffer> texelBuffer = nullptr;
+
+	ICPUImage::SBufferCopy& region = regions->front();
+
+	region.imageSubresource.mipLevel = 0u;
+	region.imageSubresource.baseArrayLayer = 0u;
+	region.imageSubresource.layerCount = 1u;
+	region.bufferOffset = 0u;
+	region.bufferRowLength = header.ImageWidth;
+	region.bufferImageHeight = 0u;
+	region.imageOffset = { 0u, 0u, 0u };
+	region.imageExtent = image->getCreationParameters().extent;
+
 	// read image
-	uint8_t* data = 0;
+	uint8_t* data = nullptr;
+	size_t endBufferSize = {};
 	
 	switch (header.ImageType)
 	{
@@ -187,15 +213,20 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 		case 2: // Uncompressed RGB image
 		case 3: // Uncompressed grayscale image
 			{
-				const int32_t imageSize = header.ImageHeight * header.ImageWidth * header.PixelDepth/8;
-				data = new uint8_t[imageSize];
+				const int32_t imageSize = endBufferSize = header.ImageHeight * header.ImageWidth * header.PixelDepth/8;
+				texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(imageSize);
+				data = _IRR_NEW_ARRAY(uint8_t, imageSize);
 				_file->read(data, imageSize);
 			}
 			break;
 		
 		case 10: // Run-length encoded (RLE) true color image
+		{
+			const auto bufferSize = endBufferSize = header.ImageHeight * header.ImageWidth * header.PixelDepth / 8;
+			texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferSize);
 			data = loadCompressedImage(_file, header);
 			break;
+		}
 		
 		case 0:
 			{
@@ -216,10 +247,6 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 			}
 	}
 
-    asset::CImageData* image = 0;
-
-	uint32_t nullOffset[3] = {0,0,0};
-	uint32_t imageSize[3] = {header.ImageWidth,header.ImageHeight,1};
 	bool flip = (header.ImageDescriptor & 0x20) == 0;
 	
 	switch(header.PixelDepth)
@@ -235,70 +262,63 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
                     return {};
 				}
 				
-				image = new asset::CImageData(nullptr,nullOffset,imageSize,0,asset::EF_R8_SRGB);
-				if (image) {
-					// Targa formats needs two y-axis flips. The first is a flip to get the Y conforms to OpenGL coords.
-					// The second flip is defined from within the .tga file itself (header.ImageDescriptor & 0x20).
-					if (flip) {
-						// Two flips (OpenGL + Targa) = no flipping. Don't flip the image at all in that case
-						convertColorFlip<uint8_t, EF_R8_SRGB, EF_R8_SRGB>(&image, data, false);
-					}
-					else {
-						// Do an OpenGL flip
-						convertColorFlip<uint8_t, EF_R8_SRGB, EF_R8_SRGB>(&image, data, true);
-					}
+				// default is R8_SRGB, but I will adjust data to RGB8_SRGB (rrr)
+				imgInfo.format = asset::EF_R8G8B8_SRGB;
+
+				// Targa formats needs two y-axis flips. The first is a flip to get the Y conforms to OpenGL coords.
+				// The second flip is defined from within the .tga file itself (header.ImageDescriptor & 0x20).
+				if (flip) {
+					// Two flips (OpenGL + Targa) = no flipping. Don't flip the image at all in that case
+					convertColorFlip<uint8_t, EF_R8_SRGB, EF_R8_SRGB>(image, data, false);
+				}
+				else {
+					// Do an OpenGL flip
+					convertColorFlip<uint8_t, EF_R8_SRGB, EF_R8_SRGB>(image, data, true);
 				}
 			}
 			break;
 		case 16:
 			{
-				image = new asset::CImageData(nullptr,nullOffset,imageSize,0, asset::EF_A1R5G5B5_UNORM_PACK16);
-				if (image) {
-					if (flip)
-						convertColorFlip<uint8_t, EF_A1R5G5B5_UNORM_PACK16, EF_A1R5G5B5_UNORM_PACK16>(&image, data, false);
-					else
-						convertColorFlip<uint8_t, EF_A1R5G5B5_UNORM_PACK16, EF_A1R5G5B5_UNORM_PACK16>(&image, data, true);
-				}
+				imgInfo.format = asset::EF_A1R5G5B5_UNORM_PACK16;
+
+				if (flip)
+					convertColorFlip<uint8_t, EF_A1R5G5B5_UNORM_PACK16, EF_A1R5G5B5_UNORM_PACK16>(image, data, false);
+				else
+					convertColorFlip<uint8_t, EF_A1R5G5B5_UNORM_PACK16, EF_A1R5G5B5_UNORM_PACK16>(image, data, true);
 			}
 			break;
 		case 24:
 			{
-				image = new asset::CImageData(nullptr,nullOffset,imageSize,0,asset::EF_R8G8B8_SRGB);
-				if (image)
-					if (flip)
-						convertColorFlip<uint8_t, EF_B8G8R8_SRGB, EF_R8G8B8_SRGB>(&image, data, false);
-					else
-						convertColorFlip<uint8_t, EF_B8G8R8_SRGB, EF_R8G8B8_SRGB>(&image, data, true);
+				imgInfo.format = asset::EF_R8G8B8_SRGB;
+				
+				if (flip)
+					convertColorFlip<uint8_t, EF_B8G8R8_SRGB, EF_R8G8B8_SRGB>(image, data, false);
+				else
+					convertColorFlip<uint8_t, EF_B8G8R8_SRGB, EF_R8G8B8_SRGB>(image, data, true);
 			}
 			break;
 		case 32:
 			{
-				image = new asset::CImageData(nullptr,nullOffset,imageSize,0,asset::EF_R8G8B8A8_SRGB);
-				if (image)
-					if (flip)
-						convertColorFlip<uint8_t, EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(&image, data, false);
-					else
-						convertColorFlip<uint8_t, EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(&image, data, true);
+				imgInfo.format = asset::EF_R8G8B8A8_SRGB;
+
+				if (flip)
+					convertColorFlip<uint8_t, EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(image, data, false);
+				else
+					convertColorFlip<uint8_t, EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(image, data, true);
 			}
 			break;
 		default:
 			os::Printer::log("Unsupported TGA format", _file->getFileName().c_str(), ELL_ERROR);
 			break;
 	}
-	
-	images.push_back(image);
 
+	memcpy(texelBuffer->getPointer(), data, endBufferSize);
+	image->setBufferAndRegions(std::move(texelBuffer), regions);
 
 	delete [] data;
 	delete [] palette;
 
-    asset::ICPUTexture* tex = asset::ICPUTexture::create(images, _file->getFileName().c_str());
-    for (auto& img : images)
-        img->drop();
-    return SAssetBundle({core::smart_refctd_ptr<IAsset>(tex, core::dont_grab)});
-#else
-    return {};
-#endif
+    return SAssetBundle({std::move(image)});
 }
 
 } // end namespace video
