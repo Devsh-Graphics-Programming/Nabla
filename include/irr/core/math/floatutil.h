@@ -48,29 +48,29 @@ IRR_FORCE_INLINE matrix4SIMD ROUNDING_ERROR<matrix4SIMD>();
 #endif
 //! Constant for PI.
 template<typename T>
-IRR_FORCE_INLINE constexpr T PI()
+IRR_FORCE_INLINE T PI()
 {
 	return T(3.14159265358979323846);
 }
 
 //! Constant for reciprocal of PI.
 template<typename T>
-IRR_FORCE_INLINE constexpr T RECIPROCAL_PI()
+IRR_FORCE_INLINE T RECIPROCAL_PI()
 {
 	return T(1.0) / PI<T>();
 }
 
 //! Constant for half of PI.
 template<typename T>
-IRR_FORCE_INLINE constexpr T HALF_PI()
+IRR_FORCE_INLINE T HALF_PI()
 {
 	return PI<T>() * T(0.5);
 }
 
 namespace impl
 {
-    constexpr uint32_t NAN_U32      = 0x7F800000u;
-    constexpr uint32_t INFINITY_U32 = 0x7FFFFFFFu;
+    constexpr uint32_t NAN_U32      = 0x7FFFFFFFu;
+    constexpr uint32_t INFINITY_U32 = 0x7F800000u;
 }
 
 //! don't get rid of these, -ffast-math breaks inf and NaN handling on GCC
@@ -93,9 +93,16 @@ bool isnan(T val);
 
 template<>
 IRR_FORCE_INLINE bool isnan<float>(float val) 
-{ 
-    const float nan_ = core::nan<float>();
-    return reinterpret_cast<uint32_t&>(val)==reinterpret_cast<const uint32_t&>(nan_); 
+{
+    //all exponent bits set, at least one mantissa bit set
+    return (reinterpret_cast<uint32_t&>(val)&0x7fffffffu) > 0x7f800000u;
+}
+
+template<typename T>
+IRR_FORCE_INLINE bool isinf<float>(float val)
+{
+    //all exponent bits set, none mantissa bit set
+    return (reinterpret_cast<uint32_t&>(val)&0x7fffffffu) == 0x7f800000u;
 }
 
 union FloatIntUnion32
