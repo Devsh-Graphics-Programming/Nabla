@@ -54,16 +54,16 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
         core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override
         {
             auto cp = core::make_smart_refctd_ptr<ICPUBuffer>(size);
+            clone_common(cp.get());
             memcpy(cp->getPointer(), data, size);
-
-            cp->m_mutable = true;
 
             return cp;
         }
 
         virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
         {
-            _IRR_ALIGNED_FREE(data);
+            if (data)
+                _IRR_ALIGNED_FREE(data);
             data = nullptr;
             size = 0ull;
             isDummyObjectForCacheAliasing = true;
@@ -102,7 +102,10 @@ class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
 	protected:
 		Allocator m_allocator;
 
-		virtual ~CCustomAllocatorCPUBuffer() = default;
+        virtual ~CCustomAllocatorCPUBuffer()
+        {
+            this->convertToDummyObject();
+        }
 
 	public:
 		CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, core::adopt_memory_t, Allocator&& alctr = Allocator()) : ICPUBuffer(sizeInBytes, dat), m_allocator(std::move(alctr))

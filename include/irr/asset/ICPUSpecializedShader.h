@@ -38,8 +38,7 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
                 (_depth > 0u && unspec) ? core::smart_refctd_ptr_static_cast<ICPUShader>(unspec->clone(_depth-1u)) : std::move(unspec),
                 std::move(info)
             );
-
-            cp->m_mutable = true;
+            clone_common(cp.get());
 
             return cp;
         }
@@ -47,11 +46,11 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
 			m_specInfo.m_entries = {};
-			if (referenceLevelsBelowToConvert--)
+			if (referenceLevelsBelowToConvert)
 			{
 				if (m_specInfo.m_backingBuffer)
-					m_specInfo.m_backingBuffer->convertToDummyObject(referenceLevelsBelowToConvert);
-				m_unspecialized->convertToDummyObject(referenceLevelsBelowToConvert);
+					m_specInfo.m_backingBuffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
+				m_unspecialized->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 			}
 		}
 

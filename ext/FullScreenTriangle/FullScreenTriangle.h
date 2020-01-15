@@ -28,8 +28,9 @@ void main()
     TexCoord = tc[gl_VertexIndex];
 }
 	)===";
-	auto shader = driver->createGPUShader(core::smart_refctd_ptr<ICPUShader>(source));
-	std::get<0>(retval) = driver->createGPUSpecializedShader(shader.get(), nullptr);
+	auto shader = driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(source));
+    video::IGPUSpecializedShader::SInfo specInfo({}, nullptr, "main", video::IGPUSpecializedShader::ESS_VERTEX);
+	std::get<0>(retval) = driver->createGPUSpecializedShader(shader.get(), std::move(specInfo));
 
 	auto& inputParams = std::get<asset::SVertexInputParams>(retval);
 	{
@@ -40,7 +41,7 @@ void main()
 			inputParams.bindings[i] = {0u,asset::EVIR_PER_VERTEX};
 	}
 
-	auto assemblyParams = std::get<asset::SPrimitiveAssemblyParams>(retval);
+	auto& assemblyParams = std::get<asset::SPrimitiveAssemblyParams>(retval);
 	assemblyParams.primitiveRestartEnable = false;
 	assemblyParams.primitiveType = asset::EPT_TRIANGLE_LIST;
 	assemblyParams.tessPatchVertCount = 3u;

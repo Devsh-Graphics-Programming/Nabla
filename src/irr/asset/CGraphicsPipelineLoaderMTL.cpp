@@ -3,6 +3,10 @@
 using namespace irr;
 using namespace asset;
 
+CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_assetMgr{_am}
+{
+}
+
 bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) const
 {
     if (!_file)
@@ -20,38 +24,36 @@ bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) con
     return mtl.find("newmtl") != std::string::npos;
 }
 
+template<typename AssetType, IAsset::E_TYPE assetType>
+static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
+{
+    size_t storageSz = 1ull;
+    asset::SAssetBundle bundle;
+    const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
+
+    _assetMgr->findAssets(storageSz, &bundle, _key, types);
+    auto assets = bundle.getContents();
+    assert(assets.first != assets.second);
+
+    return core::smart_refctd_ptr_static_cast<AssetType>(assets.first[0]);
+}
 
 core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipelineLayoutFromMtl(const CMTLPipelineMetadata::SMtl& _mtl)
 {
     const size_t textureCnt = std::count_if(_mtl.maps, _mtl.maps + CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 1u, [](const std::string& _path) { return !_path.empty(); });
-    auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(textureCnt+1ull);//+1 because of UBO
+    auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(textureCnt);
 
     ICPUDescriptorSetLayout::SBinding bnd;
     bnd.count = 1u;
     bnd.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
     bnd.type = EDT_COMBINED_IMAGE_SAMPLER;
     bnd.binding = 0u;
-    std::fill(bindings->begin()+1, bindings->end(), bnd);
-    bnd.stageFlags = ICPUSpecializedShader::ESS_VERTEX;
-    bnd.type = EDT_UNIFORM_BUFFER;
-    (*bindings)[0] = bnd;
-
-    auto getDefaultSampler = [this](const char* _key) {
-        size_t storageSz = 1ull;
-        asset::SAssetBundle bundle;
-        const IAsset::E_TYPE types[]{ IAsset::ET_SAMPLER, static_cast<IAsset::E_TYPE>(0u) };
-
-        m_assetMgr->findAssets(storageSz, &bundle, _key, types);
-        auto assets = bundle.getContents();
-        assert(assets.first != assets.second);
-
-        return core::smart_refctd_ptr_static_cast<ICPUSampler>(assets.first[0]);
-    };
+    std::fill(bindings->begin(), bindings->end(), bnd);
 
     core::smart_refctd_ptr<ICPUSampler> samplers[2];
-    samplers[0] = getDefaultSampler("irr/builtin/samplers/default");
-    samplers[1] = getDefaultSampler("irr/builtin/samplers/default_clamp_to_border");
-    for (uint32_t i = 0u, j = 1u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
+    samplers[0] = getDefaultAsset<ICPUSampler,IAsset::ET_SAMPLER>("irr/builtin/samplers/default", m_assetMgr);
+    samplers[1] = getDefaultAsset<ICPUSampler, IAsset::ET_SAMPLER>("irr/builtin/samplers/default_clamp_to_border", m_assetMgr);
+    for (uint32_t i = 0u, j = 0u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
     {
         if (!_mtl.maps[i].empty())
         {
@@ -64,7 +66,8 @@ core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipel
         }
     }
 
-    auto dsLayout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end());
+    auto ds1layout = getDefaultAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("irr/builtin/ds_layout/default_ds1_layout", m_assetMgr);
+    core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds3Layout = bindings->empty() ? nullptr : core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end());
     SPushConstantRange pcRng;
     pcRng.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
     pcRng.offset = 0u;
@@ -72,7 +75,7 @@ core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipel
     //if intellisense shows error here, it's most likely intellisense's fault and it'll build fine anyway
     static_assert(sizeof(CMTLPipelineMetadata::SMtl::std140PackedData)<=ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "It must fit in push constants!");
     //ds with textures for material goes to set=3
-    auto layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pcRng, &pcRng+1, nullptr, nullptr, nullptr, std::move(dsLayout));
+    auto layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pcRng, &pcRng+1, nullptr, std::move(ds1layout), nullptr, std::move(ds3Layout));
 
     return layout;
 }
@@ -213,6 +216,9 @@ const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const c
     auto found = str2type.find(mapTypeStr);
     if (found != str2type.end())
         mapType = found->second;
+
+    constexpr uint32_t ILLUM_MODEL_BITS = 4u;
+    _currMaterial->std140PackedData.extra |= (1u << (ILLUM_MODEL_BITS + mapType));
 
     _bufPtr = goAndCopyNextWord(tmpbuf, _bufPtr, WORD_BUFFER_LENGTH, _bufEnd);
     while (tmpbuf[0]=='-')
@@ -370,18 +376,17 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(io::IReadFile* _file) const -> co
         case 'a': // aniso, anisor
             if (currMaterial)
             {
-                const float a = readFloat();
                 if (bufPtr[5] == 'r')
-                    currMaterial->std140PackedData.anisoRotation = a;
+                    currMaterial->std140PackedData.anisoRotation = readFloat();
                 else
-                    currMaterial->std140PackedData.anisotropy = a;
+                    currMaterial->std140PackedData.anisotropy = readFloat();
             }
         break;
         case 'i': // illum - illumination
             if (currMaterial)
             {
                 bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-                currMaterial->std140PackedData.illumModel = atol(tmpbuf);
+                currMaterial->std140PackedData.extra |= (atol(tmpbuf)&0x0f);//illum values are in range [0;10]
             }
             break;
         case 'N':

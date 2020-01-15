@@ -152,9 +152,16 @@ class IAsset : virtual public core::IReferenceCounted
 
         virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
 
-		friend IAssetManager;
+    protected:
+        void clone_common(IAsset* _clone) const
+        {
+            _clone->m_metadata = m_metadata;
+            _clone->isDummyObjectForCacheAliasing = false;
+            _clone->m_mutable = true;
+        }
 
 	private:
+		friend IAssetManager;
 		core::smart_refctd_ptr<IAssetMetadata> m_metadata;
 
 		void setMetadata(core::smart_refctd_ptr<IAssetMetadata>&& _metadata) { m_metadata = std::move(_metadata); }
@@ -259,7 +266,12 @@ class SAssetBundle
 		//! Overloaded operator checking if both collections of Assets\b are\b the same arrays in memory
 		bool operator==(const SAssetBundle& _other) const
 		{
-			return _other.m_contents == m_contents;
+            if (m_contents->size() != _other.m_contents->size())
+                return false;
+            for (size_t i = 0ull; i < m_contents->size(); ++i)
+                if ((*m_contents)[i] != (*_other.m_contents)[i])
+                    return false;
+            return true;
 		}
 
 		//! Overloaded operator checking if both collections of Assets\b aren't\b the same arrays in memory

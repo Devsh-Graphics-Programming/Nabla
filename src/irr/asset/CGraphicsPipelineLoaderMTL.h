@@ -14,7 +14,7 @@ namespace asset
         using SMtl = CMTLPipelineMetadata::SMtl;
 
 	public:
-        CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_assetMgr{_am} {}
+        CGraphicsPipelineLoaderMTL(IAssetManager* _am);
 
 		bool isALoadableFileFormat(io::IReadFile* _file) const override;
 

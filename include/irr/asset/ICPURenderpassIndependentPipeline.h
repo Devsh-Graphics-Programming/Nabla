@@ -21,8 +21,9 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		size_t conservativeSizeEstimate() const override { return sizeof(base_t); }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-			if (referenceLevelsBelowToConvert--)
+			if (referenceLevelsBelowToConvert)
 			{
+                --referenceLevelsBelowToConvert;
 				static_cast<ICPURenderpassIndependentPipeline*>(m_parent.get())->convertToDummyObject(referenceLevelsBelowToConvert);
 				m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
 				for (auto i=0u; i<SHADER_STAGE_COUNT; i++)
@@ -51,8 +52,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
                 shaders_raw.data(), &*std::find(shaders_raw.begin(), shaders_raw.end(), nullptr),
                 m_vertexInputParams, m_blendParams, m_primAsmParams, m_rasterParams
             );
-
-            cp->m_mutable = true;
+            clone_common(cp.get());
 
             return cp;
         }

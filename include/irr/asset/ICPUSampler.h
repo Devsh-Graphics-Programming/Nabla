@@ -20,8 +20,7 @@ class ICPUSampler : public ISampler, public IAsset
         core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override
         {
             auto cp = core::make_smart_refctd_ptr<ICPUSampler>(m_params);
-
-            cp->m_mutable = true;
+            clone_common(cp.get());
 
             return cp;
         }

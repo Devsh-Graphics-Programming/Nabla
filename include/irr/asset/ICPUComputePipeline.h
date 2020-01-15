@@ -21,8 +21,9 @@ public:
     size_t conservativeSizeEstimate() const override { return sizeof(void*)*3u+sizeof(uint8_t); }
     void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 	{
-		if (referenceLevelsBelowToConvert--)
+		if (referenceLevelsBelowToConvert)
 		{
+            --referenceLevelsBelowToConvert;
 			m_shader->convertToDummyObject(referenceLevelsBelowToConvert);
 			static_cast<ICPUComputePipeline*>(m_parent.get())->convertToDummyObject(referenceLevelsBelowToConvert);
 			m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
@@ -39,8 +40,7 @@ public:
         core::smart_refctd_ptr<ICPUSpecializedShader> shader = (_depth > 0u && m_shader) ? core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(m_shader->clone(_depth-1u)) : m_shader;
 
         auto cp = core::make_smart_refctd_ptr<ICPUComputePipeline>(std::move(parent), std::move(layout), std::move(shader));
-
-        cp->m_mutable = true;
+        clone_common(cp.get());
 
         return cp;
     }

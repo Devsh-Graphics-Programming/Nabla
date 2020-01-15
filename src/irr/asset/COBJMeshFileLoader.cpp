@@ -39,12 +39,360 @@ namespace std
 }
 */
 
-#define NEW_SHADERS
+namespace
+{
+    constexpr const char* VERT_SHADER_NO_UV = 
+R"(#version 430 core
+
+layout (location = 0) in vec3 vPos;
+layout (location = 3) in vec3 vNormal;
+
+layout (location = 0) out vec3 LocalPos;
+layout (location = 1) out vec3 ViewPos;
+layout (location = 2) out vec3 Normal;
+
+layout (set = 1, binding = 0, row_major, std140) uniform UBO {
+    mat4 MVP;
+    mat4 MV;
+    mat3 NormalMat;
+    vec3 EyePos;
+} CamData;
+
+void main()
+{
+    LocalPos = vPos;
+    gl_Position = CamData.MVP*vec4(vPos, 1.0);
+    ViewPos = (CamData.MV*vec4(vPos, 1.0)).xyz;
+    Normal = normalize(CamData.NormalMat*vNormal);
+}
+)";
+    constexpr const char* FRAG_SHADER_NO_UV =
+R"(#version 430 core
+
+layout (location = 0) in vec3 LocalPos;
+layout (location = 1) in vec3 ViewPos;
+layout (location = 2) in vec3 Normal;
+layout (location = 0) out vec4 OutColor;
+
+#define ILLUM_MODEL_MASK 0x0fu
+layout (push_constant) uniform Block {
+    vec3 Ka;
+    vec3 Kd;
+    vec3 Ks;
+    vec3 Ke;
+    vec4 Tf;//w component doesnt matter
+    float Ns;
+    float d;
+    float bm;
+    float Ni;
+    float roughness;
+    float metallic;
+    float sheen;
+    float clearcoatThickness;
+    float clearcoatRoughness;
+    float anisotropy;
+    float anisoRotation;
+    //extra info
+    uint extra;
+} PC;
+
+#include <irr/builtin/glsl/brdf/specular/fresnel/fresnel.glsl>
+
+#define Ia 0.1
+void main()
+{
+    vec3 N = normalize(Normal);
+    vec3 L = normalize(-ViewPos);
+    vec3 R = -reflect(L,N);
+    float NdotL = max(dot(N,L), 0.0);
+    float VdotR = max(dot(L,R), 0.0);
+
+    vec3 color;
+    if (PC.extra&ILLUM_MODEL_MASK > 0)
+    {
+        color = PC.Ka*Ia + PC.Kd*NdotL;
+        switch (PC.extra&ILLUM_MODEL_MASK)
+        {
+        case 2:
+        case 3://2 + reflection map
+        case 4://3 with transparency (glass)
+        case 6:
+        case 8://reflection map
+        case 9://reflection map
+            color += PC.Ks*pow(VdotR, PC.Ns);
+            break;
+        case 5:
+        case 7:
+            color += PC.Ks*pow(VdotR, PC.Ns)*Fresnel_dielectric(PC.Ni, NdotL);
+            break;
+        default:
+            break;
+        }
+    }
+    else color = PC.Kd;
+
+    OutColor = vec4(color, 1.0);
+}
+)";
+    constexpr const char* FRAG_SHADER_NO_UV_PBR =
+R"(#version 430 core
+
+layout (location = 0) in vec3 LocalPos;
+layout (location = 1) in vec3 ViewPos;
+layout (location = 2) in vec3 Normal;
+layout (location = 0) out vec4 OutColor;
+
+layout (push_constant) uniform Block {
+    vec3 ambient;
+    vec3 albedo;//MTL's diffuse
+    vec3 specular;
+    vec3 emissive;
+    vec4 Tf;//w component doesnt matter
+    float shininess;
+    float opacity;
+    float bumpFactor;
+    //PBR
+    float ior;
+    float roughness;
+    float metallic;
+    float sheen;
+    float clearcoatThickness;
+    float clearcoatRoughness;
+    float anisotropy;
+    float anisoRotation;
+    //extra info
+    uint extra;
+} PC;
+
+#define PI 3.14159265359
+#define FLT_MIN 1.175494351e-38
+
+#include <irr/builtin/glsl/brdf/diffuse/oren_nayar.glsl>
+#include <irr/builtin/glsl/brdf/specular/ndf/ggx_trowbridge_reitz.glsl>
+#include <irr/builtin/glsl/brdf/specular/geom/ggx_smith.glsl>
+#include <irr/builtin/glsl/brdf/specular/fresnel/fresnel.glsl>
+
+void main()
+{
+    vec3 N = normalize(Normal);
+    //some approximation for computing tangents without UV
+    vec3 c1 = cross(N, vec3(0.0, 0.0, 1.0));
+    vec3 c2 = cross(N, vec3(0.0, 1.0, 0.0));
+    vec3 T = (dot(c1,c1) > dot(c2,c2)) ? c1 : c2;
+    T = normalize(T);
+    vec3 B = normalize(cross(N,T));
+    vec3 V = -ViewPos;
+
+    vec3 NdotV = dot(N,V);
+#define NdotL NdotV
+#define NdotH NdotV
+
+    vec3 color = PC.emissive*0.01;
+    if (NdotL > FLT_MIN)
+    {
+        float lightDistance2 = dot(V,V);
+        float Vrcplen = inversesqrt(lightDistance2);
+        NdotV *= Vrcplen;
+        V *= Vrcplen;
+
+        vec3 TdotV = dot(T,V);
+        vec3 BdotV = dot(B,V);
+#define TdotL TdotV
+#define BdotL BdotV
+#define TdotH TdotV
+#define BdotH BdotV
+
+        float at = sqrt(PC.roughness);
+        float ab = at*(1.0 - PC.anisotropy);
+
+        float fr = Fresnel_dielectric(PC.ior, NdotV);
+        float one_minus_fr = 1.0-fr;
+        float diffuseFactor = 1.0 - one_minus_fr*one_minus_fr;
+        float diffuse = 0.0;
+        if (PC.metallic < 1.0)
+        {
+            if (PC.roughness==0.0)
+                diffuse = 1.0/PI;
+            else
+                diffuse = oren_nayar(PC.roughness, N, V, V, NdotL, NdotV);
+        }
+        float specular = 0.0;
+        if (NdotV > FLT_MIN)
+        {
+            float ndf = GGXBurleyAnisotropic(PC.anisotropy, PC.roughness, TdotH, BdotH, NdotH);
+            float geom = GGXSmithHeightCorrelated_aniso_wo_numerator(at, ab, TdotL, TdotV, BdotL, BdotV, NdotL, NdotV);
+            specular = ndf*geom*fr;
+        }
+
+        color += (diffuseFactor*diffuse*PC.albedo + specular) * NdotL / lightDistance2;
+    }
+    OutColor = vec4(color*PC.transmissionFilter, 1.0);
+}
+)";
+    constexpr const char* VERT_SHADER_UV = 
+R"(#version 430 core
+
+layout (location = 0) in vec3 vPos;
+layout (location = 2) in vec2 vUV;
+layout (location = 3) in vec3 vNormal;
+
+layout (location = 0) out vec3 LocalPos;
+layout (location = 1) out vec3 ViewPos;
+layout (location = 2) out vec3 Normal;
+layout (location = 3) out vec2 UV;
+
+layout (set = 1, binding = 0, row_major, std140) uniform UBO {
+    mat4 MVP;
+    mat4 MV;
+    mat3 NormalMat;
+    vec3 EyePos;
+} CamData;
+
+void main()
+{
+    LocalPos = vPos;
+    gl_Position = CamData.MVP*vec4(vPos, 1.0);
+    ViewPos = (CamData.MV*vec4(vPos, 1.0)).xyz;
+    Normal = normalize(CamData.NormalMat*vNormal);
+    UV = vUV;
+}
+)";
+    constexpr const char* FRAG_SHADER_UV =
+R"(#version 430 core
+
+layout (location = 0) in vec3 LocalPos;
+layout (location = 1) in vec3 ViewPos;
+layout (location = 2) in vec3 Normal;
+layout (location = 3) in vec2 UV;
+layout (location = 0) out vec4 OutColor;
+
+#define ILLUM_MODEL_MASK 0x0fu
+#define map_Ka_MASK uint(1u<<4u)
+#define map_Kd_MASK uint(1u<<5u)
+#define map_Ks_MASK uint(1u<<6u)
+#define map_Ns_MASK uint(1u<<8u)
+#define map_d_MASK uint(1u<<9u)
+#define map_bump_MASK uint(1u<<10u)
+#define map_normal_MASK uint(1u<<11u)
+
+layout (push_constant) uniform Block {
+    vec3 Ka;
+    vec3 Kd;
+    vec3 Ks;
+    vec3 Ke;
+    vec4 Tf;//w component doesnt matter
+    float Ns;
+    float d;
+    float bm;
+    float Ni;
+    float roughness;
+    float metallic;
+    float sheen;
+    float clearcoatThickness;
+    float clearcoatRoughness;
+    float anisotropy;
+    float anisoRotation;
+    //extra info
+    uint extra;
+} PC;
+
+//here texture bindings will be inserted with sprintf()
+%s
+
+#include <irr/builtin/glsl/brdf/specular/fresnel/fresnel.glsl>
+
+#define Ia 0.1
+void main()
+{
+    vec3 N = normalize(Normal);
+    if ((PC.extra&map_bump_MASK) == map_bump_MASK)
+    {
+        float height = texture(map_bump, UV).x;
+        vec3 dpdx = dFdx(ViewPos);
+        vec3 dpdy = dFdy(ViewPos);
+        float dhdx = dFdx(height);
+        float dhdy = dFdy(height);
+        
+        vec3 r1 = cross(dpdy, N);
+        vec3 r2 = cross(N, dpdx);
+        vec3 surfGrad = (r1*dhdx + r2*dhdy) / dot(dpdx,r1);
+        N = normalize(N - surfGrad);
+    }
+    vec3 L = normalize(-ViewPos);
+    vec3 R = normalize(-reflect(L,N));
+    float NdotL = max(dot(N,L), 0.0);
+    float VdotR = max(dot(L,R), 0.0);
+
+    vec3 Kd;
+    if ((PC.extra&(map_Kd_MASK)) == (map_Kd_MASK))
+        Kd = texture(map_Kd, UV).rgb;
+    else
+        Kd = PC.Kd;
+    float d = 1.0;
+    if ((PC.extra&(map_d_MASK)) == (map_d_MASK))
+        d = texture(map_d, UV).r;
+
+    vec3 color;
+    if ((PC.extra&ILLUM_MODEL_MASK) > 0)
+    {
+        vec3 Ka;
+        vec3 Ks;
+        float Ns;
+        if ((PC.extra&(map_Ka_MASK)) == (map_Ka_MASK))
+            Ka = texture(map_Ka, UV).rgb;
+        else
+            Ka = PC.Ka;
+        if ((PC.extra&(map_Ks_MASK)) == (map_Ks_MASK))
+            Ks = texture(map_Ks, UV).rgb;
+        else
+            Ks = PC.Ks;
+        if ((PC.extra&(map_Ns_MASK)) == (map_Ns_MASK))
+            Ns = texture(map_Ns, UV).x;
+        else
+            Ns = PC.Ns;
+
+        color = Ka*Ia + Kd*NdotL;
+        switch (PC.extra&ILLUM_MODEL_MASK)
+        {
+        case 2:
+        case 3://2 + reflection map
+        case 4://3 with transparency (glass)
+        case 6:
+        case 8://reflection map
+        case 9://reflection map
+            color += Ks*pow(VdotR, Ns);
+            break;
+        case 5:
+        case 7:
+            color += Ks*pow(VdotR, Ns)*Fresnel_dielectric(PC.Ni, NdotL);
+            break;
+        default:
+            break;
+        }
+    }
+    else color = Kd;
+
+    OutColor = vec4(color, d);
+}
+)";
+}
 
 namespace irr
 {
 namespace asset
 {
+
+static void insertShaderIntoCache(core::smart_refctd_ptr<ICPUSpecializedShader>& asset, const char* path, IAssetManager* _assetMgr)
+{
+    asset::SAssetBundle bundle({ asset });
+    _assetMgr->changeAssetKey(bundle, path);
+    _assetMgr->insertAssetIntoCache(bundle);
+};
+
+_IRR_STATIC_INLINE_CONSTEXPR const char* VERT_SHADER_NO_UV_CACHE_KEY = "irr/builtin/obj_loader/shaders/vertex_no_uv";
+_IRR_STATIC_INLINE_CONSTEXPR const char* VERT_SHADER_UV_CACHE_KEY = "irr/builtin/obj_loader/shaders/vertex_uv";
+_IRR_STATIC_INLINE_CONSTEXPR const char* FRAG_SHADER_NO_UV_CACHE_KEY = "irr/builtin/obj_loader/shaders/fragment_no_uv";
+_IRR_STATIC_INLINE_CONSTEXPR const char* FRAG_SHADER_UV_CACHE_KEY = "irr/builtin/obj_loader/shaders/fragment_uv";
 
 //#ifdef _IRR_DEBUG
 #define _IRR_DEBUG_OBJ_LOADER_
@@ -59,6 +407,15 @@ COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager* _manager) : AssetManager(_
 #ifdef _IRR_DEBUG
 	setDebugName("COBJMeshFileLoader");
 #endif
+    auto vs_nouv_unspec = core::make_smart_refctd_ptr<ICPUShader>(VERT_SHADER_NO_UV);
+    auto vs_uv_unspec = core::make_smart_refctd_ptr<ICPUShader>(VERT_SHADER_UV);
+
+    ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_VERTEX);
+    auto vs_nouv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(vs_nouv_unspec), ICPUSpecializedShader::SInfo(specinfo));
+    auto vs_uv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(vs_uv_unspec), ICPUSpecializedShader::SInfo(specinfo));
+
+    insertShaderIntoCache(vs_nouv, VERT_SHADER_NO_UV_CACHE_KEY, AssetManager);
+    insertShaderIntoCache(vs_uv, VERT_SHADER_UV_CACHE_KEY, AssetManager);
 }
 
 
@@ -141,13 +498,15 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				os::Printer::log("Reading material _file",tmpbuf);
 #endif
 
+                std::string mtllib = relPath+tmpbuf;
+                std::replace(mtllib.begin(), mtllib.end(), '\\', '/');
                 SAssetLoadParams loadParams;
-                auto bundle = interm_getAssetInHierarchy(AssetManager, tmpbuf, loadParams, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
+                auto bundle = interm_getAssetInHierarchy(AssetManager, mtllib, loadParams, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
                 for (auto it = bundle.getContents().first; it != bundle.getContents().second; ++it)
                 {
                     auto pipeln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(*it);
                     auto metadata = static_cast<const CMTLPipelineMetadata*>(pipeln->getMetadata());
-                    std::string mtlfilepath = tmpbuf;
+                    std::string mtlfilepath = relPath+tmpbuf;
 
                     decltype(pipelines)::value_type::second_type val{std::move(mtlfilepath), std::move(pipeln)};
                     pipelines.insert({metadata->getMaterial().name, std::move(val)});
@@ -188,7 +547,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			break;
 
 		case 'g': // group name
-            bufPtr = goNextWord(bufPtr, bufEnd);
+            bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
+            grpName = tmpbuf;
 			break;
 		case 's': // smoothing can be a group or off (equiv. to 0)
 			{
@@ -196,7 +556,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 #ifdef _IRR_DEBUG_OBJ_LOADER_
 	os::Printer::log("Loaded smoothing group start",tmpbuf, ELL_DEBUG);
 #endif
-				if (core::stringc("off")==tmpbuf)
+				if (strcmp("off", tmpbuf)==0)
 					smoothingGroup=0u;
 				else
                     sscanf(tmpbuf,"%u",&smoothingGroup);
@@ -225,13 +585,10 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     {
                         submeshes.push_back(core::make_smart_refctd_ptr<ICPUMeshBuffer>());
                         auto found = pipelines.find(mtlName);
-                        assert(found != pipelines.end());
-#ifndef _IRR_DEBUG
                         if (found != pipelines.end())
                         {
-#endif
                             auto& pipeln = found->second;
-                            //cloning pipeline because it will be edited (vertex input params)
+                            //cloning pipeline because it will be edited (vertex input params, shaders, ...)
                             //note shallow copy (depth=0), i.e. only pipeline is cloned, but all its sub-assets are taken from original object
                             submeshes.back()->setPipeline(core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(pipeln.second->clone(0u)));
                             auto metadata = static_cast<const CMTLPipelineMetadata*>(pipeln.second->getMetadata());
@@ -242,6 +599,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                             );
                             //also make/find descriptor set
                             std::string dsCacheKey = pipeln.first + "?" + mtlName + "?_ds";
+                            types[0] = IAsset::ET_DESCRIPTOR_SET;
                             auto ds_bundle = _override->findCachedAsset(dsCacheKey, types, ctx.inner, _hierarchyLevel+ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
                             auto ds_bundle_contents = ds_bundle.getContents();
                             core::smart_refctd_ptr<ICPUDescriptorSet> ds3;
@@ -255,16 +613,18 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                                 images_set_t images = loadImages(relDir.c_str(), metadata->getMaterial(), _hierarchyLevel + ICPUMesh::IMAGE_HIERARCHYLEVELS_BELOW);
                                 ds3 = makeDescSet(images, pipeln.second->getLayout()->getDescriptorSetLayout(3u));
 
-                                SAssetBundle bundle{ds3};
-                                _override->insertAssetIntoCache(bundle, dsCacheKey, ctx.inner, _hierarchyLevel+ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
+                                if (ds3)
+                                {
+                                    SAssetBundle bundle{ds3};
+                                    _override->insertAssetIntoCache(bundle, dsCacheKey, ctx.inner, _hierarchyLevel+ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
+                                }
                             }
                             submeshes.back()->setAttachedDescriptorSet(std::move(ds3));
-#ifndef _IRR_DEBUG
                         }
-#endif
+
                         SAssetBundle bundle{submeshes.back()};
                         _override->insertAssetIntoCache(bundle, genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
-                        interm_setAssetMutable(AssetManager, submeshes.back().get(), true); //insertion into cache makes asset immutable, so temporarily make it mutable because it has to be adjusted more
+                        interm_setAssetMutable(AssetManager, submeshes.back().get(), true); //insertion into cache makes inserted asset immutable, so temporarily make it mutable because it has to be adjusted more
                     }
                     indices.emplace_back();
                     recalcNormals.push_back(false);
@@ -283,7 +643,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			const char* const endPtr = linePtr+wordBuffer.size();
 
 			core::vector<uint32_t> faceCorners;
-			faceCorners.reserve(3ull);
+			faceCorners.reserve(32ull);
 
 			// read in all vertices
 			linePtr = goNextWord(linePtr, endPtr);
@@ -310,8 +670,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 }
 				else
                 {
-					v.uv[0] = std::numeric_limits<float>::quiet_NaN();
-					v.uv[1] = std::numeric_limits<float>::quiet_NaN();
+					v.uv[0] = core::nan<float>();
+					v.uv[1] = core::nan<float>();
                 }
                 //set normal
 				if ( -1 != Idx[2] )
@@ -344,16 +704,26 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				linePtr = goNextWord(linePtr, endPtr);
 			}
 
-            assert(faceCorners.size()==3ull);
-			performActionBasedOnOrientationSystem
-			(
-				[](){},
-				[&]() 
-				{
-                    std::swap(faceCorners.front(), faceCorners.back());
-				}
-			);
-            indices.back().insert(indices.back().end(), faceCorners.begin(), faceCorners.end());
+            // triangulate the face
+            for (uint32_t i = 1u; i < faceCorners.size()-1u; ++i)
+            {
+                // Add a triangle
+                performActionBasedOnOrientationSystem
+                (
+                [&]()
+                {
+                    indices.back().push_back(faceCorners[0]);
+                    indices.back().push_back(faceCorners[i]);
+                    indices.back().push_back(faceCorners[i + 1]);
+                },
+                [&]()
+                {
+                    indices.back().push_back(faceCorners[i + 1]);
+                    indices.back().push_back(faceCorners[i]);
+                    indices.back().push_back(faceCorners[0]);
+                }
+                );
+            }
 		}
 		break;
 
@@ -377,13 +747,13 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         for (size_t i = 0ull; i < _ixs.size(); i += 3ull)
         {
             core::vectorSIMDf v1, v2, v3;
-            v1.set(vertices[_ixs[i+0u]-min].pos);
-            v2.set(vertices[_ixs[i+1u]-min].pos);
-            v3.set(vertices[_ixs[i+2u]-min].pos);
+            v1.set(vertices[_ixs[i+0u]].pos);
+            v2.set(vertices[_ixs[i+1u]].pos);
+            v3.set(vertices[_ixs[i+2u]].pos);
             v1.makeSafe3D();
             v2.makeSafe3D();
             v3.makeSafe3D();
-            core::vectorSIMDf normal(core::plane3dSIMDf(v1, v2, v3).getNormal());
+            core::vectorSIMDf normal = core::plane3dSIMDf(v1, v2, v3).getNormal();
             newNormals[_ixs[i+0u]-min] += normal;
             newNormals[_ixs[i+1u]-min] += normal;
             newNormals[_ixs[i+2u]-min] += normal;
@@ -431,7 +801,29 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 vtxParams.attributes[UV].format = EF_R32G32_SFLOAT;
                 vtxParams.attributes[UV].relativeOffset = offsetof(SObjVertex, uv);
             }
-            submeshes[i]->getPipeline()->getVertexInputParams() = vtxParams;
+
+            ICPURenderpassIndependentPipeline* pipeline = submeshes[i]->getPipeline();
+            if (!pipeline)
+                continue;
+            const auto& mtl = static_cast<const CMTLPipelineMetadata*>(pipeline->getMetadata())->getMaterial();
+            auto shaders = getShaders(hasUV, mtl);
+
+            pipeline->getRasterizationParams().faceCullingMode = EFCM_BACK_BIT;
+            pipeline->getVertexInputParams() = vtxParams;
+            pipeline->setShaderAtIndex(0u, shaders.first.get());
+            pipeline->setShaderAtIndex(4u, shaders.second.get());
+            if (hasUV && mtl.maps[CMTLPipelineMetadata::SMtl::EMP_OPACITY].size())
+            {
+                auto& blendParams = pipeline->getBlendParams();
+                for (uint32_t i = 0u; i < SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; ++i)
+                {
+                    blendParams.blendParams[i].blendEnable = true;
+                    blendParams.blendParams[i].srcColorFactor = EBF_SRC_ALPHA;
+                    blendParams.blendParams[i].srcAlphaFactor = EBF_SRC_ALPHA;
+                    blendParams.blendParams[i].dstColorFactor = EBF_ONE_MINUS_SRC_ALPHA;
+                    blendParams.blendParams[i].dstAlphaFactor = EBF_ONE_MINUS_SRC_ALPHA;
+                }
+            }
         }
 
         core::smart_refctd_ptr<ICPUBuffer> vtxBuf = core::make_smart_refctd_ptr<ICPUBuffer>(vertices.size() * sizeof(SObjVertex));
@@ -442,6 +834,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         {
             if (submeshWasLoadedFromCache[i])
                 continue;
+
+            submeshes[i]->setPositionAttributeIx(POSITION);
 
             submeshes[i]->getIndexBufferBinding()->buffer = ixBuf;
             const uint64_t offset = submeshes[i]->getIndexBufferBinding()->offset;
@@ -456,7 +850,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
     auto mesh = core::make_smart_refctd_ptr<CCPUMesh>();
     for (auto& submesh : submeshes)
+    {
         mesh->addMeshBuffer(std::move(submesh));
+    }
 
 	if (mesh->getMeshBufferCount())
 		mesh->recalculateBoundingBox(true);
@@ -470,12 +866,114 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	return SAssetBundle({std::move(mesh)});
 }
 
+template<typename AssetType, IAsset::E_TYPE assetType>
+static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
+{
+    size_t storageSz = 1ull;
+    asset::SAssetBundle bundle;
+    const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
+
+    _assetMgr->findAssets(storageSz, &bundle, _key, types);
+    if (bundle.isEmpty())
+        return nullptr;
+    auto assets = bundle.getContents();
+
+    return core::smart_refctd_ptr_static_cast<AssetType>(assets.first[0]);
+}
+static std::string genGLSLtextureBindingsStr(const CMTLPipelineMetadata::SMtl& _mtl, bool _shaderWithUV)
+{
+    const char* mapNames[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX]{
+        "map_Ka",
+        "map_Kd",
+        "map_Ks",
+        "map_Ke",
+        "map_Ns",
+        "map_d",
+        "map_bump",
+        "map_normal",
+        "map_displ",
+        "map_roughness",
+        "map_metallic",
+        "map_sheen"
+    };
+
+    uint32_t j = 0u;
+    std::string res;
+
+    char tmpbuf[512]{};
+    for (uint32_t i = 0u; i < CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
+    {
+        if (_mtl.maps[i].empty())
+            continue;
+
+        sprintf(tmpbuf, "layout (set = 3, binding = %u) uniform sampler2D %s;\n", j, mapNames[i]);
+        res += tmpbuf;
+        ++j;
+    }
+    if (_mtl.maps[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX].size())
+    {
+        sprintf(tmpbuf, "layout (set = 3, binding = %u) uniform samplerCube map_refl;\n", j);
+        res += tmpbuf;
+        ++j;
+    }
+
+    constexpr CMTLPipelineMetadata::SMtl::E_MAP_TYPE mandatoryMaps[]
+    {
+        CMTLPipelineMetadata::SMtl::EMP_DIFFUSE,
+        CMTLPipelineMetadata::SMtl::EMP_OPACITY,
+        CMTLPipelineMetadata::SMtl::EMP_SPECULAR,
+        CMTLPipelineMetadata::SMtl::EMP_SHININESS,
+        CMTLPipelineMetadata::SMtl::EMP_AMBIENT,
+        CMTLPipelineMetadata::SMtl::EMP_BUMP
+    };
+    constexpr uint32_t mandatoryMapsSz = sizeof(mandatoryMaps)/sizeof(*mandatoryMaps);
+    //there are a few maps that must be declared in default frag shader (the one with UV) regardless of whetehr they exist or not
+    //in order for it to compile
+    if (_shaderWithUV)
+    {
+        for (uint32_t i = 0u; i < mandatoryMapsSz; ++i)
+        {
+            const uint32_t mapNum = mandatoryMaps[i];
+            if (!_mtl.maps[mapNum].empty())//really exist, so declaration string was already generated
+                continue;
+
+            sprintf(tmpbuf, "layout (set = 3, binding = %u) uniform sampler2D %s;\n", j, mapNames[mapNum]);
+            res += tmpbuf;
+            ++j;
+        }
+    }
+
+    return res;
+}
+
+std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>,core::smart_refctd_ptr<ICPUSpecializedShader>> COBJMeshFileLoader::getShaders(bool _hasUV, const CMTLPipelineMetadata::SMtl& _mtl)
+{
+    auto vs = getDefaultAsset<ICPUSpecializedShader,IAsset::ET_SPECIALIZED_SHADER>(_hasUV ? VERT_SHADER_UV_CACHE_KEY : VERT_SHADER_NO_UV_CACHE_KEY, AssetManager);
+
+    const uint32_t presentMapsMask = (_mtl.std140PackedData.extra>>4u);//first 4 bits is illum model
+    const std::string fs_cache_key = (_hasUV ? (FRAG_SHADER_UV_CACHE_KEY + std::to_string(presentMapsMask)) : FRAG_SHADER_NO_UV_CACHE_KEY);
+    auto fs = getDefaultAsset<ICPUSpecializedShader, IAsset::ET_SPECIALIZED_SHADER>(fs_cache_key.c_str(), AssetManager);
+
+    if (!fs)
+    {
+        const char* src = (_hasUV ? FRAG_SHADER_UV : FRAG_SHADER_NO_UV);
+        std::string fs_source;
+        fs_source.resize(strlen(src)+1000ull);
+        sprintf(fs_source.data(), src, genGLSLtextureBindingsStr(_mtl, _hasUV).c_str());
+        auto fs_unspec = core::make_smart_refctd_ptr<ICPUShader>(fs_source.c_str());
+        ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_FRAGMENT);
+        fs = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(fs_unspec), std::move(specinfo));
+        insertShaderIntoCache(fs, fs_cache_key.c_str(), AssetManager); //not calling insertShaderIntoCache through override because i want it to insert regardless of caching flags
+    }
+
+    return {std::move(vs), std::move(fs)};
+}
+
 auto COBJMeshFileLoader::loadImages(const char* _relDir, const CMTLPipelineMetadata::SMtl& _mtl, uint32_t _hierarchyLvl) -> images_set_t
 {
     std::array<core::smart_refctd_ptr<ICPUImage>, CMTLPipelineMetadata::SMtl::EMP_COUNT> images;
 
     std::string relDir = _relDir;
-    relDir += '/';
     for (uint32_t i = 0u; i < images.size(); ++i)
     {
         SAssetLoadParams lp;
@@ -511,7 +1009,7 @@ auto COBJMeshFileLoader::loadImages(const char* _relDir, const CMTLPipelineMetad
 
         size_t bufSz = 0ull;
         //assuming all cubemap layer images are same size and same format
-        const size_t alignment = core::findLSB(images[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX]->getRegions().begin()->bufferRowLength);
+        const size_t alignment = 1u<<core::findLSB(images[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX]->getRegions().begin()->bufferRowLength);
         core::vector<ICPUImage::SBufferCopy> regions_;
         regions_.reserve(6ull);
         for (uint32_t i = CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; i < CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 6u; ++i)
@@ -572,11 +1070,13 @@ auto COBJMeshFileLoader::loadImages(const char* _relDir, const CMTLPipelineMetad
 
 core::smart_refctd_ptr<ICPUDescriptorSet> COBJMeshFileLoader::makeDescSet(const images_set_t& _images, ICPUDescriptorSetLayout* _dsLayout)
 {
+    if (!_dsLayout)
+        return nullptr;
+
     auto ds = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(
         core::smart_refctd_ptr<ICPUDescriptorSetLayout>(_dsLayout)
     );
-    //d starts from 1u because binding 0 is UBO
-    for (uint32_t i = 0u, d = 1u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
+    for (uint32_t i = 0u, d = 0u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
     {
         if (!_images[i])
             continue;
@@ -602,10 +1102,6 @@ core::smart_refctd_ptr<ICPUDescriptorSet> COBJMeshFileLoader::makeDescSet(const 
         desc->image.sampler = nullptr; //not needed, MTL loader puts immutable samplers into layout
         ++d;
     }
-    auto desc = ds->getDescriptors(0u).begin();
-    desc->desc = core::make_smart_refctd_ptr<ICPUBuffer>(16u*4u);//size of 4x4 matrix (MVP)
-    desc->buffer.offset = 0ull;
-    desc->buffer.size = 16u*4u;
 
     return ds;
 }
@@ -838,15 +1334,9 @@ bool COBJMeshFileLoader::retrieveVertexIndices(char* vertexData, int32_t* idx, c
 	return true;
 }
 
-std::string COBJMeshFileLoader::genKeyForMeshBuf(const SContext & _ctx, const std::string & _baseKey, const std::string & _mtlName, const std::string & _grpName) const
+std::string COBJMeshFileLoader::genKeyForMeshBuf(const SContext& _ctx, const std::string& _baseKey, const std::string& _mtlName, const std::string& _grpName) const
 {
-    if (_ctx.useMaterials)
-    {   
-        if (_ctx.useGroups)
-            return _baseKey + "?" + _grpName + "?" + _mtlName;
-        return _baseKey + "?" +  _mtlName;
-    }
-    return ""; // if nothing's broken this will never happen
+    return _baseKey + "?" + _grpName + "?" + _mtlName;
 }
 
 
