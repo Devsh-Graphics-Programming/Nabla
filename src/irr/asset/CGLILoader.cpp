@@ -35,6 +35,7 @@ namespace irr
 		inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion);
 		inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t layer, const uint16_t face, const uint16_t level, const uint64_t sizeOfData);
 
+
 		asset::SAssetBundle CGLILoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
 			if (!_file)
@@ -159,14 +160,40 @@ namespace irr
 				}
 			}
 
+			const bool isItACubemap = doesItHaveFaces(imageViewType);
+			const bool layersFlag = doesItHaveLayers(imageViewType);
+
+			auto getCurrentGliLayerAndFace = [&](uint16_t layer)
+			{
+				static uint16_t gliLayer, gliFace;
+
+				if (isItACubemap)
+				{
+					gliFace = layer % 6;
+
+					if (layersFlag)
+						gliLayer = layer / 6;
+					else
+						gliLayer = 1;
+				}
+				else
+				{
+					gliFace = 1;
+					gliLayer = layer;
+				}
+
+				return std::make_pair(gliLayer, gliFace);
+			};
+
 			uint64_t tmpDataSizePerRegionSum = {};
 			for (uint16_t mipLevel = 0; mipLevel < imageInfo.mipLevels; ++mipLevel)
 			{
 				const auto layerSize = getFullSizeOfLayer(mipLevel);
 				for (uint16_t layer = 0; layer < imageInfo.arrayLayers; ++layer)
 				{
-					const uint16_t gliLayer = texture.layers() > 1 ? layer / 6 : 0;
-					const uint16_t gliFace = texture.faces() > 1 ? layer % 6 : 0;
+					const auto layersData = getCurrentGliLayerAndFace(layer);
+					const auto gliLayer = layersData.first;
+					const auto gliFace = layersData.second;
 
 					assignGLIDataToRegion((reinterpret_cast<uint8_t*>(data) + tmpDataSizePerRegionSum + (layer * layerSize)), texture, gliLayer, gliFace, mipLevel, layerSize);
 				}
@@ -194,6 +221,27 @@ namespace irr
 		bool CGLILoader::isALoadableFileFormat(io::IReadFile* _file) const
 		{
 			return true; // gli provides a function to load files, but we can check files' signature actually if needed
+		}
+
+		bool CGLILoader::doesItHaveFaces(const IImageView<ICPUImage>::E_TYPE& type)
+		{
+			switch (type)
+			{
+			case ICPUImageView::ET_CUBE_MAP: return true;
+			case ICPUImageView::ET_CUBE_MAP_ARRAY: return true;
+			default: return false;
+			}
+		}
+
+		bool CGLILoader::doesItHaveLayers(const IImageView<ICPUImage>::E_TYPE& type)
+		{
+			switch (type)
+			{
+			case ICPUImageView::ET_1D_ARRAY: return true;
+			case ICPUImageView::ET_2D_ARRAY: return true;
+			case ICPUImageView::ET_CUBE_MAP_ARRAY: return true;
+			default: return false;
+			}
 		}
 
 		inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion)
@@ -231,6 +279,8 @@ namespace irr
 
 			switch (formatToTranslate.Internal)
 			{
+				// "///" means a format doesn't fit in Power-Of-Two for a texel/block (there is an exception in Power-Of-Two rule - 24bit RGB basic format)
+
 				case gl::INTERNAL_RGB_UNORM: return getTranslatedFinalFormat(EF_R8G8B8_UNORM);			//GL_RGB
 				case gl::INTERNAL_BGR_UNORM: return getTranslatedFinalFormat(EF_B8G8R8_UNORM);			//GL_BGR
 				case gl::INTERNAL_RGBA_UNORM: return getTranslatedFinalFormat(EF_R8G8B8A8_UNORM);		//GL_RGBA
@@ -245,7 +295,7 @@ namespace irr
 
 				case gl::INTERNAL_R16_UNORM: return getTranslatedFinalFormat(EF_R16_UNORM);		//GL_R16
 				case gl::INTERNAL_RG16_UNORM: return getTranslatedFinalFormat(EF_R16G16_UNORM);		//GL_RG16
-				case gl::INTERNAL_RGB16_UNORM: return getTranslatedFinalFormat(EF_R16G16B16_UNORM);		//GL_RGB16
+				///case gl::INTERNAL_RGB16_UNORM: return getTranslatedFinalFormat(EF_R16G16B16_UNORM);		//GL_RGB16
 				case gl::INTERNAL_RGBA16_UNORM: return getTranslatedFinalFormat(EF_R16G16B16A16_UNORM);		//GL_RGBA16
 
 				case gl::INTERNAL_RGB10A2_UNORM: return getTranslatedFinalFormat(EF_A2R10G10B10_UNORM_PACK32);	//GL_RGB10_A2
@@ -259,7 +309,7 @@ namespace irr
 
 				case gl::INTERNAL_R16_SNORM: return getTranslatedFinalFormat(EF_R16_SNORM);		//GL_R16_SNORM
 				case gl::INTERNAL_RG16_SNORM: return getTranslatedFinalFormat(EF_R16G16_SNORM);		//GL_RG16_SNORM
-				case gl::INTERNAL_RGB16_SNORM: return getTranslatedFinalFormat(EF_R16G16B16_SNORM);		//GL_RGB16_SNORM
+				///case gl::INTERNAL_RGB16_SNORM: return getTranslatedFinalFormat(EF_R16G16B16_SNORM);		//GL_RGB16_SNORM
 				case gl::INTERNAL_RGBA16_SNORM: return getTranslatedFinalFormat(EF_R16G16B16A16_SNORM);		//GL_RGBA16_SNORM
 
 				// unsigned integer formats
@@ -270,12 +320,12 @@ namespace irr
 
 				case gl::INTERNAL_R16U: return getTranslatedFinalFormat(EF_R16_UINT);				//GL_R16UI
 				case gl::INTERNAL_RG16U: return getTranslatedFinalFormat(EF_R16G16_UINT);			//GL_RG16UI
-				case gl::INTERNAL_RGB16U: return getTranslatedFinalFormat(EF_R16G16B16_UINT);			//GL_RGB16UI
+				///case gl::INTERNAL_RGB16U: return getTranslatedFinalFormat(EF_R16G16B16_UINT);			//GL_RGB16UI
 				case gl::INTERNAL_RGBA16U: return getTranslatedFinalFormat(EF_R16G16B16A16_UINT);			//GL_RGBA16UI
 
 				case gl::INTERNAL_R32U: return getTranslatedFinalFormat(EF_R32_UINT);				//GL_R32UI
 				case gl::INTERNAL_RG32U: return getTranslatedFinalFormat(EF_R32G32_UINT);			//GL_RG32UI
-				case gl::INTERNAL_RGB32U: return getTranslatedFinalFormat(EF_R32G32B32_UINT);			//GL_RGB32UI
+				///case gl::INTERNAL_RGB32U: return getTranslatedFinalFormat(EF_R32G32B32_UINT);			//GL_RGB32UI
 				case gl::INTERNAL_RGBA32U: return getTranslatedFinalFormat(EF_R32G32B32A32_UINT);			//GL_RGBA32UI
 
 				case gl::INTERNAL_RGB10A2U: return getTranslatedFinalFormat(EF_A2R10G10B10_UINT_PACK32);			//GL_RGB10_A2UI
@@ -289,28 +339,28 @@ namespace irr
 
 				case gl::INTERNAL_R16I: return getTranslatedFinalFormat(EF_R16_SINT);				//GL_R16I
 				case gl::INTERNAL_RG16I: return getTranslatedFinalFormat(EF_R16G16_SINT);			//GL_RG16I
-				case gl::INTERNAL_RGB16I: return getTranslatedFinalFormat(EF_R16G16B16_SINT);			//GL_RGB16I
+				///case gl::INTERNAL_RGB16I: return getTranslatedFinalFormat(EF_R16G16B16_SINT);			//GL_RGB16I
 				case gl::INTERNAL_RGBA16I: return getTranslatedFinalFormat(EF_R16G16B16A16_SINT);			//GL_RGBA16I
 
 				case gl::INTERNAL_R32I: return getTranslatedFinalFormat(EF_R32_SINT);				//GL_R32I
 				case gl::INTERNAL_RG32I: return getTranslatedFinalFormat(EF_R32G32_SINT);			//GL_RG32I
-				case gl::INTERNAL_RGB32I: return getTranslatedFinalFormat(EF_R32G32B32_SINT);			//GL_RGB32I
+				///case gl::INTERNAL_RGB32I: return getTranslatedFinalFormat(EF_R32G32B32_SINT);			//GL_RGB32I
 				case gl::INTERNAL_RGBA32I: return getTranslatedFinalFormat(EF_R32G32B32A32_SINT);			//GL_RGBA32I
 
 				// Floating formats
 				case gl::INTERNAL_R16F: return getTranslatedFinalFormat(EF_R16_SFLOAT);				//GL_R16F
 				case gl::INTERNAL_RG16F: return getTranslatedFinalFormat(EF_R16G16_SFLOAT);			//GL_RG16F
-				case gl::INTERNAL_RGB16F: return getTranslatedFinalFormat(EF_R16G16B16_SFLOAT);			//GL_RGB16F
+				///case gl::INTERNAL_RGB16F: return getTranslatedFinalFormat(EF_R16G16B16_SFLOAT);			//GL_RGB16F
 				case gl::INTERNAL_RGBA16F: return getTranslatedFinalFormat(EF_R16G16B16A16_SFLOAT);			//GL_RGBA16F
 
 				case gl::INTERNAL_R32F: return getTranslatedFinalFormat(EF_R32_SFLOAT);				//GL_R32F
 				case gl::INTERNAL_RG32F: return getTranslatedFinalFormat(EF_R32G32_SFLOAT);			//GL_RG32F
-				case gl::INTERNAL_RGB32F: return getTranslatedFinalFormat(EF_R32G32B32_SFLOAT);			//GL_RGB32F
+				///case gl::INTERNAL_RGB32F: return getTranslatedFinalFormat(EF_R32G32B32_SFLOAT);			//GL_RGB32F
 				case gl::INTERNAL_RGBA32F: return getTranslatedFinalFormat(EF_R32G32B32A32_SFLOAT);			//GL_RGBA32F
 
 				case gl::INTERNAL_R64F_EXT: return getTranslatedFinalFormat(EF_R64_SFLOAT);			//GL_R64F
 				case gl::INTERNAL_RG64F_EXT: return getTranslatedFinalFormat(EF_R64G64_SFLOAT);		//GL_RG64F
-				case gl::INTERNAL_RGB64F_EXT: return getTranslatedFinalFormat(EF_R64G64B64_SFLOAT);		//GL_RGB64F
+				///case gl::INTERNAL_RGB64F_EXT: return getTranslatedFinalFormat(EF_R64G64B64_SFLOAT);		//GL_RGB64F
 				case gl::INTERNAL_RGBA64F_EXT: return getTranslatedFinalFormat(EF_R64G64B64A64_SFLOAT);		//GL_RGBA64F
 
 				// sRGB formats

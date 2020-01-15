@@ -37,6 +37,8 @@ namespace irr
 			asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 		private:
+			static inline bool doesItHaveFaces(const IImageView<ICPUImage>::E_TYPE& type);
+			static inline bool doesItHaveLayers(const IImageView<ICPUImage>::E_TYPE& type);
 			
 		};
 	}

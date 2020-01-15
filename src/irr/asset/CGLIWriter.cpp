@@ -49,6 +49,9 @@ namespace irr
 
 			const asset::ICPUImageView* imageView = IAsset::castDown<ICPUImageView>(_params.rootAsset);
 
+			if (!imageView)
+				return false;
+
 			io::IWriteFile* file = _override->getOutputFile(_file, ctx, { imageView, 0u });
 
 			if (!file)
@@ -77,7 +80,7 @@ namespace irr
 			}
 				
 
-			const bool facesFlag = doesItHaveFaces(imageViewInfo.viewType);
+			const bool isItACubemap = doesItHaveFaces(imageViewInfo.viewType);
 			const bool layersFlag = doesItHaveLayers(imageViewInfo.viewType);
 
 			const bool floatingPointFlag = isFloatingPointFormat(imageInfo.format);
@@ -109,15 +112,21 @@ namespace irr
 				size_t layers, faces;
 				const auto arrayLayers = imageInfo.arrayLayers;
 
-				if (layersFlag)
-					layers = ((arrayLayers - 1) / 6) + 1;
-				else
-					layers = 1;
-				if (facesFlag)
+				if (isItACubemap)
+				{
 					faces = ((arrayLayers - 1) % 6) + 1;
-				else
-					faces = 1;
 
+					if (layersFlag)
+						layers = ((arrayLayers - 1) / 6) + 1;
+					else
+						layers = 1;
+				}
+				else
+				{
+					faces = 1;
+					layers = arrayLayers;
+				}
+			
 				return std::make_pair(layers, faces);
 			};
 
@@ -146,7 +155,7 @@ namespace irr
 				for (uint16_t layer = 0; layer < imageInfo.arrayLayers; ++layer)
 				{
 					const uint16_t gliLayer = layersFlag ? layer / 6 : 0;
-					const uint16_t gliFace = facesFlag ? layer % 6 : 0;
+					const uint16_t gliFace = isItACubemap ? layer % 6 : 0;
 					memcpy(texture.data(gliLayer, gliFace, region->imageSubresource.mipLevel), ptrBeginningOfRegion + (layer * layerSize), layerSize);
 				}	
 			}
@@ -215,6 +224,7 @@ namespace irr
 
 			switch (params.format)
 			{
+				// "///" means a format doesn't fit in Power-Of-Two for a texel/block (there is an exception in Power-Of-Two rule - 24bit RGB basic format)
 			
 			case EF_R8G8B8_UNORM: return getTranslatedFinalFormat(FORMAT_RGB8_UNORM_PACK8);			//GL_RGB
 			case EF_B8G8R8_UNORM: return getTranslatedFinalFormat(FORMAT_BGR8_UNORM_PACK8);			//GL_BGR
@@ -229,7 +239,7 @@ namespace irr
 
 			case EF_R16_UNORM: return getTranslatedFinalFormat(FORMAT_R16_UNORM_PACK16);		//GL_R16
 			case EF_R16G16_UNORM: return getTranslatedFinalFormat(FORMAT_RG16_UNORM_PACK16);		//GL_RG16
-			case EF_R16G16B16_UNORM: return getTranslatedFinalFormat(FORMAT_RGB16_UNORM_PACK16);		//GL_RGB16
+			///case EF_R16G16B16_UNORM: return getTranslatedFinalFormat(FORMAT_RGB16_UNORM_PACK16);		//GL_RGB16
 			case EF_R16G16B16A16_UNORM: return getTranslatedFinalFormat(FORMAT_RGBA16_UNORM_PACK16);		//GL_RGBA16
 
 			case EF_A2R10G10B10_UNORM_PACK32: return getTranslatedFinalFormat(FORMAT_RGB10A2_UNORM_PACK32);	//GL_RGB10_A2
@@ -242,7 +252,7 @@ namespace irr
 
 			case EF_R16_SNORM: return getTranslatedFinalFormat(FORMAT_R16_SNORM_PACK16);		//GL_R16_SNORM
 			case EF_R16G16_SNORM: return getTranslatedFinalFormat(FORMAT_RG16_SNORM_PACK16);		//GL_RG16_SNORM
-			case EF_R16G16B16_SNORM: return getTranslatedFinalFormat(FORMAT_RGB16_SNORM_PACK16);		//GL_RGB16_SNORM
+			///case EF_R16G16B16_SNORM: return getTranslatedFinalFormat(FORMAT_RGB16_SNORM_PACK16);		//GL_RGB16_SNORM
 			case EF_R16G16B16A16_SNORM: return getTranslatedFinalFormat(FORMAT_RGBA16_SNORM_PACK16);		//GL_RGBA16_SNORM
 
 			// unsigned integer formats
@@ -253,12 +263,12 @@ namespace irr
 
 			case EF_R16_UINT: return getTranslatedFinalFormat(FORMAT_R16_UINT_PACK16);				//GL_R16UI
 			case EF_R16G16_UINT: return getTranslatedFinalFormat(FORMAT_RG16_UINT_PACK16);			//GL_RG16UI
-			case EF_R16G16B16_UINT: return getTranslatedFinalFormat(FORMAT_RGB16_UINT_PACK16);			//GL_RGB16UI
+			///case EF_R16G16B16_UINT: return getTranslatedFinalFormat(FORMAT_RGB16_UINT_PACK16);			//GL_RGB16UI
 			case EF_R16G16B16A16_UINT: return getTranslatedFinalFormat(FORMAT_RGBA16_UINT_PACK16);			//GL_RGBA16UI
 
 			case EF_R32_UINT: return getTranslatedFinalFormat(FORMAT_R32_UINT_PACK32);				//GL_R32UI
 			case EF_R32G32_UINT: return getTranslatedFinalFormat(FORMAT_RG32_UINT_PACK32);			//GL_RG32UI
-			case EF_R32G32B32_UINT: return getTranslatedFinalFormat(FORMAT_RGB32_UINT_PACK32);			//GL_RGB32UI
+			///case EF_R32G32B32_UINT: return getTranslatedFinalFormat(FORMAT_RGB32_UINT_PACK32);			//GL_RGB32UI
 			case EF_R32G32B32A32_UINT: return getTranslatedFinalFormat(FORMAT_RGBA32_UINT_PACK32);			//GL_RGBA32UI
 
 			case EF_A2R10G10B10_UINT_PACK32: return getTranslatedFinalFormat(FORMAT_RGB10A2_UINT_PACK32);			//GL_RGB10_A2UI
@@ -272,28 +282,28 @@ namespace irr
 
 			case EF_R16_SINT: return getTranslatedFinalFormat(FORMAT_R16_SINT_PACK16);				//GL_R16I
 			case EF_R16G16_SINT: return getTranslatedFinalFormat(FORMAT_RG16_SINT_PACK16);			//GL_RG16I
-			case EF_R16G16B16_SINT: return getTranslatedFinalFormat(FORMAT_RGB16_SINT_PACK16);			//GL_RGB16I
+			///case EF_R16G16B16_SINT: return getTranslatedFinalFormat(FORMAT_RGB16_SINT_PACK16);			//GL_RGB16I
 			case EF_R16G16B16A16_SINT: return getTranslatedFinalFormat(FORMAT_RGBA16_SINT_PACK16);			//GL_RGBA16I
 
 			case EF_R32_SINT: return getTranslatedFinalFormat(FORMAT_R32_SINT_PACK32);				//GL_R32I
 			case EF_R32G32_SINT: return getTranslatedFinalFormat(FORMAT_RG32_SINT_PACK32);			//GL_RG32I
-			case EF_R32G32B32_SINT: return getTranslatedFinalFormat(FORMAT_RGB32_SINT_PACK32);			//GL_RGB32I
+			///case EF_R32G32B32_SINT: return getTranslatedFinalFormat(FORMAT_RGB32_SINT_PACK32);			//GL_RGB32I
 			case EF_R32G32B32A32_SINT: return getTranslatedFinalFormat(FORMAT_RGBA32_SINT_PACK32);			//GL_RGBA32I
 
 			// Floating formats
 			case EF_R16_SFLOAT: return getTranslatedFinalFormat(FORMAT_R16_SFLOAT_PACK16);				//GL_R16F
 			case EF_R16G16_SFLOAT: return getTranslatedFinalFormat(FORMAT_RG16_SFLOAT_PACK16);			//GL_RG16F
-			case EF_R16G16B16_SFLOAT: return getTranslatedFinalFormat(FORMAT_RGB16_SFLOAT_PACK16);			//GL_RGB16F
+			///case EF_R16G16B16_SFLOAT: return getTranslatedFinalFormat(FORMAT_RGB16_SFLOAT_PACK16);			//GL_RGB16F
 			case EF_R16G16B16A16_SFLOAT: return getTranslatedFinalFormat(FORMAT_RGBA16_SFLOAT_PACK16);			//GL_RGBA16F
 
 			case EF_R32_SFLOAT: return getTranslatedFinalFormat(FORMAT_R32_SFLOAT_PACK32);				//GL_R32F
 			case EF_R32G32_SFLOAT: return getTranslatedFinalFormat(FORMAT_RG32_SFLOAT_PACK32);			//GL_RG32F
-			case EF_R32G32B32_SFLOAT: return getTranslatedFinalFormat(FORMAT_RGB32_SFLOAT_PACK32);			//GL_RGB32F
+			///case EF_R32G32B32_SFLOAT: return getTranslatedFinalFormat(FORMAT_RGB32_SFLOAT_PACK32);			//GL_RGB32F
 			case EF_R32G32B32A32_SFLOAT: return getTranslatedFinalFormat(FORMAT_RGBA32_SFLOAT_PACK32);			//GL_RGBA32F
 
 			case EF_R64_SFLOAT: return getTranslatedFinalFormat(FORMAT_R64_SFLOAT_PACK64);			//GL_R64F
 			case EF_R64G64_SFLOAT: return getTranslatedFinalFormat(FORMAT_RG64_SFLOAT_PACK64);		//GL_RG64F
-			case EF_R64G64B64_SFLOAT: return getTranslatedFinalFormat(FORMAT_RGB64_SFLOAT_PACK64);		//GL_RGB64F
+			///case EF_R64G64B64_SFLOAT: return getTranslatedFinalFormat(FORMAT_RGB64_SFLOAT_PACK64);		//GL_RGB64F
 			case EF_R64G64B64A64_SFLOAT: return getTranslatedFinalFormat(FORMAT_RGBA64_SFLOAT_PACK64);		//GL_RGBA64F
 
 			// sRGB formats

@@ -43,8 +43,8 @@ namespace irr
 		private:
 			bool writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* imageView);
 
-			bool doesItHaveFaces(const IImageView<ICPUImage>::E_TYPE& type);
-			bool doesItHaveLayers(const IImageView<ICPUImage>::E_TYPE& type);
+			static inline bool doesItHaveFaces(const IImageView<ICPUImage>::E_TYPE& type);
+			static inline bool doesItHaveLayers(const IImageView<ICPUImage>::E_TYPE& type);
 			
 		};
 	}
