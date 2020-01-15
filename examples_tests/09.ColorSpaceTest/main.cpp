@@ -15,7 +15,7 @@ using namespace video;
 
 class App
 {
-		void presentImageOnScreen(core::smart_refctd_ptr<video::ITexture>&& inTex, core::smart_refctd_ptr<video::ITexture>&& outTex=nullptr)
+		void presentImageOnScreen(core::smart_refctd_ptr<video::IGPUImageView>&& inTex, core::smart_refctd_ptr<video::IGPUImageView>&& outTex=nullptr)
 		{
 			IFrameBuffer* framebuffer = nullptr;
 			if (outTex)
@@ -55,14 +55,17 @@ class App
 		template<class ViewOrImage>
 		void dumpTextureToFile(ViewOrImage* tex, const std::string& outname)
 		{
+            IGPUImage* gpuimg = nullptr;
 			video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
 			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<ViewOrImage,IGPUImageView>::value)
 			{
-				reqs.vulkanReqs.size = tex->getCreationParams().image->getImageDataSizeInBytes();
+				reqs.vulkanReqs.size = tex->getCreationParameters().image->getImageDataSizeInBytes();
+                gpuimg = tex->getCreationParameters().image.get();
 			}
 			IRR_PSEUDO_ELSE_CONSTEXPR
 			{
 				reqs.vulkanReqs.size = tex->getImageDataSizeInBytes();
+                gpuimg = tex;
 			}
 			IRR_PSEUDO_IF_CONSTEXPR_END
 			reqs.vulkanReqs.alignment = 64u;
@@ -71,29 +74,61 @@ class App
 			reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_READ|video::IDriverMemoryAllocation::EMCF_COHERENT|video::IDriverMemoryAllocation::EMCF_CACHED;
 			auto buffer = driver->createGPUBufferOnDedMem(reqs);
 
-			auto fence = ext::ScreenShot::createScreenShot(driver,tex,buffer);
+			auto fence = ext::ScreenShot::createScreenShot(driver,gpuimg,buffer.get());
 			while (fence->waitCPU(1000ull,fence->canDeferredFlush())==video::EDFR_TIMEOUT_EXPIRED) {}
 
 			auto alloc = buffer->getBoundMemory();
 			alloc->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_READ,{0u,reqs.vulkanReqs.size});
-			auto cpubuffer = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<typename Allocator::value_type> > >(reqs.vulkanReqs.size,alloc->getMappedPointer(),core::adopt_memory);
+			auto cpubuffer = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t> > >(reqs.vulkanReqs.size,alloc->getMappedPointer(),core::adopt_memory);
+
+            auto calcPitchInBlocks = [](uint32_t width, uint32_t blockByteSize) -> uint32_t
+            {
+                auto rowByteSize = width * blockByteSize;
+                for (uint32_t _alignment = 8u; _alignment > 1u; _alignment >>= 1u)
+                {
+                    auto paddedSize = core::alignUp(rowByteSize, _alignment);
+                    if (paddedSize % blockByteSize)
+                        continue;
+                    return paddedSize / blockByteSize;
+                }
+                return width;
+            };
+            auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
+            ICPUImage::SBufferCopy& region = regions->front();
+            region.imageSubresource.mipLevel = 0u;
+            region.imageSubresource.baseArrayLayer = 0u;
+            region.imageSubresource.layerCount = 1u;
+            region.bufferOffset = 0u;
+            region.bufferRowLength = calcPitchInBlocks(gpuimg->getCreationParameters().extent.width, getTexelOrBlockBytesize(gpuimg->getCreationParameters().format));
+            region.bufferImageHeight = 0u; //tightly packed
+            region.imageOffset = { 0u, 0u, 0u };
+            region.imageExtent = gpuimg->getCreationParameters().extent;
 			
 			auto assMgr = device->getAssetManager();
 			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<ViewOrImage,IGPUImageView>::value)
 			{
-				const auto& origViewParams = tex->getCreationParams();
+				const auto& origViewParams = tex->getCreationParameters();
 
-				asset::ICPUImage::SCreationParams params = origViewParams.image->getCreationParams();
+				asset::ICPUImage::SCreationParams params = origViewParams.image->getCreationParameters();
 				auto img = asset::ICPUImage::create(std::move(params));
+                img->setBufferAndRegions(std::move(cpubuffer), regions);
 
-				asset::IImageView::SCreationParams viewParams = {origViewParams.flags,std::move(img),origViewParams.viewType,origViewParams.format,origViewParams.components,origViewParams.subresourceRange};
+                asset::ICPUImageView::SCreationParams viewParams;
+                viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(origViewParams.flags);
+                viewParams.image = std::move(img);
+                viewParams.viewType = static_cast<IImageView<ICPUImage>::E_TYPE>(origViewParams.viewType);
+                viewParams.format = origViewParams.format;
+                memcpy(&viewParams.components, &origViewParams.components, sizeof(viewParams.components));
+                memcpy(&viewParams.subresourceRange, &origViewParams.subresourceRange, sizeof(viewParams.subresourceRange));
 				auto imgView = core::make_smart_refctd_ptr<asset::ICPUImageView>(std::move(viewParams));
 				assMgr->writeAsset(outname,asset::IAssetWriter::SAssetWriteParams(imgView.get()));
 			}
-			IRR_PSEUDO_ELSE_CONSTEXPR
+			IRR_PSEUDO_ELSE_CONSTEXPR //idk if this 'else' should even exist, maybe it should always write ICPUImageView
 			{
-				asset::ICPUImage::SCreationParams params = tex->getCreationParams();
+				asset::ICPUImage::SCreationParams params = tex->getCreationParameters();
 				auto img = asset::ICPUImage::create(std::move(params));
+                img->setBufferAndRegions(std::move(cpubuffer), regions);
+
 				assMgr->writeAsset(outname,asset::IAssetWriter::SAssetWriteParams(img.get()));
 			}
 			IRR_PSEUDO_IF_CONSTEXPR_END
@@ -125,31 +160,35 @@ class App
 
 			auto fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(driver);
 
-			IGPUDescriptorSetLayout::SBinding binding{0u,EDT_COMBINED_IMAGE_SAMPLER,1u,ESS_FRAGMENT,nullptr};
+			IGPUDescriptorSetLayout::SBinding binding{0u,EDT_COMBINED_IMAGE_SAMPLER,1u,IGPUSpecializedShader::ESS_FRAGMENT,nullptr};
 			dsLayout = driver->createGPUDescriptorSetLayout(&binding,&binding+1u);
 
 			{
 				auto pLayout = driver->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(dsLayout),nullptr,nullptr,nullptr);
 
-				auto shaderSource = device->getAssetManager()->getAsset("../present.frag", {});
-				auto contents = shaderSource.getContents();
-				if (contents.first==contents.second)
+                IAssetLoader::SAssetLoadParams lp;
+				auto fs_bundle = device->getAssetManager()->getAsset("../present.frag", lp);
+				auto fs_contents = fs_bundle.getContents();
+				if (fs_contents.first==fs_contents.second)
 					return false;
+                ICPUSpecializedShader* fs = static_cast<ICPUSpecializedShader*>(fs_contents.first->get());
 
-				auto unspecShader = driver->createGPUShader(core::smart_refctd_ptr_static_cast<ICPUShader>(*contents.first));
-				if (!unspecShader)
-					return false;
-				auto fragShader = driver->createGPUSpecializedShader(unspecShader.get(),nullptr);
+				auto fragShader = driver->getGPUObjectsFromAssets(&fs, &fs+1)->front();
+                if (!fragShader)
+                    return false;
 
 				IGPUSpecializedShader* shaders[2] = {std::get<0>(fullScreenTriangle).get(),fragShader.get()};
 				SBlendParams blendParams;
 				blendParams.logicOpEnable = false;
 				blendParams.logicOp = ELO_NO_OP;
 				for (size_t i=0ull; i<SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
-					blendParams.blendParams[i] = {i==0ull,false,EBF_ONE,EBF_ZERO,EBO_ADD,EBF_ONE,EBF_ZERO,EBO_ADD,0xfu};
-				SStencilOpParams defaultStencil;
-				SRasterizationParams rasterParams = {1u,EPM_FILL,EFCM_NONE,ECO_ALWAYS,IImage::ESCF_1_BIT,{~0u,~0u},1.f,0.f,0.f,defaultStencil,defaultStencil,
-														{false,false,true,false,false,false,false,false,false,false,false}};
+                    blendParams.blendParams[i].attachmentEnabled = (i==0ull);
+                SRasterizationParams rasterParams;
+                rasterParams.faceCullingMode = EFCM_NONE;
+                rasterParams.depthCompareOp = ECO_ALWAYS;
+                rasterParams.minSampleShading = 1.f;
+                rasterParams.depthWriteEnable = false;
+                rasterParams.depthTestEnable = false;
 
 				presentPipeline = driver->createGPURenderpassIndependentPipeline(	nullptr,std::move(pLayout),shaders,shaders+sizeof(shaders)/sizeof(IGPUSpecializedShader*),
 																					std::get<SVertexInputParams>(fullScreenTriangle),blendParams,
@@ -157,7 +196,8 @@ class App
 			}
 
 			{
-				presentMB = core::make_smart_refctd_ptr<IGPUMeshBuffer>();
+                SBufferBinding<IGPUBuffer> idxBinding{0ull,nullptr};
+				presentMB = core::make_smart_refctd_ptr<IGPUMeshBuffer>(nullptr, nullptr, nullptr, std::move(idxBinding));
 				presentMB->setIndexCount(3u);
 				presentMB->setInstanceCount(1u);
 			}
@@ -171,6 +211,7 @@ class App
 	
 			auto* assetMgr = device->getAssetManager();
 
+            core::smart_refctd_ptr<ICPUImageView> actualcputex;
 			auto cputex = assetMgr->getAsset(path, {});
 			auto contents = cputex.getContents();
 			if (contents.first!=contents.second)
@@ -179,6 +220,7 @@ class App
 				core::splitFilename(path.c_str(), nullptr, &filename, &extension);
 				filename += "."; filename += extension;
 		
+                //TODO @anastazluk decide if this is needed at all or should be redefined somehow
 				bool writeable = (extension != "dds");
 		
 				auto asset = *contents.first;
@@ -186,10 +228,24 @@ class App
 				switch (asset->getAssetType())
 				{
 					case IAsset::ET_IMAGE:
+                        {
+                            ICPUImageView::SCreationParams viewParams;
+                            viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+                            viewParams.image = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
+                            viewParams.format = viewParams.image->getCreationParameters().format;
+                            viewParams.viewType = IImageView<ICPUImage>::ET_2D;
+                            viewParams.subresourceRange.baseArrayLayer = 0u;
+                            viewParams.subresourceRange.layerCount = 1u;
+                            viewParams.subresourceRange.baseMipLevel = 0u;
+                            viewParams.subresourceRange.levelCount = 1u;
+
+                            actualcputex = ICPUImageView::create(std::move(viewParams));
+                            imgView = driver->getGPUObjectsFromAssets(&actualcputex.get(), &actualcputex.get()+1u)->front();
+                        }
 						break;
 					case IAsset::ET_IMAGE_VIEW:
 						{
-							auto actualcputex = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(asset);
+							actualcputex = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(asset);
 							imgView = driver->getGPUObjectsFromAssets(&actualcputex.get(),&actualcputex.get()+1u)->front();
 						}
 						break;
@@ -200,7 +256,7 @@ class App
 				if (imgView)
 				{
 					auto viewParams = imgView->getCreationParameters();
-					viewParams.image = driver->createGPUImage(video::IGPUImage::SCreationParams(viewParams.image->getCreationParameters()));
+					viewParams.image = driver->createDeviceLocalGPUImageOnDedMem(video::IGPUImage::SCreationParams(viewParams.image->getCreationParameters()));
 					viewParams.viewType = IGPUImageView::ET_2D;
 					auto outView = driver->createGPUImageView(std::move(viewParams));
 					presentImageOnScreen(core::smart_refctd_ptr(imgView),core::smart_refctd_ptr(outView));
@@ -210,8 +266,7 @@ class App
 		
 				if (writeable)
 				{
-					asset::CImageData* img = actualcputex->getMipMap(0u).first[0];
-					asset::IAssetWriter::SAssetWriteParams wparams(img);
+					asset::IAssetWriter::SAssetWriteParams wparams(actualcputex.get());
 
 					assetMgr->writeAsset((io::path("write_")+filename).c_str(), wparams);
 				}

@@ -331,6 +331,8 @@ void CNullDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
 {
 	if (!mb)
 		return;
+    if (!mb->getPipeline())
+        return;
 
     uint32_t increment = mb->getInstanceCount();
     switch (mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType)

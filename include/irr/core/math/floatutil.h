@@ -99,6 +99,9 @@ IRR_FORCE_INLINE bool isnan<float>(float val)
 }
 
 template<typename T>
+bool isinf(T val);
+
+template<>
 IRR_FORCE_INLINE bool isinf<float>(float val)
 {
     //all exponent bits set, none mantissa bit set
