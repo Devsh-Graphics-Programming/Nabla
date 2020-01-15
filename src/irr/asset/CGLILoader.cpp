@@ -32,23 +32,21 @@ namespace irr
 {
 	namespace asset
 	{
-		inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion);
-		inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t layer, const uint16_t face, const uint16_t level, const uint64_t sizeOfData);
-
+		static inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion);
+		static inline void assignGLIDataToRegion(void* regionData, const gli::texture& texture, const uint16_t layer, const uint16_t face, const uint16_t level, const uint64_t sizeOfData);
+		static inline bool performLoadingAsIReadFile(gli::texture& texture, io::IReadFile* file);
 
 		asset::SAssetBundle CGLILoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
 			if (!_file)
 				return {};
 
-			const char* filename = _file->getFileName().c_str();
-			gli::texture texture = gli::load(filename);
-			if (texture.empty())
-			{
-				os::Printer::log("LOAD GLI: failed to load texture at path ", filename, ELL_ERROR);
+			gli::texture texture;
+
+			if (!performLoadingAsIReadFile(texture, _file))
 				return {};
-			}
 			
+
 		    const gli::gl glVersion(gli::gl::PROFILE_GL33);
 			const GLenum target = glVersion.translate(texture.target());
 			const auto format = getTranslatedGLIFormat(texture, glVersion);
@@ -216,6 +214,30 @@ namespace irr
 			auto imageView = ICPUImageView::create(std::move(imageViewInfo));
 
 			return SAssetBundle({std::move(imageView)});
+		}
+
+		bool performLoadingAsIReadFile(gli::texture& texture, io::IReadFile* file)
+		{
+			const auto fileName = std::string(file->getFileName().c_str());
+			std::vector<char> memory(file->getSize());
+			const auto sizeOfData = memory.size();
+
+			file->read(memory.data(), sizeOfData);
+
+			if (fileName.rfind(".dds") != std::string::npos)
+				texture = gli::load_dds(memory.data(), sizeOfData);
+			if (fileName.rfind(".kmg") != std::string::npos)
+				texture = gli::load_kmg(memory.data(), sizeOfData);
+			if (fileName.rfind(".ktx") != std::string::npos)
+				texture = gli::load_ktx(memory.data(), sizeOfData);
+
+			if (!texture.empty())
+				return true;
+			else
+			{
+				os::Printer::log("LOADING GLI: failed to load the file", file->getFileName().c_str(), ELL_ERROR);
+				return false;
+			}
 		}
 
 		bool CGLILoader::isALoadableFileFormat(io::IReadFile* _file) const

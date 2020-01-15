@@ -32,13 +32,15 @@ namespace irr
 {
 	namespace asset
 	{
-		inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params);
+		static inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params);
 
 		template<typename aType>
-		aType getSingleChannel(const void* data)
+		static inline aType getSingleChannel(const void* data)
 		{
 			return *(reinterpret_cast<const aType*>(data));
 		}
+
+		static inline bool performSavingAsIWriteFile(gli::texture& texture, irr::io::IWriteFile* file);
 
 		bool CGLIWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 		{
@@ -159,9 +161,31 @@ namespace irr
 					memcpy(texture.data(gliLayer, gliFace, region->imageSubresource.mipLevel), ptrBeginningOfRegion + (layer * layerSize), layerSize);
 				}	
 			}
-			
-			if (gli::save(texture, file->getFileName().c_str()))
+
+			return performSavingAsIWriteFile(texture, file);
+		}
+
+		bool performSavingAsIWriteFile(gli::texture& texture, irr::io::IWriteFile* file)
+		{
+			if (texture.empty())
+				return false;
+
+			const auto fileName = std::string(file->getFileName().c_str());
+			std::vector<char> memory;
+			bool properlyStatus;
+
+			if (fileName.rfind(".dds") != std::string::npos)
+				properlyStatus = save_dds(texture, memory);
+			if (fileName.rfind(".kmg") != std::string::npos)
+				properlyStatus = save_kmg(texture, memory);
+			if (fileName.rfind(".ktx") != std::string::npos)
+				properlyStatus = save_ktx(texture, memory);
+
+			if (properlyStatus)
+			{
+				file->write(memory.data(), memory.size());
 				return true;
+			}
 			else
 			{
 				os::Printer::log("WRITING GLI: failed to save the file", file->getFileName().c_str(), ELL_ERROR);
