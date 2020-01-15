@@ -599,6 +599,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                             );
                             //also make/find descriptor set
                             std::string dsCacheKey = pipeln.first + "?" + mtlName + "?_ds";
+                            types[0] = IAsset::ET_DESCRIPTOR_SET;
                             auto ds_bundle = _override->findCachedAsset(dsCacheKey, types, ctx.inner, _hierarchyLevel+ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
                             auto ds_bundle_contents = ds_bundle.getContents();
                             core::smart_refctd_ptr<ICPUDescriptorSet> ds3;
