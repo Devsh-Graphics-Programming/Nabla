@@ -143,9 +143,11 @@ class IEmulatedDescriptorSet
 			if (!_layout)
 				return;
 
-			const auto& bindings = _layout->getBindings();
+			auto bindings = _layout->getBindings();
+            assert(bindings.length());
+            auto lastBnd = (bindings.end()-1);
 
-			m_bindingInfo = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBindingInfo> >(std::distance(bindings.begin(),bindings.end()));
+			m_bindingInfo = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBindingInfo> >(lastBnd->binding+lastBnd->count);
 			for (auto it=m_bindingInfo->begin(); it!=m_bindingInfo->end(); it++)
 				*it = {~0u,EDT_INVALID};
 			
@@ -167,12 +169,15 @@ class IEmulatedDescriptorSet
 			m_descriptors = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<typename IDescriptorSet<LayoutType>::SDescriptorInfo> >(descriptorCount);
 			// set up all offsets
 			prevBinding = 0u;
+            uint32_t i = 0u;
 			for (auto it=m_bindingInfo->begin(); it!=m_bindingInfo->end(); it++)
 			{
-				if (it->offset < descriptorCount)
-					prevBinding = it->offset;
+                if (it->offset < descriptorCount) {
+                    prevBinding = it->offset;
+                    i = 0u;
+                }
 				else
-					it->offset = prevBinding;
+					it->offset = prevBinding + (++i);
 			}
 		}
 
