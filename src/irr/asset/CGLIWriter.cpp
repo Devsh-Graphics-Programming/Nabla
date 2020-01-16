@@ -153,12 +153,28 @@ namespace irr
 			{
 				const auto ptrBeginningOfRegion = data + region->bufferOffset;
 				const auto layerSize = getFullSizeOfLayer(region->imageSubresource.mipLevel);
-
+				const auto textureGliImgHeight = texture.extent(region->imageSubresource.mipLevel).y;
+				const auto textureGliStride = texture.extent(region->imageSubresource.mipLevel).x;
+				const auto textureGliStrideInBytes = textureGliStride * sizeof(singleChannelByteSize);
+				const auto imgBufferWidth = region->bufferRowLength > 0 ? region->bufferRowLength : region->imageExtent.width;
+				const auto imgBufferWidthInBytes = imgBufferWidth * sizeof(singleChannelByteSize);
+				const auto imgBufferHeight = region->bufferImageHeight > 0 ? region->bufferImageHeight : region->imageExtent.height;
+			
 				for (uint16_t layer = 0; layer < imageInfo.arrayLayers; ++layer)
 				{
 					const uint16_t gliLayer = layersFlag ? layer / 6 : 0;
 					const uint16_t gliFace = isItACubemap ? layer % 6 : 0;
-					memcpy(texture.data(gliLayer, gliFace, region->imageSubresource.mipLevel), ptrBeginningOfRegion + (layer * layerSize), layerSize);
+
+					const auto layerData = texture.data(gliLayer, gliFace, region->imageSubresource.mipLevel);
+					const auto sourceData = ptrBeginningOfRegion + (layer * layerSize);
+
+					for (uint32_t yPos = 0; yPos < textureGliImgHeight; ++yPos)
+						memcpy
+						(
+							reinterpret_cast<uint8_t*>(layerData) + (yPos * textureGliStrideInBytes),
+							sourceData + (yPos * imgBufferWidthInBytes),
+							imgBufferWidth
+						);
 				}	
 			}
 

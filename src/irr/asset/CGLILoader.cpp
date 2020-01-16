@@ -242,7 +242,35 @@ namespace irr
 
 		bool CGLILoader::isALoadableFileFormat(io::IReadFile* _file) const
 		{
-			return true; // gli provides a function to load files, but we can check files' signature actually if needed
+			const auto fileName = std::string(_file->getFileName().c_str());
+
+			constexpr auto ddsMagic = 0x20534444;
+			constexpr std::array<uint8_t, 12> ktxMagic = { '«', 'K', 'T', 'X', ' ', '1', '1', '»', '\r', '\n', '\x1A', '\n' };
+			constexpr std::array<uint8_t, 16> kmgMagic = { 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55 };
+
+			if (fileName.rfind(".dds") != std::string::npos)
+			{
+				std::remove_const<decltype(ddsMagic)>::type tmpBuffer;
+				_file->read(&tmpBuffer, sizeof(ddsMagic));
+				if (*reinterpret_cast<decltype(ddsMagic)*>(tmpBuffer) == ddsMagic)
+					return true;
+			}
+			else if (fileName.rfind(".kmg") != std::string::npos)
+			{
+				std::remove_const<decltype(kmgMagic)>::type tmpBuffer;
+				_file->read(tmpBuffer.data(), sizeof(kmgMagic[0]) * kmgMagic.size());
+				if(tmpBuffer == kmgMagic)
+					return true;
+			}
+			else if (fileName.rfind(".ktx") != std::string::npos)
+			{
+				std::remove_const<decltype(ktxMagic)>::type tmpBuffer;
+				_file->read(tmpBuffer.data(), sizeof(ktxMagic[0]) * ktxMagic.size());
+				if(tmpBuffer == ktxMagic)
+					return true;
+			}
+			else
+				return false;
 		}
 
 		bool CGLILoader::doesItHaveFaces(const IImageView<ICPUImage>::E_TYPE& type)
@@ -434,8 +462,8 @@ namespace irr
 				case gl::INTERNAL_RGB_BP_UNORM: return getTranslatedFinalFormat();					//GL_COMPRESSED_RGBA_BPTC_UNORM
 				case gl::INTERNAL_RGB_PVRTC_4BPPV1: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGB_PVRTC_4BPPV1_IMG
 				case gl::INTERNAL_RGB_PVRTC_2BPPV1: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG
-				case gl::INTERNAL_RGBA_PVRTC_4BPPV1: return getTranslatedFinalFormat();			//GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG
-				case gl::INTERNAL_RGBA_PVRTC_2BPPV1: return getTranslatedFinalFormat();			//GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG
+				case gl::INTERNAL_RGBA_PVRTC_4BPPV1: return getTranslatedFinalFormat(EF_PVRTC1_4BPP_UNORM_BLOCK_IMG);			//GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG
+				case gl::INTERNAL_RGBA_PVRTC_2BPPV1: return getTranslatedFinalFormat(EF_PVRTC1_2BPP_UNORM_BLOCK_IMG);			//GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG
 				case gl::INTERNAL_RGBA_PVRTC_4BPPV2: return getTranslatedFinalFormat();			//GL_COMPRESSED_RGBA_PVRTC_4BPPV2_IMG
 				case gl::INTERNAL_RGBA_PVRTC_2BPPV2: return getTranslatedFinalFormat();			//GL_COMPRESSED_RGBA_PVRTC_2BPPV2_IMG
 				case gl::INTERNAL_ATC_RGB: return getTranslatedFinalFormat();						//GL_ATC_RGB_AMD
@@ -443,28 +471,28 @@ namespace irr
 				case gl::INTERNAL_ATC_RGBA_INTERPOLATED_ALPHA: return getTranslatedFinalFormat();	//GL_ATC_RGBA_INTERPOLATED_ALPHA_AMD
 
 				case gl::INTERNAL_RGB_ETC: return getTranslatedFinalFormat();						//GL_COMPRESSED_RGB8_ETC1
-				case gl::INTERNAL_RGB_ETC2: return getTranslatedFinalFormat();						//GL_COMPRESSED_RGB8_ETC2
+				case gl::INTERNAL_RGB_ETC2: return getTranslatedFinalFormat(EF_ETC2_R8G8B8_UNORM_BLOCK);						//GL_COMPRESSED_RGB8_ETC2
 				case gl::INTERNAL_RGBA_PUNCHTHROUGH_ETC2: return getTranslatedFinalFormat();		//GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2
-				case gl::INTERNAL_RGBA_ETC2: return getTranslatedFinalFormat();					//GL_COMPRESSED_RGBA8_ETC2_EAC
-				case gl::INTERNAL_R11_EAC: return getTranslatedFinalFormat();						//GL_COMPRESSED_R11_EAC
-				case gl::INTERNAL_SIGNED_R11_EAC: return getTranslatedFinalFormat();				//GL_COMPRESSED_SIGNED_R11_EAC
-				case gl::INTERNAL_RG11_EAC: return getTranslatedFinalFormat();						//GL_COMPRESSED_RG11_EAC
-				case gl::INTERNAL_SIGNED_RG11_EAC: return getTranslatedFinalFormat();				//GL_COMPRESSED_SIGNED_RG11_EAC
+				case gl::INTERNAL_RGBA_ETC2: return getTranslatedFinalFormat(EF_ETC2_R8G8B8A8_UNORM_BLOCK);					//GL_COMPRESSED_RGBA8_ETC2_EAC
+				case gl::INTERNAL_R11_EAC: return getTranslatedFinalFormat(EF_EAC_R11_UNORM_BLOCK);						//GL_COMPRESSED_R11_EAC
+				case gl::INTERNAL_SIGNED_R11_EAC: return getTranslatedFinalFormat(EF_EAC_R11_SNORM_BLOCK);				//GL_COMPRESSED_SIGNED_R11_EAC
+				case gl::INTERNAL_RG11_EAC: return getTranslatedFinalFormat(EF_EAC_R11G11_UNORM_BLOCK);						//GL_COMPRESSED_RG11_EAC
+				case gl::INTERNAL_SIGNED_RG11_EAC: return getTranslatedFinalFormat(EF_EAC_R11G11_SNORM_BLOCK);				//GL_COMPRESSED_SIGNED_RG11_EAC
 
-				case gl::INTERNAL_RGBA_ASTC_4x4: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_4x4_KHR
-				case gl::INTERNAL_RGBA_ASTC_5x4: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_5x4_KHR
-				case gl::INTERNAL_RGBA_ASTC_5x5: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_5x5_KHR
-				case gl::INTERNAL_RGBA_ASTC_6x5: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_6x5_KHR
-				case gl::INTERNAL_RGBA_ASTC_6x6: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_6x6_KHR
-				case gl::INTERNAL_RGBA_ASTC_8x5: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_8x5_KHR
-				case gl::INTERNAL_RGBA_ASTC_8x6: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_8x6_KHR
-				case gl::INTERNAL_RGBA_ASTC_8x8: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_8x8_KHR
-				case gl::INTERNAL_RGBA_ASTC_10x5: return getTranslatedFinalFormat(); 				//GL_COMPRESSED_RGBA_ASTC_10x5_KHR
-				case gl::INTERNAL_RGBA_ASTC_10x6: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_10x6_KHR
-				case gl::INTERNAL_RGBA_ASTC_10x8: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_10x8_KHR
-				case gl::INTERNAL_RGBA_ASTC_10x10: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_10x10_KHR
-				case gl::INTERNAL_RGBA_ASTC_12x10: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_12x10_KHR
-				case gl::INTERNAL_RGBA_ASTC_12x12: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGBA_ASTC_12x12_KHR
+				case gl::INTERNAL_RGBA_ASTC_4x4: return getTranslatedFinalFormat(EF_ASTC_4x4_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_4x4_KHR
+				case gl::INTERNAL_RGBA_ASTC_5x4: return getTranslatedFinalFormat(EF_ASTC_5x4_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_5x4_KHR
+				case gl::INTERNAL_RGBA_ASTC_5x5: return getTranslatedFinalFormat(EF_ASTC_5x5_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_5x5_KHR
+				case gl::INTERNAL_RGBA_ASTC_6x5: return getTranslatedFinalFormat(EF_ASTC_6x5_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_6x5_KHR
+				case gl::INTERNAL_RGBA_ASTC_6x6: return getTranslatedFinalFormat(EF_ASTC_6x6_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_6x6_KHR
+				case gl::INTERNAL_RGBA_ASTC_8x5: return getTranslatedFinalFormat(EF_ASTC_8x5_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_8x5_KHR
+				case gl::INTERNAL_RGBA_ASTC_8x6: return getTranslatedFinalFormat(EF_ASTC_8x6_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_8x6_KHR
+				case gl::INTERNAL_RGBA_ASTC_8x8: return getTranslatedFinalFormat(EF_ASTC_8x8_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_8x8_KHR
+				case gl::INTERNAL_RGBA_ASTC_10x5: return getTranslatedFinalFormat(EF_ASTC_10x5_UNORM_BLOCK); 				//GL_COMPRESSED_RGBA_ASTC_10x5_KHR
+				case gl::INTERNAL_RGBA_ASTC_10x6: return getTranslatedFinalFormat(EF_ASTC_10x6_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_10x6_KHR
+				case gl::INTERNAL_RGBA_ASTC_10x8: return getTranslatedFinalFormat(EF_ASTC_10x8_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_10x8_KHR
+				case gl::INTERNAL_RGBA_ASTC_10x10: return getTranslatedFinalFormat(EF_ASTC_10x10_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_10x10_KHR
+				case gl::INTERNAL_RGBA_ASTC_12x10: return getTranslatedFinalFormat(EF_ASTC_12x10_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_12x10_KHR
+				case gl::INTERNAL_RGBA_ASTC_12x12: return getTranslatedFinalFormat(EF_ASTC_12x12_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_12x12_KHR
 
 				// sRGB formats
 				case gl::INTERNAL_SRGB_DXT1: return getTranslatedFinalFormat();					//GL_COMPRESSED_SRGB_S3TC_DXT1_EXT
