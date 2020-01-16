@@ -73,6 +73,21 @@ class SobolSampler
 		{
 			_IRR_ALIGNED_FREE(directions);
 		}
+		
+		// Idea for optimization, do PoT samples per pass, then can precompute most of the `retval`
+		inline uint32_t sample(uint32_t dim, uint32_t sampleNum)
+		{
+			#ifdef _DEBUG
+				assert(dim<dimensions);
+			#endif
+			auto vectors = *reinterpret_cast<uint32_t(*)[][SOBOL_BITS]>(directions);
+
+			uint32_t retval = (sampleNum & 0x1u) ? vectors[dim][0] : 0u;
+			for (uint32_t i=1u; i<SOBOL_BITS; i++)
+				retval ^= (sampleNum & (0x1u << i)) ? vectors[dim][i] : 0u;
+
+			return retval;
+		}
 
 	protected:
 		typedef struct SobolDirectionNumbers {
@@ -8276,20 +8291,6 @@ class SobolSampler
 
 	public:
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t SOBOL_MAX_DIMENSIONS = sizeof(SOBOL_NUMBERS)/sizeof(SobolDirectionNumbers)+1u;
-
-		inline uint32_t sample(uint32_t dim, uint32_t sampleNum)
-		{
-			#ifdef _DEBUG
-				assert(dim<dimensions);
-			#endif
-			auto vectors = *reinterpret_cast<uint32_t(*)[][SOBOL_BITS]>(directions);
-
-			uint32_t retval = (sampleNum & 0x1u) ? vectors[dim][0] : 0u;
-			for (uint32_t i=1u; i<SOBOL_BITS; i++)
-				retval ^= (sampleNum & (0x1u << i)) ? vectors[dim][i] : 0u;
-
-			return retval;
-		}
 
 	protected:
 		uint32_t dimensions;
