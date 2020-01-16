@@ -156,6 +156,7 @@ class IAsset : virtual public core::IReferenceCounted
         void clone_common(IAsset* _clone) const
         {
             _clone->m_metadata = m_metadata;
+            assert(!isDummyObjectForCacheAliasing);
             _clone->isDummyObjectForCacheAliasing = false;
             _clone->m_mutable = true;
         }
