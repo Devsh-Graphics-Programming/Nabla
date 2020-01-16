@@ -1,5 +1,5 @@
-#ifndef C_GLSL_BRDF_BUILTIN_INCLUDE_LOADER_H_INCLUDED
-#define C_GLSL_BRDF_BUILTIN_INCLUDE_LOADER_H_INCLUDED
+#ifndef __IRR_C_GLSL_BRDF_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
+#define __IRR_C_GLSL_BRDF_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
 
 #include "irr/asset/IBuiltinIncludeLoader.h"
 
@@ -10,7 +10,7 @@ namespace asset
 class CGLSLBRDFBuiltinIncludeLoader : public irr::asset::IBuiltinIncludeLoader
 {
 public:
-    const char* getVirtualDirectoryName() const override { return "brdf/"; }
+    const char* getVirtualDirectoryName() const override { return "glsl/brdf/"; }
 
 private:
     static std::string getOrenNayar(const std::string&)
@@ -185,4 +185,4 @@ protected:
 
 }}
 
-#endif //C_GLSL_BRDF_BUILTIN_INCLUDE_LOADER_H_INCLUDED
+#endif //__IRR_C_GLSL_BRDF_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
