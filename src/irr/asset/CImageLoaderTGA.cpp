@@ -115,20 +115,21 @@ static void convertColorFlip(const core::smart_refctd_ptr<ICPUImage> &image, con
 {
 	const T *in = (const T *) src;
 	T *out = (T *) image->getBuffer()->getPointer();
-	
-	auto size = image->getCreationParameters().extent;
+	const auto extent = image->getCreationParameters().extent;
+	irr::core::vector3d size = {extent.width, extent.height, extent.depth};
+
 	auto stride = image->getCreationParameters().extent.width;     //(*image)->getPitchIncludingAlignment();    TODO -> pitch with alignment, not alone width!
 	auto channels = getFormatChannelCount(image->getCreationParameters().format);
 	
 	if (flip)
-		out += size.width * size.height * channels;
+		out += extent.width * extent.height * channels;
 	
-	for (int y = 0; y < size.height; ++y) {
+	for (int y = 0; y < extent.height; ++y) {
 		if (flip)
 			out -= stride;
 		
 		const void *src_container[4] = {in, nullptr, nullptr, nullptr};
-		video::convertColor<srcFormat, destFormat>(src_container, out, size.width, size);
+		video::convertColor<srcFormat, destFormat>(src_container, out, stride, size);
 		in += stride;
 		
 		if (!flip)

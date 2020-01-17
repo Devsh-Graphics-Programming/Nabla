@@ -159,8 +159,17 @@ namespace irr { namespace video
         }
 	#undef SWIZZLE
     }
+	/*
+		It converts a data to desired texel format
+
+		To use it, you have to pass source data with texel format \bsF\b you want to exchange
+		with \bdF\b. srcPix data is an array due to planar formats, but if source data isn't
+		a planar format, you can use \bsrcPix[0]\b.
+		\b_pixOrBlockCnt\b is an amount of texels you want to convert and \b_imgSize\b is a size
+		in texels of an image they belong to.
+	*/
     template<asset::E_FORMAT sF, asset::E_FORMAT dF, class Swizzle = DefaultSwizzle >
-    inline void convertColor(const void* srcPix[4], void* dstPix, size_t _pixOrBlockCnt, core::vector3d<uint32_t>& _imgSize, PolymorphicSwizzle* swizzle = nullptr)
+    inline void convertColor(const void* srcPix[4], void* dstPix, size_t _pixOrBlockCnt, const core::vector3d<uint32_t>& _imgSize, PolymorphicSwizzle* swizzle = nullptr)
     {
         using namespace asset;
 
