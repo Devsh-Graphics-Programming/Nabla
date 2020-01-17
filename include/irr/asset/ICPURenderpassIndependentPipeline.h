@@ -24,10 +24,12 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			if (referenceLevelsBelowToConvert)
 			{
                 --referenceLevelsBelowToConvert;
-				static_cast<ICPURenderpassIndependentPipeline*>(m_parent.get())->convertToDummyObject(referenceLevelsBelowToConvert);
+                if (m_parent)
+				    static_cast<ICPURenderpassIndependentPipeline*>(m_parent.get())->convertToDummyObject(referenceLevelsBelowToConvert);
 				m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
 				for (auto i=0u; i<SHADER_STAGE_COUNT; i++)
-					m_shaders[i]->convertToDummyObject(referenceLevelsBelowToConvert);
+                    if (m_shaders[i])
+					    m_shaders[i]->convertToDummyObject(referenceLevelsBelowToConvert);
 			}
 		}
 

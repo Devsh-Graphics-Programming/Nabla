@@ -206,7 +206,7 @@ void main()
         info.arrayLayers = 1u;
         info.samples = asset::ICPUImage::ESCF_1_BIT;
         info.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
-        dummy1x1Image = core::make_smart_refctd_ptr<asset::ICPUImage>(std::move(info));
+        dummy1x1Image = asset::ICPUImage::create(std::move(info));
 
         auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(1u);
         reinterpret_cast<int8_t*>(buf->getPointer())[0] = 0;
@@ -259,8 +259,8 @@ void main()
         auto ds1 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(defaultDs1Layout.get()));
         {
             auto desc = ds1->getDescriptors(0u).begin();
-            //size of 4x4 matrix (MVP), another 4x4 (MV or M, whatever space u prefer for lighting calculation), 3x3 matrix (normal matrix) and vec3 (cam pos) including std140 padding, in this order
-            constexpr size_t UBO_SZ = (16u+16u+12u+4u) * sizeof(float);
+            //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in irr/asset/asset_utils.h
+            constexpr size_t UBO_SZ = sizeof(asset::SBasicViewParameters);
             auto ubo = core::make_smart_refctd_ptr<asset::ICPUBuffer>(UBO_SZ);
             asset::fillBufferWithDeadBeef(ubo.get());
             desc->desc = std::move(ubo);

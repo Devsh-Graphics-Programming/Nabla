@@ -54,14 +54,13 @@ int main()
     asset::ICPUDescriptorSetLayout* ds1layout = mesh_raw->getMeshBuffer(0u)->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
     //pipelines attached to meshbuffers from OBJ loader has DS1 layout being "irr/builtin/ds_layout/default_ds1_layout"
     //that is designed for use with "irr/builtin/ds/default_ds1", so let's use it!
-    auto ds1_bundle = am->getAsset("irr/builtin/ds/default_ds1", lp);
+    auto ds1_bundle = am->getAsset("irr/builtin/descriptor_set/basic_view_parameters", lp);
     //you might want to IAsset::clone() this DS in order to have exact copy but not the same object. However in this case won't be doing it.
     //(same CPU object -> same GPU object returned from driver->getGPUObjectsFromAssets())
     //use IAsset::clone()'s optional parameter to clone the buffer (being the only descriptor in default DS1) as well
     auto ds1 = ds1_bundle.getContents().first[0];
     auto ds1_raw = static_cast<asset::ICPUDescriptorSet*>(ds1.get());
     asset::ICPUBuffer* ubo = static_cast<asset::ICPUBuffer*>(ds1_raw->getDescriptors(0u).begin()->desc.get());
-    const size_t ubo_sz = ds1_raw->getDescriptors(0u).begin()->buffer.size;
 
     auto gpuds1 = driver->getGPUObjectsFromAssets(&ds1_raw,&ds1_raw+1)->front();
     //video::IGPUBuffer* gpuubo = gpuds1->getDescriptors()...//TODO GPU DS needs some (constant?) getter to get its descriptors
@@ -79,8 +78,6 @@ int main()
 
     smgr->setActiveCamera(camera);
 
-    core::vector<uint8_t> uboData(ubo_sz, 0u);
-
 	uint64_t lastFPSTime = 0;
 	while(device->run() && receiver.keepOpen())
 	{
@@ -90,14 +87,15 @@ int main()
 		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
 		camera->render();
 
+        asset::SBasicViewParameters uboData;
 		core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
-        memcpy(uboData.data(), mvp.pointer(), sizeof(core::matrix4SIMD));//MVP
+        memcpy(uboData.MVP, mvp.pointer(), 4*4*4);
         core::matrix3x4SIMD MV3x4;
         MV3x4.set(camera->getViewMatrix());
         core::matrix4SIMD MV(MV3x4);
-        memcpy(uboData.data()+sizeof(core::matrix4SIMD), MV.pointer(), sizeof(core::matrix4SIMD));//MV
-        memcpy(uboData.data()+2ull*sizeof(core::matrix4SIMD), MV.pointer(), 12u*sizeof(float));//normal matrix
-        driver->updateBufferRangeViaStagingBuffer(gpuubo->getBuffer(), gpuubo->getOffset(), uboData.size(), uboData.data());
+        memcpy(uboData.MV, MV.pointer(), 3*4*4);
+        memcpy(uboData.NormalMat, MV.pointer(), 3*4*4);
+        driver->updateBufferRangeViaStagingBuffer(gpuubo->getBuffer(), gpuubo->getOffset(), sizeof(uboData), &uboData);
 
         for (uint32_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)
         {

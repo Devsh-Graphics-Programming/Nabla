@@ -114,10 +114,14 @@ public:
 		{
             --referenceLevelsBelowToConvert;
 			for (auto i=0u; i<MAX_ATTR_BUF_BINDING_COUNT; i++)
-				m_vertexBufferBindings[i].buffer->convertToDummyObject(referenceLevelsBelowToConvert);
-			m_indexBufferBinding.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
-			m_descriptorSet->convertToDummyObject(referenceLevelsBelowToConvert);
-			m_pipeline->convertToDummyObject(referenceLevelsBelowToConvert);
+                if (m_vertexBufferBindings[i].buffer)
+				    m_vertexBufferBindings[i].buffer->convertToDummyObject(referenceLevelsBelowToConvert);
+            if (m_indexBufferBinding.buffer)
+			    m_indexBufferBinding.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
+            if (m_descriptorSet)
+			    m_descriptorSet->convertToDummyObject(referenceLevelsBelowToConvert);
+            if (m_pipeline)
+			    m_pipeline->convertToDummyObject(referenceLevelsBelowToConvert);
 		}
 	}
     virtual IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SUB_MESH; }

@@ -38,9 +38,9 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
 			if (referenceLevelsBelowToConvert)
-			for (auto it=m_descSetLayouts.begin(); it!=m_descSetLayouts.end(); it++)
-			if (it->get())
-				it->get()->convertToDummyObject(referenceLevelsBelowToConvert-1u);
+			    for (auto it=m_descSetLayouts.begin(); it!=m_descSetLayouts.end(); it++)
+			        if (it->get())
+				        it->get()->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 			m_pushConstantRanges = nullptr;
 		}
 		E_TYPE getAssetType() const override { return ET_PIPELINE_LAYOUT; }

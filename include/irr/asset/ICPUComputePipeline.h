@@ -25,7 +25,8 @@ public:
 		{
             --referenceLevelsBelowToConvert;
 			m_shader->convertToDummyObject(referenceLevelsBelowToConvert);
-			static_cast<ICPUComputePipeline*>(m_parent.get())->convertToDummyObject(referenceLevelsBelowToConvert);
+            if (m_parent)
+			    static_cast<ICPUComputePipeline*>(m_parent.get())->convertToDummyObject(referenceLevelsBelowToConvert);
 			m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
 		}
 	}

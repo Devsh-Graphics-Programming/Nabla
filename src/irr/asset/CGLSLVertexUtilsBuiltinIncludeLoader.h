@@ -7,7 +7,7 @@ namespace irr {
 namespace asset
 {    
 
-class CGLSLBRDFBuiltinIncludeLoader : public irr::asset::IBuiltinIncludeLoader
+class CGLSLVertexUtilsBuiltinIncludeLoader : public irr::asset::IBuiltinIncludeLoader
 {
 public:
     const char* getVirtualDirectoryName() const override { return "glsl/vertex_utils/"; }
@@ -19,9 +19,28 @@ private:
 R"(#ifndef _IRR_VERTEX_UTILS_INCLUDED_
 #define _IRR_VERTEX_UTILS_INCLUDED_
 
-vec3 pseudoMul4x4with3x1(in mat4 m, in vec3 v)
+struct irr_glsl_SBasicViewParameters
 {
-    return (m[0]*v.x+m[1]*v.y+m[2]*v.z+m[3]).xyz;
+    mat4 MVP;
+    mat4x3 MV;
+    mat4x3 NormalMatAndEyePos;
+};
+mat3 irr_glsl_SBasicViewParameters_GetNormalMat(in irr_glsl_SBasicViewParameters _params)
+{
+    return mat3(_params.NormalMatAndEyePos);
+}
+vec3 irr_glsl_SBasicViewParameters_GetEyePos(in irr_glsl_SBasicViewParameters _params)
+{
+    return _params.NormalMatAndEyePos[3];
+}
+
+vec4 irr_glsl_pseudoMul4x4with3x1(in mat4 m, in vec3 v)
+{
+    return m[0]*v.x+m[1]*v.y+m[2]*v.z+m[3];
+}
+vec3 irr_glsl_pseudoMul3x4with3x1(in mat4x3 m, in vec3 v)
+{
+    return m[0]*v.x+m[1]*v.y+m[2]*v.z+m[3];
 }
 
 #endif
@@ -32,10 +51,7 @@ protected:
     irr::core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
     {
         return {
-            { std::regex{"diffuse/oren_nayar\\.glsl"}, &getOrenNayar },
-            { std::regex{"specular/ndf/ggx_trowbridge_reitz\\.glsl"}, &getGGXTrowbridgeReitz },
-            { std::regex{"specular/geom/ggx_smith\\.glsl"}, &getGGXSmith },
-            { std::regex{"specular/fresnel/fresnel\\.glsl"}, &getFresnel }
+            { std::regex{"vertex_utils\\.glsl"}, &getVertexUtils },
         };
     }
 };

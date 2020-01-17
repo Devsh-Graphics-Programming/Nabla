@@ -51,19 +51,19 @@ layout (location = 0) out vec3 LocalPos;
 layout (location = 1) out vec3 ViewPos;
 layout (location = 2) out vec3 Normal;
 
+#include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
+
 layout (set = 1, binding = 0, row_major, std140) uniform UBO {
-    mat4 MVP;
-    mat4 MV;
-    mat3 NormalMat;
-    vec3 EyePos;
+    irr_glsl_SBasicViewParameters params;
 } CamData;
 
 void main()
 {
     LocalPos = vPos;
-    gl_Position = CamData.MVP*vec4(vPos, 1.0);
-    ViewPos = (CamData.MV*vec4(vPos, 1.0)).xyz;
-    Normal = normalize(CamData.NormalMat*vNormal);
+    gl_Position = irr_glsl_pseudoMul4x4with3x1(CamData.params.MVP, vPos);
+    ViewPos = irr_glsl_pseudoMul3x4with3x1(CamData.params.MV, vPos);
+    mat3 normalMat = irr_glsl_SBasicViewParameters_GetNormalMat(CamData.params);
+    Normal = normalMat*normalize(vNormal);
 }
 )";
     constexpr const char* FRAG_SHADER_NO_UV =
@@ -241,19 +241,19 @@ layout (location = 1) out vec3 ViewPos;
 layout (location = 2) out vec3 Normal;
 layout (location = 3) out vec2 UV;
 
+#include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
+
 layout (set = 1, binding = 0, row_major, std140) uniform UBO {
-    mat4 MVP;
-    mat4 MV;
-    mat3 NormalMat;
-    vec3 EyePos;
+    irr_glsl_SBasicViewParameters params;
 } CamData;
 
 void main()
 {
     LocalPos = vPos;
-    gl_Position = CamData.MVP*vec4(vPos, 1.0);
-    ViewPos = (CamData.MV*vec4(vPos, 1.0)).xyz;
-    Normal = normalize(CamData.NormalMat*vNormal);
+    gl_Position = irr_glsl_pseudoMul4x4with3x1(CamData.params.MVP, vPos);
+    ViewPos = irr_glsl_pseudoMul3x4with3x1(CamData.params.MV, vPos);
+    mat3 normalMat = irr_glsl_SBasicViewParameters_GetNormalMat(CamData.params);
+    Normal = normalMat*normalize(vNormal);
     UV = vUV;
 }
 )";
@@ -323,6 +323,8 @@ void main()
     float NdotL = max(dot(N,L), 0.0);
     float VdotR = max(dot(L,R), 0.0);
 
+    vec3 Ke = texture(map_Ke, UV).rgb;//force using emissive map (needed temporarily because of bindings reordering bug)
+
     vec3 Kd;
     if ((PC.extra&(map_Kd_MASK)) == (map_Kd_MASK))
         Kd = texture(map_Kd, UV).rgb;
@@ -389,10 +391,10 @@ static void insertShaderIntoCache(core::smart_refctd_ptr<ICPUSpecializedShader>&
     _assetMgr->insertAssetIntoCache(bundle);
 };
 
-_IRR_STATIC_INLINE_CONSTEXPR const char* VERT_SHADER_NO_UV_CACHE_KEY = "irr/builtin/obj_loader/shaders/vertex_no_uv";
-_IRR_STATIC_INLINE_CONSTEXPR const char* VERT_SHADER_UV_CACHE_KEY = "irr/builtin/obj_loader/shaders/vertex_uv";
-_IRR_STATIC_INLINE_CONSTEXPR const char* FRAG_SHADER_NO_UV_CACHE_KEY = "irr/builtin/obj_loader/shaders/fragment_no_uv";
-_IRR_STATIC_INLINE_CONSTEXPR const char* FRAG_SHADER_UV_CACHE_KEY = "irr/builtin/obj_loader/shaders/fragment_uv";
+_IRR_STATIC_INLINE_CONSTEXPR const char* VERT_SHADER_NO_UV_CACHE_KEY = "irr/builtin/shader/loaders/obj/vertex_no_uv";
+_IRR_STATIC_INLINE_CONSTEXPR const char* VERT_SHADER_UV_CACHE_KEY = "irr/builtin/shader/loaders/obj/vertex_uv";
+_IRR_STATIC_INLINE_CONSTEXPR const char* FRAG_SHADER_NO_UV_CACHE_KEY = "irr/builtin/shader/loaders/obj/fragment_no_uv";
+_IRR_STATIC_INLINE_CONSTEXPR const char* FRAG_SHADER_UV_CACHE_KEY = "irr/builtin/shader/loaders/obj/fragment_uv";
 
 //#ifdef _IRR_DEBUG
 #define _IRR_DEBUG_OBJ_LOADER_
@@ -485,6 +487,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     core::map<SObjVertex, uint32_t> map_vtx2ix;
     core::vector<bool> recalcNormals;
     core::vector<bool> submeshWasLoadedFromCache;
+    core::vector<std::string> submeshCacheKeys;
 	while(bufPtr != bufEnd)
 	{
 		switch(bufPtr[0])
@@ -577,13 +580,14 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     asset::IAsset::E_TYPE types[] {asset::IAsset::ET_SUB_MESH, (asset::IAsset::E_TYPE)0u };
                     auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
                     auto mbs = mb_bundle.getContents();
-                    if (mbs.first!= mbs.second)
+                    if (mbs.first!=mbs.second)
                     {
                         submeshes.push_back(core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(*mbs.first));
                     }
                     else
                     {
                         submeshes.push_back(core::make_smart_refctd_ptr<ICPUMeshBuffer>());
+
                         auto found = pipelines.find(mtlName);
                         if (found != pipelines.end())
                         {
@@ -621,18 +625,15 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                             }
                             submeshes.back()->setAttachedDescriptorSet(std::move(ds3));
                         }
-
-                        SAssetBundle bundle{submeshes.back()};
-                        _override->insertAssetIntoCache(bundle, genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
-                        interm_setAssetMutable(AssetManager, submeshes.back().get(), true); //insertion into cache makes inserted asset immutable, so temporarily make it mutable because it has to be adjusted more
                     }
                     indices.emplace_back();
                     recalcNormals.push_back(false);
                     submeshWasLoadedFromCache.push_back(mbs.first!=mbs.second);
+                    //if submesh was loaded from cache - insert empty "cache key" (submesh loaded from cache won't be added to cache again)
+                    submeshCacheKeys.push_back(submeshWasLoadedFromCache.back() ? "" : genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName));
                 }
 			}
 			break;
-
 		case 'f':               // face
 		{
 			SObjVertex v;
@@ -859,9 +860,12 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	else
         return {};
     
-    //at the very end, when meshbuffers are finished, set them back as immutable
+    //at the very end, insert submeshes into cache
     for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
-        interm_setAssetMutable(AssetManager, mesh->getMeshBuffer(i), false);
+    {
+        SAssetBundle bundle{ core::smart_refctd_ptr<ICPUMeshBuffer>(mesh->getMeshBuffer(i)) };
+        _override->insertAssetIntoCache(bundle, submeshCacheKeys[i], ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
+    }
 
 	return SAssetBundle({std::move(mesh)});
 }
@@ -903,9 +907,6 @@ static std::string genGLSLtextureBindingsStr(const CMTLPipelineMetadata::SMtl& _
     char tmpbuf[512]{};
     for (uint32_t i = 0u; i < CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
     {
-        if (_mtl.maps[i].empty())
-            continue;
-
         sprintf(tmpbuf, "layout (set = 3, binding = %u) uniform sampler2D %s;\n", j, mapNames[i]);
         res += tmpbuf;
         ++j;
@@ -917,6 +918,7 @@ static std::string genGLSLtextureBindingsStr(const CMTLPipelineMetadata::SMtl& _
         ++j;
     }
 
+    /*
     constexpr CMTLPipelineMetadata::SMtl::E_MAP_TYPE mandatoryMaps[]
     {
         CMTLPipelineMetadata::SMtl::EMP_DIFFUSE,
@@ -942,7 +944,7 @@ static std::string genGLSLtextureBindingsStr(const CMTLPipelineMetadata::SMtl& _
             ++j;
         }
     }
-
+    */
     return res;
 }
 

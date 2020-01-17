@@ -4,6 +4,8 @@
 // dependencies
 #include "irr/system/system.h"
 
+// utils
+#include "irr/asset/asset_utils.h"
 
 // format
 #include "irr/asset/format/EFormat.h"
