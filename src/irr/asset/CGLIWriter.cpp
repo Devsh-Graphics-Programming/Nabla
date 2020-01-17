@@ -75,12 +75,6 @@ namespace irr
 				os::Printer::log("WRITING GLI: there is a lack of regions!", file->getFileName().c_str(), ELL_INFORMATION);
 				return false;
 			}
-			if (isBlockCompressionFormat(imageInfo.format))
-			{
-				os::Printer::log("WRITING GLI: the writer doesn't support any compression format!", file->getFileName().c_str(), ELL_INFORMATION);
-				return false;
-			}
-				
 
 			const bool isItACubemap = doesItHaveFaces(imageViewInfo.viewType);
 			const bool layersFlag = doesItHaveLayers(imageViewInfo.viewType);
@@ -171,9 +165,9 @@ namespace irr
 					for (uint32_t yPos = 0; yPos < textureGliImgHeight; ++yPos)
 						memcpy
 						(
-							reinterpret_cast<uint8_t*>(layerData) + (yPos * textureGliStrideInBytes),
-							sourceData + (yPos * imgBufferWidthInBytes),
-							imgBufferWidth
+							reinterpret_cast<uint8_t*>(layerData) + (yPos * textureGliStrideInBytes),	// copy to a beginning of a certain row
+							sourceData + (yPos * imgBufferWidthInBytes),								// get adjusted beginning of a certain row using to copying process
+							imgBufferWidth																// get row stride with no pitch
 						);
 				}	
 			}
@@ -206,27 +200,6 @@ namespace irr
 			{
 				os::Printer::log("WRITING GLI: failed to save the file", file->getFileName().c_str(), ELL_ERROR);
 				return false;
-			}
-		}
-
-		bool CGLIWriter::doesItHaveFaces(const IImageView<ICPUImage>::E_TYPE& type)
-		{
-			switch (type)
-			{
-				case ICPUImageView::ET_CUBE_MAP: return true;
-				case ICPUImageView::ET_CUBE_MAP_ARRAY: return true;
-				default: return false;
-			}
-		}
-
-		bool CGLIWriter::doesItHaveLayers(const IImageView<ICPUImage>::E_TYPE& type)
-		{
-			switch (type)
-			{
-				case ICPUImageView::ET_1D_ARRAY: return true;
-				case ICPUImageView::ET_2D_ARRAY: return true;
-				case ICPUImageView::ET_CUBE_MAP_ARRAY: return true;
-				default: return false;
 			}
 		}
 
@@ -353,6 +326,15 @@ namespace irr
 			case EF_R8G8B8A8_SRGB: return getTranslatedFinalFormat(FORMAT_RGBA8_SRGB_PACK8);		//GL_SRGB8_ALPHA8
 
 			// Compressed formats
+			case EF_PVRTC1_4BPP_UNORM_BLOCK_IMG: return getTranslatedFinalFormat(FORMAT_RGBA_PVRTC1_8X8_UNORM_BLOCK32);		//GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG
+			case EF_PVRTC1_2BPP_UNORM_BLOCK_IMG: return getTranslatedFinalFormat(FORMAT_RGBA_PVRTC1_8X8_UNORM_BLOCK32);		//GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG
+			case EF_ETC2_R8G8B8_UNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RGB_ETC2_UNORM_BLOCK8);					//GL_COMPRESSED_RGB8_ETC2
+			case EF_ETC2_R8G8B8A8_UNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ETC2_UNORM_BLOCK8);				//GL_COMPRESSED_RGBA8_ETC2_EAC
+			case EF_EAC_R11_UNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_R_EAC_UNORM_BLOCK8);						//GL_COMPRESSED_R11_EAC
+			case EF_EAC_R11_SNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_R_EAC_SNORM_BLOCK8);						//GL_COMPRESSED_SIGNED_R11_EAC
+			case EF_EAC_R11G11_UNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RG_EAC_UNORM_BLOCK16);					//GL_COMPRESSED_RG11_EAC
+			case EF_EAC_R11G11_SNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RG_EAC_SNORM_BLOCK16);					//GL_COMPRESSED_SIGNED_RG11_EAC
+
 			case EF_ASTC_4x4_UNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_4X4_UNORM_BLOCK16);				//GL_COMPRESSED_RGBA_ASTC_4x4_KHR
 			case EF_ASTC_5x4_UNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_5X4_UNORM_BLOCK16);				//GL_COMPRESSED_RGBA_ASTC_5x4_KHR
 			case EF_ASTC_5x5_UNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_5X5_UNORM_BLOCK16);				//GL_COMPRESSED_RGBA_ASTC_5x5_KHR

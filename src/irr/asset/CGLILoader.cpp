@@ -226,9 +226,9 @@ namespace irr
 
 			if (fileName.rfind(".dds") != std::string::npos)
 				texture = gli::load_dds(memory.data(), sizeOfData);
-			if (fileName.rfind(".kmg") != std::string::npos)
+			else if (fileName.rfind(".kmg") != std::string::npos)
 				texture = gli::load_kmg(memory.data(), sizeOfData);
-			if (fileName.rfind(".ktx") != std::string::npos)
+			else if (fileName.rfind(".ktx") != std::string::npos)
 				texture = gli::load_ktx(memory.data(), sizeOfData);
 
 			if (!texture.empty())
@@ -243,6 +243,7 @@ namespace irr
 		bool CGLILoader::isALoadableFileFormat(io::IReadFile* _file) const
 		{
 			const auto fileName = std::string(_file->getFileName().c_str());
+			const auto beginningOfFile = _file->getPos();
 
 			constexpr auto ddsMagic = 0x20534444;
 			constexpr std::array<uint8_t, 12> ktxMagic = { '«', 'K', 'T', 'X', ' ', '1', '1', '»', '\r', '\n', '\x1A', '\n' };
@@ -253,45 +254,39 @@ namespace irr
 				std::remove_const<decltype(ddsMagic)>::type tmpBuffer;
 				_file->read(&tmpBuffer, sizeof(ddsMagic));
 				if (*reinterpret_cast<decltype(ddsMagic)*>(tmpBuffer) == ddsMagic)
+				{
+					_file->seek(beginningOfFile);
 					return true;
+				}
+				else
+					os::Printer::log("LOAD GLI: Invalid (non-DDS) file!", ELL_ERROR);
 			}
 			else if (fileName.rfind(".kmg") != std::string::npos)
 			{
 				std::remove_const<decltype(kmgMagic)>::type tmpBuffer;
 				_file->read(tmpBuffer.data(), sizeof(kmgMagic[0]) * kmgMagic.size());
-				if(tmpBuffer == kmgMagic)
+				if (tmpBuffer == kmgMagic)
+				{
+					_file->seek(beginningOfFile);
 					return true;
+				}
+				else
+					os::Printer::log("LOAD GLI: Invalid (non-KMG) file!", ELL_ERROR);
 			}
 			else if (fileName.rfind(".ktx") != std::string::npos)
 			{
 				std::remove_const<decltype(ktxMagic)>::type tmpBuffer;
 				_file->read(tmpBuffer.data(), sizeof(ktxMagic[0]) * ktxMagic.size());
-				if(tmpBuffer == ktxMagic)
+				if (tmpBuffer == ktxMagic)
+				{
+					_file->seek(beginningOfFile);
 					return true;
+				}
+				else
+					os::Printer::log("LOAD GLI: Invalid (non-KTX) file!", ELL_ERROR);
 			}
 			else
 				return false;
-		}
-
-		bool CGLILoader::doesItHaveFaces(const IImageView<ICPUImage>::E_TYPE& type)
-		{
-			switch (type)
-			{
-			case ICPUImageView::ET_CUBE_MAP: return true;
-			case ICPUImageView::ET_CUBE_MAP_ARRAY: return true;
-			default: return false;
-			}
-		}
-
-		bool CGLILoader::doesItHaveLayers(const IImageView<ICPUImage>::E_TYPE& type)
-		{
-			switch (type)
-			{
-			case ICPUImageView::ET_1D_ARRAY: return true;
-			case ICPUImageView::ET_2D_ARRAY: return true;
-			case ICPUImageView::ET_CUBE_MAP_ARRAY: return true;
-			default: return false;
-			}
 		}
 
 		inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion)

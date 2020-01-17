@@ -43,8 +43,25 @@ namespace irr
 		private:
 			bool writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* imageView);
 
-			static inline bool doesItHaveFaces(const IImageView<ICPUImage>::E_TYPE& type);
-			static inline bool doesItHaveLayers(const IImageView<ICPUImage>::E_TYPE& type);
+			static inline bool doesItHaveFaces(const IImageView<ICPUImage>::E_TYPE& type)
+			{
+				switch (type)
+				{
+					case ICPUImageView::ET_CUBE_MAP: return true;
+					case ICPUImageView::ET_CUBE_MAP_ARRAY: return true;
+					default: return false;
+				}
+			}
+			static inline bool doesItHaveLayers(const IImageView<ICPUImage>::E_TYPE& type)
+			{
+				switch (type)
+				{
+					case ICPUImageView::ET_1D_ARRAY: return true;
+					case ICPUImageView::ET_2D_ARRAY: return true;
+					case ICPUImageView::ET_CUBE_MAP_ARRAY: return true;
+					default: return false;
+				}
+			}
 			
 		};
 	}
