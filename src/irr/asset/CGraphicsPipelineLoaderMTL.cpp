@@ -40,8 +40,10 @@ static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAsse
 
 core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipelineLayoutFromMtl(const CMTLPipelineMetadata::SMtl& _mtl)
 {
-    const size_t textureCnt = std::count_if(_mtl.maps, _mtl.maps + CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 1u, [](const std::string& _path) { return !_path.empty(); });
-    auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(textureCnt);
+    //assumes all supported textures are always present
+    //since vulkan doesnt support bindings with no/null descriptor, absent textures will be filled with dummy 1x1 2D texture (while creating desc set)
+    const bool anyMapPresent = std::find_if(_mtl.maps, _mtl.maps+CMTLPipelineMetadata::SMtl::EMP_REFL_POSX+1u, [](const std::string& _m) ->bool { return _m.size(); }) != (_mtl.maps+CMTLPipelineMetadata::SMtl::EMP_REFL_POSX+1u);
+    auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(static_cast<size_t>(CMTLPipelineMetadata::SMtl::EMP_REFL_POSX)+1ull);
 
     ICPUDescriptorSetLayout::SBinding bnd;
     bnd.count = 1u;
@@ -53,21 +55,16 @@ core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipel
     core::smart_refctd_ptr<ICPUSampler> samplers[2];
     samplers[0] = getDefaultAsset<ICPUSampler,IAsset::ET_SAMPLER>("irr/builtin/samplers/default", m_assetMgr);
     samplers[1] = getDefaultAsset<ICPUSampler, IAsset::ET_SAMPLER>("irr/builtin/samplers/default_clamp_to_border", m_assetMgr);
-    for (uint32_t i = 0u, j = 0u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
+    for (uint32_t i = 0u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
     {
-        if (!_mtl.maps[i].empty())
-        {
-            (*bindings)[j].binding = j;
+        (*bindings)[i].binding = i;
 
-            const uint32_t clamp = (_mtl.clamp >> i) & 1u;
-            (*bindings)[j].samplers = samplers + clamp;
-
-            ++j;
-        }
+        const uint32_t clamp = (_mtl.clamp >> i) & 1u;
+        (*bindings)[i].samplers = samplers + clamp;
     }
 
     auto ds1layout = getDefaultAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("irr/builtin/descriptor_set_layout/basic_view_parameters", m_assetMgr);
-    core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds3Layout = bindings->empty() ? nullptr : core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end());
+    core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds3Layout = anyMapPresent ? core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end()) : nullptr;
     SPushConstantRange pcRng;
     pcRng.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
     pcRng.offset = 0u;

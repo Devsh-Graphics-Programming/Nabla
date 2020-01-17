@@ -610,8 +610,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                             else
                             {
                                 auto relDir = (io::IFileSystem::getFileDir(pipeln.first.c_str()) + "/");
-                                images_set_t images = loadImages(relDir.c_str(), metadata->getMaterial(), _hierarchyLevel + ICPUMesh::IMAGE_HIERARCHYLEVELS_BELOW);
-                                ds3 = makeDescSet(images, pipeln.second->getLayout()->getDescriptorSetLayout(3u));
+                                image_views_set_t views = loadImages(relDir.c_str(), metadata->getMaterial(), ctx);
+                                ds3 = makeDescSet(std::move(views), pipeln.second->getLayout()->getDescriptorSetLayout(3u));
 
                                 if (ds3)
                                 {
@@ -969,9 +969,9 @@ std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>,core::smart_refctd_ptr<I
     return {std::move(vs), std::move(fs)};
 }
 
-auto COBJMeshFileLoader::loadImages(const char* _relDir, const CMTLPipelineMetadata::SMtl& _mtl, uint32_t _hierarchyLvl) -> images_set_t
+auto COBJMeshFileLoader::loadImages(const char* _relDir, const CMTLPipelineMetadata::SMtl& _mtl, SContext& _ctx) -> image_views_set_t
 {
-    std::array<core::smart_refctd_ptr<ICPUImage>, CMTLPipelineMetadata::SMtl::EMP_COUNT> images;
+    images_set_t images;
 
     std::string relDir = _relDir;
     for (uint32_t i = 0u; i < images.size(); ++i)
@@ -979,7 +979,7 @@ auto COBJMeshFileLoader::loadImages(const char* _relDir, const CMTLPipelineMetad
         SAssetLoadParams lp;
         if (_mtl.maps[i].size())
         {
-            auto bundle = interm_getAssetInHierarchy(AssetManager, relDir + _mtl.maps[i], lp, _hierarchyLvl);
+            auto bundle = interm_getAssetInHierarchy(AssetManager, relDir + _mtl.maps[i], lp, _ctx.topHierarchyLevel+ICPUMesh::IMAGE_HIERARCHYLEVELS_BELOW);
             if (!bundle.isEmpty())
                 images[i] = core::smart_refctd_ptr_static_cast<ICPUImage>(bundle.getContents().first[0]);
         }
@@ -1065,21 +1065,18 @@ auto COBJMeshFileLoader::loadImages(const char* _relDir, const CMTLPipelineMetad
         }
     }
 
-    return images;
-}
-
-core::smart_refctd_ptr<ICPUDescriptorSet> COBJMeshFileLoader::makeDescSet(const images_set_t& _images, ICPUDescriptorSetLayout* _dsLayout)
-{
-    if (!_dsLayout)
-        return nullptr;
-
-    auto ds = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(
-        core::smart_refctd_ptr<ICPUDescriptorSetLayout>(_dsLayout)
-    );
-    for (uint32_t i = 0u, d = 0u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
+    image_views_set_t views;
+    for (uint32_t i = 0u; i < views.size(); ++i)
     {
-        if (!_images[i])
+        if (!images[i])
             continue;
+
+        const std::string viewCacheKey = _mtl.maps[i] + "?view";
+        if (auto view = getDefaultAsset<ICPUImageView,IAsset::ET_IMAGE_VIEW>(viewCacheKey.c_str(), AssetManager))
+        {
+            views[i] = std::move(view);
+            continue;
+        }
 
         constexpr IImageView<ICPUImage>::E_TYPE viewType[2]{ IImageView<ICPUImage>::ET_2D, IImageView<ICPUImage>::ET_CUBE_MAP };
         constexpr uint32_t layerCount[2]{ 1u, 6u };
@@ -1088,19 +1085,39 @@ core::smart_refctd_ptr<ICPUDescriptorSet> COBJMeshFileLoader::makeDescSet(const 
 
         ICPUImageView::SCreationParams viewParams;
         viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
-        viewParams.format = _images[i]->getCreationParameters().format;
-        viewParams.image = _images[i];
+        viewParams.format = images[i]->getCreationParameters().format;
         viewParams.viewType = viewType[isCubemap];
         viewParams.subresourceRange.baseArrayLayer = 0u;
         viewParams.subresourceRange.layerCount = layerCount[isCubemap];
         viewParams.subresourceRange.baseMipLevel = 0u;
         viewParams.subresourceRange.levelCount = 1u;
+        viewParams.image = std::move(images[i]);
 
-        auto desc = ds->getDescriptors(d).begin();
-        desc->desc = core::make_smart_refctd_ptr<ICPUImageView>(std::move(viewParams));
+        views[i] = core::make_smart_refctd_ptr<ICPUImageView>(std::move(viewParams));
+
+        SAssetBundle bundle{views[i]};
+        _ctx.loaderOverride->insertAssetIntoCache(bundle, viewCacheKey, _ctx.inner, _ctx.topHierarchyLevel+ICPUMesh::IMAGEVIEW_HIERARCHYLEVELS_BELOW);
+    }
+
+    return views;
+}
+
+core::smart_refctd_ptr<ICPUDescriptorSet> COBJMeshFileLoader::makeDescSet(image_views_set_t&& _views, ICPUDescriptorSetLayout* _dsLayout)
+{
+    if (!_dsLayout)
+        return nullptr;
+
+    auto ds = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(
+        core::smart_refctd_ptr<ICPUDescriptorSetLayout>(_dsLayout)
+    );
+    auto dummy1x1 = getDefaultAsset<ICPUImageView, IAsset::ET_IMAGE_VIEW>("irr/builtin/image_views/dummy1x1", AssetManager);
+    for (uint32_t i = 0u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
+    {
+        auto desc = ds->getDescriptors(i).begin();
+
+        desc->desc = _views[i] ? std::move(_views[i]) : dummy1x1;
         desc->image.imageLayout = EIL_UNDEFINED;
         desc->image.sampler = nullptr; //not needed, MTL loader puts immutable samplers into layout
-        ++d;
     }
 
     return ds;

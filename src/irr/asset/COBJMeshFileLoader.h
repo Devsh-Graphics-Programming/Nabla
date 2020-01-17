@@ -105,8 +105,9 @@ public:
 
 private:
     using images_set_t = std::array<core::smart_refctd_ptr<ICPUImage>, CMTLPipelineMetadata::SMtl::EMP_COUNT>;
-    images_set_t loadImages(const char* _relDir, const CMTLPipelineMetadata::SMtl& _mtl, uint32_t _hierarchyLvl);
-    core::smart_refctd_ptr<ICPUDescriptorSet> makeDescSet(const images_set_t& _images, ICPUDescriptorSetLayout* _dsLayout);
+    using image_views_set_t = std::array<core::smart_refctd_ptr<ICPUImageView>, CMTLPipelineMetadata::SMtl::EMP_REFL_POSX+1u>;
+    image_views_set_t loadImages(const char* _relDir, const CMTLPipelineMetadata::SMtl& _mtl, SContext& _ctx);
+    core::smart_refctd_ptr<ICPUDescriptorSet> makeDescSet(image_views_set_t&& _views, ICPUDescriptorSetLayout* _dsLayout);
 
     std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>,core::smart_refctd_ptr<ICPUSpecializedShader>> getShaders(bool _hasUV, const CMTLPipelineMetadata::SMtl& _mtl);
 
