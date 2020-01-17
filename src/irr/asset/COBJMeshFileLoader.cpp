@@ -249,6 +249,8 @@ layout (location = 0) out vec4 OutColor;
 #define map_bump_MASK uint(1u<<10u)
 #define map_normal_MASK uint(1u<<11u)
 
+#ifndef _IRR_FRAG_PUSH_CONSTANTS_DEFINED_
+#define _IRR_FRAG_PUSH_CONSTANTS_DEFINED_
 layout (push_constant) uniform Block {
     vec3 Ka;
     vec3 Kd;
@@ -269,6 +271,7 @@ layout (push_constant) uniform Block {
     //extra info
     uint extra;
 } PC;
+#endif //_IRR_FRAG_PUSH_CONSTANTS_DEFINED_
 
 #ifndef _IRR_FRAG_SET3_BINDINGS_DEFINED_
 #define _IRR_FRAG_SET3_BINDINGS_DEFINED_
@@ -824,22 +827,11 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
             const auto& mtl = static_cast<const CMTLPipelineMetadata*>(pipeline->getMetadata())->getMaterial();
             auto shaders = getShaders(hasUV, mtl);
 
-            pipeline->getRasterizationParams().faceCullingMode = EFCM_BACK_BIT;
+            //EFCM_BACK_BIT is set by default
+            //pipeline->getRasterizationParams().faceCullingMode = EFCM_BACK_BIT;
             pipeline->getVertexInputParams() = vtxParams;
             pipeline->setShaderAtIndex(0u, shaders.first.get());
             pipeline->setShaderAtIndex(4u, shaders.second.get());
-            if (hasUV && mtl.maps[CMTLPipelineMetadata::SMtl::EMP_OPACITY].size())
-            {
-                auto& blendParams = pipeline->getBlendParams();
-                for (uint32_t i = 0u; i < SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; ++i)
-                {
-                    blendParams.blendParams[i].blendEnable = true;
-                    blendParams.blendParams[i].srcColorFactor = EBF_SRC_ALPHA;
-                    blendParams.blendParams[i].srcAlphaFactor = EBF_SRC_ALPHA;
-                    blendParams.blendParams[i].dstColorFactor = EBF_ONE_MINUS_SRC_ALPHA;
-                    blendParams.blendParams[i].dstAlphaFactor = EBF_ONE_MINUS_SRC_ALPHA;
-                }
-            }
         }
 
         core::smart_refctd_ptr<ICPUBuffer> vtxBuf = core::make_smart_refctd_ptr<ICPUBuffer>(vertices.size() * sizeof(SObjVertex));

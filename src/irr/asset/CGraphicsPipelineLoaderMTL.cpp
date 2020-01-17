@@ -90,6 +90,18 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
     {
         auto layout = makePipelineLayoutFromMtl(materials[i]);
         pipelines[i] = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(nullptr, std::move(layout), nullptr, nullptr, vtxParams, blendParams, primParams, rasterParams);
+        if (materials[i].maps[CMTLPipelineMetadata::SMtl::EMP_OPACITY].size())
+        {
+            for (uint32_t i = 0u; i < SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; ++i)
+            {
+                blendParams.blendParams[i].blendEnable = true;
+                blendParams.blendParams[i].srcColorFactor = EBF_SRC_ALPHA;
+                blendParams.blendParams[i].srcAlphaFactor = EBF_SRC_ALPHA;
+                blendParams.blendParams[i].dstColorFactor = EBF_ONE_MINUS_SRC_ALPHA;
+                blendParams.blendParams[i].dstAlphaFactor = EBF_ONE_MINUS_SRC_ALPHA;
+            }
+        }
+
         m_assetMgr->setAssetMetadata(pipelines[i].get(), core::make_smart_refctd_ptr<CMTLPipelineMetadata>(std::move(materials[i])));
     }
     materials.clear();
