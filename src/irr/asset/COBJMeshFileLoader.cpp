@@ -41,22 +41,8 @@ namespace std
 
 namespace
 {
-    constexpr const char* VERT_SHADER_NO_UV = 
-R"(#version 430 core
-
-layout (location = 0) in vec3 vPos;
-layout (location = 3) in vec3 vNormal;
-
-layout (location = 0) out vec3 LocalPos;
-layout (location = 1) out vec3 ViewPos;
-layout (location = 2) out vec3 Normal;
-
-#include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
-
-layout (set = 1, binding = 0, row_major, std140) uniform UBO {
-    irr_glsl_SBasicViewParameters params;
-} CamData;
-
+    constexpr const char* VERT_SHADER_NO_UV_MAIN = 
+R"(
 void main()
 {
     LocalPos = vPos;
@@ -66,39 +52,8 @@ void main()
     Normal = normalMat*normalize(vNormal);
 }
 )";
-    constexpr const char* FRAG_SHADER_NO_UV =
-R"(#version 430 core
-
-layout (location = 0) in vec3 LocalPos;
-layout (location = 1) in vec3 ViewPos;
-layout (location = 2) in vec3 Normal;
-layout (location = 0) out vec4 OutColor;
-
-#define ILLUM_MODEL_MASK 0x0fu
-layout (push_constant) uniform Block {
-    vec3 Ka;
-    vec3 Kd;
-    vec3 Ks;
-    vec3 Ke;
-    vec4 Tf;//w component doesnt matter
-    float Ns;
-    float d;
-    float bm;
-    float Ni;
-    float roughness;
-    float metallic;
-    float sheen;
-    float clearcoatThickness;
-    float clearcoatRoughness;
-    float anisotropy;
-    float anisoRotation;
-    //extra info
-    uint extra;
-} PC;
-
-#include <irr/builtin/glsl/brdf/specular/fresnel/fresnel.glsl>
-
-#define Ia 0.1
+    constexpr const char* FRAG_SHADER_NO_UV_MAIN =
+R"(#define Ia 0.1
 void main()
 {
     vec3 N = normalize(Normal);
@@ -232,21 +187,32 @@ void main()
     constexpr const char* VERT_SHADER_UV = 
 R"(#version 430 core
 
+#ifndef _IRR_VERT_INPUTS_DEFINED_
+#define _IRR_VERT_INPUTS_DEFINED_
 layout (location = 0) in vec3 vPos;
 layout (location = 2) in vec2 vUV;
 layout (location = 3) in vec3 vNormal;
+#endif //_IRR_VERT_INPUTS_DEFINED_
 
+#ifndef _IRR_VERT_OUTPUTS_DEFINED_
+#define _IRR_VERT_OUTPUTS_DEFINED_
 layout (location = 0) out vec3 LocalPos;
 layout (location = 1) out vec3 ViewPos;
 layout (location = 2) out vec3 Normal;
 layout (location = 3) out vec2 UV;
+#endif //_IRR_VERT_OUTPUTS_DEFINED_
 
 #include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
 
+#ifndef _IRR_VERT_SET1_BINDINGS_DEFINED_
+#define _IRR_VERT_SET1_BINDINGS_DEFINED_
 layout (set = 1, binding = 0, row_major, std140) uniform UBO {
     irr_glsl_SBasicViewParameters params;
 } CamData;
+#endif //_IRR_VERT_SET1_BINDINGS_DEFINED_
 
+#ifndef _IRR_VERT_MAIN_DEFINED_
+#define _IRR_VERT_MAIN_DEFINED_
 void main()
 {
     LocalPos = vPos;
@@ -256,15 +222,23 @@ void main()
     Normal = normalMat*normalize(vNormal);
     UV = vUV;
 }
+#endif //_IRR_VERT_MAIN_DEFINED_
 )";
     constexpr const char* FRAG_SHADER_UV =
 R"(#version 430 core
 
+#ifndef _IRR_FRAG_INPUTS_DEFINED_
+#define _IRR_FRAG_INPUTS_DEFINED_
 layout (location = 0) in vec3 LocalPos;
 layout (location = 1) in vec3 ViewPos;
 layout (location = 2) in vec3 Normal;
 layout (location = 3) in vec2 UV;
+#endif //_IRR_FRAG_INPUTS_DEFINED_
+
+#ifndef _IRR_FRAG_OUTPUTS_DEFINED_
+#define _IRR_FRAG_OUTPUTS_DEFINED_
 layout (location = 0) out vec4 OutColor;
+#endif //_IRR_FRAG_OUTPUTS_DEFINED_
 
 #define ILLUM_MODEL_MASK 0x0fu
 #define map_Ka_MASK uint(1u<<4u)
@@ -296,10 +270,21 @@ layout (push_constant) uniform Block {
     uint extra;
 } PC;
 
-//here texture bindings will be inserted with sprintf()
-%s
+#ifndef _IRR_FRAG_SET3_BINDINGS_DEFINED_
+#define _IRR_FRAG_SET3_BINDINGS_DEFINED_
+layout (set = 3, binding = 0) uniform sampler2D map_Ka;
+layout (set = 3, binding = 1) uniform sampler2D map_Kd;
+layout (set = 3, binding = 2) uniform sampler2D map_Ks;
+layout (set = 3, binding = 3) uniform sampler2D map_Ke;
+layout (set = 3, binding = 4) uniform sampler2D map_Ns;
+layout (set = 3, binding = 5) uniform sampler2D map_d;
+layout (set = 3, binding = 6) uniform sampler2D map_bump;
+#endif //_IRR_FRAG_SET3_BINDINGS_DEFINED_
 
 #include <irr/builtin/glsl/brdf/specular/fresnel/fresnel.glsl>
+
+#ifndef _IRR_FRAG_MAIN_DEFINED_
+#define _IRR_FRAG_MAIN_DEFINED_
 
 #define Ia 0.1
 void main()
@@ -323,7 +308,7 @@ void main()
     float NdotL = max(dot(N,L), 0.0);
     float VdotR = max(dot(L,R), 0.0);
 
-    vec3 Ke = texture(map_Ke, UV).rgb;//force using emissive map (needed temporarily because of bindings reordering bug)
+    vec3 Ke = texture(map_Ke, UV).rgb;//force visibility (as in: visible as resource used by the shader) of emissive map (needed temporarily because of bindings reordering bug)
 
     vec3 Kd;
     if ((PC.extra&(map_Kd_MASK)) == (map_Kd_MASK))
@@ -376,6 +361,7 @@ void main()
 
     OutColor = vec4(color, d);
 }
+#endif //_IRR_FRAG_MAIN_DEFINED_
 )";
 }
 
@@ -406,18 +392,47 @@ static const uint32_t WORD_BUFFER_LENGTH = 512;
 //! Constructor
 COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager* _manager) : AssetManager(_manager), FileSystem(_manager->getFileSystem())
 {
-#ifdef _IRR_DEBUG
-	setDebugName("COBJMeshFileLoader");
-#endif
-    auto vs_nouv_unspec = core::make_smart_refctd_ptr<ICPUShader>(VERT_SHADER_NO_UV);
+    //create vertex shaders and insert them into cache
+    {
+    std::string vs_nouv_source = VERT_SHADER_UV;
+    vs_nouv_source.insert(vs_nouv_source.find('\n')+1ull,
+R"(
+#define _IRR_VERT_MAIN_DEFINED_
+)"
+        );
+    vs_nouv_source.insert(vs_nouv_source.size(), VERT_SHADER_NO_UV_MAIN);
+
+    auto vs_nouv_unspec = core::make_smart_refctd_ptr<ICPUShader>(vs_nouv_source.c_str());
     auto vs_uv_unspec = core::make_smart_refctd_ptr<ICPUShader>(VERT_SHADER_UV);
 
     ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_VERTEX);
     auto vs_nouv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(vs_nouv_unspec), ICPUSpecializedShader::SInfo(specinfo));
-    auto vs_uv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(vs_uv_unspec), ICPUSpecializedShader::SInfo(specinfo));
+    auto vs_uv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(vs_uv_unspec), std::move(specinfo));
 
     insertShaderIntoCache(vs_nouv, VERT_SHADER_NO_UV_CACHE_KEY, AssetManager);
     insertShaderIntoCache(vs_uv, VERT_SHADER_UV_CACHE_KEY, AssetManager);
+    }
+    //create fragment shaders and insert them into cache
+    {
+    std::string fs_nouv_source = FRAG_SHADER_UV;
+    fs_nouv_source.insert(fs_nouv_source.find('\n')+1ull,
+R"(
+#define _IRR_FRAG_SET3_BINDINGS_DEFINED_
+#define _IRR_FRAG_MAIN_DEFINED_
+)"
+        );
+    fs_nouv_source.insert(fs_nouv_source.size(), FRAG_SHADER_NO_UV_MAIN);
+
+    auto fs_nouv_unspec = core::make_smart_refctd_ptr<ICPUShader>(fs_nouv_source.c_str());
+    auto fs_uv_unspec = core::make_smart_refctd_ptr<ICPUShader>(FRAG_SHADER_UV);
+
+    ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_FRAGMENT);
+    auto fs_nouv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(fs_nouv_unspec), ICPUSpecializedShader::SInfo(specinfo));
+    auto fs_uv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(fs_uv_unspec), std::move(specinfo));
+
+    insertShaderIntoCache(fs_nouv, FRAG_SHADER_NO_UV_CACHE_KEY, AssetManager);
+    insertShaderIntoCache(fs_uv, FRAG_SHADER_UV_CACHE_KEY, AssetManager);
+    }
 }
 
 
@@ -951,22 +966,7 @@ static std::string genGLSLtextureBindingsStr(const CMTLPipelineMetadata::SMtl& _
 std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>,core::smart_refctd_ptr<ICPUSpecializedShader>> COBJMeshFileLoader::getShaders(bool _hasUV, const CMTLPipelineMetadata::SMtl& _mtl)
 {
     auto vs = getDefaultAsset<ICPUSpecializedShader,IAsset::ET_SPECIALIZED_SHADER>(_hasUV ? VERT_SHADER_UV_CACHE_KEY : VERT_SHADER_NO_UV_CACHE_KEY, AssetManager);
-
-    const uint32_t presentMapsMask = (_mtl.std140PackedData.extra>>4u);//first 4 bits is illum model
-    const std::string fs_cache_key = (_hasUV ? (FRAG_SHADER_UV_CACHE_KEY + std::to_string(presentMapsMask)) : FRAG_SHADER_NO_UV_CACHE_KEY);
-    auto fs = getDefaultAsset<ICPUSpecializedShader, IAsset::ET_SPECIALIZED_SHADER>(fs_cache_key.c_str(), AssetManager);
-
-    if (!fs)
-    {
-        const char* src = (_hasUV ? FRAG_SHADER_UV : FRAG_SHADER_NO_UV);
-        std::string fs_source;
-        fs_source.resize(strlen(src)+1000ull);
-        sprintf(fs_source.data(), src, genGLSLtextureBindingsStr(_mtl, _hasUV).c_str());
-        auto fs_unspec = core::make_smart_refctd_ptr<ICPUShader>(fs_source.c_str());
-        ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_FRAGMENT);
-        fs = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(fs_unspec), std::move(specinfo));
-        insertShaderIntoCache(fs, fs_cache_key.c_str(), AssetManager); //not calling insertShaderIntoCache through override because i want it to insert regardless of caching flags
-    }
+    auto fs = getDefaultAsset<ICPUSpecializedShader, IAsset::ET_SPECIALIZED_SHADER>(_hasUV ? FRAG_SHADER_UV_CACHE_KEY : FRAG_SHADER_NO_UV_CACHE_KEY, AssetManager);
 
     return {std::move(vs), std::move(fs)};
 }
