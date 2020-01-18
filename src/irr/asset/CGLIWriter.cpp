@@ -126,6 +126,29 @@ namespace irr
 				return std::make_pair(layers, faces);
 			};
 
+
+			auto getCurrentGliLayerAndFace = [&](uint16_t layer)
+			{
+				static uint16_t gliLayer, gliFace;
+
+				if (isItACubemap)
+				{
+					gliFace = layer % 6;
+
+					if (layersFlag)
+						gliLayer = layer / 6;
+					else
+						gliLayer = 1;
+				}
+				else
+				{
+					gliFace = 1;
+					gliLayer = layer;
+				}
+
+				return std::make_pair(gliLayer, gliFace);
+			};
+
 			auto gliFormatAndSwizzles = getTranslatedIRRFormat(imageViewInfo);
 			gli::target gliTarget = getTarget();
 			gli::extent3d gliExtent3d = {imageInfo.extent.width, imageInfo.extent.height, imageInfo.extent.depth};
@@ -156,8 +179,9 @@ namespace irr
 			
 				for (uint16_t layer = 0; layer < imageInfo.arrayLayers; ++layer)
 				{
-					const uint16_t gliLayer = layersFlag ? layer / 6 : 0;
-					const uint16_t gliFace = isItACubemap ? layer % 6 : 0;
+					const auto layersData = getCurrentGliLayerAndFace(layer);
+					const auto gliLayer = layersData.first;
+					const auto gliFace = layersData.second;
 
 					const auto layerData = texture.data(gliLayer, gliFace, region->imageSubresource.mipLevel);
 					const auto sourceData = ptrBeginningOfRegion + (layer * layerSize);
