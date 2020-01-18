@@ -159,14 +159,20 @@ namespace irr { namespace video
         }
 	#undef SWIZZLE
     }
-	/*
-		It converts a data to desired texel format
-
+	//! A function converting a data to desired texel format
+	/**
 		To use it, you have to pass source data with texel format \bsF\b you want to exchange
 		with \bdF\b. srcPix data is an array due to planar formats, but if source data isn't
 		a planar format, you can use \bsrcPix[0]\b.
 		\b_pixOrBlockCnt\b is an amount of texels you want to convert and \b_imgSize\b is a size
-		in texels of an image they belong to.
+		in texels of an image they belong to. There is also a polymorphic \bswizzle\b parameter
+		that makes the whole process slower if used (otherwise it is a null pointer), but it 
+		allows you to swizzle the RGBA compoments into a different arrangement at runtime.
+
+		So for example, if a texel amount is 4 and a data arrangement passed to the function looks like
+		\aR, R, R, R\a, you could convert it for instance to a data arrangement looking like
+		\bRGBA, RGBA, RGBA, RGBA\a. As you may see texel amount doesn't change, but the internal
+		buffer's layout does as desired.
 	*/
     template<asset::E_FORMAT sF, asset::E_FORMAT dF, class Swizzle = DefaultSwizzle >
     inline void convertColor(const void* srcPix[4], void* dstPix, size_t _pixOrBlockCnt, const core::vector3d<uint32_t>& _imgSize, PolymorphicSwizzle* swizzle = nullptr)
