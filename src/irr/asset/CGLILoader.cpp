@@ -45,7 +45,6 @@ namespace irr
 
 			if (!performLoadingAsIReadFile(texture, _file))
 				return {};
-			
 
 		    const gli::gl glVersion(gli::gl::PROFILE_GL33);
 			const GLenum target = glVersion.translate(texture.target());
@@ -54,10 +53,7 @@ namespace irr
 			IImageView<ICPUImage>::E_TYPE imageViewType;
 
 			if (format.first == EF_UNKNOWN)
-			{
-				os::Printer::log("LOAD GLI: the file consist of not supported format", _file->getFileName().c_str(), ELL_ERROR);
 				return {};
-			}
 
 			switch (texture.target())
 			{
@@ -317,10 +313,16 @@ namespace irr
 			compomentMapping.b = getMappedSwizzle(static_cast<gli::gl::swizzle>(formatToTranslate.Swizzles.b));
 			compomentMapping.a = getMappedSwizzle(static_cast<gli::gl::swizzle>(formatToTranslate.Swizzles.a));
 
-			auto getTranslatedFinalFormat = [&](const E_FORMAT& format = EF_UNKNOWN)
+			auto getTranslatedFinalFormat = [&](const E_FORMAT& format = EF_UNKNOWN, const std::string_view &specialErrorOnUnknown = "Unsupported format!")
 			{
+				if(format == EF_UNKNOWN)
+					os::Printer::log(("LOAD GLI: " + std::string(specialErrorOnUnknown)).c_str(), ELL_ERROR);
+
 				return std::make_pair(format, compomentMapping);
 			};
+
+			constexpr auto alphaPVRTCError = "Vulkan isn't able to distinguish between alpha and non alpha containing PVRTC";
+			constexpr auto vulcanVertexFormatsError = "Vulkan's vertex formats are disallowed for textures";
 
 			switch (formatToTranslate.Internal)
 			{
@@ -415,57 +417,57 @@ namespace irr
 				case gl::INTERNAL_SRGB8_ALPHA8: return getTranslatedFinalFormat(EF_R8G8B8A8_SRGB);		//GL_SRGB8_ALPHA8
 
 				// Packed formats
-				case gl::INTERNAL_RGB9E5: return getTranslatedFinalFormat();			//GL_RGB9_E5
-				case gl::INTERNAL_RG11B10F: return getTranslatedFinalFormat();			//GL_R11F_G11F_B10F
-				case gl::INTERNAL_RG3B2: return getTranslatedFinalFormat();			//GL_R3_G3_B2
-				case gl::INTERNAL_R5G6B5: return getTranslatedFinalFormat();			//GL_RGB565
-				case gl::INTERNAL_RGB5A1: return getTranslatedFinalFormat();			//GL_RGB5_A1
-				case gl::INTERNAL_RGBA4: return getTranslatedFinalFormat();			//GL_RGBA4
+				case gl::INTERNAL_RGB9E5: return getTranslatedFinalFormat(EF_E5B9G9R9_UFLOAT_PACK32);			//GL_RGB9_E5
+				case gl::INTERNAL_RG11B10F: return getTranslatedFinalFormat(EF_B10G11R11_UFLOAT_PACK32);			//GL_R11F_G11F_B10F
+				case gl::INTERNAL_RG3B2: return getTranslatedFinalFormat(/*we dont have such format*/);			//GL_R3_G3_B2
+				case gl::INTERNAL_R5G6B5: return getTranslatedFinalFormat(EF_R5G6B5_UNORM_PACK16);			//GL_RGB565
+				case gl::INTERNAL_RGB5A1: return getTranslatedFinalFormat(EF_R5G5B5A1_UNORM_PACK16);			//GL_RGB5_A1
+				case gl::INTERNAL_RGBA4: return getTranslatedFinalFormat(EF_R4G4B4A4_UNORM_PACK16);			//GL_RGBA4
 
-				case gl::INTERNAL_RG4_EXT: return getTranslatedFinalFormat();
+				case gl::INTERNAL_RG4_EXT: return getTranslatedFinalFormat(EF_R4G4_UNORM_PACK8);
 
 				// Luminance Alpha formats
-				case gl::INTERNAL_LA4: return getTranslatedFinalFormat();				//GL_LUMINANCE4_ALPHA4
-				case gl::INTERNAL_L8: return getTranslatedFinalFormat();				//GL_LUMINANCE8
-				case gl::INTERNAL_A8: return getTranslatedFinalFormat();				//GL_ALPHA8
-				case gl::INTERNAL_LA8: return getTranslatedFinalFormat();				//GL_LUMINANCE8_ALPHA8
-				case gl::INTERNAL_L16: return getTranslatedFinalFormat();				//GL_LUMINANCE16
-				case gl::INTERNAL_A16: return getTranslatedFinalFormat();				//GL_ALPHA16
-				case gl::INTERNAL_LA16: return getTranslatedFinalFormat();				//GL_LUMINANCE16_ALPHA16
+				case gl::INTERNAL_LA4: return getTranslatedFinalFormat(EF_R4G4B4A4_UNORM_PACK16);				//GL_LUMINANCE4_ALPHA4
+				case gl::INTERNAL_L8: return getTranslatedFinalFormat(EF_R8G8B8_SRGB);				//GL_LUMINANCE8
+				case gl::INTERNAL_A8: return getTranslatedFinalFormat(EF_R8G8B8_SRGB);				//GL_ALPHA8
+				case gl::INTERNAL_LA8: return getTranslatedFinalFormat(EF_R8G8B8A8_SRGB);				//GL_LUMINANCE8_ALPHA8
+				case gl::INTERNAL_L16: return getTranslatedFinalFormat(EF_R16G16B16_UNORM);				//GL_LUMINANCE16
+				case gl::INTERNAL_A16: return getTranslatedFinalFormat(EF_R16G16B16_UNORM);				//GL_ALPHA16
+				case gl::INTERNAL_LA16: return getTranslatedFinalFormat(EF_R8G8B8A8_SRGB);				//GL_LUMINANCE16_ALPHA16
 
 				// Depth formats
-				case gl::INTERNAL_D16: return getTranslatedFinalFormat();				//GL_DEPTH_COMPONENT16
-				case gl::INTERNAL_D24: return getTranslatedFinalFormat();				//GL_DEPTH_COMPONENT24
-				case gl::INTERNAL_D16S8_EXT: return getTranslatedFinalFormat();
-				case gl::INTERNAL_D24S8: return getTranslatedFinalFormat();			//GL_DEPTH24_STENCIL8
-				case gl::INTERNAL_D32: return getTranslatedFinalFormat();				//GL_DEPTH_COMPONENT32
-				case gl::INTERNAL_D32F: return getTranslatedFinalFormat();				//GL_DEPTH_COMPONENT32F
-				case gl::INTERNAL_D32FS8X24: return getTranslatedFinalFormat();		//GL_DEPTH32F_STENCIL8
-				case gl::INTERNAL_S8_EXT: return getTranslatedFinalFormat();			//GL_STENCIL_INDEX8
+				case gl::INTERNAL_D16: return getTranslatedFinalFormat(EF_D16_UNORM);				//GL_DEPTH_COMPONENT16
+				case gl::INTERNAL_D24: return getTranslatedFinalFormat(EF_X8_D24_UNORM_PACK32);				//GL_DEPTH_COMPONENT24
+				case gl::INTERNAL_D16S8_EXT: return getTranslatedFinalFormat(EF_D16_UNORM_S8_UINT);
+				case gl::INTERNAL_D24S8: return getTranslatedFinalFormat(EF_D24_UNORM_S8_UINT);			//GL_DEPTH24_STENCIL8
+				case gl::INTERNAL_D32: return getTranslatedFinalFormat(EF_D32_SFLOAT_S8_UINT /*?*/);				//GL_DEPTH_COMPONENT32
+				case gl::INTERNAL_D32F: return getTranslatedFinalFormat(/*EF_D32_SFLOAT signed probably won't fit it?*/);				//GL_DEPTH_COMPONENT32F
+				case gl::INTERNAL_D32FS8X24: return getTranslatedFinalFormat(EF_D32_SFLOAT_S8_UINT /*?*/);		//GL_DEPTH32F_STENCIL8
+				case gl::INTERNAL_S8_EXT: return getTranslatedFinalFormat(EF_S8_UINT);			//GL_STENCIL_INDEX8
 
 				// Compressed formats
-				case gl::INTERNAL_RGB_DXT1: return getTranslatedFinalFormat();						//GL_COMPRESSED_RGB_S3TC_DXT1_EXT
-				case gl::INTERNAL_RGBA_DXT1: return getTranslatedFinalFormat();					//GL_COMPRESSED_RGBA_S3TC_DXT1_EXT
-				case gl::INTERNAL_RGBA_DXT3: return getTranslatedFinalFormat();					//GL_COMPRESSED_RGBA_S3TC_DXT3_EXT
-				case gl::INTERNAL_RGBA_DXT5: return getTranslatedFinalFormat();					//GL_COMPRESSED_RGBA_S3TC_DXT5_EXT
-				case gl::INTERNAL_R_ATI1N_UNORM: return getTranslatedFinalFormat();				//GL_COMPRESSED_RED_RGTC1
-				case gl::INTERNAL_R_ATI1N_SNORM: return getTranslatedFinalFormat();				//GL_COMPRESSED_SIGNED_RED_RGTC1
-				case gl::INTERNAL_RG_ATI2N_UNORM: return getTranslatedFinalFormat();				//GL_COMPRESSED_RG_RGTC2
-				case gl::INTERNAL_RG_ATI2N_SNORM: return getTranslatedFinalFormat();				//GL_COMPRESSED_SIGNED_RG_RGTC2
-				case gl::INTERNAL_RGB_BP_UNSIGNED_FLOAT: return getTranslatedFinalFormat();		//GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
-				case gl::INTERNAL_RGB_BP_SIGNED_FLOAT: return getTranslatedFinalFormat();			//GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT
-				case gl::INTERNAL_RGB_BP_UNORM: return getTranslatedFinalFormat();					//GL_COMPRESSED_RGBA_BPTC_UNORM
-				case gl::INTERNAL_RGB_PVRTC_4BPPV1: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGB_PVRTC_4BPPV1_IMG
-				case gl::INTERNAL_RGB_PVRTC_2BPPV1: return getTranslatedFinalFormat();				//GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG
+				case gl::INTERNAL_RGB_DXT1: return getTranslatedFinalFormat(EF_BC1_RGB_UNORM_BLOCK);						//GL_COMPRESSED_RGB_S3TC_DXT1_EXT
+				case gl::INTERNAL_RGBA_DXT1: return getTranslatedFinalFormat(EF_BC1_RGBA_UNORM_BLOCK);					//GL_COMPRESSED_RGBA_S3TC_DXT1_EXT
+				case gl::INTERNAL_RGBA_DXT3: return getTranslatedFinalFormat(EF_BC2_UNORM_BLOCK);					//GL_COMPRESSED_RGBA_S3TC_DXT3_EXT
+				case gl::INTERNAL_RGBA_DXT5: return getTranslatedFinalFormat(EF_BC3_UNORM_BLOCK);					//GL_COMPRESSED_RGBA_S3TC_DXT5_EXT
+				case gl::INTERNAL_R_ATI1N_UNORM: return getTranslatedFinalFormat(EF_BC4_UNORM_BLOCK);				//GL_COMPRESSED_RED_RGTC1
+				case gl::INTERNAL_R_ATI1N_SNORM: return getTranslatedFinalFormat(EF_BC4_SNORM_BLOCK);				//GL_COMPRESSED_SIGNED_RED_RGTC1
+				case gl::INTERNAL_RG_ATI2N_UNORM: return getTranslatedFinalFormat(EF_BC5_UNORM_BLOCK);				//GL_COMPRESSED_RG_RGTC2
+				case gl::INTERNAL_RG_ATI2N_SNORM: return getTranslatedFinalFormat(EF_BC5_SNORM_BLOCK);				//GL_COMPRESSED_SIGNED_RG_RGTC2
+				case gl::INTERNAL_RGB_BP_UNSIGNED_FLOAT: return getTranslatedFinalFormat(EF_BC6H_UFLOAT_BLOCK);		//GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
+				case gl::INTERNAL_RGB_BP_SIGNED_FLOAT: return getTranslatedFinalFormat(EF_BC6H_SFLOAT_BLOCK);			//GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT
+				case gl::INTERNAL_RGB_BP_UNORM: return getTranslatedFinalFormat(EF_BC7_UNORM_BLOCK);					//GL_COMPRESSED_RGBA_BPTC_UNORM
+				case gl::INTERNAL_RGB_PVRTC_4BPPV1: return getTranslatedFinalFormat(EF_UNKNOWN, alphaPVRTCError);				//GL_COMPRESSED_RGB_PVRTC_4BPPV1_IMG
+				case gl::INTERNAL_RGB_PVRTC_2BPPV1: return getTranslatedFinalFormat(EF_UNKNOWN, alphaPVRTCError);				//GL_COMPRESSED_RGB_PVRTC_2BPPV1_IMG
 				case gl::INTERNAL_RGBA_PVRTC_4BPPV1: return getTranslatedFinalFormat(EF_PVRTC1_4BPP_UNORM_BLOCK_IMG);			//GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG
 				case gl::INTERNAL_RGBA_PVRTC_2BPPV1: return getTranslatedFinalFormat(EF_PVRTC1_2BPP_UNORM_BLOCK_IMG);			//GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG
-				case gl::INTERNAL_RGBA_PVRTC_4BPPV2: return getTranslatedFinalFormat();			//GL_COMPRESSED_RGBA_PVRTC_4BPPV2_IMG
-				case gl::INTERNAL_RGBA_PVRTC_2BPPV2: return getTranslatedFinalFormat();			//GL_COMPRESSED_RGBA_PVRTC_2BPPV2_IMG
+				case gl::INTERNAL_RGBA_PVRTC_4BPPV2: return getTranslatedFinalFormat(EF_PVRTC1_4BPP_UNORM_BLOCK_IMG);			//GL_COMPRESSED_RGBA_PVRTC_4BPPV2_IMG
+				case gl::INTERNAL_RGBA_PVRTC_2BPPV2: return getTranslatedFinalFormat(EF_PVRTC1_2BPP_UNORM_BLOCK_IMG);			//GL_COMPRESSED_RGBA_PVRTC_2BPPV2_IMG
 				case gl::INTERNAL_ATC_RGB: return getTranslatedFinalFormat();						//GL_ATC_RGB_AMD
 				case gl::INTERNAL_ATC_RGBA_EXPLICIT_ALPHA: return getTranslatedFinalFormat();		//GL_ATC_RGBA_EXPLICIT_ALPHA_AMD
 				case gl::INTERNAL_ATC_RGBA_INTERPOLATED_ALPHA: return getTranslatedFinalFormat();	//GL_ATC_RGBA_INTERPOLATED_ALPHA_AMD
 
-				case gl::INTERNAL_RGB_ETC: return getTranslatedFinalFormat();						//GL_COMPRESSED_RGB8_ETC1
+				case gl::INTERNAL_RGB_ETC: return getTranslatedFinalFormat(EF_ETC2_R8G8B8_UNORM_BLOCK);						//GL_COMPRESSED_RGB8_ETC1
 				case gl::INTERNAL_RGB_ETC2: return getTranslatedFinalFormat(EF_ETC2_R8G8B8_UNORM_BLOCK);						//GL_COMPRESSED_RGB8_ETC2
 				case gl::INTERNAL_RGBA_PUNCHTHROUGH_ETC2: return getTranslatedFinalFormat();		//GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2
 				case gl::INTERNAL_RGBA_ETC2: return getTranslatedFinalFormat(EF_ETC2_R8G8B8A8_UNORM_BLOCK);					//GL_COMPRESSED_RGBA8_ETC2_EAC
@@ -490,53 +492,53 @@ namespace irr
 				case gl::INTERNAL_RGBA_ASTC_12x12: return getTranslatedFinalFormat(EF_ASTC_12x12_UNORM_BLOCK);				//GL_COMPRESSED_RGBA_ASTC_12x12_KHR
 
 				// sRGB formats
-				case gl::INTERNAL_SRGB_DXT1: return getTranslatedFinalFormat();					//GL_COMPRESSED_SRGB_S3TC_DXT1_EXT
-				case gl::INTERNAL_SRGB_ALPHA_DXT1: return getTranslatedFinalFormat();				//GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT
-				case gl::INTERNAL_SRGB_ALPHA_DXT3: return getTranslatedFinalFormat();				//GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT
-				case gl::INTERNAL_SRGB_ALPHA_DXT5: return getTranslatedFinalFormat();				//GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT
-				case gl::INTERNAL_SRGB_BP_UNORM: return getTranslatedFinalFormat();				//GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM
-				case gl::INTERNAL_SRGB_PVRTC_2BPPV1: return getTranslatedFinalFormat();			//GL_COMPRESSED_SRGB_PVRTC_2BPPV1_EXT
-				case gl::INTERNAL_SRGB_PVRTC_4BPPV1: return getTranslatedFinalFormat();			//GL_COMPRESSED_SRGB_PVRTC_4BPPV1_EXT
-				case gl::INTERNAL_SRGB_ALPHA_PVRTC_2BPPV1: return getTranslatedFinalFormat();		//GL_COMPRESSED_SRGB_ALPHA_PVRTC_2BPPV1_EXT
-				case gl::INTERNAL_SRGB_ALPHA_PVRTC_4BPPV1: return getTranslatedFinalFormat();		//GL_COMPRESSED_SRGB_ALPHA_PVRTC_4BPPV1_EXT
-				case gl::INTERNAL_SRGB_ALPHA_PVRTC_2BPPV2: return getTranslatedFinalFormat();		//COMPRESSED_SRGB_ALPHA_PVRTC_2BPPV2_IMG
-				case gl::INTERNAL_SRGB_ALPHA_PVRTC_4BPPV2: return getTranslatedFinalFormat();		//GL_COMPRESSED_SRGB_ALPHA_PVRTC_4BPPV2_IMG
-				case gl::INTERNAL_SRGB8_ETC2: return getTranslatedFinalFormat();						//GL_COMPRESSED_SRGB8_ETC2
-				case gl::INTERNAL_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2: return getTranslatedFinalFormat();	//GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2
-				case gl::INTERNAL_SRGB8_ALPHA8_ETC2_EAC: return getTranslatedFinalFormat();			//GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC
-				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_4x4: return getTranslatedFinalFormat();		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR
-				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_5x4: return getTranslatedFinalFormat();		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR
-				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_5x5: return getTranslatedFinalFormat();		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR
-				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_6x5: return getTranslatedFinalFormat();		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR
-				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_6x6: return getTranslatedFinalFormat();		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR
-				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_8x5: return getTranslatedFinalFormat();		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR
-				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_8x6: return getTranslatedFinalFormat();		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR
-				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_8x8: return getTranslatedFinalFormat();		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR
-				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_10x5: return getTranslatedFinalFormat();		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR
-				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_10x6: return getTranslatedFinalFormat();		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR
-				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_10x8: return getTranslatedFinalFormat();		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x8_KHR
-				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_10x10: return getTranslatedFinalFormat();		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR
-				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_12x10: return getTranslatedFinalFormat();		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR
-				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_12x12: return getTranslatedFinalFormat();		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR
+				case gl::INTERNAL_SRGB_DXT1: return getTranslatedFinalFormat(EF_BC1_RGB_SRGB_BLOCK);					//GL_COMPRESSED_SRGB_S3TC_DXT1_EXT
+				case gl::INTERNAL_SRGB_ALPHA_DXT1: return getTranslatedFinalFormat(EF_BC1_RGBA_SRGB_BLOCK);				//GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT
+				case gl::INTERNAL_SRGB_ALPHA_DXT3: return getTranslatedFinalFormat(EF_BC2_SRGB_BLOCK);				//GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT
+				case gl::INTERNAL_SRGB_ALPHA_DXT5: return getTranslatedFinalFormat(EF_BC3_SRGB_BLOCK);				//GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT
+				case gl::INTERNAL_SRGB_BP_UNORM: return getTranslatedFinalFormat(EF_BC7_SRGB_BLOCK);				//GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM
+				case gl::INTERNAL_SRGB_PVRTC_2BPPV1: return getTranslatedFinalFormat(EF_UNKNOWN, alphaPVRTCError);			//GL_COMPRESSED_SRGB_PVRTC_2BPPV1_EXT
+				case gl::INTERNAL_SRGB_PVRTC_4BPPV1: return getTranslatedFinalFormat(EF_UNKNOWN, alphaPVRTCError);			//GL_COMPRESSED_SRGB_PVRTC_4BPPV1_EXT
+				case gl::INTERNAL_SRGB_ALPHA_PVRTC_2BPPV1: return getTranslatedFinalFormat(EF_PVRTC1_2BPP_UNORM_BLOCK_IMG);		//GL_COMPRESSED_SRGB_ALPHA_PVRTC_2BPPV1_EXT
+				case gl::INTERNAL_SRGB_ALPHA_PVRTC_4BPPV1: return getTranslatedFinalFormat(EF_PVRTC1_4BPP_UNORM_BLOCK_IMG);		//GL_COMPRESSED_SRGB_ALPHA_PVRTC_4BPPV1_EXT
+				case gl::INTERNAL_SRGB_ALPHA_PVRTC_2BPPV2: return getTranslatedFinalFormat(EF_PVRTC1_2BPP_UNORM_BLOCK_IMG);		//COMPRESSED_SRGB_ALPHA_PVRTC_2BPPV2_IMG
+				case gl::INTERNAL_SRGB_ALPHA_PVRTC_4BPPV2: return getTranslatedFinalFormat(EF_PVRTC1_4BPP_UNORM_BLOCK_IMG);		//GL_COMPRESSED_SRGB_ALPHA_PVRTC_4BPPV2_IMG
+				case gl::INTERNAL_SRGB8_ETC2: return getTranslatedFinalFormat(EF_ETC2_R8G8B8_SRGB_BLOCK);						//GL_COMPRESSED_SRGB8_ETC2
+				case gl::INTERNAL_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2: return getTranslatedFinalFormat(EF_ETC2_R8G8B8A1_SRGB_BLOCK);	//GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2
+				case gl::INTERNAL_SRGB8_ALPHA8_ETC2_EAC: return getTranslatedFinalFormat(EF_ETC2_R8G8B8A8_SRGB_BLOCK);			//GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC
+				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_4x4: return getTranslatedFinalFormat(EF_ASTC_4x4_SRGB_BLOCK);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR
+				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_5x4: return getTranslatedFinalFormat(EF_ASTC_5x4_SRGB_BLOCK);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR
+				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_5x5: return getTranslatedFinalFormat(EF_ASTC_5x5_SRGB_BLOCK);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR
+				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_6x5: return getTranslatedFinalFormat(EF_ASTC_6x5_SRGB_BLOCK);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR
+				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_6x6: return getTranslatedFinalFormat(EF_ASTC_6x6_SRGB_BLOCK);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR
+				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_8x5: return getTranslatedFinalFormat(EF_ASTC_8x5_SRGB_BLOCK);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR
+				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_8x6: return getTranslatedFinalFormat(EF_ASTC_8x6_SRGB_BLOCK);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR
+				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_8x8: return getTranslatedFinalFormat(EF_ASTC_8x8_SRGB_BLOCK);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR
+				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_10x5: return getTranslatedFinalFormat(EF_ASTC_10x5_SRGB_BLOCK);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR
+				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_10x6: return getTranslatedFinalFormat(EF_ASTC_10x6_SRGB_BLOCK);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR
+				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_10x8: return getTranslatedFinalFormat(EF_ASTC_10x8_SRGB_BLOCK);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x8_KHR
+				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_10x10: return getTranslatedFinalFormat(EF_ASTC_10x10_SRGB_BLOCK);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR
+				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_12x10: return getTranslatedFinalFormat(EF_ASTC_12x10_SRGB_BLOCK);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR
+				case gl::INTERNAL_SRGB8_ALPHA8_ASTC_12x12: return getTranslatedFinalFormat(EF_ASTC_12x12_SRGB_BLOCK);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR
 
-				case gl::INTERNAL_R8_USCALED_GTC: return getTranslatedFinalFormat();
-				case gl::INTERNAL_R8_SSCALED_GTC: return getTranslatedFinalFormat();
-				case gl::INTERNAL_RG8_USCALED_GTC: return getTranslatedFinalFormat();
-				case gl::INTERNAL_RG8_SSCALED_GTC: return getTranslatedFinalFormat();
-				case gl::INTERNAL_RGB8_USCALED_GTC: return getTranslatedFinalFormat();
-				case gl::INTERNAL_RGB8_SSCALED_GTC: return getTranslatedFinalFormat();
-				case gl::INTERNAL_RGBA8_USCALED_GTC: return getTranslatedFinalFormat();
-				case gl::INTERNAL_RGBA8_SSCALED_GTC: return getTranslatedFinalFormat();
-				case gl::INTERNAL_RGB10A2_USCALED_GTC: return getTranslatedFinalFormat();
-				case gl::INTERNAL_RGB10A2_SSCALED_GTC: return getTranslatedFinalFormat();
-				case gl::INTERNAL_R16_USCALED_GTC: return getTranslatedFinalFormat();
-				case gl::INTERNAL_R16_SSCALED_GTC: return getTranslatedFinalFormat();
-				case gl::INTERNAL_RG16_USCALED_GTC: return getTranslatedFinalFormat();
-				case gl::INTERNAL_RG16_SSCALED_GTC: return getTranslatedFinalFormat();
-				case gl::INTERNAL_RGB16_USCALED_GTC: return getTranslatedFinalFormat();
-				case gl::INTERNAL_RGB16_SSCALED_GTC: return getTranslatedFinalFormat();
-				case gl::INTERNAL_RGBA16_USCALED_GTC: return getTranslatedFinalFormat();
-				case gl::INTERNAL_RGBA16_SSCALED_GTC: return getTranslatedFinalFormat();
+				case gl::INTERNAL_R8_USCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
+				case gl::INTERNAL_R8_SSCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
+				case gl::INTERNAL_RG8_USCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
+				case gl::INTERNAL_RG8_SSCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
+				case gl::INTERNAL_RGB8_USCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
+				case gl::INTERNAL_RGB8_SSCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
+				case gl::INTERNAL_RGBA8_USCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
+				case gl::INTERNAL_RGBA8_SSCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
+				case gl::INTERNAL_RGB10A2_USCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
+				case gl::INTERNAL_RGB10A2_SSCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
+				case gl::INTERNAL_R16_USCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
+				case gl::INTERNAL_R16_SSCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
+				case gl::INTERNAL_RG16_USCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
+				case gl::INTERNAL_RG16_SSCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
+				case gl::INTERNAL_RGB16_USCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
+				case gl::INTERNAL_RGB16_SSCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
+				case gl::INTERNAL_RGBA16_USCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
+				case gl::INTERNAL_RGBA16_SSCALED_GTC: return getTranslatedFinalFormat(EF_UNKNOWN, vulcanVertexFormatsError);
 				default: assert(0);
 			}
 		}
