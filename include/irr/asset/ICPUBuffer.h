@@ -62,6 +62,10 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 
         virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
         {
+            if (isDummyObjectForCacheAliasing)
+                return;
+            convertToDummyObject_common(referenceLevelsBelowToConvert);
+
             if (data)
                 _IRR_ALIGNED_FREE(data);
             data = nullptr;
@@ -114,6 +118,10 @@ class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
 
 		virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
 		{
+            if (isDummyObjectForCacheAliasing)
+                return;
+            convertToDummyObject_common(referenceLevelsBelowToConvert);
+
 			if (ICPUBuffer::data)
 				m_allocator.deallocate(reinterpret_cast<typename Allocator::pointer>(ICPUBuffer::data), ICPUBuffer::size);
 			ICPUBuffer::data = nullptr; // so that ICPUBuffer won't try deallocating

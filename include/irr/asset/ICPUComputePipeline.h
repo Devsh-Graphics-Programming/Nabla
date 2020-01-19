@@ -21,12 +21,15 @@ public:
     size_t conservativeSizeEstimate() const override { return sizeof(void*)*3u+sizeof(uint8_t); }
     void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 	{
+        if (isDummyObjectForCacheAliasing)
+            return;
+        convertToDummyObject_common(referenceLevelsBelowToConvert);
+
 		if (referenceLevelsBelowToConvert)
 		{
+            //intentionally parent is not converted
             --referenceLevelsBelowToConvert;
 			m_shader->convertToDummyObject(referenceLevelsBelowToConvert);
-            if (m_parent)
-			    static_cast<ICPUComputePipeline*>(m_parent.get())->convertToDummyObject(referenceLevelsBelowToConvert);
 			m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
 		}
 	}

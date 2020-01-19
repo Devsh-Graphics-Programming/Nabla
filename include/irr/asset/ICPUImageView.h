@@ -43,6 +43,10 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 		//!
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
+            if (isDummyObjectForCacheAliasing)
+                return;
+            convertToDummyObject_common(referenceLevelsBelowToConvert);
+
 			if (referenceLevelsBelowToConvert)
 				params.image->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}

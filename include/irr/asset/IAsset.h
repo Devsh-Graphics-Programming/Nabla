@@ -191,6 +191,11 @@ class IAsset : virtual public core::IReferenceCounted
 		*/
 		virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) = 0;
 
+        void convertToDummyObject_common(uint32_t referenceLevelsBelowToConvert)
+        {
+            isDummyObjectForCacheAliasing = true;
+        }
+
 		//! Checks if the object is either not dummy or dummy but in some cache for a purpose
 		inline bool isInValidState() { return !isDummyObjectForCacheAliasing /* || !isCached TODO*/; }
 

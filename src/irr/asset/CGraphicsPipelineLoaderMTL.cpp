@@ -24,10 +24,10 @@ void main()
     float VdotR = max(dot(L,R), 0.0);
 
     vec3 color;
-    if (PC.extra&ILLUM_MODEL_MASK > 0)
+    if (PC.params.extra&ILLUM_MODEL_MASK > 0)
     {
-        color = PC.Ka*Ia + PC.Kd*NdotL;
-        switch (PC.extra&ILLUM_MODEL_MASK)
+        color = PC.params.Ka*Ia + PC.params.Kd*NdotL;
+        switch (PC.params.extra&ILLUM_MODEL_MASK)
         {
         case 2:
         case 3://2 + reflection map
@@ -35,17 +35,17 @@ void main()
         case 6:
         case 8://reflection map
         case 9://reflection map
-            color += PC.Ks*pow(VdotR, PC.Ns);
+            color += PC.params.Ks*pow(VdotR, PC.params.Ns);
             break;
         case 5:
         case 7:
-            color += PC.Ks*pow(VdotR, PC.Ns)*Fresnel_dielectric(PC.Ni, NdotL);
+            color += PC.params.Ks*pow(VdotR, PC.params.Ns)*Fresnel_dielectric(PC.params.Ni, NdotL);
             break;
         default:
             break;
         }
     }
-    else color = PC.Kd;
+    else color = PC.params.Kd;
 
     OutColor = vec4(color, 1.0);
 }
@@ -103,7 +103,7 @@ void main()
 #define NdotL NdotV
 #define NdotH NdotV
 
-    vec3 color = PC.emissive*0.01;
+    vec3 color = PC.params.emissive*0.01;
     if (NdotL > FLT_MIN)
     {
         float lightDistance2 = dot(V,V);
@@ -118,31 +118,31 @@ void main()
 #define TdotH TdotV
 #define BdotH BdotV
 
-        float at = sqrt(PC.roughness);
-        float ab = at*(1.0 - PC.anisotropy);
+        float at = sqrt(PC.params.roughness);
+        float ab = at*(1.0 - PC.params.anisotropy);
 
-        float fr = Fresnel_dielectric(PC.ior, NdotV);
+        float fr = Fresnel_dielectric(PC.params.ior, NdotV);
         float one_minus_fr = 1.0-fr;
         float diffuseFactor = 1.0 - one_minus_fr*one_minus_fr;
         float diffuse = 0.0;
-        if (PC.metallic < 1.0)
+        if (PC.params.metallic < 1.0)
         {
-            if (PC.roughness==0.0)
+            if (PC.params.roughness==0.0)
                 diffuse = 1.0/PI;
             else
-                diffuse = oren_nayar(PC.roughness, N, V, V, NdotL, NdotV);
+                diffuse = oren_nayar(PC.params.roughness, N, V, V, NdotL, NdotV);
         }
         float specular = 0.0;
         if (NdotV > FLT_MIN)
         {
-            float ndf = GGXBurleyAnisotropic(PC.anisotropy, PC.roughness, TdotH, BdotH, NdotH);
+            float ndf = GGXBurleyAnisotropic(PC.params.anisotropy, PC.params.roughness, TdotH, BdotH, NdotH);
             float geom = GGXSmithHeightCorrelated_aniso_wo_numerator(at, ab, TdotL, TdotV, BdotL, BdotV, NdotL, NdotV);
             specular = ndf*geom*fr;
         }
 
-        color += (diffuseFactor*diffuse*PC.albedo + specular) * NdotL / lightDistance2;
+        color += (diffuseFactor*diffuse*PC.params.albedo + specular) * NdotL / lightDistance2;
     }
-    OutColor = vec4(color*PC.transmissionFilter, 1.0);
+    OutColor = vec4(color*PC.params.transmissionFilter, 1.0);
 }
 )";
     constexpr const char* VERT_SHADER_UV = 
@@ -212,25 +212,11 @@ layout (location = 0) out vec4 OutColor;
 
 #ifndef _IRR_FRAG_PUSH_CONSTANTS_DEFINED_
 #define _IRR_FRAG_PUSH_CONSTANTS_DEFINED_
+
+#include <irr/builtin/glsl/graphicspipeline/loaders/mtl/common.glsl>
+
 layout (push_constant) uniform Block {
-    vec3 Ka;
-    vec3 Kd;
-    vec3 Ks;
-    vec3 Ke;
-    vec4 Tf;//w component doesnt matter
-    float Ns;
-    float d;
-    float bm;
-    float Ni;
-    float roughness;
-    float metallic;
-    float sheen;
-    float clearcoatThickness;
-    float clearcoatRoughness;
-    float anisotropy;
-    float anisoRotation;
-    //extra info
-    uint extra;
+    irr_glsl_SMTLPushConstants params;
 } PC;
 #endif //_IRR_FRAG_PUSH_CONSTANTS_DEFINED_
 
@@ -254,7 +240,7 @@ layout (set = 3, binding = 6) uniform sampler2D map_bump;
 void main()
 {
     vec3 N = normalize(Normal);
-    if ((PC.extra&map_bump_MASK) == map_bump_MASK)
+    if ((PC.params.params.extra&map_bump_MASK) == map_bump_MASK)
     {
         float height = texture(map_bump, UV).x;
         vec3 dpdx = dFdx(ViewPos);
@@ -275,35 +261,35 @@ void main()
     vec3 Ke = texture(map_Ke, UV).rgb;//force visibility (as in: visible as resource used by the shader) of emissive map (needed temporarily because of bindings reordering bug)
 
     vec3 Kd;
-    if ((PC.extra&(map_Kd_MASK)) == (map_Kd_MASK))
+    if ((PC.params.params.extra&(map_Kd_MASK)) == (map_Kd_MASK))
         Kd = texture(map_Kd, UV).rgb;
     else
-        Kd = PC.Kd;
+        Kd = PC.params.params.Kd;
     float d = 1.0;
-    if ((PC.extra&(map_d_MASK)) == (map_d_MASK))
+    if ((PC.params.params.extra&(map_d_MASK)) == (map_d_MASK))
         d = texture(map_d, UV).r;
 
     vec3 color;
-    if ((PC.extra&ILLUM_MODEL_MASK) > 0)
+    if ((PC.params.params.extra&ILLUM_MODEL_MASK) > 0)
     {
         vec3 Ka;
         vec3 Ks;
         float Ns;
-        if ((PC.extra&(map_Ka_MASK)) == (map_Ka_MASK))
+        if ((PC.params.params.extra&(map_Ka_MASK)) == (map_Ka_MASK))
             Ka = texture(map_Ka, UV).rgb;
         else
-            Ka = PC.Ka;
-        if ((PC.extra&(map_Ks_MASK)) == (map_Ks_MASK))
+            Ka = PC.params.params.Ka;
+        if ((PC.params.params.extra&(map_Ks_MASK)) == (map_Ks_MASK))
             Ks = texture(map_Ks, UV).rgb;
         else
-            Ks = PC.Ks;
-        if ((PC.extra&(map_Ns_MASK)) == (map_Ns_MASK))
+            Ks = PC.params.params.Ks;
+        if ((PC.params.params.extra&(map_Ns_MASK)) == (map_Ns_MASK))
             Ns = texture(map_Ns, UV).x;
         else
-            Ns = PC.Ns;
+            Ns = PC.params.params.Ns;
 
         color = Ka*Ia + Kd*NdotL;
-        switch (PC.extra&ILLUM_MODEL_MASK)
+        switch (PC.params.params.extra&ILLUM_MODEL_MASK)
         {
         case 2:
         case 3://2 + reflection map
@@ -315,7 +301,7 @@ void main()
             break;
         case 5:
         case 7:
-            color += Ks*pow(VdotR, Ns)*Fresnel_dielectric(PC.Ni, NdotL);
+            color += Ks*pow(VdotR, Ns)*Fresnel_dielectric(PC.params.params.Ni, NdotL);
             break;
         default:
             break;
@@ -490,7 +476,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
         SPrimitiveAssemblyParams primParams;
         SRasterizationParams rasterParams;
 
-        if (materials[i].maps[CMTLPipelineMetadata::SMtl::EMP_OPACITY].size())
+        if (materials[i].maps[CMTLPipelineMetadata::SMtl::EMP_OPACITY].size() || materials[i].std140PackedData.opacity!=1.f)
         {
             for (uint32_t k = 0u; k < SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; ++k)
             {
@@ -539,8 +525,8 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
         }
 
         pipelines[j] = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(nullptr, core::smart_refctd_ptr(layout), nullptr, nullptr, vtxParams, blendParams, primParams, rasterParams);
-        pipelines[j]->setShaderAtIndex(0u, shaders.first.get());
-        pipelines[j]->setShaderAtIndex(4u, shaders.second.get());
+        pipelines[j]->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, shaders.first.get());
+        pipelines[j]->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, shaders.second.get());
         m_assetMgr->setAssetMetadata(pipelines[j].get(), core::make_smart_refctd_ptr<CMTLPipelineMetadata>(materials[i], core::smart_refctd_ptr(ds3), 0u));
 
         //uv
@@ -552,8 +538,8 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
         shaders = getShaders(true);
 
         pipelines[j+1u] = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(nullptr, std::move(layout), nullptr, nullptr, vtxParams, blendParams, primParams, rasterParams);
-        pipelines[j+1u]->setShaderAtIndex(0u, shaders.first.get());
-        pipelines[j+1u]->setShaderAtIndex(4u, shaders.second.get());
+        pipelines[j+1u]->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, shaders.first.get());
+        pipelines[j+1u]->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, shaders.second.get());
         m_assetMgr->setAssetMetadata(pipelines[j+1u].get(), core::make_smart_refctd_ptr<CMTLPipelineMetadata>(std::move(materials[i]), std::move(ds3), 1u));
     }
     materials.clear();

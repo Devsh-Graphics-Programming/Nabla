@@ -8,7 +8,7 @@ namespace irr {
 namespace asset
 {
 
-inline void fillBufferWithDword(ICPUBuffer* _buf, uint32_t _val)
+inline void fillBufferWithDWORD(ICPUBuffer* _buf, uint32_t _val)
 {
     const size_t dwCnt = _buf->getSize()/4ull;
     const size_t rem = _buf->getSize()-(dwCnt*4ull);
@@ -20,7 +20,7 @@ inline void fillBufferWithDword(ICPUBuffer* _buf, uint32_t _val)
 
 inline void fillBufferWithDeadBeef(ICPUBuffer* _buf)
 {
-    fillBufferWithDword(_buf, 0xdeadbeefu);
+    fillBufferWithDWORD(_buf, 0xdeadbeefu);
 }
 
 #include "irr/irrpack.h"

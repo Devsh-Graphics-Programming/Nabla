@@ -28,9 +28,8 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		{
 			if (referenceLevelsBelowToConvert)
 			{
+                //intentionally parent is not converted
                 --referenceLevelsBelowToConvert;
-                if (m_parent)
-				    static_cast<ICPURenderpassIndependentPipeline*>(m_parent.get())->convertToDummyObject(referenceLevelsBelowToConvert);
 				m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
 				for (auto i=0u; i<SHADER_STAGE_COUNT; i++)
                     if (m_shaders[i])

@@ -89,12 +89,12 @@ int main()
 
         asset::SBasicViewParameters uboData;
 		core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
-        memcpy(uboData.MVP, mvp.pointer(), 4*4*4);
+        memcpy(uboData.MVP, mvp.pointer(), sizeof(uboData.MVP));
         core::matrix3x4SIMD MV3x4;
         MV3x4.set(camera->getViewMatrix());
         core::matrix4SIMD MV(MV3x4);
-        memcpy(uboData.MV, MV.pointer(), 3*4*4);
-        memcpy(uboData.NormalMat, MV.pointer(), 3*4*4);
+        memcpy(uboData.MV, MV.pointer(), sizeof(uboData.MV));
+        memcpy(uboData.NormalMat, MV.pointer(), sizeof(uboData.NormalMat));
         driver->updateBufferRangeViaStagingBuffer(gpuubo->getBuffer(), gpuubo->getOffset(), sizeof(uboData), &uboData);
 
         for (uint32_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)

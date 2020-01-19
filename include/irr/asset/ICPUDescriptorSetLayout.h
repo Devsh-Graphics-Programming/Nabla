@@ -46,6 +46,10 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 		size_t conservativeSizeEstimate() const override { return m_bindings->size()*sizeof(SBinding)+m_samplers->size()*sizeof(void*); }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
+            if (isDummyObjectForCacheAliasing)
+                return;
+            convertToDummyObject_common(referenceLevelsBelowToConvert);
+
 			m_bindings = nullptr;
 			if (referenceLevelsBelowToConvert)
 			{
