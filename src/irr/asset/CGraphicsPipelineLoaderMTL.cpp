@@ -1,10 +1,393 @@
 #include "irr/asset/CGraphicsPipelineLoaderMTL.h"
 
+namespace
+{
+    constexpr const char* VERT_SHADER_NO_UV_MAIN = 
+R"(
+void main()
+{
+    LocalPos = vPos;
+    gl_Position = irr_glsl_pseudoMul4x4with3x1(CamData.params.MVP, vPos);
+    ViewPos = irr_glsl_pseudoMul3x4with3x1(CamData.params.MV, vPos);
+    mat3 normalMat = irr_glsl_SBasicViewParameters_GetNormalMat(CamData.params);
+    Normal = normalMat*normalize(vNormal);
+}
+)";
+    constexpr const char* FRAG_SHADER_NO_UV_MAIN =
+R"(#define Ia 0.1
+void main()
+{
+    vec3 N = normalize(Normal);
+    vec3 L = normalize(-ViewPos);
+    vec3 R = -reflect(L,N);
+    float NdotL = max(dot(N,L), 0.0);
+    float VdotR = max(dot(L,R), 0.0);
+
+    vec3 color;
+    if (PC.extra&ILLUM_MODEL_MASK > 0)
+    {
+        color = PC.Ka*Ia + PC.Kd*NdotL;
+        switch (PC.extra&ILLUM_MODEL_MASK)
+        {
+        case 2:
+        case 3://2 + reflection map
+        case 4://3 with transparency (glass)
+        case 6:
+        case 8://reflection map
+        case 9://reflection map
+            color += PC.Ks*pow(VdotR, PC.Ns);
+            break;
+        case 5:
+        case 7:
+            color += PC.Ks*pow(VdotR, PC.Ns)*Fresnel_dielectric(PC.Ni, NdotL);
+            break;
+        default:
+            break;
+        }
+    }
+    else color = PC.Kd;
+
+    OutColor = vec4(color, 1.0);
+}
+)";
+    constexpr const char* FRAG_SHADER_NO_UV_PBR =
+R"(#version 430 core
+
+layout (location = 0) in vec3 LocalPos;
+layout (location = 1) in vec3 ViewPos;
+layout (location = 2) in vec3 Normal;
+layout (location = 0) out vec4 OutColor;
+
+layout (push_constant) uniform Block {
+    vec3 ambient;
+    vec3 albedo;//MTL's diffuse
+    vec3 specular;
+    vec3 emissive;
+    vec4 Tf;//w component doesnt matter
+    float shininess;
+    float opacity;
+    float bumpFactor;
+    //PBR
+    float ior;
+    float roughness;
+    float metallic;
+    float sheen;
+    float clearcoatThickness;
+    float clearcoatRoughness;
+    float anisotropy;
+    float anisoRotation;
+    //extra info
+    uint extra;
+} PC;
+
+#define PI 3.14159265359
+#define FLT_MIN 1.175494351e-38
+
+#include <irr/builtin/glsl/brdf/diffuse/oren_nayar.glsl>
+#include <irr/builtin/glsl/brdf/specular/ndf/ggx_trowbridge_reitz.glsl>
+#include <irr/builtin/glsl/brdf/specular/geom/ggx_smith.glsl>
+#include <irr/builtin/glsl/brdf/specular/fresnel/fresnel.glsl>
+
+void main()
+{
+    vec3 N = normalize(Normal);
+    //some approximation for computing tangents without UV
+    vec3 c1 = cross(N, vec3(0.0, 0.0, 1.0));
+    vec3 c2 = cross(N, vec3(0.0, 1.0, 0.0));
+    vec3 T = (dot(c1,c1) > dot(c2,c2)) ? c1 : c2;
+    T = normalize(T);
+    vec3 B = normalize(cross(N,T));
+    vec3 V = -ViewPos;
+
+    vec3 NdotV = dot(N,V);
+#define NdotL NdotV
+#define NdotH NdotV
+
+    vec3 color = PC.emissive*0.01;
+    if (NdotL > FLT_MIN)
+    {
+        float lightDistance2 = dot(V,V);
+        float Vrcplen = inversesqrt(lightDistance2);
+        NdotV *= Vrcplen;
+        V *= Vrcplen;
+
+        vec3 TdotV = dot(T,V);
+        vec3 BdotV = dot(B,V);
+#define TdotL TdotV
+#define BdotL BdotV
+#define TdotH TdotV
+#define BdotH BdotV
+
+        float at = sqrt(PC.roughness);
+        float ab = at*(1.0 - PC.anisotropy);
+
+        float fr = Fresnel_dielectric(PC.ior, NdotV);
+        float one_minus_fr = 1.0-fr;
+        float diffuseFactor = 1.0 - one_minus_fr*one_minus_fr;
+        float diffuse = 0.0;
+        if (PC.metallic < 1.0)
+        {
+            if (PC.roughness==0.0)
+                diffuse = 1.0/PI;
+            else
+                diffuse = oren_nayar(PC.roughness, N, V, V, NdotL, NdotV);
+        }
+        float specular = 0.0;
+        if (NdotV > FLT_MIN)
+        {
+            float ndf = GGXBurleyAnisotropic(PC.anisotropy, PC.roughness, TdotH, BdotH, NdotH);
+            float geom = GGXSmithHeightCorrelated_aniso_wo_numerator(at, ab, TdotL, TdotV, BdotL, BdotV, NdotL, NdotV);
+            specular = ndf*geom*fr;
+        }
+
+        color += (diffuseFactor*diffuse*PC.albedo + specular) * NdotL / lightDistance2;
+    }
+    OutColor = vec4(color*PC.transmissionFilter, 1.0);
+}
+)";
+    constexpr const char* VERT_SHADER_UV = 
+R"(#version 430 core
+
+#ifndef _IRR_VERT_INPUTS_DEFINED_
+#define _IRR_VERT_INPUTS_DEFINED_
+layout (location = 0) in vec3 vPos;
+layout (location = 2) in vec2 vUV;
+layout (location = 3) in vec3 vNormal;
+#endif //_IRR_VERT_INPUTS_DEFINED_
+
+#ifndef _IRR_VERT_OUTPUTS_DEFINED_
+#define _IRR_VERT_OUTPUTS_DEFINED_
+layout (location = 0) out vec3 LocalPos;
+layout (location = 1) out vec3 ViewPos;
+layout (location = 2) out vec3 Normal;
+layout (location = 3) out vec2 UV;
+#endif //_IRR_VERT_OUTPUTS_DEFINED_
+
+#include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
+
+#ifndef _IRR_VERT_SET1_BINDINGS_DEFINED_
+#define _IRR_VERT_SET1_BINDINGS_DEFINED_
+layout (set = 1, binding = 0, row_major, std140) uniform UBO {
+    irr_glsl_SBasicViewParameters params;
+} CamData;
+#endif //_IRR_VERT_SET1_BINDINGS_DEFINED_
+
+#ifndef _IRR_VERT_MAIN_DEFINED_
+#define _IRR_VERT_MAIN_DEFINED_
+void main()
+{
+    LocalPos = vPos;
+    gl_Position = irr_glsl_pseudoMul4x4with3x1(CamData.params.MVP, vPos);
+    ViewPos = irr_glsl_pseudoMul3x4with3x1(CamData.params.MV, vPos);
+    mat3 normalMat = irr_glsl_SBasicViewParameters_GetNormalMat(CamData.params);
+    Normal = normalMat*normalize(vNormal);
+    UV = vUV;
+}
+#endif //_IRR_VERT_MAIN_DEFINED_
+)";
+    constexpr const char* FRAG_SHADER_UV =
+R"(#version 430 core
+
+#ifndef _IRR_FRAG_INPUTS_DEFINED_
+#define _IRR_FRAG_INPUTS_DEFINED_
+layout (location = 0) in vec3 LocalPos;
+layout (location = 1) in vec3 ViewPos;
+layout (location = 2) in vec3 Normal;
+layout (location = 3) in vec2 UV;
+#endif //_IRR_FRAG_INPUTS_DEFINED_
+
+#ifndef _IRR_FRAG_OUTPUTS_DEFINED_
+#define _IRR_FRAG_OUTPUTS_DEFINED_
+layout (location = 0) out vec4 OutColor;
+#endif //_IRR_FRAG_OUTPUTS_DEFINED_
+
+#define ILLUM_MODEL_MASK 0x0fu
+#define map_Ka_MASK uint(1u<<4u)
+#define map_Kd_MASK uint(1u<<5u)
+#define map_Ks_MASK uint(1u<<6u)
+#define map_Ns_MASK uint(1u<<8u)
+#define map_d_MASK uint(1u<<9u)
+#define map_bump_MASK uint(1u<<10u)
+#define map_normal_MASK uint(1u<<11u)
+
+#ifndef _IRR_FRAG_PUSH_CONSTANTS_DEFINED_
+#define _IRR_FRAG_PUSH_CONSTANTS_DEFINED_
+layout (push_constant) uniform Block {
+    vec3 Ka;
+    vec3 Kd;
+    vec3 Ks;
+    vec3 Ke;
+    vec4 Tf;//w component doesnt matter
+    float Ns;
+    float d;
+    float bm;
+    float Ni;
+    float roughness;
+    float metallic;
+    float sheen;
+    float clearcoatThickness;
+    float clearcoatRoughness;
+    float anisotropy;
+    float anisoRotation;
+    //extra info
+    uint extra;
+} PC;
+#endif //_IRR_FRAG_PUSH_CONSTANTS_DEFINED_
+
+#ifndef _IRR_FRAG_SET3_BINDINGS_DEFINED_
+#define _IRR_FRAG_SET3_BINDINGS_DEFINED_
+layout (set = 3, binding = 0) uniform sampler2D map_Ka;
+layout (set = 3, binding = 1) uniform sampler2D map_Kd;
+layout (set = 3, binding = 2) uniform sampler2D map_Ks;
+layout (set = 3, binding = 3) uniform sampler2D map_Ke;
+layout (set = 3, binding = 4) uniform sampler2D map_Ns;
+layout (set = 3, binding = 5) uniform sampler2D map_d;
+layout (set = 3, binding = 6) uniform sampler2D map_bump;
+#endif //_IRR_FRAG_SET3_BINDINGS_DEFINED_
+
+#include <irr/builtin/glsl/brdf/specular/fresnel/fresnel.glsl>
+
+#ifndef _IRR_FRAG_MAIN_DEFINED_
+#define _IRR_FRAG_MAIN_DEFINED_
+
+#define Ia 0.1
+void main()
+{
+    vec3 N = normalize(Normal);
+    if ((PC.extra&map_bump_MASK) == map_bump_MASK)
+    {
+        float height = texture(map_bump, UV).x;
+        vec3 dpdx = dFdx(ViewPos);
+        vec3 dpdy = dFdy(ViewPos);
+        float dhdx = dFdx(height);
+        float dhdy = dFdy(height);
+        
+        vec3 r1 = cross(dpdy, N);
+        vec3 r2 = cross(N, dpdx);
+        vec3 surfGrad = (r1*dhdx + r2*dhdy) / dot(dpdx,r1);
+        N = normalize(N - surfGrad);
+    }
+    vec3 L = normalize(-ViewPos);
+    vec3 R = normalize(-reflect(L,N));
+    float NdotL = max(dot(N,L), 0.0);
+    float VdotR = max(dot(L,R), 0.0);
+
+    vec3 Ke = texture(map_Ke, UV).rgb;//force visibility (as in: visible as resource used by the shader) of emissive map (needed temporarily because of bindings reordering bug)
+
+    vec3 Kd;
+    if ((PC.extra&(map_Kd_MASK)) == (map_Kd_MASK))
+        Kd = texture(map_Kd, UV).rgb;
+    else
+        Kd = PC.Kd;
+    float d = 1.0;
+    if ((PC.extra&(map_d_MASK)) == (map_d_MASK))
+        d = texture(map_d, UV).r;
+
+    vec3 color;
+    if ((PC.extra&ILLUM_MODEL_MASK) > 0)
+    {
+        vec3 Ka;
+        vec3 Ks;
+        float Ns;
+        if ((PC.extra&(map_Ka_MASK)) == (map_Ka_MASK))
+            Ka = texture(map_Ka, UV).rgb;
+        else
+            Ka = PC.Ka;
+        if ((PC.extra&(map_Ks_MASK)) == (map_Ks_MASK))
+            Ks = texture(map_Ks, UV).rgb;
+        else
+            Ks = PC.Ks;
+        if ((PC.extra&(map_Ns_MASK)) == (map_Ns_MASK))
+            Ns = texture(map_Ns, UV).x;
+        else
+            Ns = PC.Ns;
+
+        color = Ka*Ia + Kd*NdotL;
+        switch (PC.extra&ILLUM_MODEL_MASK)
+        {
+        case 2:
+        case 3://2 + reflection map
+        case 4://3 with transparency (glass)
+        case 6:
+        case 8://reflection map
+        case 9://reflection map
+            color += Ks*pow(VdotR, Ns);
+            break;
+        case 5:
+        case 7:
+            color += Ks*pow(VdotR, Ns)*Fresnel_dielectric(PC.Ni, NdotL);
+            break;
+        default:
+            break;
+        }
+    }
+    else color = Kd;
+
+    OutColor = vec4(color, d);
+}
+#endif //_IRR_FRAG_MAIN_DEFINED_
+)";
+}
+
+
 using namespace irr;
 using namespace asset;
 
+static void insertShaderIntoCache(core::smart_refctd_ptr<ICPUSpecializedShader>& asset, const char* path, IAssetManager* _assetMgr)
+{
+    asset::SAssetBundle bundle({ asset });
+    _assetMgr->changeAssetKey(bundle, path);
+    _assetMgr->insertAssetIntoCache(bundle);
+}
+
+_IRR_STATIC_INLINE_CONSTEXPR const char* VERT_SHADER_NO_UV_CACHE_KEY = "irr/builtin/shader/loaders/mtl/vertex_no_uv";
+_IRR_STATIC_INLINE_CONSTEXPR const char* VERT_SHADER_UV_CACHE_KEY = "irr/builtin/shader/loaders/mtl/vertex_uv";
+_IRR_STATIC_INLINE_CONSTEXPR const char* FRAG_SHADER_NO_UV_CACHE_KEY = "irr/builtin/shader/loaders/mtl/fragment_no_uv";
+_IRR_STATIC_INLINE_CONSTEXPR const char* FRAG_SHADER_UV_CACHE_KEY = "irr/builtin/shader/loaders/mtl/fragment_uv";
+
 CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_assetMgr{_am}
 {
+    //create vertex shaders and insert them into cache
+    {
+        std::string vs_nouv_source = VERT_SHADER_UV;
+        vs_nouv_source.insert(vs_nouv_source.find('\n') + 1ull,
+            R"(
+#define _IRR_VERT_MAIN_DEFINED_
+)"
+);
+        vs_nouv_source.insert(vs_nouv_source.size(), VERT_SHADER_NO_UV_MAIN);
+
+        auto vs_nouv_unspec = core::make_smart_refctd_ptr<ICPUShader>(vs_nouv_source.c_str());
+        auto vs_uv_unspec = core::make_smart_refctd_ptr<ICPUShader>(VERT_SHADER_UV);
+
+        ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_VERTEX);
+        auto vs_nouv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(vs_nouv_unspec), ICPUSpecializedShader::SInfo(specinfo));
+        auto vs_uv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(vs_uv_unspec), std::move(specinfo));
+
+        insertShaderIntoCache(vs_nouv, VERT_SHADER_NO_UV_CACHE_KEY, m_assetMgr);
+        insertShaderIntoCache(vs_uv, VERT_SHADER_UV_CACHE_KEY, m_assetMgr);
+    }
+    //create fragment shaders and insert them into cache
+    {
+        std::string fs_nouv_source = FRAG_SHADER_UV;
+        fs_nouv_source.insert(fs_nouv_source.find('\n') + 1ull,
+            R"(
+#define _IRR_FRAG_SET3_BINDINGS_DEFINED_
+#define _IRR_FRAG_MAIN_DEFINED_
+)"
+);
+        fs_nouv_source.insert(fs_nouv_source.size(), FRAG_SHADER_NO_UV_MAIN);
+
+        auto fs_nouv_unspec = core::make_smart_refctd_ptr<ICPUShader>(fs_nouv_source.c_str());
+        auto fs_uv_unspec = core::make_smart_refctd_ptr<ICPUShader>(FRAG_SHADER_UV);
+
+        ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_FRAGMENT);
+        auto fs_nouv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(fs_nouv_unspec), ICPUSpecializedShader::SInfo(specinfo));
+        auto fs_uv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(fs_uv_unspec), std::move(specinfo));
+
+        insertShaderIntoCache(fs_nouv, FRAG_SHADER_NO_UV_CACHE_KEY, m_assetMgr);
+        insertShaderIntoCache(fs_uv, FRAG_SHADER_UV_CACHE_KEY, m_assetMgr);
+    }
 }
 
 bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) const
@@ -79,30 +462,99 @@ core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipel
 
 SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
+    constexpr uint32_t POSITION = 0u;
+    constexpr uint32_t UV = 2u;
+    constexpr uint32_t NORMAL = 3u;
+    constexpr uint32_t BND_NUM = 0u;
+
+    SContext ctx(
+        asset::IAssetLoader::SAssetLoadContext{
+            _params,
+            _file
+        },
+        _hierarchyLevel,
+        _override
+    );
+    const io::path fullName = _file->getFileName();
+	const std::string relPath = (io::IFileSystem::getFileDir(fullName)+"/").c_str();
+
     auto materials = readMaterials(_file);
 
-    core::vector<core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>> pipelines(materials.size());
-    SVertexInputParams vtxParams;
-    SBlendParams blendParams;
-    SPrimitiveAssemblyParams primParams;
-    SRasterizationParams rasterParams;
-    for (size_t i = 0ull; i < pipelines.size(); ++i)
+    constexpr uint32_t PIPELINE_PERMUTATION_COUNT = 2u;
+
+    core::vector<core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>> pipelines(materials.size()*PIPELINE_PERMUTATION_COUNT);
+    for (size_t i = 0ull; i < materials.size(); ++i)
     {
-        auto layout = makePipelineLayoutFromMtl(materials[i]);
-        pipelines[i] = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(nullptr, std::move(layout), nullptr, nullptr, vtxParams, blendParams, primParams, rasterParams);
+        SVertexInputParams vtxParams;
+        SBlendParams blendParams;
+        SPrimitiveAssemblyParams primParams;
+        SRasterizationParams rasterParams;
+
         if (materials[i].maps[CMTLPipelineMetadata::SMtl::EMP_OPACITY].size())
         {
-            for (uint32_t i = 0u; i < SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; ++i)
+            for (uint32_t k = 0u; k < SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; ++k)
             {
-                blendParams.blendParams[i].blendEnable = true;
-                blendParams.blendParams[i].srcColorFactor = EBF_SRC_ALPHA;
-                blendParams.blendParams[i].srcAlphaFactor = EBF_SRC_ALPHA;
-                blendParams.blendParams[i].dstColorFactor = EBF_ONE_MINUS_SRC_ALPHA;
-                blendParams.blendParams[i].dstAlphaFactor = EBF_ONE_MINUS_SRC_ALPHA;
+                blendParams.blendParams[k].blendEnable = true;
+                blendParams.blendParams[k].srcColorFactor = EBF_SRC_ALPHA;
+                blendParams.blendParams[k].srcAlphaFactor = EBF_SRC_ALPHA;
+                blendParams.blendParams[k].dstColorFactor = EBF_ONE_MINUS_SRC_ALPHA;
+                blendParams.blendParams[k].dstAlphaFactor = EBF_ONE_MINUS_SRC_ALPHA;
             }
         }
 
-        m_assetMgr->setAssetMetadata(pipelines[i].get(), core::make_smart_refctd_ptr<CMTLPipelineMetadata>(std::move(materials[i])));
+        const uint32_t j = i*PIPELINE_PERMUTATION_COUNT;
+
+        vtxParams.enabledAttribFlags = (1u << POSITION) | (1u << NORMAL);
+        vtxParams.enabledBindingFlags = 1u << BND_NUM;
+        vtxParams.bindings[BND_NUM].stride = 24u;
+        vtxParams.bindings[BND_NUM].inputRate = EVIR_PER_VERTEX;
+        //position
+        vtxParams.attributes[POSITION].binding = BND_NUM;
+        vtxParams.attributes[POSITION].format = EF_R32G32B32_SFLOAT;
+        vtxParams.attributes[POSITION].relativeOffset = 0u;
+        //normal
+        vtxParams.attributes[NORMAL].binding = BND_NUM;
+        vtxParams.attributes[NORMAL].format = EF_A2B10G10R10_SNORM_PACK32;
+        vtxParams.attributes[NORMAL].relativeOffset = 20u;
+
+        auto layout = makePipelineLayoutFromMtl(materials[i]);
+        auto shaders = getShaders(false);
+        core::smart_refctd_ptr<ICPUDescriptorSet> ds3;
+        {
+            const std::string dsCacheKey = std::string(fullName.c_str())+"?"+materials[i].name+"?_ds";
+            const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_DESCRIPTOR_SET, (asset::IAsset::E_TYPE)0u };
+            auto ds_bundle = _override->findCachedAsset(dsCacheKey, types, ctx.inner, _hierarchyLevel + ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
+            if (!ds_bundle.isEmpty())
+                ds3 = core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(ds_bundle.getContents().first[0]);
+            else 
+            {
+                auto views = loadImages(relPath.c_str(), materials[i], ctx);
+                ds3 = makeDescSet(std::move(views), layout->getDescriptorSetLayout(3u));
+                if (ds3)
+                {
+                    SAssetBundle bundle{ds3};
+                    _override->insertAssetIntoCache(bundle, dsCacheKey, ctx.inner, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
+                }
+            }
+        }
+
+        pipelines[j] = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(nullptr, core::smart_refctd_ptr(layout), nullptr, nullptr, vtxParams, blendParams, primParams, rasterParams);
+        pipelines[j]->setShaderAtIndex(0u, shaders.first.get());
+        pipelines[j]->setShaderAtIndex(4u, shaders.second.get());
+        m_assetMgr->setAssetMetadata(pipelines[j].get(), core::make_smart_refctd_ptr<CMTLPipelineMetadata>(materials[i], core::smart_refctd_ptr(ds3), 0u));
+
+        //uv
+        vtxParams.enabledAttribFlags |= (1u << UV);
+        vtxParams.attributes[UV].binding = BND_NUM;
+        vtxParams.attributes[UV].format = EF_R32G32_SFLOAT;
+        vtxParams.attributes[UV].relativeOffset = 12u;
+
+        shaders = getShaders(true);
+
+        pipelines[j+1u] = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(nullptr, std::move(layout), nullptr, nullptr, vtxParams, blendParams, primParams, rasterParams);
+        pipelines[j+1u]->setShaderAtIndex(0u, shaders.first.get());
+        pipelines[j+1u]->setShaderAtIndex(4u, shaders.second.get());
+        m_assetMgr->setAssetMetadata(pipelines[j+1u].get(), core::make_smart_refctd_ptr<CMTLPipelineMetadata>(std::move(materials[i]), std::move(ds3), 1u));
     }
     materials.clear();
 
@@ -326,6 +778,168 @@ const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const c
     }
 
     return _bufPtr;
+}
+
+std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>> CGraphicsPipelineLoaderMTL::getShaders(bool _hasUV)
+{
+    auto vs = getDefaultAsset<ICPUSpecializedShader, IAsset::ET_SPECIALIZED_SHADER>(_hasUV ? VERT_SHADER_UV_CACHE_KEY : VERT_SHADER_NO_UV_CACHE_KEY, m_assetMgr);
+    auto fs = getDefaultAsset<ICPUSpecializedShader, IAsset::ET_SPECIALIZED_SHADER>(_hasUV ? FRAG_SHADER_UV_CACHE_KEY : FRAG_SHADER_NO_UV_CACHE_KEY, m_assetMgr);
+
+    return { std::move(vs), std::move(fs) };
+}
+
+auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const CMTLPipelineMetadata::SMtl& _mtl, SContext& _ctx) -> image_views_set_t
+{
+    images_set_t images;
+
+    std::string relDir = _relDir;
+    for (uint32_t i = 0u; i < images.size(); ++i)
+    {
+        SAssetLoadParams lp;
+        if (_mtl.maps[i].size())
+        {
+            auto bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGE_HIERARCHYLEVELS_BELOW);
+            if (!bundle.isEmpty())
+                images[i] = core::smart_refctd_ptr_static_cast<ICPUImage>(bundle.getContents().first[0]);
+        }
+    }
+
+    auto allCubemapFacesAreSameSizeAndFormat = [](const core::smart_refctd_ptr<ICPUImage>* _faces) {
+        const VkExtent3D sz = (*_faces)->getCreationParameters().extent;
+        const E_FORMAT fmt = (*_faces)->getCreationParameters().format;
+        for (uint32_t i = 1u; i < 6u; ++i)
+        {
+            const auto& img = _faces[i];
+            if (!img)
+                continue;
+
+            if (img->getCreationParameters().format != fmt)
+                return false;
+            const VkExtent3D sz_ = img->getCreationParameters().extent;
+            if (sz.width != sz_.width || sz.height != sz_.height || sz.depth != sz_.depth)
+                return false;
+        }
+        return true;
+    };
+    //make reflection cubemap
+    if (images[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX])
+    {
+        assert(allCubemapFacesAreSameSizeAndFormat(images.data() + CMTLPipelineMetadata::SMtl::EMP_REFL_POSX));
+
+        size_t bufSz = 0ull;
+        //assuming all cubemap layer images are same size and same format
+        const size_t alignment = 1u<<core::findLSB(images[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX]->getRegions().begin()->bufferRowLength);
+        core::vector<ICPUImage::SBufferCopy> regions_;
+        regions_.reserve(6ull);
+        for (uint32_t i = CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; i < CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 6u; ++i)
+        {
+            assert(images[i]);
+#ifndef _IRR_DEBUG
+            if (images[i])
+            {
+#endif
+                //assuming each image has just 1 region
+                assert(images[i]->getRegions().length()==1ull);
+
+                regions_.push_back(images[i]->getRegions().begin()[0]);
+                regions_.back().bufferOffset = core::roundUp(regions_.back().bufferOffset, alignment);
+                regions_.back().imageSubresource.baseArrayLayer = (i - CMTLPipelineMetadata::SMtl::EMP_REFL_POSX);
+
+                bufSz += images[i]->getImageDataSizeInBytes();
+#ifndef _IRR_DEBUG
+            }
+#endif
+        }
+        auto imgDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(bufSz);
+        for (uint32_t i = CMTLPipelineMetadata::SMtl::EMP_REFL_POSX, j = 0u; i < CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 6u; ++i)
+        {
+#ifndef _IRR_DEBUG
+            if (images[i])
+            {
+#endif
+                void* dst = reinterpret_cast<uint8_t*>(imgDataBuf->getPointer()) + regions_[j].bufferOffset;
+                const void* src = reinterpret_cast<const uint8_t*>(images[i]->getBuffer()->getPointer()) + images[i]->getRegions().begin()[0].bufferOffset;
+                const size_t sz = images[i]->getImageDataSizeInBytes();
+                memcpy(dst, src, sz);
+
+                ++j;
+#ifndef _IRR_DEBUG
+            }
+#endif
+        }
+
+        //assuming all cubemap layer images are same size and same format
+        ICPUImage::SCreationParams cubemapParams = images[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX]->getCreationParameters();
+        cubemapParams.arrayLayers = 6u;
+        cubemapParams.type = IImage::ET_2D;
+
+        auto cubemap = ICPUImage::create(std::move(cubemapParams));
+        auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(regions_);
+        cubemap->setBufferAndRegions(std::move(imgDataBuf), regions);
+        //new image goes to EMP_REFL_POSX index and other ones get nulled-out
+        images[CMTLPipelineMetadata::SMtl::EMP_REFL_POSX] = std::move(cubemap);
+        for (uint32_t i = CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 1u; i < CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 6u; ++i)
+        {
+            images[i] = nullptr;
+        }
+    }
+
+    image_views_set_t views;
+    for (uint32_t i = 0u; i < views.size(); ++i)
+    {
+        if (!images[i])
+            continue;
+
+        const std::string viewCacheKey = _mtl.maps[i] + "?view";
+        if (auto view = getDefaultAsset<ICPUImageView,IAsset::ET_IMAGE_VIEW>(viewCacheKey.c_str(), m_assetMgr))
+        {
+            views[i] = std::move(view);
+            continue;
+        }
+
+        constexpr IImageView<ICPUImage>::E_TYPE viewType[2]{ IImageView<ICPUImage>::ET_2D, IImageView<ICPUImage>::ET_CUBE_MAP };
+        constexpr uint32_t layerCount[2]{ 1u, 6u };
+
+        const bool isCubemap = (i == CMTLPipelineMetadata::SMtl::EMP_REFL_POSX);
+
+        ICPUImageView::SCreationParams viewParams;
+        viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+        viewParams.format = images[i]->getCreationParameters().format;
+        viewParams.viewType = viewType[isCubemap];
+        viewParams.subresourceRange.baseArrayLayer = 0u;
+        viewParams.subresourceRange.layerCount = layerCount[isCubemap];
+        viewParams.subresourceRange.baseMipLevel = 0u;
+        viewParams.subresourceRange.levelCount = 1u;
+        viewParams.image = std::move(images[i]);
+
+        views[i] = core::make_smart_refctd_ptr<ICPUImageView>(std::move(viewParams));
+
+        SAssetBundle bundle{views[i]};
+        _ctx.loaderOverride->insertAssetIntoCache(bundle, viewCacheKey, _ctx.inner, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW);
+    }
+
+    return views;
+}
+
+core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSet(image_views_set_t&& _views, ICPUDescriptorSetLayout* _dsLayout)
+{
+    if (!_dsLayout)
+        return nullptr;
+
+    auto ds = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(
+        core::smart_refctd_ptr<ICPUDescriptorSetLayout>(_dsLayout)
+        );
+    auto dummy1x1 = getDefaultAsset<ICPUImageView, IAsset::ET_IMAGE_VIEW>("irr/builtin/image_views/dummy1x1", m_assetMgr);
+    for (uint32_t i = 0u; i <= CMTLPipelineMetadata::SMtl::EMP_REFL_POSX; ++i)
+    {
+        auto desc = ds->getDescriptors(i).begin();
+
+        desc->desc = _views[i] ? std::move(_views[i]) : dummy1x1;
+        desc->image.imageLayout = EIL_UNDEFINED;
+        desc->image.sampler = nullptr; //not needed, immutable (in DS layout) samplers are used
+    }
+
+    return ds;
 }
 
 auto CGraphicsPipelineLoaderMTL::readMaterials(io::IReadFile* _file) const -> core::vector<SMtl>
