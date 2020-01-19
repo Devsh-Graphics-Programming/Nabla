@@ -240,7 +240,7 @@ layout (set = 3, binding = 6) uniform sampler2D map_bump;
 void main()
 {
     vec3 N = normalize(Normal);
-    if ((PC.params.params.extra&map_bump_MASK) == map_bump_MASK)
+    if ((PC.params.extra&map_bump_MASK) == map_bump_MASK)
     {
         float height = texture(map_bump, UV).x;
         vec3 dpdx = dFdx(ViewPos);
@@ -261,35 +261,35 @@ void main()
     vec3 Ke = texture(map_Ke, UV).rgb;//force visibility (as in: visible as resource used by the shader) of emissive map (needed temporarily because of bindings reordering bug)
 
     vec3 Kd;
-    if ((PC.params.params.extra&(map_Kd_MASK)) == (map_Kd_MASK))
+    if ((PC.params.extra&(map_Kd_MASK)) == (map_Kd_MASK))
         Kd = texture(map_Kd, UV).rgb;
     else
-        Kd = PC.params.params.Kd;
+        Kd = PC.params.Kd;
     float d = 1.0;
-    if ((PC.params.params.extra&(map_d_MASK)) == (map_d_MASK))
+    if ((PC.params.extra&(map_d_MASK)) == (map_d_MASK))
         d = texture(map_d, UV).r;
 
     vec3 color;
-    if ((PC.params.params.extra&ILLUM_MODEL_MASK) > 0)
+    if ((PC.params.extra&ILLUM_MODEL_MASK) > 0)
     {
         vec3 Ka;
         vec3 Ks;
         float Ns;
-        if ((PC.params.params.extra&(map_Ka_MASK)) == (map_Ka_MASK))
+        if ((PC.params.extra&(map_Ka_MASK)) == (map_Ka_MASK))
             Ka = texture(map_Ka, UV).rgb;
         else
-            Ka = PC.params.params.Ka;
-        if ((PC.params.params.extra&(map_Ks_MASK)) == (map_Ks_MASK))
+            Ka = PC.params.Ka;
+        if ((PC.params.extra&(map_Ks_MASK)) == (map_Ks_MASK))
             Ks = texture(map_Ks, UV).rgb;
         else
-            Ks = PC.params.params.Ks;
-        if ((PC.params.params.extra&(map_Ns_MASK)) == (map_Ns_MASK))
+            Ks = PC.params.Ks;
+        if ((PC.params.extra&(map_Ns_MASK)) == (map_Ns_MASK))
             Ns = texture(map_Ns, UV).x;
         else
-            Ns = PC.params.params.Ns;
+            Ns = PC.params.Ns;
 
         color = Ka*Ia + Kd*NdotL;
-        switch (PC.params.params.extra&ILLUM_MODEL_MASK)
+        switch (PC.params.extra&ILLUM_MODEL_MASK)
         {
         case 2:
         case 3://2 + reflection map
@@ -301,7 +301,7 @@ void main()
             break;
         case 5:
         case 7:
-            color += Ks*pow(VdotR, Ns)*Fresnel_dielectric(PC.params.params.Ni, NdotL);
+            color += Ks*pow(VdotR, Ns)*Fresnel_dielectric(PC.params.Ni, NdotL);
             break;
         default:
             break;
