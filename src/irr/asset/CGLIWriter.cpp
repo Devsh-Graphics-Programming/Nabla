@@ -254,8 +254,11 @@ namespace irr
 			compomentMapping[2] = getMappedSwizzle(params.components.b);
 			compomentMapping[3] = getMappedSwizzle(params.components.a);
 
-			auto getTranslatedFinalFormat = [&](const gli::texture::format_type& format = FORMAT_UNDEFINED)
+			auto getTranslatedFinalFormat = [&](const gli::texture::format_type& format = FORMAT_UNDEFINED, const std::string_view& specialErrorOnUnknown = "Unsupported format!")
 			{
+				if (format == FORMAT_UNDEFINED)
+					os::Printer::log(("WRITING GLI: " + std::string(specialErrorOnUnknown)).c_str(), ELL_ERROR);
+
 				return std::make_pair(format, compomentMapping);
 			};
 
@@ -281,7 +284,7 @@ namespace irr
 
 			case EF_A2R10G10B10_UNORM_PACK32: return getTranslatedFinalFormat(FORMAT_RGB10A2_UNORM_PACK32);	//GL_RGB10_A2
 
-				// snorm formats
+			// snorm formats
 			case EF_R8_SNORM: return getTranslatedFinalFormat(FORMAT_R8_SNORM_PACK8);			//GL_R8_SNORM
 			case EF_R8G8_SNORM: return getTranslatedFinalFormat(FORMAT_RG8_SNORM_PACK8);		//GL_RG8_SNORM
 			case EF_R8G8B8_SNORM: return getTranslatedFinalFormat(FORMAT_RGB8_SNORM_PACK8);		//GL_RGB8_SNORM
@@ -327,7 +330,7 @@ namespace irr
 			///case EF_R32G32B32_SINT: return getTranslatedFinalFormat(FORMAT_RGB32_SINT_PACK32);			//GL_RGB32I
 			case EF_R32G32B32A32_SINT: return getTranslatedFinalFormat(FORMAT_RGBA32_SINT_PACK32);			//GL_RGBA32I
 
-			// Floating formats
+			// floating formats
 			case EF_R16_SFLOAT: return getTranslatedFinalFormat(FORMAT_R16_SFLOAT_PACK16);				//GL_R16F
 			case EF_R16G16_SFLOAT: return getTranslatedFinalFormat(FORMAT_RG16_SFLOAT_PACK16);			//GL_RG16F
 			///case EF_R16G16B16_SFLOAT: return getTranslatedFinalFormat(FORMAT_RGB16_SFLOAT_PACK16);			//GL_RGB16F
@@ -348,8 +351,48 @@ namespace irr
 			case EF_R8G8_SRGB: return getTranslatedFinalFormat(FORMAT_RG8_SRGB_PACK8);				//GL_SRG8_EXT
 			case EF_R8G8B8_SRGB: return getTranslatedFinalFormat(FORMAT_RGB8_SRGB_PACK8);			//GL_SRGB8
 			case EF_R8G8B8A8_SRGB: return getTranslatedFinalFormat(FORMAT_RGBA8_SRGB_PACK8);		//GL_SRGB8_ALPHA8
+			
+			case EF_BC1_RGB_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGB_DXT1_SRGB_BLOCK8);					//GL_COMPRESSED_SRGB_S3TC_DXT1_EXT
+			case EF_BC1_RGBA_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_DXT1_SRGB_BLOCK8);				//GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT1_EXT
+			case EF_BC2_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_DXT3_SRGB_BLOCK16);				//GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT3_EXT
+			case EF_BC3_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_DXT5_SRGB_BLOCK16);				//GL_COMPRESSED_SRGB_ALPHA_S3TC_DXT5_EXT
+			case EF_BC7_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGB_BP_UFLOAT_BLOCK16 /*there should be BP_UNORM, but no provided for RGB*/);	//GL_COMPRESSED_SRGB_ALPHA_BPTC_UNORM
+			case EF_ETC2_R8G8B8_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGB_ETC2_SRGB_BLOCK8);						//GL_COMPRESSED_SRGB8_ETC2
+			case EF_ETC2_R8G8B8A1_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ETC2_SRGB_BLOCK8);	//GL_COMPRESSED_SRGB8_PUNCHTHROUGH_ALPHA1_ETC2
+			case EF_ETC2_R8G8B8A8_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ETC2_SRGB_BLOCK8);			//GL_COMPRESSED_SRGB8_ALPHA8_ETC2_EAC
+			case EF_ASTC_4x4_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_4X4_SRGB_BLOCK16);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR
+			case EF_ASTC_5x4_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_5X4_SRGB_BLOCK16);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR
+			case EF_ASTC_5x5_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_5X5_SRGB_BLOCK16);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR
+			case EF_ASTC_6x5_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_6X5_SRGB_BLOCK16);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR
+			case EF_ASTC_6x6_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_6X6_SRGB_BLOCK16);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR
+			case EF_ASTC_8x5_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_8X5_SRGB_BLOCK16);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR
+			case EF_ASTC_8x6_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_8X6_SRGB_BLOCK16);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR
+			case EF_ASTC_8x8_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_8X8_SRGB_BLOCK16);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR
+			case EF_ASTC_10x5_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_10X5_SRGB_BLOCK16);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR
+			case EF_ASTC_10x6_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_10X6_SRGB_BLOCK16);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR
+			case EF_ASTC_10x8_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_10X8_SRGB_BLOCK16);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x8_KHR
+			case EF_ASTC_10x10_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_10X10_SRGB_BLOCK16);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR
+			case EF_ASTC_12x10_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_12X10_SRGB_BLOCK16);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR
+			case EF_ASTC_12x12_SRGB_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_12X12_SRGB_BLOCK16);		//GL_COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR
 
-			// Compressed formats
+			// packed formats
+			case EF_E5B9G9R9_UFLOAT_PACK32: return getTranslatedFinalFormat(FORMAT_RGB9E5_UFLOAT_PACK32);			//GL_RGB9_E5
+			case EF_B10G11R11_UFLOAT_PACK32: return getTranslatedFinalFormat(FORMAT_RG11B10_UFLOAT_PACK32);			//GL_R11F_G11F_B10F
+			case EF_R5G6B5_UNORM_PACK16: return getTranslatedFinalFormat(FORMAT_R5G6B5_UNORM_PACK16);			//GL_RGB565
+			case EF_R5G5B5A1_UNORM_PACK16: return getTranslatedFinalFormat(FORMAT_RGB5A1_UNORM_PACK16);			//GL_RGB5_A1
+			case EF_R4G4B4A4_UNORM_PACK16: return getTranslatedFinalFormat(FORMAT_RGBA4_UNORM_PACK16);          //GL_RGBA4
+			case EF_R4G4_UNORM_PACK8: return getTranslatedFinalFormat(FORMAT_RG4_UNORM_PACK8);
+
+			// depth formats
+			case EF_D16_UNORM: return getTranslatedFinalFormat(FORMAT_D16_UNORM_PACK16);				//GL_DEPTH_COMPONENT16
+			case EF_X8_D24_UNORM_PACK32: return getTranslatedFinalFormat(FORMAT_D24_UNORM_S8_UINT_PACK32);				//GL_DEPTH_COMPONENT24
+			case EF_D16_UNORM_S8_UINT: return getTranslatedFinalFormat(FORMAT_D16_UNORM_S8_UINT_PACK32);
+			case EF_D24_UNORM_S8_UINT: return getTranslatedFinalFormat(FORMAT_D24_UNORM_S8_UINT_PACK32);			//GL_DEPTH24_STENCIL8
+			case EF_D32_SFLOAT_S8_UINT: return getTranslatedFinalFormat(FORMAT_D32_SFLOAT_S8_UINT_PACK64);				//GL_DEPTH_COMPONENT32
+			case EF_D32_SFLOAT: return getTranslatedFinalFormat(FORMAT_D32_SFLOAT_PACK32);				//GL_DEPTH_COMPONENT32F
+			case EF_S8_UINT: return getTranslatedFinalFormat(FORMAT_S8_UINT_PACK8);
+
+			// compressed formats
 			case EF_PVRTC1_4BPP_UNORM_BLOCK_IMG: return getTranslatedFinalFormat(FORMAT_RGBA_PVRTC1_8X8_UNORM_BLOCK32);		//GL_COMPRESSED_RGBA_PVRTC_4BPPV1_IMG
 			case EF_PVRTC1_2BPP_UNORM_BLOCK_IMG: return getTranslatedFinalFormat(FORMAT_RGBA_PVRTC1_8X8_UNORM_BLOCK32);		//GL_COMPRESSED_RGBA_PVRTC_2BPPV1_IMG
 			case EF_ETC2_R8G8B8_UNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RGB_ETC2_UNORM_BLOCK8);					//GL_COMPRESSED_RGB8_ETC2
@@ -358,6 +401,18 @@ namespace irr
 			case EF_EAC_R11_SNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_R_EAC_SNORM_BLOCK8);						//GL_COMPRESSED_SIGNED_R11_EAC
 			case EF_EAC_R11G11_UNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RG_EAC_UNORM_BLOCK16);					//GL_COMPRESSED_RG11_EAC
 			case EF_EAC_R11G11_SNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RG_EAC_SNORM_BLOCK16);					//GL_COMPRESSED_SIGNED_RG11_EAC
+
+			case EF_BC1_RGB_UNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RGB_DXT1_UNORM_BLOCK8);						//GL_COMPRESSED_RGB_S3TC_DXT1_EXT
+			case EF_BC1_RGBA_UNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_DXT1_UNORM_BLOCK8);					//GL_COMPRESSED_RGBA_S3TC_DXT1_EXT
+			case EF_BC2_UNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_DXT3_UNORM_BLOCK16);					//GL_COMPRESSED_RGBA_S3TC_DXT3_EXT
+			case EF_BC3_UNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_DXT5_UNORM_BLOCK16);					//GL_COMPRESSED_RGBA_S3TC_DXT5_EXT
+			case EF_BC4_UNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_R_ATI1N_UNORM_BLOCK8);				//GL_COMPRESSED_RED_RGTC1
+			case EF_BC4_SNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_R_ATI1N_SNORM_BLOCK8);				//GL_COMPRESSED_SIGNED_RED_RGTC1
+			case EF_BC5_UNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RG_ATI2N_UNORM_BLOCK16);				//GL_COMPRESSED_RG_RGTC2
+			case EF_BC5_SNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RG_ATI2N_SNORM_BLOCK16);				//GL_COMPRESSED_SIGNED_RG_RGTC2
+			case EF_BC6H_UFLOAT_BLOCK: return getTranslatedFinalFormat(FORMAT_RGB_BP_UFLOAT_BLOCK16);		//GL_COMPRESSED_RGB_BPTC_UNSIGNED_FLOAT
+			case EF_BC6H_SFLOAT_BLOCK: return getTranslatedFinalFormat(FORMAT_RGB_BP_SFLOAT_BLOCK16);			//GL_COMPRESSED_RGB_BPTC_SIGNED_FLOAT
+			case EF_BC7_UNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RGB_BP_UFLOAT_BLOCK16 /*there should be BP_UNORM, but no provided for RGB*/);					//GL_COMPRESSED_RGBA_BPTC_UNORM
 
 			case EF_ASTC_4x4_UNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_4X4_UNORM_BLOCK16);				//GL_COMPRESSED_RGBA_ASTC_4x4_KHR
 			case EF_ASTC_5x4_UNORM_BLOCK: return getTranslatedFinalFormat(FORMAT_RGBA_ASTC_5X4_UNORM_BLOCK16);				//GL_COMPRESSED_RGBA_ASTC_5x4_KHR

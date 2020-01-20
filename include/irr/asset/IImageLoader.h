@@ -49,7 +49,7 @@ namespace irr
 							for (uint64_t yPos = 0; yPos < imageSize.height; ++yPos)
 								for (uint64_t xPos = 0; xPos < imageSize.width; ++xPos)
 								{
-									auto texelPtr = out + (((zPos * imageSizeWithPitch.Y + yPos) * imageSizeWithPitch.X + xPos) * channelAmount);
+									auto texelPtr = out + (((zPos * imageSizeWithPitch.Y + yPos) * imageSizeWithPitch.X + xPos) * pixelByteSize);
 									const auto redValueOfTexel = *texelPtr;
 
 									for (uint8_t channel = 1; channel < pixelByteSize; ++channel)
