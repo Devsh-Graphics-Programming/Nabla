@@ -480,14 +480,11 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
 
         if (materials[i].maps[CMTLPipelineMetadata::SMtl::EMP_OPACITY].size() || materials[i].std140PackedData.opacity!=1.f)
         {
-            for (uint32_t k = 0u; k < SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; ++k)
-            {
-                blendParams.blendParams[k].blendEnable = true;
-                blendParams.blendParams[k].srcColorFactor = EBF_SRC_ALPHA;
-                blendParams.blendParams[k].srcAlphaFactor = EBF_SRC_ALPHA;
-                blendParams.blendParams[k].dstColorFactor = EBF_ONE_MINUS_SRC_ALPHA;
-                blendParams.blendParams[k].dstAlphaFactor = EBF_ONE_MINUS_SRC_ALPHA;
-            }
+            blendParams.blendParams[0].blendEnable = true;
+            blendParams.blendParams[0].srcColorFactor = EBF_SRC_ALPHA;
+            blendParams.blendParams[0].srcAlphaFactor = EBF_SRC_ALPHA;
+            blendParams.blendParams[0].dstColorFactor = EBF_ONE_MINUS_SRC_ALPHA;
+            blendParams.blendParams[0].dstAlphaFactor = EBF_ONE_MINUS_SRC_ALPHA;
         }
 
         const uint32_t j = i*PIPELINE_PERMUTATION_COUNT;
@@ -786,7 +783,7 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const CMTLPipel
         SAssetLoadParams lp;
         if (_mtl.maps[i].size())
         {
-            auto bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGE_HIERARCHYLEVELS_BELOW);
+            auto bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGE_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride);
             if (!bundle.isEmpty())
                 images[i] = core::smart_refctd_ptr_static_cast<ICPUImage>(bundle.getContents().first[0]);
         }
