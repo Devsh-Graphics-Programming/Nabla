@@ -401,8 +401,10 @@ static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAsse
     const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
 
     _assetMgr->findAssets(storageSz, &bundle, _key, types);
+    if (bundle.isEmpty())
+        return nullptr;
     auto assets = bundle.getContents();
-    assert(assets.first != assets.second);
+    //assert(assets.first != assets.second);
 
     return core::smart_refctd_ptr_static_cast<AssetType>(assets.first[0]);
 }
@@ -898,7 +900,7 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const CMTLPipel
         viewParams.subresourceRange.levelCount = 1u;
         viewParams.image = std::move(images[i]);
 
-        views[i] = core::make_smart_refctd_ptr<ICPUImageView>(std::move(viewParams));
+        views[i] = ICPUImageView::create(std::move(viewParams));
 
         SAssetBundle bundle{views[i]};
         _ctx.loaderOverride->insertAssetIntoCache(bundle, viewCacheKey, _ctx.inner, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW);

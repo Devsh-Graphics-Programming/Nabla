@@ -445,8 +445,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     auto ds3 = core::smart_refctd_ptr<ICPUDescriptorSet>(metadata->getDescriptorSet());
                     submeshes[i]->setAttachedDescriptorSet(std::move(ds3));
 
+                    const uint32_t pcoffset = pipeline->getLayout()->getPushConstantRanges().begin()[0].offset;
                     memcpy(
-                        submeshes.back()->getPushConstantsDataPtr()+pipeline->getLayout()->getPushConstantRanges().begin()[0].offset,
+                        submeshes[i]->getPushConstantsDataPtr()+pcoffset,
                         &metadata->getMaterial().std140PackedData,
                         sizeof(CMTLPipelineMetadata::SMtl::std140PackedData)
                     );
