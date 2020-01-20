@@ -13,43 +13,65 @@ void main()
     Normal = normalMat*normalize(vNormal);
 }
 )";
-    constexpr const char* FRAG_SHADER_NO_UV_MAIN =
-R"(#define Ia 0.1
-void main()
-{
-    vec3 N = normalize(Normal);
-    vec3 L = normalize(-ViewPos);
-    vec3 R = -reflect(L,N);
-    float NdotL = max(dot(N,L), 0.0);
-    float VdotR = max(dot(L,R), 0.0);
+    constexpr const char* FRAG_SHADER_NO_UV_BSDF_COS_EVAL =
+R"(#ifndef _IRR_BSDF_COS_EVAL_DEFINED_
+#define _IRR_BSDF_COS_EVAL_DEFINED_
 
-    vec3 color;
-    if (PC.params.extra&ILLUM_MODEL_MASK > 0)
+// Spectrum can be exchanged to a float for monochrome
+#define Spectrum vec3
+#define Ia 0.1
+
+//! This is the function that evaluates the BSDF for specific view and observer direction
+// params can be either BSDFIsotropicParams or BSDFAnisotropicParams 
+Spectrum irr_glsl_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
+{
+    vec3 Kd = PC.params.Kd;
+
+    vec3 color = vec3(0.0);
+    if ((PC.params.extra&ILLUM_MODEL_MASK) > 0)
     {
-        color = PC.params.Ka*Ia + PC.params.Kd*NdotL;
+        vec3 Ka = PC.params.Ka;
+        vec3 Ks = PC.params.Ks;
+        float Ns = PC.params.Ns;
+
+        vec3 diff = Kd*params.NdotL;
         switch (PC.params.extra&ILLUM_MODEL_MASK)
         {
-        case 2:
-        case 3://2 + reflection map
-        case 4://3 with transparency (glass)
-        case 6:
-        case 8://reflection map
-        case 9://reflection map
-            color += PC.params.Ks*pow(VdotR, PC.params.Ns);
+        case 1:
+            color = Ia*Ka + diff;
             break;
-        case 5:
+        case 2:
+        case 3://2 + IBL
+        case 5://basically same as 3
+        case 8://basically same as 5
+        {
+            float fr = Fresnel_dielectric(PC.params.Ni, params.NdotL);
+            vec3 spec = Ks*pow(params.NdotH, Ns);
+            color += Ia*Ka + mix(diff, spec, fr);
+        }
+            break;
+        case 4:
+        case 6:
         case 7:
-            color += PC.params.Ks*pow(VdotR, PC.params.Ns)*Fresnel_dielectric(PC.params.Ni, NdotL);
+        case 9://basically same as 4
+        {
+            float fr = Fresnel_dielectric(PC.params.Ni, params.NdotL);
+            vec3 spec = Ks*pow(params.NdotH, Ns);
+            color = fr*(Ia*Ka+spec);
+        }
             break;
         default:
             break;
         }
     }
-    else color = PC.params.Kd;
+    else color = Kd;
 
-    OutColor = vec4(color, 1.0);
+    return color;  
 }
+
+#endif //_IRR_BSDF_COS_EVAL_DEFINED_
 )";
+/*
     constexpr const char* FRAG_SHADER_NO_UV_PBR =
 R"(#version 430 core
 
@@ -83,10 +105,10 @@ layout (push_constant) uniform Block {
 #define PI 3.14159265359
 #define FLT_MIN 1.175494351e-38
 
-#include <irr/builtin/glsl/brdf/diffuse/oren_nayar.glsl>
-#include <irr/builtin/glsl/brdf/specular/ndf/ggx_trowbridge_reitz.glsl>
-#include <irr/builtin/glsl/brdf/specular/geom/ggx_smith.glsl>
-#include <irr/builtin/glsl/brdf/specular/fresnel/fresnel.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/diffuse/oren_nayar.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/ndf/ggx_trowbridge_reitz.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/geom/ggx_smith.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
 
 void main()
 {
@@ -145,6 +167,7 @@ void main()
     OutColor = vec4(color*PC.params.transmissionFilter, 1.0);
 }
 )";
+*/
     constexpr const char* VERT_SHADER_UV = 
 R"(#version 430 core
 
@@ -210,6 +233,8 @@ layout (location = 0) out vec4 OutColor;
 #define map_bump_MASK uint(1u<<10u)
 #define map_normal_MASK uint(1u<<11u)
 
+#include <irr/builtin/glsl/bsdf/common.glsl>
+
 #ifndef _IRR_FRAG_PUSH_CONSTANTS_DEFINED_
 #define _IRR_FRAG_PUSH_CONSTANTS_DEFINED_
 
@@ -231,33 +256,49 @@ layout (set = 3, binding = 5) uniform sampler2D map_d;
 layout (set = 3, binding = 6) uniform sampler2D map_bump;
 #endif //_IRR_FRAG_SET3_BINDINGS_DEFINED_
 
-#include <irr/builtin/glsl/brdf/specular/fresnel/fresnel.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
 
-#ifndef _IRR_FRAG_MAIN_DEFINED_
-#define _IRR_FRAG_MAIN_DEFINED_
+#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_
+#define _IRR_COMPUTE_LIGHTING_DEFINED_
 
-#define Ia 0.1
-void main()
+irr_glsl_BSDFIsotropicParams irr_glsl_computeLighting()
 {
-    vec3 N = normalize(Normal);
+    //would use irr_glsl_calcFragmentShaderSurfaceInteraction(), but then dFd_(ViewPos) would be computed twice
+    irr_glsl_ViewSurfaceInteraction interaction;
+    interaction.V.dir = -ViewPos;
+    interaction.V.dPosdScreen[0] = dFdx(ViewPos);
+    interaction.V.dPosdScreen[1] = dFdy(ViewPos);
+    interaction.N = normalize(Normal);
+
     if ((PC.params.extra&map_bump_MASK) == map_bump_MASK)
     {
         float height = texture(map_bump, UV).x;
-        vec3 dpdx = dFdx(ViewPos);
-        vec3 dpdy = dFdy(ViewPos);
+        vec3 dpdx = interaction.V.dPosdScreen[0];
+        vec3 dpdy = interaction.V.dPosdScreen[1];
         float dhdx = dFdx(height);
         float dhdy = dFdy(height);
         
-        vec3 r1 = cross(dpdy, N);
-        vec3 r2 = cross(N, dpdx);
+        vec3 r1 = cross(dpdy, interaction.N);
+        vec3 r2 = cross(interaction.N, dpdx);
         vec3 surfGrad = (r1*dhdx + r2*dhdy) / dot(dpdx,r1);
-        N = normalize(N - surfGrad);
+        interaction.N = normalize(interaction.N - surfGrad);
     }
-    vec3 L = normalize(-ViewPos);
-    vec3 R = normalize(-reflect(L,N));
-    float NdotL = max(dot(N,L), 0.0);
-    float VdotR = max(dot(L,R), 0.0);
+    return irr_glsl_calcBSDFIsotropicParams(interaction, -ViewPos);
+}
+#endif //_IRR_COMPUTE_LIGHTING_DEFINED_
 
+
+#ifndef _IRR_BSDF_COS_EVAL_DEFINED_
+#define _IRR_BSDF_COS_EVAL_DEFINED_
+
+// Spectrum can be exchanged to a float for monochrome
+#define Spectrum vec3
+#define Ia 0.1
+
+//! This is the function that evaluates the BSDF for specific view and observer direction
+// params can be either BSDFIsotropicParams or BSDFAnisotropicParams 
+Spectrum irr_glsl_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
+{
     vec3 Ke = texture(map_Ke, UV).rgb;//force visibility (as in: visible as resource used by the shader) of emissive map (needed temporarily because of bindings reordering bug)
 
     vec3 Kd;
@@ -265,16 +306,14 @@ void main()
         Kd = texture(map_Kd, UV).rgb;
     else
         Kd = PC.params.Kd;
-    float d = 1.0;
-    if ((PC.params.extra&(map_d_MASK)) == (map_d_MASK))
-        d = texture(map_d, UV).r;
 
-    vec3 color;
+    vec3 color = vec3(0.0);
     if ((PC.params.extra&ILLUM_MODEL_MASK) > 0)
     {
         vec3 Ka;
         vec3 Ks;
         float Ns;
+
         if ((PC.params.extra&(map_Ka_MASK)) == (map_Ka_MASK))
             Ka = texture(map_Ka, UV).rgb;
         else
@@ -288,20 +327,31 @@ void main()
         else
             Ns = PC.params.Ns;
 
-        color = Ka*Ia + Kd*NdotL;
+        vec3 diff = Kd*params.NdotL;
         switch (PC.params.extra&ILLUM_MODEL_MASK)
         {
-        case 2:
-        case 3://2 + reflection map
-        case 4://3 with transparency (glass)
-        case 6:
-        case 8://reflection map
-        case 9://reflection map
-            color += Ks*pow(VdotR, Ns);
+        case 1:
+            color = Ia*Ka + diff;
             break;
-        case 5:
+        case 2:
+        case 3://2 + IBL
+        case 5://basically same as 3
+        case 8://basically same as 5
+        {
+            float fr = Fresnel_dielectric(PC.params.Ni, params.NdotL);
+            vec3 spec = Ks*pow(params.NdotH, Ns);
+            color += Ia*Ka + mix(diff, spec, fr);
+        }
+            break;
+        case 4:
+        case 6:
         case 7:
-            color += Ks*pow(VdotR, Ns)*Fresnel_dielectric(PC.params.Ni, NdotL);
+        case 9://basically same as 4
+        {
+            float fr = Fresnel_dielectric(PC.params.Ni, params.NdotL);
+            vec3 spec = Ks*pow(params.NdotH, Ns);
+            color = fr*(Ia*Ka+spec);
+        }
             break;
         default:
             break;
@@ -309,7 +359,41 @@ void main()
     }
     else color = Kd;
 
-    OutColor = vec4(color, d);
+    return color;  
+}
+
+#endif //_IRR_BSDF_COS_EVAL_DEFINED_
+
+
+
+#ifndef _IRR_FRAG_MAIN_DEFINED_
+#define _IRR_FRAG_MAIN_DEFINED_
+
+void main()
+{
+    irr_glsl_BSDFIsotropicParams bsdfParams = irr_glsl_computeLighting();
+    vec3 color = irr_glsl_bsdf_cos_eval(bsdfParams);
+
+    float d = PC.params.d;
+
+    //another illum model switch, required for illum=4,6,7,9 to compute alpha from fresnel (taken from opacity map or constant otherwise)
+    switch (PC.params.extra&ILLUM_MODEL_MASK)
+    {
+    case 4:
+    case 6:
+    case 7:
+    case 9:
+        d = Fresnel_dielectric(PC.params.Ni, bsdfParams.NdotL);
+        break;
+    default:
+        if ((PC.params.extra&(map_d_MASK)) == (map_d_MASK))
+            d = texture(map_d, UV).r;
+        break;
+    }
+#define Intensity 1000.0
+    // `/dot(ViewPos,Viewpos)` conflicts with requirement to be able to override lighting just by redefinition of irr_glsl_computeLighting()
+    // ^^^ TODO, decision to make
+    OutColor = vec4(Intensity*color/dot(ViewPos,ViewPos), d);
 }
 #endif //_IRR_FRAG_MAIN_DEFINED_
 )";
@@ -359,10 +443,9 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_a
         fs_nouv_source.insert(fs_nouv_source.find('\n') + 1ull,
             R"(
 #define _IRR_FRAG_SET3_BINDINGS_DEFINED_
-#define _IRR_FRAG_MAIN_DEFINED_
 )"
 );
-        fs_nouv_source.insert(fs_nouv_source.size(), FRAG_SHADER_NO_UV_MAIN);
+        fs_nouv_source.insert(fs_nouv_source.find("#ifndef _IRR_BSDF_COS_EVAL_DEFINED_"), FRAG_SHADER_NO_UV_BSDF_COS_EVAL);
 
         auto fs_nouv_unspec = core::make_smart_refctd_ptr<ICPUShader>(fs_nouv_source.c_str());
         auto fs_uv_unspec = core::make_smart_refctd_ptr<ICPUShader>(FRAG_SHADER_UV);

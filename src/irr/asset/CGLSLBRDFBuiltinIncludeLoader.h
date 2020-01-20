@@ -1,5 +1,7 @@
-#ifndef __IRR_C_GLSL_BRDF_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
-#define __IRR_C_GLSL_BRDF_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
+#ifndef __IRR_C_GLSL_BSDF_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
+#define __IRR_C_GLSL_BSDF_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
+
+//TODO this file should change name to CGLSLBSDFBuiltinIncludeLoader.h
 
 #include "irr/asset/IBuiltinIncludeLoader.h"
 
@@ -7,12 +9,201 @@ namespace irr {
 namespace asset
 {    
 
-class CGLSLBRDFBuiltinIncludeLoader : public irr::asset::IBuiltinIncludeLoader
+class CGLSLBSDFBuiltinIncludeLoader : public irr::asset::IBuiltinIncludeLoader
 {
 public:
-    const char* getVirtualDirectoryName() const override { return "glsl/brdf/"; }
+    const char* getVirtualDirectoryName() const override { return "glsl/bsdf/"; }
 
 private:
+    static std::string getCommons(const std::string&)
+    {
+        return
+R"(#ifndef _IRR_BSDF_COMMON_INCLUDED_
+#define _IRR_BSDF_COMMON_INCLUDED_
+
+// do not use this struct in SSBO or UBO, its wasteful on memory
+struct irr_glsl_DirAndDifferential
+{
+   vec3 dir;
+   // differentials at origin, I'd much prefer them to be differentials of barycentrics instead of position in the future
+   mat2x3 dPosdScreen;
+};
+
+// do not use this struct in SSBO or UBO, its wasteful on memory
+struct irr_glsl_ViewSurfaceInteraction
+{
+   irr_glsl_DirAndDifferential V; // outgoing direction, NOT NORMALIZED; V.dir can have undef value for lambertian BSDF
+   vec3 N; // surface normal, NOT NORMALIZED
+};
+
+// do not use this struct in SSBO or UBO, its wasteful on memory
+struct irr_glsl_BSDFSample
+{
+   vec3 L;  // incoming direction, normalized
+   float probability; // for a single sample (don't care about number drawn)
+};
+
+
+// do not use this struct in SSBO or UBO, its wasteful on memory
+struct irr_glsl_BSDFIsotropicParams
+{
+   float NdotL;
+   float NdotL_squared;
+   float NdotV;
+   float NdotV_squared;
+   float VdotL; // same as LdotV
+   float NdotH;
+   float VdotH; // same as LdotH
+   // left over for anisotropic calc and BSDF that want to implement fast bump mapping
+   float LplusV_rcpLen;
+   // basically metadata
+   vec3 L;
+   irr_glsl_ViewSurfaceInteraction interaction;
+};
+
+// do not use this struct in SSBO or UBO, its wasteful on memory
+struct irr_glsl_BSDFAnisotropicParams
+{
+   irr_glsl_BSDFIsotropicParams isotropic;
+   float TdotL;
+   float TdotV;
+   float TdotH;
+   float BdotL;
+   float BdotV;
+   float BdotH;
+   // useless metadata
+   vec3 T;
+   vec3 B;
+};
+
+/*
+//TODO error no operator '*' for vec3 and mat2x3
+// chain rule on various functions (usually vertex attributes and barycentrics)
+vec2 irr_glsl_applyScreenSpaceChainRule1D3(in vec3 dFdG, in mat2x3 dGdScreen)
+{
+   return dFdG*dGdScreen;
+}
+mat2 irr_glsl_applyScreenSpaceChainRule2D3(in mat2x3 dFdG, in mat2 dGdScreen)
+{
+   return dFdG*dGdScreen;
+}
+mat2x3 irr_glsl_applyScreenSpaceChainRule3D3(in mat3 dFdG, in mat2x3 dGdScreen)
+{
+   return dFdG*dGdScreen;
+}
+mat2x4 irr_glsl_applyScreenSpaceChainRule4D3(in mat3x4 dFdG, in mat2x3 dGdScreen)
+{
+   return dFdG*dGdScreen;
+}
+*/
+
+// only in the fragment shader we have access to implicit derivatives
+irr_glsl_ViewSurfaceInteraction irr_glsl_calcFragmentShaderSurfaceInteraction(in vec3 _CamPos, in vec3 _SurfacePos, in vec3 _Normal)
+{
+   irr_glsl_ViewSurfaceInteraction interaction;
+   interaction.V.dir = _CamPos-_SurfacePos;
+   interaction.V.dPosdScreen[0] = dFdx(_SurfacePos);
+   interaction.V.dPosdScreen[1] = dFdy(_SurfacePos);
+   interaction.N = _Normal;
+   return interaction;
+}
+/*
+//TODO it doesnt compile, lots of undefined symbols
+// when you know the projected positions of your triangles (TODO: should probably make a function like this that also computes barycentrics)
+irr_glsl_ViewSurfaceInteraction irr_glsl_calcBarycentricSurfaceInteraction(in vec3 _CamPos, in vec3 _SurfacePos[3], in vec3 _Normal[3], in float _Barycentrics[2], in vec2 _ProjectedPos[3])
+{
+   irr_glsl_ViewSurfaceInteraction interaction;
+
+   // Barycentric interpolation = b0*attr0+b1*attr1+attr2*(1-b0-b1)
+   vec3 b = vec3(_Barycentrics[0],_Barycentrics[1],1.0-_Barycentrics[0]-_Barycentrics[1]);
+   mat3 vertexAttrMatrix = mat3(_SurfacePos[0],_SurfacePos[1],_SurfacePos[2]);
+   interaction.V.dir = _CamPos-vertexAttrMatrix*b;
+   // Schied's derivation - modified
+   vec2 to2 = _ProjectedPos[2]-_ProjectedPos[1];
+   vec2 to1 = _ProjectedPos[0]-_ProjectedPos[1];
+   float d = 1.0/determinant(mat2(to2,to1)); // TODO double check all this
+   mat2x3 dBaryd = mat2x3(vec3(v[1].y-v[2].y,to2.y,to0.y)*d,-vec3(v[1].x-v[2].x,to2.x,t0.x)*d);
+   //
+   interaction.dPosdScreen = irr_glsl_applyScreenSpaceChainRule3D3(vertexAttrMatrix,dBaryd);
+
+   vertexAttrMatrix = mat3(_Normal[0],_Normal[1],_Normal[2]);
+   interaction.N = vertexAttrMatrix*b;
+
+   return interaction;
+}
+// when you know the ray and triangle it hits
+irr_glsl_ViewSurfaceInteraction  irr_glsl_calcRaySurfaceInteraction(in irr_glsl_DirAndDifferential _rayTowardsSurface, in vec3 _SurfacePos[3], in vec3 _Normal[3], in float _Barycentrics[2])
+{
+   irr_glsl_ViewSurfaceInteraction interaction;
+   // flip ray
+   interaction.V.dir = -_rayTowardsSurface.dir;
+   // do some hardcore shizz to transform a differential at origin into a differential at surface
+   // also in barycentrics preferably (turn world pos diff into bary diff with applyScreenSpaceChainRule3D3)
+   //interaction.V.dPosdx = TODO;
+   //interaction.V.dPosdy = TODO;
+
+   vertexAttrMatrix = mat3(_Normal[0],_Normal[1],_Normal[2]);
+   interaction.N = vertexAttrMatrix*b;
+
+   return interaction;
+}
+*/
+
+// will normalize all the vectors
+irr_glsl_BSDFIsotropicParams irr_glsl_calcBSDFIsotropicParams(in irr_glsl_ViewSurfaceInteraction interaction, in vec3 L)
+{
+   float invlenV2 = inversesqrt(dot(interaction.V.dir,interaction.V.dir));
+   float invlenN2 = inversesqrt(dot(interaction.N,interaction.N));
+   float invlenL2 = inversesqrt(dot(L,L));
+
+   irr_glsl_BSDFIsotropicParams params;
+
+   // totally useless vectors, will probably get optimized away by compiler if they don't get used
+   // but useful as temporaries
+   params.interaction.V.dir = interaction.V.dir*invlenV2;
+   params.interaction.N = interaction.N*invlenN2;
+   params.L = L*invlenL2;
+
+   // this stuff only works with normalized L,N,V
+   params.NdotL = dot(params.interaction.N,params.L);
+   params.NdotL_squared = params.NdotL*params.NdotL;
+   params.NdotV = dot(params.interaction.N,params.interaction.V.dir);
+   params.NdotV_squared = params.NdotV*params.NdotV;
+
+   params.VdotL = dot(params.interaction.V.dir,params.L);
+   float LplusV_rcpLen = inversesqrt(2.0 + 2.0*params.VdotL);
+   params.LplusV_rcpLen = LplusV_rcpLen;
+
+   // this stuff works unnormalized L,N,V
+   params.NdotH = (params.NdotL+params.NdotV)*LplusV_rcpLen;
+   params.VdotH = LplusV_rcpLen + LplusV_rcpLen*params.VdotL;
+
+   return params;
+}
+// get extra stuff for anisotropy, here we actually require T and B to be normalized
+irr_glsl_BSDFAnisotropicParams irr_glsl_calcBSDFAnisotropicParams(in irr_glsl_BSDFIsotropicParams isotropic, in vec3 T, in vec3 B)
+{
+   irr_glsl_BSDFAnisotropicParams params;
+   params.isotropic = isotropic;
+
+   // meat
+   params.TdotL = dot(T,isotropic.L);
+   params.TdotV = dot(T,isotropic.interaction.V.dir);
+   params.TdotH = (params.TdotV+params.TdotL)*isotropic.LplusV_rcpLen;
+   params.BdotL = dot(B,isotropic.L);
+   params.BdotV = dot(B,isotropic.interaction.V.dir);
+   params.BdotH = (params.BdotV+params.BdotL)*isotropic.LplusV_rcpLen;
+
+   // useless stuff we keep just to be complete
+   params.T = T;
+   params.B = B;
+
+   return params;
+}
+#endif
+)";
+    }
+
     static std::string getOrenNayar(const std::string&)
     {
         return
@@ -175,14 +366,15 @@ protected:
     irr::core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
     {
         return {
-            { std::regex{"diffuse/oren_nayar\\.glsl"}, &getOrenNayar },
-            { std::regex{"specular/ndf/ggx_trowbridge_reitz\\.glsl"}, &getGGXTrowbridgeReitz },
-            { std::regex{"specular/geom/ggx_smith\\.glsl"}, &getGGXSmith },
-            { std::regex{"specular/fresnel/fresnel\\.glsl"}, &getFresnel }
+            { std::regex{"brdf/diffuse/oren_nayar\\.glsl"}, &getOrenNayar },
+            { std::regex{"brdf/specular/ndf/ggx_trowbridge_reitz\\.glsl"}, &getGGXTrowbridgeReitz },
+            { std::regex{"brdf/specular/geom/ggx_smith\\.glsl"}, &getGGXSmith },
+            { std::regex{"brdf/specular/fresnel/fresnel\\.glsl"}, &getFresnel },
+            { std::regex{"common\\.glsl"}, &getCommons }
         };
     }
 };
 
 }}
 
-#endif //__IRR_C_GLSL_BRDF_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
+#endif //__IRR_C_GLSL_BSDF_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
