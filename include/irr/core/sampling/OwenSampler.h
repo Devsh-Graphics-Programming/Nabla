@@ -1,9 +1,7 @@
 #ifndef _IRR_CORE_OWEN_SAMPLER_H_
 #define _IRR_CORE_OWEN_SAMPLER_H_
 
-#include <random>
-
-#include "irr/core/Types.h"
+#include "irr/core/sampling/RandomSampler.h"
 #include "irr/core/sampling/SobolSampler.h"
 
 namespace irr
@@ -11,11 +9,12 @@ namespace irr
 namespace core
 {
 
-
-	class OwenSampler : protected SobolSampler
+	//! TODO: make the tree sampler/generator configurable and let RandomSampler be default
+	template<class SequenceSampler=SobolSampler>
+	class OwenSampler : protected SequenceSampler
 	{
 	public:
-		OwenSampler(uint32_t _dimensions, uint32_t _seed) : SobolSampler(_dimensions)
+		OwenSampler(uint32_t _dimensions, uint32_t _seed) : SequenceSampler(_dimensions)
 		{
 			mersenneTwister.seed(_seed);
 			cachedFlip.resize(MAX_SAMPLES-1u);
@@ -33,7 +32,7 @@ namespace core
 			else if (dim<lastDim)
 				assert(false);
 
-			uint32_t oldsample = SobolSampler::sample(dim,sampleNum);
+			uint32_t oldsample = SequenceSampler::sample(dim,sampleNum);
 			#ifdef _IRR_DEBUG
 				assert(sampleNum<MAX_SAMPLES);
 				if (sampleNum)
@@ -42,7 +41,7 @@ namespace core
 					assert(oldsample == 0u);
 			#endif
 			constexpr uint32_t lastLevelStart = MAX_SAMPLES/2u-1u;
-			uint32_t index = oldsample>>(SobolSampler::SOBOL_BITS+1u - MAX_SAMPLES_LOG2);
+			uint32_t index = oldsample>>(sizeof(uint32_t)+1u - MAX_SAMPLES_LOG2);
 			index += lastLevelStart;
 
 			return oldsample^cachedFlip[index];
@@ -57,7 +56,7 @@ namespace core
 			- The above can be stored in 1x array of sample count uint16_t/uint32_t per Dimension
 			- We should store samples as uint32_t always because the total amount of memory to fetch is always the same
 			**/
-			for (uint32_t i=0u; i<MAX_SAMPLES-1u; i++)
+			for (uint32_t i=0u; i<MAX_SAMPLES-1u; i++) 
 			{
 				uint32_t randMask = (i<(MAX_SAMPLES/2u-1u)) ? 0x80000000u:0xffffffffu;
 				cachedFlip[i] = mersenneTwister()&(randMask>>getTreeDepth(i));
@@ -72,7 +71,7 @@ namespace core
 				#ifdef _IRR_DEBUG
 					for (uint32_t j=0u; j<currentLevelSize; j+=2)
 					{
-						const uint32_t highBitMask = 0xffffffffu<<(SobolSampler::SOBOL_BITS-i);
+						const uint32_t highBitMask = 0xffffffffu<<(sizeof(uint32_t)-i);
 						uint32_t left = cachedFlip[currentLevelStart+j];
 						uint32_t right = cachedFlip[currentLevelStart+j+1];
 						assert(((left^right)&highBitMask)==0u);

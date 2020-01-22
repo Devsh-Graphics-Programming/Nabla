@@ -40,6 +40,10 @@
 #include "irr/core/memory/dynamic_array.h"
 #include "irr/core/memory/refctd_dynamic_array.h"
 #include "irr/core/memory/CLeakDebugger.h"
+// samplers
+#include "irr/core/sampling/RandomSampler.h"
+#include "irr/core/sampling/SobolSampler.h"
+#include "irr/core/sampling/OwenSampler.h"
 // parallel
 #include "irr/core/parallel/IThreadBound.h"
 #include "irr/core/parallel/unlock_guard.h"
