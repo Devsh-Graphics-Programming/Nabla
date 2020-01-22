@@ -31,13 +31,15 @@ layout(location = 1) uniform float uDepthLinearizationConstant;
 layout(location = 2) uniform mat4 uFrustumCorners;
 layout(location = 3) uniform uvec2 uImageSize;
 layout(location = 4) uniform uvec2 uSamples_ImageWidthSamples;
-layout(location = 5) uniform uint uTotalSamplesComputed;
+layout(location = 5) uniform uint uSamplesComputed;
 layout(location = 6) uniform vec4 uImageSize2Rcp;
 
 // image views
 layout(binding = 0) uniform sampler2D depthbuf;
 layout(binding = 1) uniform sampler2D normalbuf;
 layout(binding = 2) uniform sampler2D albedobuf;
+layout(binding = 3) uniform usamplerBuffer sampleSequence;
+layout(binding = 4) uniform usampler2D scramblebuf;
 
 // SSBOs
 layout(binding = 0, std430) restrict writeonly buffer Rays
@@ -132,38 +134,30 @@ float ULP3(in vec3 val, in uint accuracy)
 	return uintBitsToFloat(floatBitsToUint(x) + accuracy)-x;
 }
 
-uint wang_hash(uint seed)
+
+
+uint ugen_uniform_sample1(in uint dimension, in uint sampleIx, in uint scramble);
+uvec2 ugen_uniform_sample2(in uint dimension, in uint sampleIx, in uint scramble);
+
+vec2 gen_uniform_sample2(in uint dimension, in uint sampleIx, in uint scramble);
+
+
+uint ugen_uniform_sample1(in uint dimension, in uint sampleIx, in uint scramble)
 {
-    seed = (seed ^ 61u) ^ (seed >> 16u);
-    seed *= 9u;
-    seed = seed ^ (seed >> 4u);
-    seed *= 0x27d4eb2du;
-    seed = seed ^ (seed >> 15u);
-    return seed;
+	return ugen_uniform_sample2(dimension,sampleIx,scramble).x;
+}
+uvec2 ugen_uniform_sample2(in uint dimension, in uint sampleIx, in uint scramble)
+{
+	uint address = (dimension>>1u)*MAX_SAMPLES+(sampleIx&(MAX_SAMPLES-1u));
+	return texelFetch(sampleSequence,int(address)).xy^uvec2(scramble);
 }
 
-uint rand_xorshift(inout uint rng_state)
+vec2 gen_uniform_sample2(in uint dimension, in uint sampleIx, in uint scramble)
 {
-    // Xorshift algorithm from George Marsaglia's paper
-    rng_state ^= (rng_state << 13);
-    rng_state ^= (rng_state >> 17);
-    rng_state ^= (rng_state << 5);
-    return rng_state;
+	return vec2(ugen_uniform_sample2(dimension,sampleIx,scramble))/vec2(~0u);
 }
 
-uint ugen_uniform_sample1(inout uint state)
-{
-	return rand_xorshift(state);
-}
-uvec2 ugen_uniform_sample2(inout uint state)
-{
-	return uvec2(rand_xorshift(state),rand_xorshift(state));
-}
 
-vec2 gen_uniform_sample2(inout uint state)
-{
-	return vec2(rand_xorshift(state),rand_xorshift(state))/vec2(~0u);
-}
 
 // https://orbit.dtu.dk/files/126824972/onb_frisvad_jgt2012_v2.pdf
 mat2x3 frisvad(in vec3 n)
@@ -206,16 +200,16 @@ uint lower_bound(in uint key)
 }
 
 
-vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, inout bool alive, in vec3 position, in vec3 normal)
+vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout float maxT, inout bool alive, in vec3 position, in vec3 normal)
 {
-	uint lightIDSample = ugen_uniform_sample1(randomState);
-	vec2 lightSurfaceSample = gen_uniform_sample2(randomState);
+	uint lightIDSample = ugen_uniform_sample1(0u,sampleIx,scramble);
+	vec2 lightSurfaceSample = gen_uniform_sample2(2u,sampleIx,scramble);
 
 	uint lightID = lower_bound(lightIDSample);
 
 	SLight light = light[lightID];
 
-#define SHADOW_RAY_LEN 0.5
+#define SHADOW_RAY_LEN 0.99
 	float factor; // 1.0/light_probability already baked into the light factor
 	switch (SLight_extractType(light))
 	{
@@ -230,20 +224,22 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 				vec3 pointOnSurface;
 				uvec3 tanID[] = uvec3[](uvec3(0,1,2),uvec3(1,2,0),uvec3(2,0,1));
 				uint subFaceID = faceID>>1u;
-				float signFactor = (faceID&0x1u)!=0x1u ? 1.0:(-1.0);
+
+				bool positiveFace = (faceID&0x1u)!=0x1u;
+				float signFactor = positiveFace ? 1.0:(-1.0);
 				pointOnSurface[tanID[subFaceID][0]] = signFactor;
 				pointOnSurface[tanID[subFaceID][1]] = lightSurfaceSample.x*2.0-1.0;
 				pointOnSurface[tanID[subFaceID][2]] = v;
 	
 				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
 				float incomingInvLen = inversesqrt(dot(incoming,incoming));
-				incoming *= incomingInvLen;
 
-				maxT = SHADOW_RAY_LEN/incomingInvLen;
+				maxT = SHADOW_RAY_LEN;
 
 				factor = 24.0; // compensate for the domain of integration
 				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
-				factor *= max(dot(light.transformCofactors[subFaceID]*signFactor,incoming),0.0)*incomingInvLen*incomingInvLen;
+				float dp = dot(light.transformCofactors[subFaceID],incoming);
+				factor *= max(positiveFace ? (-dp):dp,0.0)*incomingInvLen*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_ELLIPSOID:
@@ -255,15 +251,14 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 	
 				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
 				float incomingInvLen = inversesqrt(dot(incoming,incoming));
-				incoming *= incomingInvLen;
 
-				maxT = SHADOW_RAY_LEN/incomingInvLen;
+				maxT = SHADOW_RAY_LEN;
 
 				factor = 4.0*kPI; // compensate for the domain of integration
 				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
 				vec3 lightNormal = light.transformCofactors*pointOnSurface;
 
-				factor *= max(dot(lightNormal,incoming),0.0)*incomingInvLen*incomingInvLen;
+				factor *= max(-dot(lightNormal,incoming),0.0)*incomingInvLen*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_CYLINDER:
@@ -274,15 +269,14 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 				mat4x3 tform = light.transform;
 				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
 				float incomingInvLen = inversesqrt(dot(incoming,incoming));
-				incoming *= incomingInvLen;
 
-				maxT = SHADOW_RAY_LEN/incomingInvLen;
+				maxT = SHADOW_RAY_LEN;
 
 				factor = 2.0*kPI; // compensate for the domain of integration
 				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
-				vec3 lightNormal = light.transformCofactors[0]*pointOnSurface.x+light.transformCofactors[1]*pointOnSurface.y;
+				vec3 negLightNormal = light.transformCofactors[0]*pointOnSurface.x+light.transformCofactors[1]*pointOnSurface.y;
 
-				factor *= max(dot(lightNormal,incoming),0.0)*incomingInvLen*incomingInvLen;
+				factor *= max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_RECTANGLE:
@@ -292,13 +286,12 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 				mat4x3 tform = light.transform;
 				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
 				float incomingInvLen = inversesqrt(dot(incoming,incoming));
-				incoming *= incomingInvLen;
 
-				maxT = SHADOW_RAY_LEN/incomingInvLen;
+				maxT = SHADOW_RAY_LEN;
 
 				factor = 4.0; // compensate for the domain of integration
 				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
-				factor *= max(dot(light.transformCofactors[2],incoming),0.0)*incomingInvLen*incomingInvLen;
+				factor *= max(dot(light.transformCofactors[2],incoming),0.0)*incomingInvLen*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_DISK:
@@ -309,13 +302,12 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 				mat4x3 tform = light.transform;
 				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
 				float incomingInvLen = inversesqrt(dot(incoming,incoming));
-				incoming *= incomingInvLen;
 
-				maxT = SHADOW_RAY_LEN/incomingInvLen;
+				maxT = SHADOW_RAY_LEN;
 
 				factor = kPI; // compensate for the domain of integration
 				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
-				factor *= max(dot(light.transformCofactors[2],incoming),0.0)*incomingInvLen*incomingInvLen;
+				factor *= max(dot(light.transformCofactors[2],incoming),0.0)*incomingInvLen*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_TRIANGLE:
@@ -328,14 +320,14 @@ vec3 light_sample(out vec3 incoming, inout uint randomState, inout float maxT, i
 
 				pointOnSurface += (shortEdge*(1.0-lightSurfaceSample.y)+longEdge*lightSurfaceSample.y)*lightSurfaceSample.x;
 
+				vec3 negLightNormal = cross(shortEdge,longEdge);
+
 				incoming = pointOnSurface-position;
 				float incomingInvLen = inversesqrt(dot(incoming,incoming));
-				incoming *= incomingInvLen;
 
-				maxT = SHADOW_RAY_LEN/incomingInvLen;
+				maxT = SHADOW_RAY_LEN;
 
-				vec3 lightNormal = cross(shortEdge,longEdge);
-				factor = 0.5*max(dot(lightNormal,incoming),0.0)*incomingInvLen*incomingInvLen;
+				factor = 0.5*max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen*incomingInvLen;
 			}
 			break;
 		default: // SLight_ET_CONSTANT:
@@ -383,7 +375,7 @@ void main()
 		if (alive)
 			encNormal = texelFetch(normalbuf,uv,0).rg;
 
-		uint randomState = wang_hash(uTotalSamplesComputed+outputID);
+		uint scramble = texelFetch(scramblebuf,uv,0).r;
 
 		RadeonRays_ray newray;
 		newray.time = 0.0;
@@ -399,7 +391,7 @@ void main()
 			newray.maxT = FLT_MAX;
 			alive = alive && lightCDF.length()!=0;
 			if (alive)
-				bsdf.rgb = light_sample(newray.direction,randomState,newray.maxT,alive,position,normal);
+				bsdf.rgb = light_sample(newray.direction,uSamplesComputed+i,scramble,newray.maxT,alive,position,normal);
 			if (alive)
 				bsdf.rgb *= texelFetch(albedobuf,uv,0).rgb*max(dot(normal,newray.direction),0.0)/kPI;
 
@@ -584,6 +576,8 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 		virtual void OnUnsetMaterial() {}
 };
 
+constexpr uint32_t UNFLEXIBLE_MAX_SAMPLES_TODO_REMOVE = 128u*1024u;
+
 
 Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneManager* _smgr) :
 		m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager),
@@ -591,7 +585,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneMa
 		m_rrManager(ext::RadeonRays::Manager::create(m_driver)),
 		m_depth(), m_albedo(), m_normals(), m_accumulation(), m_tonemapOutput(),
 		m_colorBuffer(nullptr), m_gbuffer(nullptr), tmpTonemapBuffer(nullptr),
-		m_workGroupCount{0u,0u}, m_samplesPerDispatch(0u), m_totalSamplesComputed(0u), m_rayCount(0u), m_framesDone(0u),
+		m_maxSamples(0u), m_workGroupCount{0u,0u}, m_samplesPerDispatch(0u), m_samplesComputed(0u), m_rayCount(0u), m_framesDone(0u),
 		m_rayBuffer(), m_intersectionBuffer(), m_rayCountBuffer(),
 		m_rayBufferAsRR(nullptr,nullptr), m_intersectionBufferAsRR(nullptr,nullptr), m_rayCountBufferAsRR(nullptr,nullptr),
 		nodes(), sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), rrInstances()
@@ -607,7 +601,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneMa
 
 	auto includes = m_rrManager->getRadeonRaysGLSLIncludes();
 	m_raygenProgram = createComputeShader(
-		raygenShaderExtensions+
+		raygenShaderExtensions+"#define MAX_SAMPLES "+std::to_string(UNFLEXIBLE_MAX_SAMPLES_TODO_REMOVE)+"\n"+
 		//"irr/builtin/glsl/ext/RadeonRays/"
 		includes->getBuiltinInclude("ray.glsl")+
 		raygenShader
@@ -629,7 +623,10 @@ Renderer::~Renderer()
 }
 
 
-void Renderer::init(const SAssetBundle& meshes, bool isCameraRightHanded, uint32_t rayBufferSize)
+void Renderer::init(const SAssetBundle& meshes,
+					bool isCameraRightHanded,
+					core::smart_refctd_ptr<ICPUBuffer>&& sampleSequence,
+					uint32_t rayBufferSize)
 {
 	deinit();
 
@@ -873,6 +870,33 @@ void Renderer::init(const SAssetBundle& meshes, bool isCameraRightHanded, uint32
 		m_lightBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createFilledDeviceLocalGPUBufferOnDedMem(lights.size()*sizeof(SLight),lights.data()),core::dont_grab);
 	}
 
+	//! set up GPU sampler
+	{
+		m_maxSamples = sampleSequence->getSize()/(sizeof(uint32_t)*MaxDimensions);
+		assert(m_maxSamples==UNFLEXIBLE_MAX_SAMPLES_TODO_REMOVE);
+
+		// upload sequence to GPU
+		auto gpubuf = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(), sampleSequence->getPointer());
+		m_sampleSequence = core::smart_refctd_ptr<ITextureBufferObject>(m_driver->addTextureBufferObject(gpubuf, ITextureBufferObject::ETBOF_RG32UI), core::dont_grab);
+		gpubuf->drop();
+
+		// create scramble texture
+		uint32_t res[3] = {renderSize.Width,renderSize.Height,1u};
+		m_scrambleTexture = m_driver->createGPUTexture(ITexture::ETT_2D, &res[0], 1u, EF_R32_UINT);
+		{
+			core::vector<uint32_t> random(res[0]*res[1]);
+			// generate
+			{
+				core::RandomSampler rng(0xbadc0ffeu);
+				for (auto& pixel : random)
+					pixel = rng.nextSample();
+			}
+			// upload
+			uint32_t _min[3] = {0u,0u,0u};
+			m_scrambleTexture->updateSubRegion(EF_R32_UINT, random.data(), &_min[0], &res[0]);
+		}
+	}
+
 	m_depth = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize.Width, 1, EF_D32_SFLOAT);
 	m_albedo = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize.Width, 1, EF_R8G8B8_SRGB);
 	m_normals = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize.Width, 1, EF_R16G16_SNORM);
@@ -943,7 +967,6 @@ void Renderer::deinit()
 	clFlush(commandQueue);
 	clFinish(commandQueue);
 
-	// start deleting objects
 	if (m_colorBuffer)
 	{
 		m_driver->removeFrameBuffer(m_colorBuffer);
@@ -979,10 +1002,11 @@ void Renderer::deinit()
 	}
 	m_rayBuffer = m_intersectionBuffer = m_rayCountBuffer = nullptr;
 	m_samplesPerDispatch = 0u;
-	m_totalSamplesComputed = 0u;
+	m_samplesComputed = 0u;
 	m_rayCount = 0u;
 	m_framesDone = 0u;
 	m_workGroupCount[0] = m_workGroupCount[1] = 0u;
+	m_maxSamples = 0u;
 
 	for (auto& node : nodes)
 		node->remove();
@@ -996,6 +1020,10 @@ void Renderer::deinit()
 
 	constantClearColor.set(0.f,0.f,0.f,1.f);
 	m_lightCDFBuffer = m_lightBuffer = nullptr;
+
+	// start deleting objects
+	m_sampleSequence = nullptr;
+	m_scrambleTexture = nullptr;
 }
 
 
@@ -1019,7 +1047,7 @@ void Renderer::render()
 	auto currentViewProj = camera->getConcatenatedMatrix();
 	if (!core::equals(prevViewProj,currentViewProj,core::ROUNDING_ERROR<core::matrix4SIMD>()*100.0))
 	{
-		m_totalSamplesComputed = 0u;
+		m_samplesComputed = 0u;
 		m_framesDone = 0u;
 	}
 
@@ -1040,6 +1068,8 @@ void Renderer::render()
 		found->setActiveTexture(0, core::smart_refctd_ptr(m_depth), params);
 		found->setActiveTexture(1, core::smart_refctd_ptr(m_normals), params);
 		found->setActiveTexture(2, core::smart_refctd_ptr(m_albedo), params);
+		found->setActiveTexture(3, core::smart_refctd_ptr(m_sampleSequence), params);
+		found->setActiveTexture(4, core::smart_refctd_ptr(m_scrambleTexture), params);
 
 
 		COpenGLExtensionHandler::extGlUseProgram(m_raygenProgram);
@@ -1076,8 +1106,8 @@ void Renderer::render()
 			uint32_t uSamples_ImageWidthSamples[2] = {m_samplesPerDispatch,rSize[0]*m_samplesPerDispatch};
 			COpenGLExtensionHandler::pGlProgramUniform2uiv(m_raygenProgram, 4, 1, uSamples_ImageWidthSamples);
 
-			COpenGLExtensionHandler::pGlProgramUniform1uiv(m_raygenProgram, 5, 1, &m_totalSamplesComputed);
-			m_totalSamplesComputed += m_rayCount;
+			COpenGLExtensionHandler::pGlProgramUniform1uiv(m_raygenProgram, 5, 1, &m_samplesComputed);
+			m_samplesComputed += m_samplesPerDispatch;
 
 			float uImageSize2Rcp[4] = {1.f/static_cast<float>(rSize[0]),1.f/static_cast<float>(rSize[1]),0.5f/static_cast<float>(rSize[0]),0.5f/static_cast<float>(rSize[1])};
 			COpenGLExtensionHandler::pGlProgramUniform4fv(m_raygenProgram, 6, 1, uImageSize2Rcp);

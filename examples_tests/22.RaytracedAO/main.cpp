@@ -229,7 +229,42 @@ int main()
 	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
 
 	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver, device->getAssetManager(), smgr);
-	renderer->init(meshes, rightHandedCamera, 512u * 1024u * 1024u);
+	constexpr uint32_t MaxSamples = 128u*1024u;
+	auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*MaxSamples*Renderer::MaxDimensions);
+	{
+		bool generateNewSamples = true;
+
+		io::IReadFile* cacheFile = device->getFileSystem()->createAndOpenFile("../../tmp/rtSamples.bin");
+		if (cacheFile)
+		{
+			if (cacheFile->getSize()>=sampleSequence->getSize()) // light validation
+			{
+				cacheFile->read(sampleSequence->getPointer(),sampleSequence->getSize());
+				generateNewSamples = false;
+			}
+			cacheFile->drop();
+		}
+
+		if (generateNewSamples)
+		{
+			core::OwenSampler sampler(Renderer::MaxDimensions,0xdeadbeefu);
+
+			uint32_t (&out)[][2] = *reinterpret_cast<uint32_t(*)[][2]>(sampleSequence->getPointer());
+			for (auto dim=0u; dim<Renderer::MaxDimensions; dim++)
+			for (uint32_t i=0; i<MaxSamples; i++)
+			{
+				out[(dim>>1u)*MaxSamples+i][dim&0x1u] = sampler.sample(dim,i);
+			}
+
+			io::IWriteFile* cacheFile = device->getFileSystem()->createAndWriteFile("../../tmp/rtSamples.bin");
+			if (cacheFile)
+			{
+				cacheFile->write(sampleSequence->getPointer(),sampleSequence->getSize());
+				cacheFile->drop();
+			}
+		}
+	}
+	renderer->init(meshes, rightHandedCamera, std::move(sampleSequence));
 	meshes = {}; // free memory
 	auto extent = renderer->getSceneBound().getExtent();
 

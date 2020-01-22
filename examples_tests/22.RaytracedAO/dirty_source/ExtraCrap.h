@@ -135,7 +135,10 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr);
 
-		void init(const irr::asset::SAssetBundle& meshes, bool isCameraRightHanded, uint32_t rayBufferSize=512u*1024u*1024u);
+		void init(	const irr::asset::SAssetBundle& meshes,
+					bool isCameraRightHanded,
+					irr::core::smart_refctd_ptr<irr::asset::ICPUBuffer>&& sampleSequence,
+					uint32_t rayBufferSize=1024u*1024u*1024u);
 
 		void deinit();
 
@@ -145,23 +148,33 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		const auto& getSceneBound() const { return sceneBound; }
 
-		auto getTotalSamplesComputed() const { return m_totalSamplesComputed; }
+		auto getTotalSamplesComputed() const { return m_samplesComputed*m_rayCount; }
+
+
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 4u;
     protected:
         ~Renderer();
 
+
         irr::video::IVideoDriver* m_driver;
-		irr::video::E_MATERIAL_TYPE nonInstanced;
-		uint32_t m_raygenProgram, m_compostProgram;
+
 		irr::asset::IAssetManager* m_assetManager;
 		irr::scene::ISceneManager* m_smgr;
+
 		irr::core::smart_refctd_ptr<irr::ext::RadeonRays::Manager> m_rrManager;
 
+		irr::core::smart_refctd_ptr<irr::video::ITextureBufferObject> m_sampleSequence;
+		irr::core::smart_refctd_ptr<irr::video::ITexture> m_scrambleTexture;
+
+		irr::video::E_MATERIAL_TYPE nonInstanced;
+		uint32_t m_raygenProgram, m_compostProgram;
 		irr::core::smart_refctd_ptr<irr::video::ITexture> m_depth,m_albedo,m_normals,m_accumulation,m_tonemapOutput;
 		irr::video::IFrameBuffer* m_colorBuffer,* m_gbuffer,* tmpTonemapBuffer;
 
+		uint32_t m_maxSamples;
 		uint32_t m_workGroupCount[2];
 		uint32_t m_samplesPerDispatch;
-		uint32_t m_totalSamplesComputed;
+		uint32_t m_samplesComputed;
 		uint32_t m_rayCount;
 		uint32_t m_framesDone;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_rayBuffer;
