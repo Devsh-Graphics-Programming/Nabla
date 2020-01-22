@@ -41,7 +41,7 @@ namespace core
 					assert(oldsample == 0u);
 			#endif
 			constexpr uint32_t lastLevelStart = MAX_SAMPLES/2u-1u;
-			uint32_t index = oldsample>>(sizeof(uint32_t)+1u - MAX_SAMPLES_LOG2);
+			uint32_t index = oldsample>>(OUT_BITS+1u - MAX_SAMPLES_LOG2);
 			index += lastLevelStart;
 
 			return oldsample^cachedFlip[index];
@@ -71,7 +71,7 @@ namespace core
 				#ifdef _IRR_DEBUG
 					for (uint32_t j=0u; j<currentLevelSize; j+=2)
 					{
-						const uint32_t highBitMask = 0xffffffffu<<(sizeof(uint32_t)-i);
+						const uint32_t highBitMask = 0xffffffffu<<(OUT_BITS-i);
 						uint32_t left = cachedFlip[currentLevelStart+j];
 						uint32_t right = cachedFlip[currentLevelStart+j+1];
 						assert(((left^right)&highBitMask)==0u);
@@ -84,6 +84,7 @@ namespace core
 
 	protected:
 		// if we don't limit the sample count, then due to IEEE754 precision, we'll get duplicate sample coordinate values, ruining the net property
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t OUT_BITS = sizeof(uint32_t)*8u;
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_SAMPLES_LOG2 = 24u;
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_SAMPLES = 0x1u<<MAX_SAMPLES_LOG2;
 
