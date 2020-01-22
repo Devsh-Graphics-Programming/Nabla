@@ -58,6 +58,7 @@ struct irr_glsl_BSDFIsotropicParams
    float LplusV_rcpLen;
    // basically metadata
    vec3 L;
+   float invlenL2;
    irr_glsl_ViewSurfaceInteraction interaction;
 };
 
@@ -76,14 +77,12 @@ struct irr_glsl_BSDFAnisotropicParams
    vec3 B;
 };
 
-/*
-//TODO error no operator '*' for vec3 and mat2x3
 // chain rule on various functions (usually vertex attributes and barycentrics)
 vec2 irr_glsl_applyScreenSpaceChainRule1D3(in vec3 dFdG, in mat2x3 dGdScreen)
 {
-   return dFdG*dGdScreen;
+   return vec2(dot(dFdG,dGdScreen[0]),dot(dFdG,dGdScreen[1]));
 }
-mat2 irr_glsl_applyScreenSpaceChainRule2D3(in mat2x3 dFdG, in mat2 dGdScreen)
+mat2 irr_glsl_applyScreenSpaceChainRule2D3(in mat3x2 dFdG, in mat2x3 dGdScreen)
 {
    return dFdG*dGdScreen;
 }
@@ -95,7 +94,6 @@ mat2x4 irr_glsl_applyScreenSpaceChainRule4D3(in mat3x4 dFdG, in mat2x3 dGdScreen
 {
    return dFdG*dGdScreen;
 }
-*/
 
 // only in the fragment shader we have access to implicit derivatives
 irr_glsl_ViewSurfaceInteraction irr_glsl_calcFragmentShaderSurfaceInteraction(in vec3 _CamPos, in vec3 _SurfacePos, in vec3 _Normal)
@@ -163,6 +161,7 @@ irr_glsl_BSDFIsotropicParams irr_glsl_calcBSDFIsotropicParams(in irr_glsl_ViewSu
    params.interaction.V.dir = interaction.V.dir*invlenV2;
    params.interaction.N = interaction.N*invlenN2;
    params.L = L*invlenL2;
+   params.invlenL2 = invlenL2;
 
    // this stuff only works with normalized L,N,V
    params.NdotL = dot(params.interaction.N,params.L);
@@ -203,7 +202,39 @@ irr_glsl_BSDFAnisotropicParams irr_glsl_calcBSDFAnisotropicParams(in irr_glsl_BS
 #endif
 )";
     }
+    static std::string getDiffuseFresnelCorrectionFactor(const std::string&)
+    {
+        return
+R"(#ifndef _IRR_BSDF_BRDF_DIFFUSE_FRESNEL_CORRECTION_INCLUDED_
+#define _IRR_BSDF_BRDF_DIFFUSE_FRESNEL_CORRECTION_INCLUDED_
 
+vec3 irr_glsl_diffuseFresnelCorrectionFactor(in vec3 n, in vec3 n2)
+{
+    //assert(n*n==n2);
+    bvec3 TIR = lessThan(n,vec3(1.0));
+    vec3 invdenum = mix(vec3(1.0), vec3(1.0)/(n2*n2*(vec3(554.33) - 380.7*n)), TIR);
+    vec3 num = n*mix(vec3(0.1921156102251088),n*298.25 - 261.38*n2 + 138.43,TIR);
+    num += mix(vec3(0.8078843897748912),vec3(-1.67),TIR);
+    return num*invdenum;
+}
+
+#endif
+)";
+    }
+    static std::string getLambert(const std::string&)
+    {
+        return
+R"(#ifndef _IRR_BSDF_BRDF_DIFFUSE_LAMBERT_INCLUDED_
+#define _IRR_BSDF_BRDF_DIFFUSE_LAMBERT_INCLUDED_
+
+float irr_glsl_lambert()
+{
+    return 1.0/3.14159265359;
+}
+
+#endif
+)";
+    }
     static std::string getOrenNayar(const std::string&)
     {
         return
@@ -366,11 +397,13 @@ protected:
     irr::core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
     {
         return {
+            { std::regex{"brdf/diffuse/lambert\\.glsl"}, &getLambert },
             { std::regex{"brdf/diffuse/oren_nayar\\.glsl"}, &getOrenNayar },
             { std::regex{"brdf/specular/ndf/ggx_trowbridge_reitz\\.glsl"}, &getGGXTrowbridgeReitz },
             { std::regex{"brdf/specular/geom/ggx_smith\\.glsl"}, &getGGXSmith },
             { std::regex{"brdf/specular/fresnel/fresnel\\.glsl"}, &getFresnel },
-            { std::regex{"common\\.glsl"}, &getCommons }
+            { std::regex{"common\\.glsl"}, &getCommons },
+            { std::regex{"brdf/diffuse/fresnel_correction\\.glsl"}, &getDiffuseFresnelCorrectionFactor },
         };
     }
 };

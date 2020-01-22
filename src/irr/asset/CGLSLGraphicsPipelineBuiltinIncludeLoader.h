@@ -19,7 +19,7 @@ private:
 R"(#ifndef _IRR_MTL_LOADER_COMMON_INCLUDED_
 #define _IRR_MTL_LOADER_COMMON_INCLUDED_
 
-struct irr_glsl_SMTLPushConstants 
+struct irr_glsl_MTLMaterialParameters 
 {
     vec3 Ka;
     vec3 Kd;
