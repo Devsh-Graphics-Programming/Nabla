@@ -12,57 +12,91 @@ namespace core
 {
 
 
-class OwenSampler : protected SobolSampler
-{
+	class OwenSampler : protected SobolSampler
+	{
 	public:
 		OwenSampler(uint32_t _dimensions, uint32_t _seed) : SobolSampler(_dimensions)
 		{
 			mersenneTwister.seed(_seed);
-
-			constexpr uint32_t expectedMaxSamples = 4096u;
-			flipBit.reserve(dimension*(expectedMaxSamples-1u)*SobolSampler::SOBOL_BITS);
+			cachedFlip.resize(MAX_SAMPLES-1u);
+			resetDimensionCounter(0u);
 		}
 		~OwenSampler()
 		{
 		}
-		
+
 		// 
 		inline uint32_t sample(uint32_t dim, uint32_t sampleNum)
 		{
+			if (dim>lastDim)
+				resetDimensionCounter(dim);
+			else if (dim<lastDim)
+				assert(false);
+
 			uint32_t oldsample = SobolSampler::sample(dim,sampleNum);
-
-			uint32_t retval = oldsample;
-			for (uint32_t i=0; i<SobolSampler::SOBOL_BITS; i++)
-			{
-				uint32_t treeAboveSize = (0x1u<<i)-1u;
-				uint32_t thisLevelIx = (oldsample>>(SobolSampler::SOBOL_BITS-i));
-
-				uint64_t globalIndex = 0xffffffffull;
-				globalIndex *= dim;
-				globalIndex += treeAboveSize;
-				globalIndex += thisLevelIx;
-
-				bool flip;
-				auto found = flipBit.find(globalIndex);
-				if (found != flipBit.end())
-					flip = found->second;
+			#ifdef _IRR_DEBUG
+				assert(sampleNum<MAX_SAMPLES);
+				if (sampleNum)
+					assert((oldsample&(0x7fffffffu>>core::findMSB(sampleNum))) == 0u);
 				else
-				{
-					flip = mersenneTwister()&0x80000000u;
-					flipBit.insert({globalIndex,flip});
-				}
+					assert(oldsample == 0u);
+			#endif
+			constexpr uint32_t lastLevelStart = MAX_SAMPLES/2u-1u;
+			uint32_t index = oldsample>>(SobolSampler::SOBOL_BITS+1u - MAX_SAMPLES_LOG2);
+			index += lastLevelStart;
 
-				if (flip)
-					retval ^= 0x1u<<(SobolSampler::SOBOL_BITS-1u-i);
+			return oldsample^cachedFlip[index];
+		}
+
+		//!
+		inline void resetDimensionCounter(uint32_t dimension)
+		{
+			/** NOTES:
+			- For 64k samples, we can store their positions in uint16_t
+			- The last leves of Owen Tree can be collapsed to a single node (because trailing bits are always 00000.....)
+			- The above can be stored in 1x array of sample count uint16_t/uint32_t per Dimension
+			- We should store samples as uint32_t always because the total amount of memory to fetch is always the same
+			**/
+			for (uint32_t i=0u; i<MAX_SAMPLES-1u; i++)
+			{
+				uint32_t randMask = (i<(MAX_SAMPLES/2u-1u)) ? 0x80000000u:0xffffffffu;
+				cachedFlip[i] = mersenneTwister()&(randMask>>getTreeDepth(i));
 			}
-
-			return retval;
+			for (uint32_t i=1u; i<MAX_SAMPLES_LOG2; i++)
+			{
+				uint32_t previousLevelStart = (0x1u<<(i-1u))-1u;
+				uint32_t currentLevelStart = (0x1u<<i)-1u;
+				uint32_t currentLevelSize = 0x1u<<i;
+				for (uint32_t j=0u; j<currentLevelSize; j++)
+					cachedFlip[currentLevelStart+j] |= cachedFlip[previousLevelStart+(j>>1u)];
+				#ifdef _IRR_DEBUG
+					for (uint32_t j=0u; j<currentLevelSize; j+=2)
+					{
+						const uint32_t highBitMask = 0xffffffffu<<(SobolSampler::SOBOL_BITS-i);
+						uint32_t left = cachedFlip[currentLevelStart+j];
+						uint32_t right = cachedFlip[currentLevelStart+j+1];
+						assert(((left^right)&highBitMask)==0u);
+						assert((left&right&highBitMask)==cachedFlip[previousLevelStart+(j>>1u)]);
+					}
+				#endif
+			}
+			lastDim = dimension;
 		}
 
 	protected:
+		// if we don't limit the sample count, then due to IEEE754 precision, we'll get duplicate sample coordinate values, ruining the net property
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_SAMPLES_LOG2 = 24u;
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_SAMPLES = 0x1u<<MAX_SAMPLES_LOG2;
+
+		inline uint32_t getTreeDepth(uint32_t sampleNum)
+		{
+			return core::findMSB(sampleNum+1u);
+		}
+
 		std::mt19937 mersenneTwister;
-		core::unordered_map<uint64_t,bool> flipBit;
-};
+		uint32_t lastDim;
+		core::vector<uint32_t> cachedFlip;
+	};
 
 
 }

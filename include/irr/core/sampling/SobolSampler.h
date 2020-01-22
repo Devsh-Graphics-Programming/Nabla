@@ -8336,6 +8336,10 @@ class SobolSampler
 							v[i] ^= (((a >> (s-1u-k)) & 1u) * v[i-k]);
 					}
 				}
+				#ifdef _IRR_DEBUG
+					for (uint32_t i=0u; i<L; i++)
+						assert((v[i]&(0x7fffffffu>>i)) == 0u);
+				#endif
 			}
 		}
 };
