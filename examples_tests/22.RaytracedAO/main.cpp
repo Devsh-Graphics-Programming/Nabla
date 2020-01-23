@@ -14,8 +14,71 @@
 using namespace irr;
 using namespace core;
 
+#include <vector>
+#include <random>
+#include <algorithm>
+#include <cassert>
+
+using namespace std;
+
+template <class T> inline uint32_t fast_upper_bound3(const core::vector<T>& vec, T value)
+{
+	uint32_t size = vec.size();
+	uint32_t low = 0;
+
+	while (size > 0) {
+		uint32_t half = size / 2;
+		uint32_t other_half = size - half;
+		uint32_t probe = low + half;
+		uint32_t other_low = low + other_half;
+		T v = vec[probe];
+		size = half;
+		low = v >= value ? other_low : low;
+	}
+
+	return low;
+}
+
+
+int bigtest()
+{
+	constexpr uint32_t SAMPLE_SIZE = 128u * 1024u;
+	constexpr uint32_t RUNS = 1024 * 1024u;
+
+	// Seed with a real random value, if available
+	std::random_device r;
+	std::seed_seq seed2{ r(), r(), r(), r(), r(), r(), r(), r() };
+	std::mt19937 rng(seed2);
+
+	core::vector<uint32_t> data(SAMPLE_SIZE);
+	for (auto& pt : data)
+		pt = rng();
+	std::sort(data.begin, data.end());
+
+
+	auto test = [&](uint32_t value)
+	{
+		uint32_t ix = fast_upper_bound3<uint32_t>(data, value);
+		if (ix < data.size())
+			assert(value < data[ix]);
+		if (ix)
+			assert(value >= data[ix - 1u]);
+	};
+
+	for (const auto& pt : data)
+		test(pt);
+	for (uint32_t i = 0u; i < RUNS; i++)
+	{
+		uint32_t value = rng();
+		test(value);
+	}
+
+	return 0;
+}
+
 int main()
 {
+	bigtest();
 	// create device with full flexibility over creation parameters
 	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
 	irr::SIrrlichtCreationParameters params;
