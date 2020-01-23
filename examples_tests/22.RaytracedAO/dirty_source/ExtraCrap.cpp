@@ -168,9 +168,8 @@ mat2x3 frisvad(in vec3 n)
 }
 
 
-uint lower_bound(in uint key)
+uint lower_bound(in uint key, uint size)
 {
-	uint size = uint(lightCDF.length());
     uint low = 0u;
 
 #define ITERATION \
@@ -181,7 +180,37 @@ uint lower_bound(in uint key)
         uint other_low = low + other_half; \
         uint v = lightCDF[probe]; \
         size = _half; \
-        low = key>v ? other_low:low; \
+        low = v<key ? other_low:low; \
+	}
+
+    while (size >= 8u)
+	{
+		ITERATION
+		ITERATION
+		ITERATION
+    }
+
+    while (size > 0u)
+		ITERATION
+
+#undef ITERATION
+
+	return low;
+}
+
+uint upper_bound(in uint key, uint size)
+{
+    uint low = 0u;
+
+#define ITERATION \
+	{\
+        uint _half = size >> 1u; \
+        uint other_half = size - _half; \
+        uint probe = low + _half; \
+        uint other_low = low + other_half; \
+        uint v = lightCDF[probe]; \
+        size = _half; \
+        low = v<=key ? other_low:low; \
 	}
 
     while (size >= 8u)
@@ -205,7 +234,7 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 	uint lightIDSample = ugen_uniform_sample1(0u,sampleIx,scramble);
 	vec2 lightSurfaceSample = gen_uniform_sample2(2u,sampleIx,scramble);
 
-	uint lightID = lower_bound(lightIDSample);
+	uint lightID = upper_bound(lightIDSample,uint(lightCDF.length()-1));
 
 	SLight light = light[lightID];
 
@@ -389,7 +418,6 @@ void main()
 			float error = ULP1(uDepthLinearizationConstant,8u);
 
 			newray.maxT = FLT_MAX;
-			alive = alive && lightCDF.length()!=0;
 			if (alive)
 				bsdf.rgb = light_sample(newray.direction,uSamplesComputed+i,scramble,newray.maxT,alive,position,normal);
 			if (alive)
@@ -854,17 +882,18 @@ void Renderer::init(const SAssetBundle& meshes,
 		double weightSum = 0.0;
 		for (auto i=0u; i<lightPDF.size(); i++)
 			weightSum += lightPDF[i];
-		assert(weightSum >FLT_MIN);
-		double weightSumRcp = double(~0u)/weightSum+double(FLT_MIN);
-
+		assert(weightSum>FLT_MIN);
+		double weightSumRcp = double(0x1ull<<32ull)/weightSum+double(FLT_MIN);
 		double partialSum = 0.0;
 		for (auto i=0u; i<lightCDF.size(); i++)
 		{
-			float pdf = lightPDF[i];
+			double pdf = lightPDF[i];
 			partialSum += pdf;
 			lightCDF[i] = static_cast<uint32_t>(partialSum*weightSumRcp);
-			lights[i].setFactor(core::vectorSIMDf(lights[i].strengthFactor)*(weightSum/pdf));
+			double inv_prob = double(0x1ull<<32ull)/(lightCDF[i]-(i ? lightCDF[i-1u]:0u));
+			lights[i].setFactor(core::vectorSIMDf(lights[i].strengthFactor)*inv_prob);
 		}
+		lightCDF.back() = 0xdeadbeefu;
 
 		m_lightCDFBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createFilledDeviceLocalGPUBufferOnDedMem(lightCDF.size()*sizeof(uint32_t),lightCDF.data()),core::dont_grab);
 		m_lightBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createFilledDeviceLocalGPUBufferOnDedMem(lights.size()*sizeof(SLight),lights.data()),core::dont_grab);

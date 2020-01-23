@@ -39,6 +39,24 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 			}
 			~SLight() {}
 
+			inline SLight& operator=(SLight&& other)
+			{
+				std::swap_ranges(strengthFactor,strengthFactor+3u,other.strengthFactor);
+				auto a = other.analytical;
+				auto t = other.triangle;
+				if (type!=ET_TRIANGLE)
+					other.analytical = analytical;
+				else
+					other.triangle = triangle;
+				if (other.type)
+					analytical = a;
+				else
+					triangle = t;
+				std::swap(type, other.type);
+
+				return *this;
+			}
+
 			void setFactor(const irr::core::vectorSIMDf& factor)
 			{
 				for (auto i=0u; i<3u; i++)
