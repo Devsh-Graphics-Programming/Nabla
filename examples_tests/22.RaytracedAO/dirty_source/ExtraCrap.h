@@ -22,6 +22,18 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				ET_TRIANGLE,
 				ET_COUNT
 			};
+			struct CachedTransform
+			{
+				CachedTransform(const irr::core::matrix3x4SIMD& tform) : transform(tform)
+				{
+					auto tmp4 = irr::core::matrix4SIMD(transform.getSub3x3TransposeCofactors());
+					transformCofactors = irr::core::transpose(tmp4).extractSub3x4();
+				}
+
+				irr::core::matrix3x4SIMD transform;
+				irr::core::matrix3x4SIMD transformCofactors;
+			};
+
 
 			SLight() : type(ET_COUNT) {}
 			SLight(const SLight& other) : type(other.type)
@@ -55,10 +67,10 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				return *this;
 			}
 
-			void setFactor(const irr::core::vectorSIMDf& factor)
+			void setFactor(const irr::core::vectorSIMDf& _strengthFactor)
 			{
 				for (auto i=0u; i<3u; i++)
-					strengthFactor[i] = factor[i];
+					strengthFactor[i] = _strengthFactor[i];
 			}
 
 			//! This is according to Rec.709 colorspace
@@ -89,8 +101,6 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				float lightFlux = unitHemisphereArea*getFactorLuminosity();
 				switch (type)
 				{
-					case ET_CONSTANT: // no-op because factor is in Watts / Wavelength / steradian
-						break;
 					case ET_ELLIPSOID:
 						_IRR_FALLTHROUGH;
 					//! TODO: check if can analytically compute arbitrary 3x3 transform cylinder area 
@@ -109,6 +119,29 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				return lightFlux;
 			}
 
+			static inline SLight createFromTriangle(bool rightHandedCamera, const irr::core::vectorSIMDf& _strengthFactor, const CachedTransform& precompTform, const irr::core::vectorSIMDf* v, float* outArea=nullptr)
+			{
+				SLight triLight;
+				triLight.type = ET_TRIANGLE;
+				triLight.setFactor(_strengthFactor);
+				triLight.analytical = precompTform;
+
+				float triangleArea = 0.5f*triLight.computeAreaUnderTransform(irr::core::cross(v[1]-v[0],v[2]-v[0]));
+				if (outArea)
+					*outArea = triangleArea;
+
+				for (auto k=0u; k<3u; k++)
+					precompTform.transform.transformVect(triLight.triangle.vertices[k], v[k]);
+				triLight.triangle.vertices[1] -= triLight.triangle.vertices[0];
+				triLight.triangle.vertices[2] -= triLight.triangle.vertices[0];
+				if (rightHandedCamera)
+					std::swap(triLight.triangle.vertices[2], triLight.triangle.vertices[1]);
+
+				// don't do any flux magic yet
+
+				return triLight;
+			}
+
 			//! different lights use different measures of their strength (this already has the reciprocal of the light PDF factored in)
 			alignas(16) float strengthFactor[3];
 			//! type is second member due to alignment issues
@@ -116,11 +149,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 			//! useful for analytical shapes
 			union
 			{
-				struct Analytical
-				{
-					irr::core::matrix3x4SIMD transform;
-					irr::core::matrix3x4SIMD transformCofactors;
-				} analytical;
+				CachedTransform analytical;
 				struct Triangle
 				{
 					irr::core::vectorSIMDf padding[3];
@@ -163,6 +192,8 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		irr::asset::IAssetManager* m_assetManager;
 		irr::scene::ISceneManager* m_smgr;
+
+		irr::core::vector<std::array<irr::core::vector3df_SIMD,3> > m_precomputedGeodesic;
 
 		irr::core::smart_refctd_ptr<irr::ext::RadeonRays::Manager> m_rrManager;
 

@@ -52,11 +52,10 @@ layout(binding = 1, std430) restrict readonly buffer CumulativeLightPDF
 	uint lightCDF[];
 };
 
-#define SLight_ET_CONSTANT	0u
+#define SLight_ET_TRIANGLE	0u
 #define SLight_ET_ELLIPSOID	1u
 #define SLight_ET_CYLINDER	2u
 #define SLight_ET_DISK		3u
-#define SLight_ET_TRIANGLE	4u
 #define SLight_ET_COUNT		5u
 struct SLight
 {
@@ -254,7 +253,7 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 
 				factor = 4.0*kPI; // compensate for the domain of integration
 				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
-				vec3 negLightNormal = -light.transformCofactors*pointOnSurface;
+				vec3 negLightNormal = light.transformCofactors*pointOnSurface;
 
 				factor *= max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen*incomingInvLen;
 			}
@@ -293,7 +292,7 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 				factor *= max(dot(light.transformCofactors[2],incoming),0.0)*incomingInvLen*incomingInvLen*incomingInvLen;
 			}
 			break;
-		case SLight_ET_TRIANGLE:
+		default: // SLight_ET_TRIANGLE:
 			{
 				vec3 pointOnSurface = transpose(light.transformCofactors)[0];
 				vec3 shortEdge = transpose(light.transformCofactors)[1];
@@ -311,17 +310,6 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 				maxT = SHADOW_RAY_LEN;
 
 				factor = 0.5*max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen*incomingInvLen;
-			}
-			break;
-		default: // SLight_ET_CONSTANT:
-			{
-				float equator = lightSurfaceSample.y*2.0*kPI;
-				vec3 pointOnSphere = vec3(vec2(cos(equator),sin(equator))*sqrt(1.0-lightSurfaceSample.x*lightSurfaceSample.x),lightSurfaceSample.x);
-	
-				mat2x3 tangents = frisvad(normal);
-				incoming = mat3(tangents[0],tangents[1],normal)*pointOnSphere;
-
-				factor = kPI*2.0; // compensate for the domain of integration
 			}
 			break;
 	}
@@ -499,10 +487,12 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 		int32_t nUniformLocation[video::EMT_COUNT+2];
 		int32_t colorUniformLocation[video::EMT_COUNT+2];
 		int32_t nastyUniformLocation[video::EMT_COUNT+2];
+		int32_t emissiveFP16_and_lightIDUniformLocation[video::EMT_COUNT+2];
 		video::E_SHADER_CONSTANT_TYPE mvpUniformType[video::EMT_COUNT+2];
 		video::E_SHADER_CONSTANT_TYPE nUniformType[video::EMT_COUNT+2];
 		video::E_SHADER_CONSTANT_TYPE colorUniformType[video::EMT_COUNT+2];
 		video::E_SHADER_CONSTANT_TYPE nastyUniformType[video::EMT_COUNT+2];
+		video::E_SHADER_CONSTANT_TYPE emissiveFP16_and_lightIDUniformType[video::EMT_COUNT+2];
 	public:
 		SimpleCallBack() : currentMat(video::EMT_SOLID)
 		{
@@ -533,6 +523,11 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 					nastyUniformLocation[materialType] = constants[i].location;
 					nastyUniformType[materialType] = constants[i].type;
 				}
+				else if (constants[i].name == "emissiveFP16_and_lightID")
+				{
+					emissiveFP16_and_lightIDUniformLocation[materialType] = constants[i].location;
+					emissiveFP16_and_lightIDUniformType[materialType] = constants[i].type;
+				}
 			}
 		}
 
@@ -541,6 +536,9 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 			currentMat = material.MaterialType;
 			services->setShaderConstant(&material.AmbientColor, colorUniformLocation[currentMat], colorUniformType[currentMat], 1);
 			services->setShaderConstant(&material.MaterialTypeParam, nastyUniformLocation[currentMat], nastyUniformType[currentMat], 1);
+			uint16_t data[4];
+			memcpy(data,&material.DiffuseColor,sizeof(data));
+			services->setShaderConstant(data, emissiveFP16_and_lightIDUniformLocation[currentMat], emissiveFP16_and_lightIDUniformType[currentMat], 1);
 		}
 
 		virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
@@ -594,6 +592,23 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneMa
 		includes->getBuiltinInclude("ray.glsl") +
 		compostShader
 	);
+
+	// TODO: Upgrade to Icosphere!
+	{
+		auto tmpSphereMesh = m_assetManager->getGeometryCreator()->createSphereMesh(1.f, 16u, 16u);
+		auto mb = tmpSphereMesh->getMeshBuffer(0u);
+
+		uint32_t triangleCount = 0u;
+		asset::IMeshManipulator::getPolyCount(triangleCount, mb);
+		m_precomputedGeodesic.resize(triangleCount);
+		for (auto triID=0u; triID<triangleCount; triID++)
+		{
+			auto triangle = asset::IMeshManipulator::getTriangleIndices(mb,triID);
+			std::swap(triangle[1], triangle[2]); // make the sphere face inwards
+			for (auto k=0u; k<3u; k++)
+				m_precomputedGeodesic[triID][k] = mb->getPosition(triangle[k]);
+		}
+	}
 }
 
 Renderer::~Renderer()
@@ -653,18 +668,20 @@ void Renderer::init(const SAssetBundle& meshes,
 
 				SLight light;
 				light.setFactor(instance.emitter.area.radiance);
-				light.analytical.transform = instance.tform;
-				auto tmp =	core::transpose(core::matrix4SIMD(instance.tform.getSub3x3TransposeCofactors()));
-				light.analytical.transformCofactors = tmp.extractSub3x4();
+				light.analytical = SLight::CachedTransform(instance.tform);
 
 				bool bail = false;
 				switch (shapeType)
 				{
 					case ext::MitsubaLoader::CElementShape::Type::SPHERE:
 						light.type = SLight::ET_ELLIPSOID;
+						if (isCameraRightHanded)
+							light.analytical.transformCofactors = -light.analytical.transformCofactors;
 						break;
 					case ext::MitsubaLoader::CElementShape::Type::CYLINDER:
 						light.type = SLight::ET_CYLINDER;
+						if (isCameraRightHanded)
+							light.analytical.transformCofactors = -light.analytical.transformCofactors;
 						break;
 					case ext::MitsubaLoader::CElementShape::Type::DISK:
 						light.type = SLight::ET_DISK;
@@ -717,25 +734,15 @@ void Renderer::init(const SAssetBundle& meshes,
 						for (auto triID=0u; triID<triangleCount; triID++)
 						{
 							auto triangle = asset::IMeshManipulator::getTriangleIndices(cpumb,triID);
-							if (isCameraRightHanded)
-								std::swap(triangle[1],triangle[2]);
 
 							core::vectorSIMDf v[3];
 							for (auto k=0u; k<3u; k++)
 								v[k] = cpumb->getPosition(triangle[k]);
-						
-							float triangleArea = 0.5f*light.computeAreaUnderTransform(core::cross(v[1]-v[0],v[2]-v[0]));
 
+							float triangleArea = NAN;
+							auto triLight = SLight::createFromTriangle(isCameraRightHanded, instance.emitter.area.radiance, light.analytical, v, &triangleArea);
 							if (light.type==SLight::ET_TRIANGLE)
-							{
-								SLight triLight = light;
-								for (auto k=0u; k<3u; k++)
-									instance.tform.transformVect(triLight.triangle.vertices[k],v[k]);
-								triLight.triangle.vertices[1] -= triLight.triangle.vertices[0];
-								triLight.triangle.vertices[2] -= triLight.triangle.vertices[0];
-
 								addLight(triLight,triangleArea);
-							}
 							else
 								totalSurfaceArea += triangleArea;
 						}
@@ -768,6 +775,7 @@ void Renderer::init(const SAssetBundle& meshes,
 			{
 				auto node = core::smart_refctd_ptr<IMeshSceneNode>(m_smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh)));
 				node->setRelativeTransformationMatrix(instance.tform.getAsRetardedIrrlichtMatrix());
+				node->updateAbsolutePosition();
 				sceneBound.addInternalBox(node->getTransformedBoundingBox());
 
 				nodes.push_back(std::move(node));
@@ -818,15 +826,40 @@ void Renderer::init(const SAssetBundle& meshes,
 			lights.push_back(light);
 		}
 		// add constant light
+		if (constantCombinedWeight>FLT_MIN)
 		{
-			SLight light;
-			light.type = SLight::ET_CONSTANT;
-			light.setFactor(constantClearColor);
-			constantCombinedWeight *= light.computeFlux(NAN);
-			if (constantCombinedWeight>FLT_MIN)
+			core::matrix3x4SIMD tform;
+			tform.setScale(core::vectorSIMDf().set(sceneBound.getExtent())*core::sqrt(3.f/4.f));
+			tform.setTranslation(core::vectorSIMDf().set(sceneBound.getCenter()));
+			SLight::CachedTransform cachedT(tform);
+
+			auto startIx = lights.size();
+			float triangulationArea = 0.f;
+			for (const auto& tri : m_precomputedGeodesic)
 			{
-				lightPDF.push_back(constantCombinedWeight);
-				lights.push_back(light);
+				// compute area and make light
+				float area = NAN;
+				auto triLight = SLight::createFromTriangle(isCameraRightHanded,constantClearColor,cachedT,&tri[0],&area);
+				// compute flux
+				float flux = triLight.computeFlux(area);
+				// correct for change of variables from constant (whole sphere with no regard for area)
+				for (auto j=0u; j<3u; j++)
+					triLight.strengthFactor[j] *= area;				
+				// add to light list
+				float weight = constantCombinedWeight*flux;
+				if (weight>FLT_MIN)
+				{
+					lightPDF.push_back(weight);
+					lights.push_back(triLight);
+				}
+				triangulationArea += area;
+			}
+
+			for (auto i=startIx; i<lights.size(); i++)
+			{
+				lightPDF[i] /= triangulationArea;
+				for (auto j=0u; j<3u; j++)
+					lights[i].strengthFactor[j] /= triangulationArea;
 			}
 		}
 
@@ -841,18 +874,37 @@ void Renderer::init(const SAssetBundle& meshes,
 	//! TODO: move out into a function `finalizeLights`
 	if (lights.size())
 	{
+		assert(lights.size()<=(0x1u<<16u));
+
 		double weightSum = 0.0;
 		for (auto i=0u; i<lightPDF.size(); i++)
 			weightSum += lightPDF[i];
 		assert(weightSum>FLT_MIN);
-		double weightSumRcp = double(0x1ull<<32ull)/weightSum+double(FLT_MIN);
+
+		constexpr double UINT_MAX_DOUBLE = double(0x1ull<<32ull);
+
+		double weightSumRcp = UINT_MAX_DOUBLE/weightSum;
 		double partialSum = 0.0;
 		for (auto i=0u; i<lightCDF.size(); i++)
 		{
+			uint32_t prevCDF = i ? lightCDF[i-1u]:0u;
+
 			double pdf = lightPDF[i];
 			partialSum += pdf;
-			lightCDF[i] = static_cast<uint32_t>(partialSum*weightSumRcp);
-			double inv_prob = double(0x1ull<<32ull)/(lightCDF[i]-(i ? lightCDF[i-1u]:0u));
+
+			double inv_prob = NAN;
+			double exactCDF = partialSum*weightSumRcp+double(FLT_MIN);
+			if (exactCDF<UINT_MAX_DOUBLE)
+			{
+				lightCDF[i] = static_cast<uint32_t>(exactCDF);
+				inv_prob = UINT_MAX_DOUBLE/(lightCDF[i]-prevCDF);
+			}
+			else
+			{
+				assert(exactCDF<UINT_MAX_DOUBLE+1.0);
+				lightCDF[i] = 0xdeadbeefu;
+				inv_prob = 1.0/(1.0-double(prevCDF)/UINT_MAX_DOUBLE);
+			}
 			lights[i].setFactor(core::vectorSIMDf(lights[i].strengthFactor)*inv_prob);
 		}
 		lightCDF.back() = 0xdeadbeefu;
