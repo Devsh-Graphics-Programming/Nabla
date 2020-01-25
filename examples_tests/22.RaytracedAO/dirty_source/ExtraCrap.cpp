@@ -53,13 +53,11 @@ layout(binding = 1, std430) restrict readonly buffer CumulativeLightPDF
 };
 
 #define SLight_ET_CONSTANT	0u
-#define SLight_ET_CUBE		1u
-#define SLight_ET_ELLIPSOID	2u
-#define SLight_ET_CYLINDER	3u
-#define SLight_ET_RECTANGLE	4u
-#define SLight_ET_DISK		5u
-#define SLight_ET_TRIANGLE	6u
-#define SLight_ET_COUNT		7u
+#define SLight_ET_ELLIPSOID	1u
+#define SLight_ET_CYLINDER	2u
+#define SLight_ET_DISK		3u
+#define SLight_ET_TRIANGLE	4u
+#define SLight_ET_COUNT		5u
 struct SLight
 {
 	vec3 factor;
@@ -242,35 +240,6 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 	float factor; // 1.0/light_probability already baked into the light factor
 	switch (SLight_extractType(light))
 	{
-		case SLight_ET_CUBE:
-			{
-				mat4x3 tform = light.transform;
-
-				float importantTmp = lightSurfaceSample.y*5.9999995;
-				uint faceID = uint(importantTmp);
-				float v = fract(importantTmp)*2.0-1.0;
-
-				vec3 pointOnSurface;
-				uvec3 tanID[] = uvec3[](uvec3(0,1,2),uvec3(1,2,0),uvec3(2,0,1));
-				uint subFaceID = faceID>>1u;
-
-				bool positiveFace = (faceID&0x1u)!=0x1u;
-				float signFactor = positiveFace ? 1.0:(-1.0);
-				pointOnSurface[tanID[subFaceID][0]] = signFactor;
-				pointOnSurface[tanID[subFaceID][1]] = lightSurfaceSample.x*2.0-1.0;
-				pointOnSurface[tanID[subFaceID][2]] = v;
-	
-				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
-				float incomingInvLen = inversesqrt(dot(incoming,incoming));
-
-				maxT = SHADOW_RAY_LEN;
-
-				factor = 24.0; // compensate for the domain of integration
-				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
-				float dp = dot(light.transformCofactors[subFaceID],incoming);
-				factor *= max(positiveFace ? (-dp):dp,0.0)*incomingInvLen*incomingInvLen*incomingInvLen;
-			}
-			break;
 		case SLight_ET_ELLIPSOID:
 			lightSurfaceSample.x = lightSurfaceSample.x*2.0-1.0;
 			{
@@ -285,9 +254,9 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 
 				factor = 4.0*kPI; // compensate for the domain of integration
 				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
-				vec3 lightNormal = light.transformCofactors*pointOnSurface;
+				vec3 negLightNormal = -light.transformCofactors*pointOnSurface;
 
-				factor *= max(-dot(lightNormal,incoming),0.0)*incomingInvLen*incomingInvLen*incomingInvLen;
+				factor *= max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_CYLINDER:
@@ -306,21 +275,6 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 				vec3 negLightNormal = light.transformCofactors[0]*pointOnSurface.x+light.transformCofactors[1]*pointOnSurface.y;
 
 				factor *= max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen*incomingInvLen;
-			}
-			break;
-		case SLight_ET_RECTANGLE:
-			{
-				vec3 pointOnSurface = vec3(lightSurfaceSample*2.0-vec2(1.0),0.0000001); // TODO: FLT_MIN
-	
-				mat4x3 tform = light.transform;
-				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
-				float incomingInvLen = inversesqrt(dot(incoming,incoming));
-
-				maxT = SHADOW_RAY_LEN;
-
-				factor = 4.0; // compensate for the domain of integration
-				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
-				factor *= max(dot(light.transformCofactors[2],incoming),0.0)*incomingInvLen*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_DISK:
@@ -706,25 +660,21 @@ void Renderer::init(const SAssetBundle& meshes,
 				bool bail = false;
 				switch (shapeType)
 				{
-					case ext::MitsubaLoader::CElementShape::Type::CUBE:
-						light.type = SLight::ET_CUBE;
-						break;
 					case ext::MitsubaLoader::CElementShape::Type::SPHERE:
 						light.type = SLight::ET_ELLIPSOID;
 						break;
 					case ext::MitsubaLoader::CElementShape::Type::CYLINDER:
 						light.type = SLight::ET_CYLINDER;
 						break;
-					case ext::MitsubaLoader::CElementShape::Type::RECTANGLE:
-						light.type = SLight::ET_RECTANGLE;
-						if (isCameraRightHanded)
-							light.analytical.transformCofactors = -light.analytical.transformCofactors;
-						break;
 					case ext::MitsubaLoader::CElementShape::Type::DISK:
 						light.type = SLight::ET_DISK;
 						if (isCameraRightHanded)
 							light.analytical.transformCofactors = -light.analytical.transformCofactors;
 						break;
+					case ext::MitsubaLoader::CElementShape::Type::RECTANGLE:
+						_IRR_FALLTHROUGH;
+					case ext::MitsubaLoader::CElementShape::Type::CUBE:
+						_IRR_FALLTHROUGH;
 					case ext::MitsubaLoader::CElementShape::Type::OBJ:
 						_IRR_FALLTHROUGH;
 					case ext::MitsubaLoader::CElementShape::Type::PLY:
@@ -833,31 +783,31 @@ void Renderer::init(const SAssetBundle& meshes,
 	auto renderSize = m_driver->getScreenSize();
 	if (globalMeta)
 	{
+		constantClearColor.set(0.f, 0.f, 0.f, 1.f);
+		float constantCombinedWeight = 0.f;
 		for (auto emitter : globalMeta->emitters)
 		{
 			SLight light;
 
-			bool bail = false;
-			float weight = 1.f;
+			float weight = 0.f;
 			switch (emitter.type)
 			{
 				case ext::MitsubaLoader::CElementEmitter::Type::CONSTANT:
 					constantClearColor += emitter.constant.radiance;
-					light.type = SLight::ET_CONSTANT;
-					light.setFactor(emitter.constant.radiance);
-					weight = emitter.constant.samplingWeight;
+					constantCombinedWeight += emitter.constant.samplingWeight;
 					break;
 				case ext::MitsubaLoader::CElementEmitter::Type::INVALID:
-					bail = true;
 					break;
 				default:
 				#ifdef _DEBUG
 					assert(false);
 				#endif
-					bail = true;
+					//weight = emitter..samplingWeight;
+					//light.type = SLight::ET_;
+					//light.setFactor(emitter..radiance);
 					break;
 			}
-			if (bail)
+			if (weight==0.f)
 				continue;
 			
 			weight *= light.computeFlux(NAN);
@@ -866,6 +816,18 @@ void Renderer::init(const SAssetBundle& meshes,
 
 			lightPDF.push_back(weight);
 			lights.push_back(light);
+		}
+		// add constant light
+		{
+			SLight light;
+			light.type = SLight::ET_CONSTANT;
+			light.setFactor(constantClearColor);
+			constantCombinedWeight *= light.computeFlux(NAN);
+			if (constantCombinedWeight>FLT_MIN)
+			{
+				lightPDF.push_back(constantCombinedWeight);
+				lights.push_back(light);
+			}
 		}
 
 		if (globalMeta->sensors.size())

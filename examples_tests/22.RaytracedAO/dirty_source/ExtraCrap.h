@@ -15,11 +15,9 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		{
 			enum E_TYPE : uint32_t
 			{
-				ET_CONSTANT,
-				ET_CUBE,
+				ET_CONSTANT, //depr
 				ET_ELLIPSOID,
 				ET_CYLINDER,
-				ET_RECTANGLE,
 				ET_DISK,
 				ET_TRIANGLE,
 				ET_COUNT
@@ -64,7 +62,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 			}
 
 			//! This is according to Rec.709 colorspace
-			inline float getFactorLuminosity()
+			inline float getFactorLuminosity() const
 			{
 				float rec709LumaCoeffs[] = {0.2126f, 0.7152, 0.0722};
 
@@ -77,13 +75,13 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				return luma;
 			}
 
-			inline float computeAreaUnderTransform(irr::core::vectorSIMDf differentialElementCrossProduct)
+			inline float computeAreaUnderTransform(irr::core::vectorSIMDf differentialElementCrossProduct) const
 			{
 				analytical.transformCofactors.mulSub3x3WithNx1(differentialElementCrossProduct);
 				return irr::core::length(differentialElementCrossProduct).x;
 			}
 
-			inline float computeFlux(float triangulizationArea) // also known as lumens
+			inline float computeFlux(float triangulizationArea) const // also known as lumens
 			{
 				const auto unitHemisphereArea = 2.f*irr::core::PI<float>();
 				const auto unitSphereArea = 2.f*unitHemisphereArea;
@@ -92,19 +90,6 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				switch (type)
 				{
 					case ET_CONSTANT: // no-op because factor is in Watts / Wavelength / steradian
-						break;
-					case ET_CUBE:
-						{
-							float cubeArea = computeAreaUnderTransform(irr::core::vectorSIMDf(4.f,0.f,0.f));
-							cubeArea += computeAreaUnderTransform(irr::core::vectorSIMDf(0.f,4.f,0.f));
-							cubeArea += computeAreaUnderTransform(irr::core::vectorSIMDf(0.f,0.f,4.f));
-							lightFlux *= cubeArea*2.f;
-						}
-						break;
-					case ET_RECTANGLE:
-						{
-							lightFlux *= computeAreaUnderTransform(irr::core::vectorSIMDf(0.f,0.f,4.f));
-						}
 						break;
 					case ET_ELLIPSOID:
 						_IRR_FALLTHROUGH;
