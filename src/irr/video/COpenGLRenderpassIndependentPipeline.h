@@ -149,18 +149,18 @@ public:
             assert(!(_val & (~0xfffull)));//bits higher than [0..11] must not be set
             if (_ix == 5u)
             {
-                _bits[0] &= (~(0xfull >> 60));
-                _bits[0] |= (_val >> 60);
+                _bits[0] &= (~(0xfull << 60));
+                _bits[0] |= (_val << 60);
                 _bits[1] &= (~0xffull);
-                _bits[1] |= (_val << 4);
+                _bits[1] |= (_val >> 4);
                 return;
             }
             if (_ix == 11u)
             {
-                _bits[1] &= (~(0xffull >> 56));
-                _bits[1] |= (_val >> 56);
+                _bits[1] &= (~(0xffull << 56));
+                _bits[1] |= (_val << 56);
                 _bits[2] &= (~0xfull);
-                _bits[2] |= (_val << 8);
+                _bits[2] |= (_val >> 8);
                 return;
             }
 
