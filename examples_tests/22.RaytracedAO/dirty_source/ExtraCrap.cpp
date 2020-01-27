@@ -21,11 +21,10 @@ const std::string raygenShaderExtensions = R"======(
 )======";
 
 const std::string lightStruct = R"======(
-#define SLight_ET_TRIANGLE	0u
-#define SLight_ET_ELLIPSOID	1u
-#define SLight_ET_CYLINDER	2u
-#define SLight_ET_DISK		3u
-#define SLight_ET_COUNT		5u
+#define SLight_ET_ELLIPSOID	0u
+#define SLight_ET_CYLINDER	1u
+#define SLight_ET_TRIANGLE	2u
+#define SLight_ET_COUNT		3u
 struct SLight
 {
 	vec3 factor;
@@ -280,23 +279,6 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 				factor *= max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen;
 			}
 			break;
-		case SLight_ET_DISK:
-			{
-				float equator = lightSurfaceSample.y*2.0*kPI;
-				vec3 pointOnSurface = vec3(vec2(cos(equator),sin(equator))*sqrt(lightSurfaceSample.x),0.0000001); // TODO: FLT_MIN
-	
-				mat4x3 tform = light.transform;
-				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
-				float incomingInvLen = inversesqrt(dot(incoming,incoming));
-				incoming *= incomingInvLen;
-
-				maxT = SHADOW_RAY_LEN/incomingInvLen;
-
-				factor = kPI; // compensate for the domain of integration
-				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
-				factor *= max(dot(light.transformCofactors[2],incoming),0.0)*incomingInvLen*incomingInvLen;
-			}
-			break;
 		default: // SLight_ET_TRIANGLE:
 			{
 				vec3 pointOnSurface = transpose(light.transformCofactors)[0];
@@ -439,11 +421,12 @@ void main()
 			hit[rayID] = -1;
 		}
 		// TODO: move the `div` to tonemapping shader (or ray gen actually, for fractional sampling)
-		color /= float(uSamples_ImageWidthSamples.x);
+		color *= 1.0/float(uSamples_ImageWidthSamples.x);
 
 		// TODO: move this to tonemapping
 		uint lightID = texelFetch(lightIndex,uv,0)[0];
-		color += lightRadiance[lightID];
+		if (lightID!=0xdeadbeefu)
+			color += lightRadiance[lightID];
 
 		// TODO: optimize the color storage (RGB9E5/RGB19E7 anyone?)
 		acc.rgb += (color-acc.rgb)*uRcpFramesDone;
@@ -694,19 +677,14 @@ void Renderer::init(const SAssetBundle& meshes,
 					{
 						case ext::MitsubaLoader::CElementShape::Type::SPHERE:
 							light.type = SLight::ET_ELLIPSOID;
-							if (isCameraRightHanded)
-								light.analytical.transformCofactors = -light.analytical.transformCofactors;
+							light.analytical.transformCofactors = -light.analytical.transformCofactors;
 							break;
 						case ext::MitsubaLoader::CElementShape::Type::CYLINDER:
 							light.type = SLight::ET_CYLINDER;
-							if (isCameraRightHanded)
-								light.analytical.transformCofactors = -light.analytical.transformCofactors;
+							light.analytical.transformCofactors = -light.analytical.transformCofactors;
 							break;
 						case ext::MitsubaLoader::CElementShape::Type::DISK:
-							light.type = SLight::ET_DISK;
-							if (isCameraRightHanded)
-								light.analytical.transformCofactors = -light.analytical.transformCofactors;
-							break;
+							_IRR_FALLTHROUGH;
 						case ext::MitsubaLoader::CElementShape::Type::RECTANGLE:
 							_IRR_FALLTHROUGH;
 						case ext::MitsubaLoader::CElementShape::Type::CUBE:
@@ -730,7 +708,7 @@ void Renderer::init(const SAssetBundle& meshes,
 					if (bail)
 						continue;
 
-					auto addLight = [&instance,&cpumesh,&lightPDF,&lights,&lightRadiances](auto& newLight,float approxArea) -> void
+					auto addLight = [&isCameraRightHanded,&instance,&cpumesh,&lightPDF,&lights,&lightRadiances](auto& newLight,float approxArea) -> void
 					{
 						float weight = newLight.computeFlux(approxArea) * instance.emitter.area.samplingWeight;
 						if (weight <= FLT_MIN)
@@ -739,6 +717,8 @@ void Renderer::init(const SAssetBundle& meshes,
 						for (auto i=0u; i<cpumesh->getMeshBufferCount(); i++)
 						{
 							auto cpumb = cpumesh->getMeshBuffer(i);
+							cpumb->getMaterial().BackfaceCulling = !isCameraRightHanded;
+							cpumb->getMaterial().FrontfaceCulling = isCameraRightHanded;
 							reinterpret_cast<uint32_t&>(cpumb->getMaterial().userData) = lights.size();
 						}
 						lightPDF.push_back(weight);
@@ -1112,7 +1092,7 @@ void Renderer::render()
 		float zero[4] = { 0.f,0.f,0.f,0.f };
 		m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0, zero);
 		m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT1, zero);
-		uint32_t clearLightID[4] = {(constantClearColor>=core::vectorSIMDf(0.f)).any() ? (m_lightCount-1u):0xdeadbeefu,0,0,0};
+		uint32_t clearLightID[4] = {(constantClearColor>core::vectorSIMDf(0.f)).any() ? (m_lightCount-1u):0xdeadbeefu,0,0,0};
 		m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT2, clearLightID);
 	}
 

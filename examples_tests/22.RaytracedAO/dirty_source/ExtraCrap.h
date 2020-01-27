@@ -15,10 +15,8 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		{
 			enum E_TYPE : uint32_t
 			{
-				ET_CONSTANT, //depr
 				ET_ELLIPSOID,
 				ET_CYLINDER,
-				ET_DISK,
 				ET_TRIANGLE,
 				ET_COUNT
 			};
@@ -106,9 +104,6 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 					//! TODO: check if can analytically compute arbitrary 3x3 transform cylinder area 
 					case ET_CYLINDER:
 						_IRR_FALLTHROUGH;
-					//! TODO: check if can analytically compute arbitrary unit disk transformed by 3x3 matrix area
-					case ET_DISK:
-						_IRR_FALLTHROUGH;
 					case ET_TRIANGLE:
 						lightFlux *= triangulizationArea;
 						break;
@@ -134,7 +129,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 					precompTform.transform.transformVect(triLight.triangle.vertices[k], v[k]);
 				triLight.triangle.vertices[1] -= triLight.triangle.vertices[0];
 				triLight.triangle.vertices[2] -= triLight.triangle.vertices[0];
-				if (rightHandedCamera)
+				if (!rightHandedCamera)
 					std::swap(triLight.triangle.vertices[2], triLight.triangle.vertices[1]);
 
 				// don't do any flux magic yet
@@ -180,7 +175,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		const auto& getSceneBound() const { return sceneBound; }
 
-		auto getTotalSamplesComputed() const { return m_samplesComputed*m_rayCount; }
+		uint64_t getTotalSamplesComputed() const { return static_cast<uint64_t>(m_samplesComputed)*static_cast<uint64_t>(m_rayCount); }
 
 
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 4u;
