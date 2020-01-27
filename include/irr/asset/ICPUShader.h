@@ -46,6 +46,10 @@ class ICPUShader : public IAsset, public IShader<ICPUBuffer>
 
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
+            if (isDummyObjectForCacheAliasing)
+                return;
+            convertToDummyObject_common(referenceLevelsBelowToConvert);
+
 			if (referenceLevelsBelowToConvert)
 				m_code->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}

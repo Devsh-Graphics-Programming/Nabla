@@ -16,6 +16,11 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		using base_t = IRenderpassIndependentPipeline<ICPUSpecializedShader, ICPUPipelineLayout>;
 
 	public:
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t DESC_SET_HIERARCHYLEVELS_BELOW = 0u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t IMAGEVIEW_HIERARCHYLEVELS_BELOW = 1u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t IMAGE_HIERARCHYLEVELS_BELOW = 2u;
+
+
 		using base_t::base_t;
 
 		size_t conservativeSizeEstimate() const override { return sizeof(base_t); }
@@ -23,11 +28,12 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		{
 			if (referenceLevelsBelowToConvert)
 			{
+                //intentionally parent is not converted
                 --referenceLevelsBelowToConvert;
-				static_cast<ICPURenderpassIndependentPipeline*>(m_parent.get())->convertToDummyObject(referenceLevelsBelowToConvert);
 				m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
 				for (auto i=0u; i<SHADER_STAGE_COUNT; i++)
-					m_shaders[i]->convertToDummyObject(referenceLevelsBelowToConvert);
+                    if (m_shaders[i])
+					    m_shaders[i]->convertToDummyObject(referenceLevelsBelowToConvert);
 			}
 		}
 

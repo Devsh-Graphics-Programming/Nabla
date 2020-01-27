@@ -90,16 +90,22 @@ public:
         static_assert(sizeof(clamp)*8ull >= EMP_COUNT, "SMtl::clamp is too small!");
     };
 
-    CMTLPipelineMetadata(const SMtl& _mtl) : m_material(_mtl) {}
-    CMTLPipelineMetadata(SMtl&& _mtl) : m_material(std::move(_mtl)) {}
+    CMTLPipelineMetadata(const SMtl& _mtl, core::smart_refctd_ptr<ICPUDescriptorSet>&& _ds3, uint32_t _hash) : m_material(_mtl), m_descriptorSet3(std::move(_ds3)), m_hash(_hash) {}
+    CMTLPipelineMetadata(SMtl&& _mtl, core::smart_refctd_ptr<ICPUDescriptorSet>&& _ds3, uint32_t _hash) : m_material(std::move(_mtl)), m_descriptorSet3(std::move(_ds3)), m_hash(_hash) {}
 
     const SMtl& getMaterial() const { return m_material; }
 
     core::SRange<ShaderInputSemantic> getCommonRequiredInputs() override { return { nullptr, nullptr }; }
     const char* getLoaderName() const override { return "CGraphicsPipelineLoaderMTL"; } //?? i dont really understand the docs specifying what this function should return
 
+    uint32_t getHashVal() const { return m_hash; }
+    ICPUDescriptorSet* getDescriptorSet() const { return m_descriptorSet3.get(); }
+
 private:
     const SMtl m_material;
+    core::smart_refctd_ptr<ICPUDescriptorSet> m_descriptorSet3;
+    //for permutations of pipeline representing same material but with different factors impossible to know from MTL file (like whether submesh using the material contains UVs)
+    uint32_t m_hash;
 };
 
 }}

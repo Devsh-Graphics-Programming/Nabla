@@ -37,10 +37,14 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 		size_t conservativeSizeEstimate() const override { return m_descSetLayouts.size()*sizeof(void*)+m_pushConstantRanges->size()*sizeof(SPushConstantRange); }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
+            if (isDummyObjectForCacheAliasing)
+                return;
+            convertToDummyObject_common(referenceLevelsBelowToConvert);
+
 			if (referenceLevelsBelowToConvert)
-			for (auto it=m_descSetLayouts.begin(); it!=m_descSetLayouts.end(); it++)
-			if (it->get())
-				it->get()->convertToDummyObject(referenceLevelsBelowToConvert-1u);
+			    for (auto it=m_descSetLayouts.begin(); it!=m_descSetLayouts.end(); it++)
+			        if (it->get())
+				        it->get()->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 			m_pushConstantRanges = nullptr;
 		}
 		E_TYPE getAssetType() const override { return ET_PIPELINE_LAYOUT; }

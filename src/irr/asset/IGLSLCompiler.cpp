@@ -8,6 +8,9 @@
 #include "irr/asset/CGLSLScanBuiltinIncludeLoader.h"
 #include "irr/asset/CGLSLSkinningBuiltinIncludeLoader.h"
 #include "irr/asset/CGLSLBRDFBuiltinIncludeLoader.h"
+#include "irr/asset/CGLSLVertexUtilsBuiltinIncludeLoader.h"
+#include "irr/asset/CGLSLGraphicsPipelineBuiltinIncludeLoader.h"
+#include "irr/asset/CGLSLBumpMappingBuiltinIncludeLoader.h"
 #include "IReadFile.h"
 #include "os.h"
 #include <sstream>
@@ -23,7 +26,10 @@ IGLSLCompiler::IGLSLCompiler(io::IFileSystem* _fs) : m_inclHandler(core::make_sm
 {
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLScanBuiltinIncludeLoader>());
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLSkinningBuiltinIncludeLoader>());
-    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLBRDFBuiltinIncludeLoader>());
+    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLBSDFBuiltinIncludeLoader>());
+    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVertexUtilsBuiltinIncludeLoader>());
+    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLGraphicsPipelineBuiltinIncludeLoader>());
+    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLBumpMappingBuiltinIncludeLoader>());
 	// TODO: Add BSDF includes here!
 }
 

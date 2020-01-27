@@ -41,6 +41,10 @@ class ICPUImage final : public IImage, public IAsset
 
         inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
         {
+            if (isDummyObjectForCacheAliasing)
+                return;
+            convertToDummyObject_common(referenceLevelsBelowToConvert);
+
 			if (referenceLevelsBelowToConvert)
 			if (buffer)
 				buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);

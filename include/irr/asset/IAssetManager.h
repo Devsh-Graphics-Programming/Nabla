@@ -434,16 +434,12 @@ class IAssetManager : public core::IReferenceCounted
         /** Keeping assets around (by their pointers) helps a lot by letting the loaders retrieve them from the cache 
 		and not load cpu objects which have been loaded, converted to gpu resources and then would have been disposed of.
 		However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
-        void convertAssetToEmptyCacheHandle(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject, uint32_t referenceLevelsBelowToConvert=0u)
+        void convertAssetToEmptyCacheHandle(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject, uint32_t referenceLevelsBelowToConvert=~0u)
         {
-            if (_asset->isDummyObjectForCacheAliasing)
-                return;
-
-			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
-            _asset->grab();
             _asset->convertToDummyObject(referenceLevelsBelowToConvert);
-            _asset->isDummyObjectForCacheAliasing = true;
-            m_cpuGpuCache[ix]->insert(_asset, std::move(_gpuObject));
+			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
+            if (m_cpuGpuCache[ix]->insert(_asset, std::move(_gpuObject)))
+                _asset->grab();
         }
 
 		core::smart_refctd_ptr<core::IReferenceCounted> findGPUObject(const IAsset* _asset)

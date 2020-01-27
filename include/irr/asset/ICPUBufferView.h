@@ -33,6 +33,10 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
+            if (isDummyObjectForCacheAliasing)
+                return;
+            convertToDummyObject_common(referenceLevelsBelowToConvert);
+
 			if (referenceLevelsBelowToConvert)
 				m_buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}

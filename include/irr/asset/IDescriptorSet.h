@@ -143,9 +143,10 @@ class IEmulatedDescriptorSet
 			if (!_layout)
 				return;
 
-			const auto& bindings = _layout->getBindings();
+			auto bindings = _layout->getBindings();
+            auto lastBnd = (bindings.end()-1);
 
-			m_bindingInfo = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBindingInfo> >(std::distance(bindings.begin(),bindings.end()));
+			m_bindingInfo = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SBindingInfo> >(lastBnd->binding+1u);
 			for (auto it=m_bindingInfo->begin(); it!=m_bindingInfo->end(); it++)
 				*it = {~0u,EDT_INVALID};
 			
