@@ -202,7 +202,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		irr::video::E_MATERIAL_TYPE nonInstanced;
 		uint32_t m_raygenProgram, m_compostProgram;
-		irr::core::smart_refctd_ptr<irr::video::ITexture> m_depth,m_albedo,m_normals,m_accumulation,m_tonemapOutput;
+		irr::core::smart_refctd_ptr<irr::video::ITexture> m_depth,m_albedo,m_normals,m_lightIndex,m_accumulation,m_tonemapOutput;
 		irr::video::IFrameBuffer* m_colorBuffer,* m_gbuffer,* tmpTonemapBuffer;
 
 		uint32_t m_maxSamples;
@@ -224,8 +224,10 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::ext::RadeonRays::Manager::MeshNodeRRInstanceCache rrInstances;
 
 		irr::core::vectorSIMDf constantClearColor;
+		uint32_t m_lightCount;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightCDFBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightBuffer;
+		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightRadianceBuffer;
 };
 
 #endif

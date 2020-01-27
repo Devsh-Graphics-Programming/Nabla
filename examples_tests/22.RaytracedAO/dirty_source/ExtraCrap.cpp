@@ -20,6 +20,25 @@ const std::string raygenShaderExtensions = R"======(
 #version 430 core
 )======";
 
+const std::string lightStruct = R"======(
+#define SLight_ET_TRIANGLE	0u
+#define SLight_ET_ELLIPSOID	1u
+#define SLight_ET_CYLINDER	2u
+#define SLight_ET_DISK		3u
+#define SLight_ET_COUNT		5u
+struct SLight
+{
+	vec3 factor;
+	uint data0;
+	mat4x3 transform; // needs row_major qualifier
+	mat3 transformCofactors;
+};
+uint SLight_extractType(in SLight light)
+{
+	return bitfieldExtract(light.data0,0,findMSB(SLight_ET_COUNT)+1);
+}
+)======";
+
 const std::string raygenShader = R"======(
 #define WORK_GROUP_DIM 16u
 layout(local_size_x = WORK_GROUP_DIM, local_size_y = WORK_GROUP_DIM) in;
@@ -51,23 +70,6 @@ layout(binding = 1, std430) restrict readonly buffer CumulativeLightPDF
 {
 	uint lightCDF[];
 };
-
-#define SLight_ET_TRIANGLE	0u
-#define SLight_ET_ELLIPSOID	1u
-#define SLight_ET_CYLINDER	2u
-#define SLight_ET_DISK		3u
-#define SLight_ET_COUNT		5u
-struct SLight
-{
-	vec3 factor;
-	uint data0;
-	mat4x3 transform; // needs row_major qualifier
-	mat3 transformCofactors;
-};
-uint SLight_extractType(in SLight light)
-{
-	return bitfieldExtract(light.data0,0,findMSB(SLight_ET_COUNT)+1);
-}
 
 layout(binding = 2, std430, row_major) restrict readonly buffer Lights
 {
@@ -393,6 +395,7 @@ layout(location = 1) uniform uvec2 uSamples_ImageWidthSamples;
 layout(location = 2) uniform float uRcpFramesDone;
 
 // image views
+layout(binding = 0) uniform usampler2D lightIndex;
 layout(binding = 0, rgba32f) restrict uniform image2D framebuffer;
 
 // SSBOs
@@ -403,6 +406,11 @@ layout(binding = 0, std430) restrict readonly buffer Rays
 layout(binding = 1, std430) restrict buffer Queries
 {
 	int hit[];
+};
+
+layout(binding = 2, std430, row_major) restrict readonly buffer LightRadiances
+{
+	vec3 lightRadiance[]; // Watts / steriadian / steradian
 };
 
 void main()
@@ -426,8 +434,12 @@ void main()
 			// hit buffer needs clearing
 			hit[rayID] = -1;
 		}
-		// TODO: move the `div` to tonemapping shader
+		// TODO: move the `div` to tonemapping shader (or ray gen actually, for fractional sampling)
 		color /= float(uSamples_ImageWidthSamples.x);
+
+		// TODO: move this to tonemapping
+		uint lightID = texelFetch(lightIndex,uv,0)[0];
+		color += lightRadiance[lightID];
 
 		// TODO: optimize the color storage (RGB9E5/RGB19E7 anyone?)
 		acc.rgb += (color-acc.rgb)*uRcpFramesDone;
@@ -487,12 +499,12 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 		int32_t nUniformLocation[video::EMT_COUNT+2];
 		int32_t colorUniformLocation[video::EMT_COUNT+2];
 		int32_t nastyUniformLocation[video::EMT_COUNT+2];
-		int32_t emissiveFP16_and_lightIDUniformLocation[video::EMT_COUNT+2];
+		int32_t lightIDUniformLocation[video::EMT_COUNT+2];
 		video::E_SHADER_CONSTANT_TYPE mvpUniformType[video::EMT_COUNT+2];
 		video::E_SHADER_CONSTANT_TYPE nUniformType[video::EMT_COUNT+2];
 		video::E_SHADER_CONSTANT_TYPE colorUniformType[video::EMT_COUNT+2];
 		video::E_SHADER_CONSTANT_TYPE nastyUniformType[video::EMT_COUNT+2];
-		video::E_SHADER_CONSTANT_TYPE emissiveFP16_and_lightIDUniformType[video::EMT_COUNT+2];
+		video::E_SHADER_CONSTANT_TYPE lightIDUniformType[video::EMT_COUNT+2];
 	public:
 		SimpleCallBack() : currentMat(video::EMT_SOLID)
 		{
@@ -523,10 +535,10 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 					nastyUniformLocation[materialType] = constants[i].location;
 					nastyUniformType[materialType] = constants[i].type;
 				}
-				else if (constants[i].name == "emissiveFP16_and_lightID")
+				else if (constants[i].name == "lightID")
 				{
-					emissiveFP16_and_lightIDUniformLocation[materialType] = constants[i].location;
-					emissiveFP16_and_lightIDUniformType[materialType] = constants[i].type;
+					lightIDUniformLocation[materialType] = constants[i].location;
+					lightIDUniformType[materialType] = constants[i].type;
 				}
 			}
 		}
@@ -536,9 +548,7 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 			currentMat = material.MaterialType;
 			services->setShaderConstant(&material.AmbientColor, colorUniformLocation[currentMat], colorUniformType[currentMat], 1);
 			services->setShaderConstant(&material.MaterialTypeParam, nastyUniformLocation[currentMat], nastyUniformType[currentMat], 1);
-			uint16_t data[4];
-			memcpy(data,&material.DiffuseColor,sizeof(data));
-			services->setShaderConstant(data, emissiveFP16_and_lightIDUniformLocation[currentMat], emissiveFP16_and_lightIDUniformType[currentMat], 1);
+			services->setShaderConstant(&material.userData, lightIDUniformLocation[currentMat], lightIDUniformType[currentMat], 1);
 		}
 
 		virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
@@ -563,12 +573,13 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneMa
 		m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager),
 		nonInstanced(static_cast<E_MATERIAL_TYPE>(-1)), m_raygenProgram(0u), m_compostProgram(0u),
 		m_rrManager(ext::RadeonRays::Manager::create(m_driver)),
-		m_depth(), m_albedo(), m_normals(), m_accumulation(), m_tonemapOutput(),
+		m_depth(), m_albedo(), m_normals(), m_lightIndex(), m_accumulation(), m_tonemapOutput(),
 		m_colorBuffer(nullptr), m_gbuffer(nullptr), tmpTonemapBuffer(nullptr),
 		m_maxSamples(0u), m_workGroupCount{0u,0u}, m_samplesPerDispatch(0u), m_samplesComputed(0u), m_rayCount(0u), m_framesDone(0u),
 		m_rayBuffer(), m_intersectionBuffer(), m_rayCountBuffer(),
 		m_rayBufferAsRR(nullptr,nullptr), m_intersectionBufferAsRR(nullptr,nullptr), m_rayCountBufferAsRR(nullptr,nullptr),
-		nodes(), sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), rrInstances()
+		nodes(), sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), rrInstances(),
+		m_lightCount(0u)
 {
 	SimpleCallBack* cb = new SimpleCallBack();
 	nonInstanced = (E_MATERIAL_TYPE)m_driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
@@ -584,12 +595,14 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneMa
 		raygenShaderExtensions+"#define MAX_SAMPLES "+std::to_string(UNFLEXIBLE_MAX_SAMPLES_TODO_REMOVE)+"\n"+
 		//"irr/builtin/glsl/ext/RadeonRays/"
 		includes->getBuiltinInclude("ray.glsl")+
+		lightStruct+
 		raygenShader
 	);
 	m_compostProgram = createComputeShader(
 		compostShaderExtensions+
 		//"irr/builtin/glsl/ext/RadeonRays/"
 		includes->getBuiltinInclude("ray.glsl") +
+		lightStruct+
 		compostShader
 	);
 
@@ -629,6 +642,7 @@ void Renderer::init(const SAssetBundle& meshes,
 
 	core::vector<SLight> lights;
 	core::vector<uint32_t> lightCDF;
+	core::vector<core::vectorSIMDf> lightRadiances;
 	auto& lightPDF = reinterpret_cast<core::vector<float>&>(lightCDF); // save on memory
 
 	const ext::MitsubaLoader::CGlobalMitsubaMetadata* globalMeta = nullptr;
@@ -658,101 +672,116 @@ void Renderer::init(const SAssetBundle& meshes,
 			}
 			
 			for (auto instance : instances)
-			if (instance.emitter.type != ext::MitsubaLoader::CElementEmitter::Type::INVALID)
 			{
-				assert(instance.emitter.type==ext::MitsubaLoader::CElementEmitter::Type::AREA);
-
-				uint32_t totalTriangleCount = 0u;
 				auto cpumesh = static_cast<ICPUMesh*>(cpuit->get());
-				asset::IMeshManipulator::getPolyCount(totalTriangleCount, cpumesh);
-
-				SLight light;
-				light.setFactor(instance.emitter.area.radiance);
-				light.analytical = SLight::CachedTransform(instance.tform);
-
-				bool bail = false;
-				switch (shapeType)
+				if (instance.emitter.type != ext::MitsubaLoader::CElementEmitter::Type::INVALID)
 				{
-					case ext::MitsubaLoader::CElementShape::Type::SPHERE:
-						light.type = SLight::ET_ELLIPSOID;
-						if (isCameraRightHanded)
-							light.analytical.transformCofactors = -light.analytical.transformCofactors;
-						break;
-					case ext::MitsubaLoader::CElementShape::Type::CYLINDER:
-						light.type = SLight::ET_CYLINDER;
-						if (isCameraRightHanded)
-							light.analytical.transformCofactors = -light.analytical.transformCofactors;
-						break;
-					case ext::MitsubaLoader::CElementShape::Type::DISK:
-						light.type = SLight::ET_DISK;
-						if (isCameraRightHanded)
-							light.analytical.transformCofactors = -light.analytical.transformCofactors;
-						break;
-					case ext::MitsubaLoader::CElementShape::Type::RECTANGLE:
-						_IRR_FALLTHROUGH;
-					case ext::MitsubaLoader::CElementShape::Type::CUBE:
-						_IRR_FALLTHROUGH;
-					case ext::MitsubaLoader::CElementShape::Type::OBJ:
-						_IRR_FALLTHROUGH;
-					case ext::MitsubaLoader::CElementShape::Type::PLY:
-						_IRR_FALLTHROUGH;
-					case ext::MitsubaLoader::CElementShape::Type::SERIALIZED:
-						light.type = SLight::ET_TRIANGLE;
-						if (!totalTriangleCount)
+					assert(instance.emitter.type==ext::MitsubaLoader::CElementEmitter::Type::AREA);
+
+					uint32_t totalTriangleCount = 0u;
+					asset::IMeshManipulator::getPolyCount(totalTriangleCount, cpumesh);
+
+					SLight light;
+					light.setFactor(instance.emitter.area.radiance);
+					light.analytical = SLight::CachedTransform(instance.tform);
+
+					bool bail = false;
+					switch (shapeType)
+					{
+						case ext::MitsubaLoader::CElementShape::Type::SPHERE:
+							light.type = SLight::ET_ELLIPSOID;
+							if (isCameraRightHanded)
+								light.analytical.transformCofactors = -light.analytical.transformCofactors;
+							break;
+						case ext::MitsubaLoader::CElementShape::Type::CYLINDER:
+							light.type = SLight::ET_CYLINDER;
+							if (isCameraRightHanded)
+								light.analytical.transformCofactors = -light.analytical.transformCofactors;
+							break;
+						case ext::MitsubaLoader::CElementShape::Type::DISK:
+							light.type = SLight::ET_DISK;
+							if (isCameraRightHanded)
+								light.analytical.transformCofactors = -light.analytical.transformCofactors;
+							break;
+						case ext::MitsubaLoader::CElementShape::Type::RECTANGLE:
+							_IRR_FALLTHROUGH;
+						case ext::MitsubaLoader::CElementShape::Type::CUBE:
+							_IRR_FALLTHROUGH;
+						case ext::MitsubaLoader::CElementShape::Type::OBJ:
+							_IRR_FALLTHROUGH;
+						case ext::MitsubaLoader::CElementShape::Type::PLY:
+							_IRR_FALLTHROUGH;
+						case ext::MitsubaLoader::CElementShape::Type::SERIALIZED:
+							light.type = SLight::ET_TRIANGLE;
+							if (!totalTriangleCount)
+								bail = true;
+							break;
+						default:
+						#ifdef _DEBUG
+							assert(false);
+						#endif
 							bail = true;
-						break;
-					default:
-					#ifdef _DEBUG
-						assert(false);
-					#endif
-						bail = true;
-						break;
+							break;
+					}
+					if (bail)
+						continue;
+
+					auto addLight = [&instance,&cpumesh,&lightPDF,&lights](auto& newLight,float approxArea) -> void
+					{
+						float weight = newLight.computeFlux(approxArea) * instance.emitter.area.samplingWeight;
+						if (weight <= FLT_MIN)
+							return;
+					
+						for (auto i=0u; i<cpumesh->getMeshBufferCount(); i++)
+						{
+							auto cpumb = cpumesh->getMeshBuffer(i);
+							reinterpret_cast<uint32_t&>(cpumb->getMaterial().userData) = lights.size();
+						}
+						lightPDF.push_back(weight);
+						lights.push_back(newLight);
+					};
+					auto areaFromTriangulationAndMakeMeshLight = [&]() -> float
+					{
+						double totalSurfaceArea = 0.0;
+
+						uint32_t runningTriangleCount = 0u;
+						for (auto i=0u; i<meshBufferCount; i++)
+						{
+							auto cpumb = cpumesh->getMeshBuffer(i);
+
+							uint32_t triangleCount = 0u;
+							asset::IMeshManipulator::getPolyCount(triangleCount,cpumb);
+							for (auto triID=0u; triID<triangleCount; triID++)
+							{
+								auto triangle = asset::IMeshManipulator::getTriangleIndices(cpumb,triID);
+
+								core::vectorSIMDf v[3];
+								for (auto k=0u; k<3u; k++)
+									v[k] = cpumb->getPosition(triangle[k]);
+
+								float triangleArea = NAN;
+								auto triLight = SLight::createFromTriangle(isCameraRightHanded, instance.emitter.area.radiance, light.analytical, v, &triangleArea);
+								if (light.type==SLight::ET_TRIANGLE)
+									addLight(triLight,triangleArea);
+								else
+									totalSurfaceArea += triangleArea;
+							}
+						}
+						return totalSurfaceArea;
+					};
+
+					auto totalArea = areaFromTriangulationAndMakeMeshLight();
+					if (light.type!=SLight::ET_TRIANGLE)
+						addLight(light,totalArea);
 				}
-				if (bail)
-					continue;
-
-				auto addLight = [&instance,&lightPDF,&lights](auto& newLight,float approxArea) -> void
+				else // no emissive
 				{
-					float weight = newLight.computeFlux(approxArea) * instance.emitter.area.samplingWeight;
-					if (weight <= FLT_MIN)
-						return;
-
-					lightPDF.push_back(weight);
-					lights.push_back(newLight);
-				};
-				auto areaFromTriangulationAndMakeMeshLight = [&]() -> float
-				{
-					double totalSurfaceArea = 0.0;
-
-					uint32_t runningTriangleCount = 0u;
 					for (auto i=0u; i<meshBufferCount; i++)
 					{
 						auto cpumb = cpumesh->getMeshBuffer(i);
-
-						uint32_t triangleCount = 0u;
-						asset::IMeshManipulator::getPolyCount(triangleCount,cpumb);
-						for (auto triID=0u; triID<triangleCount; triID++)
-						{
-							auto triangle = asset::IMeshManipulator::getTriangleIndices(cpumb,triID);
-
-							core::vectorSIMDf v[3];
-							for (auto k=0u; k<3u; k++)
-								v[k] = cpumb->getPosition(triangle[k]);
-
-							float triangleArea = NAN;
-							auto triLight = SLight::createFromTriangle(isCameraRightHanded, instance.emitter.area.radiance, light.analytical, v, &triangleArea);
-							if (light.type==SLight::ET_TRIANGLE)
-								addLight(triLight,triangleArea);
-							else
-								totalSurfaceArea += triangleArea;
-						}
+						reinterpret_cast<uint32_t&>(cpumb->getMaterial().userData) = 0xdeadbeefu;
 					}
-					return totalSurfaceArea;
-				};
-
-				auto totalArea = areaFromTriangulationAndMakeMeshLight();
-				if (light.type!=SLight::ET_TRIANGLE)
-					addLight(light,totalArea);
+				}
 			}
 		}
 
@@ -837,9 +866,11 @@ void Renderer::init(const SAssetBundle& meshes,
 			float triangulationArea = 0.f;
 			for (const auto& tri : m_precomputedGeodesic)
 			{
+				// correct for domain of integration
+				const float areaOfSphere = 4.f*core::PI<float>();
 				// compute area and make light
 				float area = NAN;
-				auto triLight = SLight::createFromTriangle(isCameraRightHanded,constantClearColor,cachedT,&tri[0],&area);
+				auto triLight = SLight::createFromTriangle(isCameraRightHanded,constantClearColor*areaOfSphere,cachedT,&tri[0],&area);
 				// compute flux
 				float flux = triLight.computeFlux(area);
 				// correct for change of variables from constant (whole sphere with no regard for area)
@@ -874,7 +905,7 @@ void Renderer::init(const SAssetBundle& meshes,
 	//! TODO: move out into a function `finalizeLights`
 	if (lights.size())
 	{
-		assert(lights.size()<=(0x1u<<16u));
+		lightRadiances.resize(lights.size());
 
 		double weightSum = 0.0;
 		for (auto i=0u; i<lightPDF.size(); i++)
@@ -905,12 +936,15 @@ void Renderer::init(const SAssetBundle& meshes,
 				lightCDF[i] = 0xdeadbeefu;
 				inv_prob = 1.0/(1.0-double(prevCDF)/UINT_MAX_DOUBLE);
 			}
-			lights[i].setFactor(core::vectorSIMDf(lights[i].strengthFactor)*inv_prob);
+			lightRadiances[i] = core::vectorSIMDf(lights[i].strengthFactor);
+			lights[i].setFactor(lightRadiances[i]*inv_prob);
 		}
 		lightCDF.back() = 0xdeadbeefu;
 
+		m_lightCount = lights.size();
 		m_lightCDFBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createFilledDeviceLocalGPUBufferOnDedMem(lightCDF.size()*sizeof(uint32_t),lightCDF.data()),core::dont_grab);
 		m_lightBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createFilledDeviceLocalGPUBufferOnDedMem(lights.size()*sizeof(SLight),lights.data()),core::dont_grab);
+		m_lightRadianceBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createFilledDeviceLocalGPUBufferOnDedMem(lightRadiances.size()*sizeof(core::vectorSIMDf),lightRadiances.data()),core::dont_grab);
 	}
 
 	//! set up GPU sampler
@@ -943,6 +977,7 @@ void Renderer::init(const SAssetBundle& meshes,
 	m_depth = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize.Width, 1, EF_D32_SFLOAT);
 	m_albedo = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize.Width, 1, EF_R8G8B8_SRGB);
 	m_normals = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize.Width, 1, EF_R16G16_SNORM);
+	m_lightIndex = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize.Width, 1, EF_R32_UINT);
 
 	m_accumulation = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize.Width, 1, EF_R32G32B32A32_SFLOAT);
 	m_tonemapOutput = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize.Width, 1, EF_R8G8B8_SRGB);
@@ -957,6 +992,7 @@ void Renderer::init(const SAssetBundle& meshes,
 	m_gbuffer->attach(EFAP_DEPTH_ATTACHMENT, m_depth.get());
 	m_gbuffer->attach(EFAP_COLOR_ATTACHMENT0, m_albedo.get());
 	m_gbuffer->attach(EFAP_COLOR_ATTACHMENT1, m_normals.get());
+	m_gbuffer->attach(EFAP_COLOR_ATTACHMENT2, m_lightIndex.get());
 
 	//
 #define WORK_GROUP_DIM 16u
@@ -1026,7 +1062,7 @@ void Renderer::deinit()
 		tmpTonemapBuffer = nullptr;
 	}
 
-	m_depth = m_albedo = m_normals = m_accumulation = m_tonemapOutput = nullptr;
+	m_depth = m_albedo = m_normals = m_lightIndex = m_accumulation = m_tonemapOutput = nullptr;
 
 	if (m_rayBufferAsRR.first)
 	{
@@ -1062,7 +1098,8 @@ void Renderer::deinit()
 	rrInstances.clear();
 
 	constantClearColor.set(0.f,0.f,0.f,1.f);
-	m_lightCDFBuffer = m_lightBuffer = nullptr;
+	m_lightCount = 0u;
+	m_lightCDFBuffer = m_lightBuffer = m_lightRadianceBuffer = nullptr;
 
 	// start deleting objects
 	m_sampleSequence = nullptr;
@@ -1078,6 +1115,8 @@ void Renderer::render()
 		float zero[4] = { 0.f,0.f,0.f,0.f };
 		m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0, zero);
 		m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT1, zero);
+		uint32_t clearLightID[4] = {(constantClearColor>=core::vectorSIMDf(0.f)).any() ? (m_lightCount-1u):0xdeadbeefu,0,0,0};
+		m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT2, clearLightID);
 	}
 
 	auto camera = m_smgr->getActiveCamera();
@@ -1203,17 +1242,26 @@ void Renderer::render()
 		GLint prevProgram;
 		glGetIntegerv(GL_CURRENT_PROGRAM, &prevProgram);
 
+		STextureSamplingParams params;
+		params.MaxFilter = ETFT_NEAREST_NEARESTMIP;
+		params.MinFilter = ETFT_NEAREST_NEARESTMIP;
+		params.UseMipmaps = 0;
+
 		const COpenGLDriver::SAuxContext* foundConst = static_cast<COpenGLDriver*>(m_driver)->getThreadContext();
 		COpenGLDriver::SAuxContext* found = const_cast<COpenGLDriver::SAuxContext*>(foundConst);
+		found->setActiveTexture(0, core::smart_refctd_ptr(m_lightIndex), params);
 		
 		COpenGLExtensionHandler::extGlBindImageTexture(0u,static_cast<COpenGLFilterableTexture*>(m_accumulation.get())->getOpenGLName(),0,false,0,GL_READ_WRITE,GL_RGBA32F);
 
 		COpenGLExtensionHandler::extGlUseProgram(m_compostProgram);
 
-		const COpenGLBuffer* buffers[] = { static_cast<const COpenGLBuffer*>(m_rayBuffer.get()),static_cast<const COpenGLBuffer*>(m_intersectionBuffer.get()) };
-		ptrdiff_t offsets[] = { 0,0 };
-		ptrdiff_t sizes[] = { m_rayBuffer->getSize(),m_intersectionBuffer->getSize() };
-		found->setActiveSSBO(0, 2, buffers, offsets, sizes);
+		const COpenGLBuffer* buffers[] ={	static_cast<const COpenGLBuffer*>(m_rayBuffer.get()),
+											static_cast<const COpenGLBuffer*>(m_intersectionBuffer.get()),
+											static_cast<const COpenGLBuffer*>(m_lightRadianceBuffer.get())
+										};
+		ptrdiff_t offsets[] = { 0,0,0 };
+		ptrdiff_t sizes[] = { m_rayBuffer->getSize(),m_intersectionBuffer->getSize(),m_lightRadianceBuffer->getSize() };
+		found->setActiveSSBO(0, 3, buffers, offsets, sizes);
 
 		{
 			COpenGLExtensionHandler::pGlProgramUniform2uiv(m_compostProgram, 0, 1, rSize);
