@@ -250,14 +250,15 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 	
 				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
 				float incomingInvLen = inversesqrt(dot(incoming,incoming));
+				incoming *= incomingInvLen;
 
-				maxT = SHADOW_RAY_LEN;
+				maxT = SHADOW_RAY_LEN/incomingInvLen;
 
 				factor = 4.0*kPI; // compensate for the domain of integration
 				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
 				vec3 negLightNormal = light.transformCofactors*pointOnSurface;
 
-				factor *= max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen*incomingInvLen;
+				factor *= max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_CYLINDER:
@@ -268,14 +269,15 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 				mat4x3 tform = light.transform;
 				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
 				float incomingInvLen = inversesqrt(dot(incoming,incoming));
+				incoming *= incomingInvLen;
 
-				maxT = SHADOW_RAY_LEN;
+				maxT = SHADOW_RAY_LEN/incomingInvLen;
 
 				factor = 2.0*kPI; // compensate for the domain of integration
 				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
 				vec3 negLightNormal = light.transformCofactors[0]*pointOnSurface.x+light.transformCofactors[1]*pointOnSurface.y;
 
-				factor *= max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen*incomingInvLen;
+				factor *= max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen;
 			}
 			break;
 		case SLight_ET_DISK:
@@ -286,12 +288,13 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 				mat4x3 tform = light.transform;
 				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
 				float incomingInvLen = inversesqrt(dot(incoming,incoming));
+				incoming *= incomingInvLen;
 
-				maxT = SHADOW_RAY_LEN;
+				maxT = SHADOW_RAY_LEN/incomingInvLen;
 
 				factor = kPI; // compensate for the domain of integration
 				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
-				factor *= max(dot(light.transformCofactors[2],incoming),0.0)*incomingInvLen*incomingInvLen*incomingInvLen;
+				factor *= max(dot(light.transformCofactors[2],incoming),0.0)*incomingInvLen*incomingInvLen;
 			}
 			break;
 		default: // SLight_ET_TRIANGLE:
@@ -308,10 +311,11 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 
 				incoming = pointOnSurface-position;
 				float incomingInvLen = inversesqrt(dot(incoming,incoming));
+				incoming *= incomingInvLen;
 
-				maxT = SHADOW_RAY_LEN;
+				maxT = SHADOW_RAY_LEN/incomingInvLen;
 
-				factor = 0.5*max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen*incomingInvLen;
+				factor = 0.5*max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen;
 			}
 			break;
 	}
@@ -726,7 +730,7 @@ void Renderer::init(const SAssetBundle& meshes,
 					if (bail)
 						continue;
 
-					auto addLight = [&instance,&cpumesh,&lightPDF,&lights](auto& newLight,float approxArea) -> void
+					auto addLight = [&instance,&cpumesh,&lightPDF,&lights,&lightRadiances](auto& newLight,float approxArea) -> void
 					{
 						float weight = newLight.computeFlux(approxArea) * instance.emitter.area.samplingWeight;
 						if (weight <= FLT_MIN)
@@ -739,6 +743,7 @@ void Renderer::init(const SAssetBundle& meshes,
 						}
 						lightPDF.push_back(weight);
 						lights.push_back(newLight);
+						lightRadiances.push_back(newLight.strengthFactor);
 					};
 					auto areaFromTriangulationAndMakeMeshLight = [&]() -> float
 					{
@@ -866,32 +871,29 @@ void Renderer::init(const SAssetBundle& meshes,
 			float triangulationArea = 0.f;
 			for (const auto& tri : m_precomputedGeodesic)
 			{
-				// correct for domain of integration
 				const float areaOfSphere = 4.f*core::PI<float>();
-				// compute area and make light
+				// make light, correct radiance parameter for domain of integration
 				float area = NAN;
 				auto triLight = SLight::createFromTriangle(isCameraRightHanded,constantClearColor*areaOfSphere,cachedT,&tri[0],&area);
-				// compute flux
-				float flux = triLight.computeFlux(area);
-				// correct for change of variables from constant (whole sphere with no regard for area)
-				for (auto j=0u; j<3u; j++)
-					triLight.strengthFactor[j] *= area;				
+				// compute flux, abuse of notation on area parameter, we've got the wrong units on strength factor so need to cancel
+				float flux = triLight.computeFlux(1.f);
 				// add to light list
 				float weight = constantCombinedWeight*flux;
 				if (weight>FLT_MIN)
 				{
-					lightPDF.push_back(weight);
+					// needs to be weighted be contribution to sphere area
+					lightPDF.push_back(weight*area);
+					// unified triangle processing will insist on amplifying by the area, need to cancel it out
+					for (auto j=0u; j<3u; j++)
+						triLight.strengthFactor[j] /= area;
 					lights.push_back(triLight);
+					lightRadiances.push_back(constantClearColor);
 				}
 				triangulationArea += area;
 			}
 
 			for (auto i=startIx; i<lights.size(); i++)
-			{
 				lightPDF[i] /= triangulationArea;
-				for (auto j=0u; j<3u; j++)
-					lights[i].strengthFactor[j] /= triangulationArea;
-			}
 		}
 
 		if (globalMeta->sensors.size())
@@ -905,8 +907,6 @@ void Renderer::init(const SAssetBundle& meshes,
 	//! TODO: move out into a function `finalizeLights`
 	if (lights.size())
 	{
-		lightRadiances.resize(lights.size());
-
 		double weightSum = 0.0;
 		for (auto i=0u; i<lightPDF.size(); i++)
 			weightSum += lightPDF[i];
@@ -936,8 +936,7 @@ void Renderer::init(const SAssetBundle& meshes,
 				lightCDF[i] = 0xdeadbeefu;
 				inv_prob = 1.0/(1.0-double(prevCDF)/UINT_MAX_DOUBLE);
 			}
-			lightRadiances[i] = core::vectorSIMDf(lights[i].strengthFactor);
-			lights[i].setFactor(lightRadiances[i]*inv_prob);
+			lights[i].setFactor(core::vectorSIMDf(lights[i].strengthFactor)*inv_prob);
 		}
 		lightCDF.back() = 0xdeadbeefu;
 
