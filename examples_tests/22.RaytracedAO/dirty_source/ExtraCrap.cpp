@@ -22,9 +22,8 @@ const std::string raygenShaderExtensions = R"======(
 
 const std::string lightStruct = R"======(
 #define SLight_ET_ELLIPSOID	0u
-#define SLight_ET_CYLINDER	1u
-#define SLight_ET_TRIANGLE	2u
-#define SLight_ET_COUNT		3u
+#define SLight_ET_TRIANGLE	1u
+#define SLight_ET_COUNT		2u
 struct SLight
 {
 	vec3 factor;
@@ -236,7 +235,7 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 
 	SLight light = light[lightID];
 
-#define SHADOW_RAY_LEN 0.99
+#define SHADOW_RAY_LEN 0.93
 	float factor; // 1.0/light_probability already baked into the light factor
 	switch (SLight_extractType(light))
 	{
@@ -256,25 +255,6 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 				factor = 4.0*kPI; // compensate for the domain of integration
 				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
 				vec3 negLightNormal = light.transformCofactors*pointOnSurface;
-
-				factor *= max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen;
-			}
-			break;
-		case SLight_ET_CYLINDER:
-			{
-				float equator = lightSurfaceSample.y*2.0*kPI;
-				vec3 pointOnSurface = vec3(cos(equator),sin(equator),lightSurfaceSample.x);
-	
-				mat4x3 tform = light.transform;
-				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
-				float incomingInvLen = inversesqrt(dot(incoming,incoming));
-				incoming *= incomingInvLen;
-
-				maxT = SHADOW_RAY_LEN/incomingInvLen;
-
-				factor = 2.0*kPI; // compensate for the domain of integration
-				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
-				vec3 negLightNormal = light.transformCofactors[0]*pointOnSurface.x+light.transformCofactors[1]*pointOnSurface.y;
 
 				factor *= max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen;
 			}
@@ -553,7 +533,7 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 		virtual void OnUnsetMaterial() {}
 };
 
-constexpr uint32_t UNFLEXIBLE_MAX_SAMPLES_TODO_REMOVE = 128u*1024u;
+constexpr uint32_t UNFLEXIBLE_MAX_SAMPLES_TODO_REMOVE = 1024u*1024u;
 
 
 Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneManager* _smgr) :
@@ -680,9 +660,7 @@ void Renderer::init(const SAssetBundle& meshes,
 							light.analytical.transformCofactors = -light.analytical.transformCofactors;
 							break;
 						case ext::MitsubaLoader::CElementShape::Type::CYLINDER:
-							light.type = SLight::ET_CYLINDER;
-							light.analytical.transformCofactors = -light.analytical.transformCofactors;
-							break;
+							_IRR_FALLTHROUGH;
 						case ext::MitsubaLoader::CElementShape::Type::DISK:
 							_IRR_FALLTHROUGH;
 						case ext::MitsubaLoader::CElementShape::Type::RECTANGLE:
@@ -924,7 +902,7 @@ void Renderer::init(const SAssetBundle& meshes,
 		m_lightRadianceBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createFilledDeviceLocalGPUBufferOnDedMem(lightRadiances.size()*sizeof(core::vectorSIMDf),lightRadiances.data()),core::dont_grab);
 	}
 
-	//! set up GPU sampler
+	//! set up GPU sampler 
 	{
 		m_maxSamples = sampleSequence->getSize()/(sizeof(uint32_t)*MaxDimensions);
 		assert(m_maxSamples==UNFLEXIBLE_MAX_SAMPLES_TODO_REMOVE);
@@ -1092,7 +1070,7 @@ void Renderer::render()
 		float zero[4] = { 0.f,0.f,0.f,0.f };
 		m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0, zero);
 		m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT1, zero);
-		uint32_t clearLightID[4] = {(constantClearColor>core::vectorSIMDf(0.f)).any() ? (m_lightCount-1u):0xdeadbeefu,0,0,0};
+		uint32_t clearLightID[4] = {((constantClearColor>core::vectorSIMDf(0.f))&core::vectorSIMDu32(~0u,~0u,~0u,0u)).any() ? (m_lightCount-1u):0xdeadbeefu,0,0,0};
 		m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT2, clearLightID);
 	}
 

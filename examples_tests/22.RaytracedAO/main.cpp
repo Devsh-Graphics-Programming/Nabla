@@ -229,7 +229,7 @@ int main()
 	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
 
 	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver, device->getAssetManager(), smgr);
-	constexpr uint32_t MaxSamples = 128u*1024u;
+	constexpr uint32_t MaxSamples = 1024u*1024u;
 	auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*MaxSamples*Renderer::MaxDimensions);
 	{
 		bool generateNewSamples = true;
@@ -309,7 +309,7 @@ int main()
 		{
 			std::wostringstream str;
 			auto samples = renderer->getTotalSamplesComputed();
-			str << L"Raytraced Shadows Demo - IrrlichtBAW Engine   MegaSamples: " << samples/1000000u << "   MRay/s: "
+			str << L"Raytraced Shadows Demo - IrrlichtBAW Engine   MegaSamples: " << samples/1000000ull << "   MRay/s: "
 				<< double(samples)/double(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count());
 
 			device->setWindowCaption(str.str());

@@ -16,7 +16,6 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 			enum E_TYPE : uint32_t
 			{
 				ET_ELLIPSOID,
-				ET_CYLINDER,
 				ET_TRIANGLE,
 				ET_COUNT
 			};
@@ -101,9 +100,6 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				{
 					case ET_ELLIPSOID:
 						_IRR_FALLTHROUGH;
-					//! TODO: check if can analytically compute arbitrary 3x3 transform cylinder area 
-					case ET_CYLINDER:
-						_IRR_FALLTHROUGH;
 					case ET_TRIANGLE:
 						lightFlux *= triangulizationArea;
 						break;
@@ -129,8 +125,8 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 					precompTform.transform.transformVect(triLight.triangle.vertices[k], v[k]);
 				triLight.triangle.vertices[1] -= triLight.triangle.vertices[0];
 				triLight.triangle.vertices[2] -= triLight.triangle.vertices[0];
-				if (!rightHandedCamera)
-					std::swap(triLight.triangle.vertices[2], triLight.triangle.vertices[1]);
+				// always flip the handedness so normal points inwards (need negative normal for differential area optimization)
+				std::swap(triLight.triangle.vertices[2], triLight.triangle.vertices[1]);
 
 				// don't do any flux magic yet
 
