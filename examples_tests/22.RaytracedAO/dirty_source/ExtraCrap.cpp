@@ -867,14 +867,15 @@ void Renderer::init(const SAssetBundle& meshes,
 			tform.setTranslation(core::vectorSIMDf().set(sceneBound.getCenter()));
 			SLight::CachedTransform cachedT(tform);
 
+			const float areaOfSphere = 4.f * core::PI<float>();
+
 			auto startIx = lights.size();
 			float triangulationArea = 0.f;
 			for (const auto& tri : m_precomputedGeodesic)
 			{
-				const float areaOfSphere = 4.f*core::PI<float>();
 				// make light, correct radiance parameter for domain of integration
 				float area = NAN;
-				auto triLight = SLight::createFromTriangle(isCameraRightHanded,constantClearColor*areaOfSphere,cachedT,&tri[0],&area);
+				auto triLight = SLight::createFromTriangle(isCameraRightHanded,constantClearColor,cachedT,&tri[0],&area);
 				// compute flux, abuse of notation on area parameter, we've got the wrong units on strength factor so need to cancel
 				float flux = triLight.computeFlux(1.f);
 				// add to light list
@@ -883,9 +884,6 @@ void Renderer::init(const SAssetBundle& meshes,
 				{
 					// needs to be weighted be contribution to sphere area
 					lightPDF.push_back(weight*area);
-					// unified triangle processing will insist on amplifying by the area, need to cancel it out
-					for (auto j=0u; j<3u; j++)
-						triLight.strengthFactor[j] /= area;
 					lights.push_back(triLight);
 					lightRadiances.push_back(constantClearColor);
 				}
@@ -893,7 +891,7 @@ void Renderer::init(const SAssetBundle& meshes,
 			}
 
 			for (auto i=startIx; i<lights.size(); i++)
-				lightPDF[i] /= triangulationArea;
+				lightPDF[i] *= areaOfSphere/triangulationArea;
 		}
 
 		if (globalMeta->sensors.size())
