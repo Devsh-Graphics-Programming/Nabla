@@ -469,7 +469,7 @@ namespace irr
 
 				case gl::INTERNAL_RGB_ETC: return getTranslatedFinalFormat(EF_ETC2_R8G8B8_UNORM_BLOCK);						//GL_COMPRESSED_RGB8_ETC1
 				case gl::INTERNAL_RGB_ETC2: return getTranslatedFinalFormat(EF_ETC2_R8G8B8_UNORM_BLOCK);						//GL_COMPRESSED_RGB8_ETC2
-				case gl::INTERNAL_RGBA_PUNCHTHROUGH_ETC2: return getTranslatedFinalFormat();		//GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2
+				case gl::INTERNAL_RGBA_PUNCHTHROUGH_ETC2: return getTranslatedFinalFormat(EF_ETC2_R8G8B8A1_UNORM_BLOCK);		//GL_COMPRESSED_RGB8_PUNCHTHROUGH_ALPHA1_ETC2
 				case gl::INTERNAL_RGBA_ETC2: return getTranslatedFinalFormat(EF_ETC2_R8G8B8A8_UNORM_BLOCK);					//GL_COMPRESSED_RGBA8_ETC2_EAC
 				case gl::INTERNAL_R11_EAC: return getTranslatedFinalFormat(EF_EAC_R11_UNORM_BLOCK);						//GL_COMPRESSED_R11_EAC
 				case gl::INTERNAL_SIGNED_R11_EAC: return getTranslatedFinalFormat(EF_EAC_R11_SNORM_BLOCK);				//GL_COMPRESSED_SIGNED_R11_EAC
