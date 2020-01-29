@@ -166,7 +166,7 @@ namespace irr { namespace video
 		to it data dived into 4 pointers with single channel data per pointer to each array element, 
 		but if source data isn't a planar format, you have to pass \awhole\a data to \bsrcPix[0]\b without 
 		caring about left elements - make them nullptr.
-		\b_pixOrBlockCnt\b is an amount of texels you want to convert and \b_imgSize\b is a size
+		\b_pixOrBlockCnt\b is an amount of texels or blocks you want to convert and \b_imgSize\b is a size
 		in texels of an image they belong to. There is also a polymorphic \bswizzle\b parameter
 		that makes the whole process slower if used (otherwise it is a null pointer), but it 
 		allows you to swizzle the RGBA compoments into a different arrangement at runtime.

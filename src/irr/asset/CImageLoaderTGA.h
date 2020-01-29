@@ -71,10 +71,12 @@ namespace asset
 
 #ifdef _IRR_COMPILE_WITH_TGA_LOADER_
 
+#include "irr/asset/IImageLoader.h"
+
 /*!
 	Surface Loader for targa images
 */
-class CImageLoaderTGA : public asset::IAssetLoader
+class CImageLoaderTGA final : public IImageLoader
 {
 public:
     virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;

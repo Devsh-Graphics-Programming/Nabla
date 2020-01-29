@@ -179,7 +179,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 	imgInfo.type = ICPUImage::ET_2D;
 	imgInfo.extent.width = header.ImageWidth;
 	imgInfo.extent.height = header.ImageHeight;
-	imgInfo.extent.depth = 1u;
+	imgInfo.extent.depth = header.PixelDepth / 8; // not sure about it
 	imgInfo.mipLevels = 1u;
 	imgInfo.arrayLayers = 1u;
 	imgInfo.samples = ICPUImage::ESCF_1_BIT;
@@ -199,7 +199,6 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 	region.imageSubresource.baseArrayLayer = 0u;
 	region.imageSubresource.layerCount = 1u;
 	region.bufferOffset = 0u;
-	region.bufferRowLength = header.ImageWidth;
 	region.bufferImageHeight = 0u;
 	region.imageOffset = { 0u, 0u, 0u };
 	region.imageExtent = image->getCreationParameters().extent;
@@ -214,7 +213,8 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 		case 2: // Uncompressed RGB image
 		case 3: // Uncompressed grayscale image
 			{
-				const int32_t imageSize = endBufferSize = header.ImageHeight * header.ImageWidth * header.PixelDepth/8;
+				region.bufferRowLength = calcPitchInBlocks(region.imageExtent.width, getTexelOrBlockBytesize(EF_R8G8B8_SRGB));
+				const int32_t imageSize = endBufferSize = region.imageExtent.height * region.bufferRowLength * region.imageExtent.depth;
 				texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(imageSize);
 				data = _IRR_NEW_ARRAY(uint8_t, imageSize);
 				_file->read(data, imageSize);
@@ -223,7 +223,8 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 		
 		case 10: // Run-length encoded (RLE) true color image
 		{
-			const auto bufferSize = endBufferSize = header.ImageHeight * header.ImageWidth * header.PixelDepth / 8;
+			region.bufferRowLength = calcPitchInBlocks(region.imageExtent.width, getTexelOrBlockBytesize(EF_A1R5G5B5_UNORM_PACK16));
+			const auto bufferSize = endBufferSize = region.imageExtent.height * region.bufferRowLength * region.imageExtent.depth;
 			texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferSize);
 			data = loadCompressedImage(_file, header);
 			break;
@@ -263,8 +264,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
                     return {};
 				}
 				
-				// default is R8_SRGB, but I will adjust data to RGB8_SRGB (rrr)
-				imgInfo.format = asset::EF_R8G8B8_SRGB;
+				imgInfo.format = EF_R8G8B8_SRGB;
 
 				// Targa formats needs two y-axis flips. The first is a flip to get the Y conforms to OpenGL coords.
 				// The second flip is defined from within the .tga file itself (header.ImageDescriptor & 0x20).
@@ -276,6 +276,20 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 					// Do an OpenGL flip
 					convertColorFlip<uint8_t, EF_R8_SRGB, EF_R8_SRGB>(image, data, true);
 				}
+
+				const void* planarData[] = { data , nullptr, nullptr, nullptr};
+				void* outRGBData = data;
+				const size_t wholeSize = region.imageExtent.height * region.bufferRowLength * region.imageExtent.depth;
+				const auto wholeSizeInBytes = wholeSize * getTexelOrBlockBytesize(EF_R8G8B8_SRGB);
+
+				core::vector3d<uint32_t> imageSize;
+				imageSize.X = region.imageExtent.width;
+				imageSize.Y = region.imageExtent.height;
+				imageSize.Z = region.imageExtent.depth;
+
+				video::convertColor<EF_R8_SRGB, EF_R8G8B8_SRGB>(planarData, outRGBData, wholeSize, imageSize);
+
+				memcpy(data, outRGBData, wholeSizeInBytes);
 			}
 			break;
 		case 16:
