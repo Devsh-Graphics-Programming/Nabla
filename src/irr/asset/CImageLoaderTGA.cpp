@@ -116,15 +116,22 @@ static void convertColorFlip(const core::smart_refctd_ptr<ICPUImage> &image, con
 	const T *in = (const T *) src;
 	T *out = (T *) image->getBuffer()->getPointer();
 	const auto extent = image->getCreationParameters().extent;
-	irr::core::vector3d size = {extent.width, extent.height, extent.depth};
+	const auto regionBufferRowLenght = image->getRegions().begin()->bufferRowLength;
 
-	auto stride = image->getCreationParameters().extent.width;     //(*image)->getPitchIncludingAlignment();    TODO -> pitch with alignment, not alone width!
+	irr::core::vector3d size = 
+	{
+		regionBufferRowLenght > 0 ? regionBufferRowLenght : extent.width,
+		extent.height,
+		extent.depth
+	};
+
+	auto stride = image->getRegions().begin()->bufferRowLength;   
 	auto channels = getFormatChannelCount(image->getCreationParameters().format);
 	
 	if (flip)
-		out += extent.width * extent.height * channels;
+		out += size.X * size.Y * channels;
 	
-	for (int y = 0; y < extent.height; ++y) {
+	for (int y = 0; y < size.Y; ++y) {
 		if (flip)
 			out -= stride;
 		
@@ -290,6 +297,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 				video::convertColor<EF_R8_SRGB, EF_R8G8B8_SRGB>(planarData, outRGBData, wholeSize, imageSize);
 
 				memcpy(data, outRGBData, wholeSizeInBytes);
+				_IRR_DELETE_ARRAY(outRGBData, wholeSizeInBytes);
 			}
 			break;
 		case 16:

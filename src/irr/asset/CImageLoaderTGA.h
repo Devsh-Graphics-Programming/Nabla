@@ -6,9 +6,7 @@
 #define __C_IMAGE_LOADER_TGA_H_INCLUDED__
 
 #include "IrrCompileConfig.h"
-
-#include "irr/asset/IAssetLoader.h"
-
+#include "irr/asset/IImageLoader.h"
 
 namespace irr
 {
@@ -70,8 +68,6 @@ namespace asset
 #endif // compiled with loader or reader
 
 #ifdef _IRR_COMPILE_WITH_TGA_LOADER_
-
-#include "irr/asset/IImageLoader.h"
 
 /*!
 	Surface Loader for targa images
