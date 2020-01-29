@@ -148,7 +148,7 @@ class IAssetManager : public core::IReferenceCounted
 
         const IGeometryCreator* getGeometryCreator() const;
         const IMeshManipulator* getMeshManipulator() const;
-        const IGLSLCompiler* getGLSLCompiler() const { return m_glslCompiler.get(); }
+        IGLSLCompiler* getGLSLCompiler() const { return m_glslCompiler.get(); }
 
     protected:
 		virtual ~IAssetManager()

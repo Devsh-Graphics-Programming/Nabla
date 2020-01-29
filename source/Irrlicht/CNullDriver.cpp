@@ -126,7 +126,8 @@ bool CNullDriver::genericDriverInit(asset::IAssetManager* assMgr)
 																					asset::ISpecializedShader::SInfo({},nullptr,"main",type));
 			addBuiltInToCaches(shader,path);
 		};
-		buildInShader(R"===(
+
+        buildInShader(R"===(
 #version 430 core
 layout(location = 0) in vec3 vPos;
 layout(location = 2) in vec2 vTexCoord;
@@ -142,7 +143,7 @@ void main()
     gl_Position = PushConstants.modelViewProj*vec4(vPos,1.0);
 	uv = vTexCoord;
 }
-		)===",asset::ISpecializedShader::ESS_VERTEX,"irr/builtin/materials/lambertian/singletexture/specializedshader");
+		)===", asset::ISpecializedShader::ESS_VERTEX, "irr/builtin/materials/lambertian/singletexture/specializedshader");
 		buildInShader(R"===(
 #version 430 core
 

@@ -1,5 +1,59 @@
 #include "irr/asset/CGraphicsPipelineLoaderMTL.h"
 
+#include "irr/asset/IBuiltinIncludeLoader.h"
+namespace irr {
+namespace asset
+{    
+
+class CGLSL_MTLBuiltinIncludeLoader : public IBuiltinIncludeLoader
+{
+public:
+    const char* getVirtualDirectoryName() const override { return "glsl/graphicspipeline/loaders/mtl/"; }
+
+private:
+    static std::string getMTLloaderCommonDefinitions(const std::string&)
+    {
+        return
+R"(#ifndef _IRR_MTL_LOADER_COMMON_INCLUDED_
+#define _IRR_MTL_LOADER_COMMON_INCLUDED_
+
+struct irr_glsl_MTLMaterialParameters 
+{
+    vec3 Ka;
+    vec3 Kd;
+    vec3 Ks;
+    vec3 Ke;
+    vec4 Tf;//w component doesnt matter
+    float Ns;
+    float d;
+    float bm;
+    float Ni;
+    float roughness;
+    float metallic;
+    float sheen;
+    float clearcoatThickness;
+    float clearcoatRoughness;
+    float anisotropy;
+    float anisoRotation;
+    //extra info
+    uint extra;
+};
+
+#endif
+)";
+    }
+
+protected:
+    irr::core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
+    {
+        return {
+            { std::regex{"common\\.glsl"}, &getMTLloaderCommonDefinitions },
+        };
+    }
+};
+
+}}
+
 namespace
 {
     constexpr const char* VERT_SHADER_NO_UV_INPUTS = 
@@ -77,8 +131,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
     case 8://basically same as 5
     {
         float fr = Fresnel_dielectric(PC.params.Ni, params.VdotH);
-        //TODO normalize specular
-        vec3 spec = Ks*fr*pow(params.NdotH, Ns);
+        vec3 spec = Ks*fr*irr_glsl_blinn_phong(params.NdotH, Ns) * irr_glsl_blinn_phong_normalizationFactor(Ns);
         color = (diff + spec) * params.NdotL;
     }
         break;
@@ -88,8 +141,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
     case 9://basically same as 4
     {
         float fr = Fresnel_dielectric(PC.params.Ni, params.VdotH);
-        //TODO normalize specular
-        vec3 spec = Ks*fr*pow(params.NdotH, Ns);
+        vec3 spec = Ks*fr*irr_glsl_blinn_phong(params.NdotH, Ns) * irr_glsl_blinn_phong_normalizationFactor(Ns);
         color = fr*spec * params.NdotL;
     }
         break;
@@ -291,6 +343,7 @@ layout (set = 3, binding = 6) uniform sampler2D map_bump;
 #include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/diffuse/fresnel_correction.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/diffuse/lambert.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/blinn_phong.glsl>
 
 #ifndef _IRR_BSDF_COS_EVAL_DEFINED_
 #define _IRR_BSDF_COS_EVAL_DEFINED_
@@ -339,8 +392,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
     case 8://basically same as 5
     {
         float fr = Fresnel_dielectric(PC.params.Ni, params.VdotH);
-        //TODO normalize specular
-        vec3 spec = Ks*fr*pow(params.NdotH, Ns);
+        vec3 spec = Ks*fr*irr_glsl_blinn_phong(params.NdotH, Ns) * irr_glsl_blinn_phong_normalizationFactor(Ns);
         color = (diff + spec) * params.NdotL;
     }
         break;
@@ -350,8 +402,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
     case 9://basically same as 4
     {
         float fr = Fresnel_dielectric(PC.params.Ni, params.VdotH);
-        //TODO normalize specular
-        vec3 spec = Ks*fr*pow(params.NdotH, Ns);
+        vec3 spec = Ks*fr*irr_glsl_blinn_phong(params.NdotH, Ns) * irr_glsl_blinn_phong_normalizationFactor(Ns);
         color = fr*spec * params.NdotL;
     }
         break;
@@ -378,11 +429,9 @@ vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction)
         interaction.N = normalize(interaction.N);
 
         float h = texture(map_bump, UV).x;
-        vec3 dpdx = interaction.V.dPosdScreen[0];
-        vec3 dpdy = interaction.V.dPosdScreen[1];
-        float dhdx = dFdx(h);
-        float dhdy = dFdy(h);
-        interaction.N = irr_glsl_perturbNormal_heightMap(interaction.N, dpdx, dpdy, dhdx, dhdy);
+
+        vec2 dHdScreen(dFdx(h), dFdy(h));
+        interaction.N = irr_glsl_perturbNormal_heightMap(interaction.N, interaction.V.dPosdScreen, dHdScreen);
     }
     irr_glsl_BSDFIsotropicParams params = irr_glsl_calcBSDFIsotropicParams(interaction, -ViewPos);
 
@@ -412,10 +461,7 @@ void main()
     case 7:
     case 9:
     {
-        //assuming light_pos=eye_pos, V=H so VdotH=1.0
-        //in order for this to work fine (without this assumption), user must override main() -- bad
-        //another solution would be to somehow return alpha from irr_computeLighting()
-        float VdotH = 1.0;
+        float VdotN = dot(interaction.N, interaction.V.dir);
         d = Fresnel_dielectric(PC.params.Ni, VdotH);
     }
         break;
@@ -457,6 +503,8 @@ _IRR_STATIC_INLINE_CONSTEXPR const char* FRAG_SHADER_UV_CACHE_KEY = "irr/builtin
 
 CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_assetMgr{_am}
 {
+    m_assetMgr->getGLSLCompiler()->getIncludeHandler()->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<CGLSL_MTLBuiltinIncludeLoader>());
+
     //create vertex shaders and insert them into cache
     {
         std::string vs_nouv_source = VERT_SHADER_UV;

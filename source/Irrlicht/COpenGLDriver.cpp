@@ -1633,7 +1633,7 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
     if (!found->nextState.pipeline.graphics.pipeline)
         return;
 
-    found->updateNextState_vertexInput(mb->getVertexBufferBindings(), mb->getIndexBufferBinding().buffer.get(), nullptr, nullptr);
+    found->updateNextState_vertexInput(mb->getVertexBufferBindings(), mb->getIndexBufferBinding().buffer.get(), found->nextState.vertexInputParams.indirectDrawBuf.get(), found->nextState.vertexInputParams.parameterBuf.get());
 
 	CNullDriver::drawMeshBuffer(mb);
 

@@ -144,7 +144,7 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderOpenEXR>());
 #endif
 #ifdef  _IRR_COMPILE_WITH_GLI_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLILoader>());
+	//addAssetLoader(core::make_smart_refctd_ptr<asset::CGLILoader>());
 #endif 
 #ifdef _IRR_COMPILE_WITH_TGA_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>());
@@ -174,6 +174,6 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterOpenEXR>());
 #endif
 #ifdef _IRR_COMPILE_WITH_GLI_WRITER_
-	addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>());
+	//addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>());
 #endif
 }

@@ -21,6 +21,9 @@ private:
 R"(#ifndef _IRR_BSDF_COMMON_INCLUDED_
 #define _IRR_BSDF_COMMON_INCLUDED_
 
+#define irr_glsl_PI 3.14159265359
+#define irr_glsl_RECIPROCAL_PI 0.318309886183
+
 // do not use this struct in SSBO or UBO, its wasteful on memory
 struct irr_glsl_DirAndDifferential
 {
@@ -221,15 +224,40 @@ vec3 irr_glsl_diffuseFresnelCorrectionFactor(in vec3 n, in vec3 n2)
 #endif
 )";
     }
+    static std::string getBlinnPhong(const std::string&)
+    {
+        return
+            R"(#ifndef _IRR_BSDF_BRDF_SPECULAR_BLINN_PHONG_INCLUDED_
+#define _IRR_BSDF_BRDF_SPECULAR_BLINN_PHONG_INCLUDED_
+
+#include <irr/builtin/glsl/bsdf/common.glsl>
+
+float irr_glsl_blinn_phong(in float NdotH, in float n)
+{
+    return pow(NdotH, n);
+}
+
+float irr_glsl_blinn_phong_normalizationFactor(in float n)
+{
+    float nom = n*(n + 6.0) + 8.0;
+    float denom = pow(0.5, 0.5*n) + n;
+    return 0.125 * irr_glsl_RECIPROCAL_PI * nom/denom;
+}
+
+#endif
+)";
+    }
     static std::string getLambert(const std::string&)
     {
         return
 R"(#ifndef _IRR_BSDF_BRDF_DIFFUSE_LAMBERT_INCLUDED_
 #define _IRR_BSDF_BRDF_DIFFUSE_LAMBERT_INCLUDED_
 
+#include <irr/builtin/glsl/bsdf/common.glsl>
+
 float irr_glsl_lambert()
 {
-    return 1.0/3.14159265359;
+    return irr_glsl_RECIPROCAL_PI;
 }
 
 #endif
@@ -240,6 +268,8 @@ float irr_glsl_lambert()
         return
 R"(#ifndef _BRDF_DIFFUSE_OREN_NAYAR_INCLUDED_
 #define _BRDF_DIFFUSE_OREN_NAYAR_INCLUDED_
+
+#include <irr/builtin/glsl/bsdf/common.glsl>
 
 float oren_nayar(in float _a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, in float NdotV)
 {
@@ -254,7 +284,7 @@ float oren_nayar(in float _a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, 
     // and `theta_i` is the sine of the angle between L and N, similarily for `theta_o` but with V
     float cos_phi_sin_theta = max(dot(V,L)-NdotL*NdotV,0.0);
     
-    return (AB.x + AB.y * cos_phi_sin_theta * C) / 3.14159265359;
+    return (AB.x + AB.y * cos_phi_sin_theta * C) * irr_glsl_RECIPROCAL_PI;
 }
 
 #endif
@@ -266,10 +296,12 @@ float oren_nayar(in float _a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, 
 R"(#ifndef _BRDF_SPECULAR_NDF_GGX_TROWBRIDGE_REITZ_INCLUDED_
 #define _BRDF_SPECULAR_NDF_GGX_TROWBRIDGE_REITZ_INCLUDED_
 
+#include <irr/builtin/glsl/bsdf/common.glsl>
+
 float GGXTrowbridgeReitz(in float a2, in float NdotH)
 {
     float denom = NdotH*NdotH * (a2 - 1.0) + 1.0;
-    return a2 / (3.14159265359 * denom*denom);
+    return a2 / (irr_glsl_PI * denom*denom);
 }
 
 float GGXBurleyAnisotropic(float anisotropy, float a2, float TdotH, float BdotH, float NdotH) {
@@ -278,7 +310,7 @@ float GGXBurleyAnisotropic(float anisotropy, float a2, float TdotH, float BdotH,
 	float anisoTdotH = antiAniso*TdotH;
 	float anisoNdotH = antiAniso*NdotH;
 	float w2 = antiAniso/(BdotH*BdotH+anisoTdotH*anisoTdotH+anisoNdotH*anisoNdotH*a2);
-	return w2*w2*atab / 3.14159265359;
+	return w2*w2*atab * irr_glsl_RECIPROCAL_PI;
 }
 
 #endif
@@ -402,6 +434,7 @@ protected:
             { std::regex{"brdf/specular/ndf/ggx_trowbridge_reitz\\.glsl"}, &getGGXTrowbridgeReitz },
             { std::regex{"brdf/specular/geom/ggx_smith\\.glsl"}, &getGGXSmith },
             { std::regex{"brdf/specular/fresnel/fresnel\\.glsl"}, &getFresnel },
+            { std::regex{"brdf/specular/blinn_phong\\.glsl"}, &getBlinnPhong },
             { std::regex{"common\\.glsl"}, &getCommons },
             { std::regex{"brdf/diffuse/fresnel_correction\\.glsl"}, &getDiffuseFresnelCorrectionFactor },
         };
