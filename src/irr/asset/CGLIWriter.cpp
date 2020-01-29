@@ -165,10 +165,6 @@ namespace irr
 				return width * texelBlockByteSize * height * depth;
 			};
 
-			const auto ROW_TEXEL_OR_BLOCK = 0; // TODO
-			const auto blockDimension = getBlockDimensions(imageInfo.format);
-			const auto sourceTexelOrBlockStride = getTexelOrBlockBytesize(imageInfo.format) * ROW_TEXEL_OR_BLOCK;
-
 			for (auto region = image->getRegions().begin(); region != image->getRegions().end(); ++region)
 			{
 				const auto ptrBeginningOfRegion = data + region->bufferOffset;
@@ -183,8 +179,6 @@ namespace irr
 				const auto imgBufferWidth = region->bufferRowLength > 0 ? region->bufferRowLength : region->imageExtent.width;
 				const auto imgBufferWidthInBytes = imgBufferWidth * singleChannelByteSize;
 				const auto imgBufferHeight = region->bufferImageHeight > 0 ? region->bufferImageHeight : region->imageExtent.height;
-
-				const auto pixelOrBlockCount = textureGliImgHeight * textureGliStride; // it's wrong, I have to make sure I get correct value
 			
 				for (uint16_t layer = 0; layer < imageInfo.arrayLayers; ++layer)
 				{
@@ -195,18 +189,19 @@ namespace irr
 					const auto layerData = texture.data(gliLayer, gliFace, region->imageSubresource.mipLevel);
 					const auto sourceData = ptrBeginningOfRegion + (layer * layerSize);
 
-					for (size_t index = 0; index < pixelOrBlockCount; ++index)
-					{
-						const auto posXOfTexelOrBlock = static_cast<uint32_t>(index % size_t(imgBufferWidth / sourceTexelOrBlockStride));
-						const auto posYOfTexelOrBlock = static_cast<uint32_t>(index / size_t(imgBufferWidth / sourceTexelOrBlockStride));
+					for (size_t zPos = 0; zPos < textureGLIDepth; ++zPos)
+						for (size_t yPos = 0; yPos < imgBufferHeight; ++yPos)
+						{
+							const size_t shiftAdressingRowGLI = ((zPos * textureGliImgHeight + yPos) * textureGliStride) * texelBlockByteSize;
+							const size_t shiftAdressingRowIRR = ((zPos * imgBufferHeight + yPos) * imgBufferWidth) * texelBlockByteSize;
 
-						memcpy
-						(
-							reinterpret_cast<uint8_t*>(layerData) + (posYOfTexelOrBlock * textureGliStrideInBytes),	// copy to a beginning of a certain row
-							sourceData + (posYOfTexelOrBlock * imgBufferWidthInBytes),								// get adjusted beginning of a certain row using to copying process
-							textureGliStrideInBytes																    // get gli row stride with no pitch
-						);
-					}
+							memcpy
+							(
+								reinterpret_cast<uint8_t*>(layerData) + shiftAdressingRowGLI,	// copy to a beginning of a certain row
+								sourceData + shiftAdressingRowIRR,								// get adjusted beginning of a certain row using to copying process
+								textureGliStrideInBytes									        // get gli row stride with no pitch
+							);
+						}
 				}	
 			}
 
