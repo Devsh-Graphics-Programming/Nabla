@@ -11,7 +11,16 @@ namespace asset
 {	
 	class CGraphicsPipelineLoaderMTL final : public asset::IAssetLoader
 	{
-        using SMtl = CMTLPipelineMetadata::SMtl;
+        struct SMtl
+        {
+            CMTLPipelineMetadata::SMTLMaterialParameters params;
+            std::string name;
+            //paths to image files, note that they're relative to the mtl file
+            std::string maps[CMTLPipelineMetadata::EMP_COUNT];
+            //-clamp
+            uint32_t clamp;
+            static_assert(sizeof(clamp) * 8ull >= CMTLPipelineMetadata::EMP_COUNT, "SMtl::clamp is too small!");
+        };
 
         struct SContext
         {
@@ -39,15 +48,15 @@ namespace asset
 		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
     private:
-        core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromMtl(const CMTLPipelineMetadata::SMtl& _mtl);
+        core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromMtl(const SMtl& _mtl);
         core::vector<SMtl> readMaterials(io::IReadFile* _file) const;
         const char* readTexture(const char* _bufPtr, const char* const _bufEnd, SMtl* _currMaterial, const char* _mapType) const;
 
         std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>> getShaders(bool _hasUV);
 
-        using images_set_t = std::array<core::smart_refctd_ptr<ICPUImage>, CMTLPipelineMetadata::SMtl::EMP_COUNT>;
-        using image_views_set_t = std::array<core::smart_refctd_ptr<ICPUImageView>, CMTLPipelineMetadata::SMtl::EMP_REFL_POSX + 1u>;
-        image_views_set_t loadImages(const char* _relDir, const CMTLPipelineMetadata::SMtl& _mtl, SContext& _ctx);
+        using images_set_t = std::array<core::smart_refctd_ptr<ICPUImage>, CMTLPipelineMetadata::EMP_COUNT>;
+        using image_views_set_t = std::array<core::smart_refctd_ptr<ICPUImageView>, CMTLPipelineMetadata::EMP_REFL_POSX + 1u>;
+        image_views_set_t loadImages(const char* _relDir, const SMtl& _mtl, SContext& _ctx);
         core::smart_refctd_ptr<ICPUDescriptorSet> makeDescSet(image_views_set_t&& _views, ICPUDescriptorSetLayout* _dsLayout);
 
         IAssetManager* m_assetMgr;

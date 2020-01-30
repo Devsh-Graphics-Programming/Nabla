@@ -156,7 +156,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     std::string mtlfilepath = relPath+tmpbuf;
 
                     decltype(pipelines)::value_type::second_type val{std::move(mtlfilepath), std::move(pipeln)};
-                    pipelines.insert({metadata->getMaterial().name, std::move(val)});
+                    pipelines.insert({metadata->getMaterialName(), std::move(val)});
                 }
 			}
 		}
@@ -231,44 +231,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     else
                     {
                         submeshes.push_back(core::make_smart_refctd_ptr<ICPUMeshBuffer>());
-
-                        //auto found = pipelines.find(mtlName);
-                        //if (found != pipelines.end())
-                        //{
-                        //    auto& pipeln = found->second;
-                        //    //cloning pipeline because it will be edited (vertex input params, shaders, ...)
-                        //    //note shallow copy (depth=0), i.e. only pipeline is cloned, but all its sub-assets are taken from original object
-                        //    submeshes.back()->setPipeline(core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(pipeln.second->clone(0u)));
-                        //    auto metadata = static_cast<const CMTLPipelineMetadata*>(pipeln.second->getMetadata());
-                        //    memcpy(
-                        //        submeshes.back()->getPushConstantsDataPtr()+pipeln.second->getLayout()->getPushConstantRanges().begin()[0].offset,
-                        //        &metadata->getMaterial().std140PackedData,
-                        //        sizeof(CMTLPipelineMetadata::SMtl::std140PackedData)
-                        //    );
-                        //    //also make/find descriptor set
-                        //    std::string dsCacheKey = pipeln.first + "?" + mtlName + "?_ds";
-                        //    types[0] = IAsset::ET_DESCRIPTOR_SET;
-                        //    auto ds_bundle = _override->findCachedAsset(dsCacheKey, types, ctx.inner, _hierarchyLevel+ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
-                        //    auto ds_bundle_contents = ds_bundle.getContents();
-                        //    core::smart_refctd_ptr<ICPUDescriptorSet> ds3;
-                        //    if (ds_bundle_contents.first != ds_bundle_contents.second)
-                        //    {
-                        //        ds3 = core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(ds_bundle_contents.first[0]);
-                        //    }
-                        //    else
-                        //    {
-                        //        auto relDir = (io::IFileSystem::getFileDir(pipeln.first.c_str()) + "/");
-                        //        image_views_set_t views = loadImages(relDir.c_str(), metadata->getMaterial(), ctx);
-                        //        ds3 = makeDescSet(std::move(views), pipeln.second->getLayout()->getDescriptorSetLayout(3u));
-
-                        //        if (ds3)
-                        //        {
-                        //            SAssetBundle bundle{ds3};
-                        //            _override->insertAssetIntoCache(bundle, dsCacheKey, ctx.inner, _hierarchyLevel+ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
-                        //        }
-                        //    }
-                        //    submeshes.back()->setAttachedDescriptorSet(std::move(ds3));
-                        //}
                     }
                     indices.emplace_back();
                     recalcNormals.push_back(false);
@@ -448,8 +410,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     const uint32_t pcoffset = pipeline->getLayout()->getPushConstantRanges().begin()[0].offset;
                     memcpy(
                         submeshes[i]->getPushConstantsDataPtr()+pcoffset,
-                        &metadata->getMaterial().std140PackedData,
-                        sizeof(CMTLPipelineMetadata::SMtl::std140PackedData)
+                        &metadata->getMaterialParams(),
+                        sizeof(CMTLPipelineMetadata::SMTLMaterialParameters)
                     );
 
                     break;

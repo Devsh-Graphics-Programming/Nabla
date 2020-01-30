@@ -1183,9 +1183,9 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
                 EP.c_str(),
                 "????"
             );
-        //auto fl = fopen("shader.glsl","w");
-        //fwrite(reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()), 1, glslShader_woIncludes->getSPVorGLSL()->getSize(), fl);
-        //fclose(fl);
+        auto fl = fopen("shader.glsl","w");
+        fwrite(reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()), 1, glslShader_woIncludes->getSPVorGLSL()->getSize(), fl);
+        fclose(fl);
         if (!spvCode)
             return nullptr;
 
