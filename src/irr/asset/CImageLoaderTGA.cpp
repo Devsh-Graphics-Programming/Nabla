@@ -186,7 +186,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 	imgInfo.type = ICPUImage::ET_2D;
 	imgInfo.extent.width = header.ImageWidth;
 	imgInfo.extent.height = header.ImageHeight;
-	imgInfo.extent.depth = header.PixelDepth / 8; // not sure about it
+	imgInfo.extent.depth = 1u; // not sure about it
 	imgInfo.mipLevels = 1u;
 	imgInfo.arrayLayers = 1u;
 	imgInfo.samples = ICPUImage::ESCF_1_BIT;
@@ -221,7 +221,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 		case 3: // Uncompressed grayscale image
 			{
 				region.bufferRowLength = calcPitchInBlocks(region.imageExtent.width, getTexelOrBlockBytesize(EF_R8G8B8_SRGB));
-				const int32_t imageSize = endBufferSize = region.imageExtent.height * region.bufferRowLength * region.imageExtent.depth;
+				const int32_t imageSize = endBufferSize = region.imageExtent.height * region.bufferRowLength * header.PixelDepth / 8;
 				texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(imageSize);
 				data = _IRR_NEW_ARRAY(uint8_t, imageSize);
 				_file->read(data, imageSize);
@@ -231,7 +231,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 		case 10: // Run-length encoded (RLE) true color image
 		{
 			region.bufferRowLength = calcPitchInBlocks(region.imageExtent.width, getTexelOrBlockBytesize(EF_A1R5G5B5_UNORM_PACK16));
-			const auto bufferSize = endBufferSize = region.imageExtent.height * region.bufferRowLength * region.imageExtent.depth;
+			const auto bufferSize = endBufferSize = region.imageExtent.height * region.bufferRowLength * header.PixelDepth / 8;
 			texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferSize);
 			data = loadCompressedImage(_file, header);
 			break;
@@ -286,15 +286,10 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 
 				const void* planarData[] = { data , nullptr, nullptr, nullptr};
 				void* outRGBData = data;
-				const size_t wholeSize = region.imageExtent.height * region.bufferRowLength * region.imageExtent.depth;
+				const size_t wholeSize = region.imageExtent.height * region.bufferRowLength * header.PixelDepth / 8;
 				const auto wholeSizeInBytes = wholeSize * getTexelOrBlockBytesize(EF_R8G8B8_SRGB);
 
-				core::vector3d<uint32_t> imageSize;
-				imageSize.X = region.imageExtent.width;
-				imageSize.Y = region.imageExtent.height;
-				imageSize.Z = region.imageExtent.depth;
-
-				video::convertColor<EF_R8_SRGB, EF_R8G8B8_SRGB>(planarData, outRGBData, wholeSize, imageSize);
+				video::convertColor<EF_R8_SRGB, EF_R8G8B8_SRGB>(planarData, outRGBData, wholeSize, *reinterpret_cast<core::vector3d<uint32_t>*>(&region.imageExtent));
 
 				memcpy(data, outRGBData, wholeSizeInBytes);
 				_IRR_DELETE_ARRAY(outRGBData, wholeSizeInBytes);
