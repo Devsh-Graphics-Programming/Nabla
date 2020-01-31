@@ -35,6 +35,8 @@ class CElementEmitter : public IElement
 		};
 	struct SampledEmitter
 	{
+		SampledEmitter() : samplingWeight(1.f) {}
+
 		float samplingWeight;
 	};
 		struct Point : SampledEmitter

@@ -625,9 +625,10 @@ namespace video
 
 #ifdef _IRR_COMPILE_WITH_OPENCL_
         const cl_device_id& getOpenCLAssociatedDevice() const {return clDevice;}
+		const cl_context_properties* getOpenCLAssociatedContextProperties() const { return clProperties; }
 
-        const size_t& getOpenCLAssociatedDeviceID() const {return clDeviceIx;}
-        const size_t& getOpenCLAssociatedPlatformID() const {return clPlatformIx;}
+        size_t getOpenCLAssociatedDeviceID() const {return clDeviceIx;}
+        size_t getOpenCLAssociatedPlatformID() const {return clPlatformIx;}
 #endif // _IRR_COMPILE_WITH_OPENCL_
 
         struct SAuxContext
@@ -1005,6 +1006,7 @@ namespace video
         uint32_t maxShaderComputeUnits;
 #ifdef _IRR_COMPILE_WITH_OPENCL_
         cl_device_id clDevice;
+		cl_context_properties clProperties[7];
         size_t clPlatformIx, clDeviceIx;
 #endif // _IRR_COMPILE_WITH_OPENCL_
 

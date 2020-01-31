@@ -119,7 +119,7 @@ int main()
 
         smgr->drawAll();
 
-        driver->setTransform(video::E4X3TS_WORLD,core::matrix4x3());
+        driver->setTransform(video::E4X3TS_WORLD,core::matrix3x4SIMD());
         driver->setMaterial(material);
         //! draw back to front
         driver->drawMeshBuffer(mb);

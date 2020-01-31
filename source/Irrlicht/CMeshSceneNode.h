@@ -47,6 +47,7 @@ namespace scene
 
 		//! Returns the current mesh
 		virtual video::IGPUMesh* getMesh(void) override { return Mesh.get(); }
+		virtual const video::IGPUMesh* getMesh(void) const override { return Mesh.get(); }
 
 	protected:
 		core::aabbox3d<float> Box;

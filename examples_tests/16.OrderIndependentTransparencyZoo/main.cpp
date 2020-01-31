@@ -46,7 +46,7 @@ public:
 
     virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
     {
-        core::vectorSIMDf selfPos(&services->getVideoDriver()->getTransform(video::E4X3TS_WORLD).getColumn(3).X);
+        core::vectorSIMDf selfPos = services->getVideoDriver()->getTransform(video::E4X3TS_WORLD).getTranslation3D();
         if (selfPosLocation!=-1)
             services->setShaderConstant(selfPos.pointer,selfPosLocation,selfPosType,1);
         if (mvpUniformLocation!=-1)
@@ -152,7 +152,7 @@ int main()
 
 
         #define kInstanceSquareSize 10
-	core::matrix4x3 instancePositions[kInstanceSquareSize*kInstanceSquareSize];
+	core::matrix3x4SIMD instancePositions[kInstanceSquareSize*kInstanceSquareSize];
 
     asset::IAssetLoader::SAssetLoadParams lparams;
 	auto cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*device->getAssetManager()->getAsset("../../media/dwarf.baw", lparams).getContents().first);
@@ -164,9 +164,9 @@ int main()
         for (size_t z=0; z<kInstanceSquareSize; z++)
         for (size_t x=0; x<kInstanceSquareSize; x++)
         {
-            core::matrix4x3& matrix = instancePositions[x+kInstanceSquareSize*z];
-            matrix.setScale(core::vector3df(0.05f));
-            matrix.setTranslation(core::vector3df(x,0.f,z)*4.f);
+            auto& matrix = instancePositions[x+kInstanceSquareSize*z];
+            matrix.setScale(core::vectorSIMDf(0.05f,0.05f,0.05f));
+            matrix.setTranslation(core::vectorSIMDf(x,0.f,z)*4.f);
         }
     }
 
@@ -366,18 +366,18 @@ int main()
                     driver->clearZBuffer();
 
 
-                    std::pair<float,const core::matrix4x3*> distanceSortedInstances[kInstanceSquareSize*kInstanceSquareSize];
+                    std::pair<float,const core::matrix3x4SIMD*> distanceSortedInstances[kInstanceSquareSize*kInstanceSquareSize];
                     for (size_t z=0; z<kInstanceSquareSize; z++)
                     for (size_t x=0; x<kInstanceSquareSize; x++)
                     {
                         size_t offset = x+kInstanceSquareSize*z;
-                        const core::matrix4x3* matrix = instancePositions+offset;
-                        float dist = (camera->getAbsolutePosition()-matrix->getColumn(3)).getLength();
-                        distanceSortedInstances[offset] = std::pair<float,const core::matrix4x3*>(dist,matrix);
+                        const auto* matrix = instancePositions+offset;
+                        float dist = core::length(core::vectorSIMDf().set(camera->getAbsolutePosition())-matrix->getTranslation3D()).x;
+                        distanceSortedInstances[offset] = std::pair<float,const core::matrix3x4SIMD*>(dist,matrix);
                     }
                     struct
                     {
-                        bool operator()(const std::pair<float,const core::matrix4x3*>& a, const std::pair<float,const core::matrix4x3*>& b) const
+                        bool operator()(const std::pair<float,const core::matrix3x4SIMD*>& a, const std::pair<float,const core::matrix3x4SIMD*>& b) const
                         {
                             return a.first > b.first;
                         }
@@ -534,7 +534,7 @@ int main()
 	//create a screenshot
 	{
 		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
-		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(driver, device->getAssetManager(), "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
 	}
 
 	device->drop();

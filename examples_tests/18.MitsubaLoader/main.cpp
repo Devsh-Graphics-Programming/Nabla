@@ -248,8 +248,11 @@ int main()
 		//! cache results -- speeds up mesh generation on second run
 		{
 			io::IWriteFile* cacheFile = device->getFileSystem()->createAndWriteFile("../../tmp/normalCache101010.sse");
-			cacheFile->write(asset::normalCacheFor2_10_10_10Quant.data(), asset::normalCacheFor2_10_10_10Quant.size() * sizeof(asset::QuantizationCacheEntry2_10_10_10));
-			cacheFile->drop();
+			if (cacheFile)
+			{
+				cacheFile->write(asset::normalCacheFor2_10_10_10Quant.data(), asset::normalCacheFor2_10_10_10Quant.size() * sizeof(asset::QuantizationCacheEntry2_10_10_10));
+				cacheFile->drop();
+			}
 		}
 
 		device->drop();
@@ -366,7 +369,7 @@ int main()
 					cullback->instanceLoDInvariantBBox = node->getLoDInvariantBBox();
 				}
 				for (auto instance : instances)
-					node->addInstance(instance.getAsRetardedIrrlichtMatrix());
+					node->addInstance(instance);
 				node->updateAbsolutePosition();
 				sceneBound.addInternalBox(node->getTransformedBoundingBox());
 				node->setAutomaticCulling(scene::EAC_FRUSTUM_BOX);
@@ -375,7 +378,6 @@ int main()
 	}
 
 	// camera and viewport
-	bool leftHandedCamera = false;
 	scene::ICameraSceneNode* camera = nullptr;
 	core::recti viewport(core::position2di(0,0), core::position2di(params.WindowSize.Width,params.WindowSize.Height));
 
@@ -391,25 +393,24 @@ int main()
 		auto extent = sceneBound.getExtent();
 		camera = smgr->addCameraSceneNodeFPS(nullptr,100.f,core::min(extent.X,extent.Y,extent.Z)*0.0002f);
 		// need to extract individual components
-		{
-			auto relativeTransform = sensor.transform.matrix.extractSub3x4();
-			auto pos = relativeTransform.getTranslation();
-			camera->setPosition(pos.getAsVector3df());
-
-			core::vectorSIMDf up;
-			auto target = pos;
-			for (auto i=0; i<3; i++)
+			bool leftHandedCamera = false;
 			{
-				up[i] = relativeTransform.rows[i].y;
-				target[i] += relativeTransform.rows[i].z;
+				auto relativeTransform = sensor.transform.matrix.extractSub3x4();
+				if (relativeTransform.getPseudoDeterminant().x < 0.f)
+					leftHandedCamera = true;
+
+				auto pos = relativeTransform.getTranslation();
+				camera->setPosition(pos.getAsVector3df());
+
+				auto tpose = core::transpose(sensor.transform.matrix);
+				auto up = tpose.rows[1];
+				core::vectorSIMDf view = tpose.rows[2];
+				auto target = view+pos;
+
+				camera->setTarget(target.getAsVector3df());
+				if (core::dot(core::normalize(core::cross(camera->getUpVector(),view)),core::cross(up,view)).x<0.99f)
+					camera->setUpVector(up.getAsVector3df());
 			}
-
-			if (relativeTransform.getPseudoDeterminant().x < 0.f)
-				leftHandedCamera = true;
-
-			camera->setTarget(target.getAsVector3df());
-			camera->setUpVector(up.getAsVector3df());
-		}
 
 		const ext::MitsubaLoader::CElementSensor::PerspectivePinhole* persp = nullptr;
 		switch (sensor.type)
@@ -472,7 +473,6 @@ int main()
 	}
 	else
 		camera = smgr->addCameraSceneNodeFPS(0, 100.0f, 0.01f);
-	camera->setLeftHanded(leftHandedCamera);
 	smgr->setActiveCamera(camera);
 	device->getCursorControl()->setVisible(false);
 

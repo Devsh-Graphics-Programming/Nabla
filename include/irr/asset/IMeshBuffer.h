@@ -114,7 +114,10 @@ public:
 	//! Get type of index data which is stored in this meshbuffer.
 	/** \return Index type of this buffer. */
 	inline const E_INDEX_TYPE& getIndexType() const {return indexType;}
-	inline void setIndexType(const E_INDEX_TYPE& type) {indexType = type;}
+	inline void setIndexType(const E_INDEX_TYPE& type)
+	{
+		indexType = type;
+	}
 
 	//! Sets offset in mapped index buffer.
 	/** @param byteOffset Offset in bytes. */

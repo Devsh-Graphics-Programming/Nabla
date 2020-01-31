@@ -21,6 +21,7 @@ namespace ocl
 
 static const char* const OpenCLFeatureStrings[] = {
     "cl_khr_gl_sharing",
+	"cl_khr_gl_event"
 };
 
 
@@ -37,6 +38,7 @@ class COpenCLHandler
                 enum EOpenCLFeatures
                 {
                     IRR_KHR_GL_SHARING=0,
+					IRR_KHR_GL_EVENT,
                     IRR_OpenCL_Feature_Count
                 };
                 class SOpenCLDeviceInfo : public core::AllocationOverrideDefault
@@ -212,7 +214,7 @@ class COpenCLHandler
         static const SOpenCLPlatformInfo& getPlatformInfo(const size_t& ix) {return platformInformation[ix];}
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-        static bool getCLDeviceFromGLContext(cl_device_id& outDevice,
+        static bool getCLDeviceFromGLContext(cl_device_id& outDevice, cl_context_properties properties[7],
 #if defined(_IRR_WINDOWS_API_)
                                              const HGLRC& context, const HDC& hDC)
 #else
@@ -227,19 +229,16 @@ class COpenCLHandler
             if (!alreadyEnumeratedPlatforms)
                 return false;
 
-            cl_context_properties properties[] =
-            {
-                //OpenGL context
-                CL_GL_CONTEXT_KHR,  (cl_context_properties) context,
-                //
+            properties[0] = CL_GL_CONTEXT_KHR;
+			properties[1] = (cl_context_properties)context;
 #if defined(_IRR_WINDOWS_API_)
-                CL_WGL_HDC_KHR,     (cl_context_properties) hDC,
+			properties[2] = CL_WGL_HDC_KHR;
+			properties[3] = (cl_context_properties)hDC;
 #else
-                CL_GLX_DISPLAY_KHR, (cl_context_properties) display,
+			properties[2] = CL_GLX_DISPLAY_KHR;
+			properties[3] = (cl_context_properties)display;
 #endif
-                0,0,
-                0
-            };
+			properties[4] = properties[5] = properties[6] = 0;
 
             size_t dummy=0;
 #if defined(_IRR_WINDOWS_API_)

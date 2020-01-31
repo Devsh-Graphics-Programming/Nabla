@@ -759,8 +759,9 @@ int main()
     sorter->init(cpumesh->getMeshBuffer(0));
     auto gpumesh = driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get())+1)->front();
     sorter->setIndexBuffer(gpumesh->getMeshBuffer(0));
+	gpumesh->getMeshBuffer(0)->getMaterial().MaterialType = newMaterialType;
     printf("IDX_TYPE %d\n", gpumesh->getMeshBuffer(0)->getIndexType());
-    smgr->addMeshSceneNode(std::move(gpumesh), 0, -1, core::vector3df(), core::vector3df(), core::vector3df(4.f))->setMaterialType(newMaterialType);
+	smgr->addMeshSceneNode(std::move(gpumesh), 0, -1, core::vector3df(), core::vector3df(), core::vector3df(4.f));
  
 
     uint64_t lastFPSTime = 0;

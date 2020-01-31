@@ -78,11 +78,8 @@ void writeBufferAsImageToFile(asset::IAssetManager* mgr, const PathOrFile& _outF
 
 
 template<typename PathOrFile>
-void dirtyCPUStallingScreenshot(IrrlichtDevice* device, const PathOrFile& _outFile, core::rect<uint32_t> sourceRect, asset::E_FORMAT _format, bool flipY=true)
+void dirtyCPUStallingScreenshot(video::IVideoDriver* driver, asset::IAssetManager* assetManager, const PathOrFile& _outFile, core::rect<uint32_t> sourceRect, asset::E_FORMAT _format, bool flipY=true)
 {
-	auto assetManager = device->getAssetManager();
-	auto driver = device->getVideoDriver();
-
 	auto buff = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createDownStreamingGPUBufferOnDedMem((asset::getBytesPerPixel(_format) * sourceRect.getArea()).getIntegerApprox()), core::dont_grab); // TODO
 	buff->getBoundMemory()->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_READ,{0u,buff->getSize()});
 
@@ -92,11 +89,8 @@ void dirtyCPUStallingScreenshot(IrrlichtDevice* device, const PathOrFile& _outFi
 }
 
 template<typename PathOrFile>
-void dirtyCPUStallingScreenshot(IrrlichtDevice* device, const PathOrFile& _outFile, video::ITexture* source, uint32_t sourceMipLevel = 0u, bool flipY=true)
+void dirtyCPUStallingScreenshot(video::IVideoDriver* driver, asset::IAssetManager* assetManager, const PathOrFile& _outFile, video::ITexture* source, uint32_t sourceMipLevel = 0u, bool flipY=true)
 {
-	auto assetManager = device->getAssetManager();
-	auto driver = device->getVideoDriver();
-
 	auto texSize = source->getSize();
 
 	auto buff = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createDownStreamingGPUBufferOnDedMem((source->getPitch()*texSize[1]).getIntegerApprox()), core::dont_grab); // TODO

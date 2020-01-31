@@ -1,4 +1,4 @@
-#version 330 core
+#version 430 core
 
 layout(location = 0) in vec4 vWorldMatPart0;
 layout(location = 1) in vec4 vWorldMatPart1;
