@@ -35,6 +35,9 @@ update_git_submodule(./glm)
 update_git_submodule(./freetype2)
 update_git_submodule(./portable-file-dialogs)
 
+
+add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
+
 # zlib (target is zlibstatic)
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(_OLD_SKIP_INSTALL_ALL ${SKIP_INSTALL_ALL})
@@ -74,8 +77,6 @@ if (UNIX)
 	file(WRITE ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/libshaderc_combined.a "")
 endif()
 add_subdirectory(shaderc shaderc EXCLUDE_FROM_ALL)
-
-add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
 #manipulating libjpeg cmake options from within cmake script
 #option(ENABLE_SHARED "jpeg-turbo" OFF)
