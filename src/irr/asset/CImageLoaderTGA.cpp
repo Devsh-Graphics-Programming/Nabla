@@ -285,9 +285,9 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 				}
 
 				const void* planarData[] = { data , nullptr, nullptr, nullptr};
-				void* outRGBData = data;
 				const size_t wholeSize = region.imageExtent.height * region.bufferRowLength * header.PixelDepth / 8;
 				const auto wholeSizeInBytes = wholeSize * getTexelOrBlockBytesize(EF_R8G8B8_SRGB);
+				void* outRGBData = _IRR_NEW_ARRAY(uint8_t, wholeSizeInBytes);
 
 				video::convertColor<EF_R8_SRGB, EF_R8G8B8_SRGB>(planarData, outRGBData, wholeSize, *reinterpret_cast<core::vector3d<uint32_t>*>(&region.imageExtent));
 

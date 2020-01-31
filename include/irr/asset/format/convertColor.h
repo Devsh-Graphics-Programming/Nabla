@@ -165,7 +165,9 @@ namespace irr { namespace video
 		with \bdF\b. srcPix data is an array due to planar formats. Normally you would pass
 		to it data dived into 4 pointers with single channel data per pointer to each array element, 
 		but if source data isn't a planar format, you have to pass \awhole\a data to \bsrcPix[0]\b without 
-		caring about left elements - make them nullptr.
+		caring about left elements - make them nullptr. \bdstPix\b is a destination pointer that you will
+        use after convertion. Remember - you have to carry about it's size before passing it to the 
+        function, so if were to make it RGBA, you would have to allocate appropriate memory for RGBA buffer.
 		\b_pixOrBlockCnt\b is an amount of texels or blocks you want to convert and \b_imgSize\b is a size
 		in texels of an image they belong to. There is also a polymorphic \bswizzle\b parameter
 		that makes the whole process slower if used (otherwise it is a null pointer), but it 
