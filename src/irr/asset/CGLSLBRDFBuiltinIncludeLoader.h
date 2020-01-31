@@ -406,7 +406,7 @@ float GGXSmithHeightCorrelated_aniso_wo_numerator(in float at, in float ab, in f
 R"(#ifndef _BRDF_SPECULAR_FRESNEL_FRESNEL_INCLUDED_
 #define _BRDF_SPECULAR_FRESNEL_FRESNEL_INCLUDED_
 
-vec3 FresnelSchlick(in vec3 F0, in float VdotH)
+vec3 irr_glsl_fresnel_schlick(in vec3 F0, in float VdotH)
 {
     float x = 1.0 - VdotH;
     return F0 + (1.0 - F0) * x*x*x*x*x;

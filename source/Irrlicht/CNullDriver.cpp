@@ -195,51 +195,55 @@ void main()
 	}
 
     //images
-    core::smart_refctd_ptr<asset::ICPUImage> dummy1x1Image;
+    core::smart_refctd_ptr<asset::ICPUImage> dummy2dImage;
     {
         asset::ICPUImage::SCreationParams info;
-        info.format = asset::EF_R8_UNORM;
+        info.format = asset::EF_R8G8B8A8_UNORM;
         info.type = asset::ICPUImage::ET_2D;
-        info.extent.width = 1u;
-        info.extent.height = 1u;
+        info.extent.width = 2u;
+        info.extent.height = 2u;
         info.extent.depth = 1u;
         info.mipLevels = 1u;
         info.arrayLayers = 1u;
         info.samples = asset::ICPUImage::ESCF_1_BIT;
         info.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
-        dummy1x1Image = asset::ICPUImage::create(std::move(info));
+        auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(info.extent.width*info.extent.height*asset::getTexelOrBlockBytesize(info.format));
+        memcpy(buf->getPointer(),
+            //magenta-grey 2x2 chessboard
+            std::array<uint8_t, 16>{{255, 0, 255, 255, 128, 128, 128, 255, 128, 128, 128, 255, 255, 0, 255, 255}}.data(),
+            buf->getSize()
+        );
 
-        auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(1u);
-        reinterpret_cast<int8_t*>(buf->getPointer())[0] = 0;
+        dummy2dImage = asset::ICPUImage::create(std::move(info));
+
         auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1u);
         asset::ICPUImage::SBufferCopy& region = regions->front();
         region.imageSubresource.mipLevel = 0u;
         region.imageSubresource.baseArrayLayer = 0u;
         region.imageSubresource.layerCount = 1u;
         region.bufferOffset = 0u;
-        region.bufferRowLength = 1u;
+        region.bufferRowLength = 2u;
         region.bufferImageHeight = 0u;
         region.imageOffset = {0u, 0u, 0u};
-        region.imageExtent = {1u, 1u, 1u};
-        dummy1x1Image->setBufferAndRegions(std::move(buf), regions);
+        region.imageExtent = {2u, 2u, 1u};
+        dummy2dImage->setBufferAndRegions(std::move(buf), regions);
     }
     
     //image views
     {
         asset::ICPUImageView::SCreationParams info;
-        info.format = dummy1x1Image->getCreationParameters().format;
-        info.image = dummy1x1Image;
+        info.format = dummy2dImage->getCreationParameters().format;
+        info.image = dummy2dImage;
         info.viewType = asset::IImageView<asset::ICPUImage>::ET_2D;
         info.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
         info.subresourceRange.baseArrayLayer = 0u;
         info.subresourceRange.layerCount = 1u;
         info.subresourceRange.baseMipLevel = 0u;
         info.subresourceRange.levelCount = 1u;
-        auto dummy1x1ImgView = core::make_smart_refctd_ptr<asset::ICPUImageView>(std::move(info));
+        auto dummy2dImgView = core::make_smart_refctd_ptr<asset::ICPUImageView>(std::move(info));
 
-        addBuiltInToCaches(dummy1x1ImgView, "irr/builtin/image_views/dummy1x1");
-        //image added to cache after view because of conversion to "empty cache handle"
-        addBuiltInToCaches(dummy1x1Image, "irr/builtin/images/dummy1x1");
+        addBuiltInToCaches(dummy2dImgView, "irr/builtin/image_views/dummy1x1");
+        addBuiltInToCaches(dummy2dImage, "irr/builtin/images/dummy1x1");
     }
 
     //ds layouts
@@ -269,7 +273,6 @@ void main()
             desc->buffer.size = UBO_SZ;
         }
         addBuiltInToCaches(ds1, "irr/builtin/descriptor_set/basic_view_parameters");
-        //layout added to cache after ds because of conversion to "empty cache handle"
         addBuiltInToCaches(defaultDs1Layout, "irr/builtin/descriptor_set_layout/basic_view_parameters");
     }
 
