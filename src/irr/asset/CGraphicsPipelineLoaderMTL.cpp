@@ -128,7 +128,7 @@ void main()
         float at = sqrt(PC.params.roughness);
         float ab = at*(1.0 - PC.params.anisotropy);
 
-        float fr = Fresnel_dielectric(PC.params.ior, NdotV);
+        float fr = irr_glsl_fresnel_dielectric(PC.params.ior, NdotV);
         float one_minus_fr = 1.0-fr;
         float diffuseFactor = 1.0 - one_minus_fr*one_minus_fr;
         float diffuse = 0.0;
@@ -293,7 +293,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
 #endif
         Ns = PC.params.Ns;
 
-    vec3 diff = irr_glsl_lambert() * Kd * (1.0-Fresnel_dielectric(PC.params.Ni,params.NdotL)) * (1.0-Fresnel_dielectric(PC.params.Ni,params.NdotV));
+    vec3 diff = irr_glsl_lambertian_cos_eval(params) * Kd * (1.0-irr_glsl_fresnel_dielectric(PC.params.Ni,params.NdotL)) * (1.0-irr_glsl_fresnel_dielectric(PC.params.Ni,params.NdotV));
     diff *= irr_glsl_diffuseFresnelCorrectionFactor(vec3(PC.params.Ni), vec3(PC.params.Ni*PC.params.Ni));
     switch (PC.params.extra&ILLUM_MODEL_MASK)
     {
@@ -301,16 +301,15 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
         color = vec3(0.0);
         break;
     case 1:
-        color = diff * params.NdotL;
+        color = diff;
         break;
     case 2:
     case 3://2 + IBL
     case 5://basically same as 3
     case 8://basically same as 5
     {
-        float fr = Fresnel_dielectric(PC.params.Ni, params.VdotH);
-        vec3 spec = Ks*fr*irr_glsl_blinn_phong(params.NdotH, Ns) * irr_glsl_blinn_phong_normalizationFactor(Ns);
-        color = (diff + spec) * params.NdotL;
+        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, Ns, PC.params.Ni);
+        color = (diff + spec);
     }
         break;
     case 4:
@@ -318,9 +317,8 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
     case 7:
     case 9://basically same as 4
     {
-        float fr = Fresnel_dielectric(PC.params.Ni, params.VdotH);
-        vec3 spec = Ks*fr*irr_glsl_blinn_phong(params.NdotH, Ns) * irr_glsl_blinn_phong_normalizationFactor(Ns);
-        color = fr*spec * params.NdotL;
+        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, Ns, PC.params.Ni);
+        color = spec;
     }
         break;
     default:
@@ -381,7 +379,7 @@ void main()
     case 9:
     {
         float VdotN = dot(interaction.N, interaction.V.dir);
-        d = Fresnel_dielectric(PC.params.Ni, VdotN);
+        d = irr_glsl_fresnel_dielectric(PC.params.Ni, VdotN);
     }
         break;
     default:

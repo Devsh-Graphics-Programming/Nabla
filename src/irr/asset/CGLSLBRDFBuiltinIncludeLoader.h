@@ -231,17 +231,26 @@ vec3 irr_glsl_diffuseFresnelCorrectionFactor(in vec3 n, in vec3 n2)
 #define _IRR_BSDF_BRDF_SPECULAR_BLINN_PHONG_INCLUDED_
 
 #include <irr/builtin/glsl/bsdf/common.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
 
 float irr_glsl_blinn_phong(in float NdotH, in float n)
 {
-    return pow(NdotH, n);
-}
-
-float irr_glsl_blinn_phong_normalizationFactor(in float n)
-{
     float nom = n*(n + 6.0) + 8.0;
     float denom = pow(0.5, 0.5*n) + n;
-    return 0.125 * irr_glsl_RECIPROCAL_PI * nom/denom;
+    float normalization = 0.125 * irr_glsl_RECIPROCAL_PI * nom/denom;
+    return normalization*pow(NdotH, n);
+}
+
+float irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(in irr_glsl_BSDFIsotropicParams params, in float n, in float ior)
+{
+    float denom = 4.0*params.NdotV;
+    return irr_glsl_blinn_phong(params.NdotH, n) * irr_glsl_fresnel_dielectric(ior, params.VdotH) / denom;
+}
+
+vec3 irr_glsl_blinn_phong_fresnel_conductor_cos_eval(in irr_glsl_BSDFIsotropicParams params, in float n, in mat2x3 ior2)
+{
+    float denom = 4.0*params.NdotV;
+    return irr_glsl_blinn_phong(params.NdotH, n) * irr_glsl_fresnel_conductor(ior2[0], ior2[1], params.VdotH) / denom;
 }
 
 #endif
@@ -255,9 +264,19 @@ R"(#ifndef _IRR_BSDF_BRDF_DIFFUSE_LAMBERT_INCLUDED_
 
 #include <irr/builtin/glsl/bsdf/common.glsl>
 
-float irr_glsl_lambert()
+float irr_glsl_lambertian()
 {
     return irr_glsl_RECIPROCAL_PI;
+}
+
+float irr_glsl_lambertian_cos_eval_rec_pi_factored_out(in irr_glsl_BSDFIsotropicParams params)
+{
+   return params.NdotL;
+}
+
+float irr_glsl_lambertian_cos_eval(in irr_glsl_BSDFIsotropicParams params)
+{
+   return irr_glsl_lambertian_cos_eval_rec_pi_factored_out(params)*irr_glsl_RECIPROCAL_PI;
 }
 
 #endif
@@ -271,7 +290,7 @@ R"(#ifndef _BRDF_DIFFUSE_OREN_NAYAR_INCLUDED_
 
 #include <irr/builtin/glsl/bsdf/common.glsl>
 
-float oren_nayar(in float _a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, in float NdotV)
+float irr_glsl_oren_nayar(in float _a2, in float VdotL, in float NdotL, in float NdotV)
 {
     // theta - polar angles
     // phi - azimuth angles
@@ -282,9 +301,14 @@ float oren_nayar(in float _a2, in vec3 N, in vec3 L, in vec3 V, in float NdotL, 
     // should be equal to cos(phi)*sin(theta_i)*sin(theta_o)
     // where `phi` is the angle in the tangent plane to N, between L and V
     // and `theta_i` is the sine of the angle between L and N, similarily for `theta_o` but with V
-    float cos_phi_sin_theta = max(dot(V,L)-NdotL*NdotV,0.0);
+    float cos_phi_sin_theta = max(VdotL-NdotL*NdotV,0.0);
     
     return (AB.x + AB.y * cos_phi_sin_theta * C) * irr_glsl_RECIPROCAL_PI;
+}
+
+float irr_glsl_oren_nayar_cos_eval(in irr_glsl_BSDFIsotropicParams params, in float a2)
+{
+    return params.NdotL * irr_glsl_oren_nayar(a2, params.VdotL, params.NdotL, params.NdotV);
 }
 
 #endif
@@ -389,7 +413,7 @@ vec3 FresnelSchlick(in vec3 F0, in float VdotH)
 }
 
 // code from https://seblagarde.wordpress.com/2013/04/29/memo-on-fresnel-equations/
-vec3 Fresnel_conductor(vec3 Eta2, vec3 Etak2, float CosTheta)
+vec3 irr_glsl_fresnel_conductor(vec3 Eta2, vec3 Etak2, float CosTheta)
 {  
    float CosTheta2 = CosTheta * CosTheta;
    float SinTheta2 = 1.0 - CosTheta2;
@@ -407,7 +431,7 @@ vec3 Fresnel_conductor(vec3 Eta2, vec3 Etak2, float CosTheta)
 
    return 0.5 * (Rp + Rs);
 }
-float Fresnel_dielectric(in float Eta, in float CosTheta)
+float irr_glsl_fresnel_dielectric(in float Eta, in float CosTheta)
 {
    float SinTheta2 = 1.0 - CosTheta * CosTheta;
 
