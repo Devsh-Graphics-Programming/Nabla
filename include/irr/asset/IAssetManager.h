@@ -142,6 +142,7 @@ class IAssetManager : public core::IReferenceCounted
                 m_cpuGpuCache[i] = new CpuGpuCacheType();
 
 			addLoadersAndWriters();
+            insertBuiltinAssets();
         }
 
 		inline io::IFileSystem* getFileSystem() const { return m_fileSystem.get(); }
@@ -653,6 +654,8 @@ class IAssetManager : public core::IReferenceCounted
 
 		//
 		void addLoadersAndWriters();
+
+        void insertBuiltinAssets();
 };
 
 
