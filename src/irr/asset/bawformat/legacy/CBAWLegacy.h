@@ -129,6 +129,16 @@ using FinalBoneHierarchyBlobV1 = legacyv0::FinalBoneHierarchyBlobV0;
 
 }
 
+namespace legacyv2
+{
+
+
+using BAWFileV2 = BAWFileVn<2>;
+using BlobHeaderV2 = BlobHeaderVn<2>;
+
+
+}
+
 }
 } //irr::asset
 

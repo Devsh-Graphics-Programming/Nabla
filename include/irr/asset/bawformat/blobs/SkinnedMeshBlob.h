@@ -37,9 +37,10 @@ static_assert(
 
 using SkinnedMeshBlobV1 = SkinnedMeshBlobV0;
 using SkinnedMeshBlobV2 = SkinnedMeshBlobV1;
+using SkinnedMeshBlobV3 = SkinnedMeshBlobV2;
 
 template<>
-struct CorrespondingBlobTypeFor<ICPUSkinnedMesh> { typedef SkinnedMeshBlobV2 type; };
+struct CorrespondingBlobTypeFor<ICPUSkinnedMesh> { typedef SkinnedMeshBlobV3 type; };
 
 }
 } // irr::asset

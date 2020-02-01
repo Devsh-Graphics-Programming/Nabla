@@ -90,8 +90,10 @@ static_assert(
     "FinalBoneHierarchyBlobV2: Size of blob is not sum of its contents!"
 );
 
+using FinalBoneHierarchyBlobV3 = FinalBoneHierarchyBlobV2;
+
 template<>
-struct CorrespondingBlobTypeFor<CFinalBoneHierarchy> { typedef FinalBoneHierarchyBlobV2 type; };
+struct CorrespondingBlobTypeFor<CFinalBoneHierarchy> { typedef FinalBoneHierarchyBlobV3 type; };
 
 }
 } // irr::asset

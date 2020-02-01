@@ -40,9 +40,10 @@ static_assert(
 
 using MeshBlobV1 = MeshBlobV0;
 using MeshBlobV2 = MeshBlobV1;
+using MeshBlobV3 = MeshBlobV2;
 
 template<>
-struct CorrespondingBlobTypeFor<ICPUMesh> { typedef MeshBlobV2 type; };
+struct CorrespondingBlobTypeFor<ICPUMesh> { typedef MeshBlobV3 type; };
 
 }
 } // irr::asset

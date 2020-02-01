@@ -26,7 +26,7 @@ class IAssetManager;
 
 class CBAWMeshFileLoader : public asset::IAssetLoader
 {
-    friend struct TypedBlob<TexturePathBlobV2, asset::ICPUTexture>; // needed for loading textures
+    friend struct TypedBlob<TexturePathBlobV3, asset::ICPUTexture>; // needed for loading textures
 
 private:
     template<typename HeaderT>
@@ -144,7 +144,8 @@ private:
         {
 			case 0ull: return verifyFile<asset::legacyv0::BAWFileV0>(_ctx);
 			case 1ull: return verifyFile<asset::legacyv1::BAWFileV1>(_ctx);
-			case 2ull: return verifyFile<asset::BAWFileV2>(_ctx);
+            case 2ull: return verifyFile<asset::legacyv2::BAWFileV2>(_ctx);
+            case 3ull: return verifyFile<asset::BAWFileV3>(_ctx);
 			default: return false;
         }
     }

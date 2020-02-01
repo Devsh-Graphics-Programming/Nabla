@@ -46,9 +46,10 @@ static_assert(
 
 using SkinnedMeshBufferBlobV1 = SkinnedMeshBufferBlobV0;
 using SkinnedMeshBufferBlobV2 = SkinnedMeshBufferBlobV1;
+using SkinnedMeshBufferBlobV3 = SkinnedMeshBufferBlobV2;
 
 template<>
-struct CorrespondingBlobTypeFor<ICPUSkinnedMeshBuffer> { typedef SkinnedMeshBufferBlobV2 type; };
+struct CorrespondingBlobTypeFor<ICPUSkinnedMeshBuffer> { typedef SkinnedMeshBufferBlobV3 type; };
 
 
 }
