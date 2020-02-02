@@ -152,7 +152,7 @@ class IPipelineMetadata : public IAssetMetadata
 
 
 		//! This function returns us the list of "standard semenatics" as in the list of required inputs with meanings that are common in many pipelines
-		virtual core::SRange<ShaderInputSemantic> getCommonRequiredInputs() = 0;
+		virtual core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const = 0;
 };
 
 

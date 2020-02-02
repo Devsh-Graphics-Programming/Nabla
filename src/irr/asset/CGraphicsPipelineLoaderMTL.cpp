@@ -519,7 +519,7 @@ static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAsse
 core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipelineLayoutFromMtl(const SMtl& _mtl)
 {
     //assumes all supported textures are always present
-    //since vulkan doesnt support bindings with no/null descriptor, absent textures will be filled with dummy 1x1 2D texture (while creating desc set)
+    //since vulkan doesnt support bindings with no/null descriptor, absent textures will be filled with dummy 2D texture (while creating desc set)
     const bool anyMapPresent = std::find_if(_mtl.maps, _mtl.maps+CMTLPipelineMetadata::EMP_REFL_POSX+1u, [](const std::string& _m) ->bool { return _m.size(); }) != (_mtl.maps+CMTLPipelineMetadata::EMP_REFL_POSX+1u);
     auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(static_cast<size_t>(CMTLPipelineMetadata::EMP_REFL_POSX)+1ull);
 
@@ -639,10 +639,43 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
             }
         }
 
+        constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
+        core::smart_refctd_dynamic_array<IPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(ds3 ? ds3->getTotalDescriptorCount()+DS1_METADATA_ENTRY_CNT : DS1_METADATA_ENTRY_CNT);
+        if (ds3)
+        {
+            ICPUDescriptorSetLayout* ds3layout = ds3->getLayout();
+            for (uint32_t i = 0u; i < shaderInputsMetadata->size()-DS1_METADATA_ENTRY_CNT; ++i)
+            {
+                auto& semantic = (*shaderInputsMetadata)[i];
+                semantic.descriptorSection.type = IPipelineMetadata::ShaderInput::ET_COMBINED_IMAGE_SAMPLER;
+                semantic.descriptorSection.combinedImageSampler.binding = ds3layout->getBindings().begin()[i].binding;
+                semantic.descriptorSection.combinedImageSampler.set = 3u;
+                semantic.descriptorSection.combinedImageSampler.viewType = (semantic.descriptorSection.combinedImageSampler.binding==CMTLPipelineMetadata::EMP_REFL_POSX) ? IImageView<ICPUImage>::ET_CUBE_MAP : IImageView<ICPUImage>::ET_2D;
+                semantic.type = (semantic.descriptorSection.combinedImageSampler.binding == CMTLPipelineMetadata::EMP_REFL_POSX) ? IPipelineMetadata::ECSI_ENVIRONMENT_CUBEMAP : IPipelineMetadata::ECSI_COUNT;
+                semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+            }
+        }
+        {
+            ICPUDescriptorSetLayout* ds1layout = layout->getDescriptorSetLayout(1u);
+
+            constexpr IPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT]{IPipelineMetadata::ECSI_WORLD_VIEW_PROJ, IPipelineMetadata::ECSI_WORLD_VIEW, IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE};
+            constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT]{offsetof(SBasicViewParameters,MVP), offsetof(SBasicViewParameters,MV), offsetof(SBasicViewParameters,NormalMat)};
+            for (uint32_t i = 0u; i < DS1_METADATA_ENTRY_CNT; ++i)
+            {
+                auto& semantic = (shaderInputsMetadata->end()-i-1u)[0];
+                semantic.type = types[i];
+                semantic.descriptorSection.type = IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
+                semantic.descriptorSection.uniformBufferObject.binding = ds1layout->getBindings().begin()[0].binding;
+                semantic.descriptorSection.uniformBufferObject.set = 1u;
+                semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
+                semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_VERTEX;
+            }
+        }
+
         pipelines[j] = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(nullptr, core::smart_refctd_ptr(layout), nullptr, nullptr, vtxParams, blendParams, primParams, rasterParams);
         pipelines[j]->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, shaders.first.get());
         pipelines[j]->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, shaders.second.get());
-        m_assetMgr->setAssetMetadata(pipelines[j].get(), core::make_smart_refctd_ptr<CMTLPipelineMetadata>(materials[i].params, std::string(materials[i].name), core::smart_refctd_ptr(ds3), 0u));
+        m_assetMgr->setAssetMetadata(pipelines[j].get(), core::make_smart_refctd_ptr<CMTLPipelineMetadata>(materials[i].params, std::string(materials[i].name), core::smart_refctd_ptr(ds3), 0u, core::smart_refctd_ptr(shaderInputsMetadata)));
 
         //uv
         vtxParams.enabledAttribFlags |= (1u << UV);
@@ -655,7 +688,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
         pipelines[j+1u] = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(nullptr, std::move(layout), nullptr, nullptr, vtxParams, blendParams, primParams, rasterParams);
         pipelines[j+1u]->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, shaders.first.get());
         pipelines[j+1u]->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, shaders.second.get());
-        m_assetMgr->setAssetMetadata(pipelines[j+1u].get(), core::make_smart_refctd_ptr<CMTLPipelineMetadata>(materials[i].params, std::move(materials[i].name), std::move(ds3), 1u));
+        m_assetMgr->setAssetMetadata(pipelines[j+1u].get(), core::make_smart_refctd_ptr<CMTLPipelineMetadata>(materials[i].params, std::move(materials[i].name), std::move(ds3), 1u, std::move(shaderInputsMetadata)));
     }
     materials.clear();
 
@@ -1030,12 +1063,12 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSe
     auto ds = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(
         core::smart_refctd_ptr<ICPUDescriptorSetLayout>(_dsLayout)
         );
-    auto dummy1x1 = getDefaultAsset<ICPUImageView, IAsset::ET_IMAGE_VIEW>("irr/builtin/image_views/dummy1x1", m_assetMgr);
+    auto dummy2d = getDefaultAsset<ICPUImageView, IAsset::ET_IMAGE_VIEW>("irr/builtin/image_views/dummy2d", m_assetMgr);
     for (uint32_t i = 0u; i <= CMTLPipelineMetadata::EMP_REFL_POSX; ++i)
     {
         auto desc = ds->getDescriptors(i).begin();
 
-        desc->desc = _views[i] ? std::move(_views[i]) : dummy1x1;
+        desc->desc = _views[i] ? std::move(_views[i]) : dummy2d;
         desc->image.imageLayout = EIL_UNDEFINED;
         desc->image.sampler = nullptr; //not needed, immutable (in DS layout) samplers are used
     }

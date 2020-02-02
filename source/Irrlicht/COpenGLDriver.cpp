@@ -1183,9 +1183,9 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
                 EP.c_str(),
                 "????"
             );
-        auto fl = fopen("shader.glsl","w");
-        fwrite(reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()), 1, glslShader_woIncludes->getSPVorGLSL()->getSize(), fl);
-        fclose(fl);
+        //auto fl = fopen("shader.glsl","w");
+        //fwrite(reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()), 1, glslShader_woIncludes->getSPVorGLSL()->getSize(), fl);
+        //fclose(fl);
         if (!spvCode)
             return nullptr;
 
@@ -1618,6 +1618,8 @@ static GLenum getGLprimitiveType(asset::E_PRIMITIVE_TOPOLOGY pt)
         return GL_TRIANGLE_STRIP_ADJACENCY;
     case EPT_PATCH_LIST:
         return GL_PATCHES;
+    default:
+        return GL_INVALID_ENUM;
     }
 }
 

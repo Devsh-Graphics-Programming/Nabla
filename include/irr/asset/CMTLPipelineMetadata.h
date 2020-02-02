@@ -80,12 +80,13 @@ public:
         EMP_COUNT
     };
 
-    CMTLPipelineMetadata(const SMTLMaterialParameters& _params, std::string&& _name, core::smart_refctd_ptr<ICPUDescriptorSet>&& _ds3, uint32_t _hash) : m_materialParams(_params), m_name(std::move(_name)), m_descriptorSet3(std::move(_ds3)), m_hash(_hash) {}
+    CMTLPipelineMetadata(const SMTLMaterialParameters& _params, std::string&& _name, core::smart_refctd_ptr<ICPUDescriptorSet>&& _ds3, uint32_t _hash, core::smart_refctd_dynamic_array<ShaderInputSemantic>&& _inputs) :
+        m_materialParams(_params), m_name(std::move(_name)), m_descriptorSet3(std::move(_ds3)), m_hash(_hash), m_shaderInputs(std::move(_inputs)) {}
 
     const SMTLMaterialParameters& getMaterialParams() const { return m_materialParams; }
     const std::string getMaterialName() const { return m_name; }
 
-    core::SRange<ShaderInputSemantic> getCommonRequiredInputs() override { return { nullptr, nullptr }; }
+    core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const override { return { m_shaderInputs->begin(), m_shaderInputs->end() }; }
     const char* getLoaderName() const override { return "CGraphicsPipelineLoaderMTL"; } //?? i dont really understand the docs specifying what this function should return
 
     uint32_t getHashVal() const { return m_hash; }
@@ -97,6 +98,7 @@ private:
     core::smart_refctd_ptr<ICPUDescriptorSet> m_descriptorSet3;
     //for permutations of pipeline representing same material but with different factors impossible to know from MTL file (like whether submesh using the material contains UVs)
     uint32_t m_hash;
+    core::smart_refctd_dynamic_array<ShaderInputSemantic> m_shaderInputs;
 };
 
 }}

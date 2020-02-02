@@ -311,8 +311,8 @@ void main()
         info.subresourceRange.levelCount = 1u;
         auto dummy2dImgView = core::make_smart_refctd_ptr<asset::ICPUImageView>(std::move(info));
 
-        addBuiltInToCaches(dummy2dImgView, "irr/builtin/image_views/dummy1x1");
-        addBuiltInToCaches(dummy2dImage, "irr/builtin/images/dummy1x1");
+        addBuiltInToCaches(dummy2dImgView, "irr/builtin/image_views/dummy2d");
+        addBuiltInToCaches(dummy2dImage, "irr/builtin/images/dummy2d");
     }
 
     //ds layouts
