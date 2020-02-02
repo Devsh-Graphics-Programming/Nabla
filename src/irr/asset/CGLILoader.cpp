@@ -46,6 +46,8 @@ namespace irr
 			if (!performLoadingAsIReadFile(texture, _file))
 				return {};
 
+			const auto dataa = texture.data();
+
 		    const gli::gl glVersion(gli::gl::PROFILE_GL33);
 			const GLenum target = glVersion.translate(texture.target());
 			const auto format = getTranslatedGLIFormat(texture, glVersion);
@@ -168,11 +170,11 @@ namespace irr
 					if (layersFlag)
 						gliLayer = layer / 6;
 					else
-						gliLayer = 1;
+						gliLayer = 0;
 				}
 				else
 				{
-					gliFace = 1;
+					gliFace = 0;
 					gliLayer = layer;
 				}
 
@@ -249,7 +251,7 @@ namespace irr
 			{
 				std::remove_const<decltype(ddsMagic)>::type tmpBuffer;
 				_file->read(&tmpBuffer, sizeof(ddsMagic));
-				if (*reinterpret_cast<decltype(ddsMagic)*>(tmpBuffer) == ddsMagic)
+				if (*reinterpret_cast<decltype(ddsMagic)*>(&tmpBuffer) == ddsMagic)
 				{
 					_file->seek(beginningOfFile);
 					return true;

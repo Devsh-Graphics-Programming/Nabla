@@ -137,11 +137,11 @@ namespace irr
 					if (layersFlag)
 						gliLayer = layer / 6;
 					else
-						gliLayer = 1;
+						gliLayer = 0;
 				}
 				else
 				{
-					gliFace = 1;
+					gliFace = 0;
 					gliLayer = layer;
 				}
 
