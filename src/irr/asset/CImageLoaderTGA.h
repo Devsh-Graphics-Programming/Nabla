@@ -90,7 +90,7 @@ public:
 private:
 
 	//! loads a compressed tga. Was written and sent in by Jon Pry, thank you very much!
-	uint8_t* loadCompressedImage(io::IReadFile *file, const STGAHeader& header) const;
+	void loadCompressedImage(io::IReadFile *file, const STGAHeader& header, const uint32_t wholeSizeWithPitchInBytes, core::smart_refctd_ptr<ICPUBuffer>& bufferData) const;
 };
 
 #endif // compiled with loader
