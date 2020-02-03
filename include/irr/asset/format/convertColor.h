@@ -114,7 +114,7 @@ namespace irr { namespace video
             using decT = typename std::conditional<isSignedFormat<sF>(), int64_t, uint64_t>::type;
             using encT = typename std::conditional<isSignedFormat<dF>(), int64_t, uint64_t>::type;
 
-            decT decbuf[4];
+            decT decbuf[4] {0, 0, 0, 0};
             impl::SCallDecode<sF, decT>{}(srcPix, decbuf, _blockX, _blockY);
 			SWIZZLE(decbuf)
             impl::SCallEncode<dF, encT>{}(dstPix, reinterpret_cast<encT*>(decbuf));
@@ -126,7 +126,7 @@ namespace irr { namespace video
             using decT = double;
             using encT = double;
 
-            decT decbuf[4];
+            decT decbuf[4] { 0, 0, 0, 1 };
             impl::SCallDecode<sF, decT>{}(srcPix, decbuf, _blockX, _blockY);
 			SWIZZLE(decbuf)
             impl::SCallEncode<dF, encT>{}(dstPix, decbuf);
@@ -136,7 +136,7 @@ namespace irr { namespace video
             using decT = double;
             using encT = typename std::conditional<isSignedFormat<dF>(), int64_t, uint64_t>::type;
 
-            decT decbuf[4];
+            decT decbuf[4] { 0, 0, 0, 0 };
             impl::SCallDecode<sF, decT>{}(srcPix, decbuf, _blockX, _blockY);
 			SWIZZLE(decbuf)
             encT encbuf[4];
@@ -149,7 +149,7 @@ namespace irr { namespace video
             using decT = typename std::conditional<isSignedFormat<sF>(), int64_t, uint64_t>::type;
             using encT = double;
 
-            decT decbuf[4];
+            decT decbuf[4] { 0, 0, 0, 0 };
             impl::SCallDecode<sF, decT>{}(srcPix, decbuf, _blockX, _blockY);
 			SWIZZLE(decbuf)
             encT encbuf[4];
