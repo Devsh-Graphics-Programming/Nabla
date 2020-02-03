@@ -84,28 +84,31 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 		os::Printer::log("Invalid (non-TGA) file!", ELL_ERROR);
 		return false;
 	}
-	
-	/*
-		I can't load anything because of bellow
+
+	float gamma;
 
 	if (footer.ExtensionOffset == 0)
-		os::Printer::log("Gamma information is not present!", ELL_ERROR);
+	{
+		os::Printer::log("Gamma information is not present! Assuming 2.333333", ELL_WARNING);
+		gamma = 2.333333f;
+	}
 	else
 	{
 		STGAExtensionArea extension;
 		_file->seek(footer.ExtensionOffset);
 		_file->read(&extension, sizeof(STGAExtensionArea));
 		
-		float gamma = extension.Gamma;
+		gamma = extension.Gamma;
 		
-		if (gamma > 0.0f)
+		if (gamma == 0.0f)
 		{
-			// TODO: Pass gamma to loadAsset()?
+			os::Printer::log("Gamma information is not present! Assuming 2.333333", ELL_WARNING);
+			gamma = 2.333333f;
 		}
-		else
-			os::Printer::log("Gamma information is not present!", ELL_ERROR);
+		
+		// TODO - pass gamma to LoadAsset()?
+		// Actually I think metadata will be in used here in near future
 	}
-	*/
 	
     _file->seek(prevPos);
 	
