@@ -38,6 +38,17 @@ irr_get_conf_dir(IRRLICHT_CONF_DIR_DEBUG Debug)
 irr_get_conf_dir(IRRLICHT_CONF_DIR_RELEASE Release)
 
 set(_IRR_COMPILE_WITH_OPENGL_ ${IRR_COMPILE_WITH_OPENGL})
+if (IRR_COMPILE_WITH_OPENCL)
+	find_package(OpenCL)
+
+	if (OpenCL_FOUND)
+		message(STATUS "Building with OpenCL interop")
+		
+		set(_IRR_COMPILE_WITH_OPENCL_ ${IRR_COMPILE_WITH_OPENCL})
+	else()
+		message(STATUS "OpenCL not found")
+	endif()
+endif()
 #set(_IRR_TARGET_ARCH_ARM_ ${IRR_TARGET_ARCH_ARM}) #uncomment in the future
 set(__IRR_FAST_MATH ${IRR_FAST_MATH})
 set(_IRR_DEBUG 0)
@@ -295,13 +306,15 @@ if (UNIX)
 		${X11_xf86vmode_INCLUDE_PATH})
 endif()
 
-find_package(Vulkan)
 
+if (IRR_COMPILE_WITH_OPENCL AND OpenCL_FOUND)
+	target_link_libraries(Irrlicht PUBLIC OpenCL::OpenCL)
+endif()
+
+# TODO: REDO
+find_package(Vulkan)
 if (Vulkan_FOUND)
 	message(STATUS "Building with Vulkan driver")
-	#target_compile_definitions(Irrlicht PRIVATE
-	#	_IRR_COMPILE_WITH_VULKAN_
-	#)
 	#target_link_libraries(Irrlicht INTERFACE Vulkan::Vulkan) # this should work, but it doesn't
 	#target_link_libraries(Irrlicht INTERFACE ${Vulkan_LIBRARY})
 else()

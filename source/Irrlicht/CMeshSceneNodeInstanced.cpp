@@ -197,7 +197,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
     return true;
 }
 
-uint32_t CMeshSceneNodeInstanced::addInstance(const core::matrix4x3& relativeTransform, const void* extraData)
+uint32_t CMeshSceneNodeInstanced::addInstance(const core::matrix3x4SIMD& relativeTransform, const void* extraData)
 {
     uint32_t ix;
     if (!addInstances(&ix,1,&relativeTransform,extraData))
@@ -206,7 +206,7 @@ uint32_t CMeshSceneNodeInstanced::addInstance(const core::matrix4x3& relativeTra
     return ix;
 }
 
-bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& instanceCount, const core::matrix4x3* relativeTransforms, const void* extraData)
+bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& instanceCount, const core::matrix3x4SIMD* relativeTransforms, const void* extraData)
 {
     {//dummyBytes, aligns scope
     core::vector<uint32_t> dummyBytes_(instanceCount);
@@ -262,15 +262,14 @@ bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& 
     {
         {
             uint32_t blockID = getBlockIDFromAddr(instanceIDs[i]);
-            instanceBBoxes[blockID] = LoDInvariantBox;
-            relativeTransforms[i].transformBoxEx(instanceBBoxes[blockID]);
+            instanceBBoxes[blockID] = core::transformBoxEx(LoDInvariantBox,relativeTransforms[i]);
         }
         size_t redirect = instanceDataAllocator->getAddressAllocator().get_real_addr(instanceIDs[i]);
         instanceDataAllocator->markRangeForPush(redirect,redirect+dataPerInstanceInputSize);
         uint8_t* ptr = base_pointer+redirect;
         memcpy(ptr,relativeTransforms+i,48);
 
-        core::matrix4x3 instanceInverse;
+        core::matrix3x4SIMD instanceInverse;
         relativeTransforms[i].getInverse(instanceInverse);
         float* instance3x3TranposeInverse = reinterpret_cast<float*>(ptr+48);
         instance3x3TranposeInverse[0] = instanceInverse(0,0);
@@ -292,20 +291,19 @@ bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& 
     return true;
 }
 
-void CMeshSceneNodeInstanced::setInstanceTransform(const uint32_t& instanceID, const core::matrix4x3& relativeTransform)
+void CMeshSceneNodeInstanced::setInstanceTransform(const uint32_t& instanceID, const core::matrix3x4SIMD& relativeTransform)
 {
     {
         uint32_t blockID = getBlockIDFromAddr(instanceID);
-        instanceBBoxes[blockID] = LoDInvariantBox;
-        relativeTransform.transformBoxEx(instanceBBoxes[blockID]);
+        instanceBBoxes[blockID] = core::transformBoxEx(LoDInvariantBox,relativeTransform);
     }
 
     size_t redirect = instanceDataAllocator->getAddressAllocator().get_real_addr(instanceID);
     instanceDataAllocator->markRangeForPush(redirect,redirect+48+36);
     uint8_t* ptr = reinterpret_cast<uint8_t*>(instanceDataAllocator->getBackBufferPointer())+redirect;
-    memcpy(ptr,relativeTransform.pointer(),48);
+    memcpy(ptr,relativeTransform.rows[0].pointer,48);
 
-    core::matrix4x3 instanceInverse;
+    core::matrix3x4SIMD instanceInverse;
     relativeTransform.getInverse(instanceInverse);
     float* instance3x3TranposeInverse = reinterpret_cast<float*>(ptr+48);
     instance3x3TranposeInverse[0] = instanceInverse(0,0);
@@ -321,17 +319,17 @@ void CMeshSceneNodeInstanced::setInstanceTransform(const uint32_t& instanceID, c
     needsBBoxRecompute = true;
 }
 
-core::matrix4x3 CMeshSceneNodeInstanced::getInstanceTransform(const uint32_t& instanceID)
+core::matrix3x4SIMD CMeshSceneNodeInstanced::getInstanceTransform(const uint32_t& instanceID)
 {
-    core::matrix4x3 retval;
+    core::matrix3x4SIMD retval;
     size_t redir = instanceDataAllocator->getAddressAllocator().get_real_addr(instanceID);
     if (redir==kInvalidInstanceID)
     {
         _IRR_BREAK_IF(true);
-        memset(retval.pointer(),0,48);
+        memset(retval.rows[0].pointer,0,48);
     }
     else
-        memcpy(retval.pointer(),reinterpret_cast<uint8_t*>(instanceDataAllocator->getBackBufferPointer())+redir,sizeof(core::matrix4x3));
+        memcpy(retval.rows[0].pointer,reinterpret_cast<uint8_t*>(instanceDataAllocator->getBackBufferPointer())+redir,sizeof(core::matrix3x4SIMD));
 
     return retval;
 }
@@ -449,7 +447,7 @@ void CMeshSceneNodeInstanced::RecullInstances()
             }
         }
 
-        driver->setTransform(video::E4X3TS_WORLD,AbsoluteTransformation);
+        driver->setTransform(video::E4X3TS_WORLD,core::matrix3x4SIMD().set(AbsoluteTransformation));
         for (size_t i=0; i<xfb.size(); i++)
         {
             reinterpret_cast<uint32_t&>(lodCullingPointMesh->getMaterial().MaterialTypeParam) = i*gpuLoDsPerPass;
@@ -532,7 +530,7 @@ void CMeshSceneNodeInstanced::render()
 
 	++PassCount;
 
-	driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
+	driver->setTransform(video::E4X3TS_WORLD, core::matrix3x4SIMD().set(AbsoluteTransformation));
 
 
 	if (flagQueryForRetrieval)

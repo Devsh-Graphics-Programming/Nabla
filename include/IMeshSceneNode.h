@@ -35,6 +35,8 @@ public:
 	//! Get the currently defined mesh for display.
 	/** \return Pointer to mesh which is displayed by this node. */
 	virtual video::IGPUMesh* getMesh(void) = 0;
+
+	virtual const video::IGPUMesh* getMesh(void) const = 0;
 };
 
 } // end namespace scene

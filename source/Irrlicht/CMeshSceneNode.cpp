@@ -98,7 +98,7 @@ void CMeshSceneNode::render()
 
 	if (canProceedPastFence())
     {
-        driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
+        driver->setTransform(video::E4X3TS_WORLD, core::matrix3x4SIMD().set(AbsoluteTransformation));
 
         for (uint32_t i=0; i<Mesh->getMeshBufferCount(); ++i)
         {
@@ -120,27 +120,6 @@ void CMeshSceneNode::render()
             }
         }
     }
-
-	// for debug purposes only:
-	if (DebugDataVisible && PassCount==1)
-	{
-        driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
-
-		video::SGPUMaterial m;
-		driver->setMaterial(m);
-
-		// show mesh
-		if (DebugDataVisible & scene::EDS_MESH_WIRE_OVERLAY)
-		{
-			m.Wireframe = true;
-			driver->setMaterial(m);
-
-			for (uint32_t g=0; g<Mesh->getMeshBufferCount(); ++g)
-			{
-				driver->drawMeshBuffer(Mesh->getMeshBuffer(g));
-			}
-		}
-	}
 }
 
 

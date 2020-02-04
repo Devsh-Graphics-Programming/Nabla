@@ -112,11 +112,11 @@ class matrix4SIMD// : public AlignedBase<_IRR_SIMD_ALIGNMENT> don't inherit from
 
 		inline bool isOrthogonal() const
 		{
-			return concatenateBFollowedByA(getTransposed(), *this).isIdentity();
+			return concatenateBFollowedByA(transpose(*this), *this).isIdentity();
 		}
 		inline bool isOrthogonal(float _tolerance) const
 		{
-			return concatenateBFollowedByA(getTransposed(), *this).isIdentity(_tolerance);
+			return concatenateBFollowedByA(transpose(*this), *this).isIdentity(_tolerance);
 		}
 
 		inline matrix4SIMD& setScale(const core::vectorSIMDf& _scale);
@@ -166,24 +166,6 @@ class matrix4SIMD// : public AlignedBase<_IRR_SIMD_ALIGNMENT> don't inherit from
 
 		static inline matrix4SIMD buildProjectionMatrixOrthoRH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar);
 		static inline matrix4SIMD buildProjectionMatrixOrthoLH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar);
-
-		static inline matrix4SIMD buildCameraLookAtMatrixLH(const core::vectorSIMDf& position,
-															const core::vectorSIMDf& target,
-															const core::vectorSIMDf& upVector);
-		static inline matrix4SIMD buildCameraLookAtMatrixRH(const core::vectorSIMDf& position,
-															const core::vectorSIMDf& target,
-															const core::vectorSIMDf& upVector);
-
-		inline matrix4SIMD getTransposed() const
-		{
-			matrix4SIMD r{*this};
-			core::transpose4(r.rows);
-			return r;
-		}
-		inline void getTransposed(matrix4SIMD& _out) const
-		{
-			_out = getTransposed();
-		}
 
 	private:
 		//! Access by row

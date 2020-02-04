@@ -80,13 +80,13 @@ class IMeshSceneNodeInstanced : public ISceneNode
         inline const bool& getBBoxUpdateMode() {return wantBBoxUpdate;}
 
 
-        virtual uint32_t addInstance(const core::matrix4x3& relativeTransform, const void* extraData=NULL) = 0;
+        virtual uint32_t addInstance(const core::matrix3x4SIMD& relativeTransform, const void* extraData=NULL) = 0;
 
-        virtual bool addInstances(uint32_t* instanceIDs, const size_t& instanceCount, const core::matrix4x3* relativeTransforms, const void* extraData) = 0;
+        virtual bool addInstances(uint32_t* instanceIDs, const size_t& instanceCount, const core::matrix3x4SIMD* relativeTransforms, const void* extraData) = 0;
 
-        virtual void setInstanceTransform(const uint32_t& instanceID, const core::matrix4x3& relativeTransform) = 0;
+        virtual void setInstanceTransform(const uint32_t& instanceID, const core::matrix3x4SIMD& relativeTransform) = 0;
 
-        virtual core::matrix4x3 getInstanceTransform(const uint32_t& instanceID) = 0;
+        virtual core::matrix3x4SIMD getInstanceTransform(const uint32_t& instanceID) = 0;
 
         virtual void setInstanceVisible(const uint32_t& instanceID, const bool& visible) = 0;
 

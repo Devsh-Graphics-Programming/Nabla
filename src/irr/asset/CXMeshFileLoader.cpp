@@ -214,7 +214,7 @@ class SuperSkinningTMPStruct
         uint32_t redir;
 };
 
-core::matrix4x3 getGlobalMatrix_evil(asset::ICPUSkinnedMesh::SJoint* joint)
+core::matrix3x4SIMD getGlobalMatrix_evil(asset::ICPUSkinnedMesh::SJoint* joint)
 {
     //if (joint->GlobalInversedMatrix.isIdentity())
         //return joint->GlobalInversedMatrix;
@@ -338,47 +338,33 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file, const asset::IA
                 }
 				if (mesh->AttachedJointID!=-1)
                 {
-                    bool correctBindMatrix = _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix.isIdentity();
-                    core::matrix4x3 globalMat,globalMatInvTransp;
+                    bool correctBindMatrix = _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix==core::matrix3x4SIMD();
+					core::matrix3x4SIMD globalMat;
+					core::matrix4SIMD globalMatInvTransp;
                     if (correctBindMatrix)
                     {
                         globalMat = getGlobalMatrix_evil(_ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]);
-                        //
-                        globalMatInvTransp(0,0) = globalMat(0,0);
-                        globalMatInvTransp(1,0) = globalMat(0,1);
-                        globalMatInvTransp(2,0) = globalMat(0,2);
-                        globalMatInvTransp(0,1) = globalMat(1,0);
-                        globalMatInvTransp(1,1) = globalMat(1,1);
-                        globalMatInvTransp(2,1) = globalMat(1,2);
-                        globalMatInvTransp(0,2) = globalMat(2,0);
-                        globalMatInvTransp(1,2) = globalMat(2,1);
-                        globalMatInvTransp(2,2) = globalMat(2,2);
-                        globalMatInvTransp(0,3) = globalMat(3,0);
-                        globalMatInvTransp(1,3) = globalMat(3,1);
-                        globalMatInvTransp(2,3) = globalMat(3,2);
-                        globalMatInvTransp.makeInverse();
+						core::matrix3x4SIMD tmp;
+						globalMat.getInverse(tmp);
+						globalMatInvTransp = core::matrix4SIMD(tmp);
                     }
                     else
                     {
-                        _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix.getInverse(globalMat);
-                        globalMatInvTransp(0,0) = _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(0,0);
-                        globalMatInvTransp(1,0) = _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(0,1);
-                        globalMatInvTransp(2,0) = _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(0,2);
-                        globalMatInvTransp(0,1) = _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(1,0);
-                        globalMatInvTransp(1,1) = _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(1,1);
-                        globalMatInvTransp(2,1) = _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(1,2);
-                        globalMatInvTransp(0,2) = _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(2,0);
-                        globalMatInvTransp(1,2) = _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(2,1);
-                        globalMatInvTransp(2,2) = _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(2,2);
-                        globalMatInvTransp(0,3) = _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(3,0);
-                        globalMatInvTransp(1,3) = _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(3,1);
-                        globalMatInvTransp(2,3) = _ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix(3,2);
+						_ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix.getInverse(globalMat);
+						globalMatInvTransp = core::matrix4SIMD(_ctx.AnimatedMesh->getAllJoints()[mesh->AttachedJointID]->GlobalInversedMatrix);
                     }
+					globalMatInvTransp = core::transpose(globalMatInvTransp);
 
                     for (size_t j=0; j<mesh->Vertices.size(); j++)
                     {
-                        globalMat.transformVect(&mesh->Vertices[j].Pos.X);
-                        globalMatInvTransp.mulSub3x3With3x1(&mesh->Vertices[j].Normal.X);
+						core::vectorSIMDf tmp;
+						tmp.set(mesh->Vertices[j].Pos);
+						tmp[3] = 1.f;
+                        globalMat.transformVect(tmp);
+						mesh->Vertices[j].Pos = tmp.getAsVector3df();
+
+						tmp.set(mesh->Vertices[j].Normal);
+						mesh->Vertices[j].Normal = globalMatInvTransp.sub3x3TransformVect(tmp).getAsVector3df();
 
                         reinterpret_cast<SkinnedVertexFinalData*>(vSkinningDataBuf->getPointer())[j].boneWeights = 0x000003ffu;
                         reinterpret_cast<SkinnedVertexFinalData*>(vSkinningDataBuf->getPointer())[j].boneIDs[0] = mesh->AttachedJointID;
@@ -412,7 +398,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file, const asset::IA
                     else
                         buffer->setIndexType(asset::EIT_16BIT);
 
-                    //buffer->setMeshDataAndFormat(std::move(desc));
+                    buffer->setMeshDataAndFormat(core::smart_refctd_ptr(desc));
 
                     if (i>0)
                     {
@@ -890,10 +876,6 @@ bool CXMeshFileLoader::parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMe
 		{
 			if (!parseDataObjectTransformationMatrix(_ctx, joint->LocalMatrix, _params))
 				return false;
-
-			//joint->LocalAnimatedMatrix
-			//joint->LocalAnimatedMatrix.makeInverse();
-			//joint->LocalMatrix=tmp*joint->LocalAnimatedMatrix;
 		}
 		else
 		if (objectName == "Mesh")
@@ -2101,9 +2083,8 @@ bool CXMeshFileLoader::parseDataObjectAnimationKey(SContext& _ctx, asset::ICPUSk
 				}
 
 				// read matrix
-				core::matrix4x3 mat4x3;
-				readMatrix(_ctx, mat4x3, _params);
-				//mat=joint->LocalMatrix*mat;
+				core::matrix3x4SIMD mat;
+				readMatrix(_ctx, mat);
 
 				if (!checkForOneFollowingSemicolons(_ctx))
 				{
@@ -2116,14 +2097,14 @@ bool CXMeshFileLoader::parseDataObjectAnimationKey(SContext& _ctx, asset::ICPUSk
                 asset::ICPUSkinnedMesh::SRotationKey *keyR=joint->addRotationKey();
 				keyR->frame=time;
 
-				keyR->rotation = core::quaternion(mat4x3);
+				keyR->rotation = core::quaternion(mat);
 
                 asset::ICPUSkinnedMesh::SPositionKey *keyP=joint->addPositionKey();
 				keyP->frame=time;
-				keyP->position=mat4x3.getTranslation();
+				keyP->position = mat.getTranslation().getAsVector3df();
 
 
-				core::vector3df scale=mat4x3.getScale();
+				core::vector3df scale = mat.getScale().getAsVector3df();
 
 				if (scale.X==0)
 					scale.X=1;
@@ -2623,7 +2604,7 @@ bool CXMeshFileLoader::readRGBA(SContext& _ctx, video::SColor& color)
 
 
 // read matrix from list of floats
-bool CXMeshFileLoader::readMatrix(SContext& _ctx, core::matrix4x3& mat, const asset::IAssetLoader::SAssetLoadParams& _params)
+bool CXMeshFileLoader::readMatrix(SContext& _ctx, core::matrix3x4SIMD& mat)
 {
     for (uint32_t j=0u; j<4u; j++)
     {

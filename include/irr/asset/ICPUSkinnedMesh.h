@@ -79,7 +79,7 @@ class ICPUSkinnedMesh : public ICPUMesh
 			std::string Name;
 
 			//! Local matrix of this joint
-			core::matrix4x3 LocalMatrix;
+			core::matrix3x4SIMD LocalMatrix;
 
 			//! List of child joints
 			SJoint* Parent;
@@ -118,9 +118,9 @@ class ICPUSkinnedMesh : public ICPUMesh
 			//! Unnecessary for loaders, will be overwritten on finalize
 			core::aabbox3df bbox;
 
-			core::matrix4x3 GlobalMatrix;
+			core::matrix3x4SIMD GlobalMatrix;
 
-			core::matrix4x3 GlobalInversedMatrix; //the x format pre-calculates this
+			core::matrix3x4SIMD GlobalInversedMatrix; //the x format pre-calculates this
 		};
 
 

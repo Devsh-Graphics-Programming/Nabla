@@ -137,7 +137,8 @@ class aabbox3d // : public AllocationOverrideDefault ?
 
 		//! Stores all 8 edges of the box into an array
 		/** \param edges: Pointer to array of 8 edges. */
-		void getEdges(vector3d<T> *edges) const
+		template<class vectorT>
+		void getEdges(vectorT* edges) const
 		{
 			const core::vector3d<T> middle = getCenter();
 			const core::vector3d<T> diag = middle - MaxEdge;

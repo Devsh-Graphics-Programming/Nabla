@@ -11,9 +11,9 @@ bool COpenCLHandler::alreadyEnumeratedPlatforms = false;
 #if defined(_IRR_WINDOWS_API_)
 clGetGLContextInfoKHR_fn COpenCLHandler::pClGetGLContextInfoKHR = NULL;
 #endif // defined
-cl_platform_id COpenCLHandler::platforms[IRR_maxOCL_PLATFORMS];
+cl_platform_id COpenCLHandler::platforms[IRR_MAX_OCL_PLATFORMS];
 cl_uint COpenCLHandler::actualPlatformCount = 0;
-COpenCLHandler::SOpenCLPlatformInfo COpenCLHandler::platformInformation[IRR_maxOCL_PLATFORMS];
+COpenCLHandler::SOpenCLPlatformInfo COpenCLHandler::platformInformation[IRR_MAX_OCL_PLATFORMS];
 
 
 }

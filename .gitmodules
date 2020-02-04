@@ -73,3 +73,7 @@
 [submodule "3rdparty/CEGUI/glew-cmake"]
 	path = 3rdparty/CEGUI/glew
 	url = https://github.com/AnastaZIuk/glew-cmake.git
+[submodule "3rdparty/radeonrays"]
+	path = 3rdparty/radeonrays
+	url = https://github.com/devshgraphicsprogramming/RadeonRays_SDK.git
+	branch = baw

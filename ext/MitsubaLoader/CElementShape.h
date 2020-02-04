@@ -79,7 +79,7 @@ class CElementShape : public IElement
 		};
 		struct Instance
 		{
-			ShapeGroup* shapegroup = nullptr;
+			CElementShape* parent = nullptr;
 		};/*
 		struct Hair : Base
 		{
@@ -165,6 +165,26 @@ class CElementShape : public IElement
 		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override;
 		IElement::Type getType() const override { return IElement::Type::SHAPE; }
 		std::string getLogName() const override { return "shape"; }
+
+		
+		inline core::matrix3x4SIMD getAbsoluteTransform() const
+		{
+			auto local = transform.matrix.extractSub3x4();
+			if (type==CElementShape::INSTANCE && instance.parent)
+				return core::concatenateBFollowedByA(local,instance.parent->getAbsoluteTransform());
+			return local;
+		}
+
+		inline CElementEmitter obtainEmitter() const
+		{
+			if (emitter)
+				return *emitter;
+			if (type==CElementShape::INSTANCE && instance.parent && instance.parent->emitter)
+				return *instance.parent->emitter;
+
+			return CElementEmitter("");
+		}
+
 
 		bool processChildData(IElement* _child, const std::string& name) override;
 

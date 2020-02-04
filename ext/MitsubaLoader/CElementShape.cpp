@@ -247,7 +247,7 @@ bool CElementShape::processChildData(IElement* _child, const std::string& name)
 					case Type::INSTANCE:
 						if (child->type != Type::SHAPEGROUP)
 							return false;
-						instance.shapegroup = &child->shapegroup;
+						instance.parent = child; // yeah I kknow its fucked up, but its the XML child, but Abstract Syntax Tree (or Scene Tree) parent
 						return true;
 						break;
 					default:

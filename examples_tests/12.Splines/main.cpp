@@ -44,7 +44,7 @@ vector<vectorSIMDf> preprocessBSplineControlPoints(const IteratorType& _begin, c
 	{
 		auto deltaPrev = original - prev;
 		auto deltaNext = next - original;
-		float currentRelativeLen = core::min_(core::length(deltaPrev).x, core::length(deltaNext).x) * relativeLen;
+		float currentRelativeLen = core::min(core::length(deltaPrev).x, core::length(deltaNext).x) * relativeLen;
 		auto tangent = core::normalize(next - prev) * currentRelativeLen;
 		*(out++) = original - tangent;
 		*(out++) = original + tangent;
@@ -251,7 +251,7 @@ int main()
     #define kCircleControlPts 4
     for (size_t i=0; i<kCircleControlPts; i++)
     {
-        float x = float(i)*core::PI*2.f/float(kCircleControlPts);
+        float x = float(i)*core::PI<float>()*2.f/float(kCircleControlPts);
         vectorSIMDf pos(sin(x),0,-cos(x)); pos *= 4.f;
         controlPts.push_back(pos);
 		smgr->addCubeSceneNode(0.5f, 0, -1, pos.getAsVector3df());

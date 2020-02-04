@@ -22,7 +22,7 @@ public:
     inline CInstancedMotionState(scene::IMeshSceneNodeInstanced *node, uint32_t index)
         : m_node(node), 
           m_index(index),
-          IMotionStateBase(convertRetardedMatrix(node->getInstanceTransform(index)))
+          IMotionStateBase(convertMatrixSIMD(node->getInstanceTransform(index)))
     {
        
 
