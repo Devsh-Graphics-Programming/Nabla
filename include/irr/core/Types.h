@@ -4,6 +4,7 @@
 
 #ifndef __IRR_TYPES_H_INCLUDED__
 #define __IRR_TYPES_H_INCLUDED__
+#define _ENABLE_EXTENDED_ALIGNED_STORAGE
 
 #include "IrrCompileConfig.h"
 
@@ -22,6 +23,7 @@
 #include <vector>
 #include <utility>
 #include <iterator>
+#include <parallel-hashmap/parallel_hashmap/phmap.h>
 
 #include "irr/core/memory/new_delete.h"
 
@@ -58,19 +60,19 @@ template<typename K, class Compare=std::less<K>, class Allocator=allocator<K> >
 using set = std::set<K,Compare,Allocator>;
 
 template<typename K,typename T, class Hash=std::hash<K>, class KeyEqual=std::equal_to<K>, class Allocator=allocator<std::pair<const K,T> > >
-using unordered_map = std::unordered_map<K,T,Hash,KeyEqual,Allocator>;
+using unordered_map = phmap::flat_hash_map<K,T,Hash,KeyEqual,Allocator>;
+
 template<typename K,typename T, class Hash=std::hash<K>, class KeyEqual=std::equal_to<K>, class Allocator=allocator<std::pair<const K,T> > >
 using unordered_multimap = std::unordered_multimap<K,T,Hash,KeyEqual,Allocator>;
 
 template<typename K, class Hash=std::hash<K>, class KeyEqual=std::equal_to<K>, class Allocator=allocator<K> >
 using unordered_multiset = std::unordered_multiset<K,Hash,KeyEqual,Allocator>;
 template<typename K, class Hash=std::hash<K>, class KeyEqual=std::equal_to<K>, class Allocator=allocator<K> >
-using unordered_set = std::unordered_set<K,Hash,KeyEqual,Allocator>;
+using unordered_set = phmap::flat_hash_set<K,Hash,KeyEqual,Allocator>;
 
 
 template<typename T, class Allocator=allocator<T> >
 using vector = std::vector<T,Allocator>;
-
 
 
 template<typename T, class Container=vector<T>, class Compare=std::less<typename Container::value_type> >
