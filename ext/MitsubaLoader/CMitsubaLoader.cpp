@@ -87,7 +87,8 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		manager->getGeometryCreator(),
 		manager->getMeshManipulator(),
 		asset::IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen,_params.decryptionKey,_params.cacheFlags,currentDir.c_str()),
-		_override
+		_override,
+		parserManager.m_globalMetadata.get()
 	};
 	core::vector<core::smart_refctd_ptr<asset::ICPUMesh>> meshes;
 
@@ -210,11 +211,11 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 	{
 		case CElementShape::Type::CUBE:
 			mesh = ctx.creator->createCubeMesh(core::vector3df(2.f));
-			flipNormals = shape->cube.flipNormals;
+			flipNormals = flipNormals!=shape->cube.flipNormals;
 			break;
 		case CElementShape::Type::SPHERE:
 			mesh = ctx.creator->createSphereMesh(1.f,64u,64u);
-			flipNormals = shape->sphere.flipNormals;
+			flipNormals = flipNormals!=shape->sphere.flipNormals;
 			{
 				core::matrix3x4SIMD tform;
 				tform.setScale(core::vectorSIMDf(shape->sphere.radius,shape->sphere.radius,shape->sphere.radius));
@@ -243,19 +244,19 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 				scale.setScale(core::vectorSIMDf(shape->cylinder.radius,shape->cylinder.radius,core::length(diff).x));
 				shape->transform.matrix = core::concatenateBFollowedByA(shape->transform.matrix,core::matrix4SIMD(core::concatenateBFollowedByA(tform,scale)));
 			}
-			flipNormals = shape->cylinder.flipNormals;
+			flipNormals = flipNormals!=shape->cylinder.flipNormals;
 			break;
 		case CElementShape::Type::RECTANGLE:
 			mesh = ctx.creator->createRectangleMesh(core::vector2df_SIMD(1.f,1.f));
-			flipNormals = shape->rectangle.flipNormals;
+			flipNormals = flipNormals!=shape->rectangle.flipNormals;
 			break;
 		case CElementShape::Type::DISK:
 			mesh = ctx.creator->createDiskMesh(1.f,64u);
-			flipNormals = shape->disk.flipNormals;
+			flipNormals = flipNormals!=shape->disk.flipNormals;
 			break;
 		case CElementShape::Type::OBJ:
 			mesh = loadModel(shape->obj.filename);
-			flipNormals = !shape->obj.flipNormals;
+			flipNormals = flipNormals==shape->obj.flipNormals;
 			faceNormals = shape->obj.faceNormals;
 			maxSmoothAngle = shape->obj.maxSmoothAngle;
 			if (mesh) // awaiting the LEFT vs RIGHT HAND flag
@@ -284,7 +285,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 		case CElementShape::Type::PLY:
 			_IRR_DEBUG_BREAK_IF(true); // this code has never been tested
 			mesh = loadModel(shape->ply.filename);
-			flipNormals = !shape->ply.flipNormals;
+			flipNormals = flipNormals!=shape->ply.flipNormals;
 			faceNormals = shape->ply.faceNormals;
 			maxSmoothAngle = shape->ply.maxSmoothAngle;
 			if (mesh && shape->ply.srgb)
@@ -316,6 +317,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 			break;
 		case CElementShape::Type::SERIALIZED:
 			mesh = loadModel(shape->serialized.filename,shape->serialized.shapeIndex);
+			flipNormals = flipNormals!=shape->serialized.flipNormals;
 			faceNormals = shape->serialized.faceNormals;
 			maxSmoothAngle = shape->serialized.maxSmoothAngle;
 			break;

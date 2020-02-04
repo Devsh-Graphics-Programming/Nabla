@@ -41,6 +41,7 @@ class CMitsubaLoader : public asset::IAssetLoader
 			const asset::IMeshManipulator* manipulator;
 			const asset::IAssetLoader::SAssetLoadParams params;
 			asset::IAssetLoader::IAssetLoaderOverride* override;
+			CGlobalMitsubaMetadata* globalMeta;
 
 			//
 			using group_ass_type = core::smart_refctd_ptr<asset::ICPUMesh>;

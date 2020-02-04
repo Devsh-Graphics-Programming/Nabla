@@ -1,7 +1,8 @@
 #version 430 core
-layout(location = 2) uniform vec3 color;
-layout(location = 3) uniform uint nasty;
-layout(location = 4) uniform uint lightID;
+layout(location = 2) uniform float flipFaces;
+layout(location = 3) uniform vec3 color;
+layout(location = 4) uniform uint nasty;
+layout(location = 5) uniform uint lightID;
 
 layout(binding = 0) uniform sampler2D reflectance;
 
@@ -24,11 +25,17 @@ vec2 encode(in vec3 n)
 
 void main()
 {
-	if ((nasty&MITS_USE_TEXTURE) == MITS_USE_TEXTURE)
-	    pixelColor = texture(reflectance,uv).rgb;
+	bool realFrontFace = gl_FrontFacing != flipFaces<0.f;
+	if (realFrontFace)
+	{
+		if ((nasty&MITS_USE_TEXTURE) == MITS_USE_TEXTURE)
+			pixelColor = texture(reflectance,uv).rgb;
+		else
+			pixelColor = color;
+	}
 	else
-		pixelColor = color;
-
+		pixelColor = vec3(0.0);
+		
 	encodedNormal = encode(normalize(Normal));
-	lightIndex = lightID;
+	lightIndex = realFrontFace ? lightID:0xdeadbeefu;
 }
