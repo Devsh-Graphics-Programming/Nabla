@@ -11,7 +11,6 @@
 #include "irr/asset/format/convertColor.h"
 #include "irr/asset/ICPUImageView.h"
 
-
 namespace irr
 {
 namespace asset
@@ -62,8 +61,6 @@ void CImageLoaderTGA::loadCompressedImage(io::IReadFile *file, const STGAHeader&
 		}
 	}
 }
-
-
 
 //! returns true if the file maybe is able to be loaded by this class
 bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
@@ -116,11 +113,11 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 }
 
 // convertColorFlip() does color conversion as well as taking care of properly flipping the given image.
-template <typename T, E_FORMAT srcFormat, E_FORMAT destFormat>
+template <E_FORMAT srcFormat, E_FORMAT destFormat>
 static void convertColorFlip(uint32_t regionBufferRowLenght, VkExtent3D imageExtent, const core::smart_refctd_ptr<ICPUBuffer>& bufferSourceData, core::smart_refctd_ptr<ICPUBuffer>& bufferOutData, bool flip)
 {
-	const T *in = (const T *) bufferSourceData->getPointer();
-	T *out = (T *) bufferOutData->getPointer();
+	const uint8_t *in = (const uint8_t*) bufferSourceData->getPointer();
+	uint8_t* out = (uint8_t*) bufferOutData->getPointer();
 
 	irr::core::vector3d size = 
 	{
@@ -129,8 +126,8 @@ static void convertColorFlip(uint32_t regionBufferRowLenght, VkExtent3D imageExt
 		imageExtent.depth
 	};
 
-	auto stride = regionBufferRowLenght;
 	auto channels = getFormatChannelCount(destFormat);
+	auto stride = regionBufferRowLenght * channels;
 	
 	if (flip)
 		out += size.X * size.Y * channels;
@@ -218,7 +215,6 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 	region.imageExtent = image->getCreationParameters().extent;
 
 	// read image
-	//uint8_t* data = nullptr;
 	size_t endBufferSize = {};
 	
 	switch (header.ImageType)
@@ -271,11 +267,11 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 				// The second flip is defined from within the .tga file itself (header.ImageDescriptor & 0x20).
 				if (flip) {
 					// Two flips (OpenGL + Targa) = no flipping. Don't flip the image at all in that case
-					convertColorFlip<uint8_t, EF_R8_SRGB, EF_R8_SRGB>(region.bufferRowLength, region.getExtent(), texelBuffer, texelBuffer, false);
+					convertColorFlip<EF_R8_SRGB, EF_R8_SRGB>(region.bufferRowLength, region.getExtent(), texelBuffer, texelBuffer, false);
 				}
 				else {
 					// Do an OpenGL flip
-					convertColorFlip<uint8_t, EF_R8_SRGB, EF_R8_SRGB>(region.bufferRowLength, region.getExtent(), texelBuffer, texelBuffer, true);
+					convertColorFlip<EF_R8_SRGB, EF_R8_SRGB>(region.bufferRowLength, region.getExtent(), texelBuffer, texelBuffer, true);
 				}
 				
 				imgInfo.format = EF_R8G8B8_SRGB;
@@ -298,9 +294,9 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 				imgInfo.format = asset::EF_A1R5G5B5_UNORM_PACK16;
 
 				if (flip)
-					convertColorFlip<uint8_t, EF_A1R5G5B5_UNORM_PACK16, EF_A1R5G5B5_UNORM_PACK16>(region.bufferRowLength, region.getExtent(), texelBuffer, texelBuffer, false);
+					convertColorFlip<EF_A1R5G5B5_UNORM_PACK16, EF_A1R5G5B5_UNORM_PACK16>(region.bufferRowLength, region.getExtent(), texelBuffer, texelBuffer, false);
 				else
-					convertColorFlip<uint8_t, EF_A1R5G5B5_UNORM_PACK16, EF_A1R5G5B5_UNORM_PACK16>(region.bufferRowLength, region.getExtent(), texelBuffer, texelBuffer, true);
+					convertColorFlip<EF_A1R5G5B5_UNORM_PACK16, EF_A1R5G5B5_UNORM_PACK16>(region.bufferRowLength, region.getExtent(), texelBuffer, texelBuffer, true);
 			}
 			break;
 		case 24:
@@ -308,9 +304,9 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 				imgInfo.format = asset::EF_R8G8B8_SRGB;
 				
 				if (flip)
-					convertColorFlip<uint8_t, EF_B8G8R8_SRGB, EF_R8G8B8_SRGB>(region.bufferRowLength, region.getExtent(), texelBuffer, texelBuffer, false);
+					convertColorFlip<EF_B8G8R8_SRGB, EF_R8G8B8_SRGB>(region.bufferRowLength, region.getExtent(), texelBuffer, texelBuffer, false);
 				else
-					convertColorFlip<uint8_t, EF_B8G8R8_SRGB, EF_R8G8B8_SRGB>(region.bufferRowLength, region.getExtent(), texelBuffer, texelBuffer, true);
+					convertColorFlip<EF_B8G8R8_SRGB, EF_R8G8B8_SRGB>(region.bufferRowLength, region.getExtent(), texelBuffer, texelBuffer, true);
 			}
 			break;
 		case 32:
@@ -318,9 +314,9 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 				imgInfo.format = asset::EF_R8G8B8A8_SRGB;
 
 				if (flip)
-					convertColorFlip<uint8_t, EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(region.bufferRowLength, region.getExtent(), texelBuffer, texelBuffer, false);
+					convertColorFlip<EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(region.bufferRowLength, region.getExtent(), texelBuffer, texelBuffer, false);
 				else
-					convertColorFlip<uint8_t, EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(region.bufferRowLength, region.getExtent(), texelBuffer, texelBuffer, true);
+					convertColorFlip<EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(region.bufferRowLength, region.getExtent(), texelBuffer, texelBuffer, true);
 			}
 			break;
 		default:
