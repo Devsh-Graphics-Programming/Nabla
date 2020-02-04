@@ -158,7 +158,7 @@ private:
 	void fillBuffer(SContext& _ctx);
 	E_PLY_PROPERTY_TYPE getPropertyType(const char* typeString) const;
 
-	bool readVertex(SContext& _ctx, const SPLYElement &Element, core::vector<core::vectorSIMDf> _attribs[4]);
+	bool readVertex(SContext& _ctx, const SPLYElement &Element, core::vector<core::vectorSIMDf> _attribs[4], const asset::IAssetLoader::SAssetLoadParams& _params);
 	bool readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices);
 	void skipElement(SContext& _ctx, const SPLYElement &Element);
 	void skipProperty(SContext& _ctx, const SPLYProperty &Property);
@@ -167,10 +167,15 @@ private:
 	void moveForward(SContext& _ctx, uint32_t bytes);
 
     bool genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const;
+
+	template<typename aType>
+	static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
+	{
+		performOnCertainOrientation(varToHandle);
+	}
 };
 
 } // end namespace scene
 } // end namespace irr
 
 #endif
-

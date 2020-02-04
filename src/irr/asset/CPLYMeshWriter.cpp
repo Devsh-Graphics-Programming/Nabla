@@ -208,9 +208,9 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     file->write(header.c_str(), header.size());
 
     if (flags & asset::EWF_BINARY)
-        writeBinary(file, mesh->getMeshBuffer(0), vtxCount, faceCount, idxT, indices, forceFaces, vaidToWrite);
+        writeBinary(file, mesh->getMeshBuffer(0), vtxCount, faceCount, idxT, indices, forceFaces, vaidToWrite, _params);
     else
-        writeText(file, mesh->getMeshBuffer(0), vtxCount, faceCount, idxT, indices, forceFaces, vaidToWrite);
+        writeText(file, mesh->getMeshBuffer(0), vtxCount, faceCount, idxT, indices, forceFaces, vaidToWrite, _params);
 
     if (needToFreeIndices)
         _IRR_ALIGNED_FREE(indices);
@@ -218,9 +218,11 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 	return true;
 }
 
-void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const
+void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], const SAssetWriteParams& _params) const
 {
     const size_t colCpa = asset::getFormatChannelCount(_mbuf->getMeshDataAndFormat()->getAttribFormat(asset::EVAI_ATTR1));
+
+	bool flipVectors = (!(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED)) ? true : false;
 
     asset::ICPUMeshBuffer* mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
     for (size_t i = 0u; i < _vtxCount; ++i)
@@ -229,7 +231,7 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _
         uint32_t ui[4];
         if (_vaidToWrite[asset::EVAI_ATTR0])
         {
-            writeAttribBinary(_file, mbCopy, asset::EVAI_ATTR0, i, 3u);
+            writeAttribBinary(_file, mbCopy, asset::EVAI_ATTR0, i, 3u, flipVectors);
             /*_mbuf->getAttribute(f, EVAI_ATTR0, i);
             _file->write(f.pointer, 3*sizeof(float));*/
         }
@@ -243,7 +245,7 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _
         }
         if (_vaidToWrite[asset::EVAI_ATTR3])
         {
-            writeAttribBinary(_file, mbCopy, asset::EVAI_ATTR3, i, 3u);
+            writeAttribBinary(_file, mbCopy, asset::EVAI_ATTR3, i, 3u, flipVectors);
         }
     }
     mbCopy->drop();
@@ -290,12 +292,17 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _
         _IRR_ALIGNED_FREE(indices);
 }
 
-void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4]) const
+void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], const SAssetWriteParams& _params) const
 {
     asset::ICPUMeshBuffer* mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
 
-    auto writefunc = [&_file,&mbCopy,this](asset::E_VERTEX_ATTRIBUTE_ID _vaid, size_t _ix, size_t _cpa)
+    auto writefunc = [&_file,&mbCopy, &_params, this](asset::E_VERTEX_ATTRIBUTE_ID _vaid, size_t _ix, size_t _cpa)
     {
+		bool flipVerteciesAndNormals = false;
+		if (!(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED))
+			if(_vaid == asset::E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR0 || _vaid == asset::E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3)
+				flipVerteciesAndNormals = true;
+
         uint32_t ui[4];
         core::vectorSIMDf f;
         const asset::E_FORMAT t = mbCopy->getMeshDataAndFormat()->getAttribFormat(_vaid);
@@ -303,18 +310,18 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mb
         {
             mbCopy->getAttribute(ui, _vaid, _ix);
             if (!asset::isSignedFormat(t))
-                writeVectorAsText(_file, ui, _cpa);
+                writeVectorAsText(_file, ui, _cpa, flipVerteciesAndNormals);
             else
             {
                 int32_t ii[4];
                 memcpy(ii, ui, 4*4);
-                writeVectorAsText(_file, ii, _cpa);
+                writeVectorAsText(_file, ii, _cpa, flipVerteciesAndNormals);
             }
         }
         else
         {
             mbCopy->getAttribute(f, _vaid, _ix);
-            writeVectorAsText(_file, f.pointer, _cpa);
+            writeVectorAsText(_file, f.pointer, _cpa, flipVerteciesAndNormals);
         }
     };
 
@@ -388,14 +395,17 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mb
         _IRR_ALIGNED_FREE(indices);
 }
 
-void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, asset::E_VERTEX_ATTRIBUTE_ID _vaid, size_t _ix, size_t _cpa) const
+void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, asset::E_VERTEX_ATTRIBUTE_ID _vaid, size_t _ix, size_t _cpa, bool flipVectors) const
 {
     uint32_t ui[4];
     core::vectorSIMDf f;
     asset::E_FORMAT t = _mbuf->getMeshDataAndFormat()->getAttribFormat(_vaid);
     if (asset::isScaledFormat(t) || asset::isIntegerFormat(t))
     {
+		constexpr size_t xID = 0u;
         _mbuf->getAttribute(ui, _vaid, _ix);
+		if (flipVectors)
+			ui[xID] = -ui[xID];
 
         const uint32_t bytesPerCh = asset::getTexelOrBlockBytesize(t)/asset::getFormatChannelCount(t);
         if (bytesPerCh == 1u || t == asset::EF_A2B10G10R10_UINT_PACK32 || t == asset::EF_A2B10G10R10_SINT_PACK32 || t == asset::EF_A2B10G10R10_SSCALED_PACK32 || t == asset::EF_A2B10G10R10_USCALED_PACK32)
