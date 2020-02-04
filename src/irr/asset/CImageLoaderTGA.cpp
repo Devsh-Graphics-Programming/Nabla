@@ -127,7 +127,7 @@ static void convertColorFlip(uint32_t regionBufferRowLenght, VkExtent3D imageExt
 	};
 
 	auto channels = getFormatChannelCount(destFormat);
-	auto stride = regionBufferRowLenght * channels;
+	auto stride = regionBufferRowLenght;
 	
 	if (flip)
 		out += size.X * size.Y * channels;
