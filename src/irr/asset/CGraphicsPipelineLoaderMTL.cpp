@@ -293,8 +293,10 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
 #endif
         Ns = PC.params.Ns;
 
-    vec3 diff = irr_glsl_lambertian_cos_eval(params) * Kd * (1.0-irr_glsl_fresnel_dielectric(PC.params.Ni,params.NdotL)) * (1.0-irr_glsl_fresnel_dielectric(PC.params.Ni,params.NdotV));
-    diff *= irr_glsl_diffuseFresnelCorrectionFactor(vec3(PC.params.Ni), vec3(PC.params.Ni*PC.params.Ni));
+    vec3 Ni = vec3(PC.params.Ni);
+
+    vec3 diff = irr_glsl_lambertian_cos_eval(params) * Kd * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotL)) * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotV));
+    diff *= irr_glsl_diffuseFresnelCorrectionFactor(Ni, Ni*Ni);
     switch (PC.params.extra&ILLUM_MODEL_MASK)
     {
     case 0:
@@ -308,7 +310,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
     case 5://basically same as 3
     case 8://basically same as 5
     {
-        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, Ns, PC.params.Ni);
+        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, Ns, Ni);
         color = (diff + spec);
     }
         break;
@@ -317,7 +319,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
     case 7:
     case 9://basically same as 4
     {
-        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, Ns, PC.params.Ni);
+        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, Ns, Ni);
         color = spec;
     }
         break;
@@ -352,44 +354,6 @@ vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction)
 #endif
     irr_glsl_BSDFIsotropicParams params = irr_glsl_calcBSDFIsotropicParams(interaction, -ViewPos);
 
-    out_interaction = params.interaction;
-#define Intensity 1000.0
-    return Intensity*params.invlenL2*irr_bsdf_cos_eval(params);
-#undef Intensity
-}
-#endif //_IRR_COMPUTE_LIGHTING_DEFINED_
-
-
-#ifndef _IRR_FRAG_MAIN_DEFINED_
-#define _IRR_FRAG_MAIN_DEFINED_
-
-void main()
-{
-    irr_glsl_ViewSurfaceInteraction interaction;
-    vec3 color = irr_computeLighting(interaction);
-
-    float d = PC.params.d;
-
-    //another illum model switch, required for illum=4,6,7,9 to compute alpha from fresnel (taken from opacity map or constant otherwise)
-    switch (PC.params.extra&ILLUM_MODEL_MASK)
-    {
-    case 4:
-    case 6:
-    case 7:
-    case 9:
-    {
-        float VdotN = dot(interaction.N, interaction.V.dir);
-        d = irr_glsl_fresnel_dielectric(PC.params.Ni, VdotN);
-    }
-        break;
-    default:
-#ifndef _NO_UV
-        if ((PC.params.extra&(map_d_MASK)) == (map_d_MASK))
-            d = texture(map_d, UV).r;
-#endif
-        break;
-    }
-
     vec3 Ka;
     switch ((PC.params.extra&ILLUM_MODEL_MASK))
     {
@@ -418,7 +382,48 @@ void main()
     break;
     }
 
-    OutColor = vec4(Ka+color, d);
+    out_interaction = params.interaction;
+#define Intensity 1000.0
+    return Intensity*params.invlenL2*irr_bsdf_cos_eval(params) + Ka;
+#undef Intensity
+}
+#endif //_IRR_COMPUTE_LIGHTING_DEFINED_
+
+
+#ifndef _IRR_FRAG_MAIN_DEFINED_
+#define _IRR_FRAG_MAIN_DEFINED_
+
+void main()
+{
+    irr_glsl_ViewSurfaceInteraction interaction;
+    vec3 color = irr_computeLighting(interaction);
+
+    float d = PC.params.d;
+
+    //another illum model switch, required for illum=4,6,7,9 to compute alpha from fresnel (taken from opacity map or constant otherwise)
+    switch (PC.params.extra&ILLUM_MODEL_MASK)
+    {
+    case 4:
+    case 6:
+    case 7:
+    case 9:
+    {
+        float VdotN = dot(interaction.N, interaction.V.dir);
+        d = irr_glsl_fresnel_dielectric(vec3(PC.params.Ni), VdotN).x;
+    }
+        break;
+    default:
+#ifndef _NO_UV
+        if ((PC.params.extra&(map_d_MASK)) == (map_d_MASK))
+        {
+            d = texture(map_d, UV).r;
+            color *= d;
+        }
+#endif
+        break;
+    }
+
+    OutColor = vec4(color, d);
 }
 #endif //_IRR_FRAG_MAIN_DEFINED_
 )";
@@ -640,25 +645,12 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
         }
 
         constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
-        core::smart_refctd_dynamic_array<IPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(ds3 ? ds3->getTotalDescriptorCount()+DS1_METADATA_ENTRY_CNT : DS1_METADATA_ENTRY_CNT);
-        if (ds3)
-        {
-            ICPUDescriptorSetLayout* ds3layout = ds3->getLayout();
-            for (uint32_t i = 0u; i < shaderInputsMetadata->size()-DS1_METADATA_ENTRY_CNT; ++i)
-            {
-                auto& semantic = (*shaderInputsMetadata)[i];
-                semantic.descriptorSection.type = IPipelineMetadata::ShaderInput::ET_COMBINED_IMAGE_SAMPLER;
-                semantic.descriptorSection.combinedImageSampler.binding = ds3layout->getBindings().begin()[i].binding;
-                semantic.descriptorSection.combinedImageSampler.set = 3u;
-                semantic.descriptorSection.combinedImageSampler.viewType = (semantic.descriptorSection.combinedImageSampler.binding==CMTLPipelineMetadata::EMP_REFL_POSX) ? IImageView<ICPUImage>::ET_CUBE_MAP : IImageView<ICPUImage>::ET_2D;
-                semantic.type = (semantic.descriptorSection.combinedImageSampler.binding == CMTLPipelineMetadata::EMP_REFL_POSX) ? IPipelineMetadata::ECSI_ENVIRONMENT_CUBEMAP : IPipelineMetadata::ECSI_COUNT;
-                semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_FRAGMENT;
-            }
-        }
+        core::smart_refctd_dynamic_array<IPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
         {
             ICPUDescriptorSetLayout* ds1layout = layout->getDescriptorSetLayout(1u);
 
             constexpr IPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT]{IPipelineMetadata::ECSI_WORLD_VIEW_PROJ, IPipelineMetadata::ECSI_WORLD_VIEW, IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE};
+            constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT]{sizeof(float)*16u, sizeof(float)*12u, sizeof(float)*12u};
             constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT]{offsetof(SBasicViewParameters,MVP), offsetof(SBasicViewParameters,MV), offsetof(SBasicViewParameters,NormalMat)};
             for (uint32_t i = 0u; i < DS1_METADATA_ENTRY_CNT; ++i)
             {
@@ -668,6 +660,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
                 semantic.descriptorSection.uniformBufferObject.binding = ds1layout->getBindings().begin()[0].binding;
                 semantic.descriptorSection.uniformBufferObject.set = 1u;
                 semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
+                semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
                 semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_VERTEX;
             }
         }
@@ -1219,6 +1212,8 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(io::IReadFile* _file) const -> co
                 {
                 case 'f':		// Tf - Transmitivity
                     currMaterial->params.transmissionFilter = readRGB();
+                    sscanf(tmpbuf, "%s, %s: Detected Tf parameter, it won't be used in generated shader - fallback to alpha=0.5 instead", _file->getFileName().c_str(), currMaterial->name.c_str());
+                    os::Printer::log(tmpbuf, ELL_WARNING);
                     break;
                 case 'r':       // Tr, transparency = 1.0-d
                     currMaterial->params.opacity = (1.f - readFloat());

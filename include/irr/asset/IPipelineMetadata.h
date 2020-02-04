@@ -72,6 +72,7 @@ class IPipelineMetadata : public IAssetMetadata
 			{
 				// relative to the offset of the descriptor when bound (true byteoffset = static descriptor-set defined + dynamic [if enabled] + this value)
 				uint32_t relByteoffset;
+                uint32_t bytesize;
 			};
 			struct PushConstant
 			{

@@ -615,6 +615,10 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
         params.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(cpuparams.flags);
         params.format = cpuparams.format;
         params.subresourceRange = cpuparams.subresourceRange;
+        //TODO tmp solution, but really it should create views with as many mip-levels as specified in CPU counterpart
+        //Problem is that it'd be required to specify final levelCount (not just 1 in case of image loaded from formats like jpg/png/tga...) already in CPU counterpart
+        //which won't pass creation parameters validation (view having more mip-levels than underlying texture)
+        params.subresourceRange.levelCount = (*gpuDeps)[redirs[i]]->getCreationParameters().mipLevels - params.subresourceRange.baseMipLevel;
         params.viewType = static_cast<IGPUImageView::E_TYPE>(cpuparams.viewType);
         params.image = (*gpuDeps)[redirs[i]];
         (*res)[i] = m_driver->createGPUImageView(std::move(params));

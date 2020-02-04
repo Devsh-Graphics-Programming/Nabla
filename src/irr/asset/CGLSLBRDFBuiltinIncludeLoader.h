@@ -241,7 +241,7 @@ float irr_glsl_blinn_phong(in float NdotH, in float n)
     return normalization*pow(NdotH, n);
 }
 
-float irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(in irr_glsl_BSDFIsotropicParams params, in float n, in float ior)
+vec3 irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(in irr_glsl_BSDFIsotropicParams params, in float n, in vec3 ior)
 {
     float denom = 4.0*params.NdotV;
     return irr_glsl_blinn_phong(params.NdotH, n) * irr_glsl_fresnel_dielectric(ior, params.VdotH) / denom;
@@ -431,16 +431,16 @@ vec3 irr_glsl_fresnel_conductor(vec3 Eta2, vec3 Etak2, float CosTheta)
 
    return 0.5 * (Rp + Rs);
 }
-float irr_glsl_fresnel_dielectric(in float Eta, in float CosTheta)
+vec3 irr_glsl_fresnel_dielectric(in vec3 Eta, in float CosTheta)
 {
-   float SinTheta2 = 1.0 - CosTheta * CosTheta;
+   vec3 SinTheta2 = vec3(1.0 - CosTheta * CosTheta);
 
-   float t0 = sqrt(1.0 - (SinTheta2 / (Eta * Eta)));
-   float t1 = Eta * t0;
-   float t2 = Eta * CosTheta;
+   vec3 t0 = sqrt(vec3(1.0) - (SinTheta2 / (Eta * Eta)));
+   vec3 t1 = Eta * t0;
+   vec3 t2 = Eta * CosTheta;
 
-   float rs = (CosTheta - t1) / (CosTheta + t1);
-   float rp = (t0 - t2) / (t0 + t2);
+   vec3 rs = (vec3(CosTheta) - t1) / (vec3(CosTheta) + t1);
+   vec3 rp = (t0 - t2) / (t0 + t2);
 
    return 0.5 * (rs * rs + rp * rp);
 }
