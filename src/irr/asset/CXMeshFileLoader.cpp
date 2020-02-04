@@ -874,7 +874,7 @@ bool CXMeshFileLoader::parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMe
 		else
 		if (objectName == "FrameTransformMatrix")
 		{
-			if (!parseDataObjectTransformationMatrix(_ctx, joint->LocalMatrix, _params))
+			if (!parseDataObjectTransformationMatrix(_ctx, joint->LocalMatrix))
 				return false;
 		}
 		else
@@ -906,7 +906,7 @@ bool CXMeshFileLoader::parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMe
 }
 
 
-bool CXMeshFileLoader::parseDataObjectTransformationMatrix(SContext& _ctx, core::matrix4x3 &mat, const asset::IAssetLoader::SAssetLoadParams& _params)
+bool CXMeshFileLoader::parseDataObjectTransformationMatrix(SContext& _ctx, core::matrix3x4SIMD &mat)
 {
 #ifdef _XREADER_DEBUG
 	os::Printer::log("CXFileReader: Reading Transformation Matrix", ELL_DEBUG);
@@ -919,7 +919,7 @@ bool CXMeshFileLoader::parseDataObjectTransformationMatrix(SContext& _ctx, core:
 		return false;
 	}
 
-	readMatrix(_ctx, mat, _params);
+	readMatrix(_ctx, mat);
 
 	if (!checkForOneFollowingSemicolons(_ctx))
 	{
@@ -1373,7 +1373,7 @@ bool CXMeshFileLoader::parseDataObjectSkinWeights(SContext& _ctx, SXMesh &mesh, 
 	// transforms the mesh vertices to the space of the bone
 	// When concatenated to the bone's transform, this provides the
 	// world space coordinates of the mesh as affected by the bone
-	readMatrix(_ctx, joint->GlobalInversedMatrix, _params);
+	readMatrix(_ctx, joint->GlobalInversedMatrix);
 
 	if (!checkForOneFollowingSemicolons(_ctx))
 	{
