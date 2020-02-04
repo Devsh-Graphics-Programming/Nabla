@@ -11,22 +11,21 @@ namespace irr
 {
 namespace asset
 {
-
 //! Meshloader capable of loading STL meshes.
 class CSTLMeshFileLoader : public asset::IAssetLoader
 {
 public:
-    virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+	virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
-    virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
+	virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
 
-    virtual const char** getAssociatedFileExtensions() const override
-    {
-        static const char* ext[]{ "stl", nullptr };
-        return ext;
-    }
+	virtual const char** getAssociatedFileExtensions() const override
+	{
+		static const char* ext[]{ "stl", nullptr };
+		return ext;
+	}
 
-    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
+	virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
 private:
 
@@ -39,6 +38,12 @@ private:
 
 	//! Read 3d vector of floats
 	void getNextVector(io::IReadFile* file, core::vectorSIMDf& vec, bool binary) const;
+
+	template<typename aType>
+	static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
+	{
+		performOnCertainOrientation(varToHandle);
+	}
 };
 
 } // end namespace scene

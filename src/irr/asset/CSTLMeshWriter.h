@@ -38,17 +38,17 @@ namespace asset
 
         protected:
             // write binary format
-            bool writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh* mesh);
+            bool writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh* mesh, const SAssetWriteParams& _params);
 
             // write text format
-            bool writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh* mesh);
+            bool writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh* mesh, const SAssetWriteParams& _params);
 
             // create vector output with line end into string
             void getVectorAsStringLine(const core::vectorSIMDf& v, core::stringc& s) const;
 
             // write face information to file
             void writeFaceText(io::IWriteFile* file, const core::vectorSIMDf& v1,
-                const core::vectorSIMDf& v2, const core::vectorSIMDf& v3);
+                const core::vectorSIMDf& v2, const core::vectorSIMDf& v3, const SAssetWriteParams& _params);
 	};
 
 } // end namespace
