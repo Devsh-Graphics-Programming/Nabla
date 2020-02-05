@@ -62,20 +62,12 @@ int main()
             break;
         }
 
-    constexpr size_t STD140_ROW_MAJOR_MVP_SZ = sizeof(float)*16ull;
-    constexpr size_t STD140_ROW_MAJOR_MV_SZ = sizeof(float)*12ull;
-    constexpr size_t STD140_ROW_MAJOR_NORMAL_MAT_SZ = sizeof(float)*12ull;
-
     size_t neededDS1UBOsz = 0ull;
     {
-        size_t matrixSz[asset::IPipelineMetadata::ECSI_COUNT]{};
-        matrixSz[asset::IPipelineMetadata::ECSI_WORLD_VIEW_PROJ] = STD140_ROW_MAJOR_MVP_SZ;
-        matrixSz[asset::IPipelineMetadata::ECSI_WORLD_VIEW] = STD140_ROW_MAJOR_MV_SZ;
-        matrixSz[asset::IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE] = STD140_ROW_MAJOR_NORMAL_MAT_SZ;
         auto pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(mesh_raw->getMeshBuffer(0u)->getPipeline()->getMetadata());
         for (const auto& shdrIn : pipelineMetadata->getCommonRequiredInputs())
             if (shdrIn.descriptorSection.type==asset::IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
-                neededDS1UBOsz = std::max(neededDS1UBOsz, shdrIn.descriptorSection.uniformBufferObject.relByteoffset+matrixSz[shdrIn.type]);
+                neededDS1UBOsz = std::max<size_t>(neededDS1UBOsz, shdrIn.descriptorSection.uniformBufferObject.relByteoffset+shdrIn.descriptorSection.uniformBufferObject.bytesize);
     }
 
     auto ds1 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(ds1layout));
@@ -126,16 +118,21 @@ int main()
                 case asset::IPipelineMetadata::ECSI_WORLD_VIEW_PROJ:
                 {
                     core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
-                    memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, mvp.pointer(), STD140_ROW_MAJOR_MVP_SZ);
+                    memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, mvp.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
                 }
                 break;
-                case asset::IPipelineMetadata::ECSI_WORLD_VIEW: _IRR_FALLTHROUGH;
+                case asset::IPipelineMetadata::ECSI_WORLD_VIEW:
+                {
+                    core::matrix3x4SIMD MV;
+                    MV.set(camera->getViewMatrix());
+                    memcpy(uboData.data() + shdrIn.descriptorSection.uniformBufferObject.relByteoffset, MV.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                }
+                break;
                 case asset::IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE:
                 {
                     core::matrix3x4SIMD MV;
                     MV.set(camera->getViewMatrix());
-                    static_assert(STD140_ROW_MAJOR_MV_SZ==STD140_ROW_MAJOR_NORMAL_MAT_SZ, "");
-                    memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, &MV(0,0), STD140_ROW_MAJOR_MV_SZ);
+                    memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, MV.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
                 }
                 break;
                 }
