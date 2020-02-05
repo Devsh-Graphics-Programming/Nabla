@@ -22,13 +22,14 @@ class CElementTransform : public IElement
 		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override { return true; }
 		IElement::Type getType() const override { return IElement::Type::TRANSFORM; }
 		std::string getLogName() const override { return "transform"; }
-
+		/*
 		inline CElementTransform& operator=(const CElementTransform& other)
 		{
 			IElement::operator=(other);
 			matrix = other.matrix;
 			return *this;
 		}
+		*/
 
 		core::matrix4SIMD matrix;
 };
