@@ -256,6 +256,23 @@ vec3 irr_glsl_blinn_phong_fresnel_conductor_cos_eval(in irr_glsl_BSDFIsotropicPa
 #endif
 )";
     }
+    static std::string getBeckmann(const std::string&)
+    {
+        return
+R"(#ifndef _IRR_BSDF_BRDF_SPECULAR_BECKMANN_INCLUDED_
+#define _IRR_BSDF_BRDF_SPECULAR_BECKMANN_INCLUDED_
+
+float irr_glsl_beckmann(in float a2, in float NdotH2)
+{
+    float nom = exp( (NdotH2 - 1.0)/(a2*NdotH2) );
+    float denom = a2*NdotH2*NdotH2;
+
+    return irr_glsl_RECIPROCAL_PI * nom/denom;
+}
+
+#endif
+)";
+    }
     static std::string getLambert(const std::string&)
     {
         return
@@ -276,7 +293,7 @@ float irr_glsl_lambertian_cos_eval_rec_pi_factored_out(in irr_glsl_BSDFIsotropic
 
 float irr_glsl_lambertian_cos_eval(in irr_glsl_BSDFIsotropicParams params)
 {
-   return irr_glsl_lambertian_cos_eval_rec_pi_factored_out(params)*irr_glsl_RECIPROCAL_PI;
+   return irr_glsl_lambertian_cos_eval_rec_pi_factored_out(params)*irr_glsl_lambertian();
 }
 
 #endif
@@ -314,21 +331,21 @@ float irr_glsl_oren_nayar_cos_eval(in irr_glsl_BSDFIsotropicParams params, in fl
 #endif
 )";
     }
-    static std::string getGGXTrowbridgeReitz(const std::string&)
+    static std::string getGGX_NDF(const std::string&)
     {
         return
-R"(#ifndef _BRDF_SPECULAR_NDF_GGX_TROWBRIDGE_REITZ_INCLUDED_
-#define _BRDF_SPECULAR_NDF_GGX_TROWBRIDGE_REITZ_INCLUDED_
+R"(#ifndef _BRDF_SPECULAR_NDF_GGX_INCLUDED_
+#define _BRDF_SPECULAR_NDF_GGX_INCLUDED_
 
 #include <irr/builtin/glsl/bsdf/common.glsl>
 
-float GGXTrowbridgeReitz(in float a2, in float NdotH)
+float irr_glsl_ggx_trowbridge_reitz(in float a2, in float NdotH2)
 {
-    float denom = NdotH*NdotH * (a2 - 1.0) + 1.0;
+    float denom = NdotH2 * (a2 - 1.0) + 1.0;
     return a2 / (irr_glsl_PI * denom*denom);
 }
 
-float GGXBurleyAnisotropic(float anisotropy, float a2, float TdotH, float BdotH, float NdotH) {
+float irr_glsl_ggx_burley_aniso(float anisotropy, float a2, float TdotH, float BdotH, float NdotH) {
 	float antiAniso = 1.0-anisotropy;
 	float atab = a2*antiAniso;
 	float anisoTdotH = antiAniso*TdotH;
@@ -340,11 +357,13 @@ float GGXBurleyAnisotropic(float anisotropy, float a2, float TdotH, float BdotH,
 #endif
 )";
     }
-    static std::string getGGXSmith(const std::string&)
+    static std::string getGGX_Shadowing(const std::string&)
     {
         return
 R"(#ifndef _BRDF_SPECULAR_GEOM_GGX_SMITH_INCLUDED_
 #define _BRDF_SPECULAR_GEOM_GGX_SMITH_INCLUDED_
+
+
 
 float _GGXSmith_G1_(in float a2, in float NdotX)
 {
@@ -355,46 +374,100 @@ float _GGXSmith_G1_wo_numerator(in float a2, in float NdotX)
     return 1.0 / (NdotX + sqrt(a2 + (1.0 - a2)*NdotX*NdotX));
 }
 
-float GGXSmith(in float a2, in float NdotL, in float NdotV)
+float irr_glsl_ggx_smith(in float a2, in float NdotL, in float NdotV)
 {
     return _GGXSmith_G1_(a2, NdotL) * _GGXSmith_G1_(a2, NdotV);
 }
-float GGXSmith_wo_numerator(in float a2, in float NdotL, in float NdotV)
+float irr_glsl_ggx_smith_wo_numerator(in float a2, in float NdotL, in float NdotV)
 {
     return _GGXSmith_G1_wo_numerator(a2, NdotL) * _GGXSmith_G1_wo_numerator(a2, NdotV);
 }
 
-float GGXSmithHeightCorrelated(in float a2, in float NdotL, in float NdotV)
+float irr_glsl_ggx_smith_height_correlated(in float a2, in float NdotL, in float NdotV)
 {
     float denom = NdotV*sqrt(a2 + (1.0 - a2)*NdotL*NdotL) + NdotL*sqrt(a2 + (1.0 - a2)*NdotV*NdotV);
     return 2.0*NdotL*NdotV / denom;
 }
 
-float GGXSmithHeightCorrelated_wo_numerator(in float a2, in float NdotL, in float NdotV)
+float irr_glsl_ggx_smith_height_correlated_wo_numerator(in float a2, in float NdotL, in float NdotV)
 {
     float denom = NdotV*sqrt(a2 + (1.0 - a2)*NdotL*NdotL) + NdotL*sqrt(a2 + (1.0 - a2)*NdotV*NdotV);
     return 0.5 / denom;
 }
 
 // Note a, not a2!
-float GGXSmithHeightCorrelated_approx(in float a, in float NdotL, in float NdotV)
+float irr_glsl_ggx_smith_height_correlated_approx(in float a, in float NdotL, in float NdotV)
 {
     float num = 2.0*NdotL*NdotV;
     return num / mix(num, NdotL+NdotV, a);
 }
 
 // Note a, not a2!
-float GGXSmithHeightCorrelated_approx_wo_numerator(in float a, in float NdotL, in float NdotV)
+float irr_glsl_ggx_smith_height_correlated_approx_wo_numerator(in float a, in float NdotL, in float NdotV)
 {
     return 0.5 / mix(2.0*NdotL*NdotV, NdotL+NdotV, a);
 }
 
 //Taken from https://google.github.io/filament/Filament.md.html#materialsystem/anisotropicmodel
-float GGXSmithHeightCorrelated_aniso_wo_numerator(in float at, in float ab, in float TdotL, in float TdotV, in float BdotL, in float BdotV, in float NdotL, in float NdotV)
+float irr_glsl_ggx_smith_height_correlated_aniso_wo_numerator(in float at, in float ab, in float TdotL, in float TdotV, in float BdotL, in float BdotV, in float NdotL, in float NdotV)
 {
     float Vterm = NdotL * length(vec3(at*TdotV, ab*BdotV, NdotV));
     float Lterm = NdotV * length(vec3(at*TdotL, ab*BdotL, NdotL));
     return 0.5 / (Vterm + Lterm);
+}
+
+#endif
+)";
+    }
+    static std::string getGGX_cos_eval(const std::string&)
+    {
+        return
+R"(#ifndef _IRR_BSDF_BRDF_SPECULAR_GGX_INCLUDED_
+#define _IRR_BSDF_BRDF_SPECULAR_GGX_INCLUDED_
+
+#include <irr/builtin/glsl/bsdf/common.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/ndf/ggx.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/geom/ggx.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
+
+vec3 irr_glsl_ggx_height_correlated_aniso_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in mat2x3 ior2, in float a2, in vec2 atb, in float aniso)
+{
+    float g = irr_glsl_ggx_smith_height_correlated_aniso_wo_numerator(atb.x, atb.y, params.TdotL, params.TdotV, params.BdtoL, params.BdotV, params.isotropic.NdotL, params.isotropic.NdotV);
+    float ndf = irr_glsl_ggx_burley_aniso(aniso, a2, params.TdotH, params.BdotH, params.isotropic.NdotH);
+    vec3 fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], params.isotropic.VdotH);
+
+    return params.isotropic.NdotL * g*ndf*fr;
+}
+vec3 irr_glsl_ggx_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2x3 ior2, in float a2)
+{
+    float g = irr_glsl_ggx_smith_height_correlated_wo_numerator(a2, params.NdotL, params.NdotV);
+    float ndf = irr_glsl_ggx_trowbridge_reitz(a2, params.NdotH*params.NdotH);
+    vec3 fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], params.VdotH);
+
+    return params.NdotL * g*ndf*fr;
+}
+
+#endif
+)";
+    }
+    static std::string getBeckmannSmith(const std::string&)
+    {
+        return
+            R"(#ifndef _IRR_BSDF_BRDF_SPECULAR_BECKMANN_SMITH_INCLUDED_
+#define _IRR_BSDF_BRDF_SPECULAR_BECKMANN_SMITH_INCLUDED_
+
+#include <irr/builtin/glsl/bsdf/common.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/ndf/beckmann.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/geom/ggx.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
+
+vec3 irr_glsl_beckmann_smith_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2x3 ior2, in float a2)
+{
+    float g = irr_glsl_ggx_smith_height_correlated_wo_numerator(a2, params.NdotL, params.NdotV);
+    float ndf = irr_glsl_beckmann(a2, params.NdotH*params.NdotH);
+    vec3 fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], params.VdotH);
+    
+    return params.NdotL * g*ndf*fr;
 }
 
 #endif
@@ -433,7 +506,7 @@ vec3 irr_glsl_fresnel_conductor(vec3 Eta2, vec3 Etak2, float CosTheta)
 }
 vec3 irr_glsl_fresnel_dielectric(in vec3 Eta, in float CosTheta)
 {
-   vec3 SinTheta2 = vec3(1.0 - CosTheta * CosTheta);
+   float SinTheta2 = 1.0 - CosTheta*CosTheta;
 
    vec3 t0 = sqrt(vec3(1.0) - (SinTheta2 / (Eta * Eta)));
    vec3 t1 = Eta * t0;
@@ -455,12 +528,15 @@ protected:
         return {
             { std::regex{"brdf/diffuse/lambert\\.glsl"}, &getLambert },
             { std::regex{"brdf/diffuse/oren_nayar\\.glsl"}, &getOrenNayar },
-            { std::regex{"brdf/specular/ndf/ggx_trowbridge_reitz\\.glsl"}, &getGGXTrowbridgeReitz },
-            { std::regex{"brdf/specular/geom/ggx_smith\\.glsl"}, &getGGXSmith },
+            { std::regex{"brdf/specular/ndf/ggx\\.glsl"}, &getGGX_NDF },
+            { std::regex{"brdf/specular/geom/ggx\\.glsl"}, &getGGX_Shadowing },
+            { std::regex{"brdf/specular/ggx\\.glsl"}, &getGGX_cos_eval },
             { std::regex{"brdf/specular/fresnel/fresnel\\.glsl"}, &getFresnel },
             { std::regex{"brdf/specular/blinn_phong\\.glsl"}, &getBlinnPhong },
+            { std::regex{"brdf/specular/ndf/beckmann\\.glsl"}, &getBeckmann },
+            { std::regex{"brdf/specular/beckmann_smith\\.glsl"}, &getBeckmannSmith },
             { std::regex{"common\\.glsl"}, &getCommons },
-            { std::regex{"brdf/diffuse/fresnel_correction\\.glsl"}, &getDiffuseFresnelCorrectionFactor },
+            { std::regex{"brdf/diffuse/fresnel_correction\\.glsl"}, &getDiffuseFresnelCorrectionFactor }
         };
     }
 };

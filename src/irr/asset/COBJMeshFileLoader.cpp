@@ -341,63 +341,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		bufPtr = goNextLine(bufPtr, bufEnd);
 	}	// end while(bufPtr && (bufPtr-buf<filesize))
 
-    core::vector<core::vectorSIMDf> newNormals;
-    auto doRecalcNormals = [&vertices,&newNormals,&vtxSmoothGrp](const core::vector<uint32_t>& _ixs) {
-        memset(newNormals.data(), 0, sizeof(core::vectorSIMDf)*newNormals.size());
-
-        auto minmax = std::minmax_element(_ixs.begin(), _ixs.end());
-        const uint32_t maxsz = (*minmax.second - *minmax.first) + 1u;
-        const uint32_t min = *minmax.first;
-        
-        newNormals.resize(maxsz, core::vectorSIMDf(0.f));
-        size_t processed = 0ull;
-        constexpr uint32_t invalid_sg = (~0u);
-        uint32_t currSmoothGr = invalid_sg;
-
-        core::vector<uint32_t> processedGroups;
-        auto insertIfNotFound = [&](uint32_t _sg) {
-            auto it = std::lower_bound(processedGroups.begin(), processedGroups.end(), _sg);
-            if (it != processedGroups.end() && *it==_sg)
-                return false;
-            processedGroups.insert(it, _sg);
-            return true;
-        };
-
-        while (processed!=_ixs.size())
-        {
-            currSmoothGr = invalid_sg;
-            for (size_t i = 0ull; i < _ixs.size(); i += 3ull)
-            {
-                if (currSmoothGr==invalid_sg)
-                {
-                    if (insertIfNotFound(vtxSmoothGrp[_ixs[i]]))
-                        currSmoothGr = vtxSmoothGrp[_ixs[i]];
-                    else
-                        continue;
-                }
-                if (currSmoothGr != vtxSmoothGrp[_ixs[i]])
-                    continue;
-
-                core::vectorSIMDf v1, v2, v3;
-                v1.set(vertices[_ixs[i+0u]].pos);
-                v2.set(vertices[_ixs[i+1u]].pos);
-                v3.set(vertices[_ixs[i+2u]].pos);
-                v1.makeSafe3D();
-                v2.makeSafe3D();
-                v3.makeSafe3D();
-                core::vectorSIMDf normal = core::plane3dSIMDf(v1, v2, v3).getNormal();
-                newNormals[_ixs[i+0u]-min] += normal;
-                newNormals[_ixs[i+1u]-min] += normal;
-                newNormals[_ixs[i+2u]-min] += normal;
-
-                processed += 3ull;
-            }
-        }
-
-        for (uint32_t ix : _ixs)
-            vertices[ix].normal32bit = asset::quantizeNormal2_10_10_10(newNormals[ix-min]);
-    };
-
     constexpr uint32_t POSITION = 0u;
     constexpr uint32_t UV       = 2u;
     constexpr uint32_t NORMAL   = 3u;
@@ -407,9 +350,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         for (size_t i = 0ull; i < submeshes.size(); ++i)
         {
             if (submeshWasLoadedFromCache[i])
-                continue;
-            if (recalcNormals[i])
-                doRecalcNormals(indices[i]);
+                continue;                
 
             submeshes[i]->setIndexCount(indices[i].size());
             submeshes[i]->setIndexType(EIT_32BIT);
@@ -466,6 +407,19 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
             vtxBufBnd.offset = 0ull;
             vtxBufBnd.buffer = vtxBuf;
             submeshes[i]->setVertexBufferBinding(std::move(vtxBufBnd), BND_NUM);
+
+			if (recalcNormals[i])
+			{
+				auto vtxcmp = [&vtxSmoothGrp](const IMeshManipulator::SSNGVertexData& v0, const IMeshManipulator::SSNGVertexData& v1, ICPUMeshBuffer* buffer)
+				{
+					static constexpr float cosOf45Deg = 0.70710678118f;
+					return vtxSmoothGrp[v0.indexOffset]==vtxSmoothGrp[v1.indexOffset] && 
+						core::dot(v0.parentTriangleFaceNormal, v1.parentTriangleFaceNormal)[0] > cosOf45Deg;
+				};
+
+				auto* meshManipulator = AssetManager->getMeshManipulator();
+				meshManipulator->calculateSmoothNormals(submeshes[i].get(), false, 1.52e-5f, NORMAL, vtxcmp);
+			}
         }
     }
 

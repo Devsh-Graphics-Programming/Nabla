@@ -5,6 +5,7 @@
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
+#include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
 
 //#include "../../ext/ScreenShot/ScreenShot.h"
 
@@ -70,22 +71,27 @@ int main()
                 neededDS1UBOsz = std::max<size_t>(neededDS1UBOsz, shdrIn.descriptorSection.uniformBufferObject.relByteoffset+shdrIn.descriptorSection.uniformBufferObject.bytesize);
     }
 
-    auto ds1 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(ds1layout));
-    for (const auto& bnd : ds1layout->getBindings())
-        if (bnd.type==asset::EDT_UNIFORM_BUFFER)
+    auto gpuds1layout = driver->getGPUObjectsFromAssets(&ds1layout, &ds1layout+1)->front();
+
+    auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(neededDS1UBOsz);
+    auto gpuds1 = driver->createGPUDescriptorSet(std::move(gpuds1layout));
+    {
+        video::IGPUDescriptorSet::SWriteDescriptorSet write;
+        write.dstSet = gpuds1.get();
+        write.binding = ds1UboBinding;
+        write.count = 1u;
+        write.arrayElement = 0u;
+        write.descriptorType = asset::EDT_UNIFORM_BUFFER;
+        video::IGPUDescriptorSet::SDescriptorInfo info;
         {
-            auto& desc = ds1->getDescriptors(bnd.binding).begin()[0];
-            auto ubo = core::make_smart_refctd_ptr<asset::ICPUBuffer>(neededDS1UBOsz);
-            desc.desc = ubo;
-            desc.buffer.offset = 0ull;
-            desc.buffer.size = neededDS1UBOsz;
+            info.desc = gpuubo;
+            info.buffer.offset = 0ull;
+            info.buffer.size = neededDS1UBOsz;
         }
+        write.info = &info;
+        driver->updateDescriptorSets(1u, &write, 0u, nullptr);
+    }
 
-    auto ds1_raw = static_cast<asset::ICPUDescriptorSet*>(ds1.get());
-
-    auto gpuds1 = driver->getGPUObjectsFromAssets(&ds1_raw,&ds1_raw+1)->front();
-    asset::ICPUBuffer* ubo = static_cast<asset::ICPUBuffer*>(ds1_raw->getDescriptors(0u).begin()->desc.get());
-    auto gpuubo = driver->getGPUObjectsFromAssets(&ubo,&ubo+1)->front();
     auto gpumesh = driver->getGPUObjectsFromAssets(&mesh_raw, &mesh_raw+1)->front();
 
 	//! we want to move around the scene and view it from different angles
@@ -94,7 +100,7 @@ int main()
 	camera->setPosition(core::vector3df(-4,0,0));
 	camera->setTarget(core::vector3df(0,0,0));
 	camera->setNearValue(0.01f);
-	camera->setFarValue(10000.0f);
+	camera->setFarValue(1000.0f);
 
     smgr->setActiveCamera(camera);
 
@@ -107,7 +113,7 @@ int main()
 		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
 		camera->render();
 
-        core::vector<uint8_t> uboData(neededDS1UBOsz);
+        core::vector<uint8_t> uboData(gpuubo->getSize());
         auto pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(mesh_raw->getMeshBuffer(0u)->getPipeline()->getMetadata());
         for (const auto& shdrIn : pipelineMetadata->getCommonRequiredInputs())
         {
@@ -138,7 +144,7 @@ int main()
                 }
             }
         }       
-        driver->updateBufferRangeViaStagingBuffer(gpuubo->getBuffer(), gpuubo->getOffset(), uboData.size(), uboData.data());
+        driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), uboData.data());
 
         for (uint32_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)
         {

@@ -650,7 +650,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
             ICPUDescriptorSetLayout* ds1layout = layout->getDescriptorSetLayout(1u);
 
             constexpr IPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT]{IPipelineMetadata::ECSI_WORLD_VIEW_PROJ, IPipelineMetadata::ECSI_WORLD_VIEW, IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE};
-            constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT]{sizeof(float)*16u, sizeof(float)*12u, sizeof(float)*12u};
+            constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT]{sizeof(SBasicViewParameters::MVP), sizeof(SBasicViewParameters::MV), sizeof(SBasicViewParameters::NormalMat)};
             constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT]{offsetof(SBasicViewParameters,MVP), offsetof(SBasicViewParameters,MV), offsetof(SBasicViewParameters,NormalMat)};
             for (uint32_t i = 0u; i < DS1_METADATA_ENTRY_CNT; ++i)
             {
