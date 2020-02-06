@@ -127,7 +127,7 @@ static void convertColorFlip(uint32_t regionBufferRowLenght, VkExtent3D imageExt
 	};
 
 	auto channels = getFormatChannelCount(destFormat);
-	auto stride = regionBufferRowLenght * getBytesPerPixel(destFormat);
+	auto stride = regionBufferRowLenght * getTexelOrBlockBytesize(destFormat);
 	
 	if (flip)
 		out += size.X * size.Y * channels;
@@ -274,19 +274,19 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 					convertColorFlip<EF_R8_SRGB, EF_R8_SRGB>(region.bufferRowLength, region.getExtent(), texelBuffer, texelBuffer, true);
 				}
 				
-				imgInfo.format = EF_R8G8B8_SRGB;
+				imgInfo.format = EF_R8G8B8_SRGB; // converting R8 to R8G8B8 is placed bellow
 
 				const void* planarData[] = { texelBuffer->getPointer() , nullptr, nullptr, nullptr };
 				const size_t wholeSize = region.imageExtent.height * region.bufferRowLength;
-				const auto wholeSizeInBytes = wholeSize * getTexelOrBlockBytesize(EF_R8G8B8_SRGB);
-				uint8_t* outRGBData = _IRR_NEW_ARRAY(uint8_t, wholeSizeInBytes);
+				const auto wholeSizeInBytesAfterConvertion = wholeSize * getTexelOrBlockBytesize(EF_R8G8B8_SRGB);
+				uint8_t* outRGBData = _IRR_NEW_ARRAY(uint8_t, wholeSizeInBytesAfterConvertion);
 
 				video::convertColor<EF_R8_SRGB, EF_R8G8B8_SRGB>(planarData, outRGBData, wholeSize, *reinterpret_cast<core::vector3d<uint32_t>*>(&region.imageExtent));
 
-				texelBuffer = std::move(core::make_smart_refctd_ptr<ICPUBuffer>(wholeSizeInBytes));
+				texelBuffer = std::move(core::make_smart_refctd_ptr<ICPUBuffer>(wholeSizeInBytesAfterConvertion));
 
-				memcpy(texelBuffer->getPointer(), outRGBData, wholeSizeInBytes);
-				_IRR_DELETE_ARRAY(outRGBData, wholeSizeInBytes); // it involves size in R8G8B8
+				memcpy(texelBuffer->getPointer(), outRGBData, wholeSizeInBytesAfterConvertion);
+				_IRR_DELETE_ARRAY(outRGBData, wholeSizeInBytesAfterConvertion); // it involves size in R8G8B8
 			}
 			break;
 		case 16:
