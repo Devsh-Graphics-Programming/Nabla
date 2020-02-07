@@ -123,13 +123,15 @@ endif(OPTIX_SDK_DIR)
 
 include(FindPackageHandleStandardArgs)
 
-SET(OPTIX_INCLUDE_DIR "${OPTIX_ROOT_DIR}/include" CACHE PATH "path")
-add_definitions("-DOPTIX_PATH=R\"(${OPTIX_ROOT_DIR})\"")
+SET(OPTIX_INCLUDE_DIR "${OPTIX_SDK_DIR}/include" CACHE PATH "path")
+add_definitions("-DOPTIX_PATH=R\"(${OPTIX_SDK_DIR})\"")
 add_definitions("-DOPTIX_VERSION_STR=\"${OPTIX_VERSION}\"")
 
-find_package_handle_standard_args(OPTIX DEFAULT_MSG
-    OPTIX_INCLUDE_DIR
+find_package_handle_standard_args(OPTIX
+	REQUIRED_VARS OPTIX_INCLUDE_DIR
+	VERSION_VAR OPTIX_VERSION
 )
 
 mark_as_advanced( OPTIX_FOUND )
+
 
