@@ -542,10 +542,10 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createRectangleMesh(co
 	3---2
 	*/
 	u[0] = 0;
-	u[1] = 1;
-	u[2] = 3;
-	u[3] = 3;
-	u[4] = 1;
+	u[1] = 3;
+	u[2] = 1;
+	u[3] = 1;
+	u[4] = 3;
 	u[5] = 2;
 
 	auto indices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(u));
@@ -623,7 +623,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createDiskMesh(float r
 	{
 		core::vectorSIMDf vn;
 		core::matrix3x4SIMD rotMatrix;
-		rotMatrix.setRotation(core::quaternion(0.0f, 0.0f, core::radians((1-i)*angle)));
+		rotMatrix.setRotation(core::quaternion(0.0f, 0.0f, core::radians((i-1)*angle)));
 		rotMatrix.transformVect(vn, v0);
 
 		ptr[i] = DiskVertex(vn, video::SColor(0xFFFFFFFFu),

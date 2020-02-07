@@ -268,7 +268,7 @@ int main()
 	meshes = {}; // free memory
 	auto extent = renderer->getSceneBound().getExtent();
 
-	// want static camera or not?
+	// want dynamic camera or not?
 	if (false)
 	{
 		core::vector3df_SIMD ptu[] = {core::vectorSIMDf().set(camera->getPosition()),camera->getTarget(),camera->getUpVector()};

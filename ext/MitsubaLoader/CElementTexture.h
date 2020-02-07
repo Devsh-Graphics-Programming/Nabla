@@ -29,7 +29,19 @@ class CElementTexture : public IElement
 				value.fvalue = _value;
 				texture = nullptr;
 			}
+			FloatOrTexture(const SPropertyElementData& _other) : FloatOrTexture(nullptr)
+			{
+				operator=(_other);
+			}
 			FloatOrTexture(SPropertyElementData&& _other) : FloatOrTexture(nullptr)
+			{
+				operator=(std::move(_other));
+			}
+			inline FloatOrTexture& operator=(const SPropertyElementData& _other)
+			{
+				return operator=(SPropertyElementData(_other));
+			}
+			inline FloatOrTexture& operator=(SPropertyElementData&& _other)
 			{
 				switch (_other.type)
 				{
@@ -41,6 +53,7 @@ class CElementTexture : public IElement
 						_IRR_DEBUG_BREAK_IF(true);
 						break;
 				}
+				return *this;
 			}
 
 			SPropertyElementData value;
@@ -50,7 +63,19 @@ class CElementTexture : public IElement
 		{
 			SpectrumOrTexture(CElementTexture* _tex) : FloatOrTexture(_tex) {}
 			SpectrumOrTexture(float _value) : FloatOrTexture(_value) {}
+			SpectrumOrTexture(const SPropertyElementData& _other) : SpectrumOrTexture(nullptr)
+			{
+				operator=(_other);
+			}
 			SpectrumOrTexture(SPropertyElementData&& _other) : SpectrumOrTexture(nullptr)
+			{
+				operator=(std::move(_other));
+			}
+			inline SpectrumOrTexture& operator=(const SPropertyElementData& _other)
+			{
+				return operator=(SPropertyElementData(_other));
+			}
+			inline SpectrumOrTexture& operator=(SPropertyElementData&& _other)
 			{
 				switch (_other.type)
 				{
@@ -66,6 +91,7 @@ class CElementTexture : public IElement
 						_IRR_DEBUG_BREAK_IF(true);
 						break;
 				}
+				return *this;
 			}
 		};
 
@@ -133,10 +159,18 @@ class CElementTexture : public IElement
 		CElementTexture(const char* id) : IElement(id), type(Type::INVALID)
 		{
 		}
+		CElementTexture(const CElementTexture& other) : CElementTexture("")
+		{
+			operator=(other);
+		}
+		CElementTexture(CElementTexture&& other) : CElementTexture("")
+		{
+			operator=(std::move(other));
+		}
 		virtual ~CElementTexture()
 		{
 		}
-
+		
 		inline CElementTexture& operator=(const CElementTexture& other)
 		{
 			IElement::operator=(other);
@@ -154,6 +188,38 @@ class CElementTexture : public IElement
 					//break;
 				case CElementTexture::Type::SCALE:
 					scale = other.scale;
+					break;
+				//case CElementTexture::Type::VERTEXCOLOR:
+					//vertexcolor = VertexColor();
+					//break;
+				//case CElementTexture::Type::WIREFRAME:
+					//wireframe = Wireframe();
+					//break;
+				//case CElementTexture::Type::CURVATURE:
+					//curvature = Curvature();
+					//break;
+				default:
+					break;
+			}
+			return *this;
+		}
+		inline CElementTexture& operator=(CElementTexture&& other)
+		{
+			IElement::operator=(other);
+			type = other.type;
+			switch (type)
+			{
+				case CElementTexture::Type::BITMAP:
+					std::swap(bitmap,other.bitmap);
+					break;
+				//case CElementTexture::Type::CHECKERBOARD:
+					//checkerboard = CheckerBoard();
+					//break;
+				//case CElementTexture::Type::GRID:
+					//grid = Grid();
+					//break;
+				case CElementTexture::Type::SCALE:
+					std::swap(scale,other.scale);
 					break;
 				//case CElementTexture::Type::VERTEXCOLOR:
 					//vertexcolor = VertexColor();

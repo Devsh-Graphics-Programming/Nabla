@@ -47,7 +47,9 @@ class IMitsubaMetadata : public asset::IAssetMetadata
 class IMeshMetadata : public IMitsubaMetadata
 {
 	public:
-		using IMitsubaMetadata::IMitsubaMetadata;
+		IMeshMetadata(core::smart_refctd_ptr<CGlobalMitsubaMetadata>&& _gmeta, std::string&& _id, CElementShape* shape) :
+			IMitsubaMetadata(std::move(_gmeta),std::move(_id)), type(shape->type)
+		{}
 
 		inline auto getShapeType() const {return type;}
 
