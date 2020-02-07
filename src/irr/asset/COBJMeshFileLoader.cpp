@@ -412,9 +412,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			{
 				auto vtxcmp = [&vtxSmoothGrp](const IMeshManipulator::SSNGVertexData& v0, const IMeshManipulator::SSNGVertexData& v1, ICPUMeshBuffer* buffer)
 				{
-					static constexpr float cosOf45Deg = 0.70710678118f;
-					return vtxSmoothGrp[v0.indexOffset]==vtxSmoothGrp[v1.indexOffset] && 
-						core::dot(v0.parentTriangleFaceNormal, v1.parentTriangleFaceNormal)[0] > cosOf45Deg;
+					return vtxSmoothGrp[v0.indexOffset]==vtxSmoothGrp[v1.indexOffset];
 				};
 
 				auto* meshManipulator = AssetManager->getMeshManipulator();

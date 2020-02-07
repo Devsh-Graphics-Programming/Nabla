@@ -221,6 +221,37 @@ vec3 irr_glsl_diffuseFresnelCorrectionFactor(in vec3 n, in vec3 n2)
     return num*invdenum;
 }
 
+//R_L should be something like -normalize(reflect(L,N))
+vec3 irr_glsl_delta_distribution_specular_cos_eval(in irr_glsl_BSDFIsotropicParams params, in vec3 R_L, in mat2x3 ior2)
+{
+    const float cos0 = 1.0 - 1e-5;
+    if (dot(params.interaction.V.dir, R_L)<cos0)
+        return vec3(0.0);
+    return params.NdotL * irr_glsl_fresnel_conductor(ior2[0], ior2[1], params.VdotH);
+}
+
+#endif
+)";
+    }
+    static std::string getDeltaDistSpecular(const std::string&)
+    {
+        return
+R"(#ifndef _IRR_BSDF_BRDF_DELTA_DIST_SPEC_INCLUDED_
+#define _IRR_BSDF_BRDF_DELTA_DIST_SPEC_INCLUDED_
+
+#include <irr/builtin/glsl/bsdf/common.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
+
+//R_L should be something like -normalize(reflect(L,N))
+vec3 irr_glsl_delta_distribution_specular_cos_eval(in irr_glsl_BSDFIsotropicParams params, in vec3 R_L, in mat2x3 ior2)
+{
+    const float cos0 = 1.0 - 1e-5;
+    return mix(bvec3(dot(params.interaction.V.dir, R_L)<cos0),
+        vec3(0.0),
+        params.NdotL * irr_glsl_fresnel_conductor(ior2[0], ior2[1], params.VdotH)
+    );
+}
+
 #endif
 )";
     }
