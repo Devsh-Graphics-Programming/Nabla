@@ -240,16 +240,10 @@ R"(#ifndef _IRR_BSDF_BRDF_DELTA_DIST_SPEC_INCLUDED_
 #define _IRR_BSDF_BRDF_DELTA_DIST_SPEC_INCLUDED_
 
 #include <irr/builtin/glsl/bsdf/common.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
 
-//R_L should be something like -normalize(reflect(L,N))
-vec3 irr_glsl_delta_distribution_specular_cos_eval(in irr_glsl_BSDFIsotropicParams params, in vec3 R_L, in mat2x3 ior2)
+vec3 irr_glsl_delta_distribution_specular_cos_eval(in irr_glsl_BSDFIsotropicParams params)
 {
-    const float cos0 = 1.0 - 1e-5;
-    return mix(bvec3(dot(params.interaction.V.dir, R_L)<cos0),
-        vec3(0.0),
-        params.NdotL * irr_glsl_fresnel_conductor(ior2[0], ior2[1], params.VdotH)
-    );
+    return vec3(0.0);
 }
 
 #endif
@@ -282,6 +276,53 @@ vec3 irr_glsl_blinn_phong_fresnel_conductor_cos_eval(in irr_glsl_BSDFIsotropicPa
 {
     float denom = 4.0*params.NdotV;
     return irr_glsl_blinn_phong(params.NdotH, n) * irr_glsl_fresnel_conductor(ior2[0], ior2[1], params.VdotH) / denom;
+}
+
+#endif
+)";
+    }
+    static std::string getAshikhminShirleyNDF(const std::string&)
+    {
+        return
+R"(#ifndef _IRR_BSDF_BRDF_SPECULAR_NDF_ASHIKHMIN_SHIRLEY_INCLUDED_
+#define _IRR_BSDF_BRDF_SPECULAR_NDF_ASHIKHMIN_SHIRLEY_INCLUDED_
+
+#include <irr/builtin/glsl/bsdf/common.glsl>
+
+//n is 2 phong-like exponents for anisotropy, can be defined as vec2(1.0/at, 1.0/ab) where at is roughness along tangent direction and ab is roughness along bitangent direction
+//sin_cos_phi is sin and cos of azimuth angle of half vector
+float irr_glsl_ashikhmin_shirley(in float NdotL, in float NdotV, in float NdotH, in float VdotH, in vec2 n, in vec2 sin_cos_phi)
+{
+    float nom = sqrt((n.x + 1.0)*(n.y + 1.0)) * pow(NdotH, n.x*sin_cos_phi.x*sin_cos_phi.x + n.y*sin_cos_phi.y*sin_cos_phi.y);
+    float denom = 8.0 * irr_glsl_PI * VdotH * max(NdotV,NdotL);
+
+    return NdotL * nom/denom;
+}
+
+#endif
+)";
+    }
+    static std::string getAshikhminShirley_cos_eval(const std::string&)
+    {
+        return
+R"(#ifndef _IRR_BSDF_BRDF_SPECULAR_NDF_ASHIKHMIN_SHIRLEY_INCLUDED_
+#define _IRR_BSDF_BRDF_SPECULAR_NDF_ASHIKHMIN_SHIRLEY_INCLUDED_
+
+#include <irr/builtin/glsl/bsdf/common.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/ndf/ashikhmin_shirley.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
+
+//n is 2 phong-like exponents for anisotropy, can be defined as vec2(1.0/at, 1.0/ab) where at is roughness along tangent direction and ab is roughness along bitangent direction
+//sin_cos_phi is sin and cos of azimuth angle of half vector
+float irr_glsl_ashikhmin_shirley_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in vec2 n, in vec2 sin_cos_phi, in mat2x3 ior2)
+{
+    float ndf = irr_glsl_ashikhmin_shirley(params.isotropic.NdotL, params.isotropic.NdotV, params.isotropic.NdotH, params.isotropic.VdotH, n, sin_cos_phi);
+    float fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], params.isotropic.VdotH);
+
+    //shadowing/masking term missing, actually ashikhmin-shirley model was designed with an idea that G term is almost irrelevant, 
+    //i think that's why it's so hard to find any reasearch on G term which goes with ashikhmin-shirley
+    //the guys however did some work on their own shadowing term https://www.researchgate.net/publication/220721563_A_microfacet-based_BRDF_generator (to further investigation, not sure the link has any relation with this model)
+    return params.isotropic.NdotL * ndf*fr; //i think this cant go with cook-torrance-like denominator either
 }
 
 #endif
@@ -388,7 +429,10 @@ float irr_glsl_ggx_burley_aniso(float anisotropy, float a2, float TdotH, float B
 #endif
 )";
     }
-    static std::string getGGX_Shadowing(const std::string&)
+    //https://www.cs.cornell.edu/~srm/publications/EGSR07-btdf.pdf
+    //http://jcgt.org/published/0003/02/03/paper.pdf
+    //https://hal.inria.fr/hal-00942452v1/document
+    static std::string getSmith_G(const std::string&)
     {
         return
 R"(#ifndef _BRDF_SPECULAR_GEOM_GGX_SMITH_INCLUDED_
@@ -447,6 +491,35 @@ float irr_glsl_ggx_smith_height_correlated_aniso_wo_numerator(in float at, in fl
     return 0.5 / (Vterm + Lterm);
 }
 
+
+float _C(in float NdotX, in float NdotX2, in float a)
+{
+    return NdotX / (a * sqrt(1.0 - NdotX2));
+}
+//_C squared
+float _C2(in float NdotX2, in float a2)
+{
+    return NdotX2 / (a2 * (1.0 - NdotX2));
+}
+//G1 = 1/(1+_Lambda)
+float _Lambda(in float c, in float c2)
+{
+    float nom = 0.396*c2 - 1.259*c + 1.0;
+    float denom = 2.181*c2 + 3.535*c;
+
+    //actually i think we could get rid of mix() since nom/denom is almost constant for c>1.6 (i.e. is going down but very slowly, at c=20 it's ~0.9)
+    return mix(c<1.6, 1.0, nom/denom);
+}
+//i wonder where i got irr_glsl_ggx_smith_height_correlated() from because it looks very different from 1/(1+L_v+L_l) form
+// Note a, not a2!
+float irr_glsl_beckmann_smith_height_correlated(in float NdotV, in float NdotV2, in float NdotL, in float NdotL2, in float a, in float a2)
+{
+    float L_v = _Lambda(_C(NdotV, NdotV2, a), _C2(NdotV2, a2));
+    float L_l = _Lambda(_C(NdotL, NdotL2, a), _C2(NdotL2, a2));
+
+    return 1.0 / (1.0 + L_v + L_l);
+}
+
 #endif
 )";
     }
@@ -458,7 +531,7 @@ R"(#ifndef _IRR_BSDF_BRDF_SPECULAR_GGX_INCLUDED_
 
 #include <irr/builtin/glsl/bsdf/common.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/specular/ndf/ggx.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/geom/ggx.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/geom/smith.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
 
 vec3 irr_glsl_ggx_height_correlated_aniso_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in mat2x3 ior2, in float a2, in vec2 atb, in float aniso)
@@ -481,7 +554,7 @@ vec3 irr_glsl_ggx_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams par
 #endif
 )";
     }
-    static std::string getBeckmannSmith(const std::string&)
+    static std::string getBeckmannSmith_cos_eval(const std::string&)
     {
         return
             R"(#ifndef _IRR_BSDF_BRDF_SPECULAR_BECKMANN_SMITH_INCLUDED_
@@ -489,16 +562,16 @@ vec3 irr_glsl_ggx_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams par
 
 #include <irr/builtin/glsl/bsdf/common.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/specular/ndf/beckmann.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/geom/ggx.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/geom/smith.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
 
-vec3 irr_glsl_beckmann_smith_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2x3 ior2, in float a2)
+vec3 irr_glsl_beckmann_smith_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2x3 ior2, in float a, in float a2)
 {
-    float g = irr_glsl_ggx_smith_height_correlated_wo_numerator(a2, params.NdotL, params.NdotV);
+    float g = irr_glsl_beckmann_smith_height_correlated(params.NdotV, params.NdotV_squared, params.NdotL, params.NdotL_squared, a, a2);
     float ndf = irr_glsl_beckmann(a2, params.NdotH*params.NdotH);
     vec3 fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], params.VdotH);
     
-    return params.NdotL * g*ndf*fr;
+    return g*ndf*fr / (4.0 * params.NdotV);
 }
 
 #endif
@@ -560,12 +633,14 @@ protected:
             { std::regex{"brdf/diffuse/lambert\\.glsl"}, &getLambert },
             { std::regex{"brdf/diffuse/oren_nayar\\.glsl"}, &getOrenNayar },
             { std::regex{"brdf/specular/ndf/ggx\\.glsl"}, &getGGX_NDF },
-            { std::regex{"brdf/specular/geom/ggx\\.glsl"}, &getGGX_Shadowing },
+            { std::regex{"brdf/specular/geom/smith\\.glsl"}, &getSmith_G },
             { std::regex{"brdf/specular/ggx\\.glsl"}, &getGGX_cos_eval },
             { std::regex{"brdf/specular/fresnel/fresnel\\.glsl"}, &getFresnel },
             { std::regex{"brdf/specular/blinn_phong\\.glsl"}, &getBlinnPhong },
             { std::regex{"brdf/specular/ndf/beckmann\\.glsl"}, &getBeckmann },
-            { std::regex{"brdf/specular/beckmann_smith\\.glsl"}, &getBeckmannSmith },
+            { std::regex{"brdf/specular/ndf/ashikhmin_shirley\\.glsl"}, &getAshikhminShirleyNDF },
+            { std::regex{"brdf/specular/ashikhmin_shirley\\.glsl"}, &getAshikhminShirley_cos_eval },
+            { std::regex{"brdf/specular/beckmann_smith\\.glsl"}, &getBeckmannSmith_cos_eval },
             { std::regex{"common\\.glsl"}, &getCommons },
             { std::regex{"brdf/diffuse/fresnel_correction\\.glsl"}, &getDiffuseFresnelCorrectionFactor }
         };
