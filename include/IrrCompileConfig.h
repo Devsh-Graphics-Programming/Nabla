@@ -4,7 +4,6 @@
 
 #ifndef __IRR_COMPILE_CONFIG_H_INCLUDED__
 #define __IRR_COMPILE_CONFIG_H_INCLUDED__
-#define _ENABLE_EXTENDED_ALIGNED_STORAGE
 
 //! Irrlicht SDK Version
 #define IRRLICHTBAW_VERSION_MAJOR 0
@@ -70,6 +69,10 @@
 
 #ifdef _IRR_SERVER_
 #   define NO_IRR_LINUX_X11_RANDR_
+#endif
+
+#ifdef _MSC_VER
+#	define _ENABLE_EXTENDED_ALIGNED_STORAGE
 #endif
 
 //! VidMode is ANCIENT
