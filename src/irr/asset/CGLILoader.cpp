@@ -46,8 +46,6 @@ namespace irr
 			if (!performLoadingAsIReadFile(texture, _file))
 				return {};
 
-			const auto dataa = texture.data();
-
 		    const gli::gl glVersion(gli::gl::PROFILE_GL33);
 			const GLenum target = glVersion.translate(texture.target());
 			const auto format = getTranslatedGLIFormat(texture, glVersion);
@@ -109,10 +107,18 @@ namespace irr
 				}
 			}
 
+			const bool isItACubemap = doesItHaveFaces(imageViewType);
+			const bool layersFlag = doesItHaveLayers(imageViewType);
+
+			const auto texelBlockDimension = asset::getBlockDimensions(format.first);
+			const auto texelBlockByteSize = asset::getTexelOrBlockBytesize(format.first);
+			auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(texture.size());
+			auto data = reinterpret_cast<uint8_t*>(texelBuffer->getPointer());
+
 			ICPUImage::SCreationParams imageInfo;
 			imageInfo.format = format.first;
 			imageInfo.type = imageType;
-			imageInfo.flags = imageViewType == ICPUImageView::ET_CUBE_MAP_ARRAY ? ICPUImage::E_CREATE_FLAGS::ECF_CUBE_COMPATIBLE_BIT : static_cast<ICPUImage::E_CREATE_FLAGS>(0u);
+			imageInfo.flags = isItACubemap ? ICPUImage::E_CREATE_FLAGS::ECF_CUBE_COMPATIBLE_BIT : static_cast<ICPUImage::E_CREATE_FLAGS>(0u);
 			imageInfo.samples = ICPUImage::ESCF_1_BIT;
 			imageInfo.extent.width = texture.extent().x;
 			imageInfo.extent.height = texture.extent().y;
@@ -121,10 +127,6 @@ namespace irr
 			imageInfo.arrayLayers = texture.faces() * texture.layers();
 
 			auto image = ICPUImage::create(std::move(imageInfo));
-
-			const auto texelBlockByteSize = asset::getTexelOrBlockBytesize(imageInfo.format);
-			auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(texture.size());
-			auto data = reinterpret_cast<uint8_t*>(texelBuffer->getPointer());
 
 			auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(imageInfo.mipLevels);
 
@@ -155,9 +157,6 @@ namespace irr
 					++regionIndex;
 				}
 			}
-
-			const bool isItACubemap = doesItHaveFaces(imageViewType);
-			const bool layersFlag = doesItHaveLayers(imageViewType);
 
 			auto getCurrentGliLayerAndFace = [&](uint16_t layer)
 			{

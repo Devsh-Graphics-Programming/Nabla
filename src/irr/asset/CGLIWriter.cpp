@@ -78,14 +78,9 @@ namespace irr
 
 			const bool isItACubemap = doesItHaveFaces(imageViewInfo.viewType);
 			const bool layersFlag = doesItHaveLayers(imageViewInfo.viewType);
-
-			const bool floatingPointFlag = isFloatingPointFormat(imageInfo.format);
-			const bool integerFlag = isIntegerFormat(imageInfo.format);
-			const bool signedTypeFlag = isSignedFormat(imageInfo.format);
 		
+			const auto texelBlockDimension = asset::getBlockDimensions(imageInfo.format);
 			const auto texelBlockByteSize = asset::getTexelOrBlockBytesize(imageInfo.format);
-			const auto channelsAmount = getFormatChannelCount(imageInfo.format);
-			const auto singleChannelByteSize = texelBlockByteSize / channelsAmount;
 			const auto data = reinterpret_cast<const uint8_t*>(image->getBuffer()->getPointer());
 
 			auto getTarget = [&]()
@@ -159,27 +154,21 @@ namespace irr
 			auto getFullSizeOfLayer = [&](const uint16_t mipLevel) -> uint64_t
 			{
 				auto region = image->getRegions().begin() + mipLevel;
-				const auto width = region->bufferRowLength == 0 ? region->imageExtent.width : region->bufferRowLength;
-				const auto height = region->bufferImageHeight == 0 ? region->imageExtent.height : region->bufferImageHeight;
-				const auto depth = region->imageExtent.depth;
-				return width * texelBlockByteSize * height * depth;
+				const auto widthInTexels = region->bufferRowLength == 0 ? region->imageExtent.width : region->bufferRowLength;
+				const auto heightInTexels = region->bufferImageHeight == 0 ? region->imageExtent.height : region->bufferImageHeight;
+				const auto depthInTexels = region->imageExtent.depth;
+
+				const auto width = widthInTexels / texelBlockDimension.X;
+				const auto height = heightInTexels / texelBlockDimension.Y;
+				const auto depth = depthInTexels / texelBlockDimension.Z;
+				return width * height * depth * texelBlockByteSize;
 			};
 
 			for (auto region = image->getRegions().begin(); region != image->getRegions().end(); ++region)
 			{
 				const auto ptrBeginningOfRegion = data + region->bufferOffset;
-				const auto layerSize = getFullSizeOfLayer(region->imageSubresource.mipLevel);
+				const auto layerByteSize = getFullSizeOfLayer(region->imageSubresource.mipLevel);
 
-				// size in texels or blocks - but have to check it out
-				const auto textureGliImgHeight = texture.extent(region->imageSubresource.mipLevel).y;
-				const auto textureGliStride = texture.extent(region->imageSubresource.mipLevel).x;
-				const auto textureGliStrideInBytes = textureGliStride * singleChannelByteSize;
-				const auto textureGLIDepth = texture.extent(region->imageSubresource.mipLevel).z;
-
-				const auto imgBufferWidth = region->bufferRowLength > 0 ? region->bufferRowLength : region->imageExtent.width;
-				const auto imgBufferWidthInBytes = imgBufferWidth * singleChannelByteSize;
-				const auto imgBufferHeight = region->bufferImageHeight > 0 ? region->bufferImageHeight : region->imageExtent.height;
-			
 				for (uint16_t layer = 0; layer < imageInfo.arrayLayers; ++layer)
 				{
 					const auto layersData = getCurrentGliLayerAndFace(layer);
@@ -187,21 +176,14 @@ namespace irr
 					const auto gliFace = layersData.second;
 
 					const auto layerData = texture.data(gliLayer, gliFace, region->imageSubresource.mipLevel);
-					const auto sourceData = ptrBeginningOfRegion + (layer * layerSize);
+					const auto sourceData = ptrBeginningOfRegion + (layer * layerByteSize);
 
-					for (size_t zPos = 0; zPos < textureGLIDepth; ++zPos)
-						for (size_t yPos = 0; yPos < imgBufferHeight; ++yPos)
-						{
-							const size_t shiftAdressingRowGLI = ((zPos * textureGliImgHeight + yPos) * textureGliStride) * texelBlockByteSize;
-							const size_t shiftAdressingRowIRR = ((zPos * imgBufferHeight + yPos) * imgBufferWidth) * texelBlockByteSize;
-
-							memcpy
-							(
-								reinterpret_cast<uint8_t*>(layerData) + shiftAdressingRowGLI,	// copy to a beginning of a certain row
-								sourceData + shiftAdressingRowIRR,								// get adjusted beginning of a certain row using to copying process
-								textureGliStrideInBytes									        // get gli row stride with no pitch
-							);
-						}
+					memcpy
+					(
+						reinterpret_cast<uint8_t*>(layerData),	// copy whole data according to the region proporties
+						sourceData,		
+						layerByteSize
+					);
 				}	
 			}
 
