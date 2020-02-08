@@ -145,110 +145,63 @@ namespace irr
 
 			gli::texture texture(gliTarget, gliFormatAndSwizzles.first, gliExtent3d, layersAndFacesAmount.first, layersAndFacesAmount.second, gliLevels, gli::texture::swizzles_type{ gliFormatAndSwizzles.second[0], gliFormatAndSwizzles.second[1], gliFormatAndSwizzles.second[2], gliFormatAndSwizzles.second[3] });
 
-			const auto getTexelBlockWidth = [&](const uint32_t texelWidth)
+			const auto getInBlocks = [&](const core::vector3du32_SIMD coord)
 			{
-				return texelWidth / texelBlockDimension.X;
-			};
-
-			const auto getTexelBlockHeight = [&](const uint32_t texelHeight)
-			{
-				return texelHeight / texelBlockDimension.Y;
-			};
-
-			const auto getTexelBlockDepth = [&](const uint32_t texelDepth)
-			{
-				return texelDepth / texelBlockDimension.Z;
-			};
-
-			auto getFullSizeOfLayer = [&](const uint16_t mipLevel) -> uint64_t
-			{
-				auto region = image->getRegions().begin() + mipLevel;
-
-				const auto width = getTexelBlockWidth(region->bufferRowLength == 0 ? region->imageExtent.width : region->bufferRowLength);
-				const auto height = getTexelBlockHeight(region->bufferImageHeight == 0 ? region->imageExtent.height : region->bufferImageHeight);
-				const auto depth = getTexelBlockDepth(region->imageExtent.depth);
-
-				return width * height * depth * texelBlockByteSize;
+				return (coord+texelBlockDimension-core::vector3du32_SIMD(1u,1u,1u))/texelBlockDimension;
 			};
 
 			for (auto region = image->getRegions().begin(); region != image->getRegions().end(); ++region)
 			{
-				const auto ptrBeginningOfRegion = data + region->bufferOffset;
-				const auto layerByteSize = getFullSizeOfLayer(region->imageSubresource.mipLevel);
+				const uint8_t* ptrBeginningOfRegion = data + region->bufferOffset;
 
-				const auto texelWidth = region->bufferRowLength == 0 ? region->imageExtent.width : region->bufferRowLength;
-				const auto texelHeight = region->bufferImageHeight == 0 ? region->imageExtent.height : region->bufferImageHeight;
-				const auto texelDepth = region->imageExtent.depth;
+				core::vector3du32_SIMD inDims;
+				inDims[0] = region->bufferRowLength == 0 ? region->imageExtent.width : region->bufferRowLength;
+				inDims[1] = region->bufferImageHeight == 0 ? region->imageExtent.height : region->bufferImageHeight;
+				inDims[2] = region->imageExtent.depth;
+				// could do some check if region extent is aligned to block size or equal to image limit and error out
+				inDims = getInBlocks(inDims);
 
-				const auto gliTexelBlockWidth = getTexelBlockWidth(region->imageExtent.width);
-				const auto gliTexelBlockHeight = getTexelBlockHeight(region->imageExtent.height);
-				const auto gliTexelBlockDepth = getTexelBlockDepth(region->imageExtent.depth);
+				core::vector3du32_SIMD outOffset(region->imageOffset.x, region->imageOffset.y, region->imageOffset.z);
+				outOffset = getInBlocks(outOffset);
 
-				const auto irrTexelBlockWidth = getTexelBlockWidth(texelWidth);
-				const auto irrTexelBlockHeight = getTexelBlockHeight(texelHeight);
-				const auto irrTexelBlockDepth = texelDepth;
+				core::vector3du32_SIMD outDims(imageInfo.extent.width,imageInfo.extent.height,imageInfo.extent.depth);
+				outDims = getInBlocks(outDims);
+
+				// out of bound
+				if ((outOffset>outDims).any())
+					continue;
+
+				const auto blockByteSize = asset::getTexelOrBlockBytesize(imageInfo.format);
+				const auto layerByteSize = blockByteSize*inDims[0]*inDims[1]*inDims[2];
+
+				const auto physicalRegionBlockWidth = (region->imageExtent.width+texelBlockDimension[0]-1u)/texelBlockDimension[0];
+				const auto clippedBlockWidth = core::min(physicalRegionBlockWidth,outDims[0]-outOffset[0]);
+				const auto blockLineByteSize = clippedBlockWidth*blockByteSize;
 				
-				for (uint16_t layer = 0; layer < imageInfo.arrayLayers; ++layer)
+				for (uint32_t inLayer=0u; inLayer<region->imageSubresource.layerCount; inLayer++)
 				{
-					const auto layersData = getCurrentGliLayerAndFace(layer);
+					const auto inData = ptrBeginningOfRegion + (inLayer * layerByteSize);
+
+
+					const auto outLayer = inLayer+region->imageSubresource.baseArrayLayer;
+
+					const auto layersData = getCurrentGliLayerAndFace(outLayer);
 					const auto gliLayer = layersData.first;
 					const auto gliFace = layersData.second;
 
-					const auto layerData = texture.data(gliLayer, gliFace, region->imageSubresource.mipLevel);
-					const auto sourceData = ptrBeginningOfRegion + (layer * layerByteSize);
-					const auto rowByteSize = gliTexelBlockWidth * texelBlockByteSize;
+					uint8_t* outData = reinterpret_cast<uint8_t*>(texture.data(gliLayer, gliFace, region->imageSubresource.mipLevel));
 
-					auto isDataInSpecifiedRegionZDeterminant = [&](const auto zPos)
+
+					for (uint32_t zBlock=0u; zBlock<inDims[2]; zBlock++)
+					for (uint32_t yBlock=0u; yBlock<inDims[2]; yBlock++)
 					{
-						if (zPos >= region->imageOffset.z && zPos <= region->getDstOffset().z)
-							return true;
-						return false;
-					};
-
-					auto isDataInSpecifiedRegionYDeterminant = [&](const auto yPos)
-					{
-						if (yPos >= region->imageOffset.y && yPos <= region->getDstOffset().y)
-							return true;
-						return false;
-					};
-
-					auto getPtrOffsetToRowInSpecifiedRegionImageExtent = [&](const auto zPos, const auto yPos) -> uint32_t
-					{
-						return ((zPos * irrTexelBlockHeight + yPos) * irrTexelBlockWidth + region->imageOffset.x) * texelBlockByteSize;
-					};
-
-					auto getPtrOffsetToGliData = [&](const auto zPos, const auto yPos)
-					{
-						return ((zPos * gliTexelBlockHeight + yPos) * gliTexelBlockWidth + 0) * texelBlockByteSize;
-					};
-
-					core::vector3d<uint32_t> coordinateOffsetsForGLIUsedForCopying = { 0, 0, 0 };
-
-					for (uint32_t zPos = 0; zPos < texelDepth; zPos += texelBlockDimension.Z)
-					{
-						bool validZPosFlag = isDataInSpecifiedRegionZDeterminant(zPos);
-
-						for (uint32_t yPos = 0; yPos < texelHeight; yPos += texelBlockDimension.Y)
-						{
-							bool validYPosFlag = isDataInSpecifiedRegionYDeterminant(yPos);
-							const auto irrOffset = getPtrOffsetToRowInSpecifiedRegionImageExtent(zPos, yPos);
-							const auto gliOffset = getPtrOffsetToGliData(zPos, yPos);
-
-							if (validYPosFlag)
-							{
-								memcpy
-								(
-									reinterpret_cast<uint8_t*>(layerData) + irrOffset,	// copy whole row according to the region proporties
-									sourceData + gliOffset,								// only selected data in a region is copied
-									rowByteSize
-								);
-
-								coordinateOffsetsForGLIUsedForCopying.Y += texelBlockDimension.Y;
-							}
-						}
-
-						if (validZPosFlag)
-							coordinateOffsetsForGLIUsedForCopying.Z += texelBlockDimension.Z;
+						// copy whole row according to the region properties
+						memcpy
+						(
+							outData + (((zBlock+outOffset[2])*outDims[1]+yBlock+outOffset[1])*outDims[0]+outOffset[0])*blockByteSize,
+							inData + (zBlock*inDims[1]+yBlock)*inDims[0]*blockByteSize,
+							blockLineByteSize
+						);
 					}
 				}	
 			}
