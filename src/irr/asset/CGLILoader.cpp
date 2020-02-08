@@ -124,7 +124,7 @@ namespace irr
 			imageInfo.extent.height = texture.extent().y;
 			imageInfo.extent.depth = texture.extent().z;
 			imageInfo.mipLevels = texture.levels();
-			imageInfo.arrayLayers = texture.faces() * texture.layers() * imageInfo.mipLevels;
+			imageInfo.arrayLayers = texture.faces() * texture.layers();
 
 			auto image = ICPUImage::create(std::move(imageInfo));
 
@@ -148,11 +148,8 @@ namespace irr
 					region->imageExtent.width = texture.extent(regionIndex).x;
 					region->imageExtent.height = texture.extent(regionIndex).y;
 					region->imageExtent.depth = texture.extent(regionIndex).z;
-					// I need to set destination offset, because starting is default 0,
-					// and end is 0 as well, so each image will be exported only with ONE row per layer
-					//region->getDstOffset().x = ... etc
 					region->imageSubresource.mipLevel = regionIndex;
-					region->imageSubresource.layerCount = imageInfo.arrayLayers / imageInfo.mipLevels;
+					region->imageSubresource.layerCount = imageInfo.arrayLayers;
 					region->imageSubresource.baseArrayLayer = 0;
 					region->bufferOffset = offset;
 
