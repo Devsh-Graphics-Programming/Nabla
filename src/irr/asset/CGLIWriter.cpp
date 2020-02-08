@@ -34,12 +34,6 @@ namespace irr
 	{
 		static inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params);
 
-		template<typename aType>
-		static inline aType getSingleChannel(const void* data)
-		{
-			return *(reinterpret_cast<const aType*>(data));
-		}
-
 		static inline bool performSavingAsIWriteFile(gli::texture& texture, irr::io::IWriteFile* file);
 
 		bool CGLIWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
@@ -151,16 +145,29 @@ namespace irr
 
 			gli::texture texture(gliTarget, gliFormatAndSwizzles.first, gliExtent3d, layersAndFacesAmount.first, layersAndFacesAmount.second, gliLevels, gli::texture::swizzles_type{ gliFormatAndSwizzles.second[0], gliFormatAndSwizzles.second[1], gliFormatAndSwizzles.second[2], gliFormatAndSwizzles.second[3] });
 
+			const auto getTexelBlockWidth = [&](const uint32_t texelWidth)
+			{
+				return texelWidth / texelBlockDimension.X;
+			};
+
+			const auto getTexelBlockHeight = [&](const uint32_t texelHeight)
+			{
+				return texelHeight / texelBlockDimension.Y;
+			};
+
+			const auto getTexelBlockDepth = [&](const uint32_t texelDepth)
+			{
+				return texelDepth / texelBlockDimension.Z;
+			};
+
 			auto getFullSizeOfLayer = [&](const uint16_t mipLevel) -> uint64_t
 			{
 				auto region = image->getRegions().begin() + mipLevel;
-				const auto widthInTexels = region->bufferRowLength == 0 ? region->imageExtent.width : region->bufferRowLength;
-				const auto heightInTexels = region->bufferImageHeight == 0 ? region->imageExtent.height : region->bufferImageHeight;
-				const auto depthInTexels = region->imageExtent.depth;
 
-				const auto width = widthInTexels / texelBlockDimension.X;
-				const auto height = heightInTexels / texelBlockDimension.Y;
-				const auto depth = depthInTexels / texelBlockDimension.Z;
+				const auto width = getTexelBlockWidth(region->bufferRowLength == 0 ? region->imageExtent.width : region->bufferRowLength);
+				const auto height = getTexelBlockHeight(region->bufferImageHeight == 0 ? region->imageExtent.height : region->bufferImageHeight);
+				const auto depth = getTexelBlockDepth(region->imageExtent.depth);
+
 				return width * height * depth * texelBlockByteSize;
 			};
 
@@ -169,6 +176,18 @@ namespace irr
 				const auto ptrBeginningOfRegion = data + region->bufferOffset;
 				const auto layerByteSize = getFullSizeOfLayer(region->imageSubresource.mipLevel);
 
+				const auto texelWidth = region->bufferRowLength == 0 ? region->imageExtent.width : region->bufferRowLength;
+				const auto texelHeight = region->bufferImageHeight == 0 ? region->imageExtent.height : region->bufferImageHeight;
+				const auto texelDepth = region->imageExtent.depth;
+
+				const auto gliTexelBlockWidth = getTexelBlockWidth(region->imageExtent.width);
+				const auto gliTexelBlockHeight = getTexelBlockHeight(region->imageExtent.height);
+				const auto gliTexelBlockDepth = getTexelBlockDepth(region->imageExtent.depth);
+
+				const auto irrTexelBlockWidth = getTexelBlockWidth(texelWidth);
+				const auto irrTexelBlockHeight = getTexelBlockHeight(texelHeight);
+				const auto irrTexelBlockDepth = texelDepth;
+				
 				for (uint16_t layer = 0; layer < imageInfo.arrayLayers; ++layer)
 				{
 					const auto layersData = getCurrentGliLayerAndFace(layer);
@@ -177,13 +196,60 @@ namespace irr
 
 					const auto layerData = texture.data(gliLayer, gliFace, region->imageSubresource.mipLevel);
 					const auto sourceData = ptrBeginningOfRegion + (layer * layerByteSize);
+					const auto rowByteSize = gliTexelBlockWidth * texelBlockByteSize;
 
-					memcpy
-					(
-						reinterpret_cast<uint8_t*>(layerData),	// copy whole data according to the region proporties
-						sourceData,		
-						layerByteSize
-					);
+					auto isDataInSpecifiedRegionZDeterminant = [&](const auto zPos)
+					{
+						if (zPos >= region->imageOffset.z && zPos <= region->getDstOffset().z)
+							return true;
+						return false;
+					};
+
+					auto isDataInSpecifiedRegionYDeterminant = [&](const auto yPos)
+					{
+						if (yPos >= region->imageOffset.y && yPos <= region->getDstOffset().y)
+							return true;
+						return false;
+					};
+
+					auto getPtrOffsetToRowInSpecifiedRegionImageExtent = [&](const auto zPos, const auto yPos) -> uint32_t
+					{
+						return ((zPos * irrTexelBlockHeight + yPos) * irrTexelBlockWidth + region->imageOffset.x) * texelBlockByteSize;
+					};
+
+					auto getPtrOffsetToGliData = [&](const auto zPos, const auto yPos)
+					{
+						return ((zPos * gliTexelBlockHeight + yPos) * gliTexelBlockWidth + 0) * texelBlockByteSize;
+					};
+
+					core::vector3d<uint32_t> coordinateOffsetsForGLIUsedForCopying = { 0, 0, 0 };
+
+					for (uint32_t zPos = 0; zPos < texelDepth; zPos += texelBlockDimension.Z)
+					{
+						bool validZPosFlag = isDataInSpecifiedRegionZDeterminant(zPos);
+
+						for (uint32_t yPos = 0; yPos < texelHeight; yPos += texelBlockDimension.Y)
+						{
+							bool validYPosFlag = isDataInSpecifiedRegionYDeterminant(yPos);
+							const auto irrOffset = getPtrOffsetToRowInSpecifiedRegionImageExtent(zPos, yPos);
+							const auto gliOffset = getPtrOffsetToGliData(zPos, yPos);
+
+							if (validYPosFlag)
+							{
+								memcpy
+								(
+									reinterpret_cast<uint8_t*>(layerData) + irrOffset,	// copy whole row according to the region proporties
+									sourceData + gliOffset,								// only selected data in a region is copied
+									rowByteSize
+								);
+
+								coordinateOffsetsForGLIUsedForCopying.Y += texelBlockDimension.Y;
+							}
+						}
+
+						if (validZPosFlag)
+							coordinateOffsetsForGLIUsedForCopying.Z += texelBlockDimension.Z;
+					}
 				}	
 			}
 
