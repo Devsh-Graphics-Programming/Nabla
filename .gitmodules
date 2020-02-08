@@ -75,4 +75,4 @@
 	url = https://github.com/AnastaZIuk/glew-cmake.git
 [submodule "3rdparty/parallel-hashmap"]
 	path = 3rdparty/parallel-hashmap
-	url = https://github.com/WieszKto/parallel-hashmap
+	url = https://github.com/greg7mdp/parallel-hashmap
