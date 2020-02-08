@@ -11,9 +11,13 @@
 #include "irr/asset/ICPUMesh.h"
 #include "irr/asset/bawformat/CBAWFile.h"
 
-namespace irr {
+namespace irr
+{
 
-namespace io { class IFileSystem; }
+namespace io
+{
+class IFileSystem;
+}
 
 namespace asset
 {
@@ -52,7 +56,7 @@ namespace asset
 		{
 			asset::IAssetWriter::SAssetWriteContext inner;
             asset::IAssetWriter::IAssetWriterOverride* writerOverride;
-			core::vector<asset::BlobHeaderV1> headers;
+			core::vector<asset::BlobHeaderLatest> headers;
 			core::vector<uint32_t> offsets;
 		};
 

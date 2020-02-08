@@ -17,15 +17,8 @@ in vec4 gWorldMatPart2[];
 /*
 struct InstanceData
 {
-    vec4 worldViewProjMatCol0;
-    vec4 worldViewProjMatCol1;
-    vec4 worldViewProjMatCol2;
-    vec4 worldViewProjMatCol3;
-
-    vec3 worldViewMatCol0;
-    vec3 worldViewMatCol1;
-    vec3 worldViewMatCol2;
-    vec3 worldViewMatCol3;
+    vec4 worldViewProjMatRows[4];
+    vec4 worldViewMatRows[4];
 };*/
 
 layout(stream = 0) out vec4 outLoD0_worldViewProjMatCol0;
@@ -48,17 +41,17 @@ layout(stream = 1) out vec3 outLoD1_worldViewMatCol3;
 
 void main()
 {
-    vec3 instancePos = gWorldMatPart0[0].xyz*LoDInvariantBBoxCenter.x+vec3(gWorldMatPart0[0].w,gWorldMatPart1[0].xy)*LoDInvariantBBoxCenter.y+vec3(gWorldMatPart1[0].zw,gWorldMatPart2[0].x)*LoDInvariantBBoxCenter.z+gWorldMatPart2[0].yzw;
+    vec3 instancePos = vec3(dot(gWorldMatPart0[0].xyz,LoDInvariantBBoxCenter),dot(gWorldMatPart1[0].xyz,LoDInvariantBBoxCenter),dot(gWorldMatPart2[0].xyz,LoDInvariantBBoxCenter))+vec3(gWorldMatPart0[0].w,gWorldMatPart1[0].w,gWorldMatPart2[0].w);
     instancePos = WorldMat[0]*instancePos.x+WorldMat[1]*instancePos.y+WorldMat[2]*instancePos.z+WorldMat[3];
     vec3 eyeToInstance = instancePos-eyePos;
     float distanceToInstance = dot(eyeToInstance,eyeToInstance);
     if (distanceToInstance>=instanceLoDDistancesSQ.y)
         return;
 
-    vec4 instanceWorldViewProjMatCol0 = ProjViewWorldMat[0]*gWorldMatPart0[0].x+ProjViewWorldMat[1]*gWorldMatPart0[0].y+ProjViewWorldMat[2]*gWorldMatPart0[0].z;
-    vec4 instanceWorldViewProjMatCol1 = ProjViewWorldMat[0]*gWorldMatPart0[0].w+ProjViewWorldMat[1]*gWorldMatPart1[0].x+ProjViewWorldMat[2]*gWorldMatPart1[0].y;
-    vec4 instanceWorldViewProjMatCol2 = ProjViewWorldMat[0]*gWorldMatPart1[0].z+ProjViewWorldMat[1]*gWorldMatPart1[0].w+ProjViewWorldMat[2]*gWorldMatPart2[0].x;
-    vec4 instanceWorldViewProjMatCol3 = ProjViewWorldMat[0]*gWorldMatPart2[0].y+ProjViewWorldMat[1]*gWorldMatPart2[0].z+ProjViewWorldMat[2]*gWorldMatPart2[0].w+ProjViewWorldMat[3];
+    vec4 instanceWorldViewProjMatCol0 = ProjViewWorldMat[0]*gWorldMatPart0[0].x+ProjViewWorldMat[1]*gWorldMatPart1[0].x+ProjViewWorldMat[2]*gWorldMatPart2[0].x;
+    vec4 instanceWorldViewProjMatCol1 = ProjViewWorldMat[0]*gWorldMatPart0[0].y+ProjViewWorldMat[1]*gWorldMatPart1[0].y+ProjViewWorldMat[2]*gWorldMatPart2[0].y;
+    vec4 instanceWorldViewProjMatCol2 = ProjViewWorldMat[0]*gWorldMatPart0[0].z+ProjViewWorldMat[1]*gWorldMatPart1[0].z+ProjViewWorldMat[2]*gWorldMatPart2[0].z;
+    vec4 instanceWorldViewProjMatCol3 = ProjViewWorldMat[0]*gWorldMatPart0[0].w+ProjViewWorldMat[1]*gWorldMatPart1[0].w+ProjViewWorldMat[2]*gWorldMatPart2[0].w+ProjViewWorldMat[3];
 
     ///Do frustum Culling, can stay because its correct, but will need a rewrite for the compute shader version for better readability
     // this might be wrong
@@ -97,10 +90,10 @@ void main()
         return;
     // no far-Z culling because distanceToInstance Culling should have taken care of it
 
-    vec3 instanceWorldViewMatCol0 = ViewWorldMat[0]*gWorldMatPart0[0].x+ViewWorldMat[1]*gWorldMatPart0[0].y+ViewWorldMat[2]*gWorldMatPart0[0].z;
-    vec3 instanceWorldViewMatCol1 = ViewWorldMat[0]*gWorldMatPart0[0].w+ViewWorldMat[1]*gWorldMatPart1[0].x+ViewWorldMat[2]*gWorldMatPart1[0].y;
-    vec3 instanceWorldViewMatCol2 = ViewWorldMat[0]*gWorldMatPart1[0].z+ViewWorldMat[1]*gWorldMatPart1[0].w+ViewWorldMat[2]*gWorldMatPart2[0].x;
-    vec3 instanceWorldViewMatCol3 = ViewWorldMat[0]*gWorldMatPart2[0].y+ViewWorldMat[1]*gWorldMatPart2[0].z+ViewWorldMat[2]*gWorldMatPart2[0].w+ViewWorldMat[3];
+    vec3 instanceWorldViewMatCol0 = ViewWorldMat[0]*gWorldMatPart0[0].x+ViewWorldMat[1]*gWorldMatPart1[0].x+ViewWorldMat[2]*gWorldMatPart2[0].x;
+    vec3 instanceWorldViewMatCol1 = ViewWorldMat[0]*gWorldMatPart0[0].y+ViewWorldMat[1]*gWorldMatPart1[0].y+ViewWorldMat[2]*gWorldMatPart2[0].y;
+    vec3 instanceWorldViewMatCol2 = ViewWorldMat[0]*gWorldMatPart0[0].z+ViewWorldMat[1]*gWorldMatPart1[0].z+ViewWorldMat[2]*gWorldMatPart2[0].z;
+    vec3 instanceWorldViewMatCol3 = ViewWorldMat[0]*gWorldMatPart0[0].w+ViewWorldMat[1]*gWorldMatPart1[0].w+ViewWorldMat[2]*gWorldMatPart2[0].w+ViewWorldMat[3];
 
     if (distanceToInstance<instanceLoDDistancesSQ.x)
     {

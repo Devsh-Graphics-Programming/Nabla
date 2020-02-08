@@ -135,7 +135,7 @@ bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void
 		{
 			using state_type = std::remove_reference<decltype(state)>::type;
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_base_of<state_type,PerspectivePinhole>::value)
+			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_base_of<PerspectivePinhole,state_type>::value)
 			{
 				if (_property.type != SNamedPropertyElement::Type::STRING)
 				{

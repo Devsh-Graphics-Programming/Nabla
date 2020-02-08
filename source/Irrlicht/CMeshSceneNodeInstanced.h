@@ -62,21 +62,21 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
         virtual size_t getInstanceCount() const { return core::address_allocator_traits<InstanceDataAddressAllocator>::get_allocated_size(instanceDataAllocator->getAddressAllocator())/dataPerInstanceInputSize; }
 
 
-        virtual uint32_t addInstance(const core::matrix4x3& relativeTransform, const void* extraData=NULL);
+        virtual uint32_t addInstance(const core::matrix3x4SIMD& relativeTransform, const void* extraData=NULL) override;
 
-        virtual bool addInstances(uint32_t* instanceIDs, const size_t& instanceCount, const core::matrix4x3* relativeTransforms, const void* extraData);
+        virtual bool addInstances(uint32_t* instanceIDs, const size_t& instanceCount, const core::matrix3x4SIMD* relativeTransforms, const void* extraData) override;
 
-        virtual void setInstanceTransform(const uint32_t& instanceID, const core::matrix4x3& relativeTransform);
+        virtual void setInstanceTransform(const uint32_t& instanceID, const core::matrix3x4SIMD& relativeTransform) override;
 
-        virtual core::matrix4x3 getInstanceTransform(const uint32_t& instanceID);
+        virtual core::matrix3x4SIMD getInstanceTransform(const uint32_t& instanceID) override;
 
-        virtual void setInstanceVisible(const uint32_t& instanceID, const bool& visible);
+        virtual void setInstanceVisible(const uint32_t& instanceID, const bool& visible) override;
 
-        virtual void setInstanceData(const uint32_t& instanceID, const void* data);
+        virtual void setInstanceData(const uint32_t& instanceID, const void* data) override;
 
-        virtual void removeInstance(const uint32_t& instanceID);
+        virtual void removeInstance(const uint32_t& instanceID) override;
 
-        virtual void removeInstances(const size_t& instanceCount, const uint32_t* instanceIDs);
+        virtual void removeInstances(const size_t& instanceCount, const uint32_t* instanceIDs) override;
 
 
         //! frame

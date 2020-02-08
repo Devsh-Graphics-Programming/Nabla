@@ -141,36 +141,78 @@ inline vectorSIMDf matrix4SIMD::getTranslation3D() const
 
 inline bool matrix4SIMD::getInverseTransform(matrix4SIMD& _out) const
 {
-	vectorSIMDf c0 = rows[0], c1 = rows[1], c2 = rows[2], c3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
-	core::transpose4(c0, c1, c2, c3);
+	auto mat2mul = [](vectorSIMDf _A, vectorSIMDf _B)
+	{
+		return _A*_B.xwxw()+_A.yxwz()*_B.zyzy();
+	};
+	auto mat2adjmul = [](vectorSIMDf _A, vectorSIMDf _B)
+	{
+		return _A.wwxx()*_B-_A.yyzz()*_B.zwxy();
+	};
+	auto mat2muladj = [](vectorSIMDf _A, vectorSIMDf _B)
+	{
+		return _A*_B.wxwx()-_A.yxwz()*_B.zyzy();
+	};
 
-	const vectorSIMDf c1crossc2 = cross(c1,c2);
+	vectorSIMDf A = _mm_movelh_ps(rows[0].getAsRegister(), rows[1].getAsRegister());
+	vectorSIMDf B = _mm_movehl_ps(rows[1].getAsRegister(), rows[0].getAsRegister());
+	vectorSIMDf C = _mm_movelh_ps(rows[2].getAsRegister(), rows[3].getAsRegister());
+	vectorSIMDf D = _mm_movehl_ps(rows[3].getAsRegister(), rows[2].getAsRegister());
 
-	const vectorSIMDf d = dot(c0,c1crossc2);
+	vectorSIMDf allDets =	vectorSIMDf(_mm_shuffle_ps(rows[0].getAsRegister(),rows[2].getAsRegister(),_MM_SHUFFLE(2,0,2,0)))*
+							vectorSIMDf(_mm_shuffle_ps(rows[1].getAsRegister(),rows[3].getAsRegister(),_MM_SHUFFLE(3,1,3,1)))
+						-
+							vectorSIMDf(_mm_shuffle_ps(rows[0].getAsRegister(),rows[2].getAsRegister(),_MM_SHUFFLE(3,1,3,1)))*
+							vectorSIMDf(_mm_shuffle_ps(rows[1].getAsRegister(),rows[3].getAsRegister(),_MM_SHUFFLE(2,0,2,0)));
 
-	if (core::iszero(d.x, FLT_MIN))
+	auto detA = allDets.xxxx();
+	auto detB = allDets.yyyy();
+	auto detC = allDets.zzzz();
+	auto detD = allDets.wwww();
+
+	// https://lxjk.github.io/2017/09/03/Fast-4x4-Matrix-Inverse-with-SSE-SIMD-Explained.html
+	auto D_C = mat2adjmul(D, C);
+	// A#B
+	auto A_B = mat2adjmul(A, B);
+	// X# = |D|A - B(D#C)
+	auto X_ = detD*A - mat2mul(B, D_C);
+	// W# = |A|D - C(A#B)
+	auto W_ = detA*D - mat2mul(C, A_B);
+
+	// |M| = |A|*|D| + ... (continue later)
+	auto detM = detA*detD;
+
+	// Y# = |B|C - D(A#B)#
+	auto Y_ = detB*C - mat2muladj(D, A_B);
+	// Z# = |C|B - A(D#C)#
+	auto Z_ = detC*B -  mat2muladj(A, D_C);
+
+	// |M| = |A|*|D| + |B|*|C| ... (continue later)
+	detM += detB*detC;
+
+	// tr((A#B)(D#C))
+	__m128 tr = (A_B*D_C.xzyw()).getAsRegister();
+	tr = _mm_hadd_ps(tr, tr);
+	tr = _mm_hadd_ps(tr, tr);
+	// |M| = |A|*|D| + |B|*|C| - tr((A#B)(D#C)
+	detM -= tr;
+
+	if (core::iszero(detM.x, FLT_MIN))
 		return false;
 
-	_out.rows[0] = c1crossc2 / d;
-	_out.rows[1] = cross(c2,c0) / d;
-	_out.rows[2] = cross(c0,c1) / d;
+	// (1/|M|, -1/|M|, -1/|M|, 1/|M|)
+	auto rDetM = vectorSIMDf(1.f, -1.f, -1.f, 1.f)*core::reciprocal(detM);
 
-	vectorSIMDf outC3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
-	core::transpose4(_out.rows[0], _out.rows[1], _out.rows[2], outC3);
+	X_ *= rDetM;
+	Y_ *= rDetM;
+	Z_ *= rDetM;
+	W_ *= rDetM;
 
-	__m128i mask1110 = BUILD_MASKF(1, 1, 1, 0);
-	vectorSIMDf r0 = (rows[0] * c3) & mask1110,
-		r1 = (rows[1] * c3) & mask1110,
-		r2 = (rows[2] * c3) & mask1110,
-		r3 = vectorSIMDf(0.f);
-
-	outC3 = _mm_hadd_ps(
-		_mm_hadd_ps(r0.getAsRegister(), r1.getAsRegister()),
-		_mm_hadd_ps(r2.getAsRegister(), r3.getAsRegister())
-	);
-	outC3 = -outC3;
-	outC3.w = 1.f;
-	core::transpose4(_out.rows[0], _out.rows[1], _out.rows[2], outC3);
+	// apply adjugate and store, here we combine adjugate shuffle and store shuffle
+	_out.rows[0] = _mm_shuffle_ps(X_.getAsRegister(), Y_.getAsRegister(), _MM_SHUFFLE(1, 3, 1, 3));
+	_out.rows[1] = _mm_shuffle_ps(X_.getAsRegister(), Y_.getAsRegister(), _MM_SHUFFLE(0, 2, 0, 2));
+	_out.rows[2] = _mm_shuffle_ps(Z_.getAsRegister(), W_.getAsRegister(), _MM_SHUFFLE(1, 3, 1, 3));
+	_out.rows[3] = _mm_shuffle_ps(Z_.getAsRegister(), W_.getAsRegister(), _MM_SHUFFLE(0, 2, 0, 2));
 
 	return true;
 }
@@ -255,47 +297,6 @@ inline matrix4SIMD matrix4SIMD::buildProjectionMatrixOrthoLH(float widthOfViewVo
 	m.rows[3] = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
 
 	return m;
-}
-
-inline matrix4SIMD matrix4SIMD::buildCameraLookAtMatrixLH(
-	const core::vectorSIMDf& position,
-	const core::vectorSIMDf& target,
-	const core::vectorSIMDf& upVector)
-{
-	const core::vectorSIMDf zaxis = core::normalize(target - position);
-	const core::vectorSIMDf xaxis = core::normalize(cross(upVector,zaxis));
-	const core::vectorSIMDf yaxis = cross(zaxis,xaxis);
-
-	matrix4SIMD r;
-	r.rows[0] = xaxis;
-	r.rows[1] = yaxis;
-	r.rows[2] = zaxis;
-	r.rows[0].w = -dot(xaxis,position).x;
-	r.rows[1].w = -dot(yaxis,position).x;
-	r.rows[2].w = -dot(zaxis,position).x;
-	r.rows[3] = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
-
-	return r;
-}
-inline matrix4SIMD matrix4SIMD::buildCameraLookAtMatrixRH(
-	const core::vectorSIMDf& position,
-	const core::vectorSIMDf& target,
-	const core::vectorSIMDf& upVector)
-{
-	const core::vectorSIMDf zaxis = core::normalize(position - target);
-	const core::vectorSIMDf xaxis = core::normalize(cross(upVector,zaxis));
-	const core::vectorSIMDf yaxis = cross(zaxis,xaxis);
-
-	matrix4SIMD r;
-	r.rows[0] = xaxis;
-	r.rows[1] = yaxis;
-	r.rows[2] = zaxis;
-	r.rows[0].w = -dot(xaxis, position).x;
-	r.rows[1].w = -dot(yaxis, position).x;
-	r.rows[2].w = -dot(zaxis, position).x;
-	r.rows[3] = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
-
-	return r;
 }
 
 

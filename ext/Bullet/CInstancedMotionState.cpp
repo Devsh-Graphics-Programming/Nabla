@@ -6,15 +6,10 @@ using namespace ext;
 using namespace Bullet3;
 
 
-void CInstancedMotionState::getWorldTransform(btTransform &worldTrans) const {
-    core::matrix3x4SIMD mat;
-    mat.set(m_node->getInstanceTransform(m_index));
-    
-    worldTrans = convertMatrixSIMD(mat);
+void CInstancedMotionState::getWorldTransform(btTransform &worldTrans) const {    
+    worldTrans = convertMatrixSIMD(m_node->getInstanceTransform(m_index));
 }
 
 void CInstancedMotionState::setWorldTransform(const btTransform &worldTrans) {
-    
-
-    m_node->setInstanceTransform(m_index, convertbtTransform(worldTrans).getAsRetardedIrrlichtMatrix());
+    m_node->setInstanceTransform(m_index, convertbtTransform(worldTrans));
 }

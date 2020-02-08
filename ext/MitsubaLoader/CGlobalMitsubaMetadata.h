@@ -3,7 +3,7 @@
 
 #include "../../ext/MitsubaLoader/CElementIntegrator.h"
 #include "../../ext/MitsubaLoader/CElementSensor.h"
-#include "../../ext/MitsubaLoader/CElementEmitter.h"
+#include "../../ext/MitsubaLoader/CElementShape.h"
 
 namespace irr
 {
@@ -47,11 +47,24 @@ class IMitsubaMetadata : public asset::IAssetMetadata
 class IMeshMetadata : public IMitsubaMetadata
 {
 	public:
-		using IMitsubaMetadata::IMitsubaMetadata;
+		IMeshMetadata(core::smart_refctd_ptr<CGlobalMitsubaMetadata>&& _gmeta, std::string&& _id, CElementShape* shape) :
+			IMitsubaMetadata(std::move(_gmeta),std::move(_id)), type(shape->type)
+		{}
 
-		const auto& getInstances() const { return instances; }
+		inline auto getShapeType() const {return type;}
+
+		struct Instance
+		{
+			core::matrix3x4SIMD tform;
+			CElementEmitter emitter; // type is invalid if not used
+		};
+
+		inline const auto& getInstances() const { return instances; }
+
 	protected:
-		core::vector<core::matrix3x4SIMD> instances;
+		CElementShape::Type type;
+		core::vector<Instance> instances;
+
 		friend class CMitsubaLoader;
 };
 

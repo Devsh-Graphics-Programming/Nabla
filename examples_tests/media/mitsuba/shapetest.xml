@@ -1,0 +1,95 @@
+<?xml version='1.0' encoding='utf-8'?>
+
+<scene version="0.5.0">
+	<integrator type="direct"/>
+	<!--<sensor type="thinlens">-->
+
+	<sensor type="perspective">
+		<float name="apertureRadius" value="0.1"/>
+		<float name="focusDistance" value="3"/>
+		<float name="fov" value="91.4928"/>
+		<string name="fovAxis" value="x"/>
+		<transform name="toWorld">
+			<scale x="-1"/>
+
+			<lookat target="0, 7.06367, 2.64888" origin="0, 8, 3" up="0, -0.351123, 0.936329"/>
+		</transform>
+
+		<sampler type="ldsampler">
+			<integer name="sampleCount" value="256"/>
+		</sampler>
+
+		<film type="hdrfilm">
+			<integer name="height" value="720"/>
+			<integer name="width" value="1280"/>
+
+			<rfilter type="gaussian"/>
+		</film>
+	</sensor>
+
+	<shape type="disk">
+		<transform name="toWorld">
+			<scale value="100"/>
+		</transform>
+
+		<bsdf type="diffuse">
+			<rgb name="reflectance" value="1.0"/>
+		</bsdf>
+	</shape>
+
+	<shape type="sphere">
+		<transform name="toWorld">
+			<scale z="1.0"/>
+			<translate x="-7.0" y="0.0" z="1.5"/>
+		</transform>
+		<float name="radius" value="0.5"/>
+
+		<emitter type="area">
+			<rgb name="radiance" value="30,0,0"/>
+		</emitter>
+	</shape>
+
+	<shape type="cylinder">
+		<transform name="toWorld">
+			<scale x="0.4" y="0.4" z="2.0"/>
+			<translate x="-4.0" y="0.0" z="0.5"/>
+		</transform>
+
+		<emitter type="area">
+			<rgb name="radiance" value="0,5,0"/>
+		</emitter>
+	</shape>
+
+	<shape type="disk">
+		<transform name="toWorld">
+			<scale value="-0.4"/>
+			<translate x="-1.0" y="0.0" z="0.5"/>
+		</transform>
+
+		<emitter type="area">
+			<rgb name="radiance" value="0,0,100"/>
+		</emitter>
+	</shape>
+
+	<shape type="rectangle">
+		<transform name="toWorld">
+			<scale x="0.8" y="0.8" z="-1.0"/>
+			<translate x="2.0" y="0.0" z="0.5"/>
+		</transform>
+
+		<emitter type="area">
+			<rgb name="radiance" value="20,20,0"/>
+		</emitter>
+	</shape>
+
+	<shape type="cube">
+		<transform name="toWorld">
+			<scale value="0.5"/>
+			<translate x="5.0" y="0.0" z="0.5"/>
+		</transform>
+
+		<emitter type="area">
+			<rgb name="radiance" value="0,10,10"/>
+		</emitter>
+	</shape>
+</scene>

@@ -150,14 +150,14 @@ namespace video
 		/** \param state Transformation type to be set, e.g. view,
 		world, or projection.
 		\param mat Matrix describing the transformation. */
-		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix4x3& mat) =0;
+		virtual void setTransform(const E_4X3_TRANSFORMATION_STATE& state, const core::matrix3x4SIMD& mat) =0;
 
 		virtual void setTransform(const E_PROJECTION_TRANSFORMATION_STATE& state, const core::matrix4SIMD& mat) =0;
 
 		//! Returns the transformation set by setTransform
 		/** \param state Transformation type to query
 		\return Matrix describing the transformation. */
-		virtual const core::matrix4x3& getTransform(const E_4X3_TRANSFORMATION_STATE& state) =0;
+		virtual const core::matrix3x4SIMD& getTransform(const E_4X3_TRANSFORMATION_STATE& state) =0;
 
 		virtual const core::matrix4SIMD& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state) =0;
 

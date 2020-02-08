@@ -26,7 +26,7 @@ class IAssetManager;
 
 class CBAWMeshFileLoader : public asset::IAssetLoader
 {
-    friend struct TypedBlob<TexturePathBlobV1, asset::ICPUTexture>; // needed for loading textures
+    friend struct TypedBlob<TexturePathBlobV2, asset::ICPUTexture>; // needed for loading textures
 
 private:
     template<typename HeaderT>
@@ -142,9 +142,10 @@ private:
     {
         switch (_expectedVer)
         {
-        case 0ull: return verifyFile<asset::legacyv0::BAWFileV0>(_ctx);
-        case 1ull: return verifyFile<asset::BAWFileV1>(_ctx);
-        default: return false;
+			case 0ull: return verifyFile<asset::legacyv0::BAWFileV0>(_ctx);
+			case 1ull: return verifyFile<asset::legacyv1::BAWFileV1>(_ctx);
+			case 2ull: return verifyFile<asset::BAWFileV2>(_ctx);
+			default: return false;
         }
     }
 	//! Loads and checks correctness of offsets and headers. Also let us know blob count.
@@ -275,12 +276,12 @@ private:
         uint32_t blobCnt{};
         BlobHeaderVn<FromVersion>* headers = nullptr;
         uint32_t* offsets = nullptr;
-        uint32_t baseOffsetv0{};
-        uint32_t baseOffsetv1{};
-        if (!formatConversionProlog<IntoVersion>(ctx, blobCnt, headers, offsets, baseOffsetv0, baseOffsetv1))
+        uint32_t baseOffsetv_from{};
+        uint32_t baseOffsetv_to{};
+        if (!formatConversionProlog<IntoVersion>(ctx, blobCnt, headers, offsets, baseOffsetv_from, baseOffsetv_to))
             return nullptr;
 
-        return createConvertIntoVer_spec<IntoVersion>(ctx, _original, _override, std::make_tuple(blobCnt, headers, offsets, baseOffsetv0, baseOffsetv1));
+        return createConvertIntoVer_spec<IntoVersion>(ctx, _original, _override, std::make_tuple(blobCnt, headers, offsets, baseOffsetv_from, baseOffsetv_to));
     }
 
     template<uint64_t ...Versions>

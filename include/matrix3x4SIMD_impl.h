@@ -4,17 +4,77 @@
 #include "matrix3x4SIMD.h"
 #include "irr/core/math/glslFunctions.tcc"
 
+#include "matrix4x3.h"
+
 namespace irr
 {
 namespace core
 {
 
+
+
+
+
+// TODO: move to another implementation header
+inline quaternion::quaternion(const matrix3x4SIMD& m)
+{
+	const vectorSIMDf one(1.f);
+	auto Qx  = m.rows[0].xxxx()^vectorSIMDu32(0,0,0x80000000u,0x80000000u);
+	auto Qy  = m.rows[1].yyyy()^vectorSIMDu32(0,0x80000000u,0,0x80000000u);
+	auto Qz  = m.rows[2].zzzz()^vectorSIMDu32(0,0x80000000u,0x80000000u,0);
+
+	auto tmp = one+Qx+Qy+Qz;
+	auto invscales = inversesqrt(tmp)*0.5f;
+	auto scales = tmp*invscales*0.5f;
+
+	// TODO: speed this up
+	if (tmp.x > 0.0f)
+	{
+		X = (m(2, 1) - m(1, 2)) * invscales.x;
+		Y = (m(0, 2) - m(2, 0)) * invscales.x;
+		Z = (m(1, 0) - m(0, 1)) * invscales.x;
+		W = scales.x;
+	}
+	else
+	{
+		if (tmp.y>0.f)
+		{
+			X = scales.y;
+			Y = (m(0, 1) + m(1, 0)) * invscales.y;
+			Z = (m(2, 0) + m(0, 2)) * invscales.y;
+			W = (m(2, 1) - m(1, 2)) * invscales.y;
+		}
+		else if (tmp.z>0.f)
+		{
+			X = (m(0, 1) + m(1, 0)) * invscales.z;
+			Y = scales.z;
+			Z = (m(1, 2) + m(2, 1)) * invscales.z;
+			W = (m(0, 2) - m(2, 0)) * invscales.z;
+		}
+		else
+		{
+			X = (m(0, 2) + m(2, 0)) * invscales.w;
+			Y = (m(1, 2) + m(2, 1)) * invscales.w;
+			Z = scales.w;
+			W = (m(1, 0) - m(0, 1)) * invscales.w;
+		}
+	}
+
+	*this = normalize(*this);
+}
+
+
+
+
+
+
+
 inline matrix3x4SIMD& matrix3x4SIMD::set(const matrix4x3& _retarded)
 {
-	vectorSIMDf c3(0.f, 0.f, 0.f, 1.f);
+	core::matrix4SIMD c;
 	for (size_t i = 0u; i < VectorCount; ++i)
-		rows[i] = vectorSIMDf(&_retarded.getColumn(i).X);
-	core::transpose4(rows[0], rows[1], rows[2], c3);
+		c.rows[i] = vectorSIMDf(&_retarded.getColumn(i).X);
+	*this = core::transpose(c).extractSub3x4();
 	for (size_t i = 0u; i < VectorCount; ++i)
 		rows[i][3] = (&_retarded.getColumn(3).X)[i];
 
@@ -22,13 +82,12 @@ inline matrix3x4SIMD& matrix3x4SIMD::set(const matrix4x3& _retarded)
 }
 inline matrix4x3 matrix3x4SIMD::getAsRetardedIrrlichtMatrix() const
 {
-	vectorSIMDf c[4]{ rows[0], rows[1], rows[2] };
-	core::transpose4(c);
+	auto c = core::transpose(core::matrix4SIMD(*this));
 
 	matrix4x3 ret;
 	for (size_t i = 0u; i < VectorCount; ++i)
-		_mm_storeu_ps(&ret.getColumn(i).X, c[i].getAsRegister());
-	std::copy(c[VectorCount].pointer, c[VectorCount].pointer + VectorCount, &ret.getColumn(VectorCount).X);
+		_mm_storeu_ps(&ret.getColumn(i).X, c.rows[i].getAsRegister());
+	std::copy(c.rows[VectorCount].pointer, c.rows[VectorCount].pointer + VectorCount, &ret.getColumn(VectorCount).X);
 
 	return ret;
 }
@@ -58,6 +117,26 @@ inline matrix3x4SIMD& matrix3x4SIMD::operator*=(float _scalar)
 	for (size_t i = 0u; i < VectorCount; ++i)
 		rows[i] *= _scalar;
 	return *this;
+}
+
+
+inline aabbox3df transformBoxEx(const aabbox3df& box, const matrix3x4SIMD& _mat)
+{
+	vectorSIMDf inMinPt(&box.MinEdge.X);
+	vectorSIMDf inMaxPt(box.MaxEdge.X, box.MaxEdge.Y, box.MaxEdge.Z); // TODO: after change to SSE aabbox3df
+	inMinPt.makeSafe3D();
+	inMaxPt.makeSafe3D();
+
+	auto c = transpose(matrix4SIMD(_mat));
+
+	const vectorSIMDf zero;
+	vectorSIMDf minPt = c.rows[0] * mix(inMinPt.xxxw(), inMaxPt.xxxw(), c.rows[0] < zero) + c.rows[1] * mix(inMinPt.yyyw(), inMaxPt.yyyw(), c.rows[1] < zero) + c.rows[2] * mix(inMinPt.zzzw(), inMaxPt.zzzw(), c.rows[2] < zero);
+	vectorSIMDf maxPt = c.rows[0] * mix(inMaxPt.xxxw(), inMinPt.xxxw(), c.rows[0] < zero) + c.rows[1] * mix(inMaxPt.yyyw(), inMinPt.yyyw(), c.rows[1] < zero) + c.rows[2] * mix(inMaxPt.zzzw(), inMinPt.zzzw(), c.rows[2] < zero);
+
+	minPt += c.rows[3];
+	maxPt += c.rows[3];
+
+	return aabbox3df(minPt.getAsVector3df(), maxPt.getAsVector3df());
 }
 
 #ifdef __IRR_COMPILE_WITH_SSE3
@@ -178,7 +257,7 @@ inline void matrix3x4SIMD::transformVect(vectorSIMDf& _out, const vectorSIMDf& _
 	_out =
 		_mm_hadd_ps(
 			_mm_hadd_ps(r0.getAsRegister(), r1.getAsRegister()),
-			_mm_hadd_ps(r2.getAsRegister(), _mm_setzero_ps())
+			_mm_hadd_ps(r2.getAsRegister(), _mm_set1_ps(0.25f))
 		);
 }
 
@@ -191,10 +270,10 @@ inline void matrix3x4SIMD::pseudoMulWith4x1(vectorSIMDf& _out, const vectorSIMDf
 
 inline void matrix3x4SIMD::mulSub3x3WithNx1(vectorSIMDf& _out, const vectorSIMDf& _in) const
 {
-	__m128i mask1110 = BUILD_MASKF(1, 1, 1, 0);
-	vectorSIMDf r0 = (rows[0] * _in) & mask1110,
-		r1 = (rows[1] * _in) & mask1110,
-		r2 = (rows[2] * _in) & mask1110;
+	auto maskedIn = _in & BUILD_MASKF(1, 1, 1, 0);
+	vectorSIMDf r0 = rows[0] * maskedIn,
+		r1 = rows[1] * maskedIn,
+		r2 = rows[2] * maskedIn;
 
 	_out =
 		_mm_hadd_ps(
@@ -288,36 +367,46 @@ inline matrix3x4SIMD& matrix3x4SIMD::setScaleRotationAndTranslation(const vector
 
 inline bool matrix3x4SIMD::getInverse(matrix3x4SIMD& _out) const //! SUBOPTIMAL - OPTIMIZE!
 {
-	vectorSIMDf c0, c1, c2, c3, c1crossc2;
-	const vectorSIMDf d = determinant_helper(c0, c1, c2, c3, c1crossc2);
-	if (core::iszero(d.x, FLT_MIN))
+	auto translation = getTranslation();
+	// `tmp` will have columns in its `rows`
+	core::matrix4SIMD tmp;
+	auto* cols = tmp.rows;
+	if (!getSub3x3InverseTranspose(reinterpret_cast<core::matrix3x4SIMD&>(tmp)))
 		return false;
 
-	_out.rows[0] = c1crossc2 / d;
-	_out.rows[1] = core::cross(c2, c0) / d;
-	_out.rows[2] = core::cross(c0, c1) / d;
+	// find inverse post-translation
+	cols[3] = -cols[0]*translation.xxxx()-cols[1]*translation.yyyy()-cols[2]*translation.zzzz();
 
-	vectorSIMDf outC3 = vectorSIMDf(0.f, 0.f, 0.f, 1.f);
-	core::transpose4(_out.rows[0], _out.rows[1], _out.rows[2], outC3);
-	mulSub3x3WithNx1(outC3, c3);
-	outC3 = -outC3;
-	core::transpose4(_out.rows[0], _out.rows[1], _out.rows[2], outC3);
+	// columns into rows
+	_out = transpose(tmp).extractSub3x4();
 
 	return true;
 }
 
-inline bool matrix3x4SIMD::getSub3x3InverseTransposePaddedSIMDColumns(core::vectorSIMDf _out[3]) const
+inline bool matrix3x4SIMD::getSub3x3InverseTranspose(core::matrix3x4SIMD& _out) const
 {
-	vectorSIMDf c0, c1, c2, c3, c1crossc2;
-	const vectorSIMDf d = determinant_helper(c0, c1, c2, c3, c1crossc2);
+	vectorSIMDf r1crossr2;
+	const vectorSIMDf d = determinant_helper(r1crossr2);
 	if (core::iszero(d.x, FLT_MIN))
 		return false;
+	auto rcp = core::reciprocal(d);
 
-	_out[0] = c1crossc2 / d;
-	_out[1] = core::cross(c2, c0) / d;
-	_out[2] = core::cross(c0, c1) / d;
+	// matrix of cofactors * 1/det
+	_out = getSub3x3TransposeCofactors();
+	_out.rows[0] *= rcp;
+	_out.rows[1] *= rcp;
+	_out.rows[2] *= rcp;
 
 	return true;
+}
+
+inline core::matrix3x4SIMD matrix3x4SIMD::getSub3x3TransposeCofactors() const
+{
+	core::matrix3x4SIMD _out;
+	_out.rows[0] = core::cross(rows[1], rows[2]);
+	_out.rows[1] = core::cross(rows[2], rows[0]);
+	_out.rows[2] = core::cross(rows[0], rows[1]);
+	return _out;
 }
 
 // TODO: Double check this!-

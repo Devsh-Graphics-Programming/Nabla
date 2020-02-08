@@ -20,10 +20,10 @@ layout(stream = 0) out vec3 tposeInverseWorldMatCol2;
 
 void main()
 {
-    vec4 instanceWorldViewProjMatCol0 = ProjViewWorldMat[0]*gWorldMatPart0[0].x+ProjViewWorldMat[1]*gWorldMatPart0[0].y+ProjViewWorldMat[2]*gWorldMatPart0[0].z;
-    vec4 instanceWorldViewProjMatCol1 = ProjViewWorldMat[0]*gWorldMatPart0[0].w+ProjViewWorldMat[1]*gWorldMatPart1[0].x+ProjViewWorldMat[2]*gWorldMatPart1[0].y;
-    vec4 instanceWorldViewProjMatCol2 = ProjViewWorldMat[0]*gWorldMatPart1[0].z+ProjViewWorldMat[1]*gWorldMatPart1[0].w+ProjViewWorldMat[2]*gWorldMatPart2[0].x;
-    vec4 instanceWorldViewProjMatCol3 = ProjViewWorldMat[0]*gWorldMatPart2[0].y+ProjViewWorldMat[1]*gWorldMatPart2[0].z+ProjViewWorldMat[2]*gWorldMatPart2[0].w+ProjViewWorldMat[3];
+    vec4 instanceWorldViewProjMatCol0 = ProjViewWorldMat[0]*gWorldMatPart0[0].x+ProjViewWorldMat[1]*gWorldMatPart1[0].x+ProjViewWorldMat[2]*gWorldMatPart2[0].x;
+    vec4 instanceWorldViewProjMatCol1 = ProjViewWorldMat[0]*gWorldMatPart0[0].y+ProjViewWorldMat[1]*gWorldMatPart1[0].y+ProjViewWorldMat[2]*gWorldMatPart2[0].y;
+    vec4 instanceWorldViewProjMatCol2 = ProjViewWorldMat[0]*gWorldMatPart0[0].z+ProjViewWorldMat[1]*gWorldMatPart1[0].z+ProjViewWorldMat[2]*gWorldMatPart2[0].z;
+    vec4 instanceWorldViewProjMatCol3 = ProjViewWorldMat[0]*gWorldMatPart0[0].w+ProjViewWorldMat[1]*gWorldMatPart1[0].w+ProjViewWorldMat[2]*gWorldMatPart2[0].w+ProjViewWorldMat[3];
 
     ///Do frustum Culling, can stay because its correct, but will need a rewrite for the compute shader version for better readability
     // this might be wrong
@@ -68,7 +68,7 @@ void main()
     worldViewProjMatCol1 = instanceWorldViewProjMatCol1;
     worldViewProjMatCol2 = instanceWorldViewProjMatCol2;
     worldViewProjMatCol3 = instanceWorldViewProjMatCol3;
-	mat3 tmp2 = inverse(mat3(gWorldMatPart0[0].xyz,gWorldMatPart1[0].xyz,gWorldMatPart2[0].xyz));
+	mat3 tmp2 = transpose(inverse(mat3(gWorldMatPart0[0].xyz,gWorldMatPart1[0].xyz,gWorldMatPart2[0].xyz)));
 	tposeInverseWorldMatCol0 = tmp2[0];
 	tposeInverseWorldMatCol1 = tmp2[1];
 	tposeInverseWorldMatCol2 = tmp2[2];

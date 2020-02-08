@@ -54,7 +54,7 @@ class ICameraSceneNode : public ISceneNode, public IEventReceiver
 
 		//! Gets the current view matrix of the camera.
 		/** \return The current view matrix of the camera. */
-		virtual const core::matrix4x3& getViewMatrix() const =0;
+		virtual const core::matrix3x4SIMD& getViewMatrix() const =0;
 
 		virtual const core::matrix4SIMD& getConcatenatedMatrix() const =0;
 

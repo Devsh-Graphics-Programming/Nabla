@@ -449,7 +449,7 @@ void COpenGLSLMaterialRenderer::setShaderConstant(const void* data, int32_t loca
         COpenGLExtensionHandler::extGlProgramUniformMatrix4x2fv(Program2,loc,cnt,isRowMajor,(GLfloat*)data);
         break;
     case ESCT_FLOAT_MAT4x3:
-        COpenGLExtensionHandler::extGlProgramUniformMatrix4x3fv(Program2,loc,cnt,false,(GLfloat*)data); // not yet because core::matrix3x4 is still in use
+        COpenGLExtensionHandler::extGlProgramUniformMatrix4x3fv(Program2,loc,cnt,isRowMajor,(GLfloat*)data); // not yet because core::matrix3x4 is still in use
         break;
 #ifdef _IRR_DEBUG
     default:

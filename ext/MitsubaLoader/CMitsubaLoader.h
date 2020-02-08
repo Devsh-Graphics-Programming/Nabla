@@ -41,6 +41,7 @@ class CMitsubaLoader : public asset::IAssetLoader
 			const asset::IMeshManipulator* manipulator;
 			const asset::IAssetLoader::SAssetLoadParams params;
 			asset::IAssetLoader::IAssetLoaderOverride* override;
+			CGlobalMitsubaMetadata* globalMeta;
 
 			//
 			using group_ass_type = core::smart_refctd_ptr<asset::ICPUMesh>;
@@ -60,9 +61,12 @@ class CMitsubaLoader : public asset::IAssetLoader
 		virtual ~CMitsubaLoader() = default;
 
 		//
-		SContext::group_ass_type	instantiateShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const core::matrix4SIMD& tform);
-		SContext::shape_ass_type	getMesh(SContext& ctx, uint32_t hierarchyLevel, const CElementShape* shape);
+		SContext::shape_ass_type	getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
+		SContext::group_ass_type	loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup);
+		SContext::shape_ass_type	loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
+
 		SContext::bsdf_ass_type		getBSDF(SContext& ctx, uint32_t hierarchyLevel, const CElementBSDF* bsdf);
+		
 		SContext::tex_ass_type		getTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture);
 
 	public:

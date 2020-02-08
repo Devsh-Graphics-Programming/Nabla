@@ -23,7 +23,7 @@
 		#define NOMINMAX
 	#endif
 	#include <windows.h>
-	#include "../src/3rdparty/GL/wglext.h"
+	#include "GL/wglext.h"
 #elif defined(_IRR_COMPILE_WITH_X11_)
     #include "GL/glx.h"
     #include "../src/3rdparty/GL/glxext.h"

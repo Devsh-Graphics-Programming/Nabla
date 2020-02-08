@@ -39,9 +39,10 @@ static_assert(
 #include "irr/irrunpack.h"
 
 using MeshBlobV1 = MeshBlobV0;
+using MeshBlobV2 = MeshBlobV1;
 
 template<>
-struct CorrespondingBlobTypeFor<ICPUMesh> { typedef MeshBlobV1 type; };
+struct CorrespondingBlobTypeFor<ICPUMesh> { typedef MeshBlobV2 type; };
 
 }
 } // irr::asset
