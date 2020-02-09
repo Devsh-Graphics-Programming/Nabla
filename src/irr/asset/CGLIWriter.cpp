@@ -150,6 +150,7 @@ namespace irr
 				return (coord+texelBlockDimension-core::vector3du32_SIMD(1u,1u,1u))/texelBlockDimension;
 			};
 
+			uint32_t regionIndex{};
 			for (auto region = image->getRegions().begin(); region != image->getRegions().end(); ++region)
 			{
 				const uint8_t* ptrBeginningOfRegion = data + region->bufferOffset;
@@ -164,7 +165,8 @@ namespace irr
 				core::vector3du32_SIMD outOffset(region->imageOffset.x, region->imageOffset.y, region->imageOffset.z);
 				outOffset = getInBlocks(outOffset);
 
-				core::vector3du32_SIMD outDims(region->imageExtent.width, region->imageExtent.height, region->imageExtent.depth);
+				const auto mipSize = image->getMipSize(regionIndex);
+				core::vector3du32_SIMD outDims(mipSize.X, mipSize.Y, mipSize.Z);
 				outDims = getInBlocks(outDims);
 
 				// out of bound
@@ -198,6 +200,7 @@ namespace irr
 								blockLineByteSize
 							);
 				}	
+				++regionIndex;
 			}
 
 			return performSavingAsIWriteFile(texture, file);
