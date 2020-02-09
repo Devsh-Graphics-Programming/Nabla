@@ -207,7 +207,7 @@ set(IRRLICHT_SRCS_NORMAL
 	COpenGLCubemapTexture.cpp
 	
 	# CUDA
-	CCUDAHandler.cpp
+	${IRR_ROOT_PATH}/src/irr/video/CCUDAHandler.cpp
 
 	# OpenCL
 	COpenCLHandler.cpp

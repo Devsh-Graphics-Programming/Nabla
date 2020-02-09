@@ -38,7 +38,9 @@ class DynamicFunctionCallerBase : public core::Unmovable
 }
 }
 
-#define IRR_SYSTEM_IMPL_MOVE_DYNLIB_FUNCPTR(FUNC_NAME) std::swap(p ## FUNC_NAME,other.p ## FUNC_NAME);
+
+#define IRR_SYSTEM_IMPL_INIT_DYNLIB_FUNCPTR(FUNC_NAME) ,p ## FUNC_NAME ## (Base::loader.loadFuncPtr( #FUNC_NAME ))
+#define IRR_SYSTEM_IMPL_SWAP_DYNLIB_FUNCPTR(FUNC_NAME) std::swap(p ## FUNC_NAME,other.p ## FUNC_NAME);
 
 #define IRR_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS( CLASS_NAME, FUNC_PTR_LOADER_TYPE, ... ) \
 class CLASS_NAME : public irr::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER_TYPE>\
@@ -46,7 +48,14 @@ class CLASS_NAME : public irr::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER
 	public:\
 		using Base = irr::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER_TYPE>;\
 \
-		using Base::Base;\
+		CLASS_NAME() : Base()\
+		{\
+		}\
+		template<typename... T>\
+		CLASS_NAME(T&& ... args) : Base(std::forward<T>(args)...)\
+			IRR_FOREACH(IRR_SYSTEM_IMPL_INIT_DYNLIB_FUNCPTR,__VA_ARGS__)\
+		{\
+		}\
 		CLASS_NAME(CLASS_NAME&& other) : CLASS_NAME()\
 		{\
 			operator=(std::move(other));\
@@ -56,7 +65,7 @@ class CLASS_NAME : public irr::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER
 		CLASS_NAME& operator=(CLASS_NAME&& other)\
 		{\
 			Base::operator=(std::move(other));\
-			IRR_FOREACH(IRR_SYSTEM_IMPL_MOVE_DYNLIB_FUNCPTR,__VA_ARGS__);\
+			IRR_FOREACH(IRR_SYSTEM_IMPL_SWAP_DYNLIB_FUNCPTR,__VA_ARGS__);\
 			return *this;\
 		}\
 \

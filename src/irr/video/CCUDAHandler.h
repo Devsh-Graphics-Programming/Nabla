@@ -48,12 +48,7 @@ class CCUDAHandler
         CCUDAHandler() = delete;
     public:
 		using LibLoader = system::DefaultFuncPtrLoader;
-		LibLoader loader;
-		CCUDAHandler(CCUDAHandler&& other)
-		{
-			std::swap(loader, other.loader);
-		}
-		
+
 		IRR_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(CUDA, LibLoader
 			,cuCtxCreate_v2
 			,cuDevicePrimaryCtxRetain
