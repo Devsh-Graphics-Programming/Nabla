@@ -164,7 +164,7 @@ namespace irr
 				core::vector3du32_SIMD outOffset(region->imageOffset.x, region->imageOffset.y, region->imageOffset.z);
 				outOffset = getInBlocks(outOffset);
 
-				core::vector3du32_SIMD outDims(imageInfo.extent.width,imageInfo.extent.height,imageInfo.extent.depth);
+				core::vector3du32_SIMD outDims(region->imageExtent.width, region->imageExtent.height, region->imageExtent.depth);
 				outDims = getInBlocks(outDims);
 
 				// out of bound
@@ -181,8 +181,6 @@ namespace irr
 				for (uint32_t inLayer=0u; inLayer<region->imageSubresource.layerCount; inLayer++)
 				{
 					const auto inData = ptrBeginningOfRegion + (inLayer * layerByteSize);
-
-
 					const auto outLayer = inLayer+region->imageSubresource.baseArrayLayer;
 
 					const auto layersData = getCurrentGliLayerAndFace(outLayer);
@@ -191,18 +189,14 @@ namespace irr
 
 					uint8_t* outData = reinterpret_cast<uint8_t*>(texture.data(gliLayer, gliFace, region->imageSubresource.mipLevel));
 
-
 					for (uint32_t zBlock=0u; zBlock<inDims[2]; zBlock++)
-					for (uint32_t yBlock=0u; yBlock<inDims[2]; yBlock++)
-					{
-						// copy whole row according to the region properties
-						memcpy
-						(
-							outData + (((zBlock+outOffset[2])*outDims[1]+yBlock+outOffset[1])*outDims[0]+outOffset[0])*blockByteSize,
-							inData + (zBlock*inDims[1]+yBlock)*inDims[0]*blockByteSize,
-							blockLineByteSize
-						);
-					}
+						for (uint32_t yBlock=0u; yBlock<inDims[1]; yBlock++)
+							memcpy // copy whole row according to the region properties
+							(
+								outData + (((zBlock+outOffset[2])*outDims[1]+yBlock+outOffset[1])*outDims[0]+outOffset[0])*blockByteSize,
+								inData + (zBlock*inDims[1]+yBlock)*inDims[0]*blockByteSize,
+								blockLineByteSize
+							);
 				}	
 			}
 
