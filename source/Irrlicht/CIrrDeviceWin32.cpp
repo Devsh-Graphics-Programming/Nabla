@@ -1027,6 +1027,9 @@ CIrrDeviceWin32::CIrrDeviceWin32(const SIrrlichtCreationParameters& params)
 	// initialize doubleclicks with system values
 	MouseMultiClicks.DoubleClickTime = GetDoubleClickTime();
 
+#ifdef _IRR_COMPILE_WITH_CUDA_
+	cuda::CCUDAHandler::init();
+#endif // _IRR_COMPILE_WITH_CUDA_
 #ifdef _IRR_COMPILE_WITH_OPENCL_
     ocl::COpenCLHandler::enumeratePlatformsAndDevices();
 #endif // _IRR_COMPILE_WITH_OPENCL_

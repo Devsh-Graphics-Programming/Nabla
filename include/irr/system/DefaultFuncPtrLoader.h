@@ -56,6 +56,7 @@ class DefaultFuncPtrLoader final : FuncPtrLoader
 		inline DefaultFuncPtrLoader& operator=(DefaultFuncPtrLoader&& other)
 		{
 			std::swap(lib, other.lib);
+			return *this;
 		}
 
 		inline bool isLibraryLoaded() override final

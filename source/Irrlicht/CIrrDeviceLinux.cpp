@@ -128,6 +128,9 @@ CIrrDeviceLinux::CIrrDeviceLinux(const SIrrlichtCreationParameters& param)
 	// create cursor control
 	CursorControl = new CCursorControl(this, CreationParams.DriverType == video::EDT_NULL);
 
+#ifdef _IRR_COMPILE_WITH_CUDA_
+	cuda::CCUDAHandler::init();
+#endif // _IRR_COMPILE_WITH_CUDA_
 #ifdef _IRR_COMPILE_WITH_OPENCL_
     ocl::COpenCLHandler::enumeratePlatformsAndDevices();
 #endif // _IRR_COMPILE_WITH_OPENCL_

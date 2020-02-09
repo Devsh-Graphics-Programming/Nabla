@@ -45,7 +45,6 @@ static const char* const OpenCLFeatureStrings[] = {
 
 class CCUDAHandler
 {
-        CCUDAHandler() = delete;
     public:
 		using LibLoader = system::DefaultFuncPtrLoader;
 
@@ -66,13 +65,12 @@ class CCUDAHandler
 			,cuCtxSynchronize
 			,cuDeviceComputeCapability
 			,cuDeviceCanAccessPeer
+			,cuDeviceGetCount
 			,cuDeviceGet
 			,cuDeviceGetAttribute
-			,cuDeviceGetCount
-			,cuDeviceGetName
-			,cuDeviceGetPCIBusId
-			,cuDeviceGetProperties
+			,cuDeviceGetUuid
 			,cuDeviceTotalMem_v2
+			,cuDeviceGetName
 			,cuDriverGetVersion
 			,cuEventCreate
 			,cuEventDestroy_v2
@@ -119,6 +117,43 @@ class CCUDAHandler
 			,cuStreamWaitEvent 
 		);
 		static CUDA cuda;
+
+		struct Device
+		{
+			Device() {}
+			Device(int ordinal) : Device()
+			{
+				CUresult result;
+
+				if (cuda.pcuDeviceGet(&handle, ordinal)!=CUDA_SUCCESS)
+				{
+					handle = 0;
+					return;
+				}
+
+				if (cuda.pcuDeviceGetName(name,sizeof(name),handle)!=CUDA_SUCCESS)
+					return;
+
+				if (cuda.pcuDeviceGetUuid(&uuid,handle)!=CUDA_SUCCESS)
+					return;
+
+				if (cuda.pcuDeviceTotalMem_v2(&vram_size,handle)!=CUDA_SUCCESS)
+					return;
+
+				for (int i=0; i<CU_DEVICE_ATTRIBUTE_MAX; i++)
+					cuda.pcuDeviceGetAttribute(attributes+i,static_cast<CUdevice_attribute>(i),handle);
+			}
+			~Device()
+			{
+			}
+
+			CUdevice handle = 0;
+			char name[124] = {};
+			CUuuid uuid = {};
+			size_t vram_size = 0ull;
+			int attributes[CU_DEVICE_ATTRIBUTE_MAX] = {};
+		};
+
 		IRR_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(NVRTC, LibLoader,
 			nvrtcGetErrorString,
 			nvrtcVersion,
@@ -134,14 +169,55 @@ class CCUDAHandler
 		);
 		static NVRTC nvrtc;
 
-		static void init()
+	protected:
+        CCUDAHandler() = default;
+
+		_IRR_STATIC_INLINE int CudaVersion = 0;
+		_IRR_STATIC_INLINE int DeviceCount = 0;
+		static core::vector<Device> devices;
+
+	public:
+		static CUresult init()
 		{
+			CUresult result;
+
+
 			cuda = CUDA("cuda");
+			#define SAFE_CUDA_CALL(NO_PTR_ERROR,FUNC,...) \
+			{\
+				if (!cuda.p ## FUNC)\
+					return NO_PTR_ERROR;\
+				result = cuda.p ## FUNC ## (__VA_ARGS__);\
+				if (result!=CUDA_SUCCESS)\
+					return result;\
+			}
+			
+			SAFE_CUDA_CALL(CUDA_ERROR_NOT_SUPPORTED,cuInit,0)
+				
+			SAFE_CUDA_CALL(CUDA_ERROR_NOT_SUPPORTED,cuDriverGetVersion,&CudaVersion)
+			if (CudaVersion<9000)
+				return CUDA_ERROR_SYSTEM_DRIVER_MISMATCH;
+			
+			SAFE_CUDA_CALL(CUDA_ERROR_NOT_SUPPORTED,cuDeviceGetCount,&DeviceCount)
+
+			devices.resize(DeviceCount);
+			for (int i=0; i<DeviceCount; i++)
+				devices[i] = Device(i);
+			
+			#undef SAFE_CUDA_CALL
+
 			nvrtc = NVRTC("nvrtc");
+
+
+			return CUDA_SUCCESS;
 		}
 		static void deinit()
 		{
+			devices.resize(0u);
+
 			cuda = CUDA();
+
+
 			nvrtc = NVRTC();
 		}
 

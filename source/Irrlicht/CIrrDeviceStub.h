@@ -8,6 +8,7 @@
 #include "IrrlichtDevice.h"
 #include "SIrrCreationParameters.h"
 #include "CVideoModeList.h"
+#include "irr/video/CCUDAHandler.h"
 #include "COpenCLHandler.h"
 #include "irr/asset/IIncludeHandler.h"
 

@@ -30,12 +30,17 @@ class DynamicLibraryFunctionPointer
 			p = nullptr;
 		}
 
+		inline explicit operator bool() const { return p; }
+		inline bool operator!() const { return !p; }
+	
+
 		template<typename... T>
-		inline result_type operator()(T&& ... args)
+		inline result_type operator()(std::function<result_type(const char*)> error, T&& ... args)
 		{
 			if (p)
 				return p(std::forward<T>(args)...);
-			return result_type{};
+			assert(error);
+			return error(name);
 		}
 
 		template<typename... T>
@@ -49,13 +54,13 @@ class DynamicLibraryFunctionPointer
 		}
 
 		template<typename... T>
-		inline result_type operator()(std::function<result_type(const char*)> error, T&& ... args)
+		inline result_type operator()(T&& ... args)
 		{
 			if (p)
 				return p(std::forward<T>(args)...);
-			assert(error);
-			return error(name);
+			return result_type{};
 		}
+
 
 		inline DynamicLibraryFunctionPointer& operator=(DynamicLibraryFunctionPointer&& other)
 		{
