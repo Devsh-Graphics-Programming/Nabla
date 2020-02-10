@@ -114,7 +114,7 @@ namespace irr { namespace video
             using decT = typename std::conditional<isSignedFormat<sF>(), int64_t, uint64_t>::type;
             using encT = typename std::conditional<isSignedFormat<dF>(), int64_t, uint64_t>::type;
 
-            decT decbuf[4];
+            decT decbuf[4] {0, 0, 0, 1};
             impl::SCallDecode<sF, decT>{}(srcPix, decbuf, _blockX, _blockY);
 			SWIZZLE(decbuf)
             impl::SCallEncode<dF, encT>{}(dstPix, reinterpret_cast<encT*>(decbuf));
@@ -126,7 +126,7 @@ namespace irr { namespace video
             using decT = double;
             using encT = double;
 
-            decT decbuf[4];
+            decT decbuf[4] { 0, 0, 0, 1 };
             impl::SCallDecode<sF, decT>{}(srcPix, decbuf, _blockX, _blockY);
 			SWIZZLE(decbuf)
             impl::SCallEncode<dF, encT>{}(dstPix, decbuf);
@@ -136,7 +136,7 @@ namespace irr { namespace video
             using decT = double;
             using encT = typename std::conditional<isSignedFormat<dF>(), int64_t, uint64_t>::type;
 
-            decT decbuf[4];
+            decT decbuf[4] { 0, 0, 0, 1 };
             impl::SCallDecode<sF, decT>{}(srcPix, decbuf, _blockX, _blockY);
 			SWIZZLE(decbuf)
             encT encbuf[4];
@@ -149,7 +149,7 @@ namespace irr { namespace video
             using decT = typename std::conditional<isSignedFormat<sF>(), int64_t, uint64_t>::type;
             using encT = double;
 
-            decT decbuf[4];
+            decT decbuf[4] { 0, 0, 0, 1 };
             impl::SCallDecode<sF, decT>{}(srcPix, decbuf, _blockX, _blockY);
 			SWIZZLE(decbuf)
             encT encbuf[4];
@@ -159,8 +159,27 @@ namespace irr { namespace video
         }
 	#undef SWIZZLE
     }
+	//! A function converting a data to desired texel format
+	/**
+		To use it, you have to pass source data with texel format \bsF\b you want to exchange
+		with \bdF\b. srcPix data is an array due to planar formats. Normally you would pass
+		to it data dived into 4 pointers with single channel data per pointer to each array element, 
+		but if source data isn't a planar format, you have to pass \awhole\a data to \bsrcPix[0]\b without 
+		caring about left elements - make them nullptr. \bdstPix\b is a destination pointer that you will
+        use after convertion. Remember - you have to carry about it's size before passing it to the 
+        function, so if were to make it RGBA beginning with R, you would have to allocate appropriate memory for RGBA buffer.
+		\b_pixOrBlockCnt\b is an amount of texels or blocks you want to convert and \b_imgSize\b is a size
+		in texels of an image they belong to. There is also a polymorphic \bswizzle\b parameter
+		that makes the whole process slower if used (otherwise it is a null pointer), but it 
+		allows you to swizzle the RGBA compoments into a different arrangement at runtime.
+
+		So for example, if a texel amount is 4 and a data arrangement passed to the function looks like
+		\aR, R, R, R\a, you could convert it for instance to a data arrangement looking like
+		\bRGBA, RGBA, RGBA, RGBA\a. As you may see texel amount doesn't change, but the internal
+		buffer's layout does as desired.
+	*/
     template<asset::E_FORMAT sF, asset::E_FORMAT dF, class Swizzle = DefaultSwizzle >
-    inline void convertColor(const void* srcPix[4], void* dstPix, size_t _pixOrBlockCnt, core::vector3d<uint32_t>& _imgSize, PolymorphicSwizzle* swizzle = nullptr)
+    inline void convertColor(const void* srcPix[4], void* dstPix, size_t _pixOrBlockCnt, const core::vector3d<uint32_t>& _imgSize, PolymorphicSwizzle* swizzle = nullptr)
     {
         using namespace asset;
 

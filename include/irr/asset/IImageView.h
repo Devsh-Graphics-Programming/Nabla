@@ -147,6 +147,33 @@ class IImageView : public IDescriptor
 			auto actualLayerCount = subresourceRange.layerCount!=remaining_array_layers ? subresourceRange.layerCount:
 										((sourceIs3D&&sourceIs2DCompat ? mipExtent.z:imgParams.arrayLayers)-subresourceRange.baseArrayLayer);
 			bool checkLayers = true;
+			auto hasCubemapProporties = [&](bool isItACubemapArray = false)
+			{
+				if (!(imgParams.flags & IImage::ECF_CUBE_COMPATIBLE_BIT))
+					return false;
+				if (imgParams.samples > 1u)
+					return false;
+				if (imgParams.extent.height != imgParams.extent.width)
+					return false;
+				if (imgParams.extent.depth > 1u)
+					return false;
+				if (actualLayerCount % 6u)
+					return false;
+				else
+					if (isItACubemapArray)
+					{
+						if (imgParams.arrayLayers < 6u)
+							return false;
+					}
+					else
+						if (imgParams.arrayLayers != 6u)
+							return false;
+						
+				if (subresourceRange.baseArrayLayer + actualLayerCount > imgParams.arrayLayers)
+					return false;
+				return true;
+			};
+
 			switch (_params.viewType)
 			{
 				case ET_1D:
@@ -184,21 +211,11 @@ class IImageView : public IDescriptor
 					}
 					break;
 				case ET_CUBE_MAP_ARRAY:
-					if (!(imgParams.flags&IImage::ECF_CUBE_COMPATIBLE_BIT))
+					if (!hasCubemapProporties(true))
 						return false;
-					if (imgParams.samples>1u)
-						return false;
-					if (imgParams.extent.height!=imgParams.extent.width)
-						return false;
-					if (imgParams.extent.depth>1u)
-						return false;
-					if (imgParams.arrayLayers<6u || actualLayerCount % 6u)
-						return false;
-					if (subresourceRange.baseArrayLayer+actualLayerCount>imgParams.arrayLayers)
-						return false;
-					_IRR_FALLTHROUGH;
+					break;
 				case ET_CUBE_MAP:
-					if (actualLayerCount!=6u)
+					if (!hasCubemapProporties(false))
 						return false;
 					break;
 				case ET_3D:
