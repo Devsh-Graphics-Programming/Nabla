@@ -29,19 +29,6 @@ namespace irr
 namespace cuda
 {
 
-#if 0
-static const char* const OpenCLFeatureStrings[] = {
-    "cl_khr_gl_sharing",
-	"cl_khr_gl_event"
-};
-
-
-#define IRR_MAX_OCL_PLATFORMS 5
-#define IRR_MAX_OCL_DEVICES 8
-#endif
-
-
-
 
 class CCUDAHandler
 {
@@ -182,7 +169,13 @@ class CCUDAHandler
 			CUresult result;
 
 
-			cuda = CUDA("cuda");
+			cuda = CUDA(
+				#if defined(_IRR_WINDOWS_API_)
+					"nvcuda"
+				#elif defined(_IRR_POSIX_API_)
+					"cuda"
+				#endif
+			);
 			#define SAFE_CUDA_CALL(NO_PTR_ERROR,FUNC,...) \
 			{\
 				if (!cuda.p ## FUNC)\

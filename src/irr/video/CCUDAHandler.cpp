@@ -8,8 +8,10 @@ namespace irr
 namespace cuda
 {
 
-CCUDAHandler::CUDA cuda;
-CCUDAHandler::NVRTC nvrtc;
+CCUDAHandler::CUDA CCUDAHandler::cuda;
+CCUDAHandler::NVRTC CCUDAHandler::nvrtc;
+
+core::vector<CCUDAHandler::Device> CCUDAHandler::devices;
 
 }
 }
