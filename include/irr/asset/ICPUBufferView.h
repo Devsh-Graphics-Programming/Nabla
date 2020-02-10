@@ -26,16 +26,19 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
         {
             auto buf = (_depth > 0u && m_buffer) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_buffer->clone(_depth-1u)) : m_buffer;
             auto cp = core::make_smart_refctd_ptr<ICPUBufferView>(std::move(buf), m_format, m_offset, m_size);
-
-            cp->m_mutable = true;
+            clone_common(cp.get());
 
             return cp;
         }
 
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-			if (referenceLevelsBelowToConvert--)
-				m_buffer->convertToDummyObject(referenceLevelsBelowToConvert);
+            if (isDummyObjectForCacheAliasing)
+                return;
+            convertToDummyObject_common(referenceLevelsBelowToConvert);
+
+			if (referenceLevelsBelowToConvert)
+				m_buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}
 		E_TYPE getAssetType() const override { return ET_BUFFER_VIEW; }
 

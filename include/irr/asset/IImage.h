@@ -417,7 +417,7 @@ class IImage : public IDescriptor
 			const bool hasAnAlignment = (blockAlignment != unit).any();
 
 			core::rational<size_t> bytesPerPixel = getBytesPerPixel();
-			size_t memreq = 0ul;
+			size_t memreq = 0ull;
 			for (uint32_t i=0u; i<params.mipLevels; i++)
 			{
 				auto levelSize = getMipSize(i);
@@ -554,11 +554,11 @@ class IImage : public IDescriptor
 						rowLength += dstBlockDims.x-1u;
 						rowLength /= dstBlockDims.x;
 
-						size_t maxBufferOffset = (it->imageExtent.depth+dstBlockDims.z-1u)/dstBlockDims.z-1u;
+						size_t maxBufferOffset = (it->imageExtent.depth + dstBlockDims.z - 1u) / dstBlockDims.z - 1u;
 						maxBufferOffset *= imageHeight;
-						maxBufferOffset += (it->imageExtent.height+dstBlockDims.y-1u)/dstBlockDims.y-1u;
+						maxBufferOffset += (it->imageExtent.height + dstBlockDims.y - 1u) / dstBlockDims.y - 1u;
 						maxBufferOffset *= rowLength;
-						maxBufferOffset += (it->imageExtent.width+dstBlockDims.x-1u)/dstBlockDims.z-1u;
+						maxBufferOffset += (it->imageExtent.width + dstBlockDims.x - 1u) / dstBlockDims.x - 1u;
 						maxBufferOffset = (maxBufferOffset+1u)*blockByteSize;
 						maxBufferOffset += it->bufferOffset;
 						if (maxBufferOffset>src->getSize())

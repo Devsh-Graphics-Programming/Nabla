@@ -35,8 +35,7 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
                 par.image = core::smart_refctd_ptr_static_cast<ICPUImage>(par.image->clone(_depth-1u));
 
             auto cp = core::make_smart_refctd_ptr<ICPUImageView>(std::move(par));
-
-            cp->m_mutable = true;
+            clone_common(cp.get());
 
             return cp;
         }
@@ -44,8 +43,12 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 		//!
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-			if (referenceLevelsBelowToConvert--)
-				params.image->convertToDummyObject(referenceLevelsBelowToConvert);
+            if (isDummyObjectForCacheAliasing)
+                return;
+            convertToDummyObject_common(referenceLevelsBelowToConvert);
+
+			if (referenceLevelsBelowToConvert)
+				params.image->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}
 		//!
 		IAsset::E_TYPE getAssetType() const override { return ET_IMAGE_VIEW; }

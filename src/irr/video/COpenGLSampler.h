@@ -62,7 +62,7 @@ class COpenGLSampler : public IGPUSampler
 			GLuint m_GLname;
 			gl::extGlCreateSamplers(1, &m_GLname);//TODO before we were using GlGenSamplers for some reason..
 
-			GLenum minFilterMap[2][2]{
+			constexpr GLenum minFilterMap[2][2]{
 				{GL_NEAREST_MIPMAP_NEAREST, GL_NEAREST_MIPMAP_LINEAR},
 				{GL_LINEAR_MIPMAP_NEAREST, GL_LINEAR_MIPMAP_LINEAR}
 			};
@@ -81,22 +81,24 @@ class COpenGLSampler : public IGPUSampler
 			gl::extGlSamplerParameterf(m_GLname, GL_TEXTURE_MIN_LOD, m_params.MinLod);
 			gl::extGlSamplerParameterf(m_GLname, GL_TEXTURE_MAX_LOD, m_params.MaxLod);
 
-			GLenum compareFuncMap[8]{
-				GL_NEVER,
-				GL_LESS,
-				GL_EQUAL,
-				GL_LEQUAL,
-				GL_GREATER,
-				GL_NOTEQUAL,
-				GL_GEQUAL,
-				GL_ALWAYS
-			};
-			gl::extGlSamplerParameteri(m_GLname, GL_TEXTURE_COMPARE_FUNC, compareFuncMap[m_params.CompareFunc]);
+            if (m_params.CompareEnable)
+            {
+                gl::extGlSamplerParameteri(m_GLname, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
 
-			if (m_params.CompareEnable)
-				gl::extGlSamplerParameteri(m_GLname, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+                constexpr GLenum compareFuncMap[8]{
+                    GL_NEVER,
+                    GL_LESS,
+                    GL_EQUAL,
+                    GL_LEQUAL,
+                    GL_GREATER,
+                    GL_NOTEQUAL,
+                    GL_GEQUAL,
+                    GL_ALWAYS
+                };
+                gl::extGlSamplerParameteri(m_GLname, GL_TEXTURE_COMPARE_FUNC, compareFuncMap[m_params.CompareFunc]);
+            }
 
-			GLfloat borderColorMap[3][4]{
+			constexpr GLfloat borderColorMap[3][4]{
 				{0.f, 0.f, 0.f, 0.f},
 				{0.f, 0.f, 0.f, 1.f},
 				{1.f, 1.f, 1.f, 1.f}

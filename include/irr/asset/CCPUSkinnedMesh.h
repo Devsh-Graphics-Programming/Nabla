@@ -31,6 +31,7 @@ class CCPUSkinnedMesh : public ICPUSkinnedMesh
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
             auto cp = core::make_smart_refctd_ptr<CCPUSkinnedMesh>();
+            clone_common(cp.get());
 
             cp->LocalBuffers = core::vector<core::smart_refctd_ptr<ICPUSkinnedMeshBuffer>>(LocalBuffers.size());
             for (size_t i = 0u; i < LocalBuffers.size(); ++i)
@@ -52,8 +53,6 @@ class CCPUSkinnedMesh : public ICPUSkinnedMesh
                     child = cp->AllJoints[ix];
                 }
             }
-
-            cp->m_mutable = true;
 
             return cp;
         }

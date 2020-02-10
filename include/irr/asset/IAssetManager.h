@@ -384,7 +384,7 @@ class IAssetManager : public core::IReferenceCounted
 			auto res = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SAssetBundle> >(reqSz);
             findAssets(reqSz, res->data(), _key, _types);
             auto retval = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SAssetBundle> >(reqSz);
-			memcpy(retval->data(),res->data(),reqSz);
+            std::move(res->begin(), res->begin()+reqSz, retval->begin());
 			return retval;
         }
 
@@ -436,10 +436,10 @@ class IAssetManager : public core::IReferenceCounted
 		However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
         void convertAssetToEmptyCacheHandle(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject, uint32_t referenceLevelsBelowToConvert=~0u)
         {
-			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
-            _asset->grab();
             _asset->convertToDummyObject(referenceLevelsBelowToConvert);
-            m_cpuGpuCache[ix]->insert(_asset, std::move(_gpuObject));
+			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
+            if (m_cpuGpuCache[ix]->insert(_asset, std::move(_gpuObject)))
+                _asset->grab();
         }
 
 		core::smart_refctd_ptr<core::IReferenceCounted> findGPUObject(const IAsset* _asset)
@@ -648,6 +648,8 @@ class IAssetManager : public core::IReferenceCounted
         // for greet/dispose lambdas for asset caches so we don't have to make another friend decl.
         //TODO change name
         inline void setAssetCached(SAssetBundle& _asset, bool _val) const { _asset.setCached(_val); }
+
+        inline void setAssetMutable(IAsset* _asset, bool _val) const { _asset->m_mutable = _val; }
 
 		//
 		void addLoadersAndWriters();

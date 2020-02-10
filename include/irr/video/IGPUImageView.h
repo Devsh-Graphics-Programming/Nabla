@@ -18,6 +18,8 @@ class IGPUImageView : public asset::IImageView<IGPUImage>
 		//! Regenerates the mip map levels of the texture.
 		virtual void regenerateMipMapLevels() = 0; // deprecated
 
+        const SCreationParams& getCreationParameters() const { return params; }
+
 	protected:
 		IGPUImageView(SCreationParams&& _params) : IImageView<IGPUImage>(std::move(_params)) {}
 		virtual ~IGPUImageView() = default;

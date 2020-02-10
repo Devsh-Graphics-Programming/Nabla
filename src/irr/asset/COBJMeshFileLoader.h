@@ -8,6 +8,7 @@
 #include "irr/core/core.h"
 #include "irr/asset/ICPUMeshBuffer.h"
 #include "irr/asset/IAssetLoader.h"
+#include "irr/asset/CMTLPipelineMetadata.h"
 
 namespace irr
 {
@@ -55,62 +56,11 @@ public:
     float uv[2];
     uint32_t normal32bit;
 } PACK_STRUCT;
-
-class SObjVertex16
-{
-public:
-    SObjVertex16(const SObjVertex& other)
-    {
-        pos[0] = other.pos[0];
-        pos[1] = other.pos[1];
-        pos[2] = other.pos[2];
-        for (size_t i=0; i<2; i++)
-        {
-            double x = other.uv[i];
-            x *= 0xffffu;
-            uv[i] = x;
-        }
-        normal32bit = other.normal32bit;
-    }
-    float pos[3];
-    uint16_t uv[2];
-    uint32_t normal32bit;
-} PACK_STRUCT;
-
-class SObjVertex8
-{
-public:
-    SObjVertex8(const SObjVertex& other)
-    {
-        pos[0] = other.pos[0];
-        pos[1] = other.pos[1];
-        pos[2] = other.pos[2];
-        for (size_t i=0; i<2; i++)
-        {
-            double x = other.uv[i];
-            x *= 0xffu;
-            uv[i] = x;
-        }
-        normal32bit = other.normal32bit;
-    }
-    float pos[3];
-    uint8_t uv[2];
-    uint32_t normal32bit;
-} PACK_STRUCT;
 #include "irr/irrunpack.h"
 
 //! Meshloader capable of loading obj meshes.
 class COBJMeshFileLoader : public asset::IAssetLoader
 {
-    enum E_TEXTURE_TYPE : uint8_t
-    {
-        ETT_COLOR_MAP,
-        ETT_BUMP_MAP,
-        ETT_OPACITY_MAP,
-        ETT_REFLECTION_MAP
-    };
-
-    class SObjMtl; // forward decl.
     struct SContext
     {
         SContext(const IAssetLoader::SAssetLoadContext& _innerCtx, uint32_t _topHierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
@@ -122,15 +72,6 @@ class COBJMeshFileLoader : public asset::IAssetLoader
 
         const bool useGroups = false;
         const bool useMaterials = true;
-
-        core::vector<SObjMtl*> Materials;
-        core::unordered_map<SObjMtl*, asset::ICPUMeshBuffer*> preloadedSubmeshes;
-
-        ~SContext()
-        {
-            for (auto& m : Materials)
-                if (m) delete m;
-        }
     };
 
 protected:
@@ -163,47 +104,6 @@ public:
     virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 private:
-
-	class SObjMtl : public core::AllocationOverrideDefault
-	{
-        public:
-            SObjMtl() : Bumpiness (1.0f), Illumination(0),
-                RecalculateNormals(false)
-            {
-#ifndef NEW_SHADERS
-                Material.Shininess = 0.0f;
-                Material.AmbientColor = video::SColorf(0.2f, 0.2f, 0.2f, 1.0f).toSColor();
-                Material.DiffuseColor = video::SColorf(0.8f, 0.8f, 0.8f, 1.0f).toSColor();
-                Material.SpecularColor = video::SColorf(1.0f, 1.0f, 1.0f, 1.0f).toSColor();
-#endif
-            }
-
-            SObjMtl(const SObjMtl& o)
-                : Name(o.Name), Group(o.Group),
-                Bumpiness(o.Bumpiness), Illumination(o.Illumination),
-                RecalculateNormals(false)
-            {
-#ifndef NEW_SHADERS
-                Material = o.Material;
-#endif
-            }
-
-            core::map<SObjVertex, int> VertMap;
-            core::vector<SObjVertex> Vertices;
-            core::vector<uint32_t> Indices;
-#ifndef NEW_SHADERS
-            video::SCPUMaterial Material;
-#endif
-            std::string Name;
-            std::string Group;
-            float Bumpiness;
-            char Illumination;
-            bool RecalculateNormals;
-	};
-
-	// helper method for material reading
-	const char* readTextures(const SContext& _ctx, const char* bufPtr, const char* const bufEnd, SObjMtl* currMaterial, const io::path& relPath);
-
 	// returns a pointer to the first printable character available in the buffer
 	const char* goFirstWord(const char* buf, const char* const bufEnd, bool acrossNewlines=true);
 	// returns a pointer to the first printable character after the first non-printable
@@ -218,18 +118,12 @@ private:
 	// combination of goNextWord followed by copyWord
 	const char* goAndCopyNextWord(char* outBuf, const char* inBuf, uint32_t outBufLength, const char* const pBufEnd);
 
-	//! Read the material from the given file
-	void readMTL(SContext& _ctx, const char* fileName, const io::path& relPath);
-
-	//! Find and return the material with the given name
-	SObjMtl* findMtl(SContext& _ctx, const std::string& mtlName, const std::string& grpName);
-
 	//! Read RGB color
 	const char* readColor(const char* bufPtr, video::SColor& color, const char* const pBufEnd);
 	//! Read 3d vector of floats
-	const char* readVec3(const char* bufPtr, core::vector3df& vec, const char* const pBufEnd);
+	const char* readVec3(const char* bufPtr, float vec[3], const char* const pBufEnd);
 	//! Read 2d vector of floats
-	const char* readUV(const char* bufPtr, core::vector2df& vec, const char* const pBufEnd);
+	const char* readUV(const char* bufPtr, float vec[2], const char* const pBufEnd);
 	//! Read boolean value represented as 'on' or 'off'
 	const char* readBool(const char* bufPtr, bool& tf, const char* const bufEnd);
 

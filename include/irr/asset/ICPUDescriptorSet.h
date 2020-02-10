@@ -36,6 +36,7 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
         {
             auto layout = (_depth > 0u && m_layout) ? core::smart_refctd_ptr_static_cast<ICPUDescriptorSetLayout>(m_layout->clone(_depth - 1u)) : m_layout;
             auto cp = core::make_smart_refctd_ptr<ICPUDescriptorSet>(std::move(layout));
+            clone_common(cp.get());
 
             const uint32_t max_ix = getMaxDescriptorBindingIndex();
             for (uint32_t i = 0u; i <= max_ix; ++i)
@@ -85,15 +86,18 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
                 }
             }
 
-            cp->m_mutable = true;
-
             return cp;
         }
 
 		inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-			if (referenceLevelsBelowToConvert--)
+            if (isDummyObjectForCacheAliasing)
+                return;
+            convertToDummyObject_common(referenceLevelsBelowToConvert);
+
+			if (referenceLevelsBelowToConvert)
 			{
+                --referenceLevelsBelowToConvert;
 				m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
 				for (auto it=m_descriptors->begin(); it!=m_descriptors->end(); it++)
 				{
@@ -116,8 +120,9 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 					}
 				}
 			}
-			m_descriptors = nullptr;
-			m_bindingInfo = nullptr;
+            //dont drop descriptors so that we can access GPU descriptors through driver->getGPUObjectsFromAssets()
+			//m_descriptors = nullptr;
+			//m_bindingInfo = nullptr;
 		}
 		inline E_TYPE getAssetType() const override { return ET_DESCRIPTOR_SET; }
 

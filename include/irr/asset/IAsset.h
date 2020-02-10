@@ -152,9 +152,17 @@ class IAsset : virtual public core::IReferenceCounted
 
         virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
 
-		friend IAssetManager;
+    protected:
+        void clone_common(IAsset* _clone) const
+        {
+            _clone->m_metadata = m_metadata;
+            assert(!isDummyObjectForCacheAliasing);
+            _clone->isDummyObjectForCacheAliasing = false;
+            _clone->m_mutable = true;
+        }
 
 	private:
+		friend IAssetManager;
 		core::smart_refctd_ptr<IAssetMetadata> m_metadata;
 
 		void setMetadata(core::smart_refctd_ptr<IAssetMetadata>&& _metadata) { m_metadata = std::move(_metadata); }
@@ -162,7 +170,7 @@ class IAsset : virtual public core::IReferenceCounted
 	protected:
 		bool isDummyObjectForCacheAliasing; //!< A bool for setting whether Asset is in dummy state. @see convertToDummyObject(uint32_t referenceLevelsBelowToConvert)
 
-        bool m_mutable = false;
+        bool m_mutable = true;
 
 		//! To be implemented by base classes, dummies must retain references to other assets
 		//! but cleans up all other resources which are not assets.
@@ -182,6 +190,11 @@ class IAsset : virtual public core::IReferenceCounted
 			@param referenceLevelsBelowToConvert says how many times to recursively call `convertToDummyObject` on its references.
 		*/
 		virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) = 0;
+
+        void convertToDummyObject_common(uint32_t referenceLevelsBelowToConvert)
+        {
+            isDummyObjectForCacheAliasing = true;
+        }
 
 		//! Checks if the object is either not dummy or dummy but in some cache for a purpose
 		inline bool isInValidState() { return !isDummyObjectForCacheAliasing /* || !isCached TODO*/; }
@@ -259,7 +272,12 @@ class SAssetBundle
 		//! Overloaded operator checking if both collections of Assets\b are\b the same arrays in memory
 		bool operator==(const SAssetBundle& _other) const
 		{
-			return _other.m_contents == m_contents;
+            if (m_contents->size() != _other.m_contents->size())
+                return false;
+            for (size_t i = 0ull; i < m_contents->size(); ++i)
+                if ((*m_contents)[i] != (*_other.m_contents)[i])
+                    return false;
+            return true;
 		}
 
 		//! Overloaded operator checking if both collections of Assets\b aren't\b the same arrays in memory

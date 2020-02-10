@@ -16,17 +16,24 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		using base_t = IRenderpassIndependentPipeline<ICPUSpecializedShader, ICPUPipelineLayout>;
 
 	public:
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t DESC_SET_HIERARCHYLEVELS_BELOW = 0u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t IMAGEVIEW_HIERARCHYLEVELS_BELOW = 1u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t IMAGE_HIERARCHYLEVELS_BELOW = 2u;
+
+
 		using base_t::base_t;
 
 		size_t conservativeSizeEstimate() const override { return sizeof(base_t); }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-			if (referenceLevelsBelowToConvert--)
+			if (referenceLevelsBelowToConvert)
 			{
-				static_cast<ICPURenderpassIndependentPipeline*>(m_parent.get())->convertToDummyObject(referenceLevelsBelowToConvert);
+                //intentionally parent is not converted
+                --referenceLevelsBelowToConvert;
 				m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
 				for (auto i=0u; i<SHADER_STAGE_COUNT; i++)
-					m_shaders[i]->convertToDummyObject(referenceLevelsBelowToConvert);
+                    if (m_shaders[i])
+					    m_shaders[i]->convertToDummyObject(referenceLevelsBelowToConvert);
 			}
 		}
 
@@ -51,8 +58,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
                 shaders_raw.data(), &*std::find(shaders_raw.begin(), shaders_raw.end(), nullptr),
                 m_vertexInputParams, m_blendParams, m_primAsmParams, m_rasterParams
             );
-
-            cp->m_mutable = true;
+            clone_common(cp.get());
 
             return cp;
         }

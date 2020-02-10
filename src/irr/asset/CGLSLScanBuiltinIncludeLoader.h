@@ -15,7 +15,7 @@ namespace irr { namespace asset
 class CGLSLScanBuiltinIncludeLoader : public asset::IBuiltinIncludeLoader
 {
 public:
-    const char* getVirtualDirectoryName() const override { return "scan/"; }
+    const char* getVirtualDirectoryName() const override { return "glsl/scan/"; }
 
 protected:
     core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override;

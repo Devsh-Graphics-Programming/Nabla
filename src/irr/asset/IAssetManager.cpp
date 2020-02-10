@@ -1,5 +1,8 @@
 #include "irr/asset/asset.h"
 
+#ifdef _IRR_COMPILE_WITH_MTL_LOADER_
+#include "irr/asset/CGraphicsPipelineLoaderMTL.h"
+#endif
 
 #ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
 #include "irr/asset/COBJMeshFileLoader.h"
@@ -17,10 +20,6 @@
 #include "irr/asset/CBAWMeshFileLoader.h"
 #endif
 
-#ifdef _IRR_COMPILE_WITH_DDS_LOADER_
-#include "irr/asset/CImageLoaderDDS.h"
-#endif
-
 #ifdef _IRR_COMPILE_WITH_JPG_LOADER_
 #include "irr/asset/CImageLoaderJPG.h"
 #endif
@@ -35,6 +34,10 @@
 
 #ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
 #include "irr/asset/CImageLoaderOpenEXR.h"
+#endif
+
+#ifdef _IRR_COMPILE_WITH_GLI_LOADER_
+#include "irr/asset/CGLILoader.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_STL_WRITER_
@@ -65,6 +68,10 @@
 #include "irr/asset/CImageWriterOpenEXR.h"
 #endif
 
+#ifdef _IRR_COMPILE_WITH_GLI_WRITER_
+#include "irr/asset/CGLIWriter.h"
+#endif
+
 #include "irr/asset/CGLSLLoader.h"
 #include "irr/asset/CSPVLoader.h"
 
@@ -74,11 +81,22 @@ using namespace asset;
 
 std::function<void(SAssetBundle&)> irr::asset::makeAssetGreetFunc(const IAssetManager* const _mgr)
 {
-    return [_mgr](SAssetBundle& _asset) { _mgr->setAssetCached(_asset, true); };
+    return [_mgr](SAssetBundle& _asset) {
+        _mgr->setAssetCached(_asset, true); 
+        auto rng = _asset.getContents();
+        //assets being in the cache must be immutable
+        for (auto it = rng.first; it != rng.second; ++it)
+            _mgr->setAssetMutable(it->get(), false);
+    };
 }
 std::function<void(SAssetBundle&)> irr::asset::makeAssetDisposeFunc(const IAssetManager* const _mgr)
 {
-    return [_mgr](SAssetBundle& _asset) { _mgr->setAssetCached(_asset, false); };
+    return [_mgr](SAssetBundle& _asset) { 
+        _mgr->setAssetCached(_asset, false); 
+        auto rng = _asset.getContents();
+        for (auto it = rng.first; it != rng.second; ++it)
+            _mgr->setAssetMutable(it->get(), true);
+    };
 }
 
 void IAssetManager::initializeMeshTools()
@@ -107,14 +125,14 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _IRR_COMPILE_WITH_PLY_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>());
 #endif
+#ifdef _IRR_COMPILE_WITH_MTL_LOADER_
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this));
+#endif
 #ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::COBJMeshFileLoader>(this));
 #endif
 #ifdef _IRR_COMPILE_WITH_BAW_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
-#endif
-#ifdef _IRR_COMPILE_WITH_DDS_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderDDS>());
 #endif
 #ifdef _IRR_COMPILE_WITH_JPG_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderJPG>());
@@ -125,6 +143,9 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderOpenEXR>());
 #endif
+#ifdef  _IRR_COMPILE_WITH_GLI_LOADER_
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLILoader>());
+#endif 
 #ifdef _IRR_COMPILE_WITH_TGA_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>());
 #endif
@@ -151,5 +172,8 @@ void IAssetManager::addLoadersAndWriters()
 #endif
 #ifdef _IRR_COMPILE_WITH_OPENEXR_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterOpenEXR>());
+#endif
+#ifdef _IRR_COMPILE_WITH_GLI_WRITER_
+	addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>());
 #endif
 }

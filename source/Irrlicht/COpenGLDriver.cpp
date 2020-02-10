@@ -1175,13 +1175,17 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     core::smart_refctd_ptr<asset::ICPUShader> spvCPUShader = nullptr;
     if (glUnspec->containsGLSL()) {
         std::string glsl = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
+        auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, "????");
         asset::ICPUShader::insertGLSLExtensionsDefines(glsl, getSupportedGLSLExtensions().get());
         core::smart_refctd_ptr<asset::ICPUBuffer> spvCode = GLSLCompiler->compileSPIRVFromGLSL(
-                glsl.c_str(),
+                reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,
                 EP.c_str(),
                 "????"
             );
+        //auto fl = fopen("shader.glsl","w");
+        //fwrite(reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()), 1, glslShader_woIncludes->getSPVorGLSL()->getSize(), fl);
+        //fclose(fl);
         if (!spvCode)
             return nullptr;
 
@@ -1378,6 +1382,9 @@ void COpenGLDriver::copyImage(IGPUImage* srcImage, IGPUImage* dstImage, uint32_t
 
 void COpenGLDriver::copyBufferToImage(IGPUBuffer* srcBuffer, IGPUImage* dstImage, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
 {
+    auto ctx = getThreadContext_helper(false);
+    if (!ctx)
+        return;
 	if (!dstImage->validateCopies(pRegions,pRegions+regionCount,srcBuffer))
 		return;
 
@@ -1393,26 +1400,25 @@ void COpenGLDriver::copyBufferToImage(IGPUBuffer* srcBuffer, IGPUImage* dstImage
 	const auto bpp = asset::getBytesPerPixel(format);
 	const auto blockDims = asset::getBlockDimensions(format);
 
-	// TODO: @Crisspl add this to your state tracking
-	extGlBindBuffer(GL_PIXEL_UNPACK_BUFFER,static_cast<COpenGLBuffer*>(srcBuffer)->getOpenGLName());
+    ctx->nextState.pixelUnpack.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<COpenGLBuffer*>(srcBuffer));
 	for (auto it=pRegions; it!=pRegions+regionCount; it++)
 	{
 		// TODO: check it->bufferOffset is aligned to data type of E_FORMAT
 		//assert(?);
 
-		// TODO: track this as well
 		uint32_t pitch = ((it->bufferRowLength ? it->bufferRowLength:it->imageExtent.width)*bpp).getIntegerApprox();
 		int32_t alignment = 0x1<<core::min(core::max(core::findLSB(it->bufferOffset),core::findLSB(pitch)),3u);
-		glPixelStorei(GL_UNPACK_ALIGNMENT, alignment);
-		glPixelStorei(GL_UNPACK_ROW_LENGTH, it->bufferRowLength);
-		glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, it->bufferImageHeight);
+        ctx->nextState.pixelUnpack.alignment = alignment;
+        ctx->nextState.pixelUnpack.rowLength = it->bufferRowLength;
+        ctx->nextState.pixelUnpack.imgHeight = it->bufferImageHeight;
 
 		if (compressed)
 		{
-			// TODO: track this as well
-			glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_WIDTH, blockDims[0]);
-			glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_HEIGHT,blockDims[1]);
-			glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_DEPTH, blockDims[2]);
+            ctx->nextState.pixelUnpack.BCwidth = blockDims[0];
+            ctx->nextState.pixelUnpack.BCheight = blockDims[1];
+            ctx->nextState.pixelUnpack.BCdepth = blockDims[2];
+            ctx->flushStateGraphics(GSB_PIXEL_PACK_UNPACK);
+
 			uint32_t imageSize = pitch;
 			switch (type)
 			{
@@ -1443,6 +1449,7 @@ void COpenGLDriver::copyBufferToImage(IGPUBuffer* srcBuffer, IGPUImage* dstImage
 		}
 		else
 		{
+            ctx->flushStateGraphics(GSB_PIXEL_PACK_UNPACK);
 			switch (type)
 			{
 				case IGPUImage::ET_1D:
@@ -1466,12 +1473,13 @@ void COpenGLDriver::copyBufferToImage(IGPUBuffer* srcBuffer, IGPUImage* dstImage
 			}
 		}
 	}
-	// TODO: @Crisspl remove this after you add PIXEL_PACK buffer to your state tracking
-	extGlBindBuffer(GL_PIXEL_UNPACK_BUFFER,0u);
 }
 
 void COpenGLDriver::copyImageToBuffer(IGPUImage* srcImage, IGPUBuffer* dstBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions)
 {
+    auto ctx = getThreadContext_helper(false);
+    if (!ctx)
+        return;
 	if (!srcImage->validateCopies(pRegions,pRegions+regionCount,dstBuffer))
 		return;
 
@@ -1486,19 +1494,17 @@ void COpenGLDriver::copyImageToBuffer(IGPUImage* srcImage, IGPUBuffer* dstBuffer
 	const auto bpp = asset::getBytesPerPixel(format);
 	const auto blockDims = asset::getBlockDimensions(format);
 
-	// TODO: @Crisspl add this to your state tracking
-	extGlBindBuffer(GL_PIXEL_PACK_BUFFER,static_cast<COpenGLBuffer*>(dstBuffer)->getOpenGLName());
+    ctx->nextState.pixelPack.buffer = core::smart_refctd_ptr<const COpenGLBuffer>(static_cast<COpenGLBuffer*>(dstBuffer));
 	for (auto it=pRegions; it!=pRegions+regionCount; it++)
 	{
 		// TODO: check it->bufferOffset is aligned to data type of E_FORMAT
 		//assert(?);
 
-		// TODO: track this as well
 		uint32_t pitch = ((it->bufferRowLength ? it->bufferRowLength:it->imageExtent.width)*bpp).getIntegerApprox();
 		int32_t alignment = 0x1<<core::min(core::max(core::findLSB(it->bufferOffset),core::findLSB(pitch)),3u);
-		glPixelStorei(GL_PACK_ALIGNMENT, alignment);
-		glPixelStorei(GL_PACK_ROW_LENGTH, it->bufferRowLength);
-		glPixelStorei(GL_PACK_IMAGE_HEIGHT, it->bufferImageHeight);
+        ctx->nextState.pixelPack.alignment = alignment;
+        ctx->nextState.pixelPack.rowLength = it->bufferRowLength;
+        ctx->nextState.pixelPack.imgHeight = it->bufferImageHeight;
 
 		auto yStart = type==IGPUImage::ET_1D ? it->imageSubresource.baseArrayLayer:it->imageOffset.y;
 		auto yRange = type==IGPUImage::ET_1D ? it->imageSubresource.layerCount:it->imageExtent.height;
@@ -1506,21 +1512,22 @@ void COpenGLDriver::copyImageToBuffer(IGPUImage* srcImage, IGPUBuffer* dstBuffer
 		auto zRange = type==IGPUImage::ET_2D ? it->imageSubresource.layerCount:it->imageExtent.depth;
 		if (compressed)
 		{
-			// TODO: track this as well
-			glPixelStorei(GL_PACK_COMPRESSED_BLOCK_WIDTH, blockDims[0]);
-			glPixelStorei(GL_PACK_COMPRESSED_BLOCK_HEIGHT,blockDims[1]);
-			glPixelStorei(GL_PACK_COMPRESSED_BLOCK_DEPTH, blockDims[2]);
+            ctx->nextState.pixelPack.BCwidth = blockDims[0];
+            ctx->nextState.pixelPack.BCheight = blockDims[1];
+            ctx->nextState.pixelPack.BCdepth = blockDims[2];
+            ctx->flushStateGraphics(GSB_PIXEL_PACK_UNPACK);
+
 			extGlGetCompressedTextureSubImage(	src,it->imageSubresource.mipLevel,it->imageOffset.x,yStart,zStart,it->imageExtent.width,yRange,zRange,
 												dstBuffer->getSize()-it->bufferOffset,reinterpret_cast<void*>(it->bufferOffset));
 		}
 		else
 		{
+            ctx->flushStateGraphics(GSB_PIXEL_PACK_UNPACK);
+
 			extGlGetTextureSubImage(src,it->imageSubresource.mipLevel,it->imageOffset.x,yStart,zStart,it->imageExtent.width,yRange,zRange,
 									glfmt,gltype,dstBuffer->getSize()-it->bufferOffset,reinterpret_cast<void*>(it->bufferOffset));
 		}
 	}
-	// TODO: @Crisspl remove this after you add PIXEL_PACK buffer to your state tracking
-	extGlBindBuffer(GL_PIXEL_PACK_BUFFER,0u);
 }
 
 
@@ -2215,8 +2222,6 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
             UPDATE_STATE(vertexInputParams.parameterBuf);
         }
     }
-#undef STATE_NEQ
-#undef UPDATE_STATE
     if ((stateBits & GSB_PUSH_CONSTANTS) && currentState.pipeline.graphics.pipeline)
     {
 		for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
@@ -2236,6 +2241,84 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
 		}
 		pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags = 0u;
     }
+    if (stateBits & GSB_PIXEL_PACK_UNPACK)
+    {
+        //PACK
+        if (STATE_NEQ(pixelPack.buffer))
+        {
+            extGlBindBuffer(GL_PIXEL_PACK_BUFFER, nextState.pixelPack.buffer ? nextState.pixelPack.buffer->getOpenGLName() : 0u);
+            UPDATE_STATE(pixelPack.buffer);
+        }
+        if (STATE_NEQ(pixelPack.alignment))
+        {
+            glPixelStorei(GL_PACK_ALIGNMENT, nextState.pixelPack.alignment);
+            UPDATE_STATE(pixelPack.alignment);
+        }
+        if (STATE_NEQ(pixelPack.rowLength))
+        {
+            glPixelStorei(GL_PACK_ROW_LENGTH, nextState.pixelPack.rowLength);
+            UPDATE_STATE(pixelPack.rowLength);
+        }
+        if (STATE_NEQ(pixelPack.imgHeight))
+        {
+            glPixelStorei(GL_PACK_IMAGE_HEIGHT, nextState.pixelPack.imgHeight);
+            UPDATE_STATE(pixelPack.imgHeight);
+        }
+        if (STATE_NEQ(pixelPack.BCwidth))
+        {
+            glPixelStorei(GL_PACK_COMPRESSED_BLOCK_WIDTH, nextState.pixelPack.BCwidth);
+            UPDATE_STATE(pixelPack.BCwidth);
+        }
+        if (STATE_NEQ(pixelPack.BCheight))
+        {
+            glPixelStorei(GL_PACK_COMPRESSED_BLOCK_HEIGHT, nextState.pixelPack.BCheight);
+            UPDATE_STATE(pixelPack.BCheight);
+        }
+        if (STATE_NEQ(pixelPack.BCdepth))
+        {
+            glPixelStorei(GL_PACK_COMPRESSED_BLOCK_DEPTH, nextState.pixelPack.BCdepth);
+            UPDATE_STATE(pixelPack.BCdepth);
+        }
+
+        //UNPACK
+        if (STATE_NEQ(pixelUnpack.buffer))
+        {
+            extGlBindBuffer(GL_PIXEL_UNPACK_BUFFER, nextState.pixelUnpack.buffer ? nextState.pixelUnpack.buffer->getOpenGLName() : 0u);
+            UPDATE_STATE(pixelUnpack.buffer);
+        }
+        if (STATE_NEQ(pixelUnpack.alignment))
+        {
+            glPixelStorei(GL_UNPACK_ALIGNMENT, nextState.pixelUnpack.alignment);
+            UPDATE_STATE(pixelUnpack.alignment);
+        }
+        if (STATE_NEQ(pixelUnpack.rowLength))
+        {
+            glPixelStorei(GL_UNPACK_ROW_LENGTH, nextState.pixelUnpack.rowLength);
+            UPDATE_STATE(pixelUnpack.rowLength);
+        }
+        if (STATE_NEQ(pixelUnpack.imgHeight))
+        {
+            glPixelStorei(GL_UNPACK_IMAGE_HEIGHT, nextState.pixelUnpack.imgHeight);
+            UPDATE_STATE(pixelUnpack.imgHeight);
+        }
+        if (STATE_NEQ(pixelUnpack.BCwidth))
+        {
+            glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_WIDTH, nextState.pixelUnpack.BCwidth);
+            UPDATE_STATE(pixelUnpack.BCwidth);
+        }
+        if (STATE_NEQ(pixelUnpack.BCheight))
+        {
+            glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_HEIGHT, nextState.pixelUnpack.BCheight);
+            UPDATE_STATE(pixelUnpack.BCheight);
+        }
+        if (STATE_NEQ(pixelUnpack.BCdepth))
+        {
+            glPixelStorei(GL_UNPACK_COMPRESSED_BLOCK_DEPTH, nextState.pixelUnpack.BCdepth);
+            UPDATE_STATE(pixelUnpack.BCdepth);
+        }
+    }
+#undef STATE_NEQ
+#undef UPDATE_STATE
 }
 
 void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)

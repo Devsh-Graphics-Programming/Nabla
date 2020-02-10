@@ -186,7 +186,7 @@ namespace irr
 			params.extent.width = width;
 			params.extent.height = height;
 
-			auto& image = ICPUImage::create(std::move(params));
+			auto image = ICPUImage::create(std::move(params));
 
 			const uint32_t texelFormatByteSize = getTexelOrBlockBytesize(image->getCreationParameters().format);
 			auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(image->getImageDataSizeInBytes());
@@ -227,12 +227,13 @@ namespace irr
 
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
 
-			return SAssetBundle{image};
+			return SAssetBundle({image});
 		}
 
 		bool CImageLoaderOpenEXR::isALoadableFileFormat(io::IReadFile* _file) const
 		{	
 			const size_t begginingOfFile = _file->getPos();
+            _file->seek(0ull);
 
 			char magicNumberBuffer[sizeof(SContext::magicNumber)];
 			_file->read(magicNumberBuffer, sizeof(SContext::magicNumber));
@@ -248,7 +249,7 @@ namespace irr
 			width = dw.max.x - dw.min.x + 1;
 			height = dw.max.y - dw.min.y + 1;
 
-			constexpr char* rgbaSignatureAsText[] = {"R", "G", "B", "A"};
+			constexpr const char* rgbaSignatureAsText[] = {"R", "G", "B", "A"};
 			for (auto& pixelChannelBuffer : pixelRgbaMapArray)
 				pixelChannelBuffer.resizeErase(height, width);
 

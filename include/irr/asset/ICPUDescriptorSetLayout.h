@@ -18,6 +18,7 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
             auto cp = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(nullptr, nullptr);
+            clone_common(cp.get());
 
             if (_depth > 0u && m_bindings)
             {
@@ -39,17 +40,20 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
                 cp->m_samplers = m_samplers;
             }
 
-            cp->m_mutable = true;
-
             return cp;
         }
 
 		size_t conservativeSizeEstimate() const override { return m_bindings->size()*sizeof(SBinding)+m_samplers->size()*sizeof(void*); }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
+            if (isDummyObjectForCacheAliasing)
+                return;
+            convertToDummyObject_common(referenceLevelsBelowToConvert);
+
 			m_bindings = nullptr;
-			if (referenceLevelsBelowToConvert--)
+			if (referenceLevelsBelowToConvert)
 			{
+                --referenceLevelsBelowToConvert;
 				if (m_samplers)
 				for (auto it=m_samplers->begin(); it!=m_samplers->end(); it++)
 					it->get()->convertToDummyObject(referenceLevelsBelowToConvert);

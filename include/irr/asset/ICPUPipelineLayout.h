@@ -28,9 +28,8 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
                 nullptr, nullptr, 
                 std::move(dsLayouts[0]), std::move(dsLayouts[1]), std::move(dsLayouts[2]), std::move(dsLayouts[3])
             );
+            clone_common(cp.get());
             cp->m_pushConstantRanges = m_pushConstantRanges;
-
-            cp->m_mutable = true;
 
             return cp;
         }
@@ -38,10 +37,14 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 		size_t conservativeSizeEstimate() const override { return m_descSetLayouts.size()*sizeof(void*)+m_pushConstantRanges->size()*sizeof(SPushConstantRange); }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-			if (referenceLevelsBelowToConvert--)
-			for (auto it=m_descSetLayouts.begin(); it!=m_descSetLayouts.end(); it++)
-			if (it->get())
-				it->get()->convertToDummyObject(referenceLevelsBelowToConvert);
+            if (isDummyObjectForCacheAliasing)
+                return;
+            convertToDummyObject_common(referenceLevelsBelowToConvert);
+
+			if (referenceLevelsBelowToConvert)
+			    for (auto it=m_descSetLayouts.begin(); it!=m_descSetLayouts.end(); it++)
+			        if (it->get())
+				        it->get()->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 			m_pushConstantRanges = nullptr;
 		}
 		E_TYPE getAssetType() const override { return ET_PIPELINE_LAYOUT; }

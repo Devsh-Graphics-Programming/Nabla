@@ -31,20 +31,23 @@ class ICPUImage final : public IImage, public IAsset
         {
             auto par = params;
             auto cp = core::smart_refctd_ptr<ICPUImage>(new ICPUImage(std::move(par)), core::dont_grab);
+            clone_common(cp.get());
 
             cp->regions = regions;
             cp->buffer = (_depth > 0u && buffer) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(buffer->clone(_depth-1u)) : buffer;
-
-            cp->m_mutable = true;
 
             return cp;
         }
 
         inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
         {
-			if (referenceLevelsBelowToConvert--)
+            if (isDummyObjectForCacheAliasing)
+                return;
+            convertToDummyObject_common(referenceLevelsBelowToConvert);
+
+			if (referenceLevelsBelowToConvert)
 			if (buffer)
-				buffer->convertToDummyObject(referenceLevelsBelowToConvert);
+				buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
             regions = nullptr;
         }
 

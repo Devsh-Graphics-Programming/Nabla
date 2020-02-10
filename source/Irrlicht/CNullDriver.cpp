@@ -6,6 +6,7 @@
 #include "os.h"
 #include "IAnimatedMeshSceneNode.h"
 #include "irr/asset/CMeshManipulator.h"
+#include "irr/asset/asset_utils.h"
 
 #include <new>
 #include "IrrlichtDevice.h"
@@ -115,7 +116,6 @@ bool CNullDriver::genericDriverInit(asset::IAssetManager* assMgr)
 		assMgr->changeAssetKey(bundle,path);
 		assMgr->insertAssetIntoCache(bundle);
 		auto objects = getGPUObjectsFromAssets(&asset.get(),&asset.get()+1);
-		assMgr->convertAssetToEmptyCacheHandle(asset.get(),std::move(objects->front()));
 	};
 	// materials
 	{
@@ -182,9 +182,95 @@ void main()
 		params.CompareEnable = false;
 		params.CompareFunc = asset::ISampler::ECO_ALWAYS;
 		params.AnisotropicFilter = 4u;
+        params.LodBias = 0.f;
+        params.MinLod = -1000.f;
+        params.MaxLod = 1000.f;
 		auto sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
 		addBuiltInToCaches(sampler,"irr/builtin/samplers/default");
+
+        params.TextureWrapU = params.TextureWrapV = params.TextureWrapW = asset::ISampler::ETC_CLAMP_TO_BORDER;
+        sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
+        addBuiltInToCaches(sampler, "irr/builtin/samplers/default_clamp_to_border");
 	}
+
+    //images
+    core::smart_refctd_ptr<asset::ICPUImage> dummy1x1Image;
+    {
+        asset::ICPUImage::SCreationParams info;
+        info.format = asset::EF_R8_UNORM;
+        info.type = asset::ICPUImage::ET_2D;
+        info.extent.width = 1u;
+        info.extent.height = 1u;
+        info.extent.depth = 1u;
+        info.mipLevels = 1u;
+        info.arrayLayers = 1u;
+        info.samples = asset::ICPUImage::ESCF_1_BIT;
+        info.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
+        dummy1x1Image = asset::ICPUImage::create(std::move(info));
+
+        auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(1u);
+        reinterpret_cast<int8_t*>(buf->getPointer())[0] = 0;
+        auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1u);
+        asset::ICPUImage::SBufferCopy& region = regions->front();
+        region.imageSubresource.mipLevel = 0u;
+        region.imageSubresource.baseArrayLayer = 0u;
+        region.imageSubresource.layerCount = 1u;
+        region.bufferOffset = 0u;
+        region.bufferRowLength = 1u;
+        region.bufferImageHeight = 0u;
+        region.imageOffset = {0u, 0u, 0u};
+        region.imageExtent = {1u, 1u, 1u};
+        dummy1x1Image->setBufferAndRegions(std::move(buf), regions);
+    }
+    
+    //image views
+    {
+        asset::ICPUImageView::SCreationParams info;
+        info.format = dummy1x1Image->getCreationParameters().format;
+        info.image = dummy1x1Image;
+        info.viewType = asset::IImageView<asset::ICPUImage>::ET_2D;
+        info.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
+        info.subresourceRange.baseArrayLayer = 0u;
+        info.subresourceRange.layerCount = 1u;
+        info.subresourceRange.baseMipLevel = 0u;
+        info.subresourceRange.levelCount = 1u;
+        auto dummy1x1ImgView = core::make_smart_refctd_ptr<asset::ICPUImageView>(std::move(info));
+
+        addBuiltInToCaches(dummy1x1ImgView, "irr/builtin/image_views/dummy1x1");
+        //image added to cache after view because of conversion to "empty cache handle"
+        addBuiltInToCaches(dummy1x1Image, "irr/builtin/images/dummy1x1");
+    }
+
+    //ds layouts
+    core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> defaultDs1Layout;
+    {
+        asset::ICPUDescriptorSetLayout::SBinding bnd;
+        bnd.count = 1u;
+        bnd.binding = 0u;
+        //maybe even ESS_ALL_GRAPHICS?
+        bnd.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
+        bnd.type = asset::EDT_UNIFORM_BUFFER;
+        defaultDs1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd+1);
+        //it's intentionally added to cache later, see comments below, dont touch this order of insertions
+    }
+
+    //desc sets
+    {
+        auto ds1 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(defaultDs1Layout.get()));
+        {
+            auto desc = ds1->getDescriptors(0u).begin();
+            //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in irr/asset/asset_utils.h
+            constexpr size_t UBO_SZ = sizeof(asset::SBasicViewParameters);
+            auto ubo = core::make_smart_refctd_ptr<asset::ICPUBuffer>(UBO_SZ);
+            asset::fillBufferWithDeadBeef(ubo.get());
+            desc->desc = std::move(ubo);
+            desc->buffer.offset = 0ull;
+            desc->buffer.size = UBO_SZ;
+        }
+        addBuiltInToCaches(ds1, "irr/builtin/descriptor_set/basic_view_parameters");
+        //layout added to cache after ds because of conversion to "empty cache handle"
+        addBuiltInToCaches(defaultDs1Layout, "irr/builtin/descriptor_set_layout/basic_view_parameters");
+    }
 
 	DerivativeMapCreator = core::make_smart_refctd_ptr<CDerivativeMapCreator>(this);
 
@@ -294,6 +380,8 @@ void CNullDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
 {
 	if (!mb)
 		return;
+    if (!mb->getPipeline())
+        return;
 
     uint32_t increment = mb->getInstanceCount();
     switch (mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType)

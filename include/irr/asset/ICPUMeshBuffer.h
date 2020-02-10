@@ -64,6 +64,7 @@ protected:
     core::smart_refctd_ptr<IAsset> clone_template(uint32_t _depth = ~0u) const
     {
         auto cp = core::make_smart_refctd_ptr<T>();
+        clone_common(cp.get());
         cp->m_descriptorSet = (_depth > 0u && m_descriptorSet) ? core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(m_descriptorSet->clone(_depth - 1u)) : m_descriptorSet;
         cp->m_pipeline = (_depth > 0u && m_pipeline) ? core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(m_pipeline->clone(_depth - 1u)) : m_pipeline;
 
@@ -89,8 +90,6 @@ protected:
                 m_vertexBufferBindings[i].buffer;
         }
 
-        cp->m_mutable = true;
-
         return cp;
     }
 
@@ -111,13 +110,22 @@ public:
 
     virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 	{
-		if (referenceLevelsBelowToConvert--)
+        if (isDummyObjectForCacheAliasing)
+            return;
+        convertToDummyObject_common(referenceLevelsBelowToConvert);
+
+		if (referenceLevelsBelowToConvert)
 		{
+            --referenceLevelsBelowToConvert;
 			for (auto i=0u; i<MAX_ATTR_BUF_BINDING_COUNT; i++)
-				m_vertexBufferBindings[i].buffer->convertToDummyObject(referenceLevelsBelowToConvert);
-			m_indexBufferBinding.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
-			m_descriptorSet->convertToDummyObject(referenceLevelsBelowToConvert);
-			m_pipeline->convertToDummyObject(referenceLevelsBelowToConvert);
+                if (m_vertexBufferBindings[i].buffer)
+				    m_vertexBufferBindings[i].buffer->convertToDummyObject(referenceLevelsBelowToConvert);
+            if (m_indexBufferBinding.buffer)
+			    m_indexBufferBinding.buffer->convertToDummyObject(referenceLevelsBelowToConvert);
+            if (m_descriptorSet)
+			    m_descriptorSet->convertToDummyObject(referenceLevelsBelowToConvert);
+            if (m_pipeline)
+			    m_pipeline->convertToDummyObject(referenceLevelsBelowToConvert);
 		}
 	}
     virtual IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SUB_MESH; }

@@ -19,9 +19,12 @@ class ICPUShader : public IAsset, public IShader<ICPUBuffer>
 	protected:
 		virtual ~ICPUShader() = default;
 
+    private:
+        ICPUShader(core::smart_refctd_ptr<ICPUBuffer>&& _code, bool _isGLSL) : m_code(std::move(_code)), m_containsGLSL(_isGLSL) {}
+
 	public:
-		ICPUShader(core::smart_refctd_ptr<ICPUBuffer>&& _spirv) : m_code(std::move(_spirv)), m_containsGLSL(false) {}
-		ICPUShader(const char* _glsl) : m_code(core::make_smart_refctd_ptr<ICPUBuffer>(strlen(_glsl) + 1u)), m_containsGLSL(true)
+        ICPUShader(core::smart_refctd_ptr<ICPUBuffer>&& _spirv) : ICPUShader(std::move(_spirv), false) {}
+		ICPUShader(const char* _glsl) : ICPUShader(core::make_smart_refctd_ptr<ICPUBuffer>(strlen(_glsl) + 1u), true)
 		{
 			memcpy(m_code->getPointer(), _glsl, m_code->getSize());
 		}
@@ -35,19 +38,20 @@ class ICPUShader : public IAsset, public IShader<ICPUBuffer>
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
             auto buf = (_depth > 0u && m_code) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_code->clone(_depth-1u)) : m_code;
-            auto cp = core::make_smart_refctd_ptr<ICPUShader>(std::move(buf));
-
-            cp->m_containsGLSL = m_containsGLSL;
-
-            cp->m_mutable = true;
+            auto cp = core::smart_refctd_ptr<ICPUShader>(new ICPUShader(std::move(buf), m_containsGLSL), core::dont_grab);
+            clone_common(cp.get());
 
             return cp;
         }
 
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-			if (referenceLevelsBelowToConvert--)
-				m_code->convertToDummyObject(referenceLevelsBelowToConvert);
+            if (isDummyObjectForCacheAliasing)
+                return;
+            convertToDummyObject_common(referenceLevelsBelowToConvert);
+
+			if (referenceLevelsBelowToConvert)
+				m_code->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}
 
 		const ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };
@@ -56,7 +60,7 @@ class ICPUShader : public IAsset, public IShader<ICPUBuffer>
 	protected:
 		//! Might be GLSL null-terminated string or SPIR-V bytecode (denoted by m_containsGLSL)
 		core::smart_refctd_ptr<ICPUBuffer>	m_code;
-		/*const */bool							m_containsGLSL;
+		const bool							m_containsGLSL;
 };
 
 }
