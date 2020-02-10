@@ -32,6 +32,8 @@ class IShader
 			auto findLineJustAfterVersionOrPragmaShaderStageDirective = [&_glsl]
 			{
 				size_t hashPos = _glsl.find_first_of('#');
+                if (hashPos >= _glsl.length())
+                    return ~0ull;
 				if (_glsl.compare(hashPos, 8, "#version"))
 					return ~0ull;
 
@@ -44,8 +46,9 @@ class IShader
 					if (_glsl.compare(hashPos2, sizeof(pragma_stage_str)-1ull, pragma_stage_str) == 0)
 						searchPos = hashPos2 + sizeof(pragma_stage_str) - 1ull;
 				}
+                size_t nlPos = _glsl.find_first_of('\n', searchPos);
 
-				return _glsl.find_first_of('\n', searchPos)+1ull;
+				return (nlPos >= _glsl.length()) ? ~0ull : nlPos+1ull;
 			};
 
 			const size_t pos = findLineJustAfterVersionOrPragmaShaderStageDirective();

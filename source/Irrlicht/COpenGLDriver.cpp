@@ -1618,6 +1618,8 @@ static GLenum getGLprimitiveType(asset::E_PRIMITIVE_TOPOLOGY pt)
         return GL_TRIANGLE_STRIP_ADJACENCY;
     case EPT_PATCH_LIST:
         return GL_PATCHES;
+    default:
+        return GL_INVALID_ENUM;
     }
 }
 
@@ -1633,7 +1635,7 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
     if (!found->nextState.pipeline.graphics.pipeline)
         return;
 
-    found->updateNextState_vertexInput(mb->getVertexBufferBindings(), mb->getIndexBufferBinding().buffer.get(), nullptr, nullptr);
+    found->updateNextState_vertexInput(mb->getVertexBufferBindings(), mb->getIndexBufferBinding().buffer.get(), found->nextState.vertexInputParams.indirectDrawBuf.get(), found->nextState.vertexInputParams.parameterBuf.get());
 
 	CNullDriver::drawMeshBuffer(mb);
 

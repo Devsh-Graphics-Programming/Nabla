@@ -142,13 +142,14 @@ class IAssetManager : public core::IReferenceCounted
                 m_cpuGpuCache[i] = new CpuGpuCacheType();
 
 			addLoadersAndWriters();
+            insertBuiltinAssets();
         }
 
 		inline io::IFileSystem* getFileSystem() const { return m_fileSystem.get(); }
 
         const IGeometryCreator* getGeometryCreator() const;
         const IMeshManipulator* getMeshManipulator() const;
-        const IGLSLCompiler* getGLSLCompiler() const { return m_glslCompiler.get(); }
+        IGLSLCompiler* getGLSLCompiler() const { return m_glslCompiler.get(); }
 
     protected:
 		virtual ~IAssetManager()
@@ -653,6 +654,8 @@ class IAssetManager : public core::IReferenceCounted
 
 		//
 		void addLoadersAndWriters();
+
+        void insertBuiltinAssets();
 };
 
 

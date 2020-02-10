@@ -72,6 +72,7 @@ class IPipelineMetadata : public IAssetMetadata
 			{
 				// relative to the offset of the descriptor when bound (true byteoffset = static descriptor-set defined + dynamic [if enabled] + this value)
 				uint32_t relByteoffset;
+                uint32_t bytesize;
 			};
 			struct PushConstant
 			{
@@ -152,7 +153,7 @@ class IPipelineMetadata : public IAssetMetadata
 
 
 		//! This function returns us the list of "standard semenatics" as in the list of required inputs with meanings that are common in many pipelines
-		virtual core::SRange<ShaderInputSemantic> getCommonRequiredInputs() = 0;
+		virtual core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const = 0;
 };
 
 

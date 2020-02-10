@@ -615,6 +615,7 @@ inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConvert
         params.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(cpuparams.flags);
         params.format = cpuparams.format;
         params.subresourceRange = cpuparams.subresourceRange;
+        params.subresourceRange.levelCount = (*gpuDeps)[redirs[i]]->getCreationParameters().mipLevels - params.subresourceRange.baseMipLevel;
         params.viewType = static_cast<IGPUImageView::E_TYPE>(cpuparams.viewType);
         params.image = (*gpuDeps)[redirs[i]];
         (*res)[i] = m_driver->createGPUImageView(std::move(params));

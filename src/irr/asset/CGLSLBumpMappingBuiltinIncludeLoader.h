@@ -19,11 +19,11 @@ private:
 R"(#ifndef _IRR_BUMP_MAPPING_HEIGHT_MAP_INCLUDED_
 #define _IRR_BUMP_MAPPING_HEIGHT_MAP_INCLUDED_
 
-vec3 irr_glsl_perturbNormal_heightMap(in vec3 vtxN, in vec3 dpdx, in vec3 dpdy, in float dhdx, in float dhdy)
+vec3 irr_glsl_perturbNormal_heightMap(in vec3 vtxN, in mat2x3 dPdScreen, in vec2 dHdScreen)
 {
-    vec3 r1 = cross(dpdy, vtxN);
-    vec3 r2 = cross(vtxN, dpdx);
-    vec3 surfGrad = (r1*dhdx + r2*dhdy) / dot(dpdx,r1);
+    vec3 r1 = cross(dPdScreen[1], vtxN);
+    vec3 r2 = cross(vtxN, dPdScreen[0]);
+    vec3 surfGrad = (r1*dHdScreen.x + r2*dHdScreen.y) / dot(dPdScreen[0],r1);
     return normalize(vtxN - surfGrad);
 }
 

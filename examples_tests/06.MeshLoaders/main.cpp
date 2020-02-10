@@ -5,6 +5,7 @@
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
+#include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
 
 //#include "../../ext/ScreenShot/ScreenShot.h"
 
@@ -51,22 +52,47 @@ int main()
     auto mesh = meshes_bundle.getContents().first[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
 
+    //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
+    //so we can create just one DS
     asset::ICPUDescriptorSetLayout* ds1layout = mesh_raw->getMeshBuffer(0u)->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
-    //pipelines attached to meshbuffers from OBJ loader has DS1 layout being "irr/builtin/ds_layout/default_ds1_layout"
-    //that is designed for use with "irr/builtin/ds/default_ds1", so let's use it!
-    auto ds1_bundle = am->getAsset("irr/builtin/descriptor_set/basic_view_parameters", lp);
-    //you might want to IAsset::clone() this DS in order to have exact copy but not the same object. However in this case won't be doing it.
-    //(same CPU object -> same GPU object returned from driver->getGPUObjectsFromAssets())
-    //use IAsset::clone()'s optional parameter to clone the buffer (being the only descriptor in default DS1) as well
-    auto ds1 = ds1_bundle.getContents().first[0];
-    auto ds1_raw = static_cast<asset::ICPUDescriptorSet*>(ds1.get());
-    asset::ICPUBuffer* ubo = static_cast<asset::ICPUBuffer*>(ds1_raw->getDescriptors(0u).begin()->desc.get());
+    uint32_t ds1UboBinding = 0u;
+    for (const auto& bnd : ds1layout->getBindings())
+        if (bnd.type==asset::EDT_UNIFORM_BUFFER)
+        {
+            ds1UboBinding = bnd.binding;
+            break;
+        }
 
-    auto gpuds1 = driver->getGPUObjectsFromAssets(&ds1_raw,&ds1_raw+1)->front();
-    //video::IGPUBuffer* gpuubo = gpuds1->getDescriptors()...//TODO GPU DS needs some (constant?) getter to get its descriptors
-    auto gpuubo = driver->getGPUObjectsFromAssets(&ubo,&ubo+1)->front();
+    size_t neededDS1UBOsz = 0ull;
+    {
+        auto pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(mesh_raw->getMeshBuffer(0u)->getPipeline()->getMetadata());
+        for (const auto& shdrIn : pipelineMetadata->getCommonRequiredInputs())
+            if (shdrIn.descriptorSection.type==asset::IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
+                neededDS1UBOsz = std::max<size_t>(neededDS1UBOsz, shdrIn.descriptorSection.uniformBufferObject.relByteoffset+shdrIn.descriptorSection.uniformBufferObject.bytesize);
+    }
 
-    auto gpumesh = driver->getGPUObjectsFromAssets(&mesh_raw, &mesh_raw + 1)->front();
+    auto gpuds1layout = driver->getGPUObjectsFromAssets(&ds1layout, &ds1layout+1)->front();
+
+    auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(neededDS1UBOsz);
+    auto gpuds1 = driver->createGPUDescriptorSet(std::move(gpuds1layout));
+    {
+        video::IGPUDescriptorSet::SWriteDescriptorSet write;
+        write.dstSet = gpuds1.get();
+        write.binding = ds1UboBinding;
+        write.count = 1u;
+        write.arrayElement = 0u;
+        write.descriptorType = asset::EDT_UNIFORM_BUFFER;
+        video::IGPUDescriptorSet::SDescriptorInfo info;
+        {
+            info.desc = gpuubo;
+            info.buffer.offset = 0ull;
+            info.buffer.size = neededDS1UBOsz;
+        }
+        write.info = &info;
+        driver->updateDescriptorSets(1u, &write, 0u, nullptr);
+    }
+
+    auto gpumesh = driver->getGPUObjectsFromAssets(&mesh_raw, &mesh_raw+1)->front();
 
 	//! we want to move around the scene and view it from different angles
 	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.5f);
@@ -74,7 +100,7 @@ int main()
 	camera->setPosition(core::vector3df(-4,0,0));
 	camera->setTarget(core::vector3df(0,0,0));
 	camera->setNearValue(0.01f);
-	camera->setFarValue(10000.0f);
+	camera->setFarValue(1000.0f);
 
     smgr->setActiveCamera(camera);
 
@@ -87,15 +113,38 @@ int main()
 		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
 		camera->render();
 
-        asset::SBasicViewParameters uboData;
-		core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
-        memcpy(uboData.MVP, mvp.pointer(), sizeof(uboData.MVP));
-        core::matrix3x4SIMD MV3x4;
-        MV3x4.set(camera->getViewMatrix());
-        core::matrix4SIMD MV(MV3x4);
-        memcpy(uboData.MV, MV.pointer(), sizeof(uboData.MV));
-        memcpy(uboData.NormalMat, MV.pointer(), sizeof(uboData.NormalMat));
-        driver->updateBufferRangeViaStagingBuffer(gpuubo->getBuffer(), gpuubo->getOffset(), sizeof(uboData), &uboData);
+        core::vector<uint8_t> uboData(gpuubo->getSize());
+        auto pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(mesh_raw->getMeshBuffer(0u)->getPipeline()->getMetadata());
+        for (const auto& shdrIn : pipelineMetadata->getCommonRequiredInputs())
+        {
+            if (shdrIn.descriptorSection.type==asset::IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
+            {
+                switch (shdrIn.type)
+                {
+                case asset::IPipelineMetadata::ECSI_WORLD_VIEW_PROJ:
+                {
+                    core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
+                    memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, mvp.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                }
+                break;
+                case asset::IPipelineMetadata::ECSI_WORLD_VIEW:
+                {
+                    core::matrix3x4SIMD MV;
+                    MV.set(camera->getViewMatrix());
+                    memcpy(uboData.data() + shdrIn.descriptorSection.uniformBufferObject.relByteoffset, MV.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                }
+                break;
+                case asset::IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE:
+                {
+                    core::matrix3x4SIMD MV;
+                    MV.set(camera->getViewMatrix());
+                    memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, MV.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                }
+                break;
+                }
+            }
+        }       
+        driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), uboData.data());
 
         for (uint32_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)
         {
@@ -121,7 +170,7 @@ int main()
 		if (time-lastFPSTime > 1000)
 		{
 			std::wostringstream str;
-			str << L"GPU Mesh Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
+			str << L"Meshloaders Demo - IrrlichtBAW Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
 
 			device->setWindowCaption(str.str().c_str());
 			lastFPSTime = time;

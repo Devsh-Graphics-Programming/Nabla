@@ -49,6 +49,10 @@ public:
 			rows[i] = vectorSIMDf(_data + 4*i, ALIGNED);
 	}
 
+    //! Access for memory
+    inline const float* pointer() const { return rows[0].pointer; }
+    inline float* pointer() { return rows[0].pointer; }
+
 	inline matrix3x4SIMD& set(const matrix4x3& _retarded);
 	inline matrix4x3 getAsRetardedIrrlichtMatrix() const;
 
