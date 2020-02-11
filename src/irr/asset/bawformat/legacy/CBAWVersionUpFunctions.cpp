@@ -1,0 +1,249 @@
+#include "CBAWVersionUpFunctions.h"
+
+namespace irr
+{
+    namespace asset
+    {
+        template<>
+        io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<2>(SContext& _ctx, io::IReadFile* _baw1file, asset::IAssetLoader::IAssetLoaderOverride* _override, const CommonDataTuple<1>& _common)
+        {
+            uint32_t blobCnt{};
+            asset::legacyv1::BlobHeaderV1* headers = nullptr;
+            uint32_t* offsets = nullptr;
+            uint32_t baseOffsetv1{};
+            uint32_t baseOffsetv2{};
+            std::tie(blobCnt, headers, offsets, baseOffsetv1, baseOffsetv2) = _common;
+
+            io::CMemoryWriteFile* const baw2mem = new io::CMemoryWriteFile(0u, _baw1file->getFileName());
+
+            std::vector<uint32_t> newoffsets(blobCnt);
+            int32_t offsetDiff = 0;
+            for (uint32_t i = 0u; i < blobCnt; ++i)
+            {
+                asset::legacyv1::BlobHeaderV1& hdr = headers[i];
+                const uint32_t offset = offsets[i];
+                uint32_t& newoffset = newoffsets[i];
+
+                newoffset = offset + offsetDiff;
+
+                if (hdr.blobType == asset::Blob::EBT_FINAL_BONE_HIERARCHY)
+                {
+                    const uint32_t offset = offsets[i];
+
+                    uint8_t stackmem[1u << 10];
+                    uint32_t attempt = 0u;
+                    uint8_t decrKey[16];
+                    size_t decrKeyLen = 16u;
+                    void* blob = nullptr;
+                    /* to state blob's/asset's hierarchy level we'd have to load (and possibly decrypt and decompress) the blob
+                    however we don't need to do this here since we know format's version (baw v1) and so we can be sure that hierarchy level for FinalBoneHierarchy is 3 (won't be true for v2 to v3 conversion)
+                    */
+                    constexpr uint32_t FINALBONEHIERARCHY_HIERARCHY_LVL = 3u;
+                    while (_override->getDecryptionKey(decrKey, decrKeyLen, attempt, _baw1file, "", genSubAssetCacheKey(_baw1file->getFileName().c_str(), hdr.handle), _ctx.inner, FINALBONEHIERARCHY_HIERARCHY_LVL))
+                    {
+                        if (!((hdr.compressionType & asset::Blob::EBCT_AES128_GCM) && decrKeyLen != 16u))
+                            blob = tryReadBlobOnStack<asset::legacyv1::BlobHeaderV1>(SBlobData_t<asset::legacyv1::BlobHeaderV1>(&hdr, baseOffsetv1 + offset), _ctx, decrKey, stackmem, sizeof(stackmem));
+                        if (blob)
+                            break;
+                        ++attempt;
+                    }
+
+                    // patch the blob
+                    if (blob)
+                    {
+                        auto* hierarchy = reinterpret_cast<legacyv1::FinalBoneHierarchyBlobV1*>(blob);
+
+                        auto bones = hierarchy->getBoneData();
+                        for (auto j = 0u; j < hierarchy->boneCount; j++)
+                        {
+                            core::matrix3x4SIMD mtx = bones[j].PoseBindMatrix;
+                            const auto* in = mtx.rows[0].pointer;
+                            auto* out = bones[j].PoseBindMatrix.rows[0].pointer;
+                            out[0] = in[0];
+                            out[4] = in[1];
+                            out[8] = in[2];
+                            out[1] = in[3];
+                            out[5] = in[4];
+                            out[9] = in[5];
+                            out[2] = in[6];
+                            out[6] = in[7];
+                            out[10] = in[8];
+                            out[3] = in[9];
+                            out[7] = in[10];
+                            out[11] = in[11];
+                        }
+
+                        const uint32_t absOffset = baseOffsetv2 + newoffset;
+                        baw2mem->seek(absOffset);
+                        baw2mem->write(blob, hdr.blobSizeDecompr);
+                    }
+                    else
+                        baw2mem->seek(baseOffsetv2 + newoffset + hdr.blobSizeDecompr);
+
+                    offsetDiff += static_cast<int32_t>(hdr.blobSizeDecompr) - static_cast<int32_t>(hdr.effectiveSize());
+                    hdr.compressionType = asset::Blob::EBCT_RAW;
+                    core::XXHash_256(blob, hdr.blobSizeDecompr, hdr.blobHash);
+                    hdr.blobSize = hdr.blobSizeDecompr;
+
+                    if (blob)
+                        _IRR_ALIGNED_FREE(blob);
+                }
+            }
+            uint64_t fileHeader[4]{ 0u, 0u, 0u, 2u/*baw v2*/ };
+            memcpy(fileHeader, asset::legacyv2::BAWFileV2::HEADER_STRING, strlen(asset::legacyv2::BAWFileV2::HEADER_STRING));
+            baw2mem->seek(0u);
+            baw2mem->write(fileHeader, sizeof(fileHeader));
+            baw2mem->write(&blobCnt, 4);
+            baw2mem->write(_ctx.iv, 16);
+            baw2mem->write(newoffsets.data(), newoffsets.size() * 4);
+            baw2mem->write(headers, blobCnt * sizeof(headers[0])); // blob header in v1 and in v2 is exact same thing, so we can do this
+
+            uint8_t stackmem[1u << 13]{};
+            size_t newFileSz = 0u;
+            for (uint32_t i = 0u; i < blobCnt; ++i)
+            {
+                uint32_t sz = headers[i].effectiveSize();
+                void* blob = nullptr;
+                if (headers[i].blobType == asset::Blob::EBT_FINAL_BONE_HIERARCHY)
+                {
+                    sz = 0u;
+                }
+                else
+                {
+                    _baw1file->seek(baseOffsetv1 + offsets[i]);
+                    if (sz <= sizeof(stackmem))
+                        blob = stackmem;
+                    else
+                        blob = _IRR_ALIGNED_MALLOC(sz, _IRR_SIMD_ALIGNMENT);
+
+                    _baw1file->read(blob, sz);
+                }
+
+                baw2mem->seek(baseOffsetv2 + newoffsets[i]);
+                baw2mem->write(blob, sz);
+
+                if (headers[i].blobType != asset::Blob::EBT_DATA_FORMAT_DESC && blob != stackmem)
+                    _IRR_ALIGNED_FREE(blob);
+
+                newFileSz = baseOffsetv2 + newoffsets[i] + sz;
+            }
+
+            _IRR_ALIGNED_FREE(offsets);
+            _IRR_ALIGNED_FREE(headers);
+
+            auto ret = new io::CMemoryReadFile(baw2mem->getPointer(), baw2mem->getSize(), _baw1file->getFileName());
+            baw2mem->drop();
+            return ret;
+        }
+
+        template<>
+        io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<1>(SContext& _ctx, io::IReadFile* _baw0file, asset::IAssetLoader::IAssetLoaderOverride* _override, const CommonDataTuple<0>& _common)
+        {
+            uint32_t blobCnt{};
+            asset::legacyv0::BlobHeaderV0* headers = nullptr;
+            uint32_t* offsets = nullptr;
+            uint32_t baseOffsetv0{};
+            uint32_t baseOffsetv1{};
+            std::tie(blobCnt, headers, offsets, baseOffsetv0, baseOffsetv1) = _common;
+
+            io::CMemoryWriteFile* const baw1mem = new io::CMemoryWriteFile(0u, _baw0file->getFileName());
+
+            std::vector<uint32_t> newoffsets(blobCnt);
+            int32_t offsetDiff = 0;
+            for (uint32_t i = 0u; i < blobCnt; ++i)
+            {
+                asset::legacyv0::BlobHeaderV0& hdr = headers[i];
+                const uint32_t offset = offsets[i];
+                uint32_t& newoffset = newoffsets[i];
+
+                newoffset = offset + offsetDiff;
+
+                bool adjustDiff = false;
+                uint32_t prevBlobSz{};
+                if (hdr.blobType == asset::Blob::EBT_DATA_FORMAT_DESC)
+                {
+                    uint8_t stackmem[1u << 10];
+                    uint32_t attempt = 0u;
+                    uint8_t decrKey[16];
+                    size_t decrKeyLen = 16u;
+                    void* blob = nullptr;
+                    /* to state blob's/asset's hierarchy level we'd have to load (and possibly decrypt and decompress) the blob
+                    however we don't need to do this here since we know format's version (baw v0) and so we can be sure that hierarchy level for mesh data descriptors is 2
+                    */
+                    constexpr uint32_t ICPUMESHDATAFORMATDESC_HIERARCHY_LVL = 2u;
+                    while (_override->getDecryptionKey(decrKey, decrKeyLen, attempt, _baw0file, "", genSubAssetCacheKey(_baw0file->getFileName().c_str(), hdr.handle), _ctx.inner, ICPUMESHDATAFORMATDESC_HIERARCHY_LVL))
+                    {
+                        if (!((hdr.compressionType & asset::Blob::EBCT_AES128_GCM) && decrKeyLen != 16u))
+                            blob = tryReadBlobOnStack<asset::legacyv0::BlobHeaderV0>(SBlobData_t<asset::legacyv0::BlobHeaderV0>(&hdr, baseOffsetv0 + offset), _ctx, decrKey, stackmem, sizeof(stackmem));
+                        if (blob)
+                            break;
+                        ++attempt;
+                    }
+                    assert(!blob || blob == stackmem); // its a fixed size blob so should always use stack
+
+                    const uint32_t absOffset = baseOffsetv1 + newoffset;
+                    baw1mem->seek(absOffset);
+                    baw1mem->write(
+                        asset::MeshDataFormatDescBlobV1(reinterpret_cast<asset::legacyv0::MeshDataFormatDescBlobV0*>(blob)[0]).getData(),
+                        sizeof(asset::MeshDataFormatDescBlobV1)
+                    );
+
+                    prevBlobSz = hdr.effectiveSize();
+                    hdr.compressionType = asset::Blob::EBCT_RAW;
+                    core::XXHash_256(reinterpret_cast<uint8_t*>(baw1mem->getPointer()) + absOffset, sizeof(asset::MeshDataFormatDescBlobV1), hdr.blobHash);
+                    hdr.blobSizeDecompr = hdr.blobSize = sizeof(asset::MeshDataFormatDescBlobV1);
+
+                    adjustDiff = true;
+                }
+                if (adjustDiff)
+                    offsetDiff += static_cast<int32_t>(sizeof(asset::MeshDataFormatDescBlobV1)) - static_cast<int32_t>(prevBlobSz);
+            }
+            uint64_t fileHeader[4]{ 0u, 0u, 0u, 1u/*baw v1*/ };
+            memcpy(fileHeader, asset::legacyv1::BAWFileV1::HEADER_STRING, strlen(asset::legacyv1::BAWFileV1::HEADER_STRING));
+            baw1mem->seek(0u);
+            baw1mem->write(fileHeader, sizeof(fileHeader));
+            baw1mem->write(&blobCnt, 4);
+            baw1mem->write(_ctx.iv, 16);
+            baw1mem->write(newoffsets.data(), newoffsets.size() * 4);
+            baw1mem->write(headers, blobCnt * sizeof(headers[0])); // blob header in v0 and in v1 is exact same thing, so we can do this
+
+            uint8_t stackmem[1u << 13]{};
+            size_t newFileSz = 0u;
+            for (uint32_t i = 0u; i < blobCnt; ++i)
+            {
+                uint32_t sz = headers[i].effectiveSize();
+                void* blob = nullptr;
+                if (headers[i].blobType == asset::Blob::EBT_DATA_FORMAT_DESC)
+                {
+                    sz = 0u;
+                }
+                else
+                {
+                    _baw0file->seek(baseOffsetv0 + offsets[i]);
+                    if (sz <= sizeof(stackmem))
+                        blob = stackmem;
+                    else
+                        blob = _IRR_ALIGNED_MALLOC(sz, _IRR_SIMD_ALIGNMENT);
+
+                    _baw0file->read(blob, sz);
+                }
+
+                baw1mem->seek(baseOffsetv1 + newoffsets[i]);
+                baw1mem->write(blob, sz);
+
+                if (headers[i].blobType != asset::Blob::EBT_DATA_FORMAT_DESC && blob != stackmem)
+                    _IRR_ALIGNED_FREE(blob);
+
+                newFileSz = baseOffsetv1 + newoffsets[i] + sz;
+            }
+
+            _IRR_ALIGNED_FREE(offsets);
+            _IRR_ALIGNED_FREE(headers);
+
+            auto ret = new io::CMemoryReadFile(baw1mem->getPointer(), baw1mem->getSize(), _baw0file->getFileName());
+            baw1mem->drop();
+            return ret;
+        }
+
+    }
+}
