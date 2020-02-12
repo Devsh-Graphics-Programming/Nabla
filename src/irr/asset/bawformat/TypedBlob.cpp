@@ -205,9 +205,9 @@ void TypedBlob<SkinnedMeshBlobV2, asset::ICPUSkinnedMesh>::releaseObj(const void
 }
 
 template<>
-core::unordered_set<uint64_t> TypedBlob<MeshBufferBlobV2, asset::ICPUMeshBuffer>::getNeededDeps(const void* _blob)
+core::unordered_set<uint64_t> TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::getNeededDeps(const void* _blob)
 {
-	auto* blob = (MeshBufferBlobV2*)_blob;
+	auto* blob = (MeshBufferBlobV3*)_blob;
 	core::unordered_set<uint64_t> deps;
 	deps.insert(blob->descPtr);
 	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
@@ -220,12 +220,12 @@ core::unordered_set<uint64_t> TypedBlob<MeshBufferBlobV2, asset::ICPUMeshBuffer>
 }
 
 template<>
-void* TypedBlob<MeshBufferBlobV2, asset::ICPUMeshBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return nullptr;
 
-	const auto* blob = (const MeshBufferBlobV2*)_blob;
+	const auto* blob = (const MeshBufferBlobV3*)_blob;
 	asset::ICPUMeshBuffer* buf = new asset::ICPUMeshBuffer();
 	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SCPUMaterial));
 	buf->getMaterial().setBitfields(*(blob)->mat.bitfieldsPtr());
@@ -249,12 +249,12 @@ void* TypedBlob<MeshBufferBlobV2, asset::ICPUMeshBuffer>::instantiateEmpty(const
 }
 
 template<>
-void* TypedBlob<MeshBufferBlobV2, asset::ICPUMeshBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
 {
 	if (!_obj || !_blob)
 		return nullptr;
 
-	const auto* blob = (const MeshBufferBlobV2*)_blob;
+	const auto* blob = (const MeshBufferBlobV3*)_blob;
 	asset::ICPUMeshBuffer* buf = reinterpret_cast<asset::ICPUMeshBuffer*>(_obj);
 	buf->setMeshDataAndFormat(impl::castPtrAndRefcount<asset::IMeshDataFormatDesc<asset::ICPUBuffer> >(_deps[blob->descPtr]));
 	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
@@ -267,7 +267,7 @@ void* TypedBlob<MeshBufferBlobV2, asset::ICPUMeshBuffer>::finalize(void* _obj, c
 }
 
 template<>
-void TypedBlob<MeshBufferBlobV2, asset::ICPUMeshBuffer>::releaseObj(const void* _obj)
+void TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::releaseObj(const void* _obj)
 {
 	if (_obj)
 		reinterpret_cast<const asset::ICPUMeshBuffer*>(_obj)->drop();
@@ -276,7 +276,7 @@ void TypedBlob<MeshBufferBlobV2, asset::ICPUMeshBuffer>::releaseObj(const void* 
 template<>
 core::unordered_set<uint64_t> TypedBlob<SkinnedMeshBufferBlobV2, asset::ICPUSkinnedMeshBuffer>::getNeededDeps(const void* _blob)
 {
-	return TypedBlob<MeshBufferBlobV2, asset::ICPUMeshBuffer>::getNeededDeps(_blob);
+	return TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::getNeededDeps(_blob);
 }
 
 template<>

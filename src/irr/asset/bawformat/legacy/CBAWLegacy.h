@@ -137,6 +137,52 @@ using BAWFileV2 = BAWFileVn<2>;
 using BlobHeaderV2 = BlobHeaderVn<2>;
 
 
+#include "irr/irrpack.h"
+//! Simple struct of essential data of ICPUMeshBuffer that has to be exported
+struct IRR_FORCE_EBO MeshBufferBlobV2 : TypedBlob<MeshBufferBlobV2, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV2, ICPUMeshBuffer>
+{
+    //! Constructor filling all members
+    explicit MeshBufferBlobV2(const ICPUMeshBuffer* _mb)
+    {
+        memcpy(&mat, &_mb->getMaterial(), sizeof(video::SCPUMaterial));
+        _mb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
+        for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+            _mb->getMaterial().TextureLayer[i].SamplingParams.serializeBitfields(mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
+
+        memcpy(&box, &_mb->getBoundingBox(), sizeof(core::aabbox3df));
+        descPtr = reinterpret_cast<uint64_t>(_mb->getMeshDataAndFormat());
+        indexType = _mb->getIndexType();
+        baseVertex = _mb->getBaseVertex();
+        indexCount = _mb->getIndexCount();
+        indexBufOffset = _mb->getIndexBufferOffset();
+        instanceCount = _mb->getInstanceCount();
+        baseInstance = _mb->getBaseInstance();
+        primitiveType = _mb->getPrimitiveType();
+        posAttrId = _mb->getPositionAttributeIx();
+    }
+
+    video::SCPUMaterial mat;
+    core::aabbox3df box;
+    uint64_t descPtr;
+    uint32_t indexType;
+    uint32_t baseVertex;
+    uint64_t indexCount;
+    size_t indexBufOffset;
+    size_t instanceCount;
+    uint32_t baseInstance;
+    uint32_t primitiveType;
+    uint32_t posAttrId;
+} PACK_STRUCT;
+#include "irr/irrunpack.h"
+static_assert(sizeof(MeshBufferBlobV2::mat) == 197, "sizeof(MeshBufferBlobV0::mat) must be 197");
+static_assert(
+    sizeof(MeshBufferBlobV2) ==
+    sizeof(MeshBufferBlobV2::mat) + sizeof(MeshBufferBlobV2::box) + sizeof(MeshBufferBlobV2::descPtr) + sizeof(MeshBufferBlobV2::indexType) + sizeof(MeshBufferBlobV2::baseVertex)
+    + sizeof(MeshBufferBlobV2::indexCount) + sizeof(MeshBufferBlobV2::indexBufOffset) + sizeof(MeshBufferBlobV2::instanceCount) + sizeof(MeshBufferBlobV2::baseInstance)
+    + sizeof(MeshBufferBlobV2::primitiveType) + sizeof(MeshBufferBlobV2::posAttrId),
+    "MeshBufferBlobV0: Size of blob is not sum of its contents!"
+    );
+
 }
 
 }

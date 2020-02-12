@@ -63,7 +63,7 @@ size_t SizedBlob<VariableSizeBlob, SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>::c
 	return sizeof(SkinnedMeshBlobV0) + (_obj->getMeshBufferCount() - 1) * sizeof(uint64_t);
 }
 
-MeshBufferBlobV0::MeshBufferBlobV0(const asset::ICPUMeshBuffer* _mb)
+MeshBufferBlobV3::MeshBufferBlobV3(const asset::ICPUMeshBuffer* _mb)
 {
 	memcpy(&mat, &_mb->getMaterial(), sizeof(video::SCPUMaterial));
 	_mb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
@@ -82,10 +82,28 @@ MeshBufferBlobV0::MeshBufferBlobV0(const asset::ICPUMeshBuffer* _mb)
 	posAttrId = _mb->getPositionAttributeIx();
 }
 
-template<>
-size_t SizedBlob<FixedSizeBlob, MeshBufferBlobV0, asset::ICPUMeshBuffer>::calcBlobSizeForObj(const asset::ICPUMeshBuffer* _obj)
+MeshBufferBlobV3::MeshBufferBlobV3(const legacyv2::MeshBufferBlobV2* meshBufferV2)
 {
-	return sizeof(MeshBufferBlobV0);
+	mat = meshBufferV2->mat;
+	box = meshBufferV2->box;
+
+	descPtr = meshBufferV2->descPtr;
+	indexType = meshBufferV2->indexType;
+	baseVertex = meshBufferV2->baseVertex;
+	indexCount = meshBufferV2->indexCount;
+	indexBufOffset = meshBufferV2->indexBufOffset;
+	instanceCount = meshBufferV2->instanceCount;
+	baseInstance = meshBufferV2->baseInstance;
+	primitiveType = meshBufferV2->primitiveType;
+	posAttrId = meshBufferV2->posAttrId;
+
+	isRightHandedCoordinateSystem = false;
+}
+
+template<>
+size_t SizedBlob<FixedSizeBlob, MeshBufferBlobV3, asset::ICPUMeshBuffer>::calcBlobSizeForObj(const asset::ICPUMeshBuffer* _obj)
+{
+	return sizeof(MeshBufferBlobV3);
 }
 
 SkinnedMeshBufferBlobV0::SkinnedMeshBufferBlobV0(const asset::ICPUSkinnedMeshBuffer* _smb)
@@ -289,8 +307,6 @@ MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::legacyv0::MeshDa
 
     idxBufPtr = _v0blob.idxBufPtr;
 }
-
-
 
 bool encAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag)
 {
