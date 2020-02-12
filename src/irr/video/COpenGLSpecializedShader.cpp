@@ -1,5 +1,4 @@
 #include "COpenGLSpecializedShader.h"
-#include "spirv_cross/spirv_glsl.hpp"
 #include "COpenGLDriver.h"
 #include "irr/asset/spvUtils.h"
 #include <algorithm>
@@ -30,7 +29,7 @@ static void specialize(spirv_cross::CompilerGLSL& _comp, const asset::ISpecializ
     }
 }
 
-static void reorderBindings(spirv_cross::CompilerGLSL& _comp)
+static void reorderBindings(spirv_cross::CompilerGLSL& _comp, const COpenGLPipelineLayout* _layout)
 {
     auto sort_ = [&_comp](spirv_cross::SmallVector<spirv_cross::Resource>& res) {
         using R_t = spirv_cross::Resource;
@@ -47,17 +46,33 @@ static void reorderBindings(spirv_cross::CompilerGLSL& _comp)
         };
         std::sort(res.begin(), res.end(), cmp);
     };
-    auto reorder_ = [&_comp](spirv_cross::SmallVector<spirv_cross::Resource>& res) {
+    auto reorder_ = [&_comp,_layout](spirv_cross::SmallVector<spirv_cross::Resource>& res, asset::E_DESCRIPTOR_TYPE _dtype1, asset::E_DESCRIPTOR_TYPE _dtype2) {
         uint32_t availableBinding = 0u;
-        for (uint32_t i = 0u; i < res.size(); ++i) {
+		uint32_t currSet = 0u;
+		const IGPUDescriptorSetLayout* dsl = nullptr;
+        for (uint32_t i = 0u, j = 0u; i < res.size(); ++j) {
+			uint32_t set = _comp.get_decoration(res[i].id, spv::DecorationDescriptorSet);
+			if (!dsl || currSet!=set) {
+				currSet = set;
+				dsl = _layout->getDescriptorSetLayout(currSet);
+				j = 0u;
+			}
+
             const spirv_cross::Resource& r = res[i];
-            const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
+			const uint32_t r_bnd = _comp.get_decoration(r.id, spv::DecorationBinding);
+
+			if (dsl->getBindings().begin()[j].binding != r_bnd) {
+				const asset::E_DESCRIPTOR_TYPE dtype = dsl->getBindings().begin()[j].type;
+				if (dtype==_dtype1 || dtype==_dtype2)
+					availableBinding += dsl->getBindings().begin()[j].count;
+				continue;
+			}
+
             _comp.set_decoration(r.id, spv::DecorationBinding, availableBinding);
-			uint32_t elements = 1u;
-			for (auto dim : type.array)
-				elements *= dim;
-            availableBinding += elements;
+            const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
+            availableBinding += type.array[0];
             _comp.unset_decoration(r.id, spv::DecorationDescriptorSet);
+			++i;
         }
     };
 
@@ -71,19 +86,19 @@ static void reorderBindings(spirv_cross::CompilerGLSL& _comp)
         if (_comp.get_type(samplerBuffer.type_id).image.dim == spv::DimBuffer)
             samplers.push_back(samplerBuffer);//see https://github.com/KhronosGroup/SPIRV-Cross/wiki/Reflection-API-user-guide for explanation
     sort_(samplers);
-    reorder_(samplers);
+    reorder_(samplers, asset::EDT_COMBINED_IMAGE_SAMPLER, asset::EDT_UNIFORM_TEXEL_BUFFER);
 
     auto images = std::move(resources.storage_images);
     sort_(images);
-    reorder_(images);
+    reorder_(images, asset::EDT_STORAGE_IMAGE, asset::EDT_STORAGE_TEXEL_BUFFER);
 
     auto ubos = std::move(resources.uniform_buffers);
     sort_(ubos);
-    reorder_(ubos);
+    reorder_(ubos, asset::EDT_UNIFORM_BUFFER, asset::EDT_UNIFORM_BUFFER_DYNAMIC);
 
     auto ssbos = std::move(resources.storage_buffers);
     sort_(ssbos);
-    reorder_(ssbos);
+    reorder_(ssbos, asset::EDT_STORAGE_BUFFER, asset::EDT_STORAGE_BUFFER_DYNAMIC);
 }
 
 static GLenum ESS2GLenum(asset::ISpecializedShader::E_SHADER_STAGE _stage)
@@ -112,11 +127,48 @@ using namespace irr::video;
 COpenGLSpecializedShader::COpenGLSpecializedShader(size_t _ctxCount, uint32_t _ctxID, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, const asset::CIntrospectionData* _introspection) :
 	core::impl::ResolveAlignment<IGPUSpecializedShader, core::AllocationOverrideBase<128>>(_specInfo.shaderStage),
     m_GLnames(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(_ctxCount)),
-    m_GLstage(impl::ESS2GLenum(_specInfo.shaderStage))
+    m_GLstage(impl::ESS2GLenum(_specInfo.shaderStage)),
+	m_specInfo(_specInfo),//TODO make it move()
+	m_spirv(core::smart_refctd_ptr<const asset::ICPUBuffer>(_spirv))
 {
-    for (auto& nm : (*m_GLnames))
-        nm = 0u;
-    m_GLnames->operator[](_ctxID) = compile(_GLSLversion, _spirv, _specInfo, _introspection);
+	m_options.version = _GLSLversion;
+	//vulkan_semantics=false causes spirv_cross to translate push_constants into non-UBO uniform of struct type! Exactly like we wanted!
+	m_options.vulkan_semantics = false; // with this it's likely that SPIRV-Cross will take care of built-in variables renaming, but need testing
+	m_options.separate_shader_objects = true;
+
+	core::XXHash_256(_spirv->getPointer(), _spirv->getSize(), m_spirvHash.data());
+    //for (auto& nm : (*m_GLnames))
+    //    nm = 0u;
+    //m_GLnames->operator[](_ctxID) = compile(_GLSLversion, _spirv, _specInfo, _introspection);
+
+	assert(_introspection);
+	const auto& pc = _introspection->pushConstant;
+	if (pc.present)
+	{
+		const auto& pc_layout = pc.info;
+		core::queue<SMember> q;
+		SMember initial;
+		initial.type = asset::EGVT_UNKNOWN_OR_STRUCT;
+		initial.members = pc_layout.members;
+		initial.name = pc.info.name;
+		q.push(initial);
+		while (!q.empty())
+		{
+			const SMember top = q.front();
+			q.pop();
+			if (top.type == asset::EGVT_UNKNOWN_OR_STRUCT && top.members.count) {
+				for (size_t i = 0ull; i < top.members.count; ++i) {
+					SMember m = top.members.array[i];
+					m.name = top.name + "." + m.name;
+					if (m.count > 1u)
+						m.name += "[0]";
+					q.push(m);
+				}
+				continue;
+			}
+			m_uniformsList.emplace_back(top);
+		}
+	}
 }
 
 GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, const asset::CIntrospectionData* _introspection)
@@ -190,18 +242,24 @@ GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion, const asset::ICP
     return GLname;
 }
 
-void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* _pcData, uint32_t _ctxID) const
+void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* _pcData, GLuint _GLname, const GLint* _locations, uint8_t* _state) const
 {
     IRR_ASSUME_ALIGNED(_pcData, 128);
 
-    const GLuint GLname = getGLnameForCtx(_ctxID);
-
     using gl = COpenGLExtensionHandler;
-    for (const SUniform& u : m_uniformsList)
+	uint32_t loc_i = 0u;
+    for (auto u_it = m_uniformsList.begin(); u_it!=m_uniformsList.end(); ++u_it, ++loc_i)
     {
+		if (_locations[loc_i]==-1)
+			continue;
+
+		const SUniform& u = *u_it;
+
         const SMember& m = u.m;
         auto is_scalar_or_vec = [&m] { return (m.mtxRowCnt >= 1u && m.mtxColCnt == 1u); };
         auto is_mtx = [&m] { return (m.mtxRowCnt > 1u && m.mtxColCnt > 1u); };
+
+		uint8_t* valueptr = _state+m.offset;
 
         uint32_t arrayStride = 0u;
         {
@@ -214,8 +272,8 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
             arrayStride = (m.count <= 1u) ? arrayStride1 : m.arrayStride;
         }
 		assert(m.mtxStride==0u || arrayStride%m.mtxStride==0u);
-		IRR_ASSUME_ALIGNED(u.value, sizeof(float));
-		IRR_ASSUME_ALIGNED(u.value, arrayStride);
+		IRR_ASSUME_ALIGNED(valueptr, sizeof(float));
+		IRR_ASSUME_ALIGNED(valueptr, arrayStride);
 		
 		auto* baseOffset = _pcData+m.offset;
 		IRR_ASSUME_ALIGNED(baseOffset, sizeof(float));
@@ -225,7 +283,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
 		alignas(128u) std::array<GLfloat,MAX_DWORD_SIZE> packed_data;
 
         const uint32_t count = std::min<uint32_t>(m.count, MAX_DWORD_SIZE/(m.count*m.mtxRowCnt*m.mtxColCnt));
-		if (!std::equal(baseOffset, baseOffset+arrayStride*count, u.value) || m_uniformsSetForTheVeryFirstTime)
+		if (!std::equal(baseOffset, baseOffset+arrayStride*count, valueptr) || m_uniformsSetForTheVeryFirstTime)
 		{
 			// pack the constant data as OpenGL uniform update functions expect packed arrays
 			{
@@ -249,7 +307,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
 						{&gl::extGlProgramUniformMatrix4x2fv, &gl::extGlProgramUniformMatrix4x3fv, &gl::extGlProgramUniformMatrix4fv} //4xM
 					};
 
-					glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt - 2u][m.mtxRowCnt - 2u](GLname, u.location, m.count, m.rowMajor ? GL_TRUE : GL_FALSE, packed_data.data());
+					glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt - 2u][m.mtxRowCnt - 2u](_GLname, _locations[loc_i], m.count, m.rowMajor ? GL_TRUE : GL_FALSE, packed_data.data());
 			}
 			else if (is_scalar_or_vec())
 			{
@@ -260,7 +318,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
 						PFNGLPROGRAMUNIFORM1FVPROC glProgramUniformNfv_fptr[4]{
 							&gl::extGlProgramUniform1fv, &gl::extGlProgramUniform2fv, &gl::extGlProgramUniform3fv, &gl::extGlProgramUniform4fv
 						};
-						glProgramUniformNfv_fptr[m.mtxRowCnt-1u](GLname, u.location, m.count, packed_data.data());
+						glProgramUniformNfv_fptr[m.mtxRowCnt-1u](_GLname, _locations[loc_i], m.count, packed_data.data());
 						break;
 					}
 					case asset::EGVT_I32:
@@ -268,7 +326,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
 						PFNGLPROGRAMUNIFORM1IVPROC glProgramUniformNiv_fptr[4]{
 							&gl::extGlProgramUniform1iv, &gl::extGlProgramUniform2iv, &gl::extGlProgramUniform3iv, &gl::extGlProgramUniform4iv
 						};
-						glProgramUniformNiv_fptr[m.mtxRowCnt-1u](GLname, u.location, m.count, reinterpret_cast<const GLint*>(packed_data.data()));
+						glProgramUniformNiv_fptr[m.mtxRowCnt-1u](_GLname, _locations[loc_i], m.count, reinterpret_cast<const GLint*>(packed_data.data()));
 						break;
 					}
 					case asset::EGVT_U32:
@@ -276,15 +334,43 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
 						PFNGLPROGRAMUNIFORM1UIVPROC glProgramUniformNuiv_fptr[4]{
 							&gl::extGlProgramUniform1uiv, &gl::extGlProgramUniform2uiv, &gl::extGlProgramUniform3uiv, &gl::extGlProgramUniform4uiv
 						};
-						glProgramUniformNuiv_fptr[m.mtxRowCnt-1u](GLname, u.location, m.count, reinterpret_cast<const GLuint*>(packed_data.data()));
+						glProgramUniformNuiv_fptr[m.mtxRowCnt-1u](_GLname, _locations[loc_i], m.count, reinterpret_cast<const GLuint*>(packed_data.data()));
 						break;
 					}
 				}
 			}
-			std::copy(baseOffset, baseOffset+arrayStride*count, u.value);
+			std::copy(baseOffset, baseOffset+arrayStride*count, valueptr);
         }
     }
 
     m_uniformsSetForTheVeryFirstTime = false;
 }
+
+auto COpenGLSpecializedShader::compile(const COpenGLPipelineLayout* _layout) const -> std::pair<GLuint, SProgramBinary>
+{
+	spirv_cross::CompilerGLSL comp(reinterpret_cast<const uint32_t*>(m_spirv->getPointer()), m_spirv->getSize()/4ull);
+	comp.set_common_options(m_options);
+
+	impl::specialize(comp, m_specInfo);
+	impl::reorderBindings(comp, _layout);
+
+	std::string glslCode = comp.compile();
+	const char* glslCode_cstr = glslCode.c_str();
+
+	GLuint GLname = COpenGLExtensionHandler::extGlCreateShaderProgramv(m_GLstage, 1u, &glslCode_cstr);
+
+	GLchar logbuf[1u<<12]; //4k
+	COpenGLExtensionHandler::extGlGetProgramInfoLog(GLname, sizeof(logbuf), nullptr, logbuf);
+	if (logbuf[0])
+		os::Printer::log(logbuf, ELL_ERROR);
+
+	SProgramBinary binary;
+	GLint binaryLength = 0;
+	COpenGLExtensionHandler::extGlGetProgramiv(GLname, GL_PROGRAM_BINARY_LENGTH, &binaryLength);
+	binary.binary = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint8_t>>(binaryLength);
+	COpenGLExtensionHandler::extGlGetProgramBinary(GLname, binaryLength, nullptr, &binary.format, binary.binary->data());
+
+	return {GLname, std::move(binary)};
+}
+
 #endif

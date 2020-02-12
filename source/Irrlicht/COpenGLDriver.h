@@ -651,6 +651,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         ) override;
 
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
+			IGPUPipelineCache* _pipelineCache,
             core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd,

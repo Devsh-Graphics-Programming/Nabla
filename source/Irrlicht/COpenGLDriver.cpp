@@ -14,6 +14,7 @@
 #include "irr/video/COpenGLImageView.h"
 #include "irr/video/COpenGLBufferView.h"
 
+#include "irr/video/COpenGLPipelineCache.h"
 #include "irr/video/COpenGLShader.h"
 #include "irr/video/COpenGLSpecializedShader.h"
 #include "irr/asset/IGLSLCompiler.h"
@@ -1262,11 +1263,15 @@ core::smart_refctd_ptr<IGPUPipelineLayout> COpenGLDriver::createGPUPipelineLayou
         );
 }
 
-core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createGPURenderpassIndependentPipeline(core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd, const asset::SVertexInputParams& _vertexInputParams, const asset::SBlendParams& _blendParams, const asset::SPrimitiveAssemblyParams& _primAsmParams, const asset::SRasterizationParams& _rasterParams)
+core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createGPURenderpassIndependentPipeline(IGPUPipelineCache* _pipelineCache, core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd, const asset::SVertexInputParams& _vertexInputParams, const asset::SBlendParams& _blendParams, const asset::SPrimitiveAssemblyParams& _primAsmParams, const asset::SRasterizationParams& _rasterParams)
 {
     //_parent parameter is ignored
 
     using GLPpln = COpenGLRenderpassIndependentPipeline;
+
+    SAuxContext* ctx = getThreadContext_helper(false);
+    if (!ctx)
+        return nullptr;
 
     auto shaders = core::SRange<IGPUSpecializedShader*>(_shadersBegin, _shadersEnd);
     auto vsIsPresent = [&shaders] {
@@ -1276,11 +1281,45 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
     if (!_layout || !vsIsPresent())
         return nullptr;
 
+    GLuint GLnames[COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT]{};
+    COpenGLSpecializedShader::SProgramBinary binaries[COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT];
+    if (_pipelineCache)
+    {
+        COpenGLPipelineCache* cache = static_cast<COpenGLPipelineCache*>(_pipelineCache);
+        COpenGLPipelineLayout* layout = static_cast<COpenGLPipelineLayout*>(_layout.get());
+        for (auto shdr = _shadersBegin; shdr!=_shadersEnd; ++shdr)
+        {
+            COpenGLSpecializedShader* glshdr = static_cast<COpenGLSpecializedShader*>(*shdr);
+
+            auto stage = glshdr->getStage();
+            uint32_t ix = core::findLSB<uint32_t>(stage);
+            assert(ix<COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT);
+
+            COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo() };
+            auto bin = cache->find(key, layout);
+            if (bin.binary)
+            {
+                const GLuint GLname = extGlCreateProgram();
+                extGlProgramBinary(GLname, bin.format, bin.binary->data(), bin.binary->size());
+                GLnames[ix] = GLname;
+                binaries[ix] = bin;
+
+                continue;
+            }
+            std::tie(GLnames[ix], bin) = glshdr->compile(layout);
+            binaries[ix] = bin;
+
+            COpenGLPipelineCache::SCacheVal val{std::move(bin), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(_layout)};
+            cache->insert(std::move(key), std::move(val));
+        }
+    }
+
     return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
         nullptr,
         std::move(_layout),
         _shadersBegin, _shadersEnd,
-        _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
+        _vertexInputParams, _blendParams, _primAsmParams, _rasterParams,
+        Params.AuxGLContexts+1, ctx->ID, GLnames, binaries
         );
 }
 
@@ -2239,7 +2278,12 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
 			const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.graphics.pipeline->getShaderAtIndex(i));
 			//assert(shdr); //this would be weird
 
-			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_GRAPHICS].data, this->ID);
+            //WARNING order of calls getShaderGLnameForCtx() and getUniformLocationsForStage() is important!!
+            GLuint GLname = currentState.pipeline.graphics.pipeline->getShaderGLnameForCtx(i, this->ID);
+            const GLint* locations = currentState.pipeline.graphics.pipeline->getUniformLocationsForStage(i, this->ID);
+            uint8_t* PCstate = currentState.pipeline.graphics.pipeline->getPushConstantsStateForStage(i, this->ID);
+
+			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_GRAPHICS].data, GLname, locations, PCstate);
 		}
 		pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags = 0u;
     }
@@ -2566,7 +2610,7 @@ void COpenGLDriver::SAuxContext::pushConstants(E_PIPELINE_BIND_POINT _bindPoint,
     {
         constexpr size_t toFill = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE / sizeof(uint64_t);
         constexpr size_t bytesLeft = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE - (toFill * sizeof(uint64_t));
-        constexpr uint64_t pattern = 0xdeafbeefDEADBEEFull;
+        constexpr uint64_t pattern = 0xdeadbeefDEADBEEFull;
         std::fill(reinterpret_cast<uint64_t*>(pushConstantsState[_bindPoint].data), reinterpret_cast<uint64_t*>(pushConstantsState[_bindPoint].data)+toFill, pattern);
         IRR_PSEUDO_IF_CONSTEXPR_BEGIN(bytesLeft > 0ull) {
             memcpy(reinterpret_cast<uint64_t*>(pushConstantsState[_bindPoint].data) + toFill, &pattern, bytesLeft);

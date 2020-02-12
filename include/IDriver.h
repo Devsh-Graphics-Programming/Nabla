@@ -20,6 +20,7 @@ namespace video
 }
 }
 
+#include "irr/video/IGPUPipelineCache.h"
 #include "irr/video/IGPUImageView.h"
 #include "IFrameBuffer.h"
 #include "IVideoCapabilityReporter.h"
@@ -293,6 +294,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 
 		//! Create a renderpass independent graphics pipeline (@see ICPURenderpassIndependentPipeline)
         virtual core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
+            IGPUPipelineCache* _pipelineCache,
             core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,

@@ -45,7 +45,7 @@ class IDescriptorSetLayout : public virtual core::IReferenceCounted
 					// should really assert here
 					if (type==rhs.type)
 					{
-						if (count==rhs.type)
+						if (count==rhs.count)
 						{
 							if (stageFlags==rhs.stageFlags)
 							{

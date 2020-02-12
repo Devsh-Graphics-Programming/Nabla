@@ -14,6 +14,7 @@ namespace video
 class COpenGLRenderpassIndependentPipeline : public IGPURenderpassIndependentPipeline
 {
 public:
+    //! _binaries' elements are getting move()'d!
     COpenGLRenderpassIndependentPipeline(
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
         core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
@@ -21,14 +22,27 @@ public:
         const asset::SVertexInputParams& _vertexInputParams,
         const asset::SBlendParams& _blendParams,
         const asset::SPrimitiveAssemblyParams& _primAsmParams,
-        const asset::SRasterizationParams& _rasterParams
+        const asset::SRasterizationParams& _rasterParams,
+        uint32_t _ctxCount, uint32_t _ctxID, GLuint _GLnames[SHADER_STAGE_COUNT], COpenGLSpecializedShader::SProgramBinary _binaries[SHADER_STAGE_COUNT]
     ) : IGPURenderpassIndependentPipeline(
         std::move(_parent),
         std::move(_layout), _shadersBegin, _shadersEnd,
         _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
         ),
-        m_stagePresenceMask(0u)
+        m_stagePresenceMask(0u),
+        m_GLnames(core::make_refctd_dynamic_array<decltype(m_GLnames)>(SHADER_STAGE_COUNT*_ctxCount)),
+        m_shaderBinaries(core::make_refctd_dynamic_array<decltype(m_shaderBinaries)>(SHADER_STAGE_COUNT))
     {
+        memset(m_GLnames->data(), 0, m_GLnames->size()*sizeof(GLuint));
+        memcpy(m_GLnames->data()+_ctxID*SHADER_STAGE_COUNT, _GLnames, SHADER_STAGE_COUNT*sizeof(GLuint));
+        std::move(_binaries, _binaries+SHADER_STAGE_COUNT, m_shaderBinaries->begin());
+
+        {
+            const size_t uVals_sz = SHADER_STAGE_COUNT*_ctxCount*IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE;
+            m_uniformValues = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(SHADER_STAGE_COUNT*_ctxCount*IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, 128));
+            memset(m_uniformValues, 0xff, uVals_sz);
+        }
+
         static_assert(asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT == asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT, "This code below has to be divided into 2 loops");
         static_assert(asset::EF_UNKNOWN <= 0xffu, "All E_FORMAT values must fit in 1 byte or hash falls apart");
         static_assert(asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT == 16u && asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT == 16u, "m_vaoHashval.mapAttrToBinding needs adjustments");
@@ -53,8 +67,56 @@ public:
             m_stagePresenceMask |= (static_cast<uint32_t>(present) << i);
         }
     }
+    ~COpenGLRenderpassIndependentPipeline()
+    {
+        //shader programs can be shared so all names can be freed by any thread
+        for (GLuint n : *m_GLnames)
+            if (n!=0u)
+                COpenGLExtensionHandler::extGlDeleteProgram(n);
+        _IRR_ALIGNED_FREE(m_uniformValues);
+    }
 
     uint32_t getStagePresenceMask() const { return m_stagePresenceMask; }
+
+    GLuint getShaderGLnameForCtx(uint32_t _stageIx, uint32_t _ctxID) const
+    {
+        const uint32_t name_ix = _ctxID*SHADER_STAGE_COUNT + _stageIx;
+
+        if ((*m_GLnames)[name_ix])
+            return (*m_GLnames)[name_ix];
+        else if ((*m_shaderBinaries)[_stageIx].binary)
+        {
+            const auto& bin = (*m_shaderBinaries)[_stageIx];
+
+            const GLuint GLname = COpenGLExtensionHandler::extGlCreateProgram();
+            COpenGLExtensionHandler::extGlProgramBinary(GLname, bin.format, bin.binary->data(), bin.binary->size());
+            (*m_GLnames)[_ctxID] = GLname;
+            return GLname;
+        }
+
+        std::tie((*m_GLnames)[name_ix], (*m_shaderBinaries)[_stageIx]) = 
+            static_cast<const COpenGLSpecializedShader*>(m_shaders[_stageIx].get())->compile(static_cast<const COpenGLPipelineLayout*>(getLayout()));
+        return (*m_GLnames)[name_ix];
+    }
+
+    //assumes GL shader object for _stageIx for _ctxID was already created (ctor or getShaderGLnameForCtx() )!
+    const GLint* getUniformLocationsForStage(uint32_t _stageIx, uint32_t _ctxID) const
+    {
+        if (m_uniformLocations[_stageIx])
+            return m_uniformLocations[_stageIx]->data();
+
+        const COpenGLSpecializedShader* glshdr = static_cast<const COpenGLSpecializedShader*>(m_shaders[_stageIx].get());
+        auto uniforms_rng = glshdr->getUniforms();
+        GLuint GLname = (*m_GLnames)[_ctxID*SHADER_STAGE_COUNT + _stageIx];
+
+        m_uniformLocations[_stageIx] = core::make_refctd_dynamic_array<decltype(m_uniformLocations[_stageIx])>(uniforms_rng.length());
+        for (size_t i = 0ull; i < uniforms_rng.length(); ++i)
+            (*m_uniformLocations[_stageIx])[i] = COpenGLExtensionHandler::extGlGetUniformLocation(GLname, uniforms_rng.begin()[i].m.name.c_str());
+
+        return m_uniformLocations[_stageIx]->data();
+    }
+
+    uint8_t* getPushConstantsStateForStage(uint32_t _stageIx, uint32_t _ctxID) const { return const_cast<uint8_t*>(m_uniformValues + ((SHADER_STAGE_COUNT*_ctxID + _stageIx)*IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE)); }
 
     struct SVAOHash
     {
@@ -176,6 +238,12 @@ public:
 private:
     SVAOHash m_vaoHashval;
     uint32_t m_stagePresenceMask;
+    //mutable for deferred GL objects creation
+    mutable core::smart_refctd_dynamic_array<GLuint> m_GLnames;
+    mutable core::smart_refctd_dynamic_array<COpenGLSpecializedShader::SProgramBinary> m_shaderBinaries;
+    mutable core::smart_refctd_dynamic_array<GLint> m_uniformLocations[SHADER_STAGE_COUNT];
+
+    uint8_t* m_uniformValues;
 };
 
 }
