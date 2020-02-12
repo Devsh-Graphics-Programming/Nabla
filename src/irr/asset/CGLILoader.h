@@ -37,6 +37,26 @@ namespace irr
 			asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 		private:
+
+			static inline bool doesItHaveFaces(const IImageView<ICPUImage>::E_TYPE& type)
+			{
+				switch (type)
+				{
+					case ICPUImageView::ET_CUBE_MAP: return true;
+					case ICPUImageView::ET_CUBE_MAP_ARRAY: return true;
+					default: return false;
+				}
+			}
+			static inline bool doesItHaveLayers(const IImageView<ICPUImage>::E_TYPE& type)
+			{
+				switch (type)
+				{
+					case ICPUImageView::ET_1D_ARRAY: return true;
+					case ICPUImageView::ET_2D_ARRAY: return true;
+					case ICPUImageView::ET_CUBE_MAP_ARRAY: return true;
+					default: return false;
+				}
+			}
 			
 		};
 	}

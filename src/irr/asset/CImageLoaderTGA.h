@@ -6,9 +6,7 @@
 #define __C_IMAGE_LOADER_TGA_H_INCLUDED__
 
 #include "IrrCompileConfig.h"
-
-#include "irr/asset/IAssetLoader.h"
-
+#include "irr/asset/IImageLoader.h"
 
 namespace irr
 {
@@ -74,7 +72,7 @@ namespace asset
 /*!
 	Surface Loader for targa images
 */
-class CImageLoaderTGA : public asset::IAssetLoader
+class CImageLoaderTGA final : public IImageLoader
 {
 public:
     virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
@@ -92,7 +90,7 @@ public:
 private:
 
 	//! loads a compressed tga. Was written and sent in by Jon Pry, thank you very much!
-	uint8_t* loadCompressedImage(io::IReadFile *file, const STGAHeader& header) const;
+	void loadCompressedImage(io::IReadFile *file, const STGAHeader& header, const uint32_t wholeSizeWithPitchInBytes, core::smart_refctd_ptr<ICPUBuffer>& bufferData) const;
 };
 
 #endif // compiled with loader
