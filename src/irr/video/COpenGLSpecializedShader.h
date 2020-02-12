@@ -9,6 +9,7 @@
 #include "irr/asset/CShaderIntrospector.h"
 #include "irr/core/memory/refctd_dynamic_array.h"
 #include "irr/video/IGPUMeshBuffer.h"
+#include "irr/video/COpenGLPipelineLayout.h"
 #include <algorithm>
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
@@ -32,9 +33,9 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 			SMember m;
 		};
 
-		COpenGLSpecializedShader(size_t _ctxCount, uint32_t _ctxID, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, const asset::CIntrospectionData* _introspection);
+		COpenGLSpecializedShader(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, const asset::CIntrospectionData* _introspection);
 
-		void setUniformsImitatingPushConstants(const uint8_t* _pcData, GLuint _GLname, const GLint* _locations, uint8_t* _state) const;
+		void setUniformsImitatingPushConstants(const uint8_t* _pcData, GLuint _GLname, const GLint* _locations, uint8_t* _state, bool _dontCmpWithState) const;
 
 		inline GLenum getOpenGLStage() const { return m_GLstage; }
 
@@ -46,22 +47,10 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 		core::SRange<const SUniform> getUniforms() const { return {m_uniformsList.data(),m_uniformsList.data()+m_uniformsList.size()}; }
 
 	protected:
-		~COpenGLSpecializedShader()
-		{
-			//shader programs can be shared so all names can be freed by any thread
-			for (auto& n : *m_GLnames)
-				COpenGLExtensionHandler::extGlDeleteProgram(n);
-		}
+		~COpenGLSpecializedShader() = default;
 
 	private:
-		//! @returns GL name or zero if already compiled once or there were compilation errors.
-		//to del
-		GLuint compile(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, const asset::CIntrospectionData* _introspection);
-
-	private:
-		mutable core::smart_refctd_dynamic_array<GLuint> m_GLnames;//to del
 		GLenum m_GLstage;
-		SProgramBinary m_binary;//to del
 
 		SInfo m_specInfo;
 		core::smart_refctd_ptr<const asset::ICPUBuffer> m_spirv;

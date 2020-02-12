@@ -70,7 +70,7 @@ static void reorderBindings(spirv_cross::CompilerGLSL& _comp, const COpenGLPipel
 
             _comp.set_decoration(r.id, spv::DecorationBinding, availableBinding);
             const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
-            availableBinding += type.array[0];
+			availableBinding += (type.array.size() ? type.array[0] : 1u);
             _comp.unset_decoration(r.id, spv::DecorationDescriptorSet);
 			++i;
         }
@@ -124,9 +124,8 @@ static GLenum ESS2GLenum(asset::ISpecializedShader::E_SHADER_STAGE _stage)
 using namespace irr;
 using namespace irr::video;
 
-COpenGLSpecializedShader::COpenGLSpecializedShader(size_t _ctxCount, uint32_t _ctxID, uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, const asset::CIntrospectionData* _introspection) :
+COpenGLSpecializedShader::COpenGLSpecializedShader(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, const asset::CIntrospectionData* _introspection) :
 	core::impl::ResolveAlignment<IGPUSpecializedShader, core::AllocationOverrideBase<128>>(_specInfo.shaderStage),
-    m_GLnames(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLuint>>(_ctxCount)),
     m_GLstage(impl::ESS2GLenum(_specInfo.shaderStage)),
 	m_specInfo(_specInfo),//TODO make it move()
 	m_spirv(core::smart_refctd_ptr<const asset::ICPUBuffer>(_spirv))
@@ -137,9 +136,6 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(size_t _ctxCount, uint32_t _c
 	m_options.separate_shader_objects = true;
 
 	core::XXHash_256(_spirv->getPointer(), _spirv->getSize(), m_spirvHash.data());
-    //for (auto& nm : (*m_GLnames))
-    //    nm = 0u;
-    //m_GLnames->operator[](_ctxID) = compile(_GLSLversion, _spirv, _specInfo, _introspection);
 
 	assert(_introspection);
 	const auto& pc = _introspection->pushConstant;
@@ -171,78 +167,7 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(size_t _ctxCount, uint32_t _c
 	}
 }
 
-GLuint COpenGLSpecializedShader::compile(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, const asset::CIntrospectionData* _introspection)
-{
-    if (!_spirv)
-        return 0u;
-
-    spirv_cross::CompilerGLSL comp(reinterpret_cast<const uint32_t*>(_spirv->getPointer()), _spirv->getSize()/4u);
-    comp.set_entry_point(_specInfo.entryPoint.c_str(), asset::ESS2spvExecModel(_specInfo.shaderStage));
-    spirv_cross::CompilerGLSL::Options options;
-    options.version = _GLSLversion;
-    //vulkan_semantics=false causes spirv_cross to translate push_constants into non-UBO uniform of struct type! Exactly like we wanted!
-    options.vulkan_semantics = false; // with this it's likely that SPIRV-Cross will take care of built-in variables renaming, but need testing
-    options.separate_shader_objects = true;
-    comp.set_common_options(options);
-
-    impl::specialize(comp, _specInfo);
-    impl::reorderBindings(comp);
-
-    std::string glslCode = comp.compile();
-    const char* glslCode_cstr = glslCode.c_str();
-
-    GLuint GLname = COpenGLExtensionHandler::extGlCreateShaderProgramv(m_GLstage, 1u, &glslCode_cstr);
-
-    GLchar logbuf[1u<<12]; //4k
-    COpenGLExtensionHandler::extGlGetProgramInfoLog(GLname, sizeof(logbuf), nullptr, logbuf);
-    if (logbuf[0])
-        os::Printer::log(logbuf, ELL_ERROR);
-
-    GLint binaryLength = 0;
-    COpenGLExtensionHandler::extGlGetProgramiv(GLname, GL_PROGRAM_BINARY_LENGTH, &binaryLength);
-    m_binary.binary = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint8_t>>(binaryLength);
-    COpenGLExtensionHandler::extGlGetProgramBinary(GLname, binaryLength, nullptr, &m_binary.format, m_binary.binary->data());
-
-    if (m_uniformsList.empty())
-	{
-		assert(_introspection);
-		const auto& pc = _introspection->pushConstant;
-		if (pc.present)
-		{
-			const auto& pc_layout = pc.info;
-			core::queue<SMember> q;
-			SMember initial;
-			initial.type = asset::EGVT_UNKNOWN_OR_STRUCT;
-			initial.members = pc_layout.members;
-			initial.name = pc.info.name;
-			q.push(initial);
-			while (!q.empty())
-			{
-				const SMember top = q.front();
-				q.pop();
-				if (top.type == asset::EGVT_UNKNOWN_OR_STRUCT && top.members.count) {
-					for (size_t i = 0ull; i < top.members.count; ++i) {
-						SMember m = top.members.array[i];
-						m.name = top.name + "." + m.name;
-						if (m.count > 1u)
-							m.name += "[0]";
-						q.push(m);
-					}
-					continue;
-				}
-				using gl = COpenGLExtensionHandler;
-				const GLint location = gl::extGlGetUniformLocation(GLname, top.name.c_str());
-				if (location != -1)
-				    m_uniformsList.emplace_back(top, location, m_uniformValues+top.offset);
-			}
-			std::sort(m_uniformsList.begin(), m_uniformsList.end(), [](const SUniform& a, const SUniform& b) { return a.location < b.location; });
-		}
-	}
-
-    return GLname;
-}
-
-void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* _pcData, GLuint _GLname, const GLint* _locations, uint8_t* _state) const
+void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* _pcData, GLuint _GLname, const GLint* _locations, uint8_t* _state, bool _dontCmpWithState) const
 {
     IRR_ASSUME_ALIGNED(_pcData, 128);
 
@@ -283,7 +208,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
 		alignas(128u) std::array<GLfloat,MAX_DWORD_SIZE> packed_data;
 
         const uint32_t count = std::min<uint32_t>(m.count, MAX_DWORD_SIZE/(m.count*m.mtxRowCnt*m.mtxColCnt));
-		if (!std::equal(baseOffset, baseOffset+arrayStride*count, valueptr) || m_uniformsSetForTheVeryFirstTime)
+		if (!std::equal(baseOffset, baseOffset+arrayStride*count, valueptr) || _dontCmpWithState)
 		{
 			// pack the constant data as OpenGL uniform update functions expect packed arrays
 			{
@@ -342,8 +267,6 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
 			std::copy(baseOffset, baseOffset+arrayStride*count, valueptr);
         }
     }
-
-    m_uniformsSetForTheVeryFirstTime = false;
 }
 
 auto COpenGLSpecializedShader::compile(const COpenGLPipelineLayout* _layout) const -> std::pair<GLuint, SProgramBinary>

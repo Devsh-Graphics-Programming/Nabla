@@ -1056,7 +1056,7 @@ bool COpenGLDriver::bindComputePipeline(const video::IGPUComputePipeline* _cpipe
         return false;
 
     const COpenGLComputePipeline* glppln = static_cast<const COpenGLComputePipeline*>(_cpipeline);
-    ctx->nextState.pipeline.compute.usedShader = glppln ? glppln->getGLnameForCtx(ctx->ID) : 0u;
+    ctx->nextState.pipeline.compute.usedShader = glppln ? glppln->getShaderGLnameForCtx(0u,ctx->ID) : 0u;
     ctx->nextState.pipeline.compute.pipeline = core::smart_refctd_ptr<const COpenGLComputePipeline>(glppln);
 
     return true;
@@ -1207,7 +1207,7 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     }
 
     auto ctx = getThreadContext_helper(false);
-    return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(Params.AuxGLContexts + 1u, ctx->ID, this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, introspection);
+    return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, introspection);
 }
 
 core::smart_refctd_ptr<IGPUBufferView> COpenGLDriver::createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset, size_t _size)
@@ -1323,14 +1323,45 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
         );
 }
 
-core::smart_refctd_ptr<IGPUComputePipeline> COpenGLDriver::createGPUComputePipeline(core::smart_refctd_ptr<IGPUComputePipeline>&& _parent, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader)
+core::smart_refctd_ptr<IGPUComputePipeline> COpenGLDriver::createGPUComputePipeline(IGPUPipelineCache* _pipelineCache, core::smart_refctd_ptr<IGPUComputePipeline>&& _parent, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader)
 {
     if (!_layout || !_shader)
         return nullptr;
     if (_shader->getStage() != asset::ISpecializedShader::ESS_COMPUTE)
         return nullptr;
 
-    return core::make_smart_refctd_ptr<COpenGLComputePipeline>(std::move(_parent), std::move(_layout), std::move(_shader));
+    SAuxContext* ctx = getThreadContext_helper(false);
+    if (!ctx)
+        return nullptr;
+
+    GLuint GLname = 0u;
+    COpenGLSpecializedShader::SProgramBinary binary;
+    if (_pipelineCache)
+    {
+        COpenGLPipelineCache* cache = static_cast<COpenGLPipelineCache*>(_pipelineCache);
+        COpenGLPipelineLayout* layout = static_cast<COpenGLPipelineLayout*>(_layout.get());
+        COpenGLSpecializedShader* glshdr = static_cast<COpenGLSpecializedShader*>(_shader.get());
+
+        COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo() };
+        auto bin = cache->find(key, layout);
+        if (bin.binary)
+        {
+            const GLuint GLshader = extGlCreateProgram();
+            extGlProgramBinary(GLname, bin.format, bin.binary->data(), bin.binary->size());
+            GLname = GLshader;
+            binary = bin;
+        }
+        else
+        {
+            std::tie(GLname, bin) = glshdr->compile(layout);
+            binary = bin;
+
+            COpenGLPipelineCache::SCacheVal val{ std::move(bin), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(_layout) };
+            cache->insert(std::move(key), std::move(val));
+        }
+    }
+
+    return core::make_smart_refctd_ptr<COpenGLComputePipeline>(std::move(_parent), std::move(_layout), std::move(_shader), Params.AuxGLContexts+1, ctx->ID, GLname, std::move(binary));
 }
 
 core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout)
@@ -2282,8 +2313,11 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
             GLuint GLname = currentState.pipeline.graphics.pipeline->getShaderGLnameForCtx(i, this->ID);
             const GLint* locations = currentState.pipeline.graphics.pipeline->getUniformLocationsForStage(i, this->ID);
             uint8_t* PCstate = currentState.pipeline.graphics.pipeline->getPushConstantsStateForStage(i, this->ID);
+            const bool uniformsEverSet = currentState.pipeline.graphics.pipeline->haveUniformsBeenEverSet(i, this->ID);
 
-			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_GRAPHICS].data, GLname, locations, PCstate);
+			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_GRAPHICS].data, GLname, locations, PCstate, !uniformsEverSet);
+
+            currentState.pipeline.graphics.pipeline->afterUniformsSet(i, this->ID);
 		}
 		pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags = 0u;
     }
@@ -2393,7 +2427,12 @@ void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
 		{
 			const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.compute.pipeline->getShader());
 
-			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_COMPUTE].data, this->ID);
+            GLuint GLname = currentState.pipeline.compute.pipeline->getShaderGLnameForCtx(0u, this->ID);
+            const GLint* locations = currentState.pipeline.compute.pipeline->getUniformLocationsForStage(this->ID);
+            uint8_t* PCstate = currentState.pipeline.compute.pipeline->getPushConstantsStateForStage(0u, this->ID);
+            const bool uniformsEverSet = currentState.pipeline.compute.pipeline->haveUniformsBeenEverSet(0u, this->ID);
+
+			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_COMPUTE].data, GLname, locations, PCstate, !uniformsEverSet);
 
 			pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags = 0u;
 		}
@@ -2493,7 +2532,7 @@ void COpenGLDriver::SAuxContext::updateNextState_pipelineAndRaster(const IGPURen
     for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
     {
         hash[i] = nextState.pipeline.graphics.pipeline->getShaderAtIndex(i) ?
-            static_cast<const COpenGLSpecializedShader*>(nextState.pipeline.graphics.pipeline->getShaderAtIndex(i))->getGLnameForCtx(this->ID) :
+            nextState.pipeline.graphics.pipeline->getShaderGLnameForCtx(i, this->ID) :
             0u;
     }
     nextState.pipeline.graphics.usedShadersHash = hash;

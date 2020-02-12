@@ -314,6 +314,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         }
 
         virtual core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline(
+            IGPUPipelineCache* _pipelineCache,
             core::smart_refctd_ptr<IGPUComputePipeline>&& _parent,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
