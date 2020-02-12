@@ -209,7 +209,7 @@ SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
         for (auto index = 0l; index < mesh->getMeshBufferCount(); ++index)
         {
             auto meshBuffer = mesh->getMeshBuffer(index);
-
+			
             for (auto pos = 0l; pos < meshBuffer->getIndexCount(); ++pos)
             {
                 core::vectorSIMDf outPos(0.f, 0.f, 0.f, 1.f);
@@ -228,7 +228,7 @@ SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
             }
         }
         */
-
+		
     return SAssetBundle({core::smart_refctd_ptr<asset::IAsset>(mesh,core::dont_grab)});
 }
 

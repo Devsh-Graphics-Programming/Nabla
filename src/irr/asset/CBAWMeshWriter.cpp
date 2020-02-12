@@ -153,6 +153,29 @@ struct LzmaMemMngmnt
 
         const ICPUMesh* mesh = static_cast<const ICPUMesh*>(_params.rootAsset);
 
+		if (!(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED))
+			for (auto index = 0l; index < mesh->getMeshBufferCount(); ++index)
+			{
+				auto meshBuffer = mesh->getMeshBuffer(index);
+
+				for (auto pos = 0l; pos < meshBuffer->getIndexCount(); ++pos)
+				{
+					core::vectorSIMDf outPos(0.f, 0.f, 0.f, 1.f);
+					meshBuffer->getAttribute(outPos, E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR0, pos);
+
+					outPos.X = -outPos.X; 
+					meshBuffer->setAttribute(outPos, E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR0, pos);
+
+					core::vectorSIMDf outNormal(0.f, 0.f, 0.f, 1.f);
+					bool status = meshBuffer->getAttribute(outNormal, E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3, pos);
+					if (status)
+					{
+						outNormal.X = -outNormal.X;
+						meshBuffer->setAttribute(outNormal, E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3, pos);
+					}
+				}
+			}
+
 		constexpr uint32_t FILE_HEADER_SIZE = 32;
         static_assert(FILE_HEADER_SIZE == sizeof(BAWFileV3::fileHeader), "BAW header is not 32 bytes long!");
 
