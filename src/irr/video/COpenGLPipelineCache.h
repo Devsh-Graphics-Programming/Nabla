@@ -7,6 +7,7 @@
 #include "irr/video/COpenGLPipelineLayout.h"
 #include "irr/core/Types.h"
 #include "spirv_cross/spirv_parser.hpp"
+#include "CConcurrentObjectCache.h"
 #include <array>
 
 namespace irr { namespace video
@@ -33,19 +34,31 @@ public:
 
 	void merge(uint32_t _count, const IGPUPipelineCache** _srcCaches) override
 	{
+		size_t sz = 0ull;
+		for (uint32_t i = 0u; i < _count; ++i)
+			sz = std::max(sz, static_cast<const COpenGLPipelineCache*>(_srcCaches[i])->m_cache.getSize());
+
+		auto buf = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<decltype(m_cache)::MutablePairType>>(sz);
 		for (uint32_t i = 0u; i < _count; ++i)
 		{
 			const auto& src = static_cast<const COpenGLPipelineCache*>(_srcCaches[i])->m_cache;
-			m_cache.insert(src.begin(), src.end());
+			src.outputAll(sz, buf->data());
+			for (size_t j = 0ull; j < sz; ++j)
+				m_cache.insert((*buf)[j].first, (*buf)[j].second);
 		}
 	}
 
 	COpenGLSpecializedShader::SProgramBinary find(const SCacheKey& _key, const COpenGLPipelineLayout* _layout) const
 	{
-		auto rng = m_cache.equal_range(_key);
-		for (auto it = rng.first; it != rng.second; ++it)
-			if (_layout->isCompatibleUpToSet(COpenGLPipelineLayout::DESCRIPTOR_SET_COUNT-1u, it->second.layout.get())==(COpenGLPipelineLayout::DESCRIPTOR_SET_COUNT-1u))
-				return it->second.binary;
+		if (m_cache.getSize()==0ull)
+			return {0,nullptr};
+
+		size_t sz = m_cache.getSize();
+		auto buf = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SCacheVal>>(sz);
+		m_cache.findAndStoreRange(_key, sz, buf->data());
+		for (size_t i = 0ull; i < sz; ++i)
+			if (_layout->isCompatibleUpToSet(COpenGLPipelineLayout::DESCRIPTOR_SET_COUNT-1u, (*buf)[i].layout.get())==(COpenGLPipelineLayout::DESCRIPTOR_SET_COUNT-1u))
+				return (*buf)[i].binary;
 		return {0,nullptr};
 	}
 	//assumes that m_cache does not already contain an item with key==_key and layout fully compatible with _val.layout
@@ -61,12 +74,13 @@ public:
 			m_parsedSpirvs.insert(it, {_key.hash,std::move(parsed)});
 		}
 		*/
-		m_cache.insert({std::move(_key),std::move(_val)});
+		m_cache.insert(std::move(_key), std::move(_val));
 	}
 
 private:
 	//TODO make it thread-safe using CConcurrentObjectCache
-	core::multimap<SCacheKey, SCacheVal> m_cache;
+	//core::multimap<SCacheKey, SCacheVal> m_cache;
+	core::CConcurrentMultiObjectCache<SCacheKey, SCacheVal> m_cache;
 	//core::map<std::array<uint64_t, 4>, spirv_cross::ParsedIR> m_parsedSpirvs;
 };
 

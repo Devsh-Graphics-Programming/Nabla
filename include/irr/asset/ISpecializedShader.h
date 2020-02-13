@@ -45,6 +45,8 @@ class ISpecializedShader : public virtual core::IReferenceCounted
 					uint32_t offset;
 					size_t size;
 				};
+
+				SInfo() = default;
 				//! _entries must be sorted!
 				SInfo(core::vector<SMapEntry>&& _entries, core::smart_refctd_ptr<ICPUBuffer>&& _backingBuff, const std::string& _entryPoint, E_SHADER_STAGE _ss) :
 					m_entries{core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SMapEntry>>(_entries.size())}, m_backingBuffer(std::move(_backingBuff)), entryPoint{_entryPoint}, shaderStage{_ss}

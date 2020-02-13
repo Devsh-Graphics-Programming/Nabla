@@ -360,7 +360,7 @@ namespace impl
         static inline RngType findRange_internal(typename Base::ContainerT& _container, const typename Base::KeyType_impl& _key)
         {
             auto cmpf = [](const typename Base::PairType& _a, const typename Base::PairType& _b) -> bool { return _a.first < _b.first; };
-            typename Base::PairType lookingFor{_key, nullptr};
+            typename Base::PairType lookingFor{ _key, typename Base::ValueType_impl{} };
 
             RngType range;
             range.first = std::lower_bound(std::begin(_container), std::end(_container), lookingFor, cmpf);
