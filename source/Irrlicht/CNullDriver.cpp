@@ -108,6 +108,7 @@ bool CNullDriver::genericDriverInit(asset::IAssetManager* assMgr)
 		reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
 		defaultUploadBuffer = core::make_smart_refctd_ptr < video::StreamingTransientDataBufferMT<> >(this, reqs);
 	}
+    defaultPipelineCache = createGPUPipelineCache();
 
 	DerivativeMapCreator = core::make_smart_refctd_ptr<CDerivativeMapCreator>(this);
 
@@ -134,11 +135,11 @@ bool CNullDriver::endScene()
 
 void CNullDriver::bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count, const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** _destPplnLayouts)
 {
-    uint32_t compatibilityLimits[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{}; //actually more like "compatibility limit + 1" (i.e. 0 mean not comaptible at all)
+    int32_t compatibilityLimits[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{};
     for (uint32_t i=0u; i<IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
     {
-        const uint32_t lim = _destPplnLayouts[i] ? //if no descriptor set bound at this index
-            _destPplnLayouts[i]->isCompatibleUpToSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u, _newLayout) : 0u;
+        const int32_t lim = _destPplnLayouts[i] ? //if no descriptor set bound at this index
+            _destPplnLayouts[i]->isCompatibleUpToSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u, _newLayout) : -1;
 
         compatibilityLimits[i] = lim;
     }
@@ -147,16 +148,16 @@ void CNullDriver::bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayou
     https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#descriptorsets-compatibility
     When binding a descriptor set (see Descriptor Set Binding) to set number N, if the previously bound descriptor sets for sets zero through N-1 were all bound using compatible pipeline layouts, then performing this binding does not disturb any of the lower numbered sets.
     */
-    for (uint32_t i = 0u; i < _first; i++)
-        if (compatibilityLimits[i] <= i)
+    for (int32_t i = 0; i < static_cast<int32_t>(_first); ++i)
+        if (compatibilityLimits[i] < i)
             _destPplnLayouts[i] = nullptr;
 
     /*
     If, additionally, the previous bound descriptor set for set N was bound using a pipeline layout compatible for set N, then the bindings in sets numbered greater than N are also not disturbed.
     */
-    if (compatibilityLimits[_first] <= _first)
-        for (uint32_t i = _first+_count; i<IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
-            _destPplnLayouts = nullptr;
+    if (compatibilityLimits[_first] < _first)
+        for (uint32_t i = _first+1u; i<IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+            _destPplnLayouts[i] = nullptr;
 }
 
 //! gets the area of the current viewport

@@ -42,6 +42,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
     protected:
 		core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultDownloadBuffer;
 		core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultUploadBuffer;
+        core::smart_refctd_ptr<IGPUPipelineCache> defaultPipelineCache;
         IrrlichtDevice* m_device;
 
         inline IDriver(IrrlichtDevice* _dev) : IVideoCapabilityReporter(), defaultDownloadBuffer(nullptr), defaultUploadBuffer(nullptr), m_device{_dev} {}
@@ -323,12 +324,15 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
             return nullptr;
         }
 
+        virtual core::smart_refctd_ptr<IGPUPipelineCache> createGPUPipelineCache() { return nullptr; }
 
         //!
         virtual StreamingTransientDataBufferMT<>* getDefaultDownStreamingBuffer() {return defaultDownloadBuffer.get();}
 
         //!
         virtual StreamingTransientDataBufferMT<>* getDefaultUpStreamingBuffer() {return defaultUploadBuffer.get();}
+
+        virtual IGPUPipelineCache* getDefaultPipelineCache() { return defaultPipelineCache.get(); }
 
         //! WARNING, THIS FUNCTION MAY STALL AND BLOCK
         inline void updateBufferRangeViaStagingBuffer(IGPUBuffer* buffer, size_t offset, size_t size, const void* data)

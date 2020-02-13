@@ -668,6 +668,8 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
         ) override;
 
+		core::smart_refctd_ptr<IGPUPipelineCache> createGPUPipelineCache() override;
+
         core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout) override;
 
 		void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) override;

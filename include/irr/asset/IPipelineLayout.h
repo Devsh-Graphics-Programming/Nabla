@@ -75,12 +75,12 @@ public:
 
     //! Checks if `this` and `_other` are compatible for set `_setNum`. See https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#descriptorsets-compatibility for compatiblity rules.
     /**
-    @returns Max value of `_setNum` for which the two pipeline layouts are compatible or DESCRIPTOR_SET_COUNT if they're not compatible at all.
+    @returns Max value of `_setNum` for which the two pipeline layouts are compatible or -1 if they're not compatible at all.
     */
-    uint32_t isCompatibleUpToSet(const uint32_t _setNum, const IPipelineLayout<DescLayoutType>* _other) const
+    int32_t isCompatibleUpToSet(const uint32_t _setNum, const IPipelineLayout<DescLayoutType>* _other) const
     {
-        if ((_setNum >= DESCRIPTOR_SET_COUNT)) //vulkan would also care about push constant ranges compatibility here
-            return DESCRIPTOR_SET_COUNT;
+        if (!_setNum || (_setNum >= DESCRIPTOR_SET_COUNT)) //vulkan would also care about push constant ranges compatibility here
+            return -1;
 
 		uint32_t i = 0u;
         for (; i <=_setNum; i++)
@@ -92,7 +92,7 @@ public:
 			if (!compatible)
 				break;
         }
-        return i;
+        return static_cast<int32_t>(i)-1;
     }
 
 protected:

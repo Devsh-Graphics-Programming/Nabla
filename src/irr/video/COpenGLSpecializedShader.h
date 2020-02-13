@@ -43,6 +43,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 
 		const SInfo& getSpecializationInfo() const { return m_specInfo; }
 		const std::array<uint64_t, 4>& getSpirvHash() const { return m_spirvHash; }
+		const asset::ICPUBuffer* getSpirv() const { return m_spirv.get(); }
 
 		core::SRange<const SUniform> getUniforms() const { return {m_uniformsList.data(),m_uniformsList.data()+m_uniformsList.size()}; }
 

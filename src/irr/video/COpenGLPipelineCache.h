@@ -6,6 +6,7 @@
 #include "irr/video/COpenGLSpecializedShader.h"
 #include "irr/video/COpenGLPipelineLayout.h"
 #include "irr/core/Types.h"
+#include "spirv_cross/spirv_parser.hpp"
 #include <array>
 
 namespace irr { namespace video
@@ -48,13 +49,25 @@ public:
 		return {0,nullptr};
 	}
 	//assumes that m_cache does not already contain an item with key==_key and layout fully compatible with _val.layout
-	void insert(SCacheKey&& _key, SCacheVal&& _val)
+	void insert(SCacheKey&& _key, SCacheVal&& _val, const asset::ICPUBuffer* _spirv)
 	{
+		/*
+		auto it = m_parsedSpirvs.find(_key.hash);
+		if (it == m_parsedSpirvs.end())
+		{
+			spirv_cross::Parser parser(reinterpret_cast<const uint32_t*>(_spirv->getPointer()), _spirv->getSize()/4ull);
+			auto parsed = parser.get_parsed_ir();
+
+			m_parsedSpirvs.insert(it, {_key.hash,std::move(parsed)});
+		}
+		*/
 		m_cache.insert({std::move(_key),std::move(_val)});
 	}
 
 private:
+	//TODO make it thread-safe using CConcurrentObjectCache
 	core::multimap<SCacheKey, SCacheVal> m_cache;
+	//core::map<std::array<uint64_t, 4>, spirv_cross::ParsedIR> m_parsedSpirvs;
 };
 
 }}

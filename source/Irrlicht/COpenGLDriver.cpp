@@ -1310,7 +1310,7 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
             binaries[ix] = bin;
 
             COpenGLPipelineCache::SCacheVal val{std::move(bin), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(_layout)};
-            cache->insert(std::move(key), std::move(val));
+            cache->insert(std::move(key), std::move(val), glshdr->getSpirv());
         }
     }
 
@@ -1357,11 +1357,16 @@ core::smart_refctd_ptr<IGPUComputePipeline> COpenGLDriver::createGPUComputePipel
             binary = bin;
 
             COpenGLPipelineCache::SCacheVal val{ std::move(bin), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(_layout) };
-            cache->insert(std::move(key), std::move(val));
+            cache->insert(std::move(key), std::move(val), glshdr->getSpirv());
         }
     }
 
     return core::make_smart_refctd_ptr<COpenGLComputePipeline>(std::move(_parent), std::move(_layout), std::move(_shader), Params.AuxGLContexts+1, ctx->ID, GLname, std::move(binary));
+}
+
+core::smart_refctd_ptr<IGPUPipelineCache> COpenGLDriver::createGPUPipelineCache()
+{
+    return core::make_smart_refctd_ptr<COpenGLPipelineCache>();
 }
 
 core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout)
@@ -1874,15 +1879,15 @@ void COpenGLDriver::drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> 
 void COpenGLDriver::SAuxContext::flushState_descriptors(E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, const COpenGLPipelineLayout* _prevLayout)
 {
     //bind new descriptor sets
-    uint32_t compatibilityLimitPlusOne = 0u;
+    int32_t compatibilityLimit = 0u;
     if (_prevLayout && _currentLayout)
-        compatibilityLimitPlusOne = _prevLayout->isCompatibleUpToSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u, _currentLayout);
+        compatibilityLimit = _prevLayout->isCompatibleUpToSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u, _currentLayout)+1u;
 	if (!_prevLayout && !_currentLayout)
-        compatibilityLimitPlusOne = IGPUPipelineLayout::DESCRIPTOR_SET_COUNT;
+        compatibilityLimit = static_cast<int32_t>(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT);
 
     int64_t newUboCount = 0u, newSsboCount = 0u, newTexCount = 0u, newImgCount = 0u;
 	if (_currentLayout)
-    for (uint32_t i=0u; i<video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+    for (uint32_t i=0u; i<static_cast<int32_t>(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT); ++i)
     {
         const auto& first_count = _currentLayout->getMultibindParamsForDescSet(i);
 
@@ -1904,7 +1909,7 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
         }
 
         //if prev and curr pipeline layouts are compatible for set N, currState.set[N]==nextState.set[N] and the sets were bound with same dynamic offsets, then binding set N would be redundant
-        if ((i < compatibilityLimitPlusOne) &&
+        if ((i < compatibilityLimit) &&
             (effectivelyBoundDescriptors.descSets[i].set == nextState.descriptorsParams[_pbp].descSets[i].set) &&
             (effectivelyBoundDescriptors.descSets[i].dynamicOffsets == nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets)
         ) 

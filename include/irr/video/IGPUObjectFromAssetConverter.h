@@ -576,7 +576,7 @@ inline created_gpu_object_array<asset::ICPURenderpassIndependentPipeline> IGPUOb
                 shaders[local_shdr_count++] = (*gpuShaders)[shdrRedirs[shdrIter++]].get();
 
         (*res)[i] = m_driver->createGPURenderpassIndependentPipeline(
-            nullptr, //make and use some driver's default pipeline cache
+            m_driver->getDefaultPipelineCache(),
             nullptr,
             core::smart_refctd_ptr<IGPUPipelineLayout>(layout),
             shaders, shaders+local_shdr_count,
@@ -822,7 +822,7 @@ inline created_gpu_object_array<asset::ICPUComputePipeline> IGPUObjectFromAssetC
     {
         auto layout = (*gpuLayouts)[layoutRedirs[i]];
         auto shdr = (*gpuShaders)[shdrRedirs[i]];
-        (*res)[i] = m_driver->createGPUComputePipeline(nullptr, nullptr, std::move(layout), std::move(shdr));
+        (*res)[i] = m_driver->createGPUComputePipeline(m_driver->getDefaultPipelineCache(), nullptr, std::move(layout), std::move(shdr));
     }
 
     return res;
