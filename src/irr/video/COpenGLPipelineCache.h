@@ -48,6 +48,8 @@ public:
 		}
 	}
 
+	core::smart_refctd_ptr<asset::ICPUPipelineCache> convertToCPUCache() const override;
+
 	COpenGLSpecializedShader::SProgramBinary find(const SCacheKey& _key, const COpenGLPipelineLayout* _layout) const
 	{
 		if (m_cache.getSize()==0ull)
@@ -78,8 +80,6 @@ public:
 	}
 
 private:
-	//TODO make it thread-safe using CConcurrentObjectCache
-	//core::multimap<SCacheKey, SCacheVal> m_cache;
 	core::CConcurrentMultiObjectCache<SCacheKey, SCacheVal> m_cache;
 	//core::map<std::array<uint64_t, 4>, spirv_cross::ParsedIR> m_parsedSpirvs;
 };

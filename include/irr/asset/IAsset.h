@@ -91,7 +91,8 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_SUB_MESH = 1ull<<13,							    //!< asset::ICPUMeshBuffer
 			ET_MESH = 1ull<<14,								    //!< asset::ICPUMesh
 			ET_COMPUTE_PIPELINE = 1ull<<15,                     //!< asset::ICPUComputePipeline
-			ET_SCENE = 1ull<<16,								//!< reserved, to implement later
+			ET_PIPELINE_CACHE = 1ull<<16,						//!< asset::ICPUPipelineCache
+			ET_SCENE = 1ull<<17,								//!< reserved, to implement later
 			ET_IMPLEMENTATION_SPECIFIC_METADATA = 1ull<<31u     //!< lights, etc.
 			//! Reserved special value used for things like terminating lists of this enum
 		};

@@ -204,6 +204,7 @@ set(IRRLICHT_SRCS_NORMAL
 	COpenGLExtensionHandler.cpp
 	COpenGLFrameBuffer.cpp
 	COpenGLQuery.cpp
+	${IRR_ROOT_PATH}/src/irr/video/COpenGLPipelineCache.cpp
 
 	# abstract (move this out eventually)
 	${IRR_ROOT_PATH}/src/irr/video/CDerivativeMapCreator.cpp

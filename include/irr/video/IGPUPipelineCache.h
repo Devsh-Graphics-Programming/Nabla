@@ -2,6 +2,7 @@
 #define __IRR_I_GPU_PIPELINE_CACHE_H_INCLUDED__
 
 #include "irr/core/IReferenceCounted.h"
+#include "irr/asset/ICPUPipelineCache.h"
 
 namespace irr { namespace video
 {
@@ -13,6 +14,8 @@ protected:
 
 public:
 	virtual void merge(uint32_t _count, const IGPUPipelineCache** _srcCaches) = 0;
+
+	virtual core::smart_refctd_ptr<asset::ICPUPipelineCache> convertToCPUCache() const = 0;
 };
 
 }}
