@@ -42,7 +42,6 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
     protected:
 		core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultDownloadBuffer;
 		core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultUploadBuffer;
-        core::smart_refctd_ptr<IGPUPipelineCache> defaultPipelineCache;
         IrrlichtDevice* m_device;
 
         inline IDriver(IrrlichtDevice* _dev) : IVideoCapabilityReporter(), defaultDownloadBuffer(nullptr), defaultUploadBuffer(nullptr), m_device{_dev} {}
@@ -296,7 +295,6 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 		//! Create a renderpass independent graphics pipeline (@see ICPURenderpassIndependentPipeline)
         virtual core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
             IGPUPipelineCache* _pipelineCache,
-            core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
             const asset::SVertexInputParams& _vertexInputParams,
@@ -316,7 +314,6 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 
         virtual core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline(
             IGPUPipelineCache* _pipelineCache,
-            core::smart_refctd_ptr<IGPUComputePipeline>&& _parent,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
         )
@@ -331,8 +328,6 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 
         //!
         virtual StreamingTransientDataBufferMT<>* getDefaultUpStreamingBuffer() {return defaultUploadBuffer.get();}
-
-        virtual IGPUPipelineCache* getDefaultPipelineCache() { return defaultPipelineCache.get(); }
 
         //! WARNING, THIS FUNCTION MAY STALL AND BLOCK
         inline void updateBufferRangeViaStagingBuffer(IGPUBuffer* buffer, size_t offset, size_t size, const void* data)

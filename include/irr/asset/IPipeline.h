@@ -11,18 +11,8 @@ namespace irr
 namespace asset
 {
 
-namespace impl
-{
-	class IPipelineBase : public virtual core::IReferenceCounted
-	{
-		protected:
-			IPipelineBase() = default;
-			virtual ~IPipelineBase() = default;
-	};
-}
-
 template<typename LayoutType>
-class IPipeline : public impl::IPipelineBase
+class IPipeline : public virtual core::IReferenceCounted
 {
 	public:
 		enum E_PIPELINE_CREATION : uint32_t
@@ -38,16 +28,14 @@ class IPipeline : public impl::IPipelineBase
 		inline const LayoutType* getLayout() const { return m_layout.get(); }
 
 	protected:
-		IPipeline(core::smart_refctd_ptr<IPipeline<LayoutType> >&& _parent, core::smart_refctd_ptr<LayoutType>&& _layout) :
-			m_parent(std::move(_parent)), m_layout(std::move(_layout))
+		IPipeline(core::smart_refctd_ptr<LayoutType>&& _layout) :
+			m_layout(std::move(_layout))
 		{
 		}
 		virtual ~IPipeline() = default;
 
-		core::smart_refctd_ptr<IPipelineBase> m_parent;
 		core::smart_refctd_ptr<LayoutType> m_layout;
 		bool m_disableOptimizations = false;
-		bool m_allowDerivatives = false;
 };
 
 }

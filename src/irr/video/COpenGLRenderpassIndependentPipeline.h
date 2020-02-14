@@ -17,7 +17,6 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
 public:
     //! _binaries' elements are getting move()'d!
     COpenGLRenderpassIndependentPipeline(
-        core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
         core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
         IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd,
         const asset::SVertexInputParams& _vertexInputParams,
@@ -26,7 +25,6 @@ public:
         const asset::SRasterizationParams& _rasterParams,
         uint32_t _ctxCount, uint32_t _ctxID, GLuint _GLnames[SHADER_STAGE_COUNT], COpenGLSpecializedShader::SProgramBinary _binaries[SHADER_STAGE_COUNT]
     ) : IGPURenderpassIndependentPipeline(
-        std::move(_parent),
         std::move(_layout), _shadersBegin, _shadersEnd,
         _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
         ),

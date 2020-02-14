@@ -652,7 +652,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
         core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
 			IGPUPipelineCache* _pipelineCache,
-            core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd,
             const asset::SVertexInputParams& _vertexInputParams,
@@ -663,7 +662,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
         virtual core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline(
 			IGPUPipelineCache* _pipelineCache,
-            core::smart_refctd_ptr<IGPUComputePipeline>&& _parent,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
         ) override;

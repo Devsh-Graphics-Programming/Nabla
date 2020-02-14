@@ -12,11 +12,10 @@ class COpenGLComputePipeline : public IGPUComputePipeline, public IOpenGLPipelin
 {
 public:
     COpenGLComputePipeline(
-        core::smart_refctd_ptr<IGPUComputePipeline>&& _parent,
         core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
         core::smart_refctd_ptr<IGPUSpecializedShader>&& _cs,
         uint32_t _ctxCount, uint32_t _ctxID, GLuint _GLname, COpenGLSpecializedShader::SProgramBinary&& _binary
-    ) : IGPUComputePipeline(std::move(_parent), std::move(_layout), std::move(_cs)), 
+    ) : IGPUComputePipeline(std::move(_layout), std::move(_cs)), 
         IOpenGLPipeline(_ctxCount, _ctxID, &_GLname, &_binary)
     {
 

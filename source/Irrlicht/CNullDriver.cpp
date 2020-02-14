@@ -108,7 +108,6 @@ bool CNullDriver::genericDriverInit(asset::IAssetManager* assMgr)
 		reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
 		defaultUploadBuffer = core::make_smart_refctd_ptr < video::StreamingTransientDataBufferMT<> >(this, reqs);
 	}
-    defaultPipelineCache = createGPUPipelineCache();
 
 	DerivativeMapCreator = core::make_smart_refctd_ptr<CDerivativeMapCreator>(this);
 

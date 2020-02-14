@@ -1263,7 +1263,7 @@ core::smart_refctd_ptr<IGPUPipelineLayout> COpenGLDriver::createGPUPipelineLayou
         );
 }
 
-core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createGPURenderpassIndependentPipeline(IGPUPipelineCache* _pipelineCache, core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd, const asset::SVertexInputParams& _vertexInputParams, const asset::SBlendParams& _blendParams, const asset::SPrimitiveAssemblyParams& _primAsmParams, const asset::SRasterizationParams& _rasterParams)
+core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createGPURenderpassIndependentPipeline(IGPUPipelineCache* _pipelineCache, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd, const asset::SVertexInputParams& _vertexInputParams, const asset::SBlendParams& _blendParams, const asset::SPrimitiveAssemblyParams& _primAsmParams, const asset::SRasterizationParams& _rasterParams)
 {
     //_parent parameter is ignored
 
@@ -1315,7 +1315,6 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
     }
 
     return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
-        nullptr,
         std::move(_layout),
         _shadersBegin, _shadersEnd,
         _vertexInputParams, _blendParams, _primAsmParams, _rasterParams,
@@ -1323,7 +1322,7 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
         );
 }
 
-core::smart_refctd_ptr<IGPUComputePipeline> COpenGLDriver::createGPUComputePipeline(IGPUPipelineCache* _pipelineCache, core::smart_refctd_ptr<IGPUComputePipeline>&& _parent, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader)
+core::smart_refctd_ptr<IGPUComputePipeline> COpenGLDriver::createGPUComputePipeline(IGPUPipelineCache* _pipelineCache, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader)
 {
     if (!_layout || !_shader)
         return nullptr;
@@ -1361,7 +1360,7 @@ core::smart_refctd_ptr<IGPUComputePipeline> COpenGLDriver::createGPUComputePipel
         }
     }
 
-    return core::make_smart_refctd_ptr<COpenGLComputePipeline>(std::move(_parent), std::move(_layout), std::move(_shader), Params.AuxGLContexts+1, ctx->ID, GLname, std::move(binary));
+    return core::make_smart_refctd_ptr<COpenGLComputePipeline>(std::move(_layout), std::move(_shader), Params.AuxGLContexts+1, ctx->ID, GLname, std::move(binary));
 }
 
 core::smart_refctd_ptr<IGPUPipelineCache> COpenGLDriver::createGPUPipelineCache()

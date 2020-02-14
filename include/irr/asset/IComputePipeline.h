@@ -18,7 +18,6 @@ class IComputePipeline : public IPipeline<LayoutType>
         inline const LayoutType* getLayout() const { return IPipeline<LayoutType>::m_layout.get(); }
 
 		IComputePipeline(
-			core::smart_refctd_ptr<IComputePipeline>&& _parent,
 			core::smart_refctd_ptr<LayoutType>&& _layout,
 			core::smart_refctd_ptr<SpecShaderType>&& _cs
 		) : IPipeline<LayoutType>(std::move(_parent),std::move(_layout)),

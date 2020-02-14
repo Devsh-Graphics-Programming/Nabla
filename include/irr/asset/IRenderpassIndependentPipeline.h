@@ -361,7 +361,6 @@ class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 		};
 
 		IRenderpassIndependentPipeline(
-			core::smart_refctd_ptr<IRenderpassIndependentPipeline>&& _parent,
 			core::smart_refctd_ptr<LayoutType>&& _layout,
 			SpecShaderType** _shadersBegin, SpecShaderType** _shadersEnd, 
 			const SVertexInputParams& _vertexInputParams,
