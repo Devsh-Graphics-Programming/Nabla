@@ -79,6 +79,13 @@ struct LzmaMemMngmnt
         MeshBufferBlobV3 data(_obj);
 
         const E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 1u);
+		const auto parameterFlags = _ctx.writerOverride->getAssetWritingParameterFlags(_ctx.inner, _obj, 1u);
+
+		if (parameterFlags & IAssetWriter::E_WRITER_PARAMETER_FLAGS::EWPF_MESH_IS_RIGHT_HANDED)
+			data.isRightHandedCoordinateSystem = 1;
+		else
+			data.isRightHandedCoordinateSystem = 0;
+
         const uint8_t* encrPwd = nullptr;
         _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 1u);
         const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 1u);

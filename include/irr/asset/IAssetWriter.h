@@ -94,6 +94,12 @@ public:
             return ctx.params.flags;
         }
 
+        //! It allows you to get writer flags which specify some information on saving process like handedness coordinate system
+        inline virtual IAssetWriter::E_WRITER_PARAMETER_FLAGS getAssetWritingParameterFlags(const SAssetWriteContext& ctx, const IAsset* assetToWrite, const uint32_t& hierarchyLevel)
+        {
+            return ctx.params.writerFlags;
+        }
+
         //! For altering the compression level for individual assets, i.e. images, etc.
         inline virtual float getAssetCompressionLevel(const SAssetWriteContext& ctx, const IAsset* assetToWrite, const uint32_t& hierarchyLevel)
         {

@@ -37,7 +37,7 @@ struct IRR_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuff
 	uint32_t baseInstance;
 	uint32_t primitiveType;
 	uint32_t posAttrId;
-	bool isRightHandedCoordinateSystem;
+	uint8_t isRightHandedCoordinateSystem;
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
 static_assert(sizeof(MeshBufferBlobV3::mat)==197, "sizeof(MeshBufferBlobV0::mat) must be 197");

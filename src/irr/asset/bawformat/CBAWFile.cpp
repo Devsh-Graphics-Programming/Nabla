@@ -80,6 +80,8 @@ MeshBufferBlobV3::MeshBufferBlobV3(const asset::ICPUMeshBuffer* _mb)
 	baseInstance = _mb->getBaseInstance();
 	primitiveType = _mb->getPrimitiveType();
 	posAttrId = _mb->getPositionAttributeIx();
+
+	isRightHandedCoordinateSystem = 0; // false
 }
 
 MeshBufferBlobV3::MeshBufferBlobV3(const legacyv2::MeshBufferBlobV2* meshBufferV2)
@@ -97,7 +99,7 @@ MeshBufferBlobV3::MeshBufferBlobV3(const legacyv2::MeshBufferBlobV2* meshBufferV
 	primitiveType = meshBufferV2->primitiveType;
 	posAttrId = meshBufferV2->posAttrId;
 
-	isRightHandedCoordinateSystem = false;
+	isRightHandedCoordinateSystem = 0; // false
 }
 
 template<>
