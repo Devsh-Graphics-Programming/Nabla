@@ -367,7 +367,7 @@ class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 			const SBlendParams& _blendParams,
 			const SPrimitiveAssemblyParams& _primAsmParams,
 			const SRasterizationParams& _rasterParams
-		) : IPipeline<LayoutType>(std::move(_parent), std::move(_layout)),
+		) : IPipeline<LayoutType>(std::move(_layout)),
 			m_blendParams(_blendParams),
 			m_primAsmParams(_primAsmParams),
 			m_rasterParams(_rasterParams),

@@ -339,7 +339,7 @@ core::smart_refctd_ptr<ICPUPipelineLayout> CShaderIntrospector::createApproximat
     );
 }
 
-core::smart_refctd_ptr<ICPUComputePipeline> CShaderIntrospector::createApproximateComputePipelineFromIntrospection(ICPUSpecializedShader* _shader, const std::string* _extensionsBegin, const std::string* _extensionsEnd, ICPUComputePipeline* _parent)
+core::smart_refctd_ptr<ICPUComputePipeline> CShaderIntrospector::createApproximateComputePipelineFromIntrospection(ICPUSpecializedShader* _shader, const std::string* _extensionsBegin, const std::string* _extensionsEnd)
 {
     if (_shader->getStage() != ICPUSpecializedShader::ESS_COMPUTE)
         return nullptr;
@@ -347,7 +347,6 @@ core::smart_refctd_ptr<ICPUComputePipeline> CShaderIntrospector::createApproxima
     auto layout = createApproximatePipelineLayoutFromIntrospection(&_shader, &_shader + 1, _extensionsBegin, _extensionsEnd);
 
     return core::make_smart_refctd_ptr<ICPUComputePipeline>(
-        core::smart_refctd_ptr<ICPUComputePipeline>(_parent),
         std::move(layout),
         core::smart_refctd_ptr<ICPUSpecializedShader>(_shader)
     );
@@ -368,7 +367,7 @@ static E_FORMAT glslType2E_FORMAT(E_GLSL_VAR_TYPE _t, uint32_t _e)
     return retval[_t][_e];
 }
 
-core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CShaderIntrospector::createApproximateRenderpassIndependentPipelineFromIntrospection(ICPUSpecializedShader** const _begin, ICPUSpecializedShader** const _end, const std::string* _extensionsBegin, const std::string* _extensionsEnd, ICPURenderpassIndependentPipeline* _parent)
+core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CShaderIntrospector::createApproximateRenderpassIndependentPipelineFromIntrospection(ICPUSpecializedShader** const _begin, ICPUSpecializedShader** const _end, const std::string* _extensionsBegin, const std::string* _extensionsEnd)
 {
     ICPUSpecializedShader* vs = nullptr;
     {
@@ -420,7 +419,6 @@ core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CShaderIntrospector::c
     auto layout = createApproximatePipelineLayoutFromIntrospection(_begin, _end, _extensionsBegin, _extensionsEnd);
 
     return core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
-        core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>(_parent),
         std::move(layout),
         _begin, _end,
         vtxInput, blending, primAssembly, raster

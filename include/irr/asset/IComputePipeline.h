@@ -20,7 +20,7 @@ class IComputePipeline : public IPipeline<LayoutType>
 		IComputePipeline(
 			core::smart_refctd_ptr<LayoutType>&& _layout,
 			core::smart_refctd_ptr<SpecShaderType>&& _cs
-		) : IPipeline<LayoutType>(std::move(_parent),std::move(_layout)),
+		) : IPipeline<LayoutType>(std::move(_layout)),
 			m_shader(std::move(_cs))
 		{
             assert(m_shader->getStage() == ISpecializedShader::ESS_COMPUTE);
