@@ -266,7 +266,7 @@ void* TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::finalize(void* _obj, c
 			buf->getMaterial().setTexture(i, impl::castPtrAndRefcount<asset::ICPUTexture>(_deps[tex]));
 	}
 
-	if (blob->isRightHandedCoordinateSystem  && !(_params.params.loaderFlags & IAssetLoader::E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES))
+	if ((bool)blob->isRightHandedCoordinateSystem  != (bool)(_params.params.loaderFlags & IAssetLoader::E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES))
 		for (auto pos = 0l; pos < buf->getIndexCount(); ++pos)
 		{
 			core::vectorSIMDf outPos(0.f, 0.f, 0.f, 1.f);
