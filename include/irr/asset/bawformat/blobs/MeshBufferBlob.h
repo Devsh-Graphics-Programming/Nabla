@@ -6,15 +6,12 @@
 #ifndef __IRR_MESH_BUFFER_BLOB_H_INCLUDED__
 #define __IRR_MESH_BUFFER_BLOB_H_INCLUDED__
 
+#include "irr/asset/bawformat/legacy/CBAWLegacy.h"
+
 namespace irr
 {
 namespace asset
 {
-
-namespace legacyv2
-{
-	struct MeshBufferBlobV2;
-}
 
 class ICPUMeshBuffer;
 

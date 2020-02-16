@@ -8,7 +8,7 @@ namespace irr
         io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<2>(SContext& _ctx, io::IReadFile* _baw1file, asset::IAssetLoader::IAssetLoaderOverride* _override, const CommonDataTuple<1>& _common)
         {
             uint32_t blobCnt{};
-            asset::legacyv1::BlobHeaderV1* headers = nullptr;
+			BlobHeaderVn<1>* headers = nullptr;
             uint32_t* offsets = nullptr;
             uint32_t baseOffsetv1{};
             uint32_t baseOffsetv2{};
@@ -20,7 +20,7 @@ namespace irr
             int32_t offsetDiff = 0;
             for (uint32_t i = 0u; i < blobCnt; ++i)
             {
-                asset::legacyv1::BlobHeaderV1& hdr = headers[i];
+				BlobHeaderVn<1>& hdr = headers[i];
                 const uint32_t offset = offsets[i];
                 uint32_t& newoffset = newoffsets[i];
 
@@ -42,7 +42,7 @@ namespace irr
                     while (_override->getDecryptionKey(decrKey, decrKeyLen, attempt, _baw1file, "", genSubAssetCacheKey(_baw1file->getFileName().c_str(), hdr.handle), _ctx.inner, FINALBONEHIERARCHY_HIERARCHY_LVL))
                     {
                         if (!((hdr.compressionType & asset::Blob::EBCT_AES128_GCM) && decrKeyLen != 16u))
-                            blob = tryReadBlobOnStack<asset::legacyv1::BlobHeaderV1>(SBlobData_t<asset::legacyv1::BlobHeaderV1>(&hdr, baseOffsetv1 + offset), _ctx, decrKey, stackmem, sizeof(stackmem));
+                            blob = tryReadBlobOnStack<BlobHeaderVn<1>>(SBlobData_t<BlobHeaderVn<1>>(&hdr, baseOffsetv1 + offset), _ctx, decrKey, stackmem, sizeof(stackmem));
                         if (blob)
                             break;
                         ++attempt;
@@ -53,7 +53,7 @@ namespace irr
                     {
                         auto* hierarchy = reinterpret_cast<legacyv1::FinalBoneHierarchyBlobV1*>(blob);
 
-                        auto bones = hierarchy->getBoneData();
+                        auto bones = reinterpret_cast<CFinalBoneHierarchy::BoneReferenceData*>(hierarchy->getBoneData());
                         for (auto j = 0u; j < hierarchy->boneCount; j++)
                         {
                             core::matrix3x4SIMD mtx = bones[j].PoseBindMatrix;
@@ -90,7 +90,7 @@ namespace irr
                 }
             }
             uint64_t fileHeader[4]{ 0u, 0u, 0u, 2u/*baw v2*/ };
-            memcpy(fileHeader, asset::legacyv2::BAWFileV2::HEADER_STRING, strlen(asset::legacyv2::BAWFileV2::HEADER_STRING));
+            memcpy(fileHeader, BAWFileVn<2>::HEADER_STRING, strlen(BAWFileVn<2>::HEADER_STRING));
             baw2mem->seek(0u);
             baw2mem->write(fileHeader, sizeof(fileHeader));
             baw2mem->write(&blobCnt, 4);
@@ -140,7 +140,7 @@ namespace irr
         io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<1>(SContext& _ctx, io::IReadFile* _baw0file, asset::IAssetLoader::IAssetLoaderOverride* _override, const CommonDataTuple<0>& _common)
         {
             uint32_t blobCnt{};
-            asset::legacyv0::BlobHeaderV0* headers = nullptr;
+            BlobHeaderVn<0>* headers = nullptr;
             uint32_t* offsets = nullptr;
             uint32_t baseOffsetv0{};
             uint32_t baseOffsetv1{};
@@ -152,7 +152,7 @@ namespace irr
             int32_t offsetDiff = 0;
             for (uint32_t i = 0u; i < blobCnt; ++i)
             {
-                asset::legacyv0::BlobHeaderV0& hdr = headers[i];
+                BlobHeaderVn<0>& hdr = headers[i];
                 const uint32_t offset = offsets[i];
                 uint32_t& newoffset = newoffsets[i];
 
@@ -174,7 +174,7 @@ namespace irr
                     while (_override->getDecryptionKey(decrKey, decrKeyLen, attempt, _baw0file, "", genSubAssetCacheKey(_baw0file->getFileName().c_str(), hdr.handle), _ctx.inner, ICPUMESHDATAFORMATDESC_HIERARCHY_LVL))
                     {
                         if (!((hdr.compressionType & asset::Blob::EBCT_AES128_GCM) && decrKeyLen != 16u))
-                            blob = tryReadBlobOnStack<asset::legacyv0::BlobHeaderV0>(SBlobData_t<asset::legacyv0::BlobHeaderV0>(&hdr, baseOffsetv0 + offset), _ctx, decrKey, stackmem, sizeof(stackmem));
+                            blob = tryReadBlobOnStack<BlobHeaderVn<0>>(SBlobData_t<BlobHeaderVn<0>>(&hdr, baseOffsetv0 + offset), _ctx, decrKey, stackmem, sizeof(stackmem));
                         if (blob)
                             break;
                         ++attempt;
@@ -199,7 +199,7 @@ namespace irr
                     offsetDiff += static_cast<int32_t>(sizeof(asset::MeshDataFormatDescBlobV1)) - static_cast<int32_t>(prevBlobSz);
             }
             uint64_t fileHeader[4]{ 0u, 0u, 0u, 1u/*baw v1*/ };
-            memcpy(fileHeader, asset::legacyv1::BAWFileV1::HEADER_STRING, strlen(asset::legacyv1::BAWFileV1::HEADER_STRING));
+            memcpy(fileHeader, BAWFileVn<1>::HEADER_STRING, strlen(BAWFileVn<1>::HEADER_STRING));
             baw1mem->seek(0u);
             baw1mem->write(fileHeader, sizeof(fileHeader));
             baw1mem->write(&blobCnt, 4);

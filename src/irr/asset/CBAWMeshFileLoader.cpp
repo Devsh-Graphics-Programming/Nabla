@@ -202,32 +202,7 @@ SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 	os::Printer::log(tmpString.str());
 #endif // _IRR_DEBUG
 
-    asset::ICPUMesh* mesh = reinterpret_cast<asset::ICPUMesh*>(retval);
-
-    /* TO CHANGE A LITTLE BIT
-    if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
-        for (auto index = 0l; index < mesh->getMeshBufferCount(); ++index)
-        {
-            auto meshBuffer = mesh->getMeshBuffer(index);
-			
-            for (auto pos = 0l; pos < meshBuffer->getIndexCount(); ++pos)
-            {
-                core::vectorSIMDf outPos(0.f, 0.f, 0.f, 1.f);
-                meshBuffer->getAttribute(outPos, E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR0, pos);
-
-                outPos.X = -outPos.X;
-                meshBuffer->setAttribute(outPos, E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR0, pos);
-
-                core::vectorSIMDf outNormal(0.f, 0.f, 0.f, 1.f);
-                bool status = meshBuffer->getAttribute(outNormal, E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3, pos);
-                if (status)
-                {
-                    outNormal.X = -outNormal.X;
-                    meshBuffer->setAttribute(outNormal, E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3, pos);
-                }
-            }
-        }
-        */
+	asset::ICPUMesh* mesh = reinterpret_cast<asset::ICPUMesh*>(retval);
 		
     return SAssetBundle({core::smart_refctd_ptr<asset::IAsset>(mesh,core::dont_grab)});
 }
@@ -266,7 +241,7 @@ template<>
 io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<3>(SContext& _ctx, io::IReadFile* _baw2file, asset::IAssetLoader::IAssetLoaderOverride* _override, const CommonDataTuple<2>& _common)
 {
     uint32_t blobCnt{};
-    asset::legacyv2::BlobHeaderV2* headers = nullptr;
+    BlobHeaderVn<2>* headers = nullptr;
     uint32_t* offsets = nullptr;
     uint32_t baseOffsetv2{};
     uint32_t baseOffsetv3{};
@@ -278,7 +253,7 @@ io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<3>(SContext& _ctx, 
     int32_t offsetDiff = 0;
     for (uint32_t i = 0u; i < blobCnt; ++i)
     {
-        asset::legacyv2::BlobHeaderV2& hdr = headers[i];
+		BlobHeaderVn<2> & hdr = headers[i];
         const uint32_t offset = offsets[i];
         uint32_t& newoffset = newoffsets[i];
 
@@ -300,7 +275,7 @@ io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<3>(SContext& _ctx, 
             while (_override->getDecryptionKey(decrKey, decrKeyLen, attempt, _baw2file, "", genSubAssetCacheKey(_baw2file->getFileName().c_str(), hdr.handle), _ctx.inner, hierarchyLevel))
             {
                 if (!((hdr.compressionType & asset::Blob::EBCT_AES128_GCM) && decrKeyLen != 16u))
-                    blob = tryReadBlobOnStack<asset::legacyv2::BlobHeaderV2>(SBlobData_t<asset::legacyv2::BlobHeaderV2>(&hdr, baseOffsetv2 + offset), _ctx, decrKey, stackmem, sizeof(stackmem));
+                    blob = tryReadBlobOnStack<BlobHeaderVn<2>>(SBlobData_t<BlobHeaderVn<2>>(&hdr, baseOffsetv2 + offset), _ctx, decrKey, stackmem, sizeof(stackmem));
                 if (blob)
                     break;
                 ++attempt;

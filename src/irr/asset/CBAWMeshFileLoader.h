@@ -148,9 +148,9 @@ private:
     {
         switch (_expectedVer)
         {
-			case 0ull: return verifyFile<asset::legacyv0::BAWFileV0>(_ctx);
-			case 1ull: return verifyFile<asset::legacyv1::BAWFileV1>(_ctx);
-            case 2ull: return verifyFile<asset::legacyv2::BAWFileV2>(_ctx);
+			case 0ull: return verifyFile<BAWFileVn<0>>(_ctx);
+			case 1ull: return verifyFile<BAWFileVn<1>>(_ctx);
+			case 2ull: return verifyFile<BAWFileVn<2>>(_ctx);
             case 3ull: return verifyFile<asset::BAWFileV3>(_ctx);
 			default: return false;
         }

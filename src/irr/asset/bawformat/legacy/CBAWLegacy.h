@@ -1,7 +1,6 @@
 #ifndef __IRR_CBAW_LEGACY_H_INCLUDED__
 #define __IRR_CBAW_LEGACY_H_INCLUDED__
 
-#include "irr/asset/bawformat/CBAWFile.h"
 #include "irr/asset/format/EFormat.h"
 
 namespace irr
@@ -10,12 +9,12 @@ namespace asset
 {
 
 
+// forward declarations
+class CFinalBoneHierarchy;
+
+
 namespace legacyv0
 {
-
-
-using BAWFileV0 = BAWFileVn<0>;
-using BlobHeaderV0 = BlobHeaderVn<0>;
 
 
 enum E_COMPONENTS_PER_ATTRIBUTE
@@ -98,9 +97,9 @@ asset::E_FORMAT mapECT_plus_ECPA_onto_E_FORMAT(E_COMPONENT_TYPE _ct, E_COMPONENT
 struct IRR_FORCE_EBO FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0,CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV0, CFinalBoneHierarchy>
 {
 public:
-	inline auto* getBoneData()
+	inline uint8_t* getBoneData()
 	{
-		return reinterpret_cast<CFinalBoneHierarchy::BoneReferenceData*>(reinterpret_cast<uint8_t*>(this)+sizeof(FinalBoneHierarchyBlobV2));
+		return reinterpret_cast<uint8_t*>(this)+sizeof(FinalBoneHierarchyBlobV0);
 	}
 
     size_t boneCount;
@@ -114,74 +113,47 @@ static_assert(
     "FinalBoneHierarchyBlobV0: Size of blob is not sum of its contents!"
 );
 
+#include "irr/irrpack.h"
+//! Simple struct of essential data of ICPUMeshBuffer that has to be exported
+struct IRR_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV0, ICPUMeshBuffer>
+{
+	video::SCPUMaterial mat;
+	core::aabbox3df box;
+	uint64_t descPtr;
+	uint32_t indexType;
+	uint32_t baseVertex;
+	uint64_t indexCount;
+	size_t indexBufOffset;
+	size_t instanceCount;
+	uint32_t baseInstance;
+	uint32_t primitiveType;
+	uint32_t posAttrId;
+} PACK_STRUCT;
+#include "irr/irrunpack.h"
+static_assert(sizeof(MeshBufferBlobV0::mat) == 197, "sizeof(MeshBufferBlobV0::mat) must be 197");
+static_assert(
+	sizeof(MeshBufferBlobV0) ==
+	sizeof(MeshBufferBlobV0::mat) + sizeof(MeshBufferBlobV0::box) + sizeof(MeshBufferBlobV0::descPtr) + sizeof(MeshBufferBlobV0::indexType) + sizeof(MeshBufferBlobV0::baseVertex)
+	+ sizeof(MeshBufferBlobV0::indexCount) + sizeof(MeshBufferBlobV0::indexBufOffset) + sizeof(MeshBufferBlobV0::instanceCount) + sizeof(MeshBufferBlobV0::baseInstance)
+	+ sizeof(MeshBufferBlobV0::primitiveType) + sizeof(MeshBufferBlobV0::posAttrId),
+	"MeshBufferBlobV0: Size of blob is not sum of its contents!"
+	);
+
 }
 
 
 namespace legacyv1
 {
-
-
-using BAWFileV1 = BAWFileVn<1>;
-using BlobHeaderV1 = BlobHeaderVn<1>;
-
-
+	
 using FinalBoneHierarchyBlobV1 = legacyv0::FinalBoneHierarchyBlobV0;
+using MeshBufferBlobV1 = legacyv0::MeshBufferBlobV0;
 
 }
 
 namespace legacyv2
 {
 
-
-using BAWFileV2 = BAWFileVn<2>;
-using BlobHeaderV2 = BlobHeaderVn<2>;
-
-
-#include "irr/irrpack.h"
-//! Simple struct of essential data of ICPUMeshBuffer that has to be exported
-struct IRR_FORCE_EBO MeshBufferBlobV2 : TypedBlob<MeshBufferBlobV2, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV2, ICPUMeshBuffer>
-{
-    //! Constructor filling all members
-    explicit MeshBufferBlobV2(const ICPUMeshBuffer* _mb)
-    {
-        memcpy(&mat, &_mb->getMaterial(), sizeof(video::SCPUMaterial));
-        _mb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
-        for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
-            _mb->getMaterial().TextureLayer[i].SamplingParams.serializeBitfields(mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
-
-        memcpy(&box, &_mb->getBoundingBox(), sizeof(core::aabbox3df));
-        descPtr = reinterpret_cast<uint64_t>(_mb->getMeshDataAndFormat());
-        indexType = _mb->getIndexType();
-        baseVertex = _mb->getBaseVertex();
-        indexCount = _mb->getIndexCount();
-        indexBufOffset = _mb->getIndexBufferOffset();
-        instanceCount = _mb->getInstanceCount();
-        baseInstance = _mb->getBaseInstance();
-        primitiveType = _mb->getPrimitiveType();
-        posAttrId = _mb->getPositionAttributeIx();
-    }
-
-    video::SCPUMaterial mat;
-    core::aabbox3df box;
-    uint64_t descPtr;
-    uint32_t indexType;
-    uint32_t baseVertex;
-    uint64_t indexCount;
-    size_t indexBufOffset;
-    size_t instanceCount;
-    uint32_t baseInstance;
-    uint32_t primitiveType;
-    uint32_t posAttrId;
-} PACK_STRUCT;
-#include "irr/irrunpack.h"
-static_assert(sizeof(MeshBufferBlobV2::mat) == 197, "sizeof(MeshBufferBlobV0::mat) must be 197");
-static_assert(
-    sizeof(MeshBufferBlobV2) ==
-    sizeof(MeshBufferBlobV2::mat) + sizeof(MeshBufferBlobV2::box) + sizeof(MeshBufferBlobV2::descPtr) + sizeof(MeshBufferBlobV2::indexType) + sizeof(MeshBufferBlobV2::baseVertex)
-    + sizeof(MeshBufferBlobV2::indexCount) + sizeof(MeshBufferBlobV2::indexBufOffset) + sizeof(MeshBufferBlobV2::instanceCount) + sizeof(MeshBufferBlobV2::baseInstance)
-    + sizeof(MeshBufferBlobV2::primitiveType) + sizeof(MeshBufferBlobV2::posAttrId),
-    "MeshBufferBlobV0: Size of blob is not sum of its contents!"
-    );
+using MeshBufferBlobV2 = legacyv1::MeshBufferBlobV1;
 
 }
 
