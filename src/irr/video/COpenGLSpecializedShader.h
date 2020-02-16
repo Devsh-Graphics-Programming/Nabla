@@ -35,7 +35,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 
 		COpenGLSpecializedShader(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, const asset::CIntrospectionData* _introspection);
 
-		void setUniformsImitatingPushConstants(const uint8_t* _pcData, GLuint _GLname, const GLint* _locations, uint8_t* _state, bool _dontCmpWithState) const;
+		void setUniformsImitatingPushConstants(const uint8_t* _pcData, GLuint _GLname, uint8_t* _state, bool _dontCmpWithState) const;
 
 		inline GLenum getOpenGLStage() const { return m_GLstage; }
 
@@ -45,12 +45,12 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 		const std::array<uint64_t, 4>& getSpirvHash() const { return m_spirvHash; }
 		const asset::ICPUBuffer* getSpirv() const { return m_spirv.get(); }
 
-		core::SRange<const SUniform> getUniforms() const { return {m_uniformsList.data(),m_uniformsList.data()+m_uniformsList.size()}; }
-
 	protected:
 		~COpenGLSpecializedShader() = default;
 
 	private:
+		void gatherUniformLocations(GLuint _GLname) const;
+
 		GLenum m_GLstage;
 
 		SInfo m_specInfo;
@@ -61,6 +61,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 		//mutable bool m_uniformsSetForTheVeryFirstTime = true;
 		//alignas(128) uint8_t m_uniformValues[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE];
 		core::vector<SUniform> m_uniformsList;
+		mutable core::smart_refctd_dynamic_array<GLint> m_locations;
 };
 
 }

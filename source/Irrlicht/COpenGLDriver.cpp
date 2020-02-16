@@ -2313,13 +2313,11 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
 			const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.graphics.pipeline->getShaderAtIndex(i));
 			//assert(shdr); //this would be weird
 
-            //WARNING order of calls getShaderGLnameForCtx() and getUniformLocationsForStage() is important!!
             GLuint GLname = currentState.pipeline.graphics.pipeline->getShaderGLnameForCtx(i, this->ID);
-            const GLint* locations = currentState.pipeline.graphics.pipeline->getUniformLocationsForStage(i, this->ID);
             uint8_t* PCstate = currentState.pipeline.graphics.pipeline->getPushConstantsStateForStage(i, this->ID);
             const bool uniformsEverSet = currentState.pipeline.graphics.pipeline->haveUniformsBeenEverSet(i, this->ID);
 
-			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_GRAPHICS].data, GLname, locations, PCstate, !uniformsEverSet);
+			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_GRAPHICS].data, GLname, PCstate, !uniformsEverSet);
 
             currentState.pipeline.graphics.pipeline->afterUniformsSet(i, this->ID);
 		}
@@ -2432,11 +2430,10 @@ void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
 			const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.compute.pipeline->getShader());
 
             GLuint GLname = currentState.pipeline.compute.pipeline->getShaderGLnameForCtx(0u, this->ID);
-            const GLint* locations = currentState.pipeline.compute.pipeline->getUniformLocationsForStage(this->ID);
             uint8_t* PCstate = currentState.pipeline.compute.pipeline->getPushConstantsStateForStage(0u, this->ID);
             const bool uniformsEverSet = currentState.pipeline.compute.pipeline->haveUniformsBeenEverSet(0u, this->ID);
 
-			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_COMPUTE].data, GLname, locations, PCstate, !uniformsEverSet);
+			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_COMPUTE].data, GLname, PCstate, !uniformsEverSet);
 
 			pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags = 0u;
 		}

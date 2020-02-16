@@ -35,26 +35,8 @@ public:
         return (*m_GLnames)[name_ix];
     }
 
-    //assumes GL shader object for _stageIx for _ctxID was already created (ctor or getShaderGLnameForCtx() )!
-    const GLint* getUniformLocationsForStage(uint32_t _ctxID) const
-    {
-        if (m_uniformLocations)
-            return m_uniformLocations->data();
-
-        const COpenGLSpecializedShader* glshdr = static_cast<const COpenGLSpecializedShader*>(m_shader.get());
-        GLuint GLname = (*m_GLnames)[_ctxID];
-
-        m_uniformLocations = gatherUniformLocations(glshdr, GLname);
-
-        return m_uniformLocations->data();
-    }
-
 protected:
     virtual ~COpenGLComputePipeline() = default;
-
-private:
-    //mutable for deferred GL objects creation
-    mutable core::smart_refctd_dynamic_array<GLint> m_uniformLocations;
 };
 
 }

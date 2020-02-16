@@ -167,15 +167,18 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(uint32_t _GLSLversion, const 
 	}
 }
 
-void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* _pcData, GLuint _GLname, const GLint* _locations, uint8_t* _state, bool _dontCmpWithState) const
+void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* _pcData, GLuint _GLname, uint8_t* _state, bool _dontCmpWithState) const
 {
+	if (!m_locations)
+		gatherUniformLocations(_GLname);
+
     IRR_ASSUME_ALIGNED(_pcData, 128);
 
     using gl = COpenGLExtensionHandler;
 	uint32_t loc_i = 0u;
     for (auto u_it = m_uniformsList.begin(); u_it!=m_uniformsList.end(); ++u_it, ++loc_i)
     {
-		if (_locations[loc_i]==-1)
+		if ((*m_locations)[loc_i]<0)
 			continue;
 
 		const SUniform& u = *u_it;
@@ -232,7 +235,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
 						{&gl::extGlProgramUniformMatrix4x2fv, &gl::extGlProgramUniformMatrix4x3fv, &gl::extGlProgramUniformMatrix4fv} //4xM
 					};
 
-					glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt - 2u][m.mtxRowCnt - 2u](_GLname, _locations[loc_i], m.count, m.rowMajor ? GL_TRUE : GL_FALSE, packed_data.data());
+					glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt - 2u][m.mtxRowCnt - 2u](_GLname, (*m_locations)[loc_i], m.count, m.rowMajor ? GL_TRUE : GL_FALSE, packed_data.data());
 			}
 			else if (is_scalar_or_vec())
 			{
@@ -243,7 +246,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
 						PFNGLPROGRAMUNIFORM1FVPROC glProgramUniformNfv_fptr[4]{
 							&gl::extGlProgramUniform1fv, &gl::extGlProgramUniform2fv, &gl::extGlProgramUniform3fv, &gl::extGlProgramUniform4fv
 						};
-						glProgramUniformNfv_fptr[m.mtxRowCnt-1u](_GLname, _locations[loc_i], m.count, packed_data.data());
+						glProgramUniformNfv_fptr[m.mtxRowCnt-1u](_GLname, (*m_locations)[loc_i], m.count, packed_data.data());
 						break;
 					}
 					case asset::EGVT_I32:
@@ -251,7 +254,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
 						PFNGLPROGRAMUNIFORM1IVPROC glProgramUniformNiv_fptr[4]{
 							&gl::extGlProgramUniform1iv, &gl::extGlProgramUniform2iv, &gl::extGlProgramUniform3iv, &gl::extGlProgramUniform4iv
 						};
-						glProgramUniformNiv_fptr[m.mtxRowCnt-1u](_GLname, _locations[loc_i], m.count, reinterpret_cast<const GLint*>(packed_data.data()));
+						glProgramUniformNiv_fptr[m.mtxRowCnt-1u](_GLname, (*m_locations)[loc_i], m.count, reinterpret_cast<const GLint*>(packed_data.data()));
 						break;
 					}
 					case asset::EGVT_U32:
@@ -259,7 +262,7 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
 						PFNGLPROGRAMUNIFORM1UIVPROC glProgramUniformNuiv_fptr[4]{
 							&gl::extGlProgramUniform1uiv, &gl::extGlProgramUniform2uiv, &gl::extGlProgramUniform3uiv, &gl::extGlProgramUniform4uiv
 						};
-						glProgramUniformNuiv_fptr[m.mtxRowCnt-1u](_GLname, _locations[loc_i], m.count, reinterpret_cast<const GLuint*>(packed_data.data()));
+						glProgramUniformNuiv_fptr[m.mtxRowCnt-1u](_GLname, (*m_locations)[loc_i], m.count, reinterpret_cast<const GLuint*>(packed_data.data()));
 						break;
 					}
 				}
@@ -295,6 +298,13 @@ auto COpenGLSpecializedShader::compile(const COpenGLPipelineLayout* _layout) con
 	COpenGLExtensionHandler::extGlGetProgramBinary(GLname, binaryLength, nullptr, &binary.format, binary.binary->data());
 
 	return {GLname, std::move(binary)};
+}
+
+void COpenGLSpecializedShader::gatherUniformLocations(GLuint _GLname) const
+{
+	m_locations = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLint>>(m_uniformsList.size());
+	for (size_t i = 0ull; i < m_uniformsList.size(); ++i)
+		(*m_locations)[i] = COpenGLExtensionHandler::extGlGetUniformLocation(_GLname, m_uniformsList[i].m.name.c_str());
 }
 
 #endif

@@ -13,7 +13,7 @@ class IOpenGLPipeline
 {
 public:
     //! _binaries' elements are getting move()'d!
-    IOpenGLPipeline(uint32_t _ctxCount, uint32_t _ctxID, GLuint _GLnames[_STAGE_COUNT], COpenGLSpecializedShader::SProgramBinary _binaries[_STAGE_COUNT]) :
+    IOpenGLPipeline(uint32_t _ctxCount, uint32_t _ctxID, const GLuint _GLnames[_STAGE_COUNT], COpenGLSpecializedShader::SProgramBinary _binaries[_STAGE_COUNT]) :
         m_GLnames(core::make_refctd_dynamic_array<decltype(m_GLnames)>(_STAGE_COUNT*_ctxCount)),
         m_shaderBinaries(core::make_refctd_dynamic_array<decltype(m_shaderBinaries)>(_STAGE_COUNT)),
         m_uniformsSetForTheVeryFirstTime(core::make_refctd_dynamic_array<decltype(m_uniformsSetForTheVeryFirstTime)>(_STAGE_COUNT*_ctxCount))
@@ -47,17 +47,6 @@ public:
     }
 
     uint8_t* getPushConstantsStateForStage(uint32_t _stageIx, uint32_t _ctxID) const { return const_cast<uint8_t*>(m_uniformValues + ((_STAGE_COUNT*_ctxID + _stageIx)*IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE)); }
-
-    static core::smart_refctd_dynamic_array<GLint> gatherUniformLocations(const COpenGLSpecializedShader* _shader, GLuint _GLname)
-    {
-        auto uniforms_rng = _shader->getUniforms();
-
-        auto uniformLocations = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<GLint>>(uniforms_rng.length());
-        for (size_t i = 0ull; i < uniforms_rng.length(); ++i)
-            (*uniformLocations)[i] = COpenGLExtensionHandler::extGlGetUniformLocation(_GLname, uniforms_rng.begin()[i].m.name.c_str());
-
-        return uniformLocations;
-    }
 
 protected:
     GLuint getShaderGLnameForCtx(uint32_t _stageIx, uint32_t _ctxID) const

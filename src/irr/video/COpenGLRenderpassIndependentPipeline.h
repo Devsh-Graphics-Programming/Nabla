@@ -23,7 +23,7 @@ public:
         const asset::SBlendParams& _blendParams,
         const asset::SPrimitiveAssemblyParams& _primAsmParams,
         const asset::SRasterizationParams& _rasterParams,
-        uint32_t _ctxCount, uint32_t _ctxID, GLuint _GLnames[SHADER_STAGE_COUNT], COpenGLSpecializedShader::SProgramBinary _binaries[SHADER_STAGE_COUNT]
+        uint32_t _ctxCount, uint32_t _ctxID, const GLuint _GLnames[SHADER_STAGE_COUNT], COpenGLSpecializedShader::SProgramBinary _binaries[SHADER_STAGE_COUNT]
     ) : IGPURenderpassIndependentPipeline(
         std::move(_layout), _shadersBegin, _shadersEnd,
         _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
@@ -70,20 +70,6 @@ public:
             static_cast<const COpenGLSpecializedShader*>(m_shaders[_stageIx].get())->compile(static_cast<const COpenGLPipelineLayout*>(getLayout()));
 
         return (*m_GLnames)[name_ix];
-    }
-
-    //assumes GL shader object for _stageIx for _ctxID was already created (ctor or getShaderGLnameForCtx() )!
-    const GLint* getUniformLocationsForStage(uint32_t _stageIx, uint32_t _ctxID) const
-    {
-        if (m_uniformLocations[_stageIx])
-            return m_uniformLocations[_stageIx]->data();
-
-        const COpenGLSpecializedShader* glshdr = static_cast<const COpenGLSpecializedShader*>(m_shaders[_stageIx].get());
-        GLuint GLname = (*m_GLnames)[SHADER_STAGE_COUNT*_ctxID + _stageIx];
-
-        m_uniformLocations[_stageIx] = gatherUniformLocations(glshdr, GLname);
-
-        return m_uniformLocations[_stageIx]->data();
     }
 
     struct SVAOHash
@@ -209,8 +195,6 @@ protected:
 private:
     SVAOHash m_vaoHashval;
     uint32_t m_stagePresenceMask;
-
-    mutable core::smart_refctd_dynamic_array<GLint> m_uniformLocations[SHADER_STAGE_COUNT];
 };
 
 }
