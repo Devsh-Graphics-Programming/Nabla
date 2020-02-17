@@ -5,11 +5,7 @@ using namespace video;
 
 core::smart_refctd_ptr<asset::ICPUPipelineCache> COpenGLPipelineCache::convertToCPUCache() const
 {
-	asset::ICPUPipelineCache::entries_map_t entries;
-
-	size_t sz = m_cache.getSize();
-	auto buf = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<decltype(m_cache)::MutablePairType>>(sz);
-	m_cache.outputAll(sz, buf->data());
+	asset::ICPUPipelineCache::entries_map_t out_entries;
 
 	std::string uuid;
 	{
@@ -27,27 +23,29 @@ core::smart_refctd_ptr<asset::ICPUPipelineCache> COpenGLPipelineCache::convertTo
 		uuid += exts;
 	}
 
-	for (size_t i = 0ull; i < sz; ++i)
+	const std::lock_guard<std::mutex> _(m_mutex);
+
+	for (const auto& in_entry : m_cache)
 	{
 		uint32_t bndCnt = 0u;
 		uint32_t bndPerSet[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{};
 		for (uint32_t j = 0u; j < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++j)
 		{
-			auto dsl = (*buf)[i].second.layout->getDescriptorSetLayout(j);
+			auto dsl = in_entry.second.layout->getDescriptorSetLayout(j);
 			bndPerSet[j] = dsl ? dsl->getBindings().length() : 0u;
 			bndCnt += bndPerSet[j];
 		}
 
-		uint32_t scCnt = (*buf)[i].first.info.m_entries->size();
+		uint32_t scCnt = in_entry.first.info.m_entries->size();
 
 		auto meta_buf = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint8_t>>(asset::ICPUPipelineCache::SGLKeyMeta::calcMetaSize(bndCnt, scCnt));
 		asset::ICPUPipelineCache::SGLKeyMeta* meta = reinterpret_cast<asset::ICPUPipelineCache::SGLKeyMeta*>(meta_buf->data());
 		memcpy(meta->bindingsPerSet, bndPerSet, sizeof(meta->bindingsPerSet));
-		memcpy(meta->spirvHash, (*buf)[i].first.hash.data(), sizeof(meta->spirvHash));
+		memcpy(meta->spirvHash, in_entry.first.hash.data(), sizeof(meta->spirvHash));
 
 		for (uint32_t j = 0u, k = 0u; j < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++j)
 		{
-			auto* dsl = (*buf)[i].second.layout->getDescriptorSetLayout(j);
+			auto* dsl = in_entry.second.layout->getDescriptorSetLayout(j);
 			if (!dsl)
 				continue;
 				
@@ -65,11 +63,11 @@ core::smart_refctd_ptr<asset::ICPUPipelineCache> COpenGLPipelineCache::convertTo
 		auto* scEntries = reinterpret_cast<asset::ICPUPipelineCache::SGLKeyMeta::SSpecInfo::SEntry*>(meta_buf->data()+meta_buf->size()-sizeof(asset::ICPUPipelineCache::SGLKeyMeta::SSpecInfo::SEntry)*scCnt);
 		{
 			uint32_t k = 0u;
-			for (const auto& e : *((*buf)[i].first.info.m_entries))
+			for (const auto& e : *(in_entry.first.info.m_entries))
 			{
 				scEntries[k].id = e.specConstID;
 				assert(e.size==4u);
-				memcpy(&scEntries[k].value, reinterpret_cast<uint8_t*>((*buf)[i].first.info.m_backingBuffer->getPointer())+e.offset, 4u);
+				memcpy(&scEntries[k].value, reinterpret_cast<const uint8_t*>(in_entry.first.info.m_backingBuffer->getPointer())+e.offset, 4u);
 			}
 		}
 
@@ -78,11 +76,11 @@ core::smart_refctd_ptr<asset::ICPUPipelineCache> COpenGLPipelineCache::convertTo
 		cpukey.gpuid.UUID = uuid;
 		cpukey.meta = std::move(meta_buf);
 		asset::ICPUPipelineCache::SCacheVal cpuval;
-		cpuval.extra = (*buf)[i].second.binary.format;
-		cpuval.bin = (*buf)[i].second.binary.binary;
+		cpuval.extra = in_entry.second.binary.format;
+		cpuval.bin = in_entry.second.binary.binary;
 
-		entries.insert({std::move(cpukey), std::move(cpuval)});
+		out_entries.insert({std::move(cpukey), std::move(cpuval)});
 	}
 
-	return core::make_smart_refctd_ptr<asset::ICPUPipelineCache>(std::move(entries));
+	return core::make_smart_refctd_ptr<asset::ICPUPipelineCache>(std::move(out_entries));
 }
