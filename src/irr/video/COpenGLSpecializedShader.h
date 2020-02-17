@@ -61,7 +61,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 		//mutable bool m_uniformsSetForTheVeryFirstTime = true;
 		//alignas(128) uint8_t m_uniformValues[IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE];
 		core::vector<SUniform> m_uniformsList;
-		mutable core::smart_refctd_dynamic_array<GLint> m_locations;
+		mutable core::vector<GLint> m_locations;
 };
 
 }

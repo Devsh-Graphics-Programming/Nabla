@@ -1283,32 +1283,33 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
 
     GLuint GLnames[COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT]{};
     COpenGLSpecializedShader::SProgramBinary binaries[COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT];
-    if (_pipelineCache)
+
+    COpenGLPipelineCache* cache = static_cast<COpenGLPipelineCache*>(_pipelineCache);
+    COpenGLPipelineLayout* layout = static_cast<COpenGLPipelineLayout*>(_layout.get());
+    for (auto shdr = _shadersBegin; shdr!=_shadersEnd; ++shdr)
     {
-        COpenGLPipelineCache* cache = static_cast<COpenGLPipelineCache*>(_pipelineCache);
-        COpenGLPipelineLayout* layout = static_cast<COpenGLPipelineLayout*>(_layout.get());
-        for (auto shdr = _shadersBegin; shdr!=_shadersEnd; ++shdr)
+        COpenGLSpecializedShader* glshdr = static_cast<COpenGLSpecializedShader*>(*shdr);
+
+        auto stage = glshdr->getStage();
+        uint32_t ix = core::findLSB<uint32_t>(stage);
+        assert(ix<COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT);
+
+        COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo() };
+        auto bin = cache ? cache->find(key, layout) : COpenGLSpecializedShader::SProgramBinary{0,nullptr};
+        if (bin.binary)
         {
-            COpenGLSpecializedShader* glshdr = static_cast<COpenGLSpecializedShader*>(*shdr);
-
-            auto stage = glshdr->getStage();
-            uint32_t ix = core::findLSB<uint32_t>(stage);
-            assert(ix<COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT);
-
-            COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo() };
-            auto bin = cache->find(key, layout);
-            if (bin.binary)
-            {
-                const GLuint GLname = extGlCreateProgram();
-                extGlProgramBinary(GLname, bin.format, bin.binary->data(), bin.binary->size());
-                GLnames[ix] = GLname;
-                binaries[ix] = bin;
-
-                continue;
-            }
-            std::tie(GLnames[ix], bin) = glshdr->compile(layout);
+            const GLuint GLname = extGlCreateProgram();
+            extGlProgramBinary(GLname, bin.format, bin.binary->data(), bin.binary->size());
+            GLnames[ix] = GLname;
             binaries[ix] = bin;
 
+            continue;
+        }
+        std::tie(GLnames[ix], bin) = glshdr->compile(layout);
+        binaries[ix] = bin;
+
+        if (cache)
+        {
             COpenGLPipelineCache::SCacheVal val{std::move(bin), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(_layout)};
             cache->insert(std::move(key), std::move(val), glshdr->getSpirv());
         }
@@ -1335,27 +1336,27 @@ core::smart_refctd_ptr<IGPUComputePipeline> COpenGLDriver::createGPUComputePipel
 
     GLuint GLname = 0u;
     COpenGLSpecializedShader::SProgramBinary binary;
-    if (_pipelineCache)
+    COpenGLPipelineCache* cache = static_cast<COpenGLPipelineCache*>(_pipelineCache);
+    COpenGLPipelineLayout* layout = static_cast<COpenGLPipelineLayout*>(_layout.get());
+    COpenGLSpecializedShader* glshdr = static_cast<COpenGLSpecializedShader*>(_shader.get());
+
+    COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo() };
+    auto bin = cache ? cache->find(key, layout) : COpenGLSpecializedShader::SProgramBinary{0,nullptr};
+    if (bin.binary)
     {
-        COpenGLPipelineCache* cache = static_cast<COpenGLPipelineCache*>(_pipelineCache);
-        COpenGLPipelineLayout* layout = static_cast<COpenGLPipelineLayout*>(_layout.get());
-        COpenGLSpecializedShader* glshdr = static_cast<COpenGLSpecializedShader*>(_shader.get());
+        const GLuint GLshader = extGlCreateProgram();
+        extGlProgramBinary(GLname, bin.format, bin.binary->data(), bin.binary->size());
+        GLname = GLshader;
+        binary = bin;
+    }
+    else
+    {
+        std::tie(GLname, bin) = glshdr->compile(layout);
+        binary = bin;
 
-        COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo() };
-        auto bin = cache->find(key, layout);
-        if (bin.binary)
+        if (cache)
         {
-            const GLuint GLshader = extGlCreateProgram();
-            extGlProgramBinary(GLname, bin.format, bin.binary->data(), bin.binary->size());
-            GLname = GLshader;
-            binary = bin;
-        }
-        else
-        {
-            std::tie(GLname, bin) = glshdr->compile(layout);
-            binary = bin;
-
-            COpenGLPipelineCache::SCacheVal val{ std::move(bin), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(_layout) };
+            COpenGLPipelineCache::SCacheVal val{std::move(bin), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(_layout)};
             cache->insert(std::move(key), std::move(val), glshdr->getSpirv());
         }
     }
