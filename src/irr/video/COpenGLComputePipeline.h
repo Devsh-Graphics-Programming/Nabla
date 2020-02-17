@@ -14,7 +14,7 @@ public:
     COpenGLComputePipeline(
         core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
         core::smart_refctd_ptr<IGPUSpecializedShader>&& _cs,
-        uint32_t _ctxCount, uint32_t _ctxID, GLuint _GLname, COpenGLSpecializedShader::SProgramBinary&& _binary
+        uint32_t _ctxCount, uint32_t _ctxID, GLuint _GLname, const COpenGLSpecializedShader::SProgramBinary& _binary
     ) : IGPUComputePipeline(std::move(_layout), std::move(_cs)), 
         IOpenGLPipeline(_ctxCount, _ctxID, &_GLname, &_binary)
     {
@@ -25,14 +25,7 @@ public:
 
     GLuint getShaderGLnameForCtx(uint32_t _stageIx, uint32_t _ctxID) const
     {
-        if (GLuint n = IOpenGLPipeline<1>::getShaderGLnameForCtx(_stageIx, _ctxID))
-            return n;
-
-        const uint32_t name_ix = _ctxID;
-        std::tie((*m_GLnames)[name_ix], (*m_shaderBinaries)[_stageIx]) =
-            static_cast<const COpenGLSpecializedShader*>(m_shader.get())->compile(static_cast<const COpenGLPipelineLayout*>(getLayout()));
-
-        return (*m_GLnames)[name_ix];
+        return IOpenGLPipeline<1>::getShaderGLnameForCtx(_stageIx, _ctxID);
     }
 
 protected:

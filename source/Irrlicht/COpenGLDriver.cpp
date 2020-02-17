@@ -1361,7 +1361,7 @@ core::smart_refctd_ptr<IGPUComputePipeline> COpenGLDriver::createGPUComputePipel
         }
     }
 
-    return core::make_smart_refctd_ptr<COpenGLComputePipeline>(std::move(_layout), std::move(_shader), Params.AuxGLContexts+1, ctx->ID, GLname, std::move(binary));
+    return core::make_smart_refctd_ptr<COpenGLComputePipeline>(std::move(_layout), std::move(_shader), Params.AuxGLContexts+1, ctx->ID, GLname, binary);
 }
 
 core::smart_refctd_ptr<IGPUPipelineCache> COpenGLDriver::createGPUPipelineCache()

@@ -23,7 +23,7 @@ public:
         const asset::SBlendParams& _blendParams,
         const asset::SPrimitiveAssemblyParams& _primAsmParams,
         const asset::SRasterizationParams& _rasterParams,
-        uint32_t _ctxCount, uint32_t _ctxID, const GLuint _GLnames[SHADER_STAGE_COUNT], COpenGLSpecializedShader::SProgramBinary _binaries[SHADER_STAGE_COUNT]
+        uint32_t _ctxCount, uint32_t _ctxID, const GLuint _GLnames[SHADER_STAGE_COUNT], const COpenGLSpecializedShader::SProgramBinary _binaries[SHADER_STAGE_COUNT]
     ) : IGPURenderpassIndependentPipeline(
         std::move(_layout), _shadersBegin, _shadersEnd,
         _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
@@ -62,14 +62,8 @@ public:
     {
         if (!m_shaders[_stageIx])
             return 0u;
-        if (GLuint n = IOpenGLPipeline<SHADER_STAGE_COUNT>::getShaderGLnameForCtx(_stageIx, _ctxID))
-            return n;
 
-        const uint32_t name_ix = _ctxID*SHADER_STAGE_COUNT + _stageIx;
-        std::tie((*m_GLnames)[name_ix], (*m_shaderBinaries)[_stageIx]) =
-            static_cast<const COpenGLSpecializedShader*>(m_shaders[_stageIx].get())->compile(static_cast<const COpenGLPipelineLayout*>(getLayout()));
-
-        return (*m_GLnames)[name_ix];
+        return IOpenGLPipeline<SHADER_STAGE_COUNT>::getShaderGLnameForCtx(_stageIx, _ctxID);
     }
 
     struct SVAOHash
