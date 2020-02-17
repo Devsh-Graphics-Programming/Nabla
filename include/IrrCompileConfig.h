@@ -72,6 +72,10 @@
 #   define NO_IRR_LINUX_X11_RANDR_
 #endif
 
+#ifdef _MSC_VER
+#	define _ENABLE_EXTENDED_ALIGNED_STORAGE
+#endif
+
 //! VidMode is ANCIENT
 //#define NO_IRR_LINUX_X11_VIDMODE_
 
@@ -221,7 +225,7 @@ currently only supports zip archives, though. */
 #endif
 
 
-#define _IRR_BAW_FORMAT_VERSION 1
+#define _IRR_BAW_FORMAT_VERSION 2
 
 //! @see @ref CBlobsLoadingManager
 #define _IRR_ADD_BLOB_SUPPORT(BlobClassName, EnumValue, Function, ...) \
@@ -231,11 +235,13 @@ case asset::Blob::EnumValue:\
 //! Used inside CBlobsLoadingManager. Adds support of given blob types.
 // @crisspl / @Anastazluk fix this shit for new pipeline !!!
 #define _IRR_SUPPORTED_BLOBS(Function, ...) \
-_IRR_ADD_BLOB_SUPPORT(RawBufferBlobV1, EBT_RAW_DATA_BUFFER, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(MeshBlobV1, EBT_MESH, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(SkinnedMeshBlobV1, EBT_SKINNED_MESH, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(MeshBufferBlobV1, EBT_MESH_BUFFER, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(SkinnedMeshBufferBlobV1, EBT_SKINNED_MESH_BUFFER, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(FinalBoneHierarchyBlobV1, EBT_FINAL_BONE_HIERARCHY, Function, __VA_ARGS__)
+_IRR_ADD_BLOB_SUPPORT(RawBufferBlobV2, EBT_RAW_DATA_BUFFER, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(TexturePathBlobV2, EBT_TEXTURE_PATH, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(MeshBlobV2, EBT_MESH, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(SkinnedMeshBlobV2, EBT_SKINNED_MESH, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(MeshBufferBlobV2, EBT_MESH_BUFFER, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(SkinnedMeshBufferBlobV2, EBT_SKINNED_MESH_BUFFER, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(MeshDataFormatDescBlobV2, EBT_DATA_FORMAT_DESC, Function, __VA_ARGS__)\
+_IRR_ADD_BLOB_SUPPORT(FinalBoneHierarchyBlobV2, EBT_FINAL_BONE_HIERARCHY, Function, __VA_ARGS__)
 
 #endif // __IRR_COMPILE_CONFIG_H_INCLUDED__

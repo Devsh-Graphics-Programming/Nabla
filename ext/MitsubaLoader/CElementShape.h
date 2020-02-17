@@ -79,7 +79,7 @@ class CElementShape : public IElement
 		};
 		struct Instance
 		{
-			ShapeGroup* shapegroup = nullptr;
+			CElementShape* parent = nullptr;
 		};/*
 		struct Hair : Base
 		{
@@ -105,6 +105,10 @@ class CElementShape : public IElement
 		CElementShape(const CElementShape& other) : IElement(""), transform(), bsdf(nullptr), emitter(nullptr)
 		{
 			operator=(other);
+		}
+		CElementShape(CElementShape&& other) : IElement(""), transform(), bsdf(nullptr), emitter(nullptr)
+		{
+			operator=(std::move(other));
 		}
 		virtual ~CElementShape()
 		{
@@ -160,11 +164,81 @@ class CElementShape : public IElement
 			emitter = other.emitter;
 			return *this;
 		}
+		inline CElementShape& operator=(CElementShape&& other)
+		{
+			IElement::operator=(std::move(other));
+			std::swap(transform,other.transform);
+			std::swap(type,other.type);
+			switch (type)
+			{
+				case Type::CUBE:
+					std::swap(cube,other.cube);
+					break;
+				case Type::SPHERE:
+					std::swap(sphere,other.sphere);
+					break;
+				case Type::CYLINDER:
+					std::swap(cylinder,other.cylinder);
+					break;
+				case Type::RECTANGLE:
+					std::swap(rectangle,other.rectangle);
+					break;
+				case Type::DISK:
+					std::swap(disk,other.disk);
+					break;
+				case Type::OBJ:
+					std::swap(obj,other.obj);
+					break;
+				case Type::PLY:
+					std::swap(ply,other.ply);
+					break;
+				case Type::SERIALIZED:
+					std::swap(serialized,other.serialized);
+					break;
+				case Type::SHAPEGROUP:
+					std::swap(shapegroup,other.shapegroup);
+					break;
+				case Type::INSTANCE:
+					std::swap(instance,other.instance);
+					break;/*
+				case Type::HAIR:
+					std::swap(hair,other.hair);
+					break;
+				case Type::HEIGHTFIELD:
+					std::swap(heightfield,other.heightfield);
+					break;*/
+				default:
+					break;
+			}
+			std::swap(bsdf,other.bsdf);
+			std::swap(emitter,other.emitter);
+			return *this;
+		}
 
 		bool addProperty(SNamedPropertyElement&& _property) override;
 		bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) override;
 		IElement::Type getType() const override { return IElement::Type::SHAPE; }
 		std::string getLogName() const override { return "shape"; }
+
+		
+		inline core::matrix3x4SIMD getAbsoluteTransform() const
+		{
+			auto local = transform.matrix.extractSub3x4();
+			if (type==CElementShape::INSTANCE && instance.parent)
+				return core::concatenateBFollowedByA(local,instance.parent->getAbsoluteTransform());
+			return local;
+		}
+
+		inline CElementEmitter obtainEmitter() const
+		{
+			if (emitter)
+				return *emitter;
+			if (type==CElementShape::INSTANCE && instance.parent && instance.parent->emitter)
+				return *instance.parent->emitter;
+
+			return CElementEmitter("");
+		}
+
 
 		bool processChildData(IElement* _child, const std::string& name) override;
 

@@ -55,9 +55,9 @@ bool CSTLMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 
     const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, mesh, 0u);
 	if (flags & asset::EWF_BINARY)
-		return writeMeshBinary(file, mesh);
+		return writeMeshBinary(file, mesh, _params);
 	else
-		return writeMeshASCII(file, mesh);
+		return writeMeshASCII(file, mesh, _params);
 }
 
 namespace
@@ -113,19 +113,33 @@ inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndice
             }
         }
 
+		core::vectorSIMDf normal = core::plane3dSIMDf(v[0], v[1], v[2]).getNormal();
+		core::vectorSIMDf vertex1 = v[2];
+		core::vectorSIMDf vertex2 = v[1];
+		core::vectorSIMDf vertex3 = v[0];
 
-        const core::plane3dSIMDf plane(v[0], v[1], v[2]);
-        file->write(&plane, 12);
-        file->write(v+0, 12);
-        file->write(v+1, 12);
-        file->write(v+2, 12);
+		auto flipVectors = [&]()
+		{
+			vertex1.X = -vertex1.X;
+			vertex2.X = -vertex2.X;
+			vertex3.X = -vertex3.X;
+			normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
+		};
+
+		if (!(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED))
+			flipVectors();
+
+        file->write(&normal, 12);
+        file->write(&vertex1, 12);
+        file->write(&vertex2, 12);
+        file->write(&vertex3, 12);
         file->write(&color, 2); // saving color using non-standard VisCAM/SolidView trick
     }
 #endif
 }
 }
 
-bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh* mesh)
+bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh* mesh, const SAssetWriteParams& _params)
 {
 #ifndef NEW_SHADERS
 	// write STL MESH header
@@ -160,15 +174,15 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh
                 type = asset::EIT_UNKNOWN;
 			if (type== asset::EIT_16BIT)
             {
-                writeFacesBinary<uint16_t>(buffer, false, file, asset::EVAI_ATTR1);
+                writeFacesBinary<uint16_t>(buffer, false, file, asset::EVAI_ATTR1, _params);
             }
 			else if (type== asset::EIT_32BIT)
             {
-                writeFacesBinary<uint32_t>(buffer, false, file, asset::EVAI_ATTR1);
+                writeFacesBinary<uint32_t>(buffer, false, file, asset::EVAI_ATTR1, _params);
             }
 			else
             {
-                writeFacesBinary<uint16_t>(buffer, true, file, asset::EVAI_ATTR1); //template param doesn't matter if there's no indices
+                writeFacesBinary<uint16_t>(buffer, true, file, asset::EVAI_ATTR1, _params); //template param doesn't matter if there's no indices
             }
 		}
 	}
@@ -179,7 +193,7 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh
 }
 
 
-bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh* mesh)
+bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh* mesh, const SAssetWriteParams& _params)
 {
 #ifndef NEW_SHADERS
 	// write STL MESH header
@@ -210,7 +224,8 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh*
                     writeFaceText(file,
                         buffer->getPosition(((uint16_t*)buffer->getIndices())[j]),
                         buffer->getPosition(((uint16_t*)buffer->getIndices())[j+1]),
-                        buffer->getPosition(((uint16_t*)buffer->getIndices())[j+2])
+                        buffer->getPosition(((uint16_t*)buffer->getIndices())[j+2]),
+						_params
                     );
                 }
 			}
@@ -222,7 +237,8 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh*
                     writeFaceText(file,
                         buffer->getPosition(((uint32_t*)buffer->getIndices())[j]),
                         buffer->getPosition(((uint32_t*)buffer->getIndices())[j+1]),
-                        buffer->getPosition(((uint32_t*)buffer->getIndices())[j+2])
+                        buffer->getPosition(((uint32_t*)buffer->getIndices())[j+2]),
+						_params
                     );
                 }
 			}
@@ -233,8 +249,9 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh*
                 {
                     writeFaceText(file,
                         buffer->getPosition(j),
-                        buffer->getPosition(j+1),
-                        buffer->getPosition(j+2)
+                        buffer->getPosition(j+1ul),
+                        buffer->getPosition(j+2ul),
+						_params
                     );
                 }
             }
@@ -264,21 +281,38 @@ void CSTLMeshWriter::getVectorAsStringLine(const core::vectorSIMDf& v, core::str
 void CSTLMeshWriter::writeFaceText(io::IWriteFile* file,
 		const core::vectorSIMDf& v1,
 		const core::vectorSIMDf& v2,
-		const core::vectorSIMDf& v3)
+		const core::vectorSIMDf& v3,
+	    const SAssetWriteParams& _params)
 {
+	core::vectorSIMDf vertex1 = v3;
+	core::vectorSIMDf vertex2 = v2;
+	core::vectorSIMDf vertex3 = v1;
+	core::vectorSIMDf normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
 	core::stringc tmp;
+
+	auto flipVectors = [&]()
+	{
+		vertex1.X = -vertex1.X;
+		vertex2.X = -vertex2.X;
+		vertex3.X = -vertex3.X;
+		normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
+	};
+
+	if (!(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED))
+		flipVectors();
+
 	file->write("facet normal ",13);
-	getVectorAsStringLine(core::plane3dSIMDf(v1, v2, v3).getNormal(), tmp);
+	getVectorAsStringLine(normal, tmp);
 	file->write(tmp.c_str(),tmp.size());
 	file->write("  outer loop\n",13);
 	file->write("    vertex ",11);
-	getVectorAsStringLine(v1, tmp);
+	getVectorAsStringLine(vertex1, tmp);
 	file->write(tmp.c_str(),tmp.size());
 	file->write("    vertex ",11);
-	getVectorAsStringLine(v2, tmp);
+	getVectorAsStringLine(vertex2, tmp);
 	file->write(tmp.c_str(),tmp.size());
 	file->write("    vertex ",11);
-	getVectorAsStringLine(v3, tmp);
+	getVectorAsStringLine(vertex3, tmp);
 	file->write(tmp.c_str(),tmp.size());
 	file->write("  endloop\n",10);
 	file->write("endfacet\n",9);

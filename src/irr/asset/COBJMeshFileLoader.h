@@ -118,8 +118,6 @@ private:
 	// combination of goNextWord followed by copyWord
 	const char* goAndCopyNextWord(char* outBuf, const char* inBuf, uint32_t outBufLength, const char* const pBufEnd);
 
-	//! Read RGB color
-	const char* readColor(const char* bufPtr, video::SColor& color, const char* const pBufEnd);
 	//! Read 3d vector of floats
 	const char* readVec3(const char* bufPtr, float vec[3], const char* const pBufEnd);
 	//! Read 2d vector of floats
@@ -136,6 +134,12 @@ private:
 
 	IAssetManager* AssetManager;
 	io::IFileSystem* FileSystem;
+
+	template<typename aType>
+	static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
+	{
+		performOnCertainOrientation(varToHandle);
+	}
 };
 
 } // end namespace asset

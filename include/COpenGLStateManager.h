@@ -26,7 +26,7 @@
     #undef GL_GLEXT_LEGACY
 #endif
 
-#include "../src/3rdparty/GL/glext.h"
+#include "GL/glext.h"
 
 #ifndef GL_SRG8_EXT
 #define GL_SRG8_EXT 0x8FBE

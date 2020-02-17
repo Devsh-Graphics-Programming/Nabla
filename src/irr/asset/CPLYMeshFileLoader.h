@@ -159,6 +159,7 @@ private:
 
 	bool readVertex(SContext& _ctx, const SPLYElement &Element, core::vector<core::vectorSIMDf> _attribs[4], const IAssetLoader::SAssetLoadParams& _params);
 	bool readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices, const IAssetLoader::SAssetLoadParams& _params);
+
 	void skipElement(SContext& _ctx, const SPLYElement &Element);
 	void skipProperty(SContext& _ctx, const SPLYProperty &Property);
 	float getFloat(SContext& _ctx, E_PLY_PROPERTY_TYPE t);
@@ -166,10 +167,15 @@ private:
 	void moveForward(SContext& _ctx, uint32_t bytes);
 
     bool genVertBuffersForMBuffer(ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4], SBufferBinding<ICPUBuffer>& bufferBinding) const;
+
+	template<typename aType>
+	static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
+	{
+		performOnCertainOrientation(varToHandle);
+	}
 };
 
 } // end namespace asset
 } // end namespace irr
 
 #endif
-

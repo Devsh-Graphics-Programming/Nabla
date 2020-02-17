@@ -87,67 +87,112 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		manager->getGeometryCreator(),
 		manager->getMeshManipulator(),
 		asset::IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen,_params.decryptionKey,_params.cacheFlags,currentDir.c_str()),
-		_override
+		_override,
+		parserManager.m_globalMetadata.get()
 	};
-	core::vector<core::smart_refctd_ptr<asset::ICPUMesh>> meshes;
+
+	core::unordered_set<core::smart_refctd_ptr<asset::ICPUMesh>,core::smart_refctd_ptr<asset::ICPUMesh>::hash> meshes;
 
 	for (auto& shapepair : parserManager.shapegroups)
 	{
-		// TODO: use references and aliases
-		const auto* shapedef = shapepair.first;
+		auto* shapedef = shapepair.first;
+		if (shapedef->type==CElementShape::Type::SHAPEGROUP)
+			continue;
+
 		core::smart_refctd_ptr<asset::ICPUMesh> mesh = getMesh(ctx,_hierarchyLevel,shapedef);
 		if (!mesh)
 			continue;
 
-		auto metadata = core::make_smart_refctd_ptr<IMeshMetadata>(
+		IMeshMetadata* metadataptr = nullptr;
+		auto found = meshes.find(mesh);
+		if (found==meshes.end())
+		{
+			auto metadata = core::make_smart_refctd_ptr<IMeshMetadata>(
 								core::smart_refctd_ptr(parserManager.m_globalMetadata),
-								std::move(shapepair.second));
-		metadata->instances.push_back(shapedef->transform.matrix.extractSub3x4());
-		manager->setAssetMetadata(mesh.get(), std::move(metadata));
+								std::move(shapepair.second),
+								shapedef
+							);
+			metadataptr = metadata.get();
+			manager->setAssetMetadata(mesh.get(), std::move(metadata));
+			meshes.insert(std::move(mesh));
+		}
+		else
+		{
+			assert(mesh->getMetadata() && strcmpi(mesh->getMetadata()->getLoaderName(),IMeshMetadata::LoaderName)==0);
+			metadataptr = static_cast<IMeshMetadata*>(mesh->getMetadata());
+		}
 
-		meshes.push_back(std::move(mesh));
+		metadataptr->instances.push_back({shapedef->getAbsoluteTransform(),shapedef->obtainEmitter()});
 	}
 
 	return {meshes};
 }
 
-
-CMitsubaLoader::SContext::group_ass_type CMitsubaLoader::instantiateShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const core::matrix4SIMD& tform)
+CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape)
 {
-	if (!shapegroup)
+	if (!shape)
 		return nullptr;
 
-	// will only return the group mesh once so it is only added once
+	if (shape->type!=CElementShape::Type::INSTANCE)
+		return loadBasicShape(ctx, hierarchyLevel, shape);
+	else
+	{
+		// get group reference
+		const CElementShape* parent = shape->instance.parent;
+		if (!parent)
+			return nullptr;
+		assert(parent->type==CElementShape::Type::SHAPEGROUP);
+		const CElementShape::ShapeGroup* shapegroup = &parent->shapegroup;
+		
+		return loadShapeGroup(ctx, hierarchyLevel, shapegroup);
+	}
+}
+
+CMitsubaLoader::SContext::group_ass_type CMitsubaLoader::loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup)
+{
+	// find group
 	auto found = ctx.groupCache.find(shapegroup);
 	if (found != ctx.groupCache.end())
-	{
-		static_cast<IMeshMetadata*>(found->second->getMetadata())->instances.push_back(tform.extractSub3x4());
-		return nullptr;
-	}
+		return found->second;
+
+	const auto children = shapegroup->children;
 
 	auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
-	for (auto i=0u; shapegroup->children[i] && i<shapegroup->childCount; i++)
+	for (auto i=0u; i<shapegroup->childCount; i++)
 	{
-		auto lowermesh = getMesh(ctx,hierarchyLevel,shapegroup->children[i]);
-		if (lowermesh)
+		auto child = children[i];
+		if (!child)
+			continue;
+
+		core::smart_refctd_ptr<asset::ICPUMesh> lowermesh;
+		assert(child->type!=CElementShape::Type::INSTANCE);
+		if (child->type!=CElementShape::Type::SHAPEGROUP)
+			lowermesh = loadBasicShape(ctx, hierarchyLevel, child);
+		else
+			lowermesh = loadShapeGroup(ctx, hierarchyLevel, &child->shapegroup);
+		
+		// skip if dead
+		if (!lowermesh)
+			continue;
+
 		for (auto j=0u; j<lowermesh->getMeshBufferCount(); j++)
 			mesh->addMeshBuffer(core::smart_refctd_ptr<asset::ICPUMeshBuffer>(lowermesh->getMeshBuffer(j)));
 	}
+	if (!mesh->getMeshBufferCount())
+		return nullptr;
+
 	mesh->recalculateBoundingBox();
 	ctx.groupCache.insert({shapegroup,mesh});
 	return mesh;
 }
 
-CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, uint32_t hierarchyLevel, const CElementShape* shape)
+CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape)
 {
-	if (!shape)
-		return nullptr;
-
 	auto found = ctx.shapeCache.find(shape);
 	if (found != ctx.shapeCache.end())
 		return found->second;
 
-
+	//! TODO: remove, after loader handedness fix
 	static auto applyTransformToMB = [](asset::ICPUMeshBuffer* meshbuffer, core::matrix3x4SIMD tform) -> void
 	{
 		const auto index = meshbuffer->getPositionAttributeIx();
@@ -159,21 +204,21 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 		}
 		meshbuffer->recalculateBoundingBox();
 	};
-	auto loadModel = [&](const ext::MitsubaLoader::SPropertyElementData& filename, uint32_t index=0) -> core::smart_refctd_ptr<asset::ICPUMesh>
+	auto loadModel = [&](const ext::MitsubaLoader::SPropertyElementData& filename, int64_t index=-1) -> core::smart_refctd_ptr<asset::ICPUMesh>
 	{
 		assert(filename.type==ext::MitsubaLoader::SPropertyElementData::Type::STRING);
 		auto retval = interm_getAssetInHierarchy(manager, filename.svalue, ctx.params, hierarchyLevel/*+ICPUSCene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override);
 		auto contentRange = retval.getContents();
 		//
 		uint32_t actualIndex = 0;
-		if (index)
+		if (index>=0ll)
 		for (auto it=contentRange.first; it!=contentRange.second; it++)
 		{
 			auto meta = it->get()->getMetadata();
 			if (!meta || core::strcmpi(meta->getLoaderName(),ext::MitsubaLoader::CSerializedMetadata::LoaderName))
 				continue;
 			auto serializedMeta = static_cast<CSerializedMetadata*>(meta);
-			if (serializedMeta->id!=index)
+			if (serializedMeta->id!=static_cast<uint32_t>(index))
 				continue;
 			actualIndex = it-contentRange.first;
 			break;
@@ -183,7 +228,16 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 		{
 			auto asset = contentRange.first[actualIndex];
 			if (asset && asset->getAssetType()==asset::IAsset::ET_MESH)
-				return core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(asset);
+			{
+				// make a (shallow) copy because the mesh will get mutilated and abused for metadata
+				auto mesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(asset);
+				auto copy = core::make_smart_refctd_ptr<asset::CCPUMesh>();
+				for (auto j=0u; j<mesh->getMeshBufferCount(); j++)
+					copy->addMeshBuffer(core::smart_refctd_ptr<asset::ICPUMeshBuffer>(mesh->getMeshBuffer(j)));
+				copy->recalculateBoundingBox();
+				manager->setAssetMetadata(copy.get(),core::smart_refctd_ptr<asset::IAssetMetadata>(mesh->getMetadata()));
+				return copy;
+			}
 			else
 				return nullptr;
 		}
@@ -198,22 +252,23 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 	switch (shape->type)
 	{
 		case CElementShape::Type::CUBE:
-			mesh = ctx.creator->createCubeMesh(core::vector3df(1.f));
-			flipNormals = shape->cube.flipNormals;
+			mesh = ctx.creator->createCubeMesh(core::vector3df(2.f));
+			flipNormals = flipNormals!=shape->cube.flipNormals;
 			break;
 		case CElementShape::Type::SPHERE:
-			mesh = ctx.creator->createSphereMesh(shape->sphere.radius);
-			flipNormals = shape->sphere.flipNormals;
+			mesh = ctx.creator->createSphereMesh(1.f,64u,64u);
+			flipNormals = flipNormals!=shape->sphere.flipNormals;
 			{
 				core::matrix3x4SIMD tform;
+				tform.setScale(core::vectorSIMDf(shape->sphere.radius,shape->sphere.radius,shape->sphere.radius));
 				tform.setTranslation(shape->sphere.center);
-				applyTransformToMB(mesh->getMeshBuffer(0),tform);
+				shape->transform.matrix = core::concatenateBFollowedByA(shape->transform.matrix,core::matrix4SIMD(tform));
 			}
 			break;
 		case CElementShape::Type::CYLINDER:
 			{
 				auto diff = shape->cylinder.p0-shape->cylinder.p1;
-				mesh = ctx.creator->createCylinderMesh(shape->cylinder.radius, core::length(diff).x, 64);
+				mesh = ctx.creator->createCylinderMesh(1.f, 1.f, 64);
 				core::vectorSIMDf up(0.f);
 				float maxDot = diff[0];
 				uint32_t index = 0u;
@@ -224,25 +279,29 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 						index = i;
 					}
 				up[index] = 1.f;
-				auto tform = core::matrix3x4SIMD::buildCameraLookAtMatrixRH(shape->cylinder.p0,shape->cylinder.p1,up);
-				applyTransformToMB(mesh->getMeshBuffer(0), tform);
+				core::matrix3x4SIMD tform;
+				// mesh is left haded so transforming by LH matrix is fine (I hope but lets check later on)
+				core::matrix3x4SIMD::buildCameraLookAtMatrixLH(shape->cylinder.p0,shape->cylinder.p1,up).getInverse(tform);
+				core::matrix3x4SIMD scale;
+				scale.setScale(core::vectorSIMDf(shape->cylinder.radius,shape->cylinder.radius,core::length(diff).x));
+				shape->transform.matrix = core::concatenateBFollowedByA(shape->transform.matrix,core::matrix4SIMD(core::concatenateBFollowedByA(tform,scale)));
 			}
-			flipNormals = shape->cylinder.flipNormals;
+			flipNormals = flipNormals!=shape->cylinder.flipNormals;
 			break;
 		case CElementShape::Type::RECTANGLE:
 			mesh = ctx.creator->createRectangleMesh(core::vector2df_SIMD(1.f,1.f));
-			flipNormals = shape->rectangle.flipNormals;
+			flipNormals = flipNormals!=shape->rectangle.flipNormals;
 			break;
 		case CElementShape::Type::DISK:
-			mesh = ctx.creator->createDiskMesh(1.f,64);
-			flipNormals = shape->disk.flipNormals;
+			mesh = ctx.creator->createDiskMesh(1.f,64u);
+			flipNormals = flipNormals!=shape->disk.flipNormals;
 			break;
 		case CElementShape::Type::OBJ:
 			mesh = loadModel(shape->obj.filename);
-			flipNormals = !shape->obj.flipNormals;
+			flipNormals = flipNormals==shape->obj.flipNormals;
 			faceNormals = shape->obj.faceNormals;
 			maxSmoothAngle = shape->obj.maxSmoothAngle;
-			if (mesh) // awaiting the LEFT vs RIGHT HAND flag
+			if (mesh) // awaiting the LEFT vs RIGHT HAND flag (just load as right handed in the future plz)
 			{
 				core::matrix3x4SIMD tform;
 				tform.rows[0].x = -1.f; // restore handedness
@@ -268,7 +327,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 		case CElementShape::Type::PLY:
 			_IRR_DEBUG_BREAK_IF(true); // this code has never been tested
 			mesh = loadModel(shape->ply.filename);
-			flipNormals = !shape->ply.flipNormals;
+			flipNormals = flipNormals!=shape->ply.flipNormals;
 			faceNormals = shape->ply.faceNormals;
 			maxSmoothAngle = shape->ply.maxSmoothAngle;
 			if (mesh && shape->ply.srgb)
@@ -300,14 +359,14 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 			break;
 		case CElementShape::Type::SERIALIZED:
 			mesh = loadModel(shape->serialized.filename,shape->serialized.shapeIndex);
+			flipNormals = flipNormals!=shape->serialized.flipNormals;
 			faceNormals = shape->serialized.faceNormals;
 			maxSmoothAngle = shape->serialized.maxSmoothAngle;
 			break;
 		case CElementShape::Type::SHAPEGROUP:
-			// do nothing, only instance can make it appear
-			break;
+			_IRR_FALLTHROUGH;
 		case CElementShape::Type::INSTANCE:
-			mesh = instantiateShapeGroup(ctx,hierarchyLevel,shape->instance.shapegroup,shape->transform.matrix);
+			assert(false);
 			break;
 		default:
 			_IRR_DEBUG_BREAK_IF(true);
@@ -340,27 +399,29 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 				});
 
 			asset::IMeshManipulator::SErrorMetric metrics[16];
+			metrics[3].method = asset::IMeshManipulator::EEM_ANGLES;
 			newMeshBuffer = ctx.manipulator->createOptimizedMeshBuffer(newMeshBuffer.get(),metrics);
 
 			newMesh->addMeshBuffer(std::move(newMeshBuffer));
 		}
 		newMesh->recalculateBoundingBox();
+		manager->setAssetMetadata(newMesh.get(), core::smart_refctd_ptr<asset::IAssetMetadata>(mesh->getMetadata()));
 		mesh = std::move(newMesh);
 	}
 
-	// meshbuffer processing
-	if (shape->type!=CElementShape::Type::INSTANCE)
-	for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
+	//meshbuffer processing
+	for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
 	{
 		auto* meshbuffer = mesh->getMeshBuffer(i);
 		// add some metadata
 		///auto meshbuffermeta = core::make_smart_refctd_ptr<IMeshBufferMetadata>(shapedef->type,shapedef->emitter ? shapedef->emitter.area:CElementEmitter::Area());
 		///manager->setAssetMetadata(meshbuffer,std::move(meshbuffermeta));
 		// TODO: change this with shader pipeline
-		meshbuffer->getMaterial() = getBSDF(ctx,hierarchyLevel+asset::ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW,shape->bsdf);
+		meshbuffer->getMaterial() = getBSDF(ctx, hierarchyLevel + asset::ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW, shape->bsdf);
 	}
 
-	ctx.shapeCache.insert({shape,mesh});
+	// cache and return
+	ctx.shapeCache.insert({ shape,mesh });
 	return mesh;
 }
 
@@ -387,6 +448,9 @@ CMitsubaLoader::SContext::bsdf_ass_type CMitsubaLoader::getBSDF(SContext& ctx, u
 			case SPropertyElementData::Type::RGB:
 				_IRR_FALLTHROUGH;
 			case SPropertyElementData::Type::SRGB:
+				return data.vvalue;
+				break;
+			case SPropertyElementData::Type::SPECTRUM:
 				return data.vvalue;
 				break;
 			default:

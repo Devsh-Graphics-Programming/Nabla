@@ -20,14 +20,19 @@ namespace asset
 {
 
 #include "irr/irrpack.h"
-struct IRR_FORCE_EBO TexturePathBlobV0 : TypedBlob<TexturePathBlobV0, asset::ICPUTexture>, FixedSizeBlob<TexturePathBlobV0, asset::ICPUTexture>
+struct IRR_FORCE_EBO TexturePathBlobV0 : TypedBlob<TexturePathBlobV0, ICPUTexture>, VariableSizeBlob<TexturePathBlobV0, ICPUTexture>
 {};
 #include "irr/irrunpack.h"
 
 using TexturePathBlobV1 = TexturePathBlobV0;
+using TexturePathBlobV2 = TexturePathBlobV1;
 
 template<>
+<<<<<<< HEAD
 struct CorrespondingBlobTypeFor<video::IRenderableVirtualTexture> { typedef TexturePathBlobV1 type; };
+=======
+struct CorrespondingBlobTypeFor<video::IVirtualTexture> { typedef TexturePathBlobV2 type; };
+>>>>>>> 4b8849c91cc8553bc1cb4ac3113119480f61b467
 
 }
 } // irr::asset

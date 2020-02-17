@@ -85,8 +85,10 @@ void CDraw3DLine::draw(const core::matrix4SIMD& viewProjMat,
 
     m_meshBuffer->setBaseVertex(offset[0]/sizeof(S3DLineVertex));
 
+
 	m_driver->bindGraphicsPipeline(m_meshBuffer->getPipeline());
 	m_driver->pushConstants(m_meshBuffer->getPipeline()->getLayout(),ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD),viewProjMat.pointer());
+
     m_driver->drawMeshBuffer(m_meshBuffer.get());
 
     upStreamBuff->multi_free(1u,(uint32_t*)&offset,(uint32_t*)&sizes,std::move(m_driver->placeFence()));
@@ -111,6 +113,7 @@ void CDraw3DLine::draw(const core::matrix4SIMD& viewProjMat, const core::vector<
 	
 	m_driver->bindGraphicsPipeline(m_meshBuffer->getPipeline());
 	m_driver->pushConstants(m_meshBuffer->getPipeline()->getLayout(),ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD),viewProjMat.pointer());
+
     m_driver->drawMeshBuffer(m_meshBuffer.get());
 
     upStreamBuff->multi_free(1u,(uint32_t*)&offset,(uint32_t*)&sizes,std::move(m_driver->placeFence()));

@@ -147,7 +147,8 @@ namespace scene
             virtual void setMesh(core::smart_refctd_ptr<video::IGPUSkinnedMesh>&& inMesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControl=ISkinningStateManager::EBUM_NONE);
 
             //! Returns the current mesh
-            virtual video::IGPUSkinnedMesh* getMesh(void) {return mesh.get();}
+            virtual video::IGPUSkinnedMesh* getMesh(void) override {return mesh.get();}
+            virtual const video::IGPUSkinnedMesh* getMesh(void) const override {return mesh.get();}
 
             //! animates the joints in the mesh based on the current frame.
             /** Also takes in to account transitions. */

@@ -212,6 +212,14 @@ namespace core
 			using pointee = I_REFERENCE_COUNTED;
 			using value_type = I_REFERENCE_COUNTED*;
 
+			struct hash
+			{
+				inline size_t operator() (const core::smart_refctd_ptr<I_REFERENCE_COUNTED>& ptr) const
+				{
+					return std::hash<void*>{}(ptr.get());
+				}
+			};
+
 			constexpr smart_refctd_ptr() noexcept : ptr(nullptr) {}
 			constexpr smart_refctd_ptr(std::nullptr_t) noexcept : ptr(nullptr) {}
 			template<class U>

@@ -120,6 +120,7 @@ namespace scene
 
 		//! Returns the current mesh
 		virtual video::IGPUSkinnedMesh* getMesh(void) = 0;
+		virtual const video::IGPUMesh* getMesh(void) const = 0;
 
 		//! animates the joints in the mesh based on the current frame.
 		/** Also takes in to account transitions. */

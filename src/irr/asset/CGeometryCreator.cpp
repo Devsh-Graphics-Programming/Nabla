@@ -397,14 +397,14 @@ CGeometryCreator::return_type CGeometryCreator::createCylinderMesh(float radius,
     CylinderVertex* vertices = reinterpret_cast<CylinderVertex*>(vtxBuf->getPointer());
     std::fill(vertices, vertices + vtxCnt, CylinderVertex());
 
-    const uint32_t halfIx = vtxCnt/2u;
+    const uint32_t halfIx = tesselation;
 
     uint8_t glcolor[4];
     color.toOpenGLColor(glcolor);
 
     const float tesselationRec = core::reciprocal_approxim<float>(tesselation);
-    const float step = (2.f*core::PI<float>())/tesselation;
-    for (uint32_t i = 0u; i < vtxCnt/2u; ++i)
+    const float step = 2.f*core::PI<float>()*tesselationRec;
+    for (uint32_t i = 0u; i<tesselation; ++i)
     {
         core::vectorSIMDf p(std::cos(i*step), std::sin(i*step), 0.f);
         p *= radius;
@@ -413,7 +413,7 @@ CGeometryCreator::return_type CGeometryCreator::createCylinderMesh(float radius,
         memcpy(vertices[i].pos, p.pointer, 12u);
         vertices[i].normal = n;
         memcpy(vertices[i].color, glcolor, 4u);
-        vertices[i].uv[0] = (i-1u) * tesselationRec;
+        vertices[i].uv[0] = float(i) * tesselationRec;
 
         vertices[i+halfIx] = vertices[i];
         vertices[i+halfIx].pos[2] = length;
@@ -426,12 +426,12 @@ CGeometryCreator::return_type CGeometryCreator::createCylinderMesh(float radius,
 
     for (uint32_t i = 0u, j = 0u; i < halfIx; ++i)
     {
-        indices[j++] = (i+1u == halfIx ? 0u : i) + halfIx;
-        indices[j++] = (i+1u == halfIx ? 0u : i);
         indices[j++] = i;
-        indices[j++] = i;
-        indices[j++] = i + halfIx;
-        indices[j++] = (i+1u == halfIx ? 0u : i) + halfIx;
+        indices[j++] = (i+1u)!=halfIx ? (i+1u):0u;
+        indices[j++] = i+halfIx;
+        indices[j++] = i+halfIx;
+        indices[j++] = (i+1u)!=halfIx ? (i+1u):0u;
+        indices[j++] = (i+1u)!=halfIx ? (i+1u+halfIx):halfIx;
     }
 
     auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
@@ -444,8 +444,8 @@ CGeometryCreator::return_type CGeometryCreator::createCylinderMesh(float radius,
 		desc->setVertexAttrBuffer(core::smart_refctd_ptr(vtxBuf), asset::EVAI_ATTR2, asset::EF_R32G32_SFLOAT, sizeof(CylinderVertex), offsetof(CylinderVertex, uv));
 		desc->setVertexAttrBuffer(core::smart_refctd_ptr(vtxBuf), asset::EVAI_ATTR3, asset::EF_A2B10G10R10_SNORM_PACK32, sizeof(CylinderVertex), offsetof(CylinderVertex, normal));
 
-		desc->setIndexBuffer(std::move(idxBuf));
 		meshbuf->setIndexCount(idxBuf->getSize()/2u);
+		desc->setIndexBuffer(std::move(idxBuf));
 		meshbuf->setIndexType(asset::EIT_16BIT);
 		meshbuf->setPrimitiveType(asset::EPT_TRIANGLES);
 
@@ -612,7 +612,7 @@ CGeometryCreator::return_type CGeometryCreator::createDiskMesh(float radius, uin
 	auto vertices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vertexCount * vertexSize);
 	DiskVertex* ptr = (DiskVertex*)vertices->getPointer();
 
-	const core::vectorSIMDf v0(0.0f, radius, 0.0f, 0.0f);
+	const core::vectorSIMDf v0(0.0f, radius, 0.0f, 1.0f);
 	core::matrix3x4SIMD rotation;
 
 	//center
@@ -631,7 +631,7 @@ CGeometryCreator::return_type CGeometryCreator::createDiskMesh(float radius, uin
 	{
 		core::vectorSIMDf vn;
 		core::matrix3x4SIMD rotMatrix;
-		rotMatrix.setRotation(core::quaternion(0.0f, 0.0f, core::radians(angle * (i - 1))));
+		rotMatrix.setRotation(core::quaternion(0.0f, 0.0f, core::radians((i-1)*angle)));
 		rotMatrix.transformVect(vn, v0);
 
 		ptr[i] = DiskVertex(vn, video::SColor(0xFFFFFFFFu),

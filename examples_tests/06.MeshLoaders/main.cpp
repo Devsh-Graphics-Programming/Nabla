@@ -129,15 +129,13 @@ int main()
                 break;
                 case asset::IPipelineMetadata::ECSI_WORLD_VIEW:
                 {
-                    core::matrix3x4SIMD MV;
-                    MV.set(camera->getViewMatrix());
+                    core::matrix3x4SIMD MV = camera->getViewMatrix();
                     memcpy(uboData.data() + shdrIn.descriptorSection.uniformBufferObject.relByteoffset, MV.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
                 }
                 break;
                 case asset::IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE:
                 {
-                    core::matrix3x4SIMD MV;
-                    MV.set(camera->getViewMatrix());
+                    core::matrix3x4SIMD MV = camera->getViewMatrix();
                     memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, MV.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
                 }
                 break;

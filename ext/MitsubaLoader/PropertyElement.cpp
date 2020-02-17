@@ -25,6 +25,8 @@ template<> const typename SPropertyElementData::get_typename<SPropertyElementDat
 { return vvalue; }
 template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::SRGB>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::SRGB>() const
 { return vvalue; }
+template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::SPECTRUM>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::SPECTRUM>() const
+{ return vvalue; }
 template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::VECTOR>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::VECTOR>() const
 { return vvalue; }
 template<> const typename SPropertyElementData::get_typename<SPropertyElementData::Type::POINT>::type& SPropertyElementData::getProperty<SPropertyElementData::Type::POINT>() const
@@ -141,6 +143,14 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 			}
 			break;
 		case SPropertyElementData::Type::SPECTRUM:
+			assert(!desiredAttributes[1]); // no intent, TODO
+			assert(!desiredAttributes[2]); // does not come from a file
+			{
+				std::string data(desiredAttributes[0]);
+				assert(data.find(':')==std::string::npos); // no hand specified wavelengths
+				result.vvalue = retrieveVector(data,success); // TODO: convert between mitsuba spectral buckets and Rec. 709
+			}
+			break;
 		case SPropertyElementData::Type::BLACKBODY:
 			result.type = SPropertyElementData::Type::INVALID;
 			break;
@@ -216,7 +226,8 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 					}
 					up[index] = 1.f;
 				}
-				result.mvalue = core::matrix4SIMD::buildCameraLookAtMatrixRH(origin,target,up);
+				// mitsuba understands look-at and right-handed camera little bit differently than I do
+				core::matrix4SIMD(core::matrix3x4SIMD::buildCameraLookAtMatrixLH(origin,target,up)).getInverseTransform(result.mvalue);
 			}
 			break;
 		default:

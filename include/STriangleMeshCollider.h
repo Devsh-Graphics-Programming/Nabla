@@ -30,8 +30,11 @@ class STriangleCollider// : public AllocationOverrideDefault EBO inheritance pro
             validTriangle = true;
         }
 
-        inline bool CollideWithRay(float& collisionDistance, const vectorSIMDf& origin, const vectorSIMDf& direction, const float& dirMaxMultiplier) const
+        inline bool CollideWithRay(float& collisionDistance, vectorSIMDf origin, vectorSIMDf direction, const float& dirMaxMultiplier) const
         {
+			direction.makeSafe3D();
+			origin.makeSafe3D();
+
             float NdotD = dot(direction,planeEq).X;
             if (NdotD!=0.f)
                 return false;

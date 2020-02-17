@@ -35,6 +35,8 @@ class CElementEmitter : public IElement
 		};
 	struct SampledEmitter
 	{
+		SampledEmitter() : samplingWeight(1.f) {}
+
 		float samplingWeight;
 	};
 		struct Point : SampledEmitter
@@ -102,6 +104,10 @@ class CElementEmitter : public IElement
 		{
 			operator=(other);
 		}
+		CElementEmitter(CElementEmitter&& other) : IElement(""), transform()
+		{
+			operator=(std::move(other));
+		}
 		virtual ~CElementEmitter()
 		{
 		}
@@ -142,6 +148,49 @@ class CElementEmitter : public IElement
 					break;
 				case Type::CONSTANT:
 					constant = other.constant;
+					break;
+				default:
+					break;
+			}
+			return *this;
+		}
+
+		inline CElementEmitter& operator=(CElementEmitter&& other)
+		{
+			IElement::operator=(std::move(other));
+			std::swap(transform,other.transform);
+			std::swap(type,other.type);
+			switch (type)
+			{
+				case Type::POINT:
+					std::swap(point,other.point);
+					break;
+				case Type::AREA:
+					std::swap(area,other.area);
+					break;
+				case Type::SPOT:
+					std::swap(spot,other.spot);
+					break;
+				case Type::DIRECTIONAL:
+					std::swap(directional,other.directional);
+					break;
+				case Type::COLLIMATED:
+					std::swap(collimated,other.collimated);
+					break;/*
+				case Type::SKY:
+					sky,other.sky;
+					break;
+				case Type::SUN:
+					sun,other.sun;
+					break;
+				case Type::SUNSKY:
+					sunsky,other.sunsky;
+					break;*/
+				case Type::ENVMAP:
+					std::swap(envmap,other.envmap);
+					break;
+				case Type::CONSTANT:
+					std::swap(constant,other.constant);
 					break;
 				default:
 					break;

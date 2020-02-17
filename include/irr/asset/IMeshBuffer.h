@@ -148,7 +148,10 @@ public:
 	//! Get type of index data which is stored in this meshbuffer.
 	/** \return Index type of this buffer. */
 	inline const E_INDEX_TYPE& getIndexType() const {return indexType;}
-	inline void setIndexType(const E_INDEX_TYPE& type) {indexType = type;}
+	inline void setIndexType(const E_INDEX_TYPE& type)
+	{
+		indexType = type;
+	}
 
 	//! Get amount of indices in this meshbuffer.
 	/** \return Number of indices in this buffer. */

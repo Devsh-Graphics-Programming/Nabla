@@ -54,13 +54,14 @@ bool CCameraSceneNode::isInputReceiverEnabled() const
 void CCameraSceneNode::setProjectionMatrix(const core::matrix4SIMD& projection)
 {
 	projMatrix = projection;
-	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
+	leftHanded = core::determinant(projMatrix) < 0.f;
+	concatMatrix = core::matrix4SIMD::concatenateBFollowedByAPrecisely(projMatrix,core::matrix4SIMD(viewMatrix));
 }
 
 
 //! Gets the current view matrix of the camera
 //! \return Returns the current view matrix of the camera.
-const core::matrix4x3& CCameraSceneNode::getViewMatrix() const
+const core::matrix3x4SIMD& CCameraSceneNode::getViewMatrix() const
 {
 	return viewMatrix;
 }
@@ -148,7 +149,7 @@ void CCameraSceneNode::recomputeProjectionMatrix()
 		projMatrix = core::matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(Fovy, Aspect, ZNear, ZFar);
 	else
 		projMatrix = core::matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(Fovy, Aspect, ZNear, ZFar);
-	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
+	concatMatrix = core::matrix4SIMD::concatenateBFollowedByAPrecisely(projMatrix,core::matrix4SIMD(viewMatrix));
 }
 
 
@@ -181,10 +182,10 @@ void CCameraSceneNode::render()
 	}
 
 	if (leftHanded)
-		viewMatrix.buildCameraLookAtMatrixLH(pos.getAsVector3df(), Target.getAsVector3df(), up.getAsVector3df());
+		viewMatrix = core::matrix3x4SIMD::buildCameraLookAtMatrixLH(pos, Target, up);
 	else
-		viewMatrix.buildCameraLookAtMatrixRH(pos.getAsVector3df(), Target.getAsVector3df(), up.getAsVector3df());
-	concatMatrix = concatenateBFollowedByA(projMatrix,viewMatrix);
+		viewMatrix = core::matrix3x4SIMD::buildCameraLookAtMatrixRH(pos, Target, up);
+	concatMatrix = core::matrix4SIMD::concatenateBFollowedByAPrecisely(projMatrix, core::matrix4SIMD(viewMatrix));
 	recalculateViewArea();
 #ifndef  NEW_SHADERS
 	video::IVideoDriver* driver = SceneManager->getVideoDriver();

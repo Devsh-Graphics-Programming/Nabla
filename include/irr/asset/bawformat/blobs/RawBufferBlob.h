@@ -16,14 +16,15 @@ namespace asset
 class ICPUBuffer;
 
 #include "irr/irrpack.h"
-struct IRR_FORCE_EBO RawBufferBlobV0 : TypedBlob<RawBufferBlobV0, ICPUBuffer>, FixedSizeBlob<RawBufferBlobV0, ICPUBuffer>
+struct IRR_FORCE_EBO RawBufferBlobV0 : TypedBlob<RawBufferBlobV0, ICPUBuffer>, VariableSizeBlob<RawBufferBlobV0, ICPUBuffer>
 {};
 #include "irr/irrunpack.h"
 
 using RawBufferBlobV1 = RawBufferBlobV0;
+using RawBufferBlobV2 = RawBufferBlobV1;
 
 template<>
-struct CorrespondingBlobTypeFor<ICPUBuffer> { typedef RawBufferBlobV1 type; };
+struct CorrespondingBlobTypeFor<ICPUBuffer> { typedef RawBufferBlobV2 type; };
 
 }
 } // irr::asset

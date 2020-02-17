@@ -63,6 +63,19 @@ enum E_WRITER_FLAGS : uint32_t
 class IAssetWriter : public virtual core::IReferenceCounted
 {
 public:
+	//! Parameter flags for a loader
+	/**
+		These are extra flags that have an impact on extraordinary tasks while writing to file.
+		E_LOADER_PARAMETER_FLAGS::ELPF_NONE is default and means that there is nothing to perform.
+		E_LOADER_PARAMETER_FLAGS::EWPF_MESH_IS_RIGHT_HANDED specifies the incoming orientation of 
+		loaded mesh we want to write to file with certain extension. Flipping will be performed if
+		format orientation doesn't match current loaded mesh orientation.
+	*/
+	enum E_WRITER_PARAMETER_FLAGS : uint64_t
+	{
+		EWPF_NONE = 0,											//!< default value, it doesn't do anything
+		EWPF_MESH_IS_RIGHT_HANDED = 0x1,						//!< specifies the incoming orientation of loaded mesh we want to write. Flipping will be performed if needed in dependency of format extension orientation					
+	};
 
 	//! Struct storing important data used for Asset writing process
 	/**
@@ -77,13 +90,12 @@ public:
 		@see CBAWMeshFileLoader
 		@see E_WRITER_FLAGS
 	*/
-
     struct SAssetWriteParams
     {
-        SAssetWriteParams(IAsset* _asset, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr) :
+        SAssetWriteParams(IAsset* _asset, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr, const E_WRITER_PARAMETER_FLAGS& _writerFlags = EWPF_NONE) :
             rootAsset(_asset), flags(_flags), compressionLevel(_compressionLevel),
             encryptionKeyLen(_encryptionKeyLen), encryptionKey(_encryptionKey),
-            userData(_userData)
+            userData(_userData), writerFlags(_writerFlags)
         {
         }
 
@@ -93,6 +105,7 @@ public:
         size_t encryptionKeyLen;			//!< Stores a size of data in encryptionKey pointer for correct iteration.
         const uint8_t* encryptionKey;		//!< Stores an encryption key used for encryption process.
         const void* userData;				//!< Stores writer-dependets parameters. It is usually a struct provided by a writer author.
+		const E_WRITER_PARAMETER_FLAGS writerFlags;
     };
 
     //! Struct for keeping the state of the current write operation for safe threading
