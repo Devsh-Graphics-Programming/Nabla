@@ -266,23 +266,88 @@ void* TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::finalize(void* _obj, c
 			buf->getMaterial().setTexture(i, impl::castPtrAndRefcount<asset::ICPUTexture>(_deps[tex]));
 	}
 
-	if ((bool)blob->isRightHandedCoordinateSystem  != (bool)(_params.params.loaderFlags & IAssetLoader::E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES))
-		for (auto pos = 0l; pos < buf->getIndexCount(); ++pos)
+	if ((bool)blob->isRightHandedCoordinateSystem != (bool)(_params.params.loaderFlags & IAssetLoader::E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES))
+	{
+		auto* originalMeshFormat = buf->getMeshDataAndFormat();
+
+		// `const_cast` is okay because we will only be reading from the "copy" objects
+		const auto positionAttribute = buf->getPositionAttributeIx();
+		auto positionBuffer = core::smart_refctd_ptr<ICPUBuffer>(const_cast<ICPUBuffer*>(originalMeshFormat->getMappedBuffer(positionAttribute)));
+		const auto positionFormat = originalMeshFormat->getAttribFormat(positionAttribute);
+		const auto positionStride = originalMeshFormat->getMappedBufferStride(positionAttribute);
+		const auto positionOffset = originalMeshFormat->getMappedBufferOffset(positionAttribute);
+		const auto positionDivisor = originalMeshFormat->getAttribDivisor(positionAttribute);
+
+		auto normalBuffer = core::smart_refctd_ptr<ICPUBuffer>(const_cast<ICPUBuffer*>(originalMeshFormat->getMappedBuffer(E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3)));
+		const bool hasNormal = normalBuffer->getPointer();
+		const auto normalAttribute = E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3;
+		const auto normalFormat = originalMeshFormat->getAttribFormat(normalAttribute);
+		const auto normalSize = asset::getTexelOrBlockBytesize(normalFormat);
+		const auto normalDivisor = originalMeshFormat->getAttribDivisor(normalAttribute);
+
+		// copy meshbuffer (same buffers linked)
+		auto copy = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
+		copy->setBaseInstance(buf->getBaseInstance());
+		copy->setBaseVertex(buf->getBaseVertex());
+		copy->setIndexBufferOffset(buf->getIndexBufferOffset());
+		copy->setIndexCount(buf->getIndexType());
+		copy->setIndexType(buf->getIndexType());
+		// DEEPER COPY OF THE MESHDATA FORMAT
 		{
-			core::vectorSIMDf outPos(0.f, 0.f, 0.f, 1.f);
-			buf->getAttribute(outPos, E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR0, pos);
-
-			outPos.X = -outPos.X;
-			buf->setAttribute(outPos, E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR0, pos);
-
-			core::vectorSIMDf outNormal(0.f, 0.f, 0.f, 1.f);
-			bool status = buf->getAttribute(outNormal, E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3, pos);
-			if (status)
+			auto copyFormat = core::make_smart_refctd_ptr<ICPUMeshDataFormatDesc>();
+			copyFormat->setIndexBuffer(core::smart_refctd_ptr<ICPUBuffer>(const_cast<ICPUBuffer*>(originalMeshFormat->getIndexBuffer())));
+			copyFormat->setVertexAttrBuffer(std::move(positionBuffer), positionAttribute, positionFormat, positionStride, positionOffset, positionDivisor);
+			if (hasNormal)
 			{
-				outNormal.X = -outNormal.X;
-				buf->setAttribute(outNormal, E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3, pos);
+				const auto normalStride = originalMeshFormat->getMappedBufferStride(normalAttribute);
+				const auto normalOffset = originalMeshFormat->getMappedBufferOffset(normalAttribute);
+				copyFormat->setVertexAttrBuffer(std::move(normalBuffer), normalAttribute, normalFormat, normalStride, normalOffset, normalDivisor);
 			}
+			
+			copy->setMeshDataAndFormat(std::move(copyFormat));
 		}
+		copy->setPositionAttributeIx(positionAttribute);
+		copy->setPrimitiveType(buf->getPrimitiveType());
+		
+		// create new position and normal buffer
+		const auto vertexCount = buf->calcVertexCount()+buf->getBaseVertex();
+		const auto positionSize = asset::getTexelOrBlockBytesize(positionFormat);
+		auto totalSize = positionSize*(positionDivisor ? (buf->getInstanceCount()/positionDivisor):vertexCount);
+		const auto normalOffset = totalSize;
+		if (hasNormal)
+			totalSize += normalSize*(normalDivisor ? (buf->getInstanceCount()/normalDivisor):vertexCount);
+		auto newDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(totalSize);
+
+		// link new buffer to the meshbuffer (replace old which are now linked to the copy meshbuffer)
+		originalMeshFormat->setVertexAttrBuffer(core::smart_refctd_ptr(newDataBuffer),positionAttribute,positionFormat,positionSize,0ull,positionDivisor);
+		if (hasNormal)
+			originalMeshFormat->setVertexAttrBuffer(std::move(newDataBuffer),normalAttribute,normalFormat,normalSize,normalOffset,normalDivisor);
+
+		// get attributes from copy meshbuffer
+		// flip attributes
+		// set attributes on meshbuffer (writes to new buffers)
+		auto flipAndCopyAttribute = [&](auto divisor, auto attrID)
+		{
+			const auto limit = divisor ? (copy->getInstanceCount()/divisor):vertexCount;
+			for (std::remove_const<decltype(limit)>::type i=0; i<limit; i++)
+			{
+				uint32_t ix = i;
+				if (!divisor)
+					ix += buf->getBaseVertex();
+
+				core::vectorSIMDf out(0.f, 0.f, 0.f, 1.f);
+				copy->getAttribute(out, attrID, ix);
+				out.X = -out.X;
+				buf->setAttribute(out, attrID, ix);
+			}
+		};
+
+		flipAndCopyAttribute(positionDivisor, positionAttribute);
+		if (hasNormal)
+			flipAndCopyAttribute(normalDivisor,normalAttribute);
+
+		// drop the copy (implicit)
+	}
 
 	return _obj;
 }
