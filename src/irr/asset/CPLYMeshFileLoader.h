@@ -158,7 +158,7 @@ private:
 	E_PLY_PROPERTY_TYPE getPropertyType(const char* typeString) const;
 
 	bool readVertex(SContext& _ctx, const SPLYElement &Element, core::vector<core::vectorSIMDf> _attribs[4], const IAssetLoader::SAssetLoadParams& _params);
-	bool readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices, const IAssetLoader::SAssetLoadParams& _params);
+	bool readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices);
 
 	void skipElement(SContext& _ctx, const SPLYElement &Element);
 	void skipProperty(SContext& _ctx, const SPLYProperty &Property);

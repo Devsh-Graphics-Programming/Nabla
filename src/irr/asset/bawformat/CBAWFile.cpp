@@ -6,7 +6,6 @@
 #include "irr/asset/bawformat/CBAWFile.h"
 
 #include "irr/asset/ICPUBuffer.h"
-#include "irr/asset/ICPUTexture.h"
 #include "irr/asset/ICPUSkinnedMesh.h"
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 #include "irr/asset/bawformat/legacy/CBAWLegacy.h"
@@ -30,11 +29,13 @@ size_t SizedBlob<VariableSizeBlob, RawBufferBlobV0, ICPUBuffer>::calcBlobSizeFor
 	return _obj->getSize();
 }
 
+#ifndef NEW_SHADERS
 template<>
 size_t SizedBlob<VariableSizeBlob, TexturePathBlobV0, ICPUTexture>::calcBlobSizeForObj(const ICPUTexture* _obj)
 {
 	return _obj->getSourceFilename().size();
 }
+#endif
 
 MeshBlobV0::MeshBlobV0(const asset::ICPUMesh* _mesh) : box(_mesh->getBoundingBox()), meshBufCnt(_mesh->getMeshBufferCount())
 {

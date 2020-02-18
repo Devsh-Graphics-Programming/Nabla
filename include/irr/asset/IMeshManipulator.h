@@ -84,9 +84,9 @@ namespace asset
 			auto XXXXX = [&](auto idx) -> std::array<uint32_t,3u>
 			{
 				uint32_t offset;
-				switch (mb->getPrimitiveType())
+				switch (mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType)
 				{
-					case EPT_TRIANGLES:
+					case EPT_TRIANGLE_LIST:
 						offset = triangleIx*3u;
 						if (idx)
 						{

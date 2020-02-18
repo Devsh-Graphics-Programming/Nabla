@@ -40,19 +40,14 @@ class CSTLMeshFileLoader final : public IAssetLoader
 		// skip to next printable character after the first line break
 		void goNextLine(io::IReadFile* file) const;
 
-<<<<<<< HEAD
 		//! Read 3d vector of floats
 		void getNextVector(io::IReadFile* file, core::vectorSIMDf& vec, bool binary) const;
-=======
-	//! Read 3d vector of floats
-	void getNextVector(io::IReadFile* file, core::vectorSIMDf& vec, bool binary) const;
 
-	template<typename aType>
-	static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
-	{
-		performOnCertainOrientation(varToHandle);
-	}
->>>>>>> 4b8849c91cc8553bc1cb4ac3113119480f61b467
+		template<typename aType>
+		static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
+		{
+			performOnCertainOrientation(varToHandle);
+		}
 };
 
 } // end namespace scene

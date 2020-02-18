@@ -165,109 +165,7 @@ class CNullDriver : public IVideoDriver
 		virtual const SExposedVideoData& getExposedVideoData();
 
 		//! Returns type of video driver
-<<<<<<< HEAD
 		virtual E_DRIVER_TYPE getDriverType() const override;
-=======
-		virtual E_DRIVER_TYPE getDriverType() const;
-
-		//! Returns the transformation set by setTransform
-		virtual const core::matrix3x4SIMD& getTransform(const E_4X3_TRANSFORMATION_STATE& state) override;
-
-		virtual const core::matrix4SIMD& getTransform(const E_PROJECTION_TRANSFORMATION_STATE& state) override;
-
-		//! Returns pointer to the IGPUProgrammingServices interface.
-		virtual IGPUProgrammingServices* getGPUProgrammingServices();
-
-		//! Returns pointer to material renderer or null
-		virtual IMaterialRenderer* getMaterialRenderer(uint32_t idx);
-
-		//! Returns amount of currently available material renderers.
-		virtual uint32_t getMaterialRendererCount() const;
-
-		//! Returns name of the material renderer
-		virtual const char* getMaterialRendererName(uint32_t idx) const;
-
-        virtual int32_t addHighLevelShaderMaterial(
-            const char* vertexShaderProgram,
-            const char* controlShaderProgram,
-            const char* evaluationShaderProgram,
-            const char* geometryShaderProgram,
-            const char* pixelShaderProgram,
-            uint32_t patchVertices=3,
-            E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-            IShaderConstantSetCallBack* callback = 0,
-            const char** xformFeedbackOutputs = NULL,
-            const uint32_t& xformFeedbackOutputCount = 0,
-            int32_t userData = 0,
-            const char* vertexShaderEntryPointName="main",
-            const char* controlShaderEntryPointName = "main",
-            const char* evaluationShaderEntryPointName = "main",
-            const char* geometryShaderEntryPointName = "main",
-            const char* pixelShaderEntryPointName="main" );
-
-        virtual int32_t addHighLevelShaderMaterialFromFiles(
-            const io::path& vertexShaderProgramFileName,
-            const io::path& controlShaderProgramFileName,
-            const io::path& evaluationShaderProgramFileName,
-            const io::path& geometryShaderProgramFileName,
-            const io::path& pixelShaderProgramFileName,
-            uint32_t patchVertices=3,
-            E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-            IShaderConstantSetCallBack* callback = 0,
-            const char** xformFeedbackOutputs = NULL,
-            const uint32_t& xformFeedbackOutputCount = 0,
-            int32_t userData = 0,
-            const char* vertexShaderEntryPointName="main",
-            const char* controlShaderEntryPointName = "main",
-            const char* evaluationShaderEntryPointName = "main",
-            const char* geometryShaderEntryPointName = "main",
-            const char* pixelShaderEntryPointName="main");
-
-        virtual int32_t addHighLevelShaderMaterialFromFiles(
-            io::IReadFile* vertexShaderProgram,
-            io::IReadFile* controlShaderProgram,
-            io::IReadFile* evaluationShaderProgram,
-            io::IReadFile* geometryShaderProgram,
-            io::IReadFile* pixelShaderProgram,
-            uint32_t patchVertices=3,
-            E_MATERIAL_TYPE baseMaterial = video::EMT_SOLID,
-            IShaderConstantSetCallBack* callback = 0,
-            const char** xformFeedbackOutputs = NULL,
-            const uint32_t& xformFeedbackOutputCount = 0,
-            int32_t userData = 0,
-            const char* vertexShaderEntryPointName="main",
-            const char* controlShaderEntryPointName = "main",
-            const char* evaluationShaderEntryPointName = "main",
-            const char* geometryShaderEntryPointName = "main",
-            const char* pixelShaderEntryPointName="main");
-
-        virtual bool replaceHighLevelShaderMaterial(const int32_t &materialIDToReplace,
-            const char* vertexShaderProgram,
-            const char* controlShaderProgram,
-            const char* evaluationShaderProgram,
-            const char* geometryShaderProgram,
-            const char* pixelShaderProgram,
-            uint32_t patchVertices=3,
-            E_MATERIAL_TYPE baseMaterial=video::EMT_SOLID,
-            IShaderConstantSetCallBack* callback=0,
-            const char** xformFeedbackOutputs = NULL,
-            const uint32_t& xformFeedbackOutputCount = 0,
-            int32_t userData=0,
-            const char* vertexShaderEntryPointName="main",
-            const char* controlShaderEntryPointName="main",
-            const char* evaluationShaderEntryPointName="main",
-            const char* geometryShaderEntryPointName="main",
-            const char* pixelShaderEntryPointName="main");
-
-		//! Sets the name of a material renderer.
-		virtual void setMaterialRendererName(int32_t idx, const char* name);
-
-		//! Enable/disable a clipping plane.
-		//! There are at least 6 clipping planes available for the user to set at will.
-		//! \param index: The plane index. Must be between 0 and MaxUserClipPlanes.
-		//! \param enable: If true, enable the clipping plane else disable it.
-		virtual void enableClipPlane(uint32_t index, bool enable);
->>>>>>> 4b8849c91cc8553bc1cb4ac3113119480f61b467
 
 		//! Returns the graphics card vendor name.
 		virtual std::string getVendorInfo() {return "Not available on this driver.";}
@@ -289,14 +187,6 @@ class CNullDriver : public IVideoDriver
 		io::IFileSystem* FileSystem;
 
 		core::rect<int32_t> ViewPort;
-<<<<<<< HEAD
-=======
-		core::dimension2d<uint32_t> ScreenSize;
-
-		uint32_t matrixModifiedBits;
-		core::matrix4SIMD ProjectionMatrices[EPTS_COUNT];
-		core::matrix3x4SIMD TransformationMatrices[E4X3TS_COUNT];
->>>>>>> 4b8849c91cc8553bc1cb4ac3113119480f61b467
 
 		CFPSCounter FPSCounter;
 

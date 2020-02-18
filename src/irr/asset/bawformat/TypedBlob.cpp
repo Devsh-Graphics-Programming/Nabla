@@ -419,8 +419,7 @@ void TypedBlob<FinalBoneHierarchyBlobV2, CFinalBoneHierarchy>::releaseObj(const 
 }
 
 
-<<<<<<< HEAD
-=======
+#ifndef NEW_SHADERS
 
 template<>
 core::unordered_set<uint64_t> TypedBlob<MeshDataFormatDescBlobV2, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::getNeededDeps(const void* _blob)
@@ -473,6 +472,5 @@ void TypedBlob<MeshDataFormatDescBlobV2, asset::IMeshDataFormatDesc<asset::ICPUB
 		reinterpret_cast<const asset::IMeshDataFormatDesc<asset::ICPUBuffer>*>(_obj)->drop();
 }
 
-
->>>>>>> 4b8849c91cc8553bc1cb4ac3113119480f61b467
+#endif//ifndef NEW_SHADERS
 }} // irr:core

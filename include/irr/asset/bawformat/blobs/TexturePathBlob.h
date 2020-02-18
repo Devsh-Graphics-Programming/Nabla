@@ -28,11 +28,7 @@ using TexturePathBlobV1 = TexturePathBlobV0;
 using TexturePathBlobV2 = TexturePathBlobV1;
 
 template<>
-<<<<<<< HEAD
-struct CorrespondingBlobTypeFor<video::IRenderableVirtualTexture> { typedef TexturePathBlobV1 type; };
-=======
-struct CorrespondingBlobTypeFor<video::IVirtualTexture> { typedef TexturePathBlobV2 type; };
->>>>>>> 4b8849c91cc8553bc1cb4ac3113119480f61b467
+struct CorrespondingBlobTypeFor<video::IRenderableVirtualTexture> { typedef TexturePathBlobV2 type; };
 
 }
 } // irr::asset
