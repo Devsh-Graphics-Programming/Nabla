@@ -465,7 +465,7 @@ asset::ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrue
     mbCopy->setIndexType(_mbuf->getIndexType());
     mbCopy->setPrimitiveType(_mbuf->getPrimitiveType());
     mbCopy->setPositionAttributeIx(_mbuf->getPositionAttributeIx());
-
+	mbCopy->setNormalnAttributeIx(_mbuf->getNormalAttributeIx());
     return mbCopy;
 }
 

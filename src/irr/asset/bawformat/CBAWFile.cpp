@@ -80,24 +80,7 @@ MeshBufferBlobV3::MeshBufferBlobV3(const asset::ICPUMeshBuffer* _mb)
 	baseInstance = _mb->getBaseInstance();
 	primitiveType = _mb->getPrimitiveType();
 	posAttrId = _mb->getPositionAttributeIx();
-
-	isRightHandedCoordinateSystem = 0; // false
-}
-
-MeshBufferBlobV3::MeshBufferBlobV3(const legacyv2::MeshBufferBlobV2* meshBufferV2)
-{
-	mat = meshBufferV2->mat;
-	box = meshBufferV2->box;
-
-	descPtr = meshBufferV2->descPtr;
-	indexType = meshBufferV2->indexType;
-	baseVertex = meshBufferV2->baseVertex;
-	indexCount = meshBufferV2->indexCount;
-	indexBufOffset = meshBufferV2->indexBufOffset;
-	instanceCount = meshBufferV2->instanceCount;
-	baseInstance = meshBufferV2->baseInstance;
-	primitiveType = meshBufferV2->primitiveType;
-	posAttrId = meshBufferV2->posAttrId;
+	normalAttrId = _mb->getNormalAttributeIx();
 
 	isRightHandedCoordinateSystem = 0; // false
 }
@@ -108,7 +91,7 @@ size_t SizedBlob<FixedSizeBlob, MeshBufferBlobV3, asset::ICPUMeshBuffer>::calcBl
 	return sizeof(MeshBufferBlobV3);
 }
 
-SkinnedMeshBufferBlobV0::SkinnedMeshBufferBlobV0(const asset::ICPUSkinnedMeshBuffer* _smb)
+SkinnedMeshBufferBlobV3::SkinnedMeshBufferBlobV3(const asset::ICPUSkinnedMeshBuffer* _smb)
 {
 	memcpy(&mat, &_smb->getMaterial(), sizeof(video::SCPUMaterial));
 	_smb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
@@ -125,15 +108,18 @@ SkinnedMeshBufferBlobV0::SkinnedMeshBufferBlobV0(const asset::ICPUSkinnedMeshBuf
 	baseInstance = _smb->getBaseInstance();
 	primitiveType = _smb->getPrimitiveType();
 	posAttrId = _smb->getPositionAttributeIx();
+	normalAttrId = _smb->getNormalAttributeIx();
 	indexValMin = _smb->getIndexMinBound();
 	indexValMax = _smb->getIndexMaxBound();
 	maxVertexBoneInfluences = _smb->getMaxVertexBoneInfluences();
+
+	isRightHandedCoordinateSystem = 0; // false
 }
 
 template<>
-size_t SizedBlob<FixedSizeBlob, SkinnedMeshBufferBlobV0, asset::ICPUSkinnedMeshBuffer>::calcBlobSizeForObj(const asset::ICPUSkinnedMeshBuffer* _obj)
+size_t SizedBlob<FixedSizeBlob, SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::calcBlobSizeForObj(const asset::ICPUSkinnedMeshBuffer* _obj)
 {
-	return sizeof(SkinnedMeshBufferBlobV0);
+	return sizeof(SkinnedMeshBufferBlobV3);
 }
 
 FinalBoneHierarchyBlobV2::FinalBoneHierarchyBlobV2(const CFinalBoneHierarchy* _fbh)

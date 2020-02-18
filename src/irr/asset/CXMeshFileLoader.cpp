@@ -156,6 +156,7 @@ asset::SAssetBundle CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asse
                 meshbuffer->setIndexType(indexType);
 
                 meshbuffer->setPositionAttributeIx(origMeshBuffer->getPositionAttributeIx());
+				meshbuffer->setNormalnAttributeIx(origMeshBuffer->getNormalAttributeIx());
                 for (size_t j=0; j<asset::EVAI_COUNT; j++)
                 {
                     asset::E_VERTEX_ATTRIBUTE_ID attrId = (asset::E_VERTEX_ATTRIBUTE_ID)j;
