@@ -100,8 +100,8 @@ namespace asset
 	struct IRR_FORCE_EBO TypedBlob : Blob
 	{
 		static core::unordered_set<uint64_t> getNeededDeps(const void* _blob);
-		static void* instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params);
-		static void* finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params);
+		static void* instantiateEmpty(const void* _blob, size_t _blobSize, BlobLoadingParams& _params);
+		static void* finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, BlobLoadingParams& _params);
 		static void releaseObj(const void* _obj);
 
 		//static core::string printMemberPackingDebug();

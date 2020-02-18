@@ -139,6 +139,36 @@ static_assert(
 	"MeshBufferBlobV0: Size of blob is not sum of its contents!"
 	);
 
+class ICPUSkinnedMeshBuffer;
+
+#include "irr/irrpack.h"
+struct IRR_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>
+{
+	video::SCPUMaterial mat;
+	core::aabbox3df box;
+	uint64_t descPtr;
+	uint32_t indexType;
+	uint32_t baseVertex;
+	uint64_t indexCount;
+	size_t indexBufOffset;
+	size_t instanceCount;
+	uint32_t baseInstance;
+	uint32_t primitiveType;
+	uint32_t posAttrId;
+	uint32_t indexValMin;
+	uint32_t indexValMax;
+	uint32_t maxVertexBoneInfluences;
+} PACK_STRUCT;
+#include "irr/irrunpack.h"
+static_assert(sizeof(SkinnedMeshBufferBlobV0::mat) == 197, "sizeof(MeshBufferBlobV0::mat) must be 197");
+static_assert(
+	sizeof(SkinnedMeshBufferBlobV0) ==
+	sizeof(SkinnedMeshBufferBlobV0::mat) + sizeof(SkinnedMeshBufferBlobV0::box) + sizeof(SkinnedMeshBufferBlobV0::descPtr) + sizeof(SkinnedMeshBufferBlobV0::indexType) + sizeof(SkinnedMeshBufferBlobV0::baseVertex)
+	+ sizeof(SkinnedMeshBufferBlobV0::indexCount) + sizeof(SkinnedMeshBufferBlobV0::indexBufOffset) + sizeof(SkinnedMeshBufferBlobV0::instanceCount) + sizeof(SkinnedMeshBufferBlobV0::baseInstance)
+	+ sizeof(SkinnedMeshBufferBlobV0::primitiveType) + sizeof(SkinnedMeshBufferBlobV0::posAttrId) + sizeof(SkinnedMeshBufferBlobV0::indexValMin) + sizeof(SkinnedMeshBufferBlobV0::indexValMax) + sizeof(SkinnedMeshBufferBlobV0::maxVertexBoneInfluences),
+	"SkinnedMeshBufferBlobV0: Size of blob is not sum of its contents!"
+	);
+
 }
 
 
@@ -147,6 +177,7 @@ namespace legacyv1
 	
 using FinalBoneHierarchyBlobV1 = legacyv0::FinalBoneHierarchyBlobV0;
 using MeshBufferBlobV1 = legacyv0::MeshBufferBlobV0;
+using SkinnedMeshBufferBlobV1 = legacyv0::SkinnedMeshBufferBlobV0;
 
 }
 
@@ -154,6 +185,7 @@ namespace legacyv2
 {
 
 using MeshBufferBlobV2 = legacyv1::MeshBufferBlobV1;
+using SkinnedMeshBufferBlobV2 = legacyv1::SkinnedMeshBufferBlobV1;
 
 }
 

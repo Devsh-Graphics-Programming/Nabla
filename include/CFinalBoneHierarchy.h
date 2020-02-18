@@ -16,23 +16,6 @@ namespace asset
     //! If it has no animation, make 1 frame of animation with LocalMatrix
     class CFinalBoneHierarchy : public core::IReferenceCounted, public asset::BlobSerializable
     {
-        protected:
-            virtual ~CFinalBoneHierarchy()
-            {
-                if (boneNames)
-                    _IRR_DELETE_ARRAY(boneNames,boneCount);
-                if (boneFlatArray)
-                    free(boneFlatArray);
-                if (boneTreeLevelEnd)
-                    free(boneTreeLevelEnd);
-
-                if (keyframes)
-                    free(keyframes);
-                if (interpolatedAnimations)
-                    free(interpolatedAnimations);
-                if (nonInterpolatedAnimations)
-                    free(nonInterpolatedAnimations);
-            }
         public:
             #include "irr/irrpack.h"
             struct BoneReferenceData
@@ -484,6 +467,30 @@ namespace asset
                         transformFunc(it++,i,*found,this,true);
                 }
             }
+
+		protected:
+			virtual ~CFinalBoneHierarchy()
+			{
+				if (boneNames)
+					_IRR_DELETE_ARRAY(boneNames, boneCount);
+				if (boneFlatArray)
+					free(boneFlatArray);
+				if (boneTreeLevelEnd)
+					free(boneTreeLevelEnd);
+
+				if (keyframes)
+					free(keyframes);
+				if (interpolatedAnimations)
+					free(interpolatedAnimations);
+				if (nonInterpolatedAnimations)
+					free(nonInterpolatedAnimations);
+			}
+
+			friend class TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>;
+			inline BoneReferenceData* getBoneData()
+			{
+				return boneFlatArray;
+			}
 
         private:
             inline void createAnimationKeys(const core::vector<asset::ICPUSkinnedMesh::SJoint*>& inLevelFixedJoints)

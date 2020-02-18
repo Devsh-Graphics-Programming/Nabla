@@ -20,7 +20,7 @@ namespace irr
 			int32_t offsetDiff = 0;
 			for (uint32_t i = 0u; i < blobCnt; ++i)
 			{
-				BlobHeaderVn<2> & hdr = headers[i];
+				BlobHeaderVn<2>& hdr = headers[i];
 				const uint32_t offset = offsets[i];
 				uint32_t& newoffset = newoffsets[i];
 
@@ -52,25 +52,58 @@ namespace irr
 				// should I actually do anything with meshes if their flipping is dependent on flag placed somewhere in IAssetLoader/Writer?
 				// so it isn't a member of any of blobs
 
+				const uint32_t absOffset = baseOffsetv3 + newoffset;
+				baw3mem->seek(absOffset);
+
+				const auto prevBlobSz = hdr.effectiveSize();
 				switch (hdr.blobType)
 				{
-				case asset::Blob::EBT_MESH_BUFFER:
-				{
-					constexpr uint32_t MESH_BUFFER_HIERARCHY_LVL = 3u;
-					fetchRawBlob(MESH_BUFFER_HIERARCHY_LVL);
-					break;
-				}
+					case asset::Blob::EBT_MESH_BUFFER:
+					{
+						constexpr uint32_t MESH_BUFFER_HIERARCHY_LVL = 1u;
+						fetchRawBlob(MESH_BUFFER_HIERARCHY_LVL);
+						if (!blob)
+							break;
+
+						hdr.blobSizeDecompr = hdr.blobSize = sizeof(asset::MeshBufferBlobV3);
+						baw3mem->write(blob,offsetof(MeshBufferBlobV3,normalAttrId));
+						reinterpret_cast<uint32_t&>(stackmem[0]) = EVAI_ATTR3;
+						baw3mem->write(stackmem,sizeof(uint32_t));
+						stackmem[0] = 0;
+						baw3mem->write(stackmem,sizeof(uint8_t));
+
+						break;
+					}
+					case asset::Blob::EBT_SKINNED_MESH_BUFFER:
+					{
+						constexpr uint32_t SKINNED_MESH_BUFFER_HIERARCHY_LVL = 1u;
+						fetchRawBlob(SKINNED_MESH_BUFFER_HIERARCHY_LVL);
+						if (!blob)
+							break;
+
+						hdr.blobSizeDecompr = hdr.blobSize = sizeof(asset::SkinnedMeshBufferBlobV3);
+						baw3mem->write(blob,offsetof(SkinnedMeshBufferBlobV3,normalAttrId));
+						reinterpret_cast<uint32_t&>(stackmem[0]) = EVAI_ATTR3;
+						baw3mem->write(stackmem,sizeof(uint32_t));
+						stackmem[0] = 0;
+						baw3mem->write(stackmem,sizeof(uint8_t));
+
+						break;
+					}
 				}
 
-				offsetDiff += static_cast<int32_t>(hdr.blobSizeDecompr) - static_cast<int32_t>(hdr.effectiveSize());
+				if (!blob)
+					continue;
+
+
 				hdr.compressionType = asset::Blob::EBCT_RAW;
-				core::XXHash_256(blob, hdr.blobSizeDecompr, hdr.blobHash);
-				hdr.blobSize = hdr.blobSizeDecompr;
+				core::XXHash_256(reinterpret_cast<uint8_t*>(baw3mem->getPointer()) + absOffset, hdr.blobSize, hdr.blobHash);
+				offsetDiff += static_cast<int32_t>(hdr.blobSizeDecompr) - prevBlobSz;
 
-				if (blob)
+				if (blob!=stackmem)
 					_IRR_ALIGNED_FREE(blob);
 			}
-			uint64_t fileHeader[4]{ 0u, 0u, 0u, 2u/*baw v2*/ };
+			uint64_t fileHeader[4]{ 0u, 0u, 0u, 3u/*baw v3*/ };
 			memcpy(fileHeader, BAWFileV3::HEADER_STRING, strlen(BAWFileV3::HEADER_STRING));
 			baw3mem->seek(0u);
 			baw3mem->write(fileHeader, sizeof(fileHeader));
@@ -85,10 +118,10 @@ namespace irr
 			{
 				uint32_t sz = headers[i].effectiveSize();
 				void* blob = nullptr;
-				if (headers[i].blobType == asset::Blob::EBT_FINAL_BONE_HIERARCHY)
-				{
+
+				bool newBlob = headers[i].blobType == asset::Blob::EBT_MESH_BUFFER || headers[i].blobType == asset::Blob::EBT_SKINNED_MESH_BUFFER;
+				if (newBlob)
 					sz = 0u;
-				}
 				else
 				{
 					_baw2file->seek(baseOffsetv2 + offsets[i]);
@@ -100,10 +133,10 @@ namespace irr
 					_baw2file->read(blob, sz);
 				}
 
-				baw3mem->seek(baseOffsetv2 + newoffsets[i]);
+				baw3mem->seek(baseOffsetv3 + newoffsets[i]);
 				baw3mem->write(blob, sz);
 
-				if (headers[i].blobType != asset::Blob::EBT_DATA_FORMAT_DESC && blob != stackmem)
+				if (newBlob && blob != stackmem)
 					_IRR_ALIGNED_FREE(blob);
 
 				newFileSz = baseOffsetv3 + newoffsets[i] + sz;
@@ -198,7 +231,7 @@ namespace irr
                     core::XXHash_256(blob, hdr.blobSizeDecompr, hdr.blobHash);
                     hdr.blobSize = hdr.blobSizeDecompr;
 
-                    if (blob)
+                    if (blob!=stackmem)
                         _IRR_ALIGNED_FREE(blob);
                 }
             }

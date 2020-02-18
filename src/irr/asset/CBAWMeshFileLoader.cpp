@@ -98,13 +98,14 @@ SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 
     const std::string rootCacheKey = ctx.inner.mainFile->getFileName().c_str();
 
-	const asset::BlobLoadingParams params{
+	asset::BlobLoadingParams params{
         this,
         m_manager,
         m_fileSystem,
         ctx.inner.mainFile->getFileName()[ctx.inner.mainFile->getFileName().size()-1] == '/' ? ctx.inner.mainFile->getFileName() : ctx.inner.mainFile->getFileName()+"/",
         ctx.inner.params,
-        _override
+        _override,
+		{}
     };
 	core::stack<SBlobData*> toLoad, toFinalize;
 	toLoad.push(&meshBlobDataIter->second);
@@ -191,6 +192,121 @@ SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 		retval = ctx.loadingMgr.finalize(blobType, ctx.createdObjs[handle], blob, size, ctx.createdObjs, params); // last one will always be mesh
         if (!toFinalize.empty()) // don't cache root-asset (mesh) as sub-asset because it'll be cached by asset manager directly (and there's only one IAsset::cacheKey)
             insertAssetIntoCache(ctx, _override, retval, blobType, hierLvl, thisCacheKey);
+	}
+
+	// flip meshes if needed
+	while (!params.meshbuffersToFlip.empty())
+	{
+		auto mb = params.meshbuffersToFlip.top();
+		params.meshbuffersToFlip.pop();
+		
+		auto* originalMeshFormat = mb->getMeshDataAndFormat();
+
+		// `const_cast` is okay because we will only be reading from the "copy" objects
+		const auto positionAttribute = mb->getPositionAttributeIx();
+		auto positionBuffer = core::smart_refctd_ptr<ICPUBuffer>(const_cast<ICPUBuffer*>(originalMeshFormat->getMappedBuffer(positionAttribute)));
+		const auto positionFormat = originalMeshFormat->getAttribFormat(positionAttribute);
+		const auto positionStride = originalMeshFormat->getMappedBufferStride(positionAttribute);
+		const auto positionOffset = originalMeshFormat->getMappedBufferOffset(positionAttribute);
+		const auto positionDivisor = originalMeshFormat->getAttribDivisor(positionAttribute);
+
+		auto normalBuffer = core::smart_refctd_ptr<ICPUBuffer>(const_cast<ICPUBuffer*>(originalMeshFormat->getMappedBuffer(E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3)));
+		const bool hasNormal = normalBuffer->getPointer();
+		const auto normalAttribute = mb->getNormalAttributeIx();
+		const auto normalFormat = originalMeshFormat->getAttribFormat(normalAttribute);
+		const auto normalSize = asset::getTexelOrBlockBytesize(normalFormat);
+		const auto normalDivisor = originalMeshFormat->getAttribDivisor(normalAttribute);
+
+		// copy meshbuffer (same buffers linked)
+		core::smart_refctd_ptr<ICPUMeshBuffer> copy;
+		if (mb->getAssetType() == asset::EMT_ANIMATED_SKINNED)
+		{
+			auto smb = static_cast<CCPUSkinnedMeshBuffer*>(mb.get());
+			const auto* fbhRef = smb->getBoneReferenceHierarchy();
+		
+			const auto boneCount = fbhRef->getBoneCount();
+			const CFinalBoneHierarchy::BoneReferenceData* bones = fbhRef->getBoneData();
+			core::vector<core::stringc> boneNames(boneCount);
+			for (auto k=0; k<boneCount; k++)
+				boneNames[k] = fbhRef->getBoneName(k);
+			auto fbhCopy = core::make_smart_refctd_ptr<CFinalBoneHierarchy>(
+				bones, bones + boneCount,
+				boneNames.data(), boneNames.data() + boneCount,
+				fbhRef->getBoneTreeLevelEnd(), fbhRef->getBoneTreeLevelEnd() + fbhRef->getHierarchyLevels(),
+				fbhRef->getKeys(), fbhRef->getKeys() + fbhRef->getKeyFrameCount(),
+				fbhRef->getInterpolatedAnimationData(), fbhRef->getInterpolatedAnimationData() + fbhRef->getAnimationCount(),
+				fbhRef->getNonInterpolatedAnimationData(), fbhRef->getNonInterpolatedAnimationData() + fbhRef->getAnimationCount()
+			);
+			
+			//
+
+			auto scopy = core::make_smart_refctd_ptr<CCPUSkinnedMesh>();
+			scopy->setBoneReferenceHierarchy(fbhCopy);
+			copy = std::move(scopy);
+		}
+		else
+			copy = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
+
+		copy->setBaseInstance(mb->getBaseInstance());
+		copy->setBaseVertex(mb->getBaseVertex());
+		copy->setIndexBufferOffset(mb->getIndexBufferOffset());
+		copy->setIndexCount(mb->getIndexType());
+		copy->setIndexType(mb->getIndexType());
+		// deeper copy of the meshdata format
+		{
+			auto copyFormat = core::make_smart_refctd_ptr<ICPUMeshDataFormatDesc>();
+			copyFormat->setIndexBuffer(core::smart_refctd_ptr<ICPUBuffer>(const_cast<ICPUBuffer*>(originalMeshFormat->getIndexBuffer())));
+			copyFormat->setVertexAttrBuffer(std::move(positionBuffer), positionAttribute, positionFormat, positionStride, positionOffset, positionDivisor);
+			if (hasNormal)
+			{
+				const auto normalStride = originalMeshFormat->getMappedBufferStride(normalAttribute);
+				const auto normalOffset = originalMeshFormat->getMappedBufferOffset(normalAttribute);
+				copyFormat->setVertexAttrBuffer(std::move(normalBuffer), normalAttribute, normalFormat, normalStride, normalOffset, normalDivisor);
+			}
+
+			copy->setMeshDataAndFormat(std::move(copyFormat));
+		}
+		copy->setPositionAttributeIx(positionAttribute);
+		copy->setPrimitiveType(mb->getPrimitiveType());
+
+		// create new position and normal buffer
+		const auto vertexCount = mb->calcVertexCount() + mb->getBaseVertex();
+		const auto positionSize = asset::getTexelOrBlockBytesize(positionFormat);
+		auto totalSize = positionSize * (positionDivisor ? (mb->getInstanceCount() / positionDivisor) : vertexCount);
+		const auto normalOffset = totalSize;
+		if (hasNormal)
+			totalSize += normalSize * (normalDivisor ? (mb->getInstanceCount() / normalDivisor) : vertexCount);
+		auto newDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(totalSize);
+
+		// link new buffer to the meshbuffer (replace old which are now linked to the copy meshbuffer)
+		originalMeshFormat->setVertexAttrBuffer(core::smart_refctd_ptr(newDataBuffer), positionAttribute, positionFormat, positionSize, 0ull, positionDivisor);
+		if (hasNormal)
+			originalMeshFormat->setVertexAttrBuffer(std::move(newDataBuffer), normalAttribute, normalFormat, normalSize, normalOffset, normalDivisor);
+
+		// get attributes from copy meshbuffer
+		// flip attributes
+		// set attributes on meshbuffer (writes to new buffers)
+		auto flipAndCopyAttribute = [&](auto divisor, auto attrID)
+		{
+			const auto limit = divisor ? (copy->getInstanceCount() / divisor) : vertexCount;
+			for (std::remove_const<decltype(limit)>::type i = 0; i < limit; i++)
+			{
+				uint32_t ix = i;
+				if (!divisor)
+					ix += mb->getBaseVertex();
+
+				core::vectorSIMDf out(0.f, 0.f, 0.f, 1.f);
+				copy->getAttribute(out, attrID, ix);
+				out.X = -out.X;
+				mb->setAttribute(out, attrID, ix);
+			}
+		};
+
+		flipAndCopyAttribute(positionDivisor, positionAttribute);
+		if (hasNormal)
+			flipAndCopyAttribute(normalDivisor, normalAttribute);
+
+		// drop the copy (implicit)
 	}
 
 	ctx.releaseAllButThisOne(meshBlobDataIter); // call drop on all loaded objects except mesh

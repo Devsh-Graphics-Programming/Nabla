@@ -45,7 +45,7 @@ core::unordered_set<uint64_t> TypedBlob<RawBufferBlobV3, asset::ICPUBuffer>::get
 }
 
 template<>
-void* TypedBlob<RawBufferBlobV3, asset::ICPUBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* TypedBlob<RawBufferBlobV3, asset::ICPUBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return NULL;
@@ -58,7 +58,7 @@ void* TypedBlob<RawBufferBlobV3, asset::ICPUBuffer>::instantiateEmpty(const void
 }
 
 template<>
-void* TypedBlob<RawBufferBlobV3, asset::ICPUBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize,core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* TypedBlob<RawBufferBlobV3, asset::ICPUBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize,core::unordered_map<uint64_t, void*>& _deps, BlobLoadingParams& _params)
 {
 	return _obj;
 }
@@ -77,7 +77,7 @@ core::unordered_set<uint64_t> TypedBlob<TexturePathBlobV3, asset::ICPUTexture>::
 }
 
 template<>
-void* TypedBlob<TexturePathBlobV3, asset::ICPUTexture>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* TypedBlob<TexturePathBlobV3, asset::ICPUTexture>::instantiateEmpty(const void* _blob, size_t _blobSize, BlobLoadingParams& _params)
 {
 	if (!_blob || !_params.fs || !_params.ldr || !_params.manager)
 		return nullptr;
@@ -103,7 +103,7 @@ void* TypedBlob<TexturePathBlobV3, asset::ICPUTexture>::instantiateEmpty(const v
 }
 
 template<>
-void* TypedBlob<TexturePathBlobV3, asset::ICPUTexture>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* TypedBlob<TexturePathBlobV3, asset::ICPUTexture>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, BlobLoadingParams& _params)
 {
 	return _obj;
 }
@@ -127,7 +127,7 @@ core::unordered_set<uint64_t> TypedBlob<MeshBlobV3, asset::ICPUMesh>::getNeededD
 }
 
 template<>
-void* TypedBlob<MeshBlobV3, asset::ICPUMesh>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* TypedBlob<MeshBlobV3, asset::ICPUMesh>::instantiateEmpty(const void* _blob, size_t _blobSize, BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return NULL;
@@ -140,7 +140,7 @@ void* TypedBlob<MeshBlobV3, asset::ICPUMesh>::instantiateEmpty(const void* _blob
 }
 
 template<>
-void* TypedBlob<MeshBlobV3, asset::ICPUMesh>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* TypedBlob<MeshBlobV3, asset::ICPUMesh>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, BlobLoadingParams& _params)
 {
 	if (!_obj || !_blob)
 		return NULL;
@@ -172,7 +172,7 @@ core::unordered_set<uint64_t> TypedBlob<SkinnedMeshBlobV3, asset::ICPUSkinnedMes
 }
 
 template<>
-void* TypedBlob<SkinnedMeshBlobV3, asset::ICPUSkinnedMesh>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* TypedBlob<SkinnedMeshBlobV3, asset::ICPUSkinnedMesh>::instantiateEmpty(const void* _blob, size_t _blobSize, BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return NULL;
@@ -185,7 +185,7 @@ void* TypedBlob<SkinnedMeshBlobV3, asset::ICPUSkinnedMesh>::instantiateEmpty(con
 }
 
 template<>
-void* TypedBlob<SkinnedMeshBlobV3, asset::ICPUSkinnedMesh>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* TypedBlob<SkinnedMeshBlobV3, asset::ICPUSkinnedMesh>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, BlobLoadingParams& _params)
 {
 	if (!_obj || !_blob)
 		return NULL;
@@ -222,7 +222,7 @@ core::unordered_set<uint64_t> TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>
 }
 
 template<>
-void* TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return nullptr;
@@ -246,12 +246,13 @@ void* TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::instantiateEmpty(const
 	buf->setBaseInstance(blob->baseInstance);
 	buf->setPrimitiveType((asset::E_PRIMITIVE_TYPE)blob->primitiveType);
 	buf->setPositionAttributeIx((asset::E_VERTEX_ATTRIBUTE_ID)blob->posAttrId);
+	buf->setPositionAttributeIx((asset::E_VERTEX_ATTRIBUTE_ID)blob->normalAttrId);
 
 	return buf;
 }
 
 template<>
-void* TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, BlobLoadingParams& _params)
 {
 	if (!_obj || !_blob)
 		return nullptr;
@@ -267,87 +268,7 @@ void* TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::finalize(void* _obj, c
 	}
 
 	if ((bool)blob->isRightHandedCoordinateSystem != (bool)(_params.params.loaderFlags & IAssetLoader::E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES))
-	{
-		auto* originalMeshFormat = buf->getMeshDataAndFormat();
-
-		// `const_cast` is okay because we will only be reading from the "copy" objects
-		const auto positionAttribute = buf->getPositionAttributeIx();
-		auto positionBuffer = core::smart_refctd_ptr<ICPUBuffer>(const_cast<ICPUBuffer*>(originalMeshFormat->getMappedBuffer(positionAttribute)));
-		const auto positionFormat = originalMeshFormat->getAttribFormat(positionAttribute);
-		const auto positionStride = originalMeshFormat->getMappedBufferStride(positionAttribute);
-		const auto positionOffset = originalMeshFormat->getMappedBufferOffset(positionAttribute);
-		const auto positionDivisor = originalMeshFormat->getAttribDivisor(positionAttribute);
-
-		auto normalBuffer = core::smart_refctd_ptr<ICPUBuffer>(const_cast<ICPUBuffer*>(originalMeshFormat->getMappedBuffer(E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3)));
-		const bool hasNormal = normalBuffer->getPointer();
-		const auto normalAttribute = E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3;
-		const auto normalFormat = originalMeshFormat->getAttribFormat(normalAttribute);
-		const auto normalSize = asset::getTexelOrBlockBytesize(normalFormat);
-		const auto normalDivisor = originalMeshFormat->getAttribDivisor(normalAttribute);
-
-		// copy meshbuffer (same buffers linked)
-		auto copy = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
-		copy->setBaseInstance(buf->getBaseInstance());
-		copy->setBaseVertex(buf->getBaseVertex());
-		copy->setIndexBufferOffset(buf->getIndexBufferOffset());
-		copy->setIndexCount(buf->getIndexType());
-		copy->setIndexType(buf->getIndexType());
-		// DEEPER COPY OF THE MESHDATA FORMAT
-		{
-			auto copyFormat = core::make_smart_refctd_ptr<ICPUMeshDataFormatDesc>();
-			copyFormat->setIndexBuffer(core::smart_refctd_ptr<ICPUBuffer>(const_cast<ICPUBuffer*>(originalMeshFormat->getIndexBuffer())));
-			copyFormat->setVertexAttrBuffer(std::move(positionBuffer), positionAttribute, positionFormat, positionStride, positionOffset, positionDivisor);
-			if (hasNormal)
-			{
-				const auto normalStride = originalMeshFormat->getMappedBufferStride(normalAttribute);
-				const auto normalOffset = originalMeshFormat->getMappedBufferOffset(normalAttribute);
-				copyFormat->setVertexAttrBuffer(std::move(normalBuffer), normalAttribute, normalFormat, normalStride, normalOffset, normalDivisor);
-			}
-			
-			copy->setMeshDataAndFormat(std::move(copyFormat));
-		}
-		copy->setPositionAttributeIx(positionAttribute);
-		copy->setPrimitiveType(buf->getPrimitiveType());
-		
-		// create new position and normal buffer
-		const auto vertexCount = buf->calcVertexCount()+buf->getBaseVertex();
-		const auto positionSize = asset::getTexelOrBlockBytesize(positionFormat);
-		auto totalSize = positionSize*(positionDivisor ? (buf->getInstanceCount()/positionDivisor):vertexCount);
-		const auto normalOffset = totalSize;
-		if (hasNormal)
-			totalSize += normalSize*(normalDivisor ? (buf->getInstanceCount()/normalDivisor):vertexCount);
-		auto newDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(totalSize);
-
-		// link new buffer to the meshbuffer (replace old which are now linked to the copy meshbuffer)
-		originalMeshFormat->setVertexAttrBuffer(core::smart_refctd_ptr(newDataBuffer),positionAttribute,positionFormat,positionSize,0ull,positionDivisor);
-		if (hasNormal)
-			originalMeshFormat->setVertexAttrBuffer(std::move(newDataBuffer),normalAttribute,normalFormat,normalSize,normalOffset,normalDivisor);
-
-		// get attributes from copy meshbuffer
-		// flip attributes
-		// set attributes on meshbuffer (writes to new buffers)
-		auto flipAndCopyAttribute = [&](auto divisor, auto attrID)
-		{
-			const auto limit = divisor ? (copy->getInstanceCount()/divisor):vertexCount;
-			for (std::remove_const<decltype(limit)>::type i=0; i<limit; i++)
-			{
-				uint32_t ix = i;
-				if (!divisor)
-					ix += buf->getBaseVertex();
-
-				core::vectorSIMDf out(0.f, 0.f, 0.f, 1.f);
-				copy->getAttribute(out, attrID, ix);
-				out.X = -out.X;
-				buf->setAttribute(out, attrID, ix);
-			}
-		};
-
-		flipAndCopyAttribute(positionDivisor, positionAttribute);
-		if (hasNormal)
-			flipAndCopyAttribute(normalDivisor,normalAttribute);
-
-		// drop the copy (implicit)
-	}
+		_params.meshbuffersToFlip.push(core::smart_refctd_ptr<ICPUMeshBuffer>(buf));
 
 	return _obj;
 }
@@ -360,13 +281,13 @@ void TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::releaseObj(const void* 
 }
 
 template<>
-core::unordered_set<uint64_t> TypedBlob<SkinnedMeshBufferBlobV2, asset::ICPUSkinnedMeshBuffer>::getNeededDeps(const void* _blob)
+core::unordered_set<uint64_t> TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::getNeededDeps(const void* _blob)
 {
 	return TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::getNeededDeps(_blob);
 }
 
 template<>
-void* TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::instantiateEmpty(const void* _blob, size_t _blobSize, BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return nullptr;
@@ -390,6 +311,7 @@ void* TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::instanti
 	buf->setBaseInstance(blob->baseInstance);
 	buf->setPrimitiveType((asset::E_PRIMITIVE_TYPE)blob->primitiveType);
 	buf->setPositionAttributeIx((asset::E_VERTEX_ATTRIBUTE_ID)blob->posAttrId);
+	buf->setNormalnAttributeIx((asset::E_VERTEX_ATTRIBUTE_ID)blob->normalAttrId);
 	buf->setIndexRange(blob->indexValMin, blob->indexValMax);
 	buf->setMaxVertexBoneInfluences(blob->maxVertexBoneInfluences);
 
@@ -397,7 +319,7 @@ void* TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::instanti
 }
 
 template<>
-void* TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize,core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::finalize(void* _obj, const void* _blob, size_t _blobSize,core::unordered_map<uint64_t, void*>& _deps, BlobLoadingParams& _params)
 {
 	if (!_obj || !_blob)
 		return nullptr;
@@ -411,6 +333,10 @@ void* TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::finalize
 		if (tex)
 			buf->getMaterial().setTexture(i, impl::castPtrAndRefcount<asset::ICPUTexture>(_deps[tex]));
 	}
+	
+	if ((bool)blob->isRightHandedCoordinateSystem != (bool)(_params.params.loaderFlags & IAssetLoader::E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES))
+		_params.meshbuffersToFlip.push(core::smart_refctd_ptr<ICPUMeshBuffer>(buf));
+
 	return _obj;
 }
 
@@ -428,7 +354,7 @@ core::unordered_set<uint64_t> TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHier
 }
 
 template<>
-void* TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>::instantiateEmpty(const void* _blob, size_t _blobSize, BlobLoadingParams& _params)
 {
 	if (!_blob)
 		return nullptr;
@@ -479,6 +405,19 @@ void* TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>::instantiateEmpty
 		nonInterpolatedAnimsBegin, nonInterpolatedAnimsEnd
 	);
 
+	/*
+	if ()
+	{
+		auto bones = reinterpret_cast<CFinalBoneHierarchy::BoneReferenceData*>(fbh->getBoneData());
+		for (auto j = 0u; j < fbh->boneCount; j++)
+		{
+			auto& mtx = bones[j].PoseBindMatrix;
+			for (uint8_t i = 0; i < 4; ++i)
+				mtx(i, 0) = -mtx(i, 0);
+		}
+	}
+	*/
+
 	if ((uint8_t*)boneNames == stack)
 		for (size_t i = 0; i < blob->boneCount; ++i)
 			boneNames[i].~string();
@@ -489,7 +428,7 @@ void* TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>::instantiateEmpty
 }
 
 template<>
-void* TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, BlobLoadingParams& _params)
 {
 	return _obj;
 }
@@ -517,13 +456,13 @@ core::unordered_set<uint64_t> TypedBlob<MeshDataFormatDescBlobV3, asset::IMeshDa
 }
 
 template<>
-void* TypedBlob<MeshDataFormatDescBlobV3, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::instantiateEmpty(const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* TypedBlob<MeshDataFormatDescBlobV3, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::instantiateEmpty(const void* _blob, size_t _blobSize, BlobLoadingParams& _params)
 {
 	return new asset::ICPUMeshDataFormatDesc();
 }
 
 template<>
-void* TypedBlob<MeshDataFormatDescBlobV3, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* TypedBlob<MeshDataFormatDescBlobV3, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, BlobLoadingParams& _params)
 {
 	if (!_obj || !_blob)
 		return nullptr;
