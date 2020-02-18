@@ -19,6 +19,9 @@ private:
 R"(#ifndef _IRR_VERTEX_UTILS_INCLUDED_
 #define _IRR_VERTEX_UTILS_INCLUDED_
 
+#include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
+
+
 struct irr_glsl_SBasicViewParameters
 {
     mat4 MVP;
@@ -27,11 +30,11 @@ struct irr_glsl_SBasicViewParameters
 };
 mat3 irr_glsl_SBasicViewParameters_GetNormalMat(in irr_glsl_SBasicViewParameters _params)
 {
-    return mat3(_params.NormalMatAndEyePos);
+    return mat3(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x3(_params.NormalMatAndEyePos));
 }
 vec3 irr_glsl_SBasicViewParameters_GetEyePos(in irr_glsl_SBasicViewParameters _params)
 {
-    return _params.NormalMatAndEyePos[3];
+    return irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x3(_params.NormalMatAndEyePos)[3];
 }
 
 vec4 irr_glsl_pseudoMul4x4with3x1(in mat4 m, in vec3 v)

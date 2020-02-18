@@ -104,7 +104,6 @@ set(IRRLICHT_SRCS_COMMON
 	
 # Builtin include loaders
 	${IRR_ROOT_PATH}/src/irr/asset/CGLSLScanBuiltinIncludeLoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CGLSLAMDFixBuiltinIncludeLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CGLSLSkinningBuiltinIncludeLoader.cpp
 	
 # Shaders
