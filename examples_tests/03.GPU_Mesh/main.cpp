@@ -28,6 +28,8 @@ const char* vertexSource = R"===(
 layout(location = 0) in vec4 vPos; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
 layout(location = 1) in vec4 vCol;
 
+#include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
+
 layout( push_constant, row_major ) uniform Block {
 	mat4 modelViewProj;
 } PushConstants;
@@ -36,7 +38,7 @@ layout(location = 0) out vec4 Color; //per vertex output color, will be interpol
 
 void main()
 {
-    gl_Position = PushConstants.modelViewProj*vPos; //only thing preventing the shader from being core-compliant
+    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4(PushConstants.modelViewProj)*vPos; //only thing preventing the shader from being core-compliant
     Color = vCol;
 }
 )===";
