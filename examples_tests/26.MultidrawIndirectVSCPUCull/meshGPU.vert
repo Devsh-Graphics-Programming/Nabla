@@ -1,6 +1,7 @@
 #version 430 core
 
 #extension ARB_shader_draw_parameters : require
+#include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
 
 struct ModelData_t
 {
@@ -23,8 +24,10 @@ flat out vec3 Normal;
 void main()
 {
     uint drawID = gl_DrawIDARB;
+	
+	mat4 mvp = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4(modelData[drawID].MVP);
 
-    gl_Position = modelData[drawID].MVP[0]*vPos.x+modelData[drawID].MVP[1]*vPos.y+modelData[drawID].MVP[2]*vPos.z+modelData[drawID].MVP[3];
+    gl_Position = mvp[0]*vPos.x+mvp[1]*vPos.y+mvp[2]*vPos.z+mvp[3];
     Color = vec4(0.4,0.4,1.0,1.0);
     Normal = normalize(modelData[drawID].normalMat*vNormal); //have to normalize twice because of normal quantization
 }

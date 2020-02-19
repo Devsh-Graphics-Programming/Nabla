@@ -209,7 +209,7 @@ layout(location = 0) out vec2 uv;
 
 void main()
 {
-    gl_Position = PushConstants.modelViewProj*vec4(vPos,1.0);
+    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(PushConstants.modelViewProj)*vec4(vPos,1.0);
 	uv = vTexCoord;
 }
 		)===", asset::ISpecializedShader::ESS_VERTEX, "irr/builtin/materials/lambertian/singletexture/specializedshader");

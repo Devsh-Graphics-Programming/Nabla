@@ -1,5 +1,7 @@
 #version 430 compatibility
 
+#include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
+
 layout(push_constant, row_major) uniform Block
 {
 	mat4 modelViewProjection;
@@ -16,7 +18,7 @@ layout(location = 2) out vec3 lightDir;
 
 void main()
 {
-    gl_Position = PushConstants.modelViewProjection*vPos; //only thing preventing the shader from being core-compliant
+    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4(PushConstants.modelViewProjection)*vPos; //only thing preventing the shader from being core-compliant
     Color = vCol;
     Normal = normalize(vNormal); //have to normalize twice because of normal quantization
     lightDir = cameraPos-vPos.xyz;
