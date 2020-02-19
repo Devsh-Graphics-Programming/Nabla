@@ -226,6 +226,23 @@ using SkinnedMeshBufferBlobV1 = legacyv0::SkinnedMeshBufferBlobV0;
 namespace legacyv2
 {
 
+#include "irr/irrpack.h"
+struct IRR_FORCE_EBO FinalBoneHierarchyBlobV2 : VariableSizeBlob<FinalBoneHierarchyBlobV2, CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV2, CFinalBoneHierarchy>
+{
+public:
+
+	size_t boneCount;
+	size_t numLevelsInHierarchy;
+	size_t keyframeCount;
+} PACK_STRUCT;
+#include "irr/irrunpack.h"
+static_assert(
+	sizeof(FinalBoneHierarchyBlobV2) ==
+	sizeof(FinalBoneHierarchyBlobV2::boneCount) + sizeof(FinalBoneHierarchyBlobV2::numLevelsInHierarchy) + sizeof(FinalBoneHierarchyBlobV2::keyframeCount),
+	"FinalBoneHierarchyBlobV2: Size of blob is not sum of its contents!"
+	);
+
+
 using MeshBlobV2 = legacyv1::MeshBlobV1;
 using SkinnedMeshBlobV2 = legacyv1::SkinnedMeshBlobV1;
 using MeshBufferBlobV2 = legacyv1::MeshBufferBlobV1;

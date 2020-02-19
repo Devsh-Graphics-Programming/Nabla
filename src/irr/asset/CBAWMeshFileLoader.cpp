@@ -210,7 +210,8 @@ SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 		bbox.MaxEdge.X *= -1.f;
 		mesh->setBoundingBox(bbox);
 		
-		if (mesh->getMeshType() == asset::EMT_ANIMATED_SKINNED)
+		bool isSkinnedMesh = mesh->getMeshType()==asset::EMT_ANIMATED_SKINNED;
+		if (isSkinnedMesh)
 		{
 			auto sm = static_cast<CCPUSkinnedMesh*>(mesh.get());
 			const auto* fbhRef = sm->getBoneReferenceHierarchy();
@@ -227,7 +228,7 @@ SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 				fbhRef->getKeys(), fbhRef->getKeys() + fbhRef->getKeyFrameCount(),
 				fbhRef->getInterpolatedAnimationData(), fbhRef->getInterpolatedAnimationData() + fbhRef->getAnimationCount(),
 				fbhRef->getNonInterpolatedAnimationData(), fbhRef->getNonInterpolatedAnimationData() + fbhRef->getAnimationCount(),
-				true
+				!fbhRef->flipsXOnOutput()
 			);
 
 			// flip
@@ -274,6 +275,8 @@ SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 
 			// do the flip
 			const auto positionFormat = originalMeshFormat->getAttribFormat(positionAttribute);
+			// we cannot handle the vertices changing places relative to the bone (no unsigned position formats)
+			assert(!isSkinnedMesh || asset::isSignedFormat(positionFormat) || asset::isFloatingPointFormat(positionFormat));
 			const auto positionDivisor = originalMeshFormat->getAttribDivisor(positionAttribute);
 			assert(positionDivisor<2u);
 
@@ -287,27 +290,47 @@ SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 			// get attributes from copy meshbuffer
 			// flip attributes
 			// set attributes on meshbuffer (writes to new buffers)
-			auto flipAndCopyAttribute = [&](auto divisor, auto attrID)
+			auto flipAndCopyAttribute_impl = [&](auto& tmpStorage, auto divisor, auto attrID)
 			{
 				const auto count = divisor ? instanceCount:vertexCount;
 				for (std::remove_const<decltype(count)>::type ix = 0; ix < count; ix++)
 				{
+					copy->getAttribute(tmpStorage, attrID, ix);
+					tmpStorage[0] = -tmpStorage[0];
+					mb->setAttribute(tmpStorage, attrID, ix);
+				}
+			};
+			auto flipAndCopyAttribute = [&](auto divisor, auto attrID, auto attrFormat)
+			{
+				if (asset::isIntegerFormat(attrFormat))
+				{
+					// whole bunch of integer hacks make it work perfectly
+					uint32_t out[] = { 0, 0, 0, 1 };
+					flipAndCopyAttribute_impl(out,divisor,attrID);
+				}
+				else
+				{
 					core::vectorSIMDf out(0.f, 0.f, 0.f, 1.f);
-					copy->getAttribute(out, attrID, ix);
-					out.X = -out.X;
-					mb->setAttribute(out, attrID, ix);
+					flipAndCopyAttribute_impl(out,divisor,attrID);
 				}
 			};
 
-			flipAndCopyAttribute(positionDivisor, positionAttribute);
+			flipAndCopyAttribute(positionDivisor, positionAttribute, positionFormat);
 			if (hasNormal)
-				flipAndCopyAttribute(normalDivisor, normalAttribute);
+				flipAndCopyAttribute(normalDivisor, normalAttribute, normalFormat);
 
 			// drop the copies we don't use (implicit)
 
 			auto bbox = mb->getBoundingBox();
 			bbox.MinEdge.X *= -1.f;
 			bbox.MaxEdge.X *= -1.f;
+			if (!asset::isSignedFormat(positionFormat))
+			{
+				assert(asset::isNormalizedFormat(positionFormat)); // TODO: a function that will give us the MAX range for integer formats
+				auto range = 1.f;
+				bbox.MinEdge.X += range;
+				bbox.MaxEdge.X += range;
+			}
 			mb->setBoundingBox(bbox);
 		}
 	}

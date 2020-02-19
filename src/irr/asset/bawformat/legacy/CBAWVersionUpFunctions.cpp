@@ -117,6 +117,22 @@ namespace irr
 
 						break;
 					}
+					case asset::Blob::EBT_FINAL_BONE_HIERARCHY:
+					{
+						constexpr uint32_t FINAL_BONE_HIERARCHY_HIERARCHY_LVL = 1u;
+						fetchRawBlob(FINAL_BONE_HIERARCHY_HIERARCHY_LVL);
+						if (!blob)
+							break;
+
+						static_assert(offsetof(FinalBoneHierarchyBlobV3, finalBoneHierarchyFlags) == 0); // to make sure finalBoneHierarchyFlags in first member in the struct
+						baw3mem->write(zeroBuffer, sizeof(FinalBoneHierarchyBlobV3::finalBoneHierarchyFlags));
+						baw3mem->write(reinterpret_cast<uint8_t*>(blob), hdr.blobSizeDecompr);
+
+						const auto sizeTakingAllBuffersIntoAcount = hdr.blobSizeDecompr + sizeof(asset::FinalBoneHierarchyBlobV3) - sizeof(asset::legacyv2::FinalBoneHierarchyBlobV2);
+						hdr.blobSizeDecompr = hdr.blobSize = sizeTakingAllBuffersIntoAcount;
+
+						break;
+					}
 				}
 
 				if (!blob)
@@ -152,6 +168,7 @@ namespace irr
 					case asset::Blob::EBT_SKINNED_MESH:
 					case asset::Blob::EBT_MESH_BUFFER:
 					case asset::Blob::EBT_SKINNED_MESH_BUFFER:
+					case asset::Blob::EBT_FINAL_BONE_HIERARCHY:
 						sz = 0u;
 						break;
 					default:

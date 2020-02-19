@@ -363,7 +363,7 @@ void* TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>::instantiateEmpty
 		return nullptr;
 
 	const uint8_t* const data = (const uint8_t*)_blob;
-	const auto* blob = (const FinalBoneHierarchyBlobV2*)_blob;
+	const auto* blob = (const FinalBoneHierarchyBlobV3*)_blob;
 
 	const uint8_t* const bonesBegin = data + blob->calcBonesOffset();
 	const uint8_t* const bonesEnd = bonesBegin + blob->calcBonesByteSize();
@@ -405,21 +405,8 @@ void* TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>::instantiateEmpty
 		(const size_t*)levelsBegin, (const size_t*)levelsEnd,
 		(const float*)keyframesBegin, (const float*)keyframesEnd,
 		interpolatedAnimsBegin, interpolatedAnimsEnd,
-		nonInterpolatedAnimsBegin, nonInterpolatedAnimsEnd
+		nonInterpolatedAnimsBegin, nonInterpolatedAnimsEnd, blob->finalBoneHierarchyFlags&FinalBoneHierarchyBlobV3::EBFBHF_RIGHT_HANDED
 	);
-
-	/*
-	if ()
-	{
-		auto bones = reinterpret_cast<CFinalBoneHierarchy::BoneReferenceData*>(fbh->getBoneData());
-		for (auto j = 0u; j < fbh->boneCount; j++)
-		{
-			auto& mtx = bones[j].PoseBindMatrix;
-			for (uint8_t i = 0; i < 4; ++i)
-				mtx(i, 0) = -mtx(i, 0);
-		}
-	}
-	*/
 
 	if ((uint8_t*)boneNames == stack)
 		for (size_t i = 0; i < blob->boneCount; ++i)
