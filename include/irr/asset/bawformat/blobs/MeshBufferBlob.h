@@ -34,7 +34,6 @@ struct IRR_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuff
 	uint32_t primitiveType;
 	uint32_t posAttrId;
 	uint32_t normalAttrId;
-	uint8_t isRightHandedCoordinateSystem;
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
 static_assert(sizeof(MeshBufferBlobV3::mat)==197, "sizeof(MeshBufferBlobV0::mat) must be 197");
@@ -42,7 +41,7 @@ static_assert(
     sizeof(MeshBufferBlobV3) ==
     sizeof(MeshBufferBlobV3::mat) + sizeof(MeshBufferBlobV3::box) + sizeof(MeshBufferBlobV3::descPtr) + sizeof(MeshBufferBlobV3::indexType) + sizeof(MeshBufferBlobV3::baseVertex)
     + sizeof(MeshBufferBlobV3::indexCount) + sizeof(MeshBufferBlobV3::indexBufOffset) + sizeof(MeshBufferBlobV3::instanceCount) + sizeof(MeshBufferBlobV3::baseInstance)
-    + sizeof(MeshBufferBlobV3::primitiveType) + sizeof(MeshBufferBlobV3::posAttrId) + sizeof(MeshBufferBlobV3::normalAttrId) + sizeof(MeshBufferBlobV3::isRightHandedCoordinateSystem),
+    + sizeof(MeshBufferBlobV3::primitiveType) + sizeof(MeshBufferBlobV3::posAttrId) + sizeof(MeshBufferBlobV3::normalAttrId),
     "MeshBufferBlobV0: Size of blob is not sum of its contents!"
 );
 

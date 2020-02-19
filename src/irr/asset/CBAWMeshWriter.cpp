@@ -50,6 +50,9 @@ struct LzmaMemMngmnt
         auto data = MeshBlobV3::createAndTryOnStack(_obj, stackData, sizeof(stackData));
 
         const E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 0u);
+		if (flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED)
+			data->meshFlags |= MeshBlobV3::EBMF_RIGHT_HANDED;
+
         const uint8_t* encrPwd = nullptr;
         _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 0u);
         const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 0u);
@@ -65,6 +68,9 @@ struct LzmaMemMngmnt
         SkinnedMeshBlobV3* data = SkinnedMeshBlobV3::createAndTryOnStack(_obj,stackData,sizeof(stackData));
 
         const E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 0u);
+		if (flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED)
+			data->meshFlags |= SkinnedMeshBlobV3::EBMF_RIGHT_HANDED;
+
         const uint8_t* encrPwd = nullptr;
         _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 0u);
         const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 0u);
@@ -79,9 +85,6 @@ struct LzmaMemMngmnt
         MeshBufferBlobV3 data(_obj);
 
         const E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 1u);
-
-		data.isRightHandedCoordinateSystem = flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED;
-
         const uint8_t* encrPwd = nullptr;
         _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 1u);
         const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 1u);

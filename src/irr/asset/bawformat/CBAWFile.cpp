@@ -36,31 +36,35 @@ size_t SizedBlob<VariableSizeBlob, TexturePathBlobV0, ICPUTexture>::calcBlobSize
 	return _obj->getSourceFilename().size();
 }
 
-MeshBlobV0::MeshBlobV0(const asset::ICPUMesh* _mesh) : box(_mesh->getBoundingBox()), meshBufCnt(_mesh->getMeshBufferCount())
+MeshBlobV3::MeshBlobV3(const asset::ICPUMesh* _mesh) : box(_mesh->getBoundingBox()), meshBufCnt(_mesh->getMeshBufferCount())
 {
 	for (uint32_t i = 0; i < meshBufCnt; ++i)
 		meshBufPtrs[i] = reinterpret_cast<uint64_t>(_mesh->getMeshBuffer(i));
+
+	meshFlags = 0; //default initialization for proper usage of bit operators later on
 }
 
 template<>
-size_t SizedBlob<VariableSizeBlob, MeshBlobV0, asset::ICPUMesh>::calcBlobSizeForObj(const asset::ICPUMesh* _obj)
+size_t SizedBlob<VariableSizeBlob, MeshBlobV3, asset::ICPUMesh>::calcBlobSizeForObj(const asset::ICPUMesh* _obj)
 {
-	return sizeof(MeshBlobV0) + (_obj->getMeshBufferCount()-1) * sizeof(uint64_t);
+	return sizeof(MeshBlobV3) + (_obj->getMeshBufferCount()-1) * sizeof(uint64_t);
 }
 
-SkinnedMeshBlobV0::SkinnedMeshBlobV0(const asset::ICPUSkinnedMesh* _sm)
+SkinnedMeshBlobV3::SkinnedMeshBlobV3(const asset::ICPUSkinnedMesh* _sm)
 	: boneHierarchyPtr(reinterpret_cast<uint64_t>(_sm->getBoneReferenceHierarchy())), box(_sm->getBoundingBox()), meshBufCnt(_sm->getMeshBufferCount())
 {
 	for (uint32_t i = 0; i < meshBufCnt; ++i)
 	{
 		meshBufPtrs[i] = reinterpret_cast<uint64_t>(_sm->getMeshBuffer(i));
 	}
+
+	meshFlags = 0; //default initialization for proper usage of bit operators later on
 }
 
 template<>
-size_t SizedBlob<VariableSizeBlob, SkinnedMeshBlobV0, asset::ICPUSkinnedMesh>::calcBlobSizeForObj(const asset::ICPUSkinnedMesh* _obj)
+size_t SizedBlob<VariableSizeBlob, SkinnedMeshBlobV3, asset::ICPUSkinnedMesh>::calcBlobSizeForObj(const asset::ICPUSkinnedMesh* _obj)
 {
-	return sizeof(SkinnedMeshBlobV0) + (_obj->getMeshBufferCount() - 1) * sizeof(uint64_t);
+	return sizeof(SkinnedMeshBlobV3) + (_obj->getMeshBufferCount() - 1) * sizeof(uint64_t);
 }
 
 MeshBufferBlobV3::MeshBufferBlobV3(const asset::ICPUMeshBuffer* _mb)
@@ -81,8 +85,6 @@ MeshBufferBlobV3::MeshBufferBlobV3(const asset::ICPUMeshBuffer* _mb)
 	primitiveType = _mb->getPrimitiveType();
 	posAttrId = _mb->getPositionAttributeIx();
 	normalAttrId = _mb->getNormalAttributeIx();
-
-	isRightHandedCoordinateSystem = 0; // false
 }
 
 template<>
@@ -112,8 +114,6 @@ SkinnedMeshBufferBlobV3::SkinnedMeshBufferBlobV3(const asset::ICPUSkinnedMeshBuf
 	indexValMin = _smb->getIndexMinBound();
 	indexValMax = _smb->getIndexMaxBound();
 	maxVertexBoneInfluences = _smb->getMaxVertexBoneInfluences();
-
-	isRightHandedCoordinateSystem = 0; // false
 }
 
 template<>

@@ -209,7 +209,12 @@ public:
         if (attrId >= EVAI_COUNT || !mappedAttrBuf)
             return nullptr;
 
-        int64_t ix = baseVertex;
+
+		auto divisor = meshLayout->getAttribDivisor(attrId);
+		assert(divisor < 2u); // fuck OPENGL
+
+		int64_t ix = divisor ? baseInstance:baseVertex;
+
         ix *= meshLayout->getMappedBufferStride(attrId);
         ix += meshLayout->getMappedBufferOffset(attrId);
         if (ix < 0 || static_cast<uint64_t>(ix) >= mappedAttrBuf->getSize())

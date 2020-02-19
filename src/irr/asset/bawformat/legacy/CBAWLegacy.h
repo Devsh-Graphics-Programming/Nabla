@@ -113,6 +113,46 @@ static_assert(
     "FinalBoneHierarchyBlobV0: Size of blob is not sum of its contents!"
 );
 
+class ICPUMesh;
+
+#include "irr/irrpack.h"
+//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
+struct IRR_FORCE_EBO MeshBlobV0 : VariableSizeBlob<MeshBlobV0, asset::ICPUMesh>, TypedBlob<MeshBlobV0, asset::ICPUMesh>
+{
+public:
+	core::aabbox3df box;
+	uint32_t meshBufCnt;
+	uint64_t meshBufPtrs[1];
+} PACK_STRUCT;
+#include "irr/irrunpack.h"
+static_assert(sizeof(core::aabbox3df) == 24, "sizeof(core::aabbox3df) must be 24");
+static_assert(sizeof(MeshBlobV0::meshBufPtrs) == 8, "sizeof(MeshBlobV0::meshBufPtrs) must be 8");
+static_assert(
+	sizeof(MeshBlobV0) ==
+	sizeof(MeshBlobV0::box) + sizeof(MeshBlobV0::meshBufCnt) + sizeof(MeshBlobV0::meshBufPtrs),
+	"MeshBlobV0: Size of blob is not sum of its contents!"
+	);
+
+class ICPUSkinnedMesh;
+
+#include "irr/irrpack.h"
+//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
+struct IRR_FORCE_EBO SkinnedMeshBlobV0 : VariableSizeBlob<SkinnedMeshBlobV0, ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV0, ICPUSkinnedMesh>
+{
+public:
+	uint64_t boneHierarchyPtr;
+	core::aabbox3df box;
+	uint32_t meshBufCnt;
+	uint64_t meshBufPtrs[1];
+} PACK_STRUCT;
+#include "irr/irrunpack.h"
+static_assert(sizeof(SkinnedMeshBlobV0::meshBufPtrs) == 8, "sizeof(SkinnedMeshBlobV0::meshBufPtrs) must be 8");
+static_assert(
+	sizeof(SkinnedMeshBlobV0) ==
+	sizeof(SkinnedMeshBlobV0::boneHierarchyPtr) + sizeof(SkinnedMeshBlobV0::box) + sizeof(SkinnedMeshBlobV0::meshBufCnt) + sizeof(SkinnedMeshBlobV0::meshBufPtrs),
+	"SkinnedMeshBlobV0: Size of blob is not sum of its contents!"
+	);
+
 #include "irr/irrpack.h"
 //! Simple struct of essential data of ICPUMeshBuffer that has to be exported
 struct IRR_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV0, ICPUMeshBuffer>
@@ -176,6 +216,8 @@ namespace legacyv1
 {
 	
 using FinalBoneHierarchyBlobV1 = legacyv0::FinalBoneHierarchyBlobV0;
+using MeshBlobV1 = legacyv0::MeshBlobV0;
+using SkinnedMeshBlobV1 = legacyv0::SkinnedMeshBlobV0;
 using MeshBufferBlobV1 = legacyv0::MeshBufferBlobV0;
 using SkinnedMeshBufferBlobV1 = legacyv0::SkinnedMeshBufferBlobV0;
 
@@ -184,6 +226,8 @@ using SkinnedMeshBufferBlobV1 = legacyv0::SkinnedMeshBufferBlobV0;
 namespace legacyv2
 {
 
+using MeshBlobV2 = legacyv1::MeshBlobV1;
+using SkinnedMeshBlobV2 = legacyv1::SkinnedMeshBlobV1;
 using MeshBufferBlobV2 = legacyv1::MeshBufferBlobV1;
 using SkinnedMeshBufferBlobV2 = legacyv1::SkinnedMeshBufferBlobV1;
 

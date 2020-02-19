@@ -18,7 +18,6 @@ struct IRR_FORCE_EBO SkinnedMeshBufferBlobV3 : TypedBlob<SkinnedMeshBufferBlobV3
 {
 	//! Constructor filling all members
 	explicit SkinnedMeshBufferBlobV3(const ICPUSkinnedMeshBuffer*);
-	explicit SkinnedMeshBufferBlobV3(const legacyv2::SkinnedMeshBufferBlobV2*);
 
 	video::SCPUMaterial mat;
 	core::aabbox3df box;
@@ -35,14 +34,13 @@ struct IRR_FORCE_EBO SkinnedMeshBufferBlobV3 : TypedBlob<SkinnedMeshBufferBlobV3
 	uint32_t indexValMax;
 	uint32_t maxVertexBoneInfluences;
 	uint32_t normalAttrId;
-	uint8_t isRightHandedCoordinateSystem;
 } PACK_STRUCT;
 static_assert(sizeof(SkinnedMeshBufferBlobV3::mat)==197, "sizeof(MeshBufferBlobV0::mat) must be 197");
 static_assert(
     sizeof(SkinnedMeshBufferBlobV3) ==
     sizeof(SkinnedMeshBufferBlobV3::mat) + sizeof(SkinnedMeshBufferBlobV3::box) + sizeof(SkinnedMeshBufferBlobV3::descPtr) + sizeof(SkinnedMeshBufferBlobV3::indexType) + sizeof(SkinnedMeshBufferBlobV3::baseVertex)
     + sizeof(SkinnedMeshBufferBlobV3::indexCount) + sizeof(SkinnedMeshBufferBlobV3::indexBufOffset) + sizeof(SkinnedMeshBufferBlobV3::instanceCount) + sizeof(SkinnedMeshBufferBlobV3::baseInstance)
-    + sizeof(SkinnedMeshBufferBlobV3::primitiveType) + sizeof(SkinnedMeshBufferBlobV3::posAttrId) + sizeof(SkinnedMeshBufferBlobV3::normalAttrId) + sizeof(SkinnedMeshBufferBlobV3::indexValMin) + sizeof(SkinnedMeshBufferBlobV3::indexValMax) + sizeof(SkinnedMeshBufferBlobV3::maxVertexBoneInfluences) + sizeof(SkinnedMeshBufferBlobV3::isRightHandedCoordinateSystem),
+    + sizeof(SkinnedMeshBufferBlobV3::primitiveType) + sizeof(SkinnedMeshBufferBlobV3::posAttrId) + sizeof(SkinnedMeshBufferBlobV3::normalAttrId) + sizeof(SkinnedMeshBufferBlobV3::indexValMin) + sizeof(SkinnedMeshBufferBlobV3::indexValMax) + sizeof(SkinnedMeshBufferBlobV3::maxVertexBoneInfluences),
     "SkinnedMeshBufferBlobV0: Size of blob is not sum of its contents!"
 );
 #include "irr/irrunpack.h"

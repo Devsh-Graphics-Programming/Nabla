@@ -118,7 +118,7 @@ void TypedBlob<TexturePathBlobV3, asset::ICPUTexture>::releaseObj(const void* _o
 template<>
 core::unordered_set<uint64_t> TypedBlob<MeshBlobV3, asset::ICPUMesh>::getNeededDeps(const void* _blob)
 {
-	auto* blob = (MeshBlobV2*)_blob;
+	auto* blob = (MeshBlobV3*)_blob;
 	core::unordered_set<uint64_t> deps;
 	for (uint32_t i = 0; i < blob->meshBufCnt; ++i)
 		if (blob->meshBufPtrs[i])
@@ -149,6 +149,11 @@ void* TypedBlob<MeshBlobV3, asset::ICPUMesh>::finalize(void* _obj, const void* _
 	asset::CCPUMesh* mesh = (asset::CCPUMesh*)_obj;
 	for (uint32_t i = 0; i < blob->meshBufCnt; ++i)
 		mesh->addMeshBuffer(impl::castPtrAndRefcount<asset::ICPUMeshBuffer>(_deps[blob->meshBufPtrs[i]]));
+
+	bool isRightHandedCoordinateSystem = blob->meshFlags & MeshBlobV3::EBMF_RIGHT_HANDED;
+	if (isRightHandedCoordinateSystem != (bool)(_params.params.loaderFlags & IAssetLoader::E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES))
+		_params.meshesToFlip.push(core::smart_refctd_ptr<ICPUMesh>(mesh));
+
 	return _obj;
 }
 
@@ -195,6 +200,10 @@ void* TypedBlob<SkinnedMeshBlobV3, asset::ICPUSkinnedMesh>::finalize(void* _obj,
 	mesh->setBoneReferenceHierarchy(impl::castPtrAndRefcount<CFinalBoneHierarchy>(_deps[blob->boneHierarchyPtr]));
 	for (uint32_t i = 0; i < blob->meshBufCnt; ++i)
 		mesh->addMeshBuffer(impl::castPtrAndRefcount<asset::ICPUSkinnedMeshBuffer>(_deps[blob->meshBufPtrs[i]]));
+
+	bool isRightHandedCoordinateSystem = blob->meshFlags & SkinnedMeshBlobV3::EBMF_RIGHT_HANDED;
+	if (isRightHandedCoordinateSystem != (bool)(_params.params.loaderFlags & IAssetLoader::E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES) && mesh->getMeshType() == asset::EMT_ANIMATED_SKINNED)
+		_params.meshesToFlip.push(core::smart_refctd_ptr<ICPUMesh>(mesh));
 
 	return _obj;
 }
@@ -246,7 +255,7 @@ void* TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::instantiateEmpty(const
 	buf->setBaseInstance(blob->baseInstance);
 	buf->setPrimitiveType((asset::E_PRIMITIVE_TYPE)blob->primitiveType);
 	buf->setPositionAttributeIx((asset::E_VERTEX_ATTRIBUTE_ID)blob->posAttrId);
-	buf->setPositionAttributeIx((asset::E_VERTEX_ATTRIBUTE_ID)blob->normalAttrId);
+	buf->setNormalnAttributeIx((asset::E_VERTEX_ATTRIBUTE_ID)blob->normalAttrId);
 
 	return buf;
 }
@@ -266,9 +275,6 @@ void* TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::finalize(void* _obj, c
 		if (tex)
 			buf->getMaterial().setTexture(i, impl::castPtrAndRefcount<asset::ICPUTexture>(_deps[tex]));
 	}
-
-	if ((bool)blob->isRightHandedCoordinateSystem != (bool)(_params.params.loaderFlags & IAssetLoader::E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES))
-		_params.meshbuffersToFlip.push(core::smart_refctd_ptr<ICPUMeshBuffer>(buf));
 
 	return _obj;
 }
@@ -333,9 +339,6 @@ void* TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::finalize
 		if (tex)
 			buf->getMaterial().setTexture(i, impl::castPtrAndRefcount<asset::ICPUTexture>(_deps[tex]));
 	}
-	
-	if ((bool)blob->isRightHandedCoordinateSystem != (bool)(_params.params.loaderFlags & IAssetLoader::E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES))
-		_params.meshbuffersToFlip.push(core::smart_refctd_ptr<ICPUMeshBuffer>(buf));
 
 	return _obj;
 }

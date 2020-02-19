@@ -18,6 +18,8 @@ namespace irr
 
 			std::vector<uint32_t> newoffsets(blobCnt);
 			int32_t offsetDiff = 0;
+
+			const uint64_t zeroBuffer[] = {0,0,0,0};
 			for (uint32_t i = 0u; i < blobCnt; ++i)
 			{
 				BlobHeaderVn<2>& hdr = headers[i];
@@ -49,15 +51,44 @@ namespace irr
 					}
 				};
 
-				// should I actually do anything with meshes if their flipping is dependent on flag placed somewhere in IAssetLoader/Writer?
-				// so it isn't a member of any of blobs
-
 				const uint32_t absOffset = baseOffsetv3 + newoffset;
 				baw3mem->seek(absOffset);
 
 				const auto prevBlobSz = hdr.effectiveSize();
 				switch (hdr.blobType)
 				{
+					case asset::Blob::EBT_MESH:
+					{
+						constexpr uint32_t MESH_HIERARCHY_LVL = 0u;
+						fetchRawBlob(MESH_HIERARCHY_LVL);
+						if (!blob)
+							break;
+
+						baw3mem->write(blob, offsetof(MeshBlobV3,meshFlags));
+						baw3mem->write(zeroBuffer, sizeof(MeshBlobV3::meshFlags));
+						baw3mem->write(reinterpret_cast<uint8_t*>(blob)+offsetof(MeshBlobV3,meshFlags), hdr.blobSizeDecompr-offsetof(MeshBlobV3,meshFlags));
+
+						const auto sizeTakingAllBuffersIntoAcount = hdr.blobSizeDecompr + sizeof(asset::MeshBlobV3) - sizeof(asset::legacyv2::MeshBlobV2);
+						hdr.blobSizeDecompr = hdr.blobSize = sizeTakingAllBuffersIntoAcount;
+
+						break;
+					}
+					case asset::Blob::EBT_SKINNED_MESH:
+					{
+						constexpr uint32_t SKINNED_MESH_HIERARCHY_LVL = 0u;
+						fetchRawBlob(SKINNED_MESH_HIERARCHY_LVL);
+						if (!blob)
+							break;
+
+						baw3mem->write(blob, offsetof(SkinnedMeshBlobV3, meshFlags));
+						baw3mem->write(zeroBuffer, sizeof(SkinnedMeshBlobV3::meshFlags));
+						baw3mem->write(reinterpret_cast<uint8_t*>(blob) + offsetof(SkinnedMeshBlobV3, meshFlags), hdr.blobSizeDecompr - offsetof(SkinnedMeshBlobV3, meshFlags));
+
+						const auto sizeTakingAllBuffersIntoAcount = hdr.blobSizeDecompr + sizeof(asset::SkinnedMeshBlobV3) - sizeof(asset::legacyv2::SkinnedMeshBlobV2);
+						hdr.blobSizeDecompr = hdr.blobSize = sizeTakingAllBuffersIntoAcount;
+
+						break;
+					}
 					case asset::Blob::EBT_MESH_BUFFER:
 					{
 						constexpr uint32_t MESH_BUFFER_HIERARCHY_LVL = 1u;
@@ -69,8 +100,6 @@ namespace irr
 						baw3mem->write(blob,offsetof(MeshBufferBlobV3,normalAttrId));
 						reinterpret_cast<uint32_t&>(stackmem[0]) = EVAI_ATTR3;
 						baw3mem->write(stackmem,sizeof(uint32_t));
-						stackmem[0] = 0;
-						baw3mem->write(stackmem,sizeof(uint8_t));
 
 						break;
 					}
@@ -85,8 +114,6 @@ namespace irr
 						baw3mem->write(blob,offsetof(SkinnedMeshBufferBlobV3,normalAttrId));
 						reinterpret_cast<uint32_t&>(stackmem[0]) = EVAI_ATTR3;
 						baw3mem->write(stackmem,sizeof(uint32_t));
-						stackmem[0] = 0;
-						baw3mem->write(stackmem,sizeof(uint8_t));
 
 						break;
 					}
@@ -118,25 +145,32 @@ namespace irr
 			{
 				uint32_t sz = headers[i].effectiveSize();
 				void* blob = nullptr;
-
-				bool newBlob = headers[i].blobType == asset::Blob::EBT_MESH_BUFFER || headers[i].blobType == asset::Blob::EBT_SKINNED_MESH_BUFFER;
-				if (newBlob)
-					sz = 0u;
-				else
+				
+				switch (headers[i].blobType)
 				{
-					_baw2file->seek(baseOffsetv2 + offsets[i]);
-					if (sz <= sizeof(stackmem))
-						blob = stackmem;
-					else
-						blob = _IRR_ALIGNED_MALLOC(sz, _IRR_SIMD_ALIGNMENT);
+					case asset::Blob::EBT_MESH:
+					case asset::Blob::EBT_SKINNED_MESH:
+					case asset::Blob::EBT_MESH_BUFFER:
+					case asset::Blob::EBT_SKINNED_MESH_BUFFER:
+						sz = 0u;
+						break;
+					default:
+					{
+						_baw2file->seek(baseOffsetv2 + offsets[i]);
+						if (sz <= sizeof(stackmem))
+							blob = stackmem;
+						else
+							blob = _IRR_ALIGNED_MALLOC(sz, _IRR_SIMD_ALIGNMENT);
 
-					_baw2file->read(blob, sz);
+						_baw2file->read(blob, sz);
+						break;
+					}
 				}
 
 				baw3mem->seek(baseOffsetv3 + newoffsets[i]);
 				baw3mem->write(blob, sz);
 
-				if (newBlob && blob != stackmem)
+				if (blob && blob != stackmem)
 					_IRR_ALIGNED_FREE(blob);
 
 				newFileSz = baseOffsetv3 + newoffsets[i] + sz;

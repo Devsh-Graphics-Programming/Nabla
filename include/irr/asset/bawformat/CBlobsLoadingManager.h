@@ -38,7 +38,7 @@ namespace asset
 		const io::path filePath;
         const asset::IAssetLoader::SAssetLoadParams params;
         asset::IAssetLoader::IAssetLoaderOverride* const loaderOverride;
-		core::stack<core::smart_refctd_ptr<ICPUMeshBuffer>> meshbuffersToFlip;
+		core::stack<core::smart_refctd_ptr<ICPUMesh>> meshesToFlip;
 	};
 
 	//! Class abstracting blobs version from process of loading them from *.baw file.
