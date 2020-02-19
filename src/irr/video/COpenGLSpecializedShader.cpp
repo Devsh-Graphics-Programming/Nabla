@@ -2,7 +2,7 @@
 #include "COpenGLDriver.h"
 #include "irr/asset/spvUtils.h"
 #include <algorithm>
-
+#include "spirv_cross/spirv_parser.hpp"
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
@@ -269,9 +269,19 @@ void COpenGLSpecializedShader::setUniformsImitatingPushConstants(const uint8_t* 
     }
 }
 
-auto COpenGLSpecializedShader::compile(const COpenGLPipelineLayout* _layout) const -> std::pair<GLuint, SProgramBinary>
+auto COpenGLSpecializedShader::compile(const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv) const -> std::pair<GLuint, SProgramBinary>
 {
-	spirv_cross::CompilerGLSL comp(reinterpret_cast<const uint32_t*>(m_spirv->getPointer()), m_spirv->getSize()/4ull);
+	spirv_cross::ParsedIR parsed;
+	if (_parsedSpirv)
+		parsed = _parsedSpirv[0];
+	else
+	{
+		spirv_cross::Parser parser(reinterpret_cast<const uint32_t*>(m_spirv->getPointer()), m_spirv->getSize()/4ull);
+		parser.parse();
+		parsed = std::move(parser.get_parsed_ir());
+	}
+	spirv_cross::CompilerGLSL comp(std::move(parsed));
+
 	comp.set_entry_point(m_specInfo.entryPoint, asset::ESS2spvExecModel(m_specInfo.shaderStage));
 	comp.set_common_options(m_options);
 

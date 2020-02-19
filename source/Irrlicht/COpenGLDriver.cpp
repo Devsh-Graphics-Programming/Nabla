@@ -1305,13 +1305,15 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
 
             continue;
         }
-        std::tie(GLnames[ix], bin) = glshdr->compile(layout);
+        std::tie(GLnames[ix], bin) = glshdr->compile(layout, cache ? cache->findParsedSpirv(key.hash):nullptr);
         binaries[ix] = bin;
 
         if (cache)
         {
+            cache->insertParsedSpirv(key.hash, glshdr->getSpirv());
+
             COpenGLPipelineCache::SCacheVal val{std::move(bin), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(_layout)};
-            cache->insert(std::move(key), std::move(val), glshdr->getSpirv());
+            cache->insert(std::move(key), std::move(val));
         }
     }
 
@@ -1351,13 +1353,15 @@ core::smart_refctd_ptr<IGPUComputePipeline> COpenGLDriver::createGPUComputePipel
     }
     else
     {
-        std::tie(GLname, bin) = glshdr->compile(layout);
+        std::tie(GLname, bin) = glshdr->compile(layout, cache ? cache->findParsedSpirv(key.hash):nullptr);
         binary = bin;
 
         if (cache)
         {
+            cache->insertParsedSpirv(key.hash, glshdr->getSpirv());
+
             COpenGLPipelineCache::SCacheVal val{std::move(bin), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(_layout)};
-            cache->insert(std::move(key), std::move(val), glshdr->getSpirv());
+            cache->insert(std::move(key), std::move(val));
         }
     }
 

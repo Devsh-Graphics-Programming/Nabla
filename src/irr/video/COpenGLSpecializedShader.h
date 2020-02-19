@@ -39,7 +39,7 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 
 		inline GLenum getOpenGLStage() const { return m_GLstage; }
 
-		std::pair<GLuint, SProgramBinary> compile(const COpenGLPipelineLayout* _layout) const;
+		std::pair<GLuint, SProgramBinary> compile(const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv) const;
 
 		const SInfo& getSpecializationInfo() const { return m_specInfo; }
 		const std::array<uint64_t, 4>& getSpirvHash() const { return m_spirvHash; }

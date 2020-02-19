@@ -33,12 +33,19 @@ public:
 
 	void merge(uint32_t _count, const IGPUPipelineCache** _srcCaches) override
 	{
-		const std::lock_guard<std::mutex> _(m_mutex);
+		const std::lock_guard<std::mutex> _1_(m_bin_cache_mutex);
+		const std::lock_guard<std::mutex> _2_(m_parsed_cache_mutex);
 
 		for (uint32_t i = 0u; i < _count; ++i)
 		{
-			const auto& src = static_cast<const COpenGLPipelineCache*>(_srcCaches[i])->m_cache;
-			m_cache.insert(src.begin(), src.end());
+			{
+				const auto& src = static_cast<const COpenGLPipelineCache*>(_srcCaches[i])->m_cache;
+				m_cache.insert(src.begin(), src.end());
+			}
+			{
+				const auto& src = static_cast<const COpenGLPipelineCache*>(_srcCaches[i])->m_parsedSpirvs;
+				m_parsedSpirvs.insert(src.begin(), src.end());
+			}
 		}
 	}
 
@@ -46,7 +53,7 @@ public:
 
 	COpenGLSpecializedShader::SProgramBinary find(const SCacheKey& _key, const COpenGLPipelineLayout* _layout) const
 	{
-		const std::lock_guard<std::mutex> _(m_mutex);
+		const std::lock_guard<std::mutex> _(m_bin_cache_mutex);
 
 		auto rng = m_cache.equal_range(_key);
 		for (auto it = rng.first; it != rng.second; ++it)
@@ -54,31 +61,47 @@ public:
 				return it->second.binary;
 		return {0,nullptr};
 	}
-	//assumes that m_cache does not already contain an item with key==_key and layout fully compatible with _val.layout
-	void insert(SCacheKey&& _key, SCacheVal&& _val, const asset::ICPUBuffer* _spirv)
+	const spirv_cross::ParsedIR* findParsedSpirv(const std::array<uint64_t, 4>& _key)
 	{
-		const std::lock_guard<std::mutex> _(m_mutex);
-		/*
-		auto it = m_parsedSpirvs.find(_key.hash);
-		if (it == m_parsedSpirvs.end())
-		{
-			spirv_cross::Parser parser(reinterpret_cast<const uint32_t*>(_spirv->getPointer()), _spirv->getSize()/4ull);
-			auto parsed = parser.get_parsed_ir();
+		const std::lock_guard<std::mutex> _(m_parsed_cache_mutex);
 
-			m_parsedSpirvs.insert(it, {_key.hash,std::move(parsed)});
-		}
-		*/
+		auto found = m_parsedSpirvs.find(_key);
+		if (found!=m_parsedSpirvs.end())
+			return &found->second;
+
+		return nullptr;
+	}
+
+	//assumes that m_cache does not already contain an item with key==_key and layout fully compatible with _val.layout
+	void insert(SCacheKey&& _key, SCacheVal&& _val)
+	{
+		const std::lock_guard<std::mutex> _(m_bin_cache_mutex);
 #ifdef _IRR_DEBUG
 		assert(!find(_key, _val.layout.get()).binary);
 #endif
 
 		m_cache.insert({std::move(_key),std::move(_val)});
 	}
+	void insertParsedSpirv(const std::array<uint64_t, 4>& _key, const asset::ICPUBuffer* _spirv)
+	{
+		const std::lock_guard<std::mutex> _(m_parsed_cache_mutex);
+
+		auto found = m_parsedSpirvs.find(_key);
+		if (found==m_parsedSpirvs.end())
+		{
+			spirv_cross::Parser parser(reinterpret_cast<const uint32_t*>(_spirv->getPointer()), _spirv->getSize()/4ull);
+			parser.parse();
+			spirv_cross::ParsedIR& parsed = parser.get_parsed_ir();
+
+			m_parsedSpirvs.insert({_key, std::move(parsed)});
+		}
+	}
 
 private:
 	core::multimap<SCacheKey, SCacheVal> m_cache;
-	mutable std::mutex m_mutex;
-	//core::map<std::array<uint64_t, 4>, spirv_cross::ParsedIR> m_parsedSpirvs;
+	mutable std::mutex m_bin_cache_mutex;
+	core::map<std::array<uint64_t, 4>, spirv_cross::ParsedIR> m_parsedSpirvs;
+	mutable std::mutex m_parsed_cache_mutex;
 };
 
 }}

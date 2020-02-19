@@ -23,7 +23,7 @@ core::smart_refctd_ptr<asset::ICPUPipelineCache> COpenGLPipelineCache::convertTo
 		uuid += exts;
 	}
 
-	const std::lock_guard<std::mutex> _(m_mutex);
+	const std::lock_guard<std::mutex> _(m_bin_cache_mutex);
 
 	for (const auto& in_entry : m_cache)
 	{
