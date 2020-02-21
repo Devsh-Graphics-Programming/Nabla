@@ -20,21 +20,22 @@ cmake_minimum_required(VERSION 3.14)
 
 project(Irrlicht LANGUAGES CXX C)
 
+option(IRR_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
+
 # CUDA test
 include(CheckLanguage)
 check_language(CUDA)
-#enable_language(CUDA)
-#if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_LESS 9.0)
-#	message(STATUS "CUDA not found or version lower than 9.0 found, version 9.0+ needed for C++14 support.")
-#else()
-#	message(STATUS "CUDA version 9.0+ found, you can enable the IRR_COMPILE_WITH_CUDA option.")
-#endif()
-
-#option(IRR_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
-#if (IRR_COMPILE_WITH_CUDA)
-#	enable_language(CUDA)
-#endif()
-
+if(CMAKE_CUDA_COMPILER OR "${CMAKE_CUDA_COMPILER_VERSION}" VERSION_LESS 9.0)
+	if (IRR_COMPILE_WITH_CUDA)
+		message(WARNING "CUDA not found or version lower than 9.0 found, version 9.0+ needed for C++14 support.")
+	endif()
+else()
+	if (IRR_COMPILE_WITH_CUDA)
+		enable_language(CUDA)
+	else()
+		message(STATUS "CUDA version 9.0+ found, you can enable the IRR_COMPILE_WITH_CUDA option.")
+	endif()
+endif()
 
 #
 get_filename_component(IRR_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
