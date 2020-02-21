@@ -117,9 +117,16 @@ float maxAbs3(in vec3 val)
 	return max(max(v.x,v.y),v.z);
 }
 
+float GET_MAGNITUDE(in float val)
+{
+	float x = abs(val);
+	return uintBitsToFloat(floatBitsToUint(x)&2139095040u);
+}
+
 float ULP1(in float val, in uint accuracy)
 {
-	return uintBitsToFloat(floatBitsToUint(abs(val)) + accuracy)-val;
+	float x = abs(val);
+	return uintBitsToFloat(floatBitsToUint(x) + accuracy)-x;
 }
 float ULP2(in vec2 val, in uint accuracy)
 {
@@ -326,7 +333,7 @@ void main()
 		for (uint i=0u; i<uSamples_ImageWidthSamples.x; i++)
 		{
 			vec4 bsdf = vec4(0.0,0.0,0.0,-1.0);
-			float error = ULP1(uDepthLinearizationConstant,8u);
+			float error = GET_MAGNITUDE(1.0-revdepth)*0.1;
 
 			newray.maxT = FLT_MAX;
 			if (alive)
@@ -1097,7 +1104,7 @@ void Renderer::render()
 	m_smgr->drawAll();
 
 	auto currentViewProj = camera->getConcatenatedMatrix();
-	if (!core::equals(prevViewProj,currentViewProj,core::ROUNDING_ERROR<core::matrix4SIMD>()*100.0))
+	if (!core::equals(prevViewProj,currentViewProj,core::ROUNDING_ERROR<core::matrix4SIMD>()*1000.0))
 	{
 		m_samplesComputed = 0u;
 		m_framesDone = 0u;
