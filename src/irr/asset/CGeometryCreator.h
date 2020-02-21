@@ -78,6 +78,9 @@ class CGeometryCreator : public IGeometryCreator
 		} PACK_STRUCT;
 	#include "irr/irrunpack.h"
 
+
+		using SphereVertex = CylinderVertex;
+
 	public:
 		return_type createCubeMesh(const core::vector3df& size) const override;
 

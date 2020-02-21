@@ -10,6 +10,28 @@
 using namespace irr;
 using namespace core;
 
+#include "irr/irrpack.h"
+struct GPUObject
+{
+	core::smart_refctd_ptr<video::IGPUMeshBuffer> meshbuffer;
+	core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> pipeline;
+}; PACK_STRUCT;
+
+struct Objects
+{
+	enum E_OBJECT_INDEX
+	{
+		E_CUBE,
+		E_SPHERE,
+		E_COUNT
+	};
+
+	Objects(std::initializer_list<std::pair<asset::IGeometryCreator::return_type, GPUObject>> _objects) : objects(_objects) {}
+
+	const std::vector<std::pair<asset::IGeometryCreator::return_type, GPUObject>> objects;
+};
+#include "irr/irrunpack.h"
+
 const char* vertexSource = R"===(
 #version 430 core
 layout(location = 0) in vec4 vPos; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
@@ -77,20 +99,19 @@ int main()
 	//! we want to move around the scene and view it from different angles
 	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.001f);
 
-	camera->setPosition(core::vector3df(-4,0,0));
+	camera->setPosition(core::vector3df(0,-5,0));
 	camera->setTarget(core::vector3df(0,0,0));
 	camera->setNearValue(0.01f);
-	camera->setFarValue(10.0f);
+	camera->setFarValue(100.0f);
 
     smgr->setActiveCamera(camera);
 
 	auto geometryCreator = device->getAssetManager()->getGeometryCreator();
-	auto cubeGeom = geometryCreator->createCubeMesh(vector3df(2,2,2));
-	auto inputParams = cubeGeom.inputParams;
-	auto assemblyParams = cubeGeom.assemblyParams;
-	auto vertices = cubeGeom.bindings[0];
-	auto indices = cubeGeom.indexBuffer;
-
+	auto cubeGeometry = geometryCreator->createCubeMesh(vector3df(2,2,2));
+	auto sphereGeometry = geometryCreator->createSphereMesh(2, 16, 16);
+	auto cylinderGeometry = geometryCreator->createCylinderMesh(2, 2, 20);
+	auto rectangleGeometry = geometryCreator->createRectangleMesh(irr::core::vector2df_SIMD(1.5, 3));
+	auto diskGeometry = geometryCreator->createDiskMesh(2, 30);
 
 	auto createGPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage)
 	{
@@ -112,46 +133,74 @@ int main()
 	};
 	auto shadersPtr = reinterpret_cast<video::IGPUSpecializedShader * *>(shaders);
 
-	asset::SBlendParams blendParams; // defaults are same
-	asset::SRasterizationParams rasterParams;
+	auto createGPUMeshBufferAndItsPipeline = [&](asset::IGeometryCreator::return_type& geometryObject) -> GPUObject
+	{
 
-	asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
-	auto pipeline = driver->createGPURenderpassIndependentPipeline(nullptr, driver->createGPUPipelineLayout(range, range + 1u, nullptr, nullptr, nullptr, nullptr),
-		shadersPtr, shadersPtr + sizeof(shaders) / sizeof(core::smart_refctd_ptr<video::IGPUSpecializedShader>),
-		inputParams, blendParams, assemblyParams, rasterParams);
+		asset::SBlendParams blendParams; 
+		asset::SRasterizationParams rasterParams;
 
-	constexpr auto MAX_ATTR_BUF_BINDING_COUNT = video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
-	constexpr auto MAX_DATA_BUFFERS = MAX_ATTR_BUF_BINDING_COUNT+1;
-	asset::ICPUBuffer* cpubuffers[MAX_DATA_BUFFERS];
-	for (auto i=0; i<MAX_ATTR_BUF_BINDING_COUNT; i++)
-		cpubuffers[i] = cubeGeom.bindings[i].buffer.get();
-	cpubuffers[MAX_ATTR_BUF_BINDING_COUNT] = cubeGeom.indexBuffer.buffer.get();
+		asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
+		auto pipeline = driver->createGPURenderpassIndependentPipeline(nullptr, driver->createGPUPipelineLayout(range, range + 1u, nullptr, nullptr, nullptr, nullptr),
+			shadersPtr, shadersPtr + sizeof(shaders) / sizeof(core::smart_refctd_ptr<video::IGPUSpecializedShader>),
+			geometryObject.inputParams, blendParams, geometryObject.assemblyParams, rasterParams);
+
+		constexpr auto MAX_ATTR_BUF_BINDING_COUNT = video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
+		constexpr auto MAX_DATA_BUFFERS = MAX_ATTR_BUF_BINDING_COUNT + 1;
+		core::vector<asset::ICPUBuffer*> cpubuffers;
+		cpubuffers.reserve(MAX_DATA_BUFFERS);
+		for (auto i = 0; i < MAX_ATTR_BUF_BINDING_COUNT; i++)
+		{
+			auto buf = geometryObject.bindings[i].buffer.get();
+			if (buf)
+				cpubuffers.push_back(buf);
+		}
+		auto cpuindexbuffer = geometryObject.indexBuffer.buffer.get();
+		if (cpuindexbuffer)
+			cpubuffers.push_back(cpuindexbuffer);
+
+		auto gpubuffers = driver->getGPUObjectsFromAssets(cpubuffers.data(), cpubuffers.data()+cpubuffers.size());
+
+		asset::SBufferBinding<video::IGPUBuffer> bindings[MAX_DATA_BUFFERS];
+		for (auto i=0,j=0; i < MAX_ATTR_BUF_BINDING_COUNT; i++)
+		{
+			if (!geometryObject.bindings[i].buffer)
+				continue;
+			auto buffPair = gpubuffers->operator[](j++);
+			bindings[i].offset = buffPair->getOffset();
+			bindings[i].buffer = core::smart_refctd_ptr<video::IGPUBuffer>(buffPair->getBuffer());
+		}
+		if (cpuindexbuffer)
+		{
+			auto buffPair = gpubuffers->back();
+			bindings[MAX_ATTR_BUF_BINDING_COUNT].offset = buffPair->getOffset();
+			bindings[MAX_ATTR_BUF_BINDING_COUNT].buffer = core::smart_refctd_ptr<video::IGPUBuffer>(buffPair->getBuffer());
+		}
+
+		auto mb = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(core::smart_refctd_ptr(pipeline), nullptr, bindings, std::move(bindings[MAX_ATTR_BUF_BINDING_COUNT]));
+		{
+			mb->setIndexType(geometryObject.indexType);
+			mb->setIndexCount(geometryObject.indexCount);
+			mb->setBoundingBox(geometryObject.bbox);
+		}
+
+		return { mb, pipeline };
+	};
+
+	auto gpuCube = createGPUMeshBufferAndItsPipeline(cubeGeometry);
+	auto gpuSphere = createGPUMeshBufferAndItsPipeline(sphereGeometry);
+	auto gpuCylinder = createGPUMeshBufferAndItsPipeline(cylinderGeometry);
+	auto gpuRectangle = createGPUMeshBufferAndItsPipeline(rectangleGeometry);
+	auto gpuDisk = createGPUMeshBufferAndItsPipeline(diskGeometry);
+
+	Objects cpuGpuObjects =
+	{
+		std::make_pair(cubeGeometry, gpuCube),
+		std::make_pair(sphereGeometry, gpuSphere),
+		std::make_pair(cylinderGeometry, gpuCylinder),
+		std::make_pair(rectangleGeometry, gpuRectangle),
+		std::make_pair(diskGeometry, gpuDisk)
+	};
 	
-	auto gpubuffers = driver->getGPUObjectsFromAssets(cpubuffers,cpubuffers+MAX_DATA_BUFFERS);
-
-	asset::SBufferBinding<video::IGPUBuffer> bindings[MAX_DATA_BUFFERS];
-	for (auto i = 0; i < MAX_ATTR_BUF_BINDING_COUNT; i++)
-	{
-		auto buffPair = gpubuffers->operator[](i);
-		if (!buffPair)
-			continue;
-		bindings[i].offset = buffPair->getOffset();
-		bindings[i].buffer = core::smart_refctd_ptr<video::IGPUBuffer>(buffPair->getBuffer());
-	}
-	auto buffPair = gpubuffers->operator[](MAX_ATTR_BUF_BINDING_COUNT);
-	if (buffPair)
-	{
-		bindings[MAX_ATTR_BUF_BINDING_COUNT].offset = buffPair->getOffset();
-		bindings[MAX_ATTR_BUF_BINDING_COUNT].buffer = core::smart_refctd_ptr<video::IGPUBuffer>(buffPair->getBuffer());
-	}
-
-	auto mb = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(core::smart_refctd_ptr(pipeline), nullptr, bindings, std::move(bindings[MAX_ATTR_BUF_BINDING_COUNT]));
-	{
-		mb->setIndexType(cubeGeom.indexType);
-		mb->setIndexCount(cubeGeom.indexCount);
-		mb->setBoundingBox(cubeGeom.bbox);
-	}
-
 	uint64_t lastFPSTime = 0;
 	while(device->run() && receiver.keepOpen())
 	{
@@ -160,11 +209,24 @@ int main()
         //! This animates (moves) the camera and sets the transforms
 		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
 		camera->render();
-		core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
 
-		driver->bindGraphicsPipeline(pipeline.get());
-		driver->pushConstants(pipeline->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), mvp.pointer());
-		driver->drawMeshBuffer(mb.get());
+		// draw available objects placed in the vector
+		const auto viewProjection = camera->getConcatenatedMatrix();
+		//for (auto index = 0u; index < cpuGpuObjects.objects.size(); ++index)
+		auto index = 2;
+		{
+			const auto iterator = cpuGpuObjects.objects[index];
+			auto geometryObject = iterator.first;
+			auto gpuObject = iterator.second;
+			
+			core::matrix3x4SIMD modelMatrix;
+			modelMatrix.setTranslation(irr::core::vectorSIMDf(index * 5, 0, 0, 0));
+
+			core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProjection, modelMatrix);
+			driver->bindGraphicsPipeline(gpuObject.pipeline.get());
+			driver->pushConstants(gpuObject.pipeline->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), mvp.pointer());
+			driver->drawMeshBuffer(gpuObject.meshbuffer.get());
+		}
 
 		driver->endScene();
 
