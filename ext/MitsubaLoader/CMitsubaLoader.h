@@ -50,10 +50,10 @@ class CMitsubaLoader : public asset::IAssetLoader
 			using shape_ass_type = core::smart_refctd_ptr<asset::ICPUMesh>;
 			core::map<const CElementShape*, shape_ass_type> shapeCache;
 			//! TODO: change to CPU graphics pipeline
-			using bsdf_ass_type = video::SCPUMaterial; // = core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>;
+			using bsdf_ass_type = core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>;
 			core::map<const CElementBSDF*, bsdf_ass_type> pipelineCache;
 			//! TODO: even later when texture changes come, might have to return not only a combined sampler but some GLSL sampling code due to the "scale" and offset XML nodes
-			using tex_ass_type = video::SMaterialLayer<asset::ICPUTexture>; // = std::pair<core::smart_refctd_ptr<asset::ICPUTextureView>,core::smart_refctd_ptr<asset::ICPUSampler> >;
+			using tex_ass_type = std::pair<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler> >;
 			core::unordered_map<const CElementTexture*, tex_ass_type> textureCache;
 		};
 

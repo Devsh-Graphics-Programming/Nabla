@@ -252,6 +252,10 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 	switch (shape->type)
 	{
 		case CElementShape::Type::CUBE:
+			auto cubeData = ctx.creator->createCubeMesh(core::vector3df(2.f));
+
+
+
 			mesh = ctx.creator->createCubeMesh(core::vector3df(2.f));
 			flipNormals = flipNormals!=shape->cube.flipNormals;
 			break;
@@ -430,14 +434,14 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 CMitsubaLoader::SContext::bsdf_ass_type CMitsubaLoader::getBSDF(SContext& ctx, uint32_t hierarchyLevel, const CElementBSDF* bsdf)
 {
 	if (!bsdf)
-		return video::SCPUMaterial(); 
+		return nullptr; 
 
 	auto found = ctx.pipelineCache.find(bsdf);
 	if (found != ctx.pipelineCache.end())
 		return found->second;
 
 	// shader construction would take place here in the new pipeline
-	video::SCPUMaterial pipeline;
+	SContext::bsdf_ass_type pipeline;
 	NastyTemporaryBitfield nasty = { 0u };
 	auto getColor = [](const SPropertyElementData& data) -> core::vectorSIMDf
 	{
