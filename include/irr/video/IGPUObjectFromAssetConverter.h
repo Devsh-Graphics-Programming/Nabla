@@ -81,8 +81,8 @@ class IGPUObjectFromAssetConverter
 			{
 				const auto index = std::distance(_begin, it);
 
-				if (*it)
-				{
+				//if (*it)
+				//{
 					auto gpu = m_assetManager->findGPUObject(get_asset_raw_ptr<AssetType, iterator_type>::value(it));
 					if (!gpu)
 					{
@@ -94,8 +94,8 @@ class IGPUObjectFromAssetConverter
 					}
 					else
 						res->operator[](index) = core::move_and_dynamic_cast<typename video::asset_traits<AssetType>::GPUObjectType>(gpu);
-				}
-				res->operator[](index) = nullptr;
+				//}
+				//res->operator[](index) = nullptr;
 			}
 
 			if (notFound.size())
