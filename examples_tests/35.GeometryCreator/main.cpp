@@ -138,6 +138,7 @@ int main()
 
 		asset::SBlendParams blendParams; 
 		asset::SRasterizationParams rasterParams;
+		rasterParams.faceCullingMode = asset::EFCM_NONE;
 
 		asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
 		auto pipeline = driver->createGPURenderpassIndependentPipeline(nullptr, driver->createGPUPipelineLayout(range, range + 1u, nullptr, nullptr, nullptr, nullptr),
@@ -212,8 +213,8 @@ int main()
 
 		// draw available objects placed in the vector
 		const auto viewProjection = camera->getConcatenatedMatrix();
-		//for (auto index = 0u; index < cpuGpuObjects.objects.size(); ++index)
-		auto index = 2;
+		for (auto index = 0u; index < cpuGpuObjects.objects.size(); ++index)
+		//auto index = 2;
 		{
 			const auto iterator = cpuGpuObjects.objects[index];
 			auto geometryObject = iterator.first;
