@@ -77,21 +77,25 @@ class IGPUObjectFromAssetConverter
 			core::vector<AssetType*> notFound; notFound.reserve(assetCount);
 			core::vector<size_t> pos; pos.reserve(assetCount);
 
-			for (iterator_type it=_begin; it!=_end; it++)
+			for (iterator_type it = _begin; it != _end; it++)
 			{
-				const auto index = std::distance(_begin,it);
+				const auto index = std::distance(_begin, it);
 
-				auto gpu = m_assetManager->findGPUObject(get_asset_raw_ptr<AssetType, iterator_type>::value(it));
-				if (!gpu)
-				{
-					if ((*it)->isADummyObjectForCache())
-						notFound.push_back(nullptr);
+				//if (*it)
+				//{
+					auto gpu = m_assetManager->findGPUObject(get_asset_raw_ptr<AssetType, iterator_type>::value(it));
+					if (!gpu)
+					{
+						if ((*it)->isADummyObjectForCache())
+							notFound.push_back(nullptr);
+						else
+							notFound.push_back(get_asset_raw_ptr<AssetType, iterator_type>::value(it));
+						pos.push_back(index);
+					}
 					else
-						notFound.push_back(get_asset_raw_ptr<AssetType,iterator_type>::value(it));
-					pos.push_back(index);
-				}
-				else
-					res->operator[](index) = core::move_and_dynamic_cast<typename video::asset_traits<AssetType>::GPUObjectType>(gpu);
+						res->operator[](index) = core::move_and_dynamic_cast<typename video::asset_traits<AssetType>::GPUObjectType>(gpu);
+				//}
+				//res->operator[](index) = nullptr;
 			}
 
 			if (notFound.size())

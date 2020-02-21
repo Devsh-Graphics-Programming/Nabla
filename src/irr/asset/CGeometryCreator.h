@@ -16,7 +16,7 @@ namespace asset
 //! class for creating geometry on the fly
 class CGeometryCreator : public IGeometryCreator
 {
-	private:
+	public:
 	#include "irr/irrpack.h"
 		struct CubeVertex
 		{
@@ -33,6 +33,7 @@ class CGeometryCreator : public IGeometryCreator
 			void setUv(uint8_t u, uint8_t v) { uv[0] = u; uv[1] = v; }
 		} PACK_STRUCT;
 
+		private:
 		struct RectangleVertex
 		{
 			RectangleVertex(const core::vector3df_SIMD& _pos, const video::SColor& _color, const core::vector2du32_SIMD _uv, const core::vector3df_SIMD _normal)
@@ -76,6 +77,9 @@ class CGeometryCreator : public IGeometryCreator
 			uint32_t normal;
 		} PACK_STRUCT;
 	#include "irr/irrunpack.h"
+
+
+		using SphereVertex = CylinderVertex;
 
 	public:
 		return_type createCubeMesh(const core::vector3df& size) const override;
