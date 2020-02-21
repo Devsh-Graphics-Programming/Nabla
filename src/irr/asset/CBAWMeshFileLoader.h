@@ -88,12 +88,6 @@ private:
 		unsigned char iv[16];
 	};
 
-    template<typename aType>
-    static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
-    {
-        performOnCertainOrientation(varToHandle);
-    }
-
 protected:
 	//! Destructor
 	virtual ~CBAWMeshFileLoader();

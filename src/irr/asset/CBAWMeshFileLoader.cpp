@@ -205,6 +205,9 @@ SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 		auto mesh = params.meshesToFlip.top();
 		params.meshesToFlip.pop();
 
+		if (mesh->getReferenceCount() < 2)
+			continue;
+
 		auto bbox = mesh->getBoundingBox();
 		bbox.MinEdge.X *= -1.f;
 		bbox.MaxEdge.X *= -1.f;
