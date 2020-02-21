@@ -208,6 +208,28 @@ PFNGLSAMPLERPARAMETERFVPROC COpenGLExtensionHandler::pGlSamplerParameterfv = nul
 PFNGLBINDIMAGETEXTUREPROC COpenGLExtensionHandler::pGlBindImageTexture = nullptr;
 PFNGLBINDIMAGETEXTURESPROC COpenGLExtensionHandler::pGlBindImageTextures = nullptr;
 
+//bindless textures
+//ARB
+PFNGLGETTEXTUREHANDLEARBPROC COpenGLExtensionHandler::pGlGetTextureHandleARB = nullptr;
+PFNGLGETTEXTURESAMPLERHANDLEARBPROC COpenGLExtensionHandler::pGlGetTextureSamplerHandleARB = nullptr;
+PFNGLMAKETEXTUREHANDLERESIDENTARBPROC COpenGLExtensionHandler::pGlMakeTextureHandleResidentARB = nullptr;
+PFNGLMAKETEXTUREHANDLENONRESIDENTARBPROC COpenGLExtensionHandler::pGlMakeTextureHandleNonResidentARB = nullptr;
+PFNGLGETIMAGEHANDLEARBPROC COpenGLExtensionHandler::pGlGetImageHandleARB = nullptr;
+PFNGLMAKEIMAGEHANDLERESIDENTARBPROC COpenGLExtensionHandler::pGlMakeImageHandleResidentARB = nullptr;
+PFNGLMAKEIMAGEHANDLENONRESIDENTARBPROC COpenGLExtensionHandler::pGlMakeImageHandleNonResidentARB = nullptr;
+PFNGLISTEXTUREHANDLERESIDENTARBPROC COpenGLExtensionHandler::pGlIsTextureHandleResidentARB = nullptr;
+PFNGLISIMAGEHANDLERESIDENTARBPROC COpenGLExtensionHandler::pGlIsImageHandleResidentARB = nullptr;
+//NV
+PFNGLGETTEXTUREHANDLENVPROC COpenGLExtensionHandler::pGlGetTextureHandleNV = nullptr;
+PFNGLGETTEXTURESAMPLERHANDLENVPROC COpenGLExtensionHandler::pGlGetTextureSamplerHandleNV = nullptr;
+PFNGLMAKETEXTUREHANDLERESIDENTNVPROC COpenGLExtensionHandler::pGlMakeTextureHandleResidentNV = nullptr;
+PFNGLMAKETEXTUREHANDLENONRESIDENTNVPROC COpenGLExtensionHandler::pGlMakeTextureHandleNonResidentNV = nullptr;
+PFNGLGETIMAGEHANDLENVPROC COpenGLExtensionHandler::pGlGetImageHandleNV = nullptr;
+PFNGLMAKEIMAGEHANDLERESIDENTNVPROC COpenGLExtensionHandler::pGlMakeImageHandleResidentNV = nullptr;
+PFNGLMAKEIMAGEHANDLENONRESIDENTNVPROC COpenGLExtensionHandler::pGlMakeImageHandleNonResidentNV = nullptr;
+PFNGLISTEXTUREHANDLERESIDENTNVPROC COpenGLExtensionHandler::pGlIsTextureHandleResidentNV = nullptr;
+PFNGLISIMAGEHANDLERESIDENTNVPROC COpenGLExtensionHandler::pGlIsImageHandleResidentNV = nullptr;
+
         //stuff
 PFNGLBINDBUFFERBASEPROC COpenGLExtensionHandler::pGlBindBufferBase = nullptr;
 PFNGLBINDBUFFERRANGEPROC COpenGLExtensionHandler::pGlBindBufferRange = nullptr;
