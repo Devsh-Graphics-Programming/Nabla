@@ -229,6 +229,11 @@ macro(irr_target_link_zlib _trgt)
 	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/zlib)
 endmacro()
+#Parallel hashmap
+macro(irr_target_include_parallel_hashmap _trgt)
+	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/parallel-hashmap/parallel_hashmap)
+endmacro()
+
 macro(irr_target_link_openssl _trgt)
 	if(WIN32)
 		target_link_libraries(${_trgt} INTERFACE
@@ -287,6 +292,7 @@ irr_target_link_openssl(Irrlicht)
 irr_target_link_shaderc(Irrlicht)
 irr_target_link_libjpeg(Irrlicht)
 irr_target_link_libpng(Irrlicht)
+irr_target_include_parallel_hashmap(Irrlicht)
 
 target_link_libraries(Irrlicht INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
@@ -365,6 +371,7 @@ irr_target_link_openssl(IrrlichtServer)
 irr_target_link_shaderc(IrrlichtServer)
 irr_target_link_libjpeg(IrrlichtServer)
 irr_target_link_libpng(IrrlichtServer)
+irr_target_include_parallel_hashmap(IrrlichtServer)
 
 target_include_directories(IrrlichtServer PUBLIC 
 	${IRR_ROOT_PATH}/include

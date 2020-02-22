@@ -71,6 +71,10 @@
 #   define NO_IRR_LINUX_X11_RANDR_
 #endif
 
+#ifdef _MSC_VER
+#	define _ENABLE_EXTENDED_ALIGNED_STORAGE
+#endif
+
 //! VidMode is ANCIENT
 //#define NO_IRR_LINUX_X11_VIDMODE_
 

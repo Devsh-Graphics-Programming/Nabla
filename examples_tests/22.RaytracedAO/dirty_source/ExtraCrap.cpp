@@ -460,20 +460,23 @@ inline GLuint createComputeShader(const std::string& source)
 
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
+		Renderer* renderer;
 		video::E_MATERIAL_TYPE currentMat;
 
 		int32_t mvpUniformLocation[video::EMT_COUNT+2];
 		int32_t nUniformLocation[video::EMT_COUNT+2];
+		int32_t flipFacesUniformLocation[video::EMT_COUNT+2];
 		int32_t colorUniformLocation[video::EMT_COUNT+2];
 		int32_t nastyUniformLocation[video::EMT_COUNT+2];
 		int32_t lightIDUniformLocation[video::EMT_COUNT+2];
 		video::E_SHADER_CONSTANT_TYPE mvpUniformType[video::EMT_COUNT+2];
 		video::E_SHADER_CONSTANT_TYPE nUniformType[video::EMT_COUNT+2];
+		video::E_SHADER_CONSTANT_TYPE flipFacesUniformType[video::EMT_COUNT+2];
 		video::E_SHADER_CONSTANT_TYPE colorUniformType[video::EMT_COUNT+2];
 		video::E_SHADER_CONSTANT_TYPE nastyUniformType[video::EMT_COUNT+2];
 		video::E_SHADER_CONSTANT_TYPE lightIDUniformType[video::EMT_COUNT+2];
 	public:
-		SimpleCallBack() : currentMat(video::EMT_SOLID)
+		SimpleCallBack(Renderer* _renderer) : renderer(_renderer), currentMat(video::EMT_SOLID)
 		{
 			std::fill(mvpUniformLocation, reinterpret_cast<int32_t*>(mvpUniformType), -1);
 		}
@@ -491,6 +494,11 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 				{
 					nUniformLocation[materialType] = constants[i].location;
 					nUniformType[materialType] = constants[i].type;
+				}
+				else if (constants[i].name == "flipFaces")
+				{
+					flipFacesUniformLocation[materialType] = constants[i].location;
+					flipFacesUniformType[materialType] = constants[i].type;
 				}
 				else if (constants[i].name == "color")
 				{
@@ -520,10 +528,18 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 
 		virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
 		{
+			auto world = services->getVideoDriver()->getTransform(video::E4X3TS_WORLD);
+			if (flipFacesUniformLocation[currentMat]>=0)
+			{
+				auto tmp = world.getPseudoDeterminant();
+				if (renderer->isRightHanded())
+					tmp = -tmp;
+				services->setShaderConstant(tmp.pointer, flipFacesUniformLocation[currentMat], flipFacesUniformType[currentMat], 1);
+			}
 			if (nUniformLocation[currentMat]>=0)
 			{
 				float tmp[9];
-				services->getVideoDriver()->getTransform(video::E4X3TS_WORLD).getSub3x3InverseTransposePacked(tmp);
+				world.getSub3x3InverseTransposePacked(tmp);
 				services->setShaderConstant(tmp, nUniformLocation[currentMat], nUniformType[currentMat], 1);
 			}
 			if (mvpUniformLocation[currentMat]>=0)
@@ -539,7 +555,7 @@ constexpr uint32_t UNFLEXIBLE_MAX_SAMPLES_TODO_REMOVE = 1024u*1024u;
 Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneManager* _smgr) :
 		m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager),
 		nonInstanced(static_cast<E_MATERIAL_TYPE>(-1)), m_raygenProgram(0u), m_compostProgram(0u),
-		m_rrManager(ext::RadeonRays::Manager::create(m_driver)),
+		m_rrManager(ext::RadeonRays::Manager::create(m_driver)), m_rightHanded(false),
 		m_depth(), m_albedo(), m_normals(), m_lightIndex(), m_accumulation(), m_tonemapOutput(),
 		m_colorBuffer(nullptr), m_gbuffer(nullptr), tmpTonemapBuffer(nullptr),
 		m_maxSamples(0u), m_workGroupCount{0u,0u}, m_samplesPerDispatch(0u), m_samplesComputed(0u), m_rayCount(0u), m_framesDone(0u),
@@ -548,7 +564,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneMa
 		nodes(), sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), rrInstances(),
 		m_lightCount(0u)
 {
-	SimpleCallBack* cb = new SimpleCallBack();
+	SimpleCallBack* cb = new SimpleCallBack(this);
 	nonInstanced = (E_MATERIAL_TYPE)m_driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
 		"", "", "", //! No Geometry or Tessellation Shaders
 		"../mesh.frag",
@@ -606,6 +622,8 @@ void Renderer::init(const SAssetBundle& meshes,
 					uint32_t rayBufferSize)
 {
 	deinit();
+
+	m_rightHanded = isCameraRightHanded;
 
 	core::vector<SLight> lights;
 	core::vector<uint32_t> lightCDF;
@@ -686,19 +704,12 @@ void Renderer::init(const SAssetBundle& meshes,
 					if (bail)
 						continue;
 
-					auto addLight = [&isCameraRightHanded,&instance,&cpumesh,&lightPDF,&lights,&lightRadiances](auto& newLight,float approxArea) -> void
+					auto addLight = [&instance,&cpumesh,&lightPDF,&lights,&lightRadiances](auto& newLight,float approxArea) -> void
 					{
 						float weight = newLight.computeFlux(approxArea) * instance.emitter.area.samplingWeight;
 						if (weight <= FLT_MIN)
 							return;
-					
-						for (auto i=0u; i<cpumesh->getMeshBufferCount(); i++)
-						{
-							auto cpumb = cpumesh->getMeshBuffer(i);
-							cpumb->getMaterial().BackfaceCulling = !isCameraRightHanded;
-							cpumb->getMaterial().FrontfaceCulling = isCameraRightHanded;
-							reinterpret_cast<uint32_t&>(cpumb->getMaterial().userData) = lights.size();
-						}
+
 						lightPDF.push_back(weight);
 						lights.push_back(newLight);
 						lightRadiances.push_back(newLight.strengthFactor);
@@ -711,6 +722,7 @@ void Renderer::init(const SAssetBundle& meshes,
 						for (auto i=0u; i<meshBufferCount; i++)
 						{
 							auto cpumb = cpumesh->getMeshBuffer(i);
+							reinterpret_cast<uint32_t&>(cpumb->getMaterial().userData) = lights.size();
 
 							uint32_t triangleCount = 0u;
 							asset::IMeshManipulator::getPolyCount(triangleCount,cpumb);
@@ -723,7 +735,7 @@ void Renderer::init(const SAssetBundle& meshes,
 									v[k] = cpumb->getPosition(triangle[k]);
 
 								float triangleArea = NAN;
-								auto triLight = SLight::createFromTriangle(isCameraRightHanded, instance.emitter.area.radiance, light.analytical, v, &triangleArea);
+								auto triLight = SLight::createFromTriangle(instance.emitter.area.radiance, light.analytical, v, &triangleArea);
 								if (light.type==SLight::ET_TRIANGLE)
 									addLight(triLight,triangleArea);
 								else
@@ -833,7 +845,7 @@ void Renderer::init(const SAssetBundle& meshes,
 			{
 				// make light, correct radiance parameter for domain of integration
 				float area = NAN;
-				auto triLight = SLight::createFromTriangle(isCameraRightHanded,constantClearColor,cachedT,&tri[0],&area);
+				auto triLight = SLight::createFromTriangle(constantClearColor,cachedT,&tri[0],&area);
 				// compute flux, abuse of notation on area parameter, we've got the wrong units on strength factor so need to cancel
 				float flux = triLight.computeFlux(1.f);
 				// add to light list
@@ -1059,6 +1071,8 @@ void Renderer::deinit()
 	// start deleting objects
 	m_sampleSequence = nullptr;
 	m_scrambleTexture = nullptr;
+
+	m_rightHanded = false;
 }
 
 

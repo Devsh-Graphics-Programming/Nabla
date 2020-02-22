@@ -20,6 +20,22 @@ cmake_minimum_required(VERSION 3.14)
 
 project(Irrlicht LANGUAGES CXX C)
 
+# CUDA test
+include(CheckLanguage)
+check_language(CUDA)
+enable_language(CUDA)
+if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_LESS 9.0)
+	message(STATUS "CUDA not found or version lower than 9.0 found, version 9.0+ needed for C++14 support.")
+else()
+	message(STATUS "CUDA version 9.0+ found, you can enable the IRR_COMPILE_WITH_CUDA option.")
+endif()
+
+option(IRR_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
+if (IRR_COMPILE_WITH_CUDA)
+	enable_language(CUDA)
+endif()
+
+
 #
 get_filename_component(IRR_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
 
@@ -44,6 +60,11 @@ else()
     set(CMAKE_CXX_STANDARD 14)
 endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+# Cause CUDA is a special snowflake
+if (IRR_COMPILE_WITH_CUDA)
+	set(CMAKE_CUDA_STANDARD 14)
+	set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+endif()
 set(CMAKE_CXX_EXTENSIONS OFF) #...without compiler extensions like gnu++11, but is it really needed?
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/")
@@ -180,6 +201,18 @@ option(IRR_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 option(IRR_BUILD_MITSUBA_LOADER "Enable irr::ext::MitsubaLoader?" ON)
 
 option(IRR_BUILD_RADEON_RAYS "Enable irr::ext::RadeonRays?" OFF)
+
+if (IRR_COMPILE_WITH_CUDA)
+	find_package(OPTIX)
+	if (OPTIX_FOUND)
+		message(STATUS "CUDA and OptiX found, you can enable IRR_BUILD_OPTIX")
+	else()
+		message(STATUS "OptiX not found")
+	endif()
+	option(IRR_BUILD_OPTIX "Enable irr::ext::OptiX?" OFF)
+else()
+	message(STATUS "Because IRR_COMPILE_WITH_CUDA is not enabled, the IRR_BUILD_OPTIX option will be hidden.")
+endif()
 
 option(IRR_BUILD_CEGUI "Enable CEGUI building and integration?" OFF)
 

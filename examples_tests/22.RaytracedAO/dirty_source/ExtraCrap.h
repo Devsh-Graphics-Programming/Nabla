@@ -110,7 +110,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				return lightFlux;
 			}
 
-			static inline SLight createFromTriangle(bool rightHandedCamera, const irr::core::vectorSIMDf& _strengthFactor, const CachedTransform& precompTform, const irr::core::vectorSIMDf* v, float* outArea=nullptr)
+			static inline SLight createFromTriangle(const irr::core::vectorSIMDf& _strengthFactor, const CachedTransform& precompTform, const irr::core::vectorSIMDf* v, float* outArea=nullptr)
 			{
 				SLight triLight;
 				triLight.type = ET_TRIANGLE;
@@ -126,7 +126,8 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				triLight.triangle.vertices[1] -= triLight.triangle.vertices[0];
 				triLight.triangle.vertices[2] -= triLight.triangle.vertices[0];
 				// always flip the handedness so normal points inwards (need negative normal for differential area optimization)
-				std::swap(triLight.triangle.vertices[2], triLight.triangle.vertices[1]);
+				if (precompTform.transform.getPseudoDeterminant().x>0.f)
+					std::swap(triLight.triangle.vertices[2], triLight.triangle.vertices[1]);
 
 				// don't do any flux magic yet
 
@@ -167,6 +168,8 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		void render();
 
+		bool isRightHanded() { return m_rightHanded; }
+
 		auto* getColorBuffer() { return m_colorBuffer; }
 
 		const auto& getSceneBound() const { return sceneBound; }
@@ -187,6 +190,8 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::core::vector<std::array<irr::core::vector3df_SIMD,3> > m_precomputedGeodesic;
 
 		irr::core::smart_refctd_ptr<irr::ext::RadeonRays::Manager> m_rrManager;
+
+		bool m_rightHanded;
 
 		irr::core::smart_refctd_ptr<irr::video::ITextureBufferObject> m_sampleSequence;
 		irr::core::smart_refctd_ptr<irr::video::ITexture> m_scrambleTexture;
