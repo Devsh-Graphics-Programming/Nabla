@@ -47,14 +47,15 @@ static_assert(
 );
 
 using MeshDataFormatDescBlobV2 = MeshDataFormatDescBlobV1;
+using MeshDataFormatDescBlobV3 = MeshDataFormatDescBlobV2;
 
 template<>
-struct CorrespondingBlobTypeFor<IMeshDataFormatDesc<ICPUBuffer> > { typedef MeshDataFormatDescBlobV2 type; };
+struct CorrespondingBlobTypeFor<IMeshDataFormatDesc<ICPUBuffer> > { typedef MeshDataFormatDescBlobV3 type; };
 
 template<>
-inline size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV2, IMeshDataFormatDesc<ICPUBuffer> >::calcBlobSizeForObj(const IMeshDataFormatDesc<ICPUBuffer>* _obj)
+inline size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV3, IMeshDataFormatDesc<ICPUBuffer> >::calcBlobSizeForObj(const IMeshDataFormatDesc<ICPUBuffer>* _obj)
 {
-    return sizeof(MeshDataFormatDescBlobV2);
+    return sizeof(MeshDataFormatDescBlobV3);
 }
 
 

@@ -31,6 +31,8 @@ namespace irr
 			auto meshbuffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
 			auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
 
+			meshbuffer->setNormalnAttributeIx(EVAI_ATTR3);
+
 			bool binary = false;
 			core::stringc token;
 			if (getNextToken(_file, token) != "solid")

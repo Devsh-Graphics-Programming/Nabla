@@ -36,6 +36,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCubeMesh(const c
 		desc->setIndexBuffer(std::move(indices));
 	}
     buffer->setIndexType(asset::EIT_16BIT);
+	buffer->setNormalnAttributeIx(EVAI_ATTR3);
     buffer->setIndexCount(sizeof(u)/sizeof(*u));
 
 	// Create vertices
@@ -173,6 +174,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createArrowMesh(const 
         return nullptr;
 
     asset::ICPUMeshBuffer* coneMb = cone->getMeshBuffer(0u);
+	coneMb->setNormalnAttributeIx(EVAI_ATTR3);
 
     asset::ICPUBuffer* coneVtxBuf = const_cast<asset::ICPUBuffer*>(coneMb->getMeshDataAndFormat()->getMappedBuffer(asset::EVAI_ATTR0));
     ConeVertex* coneVertices = reinterpret_cast<ConeVertex*>(coneVtxBuf->getPointer());
@@ -180,6 +182,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createArrowMesh(const 
         coneVertices[i].pos[2] += cylinderHeight;
     coneMb->recalculateBoundingBox();
 
+	
     cone->addMeshBuffer(core::smart_refctd_ptr<asset::ICPUMeshBuffer>(cylinder->getMeshBuffer(0u)));
     cone->recalculateBoundingBox();
 
@@ -205,6 +208,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createSphereMesh(float
 	auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
 	{
 		auto buffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+		buffer->setNormalnAttributeIx(EVAI_ATTR3);
 		{
 			auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
 			{
@@ -440,6 +444,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createCylinderMesh(flo
 
     auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
     auto meshbuf = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+	meshbuf->setNormalnAttributeIx(EVAI_ATTR3);
 	{
 		auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
 
@@ -520,6 +525,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createConeMesh(float r
 	desc->setIndexBuffer(std::move(idxBuf));
     meshbuf->setIndexType(asset::EIT_16BIT);
     meshbuf->setPrimitiveType(asset::EPT_TRIANGLES);
+	meshbuf->setNormalnAttributeIx(EVAI_ATTR3);
     meshbuf->setMeshDataAndFormat(std::move(desc));
 	meshbuf->recalculateBoundingBox();
 
@@ -556,6 +562,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createRectangleMesh(co
 	desc->setIndexBuffer(std::move(indices));
 
 	auto buffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+	buffer->setNormalnAttributeIx(EVAI_ATTR3);
 	buffer->setIndexType(asset::EIT_16BIT);
 	buffer->setIndexCount(sizeof(u) / sizeof(*u));
 
@@ -592,6 +599,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CGeometryCreator::createDiskMesh(float r
 {
 	auto buffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
 	buffer->setPrimitiveType(asset::E_PRIMITIVE_TYPE::EPT_TRIANGLE_FAN); // change to indexed later
+	buffer->setNormalnAttributeIx(EVAI_ATTR3);
 
 	const size_t vertexCount = 2u + tesselation;
 

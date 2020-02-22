@@ -47,13 +47,16 @@ struct LzmaMemMngmnt
 	void CBAWMeshWriter::exportAsBlob<ICPUMesh>(ICPUMesh* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
 		uint8_t stackData[1u<<14];
-        auto data = MeshBlobV2::createAndTryOnStack(_obj, stackData, sizeof(stackData));
+        auto data = MeshBlobV3::createAndTryOnStack(_obj, stackData, sizeof(stackData));
 
         const E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 0u);
+		if (flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED)
+			data->meshFlags |= MeshBlobV3::EBMF_RIGHT_HANDED;
+
         const uint8_t* encrPwd = nullptr;
         _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 0u);
         const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 0u);
-		tryWrite(data, _file, _ctx, MeshBlobV2::calcBlobSizeForObj(_obj), _headerIdx, flags, encrPwd, comprLvl);
+		tryWrite(data, _file, _ctx, MeshBlobV3::calcBlobSizeForObj(_obj), _headerIdx, flags, encrPwd, comprLvl);
 
 		if ((uint8_t*)data != stackData)
 			_IRR_ALIGNED_FREE(data);
@@ -62,13 +65,16 @@ struct LzmaMemMngmnt
 	void CBAWMeshWriter::exportAsBlob<ICPUSkinnedMesh>(ICPUSkinnedMesh* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
 		uint8_t stackData[1u << 14];
-        SkinnedMeshBlobV2* data = SkinnedMeshBlobV1::createAndTryOnStack(_obj,stackData,sizeof(stackData));
+        SkinnedMeshBlobV3* data = SkinnedMeshBlobV3::createAndTryOnStack(_obj,stackData,sizeof(stackData));
 
         const E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 0u);
+		if (flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED)
+			data->meshFlags |= SkinnedMeshBlobV3::EBMF_RIGHT_HANDED;
+
         const uint8_t* encrPwd = nullptr;
         _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 0u);
         const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 0u);
-		tryWrite(data, _file, _ctx, SkinnedMeshBlobV2::calcBlobSizeForObj(_obj), _headerIdx, flags, encrPwd, comprLvl);
+		tryWrite(data, _file, _ctx, SkinnedMeshBlobV3::calcBlobSizeForObj(_obj), _headerIdx, flags, encrPwd, comprLvl);
 
 		if ((uint8_t*)data != stackData)
 			_IRR_ALIGNED_FREE(data);
@@ -76,7 +82,7 @@ struct LzmaMemMngmnt
 	template<>
 	void CBAWMeshWriter::exportAsBlob<ICPUMeshBuffer>(ICPUMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
-        MeshBufferBlobV2 data(_obj);
+        MeshBufferBlobV3 data(_obj);
 
         const E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 1u);
         const uint8_t* encrPwd = nullptr;
@@ -87,7 +93,7 @@ struct LzmaMemMngmnt
 	template<>
 	void CBAWMeshWriter::exportAsBlob<ICPUSkinnedMeshBuffer>(ICPUSkinnedMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
-        SkinnedMeshBufferBlobV2 data(_obj);
+        SkinnedMeshBufferBlobV3 data(_obj);
 
         const E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 1u);
         const uint8_t* encrPwd = nullptr;
@@ -115,9 +121,9 @@ struct LzmaMemMngmnt
 	void CBAWMeshWriter::exportAsBlob<CFinalBoneHierarchy>(CFinalBoneHierarchy* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
 		uint8_t stackData[1u<<14]; // 16kB
-        auto data = FinalBoneHierarchyBlobV2::createAndTryOnStack(_obj,stackData,sizeof(stackData));
+        auto data = FinalBoneHierarchyBlobV3::createAndTryOnStack(_obj,stackData,sizeof(stackData));
 
-		tryWrite(data, _file, _ctx, FinalBoneHierarchyBlobV2::calcBlobSizeForObj(_obj), _headerIdx, EWF_NONE);
+		tryWrite(data, _file, _ctx, FinalBoneHierarchyBlobV3::calcBlobSizeForObj(_obj), _headerIdx, EWF_NONE);
 
 		if ((uint8_t*)data != stackData)
 			_IRR_ALIGNED_FREE(data);
@@ -125,7 +131,7 @@ struct LzmaMemMngmnt
 	template<>
 	void CBAWMeshWriter::exportAsBlob<IMeshDataFormatDesc<ICPUBuffer> >(IMeshDataFormatDesc<ICPUBuffer>* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
-        MeshDataFormatDescBlobV2 data(_obj);
+        MeshDataFormatDescBlobV3 data(_obj);
 
 		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, EWF_NONE);
 	}
@@ -154,7 +160,7 @@ struct LzmaMemMngmnt
         const ICPUMesh* mesh = static_cast<const ICPUMesh*>(_params.rootAsset);
 
 		constexpr uint32_t FILE_HEADER_SIZE = 32;
-        static_assert(FILE_HEADER_SIZE == sizeof(BAWFileV2::fileHeader), "BAW header is not 32 bytes long!");
+        static_assert(FILE_HEADER_SIZE == sizeof(BAWFileV3::fileHeader), "BAW header is not 32 bytes long!");
 
 		uint64_t header[4];
 		memcpy(header, BAW_FILE_HEADER, FILE_HEADER_SIZE);
@@ -165,7 +171,7 @@ struct LzmaMemMngmnt
         SContext ctx{ IAssetWriter::SAssetWriteContext{_params, _file}, _override }; // context of this call of `writeMesh`
 
 		const uint32_t numOfInternalBlobs = genHeaders(mesh, ctx);
-		const uint32_t OFFSETS_FILE_OFFSET = FILE_HEADER_SIZE + sizeof(uint32_t) + sizeof(BAWFileV2::iv);
+		const uint32_t OFFSETS_FILE_OFFSET = FILE_HEADER_SIZE + sizeof(uint32_t) + sizeof(BAWFileV3::iv);
 		const uint32_t HEADERS_FILE_OFFSET = OFFSETS_FILE_OFFSET + numOfInternalBlobs * sizeof(ctx.offsets[0]);
 
 		ctx.offsets.resize(numOfInternalBlobs);

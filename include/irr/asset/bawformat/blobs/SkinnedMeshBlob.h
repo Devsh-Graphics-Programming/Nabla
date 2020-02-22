@@ -15,31 +15,33 @@ class ICPUSkinnedMesh;
 
 #include "irr/irrpack.h"
 //! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
-struct IRR_FORCE_EBO SkinnedMeshBlobV0 : VariableSizeBlob<SkinnedMeshBlobV0,ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV0, ICPUSkinnedMesh>
+struct IRR_FORCE_EBO SkinnedMeshBlobV3 : VariableSizeBlob<SkinnedMeshBlobV3,ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV3, ICPUSkinnedMesh>
 {
-	//friend struct SizedBlob<VariableSizeBlob, SkinnedMeshBlobV0, ICPUSkinnedMesh>;
 public:
-    explicit SkinnedMeshBlobV0(const ICPUSkinnedMesh* _sm);
+	enum E_BLOB_MESH_FLAG : uint32_t
+	{
+		EBMF_RIGHT_HANDED=0x1u
+	};
+
+    explicit SkinnedMeshBlobV3(const ICPUSkinnedMesh* _sm);
 
 public:
     uint64_t boneHierarchyPtr;
     core::aabbox3df box;
+	uint32_t meshFlags; // 1 bit used only for EBMF_RIGHT_HANDED
     uint32_t meshBufCnt;
     uint64_t meshBufPtrs[1];
 } PACK_STRUCT;
-static_assert(sizeof(SkinnedMeshBlobV0::meshBufPtrs)==8, "sizeof(SkinnedMeshBlobV0::meshBufPtrs) must be 8");
+static_assert(sizeof(SkinnedMeshBlobV3::meshBufPtrs)==8, "sizeof(SkinnedMeshBlobV0::meshBufPtrs) must be 8");
 static_assert(
-    sizeof(SkinnedMeshBlobV0) ==
-    sizeof(SkinnedMeshBlobV0::boneHierarchyPtr) + sizeof(SkinnedMeshBlobV0::box) + sizeof(SkinnedMeshBlobV0::meshBufCnt) + sizeof(SkinnedMeshBlobV0::meshBufPtrs),
+    sizeof(SkinnedMeshBlobV3) ==
+    sizeof(SkinnedMeshBlobV3::boneHierarchyPtr) + sizeof(SkinnedMeshBlobV3::meshFlags) + sizeof(SkinnedMeshBlobV3::box) + sizeof(SkinnedMeshBlobV3::meshBufCnt) + sizeof(SkinnedMeshBlobV3::meshBufPtrs),
     "SkinnedMeshBlobV0: Size of blob is not sum of its contents!"
 );
 #include "irr/irrunpack.h"
 
-using SkinnedMeshBlobV1 = SkinnedMeshBlobV0;
-using SkinnedMeshBlobV2 = SkinnedMeshBlobV1;
-
 template<>
-struct CorrespondingBlobTypeFor<ICPUSkinnedMesh> { typedef SkinnedMeshBlobV2 type; };
+struct CorrespondingBlobTypeFor<ICPUSkinnedMesh> { typedef SkinnedMeshBlobV3 type; };
 
 }
 } // irr::asset

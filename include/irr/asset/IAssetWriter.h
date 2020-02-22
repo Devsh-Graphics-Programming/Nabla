@@ -21,7 +21,10 @@ enum E_WRITER_FLAGS : uint32_t
     EWF_ENCRYPTED = 1u<<1u,
 
     //! write in binary format rather than text if possible
-    EWF_BINARY = 1u<<2u
+    EWF_BINARY = 1u<<2u,
+
+	//!< specifies the incoming orientation of loaded mesh we want to write. Flipping will be performed if needed in dependency of format extension orientation	
+	EWF_MESH_IS_RIGHT_HANDED = 1u<<3u
 };
 
 class IAssetWriter : public virtual core::IReferenceCounted
@@ -36,12 +39,6 @@ public:
 		loaded mesh we want to write to file with certain extension. Flipping will be performed if
 		format orientation doesn't match current loaded mesh orientation.
 	*/
-
-	enum E_WRITER_PARAMETER_FLAGS : uint64_t
-	{
-		EWPF_NONE = 0,											//!< default value, it doesn't do anything
-		EWPF_MESH_IS_RIGHT_HANDED = 0x1,						//!< specifies the incoming orientation of loaded mesh we want to write. Flipping will be performed if needed in dependency of format extension orientation					
-	};
 
     struct SAssetWriteParams
     {

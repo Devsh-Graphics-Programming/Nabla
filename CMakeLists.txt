@@ -221,6 +221,7 @@ option(IRR_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 option(IRR_BUILD_DOCS "Enable building documentation?" ON)
 
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
+set(THIRD_PARTY_BINARY_DIR "${PROJECT_BINARY_DIR}/3rdparty")
 
 execute_process(COMMAND git submodule init
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")

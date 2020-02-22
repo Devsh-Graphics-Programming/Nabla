@@ -1,7 +1,6 @@
 #ifndef __IRR_CBAW_LEGACY_H_INCLUDED__
 #define __IRR_CBAW_LEGACY_H_INCLUDED__
 
-#include "irr/asset/bawformat/CBAWFile.h"
 #include "irr/asset/format/EFormat.h"
 
 namespace irr
@@ -10,12 +9,12 @@ namespace asset
 {
 
 
+// forward declarations
+class CFinalBoneHierarchy;
+
+
 namespace legacyv0
 {
-
-
-using BAWFileV0 = BAWFileVn<0>;
-using BlobHeaderV0 = BlobHeaderVn<0>;
 
 
 enum E_COMPONENTS_PER_ATTRIBUTE
@@ -98,9 +97,9 @@ asset::E_FORMAT mapECT_plus_ECPA_onto_E_FORMAT(E_COMPONENT_TYPE _ct, E_COMPONENT
 struct IRR_FORCE_EBO FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0,CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV0, CFinalBoneHierarchy>
 {
 public:
-	inline auto* getBoneData()
+	inline uint8_t* getBoneData()
 	{
-		return reinterpret_cast<CFinalBoneHierarchy::BoneReferenceData*>(reinterpret_cast<uint8_t*>(this)+sizeof(FinalBoneHierarchyBlobV2));
+		return reinterpret_cast<uint8_t*>(this)+sizeof(FinalBoneHierarchyBlobV0);
 	}
 
     size_t boneCount;
@@ -114,18 +113,140 @@ static_assert(
     "FinalBoneHierarchyBlobV0: Size of blob is not sum of its contents!"
 );
 
+class ICPUMesh;
+
+#include "irr/irrpack.h"
+//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
+struct IRR_FORCE_EBO MeshBlobV0 : VariableSizeBlob<MeshBlobV0, asset::ICPUMesh>, TypedBlob<MeshBlobV0, asset::ICPUMesh>
+{
+public:
+	core::aabbox3df box;
+	uint32_t meshBufCnt;
+	uint64_t meshBufPtrs[1];
+} PACK_STRUCT;
+#include "irr/irrunpack.h"
+static_assert(sizeof(core::aabbox3df) == 24, "sizeof(core::aabbox3df) must be 24");
+static_assert(sizeof(MeshBlobV0::meshBufPtrs) == 8, "sizeof(MeshBlobV0::meshBufPtrs) must be 8");
+static_assert(
+	sizeof(MeshBlobV0) ==
+	sizeof(MeshBlobV0::box) + sizeof(MeshBlobV0::meshBufCnt) + sizeof(MeshBlobV0::meshBufPtrs),
+	"MeshBlobV0: Size of blob is not sum of its contents!"
+	);
+
+class ICPUSkinnedMesh;
+
+#include "irr/irrpack.h"
+//! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
+struct IRR_FORCE_EBO SkinnedMeshBlobV0 : VariableSizeBlob<SkinnedMeshBlobV0, ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV0, ICPUSkinnedMesh>
+{
+public:
+	uint64_t boneHierarchyPtr;
+	core::aabbox3df box;
+	uint32_t meshBufCnt;
+	uint64_t meshBufPtrs[1];
+} PACK_STRUCT;
+#include "irr/irrunpack.h"
+static_assert(sizeof(SkinnedMeshBlobV0::meshBufPtrs) == 8, "sizeof(SkinnedMeshBlobV0::meshBufPtrs) must be 8");
+static_assert(
+	sizeof(SkinnedMeshBlobV0) ==
+	sizeof(SkinnedMeshBlobV0::boneHierarchyPtr) + sizeof(SkinnedMeshBlobV0::box) + sizeof(SkinnedMeshBlobV0::meshBufCnt) + sizeof(SkinnedMeshBlobV0::meshBufPtrs),
+	"SkinnedMeshBlobV0: Size of blob is not sum of its contents!"
+	);
+
+#include "irr/irrpack.h"
+//! Simple struct of essential data of ICPUMeshBuffer that has to be exported
+struct IRR_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV0, ICPUMeshBuffer>
+{
+	video::SCPUMaterial mat;
+	core::aabbox3df box;
+	uint64_t descPtr;
+	uint32_t indexType;
+	uint32_t baseVertex;
+	uint64_t indexCount;
+	size_t indexBufOffset;
+	size_t instanceCount;
+	uint32_t baseInstance;
+	uint32_t primitiveType;
+	uint32_t posAttrId;
+} PACK_STRUCT;
+#include "irr/irrunpack.h"
+static_assert(sizeof(MeshBufferBlobV0::mat) == 197, "sizeof(MeshBufferBlobV0::mat) must be 197");
+static_assert(
+	sizeof(MeshBufferBlobV0) ==
+	sizeof(MeshBufferBlobV0::mat) + sizeof(MeshBufferBlobV0::box) + sizeof(MeshBufferBlobV0::descPtr) + sizeof(MeshBufferBlobV0::indexType) + sizeof(MeshBufferBlobV0::baseVertex)
+	+ sizeof(MeshBufferBlobV0::indexCount) + sizeof(MeshBufferBlobV0::indexBufOffset) + sizeof(MeshBufferBlobV0::instanceCount) + sizeof(MeshBufferBlobV0::baseInstance)
+	+ sizeof(MeshBufferBlobV0::primitiveType) + sizeof(MeshBufferBlobV0::posAttrId),
+	"MeshBufferBlobV0: Size of blob is not sum of its contents!"
+	);
+
+class ICPUSkinnedMeshBuffer;
+
+#include "irr/irrpack.h"
+struct IRR_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>
+{
+	video::SCPUMaterial mat;
+	core::aabbox3df box;
+	uint64_t descPtr;
+	uint32_t indexType;
+	uint32_t baseVertex;
+	uint64_t indexCount;
+	size_t indexBufOffset;
+	size_t instanceCount;
+	uint32_t baseInstance;
+	uint32_t primitiveType;
+	uint32_t posAttrId;
+	uint32_t indexValMin;
+	uint32_t indexValMax;
+	uint32_t maxVertexBoneInfluences;
+} PACK_STRUCT;
+#include "irr/irrunpack.h"
+static_assert(sizeof(SkinnedMeshBufferBlobV0::mat) == 197, "sizeof(MeshBufferBlobV0::mat) must be 197");
+static_assert(
+	sizeof(SkinnedMeshBufferBlobV0) ==
+	sizeof(SkinnedMeshBufferBlobV0::mat) + sizeof(SkinnedMeshBufferBlobV0::box) + sizeof(SkinnedMeshBufferBlobV0::descPtr) + sizeof(SkinnedMeshBufferBlobV0::indexType) + sizeof(SkinnedMeshBufferBlobV0::baseVertex)
+	+ sizeof(SkinnedMeshBufferBlobV0::indexCount) + sizeof(SkinnedMeshBufferBlobV0::indexBufOffset) + sizeof(SkinnedMeshBufferBlobV0::instanceCount) + sizeof(SkinnedMeshBufferBlobV0::baseInstance)
+	+ sizeof(SkinnedMeshBufferBlobV0::primitiveType) + sizeof(SkinnedMeshBufferBlobV0::posAttrId) + sizeof(SkinnedMeshBufferBlobV0::indexValMin) + sizeof(SkinnedMeshBufferBlobV0::indexValMax) + sizeof(SkinnedMeshBufferBlobV0::maxVertexBoneInfluences),
+	"SkinnedMeshBufferBlobV0: Size of blob is not sum of its contents!"
+	);
+
 }
 
 
 namespace legacyv1
 {
-
-
-using BAWFileV1 = BAWFileVn<1>;
-using BlobHeaderV1 = BlobHeaderVn<1>;
-
-
+	
 using FinalBoneHierarchyBlobV1 = legacyv0::FinalBoneHierarchyBlobV0;
+using MeshBlobV1 = legacyv0::MeshBlobV0;
+using SkinnedMeshBlobV1 = legacyv0::SkinnedMeshBlobV0;
+using MeshBufferBlobV1 = legacyv0::MeshBufferBlobV0;
+using SkinnedMeshBufferBlobV1 = legacyv0::SkinnedMeshBufferBlobV0;
+
+}
+
+namespace legacyv2
+{
+
+#include "irr/irrpack.h"
+struct IRR_FORCE_EBO FinalBoneHierarchyBlobV2 : VariableSizeBlob<FinalBoneHierarchyBlobV2, CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV2, CFinalBoneHierarchy>
+{
+public:
+
+	size_t boneCount;
+	size_t numLevelsInHierarchy;
+	size_t keyframeCount;
+} PACK_STRUCT;
+#include "irr/irrunpack.h"
+static_assert(
+	sizeof(FinalBoneHierarchyBlobV2) ==
+	sizeof(FinalBoneHierarchyBlobV2::boneCount) + sizeof(FinalBoneHierarchyBlobV2::numLevelsInHierarchy) + sizeof(FinalBoneHierarchyBlobV2::keyframeCount),
+	"FinalBoneHierarchyBlobV2: Size of blob is not sum of its contents!"
+	);
+
+
+using MeshBlobV2 = legacyv1::MeshBlobV1;
+using SkinnedMeshBlobV2 = legacyv1::SkinnedMeshBlobV1;
+using MeshBufferBlobV2 = legacyv1::MeshBufferBlobV1;
+using SkinnedMeshBufferBlobV2 = legacyv1::SkinnedMeshBufferBlobV1;
 
 }
 

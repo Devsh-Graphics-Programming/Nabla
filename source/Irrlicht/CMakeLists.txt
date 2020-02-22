@@ -101,6 +101,7 @@ set(IRRLICHT_SRCS_COMMON
 # Other mesh-related stuff
 	${IRR_ROOT_PATH}/src/irr/asset/bawformat/CBAWFile.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/bawformat/legacy/CBAWLegacy.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/bawformat/legacy/CBAWVersionUpFunctions.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/bawformat/CBlobsLoadingManager.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CForsythVertexCacheOptimizer.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CSmoothNormalGenerator.cpp
@@ -213,6 +214,7 @@ set(IRRLICHT_SRCS_SERVER
 set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/convertutf
 	${THIRD_PARTY_SOURCE_DIR}/utfcpp/source
+	$<TARGET_PROPERTY:zlibstatic,BINARY_DIR> #for dynamically generated zconf.h
 	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
 	$<TARGET_PROPERTY:jpeg,BINARY_DIR> #for dynamically generated jconfig.h
 )
@@ -220,7 +222,14 @@ set(COMMON_INCLUDE_DIRS
 irr_adjust_flags() # macro defined in root CMakeLists
 irr_adjust_definitions() # macro defined in root CMakeLists
 
-#Paraller hashmap
+macro(irr_target_link_zlib _trgt)
+	add_dependencies(${_trgt} zlibstatic)
+	target_link_libraries(${_trgt} INTERFACE
+		zlibstatic
+	)
+	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/zlib)
+endmacro()
+#Parallel hashmap
 macro(irr_target_include_parallel_hashmap _trgt)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/parallel-hashmap/parallel_hashmap)
 endmacro()
@@ -278,6 +287,7 @@ add_library(Irrlicht STATIC
 )
 
 add_dependencies(Irrlicht openssl_build)
+irr_target_link_zlib(Irrlicht)
 irr_target_link_openssl(Irrlicht)
 irr_target_link_shaderc(Irrlicht)
 irr_target_link_libjpeg(Irrlicht)
@@ -353,10 +363,10 @@ add_library(IrrlichtServer STATIC
 	$<TARGET_OBJECTS:convert_utf>
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
-	$<TARGET_OBJECTS:zlib>
 )
 
 add_dependencies(IrrlichtServer openssl_build)
+irr_target_link_zlib(IrrlichtServer)
 irr_target_link_openssl(IrrlichtServer)
 irr_target_link_shaderc(IrrlichtServer)
 irr_target_link_libjpeg(IrrlichtServer)
