@@ -77,7 +77,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	// start with empty mesh
     core::smart_refctd_ptr<asset::CCPUMesh> mesh;
 	uint32_t vertCount=0;
-#ifndef NEW_SHADERS
+
 	// Currently only supports ASCII meshes
 	if (strcmp(getNextLine(ctx), "ply"))
 	{
@@ -261,41 +261,42 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				}
 			}
 
+			asset::SBufferBinding<ICPUBuffer> bufferBinding;
+
             if (indices.size())
             {
-				ICPUMeshBuffer::SBufferBinding bufferBinding;
 				bufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(indices.size() * sizeof(uint32_t));
+				bufferBinding.offset = 0ull;
                 memcpy(bufferBinding.buffer->getPointer(), indices.data(), bufferBinding.buffer->getSize());
 
-				if (!genVertBuffersForMBuffer(mb.get(), attribs, bufferBinding))
-					return {};
+				mb->setIndexBufferBinding(std::move(bufferBinding));
 
                 mb->setIndexCount(indices.size());
                 mb->setIndexType(asset::EIT_32BIT);
 				mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST;
+
+				if (!genVertBuffersForMBuffer(mb.get(), attribs, bufferBinding))
+					return {};
             }
             else
             {
-				mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_POINT_LIST;
-                mb->setIndexCount(attribs[E_POS].size());
-                //mb->getMaterial().setFlag(video::EMF_POINTCLOUD, true);
+				mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_FAN;
+				mb->setIndexCount(0);
+				mb->setIndexType(EIT_UNKNOWN);
+                
+				if (!genVertBuffersForMBuffer(mb.get(), attribs, bufferBinding))
+					return {};
 
             }
-			if (!genVertBuffersForMBuffer(mb.get(), attribs, bufferBinding))
-				return {};
 
-            //TODO SVertexInputParams::enabledBindingFlags and SVertexInputParams::enabledAttribFlags needs setting
-			//mb->setMeshDataAndFormat(std::move(desc)); TODO - assign data to SVertexInputAttribParams and SVertexInputBindingParams
 			mb->recalculateBoundingBox();
-			//if (!hasNormals)
-			//	SceneManager->getMeshManipulator()->recalculateNormals(mb);
 
 			mesh = core::make_smart_refctd_ptr<CCPUMesh>();
 			mesh->addMeshBuffer(std::move(mb));
 			mesh->recalculateBoundingBox(true);
 		}
 	}
-#endif
+
 	return SAssetBundle({std::move(mesh)});
 }
 
@@ -566,7 +567,6 @@ void CPLYMeshFileLoader::moveForward(SContext& _ctx, uint32_t bytes)
 
 bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4], SBufferBinding<ICPUBuffer>& bufferBinding) const
 {
-#ifndef NEW_SHADERS
 	{
 		size_t check = _attribs[0].size();
 		for (size_t i = 1u; i < 4u; ++i)
@@ -577,6 +577,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 				check = _attribs[i].size();
 		}
 	}
+	
 	auto putAttr = [&_attribs](asset::ICPUMeshBuffer* _buf, size_t _attr)
 	{
 		size_t i = 0u;
@@ -584,35 +585,47 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 			_buf->setAttribute(v, _attr, i++);
 	};
 
-	size_t sizes[4];
+	uint32_t sizes[4];
 	sizes[E_POS] = !_attribs[E_POS].empty() * 3 * sizeof(float);
 	sizes[E_COL] = !_attribs[E_COL].empty() * 4 * sizeof(float);
 	sizes[E_UV] = !_attribs[E_UV].empty() * 2 * sizeof(float);
 	sizes[E_NORM] = !_attribs[E_NORM].empty() * 3 * sizeof(float);
 
-	size_t offsets[4]{ 0u };
+	uint32_t offsets[4]{ 0u };
 	for (size_t i = 1u; i < 4u; ++i)
 		offsets[i] = offsets[i - 1] + sizes[i - 1];
 
-	const size_t stride = std::accumulate(sizes, sizes + 4, static_cast<size_t>(0));
+	const uint32_t vertexSize = std::accumulate(sizes, sizes + 4, static_cast<size_t>(0));
 
 	{
-		const static std::array<std::pair<uint16_t, E_FORMAT>, 4> perIndexDataThatChanges{std::make_pair(E_POS, asset::EF_R32G32B32_SFLOAT), std::make_pair(E_COL, asset::EF_R32G32B32A32_SFLOAT), std::make_pair(E_UV, asset::EF_R32G32_SFLOAT), std::make_pair(E_NORM, asset::EF_R32G32B32_SFLOAT)};
-		_mbuf->setVertexBufferBinding(std::move(bufferBinding), 0ull);
-		_mbuf->setVertexBufferBindingParams(0ull, stride);
+		const static std::array<std::pair<uint16_t, E_FORMAT>, 4> perIndexDataThatChanges{ std::make_pair(E_POS, asset::EF_R32G32B32_SFLOAT), std::make_pair(E_COL, asset::EF_R32G32B32A32_SFLOAT), std::make_pair(E_UV, asset::EF_R32G32_SFLOAT), std::make_pair(E_NORM, asset::EF_R32G32B32_SFLOAT) };
+		auto mbPipeline = _mbuf->getPipeline();
+		auto inputParams = mbPipeline->getVertexInputParams();
+		inputParams.enabledAttribFlags = 0b1111u;
+		inputParams.enabledBindingFlags = 0b1u;
+		inputParams.attributes[E_POS] = { 0u,EF_R32G32B32_SFLOAT, offsets[E_POS] };
+		inputParams.attributes[E_COL] = { 0u,EF_R32G32B32A32_SFLOAT, offsets[E_COL] };
+		inputParams.attributes[E_UV] = { 0u,EF_R32G32_SFLOAT, offsets[E_UV] };
+		inputParams.attributes[E_NORM] = { 0u,EF_R32G32B32_SFLOAT, offsets[E_NORM] };
+		inputParams.bindings[0] = { vertexSize, EVIR_PER_VERTEX };
 
-		for (const auto& attributeIndexExtra : perIndexDataThatChanges)
-			[&](auto attribIndex, auto formatToSend, auto offsetIndex, auto bindingIndex)
+		for (auto index = 0; index < 4; ++index)
+		{
+			auto attribute = _attribs[index];
+			if (!attribute.empty())
 			{
-				if (sizes[attribIndex])
-				{
-					_mbuf->setVertexAttribFormat(attribIndex, bindingIndex, formatToSend, offsets[offsetIndex]);
-					putAttr(_mbuf, attribIndex);
-				}
 
-			}(attributeIndexExtra.first, attributeIndexExtra.second, attributeIndexExtra.first, 0ull);
+				const auto bufferByteSize = attribute.size() * sizes[index];
+				auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufferByteSize);
+				memcpy(buffer->getPointer(), attribute.data(), bufferByteSize); // TODO refactor input to take SBufferBinding to avoid memcpy
+
+				_mbuf->setVertexBufferBinding({ 0ull, std::move(buffer) }, index);
+			}
+		}
+
+		_mbuf->setVertexBufferBinding(std::move(bufferBinding), 0ull);
 	}
-#endif
+
     return true;
 }
 
