@@ -23,10 +23,6 @@ namespace irr
 
                         // howabout you fix your fucking drivers AMD? Reported 4 years ago, and still same bug! And I thought it's impossible to be worse than Intel!
 
-						dmat2 irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_dmat2(dmat2 dummy) {return dummy;}
-						dmat3 irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_dmat3(dmat3 dummy) {return dummy;}
-						dmat4 irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_dmat4(dmat4 dummy) {return dummy;}
-
 						dmat2x2 irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_dmat2x2(dmat2x2 dummy) {return dummy;}
 						dmat2x3 irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_dmat2x3(dmat2x3 dummy) {return dummy;}
 						dmat2x4 irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_dmat2x4(dmat2x4 dummy) {return dummy;}
@@ -36,10 +32,6 @@ namespace irr
 						dmat4x2 irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_dmat4x2(dmat4x2 dummy) {return dummy;}
 						dmat4x3 irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_dmat4x3(dmat4x3 dummy) {return dummy;}
 						dmat4x4 irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_dmat4x4(dmat4x4 dummy) {return dummy;}
-
-						mat2 irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat2(mat2 dummy) {return dummy;}
-						mat3 irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat3(mat3 dummy) {return dummy;}
-						mat4 irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4(mat4 dummy) {return dummy;}
 
 						mat2x2 irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat2x2(mat2x2 dummy) {return dummy;}
 						mat2x3 irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat2x3(mat2x3 dummy) {return dummy;}
