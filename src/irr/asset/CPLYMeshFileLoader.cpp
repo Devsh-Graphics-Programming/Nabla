@@ -193,10 +193,10 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				el->Count = atoi(getNextWord(ctx));
 				el->IsFixedWidth = true;
 				el->KnownSize = 0;
-                ctx.ElementList.emplace_back(std::move(el));
-
 				if (el->Name == "vertex")
 					vertCount = el->Count;
+
+                ctx.ElementList.emplace_back(std::move(el));
 
 			}
 			else if (strcmp(word, "end_header") == 0)
@@ -261,32 +261,27 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				}
 			}
 
-			asset::SBufferBinding<ICPUBuffer> bufferBinding;
+			asset::SBufferBinding<ICPUBuffer> indexBinding;
+			indexBinding.offset = 0ull;
+			mb->setIndexCount(attribs[E_POS].size());
 
             if (indices.size())
             {
-				bufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(indices.size() * sizeof(uint32_t));
-				bufferBinding.offset = 0ull;
-                memcpy(bufferBinding.buffer->getPointer(), indices.data(), bufferBinding.buffer->getSize());
+				indexBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(indices.size() * sizeof(uint32_t));
+                memcpy(indexBinding.buffer->getPointer(), indices.data(), indexBinding.buffer->getSize());
 
-				mb->setIndexBufferBinding(std::move(bufferBinding));
-
-                mb->setIndexCount(indices.size());
+				mb->setIndexBufferBinding(std::move(indexBinding));
                 mb->setIndexType(asset::EIT_32BIT);
-				mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST;
 
-				if (!genVertBuffersForMBuffer(mb.get(), attribs, bufferBinding))
+				if (!genVertBuffersForMBuffer(mb.get(), attribs))
 					return {};
             }
             else
             {
-				mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_FAN;
-				mb->setIndexCount(0);
 				mb->setIndexType(EIT_UNKNOWN);
-                
-				if (!genVertBuffersForMBuffer(mb.get(), attribs, bufferBinding))
-					return {};
 
+				if (!genVertBuffersForMBuffer(mb.get(), attribs))
+					return {};
             }
 
 			mb->recalculateBoundingBox();
@@ -565,7 +560,7 @@ void CPLYMeshFileLoader::moveForward(SContext& _ctx, uint32_t bytes)
 		_ctx.StartPointer = _ctx.EndPointer;
 }
 
-bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4], SBufferBinding<ICPUBuffer>& bufferBinding) const
+bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const
 {
 	{
 		size_t check = _attribs[0].size();
@@ -597,17 +592,41 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 
 	const uint32_t vertexSize = std::accumulate(sizes, sizes + 4, static_cast<size_t>(0));
 
+	// TODO default shader (uber shader isn't a goal since there will be only one vertex and fragment shader)
+	auto pushConstantRange = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SPushConstantRange>>(2);
+	pushConstantRange->operator[](0).stageFlags = ISpecializedShader::E_SHADER_STAGE::ESS_VERTEX;
+	pushConstantRange->operator[](0).offset = 0; //TODO
+	pushConstantRange->operator[](0).size = 0; //TODO
+
+	pushConstantRange->operator[](1).stageFlags = ISpecializedShader::E_SHADER_STAGE::ESS_FRAGMENT;
+	pushConstantRange->operator[](1).offset = 0; //TODO
+	pushConstantRange->operator[](1).size = 0; //TODO
+
+	auto mbPipelineLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(pushConstantRange->begin(), pushConstantRange->end()); 
+
+	auto inputParams = core::make_smart_refctd_ptr<SVertexInputParams>();
+	inputParams->enabledAttribFlags = E_POS | E_COL | E_UV | E_NORM;
+	inputParams->enabledBindingFlags = 0;
+	inputParams->attributes[E_POS] = { 0u,EF_R32G32B32_SFLOAT, offsets[E_POS] };
+	inputParams->attributes[E_COL] = { 0u,EF_R32G32B32A32_SFLOAT, offsets[E_COL] };
+	inputParams->attributes[E_UV] = { 0u,EF_R32G32_SFLOAT, offsets[E_UV] };
+	inputParams->attributes[E_NORM] = { 0u,EF_R32G32B32_SFLOAT, offsets[E_NORM] };
+	inputParams->bindings[0] = { vertexSize, EVIR_PER_VERTEX };
+
+	auto blendParams = core::make_smart_refctd_ptr<SBlendParams>();
+	auto primitiveAssemblyParams = core::make_smart_refctd_ptr<SPrimitiveAssemblyParams>();
+	if (_mbuf->getIndexBufferBinding()->buffer)
+		primitiveAssemblyParams->primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST;
+	else
+		primitiveAssemblyParams->primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_POINT_LIST;
+
+	auto rastarizationParmas = core::make_smart_refctd_ptr<SRasterizationParams>();
+
+	auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), TODO_SHADERS_BEGIN, TODO_SHADERS_END, inputParams.get(), blendParams.get(), primitiveAssemblyParams.get(), rastarizationParmas.get());
+
 	{
-		const static std::array<std::pair<uint16_t, E_FORMAT>, 4> perIndexDataThatChanges{ std::make_pair(E_POS, asset::EF_R32G32B32_SFLOAT), std::make_pair(E_COL, asset::EF_R32G32B32A32_SFLOAT), std::make_pair(E_UV, asset::EF_R32G32_SFLOAT), std::make_pair(E_NORM, asset::EF_R32G32B32_SFLOAT) };
-		auto mbPipeline = _mbuf->getPipeline();
 		auto inputParams = mbPipeline->getVertexInputParams();
-		inputParams.enabledAttribFlags = 0b1111u;
-		inputParams.enabledBindingFlags = 0b1u;
-		inputParams.attributes[E_POS] = { 0u,EF_R32G32B32_SFLOAT, offsets[E_POS] };
-		inputParams.attributes[E_COL] = { 0u,EF_R32G32B32A32_SFLOAT, offsets[E_COL] };
-		inputParams.attributes[E_UV] = { 0u,EF_R32G32_SFLOAT, offsets[E_UV] };
-		inputParams.attributes[E_NORM] = { 0u,EF_R32G32B32_SFLOAT, offsets[E_NORM] };
-		inputParams.bindings[0] = { vertexSize, EVIR_PER_VERTEX };
+
 
 		for (auto index = 0; index < 4; ++index)
 		{
@@ -622,9 +641,9 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 				_mbuf->setVertexBufferBinding({ 0ull, std::move(buffer) }, index);
 			}
 		}
-
-		_mbuf->setVertexBufferBinding(std::move(bufferBinding), 0ull);
 	}
+
+	_mbuf->setPipeline(std::move(mbPipeline));
 
     return true;
 }

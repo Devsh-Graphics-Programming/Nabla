@@ -53,12 +53,18 @@ static asset::E_FORMAT getCorrespondingIntegerFormat(asset::E_FORMAT _fmt)
 
 void flipNormalsAndPositions(asset::ICPUMeshBuffer* _mbuf, uint32_t ix)
 {
-    core::vectorSIMDf tmpValue;
+    auto flip = [&](const auto attributeIx, core::vectorSIMDf tmpValue = {})
+    {
 
-    _mbuf->getAttribute(tmpValue, 0, ix);
-    tmpValue[0] = -tmpValue[0];
-    _mbuf->getAttribute(tmpValue, 3, ix);
-    tmpValue[0] = -tmpValue[0];
+        if (_mbuf->getAttribute(tmpValue, attributeIx, ix))
+        {
+            tmpValue[0] = -tmpValue[0];
+            _mbuf->setAttribute(tmpValue, attributeIx, ix);
+        }
+    };
+
+    flip(0);
+    flip(3);
 }
 
 CPLYMeshWriter::CPLYMeshWriter()
@@ -77,7 +83,8 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     SAssetWriteContext ctx{_params, _file};
 
     const asset::ICPUMesh* mesh = IAsset::castDown<ICPUMesh>(_params.rootAsset);
-    assert(mesh);
+    if (!mesh)
+        return false;
 
     io::IWriteFile* file = _override->getOutputFile(_file, ctx, {mesh, 0u});
 
@@ -133,7 +140,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     }
     if (meshBuffer->getAttribBoundBuffer(2)->buffer)
     {
-        const asset::E_FORMAT t = meshBuffer->getAttribFormat(1);
+        const asset::E_FORMAT t = meshBuffer->getAttribFormat(2);
         std::string typeStr = getTypeString(t);
         vaidToWrite[2] = true;
         header +=
@@ -142,7 +149,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     }
     if (meshBuffer->getAttribBoundBuffer(3)->buffer)
     {
-        const asset::E_FORMAT t = meshBuffer->getAttribFormat(1);
+        const asset::E_FORMAT t = meshBuffer->getAttribFormat(3);
         std::string typeStr = getTypeString(t);
         vaidToWrite[3] = true;
         header +=
