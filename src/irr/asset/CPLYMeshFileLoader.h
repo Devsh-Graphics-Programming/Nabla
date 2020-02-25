@@ -36,7 +36,7 @@ protected:
 
 public:
 	//! Constructor
-	CPLYMeshFileLoader();
+	CPLYMeshFileLoader(IAssetManager* _am);
 
     virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
 
@@ -173,6 +173,8 @@ private:
 	{
 		performOnCertainOrientation(varToHandle);
 	}
+
+	IAssetManager* m_assetMgr;
 };
 
 } // end namespace asset

@@ -51,22 +51,6 @@ static asset::E_FORMAT getCorrespondingIntegerFormat(asset::E_FORMAT _fmt)
 }
 }
 
-void flipNormalsAndPositions(asset::ICPUMeshBuffer* _mbuf, uint32_t ix)
-{
-    auto flip = [&](const auto attributeIx, core::vectorSIMDf tmpValue = {})
-    {
-
-        if (_mbuf->getAttribute(tmpValue, attributeIx, ix))
-        {
-            tmpValue[0] = -tmpValue[0];
-            _mbuf->setAttribute(tmpValue, attributeIx, ix);
-        }
-    };
-
-    flip(0);
-    flip(3);
-}
-
 CPLYMeshWriter::CPLYMeshWriter()
 {
 	#ifdef _IRR_DEBUG
@@ -245,9 +229,7 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _
         uint32_t ui[4];
         if (_vaidToWrite[0])
         {
-            if (flipVectors)
-                flipNormalsAndPositions(mbCopy, i);
-            writeAttribBinary(_file, mbCopy, 0, i, 3u);
+            writeAttribBinary(_file, mbCopy, 0, i, 3u, flipVectors);
         }
         if (_vaidToWrite[1])
         {
@@ -259,9 +241,7 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _
         }
         if (_vaidToWrite[3])
         {
-            if (flipVectors)
-                flipNormalsAndPositions(mbCopy, i);
-            writeAttribBinary(_file, mbCopy, 3, i, 3u);
+            writeAttribBinary(_file, mbCopy, 3, i, 3u, flipVectors);
         }
     }
     mbCopy->drop();
@@ -411,13 +391,18 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mb
         _IRR_ALIGNED_FREE(indices);
 }
 
-void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, uint32_t _vaid, size_t _ix, size_t _cpa) const
+void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, uint32_t _vaid, size_t _ix, size_t _cpa, bool flipAttribute) const
 {
     uint32_t ui[4];
     core::vectorSIMDf f;
     asset::E_FORMAT t = _mbuf->getAttribFormat(_vaid);
+
     if (asset::isScaledFormat(t) || asset::isIntegerFormat(t))
     {
+        _mbuf->getAttribute(ui, _vaid, _ix);
+        if (flipAttribute)
+            ui[0] = -ui[0];
+
         const uint32_t bytesPerCh = asset::getTexelOrBlockBytesize(t)/asset::getFormatChannelCount(t);
         if (bytesPerCh == 1u || t == asset::EF_A2B10G10R10_UINT_PACK32 || t == asset::EF_A2B10G10R10_SINT_PACK32 || t == asset::EF_A2B10G10R10_SSCALED_PACK32 || t == asset::EF_A2B10G10R10_USCALED_PACK32)
         {
@@ -441,6 +426,8 @@ void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuf
     else
     {
         _mbuf->getAttribute(f, _vaid, _ix);
+        if (flipAttribute)
+            f[0] = -f[0];
         _file->write(f.pointer, 4*_cpa);
     }
 }
