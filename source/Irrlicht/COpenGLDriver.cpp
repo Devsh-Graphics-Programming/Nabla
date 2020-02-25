@@ -87,6 +87,8 @@ public:
         uint32_t id;
         uint32_t offset;
         uint32_t len;
+
+        bool operator<(const SLoad& rhs) const { return offset<rhs.offset; }
     };
 
     std::pair<irr::core::vector<SLoad>, std::array<SFunction, EAFF_COUNT>> getFixCandidates()
@@ -161,39 +163,55 @@ public:
         );
 
         bool getThisOpLoad = false;
-        const spirv_cross::SPIRFunction& f = get<spirv_cross::SPIRFunction>(ir.default_entry_point);
-        for (uint32_t b : f.blocks)
+        irr::core::stack<std::reference_wrapper<const spirv_cross::SPIRFunction>> callstack;
+        callstack.push(std::cref(get<spirv_cross::SPIRFunction>(ir.default_entry_point)));
+        while (!callstack.empty())
         {
-            const spirv_cross::SPIRBlock& block = get<spirv_cross::SPIRBlock>(b);
-            for (auto& i : block.ops)
+            const auto& f = callstack.top().get();
+            callstack.pop();
+            for (uint32_t b : f.blocks)
             {
-                auto ops = stream(i);
-                spv::Op op = static_cast<spv::Op>(i.op);
-
-                switch (op)
+                const spirv_cross::SPIRBlock& block = get<spirv_cross::SPIRBlock>(b);
+                for (auto& i : block.ops)
                 {
-                case spv::OpLoad:
-                {
-                    SLoad ld = {ops[0], ops[1], i.offset, i.length};
+                    auto ops = stream(i);
+                    spv::Op op = static_cast<spv::Op>(i.op);
 
-                    if (getThisOpLoad)
+                    switch (op)
                     {
-                        auto& t = get_type(ops[0]);
-                        if (t.columns > 1u && t.basetype!=spirv_cross::SPIRType::BaseType::Struct)//consider only loads of matrices
-                            loads.push_back(ld);
-                        getThisOpLoad = false;
+                    case spv::OpLoad:
+                    {
+                        SLoad ld = {ops[0], ops[1], i.offset, i.length};
+
+                        if (getThisOpLoad)
+                        {
+                            auto& t = get_type(ops[0]);
+                            if (t.columns>1u && t.basetype!=spirv_cross::SPIRType::BaseType::Struct)//consider only loads of matrices
+                            {
+                                auto it = std::lower_bound(loads.begin(), loads.end(), ld);
+                                if (it==loads.end() || it->offset!=ld.offset)
+                                    loads.insert(it, ld);
+                            }
+                            getThisOpLoad = false;
+                        }
                     }
-                }
-                break;
-                case spv::OpAccessChain:
-                {
-                    uint32_t baseptr = ops[2];
-                    auto found = std::find(vars.begin(), vars.end(), baseptr);
-                    if (found != vars.end())
-                        getThisOpLoad = true;
-                }
-                break;
-                default: break;
+                    break;
+                    case spv::OpAccessChain:
+                    {
+                        uint32_t baseptr = ops[2];
+                        auto found = std::find(vars.begin(), vars.end(), baseptr);
+                        if (found != vars.end())
+                            getThisOpLoad = true;
+                    }
+                    break;
+                    case spv::OpFunctionCall:
+                    {
+                        auto& callee = get<spirv_cross::SPIRFunction>(ops[2]);
+                        callstack.push(std::cref(callee));
+                    }
+                    break;
+                    default: break;
+                    }
                 }
             }
         }
