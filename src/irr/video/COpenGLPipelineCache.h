@@ -17,18 +17,13 @@ class COpenGLPipelineCache final : public IGPUPipelineCache
 public:
 	struct SCacheVal {
 		COpenGLSpecializedShader::SProgramBinary binary;
-		core::smart_refctd_ptr<COpenGLPipelineLayout> layout;
-		core::smart_refctd_dynamic_array<GLint> locations;
 	};
 	struct SCacheKey {
 		std::array<uint64_t, 4> hash;
 		COpenGLSpecializedShader::SInfo info;
-		bool operator<(const SCacheKey& _rhs) const
-		{
-			if (hash < _rhs.hash) return true;
-			if (_rhs.hash < hash) return false;
-			return info < _rhs.info;
-		}
+		core::smart_refctd_ptr<COpenGLPipelineLayout> layout;
+
+		bool operator<(const SCacheKey& _rhs) const;
 	};
 
 	void merge(uint32_t _count, const IGPUPipelineCache** _srcCaches) override
@@ -51,14 +46,13 @@ public:
 
 	core::smart_refctd_ptr<asset::ICPUPipelineCache> convertToCPUCache() const override;
 
-	COpenGLSpecializedShader::SProgramBinary find(const SCacheKey& _key, const COpenGLPipelineLayout* _layout) const
+	COpenGLSpecializedShader::SProgramBinary find(const SCacheKey& _key) const
 	{
 		const std::lock_guard<std::mutex> _(m_bin_cache_mutex);
 
-		auto rng = m_cache.equal_range(_key);
-		for (auto it = rng.first; it != rng.second; ++it)
-			if (_layout->isCompatibleUpToSet(COpenGLPipelineLayout::DESCRIPTOR_SET_COUNT-1u, it->second.layout.get())==(COpenGLPipelineLayout::DESCRIPTOR_SET_COUNT-1u))
-				return it->second.binary;
+		auto found = m_cache.find(_key);
+		if (found!=m_cache.end())
+			return found->second.binary;
 		return {0,nullptr};
 	}
 	const spirv_cross::ParsedIR* findParsedSpirv(const std::array<uint64_t, 4>& _key)
@@ -77,7 +71,7 @@ public:
 	{
 		const std::lock_guard<std::mutex> _(m_bin_cache_mutex);
 #ifdef _IRR_DEBUG
-		assert(!find(_key, _val.layout.get()).binary);
+		assert(!find(_key).binary);
 #endif
 
 		m_cache.insert({std::move(_key),std::move(_val)});
@@ -98,7 +92,7 @@ public:
 	}
 
 private:
-	core::multimap<SCacheKey, SCacheVal> m_cache;
+	core::map<SCacheKey, SCacheVal> m_cache;
 	mutable std::mutex m_bin_cache_mutex;
 	core::map<std::array<uint64_t, 4>, spirv_cross::ParsedIR> m_parsedSpirvs;
 	mutable std::mutex m_parsed_cache_mutex;

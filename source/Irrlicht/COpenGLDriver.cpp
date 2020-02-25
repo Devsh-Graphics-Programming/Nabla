@@ -1505,8 +1505,8 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
         uint32_t ix = core::findLSB<uint32_t>(stage);
         assert(ix<COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT);
 
-        COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo() };
-        auto bin = cache ? cache->find(key, layout) : COpenGLSpecializedShader::SProgramBinary{0,nullptr};
+        COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo(), core::smart_refctd_ptr<COpenGLPipelineLayout>(layout) };
+        auto bin = cache ? cache->find(key) : COpenGLSpecializedShader::SProgramBinary{0,nullptr};
         if (bin.binary)
         {
             const GLuint GLname = extGlCreateProgram();
@@ -1523,7 +1523,7 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
         {
             cache->insertParsedSpirv(key.hash, glshdr->getSpirv());
 
-            COpenGLPipelineCache::SCacheVal val{std::move(bin), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(_layout)};
+            COpenGLPipelineCache::SCacheVal val{std::move(bin)};
             cache->insert(std::move(key), std::move(val));
         }
     }
@@ -1553,8 +1553,8 @@ core::smart_refctd_ptr<IGPUComputePipeline> COpenGLDriver::createGPUComputePipel
     COpenGLPipelineLayout* layout = static_cast<COpenGLPipelineLayout*>(_layout.get());
     COpenGLSpecializedShader* glshdr = static_cast<COpenGLSpecializedShader*>(_shader.get());
 
-    COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo() };
-    auto bin = cache ? cache->find(key, layout) : COpenGLSpecializedShader::SProgramBinary{0,nullptr};
+    COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo(), core::smart_refctd_ptr<COpenGLPipelineLayout>(layout) };
+    auto bin = cache ? cache->find(key) : COpenGLSpecializedShader::SProgramBinary{0,nullptr};
     if (bin.binary)
     {
         const GLuint GLshader = extGlCreateProgram();
@@ -1571,7 +1571,7 @@ core::smart_refctd_ptr<IGPUComputePipeline> COpenGLDriver::createGPUComputePipel
         {
             cache->insertParsedSpirv(key.hash, glshdr->getSpirv());
 
-            COpenGLPipelineCache::SCacheVal val{std::move(bin), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(_layout)};
+            COpenGLPipelineCache::SCacheVal val{std::move(bin)};
             cache->insert(std::move(key), std::move(val));
         }
     }
