@@ -66,6 +66,19 @@ public:
         return IOpenGLPipeline<SHADER_STAGE_COUNT>::getShaderGLnameForCtx(_stageIx, _ctxID);
     }
 
+    void setUniformsImitatingPushConstants(uint32_t _stageIx, uint32_t _ctxID, const uint8_t* _pcData) const
+    {
+        if (!m_shaders[_stageIx])
+            return;
+
+        auto uniforms = static_cast<COpenGLSpecializedShader*>(m_shaders[_stageIx].get())->getUniforms();
+        auto locations = static_cast<COpenGLSpecializedShader*>(m_shaders[_stageIx].get())->getLocations();
+        if (!uniforms.length())
+            return;
+
+        IOpenGLPipeline<SHADER_STAGE_COUNT>::setUniformsImitatingPushConstants(_stageIx, _ctxID, _pcData, uniforms, locations);
+    }
+
     struct SVAOHash
     {
         constexpr static size_t getHashLength()

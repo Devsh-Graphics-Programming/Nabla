@@ -2539,16 +2539,7 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
 				continue;
 
 			//pipeline must be flushed before push constants so taking pipeline from currentState
-			const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.graphics.pipeline->getShaderAtIndex(i));
-			//assert(shdr); //this would be weird
-
-            GLuint GLname = currentState.pipeline.graphics.pipeline->getShaderGLnameForCtx(i, this->ID);
-            uint8_t* PCstate = currentState.pipeline.graphics.pipeline->getPushConstantsStateForStage(i, this->ID);
-            const bool uniformsEverSet = currentState.pipeline.graphics.pipeline->haveUniformsBeenEverSet(i, this->ID);
-
-			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_GRAPHICS].data, GLname, PCstate, !uniformsEverSet);
-
-            currentState.pipeline.graphics.pipeline->afterUniformsSet(i, this->ID);
+            currentState.pipeline.graphics.pipeline->setUniformsImitatingPushConstants(i, this->ID, pushConstantsState[EPBP_GRAPHICS].data);
 		}
 		pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags = 0u;
     }
@@ -2656,13 +2647,7 @@ void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
 		assert(currentState.pipeline.compute.pipeline->containsShader());
 		if (pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags & asset::ISpecializedShader::ESS_COMPUTE)
 		{
-			const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.compute.pipeline->getShader());
-
-            GLuint GLname = currentState.pipeline.compute.pipeline->getShaderGLnameForCtx(0u, this->ID);
-            uint8_t* PCstate = currentState.pipeline.compute.pipeline->getPushConstantsStateForStage(0u, this->ID);
-            const bool uniformsEverSet = currentState.pipeline.compute.pipeline->haveUniformsBeenEverSet(0u, this->ID);
-
-			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_COMPUTE].data, GLname, PCstate, !uniformsEverSet);
+            currentState.pipeline.compute.pipeline->setUniformsImitatingPushConstants(this->ID, pushConstantsState[EPBP_COMPUTE].data);
 
 			pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags = 0u;
 		}

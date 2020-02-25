@@ -28,6 +28,16 @@ public:
         return IOpenGLPipeline<1>::getShaderGLnameForCtx(_stageIx, _ctxID);
     }
 
+    void setUniformsImitatingPushConstants(uint32_t _ctxID, const uint8_t* _pcData) const
+    {
+        auto uniforms = static_cast<COpenGLSpecializedShader*>(m_shader.get())->getUniforms();
+        auto locations = static_cast<COpenGLSpecializedShader*>(m_shader.get())->getLocations();
+        if (!uniforms.length())
+            return;
+
+        IOpenGLPipeline<1>::setUniformsImitatingPushConstants(0u, _ctxID, _pcData, uniforms, locations);
+    }
+
 protected:
     virtual ~COpenGLComputePipeline() = default;
 };
