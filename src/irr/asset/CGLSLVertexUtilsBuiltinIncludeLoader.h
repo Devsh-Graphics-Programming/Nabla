@@ -28,13 +28,13 @@ struct irr_glsl_SBasicViewParameters
     mat4x3 MV;
     mat4x3 NormalMatAndEyePos;
 };
-mat3 irr_glsl_SBasicViewParameters_GetNormalMat(in irr_glsl_SBasicViewParameters _params)
+mat3 irr_glsl_SBasicViewParameters_GetNormalMat(in mat4x3 _NormalMatAndEyePos)
 {
-    return mat3(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x3(_params.NormalMatAndEyePos));
+    return mat3(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x3(_NormalMatAndEyePos));
 }
-vec3 irr_glsl_SBasicViewParameters_GetEyePos(in irr_glsl_SBasicViewParameters _params)
+vec3 irr_glsl_SBasicViewParameters_GetEyePos(in mat4x3 _NormalMatAndEyePos)
 {
-    return irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x3(_params.NormalMatAndEyePos)[3];
+    return irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x3(_NormalMatAndEyePos)[3];
 }
 
 vec4 irr_glsl_pseudoMul4x4with3x1(in mat4 m, in vec3 v)

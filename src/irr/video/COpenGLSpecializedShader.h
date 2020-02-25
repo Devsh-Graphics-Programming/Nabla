@@ -35,8 +35,6 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 
 		COpenGLSpecializedShader(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, const asset::CIntrospectionData* _introspection);
 
-		void setUniformsImitatingPushConstants(const uint8_t* _pcData, GLuint _GLname, uint8_t* _state, bool _dontCmpWithState) const;
-
 		inline GLenum getOpenGLStage() const { return m_GLstage; }
 
 		std::pair<GLuint, SProgramBinary> compile(const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv) const;
@@ -44,6 +42,8 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 		const SInfo& getSpecializationInfo() const { return m_specInfo; }
 		const std::array<uint64_t, 4>& getSpirvHash() const { return m_spirvHash; }
 		const asset::ICPUBuffer* getSpirv() const { return m_spirv.get(); }
+		core::SRange<const SUniform> getUniforms() const { return {m_uniformsList.data(), m_uniformsList.data()+m_uniformsList.size()}; }
+		core::SRange<const GLint> getLocations() const { return {m_locations.data(), m_locations.data()+m_locations.size()}; }
 
 	protected:
 		~COpenGLSpecializedShader() = default;

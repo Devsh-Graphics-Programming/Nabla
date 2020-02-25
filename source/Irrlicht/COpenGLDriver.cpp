@@ -25,6 +25,7 @@
 #include "COpenGLQuery.h"
 #include "COpenGLTimestampQuery.h"
 #include "os.h"
+#include "irr/asset/spvUtils.h"
 
 #ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
 #include "CIrrDeviceSDL.h"
@@ -44,6 +45,162 @@
 #include <X11/extensions/Xrandr.h>
 #endif
 #endif
+
+namespace
+{
+class AMDbugfixCompiler : public spirv_cross::Compiler
+{
+public:
+    using spirv_cross::Compiler::Compiler;
+
+    enum E_AMD_FIX_FUNCS
+    {
+        EAFF_d2x2,
+        EAFF_d2x3,
+        EAFF_d2x4,
+        EAFF_d3x2,
+        EAFF_d3x3,
+        EAFF_d3x4,
+        EAFF_d4x2,
+        EAFF_d4x3,
+        EAFF_d4x4,
+        EAFF_2x2,
+        EAFF_2x3,
+        EAFF_2x4,
+        EAFF_3x2,
+        EAFF_3x3,
+        EAFF_3x4,
+        EAFF_4x2,
+        EAFF_4x3,
+        EAFF_4x4,
+
+        EAFF_COUNT
+    };
+    struct SFunction
+    {
+        uint32_t restype;
+        uint32_t id;
+    };
+    struct SLoad
+    {
+        uint32_t restype;
+        uint32_t id;
+        uint32_t offset;
+        uint32_t len;
+    };
+
+    std::pair<irr::core::vector<SLoad>, std::array<SFunction, EAFF_COUNT>> getFixCandidates()
+    {
+        irr::core::vector<uint32_t> vars;//IDs of UBO or SSBO vars (instances)
+        irr::core::vector<SLoad> loads;//OpLoad's that are potentially going to need the fix
+        
+        std::array<SFunction, EAFF_COUNT> fixFuncs;
+        memset(fixFuncs.data(), 0xff, fixFuncs.size()*sizeof(SFunction));
+
+        ir.for_each_typed_id<spirv_cross::SPIRVariable>(//gather all instances of SSBO and UBO blocks
+            [&](uint32_t, const spirv_cross::SPIRVariable& var) {
+                auto& type = this->get<spirv_cross::SPIRType>(var.basetype);
+                if (type.storage == spv::StorageClassUniform || type.storage == spv::StorageClassStorageBuffer)
+                {
+                    vars.push_back(var.self);
+                }
+        });
+        ir.for_each_typed_id<spirv_cross::SPIRFunction>(
+            [&](uint32_t, const spirv_cross::SPIRFunction& func) {
+                    uint32_t fid = func.self;
+                    const std::string& nm = get_name(fid);
+                    const char expected[] = "irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_";
+                    if (nm.length()>sizeof(expected)-1u && strncmp(nm.c_str(), expected, sizeof(expected)-1u)==0)
+                    {
+                        uint32_t ix = ~0u;
+                        const char* szstr = nm.c_str()+sizeof(expected)-1u;
+                        if (strncmp(szstr, "dmat2x2", 7) == 0)
+                            ix = EAFF_d2x2;
+                        else if (strncmp(szstr, "dmat2x3", 7) == 0)
+                            ix = EAFF_d2x3;
+                        else if (strncmp(szstr, "dmat2x4", 7) == 0)
+                            ix = EAFF_d2x4;
+                        else if (strncmp(szstr, "dmat3x2", 7) == 0)
+                            ix = EAFF_d3x2;
+                        else if (strncmp(szstr, "dmat3x3", 7) == 0)
+                            ix = EAFF_d3x3;
+                        else if (strncmp(szstr, "dmat3x4", 7) == 0)
+                            ix = EAFF_d3x4;
+                        else if (strncmp(szstr, "dmat4x2", 7) == 0)
+                            ix = EAFF_d4x2;
+                        else if (strncmp(szstr, "dmat4x3", 7) == 0)
+                            ix = EAFF_d4x3;
+                        else if (strncmp(szstr, "dmat4x4", 7) == 0)
+                            ix = EAFF_d4x4;
+                        else if (strncmp(szstr, "mat2x2", 6) == 0)
+                            ix = EAFF_2x2;
+                        else if (strncmp(szstr, "mat2x3", 6) == 0)
+                            ix = EAFF_2x3;
+                        else if (strncmp(szstr, "mat2x4", 6) == 0)
+                            ix = EAFF_2x4;
+                        else if (strncmp(szstr, "mat3x2", 6) == 0)
+                            ix = EAFF_3x2;
+                        else if (strncmp(szstr, "mat3x3", 6) == 0)
+                            ix = EAFF_3x3;
+                        else if (strncmp(szstr, "mat3x4", 6) == 0)
+                            ix = EAFF_3x4;
+                        else if (strncmp(szstr, "mat4x2", 6) == 0)
+                            ix = EAFF_4x2;
+                        else if (strncmp(szstr, "mat4x3", 6) == 0)
+                            ix = EAFF_4x3;
+                        else if (strncmp(szstr, "mat4x4", 6) == 0)
+                            ix = EAFF_4x4;
+
+                        if (ix < fixFuncs.size())
+                        {
+                            fixFuncs[ix].restype = get_type(func.return_type).self;
+                            fixFuncs[ix].id = fid;
+                        }
+                    }
+            }
+        );
+
+        bool getThisOpLoad = false;
+        const spirv_cross::SPIRFunction& f = get<spirv_cross::SPIRFunction>(ir.default_entry_point);
+        for (uint32_t b : f.blocks)
+        {
+            const spirv_cross::SPIRBlock& block = get<spirv_cross::SPIRBlock>(b);
+            for (auto& i : block.ops)
+            {
+                auto ops = stream(i);
+                spv::Op op = static_cast<spv::Op>(i.op);
+
+                switch (op)
+                {
+                case spv::OpLoad:
+                {
+                    SLoad ld = {ops[0], ops[1], i.offset, i.length};
+
+                    if (getThisOpLoad)
+                    {
+                        auto& t = get_type(ops[0]);
+                        if (t.columns > 1u && t.basetype!=spirv_cross::SPIRType::BaseType::Struct)//consider only loads of matrices
+                            loads.push_back(ld);
+                        getThisOpLoad = false;
+                    }
+                }
+                break;
+                case spv::OpAccessChain:
+                {
+                    uint32_t baseptr = ops[2];
+                    auto found = std::find(vars.begin(), vars.end(), baseptr);
+                    if (found != vars.end())
+                        getThisOpLoad = true;
+                }
+                break;
+                default: break;
+                }
+            }
+        }
+        return {std::move(loads), fixFuncs};
+    }
+};
+}
 
 namespace irr
 {
@@ -1184,6 +1341,60 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
                 EP.c_str(),
                 "????"
             );
+
+#define FIX_AMD_DRIVER_BUG
+#ifdef FIX_AMD_DRIVER_BUG
+        AMDbugfixCompiler comp(reinterpret_cast<const uint32_t*>(spvCode->getPointer()), spvCode->getSize()/4u);
+        comp.set_entry_point(EP, asset::ESS2spvExecModel(stage));
+        auto amd_fix_data = comp.getFixCandidates();
+        if (amd_fix_data.first.size())
+        {
+            core::vector<uint32_t> spv(spvCode->getSize() / 4u);
+            memcpy(spv.data(), spvCode->getPointer(), spv.size() * 4ull);
+            spv[3] += amd_fix_data.first.size();//adjust instr IDs bound
+
+            uint32_t i = 0u;
+            uint32_t extraOffset = 0u;
+            for (const auto& ld : amd_fix_data.first)
+            {
+                struct OpFunctionCall
+                {
+                    uint32_t op;
+                    uint32_t restype;
+                    uint32_t id;
+                    uint32_t f_id;
+                    uint32_t arg;
+                };
+                uint32_t fcall_[sizeof(OpFunctionCall) / 4u]{};
+                OpFunctionCall* fcall = reinterpret_cast<OpFunctionCall*>(fcall_);
+                fcall->op = spv::OpFunctionCall;
+                fcall->op |= static_cast<uint32_t>(sizeof(OpFunctionCall)/4u)<<16;
+                fcall->arg = ld.id;
+                fcall->restype = ld.restype;
+                uint32_t fcallId = comp.get_current_id_bound() + (i++);
+                fcall->id = fcallId;
+                fcall->f_id = ~0u;
+                for (const auto& f : amd_fix_data.second)
+                {
+                    if (f.restype==ld.restype)
+                    {
+                        fcall->f_id = f.id;
+                        break;
+                    }
+                }
+                assert(fcall->f_id<(~0u));
+
+                uint32_t* store = spv.data()+ld.offset+ld.len+extraOffset;
+                store[2] = fcallId;//store result of new OpFunctionCall instead of result of OpStore
+
+                spv.insert(spv.begin()+ld.offset+ld.len+extraOffset, fcall_, fcall_+sizeof(fcall_)/sizeof(*fcall_));
+                extraOffset += sizeof(fcall_)/sizeof(*fcall_);
+            }
+            spvCode = core::make_smart_refctd_ptr<asset::ICPUBuffer>(spv.size()*4ull);
+            memcpy(spvCode->getPointer(), spv.data(), spv.size()*4ull);
+        }
+#endif //FIX_AMD_DRIVER_BUG
+
         //auto fl = fopen("shader.glsl","w");
         //fwrite(reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()), 1, glslShader_woIncludes->getSPVorGLSL()->getSize(), fl);
         //fclose(fl);
@@ -1294,8 +1505,8 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
         uint32_t ix = core::findLSB<uint32_t>(stage);
         assert(ix<COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT);
 
-        COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo() };
-        auto bin = cache ? cache->find(key, layout) : COpenGLSpecializedShader::SProgramBinary{0,nullptr};
+        COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo(), core::smart_refctd_ptr<COpenGLPipelineLayout>(layout) };
+        auto bin = cache ? cache->find(key) : COpenGLSpecializedShader::SProgramBinary{0,nullptr};
         if (bin.binary)
         {
             const GLuint GLname = extGlCreateProgram();
@@ -1312,7 +1523,7 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
         {
             cache->insertParsedSpirv(key.hash, glshdr->getSpirv());
 
-            COpenGLPipelineCache::SCacheVal val{std::move(bin), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(_layout)};
+            COpenGLPipelineCache::SCacheVal val{std::move(bin)};
             cache->insert(std::move(key), std::move(val));
         }
     }
@@ -1342,8 +1553,8 @@ core::smart_refctd_ptr<IGPUComputePipeline> COpenGLDriver::createGPUComputePipel
     COpenGLPipelineLayout* layout = static_cast<COpenGLPipelineLayout*>(_layout.get());
     COpenGLSpecializedShader* glshdr = static_cast<COpenGLSpecializedShader*>(_shader.get());
 
-    COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo() };
-    auto bin = cache ? cache->find(key, layout) : COpenGLSpecializedShader::SProgramBinary{0,nullptr};
+    COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo(), core::smart_refctd_ptr<COpenGLPipelineLayout>(layout) };
+    auto bin = cache ? cache->find(key) : COpenGLSpecializedShader::SProgramBinary{0,nullptr};
     if (bin.binary)
     {
         const GLuint GLshader = extGlCreateProgram();
@@ -1360,7 +1571,7 @@ core::smart_refctd_ptr<IGPUComputePipeline> COpenGLDriver::createGPUComputePipel
         {
             cache->insertParsedSpirv(key.hash, glshdr->getSpirv());
 
-            COpenGLPipelineCache::SCacheVal val{std::move(bin), core::smart_refctd_ptr_static_cast<COpenGLPipelineLayout>(_layout)};
+            COpenGLPipelineCache::SCacheVal val{std::move(bin)};
             cache->insert(std::move(key), std::move(val));
         }
     }
@@ -2278,17 +2489,30 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
                         updatedBindings[bnd] = true;
                     }
                 }
+            }
+            //vertex and index buffer bindings are done outside this if-statement because no change in hash doesn't imply no change in those bindings
+        }
+        GLuint GLvao = currentState.vertexInputParams.vao.second.GLname;
+        if (GLvao)
+        {
+            for (uint32_t i = 0u; i < 16u; ++i)
+            {
+                const auto& hash = currentState.vertexInputParams.vao.first;
+                if (hash.attribFormatAndComponentCount[i] == asset::EF_UNKNOWN)
+                    continue;
+
+                const uint32_t bnd = hash.getBindingForAttrib(i);
 
                 if (STATE_NEQ(vertexInputParams.bindings[bnd]))//this if-statement also doesnt allow GlVertexArrayVertexBuffer be called multiple times for single binding
                 {
                     assert(nextState.vertexInputParams.bindings[bnd].buf);//something went wrong
-                    extGlVertexArrayVertexBuffer(vao, bnd, nextState.vertexInputParams.bindings[bnd].buf->getOpenGLName(), nextState.vertexInputParams.bindings[bnd].offset, hashVal.getStrideForBinding(bnd));
+                    extGlVertexArrayVertexBuffer(GLvao, bnd, nextState.vertexInputParams.bindings[bnd].buf->getOpenGLName(), nextState.vertexInputParams.bindings[bnd].offset, hash.getStrideForBinding(bnd));
                     UPDATE_STATE(vertexInputParams.bindings[bnd]);
                 }
             }
             if (STATE_NEQ(vertexInputParams.indexBuf))
             {
-                extGlVertexArrayElementBuffer(vao, nextState.vertexInputParams.indexBuf ? nextState.vertexInputParams.indexBuf->getOpenGLName() : 0u);
+                extGlVertexArrayElementBuffer(GLvao, nextState.vertexInputParams.indexBuf ? nextState.vertexInputParams.indexBuf->getOpenGLName() : 0u);
                 UPDATE_STATE(vertexInputParams.indexBuf);
             }
         }
@@ -2315,16 +2539,7 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
 				continue;
 
 			//pipeline must be flushed before push constants so taking pipeline from currentState
-			const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.graphics.pipeline->getShaderAtIndex(i));
-			//assert(shdr); //this would be weird
-
-            GLuint GLname = currentState.pipeline.graphics.pipeline->getShaderGLnameForCtx(i, this->ID);
-            uint8_t* PCstate = currentState.pipeline.graphics.pipeline->getPushConstantsStateForStage(i, this->ID);
-            const bool uniformsEverSet = currentState.pipeline.graphics.pipeline->haveUniformsBeenEverSet(i, this->ID);
-
-			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_GRAPHICS].data, GLname, PCstate, !uniformsEverSet);
-
-            currentState.pipeline.graphics.pipeline->afterUniformsSet(i, this->ID);
+            currentState.pipeline.graphics.pipeline->setUniformsImitatingPushConstants(i, this->ID, pushConstantsState[EPBP_GRAPHICS].data);
 		}
 		pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags = 0u;
     }
@@ -2432,13 +2647,7 @@ void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
 		assert(currentState.pipeline.compute.pipeline->containsShader());
 		if (pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags & asset::ISpecializedShader::ESS_COMPUTE)
 		{
-			const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.compute.pipeline->getShader());
-
-            GLuint GLname = currentState.pipeline.compute.pipeline->getShaderGLnameForCtx(0u, this->ID);
-            uint8_t* PCstate = currentState.pipeline.compute.pipeline->getPushConstantsStateForStage(0u, this->ID);
-            const bool uniformsEverSet = currentState.pipeline.compute.pipeline->haveUniformsBeenEverSet(0u, this->ID);
-
-			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_COMPUTE].data, GLname, PCstate, !uniformsEverSet);
+            currentState.pipeline.compute.pipeline->setUniformsImitatingPushConstants(this->ID, pushConstantsState[EPBP_COMPUTE].data);
 
 			pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags = 0u;
 		}

@@ -3,6 +3,76 @@
 using namespace irr;
 using namespace video;
 
+static int compare_desc_layouts(const IGPUDescriptorSetLayout* A, const IGPUDescriptorSetLayout* B)
+{
+	// a null descriptor set layout is the smallest
+	if (!A)
+		return B ? -1 : 0;
+	if (!B)
+		return A ? 1 : 0;
+
+	// non null descriptor set layouts, we can compare more
+	auto count = A->getBindings().length();
+	auto lendiff = int64_t(count) - int64_t(B->getBindings().length());
+	if (lendiff != 0)
+		return lendiff;
+
+	const auto* lhs = A->getBindings().begin();
+	const auto* rhs = B->getBindings().begin();
+	for (decltype(count) i = 0; i < count; ++i)
+	{
+		const auto& l = lhs[i];
+		const auto& r = rhs[i];
+		if (l.binding==r.binding)
+		{
+			if (l.type==r.type)
+			{
+				if (l.count==r.count)
+				{
+					if (l.stageFlags==r.stageFlags)
+					{
+						if (!l.samplers && r.samplers)
+						{
+							return -1;
+						}
+						if (l.samplers && !r.samplers)
+						{
+							return 1;
+						}
+						for (uint32_t s=0u; s < l.count; ++s)
+							if (l.samplers[s]!=r.samplers[s])
+							{
+								return l.samplers[s].get()-r.samplers[s].get();
+							}
+						continue;//dont let it just return ( static_cast<int32_t>(l.stageFlags)-static_cast<int32_t>(r.stageFlags) )
+					}
+					return static_cast<int32_t>(l.stageFlags)-static_cast<int32_t>(r.stageFlags);
+				}
+				return static_cast<int32_t>(l.count)-static_cast<int32_t>(r.count);
+			}
+			return static_cast<int32_t>(l.type)-static_cast<int32_t>(r.type);
+		}
+		return static_cast<int32_t>(l.binding)-static_cast<int32_t>(r.binding);
+	}
+
+	return 0;
+}
+
+bool COpenGLPipelineCache::SCacheKey::operator<(const COpenGLPipelineCache::SCacheKey& _rhs) const
+{
+	if (hash < _rhs.hash) return true;
+	if (_rhs.hash < hash) return false;
+	if (info < _rhs.info) return true;
+	if (_rhs.info < info) return false;
+	for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+	{
+		int cmp = compare_desc_layouts(layout->getDescriptorSetLayout(i), _rhs.layout->getDescriptorSetLayout(i));
+		if (cmp!=0)
+			return cmp<0;
+	}
+	return true;
+}
+
 core::smart_refctd_ptr<asset::ICPUPipelineCache> COpenGLPipelineCache::convertToCPUCache() const
 {
 	asset::ICPUPipelineCache::entries_map_t out_entries;
@@ -31,7 +101,7 @@ core::smart_refctd_ptr<asset::ICPUPipelineCache> COpenGLPipelineCache::convertTo
 		uint32_t bndPerSet[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT]{};
 		for (uint32_t j = 0u; j < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++j)
 		{
-			auto dsl = in_entry.second.layout->getDescriptorSetLayout(j);
+			auto dsl = in_entry.first.layout->getDescriptorSetLayout(j);
 			bndPerSet[j] = dsl ? dsl->getBindings().length() : 0u;
 			bndCnt += bndPerSet[j];
 		}
@@ -45,7 +115,7 @@ core::smart_refctd_ptr<asset::ICPUPipelineCache> COpenGLPipelineCache::convertTo
 
 		for (uint32_t j = 0u, k = 0u; j < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++j)
 		{
-			auto* dsl = in_entry.second.layout->getDescriptorSetLayout(j);
+			auto* dsl = in_entry.first.layout->getDescriptorSetLayout(j);
 			if (!dsl)
 				continue;
 				
