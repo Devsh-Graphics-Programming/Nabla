@@ -19,78 +19,22 @@ namespace irr
 namespace asset
 {
 
-_IRR_STATIC_INLINE_CONSTEXPR const char* VERT_SHADER_CACHE_KEY = "irr/builtin/shader/loaders/ply/vertex";
-_IRR_STATIC_INLINE_CONSTEXPR const char* FRAG_SHADER_CACHE_KEY = "irr/builtin/shader/loaders/ply/fragment";
-
-const char* VERT_SHADER = R"===(
-#version 430 core
-layout(location = 0) in vec4 vPos;
-layout(location = 1) in vec4 vCol;
-layout(location = 3) in vec3 vNormal; 
-
-#include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
-
-layout (set = 1, binding = 0, row_major, std140) uniform UBO {
-    irr_glsl_SBasicViewParameters params;
-} CamData;
-
-layout (location = 0) out vec3 color;
-layout (location = 1) out vec3 viewPos;
-layout (location = 2) out vec3 normal;
-
-void main()
+template<typename AssetType, IAsset::E_TYPE assetType>
+static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
 {
-    gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.params.MVP), vPos);
-	viewPos = irr_glsl_pseudoMul3x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x3(CamData.params.MV), vPos);
-	mat3 normalMat = irr_glsl_SBasicViewParameters_GetNormalMat(CamData.params);
-    normal = normalMat*normalize(vNormal);
-    color = vCol.xyz;
+	size_t storageSz = 1ull;
+	asset::SAssetBundle bundle;
+	const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
+
+	_assetMgr->findAssets(storageSz, &bundle, _key, types);
+	if (bundle.isEmpty())
+		return nullptr;
+	auto assets = bundle.getContents();
+
+	return core::smart_refctd_ptr_static_cast<AssetType>(assets.first[0]);
 }
-)===";
 
-const char* FRAG_SHADER = R"===(
-#version 430 core
-
-layout (location = 0) in vec3 color;
-layout (location = 1) in vec3 viewPos;
-layout (location = 2) in vec3 normal;
-
-layout(location = 0) out vec4 pixelColor;
-
-void main()
-{
-	// blinn-phong maybe?
-
-    pixelColor = vec4(color,1.0);
-}
-)===";
-
-CPLYMeshFileLoader::CPLYMeshFileLoader(IAssetManager* _am) : m_assetMgr{ _am }
-{
-	auto createAndInstertShaderIntoCache = [&](const auto cacheKey, const auto shaderCode, const auto specialization)
-	{
-
-		std::string shader_key = cacheKey;
-		auto shader_unspec = core::make_smart_refctd_ptr<ICPUShader>(shaderCode);
-
-		ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", specialization);
-		auto shader_spec = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(shader_unspec), ICPUSpecializedShader::SInfo(specinfo));
-
-		asset::SAssetBundle bundle({ shader_spec });
-		m_assetMgr->changeAssetKey(bundle, shader_key);
-		m_assetMgr->insertAssetIntoCache(bundle);
-	};
-
-	auto createAndInsertPipelineLayoutIntoCache = [&]()
-	{
-
-	};
-
-	createAndInstertShaderIntoCache(VERT_SHADER_CACHE_KEY, VERT_SHADER, ICPUSpecializedShader::ESS_VERTEX);
-	createAndInstertShaderIntoCache(FRAG_SHADER_CACHE_KEY, FRAG_SHADER, ICPUSpecializedShader::ESS_FRAGMENT);
-
-	createAndInsertPipelineLayoutIntoCache(); // TODO
-}
+CPLYMeshFileLoader::CPLYMeshFileLoader(IAssetManager* _am) : m_assetMgr{ _am } {}
 
 CPLYMeshFileLoader::~CPLYMeshFileLoader() {}
 
@@ -330,6 +274,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			asset::SBufferBinding<ICPUBuffer> indexBinding;
 			indexBinding.offset = 0ull;
 			mb->setIndexCount(attribs[E_POS].size());
+			mb->setPositionAttributeIx(0);
 
             if (indices.size())
             {
@@ -658,29 +603,51 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 
 	const uint32_t vertexSize = std::accumulate(sizes, sizes + 4, static_cast<size_t>(0));
 
-	// TODO after inserting shaders and pipeline layout - fetch it from cache and use bellow
-	auto mbPipelineLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(); // fetch it
-
-	auto inputParams = core::make_smart_refctd_ptr<SVertexInputParams>();
-	inputParams->enabledAttribFlags = (1 << E_POS) | (1 << E_COL) | (1 << E_UV) | (1 << E_NORM);
-	inputParams->enabledBindingFlags = 0;
-	inputParams->attributes[E_POS] = { 0u,EF_R32G32B32_SFLOAT, offsets[E_POS] };
-	inputParams->attributes[E_COL] = { 0u,EF_R32G32B32A32_SFLOAT, offsets[E_COL] };
-	inputParams->attributes[E_UV] = { 0u,EF_R32G32_SFLOAT, offsets[E_UV] };
-	inputParams->attributes[E_NORM] = { 0u,EF_R32G32B32_SFLOAT, offsets[E_NORM] };
-	inputParams->bindings[0] = { vertexSize, EVIR_PER_VERTEX };
-
-	auto blendParams = core::make_smart_refctd_ptr<SBlendParams>();
-	auto primitiveAssemblyParams = core::make_smart_refctd_ptr<SPrimitiveAssemblyParams>();
-	if (_mbuf->getIndexBufferBinding()->buffer)
-		primitiveAssemblyParams->primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST;
-	else
-		primitiveAssemblyParams->primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_POINT_LIST;
-
-	auto rastarizationParmas = core::make_smart_refctd_ptr<SRasterizationParams>();
-
-	auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), TODO_SHADERS_BEGIN, TODO_SHADERS_END, inputParams.get(), blendParams.get(), primitiveAssemblyParams.get(), rastarizationParmas.get());
+	auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
+	auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	{
+		const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
+		auto bundle = m_assetMgr->findAssets("irr/builtin/materials/lambertian/singletexture/specializedshader", types);
+
+		auto refCountedBundle =
+		{
+			core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(bundle->begin()->getContents().first[0]),
+			core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>((bundle->begin() + 1)->getContents().first[0])
+		};
+
+		for (auto& shader : refCountedBundle)
+		{
+			if (shader->getStage() == ISpecializedShader::ESS_VERTEX)
+				mbVertexShader = std::move(shader);
+			else if(shader->getStage() == ISpecializedShader::ESS_FRAGMENT)
+				mbFragmentShader = std::move(shader);
+		}
+	}
+	auto mbPipelineLayout = getDefaultAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>("irr/builtin/pipeline_layouts/default", m_assetMgr);
+
+	SVertexInputParams inputParams;
+	inputParams.enabledAttribFlags = (1 << E_POS) | (1 << E_COL) | (1 << E_UV) | (1 << E_NORM);
+	inputParams.enabledBindingFlags = (1 << 0);
+	inputParams.attributes[E_POS] = { 0u,EF_R32G32B32_SFLOAT, offsets[E_POS] };
+	inputParams.attributes[E_COL] = { 0u,EF_R32G32B32A32_SFLOAT, offsets[E_COL] };
+	inputParams.attributes[E_UV] = { 0u,EF_R32G32_SFLOAT, offsets[E_UV] };
+	inputParams.attributes[E_NORM] = { 0u,EF_R32G32B32_SFLOAT, offsets[E_NORM] };
+	inputParams.bindings[0] = { vertexSize, EVIR_PER_VERTEX };
+
+	SBlendParams blendParams;
+	SPrimitiveAssemblyParams primitiveAssemblyParams;
+	if (_mbuf->getIndexBufferBinding()->buffer)
+		primitiveAssemblyParams.primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST;
+	else
+		primitiveAssemblyParams.primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_POINT_LIST;
+
+	SRasterizationParams rastarizationParmas;
+
+	auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, inputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
+	{
+		mbPipeline->setShaderAtStage(ISpecializedShader::ESS_VERTEX, mbVertexShader.get());
+		mbPipeline->setShaderAtStage(ISpecializedShader::ESS_FRAGMENT, mbFragmentShader.get());
+
 		auto inputParams = mbPipeline->getVertexInputParams();
 
 		for (auto index = 0; index < 4; ++index)

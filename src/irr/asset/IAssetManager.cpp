@@ -209,7 +209,8 @@ layout(location = 0) out vec2 uv;
 
 void main()
 {
-    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(PushConstants.modelViewProj)*vec4(vPos,1.0);
+    //gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(PushConstants.modelViewProj)*vec4(vPos,1.0);
+    //gl_Position = PushConstants.modelViewProj*vec4(vPos,1.0);
 	uv = vTexCoord;
 }
 		)===", asset::ISpecializedShader::ESS_VERTEX, "irr/builtin/materials/lambertian/singletexture/specializedshader");
@@ -313,6 +314,18 @@ void main()
 
         addBuiltInToCaches(dummy2dImgView, "irr/builtin/image_views/dummy2d");
         addBuiltInToCaches(dummy2dImage, "irr/builtin/images/dummy2d");
+    }
+
+    // pipeline layout
+    core::smart_refctd_ptr<asset::ICPUPipelineLayout> pipelineLayout;
+    {
+        SPushConstantRange pushConstantRange;
+        pushConstantRange.stageFlags = ISpecializedShader::E_SHADER_STAGE::ESS_VERTEX;
+        pushConstantRange.offset = 0;
+        pushConstantRange.size = sizeof(core::matrix4SIMD); /// mvp matrix for buildin shaders
+
+        pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pushConstantRange, &pushConstantRange + 1, nullptr, nullptr, nullptr, nullptr);
+        addBuiltInToCaches(pipelineLayout, "irr/builtin/pipeline_layouts/default");
     }
 
     //ds layouts
