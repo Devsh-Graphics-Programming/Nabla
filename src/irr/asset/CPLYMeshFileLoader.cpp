@@ -273,7 +273,6 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
 			asset::SBufferBinding<ICPUBuffer> indexBinding;
 			indexBinding.offset = 0ull;
-			mb->setIndexCount(attribs[E_POS].size());
 			mb->setPositionAttributeIx(0);
 
             if (indices.size())
@@ -281,6 +280,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				indexBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(indices.size() * sizeof(uint32_t));
                 memcpy(indexBinding.buffer->getPointer(), indices.data(), indexBinding.buffer->getSize());
 
+				mb->setIndexCount(indices.size());
 				mb->setIndexBufferBinding(std::move(indexBinding));
                 mb->setIndexType(asset::EIT_32BIT);
 
@@ -289,6 +289,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
             }
             else
             {
+				mb->setIndexCount(attribs[E_POS].size());
 				mb->setIndexType(EIT_UNKNOWN);
 
 				if (!genVertBuffersForMBuffer(mb.get(), attribs))
@@ -573,6 +574,11 @@ void CPLYMeshFileLoader::moveForward(SContext& _ctx, uint32_t bytes)
 
 bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const
 {
+	core::vector<uint8_t> availableAttributes;
+	for (auto i = 0; i < 4; ++i)
+		if (!_attribs[i].empty())
+			availableAttributes.push_back(i);
+
 	{
 		size_t check = _attribs[0].size();
 		for (size_t i = 1u; i < 4u; ++i)
@@ -607,7 +613,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 	auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	{
 		const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
-		auto bundle = m_assetMgr->findAssets("irr/builtin/materials/lambertian/singletexture/specializedshader", types);
+		auto bundle = m_assetMgr->findAssets("irr/builtin/materials/lambertian/no_texture/specializedshader", types);
 
 		auto refCountedBundle =
 		{
@@ -625,14 +631,22 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 	}
 	auto mbPipelineLayout = getDefaultAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>("irr/builtin/pipeline_layouts/default", m_assetMgr);
 
+	const std::array<SVertexInputAttribParams, 4> vertexAttribParamsAllOptions =
+	{
+		SVertexInputAttribParams(0u, EF_R32G32B32_SFLOAT, offsets[E_POS]),
+		SVertexInputAttribParams(0u, EF_R32G32B32A32_SFLOAT, offsets[E_COL]),
+		SVertexInputAttribParams(0u, EF_R32G32_SFLOAT, offsets[E_UV]),
+		SVertexInputAttribParams(0u, EF_R32G32B32_SFLOAT, offsets[E_NORM])
+	};
+
 	SVertexInputParams inputParams;
-	inputParams.enabledAttribFlags = (1 << E_POS) | (1 << E_COL) | (1 << E_UV) | (1 << E_NORM);
-	inputParams.enabledBindingFlags = (1 << 0);
-	inputParams.attributes[E_POS] = { 0u,EF_R32G32B32_SFLOAT, offsets[E_POS] };
-	inputParams.attributes[E_COL] = { 0u,EF_R32G32B32A32_SFLOAT, offsets[E_COL] };
-	inputParams.attributes[E_UV] = { 0u,EF_R32G32_SFLOAT, offsets[E_UV] };
-	inputParams.attributes[E_NORM] = { 0u,EF_R32G32B32_SFLOAT, offsets[E_NORM] };
+	inputParams.enabledBindingFlags = core::getBitmask({0});
 	inputParams.bindings[0] = { vertexSize, EVIR_PER_VERTEX };
+	for (auto& attrib : availableAttributes)
+	{
+		inputParams.enabledAttribFlags |= core::getBitmask({attrib});
+		inputParams.attributes[attrib] = vertexAttribParamsAllOptions[attrib];
+	}
 
 	SBlendParams blendParams;
 	SPrimitiveAssemblyParams primitiveAssemblyParams;
@@ -645,8 +659,8 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 
 	auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, inputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
 	{
-		mbPipeline->setShaderAtStage(ISpecializedShader::ESS_VERTEX, mbVertexShader.get());
-		mbPipeline->setShaderAtStage(ISpecializedShader::ESS_FRAGMENT, mbFragmentShader.get());
+		mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, mbVertexShader.get());
+		mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, mbFragmentShader.get());
 
 		auto inputParams = mbPipeline->getVertexInputParams();
 

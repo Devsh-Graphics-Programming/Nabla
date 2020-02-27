@@ -207,10 +207,11 @@ layout(push_constant, row_major) uniform Block {
 
 layout(location = 0) out vec2 uv;
 
+#include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
+
 void main()
 {
-    //gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(PushConstants.modelViewProj)*vec4(vPos,1.0);
-    //gl_Position = PushConstants.modelViewProj*vec4(vPos,1.0);
+    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(PushConstants.modelViewProj)*vec4(vPos,1.0);
 	uv = vTexCoord;
 }
 		)===", asset::ISpecializedShader::ESS_VERTEX, "irr/builtin/materials/lambertian/singletexture/specializedshader");
@@ -228,6 +229,40 @@ void main()
     pixelColor = texture(albedo,uv);
 }
 		)===",asset::ISpecializedShader::ESS_FRAGMENT,"irr/builtin/materials/lambertian/singletexture/specializedshader");
+
+
+        buildInShader(R"===(
+        #version 430 core
+        layout(location = 0) in vec3 vPos;
+        layout(location = 1) in vec3 vCol;
+
+        layout(push_constant, row_major) uniform Block {
+	        mat4 modelViewProj;
+        } PushConstants;
+
+        layout(location = 0) out vec3 color;
+
+        #include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
+
+        void main()
+        {
+            gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(PushConstants.modelViewProj)*vec4(vPos,1.0);
+	        color = vCol;
+        }
+		)===", asset::ISpecializedShader::ESS_VERTEX, "irr/builtin/materials/lambertian/no_texture/specializedshader");
+
+        buildInShader(R"===(
+        #version 430 core
+
+        layout(location = 0) in vec3 color;
+
+        layout(location = 0) out vec4 pixelColor;
+
+        void main()
+        {
+            pixelColor = vec4(color, 1.0);
+        }
+		)===", asset::ISpecializedShader::ESS_FRAGMENT, "irr/builtin/materials/lambertian/no_texture/specializedshader");
 
 		constexpr uint32_t bindingCount = 1u;
 		asset::ICPUDescriptorSetLayout::SBinding pBindings[bindingCount] = {0u,asset::EDT_COMBINED_IMAGE_SAMPLER,1u,asset::ISpecializedShader::ESS_FRAGMENT,nullptr};
