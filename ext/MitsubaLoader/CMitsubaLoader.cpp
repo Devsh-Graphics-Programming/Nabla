@@ -252,12 +252,14 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 	switch (shape->type)
 	{
 		case CElementShape::Type::CUBE:
+		{
 			auto cubeData = ctx.creator->createCubeMesh(core::vector3df(2.f));
 
 
 
 			mesh = ctx.creator->createCubeMesh(core::vector3df(2.f));
 			flipNormals = flipNormals!=shape->cube.flipNormals;
+		}
 			break;
 		case CElementShape::Type::SPHERE:
 			mesh = ctx.creator->createSphereMesh(1.f,64u,64u);
