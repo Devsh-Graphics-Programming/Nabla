@@ -643,7 +643,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 		const auto currentBitmask = core::getBitmask({ attrib });
 		inputParams.enabledBindingFlags |= currentBitmask;
 		inputParams.enabledAttribFlags |= currentBitmask;
-		inputParams.bindings[attrib] = { asset::getTexelOrBlockBytesize((E_FORMAT)vertexAttribParamsAllOptions[attrib].format), EVIR_PER_INSTANCE };
+		inputParams.bindings[attrib] = { 16, EVIR_PER_VERTEX };
 		inputParams.attributes[attrib] = vertexAttribParamsAllOptions[attrib];
 	}
 
@@ -655,6 +655,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 		primitiveAssemblyParams.primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_POINT_LIST;
 
 	SRasterizationParams rastarizationParmas;
+	//rastarizationParmas.faceCullingMode = EFCM_NONE;
 
 	auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, inputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
 	{
@@ -668,7 +669,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 			auto attribute = _attribs[index];
 			if (!attribute.empty())
 			{
-				const auto bufferByteSize = attribute.size() * sizes[index];
+				const auto bufferByteSize = attribute.size() * 16ull;
 				auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufferByteSize);
 				memcpy(buffer->getPointer(), attribute.data(), bufferByteSize); // TODO refactor input to take SBufferBinding to avoid memcpy
 
