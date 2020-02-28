@@ -36,7 +36,7 @@ protected:
 
 public:
 	//! Constructor
-	CPLYMeshFileLoader();
+	CPLYMeshFileLoader(IAssetManager* _am);
 
     virtual bool isALoadableFileFormat(io::IReadFile* _file) const override;
 
@@ -166,13 +166,15 @@ private:
 	uint32_t getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t);
 	void moveForward(SContext& _ctx, uint32_t bytes);
 
-    bool genVertBuffersForMBuffer(ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4], SBufferBinding<ICPUBuffer>& bufferBinding) const;
+    bool genVertBuffersForMBuffer(ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const;
 
 	template<typename aType>
 	static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
 	{
 		performOnCertainOrientation(varToHandle);
 	}
+
+	IAssetManager* m_assetMgr;
 };
 
 } // end namespace asset

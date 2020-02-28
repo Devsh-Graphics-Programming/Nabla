@@ -156,7 +156,7 @@ public:
 	//! Get amount of indices in this meshbuffer.
 	/** \return Number of indices in this buffer. */
 	inline const uint64_t& getIndexCount() const {return indexCount;}
-	//! Sets amount of indices.
+	//! It sets amount of indices - value that is being passed to glDrawArrays as vertices amount or to glDrawElements as index amount.
 	/** @returns Whether set amount exceeds mapped buffer's size. Regardless of result the amount is set. */
 	inline bool setIndexCount(const uint64_t &newIndexCount)
 	{
