@@ -149,13 +149,19 @@ int main()
 			
 			auto createGPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage)
 			{
-				auto spirv = device->getAssetManager()->getGLSLCompiler()->createSPIRVFromGLSL(source,stage,"main","runtimeID");
+				auto spirv = device->getAssetManager()->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID");
 				auto unspec = driver->createGPUShader(std::move(spirv));
-				return driver->createGPUSpecializedShader(unspec.get(),{core::vector<asset::ISpecializedShader::SInfo::SMapEntry>(),nullptr,"main",stage});
+				return driver->createGPUSpecializedShader(unspec.get(), { core::vector<asset::ISpecializedShader::SInfo::SMapEntry>(),nullptr,"main",stage });
+			};
+			// origFilepath is only relevant when you have filesystem #includes in your shader
+			auto createGPUSpecializedShaderFromSourceWithIncludes = [&](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage, const char* origFilepath)
+			{
+				auto resolved_includes = device->getAssetManager()->getGLSLCompiler()->resolveIncludeDirectives(source, stage, origFilepath);
+				return createGPUSpecializedShaderFromSource(reinterpret_cast<const char*>(resolved_includes->getSPVorGLSL()->getPointer()), stage);
 			};
 			core::smart_refctd_ptr<video::IGPUSpecializedShader> shaders[2] =
 			{
-				createGPUSpecializedShaderFromSource(vertexSource,asset::ISpecializedShader::ESS_VERTEX),
+				createGPUSpecializedShaderFromSourceWithIncludes(vertexSource,asset::ISpecializedShader::ESS_VERTEX, "shader.vert"),
 				createGPUSpecializedShaderFromSource(fragmentSource,asset::ISpecializedShader::ESS_FRAGMENT)
 			};
 			auto shadersPtr = reinterpret_cast<video::IGPUSpecializedShader**>(shaders);

@@ -339,6 +339,7 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 					case SPropertyElementData::Type::FLOAT: \
 					case SPropertyElementData::Type::RGB: \
 					case SPropertyElementData::Type::SRGB: \
+					case SPropertyElementData::Type::SPECTRUM: \
 						state. ## MEMBER = SPropertyElementData(_property); \
 						break; \
 					default: \

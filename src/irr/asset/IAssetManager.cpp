@@ -123,7 +123,7 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CSTLMeshFileLoader>());
 #endif
 #ifdef _IRR_COMPILE_WITH_PLY_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>(this));
 #endif
 #ifdef _IRR_COMPILE_WITH_MTL_LOADER_
     addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this));
@@ -207,6 +207,8 @@ layout(push_constant, row_major) uniform Block {
 
 layout(location = 0) out vec2 uv;
 
+#include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
+
 void main()
 {
     gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(PushConstants.modelViewProj)*vec4(vPos,1.0);
@@ -227,6 +229,40 @@ void main()
     pixelColor = texture(albedo,uv);
 }
 		)===",asset::ISpecializedShader::ESS_FRAGMENT,"irr/builtin/materials/lambertian/singletexture/specializedshader");
+
+
+        buildInShader(R"===(
+        #version 430 core
+        layout(location = 0) in vec3 vPos;
+        layout(location = 1) in vec3 vCol;
+
+        layout(push_constant, row_major) uniform Block {
+	        mat4 modelViewProj;
+        } PushConstants;
+
+        layout(location = 0) out vec3 color;
+
+        #include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
+
+        void main()
+        {
+            gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(PushConstants.modelViewProj)*vec4(vPos,1.0);
+	        color = vCol;
+        }
+		)===", asset::ISpecializedShader::ESS_VERTEX, "irr/builtin/materials/lambertian/no_texture/specializedshader");
+
+        buildInShader(R"===(
+        #version 430 core
+
+        layout(location = 0) in vec3 color;
+
+        layout(location = 0) out vec4 pixelColor;
+
+        void main()
+        {
+            pixelColor = vec4(color, 1.0);
+        }
+		)===", asset::ISpecializedShader::ESS_FRAGMENT, "irr/builtin/materials/lambertian/no_texture/specializedshader");
 
 		constexpr uint32_t bindingCount = 1u;
 		asset::ICPUDescriptorSetLayout::SBinding pBindings[bindingCount] = {0u,asset::EDT_COMBINED_IMAGE_SAMPLER,1u,asset::ISpecializedShader::ESS_FRAGMENT,nullptr};
@@ -313,6 +349,18 @@ void main()
 
         addBuiltInToCaches(dummy2dImgView, "irr/builtin/image_views/dummy2d");
         addBuiltInToCaches(dummy2dImage, "irr/builtin/images/dummy2d");
+    }
+
+    // pipeline layout
+    core::smart_refctd_ptr<asset::ICPUPipelineLayout> pipelineLayout;
+    {
+        SPushConstantRange pushConstantRange;
+        pushConstantRange.stageFlags = ISpecializedShader::E_SHADER_STAGE::ESS_VERTEX;
+        pushConstantRange.offset = 0;
+        pushConstantRange.size = sizeof(core::matrix4SIMD); /// mvp matrix for buildin shaders
+
+        pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pushConstantRange, &pushConstantRange + 1, nullptr, nullptr, nullptr, nullptr);
+        addBuiltInToCaches(pipelineLayout, "irr/builtin/pipeline_layouts/default");
     }
 
     //ds layouts

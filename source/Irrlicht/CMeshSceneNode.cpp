@@ -99,7 +99,7 @@ void CMeshSceneNode::render()
 #ifndef NEW_SHADERS
 	if (canProceedPastFence())
     {
-        driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
+        driver->setTransform(video::E4X3TS_WORLD, core::matrix3x4SIMD().set(AbsoluteTransformation));
 
         for (uint32_t i=0; i<Mesh->getMeshBufferCount(); ++i)
         {

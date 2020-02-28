@@ -133,6 +133,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     core::vector<std::string> submeshCacheKeys;
     core::vector<std::string> submeshMaterialNames;
     core::vector<uint32_t> vtxSmoothGrp;
+
 	while(bufPtr != bufEnd)
 	{
 		switch(bufPtr[0])
@@ -440,27 +441,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     }
 
 	return SAssetBundle({std::move(mesh)});
-}
-
-//! Read RGB color
-const char* COBJMeshFileLoader::readColor(const char* bufPtr, video::SColor& color, const char* const bufEnd)
-{
-	const uint32_t COLOR_BUFFER_LENGTH = 16;
-	char colStr[COLOR_BUFFER_LENGTH];
-
-	float tmp;
-
-	color.setAlpha(255);
-	bufPtr = goAndCopyNextWord(colStr, bufPtr, COLOR_BUFFER_LENGTH, bufEnd);
-	sscanf(colStr,"%f",&tmp);
-	color.setRed((int32_t)(tmp * 255.0f));
-	bufPtr = goAndCopyNextWord(colStr,   bufPtr, COLOR_BUFFER_LENGTH, bufEnd);
-	sscanf(colStr,"%f",&tmp);
-	color.setGreen((int32_t)(tmp * 255.0f));
-	bufPtr = goAndCopyNextWord(colStr,   bufPtr, COLOR_BUFFER_LENGTH, bufEnd);
-	sscanf(colStr,"%f",&tmp);
-	color.setBlue((int32_t)(tmp * 255.0f));
-	return bufPtr;
 }
 
 

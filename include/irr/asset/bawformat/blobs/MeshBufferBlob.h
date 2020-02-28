@@ -50,10 +50,11 @@ static_assert(
 #endif
 
 using MeshBufferBlobV1 = MeshBufferBlobV0;
+using MeshBufferBlobV2 = MeshBufferBlobV1;
 
 
 template<>
-struct CorrespondingBlobTypeFor<ICPUMeshBuffer> { typedef MeshBufferBlobV1 type; };
+struct CorrespondingBlobTypeFor<ICPUMeshBuffer> { typedef MeshBufferBlobV2 type; };
 
 }
 } // irr::asset

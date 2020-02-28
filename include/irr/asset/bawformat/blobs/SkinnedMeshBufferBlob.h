@@ -51,9 +51,10 @@ static_assert(
 #include "irr/irrunpack.h"
 
 using SkinnedMeshBufferBlobV1 = SkinnedMeshBufferBlobV0;
+using SkinnedMeshBufferBlobV2 = SkinnedMeshBufferBlobV1;
 
 template<>
-struct CorrespondingBlobTypeFor<ICPUSkinnedMeshBuffer> { typedef SkinnedMeshBufferBlobV1 type; };
+struct CorrespondingBlobTypeFor<ICPUSkinnedMeshBuffer> { typedef SkinnedMeshBufferBlobV2 type; };
 
 
 }

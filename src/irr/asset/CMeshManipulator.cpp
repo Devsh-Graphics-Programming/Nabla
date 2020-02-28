@@ -663,7 +663,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 
 		core::smart_refctd_ptr<ICPUBuffer> newIdxBuffer;
 		bool verticesMustBeReordered = false;
-        E_INDEX_TYPE newIdxType = EIT_32BIT;
+        E_INDEX_TYPE newIdxType = EIT_UNKNOWN;
 
 		if (!continuous)
 		{
@@ -677,8 +677,9 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 			{
 				if (maxIdx - minIdx <= USHRT_MAX)
 					newIdxType = EIT_16BIT;
+				else
+					newIdxType = EIT_32BIT;
 
-				outbuffer->setIndexType(newIdxType);
 				outbuffer->setBaseVertex(outbuffer->getBaseVertex() + minIdx);
 
 				if (newIdxType == EIT_16BIT)
@@ -695,6 +696,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 			outbuffer->setBaseVertex(outbuffer->getBaseVertex()+minIdx);
 		}
 
+		outbuffer->setIndexType(newIdxType);
 		outbuffer->getMeshDataAndFormat()->setIndexBuffer(std::move(newIdxBuffer));
 
 		if (verticesMustBeReordered)

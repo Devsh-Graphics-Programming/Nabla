@@ -45,20 +45,56 @@ class ISpecializedShader : public virtual core::IReferenceCounted
 					uint32_t offset;
 					size_t size;
 				};
+
+				SInfo() = default;
 				//! _entries must be sorted!
 				SInfo(core::vector<SMapEntry>&& _entries, core::smart_refctd_ptr<ICPUBuffer>&& _backingBuff, const std::string& _entryPoint, E_SHADER_STAGE _ss) :
-					m_entries{std::move(_entries)}, m_backingBuffer(std::move(_backingBuff)), entryPoint{_entryPoint}, shaderStage{_ss}
+					m_entries{core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SMapEntry>>(_entries.size())}, m_backingBuffer(std::move(_backingBuff)), entryPoint{_entryPoint}, shaderStage{_ss}
 				{
 				}
 				~SInfo() = default;
+
+				bool operator<(const SInfo& _rhs) const
+				{
+					if (shaderStage==_rhs.shaderStage)
+					{
+						if (entryPoint==_rhs.entryPoint)
+						{
+							if (m_entries->size()==_rhs.m_entries->size())
+							{
+								for (size_t i = 0ull; i < m_entries->size(); ++i)
+								{
+									const auto& l = (*m_entries)[i];
+									const auto& r = (*_rhs.m_entries)[i];
+
+									if (l.specConstID==r.specConstID)
+									{
+										if (l.size==r.size)
+										{
+											int cmp = memcmp(reinterpret_cast<const uint8_t*>(m_backingBuffer->getPointer())+l.offset, reinterpret_cast<const uint8_t*>(_rhs.m_backingBuffer->getPointer())+r.offset, l.size);
+											if (cmp==0)
+												continue;
+											return cmp<0;
+										}
+										return l.size<r.size;
+									}
+									return l.specConstID<r.specConstID;
+								}
+							}
+							return m_entries->size()<_rhs.m_entries->size();
+						}
+						return entryPoint<_rhs.entryPoint;
+					}
+					return shaderStage<_rhs.shaderStage;
+				}
 
 				inline std::pair<const void*, size_t> getSpecializationByteValue(uint32_t _specConstID) const
 				{
 					if (!m_backingBuffer)
 						return {nullptr, 0u};
 
-					auto entry = std::lower_bound(m_entries.begin(), m_entries.end(), SMapEntry{_specConstID,0xdeadbeefu,0xdeadbeefu/*To make GCC warnings shut up*/});
-					if (entry != m_entries.end() && entry->specConstID == _specConstID && (entry->offset + entry->size) <= m_backingBuffer->getSize())
+					auto entry = std::lower_bound(m_entries->begin(), m_entries->end(), SMapEntry{_specConstID,0xdeadbeefu,0xdeadbeefu/*To make GCC warnings shut up*/});
+					if (entry != m_entries->end() && entry->specConstID==_specConstID && (entry->offset + entry->size) <= m_backingBuffer->getSize())
 						return {reinterpret_cast<const uint8_t*>(m_backingBuffer->getPointer()) + entry->offset, entry->size};
 					else
 						return {nullptr, 0u};
@@ -66,7 +102,7 @@ class ISpecializedShader : public virtual core::IReferenceCounted
 
 				std::string entryPoint;
 				E_SHADER_STAGE shaderStage;
-				core::vector<SMapEntry> m_entries; // TODO: change to smart refctd array
+				core::smart_refctd_dynamic_array<SMapEntry> m_entries;
 				core::smart_refctd_ptr<ICPUBuffer> m_backingBuffer;
 		};
 

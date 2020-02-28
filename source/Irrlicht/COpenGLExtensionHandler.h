@@ -1303,6 +1303,16 @@ class COpenGLExtensionHandler
     static void extGlBindImageTexture(GLuint index, GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum access, GLenum format);
     static void extGlBindImageTextures(GLuint first, GLsizei count, const GLuint* textures, const GLenum* formats);
 
+    //bindless textures
+    static GLuint64 extGlGetTextureHandle(GLuint texture);
+    static GLuint64 extGlGetTextureSamplerHandle(GLuint texture, GLuint sampler);
+    static void extGlMakeTextureHandleResident(GLuint64 handle);
+    static void extGlMakeTextureHandleNonResident(GLuint64 handle);
+    static GLuint64 extGlGetImageHandle(GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum format);
+    static void extGlMakeImageHandleResident(GLuint64 handle, GLenum access);
+    static void extGlMakeImageHandleNonResident(GLuint64 handle);
+    GLboolean extGlIsTextureHandleResident(GLuint64 handle);
+    GLboolean extGlIsImageHandleResident(GLuint64 handle);
 
 	static void extGlPointParameterf(GLint loc, GLfloat f);
 	static void extGlPointParameterfv(GLint loc, const GLfloat *v);
@@ -1592,6 +1602,28 @@ class COpenGLExtensionHandler
     //
     static PFNGLBINDIMAGETEXTUREPROC pGlBindImageTexture;
     static PFNGLBINDIMAGETEXTURESPROC pGlBindImageTextures;
+    
+    //bindless textures
+    //ARB
+    static PFNGLGETTEXTUREHANDLEARBPROC pGlGetTextureHandleARB;
+    static PFNGLGETTEXTURESAMPLERHANDLEARBPROC pGlGetTextureSamplerHandleARB;
+    static PFNGLMAKETEXTUREHANDLERESIDENTARBPROC pGlMakeTextureHandleResidentARB;
+    static PFNGLMAKETEXTUREHANDLENONRESIDENTARBPROC pGlMakeTextureHandleNonResidentARB;
+    static PFNGLGETIMAGEHANDLEARBPROC pGlGetImageHandleARB;
+    static PFNGLMAKEIMAGEHANDLERESIDENTARBPROC pGlMakeImageHandleResidentARB;
+    static PFNGLMAKEIMAGEHANDLENONRESIDENTARBPROC pGlMakeImageHandleNonResidentARB;
+    static PFNGLISTEXTUREHANDLERESIDENTARBPROC pGlIsTextureHandleResidentARB;
+    static PFNGLISIMAGEHANDLERESIDENTARBPROC pGlIsImageHandleResidentARB;
+    //NV
+    static PFNGLGETTEXTUREHANDLENVPROC pGlGetTextureHandleNV;
+    static PFNGLGETTEXTURESAMPLERHANDLENVPROC pGlGetTextureSamplerHandleNV;
+    static PFNGLMAKETEXTUREHANDLERESIDENTNVPROC pGlMakeTextureHandleResidentNV;
+    static PFNGLMAKETEXTUREHANDLENONRESIDENTNVPROC pGlMakeTextureHandleNonResidentNV;
+    static PFNGLGETIMAGEHANDLENVPROC pGlGetImageHandleNV;
+    static PFNGLMAKEIMAGEHANDLERESIDENTNVPROC pGlMakeImageHandleResidentNV;
+    static PFNGLMAKEIMAGEHANDLENONRESIDENTNVPROC pGlMakeImageHandleNonResidentNV;
+    static PFNGLISTEXTUREHANDLERESIDENTNVPROC pGlIsTextureHandleResidentNV;
+    static PFNGLISIMAGEHANDLERESIDENTNVPROC pGlIsImageHandleResidentNV;
 
     // stuff
     static PFNGLBINDBUFFERBASEPROC pGlBindBufferBase;
@@ -2696,6 +2728,83 @@ inline void COpenGLExtensionHandler::extGlBindImageTextures(GLuint first, GLsize
                 extGlBindImageTexture(first+i, textures[i], 0, GL_TRUE, 0, GL_READ_WRITE, formats[i]);
         }
     }
+}
+
+inline GLuint64 COpenGLExtensionHandler::extGlGetTextureHandle(GLuint texture)
+{
+    if (pGlGetTextureHandleARB)
+        return pGlGetTextureHandleARB(texture);
+    else if (pGlGetTextureHandleNV)
+        return pGlGetTextureHandleNV(texture);
+    return 0ull;
+}
+
+inline GLuint64 COpenGLExtensionHandler::extGlGetTextureSamplerHandle(GLuint texture, GLuint sampler)
+{
+    if (pGlGetTextureSamplerHandleARB)
+        return pGlGetTextureSamplerHandleARB(texture, sampler);
+    else if (pGlGetTextureSamplerHandleNV)
+        return pGlGetTextureSamplerHandleNV(texture, sampler);
+    return 0ull;
+}
+
+inline void COpenGLExtensionHandler::extGlMakeTextureHandleResident(GLuint64 handle)
+{
+    if (pGlMakeTextureHandleResidentARB)
+        return pGlMakeTextureHandleResidentARB(handle);
+    else if (pGlMakeTextureHandleResidentNV)
+        return pGlMakeTextureHandleResidentNV(handle);
+}
+
+inline void COpenGLExtensionHandler::extGlMakeTextureHandleNonResident(GLuint64 handle)
+{
+    if (pGlMakeTextureHandleNonResidentARB)
+        return pGlMakeTextureHandleNonResidentARB(handle);
+    else if (pGlMakeTextureHandleNonResidentNV)
+        return pGlMakeTextureHandleNonResidentNV(handle);
+}
+
+inline GLuint64 COpenGLExtensionHandler::extGlGetImageHandle(GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum format)
+{
+    if (pGlGetImageHandleARB)
+        return pGlGetImageHandleARB(texture, level, layered, layer, format);
+    else if (pGlGetImageHandleNV)
+        return pGlGetImageHandleNV(texture, level, layered, layer, format);
+    return 0ull;
+}
+
+inline void COpenGLExtensionHandler::extGlMakeImageHandleResident(GLuint64 handle, GLenum access)
+{
+    if (pGlMakeImageHandleResidentARB)
+        return pGlMakeImageHandleResidentARB(handle, access);
+    else if (pGlMakeImageHandleResidentNV)
+        return pGlMakeImageHandleResidentNV(handle, access);
+}
+
+inline void COpenGLExtensionHandler::extGlMakeImageHandleNonResident(GLuint64 handle)
+{
+    if (pGlMakeImageHandleNonResidentARB)
+        return pGlMakeImageHandleNonResidentARB(handle);
+    else if (pGlMakeImageHandleNonResidentNV)
+        return pGlMakeImageHandleNonResidentNV(handle);
+}
+
+inline GLboolean COpenGLExtensionHandler::extGlIsTextureHandleResident(GLuint64 handle)
+{
+    if (pGlIsTextureHandleResidentARB)
+        return pGlIsTextureHandleResidentARB(handle);
+    else if (pGlIsTextureHandleResidentNV)
+        return pGlIsTextureHandleResidentNV(handle);
+    return false;
+}
+
+inline GLboolean COpenGLExtensionHandler::extGlIsImageHandleResident(GLuint64 handle)
+{
+    if (pGlIsTextureHandleResidentARB)
+        return pGlIsTextureHandleResidentARB(handle);
+    else if (pGlIsTextureHandleResidentNV)
+        return pGlIsTextureHandleResidentNV(handle);
+    return false;
 }
 
 

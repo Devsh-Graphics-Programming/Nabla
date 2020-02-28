@@ -37,7 +37,7 @@ namespace asset
             #include "irr/irrpack.h"
             struct BoneReferenceData
             {
-                core::matrix4x3 PoseBindMatrix;
+                core::matrix3x4SIMD PoseBindMatrix;
                 float MinBBoxEdge[3];
                 float MaxBBoxEdge[3];
                 uint32_t parentOffsetRelative;
@@ -497,10 +497,9 @@ namespace asset
                     {
                         case 0:
                             {
-                                core::vector3df rotationDegs = joint->LocalMatrix.getRotationDegrees();
                                 core::quaternion rotationQuat;
                                 if (!HasAnyKeys)
-                                    rotationQuat = core::quaternion::fromEuler(core::radians(rotationDegs));
+                                    rotationQuat = core::quaternion(joint->LocalMatrix);
                                 for (size_t m=0; m<keyframeCount; m++)
                                 {
                                     memcpy(tmpAnimationNonInterpol[m].Rotation,rotationQuat.getPointer(),16);
@@ -556,7 +555,7 @@ namespace asset
                             {
                                 core::vector3df translation;
                                 if (!HasAnyKeys)
-                                    translation = joint->LocalMatrix.getTranslation();
+                                    translation = joint->LocalMatrix.getTranslation().getAsVector3df();
                                 for (size_t m=0; m<keyframeCount; m++)
                                 {
                                     *reinterpret_cast<core::vector3df*>(tmpAnimationNonInterpol[m].Position) = translation;
@@ -611,7 +610,7 @@ namespace asset
                             {
                                 core::vector3df scale(1.f);
                                 if (!HasAnyKeys)
-                                    scale = joint->LocalMatrix.getScale();
+                                    scale = joint->LocalMatrix.getScale().getAsVector3df();
                                 for (size_t m=0; m<keyframeCount; m++)
                                 {
                                     *reinterpret_cast<core::vector3df*>(tmpAnimationNonInterpol[m].Scale) = scale;

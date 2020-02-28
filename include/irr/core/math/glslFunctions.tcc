@@ -210,6 +210,64 @@ IRR_FORCE_INLINE vectorSIMDf cross<vectorSIMDf>(const vectorSIMDf& a, const vect
 #endif
 }
 
+template<>
+IRR_FORCE_INLINE matrix4SIMD transpose(const matrix4SIMD& m)
+{
+	core::matrix4SIMD retval;
+	__m128 a0 = m.rows[0].getAsRegister(), a1 = m.rows[1].getAsRegister(), a2 = m.rows[2].getAsRegister(), a3 = m.rows[3].getAsRegister();
+	_MM_TRANSPOSE4_PS(a0, a1, a2, a3);
+	retval.rows[0] = a0;
+	retval.rows[1] = a1;
+	retval.rows[2] = a2;
+	retval.rows[3] = a3;
+	return retval;
+}
+
+template<>
+IRR_FORCE_INLINE float determinant(const matrix4SIMD& m)
+{
+	auto mat2adjmul = [](vectorSIMDf _A, vectorSIMDf _B)
+	{
+		return _A.wwxx()*_B-_A.yyzz()*_B.zwxy();
+	};
+
+	vectorSIMDf A = _mm_movelh_ps(m.rows[0].getAsRegister(), m.rows[1].getAsRegister());
+	vectorSIMDf B = _mm_movehl_ps(m.rows[1].getAsRegister(), m.rows[0].getAsRegister());
+	vectorSIMDf C = _mm_movelh_ps(m.rows[2].getAsRegister(), m.rows[3].getAsRegister());
+	vectorSIMDf D = _mm_movehl_ps(m.rows[3].getAsRegister(), m.rows[2].getAsRegister());
+
+	vectorSIMDf allDets =	vectorSIMDf(_mm_shuffle_ps(m.rows[0].getAsRegister(),m.rows[2].getAsRegister(),_MM_SHUFFLE(2,0,2,0)))*
+							vectorSIMDf(_mm_shuffle_ps(m.rows[1].getAsRegister(),m.rows[3].getAsRegister(),_MM_SHUFFLE(3,1,3,1)))
+						-
+							vectorSIMDf(_mm_shuffle_ps(m.rows[0].getAsRegister(),m.rows[2].getAsRegister(),_MM_SHUFFLE(3,1,3,1)))*
+							vectorSIMDf(_mm_shuffle_ps(m.rows[1].getAsRegister(),m.rows[3].getAsRegister(),_MM_SHUFFLE(2,0,2,0)));
+
+	float detA = allDets.x;
+	float detB = allDets.y;
+	float detC = allDets.z;
+	float detD = allDets.w;
+
+	// https://lxjk.github.io/2017/09/03/Fast-4x4-Matrix-Inverse-with-SSE-SIMD-Explained.html
+	auto D_C = mat2adjmul(D, C);
+	// A#B
+	auto A_B = mat2adjmul(A, B);
+
+	// |M| = |A|*|D| + ... (continue later)
+	float detM = detA*detD;
+
+	// |M| = |A|*|D| + |B|*|C| ... (continue later)
+	detM += detB*detC;
+
+	// tr((A#B)(D#C))
+	__m128 tr = (A_B*D_C.xzyw()).getAsRegister();
+	tr = _mm_hadd_ps(tr, tr);
+	tr = _mm_hadd_ps(tr, tr);
+	// |M| = |A|*|D| + |B|*|C| - tr((A#B)(D#C)
+	detM -= vectorSIMDf(tr).x;
+
+	return detM;
+}
+
 
 template<>
 IRR_FORCE_INLINE int32_t findLSB<uint32_t>(uint32_t x)

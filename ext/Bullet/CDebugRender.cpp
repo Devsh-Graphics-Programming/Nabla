@@ -18,10 +18,6 @@ CDebugRender::CDebugRender(irr::video::IVideoDriver *driver)
     m_lineRender = ext::DebugDraw::CDraw3DLine::create(driver);
 }
 
-CDebugRender::~CDebugRender() {
-    m_lineRender->drop();
-}
-
 void CDebugRender::clearLines() {
     m_scene.clear();
 }

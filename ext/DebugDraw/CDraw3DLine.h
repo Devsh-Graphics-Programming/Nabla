@@ -32,17 +32,17 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 
         void draw(const core::matrix4SIMD& viewProjMat, const core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData);
 
-		inline void enqueueBox(core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData, const core::aabbox3df& box, float r, float g, float b, float a, const core::matrix4x3& tform=core::matrix4x3())
+		inline void enqueueBox(core::vector<std::pair<S3DLineVertex, S3DLineVertex>>& linesData, const core::aabbox3df& box, float r, float g, float b, float a, const core::matrix3x4SIMD& tform=core::matrix3x4SIMD())
 		{
 			auto addLine = [&](auto s, auto e) -> void
 			{
 				linesData.emplace_back(S3DLineVertex{{s.X,s.Y,s.Z},{r,g,b,a}},S3DLineVertex{{e.X,e.Y,e.Z},{r,g,b,a}});
 			};
 
-			core::vector3df verts[8];
+			core::vectorSIMDf verts[8];
 			box.getEdges(verts);
 			for (auto i=0; i<8; i++)
-				tform.transformVect(&verts[i].X);
+				tform.pseudoMulWith4x1(verts[i]);
 
 			addLine(verts[0], verts[1]);
 			addLine(verts[0], verts[2]);

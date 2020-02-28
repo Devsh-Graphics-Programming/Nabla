@@ -191,7 +191,7 @@ void main()
     LocalPos = vPos;
     gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.params.MVP), vPos);
     ViewPos = irr_glsl_pseudoMul3x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x3(CamData.params.MV), vPos);
-    mat3 normalMat = irr_glsl_SBasicViewParameters_GetNormalMat(CamData.params);
+    mat3 normalMat = irr_glsl_SBasicViewParameters_GetNormalMat(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x3(CamData.params.NormalMatAndEyePos));
     Normal = normalMat*normalize(vNormal);
 #ifndef _NO_UV
     UV = vUV;
@@ -243,7 +243,6 @@ layout (push_constant) uniform Block {
 layout (set = 3, binding = 0) uniform sampler2D map_Ka;
 layout (set = 3, binding = 1) uniform sampler2D map_Kd;
 layout (set = 3, binding = 2) uniform sampler2D map_Ks;
-layout (set = 3, binding = 3) uniform sampler2D map_Ke;
 layout (set = 3, binding = 4) uniform sampler2D map_Ns;
 layout (set = 3, binding = 5) uniform sampler2D map_d;
 layout (set = 3, binding = 6) uniform sampler2D map_bump;
@@ -264,10 +263,6 @@ layout (set = 3, binding = 6) uniform sampler2D map_bump;
 // params can be either BSDFIsotropicParams or BSDFAnisotropicParams 
 Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
 {
-#ifndef _NO_UV
-    vec3 Ke = texture(map_Ke, UV).rgb;//force visibility (as in: visible as resource used by the shader) of emissive map (needed temporarily because of bindings reordering bug)
-#endif
-
     vec3 Kd;
 #ifndef _NO_UV
     if ((PC.params.extra&(map_Kd_MASK)) == (map_Kd_MASK))
@@ -521,11 +516,10 @@ static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAsse
     return core::smart_refctd_ptr_static_cast<AssetType>(assets.first[0]);
 }
 
-core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipelineLayoutFromMtl(const SMtl& _mtl)
+core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipelineLayoutFromMtl(const SMtl& _mtl, bool _noDS3)
 {
     //assumes all supported textures are always present
     //since vulkan doesnt support bindings with no/null descriptor, absent textures will be filled with dummy 2D texture (while creating desc set)
-    const bool anyMapPresent = std::find_if(_mtl.maps, _mtl.maps+CMTLPipelineMetadata::EMP_REFL_POSX+1u, [](const std::string& _m) ->bool { return _m.size(); }) != (_mtl.maps+CMTLPipelineMetadata::EMP_REFL_POSX+1u);
     auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(static_cast<size_t>(CMTLPipelineMetadata::EMP_REFL_POSX)+1ull);
 
     ICPUDescriptorSetLayout::SBinding bnd;
@@ -547,7 +541,7 @@ core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipel
     }
 
     auto ds1layout = getDefaultAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("irr/builtin/descriptor_set_layout/basic_view_parameters", m_assetMgr);
-    core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds3Layout = anyMapPresent ? core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end()) : nullptr;
+    core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds3Layout = _noDS3 ? nullptr : core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end());
     SPushConstantRange pcRng;
     pcRng.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
     pcRng.offset = 0u;
@@ -623,26 +617,8 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
         vtxParams.attributes[NORMAL].format = EF_A2B10G10R10_SNORM_PACK32;
         vtxParams.attributes[NORMAL].relativeOffset = 20u;
 
-        auto layout = makePipelineLayoutFromMtl(materials[i]);
+        auto layout = makePipelineLayoutFromMtl(materials[i], true);
         auto shaders = getShaders(false);
-        core::smart_refctd_ptr<ICPUDescriptorSet> ds3;
-        {
-            const std::string dsCacheKey = std::string(fullName.c_str())+"?"+materials[i].name+"?_ds";
-            const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_DESCRIPTOR_SET, (asset::IAsset::E_TYPE)0u };
-            auto ds_bundle = _override->findCachedAsset(dsCacheKey, types, ctx.inner, _hierarchyLevel + ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
-            if (!ds_bundle.isEmpty())
-                ds3 = core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(ds_bundle.getContents().first[0]);
-            else 
-            {
-                auto views = loadImages(relPath.c_str(), materials[i], ctx);
-                ds3 = makeDescSet(std::move(views), layout->getDescriptorSetLayout(3u));
-                if (ds3)
-                {
-                    SAssetBundle bundle{ds3};
-                    _override->insertAssetIntoCache(bundle, dsCacheKey, ctx.inner, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
-                }
-            }
-        }
 
         constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
         core::smart_refctd_dynamic_array<IPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
@@ -665,10 +641,10 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
             }
         }
 
-        pipelines[j] = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(nullptr, core::smart_refctd_ptr(layout), nullptr, nullptr, vtxParams, blendParams, primParams, rasterParams);
+        pipelines[j] = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(layout), nullptr, nullptr, vtxParams, blendParams, primParams, rasterParams);
         pipelines[j]->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, shaders.first.get());
         pipelines[j]->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, shaders.second.get());
-        m_assetMgr->setAssetMetadata(pipelines[j].get(), core::make_smart_refctd_ptr<CMTLPipelineMetadata>(materials[i].params, std::string(materials[i].name), core::smart_refctd_ptr(ds3), 0u, core::smart_refctd_ptr(shaderInputsMetadata)));
+        m_assetMgr->setAssetMetadata(pipelines[j].get(), core::make_smart_refctd_ptr<CMTLPipelineMetadata>(materials[i].params, std::string(materials[i].name), nullptr, 0u, core::smart_refctd_ptr(shaderInputsMetadata)));
 
         //uv
         vtxParams.enabledAttribFlags |= (1u << UV);
@@ -676,9 +652,29 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
         vtxParams.attributes[UV].format = EF_R32G32_SFLOAT;
         vtxParams.attributes[UV].relativeOffset = 12u;
 
+        layout = makePipelineLayoutFromMtl(materials[i], false);
         shaders = getShaders(true);
 
-        pipelines[j+1u] = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(nullptr, std::move(layout), nullptr, nullptr, vtxParams, blendParams, primParams, rasterParams);
+        core::smart_refctd_ptr<ICPUDescriptorSet> ds3;
+        {
+            const std::string dsCacheKey = std::string(fullName.c_str())+"?"+materials[i].name+"?_ds";
+            const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_DESCRIPTOR_SET, (asset::IAsset::E_TYPE)0u };
+            auto ds_bundle = _override->findCachedAsset(dsCacheKey, types, ctx.inner, _hierarchyLevel + ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
+            if (!ds_bundle.isEmpty())
+                ds3 = core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(ds_bundle.getContents().first[0]);
+            else 
+            {
+                auto views = loadImages(relPath.c_str(), materials[i], ctx);
+                ds3 = makeDescSet(std::move(views), layout->getDescriptorSetLayout(3u));
+                if (ds3)
+                {
+                    SAssetBundle bundle{ds3};
+                    _override->insertAssetIntoCache(bundle, dsCacheKey, ctx.inner, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
+                }
+            }
+        }
+
+        pipelines[j+1u] = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(layout), nullptr, nullptr, vtxParams, blendParams, primParams, rasterParams);
         pipelines[j+1u]->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, shaders.first.get());
         pipelines[j+1u]->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, shaders.second.get());
         m_assetMgr->setAssetMetadata(pipelines[j+1u].get(), core::make_smart_refctd_ptr<CMTLPipelineMetadata>(materials[i].params, std::move(materials[i].name), std::move(ds3), 1u, std::move(shaderInputsMetadata)));

@@ -84,9 +84,9 @@ public:
         if (uniformLocation[currentMat][EU_PROJ_VIEW_WORLD_MAT]>=0)
             services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),uniformLocation[currentMat][EU_PROJ_VIEW_WORLD_MAT],uniformType[currentMat][EU_PROJ_VIEW_WORLD_MAT],1);
         if (uniformLocation[currentMat][EU_VIEW_WORLD_MAT]>=0)
-            services->setShaderConstant(services->getVideoDriver()->getTransform(video::E4X3TS_WORLD_VIEW).pointer(),uniformLocation[currentMat][EU_VIEW_WORLD_MAT],uniformType[currentMat][EU_VIEW_WORLD_MAT],1);
+            services->setShaderConstant(services->getVideoDriver()->getTransform(video::E4X3TS_WORLD_VIEW).rows[0].pointer,uniformLocation[currentMat][EU_VIEW_WORLD_MAT],uniformType[currentMat][EU_VIEW_WORLD_MAT],1);
         if (uniformLocation[currentMat][EU_WORLD_MAT]>=0)
-            services->setShaderConstant(services->getVideoDriver()->getTransform(video::E4X3TS_WORLD).pointer(),uniformLocation[currentMat][EU_WORLD_MAT],uniformType[currentMat][EU_WORLD_MAT],1);
+            services->setShaderConstant(services->getVideoDriver()->getTransform(video::E4X3TS_WORLD).rows[0].pointer,uniformLocation[currentMat][EU_WORLD_MAT],uniformType[currentMat][EU_WORLD_MAT],1);
 
         if (uniformLocation[currentMat][EU_EYE_POS]>=0)
         {
@@ -267,8 +267,8 @@ int main()
         for (size_t y=0; y<kNumHardwareInstancesY; y++)
         for (size_t x=0; x<kNumHardwareInstancesX; x++)
         {
-            core::matrix4x3 mat;
-            mat.setTranslation(core::vector3df(x,y,z)*2.f);
+            core::matrix3x4SIMD mat;
+            mat.setTranslation(core::vectorSIMDf(x,y,z)*2.f);
             instanceIDs[z][y][x] = node->addInstance(mat);
         }
 
@@ -332,7 +332,7 @@ int main()
 	//create a screenshot
 	{
 		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
-		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(driver,device->getAssetManager(), "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
 	}
 
 

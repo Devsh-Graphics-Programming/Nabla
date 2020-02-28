@@ -56,9 +56,6 @@ void writeBufferAsImageToFile(asset::IAssetManager* mgr, const PathOrFile& _outF
 template<typename PathOrFile>
 void dirtyCPUStallingScreenshot(IrrlichtDevice* device, const PathOrFile& _outFile, video::IGPUImage* source, uint32_t sourceMipLevel = 0u, bool flipY=true)
 {
-	auto assetManager = device->getAssetManager();
-	auto driver = device->getVideoDriver();
-
 	auto texSize = source->getSize();
 
 	auto buff = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createDownStreamingGPUBufferOnDedMem((source->getPitch()*texSize[1]).getIntegerApprox()), core::dont_grab); // TODO

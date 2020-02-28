@@ -20,6 +20,7 @@ namespace video
 }
 }
 
+#include "irr/video/IGPUPipelineCache.h"
 #include "irr/video/IGPUImageView.h"
 #include "IFrameBuffer.h"
 #include "IVideoCapabilityReporter.h"
@@ -293,7 +294,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 
 		//! Create a renderpass independent graphics pipeline (@see ICPURenderpassIndependentPipeline)
         virtual core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> createGPURenderpassIndependentPipeline(
-            core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent,
+            IGPUPipelineCache* _pipelineCache,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             IGPUSpecializedShader** _shaders, IGPUSpecializedShader** _shadersEnd,
             const asset::SVertexInputParams& _vertexInputParams,
@@ -312,7 +313,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         }
 
         virtual core::smart_refctd_ptr<IGPUComputePipeline> createGPUComputePipeline(
-            core::smart_refctd_ptr<IGPUComputePipeline>&& _parent,
+            IGPUPipelineCache* _pipelineCache,
             core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout,
             core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader
         )
@@ -320,6 +321,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
             return nullptr;
         }
 
+        virtual core::smart_refctd_ptr<IGPUPipelineCache> createGPUPipelineCache() { return nullptr; }
 
         //!
         virtual StreamingTransientDataBufferMT<>* getDefaultDownStreamingBuffer() {return defaultDownloadBuffer.get();}

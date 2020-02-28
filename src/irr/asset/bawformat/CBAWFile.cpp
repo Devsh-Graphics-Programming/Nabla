@@ -5,6 +5,7 @@
 
 #include "irr/asset/bawformat/CBAWFile.h"
 
+#include "irr/asset/ICPUBuffer.h"
 #include "irr/asset/ICPUSkinnedMesh.h"
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 #include "irr/asset/bawformat/legacy/CBAWLegacy.h"
@@ -16,11 +17,25 @@
 #endif
 
 
-//! for C++11
-//using namespace std;
-
-namespace irr { namespace asset
+namespace irr
 {
+namespace asset
+{
+	
+
+template<>
+size_t SizedBlob<VariableSizeBlob, RawBufferBlobV0, ICPUBuffer>::calcBlobSizeForObj(const ICPUBuffer* _obj)
+{
+	return _obj->getSize();
+}
+
+#ifndef NEW_SHADERS
+template<>
+size_t SizedBlob<VariableSizeBlob, TexturePathBlobV0, ICPUTexture>::calcBlobSizeForObj(const ICPUTexture* _obj)
+{
+	return _obj->getSourceFilename().size();
+}
+#endif
 
 MeshBlobV0::MeshBlobV0(const asset::ICPUMesh* _mesh) : box(_mesh->getBoundingBox()), meshBufCnt(_mesh->getMeshBufferCount())
 {
@@ -106,7 +121,7 @@ size_t SizedBlob<FixedSizeBlob, SkinnedMeshBufferBlobV0, asset::ICPUSkinnedMeshB
 	return sizeof(SkinnedMeshBufferBlobV0);
 }
 
-FinalBoneHierarchyBlobV0::FinalBoneHierarchyBlobV0(const CFinalBoneHierarchy* _fbh)
+FinalBoneHierarchyBlobV2::FinalBoneHierarchyBlobV2(const CFinalBoneHierarchy* _fbh)
 {
 	boneCount = _fbh->getBoneCount();
 	numLevelsInHierarchy = _fbh->getHierarchyLevels();
@@ -129,110 +144,110 @@ FinalBoneHierarchyBlobV0::FinalBoneHierarchyBlobV0(const CFinalBoneHierarchy* _f
 }
 
 template<>
-size_t SizedBlob<VariableSizeBlob, FinalBoneHierarchyBlobV0,CFinalBoneHierarchy>::calcBlobSizeForObj(const CFinalBoneHierarchy* _obj)
+size_t SizedBlob<VariableSizeBlob, FinalBoneHierarchyBlobV2,CFinalBoneHierarchy>::calcBlobSizeForObj(const CFinalBoneHierarchy* _obj)
 {
 	return
-		sizeof(FinalBoneHierarchyBlobV0) +
-		FinalBoneHierarchyBlobV0::calcBonesByteSize(_obj) +
-		FinalBoneHierarchyBlobV0::calcLevelsByteSize(_obj) +
-		FinalBoneHierarchyBlobV0::calcKeyFramesByteSize(_obj) +
-		FinalBoneHierarchyBlobV0::calcInterpolatedAnimsByteSize(_obj) +
-		FinalBoneHierarchyBlobV0::calcNonInterpolatedAnimsByteSize(_obj) +
-		FinalBoneHierarchyBlobV0::calcBoneNamesByteSize(_obj);
+		sizeof(FinalBoneHierarchyBlobV2) +
+		FinalBoneHierarchyBlobV2::calcBonesByteSize(_obj) +
+		FinalBoneHierarchyBlobV2::calcLevelsByteSize(_obj) +
+		FinalBoneHierarchyBlobV2::calcKeyFramesByteSize(_obj) +
+		FinalBoneHierarchyBlobV2::calcInterpolatedAnimsByteSize(_obj) +
+		FinalBoneHierarchyBlobV2::calcNonInterpolatedAnimsByteSize(_obj) +
+		FinalBoneHierarchyBlobV2::calcBoneNamesByteSize(_obj);
 }
 
-size_t FinalBoneHierarchyBlobV0::calcBonesOffset(const CFinalBoneHierarchy* _fbh)
+size_t FinalBoneHierarchyBlobV2::calcBonesOffset(const CFinalBoneHierarchy* _fbh)
 {
-	return sizeof(FinalBoneHierarchyBlobV0);
+	return sizeof(FinalBoneHierarchyBlobV2);
 }
-size_t FinalBoneHierarchyBlobV0::calcLevelsOffset(const CFinalBoneHierarchy * _fbh)
+size_t FinalBoneHierarchyBlobV2::calcLevelsOffset(const CFinalBoneHierarchy * _fbh)
 {
 	return calcBonesOffset(_fbh) + calcBonesByteSize(_fbh);
 }
-size_t FinalBoneHierarchyBlobV0::calcKeyFramesOffset(const CFinalBoneHierarchy * _fbh)
+size_t FinalBoneHierarchyBlobV2::calcKeyFramesOffset(const CFinalBoneHierarchy * _fbh)
 {
 	return calcLevelsOffset(_fbh) + calcLevelsByteSize(_fbh);
 }
-size_t FinalBoneHierarchyBlobV0::calcInterpolatedAnimsOffset(const CFinalBoneHierarchy * _fbh)
+size_t FinalBoneHierarchyBlobV2::calcInterpolatedAnimsOffset(const CFinalBoneHierarchy * _fbh)
 {
 	return calcKeyFramesOffset(_fbh) + calcKeyFramesByteSize(_fbh);
 }
-size_t FinalBoneHierarchyBlobV0::calcNonInterpolatedAnimsOffset(const CFinalBoneHierarchy * _fbh)
+size_t FinalBoneHierarchyBlobV2::calcNonInterpolatedAnimsOffset(const CFinalBoneHierarchy * _fbh)
 {
 	return calcInterpolatedAnimsOffset(_fbh) + calcInterpolatedAnimsByteSize(_fbh);
 }
-size_t FinalBoneHierarchyBlobV0::calcBoneNamesOffset(const CFinalBoneHierarchy* _fbh)
+size_t FinalBoneHierarchyBlobV2::calcBoneNamesOffset(const CFinalBoneHierarchy* _fbh)
 {
 	return calcNonInterpolatedAnimsOffset(_fbh) + calcNonInterpolatedAnimsByteSize(_fbh);
 }
 
-size_t FinalBoneHierarchyBlobV0::calcBonesByteSize(const CFinalBoneHierarchy * _fbh)
+size_t FinalBoneHierarchyBlobV2::calcBonesByteSize(const CFinalBoneHierarchy * _fbh)
 {
 	return _fbh->getBoneCount()*sizeof(*_fbh->getBoneData());
 }
-size_t FinalBoneHierarchyBlobV0::calcLevelsByteSize(const CFinalBoneHierarchy * _fbh)
+size_t FinalBoneHierarchyBlobV2::calcLevelsByteSize(const CFinalBoneHierarchy * _fbh)
 {
 	return _fbh->getHierarchyLevels()*sizeof(*_fbh->getBoneTreeLevelEnd());
 }
-size_t FinalBoneHierarchyBlobV0::calcKeyFramesByteSize(const CFinalBoneHierarchy * _fbh)
+size_t FinalBoneHierarchyBlobV2::calcKeyFramesByteSize(const CFinalBoneHierarchy * _fbh)
 {
 	return _fbh->getKeyFrameCount()*sizeof(*_fbh->getKeys());
 }
-size_t FinalBoneHierarchyBlobV0::calcInterpolatedAnimsByteSize(const CFinalBoneHierarchy * _fbh)
+size_t FinalBoneHierarchyBlobV2::calcInterpolatedAnimsByteSize(const CFinalBoneHierarchy * _fbh)
 {
 	return _fbh->getAnimationCount()*sizeof(*_fbh->getInterpolatedAnimationData());
 }
-size_t FinalBoneHierarchyBlobV0::calcNonInterpolatedAnimsByteSize(const CFinalBoneHierarchy * _fbh)
+size_t FinalBoneHierarchyBlobV2::calcNonInterpolatedAnimsByteSize(const CFinalBoneHierarchy * _fbh)
 {
 	return _fbh->getAnimationCount()*sizeof(*_fbh->getNonInterpolatedAnimationData());
 }
-size_t FinalBoneHierarchyBlobV0::calcBoneNamesByteSize(const CFinalBoneHierarchy * _fbh)
+size_t FinalBoneHierarchyBlobV2::calcBoneNamesByteSize(const CFinalBoneHierarchy * _fbh)
 {
 	return _fbh->getSizeOfAllBoneNames();
 }
 
-size_t FinalBoneHierarchyBlobV0::calcBonesOffset() const
+size_t FinalBoneHierarchyBlobV2::calcBonesOffset() const
 {
-	return sizeof(FinalBoneHierarchyBlobV0);
+	return sizeof(FinalBoneHierarchyBlobV2);
 }
-size_t FinalBoneHierarchyBlobV0::calcLevelsOffset() const
+size_t FinalBoneHierarchyBlobV2::calcLevelsOffset() const
 {
 	return calcBonesOffset() + calcBonesByteSize();
 }
-size_t FinalBoneHierarchyBlobV0::calcKeyFramesOffset() const
+size_t FinalBoneHierarchyBlobV2::calcKeyFramesOffset() const
 {
 	return calcLevelsOffset() + calcLevelsByteSize();
 }
-size_t FinalBoneHierarchyBlobV0::calcInterpolatedAnimsOffset() const
+size_t FinalBoneHierarchyBlobV2::calcInterpolatedAnimsOffset() const
 {
 	return calcKeyFramesOffset() + calcKeyFramesByteSize();
 }
-size_t FinalBoneHierarchyBlobV0::calcNonInterpolatedAnimsOffset() const
+size_t FinalBoneHierarchyBlobV2::calcNonInterpolatedAnimsOffset() const
 {
 	return calcInterpolatedAnimsOffset() + calcInterpolatedAnimsByteSize();
 }
-size_t FinalBoneHierarchyBlobV0::calcBoneNamesOffset() const
+size_t FinalBoneHierarchyBlobV2::calcBoneNamesOffset() const
 {
 	return calcNonInterpolatedAnimsOffset() + calcNonInterpolatedAnimsByteSize();
 }
 
-size_t FinalBoneHierarchyBlobV0::calcBonesByteSize() const
+size_t FinalBoneHierarchyBlobV2::calcBonesByteSize() const
 {
 	return boneCount * CFinalBoneHierarchy::getSizeOfSingleBone();
 }
-size_t FinalBoneHierarchyBlobV0::calcLevelsByteSize() const
+size_t FinalBoneHierarchyBlobV2::calcLevelsByteSize() const
 {
 	return numLevelsInHierarchy * sizeof(size_t);
 }
-size_t FinalBoneHierarchyBlobV0::calcKeyFramesByteSize() const
+size_t FinalBoneHierarchyBlobV2::calcKeyFramesByteSize() const
 {
 	return keyframeCount * sizeof(float);
 }
-size_t FinalBoneHierarchyBlobV0::calcInterpolatedAnimsByteSize() const
+size_t FinalBoneHierarchyBlobV2::calcInterpolatedAnimsByteSize() const
 {
 	return keyframeCount * boneCount * CFinalBoneHierarchy::getSizeOfSingleAnimationData();
 }
-size_t FinalBoneHierarchyBlobV0::calcNonInterpolatedAnimsByteSize() const
+size_t FinalBoneHierarchyBlobV2::calcNonInterpolatedAnimsByteSize() const
 {
 	return keyframeCount * boneCount * CFinalBoneHierarchy::getSizeOfSingleAnimationData();
 }

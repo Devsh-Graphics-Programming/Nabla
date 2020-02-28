@@ -39,10 +39,6 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
-            core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> parent =
-                (_depth > 0u && m_parent) ?
-                core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>( static_cast<ICPURenderpassIndependentPipeline*>(m_parent.get())->clone(_depth-1u) ) :
-                core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(m_parent);
             core::smart_refctd_ptr<ICPUPipelineLayout> layout = (_depth > 0u && m_layout) ? core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(m_layout->clone(_depth-1u)) : m_layout;
 
             std::array<core::smart_refctd_ptr<ICPUSpecializedShader>, SHADER_STAGE_COUNT> shaders;
@@ -53,8 +49,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
                 shaders_raw[i] = shaders[i].get();
             std::sort(shaders_raw.begin(), shaders_raw.end(), [](ICPUSpecializedShader* a, ICPUSpecializedShader* b) { return (a && !b); });
 
-            auto cp = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
-                std::move(parent), std::move(layout),
+            auto cp = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(layout),
                 shaders_raw.data(), &*std::find(shaders_raw.begin(), shaders_raw.end(), nullptr),
                 m_vertexInputParams, m_blendParams, m_primAsmParams, m_rasterParams
             );

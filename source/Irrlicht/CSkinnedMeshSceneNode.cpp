@@ -173,7 +173,7 @@ void CSkinnedMeshSceneNode::render()
 
     if (canProceedPastFence())
     {
-        driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
+        driver->setTransform(video::E4X3TS_WORLD, core::matrix3x4SIMD().set(AbsoluteTransformation));
 
         // render original meshes
         for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)

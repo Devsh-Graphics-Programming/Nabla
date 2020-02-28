@@ -303,7 +303,18 @@ IRR_FORCE_INLINE T normalize(const T& v)
 	return v / core::sqrt<T>(d);
 #endif
 }
-// TODO : matrixCompMult, outerProduct, transpose, determinant, inverse
+
+// TODO : matrixCompMult, outerProduct, inverse
+template<typename T>
+IRR_FORCE_INLINE T transpose(const T& m);
+template<>
+IRR_FORCE_INLINE matrix4SIMD transpose(const matrix4SIMD& m);
+
+template<typename T>
+IRR_FORCE_INLINE float determinant(const T& m);
+template<>
+IRR_FORCE_INLINE float determinant(const matrix4SIMD& m);
+
 // MAKE AIASES: lessThan, lessThanEqual, greaterThan, greaterThanEqual, equal, notEqual
 // TODO : uaddCarry, usubBorrow, umulExtended, imulExtended, bitfieldExtract, bitfieldInsert, bitfieldReverse, bitCount
 

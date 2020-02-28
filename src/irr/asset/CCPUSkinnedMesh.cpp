@@ -112,14 +112,15 @@ void PrintDebugBoneHierarchy(ICPUSkinnedMesh::SJoint* joint, std::string indent=
     debug.seekp(0,std::ios_base::end);
     debug << "Bone Name: \"" << joint->Name << "\"           BindMt: ";
 
-    for (size_t i=0; i<11; i++)
-        debug << joint->GlobalInversedMatrix.pointer()[i] << ",";
+    for (size_t i=0; i<3; i++)
+    for (size_t j=0; j<4; j++)
+        debug << joint->GlobalInversedMatrix[i][j] << (i!=2||j!=3 ? ",":"\n");
 
-    debug << joint->GlobalInversedMatrix.pointer()[11] << "\n" << indent << "PoseMt: ";
-    for (size_t i=0; i<11; i++)
-        debug << joint->LocalMatrix.pointer()[i] << ",";
+    debug << indent << "PoseMt: ";
+    for (size_t i=0; i<3; i++)
+    for (size_t j=0; j<4; j++)
+        debug << joint->LocalMatrix[i][j] << (i!=2||j!=3 ? ",":"");
 
-    debug << joint->LocalMatrix.pointer()[11];
     os::Printer::log(debug.str(),ELL_INFORMATION);
 
     indent += "\t";
@@ -360,10 +361,10 @@ void CCPUSkinnedMesh::finalize()
             SJoint* joint = AllJoints[jointID];
 
             joint->GlobalMatrix = joint->LocalMatrix;
-            if (joint->GlobalInversedMatrix.isIdentity())//might be pre calculated
+            if (joint->GlobalInversedMatrix==core::matrix3x4SIMD()) //might be pre calculated
             {
                 joint->GlobalInversedMatrix = joint->GlobalMatrix;
-                joint->GlobalInversedMatrix.makeInverse(); // slow
+                joint->GlobalInversedMatrix.makeInverse();
             }
         }
 
@@ -372,10 +373,10 @@ void CCPUSkinnedMesh::finalize()
             SJoint* joint = AllJoints[jointID];
             assert(joint->Parent);
             joint->GlobalMatrix = concatenateBFollowedByA(joint->Parent->GlobalMatrix,joint->LocalMatrix);
-            if (joint->GlobalInversedMatrix.isIdentity())//might be pre calculated
+            if (joint->GlobalInversedMatrix==core::matrix3x4SIMD()) //might be pre calculated
             {
                 joint->GlobalInversedMatrix = joint->GlobalMatrix;
-                joint->GlobalInversedMatrix.makeInverse(); // slow
+                joint->GlobalInversedMatrix.makeInverse();
             }
         }
 

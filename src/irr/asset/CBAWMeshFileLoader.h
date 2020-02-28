@@ -27,32 +27,33 @@ class IAssetManager;
 class CBAWMeshFileLoader : public asset::IAssetLoader
 {
 #ifndef NEW_SHADERS
-	 friend struct TypedBlob<TexturePathBlobV1, asset::ICPUTexture>; // needed for loading textures
+	friend struct TypedBlob<TexturePathBlobV2, asset::ICPUTexture>; // needed for loading textures
 #endif
-	private:
-		template<typename HeaderT>
-		struct SBlobData_t
-		{
-			HeaderT* header;
-			size_t absOffset; // absolute
-			void* heapBlob = nullptr;
-			mutable bool validated = false;
-			uint32_t hierarchyLvl = 0u;
 
-			SBlobData_t(HeaderT* _hd = nullptr, size_t _offset = 0xdeadbeefdeadbeefu) : header(_hd), absOffset(_offset) {}
-			SBlobData_t(const SBlobData_t<HeaderT>&) = delete;
-			SBlobData_t(SBlobData_t<HeaderT>&& _other) {
-				std::swap(heapBlob, _other.heapBlob);
-				header = _other.header;
-				absOffset = _other.absOffset;
-				validated = _other.validated;
-				hierarchyLvl = _other.hierarchyLvl;
-			}
-			SBlobData_t<HeaderT>& operator=(const SBlobData_t<HeaderT>&) = delete;
-			~SBlobData_t() {
-				if (heapBlob)
-					_IRR_ALIGNED_FREE(heapBlob);
-			}
+private:
+    template<typename HeaderT>
+	struct SBlobData_t
+	{
+		HeaderT* header;
+		size_t absOffset; // absolute
+		void* heapBlob = nullptr;
+		mutable bool validated = false;
+        uint32_t hierarchyLvl = 0u;
+
+        SBlobData_t(HeaderT* _hd = nullptr, size_t _offset = 0xdeadbeefdeadbeefu) : header(_hd), absOffset(_offset) {}
+        SBlobData_t(const SBlobData_t<HeaderT>&) = delete;
+        SBlobData_t(SBlobData_t<HeaderT>&& _other) {
+            std::swap(heapBlob, _other.heapBlob);
+            header = _other.header;
+            absOffset = _other.absOffset;
+            validated = _other.validated;
+            hierarchyLvl = _other.hierarchyLvl;
+        }
+        SBlobData_t<HeaderT>& operator=(const SBlobData_t<HeaderT>&) = delete;
+		~SBlobData_t() {
+            if (heapBlob)
+                _IRR_ALIGNED_FREE(heapBlob);
+        }
 
 			bool validate() const {
 				validated = false;
@@ -144,7 +145,7 @@ class CBAWMeshFileLoader : public asset::IAssetLoader
 			switch (_expectedVer)
 			{
 			case 0ull: return verifyFile<asset::legacyv0::BAWFileV0>(_ctx);
-			case 1ull: return verifyFile<asset::BAWFileV1>(_ctx);
+			case 1ull: return verifyFile<asset::legacyv1::BAWFileV1>(_ctx);
 			default: return false;
 			}
 		}
@@ -265,7 +266,6 @@ class CBAWMeshFileLoader : public asset::IAssetLoader
 		//! If new format version comes up, just increment _IRR_BAW_FORMAT_VERSION and specialize this template. All the other code will take care of itself.
 		template<uint64_t IntoVersion>
 		io::IReadFile* createConvertIntoVer_spec(SContext& _ctx, io::IReadFile* _original, asset::IAssetLoader::IAssetLoaderOverride* _override, const CommonDataTuple<IntoVersion-1ull>& _common); // here goes unpack tuple
-
 		template<uint64_t IntoVersion>
 		io::IReadFile* createConvertIntoVer(io::IReadFile* _original, asset::IAssetLoader::IAssetLoaderOverride* _override)
 		{
@@ -280,12 +280,12 @@ class CBAWMeshFileLoader : public asset::IAssetLoader
 			uint32_t blobCnt{};
 			BlobHeaderVn<FromVersion>* headers = nullptr;
 			uint32_t* offsets = nullptr;
-			uint32_t baseOffsetv0{};
-			uint32_t baseOffsetv1{};
-			if (!formatConversionProlog<IntoVersion>(ctx, blobCnt, headers, offsets, baseOffsetv0, baseOffsetv1))
+			uint32_t baseOffsetv_from{};
+			uint32_t baseOffsetv_to{};
+			if (!formatConversionProlog<IntoVersion>(ctx, blobCnt, headers, offsets, baseOffsetv_from, baseOffsetv_to))
 				return nullptr;
 
-			return createConvertIntoVer_spec<IntoVersion>(ctx, _original, _override, std::make_tuple(blobCnt, headers, offsets, baseOffsetv0, baseOffsetv1));
+			return createConvertIntoVer_spec<IntoVersion>(ctx, _original, _override, std::make_tuple(blobCnt, headers, offsets, baseOffsetv_from, baseOffsetv_to));
 		}
 
 		template<uint64_t ...Versions>

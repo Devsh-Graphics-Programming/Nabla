@@ -5,6 +5,7 @@
 #ifndef __I_MESH_MANIPULATOR_H_INCLUDED__
 #define __I_MESH_MANIPULATOR_H_INCLUDED__
 
+#include <array>
 #include <functional>
 
 #include "irr/core/core.h"
@@ -77,6 +78,69 @@ namespace asset
 		\param mesh Mesh on which the operation is performed. */
 		static void flipSurfaces(ICPUMeshBuffer* inbuffer);
 
+		//!
+		static inline std::array<uint32_t,3u> getTriangleIndices(const ICPUMeshBuffer* mb, uint32_t triangleIx)
+		{
+			auto XXXXX = [&](auto idx) -> std::array<uint32_t,3u>
+			{
+				uint32_t offset;
+				switch (mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType)
+				{
+					case EPT_TRIANGLE_LIST:
+						offset = triangleIx*3u;
+						if (idx)
+						{
+							idx += offset;
+							return {idx[0],idx[1],idx[2]};
+						}
+						else
+							return {offset,offset+1u,offset+2u};
+						break;
+					case EPT_TRIANGLE_STRIP:
+						offset = triangleIx; // 012 213
+						{
+							bool odd = triangleIx & 0x1u;
+							auto first = odd ? 2u:1u;
+							auto second = odd ? 1u:2u;
+							if (idx)
+							{
+								idx += offset;
+								return {idx[0],idx[first],idx[second]};
+							}
+							else
+								return {offset,offset+first,offset+second};
+						}
+						break;
+					case EPT_TRIANGLE_FAN:
+						offset = triangleIx+1u;
+						if (idx)
+						{
+							idx += offset;
+							return {0u,idx[0],idx[1]};
+						}
+						else
+							return {0u,offset,offset+1u};
+						break;
+					default:
+						break;
+				}
+				assert(false);
+				return {};
+			};
+
+
+			auto* indices = mb->getIndices();
+			switch (mb->getIndexType())
+			{
+				case EIT_16BIT:
+					return XXXXX(reinterpret_cast<const uint16_t*>(indices));
+				case EIT_32BIT:
+					return XXXXX(reinterpret_cast<const uint32_t*>(indices));
+				default:
+					return XXXXX(static_cast<const uint32_t*>(nullptr));
+			}
+		}
+
 		//! Creates a copy of a mesh with all vertices unwelded
 		/** \param mesh Input mesh
 		\return Mesh consisting only of unique faces. All vertices
@@ -113,6 +177,32 @@ namespace asset
 		static void requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric);
 
 		static core::smart_refctd_ptr<ICPUMeshBuffer> createMeshBufferDuplicate(const ICPUMeshBuffer* _src);
+
+		static inline core::smart_refctd_ptr<ICPUMesh> createMeshDuplicate(const ICPUMesh* _src)
+		{
+			if (!_src)
+				return nullptr;
+	
+			core::smart_refctd_ptr<ICPUMesh> dst;
+			if (_src->getMeshType() == EMT_ANIMATED_SKINNED)
+			{
+				auto tmp = core::make_smart_refctd_ptr<CCPUSkinnedMesh>();
+				//! TODO: do deep armature and keyframe copy
+				tmp->setBoneReferenceHierarchy(core::smart_refctd_ptr<CFinalBoneHierarchy>(static_cast<const ICPUSkinnedMesh*>(_src)->getBoneReferenceHierarchy()));
+				for (auto i=0u; i<_src->getMeshBufferCount(); i++)
+					tmp->addMeshBuffer(core::smart_refctd_ptr_static_cast<ICPUSkinnedMeshBuffer>(createMeshBufferDuplicate(_src->getMeshBuffer(i))));
+				dst = std::move(tmp);
+			}
+			else
+			{
+				auto tmp = core::make_smart_refctd_ptr<CCPUMesh>();
+				for (auto i = 0u; i < _src->getMeshBufferCount(); i++)
+					tmp->addMeshBuffer(createMeshBufferDuplicate(_src->getMeshBuffer(i)));
+				dst = std::move(tmp);
+			}
+
+			return dst;
+		}
 
         //! Creates new index buffer with invalid triangles removed.
         /**
@@ -217,7 +307,7 @@ namespace asset
 		static inline bool getPolyCount(uint32_t& outCount, IMeshBuffer<MeshbufTemplParams...>* meshbuffer)
 		{
 			outCount = 0;
-			if (meshbuffer)
+			if (!meshbuffer)
 				return false;
             if (!meshbuffer->getPipeline())
                 return false;

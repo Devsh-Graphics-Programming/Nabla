@@ -11,7 +11,6 @@ namespace irr
 {
 namespace asset
 {
-
 //! Meshloader capable of loading STL meshes.
 class CSTLMeshFileLoader final : public IAssetLoader
 {
@@ -43,6 +42,12 @@ class CSTLMeshFileLoader final : public IAssetLoader
 
 		//! Read 3d vector of floats
 		void getNextVector(io::IReadFile* file, core::vectorSIMDf& vec, bool binary) const;
+
+		template<typename aType>
+		static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
+		{
+			performOnCertainOrientation(varToHandle);
+		}
 };
 
 } // end namespace scene

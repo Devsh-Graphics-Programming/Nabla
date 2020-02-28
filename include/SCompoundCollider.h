@@ -141,28 +141,27 @@ class SCompoundCollider : public IReferenceCounted
         {
             if (colliderData.attachedNode)
             {
-                matrix4x3 absoluteTransform = colliderData.attachedNode->getAbsoluteTransformation();
+				matrix3x4SIMD absoluteTransform;
+				absoluteTransform.set(colliderData.attachedNode->getAbsoluteTransformation());
                 bool retval = absoluteTransform.makeInverse();
                 if (!retval)
                     return false;
 
-                absoluteTransform.transformVect(origin.pointer,origin.pointer);
-                origin.pointer[3] = 0.f;
-                absoluteTransform.mulSub3x3With3x1(direction.pointer,direction.pointer); /// Actually a 3x3 submatrix multiply
+                absoluteTransform.pseudoMulWith4x1(origin);
+                absoluteTransform.mulSub3x3WithNx1(direction); /// Actually a 3x3 submatrix multiply
 
                 switch (colliderData.attachedNode->getType())
                 {
 #ifndef NEW_SHADERS
                     case scene::ESNT_MESH_INSTANCED:
                         {
-                            core::matrix4x3 instanceTform = static_cast<scene::IMeshSceneNodeInstanced*>(colliderData.attachedNode)->getInstanceTransform(colliderData.instanceID);
+							matrix3x4SIMD instanceTform = static_cast<scene::IMeshSceneNodeInstanced*>(colliderData.attachedNode)->getInstanceTransform(colliderData.instanceID);
                             retval = instanceTform.makeInverse();
                             if (!retval)
                                 return false;
 
-                            instanceTform.transformVect(origin.pointer,origin.pointer);
-                            origin.pointer[3] = 0.f;
-                            instanceTform.mulSub3x3With3x1(direction.pointer,direction.pointer);
+                            instanceTform.transformVect(origin);
+                            instanceTform.mulSub3x3WithNx1(direction);
                         }
                         break;
                     ///case ESNT_INSTANCED_ANIMATED_MESH:

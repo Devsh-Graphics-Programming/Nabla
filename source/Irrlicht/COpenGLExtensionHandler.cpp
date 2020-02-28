@@ -208,6 +208,28 @@ PFNGLSAMPLERPARAMETERFVPROC COpenGLExtensionHandler::pGlSamplerParameterfv = nul
 PFNGLBINDIMAGETEXTUREPROC COpenGLExtensionHandler::pGlBindImageTexture = nullptr;
 PFNGLBINDIMAGETEXTURESPROC COpenGLExtensionHandler::pGlBindImageTextures = nullptr;
 
+//bindless textures
+//ARB
+PFNGLGETTEXTUREHANDLEARBPROC COpenGLExtensionHandler::pGlGetTextureHandleARB = nullptr;
+PFNGLGETTEXTURESAMPLERHANDLEARBPROC COpenGLExtensionHandler::pGlGetTextureSamplerHandleARB = nullptr;
+PFNGLMAKETEXTUREHANDLERESIDENTARBPROC COpenGLExtensionHandler::pGlMakeTextureHandleResidentARB = nullptr;
+PFNGLMAKETEXTUREHANDLENONRESIDENTARBPROC COpenGLExtensionHandler::pGlMakeTextureHandleNonResidentARB = nullptr;
+PFNGLGETIMAGEHANDLEARBPROC COpenGLExtensionHandler::pGlGetImageHandleARB = nullptr;
+PFNGLMAKEIMAGEHANDLERESIDENTARBPROC COpenGLExtensionHandler::pGlMakeImageHandleResidentARB = nullptr;
+PFNGLMAKEIMAGEHANDLENONRESIDENTARBPROC COpenGLExtensionHandler::pGlMakeImageHandleNonResidentARB = nullptr;
+PFNGLISTEXTUREHANDLERESIDENTARBPROC COpenGLExtensionHandler::pGlIsTextureHandleResidentARB = nullptr;
+PFNGLISIMAGEHANDLERESIDENTARBPROC COpenGLExtensionHandler::pGlIsImageHandleResidentARB = nullptr;
+//NV
+PFNGLGETTEXTUREHANDLENVPROC COpenGLExtensionHandler::pGlGetTextureHandleNV = nullptr;
+PFNGLGETTEXTURESAMPLERHANDLENVPROC COpenGLExtensionHandler::pGlGetTextureSamplerHandleNV = nullptr;
+PFNGLMAKETEXTUREHANDLERESIDENTNVPROC COpenGLExtensionHandler::pGlMakeTextureHandleResidentNV = nullptr;
+PFNGLMAKETEXTUREHANDLENONRESIDENTNVPROC COpenGLExtensionHandler::pGlMakeTextureHandleNonResidentNV = nullptr;
+PFNGLGETIMAGEHANDLENVPROC COpenGLExtensionHandler::pGlGetImageHandleNV = nullptr;
+PFNGLMAKEIMAGEHANDLERESIDENTNVPROC COpenGLExtensionHandler::pGlMakeImageHandleResidentNV = nullptr;
+PFNGLMAKEIMAGEHANDLENONRESIDENTNVPROC COpenGLExtensionHandler::pGlMakeImageHandleNonResidentNV = nullptr;
+PFNGLISTEXTUREHANDLERESIDENTNVPROC COpenGLExtensionHandler::pGlIsTextureHandleResidentNV = nullptr;
+PFNGLISIMAGEHANDLERESIDENTNVPROC COpenGLExtensionHandler::pGlIsImageHandleResidentNV = nullptr;
+
         //stuff
 PFNGLBINDBUFFERBASEPROC COpenGLExtensionHandler::pGlBindBufferBase = nullptr;
 PFNGLBINDBUFFERRANGEPROC COpenGLExtensionHandler::pGlBindBufferRange = nullptr;
@@ -1127,6 +1149,28 @@ void COpenGLExtensionHandler::loadFunctions()
     //
     pGlBindImageTexture = (PFNGLBINDIMAGETEXTUREPROC) IRR_OGL_LOAD_EXTENSION( "glBindImageTexture");
     pGlBindImageTextures = (PFNGLBINDIMAGETEXTURESPROC) IRR_OGL_LOAD_EXTENSION( "glBindImageTextures" );
+
+	//bindless texture
+	//ARB
+	pGlGetTextureHandleARB = (PFNGLGETTEXTUREHANDLEARBPROC) IRR_OGL_LOAD_EXTENSION("glGetTextureHandleARB");
+	pGlGetTextureSamplerHandleARB = (PFNGLGETTEXTURESAMPLERHANDLEARBPROC) IRR_OGL_LOAD_EXTENSION("glGetTextureSamplerHandleARB");
+	pGlMakeTextureHandleResidentARB = (PFNGLMAKETEXTUREHANDLERESIDENTARBPROC) IRR_OGL_LOAD_EXTENSION("glMakeTextureHandleResidentAR");
+	pGlMakeTextureHandleNonResidentARB = (PFNGLMAKETEXTUREHANDLENONRESIDENTARBPROC) IRR_OGL_LOAD_EXTENSION("glMakeTextureHandleNonResidentARB");
+	pGlGetImageHandleARB = (PFNGLGETIMAGEHANDLEARBPROC) IRR_OGL_LOAD_EXTENSION("glGetImageHandleARB");
+	pGlMakeImageHandleResidentARB = (PFNGLMAKEIMAGEHANDLERESIDENTARBPROC) IRR_OGL_LOAD_EXTENSION("glMakeImageHandleResidentARB");
+	pGlMakeImageHandleNonResidentARB = (PFNGLMAKEIMAGEHANDLENONRESIDENTARBPROC) IRR_OGL_LOAD_EXTENSION("glMakeImageHandleNonResidentARB");
+	pGlIsTextureHandleResidentARB = (PFNGLISTEXTUREHANDLERESIDENTARBPROC) IRR_OGL_LOAD_EXTENSION("glIsTextureHandleResidentARB");
+	pGlIsImageHandleResidentARB = (PFNGLISTEXTUREHANDLERESIDENTARBPROC) IRR_OGL_LOAD_EXTENSION("glIsImageHandleResidentARB");
+	//NV
+	pGlGetTextureHandleNV = (PFNGLGETTEXTUREHANDLENVPROC)IRR_OGL_LOAD_EXTENSION("glGetTextureHandleNV");
+	pGlGetTextureSamplerHandleNV = (PFNGLGETTEXTURESAMPLERHANDLENVPROC)IRR_OGL_LOAD_EXTENSION("glGetTextureSamplerHandleNV");
+	pGlMakeTextureHandleResidentNV = (PFNGLMAKETEXTUREHANDLERESIDENTNVPROC)IRR_OGL_LOAD_EXTENSION("glMakeTextureHandleResidentAR");
+	pGlMakeTextureHandleNonResidentNV = (PFNGLMAKETEXTUREHANDLENONRESIDENTNVPROC)IRR_OGL_LOAD_EXTENSION("glMakeTextureHandleNonResidentNV");
+	pGlGetImageHandleNV = (PFNGLGETIMAGEHANDLENVPROC)IRR_OGL_LOAD_EXTENSION("glGetImageHandleNV");
+	pGlMakeImageHandleResidentNV = (PFNGLMAKEIMAGEHANDLERESIDENTNVPROC)IRR_OGL_LOAD_EXTENSION("glMakeImageHandleResidentNV");
+	pGlMakeImageHandleNonResidentNV = (PFNGLMAKEIMAGEHANDLENONRESIDENTNVPROC)IRR_OGL_LOAD_EXTENSION("glMakeImageHandleNonResidentNV");
+	pGlIsTextureHandleResidentNV = (PFNGLISTEXTUREHANDLERESIDENTNVPROC)IRR_OGL_LOAD_EXTENSION("glIsTextureHandleResidentNV");
+	pGlIsImageHandleResidentNV = (PFNGLISTEXTUREHANDLERESIDENTNVPROC)IRR_OGL_LOAD_EXTENSION("glIsImageHandleResidentNV");
 
     //
     pGlBindBufferBase = (PFNGLBINDBUFFERBASEPROC) IRR_OGL_LOAD_EXTENSION("glBindBufferBase");

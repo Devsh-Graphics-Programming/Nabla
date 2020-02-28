@@ -19,14 +19,24 @@ namespace irr
 namespace asset
 {
 
-// constructor
-CPLYMeshFileLoader::CPLYMeshFileLoader()
+template<typename AssetType, IAsset::E_TYPE assetType>
+static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
 {
+	size_t storageSz = 1ull;
+	asset::SAssetBundle bundle;
+	const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
+
+	_assetMgr->findAssets(storageSz, &bundle, _key, types);
+	if (bundle.isEmpty())
+		return nullptr;
+	auto assets = bundle.getContents();
+
+	return core::smart_refctd_ptr_static_cast<AssetType>(assets.first[0]);
 }
 
-CPLYMeshFileLoader::~CPLYMeshFileLoader()
-{
-}
+CPLYMeshFileLoader::CPLYMeshFileLoader(IAssetManager* _am) : m_assetMgr{ _am } {}
+
+CPLYMeshFileLoader::~CPLYMeshFileLoader() {}
 
 bool CPLYMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
 {
@@ -63,7 +73,7 @@ bool CPLYMeshFileLoader::isALoadableFileFormat(io::IReadFile* _file) const
 asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	if (!_file)
-        return {};
+		return {};
 
     SContext ctx;
 	ctx.File = _file;
@@ -71,13 +81,13 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	// attempt to allocate the buffer and fill with data
 	if (!allocateBuffer(ctx))
 	{
-        return {};
+		return {};
 	}
 
 	// start with empty mesh
     core::smart_refctd_ptr<asset::CCPUMesh> mesh;
 	uint32_t vertCount=0;
-#ifndef NEW_SHADERS
+
 	// Currently only supports ASCII meshes
 	if (strcmp(getNextLine(ctx), "ply"))
 	{
@@ -88,7 +98,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		// cut the next line out
 		getNextLine(ctx);
 		// grab the word from this line
-		char *word = getNextWord(ctx);
+		char* word = getNextWord(ctx);
 
 		// ignore comments
 		while (strcmp(word, "comment") == 0)
@@ -109,7 +119,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				word = getNextWord(ctx);
 
 				if (strcmp(word, "binary_little_endian") == 0)
-                {
+				{
 					ctx.IsBinaryFile = true;
 				}
 				else if (strcmp(word, "binary_big_endian") == 0)
@@ -193,10 +203,10 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				el->Count = atoi(getNextWord(ctx));
 				el->IsFixedWidth = true;
 				el->KnownSize = 0;
-                ctx.ElementList.emplace_back(std::move(el));
-
 				if (el->Name == "vertex")
 					vertCount = el->Count;
+
+                ctx.ElementList.emplace_back(std::move(el));
 
 			}
 			else if (strcmp(word, "end_header") == 0)
@@ -204,7 +214,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				readingHeader = false;
 				if (ctx.IsBinaryFile)
 				{
-                    ctx.StartPointer = ctx.LineEndPointer + 1;
+					ctx.StartPointer = ctx.LineEndPointer + 1;
 				}
 			}
 			else if (strcmp(word, "comment") == 0)
@@ -235,7 +245,8 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
             core::vector<core::vectorSIMDf> attribs[4];
             core::vector<uint32_t> indices;
 
-			bool hasNormals=true;
+			bool hasNormals = true;
+
 			// loop through each of the elements
 			for (uint32_t i=0; i<ctx.ElementList.size(); ++i)
 			{
@@ -243,59 +254,55 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				if (ctx.ElementList[i]->Name == "vertex")
 				{
 					// loop through vertex properties
-					for (uint32_t j=0; j < ctx.ElementList[i]->Count; ++j)
-						hasNormals &= readVertex(ctx, ctx.ElementList[i].get(), attribs);
+					for (uint32_t j=0; j<ctx.ElementList[i]->Count; ++j)
+						hasNormals &= readVertex(ctx, *ctx.ElementList[i], attribs, _params);
 				}
 				else if (ctx.ElementList[i]->Name == "face")
 				{
 					// read faces
 					for (uint32_t j=0; j < ctx.ElementList[i]->Count; ++j)
-						readFace(ctx, ctx.ElementList[i].get(), indices, _params);
+						readFace(ctx, *ctx.ElementList[i], indices);
 				}
 				else
 				{
 					// skip these elements
 					for (uint32_t j=0; j < ctx.ElementList[i]->Count; ++j)
-						skipElement(ctx, ctx.ElementList[i].get());
+						skipElement(ctx, *ctx.ElementList[i]);
 				}
 			}
 
+			mb->setPositionAttributeIx(0);
+
             if (indices.size())
             {
-				ICPUMeshBuffer::SBufferBinding bufferBinding;
-				bufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(indices.size() * sizeof(uint32_t));
-                memcpy(bufferBinding.buffer->getPointer(), indices.data(), bufferBinding.buffer->getSize());
-
-				if (!genVertBuffersForMBuffer(mb.get(), attribs, bufferBinding))
-					return {};
-
-                mb->setIndexCount(indices.size());
+				asset::SBufferBinding<ICPUBuffer> indexBinding = {0, core::make_smart_refctd_ptr<asset::ICPUBuffer>(indices.size() * sizeof(uint32_t))};
+                memcpy(indexBinding.buffer->getPointer(), indices.data(), indexBinding.buffer->getSize());
+				auto DATA = reinterpret_cast<uint32_t*>(indexBinding.buffer->getPointer());
+				mb->setIndexCount(indices.size());
+				mb->setIndexBufferBinding(std::move(indexBinding));
                 mb->setIndexType(asset::EIT_32BIT);
-				mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST;
+
+				if (!genVertBuffersForMBuffer(mb.get(), attribs))
+					return {};
             }
             else
             {
-				mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_POINT_LIST;
-                mb->setIndexCount(attribs[E_POS].size());
-                //mb->getMaterial().setFlag(video::EMF_POINTCLOUD, true);
+				mb->setIndexCount(attribs[E_POS].size());
+				mb->setIndexType(EIT_UNKNOWN);
 
-				if (!genVertBuffersForMBuffer(mb.get(), attribs, bufferBinding))
+				if (!genVertBuffersForMBuffer(mb.get(), attribs))
 					return {};
             }
 
-            //TODO SVertexInputParams::enabledBindingFlags and SVertexInputParams::enabledAttribFlags needs setting
-			//mb->setMeshDataAndFormat(std::move(desc)); TODO - assign data to SVertexInputAttribParams and SVertexInputBindingParams
 			mb->recalculateBoundingBox();
-			//if (!hasNormals)
-			//	SceneManager->getMeshManipulator()->recalculateNormals(mb);
 
 			mesh = core::make_smart_refctd_ptr<CCPUMesh>();
 			mesh->addMeshBuffer(std::move(mb));
-			mesh->recalculateBoundingBox();
+			mesh->recalculateBoundingBox(true);
 		}
 	}
-#endif
-	return SAssetBundle({mesh});
+
+	return SAssetBundle({std::move(mesh)});
 }
 
 static void performActionBasedOnOrientationSystem(const asset::IAssetLoader::SAssetLoadParams& _params, std::function<void()> performOnRightHanded, std::function<void()> performOnLeftHanded)
@@ -311,147 +318,131 @@ bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, 
 	if (!_ctx.IsBinaryFile)
 		getNextLine(_ctx);
 
-    std::pair<bool, core::vectorSIMDf> attribs[4];
-    attribs[E_COL].second.W = 1.f;
-    attribs[E_NORM].second.Y = 1.f;
+	std::pair<bool, core::vectorSIMDf> attribs[4];
+	attribs[E_COL].second.W = 1.f;
+	attribs[E_NORM].second.Y = 1.f;
 
-	bool result=false;
-	for (uint32_t i=0; i < Element.Properties.size(); ++i)
+	bool result = false;
+	for (uint32_t i = 0; i < Element.Properties.size(); ++i)
 	{
 		E_PLY_PROPERTY_TYPE t = Element.Properties[i].Type;
 
-        if (Element.Properties[i].Name == "x")
-        {
-            attribs[E_POS].second.X = getFloat(_ctx, t);
-			performActionBasedOnOrientationSystem(_params, [&]() {attribs[E_POS].second.X = -attribs[E_POS].second.X;}, [&]() {});
-            attribs[E_POS].first = true;
-        }
-        else if (Element.Properties[i].Name == "y")
-        {
-            attribs[E_POS].second.Y = getFloat(_ctx, t);
-            attribs[E_POS].first = true;
-        }
-        else if (Element.Properties[i].Name == "z")
-        {
-            attribs[E_POS].second.Z = getFloat(_ctx, t);
-            attribs[E_POS].first = true;
-        }
+		if (Element.Properties[i].Name == "x")
+		{
+			attribs[E_POS].second.X = getFloat(_ctx, t);
+			attribs[E_POS].first = true;
+		}
+		else if (Element.Properties[i].Name == "y")
+		{
+			attribs[E_POS].second.Y = getFloat(_ctx, t);
+			attribs[E_POS].first = true;
+		}
+		else if (Element.Properties[i].Name == "z")
+		{
+			attribs[E_POS].second.Z = getFloat(_ctx, t);
+			attribs[E_POS].first = true;
+		}
 		else if (Element.Properties[i].Name == "nx")
 		{
 			attribs[E_NORM].second.X = getFloat(_ctx, t);
-			performActionBasedOnOrientationSystem(_params, [&]() {attribs[E_NORM].second.X = -attribs[E_NORM].second.X;}, [&]() {});
-			attribs[E_NORM].first = result=true;
+			attribs[E_NORM].first = result = true;
 		}
 		else if (Element.Properties[i].Name == "ny")
 		{
 			attribs[E_NORM].second.Y = getFloat(_ctx, t);
-            attribs[E_NORM].first = result=true;
+			attribs[E_NORM].first = result = true;
 		}
 		else if (Element.Properties[i].Name == "nz")
 		{
 			attribs[E_NORM].second.Z = getFloat(_ctx, t);
-            attribs[E_NORM].first = result=true;
+			attribs[E_NORM].first = result = true;
 		}
-        // there isn't a single convention for the UV, some softwares like Blender or Assimp use "st" instead of "uv"
-        else if (Element.Properties[i].Name == "u" || Element.Properties[i].Name == "s")
-        {
-            attribs[E_UV].second.X = getFloat(_ctx, t);
-            attribs[E_UV].first = true;
-        }
-        else if (Element.Properties[i].Name == "v" || Element.Properties[i].Name == "t")
-        {
-            attribs[E_UV].second.Y = getFloat(_ctx, t);
-            attribs[E_UV].first = true;
-        }
+		// there isn't a single convention for the UV, some softwares like Blender or Assimp use "st" instead of "uv"
+		else if (Element.Properties[i].Name == "u" || Element.Properties[i].Name == "s")
+		{
+			attribs[E_UV].second.X = getFloat(_ctx, t);
+			attribs[E_UV].first = true;
+		}
+		else if (Element.Properties[i].Name == "v" || Element.Properties[i].Name == "t")
+		{
+			attribs[E_UV].second.Y = getFloat(_ctx, t);
+			attribs[E_UV].first = true;
+		}
 		else if (Element.Properties[i].Name == "red")
 		{
-			float value = Element.Properties[i].isFloat() ? getFloat(_ctx, t) : float(getInt(_ctx, t))/255.f;
+			float value = Element.Properties[i].isFloat() ? getFloat(_ctx, t) : float(getInt(_ctx, t)) / 255.f;
 			attribs[E_COL].second.X = value;
-            attribs[E_COL].first = true;
+			attribs[E_COL].first = true;
 		}
 		else if (Element.Properties[i].Name == "green")
 		{
-			float value = Element.Properties[i].isFloat() ? getFloat(_ctx, t) : float(getInt(_ctx, t))/255.f;
+			float value = Element.Properties[i].isFloat() ? getFloat(_ctx, t) : float(getInt(_ctx, t)) / 255.f;
 			attribs[E_COL].second.Y = value;
-            attribs[E_COL].first = true;
+			attribs[E_COL].first = true;
 		}
 		else if (Element.Properties[i].Name == "blue")
 		{
-			float value = Element.Properties[i].isFloat() ? getFloat(_ctx, t) : float(getInt(_ctx, t))/255.f;
+			float value = Element.Properties[i].isFloat() ? getFloat(_ctx, t) : float(getInt(_ctx, t)) / 255.f;
 			attribs[E_COL].second.Z = value;
-            attribs[E_COL].first = true;
+			attribs[E_COL].first = true;
 		}
 		else if (Element.Properties[i].Name == "alpha")
 		{
-			float value = Element.Properties[i].isFloat() ? getFloat(_ctx, t) : float(getInt(_ctx, t))/255.f;
+			float value = Element.Properties[i].isFloat() ? getFloat(_ctx, t) : float(getInt(_ctx, t)) / 255.f;
 			attribs[E_COL].second.W = value;
-            attribs[E_COL].first = true;
+			attribs[E_COL].first = true;
 		}
 		else
 			skipProperty(_ctx, Element.Properties[i]);
 	}
 
-    for(size_t i = 0u; i < 4u; ++i)
-        if (attribs[i].first)
-            _outAttribs[i].push_back(attribs[i].second);
+	for (size_t i = 0u; i < 4u; ++i)
+		if (attribs[i].first)
+		{
+			if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
+			{
+				if (i == E_POS)
+					performActionBasedOnOrientationSystem<float>(attribs[E_POS].second.X, [](float& varToFlip) { varToFlip = -varToFlip; });
+				else if (i == E_NORM)
+					performActionBasedOnOrientationSystem<float>(attribs[E_NORM].second.X, [](float& varToFlip) { varToFlip = -varToFlip; });
+			}
+
+			_outAttribs[i].push_back(attribs[i].second);
+		}
 
 	return result;
 }
 
 
-bool CPLYMeshFileLoader::readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices, const asset::IAssetLoader::SAssetLoadParams& _params)
+bool CPLYMeshFileLoader::readFace(SContext& _ctx, const SPLYElement& Element, core::vector<uint32_t>& _outIndices)
 {
 	if (!_ctx.IsBinaryFile)
 		getNextLine(_ctx);
 
-	for (uint32_t i=0; i < Element.Properties.size(); ++i)
+	for (uint32_t i = 0; i < Element.Properties.size(); ++i)
 	{
-		if ( (Element.Properties[i].Name == "vertex_indices" ||
+		if ((Element.Properties[i].Name == "vertex_indices" ||
 			Element.Properties[i].Name == "vertex_index") && Element.Properties[i].Type == EPLYPT_LIST)
 		{
 			int32_t count = getInt(_ctx, Element.Properties[i].Data.List.CountType);
-            //_IRR_DEBUG_BREAK_IF(count != 3)
+			//_IRR_DEBUG_BREAK_IF(count != 3)
 
 			uint32_t a = getInt(_ctx, Element.Properties[i].Data.List.ItemType),
 				b = getInt(_ctx, Element.Properties[i].Data.List.ItemType),
 				c = getInt(_ctx, Element.Properties[i].Data.List.ItemType);
 			int32_t j = 3;
 
-			performActionBasedOnOrientationSystem
-			(_params, 
-				[&]() 
-				{
-					_outIndices.push_back(c);
-					_outIndices.push_back(b);
-					_outIndices.push_back(a);
-				}, 
-				[&]() 
-				{
-					_outIndices.push_back(a);
-					_outIndices.push_back(b);
-					_outIndices.push_back(c);
-				}
-			);
+			_outIndices.push_back(a);
+			_outIndices.push_back(b);
+			_outIndices.push_back(c);
 
 			for (; j < count; ++j)
 			{
 				b = c;
 				c = getInt(_ctx, Element.Properties[i].Data.List.ItemType);
-				performActionBasedOnOrientationSystem
-				(_params,
-					[&]()
-					{
-						_outIndices.push_back(b);
-						_outIndices.push_back(c);
-						_outIndices.push_back(a);
-					},
-					[&]()
-					{
-						_outIndices.push_back(a);
-						_outIndices.push_back(c);
-						_outIndices.push_back(b);
-					}
-				);
+				_outIndices.push_back(a);
+				_outIndices.push_back(c);
+				_outIndices.push_back(b);
 			}
 		}
 		else if (Element.Properties[i].Name == "intensity")
@@ -467,13 +458,13 @@ bool CPLYMeshFileLoader::readFace(SContext& _ctx, const SPLYElement &Element, co
 
 
 // skips an element and all properties. return false on EOF
-void CPLYMeshFileLoader::skipElement(SContext& _ctx, const SPLYElement &Element)
+void CPLYMeshFileLoader::skipElement(SContext& _ctx, const SPLYElement& Element)
 {
 	if (_ctx.IsBinaryFile)
 		if (Element.IsFixedWidth)
 			moveForward(_ctx, Element.KnownSize);
 		else
-			for (uint32_t i=0; i < Element.Properties.size(); ++i)
+			for (uint32_t i = 0; i < Element.Properties.size(); ++i)
 				skipProperty(_ctx, Element.Properties[i]);
 	else
 		getNextLine(_ctx);
@@ -514,11 +505,11 @@ bool CPLYMeshFileLoader::allocateBuffer(SContext& _ctx)
 	// blank memory
 	memset(_ctx.Buffer, 0, PLY_INPUT_BUFFER_SIZE);
 
-    _ctx.StartPointer = _ctx.Buffer;
-    _ctx.EndPointer = _ctx.Buffer;
-    _ctx.LineEndPointer = _ctx.Buffer-1;
-    _ctx.WordLength = -1;
-    _ctx.EndOfFile = false;
+	_ctx.StartPointer = _ctx.Buffer;
+	_ctx.EndPointer = _ctx.Buffer;
+	_ctx.LineEndPointer = _ctx.Buffer - 1;
+	_ctx.WordLength = -1;
+	_ctx.EndOfFile = false;
 
 	// get data from the file
 	fillBuffer(_ctx);
@@ -579,9 +570,13 @@ void CPLYMeshFileLoader::moveForward(SContext& _ctx, uint32_t bytes)
 		_ctx.StartPointer = _ctx.EndPointer;
 }
 
-bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4], SBufferBinding<ICPUBuffer>& bufferBinding) const
+bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const
 {
-#ifndef NEW_SHADERS
+	core::vector<uint8_t> availableAttributes;
+	for (auto i = 0; i < 4; ++i)
+		if (!_attribs[i].empty())
+			availableAttributes.push_back(i);
+
 	{
 		size_t check = _attribs[0].size();
 		for (size_t i = 1u; i < 4u; ++i)
@@ -592,6 +587,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 				check = _attribs[i].size();
 		}
 	}
+	
 	auto putAttr = [&_attribs](asset::ICPUMeshBuffer* _buf, size_t _attr)
 	{
 		size_t i = 0u;
@@ -599,33 +595,91 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 			_buf->setAttribute(v, _attr, i++);
 	};
 
-	size_t sizes[4];
+	uint32_t sizes[4];
 	sizes[E_POS] = !_attribs[E_POS].empty() * 3 * sizeof(float);
 	sizes[E_COL] = !_attribs[E_COL].empty() * 4 * sizeof(float);
 	sizes[E_UV] = !_attribs[E_UV].empty() * 2 * sizeof(float);
 	sizes[E_NORM] = !_attribs[E_NORM].empty() * 3 * sizeof(float);
 
-        offsets[i] = offsets[i-1] + sizes[i-1];
+	uint32_t offsets[4]{ 0u };
+	for (size_t i = 1u; i < 4u; ++i)
+		offsets[i] = offsets[i - 1] + sizes[i - 1];
 
-    const size_t stride = std::accumulate(sizes, sizes+4, static_cast<size_t>(0));
+	const uint32_t vertexSize = std::accumulate(sizes, sizes + 4, static_cast<size_t>(0));
 
+	auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
+	auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	{
-		const static std::array<std::pair<uint16_t, E_FORMAT>, 4> perIndexDataThatChanges{std::make_pair(E_POS, asset::EF_R32G32B32_SFLOAT), std::make_pair(E_COL, asset::EF_R32G32B32A32_SFLOAT), std::make_pair(E_UV, asset::EF_R32G32_SFLOAT), std::make_pair(E_NORM, asset::EF_R32G32B32_SFLOAT)};
-		_mbuf->setVertexBufferBinding(std::move(bufferBinding), 0ull);
-		_mbuf->setVertexBufferBindingParams(0ull, stride);
+		const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
+		auto bundle = m_assetMgr->findAssets("irr/builtin/materials/lambertian/no_texture/specializedshader", types);
 
-		for (const auto& attributeIndexExtra : perIndexDataThatChanges)
-			[&](auto attribIndex, auto formatToSend, auto offsetIndex, auto bindingIndex)
-			{
-				if (sizes[attribIndex])
-				{
-					_mbuf->setVertexAttribFormat(attribIndex, bindingIndex, formatToSend, offsets[offsetIndex]);
-					putAttr(_mbuf, attribIndex);
-				}
+		auto refCountedBundle =
+		{
+			core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(bundle->begin()->getContents().first[0]),
+			core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>((bundle->begin() + 1)->getContents().first[0])
+		};
 
-			}(attributeIndexExtra.first, attributeIndexExtra.second, attributeIndexExtra.first, 0ull);
+		for (auto& shader : refCountedBundle)
+		{
+			if (shader->getStage() == ISpecializedShader::ESS_VERTEX)
+				mbVertexShader = std::move(shader);
+			else if(shader->getStage() == ISpecializedShader::ESS_FRAGMENT)
+				mbFragmentShader = std::move(shader);
+		}
 	}
-#endif
+	auto mbPipelineLayout = getDefaultAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>("irr/builtin/pipeline_layouts/default", m_assetMgr);
+	
+	const std::array<SVertexInputAttribParams, 4> vertexAttribParamsAllOptions =
+	{
+		SVertexInputAttribParams(0u, EF_R32G32B32_SFLOAT, 0),
+		SVertexInputAttribParams(1u, EF_R32G32B32A32_SFLOAT, 0),
+		SVertexInputAttribParams(2u, EF_R32G32_SFLOAT, 0),
+		SVertexInputAttribParams(3u, EF_R32G32B32_SFLOAT, 0)
+	};
+
+	SVertexInputParams inputParams;
+	for (auto& attrib : availableAttributes)
+	{
+		const auto currentBitmask = core::getBitmask({ attrib });
+		inputParams.enabledBindingFlags |= currentBitmask;
+		inputParams.enabledAttribFlags |= currentBitmask;
+		inputParams.bindings[attrib] = { 16, EVIR_PER_VERTEX };
+		inputParams.attributes[attrib] = vertexAttribParamsAllOptions[attrib];
+	}
+
+	SBlendParams blendParams;
+	SPrimitiveAssemblyParams primitiveAssemblyParams;
+	if (_mbuf->getIndexBufferBinding()->buffer)
+		primitiveAssemblyParams.primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST;
+	else
+		primitiveAssemblyParams.primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_POINT_LIST;
+
+	SRasterizationParams rastarizationParmas;
+	//rastarizationParmas.faceCullingMode = EFCM_NONE;
+
+	auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, inputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
+	{
+		mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, mbVertexShader.get());
+		mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, mbFragmentShader.get());
+
+		auto inputParams = mbPipeline->getVertexInputParams();
+
+		for (auto index = 0; index < 4; ++index)
+		{
+			auto attribute = _attribs[index];
+			if (!attribute.empty())
+			{
+				const auto bufferByteSize = attribute.size() * 16ull;
+				auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufferByteSize);
+				memcpy(buffer->getPointer(), attribute.data(), bufferByteSize); // TODO refactor input to take SBufferBinding to avoid memcpy
+
+				_mbuf->setVertexBufferBinding({ 0ul, std::move(buffer) }, index);
+			}
+		}
+	}
+
+	_mbuf->setPipeline(std::move(mbPipeline));
+
     return true;
 }
 
@@ -664,7 +718,7 @@ E_PLY_PROPERTY_TYPE CPLYMeshFileLoader::getPropertyType(const char* typeString) 
 	{
 		return EPLYPT_FLOAT64;
 	}
-	else if ( strcmp(typeString, "list") == 0 )
+	else if (strcmp(typeString, "list") == 0)
 	{
 		return EPLYPT_LIST;
 	}
@@ -695,7 +749,7 @@ char* CPLYMeshFileLoader::getNextLine(SContext& _ctx)
 	while (pos < _ctx.EndPointer && *pos && *pos != '\r' && *pos != '\n')
 		++pos;
 
-	if ( pos < _ctx.EndPointer && ( *(pos+1) == '\r' || *(pos+1) == '\n') )
+	if (pos < _ctx.EndPointer && (*(pos + 1) == '\r' || *(pos + 1) == '\n'))
 	{
 		*pos = '\0';
 		++pos;
@@ -709,7 +763,7 @@ char* CPLYMeshFileLoader::getNextLine(SContext& _ctx)
 		{
 			fillBuffer(_ctx);
 			// reset line end pointer
-            _ctx.LineEndPointer = _ctx.StartPointer - 1;
+			_ctx.LineEndPointer = _ctx.StartPointer - 1;
 
 			if (_ctx.StartPointer != _ctx.EndPointer)
 				return getNextLine(_ctx);
@@ -719,7 +773,7 @@ char* CPLYMeshFileLoader::getNextLine(SContext& _ctx)
 		else
 		{
 			// EOF
-            _ctx.StartPointer = _ctx.EndPointer-1;
+			_ctx.StartPointer = _ctx.EndPointer - 1;
 			*_ctx.StartPointer = '\0';
 			return _ctx.StartPointer;
 		}
@@ -728,8 +782,8 @@ char* CPLYMeshFileLoader::getNextLine(SContext& _ctx)
 	{
 		// null terminate the string in place
 		*pos = '\0';
-        _ctx.LineEndPointer = pos;
-        _ctx.WordLength = -1;
+		_ctx.LineEndPointer = pos;
+		_ctx.WordLength = -1;
 		// return pointer to the start of the line
 		return _ctx.StartPointer;
 	}
@@ -741,13 +795,13 @@ char* CPLYMeshFileLoader::getNextLine(SContext& _ctx)
 char* CPLYMeshFileLoader::getNextWord(SContext& _ctx)
 {
 	// move the start pointer along
-    _ctx.StartPointer += _ctx.WordLength + 1;
-    if (!*_ctx.StartPointer)
-        getNextLine(_ctx);
+	_ctx.StartPointer += _ctx.WordLength + 1;
+	if (!*_ctx.StartPointer)
+		getNextLine(_ctx);
 
 	if (_ctx.StartPointer == _ctx.LineEndPointer)
 	{
-        _ctx.WordLength = -1; //
+		_ctx.WordLength = -1; //
 		return _ctx.LineEndPointer;
 	}
 	// begin at the start of the next word
@@ -755,7 +809,7 @@ char* CPLYMeshFileLoader::getNextWord(SContext& _ctx)
 	while (*pos && pos < _ctx.LineEndPointer && pos < _ctx.EndPointer && *pos != ' ' && *pos != '\t')
 		++pos;
 
-	while(*pos && pos < _ctx.LineEndPointer && pos < _ctx.EndPointer && (*pos == ' ' || *pos == '\t') )
+	while (*pos && pos < _ctx.LineEndPointer && pos < _ctx.EndPointer && (*pos == ' ' || *pos == '\t'))
 	{
 		// null terminate the string in place
 		*pos = '\0';
@@ -784,43 +838,43 @@ float CPLYMeshFileLoader::getFloat(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 			{
 			case EPLYPT_INT8:
 				retVal = *_ctx.StartPointer;
-                _ctx.StartPointer++;
+				_ctx.StartPointer++;
 				break;
 			case EPLYPT_INT16:
 				if (_ctx.IsWrongEndian)
 					retVal = os::Byteswap::byteswap(*(reinterpret_cast<int16_t*>(_ctx.StartPointer)));
 				else
 					retVal = *(reinterpret_cast<int16_t*>(_ctx.StartPointer));
-                _ctx.StartPointer += 2;
+				_ctx.StartPointer += 2;
 				break;
 			case EPLYPT_INT32:
 				if (_ctx.IsWrongEndian)
 					retVal = float(os::Byteswap::byteswap(*(reinterpret_cast<int32_t*>(_ctx.StartPointer))));
 				else
 					retVal = float(*(reinterpret_cast<int32_t*>(_ctx.StartPointer)));
-                _ctx.StartPointer += 4;
+				_ctx.StartPointer += 4;
 				break;
 			case EPLYPT_FLOAT32:
 				if (_ctx.IsWrongEndian)
 					retVal = os::Byteswap::byteswap(*(reinterpret_cast<float*>(_ctx.StartPointer)));
 				else
 					retVal = *(reinterpret_cast<float*>(_ctx.StartPointer));
-                _ctx.StartPointer += 4;
+				_ctx.StartPointer += 4;
 				break;
 			case EPLYPT_FLOAT64:
-                char tmp[8];
-                memcpy(tmp, _ctx.StartPointer, 8);
-                if (_ctx.IsWrongEndian)
-                    for (size_t i = 0u; i < 4u; ++i)
-                        std::swap(tmp[i], tmp[7u-i]);
+				char tmp[8];
+				memcpy(tmp, _ctx.StartPointer, 8);
+				if (_ctx.IsWrongEndian)
+					for (size_t i = 0u; i < 4u; ++i)
+						std::swap(tmp[i], tmp[7u - i]);
 				retVal = float(*(reinterpret_cast<double*>(tmp)));
-                _ctx.StartPointer += 8;
+				_ctx.StartPointer += 8;
 				break;
 			case EPLYPT_LIST:
 			case EPLYPT_UNKNOWN:
 			default:
 				retVal = 0.0f;
-                _ctx.StartPointer++; // ouch!
+				_ctx.StartPointer++; // ouch!
 			}
 		}
 		else
@@ -867,39 +921,39 @@ uint32_t CPLYMeshFileLoader::getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 			{
 			case EPLYPT_INT8:
 				retVal = *_ctx.StartPointer;
-                _ctx.StartPointer++;
+				_ctx.StartPointer++;
 				break;
 			case EPLYPT_INT16:
 				if (_ctx.IsWrongEndian)
 					retVal = os::Byteswap::byteswap(*(reinterpret_cast<uint16_t*>(_ctx.StartPointer)));
 				else
 					retVal = *(reinterpret_cast<uint16_t*>(_ctx.StartPointer));
-                _ctx.StartPointer += 2;
+				_ctx.StartPointer += 2;
 				break;
 			case EPLYPT_INT32:
 				if (_ctx.IsWrongEndian)
 					retVal = os::Byteswap::byteswap(*(reinterpret_cast<int32_t*>(_ctx.StartPointer)));
 				else
 					retVal = *(reinterpret_cast<int32_t*>(_ctx.StartPointer));
-                _ctx.StartPointer += 4;
+				_ctx.StartPointer += 4;
 				break;
 			case EPLYPT_FLOAT32:
 				if (_ctx.IsWrongEndian)
 					retVal = (uint32_t)os::Byteswap::byteswap(*(reinterpret_cast<float*>(_ctx.StartPointer)));
 				else
 					retVal = (uint32_t)(*(reinterpret_cast<float*>(_ctx.StartPointer)));
-                _ctx.StartPointer += 4;
+				_ctx.StartPointer += 4;
 				break;
 			case EPLYPT_FLOAT64:
 				// todo: byteswap 64-bit
 				retVal = (uint32_t)(*(reinterpret_cast<double*>(_ctx.StartPointer)));
-                _ctx.StartPointer += 8;
+				_ctx.StartPointer += 8;
 				break;
 			case EPLYPT_LIST:
 			case EPLYPT_UNKNOWN:
 			default:
 				retVal = 0;
-                _ctx.StartPointer++; // ouch!
+				_ctx.StartPointer++; // ouch!
 			}
 		}
 		else
@@ -933,4 +987,3 @@ uint32_t CPLYMeshFileLoader::getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 } // end namespace irr
 
 #endif // _IRR_COMPILE_WITH_PLY_LOADER_
-

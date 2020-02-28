@@ -14,6 +14,7 @@
 #include "irr/video/COpenGLImageView.h"
 #include "irr/video/COpenGLBufferView.h"
 
+#include "irr/video/COpenGLPipelineCache.h"
 #include "irr/video/COpenGLShader.h"
 #include "irr/video/COpenGLSpecializedShader.h"
 #include "irr/asset/IGLSLCompiler.h"
@@ -24,6 +25,7 @@
 #include "COpenGLQuery.h"
 #include "COpenGLTimestampQuery.h"
 #include "os.h"
+#include "irr/asset/spvUtils.h"
 
 #ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
 #include "CIrrDeviceSDL.h"
@@ -43,6 +45,180 @@
 #include <X11/extensions/Xrandr.h>
 #endif
 #endif
+
+namespace
+{
+class AMDbugfixCompiler : public spirv_cross::Compiler
+{
+public:
+    using spirv_cross::Compiler::Compiler;
+
+    enum E_AMD_FIX_FUNCS
+    {
+        EAFF_d2x2,
+        EAFF_d2x3,
+        EAFF_d2x4,
+        EAFF_d3x2,
+        EAFF_d3x3,
+        EAFF_d3x4,
+        EAFF_d4x2,
+        EAFF_d4x3,
+        EAFF_d4x4,
+        EAFF_2x2,
+        EAFF_2x3,
+        EAFF_2x4,
+        EAFF_3x2,
+        EAFF_3x3,
+        EAFF_3x4,
+        EAFF_4x2,
+        EAFF_4x3,
+        EAFF_4x4,
+
+        EAFF_COUNT
+    };
+    struct SFunction
+    {
+        uint32_t restype;
+        uint32_t id;
+    };
+    struct SLoad
+    {
+        uint32_t restype;
+        uint32_t id;
+        uint32_t offset;
+        uint32_t len;
+
+        bool operator<(const SLoad& rhs) const { return offset<rhs.offset; }
+    };
+
+    std::pair<irr::core::vector<SLoad>, std::array<SFunction, EAFF_COUNT>> getFixCandidates()
+    {
+        irr::core::vector<uint32_t> vars;//IDs of UBO or SSBO vars (instances)
+        irr::core::vector<SLoad> loads;//OpLoad's that are potentially going to need the fix
+        
+        std::array<SFunction, EAFF_COUNT> fixFuncs;
+        memset(fixFuncs.data(), 0xff, fixFuncs.size()*sizeof(SFunction));
+
+        ir.for_each_typed_id<spirv_cross::SPIRVariable>(//gather all instances of SSBO and UBO blocks
+            [&](uint32_t, const spirv_cross::SPIRVariable& var) {
+                auto& type = this->get<spirv_cross::SPIRType>(var.basetype);
+                if (type.storage == spv::StorageClassUniform || type.storage == spv::StorageClassStorageBuffer)
+                {
+                    vars.push_back(var.self);
+                }
+        });
+        ir.for_each_typed_id<spirv_cross::SPIRFunction>(
+            [&](uint32_t, const spirv_cross::SPIRFunction& func) {
+                    uint32_t fid = func.self;
+                    const std::string& nm = get_name(fid);
+                    const char expected[] = "irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_";
+                    if (nm.length()>sizeof(expected)-1u && strncmp(nm.c_str(), expected, sizeof(expected)-1u)==0)
+                    {
+                        uint32_t ix = ~0u;
+                        const char* szstr = nm.c_str()+sizeof(expected)-1u;
+                        if (strncmp(szstr, "dmat2x2", 7) == 0)
+                            ix = EAFF_d2x2;
+                        else if (strncmp(szstr, "dmat2x3", 7) == 0)
+                            ix = EAFF_d2x3;
+                        else if (strncmp(szstr, "dmat2x4", 7) == 0)
+                            ix = EAFF_d2x4;
+                        else if (strncmp(szstr, "dmat3x2", 7) == 0)
+                            ix = EAFF_d3x2;
+                        else if (strncmp(szstr, "dmat3x3", 7) == 0)
+                            ix = EAFF_d3x3;
+                        else if (strncmp(szstr, "dmat3x4", 7) == 0)
+                            ix = EAFF_d3x4;
+                        else if (strncmp(szstr, "dmat4x2", 7) == 0)
+                            ix = EAFF_d4x2;
+                        else if (strncmp(szstr, "dmat4x3", 7) == 0)
+                            ix = EAFF_d4x3;
+                        else if (strncmp(szstr, "dmat4x4", 7) == 0)
+                            ix = EAFF_d4x4;
+                        else if (strncmp(szstr, "mat2x2", 6) == 0)
+                            ix = EAFF_2x2;
+                        else if (strncmp(szstr, "mat2x3", 6) == 0)
+                            ix = EAFF_2x3;
+                        else if (strncmp(szstr, "mat2x4", 6) == 0)
+                            ix = EAFF_2x4;
+                        else if (strncmp(szstr, "mat3x2", 6) == 0)
+                            ix = EAFF_3x2;
+                        else if (strncmp(szstr, "mat3x3", 6) == 0)
+                            ix = EAFF_3x3;
+                        else if (strncmp(szstr, "mat3x4", 6) == 0)
+                            ix = EAFF_3x4;
+                        else if (strncmp(szstr, "mat4x2", 6) == 0)
+                            ix = EAFF_4x2;
+                        else if (strncmp(szstr, "mat4x3", 6) == 0)
+                            ix = EAFF_4x3;
+                        else if (strncmp(szstr, "mat4x4", 6) == 0)
+                            ix = EAFF_4x4;
+
+                        if (ix < fixFuncs.size())
+                        {
+                            fixFuncs[ix].restype = get_type(func.return_type).self;
+                            fixFuncs[ix].id = fid;
+                        }
+                    }
+            }
+        );
+
+        bool getThisOpLoad = false;
+        irr::core::stack<std::reference_wrapper<const spirv_cross::SPIRFunction>> callstack;
+        callstack.push(std::cref(get<spirv_cross::SPIRFunction>(ir.default_entry_point)));
+        while (!callstack.empty())
+        {
+            const auto& f = callstack.top().get();
+            callstack.pop();
+            for (uint32_t b : f.blocks)
+            {
+                const spirv_cross::SPIRBlock& block = get<spirv_cross::SPIRBlock>(b);
+                for (auto& i : block.ops)
+                {
+                    auto ops = stream(i);
+                    spv::Op op = static_cast<spv::Op>(i.op);
+
+                    switch (op)
+                    {
+                    case spv::OpLoad:
+                    {
+                        SLoad ld = {ops[0], ops[1], i.offset, i.length};
+
+                        if (getThisOpLoad)
+                        {
+                            auto& t = get_type(ops[0]);
+                            if (t.columns>1u && t.basetype!=spirv_cross::SPIRType::BaseType::Struct)//consider only loads of matrices
+                            {
+                                auto it = std::lower_bound(loads.begin(), loads.end(), ld);
+                                if (it==loads.end() || it->offset!=ld.offset)
+                                    loads.insert(it, ld);
+                            }
+                            getThisOpLoad = false;
+                        }
+                    }
+                    break;
+                    case spv::OpAccessChain:
+                    {
+                        uint32_t baseptr = ops[2];
+                        auto found = std::find(vars.begin(), vars.end(), baseptr);
+                        if (found != vars.end())
+                            getThisOpLoad = true;
+                    }
+                    break;
+                    case spv::OpFunctionCall:
+                    {
+                        auto& callee = get<spirv_cross::SPIRFunction>(ops[2]);
+                        callstack.push(std::cref(callee));
+                    }
+                    break;
+                    default: break;
+                    }
+                }
+            }
+        }
+        return {std::move(loads), fixFuncs};
+    }
+};
+}
 
 namespace irr
 {
@@ -446,7 +622,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 	}
 
 #ifdef _IRR_COMPILE_WITH_OPENCL_
-	ocl::COpenCLHandler::getCLDeviceFromGLContext(clDevice,hrc,HDc);
+	ocl::COpenCLHandler::getCLDeviceFromGLContext(clDevice,clProperties,hrc,HDc);
 #endif // _IRR_COMPILE_WITH_OPENCL_
 	genericDriverInit(device->getAssetManager());
 
@@ -572,7 +748,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceLinux* device, SAuxContext* auxCtxts)
     AuxContexts = auxCtxts;
 
 #ifdef _IRR_COMPILE_WITH_OPENCL_
-	if (!ocl::COpenCLHandler::getCLDeviceFromGLContext(clDevice,reinterpret_cast<GLXContext&>(ExposedData.OpenGLLinux.X11Context),(Display*)ExposedData.OpenGLLinux.X11Display))
+	if (!ocl::COpenCLHandler::getCLDeviceFromGLContext(clDevice,clProperties,reinterpret_cast<GLXContext&>(ExposedData.OpenGLLinux.X11Context),(Display*)ExposedData.OpenGLLinux.X11Display))
         os::Printer::log("Couldn't find matching OpenCL device.\n");
 #endif // _IRR_COMPILE_WITH_OPENCL_
 
@@ -1055,7 +1231,7 @@ bool COpenGLDriver::bindComputePipeline(const video::IGPUComputePipeline* _cpipe
         return false;
 
     const COpenGLComputePipeline* glppln = static_cast<const COpenGLComputePipeline*>(_cpipeline);
-    ctx->nextState.pipeline.compute.usedShader = glppln ? glppln->getGLnameForCtx(ctx->ID) : 0u;
+    ctx->nextState.pipeline.compute.usedShader = glppln ? glppln->getShaderGLnameForCtx(0u,ctx->ID) : 0u;
     ctx->nextState.pipeline.compute.pipeline = core::smart_refctd_ptr<const COpenGLComputePipeline>(glppln);
 
     return true;
@@ -1183,6 +1359,60 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
                 EP.c_str(),
                 "????"
             );
+
+#define FIX_AMD_DRIVER_BUG
+#ifdef FIX_AMD_DRIVER_BUG
+        AMDbugfixCompiler comp(reinterpret_cast<const uint32_t*>(spvCode->getPointer()), spvCode->getSize()/4u);
+        comp.set_entry_point(EP, asset::ESS2spvExecModel(stage));
+        auto amd_fix_data = comp.getFixCandidates();
+        if (amd_fix_data.first.size())
+        {
+            core::vector<uint32_t> spv(spvCode->getSize() / 4u);
+            memcpy(spv.data(), spvCode->getPointer(), spv.size() * 4ull);
+            spv[3] += amd_fix_data.first.size();//adjust instr IDs bound
+
+            uint32_t i = 0u;
+            uint32_t extraOffset = 0u;
+            for (const auto& ld : amd_fix_data.first)
+            {
+                struct OpFunctionCall
+                {
+                    uint32_t op;
+                    uint32_t restype;
+                    uint32_t id;
+                    uint32_t f_id;
+                    uint32_t arg;
+                };
+                uint32_t fcall_[sizeof(OpFunctionCall) / 4u]{};
+                OpFunctionCall* fcall = reinterpret_cast<OpFunctionCall*>(fcall_);
+                fcall->op = spv::OpFunctionCall;
+                fcall->op |= static_cast<uint32_t>(sizeof(OpFunctionCall)/4u)<<16;
+                fcall->arg = ld.id;
+                fcall->restype = ld.restype;
+                uint32_t fcallId = comp.get_current_id_bound() + (i++);
+                fcall->id = fcallId;
+                fcall->f_id = ~0u;
+                for (const auto& f : amd_fix_data.second)
+                {
+                    if (f.restype==ld.restype)
+                    {
+                        fcall->f_id = f.id;
+                        break;
+                    }
+                }
+                assert(fcall->f_id<(~0u));
+
+                uint32_t* store = spv.data()+ld.offset+ld.len+extraOffset;
+                store[2] = fcallId;//store result of new OpFunctionCall instead of result of OpStore
+
+                spv.insert(spv.begin()+ld.offset+ld.len+extraOffset, fcall_, fcall_+sizeof(fcall_)/sizeof(*fcall_));
+                extraOffset += sizeof(fcall_)/sizeof(*fcall_);
+            }
+            spvCode = core::make_smart_refctd_ptr<asset::ICPUBuffer>(spv.size()*4ull);
+            memcpy(spvCode->getPointer(), spv.data(), spv.size()*4ull);
+        }
+#endif //FIX_AMD_DRIVER_BUG
+
         //auto fl = fopen("shader.glsl","w");
         //fwrite(reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()), 1, glslShader_woIncludes->getSPVorGLSL()->getSize(), fl);
         //fclose(fl);
@@ -1206,7 +1436,7 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     }
 
     auto ctx = getThreadContext_helper(false);
-    return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(Params.AuxGLContexts + 1u, ctx->ID, this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, introspection);
+    return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, introspection);
 }
 
 core::smart_refctd_ptr<IGPUBufferView> COpenGLDriver::createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset, size_t _size)
@@ -1262,11 +1492,15 @@ core::smart_refctd_ptr<IGPUPipelineLayout> COpenGLDriver::createGPUPipelineLayou
         );
 }
 
-core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createGPURenderpassIndependentPipeline(core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>&& _parent, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd, const asset::SVertexInputParams& _vertexInputParams, const asset::SBlendParams& _blendParams, const asset::SPrimitiveAssemblyParams& _primAsmParams, const asset::SRasterizationParams& _rasterParams)
+core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createGPURenderpassIndependentPipeline(IGPUPipelineCache* _pipelineCache, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, IGPUSpecializedShader** _shadersBegin, IGPUSpecializedShader** _shadersEnd, const asset::SVertexInputParams& _vertexInputParams, const asset::SBlendParams& _blendParams, const asset::SPrimitiveAssemblyParams& _primAsmParams, const asset::SRasterizationParams& _rasterParams)
 {
     //_parent parameter is ignored
 
     using GLPpln = COpenGLRenderpassIndependentPipeline;
+
+    SAuxContext* ctx = getThreadContext_helper(false);
+    if (!ctx)
+        return nullptr;
 
     auto shaders = core::SRange<IGPUSpecializedShader*>(_shadersBegin, _shadersEnd);
     auto vsIsPresent = [&shaders] {
@@ -1276,22 +1510,96 @@ core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> COpenGLDriver::createG
     if (!_layout || !vsIsPresent())
         return nullptr;
 
+    GLuint GLnames[COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT]{};
+    COpenGLSpecializedShader::SProgramBinary binaries[COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT];
+
+    COpenGLPipelineCache* cache = static_cast<COpenGLPipelineCache*>(_pipelineCache);
+    COpenGLPipelineLayout* layout = static_cast<COpenGLPipelineLayout*>(_layout.get());
+    for (auto shdr = _shadersBegin; shdr!=_shadersEnd; ++shdr)
+    {
+        COpenGLSpecializedShader* glshdr = static_cast<COpenGLSpecializedShader*>(*shdr);
+
+        auto stage = glshdr->getStage();
+        uint32_t ix = core::findLSB<uint32_t>(stage);
+        assert(ix<COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT);
+
+        COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo(), core::smart_refctd_ptr<COpenGLPipelineLayout>(layout) };
+        auto bin = cache ? cache->find(key) : COpenGLSpecializedShader::SProgramBinary{0,nullptr};
+        if (bin.binary)
+        {
+            const GLuint GLname = extGlCreateProgram();
+            extGlProgramBinary(GLname, bin.format, bin.binary->data(), bin.binary->size());
+            GLnames[ix] = GLname;
+            binaries[ix] = bin;
+
+            continue;
+        }
+        std::tie(GLnames[ix], bin) = glshdr->compile(layout, cache ? cache->findParsedSpirv(key.hash):nullptr);
+        binaries[ix] = bin;
+
+        if (cache)
+        {
+            cache->insertParsedSpirv(key.hash, glshdr->getSpirv());
+
+            COpenGLPipelineCache::SCacheVal val{std::move(bin)};
+            cache->insert(std::move(key), std::move(val));
+        }
+    }
+
     return core::make_smart_refctd_ptr<COpenGLRenderpassIndependentPipeline>(
-        nullptr,
         std::move(_layout),
         _shadersBegin, _shadersEnd,
-        _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
+        _vertexInputParams, _blendParams, _primAsmParams, _rasterParams,
+        Params.AuxGLContexts+1, ctx->ID, GLnames, binaries
         );
 }
 
-core::smart_refctd_ptr<IGPUComputePipeline> COpenGLDriver::createGPUComputePipeline(core::smart_refctd_ptr<IGPUComputePipeline>&& _parent, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader)
+core::smart_refctd_ptr<IGPUComputePipeline> COpenGLDriver::createGPUComputePipeline(IGPUPipelineCache* _pipelineCache, core::smart_refctd_ptr<IGPUPipelineLayout>&& _layout, core::smart_refctd_ptr<IGPUSpecializedShader>&& _shader)
 {
     if (!_layout || !_shader)
         return nullptr;
     if (_shader->getStage() != asset::ISpecializedShader::ESS_COMPUTE)
         return nullptr;
 
-    return core::make_smart_refctd_ptr<COpenGLComputePipeline>(std::move(_parent), std::move(_layout), std::move(_shader));
+    SAuxContext* ctx = getThreadContext_helper(false);
+    if (!ctx)
+        return nullptr;
+
+    GLuint GLname = 0u;
+    COpenGLSpecializedShader::SProgramBinary binary;
+    COpenGLPipelineCache* cache = static_cast<COpenGLPipelineCache*>(_pipelineCache);
+    COpenGLPipelineLayout* layout = static_cast<COpenGLPipelineLayout*>(_layout.get());
+    COpenGLSpecializedShader* glshdr = static_cast<COpenGLSpecializedShader*>(_shader.get());
+
+    COpenGLPipelineCache::SCacheKey key{ glshdr->getSpirvHash(), glshdr->getSpecializationInfo(), core::smart_refctd_ptr<COpenGLPipelineLayout>(layout) };
+    auto bin = cache ? cache->find(key) : COpenGLSpecializedShader::SProgramBinary{0,nullptr};
+    if (bin.binary)
+    {
+        const GLuint GLshader = extGlCreateProgram();
+        extGlProgramBinary(GLname, bin.format, bin.binary->data(), bin.binary->size());
+        GLname = GLshader;
+        binary = bin;
+    }
+    else
+    {
+        std::tie(GLname, bin) = glshdr->compile(layout, cache ? cache->findParsedSpirv(key.hash):nullptr);
+        binary = bin;
+
+        if (cache)
+        {
+            cache->insertParsedSpirv(key.hash, glshdr->getSpirv());
+
+            COpenGLPipelineCache::SCacheVal val{std::move(bin)};
+            cache->insert(std::move(key), std::move(val));
+        }
+    }
+
+    return core::make_smart_refctd_ptr<COpenGLComputePipeline>(std::move(_layout), std::move(_shader), Params.AuxGLContexts+1, ctx->ID, GLname, binary);
+}
+
+core::smart_refctd_ptr<IGPUPipelineCache> COpenGLDriver::createGPUPipelineCache()
+{
+    return core::make_smart_refctd_ptr<COpenGLPipelineCache>();
 }
 
 core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout)
@@ -1804,15 +2112,15 @@ void COpenGLDriver::drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> 
 void COpenGLDriver::SAuxContext::flushState_descriptors(E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, const COpenGLPipelineLayout* _prevLayout)
 {
     //bind new descriptor sets
-    uint32_t compatibilityLimitPlusOne = 0u;
+    int32_t compatibilityLimit = 0u;
     if (_prevLayout && _currentLayout)
-        compatibilityLimitPlusOne = _prevLayout->isCompatibleUpToSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u, _currentLayout);
+        compatibilityLimit = _prevLayout->isCompatibleUpToSet(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT-1u, _currentLayout)+1u;
 	if (!_prevLayout && !_currentLayout)
-        compatibilityLimitPlusOne = IGPUPipelineLayout::DESCRIPTOR_SET_COUNT;
+        compatibilityLimit = static_cast<int32_t>(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT);
 
     int64_t newUboCount = 0u, newSsboCount = 0u, newTexCount = 0u, newImgCount = 0u;
 	if (_currentLayout)
-    for (uint32_t i=0u; i<video::IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
+    for (uint32_t i=0u; i<static_cast<int32_t>(IGPUPipelineLayout::DESCRIPTOR_SET_COUNT); ++i)
     {
         const auto& first_count = _currentLayout->getMultibindParamsForDescSet(i);
 
@@ -1834,7 +2142,7 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
         }
 
         //if prev and curr pipeline layouts are compatible for set N, currState.set[N]==nextState.set[N] and the sets were bound with same dynamic offsets, then binding set N would be redundant
-        if ((i < compatibilityLimitPlusOne) &&
+        if ((i < compatibilityLimit) &&
             (effectivelyBoundDescriptors.descSets[i].set == nextState.descriptorsParams[_pbp].descSets[i].set) &&
             (effectivelyBoundDescriptors.descSets[i].dynamicOffsets == nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets)
         ) 
@@ -2199,17 +2507,30 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
                         updatedBindings[bnd] = true;
                     }
                 }
+            }
+            //vertex and index buffer bindings are done outside this if-statement because no change in hash doesn't imply no change in those bindings
+        }
+        GLuint GLvao = currentState.vertexInputParams.vao.second.GLname;
+        if (GLvao)
+        {
+            for (uint32_t i = 0u; i < 16u; ++i)
+            {
+                const auto& hash = currentState.vertexInputParams.vao.first;
+                if (hash.attribFormatAndComponentCount[i] == asset::EF_UNKNOWN)
+                    continue;
+
+                const uint32_t bnd = hash.getBindingForAttrib(i);
 
                 if (STATE_NEQ(vertexInputParams.bindings[bnd]))//this if-statement also doesnt allow GlVertexArrayVertexBuffer be called multiple times for single binding
                 {
                     assert(nextState.vertexInputParams.bindings[bnd].buf);//something went wrong
-                    extGlVertexArrayVertexBuffer(vao, bnd, nextState.vertexInputParams.bindings[bnd].buf->getOpenGLName(), nextState.vertexInputParams.bindings[bnd].offset, hashVal.getStrideForBinding(bnd));
+                    extGlVertexArrayVertexBuffer(GLvao, bnd, nextState.vertexInputParams.bindings[bnd].buf->getOpenGLName(), nextState.vertexInputParams.bindings[bnd].offset, hash.getStrideForBinding(bnd));
                     UPDATE_STATE(vertexInputParams.bindings[bnd]);
                 }
             }
             if (STATE_NEQ(vertexInputParams.indexBuf))
             {
-                extGlVertexArrayElementBuffer(vao, nextState.vertexInputParams.indexBuf ? nextState.vertexInputParams.indexBuf->getOpenGLName() : 0u);
+                extGlVertexArrayElementBuffer(GLvao, nextState.vertexInputParams.indexBuf ? nextState.vertexInputParams.indexBuf->getOpenGLName() : 0u);
                 UPDATE_STATE(vertexInputParams.indexBuf);
             }
         }
@@ -2236,10 +2557,7 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
 				continue;
 
 			//pipeline must be flushed before push constants so taking pipeline from currentState
-			const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.graphics.pipeline->getShaderAtIndex(i));
-			//assert(shdr); //this would be weird
-
-			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_GRAPHICS].data, this->ID);
+            currentState.pipeline.graphics.pipeline->setUniformsImitatingPushConstants(i, this->ID, pushConstantsState[EPBP_GRAPHICS].data);
 		}
 		pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags = 0u;
     }
@@ -2347,9 +2665,7 @@ void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
 		assert(currentState.pipeline.compute.pipeline->containsShader());
 		if (pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags & asset::ISpecializedShader::ESS_COMPUTE)
 		{
-			const COpenGLSpecializedShader* shdr = static_cast<const COpenGLSpecializedShader*>(currentState.pipeline.compute.pipeline->getShader());
-
-			shdr->setUniformsImitatingPushConstants(pushConstantsState[EPBP_COMPUTE].data, this->ID);
+            currentState.pipeline.compute.pipeline->setUniformsImitatingPushConstants(this->ID, pushConstantsState[EPBP_COMPUTE].data);
 
 			pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags = 0u;
 		}
@@ -2449,7 +2765,7 @@ void COpenGLDriver::SAuxContext::updateNextState_pipelineAndRaster(const IGPURen
     for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
     {
         hash[i] = nextState.pipeline.graphics.pipeline->getShaderAtIndex(i) ?
-            static_cast<const COpenGLSpecializedShader*>(nextState.pipeline.graphics.pipeline->getShaderAtIndex(i))->getGLnameForCtx(this->ID) :
+            nextState.pipeline.graphics.pipeline->getShaderGLnameForCtx(i, this->ID) :
             0u;
     }
     nextState.pipeline.graphics.usedShadersHash = hash;
@@ -2566,7 +2882,7 @@ void COpenGLDriver::SAuxContext::pushConstants(E_PIPELINE_BIND_POINT _bindPoint,
     {
         constexpr size_t toFill = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE / sizeof(uint64_t);
         constexpr size_t bytesLeft = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE - (toFill * sizeof(uint64_t));
-        constexpr uint64_t pattern = 0xdeafbeefDEADBEEFull;
+        constexpr uint64_t pattern = 0xdeadbeefDEADBEEFull;
         std::fill(reinterpret_cast<uint64_t*>(pushConstantsState[_bindPoint].data), reinterpret_cast<uint64_t*>(pushConstantsState[_bindPoint].data)+toFill, pattern);
         IRR_PSEUDO_IF_CONSTEXPR_BEGIN(bytesLeft > 0ull) {
             memcpy(reinterpret_cast<uint64_t*>(pushConstantsState[_bindPoint].data) + toFill, &pattern, bytesLeft);

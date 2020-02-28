@@ -5,11 +5,19 @@
 #include "irr/asset/format/EFormat.h"
 #include "irr/asset/bawformat/Blob.h"
 
-namespace irr { namespace asset { namespace legacyv0
+namespace irr
 {
+namespace asset
+{
+
+
+namespace legacyv0
+{
+
 
 using BAWFileV0 = BAWFileVn<0>;
 using BlobHeaderV0 = BlobHeaderVn<0>;
+
 
 enum E_COMPONENTS_PER_ATTRIBUTE
 {
@@ -63,7 +71,7 @@ enum E_COMPONENT_TYPE
 //! Simple struct of essential data of ICPUMeshDataFormatDesc that has to be exported
 //! Irrelevant in version 1.
 //! @see @ref MeshDataFormatDescBlobV1
-struct IRR_FORCE_EBO MeshDataFormatDescBlobV0 : TypedBlob<MeshDataFormatDescBlobV0, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV0, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >
+struct IRR_FORCE_EBO MeshDataFormatDescBlobV0 : TypedBlob<MeshDataFormatDescBlobV0, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >, VariableSizeBlob<MeshDataFormatDescBlobV0, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >
 {
 private:
     enum { VERTEX_ATTRIB_CNT = 16 };
@@ -88,6 +96,43 @@ static_assert(
 
 asset::E_FORMAT mapECT_plus_ECPA_onto_E_FORMAT(E_COMPONENT_TYPE _ct, E_COMPONENTS_PER_ATTRIBUTE _cpa);
 
-}}}//irr::asset::legacy
+
+#include "irr/irrpack.h"
+struct IRR_FORCE_EBO FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0,CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV0, CFinalBoneHierarchy>
+{
+public:
+	inline auto* getBoneData()
+	{
+		return reinterpret_cast<CFinalBoneHierarchy::BoneReferenceData*>(reinterpret_cast<uint8_t*>(this)+sizeof(FinalBoneHierarchyBlobV2));
+	}
+
+    size_t boneCount;
+    size_t numLevelsInHierarchy;
+    size_t keyframeCount;
+} PACK_STRUCT;
+#include "irr/irrunpack.h"
+static_assert(
+    sizeof(FinalBoneHierarchyBlobV0) ==
+    sizeof(FinalBoneHierarchyBlobV0::boneCount) + sizeof(FinalBoneHierarchyBlobV0::numLevelsInHierarchy) + sizeof(FinalBoneHierarchyBlobV0::keyframeCount),
+    "FinalBoneHierarchyBlobV0: Size of blob is not sum of its contents!"
+);
+
+}
+
+
+namespace legacyv1
+{
+
+
+using BAWFileV1 = BAWFileVn<1>;
+using BlobHeaderV1 = BlobHeaderVn<1>;
+
+
+using FinalBoneHierarchyBlobV1 = legacyv0::FinalBoneHierarchyBlobV0;
+
+}
+
+}
+} //irr::asset
 
 #endif //__IRR_CBAW_LEGACY_H_INCLUDED__

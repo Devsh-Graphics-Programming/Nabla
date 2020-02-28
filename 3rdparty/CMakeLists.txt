@@ -31,6 +31,7 @@ update_git_submodule(./libpng)
 update_git_submodule(./openssl)
 update_git_submodule(./libjpeg-turbo)
 update_git_submodule(./libjpeg) # soon to be killed
+update_git_submodule(./parallel-hashmap)
 # exceptions that get automatically cloned
 update_git_submodule(./glm)
 update_git_submodule(./freetype2)
@@ -196,6 +197,12 @@ if (IRR_BUILD_CEGUI) # I absolutely hate and despise GLM
 	set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 endif()
 
+option(GLM_TEST_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" ON)
+option(GLM_TEST_ENABLE "Build unit tests" OFF)
+#add_subdirectory(glm EXCLUDE_FROM_ALL)
+set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
+set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
+
 if (IRR_BUILD_MITSUBA_LOADER)
    update_git_submodule(./libexpat)
 
@@ -331,10 +338,28 @@ if (IRR_BUILD_CEGUI)
 	)
 endif()
 
-if (IRR_BUILD_BULLET)
-	execute_process(COMMAND git submodule update --init --recursive ./bullet3
-			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+if (IRR_BUILD_RADEON_RAYS)
+	update_git_submodule(./radeonrays)
+
+	option(RR_NO_TESTS "RADEON_RAYS: don't do tests" ON)
+	option(RR_ENABLE_STATIC "RADEON_RAYS: compile into a static library" ON)
+	option(RR_EMBED_KERNELS "RADEON_RAYS: so we don't have to go looking for OpenCL kernel code" ON)
+	option(RR_USE_VULKAN "RADEON_RAYS: use Vulkan (only if you have RR 3.0)" OFF)
+	set(MSVC_USE_STATIC_CRT ON CACHE BOOL "Use /MT flag (static CRT) when compiling in MSVC")
+	add_subdirectory(radeonrays EXCLUDE_FROM_ALL)
+
+	set(RADEON_RAYS_DEPENDENTS
+		RadeonRays
 	)
+	set(RADEON_RAYS_DEPENDENTS ${RADEON_RAYS_DEPENDENTS} PARENT_SCOPE)
+	set(RADEON_RAYS_DEPENDENT_LIBS
+		RadeonRays
+	)
+	set(RADEON_RAYS_DEPENDENT_LIBS ${RADEON_RAYS_DEPENDENT_LIBS} PARENT_SCOPE)
+endif()
+
+if (IRR_BUILD_BULLET)
+	update_git_submodule(./bullet3)
 	set(BULLET_INCLUDE_PATH
 		${CMAKE_CURRENT_SOURCE_DIR}/bullet3/src
 	)

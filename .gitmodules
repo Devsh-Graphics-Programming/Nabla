@@ -63,7 +63,7 @@
 	branch = master
 [submodule "3rdparty/glm"]
 	path = 3rdparty/glm
-	url = https://github.com/g-truc/glm.git
+	url = https://github.com/AnastaZIuk/glm.git
 [submodule "3rdparty/freetype2"]
 	path = 3rdparty/freetype2
 	url = https://git.sv.nongnu.org/r/freetype/freetype2.git
@@ -72,10 +72,17 @@
 	url = https://github.com/svn2github/pcre.git
 [submodule "3rdparty/CEGUI/glew-cmake"]
 	path = 3rdparty/CEGUI/glew
-	url = https://github.com/achalpandeyy/glew-cmake.git
+	url = https://github.com/AnastaZIuk/glew-cmake.git
 [submodule "3rdparty/openexr"]
 	path = 3rdparty/openexr
 	url = https://github.com/AcademySoftwareFoundation/openexr.git
 [submodule "3rdparty/gli"]
 	path = 3rdparty/gli
 	url = https://github.com/g-truc/gli.git
+[submodule "3rdparty/parallel-hashmap"]
+	path = 3rdparty/parallel-hashmap
+	url = https://github.com/greg7mdp/parallel-hashmap
+[submodule "3rdparty/radeonrays"]
+	path = 3rdparty/radeonrays
+	url = https://github.com/devshgraphicsprogramming/RadeonRays_SDK.git
+	branch = baw
