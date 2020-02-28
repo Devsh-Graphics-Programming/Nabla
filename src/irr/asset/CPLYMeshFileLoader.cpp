@@ -271,15 +271,13 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				}
 			}
 
-			asset::SBufferBinding<ICPUBuffer> indexBinding;
-			indexBinding.offset = 0ull;
 			mb->setPositionAttributeIx(0);
 
             if (indices.size())
             {
-				indexBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(indices.size() * sizeof(uint32_t));
+				asset::SBufferBinding<ICPUBuffer> indexBinding = {0, core::make_smart_refctd_ptr<asset::ICPUBuffer>(indices.size() * sizeof(uint32_t))};
                 memcpy(indexBinding.buffer->getPointer(), indices.data(), indexBinding.buffer->getSize());
-
+				auto DATA = reinterpret_cast<uint32_t*>(indexBinding.buffer->getPointer());
 				mb->setIndexCount(indices.size());
 				mb->setIndexBufferBinding(std::move(indexBinding));
                 mb->setIndexType(asset::EIT_32BIT);
@@ -630,21 +628,22 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 		}
 	}
 	auto mbPipelineLayout = getDefaultAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>("irr/builtin/pipeline_layouts/default", m_assetMgr);
-
+	
 	const std::array<SVertexInputAttribParams, 4> vertexAttribParamsAllOptions =
 	{
-		SVertexInputAttribParams(0u, EF_R32G32B32_SFLOAT, offsets[E_POS]),
-		SVertexInputAttribParams(0u, EF_R32G32B32A32_SFLOAT, offsets[E_COL]),
-		SVertexInputAttribParams(0u, EF_R32G32_SFLOAT, offsets[E_UV]),
-		SVertexInputAttribParams(0u, EF_R32G32B32_SFLOAT, offsets[E_NORM])
+		SVertexInputAttribParams(0u, EF_R32G32B32_SFLOAT, 0),
+		SVertexInputAttribParams(1u, EF_R32G32B32A32_SFLOAT, 0),
+		SVertexInputAttribParams(2u, EF_R32G32_SFLOAT, 0),
+		SVertexInputAttribParams(3u, EF_R32G32B32_SFLOAT, 0)
 	};
 
 	SVertexInputParams inputParams;
-	inputParams.enabledBindingFlags = core::getBitmask({0});
-	inputParams.bindings[0] = { vertexSize, EVIR_PER_VERTEX };
 	for (auto& attrib : availableAttributes)
 	{
-		inputParams.enabledAttribFlags |= core::getBitmask({attrib});
+		const auto currentBitmask = core::getBitmask({ attrib });
+		inputParams.enabledBindingFlags |= currentBitmask;
+		inputParams.enabledAttribFlags |= currentBitmask;
+		inputParams.bindings[attrib] = { asset::getTexelOrBlockBytesize((E_FORMAT)vertexAttribParamsAllOptions[attrib].format), EVIR_PER_INSTANCE };
 		inputParams.attributes[attrib] = vertexAttribParamsAllOptions[attrib];
 	}
 
@@ -669,12 +668,11 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 			auto attribute = _attribs[index];
 			if (!attribute.empty())
 			{
-
 				const auto bufferByteSize = attribute.size() * sizes[index];
 				auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufferByteSize);
 				memcpy(buffer->getPointer(), attribute.data(), bufferByteSize); // TODO refactor input to take SBufferBinding to avoid memcpy
 
-				_mbuf->setVertexBufferBinding({ 0ull, std::move(buffer) }, index);
+				_mbuf->setVertexBufferBinding({ 0ul, std::move(buffer) }, index);
 			}
 		}
 	}
