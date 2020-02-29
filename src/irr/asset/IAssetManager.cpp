@@ -236,17 +236,19 @@ void main()
         layout(location = 0) in vec3 vPos;
         layout(location = 1) in vec3 vCol;
 
-        layout(push_constant, row_major) uniform Block {
-	        mat4 modelViewProj;
-        } PushConstants;
+        #include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
+        #include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
+
+        layout (set = 1, binding = 0, row_major, std140) uniform UBO 
+        {
+            irr_glsl_SBasicViewParameters params;
+        } CamData;
 
         layout(location = 0) out vec3 color;
 
-        #include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
-
         void main()
         {
-            gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(PushConstants.modelViewProj)*vec4(vPos,1.0);
+            gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.params.MVP), vPos);
 	        color = vCol;
         }
 		)===", asset::ISpecializedShader::ESS_VERTEX, "irr/builtin/materials/lambertian/no_texture/specializedshader");
@@ -351,18 +353,6 @@ void main()
         addBuiltInToCaches(dummy2dImage, "irr/builtin/images/dummy2d");
     }
 
-    // pipeline layout
-    core::smart_refctd_ptr<asset::ICPUPipelineLayout> pipelineLayout;
-    {
-        SPushConstantRange pushConstantRange;
-        pushConstantRange.stageFlags = ISpecializedShader::E_SHADER_STAGE::ESS_VERTEX;
-        pushConstantRange.offset = 0;
-        pushConstantRange.size = sizeof(core::matrix4SIMD); /// mvp matrix for buildin shaders
-
-        pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pushConstantRange, &pushConstantRange + 1, nullptr, nullptr, nullptr, nullptr);
-        addBuiltInToCaches(pipelineLayout, "irr/builtin/pipeline_layouts/default");
-    }
-
     //ds layouts
     core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> defaultDs1Layout;
     {
@@ -391,5 +381,19 @@ void main()
         }
         addBuiltInToCaches(ds1, "irr/builtin/descriptor_set/basic_view_parameters");
         addBuiltInToCaches(defaultDs1Layout, "irr/builtin/descriptor_set_layout/basic_view_parameters");
+    }
+
+    // pipeline layout
+    core::smart_refctd_ptr<asset::ICPUPipelineLayout> pipelineLayout;
+    {
+        asset::ICPUDescriptorSetLayout::SBinding bnd;
+        bnd.count = 1u;
+        bnd.binding = 0u;
+        bnd.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
+        bnd.type = asset::EDT_UNIFORM_BUFFER;
+        auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
+
+        pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, nullptr);
+        addBuiltInToCaches(pipelineLayout, "irr/builtin/materials/lambertian/no_texture/pipelinelayout");
     }
 }

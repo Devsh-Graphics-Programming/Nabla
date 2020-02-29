@@ -595,18 +595,6 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 			_buf->setAttribute(v, _attr, i++);
 	};
 
-	uint32_t sizes[4];
-	sizes[E_POS] = !_attribs[E_POS].empty() * 3 * sizeof(float);
-	sizes[E_COL] = !_attribs[E_COL].empty() * 4 * sizeof(float);
-	sizes[E_UV] = !_attribs[E_UV].empty() * 2 * sizeof(float);
-	sizes[E_NORM] = !_attribs[E_NORM].empty() * 3 * sizeof(float);
-
-	uint32_t offsets[4]{ 0u };
-	for (size_t i = 1u; i < 4u; ++i)
-		offsets[i] = offsets[i - 1] + sizes[i - 1];
-
-	const uint32_t vertexSize = std::accumulate(sizes, sizes + 4, static_cast<size_t>(0));
-
 	auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	{
@@ -627,7 +615,28 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 				mbFragmentShader = std::move(shader);
 		}
 	}
-	auto mbPipelineLayout = getDefaultAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>("irr/builtin/pipeline_layouts/default", m_assetMgr);
+	auto mbPipelineLayout = getDefaultAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>("irr/builtin/materials/lambertian/no_texture/pipelinelayout", m_assetMgr);
+
+	constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
+	core::smart_refctd_dynamic_array<IPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
+	{
+		ICPUDescriptorSetLayout* ds1layout = mbPipelineLayout->getDescriptorSetLayout(1u);
+
+		constexpr IPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT]{ IPipelineMetadata::ECSI_WORLD_VIEW_PROJ, IPipelineMetadata::ECSI_WORLD_VIEW, IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE };
+		constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT]{ sizeof(SBasicViewParameters::MVP), sizeof(SBasicViewParameters::MV), sizeof(SBasicViewParameters::NormalMat) };
+		constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT]{ offsetof(SBasicViewParameters,MVP), offsetof(SBasicViewParameters,MV), offsetof(SBasicViewParameters,NormalMat) };
+		for (uint32_t i = 0u; i < DS1_METADATA_ENTRY_CNT; ++i)
+		{
+			auto& semantic = (shaderInputsMetadata->end() - i - 1u)[0];
+			semantic.type = types[i];
+			semantic.descriptorSection.type = IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
+			semantic.descriptorSection.uniformBufferObject.binding = ds1layout->getBindings().begin()[0].binding;
+			semantic.descriptorSection.uniformBufferObject.set = 1u;
+			semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
+			semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
+			semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_VERTEX;
+		}
+	}
 	
 	const std::array<SVertexInputAttribParams, 4> vertexAttribParamsAllOptions =
 	{
@@ -655,7 +664,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 		primitiveAssemblyParams.primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_POINT_LIST;
 
 	SRasterizationParams rastarizationParmas;
-	//rastarizationParmas.faceCullingMode = EFCM_NONE;
+	rastarizationParmas.faceCullingMode = EFCM_NONE;
 
 	auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, inputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
 	{
@@ -678,6 +687,10 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 		}
 	}
 
+	/// TODO 
+	// How to use it without overriding core::SRange<const ShaderInputSemantic> getCommonRequiredInputs()?
+
+	// mbPipeline->getMetadata()->SET_shaderInputsMetadata;
 	_mbuf->setPipeline(std::move(mbPipeline));
 
     return true;
