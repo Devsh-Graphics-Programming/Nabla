@@ -49,269 +49,165 @@ namespace bsdf
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_OPACITY_TEX = 10u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_PHONG_EXP_TEX = 0x1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_PHONG_EXP_TEX = 16u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_MIXTURE_CHILD_COUNT = 0x1fu;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_MIXTURE_CHILD_COUNT = 10u;
+
+	//padding which make sure struct has sizeof at least min_desired_size but aligned to 4*sizeof(uint32_t)=16
+	//both size and desired_size are meant to be expressed in 4 byte units (i.e. to express size of 8, `size` should be 2)
+	template<size_t size, size_t min_desired_size, size_t diff = (min_desired_size-size)>
+	using padding_t = uint32_t[ ((min_desired_size + 3ull) & ~(3ull)) - size ];
+	//in 4 byte units
+	constexpr size_t max_bsdf_struct_size = 10ull;
+
 #include "irr/irrpack.h"
-	/**
-	GLSL:
-	struct {
-		uint bitfields;
-		vec2 alpha;
-		vec3 reflectance;
-	};
-	*/
 	struct alignas(16) SAllDiffuse
 	{
 		uint32_t bitfields;
-		float dummy;
 		//if flag decides to use alpha texture, {alpha[0..1]} is bindless texture ID (bit-cast to uvec2)
 		//otherwise alpha[0] is single-float alpha
-		float alpha[2];
-		//if flag decides to use reflectance texture, {reflectance[0..1]} is bindless texture ID (bit-cast to uvec2)
-		//otherwise reflectance[0..2] is constant reflectance
-		float reflectance[3];
+		uint32_t alpha[2];
+		//if flag decides to use reflectance texture, `reflectance` is bindless texture ID (bit-cast to uvec2)
+		//otherwise `reflectance` is constant reflectance in RGB19E7 format
+		uint64_t reflectance;
+		padding_t<5, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
-	/**
-	GLSL:
-	struct {
-		uint bitfields;
-		vec3 transmittance;
-	};
-	*/
 	struct alignas(16) SDiffuseTransmitter
 	{
 		uint32_t bitfields;
-		float dummy[3];
-		//if flag decides to use transmittance texture, {transmittance[0..1]} is bindless texture ID (bit-cast to uvec2)
-		//otherwise transmittance[0..2] is constant transmittance
-		float transmittance[3];
+		//if flag decides to use transmittance texture, `transmittance` is bindless texture ID (bit-cast to uvec2)
+		//otherwise `transmittance` is constant transmittance
+		uint64_t transmittance;
+		padding_t<3, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
-	/**
-	GLSL:
-	struct {
-		uint bitfields;
-		vec2 int_ext_ior;
-		vec2 alpha_u;
-		vec2 alpha_v;
-		vec3 specReflectance;
-		vec3 specTransmittance;
-	}
-	*/
 	struct alignas(16) SAllDielectric
 	{
 		uint32_t bitfields;
-		float dummy0;
 		//int_ext_ior[0] is internal IoR, int_ext_ior[1] is external IoR
-		float int_ext_ior[2];
+		uint32_t int_ext_ior[2];
 		//if NDF is Ashikhmin-Shirley:
 		//	if flag decides to use alpha_u texture, alpha_u[0..1] is bindless texture ID
-		//	otherwise alpha_u[0] is constant alpha_u
+		//	otherwise alpha_u[0] is constant single-float alpha_u
 		//	if flag decides to use alpha_v texture, alpha_v[0..1] is bindless texture ID
-		//	otherwise alpha_v[0] is constant alpha_v
+		//	otherwise alpha_v[0] is constant single-float alpha_v
 		//otherwise (different NDF)
 		//	if flag decides to use alpha texture, alpha_u[0..1] is bindless texture ID
-		//	otherwise alpha_u[0] is constant alpha
-		float alpha_u[2];
-		float alpha_v[2];
-		//if flag decides to use spec refl texture, specReflectance[0..1] is bindless texture ID
-		//otherwise specReflectance[0..2] is constant spec refl
-		float specReflectance[3];
-		float dummy1;
-		//if flag decides to use spec transmitance texture, specTransmittance[0..1] is bindless texture ID
-		//otherwise specTransmittance[0..2] is constant spec transmitance
-		float specTransmittance[3];
+		//	otherwise alpha_u[0] is constant single-float alpha
+		uint32_t alpha_u[2];
+		uint32_t alpha_v[2];
+		padding_t<7, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
-	/**
-	GLSL:
-	struct {
-		uint bitfields;
-		float ext_ior;
-		vec2 alpha_u;
-		vec2 alpha_v;
-		layout (column_major) mat2x3 ior;
-		vec3 specReflectance;
-	};
-	*/
 	struct alignas(16) SAllConductor
 	{
 		uint32_t bitfields;
-		float ext_ior;
+		//actually it's float
+		uint32_t ext_ior;
 		//same as for SAllDielectric::alpha_u,alpha_v
-		float alpha_u[2];
-		float alpha_v[2];
-		float dummy[2];
-		//column-major matrix 3x2 (GLSL's 2x3)
-		//ior[0..2] is column 0 (real part of IoR)
-		//ior[4..6] is column 1 (imaginary part of IoR)
-		float ior[8];
-		//same as SAllDielectric::specReflectance
-		float specReflectance[3];
+		uint32_t alpha_u[2];
+		uint32_t alpha_v[2];
+		//ior[0] real part of IoR in RGB19E7 format
+		//ior[4..6] is imaginary part of IoR in RGB19E7 format
+		uint64_t ior[2];
+		padding_t<8, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
-	/**
-	GLSL:
-	struct {
-		uint bitfields;
-		vec2 int_ext_ior;
-		vec2 alpha_u;
-		vec2 alpha_v;
-		vec3 specReflectance;
-		vec3 specTransmittance;
-		vec3 diffReflectance;
-	};
-	*/
 	struct alignas(16) SAllPlastic
 	{
 		uint32_t bitfields;
-		float dummy0;
 		//same as SAllDielectric::int_ext_ior
-		float int_ext_ior[2];
+		uint32_t int_ext_ior[2];
 		//same as for SAllDielectric::alpha_u,alpha_v
-		float alpha_u[2];
-		float alpha_v[2];
-		//same as SAllDielectric::specReflectance
-		float specReflectance[3];
-		float dummy1;
-		//same as SAllDielectric::specTransmittance
-		float specTransmittance[3];
-		float dummy2;
-		//if flag decides to use diffuse refl texture, diffReflectance[0..1] is bindless texture ID
-		//otherwise diffReflectance[0..2] is constant diffuse refl
-		float diffReflectance[3];
+		uint32_t alpha_u[2];
+		uint32_t alpha_v[2];
+		padding_t<7, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
-	/**
-	GLSL:
-	struct {
-		uint bitfields;
-		float thickness;
-		vec2 int_ext_ior;
-		vec2 alpha_u;
-		vec2 alpha_v;
-		vec3 specReflectance;
-		vec3 specTransmittance;
-		vec3 sigmaA;
-	};
-	*/
 	struct alignas(16) SAllCoating
 	{
 		//child index (into BSDF buffer) is stored on 15 highest bits
 		uint32_t bitfields;
 		float thickness;
 		//same as SAllDielectric::int_ext_ior
-		float int_ext_ior[2];
+		uint32_t int_ext_ior[2];
 		//same as for SAllDielectric::alpha_u,alpha_v
-		float alpha_u[2];
-		float alpha_v[2];
-		//same as SAllDielectric::specReflectance
-		float specReflectance[3];
-		float dummy0;
-		//same as SAllDielectric::specTransmittance
-		float specTransmittance[3];
-		float dummy1;
-		float sigmaA[3];
+		uint32_t alpha_u[2];
+		uint32_t alpha_v[2];
+		//rgb in RGB19E& format or texture id (flag decides)
+		uint64_t sigmaA;
+		//padding_t<10, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
-	/**
-	GLSL:
-	struct {
-		uint bitfields;
-		vec2 exponent;
-		vec3 specReflectance;
-		vec3 diffReflectance;
-	};
-	*/
+	/*
 	struct alignas(16) SPhong
 	{
 		uint32_t bitfields;
-		float dummy0;
 		//if flag decides to use exponent texture, exponent[0..1] is bindless texture ID
 		//otherwise exponent[0] is constant exponent
 		float exponent[2];
 		//same as SAllDielectric::specReflectance
 		float specReflectance[3];
-		float dummy1;
 		//same as SAllPlastic::diffReflectance
 		float diffReflectance[3];
 	} PACK_STRUCT;
-	/**
-	GLSL:
-	struct {
-		uint bitfields;
-		vec2 alpha_u;
-		vec2 alpha_v;
-		vec3 specReflectance;
-		vec3 diffReflectance;
-	};
 	*/
 	struct alignas(16) SWard
 	{
 		uint32_t bitfields;
-		float dummy0;
 		//same as for SAllDielectric::alpha_u,alpha_v
-		float alpha_u[2];
-		float alpha_v[2];
-		//same as SAllDielectric::specReflectance
-		float specReflectance[3];
-		float dummy1;
-		//same as SAllPlastic::diffReflectance
-		float diffReflectance[3];
+		uint32_t alpha_u[2];
+		uint32_t alpha_v[2];
+		padding_t<5, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
-	/**
-	GLSL:
-	struct {
-		uint bitfields;
-		uint weightsOffset;
-	};
-	*/
+	struct alignas(16) SBumpMap
+	{
+		uint32_t bitfields;
+		//bindless texture id
+		uint64_t bumpmap;
+		padding_t<3, max_bsdf_struct_size> padding;
+	} PACK_STRUCT;
 	struct alignas(16) SMixture
 	{
 		//children index (into BSDF buffer) is stored on 15 highest bits
 		uint32_t bitfields;
-		//index into weights buffer
-		uint32_t weightsOffset;
+		//two weights resulting from translation of mixture into multiple blend BSDFs (encoded as 2x float16)
+		uint32_t weights;
+		padding_t<2, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
-	/**
-	GLSL:
-	struct {
-		uint bitfields;
-		vec2 weight;
-	};
-	*/
 	struct alignas(16) SBlend
 	{
 		//children index (into BSDF buffer) is stored on 15 highest bits
 		uint32_t bitfields;
-		float dummy0;
 		//if flag decides to use weight texture, weight[0..1] is bindless texture ID
-		//otherwise weight[0] is constant blend weight
-		float weight[2];
+		//otherwise weight[0] is constant single-float blend weight
+		uint32_t weight[2];
+		padding_t<3, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
-	/**
-	GLSL:
-	struct {
-		uint bitfields;
-		vec3 opacity;
-	};
-	*/
 	struct alignas(16) SMask
 	{
 		//child index (into BSDF buffer) is stored on 15 highest bits
 		uint32_t bitfields;
-		float dummy0[3];
-		//if flag decides to use opacity texture, opacity[0..1] is bindless texture ID
-		//otherwise opacity[0..2] is constant per-channel opacity
-		float opacity[3];
+		//if flag decides to use opacity texture, `opacity` is bindless texture ID
+		//otherwise `opacity` is constant per-channel opacity in RGB19E7 format
+		uint64_t opacity;
+		padding_t<3, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
-	/**
-	GLSL:
-	struct {
-		uint bitfields;
-	};
-	*/
 	struct alignas(16) STwoSided
 	{
 		//child index (into BSDF buffer) is stored on 15 highest bits
 		uint32_t bitfields;
+		padding_t<1, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 #include "irr/irrunpack.h"
+
+	union SBSDFUnion
+	{
+		SAllDiffuse diffuse;
+		SDiffuseTransmitter diffuseTransmitter;
+		SAllDielectric dielectric;
+		SAllConductor conductor;
+		SAllPlastic plastic;
+		SAllCoating coating;
+		SBumpMap bumpmap;
+		SWard ward;
+		SMixture mixture;
+		SBlend blend;
+		SMask mask;
+		STwoSided twosided;
+	};
 }
 
 class CElementBSDF;
@@ -353,6 +249,8 @@ class CMitsubaLoader : public asset::IAssetLoader
 			//! TODO: even later when texture changes come, might have to return not only a combined sampler but some GLSL sampling code due to the "scale" and offset XML nodes
 			using tex_ass_type = std::pair<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler> >;
 			core::unordered_map<const CElementTexture*, tex_ass_type> textureCache;
+
+			core::vector<bsdf::SBSDFUnion> bsdfBuffer;
 		};
 
 		//! Destructor
