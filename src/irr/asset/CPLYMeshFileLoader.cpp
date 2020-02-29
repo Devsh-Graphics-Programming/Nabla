@@ -595,11 +595,30 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 			_buf->setAttribute(v, _attr, i++);
 	};
 
+	auto chooseShaderPath = [&]() -> std::string
+	{
+		constexpr std::array<std::pair<uint8_t, std::string_view>, 3> avaiableOptionsForShaders
+		{ 
+			std::make_pair(E_COL, "irr/builtin/materials/lambertian/vertex_color_debug_shader/specializedshader"),
+			std::make_pair(E_UV, "irr/builtin/materials/lambertian/uv_debug_shader/specializedshader"),
+			std::make_pair(E_NORM, "irr/builtin/materials/lambertian/normal_debug_shader/specializedshader")
+		};
+
+		for (auto& it : avaiableOptionsForShaders)
+		{
+			auto found = std::find(availableAttributes.begin(), availableAttributes.end(), it.first);
+			if (found != availableAttributes.end())
+				return it.second.data(); 
+		}
+
+		return avaiableOptionsForShaders[0].second.data(); // if only positions are present, shaders with debug vertex colors are assumed
+	};
+
 	auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	{
 		const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
-		auto bundle = m_assetMgr->findAssets("irr/builtin/materials/lambertian/no_texture/specializedshader", types);
+		auto bundle = m_assetMgr->findAssets(chooseShaderPath(), types);
 
 		auto refCountedBundle =
 		{

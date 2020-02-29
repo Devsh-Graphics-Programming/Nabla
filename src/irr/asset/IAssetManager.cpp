@@ -230,7 +230,44 @@ void main()
 }
 		)===",asset::ISpecializedShader::ESS_FRAGMENT,"irr/builtin/materials/lambertian/singletexture/specializedshader");
 
+        // uv debug shader
+        buildInShader(R"===(
+        #version 430 core
+        layout(location = 0) in vec3 vPos;
+        layout(location = 2) in vec2 vTexCoord;
 
+        #include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
+        #include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
+
+        layout (set = 1, binding = 0, row_major, std140) uniform UBO 
+        {
+            irr_glsl_SBasicViewParameters params;
+        } CamData;
+        
+        layout(location = 0) out vec2 uv;
+
+        void main()
+        {
+            gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.params.MVP), vPos);
+	        uv = vTexCoord;
+        }
+		)===", asset::ISpecializedShader::ESS_VERTEX, "irr/builtin/materials/lambertian/uv_debug_shader/specializedshader");
+        buildInShader(R"===(
+        #version 430 core
+
+        layout(set = 0, binding = 0) uniform sampler2D albedo;
+
+        layout(location = 0) in vec2 uv;
+
+        layout(location = 0) out vec4 pixelColor;
+
+        void main()
+        {
+            pixelColor = texture(albedo, uv);
+        }
+		)===", asset::ISpecializedShader::ESS_FRAGMENT, "irr/builtin/materials/lambertian/uv_debug_shader/specializedshader");
+
+        // vertex color debug shader
         buildInShader(R"===(
         #version 430 core
         layout(location = 0) in vec3 vPos;
@@ -251,7 +288,7 @@ void main()
             gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.params.MVP), vPos);
 	        color = vCol;
         }
-		)===", asset::ISpecializedShader::ESS_VERTEX, "irr/builtin/materials/lambertian/no_texture/specializedshader");
+		)===", asset::ISpecializedShader::ESS_VERTEX, "irr/builtin/materials/lambertian/vertex_color_debug_shader/specializedshader");
 
         buildInShader(R"===(
         #version 430 core
@@ -264,7 +301,43 @@ void main()
         {
             pixelColor = vec4(color, 1.0);
         }
-		)===", asset::ISpecializedShader::ESS_FRAGMENT, "irr/builtin/materials/lambertian/no_texture/specializedshader");
+		)===", asset::ISpecializedShader::ESS_FRAGMENT, "irr/builtin/materials/lambertian/vertex_color_debug_shader/specializedshader");
+
+        // normal debug shader
+        buildInShader(R"===(
+        #version 430 core
+        layout(location = 0) in vec3 vPos; 
+        layout(location = 3) in vec3 vNormal;
+
+        #include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
+        #include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
+
+        layout (set = 1, binding = 0, row_major, std140) uniform UBO 
+        {
+            irr_glsl_SBasicViewParameters params;
+        } CamData;
+
+        layout(location = 0) out vec3 color;
+
+        void main()
+        {
+            gl_Position = gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.params.MVP), vPos);
+            color = vNormal*0.5+vec3(0.5);
+        }
+        )===", asset::ISpecializedShader::ESS_VERTEX, "irr/builtin/materials/lambertian/normal_debug_shader/specializedshader");
+
+        buildInShader(R"===(
+        #version 430 core
+
+        layout(location = 0) in vec3 color; 
+
+        layout(location = 0) out vec4 pixelColor;
+
+        void main()
+        {
+            pixelColor = vec4(color,1.0);
+        }
+        )===", asset::ISpecializedShader::ESS_FRAGMENT, "irr/builtin/materials/lambertian/normal_debug_shader/specializedshader");
 
 		constexpr uint32_t bindingCount = 1u;
 		asset::ICPUDescriptorSetLayout::SBinding pBindings[bindingCount] = {0u,asset::EDT_COMBINED_IMAGE_SAMPLER,1u,asset::ISpecializedShader::ESS_FRAGMENT,nullptr};

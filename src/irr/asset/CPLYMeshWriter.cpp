@@ -434,10 +434,8 @@ void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuf
 
 asset::ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrueInt(const asset::ICPUMeshBuffer* _mbuf)
 {
-    auto clone = _mbuf->clone();
-    clone->grab();
-
-    auto mbCopy = reinterpret_cast<asset::ICPUMeshBuffer*>(clone.get());
+    auto mbCopy = core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(_mbuf->clone(2));
+    mbCopy->grab();
 
     for (size_t i = 0; i < 16; ++i)
     {
@@ -448,7 +446,7 @@ asset::ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrue
             mbCopy->getPipeline()->getVertexInputParams().attributes[vaid].format = asset::isNormalizedFormat(t) ? impl::getCorrespondingIntegerFormat(t) : t;
     }
 
-    return mbCopy;
+    return mbCopy.get();
 }
 
 std::string CPLYMeshWriter::getTypeString(asset::E_FORMAT _t)
