@@ -687,10 +687,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 		}
 	}
 
-	/// TODO 
-	// How to use it without overriding core::SRange<const ShaderInputSemantic> getCommonRequiredInputs()?
-
-	// mbPipeline->getMetadata()->SET_shaderInputsMetadata;
+	m_assetMgr->setAssetMetadata(mbPipeline.get(), core::make_smart_refctd_ptr<CPLYPipelineMetadata>(1, std::move(shaderInputsMetadata)));
 	_mbuf->setPipeline(std::move(mbPipeline));
 
     return true;
