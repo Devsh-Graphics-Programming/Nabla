@@ -2,6 +2,8 @@
 
 #include "../../ext/OptiX/OptiXManager.h"
 
+#include "optix_stubs.h"
+
 //#include "../source/Irrlicht/COpenGLDriver.h"
 
 using namespace irr;
@@ -21,8 +23,11 @@ core::smart_refctd_ptr<Manager> Manager::create(video::IVideoDriver* _driver)
 
 	cuda::CCUDAHandler::init();
 
+	int32_t version = 0;
+	if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuDriverGetVersion(&version)) || version<7000)
+		return nullptr;
+
 	// find device
-	constexpr uint32_t MaxSLI = 4u;
 	uint32_t foundDeviceCount = 0u;
 	CUdevice devices[MaxSLI] = {};
 	cuda::CCUDAHandler::getDefaultGLDevices(&foundDeviceCount, devices, MaxSLI);
@@ -33,12 +38,12 @@ core::smart_refctd_ptr<Manager> Manager::create(video::IVideoDriver* _driver)
 	uint32_t suitableDevices = 0u;
 	for (uint32_t i=0u; i<foundDeviceCount; i++)
 	{
-		if (cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuCtxCreate_v2(contexts+suitableDevices, CU_CTX_SCHED_YIELD|CU_CTX_MAP_HOST|CU_CTX_LMEM_RESIZE_TO_MAX, devices[suitableDevices])))
+		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuCtxCreate_v2(contexts+suitableDevices, CU_CTX_SCHED_YIELD|CU_CTX_MAP_HOST|CU_CTX_LMEM_RESIZE_TO_MAX, devices[suitableDevices])))
 			continue;
 
 		uint32_t version = 0u;
 		cuda::CCUDAHandler::cuda.pcuCtxGetApiVersion(contexts[suitableDevices],&version);
-		if (version<7000)
+		if (version<3020)
 		{
 			cuda::CCUDAHandler::cuda.pcuCtxDestroy_v2(contexts[suitableDevices]);
 			continue;
@@ -65,7 +70,7 @@ Manager::Manager(video::IVideoDriver* _driver, uint32_t _contextCount, CUcontext
 	{
 		context[i] = _contexts[i];
 		ownContext[i] = _ownContexts ? _ownContexts[i]:false;
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuStreamCreate(stream+i)))
+		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuStreamCreate(stream+i,CU_STREAM_NON_BLOCKING)))
 		{
 			i--;
 			contextCount--;
@@ -88,7 +93,9 @@ Manager::~Manager()
 */
 	for (uint32_t i=0u; i<contextCount; i++)
 	{
-		cuda::CCUDAHandler::cuda.pcuCtxSynchronize(context[i]);
+		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuCtxPushCurrent_v2(context[i])))
+			continue;
+		cuda::CCUDAHandler::cuda.pcuCtxSynchronize();
 
 		cuda::CCUDAHandler::cuda.pcuStreamDestroy_v2(stream[i]);
 		if (ownContext[i])

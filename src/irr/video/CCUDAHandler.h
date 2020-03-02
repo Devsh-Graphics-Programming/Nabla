@@ -2,6 +2,7 @@
 #define __C_CUDA_HANDLER_H__
 
 #include "irr/macros.h"
+#include "IReadFile.h"
 #include "irr/system/system.h"
 
 
@@ -49,6 +50,7 @@ class CCUDAHandler
 			,cuCtxGetDevice
 			,cuCtxGetSharedMemConfig
 			,cuCtxPopCurrent_v2
+			,cuCtxPushCurrent_v2
 			,cuCtxSetCacheConfig
 			,cuCtxSetCurrent
 			,cuCtxSetSharedMemConfig
@@ -75,6 +77,12 @@ class CCUDAHandler
 			,cuGetErrorString
 			,cuGraphicsGLRegisterBuffer
 			,cuGraphicsGLRegisterImage
+			,cuGraphicsMapResources
+			,cuGraphicsResourceGetMappedPointer_v2
+			,cuGraphicsResourceGetMappedMipmappedArray
+			,cuGraphicsSubResourceGetMappedArray
+			,cuGraphicsUnmapResources
+			,cuGraphicsUnregisterResource
 			,cuInit
 			,cuLaunchKernel
 			,cuMemAlloc_v2
@@ -167,7 +175,11 @@ class CCUDAHandler
 			nvrtcGetProgramLogSize
 		);
 		static NVRTC nvrtc;
-
+		/*
+		IRR_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(NVRTC_BUILTINS, LibLoader
+		);
+		static NVRTC_BUILTINS nvrtc_builtins;
+		*/
 	protected:
         CCUDAHandler() = default;
 
@@ -175,10 +187,36 @@ class CCUDAHandler
 		_IRR_STATIC_INLINE int DeviceCount = 0;
 		static core::vector<Device> devices;
 
+		_IRR_STATIC_INLINE_CONSTEXPR const char* virtualCUDAArchitectures[] = {	"-arch=compute_30",
+																				"-arch=compute_32",
+																				"-arch=compute_35",
+																				"-arch=compute_37",
+																				"-arch=compute_50",
+																				"-arch=compute_52",
+																				"-arch=compute_53",
+																				"-arch=compute_60",
+																				"-arch=compute_61",
+																				"-arch=compute_62",
+																				"-arch=compute_70",
+																				"-arch=compute_72",
+																				"-arch=compute_75",
+																				"-arch=compute_80"};
+		_IRR_STATIC_INLINE const char* virtualCUDAArchitecture = nullptr;
+
 	public:
 		static CUresult init()
 		{
-			CUresult result;
+			CUresult result = CUDA_ERROR_UNKNOWN;
+			auto cleanup = core::makeRAIIExiter([&result]() -> void
+				{
+					if (result != CUDA_SUCCESS)
+					{
+						CudaVersion = 0;
+						DeviceCount = 0;
+						devices.clear();
+					}
+				}
+			);
 
 
 			cuda = CUDA(
@@ -191,7 +229,7 @@ class CCUDAHandler
 			#define SAFE_CUDA_CALL(NO_PTR_ERROR,FUNC,...) \
 			{\
 				if (!cuda.p ## FUNC)\
-					return NO_PTR_ERROR;\
+					return result=NO_PTR_ERROR;\
 				result = cuda.p ## FUNC ## (__VA_ARGS__);\
 				if (result!=CUDA_SUCCESS)\
 					return result;\
@@ -201,20 +239,80 @@ class CCUDAHandler
 				
 			SAFE_CUDA_CALL(CUDA_ERROR_NOT_SUPPORTED,cuDriverGetVersion,&CudaVersion)
 			if (CudaVersion<9000)
-				return CUDA_ERROR_SYSTEM_DRIVER_MISMATCH;
+				return result=CUDA_ERROR_SYSTEM_DRIVER_MISMATCH;
 			
 			SAFE_CUDA_CALL(CUDA_ERROR_NOT_SUPPORTED,cuDeviceGetCount,&DeviceCount)
 
 			devices.resize(DeviceCount);
+			int j = 0;
 			for (int i=0; i<DeviceCount; i++)
-				devices[i] = Device(i);
+			{
+				auto tmp = Device(i);
+				
+				const int archVersion[2] = {tmp.attributes[CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR],tmp.attributes[CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR]};
+				if (archVersion[0]>8 || archVersion[0]==8&&archVersion[1]>0)
+				{
+					assert(strcmp(virtualCUDAArchitectures[13],"-arch=compute_80")==0);
+					if (!virtualCUDAArchitecture)
+						virtualCUDAArchitecture = virtualCUDAArchitectures[13];
+				}
+				else
+				{
+					const std::string virtualArchString = "-arch=compute_"+std::to_string(archVersion[0])+std::to_string(archVersion[1]);
+				
+					int32_t i = sizeof(virtualCUDAArchitectures)/sizeof(const char*);
+					while (i>0)
+					if (virtualCUDAArchitecture==virtualCUDAArchitectures[--i] || !virtualCUDAArchitecture)
+						break;
+					
+					if (!virtualCUDAArchitecture || virtualArchString!=virtualCUDAArchitecture)
+					{
+						i++;
+						while (i>0)
+						if (virtualArchString==virtualCUDAArchitectures[--i])
+						{
+							virtualCUDAArchitecture = virtualCUDAArchitectures[i];
+							break;
+						}
+					}
+				}
+
+				devices[j++] = tmp;
+			}
+			devices.resize(j);
+
+			if (!virtualCUDAArchitecture)
+				return result=CUDA_ERROR_INVALID_DEVICE;
 			
 			#undef SAFE_CUDA_CALL
 
+			#if defined(_IRR_WINDOWS_API_)
+			const char* nvrtc64_versions[] = {"nvrtc64_102","nvrtc64_101","nvrtc64_100","nvrtc64_92","nvrtc64_91","nvrtc64_90","nvrtc64_80","nvrtc64_75","nvrtc64_70",nullptr};
+			const char* nvrtc64_suffices[] = {"","_","_0","_1","_2",nullptr};
+			for (auto verpath=nvrtc64_versions; *verpath; verpath++)
+			{
+				for (auto suffix=nvrtc64_suffices; *suffix; suffix++)
+				{
+					std::string path(*verpath);
+					path += *suffix;
+					nvrtc = NVRTC(path.c_str());
+					if (nvrtc.pnvrtcVersion)
+						break;
+				}
+				if (nvrtc.pnvrtcVersion)
+					break;
+			}
+			#elif defined(_IRR_POSIX_API_)
 			nvrtc = NVRTC("nvrtc");
+			//nvrtc_builtins = NVRTC("nvrtc-builtins");
+			#endif
 
+			int nvrtcVersion[2] = {-1,-1};
+			cuda::CCUDAHandler::nvrtc.pnvrtcVersion(nvrtcVersion+0,nvrtcVersion+1);
+			if (nvrtcVersion[0]<9)
+				return result=CUDA_ERROR_SYSTEM_DRIVER_MISMATCH;
 
-			return CUDA_SUCCESS;
+			return result=CUDA_SUCCESS;
 		}
 		static void deinit()
 		{
@@ -225,6 +323,8 @@ class CCUDAHandler
 
 			nvrtc = NVRTC();
 		}
+
+		static const char* getCommonVirtualCUDAArchitecture() {return virtualCUDAArchitecture;}
 
 		static bool defaultHandleResult(CUresult result)
 		{
@@ -603,13 +703,15 @@ class CCUDAHandler
 			core::smart_refctd_ptr<ObjType> obj;
 			CUgraphicsResource cudaHandle;
 
+			GraphicsAPIObjLink() : obj(nullptr), cudaHandle(nullptr) {}
+
 			GraphicsAPIObjLink(const GraphicsAPIObjLink& other) = delete;
 			GraphicsAPIObjLink& operator=(const GraphicsAPIObjLink& other) = delete;
 
 			~GraphicsAPIObjLink()
 			{
 				if (obj)
-					CCUDAHandler::cuda.cuGraphicsUnregisterResource(cudaHandle);
+					CCUDAHandler::cuda.pcuGraphicsUnregisterResource(cudaHandle);
 			}
 		};
 		static CUresult registerBuffer(GraphicsAPIObjLink<video::IGPUBuffer>* link, uint32_t flags=CU_GRAPHICS_REGISTER_FLAGS_NONE)
@@ -648,8 +750,111 @@ class CCUDAHandler
 			return retval;
 		}
 
-		// note: enable `-arch=latest` `-use-fast-math`
-		// note: allow to control `-G` `-lineinfo` `-maxrregcount` `-rdc` `-ewp` `-restrict` then includes and defines
+		
+
+		static bool defaultHandleResult(nvrtcResult result)
+		{
+			switch (result)
+			{
+				case NVRTC_SUCCESS:
+					return true;
+					break;
+				default:
+					if (nvrtc.pnvrtcGetErrorString)
+						printf("%s\n",nvrtc.pnvrtcGetErrorString(result));
+					else
+						printf(R"===(CudaHandler: `pnvrtcGetErrorString` is nullptr, the nvrtc library probably not found on the system.\n)===");
+					break;
+			}
+			_IRR_DEBUG_BREAK_IF(true);
+			return false;
+		}
+
+		static nvrtcResult createProgram(	nvrtcProgram* prog, const char* source, const char* name,
+											const std::initializer_list<const char*>& headers,
+											const std::initializer_list<const char*>& includeNames)
+		{
+			if (headers.size())
+			{
+				if (headers.size() != includeNames.size())
+					return NVRTC_ERROR_INVALID_INPUT;
+				return nvrtc.pnvrtcCreateProgram(prog, source, name, headers.size(), headers.begin(), includeNames.begin());
+			}
+			else
+				return nvrtc.pnvrtcCreateProgram(prog, source, name, 0u, nullptr, nullptr);
+		}
+
+		template<typename HeaderFileIt>
+		static nvrtcResult createProgram(	nvrtcProgram* prog, irr::io::IReadFile* main,
+											const HeaderFileIt includesBegin, const HeaderFileIt includesEnd)
+		{
+			int numHeaders = std::distance(includesBegin,includesEnd);
+			core::vector<const char*> headers(numHeaders);
+			core::vector<const char*> includeNames(numHeaders);
+			size_t sourceSize = main->getSize();
+			size_t sourceIt = sourceSize;
+			sourceSize++;
+			for (auto it=includesBegin; it!=includesEnd; it++)
+			{
+				sourceSize += it->getSize()+1u;
+				includeNames.emplace_back(it->getFileName().c_str());
+			}
+			core::vector<char> sources(sourceSize);
+			main->read(sources.data(),sourceIt);
+			sources[sourceIt++] = 0;
+			for (auto it=includesBegin; it!=includesEnd; it++)
+			{
+				auto oldpos = it->getPos();
+				it->seek(0ull);
+
+				auto ptr = sources.data()+sourceIt;
+				headers.push_back(ptr);
+				auto filesize = it->getSize();
+				it->read(ptr,filesize);
+				sourceIt += filesize;
+				sources[sourceIt++] = 0;
+
+				it->seek(oldpos);
+			}
+			return nvrtc.pnvrtcCreateProgram(prog, sources.data(), main->getFileName().c_str(), numHeaders, headers.data(), includeNames.data());
+		}
+
+		static nvrtcResult compileProgram(nvrtcProgram prog, const std::initializer_list<const char*>& options = {"--std=c++14",virtualCUDAArchitecture,"-dc","-use_fast_math"})
+		{
+			return nvrtc.pnvrtcCompileProgram(prog, options.size(), options.begin());
+		}
+
+		static nvrtcResult compileProgram(nvrtcProgram prog, const std::vector<const char*>& options)
+		{
+			return nvrtc.pnvrtcCompileProgram(prog, options.size(), options.data());
+		}
+		// note: allow to control  `-restrict` then includes and defines
+
+		static nvrtcResult getProgramLog(nvrtcProgram prog, std::string& log)
+		{
+			size_t _size = 0ull;
+			nvrtcResult sizeRes = nvrtc.pnvrtcGetProgramLogSize(prog, &_size);
+			if (sizeRes != NVRTC_SUCCESS)
+				return sizeRes;
+			if (_size == 0ull)
+				return NVRTC_ERROR_INVALID_INPUT;
+
+			log.resize(_size);
+			return nvrtc.pnvrtcGetProgramLog(prog, log.data());
+		}
+
+		static nvrtcResult getPTX(nvrtcProgram prog, std::string& ptx)
+		{
+			size_t _size = 0ull;
+			nvrtcResult sizeRes = nvrtc.pnvrtcGetPTXSize(prog, &_size);
+			if (sizeRes!=NVRTC_SUCCESS)
+				return sizeRes;
+			if (_size==0ull)
+				return NVRTC_ERROR_INVALID_INPUT;
+
+			ptx.resize(_size);
+			return nvrtc.pnvrtcGetPTX(prog,ptx.data());
+		}
 };
 
 }

@@ -317,6 +317,11 @@ endif()
 
 
 if (IRR_COMPILE_WITH_CUDA)
+	if (WIN32)
+		target_link_libraries(Irrlicht INTERFACE
+			${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}/../lib/x64/nvrtc.lib
+		)
+	endif()
 	target_include_directories(Irrlicht PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 endif()
 

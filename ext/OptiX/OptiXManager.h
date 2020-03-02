@@ -20,38 +20,118 @@ class Manager final : public core::IReferenceCounted
 	public:
 		static core::smart_refctd_ptr<Manager> create(video::IVideoDriver* _driver);
 
-		using MappedBuffer = core::unordered_map<const asset::ICPUMeshBuffer*, ::RadeonRays::Shape*>;
+		using RegisteredBufferCache = core::set<cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer>>;
 		template<typename Iterator>
-		OptixTraversableHandle createAccelerationStructure(Iterator _begin, Iterator _end, const OptixAccelBuildOptions& accel_options, uint32_t deviceID=0u, size_t scratchBufferSize=0u, CUdeviceptr scratchBuffer = nullptr)
+		OptixTraversableHandle createAccelerationStructure(CUstream stream, RegisteredBufferCache& bufferCache, const OptixAccelBuildOptions& accelOptions, Iterator _begin, Iterator _end, uint32_t deviceID=0u, size_t scratchBufferSize=0u, CUdeviceptr scratchBuffer = nullptr)
 		{
-			auto meshCount = 0u;
-			for (auto it=_begin; it!=_end; it++)
+			auto EFormatToOptixFormat = [](asset::E_FORMAT format) -> OptixVertexFormat
 			{
-				auto* mb = static_cast<video::IGPUMeshBuffer*>(*it);
-				auto pipeline = mb->getMeshDataAndFormat();
-				auto posbuffer = pipeline->getMappedBuffer(mb->getPositionAttributeIx());
-				meshCount++;
+				switch (format)
+				{
+				case asset::EF_R16G16_SNORM:
+					return OPTIX_VERTEX_FORMAT_SNORM16_2;
+				case asset::EF_R32G32B32_SNORM:
+					return OPTIX_VERTEX_FORMAT_SNORM16_3;
+				case asset::EF_R16G16_SFLOAT:
+					return OPTIX_VERTEX_FORMAT_HALF2;
+				case asset::EF_R16G16B16_SFLOAT:
+					return OPTIX_VERTEX_FORMAT_HALF3;
+				case asset::EF_R32G32_SFLOAT:
+					return OPTIX_VERTEX_FORMAT_FLOAT2;
+				case asset::EF_R32G32B32_SFLOAT:
+					return OPTIX_VERTEX_FORMAT_FLOAT3;
+				default:
+					break;
+				}
+				return static_cast<OptixVertexFormat>(0u);
+			};
+
+			const auto inputCount = std::distance(_begin,_end);
+			core::vector<CUgraphicsResource> vertexBuffers;
+			core::vector<uint32_t> bufferIndices(inputCount);
+			{
+				vertexBuffers.reserve(inputCount);
+
+				RegisteredBufferCache newBuffers;
+				uint32_t counter = 0u;
+				for (auto it=_begin; it!=_end; it++,counter++)
+				{
+					bufferIndices[counter] = ~0u;
+
+					auto* mb = static_cast<video::IGPUMeshBuffer*>(*it);
+					auto pipeline = mb->getMeshDataAndFormat();
+					auto posIx = mb->getPositionAttributeIx();
+					if (EFormatToOptixFormat(pipeline->getAttribFormat(posIx)))
+						continue;
+
+					auto posbuffer = pipeline->getMappedBuffer(posIx);
+					auto found = bufferCache.find(posbuffer);
+					if (found == bufferCache.end())
+					{
+						RegisteredBufferCache::value_type link;
+						if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&link,CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
+							continue;
+						found = newBuffers.insert(std::move(link)).first;
+					}
+					vertexBuffers.push_back(*found);
+					bufferIndices[counter] = counter;
+				}
+				bufferCache.merge(newBuffers);
 			}
 
+			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsMapResources(vertexBuffers.size(),vertexBuffers.data(),stream)))
+				return nullptr;
+
 			constexpr uint32_t buildStepSize = 256u;
+			const uint32_t triangle_input_flags[1] = { OPTIX_GEOMETRY_FLAG_NONE }; // TODO: MAYBE CHANGE?
 			auto it = _begin;
-			for (auto i=0; i<meshCount; i+=buildStepSize)
+			for (auto i=0; i<inputCount;)
 			{
-				const auto oldbegin = it;
 				OptixBuildInput buildInputs[buildStepSize] = {};
-				OptixAccelBufferSizes buffSizes[buildStepSize] = {};
-				for (auto j=0u; it!=_end; it++,j++)
+				OptixAccelBufferSizes buffSizes = {};
+				uint32_t j = 0u;
+				for (; j<buildStepSize&&it!=_end; it++,j++,i++)
 				{
-					auto* mb = static_cast<irr::asset::ICPUMeshBuffer*>(*it);
+					auto buffIx = bufferIndices[i];
+					if (buffIx == (~0u))
+						continue;
+
+					auto* mb = static_cast<video::IGPUMeshBuffer*>(*it);
+					auto pipeline = mb->getMeshDataAndFormat();
+					auto posIx = mb->getPositionAttributeIx();
+
 					buildInputs[j].type = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
-					buildInputs[j].triangleArray.vertexBuffers = mb->getPositionAttributeIx();
-					buildInputs[j].triangleArray.numVertices = mb->
+					buildInputs[j].triangleArray.vertexBuffers = vertexBuffers.data()+buffIx;
+					//buildInputs[j].triangleArray.numVertices = mb-> ? ;
+					buildInputs[j].triangleArray.vertexFormat = EFormatToOptixFormat(pipeline->getAttribFormat(posIx));
+					buildInputs[j].triangleArray.vertexStrideInBytes = pipeline->getAttribStride(posIx);
+					if (pipeline->getIndexBuffer())
+					{
+						//buildInputs[j].triangleArray.indexBuffer = ;
+						buildInputs[j].triangleArray.numIndexTriplets = mb->getIndexCount()/3u;
+						buildInputs[j].triangleArray.indexFormat = mb->getIndexType()!=asset::EIT_16BIT ? OPTIX_INDICES_FORMAT_UNSIGNED_INT3:OPTIX_INDICES_FORMAT_UNSIGNEDSHORT3;
+						buildInputs[j].triangleArray.indexStrideInBytes = 0u;
+						buildInputs[j].triangleArray.primitiveIndexOffset = mb->getBaseVertex();
+						buildInputs[j].triangleArray.numSbtRecords = 1u;
+						buildInputs[j].triangleArray.flags = triangle_input_flags;
+					}
 				}
-				optixAccelComputeMemoryUsage(optixContext[deviceID],&accelOptions,buildInputs,std::distance(oldbegin,it),buffSizes);
+				optixAccelComputeMemoryUsage(optixContext[deviceID],&accelOptions,buildInputs,j,&buffSizes);
+
+				// check and resize buffers as necessary
+				buffSizes.outputSizeInBytes
+				buffSizes.tempSzeInBytes
+				optixAccelBuild(optixContext[deviceID],stream,&accelOptions,buildInputs,j,scratchBuffer,scratchBuffer->getSize(),outputBuffer,outputBuffer->getSize(),outputHandle,props,propsCount);
 			}
+
+			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsUnmapResources(vertexBuffers.size(),vertexBuffers.data(), stream)))
+				return nullptr;
 
 			return nullptr;
 		}
+
+		// TODO: optixAccelCompact
+
 	/*
 		using MeshBufferRRShapeCache = core::unordered_map<const asset::ICPUMeshBuffer*,::RadeonRays::Shape*>;
 		using MeshNodeRRInstanceCache = core::unordered_map<scene::IMeshSceneNode*, core::smart_refctd_dynamic_array<::RadeonRays::Shape*> >;
