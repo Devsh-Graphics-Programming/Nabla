@@ -2,7 +2,7 @@
 #include <irrlicht.h>
 
 
-#include "../src/irr/video/CCUDAHandler.h"
+#include "../../ext/OptiX/OptiXManager.h"
 
 /**
 This example just shows a screen which clears to red,
@@ -34,177 +34,138 @@ int main()
 	if (device == 0)
 		return 1; // could not create selected driver.
 
-	constexpr uint32_t MaxSLI = 4u;
-	uint32_t contextCount;
-	CUcontext context[MaxSLI];
-	bool ownContext[MaxSLI];
-	CUstream stream[MaxSLI];
+	video::IVideoDriver* driver = device->getVideoDriver();
+	auto optixmgr = irr::ext::OptiX::Manager::create(driver);
+	if (!optixmgr)
+		return 2;
+
+	// Specify options for the build. We use default options for simplicity.
+	OptixAccelBuildOptions accel_options = {};
+	accel_options.buildFlags = OPTIX_BUILD_FLAG_NONE;
+	accel_options.operation = OPTIX_BUILD_OPERATION_BUILD;
+
+	// Triangle build input: simple list of three vertices
+	const float vertices_data[3][3] =
 	{
-		cuda::CCUDAHandler::init();
+		{ -0.5f, -0.5f, 0.0f },
+		{  0.5f, -0.5f, 0.0f },
+		{  0.0f,  0.5f, 0.0f }
+	};
 
-		int32_t version = 0;
-		cuda::CCUDAHandler::cuda.pcuDriverGetVersion(&version);
-		if (version < 7000)
-			return 2;
-		
-		int nvrtcVersion[2] = {-1,-1};
-		cuda::CCUDAHandler::nvrtc.pnvrtcVersion(nvrtcVersion+0,nvrtcVersion+1);
-		if (nvrtcVersion[0]<7)
-			return 3;
+	// Allocate and copy device memory for our input triangle vertices
+	const uint32_t numVertices = 3u;
+	const size_t vertices_size = sizeof(float)*numVertices*3ull;
+	cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> vertices_link;
+	vertices_link.obj = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createFilledDeviceLocalGPUBufferOnDedMem(vertices_size,vertices_data), core::dont_grab);
+	if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&vertices_link,CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
+		return 3;
 
-		// find device
-		uint32_t foundDeviceCount = 0u;
-		CUdevice devices[MaxSLI] = {};
-		cuda::CCUDAHandler::getDefaultGLDevices(&foundDeviceCount, devices, MaxSLI);
+	if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsMapResources(1u, &vertices_link.cudaHandle, optixmgr->stream[0])))
+		return 4;
 
-		// create context
-		CUcontext contexts[MaxSLI] = {};
-		bool ownContexts[MaxSLI] = {};
-		uint32_t suitableDevices = 0u;
-		for (uint32_t i = 0u; i < foundDeviceCount; i++)
-		{
-			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuCtxCreate_v2(contexts + suitableDevices, CU_CTX_SCHED_YIELD | CU_CTX_MAP_HOST | CU_CTX_LMEM_RESIZE_TO_MAX, devices[suitableDevices])))
-				continue;
-
-			uint32_t version = 0u;
-			cuda::CCUDAHandler::cuda.pcuCtxGetApiVersion(contexts[suitableDevices], &version);
-			if (version < 3020)
-			{
-				cuda::CCUDAHandler::cuda.pcuCtxDestroy_v2(contexts[suitableDevices]);
-				continue;
-			}
-			cuda::CCUDAHandler::cuda.pcuCtxSetCacheConfig(CU_FUNC_CACHE_PREFER_L1);
-			ownContexts[suitableDevices++] = true;
-		}
-
-		if (!suitableDevices)
-			return 4;
-		
-		contextCount = suitableDevices;
-		for (uint32_t i=0u; i< contextCount; i++)
-		{
-			context[i] = contexts[i];
-			ownContext[i] = ownContexts ? ownContexts[i]:false;
-			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuStreamCreate(stream+i,CU_STREAM_NON_BLOCKING)))
-			{
-				i--;
-				contextCount--;
-				continue;
-			}
-
-			//OptixDeviceContextOptions options = {};
-			//optixDeviceContextCreate(context[i], &options, optixContext);
-		}
+	CUdeviceptr d_vertices = 0;
+	{
+		size_t tmp = vertices_size;
+		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsResourceGetMappedPointer_v2(&d_vertices, &tmp, vertices_link.cudaHandle)))
+			return 5;
 	}
 
+	// Populate the build input struct with our triangle data as well as
+	// information about the sizes and types of our data
+	const uint32_t triangle_input_flags[1] = { OPTIX_GEOMETRY_FLAG_NONE };
+	OptixBuildInput triangle_input = {};
+	triangle_input.type = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
+	triangle_input.triangleArray.vertexFormat = OPTIX_VERTEX_FORMAT_FLOAT3;
+	triangle_input.triangleArray.numVertices = numVertices;
+	triangle_input.triangleArray.vertexBuffers = &d_vertices;
+	triangle_input.triangleArray.flags = triangle_input_flags;
+	triangle_input.triangleArray.numSbtRecords = 1;
 
-	nvrtcProgram program = nullptr;
-	// load program from file
-	auto file = device->getFileSystem()->createAndOpenFile("../vectorAdd_kernel.cu");
-	if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::createProgram<io::IReadFile*>(&program, file, nullptr, nullptr)))
-		return 5;
-	file->drop();
+	// Query OptiX for the memory requirements for our GAS 
+	OptixAccelBufferSizes gas_buffer_sizes;
+	optixAccelComputeMemoryUsage(
+		optixmgr->optixContext[0],         // The device context we are using
+		&accel_options,
+		&triangle_input, // Describes our geometry
+		1,               // Number of build inputs, could have multiple
+		&gas_buffer_sizes);
 
-	if (!program)
+	// Allocate device memory for the scratch space buffer as well
+	// as the GAS itself
+	CUdeviceptr d_temp_buffer_gas, d_gas_output_buffer;
+	cuda::CCUDAHandler::cuda.pcuMemAlloc_v2(&d_temp_buffer_gas,gas_buffer_sizes.tempSizeInBytes);
+	cuda::CCUDAHandler::cuda.pcuMemAlloc_v2(&d_gas_output_buffer,gas_buffer_sizes.outputSizeInBytes);
+
+	// Now build the GAS
+	OptixTraversableHandle gas_handle = 0u;
+	optixAccelBuild(
+		optixmgr->optixContext[0],         // The device context we are using
+		optixmgr->stream[0],           // CUDA stream
+		&accel_options,
+		&triangle_input,
+		1,           // num build inputs
+		d_temp_buffer_gas,
+		gas_buffer_sizes.tempSizeInBytes,
+		d_gas_output_buffer,
+		gas_buffer_sizes.outputSizeInBytes,
+		&gas_handle, // Output handle to the struct
+		nullptr,     // emitted property list
+		0);         // num emitted properties
+
+
+	if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsUnmapResources(1, &vertices_link.cudaHandle, optixmgr->stream[0])))
 		return 6;
 
-	if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::compileProgram(program)))
-		return 7;
+	// We can now free scratch space used during the build
+	cuda::CCUDAHandler::cuda.pcuMemFree_v2(d_temp_buffer_gas);
+
+	// Default options for our module.
+	OptixModuleCompileOptions module_compile_options = {};
+
+	// Pipeline options must be consistent for all modules used in a
+	// single pipeline
+	OptixPipelineCompileOptions pipeline_compile_options = {};
+	pipeline_compile_options.usesMotionBlur = false;
+
+	// This option is important to ensure we compile code which is optimal
+	// for our scene hierarchy. We use a single GAS – no instancing or
+	// multi-level hierarchies
+	pipeline_compile_options.traversableGraphFlags =
+		OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_GAS;
+
+	// Our device code uses 3 payload registers (r,g,b output value)
+	pipeline_compile_options.numPayloadValues = 3;
+
+	// This is the name of the param struct variable in our device code
+	pipeline_compile_options.pipelineLaunchParamsVariableName = "params";
 
 	std::string log;
-	cuda::CCUDAHandler::getProgramLog(program,log);
-	printf("NVRTC Compile Log:\n%s\n", log.c_str());
-
 	std::string ptx;
-	if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::getPTX(program,ptx)))
-		return 8;
-
-	cuda::CCUDAHandler::nvrtc.pnvrtcDestroyProgram(&program);
-
-	CUmodule module;
-	if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuModuleLoadDataEx(&module,ptx.c_str(),0u,nullptr,nullptr)))
-		return 9;
-	
-	CUfunction kernel;
-	if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuModuleGetFunction(&kernel, module, "vectorAdd")))
-		return 10;
-
-
-
-	constexpr uint32_t gridDim[3] = { 4096,1,1 };
-	constexpr uint32_t blockDim[3] = { 1024,1,1 };
-	int numElements = gridDim[0]*blockDim[0];
-	auto _size = sizeof(float)*numElements;
-
-	video::IVideoDriver* driver = device->getVideoDriver();
-
-
-	core::smart_refctd_ptr<asset::ICPUBuffer> cpubuffers[2] = {	core::make_smart_refctd_ptr<asset::ICPUBuffer>(_size),
-																core::make_smart_refctd_ptr<asset::ICPUBuffer>(_size)};
-	for (auto j=0; j<2; j++)
-	for (auto i=0; i<numElements; i++)
-		reinterpret_cast<float*>(cpubuffers[j]->getPointer())[i] = rand();
-
 	{
-		cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> A,B,C;
-		A.obj = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createFilledDeviceLocalGPUBufferOnDedMem(_size,cpubuffers[0]->getPointer()),core::dont_grab);
-		B.obj = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createFilledDeviceLocalGPUBufferOnDedMem(_size,cpubuffers[1]->getPointer()),core::dont_grab);
-		C.obj = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createDeviceLocalGPUBufferOnDedMem(_size),core::dont_grab);
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&A,CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
-			return 11;
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&B,CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
-			return 11;
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&C,CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD)))
-			return 12;
-
-		CUgraphicsResource resources[] = {A.cudaHandle,B.cudaHandle,C.cudaHandle};
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsMapResources(sizeof(resources)/sizeof(CUgraphicsResource), resources, stream[0])))
-			return 14;
-
-		CUdeviceptr buffers[3];
-		for (auto i=0; i<3; i++)
-		{
-			size_t tmp = _size;
-			bool ok = cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsResourceGetMappedPointer_v2(buffers+i,&tmp,resources[i]));
-			assert(ok);
-		}
-
-		void* parameters[] = {buffers+0,buffers+1,buffers+2,&numElements};
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuLaunchKernel(kernel,gridDim[0],gridDim[1],gridDim[2],
-																									blockDim[0],blockDim[1],blockDim[2],
-																									0,stream[0],parameters,nullptr)))
-			return 15;
-
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsUnmapResources(sizeof(resources)/sizeof(CUgraphicsResource), resources, stream[0])))
-			return 16;
-
-		float* C_host = new float[numElements];
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuMemcpyDtoHAsync_v2(C_host,buffers[2],_size,stream[0])))
-			return 17;
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuCtxSynchronize()))
-			return 18;
-
-		// check
-		for (auto i = 0; i < numElements; i++)
-			assert(abs(C_host[i] - reinterpret_cast<float*>(cpubuffers[0]->getPointer())[i] - reinterpret_cast<float*>(cpubuffers[1]->getPointer())[i]) < 0.01f);
-
-		delete[] C_host;
+		auto file = device->getFileSystem()->createAndOpenFile("../optixTriangle.cu");
+		bool ok = cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::compileDirectlyToPTX<io::IReadFile*>(ptx, file, nullptr, nullptr, {"--std=c++14",cuda::CCUDAHandler::getCommonVirtualCUDAArchitecture(),"-dc","-use_fast_math","-ewp"}, &log));
+		printf("NVRTC LOG:\n%s\n", log.c_str());
+		if (!ok)
+			return 7;
+		file->drop();
 	}
 
+	OptixModule module = nullptr; // The output module
+	size_t sizeof_log = 1024u * 256u;
+	log.resize(sizeof_log);
+	optixModuleCreateFromPTX(
+		optixmgr->optixContext[0],         // The device context we are using
+		&module_compile_options,
+		&pipeline_compile_options,
+		ptx.c_str(),
+		ptx.size(),
+		log.data(),
+		&sizeof_log,
+		&module);
 
-	if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuModuleUnload(module)))
-		return 19;
-	
-	for (uint32_t i=0u; i<contextCount; i++)
-	{
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuCtxPushCurrent_v2(context[i])))
-			continue;
-		cuda::CCUDAHandler::cuda.pcuCtxSynchronize();
-
-		cuda::CCUDAHandler::cuda.pcuStreamDestroy_v2(stream[i]);
-		if (ownContext[i])
-			cuda::CCUDAHandler::cuda.pcuCtxDestroy_v2(context[i]);
-	}
+	// release all resources
+	/// optixAccelDestroy?
+	cuda::CCUDAHandler::cuda.pcuMemFree_v2(reinterpret_cast<void*>(d_gas_output_buffer));
 
 	device->drop();
 

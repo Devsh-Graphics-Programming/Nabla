@@ -289,7 +289,7 @@ class Manager final : public core::IReferenceCounted
 		//
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxSLI = 4u;
 
-	protected:
+	//protected:
 		Manager(video::IVideoDriver* _driver, uint32_t _contextCount, CUcontext* _context, bool* _ownContext=nullptr);
 		~Manager();
 		/*

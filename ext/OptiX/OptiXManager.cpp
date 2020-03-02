@@ -78,7 +78,7 @@ Manager::Manager(video::IVideoDriver* _driver, uint32_t _contextCount, CUcontext
 		}
 
 		OptixDeviceContextOptions options = {};
-		optixDeviceContextCreate(context[i], &options, optixContext);
+		optixDeviceContextCreate(context[i], &options, optixContext+i);
 	}
 
 	//auto* glDriver = static_cast<COpenGLDriver*>(driver);

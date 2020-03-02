@@ -11,6 +11,6 @@ set(CUDA_INTEROP_EXAMPLE_INCLUDE_DIRS
 irr_create_executable_project(
 	""
 	""
-	""
 	"${CUDA_INTEROP_EXAMPLE_INCLUDE_DIRS}"
+	""
 )

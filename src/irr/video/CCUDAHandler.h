@@ -855,6 +855,28 @@ class CCUDAHandler
 			ptx.resize(_size);
 			return nvrtc.pnvrtcGetPTX(prog,ptx.data());
 		}
+
+		template<typename HeaderFileIt>
+		static nvrtcResult compileDirectlyToPTX(std::string& ptx, irr::io::IReadFile* main,
+												const HeaderFileIt includesBegin, const HeaderFileIt includesEnd,
+												const std::vector<const char*>& options={"--std=c++14",virtualCUDAArchitecture,"-dc","-use_fast_math"},
+												std::string* log=nullptr)
+		{
+			nvrtcProgram program = nullptr;
+			nvrtcResult result = cuda::CCUDAHandler::createProgram<io::IReadFile*>(&program, main, includesBegin, includesEnd);
+			if (result!=NVRTC_SUCCESS)
+				return result;
+
+			core::makeRAIIExiter([&program]() -> void {cuda::CCUDAHandler::nvrtc.pnvrtcDestroyProgram(&program)});
+			nvrtcResult result = cuda::CCUDAHandler::compileProgram(program);
+			if (result!=NVRTC_SUCCESS)
+				return result;
+
+			if (log)
+				cuda::CCUDAHandler::getProgramLog(program,*log);
+
+			return cuda::CCUDAHandler::getPTX(program, ptx);
+		}
 };
 
 }
