@@ -37,6 +37,8 @@ include(common)
 #[[ Loaders and writers compile options available to edit by user
 	All revelant _IRR_COMPILE_WITH will be there]]
 option(_IRR_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" ON)
+option(_IRR_COMPILE_WITH_MITSUBA_SERIALIZED_LOADER_ "Compile with Mitsuba Serialized Loader" ON)
+#option(_IRR_COMPILE_WITH_MITSUBA_SERIALIZED_WRITER_ "Compile with Mitsuba Serialized Writer" ON) uncomment when writer exists
 option(_IRR_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" ON)
 #option(_IRR_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON) uncomment when writer exists
 option(_IRR_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" ON)
@@ -94,6 +96,7 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ROOT_PATH}/src/irr/asset/format/convertColor.cpp
 
 # Mesh loaders
+	${IRR_ROOT_PATH}/ext/MitsubaLoader/CSerializedLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshFileLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/COBJMeshFileLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshFileLoader.cpp

@@ -28,6 +28,11 @@ enum MESH_FLAGS
 	MF_DOUBLE_FLOAT			= 0x2000u
 };
 
+constexpr auto POSITION_ATTRIBUTE = 0;
+constexpr auto COLOR_ATTRIBUTE = 1;
+constexpr auto UV_ATTRIBUTE = 2;
+constexpr auto NORMAL_ATTRIBUTE = 3;
+
 // maybe move to core
 #define PAGE_SIZE 4096
 struct alignas(PAGE_SIZE) Page_t
@@ -35,7 +40,6 @@ struct alignas(PAGE_SIZE) Page_t
 	uint8_t data[PAGE_SIZE];
 };
 #undef PAGE_SIZE
-
 
 //! creates/loads an animated mesh from the file.
 asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
@@ -199,9 +203,57 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 				outPtr[j*vertexAttributeCount+attrOffset+k] = *(inPtr++);
 		};
 
-		auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
+		auto meshBuffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+		meshBuffer->setPositionAttributeIx(POSITION_ATTRIBUTE);
+
+		/*
+			TODO after merging CPLY Pull Request (required default Assets):
+
+			pipeline layout,
+			metadata,
+			shaders
+		*/
+
+		ICPUSpecializedShader* vertexShader = nullptr;
+		ICPUSpecializedShader* fragmentShader = nullptr;
+		auto mbPipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(); 
+
+		constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
+		core::smart_refctd_dynamic_array<asset::IPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
+		{
+			asset::ICPUDescriptorSetLayout* ds1layout = mbPipelineLayout->getDescriptorSetLayout(1u);
+
+			constexpr asset::IPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT]{ asset::IPipelineMetadata::ECSI_WORLD_VIEW_PROJ, asset::IPipelineMetadata::ECSI_WORLD_VIEW, asset::IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE };
+			constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT]{ sizeof(asset::SBasicViewParameters::MVP), sizeof(asset::SBasicViewParameters::MV), sizeof(asset::SBasicViewParameters::NormalMat) };
+			constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT]{ offsetof(asset::SBasicViewParameters,MVP), offsetof(asset::SBasicViewParameters,MV), offsetof(asset::SBasicViewParameters,NormalMat) };
+			for (uint32_t i = 0u; i < DS1_METADATA_ENTRY_CNT; ++i)
+			{
+				auto& semantic = (shaderInputsMetadata->end() - i - 1u)[0];
+				semantic.type = types[i];
+				semantic.descriptorSection.type = asset::IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
+				semantic.descriptorSection.uniformBufferObject.binding = ds1layout->getBindings().begin()[0].binding;
+				semantic.descriptorSection.uniformBufferObject.set = 1u;
+				semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
+				semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
+				semantic.descriptorSection.shaderAccessFlags = asset::ICPUSpecializedShader::ESS_VERTEX;
+			}
+		}
+
+		asset::SBlendParams blendParams;
+		asset::SRasterizationParams rastarizationParams;
+		asset::SPrimitiveAssemblyParams primitiveAssemblyParams;
+		asset::SVertexInputParams inputParams;
+
+		primitiveAssemblyParams.primitiveType = asset::EPT_TRIANGLE_LIST;
+		inputParams.bindings[0].inputRate = asset::EVIR_PER_VERTEX;
+		inputParams.bindings[0].stride = vertexSize;
+
+		auto mbPipeline = core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, inputParams, blendParams, primitiveAssemblyParams, rastarizationParams);
+		mbPipeline->setShaderAtStage(asset::ISpecializedShader::E_SHADER_STAGE::ESS_VERTEX, vertexShader);
+		mbPipeline->setShaderAtStage(asset::ISpecializedShader::E_SHADER_STAGE::ESS_FRAGMENT, fragmentShader);
+
 		size_t attrOffset = 0ull;
-		auto readAttributeDispatch = [&](asset::E_VERTEX_ATTRIBUTE_ID attrId, size_t attrCount, bool read = true) -> void
+		auto readAttributeDispatch = [&](auto attrId, size_t attrCount, bool read = true) -> void
 		{
 			asset::E_FORMAT format = asset::EF_UNKNOWN;
 			switch (attrCount)
@@ -216,7 +268,12 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 					assert(false);
 					break;
 			}
-			desc->setVertexAttrBuffer(core::smart_refctd_ptr(buf), attrId, format, vertexSize, attrOffset*typeSize);
+
+			inputParams.attributes[attrId].binding = 0;
+			inputParams.attributes[attrId].format = format;
+			inputParams.attributes[attrId].relativeOffset = attrOffset * typeSize;
+			meshBuffer->setVertexBufferBinding({ 0, buf }, 0);
+	
 			if (read)
 			{
 				if (flags & MF_SINGLE_FLOAT)
@@ -227,24 +284,19 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 			attrOffset += attrCount;
 		};
 
-		// pos
-		readAttributeDispatch(asset::EVAI_ATTR0, 3ull);
-		// normal
+		readAttributeDispatch(POSITION_ATTRIBUTE, 3ull);
 		if ((flags & MF_PER_VERTEX_NORMALS) || (flags & MF_FACE_NORMALS))
-			readAttributeDispatch(asset::EVAI_ATTR3, 3ull, flags&MF_PER_VERTEX_NORMALS); // TODO: normal quantization and optimization
+			readAttributeDispatch(NORMAL_ATTRIBUTE, 3ull, flags&MF_PER_VERTEX_NORMALS); // TODO: normal quantization and optimization
 		if (flags & MF_TEXTURE_COORDINATES) // TODO: UV quantization and optimization
-			readAttributeDispatch(asset::EVAI_ATTR2, 2ull);
+			readAttributeDispatch(UV_ATTRIBUTE, 2ull);
 		if (flags & MF_VERTEX_COLORS) // TODO: quantize to 32bit format like RGB9E5
-			readAttributeDispatch(asset::EVAI_ATTR1, 3ull);
+			readAttributeDispatch(COLOR_ATTRIBUTE, 3ull);
 
-		// create mesh buffer
-		desc->setIndexBuffer(std::move(buf));
-		auto mb = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
-		mb->setMeshDataAndFormat(std::move(desc));
-		mb->setIndexBufferOffset(vertexDataSize);
-        mb->setIndexCount(triangleCount*3u);
-        mb->setIndexType(asset::EIT_32BIT);
-        mb->setPrimitiveType(asset::EPT_TRIANGLES);
+		meshBuffer->setIndexBufferBinding({ 0, std::move(buf) });
+
+		meshBuffer->setIndexCount(triangleCount * 3u);
+		meshBuffer->setIndexType(asset::EIT_32BIT);
+		//mb->setIndexBufferOffset(vertexDataSize); // need to do this for buf kindly, but sure what about it since it is placed in vertex buffer as far as I see it
 
 		// read indices and possibly create per-face normals
 		auto readIndices = [&]() -> bool
@@ -265,24 +317,25 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 				{
 					core::vectorSIMDf pos[3];
 					for (uint64_t k=0ull; k<3ull; k++)
-						pos[k] = mb->getPosition(triangleIndices[k]);
+						pos[k] = meshBuffer->getPosition(triangleIndices[k]);
 					auto normal = core::cross(pos[1]-pos[0],pos[2]-pos[0]);
 					for (uint64_t k=0ull; k<3ull; k++)
-						mb->setAttribute(normal,asset::EVAI_ATTR3,k);
+						meshBuffer->setAttribute(normal,NORMAL_ATTRIBUTE,k);
 				}
 			}
 			return true;
 		};
 		if (!readIndices())
 			continue;
-		mb->recalculateBoundingBox();
+		meshBuffer->recalculateBoundingBox();
 
-		// create mesh
 		auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
-		mesh->addMeshBuffer(std::move(mb));
+		mesh->addMeshBuffer(std::move(meshBuffer));
 		mesh->recalculateBoundingBox();
 
-		manager->setAssetMetadata(mesh.get(), core::make_smart_refctd_ptr<CSerializedMetadata>(std::string(stringPtr,stringLen),i) );
+		manager->setAssetMetadata(mesh.get(), core::make_smart_refctd_ptr<CSerializedMetadata>(std::string(stringPtr,stringLen),i));
+		manager->setAssetMetadata(mbPipeline.get(), core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaSerializedPipelineMetadata>(1, std::move(shaderInputsMetadata)));
+
 		meshes.push_back(std::move(mesh));
 	}
 	_IRR_ALIGNED_FREE(data);
