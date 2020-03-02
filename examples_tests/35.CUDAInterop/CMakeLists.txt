@@ -4,12 +4,7 @@ if(NOT RES)
 	message(FATAL_ERROR "common.cmake not found. Should be in {repo_root}/cmake directory")
 endif()
 
-set(OPTIX_TRIANGLE_EXAMPLE_LIBS
-	${IRR_EXT_OPTIX_LIB}
-	${OPTIX_DEPENDENT_LIBS}
-)
-
-set(OPTIX_TRIANGLE_EXAMPLE_INCLUDE_DIRS
+set(CUDA_INTEROP_EXAMPLE_INCLUDE_DIRS
 	${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
 )
 
@@ -17,5 +12,5 @@ irr_create_executable_project(
 	""
 	""
 	""
-	"${OPTIX_TRIANGLE_EXAMPLE_INCLUDE_DIRS}"
+	"${CUDA_INTEROP_EXAMPLE_INCLUDE_DIRS}"
 )
