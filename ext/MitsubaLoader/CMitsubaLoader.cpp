@@ -137,7 +137,7 @@ static bsdf::SBSDFUnion bsdfNode2bsdfStruct(const CElementBSDF* _node)
 		break;
 	case CElementBSDF::Type::BLEND_BSDF:
 		bitfields |= static_cast<uint32_t>(_node->blendbsdf.weight.value.type==SPropertyElementData::INVALID)<<bsdf::BITFIELDS_SHIFT_WEIGHT_TEX;
-		reinterpret_cast<float&>(retval.blend.weight[0]) = _node->blendbsdf.weight.value.fvalue;
+		retval.blend.weight = rgb32f_to_rgb19e7(reinterpret_cast<uint32_t*>(core::vectorSIMDf(_node->blendbsdf.weight.value.fvalue).pointer));
 		break;
 	case CElementBSDF::Type::MASK:
 		bitfields |= static_cast<uint32_t>(_node->mask.opacity.value.type==SPropertyElementData::INVALID)<<bsdf::BITFIELDS_SHIFT_OPACITY_TEX;
@@ -857,6 +857,209 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 	}
 	ctx.textureCache.insert({tex,layer});
 	return std::move(layer);
+}
+
+static bsdf::E_OPCODE BSDFtype2opcode(const CElementBSDF* bsdf)
+{
+	switch (bsdf->type)
+	{
+	case CElementBSDF::Type::DIFFUSE:
+		_IRR_FALLTHROUGH;
+	case CElementBSDF::Type::ROUGHDIFFUSE:
+		return bsdf::OP_DIFFUSE;
+	case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
+		return bsdf::OP_DIFFTRANS;
+	case CElementBSDF::Type::DIELECTRIC:
+		_IRR_FALLTHROUGH;
+	case CElementBSDF::Type::THINDIELECTRIC:
+		_IRR_FALLTHROUGH;
+	case CElementBSDF::Type::ROUGHDIELECTRIC:
+		return bsdf::OP_DIELECTRIC;
+	case CElementBSDF::Type::CONDUCTOR:
+		_IRR_FALLTHROUGH;
+	case CElementBSDF::Type::ROUGHCONDUCTOR:
+		return bsdf::OP_CONDUCTOR;
+	case CElementBSDF::Type::PLASTIC:
+		_IRR_FALLTHROUGH;
+	case CElementBSDF::Type::ROUGHPLASTIC:
+		return bsdf::OP_PLASTIC;
+	case CElementBSDF::Type::COATING:
+		_IRR_FALLTHROUGH;
+	case CElementBSDF::Type::ROUGHCOATING:
+		return bsdf::OP_COATING;
+	case CElementBSDF::Type::BUMPMAP:
+		return bsdf::OP_BUMPMAP;
+	case CElementBSDF::Type::WARD:
+		return bsdf::OP_WARD;
+	case CElementBSDF::Type::BLEND_BSDF:
+	case CElementBSDF::Type::MIXTURE_BSDF:
+	case CElementBSDF::Type::MASK:
+		return bsdf::OP_BLEND;
+	case CElementBSDF::Type::TWO_SIDED:
+		return BSDFtype2opcode(bsdf->twosided.bsdf[0]);
+	default:
+		return bsdf::OP_INVALID;
+	}
+}
+
+void CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf)
+{
+	struct stack_el {
+		const CElementBSDF* bsdf;
+		uint32_t instr_1st_dword;
+		bool visited;
+	};
+	core::stack<stack_el> stack;
+	auto push = [&](const CElementBSDF* _bsdf, uint32_t _parent1stDword) {
+		auto writeInheritableFlags = [](uint32_t& dst, uint32_t parent) {
+			dst |= (parent & (bsdf::BITFIELDS_MASK_TWOSIDED << bsdf::BITFIELDS_SHIFT_TWOSIDED));
+			dst |= (parent & (bsdf::INSTR_BUMPMAP_REG_MASK << bsdf::INSTR_BUMPMAP_REG_SHIFT));
+		};
+		uint32_t _1stdword = BSDFtype2opcode(_bsdf);
+		_1stdword |= (_parent1stDword & (bsdf::BITFIELDS_MASK_TWOSIDED << bsdf::BITFIELDS_SHIFT_TWOSIDED));
+		switch (_bsdf->type)
+		{
+		case CElementBSDF::Type::DIFFUSE:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::ROUGHDIFFUSE:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::DIELECTRIC:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::THINDIELECTRIC:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::ROUGHDIELECTRIC:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::CONDUCTOR:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::ROUGHCONDUCTOR:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::PLASTIC:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::ROUGHPLASTIC:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::WARD:
+			stack.push({_bsdf,_1stdword,false}); break;
+		case CElementBSDF::Type::COATING:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::ROUGHCOATING:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::BUMPMAP:
+			stack.push({_bsdf,_1stdword,false});
+			_1stdword = BSDFtype2opcode(_bsdf->coating.bsdf[0]);
+			writeInheritableFlags(_1stdword, _parent1stDword);
+			//bumpmap register left with val=0b00
+			stack.push({_bsdf->coating.bsdf[0],_1stdword,false});
+			break;
+		case CElementBSDF::Type::BLEND_BSDF:
+			stack.push({ _bsdf,_1stdword });
+			_1stdword = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[1]);
+			writeInheritableFlags(_1stdword, _parent1stDword);
+			stack.push({ _bsdf->coating.bsdf[1],_1stdword,false });
+			_1stdword = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[0]);
+			writeInheritableFlags(_1stdword, _parent1stDword);
+			stack.push({ _bsdf->coating.bsdf[0],_1stdword,false });
+			break;
+		case CElementBSDF::Type::MIXTURE_BSDF:
+			//TODO !! conversion mixture -> blend[s]
+			break;
+		case CElementBSDF::Type::MASK:
+			stack.push({_bsdf,_1stdword,false});
+			_1stdword = BSDFtype2opcode(_bsdf->mask.bsdf[0]);
+			writeInheritableFlags(_1stdword, _parent1stDword);
+			stack.push({_bsdf->mask.bsdf[0],_1stdword,false});
+			stack.push({nullptr,bsdf::OP_TRANSPARENT,false});
+			break;
+		}
+	};
+	auto emitInstr = [](uint32_t _1stdword, const CElementBSDF* _node) -> bsdf::instr_t {
+		switch (_1stdword & bsdf::INSTR_OPCODE_MASK)
+		{
+		case bsdf::OP_DIFFUSE:
+			_1stdword |= static_cast<uint32_t>(_node->diffuse.reflectance.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_REFL_TEX;
+			_1stdword |= static_cast<uint32_t>(_node->diffuse.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_MASK_ALPHA_U_TEX;
+			break;
+		case bsdf::OP_DIELECTRIC:
+			_1stdword |= _node->dielectric.distribution << bsdf::BITFIELDS_SHIFT_NDF;
+			_1stdword |= static_cast<uint32_t>(_node->dielectric.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
+			if (_node->dielectric.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+				_1stdword |= static_cast<uint32_t>(_node->dielectric.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
+			//TODO int_ext_ior
+			break;
+		case bsdf::OP_CONDUCTOR:
+			_1stdword |= _node->conductor.distribution << bsdf::BITFIELDS_SHIFT_NDF;
+			_1stdword |= static_cast<uint32_t>(_node->conductor.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
+			if (_node->conductor.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+				_1stdword |= static_cast<uint32_t>(_node->conductor.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
+			break;
+		case bsdf::OP_PLASTIC:
+			_1stdword |= _node->plastic.distribution << bsdf::BITFIELDS_SHIFT_NDF;
+			_1stdword |= static_cast<uint32_t>(_node->plastic.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
+			if (_node->plastic.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+				_1stdword |= static_cast<uint32_t>(_node->plastic.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
+			_1stdword |= static_cast<uint32_t>(_node->plastic.nonlinear) << bsdf::BITFIELDS_SHIFT_NONLINEAR;
+			break;
+		case bsdf::OP_COATING:
+			_1stdword |= _node->coating.distribution << bsdf::BITFIELDS_SHIFT_NDF;
+			_1stdword |= static_cast<uint32_t>(_node->coating.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
+			if (_node->coating.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+				_1stdword |= static_cast<uint32_t>(_node->coating.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
+			_1stdword |= static_cast<uint32_t>(_node->coating.sigmaA.value.type == SPropertyElementData::INVALID) >> bsdf::BITFIELDS_SHIFT_SIGMA_A_TEX;
+			break;
+		case bsdf::OP_WARD:
+			_1stdword |= _node->ward.variant << bsdf::BITFIELDS_SHIFT_WARD_VARIANT;
+			_1stdword |= static_cast<uint32_t>(_node->ward.alphaU.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
+			_1stdword |= static_cast<uint32_t>(_node->ward.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
+			break;
+		case bsdf::OP_BLEND:
+			switch (_node->type)
+			{
+			case CElementBSDF::Type::BLEND_BSDF:
+				_1stdword |= static_cast<uint32_t>(_node->blendbsdf.weight.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_WEIGHT_TEX;
+				break;
+			case CElementBSDF::Type::MASK:
+				_1stdword |= static_cast<uint32_t>(_node->mask.opacity.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_WEIGHT_TEX;
+				break;
+			case CElementBSDF::Type::MIXTURE_BSDF:
+				//always constant (not texture)
+				break;
+			default: break; //do not let warnings rise
+			}
+			break;
+		case bsdf::OP_DIFFTRANS:
+			_1stdword |= static_cast<uint32_t>(_node->difftrans.transmittance.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_SPEC_TRANS_TEX;
+			break;
+		default: break; //any other ones dont need any extra flags
+		}
+
+		bsdf::instr_t instr = _1stdword;
+		//TODO register encoding (2nd dword)
+		return instr;
+	};
+	push(bsdf, 0u);
+	while (!stack.empty())
+	{
+		auto& top = stack.top();
+		if ((top.instr_1st_dword & bsdf::INSTR_OPCODE_MASK) <= bsdf::OP_INVALID || top.visited)
+		{
+			ctx.instrBuffer.push_back(emitInstr(top.instr_1st_dword, top.bsdf));
+			//TODO gen struct and insert into BSDF buf
+			stack.pop();
+		}
+		else if (!top.visited)
+		{
+			top.visited = true;
+			switch (top.instr_1st_dword & bsdf::INSTR_OPCODE_MASK)
+			{
+			case bsdf::OP_BLEND:
+				push(top.bsdf->blendbsdf.bsdf[1], top.instr_1st_dword);
+			default:
+				push(top.bsdf->blendbsdf.bsdf[0], top.instr_1st_dword);
+				break;
+			}
+		}
+	}
 }
 
 

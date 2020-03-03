@@ -18,70 +18,95 @@ namespace MitsubaLoader
 
 namespace bsdf
 {
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_TYPE = 0x1fu;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_TYPE = 0u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_STACK_IX = 0x1fu;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_STACK_IX = 5u;
+	using instr_t = uint64_t;
+
+	enum E_OPCODE : uint8_t
+	{
+		OP_DIFFUSE,
+		OP_DIFFTRANS,
+		OP_DIELECTRIC,
+		OP_CONDUCTOR,
+		OP_PLASTIC,
+		OP_TRANSPARENT,
+		OP_WARD,
+		OP_INVALID,
+		//all below are meta (have children)
+		OP_COATING,
+		OP_BLEND,
+		OP_BUMPMAP,
+	};
+
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_OPCODE_WIDTH = 4u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_OPCODE_MASK = 0xfu;
+
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BITFIELDS_SHIFT = INSTR_OPCODE_WIDTH;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BITFIELDS_WIDTH = 6u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_REFL_TEX = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_REFL_TEX = 10u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_REFL_TEX = INSTR_OPCODE_WIDTH + 0u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_ALPHA_U_TEX = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_ALPHA_U_TEX = 11u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_ALPHA_U_TEX = INSTR_OPCODE_WIDTH + 2u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_ALPHA_V_TEX = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_ALPHA_V_TEX = 12u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_ALPHA_V_TEX = INSTR_OPCODE_WIDTH + 3u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_SPEC_TRANS_TEX = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_SPEC_TRANS_TEX = 16u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_COATING_SPEC_TRANS_TEX = 14u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_SPEC_TRANS_TEX = INSTR_OPCODE_WIDTH + 0u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_NDF = 0x3u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_NDF = 13u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_NDF = INSTR_OPCODE_WIDTH + 0u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_WARD_VARIANT = 0x3u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_WARD_VARIANT = 13u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_DIFF_REFL = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_DIFF_REFL = 15u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_WARD_VARIANT = INSTR_OPCODE_WIDTH + 0u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_FAST_APPROX = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_FAST_APPROX = 12u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_FAST_APPROX = INSTR_OPCODE_WIDTH + 1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_NONLINEAR = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_NONLINEAR = 17u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_NONLINEAR = INSTR_OPCODE_WIDTH + 4u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_SIGMA_A_TEX = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_SIGMA_A_TEX = 15u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_SIGMA_A_TEX = INSTR_OPCODE_WIDTH + 4u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_WEIGHT_TEX = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_WEIGHT_TEX = 10u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_OPACITY_TEX = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_OPACITY_TEX = 10u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_PHONG_EXP_TEX = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_PHONG_EXP_TEX = 16u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_WEIGHT_TEX = INSTR_OPCODE_WIDTH + 0u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_TWOSIDED = 0x1u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_TWOSIDED = INSTR_OPCODE_WIDTH + 5u;
+
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BUMPMAP_REG_WIDTH = 2u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BUMPMAP_REG_SHIFT = INSTR_OPCODE_WIDTH + INSTR_BITFIELDS_WIDTH;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BUMPMAP_REG_MASK = 0x03u;
+
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_WIDTH = 20u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_SHIFT = INSTR_OPCODE_WIDTH + INSTR_BITFIELDS_WIDTH + INSTR_BUMPMAP_REG_WIDTH;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_MASK = 0xfffffu;
+
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_WIDTH = 8u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_MASK = 0xffu;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_DST_SHIFT = INSTR_BSDF_BUF_OFFSET_SHIFT + INSTR_BSDF_BUF_OFFSET_WIDTH + INSTR_REG_WIDTH*0u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_DST_SHIFT = INSTR_BSDF_BUF_OFFSET_SHIFT + INSTR_BSDF_BUF_OFFSET_WIDTH + INSTR_REG_WIDTH*1u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_DST_SHIFT = INSTR_BSDF_BUF_OFFSET_SHIFT + INSTR_BSDF_BUF_OFFSET_WIDTH + INSTR_REG_WIDTH*2u;
+
 
 	//padding which make sure struct has sizeof at least min_desired_size but aligned to 4*sizeof(uint32_t)=16
 	//both size and desired_size are meant to be expressed in 4 byte units (i.e. to express size of 8, `size` should be 2)
-	template<size_t size, size_t min_desired_size, size_t diff = (min_desired_size-size)>
+	template<size_t size, size_t min_desired_size>
 	using padding_t = uint32_t[ ((min_desired_size + 3ull) & ~(3ull)) - size ];
 	//in 4 byte units
-	constexpr size_t max_bsdf_struct_size = 10ull;
+	constexpr size_t max_bsdf_struct_size = 8ull;
 
 #include "irr/irrpack.h"
 	struct alignas(16) SAllDiffuse
 	{
-		uint32_t bitfields;
 		//if flag decides to use alpha texture, {alpha[0..1]} is bindless texture ID (bit-cast to uvec2)
 		//otherwise alpha[0] is single-float alpha
 		uint32_t alpha[2];
 		//if flag decides to use reflectance texture, `reflectance` is bindless texture ID (bit-cast to uvec2)
 		//otherwise `reflectance` is constant reflectance in RGB19E7 format
 		uint64_t reflectance;
-		padding_t<5, max_bsdf_struct_size> padding;
+		padding_t<4, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SDiffuseTransmitter
 	{
-		uint32_t bitfields;
 		//if flag decides to use transmittance texture, `transmittance` is bindless texture ID (bit-cast to uvec2)
 		//otherwise `transmittance` is constant transmittance
 		uint64_t transmittance;
-		padding_t<3, max_bsdf_struct_size> padding;
+		padding_t<2, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SAllDielectric
 	{
-		uint32_t bitfields;
-		//int_ext_ior[0] is internal IoR, int_ext_ior[1] is external IoR
-		uint32_t int_ext_ior[2];
+		float eta;
 		//if NDF is Ashikhmin-Shirley:
 		//	if flag decides to use alpha_u texture, alpha_u[0..1] is bindless texture ID
 		//	otherwise alpha_u[0] is constant single-float alpha_u
@@ -92,44 +117,36 @@ namespace bsdf
 		//	otherwise alpha_u[0] is constant single-float alpha
 		uint32_t alpha_u[2];
 		uint32_t alpha_v[2];
-		padding_t<7, max_bsdf_struct_size> padding;
+		padding_t<5, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SAllConductor
 	{
-		uint32_t bitfields;
-		//actually it's float
-		uint32_t ext_ior;
 		//same as for SAllDielectric::alpha_u,alpha_v
 		uint32_t alpha_u[2];
 		uint32_t alpha_v[2];
-		//ior[0] real part of IoR in RGB19E7 format
-		//ior[4..6] is imaginary part of IoR in RGB19E7 format
-		uint64_t ior[2];
-		padding_t<8, max_bsdf_struct_size> padding;
+		//ior[0] real part of eta in RGB19E7 format
+		//ior[1] is imaginary part of eta in RGB19E7 format
+		uint64_t eta[2];
+		//padding_t<9, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SAllPlastic
 	{
-		uint32_t bitfields;
-		//same as SAllDielectric::int_ext_ior
-		uint32_t int_ext_ior[2];
+		float eta;
 		//same as for SAllDielectric::alpha_u,alpha_v
 		uint32_t alpha_u[2];
 		uint32_t alpha_v[2];
-		padding_t<7, max_bsdf_struct_size> padding;
+		padding_t<5, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SAllCoating
 	{
-		//child index (into BSDF buffer) is stored on 15 highest bits
-		uint32_t bitfields;
-		float thickness;
-		//same as SAllDielectric::int_ext_ior
-		uint32_t int_ext_ior[2];
+		//thickness and eta encoded as 2x float16, thickness on bits 0:15, eta on bits 16:31
+		uint32_t thickness_eta;
 		//same as for SAllDielectric::alpha_u,alpha_v
 		uint32_t alpha_u[2];
 		uint32_t alpha_v[2];
 		//rgb in RGB19E& format or texture id (flag decides)
 		uint64_t sigmaA;
-		//padding_t<10, max_bsdf_struct_size> padding;
+		padding_t<7, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	/*
 	struct alignas(16) SPhong
@@ -146,50 +163,30 @@ namespace bsdf
 	*/
 	struct alignas(16) SWard
 	{
-		uint32_t bitfields;
 		//same as for SAllDielectric::alpha_u,alpha_v
 		uint32_t alpha_u[2];
 		uint32_t alpha_v[2];
-		padding_t<5, max_bsdf_struct_size> padding;
+		padding_t<4, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SBumpMap
 	{
-		uint32_t bitfields;
 		//bindless texture id
 		uint64_t bumpmap;
-		padding_t<3, max_bsdf_struct_size> padding;
+		padding_t<2, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SMixture
 	{
-		//children index (into BSDF buffer) is stored on 15 highest bits
-		uint32_t bitfields;
 		//two weights resulting from translation of mixture into multiple blend BSDFs (encoded as 2x float16)
 		uint32_t weights;
-		padding_t<2, max_bsdf_struct_size> padding;
+		padding_t<1, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SBlend
 	{
-		//children index (into BSDF buffer) is stored on 15 highest bits
-		uint32_t bitfields;
-		//if flag decides to use weight texture, weight[0..1] is bindless texture ID
-		//otherwise weight[0] is constant single-float blend weight
-		uint32_t weight[2];
-		padding_t<3, max_bsdf_struct_size> padding;
-	} PACK_STRUCT;
-	struct alignas(16) SMask
-	{
-		//child index (into BSDF buffer) is stored on 15 highest bits
-		uint32_t bitfields;
-		//if flag decides to use opacity texture, `opacity` is bindless texture ID
-		//otherwise `opacity` is constant per-channel opacity in RGB19E7 format
-		uint64_t opacity;
-		padding_t<3, max_bsdf_struct_size> padding;
-	} PACK_STRUCT;
-	struct alignas(16) STwoSided
-	{
-		//child index (into BSDF buffer) is stored on 15 highest bits
-		uint32_t bitfields;
-		padding_t<1, max_bsdf_struct_size> padding;
+		//per-channel blend factor encoded as RGB19E7 (RGB instead of single-float in order to encode MASK bsdf as BLEND with fully transparent)
+		//if flag decides to use weight texture, `weight` is bindless texture ID
+		//otherwise `weight` is constant RGB19E7 blend weight
+		uint64_t weight;
+		padding_t<2, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 #include "irr/irrunpack.h"
 
@@ -205,8 +202,6 @@ namespace bsdf
 		SWard ward;
 		SMixture mixture;
 		SBlend blend;
-		SMask mask;
-		STwoSided twosided;
 	};
 }
 
@@ -251,6 +246,8 @@ class CMitsubaLoader : public asset::IAssetLoader
 			core::unordered_map<const CElementTexture*, tex_ass_type> textureCache;
 
 			core::vector<bsdf::SBSDFUnion> bsdfBuffer;
+			core::vector<bsdf::instr_t> instrBuffer;
+			uint32_t instrBufOffset;
 		};
 
 		//! Destructor
@@ -264,6 +261,8 @@ class CMitsubaLoader : public asset::IAssetLoader
 		SContext::bsdf_ass_type		getBSDF(SContext& ctx, uint32_t hierarchyLevel, const CElementBSDF* bsdf);
 		
 		SContext::tex_ass_type		getTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture);
+
+		void genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 
 	public:
 		//! Check if the file might be loaded by this class
