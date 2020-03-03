@@ -18,6 +18,21 @@ namespace ext
 namespace MitsubaLoader
 {
 
+template<typename AssetType, IAsset::E_TYPE assetType>
+static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
+{
+	size_t storageSz = 1ull;
+	asset::SAssetBundle bundle;
+	const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
+
+	_assetMgr->findAssets(storageSz, &bundle, _key, types);
+	if (bundle.isEmpty())
+		return nullptr;
+	auto assets = bundle.getContents();
+
+	return core::smart_refctd_ptr_static_cast<AssetType>(assets.first[0]);
+}
+
 enum MESH_FLAGS
 {
 	MF_PER_VERTEX_NORMALS	= 0x0001u,
@@ -206,17 +221,61 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 		auto meshBuffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
 		meshBuffer->setPositionAttributeIx(POSITION_ATTRIBUTE);
 
-		/*
-			TODO after merging CPLY Pull Request (required default Assets):
+		auto makeAvailableAttributesVector = [&]()
+		{
+			core::vector<uint8_t> vec;
+			vec.push_back(POSITION_ATTRIBUTE);
+			if (flags & MF_VERTEX_COLORS)
+				vec.push_back(COLOR_ATTRIBUTE);
+			if (flags & MF_TEXTURE_COORDINATES)
+				vec.push_back(UV_ATTRIBUTE);
+			if (flags & MF_PER_VERTEX_NORMALS)
+				vec.push_back(NORMAL_ATTRIBUTE);
+			return vec;
+		};
 
-			pipeline layout,
-			metadata,
-			shaders
-		*/
+		const auto availableAttributes = makeAvailableAttributesVector();
 
-		ICPUSpecializedShader* vertexShader = nullptr;
-		ICPUSpecializedShader* fragmentShader = nullptr;
-		auto mbPipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(); 
+		auto chooseShaderPath = [&]() -> std::string
+		{
+			constexpr std::array<std::pair<uint8_t, std::string_view>, 3> avaiableOptionsForShaders
+			{
+				std::make_pair(COLOR_ATTRIBUTE, "irr/builtin/materials/debug/vertex_color_debug_shader/specializedshader"),
+				std::make_pair(UV_ATTRIBUTE, "irr/builtin/materials/debug/uv_debug_shader/specializedshader"),
+				std::make_pair(NORMAL_ATTRIBUTE, "irr/builtin/materials/debug/normal_debug_shader/specializedshader")
+			};
+
+			for (auto& it : avaiableOptionsForShaders)
+			{
+				auto found = std::find(availableAttributes.begin(), availableAttributes.end(), it.first);
+				if (found != availableAttributes.end())
+					return it.second.data();
+			}
+
+			return avaiableOptionsForShaders[0].second.data(); // if only positions are present, shaders with debug vertex colors are assumed
+		};
+		
+		auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
+		auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
+		{
+			const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
+			auto bundle = manager->findAssets(chooseShaderPath(), types);
+
+			auto refCountedBundle =
+			{
+				core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(bundle->begin()->getContents().first[0]),
+				core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>((bundle->begin() + 1)->getContents().first[0])
+			};
+
+			for (auto& shader : refCountedBundle)
+			{
+				if (shader->getStage() == ISpecializedShader::ESS_VERTEX)
+					mbVertexShader = std::move(shader);
+				else if (shader->getStage() == ISpecializedShader::ESS_FRAGMENT)
+					mbFragmentShader = std::move(shader);
+			}
+		}
+		auto mbPipelineLayout = getDefaultAsset<ICPUPipelineLayout, asset::IAsset::ET_PIPELINE_LAYOUT>("irr/builtin/materials/lambertian/no_texture/pipelinelayout", manager);
 
 		constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
 		core::smart_refctd_dynamic_array<asset::IPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
@@ -249,8 +308,8 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 		inputParams.bindings[0].stride = vertexSize;
 
 		auto mbPipeline = core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, inputParams, blendParams, primitiveAssemblyParams, rastarizationParams);
-		mbPipeline->setShaderAtStage(asset::ISpecializedShader::E_SHADER_STAGE::ESS_VERTEX, vertexShader);
-		mbPipeline->setShaderAtStage(asset::ISpecializedShader::E_SHADER_STAGE::ESS_FRAGMENT, fragmentShader);
+		mbPipeline->setShaderAtStage(asset::ISpecializedShader::E_SHADER_STAGE::ESS_VERTEX, mbVertexShader.get());
+		mbPipeline->setShaderAtStage(asset::ISpecializedShader::E_SHADER_STAGE::ESS_FRAGMENT, mbFragmentShader.get());
 
 		size_t attrOffset = 0ull;
 		auto readAttributeDispatch = [&](auto attrId, size_t attrCount, bool read = true) -> void
