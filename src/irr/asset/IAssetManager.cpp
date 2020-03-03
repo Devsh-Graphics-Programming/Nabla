@@ -186,49 +186,32 @@ void IAssetManager::insertBuiltinAssets()
 		changeAssetKey(bundle,path);
 		insertAssetIntoCache(bundle);
 	};
+
 	// materials
 	{
-		//
-		auto buildInShader = [&](const char* source, asset::ISpecializedShader::E_SHADER_STAGE type, const char* path) -> void
+		auto buildInShader = [&](const char* source, asset::ISpecializedShader::E_SHADER_STAGE type, std::initializer_list<const char*> paths) -> void
 		{
 			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(core::make_smart_refctd_ptr<asset::ICPUShader>(source),
 																					asset::ISpecializedShader::SInfo({},nullptr,"main",type));
-			addBuiltInToCaches(shader,path);
+            for(auto &path : paths)
+			    addBuiltInToCaches(shader,path);
 		};
 
-        buildInShader(R"===(
-#version 430 core
-layout(location = 0) in vec3 vPos;
-layout(location = 2) in vec2 vTexCoord;
-
-layout(push_constant, row_major) uniform Block {
-	mat4 modelViewProj;
-} PushConstants;
-
-layout(location = 0) out vec2 uv;
-
-#include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
-
-void main()
-{
-    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(PushConstants.modelViewProj)*vec4(vPos,1.0);
-	uv = vTexCoord;
-}
-		)===", asset::ISpecializedShader::ESS_VERTEX, "irr/builtin/materials/lambertian/singletexture/specializedshader");
+        // single texture lambertian shader
 		buildInShader(R"===(
-#version 430 core
+        #version 430 core
 
-layout(set = 0, binding = 0) uniform sampler2D albedo;
+        layout(set = 0, binding = 0) uniform sampler2D albedo;
 
-layout(location = 0) in vec2 uv;
+        layout(location = 0) in vec2 uv;
 
-layout(location = 0) out vec4 pixelColor;
+        layout(location = 0) out vec4 pixelColor;
 
-void main()
-{
-    pixelColor = texture(albedo,uv);
-}
-		)===",asset::ISpecializedShader::ESS_FRAGMENT,"irr/builtin/materials/lambertian/singletexture/specializedshader");
+        void main()
+        {
+            pixelColor = texture(albedo,uv);
+        }
+		)===", asset::ISpecializedShader::ESS_FRAGMENT, { "irr/builtin/materials/lambertian/singletexture/specializedshader" });
 
         // uv debug shader
         buildInShader(R"===(
@@ -251,11 +234,10 @@ void main()
             gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.params.MVP), vPos);
 	        uv = vTexCoord;
         }
-		)===", asset::ISpecializedShader::ESS_VERTEX, "irr/builtin/materials/lambertian/uv_debug_shader/specializedshader");
+		)===", asset::ISpecializedShader::ESS_VERTEX, { "irr/builtin/materials/debug/uv_debug_shader/specializedshader",
+                                                        "irr/builtin/materials/lambertian/singletexture/specializedshader" });
         buildInShader(R"===(
         #version 430 core
-
-        layout(set = 0, binding = 0) uniform sampler2D albedo;
 
         layout(location = 0) in vec2 uv;
 
@@ -263,9 +245,9 @@ void main()
 
         void main()
         {
-            pixelColor = texture(albedo, uv);
+            pixelColor = vec4(uv.x, uv.y, 1.0, 1.0);
         }
-		)===", asset::ISpecializedShader::ESS_FRAGMENT, "irr/builtin/materials/lambertian/uv_debug_shader/specializedshader");
+		)===", asset::ISpecializedShader::ESS_FRAGMENT, { "irr/builtin/materials/debug/uv_debug_shader/specializedshader" });
 
         // vertex color debug shader
         buildInShader(R"===(
@@ -288,20 +270,7 @@ void main()
             gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.params.MVP), vPos);
 	        color = vCol;
         }
-		)===", asset::ISpecializedShader::ESS_VERTEX, "irr/builtin/materials/lambertian/vertex_color_debug_shader/specializedshader");
-
-        buildInShader(R"===(
-        #version 430 core
-
-        layout(location = 0) in vec3 color;
-
-        layout(location = 0) out vec4 pixelColor;
-
-        void main()
-        {
-            pixelColor = vec4(color, 1.0);
-        }
-		)===", asset::ISpecializedShader::ESS_FRAGMENT, "irr/builtin/materials/lambertian/vertex_color_debug_shader/specializedshader");
+		)===", asset::ISpecializedShader::ESS_VERTEX, { "irr/builtin/materials/debug/vertex_color_debug_shader/specializedshader" });
 
         // normal debug shader
         buildInShader(R"===(
@@ -324,7 +293,7 @@ void main()
             gl_Position = gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.params.MVP), vPos);
             color = vNormal*0.5+vec3(0.5);
         }
-        )===", asset::ISpecializedShader::ESS_VERTEX, "irr/builtin/materials/lambertian/normal_debug_shader/specializedshader");
+        )===", asset::ISpecializedShader::ESS_VERTEX, { "irr/builtin/materials/debug/normal_debug_shader/specializedshader" });
 
         buildInShader(R"===(
         #version 430 core
@@ -337,7 +306,8 @@ void main()
         {
             pixelColor = vec4(color,1.0);
         }
-        )===", asset::ISpecializedShader::ESS_FRAGMENT, "irr/builtin/materials/lambertian/normal_debug_shader/specializedshader");
+        )===", asset::ISpecializedShader::ESS_FRAGMENT, { "irr/builtin/materials/debug/normal_debug_shader/specializedshader",
+                                                          "irr/builtin/materials/debug/vertex_color_debug_shader/specializedshader" });
 
 		constexpr uint32_t bindingCount = 1u;
 		asset::ICPUDescriptorSetLayout::SBinding pBindings[bindingCount] = {0u,asset::EDT_COMBINED_IMAGE_SAMPLER,1u,asset::ISpecializedShader::ESS_FRAGMENT,nullptr};
@@ -467,6 +437,10 @@ void main()
         auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
 
         pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, nullptr);
-        addBuiltInToCaches(pipelineLayout, "irr/builtin/materials/lambertian/no_texture/pipelinelayout");
+        auto paths = {"irr/builtin/materials/lambertian/no_texture/pipelinelayout",
+                      "irr/builtin/loaders/PLY/pipelinelayout"};
+
+        for(auto &path : paths)
+            addBuiltInToCaches(pipelineLayout, path);
     }
 }

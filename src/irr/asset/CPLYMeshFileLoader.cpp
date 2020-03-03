@@ -599,9 +599,9 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 	{
 		constexpr std::array<std::pair<uint8_t, std::string_view>, 3> avaiableOptionsForShaders
 		{ 
-			std::make_pair(E_COL, "irr/builtin/materials/lambertian/vertex_color_debug_shader/specializedshader"),
-			std::make_pair(E_UV, "irr/builtin/materials/lambertian/uv_debug_shader/specializedshader"),
-			std::make_pair(E_NORM, "irr/builtin/materials/lambertian/normal_debug_shader/specializedshader")
+			std::make_pair(E_COL, "irr/builtin/materials/debug/vertex_color_debug_shader/specializedshader"),
+			std::make_pair(E_UV, "irr/builtin/materials/debug/uv_debug_shader/specializedshader"),
+			std::make_pair(E_NORM, "irr/builtin/materials/debug/normal_debug_shader/specializedshader")
 		};
 
 		for (auto& it : avaiableOptionsForShaders)
@@ -634,7 +634,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 				mbFragmentShader = std::move(shader);
 		}
 	}
-	auto mbPipelineLayout = getDefaultAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>("irr/builtin/materials/lambertian/no_texture/pipelinelayout", m_assetMgr);
+	auto mbPipelineLayout = getDefaultAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>("irr/builtin/loaders/PLY/pipelinelayout", m_assetMgr);
 
 	constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
 	core::smart_refctd_dynamic_array<IPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
@@ -683,7 +683,6 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 		primitiveAssemblyParams.primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_POINT_LIST;
 
 	SRasterizationParams rastarizationParmas;
-	rastarizationParmas.faceCullingMode = EFCM_NONE;
 
 	auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, inputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
 	{
