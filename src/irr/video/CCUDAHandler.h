@@ -863,19 +863,22 @@ class CCUDAHandler
 												std::string* log=nullptr)
 		{
 			nvrtcProgram program = nullptr;
-			nvrtcResult result = cuda::CCUDAHandler::createProgram<io::IReadFile*>(&program, main, includesBegin, includesEnd);
+			nvrtcResult result = NVRTC_ERROR_PROGRAM_CREATION_FAILURE;
+			auto cleanup = core::makeRAIIExiter([&program,&result]() -> void {
+				if (result!=NVRTC_SUCCESS && program)
+					cuda::CCUDAHandler::nvrtc.pnvrtcDestroyProgram(&program);
+			});
+			result = cuda::CCUDAHandler::createProgram<io::IReadFile*>(&program, main, includesBegin, includesEnd);
 			if (result!=NVRTC_SUCCESS)
 				return result;
 
-			core::makeRAIIExiter([&program]() -> void {cuda::CCUDAHandler::nvrtc.pnvrtcDestroyProgram(&program)});
-			nvrtcResult result = cuda::CCUDAHandler::compileProgram(program);
-			if (result!=NVRTC_SUCCESS)
-				return result;
-
+			result = cuda::CCUDAHandler::compileProgram(program);
 			if (log)
-				cuda::CCUDAHandler::getProgramLog(program,*log);
+				cuda::CCUDAHandler::getProgramLog(program, *log);
+			if (result!=NVRTC_SUCCESS)
+				return result;
 
-			return cuda::CCUDAHandler::getPTX(program, ptx);
+			return result = cuda::CCUDAHandler::getPTX(program, ptx);
 		}
 };
 

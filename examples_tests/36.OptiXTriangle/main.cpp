@@ -38,7 +38,7 @@ int main()
 	auto optixmgr = irr::ext::OptiX::Manager::create(driver);
 	if (!optixmgr)
 		return 2;
-
+#if 0
 	// Specify options for the build. We use default options for simplicity.
 	OptixAccelBuildOptions accel_options = {};
 	accel_options.buildFlags = OPTIX_BUILD_FLAG_NONE;
@@ -112,29 +112,30 @@ int main()
 		nullptr,     // emitted property list
 		0);         // num emitted properties
 
-
 	if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsUnmapResources(1, &vertices_link.cudaHandle, optixmgr->stream[0])))
 		return 6;
 
 	// We can now free scratch space used during the build
 	cuda::CCUDAHandler::cuda.pcuMemFree_v2(d_temp_buffer_gas);
-
-	// Default options for our module.
-	OptixModuleCompileOptions module_compile_options = {};
-
+#endif
 	// Pipeline options must be consistent for all modules used in a
 	// single pipeline
 	OptixPipelineCompileOptions pipeline_compile_options = {};
 	pipeline_compile_options.usesMotionBlur = false;
+	pipeline_compile_options.exceptionFlags = OPTIX_EXCEPTION_FLAG_NONE;  // TODO: should be OPTIX_EXCEPTION_FLAG_STACK_OVERFLOW;
 
 	// This option is important to ensure we compile code which is optimal
 	// for our scene hierarchy. We use a single GAS – no instancing or
 	// multi-level hierarchies
 	pipeline_compile_options.traversableGraphFlags =
-		OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_GAS;
-
+		OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_GAS | OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_LEVEL_INSTANCING;
+	
+	/*
 	// Our device code uses 3 payload registers (r,g,b output value)
 	pipeline_compile_options.numPayloadValues = 3;
+	*/
+	pipeline_compile_options.numPayloadValues = 2;
+	pipeline_compile_options.numAttributeValues = 2;
 
 	// This is the name of the param struct variable in our device code
 	pipeline_compile_options.pipelineLaunchParamsVariableName = "params";
@@ -149,23 +150,108 @@ int main()
 			return 7;
 		file->drop();
 	}
-
-	OptixModule module = nullptr; // The output module
 	size_t sizeof_log = 1024u * 256u;
 	log.resize(sizeof_log);
-	optixModuleCreateFromPTX(
-		optixmgr->optixContext[0],         // The device context we are using
-		&module_compile_options,
-		&pipeline_compile_options,
-		ptx.c_str(),
-		ptx.size(),
-		log.data(),
-		&sizeof_log,
-		&module);
+
+
+	OptixModule module = nullptr; // The output module
+	{
+		// Default options for our module.
+		OptixModuleCompileOptions module_compile_options = {};
+		module_compile_options.maxRegisterCount = OPTIX_COMPILE_DEFAULT_MAX_REGISTER_COUNT;
+		module_compile_options.optLevel = OPTIX_COMPILE_OPTIMIZATION_DEFAULT;
+		module_compile_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_LINEINFO;
+		optixModuleCreateFromPTX(
+			optixmgr->optixContext[0],         // The device context we are using
+			&module_compile_options,
+			&pipeline_compile_options,
+			ptx.c_str(),
+			ptx.size(),
+			log.data(),
+			&sizeof_log,
+			&module);
+	}
+	
+    //
+    // Create program groups, including NULL miss and hitgroups
+    //
+    OptixProgramGroup raygen_prog_group   = nullptr;
+    OptixProgramGroup miss_prog_group     = nullptr;
+    OptixProgramGroup hitgroup_prog_group = nullptr;
+    {
+        OptixProgramGroupOptions program_group_options   = {}; // Initialize to zeros
+
+        OptixProgramGroupDesc raygen_prog_group_desc  = {}; //
+        raygen_prog_group_desc.kind                     = OPTIX_PROGRAM_GROUP_KIND_RAYGEN;
+        raygen_prog_group_desc.raygen.module            = module;
+        raygen_prog_group_desc.raygen.entryFunctionName = "__raygen__draw_solid_color";
+        size_t sizeof_log = sizeof( log );
+        optixProgramGroupCreate(
+                    optixmgr->optixContext[0],
+                    &raygen_prog_group_desc,
+                    1,   // num program groups
+                    &program_group_options,
+                    log.data(),
+                    &sizeof_log,
+                    &raygen_prog_group
+                    );
+
+        // Leave miss group's module and entryfunc name null
+        OptixProgramGroupDesc miss_prog_group_desc = {};
+        miss_prog_group_desc.kind = OPTIX_PROGRAM_GROUP_KIND_MISS;
+        sizeof_log = sizeof( log );
+        optixProgramGroupCreate(
+                    optixmgr->optixContext[0],
+                    &miss_prog_group_desc,
+                    1,   // num program groups
+                    &program_group_options,
+                    log.data(),
+                    &sizeof_log,
+                    &miss_prog_group
+                    );
+
+        // Leave hit group's module and entryfunc name null
+        OptixProgramGroupDesc hitgroup_prog_group_desc = {};
+        hitgroup_prog_group_desc.kind = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
+        sizeof_log = sizeof( log );
+        optixProgramGroupCreate(
+                    optixmgr->optixContext[0],
+                    &hitgroup_prog_group_desc,
+                    1,   // num program groups
+                    &program_group_options,
+                    log.data(),
+                    &sizeof_log,
+                    &hitgroup_prog_group
+                    );
+    }
+
+    //
+    // Link pipeline
+    //
+    OptixPipeline pipeline = nullptr;
+    {
+        OptixProgramGroup program_groups[] = { raygen_prog_group };
+
+        OptixPipelineLinkOptions pipeline_link_options = {};
+        pipeline_link_options.maxTraceDepth          = 5;
+        pipeline_link_options.debugLevel             = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
+        pipeline_link_options.overrideUsesMotionBlur = false;
+        size_t sizeof_log = sizeof( log );
+        optixPipelineCreate(
+                    optixmgr->optixContext[0],
+                    &pipeline_compile_options,
+                    &pipeline_link_options,
+                    program_groups,
+                    sizeof( program_groups ) / sizeof( program_groups[0] ),
+                    log.data(),
+                    &sizeof_log,
+                    &pipeline
+                    );
+    }
 
 	// release all resources
 	/// optixAccelDestroy?
-	cuda::CCUDAHandler::cuda.pcuMemFree_v2(reinterpret_cast<void*>(d_gas_output_buffer));
+	//cuda::CCUDAHandler::cuda.pcuMemFree_v2(d_gas_output_buffer);
 
 	device->drop();
 

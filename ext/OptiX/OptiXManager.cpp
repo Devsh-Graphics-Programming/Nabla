@@ -2,7 +2,7 @@
 
 #include "../../ext/OptiX/OptiXManager.h"
 
-#include "optix_stubs.h"
+#include "optix_function_table_definition.h"
 
 //#include "../source/Irrlicht/COpenGLDriver.h"
 

@@ -6,6 +6,7 @@
 #include "../src/irr/video/CCUDAHandler.h"
 
 #include "optix.h"
+#include "optix_stubs.h"
 
 namespace irr
 {
