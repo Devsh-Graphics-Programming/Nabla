@@ -42,10 +42,10 @@ public:
 
     struct SAssetWriteParams
     {
-        SAssetWriteParams(IAsset* _asset, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr, const E_WRITER_PARAMETER_FLAGS& _writerFlags = EWPF_NONE) :
+        SAssetWriteParams(IAsset* _asset, const E_WRITER_FLAGS& _flags = EWF_NONE, const float& _compressionLevel = 0.f, const size_t& _encryptionKeyLen = 0, const uint8_t* _encryptionKey = nullptr, const void* _userData = nullptr) :
             rootAsset(_asset), flags(_flags), compressionLevel(_compressionLevel),
             encryptionKeyLen(_encryptionKeyLen), encryptionKey(_encryptionKey),
-            userData(_userData), writerFlags(_writerFlags)
+            userData(_userData)
         {
         }
 
@@ -55,7 +55,6 @@ public:
         size_t encryptionKeyLen;
         const uint8_t* encryptionKey;
         const void* userData;
-		const E_WRITER_PARAMETER_FLAGS writerFlags;
     };
 
     //! Struct for keeping the state of the current write operation for safe threading
