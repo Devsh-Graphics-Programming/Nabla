@@ -222,30 +222,28 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _
 
 	bool flipVectors = (!(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED));
 
-    asset::ICPUMeshBuffer* mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
+    auto mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
     for (size_t i = 0u; i < _vtxCount; ++i)
     {
         core::vectorSIMDf f;
         uint32_t ui[4];
         if (_vaidToWrite[0])
         {
-            writeAttribBinary(_file, mbCopy, 0, i, 3u, flipVectors);
+            writeAttribBinary(_file, mbCopy.get(), 0, i, 3u, flipVectors);
         }
         if (_vaidToWrite[1])
         {
-            writeAttribBinary(_file, mbCopy, 1, i, colCpa);
+            writeAttribBinary(_file, mbCopy.get(), 1, i, colCpa);
         }
         if (_vaidToWrite[2])
         {
-            writeAttribBinary(_file, mbCopy, 2, i, 2u);
+            writeAttribBinary(_file, mbCopy.get(), 2, i, 2u);
         }
         if (_vaidToWrite[3])
         {
-            writeAttribBinary(_file, mbCopy, 3, i, 3u, flipVectors);
+            writeAttribBinary(_file, mbCopy.get(), 3, i, 3u, flipVectors);
         }
     }
-    mbCopy->drop();
-    mbCopy = nullptr;
 
     const uint8_t listSize = 3u;
     void* indices = _indices;
@@ -290,7 +288,7 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _
 
 void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], const SAssetWriteParams& _params) const
 {
-    asset::ICPUMeshBuffer* mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
+    auto mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
 
     auto writefunc = [&_file,&mbCopy, &_params, this](uint32_t _vaid, size_t _ix, size_t _cpa)
     {
@@ -432,12 +430,9 @@ void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuf
     }
 }
 
-asset::ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrueInt(const asset::ICPUMeshBuffer* _mbuf)
+core::smart_refctd_ptr<asset::ICPUMeshBuffer> CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrueInt(const asset::ICPUMeshBuffer* _mbuf)
 {
-    auto clone = _mbuf->clone();
-    clone->grab();
-
-    auto mbCopy = reinterpret_cast<asset::ICPUMeshBuffer*>(clone.get());
+    auto mbCopy = core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(_mbuf->clone(2));
 
     for (size_t i = 0; i < 16; ++i)
     {
