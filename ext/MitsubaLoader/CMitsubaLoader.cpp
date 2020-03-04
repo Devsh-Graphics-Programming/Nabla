@@ -913,7 +913,7 @@ void CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 	auto push = [&](const CElementBSDF* _bsdf, uint32_t _parent1stDword) {
 		auto writeInheritableFlags = [](uint32_t& dst, uint32_t parent) {
 			dst |= (parent & (bsdf::BITFIELDS_MASK_TWOSIDED << bsdf::BITFIELDS_SHIFT_TWOSIDED));
-			dst |= (parent & (bsdf::INSTR_BUMPMAP_REG_MASK << bsdf::INSTR_BUMPMAP_REG_SHIFT));
+			dst |= (parent & (bsdf::INSTR_NORMAL_REG_MASK << bsdf::INSTR_NORMAL_REG_SHIFT));
 		};
 		uint32_t _1stdword = BSDFtype2opcode(_bsdf);
 		_1stdword |= (_parent1stDword & (bsdf::BITFIELDS_MASK_TWOSIDED << bsdf::BITFIELDS_SHIFT_TWOSIDED));
