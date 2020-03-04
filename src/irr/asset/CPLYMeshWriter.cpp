@@ -244,8 +244,6 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _
             writeAttribBinary(_file, mbCopy.get(), 3, i, 3u, flipVectors);
         }
     }
-    mbCopy->drop();
-    mbCopy = nullptr;
 
     const uint8_t listSize = 3u;
     void* indices = _indices;

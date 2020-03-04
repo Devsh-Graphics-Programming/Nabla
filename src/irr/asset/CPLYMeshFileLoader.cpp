@@ -668,7 +668,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 	SVertexInputParams inputParams;
 	for (auto& attrib : availableAttributes)
 	{
-		const auto currentBitmask = core::getBitmask({ attrib });
+		const auto currentBitmask = core::createBitmask({ attrib });
 		inputParams.enabledBindingFlags |= currentBitmask;
 		inputParams.enabledAttribFlags |= currentBitmask;
 		inputParams.bindings[attrib] = { 16, EVIR_PER_VERTEX };
