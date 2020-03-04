@@ -42,7 +42,7 @@ namespace asset
         void writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, uint32_t _vaid, size_t _ix, size_t _cpa, bool flipAttribute = false) const;
 
         //! Creates new mesh buffer with the same attribute buffers mapped but with normalized types changed to corresponding true integer types.
-        static asset::ICPUMeshBuffer* createCopyMBuffNormalizedReplacedWithTrueInt(const asset::ICPUMeshBuffer* _mbuf);
+        static core::smart_refctd_ptr<asset::ICPUMeshBuffer> createCopyMBuffNormalizedReplacedWithTrueInt(const asset::ICPUMeshBuffer* _mbuf);
 
         static std::string getTypeString(asset::E_FORMAT _t);
 
