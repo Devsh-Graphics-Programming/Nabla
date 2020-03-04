@@ -304,7 +304,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 		asset::SVertexInputParams inputParams;
 
 		primitiveAssemblyParams.primitiveType = asset::EPT_TRIANGLE_LIST;
-		inputParams.enabledBindingFlags |= core::getBitmask({ 0 });
+		inputParams.enabledBindingFlags |= core::createBitmask({ 0 });
 		inputParams.bindings[0].inputRate = asset::EVIR_PER_VERTEX;
 		inputParams.bindings[0].stride = vertexSize;
 
@@ -325,7 +325,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 					break;
 			}
 
-			inputParams.enabledAttribFlags |= core::getBitmask({ attrId });
+			inputParams.enabledAttribFlags |= core::createBitmask({ attrId });
 			inputParams.attributes[attrId].binding = 0;
 			inputParams.attributes[attrId].format = format;
 			inputParams.attributes[attrId].relativeOffset = attrOffset * typeSize;
