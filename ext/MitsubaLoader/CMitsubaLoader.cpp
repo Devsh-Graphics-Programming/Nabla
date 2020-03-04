@@ -948,9 +948,9 @@ void CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 			_IRR_FALLTHROUGH;
 		case CElementBSDF::Type::BUMPMAP:
 			_1stdword &= (~(bsdf::INSTR_NORMAL_REG_MASK<<bsdf::INSTR_NORMAL_REG_SHIFT));//zero-out normal reg bitfield
+			assert(firstFreeNormalReg<=bsdf::INSTR_NORMAL_REG_MASK);
 			_1stdword |= (firstFreeNormalReg & bsdf::INSTR_NORMAL_REG_MASK) << bsdf::INSTR_NORMAL_REG_SHIFT;//write new val
 			++firstFreeNormalReg;
-			assert(firstFreeNormalReg<=bsdf::INSTR_NORMAL_REG_MASK);
 			stack.push({_bsdf,_1stdword,false});
 
 			_1stdword = BSDFtype2opcode(_bsdf->coating.bsdf[0]);
@@ -958,7 +958,7 @@ void CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 			stack.push({_bsdf->coating.bsdf[0],_1stdword,false});
 			break;
 		case CElementBSDF::Type::BLEND_BSDF:
-			stack.push({ _bsdf,_1stdword });
+			stack.push({ _bsdf,_1stdword,false });
 			_1stdword = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[1]);
 			writeInheritableFlags(_1stdword, _parent1stDword);
 			stack.push({ _bsdf->coating.bsdf[1],_1stdword,false });
@@ -967,14 +967,31 @@ void CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 			stack.push({ _bsdf->coating.bsdf[0],_1stdword,false });
 			break;
 		case CElementBSDF::Type::MIXTURE_BSDF:
-			//TODO !! conversion mixture -> blend[s]
+		{
+			//mixture is translated into tree of blends
+			uint32_t blendbsdf = _1stdword;
+			assert(_bsdf->mixturebsdf.childCount > 1u);
+			for (uint32_t i = 0u; i < _bsdf->mixturebsdf.childCount-1ull; ++i)
+			{
+				stack.push({_bsdf,blendbsdf,false});
+				auto* mixchild_bsdf = _bsdf->mixturebsdf.bsdf[_bsdf->mixturebsdf.childCount-i-1u];
+				uint32_t mixchild = BSDFtype2opcode(mixchild_bsdf);
+				writeInheritableFlags(mixchild, _parent1stDword);
+				stack.push({mixchild_bsdf,mixchild,false});
+			}
+			uint32_t child0 = BSDFtype2opcode(_bsdf->mixturebsdf.bsdf[0]);
+			writeInheritableFlags(child0, _parent1stDword);
+			stack.push({_bsdf->mixturebsdf.bsdf[0],child0,false});
+		}	
 			break;
 		case CElementBSDF::Type::MASK:
 			stack.push({_bsdf,_1stdword,false});
 			_1stdword = BSDFtype2opcode(_bsdf->mask.bsdf[0]);
 			writeInheritableFlags(_1stdword, _parent1stDword);
 			stack.push({_bsdf->mask.bsdf[0],_1stdword,false});
-			stack.push({nullptr,bsdf::OP_TRANSPARENT,false});
+			_1stdword = bsdf::OP_TRANSPARENT;
+			writeInheritableFlags(_1stdword, _parent1stDword);
+			stack.push({nullptr,_1stdword,false});
 			break;
 		}
 	};
@@ -1034,7 +1051,7 @@ void CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 				_1stdword |= static_cast<uint32_t>(_node->mask.opacity.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_WEIGHT_TEX;
 				break;
 			case CElementBSDF::Type::MIXTURE_BSDF:
-				//always constant (not texture)
+				//always constant weights (not texture)
 				break;
 			default: break; //do not let warnings rise
 			}

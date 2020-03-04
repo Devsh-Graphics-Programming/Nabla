@@ -180,18 +180,14 @@ namespace bsdf
 		uint64_t bumpmap;
 		padding_t<2, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
-	struct alignas(16) SMixture
-	{
-		//two weights resulting from translation of mixture into multiple blend BSDFs (encoded as 2x float16)
-		uint32_t weights;
-		padding_t<1, max_bsdf_struct_size> padding;
-	} PACK_STRUCT;
 	struct alignas(16) SBlend
 	{
 		//per-channel blend factor encoded as RGB19E7 (RGB instead of single-float in order to encode MASK bsdf as BLEND with fully transparent)
-		//if flag decides to use weight texture, `weight` is bindless texture ID
-		//otherwise `weight` is constant RGB19E7 blend weight
-		uint64_t weight;
+		//2 weights in order to encode MIXTURE bsdf as multiple BLENDs
+		//if flag decides to use weight texture, `weightL` is bindless texture ID and weightR is then irrelevant
+		//otherwise `weightL` and `weightR` are constant RGB19E7 blend weights. Left has to be multiplied by weightL and right operand has to be multiplied by weightR.
+		uint64_t weightL;
+		uint64_t weightR;
 		padding_t<2, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 #include "irr/irrunpack.h"
