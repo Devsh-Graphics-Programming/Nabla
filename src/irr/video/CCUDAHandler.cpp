@@ -14,10 +14,16 @@ CCUDAHandler::NVRTC CCUDAHandler::nvrtc;
 
 core::vector<CCUDAHandler::Device> CCUDAHandler::devices;
 
+core::vector<const char*> CCUDAHandler::headers;
+core::vector<const char*> CCUDAHandler::headerNames;
+
 
 
 CUresult CCUDAHandler::init()
 {
+	if (CudaVersion)
+		return CUDA_SUCCESS;
+
 	CUresult result = CUDA_ERROR_UNKNOWN;
 	auto cleanup = core::makeRAIIExiter([&result]() -> void
 		{
@@ -136,6 +142,8 @@ CUresult CCUDAHandler::init()
 
 void CCUDAHandler::deinit()
 {
+	CudaVersion = 0;
+	DeviceCount = 0;
 	devices.resize(0u);
 
 	cuda = CUDA();
