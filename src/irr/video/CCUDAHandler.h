@@ -882,7 +882,7 @@ class CCUDAHandler
 			if (result != NVRTC_SUCCESS)
 				return result;
 
-			return compileDirectlyToPTX_helper<OptionsT>(ptx, program, std::forward<OptionsT>(options), log);
+			return result = compileDirectlyToPTX_helper<OptionsT>(ptx, program, std::forward<OptionsT>(options), log);
 		}
 
 		template<typename CompileArgsT, typename OptionsT=const std::initializer_list<const char*>&>
@@ -901,7 +901,7 @@ class CCUDAHandler
 			if (result!=NVRTC_SUCCESS)
 				return result;
 
-			return compileDirectlyToPTX_helper<OptionsT>(ptx,program,std::forward<OptionsT>(options),log);
+			return result = compileDirectlyToPTX_helper<OptionsT>(ptx,program,std::forward<OptionsT>(options),log);
 		}
 
 
