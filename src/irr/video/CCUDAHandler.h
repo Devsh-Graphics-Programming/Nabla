@@ -31,6 +31,8 @@ namespace irr
 namespace cuda
 {
 
+#define _IRR_DEFAULT_NVRTC_OPTIONS "--std=c++14",virtualCUDAArchitecture,"-dc","-use_fast_math"
+
 
 class CCUDAHandler
 {
@@ -771,14 +773,15 @@ class CCUDAHandler
 		}
 
 		static nvrtcResult createProgram(	nvrtcProgram* prog, const char* source, const char* name,
-											const std::initializer_list<const char*>& headers,
-											const std::initializer_list<const char*>& includeNames)
+											const char* const* headersBegin=nullptr, const char* const* headersEnd=nullptr,
+											const char* const* includeNamesBegin=nullptr, const char* const* includeNamesEnd=nullptr)
 		{
-			if (headers.size())
+			auto headerCount = std::distance(headersBegin, headersEnd);
+			if (headerCount)
 			{
-				if (headers.size() != includeNames.size())
+				if (std::distance(includeNamesBegin,includeNamesEnd)!=headerCount)
 					return NVRTC_ERROR_INVALID_INPUT;
-				return nvrtc.pnvrtcCreateProgram(prog, source, name, headers.size(), headers.begin(), includeNames.begin());
+				return nvrtc.pnvrtcCreateProgram(prog, source, name, headerCount, headersBegin, includeNamesBegin);
 			}
 			else
 				return nvrtc.pnvrtcCreateProgram(prog, source, name, 0u, nullptr, nullptr);
@@ -819,7 +822,7 @@ class CCUDAHandler
 			return nvrtc.pnvrtcCreateProgram(prog, sources.data(), main->getFileName().c_str(), numHeaders, headers.data(), includeNames.data());
 		}
 
-		static nvrtcResult compileProgram(nvrtcProgram prog, const std::initializer_list<const char*>& options = {"--std=c++14",virtualCUDAArchitecture,"-dc","-use_fast_math"})
+		static nvrtcResult compileProgram(nvrtcProgram prog, const std::initializer_list<const char*>& options={_IRR_DEFAULT_NVRTC_OPTIONS})
 		{
 			return nvrtc.pnvrtcCompileProgram(prog, options.size(), options.begin());
 		}
@@ -856,10 +859,36 @@ class CCUDAHandler
 			return nvrtc.pnvrtcGetPTX(prog,ptx.data());
 		}
 
-		template<typename HeaderFileIt>
+		template<typename OptionsT = const std::initializer_list<const char*>&>
 		static nvrtcResult compileDirectlyToPTX(std::string& ptx, irr::io::IReadFile* main,
-												const HeaderFileIt includesBegin, const HeaderFileIt includesEnd,
-												const std::vector<const char*>& options={"--std=c++14",virtualCUDAArchitecture,"-dc","-use_fast_math"},
+			const char* const* headersBegin = nullptr, const char* const* headersEnd = nullptr,
+			const char* const* includeNamesBegin = nullptr, const char* const* includeNamesEnd = nullptr,
+			OptionsT options = { _IRR_DEFAULT_NVRTC_OPTIONS },
+			std::string* log = nullptr)
+		{
+			nvrtcProgram program = nullptr;
+			nvrtcResult result = NVRTC_ERROR_PROGRAM_CREATION_FAILURE;
+			auto cleanup = core::makeRAIIExiter([&program, &result]() -> void {
+				if (result != NVRTC_SUCCESS && program)
+					cuda::CCUDAHandler::nvrtc.pnvrtcDestroyProgram(&program);
+				});
+			
+			char* data = new char[main->getSize()+1ull];
+			main->read(data, main->getSize());
+			data[main->getSize()] = 0;
+			result = cuda::CCUDAHandler::createProgram(&program, data, main->getFileName().c_str(), headersBegin, headersEnd, includeNamesBegin, includeNamesEnd);
+			delete[] data;
+
+			if (result != NVRTC_SUCCESS)
+				return result;
+
+			return compileDirectlyToPTX_helper<OptionsT>(ptx, program, std::forward<OptionsT>(options), log);
+		}
+
+		template<typename CompileArgsT, typename OptionsT=const std::initializer_list<const char*>&>
+		static nvrtcResult compileDirectlyToPTX(std::string& ptx, irr::io::IReadFile* main,
+												CompileArgsT includesBegin, CompileArgsT includesEnd,
+												OptionsT options={_IRR_DEFAULT_NVRTC_OPTIONS},
 												std::string* log=nullptr)
 		{
 			nvrtcProgram program = nullptr;
@@ -868,17 +897,25 @@ class CCUDAHandler
 				if (result!=NVRTC_SUCCESS && program)
 					cuda::CCUDAHandler::nvrtc.pnvrtcDestroyProgram(&program);
 			});
-			result = cuda::CCUDAHandler::createProgram<io::IReadFile*>(&program, main, includesBegin, includesEnd);
+			result = cuda::CCUDAHandler::createProgram(&program, main, includesBegin, includesEnd);
 			if (result!=NVRTC_SUCCESS)
 				return result;
 
-			result = cuda::CCUDAHandler::compileProgram(program);
+			return compileDirectlyToPTX_helper<OptionsT>(ptx,program,std::forward<OptionsT>(options),log);
+		}
+
+
+	protected:
+		template<typename OptionsT = const std::initializer_list<const char*>&>
+		static nvrtcResult compileDirectlyToPTX_helper(std::string& ptx, nvrtcProgram program, OptionsT options, std::string* log=nullptr)
+		{
+			nvrtcResult result = cuda::CCUDAHandler::compileProgram(program,options);
 			if (log)
 				cuda::CCUDAHandler::getProgramLog(program, *log);
 			if (result!=NVRTC_SUCCESS)
 				return result;
 
-			return result = cuda::CCUDAHandler::getPTX(program, ptx);
+			return cuda::CCUDAHandler::getPTX(program, ptx);
 		}
 };
 
