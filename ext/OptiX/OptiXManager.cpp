@@ -108,6 +108,19 @@ Manager::Manager(video::IVideoDriver* _driver, io::IFileSystem* _filesystem, uin
 	addHeader("internal/optix_7_device_impl_transformations.h");
 	headersCreated = optixHeaders.size();
 
+static const char* workarounds = R"===(
+#include "stdint.h"
+
+static __forceinline__ __device__ uint64_t irrGetSbtDataPointer()
+{
+    uint64_t ptr;
+    asm("call (%0), _optix_get_sbt_data_ptr_64, ();" : "=l"(ptr) : );
+    return ptr;
+}
+)===";
+	optixHeaderNames.push_back("irr/builtin/optix/workarounds.h");
+	optixHeaders.push_back(workarounds);
+
     optixHeaderNames.insert(optixHeaderNames.end(),cuda::CCUDAHandler::getCUDASTDHeaderNames().begin(),cuda::CCUDAHandler::getCUDASTDHeaderNames().end());
     optixHeaders.insert(optixHeaders.end(),cuda::CCUDAHandler::getCUDASTDHeaders().begin(),cuda::CCUDAHandler::getCUDASTDHeaders().end());
 }

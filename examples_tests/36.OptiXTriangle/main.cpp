@@ -155,7 +155,7 @@ int main()
 		bool ok = cuda::CCUDAHandler::defaultHandleResult(
 						cuda::CCUDAHandler::compileDirectlyToPTX(ptx, file,
 							headers.data(),headers.data()+headers.size(),names.data(),names.data()+names.size(),
-							{"--std=c++14",cuda::CCUDAHandler::getCommonVirtualCUDAArchitecture(),"-dc","-use_fast_math","-default-device"}, &log
+							{"--std=c++14",cuda::CCUDAHandler::getCommonVirtualCUDAArchitecture(),"-dc","-use_fast_math"}, &log
 						)
 					);
 		if (log.size())
@@ -308,7 +308,6 @@ int main()
         sbt.hitgroupRecordStrideInBytes = sizeof( HitGroupSbtRecord );
         sbt.hitgroupRecordCount         = 1;
     }
-	printf("%p %p %p\n", sbt.raygenRecord, sbt.missRecordBase, sbt.hitgroupRecordBase);
 
 	// run
 	size_t bufferSizes[] = {sizeof(Params),sizeof(uchar4)*params.WindowSize.getArea()};
@@ -347,7 +346,7 @@ int main()
 				return 11;
 		}
 
-		video::COpenGLExtensionHandler::extGlGetNamedBufferSubData(static_cast<video::COpenGLBuffer*>(buffers[1].obj.get())->getOpenGLName(),0u,16u,stackScratch);
+		video::COpenGLExtensionHandler::extGlGetNamedBufferSubData(static_cast<video::COpenGLBuffer*>(buffers[1].obj.get())->getOpenGLName(),0u,sizeof(stackScratch),stackScratch);
 
 		driver->beginScene(false, false);
 
