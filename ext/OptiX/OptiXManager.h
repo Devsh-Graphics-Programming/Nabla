@@ -28,6 +28,8 @@ class Manager final : public core::IReferenceCounted
 	public:
 		static core::smart_refctd_ptr<Manager> create(video::IVideoDriver* _driver, io::IFileSystem* _filesystem);
 
+		static void defaultCallback(unsigned int level, const char* tag, const char* message, void* cbdata);
+
 		using RegisteredBufferCache = core::set<cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer>>;
 		template<typename Iterator>
 		OptixTraversableHandle createAccelerationStructure(CUstream stream, RegisteredBufferCache& bufferCache, const OptixAccelBuildOptions& accelOptions, Iterator _begin, Iterator _end, uint32_t deviceID=0u, size_t scratchBufferSize=0u, CUdeviceptr scratchBuffer = nullptr)
@@ -316,6 +318,7 @@ class Manager final : public core::IReferenceCounted
 		OptixDeviceContext optixContext[MaxSLI];
 		core::vector<const char*> optixHeaderNames;
 		core::vector<const char*> optixHeaders;
+		uint32_t headersCreated;
 };
 
 }

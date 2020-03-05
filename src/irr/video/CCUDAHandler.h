@@ -197,6 +197,9 @@ class CCUDAHandler
 			return cuda.pcuGLGetDevices_v2(foundCount,pCudaDevices,cudaDeviceCount,CU_GL_DEVICE_LIST_ALL);
 		}
 
+		template<typename T>
+		static T* cast_CUDA_ptr(CUdeviceptr ptr) {return reinterpret_cast<T*>(ptr);}
+
 		template<typename ObjType>
 		struct GraphicsAPIObjLink
 		{

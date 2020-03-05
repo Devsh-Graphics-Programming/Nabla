@@ -4,12 +4,15 @@
 
 #include "../../ext/OptiX/OptiXManager.h"
 
+// cuda and optix stuff
+#include "vector_types.h"
+#include "common.h"
+
 /**
 This example just shows a screen which clears to red,
 nothing fancy, just to show that Irrlicht links fine
 **/
 using namespace irr;
-
 
 /*
 The start of the main function starts like in most other example. We ask the
@@ -39,6 +42,8 @@ int main()
 	auto optixmgr = irr::ext::OptiX::Manager::create(driver,filesystem);
 	if (!optixmgr)
 		return 2;
+
+	uint8_t stackScratch[16u*1024u];
 #if 0
 	// Specify options for the build. We use default options for simplicity.
 	OptixAccelBuildOptions accel_options = {};
@@ -150,10 +155,11 @@ int main()
 		bool ok = cuda::CCUDAHandler::defaultHandleResult(
 						cuda::CCUDAHandler::compileDirectlyToPTX(ptx, file,
 							headers.data(),headers.data()+headers.size(),names.data(),names.data()+names.size(),
-							{"--std=c++14",cuda::CCUDAHandler::getCommonVirtualCUDAArchitecture(),"-dc","-use_fast_math"}, &log
+							{"--std=c++14",cuda::CCUDAHandler::getCommonVirtualCUDAArchitecture(),"-dc","-use_fast_math","-default-device"}, &log
 						)
 					);
-		printf("NVRTC LOG:\n%s\n", log.c_str());
+		if (log.size())
+			printf("NVRTC LOG:\n%s\n", log.c_str());
 		if (!ok)
 			return 7;
 		file->drop();
@@ -257,9 +263,112 @@ int main()
                     );
     }
 
+    //
+    // Set up shader binding table
+    //
+	constexpr size_t sbt_count = 3ull;
+	cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> sbt_record_buffers[sbt_count];
+    OptixShaderBindingTable sbt = {};
+    {
+		typedef ext::OptiX::SbtRecord<RayGenData> RayGenSbtRecord;
+		typedef ext::OptiX::SbtRecord<int>        MissSbtRecord;
+		typedef ext::OptiX::SbtRecord<int>        HitGroupSbtRecord;
+
+		auto createRecord = [&](cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer>* outLink, const auto& recordData) -> CUdeviceptr
+		{
+			outLink->obj = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(recordData),&recordData), core::dont_grab);
+			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(outLink,CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
+				return {};
+			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsMapResources(1u, &outLink->cudaHandle, optixmgr->stream[0])))
+				return {};
+			size_t tmp = sizeof(recordData);
+			CUdeviceptr cuptr;
+			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsResourceGetMappedPointer_v2(&cuptr, &tmp, outLink->cudaHandle)))
+				return {};
+			assert(cuptr%OPTIX_SBT_RECORD_ALIGNMENT==0ull);
+			return cuptr;
+		};
+
+
+        RayGenSbtRecord rg_sbt;
+        optixSbtRecordPackHeader( raygen_prog_group, &rg_sbt );
+        rg_sbt.data = {0.462f, 0.725f, 0.f};
+
+		MissSbtRecord ms_sbt;
+        optixSbtRecordPackHeader( miss_prog_group, &ms_sbt );
+
+		HitGroupSbtRecord hg_sbt;
+		optixSbtRecordPackHeader(hitgroup_prog_group, &hg_sbt);
+
+        sbt.raygenRecord                = createRecord(sbt_record_buffers+0,rg_sbt);
+        sbt.missRecordBase              = createRecord(sbt_record_buffers+1,ms_sbt);
+        sbt.missRecordStrideInBytes     = sizeof( MissSbtRecord );
+        sbt.missRecordCount             = 1;
+        sbt.hitgroupRecordBase          = createRecord(sbt_record_buffers+2,hg_sbt);
+        sbt.hitgroupRecordStrideInBytes = sizeof( HitGroupSbtRecord );
+        sbt.hitgroupRecordCount         = 1;
+    }
+	printf("%p %p %p\n", sbt.raygenRecord, sbt.missRecordBase, sbt.hitgroupRecordBase);
+
+	// run
+	size_t bufferSizes[] = {sizeof(Params),sizeof(uchar4)*params.WindowSize.getArea()};
+	constexpr auto buffersToAcquireCount = sizeof(bufferSizes)/sizeof(*bufferSizes);
+	cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> buffers[2];
+	for (auto i=0; i<buffersToAcquireCount; i++)
+	{
+		buffers[i] = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createDeviceLocalGPUBufferOnDedMem(bufferSizes[i]),core::dont_grab);
+		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(buffers+i)))
+			return 8;
+	}
+
+	Params p;
+	p.image = {};
+	p.image_width = params.WindowSize.Width;
+    while (device->run())
+    {
+		// raytrace part
+		{
+			CUdeviceptr cuptr[2] = {};
+			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::mapAndGetPointers(cuptr+1,buffers+1,buffers+buffersToAcquireCount,optixmgr->stream[0])))
+				return 9;
+			
+			auto outputCUDAPtrRef = cuda::CCUDAHandler::cast_CUDA_ptr<uchar4>(cuptr[1]);
+			if (p.image!=outputCUDAPtrRef)
+			{
+				p.image = outputCUDAPtrRef;
+				driver->updateBufferRangeViaStagingBuffer(buffers[0].obj.get(),0u,sizeof(Params),&p);
+			}
+			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::mapAndGetPointers(cuptr,buffers,buffers+1,optixmgr->stream[0])))
+				return 10;
+
+			optixLaunch( pipeline, optixmgr->stream[0], cuptr[0], sizeof(Params), &sbt, p.image_width, params.WindowSize.Height, /*depth=*/1 );
+
+			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::releaseResourcesToGraphics(stackScratch, buffers, buffers + buffersToAcquireCount, optixmgr->stream[0])))
+				return 11;
+		}
+
+		video::COpenGLExtensionHandler::extGlGetNamedBufferSubData(static_cast<video::COpenGLBuffer*>(buffers[1].obj.get())->getOpenGLName(),0u,16u,stackScratch);
+
+		driver->beginScene(false, false);
+
+		driver->endScene();
+    }
+
 	// release all resources
 	/// optixAccelDestroy?
 	//cuda::CCUDAHandler::cuda.pcuMemFree_v2(d_gas_output_buffer);
+    {
+		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::releaseResourcesToGraphics(stackScratch,sbt_record_buffers,sbt_record_buffers+sbt_count,optixmgr->stream[0])))
+			return 12;
+		for (auto i=0; i<sbt_count; i++)
+			sbt_record_buffers[i] = {};
+
+        optixPipelineDestroy(pipeline);
+        optixProgramGroupDestroy(hitgroup_prog_group);
+        optixProgramGroupDestroy(miss_prog_group);
+        optixProgramGroupDestroy(raygen_prog_group);
+        optixModuleDestroy(module);
+    }
 
 	device->drop();
 

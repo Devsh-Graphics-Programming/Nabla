@@ -76,6 +76,7 @@ Manager::Manager(video::IVideoDriver* _driver, io::IFileSystem* _filesystem, uin
 
 		OptixDeviceContextOptions options = {};
 		optixDeviceContextCreate(context[i], &options, optixContext+i);
+		optixDeviceContextSetLogCallback(optixContext[i], &defaultCallback, reinterpret_cast<void*>(i), 3u);
 	}
 
 	// TODO: This cannot stay like that, we need a resource compiler to "build-in" the optix CUDA/device headers into irr::ext::OptiX so that we can retrieve them.
@@ -105,6 +106,7 @@ Manager::Manager(video::IVideoDriver* _driver, io::IFileSystem* _filesystem, uin
 	addHeader("internal/optix_7_device_impl.h");
 	addHeader("internal/optix_7_device_impl_exception.h");
 	addHeader("internal/optix_7_device_impl_transformations.h");
+	headersCreated = optixHeaders.size();
 
     optixHeaderNames.insert(optixHeaderNames.end(),cuda::CCUDAHandler::getCUDASTDHeaderNames().begin(),cuda::CCUDAHandler::getCUDASTDHeaderNames().end());
     optixHeaders.insert(optixHeaders.end(),cuda::CCUDAHandler::getCUDASTDHeaders().begin(),cuda::CCUDAHandler::getCUDASTDHeaders().end());
@@ -112,10 +114,10 @@ Manager::Manager(video::IVideoDriver* _driver, io::IFileSystem* _filesystem, uin
 
 Manager::~Manager()
 {
-	for (auto& name : optixHeaderNames)
-		delete[] name;
-	for (auto& header : optixHeaders)
-		delete[] header;
+	for (uint32_t i=0u; i<headersCreated; i++)
+		delete[] optixHeaderNames[i];
+	for (uint32_t i=0u; i<headersCreated; i++)
+		delete[] optixHeaders[i];
 
 	for (uint32_t i=0u; i<contextCount; i++)
 	{
@@ -127,6 +129,13 @@ Manager::~Manager()
 		if (ownContext[i])
 			cuda::CCUDAHandler::cuda.pcuCtxDestroy_v2(context[i]);
 	}
+}
+
+
+void Manager::defaultCallback(unsigned int level, const char* tag, const char* message, void* cbdata)
+{
+	uint32_t contextID = reinterpret_cast<const uint32_t&>(cbdata);
+	printf("irr::ext::OptiX Context:%d [%s]: %s\n", contextID, tag, message);
 }
 
 

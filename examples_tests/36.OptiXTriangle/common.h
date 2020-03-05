@@ -1,4 +1,3 @@
-
 struct Params
 {
     uchar4* image;

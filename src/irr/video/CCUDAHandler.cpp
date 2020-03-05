@@ -158,15 +158,14 @@ void CCUDAHandler::deinit()
 
 CCUDAHandler::Device::Device(int ordinal) : Device()
 {
-	CUresult result;
-
 	if (cuda.pcuDeviceGet(&handle, ordinal)!=CUDA_SUCCESS)
 	{
 		handle = 0;
 		return;
 	}
 
-	if (cuda.pcuDeviceGetName(name,sizeof(name),handle)!=CUDA_SUCCESS)
+	uint32_t namelen = sizeof(name);
+	if (cuda.pcuDeviceGetName(name,namelen,handle)!=CUDA_SUCCESS)
 		return;
 
 	if (cuda.pcuDeviceGetLuid(&luid,&deviceNodeMask,handle))
@@ -221,7 +220,7 @@ CUresult CCUDAHandler::registerImage(GraphicsAPIObjLink<video::ITexture>* link, 
 CUresult CCUDAHandler::mapAndGetPointers(CUdeviceptr* outPtrs, const GraphicsAPIObjLink<video::IGPUBuffer>* linksBegin, const GraphicsAPIObjLink<video::IGPUBuffer>* linksEnd, CUstream stream, size_t* outbufferSizes)
 {
 	CUresult result = acquireResourcesFromGraphics(outPtrs,linksBegin,linksEnd,stream);
-	std::fill(outPtrs,outPtrs+(linksEnd-linksBegin),nullptr);
+	memset(outPtrs,0,sizeof(CUdeviceptr)*(linksEnd-linksBegin));
 	if (result != CUDA_SUCCESS)
 		return result;
 
@@ -239,7 +238,7 @@ CUresult CCUDAHandler::mapAndGetPointers(CUdeviceptr* outPtrs, const GraphicsAPI
 CUresult CCUDAHandler::mapAndGetMipmappedArray(CUmipmappedArray* outMArrays, const GraphicsAPIObjLink<video::ITexture>* linksBegin, const GraphicsAPIObjLink<video::ITexture>* linksEnd, CUstream stream)
 {
 	CUresult result = acquireResourcesFromGraphics(outMArrays,linksBegin,linksEnd,stream);
-	std::fill(outMArrays,outMArray+(linksEnd-linksBegin),nullptr);
+	memset(outMArrays,0,sizeof(CUmipmappedArray)*(linksEnd-linksBegin));
 	if (result != CUDA_SUCCESS)
 		return result;
 
@@ -255,7 +254,7 @@ CUresult CCUDAHandler::mapAndGetMipmappedArray(CUmipmappedArray* outMArrays, con
 CUresult CCUDAHandler::mapAndGetArray(CUarray* outArrays, const GraphicsAPIObjLink<video::ITexture>* linksBegin, const GraphicsAPIObjLink<video::ITexture>* linksEnd, uint32_t* arrayIndices, uint32_t* mipLevels, CUstream stream)
 {
 	CUresult result = acquireResourcesFromGraphics(outArrays,linksBegin,linksEnd,stream);
-	std::fill(outArrays,outArray+(linksEnd-linksBegin),nullptr);
+	memset(outArrays,0,sizeof(CUarray)*(linksEnd-linksBegin));
 	if (result != CUDA_SUCCESS)
 		return result;
 
@@ -264,7 +263,7 @@ CUresult CCUDAHandler::mapAndGetArray(CUarray* outArrays, const GraphicsAPIObjLi
 	auto mit = mipLevels;
 	for (auto oit=outArrays; iit!=linksEnd; iit++,oit++,ait++,mit++)
 	{
-		result = cuda::CCUDAHandler::cuda.pcuGraphicsSubResourceGetMappedArray(oit,iit->cudaHandle,ait,mit);
+		result = cuda::CCUDAHandler::cuda.pcuGraphicsSubResourceGetMappedArray(oit,iit->cudaHandle,*ait,*mit);
 		if (result != CUDA_SUCCESS)
 			return result;
 	}
