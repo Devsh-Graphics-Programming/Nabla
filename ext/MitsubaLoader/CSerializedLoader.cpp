@@ -387,7 +387,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 		if (!readIndices())
 			continue;
 
-		manager->setAssetMetadata(mbPipeline.get(), core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaSerializedPipelineMetadata>(1, std::move(shaderInputsMetadata)));
+		manager->setAssetMetadata(mbPipeline.get(), core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaSerializedPipelineMetadata>(std::move(shaderInputsMetadata)));
 		meshBuffer->recalculateBoundingBox();
 		meshBuffer->setPipeline(std::move(mbPipeline));
 
