@@ -34,8 +34,9 @@ int main()
 	if (device == 0)
 		return 1; // could not create selected driver.
 
+	auto filesystem = device->getFileSystem();
 	video::IVideoDriver* driver = device->getVideoDriver();
-	auto optixmgr = irr::ext::OptiX::Manager::create(driver);
+	auto optixmgr = irr::ext::OptiX::Manager::create(driver,filesystem);
 	if (!optixmgr)
 		return 2;
 #if 0
@@ -143,8 +144,15 @@ int main()
 	std::string log;
 	std::string ptx;
 	{
-		auto file = device->getFileSystem()->createAndOpenFile("../optixTriangle.cu");
-		bool ok = cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::compileDirectlyToPTX<io::IReadFile*>(ptx, file, nullptr, nullptr, {"--std=c++14",cuda::CCUDAHandler::getCommonVirtualCUDAArchitecture(),"-dc","-use_fast_math","-ewp"}, &log));
+		auto file = filesystem->createAndOpenFile("../optixTriangle.cu");
+		const auto& headers = optixmgr->getOptiXHeaders();
+		const auto& names = optixmgr->getOptiXHeaderNames();
+		bool ok = cuda::CCUDAHandler::defaultHandleResult(
+						cuda::CCUDAHandler::compileDirectlyToPTX(ptx, file,
+							headers.data(),headers.data()+headers.size(),names.data(),names.data()+names.size(),
+							{"--std=c++14",cuda::CCUDAHandler::getCommonVirtualCUDAArchitecture(),"-dc","-use_fast_math"}, &log
+						)
+					);
 		printf("NVRTC LOG:\n%s\n", log.c_str());
 		if (!ok)
 			return 7;

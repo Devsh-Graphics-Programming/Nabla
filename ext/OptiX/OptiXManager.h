@@ -19,7 +19,7 @@ namespace OptiX
 class Manager final : public core::IReferenceCounted
 {
 	public:
-		static core::smart_refctd_ptr<Manager> create(video::IVideoDriver* _driver);
+		static core::smart_refctd_ptr<Manager> create(video::IVideoDriver* _driver, io::IFileSystem* _filesystem);
 
 		using RegisteredBufferCache = core::set<cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer>>;
 		template<typename Iterator>
@@ -276,22 +276,20 @@ class Manager final : public core::IReferenceCounted
 
 			if (needToCommit)
 				rr->Commit();
-		}
-		/*
-		inline RadeonRaysIncludeLoader* getRadeonRaysGLSLIncludes()
-		{
-			return radeonRaysIncludes.get();
-		}
-		*/
+		}*/
 
 
 		//inline auto* getRadeonRaysAPI() {return rr;}
 
 		//
+		inline const auto& getOptiXHeaderNames() const { return optixHeaderNames; }
+		inline const auto& getOptiXHeaders() const { return optixHeaders; }
+
+		//
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxSLI = 4u;
 
 	//protected:
-		Manager(video::IVideoDriver* _driver, uint32_t _contextCount, CUcontext* _context, bool* _ownContext=nullptr);
+		Manager(video::IVideoDriver* _driver, io::IFileSystem* _filesystem, uint32_t _contextCount, CUcontext* _context, bool* _ownContext=nullptr);
 		~Manager();
 		/*
 		void makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMeshBuffer* mb, int32_t* indices);
@@ -309,7 +307,8 @@ class Manager final : public core::IReferenceCounted
 		CUstream stream[MaxSLI];
 
 		OptixDeviceContext optixContext[MaxSLI];
-		//::RadeonRays::IntersectionApi* rr;
+		core::vector<const char*> optixHeaderNames;
+		core::vector<const char*> optixHeaders;
 };
 
 }

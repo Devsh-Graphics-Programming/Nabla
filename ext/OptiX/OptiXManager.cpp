@@ -13,10 +13,7 @@ using namespace video;
 using namespace irr::ext::OptiX;
 
 
-
-//core::smart_refctd_ptr<RadeonRaysIncludeLoader> Manager::radeonRaysIncludes = nullptr;
-
-core::smart_refctd_ptr<Manager> Manager::create(video::IVideoDriver* _driver)
+core::smart_refctd_ptr<Manager> Manager::create(video::IVideoDriver* _driver, io::IFileSystem* _filesystem)
 {
 	if (!_driver)
 		return nullptr;
@@ -55,11 +52,11 @@ core::smart_refctd_ptr<Manager> Manager::create(video::IVideoDriver* _driver)
 	if (!suitableDevices)
 		return nullptr;
 
-	auto manager = new Manager(_driver,suitableDevices,contexts,ownContext);
+	auto manager = new Manager(_driver,_filesystem,suitableDevices,contexts,ownContext);
 	return core::smart_refctd_ptr<Manager>(manager,core::dont_grab);
 }
 
-Manager::Manager(video::IVideoDriver* _driver, uint32_t _contextCount, CUcontext* _contexts, bool* _ownContexts) : driver(_driver), contextCount(_contextCount)
+Manager::Manager(video::IVideoDriver* _driver, io::IFileSystem* _filesystem, uint32_t _contextCount, CUcontext* _contexts, bool* _ownContexts) : driver(_driver), contextCount(_contextCount)
 {
 	assert(contextCount<=MaxSLI);
 
@@ -81,12 +78,48 @@ Manager::Manager(video::IVideoDriver* _driver, uint32_t _contextCount, CUcontext
 		optixDeviceContextCreate(context[i], &options, optixContext+i);
 	}
 
+	// TODO: This cannot stay like that, we need a resource compiler to "build-in" the optix CUDA/device headers into irr::ext::OptiX so that we can retrieve them.
+	auto sdkDir = io::path(OPTIX_INCLUDE_DIR)+"/";
+	auto addHeader = [&](const char* subpath) -> void
+	{
+		auto file = _filesystem->createAndOpenFile(sdkDir+subpath);
+		if (!file)
+			return;
+
+		auto namelen = strlen(subpath);
+		char* name = new char[namelen+1ull];
+		memcpy(name,subpath,namelen);
+		name[namelen] = 0;
+		optixHeaderNames.push_back(name);
+		char* data = new char[file->getSize()+1ull];
+		file->read(data,file->getSize());
+		data[file->getSize()] = 0;
+		optixHeaders.push_back(data);
+
+		file->drop();
+	};
+	addHeader("optix.h");
+	addHeader("optix_device.h");
+	addHeader("optix_7_device.h");
+	addHeader("optix_7_types.h");
+	addHeader("internal/optix_7_device_impl.h");
+	addHeader("internal/optix_7_device_impl_exception.h");
+	addHeader("internal/optix_7_device_impl_transformations.h");
+
+    optixHeaderNames.insert(optixHeaderNames.end(),cuda::CCUDAHandler::getCUDASTDHeaderNames().begin(),cuda::CCUDAHandler::getCUDASTDHeaderNames().end());
+    optixHeaders.insert(optixHeaders.end(),cuda::CCUDAHandler::getCUDASTDHeaders().begin(),cuda::CCUDAHandler::getCUDASTDHeaders().end());
+
+
 	//auto* glDriver = static_cast<COpenGLDriver*>(driver);
 	//rr = ::RadeonRays::CreateFromOpenClContext(context, glDriver->getOpenCLAssociatedDevice(), commandQueue);
 }
 
 Manager::~Manager()
 {
+	for (auto& name : optixHeaderNames)
+		delete[] name;
+	for (auto& header : optixHeaders)
+		delete[] header;
 /*
 	::RadeonRays::IntersectionApi::Delete(rr);
 	rr = nullptr;
