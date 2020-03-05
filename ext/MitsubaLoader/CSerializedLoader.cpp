@@ -224,6 +224,8 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 		auto makeAvailableAttributesVector = [&]()
 		{
 			core::vector<uint8_t> vec;
+			vec.reserve(4);
+
 			vec.push_back(POSITION_ATTRIBUTE);
 			if (flags & MF_VERTEX_COLORS)
 				vec.push_back(COLOR_ATTRIBUTE);
