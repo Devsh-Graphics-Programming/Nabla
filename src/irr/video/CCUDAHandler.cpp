@@ -182,6 +182,95 @@ CCUDAHandler::Device::Device(int ordinal) : Device()
 		cuda.pcuDeviceGetAttribute(attributes+i,static_cast<CUdevice_attribute>(i),handle);
 }
 
+CUresult CCUDAHandler::registerBuffer(GraphicsAPIObjLink<video::IGPUBuffer>* link, uint32_t flags)
+{
+	assert(link->obj);
+	auto glbuf = static_cast<video::COpenGLBuffer*>(link->obj.get());
+	auto retval = cuda.pcuGraphicsGLRegisterBuffer(&link->cudaHandle,glbuf->getOpenGLName(),flags);
+	if (retval!=CUDA_SUCCESS)
+		link->obj = nullptr;
+	return retval;
+}
+CUresult CCUDAHandler::registerImage(GraphicsAPIObjLink<video::ITexture>* link, uint32_t flags)
+{
+	assert(link->obj);
+			
+	auto format = link->obj->getColorFormat();
+	if (asset::isBlockCompressionFormat(format) || asset::isDepthOrStencilFormat(format) || asset::isScaledFormat(format) || asset::isPlanarFormat(format))
+		return CUDA_ERROR_INVALID_IMAGE;
+
+	auto glimg = static_cast<video::COpenGLFilterableTexture*>(link->obj.get());
+	GLenum target = glimg->getOpenGLTextureType();
+	switch (target)
+	{
+		case GL_TEXTURE_2D:
+		case GL_TEXTURE_2D_ARRAY:
+		case GL_TEXTURE_CUBE_MAP:
+		case GL_TEXTURE_3D:
+			break;
+		default:
+			return CUDA_ERROR_INVALID_IMAGE;
+			break;
+	}
+	auto retval = cuda.pcuGraphicsGLRegisterImage(&link->cudaHandle,glimg->getOpenGLName(),target,flags);
+	if (retval != CUDA_SUCCESS)
+		link->obj = nullptr;
+	return retval;
+}
+
+CUresult CCUDAHandler::mapAndGetPointers(CUdeviceptr* outPtrs, const GraphicsAPIObjLink<video::IGPUBuffer>* linksBegin, const GraphicsAPIObjLink<video::IGPUBuffer>* linksEnd, CUstream stream, size_t* outbufferSizes)
+{
+	CUresult result = acquireResourcesFromGraphics(outPtrs,linksBegin,linksEnd,stream);
+	std::fill(outPtrs,outPtrs+(linksEnd-linksBegin),nullptr);
+	if (result != CUDA_SUCCESS)
+		return result;
+
+	auto iit = linksBegin;
+	size_t tmp = 0xdeadbeefbadc0ffeull;
+	size_t* sit = outbufferSizes;
+	for (auto oit=outPtrs; iit!=linksEnd; iit++,oit++,sit++)
+	{
+		result = cuda::CCUDAHandler::cuda.pcuGraphicsResourceGetMappedPointer_v2(oit,outbufferSizes ? sit:&tmp,iit->cudaHandle);
+		if (result != CUDA_SUCCESS)
+			return result;
+	}
+	return CUDA_SUCCESS;
+}
+CUresult CCUDAHandler::mapAndGetMipmappedArray(CUmipmappedArray* outMArrays, const GraphicsAPIObjLink<video::ITexture>* linksBegin, const GraphicsAPIObjLink<video::ITexture>* linksEnd, CUstream stream)
+{
+	CUresult result = acquireResourcesFromGraphics(outMArrays,linksBegin,linksEnd,stream);
+	std::fill(outMArrays,outMArray+(linksEnd-linksBegin),nullptr);
+	if (result != CUDA_SUCCESS)
+		return result;
+
+	auto iit = linksBegin;
+	for (auto oit=outMArrays; iit!=linksEnd; iit++,oit++)
+	{
+		result = cuda::CCUDAHandler::cuda.pcuGraphicsResourceGetMappedMipmappedArray(oit,iit->cudaHandle);
+		if (result != CUDA_SUCCESS)
+			return result;
+	}
+	return CUDA_SUCCESS;
+}
+CUresult CCUDAHandler::mapAndGetArray(CUarray* outArrays, const GraphicsAPIObjLink<video::ITexture>* linksBegin, const GraphicsAPIObjLink<video::ITexture>* linksEnd, uint32_t* arrayIndices, uint32_t* mipLevels, CUstream stream)
+{
+	CUresult result = acquireResourcesFromGraphics(outArrays,linksBegin,linksEnd,stream);
+	std::fill(outArrays,outArray+(linksEnd-linksBegin),nullptr);
+	if (result != CUDA_SUCCESS)
+		return result;
+
+	auto iit = linksBegin;
+	auto ait = arrayIndices;
+	auto mit = mipLevels;
+	for (auto oit=outArrays; iit!=linksEnd; iit++,oit++,ait++,mit++)
+	{
+		result = cuda::CCUDAHandler::cuda.pcuGraphicsSubResourceGetMappedArray(oit,iit->cudaHandle,ait,mit);
+		if (result != CUDA_SUCCESS)
+			return result;
+	}
+	return CUDA_SUCCESS;
+}
+
 
 bool CCUDAHandler::defaultHandleResult(CUresult result)
 {

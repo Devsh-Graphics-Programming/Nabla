@@ -204,9 +204,20 @@ class CCUDAHandler
 			CUgraphicsResource cudaHandle;
 
 			GraphicsAPIObjLink() : obj(nullptr), cudaHandle(nullptr) {}
+			GraphicsAPIObjLink(core::smart_refctd_ptr<ObjType>&& _obj) : obj(std::move(_obj)), cudaHandle(nullptr) {}
+			GraphicsAPIObjLink(GraphicsAPIObjLink&& other) : GraphicsAPIObjLink()
+			{
+				operator=(std::move(other));
+			}
 
 			GraphicsAPIObjLink(const GraphicsAPIObjLink& other) = delete;
 			GraphicsAPIObjLink& operator=(const GraphicsAPIObjLink& other) = delete;
+			GraphicsAPIObjLink& operator=(GraphicsAPIObjLink&& other)
+			{
+				std::swap(obj,other.obj);
+				std::swap(cudaHandle,other.cudaHandle);
+				return *this;
+			}
 
 			~GraphicsAPIObjLink()
 			{
@@ -214,43 +225,41 @@ class CCUDAHandler
 					CCUDAHandler::cuda.pcuGraphicsUnregisterResource(cudaHandle);
 			}
 		};
-		static CUresult registerBuffer(GraphicsAPIObjLink<video::IGPUBuffer>* link, uint32_t flags=CU_GRAPHICS_REGISTER_FLAGS_NONE)
-		{
-			assert(link->obj);
-			auto glbuf = static_cast<video::COpenGLBuffer*>(link->obj.get());
-			auto retval = cuda.pcuGraphicsGLRegisterBuffer(&link->cudaHandle,glbuf->getOpenGLName(),flags);
-			if (retval!=CUDA_SUCCESS)
-				link->obj = nullptr;
-			return retval;
-		}
-		static CUresult registerImage(GraphicsAPIObjLink<video::ITexture>* link, uint32_t flags=CU_GRAPHICS_REGISTER_FLAGS_NONE)
-		{
-			assert(link->obj);
-			
-			auto format = link->obj->getColorFormat();
-			if (asset::isBlockCompressionFormat(format) || asset::isDepthOrStencilFormat(format) || asset::isScaledFormat(format) || asset::isPlanarFormat(format))
-				return CUDA_ERROR_INVALID_IMAGE;
 
-			auto glimg = static_cast<video::COpenGLFilterableTexture*>(link->obj.get());
-			GLenum target = glimg->getOpenGLTextureType();
-			switch (target)
-			{
-				case GL_TEXTURE_2D:
-				case GL_TEXTURE_2D_ARRAY:
-				case GL_TEXTURE_CUBE_MAP:
-				case GL_TEXTURE_3D:
-					break;
-				default:
-					return CUDA_ERROR_INVALID_IMAGE;
-					break;
-			}
-			auto retval = cuda.pcuGraphicsGLRegisterImage(&link->cudaHandle,glimg->getOpenGLName(),target,flags);
-			if (retval != CUDA_SUCCESS)
-				link->obj = nullptr;
-			return retval;
-		}
-
+		//
+		static CUresult registerBuffer(GraphicsAPIObjLink<video::IGPUBuffer>* link, uint32_t flags = CU_GRAPHICS_REGISTER_FLAGS_NONE);
+		static CUresult registerImage(GraphicsAPIObjLink<video::ITexture>* link, uint32_t flags = CU_GRAPHICS_REGISTER_FLAGS_NONE);
 		
+
+		template<typename ObjType>
+		static CUresult acquireResourcesFromGraphics(void* tmpStorage, const GraphicsAPIObjLink<ObjType>* linksBegin, const GraphicsAPIObjLink<ObjType>* linksEnd, CUstream stream)
+		{
+			auto count = std::distance(linksBegin,linksEnd);
+
+			auto iit = linksBegin;
+			auto resources = reinterpret_cast<CUgraphicsResource*>(tmpStorage);
+			for (auto rit=resources; iit!=linksEnd; iit++,rit++)
+				*rit = iit->cudaHandle;
+
+			return cuda.pcuGraphicsMapResources(count,resources,stream);
+		}
+		template<typename ObjType>
+		static CUresult releaseResourcesToGraphics(void* tmpStorage, const GraphicsAPIObjLink<ObjType>* linksBegin, const GraphicsAPIObjLink<ObjType>* linksEnd, CUstream stream)
+		{
+			auto count = std::distance(linksBegin,linksEnd);
+
+			auto iit = linksBegin;
+			auto resources = reinterpret_cast<CUgraphicsResource*>(tmpStorage);
+			for (auto rit=resources; iit!=linksEnd; iit++,rit++)
+				*rit = iit->cudaHandle;
+
+			return cuda.pcuGraphicsUnmapResources(count,resources,stream);
+		}
+
+		static CUresult mapAndGetPointers(CUdeviceptr* outPtrs, const GraphicsAPIObjLink<video::IGPUBuffer>* linksBegin, const GraphicsAPIObjLink<video::IGPUBuffer>* linksEnd, CUstream stream, size_t* outbufferSizes = nullptr);
+		static CUresult mapAndGetMipmappedArray(CUmipmappedArray* outMArrays, const GraphicsAPIObjLink<video::ITexture>* linksBegin, const GraphicsAPIObjLink<video::ITexture>* linksEnd, CUstream stream);
+		static CUresult mapAndGetArray(CUarray* outArrays, const GraphicsAPIObjLink<video::ITexture>* linksBegin, const GraphicsAPIObjLink<video::ITexture>* linksEnd, uint32_t* arrayIndices, uint32_t* mipLevels, CUstream stream);
+
 
 		static bool defaultHandleResult(nvrtcResult result)
 		{
@@ -354,13 +363,13 @@ class CCUDAHandler
 			nvrtcResult result = NVRTC_ERROR_PROGRAM_CREATION_FAILURE;
 			auto cleanup = core::makeRAIIExiter([&program, &result]() -> void {
 				if (result != NVRTC_SUCCESS && program)
-					cuda::CCUDAHandler::nvrtc.pnvrtcDestroyProgram(&program);
+					nvrtc.pnvrtcDestroyProgram(&program);
 				});
 			
 			char* data = new char[main->getSize()+1ull];
 			main->read(data, main->getSize());
 			data[main->getSize()] = 0;
-			result = cuda::CCUDAHandler::createProgram(&program, data, main->getFileName().c_str(), headersBegin, headersEnd, includeNamesBegin, includeNamesEnd);
+			result = createProgram(&program, data, main->getFileName().c_str(), headersBegin, headersEnd, includeNamesBegin, includeNamesEnd);
 			delete[] data;
 
 			if (result != NVRTC_SUCCESS)
@@ -379,9 +388,9 @@ class CCUDAHandler
 			nvrtcResult result = NVRTC_ERROR_PROGRAM_CREATION_FAILURE;
 			auto cleanup = core::makeRAIIExiter([&program,&result]() -> void {
 				if (result!=NVRTC_SUCCESS && program)
-					cuda::CCUDAHandler::nvrtc.pnvrtcDestroyProgram(&program);
+					nvrtc.pnvrtcDestroyProgram(&program);
 			});
-			result = cuda::CCUDAHandler::createProgram(&program, main, includesBegin, includesEnd);
+			result = createProgram(&program, main, includesBegin, includesEnd);
 			if (result!=NVRTC_SUCCESS)
 				return result;
 
@@ -393,13 +402,13 @@ class CCUDAHandler
 		template<typename OptionsT = const std::initializer_list<const char*>&>
 		static nvrtcResult compileDirectlyToPTX_helper(std::string& ptx, nvrtcProgram program, OptionsT options, std::string* log=nullptr)
 		{
-			nvrtcResult result = cuda::CCUDAHandler::compileProgram(program,options);
+			nvrtcResult result = compileProgram(program,options);
 			if (log)
-				cuda::CCUDAHandler::getProgramLog(program, *log);
+				getProgramLog(program, *log);
 			if (result!=NVRTC_SUCCESS)
 				return result;
 
-			return cuda::CCUDAHandler::getPTX(program, ptx);
+			return getPTX(program, ptx);
 		}
 };
 

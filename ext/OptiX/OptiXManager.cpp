@@ -108,10 +108,6 @@ Manager::Manager(video::IVideoDriver* _driver, io::IFileSystem* _filesystem, uin
 
     optixHeaderNames.insert(optixHeaderNames.end(),cuda::CCUDAHandler::getCUDASTDHeaderNames().begin(),cuda::CCUDAHandler::getCUDASTDHeaderNames().end());
     optixHeaders.insert(optixHeaders.end(),cuda::CCUDAHandler::getCUDASTDHeaders().begin(),cuda::CCUDAHandler::getCUDASTDHeaders().end());
-
-
-	//auto* glDriver = static_cast<COpenGLDriver*>(driver);
-	//rr = ::RadeonRays::CreateFromOpenClContext(context, glDriver->getOpenCLAssociatedDevice(), commandQueue);
 }
 
 Manager::~Manager()
@@ -120,10 +116,7 @@ Manager::~Manager()
 		delete[] name;
 	for (auto& header : optixHeaders)
 		delete[] header;
-/*
-	::RadeonRays::IntersectionApi::Delete(rr);
-	rr = nullptr;
-*/
+
 	for (uint32_t i=0u; i<contextCount; i++)
 	{
 		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuCtxPushCurrent_v2(context[i])))
