@@ -23,7 +23,7 @@ namespace OptiX
 
 class Manager;
 
-#define _IRR_OPTIX_DEFAULT_NVRTC_OPTIONS "--std=c++14",cuda::CCUDAHandler::getCommonVirtualCUDAArchitecture(),"-dc","-use_fast_math"
+#define _IRR_OPTIX_DEFAULT_NVRTC_OPTIONS "--std=c++14",cuda::CCUDAHandler::getCommonVirtualCUDAArchitecture(),"-dc","-use_fast_math","-default-device","--device-debug"
 
 class IContext final : public core::IReferenceCounted
 {

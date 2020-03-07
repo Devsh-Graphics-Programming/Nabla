@@ -48,7 +48,7 @@ layout(location = 0) uniform vec3 uCameraPos;
 layout(location = 1) uniform float uDepthLinearizationConstant;
 layout(location = 2) uniform mat4 uFrustumCorners;
 layout(location = 3) uniform uvec2 uImageSize;
-layout(location = 4) uniform uvec2 uSamples_ImageWidthSamples;
+layout(location = 4) uniform uvec4 uImageWidth_ImageArea_TotalImageSamples_Samples;
 layout(location = 5) uniform uint uSamplesComputed;
 layout(location = 6) uniform vec4 uImageSize2Rcp;
 
@@ -306,7 +306,7 @@ void main()
 		ivec2 uv = ivec2(outputLocation);
 		float revdepth = texelFetch(depthbuf,uv,0).r;
 
-		uint outputID = uSamples_ImageWidthSamples.x*outputLocation.x+uSamples_ImageWidthSamples.y*outputLocation.y;
+		uint outputID = outputLocation.x+uImageWidth_ImageArea_TotalImageSamples_Samples.x*outputLocation.y;
 
 		// unproject
 		vec3 viewDir;
@@ -330,7 +330,7 @@ void main()
 		vec3 normal;
 		if (alive)
 			normal = decode(encNormal);
-		for (uint i=0u; i<uSamples_ImageWidthSamples.x; i++)
+		for (uint i=0u; i<uImageWidth_ImageArea_TotalImageSamples_Samples.w; i++)
 		{
 			vec4 bsdf = vec4(0.0,0.0,0.0,-1.0);
 			float error = GET_MAGNITUDE(1.0-revdepth)*0.1;
@@ -347,7 +347,7 @@ void main()
 			newray.useless_padding = int(packHalf2x16(bsdf.gr));
 
 			// TODO: repack rays for coalescing
-			rays[outputID+i] = newray;
+			rays[outputID+i*uImageWidth_ImageArea_TotalImageSamples_Samples.y] = newray;
 		}
 	}
 }
@@ -359,13 +359,13 @@ const std::string compostShaderExtensions = R"======(
 )======";
 
 const std::string compostShader = R"======(
-#define WORK_GROUP_DIM 16u
+#define WORK_GROUP_DIM 32u
 layout(local_size_x = WORK_GROUP_DIM, local_size_y = WORK_GROUP_DIM) in;
 #define WORK_GROUP_SIZE (WORK_GROUP_DIM*WORK_GROUP_DIM)
 
 // uniforms
 layout(location = 0) uniform uvec2 uImageSize;
-layout(location = 1) uniform uvec2 uSamples_ImageWidthSamples;
+layout(location = 1) uniform uvec4 uImageWidth_ImageArea_TotalImageSamples_Samples;
 layout(location = 2) uniform float uRcpFramesDone;
 
 // image views
@@ -387,38 +387,70 @@ layout(binding = 2, std430, row_major) restrict readonly buffer LightRadiances
 	vec3 lightRadiance[]; // Watts / steriadian / steradian
 };
 
+#define RAYS_IN_CACHE 1u
+#define KERNEL_HALF_SIZE 0u
+#define CACHE_DIM (WORK_GROUP_DIM+2u*KERNEL_HALF_SIZE)
+#define CACHE_SIZE (CACHE_DIM*CACHE_DIM*RAYS_IN_CACHE)
+shared uint rayScratch0[CACHE_SIZE];
+shared uint rayScratch1[CACHE_SIZE];
+
 void main()
 {
-	uvec2 outputLocation = gl_GlobalInvocationID.xy;
-	bool alive = all(lessThan(outputLocation,uImageSize));
-	if (alive)
-	{
-		ivec2 uv = ivec2(outputLocation);
-		vec4 acc = vec4(0.0);
-		if (uRcpFramesDone<1.0)
-			acc = imageLoad(framebuffer,uv);
+	ivec2 outputLocation = ivec2(gl_GlobalInvocationID.xy);
+	uint baseID = gl_GlobalInvocationID.x+uImageWidth_ImageArea_TotalImageSamples_Samples.x*gl_GlobalInvocationID.y;
+	bool alive = all(lessThan(gl_GlobalInvocationID.xy,uImageSize));
 
-		uint baseID = uSamples_ImageWidthSamples.x*outputLocation.x+uSamples_ImageWidthSamples.y*outputLocation.y;
-		vec3 color = vec3(0.0);
-		for (uint i=0u; i<uSamples_ImageWidthSamples.x; i++)
+	vec4 acc = vec4(0.0);
+	if (uRcpFramesDone<1.0 && alive)
+		acc = imageLoad(framebuffer,outputLocation);
+
+	vec3 color = vec3(0.0);
+	uvec2 groupLocation = gl_WorkGroupID.xy*WORK_GROUP_DIM;
+	for (uint i=0u; i<uImageWidth_ImageArea_TotalImageSamples_Samples.w; i+=RAYS_IN_CACHE)
+	{
+		for (uint lid=gl_LocalInvocationIndex; lid<CACHE_SIZE; lid+=WORK_GROUP_SIZE)
 		{
-			uint rayID = baseID+i;
-			if (hit[rayID]<0)
-				color += vec4(unpackHalf2x16(rays[rayID].useless_padding),unpackHalf2x16(rays[rayID].backfaceCulling)).gra;//b;
-			// hit buffer needs clearing
+			ivec3 coord;
+			coord.z = int(lid/(CACHE_DIM*CACHE_DIM));
+			coord.y = int(lid/CACHE_DIM)-int(coord.z*CACHE_DIM+KERNEL_HALF_SIZE);
+			coord.x = int(lid)-int(coord.y*CACHE_DIM+KERNEL_HALF_SIZE);
+			coord.z += int(i);
+			coord.y += int(groupLocation.y);
+			coord.x += int(groupLocation.x);
+			bool invalidRay = any(lessThan(coord.xy,ivec2(0,0))) || any(greaterThan(coord,ivec3(uImageSize,uImageWidth_ImageArea_TotalImageSamples_Samples.w)));
+			int rayID = coord.x+coord.y*int(uImageWidth_ImageArea_TotalImageSamples_Samples.x)+coord.z*int(uImageWidth_ImageArea_TotalImageSamples_Samples.y);
+			invalidRay = invalidRay ? false:(hit[rayID]>=0);
+			rayScratch0[lid] = invalidRay ? 0u:rays[rayID].useless_padding;
+			rayScratch1[lid] = invalidRay ? 0u:rays[rayID].backfaceCulling;
+		}
+		barrier();
+		memoryBarrierShared();
+
+		uint localID = (gl_LocalInvocationID.x+KERNEL_HALF_SIZE)+(gl_LocalInvocationID.y+KERNEL_HALF_SIZE)*CACHE_DIM;
+		for (uint j=localID; j<CACHE_SIZE; j+=CACHE_DIM*CACHE_DIM)
+			color += vec4(unpackHalf2x16(rayScratch0[j]),unpackHalf2x16(rayScratch1[j])).gra;
+
+		// hit buffer needs clearing
+		for (uint j=i; j<min(uImageWidth_ImageArea_TotalImageSamples_Samples.w,i+RAYS_IN_CACHE); j++)
+		{
+			uint rayID = baseID+j*uImageWidth_ImageArea_TotalImageSamples_Samples.y;
 			hit[rayID] = -1;
 		}
+	}
+
+	if (alive)
+	{
 		// TODO: move the `div` to tonemapping shader (or ray gen actually, for fractional sampling)
-		color *= 1.0/float(uSamples_ImageWidthSamples.x);
+		color *= 1.0/float(uImageWidth_ImageArea_TotalImageSamples_Samples.w);
 
 		// TODO: move this to tonemapping
-		uint lightID = texelFetch(lightIndex,uv,0)[0];
+		uint lightID = texelFetch(lightIndex,outputLocation,0)[0];
 		if (lightID!=0xdeadbeefu)
 			color += lightRadiance[lightID];
 
 		// TODO: optimize the color storage (RGB9E5/RGB19E7 anyone?)
 		acc.rgb += (color-acc.rgb)*uRcpFramesDone;
-		imageStore(framebuffer,uv,acc);
+		imageStore(framebuffer,outputLocation,acc);
 	}
 }
 
@@ -566,7 +598,8 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneMa
 		m_rrManager(ext::RadeonRays::Manager::create(m_driver)), m_rightHanded(false),
 		m_depth(), m_albedo(), m_normals(), m_lightIndex(), m_accumulation(), m_tonemapOutput(),
 		m_colorBuffer(nullptr), m_gbuffer(nullptr), tmpTonemapBuffer(nullptr),
-		m_maxSamples(0u), m_workGroupCount{0u,0u}, m_samplesPerDispatch(0u), m_samplesComputed(0u), m_rayCount(0u), m_framesDone(0u),
+		m_maxSamples(0u), m_raygenWorkGroups{0u,0u}, m_resolveWorkGroups{0u,0u}, m_samplesPerDispatch(0u),
+		m_samplesComputed(0u), m_rayCount(0u), m_framesDone(0u),
 		m_rayBuffer(), m_intersectionBuffer(), m_rayCountBuffer(),
 		m_rayBufferAsRR(nullptr,nullptr), m_intersectionBufferAsRR(nullptr,nullptr), m_rayCountBufferAsRR(nullptr,nullptr),
 		nodes(), sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), rrInstances(),
@@ -970,9 +1003,12 @@ void Renderer::init(const SAssetBundle& meshes,
 	m_gbuffer->attach(EFAP_COLOR_ATTACHMENT2, m_lightIndex.get());
 
 	//
-#define WORK_GROUP_DIM 16u
-	m_workGroupCount[0] = (renderSize.Width+WORK_GROUP_DIM-1)/WORK_GROUP_DIM;
-	m_workGroupCount[1] = (renderSize.Height+WORK_GROUP_DIM-1)/WORK_GROUP_DIM;
+	constexpr auto RAYGEN_WORK_GROUP_DIM = 16u;
+	m_raygenWorkGroups[0] = (renderSize.Width+RAYGEN_WORK_GROUP_DIM-1)/RAYGEN_WORK_GROUP_DIM;
+	m_raygenWorkGroups[1] = (renderSize.Height+RAYGEN_WORK_GROUP_DIM-1)/RAYGEN_WORK_GROUP_DIM;
+	constexpr auto RESOLVE_WORK_GROUP_DIM = 32u;
+	m_resolveWorkGroups[0] = (renderSize.Width+RESOLVE_WORK_GROUP_DIM-1)/RESOLVE_WORK_GROUP_DIM;
+	m_resolveWorkGroups[1] = (renderSize.Height+RESOLVE_WORK_GROUP_DIM-1)/RESOLVE_WORK_GROUP_DIM;
 	uint32_t pixelCount = renderSize.Width*renderSize.Height;
 
 	auto raygenBufferSize = static_cast<size_t>(pixelCount)*sizeof(::RadeonRays::ray);
@@ -1056,10 +1092,10 @@ void Renderer::deinit()
 	}
 	m_rayBuffer = m_intersectionBuffer = m_rayCountBuffer = nullptr;
 	m_samplesPerDispatch = 0u;
-	m_samplesComputed = 0u;
 	m_rayCount = 0u;
 	m_framesDone = 0u;
-	m_workGroupCount[0] = m_workGroupCount[1] = 0u;
+	m_raygenWorkGroups[0] = m_raygenWorkGroups[1] = 0u;
+	m_resolveWorkGroups[0] = m_resolveWorkGroups[1] = 0u;
 	m_maxSamples = 0u;
 
 	for (auto& node : nodes)
@@ -1106,11 +1142,11 @@ void Renderer::render()
 	auto currentViewProj = camera->getConcatenatedMatrix();
 	if (!core::equals(prevViewProj,currentViewProj,core::ROUNDING_ERROR<core::matrix4SIMD>()*1000.0))
 	{
-		m_samplesComputed = 0u;
 		m_framesDone = 0u;
 	}
 
 	auto rSize = m_depth->getSize();
+	uint32_t uImageWidth_ImageArea_TotalImageSamples_Samples[4] = {rSize[0],rSize[0]*rSize[1],rSize[0]*rSize[1]*m_samplesPerDispatch,m_samplesPerDispatch};
 
 	// generate rays
 	{
@@ -1162,8 +1198,7 @@ void Renderer::render()
 
 			COpenGLExtensionHandler::pGlProgramUniform2uiv(m_raygenProgram, 3, 1, rSize);
 
-			uint32_t uSamples_ImageWidthSamples[2] = {m_samplesPerDispatch,rSize[0]*m_samplesPerDispatch};
-			COpenGLExtensionHandler::pGlProgramUniform2uiv(m_raygenProgram, 4, 1, uSamples_ImageWidthSamples);
+			COpenGLExtensionHandler::pGlProgramUniform4uiv(m_raygenProgram, 4, 1, uImageWidth_ImageArea_TotalImageSamples_Samples);
 
 			COpenGLExtensionHandler::pGlProgramUniform1uiv(m_raygenProgram, 5, 1, &m_samplesComputed);
 			m_samplesComputed += m_samplesPerDispatch;
@@ -1172,7 +1207,7 @@ void Renderer::render()
 			COpenGLExtensionHandler::pGlProgramUniform4fv(m_raygenProgram, 6, 1, uImageSize2Rcp);
 		}
 
-		COpenGLExtensionHandler::pGlDispatchCompute(m_workGroupCount[0], m_workGroupCount[1], 1);
+		COpenGLExtensionHandler::pGlDispatchCompute(m_raygenWorkGroups[0], m_raygenWorkGroups[1], 1);
 
 		COpenGLExtensionHandler::extGlUseProgram(prevProgram);
 		
@@ -1243,15 +1278,14 @@ void Renderer::render()
 		{
 			COpenGLExtensionHandler::pGlProgramUniform2uiv(m_compostProgram, 0, 1, rSize);
 			
-			uint32_t uSamples_ImageWidthSamples[2] = {m_samplesPerDispatch,rSize[0]*m_samplesPerDispatch};
-			COpenGLExtensionHandler::pGlProgramUniform2uiv(m_compostProgram, 1, 1, uSamples_ImageWidthSamples);
+			COpenGLExtensionHandler::pGlProgramUniform4uiv(m_compostProgram, 1, 1, uImageWidth_ImageArea_TotalImageSamples_Samples);
 
 			m_framesDone++;
 			float uRcpFramesDone = 1.0/double(m_framesDone);
 			COpenGLExtensionHandler::pGlProgramUniform1fv(m_compostProgram, 2, 1, &uRcpFramesDone);
 		}
 
-		COpenGLExtensionHandler::pGlDispatchCompute(m_workGroupCount[0], m_workGroupCount[1], 1);
+		COpenGLExtensionHandler::pGlDispatchCompute(m_resolveWorkGroups[0], m_resolveWorkGroups[1], 1);
 		
 		COpenGLExtensionHandler::extGlBindImageTexture(0u, 0u, 0, false, 0, GL_INVALID_ENUM, GL_INVALID_ENUM);
 

@@ -174,7 +174,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		const auto& getSceneBound() const { return sceneBound; }
 
-		uint64_t getTotalSamplesComputed() const { return static_cast<uint64_t>(m_samplesComputed)*static_cast<uint64_t>(m_rayCount); }
+		uint64_t getTotalSamplesComputed() const { return static_cast<uint64_t>(m_framesDone)*static_cast<uint64_t>(m_rayCount); }
 
 
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 4u;
@@ -202,7 +202,8 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::video::IFrameBuffer* m_colorBuffer,* m_gbuffer,* tmpTonemapBuffer;
 
 		uint32_t m_maxSamples;
-		uint32_t m_workGroupCount[2];
+		uint32_t m_raygenWorkGroups[2];
+		uint32_t m_resolveWorkGroups[2];
 		uint32_t m_samplesPerDispatch;
 		uint32_t m_samplesComputed;
 		uint32_t m_rayCount;

@@ -118,6 +118,10 @@ class CCUDAHandler
 			,cuStreamQuery
 			,cuStreamSynchronize
 			,cuStreamWaitEvent
+			,cuSurfObjectCreate
+			,cuSurfObjectDestroy
+			,cuTexObjectCreate
+			,cuTexObjectDestroy
 			,cuGLGetDevices_v2
 		);
 		static CUDA cuda;
