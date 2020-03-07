@@ -5,6 +5,10 @@
 
 #include "../src/irr/video/CCUDAHandler.h"
 
+//#include "../ext/OptiX/SbtRecord.h"
+//#include "../ext/OptiX/IContext.h
+//#include "../ext/OptiX/IDenoiser.h"
+
 #include "optix.h"
 #include "optix_stubs.h"
 
@@ -26,10 +30,28 @@ struct SbtRecord
 class Manager final : public core::IReferenceCounted
 {
 	public:
+		//
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxSLI = 4u;
+
+
+		//
 		static core::smart_refctd_ptr<Manager> create(video::IVideoDriver* _driver, io::IFileSystem* _filesystem);
+		//static core::smart_refctd_ptr<IContext> create(video::IVideoDriver* _driver, io::IFileSystem* _filesystem);
 
 		static void defaultCallback(unsigned int level, const char* tag, const char* message, void* cbdata);
 
+
+		//
+		inline core::SRange<const io::IReadFile* const> getOptiXHeaders() const
+		{
+			auto begin = reinterpret_cast<const io::IReadFile* const*>(&optixHeaders[0].get());
+			return { begin,begin + optixHeaders.size() };
+		}
+		inline const auto& getOptiXHeaderContents() const { return optixHeaderContents; }
+		inline const auto& getOptiXHeaderNames() const { return optixHeaderNames; }
+
+
+		//
 		using RegisteredBufferCache = core::set<cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer>>;
 		template<typename Iterator>
 		OptixTraversableHandle createAccelerationStructure(CUstream stream, RegisteredBufferCache& bufferCache, const OptixAccelBuildOptions& accelOptions, Iterator _begin, Iterator _end, uint32_t deviceID=0u, size_t scratchBufferSize=0u, CUdeviceptr scratchBuffer = nullptr)
@@ -287,16 +309,6 @@ class Manager final : public core::IReferenceCounted
 				rr->Commit();
 		}*/
 
-
-		//inline auto* getRadeonRaysAPI() {return rr;}
-
-		//
-		inline const auto& getOptiXHeaderNames() const { return optixHeaderNames; }
-		inline const auto& getOptiXHeaders() const { return optixHeaders; }
-
-		//
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxSLI = 4u;
-
 	//protected:
 		Manager(video::IVideoDriver* _driver, io::IFileSystem* _filesystem, uint32_t _contextCount, CUcontext* _context, bool* _ownContext=nullptr);
 		~Manager();
@@ -316,9 +328,9 @@ class Manager final : public core::IReferenceCounted
 		CUstream stream[MaxSLI];
 
 		OptixDeviceContext optixContext[MaxSLI];
+		core::vector<core::smart_refctd_ptr<const io::IReadFile> > optixHeaders;
+		core::vector<const char*> optixHeaderContents;
 		core::vector<const char*> optixHeaderNames;
-		core::vector<const char*> optixHeaders;
-		uint32_t headersCreated;
 };
 
 }

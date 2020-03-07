@@ -14,7 +14,8 @@ CCUDAHandler::NVRTC CCUDAHandler::nvrtc;
 
 core::vector<CCUDAHandler::Device> CCUDAHandler::devices;
 
-core::vector<const char*> CCUDAHandler::headers;
+core::vector<core::smart_refctd_ptr<const io::IReadFile> > CCUDAHandler::headers;
+core::vector<const char*> CCUDAHandler::headerContents;
 core::vector<const char*> CCUDAHandler::headerNames;
 
 
@@ -133,8 +134,10 @@ CUresult CCUDAHandler::init()
 
 	for (const auto& it : jitify::detail::get_jitsafe_headers_map())
 	{
-		headerNames.push_back(it.first.c_str());
-		headers.push_back(it.second.c_str());
+		auto file = core::make_smart_refctd_ptr<io::CMemoryReadFile>(it.second.c_str(),it.second.size()+1ull,it.first.c_str());
+		headerContents.push_back(reinterpret_cast<const char*>(file->getData()));
+		headerNames.push_back(file->getFileName().c_str());
+		headers.push_back(core::move_and_static_cast<const io::IReadFile>(file));
 	}
 
 	return result=CUDA_SUCCESS;
@@ -151,6 +154,7 @@ void CCUDAHandler::deinit()
 
 	nvrtc = NVRTC();
 
+	headerContents.clear();
 	headerNames.clear();
 	headers.clear();
 }

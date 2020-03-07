@@ -150,7 +150,7 @@ int main()
 	std::string ptx;
 	{
 		auto file = filesystem->createAndOpenFile("../optixTriangle.cu");
-		const auto& headers = optixmgr->getOptiXHeaders();
+		const auto& headers = optixmgr->getOptiXHeaderContents();
 		const auto& names = optixmgr->getOptiXHeaderNames();
 		bool ok = cuda::CCUDAHandler::defaultHandleResult(
 						cuda::CCUDAHandler::compileDirectlyToPTX(ptx, file,

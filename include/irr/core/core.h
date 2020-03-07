@@ -56,6 +56,7 @@
 #include "irr/core/IBuffer.h"
 #include "irr/core/IReferenceCounted.h"
 #include "irr/core/SRAIIBasedExiter.h"
+#include "irr/core/SRange.h"
 #include "irr/core/Types.h"
 
 // implementations

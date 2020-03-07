@@ -1,5 +1,7 @@
 #include <numeric>
 
+#include "../../source/Irrlicht/CMemoryFile.h"
+
 #include "../../ext/OptiX/OptiXManager.h"
 
 #include "optix_function_table_definition.h"
@@ -87,17 +89,18 @@ Manager::Manager(video::IVideoDriver* _driver, io::IFileSystem* _filesystem, uin
 		if (!file)
 			return;
 
-		auto namelen = strlen(subpath);
-		char* name = new char[namelen+1ull];
-		memcpy(name,subpath,namelen);
-		name[namelen] = 0;
-		optixHeaderNames.push_back(name);
-		char* data = new char[file->getSize()+1ull];
-		file->read(data,file->getSize());
-		data[file->getSize()] = 0;
-		optixHeaders.push_back(data);
+		auto size = file->getSize();
 
+		io::CMemoryReadFile::allocator_type alloc;
+		auto data = alloc.allocate(size+1ull);
+		file->read(data,size);
+		data[size] = 0;
 		file->drop();
+
+		auto memfile = core::make_smart_refctd_ptr<io::CMemoryReadFile>(data,size,subpath,core::adopt_memory);
+		optixHeaderContents.push_back(reinterpret_cast<const char*>(memfile->getData()));
+		optixHeaderNames.push_back(memfile->getFileName().c_str());
+		optixHeaders.push_back(core::move_and_static_cast<io::IReadFile>(memfile));
 	};
 	addHeader("optix.h");
 	addHeader("optix_device.h");
@@ -106,31 +109,19 @@ Manager::Manager(video::IVideoDriver* _driver, io::IFileSystem* _filesystem, uin
 	addHeader("internal/optix_7_device_impl.h");
 	addHeader("internal/optix_7_device_impl_exception.h");
 	addHeader("internal/optix_7_device_impl_transformations.h");
-	headersCreated = optixHeaders.size();
 
-static const char* workarounds = R"===(
-#include "stdint.h"
-
-static __forceinline__ __device__ uint64_t irrGetSbtDataPointer()
-{
-    uint64_t ptr;
-    asm("call (%0), _optix_get_sbt_data_ptr_64, ();" : "=l"(ptr) : );
-    return ptr;
-}
-)===";
-	optixHeaderNames.push_back("irr/builtin/optix/workarounds.h");
-	optixHeaders.push_back(workarounds);
-
+	auto range = cuda::CCUDAHandler::getCUDASTDHeaders();
+	for (auto header : range)
+		optixHeaders.push_back(core::smart_refctd_ptr<const io::IReadFile>(header));
+	optixHeaderContents.insert(optixHeaderContents.end(),cuda::CCUDAHandler::getCUDASTDHeaderContents().begin(),cuda::CCUDAHandler::getCUDASTDHeaderContents().end());
     optixHeaderNames.insert(optixHeaderNames.end(),cuda::CCUDAHandler::getCUDASTDHeaderNames().begin(),cuda::CCUDAHandler::getCUDASTDHeaderNames().end());
-    optixHeaders.insert(optixHeaders.end(),cuda::CCUDAHandler::getCUDASTDHeaders().begin(),cuda::CCUDAHandler::getCUDASTDHeaders().end());
 }
 
 Manager::~Manager()
 {
-	for (uint32_t i=0u; i<headersCreated; i++)
-		delete[] optixHeaderNames[i];
-	for (uint32_t i=0u; i<headersCreated; i++)
-		delete[] optixHeaders[i];
+	optixHeaders.clear();
+	optixHeaderContents.clear();
+	optixHeaderNames.clear();
 
 	for (uint32_t i=0u; i<contextCount; i++)
 	{

@@ -153,19 +153,16 @@ class CCUDAHandler
 			nvrtcGetProgramLogSize
 		);
 		static NVRTC nvrtc;
-		/*
-		IRR_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(NVRTC_BUILTINS, LibLoader
-		);
-		static NVRTC_BUILTINS nvrtc_builtins;
-		*/
+
 	protected:
         CCUDAHandler() = default;
 
 		_IRR_STATIC_INLINE int CudaVersion = 0;
 		_IRR_STATIC_INLINE int DeviceCount = 0;
 		static core::vector<Device> devices;
-
-		static core::vector<const char*> headers;
+		
+		static core::vector<core::smart_refctd_ptr<const io::IReadFile> > headers;
+		static core::vector<const char*> headerContents;
 		static core::vector<const char*> headerNames;
 
 		_IRR_STATIC_INLINE_CONSTEXPR const char* virtualCUDAArchitectures[] = {	"-arch=compute_30",
@@ -183,6 +180,12 @@ class CCUDAHandler
 																				"-arch=compute_75",
 																				"-arch=compute_80"};
 		_IRR_STATIC_INLINE const char* virtualCUDAArchitecture = nullptr;
+
+		#ifdef _MSC_VER
+			_IRR_STATIC_INLINE_CONSTEXPR const char* CUDA_EXTRA_DEFINES = "#ifndef _WIN64\n#define _WIN64\n#endif\n";
+		#else
+			_IRR_STATIC_INLINE_CONSTEXPR const char* CUDA_EXTRA_DEFINES = "#ifndef __LP64__\n#define __LP64__\n#endif\n";
+		#endif
 
 	public:
 		static CUresult init();
@@ -283,11 +286,15 @@ class CCUDAHandler
 		}
 
 		//
-		static const auto& getCUDASTDHeaders() { return headers; }
-
-		//
+		static core::SRange<const io::IReadFile* const> getCUDASTDHeaders()
+		{
+			auto begin = reinterpret_cast<const io::IReadFile* const*>(&headers[0].get());
+			return {begin,begin+headers.size()};
+		}
+		static const auto& getCUDASTDHeaderContents() { return headerContents; }
 		static const auto& getCUDASTDHeaderNames() { return headerNames; }
 
+		//
 		static nvrtcResult createProgram(	nvrtcProgram* prog, const char* source, const char* name,
 											const char* const* headersBegin=nullptr, const char* const* headersEnd=nullptr,
 											const char* const* includeNamesBegin=nullptr, const char* const* includeNamesEnd=nullptr)
@@ -297,10 +304,22 @@ class CCUDAHandler
 			{
 				if (std::distance(includeNamesBegin,includeNamesEnd)!=headerCount)
 					return NVRTC_ERROR_INVALID_INPUT;
-				return nvrtc.pnvrtcCreateProgram(prog, source, name, headerCount, headersBegin, includeNamesBegin);
 			}
 			else
-				return nvrtc.pnvrtcCreateProgram(prog, source, name, 0u, nullptr, nullptr);
+			{
+				headersBegin = nullptr;
+				includeNamesBegin = nullptr;
+			}
+			auto extraLen = strlen(CUDA_EXTRA_DEFINES);
+			auto origLen = strlen(source);
+			auto totalLen = extraLen+origLen;
+			auto tmp = _IRR_NEW_ARRAY(char,totalLen+1u);
+			memcpy(tmp, CUDA_EXTRA_DEFINES, extraLen);
+			memcpy(tmp+extraLen, source, origLen);
+			tmp[totalLen] = 0;
+			auto result = nvrtc.pnvrtcCreateProgram(prog, tmp, name, headerCount, headersBegin, includeNamesBegin);
+			_IRR_DELETE_ARRAY(tmp,totalLen);
+			return result;
 		}
 
 		template<typename HeaderFileIt>
@@ -310,8 +329,8 @@ class CCUDAHandler
 			int numHeaders = std::distance(includesBegin,includesEnd);
 			core::vector<const char*> headers(numHeaders);
 			core::vector<const char*> includeNames(numHeaders);
-			size_t sourceSize = main->getSize();
-			size_t sourceIt = sourceSize;
+			size_t sourceIt = strlen(CUDA_EXTRA_DEFINES);
+			size_t sourceSize = sourceIt+main->getSize();
 			sourceSize++;
 			for (auto it=includesBegin; it!=includesEnd; it++)
 			{
@@ -319,7 +338,10 @@ class CCUDAHandler
 				includeNames.emplace_back(it->getFileName().c_str());
 			}
 			core::vector<char> sources(sourceSize);
-			main->read(sources.data(),sourceIt);
+			memcpy(sources.data(),CUDA_EXTRA_DEFINES,sourceIt);
+			auto filesize = main->getSize();
+			main->read(sources.data()+sourceIt,filesize);
+			sourceIt += filesize;
 			sources[sourceIt++] = 0;
 			for (auto it=includesBegin; it!=includesEnd; it++)
 			{
@@ -328,7 +350,7 @@ class CCUDAHandler
 
 				auto ptr = sources.data()+sourceIt;
 				headers.push_back(ptr);
-				auto filesize = it->getSize();
+				filesize = it->getSize();
 				it->read(ptr,filesize);
 				sourceIt += filesize;
 				sources[sourceIt++] = 0;
