@@ -43,6 +43,11 @@ int main()
 	if (!optixmgr)
 		return 2;
 
+	OptixDeviceContextOptions context_options = {};
+	auto optixctx = optixmgr->createContext(0u,context_options);
+	if (!optixctx)
+		return 3;
+
 	uint8_t stackScratch[16u*1024u];
 #if 0
 	// Specify options for the build. We use default options for simplicity.
@@ -66,7 +71,7 @@ int main()
 	if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&vertices_link,CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
 		return 3;
 
-	if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsMapResources(1u, &vertices_link.cudaHandle, optixmgr->stream[0])))
+	if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsMapResources(1u, &vertices_link.cudaHandle, stream)))
 		return 4;
 
 	CUdeviceptr d_vertices = 0;
@@ -90,7 +95,7 @@ int main()
 	// Query OptiX for the memory requirements for our GAS 
 	OptixAccelBufferSizes gas_buffer_sizes;
 	optixAccelComputeMemoryUsage(
-		optixmgr->optixContext[0],         // The device context we are using
+		optixctx->getOptiXHandle(),         // The device context we are using
 		&accel_options,
 		&triangle_input, // Describes our geometry
 		1,               // Number of build inputs, could have multiple
@@ -105,8 +110,8 @@ int main()
 	// Now build the GAS
 	OptixTraversableHandle gas_handle = 0u;
 	optixAccelBuild(
-		optixmgr->optixContext[0],         // The device context we are using
-		optixmgr->stream[0],           // CUDA stream
+		optixctx->getOptiXHandle(),         // The device context we are using
+		stream,           // CUDA stream
 		&accel_options,
 		&triangle_input,
 		1,           // num build inputs
@@ -118,7 +123,7 @@ int main()
 		nullptr,     // emitted property list
 		0);         // num emitted properties
 
-	if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsUnmapResources(1, &vertices_link.cudaHandle, optixmgr->stream[0])))
+	if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsUnmapResources(1, &vertices_link.cudaHandle, stream)))
 		return 6;
 
 	// We can now free scratch space used during the build
@@ -146,45 +151,14 @@ int main()
 	// This is the name of the param struct variable in our device code
 	pipeline_compile_options.pipelineLaunchParamsVariableName = "params";
 
-	std::string log;
-	std::string ptx;
-	{
-		auto file = filesystem->createAndOpenFile("../optixTriangle.cu");
-		const auto& headers = optixmgr->getOptiXHeaderContents();
-		const auto& names = optixmgr->getOptiXHeaderNames();
-		bool ok = cuda::CCUDAHandler::defaultHandleResult(
-						cuda::CCUDAHandler::compileDirectlyToPTX(ptx, file,
-							headers.data(),headers.data()+headers.size(),names.data(),names.data()+names.size(),
-							{"--std=c++14",cuda::CCUDAHandler::getCommonVirtualCUDAArchitecture(),"-dc","-use_fast_math"}, &log
-						)
-					);
-		if (log.size())
-			printf("NVRTC LOG:\n%s\n", log.c_str());
-		if (!ok)
-			return 7;
-		file->drop();
-	}
-	size_t sizeof_log = 1024u * 256u;
-	log.resize(sizeof_log);
 
+	// module
+	auto file = filesystem->createAndOpenFile("../optixTriangle.cu");
+	auto module = optixctx->compileModuleFromFile(file,pipeline_compile_options);//,module_compile_options);
+	file->drop();
 
-	OptixModule module = nullptr; // The output module
-	{
-		// Default options for our module.
-		OptixModuleCompileOptions module_compile_options = {};
-		module_compile_options.maxRegisterCount = OPTIX_COMPILE_DEFAULT_MAX_REGISTER_COUNT;
-		module_compile_options.optLevel = OPTIX_COMPILE_OPTIMIZATION_DEFAULT;
-		module_compile_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_LINEINFO;
-		optixModuleCreateFromPTX(
-			optixmgr->optixContext[0],         // The device context we are using
-			&module_compile_options,
-			&pipeline_compile_options,
-			ptx.c_str(),
-			ptx.size(),
-			log.data(),
-			&sizeof_log,
-			&module);
-	}
+	if (!module)
+		return 7;
 	
     //
     // Create program groups, including NULL miss and hitgroups
@@ -197,44 +171,38 @@ int main()
 
         OptixProgramGroupDesc raygen_prog_group_desc  = {}; //
         raygen_prog_group_desc.kind                     = OPTIX_PROGRAM_GROUP_KIND_RAYGEN;
-        raygen_prog_group_desc.raygen.module            = module;
+        raygen_prog_group_desc.raygen.module            = module->getOptiXHandle();
         raygen_prog_group_desc.raygen.entryFunctionName = "__raygen__draw_solid_color";
-        size_t sizeof_log = sizeof( log );
         optixProgramGroupCreate(
-                    optixmgr->optixContext[0],
+                    optixctx->getOptiXHandle(),
                     &raygen_prog_group_desc,
                     1,   // num program groups
                     &program_group_options,
-                    log.data(),
-                    &sizeof_log,
+                    nullptr,nullptr,
                     &raygen_prog_group
                     );
 
         // Leave miss group's module and entryfunc name null
         OptixProgramGroupDesc miss_prog_group_desc = {};
         miss_prog_group_desc.kind = OPTIX_PROGRAM_GROUP_KIND_MISS;
-        sizeof_log = sizeof( log );
         optixProgramGroupCreate(
-                    optixmgr->optixContext[0],
+                    optixctx->getOptiXHandle(),
                     &miss_prog_group_desc,
                     1,   // num program groups
                     &program_group_options,
-                    log.data(),
-                    &sizeof_log,
+                    nullptr,nullptr,
                     &miss_prog_group
                     );
 
         // Leave hit group's module and entryfunc name null
         OptixProgramGroupDesc hitgroup_prog_group_desc = {};
         hitgroup_prog_group_desc.kind = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
-        sizeof_log = sizeof( log );
         optixProgramGroupCreate(
-                    optixmgr->optixContext[0],
+                    optixctx->getOptiXHandle(),
                     &hitgroup_prog_group_desc,
                     1,   // num program groups
                     &program_group_options,
-                    log.data(),
-                    &sizeof_log,
+                    nullptr,nullptr,
                     &hitgroup_prog_group
                     );
     }
@@ -242,26 +210,26 @@ int main()
     //
     // Link pipeline
     //
+	OptixPipelineLinkOptions pipeline_link_options = {};
+	pipeline_link_options.maxTraceDepth = 5;
+	pipeline_link_options.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
+	pipeline_link_options.overrideUsesMotionBlur = false;
     OptixPipeline pipeline = nullptr;
     {
         OptixProgramGroup program_groups[] = { raygen_prog_group };
 
-        OptixPipelineLinkOptions pipeline_link_options = {};
-        pipeline_link_options.maxTraceDepth          = 5;
-        pipeline_link_options.debugLevel             = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
-        pipeline_link_options.overrideUsesMotionBlur = false;
-        size_t sizeof_log = sizeof( log );
         optixPipelineCreate(
-                    optixmgr->optixContext[0],
+                    optixctx->getOptiXHandle(),
                     &pipeline_compile_options,
                     &pipeline_link_options,
                     program_groups,
                     sizeof( program_groups ) / sizeof( program_groups[0] ),
-                    log.data(),
-                    &sizeof_log,
+					nullptr, nullptr,
                     &pipeline
                     );
     }
+
+	CUstream stream = optixmgr->getDeviceStream(0u);
 
     //
     // Set up shader binding table
@@ -279,7 +247,7 @@ int main()
 			outLink->obj = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(recordData),&recordData), core::dont_grab);
 			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(outLink,CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
 				return {};
-			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsMapResources(1u, &outLink->cudaHandle, optixmgr->stream[0])))
+			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsMapResources(1u, &outLink->cudaHandle, stream)))
 				return {};
 			size_t tmp = sizeof(recordData);
 			CUdeviceptr cuptr;
@@ -328,7 +296,7 @@ int main()
 		// raytrace part
 		{
 			CUdeviceptr cuptr[2] = {};
-			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::mapAndGetPointers(cuptr+1,buffers+1,buffers+buffersToAcquireCount,optixmgr->stream[0])))
+			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::mapAndGetPointers(cuptr+1,buffers+1,buffers+buffersToAcquireCount,stream)))
 				return 9;
 			
 			auto outputCUDAPtrRef = cuda::CCUDAHandler::cast_CUDA_ptr<uchar4>(cuptr[1]);
@@ -337,12 +305,12 @@ int main()
 				p.image = outputCUDAPtrRef;
 				driver->updateBufferRangeViaStagingBuffer(buffers[0].obj.get(),0u,sizeof(Params),&p);
 			}
-			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::mapAndGetPointers(cuptr,buffers,buffers+1,optixmgr->stream[0])))
+			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::mapAndGetPointers(cuptr,buffers,buffers+1,stream)))
 				return 10;
 
-			optixLaunch( pipeline, optixmgr->stream[0], cuptr[0], sizeof(Params), &sbt, p.image_width, params.WindowSize.Height, /*depth=*/1 );
+			optixLaunch( pipeline, stream, cuptr[0], sizeof(Params), &sbt, p.image_width, params.WindowSize.Height, /*depth=*/1 );
 
-			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::releaseResourcesToGraphics(stackScratch, buffers, buffers + buffersToAcquireCount, optixmgr->stream[0])))
+			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::releaseResourcesToGraphics(stackScratch, buffers, buffers + buffersToAcquireCount, stream)))
 				return 11;
 		}
 
@@ -357,16 +325,12 @@ int main()
 	/// optixAccelDestroy?
 	//cuda::CCUDAHandler::cuda.pcuMemFree_v2(d_gas_output_buffer);
     {
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::releaseResourcesToGraphics(stackScratch,sbt_record_buffers,sbt_record_buffers+sbt_count,optixmgr->stream[0])))
+		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::releaseResourcesToGraphics(stackScratch,sbt_record_buffers,sbt_record_buffers+sbt_count,stream)))
 			return 12;
 		for (auto i=0; i<sbt_count; i++)
 			sbt_record_buffers[i] = {};
 
         optixPipelineDestroy(pipeline);
-        optixProgramGroupDestroy(hitgroup_prog_group);
-        optixProgramGroupDestroy(miss_prog_group);
-        optixProgramGroupDestroy(raygen_prog_group);
-        optixModuleDestroy(module);
     }
 
 	device->drop();

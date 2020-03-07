@@ -359,8 +359,9 @@ class CCUDAHandler
 			}
 			return nvrtc.pnvrtcCreateProgram(prog, sources.data(), main->getFileName().c_str(), numHeaders, headers.data(), includeNames.data());
 		}
-
-		static nvrtcResult compileProgram(nvrtcProgram prog, const std::initializer_list<const char*>& options={_IRR_DEFAULT_NVRTC_OPTIONS})
+		
+		template<typename OptionsT = const std::initializer_list<const char*>&>
+		static nvrtcResult compileProgram(nvrtcProgram prog, OptionsT options={_IRR_DEFAULT_NVRTC_OPTIONS})
 		{
 			return nvrtc.pnvrtcCompileProgram(prog, options.size(), options.begin());
 		}
@@ -378,7 +379,7 @@ class CCUDAHandler
 
 		//
 		template<typename OptionsT = const std::initializer_list<const char*>&>
-		static nvrtcResult compileDirectlyToPTX(std::string& ptx, irr::io::IReadFile* main,
+		static nvrtcResult compileDirectlyToPTX(std::string& ptx, const char* source, const char* filename,
 			const char* const* headersBegin = nullptr, const char* const* headersEnd = nullptr,
 			const char* const* includeNamesBegin = nullptr, const char* const* includeNamesEnd = nullptr,
 			OptionsT options = { _IRR_DEFAULT_NVRTC_OPTIONS },
@@ -390,17 +391,29 @@ class CCUDAHandler
 				if (result != NVRTC_SUCCESS && program)
 					nvrtc.pnvrtcDestroyProgram(&program);
 				});
-			
-			char* data = new char[main->getSize()+1ull];
-			main->read(data, main->getSize());
-			data[main->getSize()] = 0;
-			result = createProgram(&program, data, main->getFileName().c_str(), headersBegin, headersEnd, includeNamesBegin, includeNamesEnd);
-			delete[] data;
+
+			result = createProgram(&program, source, filename, headersBegin, headersEnd, includeNamesBegin, includeNamesEnd);
 
 			if (result != NVRTC_SUCCESS)
 				return result;
 
 			return result = compileDirectlyToPTX_helper<OptionsT>(ptx, program, std::forward<OptionsT>(options), log);
+		}
+
+		template<typename OptionsT = const std::initializer_list<const char*>&>
+		static nvrtcResult compileDirectlyToPTX(std::string& ptx, irr::io::IReadFile* main,
+			const char* const* headersBegin = nullptr, const char* const* headersEnd = nullptr,
+			const char* const* includeNamesBegin = nullptr, const char* const* includeNamesEnd = nullptr,
+			OptionsT options = { _IRR_DEFAULT_NVRTC_OPTIONS },
+			std::string* log = nullptr)
+		{
+			char* data = new char[main->getSize()+1ull];
+			main->read(data, main->getSize());
+			data[main->getSize()] = 0;
+			auto result = compileDirectlyToPTX<OptionsT>(ptx, data, main->getFileName().c_str(), headersBegin, headersEnd, std::forward<OptionsT>(options), log);
+			delete[] data;
+
+			return result;
 		}
 
 		template<typename CompileArgsT, typename OptionsT=const std::initializer_list<const char*>&>

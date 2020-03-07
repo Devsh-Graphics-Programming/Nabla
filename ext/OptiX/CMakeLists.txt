@@ -2,11 +2,16 @@ include(../../cmake/common.cmake)
 
 
 set(IRR_EXT_OPTIX_H
+	SbtRecord.h
+	IModule.h
+	IContext.h
+	IDenoiser.h
 	OptiXManager.h
 )
 
 set(IRR_EXT_OPTIX_SRC
 	OptiXManager.cpp
+	IContext.cpp
 )
 
 set(IRR_EXT_OPTIX_EXTERNAL_INCLUDE
