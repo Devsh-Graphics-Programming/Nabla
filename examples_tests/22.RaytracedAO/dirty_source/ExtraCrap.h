@@ -7,6 +7,10 @@
 // pesky leaking defines
 #undef PI
 
+#ifdef _IRR_BUILD_OPTIX_
+#include "../../ext/OptiX/Manager.h"
+#endif
+
 
 class Renderer : public irr::core::IReferenceCounted, public irr::core::InterfaceUnmovable
 {
@@ -157,12 +161,16 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		};
 		static_assert(sizeof(SLight)==112u,"Can't keep alignment straight!");
 
-		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr);
+		// No 8k yet, too many rays to store
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxResolution[2] = {7680/2,4320/2};
+
+
+		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, bool useDenoiser = true);
 
 		void init(	const irr::asset::SAssetBundle& meshes,
 					bool isCameraRightHanded,
 					irr::core::smart_refctd_ptr<irr::asset::ICPUBuffer>&& sampleSequence,
-					uint32_t rayBufferSize=1024u*1024u*1024u);
+					uint32_t rayBufferSize=(sizeof(::RadeonRays::ray)*2u+sizeof(uint32_t)*2u)*MaxResolution[0]*MaxResolution[1]); // 2 samples for MIS
 
 		void deinit();
 
@@ -225,6 +233,14 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightCDFBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightRadianceBuffer;
+
+	#ifdef _IRR_BUILD_OPTIX_
+		irr::core::smart_refctd_ptr<irr::ext::OptiX::Manager> m_optixManager;
+		CUstream m_cudaStream;
+		irr::core::smart_refctd_ptr<irr::ext::OptiX::IContext> m_optixContext;
+		irr::core::smart_refctd_ptr<irr::ext::OptiX::IDenoiser> m_denoiser;
+		irr::cuda::CCUDAHandler::GraphicsAPIObjLink<irr::video::IGPUBuffer> m_resolvedBuffer,m_scratchDenoiseBuffer,m_denoisedBuffer;
+	#endif
 };
 
 #endif

@@ -326,16 +326,20 @@ class IContext final : public core::IReferenceCounted
 				rr->Commit();
 		}*/
 
-		core::smart_refctd_ptr<IDenoiser> createDenoiser(const OptixDenoiserOptions* options)
+		core::smart_refctd_ptr<IDenoiser> createDenoiser(const OptixDenoiserOptions* options, OptixDenoiserModelKind model=OPTIX_DENOISER_MODEL_KIND_HDR, void* modelData=nullptr, size_t modelDataSizeInBytes=0ull)
 		{
-			if (options)
+			if (!options)
 				return nullptr;
 
 			OptixDenoiser denoiser = nullptr;
 			if (optixDenoiserCreate(optixContext,options,&denoiser)!=OPTIX_SUCCESS || !denoiser)
 				return nullptr;
 
-			return core::smart_refctd_ptr<IDenoiser>(new IDenoiser(denoiser),core::dont_grab);
+			auto denoiser_wrapper = core::smart_refctd_ptr<IDenoiser>(new IDenoiser(denoiser),core::dont_grab);
+			if (optixDenoiserSetModel(denoiser,model,modelData,modelDataSizeInBytes)!=OPTIX_SUCCESS)
+				return nullptr;
+
+			return denoiser_wrapper;
 		}
 
 	protected:

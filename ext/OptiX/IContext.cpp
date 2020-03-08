@@ -1,6 +1,6 @@
 #include "../../ext/OptiX/IContext.h"
 
-#include "../../ext/OptiX/OptiXManager.h"
+#include "../../ext/OptiX/Manager.h"
 
 
 using namespace irr;
