@@ -6,11 +6,11 @@ set(IRR_EXT_OPTIX_H
 	IModule.h
 	IContext.h
 	IDenoiser.h
-	OptiXManager.h
+	Manager.h
 )
 
 set(IRR_EXT_OPTIX_SRC
-	OptiXManager.cpp
+	Manager.cpp
 	IContext.cpp
 )
 
