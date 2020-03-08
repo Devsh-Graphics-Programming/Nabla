@@ -182,7 +182,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		const auto& getSceneBound() const { return sceneBound; }
 
-		uint64_t getTotalSamplesComputed() const { return static_cast<uint64_t>(m_framesDone)*static_cast<uint64_t>(m_rayCount); }
+		uint64_t getTotalSamplesComputed() const { return static_cast<uint64_t>(m_samplesComputed)*static_cast<uint64_t>(m_rayCount)/m_samplesPerDispatch; }
 
 
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 4u;
@@ -239,7 +239,8 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		CUstream m_cudaStream;
 		irr::core::smart_refctd_ptr<irr::ext::OptiX::IContext> m_optixContext;
 		irr::core::smart_refctd_ptr<irr::ext::OptiX::IDenoiser> m_denoiser;
-		irr::cuda::CCUDAHandler::GraphicsAPIObjLink<irr::video::IGPUBuffer> m_resolvedBuffer,m_scratchDenoiseBuffer,m_denoisedBuffer;
+		OptixDenoiserSizes m_denoiserMemReqs;
+		irr::cuda::CCUDAHandler::GraphicsAPIObjLink<irr::video::IGPUBuffer> m_resolvedBuffer,m_denoiserStateBuffer,m_denoisedBuffer,m_denoiserScratchBuffer;
 	#endif
 };
 

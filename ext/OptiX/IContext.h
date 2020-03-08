@@ -5,8 +5,6 @@
 #include "irr/system/system.h"
 #include "IReadFile.h"
 
-#include "../src/irr/video/CCUDAHandler.h"
-
 
 #include "optix.h"
 
