@@ -210,30 +210,59 @@ class CCUDAHandler
 		template<typename ObjType>
 		struct GraphicsAPIObjLink
 		{
-			core::smart_refctd_ptr<ObjType> obj;
-			CUgraphicsResource cudaHandle;
+				GraphicsAPIObjLink() : obj(nullptr), cudaHandle(nullptr), acquired(false)
+				{
+					asImage = {nullptr};
+				}
+				GraphicsAPIObjLink(core::smart_refctd_ptr<ObjType>&& _obj) : GraphicsAPIObjLink()
+				{
+					obj = std::move(_obj);
+				}
+				GraphicsAPIObjLink(GraphicsAPIObjLink&& other) : GraphicsAPIObjLink()
+				{
+					operator=(std::move(other));
+				}
 
-			GraphicsAPIObjLink() : obj(nullptr), cudaHandle(nullptr) {}
-			GraphicsAPIObjLink(core::smart_refctd_ptr<ObjType>&& _obj) : obj(std::move(_obj)), cudaHandle(nullptr) {}
-			GraphicsAPIObjLink(GraphicsAPIObjLink&& other) : GraphicsAPIObjLink()
-			{
-				operator=(std::move(other));
-			}
+				GraphicsAPIObjLink(const GraphicsAPIObjLink& other) = delete;
+				GraphicsAPIObjLink& operator=(const GraphicsAPIObjLink& other) = delete;
+				GraphicsAPIObjLink& operator=(GraphicsAPIObjLink&& other)
+				{
+					std::swap(obj,other.obj);
+					std::swap(cudaHandle,other.cudaHandle);
+					std::swap(acquired,other.acquired);
+					std::swap(asImage,other.asImage);
+					return *this;
+				}
 
-			GraphicsAPIObjLink(const GraphicsAPIObjLink& other) = delete;
-			GraphicsAPIObjLink& operator=(const GraphicsAPIObjLink& other) = delete;
-			GraphicsAPIObjLink& operator=(GraphicsAPIObjLink&& other)
-			{
-				std::swap(obj,other.obj);
-				std::swap(cudaHandle,other.cudaHandle);
-				return *this;
-			}
+				~GraphicsAPIObjLink()
+				{
+					assert(!acquired); // you've fucked up, there's no way for us to fix it, you need to release the objects on a proper stream
+					if (obj)
+						CCUDAHandler::cuda.pcuGraphicsUnregisterResource(cudaHandle);
+				}
 
-			~GraphicsAPIObjLink()
-			{
-				if (obj)
-					CCUDAHandler::cuda.pcuGraphicsUnregisterResource(cudaHandle);
-			}
+				//
+				auto* getObject() const {return obj.get();}
+
+			private:
+				core::smart_refctd_ptr<ObjType> obj;
+				CUgraphicsResource cudaHandle;
+				bool acquired;
+
+				friend class CCUDAHandler;
+			public:
+				union
+				{
+					struct
+					{
+						CUdeviceptr pointer;
+					} asBuffer;
+					struct
+					{
+						CUmipmappedArray mipmappedArray;
+						CUarray array;
+					} asImage;
+				};
 		};
 
 		//
@@ -242,33 +271,47 @@ class CCUDAHandler
 		
 
 		template<typename ObjType>
-		static CUresult acquireResourcesFromGraphics(void* tmpStorage, const GraphicsAPIObjLink<ObjType>* linksBegin, const GraphicsAPIObjLink<ObjType>* linksEnd, CUstream stream)
+		static CUresult acquireResourcesFromGraphics(void* tmpStorage, GraphicsAPIObjLink<ObjType>* linksBegin, GraphicsAPIObjLink<ObjType>* linksEnd, CUstream stream)
 		{
 			auto count = std::distance(linksBegin,linksEnd);
 
-			auto iit = linksBegin;
 			auto resources = reinterpret_cast<CUgraphicsResource*>(tmpStorage);
-			for (auto rit=resources; iit!=linksEnd; iit++,rit++)
+			auto rit = resources;
+			for (auto iit=linksBegin; iit!=linksEnd; iit++,rit++)
+			{
+				if (iit->acquired)
+					return CUDA_ERROR_UNKNOWN;
 				*rit = iit->cudaHandle;
+			}
 
-			return cuda.pcuGraphicsMapResources(count,resources,stream);
+			auto retval = cuda.pcuGraphicsMapResources(count,resources,stream);
+			for (auto iit=linksBegin; iit!=linksEnd; iit++)
+				iit->acquired = true;
+			return retval;
 		}
 		template<typename ObjType>
-		static CUresult releaseResourcesToGraphics(void* tmpStorage, const GraphicsAPIObjLink<ObjType>* linksBegin, const GraphicsAPIObjLink<ObjType>* linksEnd, CUstream stream)
+		static CUresult releaseResourcesToGraphics(void* tmpStorage, GraphicsAPIObjLink<ObjType>* linksBegin, GraphicsAPIObjLink<ObjType>* linksEnd, CUstream stream)
 		{
 			auto count = std::distance(linksBegin,linksEnd);
 
-			auto iit = linksBegin;
 			auto resources = reinterpret_cast<CUgraphicsResource*>(tmpStorage);
-			for (auto rit=resources; iit!=linksEnd; iit++,rit++)
+			auto rit = resources;
+			for (auto iit=linksBegin; iit!=linksEnd; iit++,rit++)
+			{
+				if (!iit->acquired)
+					return CUDA_ERROR_UNKNOWN;
 				*rit = iit->cudaHandle;
+			}
 
-			return cuda.pcuGraphicsUnmapResources(count,resources,stream);
+			auto retval = cuda.pcuGraphicsUnmapResources(count,resources,stream);
+			for (auto iit=linksBegin; iit!=linksEnd; iit++)
+				iit->acquired = false;
+			return retval;
 		}
 
-		static CUresult mapAndGetPointers(CUdeviceptr* outPtrs, const GraphicsAPIObjLink<video::IGPUBuffer>* linksBegin, const GraphicsAPIObjLink<video::IGPUBuffer>* linksEnd, CUstream stream, size_t* outbufferSizes = nullptr);
-		static CUresult mapAndGetMipmappedArray(CUmipmappedArray* outMArrays, const GraphicsAPIObjLink<video::ITexture>* linksBegin, const GraphicsAPIObjLink<video::ITexture>* linksEnd, CUstream stream);
-		static CUresult mapAndGetArray(CUarray* outArrays, const GraphicsAPIObjLink<video::ITexture>* linksBegin, const GraphicsAPIObjLink<video::ITexture>* linksEnd, uint32_t* arrayIndices, uint32_t* mipLevels, CUstream stream);
+		static CUresult acquireAndGetPointers(GraphicsAPIObjLink<video::IGPUBuffer>* linksBegin, GraphicsAPIObjLink<video::IGPUBuffer>* linksEnd, CUstream stream, size_t* outbufferSizes = nullptr);
+		static CUresult acquireAndGetMipmappedArray(GraphicsAPIObjLink<video::ITexture>* linksBegin, GraphicsAPIObjLink<video::ITexture>* linksEnd, CUstream stream);
+		static CUresult acquireAndGetArray(GraphicsAPIObjLink<video::ITexture>* linksBegin, GraphicsAPIObjLink<video::ITexture>* linksEnd, uint32_t* arrayIndices, uint32_t* mipLevels, CUstream stream);
 
 
 		static bool defaultHandleResult(nvrtcResult result)

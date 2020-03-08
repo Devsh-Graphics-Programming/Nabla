@@ -146,10 +146,11 @@ int main()
 		reinterpret_cast<float*>(cpubuffers[j]->getPointer())[i] = rand();
 
 	{
-		cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> A,B,C;
-		A.obj = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createFilledDeviceLocalGPUBufferOnDedMem(_size,cpubuffers[0]->getPointer()),core::dont_grab);
-		B.obj = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createFilledDeviceLocalGPUBufferOnDedMem(_size,cpubuffers[1]->getPointer()),core::dont_grab);
-		C.obj = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createDeviceLocalGPUBufferOnDedMem(_size),core::dont_grab);
+		constexpr auto resourceCount = 3u;
+		cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> resources[resourceCount];
+		auto& A = resources[0] = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createFilledDeviceLocalGPUBufferOnDedMem(_size,cpubuffers[0]->getPointer()),core::dont_grab);
+		auto& B = resources[1] = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createFilledDeviceLocalGPUBufferOnDedMem(_size,cpubuffers[1]->getPointer()),core::dont_grab);
+		auto& C = resources[2] = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createDeviceLocalGPUBufferOnDedMem(_size),core::dont_grab);
 		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&A,CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
 			return 11;
 		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&B,CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
@@ -157,32 +158,24 @@ int main()
 		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&C,CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD)))
 			return 12;
 
-		CUgraphicsResource resources[] = {A.cudaHandle,B.cudaHandle,C.cudaHandle};
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsMapResources(sizeof(resources)/sizeof(CUgraphicsResource), resources, stream[0])))
-			return 14;
+		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::acquireAndGetPointers(resources,resources+resourceCount,stream[0])))
+			return 13;
 
-		CUdeviceptr buffers[3];
-		for (auto i=0; i<3; i++)
-		{
-			size_t tmp = _size;
-			bool ok = cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsResourceGetMappedPointer_v2(buffers+i,&tmp,resources[i]));
-			assert(ok);
-		}
-
-		void* parameters[] = {buffers+0,buffers+1,buffers+2,&numElements};
+		void* parameters[] = {&A.asBuffer.pointer,&B.asBuffer.pointer,&C.asBuffer.pointer,&numElements};
 		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuLaunchKernel(kernel,gridDim[0],gridDim[1],gridDim[2],
 																									blockDim[0],blockDim[1],blockDim[2],
 																									0,stream[0],parameters,nullptr)))
+			return 14;
+
+		auto scratch = parameters;
+		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::releaseResourcesToGraphics(scratch,resources,resources+resourceCount,stream[0])))
 			return 15;
 
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuGraphicsUnmapResources(sizeof(resources)/sizeof(CUgraphicsResource), resources, stream[0])))
-			return 16;
-
 		float* C_host = new float[numElements];
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuMemcpyDtoHAsync_v2(C_host,buffers[2],_size,stream[0])))
-			return 17;
+		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuMemcpyDtoHAsync_v2(C_host,C.asBuffer.pointer,_size,stream[0])))
+			return 16;
 		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuCtxSynchronize()))
-			return 18;
+			return 17;
 
 		// check
 		for (auto i = 0; i < numElements; i++)

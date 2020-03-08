@@ -221,53 +221,71 @@ CUresult CCUDAHandler::registerImage(GraphicsAPIObjLink<video::ITexture>* link, 
 	return retval;
 }
 
-CUresult CCUDAHandler::mapAndGetPointers(CUdeviceptr* outPtrs, const GraphicsAPIObjLink<video::IGPUBuffer>* linksBegin, const GraphicsAPIObjLink<video::IGPUBuffer>* linksEnd, CUstream stream, size_t* outbufferSizes)
+
+constexpr auto MaxAquireOps = 4096u;
+
+CUresult CCUDAHandler::acquireAndGetPointers(GraphicsAPIObjLink<video::IGPUBuffer>* linksBegin, GraphicsAPIObjLink<video::IGPUBuffer>* linksEnd, CUstream stream, size_t* outbufferSizes)
 {
-	CUresult result = acquireResourcesFromGraphics(outPtrs,linksBegin,linksEnd,stream);
-	memset(outPtrs,0,sizeof(CUdeviceptr)*(linksEnd-linksBegin));
+	if (linksBegin+MaxAquireOps<linksEnd)
+		return CUDA_ERROR_OUT_OF_MEMORY;
+	alignas(_IRR_SIMD_ALIGNMENT) uint8_t stackScratch[MaxAquireOps*sizeof(void*)];
+
+	CUresult result = acquireResourcesFromGraphics(stackScratch,linksBegin,linksEnd,stream);
 	if (result != CUDA_SUCCESS)
 		return result;
 
-	auto iit = linksBegin;
 	size_t tmp = 0xdeadbeefbadc0ffeull;
 	size_t* sit = outbufferSizes;
-	for (auto oit=outPtrs; iit!=linksEnd; iit++,oit++,sit++)
+	for (auto iit=linksBegin; iit!=linksEnd; iit++,sit++)
 	{
-		result = cuda::CCUDAHandler::cuda.pcuGraphicsResourceGetMappedPointer_v2(oit,outbufferSizes ? sit:&tmp,iit->cudaHandle);
+		if (!iit->acquired)
+			return CUDA_ERROR_UNKNOWN;
+
+		result = cuda::CCUDAHandler::cuda.pcuGraphicsResourceGetMappedPointer_v2(&iit->asBuffer.pointer,outbufferSizes ? sit:&tmp,iit->cudaHandle);
 		if (result != CUDA_SUCCESS)
 			return result;
 	}
 	return CUDA_SUCCESS;
 }
-CUresult CCUDAHandler::mapAndGetMipmappedArray(CUmipmappedArray* outMArrays, const GraphicsAPIObjLink<video::ITexture>* linksBegin, const GraphicsAPIObjLink<video::ITexture>* linksEnd, CUstream stream)
+CUresult CCUDAHandler::acquireAndGetMipmappedArray(GraphicsAPIObjLink<video::ITexture>* linksBegin, GraphicsAPIObjLink<video::ITexture>* linksEnd, CUstream stream)
 {
-	CUresult result = acquireResourcesFromGraphics(outMArrays,linksBegin,linksEnd,stream);
-	memset(outMArrays,0,sizeof(CUmipmappedArray)*(linksEnd-linksBegin));
+	if (linksBegin+MaxAquireOps<linksEnd)
+		return CUDA_ERROR_OUT_OF_MEMORY;
+	alignas(_IRR_SIMD_ALIGNMENT) uint8_t stackScratch[MaxAquireOps*sizeof(void*)];
+
+	CUresult result = acquireResourcesFromGraphics(stackScratch,linksBegin,linksEnd,stream);
 	if (result != CUDA_SUCCESS)
 		return result;
 
-	auto iit = linksBegin;
-	for (auto oit=outMArrays; iit!=linksEnd; iit++,oit++)
+	for (auto iit=linksBegin; iit!=linksEnd; iit++)
 	{
-		result = cuda::CCUDAHandler::cuda.pcuGraphicsResourceGetMappedMipmappedArray(oit,iit->cudaHandle);
+		if (!iit->acquired)
+			return CUDA_ERROR_UNKNOWN;
+
+		result = cuda::CCUDAHandler::cuda.pcuGraphicsResourceGetMappedMipmappedArray(&iit->asImage.mipmappedArray,iit->cudaHandle);
 		if (result != CUDA_SUCCESS)
 			return result;
 	}
 	return CUDA_SUCCESS;
 }
-CUresult CCUDAHandler::mapAndGetArray(CUarray* outArrays, const GraphicsAPIObjLink<video::ITexture>* linksBegin, const GraphicsAPIObjLink<video::ITexture>* linksEnd, uint32_t* arrayIndices, uint32_t* mipLevels, CUstream stream)
+CUresult CCUDAHandler::acquireAndGetArray(GraphicsAPIObjLink<video::ITexture>* linksBegin, GraphicsAPIObjLink<video::ITexture>* linksEnd, uint32_t* arrayIndices, uint32_t* mipLevels, CUstream stream)
 {
-	CUresult result = acquireResourcesFromGraphics(outArrays,linksBegin,linksEnd,stream);
-	memset(outArrays,0,sizeof(CUarray)*(linksEnd-linksBegin));
+	if (linksBegin+MaxAquireOps<linksEnd)
+		return CUDA_ERROR_OUT_OF_MEMORY;
+	alignas(_IRR_SIMD_ALIGNMENT) uint8_t stackScratch[MaxAquireOps*sizeof(void*)];
+
+	CUresult result = acquireResourcesFromGraphics(stackScratch,linksBegin,linksEnd,stream);
 	if (result != CUDA_SUCCESS)
 		return result;
 
-	auto iit = linksBegin;
 	auto ait = arrayIndices;
 	auto mit = mipLevels;
-	for (auto oit=outArrays; iit!=linksEnd; iit++,oit++,ait++,mit++)
+	for (auto iit=linksBegin; iit!=linksEnd; iit++,ait++,mit++)
 	{
-		result = cuda::CCUDAHandler::cuda.pcuGraphicsSubResourceGetMappedArray(oit,iit->cudaHandle,*ait,*mit);
+		if (!iit->acquired)
+			return CUDA_ERROR_UNKNOWN;
+
+		result = cuda::CCUDAHandler::cuda.pcuGraphicsSubResourceGetMappedArray(&iit->asImage.array,iit->cudaHandle,*ait,*mit);
 		if (result != CUDA_SUCCESS)
 			return result;
 	}
