@@ -387,9 +387,17 @@ layout(binding = 2, std430, row_major) restrict readonly buffer LightRadiances
 };
 
 #ifdef USE_OPTIX_DENOISER
-layout(binding = 3, std430) restrict writeonly buffer DenoiserInput
+layout(binding = 3, std430) restrict writeonly buffer DenoiserColorInput
 {
-	float16_t halfFloatOutput[];
+	float16_t colorOutput[];
+};
+layout(binding = 4, std430) restrict writeonly buffer DenoiserAlbedoInput
+{
+	float16_t albedoOutput[];
+};
+layout(binding = 5, std430) restrict writeonly buffer DenoiserNormalInput
+{
+	float16_t normalOutput[];
 };
 #endif
 
@@ -459,7 +467,9 @@ void main()
 		imageStore(framebuffer,outputLocation,acc);
 #ifdef USE_OPTIX_DENOISER
 		for (uint i=0u; i<3u; i++)
-			halfFloatOutput[baseID*3+i] = float16_t(acc[i]);
+			colorOutput[baseID*3+i] = float16_t(acc[i]);
+		for (uint i=0u; i<3u; i++)
+			albedoOutput[baseID*3+i] = float16_t(1.f);
 #endif
 	}
 }
@@ -643,7 +653,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneMa
 			m_optixContext = m_optixManager->createContext(0);
 			if (!m_optixContext)
 				break;
-			OptixDenoiserOptions opts = {OPTIX_DENOISER_INPUT_RGB,OPTIX_PIXEL_FORMAT_HALF3}; // OPTIX_DENOISER_INPUT_RGB_ALBEDO_NORMAL
+			OptixDenoiserOptions opts = {OPTIX_DENOISER_INPUT_RGB_ALBEDO,OPTIX_PIXEL_FORMAT_HALF3}; // OPTIX_DENOISER_INPUT_RGB_ALBEDO_NORMAL
 			m_denoiser = m_optixContext->createDenoiser(&opts);
 			if (!m_denoiser)
 				break;
@@ -1091,6 +1101,8 @@ void Renderer::init(const SAssetBundle& meshes,
 		m_denoisedBuffer = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(kOptiXPixelSize*renderPixelCount), core::dont_grab);
 		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&m_denoisedBuffer, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD)))
 			break;
+		if (m_rayBuffer->getSize()<m_denoiserMemReqs.recommendedScratchSizeInBytes)
+			break;
 		m_denoiserScratchBuffer = core::smart_refctd_ptr(m_rayBuffer);
 		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&m_denoiserScratchBuffer, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD)))
 			break;
@@ -1103,8 +1115,19 @@ void Renderer::init(const SAssetBundle& meshes,
 			img.pixelStrideInBytes = pixelSize;
 			img.rowStrideInBytes = img.width*img.pixelStrideInBytes;
 		};
+
 		setUpOptiXImage2D(m_denoiserInputs[EDI_COLOR],kOptiXPixelSize);
+		m_denoiserInputs[EDI_COLOR].data = 0;
 		m_denoiserInputs[EDI_COLOR].format = OPTIX_PIXEL_FORMAT_HALF3;
+		setUpOptiXImage2D(m_denoiserInputs[EDI_ALBEDO],kOptiXPixelSize);
+		m_denoiserInputs[EDI_ALBEDO].data = m_denoiserInputs[EDI_COLOR].rowStrideInBytes*m_denoiserInputs[EDI_COLOR].height;
+		m_denoiserInputs[EDI_ALBEDO].format = OPTIX_PIXEL_FORMAT_HALF3;
+		/*
+		setUpOptiXImage2D(m_denoiserInputs[EDI_NORMAL],kOptiXPixelSize);
+		m_denoiserInputs[EDI_NORMAL].data = m_denoiserInputs[EDI_ALBEDO].data+m_denoiserInputs[EDI_ALBEDO].rowStrideInBytes*m_denoiserInputs[EDI_ALBEDO].height;;
+		m_denoiserInputs[EDI_NORMAL].format = OPTIX_PIXEL_FORMAT_HALF3;
+		*/
+
 		setUpOptiXImage2D(m_denoiserOutput,kOptiXPixelSize);
 		m_denoiserOutput.format = OPTIX_PIXEL_FORMAT_HALF3;
 
@@ -1206,8 +1229,8 @@ void Renderer::deinit()
 	m_denoisedBuffer = {};
 	m_denoiserStateBuffer = {};
 	m_denoiserInputs[EDI_COLOR] = {};
+	m_denoiserInputs[EDI_ALBEDO] = {};
 	//m_denoiserInputs[EDI_NORMAL] = {};
-	//m_denoiserInputs[EDI_ALBEDO] = {};
 	m_denoiserOutput = {};
 #endif
 }
@@ -1362,17 +1385,32 @@ void Renderer::render()
 
 #ifdef _IRR_BUILD_OPTIX_
 		auto resolveBufferPtr = m_denoiserInputBuffer.getObject();
-#else
-		video::IGPUBuffer* resolveBufferPtr = nullptr;
 #endif
 		const COpenGLBuffer* buffers[] ={	static_cast<const COpenGLBuffer*>(m_rayBuffer.get()),
 											static_cast<const COpenGLBuffer*>(m_intersectionBuffer.get()),
-											static_cast<const COpenGLBuffer*>(m_lightRadianceBuffer.get()),
-											static_cast<const COpenGLBuffer*>(resolveBufferPtr)
+											static_cast<const COpenGLBuffer*>(m_lightRadianceBuffer.get())
+#ifdef _IRR_BUILD_OPTIX_
+											,static_cast<const COpenGLBuffer*>(resolveBufferPtr)
+											,static_cast<const COpenGLBuffer*>(resolveBufferPtr)
+											//,static_cast<const COpenGLBuffer*>(resolveBufferPtr)
+#endif
 										};
-		ptrdiff_t offsets[] = { 0,0,0,0 };
-		ptrdiff_t sizes[] = { m_rayBuffer->getSize(),m_intersectionBuffer->getSize(),m_lightRadianceBuffer->getSize(),resolveBufferPtr ? resolveBufferPtr->getSize():0ull };
-		found->setActiveSSBO(0, (sizeof(buffers)-(resolveBufferPtr ? 0ull:1ull))/sizeof(COpenGLBuffer*), buffers, offsets, sizes);
+		ptrdiff_t offsets[] =	{	0,0,0
+#ifdef _IRR_BUILD_OPTIX_
+									,m_denoiserInputs[EDI_COLOR].data,m_denoiserInputs[EDI_ALBEDO].data/*,m_denoiserInputs[EDI_NORMAL].data*/
+#endif
+								};
+		auto getDenoiserBufferSize = [&resolveBufferPtr](const OptixImage2D& img) -> size_t {return resolveBufferPtr ? img.height*img.rowStrideInBytes:0u;};
+		ptrdiff_t sizes[] = {	m_rayBuffer->getSize(),
+								m_intersectionBuffer->getSize(),
+								m_lightRadianceBuffer->getSize()
+#ifdef _IRR_BUILD_OPTIX_
+								,getDenoiserBufferSize(m_denoiserInputs[EDI_COLOR])
+								,getDenoiserBufferSize(m_denoiserInputs[EDI_ALBEDO])
+								//,getDenoiserBufferSize(m_denoiserInputs[EDI_NORMAL])
+#endif
+							};
+		found->setActiveSSBO(0, sizeof(buffers)/sizeof(COpenGLBuffer*), buffers, offsets, sizes);
 
 		{
 			COpenGLExtensionHandler::pGlProgramUniform2uiv(m_compostProgram, 0, 1, rSize);
@@ -1423,7 +1461,7 @@ void Renderer::render()
 		OptixDenoiserParams m_denoiserParams = {};
 		m_denoiserParams.blendFactor = 0.f;
 		m_denoiserParams.denoiseAlpha = 0u;
-		m_denoiserParams.hdrIntensity = m_denoiserScratchBuffer.asBuffer.pointer + m_denoiserMemReqs.recommendedScratchSizeInBytes;
+		m_denoiserParams.hdrIntensity = m_denoiserScratchBuffer.asBuffer.pointer+m_denoiserMemReqs.recommendedScratchSizeInBytes;
 		m_denoiserOutput.data = m_denoisedBuffer.asBuffer.pointer;
 		m_denoiser->invoke(	m_cudaStream,&m_denoiserParams,denoiserInputs,denoiserInputs+EDI_COUNT,&m_denoiserOutput,
 							m_denoiserScratchBuffer,m_denoiserMemReqs.recommendedScratchSizeInBytes);
