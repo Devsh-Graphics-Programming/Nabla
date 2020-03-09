@@ -483,7 +483,8 @@ void main()
 		imageStore(framebuffer,pixelCoord,acc);
 #ifdef USE_OPTIX_DENOISER
 		for (uint i=0u; i<3u; i++)
-			colorOutput[baseID*3+i] = float16_t(clamp(acc[i],0.0001,10000.0));
+			colorOutput[baseID*3+i] = float16_t(acc[i]);
+			//colorOutput[baseID*3+i] = float16_t(clamp(acc[i],0.0001,10000.0));
 		for (uint i=0u; i<3u; i++)
 			albedoOutput[baseID*3+i] = float16_t(albedo[i]);
 		normal = uNormalMatrix*normal;
@@ -1480,7 +1481,8 @@ void Renderer::render()
 										m_denoiserMemReqs.recommendedScratchSizeInBytes,m_denoiserMemReqs.recommendedScratchSizeInBytes);
 
 		OptixDenoiserParams m_denoiserParams = {};
-		m_denoiserParams.blendFactor = 0.f;
+		volatile float kConstant = 0.002f;
+		m_denoiserParams.blendFactor = 1.f-1.f/core::max(kConstant*float(m_framesDone*m_samplesPerDispatch),1.f);
 		m_denoiserParams.denoiseAlpha = 0u;
 		m_denoiserParams.hdrIntensity = m_denoiserScratchBuffer.asBuffer.pointer+m_denoiserMemReqs.recommendedScratchSizeInBytes;
 		m_denoiserOutput.data = m_denoisedBuffer.asBuffer.pointer;
