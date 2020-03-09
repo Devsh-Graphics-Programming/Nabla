@@ -1144,6 +1144,8 @@ E_FORMAT CMeshManipulator::getBestTypeI(E_FORMAT _originalType, size_t* _outSize
 
         switch (_fmt)
         {
+        case EF_A2R10G10B10_SSCALED_PACK32:
+        case EF_A2R10G10B10_SINT_PACK32:
         case EF_A2B10G10R10_SSCALED_PACK32:
         case EF_A2B10G10R10_SINT_PACK32:
             if (_cmpntNum < 3u)
@@ -1160,12 +1162,16 @@ E_FORMAT CMeshManipulator::getBestTypeI(E_FORMAT _originalType, size_t* _outSize
     auto maxValueOfTypeINT = [](E_FORMAT _fmt, uint32_t _cmpntNum) -> uint32_t {
         switch (_fmt)
         {
+        case EF_A2R10G10B10_USCALED_PACK32:
+        case EF_A2R10G10B10_UINT_PACK32:
         case EF_A2B10G10R10_USCALED_PACK32:
         case EF_A2B10G10R10_UINT_PACK32:
             if (_cmpntNum < 3u)
                 return 1023u;
             else return 3u;
             break;
+        case EF_A2R10G10B10_SSCALED_PACK32:
+        case EF_A2R10G10B10_SINT_PACK32:
         case EF_A2B10G10R10_SSCALED_PACK32:
         case EF_A2B10G10R10_SINT_PACK32:
             if (_cmpntNum < 3u)
@@ -1413,13 +1419,14 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 				return retval;
 			};
 			break;
-		case EF_A2B10G10R10_SINT_PACK32: // RGB10_A2
+		case EF_A2R10G10B10_SNORM_PACK32:
+		case EF_A2B10G10R10_SNORM_PACK32: // bgra
 			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT) -> core::vectorSIMDf {
 				uint8_t buf[32];
 				((uint32_t*)buf)[0] = quantizeNormal2_10_10_10(_in);
 
 				core::vectorSIMDf retval;
-				ICPUMeshBuffer::getAttribute(retval, buf, EF_A2B10G10R10_SINT_PACK32);
+				ICPUMeshBuffer::getAttribute(retval, buf, EF_A2R10G10B10_SNORM_PACK32);
 				retval.w = 1.f;
 				return retval;
 			};
