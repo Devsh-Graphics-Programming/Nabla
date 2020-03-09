@@ -356,9 +356,6 @@ void main()
 
 )======";
 
-const std::string compostShaderExtensions = R"======(
-#version 430 core
-)======";
 
 const std::string compostShader = R"======(
 #define WORK_GROUP_DIM 32u
@@ -392,7 +389,7 @@ layout(binding = 2, std430, row_major) restrict readonly buffer LightRadiances
 #ifdef USE_OPTIX_DENOISER
 layout(binding = 3, std430) restrict writeonly buffer DenoiserInput
 {
-	uvec2 halfFloatOutput[];
+	float16_t halfFloatOutput[];
 };
 #endif
 
@@ -461,7 +458,8 @@ void main()
 		acc.rgb += (color-acc.rgb)*uRcpFramesDone;
 		imageStore(framebuffer,outputLocation,acc);
 #ifdef USE_OPTIX_DENOISER
-		halfFloatOutput[baseID] = uvec2(packHalf2x16(acc.rg),packHalf2x16(vec2(acc.b,1.0)));
+		for (uint i=0u; i<3u; i++)
+			halfFloatOutput[baseID*3+i] = float16_t(acc[i]);
 #endif
 	}
 }
@@ -604,6 +602,9 @@ class SimpleCallBack : public video::IShaderConstantSetCallBack
 constexpr uint32_t UNFLEXIBLE_MAX_SAMPLES_TODO_REMOVE = 1024u*1024u;
 
 
+constexpr uint32_t kOptiXPixelSize = sizeof(uint16_t)*3u;
+
+
 Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneManager* _smgr, bool useDenoiser) :
 		m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager),
 		nonInstanced(static_cast<E_MATERIAL_TYPE>(-1)), m_raygenProgram(0u), m_compostProgram(0u),
@@ -642,7 +643,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneMa
 			m_optixContext = m_optixManager->createContext(0);
 			if (!m_optixContext)
 				break;
-			OptixDenoiserOptions opts = {OPTIX_DENOISER_INPUT_RGB,OPTIX_PIXEL_FORMAT_HALF4}; // OPTIX_DENOISER_INPUT_RGB_ALBEDO_NORMAL
+			OptixDenoiserOptions opts = {OPTIX_DENOISER_INPUT_RGB,OPTIX_PIXEL_FORMAT_HALF3}; // OPTIX_DENOISER_INPUT_RGB_ALBEDO_NORMAL
 			m_denoiser = m_optixContext->createDenoiser(&opts);
 			if (!m_denoiser)
 				break;
@@ -661,7 +662,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneMa
 		raygenShader
 	);
 	m_compostProgram = createComputeShader(
-		compostShaderExtensions+(useDenoiser ? "#define USE_OPTIX_DENOISER\n":"")+
+		std::string(useDenoiser ? "#version 430 core\n#extension GL_NV_gpu_shader5 : require\n#define USE_OPTIX_DENOISER\n":"#version 430 core\n")+
 		//"irr/builtin/glsl/ext/RadeonRays/"
 		includes->getBuiltinInclude("ray.glsl") +
 		lightStruct+
@@ -1080,23 +1081,36 @@ void Renderer::init(const SAssetBundle& meshes,
 	{
 		m_denoiser->computeMemoryResources(&m_denoiserMemReqs,renderSize);
 
-		auto pixBuffSz = sizeof(uint16_t)*4ull*renderPixelCount;
-		m_resolvedBuffer = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(pixBuffSz),core::dont_grab);
-		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&m_resolvedBuffer, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
+		auto inputBuffSz = (kOptiXPixelSize*2u+3u)*renderPixelCount;
+		m_denoiserInputBuffer = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(inputBuffSz),core::dont_grab);
+		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&m_denoiserInputBuffer, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
 			break;
 		m_denoiserStateBuffer = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(m_denoiserMemReqs.stateSizeInBytes),core::dont_grab);
 		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&m_denoiserStateBuffer)))
 			break;
-		m_denoisedBuffer = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(pixBuffSz), core::dont_grab);
+		m_denoisedBuffer = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(kOptiXPixelSize*renderPixelCount), core::dont_grab);
 		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&m_denoisedBuffer, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD)))
 			break;
 		m_denoiserScratchBuffer = core::smart_refctd_ptr(m_rayBuffer);
 		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&m_denoiserScratchBuffer, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD)))
 			break;
 
+		auto setUpOptiXImage2D = [&renderSize](OptixImage2D& img, uint32_t pixelSize) -> void
+		{
+			img = {};
+			img.width = renderSize[0];
+			img.height = renderSize[1];
+			img.pixelStrideInBytes = pixelSize;
+			img.rowStrideInBytes = img.width*img.pixelStrideInBytes;
+		};
+		setUpOptiXImage2D(m_denoiserInputs[EDI_COLOR],kOptiXPixelSize);
+		m_denoiserInputs[EDI_COLOR].format = OPTIX_PIXEL_FORMAT_HALF3;
+		setUpOptiXImage2D(m_denoiserOutput,kOptiXPixelSize);
+		m_denoiserOutput.format = OPTIX_PIXEL_FORMAT_HALF3;
+
 		break;
 	}
-	m_tonemapOutput = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize[0], 1, m_denoiserScratchBuffer.getObject() ? EF_R16G16B16A16_SFLOAT:EF_R8G8B8_SRGB);
+	m_tonemapOutput = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize[0], 1, m_denoiserScratchBuffer.getObject() ? EF_A2B10G10R10_UNORM_PACK32:EF_R8G8B8_SRGB);
 #else
 	m_tonemapOutput = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize[0], 1, EF_R8G8B8_SRGB);
 #endif
@@ -1112,9 +1126,9 @@ void Renderer::deinit()
 
 	glFinish();
 
-	// create a screenshot
+	// create a screenshot (TODO: create OpenEXR @Anastazluk)
 	if (m_tonemapOutput)
-		ext::ScreenShot::dirtyCPUStallingScreenshot(m_driver, m_assetManager, "screenshot.png", m_tonemapOutput.get());
+		ext::ScreenShot::dirtyCPUStallingScreenshot(m_driver, m_assetManager, "screenshot.png", m_tonemapOutput.get(),0u,true,asset::EF_R8G8B8_SRGB);
 
 	// release OpenCL objects and wait for OpenCL to finish
 	const cl_mem clObjects[] = { m_rayCountBufferAsRR.second };
@@ -1187,10 +1201,14 @@ void Renderer::deinit()
 #ifdef _IRR_BUILD_OPTIX_
 	if (m_cudaStream)
 		cuda::CCUDAHandler::cuda.pcuStreamSynchronize(m_cudaStream);
-	m_resolvedBuffer = {};
+	m_denoiserInputBuffer = {};
 	m_denoiserScratchBuffer = {};
 	m_denoisedBuffer = {};
 	m_denoiserStateBuffer = {};
+	m_denoiserInputs[EDI_COLOR] = {};
+	//m_denoiserInputs[EDI_NORMAL] = {};
+	//m_denoiserInputs[EDI_ALBEDO] = {};
+	m_denoiserOutput = {};
 #endif
 }
 
@@ -1343,7 +1361,7 @@ void Renderer::render()
 		COpenGLExtensionHandler::extGlUseProgram(m_compostProgram);
 
 #ifdef _IRR_BUILD_OPTIX_
-		auto resolveBufferPtr = m_resolvedBuffer.getObject();
+		auto resolveBufferPtr = m_denoiserInputBuffer.getObject();
 #else
 		video::IGPUBuffer* resolveBufferPtr = nullptr;
 #endif
@@ -1385,34 +1403,38 @@ void Renderer::render()
 #ifdef _IRR_BUILD_OPTIX_
 	if (m_denoisedBuffer.getObject())
 	{
-		cuda::CCUDAHandler::acquireAndGetPointers(&m_resolvedBuffer,&m_denoiserScratchBuffer+1,m_cudaStream);
+		cuda::CCUDAHandler::acquireAndGetPointers(&m_denoiserInputBuffer,&m_denoiserScratchBuffer+1,m_cudaStream);
 
-		//if ()
-		//{
-			//m_denoiser->setup(m_cudaStream, )
-		//}
-		//m_denoiser->invoke(m_cudaStream,&m_denoiserParams,)
-		auto buffSz = sizeof(uint16_t)*4ull*rSize[0]*rSize[1];
-		cuda::CCUDAHandler::cuda.pcuMemcpyDtoDAsync_v2(m_denoisedBuffer.asBuffer.pointer,m_resolvedBuffer.asBuffer.pointer,buffSz,m_cudaStream);
-		/*
-		optixDenoiserInvoke(
-			denoiser, cuStream, &params,
-			denoiserData, sizes.stateSizeInBytes,
-			&inputLayer, 2,
-			0, 0,
-			&outputLayer,
-			scratch, sizes.recommendedScratchSizeInBytes));
-		*/
+		if (m_denoiser->getLastSetupResult()!=OPTIX_SUCCESS)
+		{
+			m_denoiser->setup(	m_cudaStream,&rSize[0],m_denoiserStateBuffer,m_denoiserStateBuffer.getObject()->getSize(),
+								m_denoiserScratchBuffer,m_denoiserMemReqs.recommendedScratchSizeInBytes);
+		}
+
+		OptixImage2D denoiserInputs[EDI_COUNT];
+		for (auto i=0; i<EDI_COUNT; i++)
+		{
+			denoiserInputs[i] = m_denoiserInputs[i];
+			denoiserInputs[i].data = m_denoiserInputs[i].data+m_denoiserInputBuffer.asBuffer.pointer;
+		}
+		m_denoiser->computeIntensity(	m_cudaStream,denoiserInputs+0,m_denoiserScratchBuffer,m_denoiserScratchBuffer,
+										m_denoiserMemReqs.recommendedScratchSizeInBytes,m_denoiserMemReqs.recommendedScratchSizeInBytes);
+
+		OptixDenoiserParams m_denoiserParams = {};
+		m_denoiserParams.blendFactor = 0.f;
+		m_denoiserParams.denoiseAlpha = 0u;
+		m_denoiserParams.hdrIntensity = m_denoiserScratchBuffer.asBuffer.pointer + m_denoiserMemReqs.recommendedScratchSizeInBytes;
+		m_denoiserOutput.data = m_denoisedBuffer.asBuffer.pointer;
+		m_denoiser->invoke(	m_cudaStream,&m_denoiserParams,denoiserInputs,denoiserInputs+EDI_COUNT,&m_denoiserOutput,
+							m_denoiserScratchBuffer,m_denoiserMemReqs.recommendedScratchSizeInBytes);
+
 		void* scratch[16];
-		cuda::CCUDAHandler::releaseResourcesToGraphics(scratch,&m_resolvedBuffer,&m_denoiserScratchBuffer+1,m_cudaStream);
+		cuda::CCUDAHandler::releaseResourcesToGraphics(scratch,&m_denoiserInputBuffer,&m_denoiserScratchBuffer+1,m_cudaStream);
 
 		auto glbuf = static_cast<COpenGLBuffer*>(m_denoisedBuffer.getObject());
 		auto gltex = static_cast<COpenGLFilterableTexture*>(m_tonemapOutput.get());
-		glGetError();
 		video::COpenGLExtensionHandler::extGlBindBuffer(GL_PIXEL_UNPACK_BUFFER,glbuf->getOpenGLName());
-		assert(glGetError()==0);
-		video::COpenGLExtensionHandler::extGlTextureSubImage2D(gltex->getOpenGLName(),gltex->getOpenGLTextureType(),0,0,0,rSize[0],rSize[1],GL_RGBA,GL_HALF_FLOAT,nullptr);
-		assert(glGetError()==0);
+		video::COpenGLExtensionHandler::extGlTextureSubImage2D(gltex->getOpenGLName(),gltex->getOpenGLTextureType(),0,0,0,rSize[0],rSize[1],GL_RGB,GL_HALF_FLOAT,nullptr);
 		video::COpenGLExtensionHandler::extGlBindBuffer(GL_PIXEL_UNPACK_BUFFER,0);
 	}
 	else

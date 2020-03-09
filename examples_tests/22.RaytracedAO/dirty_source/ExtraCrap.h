@@ -240,7 +240,17 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::core::smart_refctd_ptr<irr::ext::OptiX::IContext> m_optixContext;
 		irr::core::smart_refctd_ptr<irr::ext::OptiX::IDenoiser> m_denoiser;
 		OptixDenoiserSizes m_denoiserMemReqs;
-		irr::cuda::CCUDAHandler::GraphicsAPIObjLink<irr::video::IGPUBuffer> m_resolvedBuffer,m_denoiserStateBuffer,m_denoisedBuffer,m_denoiserScratchBuffer;
+		irr::cuda::CCUDAHandler::GraphicsAPIObjLink<irr::video::IGPUBuffer> m_denoiserInputBuffer,m_denoiserStateBuffer,m_denoisedBuffer,m_denoiserScratchBuffer;
+
+		enum E_DENOISER_INPUT
+		{
+			EDI_COLOR,
+			//EDI_NORMAL,
+			//EDI_ALBEDO,
+			EDI_COUNT
+		};
+		OptixImage2D m_denoiserOutput;
+		OptixImage2D m_denoiserInputs[EDI_COUNT];
 	#endif
 };
 
