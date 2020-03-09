@@ -381,6 +381,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 	for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
 		ctx.manipulator->flipSurfaces(mesh->getMeshBuffer(i));
 	// flip normals if necessary
+#ifdef CRISS_FIX_THIS
 	if (faceNormals || !std::isnan(maxSmoothAngle))
 	{
 		auto newMesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
@@ -408,6 +409,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 		manager->setAssetMetadata(newMesh.get(), core::smart_refctd_ptr<asset::IAssetMetadata>(mesh->getMetadata()));
 		mesh = std::move(newMesh);
 	}
+#endif
 
 	//meshbuffer processing
 	for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
