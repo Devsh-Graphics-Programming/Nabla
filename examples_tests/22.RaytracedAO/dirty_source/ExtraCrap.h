@@ -246,7 +246,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		{
 			EDI_COLOR,
 			EDI_ALBEDO,
-			//EDI_NORMAL,
+			EDI_NORMAL,
 			EDI_COUNT
 		};
 		OptixImage2D m_denoiserOutput;

@@ -56,9 +56,8 @@ layout(location = 6) uniform vec4 uImageSize2Rcp;
 
 // image views
 layout(binding = 0) uniform sampler2D depthbuf;
-layout(binding = 1) uniform sampler2D normalbuf;
-layout(binding = 2) uniform usamplerBuffer sampleSequence;
-layout(binding = 3) uniform usampler2D scramblebuf;
+layout(binding = 1) uniform usamplerBuffer sampleSequence;
+layout(binding = 2) uniform usampler2D scramblebuf;
 
 // SSBOs
 layout(binding = 0, std430) restrict writeonly buffer Rays
@@ -78,12 +77,6 @@ layout(binding = 2, std430, row_major) restrict readonly buffer Lights
 
 
 #define kPI 3.14159265358979323846
-
-vec3 decode(in vec2 enc)
-{
-	float ang = enc.x*kPI;
-    return vec3(vec2(cos(ang),sin(ang))*sqrt(1.0-enc.y*enc.y), enc.y);
-}
 
 
 #define FLT_MIN -1.17549449e-38
@@ -235,7 +228,7 @@ uint upper_bound(in uint key, uint size)
 }
 
 
-vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout float maxT, inout bool alive, in vec3 position, in vec3 normal)
+vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout float maxT, inout bool alive, in vec3 position)
 {
 	uint lightIDSample = ugen_uniform_sample1(0u,sampleIx,scramble);
 	vec2 lightSurfaceSample = gen_uniform_sample2(2u,sampleIx,scramble);
@@ -319,33 +312,25 @@ void main()
 		}
 
 		alive = revdepth>0.0;
-		vec2 encNormal;
-		if (alive)
-			encNormal = texelFetch(normalbuf,uv,0).rg;
 
 		uint scramble = texelFetch(scramblebuf,uv,0).r;
 
 		RadeonRays_ray newray;
 		newray.time = 0.0;
 		newray.mask = alive ? -1:0;
-		vec3 normal;
-		if (alive)
-			normal = decode(encNormal);
 		for (uint i=0u; i<uImageWidth_ImageArea_TotalImageSamples_Samples.w; i++)
 		{
-			vec4 bsdf = vec4(0.0,0.0,0.0,-1.0);
+			vec4 throughput = vec4(0.0,0.0,0.0,-1.0);
 			float error = GET_MAGNITUDE(1.0-revdepth)*0.1;
 
 			newray.maxT = FLT_MAX;
 			if (alive)
-				bsdf.rgb = light_sample(newray.direction,uSamplesComputed+i,scramble,newray.maxT,alive,position,normal);
-			if (alive)
-				bsdf.rgb *= max(dot(normal,newray.direction),0.0)/kPI;
+				throughput.rgb = light_sample(newray.direction,uSamplesComputed+i,scramble,newray.maxT,alive,position);
 
 			newray.origin = position+newray.direction*error/maxAbs3(newray.direction);
 			newray._active = alive ? 1:0;
-			newray.backfaceCulling = int(packHalf2x16(bsdf.ab));
-			newray.useless_padding = int(packHalf2x16(bsdf.gr));
+			newray.backfaceCulling = int(packHalf2x16(throughput.ab));
+			newray.useless_padding = int(packHalf2x16(throughput.gr));
 
 			// TODO: repack rays for coalescing
 			rays[outputID+i*uImageWidth_ImageArea_TotalImageSamples_Samples.y] = newray;
@@ -365,10 +350,12 @@ layout(local_size_x = WORK_GROUP_DIM, local_size_y = WORK_GROUP_DIM) in;
 layout(location = 0) uniform uvec2 uImageSize;
 layout(location = 1) uniform uvec4 uImageWidth_ImageArea_TotalImageSamples_Samples;
 layout(location = 2) uniform float uRcpFramesDone;
+layout(location = 3) uniform mat3 uNormalMatrix;
 
 // image views
 layout(binding = 0) uniform usampler2D lightIndex;
 layout(binding = 1) uniform sampler2D albedobuf;
+layout(binding = 2) uniform sampler2D normalbuf;
 layout(binding = 0, rgba32f) restrict uniform image2D framebuffer;
 
 // SSBOs
@@ -402,18 +389,35 @@ layout(binding = 5, std430) restrict writeonly buffer DenoiserNormalInput
 #endif
 
 
+#define kPI 3.14159265358979323846
+
+vec3 decode(in vec2 enc)
+{
+	float ang = enc.x*kPI;
+    return vec3(vec2(cos(ang),sin(ang))*sqrt(1.0-enc.y*enc.y), enc.y);
+}
+
+
+
 #define RAYS_IN_CACHE 1u
 #define KERNEL_HALF_SIZE 0u
 #define CACHE_DIM (WORK_GROUP_DIM+2u*KERNEL_HALF_SIZE)
 #define CACHE_SIZE (CACHE_DIM*CACHE_DIM*RAYS_IN_CACHE)
 shared uint rayScratch0[CACHE_SIZE];
 shared uint rayScratch1[CACHE_SIZE];
+shared float rayScratch2[CACHE_SIZE];
+shared float rayScratch3[CACHE_SIZE];
+shared float rayScratch4[CACHE_SIZE];
 
 void main()
 {
 	ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
 	uint baseID = gl_GlobalInvocationID.x+uImageWidth_ImageArea_TotalImageSamples_Samples.x*gl_GlobalInvocationID.y;
 	bool alive = all(lessThan(gl_GlobalInvocationID.xy,uImageSize));
+
+	vec3 normal;
+	if (alive)
+		normal = decode(texelFetch(normalbuf,pixelCoord,0).rg);
 
 	vec4 acc = vec4(0.0);
 	if (uRcpFramesDone<1.0 && alive)
@@ -437,13 +441,21 @@ void main()
 			invalidRay = invalidRay ? false:(hit[rayID]>=0);
 			rayScratch0[lid] = invalidRay ? 0u:rays[rayID].useless_padding;
 			rayScratch1[lid] = invalidRay ? 0u:rays[rayID].backfaceCulling;
+			rayScratch2[lid] = invalidRay ? 0.0:rays[rayID].direction[0];
+			rayScratch3[lid] = invalidRay ? 0.0:rays[rayID].direction[1];
+			rayScratch4[lid] = invalidRay ? 0.0:rays[rayID].direction[2];
 		}
 		barrier();
 		memoryBarrierShared();
 
 		uint localID = (gl_LocalInvocationID.x+KERNEL_HALF_SIZE)+(gl_LocalInvocationID.y+KERNEL_HALF_SIZE)*CACHE_DIM;
 		for (uint j=localID; j<CACHE_SIZE; j+=CACHE_DIM*CACHE_DIM)
-			color += vec4(unpackHalf2x16(rayScratch0[j]),unpackHalf2x16(rayScratch1[j])).gra;
+		{
+			vec3 raydiance = vec4(unpackHalf2x16(rayScratch0[j]),unpackHalf2x16(rayScratch1[j])).gra;
+			// TODO: sophisticated BSDF eval
+			raydiance *= max(dot(vec3(rayScratch2[j],rayScratch3[j],rayScratch4[j]),normal),0.0)/kPI;
+			color += raydiance;
+		}
 
 		// hit buffer needs clearing
 		for (uint j=i; j<min(uImageWidth_ImageArea_TotalImageSamples_Samples.w,i+RAYS_IN_CACHE); j++)
@@ -474,8 +486,9 @@ void main()
 			colorOutput[baseID*3+i] = float16_t(clamp(acc[i],0.0001,10000.0));
 		for (uint i=0u; i<3u; i++)
 			albedoOutput[baseID*3+i] = float16_t(albedo[i]);
-		//for (uint i=0u; i<3u; i++)
-			//normalOutput[baseID*3+i] = float16_t(1.0);
+		normal = uNormalMatrix*normal;
+		for (uint i=0u; i<3u; i++)
+			normalOutput[baseID*3+i] = float16_t(normal[i]);
 #endif
 	}
 }
@@ -659,7 +672,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneMa
 			m_optixContext = m_optixManager->createContext(0);
 			if (!m_optixContext)
 				break;
-			OptixDenoiserOptions opts = {OPTIX_DENOISER_INPUT_RGB_ALBEDO,OPTIX_PIXEL_FORMAT_HALF3}; // OPTIX_DENOISER_INPUT_RGB_ALBEDO_NORMAL
+			OptixDenoiserOptions opts = {OPTIX_DENOISER_INPUT_RGB_ALBEDO_NORMAL,OPTIX_PIXEL_FORMAT_HALF3};
 			m_denoiser = m_optixContext->createDenoiser(&opts);
 			if (!m_denoiser)
 				break;
@@ -1097,7 +1110,7 @@ void Renderer::init(const SAssetBundle& meshes,
 	{
 		m_denoiser->computeMemoryResources(&m_denoiserMemReqs,renderSize);
 
-		auto inputBuffSz = (kOptiXPixelSize*2u+3u)*renderPixelCount;
+		auto inputBuffSz = (kOptiXPixelSize*EDI_COUNT)*renderPixelCount;
 		m_denoiserInputBuffer = core::smart_refctd_ptr<video::IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(inputBuffSz),core::dont_grab);
 		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&m_denoiserInputBuffer, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
 			break;
@@ -1109,7 +1122,7 @@ void Renderer::init(const SAssetBundle& meshes,
 			break;
 		if (m_rayBuffer->getSize()<m_denoiserMemReqs.recommendedScratchSizeInBytes)
 			break;
-		m_denoiserScratchBuffer = core::smart_refctd_ptr(m_rayBuffer);
+		m_denoiserScratchBuffer = core::smart_refctd_ptr(m_rayBuffer); // could alias the denoised output to this as well
 		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&m_denoiserScratchBuffer, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD)))
 			break;
 
@@ -1128,11 +1141,9 @@ void Renderer::init(const SAssetBundle& meshes,
 		setUpOptiXImage2D(m_denoiserInputs[EDI_ALBEDO],kOptiXPixelSize);
 		m_denoiserInputs[EDI_ALBEDO].data = m_denoiserInputs[EDI_COLOR].rowStrideInBytes*m_denoiserInputs[EDI_COLOR].height;
 		m_denoiserInputs[EDI_ALBEDO].format = OPTIX_PIXEL_FORMAT_HALF3;
-		/*
 		setUpOptiXImage2D(m_denoiserInputs[EDI_NORMAL],kOptiXPixelSize);
 		m_denoiserInputs[EDI_NORMAL].data = m_denoiserInputs[EDI_ALBEDO].data+m_denoiserInputs[EDI_ALBEDO].rowStrideInBytes*m_denoiserInputs[EDI_ALBEDO].height;;
 		m_denoiserInputs[EDI_NORMAL].format = OPTIX_PIXEL_FORMAT_HALF3;
-		*/
 
 		setUpOptiXImage2D(m_denoiserOutput,kOptiXPixelSize);
 		m_denoiserOutput.format = OPTIX_PIXEL_FORMAT_HALF3;
@@ -1236,7 +1247,7 @@ void Renderer::deinit()
 	m_denoiserStateBuffer = {};
 	m_denoiserInputs[EDI_COLOR] = {};
 	m_denoiserInputs[EDI_ALBEDO] = {};
-	//m_denoiserInputs[EDI_NORMAL] = {};
+	m_denoiserInputs[EDI_NORMAL] = {};
 	m_denoiserOutput = {};
 #endif
 }
@@ -1283,9 +1294,8 @@ void Renderer::render()
 		const COpenGLDriver::SAuxContext* foundConst = static_cast<COpenGLDriver*>(m_driver)->getThreadContext();
 		COpenGLDriver::SAuxContext* found = const_cast<COpenGLDriver::SAuxContext*>(foundConst);
 		found->setActiveTexture(0, core::smart_refctd_ptr(m_depth), params);
-		found->setActiveTexture(1, core::smart_refctd_ptr(m_normals), params);
-		found->setActiveTexture(2, core::smart_refctd_ptr(m_sampleSequence), params);
-		found->setActiveTexture(3, core::smart_refctd_ptr(m_scrambleTexture), params);
+		found->setActiveTexture(1, core::smart_refctd_ptr(m_sampleSequence), params);
+		found->setActiveTexture(2, core::smart_refctd_ptr(m_scrambleTexture), params);
 
 
 		COpenGLExtensionHandler::extGlUseProgram(m_raygenProgram);
@@ -1384,6 +1394,7 @@ void Renderer::render()
 		COpenGLDriver::SAuxContext* found = const_cast<COpenGLDriver::SAuxContext*>(foundConst);
 		found->setActiveTexture(0, core::smart_refctd_ptr(m_lightIndex), params);
 		found->setActiveTexture(1, core::smart_refctd_ptr(m_albedo), params);
+		found->setActiveTexture(2, core::smart_refctd_ptr(m_normals), params);
 		
 		COpenGLExtensionHandler::extGlBindImageTexture(0u,static_cast<COpenGLFilterableTexture*>(m_accumulation.get())->getOpenGLName(),0,false,0,GL_READ_WRITE,GL_RGBA32F);
 
@@ -1398,12 +1409,12 @@ void Renderer::render()
 #ifdef _IRR_BUILD_OPTIX_
 											,static_cast<const COpenGLBuffer*>(resolveBufferPtr)
 											,static_cast<const COpenGLBuffer*>(resolveBufferPtr)
-											//,static_cast<const COpenGLBuffer*>(resolveBufferPtr)
+											,static_cast<const COpenGLBuffer*>(resolveBufferPtr)
 #endif
 										};
 		ptrdiff_t offsets[] =	{	0,0,0
 #ifdef _IRR_BUILD_OPTIX_
-									,m_denoiserInputs[EDI_COLOR].data,m_denoiserInputs[EDI_ALBEDO].data/*,m_denoiserInputs[EDI_NORMAL].data*/
+									,m_denoiserInputs[EDI_COLOR].data,m_denoiserInputs[EDI_ALBEDO].data,m_denoiserInputs[EDI_NORMAL].data
 #endif
 								};
 		auto getDenoiserBufferSize = [&resolveBufferPtr](const OptixImage2D& img) -> size_t {return resolveBufferPtr ? img.height*img.rowStrideInBytes:0u;};
@@ -1413,7 +1424,7 @@ void Renderer::render()
 #ifdef _IRR_BUILD_OPTIX_
 								,getDenoiserBufferSize(m_denoiserInputs[EDI_COLOR])
 								,getDenoiserBufferSize(m_denoiserInputs[EDI_ALBEDO])
-								//,getDenoiserBufferSize(m_denoiserInputs[EDI_NORMAL])
+								,getDenoiserBufferSize(m_denoiserInputs[EDI_NORMAL])
 #endif
 							};
 		found->setActiveSSBO(0, sizeof(buffers)/sizeof(COpenGLBuffer*), buffers, offsets, sizes);
@@ -1426,6 +1437,10 @@ void Renderer::render()
 			m_framesDone++;
 			float uRcpFramesDone = 1.0/double(m_framesDone);
 			COpenGLExtensionHandler::pGlProgramUniform1fv(m_compostProgram, 2, 1, &uRcpFramesDone);
+
+			float tmp[9];
+			camera->getViewMatrix().getSub3x3InverseTransposePacked(tmp);
+			COpenGLExtensionHandler::pGlProgramUniformMatrix3fv(m_compostProgram, 3, 1, true, tmp);
 		}
 
 		COpenGLExtensionHandler::pGlDispatchCompute(m_resolveWorkGroups[0], m_resolveWorkGroups[1], 1);
