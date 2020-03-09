@@ -57,9 +57,8 @@ layout(location = 6) uniform vec4 uImageSize2Rcp;
 // image views
 layout(binding = 0) uniform sampler2D depthbuf;
 layout(binding = 1) uniform sampler2D normalbuf;
-layout(binding = 2) uniform sampler2D albedobuf;
-layout(binding = 3) uniform usamplerBuffer sampleSequence;
-layout(binding = 4) uniform usampler2D scramblebuf;
+layout(binding = 2) uniform usamplerBuffer sampleSequence;
+layout(binding = 3) uniform usampler2D scramblebuf;
 
 // SSBOs
 layout(binding = 0, std430) restrict writeonly buffer Rays
@@ -341,7 +340,7 @@ void main()
 			if (alive)
 				bsdf.rgb = light_sample(newray.direction,uSamplesComputed+i,scramble,newray.maxT,alive,position,normal);
 			if (alive)
-				bsdf.rgb *= texelFetch(albedobuf,uv,0).rgb*max(dot(normal,newray.direction),0.0)/kPI;
+				bsdf.rgb *= max(dot(normal,newray.direction),0.0)/kPI;
 
 			newray.origin = position+newray.direction*error/maxAbs3(newray.direction);
 			newray._active = alive ? 1:0;
@@ -369,6 +368,7 @@ layout(location = 2) uniform float uRcpFramesDone;
 
 // image views
 layout(binding = 0) uniform usampler2D lightIndex;
+layout(binding = 1) uniform sampler2D albedobuf;
 layout(binding = 0, rgba32f) restrict uniform image2D framebuffer;
 
 // SSBOs
@@ -411,13 +411,13 @@ shared uint rayScratch1[CACHE_SIZE];
 
 void main()
 {
-	ivec2 outputLocation = ivec2(gl_GlobalInvocationID.xy);
+	ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
 	uint baseID = gl_GlobalInvocationID.x+uImageWidth_ImageArea_TotalImageSamples_Samples.x*gl_GlobalInvocationID.y;
 	bool alive = all(lessThan(gl_GlobalInvocationID.xy,uImageSize));
 
 	vec4 acc = vec4(0.0);
 	if (uRcpFramesDone<1.0 && alive)
-		acc = imageLoad(framebuffer,outputLocation);
+		acc = imageLoad(framebuffer,pixelCoord);
 
 	vec3 color = vec3(0.0);
 	uvec2 groupLocation = gl_WorkGroupID.xy*WORK_GROUP_DIM;
@@ -455,21 +455,27 @@ void main()
 
 	if (alive)
 	{
+		// TODO: sophisticated BSDF eval
+		vec3 albedo = texelFetch(albedobuf,pixelCoord,0).rgb;
+		color *= albedo;
+
 		// TODO: move  ray gen, for fractional sampling
 		color *= 1.0/float(uImageWidth_ImageArea_TotalImageSamples_Samples.w);
 
-		uint lightID = texelFetch(lightIndex,outputLocation,0)[0];
+		uint lightID = texelFetch(lightIndex,pixelCoord,0)[0];
 		if (lightID!=0xdeadbeefu)
 			color += lightRadiance[lightID];
 
 		// TODO: optimize the color storage (RGB9E5/RGB19E7 anyone?)
 		acc.rgb += (color-acc.rgb)*uRcpFramesDone;
-		imageStore(framebuffer,outputLocation,acc);
+		imageStore(framebuffer,pixelCoord,acc);
 #ifdef USE_OPTIX_DENOISER
 		for (uint i=0u; i<3u; i++)
-			colorOutput[baseID*3+i] = float16_t(acc[i]);
+			colorOutput[baseID*3+i] = float16_t(clamp(acc[i],0.0001,10000.0));
 		for (uint i=0u; i<3u; i++)
-			albedoOutput[baseID*3+i] = float16_t(1.f);
+			albedoOutput[baseID*3+i] = float16_t(albedo[i]);
+		//for (uint i=0u; i<3u; i++)
+			//normalOutput[baseID*3+i] = float16_t(1.0);
 #endif
 	}
 }
@@ -1278,9 +1284,8 @@ void Renderer::render()
 		COpenGLDriver::SAuxContext* found = const_cast<COpenGLDriver::SAuxContext*>(foundConst);
 		found->setActiveTexture(0, core::smart_refctd_ptr(m_depth), params);
 		found->setActiveTexture(1, core::smart_refctd_ptr(m_normals), params);
-		found->setActiveTexture(2, core::smart_refctd_ptr(m_albedo), params);
-		found->setActiveTexture(3, core::smart_refctd_ptr(m_sampleSequence), params);
-		found->setActiveTexture(4, core::smart_refctd_ptr(m_scrambleTexture), params);
+		found->setActiveTexture(2, core::smart_refctd_ptr(m_sampleSequence), params);
+		found->setActiveTexture(3, core::smart_refctd_ptr(m_scrambleTexture), params);
 
 
 		COpenGLExtensionHandler::extGlUseProgram(m_raygenProgram);
@@ -1378,6 +1383,7 @@ void Renderer::render()
 		const COpenGLDriver::SAuxContext* foundConst = static_cast<COpenGLDriver*>(m_driver)->getThreadContext();
 		COpenGLDriver::SAuxContext* found = const_cast<COpenGLDriver::SAuxContext*>(foundConst);
 		found->setActiveTexture(0, core::smart_refctd_ptr(m_lightIndex), params);
+		found->setActiveTexture(1, core::smart_refctd_ptr(m_albedo), params);
 		
 		COpenGLExtensionHandler::extGlBindImageTexture(0u,static_cast<COpenGLFilterableTexture*>(m_accumulation.get())->getOpenGLName(),0,false,0,GL_READ_WRITE,GL_RGBA32F);
 
