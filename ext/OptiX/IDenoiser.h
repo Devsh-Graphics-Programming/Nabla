@@ -24,7 +24,9 @@ class IDenoiser final : public core::IReferenceCounted
 			return optixDenoiserComputeMemoryResources(denoiser,maxresolution[0],maxresolution[1],returnSizes);
 		}
 
-		inline OptixResult setup(	CUstream stream, uint32_t* outputDims,
+		inline OptixResult getLastSetupResult() const {return alreadySetup;}
+
+		inline OptixResult setup(	CUstream stream, const uint32_t* outputDims,
 									const cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer>& stateBuffer, uint32_t stateSizeInBytes,
 									const cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer>& scratchBuffer, uint32_t scratchSizeInBytes,
 									uint32_t stateBufferOffset=0u, uint32_t scratchBufferOffset=0u)
@@ -34,14 +36,37 @@ class IDenoiser final : public core::IReferenceCounted
 												scratchBuffer.asBuffer.pointer+scratchBufferOffset,scratchSizeInBytes);
 			return alreadySetup;
 		}
-/*
-		inline OptixResult invoke(CUstream stream)
+
+		inline OptixResult computeIntensity(CUstream stream, const OptixImage2D* inputImage,
+											const cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer>& intensityBuffer,
+											const cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer>& scratchBuffer,
+											size_t scratchSizeInBytes,
+											uint32_t intensityBufferOffset=0u, uint32_t scratchBufferOffset =0u)
+		{
+			return optixDenoiserComputeIntensity(	denoiser,stream,inputImage,
+													intensityBuffer.asBuffer.pointer+intensityBufferOffset,
+													scratchBuffer.asBuffer.pointer+scratchBufferOffset,scratchSizeInBytes);
+		}
+
+		inline OptixResult invoke(	CUstream stream, const OptixDenoiserParams* params,
+									const OptixImage2D* inputLayersBegin, const OptixImage2D* inputLayersEnd, 
+									const OptixImage2D* outputLayer,
+									const cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer>& scratchBuffer,
+									size_t scratchSizeInBytes,
+									uint32_t inputOffsetX=0u, uint32_t inputOffsetY=0u,
+									const cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer>& denoiserData = {},
+									size_t denoiserDataSize=0ull,
+									uint32_t scratchBufferOffset=0u, uint32_t denoiserDataOffset=0u)
 		{
 			if (alreadySetup!=OPTIX_SUCCESS)
 				return alreadySetup;
-			return optixDenoiserInvoke(denoiser,stream,params,nullptr,0,inputLayers,numInputLayers,offx,offy,outputLayer,scratch,scratchBytes);
+			return optixDenoiserInvoke(	denoiser,stream,params,
+										denoiserData.asBuffer.pointer+denoiserDataOffset,denoiserDataSize,
+										inputLayersBegin,inputLayersEnd-inputLayersBegin,
+										inputOffsetX,inputOffsetY,outputLayer,
+										scratchBuffer.asBuffer.pointer+scratchBufferOffset,scratchSizeInBytes);
 		}
-*/
+
 	protected:
 		friend class OptiX::IContext;
 
