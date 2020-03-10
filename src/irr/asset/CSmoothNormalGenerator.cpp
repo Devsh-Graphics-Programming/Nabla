@@ -145,10 +145,15 @@ namespace irr
 
 			for (uint32_t i = 0; i < idxCount; i += 3)
 			{
+				const uint32_t ix[3]{
+					buffer->getIndexValue(i),
+					buffer->getIndexValue(i + 1),
+					buffer->getIndexValue(i + 2)
+				};
 				//calculate face normal of parent triangle
-				core::vectorSIMDf v1 = buffer->getPosition(i);
-				core::vectorSIMDf v2 = buffer->getPosition(i + 1);
-				core::vectorSIMDf v3 = buffer->getPosition(i + 2);
+				core::vectorSIMDf v1 = buffer->getPosition(ix[0]);
+				core::vectorSIMDf v2 = buffer->getPosition(ix[1]);
+				core::vectorSIMDf v3 = buffer->getPosition(ix[2]);
 
 				faceNormal = core::cross(v2 - v1, v3 - v1);
 				faceNormal = core::normalize(faceNormal);

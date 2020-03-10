@@ -1,8 +1,8 @@
 #include "CCUDAHandler.h"
 
-#include "jitify/jitify.hpp"
 
 #ifdef _IRR_COMPILE_WITH_CUDA_
+#include "jitify/jitify.hpp"
 
 namespace irr
 {
