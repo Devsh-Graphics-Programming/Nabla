@@ -443,7 +443,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(
                 continue;
 
             size_t stride = oldDesc->getMappedBufferStride((E_VERTEX_ATTRIBUTE_ID)k);
-            void* sourcePtr = inbuffer->getAttribPointer((E_VERTEX_ATTRIBUTE_ID)k)+i*stride;
+            uint8_t* sourcePtr = inbuffer->getAttribPointer((E_VERTEX_ATTRIBUTE_ID)k)+i*stride;
             memcpy(currentVertexPtr,sourcePtr,vertexAttrSize[k]);
             currentVertexPtr += vertexAttrSize[k];
         }
@@ -452,7 +452,6 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(
     for (size_t i=0; i<vertexCount; i++)
     {
         uint32_t redir = i;
-
         for (size_t j = 0u; j < vertexCount; ++j)
         {
             if (i == j)
@@ -477,7 +476,10 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(
     else
     {
         if (!oldDesc->getIndexBuffer())
-            oldDesc->setIndexBuffer(core::make_smart_refctd_ptr<ICPUBuffer>((maxRedirect >= 0x10000u ? sizeof(uint32_t):sizeof(uint16_t))*inbuffer->getIndexCount()));
+        {
+            oldDesc->setIndexBuffer(core::make_smart_refctd_ptr<ICPUBuffer>((maxRedirect >= 0x10000u ? sizeof(uint32_t) : sizeof(uint16_t)) * inbuffer->getIndexCount()));
+            inbuffer->setIndexType(maxRedirect>=0x10000u ? EIT_32BIT:EIT_16BIT);
+        }
     }
 
 
@@ -1482,7 +1484,6 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	for (const core::vectorSIMDf& d : _srcData)
 	{
 		const core::vectorSIMDf quantized = quantFunc(d, _srcType.type, _dstType.type);
-
         if (!compareFloatingPointAttribute(d, quantized, getFormatChannelCount(_srcType.type), _errMetric))
             return false;
 	}

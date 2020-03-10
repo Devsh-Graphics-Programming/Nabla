@@ -252,6 +252,8 @@ namespace asset
 			case EEM_ANGLES:
 				errorFunc = [](core::vectorSIMDf _d1, core::vectorSIMDf _d2)->core::vectorSIMDf {
 					_d1.w = _d2.w = 0.f;
+					if ((_d1==core::vectorSIMDf(0.f)).all() || (_d2==core::vectorSIMDf(0.f)).all())
+						return core::vectorSIMDf(-INFINITY);
 					return core::dot(_d1, _d2) / (core::length(_d1) * core::length(_d2));
 				};
 				break;
