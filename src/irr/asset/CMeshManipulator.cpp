@@ -243,7 +243,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOp
 }
 
 //! Creates a copy of the mesh, which will only consist of unique primitives
-core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniquePrimitives(ICPUMeshBuffer* inbuffer)
+core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniquePrimitives(ICPUMeshBuffer* inbuffer, bool _makeIndexBuf)
 {
 	if (!inbuffer)
 		return 0;
@@ -323,6 +323,27 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniqueP
 				destPointer += newAttribSizes[j];
 			}
 		}
+        
+        if (_makeIndexBuf)
+        {
+            auto idxbuf = core::make_smart_refctd_ptr<ICPUBuffer>(idxCnt*(idxCnt<0x10000 ? 2u : 4u));
+            if (idxCnt<0x10000u)
+            {
+                for (uint32_t i = 0u; i < idxCnt; ++i)
+                    reinterpret_cast<uint16_t*>(idxbuf->getPointer())[i] = i;
+                clone->setIndexType(EIT_16BIT);
+                clone->setIndexBufferOffset(0);
+            }
+            else
+            {
+                for (uint32_t i = 0u; i < idxCnt; ++i)
+                    reinterpret_cast<uint32_t*>(idxbuf->getPointer())[i] = i;
+                clone->setIndexType(EIT_32BIT);
+                clone->setIndexBufferOffset(0);
+            }
+            desc->setIndexBuffer(std::move(idxbuf));
+        }
+
 		clone->setMeshDataAndFormat(std::move(desc));
 	}
 
