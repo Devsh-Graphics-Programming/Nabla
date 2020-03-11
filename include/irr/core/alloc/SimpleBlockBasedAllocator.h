@@ -74,8 +74,8 @@ class SimpleBlockBasedAllocator
 		}
 
 		SimpleBlockBasedAllocator(size_type _blockSize, size_type _maxBlockCount, Args&&... args) :
-			blockSize(Block::size_of(_blockSize,args...)), maxBlockCount(_maxBlockCount), metaAlloc(),
-			blocks(metaAlloc.allocate(maxBlockCount, meta_alignment)),
+			blockSize(_blockSize), effectiveBlockSize(Block::size_of(blockSize,args...)), maxBlockCount(_maxBlockCount),
+			metaAlloc(), blocks(metaAlloc.allocate(maxBlockCount, meta_alignment)),
 			blockAlloc(), blockCreationArgs(args...)
 		{
 			assert(maxBlockCount > 0u);
@@ -85,6 +85,7 @@ class SimpleBlockBasedAllocator
 		SimpleBlockBasedAllocator& operator=(SimpleBlockBasedAllocator&& other)
         {
 			std::swap(blockSize, other.blockSize);
+			std::swap(effectiveBlockSize, other.effectiveBlockSize);
 			std::swap(maxBlockCount, other.maxBlockCount);
 			std::swap(metaAlloc, other.metaAlloc);
 			std::swap(blocks, other.blocks);
@@ -149,6 +150,8 @@ class SimpleBlockBasedAllocator
 		{
 			if (blockSize != other.blockSize)
 				return true;
+			if (effectiveBlockSize != other.effectiveBlockSize)
+				return true;
 			if (maxBlockCount != other.maxBlockCount)
 				return true;
 			if (metaAlloc != other.metaAlloc)
@@ -165,6 +168,7 @@ class SimpleBlockBasedAllocator
 		}
     protected:
 		size_type blockSize;
+		size_type effectiveBlockSize;
 		size_type maxBlockCount;
 		DataAllocator<Block*> metaAlloc;
 		Block** blocks;
@@ -184,7 +188,7 @@ class SimpleBlockBasedAllocator
 		}
 		Block* createBlock()
 		{
-			auto retval = reinterpret_cast<Block*>(blockAlloc.allocate(blockSize, meta_alignment));
+			auto retval = reinterpret_cast<Block*>(blockAlloc.allocate(effectiveBlockSize, meta_alignment));
 			constructBlock(retval,typename gens<sizeof...(Args)>::type());
 			return retval;
 		}
@@ -196,7 +200,7 @@ class SimpleBlockBasedAllocator
 				return;
 
 			blocks[index]->~Block();
-			blockAlloc.deallocate(reinterpret_cast<uint8_t*>(blocks[index]),blockSize); // ?
+			blockAlloc.deallocate(reinterpret_cast<uint8_t*>(blocks[index]),effectiveBlockSize);
 			blocks[index] = nullptr;
 		}
 };

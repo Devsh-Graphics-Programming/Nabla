@@ -1483,8 +1483,8 @@ void Renderer::render()
 										m_denoiserMemReqs.recommendedScratchSizeInBytes,m_denoiserMemReqs.recommendedScratchSizeInBytes);
 
 		OptixDenoiserParams m_denoiserParams = {};
-		volatile float kConstant = 0.002f;
-		m_denoiserParams.blendFactor = 1.f-1.f/core::max(kConstant*float(m_framesDone*m_samplesPerDispatch),1.f);
+		volatile float kConstant = 0.0001f;
+		m_denoiserParams.blendFactor = core::min(1.f-1.f/core::max(kConstant*float(m_framesDone*m_samplesPerDispatch),1.f),0.25f);
 		m_denoiserParams.denoiseAlpha = 0u;
 		m_denoiserParams.hdrIntensity = m_denoiserScratchBuffer.asBuffer.pointer+m_denoiserMemReqs.recommendedScratchSizeInBytes;
 		m_denoiserOutput.data = m_denoisedBuffer.asBuffer.pointer;
