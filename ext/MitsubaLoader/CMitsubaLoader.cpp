@@ -389,37 +389,16 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 		float smoothAngleCos = cos(core::radians(maxSmoothAngle));
 		for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
 		{
-			auto newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(mesh->getMeshBuffer(i),true);
-			ctx.manipulator->filterInvalidTriangles(newMeshBuffer.get());
-			if (faceNormals)
-			{
-				const size_t idxCount = newMeshBuffer->getIndexCount();
-				for (auto j = 0ull; j < idxCount; j += 3u)
+			ctx.manipulator->filterInvalidTriangles(mesh->getMeshBuffer(i));
+			auto newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(mesh->getMeshBuffer(i));
+			ctx.manipulator->calculateSmoothNormals(newMeshBuffer.get(), false, 0.f, asset::EVAI_ATTR3,
+				[&](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
 				{
-					const uint32_t ix[3]{
-						newMeshBuffer->getIndexValue(j),
-						newMeshBuffer->getIndexValue(j+1),
-						newMeshBuffer->getIndexValue(j+2)
-					};
-					core::vectorSIMDf v1 = newMeshBuffer->getPosition(ix[0]);
-					core::vectorSIMDf v2 = newMeshBuffer->getPosition(ix[1]);
-					core::vectorSIMDf v3 = newMeshBuffer->getPosition(ix[2]);
-
-					core::vectorSIMDf normal = core::normalize(core::cross(v2-v1, v3-v1));
-
-					newMeshBuffer->setAttribute(normal, asset::EVAI_ATTR3, ix[0]);
-					newMeshBuffer->setAttribute(normal, asset::EVAI_ATTR3, ix[1]);
-					newMeshBuffer->setAttribute(normal, asset::EVAI_ATTR3, ix[2]);
-				}
-			}
-			else
-			{
-				ctx.manipulator->calculateSmoothNormals(newMeshBuffer.get(), false, 0.f, asset::EVAI_ATTR3,
-					[&](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
-					{
-							return core::dot(a.parentTriangleFaceNormal, b.parentTriangleFaceNormal).x >= smoothAngleCos;
-					});
-			}
+					if (faceNormals)
+						return a.indexOffset==b.indexOffset;
+					else
+						return core::dot(a.parentTriangleFaceNormal, b.parentTriangleFaceNormal).x >= smoothAngleCos;
+				});
 
 			asset::IMeshManipulator::SErrorMetric metrics[16];
 			metrics[3].method = asset::IMeshManipulator::EEM_ANGLES;

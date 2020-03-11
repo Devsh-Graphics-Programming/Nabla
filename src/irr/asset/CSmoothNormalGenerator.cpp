@@ -200,7 +200,7 @@ namespace irr
 
 
 					normal = core::normalize(core::vectorSIMDf(normal));
-					buffer->setAttribute(normal, normalAttrID, processedVertex->indexOffset);
+					buffer->setAttribute(normal, normalAttrID, buffer->getIndexValue(processedVertex->indexOffset));
 				}
 			}
 
