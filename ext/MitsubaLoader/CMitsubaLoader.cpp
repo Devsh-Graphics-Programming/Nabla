@@ -389,19 +389,16 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 		float smoothAngleCos = cos(core::radians(maxSmoothAngle));
 		for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
 		{
-			auto newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(mesh->getMeshBuffer(i),true);
-			ctx.manipulator->filterInvalidTriangles(newMeshBuffer.get());
-			if (faceNormals)
-			{
-				ctx.manipulator->calculateSmoothNormals(newMeshBuffer.get(), false, 0.f, asset::EVAI_ATTR3,
-					[&](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
-					{
-						if (faceNormals)
-							return a.indexOffset==b.indexOffset;
-						else
-							return core::dot(a.parentTriangleFaceNormal, b.parentTriangleFaceNormal).x >= smoothAngleCos;
-					});
-			}
+			ctx.manipulator->filterInvalidTriangles(mesh->getMeshBuffer(i));
+			auto newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(mesh->getMeshBuffer(i));
+			ctx.manipulator->calculateSmoothNormals(newMeshBuffer.get(), false, 0.f, asset::EVAI_ATTR3,
+				[&](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
+				{
+					if (faceNormals)
+						return a.indexOffset==b.indexOffset;
+					else
+						return core::dot(a.parentTriangleFaceNormal, b.parentTriangleFaceNormal).x >= smoothAngleCos;
+				});
 
 			asset::IMeshManipulator::SErrorMetric metrics[16];
 			metrics[3].method = asset::IMeshManipulator::EEM_ANGLES;

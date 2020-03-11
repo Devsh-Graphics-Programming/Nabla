@@ -360,12 +360,11 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::calculateSmoothNormals(
 	}
 
 	//Mesh has to have unique primitives
-    //trust user to know what he's doing?
-	//if (inbuffer->getIndexType() != E_INDEX_TYPE::EIT_UNKNOWN)
-	//{
-	//	_IRR_DEBUG_BREAK_IF(true);
-	//	return nullptr;
-	//}
+	if (inbuffer->getIndexType() != E_INDEX_TYPE::EIT_UNKNOWN)
+	{
+		_IRR_DEBUG_BREAK_IF(true);
+		return nullptr;
+	}
 
 	auto outbuffer = makeNewMesh ? createMeshBufferDuplicate(inbuffer) : core::smart_refctd_ptr<ICPUMeshBuffer>(inbuffer);
 	CSmoothNormalGenerator::calculateNormals(outbuffer.get(), epsilon, normalAttrID, vxcmp);
