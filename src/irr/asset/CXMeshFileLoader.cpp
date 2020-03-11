@@ -156,6 +156,7 @@ asset::SAssetBundle CXMeshFileLoader::loadAsset(io::IReadFile* _file, const asse
                 meshbuffer->setIndexType(indexType);
 
                 meshbuffer->setPositionAttributeIx(origMeshBuffer->getPositionAttributeIx());
+				meshbuffer->setNormalnAttributeIx(origMeshBuffer->getNormalAttributeIx());
                 for (size_t j=0; j<asset::EVAI_COUNT; j++)
                 {
                     asset::E_VERTEX_ATTRIBUTE_ID attrId = (asset::E_VERTEX_ATTRIBUTE_ID)j;
@@ -398,7 +399,7 @@ bool CXMeshFileLoader::load(SContext& _ctx, io::IReadFile* file, const asset::IA
                     else
                         buffer->setIndexType(asset::EIT_16BIT);
 
-                    buffer->setMeshDataAndFormat(core::smart_refctd_ptr(desc));
+                    //buffer->setMeshDataAndFormat(std::move(desc));
 
                     if (i>0)
                     {
@@ -874,7 +875,7 @@ bool CXMeshFileLoader::parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMe
 		else
 		if (objectName == "FrameTransformMatrix")
 		{
-			if (!parseDataObjectTransformationMatrix(_ctx, joint->LocalMatrix))
+			if (!parseDataObjectTransformationMatrix(_ctx, joint->LocalMatrix, _params))
 				return false;
 		}
 		else
@@ -906,7 +907,8 @@ bool CXMeshFileLoader::parseDataObjectFrame(SContext& _ctx, asset::ICPUSkinnedMe
 }
 
 
-bool CXMeshFileLoader::parseDataObjectTransformationMatrix(SContext& _ctx, core::matrix3x4SIMD &mat)
+
+bool CXMeshFileLoader::parseDataObjectTransformationMatrix(SContext& _ctx, core::matrix3x4SIMD &mat, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
 #ifdef _XREADER_DEBUG
 	os::Printer::log("CXFileReader: Reading Transformation Matrix", ELL_DEBUG);
@@ -919,7 +921,7 @@ bool CXMeshFileLoader::parseDataObjectTransformationMatrix(SContext& _ctx, core:
 		return false;
 	}
 
-	readMatrix(_ctx, mat);
+	readMatrix(_ctx, mat, _params);
 
 	if (!checkForOneFollowingSemicolons(_ctx))
 	{
@@ -1373,7 +1375,7 @@ bool CXMeshFileLoader::parseDataObjectSkinWeights(SContext& _ctx, SXMesh &mesh, 
 	// transforms the mesh vertices to the space of the bone
 	// When concatenated to the bone's transform, this provides the
 	// world space coordinates of the mesh as affected by the bone
-	readMatrix(_ctx, joint->GlobalInversedMatrix);
+	readMatrix(_ctx, joint->GlobalInversedMatrix, _params);
 
 	if (!checkForOneFollowingSemicolons(_ctx))
 	{
@@ -2083,8 +2085,10 @@ bool CXMeshFileLoader::parseDataObjectAnimationKey(SContext& _ctx, asset::ICPUSk
 				}
 
 				// read matrix
-				core::matrix3x4SIMD mat;
-				readMatrix(_ctx, mat);
+
+				core::matrix3x4SIMD mat4x3;
+				readMatrix(_ctx, mat4x3, _params);
+				//mat=joint->LocalMatrix*mat;
 
 				if (!checkForOneFollowingSemicolons(_ctx))
 				{
@@ -2097,14 +2101,14 @@ bool CXMeshFileLoader::parseDataObjectAnimationKey(SContext& _ctx, asset::ICPUSk
                 asset::ICPUSkinnedMesh::SRotationKey *keyR=joint->addRotationKey();
 				keyR->frame=time;
 
-				keyR->rotation = core::quaternion(mat);
+				keyR->rotation = core::quaternion(mat4x3);
 
                 asset::ICPUSkinnedMesh::SPositionKey *keyP=joint->addPositionKey();
 				keyP->frame=time;
-				keyP->position = mat.getTranslation().getAsVector3df();
+				keyP->position = mat4x3.getTranslation().getAsVector3df();
 
 
-				core::vector3df scale = mat.getScale().getAsVector3df();
+				core::vector3df scale = mat4x3.getScale().getAsVector3df();
 
 				if (scale.X==0)
 					scale.X=1;
@@ -2604,7 +2608,7 @@ bool CXMeshFileLoader::readRGBA(SContext& _ctx, video::SColor& color)
 
 
 // read matrix from list of floats
-bool CXMeshFileLoader::readMatrix(SContext& _ctx, core::matrix3x4SIMD& mat)
+bool CXMeshFileLoader::readMatrix(SContext& _ctx, core::matrix3x4SIMD& mat, const asset::IAssetLoader::SAssetLoadParams& _params)
 {
     for (uint32_t j=0u; j<4u; j++)
     {

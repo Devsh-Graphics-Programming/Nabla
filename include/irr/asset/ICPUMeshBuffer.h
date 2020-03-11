@@ -51,10 +51,11 @@ class ICPUMeshBuffer : public IMeshBuffer<ICPUBuffer>, public BlobSerializable, 
 {
     //vertices
     E_VERTEX_ATTRIBUTE_ID posAttrId;
+    E_VERTEX_ATTRIBUTE_ID normalAttrId;
 protected:
 	virtual ~ICPUMeshBuffer() {}
 public:
-    ICPUMeshBuffer(core::CLeakDebugger* dbgr = nullptr) : IMeshBuffer<ICPUBuffer>(nullptr, dbgr), posAttrId(EVAI_ATTR0) {}
+    ICPUMeshBuffer(core::CLeakDebugger* dbgr = nullptr) : IMeshBuffer<ICPUBuffer>(nullptr, dbgr), posAttrId(EVAI_ATTR0), normalAttrId(EVAI_COUNT) {}
 
     virtual void* serializeToBlob(void* _stackPtr = nullptr, const size_t& _stackSize = 0) const override
     {
@@ -64,7 +65,7 @@ public:
     virtual void convertToDummyObject() override {}
     virtual IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SUB_MESH; }
 
-    virtual size_t conservativeSizeEstimate() const override { return sizeof(IMeshBuffer<ICPUBuffer>) + sizeof(posAttrId); }
+    virtual size_t conservativeSizeEstimate() const override { return sizeof(IMeshBuffer<ICPUBuffer>) + sizeof(posAttrId) + sizeof(normalAttrId); }
 
     virtual E_MESH_BUFFER_TYPE getMeshBufferType() const { return EMBT_NOT_ANIMATED; }
 
@@ -147,6 +148,23 @@ public:
         posAttrId = attrId;
     }
 
+    //! Returns id of normal attribute.
+    inline const E_VERTEX_ATTRIBUTE_ID& getNormalAttributeIx() const { return normalAttrId; }
+
+    //! Sets id of position atrribute.
+    inline void setNormalnAttributeIx(const E_VERTEX_ATTRIBUTE_ID& attrId)
+    {
+        if (attrId >= EVAI_COUNT)
+        {
+#ifdef _IRR_DEBUG
+            //os::Printer::log("MeshBuffer setNormalAttributeIx attribute ID out of range!\n",ELL_ERROR);
+#endif // _IRR_DEBUG
+            return;
+        }
+
+        normalAttrId = attrId;
+    }
+
     //! Get access to Indices.
     /** \return Pointer to indices array. */
     inline void* getIndices()
@@ -206,7 +224,12 @@ public:
         if (attrId >= EVAI_COUNT || !mappedAttrBuf)
             return nullptr;
 
-        int64_t ix = baseVertex;
+
+		auto divisor = meshLayout->getAttribDivisor(attrId);
+		assert(divisor < 2u); // fuck OPENGL
+
+		int64_t ix = divisor ? baseInstance:baseVertex;
+
         ix *= meshLayout->getMappedBufferStride(attrId);
         ix += meshLayout->getMappedBufferOffset(attrId);
         if (ix < 0 || static_cast<uint64_t>(ix) >= mappedAttrBuf->getSize())

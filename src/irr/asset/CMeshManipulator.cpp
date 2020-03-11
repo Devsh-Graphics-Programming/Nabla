@@ -840,6 +840,9 @@ void CMeshManipulator::copyMeshBufferMemberVars<ICPUMeshBuffer>(ICPUMeshBuffer* 
     _dst->setPositionAttributeIx(
         _src->getPositionAttributeIx()
     );
+	_dst->setNormalnAttributeIx(
+		_src->getNormalAttributeIx()
+	);
     _dst->getMaterial() = _src->getMaterial();
 }
 template<>

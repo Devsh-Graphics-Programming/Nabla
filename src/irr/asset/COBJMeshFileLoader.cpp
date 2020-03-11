@@ -395,6 +395,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         else*/
 
         auto meshbuffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+		meshbuffer->setNormalnAttributeIx(EVAI_ATTR3);
         mesh->addMeshBuffer(core::smart_refctd_ptr(meshbuffer));
 
         meshbuffer->getMaterial() = ctx.Materials[m]->Material;

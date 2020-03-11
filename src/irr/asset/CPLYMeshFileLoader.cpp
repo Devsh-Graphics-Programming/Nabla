@@ -236,6 +236,8 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			auto mb = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
 			auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
 
+			mb->setNormalnAttributeIx(EVAI_ATTR3);
+      
 			core::vector<core::vectorSIMDf> attribs[4];
 			core::vector<uint32_t> indices;
 

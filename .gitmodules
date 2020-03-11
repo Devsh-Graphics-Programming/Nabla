@@ -73,6 +73,10 @@
 [submodule "3rdparty/CEGUI/glew-cmake"]
 	path = 3rdparty/CEGUI/glew
 	url = https://github.com/AnastaZIuk/glew-cmake.git
+	branch = master
+[submodule "3rdparty/parallel-hashmap"]
+	path = 3rdparty/parallel-hashmap
+	url = https://github.com/greg7mdp/parallel-hashmap
 [submodule "3rdparty/radeonrays"]
 	path = 3rdparty/radeonrays
 	url = https://github.com/devshgraphicsprogramming/RadeonRays_SDK.git
