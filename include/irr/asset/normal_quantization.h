@@ -188,7 +188,7 @@ namespace asset
 		dummySearchVal.value = bestFit;
 		normalCacheFor8_8_8Quant.insert(found, dummySearchVal);
 
-	    return *reinterpret_cast<uint32_t*>(bestFit);
+	    return bestFit;
 	}
 
 	inline uint64_t quantizeNormal16_16_16(const core::vectorSIMDf& normal)

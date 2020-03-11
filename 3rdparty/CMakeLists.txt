@@ -325,3 +325,8 @@ if (IRR_BUILD_BULLET)
 
 	set(BULLET_INCLUDE_PATH ${BULLET_INCLUDE_PATH} PARENT_SCOPE)
 endif()
+
+
+if (IRR_COMPILE_WITH_CUDA)
+	update_git_submodule(./jitify)
+endif()

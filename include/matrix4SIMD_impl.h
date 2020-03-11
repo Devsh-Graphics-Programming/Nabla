@@ -239,7 +239,7 @@ inline void matrix4SIMD::transformVect(vectorSIMDf& _out, const vectorSIMDf& _in
 
 inline matrix4SIMD matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar)
 {
-	const float h = core::reciprocal<float>(tan(fieldOfViewRadians*0.5));
+	const float h = core::reciprocal<float>(tanf(fieldOfViewRadians*0.5));
 	_IRR_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
 	const float w = h / aspectRatio;
 
@@ -255,7 +255,7 @@ inline matrix4SIMD matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(float fiel
 }
 inline matrix4SIMD matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar)
 {
-	const float h = core::reciprocal<float>(tan(fieldOfViewRadians*0.5));
+	const float h = core::reciprocal<float>(tanf(fieldOfViewRadians*0.5));
 	_IRR_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
 	const float w = h / aspectRatio;
 

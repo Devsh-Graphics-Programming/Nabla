@@ -81,3 +81,6 @@
 	path = 3rdparty/radeonrays
 	url = https://github.com/devshgraphicsprogramming/RadeonRays_SDK.git
 	branch = baw
+[submodule "3rdparty/jitify"]
+	path = 3rdparty/jitify
+	url = https://github.com/NVIDIA/jitify

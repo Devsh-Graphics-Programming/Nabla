@@ -26,6 +26,7 @@ namespace irr
 #include "COpenGLDriverFence.h"
 #include "COpenGLTransformFeedback.h"
 #include "COpenGLVAOSpec.h"
+#include "irr/video/CCUDAHandler.h"
 #include "COpenCLHandler.h"
 
 #include <map>

@@ -117,6 +117,21 @@ public:
         return vertexCount;
     }
 
+    uint32_t getIndexValue(uint32_t _i) const
+    {
+        if (!meshLayout->getIndexBuffer())
+            return _i;
+        switch (indexType)
+        {
+        case EIT_16BIT:
+            return reinterpret_cast<const uint16_t*>(getIndices())[_i];
+        case EIT_32BIT:
+            return reinterpret_cast<const uint32_t*>(getIndices())[_i];
+        default:
+            return _i;
+        }
+    }
+
     //! Returns id of position attribute.
     inline const E_VERTEX_ATTRIBUTE_ID& getPositionAttributeIx() const { return posAttrId; }
     //! Sets id of position atrribute.

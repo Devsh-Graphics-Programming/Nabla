@@ -13,10 +13,17 @@
 
 // graphics API backend
 #cmakedefine _IRR_COMPILE_WITH_OPENGL_
-#cmakedefine _IRR_COMPILE_WITH_OPENCL_
 #cmakedefine _IRR_COMPILE_WITH_VULKAN_
+
+// compute interop
+#cmakedefine _IRR_COMPILE_WITH_OPENCL_
+#cmakedefine _IRR_COMPILE_WITH_CUDA_
+#cmakedefine _IRR_BUILD_OPTIX_
 
 // extra config
 #cmakedefine __IRR_FAST_MATH
+
+// TODO: This has to disapppear from the main header and go to the OptiX extension header + config
+#cmakedefine OPTIX_INCLUDE_DIR "@OPTIX_INCLUDE_DIR@"
 
 #endif //__IRR_BUILD_CONFIG_OPTIONS_H_INCLUDED__

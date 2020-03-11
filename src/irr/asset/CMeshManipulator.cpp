@@ -243,7 +243,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOp
 }
 
 //! Creates a copy of the mesh, which will only consist of unique primitives
-core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniquePrimitives(ICPUMeshBuffer* inbuffer)
+core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniquePrimitives(ICPUMeshBuffer* inbuffer, bool _makeIndexBuf)
 {
 	if (!inbuffer)
 		return 0;
@@ -323,6 +323,27 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniqueP
 				destPointer += newAttribSizes[j];
 			}
 		}
+        
+        if (_makeIndexBuf)
+        {
+            auto idxbuf = core::make_smart_refctd_ptr<ICPUBuffer>(idxCnt*(idxCnt<0x10000 ? 2u : 4u));
+            if (idxCnt<0x10000u)
+            {
+                for (uint32_t i = 0u; i < idxCnt; ++i)
+                    reinterpret_cast<uint16_t*>(idxbuf->getPointer())[i] = i;
+                clone->setIndexType(EIT_16BIT);
+                clone->setIndexBufferOffset(0);
+            }
+            else
+            {
+                for (uint32_t i = 0u; i < idxCnt; ++i)
+                    reinterpret_cast<uint32_t*>(idxbuf->getPointer())[i] = i;
+                clone->setIndexType(EIT_32BIT);
+                clone->setIndexBufferOffset(0);
+            }
+            desc->setIndexBuffer(std::move(idxbuf));
+        }
+
 		clone->setMeshDataAndFormat(std::move(desc));
 	}
 
@@ -443,7 +464,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(
                 continue;
 
             size_t stride = oldDesc->getMappedBufferStride((E_VERTEX_ATTRIBUTE_ID)k);
-            void* sourcePtr = inbuffer->getAttribPointer((E_VERTEX_ATTRIBUTE_ID)k)+i*stride;
+            uint8_t* sourcePtr = inbuffer->getAttribPointer((E_VERTEX_ATTRIBUTE_ID)k)+i*stride;
             memcpy(currentVertexPtr,sourcePtr,vertexAttrSize[k]);
             currentVertexPtr += vertexAttrSize[k];
         }
@@ -452,7 +473,6 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(
     for (size_t i=0; i<vertexCount; i++)
     {
         uint32_t redir = i;
-
         for (size_t j = 0u; j < vertexCount; ++j)
         {
             if (i == j)
@@ -477,7 +497,10 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(
     else
     {
         if (!oldDesc->getIndexBuffer())
-            oldDesc->setIndexBuffer(core::make_smart_refctd_ptr<ICPUBuffer>((maxRedirect >= 0x10000u ? sizeof(uint32_t):sizeof(uint16_t))*inbuffer->getIndexCount()));
+        {
+            oldDesc->setIndexBuffer(core::make_smart_refctd_ptr<ICPUBuffer>((maxRedirect >= 0x10000u ? sizeof(uint32_t) : sizeof(uint16_t)) * inbuffer->getIndexCount()));
+            inbuffer->setIndexType(maxRedirect>=0x10000u ? EIT_32BIT:EIT_16BIT);
+        }
     }
 
 
@@ -1147,6 +1170,8 @@ E_FORMAT CMeshManipulator::getBestTypeI(E_FORMAT _originalType, size_t* _outSize
 
         switch (_fmt)
         {
+        case EF_A2R10G10B10_SSCALED_PACK32:
+        case EF_A2R10G10B10_SINT_PACK32:
         case EF_A2B10G10R10_SSCALED_PACK32:
         case EF_A2B10G10R10_SINT_PACK32:
             if (_cmpntNum < 3u)
@@ -1163,12 +1188,16 @@ E_FORMAT CMeshManipulator::getBestTypeI(E_FORMAT _originalType, size_t* _outSize
     auto maxValueOfTypeINT = [](E_FORMAT _fmt, uint32_t _cmpntNum) -> uint32_t {
         switch (_fmt)
         {
+        case EF_A2R10G10B10_USCALED_PACK32:
+        case EF_A2R10G10B10_UINT_PACK32:
         case EF_A2B10G10R10_USCALED_PACK32:
         case EF_A2B10G10R10_UINT_PACK32:
             if (_cmpntNum < 3u)
                 return 1023u;
             else return 3u;
             break;
+        case EF_A2R10G10B10_SSCALED_PACK32:
+        case EF_A2R10G10B10_SINT_PACK32:
         case EF_A2B10G10R10_SSCALED_PACK32:
         case EF_A2B10G10R10_SINT_PACK32:
             if (_cmpntNum < 3u)
@@ -1416,13 +1445,14 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 				return retval;
 			};
 			break;
-		case EF_A2B10G10R10_SINT_PACK32: // RGB10_A2
+		case EF_A2R10G10B10_SNORM_PACK32:
+		case EF_A2B10G10R10_SNORM_PACK32: // bgra
 			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT) -> core::vectorSIMDf {
 				uint8_t buf[32];
 				((uint32_t*)buf)[0] = quantizeNormal2_10_10_10(_in);
 
 				core::vectorSIMDf retval;
-				ICPUMeshBuffer::getAttribute(retval, buf, EF_A2B10G10R10_SINT_PACK32);
+				ICPUMeshBuffer::getAttribute(retval, buf, EF_A2R10G10B10_SNORM_PACK32);
 				retval.w = 1.f;
 				return retval;
 			};
@@ -1478,7 +1508,6 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	for (const core::vectorSIMDf& d : _srcData)
 	{
 		const core::vectorSIMDf quantized = quantFunc(d, _srcType.type, _dstType.type);
-
         if (!compareFloatingPointAttribute(d, quantized, getFormatChannelCount(_srcType.type), _errMetric))
             return false;
 	}

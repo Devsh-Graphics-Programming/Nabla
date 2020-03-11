@@ -49,6 +49,13 @@ if (IRR_COMPILE_WITH_OPENCL)
 		message(STATUS "OpenCL not found")
 	endif()
 endif()
+if (IRR_COMPILE_WITH_CUDA)
+	message(STATUS "Building with CUDA interop")
+	set(_IRR_COMPILE_WITH_CUDA_ ${IRR_COMPILE_WITH_CUDA})
+	if (IRR_BUILD_OPTIX)
+		set(_IRR_BUILD_OPTIX_ ${IRR_BUILD_OPTIX})
+	endif()
+endif()
 #set(_IRR_TARGET_ARCH_ARM_ ${IRR_TARGET_ARCH_ARM}) #uncomment in the future
 set(__IRR_FAST_MATH ${IRR_FAST_MATH})
 set(_IRR_DEBUG 0)
@@ -186,10 +193,9 @@ if (MSVC)
 endif()
 
 set(IRRLICHT_SRCS_NORMAL
-	#vulkan
+	# Vulkan
 
-	#opengl
-	COpenCLHandler.cpp
+	# OpenCL
 	COpenGL2DTextureArray.cpp
 	COpenGL2DTexture.cpp
 	COpenGL3DTexture.cpp
@@ -203,6 +209,12 @@ set(IRRLICHT_SRCS_NORMAL
 	COpenGL1DTextureArray.cpp
 	COpenGLCubemapArrayTexture.cpp
 	COpenGLCubemapTexture.cpp
+	
+	# CUDA
+	${IRR_ROOT_PATH}/src/irr/video/CCUDAHandler.cpp
+
+	# OpenCL
+	COpenCLHandler.cpp
 
 	# abstract (move this out eventually)
 	${IRR_ROOT_PATH}/src/irr/video/CDerivativeMapCreator.cpp
@@ -323,16 +335,22 @@ if (UNIX)
 endif()
 
 
+if (IRR_COMPILE_WITH_CUDA)
+	if (WIN32)
+		target_link_libraries(Irrlicht INTERFACE
+			${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}/../lib/x64/nvrtc.lib
+		)
+	endif()
+	target_include_directories(Irrlicht PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+endif()
+
 if (IRR_COMPILE_WITH_OPENCL AND OpenCL_FOUND)
 	target_link_libraries(Irrlicht PUBLIC OpenCL::OpenCL)
 endif()
 
-# TODO: REDO
 find_package(Vulkan)
 if (Vulkan_FOUND)
 	message(STATUS "Building with Vulkan driver")
-	#target_link_libraries(Irrlicht INTERFACE Vulkan::Vulkan) # this should work, but it doesn't
-	#target_link_libraries(Irrlicht INTERFACE ${Vulkan_LIBRARY})
 else()
 	message(STATUS "Vulkan driver is not enabled")
 endif()
