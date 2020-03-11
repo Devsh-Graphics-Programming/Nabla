@@ -1418,7 +1418,9 @@ void Renderer::render()
 									,m_denoiserInputs[EDI_COLOR].data,m_denoiserInputs[EDI_ALBEDO].data,m_denoiserInputs[EDI_NORMAL].data
 #endif
 								};
+#ifdef _IRR_BUILD_OPTIX_
 		auto getDenoiserBufferSize = [&resolveBufferPtr](const OptixImage2D& img) -> size_t {return resolveBufferPtr ? img.height*img.rowStrideInBytes:0u;};
+#endif
 		ptrdiff_t sizes[] = {	m_rayBuffer->getSize(),
 								m_intersectionBuffer->getSize(),
 								m_lightRadianceBuffer->getSize()
@@ -1452,7 +1454,7 @@ void Renderer::render()
 
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT
 #ifndef _IRR_BUILD_OPTIX_
-			GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT
+			|GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT
 #else
 			|(m_denoisedBuffer.getObject() ? (GL_PIXEL_BUFFER_BARRIER_BIT|GL_BUFFER_UPDATE_BARRIER_BIT):(GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT))
 #endif
