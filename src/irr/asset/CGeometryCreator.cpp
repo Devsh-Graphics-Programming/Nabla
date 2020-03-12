@@ -161,6 +161,7 @@ CGeometryCreator::return_type CGeometryCreator::createArrowMesh(const uint32_t t
         return nullptr;
 
     asset::ICPUMeshBuffer* coneMb = cone->getMeshBuffer(0u);
+	coneMb->setNormalnAttributeIx(EVAI_ATTR3);
 
     asset::ICPUBuffer* coneVtxBuf = const_cast<asset::ICPUBuffer*>(coneMb->getMeshDataAndFormat()->getMappedBuffer(asset::EVAI_ATTR0));
     ConeVertex* coneVertices = reinterpret_cast<ConeVertex*>(coneVtxBuf->getPointer());
@@ -168,6 +169,7 @@ CGeometryCreator::return_type CGeometryCreator::createArrowMesh(const uint32_t t
         coneVertices[i].pos[2] += cylinderHeight;
     coneMb->recalculateBoundingBox();
 
+	
     cone->addMeshBuffer(core::smart_refctd_ptr<asset::ICPUMeshBuffer>(cylinder->getMeshBuffer(0u)));
     cone->recalculateBoundingBox();
 
@@ -499,6 +501,7 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 	desc->setIndexBuffer(std::move(idxBuf));
     meshbuf->setIndexType(asset::EIT_16BIT);
     meshbuf->setPrimitiveType(asset::EPT_TRIANGLES);
+	meshbuf->setNormalnAttributeIx(EVAI_ATTR3);
     meshbuf->setMeshDataAndFormat(std::move(desc));
 	meshbuf->recalculateBoundingBox();
 

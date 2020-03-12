@@ -227,7 +227,7 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _
 #ifndef NEW_SHADERS
     const size_t colCpa = asset::getFormatChannelCount(_mbuf->getMeshDataAndFormat()->getAttribFormat(asset::EVAI_ATTR1));
 
-	bool flipVectors = (!(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED)) ? true : false;
+	bool flipVectors = (!(_params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED)) ? true : false;
 
     asset::ICPUMeshBuffer* mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
     for (size_t i = 0u; i < _vtxCount; ++i)
@@ -306,7 +306,7 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mb
     auto writefunc = [&_file,&mbCopy, &_params, this](asset::E_VERTEX_ATTRIBUTE_ID _vaid, size_t _ix, size_t _cpa)
     {
 		bool flipVerteciesAndNormals = false;
-		if (!(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED))
+		if (!(_params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED))
 			if(_vaid == asset::E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR0 || _vaid == asset::E_VERTEX_ATTRIBUTE_ID::EVAI_ATTR3)
 				flipVerteciesAndNormals = true;
 
@@ -476,7 +476,7 @@ asset::ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrue
     mbCopy->setIndexType(_mbuf->getIndexType());
     mbCopy->setPrimitiveType(_mbuf->getPrimitiveType());
     mbCopy->setPositionAttributeIx(_mbuf->getPositionAttributeIx());
-
+	mbCopy->setNormalnAttributeIx(_mbuf->getNormalAttributeIx());
     return mbCopy;
 #else
     return nullptr;

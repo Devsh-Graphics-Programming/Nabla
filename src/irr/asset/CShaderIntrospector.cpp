@@ -646,7 +646,7 @@ namespace {
         uint32_t baseOffset;
     };
 }
-static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock::SMember::SMembers& _dstMembers, const spirv_cross::SPIRType& _parentType, const spirv_cross::SmallVector<uint32_t>& _allMembersTypes, uint32_t _baseOffset, const core::unordered_map<uint32_t, const CIntrospectionData::SSpecConstant*>& _mapId2sconst, core::stack<StackElement>& _pushStack) {
+static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock::SMember::SMembers& _dstMembers, const spirv_cross::SPIRType& _parentType, const spirv_cross::SmallVector<spirv_cross::TypeID>& _allMembersTypes, uint32_t _baseOffset, const core::unordered_map<uint32_t, const CIntrospectionData::SSpecConstant*>& _mapId2sconst, core::stack<StackElement>& _pushStack) {
     using MembT = impl::SShaderMemoryBlock::SMember;
 
     auto MemberDefault = [] {

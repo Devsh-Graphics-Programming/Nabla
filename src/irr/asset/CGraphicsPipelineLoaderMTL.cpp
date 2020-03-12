@@ -962,7 +962,7 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mt
             {
 #endif
                 //assuming each image has just 1 region
-                assert(images[i]->getRegions().length()==1ull);
+                assert(images[i]->getRegions().size()==1ull);
 
                 regions_.push_back(images[i]->getRegions().begin()[0]);
                 regions_.back().bufferOffset = core::roundUp(regions_.back().bufferOffset, alignment);

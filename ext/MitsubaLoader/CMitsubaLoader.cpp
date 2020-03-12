@@ -532,21 +532,23 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 	for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
 		ctx.manipulator->flipSurfaces(mesh->getMeshBuffer(i));
 	// flip normals if necessary
+#define CRISS_FIX_THIS
+#ifdef CRISS_FIX_THIS
 	if (faceNormals || !std::isnan(maxSmoothAngle))
 	{
 		auto newMesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
 		float smoothAngleCos = cos(core::radians(maxSmoothAngle));
 		for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
 		{
+			ctx.manipulator->filterInvalidTriangles(mesh->getMeshBuffer(i));
 			auto newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(mesh->getMeshBuffer(i));
-
 			ctx.manipulator->calculateSmoothNormals(newMeshBuffer.get(), false, 0.f, asset::EVAI_ATTR3,
 				[&](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
 				{
 					if (faceNormals)
-						return a.indexOffset == b.indexOffset;
+						return a.indexOffset==b.indexOffset;
 					else
-						return core::dot(a.parentTriangleFaceNormal,b.parentTriangleFaceNormal).x >= smoothAngleCos;
+						return core::dot(a.parentTriangleFaceNormal, b.parentTriangleFaceNormal).x >= smoothAngleCos;
 				});
 
 			asset::IMeshManipulator::SErrorMetric metrics[16];
@@ -559,6 +561,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 		manager->setAssetMetadata(newMesh.get(), core::smart_refctd_ptr<asset::IAssetMetadata>(mesh->getMetadata()));
 		mesh = std::move(newMesh);
 	}
+#endif
 
 	//meshbuffer processing
 	for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)

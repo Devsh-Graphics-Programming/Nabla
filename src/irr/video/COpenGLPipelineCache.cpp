@@ -12,8 +12,8 @@ static int compare_desc_layouts(const IGPUDescriptorSetLayout* A, const IGPUDesc
 		return A ? 1 : 0;
 
 	// non null descriptor set layouts, we can compare more
-	auto count = A->getBindings().length();
-	auto lendiff = int64_t(count) - int64_t(B->getBindings().length());
+	auto count = A->getBindings().size();
+	auto lendiff = int64_t(count) - int64_t(B->getBindings().size());
 	if (lendiff != 0)
 		return lendiff;
 
@@ -102,7 +102,7 @@ core::smart_refctd_ptr<asset::ICPUPipelineCache> COpenGLPipelineCache::convertTo
 		for (uint32_t j = 0u; j < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++j)
 		{
 			auto dsl = in_entry.first.layout->getDescriptorSetLayout(j);
-			bndPerSet[j] = dsl ? dsl->getBindings().length() : 0u;
+			bndPerSet[j] = dsl ? dsl->getBindings().size() : 0u;
 			bndCnt += bndPerSet[j];
 		}
 

@@ -57,13 +57,15 @@ template<typename PathOrFile>
 void dirtyCPUStallingScreenshot(IrrlichtDevice* device, const PathOrFile& _outFile, video::IGPUImage* source, uint32_t sourceMipLevel = 0u, bool flipY=true)
 {
 	auto texSize = source->getSize();
+	if (outputFormatOverride==asset::EF_UNKNOWN)
+		outputFormatOverride = source->getColorFormat();
 
-	auto buff = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createDownStreamingGPUBufferOnDedMem((source->getPitch()*texSize[1]).getIntegerApprox()), core::dont_grab); // TODO
+	auto buff = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createDownStreamingGPUBufferOnDedMem((asset::getBytesPerPixel(outputFormatOverride)*texSize[0]*texSize[1]).getIntegerApprox()), core::dont_grab); // TODO
 	buff->getBoundMemory()->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_READ,{0u,buff->getSize()});
 
-	auto fence = ext::ScreenShot::createScreenShot(driver, source, buff.get(), sourceMipLevel);
+	auto fence = ext::ScreenShot::createScreenShot(driver, source, buff.get(), sourceMipLevel, 0ull,true,outputFormatOverride);
 	while (fence->waitCPU(1000ull, fence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED) {}
-	ext::ScreenShot::writeBufferAsImageToFile(assetManager, _outFile, { texSize[0],texSize[1] }, source->getColorFormat(), buff.get(), 0ull, flipY);
+	ext::ScreenShot::writeBufferAsImageToFile(assetManager, _outFile, { texSize[0],texSize[1] }, outputFormatOverride, buff.get(), 0ull, flipY);
 }
 
 

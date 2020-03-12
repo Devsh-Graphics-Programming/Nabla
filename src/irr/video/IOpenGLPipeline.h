@@ -45,7 +45,7 @@ public:
 protected:
     void setUniformsImitatingPushConstants(uint32_t _stageIx, uint32_t _ctxID, const uint8_t* _pcData, const core::SRange<const COpenGLSpecializedShader::SUniform>& _uniforms, const core::SRange<const GLint>& _locations) const
     {
-        assert(_uniforms.length()==_locations.length());
+        assert(_uniforms.size()==_locations.size());
 
         GLuint GLname = getShaderGLnameForCtx(_stageIx, _ctxID);
         uint8_t* state = getPushConstantsStateForStage(_stageIx, _ctxID);
