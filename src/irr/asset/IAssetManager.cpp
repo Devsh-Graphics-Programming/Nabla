@@ -141,7 +141,7 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderPng>());
 #endif
 #ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderOpenEXR>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderOpenEXR>(this));
 #endif
 #ifdef  _IRR_COMPILE_WITH_GLI_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLILoader>());
