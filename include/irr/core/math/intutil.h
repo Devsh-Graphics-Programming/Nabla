@@ -72,6 +72,23 @@ IRR_FORCE_INLINE constexpr INT_TYPE align(INT_TYPE alignment, INT_TYPE size, INT
     return address = nextAlignedAddr;
 }
 
+//! Get bitmask from variadic arguments passed. 
+/*
+    For example if you were to create bitmask for vertex attributes
+    having positions inteeger set as 0, colors as 1 and normals
+    as 3, just pass them to it and use the value returned.
+*/
+
+template<typename BITMASK_TYPE>
+IRR_FORCE_INLINE constexpr uint8_t createBitmask(std::initializer_list<BITMASK_TYPE> initializer)
+{
+    static_assert(std::is_integral<BITMASK_TYPE>::value || std::is_enum<BITMASK_TYPE>::value, "Integral or enum required.");
+    uint8_t retval {};
+    for (const auto& it : initializer)
+        retval |= (1 << it);
+    return retval;
+}
+
 } // end namespace core
 } // end namespace irr
 
