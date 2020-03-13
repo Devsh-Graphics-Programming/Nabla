@@ -22,6 +22,7 @@ SOFTWARE.
 
 #ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
 
+#include "irr/asset/COpenEXRImageMetadata.h"
 #include "openexr/IlmBase/Imath/ImathBox.h"
 #include "openexr/OpenEXR/IlmImf/ImfRgbaFile.h"
 #include "openexr/OpenEXR/IlmImf/ImfInputFile.h"
@@ -213,6 +214,13 @@ namespace irr
 					const auto mapOfChannels = data.second;
 					PerImageData perImageData;
 
+					core::smart_refctd_dynamic_array<IImageMetadata::ImageInputSemantic> imageInputsMetadata = core::make_refctd_dynamic_array<decltype(imageInputsMetadata)>(1);
+					auto input = imageInputsMetadata->begin();
+					input->imageName = suffixOfChannels;
+					input->colorSpace = ECS_SRGB_NONLINEAR_KHR;
+					input->transferFunction.eotf = IImageMetadata::EOTF_sRGB;
+					input->transferFunction.oetf = IImageMetadata::OETF_sRGB;
+
 					int width;
 					int height;
 
@@ -281,7 +289,7 @@ namespace irr
 						}
 
 					image->setBufferAndRegions(std::move(texelBuffer), regions);
-					//m_manager->setAssetMetadata(image.get(), /*we have to provide image pipeline interaface */);
+					m_manager->setAssetMetadata(image.get(), core::make_smart_refctd_ptr<COpenEXRImageMetadata>(std::move(imageInputsMetadata)));
 
 					images.push_back(std::move(image));
 				}
@@ -328,7 +336,7 @@ namespace irr
 				std::string name = suffixOfChannels + "." + rgbaSignatureAsText[rgbaChannelIndex];
 				frameBuffer.insert
 				(
-					suffixOfChannels.c_str(),																	    // name
+					name.c_str(),																					// name
 					Slice(pixelType,																				// type
 					(char*)(&(pixelRgbaMapArray[rgbaChannelIndex])[0][0] - dw.min.x - dw.min.y * width),			// base
 						sizeof((pixelRgbaMapArray[rgbaChannelIndex])[0][0]) * 1,                                    // xStride
