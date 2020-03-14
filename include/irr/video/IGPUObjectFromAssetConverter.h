@@ -345,7 +345,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUImage** const _begin, asset
         auto gpuimg = m_driver->createDeviceLocalGPUImageOnDedMem(std::move(params));
 
 		auto regions = cpuimg->getRegions();
-		auto count = regions.length();
+		auto count = regions.size();
 		if (count)
 		{
 			auto tmpBuff = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuimg->getBuffer()->getSize(),cpuimg->getBuffer()->getPointer());
@@ -435,7 +435,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUDescriptorSetLayout** const
             maxSamplers += samplerCnt;
             samplersInDS = samplerCnt;
         }
-        maxBindingsPerDescSet = std::max(maxBindingsPerDescSet, dsl->getBindings().length());
+        maxBindingsPerDescSet = std::max(maxBindingsPerDescSet, dsl->getBindings().size());
         maxSamplersPerDescSet = std::max(maxSamplersPerDescSet, samplersInDS);
     }
     cpuSamplers.reserve(maxSamplers);
@@ -686,7 +686,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
               
 		for (auto j=0u; j<=cpuds->getMaxDescriptorBindingIndex(); j++)
 		{
-			const uint32_t cnt = cpuds->getDescriptors(j).length();
+			const uint32_t cnt = cpuds->getDescriptors(j).size();
 			if (cnt)
 				writeCount++;
 			descCount += cnt;
@@ -765,14 +765,14 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 			for (uint32_t j=0u; j<=cpuds->getMaxDescriptorBindingIndex(); j++)
 			{
 				auto descriptors = cpuds->getDescriptors(j);
-				if (descriptors.length()==0u)
+				if (descriptors.size()==0u)
 					continue;
 
 				const auto type = cpuds->getDescriptorsType(j);
 				write->dstSet = gpuds;
 				write->binding = j;
 				write->arrayElement = 0;
-				write->count = descriptors.length();
+				write->count = descriptors.size();
 				write->descriptorType = type;
 				write->info = &(*info);
 				write++;

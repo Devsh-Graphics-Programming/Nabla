@@ -73,6 +73,7 @@
 [submodule "3rdparty/CEGUI/glew-cmake"]
 	path = 3rdparty/CEGUI/glew
 	url = https://github.com/AnastaZIuk/glew-cmake.git
+	branch = master
 [submodule "3rdparty/openexr"]
 	path = 3rdparty/openexr
 	url = https://github.com/AcademySoftwareFoundation/openexr.git
@@ -86,3 +87,6 @@
 	path = 3rdparty/radeonrays
 	url = https://github.com/devshgraphicsprogramming/RadeonRays_SDK.git
 	branch = baw
+[submodule "3rdparty/jitify"]
+	path = 3rdparty/jitify
+	url = https://github.com/NVIDIA/jitify

@@ -37,6 +37,8 @@ include(common)
 #[[ Loaders and writers compile options available to edit by user
 	All revelant _IRR_COMPILE_WITH will be there]]
 option(_IRR_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" ON)
+option(_IRR_COMPILE_WITH_MITSUBA_SERIALIZED_LOADER_ "Compile with Mitsuba Serialized Loader" ON)
+#option(_IRR_COMPILE_WITH_MITSUBA_SERIALIZED_WRITER_ "Compile with Mitsuba Serialized Writer" ON) uncomment when writer exists
 option(_IRR_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" ON)
 #option(_IRR_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON) uncomment when writer exists
 option(_IRR_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" ON)
@@ -71,6 +73,13 @@ if (IRR_COMPILE_WITH_OPENCL)
 		message(STATUS "OpenCL not found")
 	endif()
 endif()
+if (IRR_COMPILE_WITH_CUDA)
+	message(STATUS "Building with CUDA interop")
+	set(_IRR_COMPILE_WITH_CUDA_ ${IRR_COMPILE_WITH_CUDA})
+	if (IRR_BUILD_OPTIX)
+		set(_IRR_BUILD_OPTIX_ ${IRR_BUILD_OPTIX})
+	endif()
+endif()
 #set(_IRR_TARGET_ARCH_ARM_ ${IRR_TARGET_ARCH_ARM}) #uncomment in the future
 set(__IRR_FAST_MATH ${IRR_FAST_MATH})
 set(_IRR_DEBUG 0)
@@ -94,6 +103,7 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ROOT_PATH}/src/irr/asset/format/convertColor.cpp
 
 # Mesh loaders
+	${IRR_ROOT_PATH}/ext/MitsubaLoader/CSerializedLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshFileLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/COBJMeshFileLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshFileLoader.cpp
@@ -126,6 +136,7 @@ set(IRRLICHT_SRCS_COMMON
 # Other mesh-related stuff
 	${IRR_ROOT_PATH}/src/irr/asset/bawformat/CBAWFile.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/bawformat/legacy/CBAWLegacy.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/bawformat/legacy/CBAWVersionUpFunctions.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/bawformat/CBlobsLoadingManager.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CForsythVertexCacheOptimizer.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CSmoothNormalGenerator.cpp
@@ -207,7 +218,7 @@ if (MSVC)
 endif()
 
 set(IRRLICHT_SRCS_NORMAL
-	#vulkan
+	# Vulkan
 
 	#opengl
 	COpenCLHandler.cpp
@@ -216,6 +227,12 @@ set(IRRLICHT_SRCS_NORMAL
 	COpenGLFrameBuffer.cpp
 	COpenGLQuery.cpp
 	${IRR_ROOT_PATH}/src/irr/video/COpenGLPipelineCache.cpp
+	
+	# CUDA
+	${IRR_ROOT_PATH}/src/irr/video/CCUDAHandler.cpp
+
+	# OpenCL
+	COpenCLHandler.cpp
 
 	# abstract (move this out eventually)
 	${IRR_ROOT_PATH}/src/irr/video/CDerivativeMapCreator.cpp
@@ -227,10 +244,14 @@ set(IRRLICHT_SRCS_SERVER
 set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/convertutf
 	${THIRD_PARTY_SOURCE_DIR}/utfcpp/source
+<<<<<<< HEAD
 	${THIRD_PARTY_SOURCE_DIR}/glm
 	${CMAKE_BINARY_DIR}/3rdparty/zlib #for dynamically generated zconf.h
 	${CMAKE_BINARY_DIR}/3rdparty/openexr/IlmBase/config #for dynamically generated IlmBaseConfig.h
 	${CMAKE_BINARY_DIR}/3rdparty/openexr/OpenEXR/config #for dynamically generated OpenEXRConfig.h
+=======
+	$<TARGET_PROPERTY:zlibstatic,BINARY_DIR> #for dynamically generated zconf.h
+>>>>>>> d3f148c810d528df44598a47e8a96e6838a1cc3e
 	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
 	$<TARGET_PROPERTY:jpeg,BINARY_DIR> #for dynamically generated jconfig.h
 )
@@ -246,7 +267,7 @@ macro(irr_target_link_zlib _trgt)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/zlib)
 endmacro()
 
-#Paraller hashmap
+#Parallel hashmap
 macro(irr_target_include_parallel_hashmap _trgt)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/parallel-hashmap/parallel_hashmap)
 endmacro()
@@ -364,16 +385,22 @@ if (UNIX)
 endif()
 
 
+if (IRR_COMPILE_WITH_CUDA)
+	if (WIN32)
+		target_link_libraries(Irrlicht INTERFACE
+			${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}/../lib/x64/nvrtc.lib
+		)
+	endif()
+	target_include_directories(Irrlicht PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+endif()
+
 if (IRR_COMPILE_WITH_OPENCL AND OpenCL_FOUND)
 	target_link_libraries(Irrlicht PUBLIC OpenCL::OpenCL)
 endif()
 
-# TODO: REDO
 find_package(Vulkan)
 if (Vulkan_FOUND)
 	message(STATUS "Building with Vulkan driver")
-	#target_link_libraries(Irrlicht INTERFACE Vulkan::Vulkan) # this should work, but it doesn't
-	#target_link_libraries(Irrlicht INTERFACE ${Vulkan_LIBRARY})
 else()
 	message(STATUS "Vulkan driver is not enabled")
 endif()

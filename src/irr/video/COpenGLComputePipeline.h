@@ -32,7 +32,7 @@ public:
     {
         auto uniforms = static_cast<COpenGLSpecializedShader*>(m_shader.get())->getUniforms();
         auto locations = static_cast<COpenGLSpecializedShader*>(m_shader.get())->getLocations();
-        if (!uniforms.length())
+        if (!uniforms.size())
             return;
 
         IOpenGLPipeline<1>::setUniformsImitatingPushConstants(0u, _ctxID, _pcData, uniforms, locations);

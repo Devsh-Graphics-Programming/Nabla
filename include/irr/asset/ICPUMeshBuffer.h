@@ -56,7 +56,9 @@ class ICPUMeshBuffer : public IMeshBuffer<ICPUBuffer, ICPUDescriptorSet, ICPURen
 {
     using base_t = IMeshBuffer<ICPUBuffer, ICPUDescriptorSet, ICPURenderpassIndependentPipeline>;
     //vertices
-    uint32_t posAttrId;
+    uint32_t posAttrId = 0u;
+    uint32_t normalAttrId = MAX_VERTEX_ATTRIB_COUNT;
+
 protected:
     virtual ~ICPUMeshBuffer() = default;
 
@@ -130,7 +132,7 @@ public:
 	}
     virtual IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SUB_MESH; }
 
-    virtual size_t conservativeSizeEstimate() const override { return sizeof(base_t) + sizeof(posAttrId); }
+    virtual size_t conservativeSizeEstimate() const override { return sizeof(base_t) + sizeof(posAttrId) + sizeof(normalAttrId); }
 
     virtual E_MESH_BUFFER_TYPE getMeshBufferType() const { return EMBT_NOT_ANIMATED; }
 
@@ -277,6 +279,21 @@ public:
         return vertexCount;
     }
 
+    uint32_t getIndexValue(uint32_t _i) const
+    {
+        if (!m_indexBufferBinding.buffer)
+            return _i;
+        switch (indexType)
+        {
+        case EIT_16BIT:
+            return reinterpret_cast<const uint16_t*>(getIndices())[_i];
+        case EIT_32BIT:
+            return reinterpret_cast<const uint32_t*>(getIndices())[_i];
+        default:
+            return _i;
+        }
+    }
+
     //! Returns id of position attribute.
     inline uint32_t getPositionAttributeIx() const { return posAttrId; }
     //! Sets id of position atrribute.
@@ -291,6 +308,23 @@ public:
         }
 
         posAttrId = attrId;
+    }
+
+    //! Returns id of normal attribute.
+    inline const uint32_t& getNormalAttributeIx() const { return normalAttrId; }
+
+    //! Sets id of position atrribute.
+    inline void setNormalnAttributeIx(const uint32_t& attrId)
+    {
+        if (attrId >= MAX_VERTEX_ATTRIB_COUNT)
+        {
+#ifdef _IRR_DEBUG
+            //os::Printer::log("MeshBuffer setNormalAttributeIx attribute ID out of range!\n",ELL_ERROR);
+#endif // _IRR_DEBUG
+            return;
+        }
+
+        normalAttrId = attrId;
     }
 
     //! Get access to Indices.
@@ -356,7 +390,7 @@ public:
         if (!mappedAttrBuf)
             return nullptr;
 
-        int64_t ix = baseVertex;
+        int64_t ix = vtxInputParams.bindings[bindingNum].inputRate!=EVIR_PER_VERTEX ? baseInstance:baseVertex;
         ix *= vtxInputParams.bindings[bindingNum].stride;
         ix += (m_vertexBufferBindings[bindingNum].offset + vtxInputParams.attributes[attrId].relativeOffset);
         if (ix < 0 || static_cast<uint64_t>(ix) >= mappedAttrBuf->getSize())

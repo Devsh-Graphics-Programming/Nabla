@@ -238,12 +238,12 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		if (continueReading)
 		{
 			// create a mesh buffer
-            auto mb = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
-            //TODO meshbuffer needs to have non-null pipeline (see comments in STL loader for more info)
-            //auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
-	
-            core::vector<core::vectorSIMDf> attribs[4];
-            core::vector<uint32_t> indices;
+			auto mb = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+
+			mb->setNormalnAttributeIx(3u);
+      
+			core::vector<core::vectorSIMDf> attribs[4];
+			core::vector<uint32_t> indices;
 
 			bool hasNormals = true;
 

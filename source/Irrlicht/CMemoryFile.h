@@ -108,6 +108,8 @@ namespace io
         }
 
     public:
+        using allocator_type = Alloc;
+
         CCustomAllocatorMemoryReadFile(void* _data, size_t _length, const io::path& _filename, core::adopt_memory_t, Alloc&& _alloc = Alloc()) :
             m_storage{_data}, m_length{_length}, m_position{0u}, m_filename{_filename}, m_allocator{std::move(_alloc)}
         {
@@ -151,6 +153,8 @@ namespace io
 
             return static_cast<int32_t>(amount);
         }
+
+        const void* getData() const {return m_storage;}
 
     protected:
         void* m_storage;

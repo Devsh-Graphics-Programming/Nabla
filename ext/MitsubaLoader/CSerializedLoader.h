@@ -2,6 +2,7 @@
 #define __C_SERIALIZED_LOADER_H_INCLUDED__
 
 #include "irr/asset/asset.h"
+#include "irr/asset/CMitsubaSerializedPipelineMetadata.h"
 
 namespace irr
 {

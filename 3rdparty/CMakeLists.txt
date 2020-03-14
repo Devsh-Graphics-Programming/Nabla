@@ -38,7 +38,6 @@ update_git_submodule(./freetype2)
 update_git_submodule(./portable-file-dialogs)
 
 
-
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
 
 # zlib (target is zlibstatic)
@@ -57,7 +56,6 @@ set(ZLIB_INCLUDE_DIR "${THIRD_PARTY_SOURCE_DIR}/zlib;${THIRD_PARTY_BINARY_DIR}/z
 # This probably breaks the non-MSVC build in like 50 different ways
 set(ZLIB_LIBRARY_DEBUG "${ZLIB_BINARY_DIR}/Debug/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${ZLIB_DEBUG_POSTFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE STRING "" FORCE)
 set(ZLIB_LIBRARY_RELEASE "${ZLIB_BINARY_DIR}/Release/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE STRING "" FORCE)
-
 
 
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "Skip SPIRV-Headers examples")
@@ -365,4 +363,9 @@ if (IRR_BUILD_BULLET)
 	)
 
 	set(BULLET_INCLUDE_PATH ${BULLET_INCLUDE_PATH} PARENT_SCOPE)
+endif()
+
+
+if (IRR_COMPILE_WITH_CUDA)
+	update_git_submodule(./jitify)
 endif()

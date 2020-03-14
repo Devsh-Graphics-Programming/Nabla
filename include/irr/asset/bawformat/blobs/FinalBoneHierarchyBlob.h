@@ -12,10 +12,15 @@ namespace asset
 {
 
 #include "irr/irrpack.h"
-struct IRR_FORCE_EBO FinalBoneHierarchyBlobV2 : VariableSizeBlob<FinalBoneHierarchyBlobV2,CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV2, CFinalBoneHierarchy>
+struct IRR_FORCE_EBO FinalBoneHierarchyBlobV3 : VariableSizeBlob<FinalBoneHierarchyBlobV3,CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>
 {
 public:
-	FinalBoneHierarchyBlobV2(const CFinalBoneHierarchy* _fbh);
+	enum E_BLOB_FINAL_BONE_HIERARCHY_FLAG : uint32_t
+	{
+		EBFBHF_RIGHT_HANDED = 0x1u
+	};
+
+	FinalBoneHierarchyBlobV3(const CFinalBoneHierarchy* _fbh);
 
 public:
 	//! Used for creating a blob. Calculates offset of the block of blob resulting from exporting `*_fbh` object.
@@ -79,19 +84,20 @@ public:
 	size_t calcNonInterpolatedAnimsByteSize() const;
 	// size of bone names is not dependent of any of 'count variables'. Since it's the last block its size can be calculated by {blobSize - boneNamesOffset}.
 
+	uint32_t finalBoneHierarchyFlags;
     size_t boneCount;
     size_t numLevelsInHierarchy;
     size_t keyframeCount;
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
 static_assert(
-    sizeof(FinalBoneHierarchyBlobV2) ==
-    sizeof(FinalBoneHierarchyBlobV2::boneCount) + sizeof(FinalBoneHierarchyBlobV2::numLevelsInHierarchy) + sizeof(FinalBoneHierarchyBlobV2::keyframeCount),
-    "FinalBoneHierarchyBlobV2: Size of blob is not sum of its contents!"
+    sizeof(FinalBoneHierarchyBlobV3) ==
+    sizeof(FinalBoneHierarchyBlobV3::boneCount) + sizeof(FinalBoneHierarchyBlobV3::numLevelsInHierarchy) + sizeof(FinalBoneHierarchyBlobV3::keyframeCount) + sizeof(FinalBoneHierarchyBlobV3::finalBoneHierarchyFlags),
+    "FinalBoneHierarchyBlobV3: Size of blob is not sum of its contents!"
 );
 
 template<>
-struct CorrespondingBlobTypeFor<CFinalBoneHierarchy> { typedef FinalBoneHierarchyBlobV2 type; };
+struct CorrespondingBlobTypeFor<CFinalBoneHierarchy> { typedef FinalBoneHierarchyBlobV3 type; };
 
 }
 } // irr::asset

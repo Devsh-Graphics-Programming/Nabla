@@ -64,3 +64,15 @@ if (IRR_BUILD_RADEON_RAYS)
         PARENT_SCOPE
     )
 endif()
+
+if (IRR_BUILD_OPTIX)
+    add_subdirectory(OptiX)
+    set(IRR_EXT_OPTIX_INCLUDE_DIRS
+        ${IRR_EXT_OPTIX_INCLUDE_DIRS}
+        PARENT_SCOPE
+    )
+    set(IRR_EXT_OPTIX_LIB
+        ${IRR_EXT_OPTIX_LIB}
+        PARENT_SCOPE
+    )
+endif()
