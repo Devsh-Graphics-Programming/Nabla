@@ -6,7 +6,7 @@
 using namespace irr;
 using namespace core;
 
-int main()
+int main(int argc, char * argv[])
 {
 	irr::SIrrlichtCreationParameters params;
 	params.Bits = 24; 
@@ -22,12 +22,23 @@ int main()
 	if (!device)
 		return 1;
 
+	const bool isItDefaultImage = argc == 1;
+	if (isItDefaultImage)
+		os::Printer::log("No image specified - loading a default OpenEXR image placed in media/OpenEXR!", ELL_INFORMATION);
+	else if (argc == 2)
+		os::Printer::log(argv[1] + std::string(".exr specified!"), ELL_INFORMATION);
+	else
+	{
+		os::Printer::log("To many arguments - pass a single filename without .exr extension of OpenEXR image placed in media/OpenEXR! ", ELL_ERROR);
+		return 0;
+	}
+
 	auto driver = device->getVideoDriver();
 	auto smgr = device->getSceneManager();
 	auto am = device->getAssetManager();
 
 	asset::IAssetLoader::SAssetLoadParams lp;
-	auto image_bundle = am->getAsset("../../media/OpenEXR/daily_pt_1.exr", lp);
+	auto image_bundle = am->getAsset("../../media/OpenEXR/" + std::string(isItDefaultImage ? "daily_pt_1" : argv[1]) + ".exr", lp);
 	assert(!image_bundle.isEmpty());
 
 	for (auto i = 0ul; i < image_bundle.getSize(); ++i)

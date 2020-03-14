@@ -216,8 +216,8 @@ namespace irr
 
 					core::smart_refctd_dynamic_array<IImageMetadata::ImageInputSemantic> imageInputsMetadata = core::make_refctd_dynamic_array<decltype(imageInputsMetadata)>(1);
 					auto input = imageInputsMetadata->begin();
-					input->colorSpace = ECS_EXTENDED_SRGB_LINEAR_EXT;
-					input->transferFunction.eotf = EOTF_sRGB;
+					input->colorSpace = ECS_SRGB;
+					input->transferFunction.eotf = EOTF_IDENTITY;
 					auto openEXRMetadata = core::make_smart_refctd_ptr<COpenEXRImageMetadata>(suffixOfChannels, std::move(imageInputsMetadata));
 
 					int width;
