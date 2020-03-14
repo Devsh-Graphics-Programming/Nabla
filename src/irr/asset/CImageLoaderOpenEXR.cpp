@@ -216,10 +216,9 @@ namespace irr
 
 					core::smart_refctd_dynamic_array<IImageMetadata::ImageInputSemantic> imageInputsMetadata = core::make_refctd_dynamic_array<decltype(imageInputsMetadata)>(1);
 					auto input = imageInputsMetadata->begin();
-					input->imageName = suffixOfChannels;
-					input->colorSpace = ECS_SRGB_NONLINEAR_KHR;
-					input->transferFunction.eotf = IImageMetadata::EOTF_sRGB;
-					input->transferFunction.oetf = IImageMetadata::OETF_sRGB;
+					input->colorSpace = ECS_EXTENDED_SRGB_LINEAR_EXT;
+					input->transferFunction.eotf = EOTF_sRGB;
+					auto openEXRMetadata = core::make_smart_refctd_ptr<COpenEXRImageMetadata>(suffixOfChannels, std::move(imageInputsMetadata));
 
 					int width;
 					int height;
@@ -289,7 +288,7 @@ namespace irr
 						}
 
 					image->setBufferAndRegions(std::move(texelBuffer), regions);
-					m_manager->setAssetMetadata(image.get(), core::make_smart_refctd_ptr<COpenEXRImageMetadata>(std::move(imageInputsMetadata)));
+					m_manager->setAssetMetadata(image.get(), std::move(openEXRMetadata));
 
 					images.push_back(std::move(image));
 				}

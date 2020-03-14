@@ -27,7 +27,7 @@ int main()
 	auto am = device->getAssetManager();
 
 	asset::IAssetLoader::SAssetLoadParams lp;
-	auto image_bundle = am->getAsset("../../media/daily_pt_1.exr", lp);
+	auto image_bundle = am->getAsset("../../media/OpenEXR/daily_pt_1.exr", lp);
 	assert(!image_bundle.isEmpty());
 
 	for (auto i = 0ul; i < image_bundle.getSize(); ++i)

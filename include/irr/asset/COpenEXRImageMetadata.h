@@ -12,7 +12,12 @@ namespace irr
         {
         public:
         
-            COpenEXRImageMetadata(core::smart_refctd_dynamic_array<ImageInputSemantic>&& _inputs) : m_imageInputs(std::move(_inputs)) {}
+            COpenEXRImageMetadata(std::string _name, core::smart_refctd_dynamic_array<ImageInputSemantic>&& _inputs) : name(_name), m_imageInputs(std::move(_inputs)) {}
+
+            std::string getName() const 
+            { 
+                return name; 
+            }
 
             core::SRange<const ImageInputSemantic> getCommonRequiredInputs() const override
             {
@@ -26,6 +31,7 @@ namespace irr
 
         private:
 
+            std::string name;
             core::smart_refctd_dynamic_array<ImageInputSemantic> m_imageInputs;
            
         } PACK_STRUCT;

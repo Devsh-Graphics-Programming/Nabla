@@ -143,8 +143,7 @@ namespace irr
 				return false;
 
 			const auto metadata = dynamic_cast<const COpenEXRImageMetadata*>(image->getMetadata());
-			const auto inputs = metadata->getCommonRequiredInputs();
-			const auto suffixOfImage = inputs.begin()->imageName;
+			const auto suffixOfImage = metadata->getName();
 
 			os::Printer::log("WRITE OPENEXR: writing " + suffixOfImage + " file", file->getFileName().c_str(), ELL_INFORMATION);
 

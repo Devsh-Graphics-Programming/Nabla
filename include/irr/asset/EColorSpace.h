@@ -5,6 +5,7 @@ namespace irr
 {
 	namespace asset
 	{
+        //! Specifies a color space of an image
         enum E_COLOR_SPACE
         {
             //! Specifies support for the sRGB color space.
@@ -55,6 +56,36 @@ namespace irr
             //! For internal 
             ECS_COUNT
         };
+
+        //! Data to linear value for images
+        enum ELECTRO_OPTICAL_TRANSFER_FUNCTION
+        {
+            EOTF_sRGB,
+            EOTF_DCI_P3_XYZ,
+            EOTF_SMPTE_170M,
+            EOTF_SMPTE_ST2084_PERCEPTUAL_QUANTIZER,
+            EOTF_SMPTE_ST2084,
+            EOTF_HDR10_HLG,
+            EOTF_GAMMA_2_2,
+
+            EOTF_UNKNOWN
+        };
+
+        //! Linear value to data for displays and swapchains
+        enum OPTICO_ELECTRICAL_TRANSFER_FUNCTION
+        {
+            OETF_sRGB,
+            OETF_DCI_P3_XYZ,
+            OETF_SMPTE_170M,
+            OETF_SMPTE_ST2084_PERCEPTUAL_QUANTIZER,
+            OETF_SMPTE_ST2084,
+            OETF_HDR10_HLG,
+            OETF_GAMMA_2_2,
+
+            OETF_UNKNOWN
+        };
+
+        static_assert(EOTF_UNKNOWN == OETF_UNKNOWN, "Definitions of transfer functions don't match");
 	}
 }
 
