@@ -272,7 +272,7 @@ public:
                         uint8_t* dst = reinterpret_cast<uint8_t*>(m_physAddrTex->getBuffer()->getPointer()) + dst_offset_lin;
                         for (uint32_t j = 0u; j < cpExtent.y; ++j)
                         {
-                            memcpy(dst + j*m_physAddrTex->getCreationParameters().extent.width*texelSz, src + j*reg.bufferRowLength, cpExtent.x*texelSz);
+                            memcpy(dst + j*m_physAddrTex->getCreationParameters().extent.width*texelSz, src + j*reg.bufferRowLength*texelSz, cpExtent.x*texelSz);
                         }
                     }
                 }
