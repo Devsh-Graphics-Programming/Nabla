@@ -132,6 +132,14 @@ class ICPUTexturePacker : protected ITexturePacker
         coords.z = texOffset_layer(_txoffset);
         return coords;
     }
+    struct SMiptailPacker
+    {
+        struct rect
+        {
+            int x, y, mx, my;
+        };
+        static bool computeMiptailOffsets(rect* res, int log2SIZE, int padding = 9);
+    };
 
 public:
     ICPUTexturePacker(E_FORMAT _format, uint32_t _pgTabSzxy, uint32_t _pgSzxy = 256u, uint32_t _tilesPerDim = 32u, uint32_t _numLayers = 4u, uint32_t _tilePad = 9u/*max_aniso/2+1*/) :
@@ -217,10 +225,21 @@ public:
             levelCount = i+1u;
         levelCount = std::min(_subres.levelCount, levelCount);
 
-        uint32_t miptailPgAddr = (~0u);
+        uint32_t miptailPgAddr = STexOffset::invalid_addr;
+        SMiptailPacker::rect miptailOffsets[9];
+        const uint32_t pgSzLog2 = core::findMSB(m_pgSzxy);
+        if (levelCount<_subres.levelCount)
+        {
+            if (!SMiptailPacker::computeMiptailOffsets(miptailOffsets, pgSzLog2, TILE_PADDING))
+            {
+                //TODO free `pgtOffset` address
+                return page_tab_offset_invalid();
+            }
+        }
+
         const uint32_t texelSz = getTexelOrBlockBytesize(m_physAddrTex->getCreationParameters().format);
         //fill page table and pack present mips into physical addr texture
-        for (uint32_t i = 0u; i < levelCount; ++i)
+        for (uint32_t i = 0u; i < _subres.levelCount; ++i)
         {
             const uint32_t w = (std::max(extent.width>>(_subres.baseMipLevel+i),1u) + m_pgSzxy-1u) / m_pgSzxy;
             const uint32_t h = (std::max(extent.height>>(_subres.baseMipLevel+i),1u) + m_pgSzxy-1u) / m_pgSzxy;
@@ -235,18 +254,17 @@ public:
             for (uint32_t y = 0u; y < h; ++y)
                 for (uint32_t x = 0u; x < w; ++x)
                 {
-                    uint32_t physPgAddr = m_physPgAddrAlctr.alloc_addr(1u, 1u);
-                    assert(physPgAddr<0xffffu);
+                    uint32_t physPgAddr = (i>=levelCount) ? miptailPgAddr : m_physPgAddrAlctr.alloc_addr(1u, 1u);
+                    assert(physPgAddr<STexOffset::invalid_addr);
                     if (physPgAddr==phys_pg_addr_alctr_t::invalid_address)
                         return pgtOffset;//TODO report an error of allocating physical pages somehow
 
-                    if (i==(levelCount-1u) && levelCount>_subres.levelCount)
+                    if (i==(levelCount-1u) && levelCount<_subres.levelCount)
                     {
                         assert(w==1u && h==1u);
-                        //TODO alloc another address and store on upper 16 bits of `addr` (for mip-tail)
-                        const uint32_t physMiptailPgAddr = m_physPgAddrAlctr.alloc_addr(1u, 1u);
-                        miptailPgAddr = physMiptailPgAddr;
-                        assert(physMiptailPgAddr<0xffffu);
+                        uint32_t physMiptailPgAddr = m_physPgAddrAlctr.alloc_addr(1u, 1u);
+                        assert(physMiptailPgAddr<STexOffset::invalid_addr);
+                        miptailPgAddr = physMiptailPgAddr = (physMiptailPgAddr==phys_pg_addr_alctr_t::invalid_address) ? STexOffset::invalid_addr : physMiptailPgAddr;
                         physPgAddr |= (physMiptailPgAddr<<16);
                     }
                     pgTab[offset + y*pgtPitch + x] = physPgAddr;
@@ -275,8 +293,10 @@ public:
                         const core::vector2du32_SIMD withinPgTxOffset = (withinRegTxOffset & core::vector2du32_SIMD(m_pgSzxy-1u));
                         src_txOffset += withinPgTxOffset;
                         const core::vector2du32_SIMD src_txOffsetEnd = core::min(core::vector2du32_SIMD(a_right,a_top), core::vector2du32_SIMD(b_right,b_top));
+                        //special offset for packing tail mip levels into single page
+                        const core::vector2du32_SIMD miptailOffset = (i>=levelCount) ? core::vector2du32_SIMD(miptailOffsets[i-levelCount].x,miptailOffsets[i-levelCount].y) : core::vector2du32_SIMD(0u,0u);
 
-                        physPg += withinPgTxOffset;
+                        physPg += (withinPgTxOffset + miptailOffset);
 
                         const core::vector2du32_SIMD cpExtent = src_txOffsetEnd - src_txOffset;
                         const uint32_t src_offset_lin = (withinRegTxOffset.y*reg.bufferRowLength + withinRegTxOffset.x) * texelSz;
@@ -305,6 +325,98 @@ private:
     core::smart_refctd_dynamic_array<uint8_t> m_physPgAddrAlctr_reservedSpc;
     phys_pg_addr_alctr_t m_physPgAddrAlctr;
 };
+
+bool ICPUTexturePacker::SMiptailPacker::computeMiptailOffsets(rect* res, int log2SIZE, int padding=9)
+{
+    if (log2SIZE<7 || log2SIZE>10)
+        return false;
+    
+    int SIZE = 0x1u<<log2SIZE;
+	if ((SIZE>>1)+(SIZE>>2) + padding * 4 > SIZE)
+		return false;
+	
+
+	int x1 = 0, y1 = 0;
+	res[0].x = 0;
+	res[0].mx = (SIZE >> 1) + padding * 2 -1;
+	res[0].y = 0;
+	res[0].my = (SIZE >> 1) + padding * 2 -1;
+	y1 = res[0].my + 1;
+	x1 = res[0].mx + 1;
+
+	bool ofx1 = false, ofx2 = false;
+	int i = 1;
+	while (i < log2SIZE)
+	{
+
+		int s = (SIZE >> (i + 1)) + padding * 2;
+		int x, y;
+		if (i % 2 == 0) {	//on right
+			if (i == 2)
+			{
+				x = x1;
+				y = 0;
+			}
+			else
+			{
+				if (res[i - 2].my + s > y1)
+				{
+					if (res[i - 6].mx + s > SIZE || ofx1)
+					{
+						x = res[i - 4].mx + 1;
+						y = res[i - 4].y;
+						ofx1 = true;
+					}
+					else {
+
+					x = res[i - 6].mx + 1;
+					y = res[i - 6].y;
+					}
+				}
+				else
+				{
+					y = res[i - 2].my + 1;
+					x = x1;
+				}
+			}
+		}
+		else //those placed below the first square and going right are ~x2 larger than those above
+		{
+			if (i == 1)
+			{
+				x = 0;
+				y = y1;
+			}
+			else {
+				if (res[i - 2].mx + s > SIZE)
+				{
+					if (res[i - 6].my + s > SIZE ||ofx2)
+					{
+						x = res[i - 4].x;
+						y = res[i - 4].my + 1;
+						ofx2 = true;
+					}
+					else {
+						x = res[i - 6].x;
+						y = res[i - 6].my + 1;
+					}
+				}
+				else 
+				{
+				    x = res[i - 2].mx + 1;
+				    y = y1;
+				}
+			}
+		}
+		res[i].x = x;
+		res[i].y = y;
+		res[i].mx = x + s -1;
+		res[i].my = y + s -1 ;
+
+		i++;
+	}
+    return true;
+}
 
 }}
 
