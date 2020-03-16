@@ -63,7 +63,7 @@ protected:
 
     const uint32_t m_pgSzxy;
     const uint32_t m_tilesPerDim;
-    CSquareAddressAllocator<uint32_t> m_addrAlctr;
+    CSquareAddressAllocator<uint32_t> m_pgtAddrAlctr;
 
 public:
     struct STexOffset
@@ -80,7 +80,7 @@ public:
         }
         uint32_t x() const { return addr&X_MASK; }
         uint32_t y() const { return (addr>>(ADDR_LAYER_SHIFT>>1))&X_MASK; }
-        uint32_t layer() const { return (addr>>ADDR_LAYER_SHIFT)&0xffffu; }
+        uint32_t layer() const { return (addr&0xffffu)>>ADDR_LAYER_SHIFT; }
 
         bool isValid() const { return (addr&0xffffu)==invalid_addr; }
         bool hasMipTailAddr() const { return addr&(0xffffu<<16); }
@@ -94,13 +94,13 @@ public:
     ITexturePacker(uint32_t _pgSzxy = 256u, uint32_t _tilesPerDim = 32u, uint32_t _numLayers = 4u) :
         m_pgSzxy(_pgSzxy),
         m_tilesPerDim(_tilesPerDim),
-        m_addrAlctr(ADDR_LAYER_SHIFT>>1, _tilesPerDim, _numLayers)
+        m_pgtAddrAlctr(ADDR_LAYER_SHIFT>>1, _tilesPerDim, _numLayers)
     {
         assert(core::isPoT(_tilesPerDim));
         assert(core::isPoT(_pgSzxy));//because of packing mip-tail
     }
 
-    core::smart_refctd_dynamic_array<STexOffset> alloc(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres)
+    STexOffset alloc(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres)
     {
         auto extent = _img->getCreationParameters().extent;
         uint32_t levelCount = 1u;
@@ -109,25 +109,15 @@ public:
         levelCount = std::min(_subres.levelCount, levelCount);
 
         auto offsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<STexOffset>>(levelCount);
-        for (uint32_t i = 0u; i < levelCount; ++i)
-        {
-            const uint32_t w = std::max(extent.width>>(_subres.baseMipLevel+i),1u);
-            const uint32_t h = std::max(extent.height>>(_subres.baseMipLevel+i),1u);
-            const uint32_t pgSqrSz = core::roundUpToPoT((std::max(w,h)+m_pgSzxy-1u)/m_pgSzxy);
 
-            const uint32_t addr = m_addrAlctr.alloc_addr(pgSqrSz);
-            (*offsets)[i] = (addr==CSquareAddressAllocator<uint32_t>::invalid_address) ? 
-                STexOffset::invalid_addr :
-                STexOffset(m_addrAlctr.unpackAddress_x(addr), m_addrAlctr.unpackAddress_y(addr), m_addrAlctr.unpackAddress_layer(addr));
-        }
-        if (levelCount > _subres.levelCount)
-        {
-            const uint32_t addr = m_addrAlctr.alloc_addr(1u);//1 page for mip-tail (square 1x1)
-            if (addr!=CSquareAddressAllocator<uint32_t>::invalid_address)
-                (*offsets).back().addr |= STexOffset(m_addrAlctr.unpackAddress_x(addr), m_addrAlctr.unpackAddress_y(addr), m_addrAlctr.unpackAddress_layer(addr)).addr<<16;
-        }
-        
-        return offsets;
+        const uint32_t w = std::max(extent.width>>_subres.baseMipLevel,1u);
+        const uint32_t h = std::max(extent.height>>_subres.baseMipLevel,1u);
+        const uint32_t pgSqrSz = core::roundUpToPoT((std::max(w,h)+m_pgSzxy-1u)/m_pgSzxy);
+
+        const uint32_t addr = m_pgtAddrAlctr.alloc_addr(pgSqrSz);
+        return (addr==CSquareAddressAllocator<uint32_t>::invalid_address) ? 
+            STexOffset::invalid_addr :
+            STexOffset(m_pgtAddrAlctr.unpackAddress_x(addr), m_pgtAddrAlctr.unpackAddress_y(addr), m_pgtAddrAlctr.unpackAddress_layer(addr));
     }
 };
 
@@ -216,53 +206,79 @@ public:
     STexOffset pack(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres)
     {
         //assert(m_megaimg->getCreationParameters().format==_img->getCreationParameters().format);
+        const STexOffset pgtOffset = alloc(_img, _subres);
+
+        auto extent = _img->getCreationParameters().extent;
+        uint32_t levelCount = 1u;
+        for (uint32_t i = 0u; (extent.width>>(_subres.baseMipLevel+i) >= m_pgSzxy) || (extent.height>>(_subres.baseMipLevel+i) >= m_pgSzxy); ++i)
+            levelCount = i+1u;
+        levelCount = std::min(_subres.levelCount, levelCount);
 
         const uint32_t texelSz = getTexelOrBlockBytesize(m_physAddrTex->getCreationParameters().format);
-        auto offsets = alloc(_img, _subres);
-        for (const auto& reg : _img->getRegions())
+        //fill page table and pack present mips into physical addr texture
+        for (uint32_t i = 0u; i < levelCount; ++i)
         {
-            if (reg.imageSubresource.mipLevel<_subres.baseMipLevel || reg.imageSubresource.mipLevel>=(_subres.baseMipLevel+offsets->size()))
-                continue;
-
-            const uint32_t j = reg.imageSubresource.mipLevel-_subres.baseMipLevel;//"relative LoD"
-
-            const core::vector3du32_SIMD texOffset = pageCoords((*offsets)[j], m_pgSzxy);
-            const uint64_t bufOffset = static_cast<uint64_t>(m_physAddrTex->getCreationParameters().extent.width*m_physAddrTex->getCreationParameters().extent.height*texOffset.z + texOffset.y*m_physAddrTex->getCreationParameters().extent.width + texOffset.x) * texelSz;
-
-            const uint8_t* src = reinterpret_cast<const uint8_t*>(_img->getBuffer()->getPointer())+reg.bufferOffset;
-            uint8_t* dst = reinterpret_cast<uint8_t*>(m_physAddrTex->getBuffer()->getPointer()) + bufOffset;
-            const uint32_t pitch = reg.bufferRowLength*texelSz;
-            for (uint32_t i = 0u; i < reg.imageExtent.height; ++i)
-            {
-                memcpy(dst + ((reg.imageOffset.y + i)*m_physAddrTex->getCreationParameters().extent.width + reg.imageOffset.x)*texelSz, src+i*pitch, reg.imageExtent.width*texelSz);
-            }
-        }
-        //pack tail mips into 1 page (if needed)
-        if (offsets->back().hasMipTailAddr())
-        {
-            const core::vector3du32_SIMD texOffset = pageCoords((*offsets).back().getMipTailAddr(), m_pgSzxy);
-            //TODO
-        }
-        //fill page table
-        const VkExtent3D extent = _img->getCreationParameters().extent;
-        for (uint32_t i = 0u; i < offsets->size(); ++i)
-        {
-            const uint32_t w = std::max(extent.width>>(_subres.baseMipLevel+i),1u);
-            const uint32_t h = std::max(extent.height>>(_subres.baseMipLevel+i),1u);
-            const uint32_t pgSqrSz = core::roundUpToPoT((std::max(w,h)+m_pgSzxy-1u)/m_pgSzxy);
+            const uint32_t w = (std::max(extent.width>>(_subres.baseMipLevel+i),1u) + m_pgSzxy-1u) / m_pgSzxy;
+            const uint32_t h = (std::max(extent.height>>(_subres.baseMipLevel+i),1u) + m_pgSzxy-1u) / m_pgSzxy;
 
             uint32_t* const pgTab = reinterpret_cast<uint32_t*>(
                 reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer()) + m_pageTable->getRegions().begin()[i].bufferOffset
                 );
-            const uint32_t pitch = m_pageTable->getRegions().begin()[i].bufferRowLength;
+            const uint32_t pgtPitch = m_pageTable->getRegions().begin()[i].bufferRowLength;
             const uint32_t pgtH = m_pageTable->getRegions().begin()[i].imageExtent.height;
-            const uint32_t offset = (pitch*pgtH)*(*offsets)[i].layer() + (*offsets)[i].y()*pitch + (*offsets)[i].x();
-            for (uint32_t x = 0u; x < pgSqrSz; ++x)
-                for (uint32_t y = 0u; y < pgSqrSz; ++y)
-                    pgTab[offset + y*pitch + x] = (*offsets)[i].addr;
+            const uint32_t offset = (pgtPitch*pgtH)*pgtOffset.layer() + (pgtOffset.y()>>i)*pgtPitch + (pgtOffset.x()>>i);
+
+            for (uint32_t y = 0u; y < h; ++y)
+                for (uint32_t x = 0u; x < w; ++x)
+                {
+                    const uint32_t addr = 0u;//TODO alloc with pool alctr
+                    if (i==(levelCount-1u) && levelCount>_subres.levelCount)
+                    {
+                        //TODO alloc another address and store on upper 16 bits of `addr` (for mip-tail)
+                    }
+                    pgTab[offset + y*pgtPitch + x] = addr;
+
+                    core::vector3du32_SIMD physPg = pageCoords(addr, m_pgSzxy);
+                    for (const auto& reg : _img->getRegions())
+                    {
+                        if (reg.imageSubresource.mipLevel != (_subres.baseMipLevel+i))
+                            continue;
+
+                        auto src_txOffset = core::vector2du32_SIMD(x,y)*m_pgSzxy;
+
+                        const uint32_t a_left = reg.imageOffset.x;
+                        const uint32_t b_right = src_txOffset.x + m_pgSzxy;
+                        const uint32_t a_right = a_left + reg.imageExtent.width;
+                        const uint32_t b_left = src_txOffset.x;
+                        const uint32_t a_bot = reg.imageOffset.y;
+                        const uint32_t b_top = src_txOffset.y + m_pgSzxy;
+                        const uint32_t a_top = a_bot + reg.imageExtent.height;
+                        const uint32_t b_bot = src_txOffset.y;
+                        if (a_left>b_right || a_right<b_left || a_top<b_bot || a_bot>b_top)
+                            continue;
+
+                        const core::vector2du32_SIMD regOffset = core::vector2du32_SIMD(a_left, a_bot);
+                        const core::vector2du32_SIMD withinRegTxOffset = core::max(src_txOffset, regOffset)-regOffset;
+                        const core::vector2du32_SIMD withinPgTxOffset = (withinRegTxOffset & core::vector2du32_SIMD(m_pgSzxy-1u));
+                        src_txOffset += withinPgTxOffset;
+                        const core::vector2du32_SIMD src_txOffsetEnd = core::min(core::vector2du32_SIMD(a_right,a_top), core::vector2du32_SIMD(b_right,b_top));
+
+                        physPg += withinPgTxOffset;
+
+                        const core::vector2du32_SIMD cpExtent = src_txOffsetEnd - src_txOffset;
+                        const uint32_t src_offset_lin = (withinRegTxOffset.y*reg.bufferRowLength + withinRegTxOffset.x) * texelSz;
+                        const uint32_t dst_offset_lin = (m_physAddrTex->getCreationParameters().extent.width*m_physAddrTex->getCreationParameters().extent.height*physPg.z + physPg.y*m_physAddrTex->getCreationParameters().extent.width + physPg.x) * texelSz;
+                        const uint8_t* src = reinterpret_cast<const uint8_t*>(_img->getBuffer()->getPointer()) + reg.bufferOffset + src_offset_lin;
+                        uint8_t* dst = reinterpret_cast<uint8_t*>(m_physAddrTex->getBuffer()->getPointer()) + dst_offset_lin;
+                        for (uint32_t j = 0u; j < cpExtent.y; ++j)
+                        {
+                            memcpy(dst + j*m_physAddrTex->getCreationParameters().extent.width*texelSz, src + j*reg.bufferRowLength, cpExtent.x*texelSz);
+                        }
+                    }
+                }
         }
 
-        return offsets->front();
+        return pgtOffset;
     }
 
     ICPUImage* getImage() { return m_physAddrTex.get(); }
