@@ -13,7 +13,7 @@ namespace core
 namespace impl
 {
     template <typename T>
-    constexpr T morton2d_decode_mask(uint32_t _n)
+    constexpr T morton2d_mask(uint32_t _n)
     {
         _IRR_STATIC_INLINE_CONSTEXPR uint64_t mask[5]
         {
@@ -29,16 +29,16 @@ namespace impl
     template <typename T>
     inline T morton2d_decode(T x)
     {
-        x = x & morton2d_decode_mask<T>(0);
-        x = (x | (x >> 1)) & morton2d_decode_mask<T>(1);
-        x = (x | (x >> 2)) & morton2d_decode_mask<T>(2);
+        x = x & morton2d_mask<T>(0);
+        x = (x | (x >> 1)) & morton2d_mask<T>(1);
+        x = (x | (x >> 2)) & morton2d_mask<T>(2);
         IRR_PSEUDO_IF_CONSTEXPR_BEGIN (sizeof(T)>1u)
         {
-        x = (x | (x >> 4)) & morton2d_decode_mask<T>(3);
+        x = (x | (x >> 4)) & morton2d_mask<T>(3);
         } IRR_PSEUDO_IF_CONSTEXPR_END
         IRR_PSEUDO_IF_CONSTEXPR_BEGIN (sizeof(T)>2u)
         {
-        x = (x | (x >> 8)) & morton2d_decode_mask<T>(4);
+        x = (x | (x >> 8)) & morton2d_mask<T>(4);
         } IRR_PSEUDO_IF_CONSTEXPR_END
         IRR_PSEUDO_IF_CONSTEXPR_BEGIN (sizeof(T)>4u)
         {
@@ -46,12 +46,37 @@ namespace impl
         } IRR_PSEUDO_IF_CONSTEXPR_END
         return x;
     }
+
+    //! Puts bits on even positions filling gaps with 0s
+    template <typename T>
+    inline T separate_bits(T x)
+    {
+        IRR_PSEUDO_IF_CONSTEXPR_BEGIN (sizeof(T)>4u)
+        {
+        x = (x | (x << 16)) & morton2d_mask<T>(4);
+        }
+        IRR_PSEUDO_IF_CONSTEXPR_BEGIN (sizeof(T)>2u)
+        {
+        x = (x | (x << 8)) & morton2d_mask<T>(3);
+        }
+        IRR_PSEUDO_IF_CONSTEXPR_BEGIN (sizeof(T)>1u)
+        {
+        x = (x | (x << 4)) & morton2d_mask<T>(2);
+        }
+        x = (x | (x << 2)) & morton2d_mask<T>(1);
+        x = (x | (x << 1)) & morton2d_mask<T>(0);
+
+        return x;
+    }
 }
 
 template<typename T>
-T morton2d_decode_x(T x) { return impl::morton2d_decode(x); }
+T morton2d_decode_x(T _morton) { return impl::morton2d_decode(_morton); }
 template<typename T>
-T morton2d_decode_y(T x) { return impl::morton2d_decode(x>>1); }
+T morton2d_decode_y(T _morton) { return impl::morton2d_decode(_morton>>1); }
+
+template<typename T>
+T morton2d_encode(T x, T y) { return impl::separate_bits(x) | (impl::separate_bits(y)<<1); }
 
 }}
 
