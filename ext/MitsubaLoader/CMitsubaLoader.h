@@ -18,6 +18,24 @@ namespace MitsubaLoader
 
 namespace bsdf
 {
+#include "irr/irrpack.h"
+	//must be 64bit
+	struct STextureData
+	{
+		uint16_t pgTab_x;
+		uint16_t pgTab_y;
+		uint16_t width;
+		uint16_t height;
+	} PACK_STRUCT;
+#include "irr/irrunpack.h"
+	// texture presence flag (flags are encoded in instruction) tells whether to use VT data or constant (depending on situation RGB encoded as rgb19e7 or single float32 value)
+	union STextureDataOrConstant
+	{
+		STextureData texData;
+		uint64_t constant_rgb19e7;
+		uint32_t constant_f32;
+	};
+
 	using instr_t = uint64_t;
 
 	enum E_OPCODE : uint8_t
@@ -95,41 +113,37 @@ namespace bsdf
 #include "irr/irrpack.h"
 	struct alignas(16) SAllDiffuse
 	{
-		//if flag decides to use alpha texture, {alpha[0..1]} is bindless texture ID (bit-cast to uvec2)
-		//otherwise alpha[0] is single-float alpha
-		uint32_t alpha[2];
-		//if flag decides to use reflectance texture, `reflectance` is bindless texture ID (bit-cast to uvec2)
-		//otherwise `reflectance` is constant reflectance in RGB19E7 format
-		uint64_t reflectance;
+		//if flag decides to use alpha texture, alpha_u.texData is tex data for VT
+		//otherwise alpha_u.constant_f32 is constant single-float alpha
+		STextureDataOrConstant alpha;
+		STextureDataOrConstant reflectance;
 		padding_t<4, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SDiffuseTransmitter
 	{
-		//if flag decides to use transmittance texture, `transmittance` is bindless texture ID (bit-cast to uvec2)
-		//otherwise `transmittance` is constant transmittance
-		uint64_t transmittance;
+		STextureDataOrConstant transmittance;
 		padding_t<2, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SAllDielectric
 	{
 		float eta;
 		//if NDF is Ashikhmin-Shirley:
-		//	if flag decides to use alpha_u texture, alpha_u[0..1] is bindless texture ID
-		//	otherwise alpha_u[0] is constant single-float alpha_u
-		//	if flag decides to use alpha_v texture, alpha_v[0..1] is bindless texture ID
-		//	otherwise alpha_v[0] is constant single-float alpha_v
+		//	if flag decides to use alpha_u texture, alpha_u.texData is tex data for VT
+		//	otherwise alpha_u.constant_f32 is constant single-float alpha_u
+		//	if flag decides to use alpha_v texture, alpha_v.texData is tex data for VT
+		//	otherwise alpha_v.constant_f32 is constant single-float alpha_v
 		//otherwise (different NDF)
-		//	if flag decides to use alpha texture, alpha_u[0..1] is bindless texture ID
-		//	otherwise alpha_u[0] is constant single-float alpha
-		uint32_t alpha_u[2];
-		uint32_t alpha_v[2];
+		//	if flag decides to use alpha texture, alpha_u.texData is tex data for VT
+		//	otherwise alpha_u.constant_f32 is constant single-float alpha
+		STextureDataOrConstant alpha_u;
+		STextureDataOrConstant alpha_v;
 		padding_t<5, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SAllConductor
 	{
 		//same as for SAllDielectric::alpha_u,alpha_v
-		uint32_t alpha_u[2];
-		uint32_t alpha_v[2];
+		STextureDataOrConstant alpha_u;
+		STextureDataOrConstant alpha_v;
 		//ior[0] real part of eta in RGB19E7 format
 		//ior[1] is imaginary part of eta in RGB19E7 format
 		uint64_t eta[2];
@@ -139,8 +153,8 @@ namespace bsdf
 	{
 		float eta;
 		//same as for SAllDielectric::alpha_u,alpha_v
-		uint32_t alpha_u[2];
-		uint32_t alpha_v[2];
+		STextureDataOrConstant alpha_u;
+		STextureDataOrConstant alpha_v;
 		padding_t<5, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SAllCoating
@@ -148,10 +162,10 @@ namespace bsdf
 		//thickness and eta encoded as 2x float16, thickness on bits 0:15, eta on bits 16:31
 		uint32_t thickness_eta;
 		//same as for SAllDielectric::alpha_u,alpha_v
-		uint32_t alpha_u[2];
-		uint32_t alpha_v[2];
-		//rgb in RGB19E& format or texture id (flag decides)
-		uint64_t sigmaA;
+		STextureDataOrConstant alpha_u;
+		STextureDataOrConstant alpha_v;
+		//rgb in RGB19E7 format or texture data for VT (flag decides)
+		STextureDataOrConstant sigmaA;
 		padding_t<7, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	/*
@@ -170,24 +184,24 @@ namespace bsdf
 	struct alignas(16) SWard
 	{
 		//same as for SAllDielectric::alpha_u,alpha_v
-		uint32_t alpha_u[2];
-		uint32_t alpha_v[2];
+		STextureDataOrConstant alpha_u;
+		STextureDataOrConstant alpha_v;
 		padding_t<4, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SBumpMap
 	{
-		//bindless texture id
-		uint64_t bumpmap;
+		//texture data for VT
+		STextureData bumpmap;
 		padding_t<2, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SBlend
 	{
 		//per-channel blend factor encoded as RGB19E7 (RGB instead of single-float in order to encode MASK bsdf as BLEND with fully transparent)
-		//2 weights in order to encode MIXTURE bsdf as multiple BLENDs
-		//if flag decides to use weight texture, `weightL` is bindless texture ID and weightR is then irrelevant
-		//otherwise `weightL` and `weightR` are constant RGB19E7 blend weights. Left has to be multiplied by weightL and right operand has to be multiplied by weightR.
-		uint64_t weightL;
-		uint64_t weightR;
+		//2 weights in order to encode MIXTURE bsdf as tree of BLENDs
+		//if flag decides to use weight texture, `weightL.texData` is texture data for VT and `weightR` is then irrelevant
+		//otherwise `weightL.constant_rgb19e7` and `weightR.constant_rgb19e7` are constant RGB19E7 blend weights. Left has to be multiplied by weightL and right operand has to be multiplied by weightR.
+		STextureDataOrConstant weightL;
+		STextureDataOrConstant weightR;
 		padding_t<2, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 #include "irr/irrunpack.h"

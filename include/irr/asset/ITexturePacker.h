@@ -54,7 +54,7 @@ public:
     }
 };
 
-class ITexturePacker
+class ITexturePacker : public core::IReferenceCounted
 {
 protected:
     const uint32_t ADDR_LAYER_SHIFT;
@@ -370,7 +370,8 @@ public:
         return pgtOffset;
     }
 
-    ICPUImage* getImage() { return m_physAddrTex.get(); }
+    ICPUImage* getPhysicalAddressTexture() { return m_physAddrTex.get(); }
+    ICPUImage* getPageTable() { return m_pageTable.get(); }
 
 private:
     uint32_t countLevelsTakingAtLeastOnePage(const VkExtent3D& _extent, const ICPUImage::SSubresourceRange& _subres)
