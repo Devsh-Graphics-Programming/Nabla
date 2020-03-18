@@ -1,9 +1,14 @@
 #include "CommandLineHandler.hpp"
 
+using namespace irr;
+using namespace asset;
+using namespace core;
+
 CommandLineHandler::CommandLineHandler(const int argc, core::vector<std::string> argv, IAssetManager* am)
 {
 	rawVariables[DTEA_OPENEXR_FILE].first = OPENEXR_FILE;
 	rawVariables[DTEA_CHANNEL_NAMES].first = CHANNEL_NAMES;
+	rawVariables[DTEA_CAMERA_TRANSFORM].first = CAMERA_TRANSFORM;
 	rawVariables[DTEA_EXPOSURE_BIAS].first = EXPOSURE_BIAS;
 	rawVariables[DTEA_DENOISER_BLEND_FACTOR].first = DENOISER_BLEND_FACTOR;
 	rawVariables[DTEA_BLOOM_SIZE].first = BLOOM_SIZE;
@@ -159,6 +164,12 @@ CommandLineHandler::CommandLineHandler(const int argc, core::vector<std::string>
 						// various amount of values allowed
 						auto variablesHandle = getSerializedValues(variablesStream, 3);
 							referenceVariableMap.second = variablesHandle;
+					}
+					else if (variable == CAMERA_TRANSFORM)
+					{
+						// various amount of values allowed, but useful is first 9 values
+						auto variablesHandle = getSerializedValues(variablesStream, 9);
+						referenceVariableMap.second = variablesHandle;
 					}
 					else  
 					{

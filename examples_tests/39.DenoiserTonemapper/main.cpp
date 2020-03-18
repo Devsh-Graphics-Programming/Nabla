@@ -63,25 +63,14 @@ int main(int argc, char* argv[])
 	if (!cmdHandler.getStatus())
 		return 0;
 
-	auto getTonemapper = [&](const variablesType& variables) -> std::pair<std::string, core::vector<float>>
-	{
-		core::vector<float> values(AA_COUNT);
-		auto tonemapper = variables[DTEA_ACES].second.empty() ? variables[DTEA_REINHARD] : variables[DTEA_ACES];
-
-		for (auto i = 0; i < values.size(); ++i)
-			*(values.begin() + i) = std::stof(tonemapper.second[i]);
-
-		return { tonemapper.first, values };
-	};
-
-	const auto variables = *cmdHandler.getVariables();
-	const auto fileName = variables[DTEA_OPENEXR_FILE].second[0];
-	const auto channelNames = variables[DTEA_CHANNEL_NAMES].second;
-	const auto exposureBias = std::stof(variables[DTEA_EXPOSURE_BIAS].second[0]);
-	const auto denoiserBlendFactor = std::stof(variables[DTEA_DENOISER_BLEND_FACTOR].second[0]);
-	const auto bloomSize = core::vector2df(std::stof(variables[DTEA_BLOOM_SIZE].second[0]), std::stof(variables[DTEA_BLOOM_SIZE].second[1]));
-	const auto tonemapper = getTonemapper(variables);
-	const auto outputFile = variables[DTEA_OUTPUT].second[0];
+	const auto fileName = cmdHandler.getFileName();
+	const auto channelNames = cmdHandler.getChannelNames();
+	const auto cameraTransform = cmdHandler.getCameraTransform();
+	const auto exposureBias = cmdHandler.getExposureBias();
+	const auto denoiserBlendFactor = cmdHandler.getDenoiserBlendFactor();
+	const auto bloomSize = cmdHandler.getBloomSize();
+	const auto tonemapper = cmdHandler.getTonemapper();
+	const auto outputFile = cmdHandler.getOutputFile();
 	
 	/*
 	asset::IAssetLoader::SAssetLoadParams lp;
