@@ -216,7 +216,6 @@ namespace bsdf
 		SAllCoating coating;
 		SBumpMap bumpmap;
 		SWard ward;
-		SMixture mixture;
 		SBlend blend;
 	};
 }
