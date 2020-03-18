@@ -4,6 +4,7 @@
 #include "matrix4SIMD.h"
 #include "irr/asset/asset.h"
 #include "IFileSystem.h"
+#include "irr/asset/ITexturePacker.h"
 
 #include "../../ext/MitsubaLoader/CSerializedLoader.h"
 #include "../../ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
@@ -35,6 +36,23 @@ namespace bsdf
 		uint64_t constant_rgb19e7;
 		uint32_t constant_f32;
 	};
+
+	static STextureData getTextureData(const ICPUImage* _img, ICPUTexturePacker* _packer)
+	{
+		STextureData texData;
+		texData.width = _img->getCreationParameters().extent.width;
+		texData.height = _img->getCreationParameters().extent.height;
+
+		IImage::SSubresourceRange subres;
+		subres.baseMipLevel = 0u;
+		subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(texData.width, texData.height))) + 1;
+
+		auto pgTabCoords = _packer->pack(_img, subres);
+		texData.pgTab_x = pgTabCoords.x;
+		texData.pgTab_y = pgTabCoords.y;
+
+		return texData;
+	}
 
 	using instr_t = uint64_t;
 
@@ -238,6 +256,8 @@ class CMitsubaLoader : public asset::IAssetLoader
 
 	protected:
 		asset::IAssetManager* manager;
+		//TODO need one packer per format class
+		core::smart_refctd_ptr<ICPUTexturePacker> m_texPacker;
 
 		struct SContext
 		{
@@ -277,6 +297,7 @@ class CMitsubaLoader : public asset::IAssetLoader
 		
 		SContext::tex_ass_type		getTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture);
 
+		bsdf::SBSDFUnion bsdfNode2bsdfStruct(SContext& _ctx, const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight = 0.f);
 		void genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 
 	public:

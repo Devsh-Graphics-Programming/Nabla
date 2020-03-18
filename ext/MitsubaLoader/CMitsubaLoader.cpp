@@ -41,8 +41,14 @@ static uint64_t rgb32f_to_rgb19e7(const uint32_t _rgb[3])
 	return rgb19e7;
 }
 
-static bsdf::SBSDFUnion bsdfNode2bsdfStruct(const CElementBSDF* _node, float _mix2blend_weight = 0.f)
+bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight = 0.f)
 {
+	auto textureData = [&, this](CElementTexture* _tex) {
+		auto imgview = getTexture(_ctx, _texHierLvl, _tex).first;
+		auto& img = imgview->getCreationParameters().image;
+		return bsdf::getTextureData(img.get(), m_texPacker.get());
+	};
+
 	bsdf::SBSDFUnion retval;
 	switch (_node->type)
 	{
@@ -51,8 +57,13 @@ static bsdf::SBSDFUnion bsdfNode2bsdfStruct(const CElementBSDF* _node, float _mi
 	case CElementBSDF::Type::ROUGHDIFFUSE:
 		if (_node->diffuse.reflectance.value.type==SPropertyElementData::SPECTRUM)
 			retval.diffuse.reflectance.constant_rgb19e7 = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->diffuse.reflectance.value.vvalue.pointer));
+		else if (_node->diffuse.reflectance.value.type==SPropertyElementData::INVALID)
+			retval.diffuse.reflectance.texData = textureData(_node->diffuse.reflectance.texture);
+
 		if (_node->diffuse.alpha.value.type==SPropertyElementData::FLOAT)
 			reinterpret_cast<float&>(retval.diffuse.alpha.constant_f32) = _node->diffuse.alpha.value.fvalue;
+		else if (_node->diffuse.alpha.value.type==SPropertyElementData::INVALID)
+			retval.diffuse.alpha.texData = textureData(_node->diffuse.alpha.texture);
 		break;
 	case CElementBSDF::Type::DIELECTRIC:
 		_IRR_FALLTHROUGH;
@@ -61,17 +72,33 @@ static bsdf::SBSDFUnion bsdfNode2bsdfStruct(const CElementBSDF* _node, float _mi
 	case CElementBSDF::Type::ROUGHDIELECTRIC:
 		if (_node->dielectric.alpha.value.type==SPropertyElementData::FLOAT)
 			reinterpret_cast<float&>(retval.dielectric.alpha_u.constant_f32) = _node->dielectric.alpha.value.fvalue;
-		if (_node->dielectric.distribution==CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY && _node->dielectric.alphaV.value.type==SPropertyElementData::FLOAT)
-			reinterpret_cast<float&>(retval.dielectric.alpha_v.constant_f32) = _node->dielectric.alphaV.value.fvalue;
-		//TODO int_ext_ior
+		else if (_node->dielectric.alpha.value.type==SPropertyElementData::INVALID)
+			retval.dielectric.alpha_u.texData = textureData(_node->dielectric.alpha.texture);
+
+		if (_node->dielectric.distribution==CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+		{
+			if (_node->dielectric.alphaV.value.type==SPropertyElementData::FLOAT)
+				reinterpret_cast<float&>(retval.dielectric.alpha_v.constant_f32) = _node->dielectric.alphaV.value.fvalue;
+			else if (_node->dielectric.alphaV.value.type==SPropertyElementData::INVALID)
+				retval.dielectric.alpha_v.texData = textureData(_node->dielectric.alphaV.texture);
+		}
+		
+		retval.dielectric.eta = _node->dielectric.intIOR/_node->dielectric.extIOR;
 		break;
 	case CElementBSDF::Type::CONDUCTOR:
 		_IRR_FALLTHROUGH;
 	case CElementBSDF::Type::ROUGHCONDUCTOR:
 		if (_node->conductor.alpha.value.type==SPropertyElementData::FLOAT)
 			reinterpret_cast<float&>(retval.conductor.alpha_u.constant_f32) = _node->conductor.alpha.value.fvalue;
-		if (_node->conductor.distribution==CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY && _node->conductor.alphaV.value.type==SPropertyElementData::FLOAT)
-			reinterpret_cast<float&>(retval.conductor.alpha_v.constant_f32) = _node->conductor.alphaV.value.fvalue;
+		else if (_node->conductor.alpha.value.type == SPropertyElementData::INVALID)
+			retval.conductor.alpha_u.texData = textureData(_node->conductor.alpha.texture);
+		if (_node->conductor.distribution==CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+		{
+			if (_node->conductor.alphaV.value.type==SPropertyElementData::FLOAT)
+				reinterpret_cast<float&>(retval.conductor.alpha_v.constant_f32) = _node->conductor.alphaV.value.fvalue;
+			else if (_node->conductor.alphaV.value.type==SPropertyElementData::INVALID)
+				retval.conductor.alpha_v.texData = textureData(_node->conductor.alphaV.texture);
+		}
 		if (_node->conductor.eta.type==SPropertyElementData::SPECTRUM)
 			retval.conductor.eta[0] = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>((_node->conductor.eta.vvalue/_node->conductor.extEta).pointer));
 		if (_node->conductor.eta.type == SPropertyElementData::SPECTRUM)
@@ -82,32 +109,58 @@ static bsdf::SBSDFUnion bsdfNode2bsdfStruct(const CElementBSDF* _node, float _mi
 	case CElementBSDF::Type::ROUGHPLASTIC:
 		if (_node->plastic.alpha.value.type==SPropertyElementData::FLOAT)
 			reinterpret_cast<float&>(retval.plastic.alpha_u.constant_f32) = _node->plastic.alpha.value.fvalue;
-		if (_node->plastic.distribution==CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY && _node->plastic.alphaV.value.type==SPropertyElementData::FLOAT)
-			reinterpret_cast<float&>(retval.plastic.alpha_v.constant_f32) = _node->plastic.alphaV.value.fvalue;
-		//TODO int_ext_ior
+		else if (_node->plastic.alpha.value.type==SPropertyElementData::INVALID)
+			retval.plastic.alpha_u.texData = textureData(_node->plastic.alpha.texture);
+
+		if (_node->plastic.distribution==CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+		{
+			if (_node->plastic.alphaV.value.type==SPropertyElementData::FLOAT)
+				reinterpret_cast<float&>(retval.plastic.alpha_v.constant_f32) = _node->plastic.alphaV.value.fvalue;
+			else if (_node->plastic.alphaV.value.type==SPropertyElementData::INVALID)
+				retval.plastic.alpha_v.texData = textureData(_node->plastic.alphaV.texture);
+		}
+		
+		retval.dielectric.eta = _node->plastic.intIOR/_node->plastic.extIOR;
 		break;
 	case CElementBSDF::Type::COATING:
 		_IRR_FALLTHROUGH;
 	case CElementBSDF::Type::ROUGHCOATING:
 		if (_node->coating.alpha.value.type==SPropertyElementData::FLOAT)
 			reinterpret_cast<float&>(retval.coating.alpha_u.constant_f32) = _node->coating.alpha.value.fvalue;
-		if (_node->coating.distribution==CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY && _node->coating.alphaV.value.type==SPropertyElementData::FLOAT)
-			reinterpret_cast<float&>(retval.coating.alpha_v.constant_f32) = _node->coating.alphaV.value.fvalue;
+		else if (_node->coating.alpha.value.type==SPropertyElementData::INVALID)
+			retval.coating.alpha_u.texData = textureData(_node->coating.alpha.texture);
+
+		if (_node->coating.distribution==CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+		{
+			if (_node->coating.alphaV.value.type==SPropertyElementData::FLOAT)
+				reinterpret_cast<float&>(retval.coating.alpha_v.constant_f32) = _node->coating.alphaV.value.fvalue;
+			else if (_node->coating.alphaV.value.type==SPropertyElementData::INVALID)
+				retval.coating.alpha_v.texData = textureData(_node->coating.alphaV.texture);
+		}
+
 		retval.coating.thickness_eta = core::Float16Compressor::compress(_node->coating.thickness);
 		retval.coating.thickness_eta |= static_cast<uint32_t>(core::Float16Compressor::compress(_node->coating.intIOR/_node->coating.extIOR))<<16;
+
 		if (_node->coating.sigmaA.value.type==SPropertyElementData::SPECTRUM)
 			retval.coating.sigmaA.constant_rgb19e7 = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->coating.sigmaA.value.vvalue.pointer));
+		else if (_node->coating.sigmaA.value.type==SPropertyElementData::INVALID)
+			retval.coating.sigmaA.texData = textureData(_node->coating.sigmaA.texture);
 		break;
 	case CElementBSDF::Type::BUMPMAP:
 		break;
 	case CElementBSDF::Type::PHONG:
-		assert(0);
+		assert(0);//we dont care about PHONG
 		break;
 	case CElementBSDF::Type::WARD:
 		if (_node->ward.alphaU.value.type==SPropertyElementData::FLOAT)
 			reinterpret_cast<float&>(retval.ward.alpha_u.constant_f32) = _node->ward.alphaU.value.fvalue;
+		else if (_node->ward.alphaU.value.type==SPropertyElementData::INVALID)
+			retval.ward.alpha_u.texData = textureData(_node->ward.alphaU.texture);
+
 		if (_node->ward.alphaV.value.type==SPropertyElementData::FLOAT)
 			reinterpret_cast<float&>(retval.ward.alpha_v.constant_f32) = _node->ward.alphaV.value.fvalue;
+		else if (_node->ward.alphaV.value.type==SPropertyElementData::INVALID)
+			retval.ward.alpha_u.texData = textureData(_node->ward.alphaV.texture);
 		break;
 	case CElementBSDF::Type::MIXTURE_BSDF:
 	{
@@ -125,6 +178,10 @@ static bsdf::SBSDFUnion bsdfNode2bsdfStruct(const CElementBSDF* _node, float _mi
 			retval.blend.weightL.constant_rgb19e7 = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(weight_l.pointer));
 			retval.blend.weightR.constant_rgb19e7 = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(weight_r.pointer));
 		}
+		else if (_node->blendbsdf.weight.value.type==SPropertyElementData::INVALID)
+		{
+			retval.blend.weightL.texData = textureData(_node->blendbsdf.weight.texture);
+		}
 		break;
 	case CElementBSDF::Type::MASK:
 		if (_node->mask.opacity.value.type==SPropertyElementData::SPECTRUM)
@@ -136,11 +193,13 @@ static bsdf::SBSDFUnion bsdfNode2bsdfStruct(const CElementBSDF* _node, float _mi
 		}
 		break;
 	case CElementBSDF::Type::TWO_SIDED:
-
+		assert(0);//TWO_SIDED shouldnt get to this function
 		break;
 	case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
 		if (_node->difftrans.transmittance.value.type==SPropertyElementData::SPECTRUM)
 			retval.diffuseTransmitter.transmittance.constant_rgb19e7 = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->difftrans.transmittance.value.vvalue.pointer));
+		else if (_node->difftrans.transmittance.value.type==SPropertyElementData::INVALID)
+			retval.diffuseTransmitter.transmittance.texData = textureData(_node->difftrans.transmittance.texture);
 		break;
 	}
 
@@ -935,7 +994,8 @@ void CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 		case CElementBSDF::Type::ROUGHPLASTIC:
 			_IRR_FALLTHROUGH;
 		case CElementBSDF::Type::WARD:
-			stack.push({_bsdf,_1stdword,false,0}); break;
+			stack.push({_bsdf,_1stdword,false,0});
+			break;
 		case CElementBSDF::Type::COATING:
 			_IRR_FALLTHROUGH;
 		case CElementBSDF::Type::ROUGHCOATING:
@@ -987,6 +1047,13 @@ void CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 			_1stdword = bsdf::OP_TRANSPARENT;
 			writeInheritableFlags(_1stdword, _parent1stDword);
 			stack.push({nullptr,_1stdword,false,0});
+			break;
+		case CElementBSDF::Type::TWO_SIDED:
+			_1stdword |= 1u<<bsdf::BITFIELDS_SHIFT_TWOSIDED;
+			stack.push({_bsdf,_1stdword,false,0});
+			break;
+		case CElementBSDF::Type::PHONG:
+			assert(0);
 			break;
 		}
 	};
