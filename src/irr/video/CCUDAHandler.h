@@ -15,9 +15,10 @@
 #endif
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
+	// make CUDA play nice
+	#define WGL_NV_gpu_affinity 0
 	#include "cudaGL.h"
-    #include "../source/Irrlicht/COpenGLDriver.h"
-    #include "../source/Irrlicht/COpenGLTexture.h"
+	#undef WGL_NV_gpu_affinity
 #endif // _IRR_COMPILE_WITH_OPENGL_
 
 // useful includes in the future
@@ -267,7 +268,7 @@ class CCUDAHandler
 
 		//
 		static CUresult registerBuffer(GraphicsAPIObjLink<video::IGPUBuffer>* link, uint32_t flags = CU_GRAPHICS_REGISTER_FLAGS_NONE);
-		static CUresult registerImage(GraphicsAPIObjLink<video::ITexture>* link, uint32_t flags = CU_GRAPHICS_REGISTER_FLAGS_NONE);
+		static CUresult registerImage(GraphicsAPIObjLink<video::IGPUImage>* link, uint32_t flags = CU_GRAPHICS_REGISTER_FLAGS_NONE);
 		
 
 		template<typename ObjType>
@@ -310,8 +311,8 @@ class CCUDAHandler
 		}
 
 		static CUresult acquireAndGetPointers(GraphicsAPIObjLink<video::IGPUBuffer>* linksBegin, GraphicsAPIObjLink<video::IGPUBuffer>* linksEnd, CUstream stream, size_t* outbufferSizes = nullptr);
-		static CUresult acquireAndGetMipmappedArray(GraphicsAPIObjLink<video::ITexture>* linksBegin, GraphicsAPIObjLink<video::ITexture>* linksEnd, CUstream stream);
-		static CUresult acquireAndGetArray(GraphicsAPIObjLink<video::ITexture>* linksBegin, GraphicsAPIObjLink<video::ITexture>* linksEnd, uint32_t* arrayIndices, uint32_t* mipLevels, CUstream stream);
+		static CUresult acquireAndGetMipmappedArray(GraphicsAPIObjLink<video::IGPUImage>* linksBegin, GraphicsAPIObjLink<video::IGPUImage>* linksEnd, CUstream stream);
+		static CUresult acquireAndGetArray(GraphicsAPIObjLink<video::IGPUImage>* linksBegin, GraphicsAPIObjLink<video::IGPUImage>* linksEnd, uint32_t* arrayIndices, uint32_t* mipLevels, CUstream stream);
 
 
 		static bool defaultHandleResult(nvrtcResult result)
