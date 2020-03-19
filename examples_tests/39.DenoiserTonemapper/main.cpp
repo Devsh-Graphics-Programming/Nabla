@@ -9,24 +9,6 @@ using namespace irr;
 using namespace asset;
 using namespace core;
 
-const char* FRAGMENT_SHADER = R"(
-
-	vec3 reinhard(vec3 x) 
-	{
-		return x / (1.0 + x);
-	}
-
-	vec3 aces(vec3 x, float arg1, float arg2, float arg3, float arg4, float arg5) 
-	{
-		return clamp((x * (arg1 * x + arg2)) / (x * (arg3 * x + arg4) + arg5), 0.0, 1.0);
-	}
-
-	void main()
-	{
-		
-	}
-)";
-
 int main(int argc, char* argv[])
 {
 	irr::SIrrlichtCreationParameters params;
@@ -45,7 +27,7 @@ int main(int argc, char* argv[])
 
 	auto driver = device->getVideoDriver();
 	auto smgr = device->getSceneManager();
-	auto am = device->getAssetManager(); 
+	auto am = device->getAssetManager();
 
 	auto getArgvFetchedList = [&]()
 	{
@@ -56,8 +38,8 @@ int main(int argc, char* argv[])
 
 		return arguments;
 	};
-	
-	auto cmdHandler = irr::ext::CommandLineHandler(argc, getArgvFetchedList(), am);
+
+	auto cmdHandler = ext::CommandLineHandler(argc, getArgvFetchedList(), am);
 
 	if (!cmdHandler.getStatus())
 		return 0;
@@ -71,24 +53,21 @@ int main(int argc, char* argv[])
 	const auto bloomSizeBundle = cmdHandler.getBloomSizeBundle();
 	const auto tonemapperBundle = cmdHandler.getTonemapperBundle();
 	const auto outputFileBundle = cmdHandler.getOutputFileBundle();
-	
+
 	/*
 	asset::IAssetLoader::SAssetLoadParams lp;
 	auto image_bundle = am->getAsset("../../media/OpenEXR/" + fileName + ".exr", lp);
 	assert(!image_bundle.isEmpty());
-
 	auto vertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	auto fragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	{
 		const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
 		auto bundle = am->findAssets("irr/builtin/materials/debug/uv_debug_shader/specializedshader", types);
-
 		auto refCountedBundle =
 		{
 			core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(bundle->begin()->getContents().first[0]),
 			core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>((bundle->begin() + 1)->getContents().first[0])
 		};
-
 		for (auto& shader : refCountedBundle)
 		{
 			if (shader->getStage() == ISpecializedShader::ESS_VERTEX)
@@ -97,13 +76,10 @@ int main(int argc, char* argv[])
 				break;
 			}
 		}
-
 		fragmentShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(core::make_smart_refctd_ptr<asset::ICPUShader>(FRAGMENT_SHADER), asset::ISpecializedShader::SInfo({}, nullptr, "main", ISpecializedShader::E_SHADER_STAGE::ESS_FRAGMENT));
 	}
-
 	// TODO pipeline, updating uniforms, drawing, etc
-
 	*/
-		
+
 	return 0;
 }

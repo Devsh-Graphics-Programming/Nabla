@@ -23,12 +23,9 @@ namespace irr
 
 		constexpr std::string_view requiredArgumentsMessage = R"(
 		Pass appripiate arguments to launch the example or load them using predefined file!
-
 		* To load them with a arguments file usage type DenoiserTonemapper.exe -batch <yourargumentfile.txt>
 		* To load them passing arguments through cmd.
-
 		Loading syntax:
-
 		-OPENEXR_FILE=filename
 		-CHANNEL_NAMES=name,name,name,... 
 		-CAMERA_TRANSFORM=value,value,value,...
@@ -37,13 +34,10 @@ namespace irr
 		-BLOOM_SIZE=x,y
 		-TONEMAPPER=tonemapper=arg1,arg2,arg3,...
 		-OUTPUT=file.choosenextension
-
 		Note there mustn't be any space characters!
 		Also you mustn't put another data like comments
 		- behaviour will be undefined, the app'll crash
-
 		Description and usage:
-
 		OPENEXR_FILE: OpenEXR file containing various channels - type without extension
 		CHANNEL_NAMES: name of denoiser input channels - split each next channel using ","
 		CAMERA_TRANSFORM: values as "initializer list" for camera transform matrix with
@@ -55,26 +49,19 @@ namespace irr
 		you have to assing arguments to revelant tonemapper. For "REINHARD" tonemapper
 		there are no arguments, so you should not type anything else, but for "ACES"
 		you have to specify some arguments for it's curve function. They are following:
-
 		arg1=value
 		arg2=value
 		arg3=value
 		arg4=value
 		arg5=value
-
 		where function is:
 		f(x) = clamp((x * (arg1 * x + arg2)) / (x * (arg3 * x + arg4) + arg5), 0.0, 1.0)
-
 		so for example, specifing "REINHARD" tonemapper looks like:
 		-TONEMAPPER=REINHARD
-
 		and specifing "ACES" looks like:
 		-TONEMAPPER=ACES=arg1,arg2,arg3,arg4,arg5
-
 		OUTPUT: output file with specified extension 
-
 		An example file is put into the DenoiserTonemapperExample folder
-
 		)";
 
 		constexpr std::string_view OPENEXR_FILE = "OPENEXR_FILE";
@@ -168,7 +155,7 @@ namespace irr
 				{
 					return outputFileBundle;
 				}
-	
+
 				auto getStatus() { return status; }
 				auto getMode() { return mode; }
 				auto doesItSupportManyInputFiles() { return mode == CLM_BATCH_INPUT; }
@@ -290,6 +277,4 @@ namespace irr
 	}
 }
 
-
 #endif // _DENOISER_TONEMAPPER_COMMAND_LINE_HANDLER_
-

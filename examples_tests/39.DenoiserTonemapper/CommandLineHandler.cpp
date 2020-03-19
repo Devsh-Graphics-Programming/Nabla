@@ -30,7 +30,7 @@ CommandLineHandler::CommandLineHandler(const int argc, core::vector<std::string>
 
 			argvsStream.push_back(fileStream.substr(previousOffset, offset));
 		}
-	
+
 		return argvsStream;
 	};
 

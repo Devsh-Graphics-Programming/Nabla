@@ -75,6 +75,9 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 		//!
 		inline GLenum getOpenGLSizedFormat() const { return internalFormat; }
 
+		//!
+		inline GLenum getOpenGLTarget() const { return target; }
+
 		//! returns the opengl texture handle
 		inline GLuint getOpenGLName() const { return name; }
 
