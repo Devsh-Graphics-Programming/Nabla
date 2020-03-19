@@ -234,8 +234,8 @@ namespace irr
 
 					if (params.format == EF_UNKNOWN)
 					{
-						os::Printer::log("LOAD EXR: incorrect format specified for " + suffixOfChannels + " channels - returning empty or filled so far images bundle", file.fileName(), ELL_INFORMATION);
-						return images;
+						os::Printer::log("LOAD EXR: incorrect format specified for " + suffixOfChannels + " channels - skipping the file", file.fileName(), ELL_INFORMATION);
+						continue;
 					}
 
 					if (params.format == EF_R16G16B16A16_SFLOAT)
