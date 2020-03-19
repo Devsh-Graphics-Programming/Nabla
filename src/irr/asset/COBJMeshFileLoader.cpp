@@ -228,6 +228,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     auto mbs = mb_bundle.getContents();
                     {
                         auto mb = (mbs.first != mbs.second) ? core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(*mbs.first) : core::make_smart_refctd_ptr<ICPUMeshBuffer>();
+						if (mbs.first != mbs.second)
+							mb->setNormalnAttributeIx(3u);
                         submeshes.push_back(std::move(mb));
                     }
                     indices.emplace_back();

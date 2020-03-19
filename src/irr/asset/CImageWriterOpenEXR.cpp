@@ -22,6 +22,7 @@ SOFTWARE.
 
 #ifdef _IRR_COMPILE_WITH_OPENEXR_WRITER_
 
+#include "irr/asset/COpenEXRImageMetadata.h"
 #include "openexr/IlmBase/Imath/ImathBox.h"
 #include "openexr/OpenEXR/IlmImf/ImfOutputFile.h"
 #include "openexr/OpenEXR/IlmImf/ImfChannelList.h"
@@ -35,8 +36,8 @@ SOFTWARE.
 #include <unordered_map>
 
 #include "openexr/OpenEXR/IlmImf/ImfNamespace.h"
-namespace IMF = OPENEXR_IMF_NAMESPACE;
-namespace IMATH = IMATH_NAMESPACE;
+namespace IMF = Imf;
+namespace IMATH = Imath;
 
 namespace irr
 {
@@ -141,11 +142,16 @@ namespace irr
 			if (!file)
 				return false;
 
-			os::Printer::log("Writing OpenEXR image", file->getFileName().c_str());
+			const auto metadata = dynamic_cast<const COpenEXRImageMetadata*>(image->getMetadata());
+			const auto suffixOfImage = metadata->getName();
+
+			os::Printer::log("WRITE OPENEXR: writing " + suffixOfImage + " file", file->getFileName().c_str(), ELL_INFORMATION);
 
 			const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, image, 0u);
 			if (flags & asset::EWF_BINARY)
 				return writeImageBinary(file, image);
+			else
+				return false;
 		}
 
 		bool CImageWriterOpenEXR::writeImageBinary(io::IWriteFile* file, const asset::ICPUImage* image)

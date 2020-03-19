@@ -6,6 +6,7 @@
 
 #include "irr/core/core.h"
 #include "irr/system/system.h"
+#include "IFileSystem.h"
 
 namespace irr
 {

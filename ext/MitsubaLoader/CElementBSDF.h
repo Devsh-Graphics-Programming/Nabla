@@ -70,7 +70,7 @@ class CElementBSDF : public IElement
 		};
 	struct RoughSpecularBase
 	{
-		enum NormalDistributionFunction
+		enum NormalDistributionFunction : uint32_t
 		{
 			BECKMANN,
 			GGX,
@@ -269,7 +269,7 @@ class CElementBSDF : public IElement
 		};
 		struct Ward
 		{
-			enum Type
+			enum Type : uint32_t
 			{
 				WARD,
 				WARD_DUER,

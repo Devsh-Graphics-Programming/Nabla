@@ -7,6 +7,10 @@
 // pesky leaking defines
 #undef PI
 
+#ifdef _IRR_BUILD_OPTIX_
+#include "../../ext/OptiX/Manager.h"
+#endif
+
 
 class Renderer : public irr::core::IReferenceCounted, public irr::core::InterfaceUnmovable
 {
@@ -157,12 +161,16 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		};
 		static_assert(sizeof(SLight)==112u,"Can't keep alignment straight!");
 
-		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr);
+		// No 8k yet, too many rays to store
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxResolution[2] = {7680/2,4320/2};
+
+
+		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, bool useDenoiser = true);
 
 		void init(	const irr::asset::SAssetBundle& meshes,
 					bool isCameraRightHanded,
 					irr::core::smart_refctd_ptr<irr::asset::ICPUBuffer>&& sampleSequence,
-					uint32_t rayBufferSize=1024u*1024u*1024u);
+					uint32_t rayBufferSize=(sizeof(::RadeonRays::ray)*2u+sizeof(uint32_t)*2u)*MaxResolution[0]*MaxResolution[1]); // 2 samples for MIS
 
 		void deinit();
 
@@ -174,7 +182,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		const auto& getSceneBound() const { return sceneBound; }
 
-		uint64_t getTotalSamplesComputed() const { return static_cast<uint64_t>(m_samplesComputed)*static_cast<uint64_t>(m_rayCount); }
+		uint64_t getTotalSamplesComputed() const { return static_cast<uint64_t>(m_samplesComputed)*static_cast<uint64_t>(m_rayCount)/m_samplesPerDispatch; }
 
 
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 4u;
@@ -202,7 +210,8 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::video::IFrameBuffer* m_colorBuffer,* m_gbuffer,* tmpTonemapBuffer;
 
 		uint32_t m_maxSamples;
-		uint32_t m_workGroupCount[2];
+		uint32_t m_raygenWorkGroups[2];
+		uint32_t m_resolveWorkGroups[2];
 		uint32_t m_samplesPerDispatch;
 		uint32_t m_samplesComputed;
 		uint32_t m_rayCount;
@@ -224,6 +233,25 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightCDFBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightRadianceBuffer;
+
+	#ifdef _IRR_BUILD_OPTIX_
+		irr::core::smart_refctd_ptr<irr::ext::OptiX::Manager> m_optixManager;
+		CUstream m_cudaStream;
+		irr::core::smart_refctd_ptr<irr::ext::OptiX::IContext> m_optixContext;
+		irr::core::smart_refctd_ptr<irr::ext::OptiX::IDenoiser> m_denoiser;
+		OptixDenoiserSizes m_denoiserMemReqs;
+		irr::cuda::CCUDAHandler::GraphicsAPIObjLink<irr::video::IGPUBuffer> m_denoiserInputBuffer,m_denoiserStateBuffer,m_denoisedBuffer,m_denoiserScratchBuffer;
+
+		enum E_DENOISER_INPUT
+		{
+			EDI_COLOR,
+			EDI_ALBEDO,
+			EDI_NORMAL,
+			EDI_COUNT
+		};
+		OptixImage2D m_denoiserOutput;
+		OptixImage2D m_denoiserInputs[EDI_COUNT];
+	#endif
 };
 
 #endif

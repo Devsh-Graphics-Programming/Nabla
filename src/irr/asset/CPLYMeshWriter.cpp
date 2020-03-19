@@ -220,7 +220,7 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _
 {
     const size_t colCpa = asset::getFormatChannelCount(_mbuf->getAttribFormat(1));
 
-	bool flipVectors = (!(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED));
+	bool flipVectors = (!(_params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED)) ? true : false;
 
     auto mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
     for (size_t i = 0u; i < _vtxCount; ++i)
@@ -293,8 +293,8 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mb
     auto writefunc = [&_file,&mbCopy, &_params, this](uint32_t _vaid, size_t _ix, size_t _cpa)
     {
 		bool flipVerteciesAndNormals = false;
-		if (!(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED))
-			if(_vaid == 0 || _vaid == 3)
+		if (!(_params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED))
+			if(_vaid == 0u || _vaid == 3u)
 				flipVerteciesAndNormals = true;
 
         uint32_t ui[4];
@@ -434,7 +434,7 @@ core::smart_refctd_ptr<asset::ICPUMeshBuffer> CPLYMeshWriter::createCopyMBuffNor
 {
     auto mbCopy = core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(_mbuf->clone(2));
 
-    for (size_t i = 0; i < 16; ++i)
+    for (size_t i = 0; i < ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT; ++i)
     {
         auto vaid = i;
         asset::E_FORMAT t = _mbuf->getAttribFormat(vaid);
