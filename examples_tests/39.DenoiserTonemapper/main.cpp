@@ -39,7 +39,7 @@ int main(int argc, char* argv[])
 		return arguments;
 	};
 
-	auto cmdHandler = ext::CommandLineHandler(argc, getArgvFetchedList(), am);
+	auto cmdHandler = CommandLineHandler(argc, getArgvFetchedList(), am);
 
 	if (!cmdHandler.getStatus())
 		return 0;

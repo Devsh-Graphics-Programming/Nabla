@@ -3,7 +3,6 @@
 using namespace irr;
 using namespace asset;
 using namespace core;
-using namespace ext;
 
 CommandLineHandler::CommandLineHandler(const int argc, core::vector<std::string> argv, IAssetManager* am)
 {
