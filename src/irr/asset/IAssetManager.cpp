@@ -124,7 +124,7 @@ const IMeshManipulator* IAssetManager::getMeshManipulator() const
 void IAssetManager::addLoadersAndWriters()
 {
 #ifdef _IRR_COMPILE_WITH_STL_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CSTLMeshFileLoader>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CSTLMeshFileLoader>(this));
 #endif
 #ifdef _IRR_COMPILE_WITH_PLY_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>(this));
