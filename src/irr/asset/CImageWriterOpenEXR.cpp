@@ -142,11 +142,6 @@ namespace irr
 			if (!file)
 				return false;
 
-			const auto metadata = dynamic_cast<const COpenEXRImageMetadata*>(image->getMetadata());
-			const auto suffixOfImage = metadata->getName();
-
-			os::Printer::log("WRITE OPENEXR: writing " + suffixOfImage + " file", file->getFileName().c_str(), ELL_INFORMATION);
-
 			const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, image, 0u);
 			if (flags & asset::EWF_BINARY)
 				return writeImageBinary(file, image);

@@ -9,7 +9,6 @@ using namespace irr;
 using namespace asset;
 using namespace core;
 
-// TODO
 const char* FRAGMENT_SHADER = R"(
 
 	vec3 reinhard(vec3 x) 
@@ -58,19 +57,20 @@ int main(int argc, char* argv[])
 		return arguments;
 	};
 	
-	auto cmdHandler = CommandLineHandler(argc, getArgvFetchedList(), am);
+	auto cmdHandler = irr::ext::CommandLineHandler(argc, getArgvFetchedList(), am);
 
 	if (!cmdHandler.getStatus())
 		return 0;
 
-	const auto fileName = cmdHandler.getFileName();
-	const auto channelNames = cmdHandler.getChannelNames();
-	const auto cameraTransform = cmdHandler.getCameraTransform();
-	const auto exposureBias = cmdHandler.getExposureBias();
-	const auto denoiserBlendFactor = cmdHandler.getDenoiserBlendFactor();
-	const auto bloomSize = cmdHandler.getBloomSize();
-	const auto tonemapper = cmdHandler.getTonemapper();
-	const auto outputFile = cmdHandler.getOutputFile();
+	const auto inputFilesAmount = cmdHandler.getInputFilesAmount();
+	const auto fileNamesBundle = cmdHandler.getFileNamesBundle();
+	const auto channelNamesBundle = cmdHandler.getChannelNamesBundle();
+	const auto cameraTransformBundle = cmdHandler.getCameraTransformBundle();
+	const auto exposureBiasBundle = cmdHandler.getExposureBiasBundle();
+	const auto denoiserBlendFactorBundle = cmdHandler.getDenoiserBlendFactorBundle();
+	const auto bloomSizeBundle = cmdHandler.getBloomSizeBundle();
+	const auto tonemapperBundle = cmdHandler.getTonemapperBundle();
+	const auto outputFileBundle = cmdHandler.getOutputFileBundle();
 	
 	/*
 	asset::IAssetLoader::SAssetLoadParams lp;

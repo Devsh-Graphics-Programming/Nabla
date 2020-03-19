@@ -7,7 +7,7 @@
 
 namespace irr
 {
-	namespace asset
+	namespace ext
 	{
 		#define PROPER_CMD_ARGUMENTS_AMOUNT 8
 		#define PROPER_BATCH_FILE_ARGUMENTS_AMOUNT 3
@@ -16,7 +16,7 @@ namespace irr
 		{
 			CLM_UNKNOWN,
 			CLM_CMD_LIST,
-			CLM_FILE,
+			CLM_BATCH_INPUT,
 
 			CLM_COUNT
 		};
@@ -73,6 +73,8 @@ namespace irr
 
 		OUTPUT: output file with specified extension 
 
+		An example file is put into the DenoiserTonemapperExample folder
+
 		)";
 
 		constexpr std::string_view OPENEXR_FILE = "OPENEXR_FILE";
@@ -120,53 +122,117 @@ namespace irr
 		{
 			public:
 
-				CommandLineHandler(const int argc, core::vector<std::string> argv, IAssetManager* am);
+				CommandLineHandler(const int argc, core::vector<std::string> argv, asset::IAssetManager* am);
 
-
-				auto getFileName() 
-				{ 
-					return rawVariables[DTEA_OPENEXR_FILE].second[0];
-				}
-
-				auto getChannelNames()
+				auto getInputFilesAmount()
 				{
-					return rawVariables[DTEA_CHANNEL_NAMES].second;
+					return rawVariables.size();
 				}
 
-				auto getCameraTransform()
+				auto getFileNamesBundle()
+				{
+					return fileNamesBundle;
+				}
+
+				auto getChannelNamesBundle()
+				{
+					return channelNamesBundle;
+				}
+
+				auto getCameraTransformBundle()
+				{
+					return cameraTransformBundle;
+				}
+
+				auto getExposureBiasBundle()
+				{
+					return exposureBiasBundle;
+				}
+
+				auto getDenoiserBlendFactorBundle()
+				{
+					return denoiserBlendFactorBundle;
+				}
+
+				auto getBloomSizeBundle()
+				{
+					return bloomSizeBundle;
+				}
+
+				auto getTonemapperBundle()
+				{
+					return tonemapperBundle;
+				}
+
+				auto getOutputFileBundle()
+				{
+					return outputFileBundle;
+				}
+	
+				auto getStatus() { return status; }
+				auto getMode() { return mode; }
+				auto doesItSupportManyInputFiles() { return mode == CLM_BATCH_INPUT; }
+
+			private:
+
+				void initializeMatchingMap(variablesType& rawVariablesPerFile)
+				{
+					rawVariablesPerFile[DTEA_OPENEXR_FILE].first = OPENEXR_FILE;
+					rawVariablesPerFile[DTEA_CHANNEL_NAMES].first = CHANNEL_NAMES;
+					rawVariablesPerFile[DTEA_CAMERA_TRANSFORM].first = CAMERA_TRANSFORM;
+					rawVariablesPerFile[DTEA_EXPOSURE_BIAS].first = EXPOSURE_BIAS;
+					rawVariablesPerFile[DTEA_DENOISER_BLEND_FACTOR].first = DENOISER_BLEND_FACTOR;
+					rawVariablesPerFile[DTEA_BLOOM_SIZE].first = BLOOM_SIZE;
+					rawVariablesPerFile[DTEA_REINHARD].first = REINHARD;
+					rawVariablesPerFile[DTEA_ACES].first = ACES;
+					rawVariablesPerFile[DTEA_OUTPUT].first = OUTPUT;
+				}
+
+				auto getFileName(uint64_t id = 0)
+				{
+					return rawVariables[id][DTEA_OPENEXR_FILE].second[0];
+				}
+
+				auto getChannelNames(uint64_t id = 0)
+				{
+					return rawVariables[id][DTEA_CHANNEL_NAMES].second;
+				}
+
+				auto getCameraTransform(uint64_t id = 0)
 				{
 					core::matrix4x3 cameraTransform;
 					for (auto i = 0; i < 9; ++i)
-					{	
-						if (i >= rawVariables[DTEA_CAMERA_TRANSFORM].second.size())
+					{
+						if (i >= rawVariables[id][DTEA_CAMERA_TRANSFORM].second.size())
 							break;
 
-						auto stringValue = *(rawVariables[DTEA_CAMERA_TRANSFORM].second.begin() + i);
+						auto stringValue = *(rawVariables[id][DTEA_CAMERA_TRANSFORM].second.begin() + i);
 						*(cameraTransform.pointer() + i) = std::stof(stringValue);
 					}
 
 					return cameraTransform;
 				}
 
-				auto getExposureBias()
+				auto getExposureBias(uint64_t id = 0)
 				{
-					return std::stof(rawVariables[DTEA_EXPOSURE_BIAS].second[0]);
+					return std::stof(rawVariables[id][DTEA_EXPOSURE_BIAS].second[0]);
 				}
 
-				auto getDenoiserBlendFactor()
+				auto getDenoiserBlendFactor(uint64_t id = 0)
 				{
-					return std::stof(rawVariables[DTEA_DENOISER_BLEND_FACTOR].second[0]);
+					return std::stof(rawVariables[id][DTEA_DENOISER_BLEND_FACTOR].second[0]);
 				}
 
-				auto getBloomSize()
+				auto getBloomSize(uint64_t id = 0)
 				{
-					return core::vector2df(std::stof(rawVariables[DTEA_BLOOM_SIZE].second[0]), std::stof(rawVariables[DTEA_BLOOM_SIZE].second[1]));
+					return core::vector2df(std::stof(rawVariables[id][DTEA_BLOOM_SIZE].second[0]), std::stof(rawVariables[id][DTEA_BLOOM_SIZE].second[1]));
 				}
 
-				auto getTonemapper()
+				auto getTonemapper(uint64_t id = 0)
 				{
-					core::vector<float> values(AA_COUNT);
-					auto tonemapper = rawVariables[DTEA_ACES].second.empty() ? rawVariables[DTEA_REINHARD] : rawVariables[DTEA_ACES];
+					const bool isChoosenReinhard = rawVariables[id][DTEA_ACES].second.empty();
+					auto tonemapper = isChoosenReinhard ? rawVariables[id][DTEA_REINHARD] : rawVariables[id][DTEA_ACES];
+					core::vector<float> values(isChoosenReinhard ? 0 : AA_COUNT);
 
 					for (auto i = 0; i < values.size(); ++i)
 						*(values.begin() + i) = std::stof(tonemapper.second[i]);
@@ -174,19 +240,51 @@ namespace irr
 					return std::make_pair(tonemapper.first, values);
 				}
 
-				auto getOutputFile()
+				auto getOutputFile(uint64_t id = 0)
 				{
-					return rawVariables[DTEA_OUTPUT].second[0];
+					return rawVariables[id][DTEA_OUTPUT].second[0];
 				}
-				
-				auto getStatus() { return status; }
-				auto getMode() { return mode; }
 
-			private:
+				void performFInalStepForUsefulVariables()
+				{
+					const auto inputFilesAmount = getInputFilesAmount();
+					fileNamesBundle.reserve(inputFilesAmount);
+					channelNamesBundle.reserve(inputFilesAmount);
+					cameraTransformBundle.reserve(inputFilesAmount);
+					exposureBiasBundle.reserve(inputFilesAmount);
+					denoiserBlendFactorBundle.reserve(inputFilesAmount);
+					bloomSizeBundle.reserve(inputFilesAmount);
+					tonemapperBundle.reserve(inputFilesAmount);
+					outputFileBundle.reserve(inputFilesAmount);
+
+					for (auto i = 0ul; i < inputFilesAmount; ++i)
+					{
+						fileNamesBundle.push_back(getFileName(i));
+						channelNamesBundle.push_back(getChannelNames(i));
+						cameraTransformBundle.push_back(getCameraTransform(i));
+						exposureBiasBundle.push_back(getExposureBias(i));
+						denoiserBlendFactorBundle.push_back(getDenoiserBlendFactor(i));
+						bloomSizeBundle.push_back(getBloomSize(i));
+						tonemapperBundle.push_back(getTonemapper(i));
+						outputFileBundle.push_back(getOutputFile(i));
+					}
+				}
 
 				bool status;
 				COMMAND_LINE_MODE mode;
-				variablesType rawVariables;
+				core::vector<variablesType> rawVariables;
+
+				// I want to deduce those types bellow by using type from functions above
+				// like deduce type of getTonemapper()
+
+				core::vector<std::string> fileNamesBundle;
+				core::vector<core::vector<std::string>> channelNamesBundle;						
+				core::vector<core::matrix4x3> cameraTransformBundle;					
+				core::vector<float> exposureBiasBundle;						
+				core::vector<float> denoiserBlendFactorBundle;			
+				core::vector<core::vector2df> bloomSizeBundle;								
+				core::vector<std::pair<std::string, core::vector<float>>> tonemapperBundle;							
+				core::vector<std::string> outputFileBundle;							
 		};
 
 	}
