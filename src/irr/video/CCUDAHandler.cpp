@@ -5,10 +5,6 @@
 #include "jitify/jitify.hpp"
 
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_    
-	#include "../source/Irrlicht/COpenGLDriver.h"
-#endif // _IRR_COMPILE_WITH_OPENGL_
-
 namespace irr
 {
 namespace cuda

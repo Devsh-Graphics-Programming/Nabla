@@ -9,24 +9,6 @@ using namespace irr;
 using namespace asset;
 using namespace core;
 
-// TODO
-const char* FRAGMENT_SHADER = R"(
-
-	vec3 reinhard(vec3 x) 
-	{
-		return x / (1.0 + x);
-	}
-
-	vec3 aces(vec3 x, float arg1, float arg2, float arg3, float arg4, float arg5) 
-	{
-		return clamp((x * (arg1 * x + arg2)) / (x * (arg3 * x + arg4) + arg5), 0.0, 1.0);
-	}
-
-	void main()
-	{
-		
-	}
-)";
 
 int main(int argc, char* argv[])
 {

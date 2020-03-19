@@ -62,7 +62,10 @@ CommandLineHandler::CommandLineHandler(const int argc, core::vector<std::string>
 		mode = CLM_UNKNOWN;
 
 	if (mode == CLM_UNKNOWN)
+	{
 		os::Printer::log(requiredArgumentsMessage.data(), ELL_ERROR);
+		status = false;
+	}
 	else if (mode == CLM_CMD_LIST || mode == CLM_FILE)
 	{
 		if (std::string(argv[1]) == "-batch")
