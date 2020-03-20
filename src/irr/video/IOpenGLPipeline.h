@@ -4,7 +4,9 @@
 #include "irr/video/COpenGLSpecializedShader.h"
 #include "irr/video/IGPUMeshBuffer.h"//for IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE
 
-namespace irr { 
+#ifdef _IRR_COMPILE_WITH_OPENGL_
+namespace irr
+{ 
 namespace video
 {
 
@@ -179,6 +181,8 @@ private:
     }
 };
 
-}}
+}
+}
+#endif
 
 #endif
