@@ -107,11 +107,43 @@ macro(irr_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
                     \"text\": \"-enable-pretty-printing\",
                     \"ignoreFailures\": true
                 }
-            ]
+            ],
+            \"preLaunchTask\": \"build\" 
         }
     ]
 }")
 		file(WRITE "${PROJECT_BINARY_DIR}/.vscode/launch.json" ${VSCODE_LAUNCH_JSON})
+		set(VSCODE_TASKS_JSON "
+{
+    \"version\": \"0.2.0\",
+    \"command\": \"\",
+    \"args\": [],
+    \"tasks\": [
+        {
+            \"label\": \"build\",
+            \"command\": \"${CMAKE_MAKE_PROGRAM}\",
+            \"type\": \"shell\",
+            \"args\": [
+                \"${EXECUTABLE_NAME}\"
+            ],
+            \"options\": {
+                \"cwd\": \"${CMAKE_BINARY_DIR}\"
+            },
+            \"group\": {
+                \"kind\": \"build\",
+                \"isDefault\": true
+            },
+            \"presentation\": {
+                \"echo\": true,
+                \"reveal\": \"always\",
+                \"focus\": false,
+                \"panel\": \"shared\"
+            },
+            \"problemMatcher\": \"$msCompile\"
+        }
+    ]
+}")
+		file(WRITE "${PROJECT_BINARY_DIR}/.vscode/tasks.json" ${VSCODE_TASKS_JSON})
 	endif()
 endmacro()
 
