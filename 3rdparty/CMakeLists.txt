@@ -161,7 +161,7 @@ add_library(spirv_cross OBJECT
 	spirv_cross/spirv_parser.cpp
 	spirv_cross/spirv_cross_parsed_ir.cpp
 )
-target_compile_definitions(spirv_cross PRIVATE SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
+target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 
 add_library(convert_utf OBJECT
 	convertutf/ConvertUTF.cpp
