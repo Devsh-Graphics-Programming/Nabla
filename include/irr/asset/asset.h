@@ -56,5 +56,6 @@
 #include "irr/asset/IAssetLoader.h"
 #include "irr/asset/IAssetManager.h"
 #include "irr/asset/IAssetWriter.h"
+#include "irr/asset/CPLYPipelineMetadata.h"
 
 #endif

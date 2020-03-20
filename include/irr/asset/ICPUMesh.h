@@ -4,6 +4,7 @@
 #include "irr/asset/IMesh.h"
 #include "irr/asset/IAsset.h"
 #include "irr/asset/ICPUMeshBuffer.h"
+#include "irr/asset/bawformat/blobs/MeshBlob.h"
 
 namespace irr
 {

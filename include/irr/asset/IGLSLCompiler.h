@@ -1,9 +1,11 @@
 #ifndef __IRR_I_GLSL_COMPILER_H_INCLUDED__
 #define __IRR_I_GLSL_COMPILER_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
-
+#include "irr/core/core.h"
 #include "irr/system/system.h"
+
+#include "IReadFile.h"
+#include "IFileSystem.h"
 
 #include "irr/asset/ICPUSpecializedShader.h"
 #include "irr/asset/IIncludeHandler.h"

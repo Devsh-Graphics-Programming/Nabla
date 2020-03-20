@@ -13,6 +13,7 @@
 #include "aabbox3d.h"
 #include "irr/asset/ICPUMeshBuffer.h"
 #include "irr/asset/CCPUMesh.h"
+#include "irr/asset/CCPUSkinnedMesh.h"
 
 namespace irr
 {

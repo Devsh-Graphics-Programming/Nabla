@@ -2,8 +2,11 @@
 #define __IRR_C_MTL_PIPELINE_METADATA_H_INCLUDED__
 
 #include "irr/asset/IPipelineMetadata.h"
+#include "irr/asset/ICPUDescriptorSet.h"
+#include "irr/asset/ICPUPipelineLayout.h"
 
-namespace irr {
+namespace irr
+{
 namespace asset
 {
 
