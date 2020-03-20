@@ -6,6 +6,8 @@
 #include "CSceneManager.h"
 #include <sstream>
 
+#include "CNullDriver.h"
+
 #include "os.h"
 
 // to close the device on terminate signal

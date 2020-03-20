@@ -9,7 +9,9 @@
 #include <cstdint>
 #include <cassert>
 
-namespace irr { namespace asset
+namespace irr
+{
+namespace asset
 {
 
 class CGLSLScanBuiltinIncludeLoader : public asset::IBuiltinIncludeLoader
@@ -66,7 +68,7 @@ private:
     static std::string getBlockInclusiveScanFunctionsPadded(const uint32_t& elementsToReduce, const uint32_t& workgroupSize, const E_GLSL_COMMUTATIVE_OP& oper, const E_GLSL_TYPE& dataType,
                                                         const std::string& namePostfix, const std::string& getterFuncName, const std::string& setterFuncName)
     {
-    return "\n#error \"UNIMPLEMENTED\"\n";
+    	return "\n#error \"UNIMPLEMENTED\"\n";
     }
 
     //! TODO: Later

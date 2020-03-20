@@ -3,6 +3,7 @@
 
 #include "irr/asset/format/EFormat.h"
 #include "irr/asset/bawformat/Blob.h"
+#include "irr/asset/ICPUMesh.h"
 
 namespace irr
 {
@@ -13,6 +14,7 @@ namespace asset
 // forward declarations
 class CFinalBoneHierarchy;
 class ICPUMeshBuffer;
+class ICPUMesh;
 
 namespace legacyv0
 {

@@ -1,8 +1,7 @@
 #include "irr/asset/asset.h"
 
-#ifdef _IRR_COMPILE_WITH_MITSUBA_SERIALIZED_LOADER_
-#include "../../ext/MitsubaLoader/CSerializedLoader.h"
-#endif
+#include "irr/asset/CGeometryCreator.h"
+#include "irr/asset/CMeshManipulator.h"
 
 #ifdef _IRR_COMPILE_WITH_MTL_LOADER_
 #include "irr/asset/CGraphicsPipelineLoaderMTL.h"

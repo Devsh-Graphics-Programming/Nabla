@@ -1,9 +1,9 @@
-#include "irr/core/core.h"
+#include <sstream>
+#include <regex>
+#include <iterator>
 
 #include "irr/asset/IGLSLCompiler.h"
-#include "irr/asset/ICPUShader.h"
 #include "irr/asset/shadercUtils.h"
-#include "IFileSystem.h"
 #include "irr/asset/CIncludeHandler.h"
 #include "irr/asset/CGLSLScanBuiltinIncludeLoader.h"
 #include "irr/asset/CGLSLSkinningBuiltinIncludeLoader.h"
@@ -11,11 +11,8 @@
 #include "irr/asset/CGLSLVertexUtilsBuiltinIncludeLoader.h"
 #include "irr/asset/CGLSLBumpMappingBuiltinIncludeLoader.h"
 #include "irr/asset/CGLSLBrokenDriverWorkaroundsBuiltinIncludeLoader.h"
-#include "IReadFile.h"
+
 #include "os.h"
-#include <sstream>
-#include <regex>
-#include <iterator>
 
 namespace irr
 {

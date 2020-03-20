@@ -22,6 +22,8 @@ SOFTWARE.
 
 #ifdef _IRR_COMPILE_WITH_GLI_LOADER_
 
+#include "os.h"
+
 #ifdef _IRR_COMPILE_WITH_GLI_
 #include "gli/gli.hpp"
 #else
@@ -47,7 +49,7 @@ namespace irr
 				return {};
 
 		    const gli::gl glVersion(gli::gl::PROFILE_GL33);
-			const GLenum target = glVersion.translate(texture.target());
+			const auto target = glVersion.translate(texture.target());
 			const auto format = getTranslatedGLIFormat(texture, glVersion);
 			IImage::E_TYPE imageType;
 			IImageView<ICPUImage>::E_TYPE imageViewType;

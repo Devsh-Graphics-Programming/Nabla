@@ -17,12 +17,17 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+#include <algorithm>
+#include <iostream>
+#include <string>
+#include <unordered_map>
 
 #include "CImageWriterOpenEXR.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENEXR_WRITER_
 
 #include "irr/asset/COpenEXRImageMetadata.h"
+
 #include "openexr/IlmBase/Imath/ImathBox.h"
 #include "openexr/OpenEXR/IlmImf/ImfOutputFile.h"
 #include "openexr/OpenEXR/IlmImf/ImfChannelList.h"
@@ -30,10 +35,6 @@ SOFTWARE.
 #include "openexr/OpenEXR/IlmImf/ImfStringAttribute.h"
 #include "openexr/OpenEXR/IlmImf/ImfMatrixAttribute.h"
 #include "openexr/OpenEXR/IlmImf/ImfArray.h"
-#include <algorithm>
-#include <iostream>
-#include <string>
-#include <unordered_map>
 
 #include "openexr/OpenEXR/IlmImf/ImfNamespace.h"
 namespace IMF = Imf;
@@ -103,7 +104,7 @@ namespace irr
 					}
 			}
 
-			constexpr std::array<char*, availableChannels> rgbaSignatureAsText = { "R", "G", "B", "A" };
+			constexpr std::array<const char*, availableChannels> rgbaSignatureAsText = { "R", "G", "B", "A" };
 			for (uint8_t channel = 0; channel < rgbaSignatureAsText.size(); ++channel)
 			{
 				header.channels().insert(rgbaSignatureAsText[channel], Channel(pixelType));

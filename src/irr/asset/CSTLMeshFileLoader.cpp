@@ -6,10 +6,8 @@
 
 #ifdef _IRR_COMPILE_WITH_STL_LOADER_
 
+#include "irr/asset/asset.h"
 #include "CSTLMeshFileLoader.h"
-#include "irr/asset/normal_quantization.h"
-#include "irr/asset/CCPUMesh.h"
-#include "irr/asset/format/convertColor.h"
 
 #include "IReadFile.h"
 #include "os.h"
@@ -255,7 +253,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 		meshbuffer->setVertexBufferBinding({ 0ul, vertexBuf }, 0);
 	}
 
-	m_assetMgr->setAssetMetadata(mbPipeline.get(), core::make_smart_refctd_ptr<CPLYPipelineMetadata>(1, std::move(shaderInputsMetadata)));
+	m_assetMgr->setAssetMetadata(mbPipeline.get(), core::make_smart_refctd_ptr<CPLYPipelineMetadata>(1, std::move(shaderInputsMetadata))); // WTF?
 	meshbuffer->setPipeline(std::move(mbPipeline));
 	meshbuffer->setIndexCount(positions.size());
 	meshbuffer->setIndexType(asset::EIT_UNKNOWN);

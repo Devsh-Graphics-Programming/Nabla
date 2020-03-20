@@ -17,12 +17,22 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+#include <algorithm>
+#include <iostream>
+#include <string>
+#include <unordered_map>
 
-#include "CImageLoaderOpenEXR.h"
+#include "irr/asset/IAssetManager.h"
+
 
 #ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
 
 #include "irr/asset/COpenEXRImageMetadata.h"
+
+#include "CImageLoaderOpenEXR.h"
+
+#include "os.h"
+
 #include "openexr/IlmBase/Imath/ImathBox.h"
 #include "openexr/OpenEXR/IlmImf/ImfRgbaFile.h"
 #include "openexr/OpenEXR/IlmImf/ImfInputFile.h"
@@ -31,10 +41,6 @@ SOFTWARE.
 #include "openexr/OpenEXR/IlmImf/ImfStringAttribute.h"
 #include "openexr/OpenEXR/IlmImf/ImfMatrixAttribute.h"
 #include "openexr/OpenEXR/IlmImf/ImfArray.h"
-#include <algorithm>
-#include <iostream>
-#include <string>
-#include <unordered_map>
 
 #include "openexr/OpenEXR/IlmImf/ImfNamespace.h"
 namespace IMF = Imf;

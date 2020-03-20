@@ -20,6 +20,8 @@ SOFTWARE.
 
 #include "CGLIWriter.h"
 
+#include "os.h"
+
 #ifdef _IRR_COMPILE_WITH_GLI_WRITER_
 
 #ifdef _IRR_COMPILE_WITH_GLI_

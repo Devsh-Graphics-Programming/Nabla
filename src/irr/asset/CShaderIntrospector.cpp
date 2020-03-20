@@ -1,5 +1,7 @@
 #include "irr/asset/CShaderIntrospector.h"
 
+#include "irr/asset/ICPUMeshBuffer.h"
+
 #include "irr/asset/spvUtils.h"
 #include "spirv_cross/spirv_parser.hpp"
 #include "spirv_cross/spirv_cross.hpp"
