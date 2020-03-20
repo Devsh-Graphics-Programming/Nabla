@@ -76,9 +76,9 @@ class IGLSLCompiler final : public core::IReferenceCounted
 
 		@returns Shader containing logically same GLSL code as input but with #include directives resolved.
 		*/
-        core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
+		core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
 
-        core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(io::IReadFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
+		core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(io::IReadFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
 };
 
 }

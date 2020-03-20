@@ -6,6 +6,9 @@
 #include "irr/core/Types.h"
 #include "irr/asset/ShaderRes.h"
 #include "irr/asset/ICPUSpecializedShader.h"
+#include "irr/asset/ICPUImageView.h"
+#include "irr/asset/ICPUComputePipeline.h"
+#include "irr/asset/ICPURenderpassIndependentPipeline.h"
 #include "irr/asset/IGLSLCompiler.h"
 
 namespace spirv_cross

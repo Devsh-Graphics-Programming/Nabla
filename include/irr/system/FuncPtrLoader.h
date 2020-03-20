@@ -20,7 +20,7 @@ class FuncPtrLoader : public core::Uncopyable
 		}
 		virtual ~FuncPtrLoader() = default;
 
-		inline FuncPtrLoader&& operator=(FuncPtrLoader&& other) {}
+		inline FuncPtrLoader& operator=(FuncPtrLoader&& other) {return *this;}
 	public:
 		virtual bool isLibraryLoaded() = 0;
 

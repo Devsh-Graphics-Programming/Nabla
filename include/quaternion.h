@@ -27,7 +27,7 @@ class quaternion : private vectorSIMDf
 		//! Default Constructor
 		inline quaternion() : vectorSIMDf(0,0,0,1) {}
 
-		inline quaternion(const quaternion& other) {operator=(other);}
+		inline quaternion(const quaternion& other) : vectorSIMDf(static_cast<const vectorSIMDf&>(other)) {}
 
 		inline quaternion(const float* data) : vectorSIMDf(data) {}
 
