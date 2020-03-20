@@ -27,6 +27,8 @@ class quaternion : private vectorSIMDf
 		//! Default Constructor
 		inline quaternion() : vectorSIMDf(0,0,0,1) {}
 
+		inline quaternion(const quaternion& other) {operator=(other);}
+
 		inline quaternion(const float* data) : vectorSIMDf(data) {}
 
 		//! Constructor
@@ -38,7 +40,7 @@ class quaternion : private vectorSIMDf
 		//! Constructor which converts a matrix to a quaternion
 		explicit quaternion(const matrix3x4SIMD& m);
 
-        inline float* getPointer() {return pointer;}
+      		inline float* getPointer() {return pointer;}
 
 		//! Equalilty operator
 		inline vector4db_SIMD operator==(const quaternion& other) const {return vectorSIMDf::operator==(other);}

@@ -296,6 +296,7 @@ namespace core
 				a = _mm_xor_si128(mask,LEFT); \
 				b = _mm_xor_si128(mask,RIGHT); \
 			} \
+			IRR_PSEUDO_IF_CONSTEXPR_END \
 			__m128i result; \
 			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(sizeof(T)==4u) \
 			{ \
@@ -323,8 +324,9 @@ namespace core
         // in MSVC default ctor is not inherited?
         vectorSIMD_32() : Base() {}
 #endif
+		inline vectorSIMD_32(const vectorSIMD_32& other) : Base() {operator=(other);}
 
-        //! Constructor with four different values, FASTEST IF the values are constant literals
+        	//! Constructor with four different values, FASTEST IF the values are constant literals
 		//yes this is correct usage with _mm_set_**(), due to little endianness the thing gets set in "reverse" order
 		inline explicit vectorSIMD_32(T nx, T ny, T nz, T nw) {_mm_store_si128((__m128i*)pointer,_mm_set_epi32(nw,nz,ny,nx));}
 		//! 3d constructor
