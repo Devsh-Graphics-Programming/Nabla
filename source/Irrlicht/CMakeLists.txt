@@ -255,7 +255,7 @@ irr_adjust_definitions() # macro defined in root CMakeLists
 macro(irr_target_link_zlib _trgt)
 	add_dependencies(${_trgt} zlibstatic)
 	target_link_libraries(${_trgt} INTERFACE
-		zlibstatic
+		${ZLIB_LIBRARY_RELEASE}
 	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/zlib)
 endmacro()
