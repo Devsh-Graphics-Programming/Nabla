@@ -15,7 +15,8 @@
 
 cmake_minimum_required(VERSION 3.14)
 #policies
-#cmake_policy(SET CMP0072 NEW) #not yet, would need to get pointers to all OpenGL functions
+cmake_policy(SET CMP0072 OLD) #not yet, would need to get pointers to all OpenGL functions
+set(OpenGL_GL_PREFERENCE LEGACY)
 #cmake_policy(SET CMP )
 
 project(Irrlicht LANGUAGES CXX C)
