@@ -243,7 +243,7 @@ namespace irr
 			const auto beginningOfFile = _file->getPos();
 
 			constexpr auto ddsMagic = 0x20534444;
-			constexpr std::array<uint8_t, 12> ktxMagic = { '«', 'K', 'T', 'X', ' ', '1', '1', '»', '\r', '\n', '\x1A', '\n' };
+			constexpr std::array<uint8_t, 12> ktxMagic = { 174, 'K', 'T', 'X', ' ', '1', '1', 175, '\r', '\n', '\x1A', '\n' };
 			constexpr std::array<uint8_t, 16> kmgMagic = { 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55 };
 
 			if (fileName.rfind(".dds") != std::string::npos)
