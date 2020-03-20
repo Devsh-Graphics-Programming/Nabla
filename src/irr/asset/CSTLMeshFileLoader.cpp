@@ -255,7 +255,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 		meshbuffer->setVertexBufferBinding({ 0ul, vertexBuf }, 0);
 	}
 
-	m_assetMgr->setAssetMetadata(mbPipeline.get(), core::make_smart_refctd_ptr<CPLYPipelineMetadata>(1, std::move(shaderInputsMetadata)));
+	m_assetMgr->setAssetMetadata(mbPipeline.get(), core::make_smart_refctd_ptr<CSTLPipelineMetadata>(std::move(shaderInputsMetadata)));
 	meshbuffer->setPipeline(std::move(mbPipeline));
 	meshbuffer->setIndexCount(positions.size());
 	meshbuffer->setIndexType(asset::EIT_UNKNOWN);

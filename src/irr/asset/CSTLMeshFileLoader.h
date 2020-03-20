@@ -6,6 +6,7 @@
 #define __C_STL_MESH_FILE_LOADER_H_INCLUDED__
 
 #include "irr/asset/IAssetLoader.h"
+#include "irr/asset/CSTLPipelineMetadata.h"
 
 namespace irr
 {
