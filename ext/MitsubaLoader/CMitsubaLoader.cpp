@@ -149,7 +149,7 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 	case CElementBSDF::Type::BUMPMAP:
 		break;
 	case CElementBSDF::Type::PHONG:
-		assert(0);//we dont care about PHONG
+		_IRR_DEBUG_BREAK_IF(1);//we dont care about PHONG
 		break;
 	case CElementBSDF::Type::WARD:
 		if (_node->ward.alphaU.value.type==SPropertyElementData::FLOAT)
@@ -1002,7 +1002,7 @@ void CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 			_IRR_FALLTHROUGH;
 		case CElementBSDF::Type::BUMPMAP:
 			_1stdword &= (~(bsdf::INSTR_NORMAL_REG_MASK<<bsdf::INSTR_NORMAL_REG_SHIFT));//zero-out normal reg bitfield
-			assert(firstFreeNormalReg<=bsdf::INSTR_NORMAL_REG_MASK);
+			_IRR_DEBUG_BREAK_IF(firstFreeNormalReg>bsdf::INSTR_NORMAL_REG_MASK);
 			_1stdword |= (firstFreeNormalReg & bsdf::INSTR_NORMAL_REG_MASK) << bsdf::INSTR_NORMAL_REG_SHIFT;//write new val
 			++firstFreeNormalReg;
 			stack.push({_bsdf,_1stdword,false,0});
@@ -1053,7 +1053,7 @@ void CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 			stack.push({_bsdf,_1stdword,false,0});
 			break;
 		case CElementBSDF::Type::PHONG:
-			assert(0);
+			_IRR_DEBUG_BREAK_IF(1);
 			break;
 		}
 	};

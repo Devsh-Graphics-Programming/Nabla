@@ -6,55 +6,13 @@
 #include "irr/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "irr/core/alloc/PoolAddressAllocator.h"
 #include "irr/core/math/morton.h"
+#include "irr/core/alloc/address_allocator_traits.h"
 
 namespace irr {
 namespace asset
 {
 
-//TODO move this to different file
-template<typename addr_type>
-class CSquareAddressAllocator
-{
-protected:
-    using lin_addr_alctr_t = core::GeneralpurposeAddressAllocator<addr_type>;
-
-    const uint32_t ADDR_MORTON_MASK;
-
-    core::smart_refctd_dynamic_array<uint8_t> m_alctrReservedSpace;
-    lin_addr_alctr_t m_addrAlctr;
-
-public:
-    _IRR_STATIC_INLINE_CONSTEXPR addr_type invalid_address = lin_addr_alctr_t::invalid_address;
-
-    CSquareAddressAllocator(uint32_t _squareSz) :
-        ADDR_MORTON_MASK((_squareSz*_squareSz)-1u),
-        m_alctrReservedSpace(core::make_refctd_dynamic_array<decltype(m_alctrReservedSpace)>(
-            lin_addr_alctr_t::reserved_size(_squareSz*_squareSz, _squareSz*_squareSz, 1ull))
-        ),
-        m_addrAlctr(reinterpret_cast<void*>(m_alctrReservedSpace->data()), 0u, 0u, _squareSz*_squareSz, _squareSz*_squareSz, 1u)
-    {}
-
-    inline addr_type alloc_addr(size_t _subsquareSz)
-    {
-        const size_t cnt = _subsquareSz;
-        return m_addrAlctr.alloc_addr(cnt*cnt, cnt*cnt);
-    }
-    inline void free_addr(addr_type _addr, size_t _subsquareSz)
-    {
-        m_addrAlctr.free_addr(_addr, _subsquareSz*_subsquareSz);
-    }
-
-    inline addr_type unpackAddress_x(addr_type _addr) const
-    {
-        return core::morton2d_decode_x(_addr&ADDR_MORTON_MASK);
-    }
-    inline addr_type unpackAddress_y(addr_type _addr) const
-    {
-        return core::morton2d_decode_y(_addr&ADDR_MORTON_MASK);
-    }
-};
-
-class ITexturePacker : public core::IReferenceCounted
+class ITexturePacker
 {
 protected:
     const uint32_t ADDR_LAYER_SHIFT;
@@ -63,58 +21,11 @@ protected:
 
     const uint32_t m_pgSzxy;
     const uint32_t m_tilesPerDim;
-    CSquareAddressAllocator<uint32_t> m_pgtAddrAlctr;
 
-public:
-    using page_tab_offset_t = core::vector2du32_SIMD;
-    static page_tab_offset_t page_tab_offset_invalid() { return page_tab_offset_t(~0u,~0u); }
+    using pg_tab_addr_alctr_t = core::GeneralpurposeAddressAllocator<uint32_t>;
+    core::smart_refctd_dynamic_array<uint8_t> m_pgTabAddrAlctr_reservedSpc;
+    pg_tab_addr_alctr_t m_pgTabAddrAlctr;
 
-    ITexturePacker(uint32_t _pgTabSzxy, uint32_t _pgSzxy = 256u, uint32_t _tilesPerDim = 32u) :
-        ADDR_LAYER_SHIFT(core::findMSB(_tilesPerDim)<<1),
-        ADDR_MORTON_MASK((1u<<ADDR_LAYER_SHIFT)-1u),
-        PHYS_PG_OFFSET_X_MASK((1u<<(ADDR_LAYER_SHIFT>>1))-1u),
-        m_pgSzxy(_pgSzxy),
-        m_tilesPerDim(_tilesPerDim),
-        m_pgtAddrAlctr(_pgTabSzxy)
-    {
-        assert(core::isPoT(_pgTabSzxy));//because of allocation using morton codes
-        assert(core::isPoT(_tilesPerDim)); //actually physical addr tex doesnt even have to be square nor PoT, but it makes addr/offset encoding easier
-        assert(core::isPoT(_pgSzxy));//because of packing mip-tail
-    }
-
-    page_tab_offset_t alloc(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres)
-    {
-        const uint32_t pgSqrSz = computeSquareSz(_img, _subres);
-
-        const uint32_t addr = m_pgtAddrAlctr.alloc_addr(pgSqrSz);
-        return (addr==CSquareAddressAllocator<uint32_t>::invalid_address) ? 
-            page_tab_offset_invalid() :
-            page_tab_offset_t(m_pgtAddrAlctr.unpackAddress_x(addr), m_pgtAddrAlctr.unpackAddress_y(addr));
-    }
-    virtual void free(page_tab_offset_t _addr, const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres)
-    {
-        if ((_addr==page_tab_offset_invalid()).all())
-            return;
-
-        const uint32_t pgSqrSz = computeSquareSz(_img, _subres);
-
-        m_pgtAddrAlctr.free_addr(core::morton2d_encode(_addr.x,_addr.y), pgSqrSz);
-    }
-
-private:
-    uint32_t computeSquareSz(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres)
-    {
-        auto extent = _img->getCreationParameters().extent;
-
-        const uint32_t w = std::max(extent.width>>_subres.baseMipLevel,1u);
-        const uint32_t h = std::max(extent.height>>_subres.baseMipLevel,1u);
-
-        return core::roundUpToPoT((std::max(w,h)+m_pgSzxy-1u)/m_pgSzxy);
-    }
-};
-
-class ICPUTexturePacker : protected ITexturePacker
-{
 public:
     //! SPhysPgOffset is what is stored in texels of page table!
     struct SPhysPgOffset
@@ -141,6 +52,72 @@ public:
     bool physPgOffset_hasMipTailAddr(SPhysPgOffset _offset) const { return physPgOffset_valid(physPgOffset_mipTailAddr(_offset)); }
     SPhysPgOffset physPgOffset_mipTailAddr(SPhysPgOffset _offset) const { return _offset.addr>>16; }
 
+
+    using page_tab_offset_t = core::vector2du32_SIMD;
+    static page_tab_offset_t page_tab_offset_invalid() { return page_tab_offset_t(~0u,~0u); }
+
+    ITexturePacker(uint32_t _pgTabSzxy, uint32_t _pgSzxy = 256u, uint32_t _tilesPerDim = 32u) :
+        ADDR_LAYER_SHIFT(core::findMSB(_tilesPerDim)<<1),
+        ADDR_MORTON_MASK((1u<<ADDR_LAYER_SHIFT)-1u),
+        PHYS_PG_OFFSET_X_MASK((1u<<(ADDR_LAYER_SHIFT>>1))-1u),
+        m_pgSzxy(_pgSzxy),
+        m_tilesPerDim(_tilesPerDim),
+        m_pgTabAddrAlctr_reservedSpc(core::make_refctd_dynamic_array<decltype(m_pgTabAddrAlctr_reservedSpc)>(pg_tab_addr_alctr_t::reserved_size(_pgTabSzxy*_pgTabSzxy, _pgTabSzxy*_pgTabSzxy, 1u))),
+        m_pgTabAddrAlctr(m_pgTabAddrAlctr_reservedSpc->data(), 0u, 0u, _pgSzxy*_pgSzxy, _pgSzxy*_pgSzxy, 1u)
+    {
+        assert(core::isPoT(_pgTabSzxy));//because of allocation using morton codes
+        assert(core::isPoT(_tilesPerDim)); //actually physical addr tex doesnt even have to be square nor PoT, but it makes addr/offset encoding easier
+        assert(core::isPoT(_pgSzxy));//because of packing mip-tail
+    }
+
+    virtual ~ITexturePacker() = default;
+
+    page_tab_offset_t alloc(const IImage* _img, const IImage::SSubresourceRange& _subres)
+    {
+        uint32_t szAndAlignment = computeSquareSz(_img, _subres);
+        szAndAlignment *= szAndAlignment;
+
+        uint32_t addr{};
+        core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_alloc_addr(m_pgTabAddrAlctr, 1u, &addr, &szAndAlignment, &szAndAlignment, nullptr);
+        return (addr==pg_tab_addr_alctr_t::invalid_address) ? 
+            page_tab_offset_invalid() :
+            page_tab_offset_t(core::morton2d_decode_x(addr), core::morton2d_decode_y(addr));
+    }
+    virtual void free(page_tab_offset_t _addr, const IImage* _img, const IImage::SSubresourceRange& _subres)
+    {
+        if ((_addr==page_tab_offset_invalid()).all())
+            return;
+
+        uint32_t sz = computeSquareSz(_img, _subres);
+        sz *= sz;
+        const uint32_t addr = core::morton2d_encode(_addr.x, _addr.y);
+
+        core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_free_addr(m_pgTabAddrAlctr, 1u, &addr, &sz);
+    }
+
+private:
+    uint32_t computeSquareSz(const IImage* _img, const ICPUImage::SSubresourceRange& _subres)
+    {
+        auto extent = _img->getCreationParameters().extent;
+
+        const uint32_t w = std::max(extent.width>>_subres.baseMipLevel,1u);
+        const uint32_t h = std::max(extent.height>>_subres.baseMipLevel,1u);
+
+        return core::roundUpToPoT((std::max(w,h)+m_pgSzxy-1u)/m_pgSzxy);
+    }
+};
+
+class ICPUTexturePacker : public core::IReferenceCounted, protected ITexturePacker
+{
+    uint32_t maxAllocatableTextureSz() const { return m_pgSzxy<<m_pageTable->getCreationParameters().mipLevels; }
+
+protected:
+    virtual ~ICPUTexturePacker() = default;
+
+public:
+    _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_PHYSICAL_PAGE_SIZE_LOG2 = 9u;
+    _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_PHYSICAL_PAGE_SIZE = 1u<<MAX_PHYSICAL_PAGE_SIZE_LOG2;
+
     uint32_t physAddrTexLayerSz() const
     {
         return m_tilesPerDim*(TILE_PADDING+m_pgSzxy) + TILE_PADDING;
@@ -160,14 +137,15 @@ public:
         {
             int x, y, mx, my;
         };
-        static bool computeMiptailOffsets(rect* res, int log2SIZE, int padding);
+        static bool computeMiptailOffsets(rect* res, int log2SIZE, int padding=9);
     };
 
-    ICPUTexturePacker(E_FORMAT _format, uint32_t _pgTabSzxy, uint32_t _pgSzxy = 256u, uint32_t _tilesPerDim = 32u, uint32_t _numLayers = 4u, uint32_t _tilePad = 9u/*max_aniso/2+1*/) :
+    ICPUTexturePacker(E_FORMAT_CLASS _fclass, E_FORMAT _format, uint32_t _pgTabSzxy, uint32_t _maxMipLevels, uint32_t _pgSzxy = 256u, uint32_t _tilesPerDim = 32u, uint32_t _numLayers = 4u, uint32_t _tilePad = 9u/*max_aniso/2+1*/) :
         ITexturePacker(_pgTabSzxy, _pgSzxy, _tilesPerDim), TILE_PADDING(_tilePad),
-        m_physPgAddrAlctr_reservedSpc(core::make_refctd_dynamic_array<decltype(m_physPgAddrAlctr_reservedSpc)>(phys_pg_addr_alctr_t::reserved_size(1u, _tilesPerDim*_tilesPerDim, 1u))),
+        m_physPgAddrAlctr_reservedSpc(core::make_refctd_dynamic_array<decltype(m_physPgAddrAlctr_reservedSpc)>(phys_pg_addr_alctr_t::reserved_size(1u, _numLayers*_tilesPerDim*_tilesPerDim, 1u))),
         m_physPgAddrAlctr(m_physPgAddrAlctr_reservedSpc->data(), 0u, 0u, 1u, _numLayers*_tilesPerDim*_tilesPerDim, 1u)
     {
+        assert(getFormatClass(_format)==_fclass);
         {
             const uint32_t SZ = physAddrTexLayerSz();
 
@@ -200,7 +178,7 @@ public:
             params.extent = {_pgTabSzxy,_pgTabSzxy,1u};
             params.flags = static_cast<ICPUImage::E_CREATE_FLAGS>(0);
             params.format = EF_R16G16_UINT;
-            params.mipLevels = core::findMSB(_pgTabSzxy)+1;
+            params.mipLevels = _maxMipLevels;
             params.samples = ICPUImage::ESCF_1_BIT;
             params.type = IImage::ET_2D;
             m_pageTable = ICPUImage::create(std::move(params));
@@ -238,7 +216,7 @@ public:
         assert(ok);
     }
 
-    void free(page_tab_offset_t _addr, const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres) override
+    void free(page_tab_offset_t _addr, const IImage* _img, const IImage::SSubresourceRange& _subres) override
     {
         //free physical pages
         auto extent = _img->getCreationParameters().extent;
@@ -265,9 +243,9 @@ public:
                     {
                         pgTab[linTexelAddr] = SPhysPgOffset::invalid_addr;
 
-                        m_physPgAddrAlctr.free_addr(physPgOffset.addr&0xffffu, 1u);
-                        if (physPgOffset_hasMipTailAddr(physPgOffset))
-                            m_physPgAddrAlctr.free_addr(physPgOffset_mipTailAddr(physPgOffset).addr&0xffffu, 1u);
+                        uint32_t addrs[2] { physPgOffset.addr&0xffffu, physPgOffset_mipTailAddr(physPgOffset).addr&0xffffu };
+                        const uint32_t szs[2]{ 1u,1u };
+                        core::address_allocator_traits<phys_pg_addr_alctr_t>::multi_free_addr(m_physPgAddrAlctr, physPgOffset_hasMipTailAddr(physPgOffset) ? 2u : 1u, addrs, szs);
                     }
                 }
         }
@@ -278,12 +256,18 @@ public:
 
     page_tab_offset_t pack(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres)
     {
-        //assert(m_megaimg->getCreationParameters().format==_img->getCreationParameters().format);
+        if (getFormatClass(_img->getCreationParameters().format)!=getFormatClass(m_physAddrTex->getCreationParameters().format))
+            return page_tab_offset_invalid();
+
+        const auto extent = _img->getCreationParameters().extent;
+
+        if ((extent.width>>_subres.baseMipLevel) > maxAllocatableTextureSz() || (extent.height>>_subres.baseMipLevel) > maxAllocatableTextureSz())
+            return page_tab_offset_invalid();
+
         const page_tab_offset_t pgtOffset = alloc(_img, _subres);
         if ((pgtOffset==page_tab_offset_invalid()).all())
             return pgtOffset;
 
-        auto extent = _img->getCreationParameters().extent;
         const uint32_t levelCount = countLevelsTakingAtLeastOnePage(extent, _subres);
 
         uint32_t miptailPgAddr = SPhysPgOffset::invalid_addr;
@@ -305,8 +289,15 @@ public:
             for (uint32_t y = 0u; y < h; ++y)
                 for (uint32_t x = 0u; x < w; ++x)
                 {
-                    uint32_t physPgAddr = (i>=levelCount) ? miptailPgAddr : m_physPgAddrAlctr.alloc_addr(1u, 1u);
-                    assert(physPgAddr<SPhysPgOffset::invalid_addr);
+                    uint32_t physPgAddr{};
+                    if (i>=levelCount)
+                        physPgAddr = miptailPgAddr;
+                    else
+                    {
+                        const uint32_t szAndAlignment = 1u;
+                        core::address_allocator_traits<phys_pg_addr_alctr_t>::multi_alloc_addr(m_physPgAddrAlctr, 1u, &physPgAddr, &szAndAlignment, &szAndAlignment, nullptr);
+                    }
+                    //assert(physPgAddr<SPhysPgOffset::invalid_addr);
                     if (physPgAddr==phys_pg_addr_alctr_t::invalid_address)
                     {
                         free(pgtOffset, _img, _subres);
@@ -316,7 +307,9 @@ public:
                     if (i==(levelCount-1u) && levelCount<_subres.levelCount)
                     {
                         assert(w==1u && h==1u);
-                        uint32_t physMiptailPgAddr = m_physPgAddrAlctr.alloc_addr(1u, 1u);
+                        uint32_t physMiptailPgAddr{};
+                        const uint32_t szAndAlignment = 1u;
+                        core::address_allocator_traits<phys_pg_addr_alctr_t>::multi_alloc_addr(m_physPgAddrAlctr, 1u, &physMiptailPgAddr, &szAndAlignment, &szAndAlignment, nullptr);
                         assert(physMiptailPgAddr<SPhysPgOffset::invalid_addr);
                         miptailPgAddr = physMiptailPgAddr = (physMiptailPgAddr==phys_pg_addr_alctr_t::invalid_address) ? SPhysPgOffset::invalid_addr : physMiptailPgAddr;
                         physPgAddr |= (physMiptailPgAddr<<16);
@@ -390,10 +383,10 @@ private:
     core::smart_refctd_dynamic_array<uint8_t> m_physPgAddrAlctr_reservedSpc;
     phys_pg_addr_alctr_t m_physPgAddrAlctr;
 
-    SMiptailPacker::rect m_miptailOffsets[9];
+    SMiptailPacker::rect m_miptailOffsets[MAX_PHYSICAL_PAGE_SIZE_LOG2];
 };
 
-bool ICPUTexturePacker::SMiptailPacker::computeMiptailOffsets(rect* res, int log2SIZE, int padding=9)
+bool ICPUTexturePacker::SMiptailPacker::computeMiptailOffsets(rect* res, int log2SIZE, int padding)
 {
     if (log2SIZE<7 || log2SIZE>10)
         return false;
