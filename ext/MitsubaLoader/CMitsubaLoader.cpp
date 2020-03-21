@@ -378,6 +378,23 @@ CMitsubaLoader::SContext::group_ass_type CMitsubaLoader::loadShapeGroup(SContext
 	return mesh;
 }
 
+//TODO : vtx input and assembly params are now ignored (mb is created without pipeline), later they need to be somehow forwarded and set on already created pipeline
+static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeometryCreator::return_type&& _data)
+{
+	auto mb = core::make_smart_refctd_ptr<ICPUMeshBuffer>(
+		nullptr, nullptr,
+		_data.bindings, std::move(_data.indexBuffer)
+	);
+	mb->setIndexCount(_data.indexCount);
+	mb->setIndexType(_data.indexType);
+	mb->setBoundingBox(_data.bbox);
+
+	auto mesh = core::make_smart_refctd_ptr<CCPUMesh>();
+	mesh->addMeshBuffer(std::move(mb));
+
+	return mesh;
+}
+
 CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape)
 {
 	auto found = ctx.shapeCache.find(shape);
@@ -447,14 +464,12 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 		{
 			auto cubeData = ctx.creator->createCubeMesh(core::vector3df(2.f));
 
-
-
-			mesh = ctx.creator->createCubeMesh(core::vector3df(2.f));
+			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createCubeMesh(core::vector3df(2.f)));
 			flipNormals = flipNormals!=shape->cube.flipNormals;
 		}
 			break;
 		case CElementShape::Type::SPHERE:
-			mesh = ctx.creator->createSphereMesh(1.f,64u,64u);
+			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createSphereMesh(1.f,64u,64u));
 			flipNormals = flipNormals!=shape->sphere.flipNormals;
 			{
 				core::matrix3x4SIMD tform;
@@ -466,7 +481,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 		case CElementShape::Type::CYLINDER:
 			{
 				auto diff = shape->cylinder.p0-shape->cylinder.p1;
-				mesh = ctx.creator->createCylinderMesh(1.f, 1.f, 64);
+				mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createCylinderMesh(1.f, 1.f, 64));
 				core::vectorSIMDf up(0.f);
 				float maxDot = diff[0];
 				uint32_t index = 0u;
@@ -487,11 +502,11 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 			flipNormals = flipNormals!=shape->cylinder.flipNormals;
 			break;
 		case CElementShape::Type::RECTANGLE:
-			mesh = ctx.creator->createRectangleMesh(core::vector2df_SIMD(1.f,1.f));
+			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createRectangleMesh(core::vector2df_SIMD(1.f,1.f)));
 			flipNormals = flipNormals!=shape->rectangle.flipNormals;
 			break;
 		case CElementShape::Type::DISK:
-			mesh = ctx.creator->createDiskMesh(1.f,64u);
+			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createDiskMesh(1.f,64u));
 			flipNormals = flipNormals!=shape->disk.flipNormals;
 			break;
 		case CElementShape::Type::OBJ:
@@ -513,10 +528,10 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 				{
 					auto meshbuffer = mesh->getMeshBuffer(i);
 					core::vectorSIMDf uv;
-					for (uint32_t i=0u; meshbuffer->getAttribute(uv, asset::EVAI_ATTR2, i); i++)
+					for (uint32_t i=0u; meshbuffer->getAttribute(uv, 2u, i); i++)
 					{
 						uv.y = -uv.y;
-						meshbuffer->setAttribute(uv, asset::EVAI_ATTR2, i);
+						meshbuffer->setAttribute(uv, 2u, i);
 					}
 				}
 			}
@@ -528,7 +543,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 			flipNormals = flipNormals!=shape->ply.flipNormals;
 			faceNormals = shape->ply.faceNormals;
 			maxSmoothAngle = shape->ply.maxSmoothAngle;
-			if (mesh && shape->ply.srgb)
+			if (mesh && shape->ply.srgb)//TODO this probably shouldnt modify original mesh (the one cached in asset cache)
 			{
 				uint32_t totalVertexCount = 0u;
 				for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
@@ -543,14 +558,21 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 						auto meshbuffer = mesh->getMeshBuffer(i);
 						uint32_t offset = reinterpret_cast<uint8_t*>(it)-reinterpret_cast<uint8_t*>(newRGB->getPointer());
 						core::vectorSIMDf rgb;
-						for (uint32_t i=0u; meshbuffer->getAttribute(rgb, asset::EVAI_ATTR1, i); i++,it++) // should be upstreamed into the PLY loader
+						for (uint32_t i=0u; meshbuffer->getAttribute(rgb, 1u, i); i++,it++) // should be upstreamed into the PLY loader
 						{
 							for (auto i=0; i<3u; i++)
 								rgb[i] = video::impl::srgb2lin(rgb[i]);
 							meshbuffer->setAttribute(rgb,it,asset::EF_A2B10G10R10_UNORM_PACK32);
 						}
-						meshbuffer->getMeshDataAndFormat()->setVertexAttrBuffer(
-								core::smart_refctd_ptr(newRGB),asset::EVAI_ATTR1,asset::EF_A2B10G10R10_UNORM_PACK32,hidefRGBSize,offset);
+						constexpr uint32_t COLOR_BUF_BINDING = 15u;
+						auto& vtxParams = meshbuffer->getPipeline()->getVertexInputParams();
+						vtxParams.attributes[1].format = EF_A2B10G10R10_UNORM_PACK32;
+						vtxParams.attributes[1].relativeOffset = 0u;
+						vtxParams.attributes[1].binding = COLOR_BUF_BINDING;
+						vtxParams.bindings[COLOR_BUF_BINDING].inputRate = EVIR_PER_VERTEX;
+						vtxParams.bindings[COLOR_BUF_BINDING].stride = hidefRGBSize;
+						vtxParams.enabledBindingFlags |= (1u<<COLOR_BUF_BINDING);
+						meshbuffer->setVertexBufferBinding({0ull,core::smart_refctd_ptr(newRGB)}, COLOR_BUF_BINDING);
 					}
 				}
 			}
@@ -589,7 +611,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 		{
 			ctx.manipulator->filterInvalidTriangles(mesh->getMeshBuffer(i));
 			auto newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(mesh->getMeshBuffer(i));
-			ctx.manipulator->calculateSmoothNormals(newMeshBuffer.get(), false, 0.f, asset::EVAI_ATTR3,
+			ctx.manipulator->calculateSmoothNormals(newMeshBuffer.get(), false, 0.f, newMeshBuffer->getNormalAttributeIx(),
 				[&](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
 				{
 					if (faceNormals)
@@ -742,7 +764,22 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 	if (found != ctx.textureCache.end())
 		return found->second;
 
-	video::SMaterialLayer<asset::ICPUTexture> layer;
+	ICPUImageView::SCreationParams viewParams;
+	viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0);
+	viewParams.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+	viewParams.subresourceRange.baseArrayLayer = 0u;
+	viewParams.subresourceRange.layerCount = 1u;
+	viewParams.subresourceRange.baseMipLevel = 0u;
+	viewParams.viewType = IImageView<ICPUImage>::ET_2D;
+	ICPUSampler::SParams samplerParams;
+	samplerParams.AnisotropicFilter = core::max(core::findMSB(uint32_t(tex->bitmap.maxAnisotropy)),1);
+	samplerParams.LodBias = 0.f;
+	samplerParams.TextureWrapW = ISampler::ETC_REPEAT;
+	samplerParams.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+	samplerParams.CompareEnable = false;
+	samplerParams.CompareFunc = ISampler::ECO_NEVER;
+	samplerParams.MaxLod = 10000.f;
+	samplerParams.MinLod = 0.f;
 	switch (tex->type)
 	{
 		case CElementTexture::Type::BITMAP:
@@ -753,99 +790,46 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 				{
 					auto asset = contentRange.first[0];
 					if (asset && asset->getAssetType() == asset::IAsset::ET_IMAGE)
-					{/*
-						auto 
-						{
-							const void* src_container[4] = { data, nullptr, nullptr, nullptr };
-							video::convertColor<EF_R8_UNORM, EF_R8_SRGB>(src_container, data, dim.X, dim); 
-						}*/
-						video::convertColor<asset::EF_R8G8B8A8_SRGB, asset::EF_B8G8R8A8_SRGB>(nullptr, nullptr, 0, core::vector3d<uint32_t>(0,0,0));
-						auto texture = core::smart_refctd_ptr_static_cast<asset::ICPUTexture>(asset);
-						auto getSingleChannelFormat = [](asset::E_FORMAT format, uint32_t index) -> asset::E_FORMAT
-						{
-							auto ratio = asset::getBytesPerPixel(format);
-							ratio = decltype(ratio)(ratio.getNumerator(),ratio.getDenominator()*asset::getFormatChannelCount(format));
-							switch (ratio.getRoundedUpInteger())
-							{
-								case 1:
-									if (asset::isSRGBFormat(format))
-										return index!=3 ? format:asset::EF_R8_UNORM;
-									else
-									{
-										bool _signed = asset::isSignedFormat(format);
-										if (asset::isIntegerFormat(format))
-											return _signed ? asset::EF_R8_SINT : asset::EF_R8_UINT;
-										else
-											return _signed ? asset::EF_R8_SNORM:asset::EF_R8_UNORM;
-									}
-									break;
-								case 2:
-									if (asset::isFloatingPointFormat(format))
-										return asset::EF_R16_SFLOAT;
-									else
-									{
-										bool _signed = asset::isSignedFormat(format);
-										if (asset::isIntegerFormat(format))
-											return _signed ? asset::EF_R16_SINT : asset::EF_R16_UINT;
-										else
-											return _signed ? asset::EF_R16_SNORM:asset::EF_R16_UNORM;
-									}
-								case 3:
-									_IRR_FALLTHROUGH;
-								case 4:
-									if (asset::isFloatingPointFormat(format))
-										return asset::EF_R32_SFLOAT;
-									else if (asset::isSignedFormat(format))
-										return asset::EF_R32_SINT;
-									else
-										return asset::EF_R32_UINT;
-									break;
-								default:
-									break;
-							}
-							return format;
-						};
-						// TODO: scrap this
-						auto extractChannel = [&](uint32_t index) -> core::smart_refctd_ptr<asset::ICPUTexture>
-						{
-							core::vector<asset::CImageData*> subimages; // this will leak like crazy
-							for (uint32_t level=0u; level<=texture->getHighestMip(); level)
-							{
-								auto rng = texture->getMipMap(level);
-								for (auto it=rng.first; it!=rng.second; it++)
-								{
-									auto* olddata = *it;
-									auto format = getSingleChannelFormat(olddata->getColorFormat(), index);
-									auto* data = new asset::CImageData(nullptr,olddata->getSliceMin(),olddata->getSliceMax(),olddata->getSupposedMipLevel(),format);
-									_IRR_DEBUG_BREAK_IF(true);
-									subimages.push_back(data);
-								}
-							}
-							return core::smart_refctd_ptr<asset::ICPUTexture>(asset::ICPUTexture::create(std::move(subimages), texture->getSourceFilename(), texture->getType()), core::dont_grab);
-						};
+					{
+						auto texture = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
+
 						//  TODO: instead of making new texure with extracted channel just create a buffer view with appropriate rrrr,gggg,bbbb,aaaa swizzle
 						switch (tex->bitmap.channel)
 						{
 							// no GL_R8_SRGB support yet
 							case CElementTexture::Bitmap::CHANNEL::R:
-								layer.Texture = extractChannel(0);
+								{
+								constexpr auto RED = ICPUImageView::SComponentMapping::ES_R;
+								viewParams.components = {RED,RED,RED,RED};
+								}
 								break;
 							case CElementTexture::Bitmap::CHANNEL::G:
-								layer.Texture = extractChannel(1);
+								{
+								constexpr auto GREEN = ICPUImageView::SComponentMapping::ES_G;
+								viewParams.components = {GREEN,GREEN,GREEN,GREEN};
+								}
 								break;
 							case CElementTexture::Bitmap::CHANNEL::B:
-								layer.Texture = extractChannel(2);
+								{
+								constexpr auto BLUE = ICPUImageView::SComponentMapping::ES_B;
+								viewParams.components = {BLUE,BLUE,BLUE,BLUE};
+								}
 								break;
 							case CElementTexture::Bitmap::CHANNEL::A:
-								layer.Texture = extractChannel(3);
+								{
+								constexpr auto ALPHA = ICPUImageView::SComponentMapping::ES_A;
+								viewParams.components = {ALPHA,ALPHA,ALPHA,ALPHA};
+								}
 								break;/* special conversions needed to CIE space
 							case CElementTexture::Bitmap::CHANNEL::X:
 							case CElementTexture::Bitmap::CHANNEL::Y:
 							case CElementTexture::Bitmap::CHANNEL::Z:*/
 							default:
-								layer.Texture = std::move(texture);
 								break;
 						}
+						viewParams.subresourceRange.levelCount = texture->getCreationParameters().mipLevels;
+						viewParams.format = texture->getCreationParameters().format;
+						viewParams.image = std::move(texture);
 						//! TODO: this stuff (custom shader sampling code?)
 						_IRR_DEBUG_BREAK_IF(tex->bitmap.uoffset != 0.f);
 						_IRR_DEBUG_BREAK_IF(tex->bitmap.voffset != 0.f);
@@ -863,24 +847,25 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 					case CElementTexture::Bitmap::FILTER_TYPE::EWA:
 						_IRR_FALLTHROUGH; // we dont support this fancy stuff
 					case CElementTexture::Bitmap::FILTER_TYPE::TRILINEAR:
-						layer.SamplingParams.MinFilter = video::ETFT_LINEAR_LINEARMIP;
-						layer.SamplingParams.MaxFilter = video::ETFT_LINEAR_NO_MIP;
+						samplerParams.MinFilter = ISampler::ETF_LINEAR;
+						samplerParams.MaxFilter = ISampler::ETF_LINEAR;
+						samplerParams.MipmapMode = ISampler::ESMM_LINEAR;
 						break;
 					default:
-						layer.SamplingParams.MinFilter = video::ETFT_NEAREST_NEARESTMIP;
-						layer.SamplingParams.MaxFilter = video::ETFT_NEAREST_NO_MIP;
+						samplerParams.MinFilter = ISampler::ETF_NEAREST;
+						samplerParams.MaxFilter = ISampler::ETF_NEAREST;
+						samplerParams.MipmapMode = ISampler::ESMM_NEAREST;
 						break;
 				}
-				layer.SamplingParams.AnisotropicFilter = core::max(core::findMSB(uint32_t(tex->bitmap.maxAnisotropy)),1);
-				auto getWrapMode = [](CElementTexture::Bitmap::WRAP_MODE mode) -> video::E_TEXTURE_CLAMP
+				auto getWrapMode = [](CElementTexture::Bitmap::WRAP_MODE mode)// -> video::E_TEXTURE_CLAMP
 				{
 					switch (mode)
 					{
 						case CElementTexture::Bitmap::WRAP_MODE::CLAMP:
-							return video::ETC_CLAMP_TO_EDGE;
+							return ISampler::ETC_CLAMP_TO_EDGE;
 							break;
 						case CElementTexture::Bitmap::WRAP_MODE::MIRROR:
-							return video::ETC_MIRROR;
+							return ISampler::ETC_MIRROR;
 							break;
 						case CElementTexture::Bitmap::WRAP_MODE::ONE:
 							_IRR_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
@@ -889,12 +874,12 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 							_IRR_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
 							break;
 						default:
+							return ISampler::ETC_REPEAT;
 							break;
 					}
-					return video::ETC_REPEAT;
 				};
-				layer.SamplingParams.TextureWrapU = getWrapMode(tex->bitmap.wrapModeU);
-				layer.SamplingParams.TextureWrapV = getWrapMode(tex->bitmap.wrapModeV);
+				samplerParams.TextureWrapU = getWrapMode(tex->bitmap.wrapModeU);
+				samplerParams.TextureWrapV = getWrapMode(tex->bitmap.wrapModeV);
 			}
 			break;
 		case CElementTexture::Type::SCALE:
@@ -905,8 +890,12 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 			_IRR_DEBUG_BREAK_IF(true);
 			break;
 	}
-	ctx.textureCache.insert({tex,layer});
-	return std::move(layer);
+	auto view = core::make_smart_refctd_ptr<ICPUImageView>(std::move(viewParams));
+	auto sampler = core::make_smart_refctd_ptr<ICPUSampler>(samplerParams);
+	SContext::tex_ass_type tex_ass{std::move(view),std::move(sampler)};
+	ctx.textureCache.insert({tex,tex_ass});
+
+	return tex_ass;
 }
 
 static bsdf::E_OPCODE BSDFtype2opcode(const CElementBSDF* bsdf)
@@ -1164,7 +1153,7 @@ void CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 			if (top.bsdf)//if top.bsdf is nullptr, then bsdf buf offset will be irrelevant for this instruction (may be any value and won't ever be fetched anyway)
 			{
 				ctx.bsdfBuffer.push_back(
-					bsdfNode2bsdfStruct(top.bsdf, top.bsdf->type==CElementBSDF::Type::MIXTURE_BSDF ? top.bsdf->mixturebsdf.weights[top.weight_ix] : 0u)
+					bsdfNode2bsdfStruct(ctx, top.bsdf, top.bsdf->type==CElementBSDF::Type::MIXTURE_BSDF ? top.bsdf->mixturebsdf.weights[top.weight_ix] : 0u)
 				);
 				assert(bsdfBufIx < bsdf::INSTR_BSDF_BUF_OFFSET_MASK);
 			}

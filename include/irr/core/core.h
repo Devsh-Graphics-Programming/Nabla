@@ -31,6 +31,7 @@
 // math
 #include "irr/core/math/intutil.h"
 #include "irr/core/math/floatutil.tcc"
+#include "irr/core/math/colorutil.h"
 #include "irr/core/math/glslFunctions.tcc"
 #include "irr/core/math/rational.h"
 #include "irr/core/math/plane3dSIMD.h"
