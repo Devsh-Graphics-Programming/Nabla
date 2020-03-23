@@ -20,7 +20,9 @@ namespace irr
 
 
                 core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const override { return { m_shaderInputs->begin(), m_shaderInputs->end() }; }
-                const char* getLoaderName() const override { return "CSerializedLoader"; }
+
+                _IRR_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CSerializedLoader";
+                const char* getLoaderName() const override { return LoaderName; }
 
             private:
                 core::smart_refctd_dynamic_array<ShaderInputSemantic> m_shaderInputs;

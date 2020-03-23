@@ -5,39 +5,27 @@
 
 namespace irr 
 {
-    namespace asset
+namespace asset
+{
+    class COpenEXRImageMetadata final : public IImageMetadata
     {
-        #include "irr/irrpack.h"
-        class COpenEXRImageMetadata final : public IImageMetadata
-        {
         public:
-        
-            COpenEXRImageMetadata(std::string _name, core::smart_refctd_dynamic_array<ImageInputSemantic>&& _inputs) : name(_name), m_imageInputs(std::move(_inputs)) {}
 
-            std::string getName() const 
-            { 
-                return name; 
-            }
+            COpenEXRImageMetadata(std::string _name, const ColorSemantic& _colorSemantic) : name(_name), IImageMetadata(colorSemantic) {}
 
-            core::SRange<const ImageInputSemantic> getCommonRequiredInputs() const override
+            std::string getName() const
             {
-                return { m_imageInputs->begin(), m_imageInputs->end() };
+                return name;
             }
 
-            const char* getLoaderName() const override 
-            { 
-                return "CImageLoaderOpenEXR"; 
-            }
+            _IRR_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CImageLoaderOpenEXR";
+            const char* getLoaderName() const override { return LoaderName; }
 
         private:
-
             std::string name;
-            core::smart_refctd_dynamic_array<ImageInputSemantic> m_imageInputs;
-           
-        } PACK_STRUCT;
-        #include "irr/irrunpack.h"
+    };
 
-    }   
+}   
 }
 
 #endif // __IRR_C_OPENEXR_IMAGE_METADATA_H_INCLUDED__

@@ -15,7 +15,9 @@ namespace irr
                 : m_shaderInputs(std::move(_inputs)) {}
 
             core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const override { return { m_shaderInputs->begin(), m_shaderInputs->end() }; }
-            const char* getLoaderName() const override { return "CSTLMeshFileLoader"; }
+
+            _IRR_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CSTLMeshFileLoader";
+            const char* getLoaderName() const override { return LoaderName; }
 
         private:
             core::smart_refctd_dynamic_array<ShaderInputSemantic> m_shaderInputs;
