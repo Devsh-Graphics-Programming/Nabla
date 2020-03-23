@@ -502,6 +502,19 @@ class IAssetManager : public core::IReferenceCounted
 
 		// we need a removeCachedGPUObjects(const IAsset* _asset) but CObjectCache.h needs a `removeAllAssociatedObjects(const Key& _key)`
 
+        //! Removes all GPU objects from the specified caches, all caches by default
+        /* TODO
+        void clearAllGPUObjects(const uint64_t& _assetTypeBitFlags = 0xffffffffffffffffull)
+        {
+            for (size_t i = 0u; i < IAsset::ET_STANDARD_TYPES_COUNT; ++i)
+            {
+                if ((_assetTypeBitFlags >> i) & 1ull)
+                {
+                    TODO
+                }
+            }
+        }*/
+
         //! Writing an asset
         /** Compression level is a number between 0 and 1 to signify how much storage we are trading for writing time or quality, this is a non-linear 
 		scale and has different meanings and results with different asset types and writers. */

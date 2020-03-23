@@ -17,26 +17,21 @@ namespace irr
 		*/
 		class IImageMetadata : public IAssetMetadata
 		{
+			public:
+				struct ColorSemantic
+				{
+					E_COLOR_SPACE colorSpace;
+					ELECTRO_OPTICAL_TRANSFER_FUNCTION transferFunction;
+				};
+
+                //! Returns the exact (or guessed) color semantic of the pixel data stored
+				const ColorSemantic& getColorSemantic() const { return colorSemantic; }
+
 			protected:
+				inline IImageMetadata(const ColorSemantic& _colorSemantic) : colorSemantic(_colorSemantic) {}
 				virtual ~IImageMetadata() = default;
 
-			public:
-
-                #include "irr/irrpack.h"
-                struct TransferFunction
-                {
-                    ELECTRO_OPTICAL_TRANSFER_FUNCTION eotf;
-                } PACK_STRUCT;
-
-                struct ImageInputSemantic
-                {
-                    E_COLOR_SPACE colorSpace;
-                    TransferFunction transferFunction;
-                } PACK_STRUCT;
-                #include "irr/irrunpack.h"
-
-                //! Returns list of "standard semenatics" as in the list of required inputs with meanings that are common in many images
-                virtual core::SRange<const ImageInputSemantic> getCommonRequiredInputs() const = 0;
+				ColorSemantic colorSemantic;
 		};
 	}
 }

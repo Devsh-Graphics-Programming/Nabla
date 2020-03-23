@@ -220,11 +220,7 @@ namespace irr
 					const auto mapOfChannels = data.second;
 					PerImageData perImageData;
 
-					core::smart_refctd_dynamic_array<IImageMetadata::ImageInputSemantic> imageInputsMetadata = core::make_refctd_dynamic_array<decltype(imageInputsMetadata)>(1);
-					auto input = imageInputsMetadata->begin();
-					input->colorSpace = ECS_SRGB;
-					input->transferFunction.eotf = EOTF_IDENTITY;
-					auto openEXRMetadata = core::make_smart_refctd_ptr<COpenEXRImageMetadata>(suffixOfChannels, std::move(imageInputsMetadata));
+					auto openEXRMetadata = core::make_smart_refctd_ptr<COpenEXRImageMetadata>(suffixOfChannels, IImageMetadata::ColorSemantic{ECS_SRGB,EOTF_IDENTITY});
 
 					int width;
 					int height;
