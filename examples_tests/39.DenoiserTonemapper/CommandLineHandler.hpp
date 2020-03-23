@@ -23,7 +23,7 @@ Pass appripiate arguments to launch the example or load them using predefined fi
 * To load them passing arguments through cmd.
 Loading syntax:
 -OPENEXR_FILE=filename
--CHANNEL_NAMES=name,name,name,... 
+-CHANNEL_NAMES=colorChannelName,albedoChannelName,normalChannelName
 -CAMERA_TRANSFORM=value,value,value,...
 -EXPOSURE_BIAS=value
 -DENOISER_BLEND_FACTOR=value
@@ -31,11 +31,11 @@ Loading syntax:
 -TONEMAPPER=tonemapper=arg1,arg2,arg3,...
 -OUTPUT=file.choosenextension
 Note there mustn't be any space characters!
-Also you mustn't put another data like comments
-- behaviour will be undefined, the app'll crash
+Also you mustn't put another data like comments or behaviour will be undefined, the app'll crash (TODO: not crash on parse failure)
+
 Description and usage:
 OPENEXR_FILE: OpenEXR file containing various channels - type without extension
-CHANNEL_NAMES: name of denoiser input channels - split each next channel using ","
+CHANNEL_NAMES: name of denoiser input channels, first is mandatory rest is optional - split each next channel using ","
 CAMERA_TRANSFORM: values as "initializer list" for camera transform matrix with
 row_major layout (max 9 values - extra values will be ignored)
 EXPOSURE_BIAS: exposure bias value used in shader
@@ -112,42 +112,42 @@ class CommandLineHandler
 			return rawVariables.size();
 		}
 
-		auto getFileNamesBundle()
+		auto& getFileNamesBundle() const
 		{
 			return fileNamesBundle;
 		}
 
-		auto getChannelNamesBundle()
+		auto& getChannelNamesBundle() const
 		{
 			return channelNamesBundle;
 		}
 
-		auto getCameraTransformBundle()
+		auto& getCameraTransformBundle() const
 		{
 			return cameraTransformBundle;
 		}
 
-		auto getExposureBiasBundle()
+		auto& getExposureBiasBundle() const
 		{
 			return exposureBiasBundle;
 		}
 
-		auto getDenoiserBlendFactorBundle()
+		auto& getDenoiserBlendFactorBundle() const
 		{
 			return denoiserBlendFactorBundle;
 		}
 
-		auto getBloomSizeBundle()
+		auto& getBloomSizeBundle() const
 		{
 			return bloomSizeBundle;
 		}
 
-		auto getTonemapperBundle()
+		auto& getTonemapperBundle() const
 		{
 			return tonemapperBundle;
 		}
 
-		auto getOutputFileBundle()
+		auto& getOutputFileBundle() const
 		{
 			return outputFileBundle;
 		}
