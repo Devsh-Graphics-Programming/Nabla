@@ -128,9 +128,6 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _IRR_COMPILE_WITH_PLY_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>(this));
 #endif
-#ifdef _IRR_COMPILE_WITH_MITSUBA_SERIALIZED_LOADER_
-    addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CSerializedLoader>(this));
-#endif
 #ifdef _IRR_COMPILE_WITH_MTL_LOADER_
     addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this));
 #endif
