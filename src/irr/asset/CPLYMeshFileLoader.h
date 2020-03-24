@@ -7,6 +7,7 @@
 
 #include "irr/asset/IAssetLoader.h"
 #include "irr/asset/ICPUMeshBuffer.h"
+#include "irr/asset/CPLYPipelineMetadata.h"
 
 namespace irr
 {
