@@ -24,7 +24,13 @@ struct ImageToDenoise
 	uint32_t colorBufferBytesize = 0u; // includes padding, row strides, etc.
 	E_IMAGE_INPUT denoiserType = EII_COUNT;
 	core::smart_refctd_ptr<asset::ICPUImage> image[EII_COUNT] = { nullptr,nullptr,nullptr };
-	asset::SBufferBinding<IGPUBuffer> imgData[EII_COUNT] = { {0,nullptr},{0,nullptr},{0,nullptr} };
+};
+struct DenoiserToUse
+{
+	core::smart_refctd_ptr<ext::OptiX::IDenoiser> m_denoiser;
+	size_t stateOffset = 0u;
+	size_t stateSize = 0u;
+	size_t scratchSize = 0u;
 };
 
 int error_code = 0;
@@ -93,19 +99,20 @@ int main(int argc, char* argv[])
 	if (check_error(!m_optixContext, "Could not create Optix Context!"))
 		return error_code;
 
-	core::smart_refctd_ptr<ext::OptiX::IDenoiser> m_denoiser[EII_COUNT];
+	constexpr auto forcedOptiXFormat = OPTIX_PIXEL_FORMAT_HALF4; // TODO: make more denoisers
+	DenoiserToUse denoisers[EII_COUNT];
 	{
-		OptixDenoiserOptions opts = { OPTIX_DENOISER_INPUT_RGB,OPTIX_PIXEL_FORMAT_HALF3 };
-		m_denoiser[EII_COLOR] = m_optixContext->createDenoiser(&opts);
-		if (check_error(!m_denoiser, "Could not create Optix Color Denoiser!"))
+		OptixDenoiserOptions opts = { OPTIX_DENOISER_INPUT_RGB,forcedOptiXFormat };
+		denoisers[EII_COLOR].m_denoiser = m_optixContext->createDenoiser(&opts);
+		if (check_error(!denoisers[EII_COLOR].m_denoiser, "Could not create Optix Color Denoiser!"))
 			return error_code;
 		opts.inputKind = OPTIX_DENOISER_INPUT_RGB_ALBEDO;
-		m_denoiser[EII_ALBEDO] = m_optixContext->createDenoiser(&opts);
-		if (check_error(!m_denoiser, "Could not create Optix Color-Albedo Denoiser!"))
+		denoisers[EII_ALBEDO].m_denoiser = m_optixContext->createDenoiser(&opts);
+		if (check_error(!denoisers[EII_ALBEDO].m_denoiser, "Could not create Optix Color-Albedo Denoiser!"))
 			return error_code;
 		opts.inputKind = OPTIX_DENOISER_INPUT_RGB_ALBEDO_NORMAL;
-		m_denoiser[EII_NORMAL] = m_optixContext->createDenoiser(&opts);
-		if (check_error(!m_denoiser, "Could not create Optix Color-Albedo-Normal Denoiser!"))
+		denoisers[EII_NORMAL].m_denoiser = m_optixContext->createDenoiser(&opts);
+		if (check_error(!denoisers[EII_NORMAL].m_denoiser, "Could not create Optix Color-Albedo-Normal Denoiser!"))
 			return error_code;
 	}
 
@@ -159,7 +166,7 @@ int main(int argc, char* argv[])
 				auto exrmeta = static_cast<COpenEXRImageMetadata*>(metadata);
 				auto beginIt = channelNamesBundle[i].begin();
 				auto inputIx = std::distance(beginIt,std::find(beginIt,channelNamesBundle[i].end(),exrmeta->getName()));
-				if (inputIx>=EII_COUNT)
+				if (inputIx>=channelNamesBundle[i].size())
 					continue;
 
 				outParam.image[inputIx] = core::smart_refctd_ptr_static_cast<ICPUImage>(ass);
@@ -241,45 +248,49 @@ int main(int argc, char* argv[])
 		}
 	}
 
+#define DENOISER_BUFFER_COUNT 3u //had to change to a define cause lambda was complaining about it not being a constant expression when capturing
 	// keep all CUDA links in an array (less code to map/unmap
-	cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> bufferLinks[EII_COUNT+2u];
+	cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> bufferLinks[EII_COUNT+DENOISER_BUFFER_COUNT];
 	const auto links_begin = bufferLinks;
 	// set-up denoisers
+	constexpr size_t intensityValuesSize = sizeof(float);
+	auto& intensityBuffer = bufferLinks[0];
 	auto& denoiserState = bufferLinks[0];
 	auto& denoiserScratch = bufferLinks[1];
-	constexpr uint32_t denoiserBufferCount = 2u;
+	size_t denoiserStateBufferSize = 0ull;
 	{
-		size_t stateBufferSize = 0ull;
 		size_t scratchBufferSize = 0ull;
 		for (uint32_t i=0u; i<EII_COUNT; i++)
 		{
+			auto& denoiser = denoisers[i].m_denoiser;
 			if (maxResolution[i][0]==0u || maxResolution[i][1]==0u)
 			{
-				m_denoiser[i] = nullptr;
+				denoiser = nullptr;
 				continue;
 			}
 
 			OptixDenoiserSizes m_denoiserMemReqs;
-			if (m_denoiser[i]->computeMemoryResources(&m_denoiserMemReqs, maxResolution[i])!=OPTIX_SUCCESS)
+			if (denoiser->computeMemoryResources(&m_denoiserMemReqs, maxResolution[i])!=OPTIX_SUCCESS)
 			{
 				static const char* errorMsgs[EII_COUNT] = {	"Failed to compute Color-Denoiser Memory Requirements!",
 															"Failed to compute Color-Albedo-Denoiser Memory Requirements!",
 															"Failed to compute Color-Albedo-Normal-Denoiser Memory Requirements!"};
 				os::Printer::log(errorMsgs[i],ELL_ERROR);
-				m_denoiser[i] = nullptr;
+				denoiser = nullptr;
 				continue;
 			}
 
-			stateBufferSize += m_denoiserMemReqs.stateSizeInBytes;
-			scratchBufferSize = core::max(scratchBufferSize,m_denoiserMemReqs.recommendedScratchSizeInBytes);
+			denoisers[i].stateOffset = denoiserStateBufferSize;
+			denoiserStateBufferSize += denoisers[i].stateSize = m_denoiserMemReqs.stateSizeInBytes;
+			scratchBufferSize = core::max(scratchBufferSize,denoisers[i].scratchSize = m_denoiserMemReqs.recommendedScratchSizeInBytes);
 		}
 		std::string message = "Total VRAM consumption for Denoiser algorithm: ";
-		os::Printer::log(message+std::to_string(stateBufferSize+scratchBufferSize), ELL_INFORMATION);
+		os::Printer::log(message+std::to_string(denoiserStateBufferSize+scratchBufferSize), ELL_INFORMATION);
 
-		if (check_error(stateBufferSize+scratchBufferSize==0ull,"No input files at all!"))
+		if (check_error(denoiserStateBufferSize+scratchBufferSize==0ull,"No input files at all!"))
 			return error_code;
 
-		denoiserState = driver->createDeviceLocalGPUBufferOnDedMem(stateBufferSize);
+		denoiserState = driver->createDeviceLocalGPUBufferOnDedMem(denoiserStateBufferSize+intensityValuesSize);
 		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&denoiserState,CU_GRAPHICS_MAP_RESOURCE_FLAGS_WRITE_DISCARD)),"Could not register buffer for Denoiser states!"))
 			return error_code;
 		denoiserScratch = driver->createDeviceLocalGPUBufferOnDedMem(scratchBufferSize);
@@ -293,17 +304,30 @@ int main(int argc, char* argv[])
 		auto& param = images[i];
 		if (param.denoiserType>=EII_COUNT)
 			continue;
+		const auto denoiserInputCount = param.denoiserType+1u;
 
 		// upload image channels and register their buffers
-		uint32_t gpuBufferCount = denoiserBufferCount;
+		// the output buffer
+		auto& denoisedBuffer = bufferLinks[2];
+		{
+			denoisedBuffer = driver->createDeviceLocalGPUBufferOnDedMem(param.colorBufferBytesize);
+			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&denoisedBuffer,CU_GRAPHICS_MAP_RESOURCE_FLAGS_WRITE_DISCARD)))
+			{
+				os::Printer::log(makeImageIDString(i) + "Could not create the output buffer and register it with CUDA, skipping image!", ELL_ERROR);
+				continue;
+			}
+		}
+		// the input buffers
+		asset::SBufferBinding<IGPUBuffer> imgData[EII_COUNT] = { {0,nullptr},{0,nullptr},{0,nullptr} };
+		uint32_t gpuBufferCount = DENOISER_BUFFER_COUNT;
 		{
 			asset::ICPUBuffer* buffersToUpload[EII_COUNT];
-			for (uint32_t j=0u; j<param.denoiserType; j++)
+			for (uint32_t j=0u; j<denoiserInputCount; j++)
 				buffersToUpload[j] = param.image[j]->getBuffer();
-			auto gpubuffers = driver->getGPUObjectsFromAssets(buffersToUpload,buffersToUpload+param.denoiserType);
+			auto gpubuffers = driver->getGPUObjectsFromAssets(buffersToUpload,buffersToUpload+denoiserInputCount);
 
 			// register with cuda and deregister from cache
-			for (uint32_t j=0u; j<param.denoiserType; j++)
+			for (uint32_t j=0u; j<denoiserInputCount; j++)
 			{
 				auto offsetPair = gpubuffers->operator[](j);
 				// make sure cache doesn't retain the GPU object paired to CPU object (could have used a custom IGPUObjectFromAssetConverter derived class with overrides to achieve this)
@@ -316,13 +340,16 @@ int main(int argc, char* argv[])
 				if (found==links_end)
 				{
 					*found = core::smart_refctd_ptr(buffer);
-					if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(found, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)), "Could not register buffers containing image data with CUDA!"))
-						return error_code;
+					if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(found, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
+					{
+						os::Printer::log(makeImageIDString(i) + "Could not register buffers containing image data with CUDA, skipping image!", ELL_ERROR);
+						continue;
+					}
 					gpuBufferCount++;
 				}
 
-				param.imgData[j].offset = offsetPair->getOffset();
-				param.imgData[j].buffer = std::move(buffer);
+				imgData[j].offset = offsetPair->getOffset();
+				imgData[j].buffer = std::move(buffer);
 			}
 
 		}
@@ -331,58 +358,105 @@ int main(int argc, char* argv[])
 		{
 			// create descriptor set
 			// write descriptor set
-			// TODO: transform image normals
+			// compute shader pre-preprocess (transform normals and compute luminosity)
 			{
-				// bind compute pipeline
-				// bind descriptor set with SSBO
-				// dispatch
-				// issue a full memory barrier (or at least all buffer read barrier)
-			}
-
-			// map buffer
-			if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::acquireAndGetPointers(bufferLinks,bufferLinks+gpuBufferCount,m_cudaStream)),"Error when mapping OpenGL Buffers to CUdeviceptr!"))
-				return error_code;
-
-			// set up optix image
-			OptixImage2D denoiserInputs[EII_COUNT];
-			for (uint32_t j=0u; j<param.denoiserType; j++)
-			{
-				const auto& image = param.image[j];
-				const auto& imgCreationParams = image->getCreationParameters();
-				auto format = imgCreationParams.format;
-				// assert a few things to ensure sanity
+				// TODO: transform image normals
 				{
-					auto dims = asset::getBlockDimensions(format);
-					assert(dims.x==1 && dims.y==1 && dims.z==1);
+					// bind compute pipeline
+					// bind descriptor set with SSBO
+					// dispatch
+					// issue a full memory barrier (or at least all buffer read barrier)
 				}
-				auto regions = image->getRegions();
+				glFlush();
+			}
+
+			// optix processing
+			{
+				// map buffer
+				if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::acquireAndGetPointers(bufferLinks,bufferLinks+gpuBufferCount,m_cudaStream)),"Error when mapping OpenGL Buffers to CUdeviceptr!"))
+					return error_code;
+
+				auto unmapBuffers = [&m_cudaStream,&bufferLinks,gpuBufferCount]() -> void
+				{
+					void* scratch[(EII_COUNT+DENOISER_BUFFER_COUNT)*sizeof(CUgraphicsResource)];
+					if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::releaseResourcesToGraphics(scratch,bufferLinks,bufferLinks+gpuBufferCount,m_cudaStream)), "Error when unmapping CUdeviceptr back to OpenGL!"))
+						exit(error_code);
+				};
+#undef DENOISER_BUFFER_COUNT
+				core::SRAIIBasedExiter<decltype(unmapBuffers)> exitRoutine(unmapBuffers);
+
+				// set up optix image
+				OptixImage2D denoiserInputs[EII_COUNT];
+				for (uint32_t j=0u; j<denoiserInputCount; j++)
+				{
+					const auto& image = param.image[j];
+					const auto& imgCreationParams = image->getCreationParameters();
+					auto format = imgCreationParams.format;
+					// assert a few things to ensure sanity
+					{
+						auto dims = asset::getBlockDimensions(format);
+						assert(dims.x==1 && dims.y==1 && dims.z==1);
+					}
+					auto regions = image->getRegions();
 				
-				// find our CUDA link
-				const auto links_end = bufferLinks+gpuBufferCount;
-				const auto& data = param.imgData[j];
-				auto found = std::find_if(links_begin,links_end,[&data](const auto& l) {return l.getObject() == data.buffer.get(); });
-				assert(found!=links_end);
-				denoiserInputs[j].data = found->asBuffer.pointer+data.offset;
-				denoiserInputs[j].width = param.width;
-				denoiserInputs[j].height = param.height;
-				denoiserInputs[j].rowStrideInBytes = asset::getTexelOrBlockBytesize(format)*regions.begin()[0].bufferRowLength;
-				denoiserInputs[j].pixelStrideInBytes = 0; // either 0 or the value that corresponds to a dense packing of format = NO CHOICE
-				denoiserInputs[j].format = ext::OptiX::irrFormatToOptiX(format);
-			}
-			//
-			{
-				// set up denoiser
-				// compute intensity (TODO: tonemapper after image upload)
-				// invoke
+					// find our CUDA link
+					const auto links_end = bufferLinks+gpuBufferCount;
+					const auto& data = imgData[j];
+					auto found = std::find_if(links_begin,links_end,[&data](const auto& l) {return l.getObject() == data.buffer.get(); });
+					assert(found!=links_end);
+					denoiserInputs[j].data = found->asBuffer.pointer+data.offset;
+					denoiserInputs[j].width = param.width;
+					denoiserInputs[j].height = param.height;
+					denoiserInputs[j].rowStrideInBytes = asset::getTexelOrBlockBytesize(format)*regions.begin()[0].bufferRowLength;
+					denoiserInputs[j].pixelStrideInBytes = 0; // either 0 or the value that corresponds to a dense packing of format = NO CHOICE
+					denoiserInputs[j].format = ext::OptiX::irrFormatToOptiX(format);
+					assert(denoiserInputs[j].format == forcedOptiXFormat);
+				}
+				//
+				{
+					// set up denoiser
+					auto& denoiser = denoisers[param.denoiserType];
+					if (denoiser.m_denoiser->setup(m_cudaStream,&param.width,denoiserState,denoiser.stateSize,denoiserScratch,denoiser.scratchSize,denoiser.stateOffset)!=OPTIX_SUCCESS)
+					{
+						os::Printer::log(makeImageIDString(i) + "Could not setup the denoiser for the image resolution and denoiser buffers, skipping image!", ELL_ERROR);
+						continue;
+					}
+					// compute intensity (TODO: tonemapper after image upload)
+					const auto intensityBufferOffset = denoiserStateBufferSize;
+					if (denoiser.m_denoiser->computeIntensity(m_cudaStream,denoiserInputs+EII_COLOR,intensityBuffer,denoiserScratch,denoiser.scratchSize,intensityBufferOffset)!=OPTIX_SUCCESS)
+					{
+						os::Printer::log(makeImageIDString(i) + "Could not setup the denoiser for the image resolution and denoiser buffers, skipping image!", ELL_ERROR);
+						continue;
+					}
+					// invoke
+					{
+						OptixDenoiserParams denoiserParams = {};
+						denoiserParams.blendFactor = denoiserBlendFactorBundle[i];
+						denoiserParams.denoiseAlpha = 0u;
+						denoiserParams.hdrIntensity = intensityBuffer.asBuffer.pointer+intensityBufferOffset;
+						OptixImage2D denoiserOutput;
+						denoiserOutput = denoiserInputs[EII_COLOR];
+						denoiserOutput.data = denoisedBuffer.asBuffer.pointer;
+						if (denoiser.m_denoiser->invoke(m_cudaStream,&denoiserParams,denoiserInputs,denoiserInputs+denoiserInputCount,&denoiserOutput,denoiserScratch,denoiser.scratchSize)!=OPTIX_SUCCESS)
+						{
+							os::Printer::log(makeImageIDString(i) + "Could not invoke the denoiser sucessfully, skipping image!", ELL_ERROR);
+							continue;
+						}
+					}
+				}
+
+				// unmap buffer (implicit from the SRAIIExiter destructor)
 			}
 
-			// unmap buffer
-			void* scratch[(EII_COUNT+denoiserBufferCount)*sizeof(CUgraphicsResource)];
-			if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::releaseResourcesToGraphics(scratch,bufferLinks,bufferLinks+gpuBufferCount,m_cudaStream)),"Error when unmapping CUdeviceptr back to OpenGL!"))
-				return error_code;
-
-			// TODO: Bloom (FoV vs. Constant)
+			// compute post-processing
 			{
+				// TODO: Bloom (FoV vs. Constant)
+				{
+				}
+				// TODO: Tonemap
+				{
+				}
+				glFlush();
 			}
 			// delete descriptor set
 		}
@@ -396,7 +470,7 @@ int main(int argc, char* argv[])
 			ICPUImage::SCreationParams imgParams;
 			imgParams.flags = static_cast<ICPUImage::E_CREATE_FLAGS>(0u); // no flags
 			imgParams.type = ICPUImage::ET_2D;
-			imgParams.format = outputFormat;
+			imgParams.format = param.image[EII_COLOR]->getCreationParameters().format;
 			imgParams.extent = {param.width,param.height,1u};
 			imgParams.mipLevels = 1u;
 			imgParams.arrayLayers = 1u;
@@ -418,7 +492,7 @@ int main(int argc, char* argv[])
 						continue;
 					}
 
-					driver->copyBuffer(param.imgData[EII_COLOR].buffer.get(),downloadStagingArea->getBuffer(),param.imgData[EII_COLOR].offset,address,param.colorBufferBytesize);
+					driver->copyBuffer(denoisedBuffer.getObject(),downloadStagingArea->getBuffer(),0u,address,param.colorBufferBytesize);
 				}
 				auto downloadFence = driver->placeFence(true);
 
