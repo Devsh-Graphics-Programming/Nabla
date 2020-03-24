@@ -63,13 +63,20 @@ int main(int argc, char* argv[])
 	{
 		core::vector<std::string> arguments;
 		arguments.reserve(PROPER_CMD_ARGUMENTS_AMOUNT);
-		for (auto i = 0ul; i < argc; ++i)
-			arguments.push_back(argv[i]);
+		arguments.emplace_back(argv[0]);
+		if (argc>1)
+		for (auto i = 1ul; i < argc; ++i)
+			arguments.emplace_back(argv[i]);
+		else // use default for example
+		{
+			arguments.emplace_back("-batch");
+			arguments.emplace_back("../exampleInputArguments.txt");
+		}
 
 		return arguments;
 	};
 
-	auto cmdHandler = CommandLineHandler(argc, getArgvFetchedList(), am);
+	auto cmdHandler = CommandLineHandler(getArgvFetchedList(), am);
 
 	if (check_error(!cmdHandler.getStatus(),"Could not parse input commands!"))
 		return error_code;
@@ -110,6 +117,17 @@ int main(int argc, char* argv[])
 	const auto& tonemapperBundle = cmdHandler.getTonemapperBundle();
 	const auto& outputFileBundle = cmdHandler.getOutputFileBundle();
 
+	auto makeImageIDString = [&fileNamesBundle](uint32_t i)
+	{
+		std::string imageIDString("Image Input #");
+		imageIDString += std::to_string(i);
+		imageIDString += " called \"";
+		imageIDString += fileNamesBundle[i];
+		imageIDString += "\": ";
+		return imageIDString;
+	};
+
+
 	core::vector<ImageToDenoise> images(inputFilesAmount);
 	core::vector<cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> > bufferLinks;
 	// load images
@@ -120,7 +138,11 @@ int main(int argc, char* argv[])
 		{
 			auto image_bundle = am->getAsset(std::string("../../media/OpenEXR/")+fileNamesBundle[i], lp);
 			if (image_bundle.isEmpty())
+			{
+				auto imageIDString = makeImageIDString(i);
+				os::Printer::log(imageIDString+"Could not load from file!", ELL_ERROR);
 				continue;
+			}
 
 			auto& outParam = images[i];
 
@@ -147,11 +169,7 @@ int main(int argc, char* argv[])
 		buffersToUpload.reserve(images.size() * EII_COUNT);
 		for (size_t i=0; i<inputFilesAmount; i++)
 		{
-			std::string imageIDString("Image Input #");
-			imageIDString += std::to_string(i);
-			imageIDString += " called \"";
-			imageIDString += fileNamesBundle[i];
-			imageIDString += "\": ";
+			auto imageIDString = makeImageIDString(i);
 
 			auto& outParam = images[i];
 			{
@@ -226,13 +244,13 @@ int main(int argc, char* argv[])
 				auto offsetPair = gpubuffers->operator[](j);
 
 				auto buffer = core::smart_refctd_ptr<video::IGPUBuffer>(offsetPair->getBuffer());
-				auto found = std::find_if(bufferLinks.begin(),bufferLinks.end(),[&buffer](const auto& l){return l.getObject()==buffer;});
+				auto found = std::find_if(bufferLinks.begin(),bufferLinks.end(),[&buffer](const auto& l){return l.getObject()==buffer.get();});
 				if (found==bufferLinks.end())
 				{
 					cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> link = core::smart_refctd_ptr(buffer);
 					if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&link,CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)),"Could not register buffers containing image data with CUDA!"))
 						return error_code;
-					bufferLinks.push_back(link);
+					bufferLinks.push_back(std::move(link));
 				}
 
 				outParam.imgData[j].offset = offsetPair->getOffset();
@@ -243,6 +261,7 @@ int main(int argc, char* argv[])
 		for (auto it=gpubuffers->begin(); it!=gpubuffers->end(); it++,_begin++)
 			am->removeCachedGPUObject(*_begin,*it);
 	}
+
 
 	// set-up denoisers
 	cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> denoiserState,denoiserScratch;
@@ -273,6 +292,9 @@ int main(int argc, char* argv[])
 		}
 		std::string message = "Total VRAM consumption for Denoiser algorithm: ";
 		os::Printer::log(message+std::to_string(stateBufferSize+scratchBufferSize), ELL_INFORMATION);
+
+		if (check_error(stateBufferSize+scratchBufferSize==0ull,"No input files at all!"))
+			return error_code;
 
 		denoiserState = driver->createDeviceLocalGPUBufferOnDedMem(stateBufferSize);
 		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&denoiserState,CU_GRAPHICS_MAP_RESOURCE_FLAGS_WRITE_DISCARD)),"Could not register buffer for Denoiser states!"))

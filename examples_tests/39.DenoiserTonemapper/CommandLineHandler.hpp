@@ -105,7 +105,7 @@ class CommandLineHandler
 {
 	public:
 
-		CommandLineHandler(const int argc, irr::core::vector<std::string> argv, irr::asset::IAssetManager* am);
+		CommandLineHandler(irr::core::vector<std::string> argv, irr::asset::IAssetManager* am);
 
 		auto getInputFilesAmount()
 		{
