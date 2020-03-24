@@ -21,6 +21,7 @@ enum E_IMAGE_INPUT : uint32_t
 struct ImageToDenoise
 {
 	uint32_t width = 0u, height = 0u;
+	uint32_t colorBufferBytesize = 0u; // includes padding, row strides, etc.
 	E_IMAGE_INPUT denoiserType = EII_COUNT;
 	core::smart_refctd_ptr<asset::ICPUImage> image[EII_COUNT] = { nullptr,nullptr,nullptr };
 	asset::SBufferBinding<IGPUBuffer> imgData[EII_COUNT] = { {0,nullptr},{0,nullptr},{0,nullptr} };
@@ -50,6 +51,7 @@ int main(int argc, char* argv[])
 	params.Vsync = true;
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false;
+	params.StreamingDownloadBufferSize = 256*1024*1024; // change in Vulkan fo
 	auto device = createDeviceEx(params);
 
 	if (check_error(!device,"Could not create Irrlicht Device!"))
@@ -129,7 +131,6 @@ int main(int argc, char* argv[])
 
 
 	core::vector<ImageToDenoise> images(inputFilesAmount);
-	core::vector<cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> > bufferLinks;
 	// load images
 	uint32_t maxResolution[EII_COUNT][2] = { 0 };
 	{
@@ -165,8 +166,6 @@ int main(int argc, char* argv[])
 			}
 		}
 		// check inputs and set-up
-		core::vector<asset::ICPUBuffer*> buffersToUpload;
-		buffersToUpload.reserve(images.size() * EII_COUNT);
 		for (size_t i=0; i<inputFilesAmount; i++)
 		{
 			auto imageIDString = makeImageIDString(i);
@@ -181,10 +180,27 @@ int main(int argc, char* argv[])
 					continue;
 				}
 
-				outParam.denoiserType = EII_COLOR;
-				buffersToUpload.emplace_back(colorImage->getBuffer());
+				const auto& colorCreationParams = colorImage->getCreationParameters();
+				const auto& extent = colorCreationParams.extent;
+				// compute storage size and check if we can successfully upload
+				{
+					auto regions = colorImage->getRegions();
+					assert(regions.begin()+1u==regions.end());
 
-				auto extent = colorImage->getCreationParameters().extent;
+					const auto& region = regions.begin()[0];
+					assert(region.bufferRowLength);
+					uint32_t bytesize = extent.height*region.bufferRowLength*asset::getTexelOrBlockBytesize(colorCreationParams.format);
+					if (bytesize>params.StreamingDownloadBufferSize)
+					{
+						os::Printer::log(imageIDString + "Image too large to download from GPU in one piece!", ELL_ERROR);
+						outParam = {};
+						continue;
+					}
+					outParam.colorBufferBytesize = bytesize;
+				}
+
+				outParam.denoiserType = EII_COLOR;
+
 				outParam.width = extent.width;
 				outParam.height = extent.height;
 			}
@@ -199,10 +215,7 @@ int main(int argc, char* argv[])
 					albedoImage = nullptr;
 				}
 				else
-				{
 					outParam.denoiserType = EII_ALBEDO;
-					buffersToUpload.emplace_back(albedoImage->getBuffer());
-				}
 			}
 
 			auto& normalImage = outParam.image[EII_NORMAL];
@@ -220,51 +233,21 @@ int main(int argc, char* argv[])
 					normalImage = nullptr;
 				}
 				else
-				{
 					outParam.denoiserType = EII_NORMAL;
-					buffersToUpload.emplace_back(normalImage->getBuffer());
-				}
 			}
 
 			maxResolution[outParam.denoiserType][0] = core::max(maxResolution[outParam.denoiserType][0],outParam.width);
 			maxResolution[outParam.denoiserType][1] = core::max(maxResolution[outParam.denoiserType][1],outParam.height);
 		}
-		// upload image data buffers to GPU
-		const auto* _begin = buffersToUpload.data();
-		auto gpubuffers = driver->getGPUObjectsFromAssets(_begin,_begin+buffersToUpload.size());
-		for (size_t i=0; i<inputFilesAmount; i++)
-		{
-			auto& outParam = images[i];
-			for (uint32_t j=0u; j<EII_COUNT; j++)
-			{
-				auto img = outParam.image[j];
-				if (!img)
-					continue;
-
-				auto offsetPair = gpubuffers->operator[](j);
-
-				auto buffer = core::smart_refctd_ptr<video::IGPUBuffer>(offsetPair->getBuffer());
-				auto found = std::find_if(bufferLinks.begin(),bufferLinks.end(),[&buffer](const auto& l){return l.getObject()==buffer.get();});
-				if (found==bufferLinks.end())
-				{
-					cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> link = core::smart_refctd_ptr(buffer);
-					if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&link,CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)),"Could not register buffers containing image data with CUDA!"))
-						return error_code;
-					bufferLinks.push_back(std::move(link));
-				}
-
-				outParam.imgData[j].offset = offsetPair->getOffset();
-				outParam.imgData[j].buffer = std::move(buffer);
-			}
-		}
-		// make sure stuff doesn't stay around in cache
-		for (auto it=gpubuffers->begin(); it!=gpubuffers->end(); it++,_begin++)
-			am->removeCachedGPUObject(*_begin,*it);
 	}
 
-
+	// keep all CUDA links in an array (less code to map/unmap
+	cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> bufferLinks[EII_COUNT+2u];
+	const auto links_begin = bufferLinks;
 	// set-up denoisers
-	cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> denoiserState,denoiserScratch;
+	auto& denoiserState = bufferLinks[0];
+	auto& denoiserScratch = bufferLinks[1];
+	constexpr uint32_t denoiserBufferCount = 2u;
 	{
 		size_t stateBufferSize = 0ull;
 		size_t scratchBufferSize = 0ull;
@@ -311,22 +294,179 @@ int main(int argc, char* argv[])
 		if (param.denoiserType>=EII_COUNT)
 			continue;
 
-		// upload image channels
-		// TODO: transform image normals
-		// register buffer
-		// map buffer
-		// set up optix image
+		// upload image channels and register their buffers
+		uint32_t gpuBufferCount = denoiserBufferCount;
 		{
-			// set up denoiser
-			// compute intensity (TODO: tonemapper after image upload)
-			// invoke
+			asset::ICPUBuffer* buffersToUpload[EII_COUNT];
+			for (uint32_t j=0u; j<param.denoiserType; j++)
+				buffersToUpload[j] = param.image[j]->getBuffer();
+			auto gpubuffers = driver->getGPUObjectsFromAssets(buffersToUpload,buffersToUpload+param.denoiserType);
+
+			// register with cuda and deregister from cache
+			for (uint32_t j=0u; j<param.denoiserType; j++)
+			{
+				auto offsetPair = gpubuffers->operator[](j);
+				// make sure cache doesn't retain the GPU object paired to CPU object (could have used a custom IGPUObjectFromAssetConverter derived class with overrides to achieve this)
+				am->removeCachedGPUObject(buffersToUpload[j],offsetPair);
+
+				auto buffer = core::smart_refctd_ptr<video::IGPUBuffer>(offsetPair->getBuffer());
+
+				const auto links_end = bufferLinks+gpuBufferCount;
+				auto found = std::find_if(links_begin,links_end,[&buffer](const auto& l) {return l.getObject() == buffer.get(); });
+				if (found==links_end)
+				{
+					*found = core::smart_refctd_ptr(buffer);
+					if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(found, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)), "Could not register buffers containing image data with CUDA!"))
+						return error_code;
+					gpuBufferCount++;
+				}
+
+				param.imgData[j].offset = offsetPair->getOffset();
+				param.imgData[j].buffer = std::move(buffer);
+			}
+
 		}
-		// unmap buffer
-		// TODO: Bloom (FoV vs. Constant)
-		// download buffer
-		// create image
-		// save image
-		// destroy
+
+		// process
+		{
+			// create descriptor set
+			// write descriptor set
+			// TODO: transform image normals
+			{
+				// bind compute pipeline
+				// bind descriptor set with SSBO
+				// dispatch
+				// issue a full memory barrier (or at least all buffer read barrier)
+			}
+
+			// map buffer
+			if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::acquireAndGetPointers(bufferLinks,bufferLinks+gpuBufferCount,m_cudaStream)),"Error when mapping OpenGL Buffers to CUdeviceptr!"))
+				return error_code;
+
+			// set up optix image
+			OptixImage2D denoiserInputs[EII_COUNT];
+			for (uint32_t j=0u; j<param.denoiserType; j++)
+			{
+				const auto& image = param.image[j];
+				const auto& imgCreationParams = image->getCreationParameters();
+				auto format = imgCreationParams.format;
+				// assert a few things to ensure sanity
+				{
+					auto dims = asset::getBlockDimensions(format);
+					assert(dims.x==1 && dims.y==1 && dims.z==1);
+				}
+				auto regions = image->getRegions();
+				
+				// find our CUDA link
+				const auto links_end = bufferLinks+gpuBufferCount;
+				const auto& data = param.imgData[j];
+				auto found = std::find_if(links_begin,links_end,[&data](const auto& l) {return l.getObject() == data.buffer.get(); });
+				assert(found!=links_end);
+				denoiserInputs[j].data = found->asBuffer.pointer+data.offset;
+				denoiserInputs[j].width = param.width;
+				denoiserInputs[j].height = param.height;
+				denoiserInputs[j].rowStrideInBytes = asset::getTexelOrBlockBytesize(format)*regions.begin()[0].bufferRowLength;
+				denoiserInputs[j].pixelStrideInBytes = 0; // either 0 or the value that corresponds to a dense packing of format = NO CHOICE
+				denoiserInputs[j].format = ext::OptiX::irrFormatToOptiX(format);
+			}
+			//
+			{
+				// set up denoiser
+				// compute intensity (TODO: tonemapper after image upload)
+				// invoke
+			}
+
+			// unmap buffer
+			void* scratch[(EII_COUNT+denoiserBufferCount)*sizeof(CUgraphicsResource)];
+			if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::releaseResourcesToGraphics(scratch,bufferLinks,bufferLinks+gpuBufferCount,m_cudaStream)),"Error when unmapping CUdeviceptr back to OpenGL!"))
+				return error_code;
+
+			// TODO: Bloom (FoV vs. Constant)
+			{
+			}
+			// delete descriptor set
+		}
+
+		constexpr auto outputFormat = EF_R16G16B16A16_SFLOAT;
+		{
+			auto downloadStagingArea = driver->getDefaultDownStreamingBuffer();
+			uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address; // remember without initializing the address to be allocated to invalid_address you won't get an allocation!
+
+			// create image
+			ICPUImage::SCreationParams imgParams;
+			imgParams.flags = static_cast<ICPUImage::E_CREATE_FLAGS>(0u); // no flags
+			imgParams.type = ICPUImage::ET_2D;
+			imgParams.format = outputFormat;
+			imgParams.extent = {param.width,param.height,1u};
+			imgParams.mipLevels = 1u;
+			imgParams.arrayLayers = 1u;
+			imgParams.samples = ICPUImage::ESCF_1_BIT;
+
+			auto image = ICPUImage::create(std::move(imgParams));
+
+			// get the data from the GPU
+			{
+				constexpr uint64_t timeoutInNanoSeconds = 300000000000u;
+
+				// download buffer
+				{
+					const uint32_t alignment = 4096u; // common page size
+					auto unallocatedSize = downloadStagingArea->multi_alloc(std::chrono::nanoseconds(timeoutInNanoSeconds), 1u, &address, &param.colorBufferBytesize, &alignment);
+					if (unallocatedSize)
+					{
+						os::Printer::log(makeImageIDString(i)+"Could not download the buffer from the GPU!",ELL_ERROR);
+						continue;
+					}
+
+					driver->copyBuffer(param.imgData[EII_COLOR].buffer.get(),downloadStagingArea->getBuffer(),param.imgData[EII_COLOR].offset,address,param.colorBufferBytesize);
+				}
+				auto downloadFence = driver->placeFence(true);
+
+				// set up regions
+				auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy> >(1u);
+				{
+					auto& region = regions->front();
+					region.bufferOffset = 0u;
+					region.bufferRowLength = param.image[EII_COLOR]->getRegions().begin()[0].bufferRowLength;
+					region.bufferImageHeight = param.height;
+					//region.imageSubresource.aspectMask = wait for Vulkan;
+					region.imageSubresource.mipLevel = 0u;
+					region.imageSubresource.baseArrayLayer = 0u;
+					region.imageSubresource.layerCount = 1u;
+					region.imageOffset = { 0u,0u,0u };
+					region.imageExtent = imgParams.extent;
+				}
+				// the cpu is not touching the data yet because the custom CPUBuffer is adopting the memory (no copy)
+				auto* data = reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer())+address;
+				auto cpubufferalias = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t> > >(param.colorBufferBytesize, data, core::adopt_memory);
+				image->setBufferAndRegions(std::move(cpubufferalias),regions);
+
+				// wait for download fence and then invalidate the CPU cache
+				{
+					auto result = downloadFence->waitCPU(timeoutInNanoSeconds,true);
+					if (result==E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED||result==E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
+					{
+						os::Printer::log(makeImageIDString(i)+"Could not download the buffer from the GPU, fence not signalled!",ELL_ERROR);
+						downloadStagingArea->multi_free(1u, &address, &param.colorBufferBytesize, nullptr);
+						continue;
+					}
+					if (downloadStagingArea->needsManualFlushOrInvalidate())
+						driver->invalidateMappedMemoryRanges({{downloadStagingArea->getBuffer()->getBoundMemory(),address,param.colorBufferBytesize}});
+				}
+			}
+
+			// save image
+			IAssetWriter::SAssetWriteParams wp(image.get());
+			am->writeAsset(outputFileBundle[i].c_str(), wp);
+
+			// destroy link to CPUBuffer's data (we need to free it)
+			image->convertToDummyObject(~0u);
+
+			// free the staging area allocation (no fence, we've already waited on it)
+			downloadStagingArea->multi_free(1u,&address,&param.colorBufferBytesize,nullptr);
+
+			// destroy image (implicit)
+		}
 	}
 
 	return 0;
