@@ -78,28 +78,10 @@ int main()
 		binding1.type = asset::EDT_UNIFORM_BUFFER;
 		auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding1, &binding1 + 1);
 
-		auto pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, nullptr); // doing so removes binding1 from ds1Layout placed in pipeline, why?
-		auto gpuPipelineLayout = driver->getGPUObjectsFromAssets(&pipelineLayout.get(), &pipelineLayout.get() + 1)->front();
+		auto pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, nullptr);
 
 		auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(neededDS1UBOsz);
 		auto rawds1 = pipelineLayout->getDescriptorSetLayout(1u);
-		auto gpuDescriptorSet1 = driver->createGPUDescriptorSet(std::move(driver->getGPUObjectsFromAssets(&rawds1, &rawds1 + 1)->front()));
-		{
-			video::IGPUDescriptorSet::SWriteDescriptorSet write;
-			write.dstSet = gpuDescriptorSet1.get();
-			write.binding = ds1UboBinding;
-			write.count = 1u;
-			write.arrayElement = 0u;
-			write.descriptorType = asset::EDT_UNIFORM_BUFFER;
-			video::IGPUDescriptorSet::SDescriptorInfo info;
-			{
-				info.desc = gpuubo;
-				info.buffer.offset = 0ull;
-				info.buffer.size = neededDS1UBOsz;
-			}
-			write.info = &info;
-			driver->updateDescriptorSets(1u, &write, 0u, nullptr);
-		}
 
 		constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
 		core::smart_refctd_dynamic_array<IPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
@@ -135,7 +117,25 @@ int main()
 		assetManager->setAssetMetadata(pipeline.get(), core::make_smart_refctd_ptr<CPLYPipelineMetadata>(1, std::move(shaderInputsMetadata)));
 		auto metadata = pipeline->getMetadata();
 
-		auto gpuPipeline = driver->getGPUObjectsFromAssets(&pipeline.get(), &pipeline.get() + 1)->front();
+		auto gpuDescriptorSet1 = driver->createGPUDescriptorSet(std::move(driver->getGPUObjectsFromAssets(&rawds1, &rawds1 + 1)->front()));
+		{
+			video::IGPUDescriptorSet::SWriteDescriptorSet write;
+			write.dstSet = gpuDescriptorSet1.get();
+			write.binding = ds1UboBinding;
+			write.count = 1u;
+			write.arrayElement = 0u;
+			write.descriptorType = asset::EDT_UNIFORM_BUFFER;
+			video::IGPUDescriptorSet::SDescriptorInfo info;
+			{
+				info.desc = gpuubo;
+				info.buffer.offset = 0ull;
+				info.buffer.size = neededDS1UBOsz;
+			}
+			write.info = &info;
+			driver->updateDescriptorSets(1u, &write, 0u, nullptr);
+		}
+
+		auto gpuPipeline = driver->getGPUObjectsFromAssets(&pipeline.get(), &pipeline.get() + 1)->front(); // it doesnt work, fails at bindings reoreding
 
 		constexpr auto MAX_ATTR_BUF_BINDING_COUNT = video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
 		constexpr auto MAX_DATA_BUFFERS = MAX_ATTR_BUF_BINDING_COUNT + 1;
