@@ -255,7 +255,7 @@ class CMitsubaLoader : public asset::IAssetLoader
 		CMitsubaLoader(asset::IAssetManager* _manager);
 
 	protected:
-		asset::IAssetManager* manager;
+		asset::IAssetManager* m_manager;
 		//TODO need one packer per format class
 		core::smart_refctd_ptr<ICPUTexturePacker> m_texPacker;
 
@@ -282,7 +282,9 @@ class CMitsubaLoader : public asset::IAssetLoader
 
 			core::vector<bsdf::SBSDFUnion> bsdfBuffer;
 			core::vector<bsdf::instr_t> instrBuffer;
-			uint32_t instrBufOffset;
+
+			//caches instr buffer instr-wise offset (.first) and instruction count (.second) for each bsdf node
+			core::unordered_map<CElementBSDF*,std::pair<uint32_t,uint32_t>> instrStreamCache;
 		};
 
 		//! Destructor
@@ -293,12 +295,15 @@ class CMitsubaLoader : public asset::IAssetLoader
 		SContext::group_ass_type	loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup);
 		SContext::shape_ass_type	loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
 
+		//TODO this function will most likely be deleted, basically only instr buf offset/count pair is needed, pipelines wont change that much
 		SContext::bsdf_ass_type		getBSDF(SContext& ctx, uint32_t hierarchyLevel, const CElementBSDF* bsdf);
 		
 		SContext::tex_ass_type		getTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture);
 
 		bsdf::SBSDFUnion bsdfNode2bsdfStruct(SContext& _ctx, const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight = 0.f);
-		void genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
+		std::pair<uint32_t,uint32_t> genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
+
+		core::smart_refctd_ptr<ICPUDescriptorSet> createDS0(const SContext& _ctx);
 
 	public:
 		//! Check if the file might be loaded by this class

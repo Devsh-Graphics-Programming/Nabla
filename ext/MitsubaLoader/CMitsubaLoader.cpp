@@ -4,6 +4,7 @@
 
 #include "../../ext/MitsubaLoader/CMitsubaLoader.h"
 #include "../../ext/MitsubaLoader/ParserUtil.h"
+#include "../../ext/MitsubaLoader/CMitsubaPipelineMetadata.h"
 
 
 namespace irr
@@ -206,11 +207,111 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 	return retval;
 }
 
-CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager) : asset::IAssetLoader(), manager(_manager)
+_IRR_STATIC_INLINE_CONSTEXPR const char* PIPELINE_LAYOUT_CACHE_KEY = "irr/builtin/pipeline_layout/loaders/mitsuba_xml/default";
+_IRR_STATIC_INLINE_CONSTEXPR const char* PIPELINE_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mitsuba_xml/default";
+
+_IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_TAB_TEX_BINDING = 0u;
+_IRR_STATIC_INLINE_CONSTEXPR uint32_t PHYS_PAGE_TEX_BINDING = 1u;
+_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BUF_BINDING = 2u;
+_IRR_STATIC_INLINE_CONSTEXPR uint32_t BSDF_BUF_BINDING = 3u;
+
+template <typename AssetT>
+static void insertAssetIntoCache(core::smart_refctd_ptr<AssetT>& asset, const char* path, IAssetManager* _assetMgr)
+{
+	asset::SAssetBundle bundle({ asset });
+	_assetMgr->changeAssetKey(bundle, path);
+	_assetMgr->insertAssetIntoCache(bundle);
+}
+template<typename AssetType, IAsset::E_TYPE assetType>
+static core::smart_refctd_ptr<AssetType> getBuiltinAsset(const char* _key, IAssetManager* _assetMgr)
+{
+	size_t storageSz = 1ull;
+	asset::SAssetBundle bundle;
+	const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
+
+	_assetMgr->findAssets(storageSz, &bundle, _key, types);
+	if (bundle.isEmpty())
+		return nullptr;
+	auto assets = bundle.getContents();
+	//assert(assets.first != assets.second);
+
+	return core::smart_refctd_ptr_static_cast<AssetType>(assets.first[0]);
+}
+
+CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager) : asset::IAssetLoader(), m_manager(_manager)
 {
 #ifdef _IRR_DEBUG
 	setDebugName("CMitsubaLoader");
 #endif
+
+	core::smart_refctd_ptr<ICPUPipelineLayout> layout;
+	{
+		SPushConstantRange pcrng;
+		pcrng.offset = 0u;
+		pcrng.size = 2u*sizeof(uint32_t);//instr offset and count
+		pcrng.stageFlags = ISpecializedShader::ESS_FRAGMENT;
+
+		//those descriptors can go as ds0 since they're always the same for all geometry within scene loaded from mitsuba xml
+		//(so ds itself will need to be returned through pipeline metadata same way as in MTL loader)
+		//@devsh tell me if it's ok
+		core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout;
+		{
+			std::array<ICPUDescriptorSetLayout::SBinding,4> bnds;
+			//page table texture
+			bnds[0].count = 1u;
+			bnds[0].stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+			bnds[0].type = EDT_COMBINED_IMAGE_SAMPLER;
+			bnds[0].binding = 0u;
+			//physical pages texture
+			bnds[1].count = 1u;
+			bnds[1].stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+			bnds[1].type = EDT_COMBINED_IMAGE_SAMPLER;
+			bnds[1].binding = 1u;
+			//instruction buffer
+			bnds[2].count = 1u;
+			bnds[2].stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+			bnds[2].type = EDT_STORAGE_BUFFER;
+			bnds[2].binding = 2u;
+			//bsdf buffer
+			bnds[3].count = 1u;
+			bnds[3].stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+			bnds[3].type = EDT_STORAGE_BUFFER;
+			bnds[3].binding = 3u;
+
+			ds0layout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bnds.data(),bnds.data()+bnds.size());
+		}
+		auto ds1layout = getBuiltinAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("irr/builtin/descriptor_set_layout/basic_view_parameters", m_manager);
+
+		layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(
+			&pcrng, &pcrng+1,
+			std::move(ds0layout), std::move(ds1layout), nullptr, nullptr
+		);
+
+		insertAssetIntoCache(layout, PIPELINE_LAYOUT_CACHE_KEY, m_manager);
+	}
+	{
+		auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
+			std::move(layout),
+			nullptr, nullptr, //TODO shaders (will be same for all)
+			//all the params will be overriden with those loaded with meshes
+			SVertexInputParams(),
+			SBlendParams(),
+			SPrimitiveAssemblyParams(),
+			SRasterizationParams()
+		);
+
+		insertAssetIntoCache(pipeline, PIPELINE_CACHE_KEY, m_manager);
+	}
+}
+
+static core::smart_refctd_ptr<ICPUDescriptorSet> makeDSForMeshbuffer()
+{
+	auto pplnlayout = getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, nullptr/*TODO*/);
+	auto ds3layout = pplnlayout->getDescriptorSetLayout(3u);
+
+	auto ds3 = core::make_smart_refctd_ptr<ICPUDescriptorSet>(std::move(ds3layout));
+	auto d = ds3->getDescriptors(0u).begin();
+	d->desc = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(SBasicViewParameters));
 }
 
 bool CMitsubaLoader::isALoadableFileFormat(io::IReadFile* _file) const
@@ -269,15 +370,15 @@ const char** CMitsubaLoader::getAssociatedFileExtensions() const
 
 asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-	ParserManager parserManager(manager->getFileSystem(),_override);
+	ParserManager parserManager(m_manager->getFileSystem(),_override);
 	if (!parserManager.parse(_file))
 		return {};
 
 	//
 	auto currentDir = io::IFileSystem::getFileDir(_file->getFileName()) + "/";
 	SContext ctx = {
-		manager->getGeometryCreator(),
-		manager->getMeshManipulator(),
+		m_manager->getGeometryCreator(),
+		m_manager->getMeshManipulator(),
 		asset::IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen,_params.decryptionKey,_params.cacheFlags,currentDir.c_str()),
 		_override,
 		parserManager.m_globalMetadata.get()
@@ -305,7 +406,7 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 								shapedef
 							);
 			metadataptr = metadata.get();
-			manager->setAssetMetadata(mesh.get(), std::move(metadata));
+			m_manager->setAssetMetadata(mesh.get(), std::move(metadata));
 			meshes.insert(std::move(mesh));
 		}
 		else
@@ -316,6 +417,10 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 
 		metadataptr->instances.push_back({shapedef->getAbsoluteTransform(),shapedef->obtainEmitter()});
 	}
+
+	//put into pipeline metadata for every pipeline
+	auto ds0 = createDS0(ctx);
+	auto metadata = core::make_smart_refctd_ptr<CMitsubaPipelineMetadata>(std::move(ds0));
 
 	return {meshes};
 }
@@ -379,7 +484,7 @@ CMitsubaLoader::SContext::group_ass_type CMitsubaLoader::loadShapeGroup(SContext
 }
 
 //TODO : vtx input and assembly params are now ignored (mb is created without pipeline), later they need to be somehow forwarded and set on already created pipeline
-static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeometryCreator::return_type&& _data)
+static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeometryCreator::return_type&& _data, asset::IAssetManager* _manager)
 {
 	auto mb = core::make_smart_refctd_ptr<ICPUMeshBuffer>(
 		nullptr, nullptr,
@@ -416,7 +521,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 	auto loadModel = [&](const ext::MitsubaLoader::SPropertyElementData& filename, int64_t index=-1) -> core::smart_refctd_ptr<asset::ICPUMesh>
 	{
 		assert(filename.type==ext::MitsubaLoader::SPropertyElementData::Type::STRING);
-		auto retval = interm_getAssetInHierarchy(manager, filename.svalue, ctx.params, hierarchyLevel/*+ICPUSCene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override);
+		auto retval = interm_getAssetInHierarchy(m_manager, filename.svalue, ctx.params, hierarchyLevel/*+ICPUSCene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override);
 		auto contentRange = retval.getContents();
 		//
 		uint32_t actualIndex = 0;
@@ -444,7 +549,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 				for (auto j=0u; j<mesh->getMeshBufferCount(); j++)
 					copy->addMeshBuffer(core::smart_refctd_ptr<asset::ICPUMeshBuffer>(mesh->getMeshBuffer(j)));
 				copy->recalculateBoundingBox();
-				manager->setAssetMetadata(copy.get(),core::smart_refctd_ptr<asset::IAssetMetadata>(mesh->getMetadata()));
+				m_manager->setAssetMetadata(copy.get(),core::smart_refctd_ptr<asset::IAssetMetadata>(mesh->getMetadata()));
 				return copy;
 			}
 			else
@@ -464,12 +569,12 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 		{
 			auto cubeData = ctx.creator->createCubeMesh(core::vector3df(2.f));
 
-			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createCubeMesh(core::vector3df(2.f)));
+			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createCubeMesh(core::vector3df(2.f)), m_manager);
 			flipNormals = flipNormals!=shape->cube.flipNormals;
 		}
 			break;
 		case CElementShape::Type::SPHERE:
-			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createSphereMesh(1.f,64u,64u));
+			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createSphereMesh(1.f,64u,64u), m_manager);
 			flipNormals = flipNormals!=shape->sphere.flipNormals;
 			{
 				core::matrix3x4SIMD tform;
@@ -481,7 +586,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 		case CElementShape::Type::CYLINDER:
 			{
 				auto diff = shape->cylinder.p0-shape->cylinder.p1;
-				mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createCylinderMesh(1.f, 1.f, 64));
+				mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createCylinderMesh(1.f, 1.f, 64), m_manager);
 				core::vectorSIMDf up(0.f);
 				float maxDot = diff[0];
 				uint32_t index = 0u;
@@ -502,11 +607,11 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 			flipNormals = flipNormals!=shape->cylinder.flipNormals;
 			break;
 		case CElementShape::Type::RECTANGLE:
-			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createRectangleMesh(core::vector2df_SIMD(1.f,1.f)));
+			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createRectangleMesh(core::vector2df_SIMD(1.f,1.f)), m_manager);
 			flipNormals = flipNormals!=shape->rectangle.flipNormals;
 			break;
 		case CElementShape::Type::DISK:
-			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createDiskMesh(1.f,64u));
+			mesh = createMeshFromGeomCreatorReturnType(ctx.creator->createDiskMesh(1.f,64u), m_manager);
 			flipNormals = flipNormals!=shape->disk.flipNormals;
 			break;
 		case CElementShape::Type::OBJ:
@@ -627,20 +732,47 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 			newMesh->addMeshBuffer(std::move(newMeshBuffer));
 		}
 		newMesh->recalculateBoundingBox();
-		manager->setAssetMetadata(newMesh.get(), core::smart_refctd_ptr<asset::IAssetMetadata>(mesh->getMetadata()));
+		m_manager->setAssetMetadata(newMesh.get(), core::smart_refctd_ptr<asset::IAssetMetadata>(mesh->getMetadata()));
 		mesh = std::move(newMesh);
 	}
 #endif
+
+	std::pair<uint32_t, uint32_t> instrBufOffsetAndCount;
+	{
+		auto it = ctx.instrStreamCache.find(shape->bsdf);
+		if (it != ctx.instrStreamCache.end())
+			instrBufOffsetAndCount = it->second;
+		else {
+			instrBufOffsetAndCount = genBSDFtreeTraversal(ctx, shape->bsdf);
+			ctx.instrStreamCache.insert({shape->bsdf,instrBufOffsetAndCount});
+		}
+	}
 
 	//meshbuffer processing
 	for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
 	{
 		auto* meshbuffer = mesh->getMeshBuffer(i);
+		//write starting instr buf offset (instr-wise) and instruction count
+		uint32_t* pcData = reinterpret_cast<uint32_t*>(meshbuffer->getPushConstantsDataPtr());
+		pcData[0] = instrBufOffsetAndCount.first;
+		pcData[1] = instrBufOffsetAndCount.second;
 		// add some metadata
 		///auto meshbuffermeta = core::make_smart_refctd_ptr<IMeshBufferMetadata>(shapedef->type,shapedef->emitter ? shapedef->emitter.area:CElementEmitter::Area());
 		///manager->setAssetMetadata(meshbuffer,std::move(meshbuffermeta));
 		// TODO: change this with shader pipeline
-		meshbuffer->getMaterial() = getBSDF(ctx, hierarchyLevel + asset::ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW, shape->bsdf);
+		//meshbuffer->getMaterial() = getBSDF(ctx, hierarchyLevel + asset::ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW, shape->bsdf);
+		auto* prevPipeline = meshbuffer->getPipeline();
+		//TODO do something to not always create new pipeline
+		auto pipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(//shallow copy because we're going to override parameter structs
+			getBuiltinAsset<ICPURenderpassIndependentPipeline, IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE>(PIPELINE_CACHE_KEY, m_manager)->clone(0u)
+		);
+		pipeline->getVertexInputParams() = prevPipeline->getVertexInputParams();
+		pipeline->getPrimitiveAssemblyParams() = prevPipeline->getPrimitiveAssemblyParams();
+		//TODO blend and raster probably shouldnt be copied
+		//pipeline->getBlendParams() = prevPipeline->getBlendParams();
+		//pipeline->getRasterizationParams() = prevPipeline->getRasterizationParams();
+
+		meshbuffer->setPipeline(std::move(pipeline));
 	}
 
 	// cache and return
@@ -648,8 +780,8 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 	return mesh;
 }
 
-
 //! TODO: change to CPU graphics pipeline
+//TODO this function will most likely be deleted, basically only instr buf offset/count pair is needed, pipelines wont change that much
 CMitsubaLoader::SContext::bsdf_ass_type CMitsubaLoader::getBSDF(SContext& ctx, uint32_t hierarchyLevel, const CElementBSDF* bsdf)
 {
 	if (!bsdf)
@@ -658,6 +790,16 @@ CMitsubaLoader::SContext::bsdf_ass_type CMitsubaLoader::getBSDF(SContext& ctx, u
 	auto found = ctx.pipelineCache.find(bsdf);
 	if (found != ctx.pipelineCache.end())
 		return found->second;
+
+	const std::pair<uint32_t,uint32_t> instrBufOffsetAndCount = genBSDFtreeTraversal(ctx, bsdf);
+	auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
+		getBuiltinAsset<ICPUPipelineLayout,IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager),//layout
+		nullptr, nullptr,//TODO shaders
+		SVertexInputParams(),
+		SBlendParams(),
+		SPrimitiveAssemblyParams(),
+		SRasterizationParams()
+	);
 
 	// shader construction would take place here in the new pipeline
 	SContext::bsdf_ass_type pipeline;
@@ -784,7 +926,7 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 	{
 		case CElementTexture::Type::BITMAP:
 			{
-				auto retval = interm_getAssetInHierarchy(manager,tex->bitmap.filename.svalue,ctx.params,hierarchyLevel,ctx.override);
+				auto retval = interm_getAssetInHierarchy(m_manager,tex->bitmap.filename.svalue,ctx.params,hierarchyLevel,ctx.override);
 				auto contentRange = retval.getContents();
 				if (contentRange.first < contentRange.second)
 				{
@@ -793,7 +935,6 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 					{
 						auto texture = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
 
-						//  TODO: instead of making new texure with extracted channel just create a buffer view with appropriate rrrr,gggg,bbbb,aaaa swizzle
 						switch (tex->bitmap.channel)
 						{
 							// no GL_R8_SRGB support yet
@@ -943,7 +1084,7 @@ static bsdf::E_OPCODE BSDFtype2opcode(const CElementBSDF* bsdf)
 	}
 }
 
-void CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf)
+std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf)
 {
 	struct stack_el {
 		const CElementBSDF* bsdf;
@@ -1126,7 +1267,7 @@ void CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 	while (!stack.empty())
 	{
 		auto& top = stack.top();
-		uint32_t op = ((top.instr_1st_dword & bsdf::INSTR_OPCODE_MASK) >> bsdf::INSTR_OPCODE_SHIFT);
+		uint32_t op = ((top.instr_1st_dword >> bsdf::INSTR_OPCODE_SHIFT) & bsdf::INSTR_OPCODE_MASK);
 		if (op <= bsdf::OP_INVALID || top.visited)
 		{
 			uint32_t regs = 0u;
@@ -1148,7 +1289,6 @@ void CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 				regs |= (firstFreeReg & bsdf::INSTR_REG_MASK) << (bsdf::INSTR_REG_SRC2_SHIFT - INSTR_REG_SHIFT_REL);
 			}
 
-			//TODO gen struct and insert into BSDF buf
 			const uint32_t bsdfBufIx = ctx.bsdfBuffer.size();
 			if (top.bsdf)//if top.bsdf is nullptr, then bsdf buf offset will be irrelevant for this instruction (may be any value and won't ever be fetched anyway)
 			{
@@ -1183,6 +1323,7 @@ void CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 		const bsdf::instr_t& instr = ctx.instrBuffer[ix];
 		if ((instr & bsdf::INSTR_OPCODE_MASK) == bsdf::OP_BUMPMAP)
 			ixs.push_back(ix);
+		_IRR_DEBUG_BREAK_IF(ixs.size()>bsdf::INSTR_NORMAL_REG_MASK);
 	}
 	//reorder
 	for (uint32_t ix : ixs)
@@ -1194,6 +1335,76 @@ void CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 		ctx.instrBuffer.erase(ctx.instrBuffer.begin()+ix);
 		ctx.instrBuffer.insert(it, instr);
 	}
+
+	return {instrBufBase, ctx.instrBuffer.size()-instrBufBase};
+}
+
+core::smart_refctd_ptr<ICPUDescriptorSet> CMitsubaLoader::createDS0(const SContext& _ctx)
+{
+	auto pplnLayout = getBuiltinAsset<ICPUPipelineLayout,IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager);
+	auto ds0layout = pplnLayout->getDescriptorSetLayout(0u);
+
+	auto ds0 = core::make_smart_refctd_ptr<ICPUDescriptorSet>(std::move(ds0layout));
+	auto d = ds0->getDescriptors(PAGE_TAB_TEX_BINDING).begin();
+	{
+		auto* pgtab = m_texPacker->getPageTable();
+
+		ICPUImageView::SCreationParams params;
+		params.flags = static_cast<IImageView<ICPUImage>::E_CREATE_FLAGS>(0);
+		params.format = pgtab->getCreationParameters().format;
+		params.image = core::smart_refctd_ptr<ICPUImage>(pgtab);
+		params.viewType = IImageView<ICPUImage>::ET_2D;
+		params.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+		params.subresourceRange.baseArrayLayer = 0u;
+		params.subresourceRange.layerCount = 1u;
+		params.subresourceRange.baseMipLevel = 0u;
+		params.subresourceRange.levelCount = pgtab->getCreationParameters().mipLevels;
+		auto pgtabView = ICPUImageView::create(std::move(params));
+
+		d->desc = std::move(pgtabView);
+		d->image.imageLayout = EIL_UNDEFINED;
+		d->image.sampler = nullptr;//TODO
+	}
+	d = ds0->getDescriptors(PHYS_PAGE_TEX_BINDING).begin();
+	{
+		auto* physpgTex = m_texPacker->getPhysicalAddressTexture();
+
+		ICPUImageView::SCreationParams params;
+		params.flags = static_cast<IImageView<ICPUImage>::E_CREATE_FLAGS>(0);
+		params.format = physpgTex->getCreationParameters().format;
+		params.image = core::smart_refctd_ptr<ICPUImage>(physpgTex);
+		params.viewType = IImageView<ICPUImage>::ET_2D_ARRAY;
+		params.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+		params.subresourceRange.baseArrayLayer = 0u;
+		params.subresourceRange.layerCount = physpgTex->getCreationParameters().arrayLayers;
+		params.subresourceRange.baseMipLevel = 0u;
+		params.subresourceRange.levelCount = 1u;
+		auto physPgTexView = ICPUImageView::create(std::move(params));
+
+		d->desc = std::move(physPgTexView);
+		d->image.imageLayout = EIL_UNDEFINED;
+		d->image.sampler = nullptr;//TODO
+	}
+	d = ds0->getDescriptors(INSTR_BUF_BINDING).begin();
+	{
+		auto instrbuf = core::make_smart_refctd_ptr<ICPUBuffer>(_ctx.instrBuffer.size()*sizeof(decltype(_ctx.instrBuffer)::value_type));
+		memcpy(instrbuf->getPointer(), _ctx.instrBuffer.data(), instrbuf->getSize());
+
+		d->buffer.offset = 0u;
+		d->buffer.size = instrbuf->getSize();
+		d->desc = std::move(instrbuf);
+	}
+	d = ds0->getDescriptors(BSDF_BUF_BINDING).begin();
+	{
+		auto bsdfbuf = core::make_smart_refctd_ptr<ICPUBuffer>(_ctx.bsdfBuffer.size()*sizeof(decltype(_ctx.bsdfBuffer)::value_type));
+		memcpy(bsdfbuf->getPointer(), _ctx.bsdfBuffer.data(), bsdfbuf->getSize());
+
+		d->buffer.offset = 0u;
+		d->buffer.size = bsdfbuf->getSize();
+		d->desc = std::move(bsdfbuf);
+	}
+
+	return ds0;
 }
 
 
