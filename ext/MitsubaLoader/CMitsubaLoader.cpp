@@ -4,8 +4,6 @@
 
 #include "../../ext/MitsubaLoader/CMitsubaLoader.h"
 #include "../../ext/MitsubaLoader/ParserUtil.h"
-#include "../../ext/MitsubaLoader/CMitsubaPipelineMetadata.h"
-
 
 namespace irr
 {
@@ -206,6 +204,173 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 
 	return retval;
 }
+
+_IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER =
+R"(#version 430 core
+
+layout (location = 0) in vec3 LocalPos;
+layout (location = 1) in vec3 ViewPos;
+layout (location = 2) in vec3 Normal;
+layout (location = 3) in vec2 UV;
+
+#define instr_t uvec2
+//maybe will change to vec3
+#define reg_t vec4
+struct bsdf_data_t
+{
+	uvec4 data[3];
+};
+
+layout (set = 0, binding = 0) sampler2D pgTabTex;
+layout (set = 0, binding = 1) sampler2DArray physPgTex;
+layout (set = 0, binding = 2, std430) buffer INSTR_BUF //TODO maybe UBO instead of SSBO for instr buf? (only sequential access in this case, not so random)
+{
+	instr_t data[];
+} instr_buf;
+layout (set = 0, binding = 3, std430) buffer BSDF_BUF
+{
+	bsdf_data_t data[];
+} bsdf_buf;
+
+layout (push_constant) uniform Block
+{
+	//TODO in PC data they're tightly packed, not sure if this declaration implies any alignment and so if they're accessing want i want to access
+	uint instrOffset;
+	uint instrCount;
+} PC;
+
+#define REG_COUNT 16
+#define NORMAL_REG_COUNT 4
+
+#define INSTR_OPCODE_MASK			0xfu
+#define INSTR_REG_MASK				0xffu
+#define INSTR_BSDF_BUF_OFFSET_SHIFT 12
+#define INSTR_BSDF_BUF_OFFSET_MASK	0xfffffu
+#define INSTR_NDF_SHIFT 4
+#define INSTR_NDF_MASK 0x3u
+
+//remember to keep it compliant with c++ enum!!
+#define OP_DIFFUSE			0u
+#define OP_ROUGHDIFFUSE		1u
+#define OP_DIFFTRANS		2u
+#define OP_DIELECTRIC		3u
+#define OP_ROUGHDIELECTRIC	4u
+#define OP_CONDUCTOR		5u
+#define OP_ROUGHCONDUCTOR	6u
+#define OP_PLASTIC			7u
+#define OP_ROUGHPLASTIC		8u
+#define OP_TRANSPARENT		9u
+#define OP_WARD				10u
+#define OP_INVALID			11u
+#define OP_COATING			12u
+#define OP_ROUGHCOATING		13u
+#define OP_BUMPMAP			14u
+#define OP_BLEND			15u
+
+#define NDF_BECKMANN	0u
+#define NDF_GGX			1u
+#define NDF_PHONG		2u
+#define NDF_AS			3u
+
+#include <irr/builtin/glsl/bsdf/common.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/diffuse/fresnel_correction.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/diffuse/lambert.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/diffuse/oren_nayar.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/ndf/ggx.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/ashikhmin_shirley.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/beckmann_smith.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/ggx.glsl>
+#include <irr/builtin/glsl/bump_mapping/height_mapping.glsl>
+
+reg_t registers[REG_COUNT+NORMAL_REG_COUNT];
+
+//returns: x=dst, y=src1, z=src2
+uvec3 instr_decodeRegisters(in instr_t instr)
+{
+	uvec3 regs(instr.y, (instr.y>>8), (instr.y>>16));
+	return regs & uvec3(INSTR_REG_MASK); //this will do element-wise bit-wise AND, right?
+}
+#define REG_DST(r)	r.x
+#define REG_SRC1(r)	r.y
+#define REG_SRC2(r)	r.z
+
+void instr_execute_ROUGHDIELECTRIC(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params)
+{
+	uint bsdf_i = (instr.x>>INSTR_BSDF_BUF_OFFSET_SHIFT) & INSTR_BSDF_BUF_OFFSET_MASK;
+	uint ndf_i = (instr.x>>INSTR_NDF_SHIFT) & INSTR_NDF_MASK;
+	bsdf_data_t bsdf_data = bsdf_buf.data[bsdf_i];
+
+	float eta = uintBitsToFloat(bsdf_data.data[0].x);
+	mat2x3 eta2 = mat2x3(vec3(eta*eta),vec3(0.0));
+	vec2 a;
+	a.x = uintBitsToFloat(bsdf_data.data[0].y);
+
+	//TODO albedo (texture [this can go without VT] or vtx color attrib)
+	//TODO figure out what to put as alpha into oren_nayar in case of anisotropic surface, a.x is wrong for sure (oren-nayar handles anisotropic surfaces for sure, i just need to define alpha)
+	vec3 diff = irr_glsl_oren_nayar_cos_eval(params.isotropic, a.x) * (1.0-irr_glsl_fresnel_dielectric(eta,params.isotropic.NdotL)) * (1.0-irr_glsl_fresnel_dielectric(eta,params.isotropic.NdotV));
+	diff *= irr_glsl_diffuseFresnelCorrectionFactor(vec3(eta), eta2[0]);
+	vec3 spec;
+	switch (ndf_i)
+	{
+	case NDF_BECKMANN:
+		spec = irr_glsl_beckmann_smith_height_correlated_cos_eval(params.isotropic, eta2, sqrt(a.x), a.x);
+		break;
+	case NDF_GGX:
+		spec = irr_glsl_ggx_height_correlated_cos_eval(params.isotropic, eta2, a.x);
+		break;
+	case NDF_PHONG:
+		spec = vec3(0.0);
+		break;
+	case NDF_AS:
+		a.y = uintBitsToFloat(bsdf_data.data[0].w);
+		//TODO: sin_cos_phi
+		//spec = irr_glsl_ashikhmin_shirley_cos_eval(params, vec2(1.0)/a, sin_cos_phi, a, eta2);
+		break;
+	}
+
+	registers[NORMAL_REG_COUNT+REG_DST(regs)].xyz = diff+spec;
+}
+void instr_execute(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params)
+{
+	switch (instr.x & INSTR_REG_MASK)
+	{
+	
+	case OP_ROUGHDIELECTRIC: 
+		instr_execute_ROUGHDIELECTRIC(instr, regs, params);
+		break;
+	//run func depending on opcode
+	//the func will decide whether to (and which ones) fetch registers from `regs` array
+	//and whether to fetch bsdf data from bsdf_buf (not all opcodes need it)
+	//also stores the result into dst reg
+	//....
+	}
+}
+
+void main()
+{
+	//all lighting computations are done in view space
+
+	//TODO 
+	//ignoring bump maps as for now, however i think we could keep array of irr_glsl_BSDFAnisotropicParams and call 
+	//irr_glsl_calcBSDFIsotropicParams() just once per bumpmap (everytime an OP_BUMPMAP instr is executed)
+	//although.. such array would statically consume A LOT of registers and we're already using quite much
+	irr_glsl_ViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(vec3(0.0), ViewPos, Normal);
+	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(interaction, -ViewPos);
+	//TODO: T,B tangents
+	irr_glsl_BSDFAnisotropicParams params = irr_glsl_calcBSDFAnisotropicParams(isoparams, T, B);
+
+	//TODO will conform to irrbaw shader standards later (irr_bsdf_cos_eval, irr_computeLighting...)
+	for (uint i = 0u; i < PC.instrCount; ++i)
+	{
+		instr_t instr = instr_buf.data[PC.instrOffset+i];
+		uvec3 regs = instr_decodeRegisters(instr);
+
+		instr_execute(instr, regs, params);
+	}
+}
+)";
+
 
 _IRR_STATIC_INLINE_CONSTEXPR const char* PIPELINE_LAYOUT_CACHE_KEY = "irr/builtin/pipeline_layout/loaders/mitsuba_xml/default";
 _IRR_STATIC_INLINE_CONSTEXPR const char* PIPELINE_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mitsuba_xml/default";
@@ -418,9 +583,17 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		metadataptr->instances.push_back({shapedef->getAbsoluteTransform(),shapedef->obtainEmitter()});
 	}
 
-	//put into pipeline metadata for every pipeline
-	auto ds0 = createDS0(ctx);
-	auto metadata = core::make_smart_refctd_ptr<CMitsubaPipelineMetadata>(std::move(ds0));
+	auto metadata = createPipelineMetadata(createDS0(ctx), getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager).get());
+	for (auto& mesh : meshes)
+	{
+		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
+		{
+			asset::ICPUMeshBuffer* mb = mesh->getMeshBuffer(i);
+			asset::ICPURenderpassIndependentPipeline* pipeline = mb->getPipeline();
+			if (!pipeline->getMetadata())
+				m_manager->setAssetMetadata(pipeline, core::smart_refctd_ptr(metadata));
+		}
+	}
 
 	return {meshes};
 }
@@ -749,6 +922,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 	}
 
 	//meshbuffer processing
+	auto builtinPipeline = getBuiltinAsset<ICPURenderpassIndependentPipeline, IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE>(PIPELINE_CACHE_KEY, m_manager);
 	for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
 	{
 		auto* meshbuffer = mesh->getMeshBuffer(i);
@@ -764,7 +938,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 		auto* prevPipeline = meshbuffer->getPipeline();
 		//TODO do something to not always create new pipeline
 		auto pipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(//shallow copy because we're going to override parameter structs
-			getBuiltinAsset<ICPURenderpassIndependentPipeline, IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE>(PIPELINE_CACHE_KEY, m_manager)->clone(0u)
+			builtinPipeline->clone(0u)
 		);
 		pipeline->getVertexInputParams() = prevPipeline->getVertexInputParams();
 		pipeline->getPrimitiveAssemblyParams() = prevPipeline->getPrimitiveAssemblyParams();
@@ -1405,6 +1579,32 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CMitsubaLoader::createDS0(const SConte
 	}
 
 	return ds0;
+}
+
+core::smart_refctd_ptr<CMitsubaPipelineMetadata> CMitsubaLoader::createPipelineMetadata(core::smart_refctd_ptr<ICPUDescriptorSet>&& _ds0, const ICPUPipelineLayout* _layout)
+{
+	constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
+	core::smart_refctd_dynamic_array<IPipelineMetadata::ShaderInputSemantic> inputs = core::make_refctd_dynamic_array<decltype(inputs)>(DS1_METADATA_ENTRY_CNT);
+	{
+		const ICPUDescriptorSetLayout* ds1layout = _layout->getDescriptorSetLayout(1u);
+
+		constexpr IPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT]{ IPipelineMetadata::ECSI_WORLD_VIEW_PROJ, IPipelineMetadata::ECSI_WORLD_VIEW, IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE };
+		constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT]{ sizeof(SBasicViewParameters::MVP), sizeof(SBasicViewParameters::MV), sizeof(SBasicViewParameters::NormalMat) };
+		constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT]{ offsetof(SBasicViewParameters,MVP), offsetof(SBasicViewParameters,MV), offsetof(SBasicViewParameters,NormalMat) };
+		for (uint32_t i = 0u; i < DS1_METADATA_ENTRY_CNT; ++i)
+		{
+			auto& semantic = (*inputs)[i];
+			semantic.type = types[i];
+			semantic.descriptorSection.type = IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
+			semantic.descriptorSection.uniformBufferObject.binding = ds1layout->getBindings().begin()[0].binding;
+			semantic.descriptorSection.uniformBufferObject.set = 1u;
+			semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
+			semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
+			semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_VERTEX;
+		}
+	}
+
+	return core::make_smart_refctd_ptr<CMitsubaPipelineMetadata>(std::move(_ds0), std::move(inputs));
 }
 
 

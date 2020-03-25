@@ -9,6 +9,7 @@
 #include "../../ext/MitsubaLoader/CSerializedLoader.h"
 #include "../../ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
 #include "../../ext/MitsubaLoader/CElementShape.h"
+#include "../../ext/MitsubaLoader/CMitsubaPipelineMetadata.h"
 
 namespace irr
 {
@@ -304,6 +305,8 @@ class CMitsubaLoader : public asset::IAssetLoader
 		std::pair<uint32_t,uint32_t> genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 
 		core::smart_refctd_ptr<ICPUDescriptorSet> createDS0(const SContext& _ctx);
+
+		core::smart_refctd_ptr<CMitsubaPipelineMetadata> createPipelineMetadata(core::smart_refctd_ptr<ICPUDescriptorSet>&& _ds0, const ICPUPipelineLayout* _layout);
 
 	public:
 		//! Check if the file might be loaded by this class
