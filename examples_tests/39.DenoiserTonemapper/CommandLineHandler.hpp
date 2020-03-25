@@ -183,15 +183,12 @@ class CommandLineHandler
 
 		auto getCameraTransform(uint64_t id = 0)
 		{
-			irr::core::matrix4x3 cameraTransform;
-			for (auto i = 0; i < 9; ++i)
-			{
-				if (i >= rawVariables[id][DTEA_CAMERA_TRANSFORM].second.size())
-					break;
-
-				auto stringValue = *(rawVariables[id][DTEA_CAMERA_TRANSFORM].second.begin() + i);
-				*(cameraTransform.pointer() + i) = std::stof(stringValue);
-			}
+			irr::core::matrix3x4SIMD cameraTransform;
+			const auto send = rawVariables[id][DTEA_CAMERA_TRANSFORM].second.end();
+			auto sit = rawVariables[id][DTEA_CAMERA_TRANSFORM].second.begin();
+			for (auto i=0; i<3u&&sit!=send; i++)
+			for (auto j=0; j<3u&&sit!=send; j++)
+				cameraTransform(i,j) = std::stof(*(sit++));
 
 			return cameraTransform;
 		}
@@ -262,7 +259,7 @@ class CommandLineHandler
 
 		irr::core::vector<std::string> fileNamesBundle;
 		irr::core::vector<irr::core::vector<std::string>> channelNamesBundle;
-		irr::core::vector<irr::core::matrix4x3> cameraTransformBundle;
+		irr::core::vector<irr::core::matrix3x4SIMD> cameraTransformBundle;
 		irr::core::vector<float> exposureBiasBundle;
 		irr::core::vector<float> denoiserBlendFactorBundle;
 		irr::core::vector<irr::core::vector2df> bloomSizeBundle;
