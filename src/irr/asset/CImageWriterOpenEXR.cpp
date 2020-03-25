@@ -143,11 +143,7 @@ namespace irr
 			if (!file)
 				return false;
 
-			const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, image, 0u);
-			if (flags & asset::EWF_BINARY)
-				return writeImageBinary(file, image);
-			else
-				return false;
+			return writeImageBinary(file, image);
 		}
 
 		bool CImageWriterOpenEXR::writeImageBinary(io::IWriteFile* file, const asset::ICPUImage* image)

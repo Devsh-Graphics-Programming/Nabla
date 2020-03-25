@@ -255,7 +255,8 @@ irr_adjust_definitions() # macro defined in root CMakeLists
 macro(irr_target_link_zlib _trgt)
 	add_dependencies(${_trgt} zlibstatic)
 	target_link_libraries(${_trgt} INTERFACE
-		${ZLIB_LIBRARY_RELEASE}
+		"$<$<CONFIG:DEBUG>:${ZLIB_LIBRARY_DEBUG}>"
+		"$<$<CONFIG:RELEASE>:${ZLIB_LIBRARY_RELEASE}>"
 	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/zlib)
 endmacro()
@@ -402,7 +403,7 @@ if(IRR_PCH)
     if (UNIX)
         if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
             ADD_PRECOMPILED_HEADER(Irrlicht pch.h "${IRRLICHT_CONF_DIR_RELEASE}" FORCEINCLUDE)
-	elseif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+		elseif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
             ADD_PRECOMPILED_HEADER(Irrlicht pch.h "${IRRLICHT_CONF_DIR_DEBUG}" FORCEINCLUDE)
         endif()
     else()
