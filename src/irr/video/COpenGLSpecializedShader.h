@@ -33,7 +33,60 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 			SMember m;
 		};
 
-		COpenGLSpecializedShader(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, const asset::CIntrospectionData* _introspection);
+		static inline bool getUniformsFromPushConstants(core::vector<SUniform>* uniformList,const asset::CIntrospectionData* _introspection)
+		{
+			assert(_introspection);
+			const auto& pc = _introspection->pushConstant;
+			if (!pc.present)
+				return true;
+		
+			const auto& pc_layout = pc.info;
+			core::queue<SMember> q;
+			SMember initial;
+			initial.type = asset::EGVT_UNKNOWN_OR_STRUCT;
+			initial.members = pc_layout.members;
+			initial.name = pc.info.name;
+			q.push(initial);
+
+			struct UniformHash
+			{
+				inline size_t operator()(const SUniform& other) const
+				{
+					return std::hash<std::string>()(other.m.name);
+				}
+			};
+			struct UniformKeyEqualTo
+			{
+				inline size_t operator()(const SUniform& A, const SUniform& B) const
+				{
+					return A.m.name==B.m.name;
+				}
+			};
+			core::unordered_set<SUniform,UniformHash,UniformKeyEqualTo> uniformSet;
+			while (!q.empty())
+			{
+				const SMember top = q.front();
+				q.pop();
+				if (top.type == asset::EGVT_UNKNOWN_OR_STRUCT && top.members.count) {
+					for (size_t i = 0ull; i < top.members.count; ++i) {
+						SMember m = top.members.array[i];
+						m.name = (top.name.size() ? (top.name+"."):"")+m.name;
+						if (m.count > 1u)
+							m.name += "[0]";
+						q.push(m);
+					}
+					continue;
+				}
+				auto result = uniformSet.insert(top);
+				if (!result.second)
+					return false;
+			}
+			uniformList->clear();
+			uniformList->insert(uniformList->begin(),uniformSet.begin(),uniformSet.end());
+			return true;
+		}
+
+		COpenGLSpecializedShader(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList);
 
 		inline GLenum getOpenGLStage() const { return m_GLstage; }
 

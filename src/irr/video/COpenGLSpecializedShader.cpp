@@ -124,7 +124,7 @@ static GLenum ESS2GLenum(asset::ISpecializedShader::E_SHADER_STAGE _stage)
 using namespace irr;
 using namespace irr::video;
 
-COpenGLSpecializedShader::COpenGLSpecializedShader(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, const asset::CIntrospectionData* _introspection) :
+COpenGLSpecializedShader::COpenGLSpecializedShader(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList) :
 	core::impl::ResolveAlignment<IGPUSpecializedShader, core::AllocationOverrideBase<128>>(_specInfo.shaderStage),
     m_GLstage(impl::ESS2GLenum(_specInfo.shaderStage)),
 	m_specInfo(_specInfo),//TODO make it move()
@@ -137,34 +137,7 @@ COpenGLSpecializedShader::COpenGLSpecializedShader(uint32_t _GLSLversion, const 
 
 	core::XXHash_256(_spirv->getPointer(), _spirv->getSize(), m_spirvHash.data());
 
-	assert(_introspection);
-	const auto& pc = _introspection->pushConstant;
-	if (pc.present)
-	{
-		const auto& pc_layout = pc.info;
-		core::queue<SMember> q;
-		SMember initial;
-		initial.type = asset::EGVT_UNKNOWN_OR_STRUCT;
-		initial.members = pc_layout.members;
-		initial.name = pc.info.name;
-		q.push(initial);
-		while (!q.empty())
-		{
-			const SMember top = q.front();
-			q.pop();
-			if (top.type == asset::EGVT_UNKNOWN_OR_STRUCT && top.members.count) {
-				for (size_t i = 0ull; i < top.members.count; ++i) {
-					SMember m = top.members.array[i];
-					m.name = top.name + "." + m.name;
-					if (m.count > 1u)
-						m.name += "[0]";
-					q.push(m);
-				}
-				continue;
-			}
-			m_uniformsList.emplace_back(top);
-		}
-	}
+	m_uniformsList = uniformList;
 }
 
 auto COpenGLSpecializedShader::compile(const COpenGLPipelineLayout* _layout, const spirv_cross::ParsedIR* _parsedSpirv) const -> std::pair<GLuint, SProgramBinary>
