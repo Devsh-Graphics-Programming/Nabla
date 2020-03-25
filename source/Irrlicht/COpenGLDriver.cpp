@@ -1428,15 +1428,16 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     asset::CShaderIntrospector::SEntryPoint_Stage_Extensions introspectionParams{ _specInfo.shaderStage, _specInfo.entryPoint, getSupportedGLSLExtensions()};
     asset::CShaderIntrospector introspector(GLSLCompiler.get());
     const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
-    if (introspection->pushConstant.present && introspection->pushConstant.info.name.empty())
+    core::vector<COpenGLSpecializedShader::SUniform> uniformList;
+    if (!COpenGLSpecializedShader::getUniformsFromPushConstants(&uniformList,introspection))
     {
-        assert(false);//abort on debug build
+        _IRR_DEBUG_BREAK_IF(true);
         os::Printer::log("Attempted to create OpenGL GPU specialized shader from SPIR-V without debug info - unable to set push constants. Creation failed.", ELL_ERROR);
         return nullptr;//release build: maybe let it return the shader
     }
 
     auto ctx = getThreadContext_helper(false);
-    return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, introspection);
+    return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, std::move(uniformList));
 }
 
 core::smart_refctd_ptr<IGPUBufferView> COpenGLDriver::createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset, size_t _size)
