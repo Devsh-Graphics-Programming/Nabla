@@ -48,6 +48,25 @@ int main()
 	auto geometryCreator = device->getAssetManager()->getGeometryCreator();
 	auto rectangleGeometry = geometryCreator->createRectangleMesh(irr::core::vector2df_SIMD(1.5, 3));
 
+	asset::IAssetLoader::SAssetLoadParams loadingParams;
+	auto images_bundle = assetManager->getAsset("../../media/color_space_test/R8G8B8A8_1.png", loadingParams);
+	assert(!images_bundle.isEmpty());
+	auto image = images_bundle.getContents().first[0];
+	auto image_raw = static_cast<asset::ICPUImage*>(image.get());
+
+	ICPUImageView::SCreationParams viewParams;
+	viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+	viewParams.image = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(image);
+	viewParams.format = asset::EF_R8G8B8A8_SRGB;
+	viewParams.viewType = IImageView<ICPUImage>::ET_2D;
+	viewParams.subresourceRange.baseArrayLayer = 0u;
+	viewParams.subresourceRange.layerCount = 1u;
+	viewParams.subresourceRange.baseMipLevel = 0u;
+	viewParams.subresourceRange.levelCount = 1u;
+
+	auto imageView = ICPUImageView::create(std::move(viewParams));
+	auto gpuImageView = driver->getGPUObjectsFromAssets(&imageView.get(), &imageView.get() + 1u)->front();
+
 	constexpr std::string_view cacheKey = "irr/builtin/materials/lambertian/singletexture/specializedshader";
 	const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
 
@@ -71,6 +90,15 @@ int main()
 	size_t ds1UboBinding = 0, neededDS1UBOsz = 0;
 	auto createGPUMeshBufferAndItsPipeline = [&](asset::IGeometryCreator::return_type& geometryObject)
 	{
+		
+		asset::ICPUDescriptorSetLayout::SBinding binding0;
+		binding0.binding = 0u;
+		binding0.type = EDT_COMBINED_IMAGE_SAMPLER;
+		binding0.count = 1u;
+		binding0.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_FRAGMENT);
+		binding0.samplers = nullptr;
+		auto ds0Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding0, &binding0 + 1);
+
 		asset::ICPUDescriptorSetLayout::SBinding binding1;
 		binding1.count = 1u;
 		binding1.binding = ds1UboBinding = 0u;
@@ -78,9 +106,9 @@ int main()
 		binding1.type = asset::EDT_UNIFORM_BUFFER;
 		auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding1, &binding1 + 1);
 
-		auto pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, nullptr);
+		auto pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, std::move(ds0Layout), std::move(ds1Layout), nullptr, nullptr);
 
-		auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(neededDS1UBOsz);
+		auto rawds0 = pipelineLayout->getDescriptorSetLayout(0u);
 		auto rawds1 = pipelineLayout->getDescriptorSetLayout(1u);
 
 		constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
@@ -106,6 +134,8 @@ int main()
 			}
 		}
 
+		auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(neededDS1UBOsz);
+
 		asset::SBlendParams blendParams;
 		asset::SRasterizationParams rasterParams;
 		rasterParams.faceCullingMode = asset::EFCM_NONE;
@@ -116,6 +146,17 @@ int main()
 		
 		assetManager->setAssetMetadata(pipeline.get(), core::make_smart_refctd_ptr<CPLYPipelineMetadata>(1, std::move(shaderInputsMetadata)));
 		auto metadata = pipeline->getMetadata();
+
+		auto gpuDescriptorSet0 = driver->createGPUDescriptorSet(std::move(driver->getGPUObjectsFromAssets(&rawds0, &rawds0 + 1)->front()));
+		{
+			IGPUDescriptorSet::SDescriptorInfo info;
+			info.desc = std::move(gpuImageView); 
+			ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE,ISampler::ETC_CLAMP_TO_EDGE,ISampler::ETC_CLAMP_TO_EDGE,ISampler::ETBC_FLOAT_OPAQUE_BLACK,ISampler::ETF_LINEAR,ISampler::ETF_LINEAR,ISampler::ESMM_LINEAR,0u,false,ECO_ALWAYS };
+			info.image = { driver->createGPUSampler(samplerParams),EIL_SHADER_READ_ONLY_OPTIMAL };
+
+			IGPUDescriptorSet::SWriteDescriptorSet write = { gpuDescriptorSet0.get(),0u,0u,1u,EDT_COMBINED_IMAGE_SAMPLER,&info };
+			driver->updateDescriptorSets(1u, &write, 0u, nullptr);
+		}
 
 		auto gpuDescriptorSet1 = driver->createGPUDescriptorSet(std::move(driver->getGPUObjectsFromAssets(&rawds1, &rawds1 + 1)->front()));
 		{
@@ -135,7 +176,7 @@ int main()
 			driver->updateDescriptorSets(1u, &write, 0u, nullptr);
 		}
 
-		auto gpuPipeline = driver->getGPUObjectsFromAssets(&pipeline.get(), &pipeline.get() + 1)->front(); // it doesnt work, fails at bindings reoreding
+		auto gpuPipeline = driver->getGPUObjectsFromAssets(&pipeline.get(), &pipeline.get() + 1)->front();
 
 		constexpr auto MAX_ATTR_BUF_BINDING_COUNT = video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
 		constexpr auto MAX_DATA_BUFFERS = MAX_ATTR_BUF_BINDING_COUNT + 1;
@@ -176,7 +217,7 @@ int main()
 			mb->setBoundingBox(geometryObject.bbox);
 		}
 
-		return std::make_tuple(mb, gpuPipeline, gpuubo, metadata, gpuDescriptorSet1);
+		return std::make_tuple(mb, gpuPipeline, gpuubo, metadata, gpuDescriptorSet0, gpuDescriptorSet1);
 	};
 
 	auto gpuRectangle = createGPUMeshBufferAndItsPipeline(rectangleGeometry);
@@ -184,7 +225,10 @@ int main()
 	auto gpuPipeline = std::get<1>(gpuRectangle);
 	auto gpuubo = std::get<2>(gpuRectangle);
 	auto metadata = std::get<3>(gpuRectangle);
-	auto gpuDescriptorSet1 = std::get<4>(gpuRectangle);
+	auto gpuDescriptorSet0 = std::get<4>(gpuRectangle);
+	auto gpuDescriptorSet1 = std::get<5>(gpuRectangle);
+
+	IGPUDescriptorSet* gpuDescriptorSets[] = { gpuDescriptorSet0.get(), gpuDescriptorSet1.get() };
 
 	uint64_t lastFPSTime = 0;
 	while (device->run() && receiver.keepOpen())
@@ -226,7 +270,7 @@ int main()
 		driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), uboData.data());
 
 		driver->bindGraphicsPipeline(gpuPipeline.get());
-		driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline->getLayout(), 1u, 1u, &gpuDescriptorSet1.get(), nullptr);
+		driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline->getLayout(), 0u, 2u, gpuDescriptorSets, nullptr);
 		driver->drawMeshBuffer(gpuMeshBuffer.get());
 		
 		driver->endScene();
