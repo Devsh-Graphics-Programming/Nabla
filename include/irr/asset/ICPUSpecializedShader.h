@@ -24,9 +24,9 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 		IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SPECIALIZED_SHADER; }
 		size_t conservativeSizeEstimate() const override
 		{
-			size_t estimate = m_specInfo.entryPoint.size()+sizeof(uint16_t);
+			size_t estimate = m_specInfo.entryPoint.size()+sizeof(uint16_t)+2u*sizeof(void*);
 			if (m_specInfo.m_entries)
-				estimate += sizeof(SInfo::SMapEntry)*m_specInfo.m_entries->size()+2u*sizeof(void*);
+				estimate += sizeof(SInfo::SMapEntry)*m_specInfo.m_entries->size();
 			return estimate;
 		}
 
