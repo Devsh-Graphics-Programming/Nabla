@@ -57,7 +57,6 @@
 #include "irr/asset/IAssetManager.h"
 #include "irr/asset/IAssetWriter.h"
 #include "irr/asset/COpenEXRImageMetadata.h"
-#include "irr/asset/CMitsubaSerializedPipelineMetadata.h"
 #include "irr/asset/CMTLPipelineMetadata.h"
 #include "irr/asset/CPLYPipelineMetadata.h"
 #include "irr/asset/CSTLPipelineMetadata.h"

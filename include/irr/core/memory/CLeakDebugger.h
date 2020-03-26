@@ -5,6 +5,8 @@
 #ifndef __C_LEAK_DEBUGGER_H_INCLUDED__
 #define __C_LEAK_DEBUGGER_H_INCLUDED__
 
+#include "BuildConfigOptions.h"
+
 #include <string>
 #include <sstream>
 #include "stddef.h"
