@@ -141,7 +141,7 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 			for (auto z = 0; z < PROPER_CMD_ARGUMENTS_AMOUNT; ++z)
 			{
 				std::string rawFetchedCmdArgument = cmdArgumentsPerFile[z];
-				const auto offset = rawFetchedCmdArgument.find_last_of("-") + 1;
+				const auto offset = rawFetchedCmdArgument.find_first_of("-") + 1;
 				const auto endOfFetchedVariableName = rawFetchedCmdArgument.find_first_of("=");
 				const auto count = endOfFetchedVariableName - offset;
 				const auto cmdFetchedVariable = rawFetchedCmdArgument.substr(offset, count);
