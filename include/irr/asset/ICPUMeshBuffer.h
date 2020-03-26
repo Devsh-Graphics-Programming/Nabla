@@ -473,14 +473,14 @@ public:
                 int64_t output64[4]{0, 0, 0, 1};
                 video::decodePixels<int64_t>(scaled ? impl::getCorrespondingIntegerFmt(format) : format, &src, output64, 0u, 0u);
                 for (uint32_t i = 0u; i < getFormatChannelCount(format); ++i)
-                    output[i] = output64[i];
+                    output[i] = static_cast<uint32_t>(output64[i]);
             }
             else
             {
                 uint64_t output64[4]{0u, 0u, 0u, 1u};
                 video::decodePixels<uint64_t>(scaled ? impl::getCorrespondingIntegerFmt(format) : format, &src, output64, 0u, 0u);
                 for (uint32_t i = 0u; i < getFormatChannelCount(format); ++i)
-                    output[i] = output64[i];
+                    output[i] = static_cast<uint32_t>(output64[i]);
             }
             return true;
         }

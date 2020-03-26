@@ -309,6 +309,7 @@ namespace irr
 				for (auto& mappedSwizzle : swizzlesMappingAPI)
 					if (currentSwizzleToCheck == mappedSwizzle.first)
 						return mappedSwizzle.second;
+				return ICPUImageView::SComponentMapping::ES_IDENTITY;
 			};
 
 			compomentMapping.r = getMappedSwizzle(static_cast<gli::gl::swizzle>(formatToTranslate.Swizzles.r));
