@@ -7,7 +7,6 @@ struct CommonPushConstants
 	uint inImageTexelOffset[3];
 	uint inImageTexelPitch[3];
 	uint outImageOffset[3];
-	uint outImagePitch;
 	uint imageWidth;
 
 	mat3 normalMatrix;

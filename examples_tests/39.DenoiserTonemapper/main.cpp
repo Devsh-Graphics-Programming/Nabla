@@ -7,6 +7,8 @@
 
 #include "../../ext/OptiX/Manager.h"
 
+#include "CommonPushConstants.h"
+
 using namespace irr;
 using namespace asset;
 using namespace video;
@@ -21,7 +23,7 @@ enum E_IMAGE_INPUT : uint32_t
 struct ImageToDenoise
 {
 	uint32_t width = 0u, height = 0u;
-	uint32_t colorBufferBytesize = 0u; // includes padding, row strides, etc.
+	uint32_t colorTexelSize = 0u;
 	E_IMAGE_INPUT denoiserType = EII_COUNT;
 	core::smart_refctd_ptr<asset::ICPUImage> image[EII_COUNT] = { nullptr,nullptr,nullptr };
 };
@@ -99,7 +101,8 @@ int main(int argc, char* argv[])
 	if (check_error(!m_optixContext, "Could not create Optix Context!"))
 		return error_code;
 
-	constexpr auto forcedOptiXFormat = OPTIX_PIXEL_FORMAT_HALF4; // TODO: make more denoisers
+	constexpr auto forcedOptiXFormat = OPTIX_PIXEL_FORMAT_HALF3; // TODO: make more denoisers with formats
+	constexpr auto forcedOptiXFormatPixelStride = 6u;
 	DenoiserToUse denoisers[EII_COUNT];
 	{
 		OptixDenoiserOptions opts = { OPTIX_DENOISER_INPUT_RGB,forcedOptiXFormat };
@@ -114,6 +117,118 @@ int main(int argc, char* argv[])
 		denoisers[EII_NORMAL].m_denoiser = m_optixContext->createDenoiser(&opts);
 		if (check_error(!denoisers[EII_NORMAL].m_denoiser, "Could not create Optix Color-Albedo-Normal Denoiser!"))
 			return error_code;
+	}
+
+	constexpr uint32_t kComputeWGSize = 1024u;
+	core::smart_refctd_ptr<IGPUDescriptorSetLayout> sharedDescriptorSetLayout;
+	core::smart_refctd_ptr<IGPUPipelineLayout> sharedPipelineLayout;
+	core::smart_refctd_ptr<IGPUComputePipeline> deinterleavePipeline,interleavePipeline;
+	{
+		auto deinterleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+#version 450 core
+#extension GL_EXT_shader_16bit_storage : require
+
+#include "../ShaderCommon.glsl"
+
+layout(binding = 0, std430) restrict readonly buffer InputBuffer
+{
+	f16vec4 inBuffer[];
+};
+layout(binding = 1, std430) restrict writeonly buffer OutputBuffer
+{
+	float16_t outBuffer[];
+};
+
+
+void main()
+{
+	vec4 data = vec4(inBuffer[pc.data.inImageTexelOffset[gl_GlobalInvocationID.z]+gl_GlobalInvocationID.y*pc.data.inImageTexelPitch[gl_GlobalInvocationID.z]+gl_GlobalInvocationID.x]);
+	if (gl_GlobalInvocationID.z==EII_NORMAL)
+		data.xyz = pc.data.normalMatrix*data.xyz;
+	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = data[0u];
+	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = data[1u];
+	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = data[2u];
+	barrier();
+	memoryBarrierShared();
+
+	const uint outImagePitch = pc.data.imageWidth*SHARED_CHANNELS;
+	uint rowOffset = pc.data.outImageOffset[gl_GlobalInvocationID.z]+gl_GlobalInvocationID.y*outImagePitch;
+
+	uint lineOffset = gl_WorkGroupID.x*kComputeWGSize*SHARED_CHANNELS+gl_LocalInvocationIndex;
+	if (lineOffset<outImagePitch)
+		outBuffer[rowOffset+lineOffset] = float16_t(repackBuffer[gl_LocalInvocationIndex+kComputeWGSize*0u]);
+	lineOffset += kComputeWGSize;
+	if (lineOffset<outImagePitch)
+		outBuffer[rowOffset+lineOffset] = float16_t(repackBuffer[gl_LocalInvocationIndex+kComputeWGSize*1u]);
+	lineOffset += kComputeWGSize;
+	if (lineOffset<outImagePitch)
+		outBuffer[rowOffset+lineOffset] = float16_t(repackBuffer[gl_LocalInvocationIndex+kComputeWGSize*2u]);
+}
+		)==="));
+		auto interleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+#version 450 core
+#extension GL_EXT_shader_16bit_storage : require
+
+#include "../ShaderCommon.glsl"
+
+layout(binding = 0, std430) restrict readonly buffer InputBuffer
+{
+	float16_t inBuffer[];
+};
+layout(binding = 1, std430) restrict writeonly buffer OutputBuffer
+{
+	f16vec4 outBuffer[];
+};
+
+
+void main()
+{
+	uint wgOffset = pc.data.outImageOffset[EII_COLOR]+(gl_GlobalInvocationID.y*pc.data.imageWidth+gl_WorkGroupID.x*kComputeWGSize)*SHARED_CHANNELS;
+
+	uint localOffset = gl_LocalInvocationIndex;
+	repackBuffer[localOffset] = float(inBuffer[wgOffset+localOffset]);
+	localOffset += kComputeWGSize;
+	repackBuffer[localOffset] = float(inBuffer[wgOffset+localOffset]);
+	localOffset += kComputeWGSize;
+	repackBuffer[localOffset] = float(inBuffer[wgOffset+localOffset]);
+	barrier();
+	memoryBarrierShared();
+
+	bool alive = gl_GlobalInvocationID.x<pc.data.imageWidth;
+	vec3 color = vec3(repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u]);
+	uint dataOffset = pc.data.inImageTexelOffset[EII_COLOR]+gl_GlobalInvocationID.y*pc.data.inImageTexelPitch[EII_COLOR]+gl_GlobalInvocationID.x;
+	if (alive)
+		outBuffer[dataOffset] = f16vec4(vec4(color,1.0));
+}
+		)==="));
+		struct SpecializationConstants
+		{
+			uint32_t workgroupSize = kComputeWGSize;
+			uint32_t enumEII_COLOR = EII_COLOR;
+			uint32_t enumEII_NORMAL = EII_NORMAL;
+		} specData;
+		auto specConstantBuffer = core::make_smart_refctd_ptr<CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t> > >(sizeof(SpecializationConstants), &specData, core::adopt_memory);
+		IGPUSpecializedShader::SInfo specInfo = {	core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IGPUSpecializedShader::SInfo::SMapEntry> >
+													(
+														std::initializer_list<IGPUSpecializedShader::SInfo::SMapEntry>
+														{
+															{0u,offsetof(SpecializationConstants,workgroupSize),sizeof(SpecializationConstants::workgroupSize)},
+															{1u,offsetof(SpecializationConstants,enumEII_COLOR),sizeof(SpecializationConstants::enumEII_COLOR)},
+															{2u,offsetof(SpecializationConstants,enumEII_NORMAL),sizeof(SpecializationConstants::enumEII_NORMAL)}
+														}
+													),
+													core::smart_refctd_ptr(specConstantBuffer),"main",ISpecializedShader::ESS_COMPUTE
+												};
+		auto deinterleaveSpecializedShader = driver->createGPUSpecializedShader(deinterleaveShader.get(),specInfo);
+		auto interleaveSpecializedShader = driver->createGPUSpecializedShader(interleaveShader.get(),specInfo);
+		
+		IGPUDescriptorSetLayout::SBinding binding[2] = { {0u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},{1u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr} };
+		sharedDescriptorSetLayout = driver->createGPUDescriptorSetLayout(binding,binding+sizeof(binding)/sizeof(IGPUDescriptorSetLayout::SBinding));
+		SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(CommonPushConstants)};
+		sharedPipelineLayout = driver->createGPUPipelineLayout(pcRange,pcRange+sizeof(pcRange)/sizeof(SPushConstantRange),core::smart_refctd_ptr(sharedDescriptorSetLayout));
+
+		deinterleavePipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(deinterleaveSpecializedShader));
+		interleavePipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(interleaveSpecializedShader));
 	}
 
 	const auto inputFilesAmount = cmdHandler.getInputFilesAmount();
@@ -196,14 +311,14 @@ int main(int argc, char* argv[])
 
 					const auto& region = regions.begin()[0];
 					assert(region.bufferRowLength);
-					uint32_t bytesize = extent.height*region.bufferRowLength*asset::getTexelOrBlockBytesize(colorCreationParams.format);
+					outParam.colorTexelSize = asset::getTexelOrBlockBytesize(colorCreationParams.format);
+					uint32_t bytesize = extent.height*region.bufferRowLength*outParam.colorTexelSize;
 					if (bytesize>params.StreamingDownloadBufferSize)
 					{
 						os::Printer::log(imageIDString + "Image too large to download from GPU in one piece!", ELL_ERROR);
 						outParam = {};
 						continue;
 					}
-					outParam.colorBufferBytesize = bytesize;
 				}
 
 				outParam.denoiserType = EII_COLOR;
@@ -248,18 +363,20 @@ int main(int argc, char* argv[])
 		}
 	}
 
-#define DENOISER_BUFFER_COUNT 3u //had to change to a define cause lambda was complaining about it not being a constant expression when capturing
+#define DENOISER_BUFFER_COUNT 4u //had to change to a define cause lambda was complaining about it not being a constant expression when capturing
 	// keep all CUDA links in an array (less code to map/unmap
-	cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> bufferLinks[EII_COUNT+DENOISER_BUFFER_COUNT];
-	const auto links_begin = bufferLinks;
+	cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> bufferLinks[DENOISER_BUFFER_COUNT];
 	// set-up denoisers
 	constexpr size_t intensityValuesSize = sizeof(float);
 	auto& intensityBuffer = bufferLinks[0];
 	auto& denoiserState = bufferLinks[0];
-	auto& denoiserScratch = bufferLinks[1];
+	auto& scratchBuffer = bufferLinks[1];
+	auto& temporaryPixelBuffer = bufferLinks[2];
+	auto& imagePixelBuffer = bufferLinks[3];
 	size_t denoiserStateBufferSize = 0ull;
 	{
 		size_t scratchBufferSize = 0ull;
+		size_t pixelBufferSize = 0ull;
 		for (uint32_t i=0u; i<EII_COUNT; i++)
 		{
 			auto& denoiser = denoisers[i].m_denoiser;
@@ -283,18 +400,22 @@ int main(int argc, char* argv[])
 			denoisers[i].stateOffset = denoiserStateBufferSize;
 			denoiserStateBufferSize += denoisers[i].stateSize = m_denoiserMemReqs.stateSizeInBytes;
 			scratchBufferSize = core::max(scratchBufferSize,denoisers[i].scratchSize = m_denoiserMemReqs.recommendedScratchSizeInBytes);
+			pixelBufferSize = core::max(pixelBufferSize,(i+1u)*maxResolution[i][0]*maxResolution[i][1]*forcedOptiXFormatPixelStride);
 		}
 		std::string message = "Total VRAM consumption for Denoiser algorithm: ";
-		os::Printer::log(message+std::to_string(denoiserStateBufferSize+scratchBufferSize), ELL_INFORMATION);
+		os::Printer::log(message+std::to_string(denoiserStateBufferSize+scratchBufferSize+pixelBufferSize), ELL_INFORMATION);
 
-		if (check_error(denoiserStateBufferSize+scratchBufferSize==0ull,"No input files at all!"))
+		if (check_error(pixelBufferSize==0ull,"No input files at all!"))
 			return error_code;
 
 		denoiserState = driver->createDeviceLocalGPUBufferOnDedMem(denoiserStateBufferSize+intensityValuesSize);
-		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&denoiserState,CU_GRAPHICS_MAP_RESOURCE_FLAGS_WRITE_DISCARD)),"Could not register buffer for Denoiser states!"))
+		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&denoiserState)),"Could not register buffer for Denoiser states!"))
 			return error_code;
-		denoiserScratch = driver->createDeviceLocalGPUBufferOnDedMem(scratchBufferSize);
-		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&denoiserScratch,CU_GRAPHICS_MAP_RESOURCE_FLAGS_WRITE_DISCARD)),"Could not register buffer for Denoiser scratch memory!"))
+		scratchBuffer = driver->createDeviceLocalGPUBufferOnDedMem(scratchBufferSize);
+		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&scratchBuffer)),"Could not register buffer for Denoiser scratch memory!"))
+			return error_code;
+		temporaryPixelBuffer = driver->createDeviceLocalGPUBufferOnDedMem(pixelBufferSize);
+		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&temporaryPixelBuffer)),"Could not register buffer for Denoiser scratch memory!"))
 			return error_code;
 	}
 
@@ -306,80 +427,90 @@ int main(int argc, char* argv[])
 			continue;
 		const auto denoiserInputCount = param.denoiserType+1u;
 
-		// upload image channels and register their buffers
-		// the output buffer
-		auto& denoisedBuffer = bufferLinks[2];
+		// set up the constants (partially)
+		CommonPushConstants shaderConstants;
 		{
-			denoisedBuffer = driver->createDeviceLocalGPUBufferOnDedMem(param.colorBufferBytesize);
-			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&denoisedBuffer,CU_GRAPHICS_MAP_RESOURCE_FLAGS_WRITE_DISCARD)))
-			{
-				os::Printer::log(makeImageIDString(i) + "Could not create the output buffer and register it with CUDA, skipping image!", ELL_ERROR);
-				continue;
-			}
+			for (uint32_t j=0u; j<denoiserInputCount; j++)
+				shaderConstants.outImageOffset[j] = j*param.width*param.height*forcedOptiXFormatPixelStride/sizeof(uint16_t); // float 16 actually
+			shaderConstants.imageWidth = param.width;
+			shaderConstants.normalMatrix = cameraTransformBundle[i];
 		}
-		// the input buffers
-		asset::SBufferBinding<IGPUBuffer> imgData[EII_COUNT] = { {0,nullptr},{0,nullptr},{0,nullptr} };
-		uint32_t gpuBufferCount = DENOISER_BUFFER_COUNT;
+
+		// upload image channels and register their buffer
 		{
 			asset::ICPUBuffer* buffersToUpload[EII_COUNT];
 			for (uint32_t j=0u; j<denoiserInputCount; j++)
 				buffersToUpload[j] = param.image[j]->getBuffer();
 			auto gpubuffers = driver->getGPUObjectsFromAssets(buffersToUpload,buffersToUpload+denoiserInputCount);
 
-			// register with cuda and deregister from cache
+			imagePixelBuffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuffers->operator[](0)->getBuffer());
+			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&imagePixelBuffer)))
+			{
+				os::Printer::log(makeImageIDString(i) + "Could register the image data buffer with CUDA, skipping image!", ELL_ERROR);
+				continue;
+			}
+
 			for (uint32_t j=0u; j<denoiserInputCount; j++)
 			{
 				auto offsetPair = gpubuffers->operator[](j);
+				// it needs to be packed into the same buffer to work
+				assert(offsetPair->getBuffer()==imagePixelBuffer.getObject());
+
 				// make sure cache doesn't retain the GPU object paired to CPU object (could have used a custom IGPUObjectFromAssetConverter derived class with overrides to achieve this)
 				am->removeCachedGPUObject(buffersToUpload[j],offsetPair);
 
-				auto buffer = core::smart_refctd_ptr<video::IGPUBuffer>(offsetPair->getBuffer());
-
-				const auto links_end = bufferLinks+gpuBufferCount;
-				auto found = std::find_if(links_begin,links_end,[&buffer](const auto& l) {return l.getObject() == buffer.get(); });
-				if (found==links_end)
-				{
-					*found = core::smart_refctd_ptr(buffer);
-					if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(found, CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
-					{
-						os::Printer::log(makeImageIDString(i) + "Could not register buffers containing image data with CUDA, skipping image!", ELL_ERROR);
-						continue;
-					}
-					gpuBufferCount++;
-				}
-
-				imgData[j].offset = offsetPair->getOffset();
-				imgData[j].buffer = std::move(buffer);
+				auto image = param.image[j];
+				const auto& creationParameters = image->getCreationParameters();
+				assert(asset::getTexelOrBlockBytesize(creationParameters.format)==param.colorTexelSize);
+				// set up some image pitch and offset info
+				shaderConstants.inImageTexelPitch[j] = image->getRegions().begin()[0].bufferRowLength;
+				shaderConstants.inImageTexelOffset[j] = offsetPair->getOffset();
+				assert(shaderConstants.inImageTexelOffset[j]%param.colorTexelSize==0u);
+				shaderConstants.inImageTexelOffset[j] /= param.colorTexelSize;
 			}
-
+			// upload the constants to the GPU
+			driver->pushConstants(sharedPipelineLayout.get(), video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(CommonPushConstants), &shaderConstants);
 		}
 
 		// process
 		{
-			// create descriptor set
-			// write descriptor set
-			// compute shader pre-preprocess (transform normals and compute luminosity)
+			// bind shader resources
 			{
-				// TODO: transform image normals
+				// create descriptor set
+				auto descriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr(sharedDescriptorSetLayout));
+				// write descriptor set
 				{
-					// bind compute pipeline
-					// bind descriptor set with SSBO
-					// dispatch
-					// issue a full memory barrier (or at least all buffer read barrier)
+					IGPUDescriptorSet::SDescriptorInfo infos[2];
+					infos[0].desc = core::smart_refctd_ptr<IGPUBuffer>(imagePixelBuffer.getObject());
+					infos[0].buffer = {0u,imagePixelBuffer.getObject()->getMemoryReqs().vulkanReqs.size};
+					infos[1].desc = core::smart_refctd_ptr<IGPUBuffer>(temporaryPixelBuffer.getObject());
+					infos[1].buffer = {0u,temporaryPixelBuffer.getObject()->getMemoryReqs().vulkanReqs.size};
+					IGPUDescriptorSet::SWriteDescriptorSet writes[2] = { {descriptorSet.get(),0u,0u,1u,EDT_STORAGE_BUFFER,infos+0},{descriptorSet.get(),1u,0u,1u,EDT_STORAGE_BUFFER,infos+1} };
+					driver->updateDescriptorSets(sizeof(writes)/sizeof(IGPUDescriptorSet::SWriteDescriptorSet),writes,0u,nullptr);
 				}
-				glFlush();
+				// bind descriptor set (for all shaders)
+				driver->bindDescriptorSets(video::EPBP_COMPUTE,sharedPipelineLayout.get(),0u,1u,&descriptorSet.get(),nullptr);
+			}
+			// compute shader pre-preprocess (transform normals and TODO: compute luminosity)
+			{
+				// bind compute pipeline
+				driver->bindComputePipeline(deinterleavePipeline.get());
+				// dispatch
+				driver->dispatch((param.width+kComputeWGSize-1u)/kComputeWGSize,param.height,denoiserInputCount);
+				// issue a full memory barrier (or at least all buffer read/write barrier)
+				COpenGLExtensionHandler::extGlMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 			}
 
 			// optix processing
 			{
 				// map buffer
-				if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::acquireAndGetPointers(bufferLinks,bufferLinks+gpuBufferCount,m_cudaStream)),"Error when mapping OpenGL Buffers to CUdeviceptr!"))
+				if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::acquireAndGetPointers(bufferLinks,bufferLinks+DENOISER_BUFFER_COUNT,m_cudaStream)),"Error when mapping OpenGL Buffers to CUdeviceptr!"))
 					return error_code;
 
-				auto unmapBuffers = [&m_cudaStream,&bufferLinks,gpuBufferCount]() -> void
+				auto unmapBuffers = [&m_cudaStream,&bufferLinks]() -> void
 				{
-					void* scratch[(EII_COUNT+DENOISER_BUFFER_COUNT)*sizeof(CUgraphicsResource)];
-					if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::releaseResourcesToGraphics(scratch,bufferLinks,bufferLinks+gpuBufferCount,m_cudaStream)), "Error when unmapping CUdeviceptr back to OpenGL!"))
+					void* scratch[DENOISER_BUFFER_COUNT*sizeof(CUgraphicsResource)];
+					if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::releaseResourcesToGraphics(scratch,bufferLinks,bufferLinks+DENOISER_BUFFER_COUNT,m_cudaStream)), "Error when unmapping CUdeviceptr back to OpenGL!"))
 						exit(error_code);
 				};
 #undef DENOISER_BUFFER_COUNT
@@ -388,42 +519,26 @@ int main(int argc, char* argv[])
 				// set up optix image
 				OptixImage2D denoiserInputs[EII_COUNT];
 				for (uint32_t j=0u; j<denoiserInputCount; j++)
-				{
-					const auto& image = param.image[j];
-					const auto& imgCreationParams = image->getCreationParameters();
-					auto format = imgCreationParams.format;
-					// assert a few things to ensure sanity
-					{
-						auto dims = asset::getBlockDimensions(format);
-						assert(dims.x==1 && dims.y==1 && dims.z==1);
-					}
-					auto regions = image->getRegions();
-				
-					// find our CUDA link
-					const auto links_end = bufferLinks+gpuBufferCount;
-					const auto& data = imgData[j];
-					auto found = std::find_if(links_begin,links_end,[&data](const auto& l) {return l.getObject() == data.buffer.get(); });
-					assert(found!=links_end);
-					denoiserInputs[j].data = found->asBuffer.pointer+data.offset;
+				{				
+					denoiserInputs[j].data = temporaryPixelBuffer.asBuffer.pointer+shaderConstants.outImageOffset[j]*sizeof(uint16_t); // sizeof(float16_t)
 					denoiserInputs[j].width = param.width;
 					denoiserInputs[j].height = param.height;
-					denoiserInputs[j].rowStrideInBytes = asset::getTexelOrBlockBytesize(format)*regions.begin()[0].bufferRowLength;
-					denoiserInputs[j].pixelStrideInBytes = 0; // either 0 or the value that corresponds to a dense packing of format = NO CHOICE
-					denoiserInputs[j].format = ext::OptiX::irrFormatToOptiX(format);
-					assert(denoiserInputs[j].format == forcedOptiXFormat);
+					denoiserInputs[j].rowStrideInBytes = param.width*forcedOptiXFormatPixelStride;
+					denoiserInputs[j].pixelStrideInBytes = forcedOptiXFormatPixelStride; // either 0 or the value that corresponds to a dense packing of format = NO CHOICE
+					denoiserInputs[j].format = forcedOptiXFormat;
 				}
 				//
 				{
 					// set up denoiser
 					auto& denoiser = denoisers[param.denoiserType];
-					if (denoiser.m_denoiser->setup(m_cudaStream,&param.width,denoiserState,denoiser.stateSize,denoiserScratch,denoiser.scratchSize,denoiser.stateOffset)!=OPTIX_SUCCESS)
+					if (denoiser.m_denoiser->setup(m_cudaStream,&param.width,denoiserState,denoiser.stateSize,scratchBuffer,denoiser.scratchSize,denoiser.stateOffset)!=OPTIX_SUCCESS)
 					{
 						os::Printer::log(makeImageIDString(i) + "Could not setup the denoiser for the image resolution and denoiser buffers, skipping image!", ELL_ERROR);
 						continue;
 					}
 					// compute intensity (TODO: tonemapper after image upload)
 					const auto intensityBufferOffset = denoiserStateBufferSize;
-					if (denoiser.m_denoiser->computeIntensity(m_cudaStream,denoiserInputs+EII_COLOR,intensityBuffer,denoiserScratch,denoiser.scratchSize,intensityBufferOffset)!=OPTIX_SUCCESS)
+					if (denoiser.m_denoiser->computeIntensity(m_cudaStream,denoiserInputs+EII_COLOR,intensityBuffer,scratchBuffer,denoiser.scratchSize,intensityBufferOffset)!=OPTIX_SUCCESS)
 					{
 						os::Printer::log(makeImageIDString(i) + "Could not setup the denoiser for the image resolution and denoiser buffers, skipping image!", ELL_ERROR);
 						continue;
@@ -435,9 +550,13 @@ int main(int argc, char* argv[])
 						denoiserParams.denoiseAlpha = 0u;
 						denoiserParams.hdrIntensity = intensityBuffer.asBuffer.pointer+intensityBufferOffset;
 						OptixImage2D denoiserOutput;
-						denoiserOutput = denoiserInputs[EII_COLOR];
-						denoiserOutput.data = denoisedBuffer.asBuffer.pointer;
-						if (denoiser.m_denoiser->invoke(m_cudaStream,&denoiserParams,denoiserInputs,denoiserInputs+denoiserInputCount,&denoiserOutput,denoiserScratch,denoiser.scratchSize)!=OPTIX_SUCCESS)
+						denoiserOutput.data = imagePixelBuffer.asBuffer.pointer+shaderConstants.inImageTexelOffset[EII_COLOR];
+						denoiserOutput.width = param.width;
+						denoiserOutput.height = param.height;
+						denoiserOutput.rowStrideInBytes = param.width*forcedOptiXFormatPixelStride;
+						denoiserOutput.pixelStrideInBytes = forcedOptiXFormatPixelStride; // either 0 or the value that corresponds to a dense packing of format = NO CHOICE
+						denoiserOutput.format = forcedOptiXFormat;
+						if (denoiser.m_denoiser->invoke(m_cudaStream,&denoiserParams,denoiserInputs,denoiserInputs+denoiserInputCount,&denoiserOutput,scratchBuffer,denoiser.scratchSize)!=OPTIX_SUCCESS)
 						{
 							os::Printer::log(makeImageIDString(i) + "Could not invoke the denoiser sucessfully, skipping image!", ELL_ERROR);
 							continue;
@@ -456,12 +575,14 @@ int main(int argc, char* argv[])
 				// TODO: Tonemap
 				{
 				}
-				glFlush();
+				driver->bindComputePipeline(interleavePipeline.get());
+				driver->dispatch((param.width+kComputeWGSize-1u)/kComputeWGSize,param.height,1u);
+				// issue a full memory barrier (or at least all buffer read/write barrier)
+				COpenGLExtensionHandler::extGlMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 			}
-			// delete descriptor set
+			// delete descriptor sets (implicit from destructor)
 		}
 
-		constexpr auto outputFormat = EF_R16G16B16A16_SFLOAT;
 		{
 			auto downloadStagingArea = driver->getDefaultDownStreamingBuffer();
 			uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address; // remember without initializing the address to be allocated to invalid_address you won't get an allocation!
@@ -479,20 +600,21 @@ int main(int argc, char* argv[])
 			auto image = ICPUImage::create(std::move(imgParams));
 
 			// get the data from the GPU
+			const uint32_t colorBufferBytesize = param.height*param.width*param.colorTexelSize;
 			{
 				constexpr uint64_t timeoutInNanoSeconds = 300000000000u;
 
 				// download buffer
 				{
 					const uint32_t alignment = 4096u; // common page size
-					auto unallocatedSize = downloadStagingArea->multi_alloc(std::chrono::nanoseconds(timeoutInNanoSeconds), 1u, &address, &param.colorBufferBytesize, &alignment);
+					auto unallocatedSize = downloadStagingArea->multi_alloc(std::chrono::nanoseconds(timeoutInNanoSeconds), 1u, &address, &colorBufferBytesize, &alignment);
 					if (unallocatedSize)
 					{
 						os::Printer::log(makeImageIDString(i)+"Could not download the buffer from the GPU!",ELL_ERROR);
 						continue;
 					}
 
-					driver->copyBuffer(denoisedBuffer.getObject(),downloadStagingArea->getBuffer(),0u,address,param.colorBufferBytesize);
+					driver->copyBuffer(temporaryPixelBuffer.getObject(),downloadStagingArea->getBuffer(),0u,address,colorBufferBytesize);
 				}
 				auto downloadFence = driver->placeFence(true);
 
@@ -512,7 +634,7 @@ int main(int argc, char* argv[])
 				}
 				// the cpu is not touching the data yet because the custom CPUBuffer is adopting the memory (no copy)
 				auto* data = reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer())+address;
-				auto cpubufferalias = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t> > >(param.colorBufferBytesize, data, core::adopt_memory);
+				auto cpubufferalias = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t> > >(colorBufferBytesize, data, core::adopt_memory);
 				image->setBufferAndRegions(std::move(cpubufferalias),regions);
 
 				// wait for download fence and then invalidate the CPU cache
@@ -521,11 +643,11 @@ int main(int argc, char* argv[])
 					if (result==E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED||result==E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
 					{
 						os::Printer::log(makeImageIDString(i)+"Could not download the buffer from the GPU, fence not signalled!",ELL_ERROR);
-						downloadStagingArea->multi_free(1u, &address, &param.colorBufferBytesize, nullptr);
+						downloadStagingArea->multi_free(1u, &address, &colorBufferBytesize, nullptr);
 						continue;
 					}
 					if (downloadStagingArea->needsManualFlushOrInvalidate())
-						driver->invalidateMappedMemoryRanges({{downloadStagingArea->getBuffer()->getBoundMemory(),address,param.colorBufferBytesize}});
+						driver->invalidateMappedMemoryRanges({{downloadStagingArea->getBuffer()->getBoundMemory(),address,colorBufferBytesize}});
 				}
 			}
 
@@ -537,7 +659,7 @@ int main(int argc, char* argv[])
 			image->convertToDummyObject(~0u);
 
 			// free the staging area allocation (no fence, we've already waited on it)
-			downloadStagingArea->multi_free(1u,&address,&param.colorBufferBytesize,nullptr);
+			downloadStagingArea->multi_free(1u,&address,&colorBufferBytesize,nullptr);
 
 			// destroy image (implicit)
 		}

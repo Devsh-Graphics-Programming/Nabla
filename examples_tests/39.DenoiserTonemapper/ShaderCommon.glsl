@@ -7,8 +7,8 @@ layout(constant_id = 2) const uint EII_NORMAL = 2u;
 #include "./CommonPushConstants.h"
 
 layout(push_constant, row_major) uniform PushConstants{
-	CommonPushConstants pc;
-};
+	CommonPushConstants data;
+} pc;
 
 #define SHARED_CHANNELS 3u
 shared float repackBuffer[kComputeWGSize * SHARED_CHANNELS];
