@@ -143,8 +143,10 @@ layout(binding = 1, std430) restrict writeonly buffer OutputBuffer
 void main()
 {
 	vec4 data = vec4(inBuffer[pc.data.inImageTexelOffset[gl_GlobalInvocationID.z]+gl_GlobalInvocationID.y*pc.data.inImageTexelPitch[gl_GlobalInvocationID.z]+gl_GlobalInvocationID.x]);
-	if (gl_GlobalInvocationID.z==EII_NORMAL)
-		data.xyz = pc.data.normalMatrix*data.xyz;
+	if (gl_GlobalInvocationID.z==EII_ALBEDO && all(greaterThan(vec3(0.00000001),data.rgb)))
+		data.rgb = vec3(1.0);
+	else if (gl_GlobalInvocationID.z==EII_NORMAL)
+		data.xyz = normalize(pc.data.normalMatrix*data.xyz);
 	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = data[0u];
 	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = data[1u];
 	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = data[2u];
@@ -205,6 +207,7 @@ void main()
 		{
 			uint32_t workgroupSize = kComputeWGSize;
 			uint32_t enumEII_COLOR = EII_COLOR;
+			uint32_t enumEII_ALBEDO = EII_ALBEDO;
 			uint32_t enumEII_NORMAL = EII_NORMAL;
 		} specData;
 		auto specConstantBuffer = core::make_smart_refctd_ptr<CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t> > >(sizeof(SpecializationConstants), &specData, core::adopt_memory);
@@ -400,7 +403,7 @@ void main()
 			denoisers[i].stateOffset = denoiserStateBufferSize;
 			denoiserStateBufferSize += denoisers[i].stateSize = m_denoiserMemReqs.stateSizeInBytes;
 			scratchBufferSize = core::max(scratchBufferSize,denoisers[i].scratchSize = m_denoiserMemReqs.recommendedScratchSizeInBytes);
-			pixelBufferSize = core::max(pixelBufferSize,(i+1u)*maxResolution[i][0]*maxResolution[i][1]*forcedOptiXFormatPixelStride);
+			pixelBufferSize = core::max(pixelBufferSize,core::max(asset::getTexelOrBlockBytesize(EF_R32G32B32A32_SFLOAT),(i+1u)*forcedOptiXFormatPixelStride)*maxResolution[i][0]*maxResolution[i][1]);
 		}
 		std::string message = "Total VRAM consumption for Denoiser algorithm: ";
 		os::Printer::log(message+std::to_string(denoiserStateBufferSize+scratchBufferSize+pixelBufferSize), ELL_INFORMATION);
@@ -578,7 +581,7 @@ void main()
 				driver->bindComputePipeline(interleavePipeline.get());
 				driver->dispatch((param.width+kComputeWGSize-1u)/kComputeWGSize,param.height,1u);
 				// issue a full memory barrier (or at least all buffer read/write barrier)
-				COpenGLExtensionHandler::extGlMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+				COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
 			}
 			// delete descriptor sets (implicit from destructor)
 		}
