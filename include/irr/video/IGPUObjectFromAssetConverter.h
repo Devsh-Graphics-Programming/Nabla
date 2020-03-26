@@ -531,7 +531,7 @@ inline created_gpu_object_array<asset::ICPUPipelineLayout> IGPUObjectFromAssetCo
         for (size_t ds = 0ull; ds < asset::ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++ds)
         {
             if (cpupl->getDescriptorSetLayout(ds))
-                dsLayouts[ds++] = (*gpuDSLayouts)[redirs[dslIter++]].get();
+                dsLayouts[ds] = (*gpuDSLayouts)[redirs[dslIter++]].get();
         }
         res->operator[](i) = m_driver->createGPUPipelineLayout(
             cpupl->getPushConstantRanges().begin(), cpupl->getPushConstantRanges().end(),
