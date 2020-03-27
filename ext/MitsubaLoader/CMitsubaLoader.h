@@ -40,17 +40,17 @@ namespace bsdf
 		uint32_t constant_f32;
 	};
 
-	static STextureData getTextureData(const ICPUImage* _img, ICPUTexturePacker* _packer)
+	static STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePacker* _packer)
 	{
 		STextureData texData;
 		core::vector2df_SIMD szUnorm16(_img->getCreationParameters().extent.width, _img->getCreationParameters().extent.height);
-		szUnorm16 /= core::vector2df_SIMD(_packer->maxAllocatableTextureSz());
+		szUnorm16 /= core::vector2df_SIMD(_packer->getPageTable()->getCreationParameters().extent.width);
 		szUnorm16 *= core::vector2df_SIMD(0xffffu);
 
 		texData.width = szUnorm16.x;
 		texData.height = szUnorm16.y;
 
-		IImage::SSubresourceRange subres;
+		asset::IImage::SSubresourceRange subres;
 		subres.baseMipLevel = 0u;
 		subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(texData.width, texData.height))) + 1;
 
@@ -267,7 +267,7 @@ class CMitsubaLoader : public asset::IAssetLoader
 	protected:
 		asset::IAssetManager* m_manager;
 		//TODO need one packer per format class
-		core::smart_refctd_ptr<ICPUTexturePacker> m_texPacker;
+		core::smart_refctd_ptr<asset::ICPUTexturePacker> m_texPacker;
 
 		struct SContext
 		{
@@ -313,9 +313,9 @@ class CMitsubaLoader : public asset::IAssetLoader
 		bsdf::SBSDFUnion bsdfNode2bsdfStruct(SContext& _ctx, const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight = 0.f);
 		std::pair<uint32_t,uint32_t> genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 
-		core::smart_refctd_ptr<ICPUDescriptorSet> createDS0(const SContext& _ctx);
+		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx);
 
-		core::smart_refctd_ptr<CMitsubaPipelineMetadata> createPipelineMetadata(core::smart_refctd_ptr<ICPUDescriptorSet>&& _ds0, const ICPUPipelineLayout* _layout);
+		core::smart_refctd_ptr<CMitsubaPipelineMetadata> createPipelineMetadata(core::smart_refctd_ptr<asset::ICPUDescriptorSet>&& _ds0, const asset::ICPUPipelineLayout* _layout);
 
 	public:
 		//! Check if the file might be loaded by this class

@@ -120,13 +120,13 @@ public:
 
     uint32_t physAddrTexLayerSz() const
     {
-        return m_tilesPerDim*(TILE_PADDING+m_pgSzxy) + TILE_PADDING;
+        return m_tilesPerDim * (2u*TILE_PADDING+m_pgSzxy);
     }
     //! @returns texel-wise offset of physical page
     core::vector3du32_SIMD pageCoords(SPhysPgOffset _txoffset, uint32_t _pgSz) const
     {
         core::vector3du32_SIMD coords(physPgOffset_x(_txoffset), physPgOffset_y(_txoffset), 0u);
-        coords *= (_pgSz + TILE_PADDING);
+        coords *= (_pgSz + 2u*TILE_PADDING);
         coords += TILE_PADDING;
         coords.z = physPgOffset_layer(_txoffset);
         return coords;
