@@ -8,6 +8,8 @@
 #include "irr/asset/normal_quantization.h"
 #include "irr/asset/CCPUMesh.h"
 
+#include "C:\Users\devsh\Desktop\icosphere\src\Icosphere.h"
+
 namespace irr
 {
 namespace asset
@@ -671,6 +673,38 @@ CGeometryCreator::return_type CGeometryCreator::createDiskMesh(float radius, uin
 	retval.bindings[0] = {0ull, std::move(vertices)};
 
 	return retval;
+}
+
+CGeometryCreator::return_type CGeometryCreator::createIcoSphere() const
+{
+	Icosphere extensionIcosphere(1, 3, false);
+	
+	return_type icosphere;
+
+	constexpr size_t vertexSize = sizeof(IcosphereVertex);
+
+	icosphere.inputParams = 
+	{ 0b111u,0b1u,
+		{
+			{0u, EF_R32G32B32_SFLOAT, offsetof(IcosphereVertex,pos)},
+			{0u, EF_R32G32B32_SFLOAT, offsetof(IcosphereVertex,normals)},
+			{0u, EF_R32G32_SFLOAT, offsetof(IcosphereVertex,uv)}
+		},
+		{vertexSize,EVIR_PER_VERTEX} 
+	};
+
+	auto vertexBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(extensionIcosphere.getInterleavedVertexSize());
+	auto indexBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(extensionIcosphere.getIndexSize());
+
+	memcpy(vertexBuffer->getPointer(), extensionIcosphere.getInterleavedVertices(), vertexBuffer->getSize());
+	memcpy(indexBuffer->getPointer(), extensionIcosphere.getIndices(), indexBuffer->getSize());
+
+	icosphere.bindings[0] = { 0, std::move(vertexBuffer) };
+	icosphere.indexBuffer = { 0, std::move(indexBuffer) };
+	icosphere.indexCount = extensionIcosphere.getIndexCount();
+	icosphere.indexType = EIT_32BIT;
+
+	return icosphere;
 }
 
 

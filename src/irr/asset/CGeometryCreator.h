@@ -76,6 +76,15 @@ class CGeometryCreator : public IGeometryCreator
 			float uv[2];
 			uint32_t normal;
 		} PACK_STRUCT;
+
+		struct IcosphereVertex
+		{
+			IcosphereVertex() : pos{ 0.f, 0.f, 0.f }, normals{ 0.f, 0.f, 0.f }, uv{ 0.f, 0.f } {}
+
+			float pos[3];
+			float normals[3];
+			float uv[2];
+		} PACK_STRUCT;
 	#include "irr/irrunpack.h"
 
 
@@ -104,6 +113,8 @@ class CGeometryCreator : public IGeometryCreator
 		return_type createRectangleMesh(const core::vector2df_SIMD& _size = core::vector2df_SIMD(0.5f, 0.5f)) const override;
 
 		return_type createDiskMesh(float radius, uint32_t tesselation) const override;
+
+		return_type createIcoSphere() const override;
 
 };
 

@@ -28,6 +28,7 @@ struct Objects
 		E_DISK,
 		E_CONE,
 		E_ARROW,
+		E_ICOSPHERE,
 		E_COUNT
 	};
 
@@ -119,6 +120,7 @@ int main()
 	auto diskGeometry = geometryCreator->createDiskMesh(2, 30);
 	auto coneGeometry = geometryCreator->createConeMesh(2, 3, 10);
 	auto arrowGeometry = geometryCreator->createArrowMesh();
+	auto icosphereGeometry = geometryCreator->createIcoSphere();
 
 	auto createGPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 	{
@@ -202,16 +204,18 @@ int main()
 	auto gpuDisk = createGPUMeshBufferAndItsPipeline(diskGeometry);
 	auto gpuCone = createGPUMeshBufferAndItsPipeline(coneGeometry);
 	auto gpuArrow = createGPUMeshBufferAndItsPipeline(arrowGeometry);
+	auto gpuIcosphere = createGPUMeshBufferAndItsPipeline(icosphereGeometry);
 
 	Objects cpuGpuObjects =
 	{
-		std::make_pair(cubeGeometry, gpuCube),
+		/*std::make_pair(cubeGeometry, gpuCube),
 		std::make_pair(sphereGeometry, gpuSphere),
 		std::make_pair(cylinderGeometry, gpuCylinder),
 		std::make_pair(rectangleGeometry, gpuRectangle),
 		std::make_pair(diskGeometry, gpuDisk),
 		std::make_pair(coneGeometry, gpuCone),
-		std::make_pair(arrowGeometry, gpuArrow)
+		std::make_pair(arrowGeometry, gpuArrow), */
+		std::make_pair(icosphereGeometry, gpuIcosphere)
 	};
 	
 	uint64_t lastFPSTime = 0;

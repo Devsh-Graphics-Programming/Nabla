@@ -103,6 +103,8 @@ class IGeometryCreator : public core::IReferenceCounted
 
 		virtual return_type createDiskMesh(float radius, uint32_t tesselation) const = 0;
 
+		virtual return_type createIcoSphere() const = 0;
+
 };
 
 } // end namespace asset
