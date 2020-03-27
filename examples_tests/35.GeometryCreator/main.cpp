@@ -26,6 +26,8 @@ struct Objects
 		E_CYLINDER,
 		E_RECTANGLE,
 		E_DISK,
+		E_CONE,
+		E_ARROW,
 		E_COUNT
 	};
 
@@ -37,7 +39,7 @@ struct Objects
 
 const char* vertexSource = R"===(
 #version 430 core
-layout(location = 0) in vec4 vPos; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
+layout(location = 0) in vec4 vPos;
 layout(location = 3) in vec3 vNormal;
 
 #include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
@@ -51,7 +53,7 @@ layout(location = 0) out vec3 Color; //per vertex output color, will be interpol
 
 void main()
 {
-    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(PushConstants.modelViewProj)*vPos; //only thing preventing the shader from being core-compliant
+    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(PushConstants.modelViewProj)*vPos;
     Color = vNormal*0.5+vec3(0.5);
 }
 )===";
@@ -59,7 +61,7 @@ void main()
 const char* fragmentSource = R"===(
 #version 430 core
 
-layout(location = 0) in vec3 Color; //per vertex output color, will be interpolated across the triangle
+layout(location = 0) in vec3 Color;
 
 layout(location = 0) out vec4 pixelColor;
 
@@ -100,7 +102,7 @@ int main()
 	auto* smgr = device->getSceneManager();
 
 	//! we want to move around the scene and view it from different angles
-	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.001f);
+	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
 
 	camera->setPosition(core::vector3df(-5, 0, 0));
 	camera->setTarget(core::vector3df(0,0,0));
@@ -115,6 +117,8 @@ int main()
 	auto cylinderGeometry = geometryCreator->createCylinderMesh(2, 2, 20);
 	auto rectangleGeometry = geometryCreator->createRectangleMesh(irr::core::vector2df_SIMD(1.5, 3));
 	auto diskGeometry = geometryCreator->createDiskMesh(2, 30);
+	auto coneGeometry = geometryCreator->createConeMesh(2, 3, 10);
+	auto arrowGeometry = geometryCreator->createArrowMesh();
 
 	auto createGPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 	{
@@ -196,6 +200,8 @@ int main()
 	auto gpuCylinder = createGPUMeshBufferAndItsPipeline(cylinderGeometry);
 	auto gpuRectangle = createGPUMeshBufferAndItsPipeline(rectangleGeometry);
 	auto gpuDisk = createGPUMeshBufferAndItsPipeline(diskGeometry);
+	auto gpuCone = createGPUMeshBufferAndItsPipeline(coneGeometry);
+	auto gpuArrow = createGPUMeshBufferAndItsPipeline(arrowGeometry);
 
 	Objects cpuGpuObjects =
 	{
@@ -203,7 +209,9 @@ int main()
 		std::make_pair(sphereGeometry, gpuSphere),
 		std::make_pair(cylinderGeometry, gpuCylinder),
 		std::make_pair(rectangleGeometry, gpuRectangle),
-		std::make_pair(diskGeometry, gpuDisk)
+		std::make_pair(diskGeometry, gpuDisk),
+		std::make_pair(coneGeometry, gpuCone),
+		std::make_pair(arrowGeometry, gpuArrow)
 	};
 	
 	uint64_t lastFPSTime = 0;

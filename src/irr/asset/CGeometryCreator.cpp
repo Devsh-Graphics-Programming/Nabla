@@ -161,9 +161,6 @@ CGeometryCreator::return_type CGeometryCreator::createArrowMesh(const uint32_t t
 	auto cylinderIndecies = reinterpret_cast<uint16_t*>(cylinder.indexBuffer.buffer->getPointer());
 	auto coneIndecies = reinterpret_cast<uint16_t*>(cone.indexBuffer.buffer->getPointer());
 
-	for (uint32_t i = 0u; i < tesselationCone + 2u; ++i)
-		coneVertices[i].pos[2] += cylinderHeight;
-
 	const auto cylinderVertexCount = cylinder.bindings[0].buffer->getSize() / sizeof(CylinderVertex);
 	const auto coneVertexCount = cone.bindings[0].buffer->getSize() / sizeof(ConeVertex);
 	const auto newArrowVertexCount = cylinderVertexCount + coneVertexCount;
@@ -172,12 +169,27 @@ CGeometryCreator::return_type CGeometryCreator::createArrowMesh(const uint32_t t
 	const auto coneIndexCount = cone.indexBuffer.buffer->getSize() / sizeof(uint16_t);
 	const auto newArrowIndexCount = cylinderIndexCount + coneIndexCount;
 
+	for (auto i = 0ull; i < coneVertexCount; ++i)
+	{
+		core::vector3df_SIMD newPos = coneVertices[i].pos;
+		newPos.rotateYZByRAD(-1.5707963268);
+
+		for (auto c = 0; c < 3; ++c)
+			coneVertices[i].pos[c] = newPos[c];
+	}
+
+	std::vector<ArrowVertex> est(newArrowVertexCount);
+	std::vector<uint16_t> sada(newArrowIndexCount);
+
 	auto newArrowVertexBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(newArrowVertexCount * sizeof(ArrowVertex));
 	auto newArrowIndexBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(newArrowIndexCount * sizeof(uint16_t));
 
+	memcpy(newArrowVertexBuffer->getPointer(), est.data(), newArrowVertexBuffer->getSize());
+	memcpy(newArrowIndexBuffer->getPointer(), sada.data(), newArrowIndexBuffer->getSize());
+
 	for (auto z = 0ull; z < newArrowVertexCount; ++z)
 	{
-		auto arrowVertex = reinterpret_cast<ArrowVertex*>(newArrowVertexBuffer->getPointer());
+		auto arrowVertex = reinterpret_cast<ArrowVertex*>(newArrowVertexBuffer->getPointer()) + z;
 
 		if (z < cylinderVertexCount)
 		{
@@ -186,17 +198,23 @@ CGeometryCreator::return_type CGeometryCreator::createArrowMesh(const uint32_t t
 		}
 		else
 		{
-			auto coneVertex = (coneVertices + z);
-			memcpy(arrowVertex, coneVertex, offsetof(ArrowVertex, normal)); // copy position and color
+			auto coneVertex = (coneVertices + z - cylinderVertexCount);
+			memcpy(arrowVertex, coneVertex, offsetof(ConeVertex, normal)); // copy position and color
+			arrowVertex->uv[0] = 0;
+			arrowVertex->uv[1] = 0;
 			arrowVertex->normal = coneVertex->normal;
 		}
 	}
 
 	{
 		auto ArrowIndecies = reinterpret_cast<uint16_t*>(newArrowIndexBuffer->getPointer());
+		auto newConeIndecies = (ArrowIndecies + cylinderIndexCount);
 
 		memcpy(ArrowIndecies, cylinderIndecies, sizeof(uint16_t) * cylinderIndexCount);
-		memcpy((ArrowIndecies + cylinderIndexCount), coneIndecies, sizeof(uint16_t) * coneIndexCount);
+		memcpy(newConeIndecies, coneIndecies, sizeof(uint16_t) * coneIndexCount);
+
+		for (auto i = 0ull; i < coneIndexCount; ++i)
+			*(newConeIndecies + i) += cylinderVertexCount;
 	}
 
 	return_type arrow;
@@ -215,6 +233,7 @@ CGeometryCreator::return_type CGeometryCreator::createArrowMesh(const uint32_t t
 
 	arrow.bindings[0] = { 0, std::move(newArrowVertexBuffer) }; 
 	arrow.indexBuffer = { 0, std::move(newArrowIndexBuffer) };
+	arrow.indexCount = newArrowIndexCount;
 	arrow.indexType = EIT_16BIT;
 
     return arrow;
@@ -545,6 +564,7 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 
 	cone.bindings[0] = { 0, std::move(vtxBuf) };
 	cone.indexBuffer = { 0, std::move(idxBuf) };
+	cone.indexCount = cone.indexBuffer.buffer->getSize() / sizeof(uint16_t);
 	cone.indexType = EIT_16BIT;
 
     return cone;
