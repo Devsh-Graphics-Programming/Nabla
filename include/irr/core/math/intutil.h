@@ -81,12 +81,12 @@ IRR_FORCE_INLINE constexpr INT_TYPE align(INT_TYPE alignment, INT_TYPE size, INT
 */
 
 template<typename BITMASK_TYPE>
-IRR_FORCE_INLINE constexpr uint8_t createBitmask(std::initializer_list<BITMASK_TYPE> initializer)
+IRR_FORCE_INLINE constexpr uint64_t createBitmask(std::initializer_list<BITMASK_TYPE> initializer)
 {
     static_assert(std::is_integral<BITMASK_TYPE>::value || std::is_enum<BITMASK_TYPE>::value, "Integral or enum required.");
-    uint8_t retval {};
+    uint64_t retval {};
     for (const auto& it : initializer)
-        retval |= (1 << it);
+        retval |= (1ull << it);
     return retval;
 }
 

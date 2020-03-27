@@ -154,6 +154,24 @@ IRR_FORCE_INLINE vectorSIMDf min<vectorSIMDf>(const vectorSIMDf& a, const vector
 #error "no implementation"
 #endif
 }
+template<>
+IRR_FORCE_INLINE vectorSIMDu32 min<vectorSIMDu32>(const vectorSIMDu32& a, const vectorSIMDu32& b)
+{
+#ifdef __IRR_COMPILE_WITH_SSE3
+	return _mm_min_epu32(a.getAsRegister(),b.getAsRegister());
+#else
+#error "no implementation"
+#endif
+}
+template<>
+IRR_FORCE_INLINE vectorSIMDi32 min<vectorSIMDi32>(const vectorSIMDi32& a, const vectorSIMDi32& b)
+{
+#ifdef __IRR_COMPILE_WITH_SSE3
+	return _mm_min_epi32(a.getAsRegister(),b.getAsRegister());
+#else
+#error "no implementation"
+#endif
+}
 template<class T>
 IRR_FORCE_INLINE T min(const T& a, const T& b)
 {
@@ -168,6 +186,24 @@ IRR_FORCE_INLINE vectorSIMDf max<vectorSIMDf>(const vectorSIMDf& a, const vector
 {
 #ifdef __IRR_COMPILE_WITH_SSE3
 	return _mm_max_ps(a.getAsRegister(),b.getAsRegister());
+#else
+#error "no implementation"
+#endif
+}
+template<>
+IRR_FORCE_INLINE vectorSIMDu32 max<vectorSIMDu32>(const vectorSIMDu32& a, const vectorSIMDu32& b)
+{
+#ifdef __IRR_COMPILE_WITH_SSE3
+	return _mm_max_epu32(a.getAsRegister(),b.getAsRegister());
+#else
+#error "no implementation"
+#endif
+}
+template<>
+IRR_FORCE_INLINE vectorSIMDi32 max<vectorSIMDi32>(const vectorSIMDi32& a, const vectorSIMDi32& b)
+{
+#ifdef __IRR_COMPILE_WITH_SSE3
+	return _mm_max_epi32(a.getAsRegister(),b.getAsRegister());
 #else
 #error "no implementation"
 #endif
