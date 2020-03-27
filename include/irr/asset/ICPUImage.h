@@ -86,40 +86,6 @@ class ICPUImage final : public IImage, public IAsset
 			return true;
 		}
 
-		/*
-        inline void* getRowPointer(const SBufferCopy& region, uint32_t relMip, uint32_t relZ, uint32_t relY)
-		{
-            return const_cast<void*>(getRowPointer(region,relMip,relZ,relY));
-		}
-        inline const void* getRowPointer(const SBufferCopy& region, uint32_t relMip, uint32_t relZ, uint32_t relY) const
-        {
-            if (asset::isBlockCompressionFormat(getColorFormat()))
-                return nullptr;
-
-            if (row<minCoord[0]||row>=maxCoord[0])
-                return nullptr;
-            if (slice<minCoord[1]||slice>=maxCoord[1])
-                return nullptr;
-
-            size_t size[3] = {maxCoord[0]-minCoord[0],maxCoord[1]-minCoord[1],maxCoord[2]-minCoord[2]};
-            row     -= minCoord[0];
-            slice   -= minCoord[1];
-            return reinterpret_cast<uint8_t*>(data)+(slice*size[1]+row)*getPitchIncludingAlignment();
-        }
-		
-
-        //!
-        inline uint32_t getPitchIncludingAlignment() const
-        {
-            if (isBlockCompressionFormat(getColorFormat()))
-                return 0; //special error val
-
-			auto lineBytes = getBytesPerPixel() * (maxCoord[0]-minCoord[0]);
-			assert(lineBytes.getNumerator()%lineBytes.getDenominator() == 0u);
-            return (lineBytes.getNumerator()/lineBytes.getDenominator()+unpackAlignment-1)&(~(unpackAlignment-1u));
-        }
-*/
-
     protected:
 		ICPUImage(SCreationParams&& _params) : IImage(std::move(_params))
 		{
