@@ -109,14 +109,14 @@ private:
 
 class ICPUTexturePacker : public core::IReferenceCounted, protected ITexturePacker
 {
-    uint32_t maxAllocatableTextureSz() const { return m_pgSzxy<<m_pageTable->getCreationParameters().mipLevels; }
-
 protected:
     virtual ~ICPUTexturePacker() = default;
 
 public:
     _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_PHYSICAL_PAGE_SIZE_LOG2 = 9u;
     _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_PHYSICAL_PAGE_SIZE = 1u<<MAX_PHYSICAL_PAGE_SIZE_LOG2;
+
+    uint32_t maxAllocatableTextureSz() const { return m_pgSzxy<<m_pageTable->getCreationParameters().mipLevels; }
 
     uint32_t physAddrTexLayerSz() const
     {

@@ -212,6 +212,9 @@ layout (location = 0) in vec3 LocalPos;
 layout (location = 1) in vec3 ViewPos;
 layout (location = 2) in vec3 Normal;
 layout (location = 3) in vec2 UV;
+layout (location = 4) in vec3 Color;
+
+layout (location = 0) out vec4 OutColor;
 
 #define instr_t uvec2
 //maybe will change to vec3
@@ -221,7 +224,28 @@ struct bsdf_data_t
 	uvec4 data[3];
 };
 
-layout (set = 0, binding = 0) sampler2D pgTabTex;
+struct texture_data_t
+{
+	//2x unorm16
+	uint pgTabUV;
+	//2x unorm16 originalTexSz/maxAllocatableTexSz ratio
+	uint size;
+};
+vec2 decodeRG16(in uint unorm16)
+{
+	vec2 uv = vec2( float(unorm16 & 0xffffu), float((unorm16>>16) & 0xffffu) );
+	return uv * 1.52290219e-5;
+}
+vec2 unpackVirtualUV(in texture_data_t texData)
+{
+	return decodeRG16(texData.pgTabUV);
+}
+vec2 unpackSize(in texture_data_t texData)
+{
+	return decodeRG16(texData.size);
+}
+
+layout (set = 0, binding = 0) usampler2D pgTabTex;
 layout (set = 0, binding = 1) sampler2DArray physPgTex;
 layout (set = 0, binding = 2, std430) buffer INSTR_BUF //TODO maybe UBO instead of SSBO for instr buf? (only sequential access in this case, not so random)
 {
@@ -232,22 +256,28 @@ layout (set = 0, binding = 3, std430) buffer BSDF_BUF
 	bsdf_data_t data[];
 } bsdf_buf;
 
+//in case of OBJ mesh albedo might be textured OR constant (in this case put albedo into push constants)
+// (TODO) so OBJ meshes will need slightly different shader (doable with #ifdefs)
+layout (set = 3, binding = 1) uniform sampler2D albedoMap;
+
 layout (push_constant) uniform Block
 {
-	//TODO in PC data they're tightly packed, not sure if this declaration implies any alignment and so if they're accessing want i want to access
-	uint instrOffset;
-	uint instrCount;
+	layout (offset = 0) uint instrOffset;
+	layout (offset = 4) uint instrCount;
+	layout (offset = 8) vec3 albedo;//for OBJ meshes, TODO not sure if 8 is legal offset for vec3 in push_constant block
 } PC;
 
 #define REG_COUNT 16
 #define NORMAL_REG_COUNT 4
 
-#define INSTR_OPCODE_MASK			0xfu
+#define INSTR_OPCODE_MASK			0x0fu
 #define INSTR_REG_MASK				0xffu
 #define INSTR_BSDF_BUF_OFFSET_SHIFT 12
 #define INSTR_BSDF_BUF_OFFSET_MASK	0xfffffu
 #define INSTR_NDF_SHIFT 4
 #define INSTR_NDF_MASK 0x3u
+#define INSTR_NORMAL_REG_SHIFT		10
+#define INSTR_NORMAL_REG_MASK		0x03u
 
 //remember to keep it compliant with c++ enum!!
 #define OP_DIFFUSE			0u
@@ -283,7 +313,44 @@ layout (push_constant) uniform Block
 #include <irr/builtin/glsl/bsdf/brdf/specular/ggx.glsl>
 #include <irr/builtin/glsl/bump_mapping/height_mapping.glsl>
 
+//first NORMAL_REG_COUNT registers are for normals
+//register[0] always stores geometry normal (instructions not influenced by bumpmap in bsdf-tree specify normal register number as 0)
+//all the other normal registers are used by OP_BUMPMAP instrctions to store perturbed geometry normal
+//all register numbered >=NORMAL_REG_COUNT are general purpose and used by other instructions to store result
 reg_t registers[REG_COUNT+NORMAL_REG_COUNT];
+
+#define ADDR_LAYER_SHIFT 12
+#define ADDR_Y_SHIFT 6
+#define ADDR_X_MASK 0x3fu
+
+#define TEXTURE_TILE_PER_DIMENSION 64
+#define PAGE_SZ 128
+#define TILE_PADDING 9
+
+vec3 unpackPageID(in uint pageID)
+{
+	vec2 uv = vec2(float(pageID & ADDR_X_MASK), float((pageID>>ADDR_Y_SHIFT) & ADDR_X_MASK))*(PAGE_SZ+TILE_PADDING) + TILE_PADDING;
+	uv /= vec2(textureSize(physPgTex.xy,0));
+	return vec3(uv, float(pageID >> ADDR_LAYER_SHIFT));
+}
+
+#define PGTAB_SZ 128
+#define MAX_LOD 7
+vec4 vTextureGrad_helper(in vec2 virtualUV, int LoD, in mat2 gradients)
+{
+	int pgtabLoD = min(LoD,MAX_LOD); // assert(MAX_LOD<log2(PGTAB_SZ))
+	int tilesInLodLevel = PGTAB_SZ>>LoD;
+	ivec2 tileCoord = ivec2(virtualUV.xy*vec2(tilesInLodLevel));
+	uvec2 pageID = texelFetch(pgTabTex,tileCoord,pgtabLoD).rg;
+	vec3 physicalUV = unpackPageID(pgtabLoD<LoD ? pageID.y : pageID.x); // unpack to normalized coord offset + Layer in physical texture (just bit operations) and multiples
+	//TODO if (pgtabLoD<LoD) then we're going into mip-tail page! (extra offsets needed)
+	//TODO not sure about correctness of those 3 lines below, seems weird and i dont really understand
+	vec2 tileFractionalCoordinate = virtualUV.xy-vec2(tileCoord)/tilesInLodLevel;
+	tileFractionalCoordinate *= (PAGE_SZ/(PAGE_SZ+TILE_PADDING)); // take border into account
+	physicalUV.xy += tileFractionalCoordinate;
+	return textureGrad(physicalTileTexture,physicalUV,gradients);
+}
+
 
 //returns: x=dst, y=src1, z=src2
 uvec3 instr_decodeRegisters(in instr_t instr)
@@ -331,7 +398,13 @@ void instr_execute_ROUGHDIELECTRIC(in instr_t instr, in uvec3 regs, in irr_glsl_
 
 	registers[NORMAL_REG_COUNT+REG_DST(regs)].xyz = diff+spec;
 }
-void instr_execute(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params)
+void instr_execute_BUMPMAP(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params)
+{
+	//TODO dHdScreen, need for sample from bumpmap and dFdx,dFdy but cannot do it here, need some trick for it (like keep VT tex data of bumpmaps in push consts)
+	uint normal_reg = (instr.x >> INSTR_NORMAL_REG_SHIFT) & INSTR_NORMAL_REG_MASK;
+	registers[normal_reg].xyz = irr_glsl_perturbNormal_heightMap(params.isotropic.interaction.N, params.isotropic.interaction.V.dPosdScreen, dHdScreen);
+}
+void instr_execute(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params, in mat2 dUV)
 {
 	switch (instr.x & INSTR_REG_MASK)
 	{
@@ -349,13 +422,16 @@ void instr_execute(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicP
 
 void main()
 {
+	registers[0].xyz = normalize(Normal);
+	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
+
 	//all lighting computations are done in view space
 
 	//TODO 
 	//ignoring bump maps as for now, however i think we could keep array of irr_glsl_BSDFAnisotropicParams and call 
 	//irr_glsl_calcBSDFIsotropicParams() just once per bumpmap (everytime an OP_BUMPMAP instr is executed)
 	//although.. such array would statically consume A LOT of registers and we're already using quite much
-	irr_glsl_ViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(vec3(0.0), ViewPos, Normal);
+	irr_glsl_ViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(vec3(0.0), ViewPos, registers[0].xyz);
 	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(interaction, -ViewPos);
 	//TODO: T,B tangents
 	irr_glsl_BSDFAnisotropicParams params = irr_glsl_calcBSDFAnisotropicParams(isoparams, T, B);
@@ -368,6 +444,8 @@ void main()
 
 		instr_execute(instr, regs, params);
 	}
+
+	OutColor = vec4(registers[NORMAL_REG_COUNT].xyz,1.0);//result is always in first general purpose reg
 }
 )";
 

@@ -24,8 +24,10 @@ namespace bsdf
 	//must be 64bit
 	struct STextureData
 	{
+		//unorm16 page table texture UV
 		uint16_t pgTab_x;
 		uint16_t pgTab_y;
+		//unorm16 originalTexSz/maxAllocatableTexSz ratio
 		uint16_t width;
 		uint16_t height;
 	} PACK_STRUCT;
@@ -41,16 +43,23 @@ namespace bsdf
 	static STextureData getTextureData(const ICPUImage* _img, ICPUTexturePacker* _packer)
 	{
 		STextureData texData;
-		texData.width = _img->getCreationParameters().extent.width;
-		texData.height = _img->getCreationParameters().extent.height;
+		core::vector2df_SIMD szUnorm16(_img->getCreationParameters().extent.width, _img->getCreationParameters().extent.height);
+		szUnorm16 /= core::vector2df_SIMD(_packer->maxAllocatableTextureSz());
+		szUnorm16 *= core::vector2df_SIMD(0xffffu);
+
+		texData.width = szUnorm16.x;
+		texData.height = szUnorm16.y;
 
 		IImage::SSubresourceRange subres;
 		subres.baseMipLevel = 0u;
 		subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(texData.width, texData.height))) + 1;
 
 		auto pgTabCoords = _packer->pack(_img, subres);
-		texData.pgTab_x = pgTabCoords.x;
-		texData.pgTab_y = pgTabCoords.y;
+		core::vector2df_SIMD pgTabUnorm16(pgTabCoords.x, pgTabCoords.y);
+		pgTabUnorm16 /= core::vector2df_SIMD(_packer->getPageTable()->getCreationParameters().extent.width,_packer->getPageTable()->getCreationParameters().extent.height, 1.f, 1.f);
+		pgTabUnorm16 *= core::vector2df_SIMD(0xffffu);
+		texData.pgTab_x = pgTabUnorm16.x;
+		texData.pgTab_y = pgTabUnorm16.y;
 
 		return texData;
 	}
