@@ -245,3 +245,8 @@ endif()
 if(IRR_BUILD_DOCS)
 	add_subdirectory(docs)
 endif()
+
+OPTION(IRR_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
+if(IRR_EMBED_BUILTIN_RESOURCES)
+	add_subdirectory(src/irr/builtin)
+endif()
