@@ -116,13 +116,13 @@ int main()
 	auto rectangleGeometry = geometryCreator->createRectangleMesh(irr::core::vector2df_SIMD(1.5, 3));
 	auto diskGeometry = geometryCreator->createDiskMesh(2, 30);
 
-	auto createGPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage)
+	auto createGPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<video::IGPUSpecializedShader>
 	{
 		auto spirv = device->getAssetManager()->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID");
+		if (!spirv)
+			return nullptr;
 		auto unspec = driver->createGPUShader(std::move(spirv));
-		//const auto info = asset::ISpecializedShader::SInfo(core::vector<asset::ISpecializedShader::SInfo::SMapEntry>(), nullptr, "main", stage);
-		const auto info = asset::ISpecializedShader::SInfo(nullptr, nullptr, "main", stage);
-		return driver->createGPUSpecializedShader(unspec.get(), info);
+		return driver->createGPUSpecializedShader(unspec.get(), { nullptr, nullptr, "main", stage });
 	};
 
 	auto createGPUSpecializedShaderFromSourceWithIncludes = [&](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage, const char* origFilepath)
