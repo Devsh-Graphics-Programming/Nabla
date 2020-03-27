@@ -40,6 +40,7 @@ const char* vertexSource = R"===(
 layout(location = 0) in vec4 vPos; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
 layout(location = 3) in vec3 vNormal;
 
+#include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
 #include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
 
 layout( push_constant, row_major ) uniform Block {
@@ -50,7 +51,7 @@ layout(location = 0) out vec3 Color; //per vertex output color, will be interpol
 
 void main()
 {
-    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4(PushConstants.modelViewProj)*vPos; //only thing preventing the shader from being core-compliant
+    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(PushConstants.modelViewProj)*vPos; //only thing preventing the shader from being core-compliant
     Color = vNormal*0.5+vec3(0.5);
 }
 )===";
@@ -119,7 +120,9 @@ int main()
 	{
 		auto spirv = device->getAssetManager()->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID");
 		auto unspec = driver->createGPUShader(std::move(spirv));
-		return driver->createGPUSpecializedShader(unspec.get(), { core::vector<asset::ISpecializedShader::SInfo::SMapEntry>(),nullptr,"main",stage });
+		//const auto info = asset::ISpecializedShader::SInfo(core::vector<asset::ISpecializedShader::SInfo::SMapEntry>(), nullptr, "main", stage);
+		const auto info = asset::ISpecializedShader::SInfo(nullptr, nullptr, "main", stage);
+		return driver->createGPUSpecializedShader(unspec.get(), info);
 	};
 
 	auto createGPUSpecializedShaderFromSourceWithIncludes = [&](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage, const char* origFilepath)

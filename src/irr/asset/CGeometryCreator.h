@@ -80,6 +80,7 @@ class CGeometryCreator : public IGeometryCreator
 
 
 		using SphereVertex = CylinderVertex;
+		using ArrowVertex = CylinderVertex;
 
 	public:
 		return_type createCubeMesh(const core::vector3df& size) const override;

@@ -150,35 +150,75 @@ CGeometryCreator::return_type CGeometryCreator::createArrowMesh(const uint32_t t
 																const video::SColor vtxColor0,
 																const video::SColor vtxColor1) const
 {
-#ifndef NEW_SHADERS
     assert(height > cylinderHeight);
 
     auto cylinder = createCylinderMesh(width0, cylinderHeight, tesselationCylinder, vtxColor0);
-	// TODO: disk meshbuffer to close it
-    auto cone = core::move_and_static_cast<asset::CCPUMesh>(createConeMesh(width1, height-cylinderHeight, tesselationCone, vtxColor1, vtxColor1));
+    auto cone = createConeMesh(width1, height-cylinderHeight, tesselationCone, vtxColor1, vtxColor1);
 
-    if (!cylinder || !cone)
-        return nullptr;
+	auto cylinderVertices = reinterpret_cast<CylinderVertex*>(cylinder.bindings[0].buffer->getPointer());
+	auto coneVertices = reinterpret_cast<ConeVertex*>(cone.bindings[0].buffer->getPointer());
 
-    asset::ICPUMeshBuffer* coneMb = cone->getMeshBuffer(0u);
-	coneMb->setNormalnAttributeIx(EVAI_ATTR3);
+	auto cylinderIndecies = reinterpret_cast<uint16_t*>(cylinder.indexBuffer.buffer->getPointer());
+	auto coneIndecies = reinterpret_cast<uint16_t*>(cone.indexBuffer.buffer->getPointer());
 
-    asset::ICPUBuffer* coneVtxBuf = const_cast<asset::ICPUBuffer*>(coneMb->getMeshDataAndFormat()->getMappedBuffer(asset::EVAI_ATTR0));
-    ConeVertex* coneVertices = reinterpret_cast<ConeVertex*>(coneVtxBuf->getPointer());
-    for (uint32_t i = 0u; i < tesselationCone+2u; ++i)
-        coneVertices[i].pos[2] += cylinderHeight;
-    coneMb->recalculateBoundingBox();
+	for (uint32_t i = 0u; i < tesselationCone + 2u; ++i)
+		coneVertices[i].pos[2] += cylinderHeight;
 
-	
-    cone->addMeshBuffer(core::smart_refctd_ptr<asset::ICPUMeshBuffer>(cylinder->getMeshBuffer(0u)));
-    cone->recalculateBoundingBox();
+	const auto cylinderVertexCount = cylinder.bindings[0].buffer->getSize() / sizeof(CylinderVertex);
+	const auto coneVertexCount = cone.bindings[0].buffer->getSize() / sizeof(ConeVertex);
+	const auto newArrowVertexCount = cylinderVertexCount + coneVertexCount;
 
-    return cone;
-#else
-	return {};
-#endif
+	const auto cylinderIndexCount = cylinder.indexBuffer.buffer->getSize() / sizeof(uint16_t);
+	const auto coneIndexCount = cone.indexBuffer.buffer->getSize() / sizeof(uint16_t);
+	const auto newArrowIndexCount = cylinderIndexCount + coneIndexCount;
+
+	auto newArrowVertexBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(newArrowVertexCount * sizeof(ArrowVertex));
+	auto newArrowIndexBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(newArrowIndexCount * sizeof(uint16_t));
+
+	for (auto z = 0ull; z < newArrowVertexCount; ++z)
+	{
+		auto arrowVertex = reinterpret_cast<ArrowVertex*>(newArrowVertexBuffer->getPointer());
+
+		if (z < cylinderVertexCount)
+		{
+			auto cylinderVertex = (cylinderVertices + z);
+			memcpy(arrowVertex, cylinderVertex, sizeof(ArrowVertex));
+		}
+		else
+		{
+			auto coneVertex = (coneVertices + z);
+			memcpy(arrowVertex, coneVertex, offsetof(ArrowVertex, normal)); // copy position and color
+			arrowVertex->normal = coneVertex->normal;
+		}
+	}
+
+	{
+		auto ArrowIndecies = reinterpret_cast<uint16_t*>(newArrowIndexBuffer->getPointer());
+
+		memcpy(ArrowIndecies, cylinderIndecies, sizeof(uint16_t) * cylinderIndexCount);
+		memcpy((ArrowIndecies + cylinderIndexCount), coneIndecies, sizeof(uint16_t) * coneIndexCount);
+	}
+
+	return_type arrow;
+
+	constexpr size_t vertexSize = sizeof(ArrowVertex);
+	arrow.inputParams = 
+	{ 0b1111u,0b1u,
+		{
+			{0u,EF_R32G32B32_SFLOAT,offsetof(ArrowVertex,pos)},
+			{0u,EF_R8G8B8A8_UNORM,offsetof(ArrowVertex,color)},
+			{0u,EF_R32G32_SFLOAT,offsetof(ArrowVertex,uv)},
+			{0u,EF_A2B10G10R10_SNORM_PACK32,offsetof(ArrowVertex,normal)}
+		},
+		{vertexSize,EVIR_PER_VERTEX} 
+	};
+
+	arrow.bindings[0] = { 0, std::move(newArrowVertexBuffer) }; 
+	arrow.indexBuffer = { 0, std::move(newArrowIndexBuffer) };
+	arrow.indexType = EIT_16BIT;
+
+    return arrow;
 }
-
 
 /* A sphere with proper normals and texture coords */
 CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, uint32_t polyCountX, uint32_t polyCountY) const
@@ -449,7 +489,6 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 																const video::SColor& colorBottom,
 																float oblique) const
 {
-#ifndef NEW_SHADERS
     const size_t vtxCnt = tesselation+2u;
     auto vtxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxCnt * sizeof(ConeVertex));
     ConeVertex* vertices = reinterpret_cast<ConeVertex*>(vtxBuf->getPointer());
@@ -491,28 +530,24 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
         indices[j++] = i+1u == vtxCnt ? 2u : i+1u;
     }
 
-    auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
-    auto meshbuf = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
-    auto desc = core::make_smart_refctd_ptr<asset::ICPUMeshDataFormatDesc>();
-    desc->setVertexAttrBuffer(core::smart_refctd_ptr(vtxBuf), asset::EVAI_ATTR0, asset::EF_R32G32B32_SFLOAT, sizeof(ConeVertex), offsetof(ConeVertex, pos));
-    desc->setVertexAttrBuffer(core::smart_refctd_ptr(vtxBuf), asset::EVAI_ATTR1, asset::EF_R8G8B8A8_UNORM, sizeof(ConeVertex), offsetof(ConeVertex, color));
-    desc->setVertexAttrBuffer(core::smart_refctd_ptr(vtxBuf), asset::EVAI_ATTR3, asset::EF_A2B10G10R10_SNORM_PACK32, sizeof(ConeVertex), offsetof(ConeVertex, normal));
-    meshbuf->setIndexCount(idxBuf->getSize()/2u);
-	desc->setIndexBuffer(std::move(idxBuf));
-    meshbuf->setIndexType(asset::EIT_16BIT);
-    meshbuf->setPrimitiveType(asset::EPT_TRIANGLES);
-	meshbuf->setNormalnAttributeIx(EVAI_ATTR3);
-    meshbuf->setMeshDataAndFormat(std::move(desc));
-	meshbuf->recalculateBoundingBox();
+	return_type cone;
 
-    mesh->addMeshBuffer(std::move(meshbuf));
+	constexpr size_t vertexSize = sizeof(ConeVertex);
+	cone.inputParams =
+	{ 0b111u,0b1u,
+		{
+			{0u,EF_R32G32B32_SFLOAT,offsetof(ConeVertex,pos)},
+			{0u,EF_R8G8B8A8_UNORM,offsetof(ConeVertex,color)},
+			{0u,EF_A2B10G10R10_SNORM_PACK32,offsetof(ConeVertex,normal)}
+		},
+		{vertexSize,EVIR_PER_VERTEX}
+	};
 
-    mesh->recalculateBoundingBox(true);
+	cone.bindings[0] = { 0, std::move(vtxBuf) };
+	cone.indexBuffer = { 0, std::move(idxBuf) };
+	cone.indexType = EIT_16BIT;
 
-    return mesh;
-#else
-	return {};
-#endif
+    return cone;
 }
 
 
