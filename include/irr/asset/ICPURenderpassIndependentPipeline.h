@@ -43,7 +43,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 
             std::array<core::smart_refctd_ptr<ICPUSpecializedShader>, SHADER_STAGE_COUNT> shaders;
             for (uint32_t i = 0u; i < shaders.size(); ++i)
-                (_depth > 0u && m_shaders[i]) ? m_shaders[i]->clone(_depth-1u) : m_shaders[i];
+                (_depth > 0u && m_shaders[i]) ? core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(m_shaders[i]->clone(_depth-1u)) : m_shaders[i];
             std::array<ICPUSpecializedShader*, SHADER_STAGE_COUNT> shaders_raw;
             for (uint32_t i = 0u; i < shaders.size(); ++i)
                 shaders_raw[i] = shaders[i].get();

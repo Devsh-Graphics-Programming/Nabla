@@ -48,9 +48,11 @@ class ISpecializedShader : public virtual core::IReferenceCounted
 
 				SInfo() = default;
 				//! _entries must be sorted!
-				SInfo(core::vector<SMapEntry>&& _entries, core::smart_refctd_ptr<ICPUBuffer>&& _backingBuff, const std::string& _entryPoint, E_SHADER_STAGE _ss) :
-					m_entries{core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<SMapEntry>>(_entries.size())}, m_backingBuffer(std::move(_backingBuff)), entryPoint{_entryPoint}, shaderStage{_ss}
+				SInfo(core::smart_refctd_dynamic_array<SMapEntry>&& _entries, core::smart_refctd_ptr<ICPUBuffer>&& _backingBuff, const std::string& _entryPoint, E_SHADER_STAGE _ss) :
+					m_entries(std::move(_entries)), m_backingBuffer(std::move(_backingBuff)), entryPoint{_entryPoint}, shaderStage{_ss}
 				{
+					if (m_entries)
+						std::sort(m_entries->begin(),m_entries->end());
 				}
 				~SInfo() = default;
 
@@ -60,9 +62,11 @@ class ISpecializedShader : public virtual core::IReferenceCounted
 					{
 						if (entryPoint==_rhs.entryPoint)
 						{
-							if (m_entries->size()==_rhs.m_entries->size())
+							size_t lhsSize = m_entries ? m_entries->size():0ull;
+							size_t rhsSize = _rhs.m_entries ? _rhs.m_entries->size():0ull;
+							if (lhsSize==rhsSize)
 							{
-								for (size_t i = 0ull; i < m_entries->size(); ++i)
+								for (size_t i=0ull; i<lhsSize; ++i)
 								{
 									const auto& l = (*m_entries)[i];
 									const auto& r = (*_rhs.m_entries)[i];
@@ -81,7 +85,7 @@ class ISpecializedShader : public virtual core::IReferenceCounted
 									return l.specConstID<r.specConstID;
 								}
 							}
-							return m_entries->size()<_rhs.m_entries->size();
+							return lhsSize<rhsSize;
 						}
 						return entryPoint<_rhs.entryPoint;
 					}
@@ -90,7 +94,7 @@ class ISpecializedShader : public virtual core::IReferenceCounted
 
 				inline std::pair<const void*, size_t> getSpecializationByteValue(uint32_t _specConstID) const
 				{
-					if (!m_backingBuffer)
+					if (!m_entries || !m_backingBuffer)
 						return {nullptr, 0u};
 
 					auto entry = std::lower_bound(m_entries->begin(), m_entries->end(), SMapEntry{_specConstID,0xdeadbeefu,0xdeadbeefu/*To make GCC warnings shut up*/});

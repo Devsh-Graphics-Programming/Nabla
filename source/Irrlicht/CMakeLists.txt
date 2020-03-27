@@ -37,8 +37,6 @@ include(common)
 #[[ Loaders and writers compile options available to edit by user
 	All revelant _IRR_COMPILE_WITH will be there]]
 option(_IRR_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" ON)
-option(_IRR_COMPILE_WITH_MITSUBA_SERIALIZED_LOADER_ "Compile with Mitsuba Serialized Loader" ON)
-#option(_IRR_COMPILE_WITH_MITSUBA_SERIALIZED_WRITER_ "Compile with Mitsuba Serialized Writer" ON) uncomment when writer exists
 option(_IRR_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" ON)
 #option(_IRR_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON) uncomment when writer exists
 option(_IRR_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" ON)
@@ -103,7 +101,6 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ROOT_PATH}/src/irr/asset/format/convertColor.cpp
 
 # Mesh loaders
-	${IRR_ROOT_PATH}/ext/MitsubaLoader/CSerializedLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshFileLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/COBJMeshFileLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshFileLoader.cpp
@@ -244,14 +241,10 @@ set(IRRLICHT_SRCS_SERVER
 set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/convertutf
 	${THIRD_PARTY_SOURCE_DIR}/utfcpp/source
-<<<<<<< HEAD
 	${THIRD_PARTY_SOURCE_DIR}/glm
 	${CMAKE_BINARY_DIR}/3rdparty/zlib #for dynamically generated zconf.h
 	${CMAKE_BINARY_DIR}/3rdparty/openexr/IlmBase/config #for dynamically generated IlmBaseConfig.h
 	${CMAKE_BINARY_DIR}/3rdparty/openexr/OpenEXR/config #for dynamically generated OpenEXRConfig.h
-=======
-	$<TARGET_PROPERTY:zlibstatic,BINARY_DIR> #for dynamically generated zconf.h
->>>>>>> d3f148c810d528df44598a47e8a96e6838a1cc3e
 	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
 	$<TARGET_PROPERTY:jpeg,BINARY_DIR> #for dynamically generated jconfig.h
 )
@@ -262,7 +255,8 @@ irr_adjust_definitions() # macro defined in root CMakeLists
 macro(irr_target_link_zlib _trgt)
 	add_dependencies(${_trgt} zlibstatic)
 	target_link_libraries(${_trgt} INTERFACE
-		zlibstatic
+		"$<$<CONFIG:DEBUG>:${ZLIB_LIBRARY_DEBUG}>"
+		"$<$<CONFIG:RELEASE>:${ZLIB_LIBRARY_RELEASE}>"
 	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/zlib)
 endmacro()
@@ -386,11 +380,6 @@ endif()
 
 
 if (IRR_COMPILE_WITH_CUDA)
-	if (WIN32)
-		target_link_libraries(Irrlicht INTERFACE
-			${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}/../lib/x64/nvrtc.lib
-		)
-	endif()
 	target_include_directories(Irrlicht PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 endif()
 
@@ -406,7 +395,7 @@ else()
 endif()
 
 target_compile_definitions(Irrlicht 
-	PRIVATE	_IRR_STATIC_LIB_
+	PRIVATE	_IRR_STATIC_LIB_ SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
 	PUBLIC	UNW_LOCAL_ONLY
 )
 
@@ -414,7 +403,7 @@ if(IRR_PCH)
     if (UNIX)
         if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
             ADD_PRECOMPILED_HEADER(Irrlicht pch.h "${IRRLICHT_CONF_DIR_RELEASE}" FORCEINCLUDE)
-	elseif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+		elseif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
             ADD_PRECOMPILED_HEADER(Irrlicht pch.h "${IRRLICHT_CONF_DIR_DEBUG}" FORCEINCLUDE)
         endif()
     else()
@@ -458,6 +447,7 @@ target_include_directories(IrrlichtServer PRIVATE ${IRR_ROOT_PATH}/src ${IRR_ROO
 target_compile_definitions(IrrlichtServer PRIVATE
 	_IRR_STATIC_LIB_
 	_IRR_SERVER_
+	SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
 )
 
 

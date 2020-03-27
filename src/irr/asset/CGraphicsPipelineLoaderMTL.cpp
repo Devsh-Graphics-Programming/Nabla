@@ -1,7 +1,17 @@
+#include <utility>
+#include <regex>
+
+
+#include "irr/asset/asset.h"
+
+#include "os.h"
+
+
 #include "irr/asset/CGraphicsPipelineLoaderMTL.h"
 
-#include "irr/asset/IBuiltinIncludeLoader.h"
-namespace irr {
+
+namespace irr
+{
 namespace asset
 {    
 
@@ -1208,7 +1218,7 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(io::IReadFile* _file) const -> co
                 {
                 case 'f':		// Tf - Transmitivity
                     currMaterial->params.transmissionFilter = readRGB();
-                    sscanf(tmpbuf, "%s, %s: Detected Tf parameter, it won't be used in generated shader - fallback to alpha=0.5 instead", _file->getFileName().c_str(), currMaterial->name.c_str());
+                    sprintf(tmpbuf, "%s, %s: Detected Tf parameter, it won't be used in generated shader - fallback to alpha=0.5 instead", _file->getFileName().c_str(), currMaterial->name.c_str());
                     os::Printer::log(tmpbuf, ELL_WARNING);
                     break;
                 case 'r':       // Tr, transparency = 1.0-d

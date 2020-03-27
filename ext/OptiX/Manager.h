@@ -17,6 +17,34 @@ namespace ext
 namespace OptiX
 {
 
+inline OptixPixelFormat irrFormatToOptiX(asset::E_FORMAT format)
+{
+	switch (format)
+	{
+		case asset::EF_R16G16B16_SFLOAT:
+			return OPTIX_PIXEL_FORMAT_HALF3;
+			break;
+		case asset::EF_R16G16B16A16_SFLOAT:
+			return OPTIX_PIXEL_FORMAT_HALF4;
+			break;
+		case asset::EF_R32G32B32_SFLOAT:
+			return OPTIX_PIXEL_FORMAT_FLOAT3;
+			break;
+		case asset::EF_R32G32B32A32_SFLOAT:
+			return OPTIX_PIXEL_FORMAT_FLOAT4;
+			break;
+		case asset::EF_R8G8B8_SRGB:
+			return OPTIX_PIXEL_FORMAT_UCHAR3;
+			break;
+		case asset::EF_R8G8B8A8_SRGB:
+			return OPTIX_PIXEL_FORMAT_UCHAR4;
+			break;
+		default:
+			break;
+	}
+	return static_cast<OptixPixelFormat>(~0u);
+}
+
 
 class Manager final : public core::IReferenceCounted
 {

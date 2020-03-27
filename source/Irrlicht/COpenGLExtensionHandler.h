@@ -15,10 +15,6 @@
 #ifdef _IRR_WINDOWS_API_
 	// include windows headers for HWND
 	#include "../src/3rdparty/GL/wglext.h"
-    // make CUDA play nice
-    #define WGL_NV_gpu_affinity 0
-	#include "GL/wglext.h"
-    #undef WGL_NV_gpu_affinity
 #elif defined(_IRR_COMPILE_WITH_X11_)
     #include "GL/glx.h"
     #include "../src/3rdparty/GL/glxext.h"

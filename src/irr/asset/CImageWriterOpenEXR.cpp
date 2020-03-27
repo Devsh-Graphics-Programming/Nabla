@@ -17,10 +17,16 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
+#include <algorithm>
+#include <iostream>
+#include <string>
+#include <unordered_map>
 
 #include "CImageWriterOpenEXR.h"
 
 #ifdef _IRR_COMPILE_WITH_OPENEXR_WRITER_
+
+#include "irr/asset/COpenEXRImageMetadata.h"
 
 #include "openexr/IlmBase/Imath/ImathBox.h"
 #include "openexr/OpenEXR/IlmImf/ImfOutputFile.h"
@@ -29,14 +35,10 @@ SOFTWARE.
 #include "openexr/OpenEXR/IlmImf/ImfStringAttribute.h"
 #include "openexr/OpenEXR/IlmImf/ImfMatrixAttribute.h"
 #include "openexr/OpenEXR/IlmImf/ImfArray.h"
-#include <algorithm>
-#include <iostream>
-#include <string>
-#include <unordered_map>
 
 #include "openexr/OpenEXR/IlmImf/ImfNamespace.h"
-namespace IMF = OPENEXR_IMF_NAMESPACE;
-namespace IMATH = IMATH_NAMESPACE;
+namespace IMF = Imf;
+namespace IMATH = Imath;
 
 namespace irr
 {
@@ -102,7 +104,7 @@ namespace irr
 					}
 			}
 
-			constexpr std::array<char*, availableChannels> rgbaSignatureAsText = { "R", "G", "B", "A" };
+			constexpr std::array<const char*, availableChannels> rgbaSignatureAsText = { "R", "G", "B", "A" };
 			for (uint8_t channel = 0; channel < rgbaSignatureAsText.size(); ++channel)
 			{
 				header.channels().insert(rgbaSignatureAsText[channel], Channel(pixelType));
@@ -141,11 +143,7 @@ namespace irr
 			if (!file)
 				return false;
 
-			os::Printer::log("Writing OpenEXR image", file->getFileName().c_str());
-
-			const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, image, 0u);
-			if (flags & asset::EWF_BINARY)
-				return writeImageBinary(file, image);
+			return writeImageBinary(file, image);
 		}
 
 		bool CImageWriterOpenEXR::writeImageBinary(io::IWriteFile* file, const asset::ICPUImage* image)

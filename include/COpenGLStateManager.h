@@ -816,8 +816,8 @@ P.S. Maybe Ghost == Pending
 
                     glViewportArray_vals[i][0] = 0;
                     glViewportArray_vals[i][1] = 0;
-                    glViewportArray_vals[i][2] = windowSizeX;
-                    glViewportArray_vals[i][3] = windowSizeY;
+                    glViewportArray_vals[i][2] = static_cast<float>(windowSizeX);
+                    glViewportArray_vals[i][3] = static_cast<float>(windowSizeY);
 
                     glScissorArray_vals[i][0] = 0;
                     glScissorArray_vals[i][1] = 0;

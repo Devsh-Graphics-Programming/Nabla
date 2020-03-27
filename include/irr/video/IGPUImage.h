@@ -10,6 +10,8 @@
 
 #include "irr/asset/IImage.h"
 
+#include "IGPUBuffer.h"
+
 namespace irr
 {
 namespace video

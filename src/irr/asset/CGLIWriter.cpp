@@ -20,6 +20,8 @@ SOFTWARE.
 
 #include "CGLIWriter.h"
 
+#include "os.h"
+
 #ifdef _IRR_COMPILE_WITH_GLI_WRITER_
 
 #ifdef _IRR_COMPILE_WITH_GLI_
@@ -64,7 +66,7 @@ namespace irr
 			const auto& imageInfo = imageViewInfo.image->getCreationParameters();
 			const auto& image = imageViewInfo.image;
 
-			if (image->getRegions().length() == 0)
+			if (image->getRegions().size() == 0)
 			{
 				os::Printer::log("WRITING GLI: there is a lack of regions!", file->getFileName().c_str(), ELL_INFORMATION);
 				return false;

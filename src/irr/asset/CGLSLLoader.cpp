@@ -1,4 +1,4 @@
-#include "irr/core/core.h"
+#include "irr/asset/asset.h"
 #include "CGLSLLoader.h"
 
 using namespace irr;

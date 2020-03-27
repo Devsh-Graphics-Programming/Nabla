@@ -1,8 +1,7 @@
 #include "irr/asset/asset.h"
 
-#ifdef _IRR_COMPILE_WITH_MITSUBA_SERIALIZED_LOADER_
-#include "../../ext/MitsubaLoader/CSerializedLoader.h"
-#endif
+#include "irr/asset/CGeometryCreator.h"
+#include "irr/asset/CMeshManipulator.h"
 
 #ifdef _IRR_COMPILE_WITH_MTL_LOADER_
 #include "irr/asset/CGraphicsPipelineLoaderMTL.h"
@@ -124,13 +123,10 @@ const IMeshManipulator* IAssetManager::getMeshManipulator() const
 void IAssetManager::addLoadersAndWriters()
 {
 #ifdef _IRR_COMPILE_WITH_STL_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CSTLMeshFileLoader>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CSTLMeshFileLoader>(this));
 #endif
 #ifdef _IRR_COMPILE_WITH_PLY_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>(this));
-#endif
-#ifdef _IRR_COMPILE_WITH_MITSUBA_SERIALIZED_LOADER_
-    addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CSerializedLoader>(this));
 #endif
 #ifdef _IRR_COMPILE_WITH_MTL_LOADER_
     addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this));
@@ -148,7 +144,7 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderPng>());
 #endif
 #ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderOpenEXR>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderOpenEXR>(this));
 #endif
 #ifdef  _IRR_COMPILE_WITH_GLI_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLILoader>());

@@ -9,8 +9,10 @@
 #include <unordered_map>
 
 #include "stdint.h"
-#include "irr/asset/IMesh.h"
+
 #include "path.h"
+
+#include "irr/asset/ICPUMesh.h"
 #include "irr/asset/IAssetLoader.h"
 
 namespace irr

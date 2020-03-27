@@ -4,6 +4,8 @@
 
 #include "CIrrDeviceLinux.h"
 
+#include "CNullDriver.h"
+
 #ifdef _IRR_COMPILE_WITH_X11_DEVICE_
 
 #include <locale.h>

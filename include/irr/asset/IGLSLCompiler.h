@@ -1,9 +1,11 @@
 #ifndef __IRR_I_GLSL_COMPILER_H_INCLUDED__
 #define __IRR_I_GLSL_COMPILER_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
-
+#include "irr/core/core.h"
 #include "irr/system/system.h"
+
+#include "IReadFile.h"
+#include "IFileSystem.h"
 
 #include "irr/asset/ICPUSpecializedShader.h"
 #include "irr/asset/IIncludeHandler.h"
@@ -74,9 +76,9 @@ class IGLSLCompiler final : public core::IReferenceCounted
 
 		@returns Shader containing logically same GLSL code as input but with #include directives resolved.
 		*/
-        core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
+		core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(std::string&& glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
 
-        core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(io::IReadFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
+		core::smart_refctd_ptr<ICPUShader> resolveIncludeDirectives(io::IReadFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt = 4u) const;
 };
 
 }

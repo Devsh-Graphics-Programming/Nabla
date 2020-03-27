@@ -22,6 +22,8 @@ SOFTWARE.
 
 #ifdef _IRR_COMPILE_WITH_GLI_LOADER_
 
+#include "os.h"
+
 #ifdef _IRR_COMPILE_WITH_GLI_
 #include "gli/gli.hpp"
 #else
@@ -47,7 +49,7 @@ namespace irr
 				return {};
 
 		    const gli::gl glVersion(gli::gl::PROFILE_GL33);
-			const GLenum target = glVersion.translate(texture.target());
+			const auto target = glVersion.translate(texture.target());
 			const auto format = getTranslatedGLIFormat(texture, glVersion);
 			IImage::E_TYPE imageType;
 			IImageView<ICPUImage>::E_TYPE imageViewType;
@@ -243,7 +245,7 @@ namespace irr
 			const auto beginningOfFile = _file->getPos();
 
 			constexpr auto ddsMagic = 0x20534444;
-			constexpr std::array<uint8_t, 12> ktxMagic = { '«', 'K', 'T', 'X', ' ', '1', '1', '»', '\r', '\n', '\x1A', '\n' };
+			constexpr std::array<uint8_t, 12> ktxMagic = { 174, 'K', 'T', 'X', ' ', '1', '1', 175, '\r', '\n', '\x1A', '\n' };
 			constexpr std::array<uint8_t, 16> kmgMagic = { 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55 };
 
 			if (fileName.rfind(".dds") != std::string::npos)
@@ -307,6 +309,7 @@ namespace irr
 				for (auto& mappedSwizzle : swizzlesMappingAPI)
 					if (currentSwizzleToCheck == mappedSwizzle.first)
 						return mappedSwizzle.second;
+				return ICPUImageView::SComponentMapping::ES_IDENTITY;
 			};
 
 			compomentMapping.r = getMappedSwizzle(static_cast<gli::gl::swizzle>(formatToTranslate.Swizzles.r));

@@ -5,7 +5,7 @@ if(GIT_FOUND)
 	execute_process(COMMAND "${GIT_EXECUTABLE} fetch"
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/openssl"
 	)
-	execute_process(COMMAND "${GIT_EXECUTABLE} clean -fd"
+	execute_process(COMMAND "${GIT_EXECUTABLE} clean -fdx"
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/openssl"
 	)
 	execute_process(COMMAND "${GIT_EXECUTABLE} reset --hard origin/OpenSSL_1_0_2-stable"

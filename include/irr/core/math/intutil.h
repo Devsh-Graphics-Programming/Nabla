@@ -8,6 +8,7 @@
 #include "IrrCompileConfig.h"
 
 #include <limits.h> // For INT_MAX / UINT_MAX
+#include <initializer_list>
 #include <type_traits>
 #ifdef _MSC_VER
     #include <intrin.h>

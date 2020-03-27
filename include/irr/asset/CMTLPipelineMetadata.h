@@ -2,8 +2,11 @@
 #define __IRR_C_MTL_PIPELINE_METADATA_H_INCLUDED__
 
 #include "irr/asset/IPipelineMetadata.h"
+#include "irr/asset/ICPUDescriptorSet.h"
+#include "irr/asset/ICPUPipelineLayout.h"
 
-namespace irr {
+namespace irr
+{
 namespace asset
 {
 
@@ -87,7 +90,9 @@ public:
     const std::string getMaterialName() const { return m_name; }
 
     core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const override { return { m_shaderInputs->begin(), m_shaderInputs->end() }; }
-    const char* getLoaderName() const override { return "CGraphicsPipelineLoaderMTL"; } //?? i dont really understand the docs specifying what this function should return
+
+    _IRR_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CGraphicsPipelineLoaderMTL";
+    const char* getLoaderName() const override { return LoaderName; }
 
     uint32_t getHashVal() const { return m_hash; }
     ICPUDescriptorSet* getDescriptorSet() const { return m_descriptorSet3.get(); }

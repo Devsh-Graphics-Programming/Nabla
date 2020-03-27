@@ -1,4 +1,7 @@
 #include "irr/core/core.h"
+
+#include "irr/asset/ICPUShader.h"
+
 #include "CSPVLoader.h"
 
 using namespace irr;

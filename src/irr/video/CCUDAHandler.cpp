@@ -4,6 +4,7 @@
 #ifdef _IRR_COMPILE_WITH_CUDA_
 #include "jitify/jitify.hpp"
 
+
 namespace irr
 {
 namespace cuda
@@ -194,16 +195,16 @@ CUresult CCUDAHandler::registerBuffer(GraphicsAPIObjLink<video::IGPUBuffer>* lin
 		link->obj = nullptr;
 	return retval;
 }
-CUresult CCUDAHandler::registerImage(GraphicsAPIObjLink<video::ITexture>* link, uint32_t flags)
+CUresult CCUDAHandler::registerImage(GraphicsAPIObjLink<video::IGPUImage>* link, uint32_t flags)
 {
 	assert(link->obj);
 			
-	auto format = link->obj->getColorFormat();
+	auto format = link->obj->getCreationParameters().format;
 	if (asset::isBlockCompressionFormat(format) || asset::isDepthOrStencilFormat(format) || asset::isScaledFormat(format) || asset::isPlanarFormat(format))
 		return CUDA_ERROR_INVALID_IMAGE;
 
-	auto glimg = static_cast<video::COpenGLFilterableTexture*>(link->obj.get());
-	GLenum target = glimg->getOpenGLTextureType();
+	auto glimg = static_cast<video::COpenGLImage*>(link->obj.get());
+	GLenum target = glimg->getOpenGLTarget();
 	switch (target)
 	{
 		case GL_TEXTURE_2D:
@@ -247,7 +248,7 @@ CUresult CCUDAHandler::acquireAndGetPointers(GraphicsAPIObjLink<video::IGPUBuffe
 	}
 	return CUDA_SUCCESS;
 }
-CUresult CCUDAHandler::acquireAndGetMipmappedArray(GraphicsAPIObjLink<video::ITexture>* linksBegin, GraphicsAPIObjLink<video::ITexture>* linksEnd, CUstream stream)
+CUresult CCUDAHandler::acquireAndGetMipmappedArray(GraphicsAPIObjLink<video::IGPUImage>* linksBegin, GraphicsAPIObjLink<video::IGPUImage>* linksEnd, CUstream stream)
 {
 	if (linksBegin+MaxAquireOps<linksEnd)
 		return CUDA_ERROR_OUT_OF_MEMORY;
@@ -268,7 +269,7 @@ CUresult CCUDAHandler::acquireAndGetMipmappedArray(GraphicsAPIObjLink<video::ITe
 	}
 	return CUDA_SUCCESS;
 }
-CUresult CCUDAHandler::acquireAndGetArray(GraphicsAPIObjLink<video::ITexture>* linksBegin, GraphicsAPIObjLink<video::ITexture>* linksEnd, uint32_t* arrayIndices, uint32_t* mipLevels, CUstream stream)
+CUresult CCUDAHandler::acquireAndGetArray(GraphicsAPIObjLink<video::IGPUImage>* linksBegin, GraphicsAPIObjLink<video::IGPUImage>* linksEnd, uint32_t* arrayIndices, uint32_t* mipLevels, CUstream stream)
 {
 	if (linksBegin+MaxAquireOps<linksEnd)
 		return CUDA_ERROR_OUT_OF_MEMORY;

@@ -6,7 +6,8 @@
 #ifndef __IRR_MESH_BUFFER_BLOB_H_INCLUDED__
 #define __IRR_MESH_BUFFER_BLOB_H_INCLUDED__
 
-#include "irr/asset/bawformat/legacy/CBAWLegacy.h"
+#include "irr/asset/format/EFormat.h"
+#include "irr/asset/bawformat/Blob.h"
 
 namespace irr
 {

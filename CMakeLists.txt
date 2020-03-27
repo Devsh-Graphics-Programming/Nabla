@@ -15,7 +15,8 @@
 
 cmake_minimum_required(VERSION 3.14)
 #policies
-#cmake_policy(SET CMP0072 NEW) #not yet, would need to get pointers to all OpenGL functions
+cmake_policy(SET CMP0072 OLD) #not yet, would need to get pointers to all OpenGL functions
+set(OpenGL_GL_PREFERENCE LEGACY)
 #cmake_policy(SET CMP )
 
 project(Irrlicht LANGUAGES CXX C)
@@ -25,9 +26,11 @@ option(IRR_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
 # CUDA test
 include(CheckLanguage)
 check_language(CUDA)
-if(CMAKE_CUDA_COMPILER OR "${CMAKE_CUDA_COMPILER_VERSION}" VERSION_LESS 9.0)
+#if(NOT CMAKE_CUDA_COMPILER OR CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "9.0")
+if(NOT CMAKE_CUDA_COMPILER)
 	if (IRR_COMPILE_WITH_CUDA)
-		message(WARNING "CUDA not found or version lower than 9.0 found, version 9.0+ needed for C++14 support.")
+		#message(WARNING "CUDA not found or version (${CMAKE_CUDA_COMPILER_VERSION}) lower than 9.0 found, version 9.0+ needed for C++14 support.")
+		message(WARNING "CUDA not found.")
 	endif()
 else()
 	if (IRR_COMPILE_WITH_CUDA)
@@ -53,13 +56,7 @@ endif(CCACHE_FOUND)
 # global IDE stuff for examples
 set(CMAKE_CODELITE_USE_TARGETS ON CACHE BOOL "")
 
-if((MSVC_VERSION AND NOT ${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 19.11) OR
-  (CMAKE_COMPILER_IS_GNUCXX AND NOT ${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 7.0) OR
-  (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND NOT ${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 3.9))
-    set(CMAKE_CXX_STANDARD 17)
-else()
-    set(CMAKE_CXX_STANDARD 14)
-endif()
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Cause CUDA is a special snowflake
 if (IRR_COMPILE_WITH_CUDA)

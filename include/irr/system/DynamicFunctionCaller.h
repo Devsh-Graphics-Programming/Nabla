@@ -20,7 +20,7 @@ class DynamicFunctionCallerBase : public core::Unmovable
 		DynamicFunctionCallerBase() : loader() {}
 		DynamicFunctionCallerBase(DynamicFunctionCallerBase&& other) : DynamicFunctionCallerBase()
 		{
-			operator(std::move(other));
+			operator=(std::move(other));
 		}
 		template<typename... T>
 		DynamicFunctionCallerBase(T&&... args) : loader(std::forward<T>(args)...)

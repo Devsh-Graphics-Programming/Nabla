@@ -10,6 +10,7 @@
 #include "irr/asset/IAssetLoader.h"
 #include "IFileSystem.h"
 #include "irr/asset/ICPUMesh.h"
+#include "irr/asset/bawformat/CBAWFile.h"
 #include "irr/asset/bawformat/legacy/CBAWLegacy.h"
 #include "irr/asset/bawformat/CBlobsLoadingManager.h"
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
@@ -403,7 +404,7 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData_t<HeaderT> & _data,
     if (_stackPtr && _data.header->blobSizeDecompr <= _stackSize && _data.header->effectiveSize() <= _stackSize)
         dst = _stackPtr;
     else
-        dst = _IRR_ALIGNED_MALLOC(asset::BlobHeaderVn<_IRR_BAW_FORMAT_VERSION>::calcEncSize(_data.header->blobSizeDecompr), _IRR_SIMD_ALIGNMENT);
+        dst = _IRR_ALIGNED_MALLOC(BlobHeaderVn<_IRR_BAW_FORMAT_VERSION>::calcEncSize(_data.header->blobSizeDecompr), _IRR_SIMD_ALIGNMENT);
 
     const bool encrypted = (_data.header->compressionType & asset::Blob::EBCT_AES128_GCM);
     const bool compressed = (_data.header->compressionType & asset::Blob::EBCT_LZ4) || (_data.header->compressionType & asset::Blob::EBCT_LZMA);

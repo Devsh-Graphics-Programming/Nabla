@@ -138,7 +138,7 @@ class CCustomAllocatorCPUBuffer<Allocator, false> : public CCustomAllocatorCPUBu
 	public:
 		using Base::Base;
 
-		CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, Allocator&& alctr = Allocator()) : Base(sizeInBytes, alctr.allocate(sizeInBytes), core::adopt_memory, std::move(alctr))
+		CCustomAllocatorCPUBuffer(size_t sizeInBytes, const void* dat, Allocator&& alctr = Allocator()) : Base(sizeInBytes, alctr.allocate(sizeInBytes), core::adopt_memory, std::move(alctr))
 		{
 			memcpy(Base::data, dat, sizeInBytes);
 		}

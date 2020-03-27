@@ -6,8 +6,6 @@
 #include "IReadFile.h"
 
 
-#include "optix.h"
-
 
 #include "../../ext/OptiX/IModule.h"
 #include "../../ext/OptiX/IDenoiser.h"

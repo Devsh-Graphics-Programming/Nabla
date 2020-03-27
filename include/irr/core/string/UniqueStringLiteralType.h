@@ -3,7 +3,7 @@
 
 #include "IrrCompileConfig.h"
 
-#include "irr/Macros.h"
+#include "irr/macros.h"
 
 
 namespace irr

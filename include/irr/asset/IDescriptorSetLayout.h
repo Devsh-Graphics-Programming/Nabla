@@ -3,6 +3,7 @@
 
 #include "irr/core/core.h"
 #include "irr/core/SRange.h"
+#include "irr/asset/ISpecializedShader.h"
 
 namespace irr
 {
