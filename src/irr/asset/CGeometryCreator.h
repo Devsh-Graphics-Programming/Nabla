@@ -114,7 +114,7 @@ class CGeometryCreator : public IGeometryCreator
 
 		return_type createDiskMesh(float radius, uint32_t tesselation) const override;
 
-		return_type createIcoSphere() const override;
+		return_type createIcoSphere(float radius = 1.0f, uint32_t subdivision = 1, bool smooth = false) const override;
 
 };
 
