@@ -20,48 +20,25 @@ namespace MitsubaLoader
 
 namespace bsdf
 {
-#include "irr/irrpack.h"
-	//must be 64bit
-	struct STextureData
-	{
-		//unorm16 page table texture UV
-		uint16_t pgTab_x;
-		uint16_t pgTab_y;
-		//unorm16 originalTexSz/maxAllocatableTexSz ratio
-		uint16_t width;
-		uint16_t height;
-	} PACK_STRUCT;
-#include "irr/irrunpack.h"
+	using STextureData = asset::ICPUTexturePacker::STextureData;
 	// texture presence flag (flags are encoded in instruction) tells whether to use VT data or constant (depending on situation RGB encoded as rgb19e7 or single float32 value)
 	union STextureDataOrConstant
 	{
-		STextureData texData;
+		asset::ICPUTexturePacker::STextureData texData;
 		uint64_t constant_rgb19e7;
 		uint32_t constant_f32;
 	};
 
 	static STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePacker* _packer)
 	{
-		STextureData texData;
-		core::vector2df_SIMD szUnorm16(_img->getCreationParameters().extent.width, _img->getCreationParameters().extent.height);
-		szUnorm16 /= core::vector2df_SIMD(_packer->getPageTable()->getCreationParameters().extent.width);
-		szUnorm16 *= core::vector2df_SIMD(0xffffu);
-
-		texData.width = szUnorm16.x;
-		texData.height = szUnorm16.y;
+		const auto& extent = _img->getCreationParameters().extent;
 
 		asset::IImage::SSubresourceRange subres;
 		subres.baseMipLevel = 0u;
-		subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(texData.width, texData.height))) + 1;
+		subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(extent.width, extent.height))) + 1;
 
 		auto pgTabCoords = _packer->pack(_img, subres);
-		core::vector2df_SIMD pgTabUnorm16(pgTabCoords.x, pgTabCoords.y);
-		pgTabUnorm16 /= core::vector2df_SIMD(_packer->getPageTable()->getCreationParameters().extent.width,_packer->getPageTable()->getCreationParameters().extent.height, 1.f, 1.f);
-		pgTabUnorm16 *= core::vector2df_SIMD(0xffffu);
-		texData.pgTab_x = pgTabUnorm16.x;
-		texData.pgTab_y = pgTabUnorm16.y;
-
-		return texData;
+		return _packer->offsetToTextureData(pgTabCoords, _img);
 	}
 
 	using instr_t = uint64_t;
@@ -77,7 +54,6 @@ namespace bsdf
 		OP_ROUGHCONDUCTOR,
 		OP_PLASTIC,
 		OP_ROUGHPLASTIC,
-		OP_TRANSPARENT,
 		OP_WARD,
 		OP_INVALID,
 		//all below are meta (have children)
@@ -92,7 +68,7 @@ namespace bsdf
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_OPCODE_SHIFT = 0u;
 
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BITFIELDS_SHIFT = INSTR_OPCODE_WIDTH;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BITFIELDS_WIDTH = 6u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BITFIELDS_WIDTH = 7u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_REFL_TEX = 0x1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_REFL_TEX = INSTR_OPCODE_WIDTH + 0u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_ALPHA_U_TEX = 0x1u;
@@ -115,14 +91,16 @@ namespace bsdf
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_WEIGHT_TEX = INSTR_OPCODE_WIDTH + 0u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_TWOSIDED = 0x1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_TWOSIDED = INSTR_OPCODE_WIDTH + 5u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_MASKFLAG = 0x1u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_MASKFLAG = INSTR_OPCODE_WIDTH + 6u;
 
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_NORMAL_REG_WIDTH = 2u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_NORMAL_REG_SHIFT = INSTR_OPCODE_WIDTH + INSTR_BITFIELDS_WIDTH;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_NORMAL_REG_MASK = 0x03u;
 
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_WIDTH = 20u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_WIDTH = 19u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_SHIFT = INSTR_OPCODE_WIDTH + INSTR_BITFIELDS_WIDTH + INSTR_NORMAL_REG_WIDTH;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_MASK = 0xfffffu;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_MASK = 0x7ffffu;
 
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_WIDTH = 8u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_MASK = 0xffu;
@@ -136,7 +114,7 @@ namespace bsdf
 	template<size_t size, size_t min_desired_size>
 	using padding_t = uint32_t[ ((min_desired_size + 3ull) & ~(3ull)) - size ];
 	//in 4 byte units
-	constexpr size_t max_bsdf_struct_size = 8ull;
+	constexpr size_t max_bsdf_struct_size = 10ull;
 
 #include "irr/irrpack.h"
 	struct alignas(16) SAllDiffuse
@@ -145,12 +123,14 @@ namespace bsdf
 		//otherwise alpha_u.constant_f32 is constant single-float alpha
 		STextureDataOrConstant alpha;
 		STextureDataOrConstant reflectance;
-		padding_t<4, max_bsdf_struct_size> padding;
+		STextureDataOrConstant opacity;
+		padding_t<6, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SDiffuseTransmitter
 	{
 		STextureDataOrConstant transmittance;
-		padding_t<2, max_bsdf_struct_size> padding;
+		STextureDataOrConstant opacity;
+		padding_t<4, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SAllDielectric
 	{
@@ -165,7 +145,8 @@ namespace bsdf
 		//	otherwise alpha_u.constant_f32 is constant single-float alpha
 		STextureDataOrConstant alpha_u;
 		STextureDataOrConstant alpha_v;
-		padding_t<5, max_bsdf_struct_size> padding;
+		STextureDataOrConstant opacity;
+		padding_t<7, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SAllConductor
 	{
@@ -175,7 +156,8 @@ namespace bsdf
 		//ior[0] real part of eta in RGB19E7 format
 		//ior[1] is imaginary part of eta in RGB19E7 format
 		uint64_t eta[2];
-		//padding_t<9, max_bsdf_struct_size> padding;
+		STextureDataOrConstant opacity;
+		//padding_t<max_bsdf_struct_size, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SAllPlastic
 	{
@@ -183,7 +165,8 @@ namespace bsdf
 		//same as for SAllDielectric::alpha_u,alpha_v
 		STextureDataOrConstant alpha_u;
 		STextureDataOrConstant alpha_v;
-		padding_t<5, max_bsdf_struct_size> padding;
+		STextureDataOrConstant opacity;
+		padding_t<7, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SAllCoating
 	{
@@ -194,7 +177,8 @@ namespace bsdf
 		STextureDataOrConstant alpha_v;
 		//rgb in RGB19E7 format or texture data for VT (flag decides)
 		STextureDataOrConstant sigmaA;
-		padding_t<7, max_bsdf_struct_size> padding;
+		STextureDataOrConstant opacity;
+		padding_t<9, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	/*
 	struct alignas(16) SPhong
@@ -214,7 +198,8 @@ namespace bsdf
 		//same as for SAllDielectric::alpha_u,alpha_v
 		STextureDataOrConstant alpha_u;
 		STextureDataOrConstant alpha_v;
-		padding_t<4, max_bsdf_struct_size> padding;
+		STextureDataOrConstant opacity;
+		padding_t<6, max_bsdf_struct_size> padding;
 	} PACK_STRUCT;
 	struct alignas(16) SBumpMap
 	{
@@ -310,7 +295,7 @@ class CMitsubaLoader : public asset::IAssetLoader
 		
 		SContext::tex_ass_type		getTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture);
 
-		bsdf::SBSDFUnion bsdfNode2bsdfStruct(SContext& _ctx, const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight = 0.f);
+		bsdf::SBSDFUnion bsdfNode2bsdfStruct(SContext& _ctx, const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight = 0.f, const CElementBSDF* _parentMask = nullptr);
 		std::pair<uint32_t,uint32_t> genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 
 		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx);

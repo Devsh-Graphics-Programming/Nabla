@@ -15,11 +15,11 @@ namespace asset
 class ITexturePacker
 {
 protected:
-    const uint32_t ADDR_LAYER_SHIFT;
-    const uint32_t ADDR_MORTON_MASK;
-    const uint32_t PHYS_PG_OFFSET_X_MASK;
+    const uint32_t m_addr_layerShift;
+    const uint32_t m_physPgOffset_xMask;
 
     const uint32_t m_pgSzxy;
+    const uint32_t m_pgSzxy_log2;
     const uint32_t m_tilesPerDim;
 
     using pg_tab_addr_alctr_t = core::GeneralpurposeAddressAllocator<uint32_t>;
@@ -27,6 +27,19 @@ protected:
     pg_tab_addr_alctr_t m_pgTabAddrAlctr;
 
 public:
+#include "irr/irrpack.h"
+    //must be 64bit
+    struct STextureData
+    {
+        //unorm16 page table texture UV
+        uint16_t pgTab_x;
+        uint16_t pgTab_y;
+        //unorm16 originalTexSz/maxAllocatableTexSz ratio
+        uint16_t scale_x;
+        uint16_t scale_y;
+    } PACK_STRUCT;
+#include "irr/irrunpack.h"
+
     //! SPhysPgOffset is what is stored in texels of page table!
     struct SPhysPgOffset
     {
@@ -39,15 +52,15 @@ public:
     };
     SPhysPgOffset makeTexOffset(uint32_t _x, uint32_t _y, uint32_t _layer)
     {
-        uint32_t addr = (_x & PHYS_PG_OFFSET_X_MASK);
-        addr |= (_y & PHYS_PG_OFFSET_X_MASK) << (ADDR_LAYER_SHIFT >> 1);
-        addr |= (_layer << ADDR_LAYER_SHIFT);
+        uint32_t addr = (_x & m_physPgOffset_xMask);
+        addr |= (_y & m_physPgOffset_xMask) << (m_addr_layerShift >> 1);
+        addr |= (_layer << m_addr_layerShift);
         addr |= (SPhysPgOffset::invalid_addr << 16);
         return addr;
     }
-    uint32_t physPgOffset_x(SPhysPgOffset _offset) const { return _offset.addr & PHYS_PG_OFFSET_X_MASK; }
-    uint32_t physPgOffset_y(SPhysPgOffset _offset) const { return (_offset.addr >> (ADDR_LAYER_SHIFT>>1)) & PHYS_PG_OFFSET_X_MASK; }
-    uint32_t physPgOffset_layer(SPhysPgOffset _offset) const { return (_offset.addr & 0xffffu)>>ADDR_LAYER_SHIFT; }
+    uint32_t physPgOffset_x(SPhysPgOffset _offset) const { return _offset.addr & m_physPgOffset_xMask; }
+    uint32_t physPgOffset_y(SPhysPgOffset _offset) const { return (_offset.addr >> (m_addr_layerShift>>1)) & m_physPgOffset_xMask; }
+    uint32_t physPgOffset_layer(SPhysPgOffset _offset) const { return (_offset.addr & 0xffffu)>>m_addr_layerShift; }
     bool physPgOffset_valid(SPhysPgOffset _offset) const { return (_offset.addr&0xffffu) != SPhysPgOffset::invalid_addr; }
     bool physPgOffset_hasMipTailAddr(SPhysPgOffset _offset) const { return physPgOffset_valid(physPgOffset_mipTailAddr(_offset)); }
     SPhysPgOffset physPgOffset_mipTailAddr(SPhysPgOffset _offset) const { return _offset.addr>>16; }
@@ -55,22 +68,24 @@ public:
 
     using page_tab_offset_t = core::vector2du32_SIMD;
     static page_tab_offset_t page_tab_offset_invalid() { return page_tab_offset_t(~0u,~0u); }
-
-    ITexturePacker(uint32_t _pgTabSzxy, uint32_t _pgSzxy = 256u, uint32_t _tilesPerDim = 32u) :
-        ADDR_LAYER_SHIFT(core::findMSB(_tilesPerDim)<<1),
-        ADDR_MORTON_MASK((1u<<ADDR_LAYER_SHIFT)-1u),
-        PHYS_PG_OFFSET_X_MASK((1u<<(ADDR_LAYER_SHIFT>>1))-1u),
-        m_pgSzxy(_pgSzxy),
-        m_tilesPerDim(_tilesPerDim),
-        m_pgTabAddrAlctr_reservedSpc(core::make_refctd_dynamic_array<decltype(m_pgTabAddrAlctr_reservedSpc)>(pg_tab_addr_alctr_t::reserved_size(_pgTabSzxy*_pgTabSzxy, _pgTabSzxy*_pgTabSzxy, 1u))),
-        m_pgTabAddrAlctr(m_pgTabAddrAlctr_reservedSpc->data(), 0u, 0u, _pgSzxy*_pgSzxy, _pgSzxy*_pgSzxy, 1u)
+    
+    //m_pgTabSzxy is PoT because of allocation using morton codes
+    //m_tilesPerDim is PoT actually physical addr tex doesnt even have to be square nor PoT, but it makes addr/offset encoding easier
+    //m_pgSzxy is PoT because of packing mip-tail
+    ITexturePacker(uint32_t _pgTabSzxy_log2 = 10u, uint32_t _pgSzxy_log2 = 8u, uint32_t _tilesPerDim_log2 = 5u) :
+        m_addr_layerShift(_tilesPerDim_log2<<1),
+        m_physPgOffset_xMask((1u<<(m_addr_layerShift>>1))-1u),
+        m_pgSzxy(1u<<_pgSzxy_log2),
+        m_pgSzxy_log2(_pgSzxy_log2),
+        m_tilesPerDim(1u<<_tilesPerDim_log2),
+        m_pgTabAddrAlctr_reservedSpc(core::make_refctd_dynamic_array<decltype(m_pgTabAddrAlctr_reservedSpc)>(pg_tab_addr_alctr_t::reserved_size((1u<<_pgTabSzxy_log2)*(1u<<_pgTabSzxy_log2), (1u<<_pgTabSzxy_log2)*(1u<<_pgTabSzxy_log2), 1u))),
+        m_pgTabAddrAlctr(m_pgTabAddrAlctr_reservedSpc->data(), 0u, 0u, (1u<<_pgTabSzxy_log2)*(1u<<_pgTabSzxy_log2), (1u<<_pgTabSzxy_log2)*(1u<<_pgTabSzxy_log2), 1u)
     {
-        assert(core::isPoT(_pgTabSzxy));//because of allocation using morton codes
-        assert(core::isPoT(_tilesPerDim)); //actually physical addr tex doesnt even have to be square nor PoT, but it makes addr/offset encoding easier
-        assert(core::isPoT(_pgSzxy));//because of packing mip-tail
     }
 
     virtual ~ITexturePacker() = default;
+
+    uint32_t getPageSize() const { return m_pgSzxy; }
 
     page_tab_offset_t alloc(const IImage* _img, const IImage::SSubresourceRange& _subres)
     {
@@ -95,19 +110,24 @@ public:
         core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_free_addr(m_pgTabAddrAlctr, 1u, &addr, &sz);
     }
 
+protected:
+    uint32_t neededPageCountForSide(uint32_t _sideExtent, uint32_t _level)
+    {
+        return (std::max(_sideExtent>>_level,1u)+m_pgSzxy-1u) / m_pgSzxy;
+    }
 private:
     uint32_t computeSquareSz(const IImage* _img, const ICPUImage::SSubresourceRange& _subres)
     {
         auto extent = _img->getCreationParameters().extent;
 
-        const uint32_t w = std::max(extent.width>>_subres.baseMipLevel,1u);
-        const uint32_t h = std::max(extent.height>>_subres.baseMipLevel,1u);
+        const uint32_t w = neededPageCountForSide(extent.width, _subres.baseMipLevel);
+        const uint32_t h = neededPageCountForSide(extent.height, _subres.baseMipLevel);
 
-        return core::roundUpToPoT((std::max(w,h)+m_pgSzxy-1u)/m_pgSzxy);
+        return core::roundUpToPoT(std::max(w,h));
     }
 };
 
-class ICPUTexturePacker : public core::IReferenceCounted, protected ITexturePacker
+class ICPUTexturePacker : public core::IReferenceCounted, public ITexturePacker
 {
 protected:
     virtual ~ICPUTexturePacker() = default;
@@ -120,14 +140,14 @@ public:
 
     uint32_t physAddrTexLayerSz() const
     {
-        return m_tilesPerDim * (2u*TILE_PADDING+m_pgSzxy);
+        return m_tilesPerDim * (2u*m_tilePadding+m_pgSzxy);
     }
     //! @returns texel-wise offset of physical page
     core::vector3du32_SIMD pageCoords(SPhysPgOffset _txoffset, uint32_t _pgSz) const
     {
         core::vector3du32_SIMD coords(physPgOffset_x(_txoffset), physPgOffset_y(_txoffset), 0u);
-        coords *= (_pgSz + 2u*TILE_PADDING);
-        coords += TILE_PADDING;
+        coords *= (_pgSz + 2u*m_tilePadding);
+        coords += m_tilePadding;
         coords.z = physPgOffset_layer(_txoffset);
         return coords;
     }
@@ -140,10 +160,10 @@ public:
         static bool computeMiptailOffsets(rect* res, int log2SIZE, int padding=9);
     };
 
-    ICPUTexturePacker(E_FORMAT_CLASS _fclass, E_FORMAT _format, uint32_t _pgTabSzxy, uint32_t _maxMipLevels, uint32_t _pgSzxy = 256u, uint32_t _tilesPerDim = 32u, uint32_t _numLayers = 4u, uint32_t _tilePad = 9u/*max_aniso/2+1*/) :
-        ITexturePacker(_pgTabSzxy, _pgSzxy, _tilesPerDim), TILE_PADDING(_tilePad),
-        m_physPgAddrAlctr_reservedSpc(core::make_refctd_dynamic_array<decltype(m_physPgAddrAlctr_reservedSpc)>(phys_pg_addr_alctr_t::reserved_size(1u, _numLayers*_tilesPerDim*_tilesPerDim, 1u))),
-        m_physPgAddrAlctr(m_physPgAddrAlctr_reservedSpc->data(), 0u, 0u, 1u, _numLayers*_tilesPerDim*_tilesPerDim, 1u)
+    ICPUTexturePacker(E_FORMAT_CLASS _fclass, E_FORMAT _format, uint32_t _pgTabSzxy_log2 = 10u, uint32_t _pgTabMipLevels = 11u, uint32_t _pgSzxy_log2 = 8u, uint32_t _tilesPerDim_log2 = 5u, uint32_t _numLayers = 4u, uint32_t _tilePad = 9u/*max_aniso/2+1*/) :
+        ITexturePacker(_pgTabSzxy_log2, _pgSzxy_log2, _tilesPerDim_log2), m_tilePadding(_tilePad),
+        m_physPgAddrAlctr_reservedSpc(core::make_refctd_dynamic_array<decltype(m_physPgAddrAlctr_reservedSpc)>(phys_pg_addr_alctr_t::reserved_size(1u, _numLayers*(1u<<_tilesPerDim_log2)*(1u<<_tilesPerDim_log2), 1u))),
+        m_physPgAddrAlctr(m_physPgAddrAlctr_reservedSpc->data(), 0u, 0u, 1u, _numLayers*(1u<<_tilesPerDim_log2)*(1u<<_tilesPerDim_log2), 1u)
     {
         assert(getFormatClass(_format)==_fclass);
         {
@@ -168,17 +188,19 @@ public:
             region.bufferRowLength = SZ;
             region.bufferImageHeight = 0u; //tightly packed
             region.imageOffset = { 0u, 0u, 0u };
-            region.imageExtent = { SZ,SZ,1u };
-            auto buffer = core::make_smart_refctd_ptr<ICPUBuffer>(getTexelOrBlockBytesize(_format) * SZ * SZ * _numLayers);
+            region.imageExtent = params.extent;
+            auto buffer = core::make_smart_refctd_ptr<ICPUBuffer>(getTexelOrBlockBytesize(_format) * params.extent.width*params.extent.height*params.arrayLayers);
             m_physAddrTex->setBufferAndRegions(std::move(buffer), regions);
         }
         {
+            uint32_t pgTabSzxy = 1u<<_pgTabSzxy_log2;
+
             ICPUImage::SCreationParams params;
             params.arrayLayers = 1u;
-            params.extent = {_pgTabSzxy,_pgTabSzxy,1u};
+            params.extent = {pgTabSzxy,pgTabSzxy,1u};
             params.flags = static_cast<ICPUImage::E_CREATE_FLAGS>(0);
             params.format = EF_R16G16_UINT;
-            params.mipLevels = _maxMipLevels;
+            params.mipLevels = _pgTabMipLevels;
             params.samples = ICPUImage::ESCF_1_BIT;
             params.type = IImage::ET_2D;
             m_pageTable = ICPUImage::create(std::move(params));
@@ -190,7 +212,7 @@ public:
             uint32_t bufOffset = 0u;
             for (uint32_t i = 0u; i < m_pageTable->getCreationParameters().mipLevels; ++i)
             {
-                const uint32_t tilesPerLodDim = _pgTabSzxy>>i;
+                const uint32_t tilesPerLodDim = pgTabSzxy>>i;
                 const uint32_t regionSz = tilesPerLodDim*tilesPerLodDim*texelSz;
                 auto& region = (*regions)[i];
                 region.bufferOffset = bufOffset;
@@ -207,12 +229,12 @@ public:
             }
             auto buf = core::make_smart_refctd_ptr<ICPUBuffer>(bufOffset);
             uint32_t* bufptr = reinterpret_cast<uint32_t*>(buf->getPointer());
-            std::fill(bufptr, bufptr+bufOffset/4u, SPhysPgOffset::invalid_addr);
+            std::fill(bufptr, bufptr+bufOffset/sizeof(uint32_t), SPhysPgOffset::invalid_addr);
 
             m_pageTable->setBufferAndRegions(std::move(buf), regions);
         }
         const uint32_t pgSzLog2 = core::findMSB(m_pgSzxy);
-        bool ok = SMiptailPacker::computeMiptailOffsets(m_miptailOffsets, pgSzLog2, TILE_PADDING);
+        bool ok = SMiptailPacker::computeMiptailOffsets(m_miptailOffsets, pgSzLog2, m_tilePadding);
         assert(ok);
     }
 
@@ -224,8 +246,8 @@ public:
 
         for (uint32_t i = 0u; i < levelCount; ++i)
         {
-            const uint32_t w = (std::max(extent.width>>(_subres.baseMipLevel+i),1u) + m_pgSzxy-1u) / m_pgSzxy;
-            const uint32_t h = (std::max(extent.height>>(_subres.baseMipLevel+i),1u) + m_pgSzxy-1u) / m_pgSzxy;
+            const uint32_t w = neededPageCountForSide(extent.width, _subres.baseMipLevel+i);
+            const uint32_t h = neededPageCountForSide(extent.height, _subres.baseMipLevel+i);
 
             uint32_t* const pgTab = reinterpret_cast<uint32_t*>(
                 reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer()) + m_pageTable->getRegions().begin()[i].bufferOffset
@@ -254,6 +276,24 @@ public:
         ITexturePacker::free(_addr, _img, _subres);
     }
 
+    STextureData offsetToTextureData(const page_tab_offset_t& _offset, const ICPUImage* _img)
+    {
+        STextureData texData;
+        core::vector2df_SIMD scaleUnorm16(_img->getCreationParameters().extent.width, _img->getCreationParameters().extent.height);
+        scaleUnorm16 /= core::vector2df_SIMD(m_pageTable->getCreationParameters().extent.width*m_pgSzxy);//taking just width into account because page table is always square anyway
+        scaleUnorm16 *= core::vector2df_SIMD(0xffffu);
+
+        texData.scale_x = scaleUnorm16.x;
+        texData.scale_y = scaleUnorm16.y;
+
+        core::vector2df_SIMD pgTabUnorm16(_offset.x, _offset.y);
+		pgTabUnorm16 /= core::vector2df_SIMD(m_pageTable->getCreationParameters().extent.width,m_pageTable->getCreationParameters().extent.height, 1.f, 1.f);
+		pgTabUnorm16 *= core::vector2df_SIMD(0xffffu);
+		texData.pgTab_x = pgTabUnorm16.x;
+		texData.pgTab_y = pgTabUnorm16.y;
+
+        return texData;
+    }
     page_tab_offset_t pack(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres)
     {
         if (getFormatClass(_img->getCreationParameters().format)!=getFormatClass(m_physAddrTex->getCreationParameters().format))
@@ -268,16 +308,17 @@ public:
         if ((pgtOffset==page_tab_offset_invalid()).all())
             return pgtOffset;
 
-        const uint32_t levelCount = countLevelsTakingAtLeastOnePage(extent, _subres);
+        const uint32_t levelsTakingAtLeastOnePageCount = countLevelsTakingAtLeastOnePage(extent, _subres);
+        const uint32_t levelsToPack = std::min(_subres.levelCount, m_pageTable->getCreationParameters().mipLevels+m_pgSzxy_log2);
 
         uint32_t miptailPgAddr = SPhysPgOffset::invalid_addr;
 
         const uint32_t texelSz = getTexelOrBlockBytesize(m_physAddrTex->getCreationParameters().format);
         //fill page table and pack present mips into physical addr texture
-        for (uint32_t i = 0u; i < _subres.levelCount; ++i)
+        for (uint32_t i = 0u; i < levelsToPack; ++i)
         {
-            const uint32_t w = (std::max(extent.width>>(_subres.baseMipLevel+i),1u) + m_pgSzxy-1u) / m_pgSzxy;
-            const uint32_t h = (std::max(extent.height>>(_subres.baseMipLevel+i),1u) + m_pgSzxy-1u) / m_pgSzxy;
+            const uint32_t w = neededPageCountForSide(extent.width, _subres.baseMipLevel+i);
+            const uint32_t h = neededPageCountForSide(extent.height, _subres.baseMipLevel+i);
 
             uint32_t* const pgTab = reinterpret_cast<uint32_t*>(
                 reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer()) + m_pageTable->getRegions().begin()[i].bufferOffset
@@ -290,7 +331,7 @@ public:
                 for (uint32_t x = 0u; x < w; ++x)
                 {
                     uint32_t physPgAddr{};
-                    if (i>=levelCount)
+                    if (i>=levelsTakingAtLeastOnePageCount)
                         physPgAddr = miptailPgAddr;
                     else
                     {
@@ -304,7 +345,7 @@ public:
                         return pgtOffset;
                     }
 
-                    if (i==(levelCount-1u) && levelCount<_subres.levelCount)
+                    if (i==(levelsTakingAtLeastOnePageCount-1u) && levelsTakingAtLeastOnePageCount<_subres.levelCount)
                     {
                         assert(w==1u && h==1u);
                         uint32_t physMiptailPgAddr{};
@@ -343,7 +384,7 @@ public:
                         src_txOffset += withinPgTxOffset;
                         const core::vector2du32_SIMD src_txOffsetEnd = core::min(core::vector2du32_SIMD(a_right,a_top), core::vector2du32_SIMD(b_right,b_top));
                         //special offset for packing tail mip levels into single page
-                        const core::vector2du32_SIMD miptailOffset = (i>=levelCount) ? core::vector2du32_SIMD(m_miptailOffsets[i-levelCount].x,m_miptailOffsets[i-levelCount].y)+core::vector2du32_SIMD(TILE_PADDING,TILE_PADDING) : core::vector2du32_SIMD(0u,0u);
+                        const core::vector2du32_SIMD miptailOffset = (i>=levelsTakingAtLeastOnePageCount) ? core::vector2du32_SIMD(m_miptailOffsets[i-levelsTakingAtLeastOnePageCount].x,m_miptailOffsets[i-levelsTakingAtLeastOnePageCount].y)+core::vector2du32_SIMD(m_tilePadding,m_tilePadding) : core::vector2du32_SIMD(0u,0u);
 
                         physPg += (withinPgTxOffset + miptailOffset);
 
@@ -358,6 +399,7 @@ public:
                         }
                     }
                 }
+            //TODO fill borders according to wrapping mode, but i think i'll wait for your IImageManipulator @devsh
         }
 
         return pgtOffset;
@@ -369,15 +411,15 @@ public:
 private:
     uint32_t countLevelsTakingAtLeastOnePage(const VkExtent3D& _extent, const ICPUImage::SSubresourceRange& _subres)
     {
-        uint32_t levelCount = 1u;
-        for (uint32_t i = 0u; (_extent.width>>(_subres.baseMipLevel+i) >= m_pgSzxy) || (_extent.height>>(_subres.baseMipLevel+i) >= m_pgSzxy); ++i)
-            levelCount = i+1u;
-        return std::min(_subres.levelCount, levelCount);
+        const uint32_t baseMaxDim = core::roundUpToPoT(core::max(_extent.width, _extent.height))>>_subres.baseMipLevel;
+        const int32_t lastFullMip = core::findMSB(baseMaxDim) - static_cast<int32_t>(m_pgSzxy_log2);
+
+        return core::clamp(lastFullMip+1, 0, static_cast<int32_t>(m_pageTable->getCreationParameters().mipLevels));
     }
 
     core::smart_refctd_ptr<ICPUImage> m_physAddrTex;
     core::smart_refctd_ptr<ICPUImage> m_pageTable;
-    const uint32_t TILE_PADDING;
+    const uint32_t m_tilePadding;
 
     using phys_pg_addr_alctr_t = core::PoolAddressAllocator<uint32_t>;
     core::smart_refctd_dynamic_array<uint8_t> m_physPgAddrAlctr_reservedSpc;
