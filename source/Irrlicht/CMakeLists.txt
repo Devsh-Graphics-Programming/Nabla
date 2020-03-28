@@ -71,6 +71,9 @@ if (IRR_COMPILE_WITH_OPENCL)
 		message(STATUS "OpenCL not found")
 	endif()
 endif()
+
+set(_IRR_EMBED_BUILTIN_RESOURCES_ ${IRR_EMBED_BUILTIN_RESOURCES})
+
 #set(_IRR_TARGET_ARCH_ARM_ ${IRR_TARGET_ARCH_ARM}) #uncomment in the future
 set(__IRR_FAST_MATH ${IRR_FAST_MATH})
 set(_IRR_DEBUG 0)
