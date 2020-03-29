@@ -37,16 +37,16 @@ class IImageFilter
 				};
 				struct ColorValue
 				{
-					IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_CHANNELS = 4u;
-					IRR_STATIC_INLINE_CONSTEXPR uint32_t LARGEST_COMPRESSED_BLOCK_SIZE = 16u;
+					_IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_CHANNELS = 4u;
+					_IRR_STATIC_INLINE_CONSTEXPR uint32_t LARGEST_COMPRESSED_BLOCK_SIZE = 16u;
 					union
 					{
 						uint8_t				pointer[sizeof(double)*MAX_CHANNELS];
 						uint8_t				asCompressedBlock[LARGEST_COMPRESSED_BLOCK_SIZE];
 						double				asDouble[MAX_CHANNELS];
 						core::vectorSIMDf	asFloat;
-						core::vectorSIMD32u asUint;
-						core::vectorSIMD32i asInt;
+						core::vectorSIMDu32 asUint;
+						core::vectorSIMDi32 asInt;
 						uint16_t			asUShort[MAX_CHANNELS];
 						int16_t				asShort[MAX_CHANNELS];
 						uint8_t				asUByte[MAX_CHANNELS];
@@ -56,7 +56,7 @@ class IImageFilter
 					struct WriteMemoryInfo
 					{
 						WriteMemoryInfo(E_FORMAT colorFmt, void* outPtr) :
-							outMemory(reintepret_cast<uint8_t*>(outPtr)),
+							outMemory(reinterpret_cast<uint8_t*>(outPtr)),
 							blockByteSize(getTexelOrBlockBytesize(colorFmt))
 						{
 						}
@@ -72,8 +72,8 @@ class IImageFilter
 					struct ReadMemoryInfo
 					{
 						ReadMemoryInfo(E_FORMAT colorFmt, const void* inPtr) :
-							inMemory(reintepret_cast<const uint8_t*>(inPtr)),
-							blockByteSize(getBlokBytesize(colorFmt))
+							inMemory(reinterpret_cast<const uint8_t*>(inPtr)),
+							blockByteSize(getTexelOrBlockBytesize(colorFmt))
 						{
 						}
 

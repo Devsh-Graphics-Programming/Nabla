@@ -34,6 +34,9 @@ class CBasicImageFilterCommon
 				f(texelPtr,xPos,yPos,zPos);
 			}
 		}
+
+	protected:
+		virtual ~CBasicImageFilterCommon() = 0;
 };
 
 class CBasicInImageFilterCommon : public CBasicImageFilterCommon
@@ -60,9 +63,6 @@ class CBasicInImageFilterCommon : public CBasicImageFilterCommon
 
 			return true;
 		}
-
-	protected:
-		virtual ~CBasicInImageFilterCommon() = 0;
 };
 class CBasicOutImageFilterCommon : public CBasicImageFilterCommon
 {
@@ -88,9 +88,6 @@ class CBasicOutImageFilterCommon : public CBasicImageFilterCommon
 
 			return true;
 		}
-
-	protected:
-		virtual ~CBasicOutImageFilterCommon() = 0;
 };
 class CBasicInOutImageFilterCommon : public CBasicImageFilterCommon
 {
@@ -119,10 +116,6 @@ class CBasicInOutImageFilterCommon : public CBasicImageFilterCommon
 
 			return true;
 		}
-		
-
-	protected:
-		virtual ~CBasicInOutImageFilterCommon() = 0;
 };
 // will probably need some per-pixel helper class/functions (that can run a templated functor per-pixel to reduce code clutter)
 
