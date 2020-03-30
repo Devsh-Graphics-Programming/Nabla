@@ -23,17 +23,10 @@ class IImageFilter
 		class IState
 		{
 			public:
-				struct Subsection
+				struct TexelRange
 				{
-					VkExtent3D	extent = {0u,0u,0u};
-					uint32_t	layerCount = 0u;
-					uint32_t	levelCount = 0u;
-				};
-				struct Offsets
-				{
-					VkOffset3D	texelOffset = { 0u,0u,0u };
-					uint32_t	baseArrayLayer = 0u;
-					uint32_t	mipLevel = 0u;
+					VkOffset3D	offset = { 0u,0u,0u };
+					VkExtent3D	extent = { 0u,0u,0u };
 				};
 				struct ColorValue
 				{

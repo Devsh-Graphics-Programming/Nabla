@@ -20,23 +20,49 @@ class CBasicImageFilterCommon
 		template<typename F>
 		void executePerBlock(ICPUImage* image, const irr::asset::IImage::SBufferCopy& region, F& f)
 		{
-			const auto& extent = image->getCreationParameters().extent;
-			VkExtent trueExtent;
-			trueExtent.width = region.bufferRowLength ? region.bufferRowLength:region.imageExtent.width;
-			trueExtent.height = region.bufferImageHeight ? region.bufferImageHeight:region.imageExtent.height;
-			trueExtent.depth = region.imageExtent.depth;
+			const auto& params = image->getCreationParameters();
+			const auto& extent = params.extent;
 
-			for (uint32_t zPos = 0; zPos<extent.depth; ++zPos)
-			for (uint32_t yPos = 0; yPos<extent.height; ++yPos)
-			for (uint32_t xPos = 0; xPos<extent.width; ++xPos)
+			VkExtent trueExtent;
+			trueExtent.width = region.bufferRowLength ? region.bufferRowLength:extent.width;
+			trueExtent.height = region.bufferImageHeight ? region.bufferImageHeight:extent.height;
+			trueExtent.depth = extent.depth;
+
+			const auto blockBytesize = asset::getTexelOrBlockBytesize(params.format);
+			for (uint32_t zPos=region.imageOffset.z; zPos<region.imageExtent.depth; ++zPos)
+			for (uint32_t yPos=region.imageOffset.y; yPos<region.imageExtent.height; ++yPos)
+			for (uint32_t xPos=region.imageOffset.x; xPos<region.imageExtent.width; ++xPos)
 			{
-				auto texelPtr = (zPos*trueExtent.Y+yPos)*trueExtent.X+xPos;
+				auto texelPtr = region.bufferOffset+((zPos*trueExtent.Y+yPos)*trueExtent.X+xPos)*blockBytesize;
 				f(texelPtr,xPos,yPos,zPos);
 			}
 		}
 
 	protected:
 		virtual ~CBasicImageFilterCommon() = 0;
+
+		static inline bool validateSubresourceAndRange(	const ICPUImage::SSubresourceLayers& subresource,
+														const IImageFilter::IState::TexelRange& range,
+														const ICPUImage* image)
+		{
+			if (!image)
+				return false;
+			const auto& params = image->getCreationParameters();
+
+			if (range.offset.x+range.extent.width>params.extent.width)
+				return false;
+			if (range.offset.y+range.extent.height>params.extent.height)
+				return false;
+			if (range.offset.z+range.extent.depth>params.extent.depth)
+				return false;
+			
+			if (subresource.baseArrayLayer+subresource.layerCount>params.arrayLayers)
+				return false;
+			if (subresource.mipLevel>=params.mipLevels)
+				return false;
+
+			return true;
+		}
 };
 
 class CBasicInImageFilterCommon : public CBasicImageFilterCommon
@@ -47,9 +73,9 @@ class CBasicInImageFilterCommon : public CBasicImageFilterCommon
 			public:
 				virtual ~CState() {}
 
-				Subsection			subsection = {};
-				const ICPUImage*	inImage = nullptr;
-				Offsets				inOffsets = {};
+				ICPUImage::SSubresourceLayers	subresource = {};
+				TexelRange						inRange = {};
+				const ICPUImage*				inImage = nullptr;
 		};
 		using state_type = CState;
 
@@ -58,8 +84,8 @@ class CBasicInImageFilterCommon : public CBasicImageFilterCommon
 			if (!state)
 				return nullptr;
 
-			const auto& inCreationParams = state->inImage->getCreationParameters();
-			// TODO: Extra epic validation
+			if (!CBasicImageFilterCommon::validateSubresourceAndRange(state->subresource,state->inRange,state->inImage))
+				return false;
 
 			return true;
 		}
@@ -72,9 +98,9 @@ class CBasicOutImageFilterCommon : public CBasicImageFilterCommon
 			public:
 				virtual ~CState() {}
 
-				Subsection	subsection = {};
-				ICPUImage*	outImage = nullptr;
-				Offsets		outOffsets = {};
+				ICPUImage::SSubresourceLayers	subresource = {};
+				TexelRange						outRange = {};
+				ICPUImage*						outImage = nullptr;
 		};
 		using state_type = CState;
 
@@ -83,8 +109,8 @@ class CBasicOutImageFilterCommon : public CBasicImageFilterCommon
 			if (!state)
 				return nullptr;
 
-			const auto& outCreationParams = state->outImage->getCreationParameters();
-			// TODO: Extra epic validation
+			if (!CBasicImageFilterCommon::validateSubresourceAndRange(state->subresource,state->outRange,state->outImage))
+				return false;
 
 			return true;
 		}
@@ -97,11 +123,11 @@ class CBasicInOutImageFilterCommon : public CBasicImageFilterCommon
 			public:
 				virtual ~CState() {}
 
-				Subsection			subsection = {};
-				const ICPUImage*	inImage = nullptr;
-				ICPUImage*			outImage = nullptr;
-				Offsets				inOffsets = {};
-				Offsets				outOffsets = {};
+				ICPUImage::SSubresourceLayers	subresource = {};
+				TexelRange						inRange = {};
+				ICPUImage*						inImage = nullptr;
+				TexelRange						outRange = {};
+				ICPUImage*						outImage = nullptr;
 		};
 		using state_type = CState;
 
@@ -110,9 +136,10 @@ class CBasicInOutImageFilterCommon : public CBasicImageFilterCommon
 			if (!state)
 				return nullptr;
 
-			const auto& inCreationParams = state->inImage->getCreationParameters();
-			const auto& outCreationParams = state->outImage->getCreationParameters();
-			// TODO: Extra epic validation
+			if (!CBasicImageFilterCommon::validateSubresourceAndRange(state->subresource,state->inRange,state->inImage))
+				return false;
+			if (!CBasicImageFilterCommon::validateSubresourceAndRange(state->subresource,state->outRange,state->outImage))
+				return false;
 
 			return true;
 		}
