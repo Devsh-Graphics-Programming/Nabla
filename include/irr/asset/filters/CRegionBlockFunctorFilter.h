@@ -17,20 +17,23 @@ namespace asset
 {
 
 // fill a section of the image with a uniform value
-template<typename Functor>
-class CRegionBlockFunctorFilter : public CImageFilter<CRegionBlockFunctorFilter>
+template<typename Functor, bool ConstImage>
+class CRegionBlockFunctorFilter : public CImageFilter<CRegionBlockFunctorFilter<Functor,ConstImage> >
 {
 	public:
 		virtual ~CRegionBlockFunctorFilter() {}
 
-		class CState
+		class CState : public IImageFilter::IState
 		{
 			public:
-				ICPUImage* image;
-				Functor& functor;
-				IImage::SBufferCopy* regionIterator;
-
+				using image_type = typename std::conditional<ConstImage, const ICPUImage, ICPUImage>::type;
+				CState(Functor& _functor, image_type* _image, const IImage::SBufferCopy* _regionIterator) :
+					functor(_functor), image(_image), regionIterator(_regionIterator) {}
 				virtual ~CState() {}
+
+				Functor& functor;
+				image_type* image;
+				const IImage::SBufferCopy* regionIterator;
 		};
 		using state_type = CState;
 
@@ -53,7 +56,7 @@ class CRegionBlockFunctorFilter : public CImageFilter<CRegionBlockFunctorFilter>
 			if (!validate(state))
 				return false;
 
-			CBasicImageFilterCommon::executePerBlock<Functor>(state->inImage, state->region, state->functor);
+			CBasicImageFilterCommon::executePerBlock<Functor>(state->image, *state->regionIterator, state->functor);
 
 			return true;
 		}

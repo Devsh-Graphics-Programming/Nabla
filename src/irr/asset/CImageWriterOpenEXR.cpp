@@ -67,7 +67,9 @@ namespace asset
 				return PixelType::NUM_PIXELTYPES;
 		};
 
-		Header header(creationParams.extent.width, creationParams.extent.height);
+		const auto width = creationParams.extent.width;
+		const auto height = creationParams.extent.height;
+		Header header(width, height);
 		const PixelType pixelType = getIlmType();
 		FrameBuffer frameBuffer;
 
@@ -78,7 +80,7 @@ namespace asset
 			channelPixelsPtr = _IRR_NEW_ARRAY(ilmType, width * height);
 
 		const auto* data = reinterpret_cast<const uint8_t*>(image->getBuffer()->getPointer());
-		auto writeTexel = [&creationParams,&data,&pixelsArrayIlm,creationParams](uint32_t ptrOffset, uint32_t x, uint32_t y, uint32_t z) -> void
+		auto writeTexel = [&creationParams,&data,&pixelsArrayIlm](uint32_t ptrOffset, uint32_t x, uint32_t y, uint32_t z) -> void
 		{
 			if (z)
 				return;
@@ -93,16 +95,14 @@ namespace asset
 			}
 		};
 
-		using StreamToEXR = CRegionBlockFunctorFilter<decltype(writeTexel)>;
-		StreamToEXR::state_type state;
-		state.inImage = image;
-		state.functor = writeTexel;
+		using StreamToEXR = CRegionBlockFunctorFilter<decltype(writeTexel),true>;
+		StreamToEXR::state_type state(writeTexel,image,nullptr);
 		for (auto rit=image->getRegions().begin(); rit!=image->getRegions().end(); rit++)
 		{
 			if (rit->imageSubresource.mipLevel || rit->imageSubresource.baseArrayLayer)
 				continue;
 
-			state.region = rit;
+			state.regionIterator = rit;
 			StreamToEXR::execute(&state);
 		}
 

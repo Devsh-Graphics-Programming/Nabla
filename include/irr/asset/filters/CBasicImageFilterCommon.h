@@ -18,12 +18,12 @@ class CBasicImageFilterCommon
 {
 	public:
 		template<typename F>
-		void executePerBlock(ICPUImage* image, const irr::asset::IImage::SBufferCopy& region, F& f)
+		static inline void executePerBlock(const ICPUImage* image, const irr::asset::IImage::SBufferCopy& region, F& f)
 		{
 			const auto& params = image->getCreationParameters();
 			const auto& extent = params.extent;
 
-			VkExtent trueExtent;
+			VkExtent3D trueExtent;
 			trueExtent.width = region.bufferRowLength ? region.bufferRowLength:extent.width;
 			trueExtent.height = region.bufferImageHeight ? region.bufferImageHeight:extent.height;
 			trueExtent.depth = extent.depth;
@@ -33,7 +33,7 @@ class CBasicImageFilterCommon
 			for (uint32_t yPos=region.imageOffset.y; yPos<region.imageExtent.height; ++yPos)
 			for (uint32_t xPos=region.imageOffset.x; xPos<region.imageExtent.width; ++xPos)
 			{
-				auto texelPtr = region.bufferOffset+((zPos*trueExtent.Y+yPos)*trueExtent.X+xPos)*blockBytesize;
+				auto texelPtr = region.bufferOffset+((zPos*trueExtent.height+yPos)*trueExtent.width+xPos)*blockBytesize;
 				f(texelPtr,xPos,yPos,zPos);
 			}
 		}
