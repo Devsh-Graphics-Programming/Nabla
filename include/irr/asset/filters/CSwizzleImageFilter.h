@@ -9,6 +9,7 @@
 
 #include <type_traits>
 
+#include "irr/asset/ICPUImageView.h"
 #include "irr/asset/filters/CBasicImageFilterCommon.h"
 
 namespace irr
@@ -25,7 +26,7 @@ class CSwizzleImageFilter : public CImageFilter<CSwizzleImageFilter>
 		class CState : public CBasicInOutImageFilterCommon::state_type
 		{
 			public:
-				void swizzle;
+				ICPUImageView::SComponentMapping swizzle;
 
 				virtual ~CState() {}
 		};

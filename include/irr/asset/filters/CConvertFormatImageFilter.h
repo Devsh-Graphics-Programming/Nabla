@@ -2,8 +2,8 @@
 // This file is part of the "IrrlichtBAW" engine.
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#ifndef __IRR_C_FILL_IMAGE_FILTER_H_INCLUDED__
-#define __IRR_C_FILL_IMAGE_FILTER_H_INCLUDED__
+#ifndef __IRR_C_CONVERT_FORMAT_IMAGE_FILTER_H_INCLUDED__
+#define __IRR_C_CONVERT_FORMAT_IMAGE_FILTER_H_INCLUDED__
 
 #include "irr/core/core.h"
 
@@ -17,11 +17,11 @@ namespace asset
 {
 
 // fill a section of the image with a uniform value
-class CFillImageFilter : public CImageFilter<CFillImageFilter>
+class CConvertFormatImageFilter : public CImageFilter<CConvertFormatImageFilter>
 {
 	public:
-		virtual ~CFillImageFilter() {}
-
+		virtual ~CConvertFormatImageFilter() {}
+#if 0 // WIP
 		class CState : public CBasicOutImageFilterCommon::state_type
 		{
 			public:
@@ -40,7 +40,7 @@ class CFillImageFilter : public CImageFilter<CFillImageFilter>
 		{
 			if (!validate(state))
 				return false;
-#if 0 // WIP
+
 			auto* img = state->outImage;
 			const IImageFilter::IState::ColorValue::WriteMemoryInfo info(img->getCreationParameters().format,img->getBuffer()->getPointer());
 			// do the per-pixel filling
@@ -69,9 +69,10 @@ class CFillImageFilter : public CImageFilter<CFillImageFilter>
 			};
 			const auto& regions = img->getRegions();
 			CBasicImageFilterCommon::executePerRegion<decltype(fill),decltype(clipRegion)>(img,fill,regions.begin(),regions.end(),clipRegion);
-#endif
+
 			return true;
 		}
+#endif
 };
 
 } // end namespace asset

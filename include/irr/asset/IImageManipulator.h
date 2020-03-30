@@ -14,35 +14,7 @@ namespace irr
 namespace asset
 {
 
-// convert between image formats
-class CConvertFormatImageFilter : public CImageFilter<CConvertFormatImageFilter>
-{
-	public:
-		virtual ~CConvertFormatImageFilter() {}
-
-		class CState : public CBasicInOutImageFilterCommon::state_type
-		{
-			public:
-				virtual ~CState() {}
-		};
-		using state_type = CState;
-
-		static inline bool validate(CState* state)
-		{
-			return CBasicInOutImageFilterCommon::validate(state);
-		}
-
-		static inline bool execute(CState* state)
-		{
-			if (!validate(state))
-				return false;
-
-			// do the per-pixel convert
-
-			return true;
-		}
-};
-
+// remember about format classes
 class CCopyImageFilter : public CImageFilter<CCopyImageFilter>
 {
 	public:
@@ -83,13 +55,15 @@ class CCopyImageFilter : public CImageFilter<CCopyImageFilter>
 		}
 };
 
+// remember about sampler wrap modes
+class CPaddedCopyImageFilter : public CCopyImageFilter
+{
+	public:
+};
 
 // respecifies the image in terms of the least amount of region entries
 class CFlattenRegionsImageFilter; // note: make an option that tries to reuse a buffer
 using CBufferToImageCopyFilter = CFlattenRegionsImageFilter;
-
-// lets you turn a complex image to a buffer
-class CImageToBufferCopyFilter;
 
 // scaled copies with filters
 class CBlitImageFilter;
