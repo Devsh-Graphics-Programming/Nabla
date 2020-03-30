@@ -80,8 +80,9 @@ namespace asset
 			channelPixelsPtr = _IRR_NEW_ARRAY(ilmType, width * height);
 
 		const auto* data = reinterpret_cast<const uint8_t*>(image->getBuffer()->getPointer());
-		auto writeTexel = [&creationParams,&data,&pixelsArrayIlm](uint32_t ptrOffset, uint32_t x, uint32_t y, uint32_t z) -> void
+		auto writeTexel = [&creationParams,&data,&pixelsArrayIlm](uint32_t ptrOffset, uint32_t x, uint32_t y, uint32_t z, uint32_t layer) -> void
 		{
+			assert(layer==0u);
 			if (z)
 				return;
 

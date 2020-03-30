@@ -25,32 +25,32 @@ class CFillImageFilter : public CImageFilter<CFillImageFilter>
 		class CState : public CBasicOutImageFilterCommon::state_type
 		{
 			public:
-				CImageFilter<CFillImageFilter>::ColorValue fillValue;
+				IImageFilter::IState::ColorValue fillValue;
 
 				virtual ~CState() {}
 		};
 		using state_type = CState;
 
-		static inline bool validate(CState* state)
+		static inline bool validate(state_type* state)
 		{
 			return CBasicOutImageFilterCommon::validate(state);
 		}
 
-		static inline bool execute(CState* state)
+		static inline bool execute(state_type* state)
 		{
 			if (!validate(state))
 				return false;
 
-			auto* img = state->outImage();
-			const CImageFilter<CFillImageFilter>::ColorValue::WriteInfo info(img->getCreationParameters().format,img->getBuffer()->getPointer());
+			auto* img = state->outImage;
+			const IImageFilter::IState::ColorValue::WriteMemoryInfo info(img->getCreationParameters().format,img->getBuffer()->getPointer());
 			// do the per-pixel filling
-			auto fill = [state,&info](uint32_t blockArrayOffset, uint32_t x, uint32_t y, uint32_t z) -> void
+			auto fill = [state,&info](uint32_t blockArrayOffset, uint32_t x, uint32_t y, uint32_t z, uint32_t layer) -> void
 			{
 				state->fillValue.writeMemory(info,blockArrayOffset);
 			};
 			// TODO: find regions that correspond to the subsection
 			{
-				CBasicImageFilterCommon::executePerBlock<std::decay<decltype(fill)>::type>(fill,region);
+				CBasicImageFilterCommon::executePerBlock<std::decay<decltype(fill)>::type>(img,region,fill);
 			}
 
 			return true;

@@ -30,6 +30,9 @@ class IImageFilter
 				};
 				struct ColorValue
 				{
+					ColorValue() {}
+					~ColorValue() {}
+
 					_IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_CHANNELS = 4u;
 					_IRR_STATIC_INLINE_CONSTEXPR uint32_t LARGEST_COMPRESSED_BLOCK_SIZE = 16u;
 					union
@@ -59,7 +62,7 @@ class IImageFilter
 					};
 					inline void writeMemory(const WriteMemoryInfo& info, uint32_t offset)
 					{
-						memcpy(info.outMemory+offset*info.blockByteSize,pointer,info.blockByteSize);
+						memcpy(info.outMemory+offset,pointer,info.blockByteSize);
 					}
 					
 					struct ReadMemoryInfo
@@ -75,7 +78,7 @@ class IImageFilter
 					};
 					inline void readMemory(const ReadMemoryInfo& info, uint32_t offset)
 					{
-						memcpy(pointer,info.inMemory+offset*info.blockByteSize,info.blockByteSize);
+						memcpy(pointer,info.inMemory+offset,info.blockByteSize);
 					}
 				};
 		};		
