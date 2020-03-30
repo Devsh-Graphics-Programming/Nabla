@@ -22,7 +22,7 @@ SOFTWARE.
 #include <string>
 #include <unordered_map>
 
-#include "irr/asset/filters/CBasicImageFilterCommon.h"
+#include "irr/asset/filters/CRegionBlockFunctorFilter.h"
 
 #include "CImageWriterOpenEXR.h"
 
@@ -57,31 +57,34 @@ namespace asset
 		const auto& creationParams = image->getCreationParameters();
 		auto getIlmType = [&creationParams]()
 		{
-			if (creationParamsr.format == EF_R16G16B16A16_SFLOAT)
+			if (creationParams.format == EF_R16G16B16A16_SFLOAT)
 				return PixelType::HALF;
-			else if (creationParamsr.format == EF_R32G32B32A32_SFLOAT)
+			else if (creationParams.format == EF_R32G32B32A32_SFLOAT)
 				return PixelType::FLOAT;
-			else if (creationParamsr.format == EF_R32G32B32A32_UINT)
+			else if (creationParams.format == EF_R32G32B32A32_UINT)
 				return PixelType::UINT;
 			else
 				return PixelType::NUM_PIXELTYPES;
 		};
 
-		Header header(creationParamsr.extent.width, creationParamsr.extent.height);
+		Header header(creationParams.extent.width, creationParams.extent.height);
 		const PixelType pixelType = getIlmType();
 		FrameBuffer frameBuffer;
 
-		if (pixelType == PixelType::NUM_PIXELTYPES || creationParamsr.type != IImage::E_TYPE::ET_2D)
+		if (pixelType == PixelType::NUM_PIXELTYPES || creationParams.type != IImage::E_TYPE::ET_2D)
 			return false;
 
 		for (auto& channelPixelsPtr : pixelsArrayIlm)
 			channelPixelsPtr = _IRR_NEW_ARRAY(ilmType, width * height);
 
 		const auto* data = reinterpret_cast<const uint8_t*>(image->getBuffer()->getPointer());
-		auto writeTexel = [&creationParamsr,&data,&pixelsArrayIlm,creationParamsr](uint32_t ptrOffset, uint32_t x, uint32_t y, uint32_t z) -> void
+		auto writeTexel = [&creationParams,&data,&pixelsArrayIlm,creationParams](uint32_t ptrOffset, uint32_t x, uint32_t y, uint32_t z) -> void
 		{
+			if (z)
+				return;
+
 			const uint8_t* texelPtr = data+ptrOffset;
-			const uint64_t ptrStyleIlmShiftToDataChannelPixel = (y*creationParamsr.extent.width)+x;
+			const uint64_t ptrStyleIlmShiftToDataChannelPixel = (y*creationParams.extent.width)+x;
 
 			for (uint8_t channelIndex=0; channelIndex<availableChannels; ++channelIndex)
 			{
@@ -89,32 +92,8 @@ namespace asset
 				*(pixelsArrayIlm[channelIndex] + ptrStyleIlmShiftToDataChannelPixel) = channelPixel;
 			}
 		};
-		class StreamToEXR : public CBasicInImageFilterCommon
-		{
-			public:
-				class CState
-				{
-					public:
-						const ICPUImage* inImage;
-						decltype(writeTexel) functor;
-						IImage::SBufferCopy region;
 
-						virtual ~CState() {}
-				};
-				using state_type = CState;
-				state type state;
-
-				static inline bool execute(state_type* state)
-				{
-					CBasicInImageFilterCommon::state_type dummyState;
-					dummyState.subresource = state->region.imageSubresource;
-					dummyState.inRange = {state->region.imageOffset,state->region.imageExtent};
-					dummyState.inImage = state->inImage;
-					assert(validate(&dummyState));
-					executePerBlock<decltype(writeTexel)>(state->inImage, state->region, state->functor);
-				}
-		};
-
+		using StreamToEXR = CRegionBlockFunctorFilter<decltype(writeTexel)>;
 		StreamToEXR::state_type state;
 		state.inImage = image;
 		state.functor = writeTexel;
@@ -123,8 +102,7 @@ namespace asset
 			if (rit->imageSubresource.mipLevel || rit->imageSubresource.baseArrayLayer)
 				continue;
 
-			state.region = *rit;
-			state.region.imageSubresource.layerCount = 1u;
+			state.region = rit;
 			StreamToEXR::execute(&state);
 		}
 
