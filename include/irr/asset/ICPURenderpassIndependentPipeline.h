@@ -79,6 +79,8 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		inline void setShaderAtStage(ISpecializedShader::E_SHADER_STAGE _stage, ICPUSpecializedShader* _shdr) { m_shaders[core::findLSB<uint32_t>(_stage)] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr); }
 		inline void setShaderAtIndex(uint32_t _ix, ICPUSpecializedShader* _shdr) { m_shaders[_ix] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr); }
 
+		inline void setLayout(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout) { m_layout = std::move(_layout); }
+
 	protected:
 		virtual ~ICPURenderpassIndependentPipeline() = default;
 };
