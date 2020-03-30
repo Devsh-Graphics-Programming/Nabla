@@ -20,7 +20,7 @@ class CBasicImageFilterCommon
 		struct TexelBlockInfo
 		{
 			TexelBlockInfo(E_FORMAT format) :
-				dimension(getTexelOrBlockBytesize(format)),
+				dimension(getBlockDimensions(format)),
 				maxCoord(dimension-core::vector3du32_SIMD(1u,1u,1u))
 			{}
 
@@ -65,7 +65,7 @@ class CBasicImageFilterCommon
 
 		struct default_region_functor_t
 		{
-			inline void operator()(IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion) {}
+			inline bool operator()(IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion) { return true; }
 		};
 		static default_region_functor_t default_region_functor;
 
@@ -78,8 +78,8 @@ class CBasicImageFilterCommon
 			for (auto it=_begin; it!=_end; it++)
 			{
 				IImage::SBufferCopy region = *it;
-				g(region,it);
-				executePerBlock<F>(image, region, f);
+				if (g(region,it))
+					executePerBlock<F>(image, region, f);
 			}
 		}
 

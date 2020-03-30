@@ -168,12 +168,13 @@ bool CGLIWriter::writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* 
 		memcpy(outData,inData,texelBlockByteSize);
 	};
 	const CBasicImageFilterCommon::TexelBlockInfo blockInfo(imageInfo.format);
-	auto updateState = [&state,&blockInfo,image](const IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion)
+	auto updateState = [&state,&blockInfo,image](const IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion) -> bool
 	{
 		state.currentMipLevel = referenceRegion->imageSubresource.mipLevel;
 		state.outOffset = core::vector3du32_SIMD(referenceRegion->imageOffset.x,referenceRegion->imageOffset.y,referenceRegion->imageOffset.z);
 		state.outOffset = CBasicImageFilterCommon::texelsToBlocks(state.outOffset,blockInfo);
 		state.outDims = CBasicImageFilterCommon::texelsToBlocks(image->getMipSize(state.currentMipLevel),blockInfo);
+		return true;
 	};
 
 	const auto& regions = image->getRegions();
