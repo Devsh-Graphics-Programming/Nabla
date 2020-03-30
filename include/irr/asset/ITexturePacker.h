@@ -7,6 +7,7 @@
 #include "irr/core/alloc/PoolAddressAllocator.h"
 #include "irr/core/math/morton.h"
 #include "irr/core/alloc/address_allocator_traits.h"
+#include "irr/core/memory/memory.h"
 
 namespace irr {
 namespace asset
@@ -23,7 +24,8 @@ protected:
     const uint32_t m_tilesPerDim;
 
     using pg_tab_addr_alctr_t = core::GeneralpurposeAddressAllocator<uint32_t>;
-    core::smart_refctd_dynamic_array<uint8_t> m_pgTabAddrAlctr_reservedSpc;
+    //core::smart_refctd_dynamic_array<uint8_t> m_pgTabAddrAlctr_reservedSpc;
+    uint8_t* m_pgTabAddrAlctr_reservedSpc;
     pg_tab_addr_alctr_t m_pgTabAddrAlctr;
 
 public:
@@ -78,12 +80,16 @@ public:
         m_pgSzxy(1u<<_pgSzxy_log2),
         m_pgSzxy_log2(_pgSzxy_log2),
         m_tilesPerDim(1u<<_tilesPerDim_log2),
-        m_pgTabAddrAlctr_reservedSpc(core::make_refctd_dynamic_array<decltype(m_pgTabAddrAlctr_reservedSpc)>(pg_tab_addr_alctr_t::reserved_size((1u<<_pgTabSzxy_log2)*(1u<<_pgTabSzxy_log2), (1u<<_pgTabSzxy_log2)*(1u<<_pgTabSzxy_log2), 1u))),
-        m_pgTabAddrAlctr(m_pgTabAddrAlctr_reservedSpc->data(), 0u, 0u, (1u<<_pgTabSzxy_log2)*(1u<<_pgTabSzxy_log2), (1u<<_pgTabSzxy_log2)*(1u<<_pgTabSzxy_log2), 1u)
+        //m_pgTabAddrAlctr_reservedSpc(core::make_refctd_dynamic_array<decltype(m_pgTabAddrAlctr_reservedSpc)>(pg_tab_addr_alctr_t::reserved_size((1u<<_pgTabSzxy_log2)*(1u<<_pgTabSzxy_log2), (1u<<_pgTabSzxy_log2)*(1u<<_pgTabSzxy_log2), 1u))),
+        m_pgTabAddrAlctr_reservedSpc(reinterpret_cast<uint8_t*>( _IRR_ALIGNED_MALLOC(pg_tab_addr_alctr_t::reserved_size((1u<<_pgTabSzxy_log2)*(1u<<_pgTabSzxy_log2), (1u<<_pgTabSzxy_log2)*(1u<<_pgTabSzxy_log2), 1u), _IRR_SIMD_ALIGNMENT) )),
+        m_pgTabAddrAlctr(m_pgTabAddrAlctr_reservedSpc, 0u, 0u, (1u<<_pgTabSzxy_log2)*(1u<<_pgTabSzxy_log2), (1u<<_pgTabSzxy_log2)*(1u<<_pgTabSzxy_log2), 1u)
     {
     }
 
-    virtual ~ITexturePacker() = default;
+    virtual ~ITexturePacker()
+    {
+        _IRR_ALIGNED_FREE(m_pgTabAddrAlctr_reservedSpc);
+    }
 
     uint32_t getPageSize() const { return m_pgSzxy; }
 
@@ -92,7 +98,7 @@ public:
         uint32_t szAndAlignment = computeSquareSz(_img, _subres);
         szAndAlignment *= szAndAlignment;
 
-        uint32_t addr{};
+        uint32_t addr = pg_tab_addr_alctr_t::invalid_address;
         core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_alloc_addr(m_pgTabAddrAlctr, 1u, &addr, &szAndAlignment, &szAndAlignment, nullptr);
         return (addr==pg_tab_addr_alctr_t::invalid_address) ? 
             page_tab_offset_invalid() :
@@ -130,7 +136,10 @@ private:
 class ICPUTexturePacker : public core::IReferenceCounted, public ITexturePacker
 {
 protected:
-    virtual ~ICPUTexturePacker() = default;
+    virtual ~ICPUTexturePacker()
+    {
+        _IRR_ALIGNED_FREE(m_physPgAddrAlctr_reservedSpc);
+    }
 
 public:
     _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_PHYSICAL_PAGE_SIZE_LOG2 = 9u;
@@ -163,8 +172,9 @@ public:
     ICPUTexturePacker(E_FORMAT_CLASS _fclass, E_FORMAT _format, uint32_t _pgTabSzxy_log2 = 10u, uint32_t _pgTabMipLevels = 11u, uint32_t _pgSzxy_log2 = 8u, uint32_t _tilesPerDim_log2 = 5u, uint32_t _numLayers = 4u, uint32_t _tilePad = 9u/*max_aniso/2+1*/) :
         ITexturePacker(_pgTabSzxy_log2, _pgSzxy_log2, _tilesPerDim_log2),
         m_tilePadding(_tilePad),
-        m_physPgAddrAlctr_reservedSpc(core::make_refctd_dynamic_array<decltype(m_physPgAddrAlctr_reservedSpc)>(phys_pg_addr_alctr_t::reserved_size(1u, _numLayers*(1u<<_tilesPerDim_log2)*(1u<<_tilesPerDim_log2), 1u))),
-        m_physPgAddrAlctr(m_physPgAddrAlctr_reservedSpc->data(), 0u, 0u, 1u, _numLayers*(1u<<_tilesPerDim_log2)*(1u<<_tilesPerDim_log2), 1u)
+        //m_physPgAddrAlctr_reservedSpc(core::make_refctd_dynamic_array<decltype(m_physPgAddrAlctr_reservedSpc)>(phys_pg_addr_alctr_t::reserved_size(1u, _numLayers*(1u<<_tilesPerDim_log2)*(1u<<_tilesPerDim_log2), 1u))),
+        m_physPgAddrAlctr_reservedSpc(reinterpret_cast<uint8_t*>( _IRR_ALIGNED_MALLOC(phys_pg_addr_alctr_t::reserved_size(1u, _numLayers*(1u<<_tilesPerDim_log2)*(1u<<_tilesPerDim_log2), 1u), _IRR_SIMD_ALIGNMENT) )),
+        m_physPgAddrAlctr(m_physPgAddrAlctr_reservedSpc, 0u, 0u, 1u, _numLayers*(1u<<_tilesPerDim_log2)*(1u<<_tilesPerDim_log2), 1u)
     {
         assert(getFormatClass(_format)==_fclass);
         {
@@ -218,7 +228,7 @@ public:
                 auto& region = (*regions)[i];
                 region.bufferOffset = bufOffset;
                 region.bufferImageHeight = 0u;
-                region.bufferRowLength = tilesPerLodDim*texelSz;
+                region.bufferRowLength = tilesPerLodDim;
                 region.imageExtent = {tilesPerLodDim,tilesPerLodDim,1u};
                 region.imageOffset = {0,0,0};
                 region.imageSubresource.baseArrayLayer = 0u;
@@ -321,9 +331,9 @@ public:
             const uint32_t w = neededPageCountForSide(extent.width, _subres.baseMipLevel+i);
             const uint32_t h = neededPageCountForSide(extent.height, _subres.baseMipLevel+i);
 
-            uint32_t* const pgTab = reinterpret_cast<uint32_t*>(
+            uint32_t* const pgTab = i<levelsTakingAtLeastOnePageCount ? reinterpret_cast<uint32_t*>(
                 reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer()) + m_pageTable->getRegions().begin()[i].bufferOffset
-                );
+                ) : nullptr;
             const uint32_t pgtPitch = m_pageTable->getRegions().begin()[i].bufferRowLength;
             const uint32_t pgtH = m_pageTable->getRegions().begin()[i].imageExtent.height;
             const uint32_t offset = (pgtOffset.y>>i)*pgtPitch + (pgtOffset.x>>i);
@@ -331,7 +341,7 @@ public:
             for (uint32_t y = 0u; y < h; ++y)
                 for (uint32_t x = 0u; x < w; ++x)
                 {
-                    uint32_t physPgAddr{};
+                    uint32_t physPgAddr = phys_pg_addr_alctr_t::invalid_address;
                     if (i>=levelsTakingAtLeastOnePageCount)
                         physPgAddr = miptailPgAddr;
                     else
@@ -349,7 +359,7 @@ public:
                     if (i==(levelsTakingAtLeastOnePageCount-1u) && levelsTakingAtLeastOnePageCount<_subres.levelCount)
                     {
                         assert(w==1u && h==1u);
-                        uint32_t physMiptailPgAddr{};
+                        uint32_t physMiptailPgAddr = phys_pg_addr_alctr_t::invalid_address;
                         const uint32_t szAndAlignment = 1u;
                         core::address_allocator_traits<phys_pg_addr_alctr_t>::multi_alloc_addr(m_physPgAddrAlctr, 1u, &physMiptailPgAddr, &szAndAlignment, &szAndAlignment, nullptr);
                         assert(physMiptailPgAddr<SPhysPgOffset::invalid_addr);
@@ -358,7 +368,8 @@ public:
                     }
                     else 
                         physPgAddr |= (SPhysPgOffset::invalid_addr<<16);
-                    pgTab[offset + y*pgtPitch + x] = physPgAddr;
+                    if (i < levelsTakingAtLeastOnePageCount)
+                        pgTab[offset + y*pgtPitch + x] = physPgAddr;
 
                     core::vector3du32_SIMD physPg = pageCoords(physPgAddr, m_pgSzxy);
                     for (const auto& reg : _img->getRegions())
@@ -423,7 +434,8 @@ private:
     const uint32_t m_tilePadding;
 
     using phys_pg_addr_alctr_t = core::PoolAddressAllocator<uint32_t>;
-    core::smart_refctd_dynamic_array<uint8_t> m_physPgAddrAlctr_reservedSpc;
+    //core::smart_refctd_dynamic_array<uint8_t> m_physPgAddrAlctr_reservedSpc;
+    uint8_t* m_physPgAddrAlctr_reservedSpc;
     phys_pg_addr_alctr_t m_physPgAddrAlctr;
 
     SMiptailPacker::rect m_miptailOffsets[MAX_PHYSICAL_PAGE_SIZE_LOG2];
