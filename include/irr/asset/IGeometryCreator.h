@@ -103,6 +103,15 @@ class IGeometryCreator : public core::IReferenceCounted
 
 		virtual return_type createDiskMesh(float radius, uint32_t tesselation) const = 0;
 
+		//! Create a icosphere geometry
+		/**
+			\param radius Radius of the icosphere.
+			\param subdivision Specifies subdivision level of the icosphere.
+			\param smooth Specifies whether vertecies should be built for smooth or flat shading.
+		*/
+
+		virtual return_type createIcoSphere(float radius = 1.0f, uint32_t subdivision = 1, bool smooth = false) const = 0;
+
 };
 
 } // end namespace asset
