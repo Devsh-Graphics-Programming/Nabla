@@ -153,27 +153,35 @@ bool CGLIWriter::writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* 
 	struct State
 	{
 		uint32_t currentMipLevel;
-		core::vector3du32_SIMD outOffset;
-		core::vector3du32_SIMD outDims;
+		uint32_t baseOffset;
+		core::vectorSIMDu32 outStrides;
 	} state;
-	auto writeTexel = [&data,&texelBlockByteSize,getCurrentGliLayerAndFace,&state,&texture](uint32_t ptrOffset, uint32_t x, uint32_t y, uint32_t z, uint32_t layer) -> void
+	auto writeTexel = [&data,&texelBlockByteSize,getCurrentGliLayerAndFace,&state,&texture](uint32_t ptrOffset, const core::vectorSIMDu32& texelCoord) -> void
 	{
 		const uint8_t* inData = data+ptrOffset;
 
-		const auto layersData = getCurrentGliLayerAndFace(layer);
+		const auto layersData = getCurrentGliLayerAndFace(texelCoord.w);
 		const auto gliLayer = layersData.first;
 		const auto gliFace = layersData.second;
 		uint8_t* outData = reinterpret_cast<uint8_t*>(texture.data(gliLayer,gliFace,state.currentMipLevel));
-		outData += (((z+state.outOffset[2])*state.outDims[1]+y+state.outOffset[1])*state.outDims[0]+x+state.outOffset[0])*texelBlockByteSize;
+		outData += state.baseOffset;
+		outData += core::dot(texelCoord,state.outStrides)[0];
 		memcpy(outData,inData,texelBlockByteSize);
 	};
-	const CBasicImageFilterCommon::TexelBlockInfo blockInfo(imageInfo.format);
-	auto updateState = [&state,&blockInfo,image](const IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion) -> bool
+	const IImage::SBufferCopy::TexelBlockInfo blockInfo(imageInfo.format);
+	auto updateState = [&state,&blockInfo,texelBlockByteSize,image](const IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion) -> bool
 	{
 		state.currentMipLevel = referenceRegion->imageSubresource.mipLevel;
-		state.outOffset = core::vector3du32_SIMD(referenceRegion->imageOffset.x,referenceRegion->imageOffset.y,referenceRegion->imageOffset.z);
-		state.outOffset = CBasicImageFilterCommon::texelsToBlocks(state.outOffset,blockInfo);
-		state.outDims = CBasicImageFilterCommon::texelsToBlocks(image->getMipSize(state.currentMipLevel),blockInfo);
+
+		auto outDims = IImage::SBufferCopy::TexelsToBlocks(image->getMipSize(state.currentMipLevel),blockInfo);
+		state.outStrides[0] = texelBlockByteSize;
+		state.outStrides[1] = outDims[0]*texelBlockByteSize;
+		state.outStrides[2] = outDims[1]*state.outStrides[1];
+		state.outStrides[3] = outDims[2]*state.outStrides[2];
+
+		auto outOffset = core::vectorSIMDu32(referenceRegion->imageOffset.x, referenceRegion->imageOffset.y, referenceRegion->imageOffset.z, 0u);
+		outOffset = IImage::SBufferCopy::TexelsToBlocks(outOffset, blockInfo);
+		state.baseOffset = core::dot(outOffset,state.outStrides)[0];
 		return true;
 	};
 

@@ -375,7 +375,7 @@ namespace core
 		inline vectorSIMD_32<T> operator*(const vectorSIMD_32<T>& other) const
 		{
 			// "but since it only stores the lower 32bits, it's really a sign-oblivious instruction that you can use for both"
-			_mm_mullo_epi32(getAsRegister(),other.getAsRegister());
+			return _mm_mullo_epi32(getAsRegister(),other.getAsRegister());
 		}
 		inline vectorSIMD_32<T>& operator*=(const vectorSIMD_32<T>& other)
 		{

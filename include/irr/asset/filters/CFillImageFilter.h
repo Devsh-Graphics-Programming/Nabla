@@ -50,7 +50,7 @@ class CFillImageFilter : public CImageFilter<CFillImageFilter>
 				state->fillValue.writeMemory(info,blockArrayOffset);
 			};
 			CBasicImageFilterCommon::clip_region_functor_t clip(state->subresource,state->outRange,params.format);
-			const auto& regions = img->getRegions();
+			const auto& regions = img->getRegions(state->subresource.mipLevel);
 			CBasicImageFilterCommon::executePerRegion(img,fill,regions.begin(),regions.end(),clip);
 
 			return true;

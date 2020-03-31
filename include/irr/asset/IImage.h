@@ -170,15 +170,15 @@ class IImage : public IDescriptor
 			{
 				return BlockToByteStrides(TexelsToBlocks(getTexelStrides(),info),blockByteSize);
 			}
-			inline uint32_t				getLocalOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides)
+			inline uint32_t				getLocalOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides) const
 			{
 				return core::dot(localXYZLayerOffset,byteStrides)[0];
 			}
-			inline uint32_t				getByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides)
+			inline uint32_t				getByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides) const
 			{
 				return bufferOffset+getLocalOffset(localXYZLayerOffset,byteStrides);
 			}
-			inline uint32_t				getByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const TexelBlockInfo& info, uint32_t blockByteSize)
+			inline uint32_t				getByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const TexelBlockInfo& info, uint32_t blockByteSize) const
 			{
 				return getByteOffset(localXYZLayerOffset,getByteStrides(info,blockByteSize));
 			}

@@ -80,14 +80,12 @@ namespace asset
 			channelPixelsPtr = _IRR_NEW_ARRAY(ilmType, width * height);
 
 		const auto* data = reinterpret_cast<const uint8_t*>(image->getBuffer()->getPointer());
-		auto writeTexel = [&creationParams,&data,&pixelsArrayIlm](uint32_t ptrOffset, uint32_t x, uint32_t y, uint32_t z, uint32_t layer) -> void
+		auto writeTexel = [&creationParams,&data,&pixelsArrayIlm](uint32_t ptrOffset, const core::vectorSIMDu32& texelCoord) -> void
 		{
-			assert(layer==0u);
-			if (z)
-				return;
+			assert(texelCoord.w==0u && texelCoord.z==0u);
 
 			const uint8_t* texelPtr = data+ptrOffset;
-			const uint64_t ptrStyleIlmShiftToDataChannelPixel = (y*creationParams.extent.width)+x;
+			const uint64_t ptrStyleIlmShiftToDataChannelPixel = (texelCoord.y*creationParams.extent.width)+texelCoord.x;
 
 			for (uint8_t channelIndex=0; channelIndex<availableChannels; ++channelIndex)
 			{

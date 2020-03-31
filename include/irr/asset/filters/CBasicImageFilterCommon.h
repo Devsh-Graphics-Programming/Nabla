@@ -17,46 +17,31 @@ namespace asset
 class CBasicImageFilterCommon
 {
 	public:
-		struct TexelBlockInfo
-		{
-			TexelBlockInfo(E_FORMAT format) :
-				dimension(getBlockDimensions(format)),
-				maxCoord(dimension-core::vector3du32_SIMD(1u,1u,1u))
-			{}
-
-			core::vector3du32_SIMD dimension;
-			core::vector3du32_SIMD maxCoord;
-		};
-		static inline auto texelsToBlocks(const core::vector3du32_SIMD& coord, const TexelBlockInfo& info)
-		{
-			return (coord+info.maxCoord)/info.dimension;
-		}
-
 		template<typename F>
 		static inline void executePerBlock(const ICPUImage* image, const IImage::SBufferCopy& region, F& f)
 		{
-			const auto& params = image->getCreationParameters();
-			const auto& extent = params.extent;
+			const auto& subresource = region.imageSubresource;
+			const uint32_t layerLimit = subresource.baseArrayLayer+subresource.layerCount;
 
-			TexelBlockInfo blockInfo(params.format);
+			const auto& params = image->getCreationParameters();
+			IImage::SBufferCopy::TexelBlockInfo blockInfo(params.format);
 
 			core::vector3du32_SIMD trueOffset;
 			trueOffset.x = region.imageOffset.x;
 			trueOffset.y = region.imageOffset.y;
 			trueOffset.z = region.imageOffset.z;
-			trueOffset = texelsToBlocks(trueOffset,blockInfo);
+			trueOffset = IImage::SBufferCopy::TexelsToBlocks(trueOffset,blockInfo);
 			
-			core::vector3du32_SIMD trueExtent = texelsToBlocks(region.getTexelStrides(),blockInfo);
+			core::vector3du32_SIMD trueExtent = IImage::SBufferCopy::TexelsToBlocks(region.getTexelStrides(),blockInfo);
 
-			trueExtent.w = asset::getTexelOrBlockBytesize(params.format);
-			for (uint32_t layer=0u; layer<region.imageSubresource.layerCount; layer++)
-			for (uint32_t zBlock=trueOffset.z; zBlock<trueExtent.z; ++zBlock)
-			for (uint32_t yBlock=trueOffset.y; yBlock<trueExtent.y; ++yBlock)
-			for (uint32_t xBlock=trueOffset.x; xBlock<trueExtent.x; ++xBlock)
-			{
-				auto texelPtr = region.bufferOffset+((((region.imageSubresource.baseArrayLayer+layer)*trueExtent[2]+zBlock)*trueExtent[1]+yBlock)*trueExtent[0]+xBlock)*trueExtent[3];
-				f(texelPtr,xBlock,yBlock,zBlock,layer);
-			}
+			const auto strides = region.getByteStrides(blockInfo,asset::getTexelOrBlockBytesize(params.format));
+
+			core::vector3du32_SIMD blockCoord;
+			for (auto& layer =(blockCoord[3]=subresource.baseArrayLayer); layer<layerLimit; layer++)
+			for (auto& zBlock=(blockCoord[2]=trueOffset.z); zBlock<trueExtent.z; ++zBlock)
+			for (auto& yBlock=(blockCoord[1]=trueOffset.y); yBlock<trueExtent.y; ++yBlock)
+			for (auto& xBlock=(blockCoord[0]=trueOffset.x); xBlock<trueExtent.x; ++xBlock)
+				f(region.getByteOffset(blockCoord,strides),blockCoord);
 		}
 
 		struct default_region_functor_t
@@ -68,39 +53,47 @@ class CBasicImageFilterCommon
 		struct clip_region_functor_t
 		{
 			clip_region_functor_t(const ICPUImage::SSubresourceLayers& _subresrouce, const IImageFilter::IState::TexelRange& _range, E_FORMAT format) : 
-				subresource(_subresrouce), range(_range), blockByteSize(getTexelOrBlockBytesize(format)) {}
+				subresource(_subresrouce), range(_range), blockInfo(format), blockByteSize(getTexelOrBlockBytesize(format)) {}
 
-			const ICPUImage::SSubresourceLayers&	subresource;
-			const IImageFilter::IState::TexelRange&	range;
-			const uint32_t							blockByteSize;
+			const ICPUImage::SSubresourceLayers&		subresource;
+			const IImageFilter::IState::TexelRange&		range;
+			const IImage::SBufferCopy::TexelBlockInfo	blockInfo;
+			const uint32_t								blockByteSize;
 
 			inline bool operator()(IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion)
 			{
 				if (subresource.mipLevel!=referenceRegion->imageSubresource.mipLevel)
 					return false;
-				newRegion.imageSubresource.baseArrayLayer = core::max(subresource.baseArrayLayer,referenceRegion->imageSubresource.baseArrayLayer);
-				newRegion.imageSubresource.layerCount = core::min(	subresource.baseArrayLayer+subresource.layerCount,
-																	referenceRegion->imageSubresource.baseArrayLayer+referenceRegion->imageSubresource.layerCount);
-				if (newRegion.imageSubresource.layerCount <= newRegion.imageSubresource.baseArrayLayer)
-					return false;
-				newRegion.imageSubresource.layerCount -= newRegion.imageSubresource.baseArrayLayer;
 
-				// handle the clipping
-				uint32_t offsetInOffset[3u] = {0u,0u,0u};
-				for (uint32_t i=0u; i<3u; i++)
-				{
-					const auto& ref = (&referenceRegion->imageOffset.x)[i];
-					const auto& _new = (&range.offset.x)[i];
-					bool clip = _new>ref;
-					(&newRegion.imageOffset.x)[i] = clip ? _new:ref;
-					if (clip)
-						offsetInOffset[i] = _new-ref;
-					(&newRegion.imageExtent.width)[i] = core::min((&referenceRegion->imageExtent.width)[i],(&range.extent.width)[i]);
-				}
+				core::vector3du32_SIMD targetOffset(range.offset.x,range.offset.y,range.offset.z,subresource.baseArrayLayer);
+				core::vector3du32_SIMD targetExtent(range.extent.width,range.extent.height,range.extent.depth,subresource.layerCount);
+				auto targetLimit = targetOffset+targetExtent;
+
+				const core::vector3du32_SIMD resultOffset(referenceRegion->imageOffset.x,referenceRegion->imageOffset.y,referenceRegion->imageOffset.z,referenceRegion->imageSubresource.baseArrayLayer);
+				const core::vector3du32_SIMD resultExtent(referenceRegion->imageExtent.width,referenceRegion->imageExtent.height,referenceRegion->imageExtent.depth,referenceRegion->imageSubresource.layerCount);
+				const auto resultLimit = resultOffset+resultExtent;
+
+				auto offset = core::max(targetOffset,resultOffset);
+				auto limit = core::min(targetLimit,resultLimit);
+				if ((offset>=limit).any())
+					return false;
 
 				// compute new offset
-				newRegion.bufferOffset += ((offsetInOffset[2]*referenceRegion->bufferImageHeight+offsetInOffset[1])*referenceRegion->bufferRowLength+offsetInOffset[0])*blockByteSize;
+				{
+					const auto strides = referenceRegion->getByteStrides(blockInfo,blockByteSize);
+					const core::vector3du32_SIMD offsetInOffset = offset-resultOffset;
+					newRegion.bufferOffset += referenceRegion->getLocalOffset(offsetInOffset,strides);
+				}
 
+				newRegion.imageOffset.x = offset.x;
+				newRegion.imageOffset.y = offset.y;
+				newRegion.imageOffset.z = offset.z;
+				newRegion.imageSubresource.baseArrayLayer = offset.w;
+				auto extent = limit - offset;
+				newRegion.imageExtent.width = extent.x;
+				newRegion.imageExtent.height = extent.y;
+				newRegion.imageExtent.depth = extent.z;
+				newRegion.imageSubresource.layerCount = extent.w;
 				return true;
 			}
 		};
