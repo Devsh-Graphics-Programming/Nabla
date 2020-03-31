@@ -234,10 +234,8 @@ IRR_FORCE_INLINE vectorSIMDf dot<vectorSIMDf>(const vectorSIMDf& a, const vector
 template<>
 IRR_FORCE_INLINE vectorSIMDi32 dot<vectorSIMDi32>(const vectorSIMDi32& a, const vectorSIMDi32& b)
 {
-    __m128i xmm0 = a.getAsRegister();
-    __m128i xmm1 = b.getAsRegister();
+    __m128i xmm0 = (a*b).getAsRegister();
 #ifdef __IRR_COMPILE_WITH_SSE3
-    xmm0 = _mm_mul_epi32(xmm0,xmm1);
     xmm0 = _mm_hadd_epi32(xmm0,xmm0);
     return _mm_hadd_epi32(xmm0,xmm0);
 #else
@@ -247,10 +245,8 @@ IRR_FORCE_INLINE vectorSIMDi32 dot<vectorSIMDi32>(const vectorSIMDi32& a, const 
 template<>
 IRR_FORCE_INLINE vectorSIMDu32 dot<vectorSIMDu32>(const vectorSIMDu32& a, const vectorSIMDu32& b)
 {
-    __m128i xmm0 = a.getAsRegister();
-    __m128i xmm1 = b.getAsRegister();
+    __m128i xmm0 = (a*b).getAsRegister();
 #ifdef __IRR_COMPILE_WITH_SSE3
-    xmm0 = _mm_mul_epu32(xmm0,xmm1);
     xmm0 = _mm_hadd_epi32(xmm0,xmm0);
     return _mm_hadd_epi32(xmm0,xmm0);
 #else
