@@ -7,7 +7,9 @@
 #include "irr/core/core.h"
 #include "irr/asset/format/EFormat.h"
 
-namespace irr { namespace video
+namespace irr
+{
+namespace asset
 {	
 
 	template<typename T>

@@ -124,6 +124,62 @@ class IImage : public IDescriptor
 			inline const VkOffset3D&	getDstOffset() const { return imageOffset; }
 			inline const VkExtent3D&	getExtent() const { return imageExtent; }
 
+
+			inline auto					getTexelStrides() const
+			{
+				core::vector3du32_SIMD trueExtent;
+				trueExtent.x = bufferRowLength ? bufferRowLength:imageExtent.width;
+				trueExtent.y = bufferImageHeight ? bufferImageHeight:imageExtent.height;
+				trueExtent.z = imageExtent.depth;
+				return trueExtent;
+			}
+
+			struct TexelBlockInfo
+			{
+				TexelBlockInfo(E_FORMAT format) :
+					dimension(getBlockDimensions(format)),
+					maxCoord(dimension - core::vector3du32_SIMD(1u, 1u, 1u))
+				{}
+
+				core::vector3du32_SIMD dimension;
+				core::vector3du32_SIMD maxCoord;
+			};
+			static inline auto			TexelsToBlocks(const core::vector3du32_SIMD& coord, const TexelBlockInfo& info)
+			{
+				return (coord+info.maxCoord)/info.dimension;
+			}
+			inline auto					getBlockStrides(const TexelBlockInfo& info) const
+			{
+				return TexelsToBlocks(getTexelStrides(),info);
+			}
+
+			static inline auto			BlockToByteStrides(const core::vector3du32_SIMD& blockStrides, uint32_t blockByteSize)
+			{
+				// shuffle and put a 1 in the first element
+				auto retval = blockStrides.wxyz();
+				retval[0] = blockByteSize;
+				// row by bytesize
+				retval[1] *= retval[0];
+				// slice by row
+				retval[2] *= retval[1];
+				// layer by slice
+				retval[3] *= retval[2];
+				return retval;
+			}
+			inline auto					getByteStrides(const TexelBlockInfo& info, uint32_t blockByteSize) const
+			{
+				return BlockToByteStrides(TexelsToBlocks(getTexelStrides(),info),blockByteSize);
+			}
+			inline uint32_t				getLocalByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides)
+			{
+				return bufferOffset+core::dot(localXYZLayerOffset,byteStrides)[0];
+			}
+			inline uint32_t				getLocalByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const TexelBlockInfo& info, uint32_t blockByteSize)
+			{
+				return getLocalByteOffset(localXYZLayerOffset,getByteStrides(info,blockByteSize));
+			}
+
+
 			size_t				bufferOffset = 0ull;
 			// setting this to different from 0 can fail an image copy on OpenGL
 			uint32_t			bufferRowLength = 0u;

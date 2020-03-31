@@ -8,7 +8,9 @@
 #include "irr/asset/format/EFormat.h"
 #include "irr/core/math/colorutil.h"
 
-namespace irr { namespace video // why is this in the video namespace!?
+namespace irr
+{
+namespace asset
 {
 	template<asset::E_FORMAT fmt, typename T>
     inline typename

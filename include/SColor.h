@@ -214,7 +214,7 @@ namespace video
 		inline static SColorf fromSRGB(SColorf&& input)
 		{
 			float color[3] = {input.r, input.g, input.b};
-			impl::SRGB2lin<float>(color);
+			asset::impl::SRGB2lin<float>(color);
 			
 			return SColorf(color[0], color[1], color[2], input.getAlpha());
 		}
@@ -222,7 +222,7 @@ namespace video
 		inline static SColorf toSRGB(SColorf&& input)
 		{
 			float color[3] = {input.r, input.g, input.b};
-			impl::lin2SRGB<float>(color);
+			asset::impl::lin2SRGB<float>(color);
 			
 			return SColorf(color[0], color[1], color[2], input.getAlpha());
 		}

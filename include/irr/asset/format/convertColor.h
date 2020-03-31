@@ -16,7 +16,7 @@
 
 namespace irr
 {
-namespace video
+namespace asset
 {
     namespace impl
     {

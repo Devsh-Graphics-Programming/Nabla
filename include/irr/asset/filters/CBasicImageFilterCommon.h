@@ -46,19 +46,15 @@ class CBasicImageFilterCommon
 			trueOffset.z = region.imageOffset.z;
 			trueOffset = texelsToBlocks(trueOffset,blockInfo);
 			
-			core::vector3du32_SIMD trueExtent;
-			trueExtent.x = region.bufferRowLength ? region.bufferRowLength:region.imageExtent.width;
-			trueExtent.y = region.bufferImageHeight ? region.bufferImageHeight:region.imageExtent.height;
-			trueExtent.z = region.imageExtent.depth;
-			trueExtent = texelsToBlocks(trueExtent,blockInfo);
+			core::vector3du32_SIMD trueExtent = texelsToBlocks(region.getTexelStrides(),blockInfo);
 
-			const auto blockBytesize = asset::getTexelOrBlockBytesize(params.format);
+			trueExtent.w = asset::getTexelOrBlockBytesize(params.format);
 			for (uint32_t layer=0u; layer<region.imageSubresource.layerCount; layer++)
 			for (uint32_t zBlock=trueOffset.z; zBlock<trueExtent.z; ++zBlock)
 			for (uint32_t yBlock=trueOffset.y; yBlock<trueExtent.y; ++yBlock)
 			for (uint32_t xBlock=trueOffset.x; xBlock<trueExtent.x; ++xBlock)
 			{
-				auto texelPtr = region.bufferOffset+((((region.imageSubresource.baseArrayLayer+layer)*trueExtent[2]+zBlock)*trueExtent[1]+yBlock)*trueExtent[0]+xBlock)*blockBytesize;
+				auto texelPtr = region.bufferOffset+((((region.imageSubresource.baseArrayLayer+layer)*trueExtent[2]+zBlock)*trueExtent[1]+yBlock)*trueExtent[0]+xBlock)*trueExtent[3];
 				f(texelPtr,xBlock,yBlock,zBlock,layer);
 			}
 		}
@@ -68,6 +64,46 @@ class CBasicImageFilterCommon
 			inline bool operator()(IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion) { return true; }
 		};
 		static default_region_functor_t default_region_functor;
+		
+		struct clip_region_functor_t
+		{
+			clip_region_functor_t(const ICPUImage::SSubresourceLayers& _subresrouce, const IImageFilter::IState::TexelRange& _range, E_FORMAT format) : 
+				subresource(_subresrouce), range(_range), blockByteSize(getTexelOrBlockBytesize(format)) {}
+
+			const ICPUImage::SSubresourceLayers&	subresource;
+			const IImageFilter::IState::TexelRange&	range;
+			const uint32_t							blockByteSize;
+
+			inline bool operator()(IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion)
+			{
+				if (subresource.mipLevel!=referenceRegion->imageSubresource.mipLevel)
+					return false;
+				newRegion.imageSubresource.baseArrayLayer = core::max(subresource.baseArrayLayer,referenceRegion->imageSubresource.baseArrayLayer);
+				newRegion.imageSubresource.layerCount = core::min(	subresource.baseArrayLayer+subresource.layerCount,
+																	referenceRegion->imageSubresource.baseArrayLayer+referenceRegion->imageSubresource.layerCount);
+				if (newRegion.imageSubresource.layerCount <= newRegion.imageSubresource.baseArrayLayer)
+					return false;
+				newRegion.imageSubresource.layerCount -= newRegion.imageSubresource.baseArrayLayer;
+
+				// handle the clipping
+				uint32_t offsetInOffset[3u] = {0u,0u,0u};
+				for (uint32_t i=0u; i<3u; i++)
+				{
+					const auto& ref = (&referenceRegion->imageOffset.x)[i];
+					const auto& _new = (&range.offset.x)[i];
+					bool clip = _new>ref;
+					(&newRegion.imageOffset.x)[i] = clip ? _new:ref;
+					if (clip)
+						offsetInOffset[i] = _new-ref;
+					(&newRegion.imageExtent.width)[i] = core::min((&referenceRegion->imageExtent.width)[i],(&range.extent.width)[i]);
+				}
+
+				// compute new offset
+				newRegion.bufferOffset += ((offsetInOffset[2]*referenceRegion->bufferImageHeight+offsetInOffset[1])*referenceRegion->bufferRowLength+offsetInOffset[0])*blockByteSize;
+
+				return true;
+			}
+		};
 
 		template<typename F, typename G=default_region_functor_t>
 		static inline void executePerRegion(const ICPUImage* image, F& f,
@@ -84,7 +120,7 @@ class CBasicImageFilterCommon
 		}
 
 	protected:
-		virtual ~CBasicImageFilterCommon() = 0;
+		virtual ~CBasicImageFilterCommon() =0;
 
 		static inline bool validateSubresourceAndRange(	const ICPUImage::SSubresourceLayers& subresource,
 														const IImageFilter::IState::TexelRange& range,
@@ -93,6 +129,9 @@ class CBasicImageFilterCommon
 			if (!image)
 				return false;
 			const auto& params = image->getCreationParameters();
+
+			if (!(range.extent.width&&range.extent.height&&range.extent.depth))
+				return false;
 
 			if (range.offset.x+range.extent.width>params.extent.width)
 				return false;
@@ -134,6 +173,9 @@ class CBasicInImageFilterCommon : public CBasicImageFilterCommon
 
 			return true;
 		}
+
+	protected:
+		virtual ~CBasicInImageFilterCommon() = 0;
 };
 class CBasicOutImageFilterCommon : public CBasicImageFilterCommon
 {
@@ -159,6 +201,9 @@ class CBasicOutImageFilterCommon : public CBasicImageFilterCommon
 
 			return true;
 		}
+
+	protected:
+		virtual ~CBasicOutImageFilterCommon() = 0;
 };
 class CBasicInOutImageFilterCommon : public CBasicImageFilterCommon
 {
@@ -168,9 +213,10 @@ class CBasicInOutImageFilterCommon : public CBasicImageFilterCommon
 			public:
 				virtual ~CState() {}
 
-				ICPUImage::SSubresourceLayers	subresource = {};
+				ICPUImage::SSubresourceLayers	inSubresource = {};
 				TexelRange						inRange = {};
 				ICPUImage*						inImage = nullptr;
+				ICPUImage::SSubresourceLayers	outSubresource = {};
 				TexelRange						outRange = {};
 				ICPUImage*						outImage = nullptr;
 		};
@@ -181,13 +227,16 @@ class CBasicInOutImageFilterCommon : public CBasicImageFilterCommon
 			if (!state)
 				return nullptr;
 
-			if (!CBasicImageFilterCommon::validateSubresourceAndRange(state->subresource,state->inRange,state->inImage))
+			if (!CBasicImageFilterCommon::validateSubresourceAndRange(state->inSubresource,state->inRange,state->inImage))
 				return false;
-			if (!CBasicImageFilterCommon::validateSubresourceAndRange(state->subresource,state->outRange,state->outImage))
+			if (!CBasicImageFilterCommon::validateSubresourceAndRange(state->outSubresource,state->outRange,state->outImage))
 				return false;
 
 			return true;
 		}
+
+	protected:
+		virtual ~CBasicInOutImageFilterCommon() = 0;
 };
 // will probably need some per-pixel helper class/functions (that can run a templated functor per-pixel to reduce code clutter)
 

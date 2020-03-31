@@ -40,36 +40,19 @@ class CFillImageFilter : public CImageFilter<CFillImageFilter>
 		{
 			if (!validate(state))
 				return false;
-#if 0 // WIP
+
 			auto* img = state->outImage;
-			const IImageFilter::IState::ColorValue::WriteMemoryInfo info(img->getCreationParameters().format,img->getBuffer()->getPointer());
+			const auto& params = img->getCreationParameters();
+			const IImageFilter::IState::ColorValue::WriteMemoryInfo info(params.format,img->getBuffer()->getPointer());
 			// do the per-pixel filling
 			auto fill = [state,&info](uint32_t blockArrayOffset, uint32_t x, uint32_t y, uint32_t z, uint32_t layer) -> bool
 			{
 				state->fillValue.writeMemory(info,blockArrayOffset);
 			};
-			auto clipRegion = [state](IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion) -> bool
-			{
-				if (state->subresource.mipLevel!=referenceRegion->imageSubresource.mipLevel)
-					return false;
-				newRegion.imageSubresource.baseArrayLayer = core::max(state->subresource.baseArrayLayer,referenceRegion->imageSubresource.baseArrayLayer);
-				newRegion.imageSubresource.layerCount = core::min(	state->subresource.baseArrayLayer+state->subresource.layerCount,
-																	referenceRegion->imageSubresource.baseArrayLayer+referenceRegion->imageSubresource.layerCount);
-				if (newRegion.imageSubresource.layerCount <= newRegion.imageSubresource.baseArrayLayer)
-					return false;
-				newRegion.imageSubresource.layerCount -= newRegion.imageSubresource.baseArrayLayer;
-
-				// handle the clipping
-				newRegion.imageOffset = core::max(referenceRegion->imageOffset,state->outRange.offset);
-				newRegion.imageExtent = core::min(referenceRegion->imageExtent,state->outRange.extent);
-
-				// compute new offset
-				newRegion.bufferOffset += ;
-				return true;
-			};
+			CBasicImageFilterCommon::clip_region_functor_t clip(state->subresource,state->outRange,params.format);
 			const auto& regions = img->getRegions();
-			CBasicImageFilterCommon::executePerRegion<decltype(fill),decltype(clipRegion)>(img,fill,regions.begin(),regions.end(),clipRegion);
-#endif
+			CBasicImageFilterCommon::executePerRegion(img,fill,regions.begin(),regions.end(),clip);
+
 			return true;
 		}
 };
