@@ -165,8 +165,10 @@ public:
         struct rect
         {
             int x, y, mx, my;
+
+            core::vector2du32_SIMD extent() const { return core::vector2du32_SIMD(mx, my)+core::vector2du32_SIMD(1u)-core::vector2du32_SIMD(x,y); }
         };
-        static bool computeMiptailOffsets(rect* res, int log2SIZE, int padding=9);
+        static bool computeMiptailOffsets(rect* res, int log2SIZE, int padding);
     };
 
     ICPUTexturePacker(E_FORMAT_CLASS _fclass, E_FORMAT _format, uint32_t _pgTabSzxy_log2 = 10u, uint32_t _pgTabMipLevels = 11u, uint32_t _pgSzxy_log2 = 8u, uint32_t _tilesPerDim_log2 = 5u, uint32_t _numLayers = 4u, uint32_t _tilePad = 9u/*max_aniso/2+1*/) :
@@ -305,7 +307,7 @@ public:
 
         return texData;
     }
-    page_tab_offset_t pack(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres)
+    page_tab_offset_t pack(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv)
     {
         if (getFormatClass(_img->getCreationParameters().format)!=getFormatClass(m_physAddrTex->getCreationParameters().format))
             return page_tab_offset_invalid();
@@ -378,7 +380,7 @@ public:
                             continue;
 
                         auto src_txOffset = core::vector2du32_SIMD(x,y)*m_pgSzxy;
-
+                        /*
                         const uint32_t a_left = reg.imageOffset.x;
                         const uint32_t b_right = src_txOffset.x + m_pgSzxy;
                         const uint32_t a_right = a_left + reg.imageExtent.width;
@@ -389,12 +391,25 @@ public:
                         const uint32_t b_bot = src_txOffset.y;
                         if (a_left>b_right || a_right<b_left || a_top<b_bot || a_bot>b_top)
                             continue;
+                        */
 
-                        const core::vector2du32_SIMD regOffset = core::vector2du32_SIMD(a_left, a_bot);
+                        //optimized rectange intersection test, probably can be done better
+                        //cmp_lhs = (b_right, a_right, a_top, b_top)
+                        core::vector4du32_SIMD cmp_lhs(src_txOffset.x, reg.imageOffset.x, reg.imageOffset.y, src_txOffset.y);
+                        cmp_lhs += core::vector4du32_SIMD(m_pgSzxy, reg.imageExtent.width, reg.imageExtent.height, m_pgSzxy);
+                        //cmp_rhs = (a_left, b_left, b_bot, a_bot)
+                        core::vector4du32_SIMD cmp_rhs(reg.imageOffset.x, src_txOffset.x, src_txOffset.y, reg.imageOffset.y);
+                        if ((cmp_lhs < cmp_rhs).any())
+                            continue;
+#define a_left_bot  cmp_rhs.xwxx()
+#define a_right_top cmp_lhs.yzxx()
+#define b_right_top cmp_lhs.xwxx()
+
+                        const core::vector2du32_SIMD regOffset = a_left_bot;
                         const core::vector2du32_SIMD withinRegTxOffset = core::max(src_txOffset, regOffset)-regOffset;
                         const core::vector2du32_SIMD withinPgTxOffset = (withinRegTxOffset & core::vector2du32_SIMD(m_pgSzxy-1u));
                         src_txOffset += withinPgTxOffset;
-                        const core::vector2du32_SIMD src_txOffsetEnd = core::min(core::vector2du32_SIMD(a_right,a_top), core::vector2du32_SIMD(b_right,b_top));
+                        const core::vector2du32_SIMD src_txOffsetEnd = core::min(a_right_top, b_right_top);
                         //special offset for packing tail mip levels into single page
                         const core::vector2du32_SIMD miptailOffset = (i>=levelsTakingAtLeastOnePageCount) ? core::vector2du32_SIMD(m_miptailOffsets[i-levelsTakingAtLeastOnePageCount].x,m_miptailOffsets[i-levelsTakingAtLeastOnePageCount].y)+core::vector2du32_SIMD(m_tilePadding,m_tilePadding) : core::vector2du32_SIMD(0u,0u);
 
@@ -441,7 +456,7 @@ private:
     SMiptailPacker::rect m_miptailOffsets[MAX_PHYSICAL_PAGE_SIZE_LOG2];
 };
 
-bool ICPUTexturePacker::SMiptailPacker::computeMiptailOffsets(rect* res, int log2SIZE, int padding)
+bool ICPUTexturePacker::SMiptailPacker::computeMiptailOffsets(ICPUTexturePacker::SMiptailPacker::rect* res, int log2SIZE, int padding)
 {
     if (log2SIZE<7 || log2SIZE>10)
         return false;
