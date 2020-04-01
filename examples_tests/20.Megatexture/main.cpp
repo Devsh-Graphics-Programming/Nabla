@@ -39,7 +39,7 @@ STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePack
     subres.baseMipLevel = 0u;
     subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(extent.width, extent.height))) + 1;
 
-    auto pgTabCoords = _packer->pack(_img, subres);
+    auto pgTabCoords = _packer->pack(_img, subres, asset::ISampler::ETC_MIRROR, asset::ISampler::ETC_MIRROR);
     assert(!(pgTabCoords==asset::ITexturePacker::page_tab_offset_invalid()).all());
 
     core::vector2df_SIMD pgTabUnorm16(pgTabCoords.x, pgTabCoords.y);
@@ -102,7 +102,7 @@ vec3 unpackPageID(in uint pageID)
 vec4 vTextureGrad_helper(in vec2 virtualUV, int LoD, in mat2 gradients)
 {
 	int pgtabLoD = min(LoD,MAX_LOD); // assert(MAX_LOD<log2(PGTAB_SZ))
-	int tilesInLodLevel = PGTAB_SZ>>LoD;
+	int tilesInLodLevel = PGTAB_SZ>>LoD; textureSize(pgTabTex, pgtabLoD);
 	ivec2 tileCoord = ivec2(virtualUV.xy*vec2(tilesInLodLevel));
 	uvec2 pageID = texelFetch(pgTabTex,tileCoord,pgtabLoD).rg;
 	vec3 physicalUV = unpackPageID(pgtabLoD<LoD ? pageID.y : pageID.x); // unpack to normalized coord offset + Layer in physical texture (just bit operations) and multiples

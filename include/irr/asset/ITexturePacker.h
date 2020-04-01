@@ -373,11 +373,14 @@ public:
                     if (i < levelsTakingAtLeastOnePageCount)
                         pgTab[offset + y*pgtPitch + x] = physPgAddr;
 
+                    bool pageGotFilled = false;
                     core::vector3du32_SIMD physPg = pageCoords(physPgAddr, m_pgSzxy);
                     for (const auto& reg : _img->getRegions())
                     {
                         if (reg.imageSubresource.mipLevel != (_subres.baseMipLevel+i))
                             continue;
+
+                        pageGotFilled = true;
 
                         auto src_txOffset = core::vector2du32_SIMD(x,y)*m_pgSzxy;
                         /*
@@ -417,7 +420,7 @@ public:
 
                         const core::vector2du32_SIMD cpExtent = src_txOffsetEnd - src_txOffset;
                         const uint32_t src_offset_lin = (withinRegTxOffset.y*reg.bufferRowLength + withinRegTxOffset.x) * texelSz;
-                        const uint32_t dst_offset_lin = (m_physAddrTex->getCreationParameters().extent.width*m_physAddrTex->getCreationParameters().extent.height*physPg.z + physPg.y*m_physAddrTex->getCreationParameters().extent.width + physPg.x) * texelSz;
+                        const uint32_t dst_offset_lin = physAddrTexelByteoffset(physPg, texelSz);
                         const uint8_t* src = reinterpret_cast<const uint8_t*>(_img->getBuffer()->getPointer()) + reg.bufferOffset + src_offset_lin;
                         uint8_t* dst = reinterpret_cast<uint8_t*>(m_physAddrTex->getBuffer()->getPointer()) + dst_offset_lin;
                         for (uint32_t j = 0u; j < cpExtent.y; ++j)
@@ -425,11 +428,95 @@ public:
                             memcpy(dst + j*m_physAddrTex->getCreationParameters().extent.width*texelSz, src + j*reg.bufferRowLength*texelSz, cpExtent.x*texelSz);
                         }
                     }
+
+                    if (pageGotFilled)
+                    {
+                        core::vector2du32_SIMD sz(extent.width<<(_subres.baseMipLevel+i), extent.height<<(_subres.baseMipLevel+i));
+                        if (x==w-1u && sz.x>m_pgSzxy && !core::isPoT(sz.x))//page on right side not being filled to full
+                            sz.x &= (m_pgSzxy-1u);
+                        if (y==h-1u && sz.y>m_pgSzxy && !core::isPoT(sz.y))//page on top side not being filled to full
+                            sz.y &= (m_pgSzxy-1u);
+                        sz = core::min(sz, core::vector2du32_SIMD(m_pgSzxy));
+                        fillPaddingsAccordingToWrappingMode(physPg, sz, _wrapu, _wrapv);
+                    }
                 }
-            //TODO fill borders according to wrapping mode, but i think i'll wait for your IImageManipulator @devsh
         }
 
         return pgtOffset;
+    }
+
+    //! _extent is always page size or less in case of one of mip tail levels
+    void fillPaddingsAccordingToWrappingMode(const core::vector3du32_SIMD& _offset, const core::vector2du32_SIMD& _extent, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv)
+    {
+        auto wrap_clamp_to_edge = [](int32_t a, int32_t sz) {
+            return core::clamp(a, 0, sz-1);
+        };
+        auto wrap_clamp_to_border = [](int32_t a, int32_t sz) {
+            return core::clamp(a, -1, sz);
+        };
+        auto wrap_repeat = [](int32_t a, int32_t sz) {
+            return std::abs(a % sz);
+        };
+        auto wrap_mirror = [](int32_t a, int32_t sz) {
+            const int32_t b = a % (2*sz) - sz;
+            return std::abs( (sz-1) - (b>=0 ? b : -(b+1)) );
+        };
+        auto wrap_mirror_clamp_edge = [](int32_t a, int32_t sz) {
+            return core::clamp(a>=0 ? a : -(1+a), 0, sz-1);
+        };
+        using wrap_fn_t = int32_t(*)(int32_t,int32_t);
+        wrap_fn_t wrapfn[6]{
+            wrap_repeat,
+            wrap_clamp_to_edge,
+            wrap_clamp_to_border,
+            wrap_mirror,
+            wrap_mirror_clamp_edge,
+            nullptr
+        };
+        auto wrapAndStore = [&] (int32_t x, int32_t y, uint32_t texelSz) {
+            const int32_t u = wrapfn[_wrapu](x, _extent.x);
+            const int32_t v = wrapfn[_wrapv](y, _extent.y);
+            const uint8_t* src = physAddrTexelPtr(_offset+core::vector2du32_SIMD(u, v), texelSz);
+            uint8_t* dst = physAddrTexelPtr(_offset+core::vector2du32_SIMD(x, y), texelSz);
+            memcpy(dst, src, texelSz);
+        };
+
+        const uint32_t texelSz = getTexelOrBlockBytesize(m_physAddrTex->getCreationParameters().format);
+        const int32_t pad = m_tilePadding;
+
+        const int32_t ex = _extent.x;
+        const int32_t ey = _extent.y;
+        for (int32_t x = -pad; x < ex+pad; ++x)
+            for (int32_t y = ey; y < ey+pad; ++y)
+            {
+                wrapAndStore(x, y, texelSz);
+            }
+        for (int32_t x = ex; x < ex+pad; ++x)
+            for (int32_t y = 0; y < ey; ++y)
+            {
+                wrapAndStore(x, y, texelSz);
+            }
+        for (int32_t x = -pad; x < ex+pad; ++x)
+            for (int32_t y = -pad; y < 0; ++y)
+            {
+                wrapAndStore(x, y, texelSz);
+            }
+        for (int32_t x = -pad; x < 0; ++x)
+            for (int32_t y = 0; y < ey; ++y)
+            {
+                wrapAndStore(x, y, texelSz);
+            }
+    }
+
+    uint32_t physAddrTexelByteoffset(const core::vector3du32_SIMD& _offset, uint32_t _texelSz)
+    {
+        const uint32_t offset_lin = (m_physAddrTex->getCreationParameters().extent.width*m_physAddrTex->getCreationParameters().extent.height*_offset.z + _offset.y*m_physAddrTex->getCreationParameters().extent.width + _offset.x) * _texelSz;
+
+        return offset_lin;
+    }
+    uint8_t* physAddrTexelPtr(const core::vector3du32_SIMD& _offset, uint32_t _texelSz)
+    {
+        return reinterpret_cast<uint8_t*>(m_physAddrTex->getBuffer()->getPointer()) + physAddrTexelByteoffset(_offset, _texelSz);
     }
 
     ICPUImage* getPhysicalAddressTexture() { return m_physAddrTex.get(); }
