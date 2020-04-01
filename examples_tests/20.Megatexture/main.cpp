@@ -13,49 +13,29 @@
 using namespace irr;
 using namespace core;
 
-#include "irr/irrpack.h"
-struct STextureData
-{
-    uint16_t pgTab_x;
-    uint16_t pgTab_y;
-    uint16_t width;
-    uint16_t height;
-} PACK_STRUCT;
-#include "irr/irrunpack.h"
+using STextureData = asset::ITexturePacker::STextureData;
 
 STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePacker* _packer)
 {
     const auto& extent = _img->getCreationParameters().extent;
-
-    STextureData texData;
-    core::vector2df_SIMD szUnorm16(extent.width, extent.height);
-    szUnorm16 /= core::vector2df_SIMD(_packer->getPageTable()->getCreationParameters().extent.width);
-    szUnorm16 *= core::vector2df_SIMD(0xffffu);
-
-    texData.width = szUnorm16.x;
-    texData.height = szUnorm16.y;
 
     asset::IImage::SSubresourceRange subres;
     subres.baseMipLevel = 0u;
     subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(extent.width, extent.height))) + 1;
 
     auto pgTabCoords = _packer->pack(_img, subres, asset::ISampler::ETC_MIRROR, asset::ISampler::ETC_MIRROR);
-    assert(!(pgTabCoords==asset::ITexturePacker::page_tab_offset_invalid()).all());
-
-    core::vector2df_SIMD pgTabUnorm16(pgTabCoords.x, pgTabCoords.y);
-    pgTabUnorm16 /= core::vector2df_SIMD(_packer->getPageTable()->getCreationParameters().extent.width, _packer->getPageTable()->getCreationParameters().extent.height, 1.f, 1.f);
-    pgTabUnorm16 *= core::vector2df_SIMD(0xffffu);
-    texData.pgTab_x = pgTabUnorm16.x;
-    texData.pgTab_y = pgTabUnorm16.y;
-
-    return texData;
+    return _packer->offsetToTextureData(pgTabCoords, _img);
 }
 
 constexpr const char* GLSL_VT_TEXTURES = //also turns off set3 bindings (textures) because they're not needed anymore as we're using VT
 R"(
 #ifndef _NO_UV
-layout (set = 0, binding = 0) uniform usampler2D pgTabTex;
-layout (set = 0, binding = 1) uniform sampler2DArray physPgTex;
+layout (set = 0, binding = 0) uniform usampler2D pgTabTex[3];
+layout (set = 0, binding = 1) uniform sampler2DArray physPgTex[3];
+layout (set = 0, binding = 2) uniform TilePacking
+{//TODO create this UBO
+    uint offsets[]; //unorm16 uv offsets in phys addr texture space
+} tilePacking[3];
 #endif
 #define _IRR_FRAG_SET3_BINDINGS_DEFINED_
 )";
@@ -87,31 +67,41 @@ R"(
 
 #define TEXTURE_TILE_PER_DIMENSION 64
 #define PAGE_SZ 128
-#define PAGE_SZ_RECIPROCAL 0.0078125
+#define PAGE_SZ_LOG2 7
 #define TILE_PADDING 8
 
 vec3 unpackPageID(in uint pageID)
 {
 	vec2 uv = vec2(float(pageID & ADDR_X_MASK), float((pageID>>ADDR_Y_SHIFT) & ADDR_X_MASK))*(PAGE_SZ+TILE_PADDING) + TILE_PADDING;
-	uv /= vec2(textureSize(physPgTex.xy,0));
+	uv /= vec2(textureSize(physPgTex[1],0).xy);
 	return vec3(uv, float(pageID >> ADDR_LAYER_SHIFT));
 }
 
-#define PGTAB_SZ 128
-#define MAX_LOD 7
-vec4 vTextureGrad_helper(in vec2 virtualUV, int LoD, in mat2 gradients)
+vec4 vTextureGrad_helper(in vec2 virtualUV, int LoD, in mat2 gradients, in ivec2 originalTextureSz)
 {
-	int pgtabLoD = min(LoD,MAX_LOD); // assert(MAX_LOD<log2(PGTAB_SZ))
-	int tilesInLodLevel = textureSize(pgTabTex, pgtabLoD).x;
+    int clippedLoD = max(originalTextureSz.x,originalTextureSz.y)>>PAGE_SZ_LOG2;
+    int maxLoD = clippedLoD!=0 ? findMSB(clippedLoD):0;
+	int pgtabLoD = min(LoD,maxLoD);
+	int tilesInLodLevel = textureSize(pgTabTex[1], pgtabLoD).x;
 	ivec2 tileCoord = ivec2(virtualUV.xy*vec2(tilesInLodLevel));
-	uvec2 pageID = texelFetch(pgTabTex,tileCoord,pgtabLoD).rg;
-	vec3 physicalUV = unpackPageID(pgtabLoD<LoD ? pageID.y : pageID.x); // unpack to normalized coord offset + Layer in physical texture (just bit operations) and multiples
-	//TODO if (pgtabLoD<LoD) then we're going into mip-tail page! (extra offsets needed)
-	//TODO not sure about correctness of those 3 lines below, seems weird and i dont really understand
-	vec2 tileFractionalCoordinate = virtualUV.xy-vec2(tileCoord)/tilesInLodLevel;
-	tileFractionalCoordinate *= (PAGE_SZ/(PAGE_SZ+TILE_PADDING)); // take border into account
+	uvec2 pageID = texelFetch(pgTabTex[1],tileCoord,pgtabLoD).rg;
+    ivec2 originalMipSize = ivec2(originalTextureSz.x>>LoD,originalTextureSz.y>>LoD);//is there element-wise bitshift? like vec>>n?
+    int originalMipSize_maxDim = max(originalMipSize.x,originalMipSize.y);
+	vec3 physicalUV = unpackPageID(originalMipSize_maxDim<=(PAGE_SZ/2) ? pageID.y : pageID.x); // unpack to normalized coord offset + Layer in physical texture (just bit operations) and multiples
+    vec2 tileFractionalCoordinate = fract(virtualUV.xy*tilesInLodLevel);//i dont get this
+    if (originalMipSize_maxDim <= PAGE_SZ/2)
+    {
+        //@devsh please check this
+        int tmp = LoD-maxLoD;
+        vec2 subtileSz = vec2(float(PAGE_SZ>>tmp));
+        vec2 scale = vec2(originalMipSize)/subtileSz;
+        //i dont get this
+        tileFractionalCoordinate = tileFractionalCoordinate*scale + unpackUnorm2x16(tilePacking[1].offsets[tmp-1]); // mul by scale then offset
+    }
+    else //i dont get this
+        tileFractionalCoordinate = (tileFractionalCoordinate*float(PAGE_SZ)+vec2(TILE_PADDING))/float(PAGE_SZ+2*TILE_PADDING);
 	physicalUV.xy += tileFractionalCoordinate;
-	return textureGrad(physicalTileTexture,physicalUV,gradients);
+	return textureGrad(physicalTileTexture,physicalUV,gradients[0],gradients[1]);
 }
 
 float lengthSq(in vec2 v)
@@ -119,7 +109,7 @@ float lengthSq(in vec2 v)
   return dot(v,v);
 }
 // textureGrad emulation
-vec4 vTextureGrad(in vec2 virtualUV, mat2 dOriginalUV, in vec2 originalTextureSize)
+vec4 vTextureGrad(in vec2 virtualUV, in mat2 dOriginalUV, in vec2 originalTextureSize)
 {
   // returns what would have been `textureGrad(originalTexture,gOriginalUV[0],gOriginalUV[1])
   // https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap15.html#textures-normalized-operations
@@ -141,7 +131,8 @@ vec4 vTextureGrad(in vec2 virtualUV, mat2 dOriginalUV, in vec2 originalTextureSi
   dOriginalUV[1] = normalize(dOriginalUV[1])*(1.0/float(MEGA_TEXTURE_SIZE));
   dOriginalUV[xIsMajor ? 0:1] *= anisotropy;
 #endif
-  return mix(vTextureGrad_helper(virtualUV,LoD_high,dOriginalUV),vTextureGrad_helper(virtualUV,LoD_high+1,dOriginalUV),LoD-float(LoD_high));
+  ivec2 originalTexSz_i = ivec2(originalTextureSize);
+  return mix(vTextureGrad_helper(virtualUV,LoD_high,dOriginalUV,originalTexSz_i),vTextureGrad_helper(virtualUV,LoD_high+1,dOriginalUV,originalTexSz_i),LoD-float(LoD_high));
 }
 
 vec2 unpackVirtualUV(in uvec2 texData)
@@ -156,8 +147,8 @@ vec4 textureVT(in uvec2 _texData, in vec2 uv, in mat2 dUV)
 {
     vec2 scale = unpackSize(_texData);
     vec2 virtualUV = unpackVirtualUV(_texData);
-    virtualUV += scale*uv*PAGE_SZ_RECIPROCAL;
-    return vTextureGrad(virtualUV, dUV, vec2(textureSize(pgTabTex,0)));
+    virtualUV += scale*uv;
+    return vTextureGrad(virtualUV, dUV, scale*float(PAGE_SZ)*vec2(textureSize(pgTabTex[1],0)));
 }
 )";
 constexpr const char* GLSL_BSDF_COS_EVAL_OVERRIDE =
@@ -374,8 +365,8 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
     return fsNew;
 }
 
-constexpr uint32_t PAGETAB_SZ_LOG2 = 10u;
-constexpr uint32_t PAGETAB_MIP_LEVELS = 11u;
+constexpr uint32_t PAGETAB_SZ_LOG2 = 7u;
+constexpr uint32_t PAGETAB_MIP_LEVELS = 8u;
 constexpr uint32_t PAGE_SZ_LOG2 = 7u;
 constexpr uint32_t TILES_PER_DIM_LOG2 = 6u;
 constexpr uint32_t PHYS_ADDR_TEX_LAYERS = 3u;
