@@ -102,7 +102,7 @@ vec3 unpackPageID(in uint pageID)
 vec4 vTextureGrad_helper(in vec2 virtualUV, int LoD, in mat2 gradients)
 {
 	int pgtabLoD = min(LoD,MAX_LOD); // assert(MAX_LOD<log2(PGTAB_SZ))
-	int tilesInLodLevel = PGTAB_SZ>>LoD; textureSize(pgTabTex, pgtabLoD);
+	int tilesInLodLevel = textureSize(pgTabTex, pgtabLoD).x;
 	ivec2 tileCoord = ivec2(virtualUV.xy*vec2(tilesInLodLevel));
 	uvec2 pageID = texelFetch(pgTabTex,tileCoord,pgtabLoD).rg;
 	vec3 physicalUV = unpackPageID(pgtabLoD<LoD ? pageID.y : pageID.x); // unpack to normalized coord offset + Layer in physical texture (just bit operations) and multiples
