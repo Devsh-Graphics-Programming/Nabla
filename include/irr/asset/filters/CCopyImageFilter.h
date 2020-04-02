@@ -2,15 +2,14 @@
 // This file is part of the "IrrlichtBAW" engine.
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#ifndef __IRR_C_CONVERT_FORMAT_IMAGE_FILTER_H_INCLUDED__
-#define __IRR_C_CONVERT_FORMAT_IMAGE_FILTER_H_INCLUDED__
+#ifndef __IRR_C_COPY_IMAGE_FILTER_H_INCLUDED__
+#define __IRR_C_COPY_IMAGE_FILTER_H_INCLUDED__
 
 #include "irr/core/core.h"
 
 #include <type_traits>
 
 #include "irr/asset/filters/CMatchedSizeInOutImageFilterCommon.h"
-#include "irr/asset/format/convertColor.h"
 
 namespace irr
 {
@@ -18,16 +17,19 @@ namespace asset
 {
 
 // copy while converting format from input image to output image
-class CConvertFormatImageFilter : public CImageFilter<CConvertFormatImageFilter>, public CMatchedSizeInOutImageFilterCommon
+class CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public CMatchedSizeInOutImageFilterCommon
 {
 	public:
-		virtual ~CConvertFormatImageFilter() {}
+		virtual ~CCopyImageFilter() {}
 		
 		using state_type = CMatchedSizeInOutImageFilterCommon::state_type;
 
 		static inline bool validate(state_type* state)
 		{
-			return CMatchedSizeInOutImageFilterCommon::validate(state);
+			if (!CMatchedSizeInOutImageFilterCommon::validate(state))
+				return false;
+
+			return getFormatClass(state->inImage->getCreationParameters().format)==getFormatClass(state->outImage->getCreationParameters().format);
 		}
 
 		static inline bool execute(state_type* state)
@@ -39,19 +41,20 @@ class CConvertFormatImageFilter : public CImageFilter<CConvertFormatImageFilter>
 			auto* inImg = state->inImage;
 			const auto& inParams = inImg->getCreationParameters();
 			const auto& outParams = outImg->getCreationParameters();
-			const auto inFormat = inParams.format;
 			const auto outFormat = outParams.format;
+			const auto blockByteSize = getTexelOrBlockBytesize(outFormat);
+			assert(blockByteSize==getTexelOrBlockBytesize(inParams.format)); // if this asserts the API got broken during an update or something
+
 			const auto* inData = reinterpret_cast<const uint8_t*>(inImg->getBuffer()->getPointer());
 			auto* outData = reinterpret_cast<uint8_t*>(outImg->getBuffer()->getPointer());
 
 			const auto outRegions = outImg->getRegions(state->outMipLevel);
 			auto oit = outRegions.begin();
 			core::vectorSIMDu32 offsetDifference,outByteStrides;
-			auto convert = [&offsetDifference,&outByteStrides,&oit,inFormat,outFormat,inData,outData](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
+			auto copy = [&offsetDifference,&outByteStrides,&oit,inData,outData,blockByteSize](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 			{
 				auto localOutPos = readBlockPos+offsetDifference;
-				const void* sourcePixels[4] = {inData+readBlockArrayOffset,nullptr,nullptr,nullptr};
-				convertColor(inFormat,outFormat,sourcePixels,outData+oit->getByteOffset(localOutPos,outByteStrides),1u,core::vector3d<uint32_t>(1u,1u,1u));
+				memcpy(outData+oit->getByteOffset(localOutPos,outByteStrides),inData+readBlockArrayOffset,blockByteSize);
 			};
 			auto inRegions = inImg->getRegions(state->inMipLevel);
 			// iterate over output regions, then input cause read cache miss is faster

@@ -142,6 +142,7 @@ class CBasicImageFilterCommon
 		}
 };
 
+
 class CBasicInImageFilterCommon : public CBasicImageFilterCommon
 {
 	public:
@@ -170,6 +171,7 @@ class CBasicInImageFilterCommon : public CBasicImageFilterCommon
 	protected:
 		virtual ~CBasicInImageFilterCommon() = 0;
 };
+
 class CBasicOutImageFilterCommon : public CBasicImageFilterCommon
 {
 	public:
@@ -198,6 +200,7 @@ class CBasicOutImageFilterCommon : public CBasicImageFilterCommon
 	protected:
 		virtual ~CBasicOutImageFilterCommon() = 0;
 };
+
 class CBasicInOutImageFilterCommon : public CBasicImageFilterCommon
 {
 	public:
@@ -231,7 +234,6 @@ class CBasicInOutImageFilterCommon : public CBasicImageFilterCommon
 	protected:
 		virtual ~CBasicInOutImageFilterCommon() = 0;
 };
-// will probably need some per-pixel helper class/functions (that can run a templated functor per-pixel to reduce code clutter)
 
 } // end namespace asset
 } // end namespace irr

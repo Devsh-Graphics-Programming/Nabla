@@ -7,53 +7,12 @@
 
 #include "irr/core/core.h"
 
-#include "irr/asset/filters/CBasicImageFilterCommon.h"
+#include "irr/asset/filters/CCopyImageFilter.h"
 
 namespace irr
 {
 namespace asset
 {
-
-// remember about format classes
-class CCopyImageFilter : public CImageFilter<CCopyImageFilter>
-{
-	public:
-		virtual ~CCopyImageFilter() {}
-
-		class CState : public CBasicInOutImageFilterCommon::state_type
-		{
-			public:
-				virtual ~CState() {}
-		};
-		using state_type = CState;
-
-		static inline bool validate(CState* state)
-		{
-			if (!CBasicInOutImageFilterCommon::validate(state))
-				return false;
-
-			const auto& inCreationParams = state->inImage->getCreationParameters();
-			const auto& outCreationParams = state->outImage->getCreationParameters();
-
-			if (getTexelBlockSize(inCreationParams.format)!=getTexelBlockSize(outCreationParams))
-				return false;
-
-			if (getTexelBlockBytesize(inCreationParams.format)!=getTexelBlockBytesize(outCreationParams))
-				return false;
-
-			return true;
-		}
-
-		static inline bool execute(CState* state)
-		{
-			if (!validate(state))
-				return false;
-
-			// do the per-pixel copy
-
-			return true;
-		}
-};
 
 // remember about sampler wrap modes
 class CPaddedCopyImageFilter : public CCopyImageFilter
