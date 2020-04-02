@@ -192,13 +192,13 @@ bool performSavingAsIWriteFile(gli::texture& texture, irr::io::IWriteFile* file)
 
 	const auto fileName = std::string(file->getFileName().c_str());
 	std::vector<char> memory;
-	bool properlyStatus;
+	bool properlyStatus = false;
 
 	if (fileName.rfind(".dds") != std::string::npos)
 		properlyStatus = save_dds(texture, memory);
-	if (fileName.rfind(".kmg") != std::string::npos)
+	if (!properlyStatus && fileName.rfind(".kmg") != std::string::npos)
 		properlyStatus = save_kmg(texture, memory);
-	if (fileName.rfind(".ktx") != std::string::npos)
+	if (!properlyStatus && fileName.rfind(".ktx") != std::string::npos)
 		properlyStatus = save_ktx(texture, memory);
 
 	if (properlyStatus)
