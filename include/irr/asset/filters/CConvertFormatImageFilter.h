@@ -9,8 +9,7 @@
 
 #include <type_traits>
 
-#include "irr/asset/filters/CMatchedSizeInOutImageFilterCommon.h"
-#include "irr/asset/format/convertColor.h"
+#include "irr/asset/filters/CSwizzleAndConvertImageFilter.h"
 
 namespace irr
 {

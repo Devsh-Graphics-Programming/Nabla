@@ -7,7 +7,6 @@
 
 #include "vectorSIMD.h"
 #include "irr/core/core.h"
-#include "irr/asset/format/decodePixels.h"
 
 namespace irr
 {

@@ -9,8 +9,8 @@
 
 #include <type_traits>
 
-#include "irr/asset/ICPUImageView.h"
-#include "irr/asset/filters/CConvertFormatImageFilter.h"
+#include "irr/asset/filters/CMatchedSizeInOutImageFilterCommon.h"
+#include "irr/asset/format/convertColor.h"
 
 namespace irr
 {
@@ -18,34 +18,42 @@ namespace asset
 {
 
 // do a per-pixel recombination of image channels while converting
-class CSwizzleAndConvertImageFilter : public CConvertFormatImageFilter
+template<E_FORMAT inFormat=EF_UNKNOWN, E_FORMAT outFormat=EF_UNKNOWN, typename Swizzle=void>
+class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImageFilter<inFormat,outFormat,Swizzle>>, public CMatchedSizeInOutImageFilterCommon
 {
 	public:
 		virtual ~CSwizzleAndConvertImageFilter() {}
 
-		using state_type = CMatchedSizeInOutImageFilterCommon::state_type;
+		class CState : public CMatchedSizeInOutImageFilterCommon::state_type
+		{
+			public:
+		};
+		using state_type = CState;
+
+		static inline bool validate(state_type* state)
+		{
+			return CMatchedSizeInOutImageFilterCommon::validate(state);
+		}
 
 		static inline bool execute(state_type* state)
 		{			
+#if 0
 			auto perOutputRegion = [](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
-				enum FORMAT_META_TYPE
+				auto getMetaType = [](E_FORMAT format) -> impl::E_TYPE
 				{
-					FMT_FLOAT,
-					FMT_INT,
-					FMT_UINT
-				};
-				auto getMetaType = [](E_FORMAT format) -> FORMAT_META_TYPE
-				{
-					if (!isIntegerFormat(format))
-						return FMT_FLOAT;
-					else if (isSignedFormat(format))
-						return FMT_INT;
+					if (isIntegerFormat(format))
+					{
+						if (isSignedFormat(format))
+							return impl::ET_I64;
+						else
+							return impl::ET_U64;
+					}
 					else
-						return FMT_UINT;
+						return impl::ET_F64;
 				};
-				const FORMAT_META_TYPE inMetaType = getMetaType(commonExecuteData.inFormat);
-				const FORMAT_META_TYPE outMetaType = getMetaType(commonExecuteData.outFormat);
+				const impl::E_TYPE inMetaType = getMetaType(commonExecuteData.inFormat);
+				const impl::E_TYPE outMetaType = getMetaType(commonExecuteData.outFormat);
 
 				switch (outMetaType)
 				{
@@ -118,9 +126,13 @@ class CSwizzleAndConvertImageFilter : public CConvertFormatImageFilter
 				}
 			};
 			return commonExecute(state,perOutputRegion);
+#else
+			return false;
+#endif
 		}
 
 	private:
+#if 0
 		template<typename InType, typename OutType>
 		struct Swizzle
 		{
@@ -136,7 +148,6 @@ class CSwizzleAndConvertImageFilter : public CConvertFormatImageFilter
 
 					const void* pixels[MaxPlanes] = { commonExecuteData.inData+readBlockArrayOffset,nullptr,nullptr,nullptr };
 					InType inTmp[MaxChannels];
-#if 0
 					decodePixels(pixels,inTmp,,);
 
 					OutType outTmp[MaxChannels];
@@ -144,7 +155,6 @@ class CSwizzleAndConvertImageFilter : public CConvertFormatImageFilter
 						doSwizzle(outTmp[i],(&swizzle.r)[i]);
 					auto localOutPos = readBlockPos+offsetDifference;
 					encodePixels(outData+oit->getByteOffset(localOutPos, outByteStrides),outTmp);
-#endif
 					assert(false);
 				}
 
@@ -156,6 +166,7 @@ class CSwizzleAndConvertImageFilter : public CConvertFormatImageFilter
 					assert(false);
 				}
 		};
+#endif
 		/*
 				void* pixels[4] = {,nullptr,nullptr,nullptr};
 				auto doSwizzle = [&pixels](auto tmp[4]) -> void
