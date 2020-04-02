@@ -632,7 +632,7 @@ namespace asset
     inline void decodePixels<asset::EF_R16_USCALED, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
-		_output[0] = ((pix >> 0) & 0xffffULL);
+		_output[0] = static_cast<double>((pix >> 0) & 0xffffu);
     }
 
     template<>
