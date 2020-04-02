@@ -6,6 +6,8 @@
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
 #include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
+#include "../../include/irr/asset/IMeshManipulator.h"
+#include "../../src/irr/asset/CQuantNormalCache.h"
 
 //#include "../../ext/ScreenShot/ScreenShot.h"
 
@@ -45,12 +47,50 @@ int main()
 	auto* driver = device->getVideoDriver();
 	auto* smgr = device->getSceneManager();
     auto* am = device->getAssetManager();
+    //I know..
+    auto* mm = const_cast<asset::IMeshManipulator*>(am->getMeshManipulator());
+    auto* qnc = mm->getQuantNormalCache();
+
+    //loading cache from file
+    {
+        io::IReadFile* cacheFile = device->getFileSystem()->createAndOpenFile("../../tmp/normalCache101010_Sponza.sse");
+
+        if (cacheFile)
+        {
+            asset::SBufferRange<asset::ICPUBuffer> bufferRange;
+            bufferRange.offset = 0;
+            bufferRange.size = cacheFile->getSize();
+            bufferRange.buffer = core::smart_refctd_ptr<asset::ICPUBuffer>(new asset::ICPUBuffer(cacheFile->getSize()));
+
+            cacheFile->read(bufferRange.buffer->getPointer(), bufferRange.size);
+
+            qnc->loadNormalQuantCacheFromBuffer<asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(bufferRange, true);
+        }
+    }
+
 
     asset::IAssetLoader::SAssetLoadParams lp;
     auto meshes_bundle = am->getAsset("../../media/sponza/sponza.obj", lp);
     assert(!meshes_bundle.isEmpty());
     auto mesh = meshes_bundle.getContents().first[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
+
+    //saving cache to file
+    {
+        io::IWriteFile* cacheFile = device->getFileSystem()->createAndWriteFile("../../tmp/normalCache101010_Sponza.sse");
+
+        asset::SBufferBinding<asset::ICPUBuffer> bufferBinding;
+        bufferBinding.offset = 0;
+        bufferBinding.buffer = core::smart_refctd_ptr<asset::ICPUBuffer>(new asset::ICPUBuffer(qnc->getCacheSizeInBytes(asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10)));
+
+        qnc->saveCacheToBuffer(asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10, bufferBinding);
+
+        if (cacheFile != nullptr)
+        {
+            cacheFile->write(bufferBinding.buffer->getPointer(), bufferBinding.buffer->getSize());
+            cacheFile->drop();
+        }
+    }
 
     //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
     //so we can create just one DS
