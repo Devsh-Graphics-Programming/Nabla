@@ -369,7 +369,7 @@ namespace asset
 			return retval;
 		}
 
-		virtual CQuantNormalCache* const getQuantNormalCache() = 0;
+		virtual CQuantNormalCache* getQuantNormalCache() = 0;
 
     protected:
 };

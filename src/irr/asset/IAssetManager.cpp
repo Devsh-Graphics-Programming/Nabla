@@ -114,7 +114,7 @@ const IGeometryCreator* IAssetManager::getGeometryCreator() const
 	return m_geometryCreator.get();
 }
 
-const IMeshManipulator* IAssetManager::getMeshManipulator() const
+IMeshManipulator* IAssetManager::getMeshManipulator()
 {
     return m_meshManipulator.get();
 }

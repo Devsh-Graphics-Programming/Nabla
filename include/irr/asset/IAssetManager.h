@@ -148,7 +148,7 @@ class IAssetManager : public core::IReferenceCounted
 		inline io::IFileSystem* getFileSystem() const { return m_fileSystem.get(); }
 
         const IGeometryCreator* getGeometryCreator() const;
-        const IMeshManipulator* getMeshManipulator() const;
+        IMeshManipulator* getMeshManipulator();
         IGLSLCompiler* getGLSLCompiler() const { return m_glslCompiler.get(); }
 
     protected:

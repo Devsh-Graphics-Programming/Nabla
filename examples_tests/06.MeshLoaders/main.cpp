@@ -48,8 +48,7 @@ int main()
 	auto* smgr = device->getSceneManager();
     auto* am = device->getAssetManager();
     //I know..
-    auto* mm = const_cast<asset::IMeshManipulator*>(am->getMeshManipulator());
-    auto* qnc = mm->getQuantNormalCache();
+    auto* qnc = am->getMeshManipulator()->getQuantNormalCache();
 
     //loading cache from file
     {
