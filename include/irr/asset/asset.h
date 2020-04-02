@@ -24,6 +24,7 @@
 // filters
 #include "irr/asset/filters/CFillImageFilter.h"
 #include "irr/asset/filters/CCopyImageFilter.h"
+#include "irr/asset/filters/CPaddedCopyImageFilter.h"
 #include "irr/asset/filters/CConvertFormatImageFilter.h"
 #include "irr/asset/filters/CSwizzleAndConvertImageFilter.h"
 

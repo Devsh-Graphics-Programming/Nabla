@@ -54,6 +54,8 @@ class CBasicImageFilterCommon
 		{
 			clip_region_functor_t(const ICPUImage::SSubresourceLayers& _subresrouce, const IImageFilter::IState::TexelRange& _range, E_FORMAT format) : 
 				subresource(_subresrouce), range(_range), blockInfo(format), blockByteSize(getTexelOrBlockBytesize(format)) {}
+			clip_region_functor_t(const ICPUImage::SSubresourceLayers& _subresrouce, const IImageFilter::IState::TexelRange& _range, const IImage::SBufferCopy::TexelBlockInfo& _blockInfo, uint32_t _blockByteSize) :
+				subresource(_subresrouce), range(_range), blockInfo(_blockInfo), blockByteSize(_blockByteSize) {}
 
 			const ICPUImage::SSubresourceLayers&		subresource;
 			const IImageFilter::IState::TexelRange&		range;
