@@ -26,75 +26,46 @@ class CSwizzleAndConvertImageFilter : public CConvertFormatImageFilter
 		using state_type = CMatchedSizeInOutImageFilterCommon::state_type;
 
 		static inline bool execute(state_type* state)
-		{
-			if (!validate(state))
-				return false;
-
-			auto* outImg = state->outImage;
-			auto* inImg = state->inImage;
-			const auto& inParams = inImg->getCreationParameters();
-			const auto& outParams = outImg->getCreationParameters();
-			const auto inFormat = inParams.format;
-			const auto outFormat = outParams.format;
-
-			enum FORMAT_META_TYPE
+		{			
+			auto perOutputRegion = [](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
-				FMT_FLOAT,
-				FMT_INT,
-				FMT_UINT
-			};
-			auto getMetaType = [](E_FORMAT format) -> FORMAT_META_TYPE
-			{
-				if (!isIntegerFormat(format))
-					return FMT_FLOAT;
-				else if (isSignedFormat(format))
-					return FMT_INT;
-				else
-					return FMT_UINT;
-			};
-			const FORMAT_META_TYPE inMetaType = getMetaType(inFormat);
-			const FORMAT_META_TYPE outMetaType = getMetaType(outFormat);
-			
-			const auto* inData = reinterpret_cast<const uint8_t*>(inImg->getBuffer()->getPointer());
-			auto* outData = reinterpret_cast<uint8_t*>(outImg->getBuffer()->getPointer());
+				enum FORMAT_META_TYPE
+				{
+					FMT_FLOAT,
+					FMT_INT,
+					FMT_UINT
+				};
+				auto getMetaType = [](E_FORMAT format) -> FORMAT_META_TYPE
+				{
+					if (!isIntegerFormat(format))
+						return FMT_FLOAT;
+					else if (isSignedFormat(format))
+						return FMT_INT;
+					else
+						return FMT_UINT;
+				};
+				const FORMAT_META_TYPE inMetaType = getMetaType(commonExecuteData.inFormat);
+				const FORMAT_META_TYPE outMetaType = getMetaType(commonExecuteData.outFormat);
 
-			const auto outRegions = outImg->getRegions(state->outMipLevel);
-			auto oit = outRegions.begin();
-			core::vectorSIMDu32 offsetDifference,outByteStrides;
-
-			auto inRegions = inImg->getRegions(state->inMipLevel);
-			// iterate over output regions, then input cause read cache miss is faster
-			for (; oit!=outRegions.end(); oit++)
-			{
-				IImage::SSubresourceLayers subresource = {static_cast<IImage::E_ASPECT_FLAGS>(0u),state->inMipLevel,state->inBaseLayer,state->layerCount};
-				state_type::TexelRange range = {state->inOffset,state->extent};
-				CBasicImageFilterCommon::clip_region_functor_t clip(subresource,range,outFormat);
-				// setup convert state
-				// I know my two's complement wraparound well enough to make this work
-				offsetDifference = state->outOffsetBaseLayer-(core::vectorSIMDu32(oit->imageOffset.x,oit->imageOffset.y,oit->imageOffset.z,oit->imageSubresource.baseArrayLayer)+state->inOffsetBaseLayer);
-				outByteStrides = oit->getByteStrides(IImage::SBufferCopy::TexelBlockInfo(outFormat), getTexelOrBlockBytesize(outFormat));
 				switch (outMetaType)
 				{
 					case FMT_FLOAT:
 					{
-						switch (outMetaType)
+						switch (inMetaType)
 						{
 							case FMT_FLOAT:
 							{
-								Swizzle<double,double> swizzle();
-								CBasicImageFilterCommon::executePerRegion(inImg, swizzle, inRegions.begin(), inRegions.end(), clip);
+								Swizzle<double,double> swizzle(commonExecuteData,clip);
 								break;
 							}
 							case FMT_INT:
 							{
-								Swizzle<double,int64_t> swizzle();
-								CBasicImageFilterCommon::executePerRegion(inImg, swizzle, inRegions.begin(), inRegions.end(), clip);
+								Swizzle<double,int64_t> swizzle(commonExecuteData,clip);
 								break;
 							}
 							default:
 							{
-								Swizzle<double,uint64_t> swizzle();
-								CBasicImageFilterCommon::executePerRegion(inImg, swizzle, inRegions.begin(), inRegions.end(), clip);
+								Swizzle<double,uint64_t> swizzle(commonExecuteData,clip);
 								break;
 							}
 						}
@@ -102,71 +73,68 @@ class CSwizzleAndConvertImageFilter : public CConvertFormatImageFilter
 					}
 					case FMT_INT:
 					{
-						switch (outMetaType)
+						switch (inMetaType)
 						{
 							case FMT_FLOAT:
 							{
-								Swizzle<int64_t,double> swizzle();
-								CBasicImageFilterCommon::executePerRegion(inImg, swizzle, inRegions.begin(), inRegions.end(), clip);
+								Swizzle<int64_t,double> swizzle(commonExecuteData,clip);
 								break;
 							}
 							case FMT_INT:
 							{
-								Swizzle<int64_t,int64_t> swizzle();
-								CBasicImageFilterCommon::executePerRegion(inImg, swizzle, inRegions.begin(), inRegions.end(), clip);
+								Swizzle<int64_t,int64_t> swizzle(commonExecuteData,clip);
 								break;
 							}
 							default:
 							{
-								Swizzle<int64_t,uint64_t> swizzle();
-								CBasicImageFilterCommon::executePerRegion(inImg, swizzle, inRegions.begin(), inRegions.end(), clip);
+								Swizzle<int64_t,uint64_t> swizzle(commonExecuteData,clip);
 								break;
 							}
 						}
 						break;
-						break;
 					}
 					default:
 					{
-						switch (outMetaType)
+						switch (inMetaType)
 						{
 							case FMT_FLOAT:
 							{
-								Swizzle<uint64_t,double> swizzle();
-								CBasicImageFilterCommon::executePerRegion(inImg, swizzle, inRegions.begin(), inRegions.end(), clip);
+								Swizzle<uint64_t,double> swizzle(commonExecuteData,clip);
 								break;
 							}
 							case FMT_INT:
 							{
-								Swizzle<uint64_t,int64_t> swizzle();
-								CBasicImageFilterCommon::executePerRegion(inImg, swizzle, inRegions.begin(), inRegions.end(), clip);
+								Swizzle<uint64_t,int64_t> swizzle(commonExecuteData,clip);
 								break;
 							}
 							default:
 							{
-								Swizzle<uint64_t,uint64_t> swizzle();
-								CBasicImageFilterCommon::executePerRegion(inImg, swizzle, inRegions.begin(), inRegions.end(), clip);
+								Swizzle<uint64_t,uint64_t> swizzle(commonExecuteData,clip);
 								break;
 							}
 						}
 						break;
 					}
 				}
-			}
-
-			return true;
+			};
+			return commonExecute(state,perOutputRegion);
 		}
 
 	private:
 		template<typename InType, typename OutType>
 		struct Swizzle
 		{
+				Swizzle(const CommonExecuteData& _commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) : commonExecuteData(_commonExecuteData)
+				{
+					CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg,*this,commonExecuteData.inRegions.begin(),commonExecuteData.inRegions.end(),clip);
+				}
+
 				inline void operator()(uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
 				{
 					constexpr auto MaxPlanes = 4;
 					constexpr auto MaxChannels = 4;
 
-					const void* pixels[MaxPlanes] = { inData+readBlockArrayOffset,nullptr,nullptr,nullptr };
+					const void* pixels[MaxPlanes] = { commonExecuteData.inData+readBlockArrayOffset,nullptr,nullptr,nullptr };
 					InType inTmp[MaxChannels];
 #if 0
 					decodePixels(pixels,inTmp,,);
@@ -179,7 +147,10 @@ class CSwizzleAndConvertImageFilter : public CConvertFormatImageFilter
 #endif
 					assert(false);
 				}
+
 			private:
+				const CommonExecuteData& commonExecuteData;
+
 				static inline void doSwizzle(OutType& out, void* swizzle)
 				{
 					assert(false);

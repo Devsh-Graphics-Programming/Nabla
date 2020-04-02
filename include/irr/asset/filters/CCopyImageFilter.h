@@ -34,13 +34,13 @@ class CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public CMatchedS
 
 		static inline bool execute(state_type* state)
 		{
-			auto perOutputRegion = [](const auto& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
+			auto perOutputRegion = [](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
 				assert(getTexelOrBlockBytesize(commonExecuteData.inFormat)==getTexelOrBlockBytesize(commonExecuteData.outFormat)); // if this asserts the API got broken during an update or something
 				auto copy = [&commonExecuteData](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 				{
 					auto localOutPos = readBlockPos+commonExecuteData.offsetDifference;
-					memcpy(commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos,commonExecuteData.outByteStrides),commonExecuteData.inData+readBlockArrayOffset,commonExecuteData.blockByteSize);
+					memcpy(commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos,commonExecuteData.outByteStrides),commonExecuteData.inData+readBlockArrayOffset,commonExecuteData.outBlockByteSize);
 				};
 				CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg,copy,commonExecuteData.inRegions.begin(),commonExecuteData.inRegions.end(),clip);
 			};

@@ -80,39 +80,62 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 
 	protected:
 		virtual ~CMatchedSizeInOutImageFilterCommon() = 0;
-
+		
+		struct CommonExecuteData
+		{
+			const ICPUImage* const inImg;
+			ICPUImage* const outImg;
+			const ICPUImage::SCreationParams& inParams;
+			const ICPUImage::SCreationParams& outParams;
+			const E_FORMAT inFormat;
+			const E_FORMAT outFormat;
+			const uint32_t inBlockByteSize;
+			const uint32_t outBlockByteSize;
+			const uint8_t* const inData;
+			uint8_t* const outData;
+			const core::SRange<const IImage::SBufferCopy> inRegions;
+			const core::SRange<const IImage::SBufferCopy> outRegions;
+			const IImage::SBufferCopy* oit;
+			core::vectorSIMDu32 offsetDifference, outByteStrides;
+		};
 		template<typename PerOutputFunctor>
 		static inline bool commonExecute(state_type* state, PerOutputFunctor& perOutput)
 		{
 			if (!validate(state))
 				return false;
 
-			// I'm a lazy fuck and requiring that `PerOutputFunctor` be a generic lambda
-			struct CommonExecuteData
+			const auto* const inImg = state->inImage;
+			auto* const outImg = state->outImage;
+			const ICPUImage::SCreationParams& inParams = inImg->getCreationParameters();
+			const ICPUImage::SCreationParams& outParams = outImg->getCreationParameters();
+			const core::SRange<const IImage::SBufferCopy> outRegions = outImg->getRegions(state->outMipLevel);
+			CommonExecuteData commonExecuteData =
 			{
-				auto* const outImg = state->outImage;
-				auto* const inImg = state->inImage;
-				const auto& inParams = inImg->getCreationParameters();
-				const auto& outParams = outImg->getCreationParameters();
-				const auto inFormat = inParams.format;
-				const auto outFormat = outParams.format;
-				const auto* const inData = reinterpret_cast<const uint8_t*>(inImg->getBuffer()->getPointer());
-				auto* const outData = reinterpret_cast<uint8_t*>(outImg->getBuffer()->getPointer());
-				const auto inRegions = inImg->getRegions(state->inMipLevel);
-				const auto outRegions = outImg->getRegions(state->outMipLevel);
-				auto oit = outRegions.begin();
-				core::vectorSIMDu32 offsetDifference, outByteStrides;
-			} commonExecuteData;
+				inImg,
+				outImg,
+				inParams,
+				outParams,
+				inParams.format,
+				outParams.format,
+				getTexelOrBlockBytesize(inParams.format),
+				getTexelOrBlockBytesize(outParams.format),
+				reinterpret_cast<const uint8_t*>(inImg->getBuffer()->getPointer()),
+				reinterpret_cast<uint8_t*>(outImg->getBuffer()->getPointer()),
+				inImg->getRegions(state->inMipLevel),
+				outRegions,
+				outRegions.begin(), {}, {}
+			};
 
 			// iterate over output regions, then input cause read cache miss is faster
 			for (; commonExecuteData.oit!=commonExecuteData.outRegions.end(); commonExecuteData.oit++)
 			{
 				IImage::SSubresourceLayers subresource = {static_cast<IImage::E_ASPECT_FLAGS>(0u),state->inMipLevel,state->inBaseLayer,state->layerCount};
 				state_type::TexelRange range = {state->inOffset,state->extent};
-				CBasicImageFilterCommon::clip_region_functor_t clip(subresource,range,outFormat);
+				CBasicImageFilterCommon::clip_region_functor_t clip(subresource,range,commonExecuteData.outFormat);
 				// setup convert state
 				// I know my two's complement wraparound well enough to make this work
-				commonExecuteData.offsetDifference = state->outOffsetBaseLayer-(core::vectorSIMDu32(oit->imageOffset.x,oit->imageOffset.y,oit->imageOffset.z,oit->imageSubresource.baseArrayLayer)+state->inOffsetBaseLayer);
+				const auto& outRegionOffset = commonExecuteData.oit->imageOffset;
+				commonExecuteData.offsetDifference = state->outOffsetBaseLayer-(core::vectorSIMDu32(outRegionOffset.x,outRegionOffset.y,outRegionOffset.z,commonExecuteData.oit->imageSubresource.baseArrayLayer)+state->inOffsetBaseLayer);
 				commonExecuteData.outByteStrides = commonExecuteData.oit->getByteStrides(IImage::SBufferCopy::TexelBlockInfo(commonExecuteData.outFormat),getTexelOrBlockBytesize(commonExecuteData.outFormat));
 				if (!perOutput(commonExecuteData,clip))
 					return false;
