@@ -38,6 +38,14 @@ static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAsse
 
 SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
+	if (_params.meshManipulatorOverride == nullptr)
+	{
+		_IRR_DEBUG_BREAK_IF(true);
+		assert(false);
+	}
+
+	CQuantNormalCache* const quantNormalCache = _params.meshManipulatorOverride->getQuantNormalCache();
+
 	const size_t filesize = _file->getSize();
 	if (filesize < 6ull) // we need a header
 		return {};
@@ -162,7 +170,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 	for (size_t i = 0u; i < positions.size(); ++i)
 	{
 		if (i % 3 == 0)
-			normal = asset::quantizeNormal2_10_10_10(normals[i / 3]);
+			normal = quantNormalCache->quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(normals[i / 3]);
 		uint8_t* ptr = ((uint8_t*)(vertexBuf->getPointer())) + i * vtxSize;
 		memcpy(ptr, positions[i].pointer, 3 * 4);
 		((uint32_t*)(ptr + 12))[0] = normal;

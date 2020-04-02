@@ -26,6 +26,14 @@ struct SBufferBinding
 	core::smart_refctd_ptr<BufferType> buffer = nullptr;
 };
 
+template<typename BufferType>
+struct SBufferRange
+{
+	size_t offset = 0ull;
+	size_t size = 0ull;
+	core::smart_refctd_ptr<BufferType> buffer = nullptr;
+};
+
 }
 }
 

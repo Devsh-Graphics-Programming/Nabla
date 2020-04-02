@@ -12,7 +12,6 @@
 
 #include "os.h"
 #include "irr/asset/asset.h"
-#include "irr/asset/normal_quantization.h"
 #include "irr/asset/CMeshManipulator.h"
 #include "irr/asset/CSmoothNormalGenerator.h"
 #include "irr/asset/CForsythVertexCacheOptimizer.h"
@@ -22,13 +21,6 @@ namespace irr
 {
 namespace asset
 {
-
-// declared as extern in SVertexManipulator.h
-core::vector<QuantizationCacheEntry2_10_10_10> normalCacheFor2_10_10_10Quant;
-core::vector<QuantizationCacheEntry8_8_8> normalCacheFor8_8_8Quant;
-core::vector<QuantizationCacheEntry16_16_16> normalCacheFor16_16_16Quant;
-core::vector<QuantizationCacheEntryHalfFloat> normalCacheForHalfFloatQuant;
-
 
 //! Flips the direction of surfaces. Changes backfacing triangles to frontfacing
 //! triangles and vice versa.
@@ -1008,7 +1000,7 @@ void CMeshManipulator::_filterInvalidTriangles(ICPUMeshBuffer* _input)
 template void CMeshManipulator::_filterInvalidTriangles<uint16_t>(ICPUMeshBuffer* _input);
 template void CMeshManipulator::_filterInvalidTriangles<uint32_t>(ICPUMeshBuffer* _input);
 
-core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric)
+core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric, CQuantNormalCache& _cache)
 {
 	if (!_meshbuffer->getPipeline())
         return {};
@@ -1050,7 +1042,7 @@ core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_FORMAT* _o
 
 	for (const SAttribTypeChoice& t : possibleTypes)
 	{
-		if (calcMaxQuantizationError({ thisType }, t, attribs, _errMetric))
+		if (calcMaxQuantizationError({ thisType }, t, attribs, _errMetric, _cache))
 		{
             if (getTexelOrBlockBytesize(t.type) < getTexelOrBlockBytesize(thisType))
             {
@@ -1460,11 +1452,11 @@ core::vector<CMeshManipulator::SAttribTypeChoice> CMeshManipulator::findTypesOfP
 	return possibleTypes;
 }
 
-bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const core::vector<core::vectorSIMDf>& _srcData, const SErrorMetric& _errMetric)
+bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const core::vector<core::vectorSIMDf>& _srcData, const SErrorMetric& _errMetric, CQuantNormalCache& _cache)
 {
     using namespace video;
 
-	using QuantF_t = core::vectorSIMDf(*)(const core::vectorSIMDf&, E_FORMAT, E_FORMAT);
+	using QuantF_t = core::vectorSIMDf(*)(const core::vectorSIMDf&, E_FORMAT, E_FORMAT, CQuantNormalCache & _cache);
 
 	QuantF_t quantFunc = nullptr;
 
@@ -1476,9 +1468,9 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
         case EF_R8G8_SNORM:
         case EF_R8G8B8_SNORM:
         case EF_R8G8B8A8_SNORM:
-			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT) -> core::vectorSIMDf {
+			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT, CQuantNormalCache& _cache) -> core::vectorSIMDf {
 				uint8_t buf[32];
-				((uint32_t*)buf)[0] = quantizeNormal888(_in);
+				((uint32_t*)buf)[0] = _cache.quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_8_8_8>(_in);
 
 				core::vectorSIMDf retval;
 				ICPUMeshBuffer::getAttribute(retval, buf, EF_R8G8B8A8_SNORM);
@@ -1488,9 +1480,9 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 			break;
 		case EF_A2R10G10B10_SNORM_PACK32:
 		case EF_A2B10G10R10_SNORM_PACK32: // bgra
-			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT) -> core::vectorSIMDf {
+			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT, CQuantNormalCache& _cache) -> core::vectorSIMDf {
 				uint8_t buf[32];
-				((uint32_t*)buf)[0] = quantizeNormal2_10_10_10(_in);
+				((uint32_t*)buf)[0] = _cache.quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(_in);
 
 				core::vectorSIMDf retval;
 				ICPUMeshBuffer::getAttribute(retval, buf, EF_A2R10G10B10_SNORM_PACK32);
@@ -1502,26 +1494,12 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
         case EF_R16G16_SNORM:
         case EF_R16G16B16_SNORM:
         case EF_R16G16B16A16_SNORM:
-			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT) -> core::vectorSIMDf {
+			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT, CQuantNormalCache& _cache) -> core::vectorSIMDf {
 				uint8_t buf[32];
-				((uint64_t*)buf)[0] = quantizeNormal16_16_16(_in);
+				((uint64_t*)buf)[0] = _cache.quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_16_16_16>(_in);
 
 				core::vectorSIMDf retval;
 				ICPUMeshBuffer::getAttribute(retval, buf, EF_R16G16B16A16_SNORM);
-				retval.w = 1.f;
-				return retval;
-			};
-			break;
-        case EF_R16_SFLOAT:
-        case EF_R16G16_SFLOAT:
-        case EF_R16G16B16_SFLOAT:
-        case EF_R16G16B16A16_SFLOAT:
-			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT) -> core::vectorSIMDf {
-				uint8_t buf[32];
-				((uint64_t*)buf)[0] = quantizeNormalHalfFloat(_in);
-
-				core::vectorSIMDf retval;
-				ICPUMeshBuffer::getAttribute(retval, buf, EF_R16G16B16A16_SFLOAT);
 				retval.w = 1.f;
 				return retval;
 			};
@@ -1533,7 +1511,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	}
 	else
 	{
-		quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT _inType, E_FORMAT _outType) -> core::vectorSIMDf {
+		quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT _inType, E_FORMAT _outType, CQuantNormalCache& _cache) -> core::vectorSIMDf {
 			uint8_t buf[32];
 			ICPUMeshBuffer::setAttribute(_in, buf, _outType);
 			core::vectorSIMDf out(0.f, 0.f, 0.f, 1.f);
@@ -1548,7 +1526,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 
 	for (const core::vectorSIMDf& d : _srcData)
 	{
-		const core::vectorSIMDf quantized = quantFunc(d, _srcType.type, _dstType.type);
+		const core::vectorSIMDf quantized = quantFunc(d, _srcType.type, _dstType.type, _cache);
         if (!compareFloatingPointAttribute(d, quantized, getFormatChannelCount(_srcType.type), _errMetric))
             return false;
 	}

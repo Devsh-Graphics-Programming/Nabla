@@ -7,6 +7,7 @@
 
 #include "irr/core/core.h"
 #include "irr/asset/ICPUMesh.h"
+#include "irr/asset/IMeshManipulator.h"
 #include "SColor.h"
 
 namespace irr
@@ -57,7 +58,7 @@ class IGeometryCreator : public core::IReferenceCounted
 				const uint32_t tesselationCone = 8, const float height = 1.f,
 				const float cylinderHeight = 0.6f, const float widthCylinder = 0.05f,
 				const float widthCone = 0.3f, const video::SColor colorCylinder = 0xFFFFFFFF,
-				const video::SColor colorCone = 0xFFFFFFFF) const =0;
+				const video::SColor colorCone = 0xFFFFFFFF, IMeshManipulator* const meshManipulatorOverride = nullptr) const =0;
 
 
 		//! Create a sphere mesh.
@@ -68,7 +69,7 @@ class IGeometryCreator : public core::IReferenceCounted
 		\return Generated mesh.
 		*/
 		virtual return_type createSphereMesh(float radius = 5.f,
-				uint32_t polyCountX = 16, uint32_t polyCountY = 16) const =0;
+				uint32_t polyCountX = 16, uint32_t polyCountY = 16, IMeshManipulator* const meshManipulatorOverride = nullptr) const =0;
 
 		//! Create a cylinder mesh.
 		/**
@@ -82,7 +83,7 @@ class IGeometryCreator : public core::IReferenceCounted
 		*/
 		virtual return_type createCylinderMesh(float radius, float length,
 				uint32_t tesselation,
-				const video::SColor& color=video::SColor(0xffffffff)) const =0;
+				const video::SColor& color=video::SColor(0xffffffff), IMeshManipulator* const meshManipulatorOverride = nullptr) const =0;
 
 		//! Create a cone mesh.
 		/**
@@ -97,7 +98,7 @@ class IGeometryCreator : public core::IReferenceCounted
 		virtual return_type createConeMesh(float radius, float length, uint32_t tesselation,
 				const video::SColor& colorTop=video::SColor(0xffffffff),
 				const video::SColor& colorBottom=video::SColor(0xffffffff),
-				float oblique=0.f) const =0;
+				float oblique=0.f, IMeshManipulator* const meshManipulatorOverride = nullptr) const =0;
 
 		virtual return_type createRectangleMesh(const core::vector2df_SIMD& size = core::vector2df_SIMD(0.5f, 0.5f)) const = 0;
 

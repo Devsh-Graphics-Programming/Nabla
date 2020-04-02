@@ -8,13 +8,22 @@
 #include <iomanip>
 #include <cmath>
 #include "irr/asset/CGeometryCreator.h"
-#include "irr/asset/normal_quantization.h"
 #include "irr/asset/CCPUMesh.h"
 
 namespace irr
 {
 namespace asset
 {
+
+CGeometryCreator::CGeometryCreator(IMeshManipulator* const _defaultMeshManipulator) 
+	: defaultMeshManipulator(_defaultMeshManipulator)
+{
+	if (defaultMeshManipulator == nullptr)
+	{
+		_IRR_DEBUG_BREAK_IF(true);
+		assert(false);
+	}
+}
 
 CGeometryCreator::return_type CGeometryCreator::createCubeMesh(const core::vector3df& size) const
 {
@@ -151,7 +160,8 @@ CGeometryCreator::return_type CGeometryCreator::createArrowMesh(const uint32_t t
 																const float width0,
 																const float width1,
 																const video::SColor vtxColor0,
-																const video::SColor vtxColor1) const
+																const video::SColor vtxColor1,
+																IMeshManipulator* const meshManipulatorOverride) const
 {
     assert(height > cylinderHeight);
 
@@ -237,11 +247,12 @@ CGeometryCreator::return_type CGeometryCreator::createArrowMesh(const uint32_t t
 }
 
 /* A sphere with proper normals and texture coords */
-CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, uint32_t polyCountX, uint32_t polyCountY) const
+CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, uint32_t polyCountX, uint32_t polyCountY, IMeshManipulator* const meshManipulatorOverride) const
 {
 	// we are creating the sphere mesh here.
 	return_type retval;
 	constexpr size_t vertexSize = sizeof(CGeometryCreator::SphereVertex);
+	CQuantNormalCache* const quantNormalCache = (meshManipulatorOverride == nullptr) ? defaultMeshManipulator->getQuantNormalCache() : meshManipulatorOverride->getQuantNormalCache();
 	retval.inputParams = { 0b1111u,0b1u,{
 											{0u,EF_R32G32B32_SFLOAT,offsetof(SphereVertex,pos)},
 											{0u,EF_R8G8B8A8_UNORM,offsetof(SphereVertex,color)},
@@ -365,7 +376,7 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 				// for spheres the normal is the position
 				core::vectorSIMDf normal(&pos.X);
 				normal.makeSafe3D();
-				uint32_t quantizedNormal = quantizeNormal2_10_10_10(normal);
+				uint32_t quantizedNormal = quantNormalCache->quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(normal);
 				pos *= radius;
 
 				// calculate texture coordinates via sphere mapping
@@ -408,7 +419,7 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 		((float*)tmpMemPtr)[2] = 0.f;
 		((float*)tmpMemPtr)[4] = 0.5f;
 		((float*)tmpMemPtr)[5] = 0.f;
-		((uint32_t*)tmpMemPtr)[6] = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, 1.f, 0.f));
+		((uint32_t*)tmpMemPtr)[6] = quantNormalCache->quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(core::vectorSIMDf(0.f, 1.f, 0.f));
 
 		// the vertex at the bottom of the sphere
 		tmpMemPtr += vertexSize;
@@ -417,7 +428,7 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 		((float*)tmpMemPtr)[2] = 0.f;
 		((float*)tmpMemPtr)[4] = 0.5f;
 		((float*)tmpMemPtr)[5] = 1.f;
-		((uint32_t*)tmpMemPtr)[6] = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, -1.f, 0.f));
+		((uint32_t*)tmpMemPtr)[6] = quantNormalCache->quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(core::vectorSIMDf(0.f, -1.f, 0.f));
 
 		// recalculate bounding box
 		core::aabbox3df BoundingBox;
@@ -435,10 +446,11 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 
 /* A cylinder with proper normals and texture coords */
 CGeometryCreator::return_type CGeometryCreator::createCylinderMesh(float radius, float length,
-			uint32_t tesselation, const video::SColor& color) const
+			uint32_t tesselation, const video::SColor& color, IMeshManipulator* const meshManipulatorOverride) const
 {
 	return_type retval;
 	constexpr size_t vertexSize = sizeof(CGeometryCreator::CylinderVertex);
+	CQuantNormalCache* const quantNormalCache = (meshManipulatorOverride == nullptr) ? defaultMeshManipulator->getQuantNormalCache() : meshManipulatorOverride->getQuantNormalCache();
 	retval.inputParams = { 0b1111u,0b1u,{
 											{0u,EF_R32G32B32_SFLOAT,offsetof(CylinderVertex,pos)},
 											{0u,EF_R8G8B8A8_UNORM,offsetof(CylinderVertex,color)},
@@ -463,7 +475,7 @@ CGeometryCreator::return_type CGeometryCreator::createCylinderMesh(float radius,
     {
         core::vectorSIMDf p(std::cos(i*step), std::sin(i*step), 0.f);
         p *= radius;
-        const uint32_t n = quantizeNormal2_10_10_10(core::normalize(p));
+        const uint32_t n = quantNormalCache->quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(core::normalize(p));
 
         memcpy(vertices[i].pos, p.pointer, 12u);
         vertices[i].normal = n;
@@ -503,29 +515,31 @@ CGeometryCreator::return_type CGeometryCreator::createCylinderMesh(float radius,
 CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, float length, uint32_t tesselation,
 																const video::SColor& colorTop,
 																const video::SColor& colorBottom,
-																float oblique) const
+																float oblique,
+																IMeshManipulator* const meshManipulatorOverride) const
 {
     const size_t vtxCnt = tesselation+2u;
     auto vtxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxCnt * sizeof(ConeVertex));
     ConeVertex* vertices = reinterpret_cast<ConeVertex*>(vtxBuf->getPointer());
     std::fill(vertices, vertices + vtxCnt, ConeVertex(core::vectorSIMDf(0.f), 0u, colorBottom));
+	CQuantNormalCache* const quantNormalCache = (meshManipulatorOverride == nullptr) ? defaultMeshManipulator->getQuantNormalCache() : meshManipulatorOverride->getQuantNormalCache();
 
     const float step = (2.f*core::PI<float>()) / tesselation;
     for (uint32_t i = 2u; i < vtxCnt; ++i)
     {
         const core::vectorSIMDf p(std::cos(i*step), 0.f, std::sin(i*step), 0.f);
         memcpy(vertices[i].pos, (p*radius).pointer, 12u);
-        vertices[i].normal = quantizeNormal2_10_10_10(core::normalize(p));
+        vertices[i].normal = quantNormalCache->quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(core::normalize(p));
     }
     const uint32_t peakIx = 0u;
     const uint32_t bottomCenterIx = 1u;
 
     const core::vectorSIMDf p(oblique, length, 0.f, 0.f);
     memcpy(vertices[peakIx].pos, p.pointer, 12u);
-    vertices[peakIx].normal = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, 1.f, 0.f, 0.f));
+    vertices[peakIx].normal = quantNormalCache->quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(core::vectorSIMDf(0.f, 1.f, 0.f, 0.f));
     colorTop.toOpenGLColor(vertices[peakIx].color);
     memset(vertices[bottomCenterIx].pos, 0, 12u);
-    vertices[bottomCenterIx].normal = quantizeNormal2_10_10_10(core::vectorSIMDf(0.f, -1.f, 0.f, 0.f));
+    vertices[bottomCenterIx].normal = quantNormalCache->quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(core::vectorSIMDf(0.f, -1.f, 0.f, 0.f));
 
     auto idxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(2u*3u*tesselation*sizeof(uint16_t));
     uint16_t* indices = (uint16_t*)idxBuf->getPointer();

@@ -104,8 +104,8 @@ std::function<void(SAssetBundle&)> irr::asset::makeAssetDisposeFunc(const IAsset
 
 void IAssetManager::initializeMeshTools()
 {
-    m_geometryCreator = core::make_smart_refctd_ptr<CGeometryCreator>();
     m_meshManipulator = core::make_smart_refctd_ptr<CMeshManipulator>();
+    m_geometryCreator = core::make_smart_refctd_ptr<CGeometryCreator>(m_meshManipulator.get());
     m_glslCompiler = core::make_smart_refctd_ptr<IGLSLCompiler>(m_fileSystem.get());
 }
 
@@ -114,7 +114,7 @@ const IGeometryCreator* IAssetManager::getGeometryCreator() const
 	return m_geometryCreator.get();
 }
 
-const IMeshManipulator* IAssetManager::getMeshManipulator() const
+IMeshManipulator* IAssetManager::getMeshManipulator()
 {
     return m_meshManipulator.get();
 }
