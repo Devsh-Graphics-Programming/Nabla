@@ -80,6 +80,46 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 
 	protected:
 		virtual ~CMatchedSizeInOutImageFilterCommon() = 0;
+
+		template<typename PerOutputFunctor>
+		static inline bool commonExecute(state_type* state, PerOutputFunctor& perOutput)
+		{
+			if (!validate(state))
+				return false;
+
+			// I'm a lazy fuck and requiring that `PerOutputFunctor` be a generic lambda
+			struct CommonExecuteData
+			{
+				auto* const outImg = state->outImage;
+				auto* const inImg = state->inImage;
+				const auto& inParams = inImg->getCreationParameters();
+				const auto& outParams = outImg->getCreationParameters();
+				const auto inFormat = inParams.format;
+				const auto outFormat = outParams.format;
+				const auto* const inData = reinterpret_cast<const uint8_t*>(inImg->getBuffer()->getPointer());
+				auto* const outData = reinterpret_cast<uint8_t*>(outImg->getBuffer()->getPointer());
+				const auto inRegions = inImg->getRegions(state->inMipLevel);
+				const auto outRegions = outImg->getRegions(state->outMipLevel);
+				auto oit = outRegions.begin();
+				core::vectorSIMDu32 offsetDifference, outByteStrides;
+			} commonExecuteData;
+
+			// iterate over output regions, then input cause read cache miss is faster
+			for (; commonExecuteData.oit!=commonExecuteData.outRegions.end(); commonExecuteData.oit++)
+			{
+				IImage::SSubresourceLayers subresource = {static_cast<IImage::E_ASPECT_FLAGS>(0u),state->inMipLevel,state->inBaseLayer,state->layerCount};
+				state_type::TexelRange range = {state->inOffset,state->extent};
+				CBasicImageFilterCommon::clip_region_functor_t clip(subresource,range,outFormat);
+				// setup convert state
+				// I know my two's complement wraparound well enough to make this work
+				commonExecuteData.offsetDifference = state->outOffsetBaseLayer-(core::vectorSIMDu32(oit->imageOffset.x,oit->imageOffset.y,oit->imageOffset.z,oit->imageSubresource.baseArrayLayer)+state->inOffsetBaseLayer);
+				commonExecuteData.outByteStrides = commonExecuteData.oit->getByteStrides(IImage::SBufferCopy::TexelBlockInfo(commonExecuteData.outFormat),getTexelOrBlockBytesize(commonExecuteData.outFormat));
+				if (!perOutput(commonExecuteData,clip))
+					return false;
+			}
+
+			return true;
+		}
 };
 
 } // end namespace asset

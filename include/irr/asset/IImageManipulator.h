@@ -44,16 +44,6 @@ auto view = core::make_smart_refctd_ptr<ICPUImageView>(std::move(viewParams));	C
 auto pgtabView = ICPUImageView::create(std::move(params));	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\ext\MitsubaLoader\CMitsubaLoader.cpp	1614	20
 auto physPgTexView = ICPUImageView::create(std::move(params));	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\ext\MitsubaLoader\CMitsubaLoader.cpp	1634	24
 
-auto dummy2dImgView = core::make_smart_refctd_ptr<asset::ICPUImageView>(std::move(info));	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\src\irr\asset\IAssetManager.cpp	396	66
-
-
-ITexturePacker.h	231	                 reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer()) + m_pageTable->getRegions().begin()[i].bufferOffset 	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\include\irr\asset
-ITexturePacker.h	233	             const uint32_t pgtPitch = m_pageTable->getRegions().begin()[i].bufferRowLength; 	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\include\irr\asset
-ITexturePacker.h	283	                 reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer()) + m_pageTable->getRegions().begin()[i].bufferOffset 	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\include\irr\asset
-ITexturePacker.h	285	             const uint32_t pgtPitch = m_pageTable->getRegions().begin()[i].bufferRowLength; 	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\include\irr\asset
-ITexturePacker.h	286	             const uint32_t pgtH = m_pageTable->getRegions().begin()[i].imageExtent.height; 	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\include\irr\asset
-ITexturePacker.h	322	                     for (const auto& reg : _img->getRegions()) 	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\include\irr\asset
-
 SRC:
 
 CGraphicsPipelineLoaderMTL.cpp	964	         const size_t alignment = 1u<<core::findLSB(images[CMTLPipelineMetadata::EMP_REFL_POSX]->getRegions().begin()->bufferRowLength); 	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\src\irr\asset
