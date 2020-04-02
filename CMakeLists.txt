@@ -230,6 +230,8 @@ execute_process(COMMAND git submodule sync --recursive
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
+OPTION(IRR_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
+
 add_subdirectory(source/Irrlicht) # Irrlicht code
 
 if(IRR_BUILD_TOOLS)
@@ -246,7 +248,6 @@ if(IRR_BUILD_DOCS)
 	add_subdirectory(docs)
 endif()
 
-OPTION(IRR_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 if(IRR_EMBED_BUILTIN_RESOURCES)
 	add_subdirectory(src/irr/builtin)
 endif()

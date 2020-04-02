@@ -7,7 +7,9 @@
 
 #include "irr/core/IReferenceCounted.h"
 #include "IFileArchive.h"
-
+#include "irr/asset/ICPUBuffer.h"
+#include "irr/core/core.h"
+#include "builtinResources.h"
 namespace irr
 {
 namespace video
@@ -238,6 +240,25 @@ public:
 	/** \param filename is the string identifying the file which should be tested for existence.
 	\return True if file exists, and false if it does not exist or an error occured. */
 	virtual bool existFile(const path& filename) const =0;
+
+
+	template<typename StringUniqueType>
+	inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData()
+	{
+#ifdef _IRR_EMBED_BUILTIN_RESOURCES_
+		std::pair<const uint8_t*, size_t> found = irr::builtin::get_resource<StringUniqueType>();
+		if (found.first && found.second)
+			return core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t> > >(found->second, found->first, core::adopt_memory);
+		return nullptr;
+#endif
+
+		auto file = this->createAndOpenFile(("../../../include/" + StringUniqueType::value).c_str());
+		auto retval = core::make_smart_refctd_ptr<asset::ICPUBuffer>(file->getSize(), nullptr);
+		file->read(retval->getPointer(), file->getSize());
+		file->drop();
+
+		return retval;
+	}
 
 
 
