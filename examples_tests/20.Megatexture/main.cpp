@@ -34,7 +34,7 @@ layout (set = 0, binding = 0) uniform usampler2D pgTabTex[3];
 layout (set = 0, binding = 1) uniform sampler2DArray physPgTex[3];
 layout (set = 0, binding = 2) uniform TilePacking
 {//TODO create this UBO
-    uint offsets[]; //unorm16 uv offsets in phys addr texture space
+    uint offsets[9]; //unorm16 uv offsets in phys addr texture space
 } tilePacking[3];
 #endif
 #define _IRR_FRAG_SET3_BINDINGS_DEFINED_
@@ -72,9 +72,10 @@ R"(
 
 vec3 unpackPageID(in uint pageID)
 {
-	vec2 uv = vec2(float(pageID & ADDR_X_MASK), float((pageID>>ADDR_Y_SHIFT) & ADDR_X_MASK))*(PAGE_SZ+TILE_PADDING) + TILE_PADDING;
-	uv /= vec2(textureSize(physPgTex[1],0).xy);
-	return vec3(uv, float(pageID >> ADDR_LAYER_SHIFT));
+	//vec2 uv = vec2(float(pageID & ADDR_X_MASK), float((pageID>>ADDR_Y_SHIFT) & ADDR_X_MASK))*(PAGE_SZ+2*TILE_PADDING) + TILE_PADDING;
+	//uv /= vec2(textureSize(physPgTex[1],0).xy);
+	//return vec3(uv, float(pageID >> ADDR_LAYER_SHIFT));
+    return vec3(vec2(TILE_PADDING)/vec2(textureSize(physPgTex[1],0).xy), 0.0);
 }
 
 vec4 vTextureGrad_helper(in vec2 virtualUV, int LoD, in mat2 gradients, in ivec2 originalTextureSz)
@@ -101,7 +102,7 @@ vec4 vTextureGrad_helper(in vec2 virtualUV, int LoD, in mat2 gradients, in ivec2
     else //i dont get this
         tileFractionalCoordinate = (tileFractionalCoordinate*float(PAGE_SZ)+vec2(TILE_PADDING))/float(PAGE_SZ+2*TILE_PADDING);
 	physicalUV.xy += tileFractionalCoordinate;
-	return textureGrad(physicalTileTexture,physicalUV,gradients[0],gradients[1]);
+	return textureGrad(physPgTex[1],physicalUV,gradients[0],gradients[1]);
 }
 
 float lengthSq(in vec2 v)
@@ -132,7 +133,8 @@ vec4 vTextureGrad(in vec2 virtualUV, in mat2 dOriginalUV, in vec2 originalTextur
   dOriginalUV[xIsMajor ? 0:1] *= anisotropy;
 #endif
   ivec2 originalTexSz_i = ivec2(originalTextureSize);
-  return mix(vTextureGrad_helper(virtualUV,LoD_high,dOriginalUV,originalTexSz_i),vTextureGrad_helper(virtualUV,LoD_high+1,dOriginalUV,originalTexSz_i),LoD-float(LoD_high));
+  //return mix(vTextureGrad_helper(virtualUV,LoD_high,dOriginalUV,originalTexSz_i),vTextureGrad_helper(virtualUV,LoD_high+1,dOriginalUV,originalTexSz_i),LoD-float(LoD_high));
+    return vTextureGrad_helper(virtualUV,0,dOriginalUV,originalTexSz_i);//testing purposes, until mips are present in physical tex pages
 }
 
 vec2 unpackVirtualUV(in uvec2 texData)
@@ -180,7 +182,7 @@ vec3 irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
 #endif
         Ns = PC.Ns;
 
-    vec3 Ni = vec3(PC.params.Ni);
+    vec3 Ni = vec3(PC.Ni);
 
     vec3 diff = irr_glsl_lambertian_cos_eval(params) * Kd * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotL)) * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotV));
     diff *= irr_glsl_diffuseFresnelCorrectionFactor(Ni, Ni*Ni);
@@ -267,7 +269,7 @@ vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in
 
     out_interaction = params.interaction;
 #define Intensity 1000.0
-    return Intensity*params.invlenL2*irr_bsdf_cos_eval(params) + Ka;
+    return Intensity*params.invlenL2*irr_bsdf_cos_eval(params,dUV) + Ka;
 #undef Intensity
 }
 #define _IRR_COMPUTE_LIGHTING_DEFINED_
@@ -300,7 +302,7 @@ void main()
 #ifndef _NO_UV
         if ((PC.extra&(map_d_MASK)) == (map_d_MASK))
         {
-            d = textureVT(map_d, UV, dUV).r;
+            d = textureVT(PC.map_d_data, UV, dUV).r;
             color *= d;
         }
 #endif
@@ -357,6 +359,10 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
     glsl.insert(glsl.find("#ifndef _IRR_BSDF_COS_EVAL_DEFINED_"), GLSL_BSDF_COS_EVAL_OVERRIDE);
     glsl.insert(glsl.find("#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_"), GLSL_COMPUTE_LIGHTING_OVERRIDE);
     glsl.insert(glsl.find("#ifndef _IRR_FRAG_MAIN_DEFINED_"), GLSL_FS_MAIN_OVERRIDE);
+
+    auto* f = fopen("fs.glsl","w");
+    fwrite(glsl.c_str(), 1, glsl.size(), f);
+    fclose(f);
 
     auto unspecNew = core::make_smart_refctd_ptr<asset::ICPUShader>(glsl.c_str());
     auto specinfo = _fs->getSpecializationInfo();//intentional copy
@@ -526,14 +532,17 @@ int main()
     for (uint32_t i = 0u; i < mesh_raw->getMeshBufferCount(); ++i)
     {
         SPushConstants pushConsts;
+        memset(pushConsts.map_data, 0xff, TEX_OF_INTEREST_CNT*sizeof(pushConsts.map_data[0]));
         pushConsts.extra = 0u;
 
         auto* mb = mesh_raw->getMeshBuffer(i);
         auto* ds = mb->getAttachedDescriptorSet();
         if (!ds)
             continue;
-        for (uint32_t j : texturesOfInterest)
+        for (uint32_t k = 0u; k < TEX_OF_INTEREST_CNT; ++k)
         {
+            uint32_t j = texturesOfInterest[k];
+
             auto* view = static_cast<asset::ICPUImageView*>(ds->getDescriptors(j).begin()->desc.get());
             auto img = view->getCreationParameters().image;
             auto extent = img->getCreationParameters().extent;
@@ -551,8 +560,16 @@ int main()
             }
 
             static_assert(sizeof(texData)==sizeof(pushConsts.map_data[0]), "wrong reinterpret_cast");
-            pushConsts.map_data[j] = reinterpret_cast<uint64_t*>(&texData)[0];
+            pushConsts.map_data[k] = reinterpret_cast<uint64_t*>(&texData)[0];
+            uint32_t mapdata[2];
+            memcpy(mapdata, &pushConsts.map_data[j], 8);
+            printf("");
         }
+        /*if (i == 0)
+        {
+            for (int k = 0; k < 6; ++k)
+                reinterpret_cast<uint32_t*>(&pushConsts.map_data[k])[0] = reinterpret_cast<uint32_t*>(&pushConsts.map_data[k])[1] = 4123456789u;
+        }*/
         auto* pipeline = mb->getPipeline();//TODO (?) might want to clone pipeline first, then modify and finally set into meshbuffer
         auto newPipeline = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(pipeline->clone(0u));//shallow copy
         auto newLayout = core::smart_refctd_ptr_static_cast<asset::ICPUPipelineLayout>(pipeline->getLayout()->clone(0u));//shallow copy
@@ -595,6 +612,7 @@ int main()
         //optionally adjust push constant ranges, but at worst it'll just be specified too much because MTL uses all 128 bytes
     }
 
+    /*
     constexpr const char* fs_fs_unspec_src = 
 R"(#version 430 core
 
@@ -632,10 +650,12 @@ void main()
     asset::SBufferBinding<video::IGPUBuffer> bindings[16];
     auto fs_meshbuf = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(nullptr, nullptr, bindings, asset::SBufferBinding<video::IGPUBuffer>{});
     fs_meshbuf->setIndexCount(3u);
+    */
+
 
     //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
     //so we can create just one DS
-    /*
+    
     asset::ICPUDescriptorSetLayout* ds1layout = mesh_raw->getMeshBuffer(0u)->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
     uint32_t ds1UboBinding = 0u;
     for (const auto& bnd : ds1layout->getBindings())
@@ -675,7 +695,7 @@ void main()
     }
 
     auto gpumesh = driver->getGPUObjectsFromAssets(&mesh_raw, &mesh_raw+1)->front();
-    */
+    auto gpuds0 = driver->getGPUObjectsFromAssets(&ds0.get(), &ds0.get()+1)->front();
 
 	//! we want to move around the scene and view it from different angles
 	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.5f);
@@ -696,11 +716,13 @@ void main()
 		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
 		camera->render();
 
+        /*
         driver->bindGraphicsPipeline(fs_pipeline.get());
         driver->bindDescriptorSets(video::EPBP_GRAPHICS, fs_pipelineLayout.get(), 0u, 1u, &gpuds0.get(), nullptr);
 
         driver->drawMeshBuffer(fs_meshbuf.get());
-        /*
+        */
+
         core::vector<uint8_t> uboData(gpuubo->getSize());
         auto pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(mesh_raw->getMeshBuffer(0u)->getPipeline()->getMetadata());
         for (const auto& shdrIn : pipelineMetadata->getCommonRequiredInputs())
@@ -736,11 +758,10 @@ void main()
         {
             video::IGPUMeshBuffer* gpumb = gpumesh->getMeshBuffer(i);
             const video::IGPURenderpassIndependentPipeline* pipeline = gpumb->getPipeline();
-            const video::IGPUDescriptorSet* ds3 = gpumb->getAttachedDescriptorSet();
 
             driver->bindGraphicsPipeline(pipeline);
-            const video::IGPUDescriptorSet* gpuds1_ptr = gpuds1.get();
-            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 1u, 1u, &gpuds1_ptr, nullptr);
+            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 0u, 1u, &gpuds0.get(), nullptr);
+            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 1u, 1u, &gpuds1.get(), nullptr);
             //const video::IGPUDescriptorSet* gpuds3_ptr = gpumb->getAttachedDescriptorSet();
             //if (gpuds3_ptr)
             //    driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
@@ -748,7 +769,6 @@ void main()
 
             driver->drawMeshBuffer(gpumb);
         }
-        */
 
 		driver->endScene();
 
