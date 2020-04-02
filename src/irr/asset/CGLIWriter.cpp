@@ -153,7 +153,6 @@ bool CGLIWriter::writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* 
 	struct State
 	{
 		uint32_t currentMipLevel;
-		uint32_t baseOffset;
 		core::vectorSIMDu32 outStrides;
 	} state;
 	auto writeTexel = [&data,&texelBlockByteSize,getCurrentGliLayerAndFace,&state,&texture](uint32_t ptrOffset, const core::vectorSIMDu32& texelCoord) -> void
@@ -164,7 +163,6 @@ bool CGLIWriter::writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* 
 		const auto gliLayer = layersData.first;
 		const auto gliFace = layersData.second;
 		uint8_t* outData = reinterpret_cast<uint8_t*>(texture.data(gliLayer,gliFace,state.currentMipLevel));
-		outData += state.baseOffset;
 		outData += core::dot(texelCoord,state.outStrides)[0];
 		memcpy(outData,inData,texelBlockByteSize);
 	};
@@ -177,11 +175,7 @@ bool CGLIWriter::writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* 
 		state.outStrides[0] = texelBlockByteSize;
 		state.outStrides[1] = outDims[0]*texelBlockByteSize;
 		state.outStrides[2] = outDims[1]*state.outStrides[1];
-		state.outStrides[3] = outDims[2]*state.outStrides[2];
-
-		auto outOffset = core::vectorSIMDu32(referenceRegion->imageOffset.x, referenceRegion->imageOffset.y, referenceRegion->imageOffset.z, 0u);
-		outOffset = IImage::SBufferCopy::TexelsToBlocks(outOffset, blockInfo);
-		state.baseOffset = core::dot(outOffset,state.outStrides)[0];
+		state.outStrides[3] = 0; // GLI function gets the correct layer by itself
 		return true;
 	};
 
