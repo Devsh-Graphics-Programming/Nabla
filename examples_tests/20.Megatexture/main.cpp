@@ -72,10 +72,10 @@ R"(
 
 vec3 unpackPageID(in uint pageID)
 {
-	//vec2 uv = vec2(float(pageID & ADDR_X_MASK), float((pageID>>ADDR_Y_SHIFT) & ADDR_X_MASK))*(PAGE_SZ+2*TILE_PADDING) + TILE_PADDING;
-	//uv /= vec2(textureSize(physPgTex[1],0).xy);
-	//return vec3(uv, float(pageID >> ADDR_LAYER_SHIFT));
-    return vec3(vec2(TILE_PADDING)/vec2(textureSize(physPgTex[1],0).xy), 0.0);
+	vec2 uv = vec2(float(pageID & ADDR_X_MASK), float((pageID>>ADDR_Y_SHIFT) & ADDR_X_MASK))*(PAGE_SZ+2*TILE_PADDING) + TILE_PADDING;
+	uv /= vec2(textureSize(physPgTex[1],0).xy);
+	return vec3(uv, float(pageID >> ADDR_LAYER_SHIFT));
+    //return vec3(vec2(TILE_PADDING)/vec2(textureSize(physPgTex[1],0).xy), 0.0);
 }
 
 vec4 vTextureGrad_helper(in vec2 virtualUV, int LoD, in mat2 gradients, in ivec2 originalTextureSz)
@@ -90,6 +90,7 @@ vec4 vTextureGrad_helper(in vec2 virtualUV, int LoD, in mat2 gradients, in ivec2
     int originalMipSize_maxDim = max(originalMipSize.x,originalMipSize.y);
 	vec3 physicalUV = unpackPageID(originalMipSize_maxDim<=(PAGE_SZ/2) ? pageID.y : pageID.x); // unpack to normalized coord offset + Layer in physical texture (just bit operations) and multiples
     vec2 tileFractionalCoordinate = fract(virtualUV.xy*tilesInLodLevel);//i dont get this
+    /*
     if (originalMipSize_maxDim <= PAGE_SZ/2)
     {
         //@devsh please check this
@@ -100,6 +101,7 @@ vec4 vTextureGrad_helper(in vec2 virtualUV, int LoD, in mat2 gradients, in ivec2
         tileFractionalCoordinate = tileFractionalCoordinate*scale + unpackUnorm2x16(tilePacking[1].offsets[tmp-1]); // mul by scale then offset
     }
     else //i dont get this
+    */
         tileFractionalCoordinate = (tileFractionalCoordinate*float(PAGE_SZ)+vec2(TILE_PADDING))/float(PAGE_SZ+2*TILE_PADDING);
 	physicalUV.xy += tileFractionalCoordinate;
 	return textureGrad(physPgTex[1],physicalUV,gradients[0],gradients[1]);
@@ -459,13 +461,22 @@ int main()
         std::array<core::smart_refctd_ptr<asset::ICPUSampler>,ETP_COUNT> samplers;
         std::fill(samplers.begin(), samplers.end(), sampler);
 
+        params.AnisotropicFilter = 0u;
+        params.MaxFilter = asset::ISampler::ETF_NEAREST;
+        params.MinFilter = asset::ISampler::ETF_NEAREST;
+        params.MipmapMode = asset::ISampler::ESMM_NEAREST;
+        auto samplerPgt = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
+
+        std::array<core::smart_refctd_ptr<asset::ICPUSampler>, ETP_COUNT> samplersPgt;
+        std::fill(samplersPgt.begin(), samplersPgt.end(), samplerPgt);
+
         std::array<asset::ICPUDescriptorSetLayout::SBinding, 2> bindings;
         //page tables
         bindings[0].binding = 0u;
         bindings[0].count = ETP_COUNT;
         bindings[0].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
         bindings[0].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
-        bindings[0].samplers = samplers.data();
+        bindings[0].samplers = samplersPgt.data();
 
         //physical addr textures
         bindings[1].binding = 1u;
