@@ -8,7 +8,6 @@
 #include <iomanip>
 #include <cmath>
 #include "irr/asset/CGeometryCreator.h"
-#include "irr/asset/normal_quantization.h"
 #include "irr/asset/CCPUMesh.h"
 
 namespace irr

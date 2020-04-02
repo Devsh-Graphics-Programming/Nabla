@@ -11,7 +11,6 @@
 #include "irr/asset/IMeshManipulator.h"
 #include "IVideoDriver.h"
 #include "irr/video/CGPUMesh.h"
-#include "irr/asset/normal_quantization.h"
 #include "IReadFile.h"
 #include "os.h"
 #include "irr/asset/IAssetManager.h"

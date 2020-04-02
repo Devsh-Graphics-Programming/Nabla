@@ -12,7 +12,6 @@
 
 #include "os.h"
 #include "irr/asset/asset.h"
-#include "irr/asset/normal_quantization.h"
 #include "irr/asset/CMeshManipulator.h"
 #include "irr/asset/CSmoothNormalGenerator.h"
 #include "irr/asset/CForsythVertexCacheOptimizer.h"
@@ -22,13 +21,6 @@ namespace irr
 {
 namespace asset
 {
-
-// declared as extern in SVertexManipulator.h
-core::vector<QuantizationCacheEntry2_10_10_10> normalCacheFor2_10_10_10Quant;
-core::vector<QuantizationCacheEntry8_8_8> normalCacheFor8_8_8Quant;
-core::vector<QuantizationCacheEntry16_16_16> normalCacheFor16_16_16Quant;
-core::vector<QuantizationCacheEntryHalfFloat> normalCacheForHalfFloatQuant;
-
 
 //! Flips the direction of surfaces. Changes backfacing triangles to frontfacing
 //! triangles and vice versa.
