@@ -38,13 +38,6 @@ class CMipMapGenerationImageFilter;
 /*
 
 uint8_t* convertR8SRGBdataIntoRGB8SRGBAAndGetIt(const void* redChannelDataLayer, const core::smart_refctd_ptr<ICPUImage>& image, const irr::asset::IImage::SBufferCopy& region)	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\include\irr\asset\IImageLoader.h	36	113
-m_physAddrTex = ICPUImage::create(std::move(params));	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\include\irr\asset\ITexturePacker.h	161	29
-m_pageTable = ICPUImage::create(std::move(params));	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\include\irr\asset\ITexturePacker.h	184	27
-page_tab_offset_t pack(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres)	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\include\irr\asset\ITexturePacker.h	257	34
-auto image = ICPUImage::create(std::move(imageInfo));	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\src\irr\asset\CGLILoader.cpp	131	17
-auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(imageInfo.mipLevels);	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\src\irr\asset\CGLILoader.cpp	133	84
-bool createAndWriteImage(std::array<ilmType*, availableChannels>& pixelsArrayIlm, const asset::ICPUImage* image, const char* fileName)	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\src\irr\asset\CImageWriterOpenEXR.cpp	53	98
-const asset::ICPUImage* image = IAsset::castDown<ICPUImage>(_params.rootAsset);	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\src\irr\asset\CImageWriterOpenEXR.cpp	136	17
 
 
 auto view = core::make_smart_refctd_ptr<ICPUImageView>(std::move(viewParams));	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\ext\MitsubaLoader\CMitsubaLoader.cpp	1286	42
@@ -63,11 +56,9 @@ ITexturePacker.h	322	                     for (const auto& reg : _img->getRegion
 
 SRC:
 
-CGLIWriter.cpp	155	    for (auto region = image->getRegions().begin(); region != image->getRegions().end(); ++region) 	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\src\irr\asset
 CGraphicsPipelineLoaderMTL.cpp	964	         const size_t alignment = 1u<<core::findLSB(images[CMTLPipelineMetadata::EMP_REFL_POSX]->getRegions().begin()->bufferRowLength); 	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\src\irr\asset
 CGraphicsPipelineLoaderMTL.cpp	975	                 assert(images[i]->getRegions().size()==1ull); 	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\src\irr\asset
 CGraphicsPipelineLoaderMTL.cpp	977	                 regions_.push_back(images[i]->getRegions().begin()[0]); 	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\src\irr\asset
 CGraphicsPipelineLoaderMTL.cpp	994	                 const void* src = reinterpret_cast<const uint8_t*>(images[i]->getBuffer()->getPointer()) + images[i]->getRegions().begin()[0].bufferOffset; 	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\src\irr\asset
-CImageWriterOpenEXR.cpp	79	    for (auto region = image->getRegions().begin(); region != image->getRegions().end(); ++region) 	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\src\irr\asset
 
 */
