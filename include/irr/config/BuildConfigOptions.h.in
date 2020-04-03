@@ -3,6 +3,9 @@
 
 #cmakedefine _IRR_DEBUG
 
+// working root directory
+#cmakedefine __IRR_ROOT_DIRECTORY__ "${CMAKE_SOURCE_DIR}"
+
 // architecture
 #cmakedefine __IRR_COMPILE_WITH_ARM_SIMD_
 

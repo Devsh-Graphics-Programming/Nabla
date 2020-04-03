@@ -196,27 +196,26 @@ void IAssetManager::insertBuiltinAssets()
 	// materials
 	{
 		//
-		auto buildInShader = [&](core::smart_refctd_ptr<asset::ICPUBuffer>&& data, asset::ISpecializedShader::E_SHADER_STAGE type, const char* path) -> void
+		auto buildInShader = [&](core::smart_refctd_ptr<asset::ICPUBuffer> data, asset::ISpecializedShader::E_SHADER_STAGE type, const char* path) -> void
 		{
-			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(core::make_smart_refctd_ptr<asset::ICPUShader>(data), asset::ISpecializedShader::SInfo({}, nullptr, "main", type));
+			auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(data));
+			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main", type));
 			addBuiltInToCaches(shader, path);
 		};
+		auto fileSystem = getFileSystem();
 
-		io::IFileSystem* sys;
-
-		buildInShader(sys->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/singletexture/specializedshader_vertex")>(),
+		buildInShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/singletexture/specializedshader_vertex")>(),
 			asset::ISpecializedShader::ESS_VERTEX,
 			"irr/builtin/materials/lambertian/singletexture/specializedshader");
-		buildInShader(sys->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/singletexture/specializedshader_fragment")>(),
+		buildInShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/singletexture/specializedshader_fragment")>(), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
 			asset::ISpecializedShader::ESS_FRAGMENT, 
 			"irr/builtin/materials/lambertian/singletexture/specializedshader");
 
-
-		buildInShader(sys->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/no_texture/specializedshader_vertex")>(),
+		buildInShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/no_texture/specializedshader_vertex")>(),
 			asset::ISpecializedShader::ESS_VERTEX, 
 			"irr/builtin/materials/lambertian/no_texture/specializedshader");
 
-		buildInShader(sys->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/no_texture/specializedshader_fragment")>(),
+		buildInShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/no_texture/specializedshader_fragment")>(),
 			asset::ISpecializedShader::ESS_FRAGMENT, 
 			"irr/builtin/materials/lambertian/no_texture/specializedshader");
 

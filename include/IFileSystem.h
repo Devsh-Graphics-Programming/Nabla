@@ -248,12 +248,16 @@ public:
 #ifdef _IRR_EMBED_BUILTIN_RESOURCES_
 		std::pair<const uint8_t*, size_t> found = irr::builtin::get_resource<StringUniqueType>();
 		if (found.first && found.second)
-			return core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t> > >(found->second, found->first, core::adopt_memory);
+		{
+			auto returnValue = core::make_smart_refctd_ptr<asset::ICPUBuffer>(found.second);	//return core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t> > >(found.second, found.first, core::adopt_memory);
+			memcpy(returnValue->getPointer(), found.first, returnValue->getSize());
+			return returnValue;
+		}
 		return nullptr;
 #endif
-
-		auto file = this->createAndOpenFile(("../../../include/" + StringUniqueType::value).c_str());
-		auto retval = core::make_smart_refctd_ptr<asset::ICPUBuffer>(file->getSize(), nullptr);
+		auto path = (std::string(__IRR_ROOT_DIRECTORY__) + "/include/" + std::string(StringUniqueType::value));
+		auto file = this->createAndOpenFile((path).c_str());
+		auto retval = core::make_smart_refctd_ptr<asset::ICPUBuffer>(file->getSize());
 		file->read(retval->getPointer(), file->getSize());
 		file->drop();
 

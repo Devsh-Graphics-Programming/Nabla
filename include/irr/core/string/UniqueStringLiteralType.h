@@ -14,7 +14,7 @@ namespace core
 template<char... chars>
 struct CharParameterPackToStringLiteral
 {
-	_IRR_STATIC_INLINE char value[] = { chars..., '\0' };
+	_IRR_STATIC_INLINE_CONSTEXPR char value[] = { chars..., '\0' };
 };
 
 
