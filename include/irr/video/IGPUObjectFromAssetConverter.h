@@ -48,6 +48,84 @@ class IGPUObjectFromAssetConverter
 			static inline AssetType* value(AssetType*const* it) { return *it; }
 		};
 
+        template<typename AssetType>
+        struct Hash
+        {
+            inline std::size_t operator()(AssetType* asset) const
+            {
+                return std::hash<AssetType*>{}(asset);
+            }
+        };
+        template<>
+        struct Hash<asset::ICPURenderpassIndependentPipeline>
+        {
+            inline std::size_t operator()(asset::ICPURenderpassIndependentPipeline* _ppln) const
+            {
+                constexpr size_t bytesToHash = 
+                    sizeof(asset::SVertexInputParams)+
+                    sizeof(asset::SBlendParams)+
+                    sizeof(asset::SRasterizationParams)+
+                    sizeof(asset::SPrimitiveAssemblyParams)+
+                    sizeof(void*)*asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT+//shaders
+                    sizeof(void*);//layout
+                uint8_t mem[bytesToHash]{};
+                uint32_t offset = 0u;
+                memcpy(mem+offset,&_ppln->getVertexInputParams(),sizeof(asset::SVertexInputParams));
+                offset += sizeof(asset::SVertexInputParams);
+                memcpy(mem+offset,&_ppln->getBlendParams(),sizeof(asset::SBlendParams));
+                offset += sizeof(asset::SBlendParams);
+                memcpy(mem+offset,&_ppln->getRasterizationParams(),sizeof(asset::SRasterizationParams));
+                offset += sizeof(asset::SRasterizationParams);
+                memcpy(mem+offset,&_ppln->getPrimitiveAssemblyParams(),sizeof(asset::SPrimitiveAssemblyParams));
+                offset += sizeof(asset::SPrimitiveAssemblyParams);
+                const asset::ICPUSpecializedShader** shaders = reinterpret_cast<const asset::ICPUSpecializedShader**>(mem+offset);
+                for (uint32_t i = 0u; i < asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
+                    shaders[i] = _ppln->getShaderAtIndex(i);
+                offset += asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT*sizeof(void*);
+                reinterpret_cast<const asset::ICPUPipelineLayout**>(mem+offset)[0] = _ppln->getLayout();
+
+                const std::size_t hs = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(mem), bytesToHash));
+
+                return hs;
+            }
+        };
+        template<>
+        struct Hash<asset::ICPUComputePipeline>
+        {
+            inline std::size_t operator()(asset::ICPUComputePipeline* _ppln) const
+            {
+                constexpr size_t bytesToHash = 
+                    sizeof(void*)+//shader
+                    sizeof(void*);//layout
+                uint8_t mem[bytesToHash]{};
+
+                reinterpret_cast<const asset::ICPUSpecializedShader**>(mem)[0] = _ppln->getShader();
+                reinterpret_cast<const asset::ICPUPipelineLayout**>(mem+sizeof(void*))[0] = _ppln->getLayout();
+
+                const std::size_t hs = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(mem), bytesToHash));
+
+                return hs;
+            }
+        };
+
+        template<typename AssetType>
+        struct KeyEqual
+        {
+            bool operator()(AssetType* lhs, AssetType* rhs) const { return lhs==rhs; }
+        };
+        template<>
+        struct KeyEqual<asset::ICPURenderpassIndependentPipeline>
+        {
+            //equality depends on hash only
+            bool operator()(asset::ICPURenderpassIndependentPipeline* lhs, asset::ICPURenderpassIndependentPipeline* rhs) const { return true; }
+        };
+        template<>
+        struct KeyEqual<asset::ICPUComputePipeline>
+        {
+            //equality depends on hash only
+            bool operator()(asset::ICPUComputePipeline* lhs, asset::ICPUComputePipeline* rhs) const { return true; }
+        };
+
 	public:
 		IGPUObjectFromAssetConverter(asset::IAssetManager* _assetMgr, video::IDriver* _drv) : m_assetManager{_assetMgr}, m_driver{_drv} {}
 
@@ -120,7 +198,7 @@ class IGPUObjectFromAssetConverter
 		{
 			core::vector<size_t> redirs;
 
-			core::unordered_map<T*, size_t> firstOccur;
+			core::unordered_map<T*, size_t, Hash<T>, KeyEqual<T>> firstOccur;
 			size_t i = 0u;
 			for (T* el : _input)
 			{
