@@ -439,6 +439,44 @@ int main()
     };
     //TODO most of sponza textures are 24bit format, but also need packers for 8bit and 32bit formats and a way to decide which VT textures to sample as well
     core::unordered_map<core::smart_refctd_ptr<asset::ICPUImage>, STextureData> VTtexDataMap;
+    // load textures and pack them
+    device->getFileSystem()->addFileArchive("../../media/sponza.zip");
+    {
+        asset::IAssetLoader::SAssetLoadParams lp;
+        auto meshes_bundle = am->getAsset("sponza.obj", lp);
+        assert(!meshes_bundle.isEmpty());
+        auto mesh = meshes_bundle.getContents().first[0];
+        auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
+        for (uint32_t i = 0u; i < mesh_raw->getMeshBufferCount(); ++i)
+        {
+            auto* mb = mesh_raw->getMeshBuffer(i);
+            auto* ds = mb->getAttachedDescriptorSet();
+            if (!ds)
+                continue;
+            for (uint32_t k = 0u; k < TEX_OF_INTEREST_CNT; ++k)
+            {
+                uint32_t j = texturesOfInterest[k];
+
+                auto* view = static_cast<asset::ICPUImageView*>(ds->getDescriptors(j).begin()->desc.get());
+                auto img = view->getCreationParameters().image;
+                auto extent = img->getCreationParameters().extent;
+                if (extent.width <= 2u || extent.height <= 2u)//dummy 2x2
+                    continue;
+                STextureData texData;
+                auto found = VTtexDataMap.find(img);
+                if (found != VTtexDataMap.end())
+                    texData = found->second;
+                else {
+                    const asset::E_FORMAT fmt = img->getCreationParameters().format;
+                    //TODO take wrapping into account while packing
+                    texData = getTextureData(img.get(), texPackers[format2texPackerIndex(fmt)].get());
+                    VTtexDataMap.insert({ img,texData });
+                }
+            }
+        }
+        am->removeAssetFromCache(meshes_bundle);
+    }
+
 
     //TODO ds0 will most likely also get some UBO with data for MDI (instead of using push constants)
     core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds0layout;
@@ -548,44 +586,6 @@ int main()
         auto gpuds0layout = gpuds0->getLayout();
         auto pipelineLayout = driver->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(const_cast<video::IGPUDescriptorSetLayout*>(gpuds0layout)));
         fsTriangleMeshBuffer = ext::FullScreenTriangle::createFullScreenTriangle(std::move(fragShader->front()),std::move(pipelineLayout),am,driver);
-    }
-
-    // load textures and pack them
-    device->getFileSystem()->addFileArchive("../../media/sponza.zip");
-    {
-        asset::IAssetLoader::SAssetLoadParams lp;
-        auto meshes_bundle = am->getAsset("sponza.obj", lp);
-        assert(!meshes_bundle.isEmpty());
-        auto mesh = meshes_bundle.getContents().first[0];
-        auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
-        for (uint32_t i=0u; i<mesh_raw->getMeshBufferCount(); ++i)
-        {
-            auto* mb = mesh_raw->getMeshBuffer(i);
-            auto* ds = mb->getAttachedDescriptorSet();
-            if (!ds)
-                continue;
-            for (uint32_t k = 0u; k < TEX_OF_INTEREST_CNT; ++k)
-            {
-                uint32_t j = texturesOfInterest[k];
-
-                auto* view = static_cast<asset::ICPUImageView*>(ds->getDescriptors(j).begin()->desc.get());
-                auto img = view->getCreationParameters().image;
-                auto extent = img->getCreationParameters().extent;
-                if (extent.width <= 2u || extent.height <= 2u)//dummy 2x2
-                    continue;
-                STextureData texData;
-                auto found = VTtexDataMap.find(img);
-                if (found != VTtexDataMap.end())
-                    texData = found->second;
-                else {
-                    const asset::E_FORMAT fmt = img->getCreationParameters().format;
-                    //TODO take wrapping into account while packing
-                    texData = getTextureData(img.get(), texPackers[format2texPackerIndex(fmt)].get());
-                    VTtexDataMap.insert({ img,texData });
-                }
-            }
-        }
-        am->removeAssetFromCache(meshes_bundle);
     }
 
 	while(device->run() && receiver.keepOpen())
