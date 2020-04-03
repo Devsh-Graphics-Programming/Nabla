@@ -28,57 +28,8 @@ STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePack
     return _packer->offsetToTextureData(pgTabCoords, _img);
 }
 
-constexpr const char* GLSL_VT_TEXTURES = //also turns off set3 bindings (textures) because they're not needed anymore as we're using VT
-R"(
-#ifndef _NO_UV
-layout (set = 0, binding = 0) uniform usampler2D pgTabTex[3];
-layout (set = 0, binding = 1) uniform sampler2DArray physPgTex[3];
-layout (set = 0, binding = 2) uniform TilePacking
-{//TODO create this UBO
-    uint offsets[9]; //unorm16 uv offsets in phys addr texture space
-} tilePacking[3];
-#endif
-#define _IRR_FRAG_SET3_BINDINGS_DEFINED_
-)";
-constexpr const char* GLSL_PUSH_CONSTANTS_OVERRIDE =
-R"(
-layout (push_constant) uniform Block {
-    vec3 Ka;
-    vec3 Kd;
-    vec3 Ks;
-    vec3 Ke;
-    uvec2 map_Ka_data;
-    uvec2 map_Kd_data;
-    uvec2 map_Ks_data;
-    uvec2 map_Ns_data;
-    uvec2 map_d_data;
-    uvec2 map_bump_data;
-    float Ns;
-    float d;
-    float Ni;
-    uint extra; //flags copied from MTL metadata
-} PC;
-#define _IRR_FRAG_PUSH_CONSTANTS_DEFINED_
-)";
 constexpr const char* GLSL_VT_FUNCTIONS =
 R"(
-#define ADDR_LAYER_SHIFT 12
-#define ADDR_Y_SHIFT 6
-#define ADDR_X_MASK 0x3fu
-
-#define TEXTURE_TILE_PER_DIMENSION 64
-#define PAGE_SZ 128
-#define PAGE_SZ_LOG2 7
-#define TILE_PADDING 8
-
-vec3 unpackPageID(in uint pageID)
-{
-	vec2 uv = vec2(float(pageID & ADDR_X_MASK), float((pageID>>ADDR_Y_SHIFT) & ADDR_X_MASK))*(PAGE_SZ+2*TILE_PADDING) + TILE_PADDING;
-	uv /= vec2(textureSize(physPgTex[1],0).xy);
-	return vec3(uv, float(pageID >> ADDR_LAYER_SHIFT));
-    //return vec3(vec2(TILE_PADDING)/vec2(textureSize(physPgTex[1],0).xy), 0.0);
-}
-
 vec4 vTextureGrad_helper(in vec2 virtualUV, int LoD, in mat2 gradients, in ivec2 originalTextureSz)
 {
     int clippedLoD = max(originalTextureSz.x,originalTextureSz.y)>>PAGE_SZ_LOG2;
@@ -140,14 +91,6 @@ vec4 vTextureGrad(in vec2 virtualUV, in mat2 dOriginalUV, in vec2 originalTextur
     return vTextureGrad_helper(virtualUV,0,dOriginalUV,originalTexSz_i);//testing purposes, until mips are present in physical tex pages
 }
 
-vec2 unpackVirtualUV(in uvec2 texData)
-{
-	return unpackUnorm2x16(texData.x);
-}
-vec2 unpackSize(in uvec2 texData)
-{
-	return unpackUnorm2x16(texData.y);
-}
 vec4 textureVT(in uvec2 _texData, in vec2 uv, in mat2 dUV)
 {
     vec2 scale = unpackSize(_texData);
@@ -155,166 +98,6 @@ vec4 textureVT(in uvec2 _texData, in vec2 uv, in mat2 dUV)
     virtualUV += scale*uv;
     return vTextureGrad(virtualUV, dUV, scale*float(PAGE_SZ)*vec2(textureSize(pgTabTex[1],0)));
 }
-)";
-constexpr const char* GLSL_BSDF_COS_EVAL_OVERRIDE =
-R"(
-vec3 irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
-{
-    vec3 Kd;
-#ifndef _NO_UV
-    if ((PC.extra&(map_Kd_MASK)) == (map_Kd_MASK))
-        Kd = textureVT(PC.map_Kd_data, UV, dUV).rgb;
-    else
-#endif
-        Kd = PC.Kd;
-
-    vec3 color = vec3(0.0);
-    vec3 Ks;
-    float Ns;
-
-#ifndef _NO_UV
-    if ((PC.extra&(map_Ks_MASK)) == (map_Ks_MASK))
-        Ks = textureVT(PC.map_Ks_data, UV, dUV).rgb;
-    else
-#endif
-        Ks = PC.Ks;
-#ifndef _NO_UV
-    if ((PC.extra&(map_Ns_MASK)) == (map_Ns_MASK))
-        Ns = textureVT(PC.map_Ns_data, UV, dUV).x;
-    else
-#endif
-        Ns = PC.Ns;
-
-    vec3 Ni = vec3(PC.Ni);
-
-    vec3 diff = irr_glsl_lambertian_cos_eval(params) * Kd * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotL)) * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotV));
-    diff *= irr_glsl_diffuseFresnelCorrectionFactor(Ni, Ni*Ni);
-    switch (PC.extra&ILLUM_MODEL_MASK)
-    {
-    case 0:
-        color = vec3(0.0);
-        break;
-    case 1:
-        color = diff;
-        break;
-    case 2:
-    case 3://2 + IBL
-    case 5://basically same as 3
-    case 8://basically same as 5
-    {
-        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, Ns, Ni);
-        color = (diff + spec);
-    }
-        break;
-    case 4:
-    case 6:
-    case 7:
-    case 9://basically same as 4
-    {
-        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, Ns, Ni);
-        color = spec;
-    }
-        break;
-    default:
-        break;
-    }
-
-    return color;
-}
-#define _IRR_BSDF_COS_EVAL_DEFINED_
-)";
-constexpr const char* GLSL_COMPUTE_LIGHTING_OVERRIDE =
-R"(
-vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in mat2 dUV)
-{
-    irr_glsl_ViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(vec3(0.0), ViewPos, Normal);
-
-#ifndef _NO_UV
-    if ((PC.extra&map_bump_MASK) == map_bump_MASK)
-    {
-        interaction.N = normalize(interaction.N);
-
-        float h = textureVT(PC.map_bump_data, UV, dUV).x;
-
-        vec2 dHdScreen = vec2(dFdx(h), dFdy(h));
-        interaction.N = irr_glsl_perturbNormal_heightMap(interaction.N, interaction.V.dPosdScreen, dHdScreen);
-    }
-#endif
-    irr_glsl_BSDFIsotropicParams params = irr_glsl_calcBSDFIsotropicParams(interaction, -ViewPos);
-
-    vec3 Ka;
-    switch ((PC.extra&ILLUM_MODEL_MASK))
-    {
-    case 0:
-    {
-#ifndef _NO_UV
-    if ((PC.extra&(map_Kd_MASK)) == (map_Kd_MASK))
-        Ka = textureVT(PC.map_Kd_data, UV, dUV).rgb;
-    else
-#endif
-        Ka = PC.Kd;
-    }
-    break;
-    default:
-#define Ia 0.1
-    {
-#ifndef _NO_UV
-    if ((PC.extra&(map_Ka_MASK)) == (map_Ka_MASK))
-        Ka = textureVT(PC.map_Ka_data, UV, dUV).rgb;
-    else
-#endif
-        Ka = PC.Ka;
-    Ka *= Ia;
-    }
-#undef Ia
-    break;
-    }
-
-    out_interaction = params.interaction;
-#define Intensity 1000.0
-    return Intensity*params.invlenL2*irr_bsdf_cos_eval(params,dUV) + Ka;
-#undef Intensity
-}
-#define _IRR_COMPUTE_LIGHTING_DEFINED_
-)";
-
-constexpr const char* GLSL_FS_MAIN_OVERRIDE =
-R"(
-void main()
-{
-    mat2 dUV = mat2(dFdx(UV),dFdy(UV));
-
-    irr_glsl_ViewSurfaceInteraction interaction;
-    vec3 color = irr_computeLighting(interaction,dUV);
-
-    float d = PC.d;
-
-    //another illum model switch, required for illum=4,6,7,9 to compute alpha from fresnel (taken from opacity map or constant otherwise)
-    switch (PC.extra&ILLUM_MODEL_MASK)
-    {
-    case 4:
-    case 6:
-    case 7:
-    case 9:
-    {
-        float VdotN = dot(interaction.N, interaction.V.dir);
-        d = irr_glsl_fresnel_dielectric(vec3(PC.Ni), VdotN).x;
-    }
-        break;
-    default:
-#ifndef _NO_UV
-        if ((PC.extra&(map_d_MASK)) == (map_d_MASK))
-        {
-            d = textureVT(PC.map_d_data, UV, dUV).r;
-            color *= d;
-        }
-#endif
-        break;
-    }
-
-    OutColor = vec4(color, d);
-}
-#define _IRR_FRAG_MAIN_DEFINED_
 )";
 
 constexpr uint32_t TEX_OF_INTEREST_CNT = 6u;
@@ -349,30 +132,6 @@ constexpr uint32_t texturesOfInterest[TEX_OF_INTEREST_CNT]{
     asset::CMTLPipelineMetadata::EMP_OPACITY,
     asset::CMTLPipelineMetadata::EMP_BUMP
 };
-
-core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(const asset::ICPUSpecializedShader* _fs)
-{
-    const asset::ICPUShader* unspec = _fs->getUnspecialized();
-    assert(unspec->containsGLSL());
-
-    std::string glsl = reinterpret_cast<const char*>( unspec->getSPVorGLSL()->getPointer() );
-    glsl.insert(glsl.find("#ifndef _IRR_FRAG_PUSH_CONSTANTS_DEFINED_"), GLSL_PUSH_CONSTANTS_OVERRIDE);
-    glsl.insert(glsl.find("#if !defined(_IRR_FRAG_SET3_BINDINGS_DEFINED_)"), GLSL_VT_TEXTURES);
-    glsl.insert(glsl.find("#ifndef _IRR_BSDF_COS_EVAL_DEFINED_"), GLSL_VT_FUNCTIONS);
-    glsl.insert(glsl.find("#ifndef _IRR_BSDF_COS_EVAL_DEFINED_"), GLSL_BSDF_COS_EVAL_OVERRIDE);
-    glsl.insert(glsl.find("#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_"), GLSL_COMPUTE_LIGHTING_OVERRIDE);
-    glsl.insert(glsl.find("#ifndef _IRR_FRAG_MAIN_DEFINED_"), GLSL_FS_MAIN_OVERRIDE);
-
-    auto* f = fopen("fs.glsl","w");
-    fwrite(glsl.c_str(), 1, glsl.size(), f);
-    fclose(f);
-
-    auto unspecNew = core::make_smart_refctd_ptr<asset::ICPUShader>(glsl.c_str());
-    auto specinfo = _fs->getSpecializationInfo();//intentional copy
-    auto fsNew = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecNew), std::move(specinfo));
-
-    return fsNew;
-}
 
 constexpr uint32_t PAGETAB_SZ_LOG2 = 7u;
 constexpr uint32_t PAGETAB_MIP_LEVELS = 8u;
