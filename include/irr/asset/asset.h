@@ -44,7 +44,6 @@
 #include "CFinalBoneHierarchy.h"
 
 // manipulation + reflection + introspection
-#include "irr/asset/normal_quantization.h"
 #include "irr/asset/IMeshManipulator.h"
 
 // baw files
