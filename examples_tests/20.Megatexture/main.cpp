@@ -534,8 +534,10 @@ int main()
         }
     }
 
+    device->getFileSystem()->addFileArchive("../../media/sponza.zip");
+
     asset::IAssetLoader::SAssetLoadParams lp;
-    auto meshes_bundle = am->getAsset("../../media/sponza/sponza.obj", lp);
+    auto meshes_bundle = am->getAsset("sponza.obj", lp);
     assert(!meshes_bundle.isEmpty());
     auto mesh = meshes_bundle.getContents().first[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
@@ -622,46 +624,6 @@ int main()
         mb->setPipeline(std::move(newPipeline));
         //optionally adjust push constant ranges, but at worst it'll just be specified too much because MTL uses all 128 bytes
     }
-
-    /*
-    constexpr const char* fs_fs_unspec_src = 
-R"(#version 430 core
-
-layout (set = 0, binding = 1) uniform sampler2DArray tex[3];
-layout (set = 0, binding = 0) uniform usampler2D pgtab[3];
-
-layout (location = 0) in vec2 TexCoord;
-layout (location = 0) out vec4 OutColor;
-
-void main()
-{
-    uvec4 pg = texelFetch(pgtab[1], ivec2(0,4), 0);
-    vec3 col = pg.x!=(0xffffffffu-1u) ? texture(tex[1], vec3(TexCoord, 0.0)).rgb : vec3(1.0);
-    OutColor = vec4(col, 1.0);
-}
-)";
-    auto fs_fs_unspec = core::make_smart_refctd_ptr<asset::ICPUShader>(fs_fs_unspec_src);
-    auto gpu_fs_fs_unspec = driver->createGPUShader(std::move(fs_fs_unspec));
-    asset::ISpecializedShader::SInfo specinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_FRAGMENT);
-    auto gpu_fs_fs = driver->createGPUSpecializedShader(gpu_fs_fs_unspec.get(), specinfo);
-
-    auto gpuds0 = driver->getGPUObjectsFromAssets(&ds0.get(), &ds0.get()+1)->front();
-    auto gpuds0layout = gpuds0->getLayout();
-
-    auto fs_pipelineLayout = driver->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(const_cast<video::IGPUDescriptorSetLayout*>(gpuds0layout)));
-
-    auto fstri = ext::FullScreenTriangle::createFullScreenTriangle(driver);
-    video::IGPUSpecializedShader* fs_shaders[2]{ std::get<0>(fstri).get(), gpu_fs_fs.get() };
-    asset::SRasterizationParams rasterParams;
-    rasterParams.faceCullingMode = asset::EFCM_NONE;
-    asset::SBlendParams blendParams;
-    auto fs_pipeline = driver->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(fs_pipelineLayout), fs_shaders, fs_shaders+2,
-        std::get<1>(fstri), blendParams, std::get<2>(fstri), rasterParams);
-
-    asset::SBufferBinding<video::IGPUBuffer> bindings[16];
-    auto fs_meshbuf = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(nullptr, nullptr, bindings, asset::SBufferBinding<video::IGPUBuffer>{});
-    fs_meshbuf->setIndexCount(3u);
-    */
 
 
     //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
