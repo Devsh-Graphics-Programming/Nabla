@@ -224,6 +224,212 @@ namespace asset
 		EF_UNKNOWN
 	};
 
+    enum E_FORMAT_CLASS : uint32_t
+    {
+        EFC_8_BIT,
+        EFC_16_BIT,
+        EFC_24_BIT,
+        EFC_32_BIT,
+        EFC_48_BIT,
+        EFC_64_BIT,
+        EFC_96_BIT,
+        EFC_128_BIT,
+        EFC_192_BIT,
+        EFC_256_BIT
+        //and many more for block compression and planar formats... but dont want to waste time on it now
+    };
+
+    inline uint32_t getFormatClassBlockBytesize(E_FORMAT_CLASS _fclass)
+    {
+        switch (_fclass)
+        {
+        case EFC_8_BIT: _IRR_FALLTHROUGH;
+        case EFC_16_BIT: _IRR_FALLTHROUGH;
+        case EFC_24_BIT: _IRR_FALLTHROUGH;
+        case EFC_32_BIT:
+            return _fclass+1u;
+        case EFC_48_BIT:
+            return 6u;
+        case EFC_64_BIT:
+            return 8u;
+        case EFC_96_BIT:
+            return 12u;
+        case EFC_128_BIT:
+            return 16u;
+        case EFC_192_BIT:
+            return 24u;
+        case EFC_256_BIT:
+            return 32u;
+        default:
+            _IRR_DEBUG_BREAK_IF(1);
+            return 0u;
+        }
+    }
+
+    inline core::vector3du32_SIMD getBlockDimensions(E_FORMAT_CLASS _fclass)
+    {
+        switch (_fclass)
+        {
+        case EFC_8_BIT: _IRR_FALLTHROUGH;
+        case EFC_16_BIT: _IRR_FALLTHROUGH;
+        case EFC_24_BIT: _IRR_FALLTHROUGH;
+        case EFC_32_BIT: _IRR_FALLTHROUGH;
+        case EFC_48_BIT: _IRR_FALLTHROUGH;
+        case EFC_64_BIT: _IRR_FALLTHROUGH;
+        case EFC_96_BIT: _IRR_FALLTHROUGH;
+        case EFC_128_BIT: _IRR_FALLTHROUGH;
+        case EFC_192_BIT: _IRR_FALLTHROUGH;
+        case EFC_256_BIT:
+            return core::vector3du32_SIMD(1u,1u,1u);
+        default:
+            _IRR_DEBUG_BREAK_IF(1);
+            return core::vector3du32_SIMD(0u);
+        }
+    }
+
+    inline E_FORMAT_CLASS getFormatClass(E_FORMAT _fmt)
+    {
+        switch (_fmt)
+        {
+            case EF_R4G4_UNORM_PACK8: _IRR_FALLTHROUGH;
+            case EF_R8_UNORM: _IRR_FALLTHROUGH;
+            case EF_R8_SNORM: _IRR_FALLTHROUGH;
+            case EF_R8_USCALED: _IRR_FALLTHROUGH;
+            case EF_R8_SSCALED: _IRR_FALLTHROUGH;
+            case EF_R8_UINT: _IRR_FALLTHROUGH;
+            case EF_R8_SINT: _IRR_FALLTHROUGH;
+            case EF_R8_SRGB:
+                return EFC_8_BIT;
+            case EF_R4G4B4A4_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_B4G4R4A4_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_R5G6B5_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_B5G6R5_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_R5G5B5A1_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_B5G5R5A1_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_A1R5G5B5_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_R8G8_UNORM: _IRR_FALLTHROUGH;
+            case EF_R8G8_SNORM: _IRR_FALLTHROUGH;
+            case EF_R8G8_USCALED: _IRR_FALLTHROUGH;
+            case EF_R8G8_SSCALED: _IRR_FALLTHROUGH;
+            case EF_R8G8_UINT: _IRR_FALLTHROUGH;
+            case EF_R8G8_SINT: _IRR_FALLTHROUGH;
+            case EF_R8G8_SRGB: _IRR_FALLTHROUGH;
+            case EF_R16_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16_SNORM: _IRR_FALLTHROUGH;
+            case EF_R16_USCALED: _IRR_FALLTHROUGH;
+            case EF_R16_SSCALED: _IRR_FALLTHROUGH;
+            case EF_R16_UINT: _IRR_FALLTHROUGH;
+            case EF_R16_SINT: _IRR_FALLTHROUGH;
+            case EF_R16_SFLOAT:
+                return EFC_16_BIT;
+            case EF_R8G8B8_UNORM: _IRR_FALLTHROUGH;
+            case EF_R8G8B8_SNORM: _IRR_FALLTHROUGH;
+            case EF_R8G8B8_USCALED: _IRR_FALLTHROUGH;
+            case EF_R8G8B8_SSCALED: _IRR_FALLTHROUGH;
+            case EF_R8G8B8_UINT: _IRR_FALLTHROUGH;
+            case EF_R8G8B8_SINT: _IRR_FALLTHROUGH;
+            case EF_R8G8B8_SRGB: _IRR_FALLTHROUGH;
+            case EF_B8G8R8_UNORM: _IRR_FALLTHROUGH;
+            case EF_B8G8R8_SNORM: _IRR_FALLTHROUGH;
+            case EF_B8G8R8_USCALED: _IRR_FALLTHROUGH;
+            case EF_B8G8R8_SSCALED: _IRR_FALLTHROUGH;
+            case EF_B8G8R8_UINT: _IRR_FALLTHROUGH;
+            case EF_B8G8R8_SINT: _IRR_FALLTHROUGH;
+            case EF_B8G8R8_SRGB:
+                return EFC_24_BIT;
+            case EF_R8G8B8A8_UNORM: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_SNORM: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_USCALED: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_SSCALED: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_UINT: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_SINT: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_SRGB: _IRR_FALLTHROUGH;
+            case EF_B8G8R8A8_UNORM: _IRR_FALLTHROUGH;
+            case EF_B8G8R8A8_SNORM: _IRR_FALLTHROUGH;
+            case EF_B8G8R8A8_USCALED: _IRR_FALLTHROUGH;
+            case EF_B8G8R8A8_SSCALED: _IRR_FALLTHROUGH;
+            case EF_B8G8R8A8_UINT: _IRR_FALLTHROUGH;
+            case EF_B8G8R8A8_SINT: _IRR_FALLTHROUGH;
+            case EF_B8G8R8A8_SRGB: _IRR_FALLTHROUGH;
+            case EF_A8B8G8R8_UNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A8B8G8R8_SNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A8B8G8R8_USCALED_PACK32: _IRR_FALLTHROUGH;
+            case EF_A8B8G8R8_SSCALED_PACK32: _IRR_FALLTHROUGH;
+            case EF_A8B8G8R8_UINT_PACK32: _IRR_FALLTHROUGH;
+            case EF_A8B8G8R8_SINT_PACK32: _IRR_FALLTHROUGH;
+            case EF_A8B8G8R8_SRGB_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2R10G10B10_UNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2R10G10B10_SNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2R10G10B10_USCALED_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2R10G10B10_SSCALED_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2R10G10B10_UINT_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2R10G10B10_SINT_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2B10G10R10_UNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2B10G10R10_SNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2B10G10R10_USCALED_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2B10G10R10_SSCALED_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2B10G10R10_UINT_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2B10G10R10_SINT_PACK32: _IRR_FALLTHROUGH;
+            case EF_R16G16_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16_SNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16_USCALED: _IRR_FALLTHROUGH;
+            case EF_R16G16_SSCALED: _IRR_FALLTHROUGH;
+            case EF_R16G16_UINT: _IRR_FALLTHROUGH;
+            case EF_R16G16_SINT: _IRR_FALLTHROUGH;
+            case EF_R16G16_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R32_UINT: _IRR_FALLTHROUGH;
+            case EF_R32_SINT: _IRR_FALLTHROUGH;
+            case EF_R32_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_B10G11R11_UFLOAT_PACK32: _IRR_FALLTHROUGH;
+            case EF_E5B9G9R9_UFLOAT_PACK32:
+                return EFC_32_BIT;
+            case EF_R16G16B16_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16B16_SNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16B16_USCALED: _IRR_FALLTHROUGH;
+            case EF_R16G16B16_SSCALED: _IRR_FALLTHROUGH;
+            case EF_R16G16B16_UINT: _IRR_FALLTHROUGH;
+            case EF_R16G16B16_SINT: _IRR_FALLTHROUGH;
+            case EF_R16G16B16_SFLOAT:
+                return EFC_48_BIT;
+            case EF_R16G16B16A16_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_SNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_USCALED: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_SSCALED: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_UINT: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_SINT: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R32G32_UINT: _IRR_FALLTHROUGH;
+            case EF_R32G32_SINT: _IRR_FALLTHROUGH;
+            case EF_R32G32_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R64_UINT: _IRR_FALLTHROUGH;
+            case EF_R64_SINT: _IRR_FALLTHROUGH;
+            case EF_R64_SFLOAT:
+                return EFC_64_BIT;
+            case EF_R32G32B32_UINT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32_SINT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32_SFLOAT:
+                return EFC_96_BIT;
+            case EF_R32G32B32A32_UINT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32A32_SINT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32A32_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R64G64_UINT: _IRR_FALLTHROUGH;
+            case EF_R64G64_SINT: _IRR_FALLTHROUGH;
+            case EF_R64G64_SFLOAT:
+                return EFC_128_BIT;
+            case EF_R64G64B64_UINT: _IRR_FALLTHROUGH;
+            case EF_R64G64B64_SINT: _IRR_FALLTHROUGH;
+            case EF_R64G64B64_SFLOAT:
+                return EFC_192_BIT;
+            case EF_R64G64B64A64_UINT: _IRR_FALLTHROUGH;
+            case EF_R64G64B64A64_SINT: _IRR_FALLTHROUGH;
+            case EF_R64G64B64A64_SFLOAT:
+                return EFC_256_BIT;
+            default:
+                _IRR_DEBUG_BREAK_IF(1);
+                return static_cast<E_FORMAT_CLASS>(EFC_256_BIT+1);
+        }
+    }
+
     namespace impl
     {
         template<asset::E_FORMAT cf, asset::E_FORMAT cmp, asset::E_FORMAT... searchtab>

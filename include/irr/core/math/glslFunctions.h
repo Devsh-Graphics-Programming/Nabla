@@ -382,6 +382,16 @@ IRR_FORCE_INLINE auto iszero(const T& a, const U& tolerance = ROUNDING_ERROR<U>(
 	return core::iszero(a,T(tolerance));
 }
 
+IRR_FORCE_INLINE float& intBitsToFloat(int32_t& _i) { return reinterpret_cast<float&>(_i); }
+IRR_FORCE_INLINE float& uintBitsToFloat(uint32_t& _u) { return reinterpret_cast<float&>(_u); }
+IRR_FORCE_INLINE int32_t& floatBitsToInt(float& _f) { return reinterpret_cast<int32_t&>(_f); }
+IRR_FORCE_INLINE uint32_t& floatBitsToUint(float& _f) { return reinterpret_cast<uint32_t&>(_f); }
+//rvalue ref parameters to ensure that functions returning a copy will be called for rvalues only (functions for lvalues returns same memory but with reinterpreted type)
+IRR_FORCE_INLINE float intBitsToFloat(int32_t&& _i) { return reinterpret_cast<float&>(_i); }
+IRR_FORCE_INLINE float uintBitsToFloat(uint32_t&& _u) { return reinterpret_cast<float&>(_u); }
+IRR_FORCE_INLINE int32_t floatBitsToInt(float&& _f) { return reinterpret_cast<int32_t&>(_f); }
+IRR_FORCE_INLINE uint32_t floatBitsToUint(float&& _f) { return reinterpret_cast<uint32_t&>(_f); }
+
 } // end namespace core
 } // end namespace irr
 
