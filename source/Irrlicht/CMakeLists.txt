@@ -137,6 +137,7 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ROOT_PATH}/src/irr/asset/bawformat/CBlobsLoadingManager.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CForsythVertexCacheOptimizer.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CSmoothNormalGenerator.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CQuantNormalCache.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CMeshManipulator.cpp
 	CMeshSceneNode.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/COverdrawMeshOptimizer.cpp
