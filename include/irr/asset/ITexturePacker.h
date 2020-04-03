@@ -13,7 +13,7 @@ namespace irr {
 namespace asset
 {
 
-class ITexturePacker
+class ITexturePacker : public core::IReferenceCounted
 {
 protected:
     const uint32_t m_addr_layerShift;
@@ -133,7 +133,7 @@ private:
     }
 };
 
-class ICPUTexturePacker : public core::IReferenceCounted, public ITexturePacker
+class ICPUTexturePacker : public ITexturePacker
 {
 protected:
     virtual ~ICPUTexturePacker()
@@ -168,7 +168,7 @@ public:
 
             core::vector2du32_SIMD extent() const { return core::vector2du32_SIMD(mx, my)+core::vector2du32_SIMD(1u)-core::vector2du32_SIMD(x,y); }
         };
-        static bool computeMiptailOffsets(rect* res, int log2SIZE, int padding);
+        static inline bool computeMiptailOffsets(rect* res, int log2SIZE, int padding);
     };
 
     ICPUTexturePacker(E_FORMAT_CLASS _fclass, E_FORMAT _format, uint32_t _pgTabSzxy_log2 = 10u, uint32_t _pgTabMipLevels = 11u, uint32_t _pgSzxy_log2 = 8u, uint32_t _tilesPerDim_log2 = 5u, uint32_t _numLayers = 4u, uint32_t _tilePad = 9u/*max_aniso/2+1*/) :
