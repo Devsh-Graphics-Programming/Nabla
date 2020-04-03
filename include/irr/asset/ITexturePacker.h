@@ -257,6 +257,7 @@ public:
         auto extent = _img->getCreationParameters().extent;
         const uint32_t levelCount = countLevelsTakingAtLeastOnePage(extent, _subres);
 
+        // TODO: @Criss Do this via a filter derived from the CFillImageFilter
         for (uint32_t i = 0u; i < levelCount; ++i)
         {
             const uint32_t w = neededPageCountForSide(extent.width, _subres.baseMipLevel+i);
@@ -327,6 +328,7 @@ public:
         uint32_t miptailPgAddr = SPhysPgOffset::invalid_addr;
 
         const uint32_t texelSz = getTexelOrBlockBytesize(m_physAddrTex->getCreationParameters().format);
+        // TODO: @Criss Do this via a filter derived from the CFillImageFilter
         //fill page table and pack present mips into physical addr texture
         for (uint32_t i = 0u; i < levelsToPack; ++i)
         {
@@ -374,6 +376,7 @@ public:
                         pgTab[offset + y*pgtPitch + x] = physPgAddr;
 
                     bool pageGotFilled = false;
+                    // TODO: @Criss Do this via a filter derived from the CCopyImageFilter
                     core::vector3du32_SIMD physPg = pageCoords(physPgAddr, m_pgSzxy);
                     for (const auto& reg : _img->getRegions())
                     {

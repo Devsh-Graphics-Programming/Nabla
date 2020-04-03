@@ -93,26 +93,31 @@ file(GLOB_RECURSE IRRLICHT_HEADERS_PRIV2 "${IRR_ROOT_PATH}/src/irr/*.h")
 set(IRRLICHT_HEADERS ${IRRLICHT_HEADERS_PUBLIC} ${IRRLICHT_HEADERS_PIRV1} ${IRRLICHT_HEADERS_PRIV2})
 
 
-set(IRRLICHT_SRCS_COMMON
+set(IRR_CORE_SOURCES
+# Reference Counted
+	IReferenceCounted.cpp
 # Core Memory
 	${IRR_ROOT_PATH}/src/irr/core/memory/CLeakDebugger.cpp
-
+)
+set(IRR_SYSTEM_SOURCES
+# Junk to refactor
+	CFileList.cpp
+	CFileSystem.cpp
+	CLimitReadFile.cpp
+	CMemoryFile.cpp
+	CReadFile.cpp
+	CWriteFile.cpp
+	CMountPointReader.cpp
+	CPakReader.cpp
+	CTarReader.cpp
+	CZipReader.cpp
+	CLogger.cpp
+	COSOperator.cpp
+	os.cpp
+)
+set(IRR_ASSET_SOURCES
 # Pixel Formats
 	${IRR_ROOT_PATH}/src/irr/asset/format/convertColor.cpp
-
-# Mesh loaders
-	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshFileLoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/COBJMeshFileLoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshFileLoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CSTLMeshFileLoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CBufferLoaderBIN.cpp
-	
-	${IRR_ROOT_PATH}/src/irr/asset/CGraphicsPipelineLoaderMTL.cpp
-
-# Mesh writers
-	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshWriter.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshWriter.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CSTLMeshWriter.cpp
 	
 # Assets
 	${IRR_ROOT_PATH}/src/irr/asset/IAsset.cpp
@@ -129,25 +134,76 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ROOT_PATH}/src/irr/asset/CShaderIntrospector.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CGLSLLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CSPVLoader.cpp
+	
+# Pipeline loaders
+	${IRR_ROOT_PATH}/src/irr/asset/CGraphicsPipelineLoaderMTL.cpp
 
-# Other mesh-related stuff
+# Meshes
+	${IRR_ROOT_PATH}/src/irr/asset/CCPUSkinnedMesh.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CForsythVertexCacheOptimizer.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CSmoothNormalGenerator.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CQuantNormalCache.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CGeometryCreator.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CMeshManipulator.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/COverdrawMeshOptimizer.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CSmoothNormalGenerator.cpp
+
+# Mesh loaders
+	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshFileLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/COBJMeshFileLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshFileLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CSTLMeshFileLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CBufferLoaderBIN.cpp
+
+# Mesh writers
+	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshWriter.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshWriter.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CSTLMeshWriter.cpp
+
+# BaW Format
+	${IRR_ROOT_PATH}/src/irr/asset/bawformat/TypedBlob.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/bawformat/CBAWFile.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/bawformat/legacy/CBAWLegacy.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/bawformat/legacy/CBAWVersionUpFunctions.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/bawformat/CBlobsLoadingManager.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CForsythVertexCacheOptimizer.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CSmoothNormalGenerator.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CQuantNormalCache.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CMeshManipulator.cpp
-	CMeshSceneNode.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/COverdrawMeshOptimizer.cpp
-	CSkinnedMeshSceneNode.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/bawformat/TypedBlob.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CCPUSkinnedMesh.cpp
 
-# Scene objects
+# Images
+	${IRR_ROOT_PATH}/src/irr/asset/IImageAssetHandlerBase.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/filters/CBasicImageFilterCommon.cpp
+
+# Image loaders
+	${IRR_ROOT_PATH}/src/irr/asset/IImageLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderJPG.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderPNG.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderTGA.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderOpenEXR.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CGLILoader.cpp
+
+# Image writers
+	${IRR_ROOT_PATH}/src/irr/asset/IImageWriter.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterJPG.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterPNG.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterTGA.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterOpenEXR.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CGLIWriter.cpp
+)
+set(IRR_VIDEO_SOURCES
+# Allocators
+	${IRR_ROOT_PATH}/src/irr/video/alloc/GPUMemoryAllocatorBase.cpp
+	${IRR_ROOT_PATH}/src/irr/video/alloc/SimpleGPUBufferAllocator.cpp
+
+# Junk to refactor
+	IDriver.cpp
+	CNullDriver.cpp
+	${IRR_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
+	FW_Mutex.cpp
+	CFPSCounter.cpp
+)
+set(IRR_SCENE_SOURCES
+# Junk to refactor
+	CMeshSceneNode.cpp
+	CSkinnedMeshSceneNode.cpp
 	CCameraSceneNode.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CGeometryCreator.cpp
 	CSceneManager.cpp
 
 # Animators
@@ -159,57 +215,21 @@ set(IRRLICHT_SRCS_COMMON
 	CSceneNodeAnimatorFlyStraight.cpp
 	CSceneNodeAnimatorFollowSpline.cpp
 	CSceneNodeAnimatorRotation.cpp
-
-# Driver-specific objects
-	IDriver.cpp
-	CNullDriver.cpp
-	${IRR_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
-	FW_Mutex.cpp
-
-# Image processing
-	${IRR_ROOT_PATH}/src/irr/asset/IImageLoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/IImageWriter.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/IImageAssetHandlerBase.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderJPG.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderPNG.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderTGA.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderOpenEXR.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CGLILoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterJPG.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterPNG.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterTGA.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterOpenEXR.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CGLIWriter.cpp
-
-# Video
-	CFPSCounter.cpp
-	${IRR_ROOT_PATH}/src/irr/video/alloc/GPUMemoryAllocatorBase.cpp
-	${IRR_ROOT_PATH}/src/irr/video/alloc/SimpleGPUBufferAllocator.cpp
-
-# Input/output
-	CFileList.cpp
-	CFileSystem.cpp
-	CLimitReadFile.cpp
-	CMemoryFile.cpp
-	CReadFile.cpp
-	CWriteFile.cpp
-	CMountPointReader.cpp
-	CPakReader.cpp
-	CTarReader.cpp
-	CZipReader.cpp
-
-# Other
+)
+set(IRRLICHT_SRCS_COMMON
+	${IRR_CORE_SOURCES}
+	${IRR_SYSTEM_SOURCES}
+	${IRR_ASSET_SOURCES}
+	${IRR_VIDEO_SOURCES}
+	${IRR_SCENE_SOURCES}
+# Junk to refactor
 	IrrlichtDevice.cpp
 	CIrrDeviceSDL.cpp
 	CIrrDeviceLinux.cpp
 	CIrrDeviceConsole.cpp
 	CIrrDeviceStub.cpp
 	CIrrDeviceWin32.cpp
-	CLogger.cpp
-	COSOperator.cpp
 	Irrlicht.cpp
-	os.cpp
-	IReferenceCounted.cpp
 )
 if (MSVC)
 	list(APPEND IRRLICHT_SRCS_COMMON pch.cpp) # @crisspl why are only some sources appended? also why sources?

@@ -137,7 +137,7 @@ static void convertColorFlip(uint32_t regionBufferRowLenght, VkExtent3D imageExt
 			out -= stride;
 		
 		const void *src_container[4] = {in, nullptr, nullptr, nullptr};
-		video::convertColor<srcFormat, destFormat>(src_container, out, stride, size);
+		convertColor<srcFormat, destFormat>(src_container, out, stride, size);
 		in += stride;
 		
 		if (!flip)
@@ -174,13 +174,13 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 		switch ( header.ColorMapEntrySize )
 		{
 			case 16:
-				video::convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_R8G8B8A8_SRGB>(src_container, palette->getPointer(), header.ColorMapLength, 0u);
+				convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_R8G8B8A8_SRGB>(src_container, palette->getPointer(), header.ColorMapLength, 0u);
 				break;
 			case 24:
-				video::convertColor<EF_B8G8R8_SRGB, EF_R8G8B8A8_SRGB>(src_container, palette->getPointer(), header.ColorMapLength, 0u);
+				convertColor<EF_B8G8R8_SRGB, EF_R8G8B8A8_SRGB>(src_container, palette->getPointer(), header.ColorMapLength, 0u);
 				break;
 			case 32:
-				video::convertColor<EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(src_container, palette->getPointer(), header.ColorMapLength, 0u);
+				convertColor<EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(src_container, palette->getPointer(), header.ColorMapLength, 0u);
 				break;
 		}
 		delete [] colorMap;
@@ -281,7 +281,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 				const auto wholeSizeInBytesAfterConvertion = wholeSize * getTexelOrBlockBytesize(EF_R8G8B8_SRGB);
 				uint8_t* outRGBData = _IRR_NEW_ARRAY(uint8_t, wholeSizeInBytesAfterConvertion);
 
-				video::convertColor<EF_R8_SRGB, EF_R8G8B8_SRGB>(planarData, outRGBData, wholeSize, *reinterpret_cast<core::vector3d<uint32_t>*>(&region.imageExtent));
+				convertColor<EF_R8_SRGB, EF_R8G8B8_SRGB>(planarData, outRGBData, wholeSize, *reinterpret_cast<core::vector3d<uint32_t>*>(&region.imageExtent));
 
 				texelBuffer = std::move(core::make_smart_refctd_ptr<ICPUBuffer>(wholeSizeInBytesAfterConvertion));
 

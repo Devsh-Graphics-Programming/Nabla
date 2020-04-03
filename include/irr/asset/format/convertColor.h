@@ -16,7 +16,7 @@
 
 namespace irr
 {
-namespace video
+namespace asset
 {
     namespace impl
     {
@@ -118,7 +118,6 @@ namespace video
 		} \
 		IRR_PSEUDO_IF_CONSTEXPR_END 
 
-        using namespace asset;
         if (isIntegerFormat<sF>() && isIntegerFormat<dF>())
         {
             using decT = typename std::conditional<isSignedFormat<sF>(), int64_t, uint64_t>::type;

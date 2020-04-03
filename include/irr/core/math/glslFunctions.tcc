@@ -231,6 +231,28 @@ IRR_FORCE_INLINE vectorSIMDf dot<vectorSIMDf>(const vectorSIMDf& a, const vector
 #error "no implementation"
 #endif
 }
+template<>
+IRR_FORCE_INLINE vectorSIMDi32 dot<vectorSIMDi32>(const vectorSIMDi32& a, const vectorSIMDi32& b)
+{
+    __m128i xmm0 = (a*b).getAsRegister();
+#ifdef __IRR_COMPILE_WITH_SSE3
+    xmm0 = _mm_hadd_epi32(xmm0,xmm0);
+    return _mm_hadd_epi32(xmm0,xmm0);
+#else
+#error "no implementation"
+#endif
+}
+template<>
+IRR_FORCE_INLINE vectorSIMDu32 dot<vectorSIMDu32>(const vectorSIMDu32& a, const vectorSIMDu32& b)
+{
+    __m128i xmm0 = (a*b).getAsRegister();
+#ifdef __IRR_COMPILE_WITH_SSE3
+    xmm0 = _mm_hadd_epi32(xmm0,xmm0);
+    return _mm_hadd_epi32(xmm0,xmm0);
+#else
+#error "no implementation"
+#endif
+}
 
 template<>
 IRR_FORCE_INLINE vectorSIMDf cross<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b)

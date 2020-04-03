@@ -292,7 +292,7 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	// Get image data
 	uint32_t rowspan = cinfo.image_width * cinfo.out_color_components;
 
-    // OpenGL cannot transfer rows with arbitrary padding
+    // OpenGL cannot transfer rows with arbitrary padding ( actually it can do arbitrary stride, not arbitrary alignment)
     static const uint32_t MAX_PITCH_ALIGNMENT = 8u;
     // try with largest alignment first
     auto calcPitchInBlocks = [](uint32_t width, uint32_t blockByteSize) -> uint32_t

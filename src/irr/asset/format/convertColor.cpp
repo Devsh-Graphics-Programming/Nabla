@@ -3,9 +3,8 @@
 
 namespace irr
 {
-namespace video
+namespace asset
 {
-    using namespace asset;//for E_FORMAT
 namespace impl
 {
     template<E_FORMAT sF>

@@ -27,6 +27,7 @@ SOFTWARE.
 
 #ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
 
+#include "irr/asset/filters/CRegionBlockFunctorFilter.h"
 #include "irr/asset/COpenEXRImageMetadata.h"
 
 #include "CImageLoaderOpenEXR.h"
@@ -153,6 +154,33 @@ namespace irr
 			std::array<Array2D<float>, availableChannels> fullFloatPixelMapArray;
 			std::array<Array2D<uint32_t>, availableChannels> uint32_tPixelMapArray;
 		};
+		template<typename IlmType>
+		struct ReadTexels
+		{
+				ReadTexels(ICPUImage* image, const std::array<Array2D<IlmType>, availableChannels>& _pixelMapArray) :
+					data(reinterpret_cast<uint8_t*>(image->getBuffer()->getPointer())), pixelMapArray(_pixelMapArray)
+				{
+					using StreamFromEXR = CRegionBlockFunctorFilter<ReadTexels<IlmType>,false>;
+					StreamFromEXR::state_type state(*this,image,image->getRegions().begin());
+					StreamFromEXR::execute(&state);
+				}
+
+				inline void operator()(uint32_t ptrOffset, const core::vectorSIMDu32& texelCoord)
+				{
+					assert(texelCoord.w==0u && texelCoord.z==0u);
+
+					uint8_t* texelPtr = data+ptrOffset;
+					for (auto channelIndex=0; channelIndex<availableChannels; channelIndex++)
+					{
+						const auto& element = pixelMapArray[channelIndex][texelCoord.y][texelCoord.x];
+						reinterpret_cast<std::decay<decltype(element)>::type*>(texelPtr)[channelIndex] = element;
+					}
+				}
+
+			private:
+				uint8_t* const data;
+				const std::array<Array2D<IlmType>, availableChannels>& pixelMapArray;
+		};
 
 		auto getChannels(const InputFile& file)
 		{
@@ -189,11 +217,6 @@ namespace irr
 				return false;
 		}
 
-		template<typename IlmF>
-		void trackIrrFormatAndPerformDataAssignment(void* begginingOfImageDataBuffer, const uint64_t& endShiftToSpecifyADataPos, const IlmF& ilmPixelValueToAssignTo)
-		{
-			*(reinterpret_cast<IlmF*>(begginingOfImageDataBuffer) + endShiftToSpecifyADataPos) = ilmPixelValueToAssignTo;
-		}
 
 		asset::SAssetBundle CImageLoaderOpenEXR::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
@@ -220,7 +243,7 @@ namespace irr
 					const auto mapOfChannels = data.second;
 					PerImageData perImageData;
 
-					auto openEXRMetadata = core::make_smart_refctd_ptr<COpenEXRImageMetadata>(suffixOfChannels, IImageMetadata::ColorSemantic{ECS_SRGB,EOTF_IDENTITY});
+					auto openEXRMetadata = core::make_smart_refctd_ptr<COpenEXRImageMetadata>(suffixOfChannels, IImageMetadata::ColorSemantic{ ECS_SRGB,EOTF_IDENTITY });
 
 					int width;
 					int height;
@@ -251,45 +274,31 @@ namespace irr
 					params.extent.height = height;
 
 					auto image = ICPUImage::create(std::move(params));
+					{ // create image and buffer that backs it
+						const uint32_t texelFormatByteSize = getTexelOrBlockBytesize(image->getCreationParameters().format);
+						auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(image->getImageDataSizeInBytes());
+						auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
+						ICPUImage::SBufferCopy& region = regions->front();
+						//region.imageSubresource.aspectMask = ...; // waits for Vulkan
+						region.imageSubresource.mipLevel = 0u;
+						region.imageSubresource.baseArrayLayer = 0u;
+						region.imageSubresource.layerCount = 1u;
+						region.bufferOffset = 0u;
+						region.bufferRowLength = calcPitchInBlocks(width, texelFormatByteSize);
+						region.bufferImageHeight = 0u;
+						region.imageOffset = { 0u, 0u, 0u };
+						region.imageExtent = image->getCreationParameters().extent;
 
-					const uint32_t texelFormatByteSize = getTexelOrBlockBytesize(image->getCreationParameters().format);
-					auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(image->getImageDataSizeInBytes());
-					auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
-					ICPUImage::SBufferCopy& region = regions->front();
-					//region.imageSubresource.aspectMask = ...; // waits for Vulkan
-					region.imageSubresource.mipLevel = 0u;
-					region.imageSubresource.baseArrayLayer = 0u;
-					region.imageSubresource.layerCount = 1u;
-					region.bufferOffset = 0u;
-					region.bufferRowLength = calcPitchInBlocks(width, texelFormatByteSize);
-					region.bufferImageHeight = 0u;
-					region.imageOffset = { 0u, 0u, 0u };
-					region.imageExtent = image->getCreationParameters().extent;
+						image->setBufferAndRegions(std::move(texelBuffer), regions);
+					}
 
-					void* fetchedData = texelBuffer->getPointer();
-					const auto pitch = region.bufferRowLength;
+					if (params.format == EF_R16G16B16A16_SFLOAT)
+						ReadTexels(image.get(),perImageData.halfPixelMapArray);
+					else if (params.format == EF_R32G32B32A32_SFLOAT)
+						ReadTexels(image.get(), perImageData.fullFloatPixelMapArray);
+					else if (params.format == EF_R32G32B32A32_UINT)
+						ReadTexels(image.get(), perImageData.uint32_tPixelMapArray);
 
-					for (uint64_t yPos = 0; yPos < height; ++yPos)
-						for (uint64_t xPos = 0; xPos < width; ++xPos)
-						{
-							const uint64_t ptrStyleEndShiftToImageDataPixel = (yPos * pitch * availableChannels) + (xPos * availableChannels);
-
-							for (uint8_t channelIndex = 0; channelIndex < availableChannels; ++channelIndex)
-							{
-								const auto& halfChannelElement = (perImageData.halfPixelMapArray[channelIndex])[yPos][xPos];
-								const auto& fullFloatChannelElement = (perImageData.fullFloatPixelMapArray[channelIndex])[yPos][xPos];
-								const auto& uint32_tChannelElement = (perImageData.uint32_tPixelMapArray[channelIndex])[yPos][xPos];
-
-								if (params.format == EF_R16G16B16A16_SFLOAT)
-									trackIrrFormatAndPerformDataAssignment<half>(fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, halfChannelElement);
-								else if (params.format == EF_R32G32B32A32_SFLOAT)
-									trackIrrFormatAndPerformDataAssignment<float>(fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, fullFloatChannelElement);
-								else if (params.format == EF_R32G32B32A32_UINT)
-									trackIrrFormatAndPerformDataAssignment<uint32_t>(fetchedData, ptrStyleEndShiftToImageDataPixel + channelIndex, uint32_tChannelElement);
-							}
-						}
-
-					image->setBufferAndRegions(std::move(texelBuffer), regions);
 					m_manager->setAssetMetadata(image.get(), std::move(openEXRMetadata));
 
 					images.push_back(std::move(image));
@@ -400,7 +409,7 @@ namespace irr
 
 			auto isTheBitActive = [&](uint16_t bitToCheck)
 			{
-				return (versionField.mainDataRegisterField & (1 << bitToCheck - 1));
+				return (versionField.mainDataRegisterField & (1 << (bitToCheck - 1)));
 			};
 
 			versionField.fileFormatVersionNumber |= isTheBitActive(1) | isTheBitActive(2) | isTheBitActive(3) | isTheBitActive(4) | isTheBitActive(5) | isTheBitActive(6) | isTheBitActive(7) | isTheBitActive(8);

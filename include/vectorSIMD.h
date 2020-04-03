@@ -16,6 +16,7 @@
     #error "Check your compiler or project settings for the -m*sse* flag, or upgrade your CPU"
 #endif // __IRR_COMPILE_WITH_X86_SIMD_
 
+#include <type_traits>
 #include <stdint.h>
 #include <math.h>
 
@@ -373,8 +374,8 @@ namespace core
 		// TODO: these are messed up (they care about past the vector)
 		inline vectorSIMD_32<T> operator*(const vectorSIMD_32<T>& other) const
 		{
-			// TODO: do something nicer and faster like https://github.com/vectorclass
-			return vectorSIMD_32<T>(x * other.x, y * other.y, z * other.z, w * other.w);
+			// "but since it only stores the lower 32bits, it's really a sign-oblivious instruction that you can use for both"
+			return _mm_mullo_epi32(getAsRegister(),other.getAsRegister());
 		}
 		inline vectorSIMD_32<T>& operator*=(const vectorSIMD_32<T>& other)
 		{

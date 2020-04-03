@@ -17,6 +17,8 @@ namespace core
 
 template<int components>
 class vectorSIMDBool;
+template <class T>
+class vectorSIMD_32;
 class vectorSIMDf;
 class matrix4SIMD;
 class matrix3x4SIMD;
@@ -278,6 +280,10 @@ template<typename T>
 IRR_FORCE_INLINE T dot(const T& a, const T& b);
 template<>
 IRR_FORCE_INLINE vectorSIMDf dot<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b);
+template<>
+IRR_FORCE_INLINE vectorSIMD_32<int32_t> dot<vectorSIMD_32<int32_t>>(const vectorSIMD_32<int32_t>& a, const vectorSIMD_32<int32_t>& b);
+template<>
+IRR_FORCE_INLINE vectorSIMD_32<uint32_t> dot<vectorSIMD_32<uint32_t>>(const vectorSIMD_32<uint32_t>& a, const vectorSIMD_32<uint32_t>& b);
 
 
 template<typename T>
