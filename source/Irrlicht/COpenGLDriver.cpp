@@ -1338,6 +1338,9 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
                 "????"
             );
 
+        if (!spvCode)
+            return nullptr;
+
 #define FIX_AMD_DRIVER_BUG
 #ifdef FIX_AMD_DRIVER_BUG
         AMDbugfixCompiler comp(reinterpret_cast<const uint32_t*>(spvCode->getPointer()), spvCode->getSize()/4u);

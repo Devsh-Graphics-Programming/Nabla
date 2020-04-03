@@ -30,35 +30,6 @@ STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePack
 
 constexpr const char* GLSL_VT_FUNCTIONS =
 R"(
-vec4 vTextureGrad_helper(in vec2 virtualUV, int LoD, in mat2 gradients, in ivec2 originalTextureSz)
-{
-    int clippedLoD = max(originalTextureSz.x,originalTextureSz.y)>>PAGE_SZ_LOG2;
-    int maxLoD = clippedLoD!=0 ? findMSB(clippedLoD):0;
-	int pgtabLoD = min(LoD,maxLoD);
-	int tilesInLodLevel = textureSize(pgTabTex[1], pgtabLoD).x;
-	ivec2 tileCoord = ivec2(virtualUV.xy*vec2(tilesInLodLevel));
-	uvec2 pageID = texelFetch(pgTabTex[1],tileCoord,pgtabLoD).rg;
-    ivec2 originalMipSize = ivec2(originalTextureSz.x>>LoD,originalTextureSz.y>>LoD);//is there element-wise bitshift? like vec>>n?
-    int originalMipSize_maxDim = max(originalMipSize.x,originalMipSize.y);
-	vec3 physicalUV = unpackPageID(originalMipSize_maxDim<=(PAGE_SZ/2) ? pageID.y : pageID.x); // unpack to normalized coord offset + Layer in physical texture (just bit operations) and multiples
-    vec2 tileFractionalCoordinate = fract(virtualUV.xy*tilesInLodLevel);//i dont get this
-    /*
-    if (originalMipSize_maxDim <= PAGE_SZ/2)
-    {
-        //@devsh please check this
-        int tmp = LoD-maxLoD;
-        vec2 subtileSz = vec2(float(PAGE_SZ>>tmp));
-        vec2 scale = vec2(originalMipSize)/subtileSz;
-        //i dont get this
-        tileFractionalCoordinate = tileFractionalCoordinate*scale + unpackUnorm2x16(tilePacking[1].offsets[tmp-1]); // mul by scale then offset
-    }
-    else //i dont get this
-    */
-        tileFractionalCoordinate = (tileFractionalCoordinate*float(PAGE_SZ)+vec2(TILE_PADDING))/float(PAGE_SZ+2*TILE_PADDING);
-	physicalUV.xy += tileFractionalCoordinate;
-	return textureGrad(physPgTex[1],physicalUV,gradients[0],gradients[1]);
-}
-
 float lengthSq(in vec2 v)
 {
   return dot(v,v);
@@ -294,7 +265,7 @@ int main()
         {
             auto& pgtDesc = pagetabs.begin()[i];
 
-            auto* img = texPackers[i]->getPageTable();
+            auto* img = texPackers[i]->getPageTable(); // TODO: Change Page Table to be layered
 
             asset::ICPUImageView::SCreationParams params;
             params.flags = static_cast<asset::IImageView<asset::ICPUImage>::E_CREATE_FLAGS>(0);
@@ -304,7 +275,7 @@ int main()
             params.subresourceRange.layerCount = img->getCreationParameters().arrayLayers;
             params.subresourceRange.baseMipLevel = 0u;
             params.subresourceRange.levelCount = img->getCreationParameters().mipLevels;
-            params.viewType = asset::IImageView<asset::ICPUImage>::ET_2D;//TODO change to ET_2D_ARRAY when pagetab is also layered
+            params.viewType = asset::IImageView<asset::ICPUImage>::ET_2D_ARRAY;
             params.image = core::smart_refctd_ptr<asset::ICPUImage>(img);
 
             pgtDesc.image.imageLayout = asset::EIL_UNDEFINED;
