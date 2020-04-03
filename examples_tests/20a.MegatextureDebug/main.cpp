@@ -30,38 +30,6 @@ STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePack
 
 constexpr const char* GLSL_VT_FUNCTIONS =
 R"(
-float lengthSq(in vec2 v)
-{
-  return dot(v,v);
-}
-// textureGrad emulation
-vec4 vTextureGrad(in vec2 virtualUV, in mat2 dOriginalUV, in vec2 originalTextureSize)
-{
-  // returns what would have been `textureGrad(originalTexture,gOriginalUV[0],gOriginalUV[1])
-  // https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap15.html#textures-normalized-operations
-  const float kMaxAnisotropy = float(2*TILE_PADDING);
-  const float kMaxAnisoLogOffset = log2(kMaxAnisotropy);
-  // you can use an approx `log2` if you know one
-  float p_x_2_log2 = log2(lengthSq(dOriginalUV[0]*originalTextureSize));
-  float p_y_2_log2 = log2(lengthSq(dOriginalUV[1]*originalTextureSize));
-  bool xIsMajor = p_x_2_log2>p_y_2_log2;
-  float p_min_2_log2 = xIsMajor ? p_y_2_log2:p_x_2_log2;
-  float p_max_2_log2 = xIsMajor ? p_x_2_log2:p_y_2_log2;
-  float LoD = max(p_min_2_log2,p_max_2_log2-kMaxAnisoLogOffset);
-  int LoD_high = int(LoD);
-#ifdef DRIVER_HAS_GRADIENT_SCALING_ISSUES // don't use if you don't have to
-  // normally when sampling an imageview with only 1 miplevel using `textureGrad` the gradient vectors can be scaled arbitrarily because we cannot select any other mip-map
-  // however driver might want to try and get "clever" on us and decide that since `p_min` is huge, it wont bother with anisotropy
-  float anisotropy = min(exp2((p_max_2_log2-p_min_2_log2)*0.5),kMaxAnisotropy);
-  dOriginalUV[0] = normalize(dOriginalUV[0])*(1.0/float(MEGA_TEXTURE_SIZE));
-  dOriginalUV[1] = normalize(dOriginalUV[1])*(1.0/float(MEGA_TEXTURE_SIZE));
-  dOriginalUV[xIsMajor ? 0:1] *= anisotropy;
-#endif
-  ivec2 originalTexSz_i = ivec2(originalTextureSize);
-  //return mix(vTextureGrad_helper(virtualUV,LoD_high,dOriginalUV,originalTexSz_i),vTextureGrad_helper(virtualUV,LoD_high+1,dOriginalUV,originalTexSz_i),LoD-float(LoD_high));
-    return vTextureGrad_helper(virtualUV,0,dOriginalUV,originalTexSz_i);//testing purposes, until mips are present in physical tex pages
-}
-
 vec4 textureVT(in uvec2 _texData, in vec2 uv, in mat2 dUV)
 {
     vec2 scale = unpackSize(_texData);
