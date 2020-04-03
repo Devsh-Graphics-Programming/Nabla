@@ -8,10 +8,43 @@
 #include <irr/asset/ITexturePacker.h>
 #include <irr/asset/CMTLPipelineMetadata.h>
 #include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
+#include <irr/video/IGPUObjectFromAssetConverter.h>
 
 //#include "../../ext/ScreenShot/ScreenShot.h"
 using namespace irr;
 using namespace core;
+
+class CDontGenMipsCPU2GPUConverter : public video::IGPUObjectFromAssetConverter
+{
+public:
+    using video::IGPUObjectFromAssetConverter::IGPUObjectFromAssetConverter;
+
+    video::created_gpu_object_array<asset::ICPUImage> create(asset::ICPUImage** const _begin, asset::ICPUImage** const _end, const SParams& _params) override
+    {
+        const auto assetCount = std::distance(_begin, _end);
+        auto res = core::make_refctd_dynamic_array<video::created_gpu_object_array<asset::ICPUImage> >(assetCount);
+
+        for (ptrdiff_t i = 0u; i < assetCount; ++i)
+        {
+            const asset::ICPUImage* cpuimg = _begin[i];
+            asset::IImage::SCreationParams params = cpuimg->getCreationParameters();
+            auto gpuimg = m_driver->createDeviceLocalGPUImageOnDedMem(std::move(params));
+
+            auto regions = cpuimg->getRegions();
+            auto count = regions.size();
+            if (count)
+            {
+                auto tmpBuff = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuimg->getBuffer()->getSize(), cpuimg->getBuffer()->getPointer());
+                m_driver->copyBufferToImage(tmpBuff.get(), gpuimg.get(), count, cpuimg->getRegions().begin());
+            }
+
+            res->operator[](i) = std::move(gpuimg);
+        }
+
+        return res;
+    }
+};
+
 
 using STextureData = asset::ITexturePacker::STextureData;
 
@@ -272,7 +305,8 @@ int main()
             physTexDesc.desc = core::make_smart_refctd_ptr<asset::ICPUImageView>(std::move(params));
         }
     }
-    auto gpuds0 = driver->getGPUObjectsFromAssets(&ds0.get(),&ds0.get()+1)->front();
+    CDontGenMipsCPU2GPUConverter cpu2gpu(am, driver);
+    auto gpuds0 = driver->getGPUObjectsFromAssets(&ds0.get(),&ds0.get()+1, &cpu2gpu)->front();
 
     core::smart_refctd_ptr<video::IGPUMeshBuffer> fsTriangleMeshBuffer;
     {
