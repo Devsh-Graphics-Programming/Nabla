@@ -61,21 +61,21 @@ layout (push_constant) uniform Block {
 )";
 constexpr const char* GLSL_VT_FUNCTIONS =
 R"(
-#define ADDR_LAYER_SHIFT 12
-#define ADDR_Y_SHIFT 6
-#define ADDR_X_MASK 0x3fu
+#define ADDR_LAYER_SHIFT 12u
+#define ADDR_Y_SHIFT 6u
+#define ADDR_X_PREMASK 
+#define ADDR_X_MASK ((0x1u<<ADDR_Y_SHIFT)-1u)
+#define ADDR_Y_MASK ((0x1u<<(ADDR_LAYER_SHIFT-ADDR_Y_SHIFT))-1u)
 
-#define TEXTURE_TILE_PER_DIMENSION 64
 #define PAGE_SZ 128
 #define PAGE_SZ_LOG2 7
 #define TILE_PADDING 8
+#define PADDED_TILE_SIZE (PAGE_SZ+2*TILE_PADDING)
 
 vec3 unpackPageID(in uint pageID)
 {
-	vec2 uv = vec2(float(pageID & ADDR_X_MASK), float((pageID>>ADDR_Y_SHIFT) & ADDR_X_MASK))*(PAGE_SZ+2*TILE_PADDING) + TILE_PADDING;
-	uv /= vec2(textureSize(physPgTex[1],0).xy);
-	return vec3(uv, float(pageID >> ADDR_LAYER_SHIFT));
-    //return vec3(vec2(TILE_PADDING)/vec2(textureSize(physPgTex[1],0).xy), 0.0);
+	// this is optimal, don't touch
+	return vec3(uvec2(pageID,pageID>>ADDR_Y_SHIFT)&uvec2(ADDR_X_MASK,ADDR_Y_MASK),0.0);
 }
 
 vec4 vTextureGrad_helper(in vec2 virtualUV, int LoD, in mat2 gradients, in ivec2 originalTextureSz)
@@ -533,6 +533,15 @@ int main()
             physTexDesc.desc = core::make_smart_refctd_ptr<asset::ICPUImageView>(std::move(params));
         }
     }
+    core::smart_refctd_ptr<asset::ICPUPipelineLayout> pipelineLayout;
+    {
+        asset::SPushConstantRange pcrng;
+        pcrng.offset = 0;
+        pcrng.size = 128;
+        pcrng.stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+
+        pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pcrng, &pcrng + 1, core::smart_refctd_ptr(ds0layout), nullptr, nullptr, nullptr);
+    }
 
     asset::IAssetLoader::SAssetLoadParams lp;
     auto meshes_bundle = am->getAsset("../../media/sponza/sponza.obj", lp);
@@ -583,12 +592,10 @@ int main()
         }*/
         auto* pipeline = mb->getPipeline();//TODO (?) might want to clone pipeline first, then modify and finally set into meshbuffer
         auto newPipeline = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(pipeline->clone(0u));//shallow copy
-        auto newLayout = core::smart_refctd_ptr_static_cast<asset::ICPUPipelineLayout>(pipeline->getLayout()->clone(0u));//shallow copy
-        //new ds layouts, only leave original ds1 layout since it's for UBO with matrices
-        newLayout->setDescriptorSetLayout(3u, nullptr);
-        newLayout->setDescriptorSetLayout(2u, nullptr);
-        newLayout->setDescriptorSetLayout(0u, core::smart_refctd_ptr(ds0layout));
-        newPipeline->setLayout(std::move(newLayout));
+        //leave original ds1 layout since it's for UBO with matrices
+        if (!pipelineLayout->getDescriptorSetLayout(1u))
+            pipelineLayout->setDescriptorSetLayout(1u, core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(pipeline->getLayout()->getDescriptorSetLayout(1u)));
+        newPipeline->setLayout(core::smart_refctd_ptr(pipelineLayout));
         {
             auto* fs = pipeline->getShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX);
             auto found = modifiedShaders.find(core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs));
