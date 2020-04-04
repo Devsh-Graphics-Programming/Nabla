@@ -5,13 +5,17 @@ namespace irr
 {
 namespace asset
 {
+
+
 namespace impl
 {
-    template<E_FORMAT sF>
-    static void convertColor_RTimpl(E_FORMAT _dfmt, const void* _srcPix[4], void* _dstPix, size_t _pixOrBlockCnt, core::vector3d<uint32_t>& _imgSize, PolymorphicSwizzle* swizzle)
+
+
+template<E_FORMAT sF>
+static void convertColor_RTimpl(E_FORMAT _dfmt, const void* _srcPix[4], void* _dstPix, size_t _pixOrBlockCnt, core::vector3d<uint32_t>& _imgSize, PolymorphicSwizzle* swizzle)
+{
+    switch (_dfmt)
     {
-        switch (_dfmt)
-        {
         case EF_R4G4_UNORM_PACK8: return convertColor<sF, EF_R4G4_UNORM_PACK8,void>(_srcPix, _dstPix, _pixOrBlockCnt, _imgSize,swizzle);
         case EF_R4G4B4A4_UNORM_PACK16: return convertColor<sF, EF_R4G4B4A4_UNORM_PACK16,void>(_srcPix, _dstPix, _pixOrBlockCnt, _imgSize,swizzle);
         case EF_B4G4R4A4_UNORM_PACK16: return convertColor<sF, EF_B4G4R4A4_UNORM_PACK16,void>(_srcPix, _dstPix, _pixOrBlockCnt, _imgSize,swizzle);
@@ -148,9 +152,13 @@ namespace impl
         case EF_G8_B8_R8_3PLANE_422_UNORM: return convertColor<sF, EF_G8_B8_R8_3PLANE_422_UNORM,void>(_srcPix, _dstPix, _pixOrBlockCnt, _imgSize,swizzle);
         case EF_G8_B8R8_2PLANE_422_UNORM: return convertColor<sF, EF_G8_B8R8_2PLANE_422_UNORM,void>(_srcPix, _dstPix, _pixOrBlockCnt, _imgSize,swizzle);
         case EF_G8_B8_R8_3PLANE_444_UNORM: return convertColor<sF, EF_G8_B8_R8_3PLANE_444_UNORM,void>(_srcPix, _dstPix, _pixOrBlockCnt, _imgSize,swizzle);
-        }
     }
+}
+
+
 }//namespace impl
+
+
 
 void convertColor(E_FORMAT _sfmt, E_FORMAT _dfmt, const void* _srcPix[4], void* _dstPix, size_t _pixOrBlockCnt, core::vector3d<uint32_t>& _imgSize, PolymorphicSwizzle* swizzle)
 {
@@ -295,4 +303,6 @@ void convertColor(E_FORMAT _sfmt, E_FORMAT _dfmt, const void* _srcPix[4], void* 
     }
 }
 
-}}//irr::video
+
+}
+}
