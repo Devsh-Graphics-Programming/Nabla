@@ -2640,7 +2640,23 @@ namespace asset
         default: return false;
         }
     }
-	
-}} //irr::video
+    
+
+    inline bool encodePixelsRuntime(asset::E_FORMAT _fmt, void* _pix, const void* _input)
+    {
+        if (isIntegerFormat(_fmt))
+        {
+            if (isSignedFormat(_fmt))
+                encodePixels<int64_t>(_fmt, _pix, reinterpret_cast<const int64_t*>(_input));
+            else
+                encodePixels<uint64_t>(_fmt, _pix, reinterpret_cast<const uint64_t*>(_input));
+        }
+        else
+            encodePixels<double>(_fmt, _pix, reinterpret_cast<const double*>(_input));
+    }
+
+
+}
+}
 
 #endif //__IRR_ENCODE_PIXELS_H_INCLUDED__

@@ -1597,75 +1597,75 @@ namespace asset
     {
         switch (_fmt)
         {
-        case asset::EF_R4G4_UNORM_PACK8: decodePixels<asset::EF_R4G4_UNORM_PACK8, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R4G4B4A4_UNORM_PACK16: decodePixels<asset::EF_R4G4B4A4_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_B4G4R4A4_UNORM_PACK16: decodePixels<asset::EF_B4G4R4A4_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R5G6B5_UNORM_PACK16: decodePixels<asset::EF_R5G6B5_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_B5G6R5_UNORM_PACK16: decodePixels<asset::EF_B5G6R5_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R5G5B5A1_UNORM_PACK16: decodePixels<asset::EF_R5G5B5A1_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_B5G5R5A1_UNORM_PACK16: decodePixels<asset::EF_B5G5R5A1_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_A1R5G5B5_UNORM_PACK16: decodePixels<asset::EF_A1R5G5B5_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R8_UNORM: decodePixels<asset::EF_R8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R8_SNORM: decodePixels<asset::EF_R8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R8G8_UNORM: decodePixels<asset::EF_R8G8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R8G8_SNORM: decodePixels<asset::EF_R8G8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R8G8B8_UNORM: decodePixels<asset::EF_R8G8B8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R8G8B8_SNORM: decodePixels<asset::EF_R8G8B8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_B8G8R8_UNORM: decodePixels<asset::EF_B8G8R8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_B8G8R8_SNORM: decodePixels<asset::EF_B8G8R8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R8G8B8A8_UNORM: decodePixels<asset::EF_R8G8B8A8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R8G8B8A8_SNORM: decodePixels<asset::EF_R8G8B8A8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_B8G8R8A8_UNORM: decodePixels<asset::EF_B8G8R8A8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_B8G8R8A8_SNORM: decodePixels<asset::EF_B8G8R8A8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_A8B8G8R8_UNORM_PACK32: decodePixels<asset::EF_A8B8G8R8_UNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_A8B8G8R8_SNORM_PACK32: decodePixels<asset::EF_A8B8G8R8_SNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_A2R10G10B10_UNORM_PACK32: decodePixels<asset::EF_A2R10G10B10_UNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_A2R10G10B10_SNORM_PACK32: decodePixels<asset::EF_A2R10G10B10_SNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_A2B10G10R10_UNORM_PACK32: decodePixels<asset::EF_A2B10G10R10_UNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_A2B10G10R10_SNORM_PACK32: decodePixels<asset::EF_A2B10G10R10_SNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16_UNORM: decodePixels<asset::EF_R16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16_SNORM: decodePixels<asset::EF_R16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16G16_UNORM: decodePixels<asset::EF_R16G16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16G16_SNORM: decodePixels<asset::EF_R16G16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16G16B16_UNORM: decodePixels<asset::EF_R16G16B16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16G16B16_SNORM: decodePixels<asset::EF_R16G16B16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16G16B16A16_UNORM: decodePixels<asset::EF_R16G16B16A16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16G16B16A16_SNORM: decodePixels<asset::EF_R16G16B16A16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R8_SRGB: decodePixels<asset::EF_R8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R8G8_SRGB: decodePixels<asset::EF_R8G8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R8G8B8_SRGB: decodePixels<asset::EF_R8G8B8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_B8G8R8_SRGB: decodePixels<asset::EF_B8G8R8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R8G8B8A8_SRGB: decodePixels<asset::EF_R8G8B8A8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_B8G8R8A8_SRGB: decodePixels<asset::EF_B8G8R8A8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_A8B8G8R8_SRGB_PACK32: decodePixels<asset::EF_A8B8G8R8_SRGB_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16_SFLOAT: decodePixels<asset::EF_R16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16G16_SFLOAT: decodePixels<asset::EF_R16G16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16G16B16_SFLOAT: decodePixels<asset::EF_R16G16B16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16G16B16A16_SFLOAT: decodePixels<asset::EF_R16G16B16A16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R32_SFLOAT: decodePixels<asset::EF_R32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R32G32_SFLOAT: decodePixels<asset::EF_R32G32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R32G32B32_SFLOAT: decodePixels<asset::EF_R32G32B32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R32G32B32A32_SFLOAT: decodePixels<asset::EF_R32G32B32A32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R64_SFLOAT: decodePixels<asset::EF_R64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R64G64_SFLOAT: decodePixels<asset::EF_R64G64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R64G64B64_SFLOAT: decodePixels<asset::EF_R64G64B64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R64G64B64A64_SFLOAT: decodePixels<asset::EF_R64G64B64A64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_B10G11R11_UFLOAT_PACK32: decodePixels<asset::EF_B10G11R11_UFLOAT_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_E5B9G9R9_UFLOAT_PACK32: decodePixels<asset::EF_E5B9G9R9_UFLOAT_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_BC1_RGB_UNORM_BLOCK: decodePixels<asset::EF_BC1_RGB_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_BC1_RGB_SRGB_BLOCK: decodePixels<asset::EF_BC1_RGB_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_BC1_RGBA_UNORM_BLOCK: decodePixels<asset::EF_BC1_RGBA_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_BC1_RGBA_SRGB_BLOCK: decodePixels<asset::EF_BC1_RGBA_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_BC2_UNORM_BLOCK: decodePixels<asset::EF_BC2_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_BC2_SRGB_BLOCK: decodePixels<asset::EF_BC2_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_BC3_UNORM_BLOCK: decodePixels<asset::EF_BC3_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_BC3_SRGB_BLOCK: decodePixels<asset::EF_BC3_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_G8_B8_R8_3PLANE_420_UNORM: decodePixels<asset::EF_G8_B8_R8_3PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_G8_B8R8_2PLANE_420_UNORM: decodePixels<asset::EF_G8_B8R8_2PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_G8_B8_R8_3PLANE_422_UNORM: decodePixels<asset::EF_G8_B8_R8_3PLANE_422_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_G8_B8R8_2PLANE_422_UNORM: decodePixels<asset::EF_G8_B8R8_2PLANE_422_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_G8_B8_R8_3PLANE_444_UNORM: decodePixels<asset::EF_G8_B8_R8_3PLANE_444_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
-        default: return false;
+            case asset::EF_R4G4_UNORM_PACK8: decodePixels<asset::EF_R4G4_UNORM_PACK8, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R4G4B4A4_UNORM_PACK16: decodePixels<asset::EF_R4G4B4A4_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_B4G4R4A4_UNORM_PACK16: decodePixels<asset::EF_B4G4R4A4_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R5G6B5_UNORM_PACK16: decodePixels<asset::EF_R5G6B5_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_B5G6R5_UNORM_PACK16: decodePixels<asset::EF_B5G6R5_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R5G5B5A1_UNORM_PACK16: decodePixels<asset::EF_R5G5B5A1_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_B5G5R5A1_UNORM_PACK16: decodePixels<asset::EF_B5G5R5A1_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_A1R5G5B5_UNORM_PACK16: decodePixels<asset::EF_A1R5G5B5_UNORM_PACK16, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R8_UNORM: decodePixels<asset::EF_R8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R8_SNORM: decodePixels<asset::EF_R8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R8G8_UNORM: decodePixels<asset::EF_R8G8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R8G8_SNORM: decodePixels<asset::EF_R8G8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R8G8B8_UNORM: decodePixels<asset::EF_R8G8B8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R8G8B8_SNORM: decodePixels<asset::EF_R8G8B8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_B8G8R8_UNORM: decodePixels<asset::EF_B8G8R8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_B8G8R8_SNORM: decodePixels<asset::EF_B8G8R8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R8G8B8A8_UNORM: decodePixels<asset::EF_R8G8B8A8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R8G8B8A8_SNORM: decodePixels<asset::EF_R8G8B8A8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_B8G8R8A8_UNORM: decodePixels<asset::EF_B8G8R8A8_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_B8G8R8A8_SNORM: decodePixels<asset::EF_B8G8R8A8_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_A8B8G8R8_UNORM_PACK32: decodePixels<asset::EF_A8B8G8R8_UNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_A8B8G8R8_SNORM_PACK32: decodePixels<asset::EF_A8B8G8R8_SNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_A2R10G10B10_UNORM_PACK32: decodePixels<asset::EF_A2R10G10B10_UNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_A2R10G10B10_SNORM_PACK32: decodePixels<asset::EF_A2R10G10B10_SNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_A2B10G10R10_UNORM_PACK32: decodePixels<asset::EF_A2B10G10R10_UNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_A2B10G10R10_SNORM_PACK32: decodePixels<asset::EF_A2B10G10R10_SNORM_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16_UNORM: decodePixels<asset::EF_R16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16_SNORM: decodePixels<asset::EF_R16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16G16_UNORM: decodePixels<asset::EF_R16G16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16G16_SNORM: decodePixels<asset::EF_R16G16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16G16B16_UNORM: decodePixels<asset::EF_R16G16B16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16G16B16_SNORM: decodePixels<asset::EF_R16G16B16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16G16B16A16_UNORM: decodePixels<asset::EF_R16G16B16A16_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16G16B16A16_SNORM: decodePixels<asset::EF_R16G16B16A16_SNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R8_SRGB: decodePixels<asset::EF_R8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R8G8_SRGB: decodePixels<asset::EF_R8G8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R8G8B8_SRGB: decodePixels<asset::EF_R8G8B8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_B8G8R8_SRGB: decodePixels<asset::EF_B8G8R8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R8G8B8A8_SRGB: decodePixels<asset::EF_R8G8B8A8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_B8G8R8A8_SRGB: decodePixels<asset::EF_B8G8R8A8_SRGB, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_A8B8G8R8_SRGB_PACK32: decodePixels<asset::EF_A8B8G8R8_SRGB_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16_SFLOAT: decodePixels<asset::EF_R16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16G16_SFLOAT: decodePixels<asset::EF_R16G16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16G16B16_SFLOAT: decodePixels<asset::EF_R16G16B16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16G16B16A16_SFLOAT: decodePixels<asset::EF_R16G16B16A16_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R32_SFLOAT: decodePixels<asset::EF_R32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R32G32_SFLOAT: decodePixels<asset::EF_R32G32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R32G32B32_SFLOAT: decodePixels<asset::EF_R32G32B32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R32G32B32A32_SFLOAT: decodePixels<asset::EF_R32G32B32A32_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R64_SFLOAT: decodePixels<asset::EF_R64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R64G64_SFLOAT: decodePixels<asset::EF_R64G64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R64G64B64_SFLOAT: decodePixels<asset::EF_R64G64B64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R64G64B64A64_SFLOAT: decodePixels<asset::EF_R64G64B64A64_SFLOAT, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_B10G11R11_UFLOAT_PACK32: decodePixels<asset::EF_B10G11R11_UFLOAT_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_E5B9G9R9_UFLOAT_PACK32: decodePixels<asset::EF_E5B9G9R9_UFLOAT_PACK32, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_BC1_RGB_UNORM_BLOCK: decodePixels<asset::EF_BC1_RGB_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_BC1_RGB_SRGB_BLOCK: decodePixels<asset::EF_BC1_RGB_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_BC1_RGBA_UNORM_BLOCK: decodePixels<asset::EF_BC1_RGBA_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_BC1_RGBA_SRGB_BLOCK: decodePixels<asset::EF_BC1_RGBA_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_BC2_UNORM_BLOCK: decodePixels<asset::EF_BC2_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_BC2_SRGB_BLOCK: decodePixels<asset::EF_BC2_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_BC3_UNORM_BLOCK: decodePixels<asset::EF_BC3_UNORM_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_BC3_SRGB_BLOCK: decodePixels<asset::EF_BC3_SRGB_BLOCK, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_G8_B8_R8_3PLANE_420_UNORM: decodePixels<asset::EF_G8_B8_R8_3PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_G8_B8R8_2PLANE_420_UNORM: decodePixels<asset::EF_G8_B8R8_2PLANE_420_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_G8_B8_R8_3PLANE_422_UNORM: decodePixels<asset::EF_G8_B8_R8_3PLANE_422_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_G8_B8R8_2PLANE_422_UNORM: decodePixels<asset::EF_G8_B8R8_2PLANE_422_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_G8_B8_R8_3PLANE_444_UNORM: decodePixels<asset::EF_G8_B8_R8_3PLANE_444_UNORM, double>(_pix, _output, _blockX, _blockY); return true;
+            default: return false;
         }
     }
 
@@ -1674,28 +1674,28 @@ namespace asset
     {
         switch (_fmt)
         {
-        case asset::EF_R8_SINT: decodePixels<asset::EF_R8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R8G8_SINT: decodePixels<asset::EF_R8G8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R8G8B8_SINT: decodePixels<asset::EF_R8G8B8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_B8G8R8_SINT: decodePixels<asset::EF_B8G8R8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R8G8B8A8_SINT: decodePixels<asset::EF_R8G8B8A8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_B8G8R8A8_SINT: decodePixels<asset::EF_B8G8R8A8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_A8B8G8R8_SINT_PACK32: decodePixels<asset::EF_A8B8G8R8_SINT_PACK32, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_A2R10G10B10_SINT_PACK32: decodePixels<asset::EF_A2R10G10B10_SINT_PACK32, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_A2B10G10R10_SINT_PACK32: decodePixels<asset::EF_A2B10G10R10_SINT_PACK32, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16_SINT: decodePixels<asset::EF_R16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16G16_SINT: decodePixels<asset::EF_R16G16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16G16B16_SINT: decodePixels<asset::EF_R16G16B16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16G16B16A16_SINT: decodePixels<asset::EF_R16G16B16A16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R32_SINT: decodePixels<asset::EF_R32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R32G32_SINT: decodePixels<asset::EF_R32G32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R32G32B32_SINT: decodePixels<asset::EF_R32G32B32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R32G32B32A32_SINT: decodePixels<asset::EF_R32G32B32A32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R64_SINT: decodePixels<asset::EF_R64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R64G64_SINT: decodePixels<asset::EF_R64G64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R64G64B64_SINT: decodePixels<asset::EF_R64G64B64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R64G64B64A64_SINT: decodePixels<asset::EF_R64G64B64A64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
-        default: return false;
+            case asset::EF_R8_SINT: decodePixels<asset::EF_R8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R8G8_SINT: decodePixels<asset::EF_R8G8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R8G8B8_SINT: decodePixels<asset::EF_R8G8B8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_B8G8R8_SINT: decodePixels<asset::EF_B8G8R8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R8G8B8A8_SINT: decodePixels<asset::EF_R8G8B8A8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_B8G8R8A8_SINT: decodePixels<asset::EF_B8G8R8A8_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_A8B8G8R8_SINT_PACK32: decodePixels<asset::EF_A8B8G8R8_SINT_PACK32, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_A2R10G10B10_SINT_PACK32: decodePixels<asset::EF_A2R10G10B10_SINT_PACK32, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_A2B10G10R10_SINT_PACK32: decodePixels<asset::EF_A2B10G10R10_SINT_PACK32, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16_SINT: decodePixels<asset::EF_R16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16G16_SINT: decodePixels<asset::EF_R16G16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16G16B16_SINT: decodePixels<asset::EF_R16G16B16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16G16B16A16_SINT: decodePixels<asset::EF_R16G16B16A16_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R32_SINT: decodePixels<asset::EF_R32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R32G32_SINT: decodePixels<asset::EF_R32G32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R32G32B32_SINT: decodePixels<asset::EF_R32G32B32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R32G32B32A32_SINT: decodePixels<asset::EF_R32G32B32A32_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R64_SINT: decodePixels<asset::EF_R64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R64G64_SINT: decodePixels<asset::EF_R64G64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R64G64B64_SINT: decodePixels<asset::EF_R64G64B64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R64G64B64A64_SINT: decodePixels<asset::EF_R64G64B64A64_SINT, int64_t>(_pix, _output, _blockX, _blockY); return true;
+            default: return false;
         }
     }
     template<>
@@ -1703,31 +1703,46 @@ namespace asset
     {
         switch (_fmt)
         {
-        case asset::EF_R8_UINT: decodePixels<asset::EF_R8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R8G8_UINT: decodePixels<asset::EF_R8G8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R8G8B8_UINT: decodePixels<asset::EF_R8G8B8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_B8G8R8_UINT: decodePixels<asset::EF_B8G8R8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R8G8B8A8_UINT: decodePixels<asset::EF_R8G8B8A8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_B8G8R8A8_UINT: decodePixels<asset::EF_B8G8R8A8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_A8B8G8R8_UINT_PACK32: decodePixels<asset::EF_A8B8G8R8_UINT_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_A2R10G10B10_UINT_PACK32: decodePixels<asset::EF_A2R10G10B10_UINT_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_A2B10G10R10_UINT_PACK32: decodePixels<asset::EF_A2B10G10R10_UINT_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16_UINT: decodePixels<asset::EF_R16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16G16_UINT: decodePixels<asset::EF_R16G16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16G16B16_UINT: decodePixels<asset::EF_R16G16B16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R16G16B16A16_UINT: decodePixels<asset::EF_R16G16B16A16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R32_UINT: decodePixels<asset::EF_R32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R32G32_UINT: decodePixels<asset::EF_R32G32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R32G32B32_UINT: decodePixels<asset::EF_R32G32B32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R32G32B32A32_UINT: decodePixels<asset::EF_R32G32B32A32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R64_UINT: decodePixels<asset::EF_R64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R64G64_UINT: decodePixels<asset::EF_R64G64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R64G64B64_UINT: decodePixels<asset::EF_R64G64B64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        case asset::EF_R64G64B64A64_UINT: decodePixels<asset::EF_R64G64B64A64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
-        default: return false;
+            case asset::EF_R8_UINT: decodePixels<asset::EF_R8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R8G8_UINT: decodePixels<asset::EF_R8G8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R8G8B8_UINT: decodePixels<asset::EF_R8G8B8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_B8G8R8_UINT: decodePixels<asset::EF_B8G8R8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R8G8B8A8_UINT: decodePixels<asset::EF_R8G8B8A8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_B8G8R8A8_UINT: decodePixels<asset::EF_B8G8R8A8_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_A8B8G8R8_UINT_PACK32: decodePixels<asset::EF_A8B8G8R8_UINT_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_A2R10G10B10_UINT_PACK32: decodePixels<asset::EF_A2R10G10B10_UINT_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_A2B10G10R10_UINT_PACK32: decodePixels<asset::EF_A2B10G10R10_UINT_PACK32, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16_UINT: decodePixels<asset::EF_R16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16G16_UINT: decodePixels<asset::EF_R16G16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16G16B16_UINT: decodePixels<asset::EF_R16G16B16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R16G16B16A16_UINT: decodePixels<asset::EF_R16G16B16A16_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R32_UINT: decodePixels<asset::EF_R32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R32G32_UINT: decodePixels<asset::EF_R32G32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R32G32B32_UINT: decodePixels<asset::EF_R32G32B32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R32G32B32A32_UINT: decodePixels<asset::EF_R32G32B32A32_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R64_UINT: decodePixels<asset::EF_R64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R64G64_UINT: decodePixels<asset::EF_R64G64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R64G64B64_UINT: decodePixels<asset::EF_R64G64B64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            case asset::EF_R64G64B64A64_UINT: decodePixels<asset::EF_R64G64B64A64_UINT, uint64_t>(_pix, _output, _blockX, _blockY); return true;
+            default: return false;
         }
     }
 
-}}//irr::video
+    inline bool decodePixelsRuntime(asset::E_FORMAT _fmt, const void* _pix[4], void* _output, uint32_t _blockX, uint32_t _blockY)
+    {
+        if (isIntegerFormat(_fmt))
+        {
+            if (isSignedFormat(_fmt))
+                decodePixels<int64_t>(_fmt, _pix, reinterpret_cast<int64_t*>(_output), _blockX, _blockY);
+            else
+                decodePixels<uint64_t>(_fmt, _pix, reinterpret_cast<uint64_t*>(_output), _blockX, _blockY);
+        }
+        else
+            decodePixels<double>(_fmt, _pix, reinterpret_cast<double*>(_output), _blockX, _blockY);
+    }
+
+
+}
+}
 
 #endif //__IRR_DECODE_PIXELS_H_INCLUDED__

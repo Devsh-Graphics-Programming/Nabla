@@ -115,10 +115,7 @@ set(IRR_SYSTEM_SOURCES
 	COSOperator.cpp
 	os.cpp
 )
-set(IRR_ASSET_SOURCES
-# Pixel Formats
-	${IRR_ROOT_PATH}/src/irr/asset/format/convertColor.cpp
-	
+set(IRR_ASSET_SOURCES	
 # Assets
 	${IRR_ROOT_PATH}/src/irr/asset/IAsset.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/IAssetManager.cpp
