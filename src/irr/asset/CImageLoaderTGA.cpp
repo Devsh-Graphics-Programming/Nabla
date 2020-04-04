@@ -253,6 +253,8 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 
 	bool flip = (header.ImageDescriptor & 0x20) == 0;
 	
+	_IRR_DEBUG_BREAK_IF(true);
+#if 0 // Anastazluk fix this!
 	switch(header.PixelDepth)
 	{
 		case 8:
@@ -325,7 +327,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 	}
 
 	image->setBufferAndRegions(std::move(texelBuffer), regions);
-
+#endif
     return SAssetBundle({std::move(image)});
 }
 

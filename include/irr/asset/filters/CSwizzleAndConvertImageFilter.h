@@ -108,7 +108,7 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 	public:
 		virtual ~CSwizzleAndConvertImageFilter() {}
 
-		using state_type = impl::CSwizzleAndConvertImageFilterBase<Swizzle>::state_type;
+		using state_type = typename impl::CSwizzleAndConvertImageFilterBase<Swizzle>::state_type;
 
 		static inline bool validate(state_type* state)
 		{
@@ -138,9 +138,6 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 					constexpr auto MaxPlanes = 4;
 					const void* srcPix[MaxPlanes] = { commonExecuteData.inData+readBlockArrayOffset,nullptr,nullptr,nullptr };
 
-					constexpr auto MaxChannels = 4;
-					decT decbuf[MaxChannels] = { 0, 0, 0, 1 };
-					encT encbuf[MaxChannels];
 					for (auto blockY=0u; blockY<blockDims; blockY++)
 					for (auto blockX=0u; blockX<blockDims; blockX++)
 					{
@@ -164,7 +161,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle> : public CIma
 	public:
 		virtual ~CSwizzleAndConvertImageFilter() {}
 
-		using state_type = impl::CSwizzleAndConvertImageFilterBase<Swizzle>::state_type;
+		using state_type = typename impl::CSwizzleAndConvertImageFilterBase<Swizzle>::state_type;
 
 		static inline bool validate(state_type* state)
 		{
@@ -173,8 +170,32 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle> : public CIma
 
 		static inline bool execute(state_type* state)
 		{
-			assert(false);
-			return false;
+			const auto blockDims = asset::getBlockDimensions(inFormat);
+			#ifdef _IRR_DEBUG
+				assert(blockDims.z==1u);
+				assert(blockDims.w==1u);
+			#endif
+			auto perOutputRegion = [&blockDims](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
+			{
+				auto swizzle = [&commonExecuteData,&blockDims](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
+				{
+					constexpr auto MaxPlanes = 4;
+					const void* srcPix[MaxPlanes] = { commonExecuteData.inData+readBlockArrayOffset,nullptr,nullptr,nullptr };
+
+					for (auto blockY=0u; blockY<blockDims; blockY++)
+					for (auto blockX=0u; blockX<blockDims; blockX++)
+					{
+						auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifference;
+						uint8_t* dstPix = commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos,commonExecuteData.outByteStrides); // TODO!
+						if constexpr(!std::is_void<Swizzle>::value)
+							convertColor<Swizzle>(inFormat,outFormat,srcPix,dstPix,blockX,blockY,state);
+						else
+							convertColor<Swizzle>(inFormat,outFormat,srcPix,dstPix,blockX,blockY,state->swizzle);
+					}
+				};
+				CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
+			};
+			CMatchedSizeInOutImageFilterCommon::commonExecute(state,perOutputRegion);
 		}
 };
 
@@ -184,7 +205,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle> : public CSwiz
 	public:
 		virtual ~CSwizzleAndConvertImageFilter() {}
 
-		using state_type = CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>::state_type;
+		using state_type = typename CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>::state_type;
 
 		static inline bool validate(state_type* state)
 		{
@@ -210,7 +231,7 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle> : public CSwizz
 	public:
 		virtual ~CSwizzleAndConvertImageFilter() {}
 
-		using state_type = CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>::state_type;
+		using state_type = typename CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>::state_type;
 
 		static inline bool validate(state_type* state)
 		{
