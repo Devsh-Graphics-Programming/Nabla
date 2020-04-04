@@ -45,6 +45,8 @@ class CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public CMatchedS
 					memcpy(commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos,commonExecuteData.outByteStrides),commonExecuteData.inData+readBlockArrayOffset,commonExecuteData.outBlockByteSize);
 				};
 				CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg,copy,commonExecuteData.inRegions.begin(),commonExecuteData.inRegions.end(),clip);
+
+				return true;
 			};
 			return commonExecute(state,perOutputRegion);
 		}
