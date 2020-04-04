@@ -17,38 +17,13 @@ namespace asset
 {
 
 // copy while converting format from input image to output image
-class CConvertFormatImageFilter : public CImageFilter<CConvertFormatImageFilter>, public CMatchedSizeInOutImageFilterCommon
+template<E_FORMAT inFormat=EF_UNKNOWN, E_FORMAT outFormat=EF_UNKNOWN>
+class CConvertFormatImageFilter : public CSwizzleAndConvertImageFilter<inFormat,outFormat,VoidSwizzle>
 {
 	public:
 		virtual ~CConvertFormatImageFilter() {}
 		
-		using state_type = CMatchedSizeInOutImageFilterCommon::state_type;
-
-		static inline bool validate(state_type* state)
-		{
-			return CMatchedSizeInOutImageFilterCommon::validate(state);
-		}
-
-		static inline bool execute(state_type* state)
-		{	
-			auto perOutputRegion = [](const auto& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
-			{
-				assert(getTexelOrBlockBytesize(commonExecuteData.inFormat)==getTexelOrBlockBytesize(commonExecuteData.outFormat)); // if this asserts the API got broken during an update or something
-				auto convert = [&commonExecuteData](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
-				{
-					auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifference;
-					const void* sourcePixels[4] = {commonExecuteData.inData+readBlockArrayOffset,nullptr,nullptr,nullptr};
-					assert(false);
-/*
-					convertColor(	commonExecuteData.inFormat,commonExecuteData.outFormat,sourcePixels,
-									commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos,commonExecuteData.outByteStrides),
-									1u,core::vector3d<uint32_t>(1u,1u,1u));
-*/
-				};
-				CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg,convert,commonExecuteData.inRegions.begin(),commonExecuteData.inRegions.end(),clip);
-			};
-			return commonExecute(state,perOutputRegion);
-		}
+		using state_type = CSwizzleAndConvertImageFilter<inFormat,outFormat,VoidSwizzle>::state_type;
 };
 
 } // end namespace asset
