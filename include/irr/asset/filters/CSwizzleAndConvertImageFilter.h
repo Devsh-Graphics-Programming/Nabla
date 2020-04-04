@@ -144,7 +144,8 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 					for (auto blockY=0u; blockY<blockDims; blockY++)
 					for (auto blockX=0u; blockX<blockDims; blockX++)
 					{
-						uint8_t* dstPix = core::dot(readBlockPos, blockDims) + offsetDifference; // TODO!
+						auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifference;
+						uint8_t* dstPix = commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos,commonExecuteData.outByteStrides); // TODO!
 						if constexpr(!std::is_void<Swizzle>::value)
 							convertColor<inFormat,outFormat,Swizzle>(srcPix,dstPix,blockX,blockY,state);
 						else
@@ -157,60 +158,8 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 		}
 };
 
-template<E_FORMAT outFormat, typename Swizzle>
-class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle>
-{
-	public:
-		virtual ~CSwizzleAndConvertImageFilter() {}
-
-		using state_type = impl::CSwizzleAndConvertImageFilterBase<Swizzle>::state_type;
-
-		static inline bool validate(state_type* state)
-		{
-			if (!impl::CSwizzleAndConvertImageFilterBase<Swizzle>::validate(state))
-				return false;
-
-			if (state->inImage->getCreationParameters().format!=outFormat)
-				return false;
-
-			return true;
-		}
-
-		static inline bool execute(state_type* state)
-		{
-			assert(false);
-			return false;
-		}
-};
-
-template<E_FORMAT inFormat, typename Swizzle>
-class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle>
-{
-	public:
-		virtual ~CSwizzleAndConvertImageFilter() {}
-
-		using state_type = impl::CSwizzleAndConvertImageFilterBase<Swizzle>::state_type;
-
-		static inline bool validate(state_type* state)
-		{
-			if (!impl::CSwizzleAndConvertImageFilterBase<Swizzle>::validate(state))
-				return false;
-
-			if (state->inImage->getCreationParameters().format!=inFormat)
-				return false;
-
-			return true;
-		}
-
-		static inline bool execute(state_type* state)
-		{
-			assert(false);
-			return false;
-		}
-};
-
 template<typename Swizzle>
-class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>
+class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle> : public CImageFilter<CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>>, public impl::CSwizzleAndConvertImageFilterBase<Swizzle>
 {
 	public:
 		virtual ~CSwizzleAndConvertImageFilter() {}
@@ -228,6 +177,59 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>
 			return false;
 		}
 };
+
+template<E_FORMAT outFormat, typename Swizzle>
+class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle> : public CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>
+{
+	public:
+		virtual ~CSwizzleAndConvertImageFilter() {}
+
+		using state_type = CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>::state_type;
+
+		static inline bool validate(state_type* state)
+		{
+			if (!impl::CSwizzleAndConvertImageFilterBase<Swizzle>::validate(state))
+				return false;
+
+			if (state->inImage->getCreationParameters().format!=outFormat)
+				return false;
+
+			return true;
+		}
+
+		static inline bool execute(state_type* state)
+		{
+			// TODO: improve later
+			return CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>::execute(state);
+		}
+};
+
+template<E_FORMAT inFormat, typename Swizzle>
+class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle> : public CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>
+{
+	public:
+		virtual ~CSwizzleAndConvertImageFilter() {}
+
+		using state_type = CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>::state_type;
+
+		static inline bool validate(state_type* state)
+		{
+			if (!impl::CSwizzleAndConvertImageFilterBase<Swizzle>::validate(state))
+				return false;
+
+			if (state->inImage->getCreationParameters().format!=inFormat)
+				return false;
+
+			return true;
+		}
+
+		static inline bool execute(state_type* state)
+		{
+			// TODO: improve later
+			return CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>::execute(state);
+		}
+};
+
 
 } // end namespace asset
 } // end namespace irr

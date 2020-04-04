@@ -36,7 +36,7 @@ class CConvertFormatImageFilter : public CImageFilter<CConvertFormatImageFilter>
 				assert(getTexelOrBlockBytesize(commonExecuteData.inFormat)==getTexelOrBlockBytesize(commonExecuteData.outFormat)); // if this asserts the API got broken during an update or something
 				auto convert = [&commonExecuteData](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 				{
-					auto localOutPos = readBlockPos+commonExecuteData.offsetDifference;
+					auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifference;
 					const void* sourcePixels[4] = {commonExecuteData.inData+readBlockArrayOffset,nullptr,nullptr,nullptr};
 					assert(false);
 /*
