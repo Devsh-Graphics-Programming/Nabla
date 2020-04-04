@@ -23,7 +23,7 @@ class CConvertFormatImageFilter : public CSwizzleAndConvertImageFilter<inFormat,
 	public:
 		virtual ~CConvertFormatImageFilter() {}
 		
-		using state_type = CSwizzleAndConvertImageFilter<inFormat,outFormat,VoidSwizzle>::state_type;
+		using state_type = typename CSwizzleAndConvertImageFilter<inFormat,outFormat,VoidSwizzle>::state_type;
 };
 
 } // end namespace asset

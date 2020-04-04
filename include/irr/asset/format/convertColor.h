@@ -30,7 +30,7 @@ struct VoidSwizzle : SwizzleBase
 	template<typename InT, typename OutT>
 	inline void operator()(const InT in[SwizzleBase::MaxChannels], OutT out[SwizzleBase::MaxChannels]) const
     {
-        std::fill(out,out+4,in);
+        std::copy<const InT*,OutT*>(in,in+4,out);
     }
 };
 
@@ -68,7 +68,7 @@ inline void convertColor(const void* srcPix[4], void* dstPix, uint32_t _blockX, 
     encT encbuf[MaxChannels];
     decodePixels<sF>(srcPix,decbuf,_blockX,_blockY);
     if (swizzle)
-        swizzle->operator()(decbuf, encbuf);
+        swizzle->operator()<decT,encT>(decbuf, encbuf);
     encodePixels<dF>(dstPix,encbuf);
 }
 
@@ -82,7 +82,7 @@ inline void convertColor(E_FORMAT sF, E_FORMAT dF, const void* srcPix[4], void* 
 
     decodePixelsRuntime(sF, srcPix, decbuf, _blockX, _blockY);
     if (swizzle)
-        swizzle->operator()(decbuf, encbuf);
+        swizzle->operator()<decT,encT>(decbuf, encbuf);
     encodePixelsRuntime(dF, dstPix, encbuf);
 }
 

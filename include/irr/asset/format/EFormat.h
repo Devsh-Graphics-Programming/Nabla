@@ -1890,12 +1890,9 @@ namespace asset
     }
 
     template<E_FORMAT format>
-    struct format_interm_storage_type :
-        std::conditional<isIntegerFormat<format>(),
-            typename std::conditional<isSignedFormat<format>(),int64_t,uint64_t>::type,
-            double
-        >::type
+    struct format_interm_storage_type
     {
+        using type = typename std::conditional<isIntegerFormat<format>(),typename std::conditional<isSignedFormat<format>(),int64_t,uint64_t>::type,double>::type;
     };
 }
 }
