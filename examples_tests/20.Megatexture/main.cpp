@@ -7,52 +7,35 @@
 #include "../common/QToQuitEventReceiver.h"
 #include <irr/asset/ITexturePacker.h>
 #include <irr/asset/CMTLPipelineMetadata.h>
+#include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
 
 //#include "../../ext/ScreenShot/ScreenShot.h"
 using namespace irr;
 using namespace core;
 
-#include "irr/irrpack.h"
-struct STextureData
-{
-    uint16_t pgTab_x;
-    uint16_t pgTab_y;
-    uint16_t width;
-    uint16_t height;
-} PACK_STRUCT;
-#include "irr/irrunpack.h"
+using STextureData = asset::ITexturePacker::STextureData;
 
 STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePacker* _packer)
 {
-    STextureData texData;
-    core::vector2df_SIMD szUnorm16(_img->getCreationParameters().extent.width, _img->getCreationParameters().extent.height);
-    szUnorm16 /= core::vector2df_SIMD(_packer->getPageTable()->getCreationParameters().extent.width);
-    szUnorm16 *= core::vector2df_SIMD(0xffffu);
-
-    texData.width = szUnorm16.x;
-    texData.height = szUnorm16.y;
+    const auto& extent = _img->getCreationParameters().extent;
 
     asset::IImage::SSubresourceRange subres;
     subres.baseMipLevel = 0u;
-    subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(texData.width, texData.height))) + 1;
+    subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(extent.width, extent.height))) + 1;
 
-    auto pgTabCoords = _packer->pack(_img, subres);
-    assert((pgTabCoords!=asset::ITexturePacker::page_tab_offset_invalid()).all());
-
-    core::vector2df_SIMD pgTabUnorm16(pgTabCoords.x, pgTabCoords.y);
-    pgTabUnorm16 /= core::vector2df_SIMD(_packer->getPageTable()->getCreationParameters().extent.width, _packer->getPageTable()->getCreationParameters().extent.height, 1.f, 1.f);
-    pgTabUnorm16 *= core::vector2df_SIMD(0xffffu);
-    texData.pgTab_x = pgTabUnorm16.x;
-    texData.pgTab_y = pgTabUnorm16.y;
-
-    return texData;
+    auto pgTabCoords = _packer->pack(_img, subres, asset::ISampler::ETC_MIRROR, asset::ISampler::ETC_MIRROR);
+    return _packer->offsetToTextureData(pgTabCoords, _img);
 }
 
 constexpr const char* GLSL_VT_TEXTURES = //also turns off set3 bindings (textures) because they're not needed anymore as we're using VT
 R"(
 #ifndef _NO_UV
-layout (set = 0, binding = 0) usampler2D pgTabTex;
-layout (set = 0, binding = 1) sampler2DArray physPgTex;
+layout (set = 0, binding = 0) uniform usampler2D pgTabTex[3];
+layout (set = 0, binding = 1) uniform sampler2DArray physPgTex[3];
+layout (set = 0, binding = 2) uniform TilePacking
+{//TODO create this UBO
+    uint offsets[9]; //unorm16 uv offsets in phys addr texture space
+} tilePacking[3];
 #endif
 #define _IRR_FRAG_SET3_BINDINGS_DEFINED_
 )";
@@ -78,37 +61,50 @@ layout (push_constant) uniform Block {
 )";
 constexpr const char* GLSL_VT_FUNCTIONS =
 R"(
-#define ADDR_LAYER_SHIFT 12
-#define ADDR_Y_SHIFT 6
-#define ADDR_X_MASK 0x3fu
+#define ADDR_LAYER_SHIFT 12u
+#define ADDR_Y_SHIFT 6u
+#define ADDR_X_PREMASK 
+#define ADDR_X_MASK ((0x1u<<ADDR_Y_SHIFT)-1u)
+#define ADDR_Y_MASK ((0x1u<<(ADDR_LAYER_SHIFT-ADDR_Y_SHIFT))-1u)
 
-#define TEXTURE_TILE_PER_DIMENSION 64
 #define PAGE_SZ 128
-#define PAGE_SZ_RECIPROCAL 0.0078125
+#define PAGE_SZ_LOG2 7
 #define TILE_PADDING 8
+#define PADDED_TILE_SIZE (PAGE_SZ+2*TILE_PADDING)
 
 vec3 unpackPageID(in uint pageID)
 {
-	vec2 uv = vec2(float(pageID & ADDR_X_MASK), float((pageID>>ADDR_Y_SHIFT) & ADDR_X_MASK))*(PAGE_SZ+TILE_PADDING) + TILE_PADDING;
-	uv /= vec2(textureSize(physPgTex.xy,0));
-	return vec3(uv, float(pageID >> ADDR_LAYER_SHIFT));
+	// this is optimal, don't touch
+	return vec3(uvec2(pageID,pageID>>ADDR_Y_SHIFT)&uvec2(ADDR_X_MASK,ADDR_Y_MASK),0.0);
 }
 
-#define PGTAB_SZ 128
-#define MAX_LOD 7
-vec4 vTextureGrad_helper(in vec2 virtualUV, int LoD, in mat2 gradients)
+vec4 vTextureGrad_helper(in vec2 virtualUV, int LoD, in mat2 gradients, in ivec2 originalTextureSz)
 {
-	int pgtabLoD = min(LoD,MAX_LOD); // assert(MAX_LOD<log2(PGTAB_SZ))
-	int tilesInLodLevel = PGTAB_SZ>>LoD;
+    int clippedLoD = max(originalTextureSz.x,originalTextureSz.y)>>PAGE_SZ_LOG2;
+    int maxLoD = clippedLoD!=0 ? findMSB(clippedLoD):0;
+	int pgtabLoD = min(LoD,maxLoD);
+	int tilesInLodLevel = textureSize(pgTabTex[1], pgtabLoD).x;
 	ivec2 tileCoord = ivec2(virtualUV.xy*vec2(tilesInLodLevel));
-	uvec2 pageID = texelFetch(pgTabTex,tileCoord,pgtabLoD).rg;
-	vec3 physicalUV = unpackPageID(pgtabLoD<LoD ? pageID.y : pageID.x); // unpack to normalized coord offset + Layer in physical texture (just bit operations) and multiples
-	//TODO if (pgtabLoD<LoD) then we're going into mip-tail page! (extra offsets needed)
-	//TODO not sure about correctness of those 3 lines below, seems weird and i dont really understand
-	vec2 tileFractionalCoordinate = virtualUV.xy-vec2(tileCoord)/tilesInLodLevel;
-	tileFractionalCoordinate *= (PAGE_SZ/(PAGE_SZ+TILE_PADDING)); // take border into account
+	uvec2 pageID = texelFetch(pgTabTex[1],tileCoord,pgtabLoD).rg;
+    ivec2 originalMipSize = ivec2(originalTextureSz.x>>LoD,originalTextureSz.y>>LoD);//is there element-wise bitshift? like vec>>n?
+    int originalMipSize_maxDim = max(originalMipSize.x,originalMipSize.y);
+	vec3 physicalUV = unpackPageID(originalMipSize_maxDim<=(PAGE_SZ/2) ? pageID.y : pageID.x); // unpack to normalized coord offset + Layer in physical texture (just bit operations) and multiples
+    vec2 tileFractionalCoordinate = fract(virtualUV.xy*tilesInLodLevel);//i dont get this
+    /*
+    if (originalMipSize_maxDim <= PAGE_SZ/2)
+    {
+        //@devsh please check this
+        int tmp = LoD-maxLoD;
+        vec2 subtileSz = vec2(float(PAGE_SZ>>tmp));
+        vec2 scale = vec2(originalMipSize)/subtileSz;
+        //i dont get this
+        tileFractionalCoordinate = tileFractionalCoordinate*scale + unpackUnorm2x16(tilePacking[1].offsets[tmp-1]); // mul by scale then offset
+    }
+    else //i dont get this
+    */
+        tileFractionalCoordinate = (tileFractionalCoordinate*float(PAGE_SZ)+vec2(TILE_PADDING))/float(PAGE_SZ+2*TILE_PADDING);
 	physicalUV.xy += tileFractionalCoordinate;
-	return textureGrad(physicalTileTexture,physicalUV,gradients);
+	return textureGrad(physPgTex[1],physicalUV,gradients[0],gradients[1]);
 }
 
 float lengthSq(in vec2 v)
@@ -116,7 +112,7 @@ float lengthSq(in vec2 v)
   return dot(v,v);
 }
 // textureGrad emulation
-vec4 vTextureGrad(in vec2 virtualUV, mat2 dOriginalUV, in vec2 originalTextureSize)
+vec4 vTextureGrad(in vec2 virtualUV, in mat2 dOriginalUV, in vec2 originalTextureSize)
 {
   // returns what would have been `textureGrad(originalTexture,gOriginalUV[0],gOriginalUV[1])
   // https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap15.html#textures-normalized-operations
@@ -138,7 +134,9 @@ vec4 vTextureGrad(in vec2 virtualUV, mat2 dOriginalUV, in vec2 originalTextureSi
   dOriginalUV[1] = normalize(dOriginalUV[1])*(1.0/float(MEGA_TEXTURE_SIZE));
   dOriginalUV[xIsMajor ? 0:1] *= anisotropy;
 #endif
-  return mix(vTextureGrad_helper(virtualUV,LoD_high,dOriginalUV),vTextureGrad_helper(virtualUV,LoD_high+1,dOriginalUV),LoD-float(LoD_high));
+  ivec2 originalTexSz_i = ivec2(originalTextureSize);
+  //return mix(vTextureGrad_helper(virtualUV,LoD_high,dOriginalUV,originalTexSz_i),vTextureGrad_helper(virtualUV,LoD_high+1,dOriginalUV,originalTexSz_i),LoD-float(LoD_high));
+    return vTextureGrad_helper(virtualUV,0,dOriginalUV,originalTexSz_i);//testing purposes, until mips are present in physical tex pages
 }
 
 vec2 unpackVirtualUV(in uvec2 texData)
@@ -153,8 +151,8 @@ vec4 textureVT(in uvec2 _texData, in vec2 uv, in mat2 dUV)
 {
     vec2 scale = unpackSize(_texData);
     vec2 virtualUV = unpackVirtualUV(_texData);
-    virtualUV += scale*uv*PAGE_SZ_RECIPROCAL;
-    return vTextureGrad(virtualUV, dUV, vec2(textureSize(pgTabTex,0)));
+    virtualUV += scale*uv;
+    return vTextureGrad(virtualUV, dUV, scale*float(PAGE_SZ)*vec2(textureSize(pgTabTex[1],0)));
 }
 )";
 constexpr const char* GLSL_BSDF_COS_EVAL_OVERRIDE =
@@ -186,7 +184,7 @@ vec3 irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
 #endif
         Ns = PC.Ns;
 
-    vec3 Ni = vec3(PC.params.Ni);
+    vec3 Ni = vec3(PC.Ni);
 
     vec3 diff = irr_glsl_lambertian_cos_eval(params) * Kd * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotL)) * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotV));
     diff *= irr_glsl_diffuseFresnelCorrectionFactor(Ni, Ni*Ni);
@@ -273,7 +271,7 @@ vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in
 
     out_interaction = params.interaction;
 #define Intensity 1000.0
-    return Intensity*params.invlenL2*irr_bsdf_cos_eval(params) + Ka;
+    return Intensity*params.invlenL2*irr_bsdf_cos_eval(params,dUV) + Ka;
 #undef Intensity
 }
 #define _IRR_COMPUTE_LIGHTING_DEFINED_
@@ -306,7 +304,7 @@ void main()
 #ifndef _NO_UV
         if ((PC.extra&(map_d_MASK)) == (map_d_MASK))
         {
-            d = textureVT(map_d, UV, dUV).r;
+            d = textureVT(PC.map_d_data, UV, dUV).r;
             color *= d;
         }
 #endif
@@ -364,11 +362,41 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
     glsl.insert(glsl.find("#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_"), GLSL_COMPUTE_LIGHTING_OVERRIDE);
     glsl.insert(glsl.find("#ifndef _IRR_FRAG_MAIN_DEFINED_"), GLSL_FS_MAIN_OVERRIDE);
 
+    auto* f = fopen("fs.glsl","w");
+    fwrite(glsl.c_str(), 1, glsl.size(), f);
+    fclose(f);
+
     auto unspecNew = core::make_smart_refctd_ptr<asset::ICPUShader>(glsl.c_str());
     auto specinfo = _fs->getSpecializationInfo();//intentional copy
     auto fsNew = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecNew), std::move(specinfo));
 
     return fsNew;
+}
+
+constexpr uint32_t PAGETAB_SZ_LOG2 = 7u;
+constexpr uint32_t PAGETAB_MIP_LEVELS = 8u;
+constexpr uint32_t PAGE_SZ_LOG2 = 7u;
+constexpr uint32_t TILES_PER_DIM_LOG2 = 6u;
+constexpr uint32_t PHYS_ADDR_TEX_LAYERS = 3u;
+constexpr uint32_t PAGE_PADDING = 8u;
+enum E_TEX_PACKER
+{
+    ETP_8BIT,
+    ETP_24BIT,
+    ETP_32BIT,
+
+    ETP_COUNT
+};
+
+E_TEX_PACKER format2texPackerIndex(asset::E_FORMAT _fmt)
+{
+    switch (asset::getFormatClass(_fmt))
+    {
+    case asset::EFC_8_BIT: return ETP_8BIT;
+    case asset::EFC_24_BIT: return ETP_24BIT;
+    case asset::EFC_32_BIT: return ETP_32BIT;
+    default: return ETP_COUNT;
+    }
 }
 
 int main()
@@ -399,17 +427,126 @@ int main()
 	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
+    auto* driver = device->getVideoDriver();
+    auto* smgr = device->getSceneManager();
+    auto* am = device->getAssetManager();
+
+    core::smart_refctd_ptr<asset::ICPUTexturePacker> texPackers[ETP_COUNT]{
+        core::make_smart_refctd_ptr<asset::ICPUTexturePacker>(asset::EFC_8_BIT, asset::EF_R8_UNORM, PAGETAB_SZ_LOG2, PAGETAB_MIP_LEVELS, PAGE_SZ_LOG2, TILES_PER_DIM_LOG2, PHYS_ADDR_TEX_LAYERS, PAGE_PADDING),
+        core::make_smart_refctd_ptr<asset::ICPUTexturePacker>(asset::EFC_24_BIT, asset::EF_R8G8B8_UNORM, PAGETAB_SZ_LOG2, PAGETAB_MIP_LEVELS, PAGE_SZ_LOG2, TILES_PER_DIM_LOG2, PHYS_ADDR_TEX_LAYERS, PAGE_PADDING),
+        core::make_smart_refctd_ptr<asset::ICPUTexturePacker>(asset::EFC_32_BIT, asset::EF_R8G8B8A8_UNORM, PAGETAB_SZ_LOG2, PAGETAB_MIP_LEVELS, PAGE_SZ_LOG2, TILES_PER_DIM_LOG2, PHYS_ADDR_TEX_LAYERS, PAGE_PADDING),
+    };
     //TODO most of sponza textures are 24bit format, but also need packers for 8bit and 32bit formats and a way to decide which VT textures to sample as well
-    auto texPacker = core::make_smart_refctd_ptr<asset::ICPUTexturePacker>(asset::EFC_24_BIT, asset::EF_R8G8B8_UNORM, 1024u, 11u, 128u, 64u, 1u, 8u);
     core::unordered_map<core::smart_refctd_ptr<asset::ICPUImage>, STextureData> VTtexDataMap;
     core::unordered_map<core::smart_refctd_ptr<asset::ICPUSpecializedShader>, core::smart_refctd_ptr<asset::ICPUSpecializedShader>> modifiedShaders;
 
-	auto* driver = device->getVideoDriver();
-	auto* smgr = device->getSceneManager();
-    auto* am = device->getAssetManager();
+    //TODO ds0 will most likely also get some UBO with data for MDI (instead of using push constants)
+    core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds0layout;
+    {
+        asset::ICPUSampler::SParams params;
+        params.AnisotropicFilter = 3u;
+        params.BorderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_WHITE;
+        params.CompareEnable = false;
+        params.CompareFunc = asset::ISampler::ECO_NEVER;
+        params.LodBias = 0.f;
+        params.MaxLod = 10000.f;
+        params.MinLod = 0.f;
+        params.MaxFilter = asset::ISampler::ETF_LINEAR;
+        params.MinFilter = asset::ISampler::ETF_LINEAR;
+        //phys addr texture doesnt have mips anyway and page table is accessed with texelFetch only
+        params.MipmapMode = asset::ISampler::ESMM_NEAREST;
+        params.TextureWrapU = params.TextureWrapV = params.TextureWrapW = asset::ISampler::ETC_CLAMP_TO_EDGE;
+        auto sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
+
+        std::array<core::smart_refctd_ptr<asset::ICPUSampler>,ETP_COUNT> samplers;
+        std::fill(samplers.begin(), samplers.end(), sampler);
+
+        params.AnisotropicFilter = 0u;
+        params.MaxFilter = asset::ISampler::ETF_NEAREST;
+        params.MinFilter = asset::ISampler::ETF_NEAREST;
+        params.MipmapMode = asset::ISampler::ESMM_NEAREST;
+        auto samplerPgt = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
+
+        std::array<core::smart_refctd_ptr<asset::ICPUSampler>, ETP_COUNT> samplersPgt;
+        std::fill(samplersPgt.begin(), samplersPgt.end(), samplerPgt);
+
+        std::array<asset::ICPUDescriptorSetLayout::SBinding, 2> bindings;
+        //page tables
+        bindings[0].binding = 0u;
+        bindings[0].count = ETP_COUNT;
+        bindings[0].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+        bindings[0].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+        bindings[0].samplers = samplersPgt.data();
+
+        //physical addr textures
+        bindings[1].binding = 1u;
+        bindings[1].count = ETP_COUNT;
+        bindings[1].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+        bindings[1].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+        bindings[1].samplers = samplers.data();
+
+        ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings.data(), bindings.data()+bindings.size());
+    }
+    auto ds0 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr(ds0layout));// intentionally not moving layout, let this pointer remain valid
+    {
+        auto pagetabs = ds0->getDescriptors(0u);
+        for (uint32_t i = 0u; i < ETP_COUNT; ++i)
+        {
+            auto& pgtDesc = pagetabs.begin()[i];
+
+            auto* img = texPackers[i]->getPageTable();
+
+            asset::ICPUImageView::SCreationParams params;
+            params.flags = static_cast<asset::IImageView<asset::ICPUImage>::E_CREATE_FLAGS>(0);
+            params.format = img->getCreationParameters().format;
+            params.subresourceRange.aspectMask = static_cast<asset::IImage::E_ASPECT_FLAGS>(0);
+            params.subresourceRange.baseArrayLayer = 0u;
+            params.subresourceRange.layerCount = img->getCreationParameters().arrayLayers;
+            params.subresourceRange.baseMipLevel = 0u;
+            params.subresourceRange.levelCount = img->getCreationParameters().mipLevels;
+            params.viewType = asset::IImageView<asset::ICPUImage>::ET_2D;//TODO change to ET_2D_ARRAY when pagetab is also layered
+            params.image = core::smart_refctd_ptr<asset::ICPUImage>(img);
+
+            pgtDesc.image.imageLayout = asset::EIL_UNDEFINED;
+            pgtDesc.desc = core::make_smart_refctd_ptr<asset::ICPUImageView>(std::move(params));
+        }
+
+        auto physAddrTexs = ds0->getDescriptors(1u);
+        for (uint32_t i = 0u; i < ETP_COUNT; ++i)
+        {
+            auto& physTexDesc = physAddrTexs.begin()[i];
+
+            auto* img = texPackers[i]->getPhysicalAddressTexture();
+
+            asset::ICPUImageView::SCreationParams params;
+            params.flags = static_cast<asset::IImageView<asset::ICPUImage>::E_CREATE_FLAGS>(0);
+            params.format = img->getCreationParameters().format;
+            params.subresourceRange.aspectMask = static_cast<asset::IImage::E_ASPECT_FLAGS>(0);
+            params.subresourceRange.baseArrayLayer = 0u;
+            params.subresourceRange.layerCount = img->getCreationParameters().arrayLayers;
+            params.subresourceRange.baseMipLevel = 0u;
+            params.subresourceRange.levelCount = img->getCreationParameters().mipLevels;
+            params.viewType = asset::IImageView<asset::ICPUImage>::ET_2D_ARRAY;
+            params.image = core::smart_refctd_ptr<asset::ICPUImage>(img);
+
+            physTexDesc.image.imageLayout = asset::EIL_UNDEFINED;
+            physTexDesc.desc = core::make_smart_refctd_ptr<asset::ICPUImageView>(std::move(params));
+        }
+    }
+    core::smart_refctd_ptr<asset::ICPUPipelineLayout> pipelineLayout;
+    {
+        asset::SPushConstantRange pcrng;
+        pcrng.offset = 0;
+        pcrng.size = 128;
+        pcrng.stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+
+        pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pcrng, &pcrng + 1, core::smart_refctd_ptr(ds0layout), nullptr, nullptr, nullptr);
+    }
+
+    device->getFileSystem()->addFileArchive("../../media/sponza.zip");
 
     asset::IAssetLoader::SAssetLoadParams lp;
-    auto meshes_bundle = am->getAsset("../../media/sponza/sponza.obj", lp);
+    auto meshes_bundle = am->getAsset("sponza.obj", lp);
     assert(!meshes_bundle.isEmpty());
     auto mesh = meshes_bundle.getContents().first[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
@@ -417,14 +554,17 @@ int main()
     for (uint32_t i = 0u; i < mesh_raw->getMeshBufferCount(); ++i)
     {
         SPushConstants pushConsts;
+        memset(pushConsts.map_data, 0xff, TEX_OF_INTEREST_CNT*sizeof(pushConsts.map_data[0]));
         pushConsts.extra = 0u;
 
         auto* mb = mesh_raw->getMeshBuffer(i);
         auto* ds = mb->getAttachedDescriptorSet();
         if (!ds)
             continue;
-        for (uint32_t j : texturesOfInterest)
+        for (uint32_t k = 0u; k < TEX_OF_INTEREST_CNT; ++k)
         {
+            uint32_t j = texturesOfInterest[k];
+
             auto* view = static_cast<asset::ICPUImageView*>(ds->getDescriptors(j).begin()->desc.get());
             auto img = view->getCreationParameters().image;
             auto extent = img->getCreationParameters().extent;
@@ -435,14 +575,29 @@ int main()
             if (found != VTtexDataMap.end())
                 texData = found->second;
             else {
-                texData = getTextureData(img.get(), texPacker.get());
+                const asset::E_FORMAT fmt = img->getCreationParameters().format;
+                //TODO take wrapping into account while packing
+                texData = getTextureData(img.get(), texPackers[format2texPackerIndex(fmt)].get());
                 VTtexDataMap.insert({img,texData});
             }
 
             static_assert(sizeof(texData)==sizeof(pushConsts.map_data[0]), "wrong reinterpret_cast");
-            pushConsts.map_data[j] = reinterpret_cast<uint64_t*>(&texData)[0];
+            pushConsts.map_data[k] = reinterpret_cast<uint64_t*>(&texData)[0];
+            uint32_t mapdata[2];
+            memcpy(mapdata, &pushConsts.map_data[j], 8);
+            printf("");
         }
+        /*if (i == 0)
+        {
+            for (int k = 0; k < 6; ++k)
+                reinterpret_cast<uint32_t*>(&pushConsts.map_data[k])[0] = reinterpret_cast<uint32_t*>(&pushConsts.map_data[k])[1] = 4123456789u;
+        }*/
         auto* pipeline = mb->getPipeline();//TODO (?) might want to clone pipeline first, then modify and finally set into meshbuffer
+        auto newPipeline = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(pipeline->clone(0u));//shallow copy
+        //leave original ds1 layout since it's for UBO with matrices
+        if (!pipelineLayout->getDescriptorSetLayout(1u))
+            pipelineLayout->setDescriptorSetLayout(1u, core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(pipeline->getLayout()->getDescriptorSetLayout(1u)));
+        newPipeline->setLayout(core::smart_refctd_ptr(pipelineLayout));
         {
             auto* fs = pipeline->getShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX);
             auto found = modifiedShaders.find(core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs));
@@ -453,9 +608,10 @@ int main()
                 newfs = createModifiedFragShader(fs);
                 modifiedShaders.insert({core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs),newfs});
             }
-            pipeline->setShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, newfs.get());
+            newPipeline->setShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, newfs.get());
         }
         auto* metadata = static_cast<asset::CMTLPipelineMetadata*>( pipeline->getMetadata() );
+        am->setAssetMetadata(newPipeline.get(), core::smart_refctd_ptr<asset::IAssetMetadata>(metadata));
         //copy texture presence flags
         pushConsts.extra = metadata->getMaterialParams().extra;
         pushConsts.ambient = metadata->getMaterialParams().ambient;
@@ -471,11 +627,15 @@ int main()
         //dont worry about deletion of textures (invalidation of pointers), they're grabbed in VTtexDataMap
         mb->setAttachedDescriptorSet(nullptr);
 
+        //set new pipeline (with overriden FS and layout)
+        mb->setPipeline(std::move(newPipeline));
         //optionally adjust push constant ranges, but at worst it'll just be specified too much because MTL uses all 128 bytes
     }
 
+
     //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
     //so we can create just one DS
+    
     asset::ICPUDescriptorSetLayout* ds1layout = mesh_raw->getMeshBuffer(0u)->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
     uint32_t ds1UboBinding = 0u;
     for (const auto& bnd : ds1layout->getBindings())
@@ -515,6 +675,7 @@ int main()
     }
 
     auto gpumesh = driver->getGPUObjectsFromAssets(&mesh_raw, &mesh_raw+1)->front();
+    auto gpuds0 = driver->getGPUObjectsFromAssets(&ds0.get(), &ds0.get()+1)->front();
 
 	//! we want to move around the scene and view it from different angles
 	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.5f);
@@ -534,6 +695,13 @@ int main()
         //! This animates (moves) the camera and sets the transforms
 		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
 		camera->render();
+
+        /*
+        driver->bindGraphicsPipeline(fs_pipeline.get());
+        driver->bindDescriptorSets(video::EPBP_GRAPHICS, fs_pipelineLayout.get(), 0u, 1u, &gpuds0.get(), nullptr);
+
+        driver->drawMeshBuffer(fs_meshbuf.get());
+        */
 
         core::vector<uint8_t> uboData(gpuubo->getSize());
         auto pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(mesh_raw->getMeshBuffer(0u)->getPipeline()->getMetadata());
@@ -570,11 +738,10 @@ int main()
         {
             video::IGPUMeshBuffer* gpumb = gpumesh->getMeshBuffer(i);
             const video::IGPURenderpassIndependentPipeline* pipeline = gpumb->getPipeline();
-            const video::IGPUDescriptorSet* ds3 = gpumb->getAttachedDescriptorSet();
 
             driver->bindGraphicsPipeline(pipeline);
-            const video::IGPUDescriptorSet* gpuds1_ptr = gpuds1.get();
-            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 1u, 1u, &gpuds1_ptr, nullptr);
+            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 0u, 1u, &gpuds0.get(), nullptr);
+            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 1u, 1u, &gpuds1.get(), nullptr);
             //const video::IGPUDescriptorSet* gpuds3_ptr = gpumb->getAttachedDescriptorSet();
             //if (gpuds3_ptr)
             //    driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);

@@ -6,6 +6,7 @@
 #define __C_MESH_MANIPULATOR_H_INCLUDED__
 
 #include "irr/asset/IMeshManipulator.h"
+#include "CQuantNormalCache.h"
 
 namespace irr
 {
@@ -39,6 +40,8 @@ class CMeshManipulator : public IMeshManipulator
 	public:
 		static core::smart_refctd_ptr<ICPUMeshBuffer> createMeshBufferFetchOptimized(const ICPUMeshBuffer* _inbuffer);
 
+		CQuantNormalCache* getQuantNormalCache() override { return &quantNormalCache; }
+
 	private:
 		friend class IMeshManipulator;
 		//! Copies only member variables not being pointers to another dynamically allocated irr::IReferenceCounted derivatives.
@@ -65,7 +68,7 @@ class CMeshManipulator : public IMeshManipulator
 			return out;
 		}
 
-		static core::vector<core::vectorSIMDf> findBetterFormatF(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric);
+		static core::vector<core::vectorSIMDf> findBetterFormatF(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric, CQuantNormalCache& _cache);
 
 		struct SIntegerAttr
 		{
@@ -79,7 +82,7 @@ class CMeshManipulator : public IMeshManipulator
 
 		//! Calculates quantization errors and compares them with given epsilon.
 		/** @returns false when first of calculated errors goes above epsilon or true if reached end without such. */
-		static bool calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const core::vector<core::vectorSIMDf>& _data, const SErrorMetric& _errMetric);
+		static bool calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const core::vector<core::vectorSIMDf>& _data, const SErrorMetric& _errMetric, CQuantNormalCache& _cache);
 
 		template<typename T>
 		static inline core::smart_refctd_ptr<ICPUBuffer> triangleStripsToTriangles(const void* _input, size_t _idxCount)
@@ -119,6 +122,9 @@ class CMeshManipulator : public IMeshManipulator
 			}
 			return output;
 		}
+
+	private:
+			CQuantNormalCache quantNormalCache;
 };
 
 } // end namespace scene

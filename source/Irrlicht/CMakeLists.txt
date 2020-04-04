@@ -138,6 +138,8 @@ set(IRR_ASSET_SOURCES
 # Meshes
 	${IRR_ROOT_PATH}/src/irr/asset/CCPUSkinnedMesh.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CForsythVertexCacheOptimizer.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CSmoothNormalGenerator.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CQuantNormalCache.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CGeometryCreator.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CMeshManipulator.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/COverdrawMeshOptimizer.cpp

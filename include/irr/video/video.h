@@ -5,6 +5,9 @@
 #include "irr/asset/asset.h"
 #include "irr/ui/ui.h" // unsure yet
 
+//texture packer
+#include "irr/video/IGPUTexturePacker.h"
+
 // alloc
 #include "irr/video/alloc/GPUMemoryAllocatorBase.h"
 #include "irr/video/alloc/HostDeviceMirrorBufferAllocator.h"
