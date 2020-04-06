@@ -254,14 +254,22 @@ public:
 			return returnValue;
 		}
 		return nullptr;
-#endif
-		auto path = (std::string(__IRR_ROOT_DIRECTORY__) + "/include/" + std::string(StringUniqueType::value));
+#else
+		//in one case, IRR_CORE_UNIQUE_STRING_LITERAL_TYPE value returns an incorrect string
+		//and specializedshader_fragment becomes -> specializedshader_fragmenttt
+		auto path = (std::string(__IRR_ROOT_DIRECTORY__) + "/include/" + std::string(StringUniqueType::value));	
 		auto file = this->createAndOpenFile((path).c_str());
-		auto retval = core::make_smart_refctd_ptr<asset::ICPUBuffer>(file->getSize());
-		file->read(retval->getPointer(), file->getSize());
-		file->drop();
+		if(file)
+		{
+			auto retval = core::make_smart_refctd_ptr<asset::ICPUBuffer>(file->getSize());
+			file->read(retval->getPointer(), file->getSize());
+			file->drop();
+			return retval;	
+		}
+		throw "File cant be opened";
+		//or		return nullptr;
 
-		return retval;
+#endif
 	}
 
 

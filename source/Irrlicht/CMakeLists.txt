@@ -205,8 +205,14 @@ set(IRRLICHT_SRCS_COMMON
 	os.cpp
 	IReferenceCounted.cpp
 )
+
 if (MSVC)
-	list(APPEND IRRLICHT_SRCS_COMMON pch.cpp) # @crisspl why are only some sources appended? also why sources?
+	list(APPEND IRRLICHT_SRCS_COMMON pch.cpp)
+endif()
+
+
+if(IRR_EMBED_BUILTIN_RESOURCES)
+	list(APPEND IRRLICHT_SRCS_COMMON "${CMAKE_BINARY_DIR}/src/irr/builtin/builtinResourceData.cpp")
 endif()
 
 set(IRRLICHT_SRCS_NORMAL
@@ -462,6 +468,10 @@ endif()
 if (MSVC) #on MSVC it won't compile without this option!
 	target_compile_options(Irrlicht PUBLIC /bigobj)
 	target_compile_options(IrrlichtServer PUBLIC /bigobj)
+endif()
+
+if(IRR_EMBED_BUILTIN_RESOURCES)
+set_builtin_resource_dependencies()
 endif()
 
 set_target_properties(Irrlicht IrrlichtServer PROPERTIES DEBUG_POSTFIX _debug)

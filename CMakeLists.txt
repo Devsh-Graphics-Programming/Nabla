@@ -232,7 +232,12 @@ add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 OPTION(IRR_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 
+if(IRR_EMBED_BUILTIN_RESOURCES)
+	add_subdirectory(src/irr/builtin)
+endif()
+
 add_subdirectory(source/Irrlicht) # Irrlicht code
+
 
 if(IRR_BUILD_TOOLS)
 	add_subdirectory(tools) # convert2BAW
@@ -246,8 +251,4 @@ endif()
 
 if(IRR_BUILD_DOCS)
 	add_subdirectory(docs)
-endif()
-
-if(IRR_EMBED_BUILTIN_RESOURCES)
-	add_subdirectory(src/irr/builtin)
 endif()
