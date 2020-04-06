@@ -21,7 +21,6 @@ class CBasicImageFilterCommon
 		static inline void executePerBlock(const ICPUImage* image, const IImage::SBufferCopy& region, F& f)
 		{
 			const auto& subresource = region.imageSubresource;
-			const uint32_t layerLimit = subresource.baseArrayLayer+subresource.layerCount;
 
 			const auto& params = image->getCreationParameters();
 			IImage::SBufferCopy::TexelBlockInfo blockInfo(params.format);
@@ -31,17 +30,23 @@ class CBasicImageFilterCommon
 			trueOffset.y = region.imageOffset.y;
 			trueOffset.z = region.imageOffset.z;
 			trueOffset = IImage::SBufferCopy::TexelsToBlocks(trueOffset,blockInfo);
+			trueOffset.w = subresource.baseArrayLayer;
 			
-			core::vector3du32_SIMD trueExtent = IImage::SBufferCopy::TexelsToBlocks(region.getTexelStrides(),blockInfo);
+			core::vector3du32_SIMD trueExtent;
+			trueExtent.x = region.imageExtent.width;
+			trueExtent.y = region.imageExtent.height;
+			trueExtent.z = region.imageExtent.depth;
+			trueExtent  = IImage::SBufferCopy::TexelsToBlocks(trueExtent,blockInfo);
+			trueExtent.w = subresource.layerCount;
 
 			const auto strides = region.getByteStrides(blockInfo,asset::getTexelOrBlockBytesize(params.format));
 
-			core::vector3du32_SIMD blockCoord;
-			for (auto& layer =(blockCoord[3]=subresource.baseArrayLayer); layer<layerLimit; layer++)
-			for (auto& zBlock=(blockCoord[2]=trueOffset.z); zBlock<trueExtent.z; ++zBlock)
-			for (auto& yBlock=(blockCoord[1]=trueOffset.y); yBlock<trueExtent.y; ++yBlock)
-			for (auto& xBlock=(blockCoord[0]=trueOffset.x); xBlock<trueExtent.x; ++xBlock)
-				f(region.getByteOffset(blockCoord,strides),blockCoord);
+			core::vector3du32_SIMD localCoord(0,0,0,0);
+			for (auto& layer =localCoord[3]; layer<trueExtent.w; ++layer)
+			for (auto& zBlock=localCoord[2]; zBlock<trueExtent.z; ++zBlock)
+			for (auto& yBlock=localCoord[1]; yBlock<trueExtent.y; ++yBlock)
+			for (auto& xBlock=localCoord[0]; xBlock<trueExtent.x; ++xBlock)
+				f(region.getByteOffset(localCoord,strides),localCoord+trueOffset);
 		}
 
 		struct default_region_functor_t
@@ -86,6 +91,11 @@ class CBasicImageFilterCommon
 					const core::vector3du32_SIMD offsetInOffset = offset-resultOffset;
 					newRegion.bufferOffset += referenceRegion->getLocalOffset(offsetInOffset,strides);
 				}
+
+				if (!referenceRegion->bufferRowLength)
+					newRegion.bufferRowLength = referenceRegion->imageExtent.width;
+				if (!referenceRegion->bufferImageHeight)
+					newRegion.bufferImageHeight = referenceRegion->imageExtent.height;
 
 				newRegion.imageOffset.x = offset.x;
 				newRegion.imageOffset.y = offset.y;
