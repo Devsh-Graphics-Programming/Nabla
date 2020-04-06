@@ -61,9 +61,6 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 
 		static inline bool execute(state_type* state)
 		{
-			if (!validate(state))
-				return false;
-
 			// with a valid state you are guaranteed that padding added to offsets and extent in output will not overflow the output image
 			auto perOutputRegion = [](const CommonExecuteData& commonExecuteData, const CBasicImageFilterCommon::clip_region_functor_t& unusedDummy) -> bool // this lambda runs once per output region
 			{
