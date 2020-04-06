@@ -24,12 +24,3 @@ class CMipMapGenerationImageFilter;
 } // end namespace irr
 
 #endif
-
-/*
-
-CGraphicsPipelineLoaderMTL.cpp	964	         const size_t alignment = 1u<<core::findLSB(images[CMTLPipelineMetadata::EMP_REFL_POSX]->getRegions().begin()->bufferRowLength); 	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\src\irr\asset
-CGraphicsPipelineLoaderMTL.cpp	975	                 assert(images[i]->getRegions().size()==1ull); 	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\src\irr\asset
-CGraphicsPipelineLoaderMTL.cpp	977	                 regions_.push_back(images[i]->getRegions().begin()[0]); 	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\src\irr\asset
-CGraphicsPipelineLoaderMTL.cpp	994	                 const void* src = reinterpret_cast<const uint8_t*>(images[i]->getBuffer()->getPointer()) + images[i]->getRegions().begin()[0].bufferOffset; 	C:\work\IrrlichtBaw\IrrlichtBAW parallel work\src\irr\asset
-
-*/

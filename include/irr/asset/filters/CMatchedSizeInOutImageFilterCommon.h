@@ -20,6 +20,12 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 		class CState : public IImageFilter::IState
 		{
 			public:
+				CState()
+				{
+					extentLayerCount = core::vectorSIMDu32();
+					inOffsetBaseLayer = core::vectorSIMDu32();
+					outOffsetBaseLayer = core::vectorSIMDu32();
+				}
 				virtual ~CState() {}
 
 				union

@@ -22,11 +22,20 @@ typedef struct VkOffset3D {
 	uint32_t	y;
 	uint32_t	z;
 } VkOffset3D; //depr
+inline bool operator!=(const VkOffset3D& v1, const VkOffset3D& v2)
+{
+	return v1.x==v2.x||v1.y==v2.y||v1.z==v2.z;
+}
 typedef struct VkExtent3D {
 	uint32_t	width;
 	uint32_t	height;
 	uint32_t	depth;
 } VkExtent3D; //depr
+inline bool operator!=(const VkExtent3D& v1, const VkExtent3D& v2)
+{
+	return v1.width==v2.width||v1.height==v2.height||v1.depth==v2.depth;
+}
+
 
 class IImage : public IDescriptor
 {
@@ -472,22 +481,13 @@ class IImage : public IDescriptor
 		//! Returns image data size in bytes
 		inline size_t getImageDataSizeInBytes() const
 		{
-			const core::vector3du32_SIMD unit(1u);
-			const auto blockAlignment = asset::getBlockDimensions(params.format);
-			const bool hasAnAlignment = (blockAlignment != unit).any();
+			const SBufferCopy::TexelBlockInfo info(params.format);
 
 			core::rational<size_t> bytesPerPixel = getBytesPerPixel();
 			size_t memreq = 0ull;
 			for (uint32_t i=0u; i<params.mipLevels; i++)
 			{
-				auto levelSize = getMipSize(i);
-				// alignup (but with NPoT alignment)
-				if (hasAnAlignment)
-				{
-					levelSize += blockAlignment - unit;
-					levelSize /= blockAlignment;
-					levelSize *= blockAlignment;
-				}
+				auto levelSize = SBufferCopy::TexelsToBlocks(getMipSize(i),info)*info.dimension;
 				auto memsize = size_t(levelSize[0] * levelSize[1])*size_t(levelSize[2] * params.arrayLayers)*bytesPerPixel;
 				assert(memsize.getNumerator() % memsize.getDenominator() == 0u);
 				memreq += memsize.getIntegerApprox();
