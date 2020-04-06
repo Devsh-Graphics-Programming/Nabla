@@ -19,6 +19,8 @@ namespace irr
 {
 namespace asset
 {
+	class CQuantNormalCache;
+
 	//! An interface for easy manipulation of meshes.
 	/** Scale, set alpha value, flip surfaces, and so on. This exists for
 	fixing problems with wrong imported or exported meshes quickly after
@@ -366,6 +368,9 @@ namespace asset
 
 			return retval;
 		}
+
+		virtual CQuantNormalCache* getQuantNormalCache() = 0;
+
     protected:
 };
 
