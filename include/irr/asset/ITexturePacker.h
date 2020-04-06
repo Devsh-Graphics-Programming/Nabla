@@ -8,6 +8,7 @@
 #include "irr/core/math/morton.h"
 #include "irr/core/alloc/address_allocator_traits.h"
 #include "irr/core/memory/memory.h"
+#include "irr/asset/filters/CCopyImageFilter.h"
 
 namespace irr {
 namespace asset
@@ -375,9 +376,9 @@ public:
                     if (i < levelsTakingAtLeastOnePageCount)
                         pgTab[offset + y*pgtPitch + x] = physPgAddr;
 
-                    bool pageGotFilled = false;
                     // TODO: @Criss Do this via a filter derived from the CCopyImageFilter
                     core::vector3du32_SIMD physPg = pageCoords(physPgAddr, m_pgSzxy);
+                    /*
                     for (const auto& reg : _img->getRegions())
                     {
                         if (reg.imageSubresource.mipLevel != (_subres.baseMipLevel+i))
@@ -386,18 +387,16 @@ public:
                         pageGotFilled = true;
 
                         auto src_txOffset = core::vector2du32_SIMD(x,y)*m_pgSzxy;
-                        /*
-                        const uint32_t a_left = reg.imageOffset.x;
-                        const uint32_t b_right = src_txOffset.x + m_pgSzxy;
-                        const uint32_t a_right = a_left + reg.imageExtent.width;
-                        const uint32_t b_left = src_txOffset.x;
-                        const uint32_t a_bot = reg.imageOffset.y;
-                        const uint32_t b_top = src_txOffset.y + m_pgSzxy;
-                        const uint32_t a_top = a_bot + reg.imageExtent.height;
-                        const uint32_t b_bot = src_txOffset.y;
-                        if (a_left>b_right || a_right<b_left || a_top<b_bot || a_bot>b_top)
-                            continue;
-                        */
+                        //const uint32_t a_left = reg.imageOffset.x;
+                        //const uint32_t b_right = src_txOffset.x + m_pgSzxy;
+                        //const uint32_t a_right = a_left + reg.imageExtent.width;
+                        //const uint32_t b_left = src_txOffset.x;
+                        //const uint32_t a_bot = reg.imageOffset.y;
+                        //const uint32_t b_top = src_txOffset.y + m_pgSzxy;
+                        //const uint32_t a_top = a_bot + reg.imageExtent.height;
+                        //const uint32_t b_bot = src_txOffset.y;
+                        //if (a_left>b_right || a_right<b_left || a_top<b_bot || a_bot>b_top)
+                        //    continue;
 
                         //optimized rectange intersection test, probably can be done better
                         //cmp_lhs = (b_right, a_right, a_top, b_top)
@@ -431,6 +430,21 @@ public:
                             memcpy(dst + j*m_physAddrTex->getCreationParameters().extent.width*texelSz, src + j*reg.bufferRowLength*texelSz, cpExtent.x*texelSz);
                         }
                     }
+                    */
+
+                    CCopyImageFilter::state_type copyState;
+                    copyState.outOffsetBaseLayer = physPg.xyzz();/*physPg.z is layer*/ copyState.outOffset.z = 0u;
+                    copyState.inOffsetBaseLayer = core::vector2du32_SIMD(x,y)*m_pgSzxy;
+                    copyState.extentLayerCount = core::vectorSIMDu32(m_pgSzxy, m_pgSzxy, 1u, 1u);
+                    if (x == w-1u)
+                        copyState.extentLayerCount.x = extent.width-copyState.inOffsetBaseLayer.x;
+                    if (y == h-1u)
+                        copyState.extentLayerCount.y = extent.height-copyState.inOffsetBaseLayer.y;
+                    copyState.inMipLevel = _subres.baseMipLevel + i;
+                    copyState.outMipLevel = 0u;
+                    copyState.inImage = _img;
+                    copyState.outImage = m_physAddrTex.get();
+                    const bool pageGotFilled = CCopyImageFilter::execute(&copyState);
 
                     if (pageGotFilled)
                     {

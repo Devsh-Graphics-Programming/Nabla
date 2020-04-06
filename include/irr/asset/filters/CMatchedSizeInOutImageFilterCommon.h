@@ -57,7 +57,7 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 				};
 				uint32_t				inMipLevel = 0u;
 				uint32_t				outMipLevel = 0u;
-				ICPUImage*				inImage = nullptr;
+				const ICPUImage*		inImage = nullptr;
 				ICPUImage*				outImage = nullptr;
 		};
 		using state_type = CState;
