@@ -41,11 +41,11 @@ class CBasicImageFilterCommon
 
 			const auto strides = region.getByteStrides(blockInfo,asset::getTexelOrBlockBytesize(params.format));
 
-			core::vector3du32_SIMD localCoord(0,0,0,0);
-			for (auto& layer =localCoord[3]; layer<trueExtent.w; ++layer)
-			for (auto& zBlock=localCoord[2]; zBlock<trueExtent.z; ++zBlock)
-			for (auto& yBlock=localCoord[1]; yBlock<trueExtent.y; ++yBlock)
-			for (auto& xBlock=localCoord[0]; xBlock<trueExtent.x; ++xBlock)
+			core::vector3du32_SIMD localCoord;
+			for (auto& layer =localCoord[3]=0u; layer<trueExtent.w; ++layer)
+			for (auto& zBlock=localCoord[2]=0u; zBlock<trueExtent.z; ++zBlock)
+			for (auto& yBlock=localCoord[1]=0u; yBlock<trueExtent.y; ++yBlock)
+			for (auto& xBlock=localCoord[0]=0u; xBlock<trueExtent.x; ++xBlock)
 				f(region.getByteOffset(localCoord,strides),localCoord+trueOffset);
 		}
 

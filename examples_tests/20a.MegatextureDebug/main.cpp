@@ -282,7 +282,12 @@ int main()
         auto pipeline = fsTriangleMeshBuffer->getPipeline();
         driver->bindGraphicsPipeline(pipeline);
         driver->bindDescriptorSets(video::EPBP_GRAPHICS,pipeline->getLayout(), 0u, 1u, &gpuds0.get(), nullptr);
-        driver->drawMeshBuffer(fsTriangleMeshBuffer.get());
+        // TODO: loop over all allocated textures
+        {
+            // TODO: set viewport to match texture placing in Virtual Address Space
+            // TODO: feed the STextureData for the allocation of that texture using push constants
+            driver->drawMeshBuffer(fsTriangleMeshBuffer.get());
+        }
 
 		driver->endScene();
 	}
