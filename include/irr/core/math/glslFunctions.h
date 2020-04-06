@@ -239,6 +239,16 @@ IRR_FORCE_INLINE T min(const T& a, const U& b, const U& c)
 	return core::min<T,T>(core::min<T,T>(a,vb), min<T,U>(vb,c));
 }
 
+template<typename... Args>
+struct min_t
+{
+	inline auto operator()(Args&&... args)
+	{
+		return core::min<Args...>(std::forward<Args>(args)...)
+	}
+};
+
+
 template<class T>
 IRR_FORCE_INLINE T max(const T& a, const T& b);
 template<>
@@ -255,6 +265,15 @@ IRR_FORCE_INLINE T max(const T& a, const U& b, const U& c)
 	T vb = T(b);
 	return core::max<T,T>(core::max<T,T>(a,vb),max<T,U>(vb,c));
 }
+
+template<typename... Args>
+struct max_t
+{
+	inline auto operator()(Args&&... args)
+	{
+		return core::max<Args...>(std::forward<Args>(args)...)
+	}
+};
 
 
 //! clamps a value between low and high
