@@ -65,7 +65,7 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 		static inline bool validate(state_type* state)
 		{
 			if (!state)
-				return nullptr;
+				return false;
 
 			IImage::SSubresourceLayers subresource = {static_cast<IImage::E_ASPECT_FLAGS>(0u),state->inMipLevel,state->inBaseLayer,state->layerCount};
 			state_type::TexelRange range = {state->inOffset,state->extent};

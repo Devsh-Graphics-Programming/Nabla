@@ -24,7 +24,7 @@ typedef struct VkOffset3D {
 } VkOffset3D; //depr
 inline bool operator!=(const VkOffset3D& v1, const VkOffset3D& v2)
 {
-	return v1.x==v2.x||v1.y==v2.y||v1.z==v2.z;
+	return v1.x!=v2.x||v1.y!=v2.y||v1.z!=v2.z;
 }
 typedef struct VkExtent3D {
 	uint32_t	width;
@@ -33,7 +33,7 @@ typedef struct VkExtent3D {
 } VkExtent3D; //depr
 inline bool operator!=(const VkExtent3D& v1, const VkExtent3D& v2)
 {
-	return v1.width==v2.width||v1.height==v2.height||v1.depth==v2.depth;
+	return v1.width!=v2.width||v1.height!=v2.height||v1.depth!=v2.depth;
 }
 
 
