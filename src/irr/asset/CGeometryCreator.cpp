@@ -518,47 +518,62 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 																float oblique,
 																IMeshManipulator* const meshManipulatorOverride) const
 {
-    const size_t vtxCnt = tesselation+2u;
+    const size_t vtxCnt = tesselation * 2;
     auto vtxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxCnt * sizeof(ConeVertex));
     ConeVertex* vertices = reinterpret_cast<ConeVertex*>(vtxBuf->getPointer());
+
+	ConeVertex* baseVertices = vertices;
+	ConeVertex* apexVertices = vertices + tesselation;
+
     std::fill(vertices, vertices + vtxCnt, ConeVertex(core::vectorSIMDf(0.f), 0u, colorBottom));
 	CQuantNormalCache* const quantNormalCache = (meshManipulatorOverride == nullptr) ? defaultMeshManipulator->getQuantNormalCache() : meshManipulatorOverride->getQuantNormalCache();
 
     const float step = (2.f*core::PI<float>()) / tesselation;
-    for (uint32_t i = 2u; i < vtxCnt; ++i)
-    {
-        const core::vectorSIMDf p(std::cos(i*step), 0.f, std::sin(i*step), 0.f);
-        memcpy(vertices[i].pos, (p*radius).pointer, 12u);
-        vertices[i].normal = quantNormalCache->quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(core::normalize(p));
-    }
-    const uint32_t peakIx = 0u;
-    const uint32_t bottomCenterIx = 1u;
 
-    const core::vectorSIMDf p(oblique, length, 0.f, 0.f);
-    memcpy(vertices[peakIx].pos, p.pointer, 12u);
-    vertices[peakIx].normal = quantNormalCache->quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(core::vectorSIMDf(0.f, 1.f, 0.f, 0.f));
-    colorTop.toOpenGLColor(vertices[peakIx].color);
-    memset(vertices[bottomCenterIx].pos, 0, 12u);
-    vertices[bottomCenterIx].normal = quantNormalCache->quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(core::vectorSIMDf(0.f, -1.f, 0.f, 0.f));
+	const core::vectorSIMDf apexVertexCoords(0.0f, length, 0.0f);
 
-    auto idxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(2u*3u*tesselation*sizeof(uint16_t));
-    uint16_t* indices = (uint16_t*)idxBuf->getPointer();
-    
-    for (uint32_t i = 2u, j = 0u; i < vtxCnt; ++i)
-    {
-        indices[j++] = peakIx;
-        indices[j++] = i+1u == vtxCnt ? 2u : i+1u;
-        indices[j++] = i;
-    }
-    
-    indices += idxBuf->getSize()/2u/sizeof(uint16_t);
+	//vertex positions
+	for (uint32_t i = 0u; i < tesselation; i++)
+	{
+		core::vectorSIMDf v(std::cos(i * step), 0.0f, std::sin(i * step), 0.0f);
+		v *= radius;
 
-    for (uint32_t i = 2u, j = 0u; i < vtxCnt; ++i)
-    {
-        indices[j++] = bottomCenterIx;
-        indices[j++] = i;
-        indices[j++] = i+1u == vtxCnt ? 2u : i+1u;
-    }
+		memcpy(baseVertices[i].pos, v.pointer, sizeof(float) * 3);
+		memcpy(apexVertices[i].pos, apexVertexCoords.pointer, sizeof(float) * 3);
+	}
+
+	//vertex normals
+	for (uint32_t i = 0; i < tesselation; i++)
+	{
+		const core::vectorSIMDf v0ToApex = apexVertexCoords - core::vectorSIMDf(vertices[i].pos[0], vertices[i].pos[1], vertices[i].pos[2]);
+
+		uint32_t nextVertexIndex = i == (tesselation - 1) ? 0 : i + 1;
+		core::vectorSIMDf u1 = core::vectorSIMDf(baseVertices[nextVertexIndex].pos[0], baseVertices[nextVertexIndex].pos[1], baseVertices[nextVertexIndex].pos[2]);
+		u1 -= core::vectorSIMDf(baseVertices[i].pos[0], baseVertices[i].pos[1], baseVertices[i].pos[2]);
+		u1 = core::normalize(core::cross(v0ToApex, u1));
+
+		uint32_t prevVertexIndex = i == 0 ? (tesselation - 1) : i - 1;
+		core::vectorSIMDf u2 = core::vectorSIMDf(baseVertices[prevVertexIndex].pos[0], baseVertices[prevVertexIndex].pos[1], baseVertices[prevVertexIndex].pos[2]);
+		u2 -= core::vectorSIMDf(baseVertices[i].pos[0], baseVertices[i].pos[1], baseVertices[i].pos[2]);
+		u2 = core::normalize(core::cross(u2, v0ToApex));
+
+		baseVertices[i].normal = quantNormalCache->quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(core::normalize(u1 + u2));
+
+		//apex VerticesProperties
+		apexVertices[i].normal = quantNormalCache->quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(u1);
+	}
+
+	auto idxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(3u * tesselation * sizeof(uint16_t));
+	uint16_t* indices = (uint16_t*)idxBuf->getPointer();
+
+	const uint32_t firstIndexOfBaseVertices = 0;
+	const uint32_t firstIndexOfApexVertices = tesselation;
+	for (uint32_t i = 0; i < tesselation; i++)
+	{
+		indices[i * 3] = firstIndexOfApexVertices + i;
+		indices[(i * 3) + 1] = firstIndexOfBaseVertices + i;
+		indices[(i * 3) + 2] = i == (tesselation - 1) ? firstIndexOfBaseVertices : firstIndexOfBaseVertices + i + 1;
+	}
 
 	return_type cone;
 
