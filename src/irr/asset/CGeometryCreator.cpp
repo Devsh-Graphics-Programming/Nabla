@@ -530,7 +530,7 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 
     const float step = (2.f*core::PI<float>()) / tesselation;
 
-	const core::vectorSIMDf apexVertexCoords(0.0f, length, 0.0f);
+	const core::vectorSIMDf apexVertexCoords(oblique, length, 0.0f);
 
 	//vertex positions
 	for (uint32_t i = 0u; i < tesselation; i++)
@@ -550,17 +550,17 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 		uint32_t nextVertexIndex = i == (tesselation - 1) ? 0 : i + 1;
 		core::vectorSIMDf u1 = core::vectorSIMDf(baseVertices[nextVertexIndex].pos[0], baseVertices[nextVertexIndex].pos[1], baseVertices[nextVertexIndex].pos[2]);
 		u1 -= core::vectorSIMDf(baseVertices[i].pos[0], baseVertices[i].pos[1], baseVertices[i].pos[2]);
-		u1 = core::normalize(core::cross(v0ToApex, u1));
+		float angleWeight = std::acos(core::dot(core::normalize(apexVertexCoords), core::normalize(u1)).x);
+		u1 = core::normalize(core::cross(v0ToApex, u1)) * angleWeight;
 
 		uint32_t prevVertexIndex = i == 0 ? (tesselation - 1) : i - 1;
 		core::vectorSIMDf u2 = core::vectorSIMDf(baseVertices[prevVertexIndex].pos[0], baseVertices[prevVertexIndex].pos[1], baseVertices[prevVertexIndex].pos[2]);
 		u2 -= core::vectorSIMDf(baseVertices[i].pos[0], baseVertices[i].pos[1], baseVertices[i].pos[2]);
-		u2 = core::normalize(core::cross(u2, v0ToApex));
+		angleWeight = std::acos(core::dot(core::normalize(apexVertexCoords), core::normalize(u2)).x);
+		u2 = core::normalize(core::cross(u2, v0ToApex)) * angleWeight;
 
 		baseVertices[i].normal = quantNormalCache->quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(core::normalize(u1 + u2));
-
-		//apex VerticesProperties
-		apexVertices[i].normal = quantNormalCache->quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(u1);
+		apexVertices[i].normal = quantNormalCache->quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(core::normalize(u1));
 	}
 
 	auto idxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(3u * tesselation * sizeof(uint16_t));
