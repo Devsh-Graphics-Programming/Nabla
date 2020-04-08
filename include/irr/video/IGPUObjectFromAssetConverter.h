@@ -429,9 +429,46 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUImage** const _begin, asset
 		if (count)
 		{
 			auto tmpBuff = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuimg->getBuffer()->getSize(),cpuimg->getBuffer()->getPointer());
-			m_driver->copyBufferToImage(tmpBuff.get(),gpuimg.get(),count,cpuimg->getRegions().begin());
+			m_driver->copyBufferToImage(tmpBuff.get(),gpuimg.get(),count,regions.begin());
             if (!integerFmt)
-                gpuimg->generateMipmaps();
+            {
+                uint32_t lowestPresentMip = 1u;
+                while (cpuimg->getRegions(lowestPresentMip).size())
+                    lowestPresentMip++;
+                // generate temporary image view to make sure we don't screw up any explicit mip levels
+                IGPUImageView::SCreationParams tmpViewParams;
+                tmpViewParams.subresourceRange.levelCount = params.mipLevels+1u-lowestPresentMip;
+                // if not all mip levels have been manually specified
+                if (tmpViewParams.subresourceRange.levelCount>1u)
+                {
+                    tmpViewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
+                    switch (params.type)
+                    {
+                        case asset::IImage::ET_1D:
+                            tmpViewParams.viewType = IGPUImageView::ET_1D_ARRAY;
+                            break;
+                        case asset::IImage::ET_2D:
+                            if (params.flags & asset::IImage::ECF_CUBE_COMPATIBLE_BIT)
+                              tmpViewParams.viewType = IGPUImageView::ET_CUBE_MAP_ARRAY;
+                            else
+                              tmpViewParams.viewType = IGPUImageView::ET_2D_ARRAY;
+                            break;
+                        case asset::IImage::ET_3D:
+                            tmpViewParams.viewType = IGPUImageView::ET_3D;
+                            break;
+                        default:
+                            assert(false);
+                            break;
+                    }
+                    tmpViewParams.format = params.format;
+                    //tmpViewParams.subresourceRange.aspectMask
+                    tmpViewParams.subresourceRange.baseMipLevel = lowestPresentMip-1u;
+                    tmpViewParams.subresourceRange.layerCount = params.arrayLayers;
+                    auto tmpView = m_driver->createGPUImageView(std::move(tmpViewParams));
+                    // deprecated OpenGL path (do with compute shader in the future)
+                    tmpView->regenerateMipMapLevels();
+                }
+            }
 		}
 
 		res->operator[](i) = std::move(gpuimg);
