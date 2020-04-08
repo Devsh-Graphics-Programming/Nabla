@@ -49,9 +49,6 @@ class CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public CMatchedS
 				return true;
 			};
 
-			if (!validate(state))
-				return false;
-
 			return commonExecute(state,perOutputRegion);
 		}
 };

@@ -8,7 +8,9 @@
 #include "irr/core/math/morton.h"
 #include "irr/core/alloc/address_allocator_traits.h"
 #include "irr/core/memory/memory.h"
-#include "irr/asset/filters/CCopyImageFilter.h"
+//#include "irr/asset/filters/CCopyImageFilter.h"
+#include "irr/asset/filters/CPaddedCopyImageFilter.h"
+#include "irr/asset/filters/CFillImageFilter.h"
 
 namespace irr {
 namespace asset
@@ -258,33 +260,40 @@ public:
         auto extent = _img->getCreationParameters().extent;
         const uint32_t levelCount = countLevelsTakingAtLeastOnePage(extent, _subres);
 
-        // TODO: @Criss Do this via a filter derived from the CFillImageFilter
+        CFillImageFilter::state_type fill;
+        fill.outImage = m_pageTable.get();
+        fill.subresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+        fill.subresource.baseArrayLayer = 0u;
+        fill.subresource.layerCount = 1u;
+        fill.fillValue.asUint.x = SPhysPgOffset::invalid_addr;
+
+        auto* const bufptr = reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer());
         for (uint32_t i = 0u; i < levelCount; ++i)
         {
             const uint32_t w = neededPageCountForSide(extent.width, _subres.baseMipLevel+i);
             const uint32_t h = neededPageCountForSide(extent.height, _subres.baseMipLevel+i);
 
-            uint32_t* const pgTab = reinterpret_cast<uint32_t*>(
-                reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer()) + m_pageTable->getRegions().begin()[i].bufferOffset
-                );
-            const uint32_t pgtPitch = m_pageTable->getRegions().begin()[i].bufferRowLength;
-            const uint32_t offset = (_addr.y>>i)*pgtPitch + (_addr.x>>i);
+            const auto& region = m_pageTable->getRegions().begin()[i];
+            const auto strides = region.getByteStrides(IImage::SBufferCopy::TexelBlockInfo(m_pageTable->getCreationParameters().format), asset::getTexelOrBlockBytesize(m_pageTable->getCreationParameters().format));
 
             for (uint32_t y = 0u; y < h; ++y)
                 for (uint32_t x = 0u; x < w; ++x)
                 {
-                    const uint32_t linTexelAddr = offset + y*pgtPitch + x;
-
-                    SPhysPgOffset physPgOffset = pgTab[linTexelAddr];
+                    uint32_t* texelptr = reinterpret_cast<uint32_t*>(bufptr + region.getByteOffset(core::vector2du32_SIMD((_addr.x>>i) + x, (_addr.y>>i) + y), strides));
+                    SPhysPgOffset physPgOffset = *texelptr;
                     if (physPgOffset_valid(physPgOffset))
                     {
-                        pgTab[linTexelAddr] = SPhysPgOffset::invalid_addr;
+                        *texelptr = SPhysPgOffset::invalid_addr;
 
                         uint32_t addrs[2] { physPgOffset.addr&0xffffu, physPgOffset_mipTailAddr(physPgOffset).addr&0xffffu };
                         const uint32_t szs[2]{ 1u,1u };
                         core::address_allocator_traits<phys_pg_addr_alctr_t>::multi_free_addr(m_physPgAddrAlctr, physPgOffset_hasMipTailAddr(physPgOffset) ? 2u : 1u, addrs, szs);
                     }
                 }
+            fill.subresource.mipLevel = i;
+            fill.outRange.offset = {(_addr.x>>i),(_addr.y>>i),0u};
+            fill.outRange.extent = {w,h,1u};
+            CFillImageFilter::execute(&fill);
         }
 
         //free entries in page table
@@ -309,7 +318,7 @@ public:
 
         return texData;
     }
-    page_tab_offset_t pack(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv)
+    page_tab_offset_t pack(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, const void* _borderColor)
     {
         if (getFormatClass(_img->getCreationParameters().format)!=getFormatClass(m_physAddrTex->getCreationParameters().format))
             return page_tab_offset_invalid();
@@ -325,23 +334,22 @@ public:
 
         const uint32_t levelsTakingAtLeastOnePageCount = countLevelsTakingAtLeastOnePage(extent, _subres);
         const uint32_t levelsToPack = std::min(_subres.levelCount, m_pageTable->getCreationParameters().mipLevels+m_pgSzxy_log2);
+        const uint32_t texelBytesize = getTexelOrBlockBytesize(m_physAddrTex->getCreationParameters().format);
 
         uint32_t miptailPgAddr = SPhysPgOffset::invalid_addr;
 
         const uint32_t texelSz = getTexelOrBlockBytesize(m_physAddrTex->getCreationParameters().format);
-        // TODO: @Criss Do this via a filter derived from the CFillImageFilter
         //fill page table and pack present mips into physical addr texture
+        CFillImageFilter::state_type fill;
+        fill.outImage = m_pageTable.get();
+        fill.outRange.extent = {1u,1u,1u};
+        fill.subresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+        fill.subresource.baseArrayLayer = 0u;
+        fill.subresource.layerCount = 1u;
         for (uint32_t i = 0u; i < levelsToPack; ++i)
         {
             const uint32_t w = neededPageCountForSide(extent.width, _subres.baseMipLevel+i);
             const uint32_t h = neededPageCountForSide(extent.height, _subres.baseMipLevel+i);
-
-            uint32_t* const pgTab = i<levelsTakingAtLeastOnePageCount ? reinterpret_cast<uint32_t*>(
-                reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer()) + m_pageTable->getRegions().begin()[i].bufferOffset
-                ) : nullptr;
-            const uint32_t pgtPitch = m_pageTable->getRegions().begin()[i].bufferRowLength;
-            const uint32_t pgtH = m_pageTable->getRegions().begin()[i].imageExtent.height;
-            const uint32_t offset = (pgtOffset.y>>i)*pgtPitch + (pgtOffset.x>>i);
 
             for (uint32_t y = 0u; y < h; ++y)
                 for (uint32_t x = 0u; x < w; ++x)
@@ -358,7 +366,7 @@ public:
                     if (physPgAddr==phys_pg_addr_alctr_t::invalid_address)
                     {
                         free(pgtOffset, _img, _subres);
-                        return pgtOffset;
+                        return page_tab_offset_invalid();
                     }
 
                     if (i==(levelsTakingAtLeastOnePageCount-1u) && levelsTakingAtLeastOnePageCount<_subres.levelCount)
@@ -374,155 +382,39 @@ public:
                     else 
                         physPgAddr |= (SPhysPgOffset::invalid_addr<<16);
                     if (i < levelsTakingAtLeastOnePageCount)
-                        pgTab[offset + y*pgtPitch + x] = physPgAddr;
+                    {
+                        fill.subresource.mipLevel = i;
+                        fill.outRange.offset = {(pgtOffset.x>>i) + x, (pgtOffset.y>>i) + y, 0u};
+                        fill.fillValue.asUint.x = physPgAddr;
 
-                    // TODO: @Criss Do this via a filter derived from the CCopyImageFilter
+                        CFillImageFilter::execute(&fill);
+                    }
+
                     core::vector3du32_SIMD physPg = pageCoords(physPgAddr, m_pgSzxy);
-                    /*
-                    for (const auto& reg : _img->getRegions())
-                    {
-                        if (reg.imageSubresource.mipLevel != (_subres.baseMipLevel+i))
-                            continue;
 
-                        pageGotFilled = true;
-
-                        auto src_txOffset = core::vector2du32_SIMD(x,y)*m_pgSzxy;
-                        //const uint32_t a_left = reg.imageOffset.x;
-                        //const uint32_t b_right = src_txOffset.x + m_pgSzxy;
-                        //const uint32_t a_right = a_left + reg.imageExtent.width;
-                        //const uint32_t b_left = src_txOffset.x;
-                        //const uint32_t a_bot = reg.imageOffset.y;
-                        //const uint32_t b_top = src_txOffset.y + m_pgSzxy;
-                        //const uint32_t a_top = a_bot + reg.imageExtent.height;
-                        //const uint32_t b_bot = src_txOffset.y;
-                        //if (a_left>b_right || a_right<b_left || a_top<b_bot || a_bot>b_top)
-                        //    continue;
-
-                        //optimized rectange intersection test, probably can be done better
-                        //cmp_lhs = (b_right, a_right, a_top, b_top)
-                        core::vector4du32_SIMD cmp_lhs(src_txOffset.x, reg.imageOffset.x, reg.imageOffset.y, src_txOffset.y);
-                        cmp_lhs += core::vector4du32_SIMD(m_pgSzxy, reg.imageExtent.width, reg.imageExtent.height, m_pgSzxy);
-                        //cmp_rhs = (a_left, b_left, b_bot, a_bot)
-                        core::vector4du32_SIMD cmp_rhs(reg.imageOffset.x, src_txOffset.x, src_txOffset.y, reg.imageOffset.y);
-                        if ((cmp_lhs < cmp_rhs).any())
-                            continue;
-#define a_left_bot  cmp_rhs.xwxx()
-#define a_right_top cmp_lhs.yzxx()
-#define b_right_top cmp_lhs.xwxx()
-
-                        const core::vector2du32_SIMD regOffset = a_left_bot;
-                        const core::vector2du32_SIMD withinRegTxOffset = core::max(src_txOffset, regOffset)-regOffset;
-                        const core::vector2du32_SIMD withinPgTxOffset = (withinRegTxOffset & core::vector2du32_SIMD(m_pgSzxy-1u));
-                        src_txOffset += withinPgTxOffset;
-                        const core::vector2du32_SIMD src_txOffsetEnd = core::min(a_right_top, b_right_top);
-                        //special offset for packing tail mip levels into single page
-                        const core::vector2du32_SIMD miptailOffset = (i>=levelsTakingAtLeastOnePageCount) ? core::vector2du32_SIMD(m_miptailOffsets[i-levelsTakingAtLeastOnePageCount].x,m_miptailOffsets[i-levelsTakingAtLeastOnePageCount].y)+core::vector2du32_SIMD(m_tilePadding,m_tilePadding) : core::vector2du32_SIMD(0u,0u);
-
-                        physPg += (withinPgTxOffset + miptailOffset);
-
-                        const core::vector2du32_SIMD cpExtent = src_txOffsetEnd - src_txOffset;
-                        const uint32_t src_offset_lin = (withinRegTxOffset.y*reg.bufferRowLength + withinRegTxOffset.x) * texelSz;
-                        const uint32_t dst_offset_lin = physAddrTexelByteoffset(physPg, texelSz);
-                        const uint8_t* src = reinterpret_cast<const uint8_t*>(_img->getBuffer()->getPointer()) + reg.bufferOffset + src_offset_lin;
-                        uint8_t* dst = reinterpret_cast<uint8_t*>(m_physAddrTex->getBuffer()->getPointer()) + dst_offset_lin;
-                        for (uint32_t j = 0u; j < cpExtent.y; ++j)
-                        {
-                            memcpy(dst + j*m_physAddrTex->getCreationParameters().extent.width*texelSz, src + j*reg.bufferRowLength*texelSz, cpExtent.x*texelSz);
-                        }
-                    }
-                    */
-
-                    CCopyImageFilter::state_type copyState;
-                    copyState.outOffsetBaseLayer = physPg.xyzz();/*physPg.z is layer*/ copyState.outOffset.z = 0u;
-                    copyState.inOffsetBaseLayer = core::vector2du32_SIMD(x,y)*m_pgSzxy;
-                    copyState.extentLayerCount = core::vectorSIMDu32(m_pgSzxy, m_pgSzxy, 1u, 1u);
+                    CPaddedCopyImageFilter::state_type copy;
+                    copy.outOffsetBaseLayer = physPg.xyzz();/*physPg.z is layer*/ copy.outOffset.z = 0u;
+                    copy.inOffsetBaseLayer = core::vector2du32_SIMD(x,y)*m_pgSzxy;
+                    copy.extentLayerCount = core::vectorSIMDu32(m_pgSzxy, m_pgSzxy, 1u, 1u);
                     if (x == w-1u)
-                        copyState.extentLayerCount.x = extent.width-copyState.inOffsetBaseLayer.x;
+                        copy.extentLayerCount.x = extent.width-copy.inOffsetBaseLayer.x;
                     if (y == h-1u)
-                        copyState.extentLayerCount.y = extent.height-copyState.inOffsetBaseLayer.y;
-                    copyState.inMipLevel = _subres.baseMipLevel + i;
-                    copyState.outMipLevel = 0u;
-                    copyState.inImage = _img;
-                    copyState.outImage = m_physAddrTex.get();
-                    const bool pageGotFilled = CCopyImageFilter::execute(&copyState);
-
-                    if (pageGotFilled)
-                    {
-                        core::vector2du32_SIMD sz(extent.width<<(_subres.baseMipLevel+i), extent.height<<(_subres.baseMipLevel+i));
-                        if (x==w-1u && sz.x>m_pgSzxy && !core::isPoT(sz.x))//page on right side not being filled to full
-                            sz.x &= (m_pgSzxy-1u);
-                        if (y==h-1u && sz.y>m_pgSzxy && !core::isPoT(sz.y))//page on top side not being filled to full
-                            sz.y &= (m_pgSzxy-1u);
-                        sz = core::min(sz, core::vector2du32_SIMD(m_pgSzxy));
-                        fillPaddingsAccordingToWrappingMode(physPg, sz, _wrapu, _wrapv);
-                    }
+                        copy.extentLayerCount.y = extent.height-copy.inOffsetBaseLayer.y;
+                    copy.inMipLevel = _subres.baseMipLevel + i;
+                    copy.outMipLevel = 0u;
+                    copy.inImage = _img;
+                    copy.outImage = m_physAddrTex.get();
+                    copy.axisWraps[0] = _wrapu;
+                    copy.axisWraps[1] = _wrapv;
+                    copy.axisWraps[2] = ISampler::ETC_CLAMP_TO_EDGE;
+                    copy.borderPadding.width = copy.borderPadding.height = m_tilePadding;
+                    copy.borderPadding.depth = 0u;
+                    memcpy(copy.borderColor.asByte, _borderColor, texelBytesize);
+                    CPaddedCopyImageFilter::execute(&copy);
                 }
         }
 
         return pgtOffset;
-    }
-
-    //! _extent is always page size or less in case of one of mip tail levels
-    void fillPaddingsAccordingToWrappingMode(const core::vector3du32_SIMD& _offset, const core::vector2du32_SIMD& _extent, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv)
-    {
-        auto wrap_clamp_to_edge = [](int32_t a, int32_t sz) {
-            return core::clamp(a, 0, sz-1);
-        };
-        auto wrap_clamp_to_border = [](int32_t a, int32_t sz) {
-            return core::clamp(a, -1, sz);
-        };
-        auto wrap_repeat = [](int32_t a, int32_t sz) {
-            return std::abs(a % sz);
-        };
-        auto wrap_mirror = [](int32_t a, int32_t sz) {
-            const int32_t b = a % (2*sz) - sz;
-            return std::abs( (sz-1) - (b>=0 ? b : -(b+1)) );
-        };
-        auto wrap_mirror_clamp_edge = [](int32_t a, int32_t sz) {
-            return core::clamp(a>=0 ? a : -(1+a), 0, sz-1);
-        };
-        using wrap_fn_t = int32_t(*)(int32_t,int32_t);
-        wrap_fn_t wrapfn[6]{
-            wrap_repeat,
-            wrap_clamp_to_edge,
-            wrap_clamp_to_border,
-            wrap_mirror,
-            wrap_mirror_clamp_edge,
-            nullptr
-        };
-        auto wrapAndStore = [&] (int32_t x, int32_t y, uint32_t texelSz) {
-            const int32_t u = wrapfn[_wrapu](x, _extent.x);
-            const int32_t v = wrapfn[_wrapv](y, _extent.y);
-            const uint8_t* src = physAddrTexelPtr(_offset+core::vector2du32_SIMD(u, v), texelSz);
-            uint8_t* dst = physAddrTexelPtr(_offset+core::vector2du32_SIMD(x, y), texelSz);
-            memcpy(dst, src, texelSz);
-        };
-
-        const uint32_t texelSz = getTexelOrBlockBytesize(m_physAddrTex->getCreationParameters().format);
-        const int32_t pad = m_tilePadding;
-
-        const int32_t ex = _extent.x;
-        const int32_t ey = _extent.y;
-        for (int32_t x = -pad; x < ex+pad; ++x)
-            for (int32_t y = ey; y < ey+pad; ++y)
-            {
-                wrapAndStore(x, y, texelSz);
-            }
-        for (int32_t x = ex; x < ex+pad; ++x)
-            for (int32_t y = 0; y < ey; ++y)
-            {
-                wrapAndStore(x, y, texelSz);
-            }
-        for (int32_t x = -pad; x < ex+pad; ++x)
-            for (int32_t y = -pad; y < 0; ++y)
-            {
-                wrapAndStore(x, y, texelSz);
-            }
-        for (int32_t x = -pad; x < 0; ++x)
-            for (int32_t y = 0; y < ey; ++y)
-            {
-                wrapAndStore(x, y, texelSz);
-            }
     }
 
     uint32_t physAddrTexelByteoffset(const core::vector3du32_SIMD& _offset, uint32_t _texelSz)

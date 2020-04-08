@@ -47,7 +47,7 @@ public:
     {
     }
 
-    page_tab_offset_t pack(const IGPUImage* _img, const IGPUImage::SSubresourceRange& _subres, asset::ISampler::E_TEXTURE_CLAMP _wrapu, asset::ISampler::E_TEXTURE_CLAMP _wrapv)
+    page_tab_offset_t pack(const IGPUImage* _img, const IGPUImage::SSubresourceRange& _subres, asset::ISampler::E_TEXTURE_CLAMP _wrapu, asset::ISampler::E_TEXTURE_CLAMP _wrapv, const void* _borderColor)
     {
         assert(false);//not implemented
     }

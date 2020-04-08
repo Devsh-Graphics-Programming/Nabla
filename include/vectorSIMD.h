@@ -102,8 +102,17 @@ namespace core
         };
 	}
 
+#include "SIMDswizzle.h"
+
+	namespace impl
+	{
+		struct IRR_FORCE_EBO empty_base {};
+	}
+
     //a class for bitwise shizz
-	template <int components> class IRR_FORCE_EBO vectorSIMDBool : public impl::vectorSIMDIntBase<vectorSIMDBool<components> >
+	template <int components> class IRR_FORCE_EBO vectorSIMDBool : 
+		public impl::vectorSIMDIntBase<vectorSIMDBool<components> >, 
+		public std::conditional_t<components==4, SIMD_32bitSwizzleAble<vectorSIMDBool<components>, __m128i>, impl::empty_base>
     {
         typedef impl::vectorSIMDIntBase<vectorSIMDBool<components> > Base;
         static_assert(core::isPoT(components)&&components<=16u,"Wrong number of components!\n");
@@ -256,8 +265,6 @@ namespace core
 	typedef vectorSIMDBool<4> vector4db_SIMD;
 	//typedef vectorSIMDBool<2> vector2db_SIMD;
 
-
-#include "SIMDswizzle.h"
 
 #ifdef __GNUC__
 // warning: ignoring attributes on template argument __m128i {aka __vector(2) long long int} [-Wignored-attributes] (etc...)
@@ -846,6 +853,13 @@ namespace core
 	template <>
 	template <int mask>
 	inline __m128i SIMD_32bitSwizzleAble<vectorSIMD_32<uint32_t>, __m128i>::shuffleFunc(__m128i reg) const
+	{
+		return _mm_shuffle_epi32(reg, mask);
+	}
+
+	template <>
+	template <int mask>
+	inline __m128i SIMD_32bitSwizzleAble<vectorSIMDBool<4>, __m128i>::shuffleFunc(__m128i reg) const
 	{
 		return _mm_shuffle_epi32(reg, mask);
 	}

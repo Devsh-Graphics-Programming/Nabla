@@ -51,9 +51,10 @@ class CBasicImageFilterCommon
 
 		struct default_region_functor_t
 		{
-			inline bool operator()(IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion) { return true; }
+			constexpr default_region_functor_t() = default;
+			inline constexpr bool operator()(IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion) const { return true; }
 		};
-		static default_region_functor_t default_region_functor;
+		_IRR_STATIC_INLINE_CONSTEXPR default_region_functor_t default_region_functor{};
 		
 		struct clip_region_functor_t
 		{
@@ -67,7 +68,7 @@ class CBasicImageFilterCommon
 			const IImage::SBufferCopy::TexelBlockInfo	blockInfo;
 			const uint32_t								blockByteSize;
 
-			inline bool operator()(IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion)
+			inline bool operator()(IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion) const
 			{
 				if (subresource.mipLevel!=referenceRegion->imageSubresource.mipLevel)
 					return false;
@@ -114,7 +115,7 @@ class CBasicImageFilterCommon
 		static inline void executePerRegion(const ICPUImage* image, F& f,
 											const IImage::SBufferCopy* _begin=image->getRegions().begin(),
 											const IImage::SBufferCopy* _end=image->getRegions().end(),
-											G& g=default_region_functor)
+											const G& g=default_region_functor)
 		{
 			for (auto it=_begin; it!=_end; it++)
 			{
