@@ -23,41 +23,47 @@ class CFloatingPointOnlyImageFilterKernelBase
 		static inline bool validate(ICPUImage* inImage, ICPUImage* outImage)
 		{
 			const auto& inParams = inImage->getCreationParameters();
-			return !isIntegerFormat(inParams.format);
+			const auto& outParams = inImage->getCreationParameters();
+			return !(isIntegerFormat(inParams.format)||isIntegerFormat(outParams.format));
 		}
+
+	protected:
+		CFloatingPointOnlyImageFilterKernelBase() {}
 };
 
-template<class Ratio=std::ratio<1,1> >
-class CIsotropicSeparableImageFilterKernelBase
+template<class CRTP,class Ratio=std::ratio<1,1> >
+class CFloatingPointIsotropicSeparableImageFilterKernelBase : public CImageFilterKernel<CRTP,CFloatingPointOnlyImageFilterKernelBase::value_type>, public CFloatingPointOnlyImageFilterKernelBase
 {
 	public:
 		_IRR_STATIC_INLINE_CONSTEXPR bool is_separable = true;
-		const float isotropic_support = float(Ratio::num)/float(Ratio::den);
-		const float symmetric_support[3] = { isotropic_support,isotropic_support,isotropic_support };
-		const float positive_support[3] = { symmetric_support[0], symmetric_support[1], symmetric_support[2] };
-		const float negative_support[3] = {-symmetric_support[0],-symmetric_support[1],-symmetric_support[2] };
+		_IRR_STATIC_INLINE_CONSTEXPR float isotropic_support = float(Ratio::num)/float(Ratio::den);
+		_IRR_STATIC_INLINE_CONSTEXPR float symmetric_support[3] = { isotropic_support,isotropic_support,isotropic_support };
+
+		CFloatingPointIsotropicSeparableImageFilterKernelBase() : CImageFilterKernel<CRTP,CFloatingPointOnlyImageFilterKernelBase::value_type>(symmetric_support, symmetric_support) {}
+
+		void evaluate(value_type* out, const core::vectorSIMDf& inPos, const value_type*** slices) const;
 
 	protected:
-		inline bool inDomain(const core::vectorSIMDf& inPos)
+		inline bool inDomain(const core::vectorSIMDf& inPos) const
 		{
 			return (abs(inPos)<core::vectorSIMDf(isotropic_support,isotropic_support,isotropic_support,FLT_MAX)).all();
 		}
 };
 
 
-class CBoxImageFilterKernel : public CImageFilterKernel<CBoxImageFilterKernel>, public CIsotropicSeparableImageFilterKernelBase<std::ratio<1,2> >, public CFloatingPointOnlyImageFilterKernelBase
+class CBoxImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CBoxImageFilterKernel,std::ratio<1,2> >
 {
 	public:
-		inline float evaluate(const core::vectorSIMDf& inPos)
+		inline float weight(const core::vectorSIMDf& inPos) const
 		{
 			return inDomain(inPos) ? 1.0:0.0;
 		}
 };
 
-class CTriangleImageFilterKernel : public CImageFilterKernel<CTriangleImageFilterKernel>, public CIsotropicSeparableImageFilterKernelBase<std::ratio<1,1> >, public CFloatingPointOnlyImageFilterKernelBase
+class CTriangleImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CTriangleImageFilterKernel,std::ratio<1,1> >
 {
 	public:
-		inline float evaluate(const core::vectorSIMDf& inPos)
+		inline float weight(const core::vectorSIMDf& inPos) const
 		{
 			if (inDomain(inPos))
 			{
@@ -69,12 +75,12 @@ class CTriangleImageFilterKernel : public CImageFilterKernel<CTriangleImageFilte
 };
 
 template<uint32_t support=3u>
-class CKaiserImageFilterKernel : public CImageFilterKernel<CKaiserImageFilterKernel<support>>, public CIsotropicSeparableImageFilterKernelBase<std::ratio<support,1> >, public CFloatingPointOnlyImageFilterKernelBase
+class CKaiserImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CKaiserImageFilterKernel<support>,std::ratio<support,1> >
 {
 	public:
 		const float alpha = 3.f;
 
-		inline float evaluate(const core::vectorSIMDf& inPos)
+		inline float weight(const core::vectorSIMDf& inPos) const
 		{
 			if (inDomain(inPos))
 			{
@@ -86,10 +92,10 @@ class CKaiserImageFilterKernel : public CImageFilterKernel<CKaiserImageFilterKer
 };
 
 template<class B=std::ratio<1,3>, class C=std::ratio<1,3> >
-class CMitchellImageFilterKernel : public CImageFilterKernel<CMitchellImageFilterKernel<B,C> >, public CIsotropicSeparableImageFilterKernelBase<std::ratio<2,1> >, public CFloatingPointOnlyImageFilterKernelBase
+class CMitchellImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CMitchellImageFilterKernel<B,C>,std::ratio<2,1> >
 {
 	public:
-		inline float evaluate(const core::vectorSIMDf& inPos)
+		inline float weight(const core::vectorSIMDf& inPos) const
 		{
 			if (inDomain(inPos))
 				return core::mix(

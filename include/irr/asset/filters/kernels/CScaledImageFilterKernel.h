@@ -16,27 +16,33 @@ namespace irr
 namespace asset
 {
 
+namespace impl
+{
 
-template<class Kernel>
-class CScaledImageFilterKernel : public CImageFilterKernel<CScaledImageFilterKernel<Kernel> >, private Kernel
+class CScaledImageFilterKernelBase
 {
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR bool is_separable = Kernel::is_separable;
+		CScaledImageFilterKernelBase(const core::vectorSIMDf& _rscale) : rscale(_rscale.x,_rscale.y,_rscale.z,_rscale.x*_rscale.y*_rscale.z) {}
+
 		const core::vectorSIMDf rscale;
-		const float positive_support[3];
-		const float negative_support[3];
+};
+
+}
+
+template<class Kernel>
+class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilterKernelBase, public CImageFilterKernel<CScaledImageFilterKernel<Kernel>,typename Kernel::value_type>
+{
+	public:
+		using value_type = typename Kernel::value_type;
+
+		_IRR_STATIC_INLINE_CONSTEXPR bool is_separable = Kernel::is_separable;
+
 		CScaledImageFilterKernel(float _scale[3]) : Kernel(k),
-			rscale(core::vectorSIMDf(1.f)/core::vectorSIMDf(_scale[0],_scale[1],_scale[2],1.f)),
-			positive_support(	{
-									Kernel::positive_support[0]*rscale[0],
-									Kernel::positive_support[1]*rscale[1],
-									Kernel::positive_support[2]*rscale[2]
-								}),
-			negative_support(	{
-									Kernel::negative_support[0]*rscale[0],
-									Kernel::negative_support[1]*rscale[1],
-									Kernel::negative_support[2]*rscale[2]
-								})
+			impl::CScaledImageFilterKernelBase(core::vectorSIMDf(1.f)/core::vectorSIMDf(_scale[0],_scale[1],_scale[2],1.f)),
+			CImageFilterKernel<CScaledImageFilterKernel<Kernel>,value_type>(
+					{Kernel::positive_support[0]*rscale[0],Kernel::positive_support[1]*rscale[1],Kernel::positive_support[2]*rscale[2]},
+					{Kernel::negative_support[0]*rscale[0],Kernel::negative_support[1]*rscale[1],Kernel::negative_support[2]*rscale[2]}
+				)
 		{
 		}
 
@@ -44,10 +50,17 @@ class CScaledImageFilterKernel : public CImageFilterKernel<CScaledImageFilterKer
 		{
 			return Kernel::validate(inImage,outImage);
 		}
-
-		inline float evaluate(const core::vectorSIMDf& inPos)
+/*
+		inline float weight(const core::vectorSIMDf& inPos)
 		{
-			return rscale*Kernel::evaluate(inPos*rscale);
+			return rscale*Kernel::weight(inPos*rscale);
+		}
+*/
+		inline void evaluate(value_type* out,const core::vectorSIMDf& inPos, const value_type*** slices) const
+		{
+			Kernel::evaluate(out,inPos*rscale,slices);
+			for (auto i=0; i<4; i++)
+				out[i] *= rscale.w;
 		}
 };
 
