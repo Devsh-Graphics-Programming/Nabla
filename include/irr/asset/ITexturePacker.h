@@ -318,7 +318,7 @@ public:
 
         return texData;
     }
-    page_tab_offset_t pack(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv)
+    page_tab_offset_t pack(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, const void* _borderColor)
     {
         if (getFormatClass(_img->getCreationParameters().format)!=getFormatClass(m_physAddrTex->getCreationParameters().format))
             return page_tab_offset_invalid();
@@ -334,6 +334,7 @@ public:
 
         const uint32_t levelsTakingAtLeastOnePageCount = countLevelsTakingAtLeastOnePage(extent, _subres);
         const uint32_t levelsToPack = std::min(_subres.levelCount, m_pageTable->getCreationParameters().mipLevels+m_pgSzxy_log2);
+        const uint32_t texelBytesize = getTexelOrBlockBytesize(m_physAddrTex->getCreationParameters().format);
 
         uint32_t miptailPgAddr = SPhysPgOffset::invalid_addr;
 
@@ -391,24 +392,25 @@ public:
 
                     core::vector3du32_SIMD physPg = pageCoords(physPgAddr, m_pgSzxy);
 
-                    CPaddedCopyImageFilter::state_type copyState;
-                    copyState.outOffsetBaseLayer = physPg.xyzz();/*physPg.z is layer*/ copyState.outOffset.z = 0u;
-                    copyState.inOffsetBaseLayer = core::vector2du32_SIMD(x,y)*m_pgSzxy;
-                    copyState.extentLayerCount = core::vectorSIMDu32(m_pgSzxy, m_pgSzxy, 1u, 1u);
+                    CPaddedCopyImageFilter::state_type copy;
+                    copy.outOffsetBaseLayer = physPg.xyzz();/*physPg.z is layer*/ copy.outOffset.z = 0u;
+                    copy.inOffsetBaseLayer = core::vector2du32_SIMD(x,y)*m_pgSzxy;
+                    copy.extentLayerCount = core::vectorSIMDu32(m_pgSzxy, m_pgSzxy, 1u, 1u);
                     if (x == w-1u)
-                        copyState.extentLayerCount.x = extent.width-copyState.inOffsetBaseLayer.x;
+                        copy.extentLayerCount.x = extent.width-copy.inOffsetBaseLayer.x;
                     if (y == h-1u)
-                        copyState.extentLayerCount.y = extent.height-copyState.inOffsetBaseLayer.y;
-                    copyState.inMipLevel = _subres.baseMipLevel + i;
-                    copyState.outMipLevel = 0u;
-                    copyState.inImage = _img;
-                    copyState.outImage = m_physAddrTex.get();
-                    copyState.axisWraps[0] = _wrapu;
-                    copyState.axisWraps[1] = _wrapv;
-                    copyState.axisWraps[2] = ISampler::ETC_CLAMP_TO_EDGE;
-                    copyState.borderPadding.width = copyState.borderPadding.height = m_tilePadding;
-                    copyState.borderPadding.depth = 0u;
-                    CPaddedCopyImageFilter::execute(&copyState);
+                        copy.extentLayerCount.y = extent.height-copy.inOffsetBaseLayer.y;
+                    copy.inMipLevel = _subres.baseMipLevel + i;
+                    copy.outMipLevel = 0u;
+                    copy.inImage = _img;
+                    copy.outImage = m_physAddrTex.get();
+                    copy.axisWraps[0] = _wrapu;
+                    copy.axisWraps[1] = _wrapv;
+                    copy.axisWraps[2] = ISampler::ETC_CLAMP_TO_EDGE;
+                    copy.borderPadding.width = copy.borderPadding.height = m_tilePadding;
+                    copy.borderPadding.depth = 0u;
+                    memcpy(copy.borderColor.asByte, _borderColor, texelBytesize);
+                    CPaddedCopyImageFilter::execute(&copy);
                 }
         }
 
