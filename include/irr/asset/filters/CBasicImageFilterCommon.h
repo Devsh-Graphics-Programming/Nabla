@@ -54,7 +54,6 @@ class CBasicImageFilterCommon
 			constexpr default_region_functor_t() = default;
 			inline constexpr bool operator()(IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion) const { return true; }
 		};
-		_IRR_STATIC_INLINE_CONSTEXPR default_region_functor_t default_region_functor{};
 		
 		struct clip_region_functor_t
 		{
@@ -110,12 +109,12 @@ class CBasicImageFilterCommon
 				return true;
 			}
 		};
-
-		template<typename F, typename G=default_region_functor_t>
+		
+		template<typename F, typename G>
 		static inline void executePerRegion(const ICPUImage* image, F& f,
-											const IImage::SBufferCopy* _begin=image->getRegions().begin(),
-											const IImage::SBufferCopy* _end=image->getRegions().end(),
-											const G& g=default_region_functor)
+											const IImage::SBufferCopy* _begin,
+											const IImage::SBufferCopy* _end,
+											G& g)
 		{
 			for (auto it=_begin; it!=_end; it++)
 			{
@@ -123,6 +122,14 @@ class CBasicImageFilterCommon
 				if (g(region,it))
 					executePerBlock<F>(image, region, f);
 			}
+		}
+		template<typename F>
+		static inline void executePerRegion(const ICPUImage* image, F& f,
+											const IImage::SBufferCopy* _begin=image->getRegions().begin(),
+											const IImage::SBufferCopy* _end=image->getRegions().end())
+		{
+			default_region_functor_t voidFunctor;
+			return executePerRegion<F,default_region_functor_t>(image,f,_begin,_end,voidFunctor);
 		}
 
 	protected:

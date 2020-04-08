@@ -143,7 +143,7 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 					CFillImageFilter::state_type fill;
 					fill.subresource = rit->imageSubresource;
 					fill.outRange = { {0u,0u,0u},rit->imageExtent };
-					fill.outImage = inImg;
+					fill.outImage = outImg;
 					fill.fillValue = state->fillValue;
 					if (!CFillImageFilter::execute(&fill))
 						return false;
