@@ -317,7 +317,7 @@ public:
 
         return texData;
     }
-    page_tab_offset_t pack(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, const void* _borderColor)
+    page_tab_offset_t pack(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
     {
         if (getFormatClass(_img->getCreationParameters().format)!=getFormatClass(m_physAddrTex->getCreationParameters().format))
             return page_tab_offset_invalid();
@@ -333,7 +333,6 @@ public:
 
         const uint32_t levelsTakingAtLeastOnePageCount = countLevelsTakingAtLeastOnePage(extent, _subres);
         const uint32_t levelsToPack = std::min(_subres.levelCount, m_pageTable->getCreationParameters().mipLevels+m_pgSzxy_log2);
-        const uint32_t texelBytesize = getTexelOrBlockBytesize(m_physAddrTex->getCreationParameters().format);
 
         uint32_t miptailPgAddr = SPhysPgOffset::invalid_addr;
 
@@ -408,7 +407,7 @@ public:
                     copy.axisWraps[2] = ISampler::ETC_CLAMP_TO_EDGE;
                     copy.borderPadding.width = copy.borderPadding.height = m_tilePadding;
                     copy.borderPadding.depth = 0u;
-                    memcpy(copy.borderColor.asByte, _borderColor, texelBytesize);
+                    copy.borderColor = _borderColor;
                     CPaddedCopyImageFilter::execute(&copy);
                 }
         }

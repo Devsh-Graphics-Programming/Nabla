@@ -31,7 +31,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 				VkExtent3D borderPadding = { 0u,0u,0u };
 				_IRR_STATIC_INLINE_CONSTEXPR auto NumWrapAxes = 3;
 				ISampler::E_TEXTURE_CLAMP axisWraps[NumWrapAxes] = {ISampler::ETC_REPEAT,ISampler::ETC_REPEAT,ISampler::ETC_REPEAT};
-				IImageFilter::IState::ColorValue borderColor;
+				ISampler::E_TEXTURE_BORDER_COLOR borderColor;
 		};
 		using state_type = CState;
 
@@ -70,6 +70,11 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 
 			core::vectorSIMDu32 padding(&state->borderPadding.width);
 			padding = padding&core::vectorSIMDu32(~0u,~0u,~0u,0u);
+
+			uint8_t* const bufptr = reinterpret_cast<uint8_t*>(state->outImage->getBuffer()->getPointer());
+			IImageFilter::IState::ColorValue borderColor;
+			encodeBorderColor(state->borderColor, state->outImage->getCreationParameters().format, borderColor.asByte);
+			IImageFilter::IState::ColorValue::WriteMemoryInfo borderColorWrite(state->outImage->getCreationParameters().format, bufptr);
 
 			constexpr uint32_t borderRegionsCnt = 12u;
 			IImageFilter::IState::TexelRange borderRegions[borderRegionsCnt];
@@ -124,9 +129,8 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 				}
 			}
 
-			auto perBlock = [&state](uint32_t blockArrayOffset, core::vectorSIMDu32 readBlockPos)
+			auto perBlock = [&state,&borderColor,&borderColorWrite,&bufptr](uint32_t blockArrayOffset, core::vectorSIMDu32 readBlockPos)
 			{
-				uint8_t* const bufptr = reinterpret_cast<uint8_t*>(state->outImage->getBuffer()->getPointer());
 				const IImage::SBufferCopy::TexelBlockInfo blockInfo(state->outImage->getCreationParameters().format);
 				const uint32_t texelSz = asset::getTexelOrBlockBytesize(state->outImage->getCreationParameters().format);
 
@@ -135,13 +139,12 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 				//this also covers check for -1 (-1 is max unsigned val)
 				if ((wrapped>=state->extentLayerCount).xyzz().any())
 				{
-					const IImageFilter::IState::ColorValue::WriteMemoryInfo info(state->outImage->getCreationParameters().format, bufptr);
-					state->borderColor.writeMemory(info, blockArrayOffset);
+					borderColor.writeMemory(borderColorWrite, blockArrayOffset);
 					return;
 				}
 
 				wrapped += state->outOffsetBaseLayer;
-				for (const auto& outreg : state->outImage->getRegions())
+				for (const auto& outreg : state->outImage->getRegions(state->outMipLevel))
 				{
 					core::vectorSIMDu32 min(&outreg.imageOffset.x);
 					min.w = outreg.imageSubresource.baseArrayLayer;
@@ -154,12 +157,12 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 						const auto strides = outreg.getByteStrides(blockInfo, texelSz);//TODO precompute strides
 						const uint64_t srcOffset = outreg.getByteOffset(wrapped-min, strides);
 
-						memcpy(bufptr + blockArrayOffset, bufptr + srcOffset, texelSz);
+						memcpy(bufptr+blockArrayOffset, bufptr+srcOffset, texelSz);
 						break;
 					}
 				}
 			};
-			for (const auto& outreg : state->outImage->getRegions())
+			for (const auto& outreg : state->outImage->getRegions(state->outMipLevel))
 			{
 				for (uint32_t i = 0u; i < borderRegionsCnt; ++i)
 				{
@@ -210,6 +213,28 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			wrapped.z = wrapfn[_state->axisWraps[2]](_coords.z, _extent.y);
 
 			return wrapped;
+		}
+		static void encodeBorderColor(ISampler::E_TEXTURE_BORDER_COLOR _color, E_FORMAT _fmt, void* _encbuf)
+		{
+			constexpr double fpColors[3][4]
+			{
+				{0.0,0.0,0.0,0.0},
+				{0.0,0.0,0.0,1.0},
+				{1.0,1.0,1.0,1.0}
+			};
+			constexpr uint64_t intColors[3][4]
+			{
+				{0u,0u,0u,0u},
+				{0u,0u,0u,~0ull},
+				{~0ull,~0ull,~0ull,~0ull}
+			};
+
+			const void* src = nullptr;
+			if (_color&1u)
+				src = intColors[_color/2];
+			else
+				src = fpColors[_color/2];
+			encodePixelsRuntime(_fmt, _encbuf, src);
 		}
 };
 

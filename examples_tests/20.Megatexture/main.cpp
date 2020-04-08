@@ -15,7 +15,7 @@ using namespace core;
 
 using STextureData = asset::ITexturePacker::STextureData;
 
-STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePacker* _packer)
+STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePacker* _packer, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
 {
     const auto& extent = _img->getCreationParameters().extent;
 
@@ -24,7 +24,7 @@ STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePack
     subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(extent.width, extent.height))) + 1;
 
     uint8_t border[4]{};//unused anyway
-    auto pgTabCoords = _packer->pack(_img, subres, asset::ISampler::ETC_MIRROR, asset::ISampler::ETC_MIRROR, border);
+    auto pgTabCoords = _packer->pack(_img, subres, asset::ISampler::ETC_MIRROR, asset::ISampler::ETC_MIRROR, _borderColor);
     return _packer->offsetToTextureData(pgTabCoords, _img);
 }
 
@@ -532,7 +532,7 @@ int main()
             else {
                 const asset::E_FORMAT fmt = img->getCreationParameters().format;
                 //TODO take wrapping into account while packing
-                texData = getTextureData(img.get(), texPackers[format2texPackerIndex(fmt)].get());
+                texData = getTextureData(img.get(), texPackers[format2texPackerIndex(fmt)].get(), asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK);
                 VTtexDataMap.insert({img,texData});
             }
 
