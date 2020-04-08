@@ -10,6 +10,7 @@
 #include "irr/core/memory/memory.h"
 //#include "irr/asset/filters/CCopyImageFilter.h"
 #include "irr/asset/filters/CPaddedCopyImageFilter.h"
+#include "irr/asset/filters/CFillImageFilter.h"
 
 namespace irr {
 namespace asset
@@ -259,33 +260,40 @@ public:
         auto extent = _img->getCreationParameters().extent;
         const uint32_t levelCount = countLevelsTakingAtLeastOnePage(extent, _subres);
 
-        // TODO: @Criss Do this via a filter derived from the CFillImageFilter
+        CFillImageFilter::state_type fill;
+        fill.outImage = m_pageTable.get();
+        fill.subresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+        fill.subresource.baseArrayLayer = 0u;
+        fill.subresource.layerCount = 1u;
+        fill.fillValue.asUint.x = SPhysPgOffset::invalid_addr;
+
+        auto* const bufptr = reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer());
         for (uint32_t i = 0u; i < levelCount; ++i)
         {
             const uint32_t w = neededPageCountForSide(extent.width, _subres.baseMipLevel+i);
             const uint32_t h = neededPageCountForSide(extent.height, _subres.baseMipLevel+i);
 
-            uint32_t* const pgTab = reinterpret_cast<uint32_t*>(
-                reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer()) + m_pageTable->getRegions().begin()[i].bufferOffset
-                );
-            const uint32_t pgtPitch = m_pageTable->getRegions().begin()[i].bufferRowLength;
-            const uint32_t offset = (_addr.y>>i)*pgtPitch + (_addr.x>>i);
+            const auto& region = m_pageTable->getRegions().begin()[i];
+            const auto strides = region.getByteStrides(IImage::SBufferCopy::TexelBlockInfo(m_pageTable->getCreationParameters().format), asset::getTexelOrBlockBytesize(m_pageTable->getCreationParameters().format));
 
             for (uint32_t y = 0u; y < h; ++y)
                 for (uint32_t x = 0u; x < w; ++x)
                 {
-                    const uint32_t linTexelAddr = offset + y*pgtPitch + x;
-
-                    SPhysPgOffset physPgOffset = pgTab[linTexelAddr];
+                    uint32_t* texelptr = reinterpret_cast<uint32_t*>(bufptr + region.getByteOffset(core::vector2du32_SIMD((_addr.x>>i) + x, (_addr.y>>i) + y), strides));
+                    SPhysPgOffset physPgOffset = *texelptr;
                     if (physPgOffset_valid(physPgOffset))
                     {
-                        pgTab[linTexelAddr] = SPhysPgOffset::invalid_addr;
+                        *texelptr = SPhysPgOffset::invalid_addr;
 
                         uint32_t addrs[2] { physPgOffset.addr&0xffffu, physPgOffset_mipTailAddr(physPgOffset).addr&0xffffu };
                         const uint32_t szs[2]{ 1u,1u };
                         core::address_allocator_traits<phys_pg_addr_alctr_t>::multi_free_addr(m_physPgAddrAlctr, physPgOffset_hasMipTailAddr(physPgOffset) ? 2u : 1u, addrs, szs);
                     }
                 }
+            fill.subresource.mipLevel = i;
+            fill.outRange.offset = {(_addr.x>>i),(_addr.y>>i),0u};
+            fill.outRange.extent = {w,h,1u};
+            CFillImageFilter::execute(&fill);
         }
 
         //free entries in page table
@@ -330,19 +338,17 @@ public:
         uint32_t miptailPgAddr = SPhysPgOffset::invalid_addr;
 
         const uint32_t texelSz = getTexelOrBlockBytesize(m_physAddrTex->getCreationParameters().format);
-        // TODO: @Criss Do this via a filter derived from the CFillImageFilter
         //fill page table and pack present mips into physical addr texture
+        CFillImageFilter::state_type fill;
+        fill.outImage = m_pageTable.get();
+        fill.outRange.extent = {1u,1u,1u};
+        fill.subresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+        fill.subresource.baseArrayLayer = 0u;
+        fill.subresource.layerCount = 1u;
         for (uint32_t i = 0u; i < levelsToPack; ++i)
         {
             const uint32_t w = neededPageCountForSide(extent.width, _subres.baseMipLevel+i);
             const uint32_t h = neededPageCountForSide(extent.height, _subres.baseMipLevel+i);
-
-            uint32_t* const pgTab = i<levelsTakingAtLeastOnePageCount ? reinterpret_cast<uint32_t*>(
-                reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer()) + m_pageTable->getRegions().begin()[i].bufferOffset
-                ) : nullptr;
-            const uint32_t pgtPitch = m_pageTable->getRegions().begin()[i].bufferRowLength;
-            const uint32_t pgtH = m_pageTable->getRegions().begin()[i].imageExtent.height;
-            const uint32_t offset = (pgtOffset.y>>i)*pgtPitch + (pgtOffset.x>>i);
 
             for (uint32_t y = 0u; y < h; ++y)
                 for (uint32_t x = 0u; x < w; ++x)
@@ -359,7 +365,7 @@ public:
                     if (physPgAddr==phys_pg_addr_alctr_t::invalid_address)
                     {
                         free(pgtOffset, _img, _subres);
-                        return pgtOffset;
+                        return page_tab_offset_invalid();
                     }
 
                     if (i==(levelsTakingAtLeastOnePageCount-1u) && levelsTakingAtLeastOnePageCount<_subres.levelCount)
@@ -375,9 +381,14 @@ public:
                     else 
                         physPgAddr |= (SPhysPgOffset::invalid_addr<<16);
                     if (i < levelsTakingAtLeastOnePageCount)
-                        pgTab[offset + y*pgtPitch + x] = physPgAddr;
+                    {
+                        fill.subresource.mipLevel = i;
+                        fill.outRange.offset = {(pgtOffset.x>>i) + x, (pgtOffset.y>>i) + y, 0u};
+                        fill.fillValue.asUint.x = physPgAddr;
 
-                    // TODO: @Criss Do this via a filter derived from the CCopyImageFilter
+                        CFillImageFilter::execute(&fill);
+                    }
+
                     core::vector3du32_SIMD physPg = pageCoords(physPgAddr, m_pgSzxy);
 
                     CPaddedCopyImageFilter::state_type copyState;
