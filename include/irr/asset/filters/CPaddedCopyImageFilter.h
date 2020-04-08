@@ -31,6 +31,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 				VkExtent3D borderPadding = { 0u,0u,0u };
 				_IRR_STATIC_INLINE_CONSTEXPR auto NumWrapAxes = 3;
 				ISampler::E_TEXTURE_CLAMP axisWraps[NumWrapAxes] = {ISampler::ETC_REPEAT,ISampler::ETC_REPEAT,ISampler::ETC_REPEAT};
+				IImageFilter::IState::ColorValue borderColor;
 		};
 		using state_type = CState;
 
@@ -123,9 +124,23 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 				}
 			}
 
-			auto perBlock = [&state](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
+			auto perBlock = [&state](uint32_t blockArrayOffset, core::vectorSIMDu32 readBlockPos)
 			{
-				auto wrapped = wrapCoords(state, readBlockPos-state->outOffsetBaseLayer, state->extentLayerCount) + state->outOffsetBaseLayer;
+				uint8_t* const bufptr = reinterpret_cast<uint8_t*>(state->outImage->getBuffer()->getPointer());
+				const IImage::SBufferCopy::TexelBlockInfo blockInfo(state->outImage->getCreationParameters().format);
+				const uint32_t texelSz = asset::getTexelOrBlockBytesize(state->outImage->getCreationParameters().format);
+
+				auto wrapped = wrapCoords(state, readBlockPos-state->outOffsetBaseLayer, state->extentLayerCount);
+				//wrapped coords exceeding image on any axis implies usage of border color for this border-texel
+				//this also covers check for -1 (-1 is max unsigned val)
+				if ((wrapped>=state->extentLayerCount).xyzz().any())
+				{
+					const IImageFilter::IState::ColorValue::WriteMemoryInfo info(state->outImage->getCreationParameters().format, bufptr);
+					state->borderColor.writeMemory(info, blockArrayOffset);
+					return;
+				}
+
+				wrapped += state->outOffsetBaseLayer;
 				for (const auto& outreg : state->outImage->getRegions())
 				{
 					core::vectorSIMDu32 min(&outreg.imageOffset.x);
@@ -136,13 +151,10 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 
 					if ((wrapped>=min).all() && (wrapped<max).all())
 					{
-						const IImage::SBufferCopy::TexelBlockInfo blockInfo(state->outImage->getCreationParameters().format);
-						const uint32_t texelSz = asset::getTexelOrBlockBytesize(state->outImage->getCreationParameters().format);
 						const auto strides = outreg.getByteStrides(blockInfo, texelSz);//TODO precompute strides
 						const uint64_t srcOffset = outreg.getByteOffset(wrapped-min, strides);
 
-						uint8_t* const bufptr = reinterpret_cast<uint8_t*>(state->outImage->getBuffer()->getPointer());
-						memcpy(bufptr + readBlockArrayOffset, bufptr + srcOffset, texelSz);
+						memcpy(bufptr + blockArrayOffset, bufptr + srcOffset, texelSz);
 						break;
 					}
 				}
