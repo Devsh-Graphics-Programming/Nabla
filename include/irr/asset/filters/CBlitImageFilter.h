@@ -41,14 +41,33 @@ class CBlitImageFilterBase : public CBasicImageFilterCommon
 				ISampler::E_TEXTURE_BORDER_COLOR	borderColor = ISampler::ETBC_FLOAT_TRANSPARENT_BLACK;
 				E_ALPHA_SEMANTIC					alphaSemantic = EAS_NONE_OR_PREMULTIPLIED;
 				// the next three are required if `alphaSemantic==EAS_REFERENCE_OR_COVERAGE`
-				texel_arithmetic_type* scratchMemory = nullptr;
+				texel_arithmetic_type*				scratchMemory = nullptr;
 				uint32_t							scratchMemoryByteSize = 0u;
 				texel_arithmetic_type				alphaRefValue = 0.5;
 		};
 
+
+		static inline uint32_t getRequiredScratchByteSize(	const Kernel& k,
+															typename CStateBase::E_ALPHA_SEMANTIC alphaSemantic=CStateBase::EAS_NONE_OR_PREMULTIPLIED,
+															const core::vectorSIMDu32& outExtentLayerCount=core::vectorSIMDu32(0,0,0,0))
+		{
+			uint32_t retval = k.window_size[0]*k.window_size[1]*k.window_size[2]*4u;
+			if (alphaSemantic==CStateBase::EAS_REFERENCE_OR_COVERAGE)
+				retval += outExtentLayerCount.x*outExtentLayerCount.y*outExtentLayerCount.z*outExtentLayerCount.w;
+			return retval*sizeof(texel_arithmetic_type);
+		}
+
 	protected:
 		CBlitImageFilterBase() {}
 		virtual ~CBlitImageFilterBase() {}
+
+		static inline bool validate(CStateBase* state)
+		{
+			if (!state || !state->scratchMemory)
+				return false;
+
+			return true;
+		}
 };
 
 
@@ -120,7 +139,10 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 
 		static inline bool validate(state_type* state)
 		{
-			if (!state)
+			if (!CBlitImageFilterBase<Kernel>::validate(state))
+				return false;
+			
+			if (state->scratchMemoryByteSize<getRequiredScratchByteSize(state->kernel,state->alphaSemantic,state->inExtentLayerCount))
 				return false;
 
 			if (state->inLayerCount!=state->outLayerCount)
@@ -201,8 +223,9 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 			}
 
 			const Kernel& kernel = state->kernel;
-			texel_arithmetic_type* inSamples = state->scratchMemory; // TODO
-			auto* filteredAlphaArray = state->scratchMemory;
+			texel_arithmetic_type* inSamples = state->scratchMemory;
+			// TODO: improve coverage rescaling for layered textures!
+			auto* filteredAlphaArray = state->scratchMemory+getRequiredScratchByteSize(state->kernel)/sizeof(texel_arithmetic_type);
 			auto* filteredAlphaArrayIt = filteredAlphaArray;
 			auto blit = [outData,outBlockDims,kernel,nonPremultBlendSemantic,coverageSemantic,&filteredAlphaArrayIt,outFormat](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 			{
