@@ -49,11 +49,11 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 
 				union
 				{
-					core::vectorSIMDu32 inOffsetBaseLayer;
+					core::vectorSIMDu32				inOffsetBaseLayer;
 					struct
 					{
-						VkOffset3D		inOffset;
-						uint32_t		inBaseLayer;
+						VkOffset3D					inOffset;
+						uint32_t					inBaseLayer;
 					};
 				};
 				union
@@ -61,8 +61,8 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 					core::vectorSIMDu32 inExtentLayerCount;
 					struct
 					{
-						VkExtent3D		inExtent;
-						uint32_t		inLayerCount;
+						VkExtent3D					inExtent;
+						uint32_t					inLayerCount;
 					};
 				};
 				union
@@ -70,8 +70,8 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 					core::vectorSIMDu32 outOffsetBaseLayer;
 					struct
 					{
-						VkOffset3D		outOffset;
-						uint32_t		outBaseLayer;
+						VkOffset3D					outOffset;
+						uint32_t					outBaseLayer;
 					};
 				};
 				union
@@ -79,22 +79,23 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 					core::vectorSIMDu32 outExtentLayerCount;
 					struct
 					{
-						VkExtent3D		outExtent;
-						uint32_t		outLayerCount;
+						VkExtent3D					outExtent;
+						uint32_t					outLayerCount;
 					};
 				};
-				uint32_t				inMipLevel = 0u;
-				uint32_t				outMipLevel = 0u;
-				ICPUImage*				inImage = nullptr;
-				ICPUImage*				outImage = nullptr;
-				_IRR_STATIC_INLINE_CONSTEXPR auto NumWrapAxes = 3;
-				ISampler::E_TEXTURE_CLAMP axisWraps[NumWrapAxes] = { ISampler::ETC_REPEAT,ISampler::ETC_REPEAT,ISampler::ETC_REPEAT };
-				E_ALPHA_SEMANTIC		alphaSemantic = EAS_NONE_OR_PREMULTIPLIED;
-				Kernel					kernel;
+				uint32_t							inMipLevel = 0u;
+				uint32_t							outMipLevel = 0u;
+				ICPUImage*							inImage = nullptr;
+				ICPUImage*							outImage = nullptr;
+				_IRR_STATIC_INLINE_CONSTEXPR auto	NumWrapAxes = 3;
+				ISampler::E_TEXTURE_CLAMP			axisWraps[NumWrapAxes] = { ISampler::ETC_REPEAT,ISampler::ETC_REPEAT,ISampler::ETC_REPEAT };
+				ISampler::E_TEXTURE_BORDER_COLOR	borderColor = ISampler::ETBC_FLOAT_TRANSPARENT_BLACK;
+				Kernel								kernel;
+				E_ALPHA_SEMANTIC					alphaSemantic = EAS_NONE_OR_PREMULTIPLIED;
 				// the next three are required if `alphaSemantic==EAS_REFERENCE_OR_COVERAGE`
-				texel_arithmetic_type*	scratchMemory = nullptr;
-				uint32_t				scratchMemoryByteSize = 0u;
-				texel_arithmetic_type	alphaRefValue = 0.5;
+				texel_arithmetic_type*				scratchMemory = nullptr;
+				uint32_t							scratchMemoryByteSize = 0u;
+				texel_arithmetic_type				alphaRefValue = 0.5;
 		};
 		using state_type = CState;
 
