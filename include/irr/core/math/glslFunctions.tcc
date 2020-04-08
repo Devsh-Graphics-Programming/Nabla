@@ -10,6 +10,7 @@
 #include "matrix4SIMD.h"
 
 #include <cmath>
+#include <numeric>
 
 namespace irr
 {
@@ -429,6 +430,46 @@ template<typename T>
 IRR_FORCE_INLINE bool equals(const T& a, const T& b, const T& tolerance)
 {
 	return (a + tolerance >= b) && (a - tolerance <= b);
+}
+
+
+template<>
+IRR_FORCE_INLINE vectorSIMDf sin<vectorSIMDf>(const vectorSIMDf& a)
+{
+	// TODO: vastly improve this
+	return vectorSIMDf(sin<float>(a.x),sin<float>(a.y),sin<float>(a.z),sin<float>(a.w));
+}
+template<typename T>
+IRR_FORCE_INLINE T sin(const T& a)
+{
+	return std::sin(a);
+}
+
+
+
+// extras
+
+
+template<>
+IRR_FORCE_INLINE vectorSIMDu32 gcd<vectorSIMDu32>(const vectorSIMDu32& a, const vectorSIMDu32& b)
+{
+	return vectorSIMDu32(gcd<uint32_t>(a.x,b.x),gcd<uint32_t>(a.y,b.y),gcd<uint32_t>(a.z,b.z),gcd<uint32_t>(a.w,b.w));
+}
+template<typename T>
+IRR_FORCE_INLINE T gcd(const T& a, const T& b)
+{
+	return std::gcd(a,b);
+}
+
+template<>
+IRR_FORCE_INLINE vectorSIMDf cyl_bessel_i<vectorSIMDf>(const vectorSIMDf& v, const vectorSIMDf& x)
+{
+	return vectorSIMDf(std::cyl_bessel_i(v[0],x[0]),std::cyl_bessel_i(v[1],x[1]),std::cyl_bessel_i(v[2],x[2]),std::cyl_bessel_i(v[3],x[3]));
+}
+template<typename T>
+IRR_FORCE_INLINE T cyl_bessel_i(const T& v, const T& x)
+{
+	return std::cyl_bessel_i(v,x);
 }
 
 

@@ -14,10 +14,9 @@ namespace irr
 namespace asset
 {
 
-
 // specialized case of CBlitImageFilter
-template<class Kernel=CKaiserImageFilterKernel>
-class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<Kernel> >
+template<class ResamplingKernel=CTriangleImageFilterKernel, class ReconstructionKernel=CTriangleImageFilterKernel>
+class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<ResamplingKernel,ReconstructionKernel> >
 {
 	public:
 		virtual ~CMipMapGenerationImageFilter() {}
@@ -30,10 +29,12 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 				uint32_t	baseLayer= 0u;
 				uint32_t	layerCount = 0u;
 				uint32_t	startMipLevel = 1u;
-				uint32_t	lastMipLevel = 0u;
+				uint32_t	endMipLevel = 0u;
 				ICPUImage*	inOutImage = nullptr;
 		};
 		using state_type = CState;
+
+		using Kernel = ReconstructionKernel;//CKernelConvolution<ResamplingKernel, ReconstructionKernel>;
 
 		static inline bool validate(state_type* state)
 		{

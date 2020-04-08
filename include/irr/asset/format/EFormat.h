@@ -908,6 +908,9 @@ namespace asset
         }
     }
 
+
+    static inline const core::vector4du32_SIMD MaxTexelBlockDimensions(12u, 12u, 1u, 1u);
+
     inline core::vector3du32_SIMD getBlockDimensions(asset::E_FORMAT _fmt)
     {
         switch (_fmt)

@@ -52,6 +52,7 @@ class IImageFilter
 					inline ColorValue& operator=(const ColorValue& other)
 					{
 						memcpy(pointer,other.pointer,sizeof(double)*MAX_CHANNELS);
+						return *this;
 					}
 
 					struct WriteMemoryInfo
