@@ -303,10 +303,9 @@ public:
     STextureData offsetToTextureData(const page_tab_offset_t& _offset, const ICPUImage* _img)
     {
         STextureData texData;
-        core::vector2df_SIMD scaleUnorm16(_img->getCreationParameters().extent.width, _img->getCreationParameters().extent.height);
-        scaleUnorm16 /= core::vector2df_SIMD(m_pageTable->getCreationParameters().extent.width*m_pgSzxy);//taking just width into account because page table is always square anyway
+        core::vector2df_SIMD scaleUnorm16(m_pgSzxy);
+        scaleUnorm16 /= core::vector2df_SIMD(_img->getCreationParameters().extent.width, _img->getCreationParameters().extent.height,1.f,1.f);
         scaleUnorm16 *= core::vector2df_SIMD(0xffffu);
-
         texData.scale_x = scaleUnorm16.x;
         texData.scale_y = scaleUnorm16.y;
 
