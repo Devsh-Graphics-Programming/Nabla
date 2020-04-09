@@ -389,15 +389,20 @@ public:
                     }
 
                     core::vector3du32_SIMD physPg = pageCoords(physPgAddr, m_pgSzxy);
+                    physPg -= core::vector2du32_SIMD(m_tilePadding, m_tilePadding);
 
                     CPaddedCopyImageFilter::state_type copy;
-                    copy.outOffsetBaseLayer = physPg.xyzz();/*physPg.z is layer*/ copy.outOffset.z = 0u;
+                    copy.outOffsetBaseLayer = (physPg).xyzz();/*physPg.z is layer*/ copy.outOffset.z = 0u;
                     copy.inOffsetBaseLayer = core::vector2du32_SIMD(x,y)*m_pgSzxy;
                     copy.extentLayerCount = core::vectorSIMDu32(m_pgSzxy, m_pgSzxy, 1u, 1u);
                     if (x == w-1u)
                         copy.extentLayerCount.x = extent.width-copy.inOffsetBaseLayer.x;
                     if (y == h-1u)
                         copy.extentLayerCount.y = extent.height-copy.inOffsetBaseLayer.y;
+                    memcpy(&copy.paddedExtent.width,(core::vectorSIMDu32(m_pgSzxy)+core::vectorSIMDu32(2u*m_tilePadding)).pointer, 2u*sizeof(uint32_t));
+                    copy.paddedExtent.depth = 1u;
+                    copy.relativeOffset.x = copy.relativeOffset.y = m_tilePadding;
+                    copy.relativeOffset.z = 0u;
                     copy.inMipLevel = _subres.baseMipLevel + i;
                     copy.outMipLevel = 0u;
                     copy.inImage = _img;
@@ -405,8 +410,6 @@ public:
                     copy.axisWraps[0] = _wrapu;
                     copy.axisWraps[1] = _wrapv;
                     copy.axisWraps[2] = ISampler::ETC_CLAMP_TO_EDGE;
-                    copy.borderPadding.width = copy.borderPadding.height = m_tilePadding;
-                    copy.borderPadding.depth = 0u;
                     copy.borderColor = _borderColor;
                     CPaddedCopyImageFilter::execute(&copy);
                 }

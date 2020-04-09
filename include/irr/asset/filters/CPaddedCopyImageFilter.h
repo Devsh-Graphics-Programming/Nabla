@@ -28,10 +28,11 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			public:
 				virtual ~CState() {}
 				
-				VkExtent3D borderPadding = { 0u,0u,0u };
 				_IRR_STATIC_INLINE_CONSTEXPR auto NumWrapAxes = 3;
 				ISampler::E_TEXTURE_CLAMP axisWraps[NumWrapAxes] = {ISampler::ETC_REPEAT,ISampler::ETC_REPEAT,ISampler::ETC_REPEAT};
 				ISampler::E_TEXTURE_BORDER_COLOR borderColor;
+				VkOffset3D relativeOffset;
+				VkExtent3D paddedExtent;
 		};
 		using state_type = CState;
 
@@ -40,12 +41,16 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			if (!CMatchedSizeInOutImageFilterCommon::validate(state))
 				return false;
 
-			core::vectorSIMDu32 borderPadding(&state->borderPadding.width); borderPadding.w = 0u;
-			if ((state->outOffsetBaseLayer<borderPadding).any())
-				return false;
 			const auto& outParams = state->outImage->getCreationParameters();
-			core::vectorSIMDu32 extent(&outParams.extent.width); extent.w = outParams.arrayLayers;
-			if ((state->outOffsetBaseLayer+state->extentLayerCount+borderPadding>extent).any())
+
+			core::vector3du32_SIMD paddedExtent(&state->paddedExtent.width); paddedExtent = paddedExtent&core::vectorSIMDu32(~0u,~0u,~0u,0u);
+			core::vector3du32_SIMD reloffset(&state->relativeOffset.x); reloffset = reloffset&core::vectorSIMDu32(~0u,~0u,~0u,0u);
+			core::vectorSIMDu32 outImgExtent(&outParams.extent.width); outImgExtent.w = outParams.arrayLayers;
+			if ((state->extentLayerCount>paddedExtent).xyzz().any())
+				return false;
+			if ((reloffset>=state->extentLayerCount).xyzz().any())
+				return false;
+			if (((state->outOffsetBaseLayer+paddedExtent)>outImgExtent).xyzz().any())
 				return false;
 
 			auto const inFormat = state->inImage->getCreationParameters().format;
@@ -65,76 +70,108 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			if (!validate(state))
 				return false;
 
+			core::vector3du32_SIMD paddedExtent(&state->paddedExtent.width); paddedExtent = paddedExtent&core::vectorSIMDu32(~0u, ~0u, ~0u, 0u);
+			core::vector3du32_SIMD reloffset(&state->relativeOffset.x); reloffset = reloffset&core::vectorSIMDu32(~0u,~0u,~0u,0u);
+			state->outOffsetBaseLayer += reloffset;//abuse state for a moment
 			if (!CCopyImageFilter::execute(state))
 				return false;
+			state->outOffsetBaseLayer -= reloffset;
 
-			core::vectorSIMDu32 padding(&state->borderPadding.width);
-			padding = padding&core::vectorSIMDu32(~0u,~0u,~0u,0u);
+			constexpr uint32_t maxBorderRegions = 6u;
+			uint32_t borderRegionCount = 0u;
+			IImageFilter::IState::TexelRange borderRegions[maxBorderRegions];
+			{
+				uint32_t i = 0u;
+				//x-
+				core::vector3du32_SIMD extent;
+				core::vector3du32_SIMD offset;
+				if (reloffset.x)
+				{
+					extent = paddedExtent;
+					extent.x = reloffset.x;
+					memcpy(&borderRegions[i].extent.width, &extent.x, 3u*sizeof(uint32_t));
+					offset = state->outOffsetBaseLayer;
+					memcpy(&borderRegions[i].offset.x, &offset.x, 3u*sizeof(uint32_t));
+					++i;
+				}
+				//x+
+				extent = paddedExtent;
+				extent.x -= state->extentLayerCount.x + reloffset.x;
+				if (extent.x)
+				{
+					offset = core::vector3du32_SIMD(0u);
+					offset.x = reloffset.x + state->extent.width;
+					memcpy(&borderRegions[i].extent.width, &extent.x, 3u*sizeof(uint32_t));
+					if (offset.x < paddedExtent.x)
+					{
+						offset += state->outOffsetBaseLayer;
+						memcpy(&borderRegions[i].offset.x, &offset.x, 3u*sizeof(uint32_t));
+						++i;
+					}
+				}
+				//y-
+				if (reloffset.y)
+				{
+					extent = paddedExtent;
+					extent.y = reloffset.y;
+					memcpy(&borderRegions[i].extent.width, &extent.x, 3u*sizeof(uint32_t));
+					offset = state->outOffsetBaseLayer;
+					memcpy(&borderRegions[i].offset.x, &offset.x, 3u*sizeof(uint32_t));
+					++i;
+				}
+				//y+
+				extent = paddedExtent;
+				extent.y -= state->extentLayerCount.y + reloffset.y;
+				if (extent.y)
+				{
+					offset = core::vector3du32_SIMD(0u);
+					offset.y = reloffset.y + state->extent.height;
+					memcpy(&borderRegions[i].extent.width, &extent.x, 3u*sizeof(uint32_t));
+					if (offset.y < paddedExtent.y)
+					{
+						offset += state->outOffsetBaseLayer;
+						memcpy(&borderRegions[i].offset.x, &offset.x, 3u*sizeof(uint32_t));
+						++i;
+					}
+				}
+				//z-
+				if (reloffset.z)
+				{
+					extent = paddedExtent;
+					extent.z = reloffset.z;
+					memcpy(&borderRegions[i].extent.width, &extent.x, 3u*sizeof(uint32_t));
+					borderRegions[i].offset = {0u,0u,0u};
+					++i;
+				}
+				//z+
+				extent = paddedExtent;
+				extent.z -= state->extentLayerCount.z + reloffset.z;
+				if (extent.z)
+				{
+					offset = core::vector3du32_SIMD(0u);
+					offset.z = reloffset.z + state->extent.depth;
+					memcpy(&borderRegions[i].extent.width, &extent.x, 3u*sizeof(uint32_t));
+					if (offset.z < paddedExtent.z)
+					{
+						offset += state->outOffsetBaseLayer;
+						memcpy(&borderRegions[i].offset.x, &offset.x, 3u*sizeof(uint32_t));
+						++i;
+					}
+				}
+				borderRegionCount = i;
+			}
 
 			uint8_t* const bufptr = reinterpret_cast<uint8_t*>(state->outImage->getBuffer()->getPointer());
 			IImageFilter::IState::ColorValue borderColor;
 			encodeBorderColor(state->borderColor, state->outImage->getCreationParameters().format, borderColor.asByte);
 			IImageFilter::IState::ColorValue::WriteMemoryInfo borderColorWrite(state->outImage->getCreationParameters().format, bufptr);
 
-			constexpr uint32_t borderRegionsCnt = 12u;
-			IImageFilter::IState::TexelRange borderRegions[borderRegionsCnt];
-			{
-				core::vectorSIMDu32 ones(1u);
-				struct STexelRange
-				{
-					core::vectorSIMDu32 offset;
-					core::vectorSIMDu32 extent;
-				};
-				STexelRange regs[borderRegionsCnt];
-				regs[0].offset = state->outOffsetBaseLayer - padding;
-				regs[0].extent = padding;
-				regs[0].extent.z = state->extentLayerCount.z + 2u * padding.z;
-
-				regs[1].offset = state->outOffsetBaseLayer - padding.wyzw();
-				regs[1].extent = core::max(padding,ones);
-				regs[1].extent.x = state->extentLayerCount.x;
-
-				regs[2].offset = state->outOffsetBaseLayer - padding.wyww();
-				regs[2].offset.z += state->extentLayerCount.z;
-				regs[2].extent = regs[1].extent;
-
-				regs[3].offset = state->outOffsetBaseLayer - padding.wyzw();
-				regs[3].offset.x += state->extentLayerCount.x;
-				regs[3].extent = regs[0].extent;
-
-				for (uint32_t i = 0u; i < 4u; ++i)
-				{
-					regs[4u + i] = regs[i];
-					regs[4u + i].offset.y += padding.y + state->extentLayerCount.y;
-				}
-
-				regs[8].offset = state->outOffsetBaseLayer - padding.wwzw();
-				regs[8].offset.x += state->extentLayerCount.x;
-				regs[8].extent = core::max(padding,ones);
-				regs[8].extent.y = state->extentLayerCount.y;
-
-				regs[9] = regs[8];
-				regs[9].offset.z += state->extentLayerCount.z + padding.z;
-
-				regs[10].offset = state->outOffsetBaseLayer - padding.xwzw();
-				regs[10].extent = regs[8].extent;
-
-				regs[11] = regs[10];
-				regs[11].offset.z += state->extentLayerCount.z + padding.z;
-
-				for (uint32_t i = 0u; i < borderRegionsCnt; ++i)
-				{
-					memcpy(&borderRegions[i].offset.x, regs[i].offset.pointer, 3u*sizeof(uint32_t));
-					memcpy(&borderRegions[i].extent.width, regs[i].extent.pointer, 3u*sizeof(uint32_t));
-				}
-			}
-
-			auto perBlock = [&state,&borderColor,&borderColorWrite,&bufptr](uint32_t blockArrayOffset, core::vectorSIMDu32 readBlockPos)
+			auto perBlock = [&state,&borderColor,&borderColorWrite,&bufptr,&reloffset](uint32_t blockArrayOffset, core::vectorSIMDu32 readBlockPos)
 			{
 				const IImage::SBufferCopy::TexelBlockInfo blockInfo(state->outImage->getCreationParameters().format);
 				const uint32_t texelSz = asset::getTexelOrBlockBytesize(state->outImage->getCreationParameters().format);
 
-				auto wrapped = wrapCoords(state, readBlockPos-state->outOffsetBaseLayer, state->extentLayerCount);
+				auto wrapped = wrapCoords(state, readBlockPos-state->outOffsetBaseLayer-reloffset, state->extentLayerCount);
 				//wrapped coords exceeding image on any axis implies usage of border color for this border-texel
 				//this also covers check for -1 (-1 is max unsigned val)
 				if ((wrapped>=state->extentLayerCount).xyzz().any())
@@ -143,7 +180,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 					return;
 				}
 
-				wrapped += state->outOffsetBaseLayer;
+				wrapped += state->outOffsetBaseLayer+reloffset;
 				for (const auto& outreg : state->outImage->getRegions(state->outMipLevel))
 				{
 					core::vectorSIMDu32 min(&outreg.imageOffset.x);
@@ -164,7 +201,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			};
 			for (const auto& outreg : state->outImage->getRegions(state->outMipLevel))
 			{
-				for (uint32_t i = 0u; i < borderRegionsCnt; ++i)
+				for (uint32_t i = 0u; i < borderRegionCount; ++i)
 				{
 					IImage::SSubresourceLayers subresource = {static_cast<IImage::E_ASPECT_FLAGS>(0u),state->inMipLevel,state->inBaseLayer,state->layerCount};
 					clip_region_functor_t clip(subresource, borderRegions[i], state->outImage->getCreationParameters().format);
