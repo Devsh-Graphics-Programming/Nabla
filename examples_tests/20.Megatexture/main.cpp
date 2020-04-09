@@ -137,19 +137,30 @@ vec4 vTextureGrad(in vec2 virtualUV, in mat2 dOriginalUV, in vec2 originalTextur
 }
 */
 
+//#define UNPACK_UNORM16_SANITY_CHECK
+vec2 unpackUnorm2x16_(in uint u)
+{
+#ifdef UNPACK_UNORM16_SANITY_CHECK
+    return vec2(float(u&0xffffu)/65535.0, float((u>>16)&0xffffu)/65535.0);
+#else
+    return unpackUnorm2x16(u);
+#endif
+}
+
 vec2 unpackVirtualUV(in uvec2 texData)
 {
-	return unpackUnorm2x16(texData.x);
+	return unpackUnorm2x16_(texData.x);
 }
 vec2 unpackSize(in uvec2 texData)
 {
-	return unpackUnorm2x16(texData.y);
+	return unpackUnorm2x16_(texData.y);
 }
 vec4 textureVT(in uvec2 _texData, in vec2 uv, in mat2 dUV)
 {
     vec2 scale = unpackSize(_texData);
     vec2 virtualUV = unpackVirtualUV(_texData);
-    virtualUV += scale*uv;
+    //manual uv wrapping (repeat mode)
+    virtualUV += 0.5*scale*mod(uv,vec2(1.0)); //why do i need factor of 0.5??????
     int whatever = 1000;//obv change later
     return vTextureGrad_helper(vec3(virtualUV,0.0), 0, mat2(0.0,0.0,0.0,0.0), ivec2(vec2(1.0)/scale*float(PAGE_SZ)), whatever);
 }
