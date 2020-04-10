@@ -136,13 +136,13 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 			#endif
 			auto perOutputRegion = [&blockDims](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
-				auto swizzle = [&commonExecuteData,&blockDims](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
+				auto swizzle = [&commonExecuteData,&blockDims,&state](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
 				{
 					constexpr auto MaxPlanes = 4;
 					const void* srcPix[MaxPlanes] = { commonExecuteData.inData+readBlockArrayOffset,nullptr,nullptr,nullptr };
 
-					for (auto blockY=0u; blockY<blockDims; blockY++)
-					for (auto blockX=0u; blockX<blockDims; blockX++)
+					for (auto blockY=0u; blockY<blockDims.y; blockY++)
+					for (auto blockX=0u; blockX<blockDims.x; blockX++)
 					{
 						auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifference;
 						uint8_t* dstPix = commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos,commonExecuteData.outByteStrides);
