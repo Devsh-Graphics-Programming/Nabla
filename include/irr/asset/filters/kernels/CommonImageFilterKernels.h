@@ -39,9 +39,10 @@ class CFloatingPointIsotropicSeparableImageFilterKernelBase : public CImageFilte
 		_IRR_STATIC_INLINE_CONSTEXPR float isotropic_support = float(Ratio::num)/float(Ratio::den);
 		_IRR_STATIC_INLINE_CONSTEXPR float symmetric_support[3] = { isotropic_support,isotropic_support,isotropic_support };
 
-		CFloatingPointIsotropicSeparableImageFilterKernelBase() : CImageFilterKernel<CRTP,CFloatingPointOnlyImageFilterKernelBase::value_type>(symmetric_support, symmetric_support) {}
-
-		void evaluate(value_type* out, const core::vectorSIMDf& inPos, const value_type*** slices) const;
+		CFloatingPointIsotropicSeparableImageFilterKernelBase() : CImageFilterKernel<CRTP,CFloatingPointOnlyImageFilterKernelBase::value_type>(symmetric_support,symmetric_support) {}
+		
+		template<class PerSampleFunctor=default_sample_functor_t>
+		void evaluate(value_type* windowData, const core::vectorSIMDf& inPos, const PerSampleFunctor& perSample=PerSampleFunctor()) const;
 
 	protected:
 		inline bool inDomain(const core::vectorSIMDf& inPos) const

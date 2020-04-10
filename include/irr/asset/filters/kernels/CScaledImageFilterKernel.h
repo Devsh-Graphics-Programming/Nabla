@@ -37,11 +37,11 @@ class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilter
 
 		_IRR_STATIC_INLINE_CONSTEXPR bool is_separable = Kernel::is_separable;
 
-		CScaledImageFilterKernel(float _scale[3]) : Kernel(k),
+		CScaledImageFilterKernel(const float* _scale, Kernel&& k=Kernel()) : Kernel(std::move(k)),
 			impl::CScaledImageFilterKernelBase(core::vectorSIMDf(1.f)/core::vectorSIMDf(_scale[0],_scale[1],_scale[2],1.f)),
 			CImageFilterKernel<CScaledImageFilterKernel<Kernel>,value_type>(
-					{Kernel::positive_support[0]*rscale[0],Kernel::positive_support[1]*rscale[1],Kernel::positive_support[2]*rscale[2]},
-					{Kernel::negative_support[0]*rscale[0],Kernel::negative_support[1]*rscale[1],Kernel::negative_support[2]*rscale[2]}
+					{Kernel::positive_support[0]*_scale[0],Kernel::positive_support[1]*_scale[1],Kernel::positive_support[2]*_scale[2]},
+					{Kernel::negative_support[0]*_scale[0],Kernel::negative_support[1]*_scale[1],Kernel::negative_support[2]*_scale[2]}
 				)
 		{
 		}
@@ -50,15 +50,16 @@ class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilter
 		{
 			return Kernel::validate(inImage,outImage);
 		}
-/*
-		inline float weight(const core::vectorSIMDf& inPos)
+
+		template<class PerSampleFunctor=default_sample_functor_t>
+		inline void evaluate(value_type* windowData, const core::vectorSIMDf& inPos, const PerSampleFunctor& perSample=PerSampleFunctor()) const
 		{
-			return rscale*Kernel::weight(inPos*rscale);
-		}
-*/
-		inline void evaluate(value_type* out,const core::vectorSIMDf& inPos, const value_type*** slices) const
-		{
-			Kernel::evaluate(out,inPos*rscale,slices);
+			// TODO: refactor default `evaluate` so it iterates over the window
+			// TODO: refactor the per sample functors so they get applied with other functors embedded and also take a window position
+			// TODO: implement scaling here, as:
+			// 1. Modifying the window
+			// 2. Wrapping the per-sample functor and intervening with a scale to the input
+			Kernel::evaluate(windowData,inPos*rscale,perSample);
 			for (auto i=0; i<4; i++)
 				out[i] *= rscale.w;
 		}

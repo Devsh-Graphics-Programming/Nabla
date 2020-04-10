@@ -297,6 +297,15 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 			}
 			return true;
 		}
+		/*
+		struct default_sample_functor_t
+		{
+			inline void operator(value_type* windowSample, value_type* filteredSample) const
+			{
+				std::copy(filteredSample,filteredSample+IImageFilterKernel::MaxChannels,windowSample);
+			}
+		};
+		*/
 };
 
 } // end namespace asset
