@@ -107,7 +107,6 @@ inline void CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Ratio>::e
 		postFilter(windowSample,relativePosAndFactor);
 	};
 	StaticPolymorphicBase::evaluateImpl(windowData,inPos,wrap);
-	return std::move(perSample);
 }
 
 } // end namespace asset
