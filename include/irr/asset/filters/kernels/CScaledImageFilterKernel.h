@@ -32,6 +32,8 @@ class CScaledImageFilterKernelBase
 template<class Kernel>
 class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilterKernelBase, public CImageFilterKernel<CScaledImageFilterKernel<Kernel>,typename Kernel::value_type>
 {
+		using StaticPolymorphicBase = CImageFilterKernel<CScaledImageFilterKernel<Kernel>, typename Kernel::value_type>;
+
 	public:
 		using value_type = typename Kernel::value_type;
 
@@ -39,7 +41,7 @@ class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilter
 
 		CScaledImageFilterKernel(const float* _scale, Kernel&& k=Kernel()) : Kernel(std::move(k)),
 			impl::CScaledImageFilterKernelBase(core::vectorSIMDf(1.f)/core::vectorSIMDf(_scale[0],_scale[1],_scale[2],1.f)),
-			CImageFilterKernel<CScaledImageFilterKernel<Kernel>,value_type>(
+			StaticPolymorphicBase(
 					{Kernel::positive_support[0]*_scale[0],Kernel::positive_support[1]*_scale[1],Kernel::positive_support[2]*_scale[2]},
 					{Kernel::negative_support[0]*_scale[0],Kernel::negative_support[1]*_scale[1],Kernel::negative_support[2]*_scale[2]}
 				)
@@ -51,17 +53,22 @@ class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilter
 			return Kernel::validate(inImage,outImage);
 		}
 
-		template<class PerSampleFunctor=default_sample_functor_t>
-		inline void evaluate(value_type* windowData, const core::vectorSIMDf& inPos, const PerSampleFunctor& perSample=PerSampleFunctor()) const
+		template<class PerSampleFunctor=typename StaticPolymorphicBase::default_sample_functor_t>
+		inline PerSampleFunctor evaluate(value_type* windowData, const core::vectorSIMDf& inPos, PerSampleFunctor&& perSample=PerSampleFunctor())
 		{
-			// TODO: refactor default `evaluate` so it iterates over the window
-			// TODO: refactor the per sample functors so they get applied with other functors embedded and also take a window position
-			// TODO: implement scaling here, as:
-			// 1. Modifying the window
-			// 2. Wrapping the per-sample functor and intervening with a scale to the input
-			Kernel::evaluate(windowData,inPos*rscale,perSample);
-			for (auto i=0; i<4; i++)
-				out[i] *= rscale.w;
+			struct scaled_functor_t : public PerSampleFunctor
+			{
+					scaled_functor_t(PerSampleFunctor&& orig, const core::vectorSIMDf& _rscale) : PerSampleFunctor(orig), rscale(_rscale) {}
+				
+					inline void operator()(value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor) const
+					{
+						PerSampleFunctor::operator()(windowSample,relativePosAndFactor*rscale);
+					}
+
+				private:
+					core::vectorSIMDf rscale;
+			};
+			return StaticPolymorphicBase::evaluateImpl<scaled_functor_t>(windowData,inPos,scaled_functor_t(std::move(perSample),rscale));
 		}
 };
 

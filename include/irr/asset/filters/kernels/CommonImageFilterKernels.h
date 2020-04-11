@@ -34,15 +34,17 @@ class CFloatingPointOnlyImageFilterKernelBase
 template<class CRTP,class Ratio=std::ratio<1,1> >
 class CFloatingPointIsotropicSeparableImageFilterKernelBase : public CImageFilterKernel<CRTP,CFloatingPointOnlyImageFilterKernelBase::value_type>, public CFloatingPointOnlyImageFilterKernelBase
 {
+		using StaticPolymorphicBase = CImageFilterKernel<CRTP,value_type>;
+
 	public:
 		_IRR_STATIC_INLINE_CONSTEXPR bool is_separable = true;
 		_IRR_STATIC_INLINE_CONSTEXPR float isotropic_support = float(Ratio::num)/float(Ratio::den);
 		_IRR_STATIC_INLINE_CONSTEXPR float symmetric_support[3] = { isotropic_support,isotropic_support,isotropic_support };
 
-		CFloatingPointIsotropicSeparableImageFilterKernelBase() : CImageFilterKernel<CRTP,CFloatingPointOnlyImageFilterKernelBase::value_type>(symmetric_support,symmetric_support) {}
+		CFloatingPointIsotropicSeparableImageFilterKernelBase() : StaticPolymorphicBase(symmetric_support,symmetric_support) {}
 		
-		template<class PerSampleFunctor=default_sample_functor_t>
-		void evaluate(value_type* windowData, const core::vectorSIMDf& inPos, const PerSampleFunctor& perSample=PerSampleFunctor()) const;
+		template<class PerSampleFunctor=typename StaticPolymorphicBase::default_sample_functor_t>
+		PerSampleFunctor evaluate(value_type* windowData, const core::vectorSIMDf& inPos, PerSampleFunctor&& perSample = PerSampleFunctor()) const;
 
 	protected:
 		inline bool inDomain(const core::vectorSIMDf& inPos) const
@@ -86,7 +88,8 @@ class CKaiserImageFilterKernel : public CFloatingPointIsotropicSeparableImageFil
 			if (inDomain(inPos))
 			{
 				const auto PI = core::PI<core::vectorSIMDf>();
-				return core::sinc(inPos*PI)*core::KaiserWindow(inPos,core::vectorSIMDf(alpha),core::vectorSIMDf(isotropic_support))/PI;
+				auto axisVal = core::sinc(inPos*PI)*core::KaiserWindow(inPos,core::vectorSIMDf(alpha),core::vectorSIMDf(isotropic_support))/PI;
+				return axisVal.x * axisVal.y * axisVal.z;
 			}
 			return 0.f;
 		}
@@ -99,12 +102,14 @@ class CMitchellImageFilterKernel : public CFloatingPointIsotropicSeparableImageF
 		inline float weight(const core::vectorSIMDf& inPos) const
 		{
 			if (inDomain(inPos))
-				return core::mix(
-									core::vectorSIMDf(p0)+radial*radial*(core::vectorSIMDf(p2)+radial*p3),
-									core::vectorSIMDf(q0)+radial*(core::vectorSIMDf(q1)+radial*(core::vectorSIMDf(q2)+radial*q3)),
-									radial>core::vectorSIMDf(1.f)
+			{
+				auto axisVal = core::mix(
+									core::vectorSIMDf(p0)+inPos*inPos*(core::vectorSIMDf(p2)+inPos*p3),
+									core::vectorSIMDf(q0)+inPos*(core::vectorSIMDf(q1)+inPos*(core::vectorSIMDf(q2)+inPos*q3)),
+									inPos>core::vectorSIMDf(1.f)
 								);
-
+				return axisVal.x * axisVal.y * axisVal.z;
+			}
 			return 0.f;
 		}
 

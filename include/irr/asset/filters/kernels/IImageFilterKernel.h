@@ -31,7 +31,7 @@ class IImageFilterKernel
 		virtual bool pIsSeparable() const = 0;
 		virtual bool pValidate(ICPUImage* inImage, ICPUImage* outImage) const = 0;
 
-		virtual void pEvaluate(void* windowData, const core::vectorSIMDf& inPos) const = 0;
+		virtual void pEvaluate(void* windowData, const core::vectorSIMDf& globalPos) const = 0;
 
 
 		inline core::vectorSIMDi32 getWindowMinCoord(const core::vectorSIMDf& unnormCoord) const
@@ -63,21 +63,36 @@ class CImageFilterKernel : public IImageFilterKernel
 		}
 
 
+		void pEvaluate(void* windowData, const core::vectorSIMDf& globalPos) const override;
+
 		//
 		struct default_sample_functor_t
 		{
-			inline void operator()(value_type* windowSample, value_type* filteredSample) const
+			inline void operator()(const value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor) const
 			{
-				std::copy(filteredSample,filteredSample+IImageFilterKernel::MaxChannels,windowSample);
 			}
 		};
 
-	
+	protected:
 		template<class PerSampleFunctor=default_sample_functor_t>
-		void evaluate(value_type* windowData, const core::vectorSIMDf& inPos, const PerSampleFunctor& perSample=PerSampleFunctor()) const;
-		inline void pEvaluate(void* windowData, const core::vectorSIMDf& inPos) const override
+		PerSampleFunctor evaluateImpl(value_type* windowData, const core::vectorSIMDf& globalPos, PerSampleFunctor&& perSample=PerSampleFunctor()) const
 		{
-			evaluate(reinterpret_cast<value_type*>(windowData),inPos);
+			const auto startCoord = getWindowMinCoord(globalPos);
+			const auto endCoord = startCoord+window_size;
+			const auto stride = [=]() {auto adj = window_strides; adj.w = core::dot(startCoord,window_strides)[0]; return adj;}();
+
+			core::vectorSIMDi32 windowCoord(0,0,0,-1);
+			for (auto& z=(windowCoord.z=startCoord.z); z!=endCoord.z; z++)
+			for (auto& y=(windowCoord.y=startCoord.y); y!=endCoord.y; y++)
+			for (auto& x=(windowCoord.x=startCoord.x); x!=endCoord.x; x++)
+			{
+				value_type* windowSample = windowData+core::dot(windowCoord,stride)[0];
+		
+				// get position relative to kernel origin, note that it is in reverse (tau-x), in accordance with Mathematical Convolution
+				auto relativePosAndFactor = globalPos-core::vectorSIMDf(windowCoord);
+				perSample(windowSample,relativePosAndFactor);
+			}
+			return std::move(perSample);
 		}
 };
 

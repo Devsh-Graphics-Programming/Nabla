@@ -85,38 +85,33 @@ class CKernelConvolution : public CImageFilterKernel<CKernelConvolution<KernelA,
 		}
 };
 */
-
+	
+template<class CRTP, typename value_type>
+inline void CImageFilterKernel<CRTP,value_type>::pEvaluate(void* windowData, const core::vectorSIMDf& globalPos) const
+{
+	static_cast<const CRTP*>(this)->evaluate(reinterpret_cast<value_type*>(windowData),globalPos);
+}
 
 template<class CRTP, class Ratio>
 template<class PerSampleFunctor>
-inline void CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Ratio>::evaluate<PerSampleFunctor>(value_type* windowData, const core::vectorSIMDf& inPos, const PerSampleFunctor& perSample) const
+inline PerSampleFunctor CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Ratio>::evaluate(value_type* windowData, const core::vectorSIMDf& inPos, PerSampleFunctor&& perSample) const
 {
-	const auto startCoord = getWindowMinCoord(inPos);
-	const auto endCoord = startCoord+window_size;
-	const auto stride = [=]() {auto adj = window_strides; adj.w = -core::dot(startCoord,window_strides)[0]; return adj;}();
-
-	core::vectorSIMDi32 windowCoord(0,0,0,1);
-	for (auto& z=(windowCoord.z=startCoord.z); z!=endCoord.z; z++)
-	for (auto& y=(windowCoord.y=startCoord.y); y!=endCoord.y; y++)
-	for (auto& x=(windowCoord.x=startCoord.x); x!=endCoord.x; x++)
+	class crtp_functor_t : public PerSampleFunctor
 	{
-		value_type* windowSample = windowData+core::dot(windowCoord,stride)[0];
-		
-		auto posRelativeOrigin = core::vectorSIMDf(windowCoord)-inPos;
-		const auto weight = CRTP::weight(posRelativeOrigin);
+			const CRTP* _this;
 
-		value_type tmp[MaxChannels];
-		for (int32_t i=0; i<MaxChannels; i++)
-			tmp[i] = windowSample[i]*weight;
-		perSample(windowSample,tmp);
-	}
-}
-	
-template<class CRTP, typename value_type>
-template<class PerSampleFunctor>
-inline void CImageFilterKernel<CRTP,value_type>::evaluate<PerSampleFunctor>(value_type* windowData, const core::vectorSIMDf& inPos, const PerSampleFunctor& perSample) const
-{
-	static_cast<const CRTP*>(this)->evaluate<PerSampleFunctor>(windowData,inPos,perSample);
+		public:
+			crtp_functor_t(PerSampleFunctor&& orig, const CRTP* __this) : PerSampleFunctor(orig), _this(__this) {}
+				
+			inline void operator()(value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor) const
+			{
+				const auto weight = _this->weight(relativePosAndFactor)*relativePosAndFactor.w;
+				for (int32_t i=0; i<StaticPolymorphicBase::MaxChannels; i++)
+					windowSample[i] *= weight;
+				PerSampleFunctor::operator()(windowSample,relativePosAndFactor);
+			}
+	};
+	return StaticPolymorphicBase::evaluateImpl<crtp_functor_t>(windowData,inPos,crtp_functor_t(std::move(perSample),static_cast<const CRTP*>(this)));
 }
 
 } // end namespace asset
