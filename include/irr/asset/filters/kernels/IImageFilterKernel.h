@@ -22,7 +22,7 @@ class IImageFilterKernel
 			negative_support( _negative_support[0],_negative_support[1],_negative_support[2]),
 			positive_support( _positive_support[0],_positive_support[1],_positive_support[2]),
 			window_size(core::ceil<core::vectorSIMDf>(negative_support+positive_support)),
-			window_strides(1,window_strides[0],window_strides[0]*window_strides[1])
+			window_strides(1,window_size[0],window_size[0]*window_size[1])
 		{}
 		IImageFilterKernel(const std::initializer_list<float>& _negative_support, const std::initializer_list<float>& _positive_support) :
 			IImageFilterKernel(_negative_support.begin(),_positive_support.begin())
@@ -34,9 +34,21 @@ class IImageFilterKernel
 		virtual void pEvaluate(void* windowData, const core::vectorSIMDf& globalPos) const = 0;
 
 
-		inline core::vectorSIMDi32 getWindowMinCoord(const core::vectorSIMDf& unnormCoord) const
+		// does conversion from corner sampled to center sampled as well
+		inline core::vectorSIMDi32 getWindowMinCoord(const core::vectorSIMDf& unnormCeterSampledCoord, core::vectorSIMDf& cornerSampledCoord) const
 		{
-			return core::vectorSIMDi32(core::ceil<core::vectorSIMDf>(unnormCoord-negative_support));
+			cornerSampledCoord = unnormCeterSampledCoord-core::vectorSIMDf(0.5f,0.5f,0.5f,0.f);
+			return core::vectorSIMDi32(core::ceil<core::vectorSIMDf>(cornerSampledCoord-negative_support));
+		}
+		inline core::vectorSIMDi32 getWindowMinCoord(const core::vectorSIMDf& unnormCeterSampledCoord) const
+		{
+			core::vectorSIMDf dummy;
+			return getWindowMinCoord(unnormCeterSampledCoord,dummy);
+		}
+
+		inline int32_t getWindowVolume() const
+		{
+			return window_size[0]*window_size[1]*window_size[2];
 		}
 
 
@@ -68,16 +80,17 @@ class CImageFilterKernel : public IImageFilterKernel
 		//
 		struct default_sample_functor_t
 		{
-			inline void operator()(const value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor) const
+			inline void operator()(const value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor)
 			{
 			}
 		};
 
 	protected:
-		template<class PerSampleFunctor=default_sample_functor_t>
-		PerSampleFunctor evaluateImpl(value_type* windowData, const core::vectorSIMDf& globalPos, PerSampleFunctor&& perSample=PerSampleFunctor()) const
+		template<class PerSample=const default_sample_functor_t>
+		void evaluateImpl(value_type* windowData, const core::vectorSIMDf& globalPos, PerSample& perSample) const
 		{
-			const auto startCoord = getWindowMinCoord(globalPos);
+			core::vectorSIMDf offsetGlobalPos;
+			const auto startCoord = getWindowMinCoord(globalPos,offsetGlobalPos);
 			const auto endCoord = startCoord+window_size;
 			const auto stride = [=]() {auto adj = window_strides; adj.w = core::dot(startCoord,window_strides)[0]; return adj;}();
 
@@ -89,10 +102,9 @@ class CImageFilterKernel : public IImageFilterKernel
 				value_type* windowSample = windowData+core::dot(windowCoord,stride)[0];
 		
 				// get position relative to kernel origin, note that it is in reverse (tau-x), in accordance with Mathematical Convolution
-				auto relativePosAndFactor = globalPos-core::vectorSIMDf(windowCoord);
+				auto relativePosAndFactor = offsetGlobalPos-core::vectorSIMDf(windowCoord);
 				perSample(windowSample,relativePosAndFactor);
 			}
-			return std::move(perSample);
 		}
 };
 

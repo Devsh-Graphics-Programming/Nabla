@@ -19,12 +19,9 @@ namespace asset
 {
 
 
-template<class Kernel>
 class CBlitImageFilterBase : public CBasicImageFilterCommon
 {
 	public:
-		using texel_arithmetic_type = typename Kernel::value_type;
-
 		class CStateBase
 		{
 			public:
@@ -42,21 +39,21 @@ class CBlitImageFilterBase : public CBasicImageFilterCommon
 				ISampler::E_TEXTURE_CLAMP			axisWraps[NumWrapAxes] = { ISampler::ETC_REPEAT,ISampler::ETC_REPEAT,ISampler::ETC_REPEAT };
 				ISampler::E_TEXTURE_BORDER_COLOR	borderColor = ISampler::ETBC_FLOAT_TRANSPARENT_BLACK;
 				E_ALPHA_SEMANTIC					alphaSemantic = EAS_NONE_OR_PREMULTIPLIED;
-				texel_arithmetic_type				alphaRefValue = 0.5; // only required to make sense if `alphaSemantic==EAS_REFERENCE_OR_COVERAGE`
+				double								alphaRefValue = 0.5; // only required to make sense if `alphaSemantic==EAS_REFERENCE_OR_COVERAGE`
 		};
 
-
+		template<class Kernel>
 		static inline uint32_t getRequiredScratchByteSize(	const Kernel& k,
 															typename CStateBase::E_ALPHA_SEMANTIC alphaSemantic=CStateBase::EAS_NONE_OR_PREMULTIPLIED,
 															const core::vectorSIMDu32& outExtentLayerCount=core::vectorSIMDu32(0,0,0,0))
 		{
-			uint32_t retval = k.window_size[0]*k.window_size[1]*k.window_size[2]*Kernel::MaxChannels;
+			uint32_t retval = k.getWindowVolume()*Kernel::MaxChannels;
 			if (alphaSemantic==CStateBase::EAS_REFERENCE_OR_COVERAGE)
 			{
 				// no mul by channel count because we're only after alpha
 				retval += outExtentLayerCount.x*outExtentLayerCount.y*outExtentLayerCount.z;
 			}
-			return retval*sizeof(texel_arithmetic_type);
+			return retval*sizeof(Kernel::value_type);
 		}
 
 	protected:
@@ -75,7 +72,7 @@ class CBlitImageFilterBase : public CBasicImageFilterCommon
 
 // copy while filtering the input into the output
 template<class Kernel=CBoxImageFilterKernel>
-class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public CBlitImageFilterBase<Kernel>
+class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public CBlitImageFilterBase
 {
 	public:
 		virtual ~CBlitImageFilter() {}
@@ -134,14 +131,14 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 				ICPUImage*				outImage = nullptr;
 				Kernel					kernel;
 		};
-		class CState : public CProtoState, public CBlitImageFilterBase<Kernel>::CStateBase
+		class CState : public CProtoState, public CBlitImageFilterBase::CStateBase
 		{
 		};
 		using state_type = CState;
 
 		static inline bool validate(state_type* state)
 		{
-			if (!CBlitImageFilterBase<Kernel>::validate(state))
+			if (!CBlitImageFilterBase::validate(state))
 				return false;
 			
 			if (!state->scratchMemory || state->scratchMemoryByteSize<getRequiredScratchByteSize(state->kernel,state->alphaSemantic,state->inExtentLayerCount))
@@ -219,8 +216,8 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 						for (auto blockY=0u; blockY<inBlockDims.y; blockY++)
 						for (auto blockX=0u; blockX<inBlockDims.x; blockX++)
 						{
-							texel_arithmetic_type decbuf[Kernel::MaxChannels] = {0, 0, 0, 1};
-							decodePixels<texel_arithmetic_type>(inFormat,srcPix,decbuf,blockX,blockY);
+							Kernel::value_type decbuf[Kernel::MaxChannels] = {0, 0, 0, 1};
+							decodePixels<Kernel::value_type>(inFormat,srcPix,decbuf,blockX,blockY);
 							if (decbuf[3]<=alphaRefValue)
 								inverseCoverage.getNumerator()++;
 							inverseCoverage.getDenominator()++;
@@ -232,18 +229,21 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 				}
 				// meat of the algorithm
 				const auto outLayer = outBaseLayer+layer;
-				const Kernel& kernel = state->kernel;
-				auto* const sampleWindow = reinterpret_cast<texel_arithmetic_type*>(state->scratchMemory);
+				const core::vectorSIMDf fInExtent(state->inExtentLayerCount);
+				const core::vectorSIMDf fOutExtent(state->outExtentLayerCount);
+				const auto kernel = CScaledImageFilterKernel<Kernel>(fInExtent.preciseDivision(fOutExtent),state->kernel);
+				// sampling stuff
+				auto* const sampleWindow = reinterpret_cast<Kernel::value_type*>(state->scratchMemory);
 				const auto halfPixelOutOffset = core::vectorSIMDf(outBlockDims)*0.5f+core::vectorSIMDf(0.f,0.f,0.f,-float(outLayer)-0.5f);
-				const auto outToInScale = core::vectorSIMDf(outBlockDims*state->inExtentLayerCount)/core::vectorSIMDf(state->outExtentLayerCount);
+				const auto outToInScale = core::vectorSIMDf(outBlockDims*state->inExtentLayerCount).preciseDivision(fOutExtent);
 				// optionals
-				auto* const filteredAlphaArray = reinterpret_cast<texel_arithmetic_type*>(state->scratchMemory+getRequiredScratchByteSize(kernel));
+				auto* const filteredAlphaArray = reinterpret_cast<Kernel::value_type*>(state->scratchMemory+getRequiredScratchByteSize(kernel));
 				auto* filteredAlphaArrayIt = filteredAlphaArray;
 				auto blit = [outData,outBlockDims,&halfPixelOutOffset,&outToInScale,kernel,nonPremultBlendSemantic,sampleWindow,coverageSemantic,&filteredAlphaArrayIt,outFormat](uint32_t writeBlockArrayOffset, core::vectorSIMDu32 writeBlockPos) -> void
 				{
 					void* dstPix = outData+writeBlockArrayOffset;
 
-					texel_arithmetic_type valbuf[MaxTexelBlockDimensions[1]*MaxTexelBlockDimensions[0]][Kernel::MaxChannels] = {0};
+					Kernel::value_type valbuf[MaxTexelBlockDimensions[1]*MaxTexelBlockDimensions[0]][Kernel::MaxChannels] = {0};
 					for (auto blockY=0u; blockY<outBlockDims.y; blockY++)
 					for (auto blockX=0u; blockX<outBlockDims.x; blockX++)
 					{
@@ -252,11 +252,11 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 						auto windowStart = kernel.getWindowMinCoord(inPos);
 						// TODO: loop over window to load texels into temporary storage
 						auto* value = valbuf[blockY*outBlockDims.x+blockX];
-						texel_arithmetic_type avgColor = 0;
-						auto coverage_functor = [value,nonPremultBlendSemantic,&avgColor](texel_arithmetic_type* windowSample, const core::vectorSIMDf& relativePosAndFactor)
+						Kernel::value_type avgColor = 0;
+						auto coverage_functor = [value,nonPremultBlendSemantic,&avgColor](Kernel::value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor)
 						{
 							for (auto i=0; i<Kernel::MaxChannels; i++)
-								value[i] += windowSample[i];//TODO *relativePosAndFactor.w;
+								value[i] += windowSample[i];
 
 							if (!nonPremultBlendSemantic)
 								return;
@@ -264,14 +264,15 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 							for (auto i=0; i<Kernel::MaxChannels-1; i++)
 								avgColor += windowSample[i]*windowSample[3];
 						};
-						kernel.evaluate(sampleWindow,inPos,coverage_functor);
+						Kernel::default_sample_functor_t void_functor;
+						kernel.evaluate(sampleWindow,inPos,void_functor,coverage_functor);
 						// alpha handling
 						if (coverageSemantic)
 							*(filteredAlphaArrayIt++) = value[3];
 						else if (nonPremultBlendSemantic && avgColor>FLT_MIN*1024.0*512.0)
 							value[3] = avgColor/(value[0]+value[1]+value[2]);
 					}
-					asset::encodePixels<texel_arithmetic_type>(outFormat,dstPix,valbuf[0]);
+					asset::encodePixels<Kernel::value_type>(outFormat,dstPix,valbuf[0]);
 				};
 				const core::SRange<const IImage::SBufferCopy> outRegions = outImg->getRegions(outMipLevel);
 				CBasicImageFilterCommon::clip_region_functor_t clip({static_cast<IImage::E_ASPECT_FLAGS>(0u),outMipLevel,outLayer,1}, {outOffset,outExtent}, outFormat);
@@ -280,6 +281,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 				if (coverageSemantic)
 				{
 					// sort so that we can easily find the alpha value s.t. % of all texels is less than it
+					// TODO IMPROVE: bisection search instead of sort, then reuse the high precision values for alpha setting to reduce quantization error
 					std::sort(filteredAlphaArray,filteredAlphaArrayIt);
 					auto outputTexelCount = std::distance(filteredAlphaArray,filteredAlphaArrayIt);
 					// all values with index < rankIndex will be %==inverseCoverage of the overall array
@@ -295,15 +297,15 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 						void* dstPix = outData+readBlockArrayOffset;
 						const void* srcPix[MaxPlanes] = { dstPix,nullptr,nullptr,nullptr };
 
-						texel_arithmetic_type valbuf[MaxTexelBlockDimensions[1]*MaxTexelBlockDimensions[0]][Kernel::MaxChannels] = {0};
+						Kernel::value_type valbuf[MaxTexelBlockDimensions[1]*MaxTexelBlockDimensions[0]][Kernel::MaxChannels] = {0};
 						for (auto blockY=0u; blockY<outBlockDims.y; blockY++)
 						for (auto blockX=0u; blockX<outBlockDims.x; blockX++)
 						{
 							auto decbuf = valbuf[blockY*outBlockDims.x+blockX];
-							decodePixels<texel_arithmetic_type>(outFormat,srcPix,decbuf,blockX,blockY);
+							decodePixels<Kernel::value_type>(outFormat,srcPix,decbuf,blockX,blockY);
 							decbuf[3] *= coverageScale;
 						}
-						encodePixels<texel_arithmetic_type>(outFormat,dstPix,valbuf[0]);
+						encodePixels<Kernel::value_type>(outFormat,dstPix,valbuf[0]);
 					};
 					CBasicImageFilterCommon::executePerRegion(outImg,scaleCoverage,outRegions.begin(),outRegions.end(),clip);
 				}

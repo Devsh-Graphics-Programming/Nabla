@@ -35,40 +35,48 @@ class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilter
 		using StaticPolymorphicBase = CImageFilterKernel<CScaledImageFilterKernel<Kernel>, typename Kernel::value_type>;
 
 	public:
+		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels;
 		using value_type = typename Kernel::value_type;
 
 		_IRR_STATIC_INLINE_CONSTEXPR bool is_separable = Kernel::is_separable;
 
-		CScaledImageFilterKernel(const float* _scale, Kernel&& k=Kernel()) : Kernel(std::move(k)),
-			impl::CScaledImageFilterKernelBase(core::vectorSIMDf(1.f)/core::vectorSIMDf(_scale[0],_scale[1],_scale[2],1.f)),
+		CScaledImageFilterKernel(const core::vectorSIMDf& _scale, Kernel&& k=Kernel()) : Kernel(std::move(k)),
+			impl::CScaledImageFilterKernelBase(core::vectorSIMDf(1.f,1.f,1.f,0.f).preciseDivision(_scale)),
 			StaticPolymorphicBase(
 					{Kernel::positive_support[0]*_scale[0],Kernel::positive_support[1]*_scale[1],Kernel::positive_support[2]*_scale[2]},
 					{Kernel::negative_support[0]*_scale[0],Kernel::negative_support[1]*_scale[1],Kernel::negative_support[2]*_scale[2]}
 				)
 		{
 		}
+		CScaledImageFilterKernel(const core::vectorSIMDf& _scale, const Kernel& k=Kernel()) : CScaledImageFilterKernel(_scale,Kernel(k)) {}
+
+		template<typename... Args>
+		inline core::vectorSIMDi32 getWindowMinCoord(Args&&... args) const
+		{
+			return StaticPolymorphicBase::getWindowMinCoord(std::forward<Args>(args)...);
+		}
+
+		inline int32_t getWindowVolume() const
+		{
+			return StaticPolymorphicBase::getWindowVolume();
+		}
+
 
 		static inline bool validate(ICPUImage* inImage, ICPUImage* outImage)
 		{
 			return Kernel::validate(inImage,outImage);
 		}
-
-		template<class PerSampleFunctor=typename StaticPolymorphicBase::default_sample_functor_t>
-		inline PerSampleFunctor evaluate(value_type* windowData, const core::vectorSIMDf& inPos, PerSampleFunctor&& perSample=PerSampleFunctor())
+		
+		template<class PreFilter=const typename StaticPolymorphicBase::default_sample_functor_t, class PostFilter=const typename StaticPolymorphicBase::default_sample_functor_t>
+		inline void evaluate(value_type* windowData, const core::vectorSIMDf& inPos, PreFilter& preFilter, PostFilter& postFilter) const
 		{
-			struct scaled_functor_t : public PerSampleFunctor
+			const auto& _rscale = rscale;
+			auto wrap = [&preFilter,&_rscale](value_type* windowSample, core::vectorSIMDf& relativePosAndFactor)
 			{
-					scaled_functor_t(PerSampleFunctor&& orig, const core::vectorSIMDf& _rscale) : PerSampleFunctor(orig), rscale(_rscale) {}
-				
-					inline void operator()(value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor) const
-					{
-						PerSampleFunctor::operator()(windowSample,relativePosAndFactor*rscale);
-					}
-
-				private:
-					core::vectorSIMDf rscale;
+				preFilter(windowSample,relativePosAndFactor);
+				relativePosAndFactor *= _rscale;
 			};
-			return StaticPolymorphicBase::evaluateImpl<scaled_functor_t>(windowData,inPos,scaled_functor_t(std::move(perSample),rscale));
+			Kernel::evaluate(windowData,inPos,wrap,postFilter);
 		}
 };
 

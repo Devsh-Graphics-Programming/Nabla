@@ -43,8 +43,8 @@ class CFloatingPointIsotropicSeparableImageFilterKernelBase : public CImageFilte
 
 		CFloatingPointIsotropicSeparableImageFilterKernelBase() : StaticPolymorphicBase(symmetric_support,symmetric_support) {}
 		
-		template<class PerSampleFunctor=typename StaticPolymorphicBase::default_sample_functor_t>
-		PerSampleFunctor evaluate(value_type* windowData, const core::vectorSIMDf& inPos, PerSampleFunctor&& perSample = PerSampleFunctor()) const;
+		template<class PreFilter=const typename StaticPolymorphicBase::default_sample_functor_t, class PostFilter=const typename StaticPolymorphicBase::default_sample_functor_t>
+		void evaluate(value_type* windowData, const core::vectorSIMDf& inPos, PreFilter& preFilter, PostFilter& postFilter) const;
 
 	protected:
 		inline bool inDomain(const core::vectorSIMDf& inPos) const

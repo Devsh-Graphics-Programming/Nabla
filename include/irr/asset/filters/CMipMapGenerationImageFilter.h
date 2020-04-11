@@ -35,7 +35,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 				uint32_t							endMipLevel = 0u;
 				ICPUImage*							inOutImage = nullptr;
 		};
-		class CState : public CProtoState, public CBlitImageFilterBase<Kernel>::CStateBase
+		class CState : public CProtoState, public CBlitImageFilterBase::CStateBase
 		{
 		};
 		using state_type = CState;
