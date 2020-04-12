@@ -47,7 +47,7 @@ class CBlitImageFilterBase : public CBasicImageFilterCommon
 															typename CStateBase::E_ALPHA_SEMANTIC alphaSemantic=CStateBase::EAS_NONE_OR_PREMULTIPLIED,
 															const core::vectorSIMDu32& outExtentLayerCount=core::vectorSIMDu32(0,0,0,0))
 		{
-			uint32_t retval = k.getWindowVolume()*Kernel::MaxChannels;
+			uint32_t retval = 0u;
 			if (alphaSemantic==CStateBase::EAS_REFERENCE_OR_COVERAGE)
 			{
 				// no mul by channel count because we're only after alpha
@@ -62,7 +62,7 @@ class CBlitImageFilterBase : public CBasicImageFilterCommon
 
 		static inline bool validate(CStateBase* state)
 		{
-			if (!state || !state->scratchMemory)
+			if (!state)
 				return false;
 
 			return true;
@@ -141,7 +141,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 			if (!CBlitImageFilterBase::validate(state))
 				return false;
 			
-			if (!state->scratchMemory || state->scratchMemoryByteSize<getRequiredScratchByteSize(state->kernel,state->alphaSemantic,state->inExtentLayerCount))
+			if (state->scratchMemoryByteSize<getRequiredScratchByteSize(state->kernel,state->alphaSemantic,state->inExtentLayerCount))
 				return false;
 
 			if (state->inLayerCount!=state->outLayerCount)
@@ -233,13 +233,12 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 				const core::vectorSIMDf fOutExtent(state->outExtentLayerCount);
 				const auto kernel = CScaledImageFilterKernel<Kernel>(fInExtent.preciseDivision(fOutExtent),state->kernel);
 				// sampling stuff
-				auto* const sampleWindow = reinterpret_cast<Kernel::value_type*>(state->scratchMemory);
 				const auto halfPixelOutOffset = core::vectorSIMDf(outBlockDims)*0.5f+core::vectorSIMDf(0.f,0.f,0.f,-float(outLayer)-0.5f);
 				const auto outToInScale = core::vectorSIMDf(outBlockDims*state->inExtentLayerCount).preciseDivision(fOutExtent);
 				// optionals
 				auto* const filteredAlphaArray = reinterpret_cast<Kernel::value_type*>(state->scratchMemory+getRequiredScratchByteSize(kernel));
 				auto* filteredAlphaArrayIt = filteredAlphaArray;
-				auto blit = [outData,outBlockDims,&halfPixelOutOffset,&outToInScale,kernel,nonPremultBlendSemantic,sampleWindow,coverageSemantic,&filteredAlphaArrayIt,outFormat](uint32_t writeBlockArrayOffset, core::vectorSIMDu32 writeBlockPos) -> void
+				auto blit = [outData,outBlockDims,&halfPixelOutOffset,&outToInScale,kernel,nonPremultBlendSemantic,coverageSemantic,&filteredAlphaArrayIt,outFormat](uint32_t writeBlockArrayOffset, core::vectorSIMDu32 writeBlockPos) -> void
 				{
 					void* dstPix = outData+writeBlockArrayOffset;
 
@@ -247,13 +246,14 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 					for (auto blockY=0u; blockY<outBlockDims.y; blockY++)
 					for (auto blockX=0u; blockX<outBlockDims.x; blockX++)
 					{
-						auto inPos = (core::vectorSIMDf(writeBlockPos)+halfPixelOutOffset)*outToInScale;
-						//inPos.makeSafe3D();
-						auto windowStart = kernel.getWindowMinCoord(inPos);
-						// TODO: loop over window to load texels into temporary storage
+						auto load = [](Kernel::value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord)
+						{
+							for (auto i=0; i<Kernel::MaxChannels; i++)
+								windowSample[i] = float(i);
+						};
 						auto* value = valbuf[blockY*outBlockDims.x+blockX];
 						Kernel::value_type avgColor = 0;
-						auto coverage_functor = [value,nonPremultBlendSemantic,&avgColor](Kernel::value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor)
+						auto evaluate = [value,nonPremultBlendSemantic,&avgColor](Kernel::value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord)
 						{
 							for (auto i=0; i<Kernel::MaxChannels; i++)
 								value[i] += windowSample[i];
@@ -264,8 +264,8 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 							for (auto i=0; i<Kernel::MaxChannels-1; i++)
 								avgColor += windowSample[i]*windowSample[3];
 						};
-						Kernel::default_sample_functor_t void_functor;
-						kernel.evaluate(sampleWindow,inPos,void_functor,coverage_functor);
+						auto inPos = (core::vectorSIMDf(writeBlockPos)+halfPixelOutOffset)*outToInScale;
+						kernel.evaluate(inPos,load,evaluate);
 						// alpha handling
 						if (coverageSemantic)
 							*(filteredAlphaArrayIt++) = value[3];

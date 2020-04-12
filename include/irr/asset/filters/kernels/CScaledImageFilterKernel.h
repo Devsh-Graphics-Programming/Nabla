@@ -68,15 +68,37 @@ class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilter
 		}
 		
 		template<class PreFilter=const typename StaticPolymorphicBase::default_sample_functor_t, class PostFilter=const typename StaticPolymorphicBase::default_sample_functor_t>
-		inline void evaluate(value_type* windowData, const core::vectorSIMDf& inPos, PreFilter& preFilter, PostFilter& postFilter) const
+		inline void evaluate(const core::vectorSIMDf& globalPos, PreFilter& preFilter, PostFilter& postFilter) const
 		{
-			const auto& _rscale = rscale;
-			auto wrap = [&preFilter,&_rscale](value_type* windowSample, core::vectorSIMDf& relativePosAndFactor)
-			{
-				preFilter(windowSample,relativePosAndFactor);
-				relativePosAndFactor *= _rscale;
-			};
-			Kernel::evaluate(windowData,inPos,wrap,postFilter);
+			StaticPolymorphicBase::evaluate<PreFilter,PostFilter>(globalPos,preFilter,postFilter);
+		}
+
+		template<class PreFilter, class PostFilter>
+		struct sample_functor_t
+		{
+				sample_functor_t(const CScaledImageFilterKernel<Kernel>* __this, PreFilter& _preFilter, PostFilter& _postFilter) :
+					_this(__this), preFilter(_preFilter), postFilter(_postFilter) {}
+
+				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord)
+				{
+					auto wrap = [this](value_type* windowSample, core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord)
+					{
+						preFilter(windowSample,relativePosAndFactor,globalTexelCoord);
+						relativePosAndFactor *= _this->rscale;
+					};
+					static_cast<const Kernel*>(_this)->create_sample_functor_t(wrap,postFilter)(windowSample,relativePosAndFactor,globalTexelCoord);
+				}
+
+			private:
+				const CScaledImageFilterKernel<Kernel>* _this;
+				PreFilter& preFilter;
+				PostFilter& postFilter;
+		};
+
+		template<class PreFilter, class PostFilter>
+		inline auto create_sample_functor_t(PreFilter& preFilter, PostFilter& postFilter) const
+		{
+			return sample_functor_t(this,preFilter,postFilter);
 		}
 };
 

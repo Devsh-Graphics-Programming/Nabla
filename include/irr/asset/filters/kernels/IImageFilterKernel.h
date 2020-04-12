@@ -31,7 +31,7 @@ class IImageFilterKernel
 		virtual bool pIsSeparable() const = 0;
 		virtual bool pValidate(ICPUImage* inImage, ICPUImage* outImage) const = 0;
 
-		virtual void pEvaluate(void* windowData, const core::vectorSIMDf& globalPos) const = 0;
+		virtual void pEvaluate(const core::vectorSIMDf& globalPos) const = 0;
 
 
 		// does conversion from corner sampled to center sampled as well
@@ -75,37 +75,43 @@ class CImageFilterKernel : public IImageFilterKernel
 		}
 
 
-		void pEvaluate(void* windowData, const core::vectorSIMDf& globalPos) const override;
-
 		//
 		struct default_sample_functor_t
 		{
-			inline void operator()(const value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor)
+			inline void operator()(const value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord)
 			{
 			}
 		};
 
-	protected:
-		template<class PerSample=const default_sample_functor_t>
-		void evaluateImpl(value_type* windowData, const core::vectorSIMDf& globalPos, PerSample& perSample) const
+		inline void pEvaluate(const core::vectorSIMDf& globalPos) const override
+		{
+			default_sample_functor_t void_functor;
+			evaluate(globalPos,void_functor,void_functor);
+		}
+		
+		template<class PreFilter=const default_sample_functor_t, class PostFilter=const default_sample_functor_t>
+		inline void evaluate(const core::vectorSIMDf& globalPos, PreFilter& preFilter, PostFilter& postFilter) const
 		{
 			core::vectorSIMDf offsetGlobalPos;
 			const auto startCoord = getWindowMinCoord(globalPos,offsetGlobalPos);
 			const auto endCoord = startCoord+window_size;
-			const auto stride = [=]() {auto adj = window_strides; adj.w = core::dot(startCoord,window_strides)[0]; return adj;}();
+
+			value_type windowSample[MaxChannels];
 
 			core::vectorSIMDi32 windowCoord(0,0,0,-1);
 			for (auto& z=(windowCoord.z=startCoord.z); z!=endCoord.z; z++)
 			for (auto& y=(windowCoord.y=startCoord.y); y!=endCoord.y; y++)
 			for (auto& x=(windowCoord.x=startCoord.x); x!=endCoord.x; x++)
 			{
-				value_type* windowSample = windowData+core::dot(windowCoord,stride)[0];
-		
 				// get position relative to kernel origin, note that it is in reverse (tau-x), in accordance with Mathematical Convolution
 				auto relativePosAndFactor = offsetGlobalPos-core::vectorSIMDf(windowCoord);
-				perSample(windowSample,relativePosAndFactor);
+				evaluateImpl<PreFilter,PostFilter>(preFilter,postFilter,windowSample,relativePosAndFactor,windowCoord);
 			}
 		}
+
+	protected:
+		template<class PreFilter, class PostFilter>
+		void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord) const;
 };
 
 } // end namespace asset

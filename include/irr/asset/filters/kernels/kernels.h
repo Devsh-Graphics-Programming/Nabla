@@ -87,26 +87,23 @@ class CKernelConvolution : public CImageFilterKernel<CKernelConvolution<KernelA,
 */
 	
 template<class CRTP, typename value_type>
-inline void CImageFilterKernel<CRTP,value_type>::pEvaluate(void* windowData, const core::vectorSIMDf& globalPos) const
+template<class PreFilter, class PostFilter>
+inline void CImageFilterKernel<CRTP,value_type>::evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord) const
 {
-	default_sample_functor_t void_functor;
-	static_cast<const CRTP*>(this)->evaluate(reinterpret_cast<value_type*>(windowData),globalPos,void_functor,void_functor);
+	static_cast<const CRTP*>(this)->create_sample_functor_t(preFilter,postFilter)(windowSample,relativePosAndFactor,globalTexelCoord);
 }
 
 template<class CRTP, class Ratio>
 template<class PreFilter, class PostFilter>
-inline void CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Ratio>::evaluate(value_type* windowData, const core::vectorSIMDf& inPos, PreFilter& preFilter, PostFilter& postFilter) const
+inline void CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Ratio>::sample_functor_t<PreFilter,PostFilter>::operator()(
+		value_type* windowSample, core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord
+	)
 {
-	auto _this = static_cast<const CRTP*>(this);
-	auto wrap = [&preFilter,_this,&postFilter](value_type* windowSample, core::vectorSIMDf& relativePosAndFactor)
-	{
-		preFilter(windowSample,relativePosAndFactor);
-		const auto weight = _this->weight(relativePosAndFactor)*relativePosAndFactor.w;
-		for (int32_t i=0; i<StaticPolymorphicBase::MaxChannels; i++)
-			windowSample[i] *= weight;
-		postFilter(windowSample,relativePosAndFactor);
-	};
-	StaticPolymorphicBase::evaluateImpl(windowData,inPos,wrap);
+	preFilter(windowSample, relativePosAndFactor, globalTexelCoord);
+	const auto weight = _this->weight(relativePosAndFactor) * relativePosAndFactor.w;
+	for (int32_t i = 0; i < StaticPolymorphicBase::MaxChannels; i++)
+		windowSample[i] *= weight;
+	postFilter(windowSample, relativePosAndFactor, globalTexelCoord);
 }
 
 } // end namespace asset
