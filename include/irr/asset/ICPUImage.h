@@ -10,6 +10,7 @@
 #include "irr/asset/IAsset.h"
 #include "irr/asset/ICPUBuffer.h"
 #include "irr/asset/IImage.h"
+#include "irr/asset/ISampler.h"
 
 namespace irr
 {
@@ -107,6 +108,66 @@ class ICPUImage final : public IImage, public IAsset
 			if (found!=std::reverse_iterator(mip.begin()))
 				return &(*found);
 			return nullptr;
+		}
+
+		inline void* getTexelBlockData(	uint32_t mipLevel, core::vectorSIMDi32 texelCoord, core::vectorSIMDu32& outBlockCoord,
+										const core::vector3du32_SIMD& mipExtent, const core::vector3du32_SIMD& mipLastCoord, const ISampler::E_TEXTURE_CLAMP wrapModes[3]) const
+		{
+			// wrap coord
+			for (auto i=0; i<3; i++)
+			{
+				const auto originalWasNegative = texelCoord[i]<0 ? 1:0;
+				auto repeat = [&texelCoord,i,&mipExtent,originalWasNegative]()
+				{
+					texelCoord[i] %= mipExtent[i];
+					if (originalWasNegative)
+						texelCoord[i] = mipExtent[i] + texelCoord[i];
+				};
+				switch (wrapModes[i])
+				{
+					case ISampler::ETC_REPEAT:
+						repeat();
+						break;
+					case ISampler::ETC_CLAMP_TO_EDGE:
+						texelCoord[i] = core::clamp<int32_t,int32_t>(texelCoord[i],0,mipLastCoord[i]);
+						break;
+					case ISampler::ETC_MIRROR_CLAMP_TO_EDGE:
+						texelCoord[i] = core::clamp<int32_t,int32_t>(texelCoord[i],-mipExtent[i],mipExtent[i]+mipLastCoord[i]);
+					case ISampler::ETC_MIRROR:
+						{
+							auto repeatID = (originalWasNegative+texelCoord[i])/mipExtent[i];
+							repeat();
+							if ((repeatID&0x1)!=originalWasNegative)
+								texelCoord[i] = mipLastCoord[i]-texelCoord[i];
+						}
+						break;
+					default:
+						// TODO: Handle borders, would have to have a static globally initialized memory array, with blocks of each <E_FORMAT,E_TEXTURE_BORDER_COLOR> combo
+						assert(false);
+						break;
+				}
+			}
+			const auto* region = getRegion(mipLevel,reinterpret_cast<core::vectorSIMDu32&>(texelCoord));
+			if (!region)
+				return nullptr;
+
+			// convert to texelBlocks
+			// get fractional part
+			// get coord
+
+			return nullptr;
+		}
+		inline void* getTexelBlockData(	uint32_t mipLevel, const core::vectorSIMDi32& texelCoord, core::vectorSIMDu32& outBlockCoord,
+										const core::vector3du32_SIMD& mipExtent, const core::vector3du32_SIMD& mipLastCoord) const
+		{
+			ISampler::E_TEXTURE_CLAMP wrapModes[3] = { ISampler::ETC_REPEAT,ISampler::ETC_REPEAT,ISampler::ETC_REPEAT };
+			return getTexelBlockData(mipLevel,texelCoord,outBlockCoord,mipExtent,mipLastCoord,wrapModes);
+		}
+		inline void* getTexelBlockData(uint32_t mipLevel, const core::vectorSIMDi32& texelCoord, core::vectorSIMDu32& outBlockCoord) const
+		{
+			auto mipExtent = getMipSize(mipLevel);
+			auto mipLastCoord = mipExtent-core::vector3du32_SIMD(1,1,1,1);
+			return getTexelBlockData(mipLevel,texelCoord,outBlockCoord,mipExtent,mipLastCoord);
 		}
 
 		//! regions will be copied and sorted

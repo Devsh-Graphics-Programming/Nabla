@@ -197,7 +197,13 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 			const auto outOffset = state->outOffset;
 			const auto inExtent = state->inExtent;
 			const auto outExtent = state->outExtent;
-
+			
+			auto load = [inImg,inMipLevel,&state](Kernel::value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord)
+			{
+				core::vectorSIMDu32 inBlockCoord;
+				Kernel::value_type* srcPix[] = {inImg->getTexelBlockData(inMipLevel,globalTexelCoord,inBlockCoord,state->outExtentLayerCount,state->axisWraps),nullptr,nullptr,nullptr};
+				decodePixels<Kernel::value_type>(srcPix,windowSample,inBlockCoord.x,inBlockCoord.y);
+			};
 
 			const bool nonPremultBlendSemantic = state->alphaSemantic==CState::EAS_SEPARATE_BLEND;
 			const bool coverageSemantic = state->alphaSemantic==CState::EAS_REFERENCE_OR_COVERAGE;
@@ -246,11 +252,6 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 					for (auto blockY=0u; blockY<outBlockDims.y; blockY++)
 					for (auto blockX=0u; blockX<outBlockDims.x; blockX++)
 					{
-						auto load = [](Kernel::value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord)
-						{
-							for (auto i=0; i<Kernel::MaxChannels; i++)
-								windowSample[i] = float(i);
-						};
 						auto* value = valbuf[blockY*outBlockDims.x+blockX];
 						Kernel::value_type avgColor = 0;
 						auto evaluate = [value,nonPremultBlendSemantic,&avgColor](Kernel::value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord)
