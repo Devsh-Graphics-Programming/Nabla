@@ -25,7 +25,7 @@ STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePack
 
     uint8_t border[4]{};//unused anyway
     auto pgTabCoords = _packer->pack(_img, subres, asset::ISampler::ETC_MIRROR, asset::ISampler::ETC_MIRROR, _borderColor);
-    return _packer->offsetToTextureData(pgTabCoords, _img);
+    return _packer->offsetToTextureData(pgTabCoords, _img, asset::ISampler::ETC_MIRROR, asset::ISampler::ETC_MIRROR);
 }
 
 constexpr const char* GLSL_VT_TEXTURES = //also turns off set3 bindings (textures) because they're not needed anymore as we're using VT
@@ -147,22 +147,30 @@ vec2 unpackUnorm2x16_(in uint u)
 #endif
 }
 
-vec2 unpackVirtualUV(in uvec2 texData)
+uvec2 unpackWrapModes(in uvec2 texData)
 {
-	return unpackUnorm2x16_(texData.x);
+    return uvec2((texData.y>>28)&0x03u,(texData.y>>30)&0x03u);
+}
+uint unpackOriginalMipCount(in uvec2 texData)
+{
+    return (texData.y>>24)&0x0fu;
+}
+vec3 unpackVirtualUV(in uvec2 texData)
+{
+    return vec3(vec2(texData.y&0xffu,(texData.y>>8)&0xffu)/textureSize(pageTable[0],0).xy, (texData.y>>16)&0xffu);
 }
 vec2 unpackSize(in uvec2 texData)
 {
-	return unpackUnorm2x16_(texData.y);
+	return unpackUnorm2x16_(texData.x);
 }
 vec4 textureVT(in uvec2 _texData, in vec2 uv, in mat2 dUV)
 {
     vec2 scale = unpackSize(_texData);
-    vec2 virtualUV = unpackVirtualUV(_texData);
+    vec3 virtualUV = unpackVirtualUV(_texData);
     //manual uv wrapping (repeat mode)
-    virtualUV += 0.5*scale*mod(uv,vec2(1.0)); //why do i need factor of 0.5??????
+    virtualUV.xy += 0.5*scale*mod(uv,vec2(1.0)); //why do i need factor of 0.5??????
     int whatever = 1000;//obv change later
-    return vTextureGrad_helper(vec3(virtualUV,0.0), 0, mat2(0.0,0.0,0.0,0.0), ivec2(vec2(1.0)/scale*float(PAGE_SZ)), whatever);
+    return vTextureGrad_helper(virtualUV, 0, mat2(0.0,0.0,0.0,0.0), ivec2(vec2(1.0)/scale*float(PAGE_SZ)), whatever);
 }
 )";
 constexpr const char* GLSL_BSDF_COS_EVAL_OVERRIDE =
@@ -384,6 +392,7 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
 }
 
 constexpr uint32_t PAGETAB_SZ_LOG2 = 7u;
+constexpr uint32_t PAGETAB_LAYERS = 3u;
 constexpr uint32_t PAGETAB_MIP_LEVELS = 8u;
 constexpr uint32_t PAGE_SZ_LOG2 = 7u;
 constexpr uint32_t TILES_PER_DIM_LOG2 = 6u;
@@ -442,9 +451,9 @@ int main()
     auto* am = device->getAssetManager();
 
     core::smart_refctd_ptr<asset::ICPUTexturePacker> texPackers[ETP_COUNT]{
-        core::make_smart_refctd_ptr<asset::ICPUTexturePacker>(asset::EFC_8_BIT, asset::EF_R8_UNORM, PAGETAB_SZ_LOG2, PAGETAB_MIP_LEVELS, PAGE_SZ_LOG2, TILES_PER_DIM_LOG2, PHYS_ADDR_TEX_LAYERS, PAGE_PADDING),
-        core::make_smart_refctd_ptr<asset::ICPUTexturePacker>(asset::EFC_24_BIT, asset::EF_R8G8B8_UNORM, PAGETAB_SZ_LOG2, PAGETAB_MIP_LEVELS, PAGE_SZ_LOG2, TILES_PER_DIM_LOG2, PHYS_ADDR_TEX_LAYERS, PAGE_PADDING),
-        core::make_smart_refctd_ptr<asset::ICPUTexturePacker>(asset::EFC_32_BIT, asset::EF_R8G8B8A8_UNORM, PAGETAB_SZ_LOG2, PAGETAB_MIP_LEVELS, PAGE_SZ_LOG2, TILES_PER_DIM_LOG2, PHYS_ADDR_TEX_LAYERS, PAGE_PADDING),
+        core::make_smart_refctd_ptr<asset::ICPUTexturePacker>(asset::EFC_8_BIT, asset::EF_R8_UNORM, PAGETAB_SZ_LOG2, PAGETAB_LAYERS, PAGETAB_MIP_LEVELS, PAGE_SZ_LOG2, TILES_PER_DIM_LOG2, PHYS_ADDR_TEX_LAYERS, PAGE_PADDING),
+        core::make_smart_refctd_ptr<asset::ICPUTexturePacker>(asset::EFC_24_BIT, asset::EF_R8G8B8_UNORM, PAGETAB_SZ_LOG2, PAGETAB_LAYERS, PAGETAB_MIP_LEVELS, PAGE_SZ_LOG2, TILES_PER_DIM_LOG2, PHYS_ADDR_TEX_LAYERS, PAGE_PADDING),
+        core::make_smart_refctd_ptr<asset::ICPUTexturePacker>(asset::EFC_32_BIT, asset::EF_R8G8B8A8_UNORM, PAGETAB_SZ_LOG2, PAGETAB_LAYERS, PAGETAB_MIP_LEVELS, PAGE_SZ_LOG2, TILES_PER_DIM_LOG2, PHYS_ADDR_TEX_LAYERS, PAGE_PADDING),
     };
     //TODO most of sponza textures are 24bit format, but also need packers for 8bit and 32bit formats and a way to decide which VT textures to sample as well
     core::unordered_map<core::smart_refctd_ptr<asset::ICPUImage>, STextureData> VTtexDataMap;
