@@ -2639,12 +2639,12 @@ namespace asset
         if (isIntegerFormat(_fmt))
         {
             if (isSignedFormat(_fmt))
-                return encodePixels<int64_t>(_fmt, _pix, reinterpret_cast<const int64_t*>(_input));
+                encodePixels<int64_t>(_fmt, _pix, reinterpret_cast<const int64_t*>(_input));
             else
-                return encodePixels<uint64_t>(_fmt, _pix, reinterpret_cast<const uint64_t*>(_input));
+                encodePixels<uint64_t>(_fmt, _pix, reinterpret_cast<const uint64_t*>(_input));
         }
         else
-            return encodePixels<double>(_fmt, _pix, reinterpret_cast<const double*>(_input));
+            encodePixels<double>(_fmt, _pix, reinterpret_cast<const double*>(_input));
     }
 
 

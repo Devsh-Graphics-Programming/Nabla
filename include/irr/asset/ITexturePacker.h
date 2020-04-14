@@ -433,15 +433,18 @@ public:
                     core::vector3du32_SIMD physPg = pageCoords(physPgAddr, m_pgSzxy);
                     physPg -= core::vector2du32_SIMD(m_tilePadding, m_tilePadding);
 
+                    const core::vector2du32_SIMD miptailOffset = (i>=levelsTakingAtLeastOnePageCount) ? core::vector2du32_SIMD(m_miptailOffsets[i-levelsTakingAtLeastOnePageCount].x,m_miptailOffsets[i-levelsTakingAtLeastOnePageCount].y)+core::vector2du32_SIMD(m_tilePadding,m_tilePadding) : core::vector2du32_SIMD(0u,0u);
+                    physPg += miptailOffset;
+
                     CPaddedCopyImageFilter::state_type copy;
                     copy.outOffsetBaseLayer = (physPg).xyzz();/*physPg.z is layer*/ copy.outOffset.z = 0u;
                     copy.inOffsetBaseLayer = core::vector2du32_SIMD(x,y)*m_pgSzxy;
                     copy.extentLayerCount = core::vectorSIMDu32(m_pgSzxy, m_pgSzxy, 1u, 1u);
                     if (x == w-1u)
-                        copy.extentLayerCount.x = extent.width-copy.inOffsetBaseLayer.x;
+                        copy.extentLayerCount.x = std::max(extent.width>>(_subres.baseMipLevel+i),1u)-copy.inOffsetBaseLayer.x;
                     if (y == h-1u)
-                        copy.extentLayerCount.y = extent.height-copy.inOffsetBaseLayer.y;
-                    memcpy(&copy.paddedExtent.width,(core::vectorSIMDu32(m_pgSzxy)+core::vectorSIMDu32(2u*m_tilePadding)).pointer, 2u*sizeof(uint32_t));
+                        copy.extentLayerCount.y = std::max(extent.height>>(_subres.baseMipLevel+i),1u)-copy.inOffsetBaseLayer.y;
+                    memcpy(&copy.paddedExtent.width,(copy.extentLayerCount+core::vectorSIMDu32(2u*m_tilePadding)).pointer, 2u*sizeof(uint32_t));
                     copy.paddedExtent.depth = 1u;
                     copy.relativeOffset.x = copy.relativeOffset.y = m_tilePadding;
                     copy.relativeOffset.z = 0u;
