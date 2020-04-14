@@ -303,10 +303,9 @@ public:
     STextureData offsetToTextureData(const page_tab_offset_t& _offset, const ICPUImage* _img)
     {
         STextureData texData;
-        core::vector2df_SIMD scaleUnorm16(_img->getCreationParameters().extent.width, _img->getCreationParameters().extent.height);
-        scaleUnorm16 /= core::vector2df_SIMD(m_pageTable->getCreationParameters().extent.width*m_pgSzxy);//taking just width into account because page table is always square anyway
+        core::vector2df_SIMD scaleUnorm16(m_pgSzxy);
+        scaleUnorm16 /= core::vector2df_SIMD(_img->getCreationParameters().extent.width, _img->getCreationParameters().extent.height,1.f,1.f);
         scaleUnorm16 *= core::vector2df_SIMD(0xffffu);
-
         texData.scale_x = scaleUnorm16.x;
         texData.scale_y = scaleUnorm16.y;
 
@@ -318,7 +317,7 @@ public:
 
         return texData;
     }
-    page_tab_offset_t pack(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, const void* _borderColor)
+    page_tab_offset_t pack(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
     {
         if (getFormatClass(_img->getCreationParameters().format)!=getFormatClass(m_physAddrTex->getCreationParameters().format))
             return page_tab_offset_invalid();
@@ -334,7 +333,6 @@ public:
 
         const uint32_t levelsTakingAtLeastOnePageCount = countLevelsTakingAtLeastOnePage(extent, _subres);
         const uint32_t levelsToPack = std::min(_subres.levelCount, m_pageTable->getCreationParameters().mipLevels+m_pgSzxy_log2);
-        const uint32_t texelBytesize = getTexelOrBlockBytesize(m_physAddrTex->getCreationParameters().format);
 
         uint32_t miptailPgAddr = SPhysPgOffset::invalid_addr;
 
@@ -391,15 +389,20 @@ public:
                     }
 
                     core::vector3du32_SIMD physPg = pageCoords(physPgAddr, m_pgSzxy);
+                    physPg -= core::vector2du32_SIMD(m_tilePadding, m_tilePadding);
 
                     CPaddedCopyImageFilter::state_type copy;
-                    copy.outOffsetBaseLayer = physPg.xyzz();/*physPg.z is layer*/ copy.outOffset.z = 0u;
+                    copy.outOffsetBaseLayer = (physPg).xyzz();/*physPg.z is layer*/ copy.outOffset.z = 0u;
                     copy.inOffsetBaseLayer = core::vector2du32_SIMD(x,y)*m_pgSzxy;
                     copy.extentLayerCount = core::vectorSIMDu32(m_pgSzxy, m_pgSzxy, 1u, 1u);
                     if (x == w-1u)
                         copy.extentLayerCount.x = extent.width-copy.inOffsetBaseLayer.x;
                     if (y == h-1u)
                         copy.extentLayerCount.y = extent.height-copy.inOffsetBaseLayer.y;
+                    memcpy(&copy.paddedExtent.width,(core::vectorSIMDu32(m_pgSzxy)+core::vectorSIMDu32(2u*m_tilePadding)).pointer, 2u*sizeof(uint32_t));
+                    copy.paddedExtent.depth = 1u;
+                    copy.relativeOffset.x = copy.relativeOffset.y = m_tilePadding;
+                    copy.relativeOffset.z = 0u;
                     copy.inMipLevel = _subres.baseMipLevel + i;
                     copy.outMipLevel = 0u;
                     copy.inImage = _img;
@@ -407,9 +410,7 @@ public:
                     copy.axisWraps[0] = _wrapu;
                     copy.axisWraps[1] = _wrapv;
                     copy.axisWraps[2] = ISampler::ETC_CLAMP_TO_EDGE;
-                    copy.borderPadding.width = copy.borderPadding.height = m_tilePadding;
-                    copy.borderPadding.depth = 0u;
-                    memcpy(copy.borderColor.asByte, _borderColor, texelBytesize);
+                    copy.borderColor = _borderColor;
                     CPaddedCopyImageFilter::execute(&copy);
                 }
         }
