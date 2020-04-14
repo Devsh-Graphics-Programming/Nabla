@@ -9,7 +9,10 @@
 #include "IFileArchive.h"
 #include "irr/asset/ICPUBuffer.h"
 #include "irr/core/core.h"
-#include "builtinResources.h"
+
+#ifdef _IRR_EMBED_BUILTIN_RESOURCES_
+#include "irr/builtin/builtinResources.h"
+#endif
 namespace irr
 {
 namespace video
@@ -243,13 +246,13 @@ public:
 
 
 	template<typename StringUniqueType>
-	inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData()
+	inline core::smart_refctd_ptr<core::IBuffer> loadBuiltinData()
 	{
 #ifdef _IRR_EMBED_BUILTIN_RESOURCES_
 		std::pair<const uint8_t*, size_t> found = irr::builtin::get_resource<StringUniqueType>();
 		if (found.first && found.second)
 		{
-			auto returnValue = core::make_smart_refctd_ptr<asset::ICPUBuffer>(found.second);	//return core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t> > >(found.second, found.first, core::adopt_memory);
+			auto returnValue = core::make_smart_refctd_ptr<core::IBuffer>(found.second);	//return core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t> > >(found.second, found.first, core::adopt_memory);
 			memcpy(returnValue->getPointer(), found.first, returnValue->getSize());
 			return returnValue;
 		}
@@ -261,13 +264,12 @@ public:
 		auto file = this->createAndOpenFile((path).c_str());
 		if(file)
 		{
-			auto retval = core::make_smart_refctd_ptr<asset::ICPUBuffer>(file->getSize());
+			auto retval = core::make_smart_refctd_ptr<core::IBuffer>(file->getSize());
 			file->read(retval->getPointer(), file->getSize());
 			file->drop();
 			return retval;	
 		}
-		throw "File cant be opened";
-		//or		return nullptr;
+		return nullptr;
 
 #endif
 	}

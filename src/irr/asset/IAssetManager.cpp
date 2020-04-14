@@ -204,18 +204,18 @@ void IAssetManager::insertBuiltinAssets()
 		};
 		auto fileSystem = getFileSystem();
 
-		buildInShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/singletexture/specializedshader_vertex")>(),
+		buildInShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/singletexture/specializedshader.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,
 			"irr/builtin/materials/lambertian/singletexture/specializedshader");
-		buildInShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/singletexture/specializedshader_fragment")>(), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
+		buildInShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/singletexture/specializedshader.frag")>(), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
 			asset::ISpecializedShader::ESS_FRAGMENT, 
 			"irr/builtin/materials/lambertian/singletexture/specializedshader");
 
-		buildInShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/no_texture/specializedshader_vertex")>(),
+		buildInShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/no_texture/specializedshader.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX, 
 			"irr/builtin/materials/lambertian/no_texture/specializedshader");
 
-		buildInShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/no_texture/specializedshader_fragment")>(),
+		buildInShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/no_texture/specializedshader.frag")>(),
 			asset::ISpecializedShader::ESS_FRAGMENT, 
 			"irr/builtin/materials/lambertian/no_texture/specializedshader");
 
