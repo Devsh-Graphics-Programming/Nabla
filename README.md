@@ -249,7 +249,7 @@ We recommend the ***[Codelite IDE](https://codelite.org/)*** as that has a *CMak
 
 ## First examples launching, significant notes
 
-Remember you have to set up **starting target project** in *Visual Studio* before you begin to launch your example. To to that click on **Solution Explorer**, find the example name, hover on it and click on **Set as StartUp Project**. You can disable building examples by `IRR_BUILD_EXAMPLES` option in *CMake*.
+Remember you have to set up **starting target project** in *Visual Studio* before you begin to launch your example. To do that click on **Solution Explorer**, find the example name, hover on it and click on **Set as StartUp Project**. You can disable building examples by `IRR_BUILD_EXAMPLES` option in *CMake*.
 
 ## License
 
