@@ -15,14 +15,14 @@ namespace asset
 {
 
 // specialized case of CBlitImageFilter
-template<class ResamplingKernel=CTriangleImageFilterKernel, class ReconstructionKernel=CTriangleImageFilterKernel>
+template<class ResamplingKernel=CKaiserImageFilterKernel<>, class ReconstructionKernel=CMitchellImageFilterKernel<> >
 class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<ResamplingKernel,ReconstructionKernel> >, public CBasicImageFilterCommon
 {
 	public:
 		virtual ~CMipMapGenerationImageFilter() {}
 
-		// TODO
-		using Kernel = ReconstructionKernel;//CKernelConvolution<ResamplingKernel, ReconstructionKernel>;
+		// TODO: Improve
+		using Kernel = ResamplingKernel;//CKernelConvolution<ResamplingKernel, ReconstructionKernel>;
 
 		class CProtoState : public IImageFilter::IState
 		{
