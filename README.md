@@ -1,22 +1,26 @@
 # IrrlichtBAW
 
-![Windows Build Status](https://github.com/google/filament/workflows/Windows/badge.svg) ![Linux Build Status](https://github.com/google/filament/workflows/Linux/badge.svg) [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**IrrlichtBAW** is a new renovated version of old **[Irrlicht](http://irrlicht.sourceforge.net/)** engine. The project currently aims for a thread-able and *Vulkan*-centered API, but currently works on *OpenGL* only. This framework has been kindly begun and almost entirely sponsored by **Build A World Aps**., and the `stable-ish` branch is used in production releases of **[Build A World EDU](https://edu.buildaworld.net/)**, since 2015.
+**IrrlichtBAW** is a new renovated version of old **[Irrlicht](http://irrlicht.sourceforge.net/)** engine. The project currently aims for a thread-able and *Vulkan*-centered API, but currently works on *OpenGL* only. This framework has been kindly begun and almost entirely sponsored by **Build A World Aps**., and now by **[Ditt](https://www.ditt.nl/)** company. The `stable-ish` branch is used in production releases of **[Build A World EDU](https://edu.buildaworld.net/)**, since 2015.
 
 ## Showcase
 
 ### Screen Shots
 
+![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/IrrSS/brdf.png?raw=true)
+
+
+
 ![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/1.png)
 
 
 
+![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/IrrSS/balls.png?raw=true)
+
+
+
 ![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/11.png)
-
-
-
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/12.png)
 
 
 
@@ -41,10 +45,6 @@
 
 
 ![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/7.png)
-
-
-
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/8.png)
 
 
 
@@ -78,19 +78,40 @@
 
 
 
+## Main Features
+
+- **Asset management pipeline**
+- **Automatic pipeline layout creation**
+- **Shader introspection**
+- **Using SPRIV shaders in OpenGL**
+- **Libraries of GLSL shader functions**
+- **Compute shaders**
+- **Virtual Texturing**
+- **CUDA and OpenGL interop**
+- **OpenCL and OpenGL interop**
+- **CPU image filtering**
+
+## Main Delivered Extensions
+
+- **Mitsuba scene loader (auto-generated shaders)** 
+- **Tonemapper**
+- **Fastest blur on the planet**
+- **Bullet physics beginner integration** 
+- **OptiX interop**
+- **Radeon rays interop**
+
 ## Platforms
 
-- [x] #### Windows
+- [x] #### **Windows**
 
-- [x] #### Linux
+- [x] #### **Linux**
 
-- [ ] #### Android 7.0 +
+- [ ] #### **Android 7.0 +**
 
-- [ ] #### Mac OS 
+- [ ] #### **Mac OS** 
 
-- [ ] #### iOS
+- [ ] #### **iOS**
 
-  
 
 ## Required Build Tools and SDK's
 
@@ -105,7 +126,7 @@
 
 ### Vanilla + CUDA Build
 
-**IrrlichtBAW** only supports *CUDA* interop using the Driver API not the Runtime API.
+**IrrlichtBAW** only supports *CUDA* interop using the Driver API not the Runtime API. We use the runtime compiled CUDA.
 
 Because *CUDA* needs its own version the GeForce (Quadro or Tesla) Driver, its often a few minor versions behind your automatically updated Windows driver, the install will fail even if it prompts you to agree to installing an older driver. 
 
@@ -116,8 +137,6 @@ So basically first remove your driver, then install *CUDA SDK*.
 #### CMake warnings in reference CUDA and notes
 
 On Windows *CMake* has trouble finding new packages installed after *CMake*, so its the perfect time to visit **[it's website](https://cmake.org/)** and check for a new version installer after installing *CUDA SDK*.
-
-Because *CUDA* hijacks your C++ compiler, its best that you don't use the `IRR_BUILD_WITH_CUDA` *CMake* option unless necessary, overall it may lead to the library and extensions being compiled with wrong (sub-par) optimization and tuning flags, as well as a lower version of the C++ standard (*C++20* is currently on the horizon, **IrrlichtBaW** supports *C++17*, and *CUDA 10.1* only supports *C++14*).
 
 You can also thank NVidia for making the CUDA SDK a whole whopping 2.5 GB on Windows.
 
@@ -226,17 +245,21 @@ We recommend the ***[Codelite IDE](https://codelite.org/)*** as that has a *CMak
 
 ***[Clang](https://clang.llvm.org/) toolset*** is unmaintained and untested on Linux.
 
+## First examples launching, significant notes
+
+Remember you have to set up **starting target project** in *Visual Studio* before you begin to launch your example. To to that click on **Solution Explorer**, find the example name, hover on it and click on **Set as StartUp Project**. You can disable building examples by `IRR_BUILD_EXAMPLES` option in *CMake*.
+
 ## License
 
-**IrrlichtBAW** is donated under the **[Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)** license. See **LICENSE.md** for more details.
+**IrrlichtBAW** is released under the **[Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)** license. See [**LICENSE.md**](https://github.com/buildaworldnet/IrrlichtBAW/blob/master/LICENSE.md) for more details.
 
 ## API documentation, help and extra improvements
 
-If you would like to take care of documenting some files, please **[click it](https://github.com/buildaworldnet/IrrlichtBAW/wiki/Documentation)**. If you feel like you'd be interesting in improving and maintaining this repository's wiki, contact **@devsh** on **[Discord](https://discord.gg/4MTCVaN)**.
+If you would like to take care of documenting some files, please **[click it](https://github.com/buildaworldnet/IrrlichtBAW/wiki/Documentation)**. If you feel like you'd be interesting in improving and maintaining this repository's wiki, contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** on **[Discord](https://discord.gg/4MTCVaN)**.
 
 ## Official Support (Discord)
 
-Permament members of *Devsh Graphics Programming Sp. z O.O.* use this to organise publicly visible work. **[Join to the server](https://discord.gg/4MTCVaN)** to get into more details. There's also a skype support group, reach **@devsh** for a private invite.
+Permament members of *Devsh Graphics Programming Sp. z O.O.* use this to organise publicly visible work. **[Join to the server](https://discord.gg/4MTCVaN)** to get into more details. There's also a skype support group, reach ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** for a private invite.
 
 ## Credits and Attribution
 
