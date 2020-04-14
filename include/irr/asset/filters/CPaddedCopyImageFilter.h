@@ -168,7 +168,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 
 			auto perBlock = [&state,&borderColor,&borderColorWrite,&bufptr,&reloffset](uint32_t blockArrayOffset, core::vectorSIMDu32 readBlockPos)
 			{
-				const IImage::SBufferCopy::TexelBlockInfo blockInfo(state->outImage->getCreationParameters().format);
+				const TexelBlockInfo blockInfo(state->outImage->getCreationParameters().format);
 				const uint32_t texelSz = asset::getTexelOrBlockBytesize(state->outImage->getCreationParameters().format);
 
 				auto wrapped = wrapCoords(state, readBlockPos-state->outOffsetBaseLayer-reloffset, state->extentLayerCount);
