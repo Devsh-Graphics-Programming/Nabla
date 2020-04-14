@@ -2642,7 +2642,7 @@ namespace asset
     }
     
 
-    inline bool encodePixelsRuntime(asset::E_FORMAT _fmt, void* _pix, const void* _input)
+    inline void encodePixelsRuntime(asset::E_FORMAT _fmt, void* _pix, const void* _input)
     {
         if (isIntegerFormat(_fmt))
         {

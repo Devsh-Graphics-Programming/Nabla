@@ -84,9 +84,7 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 			return true;
 		}
 
-	protected:
-		virtual ~CMatchedSizeInOutImageFilterCommon() = 0;
-		
+	protected:		
 		struct CommonExecuteData
 		{
 			const ICPUImage* const inImg;

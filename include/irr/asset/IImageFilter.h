@@ -23,6 +23,8 @@ class IImageFilter
 		class IState
 		{
 			public:
+				virtual ~IState() {}
+
 				struct TexelRange
 				{
 					VkOffset3D	offset = { 0u,0u,0u };

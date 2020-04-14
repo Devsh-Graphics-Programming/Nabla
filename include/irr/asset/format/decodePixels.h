@@ -1728,7 +1728,7 @@ namespace asset
         }
     }
 
-    inline bool decodePixelsRuntime(asset::E_FORMAT _fmt, const void* _pix[4], void* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixelsRuntime(asset::E_FORMAT _fmt, const void* _pix[4], void* _output, uint32_t _blockX, uint32_t _blockY)
     {
         if (isIntegerFormat(_fmt))
         {

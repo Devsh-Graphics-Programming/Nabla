@@ -41,7 +41,7 @@ class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilter
 		_IRR_STATIC_INLINE_CONSTEXPR bool is_separable = Kernel::is_separable;
 
 		CScaledImageFilterKernel(const core::vectorSIMDf& _scale, Kernel&& k=Kernel()) : Kernel(std::move(k)),
-			impl::CScaledImageFilterKernelBase(core::vectorSIMDf(1.f,1.f,1.f,0.f).preciseDivision(_scale)),
+			impl::CScaledImageFilterKernelBase(core::vectorSIMDf(1.f).preciseDivision(_scale)),
 			StaticPolymorphicBase(
 					{Kernel::positive_support[0]*_scale[0],Kernel::positive_support[1]*_scale[1],Kernel::positive_support[2]*_scale[2]},
 					{Kernel::negative_support[0]*_scale[0],Kernel::negative_support[1]*_scale[1],Kernel::negative_support[2]*_scale[2]}
