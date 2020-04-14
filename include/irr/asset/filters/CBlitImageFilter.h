@@ -205,11 +205,12 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 			{
 				auto load = [layer,inImg,inMipLevel,&state,inFormat](Kernel::value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord)
 				{
-					globalTexelCoord.w = layer;
+					auto texelCoordAndLayer(globalTexelCoord);
+					texelCoordAndLayer.w = layer;
 					//
 					core::vectorSIMDu32 inBlockCoord;
 					const void* srcPix[] = {
-						inImg->getTexelBlockData(inMipLevel,globalTexelCoord,inBlockCoord,state->axisWraps),
+						inImg->getTexelBlockData(inMipLevel,texelCoordAndLayer,inBlockCoord,state->axisWraps),
 						nullptr,
 						nullptr,
 						nullptr
@@ -281,6 +282,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 						else if (nonPremultBlendSemantic && avgColor>FLT_MIN*1024.0*512.0)
 							value[3] = avgColor/(value[0]+value[1]+value[2]);
 					}
+					// TODO IMPROVE: by adding random quantization noise (dithering) to break up any banding, could actually steal a sobol sampler for this
 					asset::encodePixels<Kernel::value_type>(outFormat,dstPix,valbuf[0]);
 				};
 				const core::SRange<const IImage::SBufferCopy> outRegions = outImg->getRegions(outMipLevel);
