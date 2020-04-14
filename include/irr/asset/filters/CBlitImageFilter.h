@@ -197,19 +197,27 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 			const auto outOffset = state->outOffset;
 			const auto inExtent = state->inExtent;
 			const auto outExtent = state->outExtent;
-			
-			auto load = [inImg,inMipLevel,&state](Kernel::value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord)
-			{
-				core::vectorSIMDu32 inBlockCoord;
-				Kernel::value_type* srcPix[] = {inImg->getTexelBlockData(inMipLevel,globalTexelCoord,inBlockCoord,state->outExtentLayerCount,state->axisWraps),nullptr,nullptr,nullptr};
-				decodePixels<Kernel::value_type>(srcPix,windowSample,inBlockCoord.x,inBlockCoord.y);
-			};
 
 			const bool nonPremultBlendSemantic = state->alphaSemantic==CState::EAS_SEPARATE_BLEND;
 			const bool coverageSemantic = state->alphaSemantic==CState::EAS_REFERENCE_OR_COVERAGE;
 			const auto alphaRefValue = state->alphaRefValue;
 			for (uint32_t layer=0; layer!=layerCount; layer++)
 			{
+				auto load = [layer,inImg,inMipLevel,&state,inFormat](Kernel::value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord)
+				{
+					globalTexelCoord.w = layer;
+					//
+					core::vectorSIMDu32 inBlockCoord;
+					const void* srcPix[] = {
+						inImg->getTexelBlockData(inMipLevel,globalTexelCoord,inBlockCoord,state->axisWraps),
+						nullptr,
+						nullptr,
+						nullptr
+					};
+					if (srcPix[0])
+						decodePixels<Kernel::value_type>(inFormat,srcPix,windowSample,inBlockCoord.x,inBlockCoord.y);
+				};
+
 				// do the magical coverage adjustment trick suggested by developer of The Witness
 				core::rational inverseCoverage(0);
 				if (coverageSemantic)
@@ -244,7 +252,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 				// optionals
 				auto* const filteredAlphaArray = reinterpret_cast<Kernel::value_type*>(state->scratchMemory+getRequiredScratchByteSize(kernel));
 				auto* filteredAlphaArrayIt = filteredAlphaArray;
-				auto blit = [outData,outBlockDims,&halfPixelOutOffset,&outToInScale,kernel,nonPremultBlendSemantic,coverageSemantic,&filteredAlphaArrayIt,outFormat](uint32_t writeBlockArrayOffset, core::vectorSIMDu32 writeBlockPos) -> void
+				auto blit = [outData,outBlockDims,&halfPixelOutOffset,&outToInScale,&load,&kernel,nonPremultBlendSemantic,coverageSemantic,&filteredAlphaArrayIt,outFormat](uint32_t writeBlockArrayOffset, core::vectorSIMDu32 writeBlockPos) -> void
 				{
 					void* dstPix = outData+writeBlockArrayOffset;
 

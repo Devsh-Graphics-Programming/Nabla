@@ -274,7 +274,7 @@ public:
             const uint32_t h = neededPageCountForSide(extent.height, _subres.baseMipLevel+i);
 
             const auto& region = m_pageTable->getRegions().begin()[i];
-            const auto strides = region.getByteStrides(IImage::SBufferCopy::TexelBlockInfo(m_pageTable->getCreationParameters().format), asset::getTexelOrBlockBytesize(m_pageTable->getCreationParameters().format));
+            const auto strides = region.getByteStrides(TexelBlockInfo(m_pageTable->getCreationParameters().format));
 
             for (uint32_t y = 0u; y < h; ++y)
                 for (uint32_t x = 0u; x < w; ++x)

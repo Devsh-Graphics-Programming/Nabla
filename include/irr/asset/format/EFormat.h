@@ -998,6 +998,57 @@ namespace asset
         }
     }
 
+    struct TexelBlockInfo
+    {
+        public:
+            TexelBlockInfo(E_FORMAT format) :
+                dimension(getBlockDimensions(format)),
+                maxCoord(dimension-core::vector3du32_SIMD(1u, 1u, 1u)),
+                blockByteSize(getTexelOrBlockBytesize(format))
+            {}
+            
+
+			inline auto convertTexelsToBlocks(const core::vector3du32_SIMD& coord) const
+			{
+				return (coord+maxCoord)/dimension;
+			}
+
+            inline auto roundToBlockSize(const core::vector3du32_SIMD& coord) const
+            {
+                return convertTexelsToBlocks(coord)*dimension;
+            }
+
+
+            inline auto	convert3DBlockStridesTo1DByteStrides(core::vector3du32_SIMD blockStrides) const
+            {
+                // shuffle and put a 1 in the first element
+                auto& retval = blockStrides;
+                retval = retval.wxyz();
+                // byte stride for x+ step
+                retval[0] = blockByteSize;
+                // row by bytesize
+                retval[1] *= retval[0];
+                // slice by row
+                retval[2] *= retval[1];
+                // layer by slice
+                retval[3] *= retval[2];
+                return retval;
+            }
+
+            inline auto	convert3DTexelStridesTo1DByteStrides(core::vector3du32_SIMD texelStrides) const
+            {
+                return convert3DBlockStridesTo1DByteStrides(convertTexelsToBlocks(texelStrides));
+            }
+
+
+            inline const auto& getDimension() const { return dimension; }
+
+        private:
+            core::vector3du32_SIMD dimension;
+            core::vector3du32_SIMD maxCoord;
+            uint32_t blockByteSize;
+    };
+
 	inline core::rational<uint32_t> getBytesPerPixel(asset::E_FORMAT _fmt)
 	{
 		auto dims = getBlockDimensions(_fmt);

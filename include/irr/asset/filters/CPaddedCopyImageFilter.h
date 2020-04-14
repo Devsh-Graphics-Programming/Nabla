@@ -127,7 +127,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			auto perBlock = [&state](uint32_t blockArrayOffset, core::vectorSIMDu32 readBlockPos)
 			{
 				uint8_t* const bufptr = reinterpret_cast<uint8_t*>(state->outImage->getBuffer()->getPointer());
-				const IImage::SBufferCopy::TexelBlockInfo blockInfo(state->outImage->getCreationParameters().format);
+				const TexelBlockInfo blockInfo(state->outImage->getCreationParameters().format);
 				const uint32_t texelSz = asset::getTexelOrBlockBytesize(state->outImage->getCreationParameters().format);
 
 				auto wrapped = wrapCoords(state, readBlockPos-state->outOffsetBaseLayer, state->extentLayerCount);
@@ -151,7 +151,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 
 					if ((wrapped>=min).all() && (wrapped<max).all())
 					{
-						const auto strides = outreg.getByteStrides(blockInfo, texelSz);//TODO precompute strides
+						const auto strides = outreg.getByteStrides(blockInfo);//TODO precompute strides
 						const uint64_t srcOffset = outreg.getByteOffset(wrapped-min, strides);
 
 						memcpy(bufptr + blockArrayOffset, bufptr + srcOffset, texelSz);
