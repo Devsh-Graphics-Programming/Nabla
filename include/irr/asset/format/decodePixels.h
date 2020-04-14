@@ -942,54 +942,46 @@ namespace asset
             _output[i] = pix[i];
     }
 
-    namespace impl
-    {
-        inline double srgb2lin(double _s)
-        {
-            return core::srgb2lin(_s);
-        }
-    }
-
     template<>
     inline void decodePixels<asset::EF_R8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint8_t& pix = reinterpret_cast<const uint8_t*>(_pix[0])[0];
-        _output[0] = impl::srgb2lin(((pix >> 0) & 0xffULL) / 255.);
+        _output[0] = core::srgb2lin(((pix >> 0) & 0xffULL) / 255.);
     }
 
     template<>
     inline void decodePixels<asset::EF_R8G8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint16_t& pix = reinterpret_cast<const uint16_t*>(_pix[0])[0];
-        _output[0] = impl::srgb2lin(((pix >> 0) & 0xffULL) / 255.);
-        _output[1] = impl::srgb2lin(((pix >> 8) & 0xffULL) / 255.);
+        _output[0] = core::srgb2lin(((pix >> 0) & 0xffULL) / 255.);
+        _output[1] = core::srgb2lin(((pix >> 8) & 0xffULL) / 255.);
     }
 
     template<>
     inline void decodePixels<asset::EF_R8G8B8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
-        _output[0] = impl::srgb2lin(((pix >> 0) & 0xffULL) / 255.);
-        _output[1] = impl::srgb2lin(((pix >> 8) & 0xffULL) / 255.);
-        _output[2] = impl::srgb2lin(((pix >> 16) & 0xffULL) / 255.);
+        _output[0] = core::srgb2lin(((pix >> 0) & 0xffULL) / 255.);
+        _output[1] = core::srgb2lin(((pix >> 8) & 0xffULL) / 255.);
+        _output[2] = core::srgb2lin(((pix >> 16) & 0xffULL) / 255.);
     }
 
     template<>
     inline void decodePixels<asset::EF_B8G8R8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
-        _output[2] = impl::srgb2lin(((pix >> 0) & 0xffULL) / 255.);
-        _output[1] = impl::srgb2lin(((pix >> 8) & 0xffULL) / 255.);
-        _output[0] = impl::srgb2lin(((pix >> 16) & 0xffULL) / 255.);
+        _output[2] = core::srgb2lin(((pix >> 0) & 0xffULL) / 255.);
+        _output[1] = core::srgb2lin(((pix >> 8) & 0xffULL) / 255.);
+        _output[0] = core::srgb2lin(((pix >> 16) & 0xffULL) / 255.);
     }
 
     template<>
     inline void decodePixels<asset::EF_R8G8B8A8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
-        _output[0] = impl::srgb2lin(((pix >> 0) & 0xffULL) / 255.);
-        _output[1] = impl::srgb2lin(((pix >> 8) & 0xffULL) / 255.);
-        _output[2] = impl::srgb2lin(((pix >> 16) & 0xffULL) / 255.);
+        _output[0] = core::srgb2lin(((pix >> 0) & 0xffULL) / 255.);
+        _output[1] = core::srgb2lin(((pix >> 8) & 0xffULL) / 255.);
+        _output[2] = core::srgb2lin(((pix >> 16) & 0xffULL) / 255.);
         _output[3] = ((pix >> 24) & 0xffULL) / 255.;
     }
 
@@ -997,9 +989,9 @@ namespace asset
     inline void decodePixels<asset::EF_B8G8R8A8_SRGB, double>(const void* _pix[4], double* _output, uint32_t _blockX, uint32_t _blockY)
     {
         const uint32_t& pix = reinterpret_cast<const uint32_t*>(_pix[0])[0];
-        _output[2] = impl::srgb2lin(((pix >> 0) & 0xffULL) / 255.);
-        _output[1] = impl::srgb2lin(((pix >> 8) & 0xffULL) / 255.);
-        _output[0] = impl::srgb2lin(((pix >> 16) & 0xffULL) / 255.);
+        _output[2] = core::srgb2lin(((pix >> 0) & 0xffULL) / 255.);
+        _output[1] = core::srgb2lin(((pix >> 8) & 0xffULL) / 255.);
+        _output[0] = core::srgb2lin(((pix >> 16) & 0xffULL) / 255.);
         _output[3] = ((pix >> 24) & 0xffULL) / 255.;
     }
 
@@ -1264,6 +1256,7 @@ namespace asset
             }
         }
 
+        // TODO: just template the core::srgb2lin and core::lin2srgb functions to work on vectors or something
         template<typename T>
         inline void SRGB2lin(T _srgb[3]);
 		
@@ -1728,7 +1721,7 @@ namespace asset
         }
     }
 
-    inline bool decodePixelsRuntime(asset::E_FORMAT _fmt, const void* _pix[4], void* _output, uint32_t _blockX, uint32_t _blockY)
+    inline void decodePixelsRuntime(asset::E_FORMAT _fmt, const void* _pix[4], void* _output, uint32_t _blockX, uint32_t _blockY)
     {
         if (isIntegerFormat(_fmt))
         {

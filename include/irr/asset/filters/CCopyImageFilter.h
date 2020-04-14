@@ -34,6 +34,9 @@ class CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public CMatchedS
 
 		static inline bool execute(state_type* state)
 		{
+			if (!validate(state))
+				return false;
+
 			auto perOutputRegion = [](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
 				assert(getTexelOrBlockBytesize(commonExecuteData.inFormat)==getTexelOrBlockBytesize(commonExecuteData.outFormat)); // if this asserts the API got broken during an update or something

@@ -2239,14 +2239,6 @@ namespace asset
 
     }
 
-    namespace impl
-    {
-    inline double lin2srgb(double _lin)
-    {
-        return core::srgb2lin(_lin);
-    }
-    }
-
     template<>
     inline void encodePixels<asset::EF_R8G8B8_SRGB, double>(void* _pix, const double* _input)
     {
@@ -2254,21 +2246,21 @@ namespace asset
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 0));
-            double inp = impl::lin2srgb(_input[0]);
+            double inp = core::lin2srgb(_input[0]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 0);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 8));
-            double inp = impl::lin2srgb(_input[1]);
+            double inp = core::lin2srgb(_input[1]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 8);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 16));
-            double inp = impl::lin2srgb(_input[2]);
+            double inp = core::lin2srgb(_input[2]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 16);
         }
@@ -2282,21 +2274,21 @@ namespace asset
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 0));
-            double inp = impl::lin2srgb(_input[2]);
+            double inp = core::lin2srgb(_input[2]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 0);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 8));
-            double inp = impl::lin2srgb(_input[1]);
+            double inp = core::lin2srgb(_input[1]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 8);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 16));
-            double inp = impl::lin2srgb(_input[0]);
+            double inp = core::lin2srgb(_input[0]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 16);
         }
@@ -2310,21 +2302,21 @@ namespace asset
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 0));
-            double inp = impl::lin2srgb(_input[0]);
+            double inp = core::lin2srgb(_input[0]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 0);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 8));
-            double inp = impl::lin2srgb(_input[1]);
+            double inp = core::lin2srgb(_input[1]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 8);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 16));
-            double inp = impl::lin2srgb(_input[2]);
+            double inp = core::lin2srgb(_input[2]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 16);
         }
@@ -2343,21 +2335,21 @@ namespace asset
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 0));
-            double inp = impl::lin2srgb(_input[2]);
+            double inp = core::lin2srgb(_input[2]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 0);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 8));
-            double inp = impl::lin2srgb(_input[1]);
+            double inp = core::lin2srgb(_input[1]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 8);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 16));
-            double inp = impl::lin2srgb(_input[0]);
+            double inp = core::lin2srgb(_input[0]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 16);
         }
@@ -2642,7 +2634,7 @@ namespace asset
     }
     
 
-    inline bool encodePixelsRuntime(asset::E_FORMAT _fmt, void* _pix, const void* _input)
+    inline void encodePixelsRuntime(asset::E_FORMAT _fmt, void* _pix, const void* _input)
     {
         if (isIntegerFormat(_fmt))
         {

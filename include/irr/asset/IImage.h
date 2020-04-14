@@ -143,53 +143,23 @@ class IImage : public IDescriptor
 				return trueExtent;
 			}
 
-			struct TexelBlockInfo
-			{
-				TexelBlockInfo(E_FORMAT format) :
-					dimension(getBlockDimensions(format)),
-					maxCoord(dimension - core::vector3du32_SIMD(1u, 1u, 1u))
-				{}
-
-				core::vector3du32_SIMD dimension;
-				core::vector3du32_SIMD maxCoord;
-			};
-			static inline auto			TexelsToBlocks(const core::vector3du32_SIMD& coord, const TexelBlockInfo& info)
-			{
-				return (coord+info.maxCoord)/info.dimension;
-			}
 			inline auto					getBlockStrides(const TexelBlockInfo& info) const
 			{
-				return TexelsToBlocks(getTexelStrides(),info);
+				return info.convertTexelsToBlocks(getTexelStrides());
 			}
 
-			static inline auto			BlockToByteStrides(const core::vector3du32_SIMD& blockStrides, uint32_t blockByteSize)
+
+			inline auto					getByteStrides(const TexelBlockInfo& info) const
 			{
-				// shuffle and put a 1 in the first element
-				auto retval = blockStrides.wxyz();
-				retval[0] = blockByteSize;
-				// row by bytesize
-				retval[1] *= retval[0];
-				// slice by row
-				retval[2] *= retval[1];
-				// layer by slice
-				retval[3] *= retval[2];
-				return retval;
+				return info.convert3DTexelStridesTo1DByteStrides(getTexelStrides());
 			}
-			inline auto					getByteStrides(const TexelBlockInfo& info, uint32_t blockByteSize) const
-			{
-				return BlockToByteStrides(TexelsToBlocks(getTexelStrides(),info),blockByteSize);
-			}
-			inline uint64_t				getLocalOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides) const
+			inline uint64_t				getLocalByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides) const
 			{
 				return core::dot(localXYZLayerOffset,byteStrides)[0];
 			}
 			inline uint64_t				getByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides) const
 			{
-				return bufferOffset+getLocalOffset(localXYZLayerOffset,byteStrides);
-			}
-			inline uint64_t				getByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const TexelBlockInfo& info, uint32_t blockByteSize) const
-			{
-				return getByteOffset(localXYZLayerOffset,getByteStrides(info,blockByteSize));
+				return bufferOffset+getLocalByteOffset(localXYZLayerOffset,byteStrides);
 			}
 
 
@@ -481,13 +451,11 @@ class IImage : public IDescriptor
 		//! Returns image data size in bytes
 		inline size_t getImageDataSizeInBytes() const
 		{
-			const SBufferCopy::TexelBlockInfo info(params.format);
-
 			core::rational<size_t> bytesPerPixel = getBytesPerPixel();
 			size_t memreq = 0ull;
 			for (uint32_t i=0u; i<params.mipLevels; i++)
 			{
-				auto levelSize = SBufferCopy::TexelsToBlocks(getMipSize(i),info)*info.dimension;
+				auto levelSize = info.roundToBlockSize(getMipSize(i));
 				auto memsize = size_t(levelSize[0] * levelSize[1])*size_t(levelSize[2] * params.arrayLayers)*bytesPerPixel;
 				assert(memsize.getNumerator() % memsize.getDenominator() == 0u);
 				memreq += memsize.getIntegerApprox();
@@ -496,14 +464,15 @@ class IImage : public IDescriptor
 		}
 
     protected:
-		IImage() : params{	static_cast<E_CREATE_FLAGS>(0u),ET_2D,EF_R8G8B8A8_SRGB,
-							{0u,0u,0u},0u,0u,static_cast<E_SAMPLE_COUNT_FLAGS>(0u) }
+		IImage() :	params{	static_cast<E_CREATE_FLAGS>(0u),ET_2D,EF_R8G8B8A8_SRGB,
+							{0u,0u,0u},0u,0u,static_cast<E_SAMPLE_COUNT_FLAGS>(0u) },
+					info(params.format)
 			
 		{
 			//tiling(_tiling), usage(_usage), sharingMode(_sharingMode),
 			//queueFamilyIndices(_queueFamilyIndices), initialLayout(_initialLayout)
 		}
-		IImage(SCreationParams&& _params) : params(std::move(_params)) {}
+		IImage(SCreationParams&& _params) : params(std::move(_params)), info(params.format) {}
 
 		virtual ~IImage()
 		{}
@@ -645,6 +614,7 @@ class IImage : public IDescriptor
 
 
 		SCreationParams params;
+		TexelBlockInfo  info;
 
 	private:
 		template<typename CopyStructIt>

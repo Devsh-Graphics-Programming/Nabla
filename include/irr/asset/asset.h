@@ -27,6 +27,8 @@
 #include "irr/asset/filters/CPaddedCopyImageFilter.h"
 #include "irr/asset/filters/CConvertFormatImageFilter.h"
 #include "irr/asset/filters/CSwizzleAndConvertImageFilter.h"
+#include "irr/asset/filters/CFlattenRegionsImageFilter.h"
+#include "irr/asset/filters/CMipMapGenerationImageFilter.h"
 
 // shaders
 #include "irr/asset/ShaderRes.h"

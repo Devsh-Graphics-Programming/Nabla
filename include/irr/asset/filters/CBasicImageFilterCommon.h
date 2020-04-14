@@ -23,23 +23,23 @@ class CBasicImageFilterCommon
 			const auto& subresource = region.imageSubresource;
 
 			const auto& params = image->getCreationParameters();
-			IImage::SBufferCopy::TexelBlockInfo blockInfo(params.format);
+			TexelBlockInfo blockInfo(params.format);
 
 			core::vector3du32_SIMD trueOffset;
 			trueOffset.x = region.imageOffset.x;
 			trueOffset.y = region.imageOffset.y;
 			trueOffset.z = region.imageOffset.z;
-			trueOffset = IImage::SBufferCopy::TexelsToBlocks(trueOffset,blockInfo);
+			trueOffset = blockInfo.convertTexelsToBlocks(trueOffset);
 			trueOffset.w = subresource.baseArrayLayer;
 			
 			core::vector3du32_SIMD trueExtent;
 			trueExtent.x = region.imageExtent.width;
 			trueExtent.y = region.imageExtent.height;
 			trueExtent.z = region.imageExtent.depth;
-			trueExtent  = IImage::SBufferCopy::TexelsToBlocks(trueExtent,blockInfo);
+			trueExtent  = blockInfo.convertTexelsToBlocks(trueExtent);
 			trueExtent.w = subresource.layerCount;
 
-			const auto strides = region.getByteStrides(blockInfo,asset::getTexelOrBlockBytesize(params.format));
+			const auto strides = region.getByteStrides(blockInfo);
 
 			core::vector3du32_SIMD localCoord;
 			for (auto& layer =localCoord[3]=0u; layer<trueExtent.w; ++layer)
@@ -54,19 +54,17 @@ class CBasicImageFilterCommon
 			constexpr default_region_functor_t() = default;
 			inline constexpr bool operator()(IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion) const { return true; }
 		};
-		_IRR_STATIC_INLINE_CONSTEXPR default_region_functor_t default_region_functor{};
 		
 		struct clip_region_functor_t
 		{
 			clip_region_functor_t(const ICPUImage::SSubresourceLayers& _subresrouce, const IImageFilter::IState::TexelRange& _range, E_FORMAT format) : 
-				subresource(_subresrouce), range(_range), blockInfo(format), blockByteSize(getTexelOrBlockBytesize(format)) {}
-			clip_region_functor_t(const ICPUImage::SSubresourceLayers& _subresrouce, const IImageFilter::IState::TexelRange& _range, const IImage::SBufferCopy::TexelBlockInfo& _blockInfo, uint32_t _blockByteSize) :
-				subresource(_subresrouce), range(_range), blockInfo(_blockInfo), blockByteSize(_blockByteSize) {}
+				subresource(_subresrouce), range(_range), blockInfo(format) {}
+			clip_region_functor_t(const ICPUImage::SSubresourceLayers& _subresrouce, const IImageFilter::IState::TexelRange& _range, const TexelBlockInfo& _blockInfo, uint32_t _blockByteSize) :
+				subresource(_subresrouce), range(_range), blockInfo(_blockInfo)  {}
 
-			const ICPUImage::SSubresourceLayers&		subresource;
-			const IImageFilter::IState::TexelRange&		range;
-			const IImage::SBufferCopy::TexelBlockInfo	blockInfo;
-			const uint32_t								blockByteSize;
+			const ICPUImage::SSubresourceLayers&	subresource;
+			const IImageFilter::IState::TexelRange&	range;
+			const TexelBlockInfo					blockInfo;
 
 			inline bool operator()(IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion) const
 			{
@@ -88,9 +86,9 @@ class CBasicImageFilterCommon
 
 				// compute new offset
 				{
-					const auto strides = referenceRegion->getByteStrides(blockInfo,blockByteSize);
+					const auto strides = referenceRegion->getByteStrides(blockInfo);
 					const core::vector3du32_SIMD offsetInOffset = offset-resultOffset;
-					newRegion.bufferOffset += referenceRegion->getLocalOffset(offsetInOffset,strides);
+					newRegion.bufferOffset += referenceRegion->getLocalByteOffset(offsetInOffset,strides);
 				}
 
 				if (!referenceRegion->bufferRowLength)
@@ -110,12 +108,12 @@ class CBasicImageFilterCommon
 				return true;
 			}
 		};
-
-		template<typename F, typename G=default_region_functor_t>
+		
+		template<typename F, typename G>
 		static inline void executePerRegion(const ICPUImage* image, F& f,
-											const IImage::SBufferCopy* _begin=image->getRegions().begin(),
-											const IImage::SBufferCopy* _end=image->getRegions().end(),
-											const G& g=default_region_functor)
+											const IImage::SBufferCopy* _begin,
+											const IImage::SBufferCopy* _end,
+											G& g)
 		{
 			for (auto it=_begin; it!=_end; it++)
 			{
@@ -123,6 +121,14 @@ class CBasicImageFilterCommon
 				if (g(region,it))
 					executePerBlock<F>(image, region, f);
 			}
+		}
+		template<typename F>
+		static inline void executePerRegion(const ICPUImage* image, F& f,
+											const IImage::SBufferCopy* _begin=image->getRegions().begin(),
+											const IImage::SBufferCopy* _end=image->getRegions().end())
+		{
+			default_region_functor_t voidFunctor;
+			return executePerRegion<F,default_region_functor_t>(image,f,_begin,_end,voidFunctor);
 		}
 
 	protected:

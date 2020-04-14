@@ -908,6 +908,9 @@ namespace asset
         }
     }
 
+
+    static inline constexpr uint32_t MaxTexelBlockDimensions[] = { 12u, 12u, 1u, 1u };
+
     inline core::vector3du32_SIMD getBlockDimensions(asset::E_FORMAT _fmt)
     {
         switch (_fmt)
@@ -994,6 +997,57 @@ namespace asset
             return core::vector4du32_SIMD(1u);
         }
     }
+
+    struct TexelBlockInfo
+    {
+        public:
+            TexelBlockInfo(E_FORMAT format) :
+                dimension(getBlockDimensions(format)),
+                maxCoord(dimension-core::vector3du32_SIMD(1u, 1u, 1u)),
+                blockByteSize(getTexelOrBlockBytesize(format))
+            {}
+            
+
+			inline auto convertTexelsToBlocks(const core::vector3du32_SIMD& coord) const
+			{
+				return (coord+maxCoord)/dimension;
+			}
+
+            inline auto roundToBlockSize(const core::vector3du32_SIMD& coord) const
+            {
+                return convertTexelsToBlocks(coord)*dimension;
+            }
+
+
+            inline auto	convert3DBlockStridesTo1DByteStrides(core::vector3du32_SIMD blockStrides) const
+            {
+                // shuffle and put a 1 in the first element
+                auto& retval = blockStrides;
+                retval = retval.wxyz();
+                // byte stride for x+ step
+                retval[0] = blockByteSize;
+                // row by bytesize
+                retval[1] *= retval[0];
+                // slice by row
+                retval[2] *= retval[1];
+                // layer by slice
+                retval[3] *= retval[2];
+                return retval;
+            }
+
+            inline auto	convert3DTexelStridesTo1DByteStrides(core::vector3du32_SIMD texelStrides) const
+            {
+                return convert3DBlockStridesTo1DByteStrides(convertTexelsToBlocks(texelStrides));
+            }
+
+
+            inline const auto& getDimension() const { return dimension; }
+
+        private:
+            core::vector3du32_SIMD dimension;
+            core::vector3du32_SIMD maxCoord;
+            uint32_t blockByteSize;
+    };
 
 	inline core::rational<uint32_t> getBytesPerPixel(asset::E_FORMAT _fmt)
 	{
@@ -1546,53 +1600,52 @@ namespace asset
     {
         switch (_fmt)
         {
-        case EF_R8_SINT:
-        case EF_R8_SRGB:
-        case EF_R8G8_SINT:
-        case EF_R8G8_SRGB:
-        case EF_R8G8B8_SINT:
-        case EF_R8G8B8_SRGB:
-        case EF_B8G8R8_UINT:
-        case EF_B8G8R8_SINT:
-        case EF_B8G8R8_SRGB:
-        case EF_R8G8B8A8_SINT:
-        case EF_R8G8B8A8_SRGB:
-        case EF_B8G8R8A8_UINT:
-        case EF_B8G8R8A8_SINT:
-        case EF_B8G8R8A8_SRGB:
-        case EF_A8B8G8R8_UINT_PACK32:
-        case EF_A8B8G8R8_SINT_PACK32:
-        case EF_A8B8G8R8_SRGB_PACK32:
-        case EF_A2R10G10B10_UINT_PACK32:
-        case EF_A2R10G10B10_SINT_PACK32:
-        case EF_A2B10G10R10_UINT_PACK32:
-        case EF_A2B10G10R10_SINT_PACK32:
-        case EF_R16_UINT:
-        case EF_R16_SINT:
-        case EF_R16G16_UINT:
-        case EF_R16G16_SINT:
-        case EF_R16G16B16_UINT:
-        case EF_R16G16B16_SINT:
-        case EF_R16G16B16A16_UINT:
-        case EF_R16G16B16A16_SINT:
-        case EF_R32_UINT:
-        case EF_R32_SINT:
-        case EF_R32G32_UINT:
-        case EF_R32G32_SINT:
-        case EF_R32G32B32_UINT:
-        case EF_R32G32B32_SINT:
-        case EF_R32G32B32A32_UINT:
-        case EF_R32G32B32A32_SINT:
-        case EF_R64_UINT:
-        case EF_R64_SINT:
-        case EF_R64G64_UINT:
-        case EF_R64G64_SINT:
-        case EF_R64G64B64_UINT:
-        case EF_R64G64B64_SINT:
-        case EF_R64G64B64A64_UINT:
-        case EF_R64G64B64A64_SINT:
-            return true;
-        default: return false;
+            case EF_R8_SINT:
+            case EF_R8_UINT:
+            case EF_R8G8_SINT:
+            case EF_R8G8_UINT:
+            case EF_R8G8B8_SINT:
+            case EF_R8G8B8_UINT:
+            case EF_B8G8R8_SINT:
+            case EF_B8G8R8_UINT:
+            case EF_R8G8B8A8_SINT:
+            case EF_R8G8B8A8_UINT:
+            case EF_B8G8R8A8_SINT:
+            case EF_B8G8R8A8_UINT:
+            case EF_A8B8G8R8_UINT_PACK32:
+            case EF_A8B8G8R8_SINT_PACK32:
+            case EF_A8B8G8R8_SRGB_PACK32:
+            case EF_A2R10G10B10_UINT_PACK32:
+            case EF_A2R10G10B10_SINT_PACK32:
+            case EF_A2B10G10R10_UINT_PACK32:
+            case EF_A2B10G10R10_SINT_PACK32:
+            case EF_R16_UINT:
+            case EF_R16_SINT:
+            case EF_R16G16_UINT:
+            case EF_R16G16_SINT:
+            case EF_R16G16B16_UINT:
+            case EF_R16G16B16_SINT:
+            case EF_R16G16B16A16_UINT:
+            case EF_R16G16B16A16_SINT:
+            case EF_R32_UINT:
+            case EF_R32_SINT:
+            case EF_R32G32_UINT:
+            case EF_R32G32_SINT:
+            case EF_R32G32B32_UINT:
+            case EF_R32G32B32_SINT:
+            case EF_R32G32B32A32_UINT:
+            case EF_R32G32B32A32_SINT:
+            case EF_R64_UINT:
+            case EF_R64_SINT:
+            case EF_R64G64_UINT:
+            case EF_R64G64_SINT:
+            case EF_R64G64B64_UINT:
+            case EF_R64G64B64_SINT:
+            case EF_R64G64B64A64_UINT:
+            case EF_R64G64B64A64_SINT:
+                return true;
+            default:
+                return false;
         }
     }
     inline bool isFloatingPointFormat(asset::E_FORMAT _fmt)

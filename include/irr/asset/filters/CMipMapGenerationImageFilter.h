@@ -14,24 +14,29 @@ namespace irr
 namespace asset
 {
 
-
 // specialized case of CBlitImageFilter
-template<class Kernel=CKaiserImageFilterKernel>
-class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<Kernel> >
+template<class ResamplingKernel=CKaiserImageFilterKernel<>, class ReconstructionKernel=CMitchellImageFilterKernel<> >
+class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<ResamplingKernel,ReconstructionKernel> >, public CBasicImageFilterCommon
 {
 	public:
 		virtual ~CMipMapGenerationImageFilter() {}
-		
-		class CState : public IImageFilter::IState
+
+		// TODO: Improve
+		using Kernel = ResamplingKernel;//CKernelConvolution<ResamplingKernel, ReconstructionKernel>;
+
+		class CProtoState : public IImageFilter::IState
 		{
 			public:
-				virtual ~CState() {}
+				virtual ~CProtoState() {}
 
-				uint32_t	baseLayer= 0u;
-				uint32_t	layerCount = 0u;
-				uint32_t	startMipLevel = 1u;
-				uint32_t	lastMipLevel = 0u;
-				ICPUImage*	inOutImage = nullptr;
+				uint32_t							baseLayer= 0u;
+				uint32_t							layerCount = 0u;
+				uint32_t							startMipLevel = 1u;
+				uint32_t							endMipLevel = 0u;
+				ICPUImage*							inOutImage = nullptr;
+		};
+		class CState : public CProtoState, public CBlitImageFilterBase::CStateBase
+		{
 		};
 		using state_type = CState;
 
@@ -55,7 +60,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			if (isBlockCompressionFormat(state->inOutImage->getCreationParameters().format))
 				return false;
 
-			return Kernel::validate(inImage,outImage);
+			return Kernel::validate(image,image);
 		}
 
 		static inline bool execute(state_type* state)
@@ -75,6 +80,8 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 				blit.inMipLevel = prevLevel;
 				blit.outMipLevel = inMipLevel;
 				blit.inImage = blit.outImage = state->inOutImage;
+				//blit.kernel = Kernel();
+				static_cast<CBlitImageFilterBase::CStateBase&>(blit) = *static_cast<CBlitImageFilterBase::CStateBase*>(state);
 				if (!CBlitImageFilter<Kernel>::execute(&blit))
 					return false;
 			}

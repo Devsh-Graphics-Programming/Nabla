@@ -28,11 +28,11 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 			public:
 				virtual ~CState() {}
 
-				bool								preFill = true;
-				IImageFilter::IState::ColorValue	fillValue;
 				ICPUImage*							inImage = nullptr;
 				// `outImage` pointer might change after execution, can be null, we'll just make a new texture
 				core::smart_refctd_ptr<ICPUImage>	outImage = nullptr;
+				bool								preFill = true;
+				IImageFilter::IState::ColorValue	fillValue;
 		};
 		using state_type = CState;
 
@@ -65,7 +65,7 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 				state->outImage = ICPUImage::create(IImage::SCreationParams(inParams));
 				auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy> >(inParams.mipLevels);
 				size_t bufferSize = 0ull;
-				const IImage::SBufferCopy::TexelBlockInfo info(inParams.format);
+				const TexelBlockInfo info(inParams.format);
 				const core::rational<size_t> bytesPerPixel = state->outImage->getBytesPerPixel();
 				for (auto rit=regions->begin(); rit!=regions->end(); rit++)
 				{
@@ -80,7 +80,7 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 					rit->imageSubresource.layerCount = inParams.arrayLayers;
 					rit->imageOffset = { 0u,0u,0u };
 					rit->imageExtent = { localExtent.x,localExtent.y,localExtent.z };
-					auto levelSize = IImage::SBufferCopy::TexelsToBlocks(localExtent,info)*info.dimension;
+					auto levelSize = info.roundToBlockSize(localExtent);
 					auto memsize = size_t(levelSize[0]*levelSize[1])*size_t(levelSize[2]*inParams.arrayLayers)*bytesPerPixel;
 					assert(memsize.getNumerator()%memsize.getDenominator()==0u);
 					bufferSize += memsize.getIntegerApprox();
@@ -143,7 +143,7 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 					CFillImageFilter::state_type fill;
 					fill.subresource = rit->imageSubresource;
 					fill.outRange = { {0u,0u,0u},rit->imageExtent };
-					fill.outImage = inImg;
+					fill.outImage = outImg;
 					fill.fillValue = state->fillValue;
 					if (!CFillImageFilter::execute(&fill))
 						return false;

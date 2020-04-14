@@ -191,7 +191,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 
 					if ((wrapped>=min).all() && (wrapped<max).all())
 					{
-						const auto strides = outreg.getByteStrides(blockInfo, texelSz);//TODO precompute strides
+						const auto strides = outreg.getByteStrides(blockInfo);//TODO precompute strides
 						const uint64_t srcOffset = outreg.getByteOffset(wrapped-min, strides);
 
 						memcpy(bufptr+blockArrayOffset, bufptr+srcOffset, texelSz);

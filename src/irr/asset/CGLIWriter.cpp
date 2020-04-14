@@ -166,12 +166,12 @@ bool CGLIWriter::writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* 
 		outData += core::dot(texelCoord,state.outStrides)[0];
 		memcpy(outData,inData,texelBlockByteSize);
 	};
-	const IImage::SBufferCopy::TexelBlockInfo blockInfo(imageInfo.format);
+	const TexelBlockInfo blockInfo(imageInfo.format);
 	auto updateState = [&state,&blockInfo,texelBlockByteSize,image](const IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion) -> bool
 	{
 		state.currentMipLevel = referenceRegion->imageSubresource.mipLevel;
 
-		auto outDims = IImage::SBufferCopy::TexelsToBlocks(image->getMipSize(state.currentMipLevel),blockInfo);
+		auto outDims = blockInfo.convertTexelsToBlocks(image->getMipSize(state.currentMipLevel));
 		state.outStrides[0] = texelBlockByteSize;
 		state.outStrides[1] = outDims[0]*texelBlockByteSize;
 		state.outStrides[2] = outDims[1]*state.outStrides[1];

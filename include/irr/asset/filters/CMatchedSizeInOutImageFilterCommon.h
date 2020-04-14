@@ -84,9 +84,7 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 			return true;
 		}
 
-	protected:
-		virtual ~CMatchedSizeInOutImageFilterCommon() = 0;
-		
+	protected:		
 		struct CommonExecuteData
 		{
 			const ICPUImage* const inImg;
@@ -142,7 +140,7 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 				// I know my two's complement wraparound well enough to make this work
 				const auto& outRegionOffset = commonExecuteData.oit->imageOffset;
 				commonExecuteData.offsetDifference = state->outOffsetBaseLayer-(core::vectorSIMDu32(outRegionOffset.x,outRegionOffset.y,outRegionOffset.z,commonExecuteData.oit->imageSubresource.baseArrayLayer)+state->inOffsetBaseLayer);
-				commonExecuteData.outByteStrides = commonExecuteData.oit->getByteStrides(IImage::SBufferCopy::TexelBlockInfo(commonExecuteData.outFormat),getTexelOrBlockBytesize(commonExecuteData.outFormat));
+				commonExecuteData.outByteStrides = commonExecuteData.oit->getByteStrides(TexelBlockInfo(commonExecuteData.outFormat));
 				if (!perOutput(commonExecuteData,clip))
 					return false;
 			}
