@@ -8,49 +8,51 @@
 
 ### Screen Shots
 
+<u>**BRDF Explorer**</u>
+
 ![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/IrrSS/brdf.png?raw=true)
 
-
+<u>**Many light raytracing**</u>
 
 ![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/1.png)
 
-
+<u>**Many light raytracing**</u>
 
 ![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/IrrSS/balls.png?raw=true)
 
-
+**<u>Cylindrical light source</u>**
 
 ![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/11.png)
 
-
+**<u>Two area lights</u>**
 
 ![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/2.png)
 
-
+**<u>.OBJ Loader with MTL pipeline integration</u>**
 
 ![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/3.png)
 
-
+**<u>Over 10 area lights</u>**
 
 ![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/4.png)
 
-
+**<u>Raytracing sample</u>**
 
 ![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/5.png)
 
-
+**<u>Raytracing sample</u>**
 
 ![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/6.png)
 
-
+**<u>Light emitters</u>**
 
 ![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/7.png)
 
-
+**<u>Raytracing sample</u>**
 
 ![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/9.png)
 
-
+**<u>1 Megapixel, 1 Million Samples</u>**
 
 ![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/10.png)
 
@@ -102,15 +104,15 @@
 
 ## Platforms
 
-- [x] #### **Windows**
+- [x] **Windows**
 
-- [x] #### **Linux**
+- [x] **Linux**
 
-- [ ] #### **Android 7.0 +**
+- [ ] **Android 7.0 +**
 
-- [ ] #### **Mac OS** 
+- [ ] **Mac OS**
 
-- [ ] #### **iOS**
+- [ ] **iOS**
 
 
 ## Required Build Tools and SDK's
