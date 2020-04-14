@@ -275,7 +275,10 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 								avgColor += windowSample[i]*windowSample[3];
 						};
 						auto inPos = (core::vectorSIMDf(writeBlockPos)+halfPixelOutOffset)*outToInScale;
-						kernel.evaluate(inPos,load,evaluate);
+						kernel.evaluate(inPos,load,evaluate); 
+						// TODO: clamp value (some kernels will produce ringing)
+						for (auto i=0; i<Kernel::MaxChannels; i++)
+							value[i] = core::clamp<Kernel::value_type,Kernel::value_type>(value[i],0.0,1.0);
 						// alpha handling
 						if (coverageSemantic)
 							*(filteredAlphaArrayIt++) = value[3];

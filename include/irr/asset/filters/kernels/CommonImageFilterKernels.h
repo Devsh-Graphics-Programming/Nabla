@@ -106,7 +106,8 @@ class CKaiserImageFilterKernel : public CFloatingPointIsotropicSeparableImageFil
 			if (inDomain(inPos))
 			{
 				const auto PI = core::PI<core::vectorSIMDf>();
-				auto axisVal = core::sinc(inPos*PI)*core::KaiserWindow(inPos,core::vectorSIMDf(alpha),core::vectorSIMDf(isotropic_support))/PI;
+				const auto x = core::abs(inPos);
+				auto axisVal = core::sinc(x*PI)*core::KaiserWindow(x,core::vectorSIMDf(alpha),core::vectorSIMDf(isotropic_support));
 				return axisVal.x * axisVal.y * axisVal.z;
 			}
 			return 0.f;
@@ -121,10 +122,11 @@ class CMitchellImageFilterKernel : public CFloatingPointIsotropicSeparableImageF
 		{
 			if (inDomain(inPos))
 			{
+				const auto x = core::abs(inPos);
 				auto axisVal = core::mix(
-									core::vectorSIMDf(p0)+inPos*inPos*(core::vectorSIMDf(p2)+inPos*p3),
-									core::vectorSIMDf(q0)+inPos*(core::vectorSIMDf(q1)+inPos*(core::vectorSIMDf(q2)+inPos*q3)),
-									inPos>core::vectorSIMDf(1.f)
+									core::vectorSIMDf(p0)+x*x*(core::vectorSIMDf(p2)+x*p3),
+									core::vectorSIMDf(q0)+x*(core::vectorSIMDf(q1)+x*(core::vectorSIMDf(q2)+x*q3)),
+									x>=core::vectorSIMDf(1.f)
 								);
 				return axisVal.x * axisVal.y * axisVal.z;
 			}
