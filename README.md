@@ -85,7 +85,7 @@
 - **Asset management pipeline**
 - **Automatic pipeline layout creation**
 - **Shader introspection**
-- **Using SPRIV shaders in OpenGL**
+- **Using SPIR-V shaders in OpenGL**
 - **Libraries of GLSL shader functions**
 - **Compute shaders**
 - **Virtual Texturing**
