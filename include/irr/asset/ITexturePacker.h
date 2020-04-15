@@ -433,7 +433,7 @@ public:
                     core::vector3du32_SIMD physPg = pageCoords(physPgAddr, m_pgSzxy);
                     physPg -= core::vector2du32_SIMD(m_tilePadding, m_tilePadding);
 
-                    const core::vector2du32_SIMD miptailOffset = (i>=levelsTakingAtLeastOnePageCount) ? core::vector2du32_SIMD(m_miptailOffsets[i-levelsTakingAtLeastOnePageCount].x,m_miptailOffsets[i-levelsTakingAtLeastOnePageCount].y)+core::vector2du32_SIMD(m_tilePadding,m_tilePadding) : core::vector2du32_SIMD(0u,0u);
+                    const core::vector2du32_SIMD miptailOffset = (i>=levelsTakingAtLeastOnePageCount) ? core::vector2du32_SIMD(m_miptailOffsets[i-levelsTakingAtLeastOnePageCount].x,m_miptailOffsets[i-levelsTakingAtLeastOnePageCount].y) : core::vector2du32_SIMD(0u,0u);
                     physPg += miptailOffset;
 
                     CPaddedCopyImageFilter::state_type copy;
