@@ -60,10 +60,10 @@ private:
 
 		using namespace std::string_literals;
 		return
-			"#ifndef " + inclguard +
-			"#define " + inclguard +
+			"\n#ifndef " + inclguard +
+			"\n#define " + inclguard +
 			"\n#define ADDR_Y_SHIFT "s + args[ix_addr_x_bits] + "u"
-			"\n#define ADDR_LAYER_SHIFT" + std::to_string(addr_x_bits+addr_y_bits) + "u"
+			"\n#define ADDR_LAYER_SHIFT " + std::to_string(addr_x_bits+addr_y_bits) + "u" +
 			R"(
 #define ADDR_X_MASK uint((0x1u<<ADDR_Y_SHIFT)-1u)
 #define ADDR_Y_MASK uint((0x1u<<(ADDR_LAYER_SHIFT-ADDR_Y_SHIFT))-1u))" +
