@@ -456,7 +456,8 @@ public:
                     copy.axisWraps[1] = _wrapv;
                     copy.axisWraps[2] = ISampler::ETC_CLAMP_TO_EDGE;
                     copy.borderColor = _borderColor;
-                    CPaddedCopyImageFilter::execute(&copy);
+                    if (!CPaddedCopyImageFilter::execute(&copy))
+                        _IRR_DEBUG_BREAK_IF(true);
                 }
         }
 

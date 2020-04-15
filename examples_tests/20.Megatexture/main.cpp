@@ -474,14 +474,15 @@ core::smart_refctd_ptr<asset::ICPUImage> createPoTPaddedSquareImageWithMipLevels
 
     asset::CPaddedCopyImageFilter::execute(&copy);
 
+    using mip_gen_filter_t = asset::CMipMapGenerationImageFilter<asset::CBoxImageFilterKernel,asset::CBoxImageFilterKernel>;
     //generate all mip levels
-    asset::CMipMapGenerationImageFilter<asset::CTriangleImageFilterKernel,asset::CTriangleImageFilterKernel>::state_type mipmapgen;
+    mip_gen_filter_t::state_type mipmapgen;
     mipmapgen.baseLayer = 0u;
     mipmapgen.layerCount = 1u;
     mipmapgen.startMipLevel = 1u;
     mipmapgen.endMipLevel = paddedImg->getCreationParameters().mipLevels;
     mipmapgen.inOutImage = paddedImg.get();
-    asset::CMipMapGenerationImageFilter<asset::CTriangleImageFilterKernel, asset::CTriangleImageFilterKernel>::execute(&mipmapgen);
+    mip_gen_filter_t::execute(&mipmapgen);
 
     //bring back original extent
     {
