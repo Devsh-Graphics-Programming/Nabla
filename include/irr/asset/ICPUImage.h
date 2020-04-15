@@ -10,7 +10,7 @@
 #include "irr/asset/IAsset.h"
 #include "irr/asset/ICPUBuffer.h"
 #include "irr/asset/IImage.h"
-#include "irr/asset/ISampler.h"
+#include "irr/asset/ICPUSampler.h"
 
 namespace irr
 {
@@ -111,79 +111,30 @@ class ICPUImage final : public IImage, public IAsset
 		}
 
 		//
-		static inline auto wrapTextureCoordinate(	core::vectorSIMDi32 texelCoord, const ISampler::E_TEXTURE_CLAMP wrapModes[3],
-													const core::vector3du32_SIMD& mipExtent, const core::vector3du32_SIMD& mipLastCoord)
-		{
-			for (auto i=0; i<3; i++)
-			{
-				const auto originalWasNegative = texelCoord[i]<0 ? 1:0;
-				auto repeat = [&texelCoord,i,&mipExtent,originalWasNegative]()
-				{
-					texelCoord[i] %= mipExtent[i];
-					if (originalWasNegative)
-						texelCoord[i] = mipExtent[i] + texelCoord[i];
-				};
-				switch (wrapModes[i])
-				{
-					case ISampler::ETC_REPEAT:
-						repeat();
-						break;
-					case ISampler::ETC_CLAMP_TO_EDGE:
-						texelCoord[i] = core::clamp<int32_t,int32_t>(texelCoord[i],0,mipLastCoord[i]);
-						break;
-					case ISampler::ETC_MIRROR_CLAMP_TO_EDGE:
-						texelCoord[i] = core::clamp<int32_t,int32_t>(texelCoord[i],-mipExtent[i],mipExtent[i]+mipLastCoord[i]);
-					case ISampler::ETC_MIRROR:
-						{
-							auto repeatID = (originalWasNegative+texelCoord[i])/mipExtent[i];
-							repeat();
-							if ((repeatID&0x1)!=originalWasNegative)
-								texelCoord[i] = mipLastCoord[i]-texelCoord[i];
-						}
-						break;
-					default:
-						// TODO: Handle borders, would have to have a static globally initialized memory array, with blocks of each <E_FORMAT,E_TEXTURE_BORDER_COLOR> combo
-						assert(false);
-						break;
-				}
-			}
-			return texelCoord;
-		}
-		//
 		inline auto wrapTextureCoordinate(uint32_t mipLevel, const core::vectorSIMDi32& texelCoord, const ISampler::E_TEXTURE_CLAMP wrapModes[3]) const
 		{
 			auto mipExtent = getMipSize(mipLevel);
 			auto mipLastCoord = mipExtent-core::vector3du32_SIMD(1,1,1,1);
-			return wrapTextureCoordinate(texelCoord,wrapModes,mipExtent,mipLastCoord);
+			return ICPUSampler::wrapTextureCoordinate(texelCoord,wrapModes,mipExtent,mipLastCoord);
 		}
 
 		//
-		inline const void* getTexelBlockData(	const IImage::SBufferCopy* region, const core::vectorSIMDu32& inRegionCoord,
-												core::vectorSIMDu32& outBlockCoord) const
+		inline const void* getTexelBlockData(const IImage::SBufferCopy* region, const core::vectorSIMDu32& inRegionCoord, core::vectorSIMDu32& outBlockCoord) const
 		{
 			auto localXYZLayerOffset = inRegionCoord/info.getDimension();
 			outBlockCoord = inRegionCoord-localXYZLayerOffset*info.getDimension();
 			return reinterpret_cast<const uint8_t*>(buffer->getPointer())+region->getByteOffset(localXYZLayerOffset,region->getByteStrides(info));
 		}
-		inline const void* getTexelBlockData(	uint32_t mipLevel, const core::vectorSIMDi32& texelCoord,
-												core::vectorSIMDu32& outBlockCoord, const ISampler::E_TEXTURE_CLAMP wrapModes[3]) const
+		inline const void* getTexelBlockData(uint32_t mipLevel, const core::vectorSIMDu32& boundedTexelCoord, core::vectorSIMDu32& outBlockCoord) const
 		{
-			// wrap coord
-			core::vectorSIMDu32 inImageCoord(wrapTextureCoordinate(mipLevel,texelCoord,wrapModes));
 			// get region for coord
-			const auto* region = getRegion(mipLevel,inImageCoord);
+			const auto* region = getRegion(mipLevel,boundedTexelCoord);
 			if (!region)
 				return nullptr;
 			//
-			core::vectorSIMDu32 inRegionCoord(inImageCoord);
+			core::vectorSIMDu32 inRegionCoord(boundedTexelCoord);
 			inRegionCoord -= core::vectorSIMDu32(region->imageOffset.x,region->imageOffset.y,region->imageOffset.z,region->imageSubresource.baseArrayLayer);
 			return getTexelBlockData(region,inRegionCoord,outBlockCoord);
-		}
-		inline const void* getTexelBlockData(	uint32_t mipLevel, const core::vectorSIMDi32& texelCoord,
-												core::vectorSIMDu32& outBlockCoord) const
-		{
-			ISampler::E_TEXTURE_CLAMP wrapModes[3] = { ISampler::ETC_REPEAT,ISampler::ETC_REPEAT,ISampler::ETC_REPEAT };
-			return getTexelBlockData(mipLevel,texelCoord,outBlockCoord,wrapModes);
 		}
 
 
