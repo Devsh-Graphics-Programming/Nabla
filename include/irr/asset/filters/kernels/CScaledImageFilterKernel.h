@@ -56,6 +56,10 @@ class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilter
 			return StaticPolymorphicBase::getWindowMinCoord(std::forward<Args>(args)...);
 		}
 
+		inline const auto& getWindowSize() const
+		{
+			return StaticPolymorphicBase::getWindowSize();
+		}
 		inline int32_t getWindowVolume() const
 		{
 			return StaticPolymorphicBase::getWindowVolume();
@@ -99,6 +103,12 @@ class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilter
 		inline auto create_sample_functor_t(PreFilter& preFilter, PostFilter& postFilter) const
 		{
 			return sample_functor_t(this,preFilter,postFilter);
+		}
+
+		template<class PreFilter, class PostFilter>
+		inline void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord) const
+		{
+			StaticPolymorphicBase::evaluateImpl<PreFilter,PostFilter>(preFilter,postFilter,windowSample,relativePosAndFactor,globalTexelCoord);
 		}
 };
 

@@ -46,6 +46,10 @@ class IImageFilterKernel
 			return getWindowMinCoord(unnormCeterSampledCoord,dummy);
 		}
 
+		inline const auto& getWindowSize() const
+		{
+			return window_size;
+		}
 		inline int32_t getWindowVolume() const
 		{
 			return window_size[0]*window_size[1]*window_size[2];
@@ -109,7 +113,6 @@ class CImageFilterKernel : public IImageFilterKernel
 			}
 		}
 
-	protected:
 		template<class PreFilter, class PostFilter>
 		void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord) const;
 };

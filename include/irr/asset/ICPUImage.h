@@ -118,14 +118,20 @@ class ICPUImage final : public IImage, public IAsset
 			return ICPUSampler::wrapTextureCoordinate(texelCoord,wrapModes,mipExtent,mipLastCoord);
 		}
 
+
 		//
-		inline const void* getTexelBlockData(const IImage::SBufferCopy* region, const core::vectorSIMDu32& inRegionCoord, core::vectorSIMDu32& outBlockCoord) const
+		inline void* getTexelBlockData(const IImage::SBufferCopy* region, const core::vectorSIMDu32& inRegionCoord, core::vectorSIMDu32& outBlockCoord)
 		{
 			auto localXYZLayerOffset = inRegionCoord/info.getDimension();
 			outBlockCoord = inRegionCoord-localXYZLayerOffset*info.getDimension();
-			return reinterpret_cast<const uint8_t*>(buffer->getPointer())+region->getByteOffset(localXYZLayerOffset,region->getByteStrides(info));
+			return reinterpret_cast<uint8_t*>(buffer->getPointer())+region->getByteOffset(localXYZLayerOffset,region->getByteStrides(info));
 		}
-		inline const void* getTexelBlockData(uint32_t mipLevel, const core::vectorSIMDu32& boundedTexelCoord, core::vectorSIMDu32& outBlockCoord) const
+		inline const void* getTexelBlockData(const IImage::SBufferCopy* region, const core::vectorSIMDu32& inRegionCoord, core::vectorSIMDu32& outBlockCoord) const
+		{
+			return const_cast<typename std::decay<decltype(*this)>::type*>(this)->getTexelBlockData(region,inRegionCoord,outBlockCoord);
+		}
+
+		inline void* getTexelBlockData(uint32_t mipLevel, const core::vectorSIMDu32& boundedTexelCoord, core::vectorSIMDu32& outBlockCoord)
 		{
 			// get region for coord
 			const auto* region = getRegion(mipLevel,boundedTexelCoord);
@@ -135,6 +141,10 @@ class ICPUImage final : public IImage, public IAsset
 			core::vectorSIMDu32 inRegionCoord(boundedTexelCoord);
 			inRegionCoord -= core::vectorSIMDu32(region->imageOffset.x,region->imageOffset.y,region->imageOffset.z,region->imageSubresource.baseArrayLayer);
 			return getTexelBlockData(region,inRegionCoord,outBlockCoord);
+		}
+		inline const void* getTexelBlockData(uint32_t mipLevel, const core::vectorSIMDu32& inRegionCoord, core::vectorSIMDu32& outBlockCoord) const
+		{
+			return const_cast<typename std::decay<decltype(*this)>::type*>(this)->getTexelBlockData(mipLevel,inRegionCoord,outBlockCoord);
 		}
 
 
