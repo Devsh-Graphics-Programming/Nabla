@@ -42,6 +42,10 @@ class CBlitImageFilterBase : public CBasicImageFilterCommon
 				double								alphaRefValue = 0.5; // only required to make sense if `alphaSemantic==EAS_REFERENCE_OR_COVERAGE`
 		};
 
+	protected:
+		CBlitImageFilterBase() {}
+		virtual ~CBlitImageFilterBase() {}
+
 		template<class Kernel>
 		static inline uint32_t getRequiredScratchByteSize(	const Kernel& k,
 															typename CStateBase::E_ALPHA_SEMANTIC alphaSemantic=CStateBase::EAS_NONE_OR_PREMULTIPLIED,
@@ -55,10 +59,6 @@ class CBlitImageFilterBase : public CBasicImageFilterCommon
 			}
 			return retval*sizeof(Kernel::value_type);
 		}
-
-	protected:
-		CBlitImageFilterBase() {}
-		virtual ~CBlitImageFilterBase() {}
 
 		static inline bool validate(CStateBase* state)
 		{
@@ -75,6 +75,9 @@ template<class Kernel=CBoxImageFilterKernel>
 class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public CBlitImageFilterBase
 {
 	public:
+		// we'll probably never remove this requirement
+		static_assert(Kernel::is_separable,"Alpha Handling requires high precision and multipass filtering!");
+
 		virtual ~CBlitImageFilter() {}
 
 		class CProtoState : public IImageFilter::IState
@@ -86,6 +89,13 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 					inExtentLayerCount = core::vectorSIMDu32();
 					outOffsetBaseLayer = core::vectorSIMDu32();
 					outExtentLayerCount = core::vectorSIMDu32();
+				}
+				CProtoState(const CProtoState& other) : inMipLevel(other.inMipLevel),outMipLevel(other.outMipLevel),inImage(other.inImage),outImage(other.outImage),kernel(other.kernel)
+				{
+					inOffsetBaseLayer = other.inOffsetBaseLayer;
+					inExtentLayerCount = other.inExtentLayerCount;
+					outOffsetBaseLayer = other.outOffsetBaseLayer;
+					outExtentLayerCount = other.outExtentLayerCount;
 				}
 				virtual ~CProtoState() {}
 
@@ -135,13 +145,21 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 		{
 		};
 		using state_type = CState;
+		
+
+		static inline uint32_t getRequiredScratchByteSize(const state_type* state)
+		{
+			uint32_t retval = getScratchOffset(state,true);
+			retval += CBlitImageFilterBase::getRequiredScratchByteSize<Kernel>(state->kernel,state->alphaSemantic,state->outExtentLayerCount);
+			return retval;
+		}
 
 		static inline bool validate(state_type* state)
 		{
 			if (!CBlitImageFilterBase::validate(state))
 				return false;
 			
-			if (state->scratchMemoryByteSize<getRequiredScratchByteSize(state->kernel,state->alphaSemantic,state->inExtentLayerCount))
+			if (state->scratchMemoryByteSize<getRequiredScratchByteSize(state))
 				return false;
 
 			if (state->inLayerCount!=state->outLayerCount)
@@ -175,6 +193,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 			if (!validate(state))
 				return false;
 
+			// load all the state
 			const auto* const inImg = state->inImage;
 			auto* const outImg = state->outImage;
 			const ICPUImage::SCreationParams& inParams = inImg->getCreationParameters();
@@ -201,8 +220,22 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 			const bool nonPremultBlendSemantic = state->alphaSemantic==CState::EAS_SEPARATE_BLEND;
 			const bool coverageSemantic = state->alphaSemantic==CState::EAS_REFERENCE_OR_COVERAGE;
 			const auto alphaRefValue = state->alphaRefValue;
+
+			// filtering and alpha handling happens separately for every layer, so save on scratch memory size
+			Kernel::value_type* intemediateStorage[2] = {reinterpret_cast<Kernel::value_type*>(state->scratchMemory),reinterpret_cast<Kernel::value_type*>(state->scratchMemory+getScratchOffset(state,false))};
+#if 0
+			// storage functions
+			auto storeToOutput = [outFormat]() -> void
+			{
+				// TODO IMPROVE: by adding random quantization noise (dithering) to break up any banding, could actually steal a sobol sampler for this
+				asset::encodePixels<Kernel::value_type>(outFormat,dstPix,valbuf[0]);
+			};
+#endif
 			for (uint32_t layer=0; layer!=layerCount; layer++)
 			{
+				// filter in X-axis (load from input, save to intermediate1)
+				// filter in Y-axis (load from intermediate1, save to intermediate2)
+				// filter in Z-axis (load from intermediate2, save to output)
 				auto load = [layer,inImg,inMipLevel,&state,inFormat](Kernel::value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord)
 				{
 					auto texelCoordAndLayer(globalTexelCoord);
@@ -251,7 +284,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 				const auto halfPixelOutOffset = core::vectorSIMDf(outBlockDims)*0.5f+core::vectorSIMDf(0.f,0.f,0.f,-float(outLayer)-0.5f);
 				const auto outToInScale = core::vectorSIMDf(outBlockDims*state->inExtentLayerCount).preciseDivision(fOutExtent);
 				// optionals
-				auto* const filteredAlphaArray = reinterpret_cast<Kernel::value_type*>(state->scratchMemory+getRequiredScratchByteSize(kernel));
+				auto* const filteredAlphaArray = reinterpret_cast<Kernel::value_type*>(state->scratchMemory+getScratchOffset(state,true));
 				auto* filteredAlphaArrayIt = filteredAlphaArray;
 				auto blit = [outData,outBlockDims,&halfPixelOutOffset,&outToInScale,&load,&kernel,nonPremultBlendSemantic,coverageSemantic,&filteredAlphaArrayIt,outFormat](uint32_t writeBlockArrayOffset, core::vectorSIMDu32 writeBlockPos) -> void
 				{
@@ -325,6 +358,12 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 				}
 			}
 			return true;
+		}
+
+	private:
+		static inline uint32_t getScratchOffset(const state_type* state, bool afterSecondPass)
+		{
+			return state->outExtent.width*(state->inExtent.height+(afterSecondPass ? state->outExtent.height:0u))*state->inExtent.depth*Kernel::MaxChannels*sizeof(Kernel::value_type);
 		}
 };
 

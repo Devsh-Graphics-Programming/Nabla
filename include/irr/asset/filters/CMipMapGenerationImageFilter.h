@@ -39,6 +39,13 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 		{
 		};
 		using state_type = CState;
+		
+
+		static inline uint32_t getRequiredScratchByteSize(const state_type* state)
+		{
+			auto blit = buildBlitState(state,state->startMipLevel);
+			return CBlitImageFilter<Kernel>::getRequiredScratchByteSize(&blit);
+		}
 
 		static inline bool validate(state_type* state)
 		{
@@ -70,22 +77,29 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 
 			for (auto inMipLevel=state->startMipLevel; inMipLevel!=state->endMipLevel; inMipLevel++)
 			{
-				const auto prevLevel = inMipLevel-1u;
-
-				CBlitImageFilter<Kernel>::state_type blit;
-				blit.inOffsetBaseLayer = blit.outOffsetBaseLayer = core::vectorSIMDu32(0,0,0,state->baseLayer);
-				blit.inExtentLayerCount = state->inOutImage->getMipSize(prevLevel);
-				blit.outExtentLayerCount = state->inOutImage->getMipSize(inMipLevel);
-				blit.inLayerCount = blit.outLayerCount = state->layerCount;
-				blit.inMipLevel = prevLevel;
-				blit.outMipLevel = inMipLevel;
-				blit.inImage = blit.outImage = state->inOutImage;
-				//blit.kernel = Kernel();
-				static_cast<CBlitImageFilterBase::CStateBase&>(blit) = *static_cast<CBlitImageFilterBase::CStateBase*>(state);
+				auto blit = buildBlitState(state, inMipLevel);
 				if (!CBlitImageFilter<Kernel>::execute(&blit))
 					return false;
 			}
 			return true;
+		}
+
+	protected:
+		static inline auto buildBlitState(const state_type* state, uint32_t inMipLevel)
+		{
+			const auto prevLevel = inMipLevel-1u;
+
+			CBlitImageFilter<Kernel>::state_type blit;
+			blit.inOffsetBaseLayer = blit.outOffsetBaseLayer = core::vectorSIMDu32(0, 0, 0, state->baseLayer);
+			blit.inExtentLayerCount = state->inOutImage->getMipSize(prevLevel);
+			blit.outExtentLayerCount = state->inOutImage->getMipSize(inMipLevel);
+			blit.inLayerCount = blit.outLayerCount = state->layerCount;
+			blit.inMipLevel = prevLevel;
+			blit.outMipLevel = inMipLevel;
+			blit.inImage = blit.outImage = state->inOutImage;
+			//blit.kernel = Kernel();
+			static_cast<CBlitImageFilterBase::CStateBase&>(blit) = *static_cast<const CBlitImageFilterBase::CStateBase*>(state);
+			return blit;
 		}
 };
 
