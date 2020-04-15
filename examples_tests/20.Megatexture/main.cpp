@@ -76,16 +76,16 @@ vec3 unpackPageID(in uint pageID)
 	return vec3(vec2(pageOffset),pageID>>ADDR_LAYER_SHIFT);
 }
 
-vec4 vTextureGrad_helper(in vec3 virtualUV, int LoD, in mat2 gradients, in int clippedTextureLoD)
+vec4 vTextureGrad_helper(in vec3 virtualUV, int LoD, in mat2 gradients, in int clippedLoD)
 {
-    uvec2 pageID = textureLod(pageTable[1],virtualUV,LoD).xy;
+    uvec2 pageID = textureLod(pageTable[1],virtualUV,clippedLoD).xy;
 
 	// WANT: to get rid of this `textureSize` call
 	float tilesInLodLevel = float(textureSize(pageTable[1],LoD).x);
 	// TODO: rename to tileCoordinate if the dimensions will stay like this
 	vec2 tileFractionalCoordinate = fract(virtualUV.xy*tilesInLodLevel);
 
-	int levelInTail = max(LoD-clippedTextureLoD,0);//this max() is not needed
+	int levelInTail = max(LoD-clippedLoD,0);//this max() is not needed (LoD is always >= clippedLoD)
 	tileFractionalCoordinate *= float(PAGE_SZ)*intBitsToFloat((127-levelInTail)<<23); // IEEE754 hack
 	tileFractionalCoordinate += vec2(packingOffsets[levelInTail]);
 
@@ -847,7 +847,7 @@ int main()
         write.info = info;
         write.info->desc = gpuMipChoiceUbo;
         write.info->buffer.offset = 0u;
-        write.info->buffer.size = sizeof(int32_t);
+        write.info->buffer.size = 16u;
         driver->updateDescriptorSets(1u, &write, 0u, nullptr);
     }
 #endif
@@ -908,7 +908,9 @@ int main()
             }
         }       
         driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), uboData.data());
+#ifdef TEST_VT_MIPS
         driver->updateBufferRangeViaStagingBuffer(gpuMipChoiceUbo.get(), 0ull, sizeof(int32_t), &receiver.getLoD());
+#endif
 
         for (uint32_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)
         {
