@@ -489,13 +489,18 @@ core::smart_refctd_ptr<asset::ICPUImage> createPoTPaddedSquareImageWithMipLevels
 
     using mip_gen_filter_t = asset::CMipMapGenerationImageFilter<asset::CBoxImageFilterKernel,asset::CBoxImageFilterKernel>;
     //generate all mip levels
-    mip_gen_filter_t::state_type mipmapgen;
-    mipmapgen.baseLayer = 0u;
-    mipmapgen.layerCount = 1u;
-    mipmapgen.startMipLevel = 1u;
-    mipmapgen.endMipLevel = paddedImg->getCreationParameters().mipLevels;
-    mipmapgen.inOutImage = paddedImg.get();
-    mip_gen_filter_t::execute(&mipmapgen);
+    {
+        mip_gen_filter_t::state_type genmips;
+        genmips.baseLayer = 0u;
+        genmips.layerCount = 1u;
+        genmips.startMipLevel = 1u;
+        genmips.endMipLevel = paddedImg->getCreationParameters().mipLevels;
+        genmips.inOutImage = paddedImg.get();
+        genmips.scratchMemoryByteSize = mip_gen_filter_t::getRequiredScratchByteSize(&genmips);
+        genmips.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(genmips.scratchMemoryByteSize,_IRR_SIMD_ALIGNMENT));
+        mip_gen_filter_t::execute(&genmips);
+        _IRR_ALIGNED_FREE(genmips.scratchMemory);
+    }
 
     //bring back original extent
     {
