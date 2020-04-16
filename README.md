@@ -58,7 +58,9 @@
 
 
 
-### Gifs
+### Gifs - [Raytracing flythrough](https://www.youtube.com/watch?v=bwVVoAsRjHI)
+
+
 
 ![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/raytracingg1.gif?raw=true)
 
@@ -77,6 +79,30 @@
 
 
 ![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/raytracingg5.gif?raw=true)
+
+
+
+### Gifs - [Raytracing With Optix AI Denoising [Albedo and Normals]](https://www.youtube.com/watch?v=VFad-Y-dSxQ&feature=youtu.be)
+
+
+
+![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/denoising/den1.gif?raw=true)
+
+
+
+![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/denoising/den2.gif?raw=true)
+
+
+
+![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/denoising/den3.gif?raw=true)
+
+
+
+![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/denoising/den4.gif?raw=true)
+
+
+
+![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/denoising/den7.gif?raw=true)
 
 
 
