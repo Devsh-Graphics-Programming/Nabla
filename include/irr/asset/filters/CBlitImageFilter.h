@@ -320,9 +320,8 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 			const core::vectorSIMDf fInExtent(inExtentLayerCount);
 			const core::vectorSIMDf fOutExtent(outExtentLayerCount);
 			const auto fScale = fInExtent.preciseDivision(fOutExtent);
-			core::vectorSIMDf arrayCoord;
-			const auto startCoord = kernel.getWindowMinCoord(fScale*0.5f-core::vectorSIMDf(0.f,0.f,0.f,0.5f),arrayCoord);
-			const auto windowStartFraction = core::vectorSIMDf(startCoord)-arrayCoord;
+			const auto halfTexelOffset = fScale*0.5f-core::vectorSIMDf(0.f,0.f,0.f,0.5f);
+			const auto startCoord = kernel.getWindowMinCoord(halfTexelOffset);
 			const auto windowMinCoordBase = inOffsetBaseLayer+startCoord;
 			for (uint32_t layer=0; layer!=layerCount; layer++)
 			{
@@ -346,19 +345,21 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 					// z x y output along y
 					// x y z output along z
 					const int loopCoordID[2] = {axis!=IImage::ET_3D ? 2:0,axis!=IImage::ET_2D ? 1:0/*,axis*/};
+					const float kernelScaleCorrectionFactor = fScale[loopCoordID[0]]*fScale[loopCoordID[1]];
 					core::vectorSIMDi32 localTexCoord;
 					for (auto& k=(localTexCoord[loopCoordID[0]]=0); k<intermediateExtent[axis][loopCoordID[0]]; k++)
 					for (auto& j=(localTexCoord[loopCoordID[1]]=0); j<intermediateExtent[axis][loopCoordID[1]]; j++)
 					{
 						// whole line plus window borders
 						Kernel::value_type* lineBuffer;
+						localTexCoord[axis] = 0;
 						if (axis!=IImage::ET_1D)
 							lineBuffer = intermediateStorage[axis-1]+core::dot(static_cast<const core::vectorSIMDi32&>(intermediateStrides[axis-1]),localTexCoord)[0];
 						else
 						{
 							lineBuffer = intermediateStorage[1];
 							const auto windowEnd = inExtent.width+window_last.x;
-							for (auto& i=(localTexCoord.x=0); i<windowEnd; i++)
+							for (auto& i=localTexCoord.x; i<windowEnd; i++)
 							{
 								core::vectorSIMDi32 globalTexelCoord(localTexCoord+windowMinCoord);
 
@@ -389,39 +390,40 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 								}
 							}
 						}
+							//for (auto m=0; m<(inExtentLayerCount+window_last)[axis]*4u; m++)
+								//lineBuffer[m] = sampler.nextSample()/float(~0u);
 						//
-						for (auto m=0; m<windowEnd; m++)
-							lineBuffer[m] = sampler.nextSample()/float(~0u);
-						//
-						const int32_t windowStart = windowMinCoord[axis];
 						for (auto& i=(localTexCoord[axis]=0); i<outExtentLayerCount[axis]; i++)
 						{
 							// get output pixel
 							auto* const value = intermediateStorage[axis]+core::dot(static_cast<const core::vectorSIMDi32&>(intermediateStrides[axis]),localTexCoord)[0];
 							std::fill(value,value+Kernel::MaxChannels,Kernel::value_type(0));
 							// kernel load functor
-							auto load = [axis,windowStart,lineBuffer](Kernel::value_type* windowSample, const core::vectorSIMDf& unused0, const core::vectorSIMDi32& globalTexelCoord) -> void
+							auto load = [axis,&windowMinCoord,lineBuffer](Kernel::value_type* windowSample, const core::vectorSIMDf& unused0, const core::vectorSIMDi32& globalTexelCoord) -> void
 							{
-								for (auto i=0; i<Kernel::MaxChannels; i++)
-									windowSample[i] = lineBuffer[globalTexelCoord[axis]-windowStart];
+								for (auto h=0; h<Kernel::MaxChannels; h++)
+									windowSample[h] = lineBuffer[(globalTexelCoord[axis]-windowMinCoord[axis])*Kernel::MaxChannels+h];
 							};
 							// kernel evaluation functor
 							auto evaluate = [value](const Kernel::value_type* windowSample, const core::vectorSIMDf& unused0, const core::vectorSIMDi32& unused1) -> void
 							{
-								for (auto i=0; i<Kernel::MaxChannels; i++)
-									value[i] += windowSample[i];
+								for (auto h=0; h<Kernel::MaxChannels; h++)
+									value[h] += windowSample[h];
 							};
-							// do the filtering
+							// do the filtering 
+							core::vectorSIMDf tmp;
+							tmp[axis] = float(i)+0.5f;
 							core::vectorSIMDi32 windowCoord;
-							windowCoord[axis] = windowStart+i;
-							core::vectorSIMDf relativePosAndFactor;
-							relativePosAndFactor[axis] = windowStartFraction[axis];
+							windowCoord[axis] = kernel.getWindowMinCoord(tmp*fScale,tmp)[axis];
+							auto relativePosAndFactor = tmp[axis]-float(windowCoord[axis]);
 							for (auto h=0; h<windowSize; h++)
 							{
 								Kernel::value_type windowSample[Kernel::MaxChannels];
-								kernel.evaluateImpl(load,evaluate,windowSample,relativePosAndFactor,windowCoord);
-								relativePosAndFactor -= fUnitIncrease;
-								windowCoord += unitIncrease;
+
+								core::vectorSIMDf tmp(relativePosAndFactor,0.f,0.f,kernelScaleCorrectionFactor);
+								kernel.evaluateImpl(load,evaluate,windowSample, tmp,windowCoord);
+								relativePosAndFactor -= 1.f;
+								windowCoord[axis]++;
 							}
 							if (!coverageSemantic && lastPass) // store to image, we're done
 							{
