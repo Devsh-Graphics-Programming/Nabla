@@ -46,9 +46,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			core::vector3du32_SIMD paddedExtent(&state->paddedExtent.width); paddedExtent = paddedExtent&core::vectorSIMDu32(~0u,~0u,~0u,0u);
 			core::vector3du32_SIMD reloffset(&state->relativeOffset.x); reloffset = reloffset&core::vectorSIMDu32(~0u,~0u,~0u,0u);
 			core::vectorSIMDu32 outImgExtent(&outParams.extent.width); outImgExtent.w = outParams.arrayLayers;
-			if ((state->extentLayerCount>paddedExtent).xyzz().any())
-				return false;
-			if ((reloffset>=state->extentLayerCount).xyzz().any())
+			if (((reloffset+state->extentLayerCount)>paddedExtent).xyzz().any())
 				return false;
 			if (((state->outOffsetBaseLayer+paddedExtent)>outImgExtent).xyzz().any())
 				return false;
@@ -203,7 +201,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			{
 				for (uint32_t i = 0u; i < borderRegionCount; ++i)
 				{
-					IImage::SSubresourceLayers subresource = {static_cast<IImage::E_ASPECT_FLAGS>(0u),state->inMipLevel,state->inBaseLayer,state->layerCount};
+					IImage::SSubresourceLayers subresource = {static_cast<IImage::E_ASPECT_FLAGS>(0u),state->outMipLevel,state->outBaseLayer,state->layerCount};
 					clip_region_functor_t clip(subresource, borderRegions[i], state->outImage->getCreationParameters().format);
 					IImage::SBufferCopy clipped_reg = outreg;
 					if (clip(clipped_reg, &outreg))
@@ -217,6 +215,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 	private:
 		static core::vectorSIMDu32 wrapCoords(const state_type* _state, const core::vectorSIMDu32& _coords, const core::vectorSIMDu32& _extent)
 		{
+			//i am totally confused about wrapping equations given in vulkan/opengl spec... i'm misunderstanding something or equations given there are not complete
 			auto wrap_clamp_to_edge = [](int32_t a, int32_t sz) {
 				return core::clamp(a, 0, sz-1);
 			};
@@ -228,7 +227,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			};
 			auto wrap_mirror = [](int32_t a, int32_t sz) {
 				const int32_t b = a % (2*sz) - sz;
-				return std::abs( (sz-1) - (b>=0 ? b : -(b+1)) );
+				return std::abs( (sz-1) - (b>=0 ? b : -(b+1)) ) % sz;
 			};
 			auto wrap_mirror_clamp_edge = [](int32_t a, int32_t sz) {
 				return core::clamp(a>=0 ? a : -(1+a), 0, sz-1);
@@ -247,7 +246,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			wrapped.w = _coords.w;
 			wrapped.x = wrapfn[_state->axisWraps[0]](_coords.x, _extent.x);
 			wrapped.y = wrapfn[_state->axisWraps[1]](_coords.y, _extent.y);
-			wrapped.z = wrapfn[_state->axisWraps[2]](_coords.z, _extent.y);
+			wrapped.z = wrapfn[_state->axisWraps[2]](_coords.z, _extent.z);
 
 			return wrapped;
 		}
