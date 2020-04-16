@@ -39,7 +39,7 @@ class ICPUSampler : public ISampler, public IAsset
 						texelCoord[i] = core::clamp<int32_t,int32_t>(texelCoord[i],0,mipLastCoord[i]);
 						break;
 					case ISampler::ETC_MIRROR_CLAMP_TO_EDGE:
-						texelCoord[i] = core::clamp<int32_t,int32_t>(texelCoord[i],-mipExtent[i],mipExtent[i]+mipLastCoord[i]);
+						texelCoord[i] = core::clamp<int32_t,int32_t>(texelCoord[i],-int32_t(mipExtent[i]),mipExtent[i]+mipLastCoord[i]);
 					case ISampler::ETC_MIRROR:
 						{
 							auto repeatID = (originalWasNegative+texelCoord[i])/mipExtent[i];

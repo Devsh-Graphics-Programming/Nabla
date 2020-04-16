@@ -77,7 +77,7 @@ class CBoxImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilter
 	public:
 		inline float weight(float x) const
 		{
-			return inDomain(x) ? 1.0:0.0;
+			return inDomain(x) ? 1.f:0.f;
 		}
 };
 

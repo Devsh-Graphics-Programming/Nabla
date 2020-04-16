@@ -69,7 +69,7 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 				const core::rational<size_t> bytesPerPixel = state->outImage->getBytesPerPixel();
 				for (auto rit=regions->begin(); rit!=regions->end(); rit++)
 				{
-					auto mipLevel = std::distance(regions->begin(),rit);
+					auto mipLevel = static_cast<uint32_t>(std::distance(regions->begin(),rit));
 					auto localExtent = inImg->getMipSize(mipLevel);
 					rit->bufferOffset = bufferSize;
 					rit->bufferRowLength = localExtent.x; // could round up to multiple of 8 bytes in the future

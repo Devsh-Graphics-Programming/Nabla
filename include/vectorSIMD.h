@@ -338,9 +338,9 @@ namespace core
 		//yes this is correct usage with _mm_set_**(), due to little endianness the thing gets set in "reverse" order
 		inline explicit vectorSIMD_32(T nx, T ny, T nz, T nw) {_mm_store_si128((__m128i*)pointer,_mm_set_epi32(nw,nz,ny,nx));}
 		//! 3d constructor
-		inline explicit vectorSIMD_32(T nx, T ny, T nz) {_mm_store_si128((__m128i*)pointer,_mm_set_epi32(0.f,nz,ny,nx));}
+		inline explicit vectorSIMD_32(T nx, T ny, T nz) {_mm_store_si128((__m128i*)pointer,_mm_set_epi32(0,nz,ny,nx));}
 		//! 2d constructor
-		inline explicit vectorSIMD_32(T nx, T ny) {_mm_store_si128((__m128i*)pointer,_mm_set_epi32(0.f,0.f,ny,nx));}
+		inline explicit vectorSIMD_32(T nx, T ny) {_mm_store_si128((__m128i*)pointer,_mm_set_epi32(0,0,ny,nx));}
 		//! Fast Constructor from ints, they come in normal order [0]=X,[1]=Y, etc.
 		inline vectorSIMD_32(const T* const array) {_mm_store_si128((__m128i*)pointer,_mm_loadu_si128((const __m128i*)array));}
 		//! Fastest Constructor from ints, they come in normal order [0]=X,[1]=Y, etc.
