@@ -12,6 +12,7 @@ namespace irr
 namespace asset
 {	
 
+    // TODO: @Crisspl move this to EFormat and give it better names
 	template<typename T>
 	inline constexpr uint64_t getRangeValueOfVariable(bool maxValue = true)
 	{
@@ -32,6 +33,7 @@ namespace asset
 			return -1; // handle an error
 	}
 
+    // Only some formats use this, so its pointless kind-of
 	template<asset::E_FORMAT format, typename T>
 	inline void clampVariableProperly(T& variableToAssignClampingTo, const double& variableToClamp)
 	{

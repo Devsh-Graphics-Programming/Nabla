@@ -139,7 +139,7 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 				assert(blockDims.z==1u);
 				assert(blockDims.w==1u);
 			#endif
-			auto perOutputRegion = [&blockDims](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
+			auto perOutputRegion = [&blockDims,&state](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
 				auto swizzle = [&commonExecuteData,&blockDims,&state](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
 				{
@@ -154,12 +154,13 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 						if constexpr(std::is_base_of<PolymorphicSwizzle,Swizzle>::value)
 							convertColor<inFormat,outFormat,Swizzle>(srcPix,dstPix,blockX,blockY,state->swizzle);
 						else
-							convertColor<inFormat,outFormat,Swizzle>(srcPix,dstPix,blockX,blockY,state);
+							convertColor<inFormat,outFormat,Swizzle>(srcPix,dstPix,blockX,blockY,*state);
 					}
 				};
 				CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
+				return true;
 			};
-			CMatchedSizeInOutImageFilterCommon::commonExecute(state,perOutputRegion);
+			return CMatchedSizeInOutImageFilterCommon::commonExecute(state,perOutputRegion);
 		}
 };
 

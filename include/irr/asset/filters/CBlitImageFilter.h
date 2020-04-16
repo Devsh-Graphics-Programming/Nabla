@@ -8,6 +8,7 @@
 #include "irr/core/core.h"
 
 #include <type_traits>
+#include <algorithm>
 
 #include "irr/asset/filters/CMatchedSizeInOutImageFilterCommon.h"
 
@@ -40,7 +41,12 @@ class CBlitImageFilterBase : public CBasicImageFilterCommon
 				ISampler::E_TEXTURE_BORDER_COLOR	borderColor = ISampler::ETBC_FLOAT_TRANSPARENT_BLACK;
 				E_ALPHA_SEMANTIC					alphaSemantic = EAS_NONE_OR_PREMULTIPLIED;
 				double								alphaRefValue = 0.5; // only required to make sense if `alphaSemantic==EAS_REFERENCE_OR_COVERAGE`
+				uint32_t							alphaChannel = 3u;
 		};
+
+	protected:
+		CBlitImageFilterBase() {}
+		virtual ~CBlitImageFilterBase() {}
 
 		template<class Kernel>
 		static inline uint32_t getRequiredScratchByteSize(	const Kernel& k,
@@ -55,10 +61,6 @@ class CBlitImageFilterBase : public CBasicImageFilterCommon
 			}
 			return retval*sizeof(Kernel::value_type);
 		}
-
-	protected:
-		CBlitImageFilterBase() {}
-		virtual ~CBlitImageFilterBase() {}
 
 		static inline bool validate(CStateBase* state)
 		{
@@ -75,6 +77,9 @@ template<class Kernel=CBoxImageFilterKernel>
 class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public CBlitImageFilterBase
 {
 	public:
+		// we'll probably never remove this requirement
+		static_assert(Kernel::is_separable,"Alpha Handling requires high precision and multipass filtering!");
+
 		virtual ~CBlitImageFilter() {}
 
 		class CProtoState : public IImageFilter::IState
@@ -87,7 +92,22 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 					outOffsetBaseLayer = core::vectorSIMDu32();
 					outExtentLayerCount = core::vectorSIMDu32();
 				}
+				CProtoState(const CProtoState& other) : inMipLevel(other.inMipLevel),outMipLevel(other.outMipLevel),inImage(other.inImage),outImage(other.outImage),kernel(other.kernel)
+				{
+					inOffsetBaseLayer = other.inOffsetBaseLayer;
+					inExtentLayerCount = other.inExtentLayerCount;
+					outOffsetBaseLayer = other.outOffsetBaseLayer;
+					outExtentLayerCount = other.outExtentLayerCount;
+				}
 				virtual ~CProtoState() {}
+
+				inline auto contructScaledKernel() const
+				{
+					const core::vectorSIMDf fInExtent(inExtentLayerCount);
+					const core::vectorSIMDf fOutExtent(outExtentLayerCount);
+					const auto fScale = fInExtent.preciseDivision(fOutExtent);
+					return CScaledImageFilterKernel<Kernel>(fScale,kernel);
+				}
 
 				union
 				{
@@ -135,13 +155,21 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 		{
 		};
 		using state_type = CState;
+		
+
+		static inline uint32_t getRequiredScratchByteSize(const state_type* state)
+		{
+			uint32_t retval = getScratchOffset(state,true);
+			retval += CBlitImageFilterBase::getRequiredScratchByteSize<Kernel>(state->kernel,state->alphaSemantic,state->outExtentLayerCount);
+			return retval;
+		}
 
 		static inline bool validate(state_type* state)
 		{
 			if (!CBlitImageFilterBase::validate(state))
 				return false;
 			
-			if (state->scratchMemoryByteSize<getRequiredScratchByteSize(state->kernel,state->alphaSemantic,state->inExtentLayerCount))
+			if (state->scratchMemoryByteSize<getRequiredScratchByteSize(state))
 				return false;
 
 			if (state->inLayerCount!=state->outLayerCount)
@@ -175,6 +203,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 			if (!validate(state))
 				return false;
 
+			// load all the state
 			const auto* const inImg = state->inImage;
 			auto* const outImg = state->outImage;
 			const ICPUImage::SCreationParams& inParams = inImg->getCreationParameters();
@@ -198,130 +227,245 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 			const auto inExtent = state->inExtent;
 			const auto outExtent = state->outExtent;
 
+			const auto inOffsetBaseLayer = state->inOffsetBaseLayer;
+			const auto outOffsetBaseLayer = state->outOffsetBaseLayer;
+			const auto inExtentLayerCount = state->inExtentLayerCount;
+			const auto outExtentLayerCount = state->outExtentLayerCount;
+			const auto inLimit = inOffsetBaseLayer+inExtentLayerCount;
+			const auto outLimit = outOffsetBaseLayer+outExtentLayerCount;
+
+			const auto* const axisWraps = state->axisWraps;
 			const bool nonPremultBlendSemantic = state->alphaSemantic==CState::EAS_SEPARATE_BLEND;
 			const bool coverageSemantic = state->alphaSemantic==CState::EAS_REFERENCE_OR_COVERAGE;
 			const auto alphaRefValue = state->alphaRefValue;
+			const auto alphaChannel = state->alphaChannel;
+			
+			// prepare kernel
+			const auto kernel = state->contructScaledKernel();
+
+			// filtering and alpha handling happens separately for every layer, so save on scratch memory size
+			const auto inImageType = inParams.type;
+			const auto window_last = getKernelWindowLastCoord(kernel,inImageType);
+			const core::vectorSIMDi32 intermediateExtent[3] = {
+				core::vectorSIMDi32(outExtent.width,inExtent.height+window_last[1],inExtent.depth+window_last[2]),
+				core::vectorSIMDi32(outExtent.width,outExtent.height,inExtent.depth+window_last[2]),
+				core::vectorSIMDi32(outExtent.width,outExtent.height,outExtent.depth)
+			};
+			const core::vectorSIMDi32 intermediateLastCoord[3] = {
+				intermediateExtent[0]-core::vectorSIMDi32(1,1,1,0),
+				intermediateExtent[1]-core::vectorSIMDi32(1,1,1,0),
+				intermediateExtent[2]-core::vectorSIMDi32(1,1,1,0)
+			};
+			Kernel::value_type* const intermediateStorage[3] = {
+				reinterpret_cast<Kernel::value_type*>(state->scratchMemory),
+				reinterpret_cast<Kernel::value_type*>(state->scratchMemory+getScratchOffset(state,false)),
+				reinterpret_cast<Kernel::value_type*>(state->scratchMemory)
+			};
+			const core::vectorSIMDu32 intermediateStrides[3] = {
+				core::vectorSIMDu32(Kernel::MaxChannels*intermediateExtent[0].y,Kernel::MaxChannels,Kernel::MaxChannels*intermediateExtent[0].x*intermediateExtent[0].y,0u),
+				core::vectorSIMDu32(Kernel::MaxChannels*intermediateExtent[1].y*intermediateExtent[1].z,Kernel::MaxChannels*intermediateExtent[1].z,Kernel::MaxChannels,0u),
+				core::vectorSIMDu32(Kernel::MaxChannels,Kernel::MaxChannels*intermediateExtent[2].x,Kernel::MaxChannels*intermediateExtent[2].x*intermediateExtent[2].y,0u)
+			};
+			// storage
+			core::RandomSampler sampler(std::chrono::high_resolution_clock::now().time_since_epoch().count());
+			auto storeToTexel = [nonPremultBlendSemantic,alphaChannel,&sampler,outFormat](Kernel::value_type* const sample, void* const dstPix) -> void
+			{
+				if (nonPremultBlendSemantic && sample[alphaChannel]>FLT_MIN*1024.0*512.0)
+				{
+					for (auto i=0; i<Kernel::MaxChannels; i++)
+					if (i!=alphaChannel)
+						sample[i] /= sample[alphaChannel];
+				}
+				for (auto i=0; i<Kernel::MaxChannels; i++)
+				{
+					sample[i] = core::clamp<Kernel::value_type,Kernel::value_type>(sample[i],0.0,1.0);
+					// @Crisspl replace this with epic quantization (actually it would be good if you cached the max and min values for the 4 channels outside the hot loop
+					//sample[i] += double(sampler.nextSample())*(getFormatPrecision<Kernel::value_type>(outFormat,i,sampler[i])/double(~0u));
+					//sample[i] = core::clamp<Kernel::value_type,Kernel::value_type>(sample[i], getFormatMinValue<Kernel::value_type>(outFormat,i), getFormatMaxValue<Kernel::value_type>(outFormat,i));
+				}
+				asset::encodePixels<Kernel::value_type>(outFormat,dstPix,sample);
+			};
+			const core::SRange<const IImage::SBufferCopy> outRegions = outImg->getRegions(outMipLevel);
+			auto storeToImage = [coverageSemantic,outExtent,intermediateStorage,&sampler,outFormat,alphaRefValue,outData,intermediateStrides,alphaChannel,storeToTexel,outMipLevel,outOffset,outRegions,outImg](const core::rational<>& inverseCoverage, const int axis, const core::vectorSIMDu32& outOffsetLayer) -> void
+			{
+				// little thing for the coverage adjustment trick suggested by developer of The Witness
+				assert(coverageSemantic);
+				const auto outputTexelCount = outExtent.width*outExtent.height*outExtent.depth;
+				// all values with index<=rankIndex will be %==inverseCoverage of the overall array
+				const int32_t rankIndex = (inverseCoverage*core::rational<int32_t>(outputTexelCount)).getIntegerApprox()-1;
+				auto* const begin = intermediateStorage[(axis+1)%3];
+				// this is our new reference value
+				auto* const nth = begin+core::max(rankIndex,0);
+				auto* const end = begin+outputTexelCount;
+				for (auto i=0; i<outputTexelCount; i++)
+				{
+					begin[i] = intermediateStorage[axis][i*4+alphaChannel];
+					// TODO: @Crisspl add random quantization noise
+					//begin[i] -= double(sampler.nextSample())*(getFormatPrecision<Kernel::value_type>(outFormat,alphaChannel,begin[i])/double(~0u));
+				}
+				std::nth_element(begin,nth,end);
+				// scale all alpha texels to work with new reference value
+				const auto coverageScale = alphaRefValue/(*nth);
+				auto scaleCoverage = [outData,outOffsetLayer,intermediateStrides,axis,intermediateStorage,alphaChannel,coverageScale,storeToTexel](uint32_t writeBlockArrayOffset, core::vectorSIMDu32 writeBlockPos) -> void
+				{
+					void* const dstPix = outData+writeBlockArrayOffset;
+
+					Kernel::value_type sample[Kernel::MaxChannels];
+					auto first = intermediateStorage[axis]+core::dot(writeBlockPos-outOffsetLayer,intermediateStrides[axis])[0];
+					std::copy(first,first+Kernel::MaxChannels,sample);
+
+					sample[alphaChannel] *= coverageScale;
+					storeToTexel(sample,dstPix);
+				};
+				CBasicImageFilterCommon::clip_region_functor_t clip({static_cast<IImage::E_ASPECT_FLAGS>(0u),outMipLevel,outOffsetLayer.w,1}, {outOffset,outExtent}, outFormat);
+				CBasicImageFilterCommon::executePerRegion(outImg,scaleCoverage,outRegions.begin(),outRegions.end(),clip);
+			};
+			// process
+			const core::vectorSIMDf fInExtent(inExtentLayerCount);
+			const core::vectorSIMDf fOutExtent(outExtentLayerCount);
+			const auto fScale = fInExtent.preciseDivision(fOutExtent);
+			const auto halfTexelOffset = fScale*0.5f-core::vectorSIMDf(0.f,0.f,0.f,0.5f);
+			const auto startCoord = kernel.getWindowMinCoord(halfTexelOffset);
+			const auto windowMinCoordBase = inOffsetBaseLayer+startCoord;
 			for (uint32_t layer=0; layer!=layerCount; layer++)
 			{
-				auto load = [layer,inImg,inMipLevel,&state,inFormat](Kernel::value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord)
-				{
-					auto texelCoordAndLayer(globalTexelCoord);
-					texelCoordAndLayer.w = layer;
-					//
-					core::vectorSIMDu32 inBlockCoord;
-					const void* srcPix[] = {
-						inImg->getTexelBlockData(inMipLevel,texelCoordAndLayer,inBlockCoord,state->axisWraps),
-						nullptr,
-						nullptr,
-						nullptr
-					};
-					if (srcPix[0])
-						decodePixels<Kernel::value_type>(inFormat,srcPix,windowSample,inBlockCoord.x,inBlockCoord.y);
-				};
-
-				// do the magical coverage adjustment trick suggested by developer of The Witness
+				const core::vectorSIMDi32 vLayer(0,0,0,layer);
+				const auto windowMinCoord = windowMinCoordBase+vLayer;
+				const auto outOffsetLayer = outOffsetBaseLayer+vLayer;
+				// reset coverage counter
 				core::rational inverseCoverage(0);
-				if (coverageSemantic)
+				// filter lambda
+				auto filterAxis = [&](IImage::E_TYPE axis) -> void
 				{
-					auto computeCoverage = [&inverseCoverage,inData,&inBlockDims,inFormat,alphaRefValue](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
-					{
-						constexpr auto MaxPlanes = 4;
-						const void* srcPix[MaxPlanes] = { inData+readBlockArrayOffset,nullptr,nullptr,nullptr };
+					if (axis>inImageType)
+						return;
 
-						for (auto blockY=0u; blockY<inBlockDims.y; blockY++)
-						for (auto blockX=0u; blockX<inBlockDims.x; blockX++)
+					const bool lastPass = inImageType==axis;
+					const core::vectorSIMDi32 unitIncrease(axis==IImage::ET_1D ? 1:0,axis==IImage::ET_2D ? 1:0,axis==IImage::ET_3D ? 1:0,0);
+					const core::vectorSIMDf fUnitIncrease(unitIncrease);
+
+					const auto windowSize = kernel.getWindowSize()[axis];
+					// z y x output along x
+					// z x y output along y
+					// x y z output along z
+					const int loopCoordID[2] = {axis!=IImage::ET_3D ? 2:0,axis!=IImage::ET_2D ? 1:0/*,axis*/};
+					const float kernelScaleCorrectionFactor = fScale[loopCoordID[0]]*fScale[loopCoordID[1]];
+					core::vectorSIMDi32 localTexCoord;
+					for (auto& k=(localTexCoord[loopCoordID[0]]=0); k<intermediateExtent[axis][loopCoordID[0]]; k++)
+					for (auto& j=(localTexCoord[loopCoordID[1]]=0); j<intermediateExtent[axis][loopCoordID[1]]; j++)
+					{
+						// whole line plus window borders
+						Kernel::value_type* lineBuffer;
+						localTexCoord[axis] = 0;
+						if (axis!=IImage::ET_1D)
+							lineBuffer = intermediateStorage[axis-1]+core::dot(static_cast<const core::vectorSIMDi32&>(intermediateStrides[axis-1]),localTexCoord)[0];
+						else
 						{
-							Kernel::value_type decbuf[Kernel::MaxChannels] = {0, 0, 0, 1};
-							decodePixels<Kernel::value_type>(inFormat,srcPix,decbuf,blockX,blockY);
-							if (decbuf[3]<=alphaRefValue)
-								inverseCoverage.getNumerator()++;
-							inverseCoverage.getDenominator()++;
+							lineBuffer = intermediateStorage[1];
+							const auto windowEnd = inExtent.width+window_last.x;
+							for (auto& i=localTexCoord.x; i<windowEnd; i++)
+							{
+								core::vectorSIMDi32 globalTexelCoord(localTexCoord+windowMinCoord);
+
+								core::vectorSIMDu32 inBlockCoord;
+								const void* srcPix[] = { // multiple loads for texture boundaries aren't that bad
+									inImg->getTexelBlockData(inMipLevel,inImg->wrapTextureCoordinate(inMipLevel,globalTexelCoord,axisWraps),inBlockCoord),
+									nullptr,
+									nullptr,
+									nullptr
+								};
+								if (!srcPix[0])
+									continue;
+
+								auto sample = lineBuffer+i*Kernel::MaxChannels;
+								decodePixels<Kernel::value_type>(inFormat,srcPix,sample,inBlockCoord.x,inBlockCoord.y);
+
+								if (nonPremultBlendSemantic)
+								{
+									for (auto i=0; i<Kernel::MaxChannels; i++)
+									if (i!=alphaChannel)
+										sample[i] *= sample[alphaChannel];
+								}
+								else if (coverageSemantic && globalTexelCoord[axis]>=inOffsetBaseLayer[axis] && globalTexelCoord[axis]<inLimit[axis])
+								{
+									if (sample[alphaChannel]<=alphaRefValue)
+										inverseCoverage.getNumerator()++;
+									inverseCoverage.getDenominator()++;
+								}
+							}
 						}
-					};
-					const core::SRange<const IImage::SBufferCopy> inRegions = inImg->getRegions(inMipLevel);
-					CBasicImageFilterCommon::clip_region_functor_t clip({static_cast<IImage::E_ASPECT_FLAGS>(0u),inMipLevel,inBaseLayer+layer,1}, {inOffset,inExtent}, inFormat);
-					CBasicImageFilterCommon::executePerRegion(inImg,computeCoverage,inRegions.begin(),inRegions.end(),clip);
-				}
-				// meat of the algorithm
-				const auto outLayer = outBaseLayer+layer;
-				const core::vectorSIMDf fInExtent(state->inExtentLayerCount);
-				const core::vectorSIMDf fOutExtent(state->outExtentLayerCount);
-				const auto kernel = CScaledImageFilterKernel<Kernel>(fInExtent.preciseDivision(fOutExtent),state->kernel);
-				// sampling stuff
-				const auto halfPixelOutOffset = core::vectorSIMDf(outBlockDims)*0.5f+core::vectorSIMDf(0.f,0.f,0.f,-float(outLayer)-0.5f);
-				const auto outToInScale = core::vectorSIMDf(outBlockDims*state->inExtentLayerCount).preciseDivision(fOutExtent);
-				// optionals
-				auto* const filteredAlphaArray = reinterpret_cast<Kernel::value_type*>(state->scratchMemory+getRequiredScratchByteSize(kernel));
-				auto* filteredAlphaArrayIt = filteredAlphaArray;
-				auto blit = [outData,outBlockDims,&halfPixelOutOffset,&outToInScale,&load,&kernel,nonPremultBlendSemantic,coverageSemantic,&filteredAlphaArrayIt,outFormat](uint32_t writeBlockArrayOffset, core::vectorSIMDu32 writeBlockPos) -> void
-				{
-					void* dstPix = outData+writeBlockArrayOffset;
-
-					Kernel::value_type valbuf[MaxTexelBlockDimensions[1]*MaxTexelBlockDimensions[0]][Kernel::MaxChannels] = {0};
-					for (auto blockY=0u; blockY<outBlockDims.y; blockY++)
-					for (auto blockX=0u; blockX<outBlockDims.x; blockX++)
-					{
-						auto* value = valbuf[blockY*outBlockDims.x+blockX];
-						Kernel::value_type avgColor = 0;
-						auto evaluate = [value,nonPremultBlendSemantic,&avgColor](Kernel::value_type* windowSample, const core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord)
+						//
+						for (auto& i=(localTexCoord[axis]=0); i<outExtentLayerCount[axis]; i++)
 						{
-							for (auto i=0; i<Kernel::MaxChannels; i++)
-								value[i] += windowSample[i];
+							// get output pixel
+							auto* const value = intermediateStorage[axis]+core::dot(static_cast<const core::vectorSIMDi32&>(intermediateStrides[axis]),localTexCoord)[0];
+							std::fill(value,value+Kernel::MaxChannels,Kernel::value_type(0));
+							// kernel load functor
+							auto load = [axis,&windowMinCoord,lineBuffer](Kernel::value_type* windowSample, const core::vectorSIMDf& unused0, const core::vectorSIMDi32& globalTexelCoord) -> void
+							{
+								for (auto h=0; h<Kernel::MaxChannels; h++)
+									windowSample[h] = lineBuffer[(globalTexelCoord[axis]-windowMinCoord[axis])*Kernel::MaxChannels+h];
+							};
+							// kernel evaluation functor
+							auto evaluate = [value](const Kernel::value_type* windowSample, const core::vectorSIMDf& unused0, const core::vectorSIMDi32& unused1) -> void
+							{
+								for (auto h=0; h<Kernel::MaxChannels; h++)
+									value[h] += windowSample[h];
+							};
+							// do the filtering 
+							core::vectorSIMDf tmp;
+							tmp[axis] = float(i)+0.5f;
+							core::vectorSIMDi32 windowCoord;
+							windowCoord[axis] = kernel.getWindowMinCoord(tmp*fScale,tmp)[axis];
+							auto relativePosAndFactor = tmp[axis]-float(windowCoord[axis]);
+							for (auto h=0; h<windowSize; h++)
+							{
+								Kernel::value_type windowSample[Kernel::MaxChannels];
 
-							if (!nonPremultBlendSemantic)
-								return;
-
-							for (auto i=0; i<Kernel::MaxChannels-1; i++)
-								avgColor += windowSample[i]*windowSample[3];
-						};
-						auto inPos = (core::vectorSIMDf(writeBlockPos)+halfPixelOutOffset)*outToInScale;
-						kernel.evaluate(inPos,load,evaluate);
-						// alpha handling
-						if (coverageSemantic)
-							*(filteredAlphaArrayIt++) = value[3];
-						else if (nonPremultBlendSemantic && avgColor>FLT_MIN*1024.0*512.0)
-							value[3] = avgColor/(value[0]+value[1]+value[2]);
+								core::vectorSIMDf tmp(relativePosAndFactor,0.f,0.f,kernelScaleCorrectionFactor);
+								kernel.evaluateImpl(load,evaluate,windowSample, tmp,windowCoord);
+								relativePosAndFactor -= 1.f;
+								windowCoord[axis]++;
+							}
+							if (!coverageSemantic && lastPass) // store to image, we're done
+							{
+								core::vectorSIMDu32 dummy;
+								storeToTexel(value,outImg->getTexelBlockData(outMipLevel,localTexCoord+outOffsetBaseLayer,dummy));
+							}
+						}
 					}
-					// TODO IMPROVE: by adding random quantization noise (dithering) to break up any banding, could actually steal a sobol sampler for this
-					asset::encodePixels<Kernel::value_type>(outFormat,dstPix,valbuf[0]);
+					// we'll only get here if we have to do coverage adjustment
+					if (coverageSemantic && lastPass)
+						storeToImage(inverseCoverage,axis,outOffsetLayer);
 				};
-				const core::SRange<const IImage::SBufferCopy> outRegions = outImg->getRegions(outMipLevel);
-				CBasicImageFilterCommon::clip_region_functor_t clip({static_cast<IImage::E_ASPECT_FLAGS>(0u),outMipLevel,outLayer,1}, {outOffset,outExtent}, outFormat);
-				CBasicImageFilterCommon::executePerRegion(outImg,blit,outRegions.begin(),outRegions.end(),clip);
-				// second part of coverage adjustment
-				if (coverageSemantic)
-				{
-					// sort so that we can easily find the alpha value s.t. % of all texels is less than it
-					// TODO IMPROVE: bisection search instead of sort, then reuse the high precision values for alpha setting to reduce quantization error
-					std::sort(filteredAlphaArray,filteredAlphaArrayIt);
-					auto outputTexelCount = std::distance(filteredAlphaArray,filteredAlphaArrayIt);
-					// all values with index < rankIndex will be %==inverseCoverage of the overall array
-					int32_t rankIndex = (inverseCoverage*core::rational<int32_t>(outputTexelCount)).getIntegerApprox();
-					rankIndex--; // now all with index<=rankIndex
-					// this is our new reference value
-					auto newRefValue = filteredAlphaArray[core::max(rankIndex,0)];
-					// scale all alpha texels to work with new reference value
-					auto coverageScale = alphaRefValue/newRefValue;
-					auto scaleCoverage = [outData,outBlockDims,outFormat,coverageScale](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
-					{
-						constexpr auto MaxPlanes = 4;
-						void* dstPix = outData+readBlockArrayOffset;
-						const void* srcPix[MaxPlanes] = { dstPix,nullptr,nullptr,nullptr };
-
-						Kernel::value_type valbuf[MaxTexelBlockDimensions[1]*MaxTexelBlockDimensions[0]][Kernel::MaxChannels] = {0};
-						for (auto blockY=0u; blockY<outBlockDims.y; blockY++)
-						for (auto blockX=0u; blockX<outBlockDims.x; blockX++)
-						{
-							auto decbuf = valbuf[blockY*outBlockDims.x+blockX];
-							decodePixels<Kernel::value_type>(outFormat,srcPix,decbuf,blockX,blockY);
-							decbuf[3] *= coverageScale;
-						}
-						encodePixels<Kernel::value_type>(outFormat,dstPix,valbuf[0]);
-					};
-					CBasicImageFilterCommon::executePerRegion(outImg,scaleCoverage,outRegions.begin(),outRegions.end(),clip);
-				}
+				// filter in X-axis
+				filterAxis(IImage::ET_1D);
+				// filter in Y-axis
+				filterAxis(IImage::ET_2D);
+				// filter in Z-axis
+				assert(inImageType!=IImage::ET_3D); // I need to test this in the future
+				filterAxis(IImage::ET_3D);
 			}
 			return true;
+		}
+
+	private:
+		template<typename KernelOther>
+		static inline core::vectorSIMDi32 getKernelWindowLastCoord(const KernelOther& kernel, IImage::E_TYPE inType)
+		{
+			const auto& window_size = kernel.getWindowSize();
+			return window_size-core::vectorSIMDi32(1,inType!=IImage::ET_1D ? 1:window_size[1],inType!=IImage::ET_2D ? 1:window_size[2],0);
+		}
+		static inline uint32_t getScratchOffset(const state_type* state, bool secondPong)
+		{
+			const auto inType = state->inImage->getCreationParameters().type;
+			const auto window_last = getKernelWindowLastCoord(state->contructScaledKernel(),inType);
+			// TODO: account for the size needed for coverage adjustment
+			auto texelCount = state->outExtent.width*core::max((state->inExtent.height+window_last[1])*(state->inExtent.depth+window_last[2]),state->outExtent.height*state->outExtent.depth);
+			if (secondPong)
+				texelCount += core::max(state->outExtent.width*state->outExtent.height*(state->inExtent.depth+window_last[2]),state->inExtent.width+window_last[0]);
+			//
+			return texelCount*Kernel::MaxChannels*sizeof(Kernel::value_type);
 		}
 };
 

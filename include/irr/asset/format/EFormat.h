@@ -1947,6 +1947,18 @@ namespace asset
     {
         using type = typename std::conditional<isIntegerFormat<format>(),typename std::conditional<isSignedFormat<format>(),int64_t,uint64_t>::type,double>::type;
     };
+
+    // TODO: add precision functions 
+    /*
+    constexpr getFormatMinValue<E_FORMAT>(channel)
+    inline value_type getFormatMinValue<value_type>(format,channel)
+
+    constexpr getFormatMaxValue<E_FORMAT>(channel)
+    inline value_type getFormatMaxValue<value_type>(format,channel)
+
+    // in SFLOAT and SRGB formats, the precision is dependant on the current value of the channel
+    inline value_type getFormatPrecision<value_type>(format,channel,value)
+    */
 }
 }
 

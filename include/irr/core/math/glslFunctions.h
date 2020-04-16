@@ -434,7 +434,10 @@ template<typename T>
 IRR_FORCE_INLINE T sinc(const T& x)
 {
 	// TODO: do a direct series/computation in the future
-	return mix<T>(sin<T>(x)/x,T(1.0)+x*x*(x*x*T(1.0/120.0)-T(1.0/6.0)),abs<T>(x)<T(0.0001));
+	return mix<T>(	sin<T>(x)/x,
+					T(1.0)+x*x*(x*x*T(1.0/120.0)-T(1.0/6.0)),
+					abs<T>(x)<T(0.0001)
+				);
 }
 
 template<typename T>
@@ -444,7 +447,7 @@ template<typename T>
 IRR_FORCE_INLINE T KaiserWindow(const T& x, const T& alpha, const T& width)
 {
 	auto p = x/width;
-	return cyl_bessel_i<T>(T(0.0),sqrt<T>(T(1.0)-p*p))/cyl_bessel_i<T>(T(0.0),alpha);
+	return cyl_bessel_i<T>(T(0.0),sqrt<T>(T(1.0)-p*p)*alpha)/cyl_bessel_i<T>(T(0.0),alpha);
 }
 
 

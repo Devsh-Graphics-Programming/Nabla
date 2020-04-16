@@ -100,7 +100,7 @@ inline void CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Ratio>::s
 	)
 {
 	preFilter(windowSample, relativePosAndFactor, globalTexelCoord);
-	const auto weight = _this->weight(relativePosAndFactor) * relativePosAndFactor.w;
+	const auto weight = _this->weight(relativePosAndFactor.x) * _this->weight(relativePosAndFactor.y) * _this->weight(relativePosAndFactor.z) * relativePosAndFactor.w;
 	for (int32_t i = 0; i < StaticPolymorphicBase::MaxChannels; i++)
 		windowSample[i] *= weight;
 	postFilter(windowSample, relativePosAndFactor, globalTexelCoord);
