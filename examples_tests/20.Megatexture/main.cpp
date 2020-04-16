@@ -64,7 +64,7 @@ layout (push_constant) uniform Block {
 )";
 constexpr const char* GLSL_VT_FUNCTIONS =
 R"(
-#define TEST_VT_MIPS
+//#define TEST_VT_MIPS
 
 #include <irr/builtin/glsl/texture_packer/definitions.glsl/6/6/7/8>
 
@@ -72,7 +72,7 @@ vec3 unpackPageID(in uint pageID)
 {
 	// this is optimal, don't touch
 	uvec2 pageXY = uvec2(pageID,pageID>>ADDR_Y_SHIFT)&uvec2(ADDR_X_MASK,ADDR_Y_MASK);
-	uvec2 pageOffset = pageXY*PADDED_TILE_SIZE;
+	uvec2 pageOffset = pageXY*PADDED_TILE_SIZE + TILE_PADDING;
 	return vec3(vec2(pageOffset),pageID>>ADDR_LAYER_SHIFT);
 }
 
@@ -81,7 +81,7 @@ vec4 vTextureGrad_helper(in vec3 virtualUV, int LoD, in mat2 gradients, in int c
     uvec2 pageID = textureLod(pageTable[1],virtualUV,clippedLoD).xy;
 
 	// WANT: to get rid of this `textureSize` call
-	float tilesInLodLevel = float(textureSize(pageTable[1],LoD).x);
+	float tilesInLodLevel = float(textureSize(pageTable[1],clippedLoD).x);
 	// TODO: rename to tileCoordinate if the dimensions will stay like this
 	vec2 tileFractionalCoordinate = fract(virtualUV.xy*tilesInLodLevel);
 
@@ -165,7 +165,6 @@ vec4 textureVT(in uvec2 _texData, in vec2 uv, in mat2 dUV)
     vec3 virtualUV = unpackVirtualUV(_texData);
     //manual uv wrapping (repeat mode)
     virtualUV.xy += 0.5*scale*mod(uv,vec2(1.0)); //why do i need factor of 0.5??????
-    int whatever = 1000;//obv change later
     ivec2 originalSz = ivec2(vec2(1.0)/scale*float(PAGE_SZ));
     
 #ifndef TEST_VT_MIPS
@@ -305,7 +304,8 @@ R"(
 void main()
 {
     mat2 dUV = mat2(dFdx(UV),dFdy(UV));
-
+//#define COLOR_IS_DIFFUSE_TEX
+#ifndef COLOR_IS_DIFFUSE_TEX
     irr_glsl_ViewSurfaceInteraction interaction;
     vec3 color = irr_computeLighting(interaction,dUV);
 
@@ -333,7 +333,16 @@ void main()
 #endif
         break;
     }
-
+#else//!COLOR_IS_DIFFUSE_TEX
+    vec3 color = vec3(0.0);
+    float d = 1.0;
+#ifndef _NO_UV
+    if ((PC.extra&(map_Kd_MASK)) == (map_Kd_MASK))
+        color = textureVT(PC.map_Kd_data, UV, dUV).rgb;
+    else
+#endif
+        color = PC.Kd;
+#endif//!COLOR_IS_DIFFUSE_TEX
     OutColor = vec4(color, d);
 }
 #define _IRR_FRAG_MAIN_DEFINED_
@@ -547,7 +556,7 @@ class EventReceiver : public irr::IEventReceiver
         int32_t LoD = 0;
 };
 
-#define TEST_VT_MIPS
+//#define TEST_VT_MIPS
 int main()
 {
 	// create device with full flexibility over creation parameters

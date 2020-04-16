@@ -52,7 +52,7 @@ private:
 		auto tilePackingOffsetsStr = [&] {
 			std::string offsets;
 			for (uint32_t i = 0u; i < pg_sz_log2; ++i)
-				offsets += "uvec2(" + std::to_string(tilePacking[i].x) + "," + std::to_string(tilePacking[i].x) + ")" + (i==(pg_sz_log2-1u) ? "" : ",");
+				offsets += "uvec2(" + std::to_string(tilePacking[i].x) + "," + std::to_string(tilePacking[i].y) + ")" + (i==(pg_sz_log2-1u) ? "" : ",");
 			return offsets;
 		};
 
