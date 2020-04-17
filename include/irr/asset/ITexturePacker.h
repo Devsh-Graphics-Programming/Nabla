@@ -438,16 +438,31 @@ public:
 
                     CPaddedCopyImageFilter::state_type copy;
                     copy.outOffsetBaseLayer = (physPg).xyzz();/*physPg.z is layer*/ copy.outOffset.z = 0u;
-                    copy.inOffsetBaseLayer = core::vector2du32_SIMD(x,y)*m_pgSzxy;
+                    copy.inOffsetBaseLayer = core::vector2du32_SIMD(x,y)*m_pgSzxy;//TODO in offset
                     copy.extentLayerCount = core::vectorSIMDu32(m_pgSzxy, m_pgSzxy, 1u, 1u);
+                    copy.relativeOffset = {0u,0u,0u};
                     if (x == w-1u)
                         copy.extentLayerCount.x = std::max(extent.width>>(_subres.baseMipLevel+i),1u)-copy.inOffsetBaseLayer.x;
                     if (y == h-1u)
                         copy.extentLayerCount.y = std::max(extent.height>>(_subres.baseMipLevel+i),1u)-copy.inOffsetBaseLayer.y;
                     memcpy(&copy.paddedExtent.width,(copy.extentLayerCount+core::vectorSIMDu32(2u*m_tilePadding)).pointer, 2u*sizeof(uint32_t));
                     copy.paddedExtent.depth = 1u;
-                    copy.relativeOffset.x = copy.relativeOffset.y = m_tilePadding;
-                    copy.relativeOffset.z = 0u;
+                    if (w>1u)
+                        copy.extentLayerCount.x += m_tilePadding;
+                    if (x>0u && x<w-1u)
+                        copy.extentLayerCount.x += m_tilePadding;
+                    if (h>1u)
+                        copy.extentLayerCount.y += m_tilePadding;
+                    if (y>0u && y<h-1u)
+                        copy.extentLayerCount.y += m_tilePadding;
+                    if (x == 0u)
+                        copy.relativeOffset.x = m_tilePadding;
+                    else
+                        copy.inOffsetBaseLayer.x -= m_tilePadding;
+                    if (y == 0u)
+                        copy.relativeOffset.y = m_tilePadding;
+                    else
+                        copy.inOffsetBaseLayer.y -= m_tilePadding;
                     copy.inMipLevel = _subres.baseMipLevel + i;
                     copy.outMipLevel = 0u;
                     copy.inImage = _img;
