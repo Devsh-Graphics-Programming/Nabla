@@ -10,51 +10,51 @@
 
 <u>**BRDF Explorer**</u>
 
-![](site_media\readme\screenshots\BRDF Explorer.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/BRDF%20Explorer.png?raw=true)
 
 <u>**Many light raytracing**</u>
 
-![](site_media\readme\screenshots\Many light raytracing.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Many%20light%20raytracing.png?raw=true)
 
 <u>**Many light raytracing**</u>
 
-![](site_media\readme\screenshots\Many light raytracing 2.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Many%20light%20raytracing%202.png?raw=true)
 
 **<u>Cylindrical light source</u>**
 
-![](site_media\readme\screenshots\Cylindrical light source.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Cylindrical%20light%20source.png?raw=true)
 
 **<u>Two area lights</u>**
 
-![](site_media\readme\screenshots\Two area lights.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Two%20area%20lights.png?raw=true)
 
 **<u>.OBJ Loader with MTL pipeline integration</u>**
 
-![](site_media\readme\screenshots\.OBJ Loader with MTL pipeline integration.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/.OBJ%20Loader%20with%20MTL%20pipeline%20integration.png?raw=true)
 
 **<u>Over 10 area lights</u>**
 
-![](site_media\readme\screenshots\Over 10 area lights.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Over%2010%20area%20lights.png?raw=true)
 
 **<u>Raytracing sample</u>**
 
-![](site_media\readme\screenshots\Raytracing sample.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample.png?raw=true)
 
 **<u>Raytracing sample</u>**
 
-![](site_media\readme\screenshots\Raytracing sample 2.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%202.png?raw=true)
 
 **<u>Light emitters</u>**
 
-![](site_media\readme\screenshots\Light emitters.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Light%20emitters.png?raw=true)
 
 **<u>Raytracing sample</u>**
 
-![](site_media\readme\screenshots\Raytracing sample 3.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%203.png?raw=true)
 
 **<u>1 Megapixel, 1 Million Samples</u>**
 
-![](site_media\readme\screenshots\1 Megapixel, 1 Million Samples.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/1%20Megapixel,%201%20Million%20Samples.png?raw=true)
 
 
 
@@ -62,23 +62,23 @@
 
 
 
-![](site_media\readme\gifs\raytracingflythrough\raytracing 1.gif)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%201.gif?raw=true)
 
 
 
-![](site_media\readme\gifs\raytracingflythrough\raytracing 2.gif)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%202.gif?raw=true)
 
 
 
-![](site_media\readme\gifs\raytracingflythrough\raytracing 3.gif)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%203.gif?raw=true)
 
 
 
-![](site_media\readme\gifs\raytracingflythrough\raytracing 4.gif)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%204.gif?raw=true)
 
 
 
-![](site_media\readme\gifs\raytracingflythrough\raytracing 5.gif)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%205.gif?raw=true)
 
 
 
@@ -86,27 +86,27 @@
 
 
 
-![](site_media\readme\gifs\denoisingalbedoandnormals\denoising 1.gif)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%201.gif?raw=true)
 
 
 
-![](site_media\readme\gifs\denoisingalbedoandnormals\denoising 2.gif)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%202.gif?raw=true)
 
 
 
-![](site_media\readme\gifs\denoisingalbedoandnormals\denoising 3.gif)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%203.gif?raw=true)
 
 
 
-![](site_media\readme\gifs\denoisingalbedoandnormals\denoising 4.gif)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%204.gif?raw=true)
 
 
 
-![](site_media\readme\gifs\denoisingalbedoandnormals\denoising 5.gif)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%205.gif?raw=true)
 
 
 
-![](site_media\readme\gifs\denoisingalbedoandnormals\denoising 7.gif)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%207.gif?raw=true)
 
 
 
