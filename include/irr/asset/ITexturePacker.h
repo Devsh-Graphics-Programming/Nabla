@@ -46,15 +46,14 @@ public:
         };
 
         //1st dword
-        //2x unorm16
-        uint64_t scale_x : 16;
-        uint64_t scale_y : 16;
+        uint64_t origsize_x : 16;
+        uint64_t origsize_y : 16;
 
         //2nd dword
         uint64_t pgTab_x : 8;
         uint64_t pgTab_y : 8;
         uint64_t pgTab_layer : 8;
-        uint64_t mipCount : 4;
+        uint64_t maxMip : 4;
         uint64_t wrap_x : 2;
         uint64_t wrap_y : 2;
     } PACK_STRUCT;
@@ -324,18 +323,15 @@ public:
     STextureData offsetToTextureData(const page_tab_offset_t& _offset, const ICPUImage* _img, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv)
     {
         STextureData texData;
-        core::vector2df_SIMD scaleUnorm16(m_pgSzxy);
-        scaleUnorm16 /= core::vector2df_SIMD(_img->getCreationParameters().extent.width, _img->getCreationParameters().extent.height,1.f,1.f);
-        scaleUnorm16 *= core::vector2df_SIMD(0xffffu);
-        texData.scale_x = scaleUnorm16.x;
-        texData.scale_y = scaleUnorm16.y;
+        texData.origsize_x = _img->getCreationParameters().extent.width;
+        texData.origsize_y = _img->getCreationParameters().extent.height;
 
 		texData.pgTab_x = _offset.x;
 		texData.pgTab_y = _offset.y;
         texData.pgTab_layer = _offset.z;
 
         //getCreationParameters().mipLevels doesnt necesarilly mean that there wasnt allocated space for higher non-existent mip levels
-        texData.mipCount = _img->getCreationParameters().mipLevels;
+        texData.maxMip = _img->getCreationParameters().mipLevels-1u-m_pgSzxy_log2;
 
         auto ETC_to_int = [](ISampler::E_TEXTURE_CLAMP _etc) -> uint32_t {
             switch (_etc)

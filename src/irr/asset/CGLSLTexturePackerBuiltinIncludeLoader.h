@@ -52,7 +52,7 @@ private:
 		auto tilePackingOffsetsStr = [&] {
 			std::string offsets;
 			for (uint32_t i = 0u; i < pg_sz_log2; ++i)
-				offsets += "uvec2(" + std::to_string(tilePacking[i].x) + "," + std::to_string(tilePacking[i].y) + ")" + (i==(pg_sz_log2-1u) ? "" : ",");
+				offsets += "vec2(" + std::to_string(tilePacking[i].x) + "," + std::to_string(tilePacking[i].y) + ")" + (i==(pg_sz_log2-1u) ? "" : ",");
 			return offsets;
 		};
 
@@ -72,7 +72,7 @@ private:
 			"\n#define PAGE_SZ_LOG2 " + args[ix_pg_sz_log2] + "u" +
 			"\n#define TILE_PADDING " + args[ix_tile_padding] + "u" +
 			"\n#define PADDED_TILE_SIZE uint(PAGE_SZ+2*TILE_PADDING)" +
-			"\n\nconst uvec2 packingOffsets[] = uvec2[PAGE_SZ_LOG2+1]( uvec2(0u,0u)," + tilePackingOffsetsStr() + ");" + 
+			"\n\nconst vec2 packingOffsets[] = vec2[PAGE_SZ_LOG2+1]( vec2(0.0,0.0)," + tilePackingOffsetsStr() + ");" + 
 			"\n#endif\n";
 	}
 
