@@ -10,51 +10,51 @@
 
 <u>**BRDF Explorer**</u>
 
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/IrrSS/brdf.png?raw=true)
+![](site_media\readme\screenshots\BRDF Explorer.png)
 
 <u>**Many light raytracing**</u>
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/1.png)
+![](site_media\readme\screenshots\Many light raytracing.png)
 
 <u>**Many light raytracing**</u>
 
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/IrrSS/balls.png?raw=true)
+![](site_media\readme\screenshots\Many light raytracing 2.png)
 
 **<u>Cylindrical light source</u>**
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/11.png)
+![](site_media\readme\screenshots\Cylindrical light source.png)
 
 **<u>Two area lights</u>**
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/2.png)
+![](C:\work\IrrlichtBaw\IrrlichtBAW parallel work\site_media\readme\screenshots\Two area lights.png)
 
 **<u>.OBJ Loader with MTL pipeline integration</u>**
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/3.png)
+![](site_media\readme\screenshots\.OBJ Loader with MTL pipeline integration.png)
 
 **<u>Over 10 area lights</u>**
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/4.png)
+![](site_media\readme\screenshots\Over 10 area lights.png)
 
 **<u>Raytracing sample</u>**
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/5.png)
+![](site_media\readme\screenshots\Raytracing sample.png)
 
 **<u>Raytracing sample</u>**
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/6.png)
+![](site_media\readme\screenshots\Raytracing sample 2.png)
 
 **<u>Light emitters</u>**
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/7.png)
+![](site_media\readme\screenshots\Light emitters.png)
 
 **<u>Raytracing sample</u>**
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/9.png)
+![](C:\work\IrrlichtBaw\IrrlichtBAW parallel work\site_media\readme\screenshots\Raytracing sample 3.png)
 
 **<u>1 Megapixel, 1 Million Samples</u>**
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/10.png)
+![](site_media\readme\screenshots\1 Megapixel, 1 Million Samples.png)
 
 
 
@@ -62,23 +62,23 @@
 
 
 
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/raytracingg1.gif?raw=true)
+![](site_media\readme\gifs\raytracingflythrough\raytracing 1.gif)
 
 
 
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/raytracingg2.gif?raw=true)
+![](site_media\readme\gifs\raytracingflythrough\raytracing 2.gif)
 
 
 
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/raytracingg3.gif?raw=true)
+![](site_media\readme\gifs\raytracingflythrough\raytracing 3.gif)
 
 
 
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/raytracingg4.gif?raw=true)
+![](site_media\readme\gifs\raytracingflythrough\raytracing 4.gif)
 
 
 
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/raytracingg5.gif?raw=true)
+![](site_media\readme\gifs\raytracingflythrough\raytracing 5.gif)
 
 
 
@@ -86,23 +86,27 @@
 
 
 
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/denoising/den1.gif?raw=true)
+![](site_media\readme\gifs\denoisingalbedoandnormals\denoising 1.gif)
 
 
 
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/denoising/den2.gif?raw=true)
+![](site_media\readme\gifs\denoisingalbedoandnormals\denoising 2.gif)
 
 
 
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/denoising/den3.gif?raw=true)
+![](site_media\readme\gifs\denoisingalbedoandnormals\denoising 3.gif)
 
 
 
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/denoising/den4.gif?raw=true)
+![](site_media\readme\gifs\denoisingalbedoandnormals\denoising 4.gif)
 
 
 
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/denoising/den7.gif?raw=true)
+![](site_media\readme\gifs\denoisingalbedoandnormals\denoising 5.gif)
+
+
+
+![](site_media\readme\gifs\denoisingalbedoandnormals\denoising 7.gif)
 
 
 
