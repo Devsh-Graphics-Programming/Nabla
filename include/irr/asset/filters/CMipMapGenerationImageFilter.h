@@ -89,7 +89,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 		{
 			const auto prevLevel = inMipLevel-1u;
 
-			CBlitImageFilter<Kernel>::state_type blit;
+			typename CBlitImageFilter<Kernel>::state_type blit;
 			blit.inOffsetBaseLayer = blit.outOffsetBaseLayer = core::vectorSIMDu32(0, 0, 0, state->baseLayer);
 			blit.inExtentLayerCount = state->inOutImage->getMipSize(prevLevel);
 			blit.outExtentLayerCount = state->inOutImage->getMipSize(inMipLevel);
@@ -98,7 +98,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			blit.outMipLevel = inMipLevel;
 			blit.inImage = blit.outImage = state->inOutImage;
 			//blit.kernel = Kernel();
-			static_cast<CBlitImageFilterBase::CStateBase&>(blit) = *static_cast<const CBlitImageFilterBase::CStateBase*>(state);
+			static_cast<typename CBlitImageFilterBase::CStateBase&>(blit) = *static_cast<const typename CBlitImageFilterBase::CStateBase*>(state);
 			return blit;
 		}
 };

@@ -48,8 +48,8 @@ private:
 	{
 		inline size_t operator()(const VectorUV& vec) const noexcept
 		{
-			static constexpr size_t primeNumber1 = 18446744073709551557;
-			static constexpr size_t primeNumber2 = 4611686018427388273;
+			static constexpr size_t primeNumber1 = 18446744073709551557ull;
+			static constexpr size_t primeNumber2 = 4611686018427388273ull;
 
 			return  ((static_cast<size_t>(static_cast<double>(vec.u)* std::numeric_limits<size_t>::max()) * primeNumber1) ^
 				(static_cast<size_t>(static_cast<double>(vec.v)* std::numeric_limits<size_t>::max()) * primeNumber2));
@@ -71,29 +71,6 @@ private:
 
 	template<E_QUANT_NORM_CACHE_TYPE CacheType>
 	struct vector_for_cache;
-
-	template<> 
-	struct vector_for_cache<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>
-	{
-		typedef uint32_t type;
-		typedef uint32_t cachedVecType;
-	};
-
-	template<> 
-	struct vector_for_cache<E_QUANT_NORM_CACHE_TYPE::Q_8_8_8>
-	{
-		typedef uint32_t type;
-		typedef Vector8u cachedVecType;
-	};
-
-
-	template<> 
-	struct vector_for_cache<E_QUANT_NORM_CACHE_TYPE::Q_16_16_16>
-	{
-		typedef uint64_t type;
-		typedef Vector16u cachedVecType;
-	};
-
 	template<E_QUANT_NORM_CACHE_TYPE CacheType>
 	using vector_for_cache_t = typename vector_for_cache<CacheType>::type;
 
@@ -341,6 +318,30 @@ private:
 	core::unordered_map<VectorUV, Vector8u, QuantNormalHash, QuantNormalEqualTo> normalCacheFor8_8_8Quant;
 	core::unordered_map<VectorUV, Vector16u, QuantNormalHash, QuantNormalEqualTo> normalCacheFor16_16_16Quant;
 };
+
+// because GCC is a special boy
+template<> 
+struct CQuantNormalCache::vector_for_cache<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>
+{
+	typedef uint32_t type;
+	typedef uint32_t cachedVecType;
+};
+
+template<> 
+struct CQuantNormalCache::vector_for_cache<E_QUANT_NORM_CACHE_TYPE::Q_8_8_8>
+{
+	typedef uint32_t type;
+	typedef Vector8u cachedVecType;
+};
+
+
+template<> 
+struct CQuantNormalCache::vector_for_cache<E_QUANT_NORM_CACHE_TYPE::Q_16_16_16>
+{
+	typedef uint64_t type;
+	typedef Vector16u cachedVecType;
+};
+
 
 }
 }

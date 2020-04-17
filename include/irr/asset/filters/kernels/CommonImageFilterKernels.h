@@ -74,19 +74,23 @@ class CFloatingPointIsotropicSeparableImageFilterKernelBase : public CImageFilte
 
 class CBoxImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CBoxImageFilterKernel,std::ratio<1,2> >
 {
+		using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CBoxImageFilterKernel,std::ratio<1,2> >;
+
 	public:
 		inline float weight(float x) const
 		{
-			return inDomain(x) ? 1.f:0.f;
+			return Base::inDomain(x) ? 1.f:0.f;
 		}
 };
 
 class CTriangleImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CTriangleImageFilterKernel,std::ratio<1,1> >
 {
+		using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CTriangleImageFilterKernel,std::ratio<1,1> >;
+
 	public:
 		inline float weight(float x) const
 		{
-			if (inDomain(x))
+			if (Base::inDomain(x))
 				return 1.f-core::abs(x);
 			return 0.f;
 		}
@@ -95,15 +99,17 @@ class CTriangleImageFilterKernel : public CFloatingPointIsotropicSeparableImageF
 template<uint32_t support=3u>
 class CKaiserImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CKaiserImageFilterKernel<support>,std::ratio<support,1> >
 {
+		using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CKaiserImageFilterKernel<support>,std::ratio<support,1> >;
+
 	public:
 		const float alpha = 3.f;
 
 		inline float weight(float x) const
 		{
-			if (inDomain(x))
+			if (Base::inDomain(x))
 			{
 				const auto PI = core::PI<float>();
-				return core::sinc(x*PI)*core::KaiserWindow(x,alpha,isotropic_support);
+				return core::sinc(x*PI)*core::KaiserWindow(x,alpha,Base::isotropic_support);
 			}
 			return 0.f;
 		}
@@ -112,10 +118,12 @@ class CKaiserImageFilterKernel : public CFloatingPointIsotropicSeparableImageFil
 template<class B=std::ratio<1,3>, class C=std::ratio<1,3> >
 class CMitchellImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CMitchellImageFilterKernel<B,C>,std::ratio<2,1> >
 {
+		using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CMitchellImageFilterKernel<B,C>,std::ratio<2,1> >;
+
 	public:
 		inline float weight(float x) const
 		{
-			if (inDomain(x))
+			if (Base::inDomain(x))
 			{
 				x = core::abs(x);
 				return core::mix(p0+x*x*(p2+x*p3),q0+x*(q1+x*(q2+x*q3)),x>=1.f);

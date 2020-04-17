@@ -124,8 +124,8 @@ class CBasicImageFilterCommon
 		}
 		template<typename F>
 		static inline void executePerRegion(const ICPUImage* image, F& f,
-											const IImage::SBufferCopy* _begin=image->getRegions().begin(),
-											const IImage::SBufferCopy* _end=image->getRegions().end())
+											const IImage::SBufferCopy* _begin,
+											const IImage::SBufferCopy* _end)
 		{
 			default_region_functor_t voidFunctor;
 			return executePerRegion<F,default_region_functor_t>(image,f,_begin,_end,voidFunctor);
@@ -179,7 +179,7 @@ class CBasicInImageFilterCommon : public CBasicImageFilterCommon
 		static inline bool validate(CState* state)
 		{
 			if (!state)
-				return nullptr;
+				return false;
 
 			if (!CBasicImageFilterCommon::validateSubresourceAndRange(state->subresource,state->inRange,state->inImage))
 				return false;
@@ -208,7 +208,7 @@ class CBasicOutImageFilterCommon : public CBasicImageFilterCommon
 		static inline bool validate(CState* state)
 		{
 			if (!state)
-				return nullptr;
+				return false;
 
 			if (!CBasicImageFilterCommon::validateSubresourceAndRange(state->subresource,state->outRange,state->outImage))
 				return false;
@@ -240,7 +240,7 @@ class CBasicInOutImageFilterCommon : public CBasicImageFilterCommon
 		static inline bool validate(CState* state)
 		{
 			if (!state)
-				return nullptr;
+				return false;
 
 			if (!CBasicImageFilterCommon::validateSubresourceAndRange(state->inSubresource,state->inRange,state->inImage))
 				return false;
