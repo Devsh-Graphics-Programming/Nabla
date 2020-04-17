@@ -464,12 +464,12 @@ IRR_FORCE_INLINE T gcd(const T& a, const T& b)
 template<>
 IRR_FORCE_INLINE vectorSIMDf cyl_bessel_i<vectorSIMDf>(const vectorSIMDf& v, const vectorSIMDf& x)
 {
-	return vectorSIMDf(std::cyl_bessel_i(v[0],x[0]),std::cyl_bessel_i(v[1],x[1]),std::cyl_bessel_i(v[2],x[2]),std::cyl_bessel_i(v[3],x[3]));
+	return vectorSIMDf(cyl_bessel_i<float>(v[0],x[0]),cyl_bessel_i<float>(v[1],x[1]),cyl_bessel_i<float>(v[2],x[2]),cyl_bessel_i<float>(v[3],x[3]));
 }
 template<typename T>
 IRR_FORCE_INLINE T cyl_bessel_i(const T& v, const T& x)
 {
-	return std::cyl_bessel_i(v,x);
+	return std::cyl_bessel_i(double(v),double(x));
 }
 
 

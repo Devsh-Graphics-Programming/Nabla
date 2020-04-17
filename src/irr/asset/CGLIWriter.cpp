@@ -228,11 +228,13 @@ inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> get
 		std::make_pair(ICPUImageView::SComponentMapping::ES_ZERO, gl::SWIZZLE_ZERO)
 	};
 
-	auto getMappedSwizzle = [&](const ICPUImageView::SComponentMapping::E_SWIZZLE& currentSwizzleToCheck)
+	auto getMappedSwizzle = [&](const ICPUImageView::SComponentMapping::E_SWIZZLE& currentSwizzleToCheck) -> gli::gl::swizzle
 	{
 		for (auto& mappedSwizzle : swizzlesMappingAPI)
 			if (currentSwizzleToCheck == mappedSwizzle.first)
 				return mappedSwizzle.second;
+		assert(false);
+		return gli::gl::swizzle::SWIZZLE_ZERO;
 	};
 
 	compomentMapping[0] = getMappedSwizzle(params.components.r);

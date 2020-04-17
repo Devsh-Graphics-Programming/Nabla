@@ -1157,14 +1157,14 @@ namespace asset
 
             const void* input = &col.c0;
             decodePixels<asset::EF_B5G6R5_UNORM_PACK16, uint64_t>(&input, p[0].c, 0u, 0u);
-			r0 = p[0].r;
-			g0 = p[0].g;
-			b0 = p[0].b;
+			r0 = static_cast<uint16_t>(p[0].r);
+			g0 = static_cast<uint16_t>(p[0].g);
+			b0 = static_cast<uint16_t>(p[0].b);
             input = &col.c1;
             decodePixels<asset::EF_B5G6R5_UNORM_PACK16, uint64_t>(&input, p[1].c, 0u, 0u);
-			r1 = p[1].r;
-			g1 = p[1].g;
-			b1 = p[1].b;
+			r1 = static_cast<uint16_t>(p[1].r);
+			g1 = static_cast<uint16_t>(p[1].g);
+			b1 = static_cast<uint16_t>(p[1].b);
             if (col.c0 > col.c1)
             {
                 p[2].r = (2 * r0 + 1 * r1) / 3;

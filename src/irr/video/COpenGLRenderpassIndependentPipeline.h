@@ -103,8 +103,7 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
 	        }
             inline const uint32_t& getStamp(IGPUSpecializedShader::E_SHADER_STAGE _stage) const
             {
-                std::atomic_uint32_t& retval = const_cast<typename std::decay<decltype(*this)>::type*>(this)->getStamp(_stage);
-                return retval;
+                return const_cast<typename std::decay<decltype(*this)>::type*>(this)->getStamp(_stage);
             }
 	        inline void incrementStamps(uint32_t _stages)
 	        {

@@ -150,7 +150,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         //! Utility wrapper for the pointer based func
         inline void flushMappedMemoryRanges(const core::vector<video::IDriverMemoryAllocation::MappedMemoryRange>& ranges)
         {
-            this->flushMappedMemoryRanges(ranges.size(),ranges.data());
+            this->flushMappedMemoryRanges(static_cast<uint32_t>(ranges.size()),ranges.data());
         }
 
         //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the GPU writes to become CPU visible (slow on OpenGL)
@@ -159,7 +159,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         //! Utility wrapper for the pointer based func
         inline void invalidateMappedMemoryRanges(const core::vector<video::IDriverMemoryAllocation::MappedMemoryRange>& ranges)
         {
-            this->invalidateMappedMemoryRanges(ranges.size(),ranges.data());
+            this->invalidateMappedMemoryRanges(static_cast<uint32_t>(ranges.size()),ranges.data());
         }
 
 
@@ -332,12 +332,12 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         //! WARNING, THIS FUNCTION MAY STALL AND BLOCK
         inline void updateBufferRangeViaStagingBuffer(IGPUBuffer* buffer, size_t offset, size_t size, const void* data)
         {
-            for (uint32_t uploadedSize=0; uploadedSize<size;)
+            for (size_t uploadedSize=0; uploadedSize<size;)
             {
                 const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
                 uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
                 uint32_t alignment = 64u; // smallest mapping alignment capability
-                uint32_t subSize = core::min(core::alignDown(defaultUploadBuffer.get()->max_size(),alignment),size-uploadedSize);
+                uint32_t subSize = static_cast<uint32_t>(core::min(core::alignDown(defaultUploadBuffer.get()->max_size(),alignment),size-uploadedSize));
 
                 defaultUploadBuffer.get()->multi_place(std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&localOffset,&subSize,&alignment);
                 // keep trying again
