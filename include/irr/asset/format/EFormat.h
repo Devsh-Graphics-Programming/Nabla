@@ -1956,9 +1956,177 @@ namespace asset
     constexpr getFormatMaxValue<E_FORMAT>(channel)
     inline value_type getFormatMaxValue<value_type>(format,channel)
 
-    // in SFLOAT and SRGB formats, the precision is dependant on the current value of the channel
-    inline value_type getFormatPrecision<value_type>(format,channel,value)
     */
+    template <typename value_type>
+    inline value_type getFormatMaxValue(E_FORMAT format, uint32_t channel)
+    {
+        const bool _signed = isSignedFormat(format);
+        if (isIntegerFormat(format) || isScaledFormat(format))
+        {
+            auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
+            if (_signed)
+            {
+                switch (bytesPerChannel)
+                {
+                case 1u: return SCHAR_MAX;
+                case 2u: return SHRT_MAX;
+                case 4u: return INT_MAX;
+                case 8u: return LLONG_MAX;
+                default: break;
+                }
+            }
+            else
+            {
+                switch (bytesPerChannel)
+                {
+                case 1u: return UCHAR_MAX;
+                case 2u: return USHRT_MAX;
+                case 4u: return UINT_MAX;
+                case 8u: return ULLONG_MAX;
+                default: break;
+                }
+            }
+        }
+        else if (isNormalizedFormat(format))
+        {
+            return 1;
+        }
+        else if (isFloatingPointFormat(format))
+        {
+            auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
+            switch (bytesPerChannel)
+            {
+            case 2u: return 65504;
+            case 4u: return FLT_MAX;
+            case 8u: return DBL_MAX;
+            default: break;
+            }
+        }
+        return 0;
+    }
+
+    template <typename value_type>
+    inline value_type getFormatMinValue(E_FORMAT format, uint32_t channel)
+    {
+        const bool _signed = isSignedFormat(format);
+        if (!_signed)
+            return 0;
+        if (isIntegerFormat(format) || isScaledFormat(format))
+        {
+            auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
+            switch (bytesPerChannel)
+            {
+            case 1u: return SCHAR_MIN;
+            case 2u: return SHRT_MIN;
+            case 4u: return INT_MIN;
+            case 8u: return LLONG_MIN;
+            default: break;
+            }
+        }
+        else if (isNormalizedFormat(format))
+        {
+            return _signed ? -1 : 0;
+        }
+        else if (isFloatingPointFormat(format))
+        {
+            auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
+            switch (bytesPerChannel)
+            {
+            case 2u: return -65504;
+            case 4u: return -FLT_MAX;
+            case 8u: return -DBL_MAX;
+            default: break;
+            }
+        }
+        return 0;
+    }
+
+    // in SFLOAT and SRGB formats, the precision is dependant on the current value of the channel
+    template <typename value_type>
+    inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_type value)
+    {
+        _IRR_DEBUG_BREAK_IF(isBlockCompressionFormat(format)); //????
+
+        if (isIntegerFormat(format))
+            return 1;
+
+        if (isSRGBFormat(format))
+        {
+            if (channel==3u)
+                return 1.0/255.0;
+            return core::srgb2lin(value+1.0/255.0)-core::srgb2lin(value);
+        }
+        else if (isNormalizedFormat(format))
+        {
+            switch (format)
+            {
+            case EF_A2R10G10B10_UNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2R10G10B10_SNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2B10G10R10_UNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2B10G10R10_SNORM_PACK32:
+                return (channel==3u) ? 1.0/3.0 : 1.0/1023.0;
+            case EF_R4G4_UNORM_PACK8:
+                return 1.0/15.0;
+            case EF_R4G4B4A4_UNORM_PACK16:
+                return 1.0/15.0;
+            case EF_B4G4R4A4_UNORM_PACK16:
+                return 1.0/15.0;
+            case EF_R5G6B5_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_B5G6R5_UNORM_PACK16:
+                return (channel==1u) ? (1.0/63.0) : (1.0/31.0);
+            case EF_R5G5B5A1_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_B5G5R5A1_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_A1R5G5B5_UNORM_PACK16:
+                return (channel==3u) ? 1.0 : (1.0/31.0);
+            default: break;
+            }
+
+            auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
+            switch (bytesPerChannel)
+            {
+            case 1u:
+                return 1.0/255.0;
+            case 2u:
+                return 1.0/65535.0;
+            default: break;
+            }
+        }
+        else if (isFloatingPointFormat(format))
+        {
+            switch (format)
+            {
+            case EF_B10G11R11_UFLOAT_PACK32:
+                return 0; //TODO
+            case EF_E5B9G9R9_UFLOAT_PACK32:
+                return 0; //TODO
+            default: break;
+            }
+            auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
+            switch (bytesPerChannel)
+            {
+            case 2u:
+            {
+                float f = std::abs(static_cast<float>(value));
+                uint16_t f16 = core::Float16Compressor::compress(f);
+                uint16_t dir = core::Float16Compressor::compress(2.f*(f+1.f));
+                return core::Float16Compressor::decompress( core::nextafter16(f16, dir) ) - f;
+            }
+            case 4u:
+            {
+                float f32 = std::abs(static_cast<float>(value));
+                return core::nextafter32(f32,2.f*(f32+1.f))-f32;
+            }
+            case 8u:
+            {
+                double f64 = std::abs(static_cast<double>(value));
+                return core::nextafter64(f64,2.0*(f64+1.0))-f64;
+            }
+            default: break;
+            }
+        }
+
+        return 0;
+    }
 }
 }
 

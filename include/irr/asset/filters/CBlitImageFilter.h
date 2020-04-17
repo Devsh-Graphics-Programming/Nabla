@@ -278,10 +278,10 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 				}
 				for (auto i=0; i<Kernel::MaxChannels; i++)
 				{
-					sample[i] = core::clamp<Kernel::value_type,Kernel::value_type>(sample[i],0.0,1.0);
+					//sample[i] = core::clamp<Kernel::value_type,Kernel::value_type>(sample[i],0.0,1.0);
 					// @Crisspl replace this with epic quantization (actually it would be good if you cached the max and min values for the 4 channels outside the hot loop
-					//sample[i] += double(sampler.nextSample())*(getFormatPrecision<Kernel::value_type>(outFormat,i,sampler[i])/double(~0u));
-					//sample[i] = core::clamp<Kernel::value_type,Kernel::value_type>(sample[i], getFormatMinValue<Kernel::value_type>(outFormat,i), getFormatMaxValue<Kernel::value_type>(outFormat,i));
+					sample[i] += double(sampler.nextSample())*(asset::getFormatPrecision<Kernel::value_type>(outFormat,i,sample[i])/double(~0u));
+					sample[i] = core::clamp<Kernel::value_type,Kernel::value_type>(sample[i], asset::getFormatMinValue<Kernel::value_type>(outFormat,i), asset::getFormatMaxValue<Kernel::value_type>(outFormat,i));
 				}
 				asset::encodePixels<Kernel::value_type>(outFormat,dstPix,sample);
 			};
@@ -300,8 +300,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 				for (auto i=0; i<outputTexelCount; i++)
 				{
 					begin[i] = intermediateStorage[axis][i*4+alphaChannel];
-					// TODO: @Crisspl add random quantization noise
-					//begin[i] -= double(sampler.nextSample())*(getFormatPrecision<Kernel::value_type>(outFormat,alphaChannel,begin[i])/double(~0u));
+					begin[i] -= double(sampler.nextSample())*(asset::getFormatPrecision<Kernel::value_type>(outFormat,alphaChannel,begin[i])/double(~0u));
 				}
 				std::nth_element(begin,nth,end);
 				// scale all alpha texels to work with new reference value
