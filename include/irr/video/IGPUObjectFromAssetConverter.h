@@ -442,6 +442,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUImage** const _begin, asset
                 if (tmpViewParams.subresourceRange.levelCount>1u)
                 {
                     tmpViewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
+                    tmpViewParams.image = core::smart_refctd_ptr(gpuimg);
                     switch (params.type)
                     {
                         case asset::IImage::ET_1D:
