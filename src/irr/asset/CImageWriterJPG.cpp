@@ -11,14 +11,12 @@
 #include "irr/asset/ICPUImageView.h"
 #include "os.h"
 
-#include "os.h"
-
 #ifdef _IRR_COMPILE_WITH_LIBJPEG_
 #include <stdio.h> // required for jpeglib.h
 extern "C"
 {
-	#include "libjpeg/jpeglib.h"
-	#include "libjpeg/jerror.h"
+	#include <jpeglib.h>
+	#include <jerror.h>
 }
 
 // The writer uses a 4k buffer and flushes to disk each time it's filled
@@ -98,16 +96,82 @@ static void jpeg_file_dest(j_compress_ptr cinfo, io::IWriteFile* file)
 	dest->file = file;
 }
 
+template<asset::E_FORMAT outFormat>
+core::smart_refctd_ptr<asset::ICPUImage> getJPGConvertedOutput(const asset::ICPUImage* image)
+{
+	using CONVERSION_FILTER = asset::CConvertFormatImageFilter<asset::EF_UNKNOWN, outFormat>;
 
-#ifndef NEW_SHADERS
+	core::smart_refctd_ptr<asset::ICPUImage> newConvertedImage;
+	{
+		auto referenceImageParams = image->getCreationParameters();
+		auto referenceBuffer = image->getBuffer();
+		auto referenceRegions = image->getRegions();
+		auto referenceRegion = referenceRegions.begin();
+		const auto newTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(outFormat);
+
+		asset::TexelBlockInfo referenceBlockInfo(referenceImageParams.format);
+		core::vector3du32_SIMD referenceTrueExtent = referenceBlockInfo.convertTexelsToBlocks(referenceRegion->getTexelStrides());
+
+		auto newImageParams = referenceImageParams;
+		auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceTrueExtent.X * referenceTrueExtent.Y * referenceTrueExtent.Z * newTexelOrBlockByteSize);
+		auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1);
+		newRegions->front() = *referenceRegion;
+
+		newImageParams.format = outFormat;
+		newConvertedImage = ICPUImage::create(std::move(newImageParams));
+		newConvertedImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
+
+		CONVERSION_FILTER convertFilter;
+		CONVERSION_FILTER::state_type state;
+
+		auto attachedRegion = newConvertedImage->getRegions().begin();
+
+		state.inImage = image;
+		state.outImage = newConvertedImage.get();
+		state.inOffset = { 0, 0, 0 };
+		state.inBaseLayer = 0;
+		state.outOffset = { 0, 0, 0 };
+		state.outBaseLayer = 0;
+		state.extent = attachedRegion->getExtent();
+		state.layerCount = attachedRegion->imageSubresource.layerCount;
+		state.inMipLevel = attachedRegion->imageSubresource.mipLevel;
+		state.outMipLevel = attachedRegion->imageSubresource.mipLevel;
+
+		if (!convertFilter.execute(&state))
+			os::Printer::log("Something went wrong while converting!", ELL_WARNING);
+
+		return newConvertedImage;
+	}
+}
+
 /* write_JPEG_memory: store JPEG compressed image into memory.
 */
-static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, uint32_t quality)
+static bool writeJPEGFile(io::IWriteFile* file, const asset::ICPUImage* image, uint32_t quality)
 {
-	auto format = image->getColorFormat();
-	bool grayscale = (format == asset::EF_R8_SRGB) || (format == asset::EF_R8_UNORM);
+	core::smart_refctd_ptr<ICPUImage> convertedImage;
+	{
+		const auto channelCount = asset::getFormatChannelCount(image->getCreationParameters().format);
+		if (channelCount == 1)
+			convertedImage = getJPGConvertedOutput<asset::EF_R8_SRGB>(image);
+		else
+			convertedImage = getJPGConvertedOutput<asset::EF_R8G8B8_SRGB>(image);
+	}
+
+	const auto& convertedImageParams = convertedImage->getCreationParameters();
+	const auto& convertedRegion = convertedImage->getRegions().begin();
+	auto convertedFormat = convertedImageParams.format;
+
+	asset::TexelBlockInfo blockInfo(convertedFormat);
+	core::vector3du32_SIMD trueExtent = blockInfo.convertTexelsToBlocks(convertedRegion->getTexelStrides());
+
+	bool grayscale = (convertedFormat == asset::EF_R8_SRGB);
 	
-	core::vector3d<uint32_t> dim = image->getSize();
+	core::vector3d<uint32_t> dim;
+	dim.X = trueExtent.X;
+	dim.Y = trueExtent.Y;
+	dim.Z = trueExtent.Z;
+
+	const auto texelOrBlockByteSize = asset::getTexelOrBlockBytesize(convertedFormat) * trueExtent.X;
 
 	struct jpeg_compress_struct cinfo;
 	struct jpeg_error_mgr jerr;
@@ -128,40 +192,25 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 	jpeg_set_quality(&cinfo, quality, TRUE);
 	jpeg_start_compress(&cinfo, TRUE);
 
-	uint8_t * dest = new uint8_t[dim.X*3];
+	const auto JPG_BYTE_PITCH = texelOrBlockByteSize;
+	uint8_t* dest = new uint8_t[JPG_BYTE_PITCH];
 
 	if (dest)
 	{
-		const uint32_t pitch = image->getPitchIncludingAlignment();
+		const uint32_t pitch = JPG_BYTE_PITCH;
 		JSAMPROW row_pointer[1];      /* pointer to JSAMPLE row[s] */
 		row_pointer[0] = dest;
 		
-		uint8_t* src = (uint8_t*)image->getData();
+		uint8_t* src = (uint8_t*)convertedImage->getBuffer()->getPointer();
 		
 		/* Switch up, write from bottom -> top because the texture is flipped from OpenGL side */
 		uint32_t eof = cinfo.image_height * cinfo.image_width * cinfo.input_components;
 		
 		while (cinfo.next_scanline < cinfo.image_height)
 		{
-			/* Since the first argument to convertColor() requires a const void *[4], wrap our buffer pointer (src) and pass that to convertColor(). */
-			const void *src_container[4] = {src, nullptr, nullptr, nullptr};
-			
-			/* Pass-through the pixels for EF_R8_SRGB/EF_R8G8B8_SRGB, and perform color conversion for the rest.*/
-			switch (format) {
-				case asset::EF_R8G8B8_UNORM:
-					video::convertColor<EF_R8G8B8_UNORM, EF_R8G8B8_SRGB>(src_container, dest, dim.X, dim);
-					break;
-				case asset::EF_B5G6R5_UNORM_PACK16:
-					video::convertColor<EF_B5G6R5_UNORM_PACK16, EF_R8G8B8_SRGB>(src_container, dest, dim.X, dim);
-					break;
-				case asset::EF_A1R5G5B5_UNORM_PACK16:
-					video::convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_R8G8B8_SRGB>(src_container, dest, dim.X, dim);
-					break;
-				case asset::EF_R8_UNORM:
-					video::convertColor<EF_R8_UNORM, EF_R8_SRGB>(src_container, dest, dim.X, dim);
-					break;
-				case asset::EF_R8_SRGB:
-					_IRR_FALLTHROUGH;
+			switch (convertedFormat)
+			{
+				case asset::EF_R8_SRGB: _IRR_FALLTHROUGH;
 				case asset::EF_R8G8B8_SRGB:
 					memcpy(dest, src, pitch);
 					break;
@@ -188,7 +237,6 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::CImageData* image, 
 
 	return (dest != 0);
 }
-#endif //NEW_SHADERS
 #endif // _IRR_COMPILE_WITH_LIBJPEG_
 
 CImageWriterJPG::CImageWriterJPG()
@@ -200,28 +248,22 @@ CImageWriterJPG::CImageWriterJPG()
 
 bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
-#if !defined(_IRR_COMPILE_WITH_LIBJPEG_ ) || defined(NEW_SHADERS)
-	_IRR_DEBUG_BREAK_IF(true); // Anastazluk fix this
+#if !defined(_IRR_COMPILE_WITH_LIBJPEG_ )
 	return false;
 #else
-    if (!_override)
-        getDefaultOverride(_override);
+	SAssetWriteContext ctx{ _params, _file };
 
-    SAssetWriteContext ctx{_params, _file};
-
-    const asset::CImageData* image =
-#   ifndef _IRR_DEBUG
-        static_cast<const asset::CImageData*>(_params.rootAsset);
-#   else
-        dynamic_cast<const asset::CImageData*>(_params.rootAsset);
-#   endif
-    assert(image);
+	const asset::ICPUImageView* imageView = IAsset::castDown<ICPUImageView>(_params.rootAsset);
+	const auto smartImage = IImageAssetHandlerBase::getTopImageDataForCommonWriting(imageView);
+	const auto image = smartImage.get();
 
     io::IWriteFile* file = _override->getOutputFile(_file, ctx, {image, 0u});
     const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, image, 0u);
     const float comprLvl = _override->getAssetCompressionLevel(ctx, image, 0u);
+
 	return writeJPEGFile(file, image, (!!(flags & asset::EWF_COMPRESSED)) * static_cast<uint32_t>((1.f-comprLvl)*100.f)); // if quality==0, then it defaults to 75
-#endif//!defined(_IRR_COMPILE_WITH_LIBJPEG_ ) || defined(NEW_SHADERS)
+
+#endif//!defined(_IRR_COMPILE_WITH_LIBJPEG_ )
 }
 
 #undef OUTPUT_BUF_SIZE

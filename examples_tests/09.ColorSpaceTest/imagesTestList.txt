@@ -1,7 +1,8 @@
 ; This is the testing suite for various IrrlichtBAW loaders/writers (JPG/PNG/TGA/BMP/DDS/KTX).
-; BMP, DDS & KTX are currently unsupported for now.
+; BMP is currently unsupported for now.
 ; 16-bit PNG & 8-bit RLE (compressed) TGA is not supported.
 ; For licensing attribution, see LICENSE.
+; For DDS testing purposes switched off most of images
 
 ; JPG, colored & 8-bit grayscale
 ../../media/color_space_test/R8G8B8_1.jpg
@@ -20,10 +21,19 @@
 ../../media/color_space_test/R8_2.png
 
 ; TGA, 24/32-bit & 8-bit grayscale (+RLE)
-../../media/sponza/textures/background.tga
 ../../media/color_space_test/R8G8B8_RLE.tga
 
 ../../media/color_space_test/R8G8B8A8.tga
 ../../media/color_space_test/R8G8B8A8_RLE.tga
 
 ../../media/color_space_test/R8.tga
+
+
+; DDS, RGBA Block Compression with mipmaps, cubemaps, arrays, cubemap mipmap images, grayscale
+;../../media/GLI/kueken7_rgba_dxt1_srgb.dds
+;../../media/GLI/kueken7_rgba_dxt3_unorm.dds
+;../../media/GLI/kueken7_rgba_dxt5_srgb.dds
+;../../media/GLI/earth-cubemap.dds
+;../../media/GLI/array_r8_uint.dds										
+;../../media/GLI/earth-cubemap2.dds
+;../../media/GLI/kueken7_a8_unorm.dds

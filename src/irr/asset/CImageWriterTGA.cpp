@@ -26,31 +26,97 @@ CImageWriterTGA::CImageWriterTGA()
 #endif
 }
 
+template<asset::E_FORMAT outFormat>
+core::smart_refctd_ptr<asset::ICPUImage> getTGAConvertedOutput(const asset::ICPUImage* image)
+{
+	using CONVERSION_FILTER = asset::CConvertFormatImageFilter<asset::EF_UNKNOWN, outFormat>;
+
+	core::smart_refctd_ptr<asset::ICPUImage> newConvertedImage;
+	{
+		auto referenceImageParams = image->getCreationParameters();
+		auto referenceBuffer = image->getBuffer();
+		auto referenceRegions = image->getRegions();
+		auto referenceRegion = referenceRegions.begin();
+		const auto newTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(outFormat);
+
+		asset::TexelBlockInfo referenceBlockInfo(referenceImageParams.format);
+		core::vector3du32_SIMD referenceTrueExtent = referenceBlockInfo.convertTexelsToBlocks(referenceRegion->getTexelStrides());
+
+		auto newImageParams = referenceImageParams;
+		auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceTrueExtent.X * referenceTrueExtent.Y * referenceTrueExtent.Z * newTexelOrBlockByteSize);
+		auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1);
+		auto newRegion = newRegions->begin();
+		*newRegion = *referenceRegion;
+
+		newImageParams.format = outFormat;
+		newConvertedImage = ICPUImage::create(std::move(newImageParams));
+		newConvertedImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
+
+		CONVERSION_FILTER convertFilter;
+		CONVERSION_FILTER::state_type state;
+
+		auto attachedRegion = newConvertedImage->getRegions().begin();
+
+		state.inImage = image;
+		state.outImage = newConvertedImage.get();
+		state.inOffset = { 0, 0, 0 };
+		state.inBaseLayer = 0;
+		state.outOffset = { 0, 0, 0 };
+		state.outBaseLayer = 0;
+		state.extent = attachedRegion->getExtent();
+		state.layerCount = attachedRegion->imageSubresource.layerCount;
+		state.inMipLevel = attachedRegion->imageSubresource.mipLevel;
+		state.outMipLevel = attachedRegion->imageSubresource.mipLevel;
+
+		if (!convertFilter.execute(&state))
+			os::Printer::log("Something went wrong while converting!", ELL_WARNING);
+
+		return newConvertedImage;
+	}
+}
+
 bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
-// Anastazluk fix this!
-#ifndef NEW_SHADERS
     if (!_override)
         getDefaultOverride(_override);
 
-    SAssetWriteContext ctx{_params, _file};
+	SAssetWriteContext ctx{ _params, _file };
 
-    const asset::CImageData* image =
-#   ifndef _IRR_DEBUG
-        static_cast<const asset::CImageData*>(_params.rootAsset);
-#   else
-        dynamic_cast<const asset::CImageData*>(_params.rootAsset);
-#   endif
-    assert(image);
+	const asset::ICPUImageView* imageView = IAsset::castDown<ICPUImageView>(_params.rootAsset);
+	const auto smartImage = IImageAssetHandlerBase::getTopImageDataForCommonWriting(imageView);
+	const auto image = smartImage.get();
 
-    io::IWriteFile* file = _override->getOutputFile(_file, ctx, { image, 0u });
+	io::IWriteFile* file = _override->getOutputFile(_file, ctx, { image, 0u });
+
+	core::smart_refctd_ptr<ICPUImage> convertedImage;
+	{
+		const auto channelCount = asset::getFormatChannelCount(image->getCreationParameters().format);
+		if (channelCount == 1)
+			convertedImage = getTGAConvertedOutput<asset::EF_R8_SRGB>(image);
+		else if (channelCount == 2)
+			convertedImage = getTGAConvertedOutput<asset::EF_A1R5G5B5_UNORM_PACK16>(image);
+		else if(channelCount == 3)
+			convertedImage = getTGAConvertedOutput<asset::EF_B8G8R8_SRGB>(image);
+		else
+			convertedImage = getTGAConvertedOutput<asset::EF_B8G8R8A8_SRGB>(image);
+	}
 	
-	auto format = image->getColorFormat();
+	const auto& convertedImageParams = convertedImage->getCreationParameters();
+	const auto& convertedRegion = convertedImage->getRegions().begin();
+	auto convertedFormat = convertedImageParams.format;
+
+	asset::TexelBlockInfo blockInfo(convertedFormat);
+	core::vector3du32_SIMD trueExtent = blockInfo.convertTexelsToBlocks(convertedRegion->getTexelStrides());
+
+	core::vector3d<uint32_t> dim;
+	dim.X = trueExtent.X;
+	dim.Y = trueExtent.Y;
+	dim.Z = trueExtent.Z;
 
 	STGAHeader imageHeader;
 	imageHeader.IdLength = 0;
 	imageHeader.ColorMapType = 0;
-	imageHeader.ImageType = ((format == EF_R8_SRGB) || (format == EF_R8_UNORM)) ? 3 : 2;
+	imageHeader.ImageType = (convertedFormat == EF_R8_SRGB) ? 3 : 2;
 	imageHeader.FirstEntryIndex[0] = 0;
 	imageHeader.FirstEntryIndex[1] = 0;
 	imageHeader.ColorMapLength = 0;
@@ -59,56 +125,55 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	imageHeader.XOrigin[1] = 0;
 	imageHeader.YOrigin[0] = 0;
 	imageHeader.YOrigin[1] = 0;
-	imageHeader.ImageWidth = image->getSize().X;
-	imageHeader.ImageHeight = image->getSize().Y;
+	imageHeader.ImageWidth = trueExtent.X;
+	imageHeader.ImageHeight = trueExtent.Y;
 
 	// top left of image is the top. the image loader needs to
 	// be fixed to only swap/flip
 	imageHeader.ImageDescriptor = 1;
 	
-	switch (format)
+	switch (convertedFormat)
 	{
-		case asset::EF_R8G8B8A8_SRGB:
-			{
-				imageHeader.PixelDepth = 32;
-				imageHeader.ImageDescriptor |= 8;
-			}
-			break;
-		case asset::EF_R8G8B8_SRGB:
-			{
-				imageHeader.PixelDepth = 24;
-				imageHeader.ImageDescriptor |= 0;
-			}
-			break;
+		case asset::EF_B8G8R8A8_SRGB:
+		{
+			imageHeader.PixelDepth = 32;
+			imageHeader.ImageDescriptor |= 8;
+		}
+		break;
+		case asset::EF_B8G8R8_SRGB:
+		{
+			imageHeader.PixelDepth = 24;
+			imageHeader.ImageDescriptor |= 0;
+		}
+		break;
 		case asset::EF_A1R5G5B5_UNORM_PACK16:
-			{
-				imageHeader.PixelDepth = 16;
-				imageHeader.ImageDescriptor |= 1;
-			}
-			break;
+		{
+			imageHeader.PixelDepth = 16;
+			imageHeader.ImageDescriptor |= 1;
+		}
+		break;
 		case asset::EF_R8_SRGB:
-		case asset::EF_R8_UNORM:
-			{
-				imageHeader.PixelDepth = 8;
-				imageHeader.ImageDescriptor |= 0;
-			}
-			break;
+		{
+			imageHeader.PixelDepth = 8;
+			imageHeader.ImageDescriptor |= 0;
+		}
+		break;
 		default:
-			{
-				os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
-				return false;
-			}
+		{
+			os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
+			return false;
+		}
 	}
 
 	if (file->write(&imageHeader, sizeof(imageHeader)) != sizeof(imageHeader))
 		return false;
 
-	uint8_t* scan_lines = (uint8_t*)image->getData();
+	uint8_t* scan_lines = (uint8_t*)convertedImage->getBuffer()->getPointer();
 	if (!scan_lines)
 		return false;
 
 	// size of one pixel in bits
-	uint32_t pixel_size_bits = image->getBytesPerPixel().getIntegerApprox();
+	uint32_t pixel_size_bits = convertedImage->getBytesPerPixel().getIntegerApprox();
 
 	// length of one row of the source image in bytes
 	uint32_t row_stride = (pixel_size_bits * imageHeader.ImageWidth);
@@ -119,41 +184,19 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	// allocate a row do translate data into
 	uint8_t* row_pointer = new uint8_t[row_size];
 
-	auto size = image->getSize();
-
 	uint32_t y;
 	for (y = 0; y < imageHeader.ImageHeight; ++y)
 	{
-		switch (format) {
+		switch (convertedFormat) 
+		{
 			case asset::EF_R8_SRGB:
+			case asset::EF_B8G8R8_SRGB:
+			case asset::EF_B8G8R8A8_SRGB:
 			case asset::EF_A1R5G5B5_UNORM_PACK16:
-				{
-					memcpy(row_pointer, &scan_lines[y * row_stride], imageHeader.ImageWidth * (imageHeader.PixelDepth / 8));
-				}
+			{
+				memcpy(row_pointer, &scan_lines[y * row_stride], row_size);
+			}
 			break;
-			
-			case asset::EF_R8_UNORM:
-				{
-					const void *src_container[4] = {&scan_lines[y * row_stride], nullptr, nullptr, nullptr};
-					video::convertColor<EF_R8_UNORM, EF_R8_SRGB>(src_container, row_pointer, imageHeader.ImageWidth, size);
-				}
-			break;
-			
-			// EF_R8G8B8(A8)_SRGB would need swizzling to EF_B8G8R8(A8)_SRGB.
-			case asset::EF_R8G8B8_SRGB:
-				{
-					const void *src_container[4] = {&scan_lines[y * row_stride], nullptr, nullptr, nullptr};
-					video::convertColor<EF_R8G8B8_SRGB, EF_B8G8R8_SRGB>(src_container, row_pointer, imageHeader.ImageWidth, size);
-				}
-			break;
-			
-			case asset::EF_R8G8B8A8_SRGB:
-				{
-					const void *src_container[4] = {&scan_lines[y * row_stride], nullptr, nullptr, nullptr};
-					video::convertColor<EF_R8G8B8A8_SRGB, EF_B8G8R8A8_SRGB>(src_container, row_pointer, imageHeader.ImageWidth, size);
-				}
-			break;
-			
 			default:
 			{
 				os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
@@ -170,7 +213,7 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	
 	STGAExtensionArea extension;
 	extension.ExtensionSize = sizeof(extension);
-	extension.Gamma = isSRGBFormat(format) ? ((100.0f / 30.0f) - 1.1f) : 1.0f;
+	extension.Gamma = isSRGBFormat(convertedFormat) ? ((100.0f / 30.0f) - 1.1f) : 1.0f;
 	
 	STGAFooter imageFooter;
 	imageFooter.ExtensionOffset = _file->getPos();
@@ -184,14 +227,9 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 		return false;
 
 	return imageHeader.ImageHeight <= y;
-#else
-	_IRR_DEBUG_BREAK_IF(true);
-    return false;
-#endif//NEW_SHADERS
 }
 
 } // namespace video
 } // namespace irr
 
 #endif
-

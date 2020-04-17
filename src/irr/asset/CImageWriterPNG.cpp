@@ -57,22 +57,66 @@ CImageWriterPNG::CImageWriterPNG()
 #endif
 }
 
+template<asset::E_FORMAT outFormat>
+core::smart_refctd_ptr<asset::ICPUImage> getPNGConvertedOutput(const asset::ICPUImage* image)
+{
+	using CONVERSION_FILTER = asset::CConvertFormatImageFilter<asset::EF_UNKNOWN, outFormat>;
+
+	core::smart_refctd_ptr<asset::ICPUImage> newConvertedImage;
+	{
+		auto referenceImageParams = image->getCreationParameters();
+		auto referenceBuffer = image->getBuffer();
+		auto referenceRegions = image->getRegions();
+		auto referenceRegion = referenceRegions.begin();
+		const auto newTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(outFormat);
+
+		asset::TexelBlockInfo referenceBlockInfo(referenceImageParams.format);
+		core::vector3du32_SIMD referenceTrueExtent = referenceBlockInfo.convertTexelsToBlocks(referenceRegion->getTexelStrides());
+
+		auto newImageParams = referenceImageParams;
+		auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceTrueExtent.X * referenceTrueExtent.Y * referenceTrueExtent.Z * newTexelOrBlockByteSize);
+		auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1);
+		newRegions->front() = *referenceRegion;
+
+		newImageParams.format = outFormat;
+		newConvertedImage = ICPUImage::create(std::move(newImageParams));
+		newConvertedImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
+
+		CONVERSION_FILTER convertFilter;
+		CONVERSION_FILTER::state_type state;
+
+		auto attachedRegion = newConvertedImage->getRegions().begin();
+
+		state.inImage = image;
+		state.outImage = newConvertedImage.get();
+		state.inOffset = { 0, 0, 0 };
+		state.inBaseLayer = 0;
+		state.outOffset = { 0, 0, 0 };
+		state.outBaseLayer = 0;
+		state.extent = attachedRegion->getExtent();
+		state.layerCount = attachedRegion->imageSubresource.layerCount;
+		state.inMipLevel = attachedRegion->imageSubresource.mipLevel;
+		state.outMipLevel = attachedRegion->imageSubresource.mipLevel;
+
+		if (!convertFilter.execute(&state))
+			os::Printer::log("Something went wrong while converting!", ELL_WARNING);
+
+		return newConvertedImage;
+	}
+}
+
 bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
     if (!_override)
         getDefaultOverride(_override);
 
-// Anastazluk fix this!
-#if defined(_IRR_COMPILE_WITH_LIBPNG_) && !defined(NEW_SHADERS)
-    SAssetWriteContext ctx{_params, _file};
+#if defined(_IRR_COMPILE_WITH_LIBPNG_)
 
-    const asset::CImageData* image =
-#   ifndef _IRR_DEBUG
-        static_cast<const asset::CImageData*>(_params.rootAsset);
-#   else
-        dynamic_cast<const asset::CImageData*>(_params.rootAsset);
-#   endif
-    assert(image);
+	SAssetWriteContext ctx{ _params, _file };
+
+	const asset::ICPUImageView* imageView = IAsset::castDown<ICPUImageView>(_params.rootAsset);
+	const auto smartImage = IImageAssetHandlerBase::getTopImageDataForCommonWriting(imageView);
+	const auto image = smartImage.get();
 
     io::IWriteFile* file = _override->getOutputFile(_file, ctx, {image, 0u});
 
@@ -103,30 +147,45 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 		png_destroy_write_struct(&png_ptr, &info_ptr);
 		return false;
 	}
+
+	core::smart_refctd_ptr<ICPUImage> convertedImage;
+	{
+		const auto channelCount = asset::getFormatChannelCount(image->getCreationParameters().format);
+		if (channelCount == 1)
+			convertedImage = getPNGConvertedOutput<asset::EF_R8_SRGB>(image);
+		else if(channelCount == 2 || channelCount == 3)
+			convertedImage = getPNGConvertedOutput<asset::EF_R8G8B8_SRGB>(image);
+		else
+			convertedImage = getPNGConvertedOutput<asset::EF_R8G8B8A8_SRGB>(image);
+	}
 	
-	auto format = image->getColorFormat();
+	const auto& convertedImageParams = convertedImage->getCreationParameters();
+	const auto& convertedRegion = convertedImage->getRegions().begin();
+	auto convertedFormat = convertedImageParams.format;
+
+	asset::TexelBlockInfo blockInfo(convertedFormat);
+	core::vector3du32_SIMD trueExtent = blockInfo.convertTexelsToBlocks(convertedRegion->getTexelStrides());
 	
 	png_set_write_fn(png_ptr, file, user_write_data_fcn, nullptr);
 	
 	// Set info
-	switch (format)
+	switch (convertedFormat)
 	{
 		case asset::EF_R8G8B8_SRGB:
 			png_set_IHDR(png_ptr, info_ptr,
-				image->getSize().X, image->getSize().Y,
+				trueExtent.X, trueExtent.Y,
 				8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
 				PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 			break;
 		case asset::EF_R8G8B8A8_SRGB:
 			png_set_IHDR(png_ptr, info_ptr,
-				image->getSize().X, image->getSize().Y,
+				trueExtent.X, trueExtent.Y,
 				8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE,
 				PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 		break;
 		case asset::EF_R8_SRGB:
-		case asset::EF_R8_UNORM:
 			png_set_IHDR(png_ptr, info_ptr,
-				image->getSize().X, image->getSize().Y,
+				trueExtent.X, trueExtent.Y,
 				8, PNG_COLOR_TYPE_GRAY, PNG_INTERLACE_NONE,
 				PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 		break;
@@ -137,11 +196,10 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 			}
 	}
 
-	int32_t lineWidth = image->getSize().X;
-	switch (format)
+	int32_t lineWidth = trueExtent.X;
+	switch (convertedFormat)
 	{
 		case asset::EF_R8_SRGB:
-		case asset::EF_R8_UNORM:
 			lineWidth *= 1;
 			break;
 		case asset::EF_R8G8B8_SRGB:
@@ -157,11 +215,10 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 			}
 	}
 	
-	uint8_t* data = (uint8_t*)image->getData();
-	core::vector3d<uint32_t> dim = image->getSize();
+	uint8_t* data = (uint8_t*)convertedImage->getBuffer()->getPointer();
 
 	constexpr uint32_t maxPNGFileHeight = 16u * 1024u; // arbitrary limit
-	if (dim.Y>maxPNGFileHeight)
+	if (trueExtent.Y>maxPNGFileHeight)
 	{
 		os::Printer::log("PNGWriter: Image dimensions too big!\n", file->getFileName().c_str(), ELL_ERROR);
 		png_destroy_write_struct(&png_ptr, &info_ptr);
@@ -170,21 +227,17 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	
 	// Create array of pointers to rows in image data
 	png_bytep RowPointers[maxPNGFileHeight];
+	irr::core::vector3d<uint32_t> imgSize;
+	imgSize.X = trueExtent.X;
+	imgSize.Y = trueExtent.Y;
+	imgSize.Z = trueExtent.Z;
 
 	// Fill array of pointers to rows in image data
-	for (uint32_t i = 0; i < dim.Y; ++i)
+	for (uint32_t i = 0; i < trueExtent.Y; ++i)
 	{
-		switch (format) {
-			case asset::EF_R8_UNORM:
-				{
-					const void *src_container[4] = {data, nullptr, nullptr, nullptr};
-					video::convertColor<EF_R8_UNORM, EF_R8_SRGB>(src_container, data, dim.X, dim);
-				}
-				break;
-			case asset::EF_R8_SRGB:
-				_IRR_FALLTHROUGH;
-			case asset::EF_R8G8B8_SRGB:
-				_IRR_FALLTHROUGH;
+		switch (convertedFormat) {
+			case asset::EF_R8_SRGB: _IRR_FALLTHROUGH;
+			case asset::EF_R8G8B8_SRGB: _IRR_FALLTHROUGH;
 			case asset::EF_R8G8B8A8_SRGB:
 				RowPointers[i] = reinterpret_cast<png_bytep>(data);
 				break;
@@ -213,11 +266,10 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 #else
 	_IRR_DEBUG_BREAK_IF(true);
 	return false;
-#endif//defined(_IRR_COMPILE_WITH_LIBPNG_) && !defined(NEW_SHADERS)
+#endif//defined(_IRR_COMPILE_WITH_LIBPNG_)
 }
 
 } // namespace video
 } // namespace irr
 
 #endif
-
