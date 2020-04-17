@@ -26,7 +26,7 @@
 
 **<u>Two area lights</u>**
 
-![](C:\work\IrrlichtBaw\IrrlichtBAW parallel work\site_media\readme\screenshots\Two area lights.png)
+![](site_media\readme\screenshots\Two area lights.png)
 
 **<u>.OBJ Loader with MTL pipeline integration</u>**
 
@@ -50,7 +50,7 @@
 
 **<u>Raytracing sample</u>**
 
-![](C:\work\IrrlichtBaw\IrrlichtBAW parallel work\site_media\readme\screenshots\Raytracing sample 3.png)
+![](site_media\readme\screenshots\Raytracing sample 3.png)
 
 **<u>1 Megapixel, 1 Million Samples</u>**
 
