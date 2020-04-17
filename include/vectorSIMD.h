@@ -418,6 +418,7 @@ namespace core
 
 		// TODO: these are messed up (they care about past the vector)
 		inline vectorSIMD_32<T>  operator*(T val) const { return operator*(vectorSIMD_32<T>(val)); }
+		friend inline vectorSIMD_32<T> operator*(T val, const vectorSIMD_32<T>& vec) { return vec*val; }
 		inline vectorSIMD_32<T>& operator*=(T val) { return operator*=(vectorSIMD_32<T>(val)); }
 
 		inline vectorSIMD_32<T> operator/(T val) const { return operator/(vectorSIMD_32<T>(val)); }
