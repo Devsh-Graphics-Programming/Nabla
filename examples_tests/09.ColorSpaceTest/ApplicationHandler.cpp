@@ -78,7 +78,7 @@ void ApplicationHandler::presentImageOnTheScreen(irr::core::smart_refctd_ptr<irr
 		driver->endScene();
 	}
 
-	ext::ScreenShot::createScreenShoot(device, screenShotFrameBuffer->getAttachment(video::EFAP_COLOR_ATTACHMENT0), "screenShot_" + currentHandledImageFileName + ".png");
+	ext::ScreenShot::createScreenShot(device, screenShotFrameBuffer->getAttachment(video::EFAP_COLOR_ATTACHMENT0), "screenShot_" + currentHandledImageFileName + ".png");
 }
 
 void ApplicationHandler::performImageTest(std::string path)
@@ -103,8 +103,6 @@ void ApplicationHandler::performImageTest(std::string path)
 	finalFileNameWithExtension = filename + ".";
 	finalFileNameWithExtension += extension;
 
-	// Can't do that because write is still broken
-	bool writeable = (extension != "dds");
 	smart_refctd_ptr<ICPUImageView> copyImageView;
 
 	auto asset = *cpuTextureContents.first;
@@ -145,23 +143,19 @@ void ApplicationHandler::performImageTest(std::string path)
 	{
 		auto gpuViewParams = gpuImageView->getCreationParameters();
 		gpuViewParams.image = driver->createDeviceLocalGPUImageOnDedMem(video::IGPUImage::SCreationParams(gpuViewParams.image->getCreationParameters()));
-		gpuViewParams.viewType = IGPUImageView::ET_2D;
 
 		presentImageOnTheScreen(gpuImageView, std::string(filename.c_str()), std::string(extension.c_str()));
 	}
 
-	if (writeable)
+	auto tryToWrite = [&](asset::IAsset* asset)
 	{
-		auto tryToWrite = [&](asset::IAsset* asset)
-		{
-			asset::IAssetWriter::SAssetWriteParams wparams(asset);
-			return assetManager->writeAsset((io::path("imageAsset_") + finalFileNameWithExtension).c_str(), wparams);
-		};
+		asset::IAssetWriter::SAssetWriteParams wparams(asset);
+		return assetManager->writeAsset((io::path("imageAsset_") + finalFileNameWithExtension).c_str(), wparams);
+	};
 
-		if(!tryToWrite(copyImageView->getCreationParameters().image.get()))
-			if(!tryToWrite(copyImageView.get()))
-				os::Printer::log("An unexcepted error occoured while trying to write the asset!", irr::ELL_WARNING);
-	}
+	if(!tryToWrite(copyImageView->getCreationParameters().image.get()))
+		if(!tryToWrite(copyImageView.get()))
+			os::Printer::log("An unexcepted error occoured while trying to write the asset!", irr::ELL_WARNING);
 
 	assetManager->removeCachedGPUObject(asset.get(), gpuImageView);
 	assetManager->removeAssetFromCache(cpuTexture);

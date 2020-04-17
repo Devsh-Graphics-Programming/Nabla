@@ -114,7 +114,7 @@ namespace irr
 				Create a ScreenShot with gpu image usage and save it to a file.
 			*/
 
-			bool createScreenShoot(core::smart_refctd_ptr<IrrlichtDevice> device, const video::IGPUImageView* gpuImageView, const std::string& outFileName)
+			bool createScreenShot(core::smart_refctd_ptr<IrrlichtDevice> device, const video::IGPUImageView* gpuImageView, const std::string& outFileName)
 			{
 				auto driver = device->getVideoDriver();
 				auto assetManager = device->getAssetManager();

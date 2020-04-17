@@ -134,8 +134,8 @@ core::smart_refctd_ptr<asset::ICPUImage> getJPGConvertedOutput(const asset::ICPU
 		state.outBaseLayer = 0;
 		state.extent = attachedRegion->getExtent();
 		state.layerCount = attachedRegion->imageSubresource.layerCount;
-		state.inMipLevel = attachedRegion->imageSubresource.mipLevel;
-		state.outMipLevel = attachedRegion->imageSubresource.mipLevel;
+		state.inMipLevel = 0;
+		state.outMipLevel = 0;
 
 		if (!convertFilter.execute(&state))
 			os::Printer::log("Something went wrong while converting!", ELL_WARNING);
