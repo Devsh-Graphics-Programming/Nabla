@@ -434,7 +434,7 @@ public:
 
                     CPaddedCopyImageFilter::state_type copy;
                     copy.outOffsetBaseLayer = (physPg).xyzz();/*physPg.z is layer*/ copy.outOffset.z = 0u;
-                    copy.inOffsetBaseLayer = core::vector2du32_SIMD(x,y)*m_pgSzxy;//TODO in offset
+                    copy.inOffsetBaseLayer = core::vector2du32_SIMD(x,y)*m_pgSzxy;
                     copy.extentLayerCount = core::vectorSIMDu32(m_pgSzxy, m_pgSzxy, 1u, 1u);
                     copy.relativeOffset = {0u,0u,0u};
                     if (x == w-1u)
