@@ -37,8 +37,8 @@ namespace irr
 					asset::ICPUImage::SCreationParams imgInfo;
 					imgInfo.format = colorBuffer ? asset::EF_R8G8B8A8_SRGB : asset::EF_D24_UNORM_S8_UINT;
 					imgInfo.type = asset::ICPUImage::ET_2D;
-					imgInfo.extent.width = driver->getCurrentRenderTargetSize().Width;
-					imgInfo.extent.height = driver->getCurrentRenderTargetSize().Height;
+					imgInfo.extent.width = driver->getScreenSize().Width;
+					imgInfo.extent.height = driver->getScreenSize().Height;
 					imgInfo.extent.depth = 1u;
 					imgInfo.mipLevels = 1u;
 					imgInfo.arrayLayers = 1u;

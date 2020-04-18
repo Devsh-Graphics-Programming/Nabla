@@ -96,67 +96,17 @@ static void jpeg_file_dest(j_compress_ptr cinfo, io::IWriteFile* file)
 	dest->file = file;
 }
 
-template<asset::E_FORMAT outFormat>
-core::smart_refctd_ptr<asset::ICPUImage> getJPGConvertedOutput(const asset::ICPUImage* image)
-{
-	static_assert(!asset::isBlockCompressionFormat<outFormat>(), "Only non BC formats supported!");
-
-	using CONVERSION_FILTER = asset::CConvertFormatImageFilter<asset::EF_UNKNOWN, outFormat>;
-
-	core::smart_refctd_ptr<asset::ICPUImage> newConvertedImage;
-	{
-		auto referenceImageParams = image->getCreationParameters();
-		auto referenceBuffer = image->getBuffer();
-		auto referenceRegions = image->getRegions();
-		auto referenceRegion = referenceRegions.begin();
-		const auto newTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(outFormat);
-
-		asset::TexelBlockInfo referenceBlockInfo(referenceImageParams.format);
-		core::vector3du32_SIMD referenceTrueExtent = referenceBlockInfo.convertTexelsToBlocks(referenceRegion->getTexelStrides());
-
-		auto newImageParams = referenceImageParams;
-		auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceTrueExtent.X * referenceTrueExtent.Y * referenceTrueExtent.Z * newTexelOrBlockByteSize);
-		auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1);
-		newRegions->front() = *referenceRegion;
-
-		newImageParams.format = outFormat;
-		newConvertedImage = ICPUImage::create(std::move(newImageParams));
-		newConvertedImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
-
-		CONVERSION_FILTER convertFilter;
-		CONVERSION_FILTER::state_type state;
-
-		auto attachedRegion = newConvertedImage->getRegions().begin();
-
-		state.inImage = image;
-		state.outImage = newConvertedImage.get();
-		state.inOffset = { 0, 0, 0 };
-		state.inBaseLayer = 0;
-		state.outOffset = { 0, 0, 0 };
-		state.outBaseLayer = 0;
-		state.extent = attachedRegion->getExtent();
-		state.layerCount = attachedRegion->imageSubresource.layerCount;
-		state.inMipLevel = 0;
-		state.outMipLevel = 0;
-
-		if (!convertFilter.execute(&state))
-			os::Printer::log("Something went wrong while converting!", ELL_WARNING);
-
-		return newConvertedImage;
-	}
-}
-
 /* write_JPEG_memory: store JPEG compressed image into memory.
 */
-static bool writeJPEGFile(io::IWriteFile* file, const asset::ICPUImage* image, uint32_t quality)
+static bool writeJPEGFile(io::IWriteFile* file, const asset::ICPUImageView* imageView, uint32_t quality)
 {
 	core::smart_refctd_ptr<ICPUImage> convertedImage;
 	{
-		const auto channelCount = asset::getFormatChannelCount(image->getCreationParameters().format);
+		const auto channelCount = asset::getFormatChannelCount(imageView->getCreationParameters().format);
 		if (channelCount == 1)
-			convertedImage = getJPGConvertedOutput<asset::EF_R8_SRGB>(image);
+			convertedImage = asset::IImageAssetHandlerBase::getTopImageDataForCommonWriting<asset::EF_R8_SRGB>(imageView);
 		else
-			convertedImage = getJPGConvertedOutput<asset::EF_R8G8B8_SRGB>(image);
+			convertedImage = asset::IImageAssetHandlerBase::getTopImageDataForCommonWriting<asset::EF_R8G8B8_SRGB>(imageView);
 	}
 
 	const auto& convertedImageParams = convertedImage->getCreationParameters();
@@ -187,7 +137,8 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::ICPUImage* image, u
 	jpeg_start_compress(&cinfo, TRUE);
 
 	const auto JPG_BYTE_PITCH = rowByteSize;
-	uint8_t* dest = new uint8_t[JPG_BYTE_PITCH];
+	auto destBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(JPG_BYTE_PITCH);
+	auto dest = reinterpret_cast<uint8_t*>(destBuffer->getPointer());
 
 	if (dest)
 	{
@@ -202,25 +153,11 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::ICPUImage* image, u
 		
 		while (cinfo.next_scanline < cinfo.image_height)
 		{
-			switch (convertedFormat)
-			{
-				case asset::EF_R8_SRGB: _IRR_FALLTHROUGH;
-				case asset::EF_R8G8B8_SRGB:
-					memcpy(dest, src, pitch);
-					break;
-				default:
-				{
-					os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
-					delete [] dest;
-					return false;
-				}
-			}
+			memcpy(dest, src, pitch);
 			
 			src += pitch;
 			jpeg_write_scanlines(&cinfo, row_pointer, 1);
 		}
-
-		delete [] dest;
 
 		/* Step 6: Finish compression */
 		jpeg_finish_compress(&cinfo);
@@ -248,14 +185,12 @@ bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	SAssetWriteContext ctx{ _params, _file };
 
 	const asset::ICPUImageView* imageView = IAsset::castDown<ICPUImageView>(_params.rootAsset);
-	const auto smartImage = IImageAssetHandlerBase::getTopImageDataForCommonWriting(imageView);
-	const auto image = smartImage.get();
 
-    io::IWriteFile* file = _override->getOutputFile(_file, ctx, {image, 0u});
-    const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, image, 0u);
-    const float comprLvl = _override->getAssetCompressionLevel(ctx, image, 0u);
+    io::IWriteFile* file = _override->getOutputFile(_file, ctx, { imageView, 0u});
+    const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, imageView, 0u);
+    const float comprLvl = _override->getAssetCompressionLevel(ctx, imageView, 0u);
 
-	return writeJPEGFile(file, image, (!!(flags & asset::EWF_COMPRESSED)) * static_cast<uint32_t>((1.f-comprLvl)*100.f)); // if quality==0, then it defaults to 75
+	return writeJPEGFile(file, imageView, (!!(flags & asset::EWF_COMPRESSED)) * static_cast<uint32_t>((1.f-comprLvl)*100.f)); // if quality==0, then it defaults to 75
 
 #endif//!defined(_IRR_COMPILE_WITH_LIBJPEG_ )
 }

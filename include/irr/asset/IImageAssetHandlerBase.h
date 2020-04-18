@@ -51,9 +51,12 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			Create a new image with only one top level region, one layer and one mip-map level.
 			Handling ordinary images in asset writing process is a mess since multi-regions
 			are valid. To avoid ambitious, the function will handle top level data from
-			image view to save only stuff a user has choosen.
+			image view to save only stuff a user has choosen. You can also specify extra
+			output format, top image data will be converted to such. You can leave template
+			parameter to ensure there will be no conversion.
 		*/
 
+		template<asset::E_FORMAT outFormat = EF_UNKNOWN>
 		static inline core::smart_refctd_ptr<ICPUImage> getTopImageDataForCommonWriting(const ICPUImageView* imageView)
 		{
 			auto referenceImage = imageView->getCreationParameters().image;
@@ -98,84 +101,45 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			if(!copyFilter.execute(&state))
 				os::Printer::log("Something went wrong while copying top level region texel's data to the image!", ELL_WARNING);
 
-			return newImage;
-		}
-
-		/*
-			Create an image containing a single row from taking an ICPUBuffer 
-			as a single row and convert it to any format. Since it's
-			data may not only limit to stuff being displayed on a screen,
-			there is an optiomal parameter for bufferRowLength pitch that
-			is helpful while dealing with specific data which needs it.
-		*/
-
-		template<E_FORMAT inputFormat, E_FORMAT outputFormat>
-		static inline core::smart_refctd_ptr<ICPUImage> createSingleRowImageFromRawData(core::smart_refctd_ptr<asset::ICPUBuffer> inputBuffer, bool createWithBufferRowLengthPitch = false)
-		{
-			auto rowData = inputBuffer->getPointer();
-			const uint32_t texelOrBlockLength = inputBuffer->getSize() / asset::getTexelOrBlockBytesize(inputFormat);
-
-			using CONVERSION_FILTER = CConvertFormatImageFilter<inputFormat, outputFormat>;
-			CONVERSION_FILTER convertFilter;
-			CONVERSION_FILTER::state_type state;
-
-			auto createImage = [&](E_FORMAT format, bool copyInputMemory = true)
+			if(newImage->getCreationParameters().format == outFormat || outFormat == EF_UNKNOWN)
+				return newImage;
+			else
 			{
-				const auto texelOrBlockByteSize = asset::getTexelOrBlockBytesize(format);
-				const uint32_t pitchTexelOrBlockLength = createWithBufferRowLengthPitch ? calcPitchInBlocks(texelOrBlockLength, texelOrBlockByteSize) : texelOrBlockLength;
+				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_UNKNOWN, outFormat>;
+				CONVERSION_FILTER convertFilter;
+				CONVERSION_FILTER::state_type state;
 
-				ICPUImage::SCreationParams imgInfo;
-				imgInfo.format = format;
-				imgInfo.type = ICPUImage::ET_1D;
-				imgInfo.extent = { texelOrBlockLength * asset::getBlockDimensions(format).X, 1, 1 };
-				imgInfo.mipLevels = 1u;
-				imgInfo.arrayLayers = 1u;
-				imgInfo.samples = ICPUImage::ESCF_1_BIT;
-				imgInfo.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
+				auto newParams = newImage->getCreationParameters();
+				newParams.format = outFormat;
+				auto texelOrBlockByteSize = asset::getTexelOrBlockBytesize(newParams.format);
 
 				auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
-				auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(texelOrBlockByteSize * pitchTexelOrBlockLength);
+				auto& topRegion = regions->front() = *newImage->getRegions().begin();
 
-				if (copyInputMemory)
-					texelBuffer = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(texelOrBlockByteSize * texelOrBlockLength, rowData, core::adopt_memory);
+				asset::TexelBlockInfo blockInfo(newParams.format);
+				core::vector3du32_SIMD trueExtent = blockInfo.convertTexelsToBlocks(topRegion.getTexelStrides());
 
-				ICPUImage::SBufferCopy& region = regions->front();
+				auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(texelOrBlockByteSize * trueExtent.X);
 
-				region.imageSubresource.mipLevel = 0u;
-				region.imageSubresource.baseArrayLayer = 0u;
-				region.imageSubresource.layerCount = 1u;
-				region.bufferOffset = 0u;
-				region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(pitchTexelOrBlockLength * asset::getBlockDimensions(format).X, texelOrBlockByteSize);
-				region.bufferImageHeight = 0u;
-				region.imageOffset = { 0u, 0u, 0u };
-				region.imageExtent = imgInfo.extent;
+				auto convertedNewImage = ICPUImage::create(std::move(newParams));
+				convertedNewImage->setBufferAndRegions(std::move(texelBuffer), regions);
 
-				auto singleRowImage = ICPUImage::create(std::move(imgInfo));
-				singleRowImage->setBufferAndRegions(std::move(texelBuffer), regions);
+				state.inImage = newImage.get();
+				state.outImage = convertedNewImage.get();
+				state.inOffset = { 0, 0, 0 };
+				state.inBaseLayer = 0;
+				state.outOffset = { 0, 0, 0 };
+				state.outBaseLayer = 0;
+				state.extent = { newParams.extent.width, newParams.extent.height, newParams.extent.depth };
+				state.layerCount = 1;
+				state.inMipLevel = 0;
+				state.outMipLevel = 0;
 
-				return singleRowImage;
-			};
+				if (!convertFilter.execute(&state))
+					os::Printer::log("Something went wrong while converting the image!", ELL_WARNING);
 
-			core::smart_refctd_ptr<ICPUImage> inputSingleRowImage = createImage(inputFormat);
-			core::smart_refctd_ptr<ICPUImage> outputSingleRowImage = createImage(outputFormat, false);
-
-			auto attachedRegion = outputSingleRowImage->getRegions().begin();
-
-			state.inImage = inputSingleRowImage.get();
-			state.outImage = outputSingleRowImage.get();
-			state.inOffset = { 0, 0, 0 };
-			state.inBaseLayer = 0;
-			state.outOffset = { 0, 0, 0 };
-			state.outBaseLayer = 0;
-			state.extent = attachedRegion->getExtent();
-			state.layerCount = attachedRegion->imageSubresource.layerCount;
-			state.inMipLevel = attachedRegion->imageSubresource.mipLevel;
-			state.outMipLevel = attachedRegion->imageSubresource.mipLevel;
-
-			if (!convertFilter.execute(&state))
-				os::Printer::log("Something went wrong while converting the row!", ELL_WARNING);
-
-			return outputSingleRowImage;
+				return convertedNewImage;
+			}
 		}
 
 		/*

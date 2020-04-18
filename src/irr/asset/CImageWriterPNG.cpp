@@ -57,56 +57,6 @@ CImageWriterPNG::CImageWriterPNG()
 #endif
 }
 
-template<asset::E_FORMAT outFormat>
-core::smart_refctd_ptr<asset::ICPUImage> getPNGConvertedOutput(const asset::ICPUImage* image)
-{
-	static_assert(!asset::isBlockCompressionFormat<outFormat>(), "Only non BC formats supported!");
-
-	using CONVERSION_FILTER = asset::CConvertFormatImageFilter<asset::EF_UNKNOWN, outFormat>;
-
-	core::smart_refctd_ptr<asset::ICPUImage> newConvertedImage;
-	{
-		auto referenceImageParams = image->getCreationParameters();
-		auto referenceBuffer = image->getBuffer();
-		auto referenceRegions = image->getRegions();
-		auto referenceRegion = referenceRegions.begin();
-		const auto newTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(outFormat);
-
-		asset::TexelBlockInfo referenceBlockInfo(referenceImageParams.format);
-		core::vector3du32_SIMD referenceTrueExtent = referenceBlockInfo.convertTexelsToBlocks(referenceRegion->getTexelStrides());
-
-		auto newImageParams = referenceImageParams;
-		auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceTrueExtent.X * referenceTrueExtent.Y * referenceTrueExtent.Z * newTexelOrBlockByteSize);
-		auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1);
-		newRegions->front() = *referenceRegion;
-
-		newImageParams.format = outFormat;
-		newConvertedImage = ICPUImage::create(std::move(newImageParams));
-		newConvertedImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
-
-		CONVERSION_FILTER convertFilter;
-		CONVERSION_FILTER::state_type state;
-
-		auto attachedRegion = newConvertedImage->getRegions().begin();
-
-		state.inImage = image;
-		state.outImage = newConvertedImage.get();
-		state.inOffset = { 0, 0, 0 };
-		state.inBaseLayer = 0;
-		state.outOffset = { 0, 0, 0 };
-		state.outBaseLayer = 0;
-		state.extent = attachedRegion->getExtent();
-		state.layerCount = attachedRegion->imageSubresource.layerCount;
-		state.inMipLevel = attachedRegion->imageSubresource.mipLevel;
-		state.outMipLevel = attachedRegion->imageSubresource.mipLevel;
-
-		if (!convertFilter.execute(&state))
-			os::Printer::log("Something went wrong while converting!", ELL_WARNING);
-
-		return newConvertedImage;
-	}
-}
-
 bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
     if (!_override)
@@ -117,12 +67,10 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	SAssetWriteContext ctx{ _params, _file };
 
 	const asset::ICPUImageView* imageView = IAsset::castDown<ICPUImageView>(_params.rootAsset);
-	const auto smartImage = IImageAssetHandlerBase::getTopImageDataForCommonWriting(imageView);
-	const auto image = smartImage.get();
 
-    io::IWriteFile* file = _override->getOutputFile(_file, ctx, {image, 0u});
+    io::IWriteFile* file = _override->getOutputFile(_file, ctx, { imageView, 0u});
 
-	if (!file || !image)
+	if (!file || !imageView)
 		return false;
 
 	// Allocate the png write struct
@@ -152,13 +100,13 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 
 	core::smart_refctd_ptr<ICPUImage> convertedImage;
 	{
-		const auto channelCount = asset::getFormatChannelCount(image->getCreationParameters().format);
+		const auto channelCount = asset::getFormatChannelCount(imageView->getCreationParameters().format);
 		if (channelCount == 1)
-			convertedImage = getPNGConvertedOutput<asset::EF_R8_SRGB>(image);
+			convertedImage = IImageAssetHandlerBase::getTopImageDataForCommonWriting<asset::EF_R8_SRGB>(imageView);
 		else if(channelCount == 2 || channelCount == 3)
-			convertedImage = getPNGConvertedOutput<asset::EF_R8G8B8_SRGB>(image);
+			convertedImage = IImageAssetHandlerBase::getTopImageDataForCommonWriting<asset::EF_R8G8B8_SRGB>(imageView);
 		else
-			convertedImage = getPNGConvertedOutput<asset::EF_R8G8B8A8_SRGB>(image);
+			convertedImage = IImageAssetHandlerBase::getTopImageDataForCommonWriting<asset::EF_R8G8B8A8_SRGB>(imageView);
 	}
 	
 	const auto& convertedImageParams = convertedImage->getCreationParameters();

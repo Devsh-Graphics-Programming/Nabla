@@ -85,22 +85,20 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	SAssetWriteContext ctx{ _params, _file };
 
 	const asset::ICPUImageView* imageView = IAsset::castDown<ICPUImageView>(_params.rootAsset);
-	const auto smartImage = IImageAssetHandlerBase::getTopImageDataForCommonWriting(imageView);
-	const auto image = smartImage.get();
 
-	io::IWriteFile* file = _override->getOutputFile(_file, ctx, { image, 0u });
+	io::IWriteFile* file = _override->getOutputFile(_file, ctx, { imageView, 0u });
 
 	core::smart_refctd_ptr<ICPUImage> convertedImage;
 	{
-		const auto channelCount = asset::getFormatChannelCount(image->getCreationParameters().format);
+		const auto channelCount = asset::getFormatChannelCount(imageView->getCreationParameters().format);
 		if (channelCount == 1)
-			convertedImage = getTGAConvertedOutput<asset::EF_R8_SRGB>(image);
+			convertedImage = IImageAssetHandlerBase::getTopImageDataForCommonWriting<asset::EF_R8_SRGB>(imageView);
 		else if (channelCount == 2)
-			convertedImage = getTGAConvertedOutput<asset::EF_A1R5G5B5_UNORM_PACK16>(image);
+			convertedImage = IImageAssetHandlerBase::getTopImageDataForCommonWriting<asset::EF_A1R5G5B5_UNORM_PACK16>(imageView);
 		else if(channelCount == 3)
-			convertedImage = getTGAConvertedOutput<asset::EF_B8G8R8_SRGB>(image);
+			convertedImage = IImageAssetHandlerBase::getTopImageDataForCommonWriting<asset::EF_R8G8B8_SRGB>(imageView);
 		else
-			convertedImage = getTGAConvertedOutput<asset::EF_B8G8R8A8_SRGB>(image);
+			convertedImage = IImageAssetHandlerBase::getTopImageDataForCommonWriting<asset::EF_R8G8B8A8_SRGB>(imageView);
 	}
 	
 	const auto& convertedImageParams = convertedImage->getCreationParameters();
@@ -136,13 +134,13 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	
 	switch (convertedFormat)
 	{
-		case asset::EF_B8G8R8A8_SRGB:
+		case asset::EF_R8G8B8A8_SRGB:
 		{
 			imageHeader.PixelDepth = 32;
 			imageHeader.ImageDescriptor |= 8;
 		}
 		break;
-		case asset::EF_B8G8R8_SRGB:
+		case asset::EF_R8G8B8_SRGB:
 		{
 			imageHeader.PixelDepth = 24;
 			imageHeader.ImageDescriptor |= 0;
@@ -184,34 +182,17 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	int32_t row_size = ((imageHeader.PixelDepth / 8) * imageHeader.ImageWidth);
 
 	// allocate a row do translate data into
-	uint8_t* row_pointer = new uint8_t[row_size];
+	auto rowPointerBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(row_size);
+	auto row_pointer = reinterpret_cast<uint8_t*>(rowPointerBuffer->getPointer());
 
 	uint32_t y;
 	for (y = 0; y < imageHeader.ImageHeight; ++y)
 	{
-		switch (convertedFormat) 
-		{
-			case asset::EF_R8_SRGB:
-			case asset::EF_B8G8R8_SRGB:
-			case asset::EF_B8G8R8A8_SRGB:
-			case asset::EF_A1R5G5B5_UNORM_PACK16:
-			{
-				memcpy(row_pointer, &scan_lines[y * row_stride], row_size);
-			}
-			break;
-			default:
-			{
-				os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
-				if (row_pointer) delete [] row_pointer;
-				return false;
-			}
-		}
+		memcpy(row_pointer, &scan_lines[y * row_stride], row_size);
 		
 		if (file->write(row_pointer, row_size) != row_size)
 			break;
 	}
-	
-	delete [] row_pointer;
 	
 	STGAExtensionArea extension;
 	extension.ExtensionSize = sizeof(extension);

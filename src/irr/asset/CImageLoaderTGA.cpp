@@ -15,6 +15,83 @@ namespace irr
 {
 namespace asset
 {
+	/*
+		For color pallete stream.
+		Create an image containing a single row from taking an ICPUBuffer
+		as a single row and convert it to any format. Since it's
+		data may not only limit to stuff being displayed on a screen,
+		there is an optiomal parameter for bufferRowLength pitch that
+		is helpful while dealing with specific data which needs it.
+	*/
+
+	template<E_FORMAT inputFormat, E_FORMAT outputFormat>
+	static inline core::smart_refctd_ptr<ICPUImage> createSingleRowImageFromRawData(core::smart_refctd_ptr<asset::ICPUBuffer> inputBuffer, bool createWithBufferRowLengthPitch = false)
+	{
+		auto rowData = inputBuffer->getPointer();
+		const uint32_t texelOrBlockLength = inputBuffer->getSize() / asset::getTexelOrBlockBytesize(inputFormat);
+
+		using CONVERSION_FILTER = CConvertFormatImageFilter<inputFormat, outputFormat>;
+		CONVERSION_FILTER convertFilter;
+		CONVERSION_FILTER::state_type state;
+
+		auto createImage = [&](E_FORMAT format, bool copyInputMemory = true)
+		{
+			const auto texelOrBlockByteSize = asset::getTexelOrBlockBytesize(format);
+			const uint32_t pitchTexelOrBlockLength = createWithBufferRowLengthPitch ? asset::IImageAssetHandlerBase::calcPitchInBlocks(texelOrBlockLength, texelOrBlockByteSize) : texelOrBlockLength;
+
+			ICPUImage::SCreationParams imgInfo;
+			imgInfo.format = format;
+			imgInfo.type = ICPUImage::ET_1D;
+			imgInfo.extent = { texelOrBlockLength * asset::getBlockDimensions(format).X, 1, 1 };
+			imgInfo.mipLevels = 1u;
+			imgInfo.arrayLayers = 1u;
+			imgInfo.samples = ICPUImage::ESCF_1_BIT;
+			imgInfo.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
+
+			auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
+			auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(texelOrBlockByteSize * pitchTexelOrBlockLength);
+
+			if (copyInputMemory)
+				texelBuffer = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(texelOrBlockByteSize * texelOrBlockLength, rowData, core::adopt_memory);
+
+			ICPUImage::SBufferCopy& region = regions->front();
+
+			region.imageSubresource.mipLevel = 0u;
+			region.imageSubresource.baseArrayLayer = 0u;
+			region.imageSubresource.layerCount = 1u;
+			region.bufferOffset = 0u;
+			region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(pitchTexelOrBlockLength * asset::getBlockDimensions(format).X, texelOrBlockByteSize);
+			region.bufferImageHeight = 0u;
+			region.imageOffset = { 0u, 0u, 0u };
+			region.imageExtent = imgInfo.extent;
+
+			auto singleRowImage = ICPUImage::create(std::move(imgInfo));
+			singleRowImage->setBufferAndRegions(std::move(texelBuffer), regions);
+
+			return singleRowImage;
+		};
+
+		core::smart_refctd_ptr<ICPUImage> inputSingleRowImage = createImage(inputFormat);
+		core::smart_refctd_ptr<ICPUImage> outputSingleRowImage = createImage(outputFormat, false);
+
+		auto attachedRegion = outputSingleRowImage->getRegions().begin();
+
+		state.inImage = inputSingleRowImage.get();
+		state.outImage = outputSingleRowImage.get();
+		state.inOffset = { 0, 0, 0 };
+		state.inBaseLayer = 0;
+		state.outOffset = { 0, 0, 0 };
+		state.outBaseLayer = 0;
+		state.extent = attachedRegion->getExtent();
+		state.layerCount = attachedRegion->imageSubresource.layerCount;
+		state.inMipLevel = attachedRegion->imageSubresource.mipLevel;
+		state.outMipLevel = attachedRegion->imageSubresource.mipLevel;
+
+		if (!convertFilter.execute(&state))
+			os::Printer::log("Something went wrong while converting the row!", ELL_WARNING);
+
+		return outputSingleRowImage;
+	}
 
 //! loads a compressed tga.
 void CImageLoaderTGA::loadCompressedImage(io::IReadFile *file, const STGAHeader& header, const uint32_t wholeSizeWithPitchInBytes, core::smart_refctd_ptr<ICPUBuffer>& bufferData) const
@@ -150,16 +227,12 @@ core::smart_refctd_ptr<ICPUImage> createAndconvertImageData(ICPUImage::SCreation
 			asset::TexelBlockInfo blockInfo(format);
 			core::vector3du32_SIMD trueExtent = blockInfo.convertTexelsToBlocks(inputCreationImage->getRegions().begin()->getTexelStrides());
 
-			auto copyBuffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(inputCreationImage->getBuffer()->clone());
-			auto in = reinterpret_cast<uint8_t*>(inputCreationImage->getBuffer()->getPointer());
-			auto out = reinterpret_cast<uint8_t*>(copyBuffer->getPointer()) + copyBuffer->getSize();
+			auto entry = reinterpret_cast<uint8_t*>(inputCreationImage->getBuffer()->getPointer());
+			auto end = entry + inputCreationImage->getBuffer()->getSize();
 			auto stride = trueExtent.X * getTexelOrBlockBytesize(format);
 
-			for (uint32_t y = 0; y < trueExtent.Y; ++y)
-			{
-				out -= stride;
-				memcpy(in + (y * stride), out, stride);
-			}
+			for (uint32_t y = 0, yRising = 0; y < trueExtent.Y; y += 2, ++yRising)
+				std::swap_ranges(entry + (yRising * stride), entry + ((yRising + 1) * stride), end - ((yRising + 1) * stride));
 		}
 	}
 
@@ -231,16 +304,16 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 		switch ( header.ColorMapEntrySize ) // convert to 32-bit color map since input is dependend to header.ColorMapEntrySize, so it may be 8, 16, 24 or 32 bits per entity
 		{
 			case STB_8_BITS:
-				colorMap = asset::IImageAssetHandlerBase::createSingleRowImageFromRawData<EF_R8_SRGB, EF_R8G8B8A8_SRGB>(colorMapEntryBuffer);
+				colorMap = createSingleRowImageFromRawData<EF_R8_SRGB, EF_R8G8B8A8_SRGB>(colorMapEntryBuffer);
 				break;
 			case STB_16_BITS:
-				colorMap = asset::IImageAssetHandlerBase::createSingleRowImageFromRawData<EF_A1R5G5B5_UNORM_PACK16, EF_R8G8B8A8_SRGB>(colorMapEntryBuffer);
+				colorMap = createSingleRowImageFromRawData<EF_A1R5G5B5_UNORM_PACK16, EF_R8G8B8A8_SRGB>(colorMapEntryBuffer);
 				break;
 			case STB_24_BITS:
-				colorMap = asset::IImageAssetHandlerBase::createSingleRowImageFromRawData<EF_B8G8R8_SRGB, EF_R8G8B8A8_SRGB>(colorMapEntryBuffer);
+				colorMap = createSingleRowImageFromRawData<EF_B8G8R8_SRGB, EF_R8G8B8A8_SRGB>(colorMapEntryBuffer);
 				break;
 			case STB_32_BITS:
-				colorMap = asset::IImageAssetHandlerBase::createSingleRowImageFromRawData<EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(colorMapEntryBuffer);
+				colorMap = createSingleRowImageFromRawData<EF_B8G8R8A8_SRGB, EF_R8G8B8A8_SRGB>(colorMapEntryBuffer);
 				break;
 		}
 	}
@@ -326,12 +399,12 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 			break;
 		case 24:
 			{
-				newConvertedImage = createAndconvertImageData<asset::EF_B8G8R8_SRGB, asset::EF_R8G8B8_SRGB>(imgInfo, texelBuffer, flip);
+				newConvertedImage = createAndconvertImageData<asset::EF_R8G8B8_SRGB, asset::EF_R8G8B8_SRGB>(imgInfo, texelBuffer, flip);
 			}
 			break;
 		case 32:
 			{
-			newConvertedImage = createAndconvertImageData<asset::EF_B8G8R8A8_SRGB, asset::EF_R8G8B8A8_SRGB>(imgInfo, texelBuffer, flip);
+			newConvertedImage = createAndconvertImageData<asset::EF_R8G8B8A8_SRGB, asset::EF_R8G8B8A8_SRGB>(imgInfo, texelBuffer, flip);
 			}
 			break;
 		default:
