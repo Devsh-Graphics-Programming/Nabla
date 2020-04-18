@@ -74,7 +74,7 @@ class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilter
 		template<class PreFilter=const typename StaticPolymorphicBase::default_sample_functor_t, class PostFilter=const typename StaticPolymorphicBase::default_sample_functor_t>
 		inline void evaluate(const core::vectorSIMDf& globalPos, PreFilter& preFilter, PostFilter& postFilter) const
 		{
-			StaticPolymorphicBase::evaluate<PreFilter,PostFilter>(globalPos,preFilter,postFilter);
+			StaticPolymorphicBase::evaluate(globalPos,preFilter,postFilter);
 		}
 
 		template<class PreFilter, class PostFilter>
@@ -108,7 +108,7 @@ class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilter
 		template<class PreFilter, class PostFilter>
 		inline void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord) const
 		{
-			StaticPolymorphicBase::evaluateImpl<PreFilter,PostFilter>(preFilter,postFilter,windowSample,relativePosAndFactor,globalTexelCoord);
+			StaticPolymorphicBase::evaluateImpl(preFilter,postFilter,windowSample,relativePosAndFactor,globalTexelCoord);
 		}
 };
 

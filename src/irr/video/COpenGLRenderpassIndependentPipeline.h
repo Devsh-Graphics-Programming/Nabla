@@ -124,7 +124,7 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
             for (uint32_t i=0u; i<SHADER_STAGE_COUNT; ++i)
             {
                 auto stage = static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(1u<<i);
-                if (m_stagePresenceMask&stage==0u)
+                if ((m_stagePresenceMask&stage)==0u)
                     continue;
 
                 uint32_t stampValue = _pcState.getStamp(stage);

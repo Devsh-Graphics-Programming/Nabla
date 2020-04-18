@@ -23,7 +23,7 @@ class ICPUSampler : public ISampler, public IAsset
 		{
 			for (auto i=0; i<3; i++)
 			{
-				const auto originalWasNegative = texelCoord[i]<0 ? 1:0;
+				const int32_t originalWasNegative = texelCoord[i]<0 ? 1:0;
 				auto repeat = [&texelCoord,i,&mipExtent,originalWasNegative]()
 				{
 					texelCoord[i] %= mipExtent[i];
@@ -42,7 +42,7 @@ class ICPUSampler : public ISampler, public IAsset
 						texelCoord[i] = core::clamp<int32_t,int32_t>(texelCoord[i],-int32_t(mipExtent[i]),mipExtent[i]+mipLastCoord[i]);
 					case ISampler::ETC_MIRROR:
 						{
-							auto repeatID = (originalWasNegative+texelCoord[i])/mipExtent[i];
+							int32_t repeatID = (originalWasNegative+texelCoord[i])/int32_t(mipExtent[i]);
 							repeat();
 							if ((repeatID&0x1)!=originalWasNegative)
 								texelCoord[i] = mipLastCoord[i]-texelCoord[i];

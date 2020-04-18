@@ -35,10 +35,10 @@ namespace irr
             //! Specifies support for the AdobeRGB color space to be displayed.
             ECS_ADOBERGB,
 
-            //! Specifies that color components are used “as is”. This is intended to allow applications to supply data for color spaces not described here.
+            //! Specifies that color components are used ï¿½as isï¿½. This is intended to allow applications to supply data for color spaces not described here.
             ECS_PASS_THROUGH,
 
-            //! Specifies support for the display’s native color space. This matches the color space expectations of AMD’s FreeSync2 standard, for displays supporting it.
+            //! Specifies support for the displayï¿½s native color space. This matches the color space expectations of AMDï¿½s FreeSync2 standard, for displays supporting it.
             ECS_DISPLAY_NATIVE_AMD,
 
             //! For internal 
@@ -77,7 +77,7 @@ namespace irr
             OETF_UNKNOWN
         };
 
-        static_assert(EOTF_UNKNOWN == OETF_UNKNOWN, "Definitions of transfer functions don't match");
+        static_assert(EOTF_UNKNOWN == static_cast<ELECTRO_OPTICAL_TRANSFER_FUNCTION>(OETF_UNKNOWN), "Definitions of transfer functions don't match");
 	}
 }
 

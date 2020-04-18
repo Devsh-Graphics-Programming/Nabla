@@ -72,64 +72,100 @@ vec3 unpackPageID(in uint pageID)
 {
 	// this is optimal, don't touch
 	uvec2 pageXY = uvec2(pageID,pageID>>ADDR_Y_SHIFT)&uvec2(ADDR_X_MASK,ADDR_Y_MASK);
-	uvec2 pageOffset = pageXY*PADDED_TILE_SIZE + TILE_PADDING;
-	return vec3(vec2(pageOffset),pageID>>ADDR_LAYER_SHIFT);
+	return vec3(vec2(pageXY),float(pageID>>ADDR_LAYER_SHIFT));
 }
 
-vec4 vTextureGrad_helper(in vec3 virtualUV, int LoD, in mat2 gradients, in int clippedLoD)
+vec4 vTextureGrad_helper(in vec3 virtualUV, in int clippedLoD, in mat2 gradients, in int levelInTail)
 {
     uvec2 pageID = textureLod(pageTable[1],virtualUV,clippedLoD).xy;
 
-	// WANT: to get rid of this `textureSize` call
-	float tilesInLodLevel = float(textureSize(pageTable[1],clippedLoD).x);
-	// TODO: rename to tileCoordinate if the dimensions will stay like this
-	vec2 tileFractionalCoordinate = fract(virtualUV.xy*tilesInLodLevel);
+	// TODO: make this come from a UBO uint pageTableSizeLog2[VT_COUNT]
+	const uint pageTableSizeLog2 = 7;
+	// assert that pageTableSizeLog2<23
 
-	int levelInTail = max(LoD-clippedLoD,0);//this max() is not needed (LoD is always >= clippedLoD)
-	tileFractionalCoordinate *= float(PAGE_SZ)*intBitsToFloat((127-levelInTail)<<23); // IEEE754 hack
-	tileFractionalCoordinate += vec2(packingOffsets[levelInTail]);
+	// this will work because pageTables are always square and PoT and IEEE754
+	uint thisLevelTableSize = (pageTableSizeLog2-uint(clippedLoD))<<23;
+
+	vec2 tileCoordinate = uintBitsToFloat(floatBitsToUint(virtualUV.xy)+thisLevelTableSize);
+	tileCoordinate = fract(tileCoordinate); // optimize this fract at some point
+	tileCoordinate = uintBitsToFloat(floatBitsToUint(tileCoordinate)+uint((PAGE_SZ_LOG2-levelInTail)<<23));
+	// TODO : packingOffsets[levelInTail], and have it already be a vec2
+    tileCoordinate += packingOffsets[levelInTail];
+	tileCoordinate += vec2(TILE_PADDING,TILE_PADDING);
+	// TODO: use precomputed reciprocal here
+	tileCoordinate /= vec2(textureSize(physPgTex[1],0).xy);
 
 	vec3 physicalUV = unpackPageID(levelInTail!=0 ? pageID.y:pageID.x);
-	// add the in-tile coordinate
-	physicalUV.xy += tileFractionalCoordinate;
-	// scale from absolute coordinate to normalized (could actually use a denormalized sampler for this)
-	physicalUV.xy /= vec2(textureSize(physPgTex[1],0).xy);
+	// TODO: use precomputed reciprocal here
+	physicalUV.xy *= vec2(PAGE_SZ+2*TILE_PADDING)/vec2(textureSize(physPgTex[1],0).xy);
 
+	// add the in-tile coordinate
+	physicalUV.xy += tileCoordinate;
 	return textureGrad(physPgTex[1],physicalUV,gradients[0],gradients[1]);
 }
 
+float lengthManhattan(vec2 v)
+{
+	v = abs(v);
+    return v.x+v.y;
+}
 float lengthSq(in vec2 v)
 {
   return dot(v,v);
 }
 // textureGrad emulation
-vec4 vTextureGrad(in vec3 virtualUV, in mat2 dOriginalUV, in ivec2 originalTextureSize)
+vec4 vTextureGrad(in vec3 virtualUV, in mat2 dOriginalScaledUV, in int originalMaxFullMip)
 {
-  // returns what would have been `textureGrad(originalTexture,gOriginalUV[0],gOriginalUV[1])
-  // https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap15.html#textures-normalized-operations
-  const float kMaxAnisotropy = float(2*TILE_PADDING);
-  const float kMaxAnisoLogOffset = log2(kMaxAnisotropy);
-  // you can use an approx `log2` if you know one
-  float p_x_2_log2 = log2(lengthSq(dOriginalUV[0]*originalTextureSize));
-  float p_y_2_log2 = log2(lengthSq(dOriginalUV[1]*originalTextureSize));
-  bool xIsMajor = p_x_2_log2>p_y_2_log2;
-  float p_min_2_log2 = xIsMajor ? p_y_2_log2:p_x_2_log2;
-  float p_max_2_log2 = xIsMajor ? p_x_2_log2:p_y_2_log2;
-  float LoD = max(p_min_2_log2,p_max_2_log2-kMaxAnisoLogOffset);
-  int LoD_high = int(LoD);
-#ifdef DRIVER_HAS_GRADIENT_SCALING_ISSUES // don't use if you don't have to
-  // normally when sampling an imageview with only 1 miplevel using `textureGrad` the gradient vectors can be scaled arbitrarily because we cannot select any other mip-map
-  // however driver might want to try and get "clever" on us and decide that since `p_min` is huge, it wont bother with anisotropy
-  float anisotropy = min(exp2((p_max_2_log2-p_min_2_log2)*0.5),kMaxAnisotropy);
-  dOriginalUV[0] = normalize(dOriginalUV[0])*(1.0/float(MEGA_TEXTURE_SIZE));
-  dOriginalUV[1] = normalize(dOriginalUV[1])*(1.0/float(MEGA_TEXTURE_SIZE));
-  dOriginalUV[xIsMajor ? 0:1] *= anisotropy;
+	// returns what would have been `textureGrad(originalTexture,gOriginalUV[0],gOriginalUV[1])
+	// https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap15.html#textures-normalized-operations
+	const float kMaxAnisotropy = float(2u*TILE_PADDING);
+	// you can use an approx `log2` if you know one
+#if APPROXIMATE_FOOTPRINT_CALC
+	// bounded by sqrt(2)
+	float p_x_2_log2 = log2(lengthManhattan(dOriginalScaledUV[0]));
+	float p_y_2_log2 = log2(lengthManhattan(dOriginalScaledUV[1]));
+	const float kMaxAnisoLogOffset = log2(kMaxAnisotropy);
+#else
+	float p_x_2_log2 = log2(lengthSq(dOriginalScaledUV[0]));
+	float p_y_2_log2 = log2(lengthSq(dOriginalScaledUV[1]));
+	const float kMaxAnisoLogOffset = log2(kMaxAnisotropy)*2.0;
 #endif
+	bool xIsMajor = p_x_2_log2>p_y_2_log2;
+	float p_min_2_log2 = xIsMajor ? p_y_2_log2:p_x_2_log2;
+	float p_max_2_log2 = xIsMajor ? p_x_2_log2:p_y_2_log2;
 
-  int tmp = findMSB(max(originalTextureSize.x,originalTextureSize.y)) - int(PAGE_SZ_LOG2);
-  int clippedLoD1 = min(LoD_high, tmp);
-  int clippedLoD2 = min(LoD_high+1,tmp);
-  return mix(vTextureGrad_helper(virtualUV,LoD_high,dOriginalUV,clippedLoD1),vTextureGrad_helper(virtualUV,LoD_high+1,dOriginalUV,clippedLoD2),LoD-float(LoD_high));
+	float LoD = max(p_min_2_log2,p_max_2_log2-kMaxAnisoLogOffset);
+#if APPROXIMATE_FOOTPRINT_CALC
+	LoD += 0.5;
+#else
+	LoD *= 0.5;
+#endif
+	// WARNING: LoD_high will round up when LoD negative, its not a floor
+	int LoD_high = int(LoD);
+
+	// are we performing minification
+	bool positiveLoD = LoD>0.0;
+	// magnification samples LoD 0, else clip to max representable in VT
+	int clippedLoD = positiveLoD ? min(LoD_high,originalMaxFullMip):0;
+
+	// if minification is being performaed then get tail position
+	int levelInTail = LoD_high-clippedLoD;
+	// have to do trilinear only if doing minification AND larger than 1x1 footprint
+	bool haveToDoTrilinear = levelInTail<int(PAGE_SZ_LOG2) && positiveLoD;
+	levelInTail = haveToDoTrilinear ? levelInTail:(positiveLoD ? int(PAGE_SZ_LOG2):0);
+
+	// get the higher resolution mip-map level
+	vec4 retval = vTextureGrad_helper(virtualUV,clippedLoD,dOriginalScaledUV,levelInTail);
+	// get lower if needed
+	if (haveToDoTrilinear)
+	{
+		// now we have absolute guarantees that both LoD_high and LoD_low are in the valid original mip range
+		bool highNotInLastFull = LoD_high<originalMaxFullMip;
+		clippedLoD = highNotInLastFull ? (clippedLoD+1):clippedLoD;
+		levelInTail = highNotInLastFull ? levelInTail:(levelInTail+1);
+		retval = mix(retval,vTextureGrad_helper(virtualUV,clippedLoD,dOriginalScaledUV,levelInTail),LoD-float(LoD_high));
+	}
+	return retval;
 }
 
 
@@ -147,34 +183,34 @@ uvec2 unpackWrapModes(in uvec2 texData)
 {
     return uvec2((texData.y>>28)&0x03u,(texData.y>>30)&0x03u);
 }
-uint unpackOriginalMipCount(in uvec2 texData)
+uint unpackMaxMipInVT(in uvec2 texData)
 {
     return (texData.y>>24)&0x0fu;
 }
 vec3 unpackVirtualUV(in uvec2 texData)
 {
-    return vec3(vec2(texData.y&0xffu,(texData.y>>8)&0xffu)/textureSize(pageTable[0],0).xy, (texData.y>>16)&0xffu);
+	// assert that PAGE_SZ_LOG2<8 , or change the line to uvec3(texData.yy<<uvec2(PAGE_SZ_LOG2,PAGE_SZ_LOG2-8u),texData.y>>16u)
+    uvec3 unnormCoords = uvec3(texData.y<<PAGE_SZ_LOG2,texData.yy>>uvec2(8u-PAGE_SZ_LOG2,16u))&uvec3(uvec2(0xffu)<<PAGE_SZ_LOG2,0xffu);
+    return vec3(unnormCoords);
 }
 vec2 unpackSize(in uvec2 texData)
 {
-	return unpackUnorm2x16_(texData.x);
+	return vec2(texData.x&0xffffu,texData.x>>16u);//363
 }
-vec4 textureVT(in uvec2 _texData, in vec2 uv, in mat2 dUV)
+vec4 textureVT(in uvec2 _texData, in vec2 uv, mat2 dUV)
 {
-    vec2 scale = unpackSize(_texData);
-    vec3 virtualUV = unpackVirtualUV(_texData);
-    //manual uv wrapping (repeat mode)
-    virtualUV.xy += 0.5*scale*mod(uv,vec2(1.0)); //why do i need factor of 0.5??????
-    ivec2 originalSz = ivec2(vec2(1.0)/scale*float(PAGE_SZ));
-    
-#ifndef TEST_VT_MIPS
-    return vTextureGrad(virtualUV, dUV, originalSz);
-#else
-    int lod = mipUbo.lod;
-  int tmp = findMSB(max(originalSz.x,originalSz.y)) - int(PAGE_SZ_LOG2);
-  int clippedLoD1 = min(lod, tmp);
-    return vTextureGrad_helper(virtualUV, lod, dUV, clippedLoD1);
-#endif
+    vec2 originalSz = unpackSize(_texData);
+	dUV[0] *= originalSz;
+	dUV[1] *= originalSz;
+
+	// NOTE: you CANNOT squeeze the whole thing into `originalSz` not enough precision!
+	vec3 virtualUV = unpackVirtualUV(_texData);
+	// TODO: Handle wrapping properly here
+    virtualUV.xy += fract(uv)*originalSz;
+	// TODO: you want to precompute(with doubles) `/float(textureSize(pageTable[1],0).x*PAGE_SZ)`
+    virtualUV.xy /= float(textureSize(pageTable[1],0).x*PAGE_SZ);
+
+    return vTextureGrad(virtualUV, dUV, int(unpackMaxMipInVT(_texData)));
 }
 )";
 constexpr const char* GLSL_BSDF_COS_EVAL_OVERRIDE =

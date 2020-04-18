@@ -56,74 +56,11 @@ class IGPUObjectFromAssetConverter
                 return std::hash<AssetType*>{}(asset);
             }
         };
-        template<>
-        struct Hash<asset::ICPURenderpassIndependentPipeline>
-        {
-            inline std::size_t operator()(asset::ICPURenderpassIndependentPipeline* _ppln) const
-            {
-                constexpr size_t bytesToHash = 
-                    sizeof(asset::SVertexInputParams)+
-                    sizeof(asset::SBlendParams)+
-                    sizeof(asset::SRasterizationParams)+
-                    sizeof(asset::SPrimitiveAssemblyParams)+
-                    sizeof(void*)*asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT+//shaders
-                    sizeof(void*);//layout
-                uint8_t mem[bytesToHash]{};
-                uint32_t offset = 0u;
-                memcpy(mem+offset,&_ppln->getVertexInputParams(),sizeof(asset::SVertexInputParams));
-                offset += sizeof(asset::SVertexInputParams);
-                memcpy(mem+offset,&_ppln->getBlendParams(),sizeof(asset::SBlendParams));
-                offset += sizeof(asset::SBlendParams);
-                memcpy(mem+offset,&_ppln->getRasterizationParams(),sizeof(asset::SRasterizationParams));
-                offset += sizeof(asset::SRasterizationParams);
-                memcpy(mem+offset,&_ppln->getPrimitiveAssemblyParams(),sizeof(asset::SPrimitiveAssemblyParams));
-                offset += sizeof(asset::SPrimitiveAssemblyParams);
-                const asset::ICPUSpecializedShader** shaders = reinterpret_cast<const asset::ICPUSpecializedShader**>(mem+offset);
-                for (uint32_t i = 0u; i < asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
-                    shaders[i] = _ppln->getShaderAtIndex(i);
-                offset += asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT*sizeof(void*);
-                reinterpret_cast<const asset::ICPUPipelineLayout**>(mem+offset)[0] = _ppln->getLayout();
-
-                const std::size_t hs = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(mem), bytesToHash));
-
-                return hs;
-            }
-        };
-        template<>
-        struct Hash<asset::ICPUComputePipeline>
-        {
-            inline std::size_t operator()(asset::ICPUComputePipeline* _ppln) const
-            {
-                constexpr size_t bytesToHash = 
-                    sizeof(void*)+//shader
-                    sizeof(void*);//layout
-                uint8_t mem[bytesToHash]{};
-
-                reinterpret_cast<const asset::ICPUSpecializedShader**>(mem)[0] = _ppln->getShader();
-                reinterpret_cast<const asset::ICPUPipelineLayout**>(mem+sizeof(void*))[0] = _ppln->getLayout();
-
-                const std::size_t hs = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(mem), bytesToHash));
-
-                return hs;
-            }
-        };
 
         template<typename AssetType>
         struct KeyEqual
         {
             bool operator()(AssetType* lhs, AssetType* rhs) const { return lhs==rhs; }
-        };
-        template<>
-        struct KeyEqual<asset::ICPURenderpassIndependentPipeline>
-        {
-            //equality depends on hash only
-            bool operator()(asset::ICPURenderpassIndependentPipeline* lhs, asset::ICPURenderpassIndependentPipeline* rhs) const { return true; }
-        };
-        template<>
-        struct KeyEqual<asset::ICPUComputePipeline>
-        {
-            //equality depends on hash only
-            bool operator()(asset::ICPUComputePipeline* lhs, asset::ICPUComputePipeline* rhs) const { return true; }
         };
 
 	public:
@@ -221,6 +158,74 @@ class IGPUObjectFromAssetConverter
 			return redirs;
 		}
 };
+
+
+// need to specialize outside cause of GCC
+template<>
+struct IGPUObjectFromAssetConverter::Hash<asset::ICPURenderpassIndependentPipeline>
+{
+    inline std::size_t operator()(asset::ICPURenderpassIndependentPipeline* _ppln) const
+    {
+        constexpr size_t bytesToHash = 
+            sizeof(asset::SVertexInputParams)+
+            sizeof(asset::SBlendParams)+
+            sizeof(asset::SRasterizationParams)+
+            sizeof(asset::SPrimitiveAssemblyParams)+
+            sizeof(void*)*asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT+//shaders
+            sizeof(void*);//layout
+        uint8_t mem[bytesToHash]{};
+        uint32_t offset = 0u;
+        memcpy(mem+offset,&_ppln->getVertexInputParams(),sizeof(asset::SVertexInputParams));
+        offset += sizeof(asset::SVertexInputParams);
+        memcpy(mem+offset,&_ppln->getBlendParams(),sizeof(asset::SBlendParams));
+        offset += sizeof(asset::SBlendParams);
+        memcpy(mem+offset,&_ppln->getRasterizationParams(),sizeof(asset::SRasterizationParams));
+        offset += sizeof(asset::SRasterizationParams);
+        memcpy(mem+offset,&_ppln->getPrimitiveAssemblyParams(),sizeof(asset::SPrimitiveAssemblyParams));
+        offset += sizeof(asset::SPrimitiveAssemblyParams);
+        const asset::ICPUSpecializedShader** shaders = reinterpret_cast<const asset::ICPUSpecializedShader**>(mem+offset);
+        for (uint32_t i = 0u; i < asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
+            shaders[i] = _ppln->getShaderAtIndex(i);
+        offset += asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT*sizeof(void*);
+        reinterpret_cast<const asset::ICPUPipelineLayout**>(mem+offset)[0] = _ppln->getLayout();
+
+        const std::size_t hs = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(mem), bytesToHash));
+
+        return hs;
+    }
+};
+template<>
+struct IGPUObjectFromAssetConverter::Hash<asset::ICPUComputePipeline>
+{
+    inline std::size_t operator()(asset::ICPUComputePipeline* _ppln) const
+    {
+        constexpr size_t bytesToHash = 
+            sizeof(void*)+//shader
+            sizeof(void*);//layout
+        uint8_t mem[bytesToHash]{};
+
+        reinterpret_cast<const asset::ICPUSpecializedShader**>(mem)[0] = _ppln->getShader();
+        reinterpret_cast<const asset::ICPUPipelineLayout**>(mem+sizeof(void*))[0] = _ppln->getLayout();
+
+        const std::size_t hs = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(mem), bytesToHash));
+
+        return hs;
+    }
+};
+
+template<>
+struct IGPUObjectFromAssetConverter::KeyEqual<asset::ICPURenderpassIndependentPipeline>
+{
+    //equality depends on hash only
+    bool operator()(asset::ICPURenderpassIndependentPipeline* lhs, asset::ICPURenderpassIndependentPipeline* rhs) const { return true; }
+};
+template<>
+struct IGPUObjectFromAssetConverter::KeyEqual<asset::ICPUComputePipeline>
+{
+    //equality depends on hash only
+    bool operator()(asset::ICPUComputePipeline* lhs, asset::ICPUComputePipeline* rhs) const { return true; }
+};
+
 
 auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asset::ICPUBuffer** const _end, const SParams& _params) -> created_gpu_object_array<asset::ICPUBuffer> // TODO: improve for caches of very large buffers!!!
 {
@@ -393,7 +398,8 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUMesh** const _begin, asset:
 			case asset::EMT_ANIMATED_SKINNED:
 				for (uint32_t k=0u; k<_asset->getMeshBufferCount(); ++k)
 				{
-					static_cast<video::CGPUSkinnedMesh*>(output.get())->addMeshBuffer(core::smart_refctd_ptr(gpuDeps->operator[](redir[j])), static_cast<asset::ICPUSkinnedMeshBuffer*>((*(_begin + i))->getMeshBuffer(i))->getMaxVertexBoneInfluences());
+                    assert(false); // TODO: when we remake the skinning API
+					//static_cast<video::CGPUSkinnedMesh*>(output.get())->addMeshBuffer(core::smart_refctd_ptr_static_cast<video::CGPUSkinnedMeshBuffer>(gpuDeps->operator[](redir[j])), static_cast<asset::ICPUSkinnedMeshBuffer*>((*(_begin + i))->getMeshBuffer(i))->getMaxVertexBoneInfluences());
 					++j;
 				}
 				break;
