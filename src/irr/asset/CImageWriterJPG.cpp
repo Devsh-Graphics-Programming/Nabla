@@ -99,6 +99,8 @@ static void jpeg_file_dest(j_compress_ptr cinfo, io::IWriteFile* file)
 template<asset::E_FORMAT outFormat>
 core::smart_refctd_ptr<asset::ICPUImage> getJPGConvertedOutput(const asset::ICPUImage* image)
 {
+	static_assert(!asset::isBlockCompressionFormat<outFormat>(), "Only non BC formats supported!");
+
 	using CONVERSION_FILTER = asset::CConvertFormatImageFilter<asset::EF_UNKNOWN, outFormat>;
 
 	core::smart_refctd_ptr<asset::ICPUImage> newConvertedImage;
@@ -158,20 +160,12 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::ICPUImage* image, u
 	}
 
 	const auto& convertedImageParams = convertedImage->getCreationParameters();
-	const auto& convertedRegion = convertedImage->getRegions().begin();
 	auto convertedFormat = convertedImageParams.format;
-
-	asset::TexelBlockInfo blockInfo(convertedFormat);
-	core::vector3du32_SIMD trueExtent = blockInfo.convertTexelsToBlocks(convertedRegion->getTexelStrides());
 
 	bool grayscale = (convertedFormat == asset::EF_R8_SRGB);
 	
-	core::vector3d<uint32_t> dim;
-	dim.X = trueExtent.X;
-	dim.Y = trueExtent.Y;
-	dim.Z = trueExtent.Z;
-
-	const auto texelOrBlockByteSize = asset::getTexelOrBlockBytesize(convertedFormat) * trueExtent.X;
+	core::vector3d<uint32_t> dim = { convertedImageParams.extent.width, convertedImageParams.extent.height, convertedImageParams.extent.depth };
+	const auto rowByteSize = asset::getTexelOrBlockBytesize(convertedFormat) * convertedImage->getRegions().begin()->bufferRowLength;
 
 	struct jpeg_compress_struct cinfo;
 	struct jpeg_error_mgr jerr;
@@ -192,7 +186,7 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::ICPUImage* image, u
 	jpeg_set_quality(&cinfo, quality, TRUE);
 	jpeg_start_compress(&cinfo, TRUE);
 
-	const auto JPG_BYTE_PITCH = texelOrBlockByteSize;
+	const auto JPG_BYTE_PITCH = rowByteSize;
 	uint8_t* dest = new uint8_t[JPG_BYTE_PITCH];
 
 	if (dest)

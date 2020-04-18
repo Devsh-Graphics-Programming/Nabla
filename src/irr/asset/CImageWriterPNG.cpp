@@ -60,6 +60,8 @@ CImageWriterPNG::CImageWriterPNG()
 template<asset::E_FORMAT outFormat>
 core::smart_refctd_ptr<asset::ICPUImage> getPNGConvertedOutput(const asset::ICPUImage* image)
 {
+	static_assert(!asset::isBlockCompressionFormat<outFormat>(), "Only non BC formats supported!");
+
 	using CONVERSION_FILTER = asset::CConvertFormatImageFilter<asset::EF_UNKNOWN, outFormat>;
 
 	core::smart_refctd_ptr<asset::ICPUImage> newConvertedImage;

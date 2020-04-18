@@ -150,7 +150,7 @@ namespace irr
 					region->imageExtent.width = texture.extent(regionIndex).x;
 					region->imageExtent.height = texture.extent(regionIndex).y;
 					region->imageExtent.depth = texture.extent(regionIndex).z;
-					region->bufferRowLength = IImageAssetHandlerBase::calcPitchInBlocks(region->imageExtent.width, texelBlockByteSize);
+					region->bufferRowLength = IImageAssetHandlerBase::calcPitchInBlocks(region->imageExtent.width, texelBlockByteSize / asset::getBlockDimensions(imageInfo.format).X);
 					region->bufferImageHeight = 0u;
 					region->imageSubresource.mipLevel = regionIndex;
 					region->imageSubresource.layerCount = imageInfo.arrayLayers;

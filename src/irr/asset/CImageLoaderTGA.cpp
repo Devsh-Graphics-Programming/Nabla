@@ -122,6 +122,8 @@ bool CImageLoaderTGA::isALoadableFileFormat(io::IReadFile* _file) const
 template <E_FORMAT srcFormat, E_FORMAT destFormat>
 core::smart_refctd_ptr<ICPUImage> createAndconvertImageData(ICPUImage::SCreationParams& imgInfo, core::smart_refctd_ptr<ICPUBuffer>& texelBuffer, bool flip)
 {
+	static_assert((!asset::isBlockCompressionFormat<srcFormat>() || !asset::isBlockCompressionFormat<destFormat>()), "Only non BC formats supported!");
+
 	core::smart_refctd_ptr<ICPUImage> newConvertedImage;
 	core::smart_refctd_ptr<ICPUImage> inputCreationImage;
 	{
@@ -288,7 +290,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 		break;
 		case STIT_RLE_TRUE_COLOR_IMAGE: 
 		{
-			region.bufferRowLength = calcPitchInBlocks(region.imageExtent.width, getTexelOrBlockBytesize(EF_A1R5G5B5_UNORM_PACK16));
+			region.bufferRowLength = calcPitchInBlocks(region.imageExtent.width, bytesPerTexel);
 			const auto bufferSize = endBufferSize = region.imageExtent.height * region.bufferRowLength * bytesPerTexel;
 			loadCompressedImage(_file, header, bufferSize, texelBuffer);
 			break;

@@ -137,7 +137,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(texelOrBlockByteSize * pitchTexelOrBlockLength);
 
 				if (copyInputMemory)
-					memcpy(texelBuffer->getPointer(), rowData, texelOrBlockByteSize * texelOrBlockLength);
+					texelBuffer = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(texelOrBlockByteSize * texelOrBlockLength, rowData, core::adopt_memory);
 
 				ICPUImage::SBufferCopy& region = regions->front();
 
@@ -223,12 +223,14 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				state.outOffset = { 0, 0, 0 };
 				state.outBaseLayer = 0;
 
-				for (auto newAttachedRegion = newConvertedImage->getRegions().begin(); newAttachedRegion != newConvertedImage->getRegions().end(); ++newAttachedRegion)
+				for (auto itr = 0; itr < newConvertedImage->getCreationParameters().mipLevels; ++itr)
 				{
-					state.extent = newAttachedRegion->getExtent();
-					state.layerCount = newAttachedRegion->imageSubresource.layerCount;
-					state.inMipLevel = newAttachedRegion->imageSubresource.mipLevel;
-					state.outMipLevel = newAttachedRegion->imageSubresource.mipLevel;
+					auto regionWithMipMap = newConvertedImage->getRegions(itr).begin();
+
+					state.extent = regionWithMipMap->getExtent();
+					state.layerCount = regionWithMipMap->imageSubresource.layerCount;
+					state.inMipLevel = regionWithMipMap->imageSubresource.mipLevel;
+					state.outMipLevel = regionWithMipMap->imageSubresource.mipLevel;
 				
 					if (!convertFilter.execute(&state))
 						os::Printer::log("Something went wrong while converting from R8 to R8G8B8 format!", ELL_WARNING);

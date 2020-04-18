@@ -140,12 +140,7 @@ void ApplicationHandler::performImageTest(std::string path)
 	gpuImageView = driver->getGPUObjectsFromAssets(&cpuImageView.get(), &cpuImageView.get() + 1u)->front();
 
 	if (gpuImageView)
-	{
-		auto gpuViewParams = gpuImageView->getCreationParameters();
-		gpuViewParams.image = driver->createDeviceLocalGPUImageOnDedMem(video::IGPUImage::SCreationParams(gpuViewParams.image->getCreationParameters()));
-
 		presentImageOnTheScreen(gpuImageView, std::string(filename.c_str()), std::string(extension.c_str()));
-	}
 
 	auto tryToWrite = [&](asset::IAsset* asset)
 	{
