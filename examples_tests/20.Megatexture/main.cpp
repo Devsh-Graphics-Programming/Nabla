@@ -16,7 +16,7 @@ using namespace core;
 
 using STextureData = asset::ITexturePacker::STextureData;
 
-STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePacker* _packer, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
+STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePacker* _packer, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
 {
     const auto& extent = _img->getCreationParameters().extent;
 
@@ -25,8 +25,8 @@ STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePack
     subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(extent.width, extent.height))) + 1;
 
     uint8_t border[4]{};//unused anyway
-    auto pgTabCoords = _packer->pack(_img, subres, asset::ISampler::ETC_MIRROR, asset::ISampler::ETC_MIRROR, _borderColor);
-    return _packer->offsetToTextureData(pgTabCoords, _img, asset::ISampler::ETC_MIRROR, asset::ISampler::ETC_MIRROR);
+    auto pgTabCoords = _packer->pack(_img, subres, _uwrap, _vwrap, _borderColor);
+    return _packer->offsetToTextureData(pgTabCoords, _img, _uwrap, _vwrap);
 }
 
 constexpr const char* GLSL_VT_TEXTURES = //also turns off set3 bindings (textures) because they're not needed anymore as we're using VT
@@ -35,10 +35,13 @@ R"(
 layout (set = 0, binding = 0) uniform usampler2DArray pageTable[3];
 layout (set = 0, binding = 1) uniform sampler2DArray physPgTex[3];
 
-layout (set = 2, binding = 0, std140) uniform mipChoiceUBO
+#define VT_COUNT 3
+layout (set = 2, binding = 0, std430) readonly restrict buffer PrecomputedStuffUBO
 {
-    int lod;
-} mipUbo;
+    uint pgtab_sz_log2[VT_COUNT];
+    float phys_pg_tex_sz_rcp[VT_COUNT];
+    float vtex_sz_rcp[VT_COUNT];
+} precomputed;
 #endif
 #define _IRR_FRAG_SET3_BINDINGS_DEFINED_
 )";
@@ -64,8 +67,6 @@ layout (push_constant) uniform Block {
 )";
 constexpr const char* GLSL_VT_FUNCTIONS =
 R"(
-//#define TEST_VT_MIPS
-
 #include <irr/builtin/glsl/texture_packer/definitions.glsl/6/6/7/8>
 
 vec3 unpackPageID(in uint pageID)
@@ -79,8 +80,8 @@ vec4 vTextureGrad_helper(in vec3 virtualUV, in int clippedLoD, in mat2 gradients
 {
     uvec2 pageID = textureLod(pageTable[1],virtualUV,clippedLoD).xy;
 
-	// TODO: make this come from a UBO uint pageTableSizeLog2[VT_COUNT]
-	const uint pageTableSizeLog2 = 7;
+	const uint pageTableSizeLog2 = precomputed.pgtab_sz_log2[1];
+    const float phys_pg_tex_sz_rcp = precomputed.phys_pg_tex_sz_rcp[1];
 	// assert that pageTableSizeLog2<23
 
 	// this will work because pageTables are always square and PoT and IEEE754
@@ -89,15 +90,12 @@ vec4 vTextureGrad_helper(in vec3 virtualUV, in int clippedLoD, in mat2 gradients
 	vec2 tileCoordinate = uintBitsToFloat(floatBitsToUint(virtualUV.xy)+thisLevelTableSize);
 	tileCoordinate = fract(tileCoordinate); // optimize this fract at some point
 	tileCoordinate = uintBitsToFloat(floatBitsToUint(tileCoordinate)+uint((PAGE_SZ_LOG2-levelInTail)<<23));
-	// TODO : packingOffsets[levelInTail], and have it already be a vec2
     tileCoordinate += packingOffsets[levelInTail];
 	tileCoordinate += vec2(TILE_PADDING,TILE_PADDING);
-	// TODO: use precomputed reciprocal here
-	tileCoordinate /= vec2(textureSize(physPgTex[1],0).xy);
+	tileCoordinate *= phys_pg_tex_sz_rcp;
 
 	vec3 physicalUV = unpackPageID(levelInTail!=0 ? pageID.y:pageID.x);
-	// TODO: use precomputed reciprocal here
-	physicalUV.xy *= vec2(PAGE_SZ+2*TILE_PADDING)/vec2(textureSize(physPgTex[1],0).xy);
+	physicalUV.xy *= vec2(PAGE_SZ+2*TILE_PADDING)*phys_pg_tex_sz_rcp;
 
 	// add the in-tile coordinate
 	physicalUV.xy += tileCoordinate;
@@ -168,20 +166,9 @@ vec4 vTextureGrad(in vec3 virtualUV, in mat2 dOriginalScaledUV, in int originalM
 	return retval;
 }
 
-
-//#define UNPACK_UNORM16_SANITY_CHECK
-vec2 unpackUnorm2x16_(in uint u)
-{
-#ifdef UNPACK_UNORM16_SANITY_CHECK
-    return vec2(float(u&0xffffu)/65535.0, float((u>>16)&0xffffu)/65535.0);
-#else
-    return unpackUnorm2x16(u);
-#endif
-}
-
 uvec2 unpackWrapModes(in uvec2 texData)
 {
-    return uvec2((texData.y>>28)&0x03u,(texData.y>>30)&0x03u);
+    return (texData>>uvec2(28u,30u)) & uvec2(0x03u);
 }
 uint unpackMaxMipInVT(in uvec2 texData)
 {
@@ -195,20 +182,37 @@ vec3 unpackVirtualUV(in uvec2 texData)
 }
 vec2 unpackSize(in uvec2 texData)
 {
-	return vec2(texData.x&0xffffu,texData.x>>16u);//363
+	return vec2(texData.x&0xffffu,texData.x>>16u);
 }
-vec4 textureVT(in uvec2 _texData, in vec2 uv, mat2 dUV)
+#define WRAP_REPEAT 0u
+#define WRAP_CLAMP 1u
+#define WRAP_MIRROR 2u
+float wrapTexCoord(float tc, in uint mode)
+{
+    switch (mode)
+    {
+    case WRAP_REPEAT: tc = fract(tc); break;
+    case WRAP_CLAMP:  tc = clamp(tc, 0.0, 1.0); break;
+    case WRAP_MIRROR: tc = 1.0 - abs(mod(tc,2.0)-1.0); break;
+    default: break;
+    }
+    return tc;
+}
+vec4 textureVT(in uvec2 _texData, in vec2 uv, in mat2 dUV)
 {
     vec2 originalSz = unpackSize(_texData);
 	dUV[0] *= originalSz;
 	dUV[1] *= originalSz;
 
+    uvec2 wrap = unpackWrapModes(_texData);
+    uv.x = wrapTexCoord(uv.x,wrap.x);
+    uv.y = wrapTexCoord(uv.y,wrap.y);
+
 	// NOTE: you CANNOT squeeze the whole thing into `originalSz` not enough precision!
 	vec3 virtualUV = unpackVirtualUV(_texData);
 	// TODO: Handle wrapping properly here
-    virtualUV.xy += fract(uv)*originalSz;
-	// TODO: you want to precompute(with doubles) `/float(textureSize(pageTable[1],0).x*PAGE_SZ)`
-    virtualUV.xy /= float(textureSize(pageTable[1],0).x*PAGE_SZ);
+    virtualUV.xy += uv*originalSz;
+    virtualUV.xy *= precomputed.vtex_sz_rcp[1];
 
     return vTextureGrad(virtualUV, dUV, int(unpackMaxMipInVT(_texData)));
 }
@@ -597,7 +601,6 @@ class EventReceiver : public irr::IEventReceiver
         int32_t LoD = 0;
 };
 
-//#define TEST_VT_MIPS
 int main()
 {
 	// create device with full flexibility over creation parameters
@@ -689,17 +692,16 @@ int main()
         ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings.data(), bindings.data()+bindings.size());
     }
     core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds2layout;
-#ifdef TEST_VT_MIPS
     {
         asset::ICPUDescriptorSetLayout::SBinding bnd;
         bnd.binding = 0u;
         bnd.count = 1u;
         bnd.samplers = nullptr;
         bnd.stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-        bnd.type = asset::EDT_UNIFORM_BUFFER;
+        bnd.type = asset::EDT_STORAGE_BUFFER;
         ds2layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd,&bnd+1);
     }
-#endif
+
     core::smart_refctd_ptr<asset::ICPUPipelineLayout> pipelineLayout;
     {
         asset::SPushConstantRange pcrng;
@@ -733,6 +735,10 @@ int main()
             uint32_t j = texturesOfInterest[k];
 
             auto* view = static_cast<asset::ICPUImageView*>(ds->getDescriptors(j).begin()->desc.get());
+            auto* smplr = ds->getLayout()->getBindings().begin()[j].samplers[0].get();
+            const auto uwrap = static_cast<asset::ISampler::E_TEXTURE_CLAMP>(smplr->getParams().TextureWrapU);
+            const auto vwrap = static_cast<asset::ISampler::E_TEXTURE_CLAMP>(smplr->getParams().TextureWrapV);
+            const auto borderColor = static_cast<asset::ISampler::E_TEXTURE_BORDER_COLOR>(smplr->getParams().BorderColor);
             auto img = view->getCreationParameters().image;
             auto extent = img->getCreationParameters().extent;
             if (extent.width <= 2u || extent.height <= 2u)//dummy 2x2
@@ -742,10 +748,9 @@ int main()
             if (found != VTtexDataMap.end())
                 texData = found->second;
             else {
-                auto imgToPack = createPoTPaddedSquareImageWithMipLevels(img.get(), asset::ISampler::ETC_MIRROR, asset::ISampler::ETC_MIRROR);
+                auto imgToPack = createPoTPaddedSquareImageWithMipLevels(img.get(), uwrap, vwrap);
                 const asset::E_FORMAT fmt = imgToPack->getCreationParameters().format;
-                //TODO take wrapping into account while packing
-                texData = getTextureData(imgToPack.get(), texPackers[format2texPackerIndex(fmt)].get(), asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK);
+                texData = getTextureData(imgToPack.get(), texPackers[format2texPackerIndex(fmt)].get(), uwrap, vwrap, borderColor);
                 VTtexDataMap.insert({img,texData});
             }
 
@@ -881,26 +886,55 @@ int main()
 
     auto gpumesh = driver->getGPUObjectsFromAssets(&mesh_raw, &mesh_raw+1)->front();
 
-#ifdef TEST_VT_MIPS
-    auto gpuMipChoiceUbo = driver->createDeviceLocalGPUBufferOnDedMem(16);
-
     core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> gpu_ds2layout = driver->getGPUObjectsFromAssets(&ds2layout.get(),&ds2layout.get()+1)->front();
     auto gpu_ds2 = driver->createGPUDescriptorSet(std::move(gpu_ds2layout));
+    core::smart_refctd_ptr<video::IGPUBuffer> gpuPrecomputedStuffSsbo;
     {
-        video::IGPUDescriptorSet::SWriteDescriptorSet write;
-        write.arrayElement = 0u;
-        write.binding = 0u;
-        write.count = 1u;
-        write.descriptorType = asset::EDT_UNIFORM_BUFFER;
-        write.dstSet = gpu_ds2.get();
-        video::IGPUDescriptorSet::SDescriptorInfo info[1];
-        write.info = info;
-        write.info->desc = gpuMipChoiceUbo;
-        write.info->buffer.offset = 0u;
-        write.info->buffer.size = 16u;
-        driver->updateDescriptorSets(1u, &write, 0u, nullptr);
+        constexpr uint32_t ENTRY_SZ = sizeof(uint32_t);
+        constexpr uint32_t ENTRY_ALIGNMENT = sizeof(uint32_t);//change to 16 if std140
+        constexpr uint32_t PRECOMPUTED_STUFF_COUNT = 3u;//pgtab_sz_log2, phys_pg_tex_sz_rcp, vtex_sz_rcp
+        constexpr uint32_t PRECOMPUTED_STUFF_SZ = ETP_COUNT*ENTRY_ALIGNMENT;
+        constexpr uint32_t UBO_SZ = PRECOMPUTED_STUFF_COUNT*PRECOMPUTED_STUFF_SZ;
+        uint8_t ubodata[UBO_SZ]{};
+        uint32_t* ptr = reinterpret_cast<uint32_t*>(ubodata);
+        uint32_t offset = 0u;
+        //pgtab_sz_log2
+        for (uint32_t i = 0u; i < ETP_COUNT; ++i)
+            ptr[i*ENTRY_ALIGNMENT/ENTRY_SZ] = core::findMSB(texPackers[i]->getPageTable()->getCreationParameters().extent.width);
+        ptr += PRECOMPUTED_STUFF_SZ/ENTRY_SZ;
+        //phys_pg_tex_sz_rcp
+        for (uint32_t i = 0u; i < ETP_COUNT; ++i)
+        {
+            const double f = 1.0 / static_cast<double>(texPackers[i]->getPhysicalAddressTexture()->getCreationParameters().extent.width);
+            reinterpret_cast<float*>(ptr)[i*ENTRY_ALIGNMENT/ENTRY_SZ] = f;
+        }
+        ptr += PRECOMPUTED_STUFF_SZ/ENTRY_SZ;
+        //vtex_sz_rcp
+        for (uint32_t i = 0u; i < ETP_COUNT; ++i)
+        {
+            double f = 1.0;
+            f /= static_cast<double>(texPackers[i]->getPageTable()->getCreationParameters().extent.width);
+            f /= static_cast<double>(texPackers[i]->getPageSize());
+            reinterpret_cast<float*>(ptr)[i*ENTRY_ALIGNMENT/ENTRY_SZ] = f;
+        }
+        gpuPrecomputedStuffSsbo = driver->createFilledDeviceLocalGPUBufferOnDedMem(UBO_SZ,ubodata);
+
+        {
+            video::IGPUDescriptorSet::SWriteDescriptorSet write;
+            write.arrayElement = 0u;
+            write.binding = 0u;
+            write.count = 1u;
+            write.descriptorType = asset::EDT_STORAGE_BUFFER;
+            write.dstSet = gpu_ds2.get();
+            video::IGPUDescriptorSet::SDescriptorInfo info[1];
+            write.info = info;
+            write.info->desc = gpuPrecomputedStuffSsbo;
+            write.info->buffer.offset = 0u;
+            write.info->buffer.size = UBO_SZ;
+            driver->updateDescriptorSets(1u, &write, 0u, nullptr);
+        }
     }
-#endif
+
 	//! we want to move around the scene and view it from different angles
 	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.5f);
 
@@ -958,9 +992,6 @@ int main()
             }
         }       
         driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), uboData.data());
-#ifdef TEST_VT_MIPS
-        driver->updateBufferRangeViaStagingBuffer(gpuMipChoiceUbo.get(), 0ull, sizeof(int32_t), &receiver.getLoD());
-#endif
 
         for (uint32_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)
         {
@@ -970,9 +1001,7 @@ int main()
             driver->bindGraphicsPipeline(pipeline);
             driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 0u, 1u, &gpuds0.get(), nullptr);
             driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 1u, 1u, &gpuds1.get(), nullptr);
-#ifdef TEST_VT_MIPS
             driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 2u, 1u, &gpu_ds2.get(), nullptr);
-#endif
             //const video::IGPUDescriptorSet* gpuds3_ptr = gpumb->getAttachedDescriptorSet();
             //if (gpuds3_ptr)
             //    driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
