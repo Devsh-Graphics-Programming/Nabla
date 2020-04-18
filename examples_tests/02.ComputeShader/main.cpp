@@ -115,10 +115,11 @@ int main()
 		{
 			auto f = core::smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../compute.comp"));
 
-			auto cs_unspec = am->getGLSLCompiler()->createSPIRVFromGLSL(f.get(), asset::ISpecializedShader::ESS_COMPUTE, "main", "comp");
-			asset::ISpecializedShader::SInfo specInfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE);
+			//auto cs_unspec = am->getGLSLCompiler()->createSPIRVFromGLSL(f.get(), asset::ISpecializedShader::ESS_COMPUTE, "main", "comp");
+			asset::IAssetLoader::SAssetLoadParams lp;
+			auto cs_bundle = am->getAsset("../compute.comp",lp);
+			auto cs = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().first);
 
-			auto cs = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(cs_unspec), std::move(specInfo));
 			auto cs_rawptr = cs.get();
 			shader = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr+1)->front();
 		}
