@@ -1424,7 +1424,7 @@ core::smart_refctd_ptr<IGPUBufferView> COpenGLDriver::createGPUBufferView(IGPUBu
 {
     if (!_underlying)
         return nullptr;
-    const size_t effectiveSize = (_size != IGPUBufferView::whole_buffer) ? (_underlying->getSize() - _offset) : _size;
+    const size_t effectiveSize = (_size != IGPUBufferView::whole_buffer) ? _size:(_underlying->getSize() - _offset);
     if ((_offset + effectiveSize) > _underlying->getSize())
         return nullptr;
     if (!core::is_aligned_to(_offset, reqTBOAlignment)) //offset must be aligned to GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT

@@ -23,9 +23,9 @@ class COpenGLBufferView : public IGPUBufferView
 			m_GLformat = getSizedOpenGLFormatFromOurFormat(m_format);
 
 			if (m_offset==0u && m_size==m_buffer->getSize())
-				COpenGLExtensionHandler::extGlTextureBuffer(m_textureName, m_GLformat, _buffer->getOpenGLName());
+				COpenGLExtensionHandler::extGlTextureBuffer(m_textureName, m_GLformat, static_cast<COpenGLBuffer*>(m_buffer.get())->getOpenGLName());
 			else
-				COpenGLExtensionHandler::extGlTextureBufferRange(m_textureName, m_GLformat, _buffer->getOpenGLName(), m_offset, m_size);
+				COpenGLExtensionHandler::extGlTextureBufferRange(m_textureName, m_GLformat, static_cast<COpenGLBuffer*>(m_buffer.get())->getOpenGLName(), m_offset, m_size);
 
 			m_textureSize = m_size / asset::getTexelOrBlockBytesize(m_format);
 		}
