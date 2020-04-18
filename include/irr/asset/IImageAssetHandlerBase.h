@@ -153,7 +153,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			constexpr auto inputFormat = EF_R8_SRGB;
 			constexpr auto outputFormat = EF_R8G8B8_SRGB;
 
-			using CONVERSION_FILTER = CConvertFormatImageFilter<inputFormat, outputFormat>;
+			using CONVERSION_SWIZZLE_FILTER = CSwizzleAndConvertImageFilter<inputFormat, outputFormat>;
 
 			core::smart_refctd_ptr<ICPUImage> newConvertedImage;
 			{
@@ -177,8 +177,8 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				newConvertedImage = ICPUImage::create(std::move(newImageParams));
 				newConvertedImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
 
-				CONVERSION_FILTER convertFilter;
-				CONVERSION_FILTER::state_type state;
+				CONVERSION_SWIZZLE_FILTER convertFilter;
+				CONVERSION_SWIZZLE_FILTER::state_type state;
 
 				state.inImage = image.get();
 				state.outImage = newConvertedImage.get();

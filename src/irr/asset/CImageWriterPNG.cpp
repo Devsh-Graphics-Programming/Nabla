@@ -177,27 +177,11 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	
 	// Create array of pointers to rows in image data
 	png_bytep RowPointers[maxPNGFileHeight];
-	irr::core::vector3d<uint32_t> imgSize;
-	imgSize.X = trueExtent.X;
-	imgSize.Y = trueExtent.Y;
-	imgSize.Z = trueExtent.Z;
 
 	// Fill array of pointers to rows in image data
 	for (uint32_t i = 0; i < trueExtent.Y; ++i)
 	{
-		switch (convertedFormat) {
-			case asset::EF_R8_SRGB: _IRR_FALLTHROUGH;
-			case asset::EF_R8G8B8_SRGB: _IRR_FALLTHROUGH;
-			case asset::EF_R8G8B8A8_SRGB:
-				RowPointers[i] = reinterpret_cast<png_bytep>(data);
-				break;
-			default:
-			{
-				os::Printer::log("Unsupported color format, operation aborted.", ELL_ERROR);
-				return false;
-			}
-		}
-		
+		RowPointers[i] = reinterpret_cast<png_bytep>(data);
 		data += lineWidth;
 	}
 	
