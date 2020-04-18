@@ -10,73 +10,103 @@
 
 <u>**BRDF Explorer**</u>
 
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/IrrSS/brdf.png?raw=true)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/BRDF%20Explorer.png?raw=true)
 
 <u>**Many light raytracing**</u>
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/1.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Many%20light%20raytracing.png?raw=true)
 
 <u>**Many light raytracing**</u>
 
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/IrrSS/balls.png?raw=true)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Many%20light%20raytracing%202.png?raw=true)
 
 **<u>Cylindrical light source</u>**
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/11.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Cylindrical%20light%20source.png?raw=true)
 
 **<u>Two area lights</u>**
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/2.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Two%20area%20lights.png?raw=true)
 
 **<u>.OBJ Loader with MTL pipeline integration</u>**
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/3.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/.OBJ%20Loader%20with%20MTL%20pipeline%20integration.png?raw=true)
 
 **<u>Over 10 area lights</u>**
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/4.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Over%2010%20area%20lights.png?raw=true)
 
 **<u>Raytracing sample</u>**
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/5.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample.png?raw=true)
 
 **<u>Raytracing sample</u>**
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/6.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%202.png?raw=true)
 
 **<u>Light emitters</u>**
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/7.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Light%20emitters.png?raw=true)
 
 **<u>Raytracing sample</u>**
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/9.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%203.png?raw=true)
 
 **<u>1 Megapixel, 1 Million Samples</u>**
 
-![](https://raw.githubusercontent.com/AnastaZIuk/IrrScreenShots/master/IrrSS/10.png)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/1%20Megapixel,%201%20Million%20Samples.png?raw=true)
 
 
 
-### Gifs
-
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/raytracingg1.gif?raw=true)
+### Gifs - [Raytracing flythrough](https://www.youtube.com/watch?v=bwVVoAsRjHI)
 
 
 
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/raytracingg2.gif?raw=true)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%201.gif?raw=true)
 
 
 
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/raytracingg3.gif?raw=true)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%202.gif?raw=true)
 
 
 
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/raytracingg4.gif?raw=true)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%203.gif?raw=true)
 
 
 
-![](https://github.com/AnastaZIuk/IrrScreenShots/blob/master/raytracingg5.gif?raw=true)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%204.gif?raw=true)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%205.gif?raw=true)
+
+
+
+### Gifs - [Raytracing With Optix AI Denoising [Albedo and Normals]](https://www.youtube.com/watch?v=VFad-Y-dSxQ&feature=youtu.be)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%201.gif?raw=true)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%202.gif?raw=true)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%203.gif?raw=true)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%204.gif?raw=true)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%205.gif?raw=true)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%207.gif?raw=true)
 
 
 
