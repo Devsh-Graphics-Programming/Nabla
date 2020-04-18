@@ -152,8 +152,8 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 		{
 			constexpr auto inputFormat = EF_R8_SRGB;
 			constexpr auto outputFormat = EF_R8G8B8_SRGB;
-
-			using CONVERSION_SWIZZLE_FILTER = CSwizzleAndConvertImageFilter<inputFormat, outputFormat>;
+		
+			using CONVERSION_SWIZZLE_FILTER = CSwizzleAndConvertImageFilter<inputFormat, outputFormat >;
 
 			core::smart_refctd_ptr<ICPUImage> newConvertedImage;
 			{
@@ -180,6 +180,13 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				CONVERSION_SWIZZLE_FILTER convertFilter;
 				CONVERSION_SWIZZLE_FILTER::state_type state;
 
+				ICPUImageView::SComponentMapping mapping;
+				mapping.r = ICPUImageView::SComponentMapping::ES_R;
+				mapping.g = ICPUImageView::SComponentMapping::ES_R;
+				mapping.b = ICPUImageView::SComponentMapping::ES_R;
+				mapping.a = ICPUImageView::SComponentMapping::ES_ONE;
+				
+				state.swizzle = mapping;
 				state.inImage = image.get();
 				state.outImage = newConvertedImage.get();
 				state.inOffset = { 0, 0, 0 };
