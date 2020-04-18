@@ -31,7 +31,7 @@ class CImageWriterOpenEXR final : public IImageWriter
 			return extensions;
 		}
 
-		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE; }
+		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE_VIEW; }
 
 		uint32_t getSupportedFlags() override { return asset::EWF_BINARY; }
 
