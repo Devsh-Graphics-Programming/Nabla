@@ -382,6 +382,8 @@ class CElementBSDF : public IElement
 			BlendBSDF			blendbsdf;
 			Mask				mask;
 			TwoSided			twosided;
+			//a not confusing way (extra union member) to access members common for all structs inheriting from MetaBSDF
+			MetaBSDF			meta_common;
 			//HanrahanKrueger	hk;
 			//IrawanMarschner	irawan;
 		};

@@ -415,7 +415,7 @@ public:
         if (!scaled)
         {
             double output64[4]{ 0., 0., 0., 1. };
-            video::decodePixels<double>(format, &src, output64, 0u, 0u);
+            decodePixels<double>(format, &src, output64, 0u, 0u);
             std::copy(output64, output64+4, output.pointer);
         }
         else
@@ -423,13 +423,13 @@ public:
             if (isSignedFormat(format))
             {
                 int64_t output64i[4]{ 0, 0, 0, 1 };
-                video::decodePixels<int64_t>(impl::getCorrespondingIntegerFmt(format), &src, output64i, 0u, 0u);
+                decodePixels<int64_t>(impl::getCorrespondingIntegerFmt(format), &src, output64i, 0u, 0u);
                 std::copy(output64i, output64i+4, output.pointer);
             }
             else
             {
                 uint64_t output64u[4]{ 0u, 0u, 0u, 1u };
-                video::decodePixels<uint64_t>(impl::getCorrespondingIntegerFmt(format), &src, output64u, 0u, 0u);
+                decodePixels<uint64_t>(impl::getCorrespondingIntegerFmt(format), &src, output64u, 0u, 0u);
                 std::copy(output64u, output64u+4, output.pointer);
             }
         }
@@ -471,14 +471,14 @@ public:
             if (isSignedFormat(format))
             {
                 int64_t output64[4]{0, 0, 0, 1};
-                video::decodePixels<int64_t>(scaled ? impl::getCorrespondingIntegerFmt(format) : format, &src, output64, 0u, 0u);
+                decodePixels<int64_t>(scaled ? impl::getCorrespondingIntegerFmt(format) : format, &src, output64, 0u, 0u);
                 for (uint32_t i = 0u; i < getFormatChannelCount(format); ++i)
                     output[i] = static_cast<uint32_t>(output64[i]);
             }
             else
             {
                 uint64_t output64[4]{0u, 0u, 0u, 1u};
-                video::decodePixels<uint64_t>(scaled ? impl::getCorrespondingIntegerFmt(format) : format, &src, output64, 0u, 0u);
+                decodePixels<uint64_t>(scaled ? impl::getCorrespondingIntegerFmt(format) : format, &src, output64, 0u, 0u);
                 for (uint32_t i = 0u; i < getFormatChannelCount(format); ++i)
                     output[i] = static_cast<uint32_t>(output64[i]);
             }
@@ -524,18 +524,18 @@ public:
             input64[i] = input.pointer[i];
 
         if (!scaled)
-            video::encodePixels<double>(format, dst, input64);
+            encodePixels<double>(format, dst, input64);
         else
         {
             if (isSignedFormat(format))
             {
                 int64_t input64i[4]{ static_cast<int64_t>(input64[0]), static_cast<int64_t>(input64[1]), static_cast<int64_t>(input64[2]), static_cast<int64_t>(input64[3]) };
-                video::encodePixels<int64_t>(impl::getCorrespondingIntegerFmt(format), dst, input64i);
+                encodePixels<int64_t>(impl::getCorrespondingIntegerFmt(format), dst, input64i);
             }
             else
             {
                 uint64_t input64u[4]{ static_cast<uint64_t>(input64[0]), static_cast<uint64_t>(input64[1]), static_cast<uint64_t>(input64[2]), static_cast<uint64_t>(input64[3]) };
-                video::encodePixels<uint64_t>(impl::getCorrespondingIntegerFmt(format), dst, input64u);
+                encodePixels<uint64_t>(impl::getCorrespondingIntegerFmt(format), dst, input64u);
             }
         }
 
@@ -577,14 +577,14 @@ public:
             int64_t input[4];
             for (uint32_t i = 0u; i < 4u; ++i)
                 input[i] = reinterpret_cast<const int32_t*>(_input)[i];
-            video::encodePixels<int64_t>(scaled ? impl::getCorrespondingIntegerFmt(format) : format, dst, input);
+            encodePixels<int64_t>(scaled ? impl::getCorrespondingIntegerFmt(format) : format, dst, input);
         }
         else
         {
             uint64_t input[4];
             for (uint32_t i = 0u; i < 4u; ++i)
                 input[i] = _input[i];
-            video::encodePixels<uint64_t>(scaled ? impl::getCorrespondingIntegerFmt(format) : format, dst, input);
+            encodePixels<uint64_t>(scaled ? impl::getCorrespondingIntegerFmt(format) : format, dst, input);
         }
         return true;
     }

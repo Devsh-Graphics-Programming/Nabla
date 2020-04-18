@@ -38,7 +38,7 @@ int main(int argc, char * argv[])
 	auto am = device->getAssetManager();
 
 	asset::IAssetLoader::SAssetLoadParams lp;
-	auto image_bundle = am->getAsset("../../media/OpenEXR/" + std::string(isItDefaultImage ? "daily_pt_1" : argv[1]) + ".exr", lp);
+	auto image_bundle = am->getAsset("../../media/OpenEXR/" + std::string(isItDefaultImage ? "daily_pt_16" : argv[1]) + ".exr", lp);
 	assert(!image_bundle.isEmpty());
 
 	for (auto i = 0ul; i < image_bundle.getSize(); ++i)

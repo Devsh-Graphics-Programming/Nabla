@@ -201,6 +201,7 @@ CImageWriterJPG::CImageWriterJPG()
 bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
 #if !defined(_IRR_COMPILE_WITH_LIBJPEG_ ) || defined(NEW_SHADERS)
+	_IRR_DEBUG_BREAK_IF(true); // Anastazluk fix this
 	return false;
 #else
     if (!_override)

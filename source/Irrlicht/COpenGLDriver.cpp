@@ -584,7 +584,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
     {
         AuxContexts[i].threadId = std::thread::id(); //invalid ID
         AuxContexts[i].ctx = wglCreateContextAttribs_ARB(HDc, hrc, iAttribs);
-        AuxContexts[i].ID = i;
+        AuxContexts[i].ID = static_cast<uint8_t>(i);
     }
 
 	// set exposed data
@@ -906,7 +906,7 @@ uint16_t COpenGLDriver::retrieveDisplayRefreshRate() const
     dm.dmDriverExtra = 0;
     if (!EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm))
         return 0u;
-    return dm.dmDisplayFrequency;
+    return static_cast<uint16_t>(dm.dmDisplayFrequency);
 #elif defined(_IRR_COMPILE_WITH_X11_DEVICE_)
 #   ifdef _IRR_LINUX_X11_RANDR_
     Display* disp = XOpenDisplay(NULL);
@@ -1089,7 +1089,6 @@ bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
 	///MaxBufferViewSize = static_cast<uint32_t>(num);
 
 
-	uint32_t i;
 	// load extensions
 	initExtensions(Params.Stencilbuffer);
 
@@ -1329,14 +1328,17 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     core::smart_refctd_ptr<asset::ICPUShader> spvCPUShader = nullptr;
     if (glUnspec->containsGLSL()) {
         std::string glsl = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
-        auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, "????");
         asset::ICPUShader::insertGLSLExtensionsDefines(glsl, getSupportedGLSLExtensions().get());
+        auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, "????");
         core::smart_refctd_ptr<asset::ICPUBuffer> spvCode = GLSLCompiler->compileSPIRVFromGLSL(
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,
                 EP.c_str(),
                 "????"
             );
+
+        if (!spvCode)
+            return nullptr;
 
 #define FIX_AMD_DRIVER_BUG
 #ifdef FIX_AMD_DRIVER_BUG

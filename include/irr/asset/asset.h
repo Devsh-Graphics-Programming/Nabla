@@ -13,7 +13,6 @@
 #include "irr/asset/format/decodePixels.h"
 #include "irr/asset/format/encodePixels.h"
 
-//! move around in folders soon
 // base
 #include "irr/asset/ICPUBuffer.h"
 #include "irr/asset/IAsset.h"
@@ -22,6 +21,15 @@
 // images
 #include "irr/asset/ICPUImage.h"
 #include "irr/asset/ICPUImageView.h"
+// filters
+#include "irr/asset/filters/CFillImageFilter.h"
+#include "irr/asset/filters/CCopyImageFilter.h"
+#include "irr/asset/filters/CPaddedCopyImageFilter.h"
+#include "irr/asset/filters/CConvertFormatImageFilter.h"
+#include "irr/asset/filters/CSwizzleAndConvertImageFilter.h"
+#include "irr/asset/filters/CFlattenRegionsImageFilter.h"
+#include "irr/asset/filters/CMipMapGenerationImageFilter.h"
+
 // shaders
 #include "irr/asset/ShaderRes.h"
 #include "irr/asset/IIncluder.h"

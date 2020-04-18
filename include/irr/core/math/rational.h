@@ -52,7 +52,9 @@ class rational
 		inline FloatType getFloatApprox() const {return FloatType(numerator)/FloatType(denominator);}
 
 
+		inline NumeratorType& getNumerator() {return numerator;}
 		inline const NumeratorType& getNumerator() const {return numerator;}
+		inline DenominatorType& getDenominator() {return denominator;}
 		inline const DenominatorType& getDenominator() const {return denominator;}
 	protected:
 		NumeratorType numerator;

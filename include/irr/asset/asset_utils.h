@@ -25,6 +25,7 @@ inline void fillBufferWithDeadBeef(ICPUBuffer* _buf)
 
 #include "irr/irrpack.h"
 //! Designed for use with interface blocks declared with `layout (row_major, std140)`
+// TODO: change members to core::matrix3x4SIMD and core::matrix4SIMD
 struct SBasicViewParameters
 {
     float MVP[4*4];

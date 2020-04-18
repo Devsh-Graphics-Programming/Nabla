@@ -59,7 +59,6 @@ class COpenGLSampler : public IGPUSampler
 		{
 			using gl = COpenGLExtensionHandler;
 
-			GLuint m_GLname;
 			gl::extGlCreateSamplers(1, &m_GLname);//TODO before we were using GlGenSamplers for some reason..
 
 			constexpr GLenum minFilterMap[2][2]{

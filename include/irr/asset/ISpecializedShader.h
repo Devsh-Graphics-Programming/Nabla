@@ -49,7 +49,7 @@ class ISpecializedShader : public virtual core::IReferenceCounted
 				SInfo() = default;
 				//! _entries must be sorted!
 				SInfo(core::smart_refctd_dynamic_array<SMapEntry>&& _entries, core::smart_refctd_ptr<ICPUBuffer>&& _backingBuff, const std::string& _entryPoint, E_SHADER_STAGE _ss) :
-					m_entries(std::move(_entries)), m_backingBuffer(std::move(_backingBuff)), entryPoint{_entryPoint}, shaderStage{_ss}
+					entryPoint{_entryPoint}, shaderStage{_ss}, m_entries(std::move(_entries)), m_backingBuffer(std::move(_backingBuff))
 				{
 					if (m_entries)
 						std::sort(m_entries->begin(),m_entries->end());

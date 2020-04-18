@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+include(ProcessorCount)
 
 # submodule managment
 function(update_git_submodule _PATH)
@@ -113,6 +114,8 @@ macro(irr_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
     ]
 }")
 		file(WRITE "${PROJECT_BINARY_DIR}/.vscode/launch.json" ${VSCODE_LAUNCH_JSON})
+
+		ProcessorCount(CPU_COUNT)
 		set(VSCODE_TASKS_JSON "
 {
     \"version\": \"0.2.0\",
@@ -124,7 +127,8 @@ macro(irr_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
             \"command\": \"${CMAKE_MAKE_PROGRAM}\",
             \"type\": \"shell\",
             \"args\": [
-                \"${EXECUTABLE_NAME}\"
+                \"${EXECUTABLE_NAME}\",
+                \"-j${CPU_COUNT}\"
             ],
             \"options\": {
                 \"cwd\": \"${CMAKE_BINARY_DIR}\"

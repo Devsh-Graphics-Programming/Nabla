@@ -224,6 +224,212 @@ namespace asset
 		EF_UNKNOWN
 	};
 
+    enum E_FORMAT_CLASS : uint32_t
+    {
+        EFC_8_BIT,
+        EFC_16_BIT,
+        EFC_24_BIT,
+        EFC_32_BIT,
+        EFC_48_BIT,
+        EFC_64_BIT,
+        EFC_96_BIT,
+        EFC_128_BIT,
+        EFC_192_BIT,
+        EFC_256_BIT
+        //and many more for block compression and planar formats... but dont want to waste time on it now
+    };
+
+    inline uint32_t getFormatClassBlockBytesize(E_FORMAT_CLASS _fclass)
+    {
+        switch (_fclass)
+        {
+        case EFC_8_BIT: _IRR_FALLTHROUGH;
+        case EFC_16_BIT: _IRR_FALLTHROUGH;
+        case EFC_24_BIT: _IRR_FALLTHROUGH;
+        case EFC_32_BIT:
+            return _fclass+1u;
+        case EFC_48_BIT:
+            return 6u;
+        case EFC_64_BIT:
+            return 8u;
+        case EFC_96_BIT:
+            return 12u;
+        case EFC_128_BIT:
+            return 16u;
+        case EFC_192_BIT:
+            return 24u;
+        case EFC_256_BIT:
+            return 32u;
+        default:
+            _IRR_DEBUG_BREAK_IF(1);
+            return 0u;
+        }
+    }
+
+    inline core::vector3du32_SIMD getBlockDimensions(E_FORMAT_CLASS _fclass)
+    {
+        switch (_fclass)
+        {
+        case EFC_8_BIT: _IRR_FALLTHROUGH;
+        case EFC_16_BIT: _IRR_FALLTHROUGH;
+        case EFC_24_BIT: _IRR_FALLTHROUGH;
+        case EFC_32_BIT: _IRR_FALLTHROUGH;
+        case EFC_48_BIT: _IRR_FALLTHROUGH;
+        case EFC_64_BIT: _IRR_FALLTHROUGH;
+        case EFC_96_BIT: _IRR_FALLTHROUGH;
+        case EFC_128_BIT: _IRR_FALLTHROUGH;
+        case EFC_192_BIT: _IRR_FALLTHROUGH;
+        case EFC_256_BIT:
+            return core::vector3du32_SIMD(1u,1u,1u);
+        default:
+            _IRR_DEBUG_BREAK_IF(1);
+            return core::vector3du32_SIMD(0u);
+        }
+    }
+
+    inline E_FORMAT_CLASS getFormatClass(E_FORMAT _fmt)
+    {
+        switch (_fmt)
+        {
+            case EF_R4G4_UNORM_PACK8: _IRR_FALLTHROUGH;
+            case EF_R8_UNORM: _IRR_FALLTHROUGH;
+            case EF_R8_SNORM: _IRR_FALLTHROUGH;
+            case EF_R8_USCALED: _IRR_FALLTHROUGH;
+            case EF_R8_SSCALED: _IRR_FALLTHROUGH;
+            case EF_R8_UINT: _IRR_FALLTHROUGH;
+            case EF_R8_SINT: _IRR_FALLTHROUGH;
+            case EF_R8_SRGB:
+                return EFC_8_BIT;
+            case EF_R4G4B4A4_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_B4G4R4A4_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_R5G6B5_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_B5G6R5_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_R5G5B5A1_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_B5G5R5A1_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_A1R5G5B5_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_R8G8_UNORM: _IRR_FALLTHROUGH;
+            case EF_R8G8_SNORM: _IRR_FALLTHROUGH;
+            case EF_R8G8_USCALED: _IRR_FALLTHROUGH;
+            case EF_R8G8_SSCALED: _IRR_FALLTHROUGH;
+            case EF_R8G8_UINT: _IRR_FALLTHROUGH;
+            case EF_R8G8_SINT: _IRR_FALLTHROUGH;
+            case EF_R8G8_SRGB: _IRR_FALLTHROUGH;
+            case EF_R16_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16_SNORM: _IRR_FALLTHROUGH;
+            case EF_R16_USCALED: _IRR_FALLTHROUGH;
+            case EF_R16_SSCALED: _IRR_FALLTHROUGH;
+            case EF_R16_UINT: _IRR_FALLTHROUGH;
+            case EF_R16_SINT: _IRR_FALLTHROUGH;
+            case EF_R16_SFLOAT:
+                return EFC_16_BIT;
+            case EF_R8G8B8_UNORM: _IRR_FALLTHROUGH;
+            case EF_R8G8B8_SNORM: _IRR_FALLTHROUGH;
+            case EF_R8G8B8_USCALED: _IRR_FALLTHROUGH;
+            case EF_R8G8B8_SSCALED: _IRR_FALLTHROUGH;
+            case EF_R8G8B8_UINT: _IRR_FALLTHROUGH;
+            case EF_R8G8B8_SINT: _IRR_FALLTHROUGH;
+            case EF_R8G8B8_SRGB: _IRR_FALLTHROUGH;
+            case EF_B8G8R8_UNORM: _IRR_FALLTHROUGH;
+            case EF_B8G8R8_SNORM: _IRR_FALLTHROUGH;
+            case EF_B8G8R8_USCALED: _IRR_FALLTHROUGH;
+            case EF_B8G8R8_SSCALED: _IRR_FALLTHROUGH;
+            case EF_B8G8R8_UINT: _IRR_FALLTHROUGH;
+            case EF_B8G8R8_SINT: _IRR_FALLTHROUGH;
+            case EF_B8G8R8_SRGB:
+                return EFC_24_BIT;
+            case EF_R8G8B8A8_UNORM: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_SNORM: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_USCALED: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_SSCALED: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_UINT: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_SINT: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_SRGB: _IRR_FALLTHROUGH;
+            case EF_B8G8R8A8_UNORM: _IRR_FALLTHROUGH;
+            case EF_B8G8R8A8_SNORM: _IRR_FALLTHROUGH;
+            case EF_B8G8R8A8_USCALED: _IRR_FALLTHROUGH;
+            case EF_B8G8R8A8_SSCALED: _IRR_FALLTHROUGH;
+            case EF_B8G8R8A8_UINT: _IRR_FALLTHROUGH;
+            case EF_B8G8R8A8_SINT: _IRR_FALLTHROUGH;
+            case EF_B8G8R8A8_SRGB: _IRR_FALLTHROUGH;
+            case EF_A8B8G8R8_UNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A8B8G8R8_SNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A8B8G8R8_USCALED_PACK32: _IRR_FALLTHROUGH;
+            case EF_A8B8G8R8_SSCALED_PACK32: _IRR_FALLTHROUGH;
+            case EF_A8B8G8R8_UINT_PACK32: _IRR_FALLTHROUGH;
+            case EF_A8B8G8R8_SINT_PACK32: _IRR_FALLTHROUGH;
+            case EF_A8B8G8R8_SRGB_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2R10G10B10_UNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2R10G10B10_SNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2R10G10B10_USCALED_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2R10G10B10_SSCALED_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2R10G10B10_UINT_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2R10G10B10_SINT_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2B10G10R10_UNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2B10G10R10_SNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2B10G10R10_USCALED_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2B10G10R10_SSCALED_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2B10G10R10_UINT_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2B10G10R10_SINT_PACK32: _IRR_FALLTHROUGH;
+            case EF_R16G16_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16_SNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16_USCALED: _IRR_FALLTHROUGH;
+            case EF_R16G16_SSCALED: _IRR_FALLTHROUGH;
+            case EF_R16G16_UINT: _IRR_FALLTHROUGH;
+            case EF_R16G16_SINT: _IRR_FALLTHROUGH;
+            case EF_R16G16_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R32_UINT: _IRR_FALLTHROUGH;
+            case EF_R32_SINT: _IRR_FALLTHROUGH;
+            case EF_R32_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_B10G11R11_UFLOAT_PACK32: _IRR_FALLTHROUGH;
+            case EF_E5B9G9R9_UFLOAT_PACK32:
+                return EFC_32_BIT;
+            case EF_R16G16B16_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16B16_SNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16B16_USCALED: _IRR_FALLTHROUGH;
+            case EF_R16G16B16_SSCALED: _IRR_FALLTHROUGH;
+            case EF_R16G16B16_UINT: _IRR_FALLTHROUGH;
+            case EF_R16G16B16_SINT: _IRR_FALLTHROUGH;
+            case EF_R16G16B16_SFLOAT:
+                return EFC_48_BIT;
+            case EF_R16G16B16A16_UNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_SNORM: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_USCALED: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_SSCALED: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_UINT: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_SINT: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R32G32_UINT: _IRR_FALLTHROUGH;
+            case EF_R32G32_SINT: _IRR_FALLTHROUGH;
+            case EF_R32G32_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R64_UINT: _IRR_FALLTHROUGH;
+            case EF_R64_SINT: _IRR_FALLTHROUGH;
+            case EF_R64_SFLOAT:
+                return EFC_64_BIT;
+            case EF_R32G32B32_UINT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32_SINT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32_SFLOAT:
+                return EFC_96_BIT;
+            case EF_R32G32B32A32_UINT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32A32_SINT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32A32_SFLOAT: _IRR_FALLTHROUGH;
+            case EF_R64G64_UINT: _IRR_FALLTHROUGH;
+            case EF_R64G64_SINT: _IRR_FALLTHROUGH;
+            case EF_R64G64_SFLOAT:
+                return EFC_128_BIT;
+            case EF_R64G64B64_UINT: _IRR_FALLTHROUGH;
+            case EF_R64G64B64_SINT: _IRR_FALLTHROUGH;
+            case EF_R64G64B64_SFLOAT:
+                return EFC_192_BIT;
+            case EF_R64G64B64A64_UINT: _IRR_FALLTHROUGH;
+            case EF_R64G64B64A64_SINT: _IRR_FALLTHROUGH;
+            case EF_R64G64B64A64_SFLOAT:
+                return EFC_256_BIT;
+            default:
+                _IRR_DEBUG_BREAK_IF(1);
+                return static_cast<E_FORMAT_CLASS>(EFC_256_BIT+1);
+        }
+    }
+
     namespace impl
     {
         template<asset::E_FORMAT cf, asset::E_FORMAT cmp, asset::E_FORMAT... searchtab>
@@ -702,6 +908,9 @@ namespace asset
         }
     }
 
+
+    static inline constexpr uint32_t MaxTexelBlockDimensions[] = { 12u, 12u, 1u, 1u };
+
     inline core::vector3du32_SIMD getBlockDimensions(asset::E_FORMAT _fmt)
     {
         switch (_fmt)
@@ -788,6 +997,57 @@ namespace asset
             return core::vector4du32_SIMD(1u);
         }
     }
+
+    struct TexelBlockInfo
+    {
+        public:
+            TexelBlockInfo(E_FORMAT format) :
+                dimension(getBlockDimensions(format)),
+                maxCoord(dimension-core::vector3du32_SIMD(1u, 1u, 1u)),
+                blockByteSize(getTexelOrBlockBytesize(format))
+            {}
+            
+
+			inline auto convertTexelsToBlocks(const core::vector3du32_SIMD& coord) const
+			{
+				return (coord+maxCoord)/dimension;
+			}
+
+            inline auto roundToBlockSize(const core::vector3du32_SIMD& coord) const
+            {
+                return convertTexelsToBlocks(coord)*dimension;
+            }
+
+
+            inline auto	convert3DBlockStridesTo1DByteStrides(core::vector3du32_SIMD blockStrides) const
+            {
+                // shuffle and put a 1 in the first element
+                auto& retval = blockStrides;
+                retval = retval.wxyz();
+                // byte stride for x+ step
+                retval[0] = blockByteSize;
+                // row by bytesize
+                retval[1] *= retval[0];
+                // slice by row
+                retval[2] *= retval[1];
+                // layer by slice
+                retval[3] *= retval[2];
+                return retval;
+            }
+
+            inline auto	convert3DTexelStridesTo1DByteStrides(core::vector3du32_SIMD texelStrides) const
+            {
+                return convert3DBlockStridesTo1DByteStrides(convertTexelsToBlocks(texelStrides));
+            }
+
+
+            inline const auto& getDimension() const { return dimension; }
+
+        private:
+            core::vector3du32_SIMD dimension;
+            core::vector3du32_SIMD maxCoord;
+            uint32_t blockByteSize;
+    };
 
 	inline core::rational<uint32_t> getBytesPerPixel(asset::E_FORMAT _fmt)
 	{
@@ -1340,53 +1600,52 @@ namespace asset
     {
         switch (_fmt)
         {
-        case EF_R8_SINT:
-        case EF_R8_SRGB:
-        case EF_R8G8_SINT:
-        case EF_R8G8_SRGB:
-        case EF_R8G8B8_SINT:
-        case EF_R8G8B8_SRGB:
-        case EF_B8G8R8_UINT:
-        case EF_B8G8R8_SINT:
-        case EF_B8G8R8_SRGB:
-        case EF_R8G8B8A8_SINT:
-        case EF_R8G8B8A8_SRGB:
-        case EF_B8G8R8A8_UINT:
-        case EF_B8G8R8A8_SINT:
-        case EF_B8G8R8A8_SRGB:
-        case EF_A8B8G8R8_UINT_PACK32:
-        case EF_A8B8G8R8_SINT_PACK32:
-        case EF_A8B8G8R8_SRGB_PACK32:
-        case EF_A2R10G10B10_UINT_PACK32:
-        case EF_A2R10G10B10_SINT_PACK32:
-        case EF_A2B10G10R10_UINT_PACK32:
-        case EF_A2B10G10R10_SINT_PACK32:
-        case EF_R16_UINT:
-        case EF_R16_SINT:
-        case EF_R16G16_UINT:
-        case EF_R16G16_SINT:
-        case EF_R16G16B16_UINT:
-        case EF_R16G16B16_SINT:
-        case EF_R16G16B16A16_UINT:
-        case EF_R16G16B16A16_SINT:
-        case EF_R32_UINT:
-        case EF_R32_SINT:
-        case EF_R32G32_UINT:
-        case EF_R32G32_SINT:
-        case EF_R32G32B32_UINT:
-        case EF_R32G32B32_SINT:
-        case EF_R32G32B32A32_UINT:
-        case EF_R32G32B32A32_SINT:
-        case EF_R64_UINT:
-        case EF_R64_SINT:
-        case EF_R64G64_UINT:
-        case EF_R64G64_SINT:
-        case EF_R64G64B64_UINT:
-        case EF_R64G64B64_SINT:
-        case EF_R64G64B64A64_UINT:
-        case EF_R64G64B64A64_SINT:
-            return true;
-        default: return false;
+            case EF_R8_SINT:
+            case EF_R8_UINT:
+            case EF_R8G8_SINT:
+            case EF_R8G8_UINT:
+            case EF_R8G8B8_SINT:
+            case EF_R8G8B8_UINT:
+            case EF_B8G8R8_SINT:
+            case EF_B8G8R8_UINT:
+            case EF_R8G8B8A8_SINT:
+            case EF_R8G8B8A8_UINT:
+            case EF_B8G8R8A8_SINT:
+            case EF_B8G8R8A8_UINT:
+            case EF_A8B8G8R8_UINT_PACK32:
+            case EF_A8B8G8R8_SINT_PACK32:
+            case EF_A8B8G8R8_SRGB_PACK32:
+            case EF_A2R10G10B10_UINT_PACK32:
+            case EF_A2R10G10B10_SINT_PACK32:
+            case EF_A2B10G10R10_UINT_PACK32:
+            case EF_A2B10G10R10_SINT_PACK32:
+            case EF_R16_UINT:
+            case EF_R16_SINT:
+            case EF_R16G16_UINT:
+            case EF_R16G16_SINT:
+            case EF_R16G16B16_UINT:
+            case EF_R16G16B16_SINT:
+            case EF_R16G16B16A16_UINT:
+            case EF_R16G16B16A16_SINT:
+            case EF_R32_UINT:
+            case EF_R32_SINT:
+            case EF_R32G32_UINT:
+            case EF_R32G32_SINT:
+            case EF_R32G32B32_UINT:
+            case EF_R32G32B32_SINT:
+            case EF_R32G32B32A32_UINT:
+            case EF_R32G32B32A32_SINT:
+            case EF_R64_UINT:
+            case EF_R64_SINT:
+            case EF_R64G64_UINT:
+            case EF_R64G64_SINT:
+            case EF_R64G64B64_UINT:
+            case EF_R64G64B64_SINT:
+            case EF_R64G64B64A64_UINT:
+            case EF_R64G64B64A64_SINT:
+                return true;
+            default:
+                return false;
         }
     }
     inline bool isFloatingPointFormat(asset::E_FORMAT _fmt)
@@ -1682,8 +1941,194 @@ namespace asset
         default: return false;
         }
     }
-	
-}} //irr::video
+
+    template<E_FORMAT format>
+    struct format_interm_storage_type
+    {
+        using type = typename std::conditional<isIntegerFormat<format>(),typename std::conditional<isSignedFormat<format>(),int64_t,uint64_t>::type,double>::type;
+    };
+
+    // TODO: add precision functions 
+    /*
+    constexpr getFormatMinValue<E_FORMAT>(channel)
+    inline value_type getFormatMinValue<value_type>(format,channel)
+
+    constexpr getFormatMaxValue<E_FORMAT>(channel)
+    inline value_type getFormatMaxValue<value_type>(format,channel)
+
+    */
+    template <typename value_type>
+    inline value_type getFormatMaxValue(E_FORMAT format, uint32_t channel)
+    {
+        const bool _signed = isSignedFormat(format);
+        if (isIntegerFormat(format) || isScaledFormat(format))
+        {
+            auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
+            if (_signed)
+            {
+                switch (bytesPerChannel)
+                {
+                case 1u: return SCHAR_MAX;
+                case 2u: return SHRT_MAX;
+                case 4u: return INT_MAX;
+                case 8u: return LLONG_MAX;
+                default: break;
+                }
+            }
+            else
+            {
+                switch (bytesPerChannel)
+                {
+                case 1u: return UCHAR_MAX;
+                case 2u: return USHRT_MAX;
+                case 4u: return UINT_MAX;
+                case 8u: return ULLONG_MAX;
+                default: break;
+                }
+            }
+        }
+        else if (isNormalizedFormat(format))
+        {
+            return 1;
+        }
+        else if (isFloatingPointFormat(format))
+        {
+            auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
+            switch (bytesPerChannel)
+            {
+            case 2u: return 65504;
+            case 4u: return FLT_MAX;
+            case 8u: return DBL_MAX;
+            default: break;
+            }
+        }
+        return 0;
+    }
+
+    template <typename value_type>
+    inline value_type getFormatMinValue(E_FORMAT format, uint32_t channel)
+    {
+        const bool _signed = isSignedFormat(format);
+        if (!_signed)
+            return 0;
+        if (isIntegerFormat(format) || isScaledFormat(format))
+        {
+            auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
+            switch (bytesPerChannel)
+            {
+            case 1u: return SCHAR_MIN;
+            case 2u: return SHRT_MIN;
+            case 4u: return INT_MIN;
+            case 8u: return LLONG_MIN;
+            default: break;
+            }
+        }
+        else if (isNormalizedFormat(format))
+        {
+            return _signed ? -1 : 0;
+        }
+        else if (isFloatingPointFormat(format))
+        {
+            auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
+            switch (bytesPerChannel)
+            {
+            case 2u: return -65504;
+            case 4u: return -FLT_MAX;
+            case 8u: return -DBL_MAX;
+            default: break;
+            }
+        }
+        return 0;
+    }
+
+    // in SFLOAT and SRGB formats, the precision is dependant on the current value of the channel
+    template <typename value_type>
+    inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_type value)
+    {
+        _IRR_DEBUG_BREAK_IF(isBlockCompressionFormat(format)); //????
+
+        if (isIntegerFormat(format))
+            return 1;
+
+        if (isSRGBFormat(format))
+        {
+            if (channel==3u)
+                return 1.0/255.0;
+            return core::srgb2lin(value+1.0/255.0)-core::srgb2lin(value);
+        }
+        else if (isNormalizedFormat(format))
+        {
+            switch (format)
+            {
+            case EF_A2R10G10B10_UNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2R10G10B10_SNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2B10G10R10_UNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2B10G10R10_SNORM_PACK32:
+                return (channel==3u) ? 1.0/3.0 : 1.0/1023.0;
+            case EF_R4G4_UNORM_PACK8:
+                return 1.0/15.0;
+            case EF_R4G4B4A4_UNORM_PACK16:
+                return 1.0/15.0;
+            case EF_B4G4R4A4_UNORM_PACK16:
+                return 1.0/15.0;
+            case EF_R5G6B5_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_B5G6R5_UNORM_PACK16:
+                return (channel==1u) ? (1.0/63.0) : (1.0/31.0);
+            case EF_R5G5B5A1_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_B5G5R5A1_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_A1R5G5B5_UNORM_PACK16:
+                return (channel==3u) ? 1.0 : (1.0/31.0);
+            default: break;
+            }
+
+            auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
+            switch (bytesPerChannel)
+            {
+            case 1u:
+                return 1.0/255.0;
+            case 2u:
+                return 1.0/65535.0;
+            default: break;
+            }
+        }
+        else if (isFloatingPointFormat(format))
+        {
+            switch (format)
+            {
+            case EF_B10G11R11_UFLOAT_PACK32:
+                return 0; //TODO
+            case EF_E5B9G9R9_UFLOAT_PACK32:
+                return 0; //TODO
+            default: break;
+            }
+            auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
+            switch (bytesPerChannel)
+            {
+            case 2u:
+            {
+                float f = std::abs(static_cast<float>(value));
+                uint16_t f16 = core::Float16Compressor::compress(f);
+                uint16_t dir = core::Float16Compressor::compress(2.f*(f+1.f));
+                return core::Float16Compressor::decompress( core::nextafter16(f16, dir) ) - f;
+            }
+            case 4u:
+            {
+                float f32 = std::abs(static_cast<float>(value));
+                return core::nextafter32(f32,2.f*(f32+1.f))-f32;
+            }
+            case 8u:
+            {
+                double f64 = std::abs(static_cast<double>(value));
+                return core::nextafter64(f64,2.0*(f64+1.0))-f64;
+            }
+            default: break;
+            }
+        }
+
+        return 0;
+    }
+}
+}
 
 namespace std
 {
