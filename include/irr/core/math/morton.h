@@ -15,7 +15,7 @@ namespace impl
     template <typename T>
     constexpr T morton2d_mask(uint32_t _n)
     {
-        _IRR_STATIC_INLINE_CONSTEXPR uint64_t mask[5]
+        constexpr uint64_t mask[5] =
         {
             0x5555555555555555ull,
             0x3333333333333333ull,

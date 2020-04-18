@@ -116,7 +116,7 @@ int main()
 			auto f = core::smart_refctd_ptr<io::IReadFile>(filesystem->createAndOpenFile("../compute.comp"));
 
 			auto cs_unspec = am->getGLSLCompiler()->createSPIRVFromGLSL(f.get(), asset::ISpecializedShader::ESS_COMPUTE, "main", "comp");
-			asset::ISpecializedShader::SInfo specInfo(core::vector<asset::ISpecializedShader::SInfo::SMapEntry>{}, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE);
+			asset::ISpecializedShader::SInfo specInfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE);
 
 			auto cs = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(cs_unspec), std::move(specInfo));
 			auto cs_rawptr = cs.get();

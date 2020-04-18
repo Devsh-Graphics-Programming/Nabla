@@ -312,7 +312,7 @@ inline __m128d matrix4SIMD::concat64_helper(const __m128d& _a0, const __m128d& _
 	__m128d r2 = _mtx.halfRowAsDouble(2u, _firstHalf);
 	__m128d r3 = _mtx.halfRowAsDouble(3u, _firstHalf);
 
-	const __m128d mask01 = _mm_castsi128_pd(_mm_setr_epi32(0, 0, 0xffffffff, 0xffffffff));
+	//const __m128d mask01 = _mm_castsi128_pd(_mm_setr_epi32(0, 0, 0xffffffff, 0xffffffff));
 
 	__m128d res;
 	res = _mm_mul_pd(_mm_shuffle_pd(_a0, _a0, 0), r0);

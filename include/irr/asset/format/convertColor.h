@@ -88,7 +88,7 @@ inline void convertColor(const void* srcPix[4], void* dstPix, uint32_t _blockX, 
     decT decbuf[MaxChannels] = {0, 0, 0, 1};
     encT encbuf[MaxChannels];
     decodePixels<sF>(srcPix,decbuf,_blockX,_blockY);
-    swizzle.operator()<decT,encT>(decbuf, encbuf);
+    swizzle.template operator()<decT,encT>(decbuf, encbuf);
     encodePixels<dF>(dstPix,encbuf);
 }
 
@@ -101,7 +101,7 @@ inline void convertColor(E_FORMAT sF, E_FORMAT dF, const void* srcPix[4], void* 
     uint8_t encbuf[TexelValueSize];
 
     decodePixelsRuntime(sF, srcPix, decbuf, _blockX, _blockY);
-    swizzle.operator()<void,void>(decbuf, encbuf);
+    swizzle.template operator()<void,void>(decbuf, encbuf);
     encodePixelsRuntime(dF, dstPix, encbuf);
 }
 

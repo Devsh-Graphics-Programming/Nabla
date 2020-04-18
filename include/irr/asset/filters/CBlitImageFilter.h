@@ -59,7 +59,7 @@ class CBlitImageFilterBase : public CBasicImageFilterCommon
 				// no mul by channel count because we're only after alpha
 				retval += outExtentLayerCount.x*outExtentLayerCount.y*outExtentLayerCount.z;
 			}
-			return retval*sizeof(Kernel::value_type);
+			return retval*sizeof(typename Kernel::value_type);
 		}
 
 		static inline bool validate(CStateBase* state)
@@ -76,6 +76,8 @@ class CBlitImageFilterBase : public CBasicImageFilterCommon
 template<class Kernel=CBoxImageFilterKernel>
 class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public CBlitImageFilterBase
 {
+		using value_type = typename Kernel::value_type;
+
 	public:
 		// we'll probably never remove this requirement
 		static_assert(Kernel::is_separable,"Alpha Handling requires high precision and multipass filtering!");
@@ -256,10 +258,10 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 				intermediateExtent[1]-core::vectorSIMDi32(1,1,1,0),
 				intermediateExtent[2]-core::vectorSIMDi32(1,1,1,0)
 			};
-			Kernel::value_type* const intermediateStorage[3] = {
-				reinterpret_cast<Kernel::value_type*>(state->scratchMemory),
-				reinterpret_cast<Kernel::value_type*>(state->scratchMemory+getScratchOffset(state,false)),
-				reinterpret_cast<Kernel::value_type*>(state->scratchMemory)
+			value_type* const intermediateStorage[3] = {
+				reinterpret_cast<value_type*>(state->scratchMemory),
+				reinterpret_cast<value_type*>(state->scratchMemory+getScratchOffset(state,false)),
+				reinterpret_cast<value_type*>(state->scratchMemory)
 			};
 			const core::vectorSIMDu32 intermediateStrides[3] = {
 				core::vectorSIMDu32(Kernel::MaxChannels*intermediateExtent[0].y,Kernel::MaxChannels,Kernel::MaxChannels*intermediateExtent[0].x*intermediateExtent[0].y,0u),
@@ -268,7 +270,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 			};
 			// storage
 			core::RandomSampler sampler(std::chrono::high_resolution_clock::now().time_since_epoch().count());
-			auto storeToTexel = [nonPremultBlendSemantic,alphaChannel,&sampler,outFormat](Kernel::value_type* const sample, void* const dstPix) -> void
+			auto storeToTexel = [nonPremultBlendSemantic,alphaChannel,&sampler,outFormat](value_type* const sample, void* const dstPix) -> void
 			{
 				if (nonPremultBlendSemantic && sample[alphaChannel]>FLT_MIN*1024.0*512.0)
 				{
@@ -280,10 +282,10 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 				{
 					//sample[i] = core::clamp<Kernel::value_type,Kernel::value_type>(sample[i],0.0,1.0);
 					// @Crisspl replace this with epic quantization (actually it would be good if you cached the max and min values for the 4 channels outside the hot loop
-					sample[i] += double(sampler.nextSample())*(asset::getFormatPrecision<Kernel::value_type>(outFormat,i,sample[i])/double(~0u));
-					sample[i] = core::clamp<Kernel::value_type,Kernel::value_type>(sample[i], asset::getFormatMinValue<Kernel::value_type>(outFormat,i), asset::getFormatMaxValue<Kernel::value_type>(outFormat,i));
+					sample[i] += double(sampler.nextSample())*(asset::getFormatPrecision<value_type>(outFormat,i,sample[i])/double(~0u));
+					sample[i] = core::clamp<value_type,value_type>(sample[i], asset::getFormatMinValue<value_type>(outFormat,i), asset::getFormatMaxValue<value_type>(outFormat,i));
 				}
-				asset::encodePixels<Kernel::value_type>(outFormat,dstPix,sample);
+				asset::encodePixels<value_type>(outFormat,dstPix,sample);
 			};
 			const core::SRange<const IImage::SBufferCopy> outRegions = outImg->getRegions(outMipLevel);
 			auto storeToImage = [coverageSemantic,outExtent,intermediateStorage,&sampler,outFormat,alphaRefValue,outData,intermediateStrides,alphaChannel,storeToTexel,outMipLevel,outOffset,outRegions,outImg](const core::rational<>& inverseCoverage, const int axis, const core::vectorSIMDu32& outOffsetLayer) -> void
@@ -300,7 +302,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 				for (auto i=0; i<outputTexelCount; i++)
 				{
 					begin[i] = intermediateStorage[axis][i*4+alphaChannel];
-					begin[i] -= double(sampler.nextSample())*(asset::getFormatPrecision<Kernel::value_type>(outFormat,alphaChannel,begin[i])/double(~0u));
+					begin[i] -= double(sampler.nextSample())*(asset::getFormatPrecision<value_type>(outFormat,alphaChannel,begin[i])/double(~0u));
 				}
 				std::nth_element(begin,nth,end);
 				// scale all alpha texels to work with new reference value
@@ -309,7 +311,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 				{
 					void* const dstPix = outData+writeBlockArrayOffset;
 
-					Kernel::value_type sample[Kernel::MaxChannels];
+					value_type sample[Kernel::MaxChannels];
 					auto first = intermediateStorage[axis]+core::dot(writeBlockPos-outOffsetLayer,intermediateStrides[axis])[0];
 					std::copy(first,first+Kernel::MaxChannels,sample);
 
@@ -354,7 +356,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 					for (auto& j=(localTexCoord[loopCoordID[1]]=0); j<intermediateExtent[axis][loopCoordID[1]]; j++)
 					{
 						// whole line plus window borders
-						Kernel::value_type* lineBuffer;
+						value_type* lineBuffer;
 						localTexCoord[axis] = 0;
 						if (axis!=IImage::ET_1D)
 							lineBuffer = intermediateStorage[axis-1]+core::dot(static_cast<const core::vectorSIMDi32&>(intermediateStrides[axis-1]),localTexCoord)[0];
@@ -377,7 +379,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 									continue;
 
 								auto sample = lineBuffer+i*Kernel::MaxChannels;
-								decodePixels<Kernel::value_type>(inFormat,srcPix,sample,inBlockCoord.x,inBlockCoord.y);
+								decodePixels<value_type>(inFormat,srcPix,sample,inBlockCoord.x,inBlockCoord.y);
 
 								if (nonPremultBlendSemantic)
 								{
@@ -398,15 +400,15 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 						{
 							// get output pixel
 							auto* const value = intermediateStorage[axis]+core::dot(static_cast<const core::vectorSIMDi32&>(intermediateStrides[axis]),localTexCoord)[0];
-							std::fill(value,value+Kernel::MaxChannels,Kernel::value_type(0));
+							std::fill(value,value+Kernel::MaxChannels,value_type(0));
 							// kernel load functor
-							auto load = [axis,&windowMinCoord,lineBuffer](Kernel::value_type* windowSample, const core::vectorSIMDf& unused0, const core::vectorSIMDi32& globalTexelCoord) -> void
+							auto load = [axis,&windowMinCoord,lineBuffer](value_type* windowSample, const core::vectorSIMDf& unused0, const core::vectorSIMDi32& globalTexelCoord) -> void
 							{
 								for (auto h=0; h<Kernel::MaxChannels; h++)
 									windowSample[h] = lineBuffer[(globalTexelCoord[axis]-windowMinCoord[axis])*Kernel::MaxChannels+h];
 							};
 							// kernel evaluation functor
-							auto evaluate = [value](const Kernel::value_type* windowSample, const core::vectorSIMDf& unused0, const core::vectorSIMDi32& unused1) -> void
+							auto evaluate = [value](const value_type* windowSample, const core::vectorSIMDf& unused0, const core::vectorSIMDi32& unused1) -> void
 							{
 								for (auto h=0; h<Kernel::MaxChannels; h++)
 									value[h] += windowSample[h];
@@ -419,7 +421,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 							auto relativePosAndFactor = tmp[axis]-float(windowCoord[axis]);
 							for (auto h=0; h<windowSize; h++)
 							{
-								Kernel::value_type windowSample[Kernel::MaxChannels];
+								value_type windowSample[Kernel::MaxChannels];
 
 								core::vectorSIMDf tmp(relativePosAndFactor,0.f,0.f,kernelScaleCorrectionFactor);
 								kernel.evaluateImpl(load,evaluate,windowSample, tmp,windowCoord);
@@ -464,7 +466,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 			if (secondPong)
 				texelCount += core::max(state->outExtent.width*state->outExtent.height*(state->inExtent.depth+window_last[2]),state->inExtent.width+window_last[0]);
 			//
-			return texelCount*Kernel::MaxChannels*sizeof(Kernel::value_type);
+			return texelCount*Kernel::MaxChannels*sizeof(value_type);
 		}
 };
 

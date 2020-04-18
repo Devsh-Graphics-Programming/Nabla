@@ -6,6 +6,8 @@
 #define __IRR_GLSL_FUNCTIONS_H_INCLUDED__
 
 #include <type_traits>
+#include <utility>
+
 #include "irr/static_if.h"
 #include "irr/type_traits.h"
 #include "irr/core/math/floatutil.h"
@@ -238,7 +240,7 @@ IRR_FORCE_INLINE T min(const T& a, const U& b, const U& c)
 	T vb = T(b);
 	return core::min<T,T>(core::min<T,T>(a,vb), min<T,U>(vb,c));
 }
-
+/* don't remember what I made it for
 template<typename... Args>
 struct min_t
 {
@@ -247,7 +249,7 @@ struct min_t
 		return core::min<Args...>(std::forward<Args>(args)...)
 	}
 };
-
+*/
 
 template<class T>
 IRR_FORCE_INLINE T max(const T& a, const T& b);
@@ -265,7 +267,7 @@ IRR_FORCE_INLINE T max(const T& a, const U& b, const U& c)
 	T vb = T(b);
 	return core::max<T,T>(core::max<T,T>(a,vb),max<T,U>(vb,c));
 }
-
+/* don't remember what I made it for
 template<typename... Args>
 struct max_t
 {
@@ -274,7 +276,7 @@ struct max_t
 		return core::max<Args...>(std::forward<Args>(args)...)
 	}
 };
-
+*/
 
 //! clamps a value between low and high
 template <class T, typename U=T>

@@ -566,7 +566,7 @@ class IAssetManager : public core::IReferenceCounted
         }
 
         // Asset Loaders [FOLLOWING ARE NOT THREAD SAFE]
-        uint32_t getAssetLoaderCount() { return m_loaders.vector.size(); }
+        uint32_t getAssetLoaderCount() { return static_cast<uint32_t>(m_loaders.vector.size()); }
 
         //! @returns 0xdeadbeefu on failure or 0-based index on success.
         uint32_t addAssetLoader(core::smart_refctd_ptr<IAssetLoader>&& _loader)
@@ -577,7 +577,7 @@ class IAssetManager : public core::IReferenceCounted
             while (const char* ext = exts[extIx++])
                 m_loaders.perFileExt.insert(ext, _loader.get());
             m_loaders.pushToVector(std::move(_loader));
-            return m_loaders.vector.size()-1u;
+            return static_cast<uint32_t>(m_loaders.vector.size())-1u;
         }
         void removeAssetLoader(IAssetLoader* _loader)
         {
@@ -591,7 +591,7 @@ class IAssetManager : public core::IReferenceCounted
         }
 
         // Asset Writers [FOLLOWING ARE NOT THREAD SAFE]
-        uint32_t getAssetWriterCount() { return m_writers.perType.getSize(); } // todo.. well, it's not really writer count.. but rather type<->writer association count
+        uint32_t getAssetWriterCount() { return static_cast<uint32_t>(m_writers.perType.getSize()); } // todo.. well, it's not really writer count.. but rather type<->writer association count
 
         void addAssetWriter(core::smart_refctd_ptr<IAssetWriter>&& _writer)
         {

@@ -132,7 +132,7 @@ class IAsset : virtual public core::IReferenceCounted
 			return image;
 		}
 
-		IAsset() : isDummyObjectForCacheAliasing{false}, m_metadata{nullptr} {}
+		IAsset() : m_metadata{nullptr}, isDummyObjectForCacheAliasing{false} {}
 
 		//! Returns correct size reserved associated with an Asset and its data
 		/**

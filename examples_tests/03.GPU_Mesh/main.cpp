@@ -106,7 +106,6 @@ int main()
 	while(device->run() && receiver.keepOpen())
 	{
 		driver->beginScene(true, true, video::SColor(255,255,255,255) );
-
         //! This animates (moves) the camera and sets the transforms
 		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
 		camera->render();
@@ -149,7 +148,7 @@ int main()
             }
 			
 			asset::SPushConstantRange range[1] = {asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
-			
+
 			auto createGPUSpecializedShaderFromSource = [=](const char* source, asset::ISpecializedShader::E_SHADER_STAGE stage)
 			{
 				auto spirv = device->getAssetManager()->getGLSLCompiler()->createSPIRVFromGLSL(source, stage, "main", "runtimeID");
@@ -206,7 +205,6 @@ int main()
 
             upStreamBuff->multi_free(2u,(uint32_t*)&offsets,(uint32_t*)&sizes,driver->placeFence());
         }
-
 		driver->endScene();
 
 		// display frames per second in window title

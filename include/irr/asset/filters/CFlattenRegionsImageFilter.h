@@ -39,7 +39,7 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 		static inline bool validate(state_type* state)
 		{
 			if (!state)
-				return nullptr;
+				return false;
 
 			const auto& inParams = state->inImage->getCreationParameters();
 			// TODO: remove this later when we can actually handle multi samples
@@ -133,7 +133,6 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 				respecifyRegions();
 
 			outImg = state->outImage.get();
-			const auto& outParams = outImg->getCreationParameters();
 			auto regions = outImg->getRegions();
 			for (auto rit=regions.begin(); rit!=regions.end(); rit++)
 			{
