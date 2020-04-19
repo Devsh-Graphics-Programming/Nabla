@@ -124,7 +124,7 @@ namespace irr
 				auto fetchedImageParams = gpuImage->getCreationParameters();
 				auto image = asset::ICPUImage::create(std::move(fetchedImageParams));
 
-				auto trueBufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(fetchedImageParams.extent.width, asset::getTexelOrBlockBytesize(fetchedImageParams.format));
+				auto texelBufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(fetchedImageParams.extent.width * asset::getBlockDimensions(fetchedImageParams.format).X, asset::getTexelOrBlockBytesize(fetchedImageParams.format));
 
 				auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1u);
 				asset::ICPUImage::SBufferCopy& region = regions->front();
@@ -133,7 +133,7 @@ namespace irr
 				region.imageSubresource.baseArrayLayer = 0u;
 				region.imageSubresource.layerCount = 1u;
 				region.bufferOffset = 0u;
-				region.bufferRowLength = trueBufferRowLength;
+				region.bufferRowLength = texelBufferRowLength;
 				region.bufferImageHeight = 0u;
 				region.imageOffset = { 0u, 0u, 0u };
 				region.imageExtent = image->getCreationParameters().extent;
@@ -147,7 +147,6 @@ namespace irr
 				auto destinationBuffer = driver->createGPUBufferOnDedMem(memoryRequirements);
 
 				auto fence = downloadImageMipLevel(driver, gpuImage.get(), destinationBuffer.get());
-				while (fence->waitCPU(1000ull, fence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED) {}
 
 				auto destinationBoundMemory = destinationBuffer->getBoundMemory();
 				destinationBoundMemory->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_READ, { 0u, memoryRequirements.vulkanReqs.size });
@@ -155,8 +154,6 @@ namespace irr
 				
 				auto mapPointerGetterFence = driver->placeFence(true);
 				while (mapPointerGetterFence->waitCPU(1000ull, mapPointerGetterFence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED) {}
-				
-				destinationBoundMemory->unmapMemory();
 
 				image->setBufferAndRegions(std::move(texelBuffer), regions);
 				
@@ -166,9 +163,9 @@ namespace irr
 				viewParams.format = viewParams.image->getCreationParameters().format;
 				viewParams.viewType = asset::ICPUImageView::ET_2D;
 				viewParams.subresourceRange.baseArrayLayer = 0u;
-				viewParams.subresourceRange.layerCount = 1u;
+				viewParams.subresourceRange.layerCount = 1;
 				viewParams.subresourceRange.baseMipLevel = 0u;
-				viewParams.subresourceRange.levelCount = 1u;
+				viewParams.subresourceRange.levelCount = fetchedImageParams.mipLevels;
 
 				auto imageView = asset::ICPUImageView::create(std::move(viewParams));
 
@@ -178,10 +175,13 @@ namespace irr
 					return assetManager->writeAsset(outFileName, wparams);
 				};
 				
-				if (tryToWrite(image.get()))
-					return true;
-				else
-					return tryToWrite(imageView.get());
+				bool status = tryToWrite(image.get());
+				if (!status)
+					status = tryToWrite(imageView.get());
+
+				destinationBoundMemory->unmapMemory();
+				return status;
+
 			}
 		} // namespace ScreenShot
 	} // namespace ext
