@@ -1134,7 +1134,8 @@ class COpenGLExtensionHandler
         IRR_EXT_shader_framebuffer_fetch,
         IRR_EXT_shader_framebuffer_fetch_non_coherent,
         IRR_INTEL_blackhole_render,
-        IRR_NV_shader_texture_footprint
+        IRR_NV_shader_texture_footprint,
+        IRR_NV_gpu_shader5
     };
 
 	static core::CLeakDebugger bufferLeaker;

@@ -28,6 +28,7 @@ CImageWriterTGA::CImageWriterTGA()
 
 bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
+// Anastazluk fix this!
 #ifndef NEW_SHADERS
     if (!_override)
         getDefaultOverride(_override);
@@ -184,6 +185,7 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 
 	return imageHeader.ImageHeight <= y;
 #else
+	_IRR_DEBUG_BREAK_IF(true);
     return false;
 #endif//NEW_SHADERS
 }

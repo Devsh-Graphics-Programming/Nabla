@@ -26,7 +26,7 @@ class IOpenGLPipeline
                     if (!bin.binary)
                         continue;
                     const GLuint GLname = COpenGLExtensionHandler::extGlCreateProgram();
-                    COpenGLExtensionHandler::extGlProgramBinary(GLname, bin.format, bin.binary->data(), bin.binary->size());
+                    COpenGLExtensionHandler::extGlProgramBinary(GLname, bin.format, bin.binary->data(), static_cast<uint32_t>(bin.binary->size()));
                     (*m_GLprograms)[i*_STAGE_COUNT+j].GLname = GLname;
                 }
 

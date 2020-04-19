@@ -22,11 +22,20 @@ typedef struct VkOffset3D {
 	uint32_t	y;
 	uint32_t	z;
 } VkOffset3D; //depr
+inline bool operator!=(const VkOffset3D& v1, const VkOffset3D& v2)
+{
+	return v1.x!=v2.x||v1.y!=v2.y||v1.z!=v2.z;
+}
 typedef struct VkExtent3D {
 	uint32_t	width;
 	uint32_t	height;
 	uint32_t	depth;
 } VkExtent3D; //depr
+inline bool operator!=(const VkExtent3D& v1, const VkExtent3D& v2)
+{
+	return v1.width!=v2.width||v1.height!=v2.height||v1.depth!=v2.depth;
+}
+
 
 class IImage : public IDescriptor
 {
@@ -123,6 +132,36 @@ class IImage : public IDescriptor
 			inline const auto&			getDstSubresource() const {return imageSubresource;}
 			inline const VkOffset3D&	getDstOffset() const { return imageOffset; }
 			inline const VkExtent3D&	getExtent() const { return imageExtent; }
+
+
+			inline auto					getTexelStrides() const
+			{
+				core::vector3du32_SIMD trueExtent;
+				trueExtent.x = bufferRowLength ? bufferRowLength:imageExtent.width;
+				trueExtent.y = bufferImageHeight ? bufferImageHeight:imageExtent.height;
+				trueExtent.z = imageExtent.depth;
+				return trueExtent;
+			}
+
+			inline auto					getBlockStrides(const TexelBlockInfo& info) const
+			{
+				return info.convertTexelsToBlocks(getTexelStrides());
+			}
+
+
+			inline auto					getByteStrides(const TexelBlockInfo& info) const
+			{
+				return info.convert3DTexelStridesTo1DByteStrides(getTexelStrides());
+			}
+			inline uint64_t				getLocalByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides) const
+			{
+				return core::dot(localXYZLayerOffset,byteStrides)[0];
+			}
+			inline uint64_t				getByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides) const
+			{
+				return bufferOffset+getLocalByteOffset(localXYZLayerOffset,byteStrides);
+			}
+
 
 			size_t				bufferOffset = 0ull;
 			// setting this to different from 0 can fail an image copy on OpenGL
@@ -412,22 +451,11 @@ class IImage : public IDescriptor
 		//! Returns image data size in bytes
 		inline size_t getImageDataSizeInBytes() const
 		{
-			const core::vector3du32_SIMD unit(1u);
-			const auto blockAlignment = asset::getBlockDimensions(params.format);
-			const bool hasAnAlignment = (blockAlignment != unit).any();
-
 			core::rational<size_t> bytesPerPixel = getBytesPerPixel();
 			size_t memreq = 0ull;
 			for (uint32_t i=0u; i<params.mipLevels; i++)
 			{
-				auto levelSize = getMipSize(i);
-				// alignup (but with NPoT alignment)
-				if (hasAnAlignment)
-				{
-					levelSize += blockAlignment - unit;
-					levelSize /= blockAlignment;
-					levelSize *= blockAlignment;
-				}
+				auto levelSize = info.roundToBlockSize(getMipSize(i));
 				auto memsize = size_t(levelSize[0] * levelSize[1])*size_t(levelSize[2] * params.arrayLayers)*bytesPerPixel;
 				assert(memsize.getNumerator() % memsize.getDenominator() == 0u);
 				memreq += memsize.getIntegerApprox();
@@ -436,14 +464,15 @@ class IImage : public IDescriptor
 		}
 
     protected:
-		IImage() : params{	static_cast<E_CREATE_FLAGS>(0u),ET_2D,EF_R8G8B8A8_SRGB,
-							{0u,0u,0u},0u,0u,static_cast<E_SAMPLE_COUNT_FLAGS>(0u) }
+		IImage() :	params{	static_cast<E_CREATE_FLAGS>(0u),ET_2D,EF_R8G8B8A8_SRGB,
+							{0u,0u,0u},0u,0u,static_cast<E_SAMPLE_COUNT_FLAGS>(0u) },
+					info(params.format)
 			
 		{
 			//tiling(_tiling), usage(_usage), sharingMode(_sharingMode),
 			//queueFamilyIndices(_queueFamilyIndices), initialLayout(_initialLayout)
 		}
-		IImage(SCreationParams&& _params) : params(std::move(_params)) {}
+		IImage(SCreationParams&& _params) : params(std::move(_params)), info(params.format) {}
 
 		virtual ~IImage()
 		{}
@@ -585,6 +614,7 @@ class IImage : public IDescriptor
 
 
 		SCreationParams params;
+		TexelBlockInfo  info;
 
 	private:
 		template<typename CopyStructIt>

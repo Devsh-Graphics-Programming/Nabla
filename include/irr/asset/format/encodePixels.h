@@ -7,9 +7,12 @@
 #include "irr/core/core.h"
 #include "irr/asset/format/EFormat.h"
 
-namespace irr { namespace video
+namespace irr
+{
+namespace asset
 {	
 
+    // TODO: @Crisspl move this to EFormat and give it better names
 	template<typename T>
 	inline constexpr uint64_t getRangeValueOfVariable(bool maxValue = true)
 	{
@@ -30,6 +33,7 @@ namespace irr { namespace video
 			return -1; // handle an error
 	}
 
+    // Only some formats use this, so its pointless kind-of
 	template<asset::E_FORMAT format, typename T>
 	inline void clampVariableProperly(T& variableToAssignClampingTo, const double& variableToClamp)
 	{
@@ -2237,15 +2241,6 @@ namespace irr { namespace video
 
     }
 
-    namespace impl
-    {
-    inline double lin2srgb(double _lin)
-    {
-        if (_lin <= 0.0031308) return _lin * 12.92;
-        return 1.055 * pow(_lin, 1./2.4) - 0.055;
-    }
-    }
-
     template<>
     inline void encodePixels<asset::EF_R8G8B8_SRGB, double>(void* _pix, const double* _input)
     {
@@ -2253,21 +2248,21 @@ namespace irr { namespace video
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 0));
-            double inp = impl::lin2srgb(_input[0]);
+            double inp = core::lin2srgb(_input[0]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 0);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 8));
-            double inp = impl::lin2srgb(_input[1]);
+            double inp = core::lin2srgb(_input[1]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 8);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 16));
-            double inp = impl::lin2srgb(_input[2]);
+            double inp = core::lin2srgb(_input[2]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 16);
         }
@@ -2281,21 +2276,21 @@ namespace irr { namespace video
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 0));
-            double inp = impl::lin2srgb(_input[2]);
+            double inp = core::lin2srgb(_input[2]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 0);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 8));
-            double inp = impl::lin2srgb(_input[1]);
+            double inp = core::lin2srgb(_input[1]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 8);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 16));
-            double inp = impl::lin2srgb(_input[0]);
+            double inp = core::lin2srgb(_input[0]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 16);
         }
@@ -2309,21 +2304,21 @@ namespace irr { namespace video
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 0));
-            double inp = impl::lin2srgb(_input[0]);
+            double inp = core::lin2srgb(_input[0]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 0);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 8));
-            double inp = impl::lin2srgb(_input[1]);
+            double inp = core::lin2srgb(_input[1]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 8);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 16));
-            double inp = impl::lin2srgb(_input[2]);
+            double inp = core::lin2srgb(_input[2]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 16);
         }
@@ -2342,21 +2337,21 @@ namespace irr { namespace video
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 0));
-            double inp = impl::lin2srgb(_input[2]);
+            double inp = core::lin2srgb(_input[2]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 0);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 8));
-            double inp = impl::lin2srgb(_input[1]);
+            double inp = core::lin2srgb(_input[1]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 8);
         }
         {
             const uint32_t mask = 0xffULL;
             pix &= (~(mask << 16));
-            double inp = impl::lin2srgb(_input[0]);
+            double inp = core::lin2srgb(_input[0]);
             inp *= 255.;
             pix |= ((uint64_t(inp) & mask) << 16);
         }
@@ -2639,7 +2634,23 @@ namespace irr { namespace video
         default: return false;
         }
     }
-	
-}} //irr::video
+    
+
+    inline void encodePixelsRuntime(asset::E_FORMAT _fmt, void* _pix, const void* _input)
+    {
+        if (isIntegerFormat(_fmt))
+        {
+            if (isSignedFormat(_fmt))
+                encodePixels<int64_t>(_fmt, _pix, reinterpret_cast<const int64_t*>(_input));
+            else
+                encodePixels<uint64_t>(_fmt, _pix, reinterpret_cast<const uint64_t*>(_input));
+        }
+        else
+            encodePixels<double>(_fmt, _pix, reinterpret_cast<const double*>(_input));
+    }
+
+
+}
+}
 
 #endif //__IRR_ENCODE_PIXELS_H_INCLUDED__

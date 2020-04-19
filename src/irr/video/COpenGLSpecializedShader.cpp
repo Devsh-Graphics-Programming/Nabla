@@ -46,7 +46,7 @@ static void reorderBindings(spirv_cross::CompilerGLSL& _comp, const COpenGLPipel
         };
         std::sort(res.begin(), res.end(), cmp);
     };
-    auto reorder_ = [&_comp,_layout](spirv_cross::SmallVector<spirv_cross::Resource>& res, asset::E_DESCRIPTOR_TYPE _dtype1, asset::E_DESCRIPTOR_TYPE _dtype2) {
+    auto reorder_ = [&_comp,_layout](spirv_cross::SmallVector<spirv_cross::Resource>& res, asset::E_DESCRIPTOR_TYPE _dtype1, asset::E_DESCRIPTOR_TYPE _dtype2, uint32_t _bndPresum[COpenGLPipelineLayout::DESCRIPTOR_SET_COUNT]) {
         uint32_t availableBinding = 0u;
 		uint32_t currSet = 0u;
 		const IGPUDescriptorSetLayout* dsl = nullptr;
@@ -55,6 +55,7 @@ static void reorderBindings(spirv_cross::CompilerGLSL& _comp, const COpenGLPipel
 			if (!dsl || currSet!=set) {
 				currSet = set;
 				dsl = _layout->getDescriptorSetLayout(currSet);
+				availableBinding = _bndPresum[currSet];
 				j = 0u;
 			}
 
@@ -81,24 +82,34 @@ static void reorderBindings(spirv_cross::CompilerGLSL& _comp, const COpenGLPipel
 	for (const auto& pushConstants : resources.push_constant_buffers)
 		_comp.set_decoration(pushConstants.id, spv::DecorationLocation, 0);
 
+	uint32_t presum[COpenGLPipelineLayout::DESCRIPTOR_SET_COUNT]{};
+#define UPDATE_PRESUM(_type)\
+	for (uint32_t i = 0u; i < COpenGLPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)\
+		presum[i] = _layout->getMultibindParamsForDescSet(i)._type.first
+
+	UPDATE_PRESUM(textures);
     auto samplers = std::move(resources.sampled_images);
     for (const auto& samplerBuffer : resources.separate_images)
         if (_comp.get_type(samplerBuffer.type_id).image.dim == spv::DimBuffer)
             samplers.push_back(samplerBuffer);//see https://github.com/KhronosGroup/SPIRV-Cross/wiki/Reflection-API-user-guide for explanation
     sort_(samplers);
-    reorder_(samplers, asset::EDT_COMBINED_IMAGE_SAMPLER, asset::EDT_UNIFORM_TEXEL_BUFFER);
+    reorder_(samplers, asset::EDT_COMBINED_IMAGE_SAMPLER, asset::EDT_UNIFORM_TEXEL_BUFFER, presum);
 
+	UPDATE_PRESUM(textureImages);
     auto images = std::move(resources.storage_images);
     sort_(images);
-    reorder_(images, asset::EDT_STORAGE_IMAGE, asset::EDT_STORAGE_TEXEL_BUFFER);
+    reorder_(images, asset::EDT_STORAGE_IMAGE, asset::EDT_STORAGE_TEXEL_BUFFER, presum);
 
+	UPDATE_PRESUM(ubos);
     auto ubos = std::move(resources.uniform_buffers);
     sort_(ubos);
-    reorder_(ubos, asset::EDT_UNIFORM_BUFFER, asset::EDT_UNIFORM_BUFFER_DYNAMIC);
+    reorder_(ubos, asset::EDT_UNIFORM_BUFFER, asset::EDT_UNIFORM_BUFFER_DYNAMIC, presum);
 
+	UPDATE_PRESUM(ssbos);
     auto ssbos = std::move(resources.storage_buffers);
     sort_(ssbos);
-    reorder_(ssbos, asset::EDT_STORAGE_BUFFER, asset::EDT_STORAGE_BUFFER_DYNAMIC);
+    reorder_(ssbos, asset::EDT_STORAGE_BUFFER, asset::EDT_STORAGE_BUFFER_DYNAMIC, presum);
+#undef UPDATE_PRESUM
 }
 
 static GLenum ESS2GLenum(asset::ISpecializedShader::E_SHADER_STAGE _stage)

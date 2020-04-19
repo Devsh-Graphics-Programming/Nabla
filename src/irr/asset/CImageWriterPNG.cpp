@@ -61,6 +61,8 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 {
     if (!_override)
         getDefaultOverride(_override);
+
+// Anastazluk fix this!
 #if defined(_IRR_COMPILE_WITH_LIBPNG_) && !defined(NEW_SHADERS)
     SAssetWriteContext ctx{_params, _file};
 
@@ -209,6 +211,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	png_destroy_write_struct(&png_ptr, &info_ptr);
 	return true;
 #else
+	_IRR_DEBUG_BREAK_IF(true);
 	return false;
 #endif//defined(_IRR_COMPILE_WITH_LIBPNG_) && !defined(NEW_SHADERS)
 }

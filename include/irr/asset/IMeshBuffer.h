@@ -63,8 +63,8 @@ public:
 	IMeshBuffer(core::smart_refctd_ptr<PipelineType>&& _pipeline, core::smart_refctd_ptr<DescSetType>&& _ds,
         SBufferBinding<BufferType> _vtxBindings[MAX_ATTR_BUF_BINDING_COUNT],
         SBufferBinding<BufferType>&& _indexBinding
-        ) : m_indexBufferBinding(std::move(_indexBinding)), m_descriptorSet(std::move(_ds)), m_pipeline(std::move(_pipeline)),
-            boundingBox(), indexType(EIT_UNKNOWN), baseVertex(0), indexCount(0u),
+        ) : boundingBox(), m_indexBufferBinding(std::move(_indexBinding)), m_descriptorSet(std::move(_ds)), m_pipeline(std::move(_pipeline)),
+            indexType(EIT_UNKNOWN), baseVertex(0), indexCount(0u),
             instanceCount(1ull), baseInstance(0u)
 	{
         if (_vtxBindings)
