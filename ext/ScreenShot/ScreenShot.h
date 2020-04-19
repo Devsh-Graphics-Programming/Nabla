@@ -156,16 +156,17 @@ namespace irr
 				while (mapPointerGetterFence->waitCPU(1000ull, mapPointerGetterFence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED) {}
 
 				image->setBufferAndRegions(std::move(texelBuffer), regions);
+				auto newCreationParams = image->getCreationParameters();
 				
 				asset::ICPUImageView::SCreationParams viewParams;
 				viewParams.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
 				viewParams.image = image;
-				viewParams.format = viewParams.image->getCreationParameters().format;
+				viewParams.format = newCreationParams.format;
 				viewParams.viewType = asset::ICPUImageView::ET_2D;
 				viewParams.subresourceRange.baseArrayLayer = 0u;
-				viewParams.subresourceRange.layerCount = 1;
+				viewParams.subresourceRange.layerCount = newCreationParams.arrayLayers;
 				viewParams.subresourceRange.baseMipLevel = 0u;
-				viewParams.subresourceRange.levelCount = fetchedImageParams.mipLevels;
+				viewParams.subresourceRange.levelCount = newCreationParams.mipLevels;
 
 				auto imageView = asset::ICPUImageView::create(std::move(viewParams));
 
