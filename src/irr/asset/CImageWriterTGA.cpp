@@ -92,13 +92,13 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	{
 		const auto channelCount = asset::getFormatChannelCount(imageView->getCreationParameters().format);
 		if (channelCount == 1)
-			convertedImage = IImageAssetHandlerBase::getTopImageDataForCommonWriting<asset::EF_R8_SRGB>(imageView);
+			convertedImage = IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8_SRGB>(imageView);
 		else if (channelCount == 2)
-			convertedImage = IImageAssetHandlerBase::getTopImageDataForCommonWriting<asset::EF_A1R5G5B5_UNORM_PACK16>(imageView);
+			convertedImage = IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_A1R5G5B5_UNORM_PACK16>(imageView);
 		else if(channelCount == 3)
-			convertedImage = IImageAssetHandlerBase::getTopImageDataForCommonWriting<asset::EF_R8G8B8_SRGB>(imageView);
+			convertedImage = IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8G8B8_SRGB>(imageView);
 		else
-			convertedImage = IImageAssetHandlerBase::getTopImageDataForCommonWriting<asset::EF_R8G8B8A8_SRGB>(imageView);
+			convertedImage = IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8G8B8A8_SRGB>(imageView);
 	}
 	
 	const auto& convertedImageParams = convertedImage->getCreationParameters();

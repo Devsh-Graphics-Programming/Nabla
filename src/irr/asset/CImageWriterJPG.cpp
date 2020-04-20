@@ -104,9 +104,9 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::ICPUImageView* imag
 	{
 		const auto channelCount = asset::getFormatChannelCount(imageView->getCreationParameters().format);
 		if (channelCount == 1)
-			convertedImage = asset::IImageAssetHandlerBase::getTopImageDataForCommonWriting<asset::EF_R8_SRGB>(imageView);
+			convertedImage = asset::IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8_SRGB>(imageView);
 		else
-			convertedImage = asset::IImageAssetHandlerBase::getTopImageDataForCommonWriting<asset::EF_R8G8B8_SRGB>(imageView);
+			convertedImage = asset::IImageAssetHandlerBase::createImageDataForCommonWriting<asset::EF_R8G8B8_SRGB>(imageView);
 	}
 
 	const auto& convertedImageParams = convertedImage->getCreationParameters();

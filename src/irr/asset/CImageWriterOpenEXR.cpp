@@ -134,7 +134,7 @@ namespace asset
 
 		SAssetWriteContext ctx{ _params, _file };
 
-		auto imageSmart = asset::IImageAssetHandlerBase::getTopImageDataForCommonWriting(IAsset::castDown<ICPUImageView>(_params.rootAsset));
+		auto imageSmart = asset::IImageAssetHandlerBase::createImageDataForCommonWriting(IAsset::castDown<ICPUImageView>(_params.rootAsset));
 		const asset::ICPUImage* image = imageSmart.get();
 
 		if (image->getBuffer()->isADummyObjectForCache())

@@ -51,95 +51,119 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			Create a new image with only one top level region, one layer and one mip-map level.
 			Handling ordinary images in asset writing process is a mess since multi-regions
 			are valid. To avoid ambitious, the function will handle top level data from
-			image view to save only stuff a user has choosen. You can also specify extra
-			output format, top image data will be converted to such. You can leave template
-			parameter to ensure there will be no conversion.
+			image view to save only stuff a user has choosen. You may also specify extra
+			output format the top image data will be converted to, but if you leave it, there
+			will be no conversion provided.
+
+			@param imageView entry image view an image with top data will be gained thanks to it
+			@param arrayLayersMax layers count, only GLI should set different array layers max values
+			@param mipLevelMax layers count, only GLI should set different mip level max values
 		*/
 
-		template<asset::E_FORMAT outFormat = EF_UNKNOWN>
-		static inline core::smart_refctd_ptr<ICPUImage> getTopImageDataForCommonWriting(const ICPUImageView* imageView)
-		{
-			auto referenceImage = imageView->getCreationParameters().image;
-			auto referenceImageParams = referenceImage->getCreationParameters();
-			auto referenceRegions = referenceImage->getRegions();
-			auto referenceTopRegion = referenceRegions.begin();
+		template<asset::E_FORMAT outFormat = asset::EF_UNKNOWN>
+		static inline core::smart_refctd_ptr<ICPUImage> createImageDataForCommonWriting(const ICPUImageView* imageView, uint32_t arrayLayersMax = 1, uint32_t mipLevelMax = 1)
+		{ 
+			const auto& viewParams = imageView->getCreationParameters();
+			const auto& subresource = viewParams.subresourceRange;
+
+			auto finalFormat = (outFormat == asset::EF_UNKNOWN ? viewParams.format : outFormat);
+
+			const auto referenceImage = viewParams.image;
+			const auto& referenceImageParams = referenceImage->getCreationParameters();
 
 			core::smart_refctd_ptr<ICPUImage> newImage;
+			auto newArrayLayers = core::min(subresource.layerCount, arrayLayersMax);
+			auto newMipCount = core::min(subresource.levelCount, mipLevelMax);
 			{
 				auto newImageParams = referenceImageParams;
-				newImageParams.arrayLayers = 1;
-				newImageParams.mipLevels = 1;
-				newImageParams.type = IImage::ET_2D;
-
-				auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1);
-				newRegions->front() = *referenceTopRegion;
-
-				const auto texelOrBlockByteSize = asset::getTexelOrBlockBytesize(referenceImageParams.format);
-				auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(texelOrBlockByteSize * newRegions->front().bufferRowLength * newImageParams.extent.height * newImageParams.extent.depth);
-
+				newImageParams.format = finalFormat;
+				newImageParams.arrayLayers = newArrayLayers;
+				newImageParams.mipLevels = newMipCount;
+				// you don't want to change the type of the texture, will backfire
 				newImage = ICPUImage::create(std::move(newImageParams));
+
+				auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(newImageParams.mipLevels);
+				size_t bufferSize = 0u;
+				const TexelBlockInfo info(newImageParams.format);
+				const core::rational<size_t> bytesPerPixel = asset::getBytesPerPixel(newImageParams.format);
+				for (auto i = 0; i < newMipCount; i++)
+				{
+					auto& region = newRegions->operator[](i);
+					region.bufferOffset = bufferSize;
+					region.imageSubresource.mipLevel = i;
+					region.imageSubresource.baseArrayLayer = 0;
+					region.imageSubresource.layerCount = newImageParams.arrayLayers;
+					// region.imageOffset is 0,0,0 by default
+					auto mipSize = newImage->getMipSize(i);
+					region.imageExtent = reinterpret_cast<const VkExtent3D&>(mipSize);
+
+					auto levelSize = info.roundToBlockSize(mipSize);
+					// don't worry about alignment and stuff, the CPU code can handle it just fine, could have set the thing to 0, but you use bufferRowLength in your code, you should assrt its not 0
+					region.bufferRowLength = levelSize.x;
+					region.bufferImageHeight = levelSize.y;
+
+					auto memsize = size_t(levelSize[0] * levelSize[1]) * size_t(levelSize[2] * newImageParams.arrayLayers) * bytesPerPixel;
+					assert(memsize.getNumerator() % memsize.getDenominator() == 0u);
+					bufferSize += memsize.getIntegerApprox();
+				}
+
+				auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferSize);
+
 				newImage->setBufferAndRegions(std::move(texelBuffer), newRegions);
 			}
 
-			using COPY_FILTER = CCopyImageFilter;
-			COPY_FILTER copyFilter;
-			COPY_FILTER::state_type state;
+			using COPY_FILTER = asset::CCopyImageFilter;
+			using CONVERSION_FILTER = asset::CSwizzleAndConvertImageFilter<EF_UNKNOWN, EF_UNKNOWN>;
 
-			auto newTopRegion = newImage->getRegions().begin();
-
-			state.inImage = referenceImage.get();
-			state.outImage = newImage.get();
-			state.inOffset = { 0, 0, 0 };
-			state.outOffset = { 0, 0, 0 };
-			state.inBaseLayer = 0;
-			state.outBaseLayer = 0;
-			state.extent = newTopRegion->getExtent();
-			state.layerCount = 1;
-			state.inMipLevel = newTopRegion->imageSubresource.mipLevel;
-			state.outMipLevel = 0;
-
-			if(!copyFilter.execute(&state))
-				os::Printer::log("Something went wrong while copying top level region texel's data to the image!", ELL_WARNING);
-
-			if(newImage->getCreationParameters().format == outFormat || outFormat == EF_UNKNOWN)
-				return newImage;
-			else
+			bool identityTransform = viewParams.format == finalFormat;
+			for (auto i = 0; i < asset::getFormatChannelCount(outFormat); i++)
 			{
-				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_UNKNOWN, outFormat>;
-				CONVERSION_FILTER convertFilter;
-				CONVERSION_FILTER::state_type state;
-
-				auto newParams = newImage->getCreationParameters();
-				newParams.format = outFormat;
-				auto texelOrBlockByteSize = asset::getTexelOrBlockBytesize(newParams.format);
-
-				auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
-				auto& topRegion = regions->front() = *newImage->getRegions().begin();
-
-				asset::TexelBlockInfo blockInfo(newParams.format);
-				core::vector3du32_SIMD trueExtent = blockInfo.convertTexelsToBlocks(topRegion.getTexelStrides());
-
-				auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(texelOrBlockByteSize * trueExtent.X);
-
-				auto convertedNewImage = ICPUImage::create(std::move(newParams));
-				convertedNewImage->setBufferAndRegions(std::move(texelBuffer), regions);
-
-				state.inImage = newImage.get();
-				state.outImage = convertedNewImage.get();
-				state.inOffset = { 0, 0, 0 };
-				state.inBaseLayer = 0;
-				state.outOffset = { 0, 0, 0 };
-				state.outBaseLayer = 0;
-				state.extent = { newParams.extent.width, newParams.extent.height, newParams.extent.depth };
-				state.layerCount = 1;
-				state.inMipLevel = 0;
-				state.outMipLevel = 0;
-
-				if (!convertFilter.execute(&state))
-					os::Printer::log("Something went wrong while converting the image!", ELL_WARNING);
-
-				return convertedNewImage;
+				auto mapping = (&viewParams.components.r)[i];
+				identityTransform = identityTransform && (mapping == (decltype(mapping)::ES_R + i) || mapping == (decltype(mapping)::ES_IDENTITY));
 			}
+
+			for (auto i = 0; i < newMipCount; i++)
+			{
+				auto fillCommonState = [&](auto& state)
+				{
+					state.inImage = referenceImage.get();
+					state.outImage = newImage.get();
+					state.inOffset = { 0, 0, 0 };
+					state.inBaseLayer = subresource.baseArrayLayer;
+					state.outOffset = { 0, 0, 0 };
+					state.outBaseLayer = 0;
+					state.extent = reinterpret_cast<const VkExtent3D&>(newImage->getMipSize(i));
+					state.layerCount = newArrayLayers;
+					state.inMipLevel = subresource.baseMipLevel + i;
+					state.outMipLevel = i;
+				};
+
+				// if texel block data does not need changing, we're good
+				if (identityTransform)
+				{
+					COPY_FILTER::state_type state;
+					fillCommonState(state);
+
+					if (!COPY_FILTER::execute(&state)) // execute is a static method
+						os::Printer::log("Something went wrong while copying texel block data!", ELL_ERROR);
+				}
+				else
+				{
+					if (asset::isBlockCompressionFormat(finalFormat)) // execute is a static method
+					{
+						os::Printer::log("Transcoding to Block Compressed formats not supported!", ELL_ERROR);
+						return newImage;
+					}
+
+					CONVERSION_FILTER::state_type state;
+					fillCommonState(state);
+					state.swizzle = viewParams.components;
+
+						if (!CONVERSION_FILTER::execute(&state)) // static method
+							os::Printer::log("Something went wrong while converting the image!", ELL_WARNING);
+				}
+			}
+			return newImage;
 		}
 
 		/*
