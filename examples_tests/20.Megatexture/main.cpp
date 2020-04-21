@@ -34,7 +34,6 @@ constexpr const char* GLSL_NONUNIFORM_EXT_OVERRIDE = R"(
 
 #ifdef IRR_GL_NV_gpu_shader5 //dont we have to actually enable/require it in this ifdef?
     #define IRR_GL_EXT_nonuniform_qualifier // TODO: we need to overhaul our GLSL preprocessing system to match what SPIRV-Cross actually does
-    #define nonuniformEXT(X) X // TODO: needed until some form of https://github.com/KhronosGroup/SPIRV-Cross/pull/1328 gets merged into master
 #endif
 
 #ifndef IRR_GL_EXT_nonuniform_qualifier
