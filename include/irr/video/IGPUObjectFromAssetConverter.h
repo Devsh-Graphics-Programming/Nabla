@@ -558,7 +558,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUDescriptorSetLayout** const
         for (const auto& bnd : dsl->getBindings()) {
             const uint32_t samplerCnt = bnd.samplers ? bnd.count : 0u;
             maxSamplers += samplerCnt;
-            samplersInDS = samplerCnt;
+            samplersInDS += samplerCnt;
         }
         maxBindingsPerDescSet = std::max(maxBindingsPerDescSet, dsl->getBindings().size());
         maxSamplersPerDescSet = std::max(maxSamplersPerDescSet, samplersInDS);
