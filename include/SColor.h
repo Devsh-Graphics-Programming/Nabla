@@ -5,8 +5,10 @@
 #ifndef __COLOR_H_INCLUDED__
 #define __COLOR_H_INCLUDED__
 
-#include "vectorSIMD.h"
 #include "irr/core/core.h"
+#include "vectorSIMD.h"
+
+#include "irr/asset/format/decodePixels.h"
 
 namespace irr
 {

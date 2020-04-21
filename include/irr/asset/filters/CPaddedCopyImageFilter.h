@@ -11,6 +11,7 @@
 
 #include "irr/asset/ISampler.h"
 #include "irr/asset/filters/CCopyImageFilter.h"
+#include "irr/asset/format/encodePixels.h"
 
 namespace irr
 {

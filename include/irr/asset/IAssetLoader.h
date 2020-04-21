@@ -12,6 +12,8 @@ namespace irr
 namespace asset
 {
 
+class IMeshManipulator;
+
 //! A class automating process of loading Assets from resources, eg. files
 /**
 	Every Asset must be loaded by a particular class derived from IAssetLoader.
