@@ -24,11 +24,11 @@ class IGPUTexturePacker : public asset::ITexturePacker
 
         return img;
     }
-    static core::smart_refctd_ptr<IGPUImageView> createView_common(IVideoDriver* _driver, IGPUImage* _img)
+    static core::smart_refctd_ptr<IGPUImageView> createView_common(IVideoDriver* _driver, IGPUImage* _img, asset::E_FORMAT _format)
     {
         IGPUImageView::SCreationParams params;
         params.flags = static_cast<asset::IImageView<IGPUImage>::E_CREATE_FLAGS>(0);
-        params.format = _img->getCreationParameters().format;
+        params.format = _format;
         params.subresourceRange.aspectMask = static_cast<asset::IImage::E_ASPECT_FLAGS>(0);
         params.subresourceRange.baseArrayLayer = 0u;
         params.subresourceRange.layerCount = _img->getCreationParameters().arrayLayers;
@@ -41,10 +41,12 @@ class IGPUTexturePacker : public asset::ITexturePacker
     }
 
 public:
-    IGPUTexturePacker(IVideoDriver* _driver, asset::ICPUTexturePacker* _cpupacker) : 
-        m_pageTable(createGPUImageFromCPU(_driver, _cpupacker->getPageTable())),
+    //! Takes physical address texture from CPU packer and creates GPU texture from it
+    IGPUTexturePacker(IVideoDriver* _driver, asset::ICPUTexturePacker* _cpupacker, core::smart_refctd_ptr<IGPUImage>&& _pageTable) : 
+        m_pageTable(std::move(_pageTable)),
         m_physAddrTex(createGPUImageFromCPU(_driver, _cpupacker->getPhysicalAddressTexture()))
     {
+        //TODO should copy address allocators from CPU packer and other parameters as well
     }
 
     page_tab_offset_t pack(const IGPUImage* _img, const IGPUImage::SSubresourceRange& _subres, asset::ISampler::E_TEXTURE_CLAMP _wrapu, asset::ISampler::E_TEXTURE_CLAMP _wrapv, const void* _borderColor)
@@ -58,14 +60,14 @@ public:
     }
 
     IGPUImage* getPhysicalAddressTexture() const { return m_physAddrTex.get(); }
-    core::smart_refctd_ptr<IGPUImageView> createPhysicalAddressTextureView(IVideoDriver* _driver) const
+    core::smart_refctd_ptr<IGPUImageView> createPhysicalAddressTextureView(IVideoDriver* _driver, asset::E_FORMAT _format = asset::EF_UNKNOWN) const
     {
-        return createView_common(_driver, m_physAddrTex.get());
+        return createView_common(_driver, m_physAddrTex.get(), _format==asset::EF_UNKNOWN?m_physAddrTex->getCreationParameters().format:_format);
     }
     IGPUImage* getPageTable() const { return m_pageTable.get(); }
     core::smart_refctd_ptr<IGPUImageView> createPageTableView(IVideoDriver* _driver) const
     {
-        return createView_common(_driver, m_pageTable.get());
+        return createView_common(_driver, m_pageTable.get(), m_pageTable->getCreationParameters().format);
     }
 
 private:

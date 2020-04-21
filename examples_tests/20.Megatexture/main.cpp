@@ -32,7 +32,7 @@ STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePack
 constexpr const char* GLSL_NONUNIFORM_EXT_OVERRIDE = R"(
 #extension GL_EXT_nonuniform_qualifier  : enable
 
-#ifdef IRR_GL_NV_gpu_shader5
+#ifdef IRR_GL_NV_gpu_shader5 //dont we have to actually enable/require it in this ifdef?
     #define IRR_GL_EXT_nonuniform_qualifier // TODO: we need to overhaul our GLSL preprocessing system to match what SPIRV-Cross actually does
     #define nonuniformEXT(X) X // TODO: needed until some form of https://github.com/KhronosGroup/SPIRV-Cross/pull/1328 gets merged into master
 #endif
@@ -99,12 +99,12 @@ vec3 unpackPageID(in uint pageID)
 	return vec3(vec2(pageXY),float(pageID>>ADDR_LAYER_SHIFT));
 }
 
-vec3 vTextureGrad_helper(in vec3 virtualUV, in int clippedLoD, in int levelInTail)
+vec3 vTextureGrad_helper(in uint formatID, in vec3 virtualUV, in int clippedLoD, in int levelInTail)
 {
-    uvec2 pageID = textureLod(pageTable[1],virtualUV,clippedLoD).xy;
+    uvec2 pageID = textureLod(pageTable,virtualUV,clippedLoD).xy;
 
-	const uint pageTableSizeLog2 = precomputed.pgtab_sz_log2[1];
-    const float phys_pg_tex_sz_rcp = precomputed.phys_pg_tex_sz_rcp[1];
+	const uint pageTableSizeLog2 = precomputed.pgtab_sz_log2[formatID];
+    const float phys_pg_tex_sz_rcp = precomputed.phys_pg_tex_sz_rcp[formatID];
 	// assert that pageTableSizeLog2<23
 
 	// this will work because pageTables are always square and PoT and IEEE754
@@ -176,7 +176,7 @@ vec4 vTextureGrad(in uint formatID, in vec3 virtualUV, in mat2 dOriginalScaledUV
 	levelInTail = haveToDoTrilinear ? levelInTail:(positiveLoD ? int(PAGE_SZ_LOG2):0);
 
 	// get the higher resolution mip-map level
-	vec3 hiPhysCoord = vTextureGrad_helper(virtualUV,clippedLoD,levelInTail);
+	vec3 hiPhysCoord = vTextureGrad_helper(formatID,virtualUV,clippedLoD,levelInTail);
 	// get lower if needed (speculative execution, had to move divergent indexing to a single place)
     vec3 loPhysCoord;
 	// speculative if (haveToDoTrilinear)
@@ -185,7 +185,7 @@ vec4 vTextureGrad(in uint formatID, in vec3 virtualUV, in mat2 dOriginalScaledUV
 		bool highNotInLastFull = LoD_high<originalMaxFullMip;
 		clippedLoD = highNotInLastFull ? (clippedLoD+1):clippedLoD;
 		levelInTail = highNotInLastFull ? levelInTail:(levelInTail+1);
-		loPhysCoord = vTextureGrad_helper(virtualUV,clippedLoD,levelInTail);
+		loPhysCoord = vTextureGrad_helper(formatID,virtualUV,clippedLoD,levelInTail);
 	}
 
 	vec4 hiMip_retval;
@@ -258,13 +258,13 @@ vec4 textureVT(in uvec2 _texData, in vec2 uv, in mat2 dUV)
     uv.x = wrapTexCoord(uv.x,wrap.x);
     uv.y = wrapTexCoord(uv.y,wrap.y);
 
-	// NOTE: you CANNOT squeeze the whole thing into `originalSz` not enough precision!
 	vec3 virtualUV = unpackVirtualUV(_texData);
-	// TODO: Handle wrapping properly here
-    virtualUV.xy += uv*originalSz;
-    virtualUV.xy *= precomputed.vtex_sz_rcp[1];
 
-    uint formatID = 1u; // TODO: @Crisspl figure this out
+    uint formatID = getPhysicalIDForLayer(uint(virtualUV.z));
+
+    virtualUV.xy += uv*originalSz;
+    virtualUV.xy *= precomputed.vtex_sz_rcp[formatID];
+
     return vTextureGrad(formatID, virtualUV, dUV, int(unpackMaxMipInVT(_texData)));
 }
 )";
@@ -498,9 +498,8 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
     return fsNew;
 }
 
-constexpr uint32_t PAGETAB_SZ_LOG2 = 7u;
-constexpr uint32_t PAGETAB_LAYERS = 3u;
-constexpr uint32_t PAGETAB_MIP_LEVELS = 8u;
+constexpr uint32_t PGTAB_SZ_LOG2 = 7u;
+constexpr uint32_t PGTAB_LAYERS_PER_FORMAT = 1u;
 constexpr uint32_t PAGE_SZ_LOG2 = 7u;
 constexpr uint32_t TILES_PER_DIM_LOG2 = 6u;
 constexpr uint32_t PHYS_ADDR_TEX_LAYERS = 3u;
@@ -687,8 +686,7 @@ int main()
     auto* smgr = device->getSceneManager();
     auto* am = device->getAssetManager();
 
-    constexpr uint32_t PGTAB_LAYERS_PER_FORMAT = 1u;
-    auto pagetable = asset::ICPUTexturePacker::createPageTable(PAGETAB_SZ_LOG2, PGTAB_LAYERS_PER_FORMAT*ETP_COUNT, PAGE_SZ_LOG2, MAX_ALLOCATABLE_TEX_SZ_LOG2);
+    auto pagetable = asset::ICPUTexturePacker::createPageTable(PGTAB_SZ_LOG2, PGTAB_LAYERS_PER_FORMAT*ETP_COUNT, PAGE_SZ_LOG2, MAX_ALLOCATABLE_TEX_SZ_LOG2);
 
     core::smart_refctd_ptr<asset::ICPUTexturePacker> texPackers[ETP_COUNT];
     asset::IImage::SSubresourceRange subresRange;
@@ -868,10 +866,11 @@ int main()
         mb->setPipeline(std::move(newPipeline));
         //optionally adjust push constant ranges, but at worst it'll just be specified too much because MTL uses all 128 bytes
     }
-
+    //default cpu2gpu shouldnt generate extra mips for integer format textures
+    auto gpuPagetable = driver->getGPUObjectsFromAssets(&pagetable.get(), &pagetable.get()+1)->front();
     core::smart_refctd_ptr<video::IGPUTexturePacker> gpuTexPackers[ETP_COUNT];
     for (uint32_t i = 0u; i < ETP_COUNT; ++i)
-        gpuTexPackers[i] = core::make_smart_refctd_ptr<video::IGPUTexturePacker>(driver, texPackers[i].get());
+        gpuTexPackers[i] = core::make_smart_refctd_ptr<video::IGPUTexturePacker>(driver, texPackers[i].get(), core::smart_refctd_ptr(gpuPagetable));
 
     auto gpuds0layout = driver->getGPUObjectsFromAssets(&ds0layout.get(), &ds0layout.get()+1)->front();
     auto gpuds0 = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuds0layout));//intentionally not moving layout
@@ -879,11 +878,11 @@ int main()
         std::array<video::IGPUDescriptorSet::SWriteDescriptorSet, 3> writes;
         //page table
         video::IGPUDescriptorSet::SDescriptorInfo info0[1];
-        info0->desc = driver->getGPUObjectsFromAssets(&pagetable.get(), &pagetable.get()+1)->front();//default cpu2gpu shouldnt generate extra mips on itself for integer format textures
+        info0->desc = gpuTexPackers[0]->createPageTableView(driver);//doesnt matter which gpuTexPacker i use for this
         info0->image.imageLayout = asset::EIL_UNDEFINED;
         writes[0].binding = 0u;
         writes[0].arrayElement = 0u;
-        writes[0].count = ETP_COUNT;
+        writes[0].count = 1u;
         writes[0].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
         writes[0].dstSet = gpuds0.get();
         writes[0].info = info0;
@@ -1018,8 +1017,8 @@ int main()
 
 	camera->setPosition(core::vector3df(-4,0,0));
 	camera->setTarget(core::vector3df(0,0,0));
-	camera->setNearValue(0.01f);
-	camera->setFarValue(1000.0f);
+	camera->setNearValue(0.5f);
+	camera->setFarValue(5000.0f);
 
     smgr->setActiveCamera(camera);
 

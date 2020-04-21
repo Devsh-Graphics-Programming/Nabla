@@ -239,7 +239,7 @@ public:
 
             pgtab->setBufferAndRegions(std::move(buf), regions);
         }
-
+        return pgtab;
     }
 
     //! @param _pgtab Must be an image created by createPageTable()
