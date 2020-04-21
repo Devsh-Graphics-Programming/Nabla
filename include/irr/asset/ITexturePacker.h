@@ -111,6 +111,7 @@ public:
 
     uint32_t getPageSize() const { return m_pgSzxy; }
 
+protected:
     page_tab_offset_t alloc(const IImage* _img, const IImage::SSubresourceRange& _subres)
     {
         const uint32_t pgtAddrLayerShift = m_pgtabSzxy_log2<<1;
@@ -137,11 +138,11 @@ public:
         core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_free_addr(m_pgTabAddrAlctr, 1u, &addr, &sz);
     }
 
-protected:
     uint32_t neededPageCountForSide(uint32_t _sideExtent, uint32_t _level)
     {
         return (std::max(_sideExtent>>_level,1u)+m_pgSzxy-1u) / m_pgSzxy;
     }
+
 private:
     uint32_t computeSquareSz(const IImage* _img, const ICPUImage::SSubresourceRange& _subres)
     {
@@ -192,16 +193,65 @@ public:
         static inline bool computeMiptailOffsets(rect* res, int log2SIZE, int padding);
     };
 
-    ICPUTexturePacker(E_FORMAT_CLASS _fclass, E_FORMAT _format, uint32_t _pgTabSzxy_log2 = 8u, uint32_t _pgTabLayers = 4u, uint32_t _pgTabMipLevels = 9u, uint32_t _pgSzxy_log2 = 7u, uint32_t _tilesPerDim_log2 = 5u, uint32_t _numLayers = 4u, uint32_t _tilePad = 9u/*max_aniso/2+1*/) :
-        ITexturePacker(_pgTabSzxy_log2, _pgTabLayers, _pgSzxy_log2, _tilesPerDim_log2),
+    static core::smart_refctd_ptr<ICPUImage> createPageTable(uint32_t _pgTabSzxy_log2 = 8u, uint32_t _pgTabLayers = 4u, uint32_t _pgSzxy_log2 = 7u, uint32_t _maxAllocatableTexSz_log2 = 14u)
+    {
+        assert(_pgTabSzxy_log2<=8u);//otherwise STextureData encoding falls apart
+        assert(_pgTabLayers<=256u);
+
+        const uint32_t sz = 1u<<_pgTabSzxy_log2;
+        ICPUImage::SCreationParams params;
+        params.arrayLayers = _pgTabLayers;
+        params.extent = {sz,sz,1u};
+        params.format = EF_R16G16_UINT;
+        params.mipLevels = std::max(static_cast<int32_t>(_maxAllocatableTexSz_log2-_pgSzxy_log2+1u), 1);
+        params.samples = IImage::ESCF_1_BIT;
+        params.type = IImage::ET_2D;
+        params.flags = static_cast<IImage::E_CREATE_FLAGS>(0);
+
+        auto pgtab = ICPUImage::create(std::move(params));
+        {
+            const uint32_t pgTabSzxy = 1u<<_pgTabSzxy_log2;
+            const uint32_t texelSz = getTexelOrBlockBytesize(pgtab->getCreationParameters().format);
+        
+            auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(pgtab->getCreationParameters().mipLevels);
+
+            uint32_t bufOffset = 0u;
+            for (uint32_t i = 0u; i < pgtab->getCreationParameters().mipLevels; ++i)
+            {
+                const uint32_t tilesPerLodDim = pgTabSzxy>>i;
+                const uint32_t regionSz = _pgTabLayers*tilesPerLodDim*tilesPerLodDim*texelSz;
+                auto& region = (*regions)[i];
+                region.bufferOffset = bufOffset;
+                region.bufferImageHeight = 0u;
+                region.bufferRowLength = tilesPerLodDim;
+                region.imageExtent = {tilesPerLodDim,tilesPerLodDim,1u};
+                region.imageOffset = {0,0,0};
+                region.imageSubresource.baseArrayLayer = 0u;
+                region.imageSubresource.layerCount = _pgTabLayers;
+                region.imageSubresource.mipLevel = i;
+                region.imageSubresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+
+                bufOffset += regionSz;
+            }
+            auto buf = core::make_smart_refctd_ptr<ICPUBuffer>(bufOffset);
+            uint32_t* bufptr = reinterpret_cast<uint32_t*>(buf->getPointer());
+            std::fill(bufptr, bufptr+bufOffset/sizeof(uint32_t), SPhysPgOffset::invalid_addr);
+
+            pgtab->setBufferAndRegions(std::move(buf), regions);
+        }
+
+    }
+
+    //! @param _pgtab Must be an image created by createPageTable()
+    ICPUTexturePacker(E_FORMAT _format, core::smart_refctd_ptr<ICPUImage>&& _pgtab, const IImage::SSubresourceRange& _pgtabSubrange, uint32_t _pgSzxy_log2 = 7u, uint32_t _tilesPerDim_log2 = 5u, uint32_t _numLayers = 4u, uint32_t _tilePad = 9u/*max_aniso/2+1*/) :
+        ITexturePacker(core::findLSB(_pgtab->getCreationParameters().extent.width), _pgtabSubrange.layerCount, _pgSzxy_log2, _tilesPerDim_log2),
+        m_pageTable(std::move(_pgtab)),
         m_tilePadding(_tilePad),
+        m_pgtabLayerOffset(_pgtabSubrange.baseArrayLayer),
         //m_physPgAddrAlctr_reservedSpc(core::make_refctd_dynamic_array<decltype(m_physPgAddrAlctr_reservedSpc)>(phys_pg_addr_alctr_t::reserved_size(1u, _numLayers*(1u<<_tilesPerDim_log2)*(1u<<_tilesPerDim_log2), 1u))),
         m_physPgAddrAlctr_reservedSpc(reinterpret_cast<uint8_t*>( _IRR_ALIGNED_MALLOC(phys_pg_addr_alctr_t::reserved_size(1u, _numLayers*(1u<<_tilesPerDim_log2)*(1u<<_tilesPerDim_log2), 1u), _IRR_SIMD_ALIGNMENT) )),
         m_physPgAddrAlctr(m_physPgAddrAlctr_reservedSpc, 0u, 0u, 1u, _numLayers*(1u<<_tilesPerDim_log2)*(1u<<_tilesPerDim_log2), 1u)
     {
-        assert(_pgTabSzxy_log2<=8u);//otherwise STextureData encoding falls apart
-        assert(_pgTabLayers<=256u);
-        assert(getFormatClass(_format)==_fclass);
         {
             const uint32_t SZ = physAddrTexLayerSz();
 
@@ -228,52 +278,13 @@ public:
             auto buffer = core::make_smart_refctd_ptr<ICPUBuffer>(getTexelOrBlockBytesize(_format) * params.extent.width*params.extent.height*params.arrayLayers);
             m_physAddrTex->setBufferAndRegions(std::move(buffer), regions);
         }
-        {
-            uint32_t pgTabSzxy = 1u<<_pgTabSzxy_log2;
 
-            ICPUImage::SCreationParams params;
-            params.arrayLayers = _pgTabLayers;
-            params.extent = {pgTabSzxy,pgTabSzxy,1u};
-            params.flags = static_cast<ICPUImage::E_CREATE_FLAGS>(0);
-            params.format = EF_R16G16_UINT;
-            params.mipLevels = _pgTabMipLevels;
-            params.samples = ICPUImage::ESCF_1_BIT;
-            params.type = IImage::ET_2D;
-            m_pageTable = ICPUImage::create(std::move(params));
-
-            const uint32_t texelSz = getTexelOrBlockBytesize(m_pageTable->getCreationParameters().format);
-        
-            auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(m_pageTable->getCreationParameters().mipLevels);
-
-            uint32_t bufOffset = 0u;
-            for (uint32_t i = 0u; i < m_pageTable->getCreationParameters().mipLevels; ++i)
-            {
-                const uint32_t tilesPerLodDim = pgTabSzxy>>i;
-                const uint32_t regionSz = _pgTabLayers*tilesPerLodDim*tilesPerLodDim*texelSz;
-                auto& region = (*regions)[i];
-                region.bufferOffset = bufOffset;
-                region.bufferImageHeight = 0u;
-                region.bufferRowLength = tilesPerLodDim;
-                region.imageExtent = {tilesPerLodDim,tilesPerLodDim,1u};
-                region.imageOffset = {0,0,0};
-                region.imageSubresource.baseArrayLayer = 0u;
-                region.imageSubresource.layerCount = _pgTabLayers;
-                region.imageSubresource.mipLevel = i;
-                region.imageSubresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
-
-                bufOffset += regionSz;
-            }
-            auto buf = core::make_smart_refctd_ptr<ICPUBuffer>(bufOffset);
-            uint32_t* bufptr = reinterpret_cast<uint32_t*>(buf->getPointer());
-            std::fill(bufptr, bufptr+bufOffset/sizeof(uint32_t), SPhysPgOffset::invalid_addr);
-
-            m_pageTable->setBufferAndRegions(std::move(buf), regions);
-        }
         const uint32_t pgSzLog2 = core::findMSB(m_pgSzxy);
         bool ok = SMiptailPacker::computeMiptailOffsets(m_miptailOffsets, pgSzLog2, m_tilePadding);
         assert(ok);
     }
 
+    //! @param _addr Is expected to be offset returned from pack() -- i.e. absolute, not relative to layer offset for this packer object
     void free(page_tab_offset_t _addr, const IImage* _img, const IImage::SSubresourceRange& _subres) override
     {
         //free physical pages
@@ -355,6 +366,7 @@ public:
 
         return texData;
     }
+    //! Returned offset is absolute (layer is not relative to layer offset of this packer object)
     page_tab_offset_t pack(const ICPUImage* _img, const ICPUImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
     {
         if (getFormatClass(_img->getCreationParameters().format)!=getFormatClass(m_physAddrTex->getCreationParameters().format))
@@ -365,9 +377,10 @@ public:
         if ((extent.width>>_subres.baseMipLevel) > maxAllocatableTextureSz() || (extent.height>>_subres.baseMipLevel) > maxAllocatableTextureSz())
             return page_tab_offset_invalid();
 
-        const page_tab_offset_t pgtOffset = alloc(_img, _subres);
+        page_tab_offset_t pgtOffset = alloc(_img, _subres);
         if ((pgtOffset==page_tab_offset_invalid()).all())
             return pgtOffset;
+        pgtOffset.z += m_pgtabLayerOffset;
 
         const uint32_t levelsTakingAtLeastOnePageCount = countLevelsTakingAtLeastOnePage(extent, _subres);
         const uint32_t levelsToPack = std::min(_subres.levelCount, m_pageTable->getCreationParameters().mipLevels+m_pgSzxy_log2);
@@ -501,6 +514,7 @@ private:
     core::smart_refctd_ptr<ICPUImage> m_physAddrTex;
     core::smart_refctd_ptr<ICPUImage> m_pageTable;
     const uint32_t m_tilePadding;
+    const uint32_t m_pgtabLayerOffset;
 
     using phys_pg_addr_alctr_t = core::PoolAddressAllocator<uint32_t>;
     //core::smart_refctd_dynamic_array<uint8_t> m_physPgAddrAlctr_reservedSpc;
