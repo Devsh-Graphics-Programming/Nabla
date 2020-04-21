@@ -26,57 +26,6 @@ CImageWriterTGA::CImageWriterTGA()
 #endif
 }
 
-template<asset::E_FORMAT outFormat>
-core::smart_refctd_ptr<asset::ICPUImage> getTGAConvertedOutput(const asset::ICPUImage* image)
-{
-	static_assert(!asset::isBlockCompressionFormat<outFormat>(), "Only non BC formats supported!");
-
-	using CONVERSION_FILTER = asset::CConvertFormatImageFilter<asset::EF_UNKNOWN, outFormat>;
-
-	core::smart_refctd_ptr<asset::ICPUImage> newConvertedImage;
-	{
-		auto referenceImageParams = image->getCreationParameters();
-		auto referenceBuffer = image->getBuffer();
-		auto referenceRegions = image->getRegions();
-		auto referenceRegion = referenceRegions.begin();
-		const auto newTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(outFormat);
-
-		asset::TexelBlockInfo referenceBlockInfo(referenceImageParams.format);
-		core::vector3du32_SIMD referenceTrueExtent = referenceBlockInfo.convertTexelsToBlocks(referenceRegion->getTexelStrides());
-
-		auto newImageParams = referenceImageParams;
-		auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceTrueExtent.X * referenceTrueExtent.Y * referenceTrueExtent.Z * newTexelOrBlockByteSize);
-		auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1);
-		auto newRegion = newRegions->begin();
-		*newRegion = *referenceRegion;
-
-		newImageParams.format = outFormat;
-		newConvertedImage = ICPUImage::create(std::move(newImageParams));
-		newConvertedImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
-
-		CONVERSION_FILTER convertFilter;
-		CONVERSION_FILTER::state_type state;
-
-		auto attachedRegion = newConvertedImage->getRegions().begin();
-
-		state.inImage = image;
-		state.outImage = newConvertedImage.get();
-		state.inOffset = { 0, 0, 0 };
-		state.inBaseLayer = 0;
-		state.outOffset = { 0, 0, 0 };
-		state.outBaseLayer = 0;
-		state.extent = attachedRegion->getExtent();
-		state.layerCount = attachedRegion->imageSubresource.layerCount;
-		state.inMipLevel = attachedRegion->imageSubresource.mipLevel;
-		state.outMipLevel = attachedRegion->imageSubresource.mipLevel;
-
-		if (!convertFilter.execute(&state))
-			os::Printer::log("Something went wrong while converting!", ELL_WARNING);
-
-		return newConvertedImage;
-	}
-}
-
 bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
     if (!_override)
@@ -105,8 +54,8 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	const auto& convertedRegion = convertedImage->getRegions().begin();
 	auto convertedFormat = convertedImageParams.format;
 
-	asset::TexelBlockInfo blockInfo(convertedFormat);
-	core::vector3du32_SIMD trueExtent = blockInfo.convertTexelsToBlocks(convertedRegion->getTexelStrides());
+	assert(convertedRegion->bufferRowLength, "Detected changes in createImageDataForCommonWriting!");
+	auto trueExtent = core::vector3du32_SIMD(convertedRegion->bufferRowLength, convertedRegion->imageExtent.height, convertedRegion->imageExtent.depth);
 
 	core::vector3d<uint32_t> dim;
 	dim.X = trueExtent.X;

@@ -97,7 +97,7 @@ namespace irr
 			*/
 
 			//! TODO: HANDLE UNPACK ALIGNMENT
-			core::smart_refctd_ptr<video::IDriverFence> downloadImageMipLevel(video::IDriver* driver, video::IGPUImage* source, video::IGPUBuffer* destination, uint32_t sourceMipLevel = 0u, size_t destOffset = 0ull, bool implicitflush = true)
+			[[nodiscard]] core::smart_refctd_ptr<video::IDriverFence> downloadImageMipLevel(video::IDriver* driver, video::IGPUImage* source, video::IGPUBuffer* destination, uint32_t sourceMipLevel = 0u, size_t destOffset = 0ull, bool implicitflush = true)
 			{
 				// will change this, https://github.com/buildaworldnet/IrrlichtBAW/issues/148
 				if (isBlockCompressionFormat(source->getCreationParameters().format))
@@ -146,14 +146,11 @@ namespace irr
 				memoryRequirements.vulkanReqs.size = image->getImageDataSizeInBytes();
 				auto destinationBuffer = driver->createGPUBufferOnDedMem(memoryRequirements);
 
-				auto fence = downloadImageMipLevel(driver, gpuImage.get(), destinationBuffer.get());
+				auto mapPointerGetterFence = downloadImageMipLevel(driver, gpuImage.get(), destinationBuffer.get());
 
 				auto destinationBoundMemory = destinationBuffer->getBoundMemory();
 				destinationBoundMemory->mapMemoryRange(video::IDriverMemoryAllocation::EMCAF_READ, { 0u, memoryRequirements.vulkanReqs.size });
 				auto texelBuffer = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(memoryRequirements.vulkanReqs.size, destinationBoundMemory->getMappedPointer(), core::adopt_memory);
-				
-				auto mapPointerGetterFence = driver->placeFence(true);
-				while (mapPointerGetterFence->waitCPU(1000ull, mapPointerGetterFence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED) {}
 
 				image->setBufferAndRegions(std::move(texelBuffer), regions);
 				auto newCreationParams = image->getCreationParameters();
@@ -176,6 +173,8 @@ namespace irr
 					return assetManager->writeAsset(outFileName, wparams);
 				};
 				
+				while (mapPointerGetterFence->waitCPU(1000ull, mapPointerGetterFence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED) {}
+
 				bool status = tryToWrite(image.get());
 				if (!status)
 					status = tryToWrite(imageView.get());

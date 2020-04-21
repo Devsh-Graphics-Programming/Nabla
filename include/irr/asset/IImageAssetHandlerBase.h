@@ -39,12 +39,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 
 		static inline core::vector3du32_SIMD calcPitchInBlocks(uint32_t width, uint32_t height, uint32_t depth, uint32_t blockByteSize)
 		{
-			constexpr auto VALUE_FOR_ALIGNMENT = 1;
-			core::vector3du32_SIMD retVal;
-			retVal.X = calcPitchInBlocks(width, blockByteSize);
-			retVal.Y = calcPitchInBlocks(height, VALUE_FOR_ALIGNMENT);
-			retVal.Z = calcPitchInBlocks(depth, VALUE_FOR_ALIGNMENT);
-			return retVal;
+			return  core::vector3du32_SIMD(calcPitchInBlocks(width, blockByteSize), height, depth);
 		}
 
 		/*
@@ -163,6 +158,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 							os::Printer::log("Something went wrong while converting the image!", ELL_WARNING);
 				}
 			}
+
 			return newImage;
 		}
 

@@ -243,6 +243,9 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
         return {};
 	}
 
+	auto dimension = asset::getBlockDimensions(imgInfo.format);
+	assert(dimension.X == 1 && dimension.Y == 1 && dimension.Z == 1);
+
     const uint32_t texelFormatBytesize = getTexelOrBlockBytesize(imgInfo.format);
 
     auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
