@@ -7,6 +7,8 @@
 #ifdef _IRR_COMPILE_WITH_STL_LOADER_
 
 #include "irr/asset/asset.h"
+#include "irr/asset/CQuantNormalCache.h"
+
 #include "CSTLMeshFileLoader.h"
 
 #include "IReadFile.h"

@@ -4,16 +4,19 @@
 
 #include "irr/core/core.h"
 
+#include "irr/asset/IMeshManipulator.h"
+#include "irr/asset/IAssetManager.h"
+
 #ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
 
-#include "IFileSystem.h"
-#include "COBJMeshFileLoader.h"
-#include "irr/asset/IMeshManipulator.h"
-#include "IVideoDriver.h"
-#include "irr/video/CGPUMesh.h"
-#include "IReadFile.h"
 #include "os.h"
-#include "irr/asset/IAssetManager.h"
+#include "IFileSystem.h"
+#include "IReadFile.h"
+
+#include "irr/asset/CQuantNormalCache.h"
+#include "COBJMeshFileLoader.h"
+
+
 
 /*
 namespace std
