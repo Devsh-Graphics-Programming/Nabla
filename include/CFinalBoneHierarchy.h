@@ -465,7 +465,7 @@ namespace asset
 					free(nonInterpolatedAnimations);
 			}
 
-			friend class TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>;
+			friend struct TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>;
 			inline BoneReferenceData* getBoneData()
 			{
 				return boneFlatArray;
