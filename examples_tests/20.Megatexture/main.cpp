@@ -29,19 +29,6 @@ STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePack
     return _packer->offsetToTextureData(pgTabCoords, _img, _uwrap, _vwrap);
 }
 
-constexpr const char* GLSL_NONUNIFORM_EXT_OVERRIDE = R"(
-#extension GL_EXT_nonuniform_qualifier  : enable
-
-#ifdef IRR_GL_NV_gpu_shader5 //dont we have to actually enable/require it in this ifdef?
-    #define IRR_GL_EXT_nonuniform_qualifier // TODO: we need to overhaul our GLSL preprocessing system to match what SPIRV-Cross actually does
-#endif
-
-#ifndef IRR_GL_EXT_nonuniform_qualifier
-    #extension GL_ARB_gpu_shader_int64      : require
-    #extension GL_ARB_shader_ballot         : require
-#endif
-)";
-
 constexpr const char* GLSL_VT_TEXTURES = //also turns off set3 bindings (textures) because they're not needed anymore as we're using VT
 R"(
 #ifndef _NO_UV
@@ -84,188 +71,26 @@ layout (push_constant) uniform Block {
 )";
 constexpr const char* GLSL_VT_FUNCTIONS =
 R"(
-#include <irr/builtin/glsl/texture_packer/definitions.glsl/6/6/7/8>
 
 uint getPhysicalIDForLayer(in uint layer)
 {
     return layer2pid.lut[layer];
 }
 
-vec3 unpackPageID(in uint pageID)
+uint getPgTabSzLog2(in uint _formatID)
 {
-	// this is optimal, don't touch
-	uvec2 pageXY = uvec2(pageID,pageID>>ADDR_Y_SHIFT)&uvec2(ADDR_X_MASK,ADDR_Y_MASK);
-	return vec3(vec2(pageXY),float(pageID>>ADDR_LAYER_SHIFT));
+    return precomputed.pgtab_sz_log2[_formatID];
+}
+float getPhysPgTexSzRcp(in uint _formatID)
+{
+    return precomputed.phys_pg_tex_sz_rcp[_formatID];
+}
+float getVTexSzRcp(in uint _formatID)
+{
+    return precomputed.vtex_sz_rcp[_formatID];
 }
 
-vec3 vTextureGrad_helper(in uint formatID, in vec3 virtualUV, in int clippedLoD, in int levelInTail)
-{
-    uvec2 pageID = textureLod(pageTable,virtualUV,clippedLoD).xy;
-
-	const uint pageTableSizeLog2 = precomputed.pgtab_sz_log2[formatID];
-    const float phys_pg_tex_sz_rcp = precomputed.phys_pg_tex_sz_rcp[formatID];
-	// assert that pageTableSizeLog2<23
-
-	// this will work because pageTables are always square and PoT and IEEE754
-	uint thisLevelTableSize = (pageTableSizeLog2-uint(clippedLoD))<<23;
-
-	vec2 tileCoordinate = uintBitsToFloat(floatBitsToUint(virtualUV.xy)+thisLevelTableSize);
-	tileCoordinate = fract(tileCoordinate); // optimize this fract at some point
-	tileCoordinate = uintBitsToFloat(floatBitsToUint(tileCoordinate)+uint((PAGE_SZ_LOG2-levelInTail)<<23));
-    tileCoordinate += packingOffsets[levelInTail];
-	tileCoordinate += vec2(TILE_PADDING,TILE_PADDING);
-	tileCoordinate *= phys_pg_tex_sz_rcp;
-
-	vec3 physicalUV = unpackPageID(levelInTail!=0 ? pageID.y:pageID.x);
-	physicalUV.xy *= vec2(PAGE_SZ+2*TILE_PADDING)*phys_pg_tex_sz_rcp;
-
-	// add the in-tile coordinate
-	physicalUV.xy += tileCoordinate;
-    return physicalUV;
-}
-
-float lengthManhattan(vec2 v)
-{
-	v = abs(v);
-    return v.x+v.y;
-}
-float lengthSq(in vec2 v)
-{
-  return dot(v,v);
-}
-// textureGrad emulation
-vec4 vTextureGrad(in uint formatID, in vec3 virtualUV, in mat2 dOriginalScaledUV, in int originalMaxFullMip)
-{
-	// returns what would have been `textureGrad(originalTexture,gOriginalUV[0],gOriginalUV[1])
-	// https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap15.html#textures-normalized-operations
-	const float kMaxAnisotropy = float(2u*TILE_PADDING);
-	// you can use an approx `log2` if you know one
-#if APPROXIMATE_FOOTPRINT_CALC
-	// bounded by sqrt(2)
-	float p_x_2_log2 = log2(lengthManhattan(dOriginalScaledUV[0]));
-	float p_y_2_log2 = log2(lengthManhattan(dOriginalScaledUV[1]));
-	const float kMaxAnisoLogOffset = log2(kMaxAnisotropy);
-#else
-	float p_x_2_log2 = log2(lengthSq(dOriginalScaledUV[0]));
-	float p_y_2_log2 = log2(lengthSq(dOriginalScaledUV[1]));
-	const float kMaxAnisoLogOffset = log2(kMaxAnisotropy)*2.0;
-#endif
-	bool xIsMajor = p_x_2_log2>p_y_2_log2;
-	float p_min_2_log2 = xIsMajor ? p_y_2_log2:p_x_2_log2;
-	float p_max_2_log2 = xIsMajor ? p_x_2_log2:p_y_2_log2;
-
-	float LoD = max(p_min_2_log2,p_max_2_log2-kMaxAnisoLogOffset);
-#if APPROXIMATE_FOOTPRINT_CALC
-	LoD += 0.5;
-#else
-	LoD *= 0.5;
-#endif
-	// WARNING: LoD_high will round up when LoD negative, its not a floor
-	int LoD_high = int(LoD);
-
-	// are we performing minification
-	bool positiveLoD = LoD>0.0;
-	// magnification samples LoD 0, else clip to max representable in VT
-	int clippedLoD = positiveLoD ? min(LoD_high,originalMaxFullMip):0;
-
-	// if minification is being performaed then get tail position
-	int levelInTail = LoD_high-clippedLoD;
-	// have to do trilinear only if doing minification AND larger than 1x1 footprint
-	bool haveToDoTrilinear = levelInTail<int(PAGE_SZ_LOG2) && positiveLoD;
-	levelInTail = haveToDoTrilinear ? levelInTail:(positiveLoD ? int(PAGE_SZ_LOG2):0);
-
-	// get the higher resolution mip-map level
-	vec3 hiPhysCoord = vTextureGrad_helper(formatID,virtualUV,clippedLoD,levelInTail);
-	// get lower if needed (speculative execution, had to move divergent indexing to a single place)
-    vec3 loPhysCoord;
-	// speculative if (haveToDoTrilinear)
-	{
-		// now we have absolute guarantees that both LoD_high and LoD_low are in the valid original mip range
-		bool highNotInLastFull = LoD_high<originalMaxFullMip;
-		clippedLoD = highNotInLastFull ? (clippedLoD+1):clippedLoD;
-		levelInTail = highNotInLastFull ? levelInTail:(levelInTail+1);
-		loPhysCoord = vTextureGrad_helper(formatID,virtualUV,clippedLoD,levelInTail);
-	}
-
-	vec4 hiMip_retval;
-    vec4 loMip;
-#ifdef IRR_GL_EXT_nonuniform_qualifier
-    hiMip_retval = textureGrad(physPgTex[nonuniformEXT(formatID)],hiPhysCoord,dOriginalScaledUV[0],dOriginalScaledUV[1]);
-    if (haveToDoTrilinear)
-        loMip = textureGrad(physPgTex[nonuniformEXT(formatID)],loPhysCoord,dOriginalScaledUV[0],dOriginalScaledUV[1]);
-#else
-    uint64_t outstandingSampleMask = ballotARB(true);
-    // maybe unroll a few times manually
-    while (outstandingSampleMask!=uint64_t(0u))
-    {
-		uvec2 tmp = unpackUint2x32(outstandingSampleMask);
-        uint subgroupFormatID = readInvocationARB(formatID,tmp[1]!=0u ? 32u:findLSB(tmp[0]));
-        bool canSample = subgroupFormatID==formatID; // do I need this? && (outstandingSampleMask&gl_SubGroupEqMaskARB)==gl_SubGroupEqMaskARB;
-        outstandingSampleMask ^= ballotARB(canSample);
-        if (canSample)
-        {
-            hiMip_retval = textureGrad(physPgTex[subgroupFormatID],hiPhysCoord,dOriginalScaledUV[0],dOriginalScaledUV[1]);
-            if (haveToDoTrilinear)
-                loMip = textureGrad(physPgTex[subgroupFormatID],loPhysCoord,dOriginalScaledUV[0],dOriginalScaledUV[1]);
-        }
-    }
-#endif
-    if (haveToDoTrilinear)
-	    hiMip_retval = mix(hiMip_retval,loMip,LoD-float(LoD_high));
-    return hiMip_retval;
-}
-
-uvec2 unpackWrapModes(in uvec2 texData)
-{
-    return (texData>>uvec2(28u,30u)) & uvec2(0x03u);
-}
-uint unpackMaxMipInVT(in uvec2 texData)
-{
-    return (texData.y>>24)&0x0fu;
-}
-vec3 unpackVirtualUV(in uvec2 texData)
-{
-	// assert that PAGE_SZ_LOG2<8 , or change the line to uvec3(texData.yy<<uvec2(PAGE_SZ_LOG2,PAGE_SZ_LOG2-8u),texData.y>>16u)
-    uvec3 unnormCoords = uvec3(texData.y<<PAGE_SZ_LOG2,texData.yy>>uvec2(8u-PAGE_SZ_LOG2,16u))&uvec3(uvec2(0xffu)<<PAGE_SZ_LOG2,0xffu);
-    return vec3(unnormCoords);
-}
-vec2 unpackSize(in uvec2 texData)
-{
-	return vec2(texData.x&0xffffu,texData.x>>16u);
-}
-#define WRAP_REPEAT 0u
-#define WRAP_CLAMP 1u
-#define WRAP_MIRROR 2u
-float wrapTexCoord(float tc, in uint mode)
-{
-    switch (mode)
-    {
-    case WRAP_REPEAT: tc = fract(tc); break;
-    case WRAP_CLAMP:  tc = clamp(tc, 0.0, 1.0); break;
-    case WRAP_MIRROR: tc = 1.0 - abs(mod(tc,2.0)-1.0); break;
-    default: break;
-    }
-    return tc;
-}
-vec4 textureVT(in uvec2 _texData, in vec2 uv, in mat2 dUV)
-{
-    vec2 originalSz = unpackSize(_texData);
-	dUV[0] *= originalSz;
-	dUV[1] *= originalSz;
-
-    uvec2 wrap = unpackWrapModes(_texData);
-    uv.x = wrapTexCoord(uv.x,wrap.x);
-    uv.y = wrapTexCoord(uv.y,wrap.y);
-
-	vec3 virtualUV = unpackVirtualUV(_texData);
-
-    uint formatID = getPhysicalIDForLayer(uint(virtualUV.z));
-
-    virtualUV.xy += uv*originalSz;
-    virtualUV.xy *= precomputed.vtex_sz_rcp[formatID];
-
-    return vTextureGrad(formatID, virtualUV, dUV, int(unpackMaxMipInVT(_texData)));
-}
+#include <irr/builtin/glsl/virtual_texturing/functions.glsl/6/6/7/8/pageTable/physPgTex/getPgTabSzLog2/getPhysPgTexSzRcp/getVTexSzRcp/getPhysicalIDForLayer>
 )";
 constexpr const char* GLSL_BSDF_COS_EVAL_OVERRIDE =
 R"(
@@ -478,7 +303,7 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
 
     std::string glsl = reinterpret_cast<const char*>( unspec->getSPVorGLSL()->getPointer() );
     size_t firstNewlineAfterVersion = glsl.find("\n",glsl.find("#version "));
-    glsl.insert(firstNewlineAfterVersion, GLSL_NONUNIFORM_EXT_OVERRIDE);
+    //glsl.insert(firstNewlineAfterVersion, GLSL_NONUNIFORM_EXT_OVERRIDE);
     glsl.insert(glsl.find("#ifndef _IRR_FRAG_PUSH_CONSTANTS_DEFINED_"), GLSL_PUSH_CONSTANTS_OVERRIDE);
     glsl.insert(glsl.find("#if !defined(_IRR_FRAG_SET3_BINDINGS_DEFINED_)"), GLSL_VT_TEXTURES);
     glsl.insert(glsl.find("#ifndef _IRR_BSDF_COS_EVAL_DEFINED_"), GLSL_VT_FUNCTIONS);
