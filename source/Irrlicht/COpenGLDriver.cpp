@@ -2450,7 +2450,7 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
                 vaostate.second = vao;
                 //intentionally leaving vao.vtxBindings,idxBinding untouched in currentState so that STATE_NEQ gives true and they get bound
                 currentState.vertexInputParams.vao = vaostate;
-                //bindings in cached object will be updated/filled later (that's why i need `vaoInCache`)
+                //bindings in cached object will be updated/filled later
                 VAOMap.insert(it, std::move(vaostate));
                 freeUpVAOCache(true);
                 brandNewVAO = true;
