@@ -6,6 +6,8 @@
 #ifndef __IRR_FINAL_BONE_HIERARCHY_BLOB_H_INCLUDED__
 #define __IRR_FINAL_BONE_HIERARCHY_BLOB_H_INCLUDED__
 
+#include "irr/core/core.h"
+
 namespace irr
 {
 namespace asset

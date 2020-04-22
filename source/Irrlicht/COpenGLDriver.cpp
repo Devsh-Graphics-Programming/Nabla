@@ -2494,7 +2494,7 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
         GLuint GLvao = currentState.vertexInputParams.vao.second.GLname;
         if (GLvao)
         {
-            for (uint32_t i = 0u; i < 16u; ++i)
+            for (uint32_t i = 0u; i<asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; ++i)
             {
                 const auto& hash = currentState.vertexInputParams.vao.first;
                 if (hash.attribFormatAndComponentCount[i] == asset::EF_UNKNOWN)

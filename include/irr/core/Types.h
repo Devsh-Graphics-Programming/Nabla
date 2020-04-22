@@ -4,7 +4,6 @@
 
 #ifndef __IRR_TYPES_H_INCLUDED__
 #define __IRR_TYPES_H_INCLUDED__
-#define _ENABLE_EXTENDED_ALIGNED_STORAGE
 
 #include "IrrCompileConfig.h"
 
