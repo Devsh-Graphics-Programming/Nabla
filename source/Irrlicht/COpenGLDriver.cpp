@@ -2247,13 +2247,13 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
                     if (found != GraphicsPipelineMap.end() && found->first == nextState.pipeline.graphics.usedShadersHash)
                     {
                         GLname = found->second.GLname;
-                        found->second.lastValidated = CNullDriver::ReallocationCounter;
+                        found->second.lastUsed = CNullDriver::ReallocationCounter++;
                     }
                     else
                     {
                         GLname = createGraphicsPipeline(nextState.pipeline.graphics.usedShadersHash);
                         lookingFor.second.GLname = GLname;
-                        lookingFor.second.lastValidated = CNullDriver::ReallocationCounter;
+                        lookingFor.second.lastUsed = CNullDriver::ReallocationCounter++;
                         lookingFor.second.object = nextState.pipeline.graphics.pipeline;
                         freeUpGraphicsPipelineCache(true);
                         GraphicsPipelineMap.insert(found, lookingFor);
@@ -2429,19 +2429,13 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
     }
     if ((stateBits & GSB_VAO_AND_VERTEX_INPUT) && currentState.pipeline.graphics.pipeline)
     {
-        if (nextState.vertexInputParams.vao.second.GLname == 0u)
-        {
-            extGlBindVertexArray(0u);
-            freeUpVAOCache(true);
-            currentState.vertexInputParams.vao = { COpenGLRenderpassIndependentPipeline::SVAOHash(), {0u, 0u} };
-        }
-        else if (STATE_NEQ(vertexInputParams.vao.first))
+        if (STATE_NEQ(vertexInputParams.vao.first))
         {
             bool brandNewVAO = false;//if VAO is taken from cache we don't have to modify VAO state that is part of hashval (everything except index and vertex buf bindings)
             auto hashVal = nextState.vertexInputParams.vao.first;
             auto it = std::lower_bound(VAOMap.begin(), VAOMap.end(), SOpenGLState::HashVAOPair{hashVal, SOpenGLState::SVAO{}});
             if (it != VAOMap.end() && it->first == hashVal) {
-                it->second.lastValidated = CNullDriver::ReallocationCounter;
+                it->second.lastUsed = CNullDriver::ReallocationCounter++;
                 currentState.vertexInputParams.vao = *it;
             }
             else
@@ -2450,16 +2444,17 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
                 COpenGLExtensionHandler::extGlCreateVertexArrays(1u, &GLvao);
                 SOpenGLState::SVAO vao;
                 vao.GLname = GLvao;
-                vao.lastValidated = CNullDriver::ReallocationCounter;
+                vao.lastUsed = CNullDriver::ReallocationCounter++;
                 currentState.vertexInputParams.vao = SOpenGLState::HashVAOPair{hashVal, vao};
                 VAOMap.insert(it, currentState.vertexInputParams.vao);
+                freeUpVAOCache(true);
                 brandNewVAO = true;
             }
             GLuint vao = currentState.vertexInputParams.vao.second.GLname;
             COpenGLExtensionHandler::extGlBindVertexArray(vao);
 
-            bool updatedBindings[16]{};
-            for (uint32_t attr = 0u; attr < 16u; ++attr)
+            bool updatedBindings[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT]{};
+            for (uint32_t attr = 0u; attr < asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; ++attr)
             {
                 if (hashVal.attribFormatAndComponentCount[attr] != asset::EF_UNKNOWN) {
                     if (brandNewVAO)
@@ -2489,6 +2484,9 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
                     }
                 }
             }
+            //upon vao change, force binding all vtx/idx buffers (by setting their current state to null)
+            std::fill(currentState.vertexInputParams.bindings, currentState.vertexInputParams.bindings+IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT, std::decay_t<decltype(currentState.vertexInputParams.bindings[0])>{});
+
             //vertex and index buffer bindings are done outside this if-statement because no change in hash doesn't imply no change in those bindings
         }
         GLuint GLvao = currentState.vertexInputParams.vao.second.GLname;
