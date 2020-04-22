@@ -113,8 +113,8 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	const auto& convertedRegion = convertedImage->getRegions().begin();
 	auto convertedFormat = convertedImageParams.format;
 
-	assert(convertedRegion->bufferRowLength, "Detected changes in createImageDataForCommonWriting!");
-	auto trueExtent = core::vector3du32_SIMD(convertedRegion->bufferRowLength, convertedRegion->imageExtent.height, convertedRegion->imageExtent.depth);
+	assert(convertedRegion->bufferRowLength && convertedRegion->bufferImageHeight, "Detected changes in createImageDataForCommonWriting!");
+	auto trueExtent = core::vector3du32_SIMD(convertedRegion->bufferRowLength, convertedRegion->bufferImageHeight, convertedRegion->imageExtent.depth);
 	
 	png_set_write_fn(png_ptr, file, user_write_data_fcn, nullptr);
 	
