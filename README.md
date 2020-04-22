@@ -205,14 +205,24 @@ Begin with cloning **IrrlichtBAW** with:
 git clone --recurse-submodules -j8 https://github.com/buildaworldnet/IrrlichtBAW.git
 ```
 
-If you haven't cloned `recursive`ly, you can still fix that with:
+If you haven't cloned `recursive`ly, you have to also perform:
 
 ```shell
 git submodule init
 git submodule update
 ```
 
-*CMake* config script will try to initialize submodules for you however as well.
+*CMake* config script will try to initialize submodules for you however as well, but it doesn't mean the initialization attempt will be successful.
+
+### Submodules
+
+If you haven't initialized the submodules yourself before the *CMake* configure step, and out *CMake* submodule update script destroyed them (badly/half initialized), you can run the following set of commands, but **beware** - it will completely wipe any changes to submodules.
+
+```shell
+git submodule foreach --recursive git clean -xfd
+git submodule foreach --recursive git reset --hard
+git submodule update --init --recursive
+```
 
 #### Weird CMake behaviour, notes
 
@@ -280,6 +290,29 @@ We recommend the ***[Codelite IDE](https://codelite.org/)*** as that has a *CMak
 ## First examples launching, significant notes
 
 Remember you have to set up **starting target project** in *Visual Studio* before you begin to launch your example. To do that click on **Solution Explorer**, find the example name, hover on it and click on **Set as StartUp Project**. You can disable building examples by `IRR_BUILD_EXAMPLES` option in *CMake*.
+
+## Use IrrlichtBaW in your project!
+
+To get **IrrlichtBaW** to be used by an external application *without adding it as a subdirectory*,but still using a submodule, you should perform following:
+
+```cmake
+list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_DOCS:BOOL=OFF") # enable only if you have doxygen installed and detectable by cmake
+list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_EXAMPLES:BOOL=OFF")
+list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_TOOLS:BOOL=OFF") # the tools don't work yet (Apr 2020 status, might have changed since then)
+list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_MITSUBA_LOADER:BOOL=OFF") # you probably don't want this extension
+ExternalProject_Add(IrrlichtBaW
+    DOWNLOAD_COMMAND  ""
+    SOURCE_DIR        "${IRR_SOURCE_DIR}"
+    BINARY_DIR        "${IRR_BINARY_DIR}"
+    INSTALL_DIR       "${IRR_INSTALL_DIR}"
+    CMAKE_ARGS        ${IRR_CMAKE_ARGS}
+    TEST_COMMAND      ""
+)
+```
+
+ If you want to use git (without a submodule) then you can use `ExternalProject_Add` with the `GIT_` properties instead.
+
+I recommend you use `ExternalProject_Add` instead of `add_subdirectory` for **IrrlichtBaW** as we haven't  tested its use by *3rdparty* applications that use *CMake* to build themselves yet (**BaW EDU** uses it directly from *MSVC*/*make* like it's still the stone-age of build systems).
 
 ## License
 
