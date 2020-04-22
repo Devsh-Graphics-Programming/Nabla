@@ -70,8 +70,8 @@ struct SOpenGLState
     };
     struct HashVAOPair
     {
-        COpenGLRenderpassIndependentPipeline::SVAOHash first;
-        SVAO second;
+		COpenGLRenderpassIndependentPipeline::SVAOHash first = {};
+		SVAO second = { 0u,0ull };
 
         inline bool operator<(const HashVAOPair& rhs) const { return first < rhs.first; }
     };
@@ -167,7 +167,7 @@ struct SOpenGLState
     } rasterParams;
 
     struct {
-        HashVAOPair vao;
+		HashVAOPair vao = {};
         struct SBnd {
             core::smart_refctd_ptr<const COpenGLBuffer> buf;
             GLintptr offset = 0;
