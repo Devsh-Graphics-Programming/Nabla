@@ -2,7 +2,13 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**IrrlichtBAW** is a new renovated version of old **[Irrlicht](http://irrlicht.sourceforge.net/)** engine. The project currently aims for a thread-able and *Vulkan*-centered API, but currently works on *OpenGL* only. This framework has been kindly begun and almost entirely sponsored by **Build A World Aps**., and now by **[Ditt](https://www.ditt.nl/)** company. The `stable-ish` branch is used in production releases of **[Build A World EDU](https://edu.buildaworld.net/)**, since 2015.
+**IrrlichtBAW** is a new renovated version of older **[Irrlicht](http://irrlicht.sourceforge.net/)** engine. The project currently aims for a thread-able and *Vulkan*-centered API, but currently works on *OpenGL* only. This framework has been kindly begun by the founder ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** of Devsh Graphics Programming Sp. z O.O. and almost entirely sponsored by **Build A World Aps**., and now by the **[Ditt](https://www.ditt.nl/)** company. The `stable-ish` branch is used in production releases of **[Build A World EDU](https://edu.buildaworld.net/)**, since 2015. The framework has been used both for game development and ArchViz.
+
+## Contracting
+
+The members of Devsh Graphics Programming Sp. z O.O. (Company Registration (KRS) #: 0000764661) are available (individually or collectively) for contracts on projects of various scopes and timescales, with expertise in OpenGL, OpenGL ES, WebGL, Vulkan, OpenCL, CUDA, D3D12 and D3D11, computer vision, Audio programming, DSP, video encoding and decoding as well as more generalized High Performance Computing. Our language of choice is C++17 with C++11 and C11 coming in close second, however we're also amenable to Java, Python and related languages.
+
+Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** (e-mail available in the GitHub profile) with inquires into contracting.
 
 ## Showcase
 
