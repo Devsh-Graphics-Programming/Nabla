@@ -260,7 +260,7 @@ public:
 #else
 		//in one case, IRR_CORE_UNIQUE_STRING_LITERAL_TYPE value returns an incorrect string
 		//and specializedshader_fragment becomes -> specializedshader_fragmenttt
-		auto path = (std::string(__IRR_ROOT_DIRECTORY__) + "/include/" + std::string(StringUniqueType::value));	
+		auto path = (std::string(__IRR_INSTALL_DIR__) + "/include/" + std::string(StringUniqueType::value));
 		auto file = this->createAndOpenFile((path).c_str());
 		if(file)
 		{

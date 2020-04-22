@@ -18,13 +18,12 @@ else:
     outputFilename = sys.argv[1]
     cmakeSourceDir = sys.argv[2]
     resourcePaths = sys.argv[3].split(';')
-    print(sys.argv[3])
     #opening a file
 
 
     outp = open(outputFilename,"w+")
   
-    outp.write("#include \"builtinResources.h\"\n\n")
+    outp.write("#include \"irr/builtin/builtinResources.h\"\n\n")
     outp.write("using namespace irr;\n")
     outp.write("using namespace irr::builtin;\n\n")
     outp.write("namespace irr {\n")

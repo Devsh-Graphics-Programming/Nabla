@@ -1,36 +1,15 @@
-function(irr_add_builtin_resource)
-  # generate files
-  foreach(X IN LISTS ARGV)
-    list(APPEND builtin_dependencies_list  ${CMAKE_SOURCE_DIR}/include/${X})
-  endforeach()
-  add_custom_command(
-    OUTPUT "${CMAKE_BINARY_DIR}/include/irr/builtin/builtinResources.h" "${CMAKE_CURRENT_BINARY_DIR}/builtinResourceData.cpp"
-    COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/builtinHeaderGen.py ${CMAKE_BINARY_DIR}/include/irr/builtin/builtinResources.h ${CMAKE_SOURCE_DIR}/include "${ARGV}"
-    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/builtinDataGen.py ${CMAKE_CURRENT_BINARY_DIR}/builtinResourceData.cpp ${CMAKE_SOURCE_DIR}/include "${ARGV}"
-    COMMENT "Generated built-in resources"
-    DEPENDS ${builtin_dependencies_list}
-    VERBATIM  
-  )
-
-endfunction()
-
 function (set_builtin_resource_dependencies)
-  # set up dependency
   add_custom_target(builtin_resources
    DEPENDS ${CMAKE_BINARY_DIR}/include/irr/builtin/builtinResources.h ${CMAKE_CURRENT_BINARY_DIR}/builtinResourceData.cpp
-   SOURCES ${CMAKE_CURRENT_BINARY_DIR}/builtinResourceData.cpp
    )
   add_dependencies(Irrlicht builtin_resources)
   add_dependencies(IrrlichtServer builtin_resources)
 
 endfunction()
 
-set_builtin_resource_dependencies()
-#fill this list with resource paths relative to IrrlichtBaW's source/include
-irr_add_builtin_resource(
-  "irr/builtin/materials/lambertian/singletexture/specializedshader.vert"
-  "irr/builtin/materials/lambertian/singletexture/specializedshader.frag"
-  "irr/builtin/materials/lambertian/no_texture/specializedshader.vert"
-  "irr/builtin/materials/lambertian/no_texture/specializedshader.frag"
-)
+set(irr_builtin_resource_paths PARENT_SCOPE
+    "irr/builtin/materials/lambertian/singletexture/specializedshader.vert"
+    "irr/builtin/materials/lambertian/singletexture/specializedshader.frag"
+    "irr/builtin/materials/lambertian/no_texture/specializedshader.vert"
+    "irr/builtin/materials/lambertian/no_texture/specializedshader.frag")
 

@@ -1,3 +1,20 @@
+function(irr_add_builtin_resources)
+  # generate files
+  message(STATUS "ARG COUNT: ${ARGC}")
+  foreach(X IN LISTS ARGV)
+    list(APPEND builtin_dependencies_list  ${CMAKE_SOURCE_DIR}/include/${X})
+  endforeach()
+  add_custom_command(
+    OUTPUT "${CMAKE_BINARY_DIR}/include/irr/builtin/builtinResources.h" "${CMAKE_CURRENT_BINARY_DIR}/builtinResourceData.cpp"
+    COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/builtinHeaderGen.py ${CMAKE_BINARY_DIR}/include/irr/builtin/builtinResources.h ${CMAKE_SOURCE_DIR}/include "${ARGV}"
+    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/builtinDataGen.py ${CMAKE_CURRENT_BINARY_DIR}/builtinResourceData.cpp ${CMAKE_SOURCE_DIR}/include "${ARGV}"
+    COMMENT "Generated built-in resources"
+    DEPENDS ${builtin_dependencies_list}
+    VERBATIM  
+  )
+endfunction()
+
+
 find_package(OpenGL REQUIRED)
 if(UNIX)
 	find_package(X11 REQUIRED)
@@ -58,6 +75,17 @@ option(_IRR_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
 
 irr_get_conf_dir(IRRLICHT_CONF_DIR_DEBUG Debug)
 irr_get_conf_dir(IRRLICHT_CONF_DIR_RELEASE Release)
+if(IRR_EMBED_BUILTIN_RESOURCES)	
+
+	add_subdirectory(builtin)
+	irr_add_builtin_resources(irr_builtin_resource_paths)
+
+	if(INSTALL)
+		set(__IRR_INSTALL_DIR__ ${CMAKE_INSTALL_PREFIX})
+	elseif()
+		set(__IRR_INSTALL_DIR__ ${CMAKE_SOURCE_DIR})
+	endif()
+endif()
 
 set(_IRR_COMPILE_WITH_OPENGL_ ${IRR_COMPILE_WITH_OPENGL})
 if (IRR_COMPILE_WITH_OPENCL)
@@ -133,32 +161,32 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ROOT_PATH}/src/irr/asset/CForsythVertexCacheOptimizer.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CSmoothNormalGenerator.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CMeshManipulator.cpp
-	CMeshSceneNode.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CMeshSceneNode.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/COverdrawMeshOptimizer.cpp
-	CSkinnedMeshSceneNode.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CSkinnedMeshSceneNode.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/bawformat/TypedBlob.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CCPUSkinnedMesh.cpp
 
 # Scene objects
-	CCameraSceneNode.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CCameraSceneNode.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CGeometryCreator.cpp
-	CSceneManager.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CSceneManager.cpp
 
 # Animators
-	CSceneNodeAnimatorCameraFPS.cpp
-	CSceneNodeAnimatorCameraMaya.cpp
-	CSceneNodeAnimatorCameraModifiedMaya.cpp
-	CSceneNodeAnimatorDelete.cpp
-	CSceneNodeAnimatorFlyCircle.cpp
-	CSceneNodeAnimatorFlyStraight.cpp
-	CSceneNodeAnimatorFollowSpline.cpp
-	CSceneNodeAnimatorRotation.cpp
+${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorCameraFPS.cpp
+${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorCameraMaya.cpp
+${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorCameraModifiedMaya.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorDelete.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorFlyCircle.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorFlyStraight.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorFollowSpline.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorRotation.cpp
 
 # Driver-specific objects
-	IDriver.cpp
-	CNullDriver.cpp
+${IRR_ROOT_PATH}/source/Irrlicht/IDriver.cpp
+${IRR_ROOT_PATH}/source/Irrlicht/CNullDriver.cpp
 	${IRR_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
-	FW_Mutex.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/FW_Mutex.cpp
 
 # Image processing
 	${IRR_ROOT_PATH}/src/irr/asset/IImageLoader.cpp
@@ -176,38 +204,42 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ROOT_PATH}/src/irr/asset/CGLIWriter.cpp
 
 # Video
-	CFPSCounter.cpp
+${IRR_ROOT_PATH}/source/Irrlicht/CFPSCounter.cpp
 	${IRR_ROOT_PATH}/src/irr/video/alloc/GPUMemoryAllocatorBase.cpp
 	${IRR_ROOT_PATH}/src/irr/video/alloc/SimpleGPUBufferAllocator.cpp
 
 # Input/output
-	CFileList.cpp
-	CFileSystem.cpp
-	CLimitReadFile.cpp
-	CMemoryFile.cpp
-	CReadFile.cpp
-	CWriteFile.cpp
-	CMountPointReader.cpp
-	CPakReader.cpp
-	CTarReader.cpp
-	CZipReader.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CFileList.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CFileSystem.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CLimitReadFile.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CMemoryFile.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CReadFile.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CWriteFile.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CMountPointReader.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CPakReader.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CTarReader.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CZipReader.cpp
 
 # Other
-	IrrlichtDevice.cpp
-	CIrrDeviceSDL.cpp
-	CIrrDeviceLinux.cpp
-	CIrrDeviceConsole.cpp
-	CIrrDeviceStub.cpp
-	CIrrDeviceWin32.cpp
-	CLogger.cpp
-	COSOperator.cpp
-	Irrlicht.cpp
-	os.cpp
-	IReferenceCounted.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/IrrlichtDevice.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CIrrDeviceSDL.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CIrrDeviceLinux.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CIrrDeviceConsole.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CIrrDeviceStub.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CIrrDeviceWin32.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CLogger.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/COSOperator.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/Irrlicht.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/os.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/IReferenceCounted.cpp
 )
 
 if (MSVC)
-	list(APPEND IRRLICHT_SRCS_COMMON pch.cpp)
+	list(APPEND IRRLICHT_SRCS_COMMON ${IRR_ROOT_PATH}/source/Irrlicht/pch.cpp)
+endif()
+
+if (IRR_EMBED_BUILTIN_RESOURCES)
+	list(APPEND IRRLICHT_SRCS_COMMON "${CMAKE_BINARY_DIR}/src/irr/builtinResourceData.cpp")
 endif()
 
 
@@ -215,11 +247,11 @@ set(IRRLICHT_SRCS_NORMAL
 	#vulkan
 
 	#opengl
-	COpenCLHandler.cpp
-	COpenGLDriver.cpp
-	COpenGLExtensionHandler.cpp
-	COpenGLFrameBuffer.cpp
-	COpenGLQuery.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/COpenCLHandler.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/COpenGLDriver.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/COpenGLExtensionHandler.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/COpenGLFrameBuffer.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/COpenGLQuery.cpp
 	${IRR_ROOT_PATH}/src/irr/video/COpenGLPipelineCache.cpp
 
 	# abstract (move this out eventually)
@@ -360,8 +392,7 @@ target_include_directories(Irrlicht PUBLIC
 	"$<$<CONFIG:DEBUG>:${IRRLICHT_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${IRRLICHT_CONF_DIR_RELEASE}>"
 )
-target_include_directories(Irrlicht PUBLIC ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht ${IRR_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
-target_include_directories(Irrlicht PRIVATE ${CMAKE_BINARY_DIR}/include)
+target_include_directories(Irrlicht PUBLIC ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht ${IRR_ROOT_PATH}/src/3rdparty ${CMAKE_BINARY_DIR}/include) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 if (UNIX)
 	target_include_directories(Irrlicht PUBLIC 
 		${X11_INCLUDE_DIR} 
@@ -445,11 +476,11 @@ if(IRR_PCH)
         # "CMake Error: Attempt to add a custom rule to output ".../source/Irrlicht/pch.h.gch/.c++.rule" which already has a custom rule."
         # so there need to be another pch file to create custom_command for it. Or maybe share PCH target between Irrlicht and IrrlichtServer? (not sure if possible)
         add_custom_command(
-          OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h"
-          COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/pch.h" "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h"
+          OUTPUT "${CMAKE_BINARY_DIR}/source/Irrlicht/server_pch.h"
+          COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_SOURCE_DIR}/source/Irrlicht/pch.h" "${CMAKE_BINARY_DIR}/source/Irrlicht/server_pch.h"
           DEPENDS pch.h
         )
-        file(RELATIVE_PATH SERVER_PCH_INPUT_RELDIR "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h")
+        file(RELATIVE_PATH SERVER_PCH_INPUT_RELDIR "${CMAKE_SOURCE_DIR}/source/Irrlicht" "${CMAKE_BINARY_DIR}/source/Irrlicht/server_pch.h")
         if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
             ADD_PRECOMPILED_HEADER(IrrlichtServer "${SERVER_PCH_INPUT_RELDIR}" "${IRRLICHT_CONF_DIR_RELEASE}" FORCEINCLUDE)
 	elseif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
@@ -478,3 +509,7 @@ irr_install_static_lib(Irrlicht)
 irr_install_static_lib(IrrlichtServer)
 irr_install_headers("${IRRLICHT_HEADERS_PUBLIC}" "${IRR_ROOT_PATH}/include")
 irr_install_config_header(BuildConfigOptions.h)
+
+if(IRR_EMBED_BUILTIN_RESOURCES)
+set_builtin_resource_dependencies()
+endif()
