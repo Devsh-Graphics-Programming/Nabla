@@ -72,6 +72,9 @@ struct SOpenGLState
     {
 		COpenGLRenderpassIndependentPipeline::SVAOHash first = {};
 		SVAO second = { 0u,0ull };
+		//extra vao state being cached
+		std::array<asset::SBufferBinding<const COpenGLBuffer>, IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT> vtxBindings;
+		core::smart_refctd_ptr<const COpenGLBuffer> idxBinding;
 
         inline bool operator<(const HashVAOPair& rhs) const { return first < rhs.first; }
     };
@@ -168,13 +171,6 @@ struct SOpenGLState
 
     struct {
 		HashVAOPair vao = {};
-        struct SBnd {
-            core::smart_refctd_ptr<const COpenGLBuffer> buf;
-            GLintptr offset = 0;
-            bool operator!=(const SBnd& rhs) const { return buf!=rhs.buf || offset!=rhs.offset; }
-        } bindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
-
-        core::smart_refctd_ptr<const COpenGLBuffer> indexBuf;
 
         //putting it here because idk where else
         core::smart_refctd_ptr<const COpenGLBuffer> indirectDrawBuf;
