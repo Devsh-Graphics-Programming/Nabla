@@ -74,9 +74,9 @@ private:
 			"\n#define PADDED_TILE_SIZE uint(PAGE_SZ+2*TILE_PADDING)" +
 			"\n\nconst vec2 packingOffsets[] = vec2[PAGE_SZ_LOG2+1]( vec2(0.0,0.0)," + tilePackingOffsetsStr() + ");" + 
 			R"(
-#define irr_glsl_WRAP_REPEAT 0u
-#define irr_glsl_WRAP_CLAMP 1u
-#define irr_glsl_WRAP_MIRROR 2u
+#define irr_glsl_STextureData_WRAP_REPEAT 0u
+#define irr_glsl_STextureData_WRAP_CLAMP 1u
+#define irr_glsl_STextureData_WRAP_MIRROR 2u
 
 vec3 irr_glsl_unpackPageID(in uint pageID)
 {

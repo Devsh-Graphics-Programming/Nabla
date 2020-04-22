@@ -27,13 +27,15 @@ private:
     static std::string getVTfunctions(const std::string& _path)
     {
 		auto args = parseArgumentsFromPath(_path.substr(_path.find_first_of('/')+1, _path.npos));
+		if (args.size()<10u)
+			return {};
 
 		using namespace std::string_literals;
         std::string s = "#include <irr/builtin/glsl/texture_packer/utils.glsl";
 		for (uint32_t i = 0u; i < 4u; ++i)
 			s += "/" + args[i];
         s += ">";
-		s +=
+		s += //those are supposed to be used by VT fucntions only (hence extra VT_ pefix)
 			"\n#define irr_glsl_VT_pgtabName "s + args[4] +
 			"\n#define irr_glsl_VT_physPgTexName " + args[5] +
 			"\n#define irr_glsl_VT_getPgTabSzLog2 " + args[6] +
@@ -54,7 +56,7 @@ private:
     #extension GL_ARB_shader_ballot         : require
 #endif
 
-vec3 vTextureGrad_helper(in uint formatID, in vec3 virtualUV, in int clippedLoD, in int levelInTail)
+vec3 irr_glsl_vTextureGrad_helper(in uint formatID, in vec3 virtualUV, in int clippedLoD, in int levelInTail)
 {
     uvec2 pageID = textureLod(irr_glsl_VT_pgtabName,virtualUV,clippedLoD).xy;
 
@@ -80,17 +82,17 @@ vec3 vTextureGrad_helper(in uint formatID, in vec3 virtualUV, in int clippedLoD,
     return physicalUV;
 }
 
-float lengthManhattan(vec2 v)
+float irr_glsl_lengthManhattan(vec2 v)
 {
 	v = abs(v);
     return v.x+v.y;
 }
-float lengthSq(in vec2 v)
+float irr_glsl_lengthSq(in vec2 v)
 {
   return dot(v,v);
 }
 // textureGrad emulation
-vec4 vTextureGrad(in uint formatID, in vec3 virtualUV, in mat2 dOriginalScaledUV, in int originalMaxFullMip)
+vec4 irr_glsl_vTextureGrad(in uint formatID, in vec3 virtualUV, in mat2 dOriginalScaledUV, in int originalMaxFullMip)
 {
 	// returns what would have been `textureGrad(originalTexture,gOriginalUV[0],gOriginalUV[1])
 	// https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap15.html#textures-normalized-operations
@@ -98,12 +100,12 @@ vec4 vTextureGrad(in uint formatID, in vec3 virtualUV, in mat2 dOriginalScaledUV
 	// you can use an approx `log2` if you know one
 #if APPROXIMATE_FOOTPRINT_CALC
 	// bounded by sqrt(2)
-	float p_x_2_log2 = log2(lengthManhattan(dOriginalScaledUV[0]));
-	float p_y_2_log2 = log2(lengthManhattan(dOriginalScaledUV[1]));
+	float p_x_2_log2 = log2(irr_glsl_lengthManhattan(dOriginalScaledUV[0]));
+	float p_y_2_log2 = log2(irr_glsl_lengthManhattan(dOriginalScaledUV[1]));
 	const float kMaxAnisoLogOffset = log2(kMaxAnisotropy);
 #else
-	float p_x_2_log2 = log2(lengthSq(dOriginalScaledUV[0]));
-	float p_y_2_log2 = log2(lengthSq(dOriginalScaledUV[1]));
+	float p_x_2_log2 = log2(irr_glsl_lengthSq(dOriginalScaledUV[0]));
+	float p_y_2_log2 = log2(irr_glsl_lengthSq(dOriginalScaledUV[1]));
 	const float kMaxAnisoLogOffset = log2(kMaxAnisotropy)*2.0;
 #endif
 	bool xIsMajor = p_x_2_log2>p_y_2_log2;
@@ -131,7 +133,7 @@ vec4 vTextureGrad(in uint formatID, in vec3 virtualUV, in mat2 dOriginalScaledUV
 	levelInTail = haveToDoTrilinear ? levelInTail:(positiveLoD ? int(PAGE_SZ_LOG2):0);
 
 	// get the higher resolution mip-map level
-	vec3 hiPhysCoord = vTextureGrad_helper(formatID,virtualUV,clippedLoD,levelInTail);
+	vec3 hiPhysCoord = irr_glsl_vTextureGrad_helper(formatID,virtualUV,clippedLoD,levelInTail);
 	// get lower if needed (speculative execution, had to move divergent indexing to a single place)
     vec3 loPhysCoord;
 	// speculative if (haveToDoTrilinear)
@@ -140,7 +142,7 @@ vec4 vTextureGrad(in uint formatID, in vec3 virtualUV, in mat2 dOriginalScaledUV
 		bool highNotInLastFull = LoD_high<originalMaxFullMip;
 		clippedLoD = highNotInLastFull ? (clippedLoD+1):clippedLoD;
 		levelInTail = highNotInLastFull ? levelInTail:(levelInTail+1);
-		loPhysCoord = vTextureGrad_helper(formatID,virtualUV,clippedLoD,levelInTail);
+		loPhysCoord = irr_glsl_vTextureGrad_helper(formatID,virtualUV,clippedLoD,levelInTail);
 	}
 
 	vec4 hiMip_retval;
@@ -171,26 +173,26 @@ vec4 vTextureGrad(in uint formatID, in vec3 virtualUV, in mat2 dOriginalScaledUV
     return hiMip_retval;
 }
 
-float wrapTexCoord(float tc, in uint mode)
+float irr_glsl_wrapTexCoord(float tc, in uint mode)
 {
     switch (mode)
     {
-    case irr_glsl_WRAP_REPEAT: tc = fract(tc); break;
-    case irr_glsl_WRAP_CLAMP:  tc = clamp(tc, 0.0, 1.0); break;
-    case irr_glsl_WRAP_MIRROR: tc = 1.0 - abs(mod(tc,2.0)-1.0); break;
+    case irr_glsl_STextureData_WRAP_REPEAT: tc = fract(tc); break;
+    case irr_glsl_STextureData_WRAP_CLAMP:  tc = clamp(tc, 0.0, 1.0); break;
+    case irr_glsl_STextureData_WRAP_MIRROR: tc = 1.0 - abs(mod(tc,2.0)-1.0); break;
     default: break;
     }
     return tc;
 }
-vec4 textureVT(in uvec2 _texData, in vec2 uv, in mat2 dUV)
+vec4 irr_glsl_textureVT(in uvec2 _texData, in vec2 uv, in mat2 dUV)
 {
     vec2 originalSz = irr_glsl_unpackSize(_texData);
 	dUV[0] *= originalSz;
 	dUV[1] *= originalSz;
 
     uvec2 wrap = irr_glsl_unpackWrapModes(_texData);
-    uv.x = wrapTexCoord(uv.x,wrap.x);
-    uv.y = wrapTexCoord(uv.y,wrap.y);
+    uv.x = irr_glsl_wrapTexCoord(uv.x,wrap.x);
+    uv.y = irr_glsl_wrapTexCoord(uv.y,wrap.y);
 
 	vec3 virtualUV = irr_glsl_unpackVirtualUV(_texData);
 
@@ -199,7 +201,7 @@ vec4 textureVT(in uvec2 _texData, in vec2 uv, in mat2 dUV)
     virtualUV.xy += uv*originalSz;
     virtualUV.xy *= irr_glsl_VT_getVTexSzRcp(formatID);
 
-    return vTextureGrad(formatID, virtualUV, dUV, int(irr_glsl_unpackMaxMipInVT(_texData)));
+    return irr_glsl_vTextureGrad(formatID, virtualUV, dUV, int(irr_glsl_unpackMaxMipInVT(_texData)));
 }
 )";
 		return s;

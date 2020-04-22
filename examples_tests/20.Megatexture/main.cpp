@@ -99,7 +99,7 @@ vec3 irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
     vec3 Kd;
 #ifndef _NO_UV
     if ((PC.extra&(map_Kd_MASK)) == (map_Kd_MASK))
-        Kd = textureVT(PC.map_Kd_data, UV, dUV).rgb;
+        Kd = irr_glsl_textureVT(PC.map_Kd_data, UV, dUV).rgb;
     else
 #endif
         Kd = PC.Kd;
@@ -110,13 +110,13 @@ vec3 irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
 
 #ifndef _NO_UV
     if ((PC.extra&(map_Ks_MASK)) == (map_Ks_MASK))
-        Ks = textureVT(PC.map_Ks_data, UV, dUV).rgb;
+        Ks = irr_glsl_textureVT(PC.map_Ks_data, UV, dUV).rgb;
     else
 #endif
         Ks = PC.Ks;
 #ifndef _NO_UV
     if ((PC.extra&(map_Ns_MASK)) == (map_Ns_MASK))
-        Ns = textureVT(PC.map_Ns_data, UV, dUV).x;
+        Ns = irr_glsl_textureVT(PC.map_Ns_data, UV, dUV).x;
     else
 #endif
         Ns = PC.Ns;
@@ -170,7 +170,7 @@ vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in
     {
         interaction.N = normalize(interaction.N);
 
-        float h = textureVT(PC.map_bump_data, UV, dUV).x;
+        float h = irr_glsl_textureVT(PC.map_bump_data, UV, dUV).x;
 
         vec2 dHdScreen = vec2(dFdx(h), dFdy(h));
         interaction.N = irr_glsl_perturbNormal_heightMap(interaction.N, interaction.V.dPosdScreen, dHdScreen);
@@ -185,7 +185,7 @@ vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in
     {
 #ifndef _NO_UV
     if ((PC.extra&(map_Kd_MASK)) == (map_Kd_MASK))
-        Ka = textureVT(PC.map_Kd_data, UV, dUV).rgb;
+        Ka = irr_glsl_textureVT(PC.map_Kd_data, UV, dUV).rgb;
     else
 #endif
         Ka = PC.Kd;
@@ -196,7 +196,7 @@ vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in
     {
 #ifndef _NO_UV
     if ((PC.extra&(map_Ka_MASK)) == (map_Ka_MASK))
-        Ka = textureVT(PC.map_Ka_data, UV, dUV).rgb;
+        Ka = irr_glsl_textureVT(PC.map_Ka_data, UV, dUV).rgb;
     else
 #endif
         Ka = PC.Ka;
@@ -242,7 +242,7 @@ void main()
 #ifndef _NO_UV
         if ((PC.extra&(map_d_MASK)) == (map_d_MASK))
         {
-            d = textureVT(PC.map_d_data, UV, dUV).r;
+            d = irr_glsl_textureVT(PC.map_d_data, UV, dUV).r;
             color *= d;
         }
 #endif
@@ -253,7 +253,7 @@ void main()
     float d = 1.0;
 #ifndef _NO_UV
     if ((PC.extra&(map_Kd_MASK)) == (map_Kd_MASK))
-        color = textureVT(PC.map_Kd_data, UV, dUV).rgb;
+        color = irr_glsl_textureVT(PC.map_Kd_data, UV, dUV).rgb;
     else
 #endif
         color = PC.Kd;
