@@ -66,12 +66,12 @@ struct SOpenGLState
 {
     struct SVAO {
         GLuint GLname;
-        uint64_t lastValidated;
+        uint64_t lastUsed;
     };
     struct HashVAOPair
     {
-        COpenGLRenderpassIndependentPipeline::SVAOHash first;
-        SVAO second;
+		COpenGLRenderpassIndependentPipeline::SVAOHash first = {};
+		SVAO second = { 0u,0ull };
 
         inline bool operator<(const HashVAOPair& rhs) const { return first < rhs.first; }
     };
@@ -167,7 +167,7 @@ struct SOpenGLState
     } rasterParams;
 
     struct {
-        HashVAOPair vao;
+		HashVAOPair vao = {};
         struct SBnd {
             core::smart_refctd_ptr<const COpenGLBuffer> buf;
             GLintptr offset = 0;
@@ -843,7 +843,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             {
                 GLuint GLname;
                 core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> object;//so that it holds shaders which concerns hash
-                uint64_t lastValidated;
+                uint64_t lastUsed;
             };
 
             _IRR_STATIC_INLINE_CONSTEXPR size_t maxVAOCacheSize = 0x1u<<10; //make this cache configurable
@@ -957,7 +957,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
                     if (it->first==currentState.vertexInputParams.vao.first)
                         continue;
 
-                    if (CNullDriver::ReallocationCounter-it->second.lastValidated>1000) //maybe make this configurable
+                    if (CNullDriver::ReallocationCounter-it->second.lastUsed>1000) //maybe make this configurable
                     {
                         COpenGLExtensionHandler::extGlDeleteVertexArrays(1, &it->second.GLname);
                         it = VAOMap.erase(it);
@@ -976,7 +976,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
                     if (it->first == currentState.pipeline.graphics.usedShadersHash)
                         continue;
 
-                    if (CNullDriver::ReallocationCounter-it->second.lastValidated > 1000) //maybe make this configurable
+                    if (CNullDriver::ReallocationCounter-it->second.lastUsed > 1000) //maybe make this configurable
                     {
                         COpenGLExtensionHandler::extGlDeleteProgramPipelines(1, &it->second.GLname);
                         it = GraphicsPipelineMap.erase(it);
