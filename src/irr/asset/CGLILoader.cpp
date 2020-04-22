@@ -150,6 +150,8 @@ namespace irr
 					region->imageExtent.width = texture.extent(regionIndex).x;
 					region->imageExtent.height = texture.extent(regionIndex).y;
 					region->imageExtent.depth = texture.extent(regionIndex).z;
+					region->bufferRowLength = region->imageExtent.width;
+					region->bufferImageHeight = 0u;
 					region->imageSubresource.mipLevel = regionIndex;
 					region->imageSubresource.layerCount = imageInfo.arrayLayers;
 					region->imageSubresource.baseArrayLayer = 0;

@@ -61,6 +61,25 @@ namespace asset
 		uint32_t DeveloperOffset;
 		char  Signature[18];
 	} PACK_STRUCT;
+
+	enum STANDARD_TGA_BITS
+	{
+		STB_8_BITS = 8,
+		STB_16_BITS = 16,
+		STB_24_BITS = 24,
+		STB_32_BITS = 32,
+		STB_COUNT
+	};
+
+	enum STANDARD_TGA_IMAGE_TYPE
+	{
+		STIT_NONE = 0,
+		STIT_UNCOMPRESSED_COLOR_MAPPED_IMAGE = 1,
+		STIT_UNCOMPRESSED_RGB_IMAGE = 2,
+		STIT_UNCOMPRESSED_GRAYSCALE_IMAGE = 3,
+		STIT_RLE_TRUE_COLOR_IMAGE = 10,
+		STIT_COUNT
+	};
 	
 // Default alignment
 #include "irr/irrunpack.h"
@@ -99,4 +118,3 @@ private:
 } // end namespace irr
 
 #endif
-

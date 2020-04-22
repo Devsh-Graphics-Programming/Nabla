@@ -233,15 +233,6 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
                 return {};
 			}
 	}
-	
-    image = ICPUImage::create(std::move(imgInfo));
-
-	if (!image)
-	{
-		os::Printer::log("LOAD PNG: Internal PNG create image struct failure\n", _file->getFileName().c_str(), ELL_ERROR);
-		png_destroy_read_struct(&png_ptr, nullptr, nullptr);
-        return {};
-	}
 
 	// Create array of pointers to rows in image data
     RowPointers = _IRR_NEW_ARRAY(png_bytep, Height);
@@ -252,25 +243,11 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
         return {};
 	}
 
-	// OpenGL cannot transfer rows with arbitrary padding
-    static const uint32_t MAX_PITCH_ALIGNMENT = 8u;
-    // try with largest alignment first
-    auto calcPitchInBlocks = [](uint32_t width, uint32_t blockByteSize) -> uint32_t
-    {
-		auto rowByteSize = width*blockByteSize;
-		for (uint32_t _alignment=MAX_PITCH_ALIGNMENT; _alignment>1u; _alignment>>=1u)
-		{
-			auto paddedSize = core::alignUp(rowByteSize, _alignment);
-			if (paddedSize % blockByteSize)
-				continue;
-			return paddedSize/blockByteSize;
-		}
-        return width;
-    };
+	auto dimension = asset::getBlockDimensions(imgInfo.format);
+	assert(dimension.X == 1 && dimension.Y == 1 && dimension.Z == 1);
 
-    const uint32_t texelFormatBytesize = getTexelOrBlockBytesize(image->getCreationParameters().format);
+    const uint32_t texelFormatBytesize = getTexelOrBlockBytesize(imgInfo.format);
 
-    auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(image->getImageDataSizeInBytes());
     auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
     ICPUImage::SBufferCopy& region = regions->front();
     //region.imageSubresource.aspectMask = ...; //waits for Vulkan
@@ -278,10 +255,12 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
     region.imageSubresource.baseArrayLayer = 0u;
     region.imageSubresource.layerCount = 1u;
     region.bufferOffset = 0u;
-    region.bufferRowLength = calcPitchInBlocks(Width, texelFormatBytesize);
+    region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(Width, texelFormatBytesize);
     region.bufferImageHeight = 0u; //tightly packed
     region.imageOffset = { 0u, 0u, 0u };
-    region.imageExtent = image->getCreationParameters().extent;
+    region.imageExtent = imgInfo.extent;
+
+	auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(region.bufferRowLength * region.imageExtent.height * texelFormatBytesize);
 
 	// Fill array of pointers to rows in image data
 	const uint32_t pitch = region.bufferRowLength*texelFormatBytesize;
@@ -291,8 +270,6 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 		RowPointers[i] = (png_bytep)data;
 		data += pitch;
 	}
-
-    image->setBufferAndRegions(std::move(texelBuffer), regions);
 
 	// for proper error handling
 	if (setjmp(png_jmpbuf(png_ptr)))
@@ -327,6 +304,20 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
     return {};
 #endif // _IRR_COMPILE_WITH_LIBPNG_
 
+	image = ICPUImage::create(std::move(imgInfo));
+
+	if (!image)
+	{
+		os::Printer::log("LOAD PNG: Internal PNG create image struct failure\n", _file->getFileName().c_str(), ELL_ERROR);
+		png_destroy_read_struct(&png_ptr, nullptr, nullptr);
+		return {};
+	}
+
+	image->setBufferAndRegions(std::move(texelBuffer), regions);
+
+	if (imgInfo.format == asset::EF_R8_SRGB)
+		image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(image);
+
     return SAssetBundle({image});
 }
 
@@ -335,4 +326,3 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 }//end namespace video
 
 #endif
-
