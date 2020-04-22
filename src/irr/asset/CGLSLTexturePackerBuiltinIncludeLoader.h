@@ -78,27 +78,27 @@ private:
 #define irr_glsl_WRAP_CLAMP 1u
 #define irr_glsl_WRAP_MIRROR 2u
 
-vec3 unpackPageID(in uint pageID)
+vec3 irr_glsl_unpackPageID(in uint pageID)
 {
 	// this is optimal, don't touch
 	uvec2 pageXY = uvec2(pageID,pageID>>ADDR_Y_SHIFT)&uvec2(ADDR_X_MASK,ADDR_Y_MASK);
 	return vec3(vec2(pageXY),float(pageID>>ADDR_LAYER_SHIFT));
 }
-uvec2 unpackWrapModes(in uvec2 texData)
+uvec2 irr_glsl_unpackWrapModes(in uvec2 texData)
 {
     return (texData>>uvec2(28u,30u)) & uvec2(0x03u);
 }
-uint unpackMaxMipInVT(in uvec2 texData)
+uint irr_glsl_unpackMaxMipInVT(in uvec2 texData)
 {
     return (texData.y>>24)&0x0fu;
 }
-vec3 unpackVirtualUV(in uvec2 texData)
+vec3 irr_glsl_unpackVirtualUV(in uvec2 texData)
 {
 	// assert that PAGE_SZ_LOG2<8 , or change the line to uvec3(texData.yy<<uvec2(PAGE_SZ_LOG2,PAGE_SZ_LOG2-8u),texData.y>>16u)
     uvec3 unnormCoords = uvec3(texData.y<<PAGE_SZ_LOG2,texData.yy>>uvec2(8u-PAGE_SZ_LOG2,16u))&uvec3(uvec2(0xffu)<<PAGE_SZ_LOG2,0xffu);
     return vec3(unnormCoords);
 }
-vec2 unpackSize(in uvec2 texData)
+vec2 irr_glsl_unpackSize(in uvec2 texData)
 {
 	return vec2(texData.x&0xffffu,texData.x>>16u);
 }

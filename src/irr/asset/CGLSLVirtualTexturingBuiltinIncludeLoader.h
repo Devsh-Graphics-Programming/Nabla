@@ -72,7 +72,7 @@ vec3 vTextureGrad_helper(in uint formatID, in vec3 virtualUV, in int clippedLoD,
 	tileCoordinate += vec2(TILE_PADDING,TILE_PADDING);
 	tileCoordinate *= phys_pg_tex_sz_rcp;
 
-	vec3 physicalUV = unpackPageID(levelInTail!=0 ? pageID.y:pageID.x);
+	vec3 physicalUV = irr_glsl_unpackPageID(levelInTail!=0 ? pageID.y:pageID.x);
 	physicalUV.xy *= vec2(PAGE_SZ+2*TILE_PADDING)*phys_pg_tex_sz_rcp;
 
 	// add the in-tile coordinate
@@ -184,22 +184,22 @@ float wrapTexCoord(float tc, in uint mode)
 }
 vec4 textureVT(in uvec2 _texData, in vec2 uv, in mat2 dUV)
 {
-    vec2 originalSz = unpackSize(_texData);
+    vec2 originalSz = irr_glsl_unpackSize(_texData);
 	dUV[0] *= originalSz;
 	dUV[1] *= originalSz;
 
-    uvec2 wrap = unpackWrapModes(_texData);
+    uvec2 wrap = irr_glsl_unpackWrapModes(_texData);
     uv.x = wrapTexCoord(uv.x,wrap.x);
     uv.y = wrapTexCoord(uv.y,wrap.y);
 
-	vec3 virtualUV = unpackVirtualUV(_texData);
+	vec3 virtualUV = irr_glsl_unpackVirtualUV(_texData);
 
     uint formatID = irr_glsl_VT_layer2pid(uint(virtualUV.z));
 
     virtualUV.xy += uv*originalSz;
     virtualUV.xy *= irr_glsl_VT_getVTexSzRcp(formatID);
 
-    return vTextureGrad(formatID, virtualUV, dUV, int(unpackMaxMipInVT(_texData)));
+    return vTextureGrad(formatID, virtualUV, dUV, int(irr_glsl_unpackMaxMipInVT(_texData)));
 }
 )";
 		return s;
