@@ -213,9 +213,9 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ASSET_SOURCES}
 	${IRR_VIDEO_SOURCES}
 	${IRR_SCENE_SOURCES}
+
 # Junk to refactor
 	IrrlichtDevice.cpp
-	CIrrDeviceSDL.cpp
 	CIrrDeviceLinux.cpp
 	CIrrDeviceConsole.cpp
 	CIrrDeviceStub.cpp
