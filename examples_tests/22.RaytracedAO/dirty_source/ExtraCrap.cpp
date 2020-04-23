@@ -4,14 +4,17 @@
 
 #include "../../ext/ScreenShot/ScreenShot.h"
 
-#include "../../ext/MitsubaLoader/CMitsubaLoader.h"
+#ifndef NEW_SHADERS
+	#include "../../ext/MitsubaLoader/CMitsubaLoader.h"
+#endif
 
 #ifndef _IRR_BUILD_OPTIX_
 	#define __C_CUDA_HANDLER_H__ // don't want CUDA declarations and defines to pollute here
 #endif
+
 #include "../source/Irrlicht/COpenGLBuffer.h"
-#include "../source/Irrlicht/COpenGLTexture.h"
-#include "../source/Irrlicht/COpenGLDriver.h"
+#include "../src/irr/video/COpenGLImage.h"
+#include "../src/irr/video/COpenGLImageView.h"
 
 using namespace irr;
 using namespace irr::asset;
@@ -496,6 +499,7 @@ void main()
 
 )======";
 
+#ifndef NEW_SHADERS
 inline GLuint createComputeShader(const std::string& source)
 {
     GLuint program = COpenGLExtensionHandler::extGlCreateProgram();
@@ -1508,3 +1512,5 @@ void Renderer::render()
 		m_driver->setViewPort(oldVP);
 	}
 }
+
+#endif

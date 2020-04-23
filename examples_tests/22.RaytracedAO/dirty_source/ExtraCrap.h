@@ -159,6 +159,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 			};
 			*/
 		};
+#ifndef NEW_SHADERS
 		static_assert(sizeof(SLight)==112u,"Can't keep alignment straight!");
 
 		// No 8k yet, too many rays to store
@@ -233,6 +234,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightCDFBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightRadianceBuffer;
+#endif
 
 	#ifdef _IRR_BUILD_OPTIX_
 		irr::core::smart_refctd_ptr<irr::ext::OptiX::Manager> m_optixManager;

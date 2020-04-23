@@ -6,7 +6,9 @@
 #include "../common/QToQuitEventReceiver.h"
 
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
+#ifndef NEW_SHADERS
 #include "../../ext/MitsubaLoader/CMitsubaLoader.h"
+#endif
 
 #include "./dirty_source/ExtraCrap.h"
 
@@ -27,10 +29,11 @@ int main()
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
 	params.WindowSize = dimension2d<uint32_t>(1920, 1080);
-	IrrlichtDevice* device = createDeviceEx(params);
-	if (device == 0)
+	auto device = createDeviceEx(params);
+	if (!device)
 		return 1; // could not create selected driver.
 
+#ifndef NEW_SHADERS
 	//
 	asset::SAssetBundle meshes;
 	core::smart_refctd_ptr<ext::MitsubaLoader::CGlobalMitsubaMetadata> globalMeta;
@@ -318,7 +321,7 @@ int main()
 	}
 	renderer->deinit();
 	renderer = nullptr;
+#endif
 
-	device->drop();
 	return 0;
 }
