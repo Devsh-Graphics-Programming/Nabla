@@ -417,17 +417,17 @@ target_compile_definitions(Irrlicht
 	PUBLIC	UNW_LOCAL_ONLY
 )
 
-if(IRR_PCH)
-    if (UNIX)
-        if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
-            ADD_PRECOMPILED_HEADER(Irrlicht pch.h "${IRRLICHT_CONF_DIR_RELEASE}" FORCEINCLUDE)
-		elseif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-            ADD_PRECOMPILED_HEADER(Irrlicht pch.h "${IRRLICHT_CONF_DIR_DEBUG}" FORCEINCLUDE)
-        endif()
-    else()
-        ADD_PRECOMPILED_HEADER(Irrlicht pch.h FORCEINCLUDE)
-    endif()
-endif()
+#if(IRR_PCH)
+#    if (UNIX)
+#        if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
+#            ADD_PRECOMPILED_HEADER(Irrlicht pch.h "${IRRLICHT_CONF_DIR_RELEASE}" FORCEINCLUDE)
+#		elseif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+#            ADD_PRECOMPILED_HEADER(Irrlicht pch.h "${IRRLICHT_CONF_DIR_DEBUG}" FORCEINCLUDE)
+#        endif()
+#    else()
+#        ADD_PRECOMPILED_HEADER(Irrlicht pch.h FORCEINCLUDE)
+#    endif()
+#endif()
 
 add_library(IrrlichtServer STATIC
 	${IRRLICHT_SRCS_COMMON}
@@ -469,32 +469,37 @@ target_compile_definitions(IrrlichtServer PRIVATE
 )
 
 
-if(IRR_PCH)
-    if (UNIX)
-        # "CMake Error: Attempt to add a custom rule to output ".../source/Irrlicht/pch.h.gch/.c++.rule" which already has a custom rule."
-        # so there need to be another pch file to create custom_command for it. Or maybe share PCH target between Irrlicht and IrrlichtServer? (not sure if possible)
-        add_custom_command(
-          OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h"
-          COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/pch.h" "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h"
-          DEPENDS pch.h
-        )
-        file(RELATIVE_PATH SERVER_PCH_INPUT_RELDIR "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h")
-        if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
-            ADD_PRECOMPILED_HEADER(IrrlichtServer "${SERVER_PCH_INPUT_RELDIR}" "${IRRLICHT_CONF_DIR_RELEASE}" FORCEINCLUDE)
-	elseif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-            ADD_PRECOMPILED_HEADER(IrrlichtServer "${SERVER_PCH_INPUT_RELDIR}" "${IRRLICHT_CONF_DIR_DEBUG}" FORCEINCLUDE)
-        endif()
-	#add_target_byproducts(IrrlichtServer "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h") # how to resolve this?
-    else()
-        ADD_PRECOMPILED_HEADER(IrrlichtServer pch.h FORCEINCLUDE)
-    endif()
-endif()
+#if(IRR_PCH)
+#    if (UNIX)
+#        # "CMake Error: Attempt to add a custom rule to output ".../source/Irrlicht/pch.h.gch/.c++.rule" which already has a custom rule."
+#        # so there need to be another pch file to create custom_command for it. Or maybe share PCH target between Irrlicht and IrrlichtServer? (not sure if possible)
+#        add_custom_command(
+#          OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h"
+#          COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/pch.h" "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h"
+#          DEPENDS pch.h
+#        )
+#        file(RELATIVE_PATH SERVER_PCH_INPUT_RELDIR "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h")
+#        if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
+#            ADD_PRECOMPILED_HEADER(IrrlichtServer "${SERVER_PCH_INPUT_RELDIR}" "${IRRLICHT_CONF_DIR_RELEASE}" FORCEINCLUDE)
+#	elseif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+#            ADD_PRECOMPILED_HEADER(IrrlichtServer "${SERVER_PCH_INPUT_RELDIR}" "${IRRLICHT_CONF_DIR_DEBUG}" FORCEINCLUDE)
+#        endif()
+#			add_target_byproducts(IrrlichtServer "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h") # how to resolve this?
+#    else()
+#        ADD_PRECOMPILED_HEADER(IrrlichtServer pch.h FORCEINCLUDE)
+#    endif()
+#endif()
 
 if (MSVC) #on MSVC it won't compile without this option!
 	target_compile_options(Irrlicht PUBLIC /bigobj)
 	target_compile_options(IrrlichtServer PUBLIC /bigobj)
 endif()
 
+#precompiled headers
+if(IRR_PCH)
+	target_precompile_headers(Irrlicht PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
+endif()
+	
 set_target_properties(Irrlicht IrrlichtServer PROPERTIES DEBUG_POSTFIX _debug)
 
 macro(irr_install_static_lib _TRGT)
