@@ -89,7 +89,8 @@ void ApplicationHandler::performImageTest(std::string path)
 
 	smart_refctd_ptr<ICPUImageView> cpuImageView;
 
-	auto cpuTexture = assetManager->getAsset(path, {});
+	IAssetLoader::SAssetLoadParams lp(0ull,nullptr,IAssetLoader::ECF_DONT_CACHE_REFERENCES);
+	auto cpuTexture = assetManager->getAsset(path, lp);
 	auto cpuTextureContents = cpuTexture.getContents();
 	
 	if (cpuTextureContents.first == cpuTextureContents.second)

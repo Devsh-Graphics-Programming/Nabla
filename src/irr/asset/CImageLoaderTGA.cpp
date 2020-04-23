@@ -166,7 +166,7 @@ core::smart_refctd_ptr<ICPUImage> createAndconvertImageData(ICPUImage::SCreation
 		inputCreationImage = asset::ICPUImage::create(std::move(imgInfo));
 		inputCreationImage->setBufferAndRegions(std::move(texelBuffer), regions);
 		
-		bool OpenGlFlip = !flip;
+		bool OpenGlFlip = flip;
 		if (OpenGlFlip)
 		{
 			auto format = inputCreationImage->getCreationParameters().format;
