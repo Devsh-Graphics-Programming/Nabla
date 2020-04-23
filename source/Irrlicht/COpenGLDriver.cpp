@@ -1039,7 +1039,7 @@ bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
     {
         const ocl::COpenCLHandler::SOpenCLPlatformInfo& platform = ocl::COpenCLHandler::getPlatformInfo(i);
 
-        for (size_t j=0; j<platform.deviceCount; j++)
+        for (size_t j=0; j<platform.devices.size(); j++)
         {
             if (platform.devices[j]==clDevice)
             {
