@@ -2492,7 +2492,7 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
             //vertex and index buffer bindings are done outside this if-statement because no change in hash doesn't imply no change in those bindings
         }
         GLuint GLvao = currentState.vertexInputParams.vao.second.GLname;
-        if (GLvao)
+        assert(GLvao);
         {
             bool anyBindingChanged = false;
             for (uint32_t i = 0u; i<asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; ++i)
