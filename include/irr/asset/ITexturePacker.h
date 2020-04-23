@@ -632,6 +632,7 @@ public:
     STextureData pack(const ICPUImage* _img, const IImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, ISampler::E_TEXTURE_BORDER_COLOR _borderColor) override
     {
         const E_FORMAT format = _img->getCreationParameters().format;
+        uint32_t smplrIndex = 0u;
         ICPUVTResidentStorage* storage = nullptr;
         {
             auto found = m_storage.find(getFormatClass(format));
@@ -649,6 +650,7 @@ public:
             auto view_it = std::find_if(views->views->begin(), views->views->end(), [format](const core::smart_refctd_ptr<ICPUImageView>& _view) {return _view->getCreationParameters().format==format;});
             if (view_it==views->views->end()) //no physical page texture view/sampler for requested format
                 return STextureData::invalid();
+            smplrIndex = std::distance(views->views->begin(), view_it);
         }
         auto assignedLayers = storage->getPageTableLayersForFormat(format);
 
@@ -668,6 +670,8 @@ public:
             pgtOffset = alloc(_img, _subres, pgtLayer);
             if ((pgtOffset==page_tab_offset_invalid()).all())//this would be super weird but let's check
                 return STextureData::invalid();
+
+            (*m_layerToViewIndexMapping)[pgtLayer] = smplrIndex;
         }
 
         const auto extent = _img->getCreationParameters().extent;
@@ -678,6 +682,7 @@ public:
         uint32_t miptailPgAddr = SPhysPgOffset::invalid_addr;
 
         using phys_pg_addr_alctr_t = ICPUVTResidentStorage::phys_pg_addr_alctr_t;
+        //TODO up to this line, it's kinda common code for CPU and GPU, refactor later
 
         //fill page table and pack present mips into physical addr texture
         CFillImageFilter::state_type fill;
