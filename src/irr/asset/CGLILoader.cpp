@@ -201,9 +201,12 @@ namespace irr
 
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
 
+			if (imageInfo.format == asset::EF_R8_SRGB)
+				image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(image);
+
 			ICPUImageView::SCreationParams imageViewInfo;
 			imageViewInfo.image = std::move(image);
-			imageViewInfo.format = format.first;
+			imageViewInfo.format = imageViewInfo.image->getCreationParameters().format;
 			imageViewInfo.viewType = imageViewType;
 			imageViewInfo.components = format.second;
 			imageViewInfo.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
@@ -247,7 +250,7 @@ namespace irr
 			const auto beginningOfFile = _file->getPos();
 
 			constexpr auto ddsMagic = 0x20534444;
-			constexpr std::array<uint8_t, 12> ktxMagic = { 174, 'K', 'T', 'X', ' ', '1', '1', 175, '\r', '\n', '\x1A', '\n' };
+			constexpr std::array<uint8_t, 12> ktxMagic = { '«', 'K', 'T', 'X', ' ', '1', '1', '»', '\r', '\n', '\x1A', '\n' };
 			constexpr std::array<uint8_t, 16> kmgMagic = { 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55 };
 
 			if (fileName.rfind(".dds") != std::string::npos)

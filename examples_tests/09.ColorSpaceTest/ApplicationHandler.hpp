@@ -21,6 +21,8 @@ class ApplicationHandler
 
 	private:
 
+		using gpuPipeline = irr::core::smart_refctd_ptr<irr::video::IGPURenderpassIndependentPipeline>;
+
 		bool initializeApplication();
 		void fetchTestingImagePaths();
 		void performImageTest(std::string path);
@@ -31,9 +33,12 @@ class ApplicationHandler
 		irr::core::smart_refctd_ptr<irr::IrrlichtDevice> device;
 		irr::video::IVideoDriver* driver;
 
-		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSetLayout> gpuDescriptorSetLayout3;
-		irr::core::smart_refctd_ptr<irr::video::IGPURenderpassIndependentPipeline> currentGpuPipeline;
 		irr::core::smart_refctd_ptr<irr::video::IGPUMeshBuffer> currentGpuMeshBuffer;
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSetLayout> gpuDescriptorSetLayout3;
+
+		gpuPipeline currentGpuPipelineFor2D;
+		gpuPipeline currentGpuPipelineFor2DArrays;
+		gpuPipeline currentGpuPipelineForCubemaps;
 
 		irr::video::IFrameBuffer* screenShotFrameBuffer;
 		irr::core::vector<std::string> imagePaths;
