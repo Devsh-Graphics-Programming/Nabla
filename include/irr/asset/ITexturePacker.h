@@ -305,21 +305,20 @@ protected:
         szAndAlignment *= szAndAlignment;
 
         uint32_t addr = pg_tab_addr_alctr_t::invalid_address;
-        core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_alloc_addr(m_pageTableLayerAllocators[_pgtLayer], 1u, &addr, &szAndAlignment, &szAndAlignment, nullptr);
+        core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_alloc_addr((*m_pageTableLayerAllocators)[_pgtLayer], 1u, &addr, &szAndAlignment, &szAndAlignment, nullptr);
         return (addr==pg_tab_addr_alctr_t::invalid_address) ? 
             page_tab_offset_invalid() :
             page_tab_offset_t(core::morton2d_decode_x(addr&pgtAddr2dMask), core::morton2d_decode_y(addr&pgtAddr2dMask), _pgtLayer);
     }
-    virtual void free(page_tab_offset_t _addr, const IImage* _img, const IImage::SSubresourceRange& _subres)
+    virtual bool free(const STextureData& _addr, const IImage* _img, const IImage::SSubresourceRange& _subres)
     {
-        if ((_addr == page_tab_offset_invalid()).all())
-            return;
-
         uint32_t sz = computeSquareSz(_img, _subres);
         sz *= sz;
-        const uint32_t addr = core::morton2d_encode(_addr.x, _addr.y);
+        const uint32_t addr = core::morton2d_encode(_addr.pgTab_x, _addr.pgTab_y);
 
-        core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_free_addr(m_pgTabAddrAlctr[_addr.z], 1u, &addr, &sz);
+        core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_free_addr((*m_pageTableLayerAllocators)[_addr.pgTab_layer], 1u, &addr, &sz);
+
+        return true;
     }
 
     uint32_t countLevelsTakingAtLeastOnePage(const VkExtent3D& _extent, const ICPUImage::SSubresourceRange& _subres)
@@ -450,6 +449,18 @@ protected:
         {
             m_assignedPageTableLayers.insert({_format, _layer});
         }
+        void removeLayerAssignment(E_FORMAT _format, uint16_t _layer)
+        {
+            auto rng = getPageTableLayersForFormat(_format);
+            for (auto it = rng.first; it!=rng.second; ++it)
+            {
+                if (it->second==_layer)
+                {
+                    m_assignedPageTableLayers.erase(it);
+                    break;
+                }
+            }
+        }
 
         core::smart_refctd_ptr<image_t> image;
         using phys_pg_addr_alctr_t = core::PoolAddressAllocator<uint32_t>;
@@ -531,20 +542,21 @@ public:
                     for (uint32_t j = 0u; j < params.formatCount; ++j)
                     {
                         const E_FORMAT fmt = params.formats[j];
+                        auto* storage = m_storage[params.formatClass].get();
                         if (isNormalizedFormat(fmt)||isFloatingPointFormat(fmt)||isScaledFormat(fmt))
-                            f_fmtf(fmt);
+                            f_fmtf(fmt,storage);
                         else { //integer formats
                             if (isSignedFormat(fmt))
-                                f_fmti(fmt);
+                                f_fmti(fmt,storage);
                             else
-                                f_fmtu(fmt);
+                                f_fmtu(fmt,storage);
                         }
                     }
                 }
             };
             {
                 uint32_t fcount = 0u, icount = 0u, ucount = 0u;
-                execPerFormat([&](E_FORMAT) {++fcount; }, [&](E_FORMAT) {++icount; }, [&](E_FORMAT) {++ucount; });
+                execPerFormat([&](auto,auto) {++fcount; }, [&](auto,auto) {++icount; }, [&](auto,auto) {++ucount; });
                 m_fsamplers.views = fcount ? core::make_refctd_dynamic_array<decltype(SamplerArray::views)>(fcount) : nullptr;
                 m_isamplers.views = icount ? core::make_refctd_dynamic_array<decltype(SamplerArray::views)>(icount) : nullptr;
                 m_usamplers.views = ucount ? core::make_refctd_dynamic_array<decltype(SamplerArray::views)>(ucount) : nullptr;
@@ -552,7 +564,11 @@ public:
             {
                 uint32_t fi = 0u, ii = 0u, ui = 0u;
 
-                //TODO fill sampler arrays with views (and try not to DRY)
+                execPerFormat(
+                    [&fi, this](E_FORMAT _fmt, IVTResidentStorage* _storage) { (*m_fsamplers.views)[fi++] = _storage->createView(_fmt); },
+                    [&ii, this](E_FORMAT _fmt, IVTResidentStorage* _storage) { (*m_isamplers.views)[ii++] = _storage->createView(_fmt); },
+                    [&ui, this](E_FORMAT _fmt, IVTResidentStorage* _storage) { (*m_usamplers.views)[ui++] = _storage->createView(_fmt); }
+                );
             }
             {
                 const uint32_t pgSzLog2 = core::findMSB(m_pgSzxy);
@@ -710,7 +726,7 @@ public:
                     //assert(physPgAddr<SPhysPgOffset::invalid_addr);
                     if (physPgAddr==phys_pg_addr_alctr_t::invalid_address)
                     {
-                        free(pgtOffset, _img, _subres);
+                        free(offsetToTextureData(pgtOffset, _img, _wrapu, _wrapv), _img, _subres);
                         return STextureData::invalid();
                     }
 
@@ -782,6 +798,74 @@ public:
         }
 
         return offsetToTextureData(pgtOffset, _img, _wrapu, _wrapv);
+    }
+
+    bool free(const STextureData& _addr, const IImage* _img, const IImage::SSubresourceRange& _subres) override
+    {
+        const E_FORMAT format = _img->getCreationParameters().format;
+        ICPUVTResidentStorage* storage = nullptr;
+        {
+            auto found = m_storage.find(getFormatClass(format));
+            if (found==m_storage.end())
+                return false;
+            storage = static_cast<ICPUVTResidentStorage*>(found->second.get());
+        }
+
+        //free physical pages
+        auto extent = _img->getCreationParameters().extent;
+        const uint32_t levelCount = countLevelsTakingAtLeastOnePage(extent, _subres);
+
+        CFillImageFilter::state_type fill;
+        fill.outImage = m_pageTable.get();
+        fill.subresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+        fill.subresource.baseArrayLayer = _addr.pgTab_layer;
+        fill.subresource.layerCount = 1u;
+        fill.fillValue.asUint.x = SPhysPgOffset::invalid_addr;
+
+        using phys_pg_addr_alctr_t = ICPUVTResidentStorage::phys_pg_addr_alctr_t;
+
+        auto* const bufptr = reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer());
+        for (uint32_t i = 0u; i < levelCount; ++i)
+        {
+            const uint32_t w = neededPageCountForSide(extent.width, _subres.baseMipLevel+i);
+            const uint32_t h = neededPageCountForSide(extent.height, _subres.baseMipLevel+i);
+
+            const auto& region = m_pageTable->getRegions().begin()[i];
+            const auto strides = region.getByteStrides(TexelBlockInfo(m_pageTable->getCreationParameters().format));
+
+            for (uint32_t y = 0u; y < h; ++y)
+                for (uint32_t x = 0u; x < w; ++x)
+                {
+                    uint32_t* texelptr = reinterpret_cast<uint32_t*>(bufptr + region.getByteOffset(core::vector4du32_SIMD((_addr.pgTab_x>>i) + x, (_addr.pgTab_y>>i) + y, 0u, _addr.pgTab_layer), strides));
+                    SPhysPgOffset physPgOffset = *texelptr;
+                    if (physPgOffset_valid(physPgOffset))
+                    {
+                        *texelptr = SPhysPgOffset::invalid_addr;
+
+                        uint32_t addrs[2] { physPgOffset.addr&0xffffu, physPgOffset_mipTailAddr(physPgOffset).addr&0xffffu };
+                        const uint32_t szs[2]{ 1u,1u };
+                        core::address_allocator_traits<phys_pg_addr_alctr_t>::multi_free_addr(storage->tileAlctr, physPgOffset_hasMipTailAddr(physPgOffset) ? 2u : 1u, addrs, szs);
+                    }
+                }
+            fill.subresource.mipLevel = i;
+            fill.outRange.offset = {(_addr.pgTab_x>>i),(_addr.pgTab_y>>i),0u};
+            fill.outRange.extent = {w,h,1u};
+            CFillImageFilter::execute(&fill);
+        }
+
+        //free entries in page table
+        if (!base_t::free(_addr, _img, _subres))
+            return false;
+        //in case when pgtab layer has no allocations, free it for use by another format
+        if ((*m_pageTableLayerAllocators)[_addr.pgTab_layer].get_allocated_size()==0u)
+        {
+            (*m_pageTableLayerAllocators)[_addr.pgTab_layer].reset();//why actually do i need to reset it if its allocated size is 0 anyway?
+            (*m_layerToViewIndexMapping)[_addr.pgTab_layer] = ~0u;
+            storage->removeLayerAssignment(format, _addr.pgTab_layer);
+            m_freePageTableLayerIDs.push(_addr.pgTab_layer);
+        }
+
+        return true;
     }
 
 protected:
