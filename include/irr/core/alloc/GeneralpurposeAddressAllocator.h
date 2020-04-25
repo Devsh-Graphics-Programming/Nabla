@@ -105,10 +105,12 @@ class GeneralpurposeAddressAllocatorBase
 
         GeneralpurposeAddressAllocatorBase& operator=(GeneralpurposeAddressAllocatorBase&& other)
         {
+            //does swapping really have any point here?
             std::swap(bufferSize,other.bufferSize);
             std::swap(freeSize,other.freeSize);
             std::swap(freeListCount,other.freeListCount);
             std::swap(usingFirstBuffer,other.usingFirstBuffer);
+            std::swap(minBlockSize,other.minBlockSize);
 
             for (decltype(freeListCount) i=0u; i<freeListCount; i++)
             {
