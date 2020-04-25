@@ -112,6 +112,10 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<T,allocator>
             auto gccHappyVar = allocator();
 			return std::allocator_traits<allocator>::allocate(gccHappyVar, this_real_type::size_of(length) / sizeof(T));
 		}
+		static inline void* allocate_dynamic_array(size_t length, const T&)
+		{
+			return allocate_dynamic_array(length);
+		}
 		template<typename container_t, typename iterator_t = typename container_t::iterator>
 		static inline void* allocate_dynamic_array(const container_t& _containter)
 		{
@@ -121,6 +125,10 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<T,allocator>
 		static inline void* allocate_dynamic_array(size_t length, allocator& _alctr)
 		{
 			return std::allocator_traits<allocator>::allocate(_alctr,this_real_type::size_of(length)/sizeof(T));
+		}
+		static inline void* allocate_dynamic_array(size_t length, const T&, allocator& _alctr)
+		{
+			return allocate_dynamic_array(length, _alctr);
 		}
 		template<typename container_t, typename iterator_t = typename container_t::iterator>
 		static inline void* allocate_dynamic_array(const container_t& _containter, allocator& _alctr)
