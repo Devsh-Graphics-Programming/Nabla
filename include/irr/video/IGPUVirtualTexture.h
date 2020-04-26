@@ -14,6 +14,8 @@ class IGPUVirtualTexture final : public asset::IVirtualTexture<video::IGPUImageV
 {
     using base_t = asset::IVirtualTexture<video::IGPUImageView>;
 
+    IVideoDriver* m_driver;
+
 protected:
     class IGPUVTResidentStorage final : public base_t::IVTResidentStorage
     {
@@ -25,7 +27,9 @@ protected:
             //TODO awaiting fix: base_t ctor should copy addr alctr state from cpu counterpart
             base_t(
                 std::move(_driver->getGPUObjectsFromAssets(&_cpuStorage->image.get(),&_cpuStorage->image.get()+1)->front()),
-                _cpuStorage->m_assignedPageTableLayers
+                _cpuStorage->m_assignedPageTableLayers,
+                _cpuStorage->m_addr_layerShift,
+                _cpuStorage->m_physPgOffset_xMask
             ),
             m_driver(_driver)
         {
@@ -49,7 +53,7 @@ protected:
         }
 
     private:
-        core::smart_refctd_ptr<IGPUImageView> createView_internal(IGPUImageView::SCreationParams&& _params) override
+        core::smart_refctd_ptr<IGPUImageView> createView_internal(IGPUImageView::SCreationParams&& _params) const override
         {
             return m_driver->createGPUImageView(std::move(_params));
         }
@@ -58,21 +62,41 @@ protected:
     };
 
 public:
+    IGPUVirtualTexture(
+        IVideoDriver* _driver,
+        const base_t::IVTResidentStorage::SCreationParams* _residentStorageParams,
+        uint32_t _residentStorageCount,
+        uint32_t _pgTabSzxy_log2 = 8u,
+        uint32_t _pgTabLayers = 256u,
+        uint32_t _pgSzxy_log2 = 7u,
+        uint32_t _tilePadding = 9u,
+        uint32_t _maxAllocatableTexSz_log2 = 14u
+    ) :
+        base_t(
+            _pgTabSzxy_log2,
+            _pgTabLayers,
+            _pgSzxy_log2,
+            _tilePadding
+        ),
+        m_driver(_driver)
+    {
+        m_pageTable = createPageTable(_pgTabSzxy_log2, _pgTabLayers, _pgSzxy_log2, _maxAllocatableTexSz_log2);
+        initResidentStorage(_residentStorageParams, _residentStorageCount);
+    }
     IGPUVirtualTexture(IVideoDriver* _driver, asset::ICPUVirtualTexture* _cpuvt) :
         base_t(
-            nullptr, 0u, 
-            std::move(_driver->getGPUObjectsFromAssets(&_cpuvt->getPageTable(), &_cpuvt->getPageTable()+1)->front()),
             _cpuvt->getPageExtent_log2(),
             _cpuvt->getPageTable()->getCreationParameters().arrayLayers,
             _cpuvt->getPageExtent_log2(),
             _cpuvt->getTilePadding(),
             false
-            )
+            ),
+        m_driver(_driver)
     {
         //now copy from CPU counterpart resources that can be shared (i.e. just copy state) between CPU and GPU
-        //and convert to GPU those which can't be "shared" (page table already got converted): VT resident storages along with their images and views
+        //and convert to GPU those which can't be "shared": page table and VT resident storages along with their images and views
 
-        //TODO copy addr allocators state
+        m_pageTable = std::move(_driver->getGPUObjectsFromAssets(&_cpuvt->getPageTable(), &_cpuvt->getPageTable()+1)->front());
 
         m_freePageTableLayerIDs = _cpuvt->getFreePageTableLayersStack();
 
@@ -87,7 +111,48 @@ public:
 
             m_storage.insert({fmtClass, core::make_smart_refctd_ptr<IGPUVTResidentStorage>(_driver, cpuStorage)});
         }
-        //TODO fill samplers arrays
+
+        m_fsamplers.views = _cpuvt->getFloatViews().size() ? _driver->getGPUObjectsFromAssets(_cpuvt->getFloatViews().begin(), _cpuvt->getFloatViews().end()) : nullptr;
+        m_isamplers.views = _cpuvt->getIntViews().size() ? _driver->getGPUObjectsFromAssets(_cpuvt->getIntViews().begin(), _cpuvt->getIntViews().end()) : nullptr;
+        m_usamplers.views = _cpuvt->getUintViews().size() ? _driver->getGPUObjectsFromAssets(_cpuvt->getUintViews().begin(), _cpuvt->getUintViews().end()) : nullptr;
+    }
+
+    STextureData pack(const image_t* _img, const asset::IImage::SSubresourceRange& _subres, asset::ISampler::E_TEXTURE_CLAMP _wrapu, asset::ISampler::E_TEXTURE_CLAMP _wrapv, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor) override
+    {
+        assert(0);
+        return STextureData::invalid();
+    }
+
+    bool free(const STextureData& _addr, const asset::IImage* _img, const asset::IImage::SSubresourceRange& _subres) override
+    {
+        assert(0);
+        return false;
+    }
+
+    core::smart_refctd_ptr<IGPUImageView> createPageTableView() const override
+    {
+        IGPUImageView::SCreationParams params;
+        params.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0);
+        params.format = m_pageTable->getCreationParameters().format;
+        params.subresourceRange.aspectMask = static_cast<asset::IImage::E_ASPECT_FLAGS>(0);
+        params.subresourceRange.baseArrayLayer = 0u;
+        params.subresourceRange.layerCount = m_pageTable->getCreationParameters().arrayLayers;
+        params.subresourceRange.baseMipLevel = 0u;
+        params.subresourceRange.levelCount = m_pageTable->getCreationParameters().mipLevels;
+        params.viewType = asset::IImageView<IGPUImage>::ET_2D_ARRAY;
+        params.image = m_pageTable;
+
+        return m_driver->createGPUImageView(std::move(params));
+    }
+
+protected:
+    core::smart_refctd_ptr<IVTResidentStorage> createVTResidentStorage(asset::E_FORMAT _format, uint32_t _extent, uint32_t _layers, uint32_t _tilesPerDim) override
+    {
+        return core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_driver, _format, _extent, _layers, _tilesPerDim);//TODO driver
+    }
+    core::smart_refctd_ptr<IGPUImage> createImage(IGPUImage::SCreationParams&& _params) const override
+    {
+        return m_driver->createDeviceLocalGPUImageOnDedMem(std::move(_params));
     }
 };
 

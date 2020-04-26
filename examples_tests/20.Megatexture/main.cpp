@@ -6,6 +6,7 @@
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
 #include <irr/asset/ITexturePacker.h>
+#include <irr/video/IGPUVirtualTexture.h>
 #include <irr/asset/CMTLPipelineMetadata.h>
 #include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
 #include <irr/asset/filters/CMipMapGenerationImageFilter.h>
@@ -14,9 +15,9 @@
 using namespace irr;
 using namespace core;
 
-using STextureData = asset::ITexturePacker::STextureData;
+using STextureData = asset::ICPUVirtualTexture::STextureData;
 
-STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePacker* _packer, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
+STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUVirtualTexture* _vt, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
 {
     const auto& extent = _img->getCreationParameters().extent;
 
@@ -25,8 +26,7 @@ STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePack
     subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(extent.width, extent.height))) + 1;
 
     uint8_t border[4]{};//unused anyway
-    auto pgTabCoords = _packer->pack(_img, subres, _uwrap, _vwrap, _borderColor);
-    return _packer->offsetToTextureData(pgTabCoords, _img, _uwrap, _vwrap);
+    return _vt->pack(_img, subres, _uwrap, _vwrap, _borderColor);
 }
 
 constexpr const char* GLSL_VT_TEXTURES = //also turns off set3 bindings (textures) because they're not needed anymore as we're using VT
@@ -324,6 +324,7 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
 
 constexpr uint32_t PGTAB_SZ_LOG2 = 7u;
 constexpr uint32_t PGTAB_LAYERS_PER_FORMAT = 1u;
+constexpr uint32_t PGTAB_LAYERS = 3u;
 constexpr uint32_t PAGE_SZ_LOG2 = 7u;
 constexpr uint32_t TILES_PER_DIM_LOG2 = 6u;
 constexpr uint32_t PHYS_ADDR_TEX_LAYERS = 3u;
@@ -510,8 +511,30 @@ int main()
     auto* smgr = device->getSceneManager();
     auto* am = device->getAssetManager();
 
-    auto pagetable = asset::ICPUTexturePacker::createPageTable(PGTAB_SZ_LOG2, PGTAB_LAYERS_PER_FORMAT*ETP_COUNT, PAGE_SZ_LOG2, MAX_ALLOCATABLE_TEX_SZ_LOG2);
+    std::array<asset::ICPUVirtualTexture::ICPUVTResidentStorage::SCreationParams,3> storage;
+    storage[0].formatClass = asset::EFC_8_BIT;
+    storage[0].layerCount = 3u;
+    storage[0].tilesPerDim_log2 = TILES_PER_DIM_LOG2;
+    storage[0].formatCount = 1u;
+    asset::E_FORMAT fmt1[1]{ asset::EF_R8_UNORM };
+    storage[0].formats = fmt1;
+    storage[1].formatClass = asset::EFC_24_BIT;
+    storage[1].layerCount = 3u;
+    storage[1].tilesPerDim_log2 = TILES_PER_DIM_LOG2;
+    storage[1].formatCount = 1u;
+    asset::E_FORMAT fmt2[1]{ asset::EF_R8G8B8_SRGB };
+    storage[1].formats = fmt2;
+    storage[2].formatClass = asset::EFC_32_BIT;
+    storage[2].layerCount = 3u;
+    storage[2].tilesPerDim_log2 = TILES_PER_DIM_LOG2;
+    storage[2].formatCount = 1u;
+    asset::E_FORMAT fmt3[1]{ asset::EF_R8G8B8A8_SRGB };
+    storage[2].formats = fmt3;
+    auto vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(storage.data(), storage.size(), PGTAB_SZ_LOG2, PGTAB_LAYERS, PAGE_SZ_LOG2, PAGE_PADDING, MAX_ALLOCATABLE_TEX_SZ_LOG2);
 
+    //auto pagetable = asset::ICPUTexturePacker::createPageTable(PGTAB_SZ_LOG2, PGTAB_LAYERS_PER_FORMAT*ETP_COUNT, PAGE_SZ_LOG2, MAX_ALLOCATABLE_TEX_SZ_LOG2);
+
+    /*
     core::smart_refctd_ptr<asset::ICPUTexturePacker> texPackers[ETP_COUNT];
     asset::IImage::SSubresourceRange subresRange;
     subresRange.layerCount = PGTAB_LAYERS_PER_FORMAT;
@@ -521,6 +544,7 @@ int main()
     texPackers[1] = core::make_smart_refctd_ptr<asset::ICPUTexturePacker>(asset::EF_R8G8B8_UNORM, core::smart_refctd_ptr(pagetable), subresRange, PAGE_SZ_LOG2, TILES_PER_DIM_LOG2, PHYS_ADDR_TEX_LAYERS, PAGE_PADDING);
     subresRange.baseArrayLayer = 2u*PGTAB_LAYERS_PER_FORMAT;
     texPackers[2] = core::make_smart_refctd_ptr<asset::ICPUTexturePacker>(asset::EF_R8G8B8A8_UNORM, core::smart_refctd_ptr(pagetable), subresRange, PAGE_SZ_LOG2, TILES_PER_DIM_LOG2, PHYS_ADDR_TEX_LAYERS, PAGE_PADDING);
+    */
     core::unordered_map<core::smart_refctd_ptr<asset::ICPUImage>, STextureData> VTtexDataMap;
     core::unordered_map<core::smart_refctd_ptr<asset::ICPUSpecializedShader>, core::smart_refctd_ptr<asset::ICPUSpecializedShader>> modifiedShaders;
 
@@ -636,7 +660,7 @@ int main()
             else {
                 auto imgToPack = createPoTPaddedSquareImageWithMipLevels(img.get(), uwrap, vwrap);
                 const asset::E_FORMAT fmt = imgToPack->getCreationParameters().format;
-                texData = getTextureData(imgToPack.get(), texPackers[format2texPackerIndex(fmt)].get(), uwrap, vwrap, borderColor);
+                texData = getTextureData(imgToPack.get(), vt.get(), uwrap, vwrap, borderColor);
                 VTtexDataMap.insert({img,texData});
             }
 
@@ -691,10 +715,11 @@ int main()
         //optionally adjust push constant ranges, but at worst it'll just be specified too much because MTL uses all 128 bytes
     }
     //default cpu2gpu shouldnt generate extra mips for integer format textures
-    auto gpuPagetable = driver->getGPUObjectsFromAssets(&pagetable.get(), &pagetable.get()+1)->front();
-    core::smart_refctd_ptr<video::IGPUTexturePacker> gpuTexPackers[ETP_COUNT];
-    for (uint32_t i = 0u; i < ETP_COUNT; ++i)
-        gpuTexPackers[i] = core::make_smart_refctd_ptr<video::IGPUTexturePacker>(driver, texPackers[i].get(), core::smart_refctd_ptr(gpuPagetable));
+    auto gpuvt = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(driver, vt.get());
+    //auto gpuPagetable = driver->getGPUObjectsFromAssets(&pagetable.get(), &pagetable.get()+1)->front();
+    //core::smart_refctd_ptr<video::IGPUTexturePacker> gpuTexPackers[ETP_COUNT];
+    //for (uint32_t i = 0u; i < ETP_COUNT; ++i)
+    //    gpuTexPackers[i] = core::make_smart_refctd_ptr<video::IGPUTexturePacker>(driver, texPackers[i].get(), core::smart_refctd_ptr(gpuPagetable));
 
     auto gpuds0layout = driver->getGPUObjectsFromAssets(&ds0layout.get(), &ds0layout.get()+1)->front();
     auto gpuds0 = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuds0layout));//intentionally not moving layout
@@ -702,7 +727,8 @@ int main()
         std::array<video::IGPUDescriptorSet::SWriteDescriptorSet, 3> writes;
         //page table
         video::IGPUDescriptorSet::SDescriptorInfo info0[1];
-        info0->desc = gpuTexPackers[0]->createPageTableView(driver);//doesnt matter which gpuTexPacker i use for this
+        //info0->desc = gpuTexPackers[0]->createPageTableView(driver);//doesnt matter which gpuTexPacker i use for this
+        info0->desc = gpuvt->createPageTableView();
         info0->image.imageLayout = asset::EIL_UNDEFINED;
         writes[0].binding = 0u;
         writes[0].arrayElement = 0u;
@@ -715,7 +741,8 @@ int main()
         for (uint32_t i = 0u; i < ETP_COUNT; ++i)
         {
             info1[i].image.imageLayout = asset::EIL_UNDEFINED;
-            info1[i].desc = gpuTexPackers[i]->createPhysicalAddressTextureView(driver);
+            //info1[i].desc = gpuTexPackers[i]->createPhysicalAddressTextureView(driver);
+            info1[i].desc = gpuvt->getFloatViews().begin()[i];
         }
         writes[1].binding = 1u;
         writes[1].arrayElement = 0u;
@@ -726,13 +753,10 @@ int main()
         //LUT SSBO
         video::IGPUDescriptorSet::SDescriptorInfo info2[1];
         {
-            constexpr size_t sz = ETP_COUNT*PGTAB_LAYERS_PER_FORMAT;
-            uint32_t lut[sz];
-            for (uint32_t i = 0u; i < sz; i+=PGTAB_LAYERS_PER_FORMAT)
-                std::fill(lut+i, lut+i+PGTAB_LAYERS_PER_FORMAT, i/PGTAB_LAYERS_PER_FORMAT);
-            info2->desc = driver->createFilledDeviceLocalGPUBufferOnDedMem(sz*sizeof(*lut), lut);
+            const size_t sz = gpuvt->getLayerToViewIndexMapping().size();
+            info2->desc = driver->createFilledDeviceLocalGPUBufferOnDedMem(sz*sizeof(uint32_t), gpuvt->getLayerToViewIndexMapping().begin());
             info2->buffer.offset = 0u;
-            info2->buffer.size = sz*sizeof(*lut);
+            info2->buffer.size = sz*sizeof(uint32_t);
         }
         writes[2].binding = 2u;
         writes[2].arrayElement = 0u;
@@ -801,12 +825,13 @@ int main()
         uint32_t offset = 0u;
         //pgtab_sz_log2
         for (uint32_t i = 0u; i < ETP_COUNT; ++i)
-            ptr[i*ENTRY_ALIGNMENT/ENTRY_SZ] = core::findMSB(texPackers[i]->getPageTable()->getCreationParameters().extent.width);
+            ptr[i*ENTRY_ALIGNMENT/ENTRY_SZ] = core::findMSB(gpuvt->getPageTable()->getCreationParameters().extent.width);
         ptr += PRECOMPUTED_STUFF_SZ/ENTRY_SZ;
         //phys_pg_tex_sz_rcp
         for (uint32_t i = 0u; i < ETP_COUNT; ++i)
         {
-            const double f = 1.0 / static_cast<double>(texPackers[i]->getPhysicalAddressTexture()->getCreationParameters().extent.width);
+            const auto& storageImg = gpuvt->getFloatViews().begin()[i]->getCreationParameters().image;
+            const double f = 1.0 / static_cast<double>(storageImg->getCreationParameters().extent.width);
             reinterpret_cast<float*>(ptr)[i*ENTRY_ALIGNMENT/ENTRY_SZ] = f;
         }
         ptr += PRECOMPUTED_STUFF_SZ/ENTRY_SZ;
@@ -814,8 +839,8 @@ int main()
         for (uint32_t i = 0u; i < ETP_COUNT; ++i)
         {
             double f = 1.0;
-            f /= static_cast<double>(texPackers[i]->getPageTable()->getCreationParameters().extent.width);
-            f /= static_cast<double>(texPackers[i]->getPageSize());
+            f /= static_cast<double>(gpuvt->getPageTable()->getCreationParameters().extent.width);
+            f /= static_cast<double>(gpuvt->getPageExtent());
             reinterpret_cast<float*>(ptr)[i*ENTRY_ALIGNMENT/ENTRY_SZ] = f;
         }
         gpuPrecomputedStuffSsbo = driver->createFilledDeviceLocalGPUBufferOnDedMem(UBO_SZ,ubodata);
