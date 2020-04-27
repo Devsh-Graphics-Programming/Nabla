@@ -781,7 +781,8 @@ public:
                         fill.outRange.offset = {(pgtOffset.x>>i) + x, (pgtOffset.y>>i) + y, 0u};
                         fill.fillValue.asUint.x = physPgAddr;
 
-                        CFillImageFilter::execute(&fill);
+                        if (!CFillImageFilter::execute(&fill))
+                            _IRR_DEBUG_BREAK_IF(true);
                     }
 
                     core::vector3du32_SIMD physPg = storage->pageCoords(physPgAddr, m_pgSzxy, m_tilePadding);

@@ -303,7 +303,7 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
 
     std::string glsl = reinterpret_cast<const char*>( unspec->getSPVorGLSL()->getPointer() );
     size_t firstNewlineAfterVersion = glsl.find("\n",glsl.find("#version "));
-    //glsl.insert(firstNewlineAfterVersion, GLSL_NONUNIFORM_EXT_OVERRIDE);
+    glsl.insert(firstNewlineAfterVersion, "\n#include <irr/builtin/glsl/virtual_texturing/extensions.glsl>\n");
     glsl.insert(glsl.find("#ifndef _IRR_FRAG_PUSH_CONSTANTS_DEFINED_"), GLSL_PUSH_CONSTANTS_OVERRIDE);
     glsl.insert(glsl.find("#if !defined(_IRR_FRAG_SET3_BINDINGS_DEFINED_)"), GLSL_VT_TEXTURES);
     glsl.insert(glsl.find("#ifndef _IRR_BSDF_COS_EVAL_DEFINED_"), GLSL_VT_FUNCTIONS);
@@ -715,7 +715,7 @@ int main()
         //optionally adjust push constant ranges, but at worst it'll just be specified too much because MTL uses all 128 bytes
     }
     //default cpu2gpu shouldnt generate extra mips for integer format textures
-    auto gpuvt = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(driver, vt.get());
+    auto gpuvt = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(driver, am, vt.get());
     //auto gpuPagetable = driver->getGPUObjectsFromAssets(&pagetable.get(), &pagetable.get()+1)->front();
     //core::smart_refctd_ptr<video::IGPUTexturePacker> gpuTexPackers[ETP_COUNT];
     //for (uint32_t i = 0u; i < ETP_COUNT; ++i)

@@ -24,6 +24,27 @@ private:
 
 		return args;
 	}
+	static std::string getExtensions(const std::string&)
+	{
+		return R"(
+#extension GL_EXT_nonuniform_qualifier  : enable
+
+//tmp dirty fix for weird behavior of renderdoc
+//uncomment below if having troubles in renderdoc and you're sure GL_NV_gpu_shader5 is available
+//#define RUNNING_IN_RENDERDOC
+#ifdef RUNNING_IN_RENDERDOC
+	#define IRR_GL_NV_gpu_shader5
+#endif
+
+#ifdef IRR_GL_NV_gpu_shader5
+    #define IRR_GL_EXT_nonuniform_qualifier // TODO: we need to overhaul our GLSL preprocessing system to match what SPIRV-Cross actually does
+#endif
+
+#ifndef IRR_GL_EXT_nonuniform_qualifier
+	#error "SPIR-V Cross did not implement GL_KHR_shader_subgroup_ballot on GLSL yet!"
+#endif
+)";
+	}
     static std::string getVTfunctions(const std::string& _path)
     {
 		auto args = parseArgumentsFromPath(_path.substr(_path.find_first_of('/')+1, _path.npos));
@@ -44,18 +65,6 @@ private:
 			"\n#define irr_glsl_VT_layer2pid " + args[9]
 			;
         s += R"(
-
-#extension GL_EXT_nonuniform_qualifier  : enable
-
-#ifdef IRR_GL_NV_gpu_shader5
-    #define IRR_GL_EXT_nonuniform_qualifier // TODO: we need to overhaul our GLSL preprocessing system to match what SPIRV-Cross actually does
-#endif
-
-#ifndef IRR_GL_EXT_nonuniform_qualifier
-    #extension GL_ARB_gpu_shader_int64      : require
-    #extension GL_ARB_shader_ballot         : require
-#endif
-
 vec3 irr_glsl_vTextureGrad_helper(in uint formatID, in vec3 virtualUV, in int clippedLoD, in int levelInTail)
 {
     uvec2 pageID = textureLod(irr_glsl_VT_pgtabName,virtualUV,clippedLoD).xy;
@@ -216,6 +225,7 @@ protected:
 				std::regex{"functions\\.glsl/[0-9]+/[0-9]+/[0-9]+/[0-9]+/"+id+"/"+id+"/"+id+"/"+id+"/"+id+"/"+id},
 				&getVTfunctions
 			},
+			{std::regex{"extensions\\.glsl"}, &getExtensions}
 		};
 	}
 };

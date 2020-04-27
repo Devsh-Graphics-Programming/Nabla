@@ -5,6 +5,7 @@
 #include <irr/asset/ITexturePacker.h>
 #include <irr/video/IGPUImageView.h>
 #include "IVideoDriver.h"
+#include <irr/asset/IAssetManager.h>
 
 namespace irr {
 namespace video
@@ -22,11 +23,27 @@ protected:
         using base_t = base_t::IVTResidentStorage;
         using cpu_counterpart_t = asset::ICPUVirtualTexture::ICPUVTResidentStorage;
 
+        static core::smart_refctd_ptr<IGPUImage> createGPUImageFromCPU(IVideoDriver* _driver, asset::IAssetManager* _am, asset::ICPUImage* _cpuimg)
+        {
+            auto params = _cpuimg->getCreationParameters();
+            auto img = _driver->createDeviceLocalGPUImageOnDedMem(std::move(params));
+
+            auto regions = _cpuimg->getRegions();
+            if (regions.size())
+            {
+                auto texelBuf = _driver->createFilledDeviceLocalGPUBufferOnDedMem(_cpuimg->getBuffer()->getSize(), _cpuimg->getBuffer()->getPointer());
+                _driver->copyBufferToImage(texelBuf.get(), img.get(), regions.size(), regions.begin());
+            }
+            _am->convertAssetToEmptyCacheHandle(_cpuimg, core::smart_refctd_ptr(img));
+
+            return img;
+        }
+
     public:
-        IGPUVTResidentStorage(IVideoDriver* _driver, const cpu_counterpart_t* _cpuStorage) :
+        IGPUVTResidentStorage(IVideoDriver* _driver, asset::IAssetManager* _am, const cpu_counterpart_t* _cpuStorage) :
             //TODO awaiting fix: base_t ctor should copy addr alctr state from cpu counterpart
             base_t(
-                std::move(_driver->getGPUObjectsFromAssets(&_cpuStorage->image.get(),&_cpuStorage->image.get()+1)->front()),
+                createGPUImageFromCPU(_driver, _am, _cpuStorage->image.get()),
                 _cpuStorage->m_assignedPageTableLayers,
                 _cpuStorage->m_addr_layerShift,
                 _cpuStorage->m_physPgOffset_xMask
@@ -83,7 +100,7 @@ public:
         m_pageTable = createPageTable(_pgTabSzxy_log2, _pgTabLayers, _pgSzxy_log2, _maxAllocatableTexSz_log2);
         initResidentStorage(_residentStorageParams, _residentStorageCount);
     }
-    IGPUVirtualTexture(IVideoDriver* _driver, asset::ICPUVirtualTexture* _cpuvt) :
+    IGPUVirtualTexture(IVideoDriver* _driver, asset::IAssetManager* _am, asset::ICPUVirtualTexture* _cpuvt) :
         base_t(
             _cpuvt->getPageExtent_log2(),
             _cpuvt->getPageTable()->getCreationParameters().arrayLayers,
@@ -109,7 +126,7 @@ public:
             auto* cpuStorage = static_cast<asset::ICPUVirtualTexture::ICPUVTResidentStorage*>(pair.second.get());
             const asset::E_FORMAT_CLASS fmtClass = pair.first;
 
-            m_storage.insert({fmtClass, core::make_smart_refctd_ptr<IGPUVTResidentStorage>(_driver, cpuStorage)});
+            m_storage.insert({fmtClass, core::make_smart_refctd_ptr<IGPUVTResidentStorage>(_driver, _am, cpuStorage)});
         }
 
         m_fsamplers.views = _cpuvt->getFloatViews().size() ? _driver->getGPUObjectsFromAssets(_cpuvt->getFloatViews().begin(), _cpuvt->getFloatViews().end()) : nullptr;
