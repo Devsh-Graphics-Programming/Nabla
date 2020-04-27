@@ -40,7 +40,7 @@ void ApplicationHandler::presentImageOnTheScreen(irr::core::smart_refctd_ptr<irr
 
 	IGPUDescriptorSet::SDescriptorInfo info;
 	{
-		info.desc = std::move(gpuImageView);
+		info.desc = gpuImageView;
 		ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
 		info.image.sampler = driver->createGPUSampler(samplerParams);
 		info.image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
@@ -56,8 +56,41 @@ void ApplicationHandler::presentImageOnTheScreen(irr::core::smart_refctd_ptr<irr
 
 	driver->updateDescriptorSets(1u, &write, 0u, nullptr);
 
+	std::string viewType;
+	auto getCurrentGPUPipeline = [&]()
+	{
+		switch (gpuImageView->getCreationParameters().viewType)
+		{
+			case IImageView<IGPUImage>::ET_2D:
+			{
+				viewType = "2D";
+				return currentGpuPipelineFor2D;
+			}
+
+			case IImageView<IGPUImage>::ET_2D_ARRAY:
+			{
+				viewType = "2D array";
+				return currentGpuPipelineFor2DArrays;
+			}
+				
+			case IImageView<IGPUImage>::ET_CUBE_MAP:
+			{
+				viewType = "cube map";
+				return currentGpuPipelineForCubemaps;
+			}
+
+			default:
+			{
+				os::Printer::log("Not supported image view in the example!", ELL_ERROR);
+				return gpuPipeline();
+			}
+		}
+	};
+
+	auto currentGpuPipeline = getCurrentGPUPipeline();
+
 	std::wostringstream characterStream;
-	characterStream << L"Color Space Test Demo - Irrlicht Engine [" << driver->getName() << "] - CURRENT IMAGE: " << currentHandledImageFileName.c_str() << " - EXTENSION: " << currentHandledImageExtension.c_str();
+	characterStream << L"Color Space Test Demo - Irrlicht Engine [" << driver->getName() << "] - CURRENT IMAGE: " << currentHandledImageFileName.c_str() << " - VIEW TYPE: " << viewType.c_str() << " - EXTENSION: " << currentHandledImageExtension.c_str();
 	device->setWindowCaption(characterStream.str().c_str());
 
 	auto startPoint = std::chrono::high_resolution_clock::now();
@@ -177,19 +210,38 @@ bool ApplicationHandler::initializeApplication()
 
 	IGPUDescriptorSetLayout::SBinding binding{ 0u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr };
 	gpuDescriptorSetLayout3 = driver->createGPUDescriptorSetLayout(&binding, &binding + 1u);
+
+	auto createGPUPipeline = [&](IImageView<ICPUImage>::E_TYPE type) -> gpuPipeline
 	{
-		auto gpuPipelineLayout = driver->createGPUPipelineLayout(nullptr, nullptr, nullptr, nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout3));
+		auto getPathToFragmentShader = [&]()
+		{
+			switch (type)
+			{
+				case IImageView<ICPUImage>::E_TYPE::ET_2D:
+					return "../present2D.frag";
+				case IImageView<ICPUImage>::E_TYPE::ET_2D_ARRAY:
+					return "../present2DArray.frag";
+				case IImageView<ICPUImage>::E_TYPE::ET_CUBE_MAP:
+					return "../presentCubemap.frag";
+				default:
+				{
+					os::Printer::log("Not supported image view in the example!", ELL_ERROR);
+					return "";
+				}
+			}
+		};
 
 		IAssetLoader::SAssetLoadParams lp;
-		auto fs_bundle = device->getAssetManager()->getAsset("../present.frag", lp);
+		auto fs_bundle = device->getAssetManager()->getAsset(getPathToFragmentShader(), lp);
 		auto fs_contents = fs_bundle.getContents();
 		if (fs_contents.first == fs_contents.second)
 			return false;
+
 		ICPUSpecializedShader* fs = static_cast<ICPUSpecializedShader*>(fs_contents.first->get());
 
 		auto fragShader = driver->getGPUObjectsFromAssets(&fs, &fs + 1)->front();
 		if (!fragShader)
-			return false;
+			return {};
 
 		IGPUSpecializedShader* shaders[2] = { std::get<0>(fullScreenTriangle).get(),fragShader.get() };
 		SBlendParams blendParams;
@@ -204,10 +256,16 @@ bool ApplicationHandler::initializeApplication()
 		rasterParams.depthWriteEnable = false;
 		rasterParams.depthTestEnable = false;
 
-		currentGpuPipeline = driver->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), shaders, shaders + sizeof(shaders) / sizeof(IGPUSpecializedShader*),
+		auto gpuPipelineLayout = driver->createGPUPipelineLayout(nullptr, nullptr, nullptr, nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout3));
+
+		return driver->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), shaders, shaders + sizeof(shaders) / sizeof(IGPUSpecializedShader*),
 			std::get<SVertexInputParams>(fullScreenTriangle), blendParams,
 			std::get<SPrimitiveAssemblyParams>(fullScreenTriangle), rasterParams);
-	}
+	};
+
+	currentGpuPipelineFor2D = createGPUPipeline(IImageView<ICPUImage>::E_TYPE::ET_2D);
+	currentGpuPipelineFor2DArrays = createGPUPipeline(IImageView<ICPUImage>::E_TYPE::ET_2D_ARRAY);
+	currentGpuPipelineForCubemaps = createGPUPipeline(IImageView<ICPUImage>::E_TYPE::ET_CUBE_MAP);
 
 	{
 		SBufferBinding<IGPUBuffer> idxBinding{ 0ull, nullptr };
