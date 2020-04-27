@@ -187,6 +187,7 @@ private:
     }
 
 public:
+    _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_PHYSICAL_PAGE_SIZE_LOG2 = 9u;
     struct SMiptailPacker
     {
         struct rect
@@ -488,7 +489,6 @@ protected:
     //since c++14 std::hash specialization for all enum types are given by standard
     core::unordered_map<E_FORMAT_CLASS, core::smart_refctd_ptr<IVTResidentStorage>> m_storage;
 
-    _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_PHYSICAL_PAGE_SIZE_LOG2 = 9u;
     typename SMiptailPacker::rect m_miptailOffsets[MAX_PHYSICAL_PAGE_SIZE_LOG2];
 
     virtual core::smart_refctd_ptr<image_t> createImage(typename image_t::SCreationParams&& _params) const = 0;
@@ -614,6 +614,40 @@ public:
     typename SamplerArray::range_t getFloatViews() const  { return m_fsamplers.getViews(); }
     typename SamplerArray::range_t getIntViews() const { return m_isamplers.getViews(); }
     typename SamplerArray::range_t getUintViews() const { return m_usamplers.getViews(); }
+
+    static std::string getGLSLExtensionsIncludePath()
+    {
+        return "irr/builtin/glsl/virtual_texturing/extensions.glsl";
+    }
+    std::string getGLSLDescriptorsIncludePath(uint32_t _set, uint32_t _pgtBinding, uint32_t _fsamplersBinding, uint32_t _isamplersBinding, uint32_t _usamplersBinding) const
+    {
+        return "irr/builtin/glsl/virtual_texturing/descriptors.glsl/" +
+            std::to_string(_set) + "/" +
+            std::to_string(_pgtBinding) + "/" +
+            std::to_string(_fsamplersBinding) + "/" +
+            std::to_string(_isamplersBinding) + "/" +
+            std::to_string(_usamplersBinding) + "/" +
+            (m_fsamplers.views ? std::to_string(m_fsamplers.views->size()) : "0") + "/" +
+            (m_isamplers.views ? std::to_string(m_isamplers.views->size()) : "0") + "/" +
+            (m_usamplers.views ? std::to_string(m_usamplers.views->size()) : "0");
+    }
+    std::string getGLSLFunctionsIncludePath(const std::string& _get_pgtab_sz_log2_name, const std::string& _get_phys_pg_tex_sz_rcp_name, const std::string& _get_vtex_sz_rcp_name, const std::string& _get_layer2pid) const
+    {
+        //functions.glsl/pg_sz_log2/tile_padding/pgtab_tex_name/phys_pg_tex_name/get_pgtab_sz_log2_name/get_phys_pg_tex_sz_rcp_name/get_vtex_sz_rcp_name/get_layer2pid/(addr_x_bits/addr_y_bits)...
+        std::string s = "irr/builtin/glsl/virtual_texturing/functions.glsl/";
+        s += std::to_string(m_pgSzxy_log2) + "/";
+        s += std::to_string(m_tilePadding) + "/";
+        s += _get_pgtab_sz_log2_name + "/";
+        s += _get_phys_pg_tex_sz_rcp_name + "/";
+        s += _get_vtex_sz_rcp_name + "/";
+        s += _get_layer2pid;
+        for (const auto& pair : m_storage)
+        {
+            const auto& stg = pair.second;
+            s += "/" + std::to_string(stg->m_physPgOffset_xMask) + "/" + std::to_string(stg->m_physPgOffset_xMask);
+        }
+        return s;
+    }
 };
 
 class ICPUVirtualTexture final : public IVirtualTexture<ICPUImageView>

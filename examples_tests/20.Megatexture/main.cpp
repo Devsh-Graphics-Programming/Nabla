@@ -33,8 +33,7 @@ constexpr const char* GLSL_VT_TEXTURES = //also turns off set3 bindings (texture
 R"(
 #ifndef _NO_UV
 #define VT_COUNT 3
-layout (set = 0, binding = 0) uniform usampler2DArray pageTable;
-layout (set = 0, binding = 1) uniform sampler2DArray physPgTex[VT_COUNT];
+#include <%s> //irr/builtin/glsl/virtual_texturing/descriptors.glsl/...
 layout (set = 0, binding = 2, std430) readonly restrict buffer LUT
 {
     uint lut[VT_COUNT];
@@ -90,7 +89,8 @@ float getVTexSzRcp(in uint _formatID)
     return precomputed.vtex_sz_rcp[_formatID];
 }
 
-#include <irr/builtin/glsl/virtual_texturing/functions.glsl/6/6/7/8/pageTable/physPgTex/getPgTabSzLog2/getPhysPgTexSzRcp/getVTexSzRcp/getPhysicalIDForLayer>
+//irr/builtin/glsl/virtual_texturing/functions.glsl/...
+#include <%s>
 )";
 constexpr const char* GLSL_BSDF_COS_EVAL_OVERRIDE =
 R"(
@@ -296,17 +296,23 @@ constexpr uint32_t texturesOfInterest[TEX_OF_INTEREST_CNT]{
     asset::CMTLPipelineMetadata::EMP_BUMP
 };
 
-core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(const asset::ICPUSpecializedShader* _fs)
+core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(const asset::ICPUSpecializedShader* _fs, const asset::ICPUVirtualTexture* _vt)
 {
     const asset::ICPUShader* unspec = _fs->getUnspecialized();
     assert(unspec->containsGLSL());
 
     std::string glsl = reinterpret_cast<const char*>( unspec->getSPVorGLSL()->getPointer() );
     size_t firstNewlineAfterVersion = glsl.find("\n",glsl.find("#version "));
-    glsl.insert(firstNewlineAfterVersion, "\n#include <irr/builtin/glsl/virtual_texturing/extensions.glsl>\n");
+    glsl.insert(firstNewlineAfterVersion, "\n#include <"+_vt->getGLSLExtensionsIncludePath()+">\n");
     glsl.insert(glsl.find("#ifndef _IRR_FRAG_PUSH_CONSTANTS_DEFINED_"), GLSL_PUSH_CONSTANTS_OVERRIDE);
-    glsl.insert(glsl.find("#if !defined(_IRR_FRAG_SET3_BINDINGS_DEFINED_)"), GLSL_VT_TEXTURES);
-    glsl.insert(glsl.find("#ifndef _IRR_BSDF_COS_EVAL_DEFINED_"), GLSL_VT_FUNCTIONS);
+    std::string str = GLSL_VT_TEXTURES;
+    str.resize(str.size()+500u, ' ');
+    sprintf(str.data(), GLSL_VT_TEXTURES, _vt->getGLSLDescriptorsIncludePath(0u, 0u, 1u, 2u, 3u).c_str());
+    glsl.insert(glsl.find("#if !defined(_IRR_FRAG_SET3_BINDINGS_DEFINED_)"), str.c_str());
+    str = GLSL_VT_FUNCTIONS;
+    str.resize(str.size()+500u, ' ');
+    sprintf(str.data(), GLSL_VT_FUNCTIONS, _vt->getGLSLFunctionsIncludePath("getPgTabSzLog2", "getPhysPgTexSzRcp", "getVTexSzRcp", "getPhysicalIDForLayer").c_str());
+    glsl.insert(glsl.find("#ifndef _IRR_BSDF_COS_EVAL_DEFINED_"), str.c_str());
     glsl.insert(glsl.find("#ifndef _IRR_BSDF_COS_EVAL_DEFINED_"), GLSL_BSDF_COS_EVAL_OVERRIDE);
     glsl.insert(glsl.find("#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_"), GLSL_COMPUTE_LIGHTING_OVERRIDE);
     glsl.insert(glsl.find("#ifndef _IRR_FRAG_MAIN_DEFINED_"), GLSL_FS_MAIN_OVERRIDE);
@@ -688,7 +694,7 @@ int main()
             if (found != modifiedShaders.end())
                 newfs = found->second;
             else {
-                newfs = createModifiedFragShader(fs);
+                newfs = createModifiedFragShader(fs,vt.get());
                 modifiedShaders.insert({core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs),newfs});
             }
             newPipeline->setShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, newfs.get());

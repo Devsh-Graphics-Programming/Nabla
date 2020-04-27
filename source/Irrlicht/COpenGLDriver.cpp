@@ -1330,6 +1330,11 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
         std::string glsl = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
         asset::ICPUShader::insertGLSLExtensionsDefines(glsl, getSupportedGLSLExtensions().get());
         auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, "????");
+        //{
+        //    auto fl = fopen("shader.glsl", "w");
+        //    fwrite(reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()), 1, glslShader_woIncludes->getSPVorGLSL()->getSize(), fl);
+        //    fclose(fl);
+        //}
         core::smart_refctd_ptr<asset::ICPUBuffer> spvCode = GLSLCompiler->compileSPIRVFromGLSL(
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,
@@ -1392,10 +1397,6 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
             memcpy(spvCode->getPointer(), spv.data(), spv.size()*4ull);
         }
 #endif //FIX_AMD_DRIVER_BUG
-
-        //auto fl = fopen("shader.glsl","w");
-        //fwrite(reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()), 1, glslShader_woIncludes->getSPVorGLSL()->getSize(), fl);
-        //fclose(fl);
         if (!spvCode)
             return nullptr;
 

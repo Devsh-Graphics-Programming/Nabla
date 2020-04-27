@@ -24,6 +24,51 @@ private:
 
 		return args;
 	}
+	static std::string getDescriptors(const std::string& _path)
+	{
+		auto args = parseArgumentsFromPath(_path.substr(_path.find_first_of('/') + 1, _path.npos));
+		constexpr uint32_t
+			set_ix		= 0u,
+			pgt_bnd_ix	= 1u,
+			f_bnd_ix	= 2u,
+			i_bnd_ix	= 3u,
+			u_bnd_ix	= 4u,
+			f_cnt_ix	= 5u,
+			i_cnt_ix	= 6u,
+			u_cnt_ix	= 7u;
+
+		return 
+"\n#ifndef _IRR_VT_DESCRIPTOR_SET"
+"\n#define _IRR_VT_DESCRIPTOR_SET " + args[set_ix] +
+"\n#endif" +
+"\n#ifndef _IRR_VT_PAGE_TABLE_BINDING"
+"\n#define _IRR_VT_PAGE_TABLE_BINDING " + args[pgt_bnd_ix] +
+"\n#endif" +
+"\n#ifndef _IRR_VT_FLOAT_VIEWS"
+"\n#define _IRR_VT_FLOAT_VIEWS_BINDING " + args[f_bnd_ix] +
+"\n#define _IRR_VT_FLOAT_VIEWS_COUNT " + args[f_cnt_ix] +
+"\n#endif" +
+"\n#ifndef _IRR_VT_INT_VIEWS"
+"\n#define _IRR_VT_INT_VIEWS_BINDING " + args[i_bnd_ix] +
+"\n#define _IRR_VT_INT_VIEWS_COUNT " + args[i_cnt_ix] +
+"\n#endif" +
+"\n#ifndef _IRR_VT_UINT_VIEWS"
+"\n#define _IRR_VT_UINT_VIEWS_BINDING " + args[u_bnd_ix] +
+"\n#define _IRR_VT_UINT_VIEWS_COUNT " + args[u_cnt_ix] +
+"\n#endif" +
+R"(
+layout(set=_IRR_VT_DESCRIPTOR_SET, binding=_IRR_VT_PAGE_TABLE_BINDING) uniform usampler2DArray pageTable;
+#if _IRR_VT_FLOAT_VIEWS_COUNT
+layout(set=_IRR_VT_DESCRIPTOR_SET, binding=_IRR_VT_FLOAT_VIEWS_BINDING) uniform sampler2DArray physicalTileStorageFormatView[_IRR_VT_FLOAT_VIEWS_COUNT];
+#endif
+#if _IRR_VT_INT_VIEWS_COUNT
+layout(set=_IRR_VT_DESCRIPTOR_SET, binding=_IRR_VT_INT_VIEWS_BINDING) uniform isampler2DArray iphysicalTileStorageFormatView[_IRR_VT_INT_VIEWS_COUNT];
+#endif
+#if _IRR_VT_UINT_VIEWS_COUNT
+layout(set=_IRR_VT_DESCRIPTOR_SET, binding=_IRR_VT_UINT_VIEWS_BINDING) uniform usampler2DArray uphysicalTileStorageFormatView[_IRR_VT_UINT_VIEWS_COUNT];
+#endif
+)";
+	}
 	static std::string getExtensions(const std::string&)
 	{
 		return R"(
@@ -48,26 +93,112 @@ private:
     static std::string getVTfunctions(const std::string& _path)
     {
 		auto args = parseArgumentsFromPath(_path.substr(_path.find_first_of('/')+1, _path.npos));
-		if (args.size()<10u)
+		if (args.size()<8u)
 			return {};
 
+		constexpr uint32_t
+			ix_pg_sz_log2 = 0u,
+			ix_tile_padding = 1u,
+			ix_get_pgtab_sz_log2_name = 2u,
+			ix_get_phys_pg_tex_sz_rcp_name = 3u,
+			ix_get_vtex_sz_rcp_name = 4u,
+			ix_get_layer2pid_name = 5u;
+		auto get_ix_addr_xmask_i = [&] (uint32_t i) { return ix_get_layer2pid_name + 2u*i + 1u; };
+		auto get_ix_addr_ymask_i = [&] (uint32_t i) { return ix_get_layer2pid_name + 2u*i + 2u; };
+		auto get_storage_cnt = [&] () -> uint32_t { return (args.size() - ix_get_layer2pid_name - 1u)/2u; };
+
+		const uint32_t pg_sz_log2 = std::atoi(args[ix_pg_sz_log2].c_str());
+		const uint32_t tile_padding = std::atoi(args[ix_tile_padding].c_str());
+
+		ICPUVirtualTexture::SMiptailPacker::rect tilePacking[ICPUVirtualTexture::MAX_PHYSICAL_PAGE_SIZE_LOG2];
+		//this could be cached..
+		ICPUVirtualTexture::SMiptailPacker::computeMiptailOffsets(tilePacking, pg_sz_log2, tile_padding);
+
+		auto tilePackingOffsetsStr = [&] {
+			std::string offsets;
+			for (uint32_t i = 0u; i < pg_sz_log2; ++i)
+				offsets += "vec2(" + std::to_string(tilePacking[i].x) + "," + std::to_string(tilePacking[i].y) + ")" + (i == (pg_sz_log2 - 1u) ? "" : ",");
+			return offsets;
+		};
+
 		using namespace std::string_literals;
-        std::string s = "#include <irr/builtin/glsl/texture_packer/utils.glsl";
-		for (uint32_t i = 0u; i < 4u; ++i)
-			s += "/" + args[i];
-        s += ">";
+		std::string s;// = "\n"
+		s += "\nconst uint addr_x_mask[] = uint[" + std::to_string(get_storage_cnt()) + "] (";
+		for (uint32_t i = 0u; i < get_storage_cnt(); ++i)
+		{
+			s += args[get_ix_addr_xmask_i(i)] + ((i==(get_storage_cnt()-1u)) ? "" : ", ");
+		}
+		s += ");";
+		s += "\nconst uint addr_y_mask[] = uint[" + std::to_string(get_storage_cnt()) + "] (";
+		for (uint32_t i = 0u; i < get_storage_cnt(); ++i)
+		{
+			s += args[get_ix_addr_ymask_i(i)] + ((i==(get_storage_cnt()-1u)) ? "" : ", ");
+		}
+		s += ");";
+		s += "\nconst uint addr_y_shift[] = uint[" + std::to_string(get_storage_cnt()) + "] (";
+		for (uint32_t i = 0u; i < get_storage_cnt(); ++i)
+		{
+			uint32_t xbits = std::atoi(args[get_ix_addr_xmask_i(i)].c_str());
+			xbits = core::findMSB(xbits)+1;
+			s += std::to_string(xbits) + ((i==(get_storage_cnt()-1u)) ? "" : ", ");
+		}
+		s += ");";
+		s += "\nconst uint addr_layer_shift[] = uint[" + std::to_string(get_storage_cnt()) + "] (";
+		for (uint32_t i = 0u; i < get_storage_cnt(); ++i)
+		{
+			uint32_t xbits = std::atoi(args[get_ix_addr_xmask_i(i)].c_str());
+			xbits = core::findMSB(xbits)+1;
+			uint32_t ybits = std::atoi(args[get_ix_addr_ymask_i(i)].c_str());
+			ybits = core::findMSB(ybits)+1;
+			s += std::to_string(xbits+ybits) + ((i==(get_storage_cnt()-1u)) ? "" : ", ");
+		}
+		s += ");";
+		s += "\n\n#define PAGE_SZ " + std::to_string(1u<<pg_sz_log2) + "u" +
+			"\n#define PAGE_SZ_LOG2 " + args[ix_pg_sz_log2] + "u" +
+			"\n#define TILE_PADDING " + args[ix_tile_padding] + "u" +
+			"\n#define PADDED_TILE_SIZE uint(PAGE_SZ+2*TILE_PADDING)" +
+			"\n\nconst vec2 packingOffsets[] = vec2[PAGE_SZ_LOG2+1]( vec2(0.0,0.0)," + tilePackingOffsetsStr() + ");";
+		s+=
+R"(
+#define irr_glsl_STextureData_WRAP_REPEAT 0u
+#define irr_glsl_STextureData_WRAP_CLAMP 1u
+#define irr_glsl_STextureData_WRAP_MIRROR 2u
+
+vec3 irr_glsl_unpackPageID(in uint pageID, in uint formatID)
+{
+	// this is optimal, don't touch
+	uvec2 pageXY = uvec2(pageID,pageID>>addr_y_shift[formatID])&uvec2(addr_x_mask[formatID],addr_y_mask[formatID]);
+	return vec3(vec2(pageXY),float(pageID>>addr_layer_shift[formatID]));
+}
+uvec2 irr_glsl_unpackWrapModes(in uvec2 texData)
+{
+    return (texData>>uvec2(28u,30u)) & uvec2(0x03u);
+}
+uint irr_glsl_unpackMaxMipInVT(in uvec2 texData)
+{
+    return (texData.y>>24)&0x0fu;
+}
+vec3 irr_glsl_unpackVirtualUV(in uvec2 texData)
+{
+	// assert that PAGE_SZ_LOG2<8 , or change the line to uvec3(texData.yy<<uvec2(PAGE_SZ_LOG2,PAGE_SZ_LOG2-8u),texData.y>>16u)
+    uvec3 unnormCoords = uvec3(texData.y<<PAGE_SZ_LOG2,texData.yy>>uvec2(8u-PAGE_SZ_LOG2,16u))&uvec3(uvec2(0xffu)<<PAGE_SZ_LOG2,0xffu);
+    return vec3(unnormCoords);
+}
+vec2 irr_glsl_unpackSize(in uvec2 texData)
+{
+	return vec2(texData.x&0xffffu,texData.x>>16u);
+}
+)";
 		s += //those are supposed to be used by VT fucntions only (hence extra VT_ pefix)
-			"\n#define irr_glsl_VT_pgtabName "s + args[4] +
-			"\n#define irr_glsl_VT_physPgTexName " + args[5] +
-			"\n#define irr_glsl_VT_getPgTabSzLog2 " + args[6] +
-			"\n#define irr_glsl_VT_getPhysPgTexSzRcp " + args[7] +
-			"\n#define irr_glsl_VT_getVTexSzRcp " + args[8] +
-			"\n#define irr_glsl_VT_layer2pid " + args[9]
+			"\n#define irr_glsl_VT_getPgTabSzLog2 " + args[ix_get_pgtab_sz_log2_name] +
+			"\n#define irr_glsl_VT_getPhysPgTexSzRcp " + args[ix_get_phys_pg_tex_sz_rcp_name] +
+			"\n#define irr_glsl_VT_getVTexSzRcp " + args[ix_get_vtex_sz_rcp_name] +
+			"\n#define irr_glsl_VT_layer2pid " + args[ix_get_layer2pid_name]
 			;
         s += R"(
 vec3 irr_glsl_vTextureGrad_helper(in uint formatID, in vec3 virtualUV, in int clippedLoD, in int levelInTail)
 {
-    uvec2 pageID = textureLod(irr_glsl_VT_pgtabName,virtualUV,clippedLoD).xy;
+    uvec2 pageID = textureLod(pageTable,virtualUV,clippedLoD).xy;
 
 	const uint pageTableSizeLog2 = irr_glsl_VT_getPgTabSzLog2(formatID);
     const float phys_pg_tex_sz_rcp = irr_glsl_VT_getPhysPgTexSzRcp(formatID);
@@ -83,7 +214,7 @@ vec3 irr_glsl_vTextureGrad_helper(in uint formatID, in vec3 virtualUV, in int cl
 	tileCoordinate += vec2(TILE_PADDING,TILE_PADDING);
 	tileCoordinate *= phys_pg_tex_sz_rcp;
 
-	vec3 physicalUV = irr_glsl_unpackPageID(levelInTail!=0 ? pageID.y:pageID.x);
+	vec3 physicalUV = irr_glsl_unpackPageID(levelInTail!=0 ? pageID.y:pageID.x, formatID);
 	physicalUV.xy *= vec2(PAGE_SZ+2*TILE_PADDING)*phys_pg_tex_sz_rcp;
 
 	// add the in-tile coordinate
@@ -157,9 +288,9 @@ vec4 irr_glsl_vTextureGrad(in uint formatID, in vec3 virtualUV, in mat2 dOrigina
 	vec4 hiMip_retval;
     vec4 loMip;
 #ifdef IRR_GL_EXT_nonuniform_qualifier
-    hiMip_retval = textureGrad(irr_glsl_VT_physPgTexName[nonuniformEXT(formatID)],hiPhysCoord,dOriginalScaledUV[0],dOriginalScaledUV[1]);
+    hiMip_retval = textureGrad(physicalTileStorageFormatView[nonuniformEXT(formatID)],hiPhysCoord,dOriginalScaledUV[0],dOriginalScaledUV[1]);
     if (haveToDoTrilinear)
-        loMip = textureGrad(irr_glsl_VT_physPgTexName[nonuniformEXT(formatID)],loPhysCoord,dOriginalScaledUV[0],dOriginalScaledUV[1]);
+        loMip = textureGrad(physicalTileStorageFormatView[nonuniformEXT(formatID)],loPhysCoord,dOriginalScaledUV[0],dOriginalScaledUV[1]);
 #else
     uint64_t outstandingSampleMask = ballotARB(true);
     // maybe unroll a few times manually
@@ -171,9 +302,9 @@ vec4 irr_glsl_vTextureGrad(in uint formatID, in vec3 virtualUV, in mat2 dOrigina
         outstandingSampleMask ^= ballotARB(canSample);
         if (canSample)
         {
-            hiMip_retval = textureGrad(irr_glsl_VT_physPgTexName[subgroupFormatID],hiPhysCoord,dOriginalScaledUV[0],dOriginalScaledUV[1]);
+            hiMip_retval = textureGrad(physicalTileStorageFormatView[subgroupFormatID],hiPhysCoord,dOriginalScaledUV[0],dOriginalScaledUV[1]);
             if (haveToDoTrilinear)
-                loMip = textureGrad(irr_glsl_VT_physPgTexName[subgroupFormatID],loPhysCoord,dOriginalScaledUV[0],dOriginalScaledUV[1]);
+                loMip = textureGrad(physicalTileStorageFormatView[subgroupFormatID],loPhysCoord,dOriginalScaledUV[0],dOriginalScaledUV[1]);
         }
     }
 #endif
@@ -219,13 +350,16 @@ protected:
 	core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
 	{
 		const std::string id = "[a-zA-Z_][a-zA-Z0-9_]*";
+		const std::string num = "[0-9]+";
 		return {
-			//functions.glsl/addr_x_bits/addr_y_bits/pg_sz_log2/tile_padding/pgtab_tex_name/phys_pg_tex_name/get_pgtab_sz_log2_name/get_phys_pg_tex_sz_rcp_name/get_vtex_sz_rcp_name/get_layer2pid
+			//functions.glsl/pg_sz_log2/tile_padding/get_pgtab_sz_log2_name/get_phys_pg_tex_sz_rcp_name/get_vtex_sz_rcp_name/get_layer2pid/(addr_x_bits/addr_y_bits)...
 			{ 
-				std::regex{"functions\\.glsl/[0-9]+/[0-9]+/[0-9]+/[0-9]+/"+id+"/"+id+"/"+id+"/"+id+"/"+id+"/"+id},
+				std::regex{"functions\\.glsl/"+num+"/"+num+"/"+id+"/"+id+"/"+id+"/"+id+"(/"+num+"/"+num+")+"},
 				&getVTfunctions
 			},
-			{std::regex{"extensions\\.glsl"}, &getExtensions}
+			{std::regex{"extensions\\.glsl"}, &getExtensions},
+			//descriptors.glsl/set/pgt_bnd/f_bnd/i_bnd/u_bnd/f_cnt/i_cnt/u_cnt
+			{std::regex{"descriptors\\.glsl/"+num+"/"+num+"/"+num+"/"+num+"/"+num+"/"+num+"/"+num+"/"+num}, &getDescriptors}
 		};
 	}
 };
