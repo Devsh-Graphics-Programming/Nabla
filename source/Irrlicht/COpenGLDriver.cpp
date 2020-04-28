@@ -1039,7 +1039,7 @@ bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
     {
         const ocl::COpenCLHandler::SOpenCLPlatformInfo& platform = ocl::COpenCLHandler::getPlatformInfo(i);
 
-        for (size_t j=0; j<platform.deviceCount; j++)
+        for (size_t j=0; j<platform.devices.size(); j++)
         {
             if (platform.devices[j]==clDevice)
             {
@@ -1720,7 +1720,7 @@ void COpenGLDriver::copyBufferToImage(IGPUBuffer* srcBuffer, IGPUImage* dstImage
 														dstImageGL->getOpenGLSizedFormat(),imageSize,reinterpret_cast<const void*>(it->bufferOffset));
 					break;
 				case IGPUImage::ET_2D:
-					imageSize *= (it->bufferImageHeight ? it->bufferImageHeight:it->imageExtent.height)/blockDims[1];
+					imageSize *= (it->bufferImageHeight ? it->bufferImageHeight:it->imageExtent.height);
 					imageSize *= it->imageSubresource.layerCount;
 					extGlCompressedTextureSubImage3D(	dst,GL_TEXTURE_2D_ARRAY,it->imageSubresource.mipLevel,
 														it->imageOffset.x,it->imageOffset.y,it->imageSubresource.baseArrayLayer,
@@ -1728,8 +1728,8 @@ void COpenGLDriver::copyBufferToImage(IGPUBuffer* srcBuffer, IGPUImage* dstImage
 														dstImageGL->getOpenGLSizedFormat(),imageSize,reinterpret_cast<const void*>(it->bufferOffset));
 					break;
 				case IGPUImage::ET_3D:
-					imageSize *= (it->bufferImageHeight ? it->bufferImageHeight:it->imageExtent.height)/blockDims[1];
-					imageSize *= it->imageExtent.depth/blockDims[2];
+					imageSize *= (it->bufferImageHeight ? it->bufferImageHeight:it->imageExtent.height);
+					imageSize *= it->imageExtent.depth;
 					extGlCompressedTextureSubImage3D(	dst,GL_TEXTURE_3D,it->imageSubresource.mipLevel,
 														it->imageOffset.x,it->imageOffset.y,it->imageOffset.z,
 														it->imageExtent.width,it->imageExtent.height,it->imageExtent.depth,

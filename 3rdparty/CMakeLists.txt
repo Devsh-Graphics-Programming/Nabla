@@ -16,6 +16,8 @@ include(../cmake/common.cmake)
 
 
 # mandatory
+update_git_submodule(./SDL2)
+update_git_submodule(./volk)
 update_git_submodule(./SPIRV-Headers)
 update_git_submodule(./SPIRV-Tools)
 update_git_submodule(./glslang)
@@ -37,8 +39,60 @@ update_git_submodule(./glm)
 update_git_submodule(./freetype2)
 update_git_submodule(./portable-file-dialogs)
 
-
+# openssl
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
+
+# volk
+if (Vulkan_FOUND)
+	set(VOLK_PULL_IN_VULKAN ON)
+	add_subdirectory(volk volk EXCLUDE_FROM_ALL)
+endif(Vulkan_FOUND)
+
+# SDL2
+set(SDL_STATIC_ENABLED_BY_DEFAULT ON)
+set(SDL_SHARED_ENABLED_BY_DEFAULT OFF)
+set(SDL_THREADS_ENABLED_BY_DEFAULT OFF)
+set(SDL_LOADSO_ENABLED_BY_DEFAULT ON)
+# should I enable this
+set(SDL_DLOPEN_ENABLED_BY_DEFAULT OFF)
+set(SDL_SUBSYSTEMS "Audio Video Events Joystick Haptic Power Loadso CPUinfo Filesystem Sensor")
+set(SDL_STATIC_PIC ON)
+set(SDL_ATOMIC OFF)
+set(SDL_FILESYSTEM OFF)
+set(SDL_TIMERS OFF)
+# oh why doesn't SDL2 prefix these options?
+set(MMX OFF)
+set(3DNOW OFF)
+set(VIDEO_DIRECTFB OFF)
+set(VIDEO_OPENGL ON)
+set(PTHREADS OFF)
+set(RENDER_D3D OFF)
+set(RENDER_METAL OFF)
+set(VIDEO_VIVANTE OFF)
+# Metal?
+set(VIDEO_KMSDRM OFF)
+set(VIDEO_OFFSCREEN ON)
+set(VIDEO_X11_XCURSOR ON)
+set(VIDEO_X11_XINERAMA OFF)
+set(VIDEO_X11_XINPUT ON)
+set(VIDEO_X11_XRANDR ON)
+set(VIDEO_X11_XSCRNSAVER ON)
+set(VIDEO_X11_XSHAPE ON)
+set(VIDEO_X11_XVM OFF)
+# make sure as much gets shared as possible
+set(OSS OFF)
+set(ALSA_SHARED ON)
+set(JACK_SHARED ON)
+set(ESD_SHARED ON)
+set(PULSEAUDIO_SHARED ON)
+set(ARTS_SHARED ON)
+set(NAS_SHARED ON)
+set(SNDIO_SHARED ON)
+set(FUSIONSOUND_SHARED ON)
+set(LIBSAMPLERATE_SHARED ON)
+set(WAYLAND_SHARED ON)
+set(X11_SHARED ON)
+add_subdirectory(SDL2 SDL2 EXCLUDE_FROM_ALL)
 
 # zlib (target is zlibstatic)
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})

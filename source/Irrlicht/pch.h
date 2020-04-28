@@ -80,7 +80,6 @@
 #include "CFPSCounter.h"
 #include "CIrrDeviceConsole.h"
 #include "CIrrDeviceLinux.h"
-#include "CIrrDeviceSDL.h"
 #include "CIrrDeviceStub.h"
 #include "CIrrDeviceWin32.h"
 #include "CLimitReadFile.h"

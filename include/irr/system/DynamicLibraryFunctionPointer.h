@@ -30,8 +30,12 @@ class DynamicLibraryFunctionPointer
 			p = nullptr;
 		}
 
+
 		inline explicit operator bool() const { return p; }
 		inline bool operator!() const { return !p; }
+
+
+		inline FuncT* operator&() const { return p; }
 	
 
 		template<typename... T>

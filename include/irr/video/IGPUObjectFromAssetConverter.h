@@ -434,6 +434,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUImage** const _begin, asset
 		auto count = regions.size();
 		if (count)
 		{
+            // TODO: @Criss why isn't this buffer caches and why are we not going through recursive asset creation and getting ICPUBuffer equivalents? (we can always discard/not cache the GPU Buffers created only for image data upload)
 			auto tmpBuff = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuimg->getBuffer()->getSize(),cpuimg->getBuffer()->getPointer());
 			m_driver->copyBufferToImage(tmpBuff.get(),gpuimg.get(),count,regions.begin());
             if (!integerFmt)

@@ -205,9 +205,7 @@ void IAssetManager::insertBuiltinAssets()
         #version 430 core
         const vec2 pos[3] = vec2[3](vec2(-1.0, 1.0),vec2(-1.0,-3.0),vec2( 3.0, 1.0));
         const vec2 tc[3] = vec2[3](vec2( 0.0, 0.0),vec2( 0.0, 2.0),vec2( 2.0, 0.0));
-
         layout(location = 0) out vec2 TexCoord;
-
         void main()
         {
             gl_Position = vec4(pos[gl_VertexIndex],0.0,1.0);
@@ -218,13 +216,9 @@ void IAssetManager::insertBuiltinAssets()
         // single texture lambertian shader
 		buildInShader(R"===(
         #version 430 core
-
-        layout(set = 0, binding = 0) uniform sampler2D albedo;
-
+        layout(set = 3, binding = 0) uniform sampler2D albedo;  // TODO find everything what has been using it so far
         layout(location = 0) in vec2 uv;
-
         layout(location = 0) out vec4 pixelColor;
-
         void main()
         {
             pixelColor = texture(albedo,uv);
@@ -236,17 +230,14 @@ void IAssetManager::insertBuiltinAssets()
         #version 430 core
         layout(location = 0) in vec3 vPos;
         layout(location = 2) in vec2 vTexCoord;
-
         #include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
         #include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
-
         layout (set = 1, binding = 0, row_major, std140) uniform UBO 
         {
             irr_glsl_SBasicViewParameters params;
         } CamData;
         
         layout(location = 0) out vec2 uv;
-
         void main()
         {
             gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.params.MVP), vPos);
@@ -256,11 +247,8 @@ void IAssetManager::insertBuiltinAssets()
                                                         "irr/builtin/materials/lambertian/singletexture/specializedshader" });
         buildInShader(R"===(
         #version 430 core
-
         layout(location = 0) in vec2 uv;
-
         layout(location = 0) out vec4 pixelColor;
-
         void main()
         {
             pixelColor = vec4(uv.x, uv.y, 1.0, 1.0);
@@ -272,17 +260,13 @@ void IAssetManager::insertBuiltinAssets()
         #version 430 core
         layout(location = 0) in vec3 vPos;
         layout(location = 1) in vec3 vCol;
-
         #include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
         #include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
-
         layout (set = 1, binding = 0, row_major, std140) uniform UBO 
         {
             irr_glsl_SBasicViewParameters params;
         } CamData;
-
         layout(location = 0) out vec3 color;
-
         void main()
         {
             gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.params.MVP), vPos);
@@ -295,17 +279,13 @@ void IAssetManager::insertBuiltinAssets()
         #version 430 core
         layout(location = 0) in vec3 vPos; 
         layout(location = 3) in vec3 vNormal;
-
         #include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
         #include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
-
         layout (set = 1, binding = 0, row_major, std140) uniform UBO 
         {
             irr_glsl_SBasicViewParameters params;
         } CamData;
-
         layout(location = 0) out vec3 color;
-
         void main()
         {
             gl_Position = gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.params.MVP), vPos);
@@ -315,11 +295,8 @@ void IAssetManager::insertBuiltinAssets()
 
         buildInShader(R"===(
         #version 430 core
-
         layout(location = 0) in vec3 color; 
-
         layout(location = 0) out vec4 pixelColor;
-
         void main()
         {
             pixelColor = vec4(color,1.0);
@@ -327,15 +304,37 @@ void IAssetManager::insertBuiltinAssets()
         )===", asset::ISpecializedShader::ESS_FRAGMENT, { "irr/builtin/materials/debug/normal_debug_shader/specializedshader",
                                                           "irr/builtin/materials/debug/vertex_color_debug_shader/specializedshader" });
 
-		constexpr uint32_t bindingCount = 1u;
-		asset::ICPUDescriptorSetLayout::SBinding pBindings[bindingCount] = {0u,asset::EDT_COMBINED_IMAGE_SAMPLER,1u,asset::ISpecializedShader::ESS_FRAGMENT,nullptr};
-		auto dsLayout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(pBindings,pBindings+bindingCount);
-		addBuiltInToCaches(dsLayout,"irr/builtin/materials/lambertian/singletexture/descriptorsetlayout/2");
-		//
+        /*
+            SBinding for UBO - basic view parameters.
+        */
+
+        asset::ICPUDescriptorSetLayout::SBinding binding1;
+        binding1.count = 1u;
+        binding1.binding = 0u;
+        binding1.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
+        binding1.type = asset::EDT_UNIFORM_BUFFER;
+
+        auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding1, &binding1 + 1);
+        addBuiltInToCaches(ds1Layout, "irr/builtin/materials/lambertian/singletexture/descriptorsetlayout/1");
+
+        /*
+            SBinding for the texture (sampler).
+        */
+
+        asset::ICPUDescriptorSetLayout::SBinding binding3;
+        binding3.binding = 0u;
+        binding3.type = EDT_COMBINED_IMAGE_SAMPLER;
+        binding3.count = 1u;
+        binding3.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_FRAGMENT);
+        binding3.samplers = nullptr;
+
+        auto ds3Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding3, &binding3 + 1);
+        addBuiltInToCaches(ds3Layout, "irr/builtin/materials/lambertian/singletexture/descriptorsetlayout/3"); // TODO find everything what has been using it so far
+
 		constexpr uint32_t pcCount = 1u;
 		asset::SPushConstantRange pcRanges[pcCount] = {asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
-		auto pLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(pcRanges,pcRanges+pcCount,nullptr,nullptr,core::smart_refctd_ptr(dsLayout),nullptr);
-		addBuiltInToCaches(pLayout,"irr/builtin/materials/lambertian/singletexture/pipelinelayout");
+		auto pLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(pcRanges,pcRanges+pcCount,nullptr, core::smart_refctd_ptr(ds1Layout),nullptr, core::smart_refctd_ptr(ds3Layout));
+		addBuiltInToCaches(pLayout,"irr/builtin/materials/lambertian/singletexture/pipelinelayout"); // TODO find everything what has been using it so far
 	}
 
 	// samplers

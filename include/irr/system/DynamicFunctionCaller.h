@@ -30,7 +30,7 @@ class DynamicFunctionCallerBase : public core::Unmovable
 
 		DynamicFunctionCallerBase& operator=(DynamicFunctionCallerBase&& other)
 		{
-			std::swap(loader, other.loader);
+			std::swap<FuncPtrLoaderT>(loader, other.loader);
 			return *this;
 		}
 };

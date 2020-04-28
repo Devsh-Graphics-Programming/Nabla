@@ -21,6 +21,14 @@ set(OpenGL_GL_PREFERENCE LEGACY)
 
 project(Irrlicht LANGUAGES CXX C)
 
+
+find_package(Vulkan)
+if (Vulkan_FOUND)
+	message(STATUS "Building with Vulkan driver")
+else()
+	message(STATUS "Vulkan driver is not enabled")
+endif()
+
 option(IRR_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
 
 # CUDA test
