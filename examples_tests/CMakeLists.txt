@@ -15,7 +15,7 @@
 add_subdirectory(01.HelloWorld EXCLUDE_FROM_ALL)
 add_subdirectory(02.ComputeShader EXCLUDE_FROM_ALL)
 add_subdirectory(03.GPU_Mesh EXCLUDE_FROM_ALL)
-// free space
+# free space
 add_subdirectory(05.IrrlichtBaWTutorialExample EXCLUDE_FROM_ALL)
 add_subdirectory(06.MeshLoaders EXCLUDE_FROM_ALL)
 #add_subdirectory(07.HardwareSkinning EXCLUDE_FROM_ALL)
