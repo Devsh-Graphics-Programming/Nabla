@@ -67,9 +67,10 @@ int main()
         }
     }
 
+    device->getFileSystem()->addFileArchive("../../media/sponza.zip");
 
     asset::IAssetLoader::SAssetLoadParams lp;
-    auto meshes_bundle = am->getAsset("../../media/sponza/sponza.obj", lp);
+    auto meshes_bundle = am->getAsset("sponza.obj", lp);
     assert(!meshes_bundle.isEmpty());
     auto mesh = meshes_bundle.getContents().first[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
@@ -138,8 +139,8 @@ int main()
 
 	camera->setPosition(core::vector3df(-4,0,0));
 	camera->setTarget(core::vector3df(0,0,0));
-	camera->setNearValue(0.01f);
-	camera->setFarValue(1000.0f);
+	camera->setNearValue(1.f);
+	camera->setFarValue(5000.0f);
 
     smgr->setActiveCamera(camera);
 

@@ -276,7 +276,6 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	{
 		png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
         _IRR_DELETE_ARRAY(RowPointers, Height);
-		image->drop();
         return {};
 	}
 
@@ -286,7 +285,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	png_read_end(png_ptr, nullptr);
 	if (lumaAlphaType)
 	{
-		assert(image->getCreationParameters().format==asset::EF_R8G8B8A8_SRGB);
+		assert(imgInfo.format==asset::EF_R8G8B8A8_SRGB);
 		for (uint32_t i=0u; i<Height; ++i)
 		for (uint32_t j=0u; j<Width;)
 		{
