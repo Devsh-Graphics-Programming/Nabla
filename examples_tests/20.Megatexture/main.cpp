@@ -14,7 +14,7 @@
 using namespace irr;
 using namespace core;
 
-constexpr const char* GLSL_VT_TEXTURES = //also turns off set3 bindings (textures) because they're not needed anymore as we're using VT
+constexpr const char* GLSL_VT_DESCRIPTORS = //also turns off set3 bindings (textures) because they're not needed anymore as we're using VT
 R"(
 #ifndef _NO_UV
 #define VT_COUNT 3
@@ -35,7 +35,8 @@ layout (set = 2, binding = 0, std430) readonly restrict buffer PrecomputedStuffU
 )";
 constexpr const char* GLSL_PUSH_CONSTANTS_OVERRIDE =
 R"(
-layout (push_constant) uniform Block {
+struct PCstruct
+{
     vec3 Ka;
     vec3 Kd;
     vec3 Ks;
@@ -50,8 +51,31 @@ layout (push_constant) uniform Block {
     float d;
     float Ni;
     uint extra; //flags copied from MTL metadata
+};
+layout (push_constant) uniform Block {
+    PCstruct params;
 } PC;
 #define _IRR_FRAG_PUSH_CONSTANTS_DEFINED_
+)";
+constexpr const char* GLSL_TEXTURE_SAMPLE_OVERRIDE =
+R"(
+
+mat2 dUV;//global
+
+vec4 irr_sample_Ka(in vec2 uv) { return irr_glsl_textureVT(PC.params.map_Ka_data, uv, dUV); }
+
+vec4 irr_sample_Kd(in vec2 uv) { return irr_glsl_textureVT(PC.params.map_Kd_data, uv, dUV); }
+
+vec4 irr_sample_Ks(in vec2 uv) { return irr_glsl_textureVT(PC.params.map_Ks_data, uv, dUV); }
+
+vec4 irr_sample_Ns(in vec2 uv) { return irr_glsl_textureVT(PC.params.map_Ns_data, uv, dUV); }
+
+vec4 irr_sample_d(in vec2 uv) { return irr_glsl_textureVT(PC.params.map_d_data, uv, dUV); }
+
+vec4 irr_sample_bump(in vec2 uv) { return irr_glsl_textureVT(PC.params.map_bump_data, uv, dUV); }
+
+#define _IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_
+
 )";
 constexpr const char* GLSL_VT_FUNCTIONS =
 R"(
@@ -77,142 +101,21 @@ float getVTexSzRcp(in uint _formatID)
 //irr/builtin/glsl/virtual_texturing/functions.glsl/...
 #include <%s>
 )";
-constexpr const char* GLSL_BSDF_COS_EVAL_OVERRIDE =
-R"(
-vec3 irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
-{
-    vec3 Kd;
-#ifndef _NO_UV
-    if ((PC.extra&(map_Kd_MASK)) == (map_Kd_MASK))
-        Kd = irr_glsl_textureVT(PC.map_Kd_data, UV, dUV).rgb;
-    else
-#endif
-        Kd = PC.Kd;
-
-    vec3 color = vec3(0.0);
-    vec3 Ks;
-    float Ns;
-
-#ifndef _NO_UV
-    if ((PC.extra&(map_Ks_MASK)) == (map_Ks_MASK))
-        Ks = irr_glsl_textureVT(PC.map_Ks_data, UV, dUV).rgb;
-    else
-#endif
-        Ks = PC.Ks;
-#ifndef _NO_UV
-    if ((PC.extra&(map_Ns_MASK)) == (map_Ns_MASK))
-        Ns = irr_glsl_textureVT(PC.map_Ns_data, UV, dUV).x;
-    else
-#endif
-        Ns = PC.Ns;
-
-    vec3 Ni = vec3(PC.Ni);
-
-    vec3 diff = irr_glsl_lambertian_cos_eval(params) * Kd * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotL)) * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotV));
-    diff *= irr_glsl_diffuseFresnelCorrectionFactor(Ni, Ni*Ni);
-    switch (PC.extra&ILLUM_MODEL_MASK)
-    {
-    case 0:
-        color = vec3(0.0);
-        break;
-    case 1:
-        color = diff;
-        break;
-    case 2:
-    case 3://2 + IBL
-    case 5://basically same as 3
-    case 8://basically same as 5
-    {
-        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, Ns, Ni);
-        color = (diff + spec);
-    }
-        break;
-    case 4:
-    case 6:
-    case 7:
-    case 9://basically same as 4
-    {
-        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, Ns, Ni);
-        color = spec;
-    }
-        break;
-    default:
-        break;
-    }
-
-    return color;
-}
-#define _IRR_BSDF_COS_EVAL_DEFINED_
-)";
-constexpr const char* GLSL_COMPUTE_LIGHTING_OVERRIDE =
-R"(
-vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in mat2 dUV)
-{
-    irr_glsl_ViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(vec3(0.0), ViewPos, Normal);
-
-#ifndef _NO_UV
-    if ((PC.extra&map_bump_MASK) == map_bump_MASK)
-    {
-        interaction.N = normalize(interaction.N);
-
-        float h = irr_glsl_textureVT(PC.map_bump_data, UV, dUV).x;
-
-        vec2 dHdScreen = vec2(dFdx(h), dFdy(h));
-        interaction.N = irr_glsl_perturbNormal_heightMap(interaction.N, interaction.V.dPosdScreen, dHdScreen);
-    }
-#endif
-    irr_glsl_BSDFIsotropicParams params = irr_glsl_calcBSDFIsotropicParams(interaction, -ViewPos);
-
-    vec3 Ka;
-    switch ((PC.extra&ILLUM_MODEL_MASK))
-    {
-    case 0:
-    {
-#ifndef _NO_UV
-    if ((PC.extra&(map_Kd_MASK)) == (map_Kd_MASK))
-        Ka = irr_glsl_textureVT(PC.map_Kd_data, UV, dUV).rgb;
-    else
-#endif
-        Ka = PC.Kd;
-    }
-    break;
-    default:
-#define Ia 0.1
-    {
-#ifndef _NO_UV
-    if ((PC.extra&(map_Ka_MASK)) == (map_Ka_MASK))
-        Ka = irr_glsl_textureVT(PC.map_Ka_data, UV, dUV).rgb;
-    else
-#endif
-        Ka = PC.Ka;
-    Ka *= Ia;
-    }
-#undef Ia
-    break;
-    }
-
-    out_interaction = params.interaction;
-#define Intensity 1000.0
-    return Intensity*params.invlenL2*irr_bsdf_cos_eval(params,dUV) + Ka;
-#undef Intensity
-}
-#define _IRR_COMPUTE_LIGHTING_DEFINED_
-)";
 
 constexpr const char* GLSL_FS_MAIN_OVERRIDE =
 R"(
 void main()
 {
-    mat2 dUV = mat2(dFdx(UV),dFdy(UV));
+    dUV = mat2(dFdx(UV),dFdy(UV));//writing to global var
 //#define COLOR_IS_DIFFUSE_TEX
 #ifndef COLOR_IS_DIFFUSE_TEX
     irr_glsl_ViewSurfaceInteraction interaction;
-    vec3 color = irr_computeLighting(interaction,dUV);
+    vec3 color = irr_computeLighting(interaction);
 
-    float d = PC.d;
+    float d = PC.params.d;
 
     //another illum model switch, required for illum=4,6,7,9 to compute alpha from fresnel (taken from opacity map or constant otherwise)
-    switch (PC.extra&ILLUM_MODEL_MASK)
+    switch (PC.params.extra&ILLUM_MODEL_MASK)
     {
     case 4:
     case 6:
@@ -220,14 +123,14 @@ void main()
     case 9:
     {
         float VdotN = dot(interaction.N, interaction.V.dir);
-        d = irr_glsl_fresnel_dielectric(vec3(PC.Ni), VdotN).x;
+        d = irr_glsl_fresnel_dielectric(vec3(PC.params.Ni), VdotN).x;
     }
         break;
     default:
 #ifndef _NO_UV
-        if ((PC.extra&(map_d_MASK)) == (map_d_MASK))
+        if ((PC.params.extra&(map_d_MASK)) == (map_d_MASK))
         {
-            d = irr_glsl_textureVT(PC.map_d_data, UV, dUV).r;
+            d = irr_sample_d(UV).r;
             color *= d;
         }
 #endif
@@ -237,11 +140,11 @@ void main()
     vec3 color = vec3(0.0);
     float d = 1.0;
 #ifndef _NO_UV
-    if ((PC.extra&(map_Kd_MASK)) == (map_Kd_MASK))
-        color = irr_glsl_textureVT(PC.map_Kd_data, UV, dUV).rgb;
+    if ((PC.params.extra&(map_Kd_MASK)) == (map_Kd_MASK))
+        color = irr_sample_Kd(UV).rgb;
     else
 #endif
-        color = PC.Kd;
+        color = PC.params.Kd;
 #endif//!COLOR_IS_DIFFUSE_TEX
     OutColor = vec4(color, d);
 }
@@ -316,16 +219,15 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
     size_t firstNewlineAfterVersion = glsl.find("\n",glsl.find("#version "));
     glsl.insert(firstNewlineAfterVersion, "\n#include <"+_vt->getGLSLExtensionsIncludePath()+">\n");
     glsl.insert(glsl.find("#ifndef _IRR_FRAG_PUSH_CONSTANTS_DEFINED_"), GLSL_PUSH_CONSTANTS_OVERRIDE);
-    std::string str = GLSL_VT_TEXTURES;
+    std::string str = GLSL_VT_DESCRIPTORS;
     str.resize(str.size()+500u, ' ');
-    sprintf(str.data(), GLSL_VT_TEXTURES, _vt->getGLSLDescriptorsIncludePath(VT_SET, PGTAB_BINDING, PHYSICAL_STORAGE_VIEWS_BINDING).c_str());
+    sprintf(str.data(), GLSL_VT_DESCRIPTORS, _vt->getGLSLDescriptorsIncludePath(VT_SET, PGTAB_BINDING, PHYSICAL_STORAGE_VIEWS_BINDING).c_str());
     glsl.insert(glsl.find("#if !defined(_IRR_FRAG_SET3_BINDINGS_DEFINED_)"), str.c_str());
     str = GLSL_VT_FUNCTIONS;
     str.resize(str.size()+500u, ' ');
     sprintf(str.data(), GLSL_VT_FUNCTIONS, _vt->getGLSLFunctionsIncludePath("getPgTabSzLog2", "getPhysPgTexSzRcp", "getVTexSzRcp", "getPhysicalIDForLayer").c_str());
-    glsl.insert(glsl.find("#ifndef _IRR_BSDF_COS_EVAL_DEFINED_"), str.c_str());
-    glsl.insert(glsl.find("#ifndef _IRR_BSDF_COS_EVAL_DEFINED_"), GLSL_BSDF_COS_EVAL_OVERRIDE);
-    glsl.insert(glsl.find("#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_"), GLSL_COMPUTE_LIGHTING_OVERRIDE);
+    glsl.insert(glsl.find("#if !defined(_IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_)"), str.c_str());
+    glsl.insert(glsl.find("#if !defined(_IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_)"), GLSL_TEXTURE_SAMPLE_OVERRIDE);
     glsl.insert(glsl.find("#ifndef _IRR_FRAG_MAIN_DEFINED_"), GLSL_FS_MAIN_OVERRIDE);
 
     auto* f = fopen("fs.glsl","w");

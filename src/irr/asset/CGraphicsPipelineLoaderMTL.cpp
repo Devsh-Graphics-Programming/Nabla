@@ -258,6 +258,27 @@ layout (set = 3, binding = 5) uniform sampler2D map_d;
 layout (set = 3, binding = 6) uniform sampler2D map_bump;
 #endif //_IRR_FRAG_SET3_BINDINGS_DEFINED_
 
+#if !defined(_IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_) && !defined(_NO_UV)
+#ifndef _IRR_Ka_SAMPLE_FUNCTION_DEFINED_
+vec4 irr_sample_Ka(in vec2 uv) { return texture(map_Ka, uv); }
+#endif
+#ifndef _IRR_Kd_SAMPLE_FUNCTION_DEFINED_
+vec4 irr_sample_Kd(in vec2 uv) { return texture(map_Kd, uv); }
+#endif
+#ifndef _IRR_Ks_SAMPLE_FUNCTION_DEFINED_
+vec4 irr_sample_Ks(in vec2 uv) { return texture(map_Ks, uv); }
+#endif
+#ifndef _IRR_Ns_SAMPLE_FUNCTION_DEFINED_
+vec4 irr_sample_Ns(in vec2 uv) { return texture(map_Ns, uv); }
+#endif
+#ifndef _IRR_d_SAMPLE_FUNCTION_DEFINED_
+vec4 irr_sample_d(in vec2 uv) { return texture(map_d, uv); }
+#endif
+#ifndef _IRR_bump_SAMPLE_FUNCTION_DEFINED_
+vec4 irr_sample_bump(in vec2 uv) { return texture(map_bump, uv); }
+#endif
+#endif //_IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_
+
 #include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/diffuse/fresnel_correction.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/diffuse/lambert.glsl>
@@ -276,7 +297,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
     vec3 Kd;
 #ifndef _NO_UV
     if ((PC.params.extra&(map_Kd_MASK)) == (map_Kd_MASK))
-        Kd = texture(map_Kd, UV).rgb;
+        Kd = irr_sample_Kd(UV).rgb;
     else
 #endif
         Kd = PC.params.Kd;
@@ -287,13 +308,13 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
 
 #ifndef _NO_UV
     if ((PC.params.extra&(map_Ks_MASK)) == (map_Ks_MASK))
-        Ks = texture(map_Ks, UV).rgb;
+        Ks = irr_sample_Ks(UV).rgb;
     else
 #endif
         Ks = PC.params.Ks;
 #ifndef _NO_UV
     if ((PC.params.extra&(map_Ns_MASK)) == (map_Ns_MASK))
-        Ns = texture(map_Ns, UV).x;
+        Ns = irr_sample_Ns(UV).x;
     else
 #endif
         Ns = PC.params.Ns;
@@ -351,7 +372,7 @@ vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction)
     {
         interaction.N = normalize(interaction.N);
 
-        float h = texture(map_bump, UV).x;
+        float h = irr_sample_bump(UV).x;
 
         vec2 dHdScreen = vec2(dFdx(h), dFdy(h));
         interaction.N = irr_glsl_perturbNormal_heightMap(interaction.N, interaction.V.dPosdScreen, dHdScreen);
@@ -366,7 +387,7 @@ vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction)
     {
 #ifndef _NO_UV
     if ((PC.params.extra&(map_Kd_MASK)) == (map_Kd_MASK))
-        Ka = texture(map_Kd, UV).rgb;
+        Ka = irr_sample_bump(UV).rgb;
     else
 #endif
         Ka = PC.params.Kd;
@@ -377,7 +398,7 @@ vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction)
     {
 #ifndef _NO_UV
     if ((PC.params.extra&(map_Ka_MASK)) == (map_Ka_MASK))
-        Ka = texture(map_Ka, UV).rgb;
+        Ka = irr_sample_Ka(UV).rgb;
     else
 #endif
         Ka = PC.params.Ka;
@@ -421,7 +442,7 @@ void main()
 #ifndef _NO_UV
         if ((PC.params.extra&(map_d_MASK)) == (map_d_MASK))
         {
-            d = texture(map_d, UV).r;
+            d = irr_sample_d(UV).r;
             color *= d;
         }
 #endif

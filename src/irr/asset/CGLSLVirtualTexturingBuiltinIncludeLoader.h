@@ -81,8 +81,7 @@ layout(set=_IRR_VT_DESCRIPTOR_SET, binding=_IRR_VT_UINT_VIEWS_BINDING) uniform u
 	#define IRR_GL_NV_gpu_shader5
 #endif
 
-#if 1
-//#ifdef IRR_GL_NV_gpu_shader5
+#ifdef IRR_GL_NV_gpu_shader5
     #define IRR_GL_EXT_nonuniform_qualifier // TODO: we need to overhaul our GLSL preprocessing system to match what SPIRV-Cross actually does
 #endif
 
