@@ -1,11 +1,11 @@
 #ifndef __IRR_I_GPU_VIRTUAL_TEXTURE_H_INCLUDED__
 #define __IRR_I_GPU_VIRTUAL_TEXTURE_H_INCLUDED__
 
-//TODO change to ICPUVirtualTexture
-#include <irr/asset/ITexturePacker.h>
+#include <irr/asset/ICPUVirtualTexture.h>
 #include <irr/video/IGPUImageView.h>
 #include "IVideoDriver.h"
 #include <irr/asset/IAssetManager.h>
+#include <irr/video/IGPUDescriptorSet.h>
 
 namespace irr {
 namespace video
@@ -162,10 +162,20 @@ public:
         return m_driver->createGPUImageView(std::move(params));
     }
 
+    auto getDSlayoutBindings(uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
+    {
+        return getDSlayoutBindings_internal<IGPUDescriptorSetLayout>(_pgtBinding, _fsamplersBinding, _isamplersBinding, _usamplersBinding);
+    }
+
+    auto getDescriptorSetWrites(IGPUDescriptorSet* _dstSet, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
+    {
+        return getDescriptorSetWrites_internal<IGPUDescriptorSet>(_dstSet, _pgtBinding, _fsamplersBinding, _isamplersBinding, _usamplersBinding);
+    }
+
 protected:
     core::smart_refctd_ptr<IVTResidentStorage> createVTResidentStorage(asset::E_FORMAT _format, uint32_t _extent, uint32_t _layers, uint32_t _tilesPerDim) override
     {
-        return core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_driver, _format, _extent, _layers, _tilesPerDim);//TODO driver
+        return core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_driver, _format, _extent, _layers, _tilesPerDim);
     }
     core::smart_refctd_ptr<IGPUImage> createImage(IGPUImage::SCreationParams&& _params) const override
     {

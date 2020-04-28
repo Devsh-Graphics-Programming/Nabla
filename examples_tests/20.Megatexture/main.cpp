@@ -5,7 +5,6 @@
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
-#include <irr/asset/ITexturePacker.h>
 #include <irr/video/IGPUVirtualTexture.h>
 #include <irr/asset/CMTLPipelineMetadata.h>
 #include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
@@ -251,6 +250,19 @@ void main()
 
 using STextureData = asset::ICPUVirtualTexture::STextureData;
 
+constexpr uint32_t PGTAB_SZ_LOG2 = 7u;
+constexpr uint32_t PGTAB_LAYERS_PER_FORMAT = 1u;
+constexpr uint32_t PGTAB_LAYERS = 3u;
+constexpr uint32_t PAGE_SZ_LOG2 = 7u;
+constexpr uint32_t TILES_PER_DIM_LOG2 = 6u;
+constexpr uint32_t PHYS_ADDR_TEX_LAYERS = 3u;
+constexpr uint32_t PAGE_PADDING = 8u;
+constexpr uint32_t MAX_ALLOCATABLE_TEX_SZ_LOG2 = 12u; //4096
+
+constexpr uint32_t VT_SET = 0u;
+constexpr uint32_t PGTAB_BINDING = 0u;
+constexpr uint32_t PHYSICAL_STORAGE_VIEWS_BINDING = 1u;
+
 STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUVirtualTexture* _vt, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
 {
     const auto& extent = _img->getCreationParameters().extent;
@@ -326,19 +338,6 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
 
     return fsNew;
 }
-
-constexpr uint32_t PGTAB_SZ_LOG2 = 7u;
-constexpr uint32_t PGTAB_LAYERS_PER_FORMAT = 1u;
-constexpr uint32_t PGTAB_LAYERS = 3u;
-constexpr uint32_t PAGE_SZ_LOG2 = 7u;
-constexpr uint32_t TILES_PER_DIM_LOG2 = 6u;
-constexpr uint32_t PHYS_ADDR_TEX_LAYERS = 3u;
-constexpr uint32_t PAGE_PADDING = 8u;
-constexpr uint32_t MAX_ALLOCATABLE_TEX_SZ_LOG2 = 12u; //4096
-
-constexpr uint32_t VT_SET = 0u;
-constexpr uint32_t PGTAB_BINDING = 0u;
-constexpr uint32_t PHYSICAL_STORAGE_VIEWS_BINDING = 1u;
 
 core::smart_refctd_ptr<asset::ICPUImage> createPoTPaddedSquareImageWithMipLevels(asset::ICPUImage* _img, asset::ISampler::E_TEXTURE_CLAMP _wrapu, asset::ISampler::E_TEXTURE_CLAMP _wrapv)
 {
@@ -557,7 +556,7 @@ int main()
         params.MipmapMode = asset::ISampler::ESMM_NEAREST;
         auto samplerPgt = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
 
-        auto bindings = vt->getDSlayoutBindings<asset::ICPUDescriptorSetLayout>(PGTAB_BINDING, PHYSICAL_STORAGE_VIEWS_BINDING);
+        auto bindings = vt->getDSlayoutBindings(PGTAB_BINDING, PHYSICAL_STORAGE_VIEWS_BINDING);
         (*bindings)[0].samplers = &samplerPgt;
         (*bindings)[1].samplers = samplers.data();
 
@@ -679,7 +678,7 @@ int main()
     auto gpuds0layout = driver->getGPUObjectsFromAssets(&ds0layout.get(), &ds0layout.get()+1)->front();
     auto gpuds0 = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuds0layout));//intentionally not moving layout
     {
-        auto writes = gpuvt->getDescriptorSetWrites<video::IGPUDescriptorSet>(gpuds0.get());
+        auto writes = gpuvt->getDescriptorSetWrites(gpuds0.get(), PGTAB_BINDING, PHYSICAL_STORAGE_VIEWS_BINDING);
 
         driver->updateDescriptorSets(writes.first->size(), writes.first->data(), 0u, nullptr);
     }
@@ -853,9 +852,8 @@ int main()
             const video::IGPURenderpassIndependentPipeline* pipeline = gpumb->getPipeline();
 
             driver->bindGraphicsPipeline(pipeline);
-            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 0u, 1u, &gpuds0.get(), nullptr);
-            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 1u, 1u, &gpuds1.get(), nullptr);
-            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 2u, 1u, &gpuds2.get(), nullptr);
+            video::IGPUDescriptorSet* ds[] {gpuds0.get(),gpuds1.get(),gpuds2.get()};
+            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 0u, 3u, ds, nullptr);
 
             driver->pushConstants(pipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, gpumb->MAX_PUSH_CONSTANT_BYTESIZE, gpumb->getPushConstantsDataPtr());
 
