@@ -18,7 +18,6 @@
 #include "irr/video/CGPUSkinnedMesh.h"
 
 #include "CCameraSceneNode.h"
-#include "CMeshSceneNode.h"
 
 #include "CSceneNodeAnimatorRotation.h"
 #include "CSceneNodeAnimatorFlyCircle.h"
@@ -228,39 +227,6 @@ io::IFileSystem* CSceneManager::getFileSystem()
 IrrlichtDevice * CSceneManager::getDevice()
 {
     return Device;
-}
-
-//! adds a scene node for rendering a static mesh
-//! the returned pointer must not be dropped.
-IMeshSceneNode* CSceneManager::addMeshSceneNode(core::smart_refctd_ptr<video::IGPUMesh>&& mesh, IDummyTransformationSceneNode* parent, int32_t id,
-	const core::vector3df& position, const core::vector3df& rotation,
-	const core::vector3df& scale, bool alsoAddIfMeshPointerZero)
-{
-	if (!alsoAddIfMeshPointerZero && !mesh)
-		return 0;
-
-	if (!parent)
-		parent = this;
-
-	IMeshSceneNode* node = new CMeshSceneNode(std::move(mesh), parent, this, id, position, rotation, scale);
-	node->drop();
-
-	return node;
-}
-
-IMeshSceneNodeInstanced* CSceneManager::addMeshSceneNodeInstanced(IDummyTransformationSceneNode* parent, int32_t id,
-    const core::vector3df& position, const core::vector3df& rotation, const core::vector3df& scale)
-{
-	if (!parent)
-		parent = this;
-#ifdef NEW_SHADERS
-	return nullptr;
-#else
-	CMeshSceneNodeInstanced* node = new CMeshSceneNodeInstanced(parent, this, id, position, rotation, scale);
-	node->drop();
-
-	return node;
-#endif
 }
 
 //! adds a scene node for rendering an animated mesh model

@@ -138,28 +138,6 @@ namespace scene
 				const core::vector3df& rotation = core::vector3df(0,0,0),
 				const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f)) = 0;
 
-		//! Adds a scene node for rendering a static mesh.
-		/** \param mesh: Pointer to the loaded static mesh to be displayed.
-		\param parent: Parent of the scene node. Can be NULL if no parent.
-		\param id: Id of the node. This id can be used to identify the scene node.
-		\param position: Position of the space relative to its parent where the
-		scene node will be placed.
-		\param rotation: Initital rotation of the scene node.
-		\param scale: Initial scale of the scene node.
-		\param alsoAddIfMeshPointerZero: Add the scene node even if a 0 pointer is passed.
-		\return Pointer to the created scene node.
-		This pointer should not be dropped. See IReferenceCounted::drop() for more information. */
-		virtual IMeshSceneNode* addMeshSceneNode(core::smart_refctd_ptr<video::IGPUMesh>&& mesh, IDummyTransformationSceneNode* parent=0, int32_t id=-1,
-			const core::vector3df& position = core::vector3df(0,0,0),
-			const core::vector3df& rotation = core::vector3df(0,0,0),
-			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f),
-			bool alsoAddIfMeshPointerZero=false) = 0;
-
-        virtual IMeshSceneNodeInstanced* addMeshSceneNodeInstanced(IDummyTransformationSceneNode* parent=0, int32_t id=-1,
-			const core::vector3df& position = core::vector3df(0,0,0),
-			const core::vector3df& rotation = core::vector3df(0,0,0),
-			const core::vector3df& scale = core::vector3df(1.0f, 1.0f, 1.0f)) = 0;
-
 		//! Adds a camera scene node to the scene tree and sets it as active camera.
 		/** This camera does not react on user input like for example the one created with
 		addCameraSceneNodeFPS(). If you want to move or animate it, use animators or the

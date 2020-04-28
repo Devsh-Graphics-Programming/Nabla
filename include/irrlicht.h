@@ -59,7 +59,6 @@
 #include "IFileList.h"
 #include "IFileSystem.h"
 #include "ILogger.h"
-#include "IMeshSceneNode.h"
 #include "IOSOperator.h"
 #include "IReadFile.h"
 #include "IrrlichtDevice.h"

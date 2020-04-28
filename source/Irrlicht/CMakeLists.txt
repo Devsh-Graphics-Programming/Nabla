@@ -192,7 +192,6 @@ set(IRR_VIDEO_SOURCES
 )
 set(IRR_SCENE_SOURCES
 # Junk to refactor
-	CMeshSceneNode.cpp
 	CSkinnedMeshSceneNode.cpp
 	CCameraSceneNode.cpp
 	CSceneManager.cpp
