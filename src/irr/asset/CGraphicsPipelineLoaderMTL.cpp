@@ -198,6 +198,9 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO {
 #define _IRR_VERT_MAIN_DEFINED_
 void main()
 {
+#ifndef _IRR_VERT_PROLOGUE_DEFINED_
+
+#endif
     LocalPos = vPos;
     gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.params.MVP), vPos);
     ViewPos = irr_glsl_pseudoMul3x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x3(CamData.params.MV), vPos);
@@ -421,6 +424,9 @@ vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction)
 
 void main()
 {
+#ifndef _IRR_FRAG_PROLOGUE_DEFINED_
+
+#endif
     irr_glsl_ViewSurfaceInteraction interaction;
     vec3 color = irr_computeLighting(interaction);
 

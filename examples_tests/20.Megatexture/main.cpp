@@ -102,53 +102,9 @@ float getVTexSzRcp(in uint _formatID)
 #include <%s>
 )";
 
-constexpr const char* GLSL_FS_MAIN_OVERRIDE =
-R"(
-void main()
-{
-    dUV = mat2(dFdx(UV),dFdy(UV));//writing to global var
-//#define COLOR_IS_DIFFUSE_TEX
-#ifndef COLOR_IS_DIFFUSE_TEX
-    irr_glsl_ViewSurfaceInteraction interaction;
-    vec3 color = irr_computeLighting(interaction);
-
-    float d = PC.params.d;
-
-    //another illum model switch, required for illum=4,6,7,9 to compute alpha from fresnel (taken from opacity map or constant otherwise)
-    switch (PC.params.extra&ILLUM_MODEL_MASK)
-    {
-    case 4:
-    case 6:
-    case 7:
-    case 9:
-    {
-        float VdotN = dot(interaction.N, interaction.V.dir);
-        d = irr_glsl_fresnel_dielectric(vec3(PC.params.Ni), VdotN).x;
-    }
-        break;
-    default:
-#ifndef _NO_UV
-        if ((PC.params.extra&(map_d_MASK)) == (map_d_MASK))
-        {
-            d = irr_sample_d(UV).r;
-            color *= d;
-        }
-#endif
-        break;
-    }
-#else//!COLOR_IS_DIFFUSE_TEX
-    vec3 color = vec3(0.0);
-    float d = 1.0;
-#ifndef _NO_UV
-    if ((PC.params.extra&(map_Kd_MASK)) == (map_Kd_MASK))
-        color = irr_sample_Kd(UV).rgb;
-    else
-#endif
-        color = PC.params.Kd;
-#endif//!COLOR_IS_DIFFUSE_TEX
-    OutColor = vec4(color, d);
-}
-#define _IRR_FRAG_MAIN_DEFINED_
+constexpr const char* GLSL_FS_PROLOGUE = R"(
+dUV = mat2(dFdx(UV),dFdy(UV));//writing to global var\n
+#define _IRR_FRAG_PROLOGUE_DEFINED_
 )";
 
 using STextureData = asset::ICPUVirtualTexture::STextureData;
@@ -228,7 +184,7 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
     sprintf(str.data(), GLSL_VT_FUNCTIONS, _vt->getGLSLFunctionsIncludePath("getPgTabSzLog2", "getPhysPgTexSzRcp", "getVTexSzRcp", "getPhysicalIDForLayer").c_str());
     glsl.insert(glsl.find("#if !defined(_IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_)"), str.c_str());
     glsl.insert(glsl.find("#if !defined(_IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_)"), GLSL_TEXTURE_SAMPLE_OVERRIDE);
-    glsl.insert(glsl.find("#ifndef _IRR_FRAG_MAIN_DEFINED_"), GLSL_FS_MAIN_OVERRIDE);
+    glsl.insert(glsl.find("#ifndef _IRR_FRAG_PROLOGUE_DEFINED_"), GLSL_FS_PROLOGUE);
 
     auto* f = fopen("fs.glsl","w");
     fwrite(glsl.c_str(), 1, glsl.size(), f);
