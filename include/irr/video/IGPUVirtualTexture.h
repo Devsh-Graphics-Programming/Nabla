@@ -46,7 +46,7 @@ protected:
                 createGPUImageFromCPU(_driver, _am, _cpuStorage->image.get()),
                 _cpuStorage->m_assignedPageTableLayers,
                 _cpuStorage->m_addr_layerShift,
-                _cpuStorage->m_physPgOffset_xMask
+                _cpuStorage->m_addr_xMask
             ),
             m_driver(_driver)
         {

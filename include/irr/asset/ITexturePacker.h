@@ -363,6 +363,12 @@ protected:
         return pgtab;
     }
 
+    void updateLayerToViewIndexLUT(uint32_t _layer, uint32_t _smplrIndex)
+    {
+        (*m_layerToViewIndexMapping)[_layer] = _smplrIndex;
+        m_layer2viewWasUpdatedSinceLastQuery = true;
+    }
+
     const uint32_t m_pgSzxy;
     const uint32_t m_pgSzxy_log2;
     const uint32_t m_pgtabSzxy_log2;
@@ -374,6 +380,7 @@ protected:
     uint8_t* m_pgTabAddrAlctr_reservedSpc = nullptr;
 
     core::stack<uint32_t> m_freePageTableLayerIDs;
+    bool m_layer2viewWasUpdatedSinceLastQuery = true;
     core::smart_refctd_dynamic_array<uint32_t> m_layerToViewIndexMapping;
 
     struct SamplerArray
@@ -413,7 +420,7 @@ protected:
             m_alctrReservedSpace(reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(phys_pg_addr_alctr_t::reserved_size(1u, _layers*_tilesPerDim*_tilesPerDim, 1u), _IRR_SIMD_ALIGNMENT))),
             tileAlctr(m_alctrReservedSpace, 0u, 0u, 1u, _layers*_tilesPerDim*_tilesPerDim, 1u),
             m_addr_layerShift(core::findLSB(_tilesPerDim)<<1),
-            m_physPgOffset_xMask((1u<<(m_addr_layerShift>>1))-1u)
+            m_addr_xMask((1u<<(m_addr_layerShift>>1))-1u)
         {
         }
         //TODO: this should also copy address allocator state, but from what i see our address allocators doesnt have copy ctors
@@ -421,13 +428,17 @@ protected:
             image(std::move(_image)),
             m_assignedPageTableLayers(_assignedLayers),
             m_addr_layerShift(_layerShift),
-            m_physPgOffset_xMask(_xmask)
+            m_addr_xMask(_xmask)
         {
 
         }
 
         core::smart_refctd_ptr<image_view_t> createView(E_FORMAT _format) const
         {
+            auto found = m_viewsCache.find(_format);
+            if (found!=m_viewsCache.end())
+                return found->second;
+
             typename image_view_t::SCreationParams params;
             params.flags = static_cast<IImageView<image_t>::E_CREATE_FLAGS>(0);
             params.format = _format;
@@ -439,7 +450,7 @@ protected:
             params.image = core::smart_refctd_ptr<image_t>(image);
             params.viewType = asset::IImageView<image_t>::ET_2D_ARRAY;
 
-            return createView_internal(std::move(params));
+            return m_viewsCache.insert({_format,createView_internal(std::move(params))})->second;
         }
         auto getPageTableLayers() const
         {
@@ -459,8 +470,8 @@ protected:
                 m_assignedPageTableLayers.erase(it);
         }
 
-        inline uint32_t physPgOffset_x(SPhysPgOffset _offset) const { return _offset.addr & m_physPgOffset_xMask; }
-        inline uint32_t physPgOffset_y(SPhysPgOffset _offset) const { return (_offset.addr >> (m_addr_layerShift>>1)) & m_physPgOffset_xMask; }
+        inline uint32_t physPgOffset_x(SPhysPgOffset _offset) const { return _offset.addr & m_addr_xMask; }
+        inline uint32_t physPgOffset_y(SPhysPgOffset _offset) const { return (_offset.addr >> (m_addr_layerShift>>1)) & m_addr_xMask; }
         inline uint32_t physPgOffset_layer(SPhysPgOffset _offset) const { return (_offset.addr & 0xffffu)>>m_addr_layerShift; }
         inline bool physPgOffset_valid(SPhysPgOffset _offset) const { return (_offset.addr&0xffffu) != SPhysPgOffset::invalid_addr; }
         inline bool physPgOffset_hasMipTailAddr(SPhysPgOffset _offset) const { return physPgOffset_valid(physPgOffset_mipTailAddr(_offset)); }
@@ -481,10 +492,13 @@ protected:
         phys_pg_addr_alctr_t tileAlctr;
         core::vector<uint16_t> m_assignedPageTableLayers;
         const uint32_t m_addr_layerShift;
-        const uint32_t m_physPgOffset_xMask;
+        const uint32_t m_addr_xMask;
 
     protected:
         virtual core::smart_refctd_ptr<image_view_t> createView_internal(typename image_view_t::SCreationParams&& _params) const = 0;
+
+    private:
+        core::unordered_map<E_FORMAT, core::smart_refctd_ptr<image_view_t>> m_viewsCache;
     };
     //since c++14 std::hash specialization for all enum types are given by standard
     core::unordered_map<E_FORMAT_CLASS, core::smart_refctd_ptr<IVTResidentStorage>> m_storage;
@@ -615,11 +629,139 @@ public:
     typename SamplerArray::range_t getIntViews() const { return m_isamplers.getViews(); }
     typename SamplerArray::range_t getUintViews() const { return m_usamplers.getViews(); }
 
+    size_t getLayerToViewIndexLUTBytesize() const
+    {
+        return m_layerToViewIndexMapping->size()*sizeof(uint32_t);
+    }
+    void writeLayerToViewIndexLUTContents(void* _dst) const
+    {
+        memcpy(_dst, m_layerToViewIndexMapping->data(), getLayerToViewIndexLUTBytesize());
+        m_layer2viewWasUpdatedSinceLastQuery = false;
+    }
+    bool layerToViewIndexLUTWasUpdated() const
+    {
+        return m_layer2viewWasUpdatedSinceLastQuery;
+    }
+
+    template <typename DSlayout_t>
+    core::smart_refctd_dynamic_array<typename DSlayout_t::SBinding> getDSlayoutBindings(uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
+    {
+        using retval_t = core::smart_refctd_dynamic_array<typename DSlayout_t::SBinding>;
+        auto retval = core::make_refctd_dynamic_array<retval_t>(1u+(getFloatViews().size()?1u:0u)+(getIntViews().size()?1u:0u)+(getUintViews().size()?1u:0u));
+        auto* bindings = retval->data();
+
+        auto fillBinding = [](auto& bnd, uint32_t _binding, uint32_t _count) {
+            bnd.binding = _binding;
+            bnd.count = _count;
+            bnd.stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+            bnd.type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+            bnd.samplers = nullptr; //samplers are left for user to specify at will
+        };
+
+        fillBinding(bindings[0], _pgtBinding, 1u);
+
+        uint32_t i = 1u;
+        if (getFloatViews().size())
+        {
+            fillBinding(bindings[i], _fsamplersBinding, getFloatViews().size());
+            ++i;
+        }
+        if (getIntViews().size())
+        {
+            fillBinding(bindings[i], _isamplersBinding, getIntViews().size());
+            ++i;
+        }
+        if (getUintViews().size())
+        {
+            fillBinding(bindings[i], _usamplersBinding, getUintViews().size());
+        }
+
+        return retval;
+    }
+    template <typename DS_t>
+    std::pair<core::smart_refctd_dynamic_array<typename DS_t::SWriteDescriptorSet>, core::smart_refctd_dynamic_array<typename DS_t::SDescriptorInfo>>
+        getDescriptorSetWrites(DS_t* _dstSet, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
+    {
+        using writes_t = core::smart_refctd_dynamic_array<typename DS_t::SWriteDescriptorSet>;
+        using info_t = core::smart_refctd_dynamic_array<typename DS_t::SDescriptorInfo>;
+        using retval_t = std::pair<writes_t, info_t>;
+
+        const uint32_t writeCount = 1u+(getFloatViews().size()?1u:0u)+(getIntViews().size()?1u:0u)+(getUintViews().size()?1u:0u);
+        const uint32_t infoCount = 1u + getFloatViews().size() + getIntViews().size() + getUintViews().size();
+
+        auto writes_array = core::make_refctd_dynamic_array<writes_t>(writeCount);
+        auto* writes = writes_array->data();
+        auto info_array = core::make_refctd_dynamic_array<info_t>(infoCount);
+        auto* info = info_array->data();
+
+        writes[0].binding = _pgtBinding;
+        writes[0].arrayElement = 0u;
+        writes[0].count = 1u;
+        writes[0].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+        writes[0].dstSet = _dstSet;
+        writes[0].info = info;
+        info[0].desc = createPageTableView();
+        info[0].image.imageLayout = EIL_UNDEFINED;
+        info[0].image.sampler = nullptr; //samplers are left for user to specify at will
+
+        uint32_t i = 1u, j = 1u;
+        if (getFloatViews().size())
+        {
+            writes[i].binding = _fsamplersBinding;
+            writes[i].arrayElement = 0u;
+            writes[i].count = getFloatViews().size();
+            writes[i].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+            writes[i].dstSet = _dstSet;
+            writes[i].info = info+j;
+            for (uint32_t j0 = j; (j-j0)<writes[i].count; ++j)
+            {
+                info[j].desc = getFloatViews().begin()[j-j0];
+                info[j].image.imageLayout = EIL_UNDEFINED;
+                info[j].image.sampler = nullptr;
+            }
+            ++i;
+        }
+        if (getIntViews().size())
+        {
+            writes[i].binding = _isamplersBinding;
+            writes[i].arrayElement = 0u;
+            writes[i].count = getIntViews().size();
+            writes[i].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+            writes[i].dstSet = _dstSet;
+            writes[i].info = info+j;
+            for (uint32_t j0 = j; (j-j0)<writes[i].count; ++j)
+            {
+                info[j].desc = getIntViews().begin()[j-j0];
+                info[j].image.imageLayout = EIL_UNDEFINED;
+                info[j].image.sampler = nullptr;
+            }
+            ++i;
+        }
+        if (getUintViews().size())
+        {
+            writes[i].binding = _usamplersBinding;
+            writes[i].arrayElement = 0u;
+            writes[i].count = getUintViews().size();
+            writes[i].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+            writes[i].dstSet = _dstSet;
+            writes[i].info = info+j;
+            for (uint32_t j0 = j; (j-j0)<writes[i].count; ++j)
+            {
+                info[j].desc = getUintViews().begin()[j-j0];
+                info[j].image.imageLayout = EIL_UNDEFINED;
+                info[j].image.sampler = nullptr;
+            }
+            ++i;
+        }
+
+        return retval_t{std::move(writes_array),std::move(info_array)};
+    }
+
     static std::string getGLSLExtensionsIncludePath()
     {
         return "irr/builtin/glsl/virtual_texturing/extensions.glsl";
     }
-    std::string getGLSLDescriptorsIncludePath(uint32_t _set, uint32_t _pgtBinding, uint32_t _fsamplersBinding, uint32_t _isamplersBinding, uint32_t _usamplersBinding) const
+    std::string getGLSLDescriptorsIncludePath(uint32_t _set, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
     {
         return "irr/builtin/glsl/virtual_texturing/descriptors.glsl/" +
             std::to_string(_set) + "/" +
@@ -644,7 +786,7 @@ public:
         for (const auto& pair : m_storage)
         {
             const auto& stg = pair.second;
-            s += "/" + std::to_string(stg->m_physPgOffset_xMask) + "/" + std::to_string(stg->m_physPgOffset_xMask);
+            s += "/" + std::to_string(stg->m_addr_xMask) + "/" + std::to_string(stg->m_addr_xMask);
         }
         return s;
     }

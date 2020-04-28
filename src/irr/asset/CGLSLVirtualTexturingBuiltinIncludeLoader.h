@@ -76,12 +76,13 @@ layout(set=_IRR_VT_DESCRIPTOR_SET, binding=_IRR_VT_UINT_VIEWS_BINDING) uniform u
 
 //tmp dirty fix for weird behavior of renderdoc
 //uncomment below if having troubles in renderdoc and you're sure GL_NV_gpu_shader5 is available
-//#define RUNNING_IN_RENDERDOC
+#define RUNNING_IN_RENDERDOC
 #ifdef RUNNING_IN_RENDERDOC
 	#define IRR_GL_NV_gpu_shader5
 #endif
 
-#ifdef IRR_GL_NV_gpu_shader5
+#if 1
+//#ifdef IRR_GL_NV_gpu_shader5
     #define IRR_GL_EXT_nonuniform_qualifier // TODO: we need to overhaul our GLSL preprocessing system to match what SPIRV-Cross actually does
 #endif
 
