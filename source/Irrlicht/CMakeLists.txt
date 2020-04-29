@@ -27,7 +27,7 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 	if ("${PLATFORM}" STREQUAL "NOTFOUND")
 		message(FATAL_ERROR "Unsupported compiler!")
 	endif()
-
+	
 	set(CMAKE_INSTALL_PREFIX "${IRR_ROOT_PATH}/install/${PLATFORM}" CACHE PATH "Install path" FORCE)
 endif()
 
@@ -58,6 +58,7 @@ option(_IRR_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
 
 irr_get_conf_dir(IRRLICHT_CONF_DIR_DEBUG Debug)
 irr_get_conf_dir(IRRLICHT_CONF_DIR_RELEASE Release)
+irr_get_conf_dir(IRRLICHT_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
 
 set(_IRR_COMPILE_WITH_OPENGL_ ${IRR_COMPILE_WITH_OPENGL})
 if (IRR_COMPILE_WITH_OPENCL)
@@ -82,6 +83,7 @@ endif()
 set(__IRR_FAST_MATH ${IRR_FAST_MATH})
 set(_IRR_DEBUG 0)
 configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_RELEASE}/BuildConfigOptions.h")
+configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h")
 set(_IRR_DEBUG 1)
 configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
@@ -275,6 +277,7 @@ macro(irr_target_link_zlib _trgt)
 	target_link_libraries(${_trgt} INTERFACE
 		"$<$<CONFIG:DEBUG>:${ZLIB_LIBRARY_DEBUG}>"
 		"$<$<CONFIG:RELEASE>:${ZLIB_LIBRARY_RELEASE}>"
+		"$<$<CONFIG:RELWITHDEBINFO>:${ZLIB_LIBRARY_RELWITHDEBINFO}>"
 	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/zlib)
 endmacro()
@@ -341,9 +344,6 @@ macro(irr_target_link_gli _trgt)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/gli)
 endmacro()
 
-# get function for cross-compiler PCH configuration
-include(add_pch)
-
 add_library(Irrlicht STATIC
 	${IRRLICHT_SRCS_COMMON}
 	${IRRLICHT_SRCS_NORMAL}
@@ -387,6 +387,7 @@ target_include_directories(Irrlicht PUBLIC
 	#those also goes as PUBLIC because of examples
 	"$<$<CONFIG:DEBUG>:${IRRLICHT_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${IRRLICHT_CONF_DIR_RELEASE}>"
+	"$<$<CONFIG:RELWITHDEBINFO>:${IRRLICHT_CONF_DIR_RELWITHDEBINFO}>"
 )
 target_include_directories(Irrlicht PUBLIC ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht ${IRR_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 if (UNIX)
@@ -447,6 +448,7 @@ target_include_directories(IrrlichtServer PUBLIC
 	#those also goes as PUBLIC because of examples
 	"$<$<CONFIG:DEBUG>:${IRRLICHT_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${IRRLICHT_CONF_DIR_RELEASE}>"
+	"$<$<CONFIG:RELWITHDEBINFO>:${IRRLICHT_CONF_DIR_RELWITHDEBINFO}>"
 )
 target_include_directories(IrrlichtServer PRIVATE ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht ${IRR_ROOT_PATH}/src/3rdparty)
 
@@ -467,10 +469,12 @@ if(IRR_PCH)
 endif()
 	
 set_target_properties(Irrlicht IrrlichtServer PROPERTIES DEBUG_POSTFIX _debug)
+set_target_properties(Irrlicht IrrlichtServer PROPERTIES RELWITHDEBDINFO_POSTFIX _relwithdebinfo)
 
 macro(irr_install_static_lib _TRGT)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION lib CONFIGURATIONS Release)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION debug/lib CONFIGURATIONS Debug)
+	install(TARGETS ${_TRGT} ARCHIVE DESTINATION debugwithrelinfo/lib CONFIGURATIONS RelWithDebInfo)
 endmacro()
 
 irr_install_static_lib(Irrlicht)
