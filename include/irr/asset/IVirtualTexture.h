@@ -257,6 +257,16 @@ protected:
     class IVTResidentStorage : public core::IReferenceCounted
     {
     protected:
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_BITLENGTH = 16u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_X_BITS = 4u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_X_MASK = (1u<<PAGE_ADDR_X_BITS)-1u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_Y_BITS = 4u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_Y_MASK = (1u<<PAGE_ADDR_Y_BITS)-1u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_LAYER_SHIFT = PAGE_ADDR_BITLENGTH - PAGE_ADDR_X_BITS - PAGE_ADDR_Y_BITS;
+
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_TILES_PER_DIM = std::min(PAGE_ADDR_X_MASK,PAGE_ADDR_Y_MASK) + 1u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_LAYERS = (1u<<(PAGE_ADDR_BITLENGTH-PAGE_ADDR_LAYER_SHIFT));
+
         virtual ~IVTResidentStorage()
         {
             if (m_alctrReservedSpace)
@@ -278,18 +288,29 @@ protected:
             image(nullptr),//initialized in derived class's constructor
             m_alctrReservedSpace(reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(phys_pg_addr_alctr_t::reserved_size(1u, _layers*_tilesPerDim*_tilesPerDim, 1u), _IRR_SIMD_ALIGNMENT))),
             tileAlctr(m_alctrReservedSpace, 0u, 0u, 1u, _layers*_tilesPerDim*_tilesPerDim, 1u),
-            m_addr_layerShift(core::findLSB(_tilesPerDim)<<1),
-            m_addr_xMask((1u<<(m_addr_layerShift>>1))-1u)
+            m_decodeAddr_layerShift(core::findLSB(_tilesPerDim)<<1),
+            m_decodeAddr_xMask((1u<<(m_decodeAddr_layerShift>>1))-1u)
         {
+            assert(_tilesPerDim<=MAX_TILES_PER_DIM);
+            assert(_layers<=MAX_LAYERS);
         }
         //TODO: this should also copy address allocator state, but from what i see our address allocators doesnt have copy ctors
         IVTResidentStorage(core::smart_refctd_ptr<image_t>&& _image, const core::vector<uint16_t>& _assignedLayers, uint32_t _layerShift, uint32_t _xmask) :
             image(std::move(_image)),
             m_assignedPageTableLayers(_assignedLayers),
-            m_addr_layerShift(_layerShift),
-            m_addr_xMask(_xmask)
+            m_decodeAddr_layerShift(_layerShift),
+            m_decodeAddr_xMask(_xmask)
         {
 
+        }
+
+        uint16_t encodePageAddress(uint16_t _addr) const
+        {
+            const uint16_t x = _addr & m_decodeAddr_xMask;
+            const uint16_t y = (_addr>>(m_decodeAddr_layerShift>>1)) & m_decodeAddr_xMask;
+            const uint16_t layer = _addr >> m_decodeAddr_layerShift;
+
+            return x | (y<<PAGE_ADDR_X_BITS) | (layer<<PAGE_ADDR_LAYER_SHIFT);
         }
 
         core::smart_refctd_ptr<image_view_t> createView(E_FORMAT _format) const
@@ -329,12 +350,12 @@ protected:
                 m_assignedPageTableLayers.erase(it);
         }
 
-        inline uint32_t physPgOffset_x(SPhysPgOffset _offset) const { return _offset.addr & m_addr_xMask; }
-        inline uint32_t physPgOffset_y(SPhysPgOffset _offset) const { return (_offset.addr >> (m_addr_layerShift>>1)) & m_addr_xMask; }
-        inline uint32_t physPgOffset_layer(SPhysPgOffset _offset) const { return (_offset.addr & 0xffffu)>>m_addr_layerShift; }
+        inline uint32_t physPgOffset_x(SPhysPgOffset _offset) const { return _offset.addr & PAGE_ADDR_X_MASK; }
+        inline uint32_t physPgOffset_y(SPhysPgOffset _offset) const { return (_offset.addr >> PAGE_ADDR_X_BITS) & PAGE_ADDR_Y_MASK; }
+        inline uint32_t physPgOffset_layer(SPhysPgOffset _offset) const { return (_offset.addr & 0xffffu)>>PAGE_ADDR_LAYER_SHIFT; }
         inline bool physPgOffset_valid(SPhysPgOffset _offset) const { return (_offset.addr&0xffffu) != SPhysPgOffset::invalid_addr; }
         inline bool physPgOffset_hasMipTailAddr(SPhysPgOffset _offset) const { return physPgOffset_valid(physPgOffset_mipTailAddr(_offset)); }
-        inline SPhysPgOffset physPgOffset_mipTailAddr(SPhysPgOffset _offset) const { return _offset.addr>>16; }
+        inline SPhysPgOffset physPgOffset_mipTailAddr(SPhysPgOffset _offset) const { return _offset.addr>>PAGE_ADDR_BITLENGTH; }
         //! @returns texel-wise offset of physical page
         core::vector3du32_SIMD pageCoords(SPhysPgOffset _txoffset, uint32_t _pageSz, uint32_t _padding) const
         {
@@ -350,8 +371,8 @@ protected:
         uint8_t* m_alctrReservedSpace = nullptr;
         phys_pg_addr_alctr_t tileAlctr;
         core::vector<uint16_t> m_assignedPageTableLayers;
-        const uint32_t m_addr_layerShift;
-        const uint32_t m_addr_xMask;
+        const uint32_t m_decodeAddr_layerShift;
+        const uint32_t m_decodeAddr_xMask;
 
     protected:
         virtual core::smart_refctd_ptr<image_view_t> createView_internal(typename image_view_t::SCreationParams&& _params) const = 0;
@@ -528,11 +549,7 @@ public:
         s += _get_phys_pg_tex_sz_rcp_name + "/";
         s += _get_vtex_sz_rcp_name + "/";
         s += _get_layer2pid;
-        for (const auto& pair : m_storage)
-        {
-            const auto& stg = pair.second;
-            s += "/" + std::to_string(stg->m_addr_xMask) + "/" + std::to_string(stg->m_addr_xMask);
-        }
+
         return s;
     }
 

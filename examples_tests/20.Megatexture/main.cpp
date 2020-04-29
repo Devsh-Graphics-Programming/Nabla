@@ -80,23 +80,23 @@ vec4 irr_sample_bump(in vec2 uv) { return irr_glsl_textureVT(PC.params.map_bump_
 constexpr const char* GLSL_VT_FUNCTIONS =
 R"(
 
-uint getPhysicalIDForLayer(in uint layer)
+uint irr_glsl_VT_layer2pid(in uint layer)
 {
     return layer2pid.lut[layer];
 }
-
-uint getPgTabSzLog2(in uint _formatID)
+uint irr_glsl_VT_getPgTabSzLog2(in uint _formatID)
 {
     return precomputed.pgtab_sz_log2[_formatID];
 }
-float getPhysPgTexSzRcp(in uint _formatID)
+float irr_glsl_VT_getPhysPgTexSzRcp(in uint _formatID)
 {
     return precomputed.phys_pg_tex_sz_rcp[_formatID];
 }
-float getVTexSzRcp(in uint _formatID)
+float irr_glsl_VT_getVTexSzRcp(in uint _formatID)
 {
     return precomputed.vtex_sz_rcp[_formatID];
 }
+#define _IRR_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
 
 //irr/builtin/glsl/virtual_texturing/functions.glsl/...
 #include <%s>
@@ -110,11 +110,10 @@ dUV = mat2(dFdx(UV),dFdy(UV));//writing to global var\n
 using STextureData = asset::ICPUVirtualTexture::STextureData;
 
 constexpr uint32_t PGTAB_SZ_LOG2 = 7u;
-constexpr uint32_t PGTAB_LAYERS_PER_FORMAT = 1u;
 constexpr uint32_t PGTAB_LAYERS = 3u;
 constexpr uint32_t PAGE_SZ_LOG2 = 7u;
-constexpr uint32_t TILES_PER_DIM_LOG2 = 6u;
-constexpr uint32_t PHYS_ADDR_TEX_LAYERS = 3u;
+constexpr uint32_t TILES_PER_DIM_LOG2 = 4u;
+constexpr uint32_t PHYS_ADDR_TEX_LAYERS = 20u;
 constexpr uint32_t PAGE_PADDING = 8u;
 constexpr uint32_t MAX_ALLOCATABLE_TEX_SZ_LOG2 = 12u; //4096
 
@@ -364,19 +363,19 @@ int main()
     {
         std::array<asset::ICPUVirtualTexture::ICPUVTResidentStorage::SCreationParams,VT_COUNT> storage;
         storage[0].formatClass = asset::EFC_8_BIT;
-        storage[0].layerCount = 3u;
+        storage[0].layerCount = PHYS_ADDR_TEX_LAYERS;
         storage[0].tilesPerDim_log2 = TILES_PER_DIM_LOG2;
         storage[0].formatCount = 1u;
         asset::E_FORMAT fmt1[1]{ asset::EF_R8_UNORM };
         storage[0].formats = fmt1;
         storage[1].formatClass = asset::EFC_24_BIT;
-        storage[1].layerCount = 3u;
+        storage[1].layerCount = PHYS_ADDR_TEX_LAYERS;
         storage[1].tilesPerDim_log2 = TILES_PER_DIM_LOG2;
         storage[1].formatCount = 1u;
         asset::E_FORMAT fmt2[1]{ asset::EF_R8G8B8_SRGB };
         storage[1].formats = fmt2;
         storage[2].formatClass = asset::EFC_32_BIT;
-        storage[2].layerCount = 3u;
+        storage[2].layerCount = PHYS_ADDR_TEX_LAYERS;
         storage[2].tilesPerDim_log2 = TILES_PER_DIM_LOG2;
         storage[2].formatCount = 1u;
         asset::E_FORMAT fmt3[1]{ asset::EF_R8G8B8A8_SRGB };

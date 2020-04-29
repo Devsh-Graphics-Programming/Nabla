@@ -81,7 +81,8 @@ layout(set=_IRR_VT_DESCRIPTOR_SET, binding=_IRR_VT_UINT_VIEWS_BINDING) uniform u
 	#define IRR_GL_NV_gpu_shader5
 #endif
 
-#ifdef IRR_GL_NV_gpu_shader5
+#if 1
+//#ifdef IRR_GL_NV_gpu_shader5
     #define IRR_GL_EXT_nonuniform_qualifier // TODO: we need to overhaul our GLSL preprocessing system to match what SPIRV-Cross actually does
 #endif
 
@@ -93,7 +94,7 @@ layout(set=_IRR_VT_DESCRIPTOR_SET, binding=_IRR_VT_UINT_VIEWS_BINDING) uniform u
     static std::string getVTfunctions(const std::string& _path)
     {
 		auto args = parseArgumentsFromPath(_path.substr(_path.find_first_of('/')+1, _path.npos));
-		if (args.size()<8u)
+		if (args.size()<6u)
 			return {};
 
 		constexpr uint32_t
@@ -103,9 +104,6 @@ layout(set=_IRR_VT_DESCRIPTOR_SET, binding=_IRR_VT_UINT_VIEWS_BINDING) uniform u
 			ix_get_phys_pg_tex_sz_rcp_name = 3u,
 			ix_get_vtex_sz_rcp_name = 4u,
 			ix_get_layer2pid_name = 5u;
-		auto get_ix_addr_xmask_i = [&] (uint32_t i) { return ix_get_layer2pid_name + 2u*i + 1u; };
-		auto get_ix_addr_ymask_i = [&] (uint32_t i) { return ix_get_layer2pid_name + 2u*i + 2u; };
-		auto get_storage_cnt = [&] () -> uint32_t { return (args.size() - ix_get_layer2pid_name - 1u)/2u; };
 
 		const uint32_t pg_sz_log2 = std::atoi(args[ix_pg_sz_log2].c_str());
 		const uint32_t tile_padding = std::atoi(args[ix_tile_padding].c_str());
@@ -122,37 +120,7 @@ layout(set=_IRR_VT_DESCRIPTOR_SET, binding=_IRR_VT_UINT_VIEWS_BINDING) uniform u
 		};
 
 		using namespace std::string_literals;
-		std::string s;// = "\n"
-		s += "\nconst uint addr_x_mask[] = uint[" + std::to_string(get_storage_cnt()) + "] (";
-		for (uint32_t i = 0u; i < get_storage_cnt(); ++i)
-		{
-			s += args[get_ix_addr_xmask_i(i)] + ((i==(get_storage_cnt()-1u)) ? "" : ", ");
-		}
-		s += ");";
-		s += "\nconst uint addr_y_mask[] = uint[" + std::to_string(get_storage_cnt()) + "] (";
-		for (uint32_t i = 0u; i < get_storage_cnt(); ++i)
-		{
-			s += args[get_ix_addr_ymask_i(i)] + ((i==(get_storage_cnt()-1u)) ? "" : ", ");
-		}
-		s += ");";
-		s += "\nconst uint addr_y_shift[] = uint[" + std::to_string(get_storage_cnt()) + "] (";
-		for (uint32_t i = 0u; i < get_storage_cnt(); ++i)
-		{
-			uint32_t xbits = std::atoi(args[get_ix_addr_xmask_i(i)].c_str());
-			xbits = core::findMSB(xbits)+1;
-			s += std::to_string(xbits) + ((i==(get_storage_cnt()-1u)) ? "" : ", ");
-		}
-		s += ");";
-		s += "\nconst uint addr_layer_shift[] = uint[" + std::to_string(get_storage_cnt()) + "] (";
-		for (uint32_t i = 0u; i < get_storage_cnt(); ++i)
-		{
-			uint32_t xbits = std::atoi(args[get_ix_addr_xmask_i(i)].c_str());
-			xbits = core::findMSB(xbits)+1;
-			uint32_t ybits = std::atoi(args[get_ix_addr_ymask_i(i)].c_str());
-			ybits = core::findMSB(ybits)+1;
-			s += std::to_string(xbits+ybits) + ((i==(get_storage_cnt()-1u)) ? "" : ", ");
-		}
-		s += ");";
+		std::string s;
 		s += "\n\n#define PAGE_SZ " + std::to_string(1u<<pg_sz_log2) + "u" +
 			"\n#define PAGE_SZ_LOG2 " + args[ix_pg_sz_log2] + "u" +
 			"\n#define TILE_PADDING " + args[ix_tile_padding] + "u" +
@@ -164,11 +132,18 @@ R"(
 #define irr_glsl_STextureData_WRAP_CLAMP 1u
 #define irr_glsl_STextureData_WRAP_MIRROR 2u
 
-vec3 irr_glsl_unpackPageID(in uint pageID, in uint formatID)
+#ifndef _IRR_PHYSICAL_ADDR_SPEC_DEFINED_
+#define irr_glsl_ADDR_X_MASK 0xfu
+#define irr_glsl_ADDR_Y_MASK 0xfu
+#define irr_glsl_ADDR_Y_SHIFT 4u
+#define irr_glsl_ADDR_LAYER_SHIFT 8u
+#endif //!_IRR_PHYSICAL_ADDR_SPEC_DEFINED_
+
+vec3 irr_glsl_unpackPageID(in uint pageID)
 {
 	// this is optimal, don't touch
-	uvec2 pageXY = uvec2(pageID,pageID>>addr_y_shift[formatID])&uvec2(addr_x_mask[formatID],addr_y_mask[formatID]);
-	return vec3(vec2(pageXY),float(pageID>>addr_layer_shift[formatID]));
+	uvec2 pageXY = uvec2(pageID,pageID>>irr_glsl_ADDR_Y_SHIFT)&uvec2(irr_glsl_ADDR_X_MASK,irr_glsl_ADDR_Y_MASK);
+	return vec3(vec2(pageXY),float(pageID>>irr_glsl_ADDR_LAYER_SHIFT));
 }
 uvec2 irr_glsl_unpackWrapModes(in uvec2 texData)
 {
@@ -189,12 +164,11 @@ vec2 irr_glsl_unpackSize(in uvec2 texData)
 	return vec2(texData.x&0xffffu,texData.x>>16u);
 }
 )";
-		s += //those are supposed to be used by VT fucntions only (hence extra VT_ pefix)
-			"\n#define irr_glsl_VT_getPgTabSzLog2 " + args[ix_get_pgtab_sz_log2_name] +
-			"\n#define irr_glsl_VT_getPhysPgTexSzRcp " + args[ix_get_phys_pg_tex_sz_rcp_name] +
-			"\n#define irr_glsl_VT_getVTexSzRcp " + args[ix_get_vtex_sz_rcp_name] +
-			"\n#define irr_glsl_VT_layer2pid " + args[ix_get_layer2pid_name]
-			;
+		s += R"(
+#ifndef _IRR_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
+  #error "You need to define irr_glsl_VT_getPgTabSzLog2,irr_glsl_VT_getPhysPgTexSzRcp,irr_glsl_VT_getVTexSzRcp,irr_glsl_VT_layer2pid before including this header"
+#endif
+)";
         s += R"(
 vec3 irr_glsl_vTextureGrad_helper(in uint formatID, in vec3 virtualUV, in int clippedLoD, in int levelInTail)
 {
@@ -214,7 +188,7 @@ vec3 irr_glsl_vTextureGrad_helper(in uint formatID, in vec3 virtualUV, in int cl
 	tileCoordinate += vec2(TILE_PADDING,TILE_PADDING);
 	tileCoordinate *= phys_pg_tex_sz_rcp;
 
-	vec3 physicalUV = irr_glsl_unpackPageID(levelInTail!=0 ? pageID.y:pageID.x, formatID);
+	vec3 physicalUV = irr_glsl_unpackPageID(levelInTail!=0 ? pageID.y:pageID.x);
 	physicalUV.xy *= vec2(PAGE_SZ+2*TILE_PADDING)*phys_pg_tex_sz_rcp;
 
 	// add the in-tile coordinate
@@ -352,9 +326,9 @@ protected:
 		const std::string id = "[a-zA-Z_][a-zA-Z0-9_]*";
 		const std::string num = "[0-9]+";
 		return {
-			//functions.glsl/pg_sz_log2/tile_padding/get_pgtab_sz_log2_name/get_phys_pg_tex_sz_rcp_name/get_vtex_sz_rcp_name/get_layer2pid/(addr_x_bits/addr_y_bits)...
+			//functions.glsl/pg_sz_log2/tile_padding/get_pgtab_sz_log2_name/get_phys_pg_tex_sz_rcp_name/get_vtex_sz_rcp_name/get_layer2pid
 			{ 
-				std::regex{"functions\\.glsl/"+num+"/"+num+"/"+id+"/"+id+"/"+id+"/"+id+"(/"+num+"/"+num+")+"},
+				std::regex{"functions\\.glsl/"+num+"/"+num+"/"+id+"/"+id+"/"+id+"/"+id},
 				&getVTfunctions
 			},
 			{std::regex{"extensions\\.glsl"}, &getExtensions},

@@ -148,6 +148,7 @@ public:
                     {
                         const uint32_t szAndAlignment = 1u;
                         core::address_allocator_traits<phys_pg_addr_alctr_t>::multi_alloc_addr(storage->tileAlctr, 1u, &physPgAddr, &szAndAlignment, &szAndAlignment, nullptr);
+                        physPgAddr = storage->encodePageAddress(physPgAddr);
                     }
                     //assert(physPgAddr<SPhysPgOffset::invalid_addr);
                     if (physPgAddr==phys_pg_addr_alctr_t::invalid_address)
@@ -163,6 +164,7 @@ public:
                         const uint32_t szAndAlignment = 1u;
                         core::address_allocator_traits<phys_pg_addr_alctr_t>::multi_alloc_addr(storage->tileAlctr, 1u, &physMiptailPgAddr, &szAndAlignment, &szAndAlignment, nullptr);
                         assert(physMiptailPgAddr<SPhysPgOffset::invalid_addr);
+                        physMiptailPgAddr = storage->encodePageAddress(physMiptailPgAddr);
                         miptailPgAddr = physMiptailPgAddr = (physMiptailPgAddr==phys_pg_addr_alctr_t::invalid_address) ? SPhysPgOffset::invalid_addr : physMiptailPgAddr;
                         physPgAddr |= (physMiptailPgAddr<<16);
                     }
