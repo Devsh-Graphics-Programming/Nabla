@@ -15,6 +15,20 @@ namespace irr
 namespace asset
 {
 
+//! Push Constant Ranges
+/*
+    Push Constants serve a similar purpose to a Uniform Buffer Object,
+    however they serve as a fast path with regard to data upload from the
+    CPU and data access from the GPU.
+
+    Push Constants are an alternative to an UBO where it performs really poorly,
+    mostly very small and very frequent updates. Examples of which are:
+
+    - Global Object ID
+    - Material/Mesh flags implemented as bits
+    - Unique per DrawCall indices or bit-flags
+*/
+
 struct SPushConstantRange
 {
 	ISpecializedShader::E_SHADER_STAGE stageFlags;
@@ -42,6 +56,16 @@ struct SPushConstantRange
         return (std::min(end1, end2) - std::max<int32_t>(offset, _other.offset)) > 0;
     }
 };
+
+//! Interface class for pipeline layouts
+/*
+    Pipeline layout stores all the state (options) common to multiple
+    draw calls (meshes) as an aggregate. It exists because the same
+    object exists in the Vulkan API. Pipeline Layout specifies all
+    4 templates of resource types ( a null descriptor layout is an
+    empty template) that will be used by all the shaders used in
+    the draw or compute dispatch.
+*/
 
 template<typename DescLayoutType>
 class IPipelineLayout

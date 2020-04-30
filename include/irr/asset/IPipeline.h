@@ -11,6 +11,28 @@ namespace irr
 namespace asset
 {
 
+//! Interface class for pipelines
+/*
+	The pipeline object gathers all the information about the resources
+	(types) and settings you'll be using while rendering, so that there
+	are no nasty surprises in the "hot" render-loop.
+
+	There are two types of pipelines in Vulkan,
+	a compute pipeline and a graphics pipeline.
+	Pipeline specifies all the settings (programmable and fixed pipeline
+	state) necessary to execute a \b{Multi}{Indirect}Draw\b or
+	\b{Indirect}Dispatch\b, but \bnone\b of the specific inputs like:
+
+	- buffers
+	- images
+	- samplers
+
+	or outputs like:
+
+	- buffers
+	- images
+*/
+
 template<typename LayoutType>
 class IPipeline : public virtual core::IReferenceCounted
 {

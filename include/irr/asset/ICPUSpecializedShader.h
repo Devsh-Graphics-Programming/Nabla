@@ -9,6 +9,12 @@ namespace irr
 namespace asset
 {
 
+//! CPU Version of Specialized Shader
+/*
+	@see ISpecializedShader
+	@see IAsset
+*/
+
 class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 {
 	protected:

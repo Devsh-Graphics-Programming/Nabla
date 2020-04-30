@@ -27,7 +27,25 @@ enum E_DRIVER_FENCE_RETVAL
     EDFR_ALREADY_SIGNALED
 };
 
-//! Persistently Mapped buffer
+//! Base class for Fences, persistently Mapped buffer
+/*
+    Using fences is neccesarry while requesting operation for
+    GPU depended on CPU side, like fetching mapped GPU buffer.
+    It's significant because CPU and GPU execute processes asynchronously,
+    so before the CPU does anything for instance to mapped memory the GPU
+    has been writing to, waiting on a fence is needed and then if the mapped memory
+    needs to be invalidated before CPU reads it (to invalidate the CPU cache) you should
+    invalidate it by canDeferredFlush()
+    One of example of fence usage is as follows when writing to GPU buffer
+    with screen shot extension:
+
+    auto fence = ext::ScreenShot::createScreenShot(driver, gpuimg, buffer.get());
+    while (fence->waitCPU(1000ull, fence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED)
+    {
+        // do something while waiting on GPU
+    }
+*/
+
 class IDriverFence : public core::IReferenceCounted
 {
 	    _IRR_INTERFACE_CHILD(IDriverFence) {}

@@ -16,20 +16,76 @@ namespace irr
 namespace asset
 {
 
-// runtime polymorphic
+//! Base class for general filters with runtime polymorphism.
+/*
+	Filters can execute various actions basing on input image
+	to get an output image.
+	Available filters are as following:
+
+	- Fill Filter
+	- Copy Filter
+	- Flatten Filter
+	- Convert Filter
+	- Swizzle && Convert Filter
+	- Utility Filter
+	- Blit Filter
+	- Generate Mip Maps Filter
+
+	Each of those performs certain specified by a filter actions
+	on an image's output attached texel buffer, where input image
+	is a reference for a valid process executation.
+*/
+
 class IImageFilter
 {
 	public:
+
+		//! Base class for filter's \bstate\b.
+		/*
+			To make use of the filter, it's \bstate\b must be provided.
+			State contains information about data needed to execute
+			some processes needed to get final output image or it's bundle.
+
+			Sometimes filter may require you to specify input image as
+			a reference for final output image, but there are also such
+			filters which only take output image. Multiple-input and
+			multiple-output filters will be provided soon as well.
+			Generally you are able to perform various image converting
+			processes with  different layers and faces, but keep in mind
+			that usually for certain mipmaps you will have to change appropriate
+			state fields to make it work, because filters work for
+			one mip-map level at a time. There is an exception when
+			filters work with many mip maps at a time - when using
+			\bGenerateMipMaps\b filter.
+
+			Because of various inputs, outputs or even lack of one of those,
+			it's doesn't declare any members, just type definitions as an interface.
+			A particular filter delcares it's own \bstate_type\b typedef or alias and
+			different filters require different states.
+		*/
+
 		class IState
 		{
 			public:
 				virtual ~IState() {}
+
+				/*
+					Class for holding information about current
+					handled texel range in texel buffer attached
+					to an image.
+				*/
 
 				struct TexelRange
 				{
 					VkOffset3D	offset = { 0u,0u,0u };
 					VkExtent3D	extent = { 0u,0u,0u };
 				};
+
+				/*
+					Class for reinterpreting a single color value,
+					it may be a texel or single compressed block.
+				*/
+
 				struct ColorValue
 				{
 					ColorValue() {}
@@ -98,8 +154,10 @@ class IImageFilter
 		virtual bool pExecute(IState* state) const = 0;
 };
 
+/*
+	Filter class for static polymorphic
+*/
 
-// static polymorphic
 template<typename CRTP>
 class CImageFilter : public IImageFilter
 {

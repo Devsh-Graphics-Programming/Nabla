@@ -99,6 +99,13 @@ template<
 >
 class CCustomAllocatorCPUBuffer;
 
+//! Specialization of ICPUBuffer capable of taking custom allocators
+/*
+    Take a look that with this usage you have to specify custom alloctor
+    passing an object type for allocation and a pointer to allocated
+    data for it's storage by ICPUBuffer, more control is provided.
+*/
+
 template<typename Allocator>
 class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
 {

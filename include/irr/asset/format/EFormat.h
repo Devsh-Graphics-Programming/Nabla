@@ -998,6 +998,13 @@ namespace asset
         }
     }
 
+    /*
+        It provides some useful functions to get specified
+        data in reference to creation input format
+        such as true extent of image or dimension of
+        current handled strides.
+    */
+
     struct TexelBlockInfo
     {
         public:
@@ -1007,11 +1014,26 @@ namespace asset
                 blockByteSize(getTexelOrBlockBytesize(format))
             {}
             
+            //! It converts input texels strides to compute a true extent of an image
+            /*
+                The true extent is a dimension of stride in texels or in blocks, depending
+                of what are you dealing with.
+                @param coord it's a dimension in texels.
+            */
 
 			inline auto convertTexelsToBlocks(const core::vector3du32_SIMD& coord) const
 			{
 				return (coord+maxCoord)/dimension;
 			}
+
+            //! It converts input texels strides to compute length-block size
+            /*
+                Inverse of convertTexelsToBlocks. Since your format may be
+                block compressed, you can gain your length in block-size style.
+                For instance - given a BC texetur 4x4 having 64 texels, you can
+                compute how many blocks is in a row, you will use this function to
+                do that - the block-size will be 16 in that case.
+            */
 
             inline auto roundToBlockSize(const core::vector3du32_SIMD& coord) const
             {

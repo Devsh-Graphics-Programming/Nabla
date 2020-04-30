@@ -20,6 +20,13 @@ namespace irr
 namespace asset
 {
 
+//! Interface class for Unspecialized Shaders
+/*
+	The purpose for the class is for storing raw
+	glsl code. Such a shader has to be passed
+	to Specialized Shader constructor.
+*/
+
 template<typename BufferType>
 class IShader
 {

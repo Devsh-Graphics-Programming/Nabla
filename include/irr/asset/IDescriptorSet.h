@@ -36,6 +36,17 @@ enum E_IMAGE_LAYOUT : uint32_t
     EIL_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT = 1000218000
 };
 
+//! Interface class for various Descriptor Set's resources
+/*
+	Buffers, Images and Samplers all derive from IDescriptor
+	and can be bound under different bindings in a DescriptorSet,
+	so that they can be bound to the GPU API together in a single
+	API call with efficiency.
+
+	@see ICPUDescriptorSet
+	@see IReferenceCounted
+*/
+
 template<typename LayoutType>
 class IDescriptorSet : public virtual core::IReferenceCounted
 {

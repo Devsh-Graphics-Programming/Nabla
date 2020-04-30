@@ -9,6 +9,11 @@ namespace irr
 namespace video
 {
 
+//! GPU Version of Specialized Shader
+/*
+	@see ISpecializedShader
+*/
+
 class IGPUSpecializedShader : public asset::ISpecializedShader
 {
 	public:

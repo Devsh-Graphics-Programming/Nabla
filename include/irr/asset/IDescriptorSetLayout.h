@@ -25,6 +25,20 @@ enum E_DESCRIPTOR_TYPE : uint32_t
 	EDT_INVALID = ~0u
 };
 
+//! Interface class for Descriptor Set Layouts
+/*
+	The descriptor set layout specifies the bindings (in the shader GLSL
+	interfaces), counts and types of resources like:
+
+	- UBO
+	- SSBO
+	- combined image samplers
+	- storage images
+
+	that will be used by the shader stages (the shader stage flag, vertex, fragment, etc.).
+	@see IReferenceCounted
+*/
+
 template<typename SamplerType>
 class IDescriptorSetLayout : public virtual core::IReferenceCounted
 {

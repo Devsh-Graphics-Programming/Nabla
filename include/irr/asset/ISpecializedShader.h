@@ -12,6 +12,16 @@ namespace irr
 namespace asset
 {
 
+//! Interface class for Specialized Shaders
+/*
+	Specialized shaders are shaders prepared to be attached at pipeline
+	process creation. SpecializedShader consists of unspecialzed Shader
+	containing glsl code, and creation information parameters such as
+	entry point to a shader or stage of a shader.
+
+	@see IShader
+	@see IReferenceCounted
+*/
 
 class ISpecializedShader : public virtual core::IReferenceCounted
 {
