@@ -78,7 +78,7 @@ if(IRR_EMBED_BUILTIN_RESOURCES)
 
 	add_subdirectory(builtin)
 	irr_add_builtin_resources(irr_builtin_resource_paths)
-
+elseif()
 	if(INSTALL)
 		set(__IRR_INSTALL_DIR__ ${CMAKE_INSTALL_PREFIX})
 	elseif()
