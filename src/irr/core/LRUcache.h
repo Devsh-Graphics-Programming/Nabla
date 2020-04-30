@@ -13,21 +13,24 @@
 
 namespace irr {
 	namespace core {
-		extern std::atomic_uint32_t LRUcacheTimestamp;
 
-		template<typename Key, typename Value>
+		template<typename Key, typename Value,typename MapHash,typename MapEquals>
 		class LRUcache {
 			list<Key> stored_keys;
-			unordered_map<Key, Value> map;
-			uint32_t capacity;
+			unordered_map<Key, Value, MapHash,MapEquals> map;
+			uint32_t cap;
+			std::atomic_uint32_t timestamp = 0U;
 		public:
 			inline LRUcache() = default;
-			inline LRUcache(uint32_t& capacity);
+			inline LRUcache(uint32_t& capacity)
+			{
+				cap = capacity;
+			}
 			inline ~LRUcache();
 
-			inline void insert(const Key& k, Value* v)
+			inline void insert(const Key &&k, Value &&v)
 			{
-				if (map.find(k) == map.end() && stored_keys.size() == capacity) {
+				if (map.find(k) == map.end() && stored_keys.size() == cap) {
 					auto last = stored_keys.back();
 					stored_keys.pop_back();
 					map.erase(last);
@@ -36,12 +39,18 @@ namespace irr {
 					stored_keys.erase(k);
 				stored_keys.push_front(k);
 				map[k] = v;
+
 			}
 			inline Value get(Key k)
 			{
 				if (map.find(k) == ma.end())
 					return NULL;
+				timestamp++;
 				return map[k];
+			}
+			inline Value peek()
+			{
+
 			}
 		};
 
